@@ -58,8 +58,8 @@ func TestB2Storage(t *testing.T) {
 			t.Fatalf("unable to clear b2 bucket: %v", err)
 		}
 
-		blobtesting.VerifyStorage(ctx, t, st)
-		blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
+		blobtesting.VerifyStorage(ctx, t.T, st)
+		blobtesting.AssertConnectionInfoRoundTrips(ctx, t.T, st)
 
 		// delete everything again
 		if err := st.ListBlobs(ctx, "", func(bm blob.Metadata) error {

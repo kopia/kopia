@@ -319,8 +319,8 @@ func testStorage(t *testutil.RetriableT, options *Options) {
 	}
 
 	st := v.(blob.Storage)
-	blobtesting.VerifyStorage(ctx, t, st)
-	blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
+	blobtesting.VerifyStorage(ctx, t.T, st)
+	blobtesting.AssertConnectionInfoRoundTrips(ctx, t.T, st)
 
 	if err := st.Close(ctx); err != nil {
 		t.Fatalf("err: %v", err)

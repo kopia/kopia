@@ -86,9 +86,8 @@ func TestWebDAVStorageBuiltInServer(t *testing.T) {
 	}
 }
 
+// nolint:thelper
 func verifyWebDAVStorage(t *testing.T, url, username, password string, shardSpec []int) {
-	t.Helper()
-
 	ctx := testlogging.Context(t)
 
 	st, err := New(testlogging.Context(t), &Options{

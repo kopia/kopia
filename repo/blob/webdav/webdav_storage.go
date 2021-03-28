@@ -118,25 +118,25 @@ func (d *davStorageImpl) PutBlobInPath(ctx context.Context, dirPath, filePath st
 
 	b := buf.Bytes()
 
-	if err := d.translateError(retry.WithExponentialBackoffNoValue(ctx, "Write", func() error {
-		return d.cli.Write(tmpPath, b, defaultFilePerm)
-	}, isRetriable)); err != nil {
+	return retry.WithExponentialBackoffNoValue(ctx, "WriteTemporaryFileAndCreateParentDirs", func() error {
+		err := d.translateError(d.cli.Write(tmpPath, b, defaultFilePerm))
+		if err == nil {
+			return d.cli.Rename(tmpPath, filePath, true)
+		}
+
 		if !errors.Is(err, blob.ErrBlobNotFound) {
-			return err
+			return errors.Wrap(err, "unexpected error when writing")
 		}
 
-		_ = retry.WithExponentialBackoffNoValue(ctx, "MkdirAll", func() error {
-			return d.cli.MkdirAll(dirPath, defaultDirPerm)
-		}, isRetriable)
+		// BlobNotFound is an indication that directory does not exist,
+		// create all required directories
+		//
+		// this may require more than one retry if multiple clients are attempting it at
+		// the same time.
+		_ = d.cli.MkdirAll(dirPath, defaultDirPerm)
 
-		if err := d.translateError(retry.WithExponentialBackoffNoValue(ctx, "Write", func() error {
-			return d.cli.Write(tmpPath, b, defaultFilePerm)
-		}, isRetriable)); err != nil {
-			return err
-		}
-	}
-
-	return d.translateError(d.cli.Rename(tmpPath, filePath, true))
+		return err
+	}, isRetriable)
 }
 
 func (d *davStorageImpl) SetTimeInPath(ctx context.Context, dirPath, filePath string, n time.Time) error {
