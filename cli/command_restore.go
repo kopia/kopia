@@ -99,9 +99,10 @@ func (c *commandRestore) addRestoreAndEntryFlags(cmd *kingpin.CmdClause) {
 	cmd.Flag("ignore-permission-errors", "Ignore permission errors").Default("true").BoolVar(&c.restoreIgnorePermissionErrors)
 	cmd.Flag("ignore-errors", "Ignore all errors").BoolVar(&c.restoreIgnoreErrors)
 	cmd.Flag("skip-existing", "Skip files and symlinks that exist in the output").BoolVar(&c.restoreIncremental)
-	cmd.Flag("shallow-restore-at-depth", "Shallow restore the directory hierarchy starting at this level (default is to deep restore the entire hierarchy.)").Short('d').Default(strconv.FormatInt(math.MaxInt32, 10)).Int32Var(&c.restoreShallowAtDepth)
+	cmd.Flag("shallow", "Shallow restore the directory hierarchy starting at this level (default is to deep restore the entire hierarchy.)").Default(strconv.FormatInt(math.MaxInt32, 10)).Int32Var(&c.restoreShallowAtDepth)
 }
 
+// TODO(rjk): Merge together with above.
 func (c *commandRestore) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("restore", restoreCommandHelp)
 	cmd.Arg("source", restoreCommandSourcePathHelp).Required().StringVar(&c.restoreSourceID)
@@ -121,7 +122,7 @@ const (
 
 func (c *commandRestore) restoreOutput(ctx context.Context) (restore.Output, error) {
 	targetpath := restore.PathIfPlaceholder(c.restoreSourceID)
-	if targetpath != "" {
+	if targetpath == "" {
 		if c.restoreTargetPath == "" {
 			return nil, errors.Errorf("restore requires a target-path unless restoring a placeholder")
 		}
@@ -234,12 +235,17 @@ func (c *commandRestore) run(ctx context.Context, rep repo.Repository) error {
 	var rootEntry fs.Entry
 
 	if placeholderpath := restore.PathIfPlaceholder(c.restoreSourceID); placeholderpath != "" {
-		re, err := snapshotfs.GetEntryFromPlaceholder(ctx, rep, localfs.PlaceholderFilePath(placeholderpath))
+		re, err := snapshotfs.GetEntryFromPlaceholder(ctx, rep, localfs.PlaceholderFilePath(c.restoreSourceID))
 		if err != nil {
-			return errors.Wrapf(err, "unable to get filesystem entry for placeholder %q", placeholderpath)
+			return errors.Wrapf(err, "unable to get filesystem entry for placeholder %q", c.restoreSourceID)
 		}
 
 		rootEntry = re
+
+		// Depth defaults to 0 when expanding a placeholder.
+		if c.restoreShallowAtDepth == math.MaxInt32 {
+			c.restoreShallowAtDepth = 0
+		}
 	} else {
 		re, err := snapshotfs.FilesystemEntryFromIDWithPath(ctx, rep, c.restoreSourceID, c.restoreConsistentAttributes)
 		if err != nil {

@@ -5,7 +5,6 @@ import (
 	"math"
 	"path/filepath"
 
-	"github.com/alecthomas/kingpin"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/fs/localfs"
@@ -35,20 +34,8 @@ type commandRestoreEntry struct {
 func (c *commandRestoreEntry) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("restore-entry", restoreEntryCommandHelp).Alias("expand")
 	cmd.Arg("entry-path", "A shallow placeholder file `*.kopia-entry`").Required().StringVar(&c.srDirEntryPath)
-
-	// TODO(rjk): need to go fix this up.
-
 	c.addRestoreAndEntryFlags(cmd)
 	cmd.Action(svc.repositoryReaderAction(c.run))
-}
-
-// addShallowRestoreFlags sets up command line flags for the
-// shallowrestore command on the kingpin command framework.
-func (c *commandRestoreEntry) addShallowRestoreFlags(cmd *kingpin.CmdClause) {
-	cmd.Arg("entry-path", "A shallow placeholder file `*.kopia-entry`").Required().StringVar(&c.srDirEntryPath)
-
-	// Add all of the necessary state from restore.
-	c.addRestoreAndEntryFlags(cmd)
 }
 
 func (c *commandRestoreEntry) restoreEntryOutput() (restore.Output, error) {
@@ -92,6 +79,7 @@ func (c *commandRestoreEntry) run(ctx context.Context, rep repo.Repository) erro
 	}
 
 	// TODO(rjk): where did this go? (I think that I need to fix things up a bit.)
+	// Where this went: I removed it entirely.
 	// return c.runRestoreAndEntryCommand(ctx, rep, rootEntry, output)
 
 	return nil
