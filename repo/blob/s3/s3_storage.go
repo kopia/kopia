@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"sync/atomic"
 	"time"
 
 	"github.com/efarrer/iothrottler"
@@ -28,10 +29,10 @@ const (
 var log = logging.GetContextLoggerFunc(s3storageType)
 
 type s3Storage struct {
+	sendMD5 int32
 	Options
 
-	cli     *minio.Client
-	sendMD5 bool
+	cli *minio.Client
 
 	downloadThrottler *iothrottler.IOThrottlerPool
 	uploadThrottler   *iothrottler.IOThrottlerPool
@@ -119,8 +120,16 @@ func (s *s3Storage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes) err
 
 	uploadInfo, err := s.cli.PutObject(ctx, s.BucketName, s.getObjectNameString(b), throttled, int64(data.Length()), minio.PutObjectOptions{
 		ContentType:    "application/x-kopia",
-		SendContentMd5: s.sendMD5,
+		SendContentMd5: atomic.LoadInt32(&s.sendMD5) > 0,
 	})
+
+	var er minio.ErrorResponse
+
+	if errors.As(err, &er) && er.Code == "InvalidRequest" && er.Message == "Content-MD5 HTTP header is required for Put Object requests with Object Lock parameters" {
+		atomic.StoreInt32(&s.sendMD5, 1) // set sendMD5 on retry
+
+		return err // nolint:wrapcheck
+	}
 
 	if errors.Is(err, io.EOF) && uploadInfo.Size == 0 {
 		// special case empty stream
@@ -263,7 +272,11 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 		return nil, errors.Errorf("bucket %q does not exist", opt.BucketName)
 	}
 
-	sendMD5 := needMD5(ctx, cli, opt.BucketName)
+	var sendMD5 int32
+
+	if needMD5(ctx, cli, opt.BucketName) {
+		sendMD5 = 1
+	}
 
 	return retrying.NewWrapper(&s3Storage{
 		Options:           *opt,
