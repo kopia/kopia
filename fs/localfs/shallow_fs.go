@@ -2,6 +2,7 @@ package localfs
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io/ioutil"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"github.com/natefinch/atomic"
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/snapshot"
 )
 
@@ -111,8 +113,38 @@ func dirEntryFromPlaceholder(path string) (*snapshot.DirEntry, error) {
 	return direntry, nil
 }
 
+type shallowFilesystemFile struct {
+	filesystemEntry
+}
+
+type shallowFilesystemDirectory struct {
+	filesystemEntry
+}
+
+func (fsf *shallowFilesystemFile) DirEntryOrNil(ctx context.Context) (*snapshot.DirEntry, error) {
+	return ReadShallowPlaceholder(fsf.fullPath())
+}
+
+func (fsd *shallowFilesystemDirectory) DirEntryOrNil(ctx context.Context) (*snapshot.DirEntry, error) {
+	return ReadShallowPlaceholder(fsd.fullPath())
+}
+
+func (fsf *shallowFilesystemFile) Open(ctx context.Context) (fs.Reader, error) {
+	// TODO(rjk): Conceivably, we could implement all of these in terms of the repository.
+	return nil, errors.New("shallowFilesystemFile.Open not supported")
+}
+
+func (fsd *shallowFilesystemDirectory) Child(ctx context.Context, name string) (fs.Entry, error) {
+	return nil, errors.New("shallowFilesystemDirectory.Child not supported")
+}
+
+func (fsd *shallowFilesystemDirectory) Readdir(ctx context.Context) (fs.Entries, error) {
+	return nil, errors.New("shallowFilesystemDirectory.Readdir not supported")
+}
+
 var (
-	// Make sure we implement HasDirEntryFromPlaceholder.
-	_ snapshot.HasDirEntryOrNil = (*filesystemFile)(nil)
-	_ snapshot.HasDirEntryOrNil = (*filesystemDirectory)(nil)
+	_ snapshot.HasDirEntryOrNil = &shallowFilesystemFile{}
+	_ snapshot.HasDirEntryOrNil = &shallowFilesystemDirectory{}
+	_ fs.Directory              = &shallowFilesystemDirectory{}
+	_ fs.File                   = &shallowFilesystemFile{}
 )

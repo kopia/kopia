@@ -10,10 +10,10 @@ import (
 )
 
 const (
-	// SHALLOWENTRYSUFFIX is a suffix identifying placeholder files.
+	// ShallowEntrySuffix is a suffix identifying placeholder files.
 	ShallowEntrySuffix = ".kopia-entry"
 
-	// FileMode for placeholder directories.
+	// dirMode is the FileMode for placeholder directories.
 	dirMode = 0700
 )
 
