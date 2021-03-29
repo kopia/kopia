@@ -6,17 +6,13 @@ import (
 
 	"github.com/kopia/kopia/internal/auth"
 	"github.com/kopia/kopia/internal/repotesting"
-	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/user"
 	"github.com/kopia/kopia/repo"
 )
 
 func TestRepositoryAuthenticator(t *testing.T) {
 	a := auth.AuthenticateRepositoryUsers()
-	ctx := testlogging.Context(t)
-
-	var env repotesting.Environment
-	defer env.Setup(t).Close(ctx, t)
+	ctx, env := repotesting.NewEnvironment(t)
 
 	must(t, repo.WriteSession(ctx, env.Repository, repo.WriteSessionOptions{},
 		func(w repo.RepositoryWriter) error {

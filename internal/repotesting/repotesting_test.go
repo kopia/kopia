@@ -6,7 +6,6 @@ import (
 
 	"github.com/kopia/kopia/internal/faketime"
 	"github.com/kopia/kopia/internal/mockfs"
-	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
@@ -14,12 +13,7 @@ import (
 )
 
 func TestTimeFuncWiring(t *testing.T) {
-	var env Environment
-
-	ctx := testlogging.Context(t)
-	defer env.Setup(t).Close(ctx, t)
-
-	env.RepositoryWriter.Close(ctx)
+	ctx, env := NewEnvironment(t)
 
 	ft := faketime.NewTimeAdvance(time.Date(2018, time.February, 6, 0, 0, 0, 0, time.UTC), 0)
 

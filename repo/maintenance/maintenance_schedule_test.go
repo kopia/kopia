@@ -1,7 +1,6 @@
 package maintenance
 
 import (
-	"context"
 	"encoding/json"
 	"testing"
 
@@ -12,10 +11,7 @@ import (
 )
 
 func TestMaintenanceSchedule(t *testing.T) {
-	ctx := context.Background()
-
-	var env repotesting.Environment
-	defer env.Setup(t).Close(ctx, t)
+	ctx, env := repotesting.NewEnvironment(t)
 
 	s, err := GetSchedule(ctx, env.RepositoryWriter)
 	if err != nil {

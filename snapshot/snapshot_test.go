@@ -16,10 +16,7 @@ import (
 )
 
 func TestSnapshotsAPI(t *testing.T) {
-	var env repotesting.Environment
-
-	ctx := testlogging.Context(t)
-	defer env.Setup(t).Close(ctx, t)
+	ctx, env := repotesting.NewEnvironment(t)
 
 	src1 := snapshot.SourceInfo{
 		Host:     "host-1",

@@ -9,16 +9,11 @@ import (
 	"github.com/google/go-cmp/cmp"
 
 	"github.com/kopia/kopia/internal/repotesting"
-	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/snapshot"
 )
 
 func TestPolicyManagerInheritanceTest(t *testing.T) {
-	ctx := testlogging.Context(t)
-
-	var env repotesting.Environment
-
-	defer env.Setup(t).Close(ctx, t)
+	ctx, env := repotesting.NewEnvironment(t)
 
 	defaultPolicyWithLabels := policyWithLabels(DefaultPolicy, map[string]string{
 		"policyType": "global",
@@ -169,11 +164,7 @@ func defaultPolicyWithKeepDaily(t *testing.T, keepDaily int) *Policy {
 }
 
 func TestPolicyManagerResolvesConflicts(t *testing.T) {
-	ctx := testlogging.Context(t)
-
-	var env repotesting.Environment
-
-	defer env.Setup(t).Close(ctx, t)
+	ctx, env := repotesting.NewEnvironment(t)
 
 	r1 := env.RepositoryWriter
 	r2 := env.MustOpenAnother(t)
@@ -239,11 +230,7 @@ func TestParentPathOSIndependent(t *testing.T) {
 // TestApplicablePoliciesForSource verifies that when we build a policy tree, we pick the appropriate policies
 // defined for the subtree regardless of path style (Unix or Windows).
 func TestApplicablePoliciesForSource(t *testing.T) {
-	ctx := testlogging.Context(t)
-
-	var env repotesting.Environment
-
-	defer env.Setup(t).Close(ctx, t)
+	ctx, env := repotesting.NewEnvironment(t)
 
 	setPols := map[snapshot.SourceInfo]*Policy{
 		// unix-style path names

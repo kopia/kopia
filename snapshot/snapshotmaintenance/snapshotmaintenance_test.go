@@ -24,7 +24,7 @@ const (
 )
 
 type testHarness struct {
-	repotesting.Environment
+	*repotesting.Environment
 	fakeTime  *faketime.TimeAdvance
 	sourceDir *mockfs.Directory
 }
@@ -170,13 +170,9 @@ func newTestHarness(t *testing.T) *testHarness {
 		sourceDir: mockfs.NewDirectory(),
 	}
 
-	th.Environment.Setup(t, repotesting.Options{OpenOptions: th.fakeTimeOpenRepoOption})
+	_, th.Environment = repotesting.NewEnvironment(t, repotesting.Options{OpenOptions: th.fakeTimeOpenRepoOption})
 
 	require.NotNil(t, th.RepositoryWriter)
-
-	t.Cleanup(func() {
-		th.Environment.Close(testlogging.Context(t), t)
-	})
 
 	return th
 }

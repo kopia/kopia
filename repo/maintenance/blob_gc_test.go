@@ -26,16 +26,11 @@ import (
 var testHMACSecret = []byte{1, 2, 3}
 
 func TestDeleteUnreferencedBlobs(t *testing.T) {
-	ctx := testlogging.Context(t)
-
-	var env repotesting.Environment
-
 	// set up fake clock which is initially synchronized to wall clock time
 	// and moved at the same speed but which can be moved forward.
 	ta := faketime.NewClockTimeWithOffset(0)
 
-	// setup repository without encryption and without HMAC so we can implant session blobs
-	defer env.Setup(t, repotesting.Options{
+	ctx, env := repotesting.NewEnvironment(t, repotesting.Options{
 		OpenOptions: func(o *repo.Options) {
 			o.TimeNowFunc = ta.NowFunc()
 		},
@@ -44,8 +39,7 @@ func TestDeleteUnreferencedBlobs(t *testing.T) {
 			nro.BlockFormat.Hash = "HMAC-SHA256"
 			nro.BlockFormat.HMACSecret = testHMACSecret
 		},
-	}).Close(ctx, t)
-
+	})
 	w := env.RepositoryWriter.NewObjectWriter(ctx, object.WriterOptions{})
 	io.WriteString(w, "hello world!")
 	w.Result()

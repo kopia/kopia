@@ -35,8 +35,8 @@ type Options struct {
 	OpenOptions          func(*repo.Options)
 }
 
-// Setup sets up a test environment.
-func (e *Environment) Setup(t *testing.T, opts ...Options) *Environment {
+// setup sets up a test environment.
+func (e *Environment) setup(t *testing.T, opts ...Options) *Environment {
 	t.Helper()
 
 	ctx := testlogging.Context(t)
@@ -230,4 +230,21 @@ func repoOptions(openOpts []func(*repo.Options)) *repo.Options {
 	}
 
 	return openOpt
+}
+
+// NewEnvironment creates a new repository testing environment and ensures its cleanup at the end of the test.
+func NewEnvironment(t *testing.T, opts ...Options) (context.Context, *Environment) {
+	t.Helper()
+
+	ctx := testlogging.Context(t)
+
+	var env Environment
+
+	env.setup(t, opts...)
+
+	t.Cleanup(func() {
+		env.Close(ctx, t)
+	})
+
+	return ctx, &env
 }
