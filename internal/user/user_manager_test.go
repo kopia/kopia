@@ -5,15 +5,11 @@ import (
 	"testing"
 
 	"github.com/kopia/kopia/internal/repotesting"
-	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/user"
 )
 
 func TestUserManager(t *testing.T) {
-	var env repotesting.Environment
-
-	ctx := testlogging.Context(t)
-	defer env.Setup(t).Close(ctx, t)
+	ctx, env := repotesting.NewEnvironment(t)
 
 	if _, err := user.GetUserProfile(ctx, env.RepositoryWriter, "alice@somehost"); !errors.Is(err, user.ErrUserNotFound) {
 		t.Fatalf("unexpected error: %v", err)

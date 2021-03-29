@@ -7,7 +7,6 @@ import (
 	"github.com/kopia/kopia/internal/acl"
 	"github.com/kopia/kopia/internal/auth"
 	"github.com/kopia/kopia/internal/repotesting"
-	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo"
 )
 
@@ -91,30 +90,21 @@ func TestNoAccess(t *testing.T) {
 }
 
 func TestLegacyAuthorizer(t *testing.T) {
-	var env repotesting.Environment
-
-	ctx := testlogging.Context(t)
-	defer env.Setup(t).Close(ctx, t)
+	ctx, env := repotesting.NewEnvironment(t)
 
 	verifyLegacyAuthorizer(ctx, t, env.Repository, auth.LegacyAuthorizer())
 }
 
 // repository with no ACLs.
 func TestDefaultAuthorizer_NoACLs(t *testing.T) {
-	var env repotesting.Environment
-
-	ctx := testlogging.Context(t)
-	defer env.Setup(t).Close(ctx, t)
+	ctx, env := repotesting.NewEnvironment(t)
 
 	verifyLegacyAuthorizer(ctx, t, env.Repository, auth.DefaultAuthorizer())
 }
 
 // repository with default ACLs.
 func TestDefaultAuthorizer_DefaultACLs(t *testing.T) {
-	var env repotesting.Environment
-
-	ctx := testlogging.Context(t)
-	defer env.Setup(t).Close(ctx, t)
+	ctx, env := repotesting.NewEnvironment(t)
 
 	for _, e := range auth.DefaultACLs {
 		must(t, acl.AddACL(ctx, env.RepositoryWriter, e))

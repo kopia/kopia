@@ -40,10 +40,7 @@ const (
 
 // nolint:thelper
 func startServer(ctx context.Context, t *testing.T) *repo.APIServerInfo {
-	var env repotesting.Environment
-
-	env.Setup(t)
-	t.Cleanup(func() { env.Close(ctx, t) })
+	_, env := repotesting.NewEnvironment(t)
 
 	s, err := server.New(ctx, server.Options{
 		ConfigFile: env.ConfigFile(),

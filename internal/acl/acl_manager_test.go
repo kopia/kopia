@@ -5,7 +5,6 @@ import (
 
 	"github.com/kopia/kopia/internal/acl"
 	"github.com/kopia/kopia/internal/repotesting"
-	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
@@ -149,11 +148,7 @@ func TestEffectivePermissions(t *testing.T) {
 }
 
 func TestLoadEntries(t *testing.T) {
-	ctx := testlogging.Context(t)
-
-	var env repotesting.Environment
-
-	env.Setup(t).Close(ctx, t)
+	ctx, env := repotesting.NewEnvironment(t)
 
 	// load from nil repository
 	entries, err := acl.LoadEntries(ctx, nil, nil)
