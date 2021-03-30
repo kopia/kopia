@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -125,7 +126,7 @@ func (s *s3Storage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes) err
 
 	var er minio.ErrorResponse
 
-	if errors.As(err, &er) && er.Code == "InvalidRequest" && er.Message == "Content-MD5 HTTP header is required for Put Object requests with Object Lock parameters" {
+	if errors.As(err, &er) && er.Code == "InvalidRequest" && strings.Contains(strings.ToLower(er.Message), "content-md5") {
 		atomic.StoreInt32(&s.sendMD5, 1) // set sendMD5 on retry
 
 		return err // nolint:wrapcheck
