@@ -20,14 +20,11 @@ import (
 
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/retrying"
-	"github.com/kopia/kopia/repo/logging"
 )
 
 const (
 	s3storageType = "s3"
 )
-
-var log = logging.GetContextLoggerFunc(s3storageType)
 
 type s3Storage struct {
 	sendMD5 int32
@@ -220,24 +217,6 @@ func getCustomTransport(insecureSkipVerify bool) (transport *http.Transport) {
 	return customTransport
 }
 
-// returns whether put blob requires sending the content's MD5.
-func needMD5(ctx context.Context, cli *minio.Client, bucketName string) bool {
-	var er minio.ErrorResponse
-
-	mode, _, _, err := cli.GetBucketObjectLockConfig(ctx, bucketName)
-	if err == nil {
-		return mode != nil && mode.IsValid()
-	}
-
-	if !errors.As(err, &er) || er.Code != "ObjectLockConfigurationNotFoundError" {
-		// Not all S3 stores implement the S3 API for bucket object-locking
-		// configuration and return an invalid response here.
-		log(ctx).Debugf("Could not get object-locking configuration, assuming MD5 is not needed for put blob: %v", err)
-	}
-
-	return false
-}
-
 // New creates new S3-backed storage with specified options:
 //
 // - the 'BucketName' field is required and all other parameters are optional.
@@ -273,16 +252,10 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 		return nil, errors.Errorf("bucket %q does not exist", opt.BucketName)
 	}
 
-	var sendMD5 int32
-
-	if needMD5(ctx, cli, opt.BucketName) {
-		sendMD5 = 1
-	}
-
 	return retrying.NewWrapper(&s3Storage{
 		Options:           *opt,
 		cli:               cli,
-		sendMD5:           sendMD5,
+		sendMD5:           0,
 		downloadThrottler: downloadThrottler,
 		uploadThrottler:   uploadThrottler,
 	}), nil

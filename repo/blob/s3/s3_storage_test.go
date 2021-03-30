@@ -337,10 +337,6 @@ func TestNeedMD5AWS(t *testing.T) {
 		err := cli.SetBucketObjectLockConfig(ctx, options.BucketName, &lockingMode, &unit, &days)
 		noError(t, err, "could not set object lock config")
 
-		if !needMD5(ctx, cli, options.BucketName) {
-			t.Fatal("expected bucket to require MD5 for PUT blob, but got not required")
-		}
-
 		options.Prefix = uuid.NewString() + "/"
 
 		s, err := New(ctx, options)
@@ -354,51 +350,6 @@ func TestNeedMD5AWS(t *testing.T) {
 
 		noError(t, err, "could not put test blob")
 	})
-}
-
-func TestNoNeedMD5Minio(t *testing.T) {
-	t.Parallel()
-
-	ctx := testlogging.Context(t)
-	minioEndpoint := startDockerMinioOrSkip(t)
-
-	var cli *minio.Client
-
-	options := &Options{
-		Endpoint:        minioEndpoint,
-		AccessKeyID:     minioAccessKeyID,
-		SecretAccessKey: minioSecretAccessKey,
-		BucketName:      minioBucketName,
-		Region:          minioRegion,
-		DoNotUseTLS:     !minioUseSSL,
-	}
-
-	testutil.Retry(t, func(t *testutil.RetriableT) {
-		cli = createClient(t, options)
-		makeBucket(t, cli, options, false)
-
-		if needMD5(ctx, cli, minioBucketName) {
-			t.Fatal("expected bucket to not require MD5 for PUT blob, but got required")
-		}
-	})
-}
-
-func TestNoNeedMD5Providers(t *testing.T) {
-	t.Parallel()
-
-	for k, env := range providerCreds {
-		env := env
-
-		t.Run(k, func(t *testing.T) {
-			ctx := testlogging.Context(t)
-			options := getProviderOptions(t, env)
-			cli := createClient(t, options)
-
-			if needMD5(ctx, cli, options.BucketName) {
-				t.Fatal("expected bucket to not require MD5 for PUT blob, but got required")
-			}
-		})
-	}
 }
 
 func testStorage(t *testutil.RetriableT, options *Options) {
