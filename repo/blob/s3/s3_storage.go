@@ -20,14 +20,11 @@ import (
 
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/retrying"
-	"github.com/kopia/kopia/repo/logging"
 )
 
 const (
 	s3storageType = "s3"
 )
-
-var log = logging.GetContextLoggerFunc(s3storageType)
 
 type s3Storage struct {
 	sendMD5 int32
