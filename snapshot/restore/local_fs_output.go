@@ -292,25 +292,6 @@ func (o *FilesystemOutput) createDirectory(ctx context.Context, path string) err
 		log(ctx).Debugf("Not creating already existing directory: %v", path)
 
 		return nil
-	case stat.Mode().IsRegular():
-		// Might be a shallow directory placeholder.
-		de, err := localfs.ReadShallowPlaceholder(path)
-		if err != nil {
-			// A file that exists but doesn't have an extended attribute is not an error.
-			return errors.Errorf("unable to read placeholder for %q", path)
-		}
-
-		if de == nil || de.Type != snapshot.EntryTypeDirectory {
-			// Captures the case for regular files, links, etc.
-			return errors.Errorf("unable to create directory, %q already exists and it is not a directory", path)
-		}
-
-		// It's a placeholder for a directory. Overwrite it with a real directory.
-		if err := os.RemoveAll(path); err != nil {
-			return errors.Wrap(err, "can't remove shallow directory entry "+path)
-		}
-
-		return os.MkdirAll(path, 0o700)
 	default:
 		return errors.Errorf("unable to create directory, %q already exists and it is not a directory", path)
 	}

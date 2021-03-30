@@ -64,38 +64,6 @@ func WriteShallowPlaceholder(path string, de *snapshot.DirEntry) (string, error)
 	return mp, nil
 }
 
-// ReadShallowPlaceholder returns the decoded ShallowMetadata for path if it exists
-// regardless of the placeholder type.
-func ReadShallowPlaceholder(path string) (*snapshot.DirEntry, error) {
-	originalpresent := false
-	if _, err := os.Lstat(path); err == nil {
-		originalpresent = true
-	}
-
-	// Otherwise, the path should be a placeholder.
-	php := path + ShallowEntrySuffix
-
-	fi, err := os.Lstat(php)
-
-	switch {
-	case err == nil && originalpresent:
-		return nil, errors.Errorf("%q, %q exist: shallowrestore tree is corrupt probably because a previous restore into a shallow tree was interrupted", path, php)
-	case err == nil && fi.IsDir():
-		php = filepath.Join(php, ShallowEntrySuffix)
-	}
-
-	if de, err := dirEntryFromPlaceholder(php); err == nil {
-		return de, nil
-	}
-
-	if originalpresent {
-		// The original path exists and there is no placeholder.
-		return nil, nil
-	}
-
-	return nil, errors.Errorf("didn't find original or placeholder for %q", path)
-}
-
 func dirEntryFromPlaceholder(path string) (*snapshot.DirEntry, error) {
 	b, err := ioutil.ReadFile(path) //nolint:gosec
 	if err != nil {
@@ -121,12 +89,26 @@ type shallowFilesystemDirectory struct {
 	filesystemEntry
 }
 
+func checkedDirEntryFromPlaceholder(path, php string) (*snapshot.DirEntry, error) {
+	if _, err := os.Lstat(path); err == nil {
+		return nil, errors.Errorf("%q, %q exist: shallowrestore tree is corrupt probably because a previous restore into a shallow tree was interrupted", path, php)
+	}
+
+	return dirEntryFromPlaceholder(php)
+}
+
 func (fsf *shallowFilesystemFile) DirEntryOrNil(ctx context.Context) (*snapshot.DirEntry, error) {
-	return ReadShallowPlaceholder(fsf.fullPath())
+	path := fsf.fullPath()
+	php := path + ShallowEntrySuffix
+
+	return checkedDirEntryFromPlaceholder(path, php)
 }
 
 func (fsd *shallowFilesystemDirectory) DirEntryOrNil(ctx context.Context) (*snapshot.DirEntry, error) {
-	return ReadShallowPlaceholder(fsd.fullPath())
+	path := fsd.fullPath()
+	php := filepath.Join(path+ShallowEntrySuffix, ShallowEntrySuffix)
+
+	return checkedDirEntryFromPlaceholder(path, php)
 }
 
 func (fsf *shallowFilesystemFile) Open(ctx context.Context) (fs.Reader, error) {
