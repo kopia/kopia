@@ -9,6 +9,8 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/efarrer/iothrottler"
@@ -18,13 +20,17 @@ import (
 
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/retrying"
+	"github.com/kopia/kopia/repo/logging"
 )
 
 const (
 	s3storageType = "s3"
 )
 
+var log = logging.GetContextLoggerFunc(s3storageType)
+
 type s3Storage struct {
+	sendMD5 int32
 	Options
 
 	cli *minio.Client
@@ -114,8 +120,17 @@ func (s *s3Storage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes) err
 	}
 
 	uploadInfo, err := s.cli.PutObject(ctx, s.BucketName, s.getObjectNameString(b), throttled, int64(data.Length()), minio.PutObjectOptions{
-		ContentType: "application/x-kopia",
+		ContentType:    "application/x-kopia",
+		SendContentMd5: atomic.LoadInt32(&s.sendMD5) > 0,
 	})
+
+	var er minio.ErrorResponse
+
+	if errors.As(err, &er) && er.Code == "InvalidRequest" && strings.Contains(strings.ToLower(er.Message), "content-md5") {
+		atomic.StoreInt32(&s.sendMD5, 1) // set sendMD5 on retry
+
+		return err // nolint:wrapcheck
+	}
 
 	if errors.Is(err, io.EOF) && uploadInfo.Size == 0 {
 		// special case empty stream
@@ -205,6 +220,24 @@ func getCustomTransport(insecureSkipVerify bool) (transport *http.Transport) {
 	return customTransport
 }
 
+// returns whether put blob requires sending the content's MD5.
+func needMD5(ctx context.Context, cli *minio.Client, bucketName string) bool {
+	var er minio.ErrorResponse
+
+	mode, _, _, err := cli.GetBucketObjectLockConfig(ctx, bucketName)
+	if err == nil {
+		return mode != nil && mode.IsValid()
+	}
+
+	if !errors.As(err, &er) || er.Code != "ObjectLockConfigurationNotFoundError" {
+		// Not all S3 stores implement the S3 API for bucket object-locking
+		// configuration and return an invalid response here.
+		log(ctx).Debugf("Could not get object-locking configuration, assuming MD5 is not needed for put blob: %v", err)
+	}
+
+	return false
+}
+
 // New creates new S3-backed storage with specified options:
 //
 // - the 'BucketName' field is required and all other parameters are optional.
@@ -240,9 +273,16 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 		return nil, errors.Errorf("bucket %q does not exist", opt.BucketName)
 	}
 
+	var sendMD5 int32
+
+	if needMD5(ctx, cli, opt.BucketName) {
+		sendMD5 = 1
+	}
+
 	return retrying.NewWrapper(&s3Storage{
 		Options:           *opt,
 		cli:               cli,
+		sendMD5:           sendMD5,
 		downloadThrottler: downloadThrottler,
 		uploadThrottler:   uploadThrottler,
 	}), nil

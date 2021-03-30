@@ -23,6 +23,7 @@ import (
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/retry"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
@@ -50,6 +51,7 @@ const (
 	testAccessKeyIDEnv     = "KOPIA_S3_TEST_ACCESS_KEY_ID"
 	testSecretAccessKeyEnv = "KOPIA_S3_TEST_SECRET_ACCESS_KEY"
 	testBucketEnv          = "KOPIA_S3_TEST_BUCKET"
+	testLockedBucketEnv    = "KOPIA_S3_TEST_LOCKED_BUCKET"
 	testRegionEnv          = "KOPIA_S3_TEST_REGION"
 	// additional env vars need to be set to execute TestS3StorageAWSSTS.
 	testSTSAccessKeyIDEnv     = "KOPIA_S3_TEST_STS_ACCESS_KEY_ID"
@@ -118,7 +120,7 @@ func getEnv(name, defValue string) string {
 	return value
 }
 
-func getProviderOptionsAndCleanup(tb testing.TB, envName string) *Options {
+func getProviderOptions(tb testing.TB, envName string) *Options {
 	tb.Helper()
 
 	value := getEnvOrSkip(tb, envName)
@@ -132,15 +134,23 @@ func getProviderOptionsAndCleanup(tb testing.TB, envName string) *Options {
 		tb.Fatalf("options providd in '%v' must not specify a prefix", envName)
 	}
 
-	cleanupOldData(context.Background(), tb, &o, defaultCleanupAge)
+	return &o
+}
+
+func getProviderOptionsAndCleanup(tb testing.TB, envName string) *Options {
+	tb.Helper()
+
+	o := getProviderOptions(tb, envName)
+
+	cleanupOldData(context.Background(), tb, o, defaultCleanupAge)
 
 	o.Prefix = uuid.NewString() + "-"
 
 	tb.Cleanup(func() {
-		cleanupOldData(context.Background(), tb, &o, 0)
+		cleanupOldData(context.Background(), tb, o, 0)
 	})
 
-	return &o
+	return o
 }
 
 func TestS3StorageProviders(t *testing.T) {
@@ -297,6 +307,100 @@ func TestS3StorageMinioSTS(t *testing.T) {
 	}
 }
 
+func TestNeedMD5AWS(t *testing.T) {
+	t.Parallel()
+
+	// skip the test if AWS creds are not provided
+	options := &Options{
+		Endpoint:        getEnv(testEndpointEnv, awsEndpoint),
+		AccessKeyID:     getEnvOrSkip(t, testAccessKeyIDEnv),
+		SecretAccessKey: getEnvOrSkip(t, testSecretAccessKeyEnv),
+		BucketName:      getEnvOrSkip(t, testLockedBucketEnv),
+		Region:          getEnvOrSkip(t, testRegionEnv),
+	}
+
+	testutil.Retry(t, func(t *testutil.RetriableT) {
+		ctx := testlogging.Context(t)
+		cli := createClient(t, options)
+		makeBucket(t, cli, options, true)
+
+		// ensure it is a bucket with object locking enabled
+		want := "Enabled"
+		if got, _, _, _, _ := cli.GetObjectLockConfig(ctx, options.BucketName); got != want {
+			t.Fatalf("object locking is not enabled: got '%s', want '%s'", got, want)
+		}
+
+		// ensure a locking configuration is in place
+		lockingMode := minio.Governance
+		unit := uint(1)
+		days := minio.Days
+		err := cli.SetBucketObjectLockConfig(ctx, options.BucketName, &lockingMode, &unit, &days)
+		noError(t, err, "could not set object lock config")
+
+		if !needMD5(ctx, cli, options.BucketName) {
+			t.Fatal("expected bucket to require MD5 for PUT blob, but got not required")
+		}
+
+		options.Prefix = uuid.NewString() + "/"
+
+		s, err := New(ctx, options)
+		noError(t, err, "could not create storage")
+
+		t.Cleanup(func() {
+			cleanupOldData(context.Background(), t, options, 0)
+		})
+
+		err = s.PutBlob(ctx, blob.ID("test-put-blob-0"), gather.FromSlice([]byte("xxyasdf243z")))
+
+		noError(t, err, "could not put test blob")
+	})
+}
+
+func TestNoNeedMD5Minio(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+	minioEndpoint := startDockerMinioOrSkip(t)
+
+	var cli *minio.Client
+
+	options := &Options{
+		Endpoint:        minioEndpoint,
+		AccessKeyID:     minioAccessKeyID,
+		SecretAccessKey: minioSecretAccessKey,
+		BucketName:      minioBucketName,
+		Region:          minioRegion,
+		DoNotUseTLS:     !minioUseSSL,
+	}
+
+	testutil.Retry(t, func(t *testutil.RetriableT) {
+		cli = createClient(t, options)
+		makeBucket(t, cli, options, false)
+
+		if needMD5(ctx, cli, minioBucketName) {
+			t.Fatal("expected bucket to not require MD5 for PUT blob, but got required")
+		}
+	})
+}
+
+func TestNoNeedMD5Providers(t *testing.T) {
+	t.Parallel()
+
+	for k, env := range providerCreds {
+		env := env
+
+		t.Run(k, func(t *testing.T) {
+			ctx := testlogging.Context(t)
+			options := getProviderOptions(t, env)
+			cli := createClient(t, options)
+
+			if needMD5(ctx, cli, options.BucketName) {
+				t.Fatal("expected bucket to not require MD5 for PUT blob, but got required")
+			}
+		})
+	}
+}
+
 func testStorage(t *testutil.RetriableT, options *Options) {
 	ctx := testlogging.Context(t)
 
@@ -361,7 +465,9 @@ func testURL(t *testing.T, url string) {
 	}
 }
 
-func createBucket(t *testutil.RetriableT, opt *Options) {
+func createClient(tb testing.TB, opt *Options) *minio.Client {
+	tb.Helper()
+
 	minioClient, err := minio.New(opt.Endpoint,
 		&minio.Options{
 			Creds:  miniocreds.NewStaticV4(opt.AccessKeyID, opt.SecretAccessKey, ""),
@@ -369,20 +475,35 @@ func createBucket(t *testutil.RetriableT, opt *Options) {
 			Region: opt.Region,
 		})
 	if err != nil {
-		t.Fatalf("can't initialize minio client: %v", err)
+		tb.Fatalf("can't initialize minio client: %v", err)
 	}
 
-	// ignore error
-	if err := minioClient.MakeBucket(context.Background(), opt.BucketName, minio.MakeBucketOptions{
-		Region: opt.Region,
+	return minioClient
+}
+
+func createBucket(tb testing.TB, opt *Options) {
+	tb.Helper()
+
+	minioClient := createClient(tb, opt)
+
+	makeBucket(tb, minioClient, opt, false)
+}
+
+func makeBucket(tb testing.TB, cli *minio.Client, opt *Options, objectLocking bool) {
+	tb.Helper()
+
+	if err := cli.MakeBucket(context.Background(), opt.BucketName, minio.MakeBucketOptions{
+		Region:        opt.Region,
+		ObjectLocking: objectLocking,
 	}); err != nil {
 		var er minio.ErrorResponse
 
 		if errors.As(err, &er) && er.Code == "BucketAlreadyOwnedByYou" {
+			// ignore error
 			return
 		}
 
-		t.Fatalf("unable to create bucket: %v", err)
+		tb.Fatalf("unable to create bucket: %v", err)
 	}
 }
 
@@ -477,4 +598,12 @@ func cleanupOldData(ctx context.Context, tb testing.TB, options *Options, cleanu
 		}
 		return nil
 	})
+}
+
+func noError(tb testing.TB, err error, msg string) {
+	tb.Helper()
+
+	if err != nil {
+		tb.Fatal(msg, "error: ", err)
+	}
 }
