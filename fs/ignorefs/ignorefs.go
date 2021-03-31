@@ -134,7 +134,6 @@ var _ snapshot.HasDirEntryOrNil = &ignoreDirectory{}
 
 func (d *ignoreDirectory) DirEntryOrNil(ctx context.Context) (*snapshot.DirEntry, error) {
 	if defp, ok := d.Directory.(snapshot.HasDirEntryOrNil); ok {
-		// nolint:wrapcheck
 		return defp.DirEntryOrNil(ctx)
 	}
 	// Entry implementations don't have to have

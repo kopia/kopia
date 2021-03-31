@@ -2,9 +2,7 @@ package restore
 
 import (
 	"os"
-	"path/filepath"
 	"strings"
-	"syscall"
 
 	"github.com/kopia/kopia/fs/localfs"
 )
@@ -30,10 +28,4 @@ func SafeRemoveAll(path string) error {
 	// path can't possibly exist because we could have never written a file
 	// whose path name is too long.
 	return nil
-}
-
-// SafelySuffixablePath returns true if path can be suffixed with the
-// placeholder suffix and written to the filesystem.
-func SafelySuffixablePath(path string) bool {
-	return len(filepath.Base(path))+len(localfs.ShallowEntrySuffix) <= syscall.NAME_MAX
 }

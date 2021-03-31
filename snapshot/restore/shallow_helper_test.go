@@ -3,7 +3,6 @@ package restore
 import (
 	"os"
 	"path/filepath"
-	"syscall"
 	"testing"
 
 	"github.com/kopia/kopia/fs/localfs"
@@ -13,7 +12,7 @@ func TestSafeRemoveAll(t *testing.T) {
 	tdir := t.TempDir()
 	suffleng := len(localfs.ShallowEntrySuffix)
 
-	for fnl := syscall.NAME_MAX - suffleng - 1; fnl < syscall.NAME_MAX+2; fnl++ {
+	for fnl := MaxFilenameLength - suffleng - 1; fnl < MaxFilenameLength+2; fnl++ {
 		buffy := make([]byte, 0, fnl)
 		for i := 0; i < fnl; i++ {
 			buffy = append(buffy, 'x')

@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
-	"syscall"
 	"testing"
 	"time"
 
@@ -856,8 +855,9 @@ func compareShallowToOriginalDir(t *testing.T, rdc *repoDirEntryCache, original,
 }
 
 func makeLongName(c rune) string {
-	buffy := make([]byte, 0, syscall.NAME_MAX)
-	for i := 0; i < syscall.NAME_MAX; i++ {
+	// TODO(rjk): not likely to work on plan9.
+	buffy := make([]byte, 0, restore.MaxFilenameLength)
+	for i := 0; i < restore.MaxFilenameLength; i++ {
 		buffy = append(buffy, byte(c))
 	}
 
