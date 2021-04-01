@@ -7,6 +7,7 @@ import (
 	"github.com/kopia/kopia/fs/localfs"
 )
 
+// MaxFilenameLength is the maximum length of a filename.
 const MaxFilenameLength = syscall.MAX_PATH
 
 // SafelySuffixablePath returns true if path can be suffixed with the
