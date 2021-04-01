@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	policyRemoveCommand = policyCommands.Command("remove", "Remove snapshot policy for a single directory, user@host or a global policy.").Alias("rm").Alias("delete")
+	policyRemoveCommand = policyCommands.Command("delete", "Remove snapshot policy for a single directory, user@host or a global policy.").Alias("remove").Alias("rm")
 	policyRemoveTargets = policyRemoveCommand.Arg("target", "Target of a policy ('global','user@host','@host') or a path").Strings()
 	policyRemoveGlobal  = policyRemoveCommand.Flag("global", "Set global policy").Bool()
 	policyRemoveDryRun  = policyRemoveCommand.Flag("dry-run", "Do not remove").Short('n').Bool()

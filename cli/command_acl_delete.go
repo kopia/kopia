@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	aclRemoveCommand = aclCommands.Command("delete", "Delete ACL entry").Alias("rm").Alias("remove")
+	aclRemoveCommand = aclCommands.Command("delete", "Delete ACL entry").Alias("remove").Alias("rm")
 	aclRemoveIDs     = aclRemoveCommand.Arg("id", "Entry ID").Strings()
 	aclRemoveAll     = aclRemoveCommand.Flag("all", "Remove all ACL entries").Bool()
 	aclRemoveConfirm = aclRemoveCommand.Flag("delete", "Really delete").Bool()
