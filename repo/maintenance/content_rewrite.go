@@ -186,6 +186,16 @@ func findContentInShortPacks(ctx context.Context, rep repo.DirectRepository, ch 
 				return nil
 			}
 
+			blobMeta, err := rep.BlobReader().GetMetadata(ctx, pi.PackID)
+			if err != nil {
+				return errors.Wrapf(err, "unable to get blob metadata %v", pi.PackID)
+			}
+
+			// pack is short but the content consumes most of it, ignore.
+			if pi.TotalSize > shortPackThresholdPercent*blobMeta.Length/100 {
+				return nil
+			}
+
 			for _, ci := range pi.ContentInfos {
 				ch <- contentInfoOrError{Info: ci}
 			}
