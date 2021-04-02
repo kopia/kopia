@@ -14,10 +14,19 @@ const verySmallContentFraction = 20 // blobs less than 1/verySmallContentFractio
 
 // CompactOptions provides options for compaction.
 type CompactOptions struct {
-	MaxSmallBlobs     int
-	AllIndexes        bool
-	DropDeletedBefore time.Time
-	DropContents      []ID
+	MaxSmallBlobs                    int
+	AllIndexes                       bool
+	DropDeletedBefore                time.Time
+	DropContents                     []ID
+	DisableEventualConsistencySafety bool
+}
+
+func (co *CompactOptions) maxEventualConsistencySettleTime() time.Duration {
+	if co.DisableEventualConsistencySafety {
+		return 0
+	}
+
+	return defaultEventualConsistencySettleTime
 }
 
 // CompactIndexes performs compaction of index blobs ensuring that # of small index blobs is below opt.maxSmallBlobs.
@@ -38,7 +47,7 @@ func (bm *WriteManager) CompactIndexes(ctx context.Context, opt CompactOptions) 
 		return errors.Wrap(err, "error performing compaction")
 	}
 
-	return bm.indexBlobManager.cleanup(ctx)
+	return bm.indexBlobManager.cleanup(ctx, opt.maxEventualConsistencySettleTime())
 }
 
 func (sm *SharedManager) getBlobsToCompact(ctx context.Context, indexBlobs []IndexBlobInfo, opt CompactOptions) []IndexBlobInfo {
@@ -125,7 +134,7 @@ func (sm *SharedManager) compactIndexBlobs(ctx context.Context, indexBlobs []Ind
 
 	outputs = append(outputs, compactedIndexBlob)
 
-	if err := sm.indexBlobManager.registerCompaction(ctx, inputs, outputs); err != nil {
+	if err := sm.indexBlobManager.registerCompaction(ctx, inputs, outputs, opt.maxEventualConsistencySettleTime()); err != nil {
 		return errors.Wrap(err, "unable to register compaction")
 	}
 

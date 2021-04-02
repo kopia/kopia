@@ -496,7 +496,7 @@ func fakeCompaction(ctx context.Context, m indexBlobManager, dropDeleted bool) e
 		inputs = append(inputs, bi.Metadata)
 	}
 
-	if err := m.registerCompaction(ctx, inputs, outputs); err != nil {
+	if err := m.registerCompaction(ctx, inputs, outputs, testEventualConsistencySettleTime); err != nil {
 		return errors.Wrap(err, "compaction error")
 	}
 
@@ -702,7 +702,7 @@ func mustRegisterCompaction(t *testing.T, m indexBlobManager, inputs, outputs []
 
 	t.Logf("compacting %v to %v", inputs, outputs)
 
-	err := m.registerCompaction(testlogging.Context(t), inputs, outputs)
+	err := m.registerCompaction(testlogging.Context(t), inputs, outputs, testEventualConsistencySettleTime)
 	if err != nil {
 		t.Fatalf("failed to write index blob: %v", err)
 	}
@@ -773,12 +773,11 @@ func newIndexBlobManagerForTesting(t *testing.T, st blob.Storage, localTimeNow f
 			blobtesting.NewMapStorage(blobtesting.DataMap{}, nil, localTimeNow),
 			localTimeNow,
 		},
-		indexBlobCache:                   passthroughContentCache{st},
-		encryptor:                        enc,
-		hasher:                           hf,
-		listCache:                        lc,
-		timeNow:                          localTimeNow,
-		maxEventualConsistencySettleTime: testIndexBlobDeleteAge,
+		indexBlobCache: passthroughContentCache{st},
+		encryptor:      enc,
+		hasher:         hf,
+		listCache:      lc,
+		timeNow:        localTimeNow,
 	}
 
 	return m
