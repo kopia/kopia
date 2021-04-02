@@ -73,7 +73,7 @@ func DeleteUnreferencedBlobs(ctx context.Context, rep repo.DirectRepositoryWrite
 	// belong to alive sessions.
 	if err := rep.ContentManager().IterateUnreferencedBlobs(ctx, prefixes, opt.Parallel, func(bm blob.Metadata) error {
 		if age := rep.Time().Sub(bm.Timestamp); age < safety.BlobDeleteMinAge {
-			log(ctx).Debugf("  preserving %v because it's too new (age: %v bm: %v)", bm.BlobID, bm.Timestamp, age)
+			log(ctx).Debugf("  preserving %v because it's too new (age: %v<%v)", bm.BlobID, age, safety.BlobDeleteMinAge)
 			return nil
 		}
 
