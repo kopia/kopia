@@ -17,6 +17,12 @@ all: test lint vet integration-tests
 
 include tools/tools.mk
 
+RACE_FLAGS=
+
+ifeq ($(GOOS)/$(GOARCH)/$(CI),linux/amd64/true)
+RACE_FLAGS=-race
+endif
+
 kopia_ui_embedded_exe=dist/kopia_$(GOOS)_$(GOARCH)/kopia$(exe_suffix)
 
 ifeq ($(GOOS),darwin)
@@ -49,6 +55,9 @@ install: html-ui
 
 install-noui:
 	go install $(KOPIA_BUILD_FLAGS)
+
+install-race:
+	go install -race $(KOPIA_BUILD_FLAGS) -tags embedhtml
 
 lint: $(linter)
 	$(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
@@ -194,19 +203,19 @@ dev-deps:
 
 test-with-coverage: export RCLONE_EXE=$(rclone)
 test-with-coverage: $(gotestsum) $(rclone)
-	$(GO_TEST) -count=$(REPEAT_TEST) -covermode=atomic -coverprofile=coverage.txt --coverpkg $(COVERAGE_PACKAGES) -timeout 300s ./...
+	$(GO_TEST) $(RACE_FLAGS) -count=$(REPEAT_TEST) -covermode=atomic -coverprofile=coverage.txt --coverpkg $(COVERAGE_PACKAGES) -timeout 300s ./...
 
 test: export RCLONE_EXE=$(rclone)
 test: GOTESTSUM_FLAGS=--format=$(GOTESTSUM_FORMAT) --no-summary=skipped --jsonfile=.tmp.unit-tests.json
 test: $(gotestsum) $(rclone)
-	$(GO_TEST) -count=$(REPEAT_TEST) -timeout $(UNIT_TESTS_TIMEOUT) ./...
+	$(GO_TEST) $(RACE_FLAGS) -count=$(REPEAT_TEST) -timeout $(UNIT_TESTS_TIMEOUT) ./...
 	-$(gotestsum) tool slowest --jsonfile .tmp.unit-tests.json  --threshold 1000ms
 
 vtest: $(gotestsum)
 	$(GO_TEST) -count=$(REPEAT_TEST) -short -v -timeout $(UNIT_TESTS_TIMEOUT) ./...
 
 build-integration-test-binary:
-	go build $(KOPIA_BUILD_FLAGS) -o $(KOPIA_INTEGRATION_EXE) -tags testing github.com/kopia/kopia
+	go build $(KOPIA_BUILD_FLAGS) $(RACE_FLAGS) -o $(KOPIA_INTEGRATION_EXE) -tags testing github.com/kopia/kopia
 
 $(TESTING_ACTION_EXE): tests/testingaction/main.go
 	go build -o $(TESTING_ACTION_EXE) -tags testing github.com/kopia/kopia/tests/testingaction
