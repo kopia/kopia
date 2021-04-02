@@ -158,5 +158,5 @@ func runInternal(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete 
 		return errors.Errorf("Not deleting because '--delete' flag was not set")
 	}
 
-	return nil
+	return errors.Wrap(rep.Flush(ctx), "flush error")
 }
