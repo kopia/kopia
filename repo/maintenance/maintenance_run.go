@@ -206,7 +206,7 @@ func runQuickMaintenance(ctx context.Context, runParams RunParameters, safety Sa
 	if err := ReportRun(ctx, runParams.rep, "quick-delete-blobs", func() error {
 		_, err := DeleteUnreferencedBlobs(ctx, runParams.rep, DeleteUnreferencedBlobsOptions{
 			Prefix: content.PackBlobIDPrefixSpecial,
-		}, SafetyFull)
+		}, safety)
 		return err
 	}); err != nil {
 		return errors.Wrap(err, "error deleting unreferenced metadata blobs")
@@ -223,12 +223,20 @@ func runQuickMaintenance(ctx context.Context, runParams RunParameters, safety Sa
 }
 
 func runFullMaintenance(ctx context.Context, runParams RunParameters, safety SafetyParameters) error {
-	s, err := GetSchedule(ctx, runParams.rep)
-	if err != nil {
-		return errors.Wrap(err, "unable to get schedule")
+	var safeDropTime time.Time
+
+	if safety.RequireTwoGCCycles {
+		s, err := GetSchedule(ctx, runParams.rep)
+		if err != nil {
+			return errors.Wrap(err, "unable to get schedule")
+		}
+
+		safeDropTime = findSafeDropTime(s.Runs["snapshot-gc"], safety)
+	} else {
+		safeDropTime = runParams.rep.Time()
 	}
 
-	if safeDropTime := findSafeDropTime(s.Runs["snapshot-gc"], safety); !safeDropTime.IsZero() {
+	if !safeDropTime.IsZero() {
 		log(ctx).Infof("Found safe time to drop indexes: %v", safeDropTime)
 
 		// rewrite indexes by dropping content entries that have been marked
@@ -255,7 +263,7 @@ func runFullMaintenance(ctx context.Context, runParams RunParameters, safety Saf
 
 	// delete orphaned packs after some time.
 	if err := ReportRun(ctx, runParams.rep, "full-delete-blobs", func() error {
-		_, err := DeleteUnreferencedBlobs(ctx, runParams.rep, DeleteUnreferencedBlobsOptions{}, SafetyFull)
+		_, err := DeleteUnreferencedBlobs(ctx, runParams.rep, DeleteUnreferencedBlobsOptions{}, safety)
 		return err
 	}); err != nil {
 		return errors.Wrap(err, "error deleting unreferenced blobs")
@@ -268,7 +276,7 @@ func runFullMaintenance(ctx context.Context, runParams RunParameters, safety Saf
 // deleted before that time, because at least two successful GC cycles have completed
 // and minimum required time between the GCs has passed.
 //
-// The worst possible case we needf to handle is:
+// The worst possible case we need to handle is:
 //
 // Step #1 - race between GC and snapshot creation:
 //

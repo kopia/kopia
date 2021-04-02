@@ -16,6 +16,9 @@ type SafetyParameters struct {
 	// so ~1 hour should be enough but we're setting this to a higher conservative value for extra safety.
 	MarginBetweenSnapshotGC time.Duration
 
+	// RequireTwoGCCycles indicates that two GC cycles are required.
+	RequireTwoGCCycles bool
+
 	// DropContentFromIndexExtraMargin is the amount of margin time before dropping deleted contents from indices.
 	DropContentFromIndexExtraMargin time.Duration
 
@@ -38,6 +41,7 @@ var (
 		MinContentAgeSubjectToGC:        0,
 		RewriteMinAge:                   0,
 		SessionExpirationAge:            0,
+		RequireTwoGCCycles:              false,
 	}
 
 	// SafetyFull has default safety parameters which allow safe GC concurrent with snapshotting
@@ -49,5 +53,6 @@ var (
 		MinContentAgeSubjectToGC:        24 * time.Hour, //nolint:gomnd
 		RewriteMinAge:                   2 * time.Hour,  //nolint:gomnd
 		SessionExpirationAge:            96 * time.Hour, //nolint:gomnd
+		RequireTwoGCCycles:              true,
 	}
 )
