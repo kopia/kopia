@@ -9,11 +9,12 @@ import (
 )
 
 // DropDeletedContents rewrites indexes while dropping deleted contents above certain age.
-func DropDeletedContents(ctx context.Context, rep repo.DirectRepositoryWriter, dropDeletedBefore time.Time) error {
+func DropDeletedContents(ctx context.Context, rep repo.DirectRepositoryWriter, dropDeletedBefore time.Time, safety SafetyParameters) error {
 	log(ctx).Infof("Dropping contents deleted before %v", dropDeletedBefore)
 
 	return rep.ContentManager().CompactIndexes(ctx, content.CompactOptions{
-		AllIndexes:        true,
-		DropDeletedBefore: dropDeletedBefore,
+		AllIndexes:                       true,
+		DropDeletedBefore:                dropDeletedBefore,
+		DisableEventualConsistencySafety: safety.DisableEventualConsistencySafety,
 	})
 }

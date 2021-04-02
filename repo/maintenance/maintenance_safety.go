@@ -19,6 +19,9 @@ type SafetyParameters struct {
 	// RequireTwoGCCycles indicates that two GC cycles are required.
 	RequireTwoGCCycles bool
 
+	// DisableEventualConsistencySafety disables wait time to allow settling of eventually-consistent writes in blob stores.
+	DisableEventualConsistencySafety bool
+
 	// DropContentFromIndexExtraMargin is the amount of margin time before dropping deleted contents from indices.
 	DropContentFromIndexExtraMargin time.Duration
 
@@ -35,13 +38,14 @@ var (
 	// delays, but it is safe only if no other kopia clients are running and storage backend is
 	// strongly consistent.
 	SafetyNone = SafetyParameters{
-		BlobDeleteMinAge:                0,
-		DropContentFromIndexExtraMargin: 0,
-		MarginBetweenSnapshotGC:         0,
-		MinContentAgeSubjectToGC:        0,
-		RewriteMinAge:                   0,
-		SessionExpirationAge:            0,
-		RequireTwoGCCycles:              false,
+		BlobDeleteMinAge:                 0,
+		DropContentFromIndexExtraMargin:  0,
+		MarginBetweenSnapshotGC:          0,
+		MinContentAgeSubjectToGC:         0,
+		RewriteMinAge:                    0,
+		SessionExpirationAge:             0,
+		RequireTwoGCCycles:               false,
+		DisableEventualConsistencySafety: true,
 	}
 
 	// SafetyFull has default safety parameters which allow safe GC concurrent with snapshotting

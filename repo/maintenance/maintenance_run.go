@@ -214,7 +214,7 @@ func runQuickMaintenance(ctx context.Context, runParams RunParameters, safety Sa
 
 	// consolidate many smaller indexes into fewer larger ones.
 	if err := ReportRun(ctx, runParams.rep, "index-compaction", func() error {
-		return IndexCompaction(ctx, runParams.rep)
+		return IndexCompaction(ctx, runParams.rep, safety)
 	}); err != nil {
 		return errors.Wrap(err, "error performing index compaction")
 	}
@@ -242,7 +242,7 @@ func runFullMaintenance(ctx context.Context, runParams RunParameters, safety Saf
 		// rewrite indexes by dropping content entries that have been marked
 		// as deleted for a long time
 		if err := ReportRun(ctx, runParams.rep, "full-drop-deleted-content", func() error {
-			return DropDeletedContents(ctx, runParams.rep, safeDropTime)
+			return DropDeletedContents(ctx, runParams.rep, safeDropTime, safety)
 		}); err != nil {
 			return errors.Wrap(err, "error dropping deleted contents")
 		}
