@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/pkg/errors"
 
@@ -222,7 +223,7 @@ func (bm *WriteManager) IteratePacks(ctx context.Context, options IteratePackOpt
 
 // IterateUnreferencedBlobs returns the list of unreferenced storage blobs.
 func (bm *WriteManager) IterateUnreferencedBlobs(ctx context.Context, blobPrefixes []blob.ID, parallellism int, callback func(blob.Metadata) error) error {
-	usedPacks := map[blob.ID]bool{}
+	var usedPacks sync.Map
 
 	log(ctx).Debugf("determining blobs in use")
 	// find packs in use
@@ -234,16 +235,14 @@ func (bm *WriteManager) IterateUnreferencedBlobs(ctx context.Context, blobPrefix
 		},
 		func(pi PackInfo) error {
 			if pi.ContentCount > 0 {
-				usedPacks[pi.PackID] = true
+				usedPacks.Store(pi.PackID, struct{}{})
 			}
 			return nil
 		}); err != nil {
 		return errors.Wrap(err, "error iterating packs")
 	}
 
-	log(ctx).Debugf("found %v pack blobs in use", len(usedPacks))
-
-	unusedCount := 0
+	unusedCount := new(int32)
 
 	if len(blobPrefixes) == 0 {
 		blobPrefixes = PackBlobIDPrefixes
@@ -266,18 +265,18 @@ func (bm *WriteManager) IterateUnreferencedBlobs(ctx context.Context, blobPrefix
 
 	if err := blob.IterateAllPrefixesInParallel(ctx, parallellism, bm.st, prefixes,
 		func(bm blob.Metadata) error {
-			if usedPacks[bm.BlobID] {
+			if _, ok := usedPacks.Load(bm.BlobID); ok {
 				return nil
 			}
 
-			unusedCount++
+			atomic.AddInt32(unusedCount, 1)
 
 			return callback(bm)
 		}); err != nil {
 		return errors.Wrap(err, "error iterating blobs")
 	}
 
-	log(ctx).Debugf("found %v pack blobs not in use", unusedCount)
+	log(ctx).Debugf("found %v pack blobs not in use", *unusedCount)
 
 	return nil
 }
