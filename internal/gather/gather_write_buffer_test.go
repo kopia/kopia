@@ -21,7 +21,7 @@ func TestGatherWriteBuffer(t *testing.T) {
 		t.Errorf("invaldi bytes %v, want %v", string(got), string(want))
 	}
 
-	if got, want := len(w.Slices), 1; got != want {
+	if got, want := len(w.inner.Slices), 1; got != want {
 		t.Errorf("invalid number of slices %v, want %v", got, want)
 	}
 
@@ -32,7 +32,7 @@ func TestGatherWriteBuffer(t *testing.T) {
 	}
 
 	// one more slice was allocated
-	if got, want := len(w.Slices), 2; got != want {
+	if got, want := len(w.inner.Slices), 2; got != want {
 		t.Errorf("invalid number of slices %v, want %v", got, want)
 	}
 
@@ -40,7 +40,7 @@ func TestGatherWriteBuffer(t *testing.T) {
 	w.Append(bytes.Repeat([]byte("x"), chunkSize-12))
 
 	// still 2 slices
-	if got, want := len(w.Slices), 2; got != want {
+	if got, want := len(w.inner.Slices), 2; got != want {
 		t.Errorf("invalid number of slices %v, want %v", got, want)
 	}
 
@@ -48,7 +48,7 @@ func TestGatherWriteBuffer(t *testing.T) {
 	w.Append([]byte("x"))
 
 	// still 3 slices
-	if got, want := len(w.Slices), 3; got != want {
+	if got, want := len(w.inner.Slices), 3; got != want {
 		t.Errorf("invalid number of slices %v, want %v", got, want)
 	}
 
@@ -61,7 +61,7 @@ func TestGatherDefaultWriteBuffer(t *testing.T) {
 	// one more byte allocates new slice
 	w.Append([]byte("x"))
 
-	if got, want := len(w.Slices), 1; got != want {
+	if got, want := len(w.inner.Slices), 1; got != want {
 		t.Errorf("invalid number of slices %v, want %v", got, want)
 	}
 }

@@ -70,6 +70,7 @@ func (bm *WriteManager) getContentDataUnlocked(ctx context.Context, pp *pendingP
 	var payload []byte
 
 	if pp != nil && pp.packBlobID == bi.PackBlobID {
+		// we need to use a lock here in case somebody else writes to the pack at the same time.
 		payload = pp.currentPackData.AppendSectionTo(nil, int(bi.PackOffset), int(bi.Length))
 	} else {
 		var err error
