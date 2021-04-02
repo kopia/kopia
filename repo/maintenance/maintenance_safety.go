@@ -16,8 +16,8 @@ type SafetyParameters struct {
 	// so ~1 hour should be enough but we're setting this to a higher conservative value for extra safety.
 	MarginBetweenSnapshotGC time.Duration
 
-	// ExtraDropContentFromIndexBuffer is the amount of buffer time before previ
-	ExtraDropContentFromIndexBuffer time.Duration
+	// DropContentFromIndexExtraMargin is the amount of margin time before dropping deleted contents from indices.
+	DropContentFromIndexExtraMargin time.Duration
 
 	// Blob GC: Delete unused blobs above this age.
 	BlobDeleteMinAge time.Duration
@@ -33,7 +33,7 @@ var (
 	// strongly consistent.
 	SafetyNone = SafetyParameters{
 		BlobDeleteMinAge:                0,
-		ExtraDropContentFromIndexBuffer: 0,
+		DropContentFromIndexExtraMargin: 0,
 		MarginBetweenSnapshotGC:         0,
 		MinContentAgeSubjectToGC:        0,
 		RewriteMinAge:                   0,
@@ -44,7 +44,7 @@ var (
 	// by other Kopia clients.
 	SafetyFull = SafetyParameters{
 		BlobDeleteMinAge:                2 * time.Hour, //nolint:gomnd
-		ExtraDropContentFromIndexBuffer: time.Hour,
+		DropContentFromIndexExtraMargin: time.Hour,
 		MarginBetweenSnapshotGC:         4 * time.Hour,  //nolint:gomnd
 		MinContentAgeSubjectToGC:        24 * time.Hour, //nolint:gomnd
 		RewriteMinAge:                   2 * time.Hour,  //nolint:gomnd

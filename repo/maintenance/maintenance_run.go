@@ -310,7 +310,7 @@ func findSafeDropTime(runs []RunInfo, safety SafetyParameters) time.Time {
 	for _, r := range successfulRuns[1:] {
 		diff := -r.End.Sub(successfulRuns[0].Start)
 		if diff > safety.MarginBetweenSnapshotGC {
-			return r.Start.Add(-safety.ExtraDropContentFromIndexBuffer)
+			return r.Start.Add(-safety.DropContentFromIndexExtraMargin)
 		}
 	}
 

@@ -68,7 +68,7 @@ func safetyFlag(c *kingpin.CmdClause) *maintenance.SafetyParameters {
 		}
 
 		return nil
-	}).EnumVar(&str, "full", "minimal", "none")
+	}).EnumVar(&str, "full", "none")
 
 	return &result
 }

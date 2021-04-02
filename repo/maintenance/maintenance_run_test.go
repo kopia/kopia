@@ -45,7 +45,7 @@ func TestFindSafeDropTime(t *testing.T) {
 				{Start: t0700, End: t0715, Success: true},
 				{Start: t1300, End: t1315, Success: true},
 			},
-			wantTime: t0700.Add(-SafetyFull.ExtraDropContentFromIndexBuffer),
+			wantTime: t0700.Add(-SafetyFull.DropContentFromIndexExtraMargin),
 		},
 		// three runs spaced enough
 		{
@@ -54,7 +54,7 @@ func TestFindSafeDropTime(t *testing.T) {
 				{Start: t0900, End: t0915, Success: true},
 				{Start: t1300, End: t1315, Success: true},
 			},
-			wantTime: t0700.Add(-SafetyFull.ExtraDropContentFromIndexBuffer),
+			wantTime: t0700.Add(-SafetyFull.DropContentFromIndexExtraMargin),
 		},
 		// three runs spaced enough, not successful
 		{
