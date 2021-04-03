@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"net/http/httptest"
 	"os"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -19,7 +20,14 @@ import (
 const (
 	maxSourcesPerEnduranceRunner = 3
 	enduranceRunnerCount         = 3
-	runnerIterations             = 1000
+)
+
+var (
+	// We will simulate 2 weeks of running with clock moving by a lot every time it's read.
+	startTime         = time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+	simulatedDuration = 14 * 24 * time.Hour
+	endTime           = startTime.Add(simulatedDuration)
+	tickIncrement     = 350 * time.Millisecond
 )
 
 type webdavDirWithFakeClock struct {
@@ -60,7 +68,7 @@ func TestEndurance(t *testing.T) {
 
 	defer os.RemoveAll(tmpDir)
 
-	fts := testenv.NewFakeTimeServer(time.Date(2000, 1, 1, 0, 0, 0, 0, time.Local), 100*time.Millisecond)
+	fts := testenv.NewFakeTimeServer(startTime, tickIncrement)
 
 	ft := httptest.NewServer(fts)
 	defer ft.Close()
@@ -75,14 +83,21 @@ func TestEndurance(t *testing.T) {
 
 	e.RunAndExpectSuccess(t, "repo", "create", "webdav", "--url", sts.URL)
 
+	failureCount := new(int32)
+
 	t.Run("Runners", func(t *testing.T) {
 		for i := 0; i < enduranceRunnerCount; i++ {
 			i := i
 
 			t.Run(fmt.Sprintf("Runner-%v", i), func(t *testing.T) {
 				t.Parallel()
+				defer func() {
+					if t.Failed() {
+						atomic.AddInt32(failureCount, 1)
+					}
+				}()
 
-				enduranceRunner(t, i, ft.URL, sts.URL)
+				enduranceRunner(t, i, ft.URL, sts.URL, failureCount, fts.Now)
 			})
 		}
 	})
@@ -94,6 +109,7 @@ func TestEndurance(t *testing.T) {
 type runnerState struct {
 	dirs                []string
 	snapshottedAnything bool
+	runnerID            int
 }
 
 type action func(t *testing.T, e *testenv.CLITest, s *runnerState)
@@ -109,6 +125,7 @@ var actionsTestIndexBlobManagerStress = []struct {
 	{actionMutateDirectoryTree, 1},
 	{actionSnapshotVerify, 10},
 	{actionContentVerify, 5},
+	{actionMaintenance, 5},
 }
 
 func actionSnapshotExisting(t *testing.T, e *testenv.CLITest, s *runnerState) {
@@ -148,6 +165,14 @@ func actionContentVerify(t *testing.T, e *testenv.CLITest, s *runnerState) {
 	}
 
 	e.RunAndExpectSuccess(t, "content", "verify")
+}
+
+func actionMaintenance(t *testing.T, e *testenv.CLITest, s *runnerState) {
+	t.Helper()
+
+	if s.runnerID == 0 {
+		e.RunAndExpectSuccess(t, "maintenance", "run", "--full")
+	}
 }
 
 func actionAddNewSource(t *testing.T, e *testenv.CLITest, s *runnerState) {
@@ -203,7 +228,7 @@ func pickRandomEnduranceTestAction() action {
 	panic("impossible")
 }
 
-func enduranceRunner(t *testing.T, runnerID int, fakeTimeServer, webdavServer string) {
+func enduranceRunner(t *testing.T, runnerID int, fakeTimeServer, webdavServer string, failureCount *int32, nowFunc func() time.Time) {
 	t.Helper()
 
 	e := testenv.NewCLITest(t)
@@ -221,10 +246,19 @@ func enduranceRunner(t *testing.T, runnerID int, fakeTimeServer, webdavServer st
 
 	var s runnerState
 
+	s.runnerID = runnerID
+
 	actionAddNewSource(t, e, &s)
 
-	for k := 0; k < runnerIterations; k++ {
-		t.Logf("ITERATION %v / %v", k, runnerIterations)
+	for now, k := nowFunc(), 0; now.Before(endTime); now, k = nowFunc(), k+1 {
+		if atomic.LoadInt32(failureCount) != 0 {
+			t.Logf("Aborting early because of failures.")
+			break
+		}
+
+		percent := 100 * now.Sub(startTime).Seconds() / endTime.Sub(startTime).Seconds()
+
+		t.Logf("ITERATION %v NOW=%v (%.2f %%)", k, now, percent)
 
 		act := pickRandomEnduranceTestAction()
 		act(t, e, &s)

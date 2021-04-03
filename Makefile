@@ -223,7 +223,7 @@ integration-tests: build-integration-test-binary $(gotestsum) $(TESTING_ACTION_E
 
 endurance-tests: export KOPIA_EXE ?= $(KOPIA_INTEGRATION_EXE)
 endurance-tests: build-integration-test-binary $(gotestsum)
-	 $(GO_TEST) $(TEST_FLAGS) -count=$(REPEAT_TEST) -parallel $(PARALLEL) -timeout 3600s github.com/kopia/kopia/tests/endurance_test
+	 go test -v $(TEST_FLAGS) -count=$(REPEAT_TEST) -parallel $(PARALLEL) -timeout 3600s github.com/kopia/kopia/tests/endurance_test
 
 robustness-tests: export KOPIA_EXE ?= $(KOPIA_INTEGRATION_EXE)
 robustness-tests: GOTESTSUM_FORMAT=testname
