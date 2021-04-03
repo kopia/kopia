@@ -47,7 +47,16 @@ func (bm *WriteManager) CompactIndexes(ctx context.Context, opt CompactOptions) 
 		return errors.Wrap(err, "error performing compaction")
 	}
 
-	return bm.indexBlobManager.cleanup(ctx, opt.maxEventualConsistencySettleTime())
+	if err := bm.indexBlobManager.cleanup(ctx, opt.maxEventualConsistencySettleTime()); err != nil {
+		return errors.Wrap(err, "error cleaning up index blobs")
+	}
+
+	// reload indexes after cleanup.
+	if _, _, err := bm.loadPackIndexesUnlocked(ctx); err != nil {
+		return errors.Wrap(err, "error re-loading indexes")
+	}
+
+	return nil
 }
 
 func (sm *SharedManager) getBlobsToCompact(ctx context.Context, indexBlobs []IndexBlobInfo, opt CompactOptions) []IndexBlobInfo {
