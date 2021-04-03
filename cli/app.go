@@ -256,7 +256,7 @@ func advancedCommand(ctx context.Context) {
 		log(ctx).Errorf(`
 This command could be dangerous or lead to repository corruption when used improperly.
 
-Running this command is not needed for using Kopia. Instead, most users should rely on periodic repository maintenance. See https://kopia.io/docs/maintenance/ for more information.
+Running this command is not needed for using Kopia. Instead, most users should rely on periodic repository maintenance. See https://kopia.io/docs/advanced/maintenance/ for more information.
 To run this command despite the warning, set KOPIA_ADVANCED_COMMANDS=enabled
 
 `)

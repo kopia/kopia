@@ -77,6 +77,22 @@ $ kopia maintenance run --full
 
 The current user must be the maintenance owner.
 
+## Maintenance Safety
+
+Kopia's maintenance routine follows certain safety rules which rely on passage of time to ensure correctness. This is needed in case other Kopia clients are currently operating on the repository. To guarantee correctness, certain length of time must pass to ensure all caches and transient state are properly synchronized with the repository. Kopia must also also account for eventual consistency delays intoduced by the blob storage provider.
+
+This means that effects of full maintenance are not immediate - it may take several hours and/or multiple maintenance cycles to remove blobs that are not in use.
+
+Kopia 0.8 adds new flag that can be used to speed up full maintenance if the user can guarantee no kopia snapshots are being created.
+
+>WARNING: As the name implies, the `--safety=none` flag disables all safety features, so the user must ensure that no concurrent operations are happening and repository storage is properly in sync before attempting it. Failure to do so can introduce repository corruption.
+
+Example of running full maintenance with safety disabled:
+
+```shell
+$ kopia maintenance run --full --safety=none
+```
+
 ## Viewing Maintenance History
 
 To view the history of maintenance operations use `kopia maintenance info`, which will display the history of last 5 maintenance runs.
