@@ -48,7 +48,7 @@ func oneTimeSetup() error {
 	// directory with very few big files
 	sharedTestDataDir2 = filepath.Join(sharedTestDataDirBase, "dir2")
 	testenv.CreateDirectoryTree(sharedTestDataDir2, testenv.MaybeSimplifyFilesystem(testenv.DirectoryTreeOptions{
-		Depth:                  5,
+		Depth:                  3,
 		MaxSubdirsPerDirectory: 2,
 		MaxFilesPerDirectory:   2,
 		MaxFileSize:            50000000,

@@ -2,6 +2,7 @@ package logging
 
 import (
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -11,14 +12,15 @@ import (
 )
 
 func TestLoggingStorage(t *testing.T) {
-	var outputCount int
+	outputCount := new(int32)
 
 	myPrefix := "myprefix"
 	myOutput := func(msg string, args ...interface{}) {
 		if !strings.HasPrefix(msg, myPrefix) {
 			t.Errorf("unexpected prefix %v", msg)
 		}
-		outputCount++
+
+		atomic.AddInt32(outputCount, 1)
 	}
 
 	data := blobtesting.DataMap{}
@@ -37,7 +39,7 @@ func TestLoggingStorage(t *testing.T) {
 		t.Fatalf("err: %v", err)
 	}
 
-	if outputCount == 0 {
+	if *outputCount == 0 {
 		t.Errorf("did not write any output!")
 	}
 

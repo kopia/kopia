@@ -345,14 +345,16 @@ func (s *sourceManager) refreshStatus(ctx context.Context) {
 		return
 	}
 
-	s.pol = pol.SchedulingPolicy
-
 	snapshots, err := snapshot.ListSnapshots(ctx, s.server.rep, s.src)
 	if err != nil {
 		s.setStatus("FAILED")
 		return
 	}
 
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.pol = pol.SchedulingPolicy
 	s.manifestsSinceLastCompleteSnapshot = nil
 	s.lastCompleteSnapshot = nil
 

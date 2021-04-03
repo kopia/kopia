@@ -444,7 +444,7 @@ func (bm *WriteManager) prepareAndWritePackInternal(ctx context.Context, pp *pen
 	}
 
 	if pp.currentPackData.Length() > 0 {
-		if err := bm.writePackFileNotLocked(ctx, pp.packBlobID, pp.currentPackData.Bytes); err != nil {
+		if err := bm.writePackFileNotLocked(ctx, pp.packBlobID, pp.currentPackData.Bytes()); err != nil {
 			formatLog(ctx).Debugf("failed-pack %v %v", pp.packBlobID, err)
 			return nil, errors.Wrapf(err, "can't save pack data blob %v", pp.packBlobID)
 		}

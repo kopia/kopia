@@ -37,6 +37,10 @@ func TestSkipOnCIUnlessLinuxAMD64(t *testing.T) {
 
 // ShouldReduceTestComplexity returns true if test complexity should be reduced on the current machine.
 func ShouldReduceTestComplexity() bool {
+	if isRaceDetector {
+		return true
+	}
+
 	return strings.Contains(runtime.GOARCH, "arm")
 }
 
