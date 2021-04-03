@@ -4,15 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/internal/ctxutil"
+	"github.com/kopia/kopia/internal/ospath"
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/internal/uitask"
 	"github.com/kopia/kopia/snapshot"
@@ -48,19 +47,6 @@ func (p estimateTaskProgress) Stats(ctx context.Context, st *snapshot.Stats, inc
 	})
 }
 
-func resolveUserFriendlyPath(path string) string {
-	home := os.Getenv("HOME")
-	if home != "" && strings.HasPrefix(path, "~") {
-		return home + path[1:]
-	}
-
-	if filepath.IsAbs(path) {
-		return path
-	}
-
-	return filepath.Join(home, path)
-}
-
 var _ snapshotfs.EstimateProgress = estimateTaskProgress{}
 
 func (s *Server) handleEstimate(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
@@ -73,7 +59,7 @@ func (s *Server) handleEstimate(ctx context.Context, r *http.Request, body []byt
 	ctx = ctxutil.Detach(ctx)
 	rep := s.rep
 
-	resolvedRoot := filepath.Clean(resolveUserFriendlyPath(req.Root))
+	resolvedRoot := filepath.Clean(ospath.ResolveUserFriendlyPath(req.Root, true))
 
 	e, err := localfs.NewEntry(resolvedRoot)
 	if err != nil {

@@ -9,6 +9,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/ospath"
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
@@ -51,7 +52,7 @@ func (s *Server) handleSourcesCreate(ctx context.Context, r *http.Request, body 
 		return nil, requestError(serverapi.ErrorMalformedRequest, "missing path")
 	}
 
-	req.Path = resolveUserFriendlyPath(req.Path)
+	req.Path = ospath.ResolveUserFriendlyPath(req.Path, true)
 
 	_, err := os.Stat(req.Path)
 	if os.IsNotExist(err) {
