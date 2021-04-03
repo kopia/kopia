@@ -19,15 +19,15 @@ type indexBlobManager interface {
 	writeIndexBlob(ctx context.Context, data []byte, sessionID SessionID) (blob.Metadata, error)
 	listIndexBlobs(ctx context.Context, includeInactive bool) ([]IndexBlobInfo, error)
 	getIndexBlob(ctx context.Context, blobID blob.ID) ([]byte, error)
-	registerCompaction(ctx context.Context, inputs, outputs []blob.Metadata) error
-	cleanup(ctx context.Context) error
+	registerCompaction(ctx context.Context, inputs, outputs []blob.Metadata, maxEventualConsistencySettleTime time.Duration) error
+	cleanup(ctx context.Context, maxEventualConsistencySettleTime time.Duration) error
 	flushCache()
 }
 
 const (
+	defaultEventualConsistencySettleTime = 1 * time.Hour
 	compactionLogBlobPrefix              = "m"
 	cleanupBlobPrefix                    = "l"
-	defaultEventualConsistencySettleTime = 1 * time.Hour
 )
 
 // compactionLogEntry represents contents of compaction log entry stored in `m` blob.
@@ -56,14 +56,13 @@ type cleanupEntry struct {
 }
 
 type indexBlobManagerImpl struct {
-	st                               blob.Storage
-	hasher                           hashing.HashFunc
-	encryptor                        encryption.Encryptor
-	listCache                        *listCache
-	ownWritesCache                   ownWritesCache
-	timeNow                          func() time.Time
-	indexBlobCache                   contentCache
-	maxEventualConsistencySettleTime time.Duration
+	st             blob.Storage
+	hasher         hashing.HashFunc
+	encryptor      encryption.Encryptor
+	listCache      *listCache
+	ownWritesCache ownWritesCache
+	timeNow        func() time.Time
+	indexBlobCache contentCache
 }
 
 func (m *indexBlobManagerImpl) listAndMergeOwnWrites(ctx context.Context, prefix blob.ID) ([]blob.Metadata, error) {
@@ -138,7 +137,7 @@ func (m *indexBlobManagerImpl) flushCache() {
 	m.listCache.deleteListCache(compactionLogBlobPrefix)
 }
 
-func (m *indexBlobManagerImpl) registerCompaction(ctx context.Context, inputs, outputs []blob.Metadata) error {
+func (m *indexBlobManagerImpl) registerCompaction(ctx context.Context, inputs, outputs []blob.Metadata, maxEventualConsistencySettleTime time.Duration) error {
 	logEntryBytes, err := json.Marshal(&compactionLogEntry{
 		InputMetadata:  inputs,
 		OutputMetadata: outputs,
@@ -162,7 +161,7 @@ func (m *indexBlobManagerImpl) registerCompaction(ctx context.Context, inputs, o
 
 	formatLog(ctx).Debugf("compaction-log %v %v", compactionLogBlobMetadata.BlobID, compactionLogBlobMetadata.Timestamp)
 
-	if err := m.deleteOldBlobs(ctx, compactionLogBlobMetadata); err != nil {
+	if err := m.deleteOldBlobs(ctx, compactionLogBlobMetadata, maxEventualConsistencySettleTime); err != nil {
 		return errors.Wrap(err, "error deleting old index blobs")
 	}
 
@@ -271,7 +270,7 @@ func (m *indexBlobManagerImpl) getCleanupEntries(ctx context.Context, latestServ
 	return results, nil
 }
 
-func (m *indexBlobManagerImpl) deleteOldBlobs(ctx context.Context, latestBlob blob.Metadata) error {
+func (m *indexBlobManagerImpl) deleteOldBlobs(ctx context.Context, latestBlob blob.Metadata, maxEventualConsistencySettleTime time.Duration) error {
 	allCompactionLogBlobs, err := m.listCache.listBlobs(ctx, compactionLogBlobPrefix)
 	if err != nil {
 		return errors.Wrap(err, "error listing compaction log blobs")
@@ -279,7 +278,7 @@ func (m *indexBlobManagerImpl) deleteOldBlobs(ctx context.Context, latestBlob bl
 
 	// look for server-assigned timestamp of the compaction log entry we just wrote as a reference.
 	// we're assuming server-generated timestamps are somewhat reasonable and time is moving
-	compactionLogServerTimeCutoff := latestBlob.Timestamp.Add(-m.maxEventualConsistencySettleTime)
+	compactionLogServerTimeCutoff := latestBlob.Timestamp.Add(-maxEventualConsistencySettleTime)
 	compactionBlobs := blobsOlderThan(allCompactionLogBlobs, compactionLogServerTimeCutoff)
 
 	log(ctx).Debugf("fetching %v/%v compaction logs older than %v", len(compactionBlobs), len(allCompactionLogBlobs), compactionLogServerTimeCutoff)
@@ -289,7 +288,7 @@ func (m *indexBlobManagerImpl) deleteOldBlobs(ctx context.Context, latestBlob bl
 		return errors.Wrap(err, "unable to get compaction log entries")
 	}
 
-	indexBlobsToDelete := m.findIndexBlobsToDelete(ctx, latestBlob.Timestamp, compactionBlobEntries)
+	indexBlobsToDelete := m.findIndexBlobsToDelete(ctx, latestBlob.Timestamp, compactionBlobEntries, maxEventualConsistencySettleTime)
 
 	// note that we must always delete index blobs first before compaction logs
 	// otherwise we may inadvertedly resurrect an index blob that should have been removed.
@@ -306,13 +305,13 @@ func (m *indexBlobManagerImpl) deleteOldBlobs(ctx context.Context, latestBlob bl
 	return nil
 }
 
-func (m *indexBlobManagerImpl) findIndexBlobsToDelete(ctx context.Context, latestServerBlobTime time.Time, entries map[blob.ID]*compactionLogEntry) []blob.ID {
+func (m *indexBlobManagerImpl) findIndexBlobsToDelete(ctx context.Context, latestServerBlobTime time.Time, entries map[blob.ID]*compactionLogEntry, maxEventualConsistencySettleTime time.Duration) []blob.ID {
 	tmp := map[blob.ID]bool{}
 
 	for _, cl := range entries {
 		// are the input index blobs in this compaction eligble for deletion?
-		if age := latestServerBlobTime.Sub(cl.metadata.Timestamp); age < m.maxEventualConsistencySettleTime {
-			log(ctx).Debugf("not deleting compacted index blob used as inputs for compaction %v, because it's too recent: %v < %v", cl.metadata.BlobID, age, m.maxEventualConsistencySettleTime)
+		if age := latestServerBlobTime.Sub(cl.metadata.Timestamp); age < maxEventualConsistencySettleTime {
+			log(ctx).Debugf("not deleting compacted index blob used as inputs for compaction %v, because it's too recent: %v < %v", cl.metadata.BlobID, age, maxEventualConsistencySettleTime)
 			continue
 		}
 
@@ -343,9 +342,9 @@ func (m *indexBlobManagerImpl) findCompactionLogBlobsToDelayCleanup(ctx context.
 	return result
 }
 
-func (m *indexBlobManagerImpl) findBlobsToDelete(entries map[blob.ID]*cleanupEntry) (compactionLogs, cleanupBlobs []blob.ID) {
+func (m *indexBlobManagerImpl) findBlobsToDelete(entries map[blob.ID]*cleanupEntry, maxEventualConsistencySettleTime time.Duration) (compactionLogs, cleanupBlobs []blob.ID) {
 	for k, e := range entries {
-		if e.age > m.maxEventualConsistencySettleTime {
+		if e.age >= maxEventualConsistencySettleTime {
 			compactionLogs = append(compactionLogs, e.BlobIDs...)
 			cleanupBlobs = append(cleanupBlobs, k)
 		}
@@ -391,7 +390,7 @@ func (m *indexBlobManagerImpl) deleteBlobsFromStorageAndCache(ctx context.Contex
 	return nil
 }
 
-func (m *indexBlobManagerImpl) cleanup(ctx context.Context) error {
+func (m *indexBlobManagerImpl) cleanup(ctx context.Context, maxEventualConsistencySettleTime time.Duration) error {
 	allCleanupBlobs, err := m.listCache.listBlobs(ctx, cleanupBlobPrefix)
 	if err != nil {
 		return errors.Wrap(err, "error listing cleanup blobs")
@@ -413,7 +412,7 @@ func (m *indexBlobManagerImpl) cleanup(ctx context.Context) error {
 	}
 
 	// pick cleanup entries to delete that are old enough
-	compactionLogsToDelete, cleanupBlobsToDelete := m.findBlobsToDelete(cleanupEntries)
+	compactionLogsToDelete, cleanupBlobsToDelete := m.findBlobsToDelete(cleanupEntries, maxEventualConsistencySettleTime)
 
 	if err := m.deleteBlobsFromStorageAndCache(ctx, compactionLogsToDelete); err != nil {
 		return errors.Wrap(err, "unable to delete cleanup blobs")

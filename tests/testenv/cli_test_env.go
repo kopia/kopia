@@ -74,8 +74,12 @@ func NewCLITest(t *testing.T) *CLITest {
 
 	exe := os.Getenv("KOPIA_EXE")
 	if exe == "" {
-		// exe = "kopia"
-		t.Skip()
+		if os.Getenv("VSCODE_PID") != "" {
+			// we're launched from VSCode, use system-installed kopia executable.
+			exe = "kopia"
+		} else {
+			t.Skip()
+		}
 	}
 
 	// unset environment variables that disrupt tests when passed to subprocesses.

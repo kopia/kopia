@@ -20,15 +20,6 @@ type Params struct {
 
 	QuickCycle CycleParams `json:"quick"`
 	FullCycle  CycleParams `json:"full"`
-
-	SnapshotGC SnapshotGCParams `json:"snapshotGC"`
-}
-
-// SnapshotGCParams contains parameters for Snapshot Garbage Collection
-// NOTE: Due to layering, the implementation of Snapshot GC is outside of repository package
-// but for simplicity we store it here.
-type SnapshotGCParams struct {
-	MinContentAge time.Duration `json:"minAge"`
 }
 
 // DefaultParams represents default values of maintenance parameters.
@@ -41,9 +32,6 @@ func DefaultParams() Params {
 		QuickCycle: CycleParams{
 			Enabled:  true,
 			Interval: 1 * time.Hour,
-		},
-		SnapshotGC: SnapshotGCParams{
-			MinContentAge: 24 * time.Hour, //nolint:gomnd
 		},
 	}
 }

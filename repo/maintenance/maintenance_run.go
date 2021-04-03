@@ -14,16 +14,6 @@ import (
 	"github.com/kopia/kopia/repo/logging"
 )
 
-// safetyMarginBetweenSnapshotGC is the minimal amount of time that must pass between snapshot
-// GC cycles to allow all in-flight snapshots during earlier GC to be flushed to be flushed and
-// visible to a following GC. The uploader will automatically create a checkpoint every 45 minutes,
-// so ~1 hour should be enough but we're setting this to a higher conservative value for extra safety.
-const (
-	safetyMarginBetweenSnapshotGC = 4 * time.Hour
-
-	extraSafetyMarginBeforeDroppingContentFromIndex = -1 * time.Hour
-)
-
 var log = logging.GetContextLoggerFunc("maintenance")
 
 // Mode describes the mode of maintenance to perfor.
@@ -186,20 +176,20 @@ func RunExclusive(ctx context.Context, rep repo.DirectRepositoryWriter, mode Mod
 }
 
 // Run performs maintenance activities for a repository.
-func Run(ctx context.Context, runParams RunParameters) error {
+func Run(ctx context.Context, runParams RunParameters, safety SafetyParameters) error {
 	switch runParams.Mode {
 	case ModeQuick:
-		return runQuickMaintenance(ctx, runParams)
+		return runQuickMaintenance(ctx, runParams, safety)
 
 	case ModeFull:
-		return runFullMaintenance(ctx, runParams)
+		return runFullMaintenance(ctx, runParams, safety)
 
 	default:
 		return errors.Errorf("unknown mode %q", runParams.Mode)
 	}
 }
 
-func runQuickMaintenance(ctx context.Context, runParams RunParameters) error {
+func runQuickMaintenance(ctx context.Context, runParams RunParameters, safety SafetyParameters) error {
 	// find 'q' packs that are less than 80% full and rewrite contents in them into
 	// new consolidated packs, orphaning old packs in the process.
 	if err := ReportRun(ctx, runParams.rep, "quick-rewrite-contents", func() error {
@@ -207,7 +197,7 @@ func runQuickMaintenance(ctx context.Context, runParams RunParameters) error {
 			ContentIDRange: content.AllPrefixedIDs,
 			PackPrefix:     content.PackBlobIDPrefixSpecial,
 			ShortPacks:     true,
-		})
+		}, safety)
 	}); err != nil {
 		return errors.Wrap(err, "error rewriting metadata contents")
 	}
@@ -216,7 +206,7 @@ func runQuickMaintenance(ctx context.Context, runParams RunParameters) error {
 	if err := ReportRun(ctx, runParams.rep, "quick-delete-blobs", func() error {
 		_, err := DeleteUnreferencedBlobs(ctx, runParams.rep, DeleteUnreferencedBlobsOptions{
 			Prefix: content.PackBlobIDPrefixSpecial,
-		})
+		}, safety)
 		return err
 	}); err != nil {
 		return errors.Wrap(err, "error deleting unreferenced metadata blobs")
@@ -224,7 +214,7 @@ func runQuickMaintenance(ctx context.Context, runParams RunParameters) error {
 
 	// consolidate many smaller indexes into fewer larger ones.
 	if err := ReportRun(ctx, runParams.rep, "index-compaction", func() error {
-		return IndexCompaction(ctx, runParams.rep)
+		return IndexCompaction(ctx, runParams.rep, safety)
 	}); err != nil {
 		return errors.Wrap(err, "error performing index compaction")
 	}
@@ -232,19 +222,27 @@ func runQuickMaintenance(ctx context.Context, runParams RunParameters) error {
 	return nil
 }
 
-func runFullMaintenance(ctx context.Context, runParams RunParameters) error {
-	s, err := GetSchedule(ctx, runParams.rep)
-	if err != nil {
-		return errors.Wrap(err, "unable to get schedule")
+func runFullMaintenance(ctx context.Context, runParams RunParameters, safety SafetyParameters) error {
+	var safeDropTime time.Time
+
+	if safety.RequireTwoGCCycles {
+		s, err := GetSchedule(ctx, runParams.rep)
+		if err != nil {
+			return errors.Wrap(err, "unable to get schedule")
+		}
+
+		safeDropTime = findSafeDropTime(s.Runs["snapshot-gc"], safety)
+	} else {
+		safeDropTime = runParams.rep.Time()
 	}
 
-	if safeDropTime := findSafeDropTime(s.Runs["snapshot-gc"]); !safeDropTime.IsZero() {
+	if !safeDropTime.IsZero() {
 		log(ctx).Infof("Found safe time to drop indexes: %v", safeDropTime)
 
 		// rewrite indexes by dropping content entries that have been marked
 		// as deleted for a long time
 		if err := ReportRun(ctx, runParams.rep, "full-drop-deleted-content", func() error {
-			return DropDeletedContents(ctx, runParams.rep, safeDropTime)
+			return DropDeletedContents(ctx, runParams.rep, safeDropTime, safety)
 		}); err != nil {
 			return errors.Wrap(err, "error dropping deleted contents")
 		}
@@ -258,14 +256,14 @@ func runFullMaintenance(ctx context.Context, runParams RunParameters) error {
 		return RewriteContents(ctx, runParams.rep, &RewriteContentsOptions{
 			ContentIDRange: content.AllIDs,
 			ShortPacks:     true,
-		})
+		}, safety)
 	}); err != nil {
 		return errors.Wrap(err, "error rewriting contents in short packs")
 	}
 
 	// delete orphaned packs after some time.
 	if err := ReportRun(ctx, runParams.rep, "full-delete-blobs", func() error {
-		_, err := DeleteUnreferencedBlobs(ctx, runParams.rep, DeleteUnreferencedBlobsOptions{})
+		_, err := DeleteUnreferencedBlobs(ctx, runParams.rep, DeleteUnreferencedBlobsOptions{}, safety)
 		return err
 	}); err != nil {
 		return errors.Wrap(err, "error deleting unreferenced blobs")
@@ -278,7 +276,7 @@ func runFullMaintenance(ctx context.Context, runParams RunParameters) error {
 // deleted before that time, because at least two successful GC cycles have completed
 // and minimum required time between the GCs has passed.
 //
-// The worst possible case we needf to handle is:
+// The worst possible case we need to handle is:
 //
 // Step #1 - race between GC and snapshot creation:
 //
@@ -297,8 +295,8 @@ func runFullMaintenance(ctx context.Context, runParams RunParameters) error {
 // After Step 2 completes, we know for sure that all contents deleted before Step #1 has started
 // are safe to drop from the index because Step #2 has fixed them, as long as all snapshots that
 // were racing with snapshot GC in step #1 have flushed pending writes, hence the
-// safetyMarginBetweenSnapshotGC.
-func findSafeDropTime(runs []RunInfo) time.Time {
+// safety.MarginBetweenSnapshotGC.
+func findSafeDropTime(runs []RunInfo, safety SafetyParameters) time.Time {
 	var successfulRuns []RunInfo
 
 	for _, r := range runs {
@@ -319,8 +317,8 @@ func findSafeDropTime(runs []RunInfo) time.Time {
 	// Look for previous successful run such that the time between GCs exceeds the safety margin.
 	for _, r := range successfulRuns[1:] {
 		diff := -r.End.Sub(successfulRuns[0].Start)
-		if diff > safetyMarginBetweenSnapshotGC {
-			return r.Start.Add(extraSafetyMarginBeforeDroppingContentFromIndex)
+		if diff > safety.MarginBetweenSnapshotGC {
+			return r.Start.Add(-safety.DropContentFromIndexExtraMargin)
 		}
 	}
 

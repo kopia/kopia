@@ -311,14 +311,13 @@ func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *Ca
 	sm.committedContents = contentIndex
 
 	sm.indexBlobManager = &indexBlobManagerImpl{
-		st:                               sm.st,
-		encryptor:                        sm.encryptor,
-		hasher:                           sm.hasher,
-		timeNow:                          sm.timeNow,
-		ownWritesCache:                   owc,
-		listCache:                        listCache,
-		indexBlobCache:                   metadataCache,
-		maxEventualConsistencySettleTime: defaultEventualConsistencySettleTime,
+		st:             sm.st,
+		encryptor:      sm.encryptor,
+		hasher:         sm.hasher,
+		timeNow:        sm.timeNow,
+		ownWritesCache: owc,
+		listCache:      listCache,
+		indexBlobCache: metadataCache,
 	}
 
 	return nil

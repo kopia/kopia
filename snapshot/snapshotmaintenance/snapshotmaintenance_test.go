@@ -55,10 +55,12 @@ func TestSnapshotGCSimple(t *testing.T) {
 
 	mustFlush(t, th.RepositoryWriter)
 
-	// Advance time to force GC to mark as deleted the contents from the previous snapshot
-	th.fakeTime.Advance(maintenance.DefaultParams().SnapshotGC.MinContentAge + time.Hour)
+	safety := maintenance.SafetyFull
 
-	err = snapshotmaintenance.Run(ctx, th.RepositoryWriter, maintenance.ModeFull, true)
+	// Advance time to force GC to mark as deleted the contents from the previous snapshot
+	th.fakeTime.Advance(safety.MinContentAgeSubjectToGC + time.Hour)
+
+	err = snapshotmaintenance.Run(ctx, th.RepositoryWriter, maintenance.ModeFull, true, maintenance.SafetyFull)
 	require.NoError(t, err)
 
 	mustFlush(t, th.RepositoryWriter)
@@ -109,8 +111,10 @@ func TestMaintenanceReuseDirManifest(t *testing.T) {
 
 	mustFlush(t, th.RepositoryWriter)
 
+	safety := maintenance.SafetyFull
+
 	// Advance time to force GC to mark as deleted the contents from the previous snapshot
-	th.fakeTime.Advance(maintenance.DefaultParams().SnapshotGC.MinContentAge + time.Hour)
+	th.fakeTime.Advance(safety.MinContentAgeSubjectToGC + time.Hour)
 
 	r2 := th.openAnother(t)
 
@@ -120,7 +124,7 @@ func TestMaintenanceReuseDirManifest(t *testing.T) {
 	// interleaving snapshot and maintenance and delaying flushing as well to
 	// create dangling references to contents that were in the previously
 	// deleted snapshot and that are reused in this new snapshot.
-	err = snapshotmaintenance.Run(ctx, th.RepositoryWriter, maintenance.ModeFull, true)
+	err = snapshotmaintenance.Run(ctx, th.RepositoryWriter, maintenance.ModeFull, true, maintenance.SafetyFull)
 	require.NoError(t, err)
 
 	info, err := r2.(repo.DirectRepository).ContentReader().ContentInfo(ctx, content.ID(s2.RootObjectID()))
@@ -145,8 +149,8 @@ func TestMaintenanceReuseDirManifest(t *testing.T) {
 	require.NoError(t, err)
 
 	// Run maintenance again
-	th.fakeTime.Advance(maintenance.DefaultParams().SnapshotGC.MinContentAge + time.Hour)
-	err = snapshotmaintenance.Run(ctx, th.RepositoryWriter, maintenance.ModeFull, true)
+	th.fakeTime.Advance(safety.MinContentAgeSubjectToGC + time.Hour)
+	err = snapshotmaintenance.Run(ctx, th.RepositoryWriter, maintenance.ModeFull, true, safety)
 	require.NoError(t, err)
 	mustFlush(t, th.RepositoryWriter)
 
