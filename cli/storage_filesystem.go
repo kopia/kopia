@@ -3,10 +3,13 @@ package cli
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"strconv"
 
 	"github.com/alecthomas/kingpin"
+	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/ospath"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/filesystem"
 )
@@ -28,6 +31,13 @@ var (
 
 func connect(ctx context.Context, isNew bool) (blob.Storage, error) {
 	fso := options
+
+	fso.Path = ospath.ResolveUserFriendlyPath(fso.Path, false)
+
+	if !filepath.IsAbs(fso.Path) {
+		return nil, errors.Errorf("filesystem repository path must be absolute")
+	}
+
 	if v := connectOwnerUID; v != "" {
 		fso.FileUID = getIntPtrValue(v, 10)
 	}

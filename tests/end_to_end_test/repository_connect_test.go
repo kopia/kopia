@@ -1,11 +1,46 @@
 package endtoend_test
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
+
 	"github.com/kopia/kopia/tests/testenv"
 )
+
+func TestFilesystemRequiresAbsolutePaths(t *testing.T) {
+	t.Parallel()
+
+	e := testenv.NewCLITest(t)
+
+	e.RunAndExpectFailure(t, "repo", "create", "filesystem", "--path", "./relative-path")
+}
+
+func TestFilesystemSupportsTildeToReferToHome(t *testing.T) {
+	t.Parallel()
+
+	home, _ := os.UserHomeDir()
+	if home == "" {
+		t.Skip("home directory not available")
+	}
+
+	e := testenv.NewCLITest(t)
+
+	subdir := "repo-" + uuid.NewString()
+	fullPath := filepath.Join(home, subdir)
+
+	defer os.RemoveAll(fullPath)
+
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path=~/"+subdir)
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	if _, err := os.Stat(filepath.Join(fullPath, "kopia.repository.f")); err != nil {
+		t.Fatalf("error: %v", err)
+	}
+}
 
 func TestReconnect(t *testing.T) {
 	t.Parallel()
