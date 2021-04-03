@@ -1,0 +1,18 @@
+name: Race Detector
+on: [push,pull_request]
+jobs:
+  build:
+    name: Race Detector
+    runs-on: ubuntu-latest
+    steps:
+    - name: Set up Go.
+      uses: actions/setup-go@v2
+      with:
+        go-version: ^1.16
+      id: go
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+    - name: Integration Tests
+      run: make -j2 ci-integration-tests INTEGRATION_TEST_RACE_FLAGS=-race
