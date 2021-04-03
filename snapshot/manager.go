@@ -123,6 +123,10 @@ func SaveSnapshot(ctx context.Context, rep repo.RepositoryWriter, man *Manifest)
 		return "", errors.New("missing path")
 	}
 
+	// clear manifest ID in case it was set, since we'll be generating a new one and we don't want
+	// to write previous ID in JSON.
+	man.ID = ""
+
 	id, err := rep.PutManifest(ctx, sourceInfoToLabels(man.Source), man)
 	if err != nil {
 		return "", errors.Wrap(err, "error putting manifest")

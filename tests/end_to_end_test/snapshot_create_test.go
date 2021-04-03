@@ -46,8 +46,20 @@ func TestSnapshotCreate(t *testing.T) {
 	mustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir2, "--json"), &man1)
 	mustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir2, "--json"), &man2)
 
+	if man1.ID == "" {
+		t.Fatalf("missing root id")
+	}
+
+	if man2.ID == "" {
+		t.Fatalf("missing root id")
+	}
+
 	if man1.RootEntry.ObjectID == "" {
 		t.Fatalf("missing root id")
+	}
+
+	if man1.ID == man2.ID {
+		t.Fatalf("unexpectedly identical snapshot IDs: %v", man1.ID)
 	}
 
 	if man1.RootEntry.ObjectID != man2.RootEntry.ObjectID {
