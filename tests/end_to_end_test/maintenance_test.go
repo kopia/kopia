@@ -42,15 +42,15 @@ func TestFullMaintenance(t *testing.T) {
 		t.Fatalf("maintenance did not remove blobs: %v, had %v", got, originalBlobCount)
 	}
 
-	// we're expecting to have 5 blobs:
+	// we're expecting to have 5 or 6 blobs:
 	// - kopia.maintenance
 	// - kopia.repository
 	// - 2 index blobs
-	// - 1 q blob
+	// - 1 or 2 q blob
 
-	const blobCountAfterFullWipeout = 5
+	const blobCountAfterFullWipeout = 6
 
-	if got, want := e.RunAndExpectSuccess(t, "blob", "list"), blobCountAfterFullWipeout; len(got) != want {
+	if got, want := e.RunAndExpectSuccess(t, "blob", "list"), blobCountAfterFullWipeout; len(got) > want {
 		t.Fatalf("maintenance left unwanted blobs: %v, want %v", got, want)
 	}
 }
