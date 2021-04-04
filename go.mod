@@ -14,7 +14,7 @@ require (
 	github.com/aws/aws-sdk-go v1.38.1
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
-	github.com/efarrer/iothrottler v0.0.1
+	github.com/efarrer/iothrottler v0.0.2
 	github.com/fatih/color v1.10.0
 	github.com/foomo/htpasswd v0.0.0-20200116085101-e3a90e78da9c
 	github.com/go-ole/go-ole v1.2.5 // indirect
