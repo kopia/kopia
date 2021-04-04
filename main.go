@@ -76,6 +76,8 @@ func main() {
 
 	app.Version(repo.BuildVersion + " build: " + repo.BuildInfo + " from: " + repo.BuildGitHubRepo)
 	app.PreAction(logfile.Initialize)
+	app.ErrorWriter(os.Stderr)
+	app.UsageWriter(os.Stdout)
 	app.UsageTemplate(usageTemplate)
 
 	kingpin.MustParse(app.Parse(os.Args[1:]))
