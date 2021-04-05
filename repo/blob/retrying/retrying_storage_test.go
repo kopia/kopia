@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/clock"
@@ -43,23 +44,23 @@ func TestRetrying(t *testing.T) {
 	blobID := blob.ID("deadcafe")
 	blobID2 := blob.ID("deadcafe2")
 
-	must(t, rs.PutBlob(ctx, blobID, gather.FromSlice([]byte{1, 2, 3})))
+	require.NoError(t, rs.PutBlob(ctx, blobID, gather.FromSlice([]byte{1, 2, 3})))
 
-	must(t, rs.PutBlob(ctx, blobID2, gather.FromSlice([]byte{1, 2, 3, 4})))
+	require.NoError(t, rs.PutBlob(ctx, blobID2, gather.FromSlice([]byte{1, 2, 3, 4})))
 
-	must(t, rs.SetTime(ctx, blobID, clock.Now()))
+	require.NoError(t, rs.SetTime(ctx, blobID, clock.Now()))
 
 	_, err := rs.GetBlob(ctx, blobID, 0, -1)
-	must(t, err)
+	require.NoError(t, err)
 
 	_, err = rs.GetMetadata(ctx, blobID)
-	must(t, err)
+	require.NoError(t, err)
 
 	if _, err = rs.GetBlob(ctx, blobID, 4, 10000); !errors.Is(err, blob.ErrInvalidRange) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	must(t, rs.DeleteBlob(ctx, blobID))
+	require.NoError(t, rs.DeleteBlob(ctx, blobID))
 
 	if _, err = rs.GetBlob(ctx, blobID, 0, -1); !errors.Is(err, blob.ErrBlobNotFound) {
 		t.Fatalf("unexpected error: %v", err)
@@ -80,12 +81,4 @@ func TestRetrying(t *testing.T) {
 	}
 
 	fs.VerifyAllFaultsExercised(t)
-}
-
-func must(t *testing.T, err error) {
-	t.Helper()
-
-	if err != nil {
-		t.Fatal(err)
-	}
 }

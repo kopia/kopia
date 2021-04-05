@@ -4,6 +4,8 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/kopia/kopia/internal/repotesting"
 	"github.com/kopia/kopia/internal/user"
 )
@@ -15,7 +17,7 @@ func TestUserManager(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	must(t, user.SetUserProfile(ctx, env.RepositoryWriter, &user.Profile{
+	require.NoError(t, user.SetUserProfile(ctx, env.RepositoryWriter, &user.Profile{
 		Username:     "alice@somehost",
 		PasswordHash: []byte("hahaha"),
 	}))
@@ -33,7 +35,7 @@ func TestUserManager(t *testing.T) {
 		t.Errorf("unexpected password hash: %v, want %v", got, want)
 	}
 
-	must(t, user.SetUserProfile(ctx, env.RepositoryWriter, &user.Profile{
+	require.NoError(t, user.SetUserProfile(ctx, env.RepositoryWriter, &user.Profile{
 		Username:     "alice@somehost",
 		PasswordHash: []byte("hehehehe"),
 	}))
@@ -107,13 +109,5 @@ func TestValidateUsername_Invalid(t *testing.T) {
 		if user.ValidateUsername(tc) == nil {
 			t.Fatalf("username should be invalid %q", tc)
 		}
-	}
-}
-
-func must(t *testing.T, err error) {
-	t.Helper()
-
-	if err != nil {
-		t.Fatal(err)
 	}
 }

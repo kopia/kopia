@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/repotesting"
 	"github.com/kopia/kopia/internal/testutil"
@@ -313,17 +314,17 @@ func TestWriterScope(t *testing.T) {
 
 	// w1, w2, w3 are indepdendent sessions.
 	w1, err := rep.NewWriter(ctx, repo.WriteSessionOptions{Purpose: "writer1"})
-	must(t, err)
+	require.NoError(t, err)
 
 	defer w1.Close(ctx)
 
 	w2, err := rep.NewWriter(ctx, repo.WriteSessionOptions{Purpose: "writer2"})
-	must(t, err)
+	require.NoError(t, err)
 
 	defer w2.Close(ctx)
 
 	w3, err := rep.NewWriter(ctx, repo.WriteSessionOptions{Purpose: "writer3"})
-	must(t, err)
+	require.NoError(t, err)
 
 	defer w3.Close(ctx)
 
@@ -363,7 +364,7 @@ func TestWriterScope(t *testing.T) {
 	verify(ctx, t, lw, o4, o4Data, "o4-lw")
 	verify(ctx, t, rep, o4, o4Data, "o4-rep") // rep == lw so read is immediately visible
 
-	must(t, w1.Flush(ctx))
+	require.NoError(t, w1.Flush(ctx))
 
 	// after flushing w1, everybody else can now see o1
 	verify(ctx, t, w1, o1, o1Data, "o1-w1")
@@ -372,7 +373,7 @@ func TestWriterScope(t *testing.T) {
 	verify(ctx, t, lw, o1, o1Data, "o1-lw")
 	verify(ctx, t, rep, o1, o1Data, "o1-rep")
 
-	must(t, w2.Flush(ctx))
+	require.NoError(t, w2.Flush(ctx))
 
 	// after flushing w2, everybody else can now see o2
 	verify(ctx, t, w1, o2, o2Data, "o2-w1")
@@ -381,8 +382,8 @@ func TestWriterScope(t *testing.T) {
 	verify(ctx, t, lw, o2, o2Data, "o2-lw")
 	verify(ctx, t, rep, o2, o2Data, "o2-rep")
 
-	must(t, w3.Flush(ctx))
-	must(t, lw.Flush(ctx))
+	require.NoError(t, w3.Flush(ctx))
+	require.NoError(t, lw.Flush(ctx))
 
 	verify(ctx, t, w1, o3, o3Data, "o3-w1")
 	verify(ctx, t, w2, o3, o3Data, "o3-w2")
@@ -402,7 +403,7 @@ func TestWriteSessionFlushOnSuccess(t *testing.T) {
 
 	var oid object.ID
 
-	must(t, repo.WriteSession(ctx, env.Repository, repo.WriteSessionOptions{}, func(w repo.RepositoryWriter) error {
+	require.NoError(t, repo.WriteSession(ctx, env.Repository, repo.WriteSessionOptions{}, func(w repo.RepositoryWriter) error {
 		oid = writeObject(ctx, t, w, []byte{1, 2, 3}, "test-1")
 		return nil
 	}))
@@ -455,13 +456,5 @@ func verifyNotFound(ctx context.Context, t *testing.T, rep repo.Repository, obje
 	if !errors.Is(err, object.ErrObjectNotFound) {
 		t.Fatalf("expected not found for %v, got %v", testCaseID, err)
 		return
-	}
-}
-
-func must(t *testing.T, err error) {
-	t.Helper()
-
-	if err != nil {
-		t.Fatal(err)
 	}
 }

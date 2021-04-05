@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/kopia/kopia/internal/acl"
 	"github.com/kopia/kopia/internal/auth"
 	"github.com/kopia/kopia/internal/repotesting"
@@ -107,7 +109,7 @@ func TestDefaultAuthorizer_DefaultACLs(t *testing.T) {
 	ctx, env := repotesting.NewEnvironment(t)
 
 	for _, e := range auth.DefaultACLs {
-		must(t, acl.AddACL(ctx, env.RepositoryWriter, e))
+		require.NoError(t, acl.AddACL(ctx, env.RepositoryWriter, e))
 	}
 
 	verifyLegacyAuthorizer(ctx, t, env.Repository, auth.DefaultAuthorizer())

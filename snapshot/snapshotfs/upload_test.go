@@ -10,6 +10,7 @@ import (
 
 	"github.com/kylelemons/godebug/pretty"
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/virtualfs"
@@ -590,10 +591,10 @@ func TestUploadScanIgnoresFiles(t *testing.T) {
 
 	// no policy
 	result1, err := u.scanDirectory(ctx, th.sourceDir, nil)
-	must(t, err)
+	require.NoError(t, err)
 
 	result2, err := u.scanDirectory(ctx, th.sourceDir, policyTree)
-	must(t, err)
+	require.NoError(t, err)
 
 	if result1.numFiles == 0 {
 		t.Fatalf("no files scanned")
@@ -664,13 +665,5 @@ func TestUpload_VirtualDirectoryWithStreamingFile(t *testing.T) {
 	if got, want := man.Stats.TotalFileCount, int32(1); got != want {
 		// must have one file
 		t.Fatalf("unexpected manifest file count: %v, want %v", got, want)
-	}
-}
-
-func must(t *testing.T, err error) {
-	t.Helper()
-
-	if err != nil {
-		t.Fatal(err)
 	}
 }

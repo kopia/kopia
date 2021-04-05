@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/kopia/kopia/internal/auth"
 	"github.com/kopia/kopia/internal/repotesting"
 	"github.com/kopia/kopia/internal/user"
@@ -14,7 +16,7 @@ func TestRepositoryAuthenticator(t *testing.T) {
 	a := auth.AuthenticateRepositoryUsers()
 	ctx, env := repotesting.NewEnvironment(t)
 
-	must(t, repo.WriteSession(ctx, env.Repository, repo.WriteSessionOptions{},
+	require.NoError(t, repo.WriteSession(ctx, env.Repository, repo.WriteSessionOptions{},
 		func(w repo.RepositoryWriter) error {
 			p := &user.Profile{
 				Username: "user1@host1",
@@ -37,13 +39,5 @@ func verifyRepoAuthenticator(ctx context.Context, t *testing.T, a auth.Authentic
 
 	if got := a.IsValid(ctx, r, username, password); got != want {
 		t.Errorf("invalid authenticator result for %v/%v: %v, want %v", username, password, got, want)
-	}
-}
-
-func must(t *testing.T, err error) {
-	t.Helper()
-
-	if err != nil {
-		t.Fatal(err)
 	}
 }
