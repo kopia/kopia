@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/apiclient"
 	"github.com/kopia/kopia/internal/auth"
@@ -130,7 +131,7 @@ func TestServerUIAccessDeniedToRemoteUser(t *testing.T) {
 		Password:                            testPassword,
 	})
 
-	must(t, err)
+	require.NoError(t, err)
 
 	uiUserClient, err := apiclient.NewKopiaAPIClient(apiclient.Options{
 		BaseURL:                             si.BaseURL,
@@ -139,7 +140,7 @@ func TestServerUIAccessDeniedToRemoteUser(t *testing.T) {
 		Password:                            testUIPassword,
 	})
 
-	must(t, err)
+	require.NoError(t, err)
 
 	// examples of URLs and expected statuses returned when UI user calls them, but which must return 403 when
 	// remote user calls them.
@@ -193,7 +194,7 @@ func remoteRepositoryTest(ctx context.Context, t *testing.T, rep repo.Repository
 
 	var uploaded int64
 
-	must(t, repo.WriteSession(ctx, rep, repo.WriteSessionOptions{
+	require.NoError(t, repo.WriteSession(ctx, rep, repo.WriteSessionOptions{
 		Purpose: "write test",
 		OnUpload: func(i int64) {
 			uploaded += i
@@ -228,7 +229,7 @@ func remoteRepositoryTest(ctx context.Context, t *testing.T, rep repo.Repository
 		})
 
 		_, err := ow.Write([]byte{2, 3, 4})
-		must(t, err)
+		require.NoError(t, err)
 
 		_, err = ow.Result()
 		if err == nil {
@@ -239,20 +240,20 @@ func remoteRepositoryTest(ctx context.Context, t *testing.T, rep repo.Repository
 			Source:      srcInfo,
 			Description: "written",
 		})
-		must(t, err)
+		require.NoError(t, err)
 		mustListSnapshotCount(ctx, t, w, 1)
 
 		manifestID2, err = snapshot.SaveSnapshot(ctx, w, &snapshot.Manifest{
 			Source:      srcInfo,
 			Description: "written2",
 		})
-		must(t, err)
+		require.NoError(t, err)
 		mustListSnapshotCount(ctx, t, w, 2)
 
 		mustReadManifest(ctx, t, w, manifestID, "written")
 		mustReadManifest(ctx, t, w, manifestID2, "written2")
 
-		must(t, w.DeleteManifest(ctx, manifestID2))
+		require.NoError(t, w.DeleteManifest(ctx, manifestID2))
 		mustListSnapshotCount(ctx, t, w, 1)
 
 		mustGetManifestNotFound(ctx, t, w, manifestID2)
@@ -274,10 +275,10 @@ func mustWriteObject(ctx context.Context, t *testing.T, w repo.RepositoryWriter,
 	ow := w.NewObjectWriter(ctx, object.WriterOptions{})
 
 	_, err := ow.Write(data)
-	must(t, err)
+	require.NoError(t, err)
 
 	result, err := ow.Result()
-	must(t, err)
+	require.NoError(t, err)
 
 	return result
 }
@@ -286,10 +287,10 @@ func mustReadObject(ctx context.Context, t *testing.T, r repo.Repository, oid ob
 	t.Helper()
 
 	or, err := r.OpenObject(ctx, oid)
-	must(t, err)
+	require.NoError(t, err)
 
 	data, err := ioutil.ReadAll(or)
-	must(t, err)
+	require.NoError(t, err)
 
 	// verify data is read back the same.
 	if diff := cmp.Diff(data, want); diff != "" {
@@ -301,7 +302,7 @@ func mustReadManifest(ctx context.Context, t *testing.T, r repo.Repository, manI
 	t.Helper()
 
 	man, err := snapshot.LoadSnapshot(ctx, r, manID)
-	must(t, err)
+	require.NoError(t, err)
 
 	// verify data is read back the same.
 	if diff := cmp.Diff(man.Description, want); diff != "" {
@@ -338,14 +339,6 @@ func mustListSnapshotCount(ctx context.Context, t *testing.T, rep repo.Repositor
 
 	if got, want := len(snaps), wantCount; got != want {
 		t.Fatalf("unexpected number of snapshots: %v, want %v", got, want)
-	}
-}
-
-func must(t *testing.T, err error) {
-	t.Helper()
-
-	if err != nil {
-		t.Fatal(err)
 	}
 }
 

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/cache"
@@ -172,12 +173,12 @@ func verifyContentCache(t *testing.T, cc contentCache, cacheStorage blob.Storage
 		const cacheKey = "f0f0f1x"
 
 		d, err := cacheStorage.GetBlob(ctx, cacheKey, 0, -1)
-		must(t, err)
+		require.NoError(t, err)
 
 		// corrupt the data and write back
 		d[0] ^= 1
 
-		must(t, cacheStorage.PutBlob(ctx, cacheKey, gather.FromSlice(d)))
+		require.NoError(t, cacheStorage.PutBlob(ctx, cacheKey, gather.FromSlice(d)))
 
 		v, err := cc.getContent(ctx, "xf0f0f1", "content-1", 1, 5)
 		if err != nil {

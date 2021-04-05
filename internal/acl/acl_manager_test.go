@@ -3,6 +3,8 @@ package acl_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/kopia/kopia/internal/acl"
 	"github.com/kopia/kopia/internal/repotesting"
 	"github.com/kopia/kopia/repo/manifest"
@@ -152,14 +154,14 @@ func TestLoadEntries(t *testing.T) {
 
 	// load from nil repository
 	entries, err := acl.LoadEntries(ctx, nil, nil)
-	must(t, err)
+	require.NoError(t, err)
 
 	if got, want := len(entries), 0; got != want {
 		t.Fatalf("invalid number of entries %v, want %v", got, want)
 	}
 
 	entries, err = acl.LoadEntries(ctx, env.RepositoryWriter, nil)
-	must(t, err)
+	require.NoError(t, err)
 
 	if got, want := len(entries), 0; got != want {
 		t.Fatalf("invalid number of entries %v, want %v", got, want)
@@ -173,10 +175,10 @@ func TestLoadEntries(t *testing.T) {
 		Access: acl.AccessLevelFull,
 	}
 
-	must(t, acl.AddACL(ctx, env.RepositoryWriter, e1))
+	require.NoError(t, acl.AddACL(ctx, env.RepositoryWriter, e1))
 
 	entries, err = acl.LoadEntries(ctx, env.RepositoryWriter, entries)
-	must(t, err)
+	require.NoError(t, err)
 
 	if got, want := len(entries), 1; got != want {
 		t.Fatalf("invalid number of entries %v, want %v", got, want)
@@ -190,10 +192,10 @@ func TestLoadEntries(t *testing.T) {
 		Access: acl.AccessLevelFull,
 	}
 
-	must(t, acl.AddACL(ctx, env.RepositoryWriter, e2))
+	require.NoError(t, acl.AddACL(ctx, env.RepositoryWriter, e2))
 
 	entries, err = acl.LoadEntries(ctx, env.RepositoryWriter, entries)
-	must(t, err)
+	require.NoError(t, err)
 
 	if got, want := len(entries), 2; got != want {
 		t.Fatalf("invalid number of entries %v, want %v", got, want)
@@ -356,13 +358,5 @@ func TestACLEntryValidation(t *testing.T) {
 		} else if tc.WantErr != "" {
 			t.Fatalf("unexpected success, want %q", tc.WantErr)
 		}
-	}
-}
-
-func must(t *testing.T, err error) {
-	t.Helper()
-
-	if err != nil {
-		t.Fatal(err)
 	}
 }

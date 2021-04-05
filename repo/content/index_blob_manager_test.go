@@ -295,19 +295,19 @@ func TestCompactionCreatesPreviousIndex(t *testing.T) {
 	})
 
 	// index#1 - add content1
-	must(t, writeFakeContents(ctx, m, prefix, 1, &numWritten, fakeTimeFunc))
+	require.NoError(t, writeFakeContents(ctx, m, prefix, 1, &numWritten, fakeTimeFunc))
 	fakeTime.Advance(1 * time.Second)
 
 	// index#2 - add content2
-	must(t, writeFakeContents(ctx, m, prefix, 1, &numWritten, fakeTimeFunc))
+	require.NoError(t, writeFakeContents(ctx, m, prefix, 1, &numWritten, fakeTimeFunc))
 	fakeTime.Advance(1 * time.Second)
 
 	// index#3 - {content1, content2}, index#1, index#2 marked for deletion
-	must(t, fakeCompaction(ctx, m, false))
+	require.NoError(t, fakeCompaction(ctx, m, false))
 	fakeTime.Advance(1 * time.Second)
 
 	// index#4 - delete content1
-	must(t, deleteFakeContents(ctx, m, prefix, 1, deleted, fakeTimeFunc))
+	require.NoError(t, deleteFakeContents(ctx, m, prefix, 1, deleted, fakeTimeFunc))
 	fakeTime.Advance(1 * time.Second)
 
 	// this will create index identical to index#2,
@@ -315,11 +315,11 @@ func TestCompactionCreatesPreviousIndex(t *testing.T) {
 	// otherwise (since indexes are based on hash of content) they would create the same blob ID.
 	// if this was the case, first compaction marks index#1 as deleted and second compaction
 	// revives it.
-	must(t, fakeCompaction(ctx, m, true))
+	require.NoError(t, fakeCompaction(ctx, m, true))
 	fakeTime.Advance(testEventualConsistencySettleTime)
 
 	// if we were not to add randomness to index blobs, this would fail.
-	must(t, verifyFakeContentsWritten(ctx, m, 2, prefix, deleted))
+	require.NoError(t, verifyFakeContentsWritten(ctx, m, 2, prefix, deleted))
 }
 
 func TestIndexBlobManagerPreventsResurrectOfDeletedContents_RandomizedTimings(t *testing.T) {
@@ -375,23 +375,23 @@ func verifyIndexBlobManagerPreventsResurrectOfDeletedContents(t *testing.T, dela
 	})
 
 	// index#1 - write 2 contents
-	must(t, writeFakeContents(ctx, m, prefix, 2, &numWritten, fakeTimeFunc))
+	require.NoError(t, writeFakeContents(ctx, m, prefix, 2, &numWritten, fakeTimeFunc))
 	fakeTime.Advance(delay1)
 	// index#2 - delete first of the two contents.
-	must(t, deleteFakeContents(ctx, m, prefix, 1, deleted, fakeTimeFunc))
+	require.NoError(t, deleteFakeContents(ctx, m, prefix, 1, deleted, fakeTimeFunc))
 	fakeTime.Advance(delay2)
 	// index#3, log#3 - replaces index#1 and #2
-	must(t, fakeCompaction(ctx, m, true))
+	require.NoError(t, fakeCompaction(ctx, m, true))
 	fakeTime.Advance(delay3)
 
 	numWritten2 := numWritten
 
 	// index#4 - create one more content
-	must(t, writeFakeContents(ctx, m, prefix, 2, &numWritten, fakeTimeFunc))
+	require.NoError(t, writeFakeContents(ctx, m, prefix, 2, &numWritten, fakeTimeFunc))
 	fakeTime.Advance(delay4)
 
 	// index#5, log#4 replaces index#3 and index#4, this will delete index#1 and index#2 and log#3
-	must(t, fakeCompaction(ctx, m, true))
+	require.NoError(t, fakeCompaction(ctx, m, true))
 
 	t.Logf("************************************************ VERIFY")
 
@@ -401,14 +401,14 @@ func verifyIndexBlobManagerPreventsResurrectOfDeletedContents(t *testing.T, dela
 	// using another reader, make sure that all writes up to numWritten2 are correct regardless of whether
 	// compaction is visible
 	another := newIndexBlobManagerForTesting(t, st, fakeTimeFunc)
-	must(t, verifyFakeContentsWritten(ctx, another, numWritten2, prefix, deleted))
+	require.NoError(t, verifyFakeContentsWritten(ctx, another, numWritten2, prefix, deleted))
 
 	// verify that this reader can see all its own writes regardless of eventual consistency
-	must(t, verifyFakeContentsWritten(ctx, m, numWritten, prefix, deleted))
+	require.NoError(t, verifyFakeContentsWritten(ctx, m, numWritten, prefix, deleted))
 
 	// after eventual consistency is settled, another reader can see all our writes
 	fakeTime.Advance(testEventualConsistencySettleTime)
-	must(t, verifyFakeContentsWritten(ctx, another, numWritten, prefix, deleted))
+	require.NoError(t, verifyFakeContentsWritten(ctx, another, numWritten, prefix, deleted))
 }
 
 type fakeContentIndexEntry struct {

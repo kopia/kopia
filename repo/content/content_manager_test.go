@@ -18,6 +18,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/faketime"
@@ -372,16 +373,16 @@ func TestIndexCompactionDropsContent(t *testing.T) {
 	// create record in index #1
 	bm := newTestContentManager(t, data, keyTime, timeFunc)
 	content1 := writeContentAndVerify(ctx, t, bm, seededRandomData(10, 100))
-	must(t, bm.Flush(ctx))
-	must(t, bm.Close(ctx))
+	require.NoError(t, bm.Flush(ctx))
+	require.NoError(t, bm.Close(ctx))
 
 	timeFunc()
 
 	// create record in index #2
 	bm = newTestContentManager(t, data, keyTime, timeFunc)
 	deleteContent(ctx, t, bm, content1)
-	must(t, bm.Flush(ctx))
-	must(t, bm.Close(ctx))
+	require.NoError(t, bm.Flush(ctx))
+	require.NoError(t, bm.Close(ctx))
 
 	timeFunc()
 
@@ -391,12 +392,12 @@ func TestIndexCompactionDropsContent(t *testing.T) {
 
 	bm = newTestContentManager(t, data, keyTime, timeFunc)
 	// this drops deleted entries, including from index #1
-	must(t, bm.CompactIndexes(ctx, CompactOptions{
+	require.NoError(t, bm.CompactIndexes(ctx, CompactOptions{
 		DropDeletedBefore: deleteThreshold,
 		AllIndexes:        true,
 	}))
-	must(t, bm.Flush(ctx))
-	must(t, bm.Close(ctx))
+	require.NoError(t, bm.Flush(ctx))
+	require.NoError(t, bm.Close(ctx))
 
 	bm = newTestContentManager(t, data, keyTime, timeFunc)
 	verifyContentNotFound(ctx, t, bm, content1)
@@ -1925,14 +1926,14 @@ func verifyReadsOwnWrites(t *testing.T, st blob.Storage, timeNow func() time.Tim
 		// every 10 contents, create new content manager
 		if i%10 == 0 {
 			t.Logf("------- flushing & reopening -----")
-			must(t, bm.Flush(ctx))
-			must(t, bm.Close(ctx))
+			require.NoError(t, bm.Flush(ctx))
+			require.NoError(t, bm.Close(ctx))
 			bm = newTestContentManagerWithStorageAndCaching(t, st, cachingOptions, timeNow)
 		}
 	}
 
-	must(t, bm.Flush(ctx))
-	must(t, bm.Close(ctx))
+	require.NoError(t, bm.Flush(ctx))
+	require.NoError(t, bm.Close(ctx))
 	bm = newTestContentManagerWithStorageAndCaching(t, st, cachingOptions, timeNow)
 
 	for i := 0; i < len(ids); i++ {
@@ -2167,14 +2168,6 @@ func getContentInfo(t *testing.T, bm *WriteManager, c ID) Info {
 	}
 
 	return i
-}
-
-func must(t *testing.T, err error) {
-	t.Helper()
-
-	if err != nil {
-		t.Fatal(err)
-	}
 }
 
 func verifyBlobCount(t *testing.T, data blobtesting.DataMap, want map[blob.ID]int) {

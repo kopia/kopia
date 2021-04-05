@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/content"
@@ -22,13 +23,13 @@ func TestLocalConfig_withCaching(t *testing.T) {
 	}
 
 	cfgFile := filepath.Join(td, "repository.config")
-	must(t, originalLC.writeToFile(cfgFile))
+	require.NoError(t, originalLC.writeToFile(cfgFile))
 
 	rawLC := LocalConfig{}
 	mustParseJSONFile(t, cfgFile, &rawLC)
 
 	loadedLC, err := LoadConfigFromFile(cfgFile)
-	must(t, err)
+	require.NoError(t, err)
 
 	if filepath.IsAbs(rawLC.Caching.CacheDirectory) {
 		t.Fatalf("cache directory must be stored relative, was %v", rawLC.Caching.CacheDirectory)
@@ -45,13 +46,13 @@ func TestLocalConfig_noCaching(t *testing.T) {
 	originalLC := &LocalConfig{}
 
 	cfgFile := filepath.Join(td, "repository.config")
-	must(t, originalLC.writeToFile(cfgFile))
+	require.NoError(t, originalLC.writeToFile(cfgFile))
 
 	rawLC := LocalConfig{}
 	mustParseJSONFile(t, cfgFile, &rawLC)
 
 	loadedLC, err := LoadConfigFromFile(cfgFile)
-	must(t, err)
+	require.NoError(t, err)
 
 	if got, want := loadedLC.Caching, originalLC.Caching; got != want {
 		t.Fatalf("cacheing did not round trip: %v, want %v", got, want)
@@ -64,21 +65,13 @@ func TestLocalConfig_notFound(t *testing.T) {
 	}
 }
 
-func must(t *testing.T, err error) {
-	t.Helper()
-
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
 func mustParseJSONFile(t *testing.T, fname string, o interface{}) {
 	t.Helper()
 
 	f, err := os.Open(fname)
-	must(t, err)
+	require.NoError(t, err)
 
 	defer f.Close()
 
-	must(t, json.NewDecoder(f).Decode(o))
+	require.NoError(t, json.NewDecoder(f).Decode(o))
 }

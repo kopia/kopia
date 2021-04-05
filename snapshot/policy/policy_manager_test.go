@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/repotesting"
 	"github.com/kopia/kopia/snapshot"
@@ -20,7 +21,7 @@ func TestPolicyManagerInheritanceTest(t *testing.T) {
 		"type":       "policy",
 	})
 
-	must(t, SetPolicy(ctx, env.RepositoryWriter, snapshot.SourceInfo{
+	require.NoError(t, SetPolicy(ctx, env.RepositoryWriter, snapshot.SourceInfo{
 		Host: "host-a",
 	}, &Policy{
 		RetentionPolicy: RetentionPolicy{
@@ -28,7 +29,7 @@ func TestPolicyManagerInheritanceTest(t *testing.T) {
 		},
 	}))
 
-	must(t, SetPolicy(ctx, env.RepositoryWriter, snapshot.SourceInfo{
+	require.NoError(t, SetPolicy(ctx, env.RepositoryWriter, snapshot.SourceInfo{
 		Host:     "host-a",
 		UserName: "myuser",
 		Path:     "/some/path2",
@@ -38,7 +39,7 @@ func TestPolicyManagerInheritanceTest(t *testing.T) {
 		},
 	}))
 
-	must(t, SetPolicy(ctx, env.RepositoryWriter, snapshot.SourceInfo{
+	require.NoError(t, SetPolicy(ctx, env.RepositoryWriter, snapshot.SourceInfo{
 		Host: "host-b",
 	}, &Policy{
 		RetentionPolicy: RetentionPolicy{
@@ -170,26 +171,26 @@ func TestPolicyManagerResolvesConflicts(t *testing.T) {
 	r2 := env.MustOpenAnother(t)
 	sourceInfo := GlobalPolicySourceInfo
 
-	must(t, SetPolicy(ctx, r1, sourceInfo, &Policy{
+	require.NoError(t, SetPolicy(ctx, r1, sourceInfo, &Policy{
 		RetentionPolicy: RetentionPolicy{
 			KeepDaily: intPtr(44),
 		},
 	}))
 
-	must(t, SetPolicy(ctx, r2, sourceInfo, &Policy{
+	require.NoError(t, SetPolicy(ctx, r2, sourceInfo, &Policy{
 		RetentionPolicy: RetentionPolicy{
 			KeepDaily: intPtr(33),
 		},
 	}))
 
-	must(t, r1.Flush(ctx))
-	must(t, r2.Flush(ctx))
+	require.NoError(t, r1.Flush(ctx))
+	require.NoError(t, r2.Flush(ctx))
 
 	r3 := env.MustOpenAnother(t)
 
 	pi, err := GetDefinedPolicy(ctx, r3, sourceInfo)
 
-	must(t, err)
+	require.NoError(t, err)
 
 	if got, want := pi.Target(), sourceInfo; got != want {
 		t.Errorf("invalid policy target %v, want %v", got, want)
@@ -320,7 +321,7 @@ func TestApplicablePoliciesForSource(t *testing.T) {
 	}
 
 	for si, pol := range setPols {
-		must(t, SetPolicy(ctx, env.RepositoryWriter, si, pol))
+		require.NoError(t, SetPolicy(ctx, env.RepositoryWriter, si, pol))
 	}
 
 	cases := []struct {
@@ -408,13 +409,5 @@ func TestApplicablePoliciesForSource(t *testing.T) {
 				t.Errorf("invalid sub-policies %v", diff)
 			}
 		})
-	}
-}
-
-func must(t *testing.T, err error) {
-	t.Helper()
-
-	if err != nil {
-		t.Fatal(err)
 	}
 }

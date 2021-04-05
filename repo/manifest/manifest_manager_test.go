@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/testlogging"
@@ -353,10 +354,10 @@ func TestManifestAutoCompaction(t *testing.T) {
 		item1 := map[string]int{"foo": 1, "bar": 2}
 		labels1 := map[string]string{"type": "item", "color": "red"}
 		found, err := mgr.Find(ctx, labels1)
-		must(t, err)
+		require.NoError(t, err)
 
 		if i%30 == 0 {
-			must(t, mgr.Compact(ctx))
+			require.NoError(t, mgr.Compact(ctx))
 		}
 
 		if got, want := len(found), i; got != want {
@@ -365,15 +366,7 @@ func TestManifestAutoCompaction(t *testing.T) {
 
 		addAndVerify(ctx, t, mgr, labels1, item1)
 
-		must(t, mgr.Flush(ctx))
-		must(t, mgr.b.Flush(ctx))
-	}
-}
-
-func must(t *testing.T, err error) {
-	t.Helper()
-
-	if err != nil {
-		t.Fatal(err)
+		require.NoError(t, mgr.Flush(ctx))
+		require.NoError(t, mgr.b.Flush(ctx))
 	}
 }
