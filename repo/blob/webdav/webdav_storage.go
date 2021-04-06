@@ -119,23 +119,30 @@ func (d *davStorageImpl) PutBlobInPath(ctx context.Context, dirPath, filePath st
 	b := buf.Bytes()
 
 	return retry.WithExponentialBackoffNoValue(ctx, "WriteTemporaryFileAndCreateParentDirs", func() error {
-		err := d.translateError(d.cli.Write(tmpPath, b, defaultFilePerm))
-		if err == nil {
-			return d.cli.Rename(tmpPath, filePath, true)
+		mkdirAttempted := false
+
+		for {
+			err := d.translateError(d.cli.Write(tmpPath, b, defaultFilePerm))
+			if err == nil {
+				return d.cli.Rename(tmpPath, filePath, true)
+			}
+
+			// An error above may indicate that the directory doesn't exist.
+			// Attempt to create required directories and try again, if successful.
+			if !mkdirAttempted {
+				mkdirAttempted = true
+
+				if mkdirErr := d.cli.MkdirAll(dirPath, defaultDirPerm); mkdirErr == nil {
+					// If MkdirAll succeeds, the missing directory was likely
+					// the problem, so try again immediately.
+					//
+					// Otherwise, fall through and return the original error.
+					continue
+				}
+			}
+
+			return err
 		}
-
-		if !errors.Is(err, blob.ErrBlobNotFound) {
-			return errors.Wrap(err, "unexpected error when writing")
-		}
-
-		// BlobNotFound is an indication that directory does not exist,
-		// create all required directories
-		//
-		// this may require more than one retry if multiple clients are attempting it at
-		// the same time.
-		_ = d.cli.MkdirAll(dirPath, defaultDirPerm)
-
-		return err
 	}, isRetriable)
 }
 

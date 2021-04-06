@@ -1,7 +1,9 @@
 package webdav
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -65,7 +67,7 @@ func TestWebDAVStorageBuiltInServer(t *testing.T) {
 	server := httptest.NewServer(mux)
 	defer server.Close()
 
-	// Test varioush shard configurations.
+	// Test various shard configurations.
 	for _, shardSpec := range [][]int{
 		{1},
 		{3, 3},
@@ -83,6 +85,51 @@ func TestWebDAVStorageBuiltInServer(t *testing.T) {
 
 			verifyWebDAVStorage(t, server.URL, "user", "password", shardSpec)
 		})
+	}
+}
+
+func TestWebDAVStorageBuiltInServerWithMissingAsForbidden(t *testing.T) {
+	tmpDir := testutil.TempDirectory(t)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", transformMissingPUTs(basicAuth(&webdav.Handler{
+		FileSystem: webdav.Dir(tmpDir),
+		LockSystem: webdav.NewMemLS(),
+	})))
+
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	verifyWebDAVStorage(t, server.URL, "user", "password", []int{1})
+}
+
+// transformMissingPUTs changes not found responses into forbidden responses.
+func transformMissingPUTs(next http.Handler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Passthrough non-PUT methods
+		if r.Method != http.MethodPut {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// Intercept all PUT methods
+		rec := httptest.NewRecorder()
+		rec.Body = &bytes.Buffer{}
+		next.ServeHTTP(rec, r)
+
+		result := rec.Result()
+
+		// Change the status code to forbidden if returned as not found
+		if result.StatusCode == http.StatusNotFound {
+			w.WriteHeader(http.StatusForbidden)
+		} else {
+			// Passthrough recorded response headers, status code, and body
+			for header, values := range rec.Header() {
+				w.Header()[header] = values
+			}
+			w.WriteHeader(result.StatusCode)
+			io.Copy(w, result.Body)
+		}
 	}
 }
 
