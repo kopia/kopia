@@ -13,6 +13,8 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 )
 
+const maxTimeDiffBetweenGetAndList = 5 * time.Second
+
 // AssertGetBlob asserts that the specified BLOB has correct content.
 func AssertGetBlob(ctx context.Context, t *testing.T, s blob.Storage, blobID blob.ID, expected []byte) {
 	t.Helper()
@@ -126,7 +128,7 @@ func AssertListResults(ctx context.Context, t *testing.T, s blob.Storage, prefix
 		}
 
 		// truncated time comparison, because some providers return different precision of time in list vs get
-		if timeDiff > 2*time.Second {
+		if timeDiff > maxTimeDiffBetweenGetAndList {
 			t.Errorf("invalid timestamp on %v: getmetadata returned %v, list returned %v", m.BlobID, m2.Timestamp, m.Timestamp)
 		}
 
