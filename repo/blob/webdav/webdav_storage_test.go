@@ -118,6 +118,7 @@ func transformMissingPUTs(next http.Handler) http.HandlerFunc {
 		next.ServeHTTP(rec, r)
 
 		result := rec.Result()
+		defer result.Body.Close()
 
 		// Change the status code to forbidden if returned as not found
 		if result.StatusCode == http.StatusNotFound {
