@@ -174,6 +174,11 @@ func findContentInShortPacks(ctx context.Context, rep repo.DirectRepository, ch 
 		prefixes = append(prefixes, opt.PackPrefix)
 	}
 
+	var (
+		packNumberByPrefix = map[blob.ID]int{}
+		firstPackByPrefix  = map[blob.ID]content.PackInfo{}
+	)
+
 	err := rep.ContentReader().IteratePacks(
 		ctx,
 		content.IteratePackOptions{
@@ -186,14 +191,24 @@ func findContentInShortPacks(ctx context.Context, rep repo.DirectRepository, ch 
 				return nil
 			}
 
-			blobMeta, err := rep.BlobReader().GetMetadata(ctx, pi.PackID)
-			if err != nil {
-				return errors.Wrapf(err, "unable to get blob metadata %v", pi.PackID)
+			prefix := pi.PackID[0:1]
+
+			packNumberByPrefix[prefix]++
+
+			if packNumberByPrefix[prefix] == 1 {
+				// do not immediately compact the first pack, in case it's the only pack.
+				firstPackByPrefix[prefix] = pi
+				return nil
 			}
 
-			// pack is short but the content consumes most of it, ignore.
-			if pi.TotalSize > shortPackThresholdPercent*blobMeta.Length/100 {
-				return nil
+			// nolint:gomnd
+			if packNumberByPrefix[prefix] == 2 {
+				// when we encounter the 2nd pack, emit contents from the first one too.
+				for _, ci := range firstPackByPrefix[prefix].ContentInfos {
+					ch <- contentInfoOrError{Info: ci}
+				}
+
+				firstPackByPrefix[prefix] = content.PackInfo{}
 			}
 
 			for _, ci := range pi.ContentInfos {
