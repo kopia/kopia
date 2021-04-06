@@ -19,7 +19,7 @@ require (
 	github.com/foomo/htpasswd v0.0.0-20200116085101-e3a90e78da9c
 	github.com/go-ole/go-ole v1.2.5 // indirect
 	github.com/gofrs/flock v0.8.0
-	github.com/golang/protobuf v1.5.1
+	github.com/golang/protobuf v1.5.2
 	github.com/google/fswalker v0.2.1-0.20200214223026-f0e929ba4126
 	github.com/google/go-cmp v0.5.5
 	github.com/google/readahead v0.0.0-20161222183148-eaceba169032 // indirect
