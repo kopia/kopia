@@ -14,7 +14,7 @@
     "moment": "^2.29.1",
     "pretty": "^2.0.0",
     "react": "^16.14.0",
-    "react-bootstrap": "^1.4.3",
+    "react-bootstrap": "^1.5.2",
     "react-dom": "^16.14.0",
     "react-router-dom": "^5.2.0",
     "react-scripts": "^4.0.3",
