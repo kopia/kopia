@@ -2,6 +2,7 @@ package endtoend_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/tests/testenv"
@@ -23,6 +24,9 @@ func TestFullMaintenance(t *testing.T) {
 	}
 
 	mustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1, "--json"), &snap)
+
+	// avoid create and delete in the same second.
+	time.Sleep(2 * time.Second)
 	e.RunAndExpectSuccess(t, "snapshot", "delete", string(snap.ID), "--delete")
 
 	e.RunAndVerifyOutputLineCount(t, 0, "snapshot", "list")
