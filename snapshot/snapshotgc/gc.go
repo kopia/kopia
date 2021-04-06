@@ -77,7 +77,7 @@ func findInUseContentIDs(ctx context.Context, rep repo.Repository, used *sync.Ma
 func Run(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete bool, safety maintenance.SafetyParameters) (Stats, error) {
 	var st Stats
 
-	err := maintenance.ReportRun(ctx, rep, "snapshot-gc", func() error {
+	err := maintenance.ReportRun(ctx, rep, maintenance.TaskSnapshotGarbageCollection, func() error {
 		return runInternal(ctx, rep, gcDelete, safety, &st)
 	})
 

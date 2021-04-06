@@ -27,6 +27,20 @@ const (
 	ModeAuto  Mode = "auto" // run either quick of full if required by schedule
 )
 
+// TaskType identifies the type of a maintenance task.
+type TaskType string
+
+// Task IDs.
+const (
+	TaskSnapshotGarbageCollection = "snapshot-gc"
+	TaskDeleteOrphanedBlobsQuick  = "quick-delete-blobs"
+	TaskDeleteOrphanedBlobsFull   = "full-delete-blobs"
+	TaskRewriteContentsQuick      = "quick-rewrite-contents"
+	TaskRewriteContentsFull       = "full-rewrite-contents"
+	TaskDropDeletedContentsFull   = "full-drop-deleted-content"
+	TaskIndexCompaction           = "index-compaction"
+)
+
 // shouldRun returns Mode if repository is due for periodic maintenance.
 func shouldRun(ctx context.Context, rep repo.DirectRepository, p *Params) (Mode, error) {
 	if myUsername := rep.ClientOptions().UsernameAtHost(); p.Owner != myUsername {
@@ -192,7 +206,7 @@ func Run(ctx context.Context, runParams RunParameters, safety SafetyParameters) 
 func runQuickMaintenance(ctx context.Context, runParams RunParameters, safety SafetyParameters) error {
 	// find 'q' packs that are less than 80% full and rewrite contents in them into
 	// new consolidated packs, orphaning old packs in the process.
-	if err := ReportRun(ctx, runParams.rep, "quick-rewrite-contents", func() error {
+	if err := ReportRun(ctx, runParams.rep, TaskRewriteContentsQuick, func() error {
 		return RewriteContents(ctx, runParams.rep, &RewriteContentsOptions{
 			ContentIDRange: content.AllPrefixedIDs,
 			PackPrefix:     content.PackBlobIDPrefixSpecial,
@@ -203,7 +217,7 @@ func runQuickMaintenance(ctx context.Context, runParams RunParameters, safety Sa
 	}
 
 	// delete orphaned 'q' packs after some time.
-	if err := ReportRun(ctx, runParams.rep, "quick-delete-blobs", func() error {
+	if err := ReportRun(ctx, runParams.rep, TaskDeleteOrphanedBlobsQuick, func() error {
 		_, err := DeleteUnreferencedBlobs(ctx, runParams.rep, DeleteUnreferencedBlobsOptions{
 			Prefix: content.PackBlobIDPrefixSpecial,
 		}, safety)
@@ -213,7 +227,7 @@ func runQuickMaintenance(ctx context.Context, runParams RunParameters, safety Sa
 	}
 
 	// consolidate many smaller indexes into fewer larger ones.
-	if err := ReportRun(ctx, runParams.rep, "index-compaction", func() error {
+	if err := ReportRun(ctx, runParams.rep, TaskIndexCompaction, func() error {
 		return IndexCompaction(ctx, runParams.rep, safety)
 	}); err != nil {
 		return errors.Wrap(err, "error performing index compaction")
@@ -225,13 +239,13 @@ func runQuickMaintenance(ctx context.Context, runParams RunParameters, safety Sa
 func runFullMaintenance(ctx context.Context, runParams RunParameters, safety SafetyParameters) error {
 	var safeDropTime time.Time
 
-	if safety.RequireTwoGCCycles {
-		s, err := GetSchedule(ctx, runParams.rep)
-		if err != nil {
-			return errors.Wrap(err, "unable to get schedule")
-		}
+	s, err := GetSchedule(ctx, runParams.rep)
+	if err != nil {
+		return errors.Wrap(err, "unable to get schedule")
+	}
 
-		safeDropTime = findSafeDropTime(s.Runs["snapshot-gc"], safety)
+	if safety.RequireTwoGCCycles {
+		safeDropTime = findSafeDropTime(s.Runs[TaskSnapshotGarbageCollection], safety)
 	} else {
 		safeDropTime = runParams.rep.Time()
 	}
@@ -241,7 +255,7 @@ func runFullMaintenance(ctx context.Context, runParams RunParameters, safety Saf
 
 		// rewrite indexes by dropping content entries that have been marked
 		// as deleted for a long time
-		if err := ReportRun(ctx, runParams.rep, "full-drop-deleted-content", func() error {
+		if err := ReportRun(ctx, runParams.rep, TaskDropDeletedContentsFull, func() error {
 			return DropDeletedContents(ctx, runParams.rep, safeDropTime, safety)
 		}); err != nil {
 			return errors.Wrap(err, "error dropping deleted contents")
@@ -252,7 +266,7 @@ func runFullMaintenance(ctx context.Context, runParams RunParameters, safety Saf
 
 	// find packs that are less than 80% full and rewrite contents in them into
 	// new consolidated packs, orphaning old packs in the process.
-	if err := ReportRun(ctx, runParams.rep, "full-rewrite-contents", func() error {
+	if err := ReportRun(ctx, runParams.rep, TaskRewriteContentsFull, func() error {
 		return RewriteContents(ctx, runParams.rep, &RewriteContentsOptions{
 			ContentIDRange: content.AllIDs,
 			ShortPacks:     true,
@@ -262,7 +276,7 @@ func runFullMaintenance(ctx context.Context, runParams RunParameters, safety Saf
 	}
 
 	// delete orphaned packs after some time.
-	if err := ReportRun(ctx, runParams.rep, "full-delete-blobs", func() error {
+	if err := ReportRun(ctx, runParams.rep, TaskDeleteOrphanedBlobsFull, func() error {
 		_, err := DeleteUnreferencedBlobs(ctx, runParams.rep, DeleteUnreferencedBlobsOptions{}, safety)
 		return err
 	}); err != nil {
