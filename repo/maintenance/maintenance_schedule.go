@@ -132,7 +132,7 @@ func SetSchedule(ctx context.Context, rep repo.DirectRepositoryWriter, s *Schedu
 }
 
 // ReportRun reports timing of a maintenance run and persists it in repository.
-func ReportRun(ctx context.Context, rep repo.DirectRepositoryWriter, taskType TaskType, run func() error) error {
+func ReportRun(ctx context.Context, rep repo.DirectRepositoryWriter, taskType TaskType, s *Schedule, run func() error) error {
 	ri := RunInfo{
 		Start: rep.Time(),
 	}
@@ -147,9 +147,13 @@ func ReportRun(ctx context.Context, rep repo.DirectRepositoryWriter, taskType Ta
 		ri.Success = true
 	}
 
-	s, err := GetSchedule(ctx, rep)
-	if err != nil {
-		log(ctx).Warningf("unable to get schedule")
+	if s == nil {
+		var err error
+
+		s, err = GetSchedule(ctx, rep)
+		if err != nil {
+			log(ctx).Warningf("unable to get schedule")
+		}
 	}
 
 	s.ReportRun(taskType, ri)

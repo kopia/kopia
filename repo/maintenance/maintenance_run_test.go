@@ -1,20 +1,136 @@
 package maintenance
 
 import (
+	"fmt"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
-func TestFindSafeDropTime(t *testing.T) {
-	var (
-		t0700 = time.Date(2020, 1, 1, 7, 0, 0, 0, time.UTC)
-		t0715 = time.Date(2020, 1, 1, 7, 15, 0, 0, time.UTC)
-		t0900 = time.Date(2020, 1, 1, 9, 0, 0, 0, time.UTC)
-		t0915 = time.Date(2020, 1, 1, 9, 15, 0, 0, time.UTC)
-		t1300 = time.Date(2020, 1, 1, 13, 0, 0, 0, time.UTC)
-		t1315 = time.Date(2020, 1, 1, 13, 15, 0, 0, time.UTC)
-	)
+var (
+	t0700 = time.Date(2020, 1, 1, 7, 0, 0, 0, time.UTC)
+	t0715 = time.Date(2020, 1, 1, 7, 15, 0, 0, time.UTC)
+	t0900 = time.Date(2020, 1, 1, 9, 0, 0, 0, time.UTC)
+	t0915 = time.Date(2020, 1, 1, 9, 15, 0, 0, time.UTC)
+	t1300 = time.Date(2020, 1, 1, 13, 0, 0, 0, time.UTC)
+	t1315 = time.Date(2020, 1, 1, 13, 15, 0, 0, time.UTC)
+)
 
+func TestShouldDeleteOrphanedBlobs(t *testing.T) {
+	now := t1315
+
+	cases := []struct {
+		runs   map[TaskType][]RunInfo
+		safety SafetyParameters
+		want   bool
+	}{
+		{
+			// no rewrites
+			runs:   map[TaskType][]RunInfo{},
+			safety: SafetyFull,
+			want:   true,
+		},
+		{
+			runs:   map[TaskType][]RunInfo{},
+			safety: SafetyNone,
+			want:   true,
+		},
+		{
+			runs: map[TaskType][]RunInfo{
+				TaskRewriteContentsQuick: {
+					// old enough
+					{End: t0900, Success: true},
+				},
+			},
+			safety: SafetyFull,
+			want:   true,
+		},
+		{
+			runs: map[TaskType][]RunInfo{
+				// recent but no safety, so will go through
+				TaskRewriteContentsFull: {
+					{End: t1300, Success: true},
+				},
+			},
+			safety: SafetyNone,
+			want:   true,
+		},
+		{
+			runs: map[TaskType][]RunInfo{
+				// too recent for full safety
+				TaskRewriteContentsFull: {
+					{End: t1300, Success: true},
+				},
+			},
+			safety: SafetyFull,
+			want:   false,
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+
+		t.Run(fmt.Sprintf("%v", tc), func(t *testing.T) {
+			require.Equal(t, tc.want, shouldDeleteOrphanedPacks(now, &Schedule{
+				Runs: tc.runs,
+			}, tc.safety))
+		})
+	}
+}
+
+func TestShouldRewriteContents(t *testing.T) {
+	cases := []struct {
+		runs map[TaskType][]RunInfo
+		want bool
+	}{
+		{
+			runs: map[TaskType][]RunInfo{},
+			want: true,
+		},
+		{
+			runs: map[TaskType][]RunInfo{
+				TaskDeleteOrphanedBlobsFull: {
+					RunInfo{Success: true, End: t0715},
+				},
+				TaskDeleteOrphanedBlobsQuick: {
+					RunInfo{Success: true, End: t0700},
+				},
+			},
+			want: true,
+		},
+		{
+			runs: map[TaskType][]RunInfo{
+				TaskDeleteOrphanedBlobsQuick: {
+					RunInfo{Success: true, End: t0700},
+				},
+				TaskRewriteContentsFull: {
+					RunInfo{Success: true, End: t0715},
+				},
+			},
+			want: false,
+		},
+		{
+			runs: map[TaskType][]RunInfo{
+				TaskDeleteOrphanedBlobsQuick: {
+					RunInfo{Success: true, End: t0715},
+				},
+				TaskRewriteContentsFull: {
+					RunInfo{Success: true, End: t0700},
+				},
+			},
+			want: true,
+		},
+	}
+
+	for _, tc := range cases {
+		require.Equal(t, tc.want, shouldRewriteContents(&Schedule{
+			Runs: tc.runs,
+		}))
+	}
+}
+
+func TestFindSafeDropTime(t *testing.T) {
 	cases := []struct {
 		runs     []RunInfo
 		wantTime time.Time
