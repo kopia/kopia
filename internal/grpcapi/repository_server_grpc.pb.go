@@ -11,6 +11,7 @@ import (
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
+// Requires gRPC-Go v1.32.0 or later.
 const _ = grpc.SupportPackageIsVersion7
 
 // KopiaRepositoryClient is the client API for KopiaRepository service.
@@ -30,7 +31,7 @@ func NewKopiaRepositoryClient(cc grpc.ClientConnInterface) KopiaRepositoryClient
 }
 
 func (c *kopiaRepositoryClient) Session(ctx context.Context, opts ...grpc.CallOption) (KopiaRepository_SessionClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_KopiaRepository_serviceDesc.Streams[0], "/kopia_repository.KopiaRepository/Session", opts...)
+	stream, err := c.cc.NewStream(ctx, &KopiaRepository_ServiceDesc.Streams[0], "/kopia_repository.KopiaRepository/Session", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +87,7 @@ type UnsafeKopiaRepositoryServer interface {
 }
 
 func RegisterKopiaRepositoryServer(s grpc.ServiceRegistrar, srv KopiaRepositoryServer) {
-	s.RegisterService(&_KopiaRepository_serviceDesc, srv)
+	s.RegisterService(&KopiaRepository_ServiceDesc, srv)
 }
 
 func _KopiaRepository_Session_Handler(srv interface{}, stream grpc.ServerStream) error {
@@ -115,7 +116,10 @@ func (x *kopiaRepositorySessionServer) Recv() (*SessionRequest, error) {
 	return m, nil
 }
 
-var _KopiaRepository_serviceDesc = grpc.ServiceDesc{
+// KopiaRepository_ServiceDesc is the grpc.ServiceDesc for KopiaRepository service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var KopiaRepository_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "kopia_repository.KopiaRepository",
 	HandlerType: (*KopiaRepositoryServer)(nil),
 	Methods:     []grpc.MethodDesc{},
