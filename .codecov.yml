@@ -4,3 +4,5 @@ ignore:
  - repo/blob/azure/
  - repo/blob/gcs/
  - repo/blob/b2/
+ - repo/blob/rclone/
+ - repo/blob/webdav/
