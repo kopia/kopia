@@ -22,7 +22,7 @@ export class SetupKopiaServer extends Component {
                 {RequiredField(this, "Server address", "url", { autoFocus: true, placeholder: "enter server URL (https://<host>:port)" })}
             </Form.Row>
             <Form.Row>
-                {OptionalField(this, "Trusted server certificate finterprint (SHA256)", "serverCertFingerprint", { placeholder: "enter trusted server certificate fingerprint printed at server startup" })}
+                {OptionalField(this, "Trusted server certificate fingerprint (SHA256)", "serverCertFingerprint", { placeholder: "enter trusted server certificate fingerprint printed at server startup" })}
             </Form.Row>
         </>;
     }
