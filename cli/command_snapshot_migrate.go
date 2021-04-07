@@ -122,7 +122,7 @@ func openSourceRepo(ctx context.Context) (repo.Repository, error) {
 		}
 	}
 
-	sourceRepo, err := repo.Open(ctx, *migrateSourceConfig, pass, applyOptionsFromFlags(ctx, nil))
+	sourceRepo, err := repo.Open(ctx, *migrateSourceConfig, pass, optionsFromFlags(ctx))
 	if err != nil {
 		return nil, errors.Wrap(err, "can't open source repository")
 	}

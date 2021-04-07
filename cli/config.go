@@ -75,7 +75,7 @@ func openRepository(ctx context.Context, opts *repo.Options, required bool) (rep
 		return nil, errors.Wrap(err, "get password")
 	}
 
-	r, err := repo.Open(ctx, repositoryConfigFileName(), pass, applyOptionsFromFlags(ctx, opts))
+	r, err := repo.Open(ctx, repositoryConfigFileName(), pass, optionsFromFlags(ctx))
 	if os.IsNotExist(err) {
 		return nil, errors.New("not connected to a repository, use 'kopia connect'")
 	}
@@ -83,16 +83,14 @@ func openRepository(ctx context.Context, opts *repo.Options, required bool) (rep
 	return r, errors.Wrap(err, "unable to open repository")
 }
 
-func applyOptionsFromFlags(ctx context.Context, opts *repo.Options) *repo.Options {
-	if opts == nil {
-		opts = &repo.Options{}
-	}
+func optionsFromFlags(ctx context.Context) *repo.Options {
+	var opts repo.Options
 
 	if *traceStorage {
 		opts.TraceStorage = log(ctx).Debugf
 	}
 
-	return opts
+	return &opts
 }
 
 func repositoryConfigFileName() string {
