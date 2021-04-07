@@ -189,6 +189,7 @@ func TestS3StorageAWS(t *testing.T) {
 
 func TestS3StorageAWSSTS(t *testing.T) {
 	t.Parallel()
+	testutil.ProviderTest(t)
 
 	testutil.Retry(t, func(t *testutil.RetriableT) {
 		// skip the test if AWS STS creds are not provided
@@ -216,6 +217,7 @@ func TestS3StorageAWSSTS(t *testing.T) {
 
 func TestS3StorageMinio(t *testing.T) {
 	t.Parallel()
+	testutil.ProviderTest(t)
 
 	minioEndpoint := startDockerMinioOrSkip(t)
 
@@ -241,6 +243,7 @@ func TestS3StorageMinio(t *testing.T) {
 
 func TestInvalidCredsFailsFast(t *testing.T) {
 	t.Parallel()
+	testutil.ProviderTest(t)
 
 	minioEndpoint := startDockerMinioOrSkip(t)
 
@@ -267,6 +270,7 @@ func TestInvalidCredsFailsFast(t *testing.T) {
 
 func TestS3StorageMinioSTS(t *testing.T) {
 	t.Parallel()
+	testutil.ProviderTest(t)
 
 	minioEndpoint := startDockerMinioOrSkip(t)
 
@@ -309,6 +313,7 @@ func TestS3StorageMinioSTS(t *testing.T) {
 
 func TestNeedMD5AWS(t *testing.T) {
 	t.Parallel()
+	testutil.ProviderTest(t)
 
 	// skip the test if AWS creds are not provided
 	options := &Options{
@@ -383,6 +388,9 @@ func testStorage(t *testutil.RetriableT, options *Options) {
 }
 
 func TestCustomTransportNoSSLVerify(t *testing.T) {
+	t.Parallel()
+	testutil.ProviderTest(t)
+
 	testURL(t, expiredBadSSL)
 	testURL(t, selfSignedBadSSL)
 	testURL(t, untrustedRootBadSSL)

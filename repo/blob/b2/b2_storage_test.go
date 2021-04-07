@@ -34,6 +34,8 @@ func getEnvOrSkip(t *testing.T, name string) string {
 
 func TestB2Storage(t *testing.T) {
 	t.Parallel()
+	testutil.ProviderTest(t)
+
 	bucket := getEnvOrSkip(t, testBucketEnv)
 	keyID := getEnvOrSkip(t, testKeyIDEnv)
 	key := getEnvOrSkip(t, testKeyEnv)
@@ -75,6 +77,9 @@ func TestB2Storage(t *testing.T) {
 }
 
 func TestB2StorageInvalidBlob(t *testing.T) {
+	t.Parallel()
+	testutil.ProviderTest(t)
+
 	bucket := getEnvOrSkip(t, testBucketEnv)
 	keyID := getEnvOrSkip(t, testKeyIDEnv)
 	key := getEnvOrSkip(t, testKeyEnv)
@@ -99,6 +104,9 @@ func TestB2StorageInvalidBlob(t *testing.T) {
 }
 
 func TestB2StorageInvalidBucket(t *testing.T) {
+	t.Parallel()
+	testutil.ProviderTest(t)
+
 	bucket := fmt.Sprintf("invalid-bucket-%v", clock.Now().UnixNano())
 	keyID := getEnvOrSkip(t, testKeyIDEnv)
 	key := getEnvOrSkip(t, testKeyEnv)
@@ -116,6 +124,9 @@ func TestB2StorageInvalidBucket(t *testing.T) {
 }
 
 func TestB2StorageInvalidCreds(t *testing.T) {
+	t.Parallel()
+	testutil.ProviderTest(t)
+
 	bucket := getEnvOrSkip(t, testBucketEnv)
 	keyID := "invalid-key-id"
 	key := "invalid-key"

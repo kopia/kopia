@@ -7,11 +7,15 @@ import (
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/testlogging"
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/gcs"
 )
 
 func TestGCSStorage(t *testing.T) {
+	t.Parallel()
+	testutil.ProviderTest(t)
+
 	bucket := os.Getenv("KOPIA_GCS_TEST_BUCKET")
 	if bucket == "" {
 		t.Skip("KOPIA_GCS_TEST_BUCKET not provided")
@@ -54,6 +58,9 @@ func TestGCSStorage(t *testing.T) {
 }
 
 func TestGCSStorageInvalid(t *testing.T) {
+	t.Parallel()
+	testutil.ProviderTest(t)
+
 	bucket := os.Getenv("KOPIA_GCS_TEST_BUCKET")
 	if bucket == "" {
 		t.Skip("KOPIA_GCS_TEST_BUCKET not provided")

@@ -51,6 +51,9 @@ func mustGetRcloneExeOrSkip(t *testing.T) string {
 }
 
 func TestRCloneStorage(t *testing.T) {
+	t.Parallel()
+	testutil.ProviderTest(t)
+
 	ctx := testlogging.Context(t)
 
 	rcloneExe := mustGetRcloneExeOrSkip(t)
@@ -90,6 +93,9 @@ func TestRCloneStorage(t *testing.T) {
 }
 
 func TestRCloneStorageInvalidExe(t *testing.T) {
+	t.Parallel()
+	testutil.ProviderTest(t)
+
 	ctx := testlogging.Context(t)
 
 	_, err := rclone.New(ctx, &rclone.Options{
@@ -102,6 +108,9 @@ func TestRCloneStorageInvalidExe(t *testing.T) {
 }
 
 func TestRCloneStorageInvalidFlags(t *testing.T) {
+	t.Parallel()
+	testutil.ProviderTest(t)
+
 	ctx := testlogging.Context(t)
 
 	_, err := rclone.New(ctx, &rclone.Options{
@@ -119,6 +128,9 @@ func TestRCloneStorageInvalidFlags(t *testing.T) {
 }
 
 func TestRCloneProviders(t *testing.T) {
+	t.Parallel()
+	testutil.ProviderTest(t)
+
 	var (
 		rcloneArgs     []string
 		embeddedConfig string

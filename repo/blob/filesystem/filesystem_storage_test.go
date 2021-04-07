@@ -15,6 +15,7 @@ import (
 
 func TestFileStorage(t *testing.T) {
 	t.Parallel()
+	testutil.ProviderTest(t)
 
 	ctx := testlogging.Context(t)
 
@@ -56,6 +57,7 @@ const (
 
 func TestFileStorageTouch(t *testing.T) {
 	t.Parallel()
+	testutil.ProviderTest(t)
 
 	ctx := testlogging.Context(t)
 
@@ -96,6 +98,9 @@ func TestFileStorageTouch(t *testing.T) {
 }
 
 func TestFileStorageConcurrency(t *testing.T) {
+	t.Parallel()
+	testutil.ProviderTest(t)
+
 	path := testutil.TempDirectory(t)
 
 	ctx := testlogging.Context(t)

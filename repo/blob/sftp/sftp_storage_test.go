@@ -161,6 +161,9 @@ func startDockerSFTPServerOrSkip(t *testing.T, idRSA string) (host string, port 
 }
 
 func TestSFTPStorageValid(t *testing.T) {
+	t.Parallel()
+	testutil.ProviderTest(t)
+
 	testutil.TestSkipOnCIUnlessLinuxAMD64(t)
 
 	tmpDir := mustGetLocalTmpDir(t)
@@ -197,6 +200,7 @@ func TestSFTPStorageValid(t *testing.T) {
 
 func TestInvalidServerFailsFast(t *testing.T) {
 	t.Parallel()
+	testutil.ProviderTest(t)
 
 	ctx := testlogging.Context(t)
 
