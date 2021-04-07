@@ -27,7 +27,7 @@ require (
 	github.com/google/wire v0.5.0 // indirect
 	github.com/gorilla/mux v1.8.0
 	github.com/hanwen/go-fuse/v2 v2.0.4-0.20210104155004-09a3c381714c
-	github.com/klauspost/compress v1.11.12
+	github.com/klauspost/compress v1.11.13
 	github.com/klauspost/cpuid/v2 v2.0.5 // indirect
 	github.com/klauspost/pgzip v1.2.5
 	github.com/kylelemons/godebug v1.1.0
