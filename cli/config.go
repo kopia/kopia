@@ -59,7 +59,7 @@ func onCtrlC(f func()) {
 	}()
 }
 
-func openRepository(ctx context.Context, opts *repo.Options, required bool) (repo.Repository, error) {
+func openRepository(ctx context.Context, required bool) (repo.Repository, error) {
 	if _, err := os.Stat(repositoryConfigFileName()); os.IsNotExist(err) {
 		if !required {
 			return nil, nil
