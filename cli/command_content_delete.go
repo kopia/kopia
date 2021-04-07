@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	contentRemoveCommand = contentCommands.Command("remove", "Remove content").Alias("rm")
+	contentRemoveCommand = contentCommands.Command("delete", "Remove content").Alias("remove").Alias("rm")
 
 	contentRemoveIDs = contentRemoveCommand.Arg("id", "IDs of content to remove").Required().Strings()
 )

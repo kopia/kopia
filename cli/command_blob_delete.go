@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	blobDeleteCommand = blobCommands.Command("delete", "Delete blobs by ID").Alias("rm")
+	blobDeleteCommand = blobCommands.Command("delete", "Delete blobs by ID").Alias("remove").Alias("rm")
 	blobDeleteBlobIDs = blobDeleteCommand.Arg("blobIDs", "Blob IDs").Required().Strings()
 )
 

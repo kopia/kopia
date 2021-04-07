@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	userDeleteCommand = userCommands.Command("delete", "Delete user")
+	userDeleteCommand = userCommands.Command("delete", "Delete user").Alias("remove").Alias("rm")
 	userDeleteName    = userDeleteCommand.Arg("username", "The username to delete.").Required().String()
 )
 

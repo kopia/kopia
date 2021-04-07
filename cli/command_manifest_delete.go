@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	manifestRemoveCommand = manifestCommands.Command("rm", "Remove manifest items")
+	manifestRemoveCommand = manifestCommands.Command("delete", "Remove manifest items").Alias("remove").Alias("rm")
 	manifestRemoveItems   = manifestRemoveCommand.Arg("item", "Items to remove").Required().Strings()
 )
 
