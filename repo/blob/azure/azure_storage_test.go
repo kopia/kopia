@@ -14,6 +14,7 @@ import (
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/testlogging"
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/azure"
 )
@@ -71,6 +72,8 @@ func createContainer(t *testing.T, container, storageAccount, storageKey string)
 
 func TestAzureStorage(t *testing.T) {
 	t.Parallel()
+	testutil.ProviderTest(t)
+
 	container := getEnvOrSkip(t, testContainerEnv)
 	storageAccount := getEnvOrSkip(t, testStorageAccountEnv)
 	storageKey := getEnvOrSkip(t, testStorageKeyEnv)
@@ -115,6 +118,8 @@ func TestAzureStorage(t *testing.T) {
 }
 
 func TestAzureStorageInvalidBlob(t *testing.T) {
+	testutil.ProviderTest(t)
+
 	container := getEnvOrSkip(t, testContainerEnv)
 	storageAccount := getEnvOrSkip(t, testStorageAccountEnv)
 	storageKey := getEnvOrSkip(t, testStorageKeyEnv)
@@ -139,6 +144,8 @@ func TestAzureStorageInvalidBlob(t *testing.T) {
 }
 
 func TestAzureStorageInvalidContainer(t *testing.T) {
+	testutil.ProviderTest(t)
+
 	container := fmt.Sprintf("invalid-container-%v", clock.Now().UnixNano())
 	storageAccount := getEnvOrSkip(t, testStorageAccountEnv)
 	storageKey := getEnvOrSkip(t, testStorageKeyEnv)
@@ -156,6 +163,8 @@ func TestAzureStorageInvalidContainer(t *testing.T) {
 }
 
 func TestAzureStorageInvalidCreds(t *testing.T) {
+	testutil.ProviderTest(t)
+
 	storageAccount := "invalid-acc"
 	storageKey := "invalid-key"
 	container := "invalid-container"

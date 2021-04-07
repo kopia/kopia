@@ -10,6 +10,15 @@ import (
 	"github.com/kopia/kopia/internal/buf"
 )
 
+// ProviderTest marks the test method so that it only runs in provider-tests suite.
+func ProviderTest(t *testing.T) {
+	t.Helper()
+
+	if os.Getenv("KOPIA_PROVIDER_TEST") == "" {
+		t.Skip("skipping because KOPIA_PROVIDER_TEST is not set")
+	}
+}
+
 // TestSkipUnlessCI skips the current test with a provided message, except when running
 // in CI environment, in which case it causes hard failure.
 func TestSkipUnlessCI(t *testing.T, msg string, args ...interface{}) {

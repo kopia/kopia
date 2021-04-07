@@ -36,6 +36,7 @@ func basicAuth(h http.Handler) http.HandlerFunc {
 
 func TestWebDAVStorageExternalServer(t *testing.T) {
 	t.Parallel()
+	testutil.ProviderTest(t)
 
 	testURL := os.Getenv("KOPIA_WEBDAV_TEST_URL")
 	if testURL == "" {
@@ -56,6 +57,9 @@ func TestWebDAVStorageExternalServer(t *testing.T) {
 }
 
 func TestWebDAVStorageBuiltInServer(t *testing.T) {
+	t.Parallel()
+	testutil.ProviderTest(t)
+
 	tmpDir := testutil.TempDirectory(t)
 
 	mux := http.NewServeMux()
@@ -89,6 +93,9 @@ func TestWebDAVStorageBuiltInServer(t *testing.T) {
 }
 
 func TestWebDAVStorageBuiltInServerWithMissingAsForbidden(t *testing.T) {
+	t.Parallel()
+	testutil.ProviderTest(t)
+
 	tmpDir := testutil.TempDirectory(t)
 
 	mux := http.NewServeMux()
