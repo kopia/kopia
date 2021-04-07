@@ -3,6 +3,7 @@ package endtoend_test
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
@@ -58,10 +59,10 @@ func TestShallowrestore(t *testing.T) {
 		reporootdir: source,
 	}
 
-	// TODO(rjk): Extend once shallowrestores with depths > 1 are supported.
-	for depth := 1; depth < 2; depth++ {
+	for depth := 1; depth < 5; depth++ {
 		shallowrestoredir := filepath.Join(t.TempDir(), "shallowrestoredir")
-		e.RunAndExpectSuccess(t, "restore", "--shallow=0", snapID, shallowrestoredir)
+		shallowarg := fmt.Sprintf("--shallow=%d", depth-1)
+		e.RunAndExpectSuccess(t, "restore", shallowarg, snapID, shallowrestoredir)
 		compareShallowToOriginalDir(t, rdc, source, shallowrestoredir, depth)
 	}
 }
@@ -728,7 +729,7 @@ func findFileDir(t *testing.T, shallow string) (dirinshallow, fileinshallow stri
 	return dirinshallow, fileinshallow
 }
 
-func getShallowInfo(t *testing.T, srp string) os.FileInfo {
+func getShallowInfo(t *testing.T, srp string) (string, os.FileInfo) {
 	t.Helper()
 
 	const ENTRYTYPES = 3
@@ -739,7 +740,6 @@ func getShallowInfo(t *testing.T, srp string) os.FileInfo {
 	v := -1
 	for i, s := range []string{"", localfs.ShallowEntrySuffix, dIRPH} { // nolint(wsl)
 		paths[i] = srp + s
-		t.Logf("getting info for %q", paths[i])
 		shallowinfos[i], errors[i] = os.Lstat(paths[i])
 
 		if errors[i] == nil {
@@ -758,7 +758,7 @@ func getShallowInfo(t *testing.T, srp string) os.FileInfo {
 
 	switch {
 	case errcount == ENTRYTYPES-1:
-		return shallowinfos[v]
+		return paths[v], shallowinfos[v]
 	case errcount < ENTRYTYPES-1:
 		nonfaultingpaths := make([]string, 0)
 
@@ -770,10 +770,10 @@ func getShallowInfo(t *testing.T, srp string) os.FileInfo {
 
 		t.Errorf("expected only one shallow for %q to exist: %v", srp, strings.Join(nonfaultingpaths, ", "))
 
-		return nil
+		return "", nil
 	default:
 		t.Errorf("expected a shallow to exist for %q", srp)
-		return nil
+		return "", nil
 	}
 }
 
@@ -794,64 +794,98 @@ func compareShallowToOriginalDir(t *testing.T, rdc *repoDirEntryCache, original,
 			return nil
 		}
 
-		reporelpath := rdc.repoRootRel(t, path)
-		orginalrelpath, err := filepath.Rel(original, path)
-		require.NoError(t, err)
+		relpath := rdc.repoRootRel(t, path)
+		t.Logf("rp after relativizing relpath %q", relpath)
 
-		t.Logf("rp after relativizing reporelpath %q orginalrelpath %q", reporelpath, orginalrelpath)
-
-		pathparts := strings.Split(orginalrelpath, string(filepath.Separator))
-		if len(pathparts) > depth {
-			srp := filepath.Join(shallow, orginalrelpath)
+		rpd := len(strings.Split(relpath, string(filepath.Separator)))
+		if rpd > depth {
+			srp := filepath.Join(shallow, relpath)
 			if _, serr := os.Lstat(srp); serr == nil {
-				t.Errorf("shallowrestore insufficiently shallow -- should not have created file %q", orginalrelpath)
+				t.Errorf("shallowrestore insufficiently shallow -- should not have created file %q", srp)
 			}
+			// This isn't an error. We just skip the rest of the original tree below depth
+			// because it shouldn't be in the shallow tree.
 			return err
 		}
 
-		// Only look at the available path components even if depth permits more.
-		d := depth
-		if len(pathparts) < depth {
-			d = len(pathparts)
-		}
-		srp := filepath.Join(append([]string{shallow}, pathparts[0:d]...)...)
+		verifyShallowVsOriginalFile(t, rdc, shallow, relpath, path, depth, info)
 
-		shallowinfo := getShallowInfo(t, srp)
-
-		switch {
-		case shallowinfo.Mode().IsRegular():
-			if got, want := shallowinfo.Mode(), info.Mode()&^0o222; got != want {
-				t.Errorf(" shallow path %q mode mismatched %q: got %v want %v", srp, path, got, want)
-			}
-		case shallowinfo.Mode()&os.ModeSymlink > 0:
-			if got, want := shallowinfo.Mode(), info.Mode(); got != want {
-				t.Errorf("shallow symlink path %q mismatched %q: wrong mode got %v want %v", srp, path, got, want)
-			}
-		default:
-			// shallow directory placeholders are actually regular files in the filesystem.
-			t.Errorf("shallow path %q has unanticipated mode %v", srp, shallowinfo.Mode())
-		}
-
-		if shallowinfo.Mode()&os.ModeSymlink > 0 {
-			// symlinkChtimes is at best µs precise on Linux
-			gt, wt := shallowinfo.ModTime(), info.ModTime()
-			if diff := gt.Sub(wt); diff > time.Microsecond {
-				t.Errorf("symlink time for %q differs by more than 1 µs: %v", path, diff)
-			}
-		} else if got, want := shallowinfo.ModTime(), info.ModTime(); got != want {
-			gotstring, _ := got.MarshalJSON()
-			wantstring, _ := want.MarshalJSON()
-
-			t.Errorf("path %q shallowrestored wrong time got %v want %v, diff %q", path, string(gotstring), string(wantstring), got.Sub(want))
-		}
-
-		// Make sure that the placeholder entry has the placeholder file.
-		if shallowinfo.Mode().IsRegular() {
-			rdc.validatePlaceholder(t, reporelpath, srp)
-		}
 		return nil
 	})
 	require.NoError(t, err2)
+}
+
+// verifyShallowVsOriginalFile checks that the path shallow from the
+// shallow tree is correct given a corresponding originalpath with
+// FileInfo info. There are three cases: relpathdepth > depth: the part
+// of the original tree not shallow restored; relpathdepth == depth: the
+// shallow placeholders; relpathdepth < depth: the fully restored portion.
+//nolint:gocyclo,cyclop
+func verifyShallowVsOriginalFile(t *testing.T, rdc *repoDirEntryCache, shallow, relpath, opath string, depth int, info os.FileInfo) {
+	t.Helper()
+
+	srp := filepath.Join(shallow, relpath)
+	placeholderpath, shallowinfo := getShallowInfo(t, srp)
+	relpathdepth := len(strings.Split(relpath, string(filepath.Separator)))
+
+	switch {
+	case relpathdepth == depth && info.Mode().IsRegular():
+		if got, want := shallowinfo.Mode(), info.Mode()&^0o222; got != want {
+			t.Errorf(" shallow path %q mode mismatched %q: got %v want %v", srp, opath, got, want)
+		}
+
+		if !shallowinfo.Mode().IsRegular() {
+			t.Errorf("shallow placeholder %q for original %q not regular", placeholderpath, opath)
+		}
+
+		rdc.validatePlaceholder(t, relpath, srp)
+	case relpathdepth == depth && info.IsDir():
+		if !shallowinfo.Mode().IsRegular() {
+			t.Errorf("shallow placeholder %q for original %q not regular", placeholderpath, opath)
+		}
+
+		if got, want := shallowinfo.Mode(), info.Mode()&^0o222; got != want {
+			t.Errorf(" shallow path %q mode mismatched %q: got %v want %v", placeholderpath, opath, got, want)
+		}
+
+		rdc.validatePlaceholder(t, relpath, srp)
+	case relpathdepth < depth && info.Mode().IsRegular():
+		if got, want := shallowinfo.Size(), info.Size(); got != want {
+			t.Errorf(" shallow path %q size mismatched %q: got %v want %v", placeholderpath, opath, got, want)
+		}
+
+		if got, want := shallowinfo.Mode(), info.Mode(); got != want {
+			t.Errorf(" shallow path %q mode mismatched %q: got %v want %v", placeholderpath, opath, got, want)
+		}
+	case relpathdepth < depth && info.IsDir():
+		if !shallowinfo.IsDir() {
+			t.Errorf("non-placeholder entry in shallow tree %q for original %q not dir", placeholderpath, opath)
+		}
+
+		if got, want := shallowinfo.Mode(), info.Mode(); got != want {
+			t.Errorf(" shallow path %q mode mismatched %q: got %v want %v", placeholderpath, opath, got, want)
+		}
+	case info.Mode()&os.ModeSymlink > 0:
+		// Symlinks are always restored if <= depth.
+		if got, want := shallowinfo.Mode(), info.Mode(); got != want {
+			t.Errorf("shallow symlink path %q mismatched %q: wrong mode got %v want %v", srp, opath, got, want)
+		}
+	default:
+		t.Errorf("shallow path %q has unanticipated mode %v, original: %q, %v", placeholderpath, shallowinfo.Mode(), opath, info.Mode())
+	}
+
+	if shallowinfo.Mode()&os.ModeSymlink > 0 {
+		// symlinkChtimes is at best µs precise on Linux
+		gt, wt := shallowinfo.ModTime(), info.ModTime()
+		if diff := gt.Sub(wt); diff > time.Microsecond {
+			t.Errorf("symlink time for %q differs by more than 1 µs: %v", opath, diff)
+		}
+	} else if got, want := shallowinfo.ModTime(), info.ModTime(); got != want {
+		gotstring, _ := got.MarshalJSON()
+		wantstring, _ := want.MarshalJSON()
+
+		t.Errorf("path %q shallowrestored wrong time got %v want %v, diff %q", opath, string(gotstring), string(wantstring), got.Sub(want))
+	}
 }
 
 func makeLongName(c rune) string {

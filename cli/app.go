@@ -136,7 +136,6 @@ type App struct {
 	session     commandSession
 	policy      commandPolicy
 	restore     commandRestore
-	restoreEntry     commandRestoreEntry
 	show        commandShow
 	snapshot    commandSnapshot
 	manifest    commandManifest
@@ -235,7 +234,6 @@ func (c *App) setup(app *kingpin.Application) {
 	c.server.setup(c, app)
 	c.session.setup(c, app)
 	c.restore.setup(c, app)
-	c.restoreEntry.setup(c, app)
 	c.show.setup(c, app)
 	c.snapshot.setup(c, app)
 	c.manifest.setup(c, app)

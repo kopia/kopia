@@ -11,11 +11,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/alecthomas/kingpin"
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/repo"
@@ -24,10 +23,18 @@ import (
 )
 
 const (
-	restoreCommandHelp = `Restore a directory or file from a snapshot into the specified target path.
+	restoreCommandHelp = `Restore from placeholder or snapshot.
 
-By default, the target path will be created by the restore command if it does
-not exist.
+Restore can operate in two modes: 
+
+* from a snapshot: restoring (possibly shallowly) a specified file or
+directory from a snapshot into a target path. By default, the target
+path will be created by the restore command if it does not exist.
+
+* by expanding a shallow placeholder in situ where the placeholder was
+created by a previous restore.
+
+In the from-snapshot mode: 
 
 The source to be restored is specified in the form of a directory or file ID and
 optionally a sub-directory path.
@@ -52,12 +59,25 @@ has been set (to prevent overwrite of each type):
 --no-overwrite-directories
 --no-overwrite-symlinks
 
-If the '--shallow' option is provided, files and
-directories this depth and below in the directory hierarchy will be
-represented by compact placeholder files of the form
-'entry.kopia-entry' instead of being restored. Snapshots created of
-directory contents represented by placeholder files will be identical
-to snapshots of the equivalent fully expanded tree.
+If the '--shallow' option is provided, files and directories this
+depth and below in the directory hierarchy will be represented by
+compact placeholder files of the form 'entry.kopia-entry' instead of
+being restored. (I.e. setting '--shallow' to 0 will only shallow
+restore.) Snapshots created of directory contents represented by
+placeholder files will be identical to snapshots of the equivalent
+fully expanded tree.
+
+In the expanding-a-placeholder mode:
+
+The source to be restored is a pre-existing placeholder entry of the form
+'entry.kopia-entry'. The target will be 'entry'. '--shallow' controls the depth
+of the expansion and defaults to 0. For example:
+
+'restore d3.kopiadir'
+
+will remove the d3.kopiadir placeholder and restore the referenced repository
+contents into path d3 where the contents of the newly created path d3 will
+themselves be placeholder files.
 `
 	restoreCommandSourcePathHelp = `Source directory ID/path in the form of a
 directory ID and optionally a sub-directory path. For example,
@@ -86,7 +106,10 @@ type commandRestore struct {
 	restoreShallowAtDepth int32
 }
 
-func (c *commandRestore) addRestoreAndEntryFlags(cmd *kingpin.CmdClause) {
+func (c *commandRestore) setup(svc appServices, parent commandParent) {
+	cmd := parent.Command("restore", restoreCommandHelp)
+	cmd.Arg("source", restoreCommandSourcePathHelp).Required().StringVar(&c.restoreSourceID)
+	cmd.Arg("target-path", "Path of the directory for the contents to be restored. Required unless restoring a shallow placeholder.").StringVar(&c.restoreTargetPath)
 	cmd.Flag("overwrite-directories", "Overwrite existing directories").Default("true").BoolVar(&c.restoreOverwriteDirectories)
 	cmd.Flag("overwrite-files", "Specifies whether or not to overwrite already existing files").Default("true").BoolVar(&c.restoreOverwriteFiles)
 	cmd.Flag("overwrite-symlinks", "Specifies whether or not to overwrite already existing symlinks").Default("true").BoolVar(&c.restoreOverwriteSymlinks)
@@ -100,14 +123,6 @@ func (c *commandRestore) addRestoreAndEntryFlags(cmd *kingpin.CmdClause) {
 	cmd.Flag("ignore-errors", "Ignore all errors").BoolVar(&c.restoreIgnoreErrors)
 	cmd.Flag("skip-existing", "Skip files and symlinks that exist in the output").BoolVar(&c.restoreIncremental)
 	cmd.Flag("shallow", "Shallow restore the directory hierarchy starting at this level (default is to deep restore the entire hierarchy.)").Default(strconv.FormatInt(math.MaxInt32, 10)).Int32Var(&c.restoreShallowAtDepth)
-}
-
-// TODO(rjk): Merge together with above.
-func (c *commandRestore) setup(svc appServices, parent commandParent) {
-	cmd := parent.Command("restore", restoreCommandHelp)
-	cmd.Arg("source", restoreCommandSourcePathHelp).Required().StringVar(&c.restoreSourceID)
-	cmd.Arg("target-path", "Path of the directory for the contents to be restored. Required unless restoring a shallow placeholder.").StringVar(&c.restoreTargetPath)
-	c.addRestoreAndEntryFlags(cmd)
 	cmd.Action(svc.repositoryReaderAction(c.run))
 }
 
