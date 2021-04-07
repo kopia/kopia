@@ -21,6 +21,7 @@ node_modules/
 .tmp.*
 .boto
 *.log
+.logs/
 *~
 .creds*
 coverage.txt

@@ -91,9 +91,19 @@ func NewCLITest(t *testing.T) *CLITest {
 		t.Name(),
 		"/", "_"), "\\", "_"), ":", "_")
 
-	logsDir := filepath.Join(os.TempDir(), "kopia-logs", cleanName+"."+clock.Now().Local().Format("20060102150405"))
+	logsBaseDir := os.Getenv("KOPIA_LOGS_DIR")
+	if logsBaseDir == "" {
+		logsBaseDir = filepath.Join(os.TempDir(), "kopia-logs")
+	}
+
+	logsDir := filepath.Join(logsBaseDir, cleanName+"."+clock.Now().Local().Format("20060102150405"))
 
 	t.Cleanup(func() {
+		if os.Getenv("KOPIA_KEEP_LOGS") != "" {
+			t.Logf("logs preserved in %v", logsDir)
+			return
+		}
+
 		if t.Failed() && os.Getenv("KOPIA_DISABLE_LOG_DUMP_ON_FAILURE") == "" {
 			dumpLogs(t, logsDir)
 		}

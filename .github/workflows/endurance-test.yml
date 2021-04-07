@@ -5,10 +5,12 @@ on:
     tags:
       - v*
   schedule:
-    # run on Mondays at 8AM
-    - cron:  '0 8 * * 1'
+    # run every 2 hours
+    - cron:  '12 */2 * * *'
 jobs:
   endurance-test:
+    env:
+      KOPIA_KEEP_LOGS: true
     name: Endurance Test
     runs-on: ubuntu-latest
     steps:
@@ -23,3 +25,10 @@ jobs:
         fetch-depth: 0
     - name: Endurance Tests
       run: make endurance-tests
+      continue-on-error: true
+    - name: Upload Logs
+      uses: actions/upload-artifact@v2
+      with:
+        name: logs
+        path: .logs/**/*.log
+        if-no-files-found: ignore
