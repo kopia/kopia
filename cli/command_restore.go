@@ -8,12 +8,11 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/alecthomas/kingpin"
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot/restore"
@@ -215,7 +214,7 @@ func runRestoreCommand(ctx context.Context, rep repo.Repository) error {
 		return errors.Wrap(err, "unable to get filesystem entry")
 	}
 
-	t0 := clock.Now()
+	eta := timetrack.Start()
 
 	st, err := restore.Entry(ctx, rep, output, rootEntry, restore.Options{
 		Parallel:     restoreParallel,
@@ -231,17 +230,12 @@ func runRestoreCommand(ctx context.Context, rep repo.Repository) error {
 
 			var maybeRemaining, maybeSkipped, maybeErrors string
 
-			if stats.EnqueuedTotalFileSize > 0 {
-				progress := float64(stats.RestoredTotalFileSize) / float64(stats.EnqueuedTotalFileSize)
-				elapsed := clock.Since(t0)
-				if progress > 0 && elapsed.Seconds() > 1 {
-					predictedDuration := time.Duration(1e9 * elapsed.Seconds() / progress)
-					remaining := clock.Until(t0.Add(predictedDuration)).Truncate(time.Second)
-					bitsPerSecond := float64(stats.RestoredTotalFileSize) * bitsPerByte / elapsed.Seconds()
-					if remaining > time.Second {
-						maybeRemaining = fmt.Sprintf(" %v (%.1f%%) remaining %v", units.BitsPerSecondsString(bitsPerSecond), hundredPercent*progress, remaining)
-					}
-				}
+			if est, ok := eta.Estimate(float64(stats.RestoredTotalFileSize), float64(stats.EnqueuedTotalFileSize)); ok {
+				bitsPerSecond := est.SpeedPerSecond * float64(bitsPerByte)
+				maybeRemaining = fmt.Sprintf(" %v (%.1f%%) remaining %v",
+					units.BitsPerSecondsString(bitsPerSecond),
+					est.PercentComplete,
+					est.Remaining)
 			}
 
 			if stats.SkippedCount > 0 {

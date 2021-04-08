@@ -4,7 +4,7 @@ import (
 	"context"
 	"sort"
 
-	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/encryption"
@@ -53,7 +53,7 @@ func runBenchmarkCryptoAction(ctx context.Context) error {
 
 			log(ctx).Infof("Benchmarking hash '%v' and encryption '%v'... (%v x %v bytes)", ha, ea, *benchmarkCryptoRepeat, len(data))
 
-			t0 := clock.Now()
+			tt := timetrack.Start()
 
 			hashCount := *benchmarkCryptoRepeat
 
@@ -65,8 +65,7 @@ func runBenchmarkCryptoAction(ctx context.Context) error {
 				}
 			}
 
-			hashTime := clock.Since(t0)
-			bytesPerSecond := float64(len(data)) * float64(hashCount) / hashTime.Seconds()
+			_, bytesPerSecond := tt.Completed(float64(len(data)) * float64(hashCount))
 
 			results = append(results, benchResult{hash: ha, encryption: ea, throughput: bytesPerSecond})
 		}
