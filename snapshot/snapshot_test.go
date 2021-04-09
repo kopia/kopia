@@ -81,7 +81,7 @@ func TestSnapshotsAPI(t *testing.T) {
 func verifySnapshotManifestIDs(t *testing.T, rep repo.Repository, src *snapshot.SourceInfo, expected []manifest.ID) {
 	t.Helper()
 
-	res, err := snapshot.ListSnapshotManifests(testlogging.Context(t), rep, src)
+	res, err := snapshot.ListSnapshotManifests(testlogging.Context(t), rep, src, nil)
 	if err != nil {
 		t.Errorf("error listing snapshot manifests: %v", err)
 	}

@@ -28,6 +28,8 @@ type Manifest struct {
 	RootEntry *DirEntry `json:"rootEntry"`
 
 	RetentionReasons []string `json:"-"`
+
+	Tags map[string]string `json:"tags,omitempty"`
 }
 
 // EntryType is a type of a filesystem entry.

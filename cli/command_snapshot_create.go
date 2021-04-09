@@ -20,6 +20,7 @@ import (
 const (
 	maxSnapshotDescriptionLength = 1024
 	timeFormat                   = "2006-01-02 15:04:05 MST"
+	numberOfPartsInTagString     = 2
 )
 
 var (
@@ -38,6 +39,7 @@ var (
 	snapshotCreateForceEnableActions      = snapshotCreateCommand.Flag("force-enable-actions", "Enable snapshot actions even if globally disabled on this client").Hidden().Bool()
 	snapshotCreateForceDisableActions     = snapshotCreateCommand.Flag("force-disable-actions", "Disable snapshot actions even if globally enabled on this client").Hidden().Bool()
 	snapshotCreateStdinFileName           = snapshotCreateCommand.Flag("stdin-file", "File path to be used for stdin data snapshot.").String()
+	snapshotCreateTags                    = snapshotCreateCommand.Flag("tags", "Tags applied on the snapshot. Must be provided in the <key>:<value> format.").Strings()
 )
 
 func runSnapshotCommand(ctx context.Context, rep repo.RepositoryWriter) error {
@@ -72,6 +74,16 @@ func runSnapshotCommand(ctx context.Context, rep repo.RepositoryWriter) error {
 
 	var finalErrors []string
 
+	tags, err := getTags(*snapshotCreateTags)
+	if err != nil {
+		return err
+	}
+
+	err = validateSnapshotTags(tags)
+	if err != nil {
+		return err
+	}
+
 	for _, snapshotDir := range sources {
 		if u.IsCanceled() {
 			log(ctx).Infof("Upload canceled")
@@ -89,7 +101,7 @@ func runSnapshotCommand(ctx context.Context, rep repo.RepositoryWriter) error {
 			UserName: rep.ClientOptions().Username,
 		}
 
-		if err := snapshotSingleSource(ctx, rep, u, sourceInfo); err != nil {
+		if err := snapshotSingleSource(ctx, rep, u, sourceInfo, tags); err != nil {
 			finalErrors = append(finalErrors, err.Error())
 		}
 	}
@@ -103,6 +115,35 @@ func runSnapshotCommand(ctx context.Context, rep repo.RepositoryWriter) error {
 	}
 
 	return errors.Errorf("encountered %v errors:\n%v", len(finalErrors), strings.Join(finalErrors, "\n"))
+}
+
+func getTags(tagStrings []string) (map[string]string, error) {
+	tags := map[string]string{}
+
+	for _, tagkv := range tagStrings {
+		parts := strings.SplitN(tagkv, ":", numberOfPartsInTagString)
+		if len(parts) != numberOfPartsInTagString {
+			return nil, errors.New("Invalid tag format. Requires <key>:<value>")
+		}
+
+		if _, ok := tags[parts[0]]; ok {
+			return nil, errors.Errorf("Duplicate tag <key> found. (%s)", parts[0])
+		}
+
+		tags[parts[0]] = parts[1]
+	}
+
+	return tags, nil
+}
+
+func validateSnapshotTags(tags map[string]string) error {
+	for key := range tags {
+		if snapshot.InvalidSnapshotLabelKey(key) {
+			return errors.Errorf("Invalid <key> for snapshot tag. (%s)", key)
+		}
+	}
+
+	return nil
 }
 
 func validateStartEndTime(st, et string) error {
@@ -164,7 +205,7 @@ func startTimeAfterEndTime(startTime, endTime time.Time) bool {
 		startTime.After(endTime)
 }
 
-func snapshotSingleSource(ctx context.Context, rep repo.RepositoryWriter, u *snapshotfs.Uploader, sourceInfo snapshot.SourceInfo) error {
+func snapshotSingleSource(ctx context.Context, rep repo.RepositoryWriter, u *snapshotfs.Uploader, sourceInfo snapshot.SourceInfo, tags map[string]string) error {
 	log(ctx).Infof("Snapshotting %v ...", sourceInfo)
 
 	var (
@@ -207,6 +248,7 @@ func snapshotSingleSource(ctx context.Context, rep repo.RepositoryWriter, u *sna
 	}
 
 	manifest.Description = *snapshotCreateDescription
+	manifest.Tags = tags
 	startTimeOverride, _ := parseTimestamp(*snapshotCreateStartTime)
 	endTimeOverride, _ := parseTimestamp(*snapshotCreateEndTime)
 

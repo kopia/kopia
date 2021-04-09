@@ -33,11 +33,12 @@ var (
 	snapshotListShowIdentical        = snapshotListCommand.Flag("show-identical", "Show identical snapshots").Short('l').Bool()
 	snapshotListShowAll              = snapshotListCommand.Flag("all", "Show all shapshots (not just current username/host)").Short('a').Bool()
 	maxResultsPerPath                = snapshotListCommand.Flag("max-results", "Maximum number of entries per source.").Short('n').Int()
+	snapshotListTags                 = snapshotListCommand.Flag("tags", "Tag filters to apply on the list items. Must be provided in the <key>:<value> format.").Strings()
 )
 
-func findSnapshotsForSource(ctx context.Context, rep repo.Repository, sourceInfo snapshot.SourceInfo) (manifestIDs []manifest.ID, relPath string, err error) {
+func findSnapshotsForSource(ctx context.Context, rep repo.Repository, sourceInfo snapshot.SourceInfo, tags map[string]string) (manifestIDs []manifest.ID, relPath string, err error) {
 	for len(sourceInfo.Path) > 0 {
-		list, err := snapshot.ListSnapshotManifests(ctx, rep, &sourceInfo)
+		list, err := snapshot.ListSnapshotManifests(ctx, rep, &sourceInfo, tags)
 		if err != nil {
 			return nil, "", errors.Wrapf(err, "error listing manifests for %v", sourceInfo)
 		}
@@ -65,9 +66,9 @@ func findSnapshotsForSource(ctx context.Context, rep repo.Repository, sourceInfo
 	return nil, "", nil
 }
 
-func findManifestIDs(ctx context.Context, rep repo.Repository, source string) ([]manifest.ID, string, error) {
+func findManifestIDs(ctx context.Context, rep repo.Repository, source string, tags map[string]string) ([]manifest.ID, string, error) {
 	if source == "" {
-		man, err := snapshot.ListSnapshotManifests(ctx, rep, nil)
+		man, err := snapshot.ListSnapshotManifests(ctx, rep, nil, tags)
 		return man, "", errors.Wrap(err, "error listing all snapshot manifests")
 	}
 
@@ -76,7 +77,7 @@ func findManifestIDs(ctx context.Context, rep repo.Repository, source string) ([
 		return nil, "", errors.Errorf("invalid directory: '%s': %s", source, err)
 	}
 
-	manifestIDs, relPath, err := findSnapshotsForSource(ctx, rep, si)
+	manifestIDs, relPath, err := findSnapshotsForSource(ctx, rep, si, tags)
 	if relPath != "" {
 		relPath = "/" + relPath
 	}
@@ -90,7 +91,12 @@ func runSnapshotsCommand(ctx context.Context, rep repo.Repository) error {
 	jl.begin()
 	defer jl.end()
 
-	manifestIDs, relPath, err := findManifestIDs(ctx, rep, *snapshotListPath)
+	tags, err := getTags(*snapshotListTags)
+	if err != nil {
+		return err
+	}
+
+	manifestIDs, relPath, err := findManifestIDs(ctx, rep, *snapshotListPath, tags)
 	if err != nil {
 		return err
 	}
