@@ -40,7 +40,7 @@ func (ac *repositoryUserAuthenticator) IsValid(ctx context.Context, rep repo.Rep
 
 		newUsers, err := user.LoadProfileMap(ctx, rep, ac.userProfiles)
 		if err != nil {
-			log(ctx).Warningf("unable to load userProfiles map: %v", err)
+			log(ctx).Errorf("unable to load userProfiles map: %v", err)
 		} else {
 			ac.userProfiles = newUsers
 		}

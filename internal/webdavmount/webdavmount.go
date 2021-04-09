@@ -156,7 +156,7 @@ func (w *webdavFS) Rename(ctx context.Context, oldPath, newPath string) error {
 func (w *webdavFS) OpenFile(ctx context.Context, path string, flags int, mode os.FileMode) (webdav.File, error) {
 	f, err := w.findEntry(ctx, path)
 	if err != nil {
-		log(ctx).Warningf("OpenFile(%q) failed with %v", path, err)
+		log(ctx).Errorf("OpenFile(%q) failed with %v", path, err)
 		return nil, err
 	}
 

@@ -54,7 +54,7 @@ func (hc *actionContext) ensureInitialized(ctx context.Context, actionType, dirP
 	}
 
 	if !uploaderEnabled {
-		log(ctx).Noticef("Not executing %v action on %v because it's been disabled for this client.", actionType, dirPathOrEmpty)
+		log(ctx).Infof("Not executing %v action on %v because it's been disabled for this client.", actionType, dirPathOrEmpty)
 		return nil
 	}
 
@@ -164,7 +164,7 @@ func runActionCommand(
 			return errors.Wrap(err, "essential action failed")
 		}
 
-		log(ctx).Warningf("error running non-essential action command: %v", err)
+		log(ctx).Errorf("error running non-essential action command: %v", err)
 	}
 
 	return parseCaptures(v, captures)
@@ -226,7 +226,7 @@ func (u *Uploader) executeAfterFolderAction(ctx context.Context, actionType stri
 	}
 
 	if err := hc.ensureInitialized(ctx, actionType, dirPathOrEmpty, u.EnableActions); err != nil {
-		log(ctx).Warningf("error initializing action context: %v", err)
+		log(ctx).Errorf("error initializing action context: %v", err)
 	}
 
 	if !hc.ActionsEnabled {
@@ -234,7 +234,7 @@ func (u *Uploader) executeAfterFolderAction(ctx context.Context, actionType stri
 	}
 
 	if err := runActionCommand(ctx, actionType, h, hc.envars(), nil, hc.WorkDir); err != nil {
-		log(ctx).Warningf("error running '%v' action: %v", actionType, err)
+		log(ctx).Errorf("error running '%v' action: %v", actionType, err)
 	}
 }
 

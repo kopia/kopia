@@ -152,14 +152,14 @@ func ReportRun(ctx context.Context, rep repo.DirectRepositoryWriter, taskType Ta
 
 		s, err = GetSchedule(ctx, rep)
 		if err != nil {
-			log(ctx).Warningf("unable to get schedule")
+			log(ctx).Errorf("unable to get schedule")
 		}
 	}
 
 	s.ReportRun(taskType, ri)
 
 	if err := SetSchedule(ctx, rep, s); err != nil {
-		log(ctx).Warningf("unable to report run: %v", err)
+		log(ctx).Errorf("unable to report run: %v", err)
 	}
 
 	return runErr

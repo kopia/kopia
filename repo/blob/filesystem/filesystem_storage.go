@@ -168,7 +168,7 @@ func (fs *fsImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data 
 		err = os.Rename(tempFile, path)
 		if err != nil {
 			if removeErr := os.Remove(tempFile); removeErr != nil {
-				log(ctx).Warningf("can't remove temp file: %v", removeErr)
+				log(ctx).Errorf("can't remove temp file: %v", removeErr)
 			}
 
 			// nolint:wrapcheck
@@ -177,7 +177,7 @@ func (fs *fsImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data 
 
 		if fs.FileUID != nil && fs.FileGID != nil && os.Geteuid() == 0 {
 			if chownErr := os.Chown(path, *fs.FileUID, *fs.FileGID); chownErr != nil {
-				log(ctx).Warningf("can't change file permissions: %v", chownErr)
+				log(ctx).Errorf("can't change file permissions: %v", chownErr)
 			}
 		}
 

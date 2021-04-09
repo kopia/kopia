@@ -34,7 +34,7 @@ func (c *listCache) listBlobs(ctx context.Context, prefix blob.ID) ([]blob.Metad
 				return ci.Blobs, nil
 			}
 		} else if !errors.Is(err, blob.ErrBlobNotFound) {
-			log(ctx).Warningf("unable to open cache file: %v", err)
+			log(ctx).Errorf("unable to open cache file: %v", err)
 		}
 	}
 
@@ -61,7 +61,7 @@ func (c *listCache) saveListToCache(ctx context.Context, prefix blob.ID, ci *cac
 	if data, err := json.Marshal(ci); err == nil {
 		b := hmac.Append(data, c.hmacSecret)
 		if err := atomicfile.Write(c.cacheFilePrefix+string(prefix), bytes.NewReader(b)); err != nil {
-			log(ctx).Warningf("unable to write list cache: %v", err)
+			log(ctx).Errorf("unable to write list cache: %v", err)
 		}
 	}
 }

@@ -104,7 +104,7 @@ func maybeInitializeUpdateCheck(ctx context.Context) {
 			return
 		}
 
-		log(ctx).Noticef(autoUpdateNotice, updateStateFilename())
+		log(ctx).Infof(autoUpdateNotice, updateStateFilename())
 	} else {
 		removeUpdateState()
 	}
@@ -257,7 +257,7 @@ func maybePrintUpdateNotification(ctx context.Context) {
 		return
 	}
 
-	log(ctx).Noticef(updateAvailableNoticeFormat, ensureVPrefix(repo.BuildVersion), ensureVPrefix(updatedVersion), repo.BuildGitHubRepo)
+	log(ctx).Infof(updateAvailableNoticeFormat, ensureVPrefix(repo.BuildVersion), ensureVPrefix(updatedVersion), repo.BuildGitHubRepo)
 }
 
 func ensureVPrefix(s string) string {

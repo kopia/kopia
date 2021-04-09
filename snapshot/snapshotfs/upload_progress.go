@@ -221,14 +221,14 @@ func (p *CountingUploadProgress) UITaskCounters(final bool) map[string]uitask.Co
 	m := map[string]uitask.CounterValue{
 		"Cached Files":    uitask.SimpleCounter(cachedFiles),
 		"Hashed Files":    uitask.SimpleCounter(hashedFiles),
-		"Processed Files": uitask.NoticeBytesCounter(hashedFiles + cachedFiles),
+		"Processed Files": uitask.BytesCounter(hashedFiles + cachedFiles),
 
 		"Cached Bytes":    uitask.BytesCounter(cachedBytes),
 		"Hashed Bytes":    uitask.BytesCounter(hashedBytes),
-		"Processed Bytes": uitask.NoticeBytesCounter(hashedBytes + cachedBytes),
+		"Processed Bytes": uitask.BytesCounter(hashedBytes + cachedBytes),
 
 		// bytes actually ploaded to the server (non-deduplicated)
-		"Uploaded Bytes": uitask.NoticeBytesCounter(atomic.LoadInt64(&p.counters.TotalUploadedBytes)),
+		"Uploaded Bytes": uitask.BytesCounter(atomic.LoadInt64(&p.counters.TotalUploadedBytes)),
 
 		"Excluded Files":       uitask.SimpleCounter(int64(atomic.LoadInt32(&p.counters.TotalExcludedFiles))),
 		"Excluded Directories": uitask.SimpleCounter(int64(atomic.LoadInt32(&p.counters.TotalExcludedDirs))),
@@ -237,8 +237,8 @@ func (p *CountingUploadProgress) UITaskCounters(final bool) map[string]uitask.Co
 	}
 
 	if !final {
-		m["Estimated Files"] = uitask.NoticeCounter(int64(atomic.LoadInt32(&p.counters.EstimatedFiles)))
-		m["Estimated Bytes"] = uitask.NoticeBytesCounter(atomic.LoadInt64(&p.counters.EstimatedBytes))
+		m["Estimated Files"] = uitask.SimpleCounter(int64(atomic.LoadInt32(&p.counters.EstimatedFiles)))
+		m["Estimated Bytes"] = uitask.BytesCounter(atomic.LoadInt64(&p.counters.EstimatedBytes))
 	}
 
 	return m

@@ -39,7 +39,7 @@ func (ep *estimateProgress) Processing(ctx context.Context, dirname string) {
 
 func (ep *estimateProgress) Error(ctx context.Context, filename string, err error, isIgnored bool) {
 	if isIgnored {
-		log(ctx).Warningf("Ignored error in %v: %v", filename, err)
+		log(ctx).Errorf("Ignored error in %v: %v", filename, err)
 	} else {
 		log(ctx).Errorf("Error in %v: %v", filename, err)
 	}

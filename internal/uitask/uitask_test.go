@@ -61,7 +61,7 @@ func TestUITask(t *testing.T) {
 			"first",
 			"iii",
 		})
-		log(ctx).Warningf("www")
+		log(ctx).Infof("www")
 		log(ctx).Errorf("eee")
 
 		// 'first' has aged out
@@ -69,14 +69,6 @@ func TestUITask(t *testing.T) {
 			"iii",
 			"www",
 			"eee",
-		})
-
-		log(ctx).Noticef("nnn")
-		log(ctx).Fatalf("fff")
-		verifyTaskLog(t, m, tid1a, []string{
-			"eee",
-			"nnn",
-			"fff",
 		})
 
 		ctrl.ReportProgressInfo("doing something")
@@ -142,9 +134,9 @@ func TestUITask(t *testing.T) {
 
 	// task log still available after task finished.
 	verifyTaskLog(t, m, tid1, []string{
+		"iii",
+		"www",
 		"eee",
-		"nnn",
-		"fff",
 	})
 
 	m.Run(ctx, "some-kind", "test-2", func(ctx context.Context, ctrl uitask.Controller) error {

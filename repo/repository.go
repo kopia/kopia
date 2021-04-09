@@ -283,7 +283,7 @@ func (r *directRepository) RefreshPeriodically(ctx context.Context, interval tim
 
 		case <-time.After(interval):
 			if err := r.Refresh(ctx); err != nil {
-				log(ctx).Warningf("error refreshing repository: %v", err)
+				log(ctx).Errorf("error refreshing repository: %v", err)
 			}
 		}
 	}
@@ -324,7 +324,7 @@ func DirectWriteSession(ctx context.Context, r DirectRepository, opt WriteSessio
 func handleWriteSessionResult(ctx context.Context, w RepositoryWriter, opt WriteSessionOptions, resultErr error) error {
 	defer func() {
 		if err := w.Close(ctx); err != nil {
-			log(ctx).Warningf("error closing writer: %v", err)
+			log(ctx).Errorf("error closing writer: %v", err)
 		}
 	}()
 

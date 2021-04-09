@@ -12,7 +12,7 @@ import (
 func GetDefaultUserName(ctx context.Context) string {
 	currentUser, err := user.Current()
 	if err != nil {
-		log(ctx).Warningf("Cannot determine current user: %s", err)
+		log(ctx).Errorf("Cannot determine current user: %s", err)
 		return "nobody"
 	}
 
@@ -32,7 +32,7 @@ func GetDefaultUserName(ctx context.Context) string {
 func GetDefaultHostName(ctx context.Context) string {
 	hostname, err := os.Hostname()
 	if err != nil {
-		log(ctx).Warningf("Unable to determine hostname: %s\n", err)
+		log(ctx).Errorf("Unable to determine hostname: %s\n", err)
 		return "nohost"
 	}
 

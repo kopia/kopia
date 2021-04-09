@@ -66,7 +66,7 @@ func (r *rcloneStorage) Close(ctx context.Context) error {
 
 	if r.temporaryDir != "" {
 		if err := os.RemoveAll(r.temporaryDir); err != nil && !os.IsNotExist(err) {
-			log(ctx).Warningf("error deleting temporary dir: %v", err)
+			log(ctx).Errorf("error deleting temporary dir: %v", err)
 		}
 	}
 

@@ -276,7 +276,7 @@ func readAndCacheFormatBlobBytes(ctx context.Context, st blob.Storage, cacheDire
 
 	if cacheDirectory != "" {
 		if err := os.MkdirAll(cacheDirectory, 0o700); err != nil && !os.IsExist(err) {
-			log(ctx).Warningf("unable to create cache directory: %v", err)
+			log(ctx).Errorf("unable to create cache directory: %v", err)
 		}
 
 		b, err := ioutil.ReadFile(cachedFile) //nolint:gosec
@@ -293,7 +293,7 @@ func readAndCacheFormatBlobBytes(ctx context.Context, st blob.Storage, cacheDire
 
 	if cacheDirectory != "" {
 		if err := atomicfile.Write(cachedFile, bytes.NewReader(b)); err != nil {
-			log(ctx).Warningf("warning: unable to write cache: %v", err)
+			log(ctx).Errorf("warning: unable to write cache: %v", err)
 		}
 	}
 

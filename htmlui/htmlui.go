@@ -18,7 +18,8 @@ var data embed.FS
 func AssetFile() http.FileSystem {
 	f, err := fs.Sub(data, "build")
 	if err != nil {
-		logging.GetContextLoggerFunc("htmluil")(context.Background()).Fatalf("Build time error: could not embed htmlui")
+		logging.GetContextLoggerFunc("htmluil")(context.Background()).Errorf("Build time error: could not embed htmlui")
+		panic("could not embed htmlui")
 	}
 
 	return http.FS(f)

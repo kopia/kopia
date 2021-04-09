@@ -95,7 +95,7 @@ func (s *Server) Session(srv grpcapi.KopiaRepository_SessionServer) error {
 
 	opt, err := s.handleInitialSessionHandshake(srv, dr)
 	if err != nil {
-		log(ctx).Warningf("session handshake error: %v", err)
+		log(ctx).Errorf("session handshake error: %v", err)
 		return err
 	}
 
@@ -109,7 +109,7 @@ func (s *Server) Session(srv grpcapi.KopiaRepository_SessionServer) error {
 			// propagate any error from the goroutines
 			select {
 			case err := <-lastErr:
-				log(ctx).Warningf("error handling session request: %v", err)
+				log(ctx).Errorf("error handling session request: %v", err)
 				return err
 
 			default:

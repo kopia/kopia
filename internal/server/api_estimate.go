@@ -29,7 +29,7 @@ func (p estimateTaskProgress) Processing(ctx context.Context, dirname string) {
 
 func (p estimateTaskProgress) Error(ctx context.Context, dirname string, err error, isIgnored bool) {
 	if isIgnored {
-		log(ctx).Warningf("ignored error in %v: %v", dirname, err)
+		log(ctx).Errorf("ignored error in %v: %v", dirname, err)
 	} else {
 		log(ctx).Errorf("error in %v: %v", dirname, err)
 	}
@@ -37,9 +37,9 @@ func (p estimateTaskProgress) Error(ctx context.Context, dirname string, err err
 
 func (p estimateTaskProgress) Stats(ctx context.Context, st *snapshot.Stats, included, excluded snapshotfs.SampleBuckets, excludedDirs []string, final bool) {
 	p.ctrl.ReportCounters(map[string]uitask.CounterValue{
-		"Bytes":                uitask.NoticeBytesCounter(st.TotalFileSize),
-		"Files":                uitask.NoticeCounter(int64(st.TotalFileCount)),
-		"Directories":          uitask.NoticeCounter(int64(st.TotalDirectoryCount)),
+		"Bytes":                uitask.BytesCounter(st.TotalFileSize),
+		"Files":                uitask.SimpleCounter(int64(st.TotalFileCount)),
+		"Directories":          uitask.SimpleCounter(int64(st.TotalDirectoryCount)),
 		"Excluded Files":       uitask.SimpleCounter(int64(st.ExcludedFileCount)),
 		"Excluded Directories": uitask.SimpleCounter(int64(st.ExcludedDirCount)),
 		"Errors":               uitask.ErrorCounter(int64(st.ErrorCount)),

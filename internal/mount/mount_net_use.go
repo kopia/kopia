@@ -27,7 +27,7 @@ func Directory(ctx context.Context, entry fs.Directory, driveLetter string, _ Op
 	actualDriveLetter, err := netUseMount(ctx, driveLetter, c.MountPath())
 	if err != nil {
 		if uerr := c.Unmount(ctx); uerr != nil {
-			log(ctx).Warningf("unable to unmount webdav server: %v", uerr)
+			log(ctx).Errorf("unable to unmount webdav server: %v", uerr)
 		}
 
 		return nil, errors.Wrap(err, "unable to mount webdav server as drive letter")

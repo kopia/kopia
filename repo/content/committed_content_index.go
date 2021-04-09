@@ -148,7 +148,7 @@ func (b *committedContentIndex) use(ctx context.Context, packFiles []blob.ID) (b
 	b.inUse = newInUse
 
 	if err := b.cache.expireUnused(ctx, packFiles); err != nil {
-		log(ctx).Warningf("unable to expire unused content index files: %v", err)
+		log(ctx).Errorf("unable to expire unused content index files: %v", err)
 	}
 
 	newMerged = nil // prevent closing newMerged indices

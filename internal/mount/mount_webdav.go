@@ -20,7 +20,7 @@ func webdavServerLogger(r *http.Request, err error) {
 	}
 
 	if err != nil {
-		log(r.Context()).Warningf("%v %v%v err: %v\n", r.Method, r.URL.RequestURI(), maybeRange, err)
+		log(r.Context()).Errorf("%v %v%v err: %v\n", r.Method, r.URL.RequestURI(), maybeRange, err)
 	} else {
 		log(r.Context()).Debugf("%v %v%v OK\n", r.Method, r.URL.RequestURI(), maybeRange)
 	}

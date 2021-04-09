@@ -416,7 +416,7 @@ func (u *Uploader) periodicallyCheckpoint(ctx context.Context, cp *checkpointReg
 
 			case <-ch:
 				if err := u.checkpointRoot(ctx, cp, prototypeManifest); err != nil {
-					log(ctx).Warningf("error checkpointing: %v", err)
+					log(ctx).Errorf("error checkpointing: %v", err)
 					u.Cancel()
 
 					return
@@ -888,7 +888,7 @@ func maybeReadDirectoryEntries(ctx context.Context, dir fs.Directory) fs.Entries
 
 	ent, err := dir.Readdir(ctx)
 	if err != nil {
-		log(ctx).Warningf("unable to read previous directory entries: %v", err)
+		log(ctx).Errorf("unable to read previous directory entries: %v", err)
 		return nil
 	}
 

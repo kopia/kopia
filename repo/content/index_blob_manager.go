@@ -208,7 +208,7 @@ func (m *indexBlobManagerImpl) encryptAndWriteBlob(ctx context.Context, data []b
 	formatLog(ctx).Debugf("write-index-blob %v %v %v", blobID, bm.Length, bm.Timestamp)
 
 	if err := m.ownWritesCache.add(ctx, bm); err != nil {
-		formatLog(ctx).Warningf("own-writes-cache failure: %v", err)
+		formatLog(ctx).Errorf("own-writes-cache failure: %v", err)
 	}
 
 	return bm, nil

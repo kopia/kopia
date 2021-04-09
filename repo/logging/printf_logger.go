@@ -5,12 +5,9 @@ type printfLogger struct {
 	prefix string
 }
 
-func (l *printfLogger) Debugf(msg string, args ...interface{})   { l.printf(l.prefix+msg, args...) }
-func (l *printfLogger) Infof(msg string, args ...interface{})    { l.printf(l.prefix+msg, args...) }
-func (l *printfLogger) Noticef(msg string, args ...interface{})  { l.printf(l.prefix+msg, args...) }
-func (l *printfLogger) Warningf(msg string, args ...interface{}) { l.printf(l.prefix+msg, args...) }
-func (l *printfLogger) Errorf(msg string, args ...interface{})   { l.printf(l.prefix+msg, args...) }
-func (l *printfLogger) Fatalf(msg string, args ...interface{})   { l.printf(l.prefix+msg, args...) }
+func (l *printfLogger) Debugf(msg string, args ...interface{}) { l.printf(l.prefix+msg, args...) }
+func (l *printfLogger) Infof(msg string, args ...interface{})  { l.printf(l.prefix+msg, args...) }
+func (l *printfLogger) Errorf(msg string, args ...interface{}) { l.printf(l.prefix+msg, args...) }
 
 // Printf returns LoggerForModuleFunc that uses given printf-style function to print log output.
 func Printf(printf func(msg string, args ...interface{})) LoggerForModuleFunc {

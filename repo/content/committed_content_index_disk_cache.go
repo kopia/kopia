@@ -156,7 +156,7 @@ func (c *diskCommittedContentIndexCache) expireUnused(ctx context.Context, used 
 			log(ctx).Debugf("removing unused %v %v", rem.Name(), rem.ModTime())
 
 			if err := os.Remove(filepath.Join(c.dirname, rem.Name())); err != nil {
-				log(ctx).Warningf("unable to remove unused index file: %v", err)
+				log(ctx).Errorf("unable to remove unused index file: %v", err)
 			}
 		} else {
 			log(ctx).Debugf("keeping unused %v because it's too new %v", rem.Name(), rem.ModTime())

@@ -100,7 +100,7 @@ func runServer(ctx context.Context, rep repo.Repository) error {
 		log(ctx).Infof("Shutting down...")
 
 		if err = httpServer.Shutdown(ctx); err != nil {
-			log(ctx).Warningf("unable to shut down: %v", err)
+			log(ctx).Debugf("unable to shut down: %v", err)
 		}
 	})
 
@@ -131,7 +131,7 @@ func runServer(ctx context.Context, rep repo.Repository) error {
 
 	onExternalConfigReloadRequest(func() {
 		if rerr := srv.Refresh(ctx); rerr != nil {
-			log(ctx).Warningf("refresh failed: %v", rerr)
+			log(ctx).Errorf("refresh failed: %v", rerr)
 		}
 	})
 
@@ -264,7 +264,7 @@ func getAuthenticator(ctx context.Context) (auth.Authenticator, error) {
 		authenticators = append(authenticators, auth.AuthenticateSingleUser(*serverUsername, randomPassword))
 	}
 
-	log(ctx).Noticef(`
+	log(ctx).Infof(`
 Server will allow connections from users whose accounts are stored in the repository.
 User accounts can be added using 'kopia server user add'.
 `)

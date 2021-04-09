@@ -24,10 +24,7 @@ func SetDefault(l LoggerForModuleFunc) {
 type Logger interface {
 	Debugf(msg string, args ...interface{})
 	Infof(msg string, args ...interface{})
-	Noticef(msg string, args ...interface{})
-	Warningf(msg string, args ...interface{})
 	Errorf(msg string, args ...interface{})
-	Fatalf(msg string, args ...interface{})
 }
 
 // GetContextLoggerFunc returns an function that returns a logger for a given module when provided with a context.

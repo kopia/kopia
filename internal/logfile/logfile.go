@@ -31,7 +31,9 @@ var contentLogFormat = logging.MustStringFormatter(
 var fileLogFormat = logging.MustStringFormatter(
 	`%{time:2006-01-02 15:04:05.000} %{level:.1s} [%{shortfile}] %{message}`)
 
+// warning is for backwards compatibility, same as error.
 var logLevels = []string{"debug", "info", "warning", "error"}
+
 var (
 	logFile        = cli.App().Flag("log-file", "Override log file.").String()
 	contentLogFile = cli.App().Flag("content-log-file", "Override content log file.").Hidden().String()
@@ -216,7 +218,7 @@ func sweepLogDir(ctx context.Context, dirname string, maxCount int, maxAge time.
 
 	entries, err := ioutil.ReadDir(dirname)
 	if err != nil {
-		log(ctx).Warningf("unable to read log directory: %v", err)
+		log(ctx).Errorf("unable to read log directory: %v", err)
 		return
 	}
 
@@ -239,7 +241,7 @@ func sweepLogDir(ctx context.Context, dirname string, maxCount int, maxAge time.
 
 		if cnt > maxCount || e.ModTime().Before(timeCutoff) {
 			if err = os.Remove(filepath.Join(dirname, e.Name())); err != nil && !os.IsNotExist(err) {
-				log(ctx).Warningf("unable to remove log file: %v", err)
+				log(ctx).Errorf("unable to remove log file: %v", err)
 			}
 		}
 	}

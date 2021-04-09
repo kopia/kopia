@@ -159,7 +159,7 @@ func (c *copier) copyEntry(ctx context.Context, e fs.Entry, targetPath string, o
 
 	if c.ignoreErrors {
 		atomic.AddInt32(&c.stats.IgnoredErrorCount, 1)
-		log(ctx).Warningf("ignored error %v on %v", err, targetPath)
+		log(ctx).Errorf("ignored error %v on %v", err, targetPath)
 
 		return nil
 	}

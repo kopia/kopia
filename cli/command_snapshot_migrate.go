@@ -54,7 +54,7 @@ func runMigrateCommand(ctx context.Context, destRepo repo.RepositoryWriter) erro
 		if !canceled {
 			canceled = true
 			for s, u := range activeUploaders {
-				log(ctx).Warningf("canceling active uploader for %v", s)
+				log(ctx).Infof("canceling active uploader for %v", s)
 				u.Cancel()
 			}
 		}
@@ -99,7 +99,7 @@ func runMigrateCommand(ctx context.Context, destRepo repo.RepositoryWriter) erro
 			}()
 
 			if err := migrateSingleSource(ctx, uploader, sourceRepo, destRepo, s); err != nil {
-				log(ctx).Warningf("unable to migrate source: %v", err)
+				log(ctx).Errorf("unable to migrate source: %v", err)
 			}
 		}(s)
 	}
@@ -148,7 +148,7 @@ func migrateAllPolicies(ctx context.Context, sourceRepo repo.Repository, destRep
 
 	for _, pol := range policies {
 		if err := migrateSinglePolicy(ctx, sourceRepo, destRepo, pol.Target()); err != nil {
-			log(ctx).Warningf("unable to migrate policy for %v: %v", pol.Target(), err)
+			log(ctx).Errorf("unable to migrate policy for %v: %v", pol.Target(), err)
 		}
 	}
 

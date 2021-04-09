@@ -72,7 +72,7 @@ func deletePassword(ctx context.Context, configFile string) {
 		if err == nil {
 			log(ctx).Infof("deleted repository password for %v.", configFile)
 		} else if !errors.Is(err, keyring.ErrNotFound) {
-			log(ctx).Warningf("unable to delete keyring item %v: %v", getKeyringItemID(configFile), err)
+			log(ctx).Errorf("unable to delete keyring item %v: %v", getKeyringItemID(configFile), err)
 		}
 	}
 
@@ -93,7 +93,7 @@ func passwordFileName(configFile string) string {
 func keyringUsername(ctx context.Context) string {
 	currentUser, err := user.Current()
 	if err != nil {
-		log(ctx).Warningf("Cannot determine keyring username: %s", err)
+		log(ctx).Errorf("Cannot determine keyring username: %s", err)
 		return "nobody"
 	}
 
