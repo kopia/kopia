@@ -1092,12 +1092,14 @@ func (u *Uploader) Upload(
 	source fs.Entry,
 	policyTree *policy.Tree,
 	sourceInfo snapshot.SourceInfo,
+	tags map[string]string,
 	previousManifests ...*snapshot.Manifest,
 ) (*snapshot.Manifest, error) {
 	log(ctx).Debugf("Uploading %v", sourceInfo)
 
 	s := &snapshot.Manifest{
 		Source: sourceInfo,
+		Tags:   tags,
 	}
 
 	u.Progress.UploadStarted()

@@ -254,7 +254,7 @@ func migrateSingleSourceSnapshot(ctx context.Context, uploader *snapshotfs.Uploa
 
 	var policyTree *policy.Tree
 
-	newm, err := uploader.Upload(ctx, sourceEntry, policyTree, m.Source, previous...)
+	newm, err := uploader.Upload(ctx, sourceEntry, policyTree, m.Source, nil, previous...)
 	if err != nil {
 		return errors.Wrapf(err, "error migrating shapshot %v @ %v", m.Source, m.StartTime)
 	}

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -38,6 +39,7 @@ var (
 	snapshotCreateForceEnableActions      = snapshotCreateCommand.Flag("force-enable-actions", "Enable snapshot actions even if globally disabled on this client").Hidden().Bool()
 	snapshotCreateForceDisableActions     = snapshotCreateCommand.Flag("force-disable-actions", "Disable snapshot actions even if globally enabled on this client").Hidden().Bool()
 	snapshotCreateStdinFileName           = snapshotCreateCommand.Flag("stdin-file", "File path to be used for stdin data snapshot.").String()
+	snapshotCreateTags                    = snapshotCreateCommand.Flag("tags", "Tags applied on the snapshot. Must be provided in the <key>:<value> format.").Strings()
 )
 
 func runSnapshotCommand(ctx context.Context, rep repo.RepositoryWriter) error {
@@ -72,6 +74,11 @@ func runSnapshotCommand(ctx context.Context, rep repo.RepositoryWriter) error {
 
 	var finalErrors []string
 
+	tags, err := getTags()
+	if err != nil {
+		return err
+	}
+
 	for _, snapshotDir := range sources {
 		if u.IsCanceled() {
 			log(ctx).Infof("Upload canceled")
@@ -89,7 +96,7 @@ func runSnapshotCommand(ctx context.Context, rep repo.RepositoryWriter) error {
 			UserName: rep.ClientOptions().Username,
 		}
 
-		if err := snapshotSingleSource(ctx, rep, u, sourceInfo); err != nil {
+		if err := snapshotSingleSource(ctx, rep, u, sourceInfo, tags); err != nil {
 			finalErrors = append(finalErrors, err.Error())
 		}
 	}
@@ -103,6 +110,18 @@ func runSnapshotCommand(ctx context.Context, rep repo.RepositoryWriter) error {
 	}
 
 	return errors.Errorf("encountered %v errors:\n%v", len(finalErrors), strings.Join(finalErrors, "\n"))
+}
+
+func getTags() (map[string]string, error) {
+	tags := map[string]string{}
+	for _, tagkv := range *snapshotCreateTags {
+		tagFields := strings.Split(tagkv, ":")
+		if len(tagFields) != 2 {
+			return nil, fmt.Errorf("Invalid tag format. Requires <key>:<value>")
+		}
+		tags[tagFields[0]] = tagFields[1]
+	}
+	return tags, nil
 }
 
 func validateStartEndTime(st, et string) error {
@@ -164,7 +183,7 @@ func startTimeAfterEndTime(startTime, endTime time.Time) bool {
 		startTime.After(endTime)
 }
 
-func snapshotSingleSource(ctx context.Context, rep repo.RepositoryWriter, u *snapshotfs.Uploader, sourceInfo snapshot.SourceInfo) error {
+func snapshotSingleSource(ctx context.Context, rep repo.RepositoryWriter, u *snapshotfs.Uploader, sourceInfo snapshot.SourceInfo, tags map[string]string) error {
 	log(ctx).Infof("Snapshotting %v ...", sourceInfo)
 
 	var (
@@ -199,7 +218,7 @@ func snapshotSingleSource(ctx context.Context, rep repo.RepositoryWriter, u *sna
 
 	log(ctx).Debugf("uploading %v using %v previous manifests", sourceInfo, len(previous))
 
-	manifest, err := u.Upload(ctx, fsEntry, policyTree, sourceInfo, previous...)
+	manifest, err := u.Upload(ctx, fsEntry, policyTree, sourceInfo, tags, previous...)
 	if err != nil {
 		// fail-fast uploads will fail here without recording a manifest, other uploads will
 		// possibly fail later.
