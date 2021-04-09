@@ -209,7 +209,7 @@ func runQuickMaintenance(ctx context.Context, runParams RunParameters, safety Sa
 		return errors.Wrap(err, "unable to get schedule")
 	}
 
-	if shouldRewriteContents(s) {
+	if shouldQuickRewriteContents(s) {
 		// find 'q' packs that are less than 80% full and rewrite contents in them into
 		// new consolidated packs, orphaning old packs in the process.
 		if err := ReportRun(ctx, runParams.rep, TaskRewriteContentsQuick, s, func() error {
@@ -273,7 +273,7 @@ func runFullMaintenance(ctx context.Context, runParams RunParameters, safety Saf
 		log(ctx).Infof("Not enough time has passed since previous successful Snapshot GC. Will try again next time.")
 	}
 
-	if shouldRewriteContents(s) {
+	if shouldFullRewriteContents(s) {
 		// find packs that are less than 80% full and rewrite contents in them into
 		// new consolidated packs, orphaning old packs in the process.
 		if err := ReportRun(ctx, runParams.rep, TaskRewriteContentsFull, s, func() error {
@@ -302,8 +302,25 @@ func runFullMaintenance(ctx context.Context, runParams RunParameters, safety Saf
 // shouldRewriteContents returns true if it's currently ok to rewrite contents.
 // since each content rewrite will require deleting of orphaned blobs after some time passes,
 // we don't want to starve blob deletion by constantly doing rewrites.
-func shouldRewriteContents(s *Schedule) bool {
+func shouldQuickRewriteContents(s *Schedule) bool {
 	latestContentRewriteEndTime := maxEndTime(s.Runs[TaskRewriteContentsFull], s.Runs[TaskRewriteContentsQuick])
+	latestBlobDeleteTime := maxEndTime(s.Runs[TaskDeleteOrphanedBlobsFull], s.Runs[TaskDeleteOrphanedBlobsQuick])
+
+	// never did rewrite - safe to do so.
+	if latestContentRewriteEndTime.IsZero() {
+		return true
+	}
+
+	return latestBlobDeleteTime.After(latestContentRewriteEndTime)
+}
+
+// shouldFullRewriteContents returns true if it's currently ok to rewrite contents.
+// since each content rewrite will require deleting of orphaned blobs after some time passes,
+// we don't want to starve blob deletion by constantly doing rewrites.
+func shouldFullRewriteContents(s *Schedule) bool {
+	// NOTE - we're not looking at TaskRewriteContentsQuick here, this allows full rewrite to sometimes
+	// follow quick rewrite.
+	latestContentRewriteEndTime := maxEndTime(s.Runs[TaskRewriteContentsFull])
 	latestBlobDeleteTime := maxEndTime(s.Runs[TaskDeleteOrphanedBlobsFull], s.Runs[TaskDeleteOrphanedBlobsQuick])
 
 	// never did rewrite - safe to do so.
