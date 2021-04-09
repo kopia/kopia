@@ -218,7 +218,7 @@ func TestMaintenanceAutoLiveness(t *testing.T) {
 	deadline := ft.NowFunc()().Add(21 * 24 * time.Hour)
 
 	for ft.NowFunc()().Before(deadline) {
-		ft.Advance(23 * time.Minute)
+		ft.Advance(30 * time.Minute)
 
 		t.Logf("running maintenance at %v", ft.NowFunc()())
 		require.NoError(t, repo.DirectWriteSession(ctx, env.RepositoryWriter, repo.WriteSessionOptions{}, func(dw repo.DirectRepositoryWriter) error {
@@ -246,13 +246,13 @@ func TestMaintenanceAutoLiveness(t *testing.T) {
 	sched, err := maintenance.GetSchedule(ctx, env.RepositoryWriter)
 	require.NoError(t, err)
 
-	require.NotEmpty(t, sched.Runs[maintenance.TaskDeleteOrphanedBlobsFull])
-	require.NotEmpty(t, sched.Runs[maintenance.TaskDeleteOrphanedBlobsQuick])
-	require.NotEmpty(t, sched.Runs[maintenance.TaskDropDeletedContentsFull])
-	require.NotEmpty(t, sched.Runs[maintenance.TaskIndexCompaction])
-	require.NotEmpty(t, sched.Runs[maintenance.TaskRewriteContentsFull])
-	require.NotEmpty(t, sched.Runs[maintenance.TaskRewriteContentsQuick])
-	require.NotEmpty(t, sched.Runs[maintenance.TaskSnapshotGarbageCollection])
+	require.NotEmpty(t, sched.Runs[maintenance.TaskDeleteOrphanedBlobsFull], maintenance.TaskDeleteOrphanedBlobsFull)
+	require.NotEmpty(t, sched.Runs[maintenance.TaskDeleteOrphanedBlobsQuick], maintenance.TaskDeleteOrphanedBlobsQuick)
+	require.NotEmpty(t, sched.Runs[maintenance.TaskDropDeletedContentsFull], maintenance.TaskDropDeletedContentsFull)
+	require.NotEmpty(t, sched.Runs[maintenance.TaskIndexCompaction], maintenance.TaskIndexCompaction)
+	require.NotEmpty(t, sched.Runs[maintenance.TaskRewriteContentsFull], maintenance.TaskRewriteContentsFull)
+	require.NotEmpty(t, sched.Runs[maintenance.TaskRewriteContentsQuick], maintenance.TaskRewriteContentsQuick)
+	require.NotEmpty(t, sched.Runs[maintenance.TaskSnapshotGarbageCollection], maintenance.TaskSnapshotGarbageCollection)
 }
 
 func (th *testHarness) fakeTimeOpenRepoOption(o *repo.Options) {
