@@ -224,13 +224,19 @@ func runQuickMaintenance(ctx context.Context, runParams RunParameters, safety Sa
 	}
 
 	if shouldDeleteOrphanedPacks(runParams.rep.Time(), s, safety) {
-		// delete orphaned 'q' packs after some time.
-		if err := ReportRun(ctx, runParams.rep, TaskDeleteOrphanedBlobsQuick, s, func() error {
-			_, err := DeleteUnreferencedBlobs(ctx, runParams.rep, DeleteUnreferencedBlobsOptions{
-				Prefix: content.PackBlobIDPrefixSpecial,
-			}, safety)
-			return err
-		}); err != nil {
+		var err error
+
+		// time to delete orphaned blobs after last rewrite,
+		// if the last rewrite was full (started as part of full maintenance) we must complete it by
+		// running full orphaned blob deletion, otherwise next quick maintenance will start a quick rewrite
+		// and we'd never delete blobs orphaned by full rewrite.
+		if hadRecentFullRewrite(s) {
+			err = runTaskDeleteOrphanedBlobsFull(ctx, runParams, s, safety)
+		} else {
+			err = runTaskDeleteOrphanedBlobsQuick(ctx, runParams, s, safety)
+		}
+
+		if err != nil {
 			return errors.Wrap(err, "error deleting unreferenced metadata blobs")
 		}
 	}
@@ -243,6 +249,22 @@ func runQuickMaintenance(ctx context.Context, runParams RunParameters, safety Sa
 	}
 
 	return nil
+}
+
+func runTaskDeleteOrphanedBlobsFull(ctx context.Context, runParams RunParameters, s *Schedule, safety SafetyParameters) error {
+	return ReportRun(ctx, runParams.rep, TaskDeleteOrphanedBlobsFull, s, func() error {
+		_, err := DeleteUnreferencedBlobs(ctx, runParams.rep, DeleteUnreferencedBlobsOptions{}, safety)
+		return err
+	})
+}
+
+func runTaskDeleteOrphanedBlobsQuick(ctx context.Context, runParams RunParameters, s *Schedule, safety SafetyParameters) error {
+	return ReportRun(ctx, runParams.rep, TaskDeleteOrphanedBlobsQuick, s, func() error {
+		_, err := DeleteUnreferencedBlobs(ctx, runParams.rep, DeleteUnreferencedBlobsOptions{
+			Prefix: content.PackBlobIDPrefixSpecial,
+		}, safety)
+		return err
+	})
 }
 
 func runFullMaintenance(ctx context.Context, runParams RunParameters, safety SafetyParameters) error {
@@ -288,10 +310,7 @@ func runFullMaintenance(ctx context.Context, runParams RunParameters, safety Saf
 
 	if shouldDeleteOrphanedPacks(runParams.rep.Time(), s, safety) {
 		// delete orphaned packs after some time.
-		if err := ReportRun(ctx, runParams.rep, TaskDeleteOrphanedBlobsFull, s, func() error {
-			_, err := DeleteUnreferencedBlobs(ctx, runParams.rep, DeleteUnreferencedBlobsOptions{}, safety)
-			return err
-		}); err != nil {
+		if err := runTaskDeleteOrphanedBlobsFull(ctx, runParams, s, safety); err != nil {
 			return errors.Wrap(err, "error deleting unreferenced blobs")
 		}
 	}
@@ -340,6 +359,10 @@ func shouldDeleteOrphanedPacks(now time.Time, s *Schedule, safety SafetyParamete
 	latestContentRewriteEndTime := maxEndTime(s.Runs[TaskRewriteContentsFull], s.Runs[TaskRewriteContentsQuick])
 
 	return now.After(latestContentRewriteEndTime.Add(safety.MinRewriteToOrphanDeletionDelay))
+}
+
+func hadRecentFullRewrite(s *Schedule) bool {
+	return maxEndTime(s.Runs[TaskRewriteContentsFull]).After(maxEndTime(s.Runs[TaskRewriteContentsQuick]))
 }
 
 func maxEndTime(taskRuns ...[]RunInfo) time.Time {
