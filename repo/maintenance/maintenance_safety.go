@@ -30,6 +30,9 @@ type SafetyParameters struct {
 
 	// Blob GC: Drop incomplete session blobs above this age.
 	SessionExpirationAge time.Duration
+
+	// Minimum time that must pass after content rewrite before we delete orphaned blobs.
+	MinRewriteToOrphanDeletionDelay time.Duration
 }
 
 // Supported safety levels.
@@ -58,5 +61,6 @@ var (
 		RewriteMinAge:                   2 * time.Hour,  //nolint:gomnd
 		SessionExpirationAge:            96 * time.Hour, //nolint:gomnd
 		RequireTwoGCCycles:              true,
+		MinRewriteToOrphanDeletionDelay: time.Hour,
 	}
 )

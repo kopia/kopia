@@ -27,6 +27,20 @@ const (
 	ModeAuto  Mode = "auto" // run either quick of full if required by schedule
 )
 
+// TaskType identifies the type of a maintenance task.
+type TaskType string
+
+// Task IDs.
+const (
+	TaskSnapshotGarbageCollection = "snapshot-gc"
+	TaskDeleteOrphanedBlobsQuick  = "quick-delete-blobs"
+	TaskDeleteOrphanedBlobsFull   = "full-delete-blobs"
+	TaskRewriteContentsQuick      = "quick-rewrite-contents"
+	TaskRewriteContentsFull       = "full-rewrite-contents"
+	TaskDropDeletedContentsFull   = "full-drop-deleted-content"
+	TaskIndexCompaction           = "index-compaction"
+)
+
 // shouldRun returns Mode if repository is due for periodic maintenance.
 func shouldRun(ctx context.Context, rep repo.DirectRepository, p *Params) (Mode, error) {
 	if myUsername := rep.ClientOptions().UsernameAtHost(); p.Owner != myUsername {
@@ -190,30 +204,39 @@ func Run(ctx context.Context, runParams RunParameters, safety SafetyParameters) 
 }
 
 func runQuickMaintenance(ctx context.Context, runParams RunParameters, safety SafetyParameters) error {
-	// find 'q' packs that are less than 80% full and rewrite contents in them into
-	// new consolidated packs, orphaning old packs in the process.
-	if err := ReportRun(ctx, runParams.rep, "quick-rewrite-contents", func() error {
-		return RewriteContents(ctx, runParams.rep, &RewriteContentsOptions{
-			ContentIDRange: content.AllPrefixedIDs,
-			PackPrefix:     content.PackBlobIDPrefixSpecial,
-			ShortPacks:     true,
-		}, safety)
-	}); err != nil {
-		return errors.Wrap(err, "error rewriting metadata contents")
+	s, err := GetSchedule(ctx, runParams.rep)
+	if err != nil {
+		return errors.Wrap(err, "unable to get schedule")
 	}
 
-	// delete orphaned 'q' packs after some time.
-	if err := ReportRun(ctx, runParams.rep, "quick-delete-blobs", func() error {
-		_, err := DeleteUnreferencedBlobs(ctx, runParams.rep, DeleteUnreferencedBlobsOptions{
-			Prefix: content.PackBlobIDPrefixSpecial,
-		}, safety)
-		return err
-	}); err != nil {
-		return errors.Wrap(err, "error deleting unreferenced metadata blobs")
+	if shouldRewriteContents(s) {
+		// find 'q' packs that are less than 80% full and rewrite contents in them into
+		// new consolidated packs, orphaning old packs in the process.
+		if err := ReportRun(ctx, runParams.rep, TaskRewriteContentsQuick, s, func() error {
+			return RewriteContents(ctx, runParams.rep, &RewriteContentsOptions{
+				ContentIDRange: content.AllPrefixedIDs,
+				PackPrefix:     content.PackBlobIDPrefixSpecial,
+				ShortPacks:     true,
+			}, safety)
+		}); err != nil {
+			return errors.Wrap(err, "error rewriting metadata contents")
+		}
+	}
+
+	if shouldDeleteOrphanedPacks(runParams.rep.Time(), s, safety) {
+		// delete orphaned 'q' packs after some time.
+		if err := ReportRun(ctx, runParams.rep, TaskDeleteOrphanedBlobsQuick, s, func() error {
+			_, err := DeleteUnreferencedBlobs(ctx, runParams.rep, DeleteUnreferencedBlobsOptions{
+				Prefix: content.PackBlobIDPrefixSpecial,
+			}, safety)
+			return err
+		}); err != nil {
+			return errors.Wrap(err, "error deleting unreferenced metadata blobs")
+		}
 	}
 
 	// consolidate many smaller indexes into fewer larger ones.
-	if err := ReportRun(ctx, runParams.rep, "index-compaction", func() error {
+	if err := ReportRun(ctx, runParams.rep, TaskIndexCompaction, s, func() error {
 		return IndexCompaction(ctx, runParams.rep, safety)
 	}); err != nil {
 		return errors.Wrap(err, "error performing index compaction")
@@ -225,13 +248,13 @@ func runQuickMaintenance(ctx context.Context, runParams RunParameters, safety Sa
 func runFullMaintenance(ctx context.Context, runParams RunParameters, safety SafetyParameters) error {
 	var safeDropTime time.Time
 
-	if safety.RequireTwoGCCycles {
-		s, err := GetSchedule(ctx, runParams.rep)
-		if err != nil {
-			return errors.Wrap(err, "unable to get schedule")
-		}
+	s, err := GetSchedule(ctx, runParams.rep)
+	if err != nil {
+		return errors.Wrap(err, "unable to get schedule")
+	}
 
-		safeDropTime = findSafeDropTime(s.Runs["snapshot-gc"], safety)
+	if safety.RequireTwoGCCycles {
+		safeDropTime = findSafeDropTime(s.Runs[TaskSnapshotGarbageCollection], safety)
 	} else {
 		safeDropTime = runParams.rep.Time()
 	}
@@ -241,7 +264,7 @@ func runFullMaintenance(ctx context.Context, runParams RunParameters, safety Saf
 
 		// rewrite indexes by dropping content entries that have been marked
 		// as deleted for a long time
-		if err := ReportRun(ctx, runParams.rep, "full-drop-deleted-content", func() error {
+		if err := ReportRun(ctx, runParams.rep, TaskDropDeletedContentsFull, s, func() error {
 			return DropDeletedContents(ctx, runParams.rep, safeDropTime, safety)
 		}); err != nil {
 			return errors.Wrap(err, "error dropping deleted contents")
@@ -250,26 +273,74 @@ func runFullMaintenance(ctx context.Context, runParams RunParameters, safety Saf
 		log(ctx).Infof("Not enough time has passed since previous successful Snapshot GC. Will try again next time.")
 	}
 
-	// find packs that are less than 80% full and rewrite contents in them into
-	// new consolidated packs, orphaning old packs in the process.
-	if err := ReportRun(ctx, runParams.rep, "full-rewrite-contents", func() error {
-		return RewriteContents(ctx, runParams.rep, &RewriteContentsOptions{
-			ContentIDRange: content.AllIDs,
-			ShortPacks:     true,
-		}, safety)
-	}); err != nil {
-		return errors.Wrap(err, "error rewriting contents in short packs")
+	if shouldRewriteContents(s) {
+		// find packs that are less than 80% full and rewrite contents in them into
+		// new consolidated packs, orphaning old packs in the process.
+		if err := ReportRun(ctx, runParams.rep, TaskRewriteContentsFull, s, func() error {
+			return RewriteContents(ctx, runParams.rep, &RewriteContentsOptions{
+				ContentIDRange: content.AllIDs,
+				ShortPacks:     true,
+			}, safety)
+		}); err != nil {
+			return errors.Wrap(err, "error rewriting contents in short packs")
+		}
 	}
 
-	// delete orphaned packs after some time.
-	if err := ReportRun(ctx, runParams.rep, "full-delete-blobs", func() error {
-		_, err := DeleteUnreferencedBlobs(ctx, runParams.rep, DeleteUnreferencedBlobsOptions{}, safety)
-		return err
-	}); err != nil {
-		return errors.Wrap(err, "error deleting unreferenced blobs")
+	if shouldDeleteOrphanedPacks(runParams.rep.Time(), s, safety) {
+		// delete orphaned packs after some time.
+		if err := ReportRun(ctx, runParams.rep, TaskDeleteOrphanedBlobsFull, s, func() error {
+			_, err := DeleteUnreferencedBlobs(ctx, runParams.rep, DeleteUnreferencedBlobsOptions{}, safety)
+			return err
+		}); err != nil {
+			return errors.Wrap(err, "error deleting unreferenced blobs")
+		}
 	}
 
 	return nil
+}
+
+// shouldRewriteContents returns true if it's currently ok to rewrite contents.
+// since each content rewrite will require deleting of orphaned blobs after some time passes,
+// we don't want to starve blob deletion by constantly doing rewrites.
+func shouldRewriteContents(s *Schedule) bool {
+	latestContentRewriteEndTime := maxEndTime(s.Runs[TaskRewriteContentsFull], s.Runs[TaskRewriteContentsQuick])
+	latestBlobDeleteTime := maxEndTime(s.Runs[TaskDeleteOrphanedBlobsFull], s.Runs[TaskDeleteOrphanedBlobsQuick])
+
+	// never did rewrite - safe to do so.
+	if latestContentRewriteEndTime.IsZero() {
+		return true
+	}
+
+	return latestBlobDeleteTime.After(latestContentRewriteEndTime)
+}
+
+// shouldDeleteOrphanedPacks returns true if it's ok to delete orphaned packs.
+// it is only safe to do so after >1hr since the last content rewrite finished to ensure
+// other clients refresh their indexes.
+// rewritten packs become orphaned immediately but if we don't wait before their deletion
+// clients who have old indexes cached may be trying to read pre-rewrite blobs.
+func shouldDeleteOrphanedPacks(now time.Time, s *Schedule, safety SafetyParameters) bool {
+	latestContentRewriteEndTime := maxEndTime(s.Runs[TaskRewriteContentsFull], s.Runs[TaskRewriteContentsQuick])
+
+	return now.After(latestContentRewriteEndTime.Add(safety.MinRewriteToOrphanDeletionDelay))
+}
+
+func maxEndTime(taskRuns ...[]RunInfo) time.Time {
+	var result time.Time
+
+	for _, tr := range taskRuns {
+		for _, r := range tr {
+			if !r.Success {
+				continue
+			}
+
+			if r.End.After(result) {
+				result = r.End
+			}
+		}
+	}
+
+	return result
 }
 
 // findSafeDropTime returns the latest timestamp for which it is safe to drop content entries
