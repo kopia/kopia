@@ -41,23 +41,23 @@ type Schedule struct {
 	NextFullMaintenanceTime  time.Time `json:"nextFullMaintenance"`
 	NextQuickMaintenanceTime time.Time `json:"nextQuickMaintenance"`
 
-	Runs map[string][]RunInfo `json:"runs"`
+	Runs map[TaskType][]RunInfo `json:"runs"`
 }
 
 // ReportRun adds the provided run information to the history and discards oldest entried.
-func (s *Schedule) ReportRun(runType string, info RunInfo) {
+func (s *Schedule) ReportRun(taskType TaskType, info RunInfo) {
 	if s.Runs == nil {
-		s.Runs = map[string][]RunInfo{}
+		s.Runs = map[TaskType][]RunInfo{}
 	}
 
 	// insert as first item
-	history := append([]RunInfo{info}, s.Runs[runType]...)
+	history := append([]RunInfo{info}, s.Runs[taskType]...)
 
 	if len(history) > maxRetainedRunInfoPerRunType {
 		history = history[0:maxRetainedRunInfoPerRunType]
 	}
 
-	s.Runs[runType] = history
+	s.Runs[taskType] = history
 }
 
 func getAES256GCM(rep repo.DirectRepository) (cipher.AEAD, error) {
@@ -132,7 +132,7 @@ func SetSchedule(ctx context.Context, rep repo.DirectRepositoryWriter, s *Schedu
 }
 
 // ReportRun reports timing of a maintenance run and persists it in repository.
-func ReportRun(ctx context.Context, rep repo.DirectRepositoryWriter, runType string, run func() error) error {
+func ReportRun(ctx context.Context, rep repo.DirectRepositoryWriter, taskType TaskType, s *Schedule, run func() error) error {
 	ri := RunInfo{
 		Start: rep.Time(),
 	}
@@ -147,12 +147,16 @@ func ReportRun(ctx context.Context, rep repo.DirectRepositoryWriter, runType str
 		ri.Success = true
 	}
 
-	s, err := GetSchedule(ctx, rep)
-	if err != nil {
-		log(ctx).Errorf("unable to get schedule")
+	if s == nil {
+		var err error
+
+		s, err = GetSchedule(ctx, rep)
+		if err != nil {
+			log(ctx).Errorf("unable to get schedule")
+		}
 	}
 
-	s.ReportRun(runType, ri)
+	s.ReportRun(taskType, ri)
 
 	if err := SetSchedule(ctx, rep, s); err != nil {
 		log(ctx).Errorf("unable to report run: %v", err)

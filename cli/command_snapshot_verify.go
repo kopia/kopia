@@ -6,13 +6,12 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"sync"
-	"time"
 
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/internal/parallelwork"
+	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/manifest"
@@ -35,7 +34,7 @@ var (
 type verifier struct {
 	rep       repo.Repository
 	workQueue *parallelwork.Queue
-	startTime time.Time
+	tt        timetrack.Estimator
 
 	mu   sync.Mutex
 	seen map[object.ID]bool
@@ -46,18 +45,10 @@ type verifier struct {
 }
 
 func (v *verifier) progressCallback(ctx context.Context, enqueued, active, completed int64) {
-	elapsed := clock.Since(v.startTime)
 	maybeTimeRemaining := ""
 
-	if elapsed > 1*time.Second && enqueued > 0 && completed > 0 {
-		completedRatio := float64(completed) / float64(enqueued)
-		predictedSeconds := elapsed.Seconds() / completedRatio
-		predictedEndTime := v.startTime.Add(time.Duration(predictedSeconds) * time.Second)
-
-		dt := clock.Until(predictedEndTime)
-		if dt > 0 {
-			maybeTimeRemaining = fmt.Sprintf(" remaining %v (ETA %v)", dt.Truncate(1*time.Second), formatTimestamp(predictedEndTime.Truncate(1*time.Second)))
-		}
+	if est, ok := v.tt.Estimate(float64(active), float64(completed)); ok {
+		maybeTimeRemaining = fmt.Sprintf(" remaining %v (ETA %v)", est.Remaining, formatTimestamp(est.EstimatedEndTime))
 	}
 
 	log(ctx).Infof("Found %v objects, verifying %v, completed %v objects%v.", enqueued, active, completed, maybeTimeRemaining)
@@ -201,7 +192,7 @@ func runVerifyCommand(ctx context.Context, rep repo.Repository) error {
 
 	v := &verifier{
 		rep:       rep,
-		startTime: clock.Now(),
+		tt:        timetrack.Start(),
 		workQueue: parallelwork.NewQueue(),
 		seen:      map[object.ID]bool{},
 	}

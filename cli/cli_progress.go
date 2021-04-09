@@ -6,11 +6,10 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/fatih/color"
 
-	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
@@ -21,18 +20,17 @@ var (
 )
 
 const (
-	spinner        = `|/-\`
-	hundredPercent = 100.0
+	spinner = `|/-\`
 )
 
 type cliProgress struct {
 	snapshotfs.NullUploadProgress
 
 	// all int64 must precede all int32 due to alignment requirements on ARM
-	uploadedBytes          int64
-	cachedBytes            int64
-	hashedBytes            int64
-	nextOutputTimeUnixNano int64
+	uploadedBytes  int64
+	cachedBytes    int64
+	hashedBytes    int64
+	outputThrottle timetrack.Throttle // is int64
 
 	cachedFiles       int32
 	inProgressHashing int32
@@ -46,7 +44,7 @@ type cliProgress struct {
 
 	lastLineLength  int
 	spinPhase       int
-	uploadStartTime time.Time
+	uploadStartTime timetrack.Estimator
 
 	estimatedFileCount  int
 	estimatedTotalBytes int64
@@ -100,16 +98,7 @@ func (p *cliProgress) maybeOutput() {
 		return
 	}
 
-	var shouldOutput bool
-
-	nextOutputTimeUnixNano := atomic.LoadInt64(&p.nextOutputTimeUnixNano)
-	if nowNano := clock.Now().UnixNano(); nowNano > nextOutputTimeUnixNano {
-		if atomic.CompareAndSwapInt64(&p.nextOutputTimeUnixNano, nextOutputTimeUnixNano, nowNano+progressUpdateInterval.Nanoseconds()) {
-			shouldOutput = true
-		}
-	}
-
-	if shouldOutput {
+	if p.outputThrottle.ShouldOutput(*progressUpdateInterval) {
 		p.output(defaultColor, "")
 	}
 }
@@ -163,27 +152,10 @@ func (p *cliProgress) output(col *color.Color, msg string) {
 		return
 	}
 
-	if p.estimatedTotalBytes > 0 {
+	if est, ok := p.uploadStartTime.Estimate(float64(hashedBytes+cachedBytes), float64(p.estimatedTotalBytes)); ok {
 		line += fmt.Sprintf(", estimated %v", units.BytesStringBase10(p.estimatedTotalBytes))
-
-		ratio := float64(hashedBytes+cachedBytes) / float64(p.estimatedTotalBytes)
-		if ratio > 1 {
-			ratio = 1
-		}
-
-		timeSoFarSeconds := clock.Since(p.uploadStartTime).Seconds()
-		estimatedTotalTime := time.Second * time.Duration(timeSoFarSeconds/ratio)
-		estimatedEndTime := p.uploadStartTime.Add(estimatedTotalTime)
-
-		remaining := clock.Until(estimatedEndTime)
-		if remaining < 0 {
-			remaining = 0
-		}
-
-		remaining = remaining.Round(time.Second)
-
-		line += fmt.Sprintf(" (%.1f%%)", ratio*hundredPercent)
-		line += fmt.Sprintf(" %v left", remaining)
+		line += fmt.Sprintf(" (%.1f%%)", est.PercentComplete)
+		line += fmt.Sprintf(" %v left", est.Remaining)
 	} else {
 		line += ", estimating..."
 	}
@@ -214,7 +186,7 @@ func (p *cliProgress) spinnerCharacter() string {
 func (p *cliProgress) StartShared() {
 	*p = cliProgress{
 		uploading:       1,
-		uploadStartTime: clock.Now(),
+		uploadStartTime: timetrack.Start(),
 		shared:          true,
 	}
 }
@@ -232,7 +204,7 @@ func (p *cliProgress) UploadStarted() {
 
 	*p = cliProgress{
 		uploading:       1,
-		uploadStartTime: clock.Now(),
+		uploadStartTime: timetrack.Start(),
 	}
 }
 

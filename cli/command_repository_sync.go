@@ -11,9 +11,9 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/stats"
+	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
@@ -149,12 +149,13 @@ func listDestinationBlobs(ctx context.Context, dst blob.Storage) (map[blob.ID]bl
 var (
 	lastSyncProgress   string
 	syncProgressMutex  sync.Mutex
-	nextSyncOutputTime time.Time
+	nextSyncOutputTime timetrack.Throttle
 )
 
 func beginSyncProgress() {
 	lastSyncProgress = ""
-	nextSyncOutputTime = clock.Now()
+
+	nextSyncOutputTime.Reset()
 }
 
 func outputSyncProgress(s string) {
@@ -165,10 +166,8 @@ func outputSyncProgress(s string) {
 		s += strings.Repeat(" ", len(lastSyncProgress)-len(s))
 	}
 
-	if clock.Now().After(nextSyncOutputTime) {
+	if nextSyncOutputTime.ShouldOutput(syncProgressInterval) {
 		printStderr("\r%v", s)
-
-		nextSyncOutputTime = clock.Now().Add(syncProgressInterval)
 	}
 
 	lastSyncProgress = s
@@ -187,7 +186,7 @@ func runSyncBlobs(ctx context.Context, src blob.Reader, dst blob.Storage, blobsT
 
 	var totalCopied stats.CountSum
 
-	startTime := clock.Now()
+	tt := timetrack.Start()
 
 	for i := 0; i < *repositorySyncParallelism; i++ {
 		workerID := i
@@ -201,19 +200,12 @@ func runSyncBlobs(ctx context.Context, src blob.Reader, dst blob.Storage, blobsT
 
 				numBlobs, bytesCopied := totalCopied.Add(m.Length)
 				progressMutex.Lock()
-				percentage := float64(0)
 				eta := "unknown"
 				speed := "-"
-				elapsedTime := clock.Since(startTime)
-				if totalBytes > 0 {
-					percentage = hundredPercent * float64(bytesCopied) / float64(totalBytes)
-					if percentage > 0 {
-						totalTimeSeconds := elapsedTime.Seconds() * (hundredPercent / percentage)
-						etaTime := startTime.Add(time.Duration(totalTimeSeconds) * time.Second)
-						eta = fmt.Sprintf("%v (%v)", clock.Until(etaTime).Round(time.Second), formatTimestamp(etaTime))
-						bps := float64(bytesCopied) * 8 / elapsedTime.Seconds() //nolint:gomnd
-						speed = units.BitsPerSecondsString(bps)
-					}
+
+				if est, ok := tt.Estimate(float64(bytesCopied), float64(totalBytes)); ok {
+					eta = fmt.Sprintf("%v (%v)", est.Remaining, formatTimestamp(est.EstimatedEndTime))
+					speed = units.BitsPerSecondsString(est.SpeedPerSecond * 8) //nolint:gomnd
 				}
 
 				outputSyncProgress(

@@ -72,9 +72,11 @@ func Initialize(ctx *kingpin.ParseContext) error {
 
 	// activate backends
 	logging.SetBackend(
-		setupConsoleBackend(),
-		setupLogFileBackend(now, suffix),
-		setupContentLogFileBackend(now, suffix),
+		multiLogger{
+			setupConsoleBackend(),
+			setupLogFileBackend(now, suffix),
+			setupContentLogFileBackend(now, suffix),
+		},
 	)
 
 	if *forceColor {
@@ -83,6 +85,22 @@ func Initialize(ctx *kingpin.ParseContext) error {
 
 	if *disableColor {
 		color.NoColor = true
+	}
+
+	return nil
+}
+
+type multiLogger []logging.Backend
+
+func (m multiLogger) Log(l logging.Level, calldepth int, rec *logging.Record) error {
+	// use clock.Now() which can be overridden in e2e tests.
+	rec.Time = clock.Now()
+
+	for _, child := range m {
+		// Shallow copy of the record for the formatted cache on Record and get the
+		// record formatter from the backend.
+		r2 := *rec
+		child.Log(l, calldepth, &r2) //nolint:errcheck
 	}
 
 	return nil

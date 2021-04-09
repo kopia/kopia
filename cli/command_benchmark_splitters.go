@@ -10,7 +10,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/repo/splitter"
 )
 
@@ -63,7 +63,7 @@ func runBenchmarkSplitterAction(ctx context.Context) error { //nolint:funlen
 
 		var segmentLengths []int
 
-		t0 := clock.Now()
+		tt := timetrack.Start()
 
 		for _, data := range dataBlocks {
 			s := fact()
@@ -81,7 +81,7 @@ func runBenchmarkSplitterAction(ctx context.Context) error { //nolint:funlen
 			}
 		}
 
-		dur := clock.Since(t0)
+		dur, _ := tt.Completed(0)
 
 		sort.Ints(segmentLengths)
 
