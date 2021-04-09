@@ -115,7 +115,7 @@ func runServerUserAddSet(ctx context.Context, rep repo.RepositoryWriter, isNew b
 		return errors.Wrap(err, "error setting user profile")
 	}
 
-	log(ctx).Noticef(`
+	log(ctx).Infof(`
 Updated user credentials will take effect in 5-10 minutes or when the server is restarted.
 To refresh credentials in a running server use 'kopia server refresh' command.
 `)

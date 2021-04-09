@@ -114,7 +114,7 @@ func (s *Server) unmountAll(ctx context.Context) {
 		log(ctx).Debugf("unmounting %v from %v", key, c.MountPath())
 
 		if err := c.Unmount(ctx); err != nil {
-			log(ctx).Warningf("unable to unmount %v", key)
+			log(ctx).Errorf("unable to unmount %v", key)
 		}
 
 		s.mounts.Delete(key)

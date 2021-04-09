@@ -68,7 +68,7 @@ func verifyConnect(ctx context.Context, configFile, password string, persist boo
 		// we failed to open the repository after writing the config file,
 		// remove the config file we just wrote and any caches.
 		if derr := Disconnect(ctx, configFile); derr != nil {
-			log(ctx).Warningf("unable to disconnect after unsuccessful opening: %v", derr)
+			log(ctx).Errorf("unable to disconnect after unsuccessful opening: %v", derr)
 		}
 
 		return err
@@ -100,13 +100,13 @@ func Disconnect(ctx context.Context, configFile string) error {
 		}
 
 		if err = os.RemoveAll(cfg.Caching.CacheDirectory); err != nil {
-			log(ctx).Warningf("unable to remove cache directory: %v", err)
+			log(ctx).Errorf("unable to remove cache directory: %v", err)
 		}
 	}
 
 	maintenanceLock := configFile + ".mlock"
 	if err := os.RemoveAll(maintenanceLock); err != nil {
-		log(ctx).Warningf("unable to remove maintenance lock file", maintenanceLock)
+		log(ctx).Errorf("unable to remove maintenance lock file", maintenanceLock)
 	}
 
 	return os.Remove(configFile)

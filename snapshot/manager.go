@@ -150,7 +150,7 @@ func LoadSnapshots(ctx context.Context, rep repo.Repository, manifestIDs []manif
 
 			m, err := LoadSnapshot(ctx, rep, n)
 			if err != nil {
-				log(ctx).Warningf("unable to parse snapshot manifest %v: %v", n, err)
+				log(ctx).Errorf("unable to parse snapshot manifest %v: %v", n, err)
 				return
 			}
 

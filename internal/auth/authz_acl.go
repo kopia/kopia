@@ -121,7 +121,7 @@ func (ac *aclCache) Authorize(ctx context.Context, rep repo.Repository, username
 
 		newMap, err := acl.LoadEntries(ctx, rep, ac.aclEntries)
 		if err != nil {
-			log(ctx).Warningf("unable to load aclEntries: %v", err)
+			log(ctx).Errorf("unable to load aclEntries: %v", err)
 		} else {
 			ac.aclEntries = newMap
 		}

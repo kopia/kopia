@@ -56,7 +56,7 @@ type fuseFileNode struct {
 func (f *fuseFileNode) Open(ctx context.Context, flags uint32) (gofusefs.FileHandle, uint32, syscall.Errno) {
 	reader, err := f.entry.(fs.File).Open(ctx)
 	if err != nil {
-		log(ctx).Warningf("error opening %v: %v", f.entry.Name(), err)
+		log(ctx).Errorf("error opening %v: %v", f.entry.Name(), err)
 
 		return nil, 0, syscall.EIO
 	}
@@ -76,7 +76,7 @@ func (f *fuseFileHandle) Read(ctx context.Context, dest []byte, off int64) (fuse
 
 	_, err := f.reader.Seek(off, io.SeekStart)
 	if err != nil {
-		log(ctx).Warningf("seek error: %v %v: %v", f.file.Name(), off, err)
+		log(ctx).Errorf("seek error: %v %v: %v", f.file.Name(), off, err)
 
 		return nil, syscall.EIO
 	}
@@ -84,7 +84,7 @@ func (f *fuseFileHandle) Read(ctx context.Context, dest []byte, off int64) (fuse
 	n, err := f.reader.Read(dest)
 
 	if err != nil && !errors.Is(err, io.EOF) {
-		log(ctx).Warningf("read error: %v: %v", f.file.Name(), err)
+		log(ctx).Errorf("read error: %v: %v", f.file.Name(), err)
 		return nil, syscall.EIO
 	}
 
@@ -112,7 +112,7 @@ func (dir *fuseDirectoryNode) Lookup(ctx context.Context, fileName string, out *
 			return nil, syscall.ENOENT
 		}
 
-		log(ctx).Warningf("lookup error %v in %v: %v", fileName, dir.entry.Name(), err)
+		log(ctx).Errorf("lookup error %v in %v: %v", fileName, dir.entry.Name(), err)
 
 		return nil, syscall.EIO
 	}
@@ -141,7 +141,7 @@ func (dir *fuseDirectoryNode) Lookup(ctx context.Context, fileName string, out *
 func (dir *fuseDirectoryNode) Readdir(ctx context.Context) (gofusefs.DirStream, syscall.Errno) {
 	entries, err := dir.directory().Readdir(ctx)
 	if err != nil {
-		log(ctx).Warningf("error reading directory %v: %v", dir.entry.Name(), err)
+		log(ctx).Errorf("error reading directory %v: %v", dir.entry.Name(), err)
 		return nil, syscall.EIO
 	}
 
@@ -163,7 +163,7 @@ type fuseSymlinkNode struct {
 func (sl *fuseSymlinkNode) Readlink(ctx context.Context) ([]byte, syscall.Errno) {
 	v, err := sl.entry.(fs.Symlink).Readlink(ctx)
 	if err != nil {
-		log(ctx).Warningf("error reading symlink %v: %v", sl.entry.Name(), err)
+		log(ctx).Errorf("error reading symlink %v: %v", sl.entry.Name(), err)
 		return nil, syscall.EIO
 	}
 

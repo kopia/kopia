@@ -67,7 +67,7 @@ func runMountCommand(ctx context.Context, rep repo.Repository) error {
 
 	if *mountPointBrowse {
 		if err := open.Start(ctrl.MountPath()); err != nil {
-			log(ctx).Warningf("unable to browse %v", err)
+			log(ctx).Errorf("unable to browse %v", err)
 		}
 	}
 

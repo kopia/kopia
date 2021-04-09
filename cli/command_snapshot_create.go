@@ -271,7 +271,7 @@ func reportSnapshotStatus(ctx context.Context, manifest *snapshot.Manifest) erro
 
 	if ds := manifest.RootEntry.DirSummary; ds != nil {
 		if ds.IgnoredErrorCount > 0 {
-			log(ctx).Warningf("Ignored %v error(s) while snapshotting %v.", ds.IgnoredErrorCount, sourceInfo)
+			log(ctx).Errorf("Ignored %v error(s) while snapshotting %v.", ds.IgnoredErrorCount, sourceInfo)
 		}
 
 		if ds.FatalErrorCount > 0 {

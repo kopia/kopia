@@ -39,7 +39,7 @@ func runSyncWithStorage(ctx context.Context, src blob.Reader, dst blob.Storage) 
 	log(ctx).Infof("  Destination: %v", dst.DisplayName())
 
 	if !*repositorySyncDelete {
-		log(ctx).Noticef("NOTE: By default no BLOBs are deleted, pass --delete to allow it.")
+		log(ctx).Infof("NOTE: By default no BLOBs are deleted, pass --delete to allow it.")
 	}
 
 	if err := ensureRepositoriesHaveSameFormatBlob(ctx, src, dst); err != nil {
@@ -278,7 +278,7 @@ func syncCopyBlob(ctx context.Context, m blob.Metadata, src blob.Reader, dst blo
 		if err := dst.SetTime(ctx, m.BlobID, m.Timestamp); err != nil {
 			if errors.Is(err, blob.ErrSetTimeUnsupported) {
 				setTimeUnsupportedOnce.Do(func() {
-					log(ctx).Warningf("destination repository does not support setting time")
+					log(ctx).Infof("destination repository does not support setting time")
 				})
 			}
 

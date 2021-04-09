@@ -101,7 +101,7 @@ func (c *PersistentCache) Get(ctx context.Context, key string, offset, length in
 		stats.Record(ctx, MetricMalformedCacheDataCount.M(1))
 
 		if err := c.cacheStorage.DeleteBlob(ctx, blob.ID(key)); err != nil && !errors.Is(err, blob.ErrBlobNotFound) {
-			log(ctx).Warningf("unable to delete %v entry %v: %v", c.description, key, err)
+			log(ctx).Errorf("unable to delete %v entry %v: %v", c.description, key, err)
 		}
 	}
 
@@ -122,7 +122,7 @@ func (c *PersistentCache) Put(ctx context.Context, key string, data []byte) {
 	if err := c.cacheStorage.PutBlob(ctx, blob.ID(key), gather.FromSlice(c.storageProtection.Protect(key, data))); err != nil {
 		stats.Record(ctx, MetricStoreErrors.M(1))
 
-		log(ctx).Warningf("unable to add %v to %v: %v", key, c.description, err)
+		log(ctx).Errorf("unable to add %v to %v: %v", key, c.description, err)
 	}
 }
 
@@ -138,7 +138,7 @@ func (c *PersistentCache) Close(ctx context.Context) {
 	// if we added anything to the cache in this sesion, run one last sweep before shutting down.
 	if atomic.LoadInt32(&c.anyChange) == 1 {
 		if err := c.sweepDirectory(ctx); err != nil {
-			log(ctx).Warningf("error during final sweep of the %v: %v", c.description, err)
+			log(ctx).Errorf("error during final sweep of the %v: %v", c.description, err)
 		}
 	}
 }
@@ -153,7 +153,7 @@ func (c *PersistentCache) sweepDirectoryPeriodically(ctx context.Context) {
 
 		case <-time.After(c.sweepFrequency):
 			if err := c.sweepDirectory(ctx); err != nil {
-				log(ctx).Warningf("error during periodic sweep of %v: %v", c.description, err)
+				log(ctx).Errorf("error during periodic sweep of %v: %v", c.description, err)
 			}
 		}
 	}
@@ -199,7 +199,7 @@ func (c *PersistentCache) sweepDirectory(ctx context.Context) (err error) {
 		if totalRetainedSize > c.maxSizeBytes {
 			oldest := heap.Pop(&h).(blob.Metadata)
 			if delerr := c.cacheStorage.DeleteBlob(ctx, oldest.BlobID); delerr != nil {
-				log(ctx).Warningf("unable to remove %v: %v", oldest.BlobID, delerr)
+				log(ctx).Errorf("unable to remove %v: %v", oldest.BlobID, delerr)
 			} else {
 				totalRetainedSize -= oldest.Length
 			}

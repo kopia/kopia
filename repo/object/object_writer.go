@@ -173,7 +173,7 @@ func (w *objectWriter) flushBuffer() error {
 		}()
 
 		if err := w.prepareAndWriteContentChunk(chunkID, asyncBytes); err != nil {
-			log(w.ctx).Warningf("async write error: %v", err)
+			log(w.ctx).Errorf("async write error: %v", err)
 
 			_ = w.saveError(err)
 		}

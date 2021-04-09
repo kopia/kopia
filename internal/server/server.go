@@ -164,7 +164,7 @@ func (s *Server) isAuthenticated(w http.ResponseWriter, r *http.Request) bool {
 
 	ac, err := s.generateShortTermAuthCookie(username, now)
 	if err != nil {
-		log(r.Context()).Warningf("unable to generate short-term auth cookie: %v", err)
+		log(r.Context()).Errorf("unable to generate short-term auth cookie: %v", err)
 	} else {
 		http.SetCookie(w, &http.Cookie{
 			Name:    kopiaAuthCookie,
@@ -284,10 +284,10 @@ func (s *Server) handleAPIPossiblyNotConnected(isAuthorized isAuthorizedFunc, f 
 		if err == nil {
 			if b, ok := v.([]byte); ok {
 				if _, err := w.Write(b); err != nil {
-					log(ctx).Warningf("error writing response: %v", err)
+					log(ctx).Errorf("error writing response: %v", err)
 				}
 			} else if err := e.Encode(v); err != nil {
-				log(ctx).Warningf("error encoding response: %v", err)
+				log(ctx).Errorf("error encoding response: %v", err)
 			}
 
 			return
@@ -324,13 +324,13 @@ func (s *Server) internalRefreshRLocked(ctx context.Context) error {
 
 	if s.authenticator != nil {
 		if err := s.authenticator.Refresh(ctx); err != nil {
-			log(ctx).Warningf("unable to refresh authenticator: %v", err)
+			log(ctx).Errorf("unable to refresh authenticator: %v", err)
 		}
 	}
 
 	if s.authorizer != nil {
 		if err := s.authorizer.Refresh(ctx); err != nil {
-			log(ctx).Warningf("unable to refresh authorizer: %v", err)
+			log(ctx).Errorf("unable to refresh authorizer: %v", err)
 		}
 	}
 
@@ -369,7 +369,7 @@ func (s *Server) handleShutdown(ctx context.Context, r *http.Request, body []byt
 	if f := s.OnShutdown; f != nil {
 		go func() {
 			if err := f(ctx); err != nil {
-				log(ctx).Warningf("shutdown failed: %v", err)
+				log(ctx).Errorf("shutdown failed: %v", err)
 			}
 		}()
 	}
@@ -471,11 +471,11 @@ func (s *Server) refreshPeriodically(ctx context.Context, r repo.Repository) {
 
 		case <-time.After(s.options.RefreshInterval):
 			if err := r.Refresh(ctx); err != nil {
-				log(ctx).Warningf("error refreshing repository: %v", err)
+				log(ctx).Errorf("error refreshing repository: %v", err)
 			}
 
 			if err := s.SyncSources(ctx); err != nil {
-				log(ctx).Warningf("unable to sync sources: %v", err)
+				log(ctx).Errorf("unable to sync sources: %v", err)
 			}
 		}
 	}
@@ -491,7 +491,7 @@ func (s *Server) periodicMaintenance(ctx context.Context, rep repo.Repository) {
 			if err := s.taskmgr.Run(ctx, "Maintenance", "Periodic maintenance", func(ctx context.Context, _ uitask.Controller) error {
 				return periodicMaintenanceOnce(ctx, rep)
 			}); err != nil {
-				log(ctx).Warningf("unable to run maintenance: %v", err)
+				log(ctx).Errorf("unable to run maintenance: %v", err)
 			}
 		}
 	}

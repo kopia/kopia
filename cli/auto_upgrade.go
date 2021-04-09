@@ -25,7 +25,7 @@ func maybeAutoUpgradeRepository(ctx context.Context, r repo.Repository) error {
 		return nil
 	}
 
-	log(ctx).Noticef("Setting default maintenance parameters...")
+	log(ctx).Debugf("Setting default maintenance parameters...")
 
 	return repo.DirectWriteSession(ctx, dr, repo.WriteSessionOptions{
 		Purpose: "setDefaultMaintenanceParameters",
@@ -42,8 +42,8 @@ func setDefaultMaintenanceParameters(ctx context.Context, rep repo.RepositoryWri
 		return errors.Wrap(err, "unable to set maintenance params")
 	}
 
-	log(ctx).Noticef(`
-Kopia will perform quick maintenance of the repository automatically every %v
+	log(ctx).Infof(`
+NOTE: Kopia will perform quick maintenance of the repository automatically every %v
 and full maintenance every %v when running as %v.
 
 See https://kopia.io/docs/advanced/maintenance/ for more information.

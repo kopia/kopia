@@ -78,7 +78,7 @@ func (v *verifier) reportError(ctx context.Context, path string, err error) {
 	v.mu.Lock()
 	defer v.mu.Unlock()
 
-	log(ctx).Warningf("failed on %v: %v", path, err)
+	log(ctx).Errorf("failed on %v: %v", path, err)
 	v.errors = append(v.errors, err)
 }
 
@@ -196,7 +196,7 @@ func (v *verifier) readEntireObject(ctx context.Context, oid object.ID, path str
 
 func runVerifyCommand(ctx context.Context, rep repo.Repository) error {
 	if *verifyCommandAllSources {
-		log(ctx).Noticef("DEPRECATED: --all-sources flag has no effect and is the default when no sources are provided.")
+		log(ctx).Errorf("DEPRECATED: --all-sources flag has no effect and is the default when no sources are provided.")
 	}
 
 	v := &verifier{

@@ -30,10 +30,7 @@ type LogLevel int
 const (
 	LogLevelDebug LogLevel = iota
 	LogLevelInfo
-	LogLevelNotice
-	LogLevelWarning
 	LogLevelError
-	LogLevelFatal
 )
 
 // LogEntry contains one output from a single log statement.
@@ -173,20 +170,8 @@ func (l runningTaskLogger) Infof(msg string, args ...interface{}) {
 	l.r.addLogEntry(l.module, LogLevelInfo, msg, args)
 }
 
-func (l runningTaskLogger) Warningf(msg string, args ...interface{}) {
-	l.r.addLogEntry(l.module, LogLevelWarning, msg, args)
-}
-
 func (l runningTaskLogger) Errorf(msg string, args ...interface{}) {
 	l.r.addLogEntry(l.module, LogLevelError, msg, args)
-}
-
-func (l runningTaskLogger) Noticef(msg string, args ...interface{}) {
-	l.r.addLogEntry(l.module, LogLevelNotice, msg, args)
-}
-
-func (l runningTaskLogger) Fatalf(msg string, args ...interface{}) {
-	l.r.addLogEntry(l.module, LogLevelFatal, msg, args)
 }
 
 var _ logging.Logger = runningTaskLogger{}

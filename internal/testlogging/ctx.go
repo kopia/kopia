@@ -21,10 +21,7 @@ type Level int
 const (
 	LevelDebug Level = iota
 	LevelInfo
-	LevelNotice
-	LevelWarning
 	LevelError
-	LevelFatal
 )
 
 type testLogger struct {
@@ -51,40 +48,13 @@ func (l *testLogger) Infof(msg string, args ...interface{}) {
 	l.t.Logf(l.prefix+msg, args...)
 }
 
-func (l *testLogger) Noticef(msg string, args ...interface{}) {
-	if l.minLevel > LevelNotice {
-		return
-	}
-
-	l.t.Helper()
-	l.t.Logf(l.prefix+msg, args...)
-}
-
-func (l *testLogger) Warningf(msg string, args ...interface{}) {
-	if l.minLevel > LevelWarning {
-		return
-	}
-
-	l.t.Helper()
-	l.t.Logf(l.prefix+"warning: "+msg, args...)
-}
-
 func (l *testLogger) Errorf(msg string, args ...interface{}) {
 	if l.minLevel > LevelError {
 		return
 	}
 
 	l.t.Helper()
-	l.t.Errorf(l.prefix+msg, args...)
-}
-
-func (l *testLogger) Fatalf(msg string, args ...interface{}) {
-	if l.minLevel > LevelFatal {
-		return
-	}
-
-	l.t.Helper()
-	l.t.Fatalf(l.prefix+msg, args...)
+	l.t.Logf(l.prefix+msg, args...)
 }
 
 var _ logging.Logger = &testLogger{}

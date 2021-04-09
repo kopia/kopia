@@ -146,7 +146,7 @@ func outputManifestGroups(ctx context.Context, rep repo.Repository, manifests []
 
 		pol, _, err := policy.GetEffectivePolicy(ctx, rep, src)
 		if err != nil {
-			log(ctx).Warningf("unable to determine effective policy for %v", src)
+			log(ctx).Errorf("unable to determine effective policy for %v", src)
 		} else {
 			pol.RetentionPolicy.ComputeRetentionReasons(snapshotGroup)
 		}
@@ -201,7 +201,7 @@ func outputManifestFromSingleSource(ctx context.Context, rep repo.Repository, ma
 		}
 
 		if _, ok := ent.(object.HasObjectID); !ok {
-			log(ctx).Warningf("entry does not have object ID: %v", ent, err)
+			log(ctx).Errorf("entry does not have object ID: %v", ent, err)
 			continue
 		}
 

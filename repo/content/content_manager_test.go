@@ -2070,7 +2070,7 @@ func flushWithRetries(ctx context.Context, t *testing.T, bm *WriteManager) int {
 
 	err := bm.Flush(ctx)
 	for i := 0; err != nil && i < maxRetries; i++ {
-		log(ctx).Warningf("flush failed %v, retrying", err)
+		log(ctx).Errorf("flush failed %v, retrying", err)
 		err = bm.Flush(ctx)
 		retryCount++
 	}
