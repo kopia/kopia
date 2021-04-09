@@ -9,7 +9,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo/compression"
 )
@@ -47,7 +47,7 @@ func runBenchmarkCompressionAction(ctx context.Context) error {
 	for name, comp := range compression.ByName {
 		log(ctx).Infof("Benchmarking compressor '%v' (%v x %v bytes)", name, *benchmarkCompressionRepeat, len(data))
 
-		t0 := clock.Now()
+		tt := timetrack.Start()
 
 		var compressedSize int64
 
@@ -79,10 +79,9 @@ func runBenchmarkCompressionAction(ctx context.Context) error {
 			}
 		}
 
-		hashTime := clock.Since(t0)
-		bytesPerSecond := float64(len(data)) * float64(cnt) / hashTime.Seconds()
+		_, perSecond := tt.Completed(float64(len(data)) * float64(cnt))
 
-		results = append(results, benchResult{compression: name, throughput: bytesPerSecond, compressedSize: compressedSize})
+		results = append(results, benchResult{compression: name, throughput: perSecond, compressedSize: compressedSize})
 	}
 
 	if *benchmarkCompressionBySize {
