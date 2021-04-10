@@ -64,7 +64,7 @@ func findInUseContentIDs(ctx context.Context, rep repo.Repository, used *sync.Ma
 		return nil
 	}
 
-	log(ctx).Infof("looking for active contents")
+	log(ctx).Infof("Looking for active contents...")
 
 	if err := w.Run(ctx); err != nil {
 		return errors.Wrap(err, "error walking snapshot tree")
@@ -95,7 +95,7 @@ func runInternal(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete 
 		return errors.Wrap(err, "unable to find in-use content ID")
 	}
 
-	log(ctx).Infof("looking for unreferenced contents")
+	log(ctx).Infof("Looking for unreferenced contents...")
 
 	// Ensure that the iteration includes deleted contents, so those can be
 	// undeleted (recovered).

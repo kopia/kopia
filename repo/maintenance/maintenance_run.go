@@ -9,6 +9,7 @@ import (
 	"github.com/gofrs/flock"
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/logging"
@@ -215,6 +216,8 @@ func runQuickMaintenance(ctx context.Context, runParams RunParameters, safety Sa
 		if err := runTaskRewriteContentsQuick(ctx, runParams, s, safety); err != nil {
 			return errors.Wrap(err, "error rewriting metadata contents")
 		}
+	} else {
+		notRewritingContents(ctx)
 	}
 
 	if shouldDeleteOrphanedPacks(runParams.rep.Time(), s, safety) {
@@ -225,14 +228,18 @@ func runQuickMaintenance(ctx context.Context, runParams RunParameters, safety Sa
 		// running full orphaned blob deletion, otherwise next quick maintenance will start a quick rewrite
 		// and we'd never delete blobs orphaned by full rewrite.
 		if hadRecentFullRewrite(s) {
+			log(ctx).Debugf("Had recent full rewrite - performing full blob deletion.")
 			err = runTaskDeleteOrphanedBlobsFull(ctx, runParams, s, safety)
 		} else {
+			log(ctx).Debugf("Performing quick blob deletion.")
 			err = runTaskDeleteOrphanedBlobsQuick(ctx, runParams, s, safety)
 		}
 
 		if err != nil {
 			return errors.Wrap(err, "error deleting unreferenced metadata blobs")
 		}
+	} else {
+		notDeletingOrphanedBlobs(ctx, s, safety)
 	}
 
 	// consolidate many smaller indexes into fewer larger ones.
@@ -241,6 +248,16 @@ func runQuickMaintenance(ctx context.Context, runParams RunParameters, safety Sa
 	}
 
 	return nil
+}
+
+func notRewritingContents(ctx context.Context) {
+	log(ctx).Infof("Previous content rewrite has not been finalized yet, waiting until the next blob deletion.")
+}
+
+func notDeletingOrphanedBlobs(ctx context.Context, s *Schedule, safety SafetyParameters) {
+	left := clock.Until(nextBlobDeleteTime(s, safety)).Truncate(time.Second)
+
+	log(ctx).Infof("Skipping blob deletion because not enough time has passed yet (%v left).", left)
 }
 
 func runTaskIndexCompaction(ctx context.Context, runParams RunParameters, s *Schedule, safety SafetyParameters) error {
@@ -323,6 +340,8 @@ func runFullMaintenance(ctx context.Context, runParams RunParameters, safety Saf
 		if err := runTaskRewriteContentsFull(ctx, runParams, s, safety); err != nil {
 			return errors.Wrap(err, "error rewriting contents in short packs")
 		}
+	} else {
+		notRewritingContents(ctx)
 	}
 
 	if shouldDeleteOrphanedPacks(runParams.rep.Time(), s, safety) {
@@ -330,6 +349,8 @@ func runFullMaintenance(ctx context.Context, runParams RunParameters, safety Saf
 		if err := runTaskDeleteOrphanedBlobsFull(ctx, runParams, s, safety); err != nil {
 			return errors.Wrap(err, "error deleting unreferenced blobs")
 		}
+	} else {
+		notDeletingOrphanedBlobs(ctx, s, safety)
 	}
 
 	return nil
@@ -373,9 +394,16 @@ func shouldFullRewriteContents(s *Schedule) bool {
 // rewritten packs become orphaned immediately but if we don't wait before their deletion
 // clients who have old indexes cached may be trying to read pre-rewrite blobs.
 func shouldDeleteOrphanedPacks(now time.Time, s *Schedule, safety SafetyParameters) bool {
-	latestContentRewriteEndTime := maxEndTime(s.Runs[TaskRewriteContentsFull], s.Runs[TaskRewriteContentsQuick])
+	return now.After(nextBlobDeleteTime(s, safety))
+}
 
-	return now.After(latestContentRewriteEndTime.Add(safety.MinRewriteToOrphanDeletionDelay))
+func nextBlobDeleteTime(s *Schedule, safety SafetyParameters) time.Time {
+	latestContentRewriteEndTime := maxEndTime(s.Runs[TaskRewriteContentsFull], s.Runs[TaskRewriteContentsQuick])
+	if latestContentRewriteEndTime.IsZero() {
+		return time.Time{}
+	}
+
+	return latestContentRewriteEndTime.Add(safety.MinRewriteToOrphanDeletionDelay)
 }
 
 func hadRecentFullRewrite(s *Schedule) bool {
