@@ -81,12 +81,14 @@ func TestShouldDeleteOrphanedBlobs(t *testing.T) {
 
 func TestShouldRewriteContents(t *testing.T) {
 	cases := []struct {
-		runs map[TaskType][]RunInfo
-		want bool
+		runs      map[TaskType][]RunInfo
+		wantFull  bool
+		wantQuick bool
 	}{
 		{
-			runs: map[TaskType][]RunInfo{},
-			want: true,
+			runs:      map[TaskType][]RunInfo{},
+			wantFull:  true,
+			wantQuick: true,
 		},
 		{
 			runs: map[TaskType][]RunInfo{
@@ -97,7 +99,8 @@ func TestShouldRewriteContents(t *testing.T) {
 					RunInfo{Success: true, End: t0700},
 				},
 			},
-			want: true,
+			wantFull:  true,
+			wantQuick: true,
 		},
 		{
 			runs: map[TaskType][]RunInfo{
@@ -108,7 +111,20 @@ func TestShouldRewriteContents(t *testing.T) {
 					RunInfo{Success: true, End: t0715},
 				},
 			},
-			want: false,
+			wantFull:  false,
+			wantQuick: false,
+		},
+		{
+			runs: map[TaskType][]RunInfo{
+				TaskDeleteOrphanedBlobsQuick: {
+					RunInfo{Success: true, End: t0700},
+				},
+				TaskRewriteContentsQuick: {
+					RunInfo{Success: true, End: t0715},
+				},
+			},
+			wantFull:  true, // will be allowed despite quick run having just finished
+			wantQuick: false,
 		},
 		{
 			runs: map[TaskType][]RunInfo{
@@ -119,12 +135,16 @@ func TestShouldRewriteContents(t *testing.T) {
 					RunInfo{Success: true, End: t0700},
 				},
 			},
-			want: true,
+			wantFull:  true,
+			wantQuick: true,
 		},
 	}
 
 	for _, tc := range cases {
-		require.Equal(t, tc.want, shouldRewriteContents(&Schedule{
+		require.Equal(t, tc.wantQuick, shouldQuickRewriteContents(&Schedule{
+			Runs: tc.runs,
+		}))
+		require.Equal(t, tc.wantFull, shouldFullRewriteContents(&Schedule{
 			Runs: tc.runs,
 		}))
 	}

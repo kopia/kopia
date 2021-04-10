@@ -1,10 +1,12 @@
 package snapshotmaintenance_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
 	"github.com/kylelemons/godebug/pretty"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/fs"
@@ -179,6 +181,78 @@ func newTestHarness(t *testing.T) *testHarness {
 	require.NotNil(t, th.RepositoryWriter)
 
 	return th
+}
+
+func TestMaintenanceAutoLiveness(t *testing.T) {
+	ft := faketime.NewClockTimeWithOffset(0)
+
+	ctx, env := repotesting.NewEnvironment(t, repotesting.Options{
+		OpenOptions: func(o *repo.Options) {
+			o.TimeNowFunc = ft.NowFunc()
+		},
+	})
+
+	// create dummy snapshot.
+	si := snapshot.SourceInfo{
+		Host:     "host",
+		UserName: "user",
+		Path:     "/foo",
+	}
+
+	dir := mockfs.NewDirectory()
+	dir.AddDir("d1", defaultPermissions)
+	dir.AddFile("d1/f2", []byte{1, 2, 3, 4}, defaultPermissions)
+
+	require.NoError(t, repo.WriteSession(ctx, env.Repository, repo.WriteSessionOptions{}, func(w repo.RepositoryWriter) error {
+		_, err := createSnapshot(testlogging.Context(t), w, dir, si, "")
+		if err != nil {
+			return errors.Wrap(err, "unable to create snapshot")
+		}
+
+		dp := maintenance.DefaultParams()
+		dp.Owner = env.Repository.ClientOptions().UsernameAtHost()
+		return maintenance.SetParams(ctx, w, &dp)
+	}))
+
+	// simulate several weeks of triggering auto maintenance few times an hour.
+	deadline := ft.NowFunc()().Add(21 * 24 * time.Hour)
+
+	for ft.NowFunc()().Before(deadline) {
+		ft.Advance(30 * time.Minute)
+
+		t.Logf("running maintenance at %v", ft.NowFunc()())
+		require.NoError(t, repo.DirectWriteSession(ctx, env.RepositoryWriter, repo.WriteSessionOptions{}, func(dw repo.DirectRepositoryWriter) error {
+			return snapshotmaintenance.Run(context.Background(), dw, maintenance.ModeAuto, false, maintenance.SafetyFull)
+		}))
+
+		// verify that at all points in time the last execution time of all tasks is in the last 48 hours.
+		const maxTimeSinceLastRun = 48 * time.Hour
+
+		sched, err := maintenance.GetSchedule(ctx, env.RepositoryWriter)
+		require.NoError(t, err)
+
+		now := ft.NowFunc()()
+
+		for k, v := range sched.Runs {
+			if age := now.Sub(v[0].End); age > maxTimeSinceLastRun {
+				if age > maxTimeSinceLastRun {
+					t.Fatalf("at %v the last run of %v was too old (%v vs %v)", now, k, age, maxTimeSinceLastRun)
+				}
+			}
+		}
+	}
+
+	// make sure all tasks executed at least once.
+	sched, err := maintenance.GetSchedule(ctx, env.RepositoryWriter)
+	require.NoError(t, err)
+
+	require.NotEmpty(t, sched.Runs[maintenance.TaskDeleteOrphanedBlobsFull], maintenance.TaskDeleteOrphanedBlobsFull)
+	require.NotEmpty(t, sched.Runs[maintenance.TaskDeleteOrphanedBlobsQuick], maintenance.TaskDeleteOrphanedBlobsQuick)
+	require.NotEmpty(t, sched.Runs[maintenance.TaskDropDeletedContentsFull], maintenance.TaskDropDeletedContentsFull)
+	require.NotEmpty(t, sched.Runs[maintenance.TaskIndexCompaction], maintenance.TaskIndexCompaction)
+	require.NotEmpty(t, sched.Runs[maintenance.TaskRewriteContentsFull], maintenance.TaskRewriteContentsFull)
+	require.NotEmpty(t, sched.Runs[maintenance.TaskRewriteContentsQuick], maintenance.TaskRewriteContentsQuick)
+	require.NotEmpty(t, sched.Runs[maintenance.TaskSnapshotGarbageCollection], maintenance.TaskSnapshotGarbageCollection)
 }
 
 func (th *testHarness) fakeTimeOpenRepoOption(o *repo.Options) {
