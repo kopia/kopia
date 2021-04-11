@@ -10,14 +10,12 @@ import (
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/testlogging"
-	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/retrying"
 )
 
 func TestRetrying(t *testing.T) {
 	t.Parallel()
-	testutil.ProviderTest(t)
 
 	ctx := testlogging.Context(t)
 
