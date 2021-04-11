@@ -8,6 +8,7 @@ builds:
   - CGO_ENABLED=0
   goos:
   - linux
+  - freebsd
   goarch:
     - amd64
     - arm
