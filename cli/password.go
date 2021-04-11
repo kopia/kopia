@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -74,7 +75,7 @@ func askPass(prompt string) (string, error) {
 	for i := 0; i < 5; i++ {
 		fmt.Print(prompt)
 
-		passBytes, err := term.ReadPassword(0)
+		passBytes, err := term.ReadPassword(int(os.Stdin.Fd()))
 		if err != nil {
 			return "", errors.Wrap(err, "password prompt error")
 		}
