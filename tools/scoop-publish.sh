@@ -16,11 +16,6 @@ if [ "$GITHUB_TOKEN" == "" ]; then
   exit 0
 fi
 
-if [ "$REPO_OWNER/$GITHUB_REF" != "kopia/refs/heads/master" ]; then
-  echo Not publishing Scoop package on $REPO_OWNER/$GITHUB_REF
-  exit 0
-fi
-
 echo Publishing Scoop version $source_repo version $ver to $target_repo from $dist_dir...
 
 HASH_WINDOWS_AMD64=$(sha256sum $dist_dir/kopia-$ver-windows-x64.zip | cut -f 1 -d " ")

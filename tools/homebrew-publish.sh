@@ -16,11 +16,6 @@ if [ "$GITHUB_TOKEN" == "" ]; then
   exit 0
 fi
 
-if [ "$REPO_OWNER/$GITHUB_REF" != "kopia/refs/heads/master" ]; then
-  echo Not publishing Homebrew package on $REPO_OWNER/$GITHUB_REF
-  exit 0
-fi
-
 echo Publishing Homebrew version $source_repo version $ver to $target_repo from $dist_dir...
 
 HASH_MAC_AMD64=$(sha256sum $dist_dir/kopia-$ver-macOS-x64.tar.gz | cut -f 1 -d " ")
