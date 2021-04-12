@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/internal/atomicfile"
 	"github.com/kopia/kopia/snapshot"
 )
 
@@ -27,7 +28,7 @@ func placeholderPath(path string, et snapshot.EntryType) (string, error) {
 		return path + ShallowEntrySuffix, nil
 	case snapshot.EntryTypeDirectory: // Directories and regular files
 		dirpath := path + ShallowEntrySuffix
-		if err := os.MkdirAll(dirpath, os.FileMode(dirMode)); err != nil {
+		if err := os.MkdirAll(atomicfile.MaybePrefixLongFilenameOnWindows(dirpath), os.FileMode(dirMode)); err != nil {
 			return "", errors.Wrap(err, "placeholderPath dir creation")
 		}
 
@@ -65,7 +66,7 @@ func WriteShallowPlaceholder(path string, de *snapshot.DirEntry) (string, error)
 }
 
 func dirEntryFromPlaceholder(path string) (*snapshot.DirEntry, error) {
-	b, err := ioutil.ReadFile(path) //nolint:gosec
+	b, err := ioutil.ReadFile(atomicfile.MaybePrefixLongFilenameOnWindows(path))
 	if err != nil {
 		return nil, errors.Wrap(err, "dirEntryFromPlaceholder reading placeholder")
 	}
@@ -90,7 +91,7 @@ type shallowFilesystemDirectory struct {
 }
 
 func checkedDirEntryFromPlaceholder(path, php string) (*snapshot.DirEntry, error) {
-	if _, err := os.Lstat(path); err == nil {
+	if _, err := os.Lstat(atomicfile.MaybePrefixLongFilenameOnWindows(path)); err == nil {
 		return nil, errors.Errorf("%q, %q exist: shallowrestore tree is corrupt probably because a previous restore into a shallow tree was interrupted", path, php)
 	}
 

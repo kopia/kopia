@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/kopia/kopia/fs/localfs"
+	"github.com/kopia/kopia/internal/atomicfile"
 )
 
 // PathIfPlaceholder returns the placeholder suffix trimmed from path or the
@@ -21,7 +22,7 @@ func PathIfPlaceholder(path string) string {
 // exist without experiencing errors caused by long file names.
 func SafeRemoveAll(path string) error {
 	if SafelySuffixablePath(path) {
-		return os.RemoveAll(path + localfs.ShallowEntrySuffix)
+		return os.RemoveAll(atomicfile.MaybePrefixLongFilenameOnWindows(path + localfs.ShallowEntrySuffix))
 	}
 
 	// path can't possibly exist because we could have never written a file
