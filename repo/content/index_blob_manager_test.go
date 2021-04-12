@@ -748,7 +748,7 @@ func newIndexBlobManagerForTesting(t *testing.T, st blob.Storage, localTimeNow f
 	t.Helper()
 
 	p := &FormattingOptions{
-		Encryption: encryption.DeprecatedNoneAlgorithm,
+		Encryption: encryption.DefaultAlgorithm,
 		Hash:       hashing.DefaultAlgorithm,
 	}
 

@@ -1,9 +1,7 @@
 package content
 
 import (
-	"bytes"
 	"context"
-	"crypto/aes"
 	"os"
 	"sync"
 	"sync/atomic"
@@ -230,40 +228,20 @@ func (sm *SharedManager) decryptContentAndVerify(payload []byte, bi *Info) ([]by
 func (sm *SharedManager) decryptAndVerify(encrypted, iv []byte) ([]byte, error) {
 	decrypted, err := sm.encryptor.Decrypt(nil, encrypted, iv)
 	if err != nil {
+		sm.Stats.foundInvalidContent()
 		return nil, errors.Wrap(err, "decrypt")
 	}
 
+	sm.Stats.foundValidContent()
 	sm.Stats.decrypted(len(decrypted))
 
-	if sm.encryptor.IsAuthenticated() {
-		// already verified
-		return decrypted, nil
-	}
-
-	// Since the encryption key is a function of data, we must be able to generate exactly the same key
-	// after decrypting the content. This serves as a checksum.
-	return decrypted, sm.verifyChecksum(decrypted, iv)
+	// already verified
+	return decrypted, nil
 }
 
 // IndexBlobs returns the list of active index blobs.
 func (sm *SharedManager) IndexBlobs(ctx context.Context, includeInactive bool) ([]IndexBlobInfo, error) {
 	return sm.indexBlobManager.listIndexBlobs(ctx, includeInactive)
-}
-
-func (sm *SharedManager) verifyChecksum(data, contentID []byte) error {
-	var hashOutput [maxHashSize]byte
-
-	expected := sm.hasher(hashOutput[:0], data)
-	expected = expected[len(expected)-aes.BlockSize:]
-
-	if !bytes.HasSuffix(contentID, expected) {
-		sm.Stats.foundInvalidContent()
-		return errors.Errorf("invalid checksum for blob %x, expected %x", contentID, expected)
-	}
-
-	sm.Stats.foundValidContent()
-
-	return nil
 }
 
 func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *CachingOptions) error {
@@ -389,7 +367,7 @@ func NewSharedManager(ctx context.Context, st blob.Storage, f *FormattingOptions
 		repositoryFormatBytes:   opts.RepositoryFormatBytes,
 		checkInvariantsOnUnlock: os.Getenv("KOPIA_VERIFY_INVARIANTS") != "",
 		writeFormatVersion:      int32(f.Version),
-		encryptionBufferPool:    buf.NewPool(ctx, defaultEncryptionBufferPoolSegmentSize+encryptor.MaxOverhead(), "content-manager-encryption"),
+		encryptionBufferPool:    buf.NewPool(ctx, defaultEncryptionBufferPoolSegmentSize+encryptor.Overhead(), "content-manager-encryption"),
 	}
 
 	caching = caching.CloneOrDefault()

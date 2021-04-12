@@ -10,7 +10,11 @@ import (
 	"golang.org/x/crypto/hkdf"
 )
 
-const minDerivedKeyLength = 32
+const (
+	minDerivedKeyLength = 32
+
+	purposeEncryptionKey = "encryption"
+)
 
 // Encryptor performs encryption and decryption of contents of data.
 type Encryptor interface {
@@ -23,15 +27,8 @@ type Encryptor interface {
 	// authenticity check before decrypting.
 	Decrypt(output, cipherText, contentID []byte) ([]byte, error)
 
-	// IsAuthenticated returns true if encryption is authenticated.
-	// In this case Decrypt() is expected to perform authenticity check.
-	IsAuthenticated() bool
-
-	// IsDeprecated returns true if encryption is not recommended for new repositories.
-	IsDeprecated() bool
-
-	// MaxOverhead is the maximum number of bytes of overhead added by Encrypt()
-	MaxOverhead() int
+	// Overhead is the number of bytes of overhead added by Encrypt()
+	Overhead() int
 }
 
 // Parameters encapsulates all encryption parameters.
@@ -55,9 +52,6 @@ type EncryptorFactory func(p Parameters) (Encryptor, error)
 
 // DefaultAlgorithm is the name of the default encryption algorithm.
 const DefaultAlgorithm = "AES256-GCM-HMAC-SHA256"
-
-// DeprecatedNoneAlgorithm is the name of the algorithm that does not encrypt.
-const DeprecatedNoneAlgorithm = "NONE"
 
 // SupportedAlgorithms returns the names of the supported encryption
 // methods.
@@ -95,7 +89,6 @@ type encryptorInfo struct {
 var encryptors = map[string]*encryptorInfo{}
 
 // deriveKey uses HKDF to derive a key of a given length and a given purpose from parameters.
-// nolint:unparam
 func deriveKey(p Parameters, purpose []byte, length int) ([]byte, error) {
 	if length < minDerivedKeyLength {
 		return nil, errors.Errorf("derived key must be at least 32 bytes, was %v", length)
@@ -106,24 +99,4 @@ func deriveKey(p Parameters, purpose []byte, length int) ([]byte, error) {
 	io.ReadFull(k, key) //nolint:errcheck
 
 	return key, nil
-}
-
-// sliceForAppend takes a slice and a requested number of bytes. It returns a
-// slice with the contents of the given slice followed by that many bytes and a
-// second slice that aliases into it and contains only the extra bytes. If the
-// original slice has sufficient capacity then no allocation is performed.
-//
-// From: https://golang.org/src/crypto/cipher/gcm.go
-// Copyright 2013 The Go Authors. All rights reserved.
-func sliceForAppend(in []byte, n int) (head, tail []byte) {
-	if total := len(in) + n; cap(in) >= total {
-		head = in[:total]
-	} else {
-		head = make([]byte, total)
-		copy(head, in)
-	}
-
-	tail = head[len(in):]
-
-	return
 }

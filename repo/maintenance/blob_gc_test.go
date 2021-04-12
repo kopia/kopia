@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/faketime"
@@ -20,10 +21,13 @@ import (
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/encryption"
 	"github.com/kopia/kopia/repo/object"
 )
 
 var testHMACSecret = []byte{1, 2, 3}
+
+var testMasterKey = []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}
 
 func TestDeleteUnreferencedBlobs(t *testing.T) {
 	// set up fake clock which is initially synchronized to wall clock time
@@ -35,7 +39,8 @@ func TestDeleteUnreferencedBlobs(t *testing.T) {
 			o.TimeNowFunc = ta.NowFunc()
 		},
 		NewRepositoryOptions: func(nro *repo.NewRepositoryOptions) {
-			nro.BlockFormat.Encryption = "NONE"
+			nro.BlockFormat.Encryption = encryption.DefaultAlgorithm
+			nro.BlockFormat.MasterKey = testMasterKey
 			nro.BlockFormat.Hash = "HMAC-SHA256"
 			nro.BlockFormat.HMACSecret = testHMACSecret
 		},
@@ -190,11 +195,22 @@ func mustPutDummySessionBlob(t *testing.T, st blob.Storage, sessionIDSuffix blob
 	h := hmac.New(sha256.New, testHMACSecret)
 	h.Write(j)
 
-	blobID := blob.ID(fmt.Sprintf("s%x-%v", h.Sum(nil)[16:32], sessionIDSuffix))
+	iv := h.Sum(nil)[16:32]
 
-	if err := st.PutBlob(testlogging.Context(t), blobID, gather.FromSlice(j)); err != nil {
-		t.Fatal(err)
-	}
+	blobID := blob.ID(fmt.Sprintf("s%x-%v", iv, sessionIDSuffix))
+
+	e, err := encryption.CreateEncryptor(&content.FormattingOptions{
+		Encryption: encryption.DefaultAlgorithm,
+		MasterKey:  testMasterKey,
+		HMACSecret: testHMACSecret,
+	})
+
+	require.NoError(t, err)
+
+	enc, err := e.Encrypt(nil, j, iv)
+	require.NoError(t, err)
+
+	require.NoError(t, st.PutBlob(testlogging.Context(t), blobID, gather.FromSlice(enc)))
 
 	return blobID
 }

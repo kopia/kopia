@@ -25,7 +25,7 @@ func (sm *SharedManager) maybeEncryptContentDataForPacking(output *gather.WriteB
 		return errors.Wrapf(err, "unable to get packed content IV for %q", contentID)
 	}
 
-	b := sm.encryptionBufferPool.Allocate(len(data) + sm.encryptor.MaxOverhead())
+	b := sm.encryptionBufferPool.Allocate(len(data) + sm.encryptor.Overhead())
 	defer b.Release()
 
 	cipherText, err := sm.encryptor.Encrypt(b.Data[:0], data, iv)
