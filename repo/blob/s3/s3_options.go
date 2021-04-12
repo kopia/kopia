@@ -1,5 +1,7 @@
 package s3
 
+import "time"
+
 // Options defines options for S3-based storage.
 type Options struct {
 	// BucketName is the name of the bucket where data is stored.
@@ -22,4 +24,7 @@ type Options struct {
 	MaxUploadSpeedBytesPerSecond int `json:"maxUploadSpeedBytesPerSecond,omitempty"`
 
 	MaxDownloadSpeedBytesPerSecond int `json:"maxDownloadSpeedBytesPerSecond,omitempty"`
+
+	// PointInTime specifies a view of the (versioned) store at that time
+	PointInTime *time.Time `json:"pointInTime,omitempty"`
 }
