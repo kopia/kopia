@@ -270,13 +270,18 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 		return nil, errors.Errorf("bucket %q does not exist", opt.BucketName)
 	}
 
-	return retrying.NewWrapper(&s3Storage{
+	s, err := maybePointInTimeStore(ctx, &s3Storage{
 		Options:           *opt,
 		cli:               cli,
 		sendMD5:           0,
 		downloadThrottler: downloadThrottler,
 		uploadThrottler:   uploadThrottler,
-	}), nil
+	}, opt.PointInTime)
+	if err != nil {
+		return nil, err
+	}
+
+	return retrying.NewWrapper(s), nil
 }
 
 func init() {
