@@ -25,7 +25,8 @@ import (
 )
 
 const (
-	s3storageType = "s3"
+	s3storageType   = "s3"
+	latestVersionID = ""
 )
 
 type s3Storage struct {
@@ -39,10 +40,15 @@ type s3Storage struct {
 }
 
 func (s *s3Storage) GetBlob(ctx context.Context, b blob.ID, offset, length int64, output *gather.WriteBuffer) error {
+	return s.getBlobWithVersion(ctx, b, latestVersionID, offset, length, output)
+}
+
+// getBlobWithVersion returns full or partial contents of a blob with given ID and version.
+func (s *s3Storage) getBlobWithVersion(ctx context.Context, b blob.ID, version string, offset, length int64, output *gather.WriteBuffer) error {
 	output.Reset()
 
 	attempt := func() error {
-		var opt minio.GetObjectOptions
+		opt := minio.GetObjectOptions{VersionID: version}
 
 		if length > 0 {
 			if err := opt.SetRange(offset, offset+length-1); err != nil {
