@@ -1,4 +1,4 @@
-// +build !windows
+// +build !windows,!openbsd
 
 // Package fusemount implements FUSE filesystem nodes for mounting contents of filesystem stored in repository.
 //
