@@ -30,4 +30,10 @@ type VersionedStorage interface {
 
 	// ListBlobVersions lists all versions for all the blobs with the given blob ID prefix.
 	ListBlobVersions(context.Context, blob.ID, VersionMetadataCallback) error
+
+	// GetBlobWithVersion returns full or partial contents of a blob with given ID.
+	// If length>0, the the function retrieves a range of bytes [offset,offset+length)
+	// If length<0, the entire blob must be fetched.
+	// Returns ErrInvalidRange if the fetched blob length is invalid.
+	GetBlobWithVersion(ctx context.Context, blobID blob.ID, version string, offset, length int64) ([]byte, error)
 }
