@@ -14,6 +14,7 @@ import (
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/encryption"
 )
 
 const goroutineCount = 16
@@ -43,7 +44,7 @@ func stressTestWithStorage(t *testing.T, st blob.Storage, duration time.Duration
 		return content.NewManager(ctx, st, &content.FormattingOptions{
 			Version:     1,
 			Hash:        "HMAC-SHA256-128",
-			Encryption:  "AES-256-CTR",
+			Encryption:  encryption.DefaultAlgorithm,
 			MaxPackSize: 20000000,
 			MasterKey:   []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
 		}, nil, nil)

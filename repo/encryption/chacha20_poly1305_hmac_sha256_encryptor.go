@@ -52,15 +52,7 @@ func (e chacha20poly1305hmacSha256Encryptor) Encrypt(output, input, contentID []
 	return aeadSealWithRandomNonce(output, a, input, contentID)
 }
 
-func (e chacha20poly1305hmacSha256Encryptor) IsAuthenticated() bool {
-	return true
-}
-
-func (e chacha20poly1305hmacSha256Encryptor) IsDeprecated() bool {
-	return false
-}
-
-func (e chacha20poly1305hmacSha256Encryptor) MaxOverhead() int {
+func (e chacha20poly1305hmacSha256Encryptor) Overhead() int {
 	return chacha20poly1305hmacSha256EncryptorOverhead
 }
 

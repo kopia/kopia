@@ -102,9 +102,5 @@ func AuthenticatedEncryptionProtection(key []byte) (StorageProtection, error) {
 		return nil, errors.Wrap(err, "unable to create encryptor")
 	}
 
-	if !e.IsAuthenticated() {
-		return nil, errors.Wrap(err, "encryption is not authenticated!")
-	}
-
 	return authenticatedEncryptionProtection{e}, nil
 }

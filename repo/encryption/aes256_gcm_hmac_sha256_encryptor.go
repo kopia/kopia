@@ -56,15 +56,7 @@ func (e aes256GCMHmacSha256) Encrypt(output, input, contentID []byte) ([]byte, e
 	return aeadSealWithRandomNonce(output, a, input, contentID)
 }
 
-func (e aes256GCMHmacSha256) IsAuthenticated() bool {
-	return true
-}
-
-func (e aes256GCMHmacSha256) IsDeprecated() bool {
-	return false
-}
-
-func (e aes256GCMHmacSha256) MaxOverhead() int {
+func (e aes256GCMHmacSha256) Overhead() int {
 	return aes256GCMHmacSha256Overhead
 }
 
