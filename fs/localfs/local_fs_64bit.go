@@ -1,4 +1,4 @@
-// +build !windows
+// +build !windows,!openbsd
 // +build !darwin
 // +build amd64 arm64 arm
 

@@ -9,6 +9,7 @@ builds:
   goos:
   - linux
   - freebsd
+  - openbsd
   goarch:
     - amd64
     - arm
@@ -26,6 +27,7 @@ archives:
       linux: linux
       windows: windows
       freebsd: freebsd-experimental
+      openbsd: openbsd-experimental
       amd64: x64
     name_template: "{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
     wrap_in_directory: true
