@@ -37,8 +37,12 @@ type s3Storage struct {
 }
 
 func (s *s3Storage) GetBlob(ctx context.Context, b blob.ID, offset, length int64) ([]byte, error) {
+	return s.GetBlobWithVersion(ctx, b, "", offset, length)
+}
+
+func (s *s3Storage) GetBlobWithVersion(ctx context.Context, b blob.ID, version string, offset, length int64) ([]byte, error) {
 	attempt := func() ([]byte, error) {
-		var opt minio.GetObjectOptions
+		opt := minio.GetObjectOptions{VersionID: version}
 
 		if length > 0 {
 			if err := opt.SetRange(offset, offset+length-1); err != nil {
