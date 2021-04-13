@@ -190,7 +190,7 @@ func maybeRepositoryAction(act func(ctx context.Context, rep repo.Repository) er
 				go http.ListenAndServe(*metricsListenAddr, mux) // nolint:errcheck
 			}
 
-			rep, err := openRepository(ctx, nil, mode.mustBeConnected)
+			rep, err := openRepository(ctx, mode.mustBeConnected)
 			if err != nil && mode.mustBeConnected {
 				return errors.Wrap(err, "open repository")
 			}

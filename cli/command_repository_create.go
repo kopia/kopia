@@ -91,7 +91,7 @@ func runCreateCommandWithStorage(ctx context.Context, st blob.Storage) error {
 }
 
 func populateRepository(ctx context.Context, password string) error {
-	rep, err := repo.Open(ctx, repositoryConfigFileName(), password, applyOptionsFromFlags(ctx, nil))
+	rep, err := repo.Open(ctx, repositoryConfigFileName(), password, optionsFromFlags(ctx))
 	if err != nil {
 		return errors.Wrap(err, "unable to open repository")
 	}

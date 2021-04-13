@@ -68,7 +68,7 @@ func RegisterStorageConnectFlags(
 			return errors.Wrap(err, "can't connect to storage")
 		}
 
-		rep, err := openRepository(ctx, nil, true)
+		rep, err := openRepository(ctx, true)
 		if err != nil {
 			return errors.Wrap(err, "open repository")
 		}

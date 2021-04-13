@@ -150,7 +150,7 @@ func (s *s3Storage) DeleteBlob(ctx context.Context, b blob.ID) error {
 		return nil
 	}
 
-	return translateError(err)
+	return err
 }
 
 func (s *s3Storage) getObjectNameString(b blob.ID) string {

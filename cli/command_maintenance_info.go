@@ -42,7 +42,7 @@ func runMaintenanceInfoCommand(ctx context.Context, rep repo.DirectRepository) e
 		printStdout("  %v:\n", run)
 
 		for _, t := range timings {
-			errInfo := ""
+			var errInfo string
 			if t.Success {
 				errInfo = "SUCCESS"
 			} else {
