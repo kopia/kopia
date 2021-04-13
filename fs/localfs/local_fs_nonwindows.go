@@ -1,4 +1,4 @@
-// +build !windows,!openbsd
+// +build !windows
 
 package localfs
 
