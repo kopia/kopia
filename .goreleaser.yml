@@ -8,6 +8,7 @@ builds:
   - CGO_ENABLED=0
   goos:
   - linux
+  - freebsd
   goarch:
     - amd64
     - arm
@@ -24,6 +25,7 @@ archives:
       darwin: macOS
       linux: linux
       windows: windows
+      freebsd: freebsd-experimental
       amd64: x64
     name_template: "{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
     wrap_in_directory: true
