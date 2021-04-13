@@ -17,6 +17,12 @@ type commandMaintenanceInfo struct {
 	out textOutput
 }
 
+// MaintenanceInfo is used to display the maintenance info in JSON format.
+type MaintenanceInfo struct {
+	maintenance.Params
+	maintenance.Schedule `json:"schedule"`
+}
+
 func (c *commandMaintenanceInfo) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("info", "Display maintenance information").Alias("status")
 	c.jo.setup(svc, cmd)
@@ -36,7 +42,13 @@ func (c *commandMaintenanceInfo) run(ctx context.Context, rep repo.DirectReposit
 	}
 
 	if c.jo.jsonOutput {
-		c.out.printStdout("%s\n", c.jo.jsonBytes(s))
+		mi := MaintenanceInfo{
+			Params:   *p,
+			Schedule: *s,
+		}
+
+		c.out.printStdout("%s\n", c.jo.jsonBytes(mi))
+
 		return nil
 	}
 
