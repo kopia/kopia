@@ -18,6 +18,83 @@ type pitStorage struct {
 	pointInTime time.Time
 }
 
+func (s pitStorage) ListBlobs(ctx context.Context, blobIDPrefix blob.ID, cb func(bm blob.Metadata) error) error {
+	var (
+		previousID blob.ID
+		vs         []VersionMetadata
+	)
+
+	err := s.vs.ListBlobVersions(ctx, blobIDPrefix, func(vm VersionMetadata) error {
+		if vm.BlobID != previousID {
+			// different blob, process previous one
+			if v, found := newestAtUnlessDeleted(vs, s.pointInTime); found {
+				if err := cb(v.Metadata); err != nil {
+					return err
+				}
+			}
+
+			previousID = vm.BlobID
+			vs = vs[:0] // reset for next blob
+		}
+
+		vs = append(vs, vm)
+
+		return nil
+	})
+	if err != nil {
+		return errors.Wrapf(err, "could not list blob versions at time %s", s.pointInTime)
+	}
+
+	// process last blob
+	if v, found := newestAtUnlessDeleted(vs, s.pointInTime); found {
+		if err := cb(v.Metadata); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func newestAtUnlessDeleted(vs []VersionMetadata, t time.Time) (v VersionMetadata, found bool) {
+	vs = getOlderThan(vs, t)
+
+	if wasBlobDeleted(vs) {
+		return VersionMetadata{}, false
+	}
+
+	return vs[len(vs)-1], true
+}
+
+// Removes versions that are newer than t. The filtering is done in place and
+// and uses the same slice storage as vs. Versions in vs are in descending
+// timestamp order.
+func getOlderThan(vs []VersionMetadata, t time.Time) []VersionMetadata {
+	for i := range vs {
+		if !vs[i].Timestamp.After(t) {
+			return vs[i:]
+		}
+	}
+
+	return nil
+}
+
+// A blob is considered deleted if either there is no version for it, that is,
+// vs is empty; or there is at least one deletion marker in vs, even if it is
+// not the most recent version.
+func wasBlobDeleted(vs []VersionMetadata) bool {
+	if len(vs) == 0 {
+		return true
+	}
+
+	for _, v := range vs {
+		if v.IsDeleteMarker {
+			return true
+		}
+	}
+
+	return false
+}
+
 // NewWrapper wraps s with a PiT store when s is versioned and pit is non-zero.
 // Otherwise it returns s unmodified.
 func NewWrapper(ctx context.Context, s blob.Storage, pointInTime *time.Time) (blob.Storage, error) {
