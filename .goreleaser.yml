@@ -9,6 +9,7 @@ builds:
   goos:
   - linux
   - freebsd
+  - openbsd
   goarch:
     - amd64
     - arm
