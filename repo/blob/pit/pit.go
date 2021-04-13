@@ -55,6 +55,33 @@ func (s pitStorage) ListBlobs(ctx context.Context, blobIDPrefix blob.ID, cb func
 	return nil
 }
 
+func (s pitStorage) GetMetadata(ctx context.Context, blobID blob.ID) (blob.Metadata, error) {
+	m, err := s.getMetadata(ctx, blobID)
+
+	return m.Metadata, err
+}
+
+func (s pitStorage) getMetadata(ctx context.Context, blobID blob.ID) (VersionMetadata, error) {
+	var vml []VersionMetadata
+
+	if err := s.vs.GetBlobVersions(ctx, blobID, func(m VersionMetadata) error {
+		// only include versions older than s.pointInTime
+		if !m.Timestamp.After(s.pointInTime) {
+			vml = append(vml, m)
+		}
+
+		return nil
+	}); err != nil {
+		return VersionMetadata{}, errors.Wrapf(err, "could not get version metadata for blob %s", blobID)
+	}
+
+	if v, found := newestAtUnlessDeleted(vml, s.pointInTime); found {
+		return v, nil
+	}
+
+	return VersionMetadata{}, blob.ErrBlobNotFound
+}
+
 func newestAtUnlessDeleted(vs []VersionMetadata, t time.Time) (v VersionMetadata, found bool) {
 	vs = getOlderThan(vs, t)
 
