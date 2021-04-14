@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/fs/localfs"
+	"github.com/kopia/kopia/internal/atomicfile"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/tests/clitestutil"
 	"github.com/kopia/kopia/snapshot/restore"
@@ -96,8 +97,8 @@ func TestShallowFullCycle(t *testing.T) {
 	// Directories with very long names are not representable in
 	// shallow restores. So make one to show that it works.
 	// Restores (and shallow restores) with overly-long names will both fail.
-	dirpathlong := filepath.Join(source, makeLongName('d'))
-	fpathinlong := filepath.Join(dirpathlong, "nestedfile")
+	dirpathlong := atomicfile.MaybePrefixLongFilenameOnWindows(filepath.Join(source, makeLongName('d')))
+	fpathinlong := atomicfile.MaybePrefixLongFilenameOnWindows(filepath.Join(dirpathlong, "nestedfile"))
 
 	require.NoError(t, os.Mkdir(dirpathlong, 0o755))
 	testdirtree.MustCreateRandomFile(t, fpathinlong, testdirtree.DirectoryTreeOptions{}, (*testdirtree.DirectoryTreeCounters)(nil))
