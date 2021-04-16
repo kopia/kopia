@@ -16,3 +16,48 @@ jobs:
         fetch-depth: 0
     - name: Provider Tests
       run: make provider-tests
+      env:
+        # used in Azure tests
+        KOPIA_AZURE_TEST_CONTAINER: ${{ secrets.KOPIA_AZURE_TEST_CONTAINER }}
+        KOPIA_AZURE_TEST_STORAGE_ACCOUNT: ${{ secrets.KOPIA_AZURE_TEST_STORAGE_ACCOUNT }}
+        KOPIA_AZURE_TEST_STORAGE_KEY: ${{ secrets.KOPIA_AZURE_TEST_STORAGE_KEY }}
+
+        # used in B2 tests
+        KOPIA_B2_TEST_BUCKET: ${{ secrets.KOPIA_B2_TEST_BUCKET }}
+        KOPIA_B2_TEST_KEY: ${{ secrets.KOPIA_B2_TEST_KEY }}
+        KOPIA_B2_TEST_KEY_ID: ${{ secrets.KOPIA_B2_TEST_KEY_ID }}
+
+        # used in GCS tests
+        KOPIA_GCS_CREDENTIALS_FILE: ${{ secrets.KOPIA_GCS_CREDENTIALS_FILE }}
+        KOPIA_GCS_TEST_BUCKET: ${{ secrets.KOPIA_GCS_TEST_BUCKET }}
+
+        # used in S3 tests
+        KOPIA_S3_TEST_ENDPOINT: ${{ secrets.KOPIA_S3_TEST_ENDPOINT }}
+        KOPIA_S3_TEST_ACCESS_KEY_ID: ${{ secrets.KOPIA_S3_TEST_ACCESS_KEY_ID }}
+        KOPIA_S3_TEST_SECRET_ACCESS_KEY: ${{ secrets.KOPIA_S3_TEST_SECRET_ACCESS_KEY }}
+        KOPIA_S3_TEST_BUCKET: ${{ secrets.KOPIA_S3_TEST_BUCKET }}
+        KOPIA_S3_TEST_REGION: ${{ secrets.KOPIA_S3_TEST_REGION }}
+        KOPIA_S3_TEST_STS_ACCESS_KEY_ID: ${{ secrets.KOPIA_S3_TEST_STS_ACCESS_KEY_ID }}
+        KOPIA_S3_TEST_STS_SECRET_ACCESS_KEY: ${{ secrets.KOPIA_S3_TEST_STS_SECRET_ACCESS_KEY }}
+        KOPIA_S3_TEST_SESSION_TOKEN: ${{ secrets.KOPIA_S3_TEST_SESSION_TOKEN }}
+
+        KOPIA_S3_CREDS: ${{ secrets.KOPIA_S3_CREDS }}
+        KOPIA_S3_WASABI_CREDS: ${{ secrets.KOPIA_S3_WASABI_CREDS }}
+        KOPIA_S3_WASABI_VERSIONED_CREDS: ${{ secrets.KOPIA_S3_WASABI_VERSIONED_CREDS }}
+
+        # used in rclone tests
+        KOPIA_RCLONE_EMBEDDED_CONFIG_B64: ${{ secrets.KOPIA_RCLONE_EMBEDDED_CONFIG_B64 }}
+
+        # used in SFTP tests
+        KOPIA_SFTP_TEST_HOST: ${{ secrets.KOPIA_SFTP_TEST_HOST }}
+        KOPIA_SFTP_TEST_PORT: ${{ secrets.KOPIA_SFTP_TEST_PORT }}
+        KOPIA_SFTP_TEST_USER: ${{ secrets.KOPIA_SFTP_TEST_USER }}
+        KOPIA_SFTP_TEST_PATH: ${{ secrets.KOPIA_SFTP_TEST_PATH }}
+        KOPIA_SFTP_KEYFILE: ${{ secrets.KOPIA_SFTP_KEYFILE }}
+        KOPIA_SFTP_KNOWN_HOSTS_FILE: ${{ secrets.KOPIA_SFTP_KNOWN_HOSTS_FILE }}
+
+        # used in WebDAV tests
+        KOPIA_WEBDAV_TEST_URL: ${{ secrets.KOPIA_WEBDAV_TEST_URL }}
+        KOPIA_WEBDAV_TEST_USERNAME: ${{ secrets.KOPIA_WEBDAV_TEST_USERNAME }}
+        KOPIA_WEBDAV_TEST_PASSWORD: ${{ secrets.KOPIA_WEBDAV_TEST_PASSWORD }}
+

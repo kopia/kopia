@@ -1,12 +1,12 @@
 #!/bin/bash
 set -e
-GS_PREFIX=gs://packages.kopia.io/apt
-GPG_KEY_ID=A3B5843ED70529C23162E3687713E6D88ED70D9D
+GS_PREFIX=gs://$PACKAGES_HOST/apt
+GPG_KEY_ID=7FB99DFD47809F0D5339D7D92273699AFD56A556
 PKGDIR=$1
 RETAIN_UNSTABLE_DEB_COUNT=2
 
-if [ "$REPO_OWNER" != "kopia" ]; then
-  echo Not publishing APT package because current repo owner is $REPO_OWNER
+if [ -z "$PACKAGES_HOST" ]; then
+  echo Not publishing APT package because PACKAGES_HOST is not set.
   exit 0
 fi
 
@@ -47,7 +47,7 @@ for d in $distributions; do
   gsutil -m rsync -r -d $GS_PREFIX/dists/$d $WORK_DIR/dists/$d
   for a in $architectures; do
     if [ "$d" == "unstable" ]; then
-      delete_old_deb $WORK_DIR/dists/$d/main/binary-$a
+      delete_old_deb $WORK_DIR/dists/$d/main/binary-$a || echo Unable to delete old deb
     fi
   done
 done
@@ -89,6 +89,7 @@ for f in $deb_files; do
       if grep $bn\$ $packages_dir/Packages > /dev/null; then
         echo $bn already in $packages_dir/Packages
       else
+        mkdir -p $packages_dir
         cp -av $f $packages_dir
       fi
     done
