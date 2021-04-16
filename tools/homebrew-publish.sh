@@ -3,12 +3,12 @@ set -e
 dist_dir=$1
 ver=$2
 
-target_repo=kopia/homebrew-kopia
-source_repo=kopia/kopia
+target_repo=$REPO_OWNER/homebrew-kopia
+source_repo=$REPO_OWNER/kopia
 
 if [ "$CI_TAG" == "" ]; then
-    target_repo=kopia/homebrew-test-builds
-    source_repo=kopia/kopia-test-builds
+    target_repo=$REPO_OWNER/homebrew-test-builds
+    source_repo=$REPO_OWNER/kopia-test-builds
 fi
 
 if [ "$GITHUB_TOKEN" == "" ]; then

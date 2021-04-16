@@ -74,7 +74,7 @@ endif
 htmlui-node-modules: $(npm)
 	make -C htmlui deps
 
-ci-setup: ci-credentials go-modules all-tools htmlui-node-modules app-node-modules
+ci-setup: go-modules all-tools htmlui-node-modules app-node-modules
 ifeq ($(CI),true)
 	-git checkout go.mod go.sum
 endif
@@ -102,7 +102,6 @@ htmlui/build/index.html: html-ui
 
 # on macOS build and sign AMD64, ARM64 and Universal binary and *.tar.gz files for them
 dist/kopia_darwin_universal/kopia dist/kopia_darwin_amd64/kopia dist/kopia_darwin_arm6/kopia: htmlui/build/index.html $(all_go_sources)
-	$(MAKE) signing-tools
 	GOARCH=arm64 go build $(KOPIA_BUILD_FLAGS) -o dist/kopia_darwin_arm64/kopia -tags embedhtml
 	GOARCH=amd64 go build $(KOPIA_BUILD_FLAGS) -o dist/kopia_darwin_amd64/kopia -tags embedhtml
 	mkdir -p dist/kopia_darwin_universal
@@ -118,7 +117,6 @@ endif
 
 # on Windows build and sign AMD64 and *.zip file
 dist/kopia_windows_amd64/kopia.exe: htmlui/build/index.html $(all_go_sources)
-	$(MAKE) signing-tools
 	GOOS=windows GOARCH=amd64 go build $(KOPIA_BUILD_FLAGS) -o dist/kopia_windows_amd64/kopia.exe -tags embedhtml
 ifneq ($(WINDOWS_SIGN_TOOL),)
 	tools/.tools/signtool.exe sign //sha1 $(WINDOWS_CERT_SHA1) //fd sha256 //tr "http://timestamp.digicert.com" //v dist/kopia_windows_amd64/kopia.exe
@@ -154,22 +152,14 @@ ci-tests: lint vet test-with-coverage
 ci-integration-tests: integration-tests robustness-tool-tests
 	$(MAKE) stress-test
 
-ci-publish:
-ifeq ($(GOOS)/$(GOARCH),linux/amd64)
-	$(MAKE) create-long-term-repository
-	$(MAKE) publish-coverage-results
-endif
-
-publish-coverage-results:
+ci-publish-coverage:
+ifeq ($(GOOS)/$(GOARCH)/$(IS_PULL_REQUEST),linux/amd64/false)
 	-bash -c "bash <(curl -s https://codecov.io/bash) -f coverage.txt"
+endif
 
 # goreleaser - builds packages for all platforms when on linux/amd64,
 # but don't publish here, we'll upload to GitHub separately.
-GORELEASER_OPTIONS=--rm-dist --parallelism=6 --skip-publish
-
-ifneq ($(PUBLISH_BINARIES)/$(IS_PULL_REQUEST)/$(GOOS)/$(GOARCH),true/false/linux/amd64)
-	GORELEASER_OPTIONS+=--skip-sign
-endif
+GORELEASER_OPTIONS=--rm-dist --parallelism=6 --skip-publish --skip-sign
 
 ifeq ($(CI_TAG),)
 	GORELEASER_OPTIONS+=--snapshot
@@ -274,62 +264,36 @@ official-release:
 goreturns:
 	find . -name '*.go' | xargs goreturns -w --local github.com/kopia/kopia
 
-# see if we have access to credentials encryption key
-ifeq ($(CREDENTIAL_ENCRYPTION_KEY),)
-
-ci-credentials:
-	@echo CI credentials not available.
-
 ci-gpg-key:
-	@echo Not installing GPG keys.
-
+ifneq ($(GPG_KEYRING),)
+	@echo "$(GPG_KEYRING)" | base64 -d | gpg --import
 else
-
-ci-gpg-key:
-ifneq ($(GOOS),windows)
-	openssl aes-256-cbc -K "$(CREDENTIAL_ENCRYPTION_KEY)" -iv "$(CREDENTIAL_ENCRYPTION_IV)" -in kopia.gpg.enc -out /tmp/kopia.gpg -d
-	gpg --import /tmp/kopia.gpg
+	@echo No GPG keyring
 endif
 
-ci-credentials: ci-gpg-key
-
-ifneq ($(GOOS),windows)
-	@echo Installing GPG key...
-	openssl aes-256-cbc -K "$(CREDENTIAL_ENCRYPTION_KEY)" -iv "$(CREDENTIAL_ENCRYPTION_IV)" -in kopia.gpg.enc -out /tmp/kopia.gpg -d
-	gpg --import /tmp/kopia.gpg
-	openssl aes-256-cbc -K "$(CREDENTIAL_ENCRYPTION_KEY)" -iv "$(CREDENTIAL_ENCRYPTION_IV)" -in tests/credentials/gcs/test_service_account.json.enc -out repo/blob/gcs/test_service_account.json -d
-	openssl aes-256-cbc -K "$(CREDENTIAL_ENCRYPTION_KEY)" -iv "$(CREDENTIAL_ENCRYPTION_IV)" -in tests/credentials/sftp/id_kopia.enc -out repo/blob/sftp/id_kopia -d
-	openssl aes-256-cbc -K "$(CREDENTIAL_ENCRYPTION_KEY)" -iv "$(CREDENTIAL_ENCRYPTION_IV)" -in tests/credentials/sftp/known_hosts.enc -out repo/blob/sftp/known_hosts -d
-	openssl aes-256-cbc -K "$(CREDENTIAL_ENCRYPTION_KEY)" -iv "$(CREDENTIAL_ENCRYPTION_IV)" -in tools/boto.enc -out tools/.boto -d
-
-ifeq ($(GOARCH),amd64)
-	$(MAKE) install-google-cloud-sdk-if-not-present
-	$(HOME)/google-cloud-sdk/bin/gcloud auth activate-service-account --key-file repo/blob/gcs/test_service_account.json
+ci-gcs-creds:
+ifneq ($(GCS_CREDENTIALS),)
+	@echo $(GCS_CREDENTIALS) | base64 -d | gzip -d | gcloud auth activate-service-account --key-file=/dev/stdin
+else
+	@echo No GPG credentials.
 endif
-endif
-
-endif
-
-install-google-cloud-sdk-if-not-present:
-	if [ ! -d $(HOME)/google-cloud-sdk ]; then $(retry) $(MAKE) install-google-cloud-sdk; fi
-
-install-google-cloud-sdk:
-	-rm -rf $(HOME)/google-cloud-sdk
-	echo Installing Google Cloud SDK...
-	curl -s https://sdk.cloud.google.com | CLOUDSDK_CORE_DISABLE_PROMPTS=1 bash 2>/dev/null >/dev/null
-	echo Finished Installing Google Cloud SDK.
 
 RELEASE_STAGING_DIR=$(CURDIR)/.release
 
 stage-release:
 	rm -rf $(RELEASE_STAGING_DIR)
 	mkdir -p $(RELEASE_STAGING_DIR)
+
+	# copy all dist files to a staging directory
 	find dist -type f -exec cp -v {} $(RELEASE_STAGING_DIR) \;
+
+	# sign RPMs
+	find $(RELEASE_STAGING_DIR) -type f -name '*.rpm' -exec rpm --define "%_gpg_name Kopia Builder" --addsign {} \;
+
+	# regenerate checksums file and sign it
 	(cd $(RELEASE_STAGING_DIR) && sha256sum * > checksums.txt)
 	cat $(RELEASE_STAGING_DIR)/checksums.txt
-ifneq ($(CREDENTIAL_ENCRYPTION_KEY),)
 	gpg --output $(RELEASE_STAGING_DIR)/checksums.txt.sig --detach-sig $(RELEASE_STAGING_DIR)/checksums.txt
-endif
 
 ifeq ($(IS_PULL_REQUEST),false)
 ifneq ($(CI_TAG),)
@@ -347,7 +311,7 @@ endif
 endif
 endif
 
-push-github-release: $(github_release)
+push-github-release:
 ifneq ($(GH_RELEASE_REPO),)
 	@echo Creating Github Release $(GH_RELEASE_NAME) in $(GH_RELEASE_REPO) with flags $(GH_RELEASE_FLAGS)
 	gh --repo $(GH_RELEASE_REPO) release view $(GH_RELEASE_NAME) || gh --repo $(GH_RELEASE_REPO) release create $(GH_RELEASE_FLAGS) $(GH_RELEASE_NAME)
@@ -374,16 +338,24 @@ create-long-term-repository:
 
 endif
 
-publish-packages:
-ifeq ($(REPO_OWNER)/$(GOOS)/$(GOARCH)/$(IS_PULL_REQUEST),kopia/linux/amd64/false)
-	$(CURDIR)/tools/apt-publish.sh $(CURDIR)/dist
-	$(CURDIR)/tools/rpm-publish.sh $(CURDIR)/dist
-	$(CURDIR)/tools/homebrew-publish.sh $(CURDIR)/dist $(KOPIA_VERSION_NO_PREFIX)
-	$(CURDIR)/tools/scoop-publish.sh $(CURDIR)/dist $(KOPIA_VERSION_NO_PREFIX)
+publish-apt:
+	$(CURDIR)/tools/apt-publish.sh $(RELEASE_STAGING_DIR)
+
+publish-rpm:
+	$(CURDIR)/tools/rpm-publish.sh $(RELEASE_STAGING_DIR)
+
+publish-homebrew:
+	$(CURDIR)/tools/homebrew-publish.sh $(RELEASE_STAGING_DIR) $(KOPIA_VERSION_NO_PREFIX)
+
+publish-scoop:
+	$(CURDIR)/tools/scoop-publish.sh $(RELEASE_STAGING_DIR) $(KOPIA_VERSION_NO_PREFIX)
+
+publish-docker:
+ifneq ($(DOCKERHUB_TOKEN),)
 	@echo $(DOCKERHUB_TOKEN) | docker login --username $(DOCKERHUB_USERNAME) --password-stdin
 	$(CURDIR)/tools/docker-publish.sh $(CURDIR)/dist_binaries
 else
-	@echo Not pushing packages on pull request builds.
+	@echo DOCKERHUB_TOKEN is not set.
 endif
 
 PERF_BENCHMARK_INSTANCE=kopia-perf

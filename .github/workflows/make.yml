@@ -11,86 +11,18 @@ on:
     # run on Mondays at 8AM
     - cron:  '0 8 * * 1'
 env:
+  # environment variables shared between build steps
+  # do not include sensitive credentials and tokens here, instead pass them
+  # directly to tools that need them to limit the blast radius in case one of them
+  # becomes compromised and leaks credentials to external sites.
   # required by Makefile
   UNIX_SHELL_ON_WINDOWS: true
-
-  # PUBLISH_BINARIES=true publishes the binaries to github
-  PUBLISH_BINARIES: ${{ secrets.PUBLISH_BINARIES }}
-
+  # set to true if Publish Artifacts should run
+  PUBLISH_ARTIFACTS: ${{ secrets.PUBLISH_ARTIFACTS }}
   # where to publish releases for non-tagged commits
   NON_TAG_RELEASE_REPO: ${{ secrets.NON_TAG_RELEASE_REPO }}
-
-  # encrypt various secrets stored as files
-  CREDENTIAL_ENCRYPTION_KEY: ${{ secrets.CREDENTIAL_ENCRYPTION_KEY }}
-  CREDENTIAL_ENCRYPTION_IV: ${{ secrets.CREDENTIAL_ENCRYPTION_IV }}
-
-  # Apple ID and app-specific password for notarizaton
-  APPLEID: ${{ secrets.APPLEID }}
-  APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
-  KOPIA_UI_NOTARIZE: ${{ secrets.KOPIA_UI_NOTARIZE }}
-
-  # tool to install Windows signing certificate
-  WINDOWS_SIGNING_TOOLS_URL: ${{ secrets.WINDOWS_SIGNING_TOOLS_URL }}
-  WINDOWS_SIGN_USER: ${{ secrets.WINDOWS_SIGN_USER }}
-  WINDOWS_SIGN_AUTH: ${{ secrets.WINDOWS_SIGN_AUTH }}
-  WINDOWS_CERT_SHA1: ${{ secrets.WINDOWS_CERT_SHA1 }}
-  WINDOWS_SIGN_TOOL: ${{ secrets.WINDOWS_SIGN_TOOL }}
-
-  # macOS signing certificate (base64-encoded), used by Electron Builder
-  CSC_LINK: ${{ secrets.CSC_LINK }}
-  CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-  MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
-
-  # used to publish docker images
-  DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-  DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-
-  # used in Azure tests
-  KOPIA_AZURE_TEST_CONTAINER: ${{ secrets.KOPIA_AZURE_TEST_CONTAINER }}
-  KOPIA_AZURE_TEST_STORAGE_ACCOUNT: ${{ secrets.KOPIA_AZURE_TEST_STORAGE_ACCOUNT }}
-  KOPIA_AZURE_TEST_STORAGE_KEY: ${{ secrets.KOPIA_AZURE_TEST_STORAGE_KEY }}
-
-  # used in B2 tests
-  KOPIA_B2_TEST_BUCKET: ${{ secrets.KOPIA_B2_TEST_BUCKET }}
-  KOPIA_B2_TEST_KEY: ${{ secrets.KOPIA_B2_TEST_KEY }}
-  KOPIA_B2_TEST_KEY_ID: ${{ secrets.KOPIA_B2_TEST_KEY_ID }}
-
-  # used in GCS tests
-  KOPIA_GCS_CREDENTIALS_FILE: ${{ secrets.KOPIA_GCS_CREDENTIALS_FILE }}
-  KOPIA_GCS_TEST_BUCKET: ${{ secrets.KOPIA_GCS_TEST_BUCKET }}
-
-  # used in S3 tests
-  KOPIA_S3_TEST_ENDPOINT: ${{ secrets.KOPIA_S3_TEST_ENDPOINT }}
-  KOPIA_S3_TEST_ACCESS_KEY_ID: ${{ secrets.KOPIA_S3_TEST_ACCESS_KEY_ID }}
-  KOPIA_S3_TEST_SECRET_ACCESS_KEY: ${{ secrets.KOPIA_S3_TEST_SECRET_ACCESS_KEY }}
-  KOPIA_S3_TEST_BUCKET: ${{ secrets.KOPIA_S3_TEST_BUCKET }}
-  KOPIA_S3_TEST_REGION: ${{ secrets.KOPIA_S3_TEST_REGION }}
-  KOPIA_S3_TEST_STS_ACCESS_KEY_ID: ${{ secrets.KOPIA_S3_TEST_STS_ACCESS_KEY_ID }}
-  KOPIA_S3_TEST_STS_SECRET_ACCESS_KEY: ${{ secrets.KOPIA_S3_TEST_STS_SECRET_ACCESS_KEY }}
-  KOPIA_S3_TEST_SESSION_TOKEN: ${{ secrets.KOPIA_S3_TEST_SESSION_TOKEN }}
-
-  KOPIA_S3_CREDS: ${{ secrets.KOPIA_S3_CREDS }}
-  KOPIA_S3_WASABI_CREDS: ${{ secrets.KOPIA_S3_WASABI_CREDS }}
-  KOPIA_S3_WASABI_VERSIONED_CREDS: ${{ secrets.KOPIA_S3_WASABI_VERSIONED_CREDS }}
-
-  # used in rclone tests
-  KOPIA_RCLONE_EMBEDDED_CONFIG_B64: ${{ secrets.KOPIA_RCLONE_EMBEDDED_CONFIG_B64 }}
-
-  # used in SFTP tests
-  KOPIA_SFTP_TEST_HOST: ${{ secrets.KOPIA_SFTP_TEST_HOST }}
-  KOPIA_SFTP_TEST_PORT: ${{ secrets.KOPIA_SFTP_TEST_PORT }}
-  KOPIA_SFTP_TEST_USER: ${{ secrets.KOPIA_SFTP_TEST_USER }}
-  KOPIA_SFTP_TEST_PATH: ${{ secrets.KOPIA_SFTP_TEST_PATH }}
-  KOPIA_SFTP_KEYFILE: ${{ secrets.KOPIA_SFTP_KEYFILE }}
-  KOPIA_SFTP_KNOWN_HOSTS_FILE: ${{ secrets.KOPIA_SFTP_KNOWN_HOSTS_FILE }}
-
-  # used in WebDAV tests
-  KOPIA_WEBDAV_TEST_URL: ${{ secrets.KOPIA_WEBDAV_TEST_URL }}
-  KOPIA_WEBDAV_TEST_USERNAME: ${{ secrets.KOPIA_WEBDAV_TEST_USERNAME }}
-  KOPIA_WEBDAV_TEST_PASSWORD: ${{ secrets.KOPIA_WEBDAV_TEST_PASSWORD }}
-
-  # Code Coverage token
-  CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+  # RPM and APT packages GCS bucket/hostname.
+  PACKAGES_HOST: ${{ secrets.PACKAGES_HOST }}
 jobs:
   build:
     strategy:
@@ -125,16 +57,54 @@ jobs:
         fetch-depth: 0
     - name: Setup
       run: make -j4 ci-setup
+    - name: Build HTML
+      # build HTML separately without passing any sensitive credentials to the build
+      # since it involves a bunch of NPM scripts.
+      run: make html-ui
+    - name: Install macOS certificates
+      # install signing tools and credentials for macOS and Windows outside of main
+      # build process.
+      run: make macos-certificates
+      env:
+        # macOS signing certificate (base64-encoded), used by Electron Builder
+        CSC_LINK: ${{ secrets.CSC_LINK }}
+        CSC_KEYCHAIN: ${{ secrets.CSC_KEYCHAIN }}
+        CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+        MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
+      if: ${{ contains(matrix.os, 'macos') }}
+    - name: Install Windows signing tools
+      # install signing tools and credentials for macOS and Windows outside of main
+      # build process.
+      run: make windows-signing-tools
+      env:
+        # tool to install Windows signing certificate
+        WINDOWS_SIGNING_TOOLS_URL: ${{ secrets.WINDOWS_SIGNING_TOOLS_URL }}
+        WINDOWS_SIGN_TOOL: ${{ secrets.WINDOWS_SIGN_TOOL }}
+      if: ${{ contains(matrix.os, 'windows') }}
     - name: Build 
       run: make ci-build
+      env:
+        # Apple ID and app-specific password for notarizaton, used by Electron Builder
+        APPLEID: ${{ secrets.APPLEID }}
+        APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
+        KOPIA_UI_NOTARIZE: ${{ secrets.KOPIA_UI_NOTARIZE }}
+
+        # tool to install Windows signing certificate
+        WINDOWS_SIGN_USER: ${{ secrets.WINDOWS_SIGN_USER }}
+        WINDOWS_SIGN_AUTH: ${{ secrets.WINDOWS_SIGN_AUTH }}
+        WINDOWS_CERT_SHA1: ${{ secrets.WINDOWS_CERT_SHA1 }}
+        WINDOWS_SIGN_TOOL: ${{ secrets.WINDOWS_SIGN_TOOL }}
+
+        # macOS signing certificate (base64-encoded), used by Electron Builder
+        MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
     - name: Tests
       run: make ci-tests
       continue-on-error: ${{ github.event_name != 'pull_request' }}
     - name: Integration Tests
       run: make -j2 ci-integration-tests
       continue-on-error: ${{ github.event_name != 'pull_request' }}
-    - name: Publish
-      run: make ci-publish
+    - name: Publish Coverage Results
+      run: make ci-publish-coverage
     - name: Upload Kopia Artifacts
       uses: actions/upload-artifact@v2
       with:
@@ -168,7 +138,7 @@ jobs:
     name: Stage And Publish Artifacts
     runs-on: ubuntu-latest
     needs: build
-    if: ${{ github.event_name != 'pull_request' }}
+    if: github.event_name != 'pull_request'
     steps:
     - uses: actions/checkout@v2
     - name: Set up QEMU
@@ -187,15 +157,38 @@ jobs:
         path: dist_binaries
     - name: Display structure of downloaded files
       run: ls -lR dist/ dist_binaries/
-    - name: Install CI Credentials
-      run: make -j4 ci-credentials
+    - name: Install GPG Key
+      run: make ci-gpg-key
+      env:
+        GPG_KEYRING: ${{secrets.GPG_KEYRING}}
     - name: Stage Release
       run: make stage-release
     - name: Push Github Release
       run: make push-github-release
       env:
         GITHUB_TOKEN: ${{secrets.GH_TOKEN}}
-    - name: Publish Other Packages
-      run: make publish-packages
+    - name: Install GCS Credentials
+      run: make ci-gcs-creds
+      env:
+        GCS_CREDENTIALS: ${{secrets.GCS_CREDENTIALS}}
+    - name: Publish APT
+      # this needs GCS credentials and GPG keys installed before.
+      run: make publish-apt
+    - name: Publish RPM
+      # this needs GCS credentials and GPG keys installed before.
+      run: make publish-rpm
+    - name: Publish Homebrew
+      # this only pushes to a GitHub repository.
+      run: make publish-homebrew
       env:
         GITHUB_TOKEN: ${{secrets.GH_TOKEN}}
+    - name: Publish Scoop
+      # this only pushes to a GitHub repository.
+      run: make publish-scoop
+      env:
+        GITHUB_TOKEN: ${{secrets.GH_TOKEN}}
+    - name: Publish Docker
+      run: make publish-docker
+      env:
+        DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+        DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}

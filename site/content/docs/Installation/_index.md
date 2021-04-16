@@ -196,8 +196,8 @@ $ sha256sum --check checksums.txt
 # Verify signature file
 $ gpg --verify checksums.txt.sig 
 gpg: assuming signed data in 'checksums.txt'
-gpg: Signature made Wed May 15 20:41:41 2019 PDT
-gpg:                using RSA key A3B5843ED70529C23162E3687713E6D88ED70D9D
+gpg: Signature made Thu Apr 15 22:02:31 2021 PDT
+gpg:                using RSA key 7FB99DFD47809F0D5339D7D92273699AFD56A556
 gpg: Good signature from "Kopia Builder <builder@kopia.io>" [ultimate]
 ```
 

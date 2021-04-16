@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-GS_PREFIX=gs://packages.kopia.io/rpm
+GS_PREFIX=gs://$PACKAGES_HOST/rpm
 PKGDIR=$1
 RETAIN_UNSTABLE_RPM_COUNT=2
 
@@ -13,8 +13,8 @@ if [ -z "$PKGDIR" ]; then
   exit 1
 fi
 
-if [ "$REPO_OWNER" != "kopia" ]; then
-  echo Not publishing RPM package because current repo owner is $REPO_OWNER
+if [ -z "$PACKAGES_HOST" ]; then
+  echo Not publishing APT package because PACKAGES_HOST is not set.
   exit 0
 fi
 
