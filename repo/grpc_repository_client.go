@@ -462,6 +462,7 @@ func (r *grpcInnerSession) contentInfo(ctx context.Context, contentID content.ID
 				PackOffset:       rr.GetContentInfo.GetInfo().GetPackOffset(),
 				Deleted:          rr.GetContentInfo.GetInfo().GetDeleted(),
 				FormatVersion:    byte(rr.GetContentInfo.GetInfo().GetFormatVersion()),
+				OriginalLength:   rr.GetContentInfo.GetInfo().GetOriginalLength(),
 			}, nil
 
 		default:
