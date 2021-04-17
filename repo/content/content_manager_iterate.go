@@ -203,7 +203,7 @@ func (bm *WriteManager) IteratePacks(ctx context.Context, options IteratePackOpt
 			}
 			pi.PackID = ci.PackBlobID
 			pi.ContentCount++
-			pi.TotalSize += int64(ci.Length)
+			pi.TotalSize += int64(ci.PackedLength)
 			if options.IncludeContentInfos {
 				pi.ContentInfos = append(pi.ContentInfos, ci)
 			}

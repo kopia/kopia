@@ -262,7 +262,7 @@ func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, dat
 		return errors.Wrapf(err, "unable to encrypt %q", contentID)
 	}
 
-	info.Length = uint32(pp.currentPackData.Length()) - info.PackOffset
+	info.PackedLength = uint32(pp.currentPackData.Length()) - info.PackOffset
 
 	pp.currentPackItems[contentID] = info
 

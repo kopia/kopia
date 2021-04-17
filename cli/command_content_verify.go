@@ -100,7 +100,7 @@ func contentVerify(ctx context.Context, r content.Reader, ci *content.Info, blob
 		return errors.Errorf("content %v depends on missing blob %v", ci.ID, ci.PackBlobID)
 	}
 
-	if int64(ci.PackOffset+ci.Length) > bi.Length {
+	if int64(ci.PackOffset+ci.PackedLength) > bi.Length {
 		return errors.Errorf("content %v out of bounds of its pack blob %v", ci.ID, ci.PackBlobID)
 	}
 

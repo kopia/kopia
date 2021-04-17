@@ -186,7 +186,7 @@ func formatEntry(entry []byte, it *Info, layout *indexLayout) error {
 		binary.BigEndian.PutUint32(entryPackedOffset, it.PackOffset)
 	}
 
-	binary.BigEndian.PutUint32(entryPackedLength, it.Length)
+	binary.BigEndian.PutUint32(entryPackedLength, it.PackedLength)
 	timestampAndFlags |= uint64(it.FormatVersion) << 8 // nolint:gomnd
 	timestampAndFlags |= uint64(len(it.PackBlobID))
 	binary.BigEndian.PutUint64(entryTimestampAndFlags, timestampAndFlags)

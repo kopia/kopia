@@ -39,12 +39,12 @@ func runContentStatsCommand(ctx context.Context, rep repo.DirectRepository) erro
 			Range: contentIDRange(),
 		},
 		func(b content.Info) error {
-			totalSize += int64(b.Length)
+			totalSize += int64(b.PackedLength)
 			count++
 			for s := range countMap {
-				if b.Length < s {
+				if b.PackedLength < s {
 					countMap[s]++
-					totalSizeOfContentsUnder[s] += int64(b.Length)
+					totalSizeOfContentsUnder[s] += int64(b.PackedLength)
 				}
 			}
 			return nil

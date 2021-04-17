@@ -39,7 +39,7 @@ func runContentListCommand(ctx context.Context, rep repo.DirectRepository) error
 				return nil
 			}
 
-			totalSize.Add(int64(b.Length))
+			totalSize.Add(int64(b.PackedLength))
 
 			if jsonOutput {
 				jl.emit(b)
@@ -56,7 +56,7 @@ func runContentListCommand(ctx context.Context, rep repo.DirectRepository) error
 					formatTimestamp(b.Timestamp()),
 					b.PackBlobID,
 					b.PackOffset,
-					maybeHumanReadableBytes(*contentListHuman, int64(b.Length)),
+					maybeHumanReadableBytes(*contentListHuman, int64(b.PackedLength)),
 					optionalDeleted)
 			} else {
 				fmt.Printf("%v\n", b.ID)

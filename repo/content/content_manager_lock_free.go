@@ -71,11 +71,11 @@ func (bm *WriteManager) getContentDataUnlocked(ctx context.Context, pp *pendingP
 
 	if pp != nil && pp.packBlobID == bi.PackBlobID {
 		// we need to use a lock here in case somebody else writes to the pack at the same time.
-		payload = pp.currentPackData.AppendSectionTo(nil, int(bi.PackOffset), int(bi.Length))
+		payload = pp.currentPackData.AppendSectionTo(nil, int(bi.PackOffset), int(bi.PackedLength))
 	} else {
 		var err error
 
-		payload, err = bm.getCacheForContentID(bi.ID).getContent(ctx, cacheKey(bi.ID), bi.PackBlobID, int64(bi.PackOffset), int64(bi.Length))
+		payload, err = bm.getCacheForContentID(bi.ID).getContent(ctx, cacheKey(bi.ID), bi.PackBlobID, int64(bi.PackOffset), int64(bi.PackedLength))
 		if err != nil {
 			return nil, errors.Wrap(err, "getCacheForContentID")
 		}
@@ -93,7 +93,7 @@ func (bm *WriteManager) preparePackDataContent(ctx context.Context, pp *pendingP
 			haveContent = true
 		}
 
-		formatLog(ctx).Debugf("add-to-pack %v %v p:%v %v d:%v", pp.packBlobID, info.ID, info.PackBlobID, info.Length, info.Deleted)
+		formatLog(ctx).Debugf("add-to-pack %v %v p:%v %v d:%v", pp.packBlobID, info.ID, info.PackBlobID, info.PackedLength, info.Deleted)
 
 		packFileIndex.Add(info)
 	}
