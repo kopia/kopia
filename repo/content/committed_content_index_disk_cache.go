@@ -20,8 +20,9 @@ const (
 )
 
 type diskCommittedContentIndexCache struct {
-	dirname string
-	timeNow func() time.Time
+	dirname              string
+	timeNow              func() time.Time
+	v1PerContentOverhead uint32
 }
 
 func (c *diskCommittedContentIndexCache) indexBlobPath(indexBlobID blob.ID) string {
@@ -36,7 +37,7 @@ func (c *diskCommittedContentIndexCache) openIndex(ctx context.Context, indexBlo
 		return nil, err
 	}
 
-	return openPackIndex(f)
+	return openPackIndex(f, c.v1PerContentOverhead)
 }
 
 // mmapOpenWithRetry attempts mmap.Open() with exponential back-off to work around rare issue specific to Windows where

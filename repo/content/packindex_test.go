@@ -13,6 +13,8 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 )
 
+const fakeEncryptionOverhead = 27
+
 func deterministicContentID(prefix string, id int) ID {
 	h := sha1.New()
 	fmt.Fprintf(h, "%v%v", prefix, id)
@@ -141,30 +143,34 @@ func TestPackIndex(t *testing.T) {
 		fuzzTestIndexOpen(data1)
 	})
 
-	ndx, err := openPackIndex(bytes.NewReader(data1))
+	ndx, err := openPackIndex(bytes.NewReader(data1), fakeEncryptionOverhead)
 	if err != nil {
 		t.Fatalf("can't open index: %v", err)
 	}
 	defer ndx.Close()
 
-	for _, info := range infos {
-		info2, err := ndx.GetInfo(info.ID)
+	for _, want := range infos {
+		info2, err := ndx.GetInfo(want.ID)
 		if err != nil {
-			t.Errorf("unable to find %v", info.ID)
+			t.Errorf("unable to find %v", want.ID)
 			continue
 		}
 
-		if !reflect.DeepEqual(info, *info2) {
-			t.Errorf("invalid value retrieved: %+v, wanted %+v", info2, info)
+		want.OriginalLength = want.PackedLength - fakeEncryptionOverhead
+
+		if !reflect.DeepEqual(want, *info2) {
+			t.Errorf("invalid value retrieved: %+v, wanted %+v", info2, want)
 		}
 	}
 
 	cnt := 0
 
 	assertNoError(t, ndx.Iterate(AllIDs, func(info2 Info) error {
-		info := infoMap[info2.ID]
-		if !reflect.DeepEqual(info, info2) {
-			t.Errorf("invalid value retrieved: %+v, wanted %+v", info2, info)
+		want := infoMap[info2.ID]
+		want.OriginalLength = want.PackedLength - fakeEncryptionOverhead
+
+		if !reflect.DeepEqual(want, info2) {
+			t.Errorf("invalid value retrieved: %+v, wanted %+v", info2, want)
 		}
 		cnt++
 		return nil
@@ -208,7 +214,7 @@ func fuzzTestIndexOpen(originalData []byte) {
 	rnd := rand.New(rand.NewSource(12345))
 
 	fuzzTest(rnd, originalData, 50000, func(d []byte) {
-		ndx, err := openPackIndex(bytes.NewReader(d))
+		ndx, err := openPackIndex(bytes.NewReader(d), 0)
 		if err != nil {
 			return
 		}

@@ -281,7 +281,7 @@ func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *Ca
 		return errors.Wrap(err, "unable to initialize own writes cache")
 	}
 
-	contentIndex := newCommittedContentIndex(caching)
+	contentIndex := newCommittedContentIndex(caching, uint32(sm.encryptor.Overhead()))
 
 	// once everything is ready, set it up
 	sm.contentCache = dataCache

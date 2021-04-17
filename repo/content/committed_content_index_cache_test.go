@@ -18,14 +18,15 @@ func TestCommittedContentIndexCache_Disk(t *testing.T) {
 
 	ta := faketime.NewClockTimeWithOffset(0)
 
-	testCache(t, &diskCommittedContentIndexCache{testutil.TempDirectory(t), ta.NowFunc()}, ta)
+	testCache(t, &diskCommittedContentIndexCache{testutil.TempDirectory(t), ta.NowFunc(), 3}, ta)
 }
 
 func TestCommittedContentIndexCache_Memory(t *testing.T) {
 	t.Parallel()
 
 	testCache(t, &memoryCommittedContentIndexCache{
-		contents: map[blob.ID]packIndex{},
+		contents:             map[blob.ID]packIndex{},
+		v1PerContentOverhead: 3,
 	}, nil)
 }
 

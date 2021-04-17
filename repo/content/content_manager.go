@@ -256,6 +256,7 @@ func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, dat
 		PackOffset:       uint32(pp.currentPackData.Length()),
 		TimestampSeconds: bm.timeNow().Unix(),
 		FormatVersion:    byte(bm.writeFormatVersion),
+		OriginalLength:   uint32(len(data)),
 	}
 
 	if err := bm.maybeEncryptContentDataForPacking(pp.currentPackData, data, contentID); err != nil {

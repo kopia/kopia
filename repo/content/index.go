@@ -59,6 +59,9 @@ var AllNonPrefixedIDs = IDRange{"0", "g"}
 type index struct {
 	hdr      headerInfo
 	readerAt io.ReaderAt
+	// v1 index does not explicitly store per-content length so we compute it from packed length and fixed overhead
+	// provided by the encryptor.
+	v1PerContentOverhead uint32
 }
 
 type headerInfo struct {
@@ -265,13 +268,16 @@ func (b *index) entryToInfo(contentID ID, entryData []byte) (Info, error) {
 		return Info{}, errors.Wrap(err, "can't read pack content ID")
 	}
 
+	pl := e.PackedLength()
+
 	return Info{
 		ID:               contentID,
 		Deleted:          e.IsDeleted(),
 		TimestampSeconds: e.TimestampSeconds(),
 		FormatVersion:    e.PackedFormatVersion(),
 		PackOffset:       e.PackedOffset(),
-		PackedLength:     e.PackedLength(),
+		PackedLength:     pl,
+		OriginalLength:   pl - b.v1PerContentOverhead,
 		PackBlobID:       blob.ID(packFile),
 	}, nil
 }
@@ -286,11 +292,11 @@ func (b *index) Close() error {
 }
 
 // openPackIndex reads an Index from a given reader. The caller must call Close() when the index is no longer used.
-func openPackIndex(readerAt io.ReaderAt) (packIndex, error) {
+func openPackIndex(readerAt io.ReaderAt, v1PerContentOverhead uint32) (packIndex, error) {
 	h, err := readHeader(readerAt)
 	if err != nil {
 		return nil, errors.Wrap(err, "invalid header")
 	}
 
-	return &index{hdr: h, readerAt: readerAt}, nil
+	return &index{hdr: h, readerAt: readerAt, v1PerContentOverhead: v1PerContentOverhead}, nil
 }

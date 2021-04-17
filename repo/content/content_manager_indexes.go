@@ -178,7 +178,7 @@ func (sm *SharedManager) addIndexBlobsToBuilder(ctx context.Context, bld packInd
 		return errors.Wrapf(err, "error getting index %q", indexBlob.BlobID)
 	}
 
-	index, err := openPackIndex(bytes.NewReader(data))
+	index, err := openPackIndex(bytes.NewReader(data), uint32(sm.encryptor.Overhead()))
 	if err != nil {
 		return errors.Wrapf(err, "unable to open index blob %q", indexBlob)
 	}
@@ -198,7 +198,7 @@ func (sm *SharedManager) ParseIndexBlob(ctx context.Context, blobID blob.ID) ([]
 		return nil, errors.Wrapf(err, "error getting index %q", blobID)
 	}
 
-	index, err := openPackIndex(bytes.NewReader(data))
+	index, err := openPackIndex(bytes.NewReader(data), uint32(sm.encryptor.Overhead()))
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to open index blob")
 	}

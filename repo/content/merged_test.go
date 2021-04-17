@@ -158,5 +158,5 @@ func indexWithItems(items ...Info) (packIndex, error) {
 		return nil, errors.Wrap(err, "build error")
 	}
 
-	return openPackIndex(bytes.NewReader(buf.Bytes()))
+	return openPackIndex(bytes.NewReader(buf.Bytes()), fakeEncryptionOverhead)
 }

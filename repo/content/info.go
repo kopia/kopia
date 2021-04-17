@@ -32,6 +32,7 @@ type Info struct {
 	PackOffset       uint32  `json:"packOffset,omitempty"`
 	Deleted          bool    `json:"deleted"`
 	FormatVersion    byte    `json:"formatVersion"`
+	OriginalLength   uint32  `json:"originalLength"`
 }
 
 // Timestamp returns the time when a content was created or deleted.
