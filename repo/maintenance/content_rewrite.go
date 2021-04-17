@@ -83,13 +83,13 @@ func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *
 
 				age := rep.Time().Sub(c.Timestamp())
 				if age < safety.RewriteMinAge {
-					log(ctx).Debugf("Not rewriting content %v (%v bytes) from pack %v%v %v, because it's too new.", c.ID, c.Length, c.PackBlobID, optDeleted, age)
+					log(ctx).Debugf("Not rewriting content %v (%v bytes) from pack %v%v %v, because it's too new.", c.ID, c.PackedLength, c.PackBlobID, optDeleted, age)
 					continue
 				}
 
-				log(ctx).Debugf("Rewriting content %v (%v bytes) from pack %v%v %v", c.ID, c.Length, c.PackBlobID, optDeleted, age)
+				log(ctx).Debugf("Rewriting content %v (%v bytes) from pack %v%v %v", c.ID, c.PackedLength, c.PackBlobID, optDeleted, age)
 				mu.Lock()
-				totalBytes += int64(c.Length)
+				totalBytes += int64(c.PackedLength)
 				mu.Unlock()
 
 				if opt.DryRun {

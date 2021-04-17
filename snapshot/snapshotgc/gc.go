@@ -101,7 +101,7 @@ func runInternal(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete 
 	// undeleted (recovered).
 	err := rep.ContentReader().IterateContents(ctx, content.IterateOptions{IncludeDeleted: true}, func(ci content.Info) error {
 		if manifest.ContentPrefix == ci.ID.Prefix() {
-			system.Add(int64(ci.Length))
+			system.Add(int64(ci.PackedLength))
 			return nil
 		}
 
@@ -110,21 +110,21 @@ func runInternal(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete 
 				if err := rep.ContentManager().UndeleteContent(ctx, ci.ID); err != nil {
 					return errors.Wrapf(err, "Could not undelete referenced content: %v", ci)
 				}
-				undeleted.Add(int64(ci.Length))
+				undeleted.Add(int64(ci.PackedLength))
 			}
 
-			inUse.Add(int64(ci.Length))
+			inUse.Add(int64(ci.PackedLength))
 			return nil
 		}
 
 		if rep.Time().Sub(ci.Timestamp()) < safety.MinContentAgeSubjectToGC {
-			log(ctx).Debugf("recent unreferenced content %v (%v bytes, modified %v)", ci.ID, ci.Length, ci.Timestamp())
-			tooRecent.Add(int64(ci.Length))
+			log(ctx).Debugf("recent unreferenced content %v (%v bytes, modified %v)", ci.ID, ci.PackedLength, ci.Timestamp())
+			tooRecent.Add(int64(ci.PackedLength))
 			return nil
 		}
 
-		log(ctx).Debugf("unreferenced %v (%v bytes, modified %v)", ci.ID, ci.Length, ci.Timestamp())
-		cnt, totalSize := unused.Add(int64(ci.Length))
+		log(ctx).Debugf("unreferenced %v (%v bytes, modified %v)", ci.ID, ci.PackedLength, ci.Timestamp())
+		cnt, totalSize := unused.Add(int64(ci.PackedLength))
 
 		if gcDelete {
 			if err := rep.ContentManager().DeleteContent(ctx, ci.ID); err != nil {

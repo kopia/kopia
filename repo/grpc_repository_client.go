@@ -456,7 +456,7 @@ func (r *grpcInnerSession) contentInfo(ctx context.Context, contentID content.ID
 		case *apipb.SessionResponse_GetContentInfo:
 			return content.Info{
 				ID:               content.ID(rr.GetContentInfo.GetInfo().GetId()),
-				Length:           rr.GetContentInfo.GetInfo().GetLength(),
+				PackedLength:     rr.GetContentInfo.GetInfo().GetLength(),
 				TimestampSeconds: rr.GetContentInfo.GetInfo().GetTimestampSeconds(),
 				PackBlobID:       blob.ID(rr.GetContentInfo.GetInfo().GetPackBlobId()),
 				PackOffset:       rr.GetContentInfo.GetInfo().GetPackOffset(),

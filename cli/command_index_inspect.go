@@ -34,7 +34,7 @@ func dumpIndexBlobEntries(bm blob.Metadata, entries []content.Info) {
 
 		printStdout("%v %v %v %v %v %v %v %v\n",
 			formatTimestampPrecise(bm.Timestamp), bm.BlobID,
-			ci.ID, state, formatTimestampPrecise(ci.Timestamp()), ci.PackBlobID, ci.PackOffset, ci.Length)
+			ci.ID, state, formatTimestampPrecise(ci.Timestamp()), ci.PackBlobID, ci.PackOffset, ci.PackedLength)
 	}
 }
 

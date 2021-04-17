@@ -74,7 +74,7 @@ func TestPackIndex(t *testing.T) {
 			ID:               deterministicContentID("deleted-packed", i),
 			PackBlobID:       deterministicPackBlobID(i),
 			PackOffset:       deterministicPackedOffset(i),
-			Length:           deterministicPackedLength(i),
+			PackedLength:     deterministicPackedLength(i),
 			FormatVersion:    deterministicFormatVersion(i),
 		})
 	}
@@ -85,7 +85,7 @@ func TestPackIndex(t *testing.T) {
 			ID:               deterministicContentID("packed", i),
 			PackBlobID:       deterministicPackBlobID(i),
 			PackOffset:       deterministicPackedOffset(i),
-			Length:           deterministicPackedLength(i),
+			PackedLength:     deterministicPackedLength(i),
 			FormatVersion:    deterministicFormatVersion(i),
 		})
 	}

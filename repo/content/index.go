@@ -271,7 +271,7 @@ func (b *index) entryToInfo(contentID ID, entryData []byte) (Info, error) {
 		TimestampSeconds: e.TimestampSeconds(),
 		FormatVersion:    e.PackedFormatVersion(),
 		PackOffset:       e.PackedOffset(),
-		Length:           e.PackedLength(),
+		PackedLength:     e.PackedLength(),
 		PackBlobID:       blob.ID(packFile),
 	}, nil
 }
