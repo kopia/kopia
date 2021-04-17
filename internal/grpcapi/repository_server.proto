@@ -7,7 +7,7 @@ package kopia_repository;
 // corresponds to content.Info
 message ContentInfo {
   string id = 1;
-  uint32 length = 2;
+  uint32 packed_length = 2;
   int64 timestamp_seconds = 3;
   string pack_blob_id = 4;
   uint32 pack_offset = 5;
