@@ -221,7 +221,7 @@ func (p *CountingUploadProgress) UITaskCounters(final bool) map[string]uitask.Co
 	m := map[string]uitask.CounterValue{
 		"Cached Files":    uitask.SimpleCounter(cachedFiles),
 		"Hashed Files":    uitask.SimpleCounter(hashedFiles),
-		"Processed Files": uitask.BytesCounter(hashedFiles + cachedFiles),
+		"Processed Files": uitask.SimpleCounter(hashedFiles + cachedFiles),
 
 		"Cached Bytes":    uitask.BytesCounter(cachedBytes),
 		"Hashed Bytes":    uitask.BytesCounter(hashedBytes),
