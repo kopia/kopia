@@ -68,11 +68,11 @@ go-modules:
 
 app-node-modules: $(npm)
 ifeq ($(GOARCH),amd64)
-	make -C app deps
+	$(MAKE) -C app deps
 endif
 
 htmlui-node-modules: $(npm)
-	make -C htmlui deps
+	$(MAKE) -C htmlui deps
 
 ci-setup: go-modules all-tools htmlui-node-modules app-node-modules
 ifeq ($(CI),true)
@@ -130,7 +130,7 @@ endif
 # and creates .tar.gz, rpm and deb packages.
 dist/kopia_linux_amd64/kopia dist/kopia_linux_arm64/kopia dist/kopia_linux_arm_6/kopia: htmlui/build/index.html $(all_go_sources)
 ifeq ($(GOARCH),amd64)
-	make goreleaser
+	$(MAKE) goreleaser
 else
 	go build $(KOPIA_BUILD_FLAGS) -o $(kopia_ui_embedded_exe) -tags embedhtml
 endif
