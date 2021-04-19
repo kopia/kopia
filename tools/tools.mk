@@ -120,8 +120,20 @@ endif
 
 # put NPM in the path
 PATH:=$(node_dir)$(path_separator)$(PATH)
+OPENBSD_NPM_PATH=/usr/local/bin/npm
 
 $(npm):
+
+ifeq ($(GOOS),openbsd)
+# Node do not provide OpenBSD package. User must install from port/package beforehand.
+ifeq (,$(wildcard $(OPENBSD_NPM_PATH)))
+	@echo Install node with pkg_add before building UI
+	@exit 1
+endif
+	$(mkdir) $(node_base_dir)$(slash)node$(slash)bin
+	ln -s $(OPENBSD_NPM_PATH) $(node_base_dir)$(slash)node$(slash)bin
+
+else
 	@echo Downloading Node v$(NODE_VERSION) with NPM path $(npm)
 	$(mkdir) $(node_base_dir)$(slash)node
 
@@ -137,6 +149,7 @@ else
 	curl -LsS https://nodejs.org/dist/v$(NODE_VERSION)/node-v$(NODE_VERSION)-darwin-x64.tar.gz | tar zx -C $(node_base_dir)
 endif
 	mv $(node_base_dir)/node-v$(NODE_VERSION)*/* $(node_base_dir)/node
+endif
 endif
 
 # linter
