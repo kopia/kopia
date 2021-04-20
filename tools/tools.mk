@@ -120,19 +120,17 @@ endif
 
 # put NPM in the path
 PATH:=$(node_dir)$(path_separator)$(PATH)
-OPENBSD_NPM_PATH=/usr/local/bin/npm
+ifeq ($(GOOS),$(filter $(GOOS),openbsd freebsd))
+npm=/usr/local/bin/npm
+endif
 
 $(npm):
-
 ifeq ($(GOOS),openbsd)
-# Node do not provide OpenBSD package. User must install from port/package beforehand.
-ifeq (,$(wildcard $(OPENBSD_NPM_PATH)))
-	@echo Install node with pkg_add before building UI
+	@echo Use pkg_add to install node
 	@exit 1
-endif
-	$(mkdir) $(node_base_dir)$(slash)node$(slash)bin
-	ln -s $(OPENBSD_NPM_PATH) $(node_base_dir)$(slash)node$(slash)bin
-
+else ifeq ($(GOOS),freebsd)
+	@echo Use pkg to install npm
+	@exit 1
 else
 	@echo Downloading Node v$(NODE_VERSION) with NPM path $(npm)
 	$(mkdir) $(node_base_dir)$(slash)node
