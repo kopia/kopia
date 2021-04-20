@@ -21,7 +21,7 @@ const (
 )
 
 // packIndexBuilder prepares and writes content index.
-type packIndexBuilder map[ID]*Info
+type packIndexBuilder map[ID]Info
 
 // clone returns a deep clone of packIndexBuilder.
 func (b packIndexBuilder) clone() packIndexBuilder {
@@ -32,8 +32,7 @@ func (b packIndexBuilder) clone() packIndexBuilder {
 	r := packIndexBuilder{}
 
 	for k, v := range b {
-		i2 := *v
-		r[k] = &i2
+		r[k] = v
 	}
 
 	return r
@@ -41,21 +40,21 @@ func (b packIndexBuilder) clone() packIndexBuilder {
 
 // Add adds a new entry to the builder or conditionally replaces it if the timestamp is greater.
 func (b packIndexBuilder) Add(i Info) {
-	old, ok := b[i.ID]
-	if !ok || i.TimestampSeconds >= old.TimestampSeconds {
-		b[i.ID] = &i
+	old, ok := b[i.GetContentID()]
+	if !ok || i.GetTimestampSeconds() >= old.GetTimestampSeconds() {
+		b[i.GetContentID()] = i
 	}
 }
 
-func (b packIndexBuilder) sortedContents() []*Info {
-	var allContents []*Info
+func (b packIndexBuilder) sortedContents() []Info {
+	var allContents []Info
 
 	for _, v := range b {
 		allContents = append(allContents, v)
 	}
 
 	sort.Slice(allContents, func(i, j int) bool {
-		return allContents[i].ID < allContents[j].ID
+		return allContents[i].GetContentID() < allContents[j].GetContentID()
 	})
 
 	return allContents
@@ -120,20 +119,20 @@ func (b packIndexBuilder) Build(output io.Writer) error {
 	return w.Flush()
 }
 
-func prepareExtraData(allContents []*Info, layout *indexLayout) []byte {
+func prepareExtraData(allContents []Info, layout *indexLayout) []byte {
 	var extraData []byte
 
 	var hashBuf [maxContentIDSize]byte
 
 	for i, it := range allContents {
 		if i == 0 {
-			layout.keyLength = len(contentIDToBytes(hashBuf[:0], it.ID))
+			layout.keyLength = len(contentIDToBytes(hashBuf[:0], it.GetContentID()))
 		}
 
-		if it.PackBlobID != "" {
-			if _, ok := layout.packBlobIDOffsets[it.PackBlobID]; !ok {
-				layout.packBlobIDOffsets[it.PackBlobID] = uint32(len(extraData))
-				extraData = append(extraData, []byte(it.PackBlobID)...)
+		if it.GetPackBlobID() != "" {
+			if _, ok := layout.packBlobIDOffsets[it.GetPackBlobID()]; !ok {
+				layout.packBlobIDOffsets[it.GetPackBlobID()] = uint32(len(extraData))
+				extraData = append(extraData, []byte(it.GetPackBlobID())...)
 			}
 		}
 	}
@@ -143,10 +142,10 @@ func prepareExtraData(allContents []*Info, layout *indexLayout) []byte {
 	return extraData
 }
 
-func writeEntry(w io.Writer, it *Info, layout *indexLayout, entry []byte) error {
+func writeEntry(w io.Writer, it Info, layout *indexLayout, entry []byte) error {
 	var hashBuf [maxContentIDSize]byte
 
-	k := contentIDToBytes(hashBuf[:0], it.ID)
+	k := contentIDToBytes(hashBuf[:0], it.GetContentID())
 
 	if len(k) != layout.keyLength {
 		return errors.Errorf("inconsistent key length: %v vs %v", len(k), layout.keyLength)
@@ -167,28 +166,29 @@ func writeEntry(w io.Writer, it *Info, layout *indexLayout, entry []byte) error 
 	return nil
 }
 
-func formatEntry(entry []byte, it *Info, layout *indexLayout) error {
+func formatEntry(entry []byte, it Info, layout *indexLayout) error {
 	entryTimestampAndFlags := entry[0:8]
 	entryPackFileOffset := entry[8:12]
 	entryPackedOffset := entry[12:16]
 	entryPackedLength := entry[16:20]
-	timestampAndFlags := uint64(it.TimestampSeconds) << 16 // nolint:gomnd
+	timestampAndFlags := uint64(it.GetTimestampSeconds()) << 16 // nolint:gomnd
 
-	if len(it.PackBlobID) == 0 {
-		return errors.Errorf("empty pack content ID for %v", it.ID)
+	packBlobID := it.GetPackBlobID()
+	if len(packBlobID) == 0 {
+		return errors.Errorf("empty pack content ID for %v", it.GetContentID())
 	}
 
-	binary.BigEndian.PutUint32(entryPackFileOffset, layout.extraDataOffset+layout.packBlobIDOffsets[it.PackBlobID])
+	binary.BigEndian.PutUint32(entryPackFileOffset, layout.extraDataOffset+layout.packBlobIDOffsets[packBlobID])
 
-	if it.Deleted {
-		binary.BigEndian.PutUint32(entryPackedOffset, it.PackOffset|deletedMarker)
+	if it.GetDeleted() {
+		binary.BigEndian.PutUint32(entryPackedOffset, it.GetPackOffset()|deletedMarker)
 	} else {
-		binary.BigEndian.PutUint32(entryPackedOffset, it.PackOffset)
+		binary.BigEndian.PutUint32(entryPackedOffset, it.GetPackOffset())
 	}
 
-	binary.BigEndian.PutUint32(entryPackedLength, it.PackedLength)
-	timestampAndFlags |= uint64(it.FormatVersion) << 8 // nolint:gomnd
-	timestampAndFlags |= uint64(len(it.PackBlobID))
+	binary.BigEndian.PutUint32(entryPackedLength, it.GetPackedLength())
+	timestampAndFlags |= uint64(it.GetFormatVersion()) << 8 // nolint:gomnd
+	timestampAndFlags |= uint64(len(packBlobID))
 	binary.BigEndian.PutUint64(entryTimestampAndFlags, timestampAndFlags)
 
 	return nil

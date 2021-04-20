@@ -108,12 +108,12 @@ func (m *committedManifestManager) loadCommittedContentsLocked(ctx context.Conte
 			Range:    content.PrefixRange(ContentPrefix),
 			Parallel: manifestLoadParallelism,
 		}, func(ci content.Info) error {
-			man, err := loadManifestContent(ctx, m.b, ci.ID)
+			man, err := loadManifestContent(ctx, m.b, ci.GetContentID())
 			if err != nil {
 				return err
 			}
 			mu.Lock()
-			manifests[ci.ID] = man
+			manifests[ci.GetContentID()] = man
 			mu.Unlock()
 			return nil
 		})

@@ -61,7 +61,7 @@ how are you
 	e.RunAndExpectFailure(t, "snapshot", "gc", "--safety=none")
 
 	// data block + directory block + manifest block + manifest block from manifest deletion
-	var contentInfo []content.Info
+	var contentInfo []content.InfoStruct
 
 	mustParseJSONLines(t, e.RunAndExpectSuccess(t, "content", "list", "--json"), &contentInfo)
 

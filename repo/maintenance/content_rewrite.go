@@ -77,27 +77,27 @@ func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *
 				}
 
 				var optDeleted string
-				if c.Deleted {
+				if c.GetDeleted() {
 					optDeleted = " (deleted)"
 				}
 
 				age := rep.Time().Sub(c.Timestamp())
 				if age < safety.RewriteMinAge {
-					log(ctx).Debugf("Not rewriting content %v (%v bytes) from pack %v%v %v, because it's too new.", c.ID, c.PackedLength, c.PackBlobID, optDeleted, age)
+					log(ctx).Debugf("Not rewriting content %v (%v bytes) from pack %v%v %v, because it's too new.", c.GetContentID(), c.GetPackedLength(), c.GetPackBlobID(), optDeleted, age)
 					continue
 				}
 
-				log(ctx).Debugf("Rewriting content %v (%v bytes) from pack %v%v %v", c.ID, c.PackedLength, c.PackBlobID, optDeleted, age)
+				log(ctx).Debugf("Rewriting content %v (%v bytes) from pack %v%v %v", c.GetContentID(), c.GetPackedLength(), c.GetPackBlobID(), optDeleted, age)
 				mu.Lock()
-				totalBytes += int64(c.PackedLength)
+				totalBytes += int64(c.GetPackedLength())
 				mu.Unlock()
 
 				if opt.DryRun {
 					continue
 				}
 
-				if err := rep.ContentManager().RewriteContent(ctx, c.ID); err != nil {
-					log(ctx).Infof("unable to rewrite content %q: %v", c.ID, err)
+				if err := rep.ContentManager().RewriteContent(ctx, c.GetContentID()); err != nil {
+					log(ctx).Infof("unable to rewrite content %q: %v", c.GetContentID(), err)
 					mu.Lock()
 					failedCount++
 					mu.Unlock()
@@ -160,7 +160,7 @@ func findContentWithFormatVersion(ctx context.Context, rep repo.DirectRepository
 			IncludeDeleted: true,
 		},
 		func(b content.Info) error {
-			if int(b.FormatVersion) == opt.FormatVersion && strings.HasPrefix(string(b.PackBlobID), string(opt.PackPrefix)) {
+			if int(b.GetFormatVersion()) == opt.FormatVersion && strings.HasPrefix(string(b.GetPackBlobID()), string(opt.PackPrefix)) {
 				ch <- contentInfoOrError{Info: b}
 			}
 			return nil

@@ -60,7 +60,7 @@ func runContentVerifyCommand(ctx context.Context, rep repo.DirectRepository) err
 		Parallel:       *contentVerifyParallel,
 		IncludeDeleted: *contentVerifyIncludeDeleted,
 	}, func(ci content.Info) error {
-		if err := contentVerify(ctx, rep.ContentReader(), &ci, blobMap); err != nil {
+		if err := contentVerify(ctx, rep.ContentReader(), ci, blobMap); err != nil {
 			log(ctx).Errorf("error %v", err)
 			atomic.AddInt32(&errorCount, 1)
 		} else {
@@ -86,22 +86,22 @@ func runContentVerifyCommand(ctx context.Context, rep repo.DirectRepository) err
 	return errors.Errorf("encountered %v errors", errorCount)
 }
 
-func contentVerify(ctx context.Context, r content.Reader, ci *content.Info, blobMap map[blob.ID]blob.Metadata) error {
+func contentVerify(ctx context.Context, r content.Reader, ci content.Info, blobMap map[blob.ID]blob.Metadata) error {
 	if *contentVerifyFull {
-		if _, err := r.GetContent(ctx, ci.ID); err != nil {
-			return errors.Wrapf(err, "content %v is invalid", ci.ID)
+		if _, err := r.GetContent(ctx, ci.GetContentID()); err != nil {
+			return errors.Wrapf(err, "content %v is invalid", ci.GetContentID())
 		}
 
 		return nil
 	}
 
-	bi, ok := blobMap[ci.PackBlobID]
+	bi, ok := blobMap[ci.GetPackBlobID()]
 	if !ok {
-		return errors.Errorf("content %v depends on missing blob %v", ci.ID, ci.PackBlobID)
+		return errors.Errorf("content %v depends on missing blob %v", ci.GetContentID(), ci.GetPackBlobID())
 	}
 
-	if int64(ci.PackOffset+ci.PackedLength) > bi.Length {
-		return errors.Errorf("content %v out of bounds of its pack blob %v", ci.ID, ci.PackBlobID)
+	if int64(ci.GetPackOffset()+ci.GetPackedLength()) > bi.Length {
+		return errors.Errorf("content %v out of bounds of its pack blob %v", ci.GetContentID(), ci.GetPackBlobID())
 	}
 
 	return nil

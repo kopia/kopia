@@ -285,7 +285,7 @@ func listAndReadAllContents(ctx context.Context, t *testing.T, r repo.DirectRepo
 		ctx,
 		content.IterateOptions{},
 		func(ci content.Info) error {
-			cid := ci.ID
+			cid := ci.GetContentID()
 			_, err := r.ContentReader().GetContent(ctx, cid)
 			if err != nil {
 				if errors.Is(err, content.ErrContentNotFound) && strings.HasPrefix(string(cid), "m") {

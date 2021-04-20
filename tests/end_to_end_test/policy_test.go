@@ -21,7 +21,7 @@ func TestDefaultGlobalPolicy(t *testing.T) {
 
 	// verify we created global policy entry
 
-	var contents []content.Info
+	var contents []content.InfoStruct
 
 	mustParseJSONLines(t, e.RunAndExpectSuccess(t, "content", "ls", "--json"), &contents)
 
@@ -29,7 +29,7 @@ func TestDefaultGlobalPolicy(t *testing.T) {
 		t.Fatalf("unexpected number of contents %v, want %v", got, want)
 	}
 
-	globalPolicyContentID := contents[0].ID
+	globalPolicyContentID := contents[0].GetContentID()
 	e.RunAndExpectSuccess(t, "content", "show", "-jz", string(globalPolicyContentID))
 
 	// make sure the policy is visible in the manifest list

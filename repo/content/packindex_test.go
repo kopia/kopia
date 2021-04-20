@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/rand"
-	"reflect"
 	"strings"
 	"testing"
 
@@ -70,10 +69,10 @@ func TestPackIndex(t *testing.T) {
 
 	// deleted contents with all information
 	for i := 0; i < 100; i++ {
-		infos = append(infos, Info{
+		infos = append(infos, &InfoStruct{
 			TimestampSeconds: randomUnixTime(),
 			Deleted:          true,
-			ID:               deterministicContentID("deleted-packed", i),
+			ContentID:        deterministicContentID("deleted-packed", i),
 			PackBlobID:       deterministicPackBlobID(i),
 			PackOffset:       deterministicPackedOffset(i),
 			PackedLength:     deterministicPackedLength(i),
@@ -82,9 +81,9 @@ func TestPackIndex(t *testing.T) {
 	}
 	// non-deleted content
 	for i := 0; i < 100; i++ {
-		infos = append(infos, Info{
+		infos = append(infos, &InfoStruct{
 			TimestampSeconds: randomUnixTime(),
-			ID:               deterministicContentID("packed", i),
+			ContentID:        deterministicContentID("packed", i),
 			PackBlobID:       deterministicPackBlobID(i),
 			PackOffset:       deterministicPackedOffset(i),
 			PackedLength:     deterministicPackedLength(i),
@@ -98,7 +97,7 @@ func TestPackIndex(t *testing.T) {
 	b3 := make(packIndexBuilder)
 
 	for _, info := range infos {
-		infoMap[info.ID] = info
+		infoMap[info.GetContentID()] = info
 		b1.Add(info)
 		b2.Add(info)
 		b3.Add(info)
@@ -150,27 +149,27 @@ func TestPackIndex(t *testing.T) {
 	defer ndx.Close()
 
 	for _, want := range infos {
-		info2, err := ndx.GetInfo(want.ID)
+		info2, err := ndx.GetInfo(want.GetContentID())
 		if err != nil {
-			t.Errorf("unable to find %v", want.ID)
+			t.Errorf("unable to find %v", want.GetContentID())
 			continue
 		}
 
-		want.OriginalLength = want.PackedLength - fakeEncryptionOverhead
+		want = withOriginalLength{want, want.GetPackedLength() - fakeEncryptionOverhead}
 
-		if !reflect.DeepEqual(want, *info2) {
-			t.Errorf("invalid value retrieved: %+v, wanted %+v", info2, want)
+		if diff := infoDiff(want, info2); len(diff) != 0 {
+			t.Errorf("invalid value retrieved: diff: %v", diff)
 		}
 	}
 
 	cnt := 0
 
 	assertNoError(t, ndx.Iterate(AllIDs, func(info2 Info) error {
-		want := infoMap[info2.ID]
-		want.OriginalLength = want.PackedLength - fakeEncryptionOverhead
+		want := infoMap[info2.GetContentID()]
+		want = withOriginalLength{want, want.GetPackedLength() - fakeEncryptionOverhead}
 
-		if !reflect.DeepEqual(want, info2) {
-			t.Errorf("invalid value retrieved: %+v, wanted %+v", info2, want)
+		if diff := infoDiff(want, info2); len(diff) != 0 {
+			t.Errorf("invalid value retrieved: %v", diff)
 		}
 		cnt++
 		return nil
@@ -200,8 +199,8 @@ func TestPackIndex(t *testing.T) {
 		prefix := prefix
 		assertNoError(t, ndx.Iterate(PrefixRange(prefix), func(info2 Info) error {
 			cnt2++
-			if !strings.HasPrefix(string(info2.ID), string(prefix)) {
-				t.Errorf("unexpected item %v when iterating prefix %v", info2.ID, prefix)
+			if !strings.HasPrefix(string(info2.GetContentID()), string(prefix)) {
+				t.Errorf("unexpected item %v when iterating prefix %v", info2.GetContentID(), prefix)
 			}
 			return nil
 		}))
@@ -222,7 +221,7 @@ func fuzzTestIndexOpen(originalData []byte) {
 		cnt := 0
 		_ = ndx.Iterate(AllIDs, func(cb Info) error {
 			if cnt < 10 {
-				_, _ = ndx.GetInfo(cb.ID)
+				_, _ = ndx.GetInfo(cb.GetContentID())
 			}
 			cnt++
 			return nil
@@ -265,4 +264,76 @@ func fuzzTest(rnd *rand.Rand, originalData []byte, rounds int, callback func(d [
 
 		callback(data)
 	}
+}
+
+type withOriginalLength struct {
+	Info
+	originalLength uint32
+}
+
+func (o withOriginalLength) GetOriginalLength() uint32 {
+	return o.originalLength
+}
+
+type withDeleted struct {
+	Info
+	deleted bool
+}
+
+func (o withDeleted) GetDeleted() bool {
+	return o.deleted
+}
+
+func infoDiff(i1, i2 Info, ignore ...string) []string {
+	var diffs []string
+
+	if l, r := i1.GetContentID(), i2.GetContentID(); l != r {
+		diffs = append(diffs, fmt.Sprintf("GetContentID %v != %v", l, r))
+	}
+
+	if l, r := i1.GetPackBlobID(), i2.GetPackBlobID(); l != r {
+		diffs = append(diffs, fmt.Sprintf("GetPackBlobID %v != %v", l, r))
+	}
+
+	if l, r := i1.GetDeleted(), i2.GetDeleted(); l != r {
+		diffs = append(diffs, fmt.Sprintf("GetDeleted %v != %v", l, r))
+	}
+
+	if l, r := i1.GetFormatVersion(), i2.GetFormatVersion(); l != r {
+		diffs = append(diffs, fmt.Sprintf("GetFormatVersion %v != %v", l, r))
+	}
+
+	if l, r := i1.GetOriginalLength(), i2.GetOriginalLength(); l != r {
+		diffs = append(diffs, fmt.Sprintf("GetOriginalLength %v != %v", l, r))
+	}
+
+	if l, r := i1.GetPackOffset(), i2.GetPackOffset(); l != r {
+		diffs = append(diffs, fmt.Sprintf("GetPackOffset %v != %v", l, r))
+	}
+
+	if l, r := i1.GetPackedLength(), i2.GetPackedLength(); l != r {
+		diffs = append(diffs, fmt.Sprintf("GetPackedLength %v != %v", l, r))
+	}
+
+	if l, r := i1.GetTimestampSeconds(), i2.GetTimestampSeconds(); l != r {
+		diffs = append(diffs, fmt.Sprintf("GetTimestampSeconds %v != %v", l, r))
+	}
+
+	var result []string
+
+	for _, v := range diffs {
+		ignored := false
+
+		for _, ign := range ignore {
+			if strings.HasPrefix(v, ign) {
+				ignored = true
+			}
+		}
+
+		if !ignored {
+			result = append(result, v)
+		}
+	}
+
+	return result
 }

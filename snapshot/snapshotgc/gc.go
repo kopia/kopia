@@ -100,34 +100,34 @@ func runInternal(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete 
 	// Ensure that the iteration includes deleted contents, so those can be
 	// undeleted (recovered).
 	err := rep.ContentReader().IterateContents(ctx, content.IterateOptions{IncludeDeleted: true}, func(ci content.Info) error {
-		if manifest.ContentPrefix == ci.ID.Prefix() {
-			system.Add(int64(ci.PackedLength))
+		if manifest.ContentPrefix == ci.GetContentID().Prefix() {
+			system.Add(int64(ci.GetPackedLength()))
 			return nil
 		}
 
-		if _, ok := used.Load(ci.ID); ok {
-			if ci.Deleted {
-				if err := rep.ContentManager().UndeleteContent(ctx, ci.ID); err != nil {
+		if _, ok := used.Load(ci.GetContentID()); ok {
+			if ci.GetDeleted() {
+				if err := rep.ContentManager().UndeleteContent(ctx, ci.GetContentID()); err != nil {
 					return errors.Wrapf(err, "Could not undelete referenced content: %v", ci)
 				}
-				undeleted.Add(int64(ci.PackedLength))
+				undeleted.Add(int64(ci.GetPackedLength()))
 			}
 
-			inUse.Add(int64(ci.PackedLength))
+			inUse.Add(int64(ci.GetPackedLength()))
 			return nil
 		}
 
 		if rep.Time().Sub(ci.Timestamp()) < safety.MinContentAgeSubjectToGC {
-			log(ctx).Debugf("recent unreferenced content %v (%v bytes, modified %v)", ci.ID, ci.PackedLength, ci.Timestamp())
-			tooRecent.Add(int64(ci.PackedLength))
+			log(ctx).Debugf("recent unreferenced content %v (%v bytes, modified %v)", ci.GetContentID(), ci.GetPackedLength(), ci.Timestamp())
+			tooRecent.Add(int64(ci.GetPackedLength()))
 			return nil
 		}
 
-		log(ctx).Debugf("unreferenced %v (%v bytes, modified %v)", ci.ID, ci.PackedLength, ci.Timestamp())
-		cnt, totalSize := unused.Add(int64(ci.PackedLength))
+		log(ctx).Debugf("unreferenced %v (%v bytes, modified %v)", ci.GetContentID(), ci.GetPackedLength(), ci.Timestamp())
+		cnt, totalSize := unused.Add(int64(ci.GetPackedLength()))
 
 		if gcDelete {
-			if err := rep.ContentManager().DeleteContent(ctx, ci.ID); err != nil {
+			if err := rep.ContentManager().DeleteContent(ctx, ci.GetContentID()); err != nil {
 				return errors.Wrap(err, "error deleting content")
 			}
 		}

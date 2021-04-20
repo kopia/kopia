@@ -35,11 +35,11 @@ func runContentListCommand(ctx context.Context, rep repo.DirectRepository) error
 			IncludeDeleted: *contentListIncludeDeleted || *contentListDeletedOnly,
 		},
 		func(b content.Info) error {
-			if *contentListDeletedOnly && !b.Deleted {
+			if *contentListDeletedOnly && !b.GetDeleted() {
 				return nil
 			}
 
-			totalSize.Add(int64(b.PackedLength))
+			totalSize.Add(int64(b.GetPackedLength()))
 
 			if jsonOutput {
 				jl.emit(b)
@@ -48,18 +48,18 @@ func runContentListCommand(ctx context.Context, rep repo.DirectRepository) error
 
 			if *contentListLong {
 				optionalDeleted := ""
-				if b.Deleted {
+				if b.GetDeleted() {
 					optionalDeleted = " (deleted)"
 				}
 				fmt.Printf("%v %v %v %v+%v%v\n",
-					b.ID,
+					b.GetContentID(),
 					formatTimestamp(b.Timestamp()),
-					b.PackBlobID,
-					b.PackOffset,
-					maybeHumanReadableBytes(*contentListHuman, int64(b.PackedLength)),
+					b.GetPackBlobID(),
+					b.GetPackOffset(),
+					maybeHumanReadableBytes(*contentListHuman, int64(b.GetPackedLength())),
 					optionalDeleted)
 			} else {
-				fmt.Printf("%v\n", b.ID)
+				fmt.Printf("%v\n", b.GetContentID())
 			}
 
 			return nil

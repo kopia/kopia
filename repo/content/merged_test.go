@@ -10,29 +10,29 @@ import (
 
 func TestMerged(t *testing.T) {
 	i1, err := indexWithItems(
-		Info{ID: "aabbcc", TimestampSeconds: 1, PackBlobID: "xx", PackOffset: 11},
-		Info{ID: "ddeeff", TimestampSeconds: 1, PackBlobID: "xx", PackOffset: 111},
-		Info{ID: "z010203", TimestampSeconds: 1, PackBlobID: "xx", PackOffset: 111},
-		Info{ID: "de1e1e", TimestampSeconds: 4, PackBlobID: "xx", PackOffset: 111},
+		&InfoStruct{ContentID: "aabbcc", TimestampSeconds: 1, PackBlobID: "xx", PackOffset: 11},
+		&InfoStruct{ContentID: "ddeeff", TimestampSeconds: 1, PackBlobID: "xx", PackOffset: 111},
+		&InfoStruct{ContentID: "z010203", TimestampSeconds: 1, PackBlobID: "xx", PackOffset: 111},
+		&InfoStruct{ContentID: "de1e1e", TimestampSeconds: 4, PackBlobID: "xx", PackOffset: 111},
 	)
 	if err != nil {
 		t.Fatalf("can't create index: %v", err)
 	}
 
 	i2, err := indexWithItems(
-		Info{ID: "aabbcc", TimestampSeconds: 3, PackBlobID: "yy", PackOffset: 33},
-		Info{ID: "xaabbcc", TimestampSeconds: 1, PackBlobID: "xx", PackOffset: 111},
-		Info{ID: "de1e1e", TimestampSeconds: 4, PackBlobID: "xx", PackOffset: 222, Deleted: true},
+		&InfoStruct{ContentID: "aabbcc", TimestampSeconds: 3, PackBlobID: "yy", PackOffset: 33},
+		&InfoStruct{ContentID: "xaabbcc", TimestampSeconds: 1, PackBlobID: "xx", PackOffset: 111},
+		&InfoStruct{ContentID: "de1e1e", TimestampSeconds: 4, PackBlobID: "xx", PackOffset: 222, Deleted: true},
 	)
 	if err != nil {
 		t.Fatalf("can't create index: %v", err)
 	}
 
 	i3, err := indexWithItems(
-		Info{ID: "aabbcc", TimestampSeconds: 2, PackBlobID: "zz", PackOffset: 22},
-		Info{ID: "ddeeff", TimestampSeconds: 1, PackBlobID: "zz", PackOffset: 222},
-		Info{ID: "k010203", TimestampSeconds: 1, PackBlobID: "xx", PackOffset: 111},
-		Info{ID: "k020304", TimestampSeconds: 1, PackBlobID: "xx", PackOffset: 111},
+		&InfoStruct{ContentID: "aabbcc", TimestampSeconds: 2, PackBlobID: "zz", PackOffset: 22},
+		&InfoStruct{ContentID: "ddeeff", TimestampSeconds: 1, PackBlobID: "zz", PackOffset: 222},
+		&InfoStruct{ContentID: "k010203", TimestampSeconds: 1, PackBlobID: "xx", PackOffset: 111},
+		&InfoStruct{ContentID: "k020304", TimestampSeconds: 1, PackBlobID: "xx", PackOffset: 111},
 	)
 	if err != nil {
 		t.Fatalf("can't create index: %v", err)
@@ -45,13 +45,13 @@ func TestMerged(t *testing.T) {
 		t.Fatalf("unable to get info: %v", err)
 	}
 
-	if got, want := i.PackOffset, uint32(33); got != want {
+	if got, want := i.GetPackOffset(), uint32(33); got != want {
 		t.Errorf("invalid pack offset %v, wanted %v", got, want)
 	}
 
 	assertNoError(t, m.Iterate(AllIDs, func(i Info) error {
-		if i.ID == "de1e1e" {
-			if i.Deleted {
+		if i.GetContentID() == "de1e1e" {
+			if i.GetDeleted() {
 				t.Errorf("iteration preferred deleted content over non-deleted")
 			}
 		}
@@ -60,7 +60,7 @@ func TestMerged(t *testing.T) {
 
 	if i, err := m.GetInfo("de1e1e"); err != nil {
 		t.Errorf("error getting deleted content info: %v", err)
-	} else if i.Deleted {
+	} else if i.GetDeleted() {
 		t.Errorf("GetInfo preferred deleted content over non-deleted")
 	}
 
@@ -139,7 +139,7 @@ func iterateIDRange(t *testing.T, m packIndex, r IDRange) []ID {
 	var inOrder []ID
 
 	assertNoError(t, m.Iterate(r, func(i Info) error {
-		inOrder = append(inOrder, i.ID)
+		inOrder = append(inOrder, i.GetContentID())
 		return nil
 	}))
 

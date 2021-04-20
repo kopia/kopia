@@ -207,19 +207,19 @@ func (sm *SharedManager) getCacheForContentID(id ID) contentCache {
 	return sm.contentCache
 }
 
-func (sm *SharedManager) decryptContentAndVerify(payload []byte, bi *Info) ([]byte, error) {
+func (sm *SharedManager) decryptContentAndVerify(payload []byte, bi Info) ([]byte, error) {
 	sm.Stats.readContent(len(payload))
 
 	var hashBuf [maxHashSize]byte
 
-	iv, err := getPackedContentIV(hashBuf[:], bi.ID)
+	iv, err := getPackedContentIV(hashBuf[:], bi.GetContentID())
 	if err != nil {
 		return nil, err
 	}
 
 	decrypted, err := sm.decryptAndVerify(payload, iv)
 	if err != nil {
-		return nil, errors.Wrapf(err, "invalid checksum at %v offset %v length %v", bi.PackBlobID, bi.PackOffset, len(payload))
+		return nil, errors.Wrapf(err, "invalid checksum at %v offset %v length %v", bi.GetPackBlobID(), bi.GetPackOffset(), len(payload))
 	}
 
 	return decrypted, nil

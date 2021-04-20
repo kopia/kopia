@@ -23,7 +23,7 @@ type packIndex interface {
 
 	ApproximateCount() int
 
-	GetInfo(contentID ID) (*Info, error)
+	GetInfo(contentID ID) (Info, error)
 
 	// invoked the provided callback for all entries such that entry.ID >= startID and entry.ID < endID
 	Iterate(r IDRange, cb func(Info) error) error
@@ -124,7 +124,7 @@ func (b *index) Iterate(r IDRange, cb func(Info) error) error {
 			return errors.Wrap(err, "invalid index data")
 		}
 
-		if i.ID >= r.EndID {
+		if i.GetContentID() >= r.EndID {
 			break
 		}
 
@@ -235,7 +235,7 @@ func (b *index) findEntry(output []byte, contentID ID) ([]byte, error) {
 }
 
 // GetInfo returns information about a given content. If a content is not found, nil is returned.
-func (b *index) GetInfo(contentID ID) (*Info, error) {
+func (b *index) GetInfo(contentID ID) (Info, error) {
 	var entryBuf [maxEntrySize]byte
 
 	e, err := b.findEntry(entryBuf[:0], contentID)
@@ -247,31 +247,26 @@ func (b *index) GetInfo(contentID ID) (*Info, error) {
 		return nil, nil
 	}
 
-	i, err := b.entryToInfo(contentID, e)
-	if err != nil {
-		return nil, err
-	}
-
-	return &i, err
+	return b.entryToInfo(contentID, e)
 }
 
 func (b *index) entryToInfo(contentID ID, entryData []byte) (Info, error) {
 	var e entry
 	if err := e.parse(entryData); err != nil {
-		return Info{}, err
+		return nil, err
 	}
 
 	packFile := make([]byte, e.PackFileLength())
 
 	n, err := b.readerAt.ReadAt(packFile, int64(e.PackFileOffset()))
 	if err != nil || n != int(e.PackFileLength()) {
-		return Info{}, errors.Wrap(err, "can't read pack content ID")
+		return nil, errors.Wrap(err, "can't read pack content ID")
 	}
 
 	pl := e.PackedLength()
 
-	return Info{
-		ID:               contentID,
+	return &InfoStruct{
+		ContentID:        contentID,
 		Deleted:          e.IsDeleted(),
 		TimestampSeconds: e.TimestampSeconds(),
 		FormatVersion:    e.PackedFormatVersion(),

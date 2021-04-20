@@ -33,8 +33,8 @@ func (m mergedIndex) Close() error {
 }
 
 // GetInfo returns information about a single content. If a content is not found, returns (nil,nil).
-func (m mergedIndex) GetInfo(id ID) (*Info, error) {
-	var best *Info
+func (m mergedIndex) GetInfo(id ID) (Info, error) {
+	var best Info
 
 	for _, ndx := range m {
 		i, err := ndx.GetInfo(id)
@@ -43,7 +43,7 @@ func (m mergedIndex) GetInfo(id ID) (*Info, error) {
 		}
 
 		if i != nil {
-			if best == nil || i.TimestampSeconds > best.TimestampSeconds || (i.TimestampSeconds == best.TimestampSeconds && !i.Deleted) {
+			if best == nil || i.GetTimestampSeconds() > best.GetTimestampSeconds() || (i.GetTimestampSeconds() == best.GetTimestampSeconds() && !i.GetDeleted()) {
 				best = i
 			}
 		}
@@ -61,15 +61,15 @@ type nextInfoHeap []*nextInfo
 
 func (h nextInfoHeap) Len() int { return len(h) }
 func (h nextInfoHeap) Less(i, j int) bool {
-	if a, b := h[i].it.ID, h[j].it.ID; a != b {
+	if a, b := h[i].it.GetContentID(), h[j].it.GetContentID(); a != b {
 		return a < b
 	}
 
-	if a, b := h[i].it.TimestampSeconds, h[j].it.TimestampSeconds; a != b {
+	if a, b := h[i].it.GetTimestampSeconds(), h[j].it.GetTimestampSeconds(); a != b {
 		return a < b
 	}
 
-	return !h[i].it.Deleted
+	return !h[i].it.GetDeleted()
 }
 
 func (h nextInfoHeap) Swap(i, j int) { h[i], h[j] = h[j], h[i] }
@@ -127,15 +127,15 @@ func (m mergedIndex) Iterate(r IDRange, cb func(i Info) error) error {
 
 	for len(minHeap) > 0 {
 		min := heap.Pop(&minHeap).(*nextInfo)
-		if pendingItem.ID != min.it.ID {
-			if pendingItem.ID != "" {
+		if pendingItem == nil || pendingItem.GetContentID() != min.it.GetContentID() {
+			if pendingItem != nil {
 				if err := cb(pendingItem); err != nil {
 					return err
 				}
 			}
 
 			pendingItem = min.it
-		} else if min.it.TimestampSeconds > pendingItem.TimestampSeconds {
+		} else if min.it.GetTimestampSeconds() > pendingItem.GetTimestampSeconds() {
 			pendingItem = min.it
 		}
 
@@ -145,7 +145,7 @@ func (m mergedIndex) Iterate(r IDRange, cb func(i Info) error) error {
 		}
 	}
 
-	if pendingItem.ID != "" {
+	if pendingItem != nil {
 		return cb(pendingItem)
 	}
 
