@@ -13,6 +13,7 @@ message ContentInfo {
   uint32 pack_offset = 5;
   bool deleted = 6;
   uint32 format_version = 7;
+  uint32 original_length = 8;
 }
 
 // corresponds to manifest.EntryMetadata

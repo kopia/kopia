@@ -26,9 +26,10 @@ func (i ID) HasPrefix() bool {
 // Info is an information about a single piece of content managed by Manager.
 type Info struct {
 	ID               ID      `json:"contentID"`
-	PackedLength     uint32  `json:"length"`
-	TimestampSeconds int64   `json:"time"`
 	PackBlobID       blob.ID `json:"packFile,omitempty"`
+	TimestampSeconds int64   `json:"time"`
+	OriginalLength   uint32  `json:"originalLength"`
+	PackedLength     uint32  `json:"length"`
 	PackOffset       uint32  `json:"packOffset,omitempty"`
 	Deleted          bool    `json:"deleted"`
 	FormatVersion    byte    `json:"formatVersion"`

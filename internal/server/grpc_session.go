@@ -193,6 +193,7 @@ func handleGetContentInfoRequest(ctx context.Context, dw repo.DirectRepositoryWr
 					PackOffset:       ci.PackOffset,
 					Deleted:          ci.Deleted,
 					FormatVersion:    uint32(ci.FormatVersion),
+					OriginalLength:   ci.OriginalLength,
 				},
 			},
 		},

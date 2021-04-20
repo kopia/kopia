@@ -11,8 +11,9 @@ import (
 )
 
 type memoryCommittedContentIndexCache struct {
-	mu       sync.Mutex
-	contents map[blob.ID]packIndex
+	mu                   sync.Mutex
+	contents             map[blob.ID]packIndex
+	v1PerContentOverhead uint32
 }
 
 func (m *memoryCommittedContentIndexCache) hasIndexBlobID(ctx context.Context, indexBlobID blob.ID) (bool, error) {
@@ -26,7 +27,7 @@ func (m *memoryCommittedContentIndexCache) addContentToCache(ctx context.Context
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	ndx, err := openPackIndex(bytes.NewReader(data))
+	ndx, err := openPackIndex(bytes.NewReader(data), m.v1PerContentOverhead)
 	if err != nil {
 		return err
 	}

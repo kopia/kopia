@@ -666,9 +666,7 @@ func TestUndeleteContentSimple(t *testing.T) {
 		got.PackBlobID = want.PackBlobID
 		got.PackOffset = want.PackOffset
 
-		if got != want {
-			t.Errorf("content info does not match.\nwant: %#v\ngot:  %#v", want, got)
-		}
+		require.Equal(t, want, got)
 	}
 
 	// ensure content is still there after flushing
@@ -899,14 +897,14 @@ func deleteContentAfterUndeleteAndCheck(ctx context.Context, t *testing.T, bm *W
 
 	got := getContentInfo(t, bm, id)
 	if !got.Deleted {
-		t.Errorf("Expected content %q to be deleted, got: %#v", id, got)
+		t.Fatalf("Expected content %q to be deleted, got: %#v", id, got)
 	}
 
 	// ignore timestamp
 	got.TimestampSeconds = want.TimestampSeconds
 
 	if want != got {
-		t.Errorf("Content %q info does not match\nwant: %#v\ngot:  %#v", id, want, got)
+		t.Fatalf("Content %q info does not match\nwant: %#v\ngot:  %#v", id, want, got)
 	}
 
 	if err := bm.Flush(ctx); err != nil {
@@ -916,14 +914,14 @@ func deleteContentAfterUndeleteAndCheck(ctx context.Context, t *testing.T, bm *W
 	// check c1 again
 	got = getContentInfo(t, bm, id)
 	if !got.Deleted {
-		t.Error("Expected content to be deleted, got: ", got)
+		t.Fatal("Expected content to be deleted, got: ", got)
 	}
 
 	// ignore timestamp
 	got.TimestampSeconds = want.TimestampSeconds
 
 	if !reflect.DeepEqual(want, got) {
-		t.Errorf("Content info does not match\nwant: %#v\ngot:  %#v", want, got)
+		t.Fatalf("Content info does not match\nwant: %#v\ngot:  %#v", want, got)
 	}
 }
 
