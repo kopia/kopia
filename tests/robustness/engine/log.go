@@ -126,3 +126,10 @@ func setLogEntryCmdOpts(l *LogEntry, opts map[string]string) {
 
 	l.CmdOpts = opts
 }
+
+func (e *Engine) logCompleted(logEntry *LogEntry, err error) {
+	e.logMux.Lock()
+	defer e.logMux.Unlock()
+
+	e.EngineLog.AddCompleted(logEntry, err)
+}

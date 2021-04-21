@@ -4,6 +4,7 @@ package engine
 
 import (
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -154,4 +155,66 @@ func (e *Engine) getTimestampS() int64 {
 
 func (e *Engine) getRuntimeSeconds() int64 {
 	return durationToSec(e.CumulativeStats.RunTime + clock.Since(e.RunStats.CreationTime))
+}
+
+type statsUpdatetype int
+
+const (
+	statsIncrNoOp statsUpdatetype = iota
+	statsIncrDataPurge
+	statsIncrDataRestore
+	statsIncrErrorRecovery
+)
+
+func (e *Engine) statsUpdateCounters(updateType statsUpdatetype) {
+	e.statsMux.Lock()
+	defer e.statsMux.Unlock()
+
+	switch updateType {
+	case statsIncrNoOp:
+		e.RunStats.NoOpCount++
+		e.CumulativeStats.NoOpCount++
+	case statsIncrDataPurge:
+		e.RunStats.DataPurgeCount++
+		e.CumulativeStats.DataPurgeCount++
+	case statsIncrDataRestore:
+		e.RunStats.DataRestoreCount++
+		e.CumulativeStats.DataRestoreCount++
+	case statsIncrErrorRecovery:
+		e.RunStats.ErrorRecoveryCount++
+		e.CumulativeStats.ErrorRecoveryCount++
+	}
+}
+
+func (e *Engine) statsIncrActionCountAndLog(actionKey ActionKey) {
+	e.statsMux.Lock()
+	defer e.statsMux.Unlock()
+
+	e.RunStats.ActionCounter++
+	e.CumulativeStats.ActionCounter++
+
+	log.Printf(
+		"Engine executing ACTION: name=%q actionCount=%v totActCount=%v t=%vs (%vs)",
+		actionKey,
+		e.RunStats.ActionCounter,
+		e.CumulativeStats.ActionCounter,
+		e.RunStats.getLifetimeSeconds(),
+		e.getRuntimeSeconds(),
+	)
+}
+
+func (e *Engine) statsUpdatePerAction(actionKey ActionKey, st time.Time, err error) {
+	e.statsMux.Lock()
+	defer e.statsMux.Unlock()
+
+	if e.RunStats.PerActionStats != nil && e.RunStats.PerActionStats[actionKey] == nil {
+		e.RunStats.PerActionStats[actionKey] = new(ActionStats)
+	}
+
+	if e.CumulativeStats.PerActionStats != nil && e.CumulativeStats.PerActionStats[actionKey] == nil {
+		e.CumulativeStats.PerActionStats[actionKey] = new(ActionStats)
+	}
+
+	e.RunStats.PerActionStats[actionKey].Record(st, err)
+	e.CumulativeStats.PerActionStats[actionKey].Record(st, err)
 }
