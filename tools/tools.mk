@@ -120,8 +120,18 @@ endif
 
 # put NPM in the path
 PATH:=$(node_dir)$(path_separator)$(PATH)
+ifeq ($(GOOS),$(filter $(GOOS),openbsd freebsd))
+npm=/usr/local/bin/npm
+endif
 
 $(npm):
+ifeq ($(GOOS),openbsd)
+	@echo Use pkg_add to install node
+	@exit 1
+else ifeq ($(GOOS),freebsd)
+	@echo Use pkg to install npm
+	@exit 1
+else
 	@echo Downloading Node v$(NODE_VERSION) with NPM path $(npm)
 	$(mkdir) $(node_base_dir)$(slash)node
 
@@ -137,6 +147,7 @@ else
 	curl -LsS https://nodejs.org/dist/v$(NODE_VERSION)/node-v$(NODE_VERSION)-darwin-x64.tar.gz | tar zx -C $(node_base_dir)
 endif
 	mv $(node_base_dir)/node-v$(NODE_VERSION)*/* $(node_base_dir)/node
+endif
 endif
 
 # linter
