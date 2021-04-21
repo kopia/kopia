@@ -18,6 +18,8 @@ const (
 	EngineModeServer = "SERVER"
 	// defaultAddr is used for setting the address of Kopia Server.
 	defaultAddr = "localhost:51515"
+	// defaultHost is used for setting the address of Kopia Server.
+	defaultHost = "robustness-host"
 )
 
 // kopiaConnector is a base type for Persister and Snapshotter.
@@ -36,7 +38,8 @@ type kopiaConnector struct {
 	initFilesystemWithServerFn func(repoPath, addr string) error
 
 	// properties that may be set by connectOrCreateRepo()
-	serverCmd *exec.Cmd
+	serverCmd         *exec.Cmd
+	serverFingerprint string
 }
 
 // initializeConnector initializes the connector object and enables use of the
@@ -89,16 +92,36 @@ func (ki *kopiaConnector) initFilesystem(repoPath string) error {
 
 // initS3WithServerFn initializes server mode with an S3 repository.
 func (ki *kopiaConnector) initS3WithServer(repoPath, bucketName, addr string) error {
-	cmd, err := ki.snap.ConnectOrCreateS3WithServer(addr, bucketName, repoPath)
+	cmd, fingerprint, err := ki.snap.ConnectOrCreateS3WithServer(addr, bucketName, repoPath)
 	ki.serverCmd = cmd
+	ki.serverFingerprint = fingerprint
 
 	return err
 }
 
 // initFilesystemWithServer initializes server mode with a filesystem repository.
 func (ki *kopiaConnector) initFilesystemWithServer(repoPath, addr string) error {
-	cmd, err := ki.snap.ConnectOrCreateFilesystemWithServer(addr, repoPath)
+	cmd, fingerprint, err := ki.snap.ConnectOrCreateFilesystemWithServer(addr, repoPath)
 	ki.serverCmd = cmd
+	ki.serverFingerprint = fingerprint
 
 	return err
+}
+
+func (ki *kopiaConnector) authorizeClient(user string) error {
+	if err := ki.snap.AuthorizeClient(user, defaultHost); err != nil {
+		return err
+	}
+
+	if err := ki.snap.RefreshServer(defaultAddr, ki.serverFingerprint); err != nil {
+		return err
+	}
+
+	err := ki.snap.ListClients(defaultAddr, ki.serverFingerprint)
+
+	return err
+}
+
+func (ki *kopiaConnector) connectClient(fingerprint, user string) error {
+	return ki.snap.ConnectClient(defaultAddr, fingerprint, user, defaultHost)
 }

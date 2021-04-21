@@ -94,13 +94,13 @@ const metadataStoreFileName = "metadata-store-latest"
 
 // ConnectOrCreateS3WithServer implements the RepoManager interface, creates a server
 // connects it a repo in an S3 bucket and creates a client to perform operations.
-func (store *KopiaPersister) ConnectOrCreateS3WithServer(serverAddr, bucketName, pathPrefix string) (*exec.Cmd, error) {
+func (store *KopiaPersister) ConnectOrCreateS3WithServer(serverAddr, bucketName, pathPrefix string) (*exec.Cmd, string, error) {
 	return store.snap.ConnectOrCreateS3WithServer(serverAddr, bucketName, pathPrefix)
 }
 
 // ConnectOrCreateFilesystemWithServer implements the RepoManager interface, creates a server
 // connects it a repo in the filesystem and creates a client to perform operations.
-func (store *KopiaPersister) ConnectOrCreateFilesystemWithServer(repoPath, serverAddr string) (*exec.Cmd, error) {
+func (store *KopiaPersister) ConnectOrCreateFilesystemWithServer(repoPath, serverAddr string) (*exec.Cmd, string, error) {
 	return store.snap.ConnectOrCreateFilesystemWithServer(repoPath, serverAddr)
 }
 

@@ -30,11 +30,15 @@ const (
 	retryCount              = 180
 	retryInterval           = 1 * time.Second
 	waitingForServerString  = "waiting for server to start"
+	serverUser              = "server-user@host"
+	serverPassword          = "abcdef"
 
 	// Flag value settings.
 	contentCacheSizeSettingMB  = 500
 	metadataCacheSizeSettingMB = 500
 	parallelSetting            = 8
+
+	aclEnabledMatchStr = "ACLs already enabled"
 )
 
 // KopiaSnapshotter implements the Snapshotter interface using Kopia commands.
@@ -106,16 +110,16 @@ func (ks *KopiaSnapshotter) ConnectOrCreateS3(bucketName, pathPrefix string) err
 }
 
 // ConnectOrCreateS3WithServer attempts to connect or create S3 bucket, but with TLS client/server Model.
-func (ks *KopiaSnapshotter) ConnectOrCreateS3WithServer(serverAddr, bucketName, pathPrefix string) (*exec.Cmd, error) {
+func (ks *KopiaSnapshotter) ConnectOrCreateS3WithServer(serverAddr, bucketName, pathPrefix string) (*exec.Cmd, string, error) {
 	repoArgs := []string{"s3", "--bucket", bucketName, "--prefix", pathPrefix}
-	return ks.createAndConnectServer(serverAddr, repoArgs...)
+	return ks.ConnectOrCreateRepoWithServer(serverAddr, repoArgs...)
 }
 
 // ConnectOrCreateFilesystemWithServer attempts to connect or create repo in local filesystem,
 // but with TLS server/client Model.
-func (ks *KopiaSnapshotter) ConnectOrCreateFilesystemWithServer(serverAddr, repoPath string) (*exec.Cmd, error) {
+func (ks *KopiaSnapshotter) ConnectOrCreateFilesystemWithServer(serverAddr, repoPath string) (*exec.Cmd, string, error) {
 	repoArgs := []string{"filesystem", "--path", repoPath}
-	return ks.createAndConnectServer(serverAddr, repoArgs...)
+	return ks.ConnectOrCreateRepoWithServer(serverAddr, repoArgs...)
 }
 
 // ConnectOrCreateFilesystem attempts to connect to a kopia repo in the local
@@ -206,14 +210,81 @@ func (ks *KopiaSnapshotter) Run(args ...string) (stdout, stderr string, err erro
 
 // CreateServer creates a new instance of Kopia Server with provided address.
 func (ks *KopiaSnapshotter) CreateServer(addr string, args ...string) (*exec.Cmd, error) {
-	args = append([]string{"server", "start", "--address", addr}, args...)
+	args = append([]string{
+		"server", "start",
+		"--address", addr,
+		"--server-username", serverUser,
+		"--server-password", serverPassword,
+	}, args...)
 
 	return ks.Runner.RunAsync(args...)
 }
 
-// ConnectServer creates a new client, and connect it to Kopia Server with provided address.
-func (ks *KopiaSnapshotter) ConnectServer(addr string, args ...string) error {
-	args = append([]string{"repo", "connect", "server", "--url", addr}, args...)
+// AuthorizeClient adds a client to the server's user list.
+func (ks *KopiaSnapshotter) AuthorizeClient(user, host string, args ...string) error {
+	args = append([]string{
+		"server", "user", "add",
+		user + "@" + host,
+		"--user-password", repoPassword,
+	}, args...)
+	_, _, err := ks.Runner.Run(args...)
+
+	return err
+}
+
+// RemoveClient removes a client from the server's user list.
+func (ks *KopiaSnapshotter) RemoveClient(user, host string, args ...string) error {
+	args = append([]string{
+		"server", "user", "delete",
+		user + "@" + host,
+	}, args...)
+	_, _, err := ks.Runner.Run(args...)
+
+	return err
+}
+
+// DisconnectClient should be called by a client to disconnect itself from the server.
+func (ks *KopiaSnapshotter) DisconnectClient(args ...string) error {
+	args = append([]string{"repo", "disconnect"}, args...)
+	_, _, err := ks.Runner.Run(args...)
+
+	return err
+}
+
+// RefreshServer refreshes the server at the given address.
+func (ks *KopiaSnapshotter) RefreshServer(addr, fingerprint string, args ...string) error {
+	addr = fmt.Sprintf("https://%v", addr)
+	args = append([]string{
+		"server", "refresh",
+		"--address", addr,
+		"--server-cert-fingerprint", fingerprint,
+		"--server-username", serverUser,
+		"--server-password", serverPassword,
+	}, args...)
+	_, _, err := ks.Runner.Run(args...)
+
+	return err
+}
+
+// ListClients lists the clients that are registered with the Kopia server.
+func (ks *KopiaSnapshotter) ListClients(addr, fingerprint string, args ...string) error {
+	args = append([]string{"server", "user", "list"}, args...)
+	_, _, err := ks.Runner.Run(args...)
+
+	return err
+}
+
+// ConnectClient connects a given client to the server at the given address using the
+// given cert fingerprint.
+func (ks *KopiaSnapshotter) ConnectClient(addr, fingerprint, user, host string, args ...string) error {
+	addr = fmt.Sprintf("https://%v", addr)
+	args = append([]string{
+		"repo", "connect", "server",
+		"--url", addr,
+		"--server-cert-fingerprint", fingerprint,
+		"--override-username", user,
+		"--override-hostname", host,
+	}, args...)
 	_, _, err := ks.Runner.Run(args...)
 
 	return err
@@ -269,8 +340,14 @@ func parseManifestListForSnapshotIDs(output string) []string {
 }
 
 // waitUntilServerStarted returns error if the Kopia API server fails to start before timeout.
-func (ks *KopiaSnapshotter) waitUntilServerStarted(ctx context.Context, addr string, serverStatusArgs ...string) error {
-	statusArgs := append([]string{"server", "status", "--address", addr}, serverStatusArgs...)
+func (ks *KopiaSnapshotter) waitUntilServerStarted(ctx context.Context, addr, fingerprint string, serverStatusArgs ...string) error {
+	statusArgs := append([]string{
+		"server", "status",
+		"--address", addr,
+		"--server-cert-fingerprint", fingerprint,
+		"--server-username", serverUser,
+		"--server-password", serverPassword,
+	}, serverStatusArgs...)
 
 	if err := retry.PeriodicallyNoValue(ctx, retryInterval, retryCount, waitingForServerString, func() error {
 		_, _, err := ks.Runner.Run(statusArgs...)
@@ -282,10 +359,10 @@ func (ks *KopiaSnapshotter) waitUntilServerStarted(ctx context.Context, addr str
 	return nil
 }
 
-// createAndConnectServer creates Repository and a TLS server/client model for interaction.
-func (ks *KopiaSnapshotter) createAndConnectServer(serverAddr string, args ...string) (*exec.Cmd, error) {
+// ConnectOrCreateRepoWithServer creates Repository and a TLS server/client model for interaction.
+func (ks *KopiaSnapshotter) ConnectOrCreateRepoWithServer(serverAddr string, args ...string) (*exec.Cmd, string, error) {
 	if err := ks.ConnectOrCreateRepo(args...); err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	var tempDir string
@@ -293,7 +370,7 @@ func (ks *KopiaSnapshotter) createAndConnectServer(serverAddr string, args ...st
 	var tempDirErr error
 
 	if tempDir, tempDirErr = ioutil.TempDir("", "kopia"); tempDirErr != nil {
-		return nil, tempDirErr
+		return nil, "", tempDirErr
 	}
 
 	defer os.RemoveAll(tempDir)
@@ -308,11 +385,11 @@ func (ks *KopiaSnapshotter) createAndConnectServer(serverAddr string, args ...st
 	var cmdErr error
 
 	if cmd, cmdErr = ks.CreateServer(serverAddr, serverArgs...); cmdErr != nil {
-		return nil, cmdErr
+		return nil, "", cmdErr
 	}
 
 	if err := certKeyExist(context.TODO(), tlsCertFile, tlsKeyFile); err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	var fingerprint string
@@ -320,21 +397,51 @@ func (ks *KopiaSnapshotter) createAndConnectServer(serverAddr string, args ...st
 	var fingerprintError error
 
 	if fingerprint, fingerprintError = getFingerPrintFromCert(tlsCertFile); fingerprintError != nil {
-		return nil, fingerprintError
+		return nil, "", fingerprintError
 	}
 
 	serverAddr = fmt.Sprintf("https://%v", serverAddr)
-
-	if err := ks.waitUntilServerStarted(context.TODO(), serverAddr, "--server-cert-fingerprint", fingerprint); err != nil {
-		return cmd, err
+	if err := ks.waitUntilServerStarted(context.TODO(), serverAddr, fingerprint); err != nil {
+		return cmd, "", err
 	}
 
-	clientArgs := []string{"--server-cert-fingerprint", fingerprint}
-	if err := ks.ConnectServer(serverAddr, clientArgs...); err != nil {
-		return nil, err
+	// Enable ACL and add a rule to allow all clients to access all snapshots
+	err := ks.setServerPermissions()
+
+	return cmd, fingerprint, err
+}
+
+func (ks *KopiaSnapshotter) setServerPermissions(args ...string) error {
+	runArgs := append([]string{"server", "acl", "enable"}, args...)
+
+	// Return early if ACL is already enabled, assuming permissions have already
+	// been set on previous runs.
+	_, stdErr, err := ks.Runner.Run(runArgs...)
+	if errIsACLEnabled(stdErr) {
+		return nil
 	}
 
-	return cmd, nil
+	if err != nil {
+		return err
+	}
+
+	// Allow all clients to read all snapshots
+	runArgs = append([]string{
+		"server", "acl", "add",
+		"--user", "*@*",
+		"--access", "FULL",
+		"--target", "type=snapshot",
+	}, args...)
+
+	_, _, err = ks.Runner.Run(runArgs...)
+	if err != nil {
+		return err
+	}
+
+	runArgs = append([]string{"server", "acl", "list"}, args...)
+	_, _, err = ks.Runner.Run(runArgs...)
+
+	return err
 }
 
 func getFingerPrintFromCert(path string) (string, error) {
@@ -372,4 +479,8 @@ func certKeyExist(ctx context.Context, tlsCertFile, tlsKeyFile string) error {
 	}
 
 	return nil
+}
+
+func errIsACLEnabled(stdErr string) bool {
+	return strings.Contains(stdErr, aclEnabledMatchStr)
 }
