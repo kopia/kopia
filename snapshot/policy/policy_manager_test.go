@@ -411,3 +411,33 @@ func TestApplicablePoliciesForSource(t *testing.T) {
 		})
 	}
 }
+
+func TestPolicySetInvalidPath_Valid(t *testing.T) {
+	valid := []string{
+		"/",
+		"/home",
+		"c:\\",
+		"D:\\",
+		"D:\\foo",
+		"D:\\foo/bar\\baz",
+	}
+
+	for _, v := range valid {
+		require.NoError(t, validatePolicyPath(v), v)
+	}
+}
+
+func TestPolicySetInvalidPath_Invalid(t *testing.T) {
+	valid := []string{
+		"/home/",
+		"//",
+		"\\",
+		"c:\\users\\",
+		"c:/users/",
+		"c:\\users/",
+	}
+
+	for _, v := range valid {
+		require.Error(t, validatePolicyPath(v), v)
+	}
+}
