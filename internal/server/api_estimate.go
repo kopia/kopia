@@ -85,8 +85,8 @@ func (s *Server) handleEstimate(ctx context.Context, r *http.Request, body []byt
 		ctrl.OnCancel(cancel)
 
 		policyTree, err := policy.TreeForSource(ctx, s.rep, snapshot.SourceInfo{
-			Host:     s.options.ConnectOptions.Hostname,
-			UserName: s.options.ConnectOptions.Username,
+			Host:     s.rep.ClientOptions().Hostname,
+			UserName: s.rep.ClientOptions().Username,
 			Path:     resolvedRoot,
 		})
 		if err != nil {
