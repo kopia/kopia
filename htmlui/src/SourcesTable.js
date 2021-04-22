@@ -12,7 +12,7 @@ import Spinner from 'react-bootstrap/Spinner';
 import { Link } from 'react-router-dom';
 import { handleChange } from './forms';
 import MyTable from './Table';
-import { compare, ownerName, redirectIfNotConnected, sizeDisplayName, sizeWithFailures, sourceQueryStringParams } from './uiutil';
+import { compare, errorAlert, ownerName, redirectIfNotConnected, sizeDisplayName, sizeWithFailures, sourceQueryStringParams } from './uiutil';
 
 const localSnapshots = "Local Snapshots"
 const allSnapshots = "All Snapshots"
@@ -77,7 +77,7 @@ export class SourcesTable extends Component {
         axios.post('/api/v1/repo/sync', {}).then(result => {
             this.fetchSourcesWithoutSpinner();
         }).catch(error => {
-            alert('failed');
+            errorAlert(error);
             this.setState({
                 error,
                 isLoading: false
@@ -138,7 +138,7 @@ export class SourcesTable extends Component {
         axios.post('/api/v1/sources/cancel?' + sourceQueryStringParams(source), {}).then(result => {
             this.fetchSourcesWithoutSpinner();
         }).catch(error => {
-            alert('failed');
+            errorAlert(error);
         });
     }
 
@@ -146,7 +146,7 @@ export class SourcesTable extends Component {
         axios.post('/api/v1/sources/upload?' + sourceQueryStringParams(source), {}).then(result => {
             this.fetchSourcesWithoutSpinner();
         }).catch(error => {
-            alert('failed');
+            errorAlert(error);
         });
     }
 

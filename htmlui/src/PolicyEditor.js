@@ -9,7 +9,7 @@ import Form from 'react-bootstrap/Form';
 import Tab from 'react-bootstrap/Tab';
 import Tabs from 'react-bootstrap/Tabs';
 import { handleChange, OptionalBoolean, OptionalNumberField, RequiredBoolean, stateProperty, StringList } from './forms';
-import { sourceQueryStringParams } from './uiutil';
+import { errorAlert, sourceQueryStringParams } from './uiutil';
 
 function policyTypeName(s) {
     if (!s.host && !s.userName) {
@@ -124,7 +124,7 @@ export class PolicyEditor extends Component {
         axios.put(this.snapshotURL(this.props), policy).then(result => {
             this.props.close();
         }).catch(error => {
-            alert('Error saving policy: ' + JSON.stringify(error));
+            errorAlert(error, 'Error saving policy');
         });
     }
 
@@ -133,7 +133,7 @@ export class PolicyEditor extends Component {
             axios.delete(this.snapshotURL(this.props)).then(result => {
                 this.props.close();
             }).catch(error => {
-                alert('Delete error: ' + error);
+                errorAlert(error, 'Error deleting policy');
             });
         }
     }
