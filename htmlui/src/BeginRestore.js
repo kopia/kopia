@@ -4,7 +4,7 @@ import Button from 'react-bootstrap/Button';
 import Form from 'react-bootstrap/Form';
 import { Link } from "react-router-dom";
 import { handleChange, RequiredBoolean, RequiredField, validateRequiredFields } from './forms';
-import { GoBackButton } from './uiutil';
+import { errorAlert, GoBackButton } from './uiutil';
 
 export class BeginRestore extends Component {
     constructor(props) {
@@ -70,11 +70,7 @@ export class BeginRestore extends Component {
             })
             this.props.history.replace("/tasks/" + result.data.id);
         }).catch(error => {
-            if (error.response.data) {
-                alert(JSON.stringify(error.response.data));
-            } else {
-                alert('failed');
-            }
+            errorAlert(error);
         });
     }
 

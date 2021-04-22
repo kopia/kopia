@@ -8,7 +8,7 @@ import Form from 'react-bootstrap/Form';
 import { handleChange, validateRequiredFields } from './forms';
 import { PolicyEditor } from './PolicyEditor';
 import { TaskDetails } from './TaskDetails';
-import { cancelTask, DirectorySelector, GoBackButton, redirectIfNotConnected } from './uiutil';
+import { cancelTask, DirectorySelector, errorAlert, GoBackButton, redirectIfNotConnected } from './uiutil';
 
 export class NewSnapshot extends Component {
     constructor() {
@@ -75,11 +75,7 @@ export class NewSnapshot extends Component {
                 didEstimate: false,
             })
         }).catch(error => {
-            if (error.response.data) {
-                alert(JSON.stringify(error.response.data));
-            } else {
-                alert('failed');
-            }
+            errorAlert(error);
         });
     }
 
@@ -102,10 +98,7 @@ export class NewSnapshot extends Component {
         }).then(result => {
             this.props.history.goBack();
         }).catch(error => {
-            if (error.response) {
-                alert('Error: ' + error.response.data.error + " (" + error.response.data.code + ")");
-                return
-            }
+            errorAlert(error);
 
             this.setState({
                 error,

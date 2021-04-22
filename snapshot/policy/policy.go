@@ -3,7 +3,8 @@ package policy
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
+
+	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/snapshot"
 )
@@ -93,6 +94,15 @@ func MergePolicies(policies []*Policy) *Policy {
 // Currently, only SchedulingPolicy is validated.
 func ValidatePolicy(pol *Policy) error {
 	return ValidateSchedulingPolicy(pol.SchedulingPolicy)
+}
+
+// validatePolicyPath validates that the provided policy path is valid and the path exists.
+func validatePolicyPath(p string) error {
+	if isSlashOrBackslash(p[len(p)-1]) && !isRootPath(p) {
+		return errors.Errorf("path cannot end with a slash or a backslash")
+	}
+
+	return nil
 }
 
 func intPtr(n int) *int {

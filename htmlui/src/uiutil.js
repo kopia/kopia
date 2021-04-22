@@ -210,6 +210,20 @@ export function isAbsolutePath(p) {
     return false;
 }
 
+export function errorAlert(err, prefix) {
+    if (!prefix) {
+        prefix = "Error"
+    }
+
+    prefix += ": ";
+    
+    if (err.response && err.response.data && err.response.data.error) {
+        alert(prefix + err.response.data.error);
+    } else {
+        alert(prefix + JSON.stringify(err));
+    }
+}
+
 export function DirectorySelector(props) {
     const selectSupported = !!window.require;
 
