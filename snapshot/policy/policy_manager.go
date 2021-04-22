@@ -133,6 +133,13 @@ func SetPolicy(ctx context.Context, rep repo.RepositoryWriter, si snapshot.Sourc
 		return errors.Wrap(err, "failed to validate policy")
 	}
 
+	if si.Path != "" {
+		// verify that path does not have trailing slash or backslash, etc.
+		if err := validatePolicyPath(si.Path); err != nil {
+			return errors.Wrap(err, "invalid policy path")
+		}
+	}
+
 	md, err := rep.FindManifests(ctx, labelsForSource(si))
 	if err != nil {
 		return errors.Wrapf(err, "unable to load manifests for %v", si)
@@ -348,6 +355,15 @@ func volumeAndPath(p string) (vol, path string) {
 
 func isSlashOrBackslash(c uint8) bool {
 	return c == '/' || c == '\\'
+}
+
+func isRootPath(p string) bool {
+	if isWindowsStylePath(p) {
+		_, justPath := volumeAndPath(p)
+		return justPath == "\\" || justPath == "/" || justPath == ""
+	}
+
+	return p == "/"
 }
 
 func isWindowsStylePath(p string) bool {
