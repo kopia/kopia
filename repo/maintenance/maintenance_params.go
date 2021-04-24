@@ -22,6 +22,10 @@ type Params struct {
 	FullCycle  CycleParams `json:"full"`
 }
 
+func (p *Params) isOwnedByByThisUser(rep repo.Repository) bool {
+	return p.Owner == rep.ClientOptions().UsernameAtHost()
+}
+
 // DefaultParams represents default values of maintenance parameters.
 func DefaultParams() Params {
 	return Params{
@@ -50,6 +54,16 @@ func HasParams(ctx context.Context, rep repo.Repository) (bool, error) {
 	}
 
 	return len(md) > 0, nil
+}
+
+// IsOwnedByThisUser determines whether current user is the maintenance owner.
+func IsOwnedByThisUser(ctx context.Context, rep repo.Repository) (bool, error) {
+	p, err := GetParams(ctx, rep)
+	if err != nil {
+		return false, errors.Wrap(err, "error getting maintenance params")
+	}
+
+	return p.isOwnedByByThisUser(rep), nil
 }
 
 // GetParams returns repository-wide maintenance parameters.

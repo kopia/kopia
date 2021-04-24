@@ -140,10 +140,8 @@ func RunExclusive(ctx context.Context, rep repo.DirectRepositoryWriter, mode Mod
 		return errors.Wrap(err, "unable to get maintenance params")
 	}
 
-	if !force {
-		if myUsername := rep.ClientOptions().UsernameAtHost(); p.Owner != myUsername {
-			return NotOwnedError{p.Owner}
-		}
+	if !force && !p.isOwnedByByThisUser(rep) {
+		return NotOwnedError{p.Owner}
 	}
 
 	if mode == ModeAuto {
