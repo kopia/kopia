@@ -290,7 +290,7 @@ func (b *indexV1) Close() error {
 	return nil
 }
 
-type indexLayoutV1 struct {
+type indexBuilderV1 struct {
 	packBlobIDOffsets map[blob.ID]uint32
 	entryCount        int
 	keyLength         int
@@ -301,7 +301,7 @@ type indexLayoutV1 struct {
 // buildV1 writes the pack index to the provided output.
 func (b packIndexBuilder) buildV1(output io.Writer) error {
 	allContents := b.sortedContents()
-	layout := &indexLayoutV1{
+	b1 := &indexBuilderV1{
 		packBlobIDOffsets: map[blob.ID]uint32{},
 		keyLength:         -1,
 		entryLength:       entryFixedHeaderLength,
@@ -311,24 +311,24 @@ func (b packIndexBuilder) buildV1(output io.Writer) error {
 	w := bufio.NewWriter(output)
 
 	// prepare extra data to be appended at the end of an index.
-	extraData := prepareExtraDataV1(allContents, layout)
+	extraData := b1.prepareExtraData(allContents)
 
 	// write header
 	header := make([]byte, packHeaderSize)
 	header[0] = 1 // version
-	header[1] = byte(layout.keyLength)
-	binary.BigEndian.PutUint16(header[2:4], uint16(layout.entryLength))
-	binary.BigEndian.PutUint32(header[4:8], uint32(layout.entryCount))
+	header[1] = byte(b1.keyLength)
+	binary.BigEndian.PutUint16(header[2:4], uint16(b1.entryLength))
+	binary.BigEndian.PutUint32(header[4:8], uint32(b1.entryCount))
 
 	if _, err := w.Write(header); err != nil {
 		return errors.Wrap(err, "unable to write header")
 	}
 
 	// write all sorted contents.
-	entry := make([]byte, layout.entryLength)
+	entry := make([]byte, b1.entryLength)
 
 	for _, it := range allContents {
-		if err := writeEntryV1(w, it, layout, entry); err != nil {
+		if err := b1.writeEntry(w, it, entry); err != nil {
 			return errors.Wrap(err, "unable to write entry")
 		}
 	}
@@ -349,39 +349,39 @@ func (b packIndexBuilder) buildV1(output io.Writer) error {
 	return w.Flush()
 }
 
-func prepareExtraDataV1(allContents []Info, layout *indexLayoutV1) []byte {
+func (b *indexBuilderV1) prepareExtraData(allContents []Info) []byte {
 	var extraData []byte
 
 	var hashBuf [maxContentIDSize]byte
 
 	for i, it := range allContents {
 		if i == 0 {
-			layout.keyLength = len(contentIDToBytes(hashBuf[:0], it.GetContentID()))
+			b.keyLength = len(contentIDToBytes(hashBuf[:0], it.GetContentID()))
 		}
 
 		if it.GetPackBlobID() != "" {
-			if _, ok := layout.packBlobIDOffsets[it.GetPackBlobID()]; !ok {
-				layout.packBlobIDOffsets[it.GetPackBlobID()] = uint32(len(extraData))
+			if _, ok := b.packBlobIDOffsets[it.GetPackBlobID()]; !ok {
+				b.packBlobIDOffsets[it.GetPackBlobID()] = uint32(len(extraData))
 				extraData = append(extraData, []byte(it.GetPackBlobID())...)
 			}
 		}
 	}
 
-	layout.extraDataOffset = uint32(packHeaderSize + layout.entryCount*(layout.keyLength+layout.entryLength))
+	b.extraDataOffset = uint32(packHeaderSize + b.entryCount*(b.keyLength+b.entryLength))
 
 	return extraData
 }
 
-func writeEntryV1(w io.Writer, it Info, layout *indexLayoutV1, entry []byte) error {
+func (b *indexBuilderV1) writeEntry(w io.Writer, it Info, entry []byte) error {
 	var hashBuf [maxContentIDSize]byte
 
 	k := contentIDToBytes(hashBuf[:0], it.GetContentID())
 
-	if len(k) != layout.keyLength {
-		return errors.Errorf("inconsistent key length: %v vs %v", len(k), layout.keyLength)
+	if len(k) != b.keyLength {
+		return errors.Errorf("inconsistent key length: %v vs %v", len(k), b.keyLength)
 	}
 
-	if err := formatEntryV1(entry, it, layout); err != nil {
+	if err := b.formatEntry(entry, it); err != nil {
 		return errors.Wrap(err, "unable to format entry")
 	}
 
@@ -396,7 +396,7 @@ func writeEntryV1(w io.Writer, it Info, layout *indexLayoutV1, entry []byte) err
 	return nil
 }
 
-func formatEntryV1(entry []byte, it Info, layout *indexLayoutV1) error {
+func (b *indexBuilderV1) formatEntry(entry []byte, it Info) error {
 	entryTimestampAndFlags := entry[0:8]
 	entryPackFileOffset := entry[8:12]
 	entryPackedOffset := entry[12:16]
@@ -408,7 +408,7 @@ func formatEntryV1(entry []byte, it Info, layout *indexLayoutV1) error {
 		return errors.Errorf("empty pack content ID for %v", it.GetContentID())
 	}
 
-	binary.BigEndian.PutUint32(entryPackFileOffset, layout.extraDataOffset+layout.packBlobIDOffsets[packBlobID])
+	binary.BigEndian.PutUint32(entryPackFileOffset, b.extraDataOffset+b.packBlobIDOffsets[packBlobID])
 
 	if it.GetDeleted() {
 		binary.BigEndian.PutUint32(entryPackedOffset, it.GetPackOffset()|deletedMarker)
