@@ -7,8 +7,6 @@ import (
 	"sort"
 
 	"github.com/pkg/errors"
-
-	"github.com/kopia/kopia/repo/blob"
 )
 
 const (
@@ -117,15 +115,15 @@ func (b *index) Iterate(r IDRange, cb func(Info) error) error {
 		}
 
 		key := entry[0:b.hdr.keySize]
-		value := entry[b.hdr.keySize:]
 
-		i, err := b.entryToInfo(bytesToContentID(key), value)
-		if err != nil {
-			return errors.Wrap(err, "invalid index data")
+		contentID := bytesToContentID(key)
+		if contentID >= r.EndID {
+			break
 		}
 
-		if i.GetContentID() >= r.EndID {
-			break
+		i, err := b.entryToInfo(contentID, entry[b.hdr.keySize:])
+		if err != nil {
+			return errors.Wrap(err, "invalid index data")
 		}
 
 		if err := cb(i); err != nil {
@@ -251,30 +249,12 @@ func (b *index) GetInfo(contentID ID) (Info, error) {
 }
 
 func (b *index) entryToInfo(contentID ID, entryData []byte) (Info, error) {
-	var e entry
-	if err := e.parse(entryData); err != nil {
-		return nil, err
+	if len(entryData) < entryFixedHeaderLength {
+		return nil, errors.Errorf("invalid entry length: %v", len(entryData))
 	}
 
-	packFile := make([]byte, e.PackFileLength())
-
-	n, err := b.readerAt.ReadAt(packFile, int64(e.PackFileOffset()))
-	if err != nil || n != int(e.PackFileLength()) {
-		return nil, errors.Wrap(err, "can't read pack content ID")
-	}
-
-	pl := e.PackedLength()
-
-	return &InfoStruct{
-		ContentID:        contentID,
-		Deleted:          e.IsDeleted(),
-		TimestampSeconds: e.TimestampSeconds(),
-		FormatVersion:    e.PackedFormatVersion(),
-		PackOffset:       e.PackedOffset(),
-		PackedLength:     pl,
-		OriginalLength:   pl - b.v1PerContentOverhead,
-		PackBlobID:       blob.ID(packFile),
-	}, nil
+	// convert to 'entryData' string to make it read-only
+	return indexEntryInfoV1{string(entryData), contentID, b}, nil
 }
 
 // Close closes the index and the underlying reader.

@@ -1,21 +1,15 @@
 package content
 
 import (
-	"encoding/binary"
-	"math"
+	"time"
 
-	"github.com/pkg/errors"
+	"github.com/kopia/kopia/repo/blob"
 )
 
-const (
-	timestampShift           = 16
-	packedFormatVersionShift = 8
-)
-
-// Format describes a format of a single pack index. The actual structure is not used,
+// FormatV1 describes a format of a single pack index. The actual structure is not used,
 // it's purely for documentation purposes.
 // The struct is byte-aligned.
-type Format struct {
+type FormatV1 struct {
 	Version    byte   // format version number must be 0x01
 	KeySize    byte   // size of each key in bytes
 	EntrySize  uint16 // size of each entry in bytes, big-endian
@@ -23,60 +17,77 @@ type Format struct {
 
 	Entries []struct {
 		Key   []byte // key bytes (KeySize)
-		Entry entry
+		Entry indexEntryInfoV1
 	}
 
 	ExtraData []byte // extra data
 }
 
-type entry struct {
-	// big endian:
-	// 48 most significant bits - 48-bit timestamp in seconds since 1970/01/01 UTC
-	// 8 bits - format version (currently == 1)
-	// 8 least significant bits - length of pack content ID
-	timestampAndFlags uint64 //
-	packFileOffset    uint32 // 4 bytes, big endian, offset within index file where pack (blob) ID begins
-	packedOffset      uint32 // 4 bytes, big endian, offset within pack file where the contents begin
-	packedLength      uint32 // 4 bytes, big endian, content length
+type indexEntryInfoV1 struct {
+	data      string // basically a byte array, but immutable
+	contentID ID
+	b         *index
 }
 
-func (e *entry) parse(b []byte) error {
-	if len(b) < entryFixedHeaderLength {
-		return errors.Errorf("invalid entry length: %v", len(b))
+func (e indexEntryInfoV1) GetContentID() ID {
+	return e.contentID
+}
+
+// entry bytes 0..5: 48-bit big-endian timestamp in seconds since 1970/01/01 UTC.
+func (e indexEntryInfoV1) GetTimestampSeconds() int64 {
+	return decodeBigEndianUint48(e.data)
+}
+
+// entry byte 6: format version (currently always == 1).
+func (e indexEntryInfoV1) GetFormatVersion() byte {
+	return e.data[6]
+}
+
+// entry byte 7: length of pack content ID
+// entry bytes 8..11: 4 bytes, big endian, offset within index file where pack (blob) ID begins.
+func (e indexEntryInfoV1) GetPackBlobID() blob.ID {
+	nameLength := int(e.data[7])
+	nameOffset := decodeBigEndianUint32(e.data[8:])
+
+	var nameBuf [256]byte
+
+	n, err := e.b.readerAt.ReadAt(nameBuf[0:nameLength], int64(nameOffset))
+	if err != nil || n != nameLength {
+		return "-invalid-blob-id-"
 	}
 
-	e.timestampAndFlags = binary.BigEndian.Uint64(b[0:8])
-	e.packFileOffset = binary.BigEndian.Uint32(b[8:12])
-	e.packedOffset = binary.BigEndian.Uint32(b[12:16])
-	e.packedLength = binary.BigEndian.Uint32(b[16:20])
-
-	return nil
+	return blob.ID(nameBuf[0:nameLength])
 }
 
-func (e *entry) IsDeleted() bool {
-	return e.packedOffset&0x80000000 != 0
+// entry bytes 12..15 - deleted flag (MSBit), 31 lower bits encode pack offset.
+func (e indexEntryInfoV1) GetDeleted() bool {
+	return e.data[12]&0x80 != 0
 }
 
-func (e *entry) TimestampSeconds() int64 {
-	return int64(e.timestampAndFlags >> timestampShift)
+func (e indexEntryInfoV1) GetPackOffset() uint32 {
+	const packOffsetMask = 1<<31 - 1
+	return decodeBigEndianUint32(e.data[12:]) & packOffsetMask
 }
 
-func (e *entry) PackedFormatVersion() byte {
-	return byte(e.timestampAndFlags >> packedFormatVersionShift)
+// bytes 16..19: 4 bytes, big endian, content length.
+func (e indexEntryInfoV1) GetPackedLength() uint32 {
+	return decodeBigEndianUint32(e.data[16:])
 }
 
-func (e *entry) PackFileLength() byte {
-	return byte(e.timestampAndFlags)
+func (e indexEntryInfoV1) GetOriginalLength() uint32 {
+	return e.GetPackedLength() - e.b.v1PerContentOverhead
 }
 
-func (e *entry) PackFileOffset() uint32 {
-	return e.packFileOffset
+func (e indexEntryInfoV1) Timestamp() time.Time {
+	return time.Unix(e.GetTimestampSeconds(), 0)
 }
 
-func (e *entry) PackedOffset() uint32 {
-	return e.packedOffset & math.MaxInt32
+var _ Info = indexEntryInfoV1{}
+
+func decodeBigEndianUint48(d string) int64 {
+	return int64(d[0])<<40 | int64(d[1])<<32 | int64(d[2])<<24 | int64(d[3])<<16 | int64(d[4])<<8 | int64(d[5])
 }
 
-func (e *entry) PackedLength() uint32 {
-	return e.packedLength
+func decodeBigEndianUint32(d string) uint32 {
+	return uint32(d[0])<<24 | uint32(d[1])<<16 | uint32(d[2])<<8 | uint32(d[3])
 }
