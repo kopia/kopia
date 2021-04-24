@@ -110,12 +110,12 @@ func (s *sourceManager) run(ctx context.Context) {
 	s.wg.Add(1)
 	defer s.wg.Done()
 
-	if s.server.rep.ClientOptions().Hostname == s.src.Host {
+	if s.server.rep.ClientOptions().Hostname == s.src.Host && !s.server.rep.ClientOptions().ReadOnly {
 		log(ctx).Debugf("starting local source manager for %v", s.src)
 		s.runLocal(ctx)
 	} else {
-		log(ctx).Debugf("starting remote source manager for %v", s.src)
-		s.runRemote(ctx)
+		log(ctx).Debugf("starting read-only source manager for %v", s.src)
+		s.runReadOnly(ctx)
 	}
 }
 
@@ -168,7 +168,7 @@ func (s *sourceManager) backoffBeforeNextSnapshot() {
 	s.nextSnapshotTime = &t
 }
 
-func (s *sourceManager) runRemote(ctx context.Context) {
+func (s *sourceManager) runReadOnly(ctx context.Context) {
 	s.refreshStatus(ctx)
 	s.setStatus("REMOTE")
 
