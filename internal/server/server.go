@@ -488,6 +488,12 @@ func (s *Server) periodicMaintenance(ctx context.Context, rep repo.Repository) {
 			return
 
 		case <-time.After(maintenanceAttemptFrequency):
+			if owned, err := maintenance.IsOwnedByThisUser(ctx, rep); err == nil && !owned {
+				// maintenance not owned by this user, don't run, but keep trying because
+				// maintenance ownership MAY change to this user in the future.
+				continue
+			}
+
 			if err := s.taskmgr.Run(ctx, "Maintenance", "Periodic maintenance", func(ctx context.Context, _ uitask.Controller) error {
 				return periodicMaintenanceOnce(ctx, rep)
 			}); err != nil {
