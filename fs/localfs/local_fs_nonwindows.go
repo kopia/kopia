@@ -29,3 +29,15 @@ func platformSpecificDeviceInfo(fi os.FileInfo) fs.DeviceInfo {
 
 	return oi
 }
+
+func platformSpecificNewFileEntry(fi os.FileInfo, parentDir string) fs.Entry {
+	pstat, ok := fi.Sys().(*syscall.Stat_t)
+	if ok {
+		return &filesystemFilePosix{
+			filesystemFile: filesystemFile{newEntry(fi, parentDir)},
+			inode:          pstat.Ino,
+		}
+	}
+
+	return &filesystemFile{newEntry(fi, parentDir)}
+}

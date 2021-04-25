@@ -95,6 +95,16 @@ type filesystemFile struct {
 	filesystemEntry
 }
 
+type filesystemFilePosix struct {
+	filesystemFile
+
+	inode uint64
+}
+
+func (e *filesystemFilePosix) GetInode() uint64 {
+	return e.inode
+}
+
 type filesystemErrorEntry struct {
 	filesystemEntry
 	err error
@@ -223,13 +233,17 @@ type fileWithMetadata struct {
 	*os.File
 }
 
+func newFileEntry(fi os.FileInfo, parentDir string) fs.Entry {
+	return platformSpecificNewFileEntry(fi, parentDir)
+}
+
 func (f *fileWithMetadata) Entry() (fs.Entry, error) {
 	fi, err := f.Stat()
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to stat() local file")
 	}
 
-	return &filesystemFile{newEntry(fi, filepath.Dir(f.Name()))}, nil
+	return newFileEntry(fi, filepath.Dir(f.Name())), nil
 }
 
 func (fsf *filesystemFile) Open(ctx context.Context) (fs.Reader, error) {
@@ -265,7 +279,7 @@ func NewEntry(path string) (fs.Entry, error) {
 		return &filesystemSymlink{newEntry(fi, filepath.Dir(path))}, nil
 
 	case 0:
-		return &filesystemFile{newEntry(fi, filepath.Dir(path))}, nil
+		return newFileEntry(fi, filepath.Dir(path)), nil
 
 	default:
 		return &filesystemErrorEntry{newEntry(fi, filepath.Dir(path)), fs.ErrUnknown}, nil
@@ -295,7 +309,7 @@ func entryFromChildFileInfo(fi os.FileInfo, parentDir string) fs.Entry {
 		return &filesystemSymlink{newEntry(fi, parentDir)}
 
 	case 0:
-		return &filesystemFile{newEntry(fi, parentDir)}
+		return newFileEntry(fi, parentDir)
 
 	default:
 		return &filesystemErrorEntry{newEntry(fi, parentDir), fs.ErrUnknown}
@@ -305,6 +319,8 @@ func entryFromChildFileInfo(fi os.FileInfo, parentDir string) fs.Entry {
 var (
 	_ fs.Directory  = &filesystemDirectory{}
 	_ fs.File       = &filesystemFile{}
+	_ fs.File       = &filesystemFilePosix{}
+	_ fs.HasInode   = &filesystemFilePosix{}
 	_ fs.Symlink    = &filesystemSymlink{}
 	_ fs.ErrorEntry = &filesystemErrorEntry{}
 )
