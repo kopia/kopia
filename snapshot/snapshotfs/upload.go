@@ -15,6 +15,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	golanglog "log"
+
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
@@ -756,6 +758,10 @@ func findCachedEntry(ctx context.Context, entry fs.Entry, prevEntries []fs.Entri
 		}
 	}
 
+	inode, ok := entry.(fs.HasInode)
+	if ok {
+		golanglog.Printf("\n\n **** iNode for %v is %v", entry.Name(), inode.GetInode())
+	}
 	log(ctx).Debugf("could not find cache entry for %v", entry.Name())
 
 	return nil
