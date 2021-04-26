@@ -198,7 +198,7 @@ export class PolicyEditor extends Component {
                 </Tab>
                 <Tab eventKey="files" title="Files">
                     <div className="tab-body">
-                        <p className="policy-help">Controls which files should be included and excluded when snapshotting. Use <a href="https://git-scm.com/docs/gitignore">.gitignore</a> syntax.</p>
+                        <p className="policy-help">Controls which files should be included and excluded when snapshotting. Use <a target="_blank" rel="noreferrer" href="https://git-scm.com/docs/gitignore">.gitignore</a> syntax.</p>
                         <Form.Row>
                             {StringList(this, "Ignore Rules", "policy.files.ignore", "List of file name patterns to ignore.")}
                             {StringList(this, "Ignore Rule Files", "policy.files.ignoreDotFiles", "List of additional files containing ignore rules. Each file configures ignore rules for the directory and its subdirectories.")}
