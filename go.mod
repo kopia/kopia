@@ -19,7 +19,7 @@ require (
 	github.com/foomo/htpasswd v0.0.0-20200116085101-e3a90e78da9c
 	github.com/go-ole/go-ole v1.2.5 // indirect
 	github.com/gofrs/flock v0.8.0
-	github.com/golang/protobuf v1.5.1
+	github.com/golang/protobuf v1.5.2
 	github.com/google/fswalker v0.2.1-0.20200214223026-f0e929ba4126
 	github.com/google/go-cmp v0.5.5
 	github.com/google/readahead v0.0.0-20161222183148-eaceba169032 // indirect
@@ -58,11 +58,11 @@ require (
 	golang.org/x/exp v0.0.0-20210220032938-85be41e4509f
 	golang.org/x/mod v0.4.2
 	golang.org/x/net v0.0.0-20210316092652-d523dce5a7f4
-	golang.org/x/oauth2 v0.0.0-20210402161424-2e8d93401602
+	golang.org/x/oauth2 v0.0.0-20210413134643-5e61552d6c78
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	golang.org/x/sys v0.0.0-20210403161142-5e06dd20ab57
+	golang.org/x/sys v0.0.0-20210412220455-f1c623a9e750
 	golang.org/x/term v0.0.0-20210317153231-de623e64d2a6
-	google.golang.org/api v0.44.0
+	google.golang.org/api v0.45.0
 	google.golang.org/grpc v1.37.0
 	google.golang.org/protobuf v1.26.0
 	gopkg.in/ini.v1 v1.62.0 // indirect
