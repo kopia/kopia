@@ -3,9 +3,10 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import axios from 'axios';
 import React, { Component } from 'react';
 import Button from 'react-bootstrap/Button';
-import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
 import Form from 'react-bootstrap/Form';
+import Row from 'react-bootstrap/Row';
+import Spinner from 'react-bootstrap/Spinner';
 import Tab from 'react-bootstrap/Tab';
 import Tabs from 'react-bootstrap/Tabs';
 import { handleChange, OptionalBoolean, OptionalNumberField, RequiredBoolean, stateProperty, StringList } from './forms';
@@ -121,18 +122,23 @@ export class PolicyEditor extends Component {
             }
         }
 
+        this.setState({saving: true});
         axios.put(this.snapshotURL(this.props), policy).then(result => {
             this.props.close();
         }).catch(error => {
+            this.setState({saving: false});
             errorAlert(error, 'Error saving policy');
         });
     }
 
     deletePolicy() {
         if (window.confirm('Are you sure you want to delete this policy?')) {
+            this.setState({saving: true});
+
             axios.delete(this.snapshotURL(this.props)).then(result => {
                 this.props.close();
             }).catch(error => {
+                this.setState({saving: false});
                 errorAlert(error, 'Error deleting policy');
             });
         }
@@ -264,11 +270,15 @@ export class PolicyEditor extends Component {
                 {RequiredBoolean(this, "Disable Parent Policy Evaluation (prevents any parent policies from affecting this directory and subdirectories)", "policy.noParent")}
             </Form.Row>
 
-            <Button size="sm" variant="success" type="submit" onClick={this.saveChanges}>Save Policy</Button>
+            <Button size="sm" variant="success" type="submit" onClick={this.saveChanges} disabled={this.state.saving}>Save Policy</Button>
             {!this.state.isNew && <>&nbsp;
-            <Button size="sm" variant="danger" disabled={this.isGlobal()} onClick={this.deletePolicy}>Delete Policy</Button>
+            <Button size="sm" variant="danger" disabled={this.isGlobal() || this.state.saving} onClick={this.deletePolicy}>Delete Policy</Button>
             </>}
-            
+            {this.state.saving && <>
+                &nbsp;
+                <Spinner animation="border" variant="primary" size="sm" />
+                </>}
+
             {!this.props.embedded && <>
             <hr />
             <h5>JSON representation</h5>
