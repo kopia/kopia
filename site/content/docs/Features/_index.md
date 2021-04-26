@@ -78,7 +78,7 @@ Kopia maintains a local cache of recently accessed objects making it possible to
 
 Kopia performs all its operations client-side, without having to maintain dedicated server and supports a variety of storage providers, including cloud storage ([Google Cloud Storage](https://cloud.google.com/storage), [Amazon S3](https://aws.amazon.com/s3), [Wasabi](https://wasabi.com), [B2](https://www.backblaze.com/b2/cloud-storage.html), [Azure](https://azure.microsoft.com/fr-fr/services/storage/), or similar), [WebDAV](https://en.wikipedia.org/wiki/WebDAV)-compatible storage, sftp, http/s or any other remote storage mounted locally.
 
-With Kopia you're in full control of your storage. You must provision, pay for and maintain storage with enough capacity to store your backup and enough availability to be able to recover data when needed. To avoid administrative overhead it's recommended to use one of the available cloud storage solutions, which provide excellent features for very reasonable price.
+With Kopia you're in full control of your storage. You must provision, pay for and maintain storage with enough capacity to store your backup and enough availability to be able to recover data when needed. To avoid administrative overhead it's recommended to use one of the available cloud storage solutions, which provide excellent features for very reasonable prices.
 
 ### Command Line Interface
 
