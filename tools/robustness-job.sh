@@ -103,6 +103,13 @@ readonly test_flags="-v -timeout=${test_timeout}\
  --repo-path-prefix=${test_repo_path_prefix}\
  -ldflags '${ld_flags}'"
 
+# Set the make target based on ENGINE_MODE
+ENGINE_MODE="${ENGINE_MODE:-}"
+make_target="robustness-tests"
+if [[ "${ENGINE_MODE}" = SERVER ]]; then
+    make_target="robustness-server-tests"
+fi
+
 # Run the robustness tests
 set -o verbose
 
@@ -110,6 +117,6 @@ make -C "${kopia_robustness_dir}" \
     KOPIA_EXE="${kopia_exe}" \
     GO_TEST='go test' \
     TEST_FLAGS="${test_flags}" \
-    robustness-tests
+    "${make_target}"
 
 popd
