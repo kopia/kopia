@@ -66,16 +66,16 @@ func ValidatePrefix(prefix ID) error {
 	return errors.Errorf("invalid prefix, must be a empty or single letter between 'g' and 'z'")
 }
 
-func (bm *WriteManager) getContentDataUnlocked(ctx context.Context, pp *pendingPackInfo, bi *Info) ([]byte, error) {
+func (bm *WriteManager) getContentDataUnlocked(ctx context.Context, pp *pendingPackInfo, bi Info) ([]byte, error) {
 	var payload []byte
 
-	if pp != nil && pp.packBlobID == bi.PackBlobID {
+	if pp != nil && pp.packBlobID == bi.GetPackBlobID() {
 		// we need to use a lock here in case somebody else writes to the pack at the same time.
-		payload = pp.currentPackData.AppendSectionTo(nil, int(bi.PackOffset), int(bi.PackedLength))
+		payload = pp.currentPackData.AppendSectionTo(nil, int(bi.GetPackOffset()), int(bi.GetPackedLength()))
 	} else {
 		var err error
 
-		payload, err = bm.getCacheForContentID(bi.ID).getContent(ctx, cacheKey(bi.ID), bi.PackBlobID, int64(bi.PackOffset), int64(bi.PackedLength))
+		payload, err = bm.getCacheForContentID(bi.GetContentID()).getContent(ctx, cacheKey(bi.GetContentID()), bi.GetPackBlobID(), int64(bi.GetPackOffset()), int64(bi.GetPackedLength()))
 		if err != nil {
 			return nil, errors.Wrap(err, "getCacheForContentID")
 		}
@@ -89,11 +89,11 @@ func (bm *WriteManager) preparePackDataContent(ctx context.Context, pp *pendingP
 	haveContent := false
 
 	for _, info := range pp.currentPackItems {
-		if info.PackBlobID == pp.packBlobID {
+		if info.GetPackBlobID() == pp.packBlobID {
 			haveContent = true
 		}
 
-		formatLog(ctx).Debugf("add-to-pack %v %v p:%v %v d:%v", pp.packBlobID, info.ID, info.PackBlobID, info.PackedLength, info.Deleted)
+		formatLog(ctx).Debugf("add-to-pack %v %v p:%v %v d:%v", pp.packBlobID, info.GetContentID(), info.GetPackBlobID(), info.GetPackedLength(), info.GetDeleted())
 
 		packFileIndex.Add(info)
 	}

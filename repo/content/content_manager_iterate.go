@@ -118,16 +118,16 @@ func (bm *WriteManager) IterateContents(ctx context.Context, opts IterateOptions
 
 	invokeCallback := func(i Info) error {
 		if !opts.IncludeDeleted {
-			if ci, ok := uncommitted[i.ID]; ok {
-				if ci.Deleted {
+			if ci, ok := uncommitted[i.GetContentID()]; ok {
+				if ci.GetDeleted() {
 					return nil
 				}
-			} else if i.Deleted {
+			} else if i.GetDeleted() {
 				return nil
 			}
 		}
 
-		if !opts.Range.Contains(i.ID) {
+		if !opts.Range.Contains(i.GetContentID()) {
 			return nil
 		}
 
@@ -140,7 +140,7 @@ func (bm *WriteManager) IterateContents(ctx context.Context, opts IterateOptions
 	}
 
 	for _, bi := range uncommitted {
-		_ = invokeCallback(*bi)
+		_ = invokeCallback(bi)
 	}
 
 	if err := bm.committedContents.listContents(opts.Range, invokeCallback); err != nil {
@@ -192,18 +192,18 @@ func (bm *WriteManager) IteratePacks(ctx context.Context, options IteratePackOpt
 			IncludeDeleted: options.IncludePacksWithOnlyDeletedContent,
 		},
 		func(ci Info) error {
-			if !options.matchesBlob(ci.PackBlobID) {
+			if !options.matchesBlob(ci.GetPackBlobID()) {
 				return nil
 			}
 
-			pi := packUsage[ci.PackBlobID]
+			pi := packUsage[ci.GetPackBlobID()]
 			if pi == nil {
 				pi = &PackInfo{}
-				packUsage[ci.PackBlobID] = pi
+				packUsage[ci.GetPackBlobID()] = pi
 			}
-			pi.PackID = ci.PackBlobID
+			pi.PackID = ci.GetPackBlobID()
 			pi.ContentCount++
-			pi.TotalSize += int64(ci.PackedLength)
+			pi.TotalSize += int64(ci.GetPackedLength())
 			if options.IncludeContentInfos {
 				pi.ContentInfos = append(pi.ContentInfos, ci)
 			}

@@ -28,13 +28,13 @@ func runInspectIndexAction(ctx context.Context, rep repo.DirectRepository) error
 func dumpIndexBlobEntries(bm blob.Metadata, entries []content.Info) {
 	for _, ci := range entries {
 		state := "created"
-		if ci.Deleted {
+		if ci.GetDeleted() {
 			state = "deleted"
 		}
 
 		printStdout("%v %v %v %v %v %v %v %v\n",
 			formatTimestampPrecise(bm.Timestamp), bm.BlobID,
-			ci.ID, state, formatTimestampPrecise(ci.Timestamp()), ci.PackBlobID, ci.PackOffset, ci.PackedLength)
+			ci.GetContentID(), state, formatTimestampPrecise(ci.Timestamp()), ci.GetPackBlobID(), ci.GetPackOffset(), ci.GetPackedLength())
 	}
 }
 

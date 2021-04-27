@@ -126,7 +126,7 @@ func (bm *WriteManager) DeleteContent(ctx context.Context, contentID ID) error {
 
 	// remove from all pending packs
 	for _, pp := range bm.pendingPacks {
-		if bi, ok := pp.currentPackItems[contentID]; ok && !bi.Deleted {
+		if bi, ok := pp.currentPackItems[contentID]; ok && !bi.GetDeleted() {
 			delete(pp.currentPackItems, contentID)
 			return nil
 		}
@@ -134,14 +134,14 @@ func (bm *WriteManager) DeleteContent(ctx context.Context, contentID ID) error {
 
 	// remove from all packs that are being written, since they will be committed to index soon
 	for _, pp := range bm.writingPacks {
-		if bi, ok := pp.currentPackItems[contentID]; ok && !bi.Deleted {
+		if bi, ok := pp.currentPackItems[contentID]; ok && !bi.GetDeleted() {
 			return bm.deletePreexistingContent(ctx, bi)
 		}
 	}
 
 	// if found in committed index, add another entry that's marked for deletion
 	if bi, ok := bm.packIndexBuilder[contentID]; ok {
-		return bm.deletePreexistingContent(ctx, *bi)
+		return bm.deletePreexistingContent(ctx, bi)
 	}
 
 	// see if the block existed before
@@ -155,18 +155,16 @@ func (bm *WriteManager) DeleteContent(ctx context.Context, contentID ID) error {
 
 // Intentionally passing bi by value.
 func (bm *WriteManager) deletePreexistingContent(ctx context.Context, ci Info) error {
-	if ci.Deleted {
+	if ci.GetDeleted() {
 		return nil
 	}
 
-	pp, err := bm.getOrCreatePendingPackInfoLocked(ctx, packPrefixForContentID(ci.ID))
+	pp, err := bm.getOrCreatePendingPackInfoLocked(ctx, packPrefixForContentID(ci.GetContentID()))
 	if err != nil {
 		return errors.Wrap(err, "unable to create pack")
 	}
 
-	ci.Deleted = true
-	ci.TimestampSeconds = bm.timeNow().Unix()
-	pp.currentPackItems[ci.ID] = ci
+	pp.currentPackItems[ci.GetContentID()] = &deletedInfo{ci, bm.timeNow().Unix()}
 
 	return nil
 }
@@ -249,9 +247,9 @@ func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, dat
 		return errors.Wrap(err, "unable to create pending pack")
 	}
 
-	info := Info{
+	info := &InfoStruct{
 		Deleted:          isDeleted,
-		ID:               contentID,
+		ContentID:        contentID,
 		PackBlobID:       pp.packBlobID,
 		PackOffset:       uint32(pp.currentPackData.Length()),
 		TimestampSeconds: bm.timeNow().Unix(),
@@ -313,29 +311,29 @@ func (bm *WriteManager) verifyInvariantsLocked() {
 func (bm *WriteManager) verifyCurrentPackItemsLocked() {
 	for _, pp := range bm.pendingPacks {
 		for k, cpi := range pp.currentPackItems {
-			bm.assertInvariant(cpi.ID == k, "content ID entry has invalid key: %v %v", cpi.ID, k)
+			bm.assertInvariant(cpi.GetContentID() == k, "content ID entry has invalid key: %v %v", cpi.GetContentID(), k)
 
-			if !cpi.Deleted {
-				bm.assertInvariant(cpi.PackBlobID == pp.packBlobID, "non-deleted pending pack item %q must be from the pending pack %q, was %q", cpi.ID, pp.packBlobID, cpi.PackBlobID)
+			if !cpi.GetDeleted() {
+				bm.assertInvariant(cpi.GetPackBlobID() == pp.packBlobID, "non-deleted pending pack item %q must be from the pending pack %q, was %q", cpi.GetContentID(), pp.packBlobID, cpi.GetPackBlobID())
 			}
 
-			bm.assertInvariant(cpi.TimestampSeconds != 0, "content has no timestamp: %v", cpi.ID)
+			bm.assertInvariant(cpi.GetTimestampSeconds() != 0, "content has no timestamp: %v", cpi.GetContentID())
 		}
 	}
 }
 
 func (bm *WriteManager) verifyPackIndexBuilderLocked() {
 	for k, cpi := range bm.packIndexBuilder {
-		bm.assertInvariant(cpi.ID == k, "content ID entry has invalid key: %v %v", cpi.ID, k)
+		bm.assertInvariant(cpi.GetContentID() == k, "content ID entry has invalid key: %v %v", cpi.GetContentID(), k)
 
-		if cpi.Deleted {
-			bm.assertInvariant(cpi.PackBlobID == "", "content can't be both deleted and have a pack content: %v", cpi.ID)
+		if cpi.GetDeleted() {
+			bm.assertInvariant(cpi.GetPackBlobID() == "", "content can't be both deleted and have a pack content: %v", cpi.GetContentID())
 		} else {
-			bm.assertInvariant(cpi.PackBlobID != "", "content that's not deleted must have a pack content: %+v", cpi)
-			bm.assertInvariant(cpi.FormatVersion == byte(bm.writeFormatVersion), "content that's not deleted must have a valid format version: %+v", cpi)
+			bm.assertInvariant(cpi.GetPackBlobID() != "", "content that's not deleted must have a pack content: %+v", cpi)
+			bm.assertInvariant(cpi.GetFormatVersion() == byte(bm.writeFormatVersion), "content that's not deleted must have a valid format version: %+v", cpi)
 		}
 
-		bm.assertInvariant(cpi.TimestampSeconds != 0, "content has no timestamp: %v", cpi.ID)
+		bm.assertInvariant(cpi.GetTimestampSeconds() != 0, "content has no timestamp: %v", cpi.GetContentID())
 	}
 }
 
@@ -424,7 +422,7 @@ func (bm *WriteManager) writePackAndAddToIndex(ctx context.Context, pp *pendingP
 	if err == nil {
 		// success, add pack index builder entries to index.
 		for _, info := range packFileIndex {
-			bm.packIndexBuilder.Add(*info)
+			bm.packIndexBuilder.Add(info)
 		}
 
 		pp.currentPackData.Close()
@@ -538,12 +536,12 @@ func (bm *WriteManager) RewriteContent(ctx context.Context, contentID ID) error 
 		return err
 	}
 
-	data, err := bm.getContentDataUnlocked(ctx, pp, &bi)
+	data, err := bm.getContentDataUnlocked(ctx, pp, bi)
 	if err != nil {
 		return err
 	}
 
-	return bm.addToPackUnlocked(ctx, contentID, data, bi.Deleted)
+	return bm.addToPackUnlocked(ctx, contentID, data, bi.GetDeleted())
 }
 
 // UndeleteContent rewrites the content with the given ID if the content exists
@@ -557,11 +555,11 @@ func (bm *WriteManager) UndeleteContent(ctx context.Context, contentID ID) error
 		return err
 	}
 
-	if !bi.Deleted {
+	if !bi.GetDeleted() {
 		return nil
 	}
 
-	data, err := bm.getContentDataUnlocked(ctx, pp, &bi)
+	data, err := bm.getContentDataUnlocked(ctx, pp, bi)
 	if err != nil {
 		return err
 	}
@@ -631,7 +629,7 @@ func (bm *WriteManager) WriteContent(ctx context.Context, data []byte, prefix ID
 
 	// content already tracked
 	if _, bi, err := bm.getContentInfo(contentID); err == nil {
-		if !bi.Deleted {
+		if !bi.GetDeleted() {
 			formatLog(ctx).Debugf("write-content %v already-exists", contentID)
 			return contentID, nil
 		}
@@ -666,8 +664,8 @@ func (bm *WriteManager) GetContent(ctx context.Context, contentID ID) (v []byte,
 		return nil, err
 	}
 
-	// Return content even if it is bi.Deleted so it can be recovered during GC among others.
-	return bm.getContentDataUnlocked(ctx, pp, &bi)
+	// Return content even if it is bi.GetDeleted() so it can be recovered during GC among others.
+	return bm.getContentDataUnlocked(ctx, pp, bi)
 }
 
 func (bm *WriteManager) getOverlayContentInfo(contentID ID) (*pendingPackInfo, Info, bool) {
@@ -690,10 +688,10 @@ func (bm *WriteManager) getOverlayContentInfo(contentID ID) (*pendingPackInfo, I
 
 	// added contents, written to packs but not yet added to indexes
 	if ci, ok := bm.packIndexBuilder[contentID]; ok {
-		return nil, *ci, true
+		return nil, ci, true
 	}
 
-	return nil, Info{}, false
+	return nil, nil, false
 }
 
 func (bm *WriteManager) getContentInfo(contentID ID) (*pendingPackInfo, Info, error) {
@@ -711,7 +709,7 @@ func (bm *WriteManager) ContentInfo(ctx context.Context, contentID ID) (Info, er
 	_, bi, err := bm.getContentInfo(contentID)
 	if err != nil {
 		log(ctx).Debugf("ContentInfo(%q) - error %v", err)
-		return Info{}, err
+		return nil, err
 	}
 
 	return bi, err

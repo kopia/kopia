@@ -47,14 +47,14 @@ func (c *committedContentIndex) getContent(contentID ID) (Info, error) {
 
 	info, err := c.merged.GetInfo(contentID)
 	if info != nil {
-		return *info, nil
+		return info, nil
 	}
 
 	if err == nil {
-		return Info{}, ErrContentNotFound
+		return nil, ErrContentNotFound
 	}
 
-	return Info{}, err
+	return nil, err
 }
 
 func (c *committedContentIndex) addContent(ctx context.Context, indexBlobID blob.ID, data []byte, use bool) error {

@@ -162,9 +162,9 @@ func dropContentsFromBuilder(ctx context.Context, bld packIndexBuilder, opt Comp
 		formatLog(ctx).Debugf("drop-content-deleted-before %v", opt.DropDeletedBefore)
 
 		for _, i := range bld {
-			if i.Deleted && i.Timestamp().Before(opt.DropDeletedBefore) {
-				formatLog(ctx).Debugf("drop-from-index-old-deleted %v %v", i.ID, i.Timestamp())
-				delete(bld, i.ID)
+			if i.GetDeleted() && i.Timestamp().Before(opt.DropDeletedBefore) {
+				formatLog(ctx).Debugf("drop-from-index-old-deleted %v %v", i.GetContentID(), i.Timestamp())
+				delete(bld, i.GetContentID())
 			}
 		}
 

@@ -153,8 +153,8 @@ func (v *verifier) doVerifyObject(ctx context.Context, oid object.ID, path strin
 				continue
 			}
 
-			if _, ok := v.blobMap[ci.PackBlobID]; !ok {
-				v.reportError(ctx, path, errors.Errorf("object %v is backed by missing blob %v", oid, ci.PackBlobID))
+			if _, ok := v.blobMap[ci.GetPackBlobID()]; !ok {
+				v.reportError(ctx, path, errors.Errorf("object %v is backed by missing blob %v", oid, ci.GetPackBlobID()))
 				continue
 			}
 		}

@@ -649,24 +649,21 @@ func TestUndeleteContentSimple(t *testing.T) {
 
 		got, want := getContentInfo(t, bm, tc.cid), tc.info
 
-		if got.Deleted {
+		if got.GetDeleted() {
 			t.Error("Content marked as deleted:", got)
 		}
 
-		if got.PackBlobID == "" {
+		if got.GetPackBlobID() == "" {
 			t.Error("Empty pack id for undeleted content:", tc.cid)
 		}
 
-		if got.PackOffset == 0 {
+		if got.GetPackOffset() == 0 {
 			t.Error("0 offset for undeleted content:", tc.cid)
 		}
 
-		// ignore different timestamps, pack id and pack offset
-		got.TimestampSeconds = want.TimestampSeconds
-		got.PackBlobID = want.PackBlobID
-		got.PackOffset = want.PackOffset
-
-		require.Equal(t, want, got)
+		if diff := infoDiff(want, got, "GetTimestampSeconds", "GetPackBlobID", "GetPackOffset"); len(diff) > 0 {
+			t.Fatalf("diff: %v", diff)
+		}
 	}
 
 	// ensure content is still there after flushing
@@ -700,25 +697,21 @@ func TestUndeleteContentSimple(t *testing.T) {
 		t.Log("case name:", tc.name)
 		got := getContentInfo(t, bm, tc.cid)
 
-		if got.Deleted {
+		if got.GetDeleted() {
 			t.Error("Content marked as deleted:", got)
 		}
 
-		if got.PackBlobID == "" {
+		if got.GetPackBlobID() == "" {
 			t.Error("Empty pack id for undeleted content:", tc.cid)
 		}
 
-		if got.PackOffset == 0 {
+		if got.GetPackOffset() == 0 {
 			t.Error("0 offset for undeleted content:", tc.cid)
 		}
 
 		// ignore different timestamps, pack id and pack offset
-		got.TimestampSeconds = tc.want.TimestampSeconds
-		got.PackBlobID = tc.want.PackBlobID
-		got.PackOffset = tc.want.PackOffset
-
-		if got != tc.want {
-			t.Errorf("content info does not match.\nwant: %#v\ngot:  %#v", tc.want, got)
+		if diff := infoDiff(tc.want, got, "GetPackBlobID", "GetTimestampSeconds"); len(diff) > 0 {
+			t.Errorf("content info does not match. diff: %v", diff)
 		}
 	}
 }
@@ -806,7 +799,7 @@ func TestUndeleteContent(t *testing.T) {
 			t.Fatalf("unable to get content info for %v: %v", id, err)
 		}
 
-		if got, want := ci.Deleted, false; got != want {
+		if got, want := ci.GetDeleted(), false; got != want {
 			t.Fatalf("content %v was not undeleted: %v", id, ci)
 		}
 	}
@@ -822,7 +815,7 @@ func TestUndeleteContent(t *testing.T) {
 			t.Fatalf("unable to get content info for %v: %v", id, err)
 		}
 
-		if got, want := ci.Deleted, false; got != want {
+		if got, want := ci.GetDeleted(), false; got != want {
 			t.Fatalf("content %v was not undeleted: %v", id, ci)
 		}
 	}
@@ -837,7 +830,7 @@ func TestUndeleteContent(t *testing.T) {
 			t.Fatalf("unable to get content info for %v: %v", id, err)
 		}
 
-		if got, want := ci.Deleted, false; got != want {
+		if got, want := ci.GetDeleted(), false; got != want {
 			t.Fatalf("content %v was not undeleted: %v", id, ci)
 		}
 	}
@@ -878,7 +871,6 @@ func TestDeleteAfterUndelete(t *testing.T) {
 	}
 
 	c2Want := getContentInfo(t, bm, content2)
-	c2Want.Deleted = true
 
 	// delete content1 before flushing
 	deleteContentAfterUndeleteAndCheck(ctx, t, bm, content1, c1Want)
@@ -888,6 +880,7 @@ func TestDeleteAfterUndelete(t *testing.T) {
 		t.Fatal("error while flushing:", err)
 	}
 
+	c2Want = withDeleted{c2Want, true}
 	deleteContentAfterUndeleteAndCheck(ctx, t, bm, content2, c2Want)
 }
 
@@ -896,15 +889,12 @@ func deleteContentAfterUndeleteAndCheck(ctx context.Context, t *testing.T, bm *W
 	deleteContent(ctx, t, bm, id)
 
 	got := getContentInfo(t, bm, id)
-	if !got.Deleted {
+	if !got.GetDeleted() {
 		t.Fatalf("Expected content %q to be deleted, got: %#v", id, got)
 	}
 
-	// ignore timestamp
-	got.TimestampSeconds = want.TimestampSeconds
-
-	if want != got {
-		t.Fatalf("Content %q info does not match\nwant: %#v\ngot:  %#v", id, want, got)
+	if diff := infoDiff(want, got, "GetTimestampSeconds"); len(diff) != 0 {
+		t.Fatalf("Content %q info does not match\ndiff: %v", id, diff)
 	}
 
 	if err := bm.Flush(ctx); err != nil {
@@ -913,15 +903,13 @@ func deleteContentAfterUndeleteAndCheck(ctx context.Context, t *testing.T, bm *W
 
 	// check c1 again
 	got = getContentInfo(t, bm, id)
-	if !got.Deleted {
+	if !got.GetDeleted() {
 		t.Fatal("Expected content to be deleted, got: ", got)
 	}
 
 	// ignore timestamp
-	got.TimestampSeconds = want.TimestampSeconds
-
-	if !reflect.DeepEqual(want, got) {
-		t.Fatalf("Content info does not match\nwant: %#v\ngot:  %#v", want, got)
+	if diff := infoDiff(want, got, "GetTimestampSeconds"); len(diff) != 0 {
+		t.Fatalf("Content info does not match\ndiff: %v", diff)
 	}
 }
 
@@ -1159,7 +1147,7 @@ func verifyAllDataPresent(ctx context.Context, t *testing.T, data map[blob.ID][]
 	bm := newTestContentManager(t, data, nil, nil)
 	defer bm.Close(ctx)
 	_ = bm.IterateContents(ctx, IterateOptions{}, func(ci Info) error {
-		delete(contentIDs, ci.ID)
+		delete(contentIDs, ci.GetContentID())
 		return nil
 	})
 
@@ -1587,7 +1575,7 @@ func TestIterateContents(t *testing.T) {
 				}
 
 				mu.Lock()
-				got[ci.ID] = true
+				got[ci.GetContentID()] = true
 				mu.Unlock()
 				return nil
 			})
@@ -2021,7 +2009,7 @@ func verifyDeletedContentRead(ctx context.Context, t *testing.T, bm *WriteManage
 		return
 	}
 
-	if !ci.Deleted {
+	if !ci.GetDeleted() {
 		t.Errorf("Expected content to be deleted but it is not: %#v", ci)
 	}
 }

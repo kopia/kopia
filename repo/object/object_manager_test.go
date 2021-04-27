@@ -62,10 +62,10 @@ func (f *fakeContentManager) ContentInfo(ctx context.Context, contentID content.
 	defer f.mu.Unlock()
 
 	if d, ok := f.data[contentID]; ok {
-		return content.Info{ID: contentID, PackedLength: uint32(len(d))}, nil
+		return &content.InfoStruct{ContentID: contentID, PackedLength: uint32(len(d))}, nil
 	}
 
-	return content.Info{}, blob.ErrBlobNotFound
+	return nil, blob.ErrBlobNotFound
 }
 
 func (f *fakeContentManager) Flush(ctx context.Context) error {

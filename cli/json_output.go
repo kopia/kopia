@@ -5,6 +5,7 @@ import (
 
 	"github.com/alecthomas/kingpin"
 
+	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/snapshot"
 )
 
@@ -47,6 +48,8 @@ func cleanupSnapshotManifestListForJSON(manifests []*snapshot.Manifest) interfac
 
 func cleanupForJSON(v interface{}) interface{} {
 	switch v := v.(type) {
+	case content.Info:
+		return content.ToInfoStruct(v)
 	case *snapshot.Manifest:
 		return cleanupSnapshotManifestForJSON(v)
 	case []*snapshot.Manifest:
