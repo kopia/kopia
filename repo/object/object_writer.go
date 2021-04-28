@@ -189,12 +189,17 @@ func (w *objectWriter) prepareAndWriteContentChunk(chunkID int, data []byte) err
 	b := w.om.bufferPool.Allocate(len(data) + maxCompressionOverheadPerSegment)
 	defer b.Release()
 
-	// TODO(jkowalski): determine if content manager supports low-level compression,
-	// pass the uncompressed data to it.
 	comp := content.NoCompression
+	objectComp := w.compressor
+
+	// do not compress in this layer, instead pass comp to the content manager.
+	if w.om.contentMgr.SupportsContentCompression() && w.compressor != nil {
+		comp = w.compressor.HeaderID()
+		objectComp = nil
+	}
 
 	// contentBytes is what we're going to write to the content manager, it potentially uses bytes from b
-	contentBytes, isCompressed, err := maybeCompressedContentBytes(w.compressor, bytes.NewBuffer(b.Data[:0]), data)
+	contentBytes, isCompressed, err := maybeCompressedContentBytes(objectComp, bytes.NewBuffer(b.Data[:0]), data)
 	if err != nil {
 		return errors.Wrap(err, "unable to prepare content bytes")
 	}
