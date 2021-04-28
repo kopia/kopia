@@ -49,7 +49,7 @@ anchor = "smart"
 
 [services]
 [services.googleAnalytics]
-id = "UA-256960-22"
+# handled manually
 
 # Language configuration
 

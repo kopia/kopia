@@ -6,6 +6,10 @@ all: build
 
 include ../tools/tools.mk
 
+ifeq ($(NETLIFY)/$(CONTEXT),true/production)
+export HUGO_ENV=production
+endif
+
 build: gen-cli-reference-pages $(hugo) node_modules
 	$(hugo)
 
