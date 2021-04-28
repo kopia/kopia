@@ -37,7 +37,7 @@ func TestManySmallFiles(t *testing.T) {
 	}
 
 	f := func(ctx context.Context) {
-		_, err := tryExecAction(ctx, t, engine.RestoreIntoDataDirectoryActionKey, nil)
+		err := tryRestoreIntoDataDirectory(ctx, t)
 		testenv.AssertNoError(t, err)
 
 		_, err = eng.ExecAction(ctx, engine.WriteRandomFilesActionKey, fileWriteOpts)
@@ -68,7 +68,7 @@ func TestOneLargeFile(t *testing.T) {
 	}
 
 	f := func(ctx context.Context) {
-		_, err := tryExecAction(ctx, t, engine.RestoreIntoDataDirectoryActionKey, nil)
+		err := tryRestoreIntoDataDirectory(ctx, t)
 		testenv.AssertNoError(t, err)
 
 		_, err = eng.ExecAction(ctx, engine.WriteRandomFilesActionKey, fileWriteOpts)
@@ -103,7 +103,7 @@ func TestManySmallFilesAcrossDirecoryTree(t *testing.T) {
 	}
 
 	f := func(ctx context.Context) {
-		_, err := tryExecAction(ctx, t, engine.RestoreIntoDataDirectoryActionKey, nil)
+		err := tryRestoreIntoDataDirectory(ctx, t)
 		testenv.AssertNoError(t, err)
 
 		_, err = eng.ExecAction(ctx, engine.WriteRandomFilesActionKey, fileWriteOpts)
@@ -141,7 +141,7 @@ func TestRandomizedSmall(t *testing.T) {
 	}
 
 	f := func(ctx context.Context) {
-		_, err := tryExecAction(ctx, t, engine.RestoreIntoDataDirectoryActionKey, nil)
+		err := tryRestoreIntoDataDirectory(ctx, t)
 		testenv.AssertNoError(t, err)
 
 		for clock.Since(st) <= *randomizedTestDur {
@@ -155,16 +155,16 @@ func TestRandomizedSmall(t *testing.T) {
 }
 
 // tryExecAction runs eng.ExecAction on the given parameters and masks no-op errors.
-func tryExecAction(ctx context.Context, t *testing.T, actionKey engine.ActionKey, opts map[string]string) (map[string]string, error) {
+func tryRestoreIntoDataDirectory(ctx context.Context, t *testing.T) error {
 	t.Helper()
 
-	out, err := eng.ExecAction(ctx, actionKey, opts)
+	_, err := eng.ExecAction(ctx, engine.RestoreIntoDataDirectoryActionKey, nil)
 	if errors.Is(err, robustness.ErrNoOp) {
 		t.Log("Action resulted in no-op")
-		return out, nil
+		return nil
 	}
 
-	return out, err
+	return err
 }
 
 // tryRandomAction runs eng.ExecAction on the given parameters and masks no-op errors.
