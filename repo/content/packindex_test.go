@@ -5,11 +5,13 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"math/rand"
 	"strings"
 	"testing"
 
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/compression"
 )
 
 const fakeEncryptionOverhead = 27
@@ -45,17 +47,44 @@ func deterministicPackedOffset(id int) uint32 {
 	s := rand.NewSource(int64(id + 1))
 	rnd := rand.New(s)
 
-	return uint32(rnd.Int31())
+	return uint32(rnd.Int31()) & (1<<28 - 1)
+}
+
+func deterministicOriginalLength(id, version int) uint32 {
+	if version == 1 {
+		return deterministicPackedLength(id) - fakeEncryptionOverhead
+	}
+
+	s := rand.NewSource(int64(id + 4))
+	rnd := rand.New(s)
+
+	return uint32(rnd.Int31()) & (1<<28 - 1)
 }
 
 func deterministicPackedLength(id int) uint32 {
 	s := rand.NewSource(int64(id + 2))
 	rnd := rand.New(s)
 
-	return uint32(rnd.Int31())
+	return uint32(rnd.Int31()) % v2MaxContentLength
 }
 
 func deterministicFormatVersion(id int) byte {
+	return byte(id % 100)
+}
+
+func deterministicCompressionHeaderID(id, version int) compression.HeaderID {
+	if version == 1 {
+		return 0
+	}
+
+	return compression.HeaderID(id % 100)
+}
+
+func deterministicEncryptionKeyID(id, version int) byte {
+	if version == 1 {
+		return 0
+	}
+
 	return byte(id % 100)
 }
 
@@ -64,30 +93,49 @@ func randomUnixTime() int64 {
 }
 
 //nolint:gocyclo
-func TestPackIndex(t *testing.T) {
-	var infos []Info
+func TestPackIndex_V1(t *testing.T) {
+	testPackIndex(t, 1, func(b packIndexBuilder, w io.Writer) error {
+		return b.buildV1(w)
+	})
+}
 
+//nolint:gocyclo
+func TestPackIndex_V2(t *testing.T) {
+	testPackIndex(t, 2, func(b packIndexBuilder, w io.Writer) error {
+		return b.buildV2(w)
+	})
+}
+
+// nolint:thelper,gocyclo,cyclop
+func testPackIndex(t *testing.T, version int, build func(b packIndexBuilder, w io.Writer) error) {
+	var infos []Info
 	// deleted contents with all information
 	for i := 0; i < 100; i++ {
 		infos = append(infos, &InfoStruct{
-			TimestampSeconds: randomUnixTime(),
-			Deleted:          true,
-			ContentID:        deterministicContentID("deleted-packed", i),
-			PackBlobID:       deterministicPackBlobID(i),
-			PackOffset:       deterministicPackedOffset(i),
-			PackedLength:     deterministicPackedLength(i),
-			FormatVersion:    deterministicFormatVersion(i),
+			TimestampSeconds:    randomUnixTime(),
+			Deleted:             true,
+			ContentID:           deterministicContentID("deleted-packed", i),
+			PackBlobID:          deterministicPackBlobID(i),
+			PackOffset:          deterministicPackedOffset(i),
+			PackedLength:        deterministicPackedLength(i),
+			FormatVersion:       deterministicFormatVersion(i),
+			OriginalLength:      deterministicOriginalLength(i, version),
+			CompressionHeaderID: deterministicCompressionHeaderID(i, version),
+			EncryptionKeyID:     deterministicEncryptionKeyID(i, version),
 		})
 	}
 	// non-deleted content
 	for i := 0; i < 100; i++ {
 		infos = append(infos, &InfoStruct{
-			TimestampSeconds: randomUnixTime(),
-			ContentID:        deterministicContentID("packed", i),
-			PackBlobID:       deterministicPackBlobID(i),
-			PackOffset:       deterministicPackedOffset(i),
-			PackedLength:     deterministicPackedLength(i),
-			FormatVersion:    deterministicFormatVersion(i),
+			TimestampSeconds:    randomUnixTime(),
+			ContentID:           deterministicContentID("packed", i),
+			PackBlobID:          deterministicPackBlobID(i),
+			PackOffset:          deterministicPackedOffset(i),
+			PackedLength:        deterministicPackedLength(i),
+			FormatVersion:       deterministicFormatVersion(i),
+			OriginalLength:      deterministicOriginalLength(i, version),
+			CompressionHeaderID: deterministicCompressionHeaderID(i, version),
+			EncryptionKeyID:     deterministicEncryptionKeyID(i, version),
 		})
 	}
 
@@ -105,26 +153,26 @@ func TestPackIndex(t *testing.T) {
 
 	var buf1, buf2, buf3 bytes.Buffer
 
-	if err := b1.Build(&buf1); err != nil {
-		t.Errorf("unable to build: %v", err)
+	if err := build(b1, &buf1); err != nil {
+		t.Fatalf("unable to build: %v", err)
 	}
 
-	if err := b1.Build(&buf2); err != nil {
-		t.Errorf("unable to build: %v", err)
+	if err := build(b2, &buf2); err != nil {
+		t.Fatalf("unable to build: %v", err)
 	}
 
-	if err := b1.Build(&buf3); err != nil {
-		t.Errorf("unable to build: %v", err)
+	if err := build(b3, &buf3); err != nil {
+		t.Fatalf("unable to build: %v", err)
 	}
 
 	data1 := buf1.Bytes()
 	data2 := buf2.Bytes()
 	data3 := buf3.Bytes()
 
-	// each build produces exactly idendical prefix except for the trailing random bytes.
-	data1Prefix := data1[0 : len(data1)-randomSuffixSize]
-	data2Prefix := data2[0 : len(data2)-randomSuffixSize]
-	data3Prefix := data3[0 : len(data3)-randomSuffixSize]
+	// each build produces exactly identical prefix except for the trailing random bytes.
+	data1Prefix := data1[0 : len(data1)-v1RandomSuffixSize]
+	data2Prefix := data2[0 : len(data2)-v1RandomSuffixSize]
+	data3Prefix := data3[0 : len(data3)-v1RandomSuffixSize]
 
 	if !bytes.Equal(data1Prefix, data2Prefix) {
 		t.Errorf("builder output not stable: %x vs %x", hex.Dump(data1Prefix), hex.Dump(data2Prefix))
@@ -155,7 +203,10 @@ func TestPackIndex(t *testing.T) {
 			continue
 		}
 
-		want = withOriginalLength{want, want.GetPackedLength() - fakeEncryptionOverhead}
+		if version == 1 {
+			// v1 does not preserve original length.
+			want = withOriginalLength{want, want.GetPackedLength() - fakeEncryptionOverhead}
+		}
 
 		if diff := infoDiff(want, info2); len(diff) != 0 {
 			t.Errorf("invalid value retrieved: diff: %v", diff)
@@ -166,7 +217,10 @@ func TestPackIndex(t *testing.T) {
 
 	assertNoError(t, ndx.Iterate(AllIDs, func(info2 Info) error {
 		want := infoMap[info2.GetContentID()]
-		want = withOriginalLength{want, want.GetPackedLength() - fakeEncryptionOverhead}
+		if version == 1 {
+			// v1 does not preserve original length.
+			want = withOriginalLength{want, want.GetPackedLength() - fakeEncryptionOverhead}
+		}
 
 		if diff := infoDiff(want, info2); len(diff) != 0 {
 			t.Errorf("invalid value retrieved: %v", diff)
