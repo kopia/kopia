@@ -35,6 +35,8 @@ const (
 
 	maxHashSize                            = 64
 	defaultEncryptionBufferPoolSegmentSize = 8 << 20 // 8 MB
+
+	DefaultIndexVersion = 1
 )
 
 // PackBlobIDPrefixes contains all possible prefixes for pack blobs.
@@ -607,6 +609,11 @@ func (bm *WriteManager) getOrCreatePendingPackInfoLocked(ctx context.Context, pr
 	}
 
 	return bm.pendingPacks[prefix], nil
+}
+
+// SupportsContentCompression returns true if content manager supports content-compression.
+func (bm *WriteManager) SupportsContentCompression() bool {
+	return bm.format.IndexVersion >= v2IndexVersion
 }
 
 // WriteContent saves a given content of data to a pack group with a provided name and returns a contentID

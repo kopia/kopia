@@ -361,6 +361,15 @@ func NewSharedManager(ctx context.Context, st blob.Storage, f *FormattingOptions
 		return nil, err
 	}
 
+	actualIndexVersion := f.IndexVersion
+	if actualIndexVersion == 0 {
+		actualIndexVersion = DefaultIndexVersion
+	}
+
+	if actualIndexVersion < v1IndexVersion || actualIndexVersion > v2IndexVersion {
+		return nil, errors.Errorf("index version %v is not supported", actualIndexVersion)
+	}
+
 	sm := &SharedManager{
 		st:                      st,
 		encryptor:               encryptor,
@@ -376,7 +385,7 @@ func NewSharedManager(ctx context.Context, st blob.Storage, f *FormattingOptions
 		checkInvariantsOnUnlock: os.Getenv("KOPIA_VERIFY_INVARIANTS") != "",
 		writeFormatVersion:      int32(f.Version),
 		encryptionBufferPool:    buf.NewPool(ctx, defaultEncryptionBufferPoolSegmentSize+encryptor.Overhead(), "content-manager-encryption"),
-		indexVersion:            v1IndexVersion,
+		indexVersion:            actualIndexVersion,
 	}
 
 	caching = caching.CloneOrDefault()
