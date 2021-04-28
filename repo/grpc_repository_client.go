@@ -22,6 +22,7 @@ import (
 	"github.com/kopia/kopia/internal/retry"
 	"github.com/kopia/kopia/internal/tlsutil"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/hashing"
 	"github.com/kopia/kopia/repo/manifest"
@@ -533,7 +534,7 @@ func (r *grpcInnerSession) GetContent(ctx context.Context, contentID content.ID)
 	return nil, errNoSessionResponse()
 }
 
-func (r *grpcRepositoryClient) WriteContent(ctx context.Context, data []byte, prefix content.ID) (content.ID, error) {
+func (r *grpcRepositoryClient) WriteContent(ctx context.Context, data []byte, prefix content.ID, comp compression.HeaderID) (content.ID, error) {
 	if err := content.ValidatePrefix(prefix); err != nil {
 		return "", errors.Wrap(err, "invalid prefix")
 	}
@@ -551,7 +552,7 @@ func (r *grpcRepositoryClient) WriteContent(ctx context.Context, data []byte, pr
 	r.opt.OnUpload(int64(len(data)))
 
 	v, err := r.inSessionWithoutRetry(ctx, func(ctx context.Context, sess *grpcInnerSession) (interface{}, error) {
-		return sess.WriteContent(ctx, data, prefix)
+		return sess.WriteContent(ctx, data, prefix, comp)
 	})
 	if err != nil {
 		return "", err
@@ -565,7 +566,7 @@ func (r *grpcRepositoryClient) WriteContent(ctx context.Context, data []byte, pr
 	return v.(content.ID), nil
 }
 
-func (r *grpcInnerSession) WriteContent(ctx context.Context, data []byte, prefix content.ID) (content.ID, error) {
+func (r *grpcInnerSession) WriteContent(ctx context.Context, data []byte, prefix content.ID, comp compression.HeaderID) (content.ID, error) {
 	if err := content.ValidatePrefix(prefix); err != nil {
 		return "", errors.Wrap(err, "invalid prefix")
 	}
@@ -573,8 +574,9 @@ func (r *grpcInnerSession) WriteContent(ctx context.Context, data []byte, prefix
 	for resp := range r.sendRequest(ctx, &apipb.SessionRequest{
 		Request: &apipb.SessionRequest_WriteContent{
 			WriteContent: &apipb.WriteContentRequest{
-				Data:   data,
-				Prefix: string(prefix),
+				Data:        data,
+				Prefix:      string(prefix),
+				Compression: uint32(comp),
 			},
 		},
 	}) {

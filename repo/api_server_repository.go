@@ -14,6 +14,7 @@ import (
 	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/remoterepoapi"
+	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/hashing"
 	"github.com/kopia/kopia/repo/manifest"
@@ -177,7 +178,7 @@ func (r *apiServerRepository) GetContent(ctx context.Context, contentID content.
 	})
 }
 
-func (r *apiServerRepository) WriteContent(ctx context.Context, data []byte, prefix content.ID) (content.ID, error) {
+func (r *apiServerRepository) WriteContent(ctx context.Context, data []byte, prefix content.ID, comp compression.HeaderID) (content.ID, error) {
 	if err := content.ValidatePrefix(prefix); err != nil {
 		return "", errors.Wrap(err, "invalid prefix")
 	}
@@ -194,7 +195,12 @@ func (r *apiServerRepository) WriteContent(ctx context.Context, data []byte, pre
 
 	r.wso.OnUpload(int64(len(data)))
 
-	if err := r.cli.Put(ctx, "contents/"+string(contentID), data, nil); err != nil {
+	maybeCompression := ""
+	if comp != content.NoCompression {
+		maybeCompression = fmt.Sprintf("?compression=%x", comp)
+	}
+
+	if err := r.cli.Put(ctx, "contents/"+string(contentID)+maybeCompression, data, nil); err != nil {
 		return "", errors.Wrapf(err, "error writing content %v", contentID)
 	}
 

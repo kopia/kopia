@@ -44,7 +44,7 @@ func (f *fakeContentManager) GetContent(ctx context.Context, contentID content.I
 	return nil, content.ErrContentNotFound
 }
 
-func (f *fakeContentManager) WriteContent(ctx context.Context, data []byte, prefix content.ID) (content.ID, error) {
+func (f *fakeContentManager) WriteContent(ctx context.Context, data []byte, prefix content.ID, comp compression.HeaderID) (content.ID, error) {
 	h := sha256.New()
 	h.Write(data)
 	contentID := prefix + content.ID(hex.EncodeToString(h.Sum(nil)))

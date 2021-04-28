@@ -83,6 +83,7 @@ message FlushResponse {
 message WriteContentRequest {
   string prefix = 1;
   bytes data = 2;
+  uint32 compression = 3;
 }
 
 message WriteContentResponse {

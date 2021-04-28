@@ -76,7 +76,7 @@ func (m *committedManifestManager) writeEntriesLocked(ctx context.Context, entri
 	mustSucceed(gz.Flush())
 	mustSucceed(gz.Close())
 
-	contentID, err := m.b.WriteContent(ctx, buf.Bytes(), ContentPrefix)
+	contentID, err := m.b.WriteContent(ctx, buf.Bytes(), ContentPrefix, content.NoCompression)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to write content")
 	}

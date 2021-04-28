@@ -11,18 +11,27 @@ import (
 
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/encryption"
 	"github.com/kopia/kopia/repo/hashing"
 )
 
 const indexBlobCompactionWarningThreshold = 1000
 
-func (sm *SharedManager) maybeEncryptContentDataForPacking(output *gather.WriteBuffer, data []byte, contentID ID) error {
+func (sm *SharedManager) maybeCompressAndEncryptDataForPacking(output *gather.WriteBuffer, data []byte, contentID ID, comp compression.HeaderID) error {
 	var hashOutput [maxHashSize]byte
 
 	iv, err := getPackedContentIV(hashOutput[:], contentID)
 	if err != nil {
 		return errors.Wrapf(err, "unable to get packed content IV for %q", contentID)
+	}
+
+	if comp != NoCompression {
+		if !sm.format.EnableV2Index {
+			return errors.Errorf("compression is not enabled for this repository.")
+		}
+
+		return errors.Errorf("compression is not supported yet.")
 	}
 
 	b := sm.encryptionBufferPool.Allocate(len(data) + sm.encryptor.Overhead())

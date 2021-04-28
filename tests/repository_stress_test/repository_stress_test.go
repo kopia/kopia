@@ -233,7 +233,7 @@ func writeRandomBlock(ctx context.Context, t *testing.T, r repo.DirectRepository
 	data := make([]byte, 1000)
 	cryptorand.Read(data)
 
-	contentID, err := r.ContentManager().WriteContent(ctx, data, "")
+	contentID, err := r.ContentManager().WriteContent(ctx, data, "", content.NoCompression)
 	if err == nil {
 		knownBlocksMutex.Lock()
 		if len(knownBlocks) >= 1000 {
