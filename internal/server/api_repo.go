@@ -30,9 +30,10 @@ func (s *Server) handleRepoParameters(ctx context.Context, r *http.Request, body
 	}
 
 	rp := &remoterepoapi.Parameters{
-		HashFunction: dr.ContentReader().ContentFormat().Hash,
-		HMACSecret:   dr.ContentReader().ContentFormat().HMACSecret,
-		Format:       dr.ObjectFormat(),
+		HashFunction:               dr.ContentReader().ContentFormat().Hash,
+		HMACSecret:                 dr.ContentReader().ContentFormat().HMACSecret,
+		Format:                     dr.ObjectFormat(),
+		SupportsContentCompression: dr.ContentReader().SupportsContentCompression(),
 	}
 
 	return rp, nil

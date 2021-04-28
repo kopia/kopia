@@ -27,7 +27,7 @@ func (sm *SharedManager) maybeCompressAndEncryptDataForPacking(output *gather.Wr
 	}
 
 	if comp != NoCompression {
-		if !sm.format.EnableV2Index {
+		if sm.format.IndexVersion < v2IndexVersion {
 			return errors.Errorf("compression is not enabled for this repository.")
 		}
 

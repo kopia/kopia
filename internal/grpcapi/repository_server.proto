@@ -45,6 +45,7 @@ message RepositoryParameters {
   string hash_function = 1;
   bytes hmac_secret = 2;
   string splitter = 3;
+  bool supports_content_compression = 4;
 }
 
 // InitializeSessionRequest must be sent by the client as the first request in a session.

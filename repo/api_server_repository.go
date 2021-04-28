@@ -31,12 +31,13 @@ type APIServerInfo struct {
 // remoteRepository is an implementation of Repository that connects to an instance of
 // API server hosted by `kopia server`, instead of directly manipulating files in the BLOB storage.
 type apiServerRepository struct {
-	cli          *apiclient.KopiaAPIClient
-	h            hashing.HashFunc
-	objectFormat object.Format
-	cliOpts      ClientOptions
-	omgr         *object.Manager
-	wso          WriteSessionOptions
+	cli                              *apiclient.KopiaAPIClient
+	h                                hashing.HashFunc
+	objectFormat                     object.Format
+	serverSupportsContentCompression bool
+	cliOpts                          ClientOptions
+	omgr                             *object.Manager
+	wso                              WriteSessionOptions
 
 	isSharedReadOnlySession bool
 	contentCache            *cache.PersistentCache
@@ -135,6 +136,10 @@ func (r *apiServerRepository) Refresh(ctx context.Context) error {
 
 func (r *apiServerRepository) Flush(ctx context.Context) error {
 	return errors.Wrap(r.cli.Post(ctx, "flush", nil, nil), "Flush")
+}
+
+func (r *apiServerRepository) SupportsContentCompression() bool {
+	return r.serverSupportsContentCompression
 }
 
 func (r *apiServerRepository) NewWriter(ctx context.Context, opt WriteSessionOptions) (RepositoryWriter, error) {
@@ -272,6 +277,7 @@ func openRestAPIRepository(ctx context.Context, si *APIServerInfo, cliOpts Clien
 
 	rr.h = hf
 	rr.objectFormat = p.Format
+	rr.serverSupportsContentCompression = p.SupportsContentCompression
 
 	// create object manager using rr as contentManager implementation.
 	omgr, err := object.NewObjectManager(ctx, rr, rr.objectFormat)

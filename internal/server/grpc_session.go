@@ -421,9 +421,10 @@ func (s *Server) handleInitialSessionHandshake(srv grpcapi.KopiaRepository_Sessi
 		Response: &grpcapi.SessionResponse_InitializeSession{
 			InitializeSession: &grpcapi.InitializeSessionResponse{
 				Parameters: &grpcapi.RepositoryParameters{
-					HashFunction: dr.ContentReader().ContentFormat().Hash,
-					HmacSecret:   dr.ContentReader().ContentFormat().HMACSecret,
-					Splitter:     dr.ObjectFormat().Splitter,
+					HashFunction:               dr.ContentReader().ContentFormat().Hash,
+					HmacSecret:                 dr.ContentReader().ContentFormat().HMACSecret,
+					Splitter:                   dr.ObjectFormat().Splitter,
+					SupportsContentCompression: dr.ContentReader().SupportsContentCompression(),
 				},
 			},
 		},

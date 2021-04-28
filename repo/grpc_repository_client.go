@@ -56,10 +56,11 @@ type grpcRepositoryClient struct {
 	// how many times we tried to establish inner session
 	innerSessionAttemptCount int
 
-	h            hashing.HashFunc
-	objectFormat object.Format
-	cliOpts      ClientOptions
-	omgr         *object.Manager
+	h                                hashing.HashFunc
+	objectFormat                     object.Format
+	serverSupportsContentCompression bool
+	cliOpts                          ClientOptions
+	omgr                             *object.Manager
 
 	contentCache *cache.PersistentCache
 }
@@ -534,6 +535,10 @@ func (r *grpcInnerSession) GetContent(ctx context.Context, contentID content.ID)
 	return nil, errNoSessionResponse()
 }
 
+func (r *grpcRepositoryClient) SupportsContentCompression() bool {
+	return r.serverSupportsContentCompression
+}
+
 func (r *grpcRepositoryClient) WriteContent(ctx context.Context, data []byte, prefix content.ID, comp compression.HeaderID) (content.ID, error) {
 	if err := content.ValidatePrefix(prefix); err != nil {
 		return "", errors.Wrap(err, "invalid prefix")
@@ -774,6 +779,8 @@ func newGRPCAPIRepositoryForConnection(ctx context.Context, conn *grpc.ClientCon
 		rr.objectFormat = object.Format{
 			Splitter: p.Splitter,
 		}
+
+		rr.serverSupportsContentCompression = p.SupportsContentCompression
 
 		rr.omgr, err = object.NewObjectManager(ctx, rr, rr.objectFormat)
 		if err != nil {

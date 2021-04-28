@@ -34,6 +34,7 @@ type contentReader interface {
 
 type contentManager interface {
 	contentReader
+	SupportsContentCompression() bool
 	WriteContent(ctx context.Context, data []byte, prefix content.ID, comp compression.HeaderID) (content.ID, error)
 }
 

@@ -57,6 +57,10 @@ func (f *fakeContentManager) WriteContent(ctx context.Context, data []byte, pref
 	return contentID, nil
 }
 
+func (f *fakeContentManager) SupportsContentCompression() bool {
+	return false
+}
+
 func (f *fakeContentManager) ContentInfo(ctx context.Context, contentID content.ID) (content.Info, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
