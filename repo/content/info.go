@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/compression"
 )
 
 // ID is an identifier of content in content-addressable storage.
@@ -34,6 +35,8 @@ type Info interface {
 	GetPackOffset() uint32
 	GetDeleted() bool
 	GetFormatVersion() byte
+	GetCompressionHeaderID() compression.HeaderID
+	GetEncryptionKeyID() byte
 }
 
 type deletedInfo struct {
@@ -51,14 +54,16 @@ func (d *deletedInfo) GetTimestampSeconds() int64 {
 
 // InfoStruct is an implementation of Info based on a structure.
 type InfoStruct struct {
-	ContentID        ID      `json:"contentID"`
-	PackBlobID       blob.ID `json:"packFile,omitempty"`
-	TimestampSeconds int64   `json:"time"`
-	OriginalLength   uint32  `json:"originalLength"`
-	PackedLength     uint32  `json:"length"`
-	PackOffset       uint32  `json:"packOffset,omitempty"`
-	Deleted          bool    `json:"deleted"`
-	FormatVersion    byte    `json:"formatVersion"`
+	ContentID           ID                   `json:"contentID"`
+	PackBlobID          blob.ID              `json:"packFile,omitempty"`
+	TimestampSeconds    int64                `json:"time"`
+	OriginalLength      uint32               `json:"originalLength"`
+	PackedLength        uint32               `json:"length"`
+	PackOffset          uint32               `json:"packOffset,omitempty"`
+	Deleted             bool                 `json:"deleted"`
+	FormatVersion       byte                 `json:"formatVersion"`
+	CompressionHeaderID compression.HeaderID `json:"compression,omitempty"`
+	EncryptionKeyID     byte                 `json:"encryptionKeyID,omitempty"`
 }
 
 // GetContentID implements the Info interface.
@@ -85,6 +90,12 @@ func (i *InfoStruct) GetDeleted() bool { return i.Deleted }
 // GetFormatVersion implements the Info interface.
 func (i *InfoStruct) GetFormatVersion() byte { return i.FormatVersion }
 
+// GetCompressionHeaderID implements the Info interface.
+func (i *InfoStruct) GetCompressionHeaderID() compression.HeaderID { return i.CompressionHeaderID }
+
+// GetEncryptionKeyID implements the Info interface.
+func (i *InfoStruct) GetEncryptionKeyID() byte { return i.EncryptionKeyID }
+
 // Timestamp implements the Info interface.
 func (i *InfoStruct) Timestamp() time.Time {
 	return time.Unix(i.GetTimestampSeconds(), 0)
@@ -97,13 +108,15 @@ func ToInfoStruct(i Info) *InfoStruct {
 	}
 
 	return &InfoStruct{
-		ContentID:        i.GetContentID(),
-		PackBlobID:       i.GetPackBlobID(),
-		TimestampSeconds: i.GetTimestampSeconds(),
-		OriginalLength:   i.GetOriginalLength(),
-		PackedLength:     i.GetPackedLength(),
-		PackOffset:       i.GetPackOffset(),
-		Deleted:          i.GetDeleted(),
-		FormatVersion:    i.GetFormatVersion(),
+		ContentID:           i.GetContentID(),
+		PackBlobID:          i.GetPackBlobID(),
+		TimestampSeconds:    i.GetTimestampSeconds(),
+		OriginalLength:      i.GetOriginalLength(),
+		PackedLength:        i.GetPackedLength(),
+		PackOffset:          i.GetPackOffset(),
+		Deleted:             i.GetDeleted(),
+		FormatVersion:       i.GetFormatVersion(),
+		CompressionHeaderID: i.GetCompressionHeaderID(),
+		EncryptionKeyID:     i.GetEncryptionKeyID(),
 	}
 }
