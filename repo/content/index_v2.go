@@ -32,6 +32,7 @@ const (
 	v2MaxShortPackIDCount   = 1 << 16 // max number that can be represented using 2 bytes
 	v2MaxContentLength      = 1 << 28 // max supported content length (representible using 3.5 bytes)
 	v2MaxShortContentLength = 1 << 24 // max content length representible using 3 bytes
+	v2MaxPackOffset         = 1 << 30 // max pack offset 1GiB to leave 2 bits for flags
 	v2RandomSuffixSize      = 32      // number of random bytes to append at the end to make the index blob unique
 	v2DeletedMarker         = 0x80000000
 	v2MaxEntrySize          = 256 // maximum length of content ID + per-entry data combined
@@ -476,7 +477,7 @@ func buildPackIDToIndexMap(sortedInfos []Info) map[blob.ID]int {
 }
 
 // maxContentLengths computes max content lengths in the builder.
-func maxContentLengths(sortedInfos []Info) (maxPackedLength, maxOriginalLength uint32) {
+func maxContentLengths(sortedInfos []Info) (maxPackedLength, maxOriginalLength, maxPackOffset uint32) {
 	for _, v := range sortedInfos {
 		if l := v.GetPackedLength(); l > maxPackedLength {
 			maxPackedLength = l
@@ -484,6 +485,10 @@ func maxContentLengths(sortedInfos []Info) (maxPackedLength, maxOriginalLength u
 
 		if l := v.GetOriginalLength(); l > maxOriginalLength {
 			maxOriginalLength = l
+		}
+
+		if l := v.GetPackOffset(); l > maxPackOffset {
+			maxPackOffset = l
 		}
 	}
 
@@ -513,8 +518,8 @@ func newIndexBuilderV2(sortedInfos []Info) (*indexBuilderV2, error) {
 	}
 
 	packID2Index := buildPackIDToIndexMap(sortedInfos)
-	if len(packID2Index) >= v2MaxUniquePackIDCount {
-		return nil, errors.Errorf("unsupported - too many unique formats %v (max %v)", len(uniqueFormat2Index), v2MaxFormatCount)
+	if len(packID2Index) > v2MaxUniquePackIDCount {
+		return nil, errors.Errorf("unsupported - too many unique pack IDs %v (max %v)", len(packID2Index), v2MaxUniquePackIDCount)
 	}
 
 	if len(packID2Index) > v2MaxShortPackIDCount {
@@ -522,16 +527,20 @@ func newIndexBuilderV2(sortedInfos []Info) (*indexBuilderV2, error) {
 	}
 
 	// compute maximum content length to determine how many bits we need to use to store it.
-	maxPackedLen, maxOriginalLength := maxContentLengths(sortedInfos)
+	maxPackedLen, maxOriginalLength, maxPackOffset := maxContentLengths(sortedInfos)
 
-	// contents longer than 28 bits (256 MiB) can't be stored at all.
-	if maxPackedLen > v2MaxContentLength || maxOriginalLength > v2MaxContentLength {
+	// contents >= 28 bits (256 MiB) can't be stored at all.
+	if maxPackedLen >= v2MaxContentLength || maxOriginalLength >= v2MaxContentLength {
 		return nil, errors.Errorf("maximum content length is too high: (packed %v, original %v, max %v)", maxPackedLen, maxOriginalLength, v2MaxContentLength)
 	}
 
-	// contents longer than 24 bits (16 MiB) requires extra 0.5 byte per length.
-	if maxPackedLen > v2MaxShortContentLength || maxOriginalLength > v2MaxShortContentLength {
+	// contents >= 24 bits (16 MiB) requires extra 0.5 byte per length.
+	if maxPackedLen >= v2MaxShortContentLength || maxOriginalLength >= v2MaxShortContentLength {
 		entrySize = max(entrySize, v2EntryOffsetHighLengthBitsEnd)
+	}
+
+	if maxPackOffset >= v2MaxPackOffset {
+		return nil, errors.Errorf("pack offset %v is too high", maxPackOffset)
 	}
 
 	keyLength := -1
@@ -565,6 +574,10 @@ func (b packIndexBuilder) buildV2(output io.Writer) error {
 
 	// prepare extra data to be appended at the end of an index.
 	extraData := b2.prepareExtraData(sortedInfos)
+
+	if b2.keyLength <= 1 {
+		return errors.Errorf("invalid key length: %v", b2.keyLength)
+	}
 
 	// write header
 	header := make([]byte, v2IndexHeaderSize)
@@ -765,7 +778,7 @@ func openV2PackIndex(readerAt io.ReaderAt) (packIndex, error) {
 		baseTimestamp: binary.BigEndian.Uint32(header[13:17]),
 	}
 
-	if hi.keySize <= 1 || hi.entrySize < v2EntryMinLength || hi.entrySize > v2EntryMaxLength || hi.entryCount < 0 || hi.formatCount >= v2MaxFormatCount {
+	if hi.keySize <= 1 || hi.entrySize < v2EntryMinLength || hi.entrySize > v2EntryMaxLength || hi.entryCount < 0 || hi.formatCount > v2MaxFormatCount {
 		return nil, errors.Errorf("invalid header")
 	}
 
