@@ -23,8 +23,9 @@ type Compressor interface {
 
 // maps of registered compressors by header ID and name.
 var (
-	ByHeaderID = map[HeaderID]Compressor{}
-	ByName     = map[Name]Compressor{}
+	ByHeaderID     = map[HeaderID]Compressor{}
+	ByName         = map[Name]Compressor{}
+	HeaderIDToName = map[HeaderID]Name{}
 )
 
 // RegisterCompressor registers the provided compressor implementation.
@@ -39,6 +40,7 @@ func RegisterCompressor(name Name, c Compressor) {
 
 	ByHeaderID[c.HeaderID()] = c
 	ByName[name] = c
+	HeaderIDToName[c.HeaderID()] = name
 }
 
 func compressionHeader(id HeaderID) []byte {
