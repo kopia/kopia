@@ -296,3 +296,31 @@ or simply:
 ```
 $ killall -SIGHUP kopia
 ```
+
+## Kopia behind a reverse proxy
+
+Kopia server can be run behind a reverse proxy. Here a working example for nginx.
+
+```shell
+server {
+  listen 443 ssl http2;
+  server_name mydomain.com;
+
+  ssl_certificate_key /path/to/your/key.key;
+  ssl_certificate /path/to/your/cert.crt;
+
+  client_max_body_size 0;  # Allow unlimited upload size
+
+  location / {
+   grpc_pass grpcs://localhost:51515; # Adapt if your kopia is running on another server
+  }
+}
+```
+
+Make sure you use a recent nginx version (>=1.16) and you start your kopia server with a certificate (`--insecure` does not work), e.g.
+
+```shell
+kopia server start --address 0.0.0.0:51515 --tls-cert-file ~/my.cert --tls-key-file ~/my.key
+```
+
+You can now connect to your kopia server via reverse proxy with your domain: `mydomain:com:443`.
