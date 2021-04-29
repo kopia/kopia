@@ -16,7 +16,6 @@ import (
 
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/tests/testenv"
 )
@@ -119,10 +118,6 @@ func TestTaggingBadTags(t *testing.T) {
 
 	for _, tc := range [][]string{
 		{"--tags", "testkey1:testkey2", "--tags", "testkey1:testkey2"},
-		{"--tags", snapshot.UsernameLabel + ":testkey2"},
-		{"--tags", snapshot.HostnameLabel + ":testkey2"},
-		{"--tags", snapshot.PathLabel + ":testkey2"},
-		{"--tags", manifest.TypeLabelKey + ":testkey2"},
 		{"--tags", "badtag"},
 	} {
 		args := []string{"snapshot", "create", sharedTestDataDir1}

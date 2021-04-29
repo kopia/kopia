@@ -20,7 +20,6 @@ import (
 const (
 	maxSnapshotDescriptionLength = 1024
 	timeFormat                   = "2006-01-02 15:04:05 MST"
-	numberOfPartsInTagString     = 2
 )
 
 var (
@@ -79,11 +78,6 @@ func runSnapshotCommand(ctx context.Context, rep repo.RepositoryWriter) error {
 		return err
 	}
 
-	err = validateSnapshotTags(tags)
-	if err != nil {
-		return err
-	}
-
 	for _, snapshotDir := range sources {
 		if u.IsCanceled() {
 			log(ctx).Infof("Upload canceled")
@@ -118,6 +112,8 @@ func runSnapshotCommand(ctx context.Context, rep repo.RepositoryWriter) error {
 }
 
 func getTags(tagStrings []string) (map[string]string, error) {
+	numberOfPartsInTagString := 2
+
 	tags := map[string]string{}
 
 	for _, tagkv := range tagStrings {
@@ -126,24 +122,15 @@ func getTags(tagStrings []string) (map[string]string, error) {
 			return nil, errors.New("Invalid tag format. Requires <key>:<value>")
 		}
 
-		if _, ok := tags[parts[0]]; ok {
+		key := snapshot.TagKeyPrefix + parts[0]
+		if _, ok := tags[key]; ok {
 			return nil, errors.Errorf("Duplicate tag <key> found. (%s)", parts[0])
 		}
 
-		tags[parts[0]] = parts[1]
+		tags[key] = parts[1]
 	}
 
 	return tags, nil
-}
-
-func validateSnapshotTags(tags map[string]string) error {
-	for key := range tags {
-		if snapshot.InvalidSnapshotLabelKey(key) {
-			return errors.Errorf("Invalid <key> for snapshot tag. (%s)", key)
-		}
-	}
-
-	return nil
 }
 
 func validateStartEndTime(st, et string) error {

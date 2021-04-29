@@ -15,6 +15,9 @@ import (
 // ManifestType is the value of the "type" label for snapshot manifests.
 const ManifestType = "snapshot"
 
+// TagKeyPrefix is the prefix for user defined tag keys.
+const TagKeyPrefix = "tag:"
+
 // Manifest labels identifying snapshots.
 const (
 	UsernameLabel = "username"
@@ -30,13 +33,6 @@ const (
 
 	loadSnapshotsConcurrency = 50 // number of snapshots to load in parallel
 )
-
-var unavailableKeyMap = map[string]struct{}{
-	UsernameLabel:         {},
-	HostnameLabel:         {},
-	PathLabel:             {},
-	manifest.TypeLabelKey: {},
-}
 
 var log = logging.GetContextLoggerFunc("kopia/snapshot")
 
@@ -81,12 +77,6 @@ func sourceInfoToLabels(si SourceInfo) map[string]string {
 	}
 
 	return m
-}
-
-// InvalidSnapshotLabelKey takes a key return true if it is invalid.
-func InvalidSnapshotLabelKey(key string) bool {
-	_, ok := unavailableKeyMap[key]
-	return ok
 }
 
 // ListSnapshots lists all snapshots for a given source.
@@ -208,7 +198,7 @@ func ListSnapshotManifests(ctx context.Context, rep repo.Repository, src *Source
 	}
 
 	for key, value := range tags {
-		labels[key] = value
+		labels[TagKeyPrefix+key] = value
 	}
 
 	entries, err := rep.FindManifests(ctx, labels)
