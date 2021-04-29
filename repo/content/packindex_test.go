@@ -5,7 +5,6 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"math/rand"
 	"reflect"
@@ -97,19 +96,15 @@ func randomUnixTime() int64 {
 }
 
 func TestPackIndex_V1(t *testing.T) {
-	testPackIndex(t, 1, func(b packIndexBuilder, w io.Writer) error {
-		return b.buildV1(w)
-	})
+	testPackIndex(t, v1IndexVersion)
 }
 
 func TestPackIndex_V2(t *testing.T) {
-	testPackIndex(t, 2, func(b packIndexBuilder, w io.Writer) error {
-		return b.buildV2(w)
-	})
+	testPackIndex(t, v2IndexVersion)
 }
 
 // nolint:thelper,gocyclo,cyclop
-func testPackIndex(t *testing.T, version int, build func(b packIndexBuilder, w io.Writer) error) {
+func testPackIndex(t *testing.T, version int) {
 	var infos []Info
 	// deleted contents with all information
 	for i := 0; i < 100; i++ {
@@ -161,15 +156,15 @@ func testPackIndex(t *testing.T, version int, build func(b packIndexBuilder, w i
 
 	var buf1, buf2, buf3 bytes.Buffer
 
-	if err := build(b1, &buf1); err != nil {
+	if err := b1.Build(&buf1, version); err != nil {
 		t.Fatalf("unable to build: %v", err)
 	}
 
-	if err := build(b2, &buf2); err != nil {
+	if err := b2.Build(&buf2, version); err != nil {
 		t.Fatalf("unable to build: %v", err)
 	}
 
-	if err := build(b3, &buf3); err != nil {
+	if err := b3.Build(&buf3, version); err != nil {
 		t.Fatalf("unable to build: %v", err)
 	}
 

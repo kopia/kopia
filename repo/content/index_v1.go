@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	v1HeaderVersion    = 1
+	v1IndexVersion     = 1
 	v1HeaderSize       = 8
 	v1DeletedMarker    = 0x80000000
 	v1MaxEntrySize     = 256 // maximum length of content ID + per-entry data combined

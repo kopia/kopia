@@ -154,7 +154,7 @@ func indexWithItems(items ...Info) (packIndex, error) {
 	}
 
 	var buf bytes.Buffer
-	if err := b.Build(&buf); err != nil {
+	if err := b.Build(&buf, v2IndexVersion); err != nil {
 		return nil, errors.Wrap(err, "build error")
 	}
 

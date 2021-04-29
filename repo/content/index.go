@@ -58,7 +58,7 @@ func openPackIndex(readerAt io.ReaderAt, v1PerContentOverhead uint32) (packIndex
 	}
 
 	switch h.version {
-	case v1HeaderVersion:
+	case v1IndexVersion:
 		return openV1PackIndex(h, readerAt, v1PerContentOverhead)
 
 	case v2IndexVersion:

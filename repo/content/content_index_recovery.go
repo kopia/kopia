@@ -157,9 +157,9 @@ func decodePostamble(payload []byte) *packContentPostamble {
 	}
 }
 
-func buildLocalIndex(pending packIndexBuilder) ([]byte, error) {
+func (sm *SharedManager) buildLocalIndex(pending packIndexBuilder) ([]byte, error) {
 	var buf bytes.Buffer
-	if err := pending.Build(&buf); err != nil {
+	if err := pending.Build(&buf, sm.indexVersion); err != nil {
 		return nil, errors.Wrap(err, "unable to build local index")
 	}
 
@@ -171,7 +171,7 @@ func (sm *SharedManager) writePackFileIndexRecoveryData(buf *gather.WriteBuffer,
 	// build, encrypt and append local index
 	localIndexOffset := buf.Length()
 
-	localIndex, err := buildLocalIndex(pending)
+	localIndex, err := sm.buildLocalIndex(pending)
 	if err != nil {
 		return err
 	}

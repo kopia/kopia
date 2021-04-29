@@ -5,6 +5,8 @@ import (
 	"runtime"
 	"sort"
 	"sync"
+
+	"github.com/pkg/errors"
 )
 
 // packIndexBuilder prepares and writes content index.
@@ -104,6 +106,15 @@ func (b packIndexBuilder) sortedContents() []Info {
 }
 
 // Build writes the pack index to the provided output.
-func (b packIndexBuilder) Build(output io.Writer) error {
-	return b.buildV1(output)
+func (b packIndexBuilder) Build(output io.Writer, version int) error {
+	switch version {
+	case v1IndexVersion:
+		return b.buildV1(output)
+
+	case v2IndexVersion:
+		return b.buildV2(output)
+
+	default:
+		return errors.Errorf("unsupported index version: %v", version)
+	}
 }

@@ -358,7 +358,7 @@ func (bm *WriteManager) flushPackIndexesLocked(ctx context.Context) error {
 	if len(bm.packIndexBuilder) > 0 {
 		var b bytes.Buffer
 
-		if err := bm.packIndexBuilder.Build(&b); err != nil {
+		if err := bm.packIndexBuilder.Build(&b, bm.indexVersion); err != nil {
 			return errors.Wrap(err, "unable to build pack index")
 		}
 
