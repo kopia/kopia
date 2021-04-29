@@ -1,3 +1,5 @@
+// +build darwin,amd64 linux,amd64
+
 package robustness
 
 import (

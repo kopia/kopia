@@ -1,3 +1,5 @@
+// +build darwin,amd64 linux,amd64
+
 package snapmeta
 
 // Index is a map of index name to the keys associated
