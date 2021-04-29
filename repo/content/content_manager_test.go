@@ -661,7 +661,7 @@ func TestUndeleteContentSimple(t *testing.T) {
 			t.Error("0 offset for undeleted content:", tc.cid)
 		}
 
-		if diff := infoDiff(want, got, "GetTimestampSeconds", "GetPackBlobID", "GetPackOffset"); len(diff) > 0 {
+		if diff := infoDiff(want, got, "GetTimestampSeconds", "GetPackBlobID", "GetPackOffset", "Timestamp"); len(diff) > 0 {
 			t.Fatalf("diff: %v", diff)
 		}
 	}
@@ -710,7 +710,7 @@ func TestUndeleteContentSimple(t *testing.T) {
 		}
 
 		// ignore different timestamps, pack id and pack offset
-		if diff := infoDiff(tc.want, got, "GetPackBlobID", "GetTimestampSeconds"); len(diff) > 0 {
+		if diff := infoDiff(tc.want, got, "GetPackBlobID", "GetTimestampSeconds", "Timestamp"); len(diff) > 0 {
 			t.Errorf("content info does not match. diff: %v", diff)
 		}
 	}
@@ -908,7 +908,7 @@ func deleteContentAfterUndeleteAndCheck(ctx context.Context, t *testing.T, bm *W
 	}
 
 	// ignore timestamp
-	if diff := infoDiff(want, got, "GetTimestampSeconds"); len(diff) != 0 {
+	if diff := infoDiff(want, got, "GetTimestampSeconds", "Timestamp"); len(diff) != 0 {
 		t.Fatalf("Content info does not match\ndiff: %v", diff)
 	}
 }
