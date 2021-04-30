@@ -267,7 +267,7 @@ func loadSourceManifests(ctx context.Context, rep repo.Repository, sources []str
 	var manifestIDs []manifest.ID
 
 	if len(sources)+len(*verifyCommandDirObjectIDs)+len(*verifyCommandFileObjectIDs) == 0 {
-		man, err := snapshot.ListSnapshotManifests(ctx, rep, nil)
+		man, err := snapshot.ListSnapshotManifests(ctx, rep, nil, nil)
 		if err != nil {
 			return nil, errors.Wrap(err, "unable to list snapshot manifests")
 		}
@@ -279,7 +279,7 @@ func loadSourceManifests(ctx context.Context, rep repo.Repository, sources []str
 			if err != nil {
 				return nil, errors.Wrapf(err, "error parsing %q", srcStr)
 			}
-			man, err := snapshot.ListSnapshotManifests(ctx, rep, &src)
+			man, err := snapshot.ListSnapshotManifests(ctx, rep, &src, nil)
 			if err != nil {
 				return nil, errors.Wrapf(err, "unable to list snapshot manifests for %v", src)
 			}

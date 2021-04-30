@@ -81,6 +81,51 @@ func TestSnapshotCreate(t *testing.T) {
 	}
 }
 
+func TestTagging(t *testing.T) {
+	t.Parallel()
+
+	e := testenv.NewCLITest(t)
+
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
+	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1, "--tags", "testkey1:testkey2")
+	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
+
+	var manifests []snapshot.Manifest
+
+	mustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "list", "-a", "--json"), &manifests)
+
+	if got, want := len(manifests), 2; got != want {
+		t.Fatalf("unexpected number of snapshots %v want %v", got, want)
+	}
+
+	mustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "list", "-a", "--tags", "testkey1:testkey2", "--json"), &manifests)
+
+	if got, want := len(manifests), 1; got != want {
+		t.Fatalf("unexpected number of snapshots %v want %v", got, want)
+	}
+}
+
+func TestTaggingBadTags(t *testing.T) {
+	t.Parallel()
+
+	e := testenv.NewCLITest(t)
+
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
+
+	for _, tc := range [][]string{
+		{"--tags", "testkey1:testkey2", "--tags", "testkey1:testkey2"},
+		{"--tags", "badtag"},
+	} {
+		args := []string{"snapshot", "create", sharedTestDataDir1}
+		args = append(args, tc...)
+		e.RunAndExpectFailure(t, args...)
+	}
+}
+
 func TestStartTimeOverride(t *testing.T) {
 	t.Parallel()
 

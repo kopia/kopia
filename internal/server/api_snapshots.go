@@ -11,7 +11,7 @@ import (
 )
 
 func (s *Server) handleSnapshotList(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
-	manifestIDs, err := snapshot.ListSnapshotManifests(ctx, s.rep, nil)
+	manifestIDs, err := snapshot.ListSnapshotManifests(ctx, s.rep, nil, nil)
 	if err != nil {
 		return nil, internalServerError(err)
 	}
