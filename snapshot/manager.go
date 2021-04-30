@@ -15,9 +15,6 @@ import (
 // ManifestType is the value of the "type" label for snapshot manifests.
 const ManifestType = "snapshot"
 
-// TagKeyPrefix is the prefix for user defined tag keys.
-const TagKeyPrefix = "tag:"
-
 // Manifest labels identifying snapshots.
 const (
 	UsernameLabel = "username"
@@ -198,7 +195,7 @@ func ListSnapshotManifests(ctx context.Context, rep repo.Repository, src *Source
 	}
 
 	for key, value := range tags {
-		labels[TagKeyPrefix+key] = value
+		labels[key] = value
 	}
 
 	entries, err := rep.FindManifests(ctx, labels)

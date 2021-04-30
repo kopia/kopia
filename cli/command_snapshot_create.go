@@ -113,6 +113,8 @@ func runSnapshotCommand(ctx context.Context, rep repo.RepositoryWriter) error {
 
 func getTags(tagStrings []string) (map[string]string, error) {
 	numberOfPartsInTagString := 2
+	// tagKeyPrefix is the prefix for user defined tag keys.
+	tagKeyPrefix := "tag:"
 
 	tags := map[string]string{}
 
@@ -122,7 +124,7 @@ func getTags(tagStrings []string) (map[string]string, error) {
 			return nil, errors.New("Invalid tag format. Requires <key>:<value>")
 		}
 
-		key := snapshot.TagKeyPrefix + parts[0]
+		key := tagKeyPrefix + parts[0]
 		if _, ok := tags[key]; ok {
 			return nil, errors.Errorf("Duplicate tag <key> found. (%s)", parts[0])
 		}

@@ -94,15 +94,15 @@ func TestTagging(t *testing.T) {
 
 	var manifests []snapshot.Manifest
 
-	mustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "list", "-a", "--tags", "testkey1:testkey2", "--json"), &manifests)
-
-	if got, want := len(manifests), 1; got != want {
-		t.Fatalf("unexpected number of snapshots %v want %v", got, want)
-	}
-
 	mustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "list", "-a", "--json"), &manifests)
 
 	if got, want := len(manifests), 2; got != want {
+		t.Fatalf("unexpected number of snapshots %v want %v", got, want)
+	}
+
+	mustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "list", "-a", "--tags", "testkey1:testkey2", "--json"), &manifests)
+
+	if got, want := len(manifests), 1; got != want {
 		t.Fatalf("unexpected number of snapshots %v want %v", got, want)
 	}
 }
