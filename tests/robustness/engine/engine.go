@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/tests/robustness"
@@ -97,7 +98,10 @@ type Engine struct {
 
 	RunStats        Stats
 	CumulativeStats Stats
-	EngineLog       Log
+	statsMux        sync.RWMutex
+
+	EngineLog Log
+	logMux    sync.RWMutex
 }
 
 // Shutdown makes a last snapshot then flushes the metadata and prints the final statistics.

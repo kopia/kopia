@@ -5,6 +5,7 @@ package snapmeta
 import (
 	"context"
 	"io"
+	"log"
 	"os/exec"
 	"strconv"
 
@@ -48,9 +49,40 @@ func (ks *KopiaSnapshotter) ConnectOrCreateRepo(repoPath string) error {
 	return err
 }
 
+// ConnectClient should be called by a client to connect itself to the server
+// using the given cert fingerprint.
+func (ks *KopiaSnapshotter) ConnectClient(fingerprint, user string) error {
+	return ks.connectClient(fingerprint, user)
+}
+
+// DisconnectClient should be called by a client to disconnect itself from the server.
+func (ks *KopiaSnapshotter) DisconnectClient(user string) {
+	if err := ks.snap.DisconnectClient(); err != nil {
+		log.Printf("Error disconnecting %s from server: %v\n", user, err)
+	}
+}
+
+// AuthorizeClient should be called by a server to add a client to the server's
+// user list.
+func (ks *KopiaSnapshotter) AuthorizeClient(user string) error {
+	return ks.authorizeClient(user)
+}
+
+// RemoveClient should be called by a server to remove a client from its user list.
+func (ks *KopiaSnapshotter) RemoveClient(user string) {
+	if err := ks.snap.RemoveClient(user, defaultHost); err != nil {
+		log.Printf("Error removing %s from server: %v\n", user, err)
+	}
+}
+
 // ServerCmd returns the server command.
 func (ks *KopiaSnapshotter) ServerCmd() *exec.Cmd {
 	return ks.serverCmd
+}
+
+// ServerFingerprint returns the cert fingerprint that is used to connect to the server.
+func (ks *KopiaSnapshotter) ServerFingerprint() string {
+	return ks.serverFingerprint
 }
 
 // CreateSnapshot is part of Snapshotter.

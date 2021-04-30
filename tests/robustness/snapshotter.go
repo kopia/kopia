@@ -1,3 +1,5 @@
+// +build darwin,amd64 linux,amd64
+
 // Package robustness contains tests that that validate data stability over time.
 // The package, while designed for Kopia, is written with abstractions that
 // can be used to test other environments.

@@ -1,3 +1,5 @@
+// +build darwin,amd64 linux,amd64
+
 // Package checker defines the framework for creating and restoring snapshots
 // with a data integrity check
 package checker
@@ -206,6 +208,9 @@ func (chk *Checker) VerifySnapshotMetadata(ctx context.Context) error {
 // performs the snapshot action defined by the Checker's Snapshotter.
 func (chk *Checker) TakeSnapshot(ctx context.Context, sourceDir string, opts map[string]string) (snapID string, err error) {
 	snapID, fingerprint, stats, err := chk.snapshotIssuer.CreateSnapshot(ctx, sourceDir, opts)
+	if err != nil {
+		return snapID, err
+	}
 
 	ssMeta := &SnapshotMetadata{
 		SnapID:         snapID,

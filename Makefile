@@ -227,6 +227,12 @@ robustness-tests: build-integration-test-binary $(gotestsum)
 	FIO_DOCKER_IMAGE=$(FIO_DOCKER_TAG) \
 	$(GO_TEST) -count=$(REPEAT_TEST) github.com/kopia/kopia/tests/robustness/robustness_test $(TEST_FLAGS)
 
+robustness-server-tests: export KOPIA_EXE ?= $(KOPIA_INTEGRATION_EXE)
+robustness-server-tests: GOTESTSUM_FORMAT=testname
+robustness-server-tests: build-integration-test-binary $(gotestsum)
+	FIO_DOCKER_IMAGE=$(FIO_DOCKER_TAG) \
+	$(GO_TEST) -count=$(REPEAT_TEST) github.com/kopia/kopia/tests/robustness/multiclient_test $(TEST_FLAGS)
+
 robustness-tool-tests: export KOPIA_EXE ?= $(KOPIA_INTEGRATION_EXE)
 robustness-tool-tests: export FIO_DOCKER_IMAGE=$(FIO_DOCKER_TAG)
 robustness-tool-tests: build-integration-test-binary $(gotestsum)
