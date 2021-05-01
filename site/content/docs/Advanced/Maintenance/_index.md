@@ -20,7 +20,7 @@ Kopia uses the following types of maintenance tasks:
 
 * **Full Maintenance Tasks** are responsible for keeping the repository compact and eliminate deleted files that the user no longer wishes to store.
 
-  The most important task is Snapshot GC which marks for deletion all contents that are no longer reachable from any of the active snapshots. Full Maintenance is also responsible for compaction of data pack blobs (`p`) after contents stored in them have been deleted. In the current version of Kopia, the full maintenance tasks must be run manually, but in future versions they will be scheduled to run automatically.
+  The most important task is Snapshot GC which marks for deletion all contents that are no longer reachable from any of the active snapshots. Full Maintenance is also responsible for compaction of data pack blobs (`p`) after contents stored in them have been deleted. Full Maintenance Tasks are enabled by default and will execute every 24 hours. 
 
 ## Maintenance Task Ownership
 
