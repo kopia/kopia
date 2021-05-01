@@ -88,7 +88,7 @@ func runBenchmarkCryptoAction(ctx context.Context) error {
 	}
 
 	printStdout("-----------------------------------------------------------------\n")
-	printStdout("Fastest option for this machine is: --block-hash==%s --encryption=%s\n", results[0].hash, results[0].encryption)
+	printStdout("Fastest option for this machine is: --block-hash=%s --encryption=%s\n", results[0].hash, results[0].encryption)
 
 	return nil
 }
