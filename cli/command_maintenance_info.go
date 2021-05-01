@@ -25,7 +25,16 @@ func runMaintenanceInfoCommand(ctx context.Context, rep repo.DirectRepository) e
 	}
 
 	if jsonOutput {
-		printStdout("%s\n", jsonBytes(s))
+		mi := struct {
+			maintenance.Params
+			maintenance.Schedule `json:"schedule"`
+		}{
+			Params:   *p,
+			Schedule: *s,
+		}
+
+		printStdout("%s\n", jsonBytes(mi))
+
 		return nil
 	}
 
