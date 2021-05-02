@@ -16,13 +16,13 @@ type commandBlobList struct {
 	jo jsonOutput
 }
 
-func (c *commandBlobList) setup(parent commandParent) {
+func (c *commandBlobList) setup(app appServices, parent commandParent) {
 	cmd := parent.Command("list", "List BLOBs").Alias("ls")
 	cmd.Flag("prefix", "Blob ID prefix").StringVar(&c.blobListPrefix)
 	cmd.Flag("min-size", "Minimum size").Int64Var(&c.blobListMinSize)
 	cmd.Flag("max-size", "Maximum size").Int64Var(&c.blobListMaxSize)
 	c.jo.setup(cmd)
-	cmd.Action(directRepositoryReadAction(c.run))
+	cmd.Action(app.directRepositoryReadAction(c.run))
 }
 
 func (c *commandBlobList) run(ctx context.Context, rep repo.DirectRepository) error {

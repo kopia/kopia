@@ -16,13 +16,13 @@ type commandContentShow struct {
 	decompress bool
 }
 
-func (c *commandContentShow) setup(parent commandParent) {
+func (c *commandContentShow) setup(app appServices, parent commandParent) {
 	cmd := parent.Command("show", "Show contents by ID.").Alias("cat")
 
 	cmd.Arg("id", "IDs of contents to show").Required().StringsVar(&c.ids)
 	cmd.Flag("json", "Pretty-print JSON content").Short('j').BoolVar(&c.indentJSON)
 	cmd.Flag("unzip", "Transparently decompress the content").Short('z').BoolVar(&c.decompress)
-	cmd.Action(directRepositoryReadAction(c.run))
+	cmd.Action(app.directRepositoryReadAction(c.run))
 }
 
 func (c *commandContentShow) run(ctx context.Context, rep repo.DirectRepository) error {

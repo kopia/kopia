@@ -22,7 +22,7 @@ type commandBenchmarkSplitters struct {
 	printOption bool
 }
 
-func (c *commandBenchmarkSplitters) setup(parent commandParent) {
+func (c *commandBenchmarkSplitters) setup(app appServices, parent commandParent) {
 	cmd := parent.Command("splitter", "Run splitter benchmarks")
 
 	cmd.Flag("rand-seed", "Random seed").Default("42").Int64Var(&c.randSeed)
@@ -30,7 +30,7 @@ func (c *commandBenchmarkSplitters) setup(parent commandParent) {
 	cmd.Flag("block-count", "Number of data blocks to split").Default("16").IntVar(&c.blockCount)
 	cmd.Flag("print-options", "Print out fastest dynamic splitter option").BoolVar(&c.printOption)
 
-	cmd.Action(noRepositoryAction(c.run))
+	cmd.Action(app.noRepositoryAction(c.run))
 }
 
 func (c *commandBenchmarkSplitters) run(ctx context.Context) error { //nolint:funlen

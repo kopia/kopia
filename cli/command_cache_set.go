@@ -17,14 +17,14 @@ type commandCacheSetParams struct {
 	maxListCacheDuration   time.Duration
 }
 
-func (c *commandCacheSetParams) setup(parent commandParent) {
+func (c *commandCacheSetParams) setup(app appServices, parent commandParent) {
 	cmd := parent.Command("set", "Sets parameters local caching of repository data")
 
 	cmd.Flag("cache-directory", "Directory where to store cache files").StringVar(&c.directory)
 	cmd.Flag("content-cache-size-mb", "Size of local content cache").PlaceHolder("MB").Default("-1").Int64Var(&c.contentCacheSizeMB)
 	cmd.Flag("metadata-cache-size-mb", "Size of local metadata cache").PlaceHolder("MB").Default("-1").Int64Var(&c.maxMetadataCacheSizeMB)
 	cmd.Flag("max-list-cache-duration", "Duration of index cache").Default("-1ns").DurationVar(&c.maxListCacheDuration)
-	cmd.Action(repositoryWriterAction(c.run))
+	cmd.Action(app.repositoryWriterAction(c.run))
 }
 
 func (c *commandCacheSetParams) run(ctx context.Context, rep repo.RepositoryWriter) error {

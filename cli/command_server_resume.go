@@ -11,10 +11,10 @@ type commandServerResume struct {
 	sf serverClientFlags
 }
 
-func (c *commandServerResume) setup(parent commandParent) {
+func (c *commandServerResume) setup(app appServices, parent commandParent) {
 	cmd := parent.Command("resume", "Resume the scheduled snapshots for one or more sources")
 	c.sf.setup(cmd)
-	cmd.Action(serverAction(&c.sf, c.run))
+	cmd.Action(app.serverAction(&c.sf, c.run))
 }
 
 func (c *commandServerResume) run(ctx context.Context, cli *apiclient.KopiaAPIClient) error {

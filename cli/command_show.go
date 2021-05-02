@@ -15,10 +15,10 @@ type commandShow struct {
 	path string
 }
 
-func (c *commandShow) setup(parent commandParent) {
+func (c *commandShow) setup(app appServices, parent commandParent) {
 	cmd := parent.Command("show", "Displays contents of a repository object.").Alias("cat")
 	cmd.Arg("object-path", "Path").Required().StringVar(&c.path)
-	cmd.Action(repositoryReaderAction(c.run))
+	cmd.Action(app.repositoryReaderAction(c.run))
 }
 
 func (c *commandShow) run(ctx context.Context, rep repo.Repository) error {

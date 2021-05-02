@@ -15,10 +15,10 @@ type commandManifestShow struct {
 	manifestShowItems []string
 }
 
-func (c *commandManifestShow) setup(parent commandParent) {
+func (c *commandManifestShow) setup(app appServices, parent commandParent) {
 	cmd := parent.Command("show", "Show manifest items")
 	cmd.Arg("item", "List of items").Required().StringsVar(&c.manifestShowItems)
-	cmd.Action(repositoryReaderAction(c.showManifestItems))
+	cmd.Action(app.repositoryReaderAction(c.showManifestItems))
 }
 
 func toManifestIDs(s []string) []manifest.ID {

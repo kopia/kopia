@@ -9,13 +9,13 @@ type commandContent struct {
 	verify  commandContentVerify
 }
 
-func (c *commandContent) setup(parent commandParent) {
+func (c *commandContent) setup(app appServices, parent commandParent) {
 	cmd := parent.Command("content", "Commands to manipulate content in repository.").Alias("contents").Hidden()
 
-	c.delete.setup(cmd)
-	c.list.setup(cmd)
-	c.rewrite.setup(cmd)
-	c.show.setup(cmd)
-	c.stats.setup(cmd)
-	c.verify.setup(cmd)
+	c.delete.setup(app, cmd)
+	c.list.setup(app, cmd)
+	c.rewrite.setup(app, cmd)
+	c.show.setup(app, cmd)
+	c.stats.setup(app, cmd)
+	c.verify.setup(app, cmd)
 }

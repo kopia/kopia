@@ -17,7 +17,7 @@ type commandSnapshotCopyMoveHistory struct {
 	snapshotCopyOrMoveDestination string
 }
 
-func (c *commandSnapshotCopyMoveHistory) setup(parent commandParent, isMove bool) {
+func (c *commandSnapshotCopyMoveHistory) setup(app appServices, parent commandParent, isMove bool) {
 	var cmd *kingpin.CmdClause
 	if isMove {
 		cmd = parent.Command("move-history", snapshotCopyMoveHelp("move"))
@@ -29,7 +29,7 @@ func (c *commandSnapshotCopyMoveHistory) setup(parent commandParent, isMove bool
 	cmd.Arg("source", "Source (user@host or user@host:path)").Required().StringVar(&c.snapshotCopyOrMoveSource)
 	cmd.Arg("destination", "Destination (defaults to current user@host)").StringVar(&c.snapshotCopyOrMoveDestination)
 
-	cmd.Action(repositoryWriterAction(func(ctx context.Context, rep repo.RepositoryWriter) error {
+	cmd.Action(app.repositoryWriterAction(func(ctx context.Context, rep repo.RepositoryWriter) error {
 		return c.run(ctx, rep, isMove)
 	}))
 }

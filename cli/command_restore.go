@@ -78,7 +78,7 @@ type commandRestore struct {
 	restoreIgnoreErrors           bool
 }
 
-func (c *commandRestore) setup(parent commandParent) {
+func (c *commandRestore) setup(app appServices, parent commandParent) {
 	cmd := parent.Command("restore", restoreCommandHelp)
 	cmd.Arg("source", restoreCommandSourcePathHelp).Required().StringVar(&c.restoreSourceID)
 	cmd.Arg("target-path", "Path of the directory for the contents to be restored").Required().StringVar(&c.restoreTargetPath)
@@ -94,7 +94,7 @@ func (c *commandRestore) setup(parent commandParent) {
 	cmd.Flag("ignore-permission-errors", "Ignore permission errors").Default("true").BoolVar(&c.restoreIgnorePermissionErrors)
 	cmd.Flag("ignore-errors", "Ignore all errors").BoolVar(&c.restoreIgnoreErrors)
 	cmd.Flag("skip-existing", "Skip files and symlinks that exist in the output").BoolVar(&c.restoreIncremental)
-	cmd.Action(repositoryReaderAction(c.run))
+	cmd.Action(app.repositoryReaderAction(c.run))
 }
 
 const (

@@ -34,7 +34,7 @@ type commandRepositorySyncTo struct {
 	setTimeUnsupportedOnce sync.Once
 }
 
-func (c *commandRepositorySyncTo) setup(parent commandParent) {
+func (c *commandRepositorySyncTo) setup(app appServices, parent commandParent) {
 	cmd := parent.Command("sync-to", "Synchronizes contents of this repository to another location")
 	cmd.Flag("update", "Whether to update blobs present in destination and source if the source is newer.").Default("true").BoolVar(&c.repositorySyncUpdate)
 	cmd.Flag("delete", "Whether to delete blobs present in destination but not source.").BoolVar(&c.repositorySyncDelete)

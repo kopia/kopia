@@ -15,10 +15,10 @@ type commandMaintenanceInfo struct {
 	jo jsonOutput
 }
 
-func (c *commandMaintenanceInfo) setup(parent commandParent) {
+func (c *commandMaintenanceInfo) setup(app appServices, parent commandParent) {
 	cmd := parent.Command("info", "Display maintenance information").Alias("status")
 	c.jo.setup(cmd)
-	cmd.Action(directRepositoryReadAction(c.run))
+	cmd.Action(app.directRepositoryReadAction(c.run))
 }
 
 func (c *commandMaintenanceInfo) run(ctx context.Context, rep repo.DirectRepository) error {

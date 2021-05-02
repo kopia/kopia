@@ -11,10 +11,10 @@ type commandServerFlush struct {
 	sf serverClientFlags
 }
 
-func (c *commandServerFlush) setup(parent commandParent) {
+func (c *commandServerFlush) setup(app appServices, parent commandParent) {
 	cmd := parent.Command("flush", "Flush the state of Kopia server to persistent storage, etc.")
 	c.sf.setup(cmd)
-	cmd.Action(serverAction(&c.sf, c.run))
+	cmd.Action(app.serverAction(&c.sf, c.run))
 }
 
 func (c *commandServerFlush) run(ctx context.Context, cli *apiclient.KopiaAPIClient) error {

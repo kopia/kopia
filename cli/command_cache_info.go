@@ -16,10 +16,10 @@ type commandCacheInfo struct {
 	onlyShowPath bool
 }
 
-func (c *commandCacheInfo) setup(parent commandParent) {
+func (c *commandCacheInfo) setup(app appServices, parent commandParent) {
 	cmd := parent.Command("info", "Displays cache information and statistics").Default()
 	cmd.Flag("path", "Only display cache path").BoolVar(&c.onlyShowPath)
-	cmd.Action(repositoryReaderAction(c.run))
+	cmd.Action(app.repositoryReaderAction(c.run))
 }
 
 func (c *commandCacheInfo) run(ctx context.Context, rep repo.Repository) error {

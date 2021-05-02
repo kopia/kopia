@@ -8,12 +8,12 @@ type commandServerUser struct {
 	list   commandServerUserList
 }
 
-func (c *commandServerUser) setup(parent commandParent) {
+func (c *commandServerUser) setup(app appServices, parent commandParent) {
 	cmd := parent.Command("users", "Manager repository users").Alias("user")
 
-	c.add.setup(cmd, true)
-	c.set.setup(cmd, false)
-	c.delete.setup(cmd)
-	c.info.setup(cmd)
-	c.list.setup(cmd)
+	c.add.setup(app, cmd, true)
+	c.set.setup(app, cmd, false)
+	c.delete.setup(app, cmd)
+	c.info.setup(app, cmd)
+	c.list.setup(app, cmd)
 }

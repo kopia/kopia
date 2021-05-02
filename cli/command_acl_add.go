@@ -16,12 +16,12 @@ type commandACLAdd struct {
 	level  string
 }
 
-func (c *commandACLAdd) setup(parent commandParent) {
+func (c *commandACLAdd) setup(app appServices, parent commandParent) {
 	cmd := parent.Command("add", "Add ACL entry")
 	cmd.Flag("user", "User the ACL targets").Required().StringVar(&c.user)
 	cmd.Flag("target", "Manifests targeted by the rule (type:T,key1:value1,...,keyN:valueN)").Required().StringVar(&c.target)
 	cmd.Flag("access", "Access the user gets to subject").Required().EnumVar(&c.level, acl.SupportedAccessLevels()...)
-	cmd.Action(repositoryWriterAction(c.run))
+	cmd.Action(app.repositoryWriterAction(c.run))
 }
 
 func (c *commandACLAdd) run(ctx context.Context, rep repo.RepositoryWriter) error {

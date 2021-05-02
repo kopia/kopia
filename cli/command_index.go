@@ -7,11 +7,11 @@ type commandIndex struct {
 	recover  commandIndexRecover
 }
 
-func (c *commandIndex) setup(parent commandParent) {
+func (c *commandIndex) setup(app appServices, parent commandParent) {
 	cmd := parent.Command("index", "Commands to manipulate content index.").Hidden()
 
-	c.inspect.setup(cmd)
-	c.list.setup(cmd)
-	c.optimize.setup(cmd)
-	c.recover.setup(cmd)
+	c.inspect.setup(app, cmd)
+	c.list.setup(app, cmd)
+	c.optimize.setup(app, cmd)
+	c.recover.setup(app, cmd)
 }

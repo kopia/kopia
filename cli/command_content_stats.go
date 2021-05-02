@@ -17,11 +17,11 @@ type commandContentStats struct {
 	contentRange contentRangeFlags
 }
 
-func (c *commandContentStats) setup(parent commandParent) {
+func (c *commandContentStats) setup(app appServices, parent commandParent) {
 	cmd := parent.Command("stats", "Content statistics")
 	cmd.Flag("raw", "Raw numbers").Short('r').BoolVar(&c.raw)
 	c.contentRange.setup(cmd)
-	cmd.Action(directRepositoryReadAction(c.run))
+	cmd.Action(app.directRepositoryReadAction(c.run))
 }
 
 func (c *commandContentStats) run(ctx context.Context, rep repo.DirectRepository) error {

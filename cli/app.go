@@ -33,6 +33,17 @@ var (
 	_ = app.Flag("help-full", "Show help for all commands, including hidden").Action(helpFullAction).Bool()
 )
 
+// appServices are the methods of *TheApp that command handles are allowed to call.
+type appServices interface {
+	noRepositoryAction(act func(ctx context.Context) error) func(ctx *kingpin.ParseContext) error
+	serverAction(sf *serverClientFlags, act func(ctx context.Context, cli *apiclient.KopiaAPIClient) error) func(ctx *kingpin.ParseContext) error
+	directRepositoryWriteAction(act func(ctx context.Context, rep repo.DirectRepositoryWriter) error) func(ctx *kingpin.ParseContext) error
+	directRepositoryReadAction(act func(ctx context.Context, rep repo.DirectRepository) error) func(ctx *kingpin.ParseContext) error
+	repositoryReaderAction(act func(ctx context.Context, rep repo.Repository) error) func(ctx *kingpin.ParseContext) error
+	repositoryWriterAction(act func(ctx context.Context, rep repo.RepositoryWriter) error) func(ctx *kingpin.ParseContext) error
+	maybeRepositoryAction(act func(ctx context.Context, rep repo.Repository) error, mode repositoryAccessMode) func(ctx *kingpin.ParseContext) error
+}
+
 type TheApp struct {
 	blob        commandBlob
 	benchmark   commandBenchmark
@@ -53,24 +64,24 @@ type TheApp struct {
 	repository  commandRepository
 }
 
-func (a *TheApp) setup(app *kingpin.Application) {
-	a.blob.setup(app)
-	a.benchmark.setup(app)
-	a.cache.setup(app)
-	a.content.setup(app)
-	a.diff.setup(app)
-	a.index.setup(app)
-	a.list.setup(app)
-	a.server.setup(app)
-	a.session.setup(app)
-	a.restore.setup(app)
-	a.show.setup(app)
-	a.snapshot.setup(app)
-	a.manifest.setup(app)
-	a.policy.setup(app)
-	a.mount.setup(app)
-	a.maintenance.setup(app)
-	a.repository.setup(app)
+func (c *TheApp) setup(app *kingpin.Application) {
+	c.blob.setup(c, app)
+	c.benchmark.setup(c, app)
+	c.cache.setup(c, app)
+	c.content.setup(c, app)
+	c.diff.setup(c, app)
+	c.index.setup(c, app)
+	c.list.setup(c, app)
+	c.server.setup(c, app)
+	c.session.setup(c, app)
+	c.restore.setup(c, app)
+	c.show.setup(c, app)
+	c.snapshot.setup(c, app)
+	c.manifest.setup(c, app)
+	c.policy.setup(c, app)
+	c.mount.setup(c, app)
+	c.maintenance.setup(c, app)
+	c.repository.setup(c, app)
 }
 
 // commandParent is implemented by app and commands that can have sub-commands.
@@ -79,7 +90,8 @@ type commandParent interface {
 }
 
 func init() {
-	(&TheApp{}).setup(app)
+	a := &TheApp{}
+	a.setup(app)
 }
 
 var safetyByName = map[string]maintenance.SafetyParameters{
@@ -87,7 +99,7 @@ var safetyByName = map[string]maintenance.SafetyParameters{
 	"full": maintenance.SafetyFull,
 }
 
-// safetyFlagVar defines a --safety=none|full flag that sets the SafetyParameters.
+// safetyFlagVar defines c --safety=none|full flag that sets the SafetyParameters.
 func safetyFlagVar(cmd *kingpin.CmdClause, result *maintenance.SafetyParameters) {
 	var str string
 
@@ -113,13 +125,13 @@ func helpFullAction(ctx *kingpin.ParseContext) error {
 	return nil
 }
 
-func noRepositoryAction(act func(ctx context.Context) error) func(ctx *kingpin.ParseContext) error {
+func (c *TheApp) noRepositoryAction(act func(ctx context.Context) error) func(ctx *kingpin.ParseContext) error {
 	return func(_ *kingpin.ParseContext) error {
 		return act(rootContext())
 	}
 }
 
-func serverAction(sf *serverClientFlags, act func(ctx context.Context, cli *apiclient.KopiaAPIClient) error) func(ctx *kingpin.ParseContext) error {
+func (c *TheApp) serverAction(sf *serverClientFlags, act func(ctx context.Context, cli *apiclient.KopiaAPIClient) error) func(ctx *kingpin.ParseContext) error {
 	return func(_ *kingpin.ParseContext) error {
 		opts, err := sf.serverAPIClientOptions()
 		if err != nil {
@@ -152,8 +164,8 @@ func assertDirectRepository(act func(ctx context.Context, rep repo.DirectReposit
 	}
 }
 
-func directRepositoryWriteAction(act func(ctx context.Context, rep repo.DirectRepositoryWriter) error) func(ctx *kingpin.ParseContext) error {
-	return maybeRepositoryAction(assertDirectRepository(func(ctx context.Context, rep repo.DirectRepository) error {
+func (c *TheApp) directRepositoryWriteAction(act func(ctx context.Context, rep repo.DirectRepositoryWriter) error) func(ctx *kingpin.ParseContext) error {
+	return c.maybeRepositoryAction(assertDirectRepository(func(ctx context.Context, rep repo.DirectRepository) error {
 		return repo.DirectWriteSession(ctx, rep, repo.WriteSessionOptions{
 			Purpose:  "directRepositoryWriteAction",
 			OnUpload: progress.UploadedBytes,
@@ -164,8 +176,8 @@ func directRepositoryWriteAction(act func(ctx context.Context, rep repo.DirectRe
 	})
 }
 
-func directRepositoryReadAction(act func(ctx context.Context, rep repo.DirectRepository) error) func(ctx *kingpin.ParseContext) error {
-	return maybeRepositoryAction(assertDirectRepository(func(ctx context.Context, rep repo.DirectRepository) error {
+func (c *TheApp) directRepositoryReadAction(act func(ctx context.Context, rep repo.DirectRepository) error) func(ctx *kingpin.ParseContext) error {
+	return c.maybeRepositoryAction(assertDirectRepository(func(ctx context.Context, rep repo.DirectRepository) error {
 		return act(ctx, rep)
 	}), repositoryAccessMode{
 		mustBeConnected:    true,
@@ -173,8 +185,8 @@ func directRepositoryReadAction(act func(ctx context.Context, rep repo.DirectRep
 	})
 }
 
-func repositoryReaderAction(act func(ctx context.Context, rep repo.Repository) error) func(ctx *kingpin.ParseContext) error {
-	return maybeRepositoryAction(func(ctx context.Context, rep repo.Repository) error {
+func (c *TheApp) repositoryReaderAction(act func(ctx context.Context, rep repo.Repository) error) func(ctx *kingpin.ParseContext) error {
+	return c.maybeRepositoryAction(func(ctx context.Context, rep repo.Repository) error {
 		return act(ctx, rep)
 	}, repositoryAccessMode{
 		mustBeConnected:    true,
@@ -182,8 +194,8 @@ func repositoryReaderAction(act func(ctx context.Context, rep repo.Repository) e
 	})
 }
 
-func repositoryWriterAction(act func(ctx context.Context, rep repo.RepositoryWriter) error) func(ctx *kingpin.ParseContext) error {
-	return maybeRepositoryAction(func(ctx context.Context, rep repo.Repository) error {
+func (c *TheApp) repositoryWriterAction(act func(ctx context.Context, rep repo.RepositoryWriter) error) func(ctx *kingpin.ParseContext) error {
+	return c.maybeRepositoryAction(func(ctx context.Context, rep repo.Repository) error {
 		return repo.WriteSession(ctx, rep, repo.WriteSessionOptions{
 			Purpose:  "repositoryWriterAction",
 			OnUpload: progress.UploadedBytes,
@@ -204,7 +216,7 @@ type repositoryAccessMode struct {
 	disableMaintenance bool
 }
 
-func maybeRepositoryAction(act func(ctx context.Context, rep repo.Repository) error, mode repositoryAccessMode) func(ctx *kingpin.ParseContext) error {
+func (c *TheApp) maybeRepositoryAction(act func(ctx context.Context, rep repo.Repository) error, mode repositoryAccessMode) func(ctx *kingpin.ParseContext) error {
 	return func(kpc *kingpin.ParseContext) error {
 		ctx := rootContext()
 

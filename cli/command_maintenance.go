@@ -6,10 +6,10 @@ type commandMaintenance struct {
 	set  commandMaintenanceSet
 }
 
-func (c *commandMaintenance) setup(parent commandParent) {
+func (c *commandMaintenance) setup(app appServices, parent commandParent) {
 	cmd := parent.Command("maintenance", "Maintenance commands.").Hidden().Alias("gc")
 
-	c.info.setup(cmd)
-	c.run.setup(cmd)
-	c.set.setup(cmd)
+	c.info.setup(app, cmd)
+	c.run.setup(app, cmd)
+	c.set.setup(app, cmd)
 }

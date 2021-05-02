@@ -42,19 +42,19 @@ func (c *serverClientFlags) setup(cmd *kingpin.CmdClause) {
 	cmd.Flag("server-cert-fingerprint", "Server certificate fingerprint").StringVar(&c.serverCertFingerprint)
 }
 
-func (c *commandServer) setup(parent commandParent) {
+func (c *commandServer) setup(app appServices, parent commandParent) {
 	cmd := parent.Command("server", "Commands to control HTTP API server.")
 
-	c.cancel.setup(cmd)
-	c.flush.setup(cmd)
-	c.pause.setup(cmd)
-	c.refresh.setup(cmd)
-	c.resume.setup(cmd)
-	c.start.setup(cmd)
-	c.status.setup(cmd)
-	c.upload.setup(cmd)
-	c.acl.setup(cmd)
-	c.user.setup(cmd)
+	c.cancel.setup(app, cmd)
+	c.flush.setup(app, cmd)
+	c.pause.setup(app, cmd)
+	c.refresh.setup(app, cmd)
+	c.resume.setup(app, cmd)
+	c.start.setup(app, cmd)
+	c.status.setup(app, cmd)
+	c.upload.setup(app, cmd)
+	c.acl.setup(app, cmd)
+	c.user.setup(app, cmd)
 }
 
 func (c *serverClientFlags) serverAPIClientOptions() (apiclient.Options, error) {

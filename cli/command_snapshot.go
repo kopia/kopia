@@ -14,17 +14,17 @@ type commandSnapshot struct {
 	verify      commandSnapshotVerify
 }
 
-func (c *commandSnapshot) setup(parent commandParent) {
+func (c *commandSnapshot) setup(app appServices, parent commandParent) {
 	cmd := parent.Command("snapshot", "Commands to manipulate snapshots.").Alias("snap")
-	c.copyHistory.setup(cmd, false)
-	c.moveHistory.setup(cmd, true)
-	c.create.setup(cmd)
-	c.delete.setup(cmd)
-	c.estimate.setup(cmd)
-	c.expire.setup(cmd)
-	c.gc.setup(cmd)
-	c.list.setup(cmd)
-	c.migrate.setup(cmd)
-	c.restore.setup(cmd)
-	c.verify.setup(cmd)
+	c.copyHistory.setup(app, cmd, false)
+	c.moveHistory.setup(app, cmd, true)
+	c.create.setup(app, cmd)
+	c.delete.setup(app, cmd)
+	c.estimate.setup(app, cmd)
+	c.expire.setup(app, cmd)
+	c.gc.setup(app, cmd)
+	c.list.setup(app, cmd)
+	c.migrate.setup(app, cmd)
+	c.restore.setup(app, cmd)
+	c.verify.setup(app, cmd)
 }

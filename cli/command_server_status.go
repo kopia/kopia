@@ -14,12 +14,12 @@ type commandServerStatus struct {
 	sf serverClientFlags
 }
 
-func (c *commandServerStatus) setup(parent commandParent) {
+func (c *commandServerStatus) setup(app appServices, parent commandParent) {
 	cmd := parent.Command("status", "Status of Kopia server")
 
 	c.sf.setup(cmd)
 
-	cmd.Action(serverAction(&c.sf, c.runServerStatus))
+	cmd.Action(app.serverAction(&c.sf, c.runServerStatus))
 }
 
 func (c *commandServerStatus) runServerStatus(ctx context.Context, cli *apiclient.KopiaAPIClient) error {

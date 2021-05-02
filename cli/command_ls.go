@@ -22,7 +22,7 @@ type commandList struct {
 	path         string
 }
 
-func (c *commandList) setup(parent commandParent) {
+func (c *commandList) setup(app appServices, parent commandParent) {
 	cmd := parent.Command("list", "List a directory stored in repository object.").Alias("ls")
 
 	cmd.Flag("long", "Long output").Short('l').BoolVar(&c.long)
@@ -30,7 +30,7 @@ func (c *commandList) setup(parent commandParent) {
 	cmd.Flag("show-object-id", "Show object IDs").Short('o').BoolVar(&c.showOID)
 	cmd.Flag("error-summary", "Emit error summary").Default("true").BoolVar(&c.errorSummary)
 	cmd.Arg("object-path", "Path").Required().StringVar(&c.path)
-	cmd.Action(repositoryReaderAction(c.run))
+	cmd.Action(app.repositoryReaderAction(c.run))
 }
 
 func (c *commandList) run(ctx context.Context, rep repo.Repository) error {

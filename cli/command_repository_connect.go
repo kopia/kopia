@@ -18,11 +18,11 @@ type commandRepositoryConnect struct {
 	server commandRepositoryConnectServer
 }
 
-func (c *commandRepositoryConnect) setup(parent commandParent) {
+func (c *commandRepositoryConnect) setup(app appServices, parent commandParent) {
 	cmd := parent.Command("connect", "Connect to a repository.")
 
 	c.co.setup(cmd)
-	c.server.setup(cmd, &c.co)
+	c.server.setup(app, cmd, &c.co)
 
 	for _, prov := range storageProviders {
 		// Set up 'connect' subcommand

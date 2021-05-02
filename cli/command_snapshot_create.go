@@ -41,7 +41,7 @@ type commandSnapshotCreate struct {
 	jo jsonOutput
 }
 
-func (c *commandSnapshotCreate) setup(parent commandParent) {
+func (c *commandSnapshotCreate) setup(app appServices, parent commandParent) {
 	cmd := parent.Command("create", "Creates a snapshot of local directory or file.").Default()
 
 	cmd.Arg("source", "Files or directories to create snapshot(s) of.").StringsVar(&c.snapshotCreateSources)
@@ -60,7 +60,7 @@ func (c *commandSnapshotCreate) setup(parent commandParent) {
 	cmd.Flag("tags", "Tags applied on the snapshot. Must be provided in the <key>:<value> format.").StringsVar(&c.snapshotCreateTags)
 
 	c.jo.setup(cmd)
-	cmd.Action(repositoryWriterAction(c.run))
+	cmd.Action(app.repositoryWriterAction(c.run))
 }
 
 func (c *commandSnapshotCreate) run(ctx context.Context, rep repo.RepositoryWriter) error {

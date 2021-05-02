@@ -24,7 +24,7 @@ type commandBenchmarkCompression struct {
 	optionPrint  bool
 }
 
-func (c *commandBenchmarkCompression) setup(parent commandParent) {
+func (c *commandBenchmarkCompression) setup(app appServices, parent commandParent) {
 	cmd := parent.Command("compression", "Run compression benchmarks")
 	cmd.Flag("block-size", "Size of a block to compress").Default("1MB").BytesVar(&c.blockSize)
 	cmd.Flag("repeat", "Number of repetitions").Default("100").IntVar(&c.repeat)
@@ -32,7 +32,7 @@ func (c *commandBenchmarkCompression) setup(parent commandParent) {
 	cmd.Flag("by-size", "Sort results by size").BoolVar(&c.bySize)
 	cmd.Flag("verify-stable", "Verify that compression is stable").BoolVar(&c.verifyStable)
 	cmd.Flag("print-options", "Print out options usable for repository creation").BoolVar(&c.optionPrint)
-	cmd.Action(noRepositoryAction(c.run))
+	cmd.Action(app.noRepositoryAction(c.run))
 }
 
 func (c *commandBenchmarkCompression) run(ctx context.Context) error {

@@ -20,7 +20,7 @@ type commandMaintenanceSet struct {
 	maintenanceSetPauseFull      []time.Duration // optional duration
 }
 
-func (c *commandMaintenanceSet) setup(parent commandParent) {
+func (c *commandMaintenanceSet) setup(app appServices, parent commandParent) {
 	cmd := parent.Command("set", "Set maintenance parameters")
 
 	cmd.Flag("owner", "Set maintenance owner user@hostname").StringVar(&c.maintenanceSetOwner)
@@ -34,7 +34,7 @@ func (c *commandMaintenanceSet) setup(parent commandParent) {
 	cmd.Flag("pause-quick", "Pause quick maintenance for a specified duration").DurationListVar(&c.maintenanceSetPauseQuick)
 	cmd.Flag("pause-full", "Pause full maintenance for a specified duration").DurationListVar(&c.maintenanceSetPauseFull)
 
-	cmd.Action(directRepositoryWriteAction(c.run))
+	cmd.Action(app.directRepositoryWriteAction(c.run))
 }
 
 func (c *commandMaintenanceSet) setMaintenanceOwnerFromFlags(ctx context.Context, p *maintenance.Params, rep repo.DirectRepositoryWriter, changed *bool) {

@@ -24,7 +24,7 @@ type commandSnapshotMigrate struct {
 	migrateParallel          int
 }
 
-func (c *commandSnapshotMigrate) setup(parent commandParent) {
+func (c *commandSnapshotMigrate) setup(app appServices, parent commandParent) {
 	cmd := parent.Command("migrate", "Migrate snapshots from another repository")
 	cmd.Flag("source-config", "Configuration file for the source repository").Required().ExistingFileVar(&c.migrateSourceConfig)
 	cmd.Flag("sources", "List of sources to migrate").StringsVar(&c.migrateSources)
@@ -33,7 +33,7 @@ func (c *commandSnapshotMigrate) setup(parent commandParent) {
 	cmd.Flag("overwrite-policies", "Overwrite policies").BoolVar(&c.migrateOverwritePolicies)
 	cmd.Flag("latest-only", "Only migrate the latest snapshot").BoolVar(&c.migrateLatestOnly)
 	cmd.Flag("parallel", "Number of sources to migrate in parallel").Default("1").IntVar(&c.migrateParallel)
-	cmd.Action(repositoryWriterAction(c.run))
+	cmd.Action(app.repositoryWriterAction(c.run))
 }
 
 func (c *commandSnapshotMigrate) run(ctx context.Context, destRepo repo.RepositoryWriter) error {

@@ -17,13 +17,13 @@ type commandSnapshotDelete struct {
 	snapshotDeleteConfirm bool
 }
 
-func (c *commandSnapshotDelete) setup(parent commandParent) {
+func (c *commandSnapshotDelete) setup(app appServices, parent commandParent) {
 	cmd := parent.Command("delete", "Explicitly delete a snapshot by providing a snapshot ID.")
 	cmd.Arg("id", "Snapshot ID or root object ID to be deleted").Required().StringsVar(&c.snapshotDeleteIDs)
 	cmd.Flag("delete", "Confirm deletion").BoolVar(&c.snapshotDeleteConfirm)
 	// hidden flag for backwards compatibility
 	cmd.Flag("unsafe-ignore-source", "Alias for --delete").Hidden().BoolVar(&c.snapshotDeleteConfirm)
-	cmd.Action(repositoryWriterAction(c.run))
+	cmd.Action(app.repositoryWriterAction(c.run))
 }
 
 func (c *commandSnapshotDelete) run(ctx context.Context, rep repo.RepositoryWriter) error {

@@ -16,7 +16,7 @@ type commandRepositorySetClient struct {
 	repoClientOptionsHostname    []string
 }
 
-func (c *commandRepositorySetClient) setup(parent commandParent) {
+func (c *commandRepositorySetClient) setup(app appServices, parent commandParent) {
 	cmd := parent.Command("set-client", "Set repository client options.")
 
 	cmd.Flag("read-only", "Set repository to read-only").BoolVar(&c.repoClientOptionsReadOnly)
@@ -24,7 +24,7 @@ func (c *commandRepositorySetClient) setup(parent commandParent) {
 	cmd.Flag("description", "Change description").StringsVar(&c.repoClientOptionsDescription)
 	cmd.Flag("username", "Change username").StringsVar(&c.repoClientOptionsUsername)
 	cmd.Flag("hostname", "Change hostname").StringsVar(&c.repoClientOptionsHostname)
-	cmd.Action(repositoryReaderAction(c.run))
+	cmd.Action(app.repositoryReaderAction(c.run))
 }
 
 func (c *commandRepositorySetClient) run(ctx context.Context, rep repo.Repository) error {

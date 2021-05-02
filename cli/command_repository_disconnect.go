@@ -8,9 +8,9 @@ import (
 
 type commandRepositoryDisconnect struct{}
 
-func (c *commandRepositoryDisconnect) setup(parent commandParent) {
+func (c *commandRepositoryDisconnect) setup(app appServices, parent commandParent) {
 	cmd := parent.Command("disconnect", "Disconnect from a repository.")
-	cmd.Action(noRepositoryAction(c.run))
+	cmd.Action(app.noRepositoryAction(c.run))
 }
 
 func (c *commandRepositoryDisconnect) run(ctx context.Context) error {

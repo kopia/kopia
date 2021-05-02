@@ -21,7 +21,7 @@ type commandContentRewrite struct {
 	contentRange contentRangeFlags
 }
 
-func (c *commandContentRewrite) setup(parent commandParent) {
+func (c *commandContentRewrite) setup(app appServices, parent commandParent) {
 	cmd := parent.Command("rewrite", "Rewrite content using most recent format")
 	cmd.Arg("contentID", "Identifiers of contents to rewrite").StringsVar(&c.contentRewriteIDs)
 	cmd.Flag("parallelism", "Number of parallel workers").Default("16").IntVar(&c.contentRewriteParallelism)
@@ -32,7 +32,7 @@ func (c *commandContentRewrite) setup(parent commandParent) {
 	cmd.Flag("dry-run", "Do not actually rewrite, only print what would happen").Short('n').BoolVar(&c.contentRewriteDryRun)
 	c.contentRange.setup(cmd)
 	safetyFlagVar(cmd, &c.contentRewriteSafety)
-	cmd.Action(directRepositoryWriteAction(c.runContentRewriteCommand))
+	cmd.Action(app.directRepositoryWriteAction(c.runContentRewriteCommand))
 }
 
 func (c *commandContentRewrite) runContentRewriteCommand(ctx context.Context, rep repo.DirectRepositoryWriter) error {

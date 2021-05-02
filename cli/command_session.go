@@ -4,8 +4,8 @@ type commandSession struct {
 	list commandSessionList
 }
 
-func (c *commandSession) setup(parent commandParent) {
+func (c *commandSession) setup(app appServices, parent commandParent) {
 	cmd := parent.Command("session", "Session commands.").Hidden()
 
-	c.list.setup(cmd)
+	c.list.setup(app, cmd)
 }

@@ -25,7 +25,7 @@ type commandRepositoryCreate struct {
 	co connectOptions
 }
 
-func (c *commandRepositoryCreate) setup(parent commandParent) {
+func (c *commandRepositoryCreate) setup(_ appServices, parent commandParent) {
 	cmd := parent.Command("create", "Create new repository in a specified location.")
 
 	cmd.Flag("block-hash", "Content hash algorithm.").PlaceHolder("ALGO").Default(hashing.DefaultAlgorithm).EnumVar(&c.createBlockHashFormat, hashing.SupportedAlgorithms()...)

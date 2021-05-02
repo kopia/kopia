@@ -15,12 +15,12 @@ type commandACLDelete struct {
 	confirm bool
 }
 
-func (c *commandACLDelete) setup(parent commandParent) {
+func (c *commandACLDelete) setup(app appServices, parent commandParent) {
 	cmd := parent.Command("delete", "Delete ACL entry").Alias("remove").Alias("rm")
 	cmd.Arg("id", "Entry ID").StringsVar(&c.ids)
 	cmd.Flag("all", "Remove all ACL entries").BoolVar(&c.all)
 	cmd.Flag("delete", "Really delete").BoolVar(&c.confirm)
-	cmd.Action(repositoryWriterAction(c.run))
+	cmd.Action(app.repositoryWriterAction(c.run))
 }
 
 func dryRunDelete(ctx context.Context, e *acl.Entry) {

@@ -13,10 +13,10 @@ type commandServerUserDelete struct {
 	name string
 }
 
-func (c *commandServerUserDelete) setup(parent commandParent) {
+func (c *commandServerUserDelete) setup(app appServices, parent commandParent) {
 	cmd := parent.Command("delete", "Delete user").Alias("remove").Alias("rm")
 	cmd.Arg("username", "The username to delete.").Required().StringVar(&c.name)
-	cmd.Action(repositoryWriterAction(c.run))
+	cmd.Action(app.repositoryWriterAction(c.run))
 }
 
 func (c *commandServerUserDelete) run(ctx context.Context, rep repo.RepositoryWriter) error {

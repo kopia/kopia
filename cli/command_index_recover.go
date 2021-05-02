@@ -15,11 +15,11 @@ type commandIndexRecover struct {
 	commit  bool
 }
 
-func (c *commandIndexRecover) setup(parent commandParent) {
+func (c *commandIndexRecover) setup(app appServices, parent commandParent) {
 	cmd := parent.Command("recover", "Recover indexes from pack blobs")
 	cmd.Flag("blobs", "Names of pack blobs to recover from (default=all packs)").StringsVar(&c.blobIDs)
 	cmd.Flag("commit", "Commit recovered content").BoolVar(&c.commit)
-	cmd.Action(directRepositoryWriteAction(c.run))
+	cmd.Action(app.directRepositoryWriteAction(c.run))
 }
 
 func (c *commandIndexRecover) run(ctx context.Context, rep repo.DirectRepositoryWriter) error {

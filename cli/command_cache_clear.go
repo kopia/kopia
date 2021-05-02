@@ -15,10 +15,10 @@ type commandCacheClear struct {
 	partial string
 }
 
-func (c *commandCacheClear) setup(parent commandParent) {
+func (c *commandCacheClear) setup(app appServices, parent commandParent) {
 	cmd := parent.Command("clear", "Clears the cache")
 	cmd.Flag("partial", "Specifies the cache to clear").EnumVar(&c.partial, "contents", "indexes", "metadata", "own-writes", "blob-list")
-	cmd.Action(repositoryReaderAction(c.run))
+	cmd.Action(app.repositoryReaderAction(c.run))
 }
 
 func (c *commandCacheClear) run(ctx context.Context, rep repo.Repository) error {

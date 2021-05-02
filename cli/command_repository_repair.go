@@ -18,7 +18,7 @@ type commandRepositoryRepair struct {
 	repairDryDrun                          bool
 }
 
-func (c *commandRepositoryRepair) setup(parent commandParent) {
+func (c *commandRepositoryRepair) setup(_ appServices, parent commandParent) {
 	cmd := parent.Command("repair", "Repairs repository.")
 
 	cmd.Flag("recover-format", "Recover format blob from a copy").Default("auto").EnumVar(&c.repairCommandRecoverFormatBlob, "auto", "yes", "no")

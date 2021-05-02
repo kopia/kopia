@@ -16,11 +16,11 @@ type commandSnapshotGC struct {
 	snapshotGCSafety maintenance.SafetyParameters
 }
 
-func (c *commandSnapshotGC) setup(parent commandParent) {
+func (c *commandSnapshotGC) setup(app appServices, parent commandParent) {
 	cmd := parent.Command("gc", "Mark contents as deleted which are not used by any snapshot").Hidden()
 	cmd.Flag("delete", "Delete unreferenced contents").BoolVar(&c.snapshotGCDelete)
 	safetyFlagVar(cmd, &c.snapshotGCSafety)
-	cmd.Action(directRepositoryWriteAction(c.run))
+	cmd.Action(app.directRepositoryWriteAction(c.run))
 }
 
 func (c *commandSnapshotGC) run(ctx context.Context, rep repo.DirectRepositoryWriter) error {

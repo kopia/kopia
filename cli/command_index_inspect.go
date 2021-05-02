@@ -14,10 +14,10 @@ type commandIndexInspect struct {
 	ids []string
 }
 
-func (c *commandIndexInspect) setup(parent commandParent) {
+func (c *commandIndexInspect) setup(app appServices, parent commandParent) {
 	cmd := parent.Command("inspect", "Inpect index blob")
 	cmd.Arg("blobs", "Names of index blobs to inspect").StringsVar(&c.ids)
-	cmd.Action(directRepositoryReadAction(c.run))
+	cmd.Action(app.directRepositoryReadAction(c.run))
 }
 
 func (c *commandIndexInspect) run(ctx context.Context, rep repo.DirectRepository) error {

@@ -20,11 +20,11 @@ type commandRepositoryStatus struct {
 	statusReconnectTokenIncludePassword bool
 }
 
-func (c *commandRepositoryStatus) setup(parent commandParent) {
+func (c *commandRepositoryStatus) setup(app appServices, parent commandParent) {
 	cmd := parent.Command("status", "Display the status of connected repository.")
 	cmd.Flag("reconnect-token", "Display reconnect command").Short('t').BoolVar(&c.statusReconnectToken)
 	cmd.Flag("reconnect-token-with-password", "Include password in reconnect token").Short('s').BoolVar(&c.statusReconnectTokenIncludePassword)
-	cmd.Action(repositoryReaderAction(c.run))
+	cmd.Action(app.repositoryReaderAction(c.run))
 }
 
 func (c *commandRepositoryStatus) run(ctx context.Context, rep repo.Repository) error {

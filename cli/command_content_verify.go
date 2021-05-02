@@ -19,14 +19,14 @@ type commandContentVerify struct {
 	contentRange contentRangeFlags
 }
 
-func (c *commandContentVerify) setup(parent commandParent) {
+func (c *commandContentVerify) setup(app appServices, parent commandParent) {
 	cmd := parent.Command("verify", "Verify that each content is backed by a valid blob")
 
 	cmd.Flag("parallel", "Parallelism").Default("16").IntVar(&c.contentVerifyParallel)
 	cmd.Flag("full", "Full verification (including download)").BoolVar(&c.contentVerifyFull)
 	cmd.Flag("include-deleted", "Include deleted contents").BoolVar(&c.contentVerifyIncludeDeleted)
 	c.contentRange.setup(cmd)
-	cmd.Action(directRepositoryReadAction(c.run))
+	cmd.Action(app.directRepositoryReadAction(c.run))
 }
 
 func readBlobMap(ctx context.Context, br blob.Reader) (map[blob.ID]blob.Metadata, error) {

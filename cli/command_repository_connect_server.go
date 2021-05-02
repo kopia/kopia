@@ -17,13 +17,13 @@ type commandRepositoryConnectServer struct {
 	connectAPIServerUseGRPCAPI      bool
 }
 
-func (c *commandRepositoryConnectServer) setup(parent commandParent, co *connectOptions) {
+func (c *commandRepositoryConnectServer) setup(app appServices, parent commandParent, co *connectOptions) {
 	c.co = co
 	cmd := parent.Command("server", "Connect to a repository API Server.")
 	cmd.Flag("url", "Server URL").Required().StringVar(&c.connectAPIServerURL)
 	cmd.Flag("server-cert-fingerprint", "Server certificate fingerprint").StringVar(&c.connectAPIServerCertFingerprint)
 	cmd.Flag("grpc", "Use GRPC API").Default("true").BoolVar(&c.connectAPIServerUseGRPCAPI)
-	cmd.Action(noRepositoryAction(c.run))
+	cmd.Action(app.noRepositoryAction(c.run))
 }
 
 func (c *commandRepositoryConnectServer) run(ctx context.Context) error {

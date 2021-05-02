@@ -58,7 +58,7 @@ type commandServerStart struct {
 	sf serverFlags
 }
 
-func (c *commandServerStart) setup(parent commandParent) {
+func (c *commandServerStart) setup(app appServices, parent commandParent) {
 	cmd := parent.Command("start", "Start Kopia server").Default()
 	cmd.Flag("html", "Server the provided HTML at the root URL").ExistingDirVar(&c.serverStartHTMLPath)
 	cmd.Flag("ui", "Start the server with HTML UI").Default("true").BoolVar(&c.serverStartUI)
@@ -89,7 +89,7 @@ func (c *commandServerStart) setup(parent commandParent) {
 	c.sf.setup(cmd)
 
 	c.co.setup(cmd)
-	cmd.Action(maybeRepositoryAction(c.run, repositoryAccessMode{
+	cmd.Action(app.maybeRepositoryAction(c.run, repositoryAccessMode{
 		mustBeConnected:    false,
 		disableMaintenance: true, // server closes the repository so maintenance can't run.
 	}))

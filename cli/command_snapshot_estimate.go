@@ -23,13 +23,13 @@ type commandSnapshotEstimate struct {
 	snapshotEstimateUploadSpeed float64
 }
 
-func (c *commandSnapshotEstimate) setup(parent commandParent) {
+func (c *commandSnapshotEstimate) setup(app appServices, parent commandParent) {
 	cmd := parent.Command("estimate", "Estimate the snapshot size and upload time.")
 	cmd.Arg("source", "File or directory to analyze.").Required().ExistingFileOrDirVar(&c.snapshotEstimateSource)
 	cmd.Flag("show-files", "Show files").BoolVar(&c.snapshotEstimateShowFiles)
 	cmd.Flag("quiet", "Do not display scanning progress").Short('q').BoolVar(&c.snapshotEstimateQuiet)
 	cmd.Flag("upload-speed", "Upload speed to use for estimation").Default("10").PlaceHolder("mbit/s").Float64Var(&c.snapshotEstimateUploadSpeed)
-	cmd.Action(repositoryReaderAction(c.run))
+	cmd.Action(app.repositoryReaderAction(c.run))
 }
 
 type estimateProgress struct {

@@ -6,10 +6,10 @@ type commandManifest struct {
 	show   commandManifestShow
 }
 
-func (c *commandManifest) setup(parent commandParent) {
+func (c *commandManifest) setup(app appServices, parent commandParent) {
 	cmd := parent.Command("manifest", "Low-level commands to manipulate manifest items.").Hidden()
 
-	c.delete.setup(cmd)
-	c.list.setup(cmd)
-	c.show.setup(cmd)
+	c.delete.setup(app, cmd)
+	c.list.setup(app, cmd)
+	c.show.setup(app, cmd)
 }
