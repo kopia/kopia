@@ -45,6 +45,7 @@ type appServices interface {
 type TheApp struct {
 	// global flags
 	enableAutomaticMaintenance bool
+	mt                         memoryTracker
 
 	// subcommands
 	blob        commandBlob
@@ -68,6 +69,7 @@ type TheApp struct {
 
 func (c *TheApp) setup(app *kingpin.Application) {
 	app.Flag("auto-maintenance", "Automatic maintenance").Default("true").Hidden().BoolVar(&c.enableAutomaticMaintenance)
+	c.mt.setup(app)
 
 	c.blob.setup(c, app)
 	c.benchmark.setup(c, app)
@@ -225,8 +227,8 @@ func (c *TheApp) maybeRepositoryAction(act func(ctx context.Context, rep repo.Re
 		ctx := rootContext()
 
 		if err := withProfiling(func() error {
-			startMemoryTracking(ctx)
-			defer finishMemoryTracking(ctx)
+			c.mt.startMemoryTracking(ctx)
+			defer c.mt.finishMemoryTracking(ctx)
 
 			if *metricsListenAddr != "" {
 				mux := http.NewServeMux()
