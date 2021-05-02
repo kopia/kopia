@@ -28,8 +28,6 @@ var (
 var (
 	app = kingpin.New("kopia", "Kopia - Online Backup").Author("http://kopia.github.io/")
 
-	enableAutomaticMaintenance = app.Flag("auto-maintenance", "Automatic maintenance").Default("true").Hidden().Bool()
-
 	_ = app.Flag("help-full", "Show help for all commands, including hidden").Action(helpFullAction).Bool()
 )
 
@@ -45,6 +43,10 @@ type appServices interface {
 }
 
 type TheApp struct {
+	// global flags
+	enableAutomaticMaintenance bool
+
+	// subcommands
 	blob        commandBlob
 	benchmark   commandBenchmark
 	cache       commandCache
@@ -65,6 +67,8 @@ type TheApp struct {
 }
 
 func (c *TheApp) setup(app *kingpin.Application) {
+	app.Flag("auto-maintenance", "Automatic maintenance").Default("true").Hidden().BoolVar(&c.enableAutomaticMaintenance)
+
 	c.blob.setup(c, app)
 	c.benchmark.setup(c, app)
 	c.cache.setup(c, app)
@@ -242,7 +246,7 @@ func (c *TheApp) maybeRepositoryAction(act func(ctx context.Context, rep repo.Re
 			err = act(ctx, rep)
 
 			if rep != nil && !mode.disableMaintenance {
-				if merr := maybeRunMaintenance(ctx, rep); merr != nil {
+				if merr := c.maybeRunMaintenance(ctx, rep); merr != nil {
 					log(ctx).Errorf("error running maintenance: %v", merr)
 				}
 			}
@@ -264,8 +268,8 @@ func (c *TheApp) maybeRepositoryAction(act func(ctx context.Context, rep repo.Re
 	}
 }
 
-func maybeRunMaintenance(ctx context.Context, rep repo.Repository) error {
-	if !*enableAutomaticMaintenance {
+func (c *TheApp) maybeRunMaintenance(ctx context.Context, rep repo.Repository) error {
+	if !c.enableAutomaticMaintenance {
 		return nil
 	}
 
