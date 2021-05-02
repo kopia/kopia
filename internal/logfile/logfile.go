@@ -18,7 +18,6 @@ import (
 	logging "github.com/op/go-logging"
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/cli"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/ospath"
 	"github.com/kopia/kopia/repo/content"
@@ -34,21 +33,44 @@ var fileLogFormat = logging.MustStringFormatter(
 // warning is for backwards compatibility, same as error.
 var logLevels = []string{"debug", "info", "warning", "error"}
 
-var (
-	logFile        = cli.App().Flag("log-file", "Override log file.").String()
-	contentLogFile = cli.App().Flag("content-log-file", "Override content log file.").Hidden().String()
+type loggingFlags struct {
+	logFile               string
+	contentLogFile        string
+	logDir                string
+	logDirMaxFiles        int
+	logDirMaxAge          time.Duration
+	contentLogDirMaxFiles int
+	contentLogDirMaxAge   time.Duration
+	logLevel              string
+	fileLogLevel          string
+	forceColor            bool
+	disableColor          bool
+	consoleLogTimestamps  bool
+}
 
-	logDir                = cli.App().Flag("log-dir", "Directory where log files should be written.").Envar("KOPIA_LOG_DIR").Default(ospath.LogsDir()).String()
-	logDirMaxFiles        = cli.App().Flag("log-dir-max-files", "Maximum number of log files to retain").Envar("KOPIA_LOG_DIR_MAX_FILES").Default("1000").Hidden().Int()
-	logDirMaxAge          = cli.App().Flag("log-dir-max-age", "Maximum age of log files to retain").Envar("KOPIA_LOG_DIR_MAX_AGE").Hidden().Default("720h").Duration()
-	contentLogDirMaxFiles = cli.App().Flag("content-log-dir-max-files", "Maximum number of content log files to retain").Envar("KOPIA_CONTENT_LOG_DIR_MAX_FILES").Default("5000").Hidden().Int()
-	contentLogDirMaxAge   = cli.App().Flag("content-log-dir-max-age", "Maximum age of content log files to retain").Envar("KOPIA_CONTENT_LOG_DIR_MAX_AGE").Default("720h").Hidden().Duration()
-	logLevel              = cli.App().Flag("log-level", "Console log level").Default("info").Enum(logLevels...)
-	fileLogLevel          = cli.App().Flag("file-log-level", "File log level").Default("debug").Enum(logLevels...)
-	forceColor            = cli.App().Flag("force-color", "Force color output").Hidden().Envar("KOPIA_FORCE_COLOR").Bool()
-	disableColor          = cli.App().Flag("disable-color", "Disable color output").Hidden().Envar("KOPIA_DISABLE_COLOR").Bool()
-	consoleLogTimestamps  = cli.App().Flag("console-timestamps", "Log timestamps to stderr.").Hidden().Default("false").Envar("KOPIA_CONSOLE_TIMESTAMPS").Bool()
-)
+func (c *loggingFlags) setup(app *kingpin.Application) {
+	app.Flag("log-file", "Override log file.").StringVar(&c.logFile)
+	app.Flag("content-log-file", "Override content log file.").Hidden().StringVar(&c.contentLogFile)
+
+	app.Flag("log-dir", "Directory where log files should be written.").Envar("KOPIA_LOG_DIR").Default(ospath.LogsDir()).StringVar(&c.logDir)
+	app.Flag("log-dir-max-files", "Maximum number of log files to retain").Envar("KOPIA_LOG_DIR_MAX_FILES").Default("1000").Hidden().IntVar(&c.logDirMaxFiles)
+	app.Flag("log-dir-max-age", "Maximum age of log files to retain").Envar("KOPIA_LOG_DIR_MAX_AGE").Hidden().Default("720h").DurationVar(&c.logDirMaxAge)
+	app.Flag("content-log-dir-max-files", "Maximum number of content log files to retain").Envar("KOPIA_CONTENT_LOG_DIR_MAX_FILES").Default("5000").Hidden().IntVar(&c.contentLogDirMaxFiles)
+	app.Flag("content-log-dir-max-age", "Maximum age of content log files to retain").Envar("KOPIA_CONTENT_LOG_DIR_MAX_AGE").Default("720h").Hidden().DurationVar(&c.contentLogDirMaxAge)
+	app.Flag("log-level", "Console log level").Default("info").EnumVar(&c.logLevel, logLevels...)
+	app.Flag("file-log-level", "File log level").Default("debug").EnumVar(&c.fileLogLevel, logLevels...)
+	app.Flag("force-color", "Force color output").Hidden().Envar("KOPIA_FORCE_COLOR").BoolVar(&c.forceColor)
+	app.Flag("disable-color", "Disable color output").Hidden().Envar("KOPIA_DISABLE_COLOR").BoolVar(&c.disableColor)
+	app.Flag("console-timestamps", "Log timestamps to stderr.").Hidden().Default("false").Envar("KOPIA_CONSOLE_TIMESTAMPS").BoolVar(&c.consoleLogTimestamps)
+
+	app.PreAction(c.initialize)
+}
+
+// Attach attaches logging flags to the provided application.
+func Attach(app *kingpin.Application) {
+	lf := &loggingFlags{}
+	lf.setup(app)
+}
 
 var log = repologging.GetContextLoggerFunc("kopia")
 
@@ -57,9 +79,9 @@ const (
 	logFileNameSuffix = ".log"
 )
 
-// Initialize is invoked as part of command execution to create log file just before it's needed.
-func Initialize(ctx *kingpin.ParseContext) error {
-	if *logDir == "" {
+// initialize is invoked as part of command execution to create log file just before it's needed.
+func (c *loggingFlags) initialize(ctx *kingpin.ParseContext) error {
+	if c.logDir == "" {
 		return nil
 	}
 
@@ -73,17 +95,17 @@ func Initialize(ctx *kingpin.ParseContext) error {
 	// activate backends
 	logging.SetBackend(
 		multiLogger{
-			setupConsoleBackend(),
-			setupLogFileBackend(now, suffix),
-			setupContentLogFileBackend(now, suffix),
+			c.setupConsoleBackend(),
+			c.setupLogFileBackend(now, suffix),
+			c.setupContentLogFileBackend(now, suffix),
 		},
 	)
 
-	if *forceColor {
+	if c.forceColor {
 		color.NoColor = false
 	}
 
-	if *disableColor {
+	if c.disableColor {
 		color.NoColor = true
 	}
 
@@ -106,19 +128,19 @@ func (m multiLogger) Log(l logging.Level, calldepth int, rec *logging.Record) er
 	return nil
 }
 
-func setupConsoleBackend() logging.Backend {
+func (c *loggingFlags) setupConsoleBackend() logging.Backend {
 	var (
 		prefix         = "%{color}"
 		suffix         = "%{message}%{color:reset}"
 		maybeTimestamp = "%{time:15:04:05.000} "
 	)
 
-	if *disableColor {
+	if c.disableColor {
 		prefix = ""
 		suffix = "%{message}"
 	}
 
-	if !*consoleLogTimestamps {
+	if !c.consoleLogTimestamps {
 		maybeTimestamp = ""
 	}
 
@@ -130,12 +152,12 @@ func setupConsoleBackend() logging.Backend {
 	l.SetLevel(logging.CRITICAL, content.FormatLogModule)
 
 	// log everything else at a level specified using --log-level
-	l.SetLevel(logLevelFromFlag(*logLevel), "")
+	l.SetLevel(logLevelFromFlag(c.logLevel), "")
 
 	return l
 }
 
-func setupLogFileBasedLogger(now time.Time, subdir, suffix, logFileOverride string, maxFiles int, maxAge time.Duration) logging.Backend {
+func (c *loggingFlags) setupLogFileBasedLogger(now time.Time, subdir, suffix, logFileOverride string, maxFiles int, maxAge time.Duration) logging.Backend {
 	var logFileName, symlinkName string
 
 	if logFileOverride != "" {
@@ -149,7 +171,7 @@ func setupLogFileBasedLogger(now time.Time, subdir, suffix, logFileOverride stri
 
 	if logFileName == "" {
 		logBaseName := fmt.Sprintf("%v%v-%v-%v%v", logFileNamePrefix, now.Format("20060102-150405"), os.Getpid(), suffix, logFileNameSuffix)
-		logFileName = filepath.Join(*logDir, subdir, logBaseName)
+		logFileName = filepath.Join(c.logDir, subdir, logBaseName)
 		symlinkName = "latest.log"
 	}
 
@@ -172,25 +194,25 @@ func setupLogFileBasedLogger(now time.Time, subdir, suffix, logFileOverride stri
 	}
 }
 
-func setupLogFileBackend(now time.Time, suffix string) logging.Backend {
+func (c *loggingFlags) setupLogFileBackend(now time.Time, suffix string) logging.Backend {
 	l := logging.AddModuleLevel(
 		logging.NewBackendFormatter(
-			setupLogFileBasedLogger(now, "cli-logs", suffix, *logFile, *logDirMaxFiles, *logDirMaxAge),
+			c.setupLogFileBasedLogger(now, "cli-logs", suffix, c.logFile, c.logDirMaxFiles, c.logDirMaxAge),
 			fileLogFormat))
 
 	// do not output content logs to the regular log file
 	l.SetLevel(logging.CRITICAL, content.FormatLogModule)
 
 	// log everything else at a level specified using --file-level
-	l.SetLevel(logLevelFromFlag(*fileLogLevel), "")
+	l.SetLevel(logLevelFromFlag(c.fileLogLevel), "")
 
 	return l
 }
 
-func setupContentLogFileBackend(now time.Time, suffix string) logging.Backend {
+func (c *loggingFlags) setupContentLogFileBackend(now time.Time, suffix string) logging.Backend {
 	l := logging.AddModuleLevel(
 		logging.NewBackendFormatter(
-			setupLogFileBasedLogger(now, "content-logs", suffix, *contentLogFile, *contentLogDirMaxFiles, *contentLogDirMaxAge),
+			c.setupLogFileBasedLogger(now, "content-logs", suffix, c.contentLogFile, c.contentLogDirMaxFiles, c.contentLogDirMaxAge),
 			contentLogFormat))
 
 	// only log content entries
