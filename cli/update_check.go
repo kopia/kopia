@@ -25,13 +25,6 @@ const (
 	githubTimeout        = 10 * time.Second
 )
 
-// hidden flags to control auto-update behavior.
-var (
-	initialUpdateCheckDelay       = app.Flag("initial-update-check-delay", "Initial delay before first time update check").Default("24h").Hidden().Envar("KOPIA_INITIAL_UPDATE_CHECK_DELAY").Duration()
-	updateCheckInterval           = app.Flag("update-check-interval", "Interval between update checks").Default("168h").Hidden().Envar("KOPIA_UPDATE_CHECK_INTERVAL").Duration()
-	updateAvailableNotifyInterval = app.Flag("update-available-notify-interval", "Interval between update notifications").Default("1h").Hidden().Envar("KOPIA_UPDATE_NOTIFY_INTERVAL").Duration()
-)
-
 const (
 	latestReleaseGitHubURLFormat = "https://api.github.com/repos/%v/releases/latest"
 	checksumsURLFormat           = "https://github.com/%v/releases/download/%v/checksums.txt.sig"
@@ -93,11 +86,11 @@ func getUpdateState() (*updateState, error) {
 
 // maybeInitializeUpdateCheck optionally writes update state file with initial update
 // set 24 hours from now.
-func (c *connectOptions) maybeInitializeUpdateCheck(ctx context.Context) {
-	if c.connectCheckForUpdates {
+func (c *TheApp) maybeInitializeUpdateCheck(ctx context.Context, co *connectOptions) {
+	if co.connectCheckForUpdates {
 		us := &updateState{
-			NextCheckTime:  clock.Now().Add(*initialUpdateCheckDelay),
-			NextNotifyTime: clock.Now().Add(*initialUpdateCheckDelay),
+			NextCheckTime:  clock.Now().Add(c.initialUpdateCheckDelay),
+			NextNotifyTime: clock.Now().Add(c.initialUpdateCheckDelay),
 		}
 		if err := writeUpdateState(us); err != nil {
 			log(ctx).Debugf("error initializing update state")
@@ -165,7 +158,7 @@ func verifyGitHubReleaseIsComplete(ctx context.Context, releaseName string) erro
 	return nil
 }
 
-func maybeCheckForUpdates(ctx context.Context) (string, error) {
+func (c *TheApp) maybeCheckForUpdates(ctx context.Context) (string, error) {
 	if v := os.Getenv(checkForUpdatesEnvar); v != "" {
 		// see if environment variable is set to false.
 		if b, err := strconv.ParseBool(v); err == nil && !b {
@@ -178,7 +171,7 @@ func maybeCheckForUpdates(ctx context.Context) (string, error) {
 		return "", err
 	}
 
-	if err := maybeCheckGithub(ctx, us); err != nil {
+	if err := c.maybeCheckGithub(ctx, us); err != nil {
 		return "", errors.Wrap(err, "error checking github")
 	}
 
@@ -190,7 +183,7 @@ func maybeCheckForUpdates(ctx context.Context) (string, error) {
 	}
 
 	if clock.Now().After(us.NextNotifyTime) {
-		us.NextNotifyTime = clock.Now().Add(*updateAvailableNotifyInterval)
+		us.NextNotifyTime = clock.Now().Add(c.updateAvailableNotifyInterval)
 		if err := writeUpdateState(us); err != nil {
 			return "", errors.Wrap(err, "unable to write update state")
 		}
@@ -202,7 +195,7 @@ func maybeCheckForUpdates(ctx context.Context) (string, error) {
 	return "", nil
 }
 
-func maybeCheckGithub(ctx context.Context, us *updateState) error {
+func (c *TheApp) maybeCheckGithub(ctx context.Context, us *updateState) error {
 	if !clock.Now().After(us.NextCheckTime) {
 		return nil
 	}
@@ -211,7 +204,7 @@ func maybeCheckGithub(ctx context.Context, us *updateState) error {
 
 	// before we check for update, write update state file again, so if this fails
 	// we won't bother GitHub for a while
-	us.NextCheckTime = clock.Now().Add(*updateCheckInterval)
+	us.NextCheckTime = clock.Now().Add(c.updateCheckInterval)
 	if err := writeUpdateState(us); err != nil {
 		return errors.Wrap(err, "unable to write update state")
 	}
@@ -240,13 +233,13 @@ func maybeCheckGithub(ctx context.Context, us *updateState) error {
 }
 
 // maybePrintUpdateNotification prints notification about available version.
-func maybePrintUpdateNotification(ctx context.Context) {
+func (c *TheApp) maybePrintUpdateNotification(ctx context.Context) {
 	if repo.BuildGitHubRepo == "" {
 		// not built from GH repo.
 		return
 	}
 
-	updatedVersion, err := maybeCheckForUpdates(ctx)
+	updatedVersion, err := c.maybeCheckForUpdates(ctx)
 	if err != nil {
 		log(ctx).Debugf("unable to check for updates: %v", err)
 		return

@@ -32,6 +32,8 @@ type commandRepositorySyncTo struct {
 	syncProgressMutex      sync.Mutex
 	nextSyncOutputTime     timetrack.Throttle
 	setTimeUnsupportedOnce sync.Once
+
+	app appServices
 }
 
 func (c *commandRepositorySyncTo) setup(app appServices, parent commandParent) {
@@ -55,7 +57,7 @@ func (c *commandRepositorySyncTo) setup(app appServices, parent commandParent) {
 				return errors.Wrap(err, "can't connect to storage")
 			}
 
-			rep, err := openRepository(ctx, true)
+			rep, err := app.openRepository(ctx, true)
 			if err != nil {
 				return errors.Wrap(err, "open repository")
 			}

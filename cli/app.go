@@ -5,6 +5,7 @@ import (
 	"context"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/alecthomas/kingpin"
 	"github.com/fatih/color"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/kopia/kopia/internal/apiclient"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/repo/maintenance"
 	"github.com/kopia/kopia/snapshot/snapshotmaintenance"
@@ -41,14 +43,22 @@ type appServices interface {
 	repositoryWriterAction(act func(ctx context.Context, rep repo.RepositoryWriter) error) func(ctx *kingpin.ParseContext) error
 	maybeRepositoryAction(act func(ctx context.Context, rep repo.Repository) error, mode repositoryAccessMode) func(ctx *kingpin.ParseContext) error
 
+	runConnectCommandWithStorage(ctx context.Context, co *connectOptions, st blob.Storage) error
+	runConnectCommandWithStorageAndPassword(ctx context.Context, co *connectOptions, st blob.Storage, password string) error
+	openRepository(ctx context.Context, required bool) (repo.Repository, error)
+
 	getProgress() *cliProgress
+	maybeInitializeUpdateCheck(ctx context.Context, co *connectOptions)
 }
 
 type TheApp struct {
 	// global flags
-	enableAutomaticMaintenance bool
-	mt                         memoryTracker
-	progress                   *cliProgress
+	enableAutomaticMaintenance    bool
+	mt                            memoryTracker
+	progress                      *cliProgress
+	initialUpdateCheckDelay       time.Duration
+	updateCheckInterval           time.Duration
+	updateAvailableNotifyInterval time.Duration
 
 	// subcommands
 	blob        commandBlob
@@ -76,6 +86,11 @@ func (c *TheApp) getProgress() *cliProgress {
 
 func (c *TheApp) setup(app *kingpin.Application) {
 	app.Flag("auto-maintenance", "Automatic maintenance").Default("true").Hidden().BoolVar(&c.enableAutomaticMaintenance)
+
+	// hidden flags to control auto-update behavior.
+	app.Flag("initial-update-check-delay", "Initial delay before first time update check").Default("24h").Hidden().Envar("KOPIA_INITIAL_UPDATE_CHECK_DELAY").DurationVar(&c.initialUpdateCheckDelay)
+	app.Flag("update-check-interval", "Interval between update checks").Default("168h").Hidden().Envar("KOPIA_UPDATE_CHECK_INTERVAL").DurationVar(&c.updateCheckInterval)
+	app.Flag("update-available-notify-interval", "Interval between update notifications").Default("1h").Hidden().Envar("KOPIA_UPDATE_NOTIFY_INTERVAL").DurationVar(&c.updateAvailableNotifyInterval)
 
 	c.mt.setup(app)
 	c.progress.setup(app)
@@ -258,7 +273,7 @@ func (c *TheApp) maybeRepositoryAction(act func(ctx context.Context, rep repo.Re
 				go http.ListenAndServe(*metricsListenAddr, mux) // nolint:errcheck
 			}
 
-			rep, err := openRepository(ctx, mode.mustBeConnected)
+			rep, err := c.openRepository(ctx, mode.mustBeConnected)
 			if err != nil && mode.mustBeConnected {
 				return errors.Wrap(err, "open repository")
 			}

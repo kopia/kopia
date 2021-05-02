@@ -36,7 +36,7 @@ func (c *commandRepositoryConnect) setup(app appServices, parent commandParent) 
 				return errors.Wrap(err, "can't connect to storage")
 			}
 
-			return runConnectCommandWithStorage(ctx, &c.co, st)
+			return app.runConnectCommandWithStorage(ctx, &c.co, st)
 		})
 	}
 }
@@ -90,23 +90,23 @@ func (c *connectOptions) toRepoConnectOptions() *repo.ConnectOptions {
 	}
 }
 
-func runConnectCommandWithStorage(ctx context.Context, co *connectOptions, st blob.Storage) error {
+func (c *TheApp) runConnectCommandWithStorage(ctx context.Context, co *connectOptions, st blob.Storage) error {
 	password, err := getPasswordFromFlags(ctx, false, false)
 	if err != nil {
 		return errors.Wrap(err, "getting password")
 	}
 
-	return runConnectCommandWithStorageAndPassword(ctx, co, st, password)
+	return c.runConnectCommandWithStorageAndPassword(ctx, co, st, password)
 }
 
-func runConnectCommandWithStorageAndPassword(ctx context.Context, co *connectOptions, st blob.Storage, password string) error {
+func (c *TheApp) runConnectCommandWithStorageAndPassword(ctx context.Context, co *connectOptions, st blob.Storage, password string) error {
 	configFile := repositoryConfigFileName()
 	if err := repo.Connect(ctx, configFile, st, password, co.toRepoConnectOptions()); err != nil {
 		return errors.Wrap(err, "error connecting to repository")
 	}
 
 	log(ctx).Infof("Connected to repository.")
-	co.maybeInitializeUpdateCheck(ctx)
+	c.maybeInitializeUpdateCheck(ctx, co)
 
 	return nil
 }

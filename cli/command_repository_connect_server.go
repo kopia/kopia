@@ -15,10 +15,14 @@ type commandRepositoryConnectServer struct {
 	connectAPIServerURL             string
 	connectAPIServerCertFingerprint string
 	connectAPIServerUseGRPCAPI      bool
+
+	app appServices
 }
 
 func (c *commandRepositoryConnectServer) setup(app appServices, parent commandParent, co *connectOptions) {
 	c.co = co
+	c.app = app
+
 	cmd := parent.Command("server", "Connect to a repository API Server.")
 	cmd.Flag("url", "Server URL").Required().StringVar(&c.connectAPIServerURL)
 	cmd.Flag("server-cert-fingerprint", "Server certificate fingerprint").StringVar(&c.connectAPIServerCertFingerprint)
@@ -58,7 +62,7 @@ func (c *commandRepositoryConnectServer) run(ctx context.Context) error {
 	}
 
 	log(ctx).Infof("Connected to repository API Server.")
-	c.co.maybeInitializeUpdateCheck(ctx)
+	c.app.maybeInitializeUpdateCheck(ctx, c.co)
 
 	return nil
 }

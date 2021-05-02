@@ -59,7 +59,7 @@ func onCtrlC(f func()) {
 	}()
 }
 
-func openRepository(ctx context.Context, required bool) (repo.Repository, error) {
+func (c *TheApp) openRepository(ctx context.Context, required bool) (repo.Repository, error) {
 	if _, err := os.Stat(repositoryConfigFileName()); os.IsNotExist(err) {
 		if !required {
 			return nil, nil
@@ -68,7 +68,7 @@ func openRepository(ctx context.Context, required bool) (repo.Repository, error)
 		return nil, errors.Errorf("repository is not connected. See https://kopia.io/docs/repositories/")
 	}
 
-	maybePrintUpdateNotification(ctx)
+	c.maybePrintUpdateNotification(ctx)
 
 	pass, err := getPasswordFromFlags(ctx, false, true)
 	if err != nil {

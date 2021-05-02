@@ -22,10 +22,11 @@ type commandRepositoryCreate struct {
 	createSplitter              string
 	createOnly                  bool
 
-	co connectOptions
+	co  connectOptions
+	app appServices
 }
 
-func (c *commandRepositoryCreate) setup(_ appServices, parent commandParent) {
+func (c *commandRepositoryCreate) setup(app appServices, parent commandParent) {
 	cmd := parent.Command("create", "Create new repository in a specified location.")
 
 	cmd.Flag("block-hash", "Content hash algorithm.").PlaceHolder("ALGO").Default(hashing.DefaultAlgorithm).EnumVar(&c.createBlockHashFormat, hashing.SupportedAlgorithms()...)
@@ -34,6 +35,7 @@ func (c *commandRepositoryCreate) setup(_ appServices, parent commandParent) {
 	cmd.Flag("create-only", "Create repository, but don't connect to it.").Short('c').BoolVar(&c.createOnly)
 
 	c.co.setup(cmd)
+	c.app = app
 
 	for _, prov := range storageProviders {
 		if prov.name == "from-config" {
@@ -110,7 +112,7 @@ func (c *commandRepositoryCreate) runCreateCommandWithStorage(ctx context.Contex
 		return nil
 	}
 
-	if err := runConnectCommandWithStorageAndPassword(ctx, &c.co, st, password); err != nil {
+	if err := c.app.runConnectCommandWithStorageAndPassword(ctx, &c.co, st, password); err != nil {
 		return errors.Wrap(err, "unable to connect to repository")
 	}
 
