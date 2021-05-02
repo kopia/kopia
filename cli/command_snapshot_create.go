@@ -38,7 +38,8 @@ type commandSnapshotCreate struct {
 	snapshotCreateCheckpointUploadLimitMB int64
 	snapshotCreateTags                    []string
 
-	jo jsonOutput
+	jo  jsonOutput
+	app appServices
 }
 
 func (c *commandSnapshotCreate) setup(app appServices, parent commandParent) {
@@ -60,6 +61,8 @@ func (c *commandSnapshotCreate) setup(app appServices, parent commandParent) {
 	cmd.Flag("tags", "Tags applied on the snapshot. Must be provided in the <key>:<value> format.").StringsVar(&c.snapshotCreateTags)
 
 	c.jo.setup(cmd)
+
+	c.app = app
 	cmd.Action(app.repositoryWriterAction(c.run))
 }
 
@@ -197,7 +200,7 @@ func (c *commandSnapshotCreate) setupUploader(rep repo.RepositoryWriter) *snapsh
 	u.ParallelUploads = c.snapshotCreateParallelUploads
 
 	u.FailFast = c.snapshotCreateFailFast
-	u.Progress = progress
+	u.Progress = c.app.getProgress()
 
 	return u
 }
@@ -300,7 +303,7 @@ func (c *commandSnapshotCreate) snapshotSingleSource(ctx context.Context, rep re
 		return errors.Wrap(ferr, "flush error")
 	}
 
-	progress.Finish()
+	c.app.getProgress().Finish()
 
 	return c.reportSnapshotStatus(ctx, manifest)
 }

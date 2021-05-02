@@ -22,6 +22,8 @@ type commandSnapshotMigrate struct {
 	migrateOverwritePolicies bool
 	migrateLatestOnly        bool
 	migrateParallel          int
+
+	app appServices
 }
 
 func (c *commandSnapshotMigrate) setup(app appServices, parent commandParent) {
@@ -34,6 +36,8 @@ func (c *commandSnapshotMigrate) setup(app appServices, parent commandParent) {
 	cmd.Flag("latest-only", "Only migrate the latest snapshot").BoolVar(&c.migrateLatestOnly)
 	cmd.Flag("parallel", "Number of sources to migrate in parallel").Default("1").IntVar(&c.migrateParallel)
 	cmd.Action(app.repositoryWriterAction(c.run))
+
+	c.app = app
 }
 
 func (c *commandSnapshotMigrate) run(ctx context.Context, destRepo repo.RepositoryWriter) error {
@@ -56,7 +60,7 @@ func (c *commandSnapshotMigrate) run(ctx context.Context, destRepo repo.Reposito
 		activeUploaders = map[snapshot.SourceInfo]*snapshotfs.Uploader{}
 	)
 
-	progress.StartShared()
+	c.app.getProgress().StartShared()
 
 	onCtrlC(func() {
 		mu.Lock()
@@ -92,7 +96,7 @@ func (c *commandSnapshotMigrate) run(ctx context.Context, destRepo repo.Reposito
 		}
 
 		uploader := snapshotfs.NewUploader(destRepo)
-		uploader.Progress = progress
+		uploader.Progress = c.app.getProgress()
 		activeUploaders[s] = uploader
 		mu.Unlock()
 
@@ -116,7 +120,7 @@ func (c *commandSnapshotMigrate) run(ctx context.Context, destRepo repo.Reposito
 	}
 
 	wg.Wait()
-	progress.FinishShared()
+	c.app.getProgress().FinishShared()
 	printStderr("\r\n")
 	log(ctx).Infof("Migration finished.")
 

@@ -6,17 +6,14 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
+	"github.com/alecthomas/kingpin"
 	"github.com/fatih/color"
 
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
-)
-
-var (
-	enableProgress         = app.Flag("progress", "Enable progress bar").Hidden().Default("true").Bool()
-	progressUpdateInterval = app.Flag("progress-update-interval", "How ofter to update progress information").Hidden().Default("300ms").Duration()
 )
 
 const (
@@ -53,6 +50,14 @@ type cliProgress struct {
 	shared bool
 
 	outputMutex sync.Mutex
+
+	enableProgress         bool
+	progressUpdateInterval time.Duration
+}
+
+func (p *cliProgress) setup(app *kingpin.Application) {
+	app.Flag("progress", "Enable progress bar").Hidden().Default("true").BoolVar(&p.enableProgress)
+	app.Flag("progress-update-interval", "How ofter to update progress information").Hidden().Default("300ms").DurationVar(&p.progressUpdateInterval)
 }
 
 func (p *cliProgress) HashingFile(fname string) {
@@ -98,7 +103,7 @@ func (p *cliProgress) maybeOutput() {
 		return
 	}
 
-	if p.outputThrottle.ShouldOutput(*progressUpdateInterval) {
+	if p.outputThrottle.ShouldOutput(p.progressUpdateInterval) {
 		p.output(defaultColor, "")
 	}
 }
@@ -141,14 +146,14 @@ func (p *cliProgress) output(col *color.Color, msg string) {
 
 	if msg != "" {
 		prefix := "\n ! "
-		if !*enableProgress {
+		if !p.enableProgress {
 			prefix = ""
 		}
 
 		col.Fprintf(os.Stderr, "%v%v", prefix, msg) // nolint:errcheck
 	}
 
-	if !*enableProgress {
+	if !p.enableProgress {
 		return
 	}
 
@@ -236,11 +241,9 @@ func (p *cliProgress) Finish() {
 
 	p.output(defaultColor, "")
 
-	if *enableProgress {
+	if p.enableProgress {
 		printStderr("\n")
 	}
 }
-
-var progress = &cliProgress{}
 
 var _ snapshotfs.UploadProgress = (*cliProgress)(nil)

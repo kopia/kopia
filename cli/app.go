@@ -40,12 +40,15 @@ type appServices interface {
 	repositoryReaderAction(act func(ctx context.Context, rep repo.Repository) error) func(ctx *kingpin.ParseContext) error
 	repositoryWriterAction(act func(ctx context.Context, rep repo.RepositoryWriter) error) func(ctx *kingpin.ParseContext) error
 	maybeRepositoryAction(act func(ctx context.Context, rep repo.Repository) error, mode repositoryAccessMode) func(ctx *kingpin.ParseContext) error
+
+	getProgress() *cliProgress
 }
 
 type TheApp struct {
 	// global flags
 	enableAutomaticMaintenance bool
 	mt                         memoryTracker
+	progress                   *cliProgress
 
 	// subcommands
 	blob        commandBlob
@@ -67,9 +70,15 @@ type TheApp struct {
 	repository  commandRepository
 }
 
+func (c *TheApp) getProgress() *cliProgress {
+	return c.progress
+}
+
 func (c *TheApp) setup(app *kingpin.Application) {
 	app.Flag("auto-maintenance", "Automatic maintenance").Default("true").Hidden().BoolVar(&c.enableAutomaticMaintenance)
+
 	c.mt.setup(app)
+	c.progress.setup(app)
 
 	c.blob.setup(c, app)
 	c.benchmark.setup(c, app)
@@ -95,9 +104,18 @@ type commandParent interface {
 	Command(name, help string) *kingpin.CmdClause
 }
 
-func init() {
-	a := &TheApp{}
+func NewApp() *TheApp {
+	a := &TheApp{
+		progress: &cliProgress{},
+	}
+
 	a.setup(app)
+
+	return a
+}
+
+func init() {
+	NewApp()
 }
 
 var safetyByName = map[string]maintenance.SafetyParameters{
@@ -174,7 +192,7 @@ func (c *TheApp) directRepositoryWriteAction(act func(ctx context.Context, rep r
 	return c.maybeRepositoryAction(assertDirectRepository(func(ctx context.Context, rep repo.DirectRepository) error {
 		return repo.DirectWriteSession(ctx, rep, repo.WriteSessionOptions{
 			Purpose:  "directRepositoryWriteAction",
-			OnUpload: progress.UploadedBytes,
+			OnUpload: c.progress.UploadedBytes,
 		}, func(dw repo.DirectRepositoryWriter) error { return act(ctx, dw) })
 	}), repositoryAccessMode{
 		mustBeConnected:    true,
@@ -204,7 +222,7 @@ func (c *TheApp) repositoryWriterAction(act func(ctx context.Context, rep repo.R
 	return c.maybeRepositoryAction(func(ctx context.Context, rep repo.Repository) error {
 		return repo.WriteSession(ctx, rep, repo.WriteSessionOptions{
 			Purpose:  "repositoryWriterAction",
-			OnUpload: progress.UploadedBytes,
+			OnUpload: c.progress.UploadedBytes,
 		}, func(w repo.RepositoryWriter) error {
 			return act(ctx, w)
 		})
@@ -286,7 +304,7 @@ func (c *TheApp) maybeRunMaintenance(ctx context.Context, rep repo.Repository) e
 
 	err := repo.DirectWriteSession(ctx, dr, repo.WriteSessionOptions{
 		Purpose:  "maybeRunMaintenance",
-		OnUpload: progress.UploadedBytes,
+		OnUpload: c.progress.UploadedBytes,
 	}, func(w repo.DirectRepositoryWriter) error {
 		return snapshotmaintenance.Run(ctx, w, maintenance.ModeAuto, false, maintenance.SafetyFull)
 	})
