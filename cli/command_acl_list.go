@@ -10,12 +10,21 @@ import (
 	"github.com/kopia/kopia/repo/manifest"
 )
 
-var aclListCommand = aclCommands.Command("list", "List ACL entries").Alias("ls")
+type commandACLList struct {
+	jo jsonOutput
+}
 
-func runACLList(ctx context.Context, rep repo.Repository) error {
+func (c *commandACLList) setup(parent commandParent) {
+	cmd := parent.Command("list", "List ACL entries").Alias("ls")
+
+	c.jo.setup(cmd)
+	cmd.Action(repositoryReaderAction(c.run))
+}
+
+func (c *commandACLList) run(ctx context.Context, rep repo.Repository) error {
 	var jl jsonList
 
-	jl.begin()
+	jl.begin(&c.jo)
 	defer jl.end()
 
 	entries, err := acl.LoadEntries(ctx, rep, nil)
@@ -24,7 +33,7 @@ func runACLList(ctx context.Context, rep repo.Repository) error {
 	}
 
 	for _, e := range entries {
-		if jsonOutput {
+		if c.jo.jsonOutput {
 			jl.emit(aclListItem{e.ManifestID, e})
 		} else {
 			printStdout("id:%v user:%v access:%v target:%v\n", e.ManifestID, e.User, e.Access, e.Target)
@@ -37,9 +46,4 @@ func runACLList(ctx context.Context, rep repo.Repository) error {
 type aclListItem struct {
 	ID manifest.ID `json:"id"`
 	*acl.Entry
-}
-
-func init() {
-	registerJSONOutputFlags(aclListCommand)
-	aclListCommand.Action(repositoryReaderAction(runACLList))
 }

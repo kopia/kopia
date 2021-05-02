@@ -12,12 +12,19 @@ import (
 	"github.com/kopia/kopia/repo/content"
 )
 
-var (
-	contentStatsCommand = contentCommands.Command("stats", "Content statistics")
-	contentStatsRaw     = contentStatsCommand.Flag("raw", "Raw numbers").Short('r').Bool()
-)
+type commandContentStats struct {
+	raw          bool
+	contentRange contentRangeFlags
+}
 
-func runContentStatsCommand(ctx context.Context, rep repo.DirectRepository) error {
+func (c *commandContentStats) setup(parent commandParent) {
+	cmd := parent.Command("stats", "Content statistics")
+	cmd.Flag("raw", "Raw numbers").Short('r').BoolVar(&c.raw)
+	c.contentRange.setup(cmd)
+	cmd.Action(directRepositoryReadAction(c.run))
+}
+
+func (c *commandContentStats) run(ctx context.Context, rep repo.DirectRepository) error {
 	var sizeThreshold uint32 = 10
 
 	countMap := map[uint32]int{}
@@ -36,7 +43,7 @@ func runContentStatsCommand(ctx context.Context, rep repo.DirectRepository) erro
 	if err := rep.ContentReader().IterateContents(
 		ctx,
 		content.IterateOptions{
-			Range: contentIDRange(),
+			Range: c.contentRange.contentIDRange(),
 		},
 		func(b content.Info) error {
 			totalSize += int64(b.GetPackedLength())
@@ -53,7 +60,7 @@ func runContentStatsCommand(ctx context.Context, rep repo.DirectRepository) erro
 	}
 
 	sizeToString := units.BytesStringBase10
-	if *contentStatsRaw {
+	if c.raw {
 		sizeToString = func(l int64) string { return strconv.FormatInt(l, 10) }
 	}
 
@@ -82,9 +89,4 @@ func runContentStatsCommand(ctx context.Context, rep repo.DirectRepository) erro
 	}
 
 	return nil
-}
-
-func init() {
-	contentStatsCommand.Action(directRepositoryReadAction(runContentStatsCommand))
-	setupContentIDRangeFlags(contentStatsCommand)
 }

@@ -10,14 +10,19 @@ import (
 	"github.com/kopia/kopia/repo/content"
 )
 
-var (
-	indexInspectCommand = indexCommands.Command("inspect", "Inpect index blob")
-	indexInspectBlobIDs = indexInspectCommand.Arg("blobs", "Names of index blobs to inspect").Strings()
-)
+type commandIndexInspect struct {
+	ids []string
+}
 
-func runInspectIndexAction(ctx context.Context, rep repo.DirectRepository) error {
-	for _, indexBlobID := range *indexInspectBlobIDs {
-		if err := inspectSingleIndexBlob(ctx, rep, blob.ID(indexBlobID)); err != nil {
+func (c *commandIndexInspect) setup(parent commandParent) {
+	cmd := parent.Command("inspect", "Inpect index blob")
+	cmd.Arg("blobs", "Names of index blobs to inspect").StringsVar(&c.ids)
+	cmd.Action(directRepositoryReadAction(c.run))
+}
+
+func (c *commandIndexInspect) run(ctx context.Context, rep repo.DirectRepository) error {
+	for _, indexBlobID := range c.ids {
+		if err := c.inspectSingleIndexBlob(ctx, rep, blob.ID(indexBlobID)); err != nil {
 			return err
 		}
 	}
@@ -25,7 +30,7 @@ func runInspectIndexAction(ctx context.Context, rep repo.DirectRepository) error
 	return nil
 }
 
-func dumpIndexBlobEntries(bm blob.Metadata, entries []content.Info) {
+func (c *commandIndexInspect) dumpIndexBlobEntries(bm blob.Metadata, entries []content.Info) {
 	for _, ci := range entries {
 		state := "created"
 		if ci.GetDeleted() {
@@ -38,7 +43,7 @@ func dumpIndexBlobEntries(bm blob.Metadata, entries []content.Info) {
 	}
 }
 
-func inspectSingleIndexBlob(ctx context.Context, rep repo.DirectRepository, blobID blob.ID) error {
+func (c *commandIndexInspect) inspectSingleIndexBlob(ctx context.Context, rep repo.DirectRepository, blobID blob.ID) error {
 	bm, err := rep.BlobReader().GetMetadata(ctx, blobID)
 	if err != nil {
 		return errors.Wrapf(err, "unable to get metadata for %v", blobID)
@@ -49,11 +54,7 @@ func inspectSingleIndexBlob(ctx context.Context, rep repo.DirectRepository, blob
 		return errors.Wrapf(err, "unable to recover index from %v", blobID)
 	}
 
-	dumpIndexBlobEntries(bm, entries)
+	c.dumpIndexBlobEntries(bm, entries)
 
 	return nil
-}
-
-func init() {
-	indexInspectCommand.Action(directRepositoryReadAction(runInspectIndexAction))
 }

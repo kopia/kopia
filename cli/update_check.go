@@ -93,8 +93,8 @@ func getUpdateState() (*updateState, error) {
 
 // maybeInitializeUpdateCheck optionally writes update state file with initial update
 // set 24 hours from now.
-func maybeInitializeUpdateCheck(ctx context.Context) {
-	if connectCheckForUpdates {
+func (c *connectOptions) maybeInitializeUpdateCheck(ctx context.Context) {
+	if c.connectCheckForUpdates {
 		us := &updateState{
 			NextCheckTime:  clock.Now().Add(*initialUpdateCheckDelay),
 			NextNotifyTime: clock.Now().Add(*initialUpdateCheckDelay),

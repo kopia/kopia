@@ -14,15 +14,21 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 )
 
-var (
-	blobShowCommand = blobCommands.Command("show", "Show contents of BLOBs").Alias("cat")
-	blobShowDecrypt = blobShowCommand.Flag("decrypt", "Decrypt blob if possible").Bool()
-	blobShowIDs     = blobShowCommand.Arg("blobID", "Blob IDs").Required().Strings()
-)
+type commandBlobShow struct {
+	blobShowDecrypt bool
+	blobShowIDs     []string
+}
 
-func runBlobShow(ctx context.Context, rep repo.DirectRepository) error {
-	for _, blobID := range *blobShowIDs {
-		if err := maybeDecryptBlob(ctx, os.Stdout, rep, blob.ID(blobID)); err != nil {
+func (c *commandBlobShow) setup(parent commandParent) {
+	cmd := parent.Command("show", "Show contents of BLOBs").Alias("cat")
+	cmd.Flag("decrypt", "Decrypt blob if possible").BoolVar(&c.blobShowDecrypt)
+	cmd.Arg("blobID", "Blob IDs").Required().StringsVar(&c.blobShowIDs)
+	cmd.Action(directRepositoryReadAction(c.run))
+}
+
+func (c *commandBlobShow) run(ctx context.Context, rep repo.DirectRepository) error {
+	for _, blobID := range c.blobShowIDs {
+		if err := c.maybeDecryptBlob(ctx, os.Stdout, rep, blob.ID(blobID)); err != nil {
 			return errors.Wrap(err, "error presenting blob")
 		}
 	}
@@ -30,13 +36,13 @@ func runBlobShow(ctx context.Context, rep repo.DirectRepository) error {
 	return nil
 }
 
-func maybeDecryptBlob(ctx context.Context, w io.Writer, rep repo.DirectRepository, blobID blob.ID) error {
+func (c *commandBlobShow) maybeDecryptBlob(ctx context.Context, w io.Writer, rep repo.DirectRepository, blobID blob.ID) error {
 	var (
 		d   []byte
 		err error
 	)
 
-	if *blobShowDecrypt && canDecryptBlob(blobID) {
+	if c.blobShowDecrypt && canDecryptBlob(blobID) {
 		d, err = rep.IndexBlobReader().DecryptBlob(ctx, blobID)
 
 		if isJSONBlob(blobID) && err == nil {
@@ -79,8 +85,4 @@ func isJSONBlob(b blob.ID) bool {
 	default:
 		return false
 	}
-}
-
-func init() {
-	blobShowCommand.Action(directRepositoryReadAction(runBlobShow))
 }

@@ -9,12 +9,20 @@ import (
 	"github.com/kopia/kopia/repo"
 )
 
-var userListCommand = userCommands.Command("list", "List users").Alias("ls")
+type commandServerUserList struct {
+	jo jsonOutput
+}
 
-func runUserList(ctx context.Context, rep repo.Repository) error {
+func (c *commandServerUserList) setup(parent commandParent) {
+	cmd := parent.Command("list", "List users").Alias("ls")
+	c.jo.setup(cmd)
+	cmd.Action(repositoryReaderAction(c.runUserList))
+}
+
+func (c *commandServerUserList) runUserList(ctx context.Context, rep repo.Repository) error {
 	var jl jsonList
 
-	jl.begin()
+	jl.begin(&c.jo)
 	defer jl.end()
 
 	profiles, err := user.ListUserProfiles(ctx, rep)
@@ -23,7 +31,7 @@ func runUserList(ctx context.Context, rep repo.Repository) error {
 	}
 
 	for _, p := range profiles {
-		if jsonOutput {
+		if c.jo.jsonOutput {
 			jl.emit(p)
 		} else {
 			printStdout("%v\n", p.Username)
@@ -31,9 +39,4 @@ func runUserList(ctx context.Context, rep repo.Repository) error {
 	}
 
 	return nil
-}
-
-func init() {
-	registerJSONOutputFlags(userListCommand)
-	userListCommand.Action(repositoryReaderAction(runUserList))
 }

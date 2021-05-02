@@ -10,13 +10,19 @@ import (
 	"github.com/kopia/kopia/repo/content"
 )
 
-var (
-	blockIndexRecoverCommand = indexCommands.Command("recover", "Recover indexes from pack blobs")
-	blockIndexRecoverBlobIDs = blockIndexRecoverCommand.Flag("blobs", "Names of pack blobs to recover from (default=all packs)").Strings()
-	blockIndexRecoverCommit  = blockIndexRecoverCommand.Flag("commit", "Commit recovered content").Bool()
-)
+type commandIndexRecover struct {
+	blobIDs []string
+	commit  bool
+}
 
-func runRecoverBlockIndexesAction(ctx context.Context, rep repo.DirectRepositoryWriter) error {
+func (c *commandIndexRecover) setup(parent commandParent) {
+	cmd := parent.Command("recover", "Recover indexes from pack blobs")
+	cmd.Flag("blobs", "Names of pack blobs to recover from (default=all packs)").StringsVar(&c.blobIDs)
+	cmd.Flag("commit", "Commit recovered content").BoolVar(&c.commit)
+	cmd.Action(directRepositoryWriteAction(c.run))
+}
+
+func (c *commandIndexRecover) run(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	advancedCommand(ctx)
 
 	var totalCount int
@@ -27,17 +33,17 @@ func runRecoverBlockIndexesAction(ctx context.Context, rep repo.DirectRepository
 			return
 		}
 
-		if !*blockIndexRecoverCommit {
+		if !c.commit {
 			log(ctx).Infof("Found %v blocks to recover, but not committed. Re-run with --commit", totalCount)
 		} else {
 			log(ctx).Infof("Recovered %v blocks.", totalCount)
 		}
 	}()
 
-	if len(*blockIndexRecoverBlobIDs) == 0 {
+	if len(c.blobIDs) == 0 {
 		for _, prefix := range content.PackBlobIDPrefixes {
 			err := rep.BlobStorage().ListBlobs(ctx, prefix, func(bm blob.Metadata) error {
-				recoverIndexFromSinglePackFile(ctx, rep, bm.BlobID, bm.Length, &totalCount)
+				c.recoverIndexFromSinglePackFile(ctx, rep, bm.BlobID, bm.Length, &totalCount)
 				return nil
 			})
 			if err != nil {
@@ -46,24 +52,20 @@ func runRecoverBlockIndexesAction(ctx context.Context, rep repo.DirectRepository
 		}
 	}
 
-	for _, packFile := range *blockIndexRecoverBlobIDs {
-		recoverIndexFromSinglePackFile(ctx, rep, blob.ID(packFile), 0, &totalCount)
+	for _, packFile := range c.blobIDs {
+		c.recoverIndexFromSinglePackFile(ctx, rep, blob.ID(packFile), 0, &totalCount)
 	}
 
 	return nil
 }
 
-func recoverIndexFromSinglePackFile(ctx context.Context, rep repo.DirectRepositoryWriter, blobID blob.ID, length int64, totalCount *int) {
-	recovered, err := rep.ContentManager().RecoverIndexFromPackBlob(ctx, blobID, length, *blockIndexRecoverCommit)
+func (c *commandIndexRecover) recoverIndexFromSinglePackFile(ctx context.Context, rep repo.DirectRepositoryWriter, blobID blob.ID, length int64, totalCount *int) {
+	recovered, err := rep.ContentManager().RecoverIndexFromPackBlob(ctx, blobID, length, c.commit)
 	if err != nil {
 		log(ctx).Errorf("unable to recover index from %v: %v", blobID, err)
 		return
 	}
 
 	*totalCount += len(recovered)
-	log(ctx).Infof("Recovered %v entries from %v (commit=%v)", len(recovered), blobID, *blockIndexRecoverCommit)
-}
-
-func init() {
-	blockIndexRecoverCommand.Action(directRepositoryWriteAction(runRecoverBlockIndexesAction))
+	log(ctx).Infof("Recovered %v entries from %v (commit=%v)", len(recovered), blobID, c.commit)
 }

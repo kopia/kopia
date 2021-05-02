@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"sort"
 
+	atunits "github.com/alecthomas/units"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/timetrack"
@@ -14,17 +15,27 @@ import (
 	"github.com/kopia/kopia/repo/compression"
 )
 
-var (
-	benchmarkCompressionCommand      = benchmarkCommands.Command("compression", "Run compression benchmarks")
-	benchmarkCompressionBlockSize    = benchmarkCompressionCommand.Flag("block-size", "Size of a block to compress").Default("1MB").Bytes()
-	benchmarkCompressionRepeat       = benchmarkCompressionCommand.Flag("repeat", "Number of repetitions").Default("100").Int()
-	benchmarkCompressionDataFile     = benchmarkCompressionCommand.Flag("data-file", "Use data from the given file instead of empty").ExistingFile()
-	benchmarkCompressionBySize       = benchmarkCompressionCommand.Flag("by-size", "Sort results by size").Bool()
-	benchmarkCompressionVerifyStable = benchmarkCompressionCommand.Flag("verify-stable", "Verify that compression is stable").Bool()
-	benchmarkCompressionOptionPrint  = benchmarkCompressionCommand.Flag("print-options", "Print out options usable for repository creation").Bool()
-)
+type commandBenchmarkCompression struct {
+	blockSize    atunits.Base2Bytes
+	repeat       int
+	dataFile     string
+	bySize       bool
+	verifyStable bool
+	optionPrint  bool
+}
 
-func runBenchmarkCompressionAction(ctx context.Context) error {
+func (c *commandBenchmarkCompression) setup(parent commandParent) {
+	cmd := parent.Command("compression", "Run compression benchmarks")
+	cmd.Flag("block-size", "Size of a block to compress").Default("1MB").BytesVar(&c.blockSize)
+	cmd.Flag("repeat", "Number of repetitions").Default("100").IntVar(&c.repeat)
+	cmd.Flag("data-file", "Use data from the given file instead of empty").ExistingFileVar(&c.dataFile)
+	cmd.Flag("by-size", "Sort results by size").BoolVar(&c.bySize)
+	cmd.Flag("verify-stable", "Verify that compression is stable").BoolVar(&c.verifyStable)
+	cmd.Flag("print-options", "Print out options usable for repository creation").BoolVar(&c.optionPrint)
+	cmd.Action(noRepositoryAction(c.run))
+}
+
+func (c *commandBenchmarkCompression) run(ctx context.Context) error {
 	type benchResult struct {
 		compression    compression.Name
 		throughput     float64
@@ -33,10 +44,10 @@ func runBenchmarkCompressionAction(ctx context.Context) error {
 
 	var results []benchResult
 
-	data := make([]byte, *benchmarkCompressionBlockSize)
+	data := make([]byte, c.blockSize)
 
-	if *benchmarkCompressionDataFile != "" {
-		d, err := ioutil.ReadFile(*benchmarkCompressionDataFile)
+	if c.dataFile != "" {
+		d, err := ioutil.ReadFile(c.dataFile)
 		if err != nil {
 			return errors.Wrap(err, "error reading compression data file")
 		}
@@ -45,7 +56,7 @@ func runBenchmarkCompressionAction(ctx context.Context) error {
 	}
 
 	for name, comp := range compression.ByName {
-		log(ctx).Infof("Benchmarking compressor '%v' (%v x %v bytes)", name, *benchmarkCompressionRepeat, len(data))
+		log(ctx).Infof("Benchmarking compressor '%v' (%v x %v bytes)", name, c.repeat, len(data))
 
 		tt := timetrack.Start()
 
@@ -53,7 +64,7 @@ func runBenchmarkCompressionAction(ctx context.Context) error {
 
 		var lastHash uint64
 
-		cnt := *benchmarkCompressionRepeat
+		cnt := c.repeat
 
 		var compressed bytes.Buffer
 
@@ -67,7 +78,7 @@ func runBenchmarkCompressionAction(ctx context.Context) error {
 
 			compressedSize = int64(compressed.Len())
 
-			if *benchmarkCompressionVerifyStable {
+			if c.verifyStable {
 				h := hashOf(compressed.Bytes())
 
 				if i == 0 {
@@ -84,7 +95,7 @@ func runBenchmarkCompressionAction(ctx context.Context) error {
 		results = append(results, benchResult{compression: name, throughput: perSecond, compressedSize: compressedSize})
 	}
 
-	if *benchmarkCompressionBySize {
+	if c.bySize {
 		sort.Slice(results, func(i, j int) bool {
 			return results[i].compressedSize < results[j].compressedSize
 		})
@@ -100,7 +111,7 @@ func runBenchmarkCompressionAction(ctx context.Context) error {
 	for ndx, r := range results {
 		printStdout("%3d. %-30v %-15v %v / second", ndx, r.compression, r.compressedSize, units.BytesStringBase2(int64(r.throughput)))
 
-		if *benchmarkCompressionOptionPrint {
+		if c.optionPrint {
 			printStdout(", --compression=%s", r.compression)
 		}
 
@@ -108,10 +119,6 @@ func runBenchmarkCompressionAction(ctx context.Context) error {
 	}
 
 	return nil
-}
-
-func init() {
-	benchmarkCompressionCommand.Action(noRepositoryAction(runBenchmarkCompressionAction))
 }
 
 func hashOf(b []byte) uint64 {

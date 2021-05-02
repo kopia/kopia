@@ -12,23 +12,31 @@ import (
 	"github.com/kopia/kopia/snapshot"
 )
 
-var (
-	snapshotDeleteCommand = snapshotCommands.Command("delete", "Explicitly delete a snapshot by providing a snapshot ID.")
-	snapshotDeleteIDs     = snapshotDeleteCommand.Arg("id", "Snapshot ID or root object ID to be deleted").Required().Strings()
-	snapshotDeleteConfirm = snapshotDeleteCommand.Flag("delete", "Confirm deletion").Bool()
-)
+type commandSnapshotDelete struct {
+	snapshotDeleteIDs     []string
+	snapshotDeleteConfirm bool
+}
 
-func runDeleteCommand(ctx context.Context, rep repo.RepositoryWriter) error {
-	for _, id := range *snapshotDeleteIDs {
+func (c *commandSnapshotDelete) setup(parent commandParent) {
+	cmd := parent.Command("delete", "Explicitly delete a snapshot by providing a snapshot ID.")
+	cmd.Arg("id", "Snapshot ID or root object ID to be deleted").Required().StringsVar(&c.snapshotDeleteIDs)
+	cmd.Flag("delete", "Confirm deletion").BoolVar(&c.snapshotDeleteConfirm)
+	// hidden flag for backwards compatibility
+	cmd.Flag("unsafe-ignore-source", "Alias for --delete").Hidden().BoolVar(&c.snapshotDeleteConfirm)
+	cmd.Action(repositoryWriterAction(c.run))
+}
+
+func (c *commandSnapshotDelete) run(ctx context.Context, rep repo.RepositoryWriter) error {
+	for _, id := range c.snapshotDeleteIDs {
 		m, err := snapshot.LoadSnapshot(ctx, rep, manifest.ID(id))
 		if err == nil {
 			// snapshot found by manifest ID, delete it directly.
-			if err = deleteSnapshot(ctx, rep, m); err != nil {
+			if err = c.deleteSnapshot(ctx, rep, m); err != nil {
 				return errors.Wrapf(err, "error deleting %v", id)
 			}
 		} else if !errors.Is(err, snapshot.ErrSnapshotNotFound) {
 			return errors.Wrapf(err, "error loading snapshot %v", id)
-		} else if err := deleteSnapshotsByRootObjectID(ctx, rep, object.ID(id)); err != nil {
+		} else if err := c.deleteSnapshotsByRootObjectID(ctx, rep, object.ID(id)); err != nil {
 			return errors.Wrapf(err, "error deleting snapshots by root ID %v", id)
 		}
 	}
@@ -36,10 +44,10 @@ func runDeleteCommand(ctx context.Context, rep repo.RepositoryWriter) error {
 	return nil
 }
 
-func deleteSnapshot(ctx context.Context, rep repo.RepositoryWriter, m *snapshot.Manifest) error {
+func (c *commandSnapshotDelete) deleteSnapshot(ctx context.Context, rep repo.RepositoryWriter, m *snapshot.Manifest) error {
 	desc := fmt.Sprintf("snapshot %v of %v at %v", m.ID, m.Source, formatTimestamp(m.StartTime))
 
-	if !*snapshotDeleteConfirm {
+	if !c.snapshotDeleteConfirm {
 		log(ctx).Infof("Would delete %v (pass --delete to confirm)\n", desc)
 		return nil
 	}
@@ -49,7 +57,7 @@ func deleteSnapshot(ctx context.Context, rep repo.RepositoryWriter, m *snapshot.
 	return rep.DeleteManifest(ctx, m.ID)
 }
 
-func deleteSnapshotsByRootObjectID(ctx context.Context, rep repo.RepositoryWriter, rootID object.ID) error {
+func (c *commandSnapshotDelete) deleteSnapshotsByRootObjectID(ctx context.Context, rep repo.RepositoryWriter, rootID object.ID) error {
 	manifests, err := snapshot.FindSnapshotsByRootObjectID(ctx, rep, rootID)
 	if err != nil {
 		return errors.Wrapf(err, "unable to find snapshots by root %v", rootID)
@@ -60,17 +68,10 @@ func deleteSnapshotsByRootObjectID(ctx context.Context, rep repo.RepositoryWrite
 	}
 
 	for _, m := range manifests {
-		if err := deleteSnapshot(ctx, rep, m); err != nil {
+		if err := c.deleteSnapshot(ctx, rep, m); err != nil {
 			return errors.Wrap(err, "error deleting")
 		}
 	}
 
 	return nil
-}
-
-func init() {
-	snapshotDeleteCommand.Action(repositoryWriterAction(runDeleteCommand))
-
-	// hidden flag for backwards compatibility
-	snapshotDeleteCommand.Flag("unsafe-ignore-source", "Alias for --delete").Hidden().BoolVar(snapshotDeleteConfirm)
 }

@@ -7,12 +7,16 @@ import (
 	"github.com/kopia/kopia/internal/serverapi"
 )
 
-var serverRefreshCommand = serverCommands.Command("refresh", "Refresh the cache in Kopia server to observe new sources, etc.")
-
-func init() {
-	serverRefreshCommand.Action(serverAction(runServerRefresh))
+type commandServerRefresh struct {
+	sf serverClientFlags
 }
 
-func runServerRefresh(ctx context.Context, cli *apiclient.KopiaAPIClient) error {
+func (c *commandServerRefresh) setup(parent commandParent) {
+	cmd := parent.Command("refresh", "Refresh the cache in Kopia server to observe new sources, etc.")
+	c.sf.setup(cmd)
+	cmd.Action(serverAction(&c.sf, c.run))
+}
+
+func (c *commandServerRefresh) run(ctx context.Context, cli *apiclient.KopiaAPIClient) error {
 	return cli.Post(ctx, "refresh", &serverapi.Empty{}, &serverapi.Empty{})
 }

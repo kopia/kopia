@@ -10,13 +10,17 @@ import (
 	"github.com/kopia/kopia/internal/serverapi"
 )
 
-var serverStartUploadCommand = serverCommands.Command("upload", "Trigger upload for one or more sources")
-
-func init() {
-	serverStartUploadCommand.Action(serverAction(runServerStartUpload))
+type commandServerUpload struct {
+	sf serverClientFlags
 }
 
-func runServerStartUpload(ctx context.Context, cli *apiclient.KopiaAPIClient) error {
+func (c *commandServerUpload) setup(parent commandParent) {
+	cmd := parent.Command("upload", "Trigger upload for one or more sources")
+	c.sf.setup(cmd)
+	cmd.Action(serverAction(&c.sf, c.run))
+}
+
+func (c *commandServerUpload) run(ctx context.Context, cli *apiclient.KopiaAPIClient) error {
 	return triggerActionOnMatchingSources(ctx, cli, "sources/upload")
 }
 

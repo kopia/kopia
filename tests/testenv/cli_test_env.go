@@ -99,6 +99,10 @@ func NewCLITest(t *testing.T) *CLITest {
 	logsDir := filepath.Join(logsBaseDir, cleanName+"."+clock.Now().Local().Format("20060102150405"))
 
 	t.Cleanup(func() {
+		if t.Failed() {
+			t.Logf("FAULURE ABOVE ^^^^")
+		}
+
 		if os.Getenv("KOPIA_KEEP_LOGS") != "" {
 			t.Logf("logs preserved in %v", logsDir)
 			return

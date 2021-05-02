@@ -8,22 +8,26 @@ import (
 	"github.com/kopia/kopia/snapshot/snapshotmaintenance"
 )
 
-var (
-	maintenanceRunCommand = maintenanceCommands.Command("run", "Run repository maintenance").Default()
-	maintenanceRunFull    = maintenanceRunCommand.Flag("full", "Full maintenance").Bool()
-	maintenanceRunForce   = maintenanceRunCommand.Flag("force", "Run maintenance even if not owned (unsafe)").Hidden().Bool()
-	maintenanceRunSafety  = safetyFlag(maintenanceRunCommand)
-)
+type commandMaintenanceRun struct {
+	maintenanceRunFull  bool
+	maintenanceRunForce bool
+	safety              maintenance.SafetyParameters
+}
 
-func runMaintenanceCommand(ctx context.Context, rep repo.DirectRepositoryWriter) error {
+func (c *commandMaintenanceRun) setup(parent commandParent) {
+	cmd := parent.Command("run", "Run repository maintenance").Default()
+	cmd.Flag("full", "Full maintenance").BoolVar(&c.maintenanceRunFull)
+	cmd.Flag("force", "Run maintenance even if not owned (unsafe)").Hidden().BoolVar(&c.maintenanceRunForce)
+	safetyFlagVar(cmd, &c.safety)
+
+	cmd.Action(directRepositoryWriteAction(c.run))
+}
+
+func (c *commandMaintenanceRun) run(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	mode := maintenance.ModeQuick
-	if *maintenanceRunFull {
+	if c.maintenanceRunFull {
 		mode = maintenance.ModeFull
 	}
 
-	return snapshotmaintenance.Run(ctx, rep, mode, *maintenanceRunForce, *maintenanceRunSafety)
-}
-
-func init() {
-	maintenanceRunCommand.Action(directRepositoryWriteAction(runMaintenanceCommand))
+	return snapshotmaintenance.Run(ctx, rep, mode, c.maintenanceRunForce, c.safety)
 }

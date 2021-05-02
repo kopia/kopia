@@ -10,15 +10,9 @@ import (
 )
 
 func TestSetErrorHandlingPolicyFromFlags(t *testing.T) {
-	initialFileFlagVal := *policyIgnoreFileErrors
-	initialDirFlagVal := *policyIgnoreDirectoryErrors
+	var pef policyErrorFlags
 
 	ctx := testlogging.Context(t)
-
-	defer func() {
-		*policyIgnoreFileErrors = initialFileFlagVal
-		*policyIgnoreDirectoryErrors = initialDirFlagVal
-	}()
 
 	for _, tc := range []struct {
 		name           string
@@ -172,10 +166,10 @@ func TestSetErrorHandlingPolicyFromFlags(t *testing.T) {
 
 		changeCount := 0
 
-		*policyIgnoreFileErrors = tc.fileArg
-		*policyIgnoreDirectoryErrors = tc.dirArg
+		pef.policyIgnoreFileErrors = tc.fileArg
+		pef.policyIgnoreDirectoryErrors = tc.dirArg
 
-		setErrorHandlingPolicyFromFlags(ctx, tc.startingPolicy, &changeCount)
+		pef.setErrorHandlingPolicyFromFlags(ctx, tc.startingPolicy, &changeCount)
 
 		if !reflect.DeepEqual(tc.startingPolicy, tc.expResult) {
 			t.Errorf("Did not get expected output: (actual) %v != %v (expected)", tc.startingPolicy, tc.expResult)
@@ -184,17 +178,9 @@ func TestSetErrorHandlingPolicyFromFlags(t *testing.T) {
 }
 
 func TestSetSchedulingPolicyFromFlags(t *testing.T) {
-	initialIntervalFlagVal := *policySetInterval
-	initialTimesOfDayFlagVal := *policySetTimesOfDay
-	initialManualFlagVal := *policySetManual
+	var psf policySchedulingFlags
 
 	ctx := testlogging.Context(t)
-
-	defer func() {
-		*policySetInterval = initialIntervalFlagVal
-		*policySetTimesOfDay = initialTimesOfDayFlagVal
-		*policySetManual = initialManualFlagVal
-	}()
 
 	for _, tc := range []struct {
 		name           string
@@ -359,11 +345,11 @@ func TestSetSchedulingPolicyFromFlags(t *testing.T) {
 
 		changeCount := 0
 
-		*policySetInterval = tc.intervalArg
-		*policySetTimesOfDay = tc.timesOfDayArg
-		*policySetManual = tc.manualArg
+		psf.policySetInterval = tc.intervalArg
+		psf.policySetTimesOfDay = tc.timesOfDayArg
+		psf.policySetManual = tc.manualArg
 
-		err := setSchedulingPolicyFromFlags(ctx, tc.startingPolicy, &changeCount)
+		err := psf.setSchedulingPolicyFromFlags(ctx, tc.startingPolicy, &changeCount)
 		if tc.expErr {
 			if err == nil {
 				t.Errorf("Expected error but got none")

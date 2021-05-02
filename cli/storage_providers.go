@@ -4,80 +4,30 @@ import (
 	"context"
 
 	"github.com/alecthomas/kingpin"
-	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 )
 
-// RegisterStorageConnectFlags registers repository subcommand to connect to a storage
-// or create new repository in a given storage.
-func RegisterStorageConnectFlags(
-	name, description string,
-	flags func(*kingpin.CmdClause),
-	connect func(ctx context.Context, isNew bool) (blob.Storage, error),
-) {
-	if name != "from-config" {
-		// Set up 'create' subcommand
-		cc := createCommand.Command(name, "Create repository in "+description)
-		flags(cc)
-		cc.Action(func(_ *kingpin.ParseContext) error {
-			ctx := rootContext()
-			st, err := connect(ctx, true)
-			if err != nil {
-				return errors.Wrap(err, "can't connect to storage")
-			}
+type storageFlags interface {
+	setup(cmd *kingpin.CmdClause)
+	connect(ctx context.Context, isNew bool) (blob.Storage, error)
+}
 
-			return runCreateCommandWithStorage(ctx, st)
-		})
-	}
+type storageProvider struct {
+	name        string
+	description string
+	newFlags    func() storageFlags
+}
 
-	// Set up 'connect' subcommand
-	cc := connectCommand.Command(name, "Connect to repository in "+description)
-	flags(cc)
-	cc.Action(func(_ *kingpin.ParseContext) error {
-		ctx := rootContext()
-		st, err := connect(ctx, false)
-		if err != nil {
-			return errors.Wrap(err, "can't connect to storage")
-		}
+var storageProviders = []storageProvider{
+	{"from-config", "the provided configuration file", func() storageFlags { return &storageFromConfigFlags{} }},
 
-		return runConnectCommandWithStorage(ctx, st)
-	})
-
-	// Set up 'repair' subcommand
-	cc = repairCommand.Command(name, "Repair repository in "+description)
-	flags(cc)
-	cc.Action(func(_ *kingpin.ParseContext) error {
-		ctx := rootContext()
-		st, err := connect(ctx, false)
-		if err != nil {
-			return errors.Wrap(err, "can't connect to storage")
-		}
-
-		return runRepairCommandWithStorage(ctx, st)
-	})
-
-	// Set up 'sync-to' subcommand
-	cc = repositorySyncCommand.Command(name, "Synchronize repository data to another repository in "+description)
-	flags(cc)
-	cc.Action(func(_ *kingpin.ParseContext) error {
-		ctx := rootContext()
-		st, err := connect(ctx, false)
-		if err != nil {
-			return errors.Wrap(err, "can't connect to storage")
-		}
-
-		rep, err := openRepository(ctx, true)
-		if err != nil {
-			return errors.Wrap(err, "open repository")
-		}
-
-		dr, ok := rep.(repo.DirectRepository)
-		if !ok {
-			return errors.Errorf("sync only supports directly-connected repositories")
-		}
-
-		return runSyncWithStorage(ctx, dr.BlobReader(), st)
-	})
+	{"azure", "an Azure blob storage", func() storageFlags { return &storageAzureFlags{} }},
+	{"b2", "a B2 bucket", func() storageFlags { return &storageB2Flags{} }},
+	{"filesystem", "a filesystem", func() storageFlags { return &storageFilesystemFlags{} }},
+	{"gcs", "a Google Cloud Storage bucket", func() storageFlags { return &storageGCSFlags{} }},
+	{"rclone", "an rclone-based provided", func() storageFlags { return &storageRcloneFlags{} }},
+	{"s3", "an S3 bucket", func() storageFlags { return &storageS3Flags{} }},
+	{"sftp", "an SFTP storage", func() storageFlags { return &storageSFTPFlags{} }},
+	{"webdav", "a WebDAV storage", func() storageFlags { return &storageWebDAVFlags{} }},
 }

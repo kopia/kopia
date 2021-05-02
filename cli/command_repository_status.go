@@ -15,13 +15,19 @@ import (
 	"github.com/kopia/kopia/repo"
 )
 
-var (
-	statusCommand                       = repositoryCommands.Command("status", "Display the status of connected repository.")
-	statusReconnectToken                = statusCommand.Flag("reconnect-token", "Display reconnect command").Short('t').Bool()
-	statusReconnectTokenIncludePassword = statusCommand.Flag("reconnect-token-with-password", "Include password in reconnect token").Short('s').Bool()
-)
+type commandRepositoryStatus struct {
+	statusReconnectToken                bool
+	statusReconnectTokenIncludePassword bool
+}
 
-func runStatusCommand(ctx context.Context, rep repo.Repository) error {
+func (c *commandRepositoryStatus) setup(parent commandParent) {
+	cmd := parent.Command("status", "Display the status of connected repository.")
+	cmd.Flag("reconnect-token", "Display reconnect command").Short('t').BoolVar(&c.statusReconnectToken)
+	cmd.Flag("reconnect-token-with-password", "Include password in reconnect token").Short('s').BoolVar(&c.statusReconnectTokenIncludePassword)
+	cmd.Action(repositoryReaderAction(c.run))
+}
+
+func (c *commandRepositoryStatus) run(ctx context.Context, rep repo.Repository) error {
 	fmt.Printf("Config file:         %v\n", repositoryConfigFileName())
 	fmt.Println()
 	fmt.Printf("Description:         %v\n", rep.ClientOptions().Description)
@@ -51,13 +57,13 @@ func runStatusCommand(ctx context.Context, rep repo.Repository) error {
 	fmt.Printf("Format version:      %v\n", dr.ContentReader().ContentFormat().Version)
 	fmt.Printf("Max pack length:     %v\n", units.BytesStringBase2(int64(dr.ContentReader().ContentFormat().MaxPackSize)))
 
-	if !*statusReconnectToken {
+	if !c.statusReconnectToken {
 		return nil
 	}
 
 	pass := ""
 
-	if *statusReconnectTokenIncludePassword {
+	if c.statusReconnectTokenIncludePassword {
 		var err error
 
 		pass, err = getPasswordFromFlags(ctx, false, true)
@@ -107,8 +113,4 @@ func scanCacheDir(dirname string) (fileCount int, totalFileLength int64, err err
 	}
 
 	return
-}
-
-func init() {
-	statusCommand.Action(repositoryReaderAction(runStatusCommand))
 }

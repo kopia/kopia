@@ -14,58 +14,82 @@ import (
 	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
 
-var (
-	mountCommand = app.Command("mount", "Mount repository object as a local filesystem.")
+type commandMount struct {
+	mountObjectID               string
+	mountPoint                  string
+	mountPointBrowse            bool
+	mountTraceFS                bool
+	mountFuseAllowOther         bool
+	mountFuseAllowNonEmptyMount bool
+	mountPreferWebDAV           bool
+	maxCachedEntries            int
+	maxCachedDirectories        int
+}
 
-	mountObjectID    = mountCommand.Arg("path", "Identifier of the directory to mount.").Default("all").String()
-	mountPoint       = mountCommand.Arg("mountPoint", "Mount point").Default("*").String()
-	mountPointBrowse = mountCommand.Flag("browse", "Open file browser").Bool()
-	mountTraceFS     = mountCommand.Flag("trace-fs", "Trace filesystem operations").Bool()
+func (c *commandMount) setup(parent commandParent) {
+	cmd := parent.Command("mount", "Mount repository object as a local filesystem.")
 
-	mountFuseAllowOther         = mountCommand.Flag("fuse-allow-other", "Allows other users to access the file system.").Bool()
-	mountFuseAllowNonEmptyMount = mountCommand.Flag("fuse-allow-non-empty-mount", "Allows the mounting over a non-empty directory. The files in it will be shadowed by the freshly created mount.").Bool()
-	mountPreferWebDAV           = mountCommand.Flag("webdav", "Use WebDAV to mount the repository object regardless of fuse availability.").Bool()
-)
+	cmd.Arg("path", "Identifier of the directory to mount.").Default("all").StringVar(&c.mountObjectID)
+	cmd.Arg("mountPoint", "Mount point").Default("*").StringVar(&c.mountPoint)
+	cmd.Flag("browse", "Open file browser").BoolVar(&c.mountPointBrowse)
+	cmd.Flag("trace-fs", "Trace filesystem operations").BoolVar(&c.mountTraceFS)
 
-func runMountCommand(ctx context.Context, rep repo.Repository) error {
+	cmd.Flag("fuse-allow-other", "Allows other users to access the file system.").BoolVar(&c.mountFuseAllowOther)
+	cmd.Flag("fuse-allow-non-empty-mount", "Allows the mounting over a non-empty directory. The files in it will be shadowed by the freshly created mount.").BoolVar(&c.mountFuseAllowNonEmptyMount)
+	cmd.Flag("webdav", "Use WebDAV to mount the repository object regardless of fuse availability.").BoolVar(&c.mountPreferWebDAV)
+
+	cmd.Flag("max-cached-entries", "Limit the number of cached directory entries").Default("100000").IntVar(&c.maxCachedEntries)
+	cmd.Flag("max-cached-dirs", "Limit the number of cached directories").Default("100").IntVar(&c.maxCachedDirectories)
+
+	cmd.Action(repositoryReaderAction(c.run))
+}
+
+func (c *commandMount) newFSCache() cachefs.DirectoryCacher {
+	return cachefs.NewCache(&cachefs.Options{
+		MaxCachedDirectories: c.maxCachedDirectories,
+		MaxCachedEntries:     c.maxCachedEntries,
+	})
+}
+
+func (c *commandMount) run(ctx context.Context, rep repo.Repository) error {
 	var entry fs.Directory
 
-	if *mountObjectID == "all" {
+	if c.mountObjectID == "all" {
 		entry = snapshotfs.AllSourcesEntry(rep)
 	} else {
 		var err error
-		entry, err = snapshotfs.FilesystemDirectoryFromIDWithPath(ctx, rep, *mountObjectID, false)
+		entry, err = snapshotfs.FilesystemDirectoryFromIDWithPath(ctx, rep, c.mountObjectID, false)
 		if err != nil {
-			return errors.Wrapf(err, "unable to get directory entry for %v", *mountObjectID)
+			return errors.Wrapf(err, "unable to get directory entry for %v", c.mountObjectID)
 		}
 	}
 
-	if *mountTraceFS {
+	if c.mountTraceFS {
 		entry = loggingfs.Wrap(entry, log(ctx).Debugf).(fs.Directory)
 	}
 
-	entry = cachefs.Wrap(entry, newFSCache()).(fs.Directory)
+	entry = cachefs.Wrap(entry, c.newFSCache()).(fs.Directory)
 
-	ctrl, mountErr := mount.Directory(ctx, entry, *mountPoint,
+	ctrl, mountErr := mount.Directory(ctx, entry, c.mountPoint,
 		mount.Options{
-			FuseAllowOther:         *mountFuseAllowOther,
-			FuseAllowNonEmptyMount: *mountFuseAllowNonEmptyMount,
-			PreferWebDAV:           *mountPreferWebDAV,
+			FuseAllowOther:         c.mountFuseAllowOther,
+			FuseAllowNonEmptyMount: c.mountFuseAllowNonEmptyMount,
+			PreferWebDAV:           c.mountPreferWebDAV,
 		})
 
 	if mountErr != nil {
 		return errors.Wrap(mountErr, "mount error")
 	}
 
-	log(ctx).Infof("Mounted '%v' on %v", *mountObjectID, ctrl.MountPath())
+	log(ctx).Infof("Mounted '%v' on %v", c.mountObjectID, ctrl.MountPath())
 
-	if *mountPoint == "*" && !*mountPointBrowse {
+	if c.mountPoint == "*" && !c.mountPointBrowse {
 		log(ctx).Infof("HINT: Pass --browse to automatically open file browser.")
 	}
 
 	log(ctx).Infof("Press Ctrl-C to unmount.")
 
-	if *mountPointBrowse {
+	if c.mountPointBrowse {
 		if err := open.Start(ctrl.MountPath()); err != nil {
 			log(ctx).Errorf("unable to browse %v", err)
 		}
@@ -98,9 +122,4 @@ func runMountCommand(ctx context.Context, rep repo.Repository) error {
 	log(ctx).Infof("Unmounted.")
 
 	return nil
-}
-
-func init() {
-	setupFSCacheFlags(mountCommand)
-	mountCommand.Action(repositoryReaderAction(runMountCommand))
 }

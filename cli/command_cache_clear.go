@@ -11,12 +11,17 @@ import (
 	"github.com/kopia/kopia/repo"
 )
 
-var (
-	cacheClearCommand        = cacheCommands.Command("clear", "Clears the cache")
-	cacheClearCommandPartial = cacheClearCommand.Flag("partial", "Specifies the cache to clear").Enum("contents", "indexes", "metadata", "own-writes", "blob-list")
-)
+type commandCacheClear struct {
+	partial string
+}
 
-func runCacheClearCommand(ctx context.Context, rep repo.Repository) error {
+func (c *commandCacheClear) setup(parent commandParent) {
+	cmd := parent.Command("clear", "Clears the cache")
+	cmd.Flag("partial", "Specifies the cache to clear").EnumVar(&c.partial, "contents", "indexes", "metadata", "own-writes", "blob-list")
+	cmd.Action(repositoryReaderAction(c.run))
+}
+
+func (c *commandCacheClear) run(ctx context.Context, rep repo.Repository) error {
 	opts, err := repo.GetCachingOptions(ctx, repositoryConfigFileName())
 	if err != nil {
 		return errors.Wrap(err, "error getting caching options")
@@ -32,11 +37,11 @@ func runCacheClearCommand(ctx context.Context, rep repo.Repository) error {
 		return errors.Wrap(err, "unable to close repository")
 	}
 
-	if *cacheClearCommandPartial == "" {
+	if c.partial == "" {
 		return clearCacheDirectory(ctx, d)
 	}
 
-	return clearCacheDirectory(ctx, filepath.Join(d, *cacheClearCommandPartial))
+	return clearCacheDirectory(ctx, filepath.Join(d, c.partial))
 }
 
 func clearCacheDirectory(ctx context.Context, d string) error {
@@ -54,8 +59,4 @@ func clearCacheDirectory(ctx context.Context, d string) error {
 	}
 
 	return nil
-}
-
-func init() {
-	cacheClearCommand.Action(repositoryReaderAction(runCacheClearCommand))
 }

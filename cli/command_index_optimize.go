@@ -2,35 +2,40 @@ package cli
 
 import (
 	"context"
+	"time"
 
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/content"
 )
 
-var (
-	optimizeCommand              = indexCommands.Command("optimize", "Optimize indexes blobs.")
-	optimizeMaxSmallBlobs        = optimizeCommand.Flag("max-small-blobs", "Maximum number of small index blobs that can be left after compaction.").Default("1").Int()
-	optimizeDropDeletedOlderThan = optimizeCommand.Flag("drop-deleted-older-than", "Drop deleted contents above given age").Duration()
-	optimizeDropContents         = optimizeCommand.Flag("drop-contents", "Drop contents with given IDs").Strings()
-	optimizeAllIndexes           = optimizeCommand.Flag("all", "Optimize all indexes, even those above maximum size.").Bool()
-)
+type commandIndexOptimize struct {
+	optimizeMaxSmallBlobs        int
+	optimizeDropDeletedOlderThan time.Duration
+	optimizeDropContents         []string
+	optimizeAllIndexes           bool
+}
 
-func runOptimizeCommand(ctx context.Context, rep repo.DirectRepositoryWriter) error {
+func (c *commandIndexOptimize) setup(parent commandParent) {
+	cmd := parent.Command("optimize", "Optimize indexes blobs.")
+	cmd.Flag("max-small-blobs", "Maximum number of small index blobs that can be left after compaction.").Default("1").IntVar(&c.optimizeMaxSmallBlobs)
+	cmd.Flag("drop-deleted-older-than", "Drop deleted contents above given age").DurationVar(&c.optimizeDropDeletedOlderThan)
+	cmd.Flag("drop-contents", "Drop contents with given IDs").StringsVar(&c.optimizeDropContents)
+	cmd.Flag("all", "Optimize all indexes, even those above maximum size.").BoolVar(&c.optimizeAllIndexes)
+	cmd.Action(directRepositoryWriteAction(c.runOptimizeCommand))
+}
+
+func (c *commandIndexOptimize) runOptimizeCommand(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	advancedCommand(ctx)
 
 	opt := content.CompactOptions{
-		MaxSmallBlobs: *optimizeMaxSmallBlobs,
-		AllIndexes:    *optimizeAllIndexes,
-		DropContents:  toContentIDs(*optimizeDropContents),
+		MaxSmallBlobs: c.optimizeMaxSmallBlobs,
+		AllIndexes:    c.optimizeAllIndexes,
+		DropContents:  toContentIDs(c.optimizeDropContents),
 	}
 
-	if age := *optimizeDropDeletedOlderThan; age > 0 {
+	if age := c.optimizeDropDeletedOlderThan; age > 0 {
 		opt.DropDeletedBefore = rep.Time().Add(-age)
 	}
 
 	return rep.ContentManager().CompactIndexes(ctx, opt)
-}
-
-func init() {
-	optimizeCommand.Action(directRepositoryWriteAction(runOptimizeCommand))
 }

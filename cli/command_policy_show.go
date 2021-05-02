@@ -13,19 +13,22 @@ import (
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
-var (
-	policyShowCommand = policyCommands.Command("show", "Show snapshot policy.").Alias("get")
-	policyShowGlobal  = policyShowCommand.Flag("global", "Get global policy").Bool()
-	policyShowTargets = policyShowCommand.Arg("target", "Target to show the policy for").Strings()
-)
-
-func init() {
-	registerJSONOutputFlags(policyShowCommand)
-	policyShowCommand.Action(repositoryReaderAction(showPolicy))
+type commandPolicyShow struct {
+	global  bool
+	targets []string
+	jo      jsonOutput
 }
 
-func showPolicy(ctx context.Context, rep repo.Repository) error {
-	targets, err := policyTargets(ctx, rep, policyShowGlobal, policyShowTargets)
+func (c *commandPolicyShow) setup(parent commandParent) {
+	cmd := parent.Command("show", "Show snapshot policy.").Alias("get")
+	cmd.Flag("global", "Get global policy").BoolVar(&c.global)
+	cmd.Arg("target", "Target to show the policy for").StringsVar(&c.targets)
+	c.jo.setup(cmd)
+	cmd.Action(repositoryReaderAction(c.run))
+}
+
+func (c *commandPolicyShow) run(ctx context.Context, rep repo.Repository) error {
+	targets, err := policyTargets(ctx, rep, c.global, c.targets)
 	if err != nil {
 		return err
 	}
@@ -36,8 +39,8 @@ func showPolicy(ctx context.Context, rep repo.Repository) error {
 			return errors.Wrapf(err, "can't get effective policy for %q", target)
 		}
 
-		if jsonOutput {
-			printStdout("%s\n", jsonBytes(effective))
+		if c.jo.jsonOutput {
+			printStdout("%s\n", c.jo.jsonBytes(effective))
 		} else {
 			printPolicy(effective, policies)
 		}

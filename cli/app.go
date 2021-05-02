@@ -31,46 +31,78 @@ var (
 	enableAutomaticMaintenance = app.Flag("auto-maintenance", "Automatic maintenance").Default("true").Hidden().Bool()
 
 	_ = app.Flag("help-full", "Show help for all commands, including hidden").Action(helpFullAction).Bool()
-
-	repositoryCommands  = app.Command("repository", "Commands to manipulate repository.").Alias("repo")
-	cacheCommands       = app.Command("cache", "Commands to manipulate local cache").Hidden()
-	snapshotCommands    = app.Command("snapshot", "Commands to manipulate snapshots.").Alias("snap")
-	policyCommands      = app.Command("policy", "Commands to manipulate snapshotting policies.").Alias("policies")
-	serverCommands      = app.Command("server", "Commands to control HTTP API server.")
-	manifestCommands    = app.Command("manifest", "Low-level commands to manipulate manifest items.").Hidden()
-	contentCommands     = app.Command("content", "Commands to manipulate content in repository.").Alias("contents").Hidden()
-	blobCommands        = app.Command("blob", "Commands to manipulate BLOBs.").Hidden()
-	indexCommands       = app.Command("index", "Commands to manipulate content index.").Hidden()
-	benchmarkCommands   = app.Command("benchmark", "Commands to test performance of algorithms.").Hidden()
-	maintenanceCommands = app.Command("maintenance", "Maintenance commands.").Hidden().Alias("gc")
-	sessionCommands     = app.Command("session", "Session commands.").Hidden()
-	userCommands        = serverCommands.Command("users", "Manager repository users").Alias("user")
-	aclCommands         = serverCommands.Command("acl", "Manager server access control list entries")
 )
+
+type TheApp struct {
+	blob        commandBlob
+	benchmark   commandBenchmark
+	cache       commandCache
+	content     commandContent
+	diff        commandDiff
+	index       commandIndex
+	list        commandList
+	server      commandServer
+	session     commandSession
+	policy      commandPolicy
+	restore     commandRestore
+	show        commandShow
+	snapshot    commandSnapshot
+	manifest    commandManifest
+	mount       commandMount
+	maintenance commandMaintenance
+	repository  commandRepository
+}
+
+func (a *TheApp) setup(app *kingpin.Application) {
+	a.blob.setup(app)
+	a.benchmark.setup(app)
+	a.cache.setup(app)
+	a.content.setup(app)
+	a.diff.setup(app)
+	a.index.setup(app)
+	a.list.setup(app)
+	a.server.setup(app)
+	a.session.setup(app)
+	a.restore.setup(app)
+	a.show.setup(app)
+	a.snapshot.setup(app)
+	a.manifest.setup(app)
+	a.policy.setup(app)
+	a.mount.setup(app)
+	a.maintenance.setup(app)
+	a.repository.setup(app)
+}
+
+// commandParent is implemented by app and commands that can have sub-commands.
+type commandParent interface {
+	Command(name, help string) *kingpin.CmdClause
+}
+
+func init() {
+	(&TheApp{}).setup(app)
+}
 
 var safetyByName = map[string]maintenance.SafetyParameters{
 	"none": maintenance.SafetyNone,
 	"full": maintenance.SafetyFull,
 }
 
-// safetyFlag defines a --safety=none|full flag that returns SafetyParameters.
-func safetyFlag(c *kingpin.CmdClause) *maintenance.SafetyParameters {
-	var (
-		result = maintenance.SafetyFull
-		str    string
-	)
+// safetyFlagVar defines a --safety=none|full flag that sets the SafetyParameters.
+func safetyFlagVar(cmd *kingpin.CmdClause, result *maintenance.SafetyParameters) {
+	var str string
 
-	c.Flag("safety", "Safety level").Default("full").PreAction(func(pc *kingpin.ParseContext) error {
-		var ok bool
-		result, ok = safetyByName[str]
+	*result = maintenance.SafetyFull
+
+	cmd.Flag("safety", "Safety level").Default("full").PreAction(func(pc *kingpin.ParseContext) error {
+		r, ok := safetyByName[str]
 		if !ok {
 			return errors.Errorf("unhandled safety level")
 		}
 
+		*result = r
+
 		return nil
 	}).EnumVar(&str, "full", "none")
-
-	return &result
 }
 
 func helpFullAction(ctx *kingpin.ParseContext) error {
@@ -87,9 +119,9 @@ func noRepositoryAction(act func(ctx context.Context) error) func(ctx *kingpin.P
 	}
 }
 
-func serverAction(act func(ctx context.Context, cli *apiclient.KopiaAPIClient) error) func(ctx *kingpin.ParseContext) error {
+func serverAction(sf *serverClientFlags, act func(ctx context.Context, cli *apiclient.KopiaAPIClient) error) func(ctx *kingpin.ParseContext) error {
 	return func(_ *kingpin.ParseContext) error {
-		opts, err := serverAPIClientOptions()
+		opts, err := sf.serverAPIClientOptions()
 		if err != nil {
 			return errors.Wrap(err, "unable to create API client options")
 		}

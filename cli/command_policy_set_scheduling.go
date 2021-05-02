@@ -3,30 +3,37 @@ package cli
 import (
 	"context"
 	"strings"
+	"time"
 
+	"github.com/alecthomas/kingpin"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
-var (
-	// Frequency.
-	policySetInterval   = policySetCommand.Flag("snapshot-interval", "Interval between snapshots").DurationList()
-	policySetTimesOfDay = policySetCommand.Flag("snapshot-time", "Times of day when to take snapshot (HH:mm)").Strings()
-	policySetManual     = policySetCommand.Flag("manual", "Only create snapshots manually").Bool()
-)
-
-func setSchedulingPolicyFromFlags(ctx context.Context, sp *policy.SchedulingPolicy, changeCount *int) error {
-	if *policySetManual {
-		return setManualFromFlags(ctx, sp, changeCount)
-	}
-
-	return setScheduleFromFlags(ctx, sp, changeCount)
+type policySchedulingFlags struct {
+	policySetInterval   []time.Duration // not a list, just optional duration
+	policySetTimesOfDay []string
+	policySetManual     bool
 }
 
-func setScheduleFromFlags(ctx context.Context, sp *policy.SchedulingPolicy, changeCount *int) error {
+func (c *policySchedulingFlags) setup(cmd *kingpin.CmdClause) {
+	cmd.Flag("snapshot-interval", "Interval between snapshots").DurationListVar(&c.policySetInterval)
+	cmd.Flag("snapshot-time", "Times of day when to take snapshot (HH:mm)").StringsVar(&c.policySetTimesOfDay)
+	cmd.Flag("manual", "Only create snapshots manually").BoolVar(&c.policySetManual)
+}
+
+func (c *policySchedulingFlags) setSchedulingPolicyFromFlags(ctx context.Context, sp *policy.SchedulingPolicy, changeCount *int) error {
+	if c.policySetManual {
+		return c.setManualFromFlags(ctx, sp, changeCount)
+	}
+
+	return c.setScheduleFromFlags(ctx, sp, changeCount)
+}
+
+func (c *policySchedulingFlags) setScheduleFromFlags(ctx context.Context, sp *policy.SchedulingPolicy, changeCount *int) error {
 	// It's not really a list, just optional value.
-	for _, interval := range *policySetInterval {
+	for _, interval := range c.policySetInterval {
 		*changeCount++
 
 		sp.SetInterval(interval)
@@ -35,10 +42,10 @@ func setScheduleFromFlags(ctx context.Context, sp *policy.SchedulingPolicy, chan
 		break
 	}
 
-	if len(*policySetTimesOfDay) > 0 {
+	if len(c.policySetTimesOfDay) > 0 {
 		var timesOfDay []policy.TimeOfDay
 
-		for _, tods := range *policySetTimesOfDay {
+		for _, tods := range c.policySetTimesOfDay {
 			for _, tod := range strings.Split(tods, ",") {
 				if tod == inheritPolicyString {
 					timesOfDay = nil
@@ -75,9 +82,9 @@ func setScheduleFromFlags(ctx context.Context, sp *policy.SchedulingPolicy, chan
 	return nil
 }
 
-func setManualFromFlags(ctx context.Context, sp *policy.SchedulingPolicy, changeCount *int) error {
+func (c *policySchedulingFlags) setManualFromFlags(ctx context.Context, sp *policy.SchedulingPolicy, changeCount *int) error {
 	// Cannot set both schedule and manual setting
-	if len(*policySetInterval) > 0 || len(*policySetTimesOfDay) > 0 {
+	if len(c.policySetInterval) > 0 || len(c.policySetTimesOfDay) > 0 {
 		return errors.New("cannot set manual field when scheduling snapshots")
 	}
 
@@ -100,8 +107,8 @@ func setManualFromFlags(ctx context.Context, sp *policy.SchedulingPolicy, change
 
 	*changeCount++
 
-	sp.Manual = *policySetManual
-	log(ctx).Infof(" - setting manual snapshot field to %v\n", *policySetManual)
+	sp.Manual = c.policySetManual
+	log(ctx).Infof(" - setting manual snapshot field to %v\n", c.policySetManual)
 
 	return nil
 }

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"time"
 
 	"github.com/pkg/errors"
 
@@ -9,16 +10,24 @@ import (
 	"github.com/kopia/kopia/repo"
 )
 
-var (
-	cacheSetParamsCommand = cacheCommands.Command("set", "Sets parameters local caching of repository data")
+type commandCacheSetParams struct {
+	directory              string
+	contentCacheSizeMB     int64
+	maxMetadataCacheSizeMB int64
+	maxListCacheDuration   time.Duration
+}
 
-	cacheSetDirectory              = cacheSetParamsCommand.Flag("cache-directory", "Directory where to store cache files").String()
-	cacheSetContentCacheSizeMB     = cacheSetParamsCommand.Flag("content-cache-size-mb", "Size of local content cache").PlaceHolder("MB").Default("-1").Int64()
-	cacheSetMaxMetadataCacheSizeMB = cacheSetParamsCommand.Flag("metadata-cache-size-mb", "Size of local metadata cache").PlaceHolder("MB").Default("-1").Int64()
-	cacheSetMaxListCacheDuration   = cacheSetParamsCommand.Flag("max-list-cache-duration", "Duration of index cache").Default("-1ns").Duration()
-)
+func (c *commandCacheSetParams) setup(parent commandParent) {
+	cmd := parent.Command("set", "Sets parameters local caching of repository data")
 
-func runCacheSetCommand(ctx context.Context, rep repo.RepositoryWriter) error {
+	cmd.Flag("cache-directory", "Directory where to store cache files").StringVar(&c.directory)
+	cmd.Flag("content-cache-size-mb", "Size of local content cache").PlaceHolder("MB").Default("-1").Int64Var(&c.contentCacheSizeMB)
+	cmd.Flag("metadata-cache-size-mb", "Size of local metadata cache").PlaceHolder("MB").Default("-1").Int64Var(&c.maxMetadataCacheSizeMB)
+	cmd.Flag("max-list-cache-duration", "Duration of index cache").Default("-1ns").DurationVar(&c.maxListCacheDuration)
+	cmd.Action(repositoryWriterAction(c.run))
+}
+
+func (c *commandCacheSetParams) run(ctx context.Context, rep repo.RepositoryWriter) error {
 	opts, err := repo.GetCachingOptions(ctx, repositoryConfigFileName())
 	if err != nil {
 		return errors.Wrap(err, "error getting caching options")
@@ -26,27 +35,27 @@ func runCacheSetCommand(ctx context.Context, rep repo.RepositoryWriter) error {
 
 	changed := 0
 
-	if v := *cacheSetDirectory; v != "" {
+	if v := c.directory; v != "" {
 		log(ctx).Infof("setting cache directory to %v", v)
 		opts.CacheDirectory = v
 		changed++
 	}
 
-	if v := *cacheSetContentCacheSizeMB; v != -1 {
+	if v := c.contentCacheSizeMB; v != -1 {
 		v *= 1e6 // convert MB to bytes
 		log(ctx).Infof("changing content cache size to %v", units.BytesStringBase10(v))
 		opts.MaxCacheSizeBytes = v
 		changed++
 	}
 
-	if v := *cacheSetMaxMetadataCacheSizeMB; v != -1 {
+	if v := c.maxMetadataCacheSizeMB; v != -1 {
 		v *= 1e6 // convert MB to bytes
 		log(ctx).Infof("changing metadata cache size to %v", units.BytesStringBase10(v))
 		opts.MaxMetadataCacheSizeBytes = v
 		changed++
 	}
 
-	if v := *cacheSetMaxListCacheDuration; v != -1 {
+	if v := c.maxListCacheDuration; v != -1 {
 		log(ctx).Infof("changing list cache duration to %v", v)
 		opts.MaxListCacheDurationSec = int(v.Seconds())
 		changed++
@@ -57,8 +66,4 @@ func runCacheSetCommand(ctx context.Context, rep repo.RepositoryWriter) error {
 	}
 
 	return repo.SetCachingOptions(ctx, repositoryConfigFileName(), opts)
-}
-
-func init() {
-	cacheSetParamsCommand.Action(repositoryWriterAction(runCacheSetCommand))
 }

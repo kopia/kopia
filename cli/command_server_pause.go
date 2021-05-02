@@ -7,10 +7,14 @@ import (
 	"github.com/kopia/kopia/internal/serverapi"
 )
 
-var serverPauseCommand = serverCommands.Command("pause", "Pause the scheduled snapshots for one or more sources")
+type commandServerPause struct {
+	sf serverClientFlags
+}
 
-func init() {
-	serverPauseCommand.Action(serverAction(runServerPause))
+func (c *commandServerPause) setup(parent commandParent) {
+	cmd := parent.Command("pause", "Pause the scheduled snapshots for one or more sources")
+	c.sf.setup(cmd)
+	cmd.Action(serverAction(&c.sf, runServerPause))
 }
 
 func runServerPause(ctx context.Context, cli *apiclient.KopiaAPIClient) error {

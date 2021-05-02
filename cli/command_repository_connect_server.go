@@ -9,23 +9,32 @@ import (
 	"github.com/kopia/kopia/repo"
 )
 
-var (
-	connectAPIServerCommand = connectCommand.Command("server", "Connect to a repository API Server.")
+type commandRepositoryConnectServer struct {
+	co *connectOptions
 
-	connectAPIServerURL             = connectAPIServerCommand.Flag("url", "Server URL").Required().String()
-	connectAPIServerCertFingerprint = connectAPIServerCommand.Flag("server-cert-fingerprint", "Server certificate fingerprint").String()
-	connectAPIServerUseGRPCAPI      = connectAPIServerCommand.Flag("grpc", "Use GRPC API").Default("true").Bool()
-)
+	connectAPIServerURL             string
+	connectAPIServerCertFingerprint string
+	connectAPIServerUseGRPCAPI      bool
+}
 
-func runConnectAPIServerCommand(ctx context.Context) error {
+func (c *commandRepositoryConnectServer) setup(parent commandParent, co *connectOptions) {
+	c.co = co
+	cmd := parent.Command("server", "Connect to a repository API Server.")
+	cmd.Flag("url", "Server URL").Required().StringVar(&c.connectAPIServerURL)
+	cmd.Flag("server-cert-fingerprint", "Server certificate fingerprint").StringVar(&c.connectAPIServerCertFingerprint)
+	cmd.Flag("grpc", "Use GRPC API").Default("true").BoolVar(&c.connectAPIServerUseGRPCAPI)
+	cmd.Action(noRepositoryAction(c.run))
+}
+
+func (c *commandRepositoryConnectServer) run(ctx context.Context) error {
 	as := &repo.APIServerInfo{
-		BaseURL:                             strings.TrimSuffix(*connectAPIServerURL, "/"),
-		TrustedServerCertificateFingerprint: strings.ToLower(*connectAPIServerCertFingerprint),
-		DisableGRPC:                         !*connectAPIServerUseGRPCAPI,
+		BaseURL:                             strings.TrimSuffix(c.connectAPIServerURL, "/"),
+		TrustedServerCertificateFingerprint: strings.ToLower(c.connectAPIServerCertFingerprint),
+		DisableGRPC:                         !c.connectAPIServerUseGRPCAPI,
 	}
 
 	configFile := repositoryConfigFileName()
-	opt := connectOptions()
+	opt := c.co.toRepoConnectOptions()
 
 	u := opt.Username
 	if u == "" {
@@ -49,11 +58,7 @@ func runConnectAPIServerCommand(ctx context.Context) error {
 	}
 
 	log(ctx).Infof("Connected to repository API Server.")
-	maybeInitializeUpdateCheck(ctx)
+	c.co.maybeInitializeUpdateCheck(ctx)
 
 	return nil
-}
-
-func init() {
-	connectAPIServerCommand.Action(noRepositoryAction(runConnectAPIServerCommand))
 }

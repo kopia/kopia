@@ -10,28 +10,13 @@ import (
 	"os"
 	"time"
 
-	"github.com/alecthomas/kingpin"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/internal/units"
 )
 
-var (
-	commonIndentJSON bool
-	commonUnzip      bool
-
-	timeZone = app.Flag("timezone", "Format time according to specified time zone (local, utc, original or time zone name)").Default("local").Hidden().String()
-)
-
-func setupShowCommand(cmd *kingpin.CmdClause) {
-	cmd.Flag("json", "Pretty-print JSON content").Short('j').BoolVar(&commonIndentJSON)
-	cmd.Flag("unzip", "Transparently unzip the content").Short('z').BoolVar(&commonUnzip)
-}
-
-func showContent(rd io.Reader) error {
-	return showContentWithFlags(rd, commonUnzip, commonIndentJSON)
-}
+var timeZone = app.Flag("timezone", "Format time according to specified time zone (local, utc, original or time zone name)").Default("local").Hidden().String()
 
 func showContentWithFlags(rd io.Reader, unzip, indentJSON bool) error {
 	if unzip {

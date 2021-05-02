@@ -7,12 +7,16 @@ import (
 	"github.com/kopia/kopia/internal/serverapi"
 )
 
-var serverResumeCommand = serverCommands.Command("resume", "Resume the scheduled snapshots for one or more sources")
-
-func init() {
-	serverResumeCommand.Action(serverAction(runServerResume))
+type commandServerResume struct {
+	sf serverClientFlags
 }
 
-func runServerResume(ctx context.Context, cli *apiclient.KopiaAPIClient) error {
+func (c *commandServerResume) setup(parent commandParent) {
+	cmd := parent.Command("resume", "Resume the scheduled snapshots for one or more sources")
+	c.sf.setup(cmd)
+	cmd.Action(serverAction(&c.sf, c.run))
+}
+
+func (c *commandServerResume) run(ctx context.Context, cli *apiclient.KopiaAPIClient) error {
 	return cli.Post(ctx, "sources/resume", &serverapi.Empty{}, &serverapi.Empty{})
 }

@@ -10,17 +10,24 @@ import (
 	"github.com/kopia/kopia/repo"
 )
 
-var (
-	aclAddCommand            = aclCommands.Command("add", "Add ACL entry")
-	aclAddCommandUser        = aclAddCommand.Flag("user", "User the ACL targets").Required().String()
-	aclAddCommandTarget      = aclAddCommand.Flag("target", "Manifests targeted by the rule (type:T,key1:value1,...,keyN:valueN)").Required().String()
-	aclAddCommandAccessLevel = aclAddCommand.Flag("access", "Access the user gets to subject").Required().Enum(acl.SupportedAccessLevels()...)
-)
+type commandACLAdd struct {
+	user   string
+	target string
+	level  string
+}
 
-func runACLAdd(ctx context.Context, rep repo.RepositoryWriter) error {
+func (c *commandACLAdd) setup(parent commandParent) {
+	cmd := parent.Command("add", "Add ACL entry")
+	cmd.Flag("user", "User the ACL targets").Required().StringVar(&c.user)
+	cmd.Flag("target", "Manifests targeted by the rule (type:T,key1:value1,...,keyN:valueN)").Required().StringVar(&c.target)
+	cmd.Flag("access", "Access the user gets to subject").Required().EnumVar(&c.level, acl.SupportedAccessLevels()...)
+	cmd.Action(repositoryWriterAction(c.run))
+}
+
+func (c *commandACLAdd) run(ctx context.Context, rep repo.RepositoryWriter) error {
 	r := acl.TargetRule{}
 
-	for _, v := range strings.Split(*aclAddCommandTarget, ",") {
+	for _, v := range strings.Split(c.target, ",") {
 		parts := strings.SplitN(v, "=", 2)
 		if len(parts) != 2 { //nolint:gomnd
 			return errors.Errorf("invalid target labels %q, must be key=value", v)
@@ -29,20 +36,16 @@ func runACLAdd(ctx context.Context, rep repo.RepositoryWriter) error {
 		r[parts[0]] = parts[1]
 	}
 
-	al, err := acl.ParseAccessLevel(*aclAddCommandAccessLevel)
+	al, err := acl.ParseAccessLevel(c.level)
 	if err != nil {
 		return errors.Wrap(err, "invalid access level")
 	}
 
 	e := &acl.Entry{
-		User:   *aclAddCommandUser,
+		User:   c.user,
 		Target: r,
 		Access: al,
 	}
 
 	return acl.AddACL(ctx, rep, e)
-}
-
-func init() {
-	aclAddCommand.Action(repositoryWriterAction(runACLAdd))
 }

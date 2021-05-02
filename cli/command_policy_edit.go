@@ -50,18 +50,20 @@ const policyEditSchedulingHelpText = `
   #   "manual": false /* Only create snapshots manually if set to true. NOTE: cannot be used with the above two fields */
 `
 
-var (
-	policyEditCommand = policyCommands.Command("edit", "Set snapshot policy for a single directory, user@host or a global policy.")
-	policyEditTargets = policyEditCommand.Arg("target", "Target of a policy ('global','user@host','@host') or a path").Strings()
-	policyEditGlobal  = policyEditCommand.Flag("global", "Set global policy").Bool()
-)
-
-func init() {
-	policyEditCommand.Action(repositoryWriterAction(editPolicy))
+type commandPolicyEdit struct {
+	targets []string
+	global  bool
 }
 
-func editPolicy(ctx context.Context, rep repo.RepositoryWriter) error {
-	targets, err := policyTargets(ctx, rep, policyEditGlobal, policyEditTargets)
+func (c *commandPolicyEdit) setup(parent commandParent) {
+	cmd := parent.Command("edit", "Set snapshot policy for a single directory, user@host or a global policy.")
+	cmd.Arg("target", "Target of a policy ('global','user@host','@host') or a path").StringsVar(&c.targets)
+	cmd.Flag("global", "Set global policy").BoolVar(&c.global)
+	cmd.Action(repositoryWriterAction(c.run))
+}
+
+func (c *commandPolicyEdit) run(ctx context.Context, rep repo.RepositoryWriter) error {
+	targets, err := policyTargets(ctx, rep, c.global, c.targets)
 	if err != nil {
 		return err
 	}
