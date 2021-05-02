@@ -52,12 +52,12 @@ func (c *commandRepositoryConnectServer) run(ctx context.Context) error {
 
 	log(ctx).Infof("Connecting to server '%v' as '%v@%v'...", as.BaseURL, u, h)
 
-	password, err := c.app.getPasswordFromFlags(ctx, false, false)
+	pass, err := c.app.getPasswordFromFlags(ctx, false, false)
 	if err != nil {
 		return errors.Wrap(err, "getting password")
 	}
 
-	if err := repo.ConnectAPIServer(ctx, configFile, as, password, opt); err != nil {
+	if err := repo.ConnectAPIServer(ctx, configFile, as, pass, opt); err != nil {
 		return errors.Wrap(err, "error connecting to API server")
 	}
 

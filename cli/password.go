@@ -14,8 +14,8 @@ import (
 
 // TODO - remove those globals.
 var (
-	password          string // bound to the --password flag.
-	passwordFromToken string // set dynamically
+	globalPassword          string // bound to the --password flag.
+	globalPasswordFromToken string // set dynamically
 )
 
 func askForNewRepositoryPassword() (string, error) {
@@ -51,12 +51,12 @@ func askForExistingRepositoryPassword() (string, error) {
 
 func (c *TheApp) getPasswordFromFlags(ctx context.Context, isNew, allowPersistent bool) (string, error) {
 	switch {
-	case passwordFromToken != "":
+	case globalPasswordFromToken != "":
 		// password extracted from connection token
-		return passwordFromToken, nil
-	case password != "":
+		return globalPasswordFromToken, nil
+	case globalPassword != "":
 		// password provided via --password flag or KOPIA_PASSWORD environment variable
-		return strings.TrimSpace(password), nil
+		return strings.TrimSpace(globalPassword), nil
 	case isNew:
 		// this is a new repository, ask for password
 		return askForNewRepositoryPassword()

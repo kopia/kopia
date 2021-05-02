@@ -94,7 +94,7 @@ func (c *commandRepositoryCreate) runCreateCommandWithStorage(ctx context.Contex
 
 	options := c.newRepositoryOptionsFromFlags()
 
-	password, err := c.app.getPasswordFromFlags(ctx, true, false)
+	pass, err := c.app.getPasswordFromFlags(ctx, true, false)
 	if err != nil {
 		return errors.Wrap(err, "getting password")
 	}
@@ -104,7 +104,7 @@ func (c *commandRepositoryCreate) runCreateCommandWithStorage(ctx context.Contex
 	log(ctx).Infof("  encryption:          %v", options.BlockFormat.Encryption)
 	log(ctx).Infof("  splitter:            %v", options.ObjectFormat.Splitter)
 
-	if err := repo.Initialize(ctx, st, options, password); err != nil {
+	if err := repo.Initialize(ctx, st, options, pass); err != nil {
 		return errors.Wrap(err, "cannot initialize repository")
 	}
 
@@ -112,11 +112,11 @@ func (c *commandRepositoryCreate) runCreateCommandWithStorage(ctx context.Contex
 		return nil
 	}
 
-	if err := c.app.runConnectCommandWithStorageAndPassword(ctx, &c.co, st, password); err != nil {
+	if err := c.app.runConnectCommandWithStorageAndPassword(ctx, &c.co, st, pass); err != nil {
 		return errors.Wrap(err, "unable to connect to repository")
 	}
 
-	return c.populateRepository(ctx, password)
+	return c.populateRepository(ctx, pass)
 }
 
 func (c *commandRepositoryCreate) populateRepository(ctx context.Context, password string) error {

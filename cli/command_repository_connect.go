@@ -91,12 +91,12 @@ func (c *connectOptions) toRepoConnectOptions() *repo.ConnectOptions {
 }
 
 func (c *TheApp) runConnectCommandWithStorage(ctx context.Context, co *connectOptions, st blob.Storage) error {
-	password, err := c.getPasswordFromFlags(ctx, false, false)
+	pass, err := c.getPasswordFromFlags(ctx, false, false)
 	if err != nil {
 		return errors.Wrap(err, "getting password")
 	}
 
-	return c.runConnectCommandWithStorageAndPassword(ctx, co, st, password)
+	return c.runConnectCommandWithStorageAndPassword(ctx, co, st, pass)
 }
 
 func (c *TheApp) runConnectCommandWithStorageAndPassword(ctx context.Context, co *connectOptions, st blob.Storage, password string) error {

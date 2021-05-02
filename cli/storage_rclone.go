@@ -32,7 +32,7 @@ func (c *storageRcloneFlags) connect(ctx context.Context, isNew bool) (blob.Stor
 	}
 
 	if c.embedRCloneConfigFile != "" {
-		cfg, err := ioutil.ReadFile(c.embedRCloneConfigFile) //nolint:gosec
+		cfg, err := ioutil.ReadFile(c.embedRCloneConfigFile)
 		if err != nil {
 			return nil, errors.Wrap(err, "unable to read rclone config file")
 		}

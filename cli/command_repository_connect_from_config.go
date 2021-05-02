@@ -51,7 +51,7 @@ func (c *storageFromConfigFlags) connectToStorageFromConfigToken(ctx context.Con
 		return nil, errors.Wrap(err, "invalid token")
 	}
 
-	passwordFromToken = pass
+	globalPasswordFromToken = pass
 
 	return blob.NewStorage(ctx, ci)
 }
