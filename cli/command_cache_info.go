@@ -14,16 +14,20 @@ import (
 
 type commandCacheInfo struct {
 	onlyShowPath bool
+
+	app appServices
 }
 
 func (c *commandCacheInfo) setup(app appServices, parent commandParent) {
 	cmd := parent.Command("info", "Displays cache information and statistics").Default()
 	cmd.Flag("path", "Only display cache path").BoolVar(&c.onlyShowPath)
 	cmd.Action(app.repositoryReaderAction(c.run))
+
+	c.app = app
 }
 
 func (c *commandCacheInfo) run(ctx context.Context, rep repo.Repository) error {
-	opts, err := repo.GetCachingOptions(ctx, repositoryConfigFileName())
+	opts, err := repo.GetCachingOptions(ctx, c.app.repositoryConfigFileName())
 	if err != nil {
 		return errors.Wrap(err, "error getting cache options")
 	}

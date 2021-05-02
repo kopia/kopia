@@ -18,6 +18,8 @@ import (
 type commandRepositoryStatus struct {
 	statusReconnectToken                bool
 	statusReconnectTokenIncludePassword bool
+
+	app appServices
 }
 
 func (c *commandRepositoryStatus) setup(app appServices, parent commandParent) {
@@ -25,10 +27,12 @@ func (c *commandRepositoryStatus) setup(app appServices, parent commandParent) {
 	cmd.Flag("reconnect-token", "Display reconnect command").Short('t').BoolVar(&c.statusReconnectToken)
 	cmd.Flag("reconnect-token-with-password", "Include password in reconnect token").Short('s').BoolVar(&c.statusReconnectTokenIncludePassword)
 	cmd.Action(app.repositoryReaderAction(c.run))
+
+	c.app = app
 }
 
 func (c *commandRepositoryStatus) run(ctx context.Context, rep repo.Repository) error {
-	fmt.Printf("Config file:         %v\n", repositoryConfigFileName())
+	fmt.Printf("Config file:         %v\n", c.app.repositoryConfigFileName())
 	fmt.Println()
 	fmt.Printf("Description:         %v\n", rep.ClientOptions().Description)
 	fmt.Printf("Hostname:            %v\n", rep.ClientOptions().Hostname)
@@ -66,7 +70,7 @@ func (c *commandRepositoryStatus) run(ctx context.Context, rep repo.Repository) 
 	if c.statusReconnectTokenIncludePassword {
 		var err error
 
-		pass, err = getPasswordFromFlags(ctx, false, true)
+		pass, err = c.app.getPasswordFromFlags(ctx, false, true)
 		if err != nil {
 			return errors.Wrap(err, "getting password")
 		}

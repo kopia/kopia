@@ -94,7 +94,7 @@ func (c *commandRepositoryCreate) runCreateCommandWithStorage(ctx context.Contex
 
 	options := c.newRepositoryOptionsFromFlags()
 
-	password, err := getPasswordFromFlags(ctx, true, false)
+	password, err := c.app.getPasswordFromFlags(ctx, true, false)
 	if err != nil {
 		return errors.Wrap(err, "getting password")
 	}
@@ -116,11 +116,11 @@ func (c *commandRepositoryCreate) runCreateCommandWithStorage(ctx context.Contex
 		return errors.Wrap(err, "unable to connect to repository")
 	}
 
-	return populateRepository(ctx, password)
+	return c.populateRepository(ctx, password)
 }
 
-func populateRepository(ctx context.Context, password string) error {
-	rep, err := repo.Open(ctx, repositoryConfigFileName(), password, optionsFromFlags(ctx))
+func (c *commandRepositoryCreate) populateRepository(ctx context.Context, password string) error {
+	rep, err := repo.Open(ctx, c.app.repositoryConfigFileName(), password, optionsFromFlags(ctx))
 	if err != nil {
 		return errors.Wrap(err, "unable to open repository")
 	}

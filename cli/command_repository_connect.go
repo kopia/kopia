@@ -91,7 +91,7 @@ func (c *connectOptions) toRepoConnectOptions() *repo.ConnectOptions {
 }
 
 func (c *TheApp) runConnectCommandWithStorage(ctx context.Context, co *connectOptions, st blob.Storage) error {
-	password, err := getPasswordFromFlags(ctx, false, false)
+	password, err := c.getPasswordFromFlags(ctx, false, false)
 	if err != nil {
 		return errors.Wrap(err, "getting password")
 	}
@@ -100,7 +100,7 @@ func (c *TheApp) runConnectCommandWithStorage(ctx context.Context, co *connectOp
 }
 
 func (c *TheApp) runConnectCommandWithStorageAndPassword(ctx context.Context, co *connectOptions, st blob.Storage, password string) error {
-	configFile := repositoryConfigFileName()
+	configFile := c.repositoryConfigFileName()
 	if err := repo.Connect(ctx, configFile, st, password, co.toRepoConnectOptions()); err != nil {
 		return errors.Wrap(err, "error connecting to repository")
 	}

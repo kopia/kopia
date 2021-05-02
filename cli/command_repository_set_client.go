@@ -14,6 +14,8 @@ type commandRepositorySetClient struct {
 	repoClientOptionsDescription []string
 	repoClientOptionsUsername    []string
 	repoClientOptionsHostname    []string
+
+	app appServices
 }
 
 func (c *commandRepositorySetClient) setup(app appServices, parent commandParent) {
@@ -25,6 +27,8 @@ func (c *commandRepositorySetClient) setup(app appServices, parent commandParent
 	cmd.Flag("username", "Change username").StringsVar(&c.repoClientOptionsUsername)
 	cmd.Flag("hostname", "Change hostname").StringsVar(&c.repoClientOptionsHostname)
 	cmd.Action(app.repositoryReaderAction(c.run))
+
+	c.app = app
 }
 
 func (c *commandRepositorySetClient) run(ctx context.Context, rep repo.Repository) error {
@@ -79,5 +83,5 @@ func (c *commandRepositorySetClient) run(ctx context.Context, rep repo.Repositor
 		return errors.Errorf("no changes")
 	}
 
-	return repo.SetClientOptions(ctx, repositoryConfigFileName(), opt)
+	return repo.SetClientOptions(ctx, c.app.repositoryConfigFileName(), opt)
 }

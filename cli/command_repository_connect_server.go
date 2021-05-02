@@ -37,7 +37,7 @@ func (c *commandRepositoryConnectServer) run(ctx context.Context) error {
 		DisableGRPC:                         !c.connectAPIServerUseGRPCAPI,
 	}
 
-	configFile := repositoryConfigFileName()
+	configFile := c.app.repositoryConfigFileName()
 	opt := c.co.toRepoConnectOptions()
 
 	u := opt.Username
@@ -52,7 +52,7 @@ func (c *commandRepositoryConnectServer) run(ctx context.Context) error {
 
 	log(ctx).Infof("Connecting to server '%v' as '%v@%v'...", as.BaseURL, u, h)
 
-	password, err := getPasswordFromFlags(ctx, false, false)
+	password, err := c.app.getPasswordFromFlags(ctx, false, false)
 	if err != nil {
 		return errors.Wrap(err, "getting password")
 	}

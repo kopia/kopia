@@ -15,6 +15,8 @@ type commandCacheSetParams struct {
 	contentCacheSizeMB     int64
 	maxMetadataCacheSizeMB int64
 	maxListCacheDuration   time.Duration
+
+	app appServices
 }
 
 func (c *commandCacheSetParams) setup(app appServices, parent commandParent) {
@@ -25,10 +27,11 @@ func (c *commandCacheSetParams) setup(app appServices, parent commandParent) {
 	cmd.Flag("metadata-cache-size-mb", "Size of local metadata cache").PlaceHolder("MB").Default("-1").Int64Var(&c.maxMetadataCacheSizeMB)
 	cmd.Flag("max-list-cache-duration", "Duration of index cache").Default("-1ns").DurationVar(&c.maxListCacheDuration)
 	cmd.Action(app.repositoryWriterAction(c.run))
+	c.app = app
 }
 
 func (c *commandCacheSetParams) run(ctx context.Context, rep repo.RepositoryWriter) error {
-	opts, err := repo.GetCachingOptions(ctx, repositoryConfigFileName())
+	opts, err := repo.GetCachingOptions(ctx, c.app.repositoryConfigFileName())
 	if err != nil {
 		return errors.Wrap(err, "error getting caching options")
 	}
@@ -65,5 +68,5 @@ func (c *commandCacheSetParams) run(ctx context.Context, rep repo.RepositoryWrit
 		return errors.Errorf("no changes")
 	}
 
-	return repo.SetCachingOptions(ctx, repositoryConfigFileName(), opts)
+	return repo.SetCachingOptions(ctx, c.app.repositoryConfigFileName(), opts)
 }

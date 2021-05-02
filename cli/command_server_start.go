@@ -55,7 +55,8 @@ type commandServerStart struct {
 	serverStartTLSGenerateCertNames     []string
 	serverStartTLSPrintFullServerCert   bool
 
-	sf serverFlags
+	sf  serverFlags
+	app appServices
 }
 
 func (c *commandServerStart) setup(app appServices, parent commandParent) {
@@ -87,8 +88,9 @@ func (c *commandServerStart) setup(app appServices, parent commandParent) {
 	cmd.Flag("tls-print-server-cert", "Print server certificate").Hidden().BoolVar(&c.serverStartTLSPrintFullServerCert)
 
 	c.sf.setup(cmd)
-
 	c.co.setup(cmd)
+	c.app = app
+
 	cmd.Action(app.maybeRepositoryAction(c.run, repositoryAccessMode{
 		mustBeConnected:    false,
 		disableMaintenance: true, // server closes the repository so maintenance can't run.
@@ -102,7 +104,7 @@ func (c *commandServerStart) run(ctx context.Context, rep repo.Repository) error
 	}
 
 	srv, err := server.New(ctx, server.Options{
-		ConfigFile:           repositoryConfigFileName(),
+		ConfigFile:           c.app.repositoryConfigFileName(),
 		ConnectOptions:       c.co.toRepoConnectOptions(),
 		RefreshInterval:      c.serverStartRefreshInterval,
 		MaxConcurrency:       c.serverStartMaxConcurrency,

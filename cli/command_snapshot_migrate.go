@@ -132,7 +132,7 @@ func (c *commandSnapshotMigrate) openSourceRepo(ctx context.Context) (repo.Repos
 	if !ok {
 		var err error
 
-		if pass, err = getPasswordFromFlags(ctx, false, false); err != nil {
+		if pass, err = c.app.getPasswordFromFlags(ctx, false, false); err != nil {
 			return nil, errors.Wrap(err, "source repository password")
 		}
 	}

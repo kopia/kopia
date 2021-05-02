@@ -6,15 +6,19 @@ import (
 	"github.com/kopia/kopia/repo"
 )
 
-type commandRepositoryDisconnect struct{}
+type commandRepositoryDisconnect struct {
+	app appServices
+}
 
 func (c *commandRepositoryDisconnect) setup(app appServices, parent commandParent) {
 	cmd := parent.Command("disconnect", "Disconnect from a repository.")
 	cmd.Action(app.noRepositoryAction(c.run))
+
+	c.app = app
 }
 
 func (c *commandRepositoryDisconnect) run(ctx context.Context) error {
-	removeUpdateState()
+	c.app.removeUpdateState()
 
-	return repo.Disconnect(ctx, repositoryConfigFileName())
+	return repo.Disconnect(ctx, c.app.repositoryConfigFileName())
 }

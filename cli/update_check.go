@@ -49,28 +49,28 @@ type updateState struct {
 }
 
 // updateStateFilename returns the name of the update state.
-func updateStateFilename() string {
-	return filepath.Join(repositoryConfigFileName() + ".update-info.json")
+func (c *TheApp) updateStateFilename() string {
+	return filepath.Join(c.repositoryConfigFileName() + ".update-info.json")
 }
 
 // writeUpdateState writes update state file.
-func writeUpdateState(us *updateState) error {
+func (c *TheApp) writeUpdateState(us *updateState) error {
 	var buf bytes.Buffer
 
 	if err := json.NewEncoder(&buf).Encode(us); err != nil {
 		return errors.Wrap(err, "unable to marshal JSON")
 	}
 
-	return atomicfile.Write(updateStateFilename(), &buf)
+	return atomicfile.Write(c.updateStateFilename(), &buf)
 }
 
-func removeUpdateState() {
-	os.Remove(updateStateFilename()) // nolint:errcheck
+func (c *TheApp) removeUpdateState() {
+	os.Remove(c.updateStateFilename()) // nolint:errcheck
 }
 
 // getUpdateState reads the update state file if available.
-func getUpdateState() (*updateState, error) {
-	f, err := os.Open(updateStateFilename())
+func (c *TheApp) getUpdateState() (*updateState, error) {
+	f, err := os.Open(c.updateStateFilename())
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to open update state file")
 	}
@@ -92,14 +92,14 @@ func (c *TheApp) maybeInitializeUpdateCheck(ctx context.Context, co *connectOpti
 			NextCheckTime:  clock.Now().Add(c.initialUpdateCheckDelay),
 			NextNotifyTime: clock.Now().Add(c.initialUpdateCheckDelay),
 		}
-		if err := writeUpdateState(us); err != nil {
+		if err := c.writeUpdateState(us); err != nil {
 			log(ctx).Debugf("error initializing update state")
 			return
 		}
 
-		log(ctx).Infof(autoUpdateNotice, updateStateFilename())
+		log(ctx).Infof(autoUpdateNotice, c.updateStateFilename())
 	} else {
-		removeUpdateState()
+		c.removeUpdateState()
 	}
 }
 
@@ -166,7 +166,7 @@ func (c *TheApp) maybeCheckForUpdates(ctx context.Context) (string, error) {
 		}
 	}
 
-	us, err := getUpdateState()
+	us, err := c.getUpdateState()
 	if err != nil {
 		return "", err
 	}
@@ -184,7 +184,7 @@ func (c *TheApp) maybeCheckForUpdates(ctx context.Context) (string, error) {
 
 	if clock.Now().After(us.NextNotifyTime) {
 		us.NextNotifyTime = clock.Now().Add(c.updateAvailableNotifyInterval)
-		if err := writeUpdateState(us); err != nil {
+		if err := c.writeUpdateState(us); err != nil {
 			return "", errors.Wrap(err, "unable to write update state")
 		}
 
@@ -205,7 +205,7 @@ func (c *TheApp) maybeCheckGithub(ctx context.Context, us *updateState) error {
 	// before we check for update, write update state file again, so if this fails
 	// we won't bother GitHub for a while
 	us.NextCheckTime = clock.Now().Add(c.updateCheckInterval)
-	if err := writeUpdateState(us); err != nil {
+	if err := c.writeUpdateState(us); err != nil {
 		return errors.Wrap(err, "unable to write update state")
 	}
 
@@ -224,7 +224,7 @@ func (c *TheApp) maybeCheckGithub(ctx context.Context, us *updateState) error {
 
 		us.AvailableVersion = newAvailableVersion
 
-		if err := writeUpdateState(us); err != nil {
+		if err := c.writeUpdateState(us); err != nil {
 			return errors.Wrap(err, "unable to write update state")
 		}
 	}

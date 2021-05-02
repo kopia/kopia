@@ -30,8 +30,6 @@ var (
 	_ = app.Flag("list-caching", "Enables caching of list results (disable with --no-list-caching)").Default("true").Hidden().Action(
 		deprecatedFlag("The '--list-caching' flag is deprecated and has no effect, use 'kopia cache set' instead."),
 	).Bool()
-
-	configPath = app.Flag("config-file", "Specify the config file to use.").Default(defaultConfigFileName()).Envar("KOPIA_CONFIG_PATH").String()
 )
 
 func deprecatedFlag(help string) func(_ *kingpin.ParseContext) error {
@@ -60,7 +58,7 @@ func onCtrlC(f func()) {
 }
 
 func (c *TheApp) openRepository(ctx context.Context, required bool) (repo.Repository, error) {
-	if _, err := os.Stat(repositoryConfigFileName()); os.IsNotExist(err) {
+	if _, err := os.Stat(c.repositoryConfigFileName()); os.IsNotExist(err) {
 		if !required {
 			return nil, nil
 		}
@@ -70,12 +68,12 @@ func (c *TheApp) openRepository(ctx context.Context, required bool) (repo.Reposi
 
 	c.maybePrintUpdateNotification(ctx)
 
-	pass, err := getPasswordFromFlags(ctx, false, true)
+	pass, err := c.getPasswordFromFlags(ctx, false, true)
 	if err != nil {
 		return nil, errors.Wrap(err, "get password")
 	}
 
-	r, err := repo.Open(ctx, repositoryConfigFileName(), pass, optionsFromFlags(ctx))
+	r, err := repo.Open(ctx, c.repositoryConfigFileName(), pass, optionsFromFlags(ctx))
 	if os.IsNotExist(err) {
 		return nil, errors.New("not connected to a repository, use 'kopia connect'")
 	}
@@ -93,8 +91,8 @@ func optionsFromFlags(ctx context.Context) *repo.Options {
 	return &opts
 }
 
-func repositoryConfigFileName() string {
-	return *configPath
+func (c *TheApp) repositoryConfigFileName() string {
+	return c.configPath
 }
 
 func defaultConfigFileName() string {

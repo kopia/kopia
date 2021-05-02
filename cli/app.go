@@ -49,6 +49,9 @@ type appServices interface {
 
 	getProgress() *cliProgress
 	maybeInitializeUpdateCheck(ctx context.Context, co *connectOptions)
+	repositoryConfigFileName() string
+	removeUpdateState()
+	getPasswordFromFlags(ctx context.Context, isNew, allowPersistent bool) (string, error)
 }
 
 type TheApp struct {
@@ -59,6 +62,7 @@ type TheApp struct {
 	initialUpdateCheckDelay       time.Duration
 	updateCheckInterval           time.Duration
 	updateAvailableNotifyInterval time.Duration
+	configPath                    string
 
 	// subcommands
 	blob        commandBlob
@@ -91,6 +95,7 @@ func (c *TheApp) setup(app *kingpin.Application) {
 	app.Flag("initial-update-check-delay", "Initial delay before first time update check").Default("24h").Hidden().Envar("KOPIA_INITIAL_UPDATE_CHECK_DELAY").DurationVar(&c.initialUpdateCheckDelay)
 	app.Flag("update-check-interval", "Interval between update checks").Default("168h").Hidden().Envar("KOPIA_UPDATE_CHECK_INTERVAL").DurationVar(&c.updateCheckInterval)
 	app.Flag("update-available-notify-interval", "Interval between update notifications").Default("1h").Hidden().Envar("KOPIA_UPDATE_NOTIFY_INTERVAL").DurationVar(&c.updateAvailableNotifyInterval)
+	app.Flag("config-file", "Specify the config file to use.").Default(defaultConfigFileName()).Envar("KOPIA_CONFIG_PATH").StringVar(&c.configPath)
 
 	c.mt.setup(app)
 	c.progress.setup(app)
