@@ -23,10 +23,10 @@ type commandRepositoryCreate struct {
 	createOnly                  bool
 
 	co  connectOptions
-	app appServices
+	app coreAppServices
 }
 
-func (c *commandRepositoryCreate) setup(app appServices, parent commandParent) {
+func (c *commandRepositoryCreate) setup(app coreAppServices, parent commandParent) {
 	cmd := parent.Command("create", "Create new repository in a specified location.")
 
 	cmd.Flag("block-hash", "Content hash algorithm.").PlaceHolder("ALGO").Default(hashing.DefaultAlgorithm).EnumVar(&c.createBlockHashFormat, hashing.SupportedAlgorithms()...)
@@ -120,7 +120,7 @@ func (c *commandRepositoryCreate) runCreateCommandWithStorage(ctx context.Contex
 }
 
 func (c *commandRepositoryCreate) populateRepository(ctx context.Context, password string) error {
-	rep, err := repo.Open(ctx, c.app.repositoryConfigFileName(), password, optionsFromFlags(ctx))
+	rep, err := repo.Open(ctx, c.app.repositoryConfigFileName(), password, c.app.optionsFromFlags(ctx))
 	if err != nil {
 		return errors.Wrap(err, "unable to open repository")
 	}

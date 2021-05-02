@@ -23,10 +23,10 @@ type commandSnapshotMigrate struct {
 	migrateLatestOnly        bool
 	migrateParallel          int
 
-	app appServices
+	app coreAppServices
 }
 
-func (c *commandSnapshotMigrate) setup(app appServices, parent commandParent) {
+func (c *commandSnapshotMigrate) setup(app coreAppServices, parent commandParent) {
 	cmd := parent.Command("migrate", "Migrate snapshots from another repository")
 	cmd.Flag("source-config", "Configuration file for the source repository").Required().ExistingFileVar(&c.migrateSourceConfig)
 	cmd.Flag("sources", "List of sources to migrate").StringsVar(&c.migrateSources)
@@ -137,7 +137,7 @@ func (c *commandSnapshotMigrate) openSourceRepo(ctx context.Context) (repo.Repos
 		}
 	}
 
-	sourceRepo, err := repo.Open(ctx, c.migrateSourceConfig, pass, optionsFromFlags(ctx))
+	sourceRepo, err := repo.Open(ctx, c.migrateSourceConfig, pass, c.app.optionsFromFlags(ctx))
 	if err != nil {
 		return nil, errors.Wrap(err, "can't open source repository")
 	}

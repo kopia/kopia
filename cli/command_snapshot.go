@@ -14,7 +14,7 @@ type commandSnapshot struct {
 	verify      commandSnapshotVerify
 }
 
-func (c *commandSnapshot) setup(app appServices, parent commandParent) {
+func (c *commandSnapshot) setup(app coreAppServices, parent commandParent) {
 	cmd := parent.Command("snapshot", "Commands to manipulate snapshots.").Alias("snap")
 	c.copyHistory.setup(app, cmd, false)
 	c.moveHistory.setup(app, cmd, true)

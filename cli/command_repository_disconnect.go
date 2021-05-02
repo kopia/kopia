@@ -7,10 +7,10 @@ import (
 )
 
 type commandRepositoryDisconnect struct {
-	app appServices
+	app coreAppServices
 }
 
-func (c *commandRepositoryDisconnect) setup(app appServices, parent commandParent) {
+func (c *commandRepositoryDisconnect) setup(app coreAppServices, parent commandParent) {
 	cmd := parent.Command("disconnect", "Disconnect from a repository.")
 	cmd.Action(app.noRepositoryAction(c.run))
 

@@ -11,7 +11,7 @@ type commandRepository struct {
 	upgrade    commandRepositoryUpgrade
 }
 
-func (c *commandRepository) setup(app appServices, parent commandParent) {
+func (c *commandRepository) setup(app coreAppServices, parent commandParent) {
 	cmd := parent.Command("repository", "Commands to manipulate repository.").Alias("repo")
 
 	c.connect.setup(app, cmd)

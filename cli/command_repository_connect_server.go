@@ -16,10 +16,10 @@ type commandRepositoryConnectServer struct {
 	connectAPIServerCertFingerprint string
 	connectAPIServerUseGRPCAPI      bool
 
-	app appServices
+	app coreAppServices
 }
 
-func (c *commandRepositoryConnectServer) setup(app appServices, parent commandParent, co *connectOptions) {
+func (c *commandRepositoryConnectServer) setup(app coreAppServices, parent commandParent, co *connectOptions) {
 	c.co = co
 	c.app = app
 

@@ -43,15 +43,21 @@ type appServices interface {
 	repositoryWriterAction(act func(ctx context.Context, rep repo.RepositoryWriter) error) func(ctx *kingpin.ParseContext) error
 	maybeRepositoryAction(act func(ctx context.Context, rep repo.Repository) error, mode repositoryAccessMode) func(ctx *kingpin.ParseContext) error
 
+	repositoryConfigFileName() string
+	getProgress() *cliProgress
+}
+
+type coreAppServices interface {
+	appServices
+
 	runConnectCommandWithStorage(ctx context.Context, co *connectOptions, st blob.Storage) error
 	runConnectCommandWithStorageAndPassword(ctx context.Context, co *connectOptions, st blob.Storage, password string) error
 	openRepository(ctx context.Context, required bool) (repo.Repository, error)
 
-	getProgress() *cliProgress
 	maybeInitializeUpdateCheck(ctx context.Context, co *connectOptions)
-	repositoryConfigFileName() string
 	removeUpdateState()
 	getPasswordFromFlags(ctx context.Context, isNew, allowPersistent bool) (string, error)
+	optionsFromFlags(ctx context.Context) *repo.Options
 }
 
 type TheApp struct {
@@ -63,6 +69,8 @@ type TheApp struct {
 	updateCheckInterval           time.Duration
 	updateAvailableNotifyInterval time.Duration
 	configPath                    string
+	traceStorage                  bool
+	metricsListenAddr             string
 
 	// subcommands
 	blob        commandBlob
@@ -96,6 +104,16 @@ func (c *TheApp) setup(app *kingpin.Application) {
 	app.Flag("update-check-interval", "Interval between update checks").Default("168h").Hidden().Envar("KOPIA_UPDATE_CHECK_INTERVAL").DurationVar(&c.updateCheckInterval)
 	app.Flag("update-available-notify-interval", "Interval between update notifications").Default("1h").Hidden().Envar("KOPIA_UPDATE_NOTIFY_INTERVAL").DurationVar(&c.updateAvailableNotifyInterval)
 	app.Flag("config-file", "Specify the config file to use.").Default(defaultConfigFileName()).Envar("KOPIA_CONFIG_PATH").StringVar(&c.configPath)
+	app.Flag("trace-storage", "Enables tracing of storage operations.").Default("true").Hidden().BoolVar(&c.traceStorage)
+	app.Flag("metrics-listen-addr", "Expose Prometheus metrics on a given host:port").Hidden().StringVar(&c.metricsListenAddr)
+
+	_ = app.Flag("caching", "Enables caching of objects (disable with --no-caching)").Default("true").Hidden().Action(
+		deprecatedFlag("The '--caching' flag is deprecated and has no effect, use 'kopia cache set' instead."),
+	).Bool()
+
+	_ = app.Flag("list-caching", "Enables caching of list results (disable with --no-list-caching)").Default("true").Hidden().Action(
+		deprecatedFlag("The '--list-caching' flag is deprecated and has no effect, use 'kopia cache set' instead."),
+	).Bool()
 
 	c.mt.setup(app)
 	c.progress.setup(app)
@@ -268,14 +286,14 @@ func (c *TheApp) maybeRepositoryAction(act func(ctx context.Context, rep repo.Re
 			c.mt.startMemoryTracking(ctx)
 			defer c.mt.finishMemoryTracking(ctx)
 
-			if *metricsListenAddr != "" {
+			if c.metricsListenAddr != "" {
 				mux := http.NewServeMux()
 				if err := initPrometheus(mux); err != nil {
 					return errors.Wrap(err, "unable to initialize prometheus.")
 				}
 
-				log(ctx).Infof("starting prometheus metrics on %v", *metricsListenAddr)
-				go http.ListenAndServe(*metricsListenAddr, mux) // nolint:errcheck
+				log(ctx).Infof("starting prometheus metrics on %v", c.metricsListenAddr)
+				go http.ListenAndServe(c.metricsListenAddr, mux) // nolint:errcheck
 			}
 
 			rep, err := c.openRepository(ctx, mode.mustBeConnected)

@@ -18,7 +18,7 @@ type commandRepositoryConnect struct {
 	server commandRepositoryConnectServer
 }
 
-func (c *commandRepositoryConnect) setup(app appServices, parent commandParent) {
+func (c *commandRepositoryConnect) setup(app coreAppServices, parent commandParent) {
 	cmd := parent.Command("connect", "Connect to a repository.")
 
 	c.co.setup(cmd)
