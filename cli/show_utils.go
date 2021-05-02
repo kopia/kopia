@@ -16,7 +16,8 @@ import (
 	"github.com/kopia/kopia/internal/units"
 )
 
-var timeZone = app.Flag("timezone", "Format time according to specified time zone (local, utc, original or time zone name)").Default("local").Hidden().String()
+// TODO - remove this global.
+var timeZone string
 
 func showContentWithFlags(rd io.Reader, unzip, indentJSON bool) error {
 	if unzip {
@@ -74,7 +75,7 @@ func formatTimestampPrecise(ts time.Time) string {
 }
 
 func convertTimezone(ts time.Time) time.Time {
-	switch *timeZone {
+	switch timeZone {
 	case "local":
 		return ts.Local()
 	case "utc":
@@ -82,7 +83,7 @@ func convertTimezone(ts time.Time) time.Time {
 	case "original":
 		return ts
 	default:
-		loc, err := time.LoadLocation(*timeZone)
+		loc, err := time.LoadLocation(timeZone)
 		if err == nil {
 			return ts.In(loc)
 		}

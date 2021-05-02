@@ -27,12 +27,6 @@ var (
 	errorColor   = color.New(color.FgHiRed)
 )
 
-var (
-	app = kingpin.New("kopia", "Kopia - Online Backup").Author("http://kopia.github.io/")
-
-	_ = app.Flag("help-full", "Show help for all commands, including hidden").Action(helpFullAction).Bool()
-)
-
 // appServices are the methods of *TheApp that command handles are allowed to call.
 type appServices interface {
 	noRepositoryAction(act func(ctx context.Context) error) func(ctx *kingpin.ParseContext) error
@@ -97,6 +91,12 @@ func (c *TheApp) getProgress() *cliProgress {
 }
 
 func (c *TheApp) setup(app *kingpin.Application) {
+	_ = app.Flag("help-full", "Show help for all commands, including hidden").Action(func(pc *kingpin.ParseContext) error {
+		_ = app.UsageForContextWithTemplate(pc, 0, kingpin.DefaultUsageTemplate)
+		os.Exit(0)
+		return nil
+	}).Bool()
+
 	app.Flag("auto-maintenance", "Automatic maintenance").Default("true").Hidden().BoolVar(&c.enableAutomaticMaintenance)
 
 	// hidden flags to control auto-update behavior.
@@ -106,6 +106,10 @@ func (c *TheApp) setup(app *kingpin.Application) {
 	app.Flag("config-file", "Specify the config file to use.").Default(defaultConfigFileName()).Envar("KOPIA_CONFIG_PATH").StringVar(&c.configPath)
 	app.Flag("trace-storage", "Enables tracing of storage operations.").Default("true").Hidden().BoolVar(&c.traceStorage)
 	app.Flag("metrics-listen-addr", "Expose Prometheus metrics on a given host:port").Hidden().StringVar(&c.metricsListenAddr)
+	app.Flag("timezone", "Format time according to specified time zone (local, utc, original or time zone name)").Default("local").Hidden().StringVar(&timeZone)
+	app.Flag("password", "Repository password.").Envar("KOPIA_PASSWORD").Short('p').StringVar(&password)
+
+	c.setupOSSpecificKeychainFlags(app)
 
 	_ = app.Flag("caching", "Enables caching of objects (disable with --no-caching)").Default("true").Hidden().Action(
 		deprecatedFlag("The '--caching' flag is deprecated and has no effect, use 'kopia cache set' instead."),
@@ -142,7 +146,8 @@ type commandParent interface {
 	Command(name, help string) *kingpin.CmdClause
 }
 
-func NewApp() *TheApp {
+// Attach creates new TheApp object and attaches all the flags to the provided application.
+func Attach(app *kingpin.Application) *TheApp {
 	a := &TheApp{
 		progress: &cliProgress{},
 	}
@@ -150,10 +155,6 @@ func NewApp() *TheApp {
 	a.setup(app)
 
 	return a
-}
-
-func init() {
-	NewApp()
 }
 
 var safetyByName = map[string]maintenance.SafetyParameters{
@@ -177,14 +178,6 @@ func safetyFlagVar(cmd *kingpin.CmdClause, result *maintenance.SafetyParameters)
 
 		return nil
 	}).EnumVar(&str, "full", "none")
-}
-
-func helpFullAction(ctx *kingpin.ParseContext) error {
-	_ = app.UsageForContextWithTemplate(ctx, 0, kingpin.DefaultUsageTemplate)
-
-	os.Exit(0)
-
-	return nil
 }
 
 func (c *TheApp) noRepositoryAction(act func(ctx context.Context) error) func(ctx *kingpin.ParseContext) error {
@@ -368,9 +361,4 @@ To run this command despite the warning, set KOPIA_ADVANCED_COMMANDS=enabled
 `)
 		os.Exit(1)
 	}
-}
-
-// App returns an instance of command-line application object.
-func App() *kingpin.Application {
-	return app
 }

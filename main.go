@@ -66,7 +66,8 @@ Commands (use --help-full to list all commands):
 `
 
 func main() {
-	app := cli.App()
+	app := kingpin.New("kopia", "Kopia - Fast And Secure Open-Source Backup").Author("http://kopia.github.io/")
+	cli.Attach(app)
 
 	kingpin.EnableFileExpansion = false
 
