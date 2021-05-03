@@ -159,6 +159,10 @@ func (mcs *MultiClientSnapshotter) CleanupClient(ctx context.Context) {
 	delete(mcs.clients, c.ID)
 	mcs.mu.Unlock()
 
+	if s == nil {
+		return
+	}
+
 	s.DisconnectClient(c.ID)
 	s.Cleanup()
 	mcs.server.RemoveClient(c.ID)
