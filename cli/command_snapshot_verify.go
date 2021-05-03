@@ -30,7 +30,7 @@ type commandSnapshotVerify struct {
 	verifyCommandFilesPercent   int
 }
 
-func (c *commandSnapshotVerify) setup(app appServices, parent commandParent) {
+func (c *commandSnapshotVerify) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("verify", "Verify the contents of stored snapshot")
 	cmd.Flag("max-errors", "Maximum number of errors before stopping").Default("0").IntVar(&c.verifyCommandErrorThreshold)
 	cmd.Flag("directory-id", "Directory object IDs to verify").StringsVar(&c.verifyCommandDirObjectIDs)
@@ -39,7 +39,7 @@ func (c *commandSnapshotVerify) setup(app appServices, parent commandParent) {
 	cmd.Flag("sources", "Verify the provided sources").StringsVar(&c.verifyCommandSources)
 	cmd.Flag("parallel", "Parallelization").Default("16").IntVar(&c.verifyCommandParallel)
 	cmd.Flag("verify-files-percent", "Randomly verify a percentage of files").Default("0").IntVar(&c.verifyCommandFilesPercent)
-	cmd.Action(app.repositoryReaderAction(c.run))
+	cmd.Action(svc.repositoryReaderAction(c.run))
 }
 
 type verifier struct {

@@ -23,10 +23,10 @@ type commandRepositoryCreate struct {
 	createOnly                  bool
 
 	co  connectOptions
-	app coreAppServices
+	svc advancedAppServices
 }
 
-func (c *commandRepositoryCreate) setup(app coreAppServices, parent commandParent) {
+func (c *commandRepositoryCreate) setup(svc advancedAppServices, parent commandParent) {
 	cmd := parent.Command("create", "Create new repository in a specified location.")
 
 	cmd.Flag("block-hash", "Content hash algorithm.").PlaceHolder("ALGO").Default(hashing.DefaultAlgorithm).EnumVar(&c.createBlockHashFormat, hashing.SupportedAlgorithms()...)
@@ -35,7 +35,7 @@ func (c *commandRepositoryCreate) setup(app coreAppServices, parent commandParen
 	cmd.Flag("create-only", "Create repository, but don't connect to it.").Short('c').BoolVar(&c.createOnly)
 
 	c.co.setup(cmd)
-	c.app = app
+	c.svc = svc
 
 	for _, prov := range storageProviders {
 		if prov.name == "from-config" {
@@ -94,7 +94,7 @@ func (c *commandRepositoryCreate) runCreateCommandWithStorage(ctx context.Contex
 
 	options := c.newRepositoryOptionsFromFlags()
 
-	pass, err := c.app.getPasswordFromFlags(ctx, true, false)
+	pass, err := c.svc.getPasswordFromFlags(ctx, true, false)
 	if err != nil {
 		return errors.Wrap(err, "getting password")
 	}
@@ -112,7 +112,7 @@ func (c *commandRepositoryCreate) runCreateCommandWithStorage(ctx context.Contex
 		return nil
 	}
 
-	if err := c.app.runConnectCommandWithStorageAndPassword(ctx, &c.co, st, pass); err != nil {
+	if err := c.svc.runConnectCommandWithStorageAndPassword(ctx, &c.co, st, pass); err != nil {
 		return errors.Wrap(err, "unable to connect to repository")
 	}
 
@@ -120,7 +120,7 @@ func (c *commandRepositoryCreate) runCreateCommandWithStorage(ctx context.Contex
 }
 
 func (c *commandRepositoryCreate) populateRepository(ctx context.Context, password string) error {
-	rep, err := repo.Open(ctx, c.app.repositoryConfigFileName(), password, c.app.optionsFromFlags(ctx))
+	rep, err := repo.Open(ctx, c.svc.repositoryConfigFileName(), password, c.svc.optionsFromFlags(ctx))
 	if err != nil {
 		return errors.Wrap(err, "unable to open repository")
 	}

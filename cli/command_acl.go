@@ -7,11 +7,11 @@ type commandServerACL struct {
 	list   commandACLList
 }
 
-func (c *commandServerACL) setup(app appServices, parent commandParent) {
+func (c *commandServerACL) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("acl", "Manager server access control list entries")
 
-	c.add.setup(app, cmd)
-	c.delete.setup(app, cmd)
-	c.enable.setup(app, cmd)
-	c.list.setup(app, cmd)
+	c.add.setup(svc, cmd)
+	c.delete.setup(svc, cmd)
+	c.enable.setup(svc, cmd)
+	c.list.setup(svc, cmd)
 }

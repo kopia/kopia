@@ -8,9 +8,9 @@ import (
 
 type commandRepositoryUpgrade struct{}
 
-func (c *commandRepositoryUpgrade) setup(app appServices, parent commandParent) {
+func (c *commandRepositoryUpgrade) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("upgrade", "Upgrade repository format.")
-	cmd.Action(app.directRepositoryWriteAction(c.run))
+	cmd.Action(svc.directRepositoryWriteAction(c.run))
 }
 
 func (c *commandRepositoryUpgrade) run(ctx context.Context, rep repo.DirectRepositoryWriter) error {

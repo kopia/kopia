@@ -39,10 +39,10 @@ type commandSnapshotCreate struct {
 	snapshotCreateTags                    []string
 
 	jo  jsonOutput
-	app appServices
+	svc appServices
 }
 
-func (c *commandSnapshotCreate) setup(app appServices, parent commandParent) {
+func (c *commandSnapshotCreate) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("create", "Creates a snapshot of local directory or file.").Default()
 
 	cmd.Arg("source", "Files or directories to create snapshot(s) of.").StringsVar(&c.snapshotCreateSources)
@@ -62,8 +62,8 @@ func (c *commandSnapshotCreate) setup(app appServices, parent commandParent) {
 
 	c.jo.setup(cmd)
 
-	c.app = app
-	cmd.Action(app.repositoryWriterAction(c.run))
+	c.svc = svc
+	cmd.Action(svc.repositoryWriterAction(c.run))
 }
 
 func (c *commandSnapshotCreate) run(ctx context.Context, rep repo.RepositoryWriter) error {
@@ -200,7 +200,7 @@ func (c *commandSnapshotCreate) setupUploader(rep repo.RepositoryWriter) *snapsh
 	u.ParallelUploads = c.snapshotCreateParallelUploads
 
 	u.FailFast = c.snapshotCreateFailFast
-	u.Progress = c.app.getProgress()
+	u.Progress = c.svc.getProgress()
 
 	return u
 }
@@ -303,7 +303,7 @@ func (c *commandSnapshotCreate) snapshotSingleSource(ctx context.Context, rep re
 		return errors.Wrap(ferr, "flush error")
 	}
 
-	c.app.getProgress().Finish()
+	c.svc.getProgress().Finish()
 
 	return c.reportSnapshotStatus(ctx, manifest)
 }

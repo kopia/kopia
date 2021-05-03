@@ -13,10 +13,10 @@ type commandBlobDelete struct {
 	blobIDs []string
 }
 
-func (c *commandBlobDelete) setup(app appServices, parent commandParent) {
+func (c *commandBlobDelete) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("delete", "Delete blobs by ID").Alias("remove").Alias("rm")
 	cmd.Arg("blobIDs", "Blob IDs").Required().StringsVar(&c.blobIDs)
-	cmd.Action(app.directRepositoryWriteAction(c.run))
+	cmd.Action(svc.directRepositoryWriteAction(c.run))
 }
 
 func (c *commandBlobDelete) run(ctx context.Context, rep repo.DirectRepositoryWriter) error {

@@ -55,11 +55,11 @@ type commandPolicyEdit struct {
 	global  bool
 }
 
-func (c *commandPolicyEdit) setup(app appServices, parent commandParent) {
+func (c *commandPolicyEdit) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("edit", "Set snapshot policy for a single directory, user@host or a global policy.")
 	cmd.Arg("target", "Target of a policy ('global','user@host','@host') or a path").StringsVar(&c.targets)
 	cmd.Flag("global", "Set global policy").BoolVar(&c.global)
-	cmd.Action(app.repositoryWriterAction(c.run))
+	cmd.Action(svc.repositoryWriterAction(c.run))
 }
 
 func (c *commandPolicyEdit) run(ctx context.Context, rep repo.RepositoryWriter) error {

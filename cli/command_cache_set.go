@@ -16,22 +16,22 @@ type commandCacheSetParams struct {
 	maxMetadataCacheSizeMB int64
 	maxListCacheDuration   time.Duration
 
-	app appServices
+	svc appServices
 }
 
-func (c *commandCacheSetParams) setup(app appServices, parent commandParent) {
+func (c *commandCacheSetParams) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("set", "Sets parameters local caching of repository data")
 
 	cmd.Flag("cache-directory", "Directory where to store cache files").StringVar(&c.directory)
 	cmd.Flag("content-cache-size-mb", "Size of local content cache").PlaceHolder("MB").Default("-1").Int64Var(&c.contentCacheSizeMB)
 	cmd.Flag("metadata-cache-size-mb", "Size of local metadata cache").PlaceHolder("MB").Default("-1").Int64Var(&c.maxMetadataCacheSizeMB)
 	cmd.Flag("max-list-cache-duration", "Duration of index cache").Default("-1ns").DurationVar(&c.maxListCacheDuration)
-	cmd.Action(app.repositoryWriterAction(c.run))
-	c.app = app
+	cmd.Action(svc.repositoryWriterAction(c.run))
+	c.svc = svc
 }
 
 func (c *commandCacheSetParams) run(ctx context.Context, rep repo.RepositoryWriter) error {
-	opts, err := repo.GetCachingOptions(ctx, c.app.repositoryConfigFileName())
+	opts, err := repo.GetCachingOptions(ctx, c.svc.repositoryConfigFileName())
 	if err != nil {
 		return errors.Wrap(err, "error getting caching options")
 	}
@@ -68,5 +68,5 @@ func (c *commandCacheSetParams) run(ctx context.Context, rep repo.RepositoryWrit
 		return errors.Errorf("no changes")
 	}
 
-	return repo.SetCachingOptions(ctx, c.app.repositoryConfigFileName(), opts)
+	return repo.SetCachingOptions(ctx, c.svc.repositoryConfigFileName(), opts)
 }

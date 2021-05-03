@@ -14,11 +14,11 @@ type commandACLList struct {
 	jo jsonOutput
 }
 
-func (c *commandACLList) setup(app appServices, parent commandParent) {
+func (c *commandACLList) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("list", "List ACL entries").Alias("ls")
 
 	c.jo.setup(cmd)
-	cmd.Action(app.repositoryReaderAction(c.run))
+	cmd.Action(svc.repositoryReaderAction(c.run))
 }
 
 func (c *commandACLList) run(ctx context.Context, rep repo.Repository) error {

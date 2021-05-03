@@ -12,10 +12,10 @@ type commandManifestDelete struct {
 	manifestRemoveItems []string
 }
 
-func (c *commandManifestDelete) setup(app appServices, parent commandParent) {
+func (c *commandManifestDelete) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("delete", "Remove manifest items").Alias("remove").Alias("rm")
 	cmd.Arg("item", "Items to remove").Required().StringsVar(&c.manifestRemoveItems)
-	cmd.Action(app.repositoryWriterAction(c.run))
+	cmd.Action(svc.repositoryWriterAction(c.run))
 }
 
 func (c *commandManifestDelete) run(ctx context.Context, rep repo.RepositoryWriter) error {

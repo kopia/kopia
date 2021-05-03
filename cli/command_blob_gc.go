@@ -17,13 +17,13 @@ type commandBlobGC struct {
 	safety   maintenance.SafetyParameters
 }
 
-func (c *commandBlobGC) setup(app appServices, parent commandParent) {
+func (c *commandBlobGC) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("gc", "Garbage-collect unused blobs")
 	cmd.Flag("delete", "Whether to delete unused blobs").StringVar(&c.delete)
 	cmd.Flag("parallel", "Number of parallel blob scans").Default("16").IntVar(&c.parallel)
 	cmd.Flag("prefix", "Only GC blobs with given prefix").StringVar(&c.prefix)
 	safetyFlagVar(cmd, &c.safety)
-	cmd.Action(app.directRepositoryWriteAction(c.run))
+	cmd.Action(svc.directRepositoryWriteAction(c.run))
 }
 
 func (c *commandBlobGC) run(ctx context.Context, rep repo.DirectRepositoryWriter) error {

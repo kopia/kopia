@@ -42,7 +42,7 @@ func onCtrlC(f func()) {
 	}()
 }
 
-func (c *TheApp) openRepository(ctx context.Context, required bool) (repo.Repository, error) {
+func (c *App) openRepository(ctx context.Context, required bool) (repo.Repository, error) {
 	if _, err := os.Stat(c.repositoryConfigFileName()); os.IsNotExist(err) {
 		if !required {
 			return nil, nil
@@ -66,7 +66,7 @@ func (c *TheApp) openRepository(ctx context.Context, required bool) (repo.Reposi
 	return r, errors.Wrap(err, "unable to open repository")
 }
 
-func (c *TheApp) optionsFromFlags(ctx context.Context) *repo.Options {
+func (c *App) optionsFromFlags(ctx context.Context) *repo.Options {
 	var opts repo.Options
 
 	if c.traceStorage {
@@ -76,7 +76,7 @@ func (c *TheApp) optionsFromFlags(ctx context.Context) *repo.Options {
 	return &opts
 }
 
-func (c *TheApp) repositoryConfigFileName() string {
+func (c *App) repositoryConfigFileName() string {
 	return c.configPath
 }
 

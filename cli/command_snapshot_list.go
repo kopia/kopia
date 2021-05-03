@@ -37,7 +37,7 @@ type commandSnapshotList struct {
 	jo jsonOutput
 }
 
-func (c *commandSnapshotList) setup(app appServices, parent commandParent) {
+func (c *commandSnapshotList) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("list", "List snapshots of files and directories.").Alias("ls")
 	cmd.Arg("source", "File or directory to show history of.").StringVar(&c.snapshotListPath)
 	cmd.Flag("incomplete", "Include incomplete.").Short('i').BoolVar(&c.snapshotListIncludeIncomplete)
@@ -52,7 +52,7 @@ func (c *commandSnapshotList) setup(app appServices, parent commandParent) {
 	cmd.Flag("max-results", "Maximum number of entries per source.").Short('n').IntVar(&c.maxResultsPerPath)
 	cmd.Flag("tags", "Tag filters to apply on the list items. Must be provided in the <key>:<value> format.").StringsVar(&c.snapshotListTags)
 	c.jo.setup(cmd)
-	cmd.Action(app.repositoryReaderAction(c.run))
+	cmd.Action(svc.repositoryReaderAction(c.run))
 }
 
 func findSnapshotsForSource(ctx context.Context, rep repo.Repository, sourceInfo snapshot.SourceInfo, tags map[string]string) (manifestIDs []manifest.ID, relPath string, err error) {

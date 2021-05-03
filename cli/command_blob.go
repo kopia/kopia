@@ -8,12 +8,12 @@ type commandBlob struct {
 	stats  commandBlobStats
 }
 
-func (c *commandBlob) setup(app appServices, parent commandParent) {
+func (c *commandBlob) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("blob", "Commands to manipulate BLOBs.").Hidden()
 
-	c.delete.setup(app, cmd)
-	c.gc.setup(app, cmd)
-	c.list.setup(app, cmd)
-	c.show.setup(app, cmd)
-	c.stats.setup(app, cmd)
+	c.delete.setup(svc, cmd)
+	c.gc.setup(svc, cmd)
+	c.list.setup(svc, cmd)
+	c.show.setup(svc, cmd)
+	c.stats.setup(svc, cmd)
 }

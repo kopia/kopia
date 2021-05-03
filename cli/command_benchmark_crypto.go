@@ -20,13 +20,13 @@ type commandBenchmarkCrypto struct {
 	optionPrint          bool
 }
 
-func (c *commandBenchmarkCrypto) setup(app appServices, parent commandParent) {
+func (c *commandBenchmarkCrypto) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("crypto", "Run hash and encryption benchmarks")
 	cmd.Flag("block-size", "Size of a block to encrypt").Default("1MB").BytesVar(&c.blockSize)
 	cmd.Flag("repeat", "Number of repetitions").Default("100").IntVar(&c.repeat)
 	cmd.Flag("deprecated", "Include deprecated algorithms").BoolVar(&c.deprecatedAlgorithms)
 	cmd.Flag("print-options", "Print out options usable for repository creation").BoolVar(&c.optionPrint)
-	cmd.Action(app.noRepositoryAction(c.run))
+	cmd.Action(svc.noRepositoryAction(c.run))
 }
 
 func (c *commandBenchmarkCrypto) run(ctx context.Context) error {

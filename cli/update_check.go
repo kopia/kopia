@@ -49,12 +49,12 @@ type updateState struct {
 }
 
 // updateStateFilename returns the name of the update state.
-func (c *TheApp) updateStateFilename() string {
+func (c *App) updateStateFilename() string {
 	return filepath.Join(c.repositoryConfigFileName() + ".update-info.json")
 }
 
 // writeUpdateState writes update state file.
-func (c *TheApp) writeUpdateState(us *updateState) error {
+func (c *App) writeUpdateState(us *updateState) error {
 	var buf bytes.Buffer
 
 	if err := json.NewEncoder(&buf).Encode(us); err != nil {
@@ -64,12 +64,12 @@ func (c *TheApp) writeUpdateState(us *updateState) error {
 	return atomicfile.Write(c.updateStateFilename(), &buf)
 }
 
-func (c *TheApp) removeUpdateState() {
+func (c *App) removeUpdateState() {
 	os.Remove(c.updateStateFilename()) // nolint:errcheck
 }
 
 // getUpdateState reads the update state file if available.
-func (c *TheApp) getUpdateState() (*updateState, error) {
+func (c *App) getUpdateState() (*updateState, error) {
 	f, err := os.Open(c.updateStateFilename())
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to open update state file")
@@ -86,7 +86,7 @@ func (c *TheApp) getUpdateState() (*updateState, error) {
 
 // maybeInitializeUpdateCheck optionally writes update state file with initial update
 // set 24 hours from now.
-func (c *TheApp) maybeInitializeUpdateCheck(ctx context.Context, co *connectOptions) {
+func (c *App) maybeInitializeUpdateCheck(ctx context.Context, co *connectOptions) {
 	if co.connectCheckForUpdates {
 		us := &updateState{
 			NextCheckTime:  clock.Now().Add(c.initialUpdateCheckDelay),
@@ -158,7 +158,7 @@ func verifyGitHubReleaseIsComplete(ctx context.Context, releaseName string) erro
 	return nil
 }
 
-func (c *TheApp) maybeCheckForUpdates(ctx context.Context) (string, error) {
+func (c *App) maybeCheckForUpdates(ctx context.Context) (string, error) {
 	if v := os.Getenv(checkForUpdatesEnvar); v != "" {
 		// see if environment variable is set to false.
 		if b, err := strconv.ParseBool(v); err == nil && !b {
@@ -195,7 +195,7 @@ func (c *TheApp) maybeCheckForUpdates(ctx context.Context) (string, error) {
 	return "", nil
 }
 
-func (c *TheApp) maybeCheckGithub(ctx context.Context, us *updateState) error {
+func (c *App) maybeCheckGithub(ctx context.Context, us *updateState) error {
 	if !clock.Now().After(us.NextCheckTime) {
 		return nil
 	}
@@ -233,7 +233,7 @@ func (c *TheApp) maybeCheckGithub(ctx context.Context, us *updateState) error {
 }
 
 // maybePrintUpdateNotification prints notification about available version.
-func (c *TheApp) maybePrintUpdateNotification(ctx context.Context) {
+func (c *App) maybePrintUpdateNotification(ctx context.Context) {
 	if repo.BuildGitHubRepo == "" {
 		// not built from GH repo.
 		return

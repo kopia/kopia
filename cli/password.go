@@ -49,7 +49,7 @@ func askForExistingRepositoryPassword() (string, error) {
 	return p1, nil
 }
 
-func (c *TheApp) getPasswordFromFlags(ctx context.Context, isNew, allowPersistent bool) (string, error) {
+func (c *App) getPasswordFromFlags(ctx context.Context, isNew, allowPersistent bool) (string, error) {
 	switch {
 	case globalPasswordFromToken != "":
 		// password extracted from connection token

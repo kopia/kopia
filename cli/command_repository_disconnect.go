@@ -7,18 +7,18 @@ import (
 )
 
 type commandRepositoryDisconnect struct {
-	app coreAppServices
+	svc advancedAppServices
 }
 
-func (c *commandRepositoryDisconnect) setup(app coreAppServices, parent commandParent) {
+func (c *commandRepositoryDisconnect) setup(svc advancedAppServices, parent commandParent) {
 	cmd := parent.Command("disconnect", "Disconnect from a repository.")
-	cmd.Action(app.noRepositoryAction(c.run))
+	cmd.Action(svc.noRepositoryAction(c.run))
 
-	c.app = app
+	c.svc = svc
 }
 
 func (c *commandRepositoryDisconnect) run(ctx context.Context) error {
-	c.app.removeUpdateState()
+	c.svc.removeUpdateState()
 
-	return repo.Disconnect(ctx, c.app.repositoryConfigFileName())
+	return repo.Disconnect(ctx, c.svc.repositoryConfigFileName())
 }

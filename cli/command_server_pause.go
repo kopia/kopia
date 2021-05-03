@@ -11,10 +11,10 @@ type commandServerPause struct {
 	sf serverClientFlags
 }
 
-func (c *commandServerPause) setup(app appServices, parent commandParent) {
+func (c *commandServerPause) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("pause", "Pause the scheduled snapshots for one or more sources")
 	c.sf.setup(cmd)
-	cmd.Action(app.serverAction(&c.sf, runServerPause))
+	cmd.Action(svc.serverAction(&c.sf, runServerPause))
 }
 
 func runServerPause(ctx context.Context, cli *apiclient.KopiaAPIClient) error {

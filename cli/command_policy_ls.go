@@ -15,10 +15,10 @@ type commandPolicyList struct {
 	jo jsonOutput
 }
 
-func (c *commandPolicyList) setup(app appServices, parent commandParent) {
+func (c *commandPolicyList) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("list", "List policies.").Alias("ls")
 	c.jo.setup(cmd)
-	cmd.Action(app.repositoryReaderAction(c.run))
+	cmd.Action(svc.repositoryReaderAction(c.run))
 }
 
 func (c *commandPolicyList) run(ctx context.Context, rep repo.Repository) error {

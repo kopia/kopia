@@ -19,11 +19,11 @@ type commandBlobShow struct {
 	blobShowIDs     []string
 }
 
-func (c *commandBlobShow) setup(app appServices, parent commandParent) {
+func (c *commandBlobShow) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("show", "Show contents of BLOBs").Alias("cat")
 	cmd.Flag("decrypt", "Decrypt blob if possible").BoolVar(&c.blobShowDecrypt)
 	cmd.Arg("blobID", "Blob IDs").Required().StringsVar(&c.blobShowIDs)
-	cmd.Action(app.directRepositoryReadAction(c.run))
+	cmd.Action(svc.directRepositoryReadAction(c.run))
 }
 
 func (c *commandBlobShow) run(ctx context.Context, rep repo.DirectRepository) error {

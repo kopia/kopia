@@ -26,7 +26,7 @@ type commandMount struct {
 	maxCachedDirectories        int
 }
 
-func (c *commandMount) setup(app appServices, parent commandParent) {
+func (c *commandMount) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("mount", "Mount repository object as a local filesystem.")
 
 	cmd.Arg("path", "Identifier of the directory to mount.").Default("all").StringVar(&c.mountObjectID)
@@ -41,7 +41,7 @@ func (c *commandMount) setup(app appServices, parent commandParent) {
 	cmd.Flag("max-cached-entries", "Limit the number of cached directory entries").Default("100000").IntVar(&c.maxCachedEntries)
 	cmd.Flag("max-cached-dirs", "Limit the number of cached directories").Default("100").IntVar(&c.maxCachedDirectories)
 
-	cmd.Action(app.repositoryReaderAction(c.run))
+	cmd.Action(svc.repositoryReaderAction(c.run))
 }
 
 func (c *commandMount) newFSCache() cachefs.DirectoryCacher {

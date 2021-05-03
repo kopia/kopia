@@ -8,9 +8,9 @@ import (
 
 type commandCacheSync struct{}
 
-func (c *commandCacheSync) setup(app appServices, parent commandParent) {
+func (c *commandCacheSync) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("sync", "Synchronizes the metadata cache with blobs in storage")
-	cmd.Action(app.directRepositoryWriteAction(c.run))
+	cmd.Action(svc.directRepositoryWriteAction(c.run))
 }
 
 func (c *commandCacheSync) run(ctx context.Context, rep repo.DirectRepositoryWriter) error {

@@ -21,7 +21,7 @@ type commandServerUserAddSet struct {
 	isNew bool // true == 'add', false == 'update'
 }
 
-func (c *commandServerUserAddSet) setup(app appServices, parent commandParent, isNew bool) {
+func (c *commandServerUserAddSet) setup(svc appServices, parent commandParent, isNew bool) {
 	var cmd *kingpin.CmdClause
 
 	c.isNew = isNew
@@ -37,7 +37,7 @@ func (c *commandServerUserAddSet) setup(app appServices, parent commandParent, i
 	cmd.Flag("user-password-hash", "Password hash").StringVar(&c.userSetPasswordHash)
 	cmd.Flag("user-password-hash-version", "Password hash version").Default("1").IntVar(&c.userSetPasswordHashVersion)
 	cmd.Arg("username", "Username").Required().StringVar(&c.userSetName)
-	cmd.Action(app.repositoryWriterAction(c.runServerUserAddSet))
+	cmd.Action(svc.repositoryWriterAction(c.runServerUserAddSet))
 }
 
 func (c *commandServerUserAddSet) getExistingOrNewUserProfile(ctx context.Context, rep repo.Repository, username string) (*user.Profile, error) {

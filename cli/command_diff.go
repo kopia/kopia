@@ -20,13 +20,13 @@ type commandDiff struct {
 	diffCommandCommand   string
 }
 
-func (c *commandDiff) setup(app appServices, parent commandParent) {
+func (c *commandDiff) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("diff", "Displays differences between two repository objects (files or directories)").Alias("compare")
 	cmd.Arg("object-path1", "First object/path").Required().StringVar(&c.diffFirstObjectPath)
 	cmd.Arg("object-path2", "Second object/path").Required().StringVar(&c.diffSecondObjectPath)
 	cmd.Flag("files", "Compare files by launching diff command for all pairs of (old,new)").Short('f').BoolVar(&c.diffCompareFiles)
 	cmd.Flag("diff-command", "Displays differences between two repository objects (files or directories)").Default(defaultDiffCommand()).Envar("KOPIA_DIFF").StringVar(&c.diffCommandCommand)
-	cmd.Action(app.repositoryReaderAction(c.run))
+	cmd.Action(svc.repositoryReaderAction(c.run))
 }
 
 func (c *commandDiff) run(ctx context.Context, rep repo.Repository) error {

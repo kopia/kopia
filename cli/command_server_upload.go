@@ -14,10 +14,10 @@ type commandServerUpload struct {
 	sf serverClientFlags
 }
 
-func (c *commandServerUpload) setup(app appServices, parent commandParent) {
+func (c *commandServerUpload) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("upload", "Trigger upload for one or more sources")
 	c.sf.setup(cmd)
-	cmd.Action(app.serverAction(&c.sf, c.run))
+	cmd.Action(svc.serverAction(&c.sf, c.run))
 }
 
 func (c *commandServerUpload) run(ctx context.Context, cli *apiclient.KopiaAPIClient) error {

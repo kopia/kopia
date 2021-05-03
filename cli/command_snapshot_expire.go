@@ -17,13 +17,13 @@ type commandSnapshotExpire struct {
 	snapshotExpireDelete bool
 }
 
-func (c *commandSnapshotExpire) setup(app appServices, parent commandParent) {
+func (c *commandSnapshotExpire) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("expire", "Remove old snapshots according to defined expiration policies.")
 
 	cmd.Flag("all", "Expire all snapshots").BoolVar(&c.snapshotExpireAll)
 	cmd.Arg("path", "Expire snapshots for given paths only").StringsVar(&c.snapshotExpirePaths)
 	cmd.Flag("delete", "Whether to actually delete snapshots").BoolVar(&c.snapshotExpireDelete)
-	cmd.Action(app.repositoryWriterAction(c.run))
+	cmd.Action(svc.repositoryWriterAction(c.run))
 }
 
 func (c *commandSnapshotExpire) getSnapshotSourcesToExpire(ctx context.Context, rep repo.Repository) ([]snapshot.SourceInfo, error) {

@@ -18,12 +18,12 @@ type commandManifestList struct {
 	jo jsonOutput
 }
 
-func (c *commandManifestList) setup(app appServices, parent commandParent) {
+func (c *commandManifestList) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("list", "List manifest items").Alias("ls").Default()
 	cmd.Flag("filter", "List of key:value pairs").StringsVar(&c.manifestListFilter)
 	cmd.Flag("sort", "List of keys to sort by").StringsVar(&c.manifestListSort)
 	c.jo.setup(cmd)
-	cmd.Action(app.repositoryReaderAction(c.listManifestItems))
+	cmd.Action(svc.repositoryReaderAction(c.listManifestItems))
 }
 
 func (c *commandManifestList) listManifestItems(ctx context.Context, rep repo.Repository) error {

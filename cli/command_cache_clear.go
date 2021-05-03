@@ -14,19 +14,19 @@ import (
 type commandCacheClear struct {
 	partial string
 
-	app appServices
+	svc appServices
 }
 
-func (c *commandCacheClear) setup(app appServices, parent commandParent) {
+func (c *commandCacheClear) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("clear", "Clears the cache")
 	cmd.Flag("partial", "Specifies the cache to clear").EnumVar(&c.partial, "contents", "indexes", "metadata", "own-writes", "blob-list")
-	cmd.Action(app.repositoryReaderAction(c.run))
+	cmd.Action(svc.repositoryReaderAction(c.run))
 
-	c.app = app
+	c.svc = svc
 }
 
 func (c *commandCacheClear) run(ctx context.Context, rep repo.Repository) error {
-	opts, err := repo.GetCachingOptions(ctx, c.app.repositoryConfigFileName())
+	opts, err := repo.GetCachingOptions(ctx, c.svc.repositoryConfigFileName())
 	if err != nil {
 		return errors.Wrap(err, "error getting caching options")
 	}

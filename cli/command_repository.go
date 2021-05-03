@@ -11,15 +11,15 @@ type commandRepository struct {
 	upgrade    commandRepositoryUpgrade
 }
 
-func (c *commandRepository) setup(app coreAppServices, parent commandParent) {
+func (c *commandRepository) setup(svc advancedAppServices, parent commandParent) {
 	cmd := parent.Command("repository", "Commands to manipulate repository.").Alias("repo")
 
-	c.connect.setup(app, cmd)
-	c.create.setup(app, cmd)
-	c.disconnect.setup(app, cmd)
-	c.repair.setup(app, cmd)
-	c.setClient.setup(app, cmd)
-	c.status.setup(app, cmd)
-	c.syncTo.setup(app, cmd)
-	c.upgrade.setup(app, cmd)
+	c.connect.setup(svc, cmd)
+	c.create.setup(svc, cmd)
+	c.disconnect.setup(svc, cmd)
+	c.repair.setup(svc, cmd)
+	c.setClient.setup(svc, cmd)
+	c.status.setup(svc, cmd)
+	c.syncTo.setup(svc, cmd)
+	c.upgrade.setup(svc, cmd)
 }

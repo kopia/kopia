@@ -6,10 +6,10 @@ type commandBenchmark struct {
 	splitters   commandBenchmarkSplitters
 }
 
-func (c *commandBenchmark) setup(app appServices, parent commandParent) {
+func (c *commandBenchmark) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("benchmark", "Commands to test performance of algorithms.").Hidden()
 
-	c.compression.setup(app, cmd)
-	c.crypto.setup(app, cmd)
-	c.splitters.setup(app, cmd)
+	c.compression.setup(svc, cmd)
+	c.crypto.setup(svc, cmd)
+	c.splitters.setup(svc, cmd)
 }

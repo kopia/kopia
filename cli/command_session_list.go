@@ -10,9 +10,9 @@ import (
 
 type commandSessionList struct{}
 
-func (c *commandSessionList) setup(app appServices, parent commandParent) {
+func (c *commandSessionList) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("list", "List sessions").Alias("ls")
-	cmd.Action(app.directRepositoryReadAction(c.run))
+	cmd.Action(svc.directRepositoryReadAction(c.run))
 }
 
 func (c *commandSessionList) run(ctx context.Context, rep repo.DirectRepository) error {

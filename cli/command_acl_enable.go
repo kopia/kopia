@@ -14,10 +14,10 @@ type commandACLEnable struct {
 	reset bool
 }
 
-func (c *commandACLEnable) setup(app appServices, parent commandParent) {
+func (c *commandACLEnable) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("enable", "Enable ACLs and install default entries")
 	cmd.Flag("reset", "Reset all ACLs to default").BoolVar(&c.reset)
-	cmd.Action(app.repositoryWriterAction(c.run))
+	cmd.Action(svc.repositoryWriterAction(c.run))
 }
 
 func (c *commandACLEnable) run(ctx context.Context, rep repo.RepositoryWriter) error {

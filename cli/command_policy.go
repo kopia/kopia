@@ -19,14 +19,14 @@ type commandPolicy struct {
 	show   commandPolicyShow
 }
 
-func (c *commandPolicy) setup(app appServices, parent commandParent) {
+func (c *commandPolicy) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("policy", "Commands to manipulate snapshotting policies.").Alias("policies")
 
-	c.edit.setup(app, cmd)
-	c.list.setup(app, cmd)
-	c.delete.setup(app, cmd)
-	c.set.setup(app, cmd)
-	c.show.setup(app, cmd)
+	c.edit.setup(svc, cmd)
+	c.list.setup(svc, cmd)
+	c.delete.setup(svc, cmd)
+	c.set.setup(svc, cmd)
+	c.show.setup(svc, cmd)
 }
 
 func policyTargets(ctx context.Context, rep repo.Repository, globalFlag bool, targetsFlag []string) ([]snapshot.SourceInfo, error) {

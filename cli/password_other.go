@@ -6,5 +6,5 @@ import (
 	"github.com/alecthomas/kingpin"
 )
 
-func (c *TheApp) setupOSSpecificKeychainFlags(app *kingpin.Application) {
+func (c *App) setupOSSpecificKeychainFlags(app *kingpin.Application) {
 }

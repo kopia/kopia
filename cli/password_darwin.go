@@ -6,6 +6,6 @@ import (
 	"github.com/kopia/kopia/repo"
 )
 
-func (c *TheApp) setupOSSpecificKeychainFlags(app *kingpin.Application) {
+func (c *App) setupOSSpecificKeychainFlags(app *kingpin.Application) {
 	app.Flag("use-keychain", "Use macOS Keychain for storing repository password.").Default("true").BoolVar(&repo.KeyRingEnabled)
 }

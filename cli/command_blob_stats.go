@@ -17,11 +17,11 @@ type commandBlobStats struct {
 	prefix string
 }
 
-func (c *commandBlobStats) setup(app appServices, parent commandParent) {
+func (c *commandBlobStats) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("stats", "Content statistics")
 	cmd.Flag("raw", "Raw numbers").Short('r').BoolVar(&c.raw)
 	cmd.Flag("prefix", "Blob name prefix").StringVar(&c.prefix)
-	cmd.Action(app.directRepositoryReadAction(c.run))
+	cmd.Action(svc.directRepositoryReadAction(c.run))
 }
 
 func (c *commandBlobStats) run(ctx context.Context, rep repo.DirectRepository) error {

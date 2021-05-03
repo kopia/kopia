@@ -25,7 +25,7 @@ type commandPolicySet struct {
 	policySchedulingFlags
 }
 
-func (c *commandPolicySet) setup(app appServices, parent commandParent) {
+func (c *commandPolicySet) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("set", "Set snapshot policy for a single directory, user@host or a global policy.")
 	cmd.Arg("target", "Target of a policy ('global','user@host','@host') or a path").StringsVar(&c.targets)
 	cmd.Flag("global", "Set global policy").BoolVar(&c.global)
@@ -38,7 +38,7 @@ func (c *commandPolicySet) setup(app appServices, parent commandParent) {
 	c.policyRetentionFlags.setup(cmd)
 	c.policySchedulingFlags.setup(cmd)
 
-	cmd.Action(app.repositoryWriterAction(c.run))
+	cmd.Action(svc.repositoryWriterAction(c.run))
 }
 
 var booleanEnumValues = []string{"true", "false", "inherit"}

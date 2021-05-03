@@ -27,7 +27,7 @@ var (
 	errorColor   = color.New(color.FgHiRed)
 )
 
-// appServices are the methods of *TheApp that command handles are allowed to call.
+// appServices are the methods of *App that command handles are allowed to call.
 type appServices interface {
 	noRepositoryAction(act func(ctx context.Context) error) func(ctx *kingpin.ParseContext) error
 	serverAction(sf *serverClientFlags, act func(ctx context.Context, cli *apiclient.KopiaAPIClient) error) func(ctx *kingpin.ParseContext) error
@@ -41,7 +41,7 @@ type appServices interface {
 	getProgress() *cliProgress
 }
 
-type coreAppServices interface {
+type advancedAppServices interface {
 	appServices
 
 	runConnectCommandWithStorage(ctx context.Context, co *connectOptions, st blob.Storage) error
@@ -54,8 +54,8 @@ type coreAppServices interface {
 	optionsFromFlags(ctx context.Context) *repo.Options
 }
 
-// TheApp contains per-invocation flags and state of Kopia CLI.
-type TheApp struct {
+// App contains per-invocation flags and state of Kopia CLI.
+type App struct {
 	// global flags
 	enableAutomaticMaintenance    bool
 	mt                            memoryTracker
@@ -87,11 +87,11 @@ type TheApp struct {
 	repository  commandRepository
 }
 
-func (c *TheApp) getProgress() *cliProgress {
+func (c *App) getProgress() *cliProgress {
 	return c.progress
 }
 
-func (c *TheApp) setup(app *kingpin.Application) {
+func (c *App) setup(app *kingpin.Application) {
 	_ = app.Flag("help-full", "Show help for all commands, including hidden").Action(func(pc *kingpin.ParseContext) error {
 		_ = app.UsageForContextWithTemplate(pc, 0, kingpin.DefaultUsageTemplate)
 		os.Exit(0)
@@ -147,9 +147,9 @@ type commandParent interface {
 	Command(name, help string) *kingpin.CmdClause
 }
 
-// Attach creates new TheApp object and attaches all the flags to the provided application.
-func Attach(app *kingpin.Application) *TheApp {
-	a := &TheApp{
+// Attach creates new App object and attaches all the flags to the provided application.
+func Attach(app *kingpin.Application) *App {
+	a := &App{
 		progress: &cliProgress{},
 	}
 
@@ -181,13 +181,13 @@ func safetyFlagVar(cmd *kingpin.CmdClause, result *maintenance.SafetyParameters)
 	}).EnumVar(&str, "full", "none")
 }
 
-func (c *TheApp) noRepositoryAction(act func(ctx context.Context) error) func(ctx *kingpin.ParseContext) error {
+func (c *App) noRepositoryAction(act func(ctx context.Context) error) func(ctx *kingpin.ParseContext) error {
 	return func(_ *kingpin.ParseContext) error {
 		return act(rootContext())
 	}
 }
 
-func (c *TheApp) serverAction(sf *serverClientFlags, act func(ctx context.Context, cli *apiclient.KopiaAPIClient) error) func(ctx *kingpin.ParseContext) error {
+func (c *App) serverAction(sf *serverClientFlags, act func(ctx context.Context, cli *apiclient.KopiaAPIClient) error) func(ctx *kingpin.ParseContext) error {
 	return func(_ *kingpin.ParseContext) error {
 		opts, err := sf.serverAPIClientOptions()
 		if err != nil {
@@ -220,7 +220,7 @@ func assertDirectRepository(act func(ctx context.Context, rep repo.DirectReposit
 	}
 }
 
-func (c *TheApp) directRepositoryWriteAction(act func(ctx context.Context, rep repo.DirectRepositoryWriter) error) func(ctx *kingpin.ParseContext) error {
+func (c *App) directRepositoryWriteAction(act func(ctx context.Context, rep repo.DirectRepositoryWriter) error) func(ctx *kingpin.ParseContext) error {
 	return c.maybeRepositoryAction(assertDirectRepository(func(ctx context.Context, rep repo.DirectRepository) error {
 		return repo.DirectWriteSession(ctx, rep, repo.WriteSessionOptions{
 			Purpose:  "directRepositoryWriteAction",
@@ -232,7 +232,7 @@ func (c *TheApp) directRepositoryWriteAction(act func(ctx context.Context, rep r
 	})
 }
 
-func (c *TheApp) directRepositoryReadAction(act func(ctx context.Context, rep repo.DirectRepository) error) func(ctx *kingpin.ParseContext) error {
+func (c *App) directRepositoryReadAction(act func(ctx context.Context, rep repo.DirectRepository) error) func(ctx *kingpin.ParseContext) error {
 	return c.maybeRepositoryAction(assertDirectRepository(func(ctx context.Context, rep repo.DirectRepository) error {
 		return act(ctx, rep)
 	}), repositoryAccessMode{
@@ -241,7 +241,7 @@ func (c *TheApp) directRepositoryReadAction(act func(ctx context.Context, rep re
 	})
 }
 
-func (c *TheApp) repositoryReaderAction(act func(ctx context.Context, rep repo.Repository) error) func(ctx *kingpin.ParseContext) error {
+func (c *App) repositoryReaderAction(act func(ctx context.Context, rep repo.Repository) error) func(ctx *kingpin.ParseContext) error {
 	return c.maybeRepositoryAction(func(ctx context.Context, rep repo.Repository) error {
 		return act(ctx, rep)
 	}, repositoryAccessMode{
@@ -250,7 +250,7 @@ func (c *TheApp) repositoryReaderAction(act func(ctx context.Context, rep repo.R
 	})
 }
 
-func (c *TheApp) repositoryWriterAction(act func(ctx context.Context, rep repo.RepositoryWriter) error) func(ctx *kingpin.ParseContext) error {
+func (c *App) repositoryWriterAction(act func(ctx context.Context, rep repo.RepositoryWriter) error) func(ctx *kingpin.ParseContext) error {
 	return c.maybeRepositoryAction(func(ctx context.Context, rep repo.Repository) error {
 		return repo.WriteSession(ctx, rep, repo.WriteSessionOptions{
 			Purpose:  "repositoryWriterAction",
@@ -272,7 +272,7 @@ type repositoryAccessMode struct {
 	disableMaintenance bool
 }
 
-func (c *TheApp) maybeRepositoryAction(act func(ctx context.Context, rep repo.Repository) error, mode repositoryAccessMode) func(ctx *kingpin.ParseContext) error {
+func (c *App) maybeRepositoryAction(act func(ctx context.Context, rep repo.Repository) error, mode repositoryAccessMode) func(ctx *kingpin.ParseContext) error {
 	return func(kpc *kingpin.ParseContext) error {
 		ctx := rootContext()
 
@@ -320,7 +320,7 @@ func (c *TheApp) maybeRepositoryAction(act func(ctx context.Context, rep repo.Re
 	}
 }
 
-func (c *TheApp) maybeRunMaintenance(ctx context.Context, rep repo.Repository) error {
+func (c *App) maybeRunMaintenance(ctx context.Context, rep repo.Repository) error {
 	if !c.enableAutomaticMaintenance {
 		return nil
 	}

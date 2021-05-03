@@ -13,10 +13,10 @@ type commandServerUserList struct {
 	jo jsonOutput
 }
 
-func (c *commandServerUserList) setup(app appServices, parent commandParent) {
+func (c *commandServerUserList) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("list", "List users").Alias("ls")
 	c.jo.setup(cmd)
-	cmd.Action(app.repositoryReaderAction(c.runUserList))
+	cmd.Action(svc.repositoryReaderAction(c.runUserList))
 }
 
 func (c *commandServerUserList) runUserList(ctx context.Context, rep repo.Repository) error {

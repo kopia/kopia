@@ -23,10 +23,10 @@ type commandSnapshotMigrate struct {
 	migrateLatestOnly        bool
 	migrateParallel          int
 
-	app coreAppServices
+	svc advancedAppServices
 }
 
-func (c *commandSnapshotMigrate) setup(app coreAppServices, parent commandParent) {
+func (c *commandSnapshotMigrate) setup(svc advancedAppServices, parent commandParent) {
 	cmd := parent.Command("migrate", "Migrate snapshots from another repository")
 	cmd.Flag("source-config", "Configuration file for the source repository").Required().ExistingFileVar(&c.migrateSourceConfig)
 	cmd.Flag("sources", "List of sources to migrate").StringsVar(&c.migrateSources)
@@ -35,9 +35,9 @@ func (c *commandSnapshotMigrate) setup(app coreAppServices, parent commandParent
 	cmd.Flag("overwrite-policies", "Overwrite policies").BoolVar(&c.migrateOverwritePolicies)
 	cmd.Flag("latest-only", "Only migrate the latest snapshot").BoolVar(&c.migrateLatestOnly)
 	cmd.Flag("parallel", "Number of sources to migrate in parallel").Default("1").IntVar(&c.migrateParallel)
-	cmd.Action(app.repositoryWriterAction(c.run))
+	cmd.Action(svc.repositoryWriterAction(c.run))
 
-	c.app = app
+	c.svc = svc
 }
 
 func (c *commandSnapshotMigrate) run(ctx context.Context, destRepo repo.RepositoryWriter) error {
@@ -60,7 +60,7 @@ func (c *commandSnapshotMigrate) run(ctx context.Context, destRepo repo.Reposito
 		activeUploaders = map[snapshot.SourceInfo]*snapshotfs.Uploader{}
 	)
 
-	c.app.getProgress().StartShared()
+	c.svc.getProgress().StartShared()
 
 	onCtrlC(func() {
 		mu.Lock()
@@ -96,7 +96,7 @@ func (c *commandSnapshotMigrate) run(ctx context.Context, destRepo repo.Reposito
 		}
 
 		uploader := snapshotfs.NewUploader(destRepo)
-		uploader.Progress = c.app.getProgress()
+		uploader.Progress = c.svc.getProgress()
 		activeUploaders[s] = uploader
 		mu.Unlock()
 
@@ -120,7 +120,7 @@ func (c *commandSnapshotMigrate) run(ctx context.Context, destRepo repo.Reposito
 	}
 
 	wg.Wait()
-	c.app.getProgress().FinishShared()
+	c.svc.getProgress().FinishShared()
 	printStderr("\r\n")
 	log(ctx).Infof("Migration finished.")
 
@@ -132,12 +132,12 @@ func (c *commandSnapshotMigrate) openSourceRepo(ctx context.Context) (repo.Repos
 	if !ok {
 		var err error
 
-		if pass, err = c.app.getPasswordFromFlags(ctx, false, false); err != nil {
+		if pass, err = c.svc.getPasswordFromFlags(ctx, false, false); err != nil {
 			return nil, errors.Wrap(err, "source repository password")
 		}
 	}
 
-	sourceRepo, err := repo.Open(ctx, c.migrateSourceConfig, pass, c.app.optionsFromFlags(ctx))
+	sourceRepo, err := repo.Open(ctx, c.migrateSourceConfig, pass, c.svc.optionsFromFlags(ctx))
 	if err != nil {
 		return nil, errors.Wrap(err, "can't open source repository")
 	}

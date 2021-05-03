@@ -19,12 +19,12 @@ type commandPolicyShow struct {
 	jo      jsonOutput
 }
 
-func (c *commandPolicyShow) setup(app appServices, parent commandParent) {
+func (c *commandPolicyShow) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("show", "Show snapshot policy.").Alias("get")
 	cmd.Flag("global", "Get global policy").BoolVar(&c.global)
 	cmd.Arg("target", "Target to show the policy for").StringsVar(&c.targets)
 	c.jo.setup(cmd)
-	cmd.Action(app.repositoryReaderAction(c.run))
+	cmd.Action(svc.repositoryReaderAction(c.run))
 }
 
 func (c *commandPolicyShow) run(ctx context.Context, rep repo.Repository) error {

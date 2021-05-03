@@ -22,7 +22,7 @@ type commandContentList struct {
 	jo           jsonOutput
 }
 
-func (c *commandContentList) setup(app appServices, parent commandParent) {
+func (c *commandContentList) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("list", "List contents").Alias("ls")
 	cmd.Flag("long", "Long output").Short('l').BoolVar(&c.long)
 	cmd.Flag("deleted", "Include deleted content").BoolVar(&c.includeDeleted)
@@ -31,7 +31,7 @@ func (c *commandContentList) setup(app appServices, parent commandParent) {
 	cmd.Flag("human", "Human-readable output").Short('h').BoolVar(&c.human)
 	c.contentRange.setup(cmd)
 	c.jo.setup(cmd)
-	cmd.Action(app.directRepositoryReadAction(c.run))
+	cmd.Action(svc.directRepositoryReadAction(c.run))
 }
 
 func (c *commandContentList) run(ctx context.Context, rep repo.DirectRepository) error {

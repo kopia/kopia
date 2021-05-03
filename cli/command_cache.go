@@ -7,11 +7,11 @@ type commandCache struct {
 	sync  commandCacheSync
 }
 
-func (c *commandCache) setup(app appServices, parent commandParent) {
+func (c *commandCache) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("cache", "Commands to manipulate local cache").Hidden()
 
-	c.clear.setup(app, cmd)
-	c.info.setup(app, cmd)
-	c.set.setup(app, cmd)
-	c.sync.setup(app, cmd)
+	c.clear.setup(svc, cmd)
+	c.info.setup(svc, cmd)
+	c.set.setup(svc, cmd)
+	c.sync.setup(svc, cmd)
 }

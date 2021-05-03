@@ -56,10 +56,10 @@ type commandServerStart struct {
 	serverStartTLSPrintFullServerCert   bool
 
 	sf  serverFlags
-	app appServices
+	svc appServices
 }
 
-func (c *commandServerStart) setup(app appServices, parent commandParent) {
+func (c *commandServerStart) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("start", "Start Kopia server").Default()
 	cmd.Flag("html", "Server the provided HTML at the root URL").ExistingDirVar(&c.serverStartHTMLPath)
 	cmd.Flag("ui", "Start the server with HTML UI").Default("true").BoolVar(&c.serverStartUI)
@@ -89,9 +89,9 @@ func (c *commandServerStart) setup(app appServices, parent commandParent) {
 
 	c.sf.setup(cmd)
 	c.co.setup(cmd)
-	c.app = app
+	c.svc = svc
 
-	cmd.Action(app.maybeRepositoryAction(c.run, repositoryAccessMode{
+	cmd.Action(svc.maybeRepositoryAction(c.run, repositoryAccessMode{
 		mustBeConnected:    false,
 		disableMaintenance: true, // server closes the repository so maintenance can't run.
 	}))
@@ -104,7 +104,7 @@ func (c *commandServerStart) run(ctx context.Context, rep repo.Repository) error
 	}
 
 	srv, err := server.New(ctx, server.Options{
-		ConfigFile:           c.app.repositoryConfigFileName(),
+		ConfigFile:           c.svc.repositoryConfigFileName(),
 		ConnectOptions:       c.co.toRepoConnectOptions(),
 		RefreshInterval:      c.serverStartRefreshInterval,
 		MaxConcurrency:       c.serverStartMaxConcurrency,

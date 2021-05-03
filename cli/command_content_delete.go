@@ -12,10 +12,10 @@ type commandContentDelete struct {
 	ids []string
 }
 
-func (c *commandContentDelete) setup(app appServices, parent commandParent) {
+func (c *commandContentDelete) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("delete", "Remove content").Alias("remove").Alias("rm")
 	cmd.Arg("id", "IDs of content to remove").Required().StringsVar(&c.ids)
-	cmd.Action(app.directRepositoryWriteAction(c.run))
+	cmd.Action(svc.directRepositoryWriteAction(c.run))
 }
 
 func (c *commandContentDelete) run(ctx context.Context, rep repo.DirectRepositoryWriter) error {
