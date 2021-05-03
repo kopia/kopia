@@ -11,10 +11,10 @@ require (
 	github.com/StackExchange/wmi v0.0.0-20210224194228-fe8f1750fd46 // indirect
 	github.com/alecthomas/kingpin v0.0.0-20200323085623-b6657d9477a6 // this is pulling master, which is newer than v2
 	github.com/alecthomas/units v0.0.0-20210208195552-ff826a37aa15
-	github.com/aws/aws-sdk-go v1.38.26
+	github.com/aws/aws-sdk-go v1.38.30
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
-	github.com/dustinkirkland/golang-petname v0.0.0-20191129215211-8e5a1ed0cff0 // indirect
+	github.com/dustinkirkland/golang-petname v0.0.0-20191129215211-8e5a1ed0cff0
 	github.com/efarrer/iothrottler v0.0.1
 	github.com/fatih/color v1.10.0
 	github.com/foomo/htpasswd v0.0.0-20200116085101-e3a90e78da9c
