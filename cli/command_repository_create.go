@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 
+	"github.com/alecthomas/kingpin"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/repo"
@@ -15,34 +16,62 @@ import (
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
-var (
-	createCommand = repositoryCommands.Command("create", "Create new repository in a specified location.")
+type commandRepositoryCreate struct {
+	createBlockHashFormat       string
+	createBlockEncryptionFormat string
+	createSplitter              string
+	createOnly                  bool
 
-	createBlockHashFormat       = createCommand.Flag("block-hash", "Content hash algorithm.").PlaceHolder("ALGO").Default(hashing.DefaultAlgorithm).Enum(hashing.SupportedAlgorithms()...)
-	createBlockEncryptionFormat = createCommand.Flag("encryption", "Content encryption algorithm.").PlaceHolder("ALGO").Default(encryption.DefaultAlgorithm).Enum(encryption.SupportedAlgorithms(false)...)
-	createSplitter              = createCommand.Flag("object-splitter", "The splitter to use for new objects in the repository").Default(splitter.DefaultAlgorithm).Enum(splitter.SupportedAlgorithms()...)
-
-	createOnly = createCommand.Flag("create-only", "Create repository, but don't connect to it.").Short('c').Bool()
-)
-
-func init() {
-	setupConnectOptions(createCommand)
+	co  connectOptions
+	svc advancedAppServices
 }
 
-func newRepositoryOptionsFromFlags() *repo.NewRepositoryOptions {
+func (c *commandRepositoryCreate) setup(svc advancedAppServices, parent commandParent) {
+	cmd := parent.Command("create", "Create new repository in a specified location.")
+
+	cmd.Flag("block-hash", "Content hash algorithm.").PlaceHolder("ALGO").Default(hashing.DefaultAlgorithm).EnumVar(&c.createBlockHashFormat, hashing.SupportedAlgorithms()...)
+	cmd.Flag("encryption", "Content encryption algorithm.").PlaceHolder("ALGO").Default(encryption.DefaultAlgorithm).EnumVar(&c.createBlockEncryptionFormat, encryption.SupportedAlgorithms(false)...)
+	cmd.Flag("object-splitter", "The splitter to use for new objects in the repository").Default(splitter.DefaultAlgorithm).EnumVar(&c.createSplitter, splitter.SupportedAlgorithms()...)
+	cmd.Flag("create-only", "Create repository, but don't connect to it.").Short('c').BoolVar(&c.createOnly)
+
+	c.co.setup(cmd)
+	c.svc = svc
+
+	for _, prov := range storageProviders {
+		if prov.name == "from-config" {
+			continue
+		}
+
+		// Set up 'create' subcommand
+		f := prov.newFlags()
+		cc := cmd.Command(prov.name, "Create repository in "+prov.description)
+		f.setup(cc)
+		cc.Action(func(_ *kingpin.ParseContext) error {
+			ctx := rootContext()
+			st, err := f.connect(ctx, true)
+			if err != nil {
+				return errors.Wrap(err, "can't connect to storage")
+			}
+
+			return c.runCreateCommandWithStorage(ctx, st)
+		})
+	}
+}
+
+func (c *commandRepositoryCreate) newRepositoryOptionsFromFlags() *repo.NewRepositoryOptions {
 	return &repo.NewRepositoryOptions{
 		BlockFormat: content.FormattingOptions{
-			Hash:       *createBlockHashFormat,
-			Encryption: *createBlockEncryptionFormat,
+			Hash:       c.createBlockHashFormat,
+			Encryption: c.createBlockEncryptionFormat,
 		},
 
 		ObjectFormat: object.Format{
-			Splitter: *createSplitter,
+			Splitter: c.createSplitter,
 		},
 	}
 }
 
-func ensureEmpty(ctx context.Context, s blob.Storage) error {
+func (c *commandRepositoryCreate) ensureEmpty(ctx context.Context, s blob.Storage) error {
 	hasDataError := errors.Errorf("has data")
 
 	err := s.ListBlobs(ctx, "", func(cb blob.Metadata) error {
@@ -57,15 +86,15 @@ func ensureEmpty(ctx context.Context, s blob.Storage) error {
 	return errors.Wrap(err, "error listing blobs")
 }
 
-func runCreateCommandWithStorage(ctx context.Context, st blob.Storage) error {
-	err := ensureEmpty(ctx, st)
+func (c *commandRepositoryCreate) runCreateCommandWithStorage(ctx context.Context, st blob.Storage) error {
+	err := c.ensureEmpty(ctx, st)
 	if err != nil {
 		return errors.Wrap(err, "unable to get repository storage")
 	}
 
-	options := newRepositoryOptionsFromFlags()
+	options := c.newRepositoryOptionsFromFlags()
 
-	password, err := getPasswordFromFlags(ctx, true, false)
+	pass, err := c.svc.getPasswordFromFlags(ctx, true, false)
 	if err != nil {
 		return errors.Wrap(err, "getting password")
 	}
@@ -75,23 +104,23 @@ func runCreateCommandWithStorage(ctx context.Context, st blob.Storage) error {
 	log(ctx).Infof("  encryption:          %v", options.BlockFormat.Encryption)
 	log(ctx).Infof("  splitter:            %v", options.ObjectFormat.Splitter)
 
-	if err := repo.Initialize(ctx, st, options, password); err != nil {
+	if err := repo.Initialize(ctx, st, options, pass); err != nil {
 		return errors.Wrap(err, "cannot initialize repository")
 	}
 
-	if *createOnly {
+	if c.createOnly {
 		return nil
 	}
 
-	if err := runConnectCommandWithStorageAndPassword(ctx, st, password); err != nil {
+	if err := c.svc.runConnectCommandWithStorageAndPassword(ctx, &c.co, st, pass); err != nil {
 		return errors.Wrap(err, "unable to connect to repository")
 	}
 
-	return populateRepository(ctx, password)
+	return c.populateRepository(ctx, pass)
 }
 
-func populateRepository(ctx context.Context, password string) error {
-	rep, err := repo.Open(ctx, repositoryConfigFileName(), password, optionsFromFlags(ctx))
+func (c *commandRepositoryCreate) populateRepository(ctx context.Context, password string) error {
+	rep, err := repo.Open(ctx, c.svc.repositoryConfigFileName(), password, c.svc.optionsFromFlags(ctx))
 	if err != nil {
 		return errors.Wrap(err, "unable to open repository")
 	}

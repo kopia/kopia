@@ -11,19 +11,33 @@ import (
 	"github.com/kopia/kopia/repo/content"
 )
 
-var (
-	contentListCommand        = contentCommands.Command("list", "List contents").Alias("ls")
-	contentListLong           = contentListCommand.Flag("long", "Long output").Short('l').Bool()
-	contentListIncludeDeleted = contentListCommand.Flag("deleted", "Include deleted content").Bool()
-	contentListDeletedOnly    = contentListCommand.Flag("deleted-only", "Only show deleted content").Bool()
-	contentListSummary        = contentListCommand.Flag("summary", "Summarize the list").Short('s').Bool()
-	contentListHuman          = contentListCommand.Flag("human", "Human-readable output").Short('h').Bool()
-)
+type commandContentList struct {
+	long           bool
+	includeDeleted bool
+	deletedOnly    bool
+	summary        bool
+	human          bool
 
-func runContentListCommand(ctx context.Context, rep repo.DirectRepository) error {
+	contentRange contentRangeFlags
+	jo           jsonOutput
+}
+
+func (c *commandContentList) setup(svc appServices, parent commandParent) {
+	cmd := parent.Command("list", "List contents").Alias("ls")
+	cmd.Flag("long", "Long output").Short('l').BoolVar(&c.long)
+	cmd.Flag("deleted", "Include deleted content").BoolVar(&c.includeDeleted)
+	cmd.Flag("deleted-only", "Only show deleted content").BoolVar(&c.deletedOnly)
+	cmd.Flag("summary", "Summarize the list").Short('s').BoolVar(&c.summary)
+	cmd.Flag("human", "Human-readable output").Short('h').BoolVar(&c.human)
+	c.contentRange.setup(cmd)
+	c.jo.setup(cmd)
+	cmd.Action(svc.directRepositoryReadAction(c.run))
+}
+
+func (c *commandContentList) run(ctx context.Context, rep repo.DirectRepository) error {
 	var jl jsonList
 
-	jl.begin()
+	jl.begin(&c.jo)
 	defer jl.end()
 
 	var totalSize stats.CountSum
@@ -31,22 +45,22 @@ func runContentListCommand(ctx context.Context, rep repo.DirectRepository) error
 	err := rep.ContentReader().IterateContents(
 		ctx,
 		content.IterateOptions{
-			Range:          contentIDRange(),
-			IncludeDeleted: *contentListIncludeDeleted || *contentListDeletedOnly,
+			Range:          c.contentRange.contentIDRange(),
+			IncludeDeleted: c.includeDeleted || c.deletedOnly,
 		},
 		func(b content.Info) error {
-			if *contentListDeletedOnly && !b.GetDeleted() {
+			if c.deletedOnly && !b.GetDeleted() {
 				return nil
 			}
 
 			totalSize.Add(int64(b.GetPackedLength()))
 
-			if jsonOutput {
+			if c.jo.jsonOutput {
 				jl.emit(b)
 				return nil
 			}
 
-			if *contentListLong {
+			if c.long {
 				optionalDeleted := ""
 				if b.GetDeleted() {
 					optionalDeleted = " (deleted)"
@@ -56,7 +70,7 @@ func runContentListCommand(ctx context.Context, rep repo.DirectRepository) error
 					formatTimestamp(b.Timestamp()),
 					b.GetPackBlobID(),
 					b.GetPackOffset(),
-					maybeHumanReadableBytes(*contentListHuman, int64(b.GetPackedLength())),
+					maybeHumanReadableBytes(c.human, int64(b.GetPackedLength())),
 					optionalDeleted)
 			} else {
 				fmt.Printf("%v\n", b.GetContentID())
@@ -68,18 +82,12 @@ func runContentListCommand(ctx context.Context, rep repo.DirectRepository) error
 		return errors.Wrap(err, "error iterating")
 	}
 
-	if *contentListSummary {
+	if c.summary {
 		count, sz := totalSize.Approximate()
 		fmt.Printf("Total: %v contents, %v total size\n",
-			maybeHumanReadableCount(*contentListHuman, int64(count)),
-			maybeHumanReadableBytes(*contentListHuman, sz))
+			maybeHumanReadableCount(c.human, int64(count)),
+			maybeHumanReadableBytes(c.human, sz))
 	}
 
 	return nil
-}
-
-func init() {
-	registerJSONOutputFlags(contentListCommand)
-	contentListCommand.Action(directRepositoryReadAction(runContentListCommand))
-	setupContentIDRangeFlags(contentListCommand)
 }

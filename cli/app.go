@@ -5,6 +5,7 @@ import (
 	"context"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/alecthomas/kingpin"
 	"github.com/fatih/color"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/kopia/kopia/internal/apiclient"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/repo/maintenance"
 	"github.com/kopia/kopia/snapshot/snapshotmaintenance"
@@ -25,71 +27,169 @@ var (
 	errorColor   = color.New(color.FgHiRed)
 )
 
-var (
-	app = kingpin.New("kopia", "Kopia - Online Backup").Author("http://kopia.github.io/")
+// appServices are the methods of *App that command handles are allowed to call.
+type appServices interface {
+	noRepositoryAction(act func(ctx context.Context) error) func(ctx *kingpin.ParseContext) error
+	serverAction(sf *serverClientFlags, act func(ctx context.Context, cli *apiclient.KopiaAPIClient) error) func(ctx *kingpin.ParseContext) error
+	directRepositoryWriteAction(act func(ctx context.Context, rep repo.DirectRepositoryWriter) error) func(ctx *kingpin.ParseContext) error
+	directRepositoryReadAction(act func(ctx context.Context, rep repo.DirectRepository) error) func(ctx *kingpin.ParseContext) error
+	repositoryReaderAction(act func(ctx context.Context, rep repo.Repository) error) func(ctx *kingpin.ParseContext) error
+	repositoryWriterAction(act func(ctx context.Context, rep repo.RepositoryWriter) error) func(ctx *kingpin.ParseContext) error
+	maybeRepositoryAction(act func(ctx context.Context, rep repo.Repository) error, mode repositoryAccessMode) func(ctx *kingpin.ParseContext) error
 
-	enableAutomaticMaintenance = app.Flag("auto-maintenance", "Automatic maintenance").Default("true").Hidden().Bool()
+	repositoryConfigFileName() string
+	getProgress() *cliProgress
+}
 
-	_ = app.Flag("help-full", "Show help for all commands, including hidden").Action(helpFullAction).Bool()
+type advancedAppServices interface {
+	appServices
 
-	repositoryCommands  = app.Command("repository", "Commands to manipulate repository.").Alias("repo")
-	cacheCommands       = app.Command("cache", "Commands to manipulate local cache").Hidden()
-	snapshotCommands    = app.Command("snapshot", "Commands to manipulate snapshots.").Alias("snap")
-	policyCommands      = app.Command("policy", "Commands to manipulate snapshotting policies.").Alias("policies")
-	serverCommands      = app.Command("server", "Commands to control HTTP API server.")
-	manifestCommands    = app.Command("manifest", "Low-level commands to manipulate manifest items.").Hidden()
-	contentCommands     = app.Command("content", "Commands to manipulate content in repository.").Alias("contents").Hidden()
-	blobCommands        = app.Command("blob", "Commands to manipulate BLOBs.").Hidden()
-	indexCommands       = app.Command("index", "Commands to manipulate content index.").Hidden()
-	benchmarkCommands   = app.Command("benchmark", "Commands to test performance of algorithms.").Hidden()
-	maintenanceCommands = app.Command("maintenance", "Maintenance commands.").Hidden().Alias("gc")
-	sessionCommands     = app.Command("session", "Session commands.").Hidden()
-	userCommands        = serverCommands.Command("users", "Manager repository users").Alias("user")
-	aclCommands         = serverCommands.Command("acl", "Manager server access control list entries")
-)
+	runConnectCommandWithStorage(ctx context.Context, co *connectOptions, st blob.Storage) error
+	runConnectCommandWithStorageAndPassword(ctx context.Context, co *connectOptions, st blob.Storage, password string) error
+	openRepository(ctx context.Context, required bool) (repo.Repository, error)
+
+	maybeInitializeUpdateCheck(ctx context.Context, co *connectOptions)
+	removeUpdateState()
+	getPasswordFromFlags(ctx context.Context, isNew, allowPersistent bool) (string, error)
+	optionsFromFlags(ctx context.Context) *repo.Options
+}
+
+// App contains per-invocation flags and state of Kopia CLI.
+type App struct {
+	// global flags
+	enableAutomaticMaintenance    bool
+	mt                            memoryTracker
+	progress                      *cliProgress
+	initialUpdateCheckDelay       time.Duration
+	updateCheckInterval           time.Duration
+	updateAvailableNotifyInterval time.Duration
+	configPath                    string
+	traceStorage                  bool
+	metricsListenAddr             string
+
+	// subcommands
+	blob        commandBlob
+	benchmark   commandBenchmark
+	cache       commandCache
+	content     commandContent
+	diff        commandDiff
+	index       commandIndex
+	list        commandList
+	server      commandServer
+	session     commandSession
+	policy      commandPolicy
+	restore     commandRestore
+	show        commandShow
+	snapshot    commandSnapshot
+	manifest    commandManifest
+	mount       commandMount
+	maintenance commandMaintenance
+	repository  commandRepository
+}
+
+func (c *App) getProgress() *cliProgress {
+	return c.progress
+}
+
+func (c *App) setup(app *kingpin.Application) {
+	_ = app.Flag("help-full", "Show help for all commands, including hidden").Action(func(pc *kingpin.ParseContext) error {
+		_ = app.UsageForContextWithTemplate(pc, 0, kingpin.DefaultUsageTemplate)
+		os.Exit(0)
+		return nil
+	}).Bool()
+
+	app.Flag("auto-maintenance", "Automatic maintenance").Default("true").Hidden().BoolVar(&c.enableAutomaticMaintenance)
+
+	// hidden flags to control auto-update behavior.
+	app.Flag("initial-update-check-delay", "Initial delay before first time update check").Default("24h").Hidden().Envar("KOPIA_INITIAL_UPDATE_CHECK_DELAY").DurationVar(&c.initialUpdateCheckDelay)
+	app.Flag("update-check-interval", "Interval between update checks").Default("168h").Hidden().Envar("KOPIA_UPDATE_CHECK_INTERVAL").DurationVar(&c.updateCheckInterval)
+	app.Flag("update-available-notify-interval", "Interval between update notifications").Default("1h").Hidden().Envar("KOPIA_UPDATE_NOTIFY_INTERVAL").DurationVar(&c.updateAvailableNotifyInterval)
+	app.Flag("config-file", "Specify the config file to use.").Default(defaultConfigFileName()).Envar("KOPIA_CONFIG_PATH").StringVar(&c.configPath)
+	app.Flag("trace-storage", "Enables tracing of storage operations.").Default("true").Hidden().BoolVar(&c.traceStorage)
+	app.Flag("metrics-listen-addr", "Expose Prometheus metrics on a given host:port").Hidden().StringVar(&c.metricsListenAddr)
+	app.Flag("timezone", "Format time according to specified time zone (local, utc, original or time zone name)").Default("local").Hidden().StringVar(&timeZone)
+	app.Flag("password", "Repository password.").Envar("KOPIA_PASSWORD").Short('p').StringVar(&globalPassword)
+
+	c.setupOSSpecificKeychainFlags(app)
+
+	_ = app.Flag("caching", "Enables caching of objects (disable with --no-caching)").Default("true").Hidden().Action(
+		deprecatedFlag("The '--caching' flag is deprecated and has no effect, use 'kopia cache set' instead."),
+	).Bool()
+
+	_ = app.Flag("list-caching", "Enables caching of list results (disable with --no-list-caching)").Default("true").Hidden().Action(
+		deprecatedFlag("The '--list-caching' flag is deprecated and has no effect, use 'kopia cache set' instead."),
+	).Bool()
+
+	c.mt.setup(app)
+	c.progress.setup(app)
+
+	c.blob.setup(c, app)
+	c.benchmark.setup(c, app)
+	c.cache.setup(c, app)
+	c.content.setup(c, app)
+	c.diff.setup(c, app)
+	c.index.setup(c, app)
+	c.list.setup(c, app)
+	c.server.setup(c, app)
+	c.session.setup(c, app)
+	c.restore.setup(c, app)
+	c.show.setup(c, app)
+	c.snapshot.setup(c, app)
+	c.manifest.setup(c, app)
+	c.policy.setup(c, app)
+	c.mount.setup(c, app)
+	c.maintenance.setup(c, app)
+	c.repository.setup(c, app)
+}
+
+// commandParent is implemented by app and commands that can have sub-commands.
+type commandParent interface {
+	Command(name, help string) *kingpin.CmdClause
+}
+
+// Attach creates new App object and attaches all the flags to the provided application.
+func Attach(app *kingpin.Application) *App {
+	a := &App{
+		progress: &cliProgress{},
+	}
+
+	a.setup(app)
+
+	return a
+}
 
 var safetyByName = map[string]maintenance.SafetyParameters{
 	"none": maintenance.SafetyNone,
 	"full": maintenance.SafetyFull,
 }
 
-// safetyFlag defines a --safety=none|full flag that returns SafetyParameters.
-func safetyFlag(c *kingpin.CmdClause) *maintenance.SafetyParameters {
-	var (
-		result = maintenance.SafetyFull
-		str    string
-	)
+// safetyFlagVar defines c --safety=none|full flag that sets the SafetyParameters.
+func safetyFlagVar(cmd *kingpin.CmdClause, result *maintenance.SafetyParameters) {
+	var str string
 
-	c.Flag("safety", "Safety level").Default("full").PreAction(func(pc *kingpin.ParseContext) error {
-		var ok bool
-		result, ok = safetyByName[str]
+	*result = maintenance.SafetyFull
+
+	cmd.Flag("safety", "Safety level").Default("full").PreAction(func(pc *kingpin.ParseContext) error {
+		r, ok := safetyByName[str]
 		if !ok {
 			return errors.Errorf("unhandled safety level")
 		}
 
+		*result = r
+
 		return nil
 	}).EnumVar(&str, "full", "none")
-
-	return &result
 }
 
-func helpFullAction(ctx *kingpin.ParseContext) error {
-	_ = app.UsageForContextWithTemplate(ctx, 0, kingpin.DefaultUsageTemplate)
-
-	os.Exit(0)
-
-	return nil
-}
-
-func noRepositoryAction(act func(ctx context.Context) error) func(ctx *kingpin.ParseContext) error {
+func (c *App) noRepositoryAction(act func(ctx context.Context) error) func(ctx *kingpin.ParseContext) error {
 	return func(_ *kingpin.ParseContext) error {
 		return act(rootContext())
 	}
 }
 
-func serverAction(act func(ctx context.Context, cli *apiclient.KopiaAPIClient) error) func(ctx *kingpin.ParseContext) error {
+func (c *App) serverAction(sf *serverClientFlags, act func(ctx context.Context, cli *apiclient.KopiaAPIClient) error) func(ctx *kingpin.ParseContext) error {
 	return func(_ *kingpin.ParseContext) error {
-		opts, err := serverAPIClientOptions()
+		opts, err := sf.serverAPIClientOptions()
 		if err != nil {
 			return errors.Wrap(err, "unable to create API client options")
 		}
@@ -120,11 +220,11 @@ func assertDirectRepository(act func(ctx context.Context, rep repo.DirectReposit
 	}
 }
 
-func directRepositoryWriteAction(act func(ctx context.Context, rep repo.DirectRepositoryWriter) error) func(ctx *kingpin.ParseContext) error {
-	return maybeRepositoryAction(assertDirectRepository(func(ctx context.Context, rep repo.DirectRepository) error {
+func (c *App) directRepositoryWriteAction(act func(ctx context.Context, rep repo.DirectRepositoryWriter) error) func(ctx *kingpin.ParseContext) error {
+	return c.maybeRepositoryAction(assertDirectRepository(func(ctx context.Context, rep repo.DirectRepository) error {
 		return repo.DirectWriteSession(ctx, rep, repo.WriteSessionOptions{
 			Purpose:  "directRepositoryWriteAction",
-			OnUpload: progress.UploadedBytes,
+			OnUpload: c.progress.UploadedBytes,
 		}, func(dw repo.DirectRepositoryWriter) error { return act(ctx, dw) })
 	}), repositoryAccessMode{
 		mustBeConnected:    true,
@@ -132,8 +232,8 @@ func directRepositoryWriteAction(act func(ctx context.Context, rep repo.DirectRe
 	})
 }
 
-func directRepositoryReadAction(act func(ctx context.Context, rep repo.DirectRepository) error) func(ctx *kingpin.ParseContext) error {
-	return maybeRepositoryAction(assertDirectRepository(func(ctx context.Context, rep repo.DirectRepository) error {
+func (c *App) directRepositoryReadAction(act func(ctx context.Context, rep repo.DirectRepository) error) func(ctx *kingpin.ParseContext) error {
+	return c.maybeRepositoryAction(assertDirectRepository(func(ctx context.Context, rep repo.DirectRepository) error {
 		return act(ctx, rep)
 	}), repositoryAccessMode{
 		mustBeConnected:    true,
@@ -141,8 +241,8 @@ func directRepositoryReadAction(act func(ctx context.Context, rep repo.DirectRep
 	})
 }
 
-func repositoryReaderAction(act func(ctx context.Context, rep repo.Repository) error) func(ctx *kingpin.ParseContext) error {
-	return maybeRepositoryAction(func(ctx context.Context, rep repo.Repository) error {
+func (c *App) repositoryReaderAction(act func(ctx context.Context, rep repo.Repository) error) func(ctx *kingpin.ParseContext) error {
+	return c.maybeRepositoryAction(func(ctx context.Context, rep repo.Repository) error {
 		return act(ctx, rep)
 	}, repositoryAccessMode{
 		mustBeConnected:    true,
@@ -150,11 +250,11 @@ func repositoryReaderAction(act func(ctx context.Context, rep repo.Repository) e
 	})
 }
 
-func repositoryWriterAction(act func(ctx context.Context, rep repo.RepositoryWriter) error) func(ctx *kingpin.ParseContext) error {
-	return maybeRepositoryAction(func(ctx context.Context, rep repo.Repository) error {
+func (c *App) repositoryWriterAction(act func(ctx context.Context, rep repo.RepositoryWriter) error) func(ctx *kingpin.ParseContext) error {
+	return c.maybeRepositoryAction(func(ctx context.Context, rep repo.Repository) error {
 		return repo.WriteSession(ctx, rep, repo.WriteSessionOptions{
 			Purpose:  "repositoryWriterAction",
-			OnUpload: progress.UploadedBytes,
+			OnUpload: c.progress.UploadedBytes,
 		}, func(w repo.RepositoryWriter) error {
 			return act(ctx, w)
 		})
@@ -172,25 +272,25 @@ type repositoryAccessMode struct {
 	disableMaintenance bool
 }
 
-func maybeRepositoryAction(act func(ctx context.Context, rep repo.Repository) error, mode repositoryAccessMode) func(ctx *kingpin.ParseContext) error {
+func (c *App) maybeRepositoryAction(act func(ctx context.Context, rep repo.Repository) error, mode repositoryAccessMode) func(ctx *kingpin.ParseContext) error {
 	return func(kpc *kingpin.ParseContext) error {
 		ctx := rootContext()
 
 		if err := withProfiling(func() error {
-			startMemoryTracking(ctx)
-			defer finishMemoryTracking(ctx)
+			c.mt.startMemoryTracking(ctx)
+			defer c.mt.finishMemoryTracking(ctx)
 
-			if *metricsListenAddr != "" {
+			if c.metricsListenAddr != "" {
 				mux := http.NewServeMux()
 				if err := initPrometheus(mux); err != nil {
 					return errors.Wrap(err, "unable to initialize prometheus.")
 				}
 
-				log(ctx).Infof("starting prometheus metrics on %v", *metricsListenAddr)
-				go http.ListenAndServe(*metricsListenAddr, mux) // nolint:errcheck
+				log(ctx).Infof("starting prometheus metrics on %v", c.metricsListenAddr)
+				go http.ListenAndServe(c.metricsListenAddr, mux) // nolint:errcheck
 			}
 
-			rep, err := openRepository(ctx, mode.mustBeConnected)
+			rep, err := c.openRepository(ctx, mode.mustBeConnected)
 			if err != nil && mode.mustBeConnected {
 				return errors.Wrap(err, "open repository")
 			}
@@ -198,7 +298,7 @@ func maybeRepositoryAction(act func(ctx context.Context, rep repo.Repository) er
 			err = act(ctx, rep)
 
 			if rep != nil && !mode.disableMaintenance {
-				if merr := maybeRunMaintenance(ctx, rep); merr != nil {
+				if merr := c.maybeRunMaintenance(ctx, rep); merr != nil {
 					log(ctx).Errorf("error running maintenance: %v", merr)
 				}
 			}
@@ -220,8 +320,8 @@ func maybeRepositoryAction(act func(ctx context.Context, rep repo.Repository) er
 	}
 }
 
-func maybeRunMaintenance(ctx context.Context, rep repo.Repository) error {
-	if !*enableAutomaticMaintenance {
+func (c *App) maybeRunMaintenance(ctx context.Context, rep repo.Repository) error {
+	if !c.enableAutomaticMaintenance {
 		return nil
 	}
 
@@ -236,7 +336,7 @@ func maybeRunMaintenance(ctx context.Context, rep repo.Repository) error {
 
 	err := repo.DirectWriteSession(ctx, dr, repo.WriteSessionOptions{
 		Purpose:  "maybeRunMaintenance",
-		OnUpload: progress.UploadedBytes,
+		OnUpload: c.progress.UploadedBytes,
 	}, func(w repo.DirectRepositoryWriter) error {
 		return snapshotmaintenance.Run(ctx, w, maintenance.ModeAuto, false, maintenance.SafetyFull)
 	})
@@ -262,9 +362,4 @@ To run this command despite the warning, set KOPIA_ADVANCED_COMMANDS=enabled
 `)
 		os.Exit(1)
 	}
-}
-
-// App returns an instance of command-line application object.
-func App() *kingpin.Application {
-	return app
 }

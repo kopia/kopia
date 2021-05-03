@@ -10,15 +10,24 @@ import (
 	"github.com/kopia/kopia/repo/content"
 )
 
-var (
-	contentShowCommand = contentCommands.Command("show", "Show contents by ID.").Alias("cat")
+type commandContentShow struct {
+	ids        []string
+	indentJSON bool
+	decompress bool
+}
 
-	contentShowIDs = contentShowCommand.Arg("id", "IDs of contents to show").Required().Strings()
-)
+func (c *commandContentShow) setup(svc appServices, parent commandParent) {
+	cmd := parent.Command("show", "Show contents by ID.").Alias("cat")
 
-func runContentShowCommand(ctx context.Context, rep repo.DirectRepository) error {
-	for _, contentID := range toContentIDs(*contentShowIDs) {
-		if err := contentShow(ctx, rep, contentID); err != nil {
+	cmd.Arg("id", "IDs of contents to show").Required().StringsVar(&c.ids)
+	cmd.Flag("json", "Pretty-print JSON content").Short('j').BoolVar(&c.indentJSON)
+	cmd.Flag("unzip", "Transparently decompress the content").Short('z').BoolVar(&c.decompress)
+	cmd.Action(svc.directRepositoryReadAction(c.run))
+}
+
+func (c *commandContentShow) run(ctx context.Context, rep repo.DirectRepository) error {
+	for _, contentID := range toContentIDs(c.ids) {
+		if err := c.contentShow(ctx, rep, contentID); err != nil {
 			return err
 		}
 	}
@@ -26,16 +35,11 @@ func runContentShowCommand(ctx context.Context, rep repo.DirectRepository) error
 	return nil
 }
 
-func contentShow(ctx context.Context, r repo.DirectRepository, contentID content.ID) error {
+func (c *commandContentShow) contentShow(ctx context.Context, r repo.DirectRepository, contentID content.ID) error {
 	data, err := r.ContentReader().GetContent(ctx, contentID)
 	if err != nil {
 		return errors.Wrapf(err, "error getting content %v", contentID)
 	}
 
-	return showContent(bytes.NewReader(data))
-}
-
-func init() {
-	setupShowCommand(contentShowCommand)
-	contentShowCommand.Action(directRepositoryReadAction(runContentShowCommand))
+	return showContentWithFlags(bytes.NewReader(data), c.decompress, c.indentJSON)
 }

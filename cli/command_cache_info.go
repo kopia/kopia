@@ -12,18 +12,27 @@ import (
 	"github.com/kopia/kopia/repo"
 )
 
-var (
-	cacheInfoCommand  = cacheCommands.Command("info", "Displays cache information and statistics").Default()
-	cacheInfoPathOnly = cacheInfoCommand.Flag("path", "Only display cache path").Bool()
-)
+type commandCacheInfo struct {
+	onlyShowPath bool
 
-func runCacheInfoCommand(ctx context.Context, rep repo.Repository) error {
-	opts, err := repo.GetCachingOptions(ctx, repositoryConfigFileName())
+	svc appServices
+}
+
+func (c *commandCacheInfo) setup(svc appServices, parent commandParent) {
+	cmd := parent.Command("info", "Displays cache information and statistics").Default()
+	cmd.Flag("path", "Only display cache path").BoolVar(&c.onlyShowPath)
+	cmd.Action(svc.repositoryReaderAction(c.run))
+
+	c.svc = svc
+}
+
+func (c *commandCacheInfo) run(ctx context.Context, rep repo.Repository) error {
+	opts, err := repo.GetCachingOptions(ctx, c.svc.repositoryConfigFileName())
 	if err != nil {
 		return errors.Wrap(err, "error getting cache options")
 	}
 
-	if *cacheInfoPathOnly {
+	if c.onlyShowPath {
 		fmt.Println(opts.CacheDirectory)
 		return nil
 	}
@@ -67,8 +76,4 @@ func runCacheInfoCommand(ctx context.Context, rep repo.Repository) error {
 	printStderr("To clear caches use 'kopia cache clear'.\n")
 
 	return nil
-}
-
-func init() {
-	cacheInfoCommand.Action(repositoryReaderAction(runCacheInfoCommand))
 }

@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 
+	"github.com/alecthomas/kingpin"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/gather"
@@ -11,13 +12,34 @@ import (
 	"github.com/kopia/kopia/repo/content"
 )
 
-var (
-	repairCommand = repositoryCommands.Command("repair", "Repairs repository.")
+type commandRepositoryRepair struct {
+	repairCommandRecoverFormatBlob         string
+	repairCommandRecoverFormatBlobPrefixes []string
+	repairDryDrun                          bool
+}
 
-	repairCommandRecoverFormatBlob         = repairCommand.Flag("recover-format", "Recover format blob from a copy").Default("auto").Enum("auto", "yes", "no")
-	repairCommandRecoverFormatBlobPrefixes = repairCommand.Flag("recover-format-block-prefixes", "Prefixes of file names").Strings()
-	repairDryDrun                          = repairCommand.Flag("dry-run", "Do not modify repository").Short('n').Bool()
-)
+func (c *commandRepositoryRepair) setup(_ appServices, parent commandParent) {
+	cmd := parent.Command("repair", "Repairs repository.")
+
+	cmd.Flag("recover-format", "Recover format blob from a copy").Default("auto").EnumVar(&c.repairCommandRecoverFormatBlob, "auto", "yes", "no")
+	cmd.Flag("recover-format-block-prefixes", "Prefixes of file names").StringsVar(&c.repairCommandRecoverFormatBlobPrefixes)
+	cmd.Flag("dry-run", "Do not modify repository").Short('n').BoolVar(&c.repairDryDrun)
+
+	for _, prov := range storageProviders {
+		f := prov.newFlags()
+		cc := cmd.Command(prov.name, "Repair repository in "+prov.description)
+		f.setup(cc)
+		cc.Action(func(_ *kingpin.ParseContext) error {
+			ctx := rootContext()
+			st, err := f.connect(ctx, false)
+			if err != nil {
+				return errors.Wrap(err, "can't connect to storage")
+			}
+
+			return c.runRepairCommandWithStorage(ctx, st)
+		})
+	}
+}
 
 func packBlockPrefixes() []string {
 	var str []string
@@ -29,8 +51,8 @@ func packBlockPrefixes() []string {
 	return str
 }
 
-func runRepairCommandWithStorage(ctx context.Context, st blob.Storage) error {
-	switch *repairCommandRecoverFormatBlob {
+func (c *commandRepositoryRepair) runRepairCommandWithStorage(ctx context.Context, st blob.Storage) error {
+	switch c.repairCommandRecoverFormatBlob {
 	case "auto":
 		log(ctx).Infof("looking for format blob...")
 
@@ -43,22 +65,22 @@ func runRepairCommandWithStorage(ctx context.Context, st blob.Storage) error {
 		return nil
 	}
 
-	prefixes := *repairCommandRecoverFormatBlobPrefixes
+	prefixes := c.repairCommandRecoverFormatBlobPrefixes
 	if len(prefixes) == 0 {
 		prefixes = packBlockPrefixes()
 	}
 
-	return recoverFormatBlob(ctx, st, prefixes)
+	return c.recoverFormatBlob(ctx, st, prefixes)
 }
 
-func recoverFormatBlob(ctx context.Context, st blob.Storage, prefixes []string) error {
+func (c *commandRepositoryRepair) recoverFormatBlob(ctx context.Context, st blob.Storage, prefixes []string) error {
 	errSuccess := errors.New("success")
 
 	for _, prefix := range prefixes {
 		err := st.ListBlobs(ctx, blob.ID(prefix), func(bi blob.Metadata) error {
 			log(ctx).Infof("looking for replica of format blob in %v...", bi.BlobID)
 			if b, err := repo.RecoverFormatBlob(ctx, st, bi.BlobID, bi.Length); err == nil {
-				if !*repairDryDrun {
+				if !c.repairDryDrun {
 					if puterr := st.PutBlob(ctx, repo.FormatBlobID, gather.FromSlice(b)); puterr != nil {
 						return errors.Wrap(puterr, "error writing format blob")
 					}

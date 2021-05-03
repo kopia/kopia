@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/alecthomas/kingpin"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
@@ -19,30 +20,68 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 )
 
-var (
-	repositorySyncCommand              = repositoryCommands.Command("sync-to", "Synchronizes contents of this repository to another location")
-	repositorySyncUpdate               = repositorySyncCommand.Flag("update", "Whether to update blobs present in destination and source if the source is newer.").Default("true").Bool()
-	repositorySyncDelete               = repositorySyncCommand.Flag("delete", "Whether to delete blobs present in destination but not source.").Bool()
-	repositorySyncDryRun               = repositorySyncCommand.Flag("dry-run", "Do not perform copying.").Short('n').Bool()
-	repositorySyncParallelism          = repositorySyncCommand.Flag("parallel", "Copy parallelism.").Default("1").Int()
-	repositorySyncDestinationMustExist = repositorySyncCommand.Flag("must-exist", "Fail if destination does not have repository format blob.").Bool()
-	repositorySyncTimes                = repositorySyncCommand.Flag("times", "Synchronize blob times if supported.").Bool()
-)
+type commandRepositorySyncTo struct {
+	repositorySyncUpdate               bool
+	repositorySyncDelete               bool
+	repositorySyncDryRun               bool
+	repositorySyncParallelism          int
+	repositorySyncDestinationMustExist bool
+	repositorySyncTimes                bool
+
+	lastSyncProgress       string
+	syncProgressMutex      sync.Mutex
+	nextSyncOutputTime     timetrack.Throttle
+	setTimeUnsupportedOnce sync.Once
+}
+
+func (c *commandRepositorySyncTo) setup(svc advancedAppServices, parent commandParent) {
+	cmd := parent.Command("sync-to", "Synchronizes contents of this repository to another location")
+	cmd.Flag("update", "Whether to update blobs present in destination and source if the source is newer.").Default("true").BoolVar(&c.repositorySyncUpdate)
+	cmd.Flag("delete", "Whether to delete blobs present in destination but not source.").BoolVar(&c.repositorySyncDelete)
+	cmd.Flag("dry-run", "Do not perform copying.").Short('n').BoolVar(&c.repositorySyncDryRun)
+	cmd.Flag("parallel", "Copy parallelism.").Default("1").IntVar(&c.repositorySyncParallelism)
+	cmd.Flag("must-exist", "Fail if destination does not have repository format blob.").BoolVar(&c.repositorySyncDestinationMustExist)
+	cmd.Flag("times", "Synchronize blob times if supported.").BoolVar(&c.repositorySyncTimes)
+
+	for _, prov := range storageProviders {
+		// Set up 'sync-to' subcommand
+		f := prov.newFlags()
+		cc := cmd.Command(prov.name, "Synchronize repository data to another repository in "+prov.description)
+		f.setup(cc)
+		cc.Action(func(_ *kingpin.ParseContext) error {
+			ctx := rootContext()
+			st, err := f.connect(ctx, false)
+			if err != nil {
+				return errors.Wrap(err, "can't connect to storage")
+			}
+
+			rep, err := svc.openRepository(ctx, true)
+			if err != nil {
+				return errors.Wrap(err, "open repository")
+			}
+
+			dr, ok := rep.(repo.DirectRepository)
+			if !ok {
+				return errors.Errorf("sync only supports directly-connected repositories")
+			}
+
+			return c.runSyncWithStorage(ctx, dr.BlobReader(), st)
+		})
+	}
+}
 
 const syncProgressInterval = 300 * time.Millisecond
 
-func runSyncWithStorage(ctx context.Context, src blob.Reader, dst blob.Storage) error {
-	var ()
-
+func (c *commandRepositorySyncTo) runSyncWithStorage(ctx context.Context, src blob.Reader, dst blob.Storage) error {
 	log(ctx).Infof("Synchronizing repositories:")
 	log(ctx).Infof("  Source:      %v", src.DisplayName())
 	log(ctx).Infof("  Destination: %v", dst.DisplayName())
 
-	if !*repositorySyncDelete {
+	if !c.repositorySyncDelete {
 		log(ctx).Infof("NOTE: By default no BLOBs are deleted, pass --delete to allow it.")
 	}
 
-	if err := ensureRepositoriesHaveSameFormatBlob(ctx, src, dst); err != nil {
+	if err := c.ensureRepositoriesHaveSameFormatBlob(ctx, src, dst); err != nil {
 		return err
 	}
 
@@ -62,12 +101,12 @@ func runSyncWithStorage(ctx context.Context, src blob.Reader, dst blob.Storage) 
 		totalSrcSize int64
 	)
 
-	dstMetadata, err := listDestinationBlobs(ctx, dst)
+	dstMetadata, err := c.listDestinationBlobs(ctx, dst)
 	if err != nil {
 		return err
 	}
 
-	beginSyncProgress()
+	c.beginSyncProgress()
 
 	if err := src.ListBlobs(ctx, "", func(srcmd blob.Metadata) error {
 		totalSrcSize += srcmd.Length
@@ -79,7 +118,7 @@ func runSyncWithStorage(ctx context.Context, src blob.Reader, dst blob.Storage) 
 		case !exists:
 			blobsToCopy = append(blobsToCopy, srcmd)
 			totalCopyBytes += srcmd.Length
-		case srcmd.Timestamp.After(dstmd.Timestamp) && *repositorySyncUpdate:
+		case srcmd.Timestamp.After(dstmd.Timestamp) && c.repositorySyncUpdate:
 			blobsToCopy = append(blobsToCopy, srcmd)
 			totalCopyBytes += srcmd.Length
 		default:
@@ -88,16 +127,16 @@ func runSyncWithStorage(ctx context.Context, src blob.Reader, dst blob.Storage) 
 		}
 
 		srcBlobs++
-		outputSyncProgress(fmt.Sprintf("  Found %v BLOBs (%v) in the source repository, %v (%v) to copy", srcBlobs, units.BytesStringBase10(totalSrcSize), len(blobsToCopy), units.BytesStringBase10(totalCopyBytes)))
+		c.outputSyncProgress(fmt.Sprintf("  Found %v BLOBs (%v) in the source repository, %v (%v) to copy", srcBlobs, units.BytesStringBase10(totalSrcSize), len(blobsToCopy), units.BytesStringBase10(totalCopyBytes)))
 
 		return nil
 	}); err != nil {
 		return errors.Wrap(err, "error listing blobs")
 	}
 
-	finishSyncProcess()
+	c.finishSyncProcess()
 
-	if *repositorySyncDelete {
+	if c.repositorySyncDelete {
 		for _, dstmd := range dstMetadata {
 			// found in dst, not in src since we were deleting from dst as we found a match.
 			blobsToDelete = append(blobsToDelete, dstmd)
@@ -111,73 +150,67 @@ func runSyncWithStorage(ctx context.Context, src blob.Reader, dst blob.Storage) 
 		inSyncBlobs, units.BytesStringBase10(inSyncBytes),
 	)
 
-	if *repositorySyncDryRun {
+	if c.repositorySyncDryRun {
 		return nil
 	}
 
 	log(ctx).Infof("Copying...")
 
-	beginSyncProgress()
+	c.beginSyncProgress()
 
-	finalErr := runSyncBlobs(ctx, src, dst, blobsToCopy, blobsToDelete, totalCopyBytes)
+	finalErr := c.runSyncBlobs(ctx, src, dst, blobsToCopy, blobsToDelete, totalCopyBytes)
 
-	finishSyncProcess()
+	c.finishSyncProcess()
 
 	return finalErr
 }
 
-func listDestinationBlobs(ctx context.Context, dst blob.Storage) (map[blob.ID]blob.Metadata, error) {
+func (c *commandRepositorySyncTo) listDestinationBlobs(ctx context.Context, dst blob.Storage) (map[blob.ID]blob.Metadata, error) {
 	dstTotalBytes := int64(0)
 	dstMetadata := map[blob.ID]blob.Metadata{}
 
-	beginSyncProgress()
+	c.beginSyncProgress()
 
 	if err := dst.ListBlobs(ctx, "", func(bm blob.Metadata) error {
 		dstMetadata[bm.BlobID] = bm
 		dstTotalBytes += bm.Length
-		outputSyncProgress(fmt.Sprintf("  Found %v BLOBs in the destination repository (%v)", len(dstMetadata), units.BytesStringBase10(dstTotalBytes)))
+		c.outputSyncProgress(fmt.Sprintf("  Found %v BLOBs in the destination repository (%v)", len(dstMetadata), units.BytesStringBase10(dstTotalBytes)))
 		return nil
 	}); err != nil {
 		return nil, errors.Wrap(err, "error listing BLOBs in destination repository")
 	}
 
-	finishSyncProcess()
+	c.finishSyncProcess()
 
 	return dstMetadata, nil
 }
 
-var (
-	lastSyncProgress   string
-	syncProgressMutex  sync.Mutex
-	nextSyncOutputTime timetrack.Throttle
-)
+func (c *commandRepositorySyncTo) beginSyncProgress() {
+	c.lastSyncProgress = ""
 
-func beginSyncProgress() {
-	lastSyncProgress = ""
-
-	nextSyncOutputTime.Reset()
+	c.nextSyncOutputTime.Reset()
 }
 
-func outputSyncProgress(s string) {
-	syncProgressMutex.Lock()
-	defer syncProgressMutex.Unlock()
+func (c *commandRepositorySyncTo) outputSyncProgress(s string) {
+	c.syncProgressMutex.Lock()
+	defer c.syncProgressMutex.Unlock()
 
-	if len(s) < len(lastSyncProgress) {
-		s += strings.Repeat(" ", len(lastSyncProgress)-len(s))
+	if len(s) < len(c.lastSyncProgress) {
+		s += strings.Repeat(" ", len(c.lastSyncProgress)-len(s))
 	}
 
-	if nextSyncOutputTime.ShouldOutput(syncProgressInterval) {
+	if c.nextSyncOutputTime.ShouldOutput(syncProgressInterval) {
 		printStderr("\r%v", s)
 	}
 
-	lastSyncProgress = s
+	c.lastSyncProgress = s
 }
 
-func finishSyncProcess() {
-	printStderr("\r%v\n", lastSyncProgress)
+func (c *commandRepositorySyncTo) finishSyncProcess() {
+	printStderr("\r%v\n", c.lastSyncProgress)
 }
 
-func runSyncBlobs(ctx context.Context, src blob.Reader, dst blob.Storage, blobsToCopy, blobsToDelete []blob.Metadata, totalBytes int64) error {
+func (c *commandRepositorySyncTo) runSyncBlobs(ctx context.Context, src blob.Reader, dst blob.Storage, blobsToCopy, blobsToDelete []blob.Metadata, totalBytes int64) error {
 	eg, ctx := errgroup.WithContext(ctx)
 	copyCh := sliceToChannel(ctx, blobsToCopy)
 	deleteCh := sliceToChannel(ctx, blobsToDelete)
@@ -188,13 +221,13 @@ func runSyncBlobs(ctx context.Context, src blob.Reader, dst blob.Storage, blobsT
 
 	tt := timetrack.Start()
 
-	for i := 0; i < *repositorySyncParallelism; i++ {
+	for i := 0; i < c.repositorySyncParallelism; i++ {
 		workerID := i
 
 		eg.Go(func() error {
 			for m := range copyCh {
 				log(ctx).Debugf("[%v] Copying %v (%v bytes)...\n", workerID, m.BlobID, m.Length)
-				if err := syncCopyBlob(ctx, m, src, dst); err != nil {
+				if err := c.syncCopyBlob(ctx, m, src, dst); err != nil {
 					return errors.Wrapf(err, "error copying %v", m.BlobID)
 				}
 
@@ -208,7 +241,7 @@ func runSyncBlobs(ctx context.Context, src blob.Reader, dst blob.Storage, blobsT
 					speed = units.BitsPerSecondsString(est.SpeedPerSecond * 8) //nolint:gomnd
 				}
 
-				outputSyncProgress(
+				c.outputSyncProgress(
 					fmt.Sprintf("  Copied %v blobs (%v), Speed: %v, ETA: %v",
 						numBlobs, units.BytesStringBase10(bytesCopied), speed, eta))
 				progressMutex.Unlock()
@@ -249,9 +282,7 @@ func sliceToChannel(ctx context.Context, md []blob.Metadata) chan blob.Metadata 
 	return ch
 }
 
-var setTimeUnsupportedOnce sync.Once
-
-func syncCopyBlob(ctx context.Context, m blob.Metadata, src blob.Reader, dst blob.Storage) error {
+func (c *commandRepositorySyncTo) syncCopyBlob(ctx context.Context, m blob.Metadata, src blob.Reader, dst blob.Storage) error {
 	data, err := src.GetBlob(ctx, m.BlobID, 0, -1)
 	if err != nil {
 		if errors.Is(err, blob.ErrBlobNotFound) {
@@ -266,10 +297,10 @@ func syncCopyBlob(ctx context.Context, m blob.Metadata, src blob.Reader, dst blo
 		return errors.Wrapf(err, "error writing blob '%v' to destination", m.BlobID)
 	}
 
-	if *repositorySyncTimes {
+	if c.repositorySyncTimes {
 		if err := dst.SetTime(ctx, m.BlobID, m.Timestamp); err != nil {
 			if errors.Is(err, blob.ErrSetTimeUnsupported) {
-				setTimeUnsupportedOnce.Do(func() {
+				c.setTimeUnsupportedOnce.Do(func() {
 					log(ctx).Infof("destination repository does not support setting time")
 				})
 			}
@@ -291,7 +322,7 @@ func syncDeleteBlob(ctx context.Context, m blob.Metadata, dst blob.Storage) erro
 	return errors.Wrap(err, "error deleting blob")
 }
 
-func ensureRepositoriesHaveSameFormatBlob(ctx context.Context, src blob.Reader, dst blob.Storage) error {
+func (c *commandRepositorySyncTo) ensureRepositoriesHaveSameFormatBlob(ctx context.Context, src blob.Reader, dst blob.Storage) error {
 	srcData, err := src.GetBlob(ctx, repo.FormatBlobID, 0, -1)
 	if err != nil {
 		return errors.Wrap(err, "error reading format blob")
@@ -301,7 +332,7 @@ func ensureRepositoriesHaveSameFormatBlob(ctx context.Context, src blob.Reader, 
 	if err != nil {
 		// target does not have format blob, save it there first.
 		if errors.Is(err, blob.ErrBlobNotFound) {
-			if *repositorySyncDestinationMustExist {
+			if c.repositorySyncDestinationMustExist {
 				return errors.Errorf("destination repository does not have a format blob")
 			}
 

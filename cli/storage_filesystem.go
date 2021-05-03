@@ -14,23 +14,32 @@ import (
 	"github.com/kopia/kopia/repo/blob/filesystem"
 )
 
-var options filesystem.Options
-
 const (
 	defaultFileMode = 0o600
 	defaultDirMode  = 0o700
 )
 
-var (
+type storageFilesystemFlags struct {
+	options filesystem.Options
+
 	connectOwnerUID string
 	connectOwnerGID string
 	connectFileMode string
 	connectDirMode  string
 	connectFlat     bool
-)
+}
 
-func connect(ctx context.Context, isNew bool) (blob.Storage, error) {
-	fso := options
+func (c *storageFilesystemFlags) setup(cmd *kingpin.CmdClause) {
+	cmd.Flag("path", "Path to the repository").Required().StringVar(&c.options.Path)
+	cmd.Flag("owner-uid", "User ID owning newly created files").PlaceHolder("USER").StringVar(&c.connectOwnerUID)
+	cmd.Flag("owner-gid", "Group ID owning newly created files").PlaceHolder("GROUP").StringVar(&c.connectOwnerGID)
+	cmd.Flag("file-mode", "File mode for newly created files (0600)").PlaceHolder("MODE").StringVar(&c.connectFileMode)
+	cmd.Flag("dir-mode", "Mode of newly directory files (0700)").PlaceHolder("MODE").StringVar(&c.connectDirMode)
+	cmd.Flag("flat", "Use flat directory structure").BoolVar(&c.connectFlat)
+}
+
+func (c *storageFilesystemFlags) connect(ctx context.Context, isNew bool) (blob.Storage, error) {
+	fso := c.options
 
 	fso.Path = ospath.ResolveUserFriendlyPath(fso.Path, false)
 
@@ -38,18 +47,18 @@ func connect(ctx context.Context, isNew bool) (blob.Storage, error) {
 		return nil, errors.Errorf("filesystem repository path must be absolute")
 	}
 
-	if v := connectOwnerUID; v != "" {
+	if v := c.connectOwnerUID; v != "" {
 		fso.FileUID = getIntPtrValue(v, 10)
 	}
 
-	if v := connectOwnerGID; v != "" {
+	if v := c.connectOwnerGID; v != "" {
 		fso.FileGID = getIntPtrValue(v, 10)
 	}
 
-	fso.FileMode = getFileModeValue(connectFileMode, defaultFileMode)
-	fso.DirectoryMode = getFileModeValue(connectDirMode, defaultDirMode)
+	fso.FileMode = getFileModeValue(c.connectFileMode, defaultFileMode)
+	fso.DirectoryMode = getFileModeValue(c.connectDirMode, defaultDirMode)
 
-	if connectFlat {
+	if c.connectFlat {
 		fso.DirectoryShards = []int{}
 	}
 
@@ -62,21 +71,6 @@ func connect(ctx context.Context, isNew bool) (blob.Storage, error) {
 	}
 
 	return filesystem.New(ctx, &fso)
-}
-
-func init() {
-	RegisterStorageConnectFlags(
-		"filesystem",
-		"a filesystem",
-		func(cmd *kingpin.CmdClause) {
-			cmd.Flag("path", "Path to the repository").Required().StringVar(&options.Path)
-			cmd.Flag("owner-uid", "User ID owning newly created files").PlaceHolder("USER").StringVar(&connectOwnerUID)
-			cmd.Flag("owner-gid", "Group ID owning newly created files").PlaceHolder("GROUP").StringVar(&connectOwnerGID)
-			cmd.Flag("file-mode", "File mode for newly created files (0600)").PlaceHolder("MODE").StringVar(&connectFileMode)
-			cmd.Flag("dir-mode", "Mode of newly directory files (0700)").PlaceHolder("MODE").StringVar(&connectDirMode)
-			cmd.Flag("flat", "Use flat directory structure").BoolVar(&connectFlat)
-		},
-		connect)
 }
 
 func getIntPtrValue(value string, base int) *int {

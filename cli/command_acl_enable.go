@@ -10,22 +10,27 @@ import (
 	"github.com/kopia/kopia/repo"
 )
 
-var (
-	aclEnableCommand = aclCommands.Command("enable", "Enable ACLs and install default entries")
-	aclEnableReset   = aclCommands.Flag("reset", "Reset all ACLs to default").Bool()
-)
+type commandACLEnable struct {
+	reset bool
+}
 
-func runACLEnable(ctx context.Context, rep repo.RepositoryWriter) error {
+func (c *commandACLEnable) setup(svc appServices, parent commandParent) {
+	cmd := parent.Command("enable", "Enable ACLs and install default entries")
+	cmd.Flag("reset", "Reset all ACLs to default").BoolVar(&c.reset)
+	cmd.Action(svc.repositoryWriterAction(c.run))
+}
+
+func (c *commandACLEnable) run(ctx context.Context, rep repo.RepositoryWriter) error {
 	entries, err := acl.LoadEntries(ctx, rep, nil)
 	if err != nil {
 		return errors.Wrap(err, "error loading ACL entries")
 	}
 
-	if len(entries) != 0 && !*aclEnableReset {
+	if len(entries) != 0 && !c.reset {
 		return errors.Errorf("ACLs already enabled")
 	}
 
-	if *aclEnableReset {
+	if c.reset {
 		for _, e := range entries {
 			log(ctx).Infof("deleting previous ACL entry %v", e.ManifestID)
 
@@ -42,8 +47,4 @@ func runACLEnable(ctx context.Context, rep repo.RepositoryWriter) error {
 	}
 
 	return nil
-}
-
-func init() {
-	aclEnableCommand.Action(repositoryWriterAction(runACLEnable))
 }

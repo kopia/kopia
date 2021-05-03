@@ -7,12 +7,16 @@ import (
 	"github.com/kopia/kopia/internal/serverapi"
 )
 
-var serverFlushCommand = serverCommands.Command("flush", "Flush the state of Kopia server to persistent storage, etc.")
-
-func init() {
-	serverFlushCommand.Action(serverAction(runServerFlush))
+type commandServerFlush struct {
+	sf serverClientFlags
 }
 
-func runServerFlush(ctx context.Context, cli *apiclient.KopiaAPIClient) error {
+func (c *commandServerFlush) setup(svc appServices, parent commandParent) {
+	cmd := parent.Command("flush", "Flush the state of Kopia server to persistent storage, etc.")
+	c.sf.setup(cmd)
+	cmd.Action(svc.serverAction(&c.sf, c.run))
+}
+
+func (c *commandServerFlush) run(ctx context.Context, cli *apiclient.KopiaAPIClient) error {
 	return cli.Post(ctx, "flush", &serverapi.Empty{}, &serverapi.Empty{})
 }

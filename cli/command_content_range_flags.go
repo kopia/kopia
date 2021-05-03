@@ -6,26 +6,26 @@ import (
 	"github.com/kopia/kopia/repo/content"
 )
 
-var (
+type contentRangeFlags struct {
 	contentIDPrefix      string
 	contentIDNonPrefixed bool
 	contentIDPrefixed    bool
-)
-
-func setupContentIDRangeFlags(cmd *kingpin.CmdClause) {
-	cmd.Flag("prefix", "Content ID prefix").StringVar(&contentIDPrefix)
-	cmd.Flag("prefixed", "Apply to content IDs with (any) prefix").BoolVar(&contentIDPrefixed)
-	cmd.Flag("non-prefixed", "Apply to content IDs without prefix").BoolVar(&contentIDNonPrefixed)
 }
 
-func contentIDRange() content.IDRange {
-	if contentIDPrefixed {
+func (c *contentRangeFlags) setup(cmd *kingpin.CmdClause) {
+	cmd.Flag("prefix", "Content ID prefix").StringVar(&c.contentIDPrefix)
+	cmd.Flag("prefixed", "Apply to content IDs with (any) prefix").BoolVar(&c.contentIDPrefixed)
+	cmd.Flag("non-prefixed", "Apply to content IDs without prefix").BoolVar(&c.contentIDNonPrefixed)
+}
+
+func (c *contentRangeFlags) contentIDRange() content.IDRange {
+	if c.contentIDPrefixed {
 		return content.AllPrefixedIDs
 	}
 
-	if contentIDNonPrefixed {
+	if c.contentIDNonPrefixed {
 		return content.AllNonPrefixedIDs
 	}
 
-	return content.PrefixRange(content.ID(contentIDPrefix))
+	return content.PrefixRange(content.ID(c.contentIDPrefix))
 }

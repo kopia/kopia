@@ -284,7 +284,10 @@ weight: 10
 func main() {
 	flag.Parse()
 
-	app := cli.App().Model()
+	kingpinApp := kingpin.New("kopia", "Kopia - Fast And Secure Open-Source Backup").Author("http://kopia.github.io/")
+	cli.Attach(kingpinApp)
+
+	app := kingpinApp.Model()
 
 	if err := generateAppFlags(app); err != nil {
 		log.Fatalf("unable to generate common flags: %v", err)

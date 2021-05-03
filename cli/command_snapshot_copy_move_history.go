@@ -11,14 +11,28 @@ import (
 	"github.com/kopia/kopia/snapshot"
 )
 
-var (
-	snapshotCopyCommand = snapshotCommands.Command("copy-history", snapshotCopyMoveHelp("copy"))
-	snapshotMoveCommand = snapshotCommands.Command("move-history", snapshotCopyMoveHelp("move"))
-
+type commandSnapshotCopyMoveHistory struct {
 	snapshotCopyOrMoveDryRun      bool
 	snapshotCopyOrMoveSource      string
 	snapshotCopyOrMoveDestination string
-)
+}
+
+func (c *commandSnapshotCopyMoveHistory) setup(svc appServices, parent commandParent, isMove bool) {
+	var cmd *kingpin.CmdClause
+	if isMove {
+		cmd = parent.Command("move-history", snapshotCopyMoveHelp("move"))
+	} else {
+		cmd = parent.Command("copy-history", snapshotCopyMoveHelp("copy"))
+	}
+
+	cmd.Flag("dry-run", "Do not actually copy snapshots, only print what would happen").Short('n').BoolVar(&c.snapshotCopyOrMoveDryRun)
+	cmd.Arg("source", "Source (user@host or user@host:path)").Required().StringVar(&c.snapshotCopyOrMoveSource)
+	cmd.Arg("destination", "Destination (defaults to current user@host)").StringVar(&c.snapshotCopyOrMoveDestination)
+
+	cmd.Action(svc.repositoryWriterAction(func(ctx context.Context, rep repo.RepositoryWriter) error {
+		return c.run(ctx, rep, isMove)
+	}))
+}
 
 func snapshotCopyMoveHelp(verb string) string {
 	return strings.ReplaceAll(`Performs a VERB of the history of snapshots from another user or host.
@@ -44,13 +58,7 @@ func snapshotCopyMoveHelp(verb string) string {
 `, "VERB", verb)
 }
 
-func registerSnapshotCopyFlags(cmd *kingpin.CmdClause) {
-	cmd.Flag("dry-run", "Do not actually copy snapshots, only print what would happen").Short('n').BoolVar(&snapshotCopyOrMoveDryRun)
-	cmd.Arg("source", "Source (user@host or user@host:path)").Required().StringVar(&snapshotCopyOrMoveSource)
-	cmd.Arg("destination", "Destination (defaults to current user@host)").StringVar(&snapshotCopyOrMoveDestination)
-}
-
-// runSnapshotCopyCommand copies snapshot manifests of the specified source
+// run copies snapshot manifests of the specified source
 // to the respective destination. This is typically used when renaming a host,
 // switching username or moving directory around to maintain snapshot history.
 //
@@ -71,8 +79,8 @@ func registerSnapshotCopyFlags(cmd *kingpin.CmdClause) {
 // user1@host1:/path1  @host2              copy to user1@host2:/path1
 // user1@host1:/path1  user2@host2         copy to user2@host2:/path1
 // user1@host1:/path1  user2@host2:/path2  copy snapshots from single path.
-func runSnapshotCopyCommand(ctx context.Context, rep repo.RepositoryWriter, isMoveCommand bool) error {
-	si, di, err := getCopySourceAndDestination(rep)
+func (c *commandSnapshotCopyMoveHistory) run(ctx context.Context, rep repo.RepositoryWriter, isMoveCommand bool) error {
+	si, di, err := c.getCopySourceAndDestination(rep)
 	if err != nil {
 		return err
 	}
@@ -99,7 +107,7 @@ func runSnapshotCopyCommand(ctx context.Context, rep repo.RepositoryWriter, isMo
 		}
 
 		if snapshotExists(dstSnapshots, dstSource, manifest) {
-			if isMoveCommand && !snapshotCopyOrMoveDryRun {
+			if isMoveCommand && !c.snapshotCopyOrMoveDryRun {
 				log(ctx).Infof("%v (%v) already exists - deleting source", dstSource, formatTimestamp(manifest.StartTime))
 
 				if err := rep.DeleteManifest(ctx, manifest.ID); err != nil {
@@ -114,9 +122,9 @@ func runSnapshotCopyCommand(ctx context.Context, rep repo.RepositoryWriter, isMo
 
 		srcID := manifest.ID
 
-		log(ctx).Infof("%v %v (%v) => %v", getCopySnapshotAction(isMoveCommand), manifest.Source, formatTimestamp(manifest.StartTime), dstSource)
+		log(ctx).Infof("%v %v (%v) => %v", c.getCopySnapshotAction(isMoveCommand), manifest.Source, formatTimestamp(manifest.StartTime), dstSource)
 
-		if snapshotCopyOrMoveDryRun {
+		if c.snapshotCopyOrMoveDryRun {
 			continue
 		}
 
@@ -137,31 +145,31 @@ func runSnapshotCopyCommand(ctx context.Context, rep repo.RepositoryWriter, isMo
 	return nil
 }
 
-func getCopySnapshotAction(isMoveCommand bool) string {
+func (c *commandSnapshotCopyMoveHistory) getCopySnapshotAction(isMoveCommand bool) string {
 	action := "copying"
 	if isMoveCommand {
 		action = "moving"
 	}
 
-	if snapshotCopyOrMoveDryRun {
+	if c.snapshotCopyOrMoveDryRun {
 		action += " (dry run)"
 	}
 
 	return action
 }
 
-func getCopySourceAndDestination(rep repo.RepositoryWriter) (si, di snapshot.SourceInfo, err error) {
-	si, err = snapshot.ParseSourceInfo(snapshotCopyOrMoveSource, rep.ClientOptions().Hostname, rep.ClientOptions().Username)
+func (c *commandSnapshotCopyMoveHistory) getCopySourceAndDestination(rep repo.RepositoryWriter) (si, di snapshot.SourceInfo, err error) {
+	si, err = snapshot.ParseSourceInfo(c.snapshotCopyOrMoveSource, rep.ClientOptions().Hostname, rep.ClientOptions().Username)
 	if err != nil {
 		return si, di, errors.Wrap(err, "invalid source")
 	}
 
-	if snapshotCopyOrMoveDestination == "" {
+	if c.snapshotCopyOrMoveDestination == "" {
 		// no destination - assume current user@hostname
 		di.UserName = rep.ClientOptions().Username
 		di.Host = rep.ClientOptions().Hostname
 	} else {
-		di, err = snapshot.ParseSourceInfo(snapshotCopyOrMoveDestination, rep.ClientOptions().Hostname, rep.ClientOptions().Username)
+		di, err = snapshot.ParseSourceInfo(c.snapshotCopyOrMoveDestination, rep.ClientOptions().Hostname, rep.ClientOptions().Username)
 		if err != nil {
 			return si, di, errors.Wrap(err, "invalid destination")
 		}
@@ -226,17 +234,4 @@ func getCopyDestination(source, overrides snapshot.SourceInfo) snapshot.SourceIn
 	}
 
 	return dst
-}
-
-func init() {
-	registerSnapshotCopyFlags(snapshotCopyCommand)
-
-	snapshotCopyCommand.Action(repositoryWriterAction(func(ctx context.Context, rep repo.RepositoryWriter) error {
-		return runSnapshotCopyCommand(ctx, rep, false)
-	}))
-
-	registerSnapshotCopyFlags(snapshotMoveCommand)
-	snapshotMoveCommand.Action(repositoryWriterAction(func(ctx context.Context, rep repo.RepositoryWriter) error {
-		return runSnapshotCopyCommand(ctx, rep, true)
-	}))
 }

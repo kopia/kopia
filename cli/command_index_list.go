@@ -10,25 +10,35 @@ import (
 	"github.com/kopia/kopia/repo"
 )
 
-var (
-	blockIndexListCommand           = indexCommands.Command("list", "List content indexes").Alias("ls").Default()
-	blockIndexListSummary           = blockIndexListCommand.Flag("summary", "Display index blob summary").Bool()
-	blockIndexListIncludeSuperseded = blockIndexListCommand.Flag("superseded", "Include inactive index files superseded by compaction").Bool()
-	blockIndexListSort              = blockIndexListCommand.Flag("sort", "Index blob sort order").Default("time").Enum("time", "size", "name")
-)
+type commandIndexList struct {
+	blockIndexListSummary           bool
+	blockIndexListIncludeSuperseded bool
+	blockIndexListSort              string
 
-func runListBlockIndexesAction(ctx context.Context, rep repo.DirectRepository) error {
+	jo jsonOutput
+}
+
+func (c *commandIndexList) setup(svc appServices, parent commandParent) {
+	cmd := parent.Command("list", "List content indexes").Alias("ls").Default()
+	cmd.Flag("summary", "Display index blob summary").BoolVar(&c.blockIndexListSummary)
+	cmd.Flag("superseded", "Include inactive index files superseded by compaction").BoolVar(&c.blockIndexListIncludeSuperseded)
+	cmd.Flag("sort", "Index blob sort order").Default("time").EnumVar(&c.blockIndexListSort, "time", "size", "name")
+	c.jo.setup(cmd)
+	cmd.Action(svc.directRepositoryReadAction(c.run))
+}
+
+func (c *commandIndexList) run(ctx context.Context, rep repo.DirectRepository) error {
 	var jl jsonList
 
-	jl.begin()
+	jl.begin(&c.jo)
 	defer jl.end()
 
-	blks, err := rep.IndexBlobReader().IndexBlobs(ctx, *blockIndexListIncludeSuperseded)
+	blks, err := rep.IndexBlobReader().IndexBlobs(ctx, c.blockIndexListIncludeSuperseded)
 	if err != nil {
 		return errors.Wrap(err, "error listing index blobs")
 	}
 
-	switch *blockIndexListSort {
+	switch c.blockIndexListSort {
 	case "time":
 		sort.Slice(blks, func(i, j int) bool {
 			return blks[i].Timestamp.Before(blks[j].Timestamp)
@@ -44,21 +54,16 @@ func runListBlockIndexesAction(ctx context.Context, rep repo.DirectRepository) e
 	}
 
 	for _, b := range blks {
-		if jsonOutput {
+		if c.jo.jsonOutput {
 			jl.emit(b)
 		} else {
 			fmt.Printf("%-40v %10v %v %v\n", b.BlobID, b.Length, formatTimestampPrecise(b.Timestamp), b.Superseded)
 		}
 	}
 
-	if *blockIndexListSummary && !jsonOutput {
+	if c.blockIndexListSummary && !c.jo.jsonOutput {
 		fmt.Printf("total %v indexes\n", len(blks))
 	}
 
 	return nil
-}
-
-func init() {
-	registerJSONOutputFlags(blockIndexListCommand)
-	blockIndexListCommand.Action(directRepositoryReadAction(runListBlockIndexesAction))
 }

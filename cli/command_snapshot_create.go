@@ -22,33 +22,58 @@ const (
 	timeFormat                   = "2006-01-02 15:04:05 MST"
 )
 
-var (
-	snapshotCreateCommand = snapshotCommands.Command("create", "Creates a snapshot of local directory or file.").Default()
+type commandSnapshotCreate struct {
+	snapshotCreateSources                 []string
+	snapshotCreateAll                     bool
+	snapshotCreateDescription             string
+	snapshotCreateCheckpointInterval      time.Duration
+	snapshotCreateFailFast                bool
+	snapshotCreateForceHash               int
+	snapshotCreateParallelUploads         int
+	snapshotCreateStartTime               string
+	snapshotCreateEndTime                 string
+	snapshotCreateForceEnableActions      bool
+	snapshotCreateForceDisableActions     bool
+	snapshotCreateStdinFileName           string
+	snapshotCreateCheckpointUploadLimitMB int64
+	snapshotCreateTags                    []string
 
-	snapshotCreateSources                 = snapshotCreateCommand.Arg("source", "Files or directories to create snapshot(s) of.").Strings()
-	snapshotCreateAll                     = snapshotCreateCommand.Flag("all", "Create snapshots for files or directories previously backed up by this user on this computer").Bool()
-	snapshotCreateCheckpointUploadLimitMB = snapshotCreateCommand.Flag("upload-limit-mb", "Stop the backup process after the specified amount of data (in MB) has been uploaded.").PlaceHolder("MB").Default("0").Int64()
-	snapshotCreateCheckpointInterval      = snapshotCreateCommand.Flag("checkpoint-interval", "Frequency for creating periodic checkpoint.").Duration()
-	snapshotCreateDescription             = snapshotCreateCommand.Flag("description", "Free-form snapshot description.").String()
-	snapshotCreateFailFast                = snapshotCreateCommand.Flag("fail-fast", "Fail fast when creating snapshot.").Envar("KOPIA_SNAPSHOT_FAIL_FAST").Bool()
-	snapshotCreateForceHash               = snapshotCreateCommand.Flag("force-hash", "Force hashing of source files for a given percentage of files [0..100]").Default("0").Int()
-	snapshotCreateParallelUploads         = snapshotCreateCommand.Flag("parallel", "Upload N files in parallel").PlaceHolder("N").Default("0").Int()
-	snapshotCreateStartTime               = snapshotCreateCommand.Flag("start-time", "Override snapshot start timestamp.").String()
-	snapshotCreateEndTime                 = snapshotCreateCommand.Flag("end-time", "Override snapshot end timestamp.").String()
-	snapshotCreateForceEnableActions      = snapshotCreateCommand.Flag("force-enable-actions", "Enable snapshot actions even if globally disabled on this client").Hidden().Bool()
-	snapshotCreateForceDisableActions     = snapshotCreateCommand.Flag("force-disable-actions", "Disable snapshot actions even if globally enabled on this client").Hidden().Bool()
-	snapshotCreateStdinFileName           = snapshotCreateCommand.Flag("stdin-file", "File path to be used for stdin data snapshot.").String()
-	snapshotCreateTags                    = snapshotCreateCommand.Flag("tags", "Tags applied on the snapshot. Must be provided in the <key>:<value> format.").Strings()
-)
+	jo  jsonOutput
+	svc appServices
+}
 
-func runSnapshotCommand(ctx context.Context, rep repo.RepositoryWriter) error {
-	sources := *snapshotCreateSources
+func (c *commandSnapshotCreate) setup(svc appServices, parent commandParent) {
+	cmd := parent.Command("create", "Creates a snapshot of local directory or file.").Default()
+
+	cmd.Arg("source", "Files or directories to create snapshot(s) of.").StringsVar(&c.snapshotCreateSources)
+	cmd.Flag("all", "Create snapshots for files or directories previously backed up by this user on this computer").BoolVar(&c.snapshotCreateAll)
+	cmd.Flag("upload-limit-mb", "Stop the backup process after the specified amount of data (in MB) has been uploaded.").PlaceHolder("MB").Default("0").Int64Var(&c.snapshotCreateCheckpointUploadLimitMB)
+	cmd.Flag("checkpoint-interval", "Frequency for creating periodic checkpoint.").DurationVar(&c.snapshotCreateCheckpointInterval)
+	cmd.Flag("description", "Free-form snapshot description.").StringVar(&c.snapshotCreateDescription)
+	cmd.Flag("fail-fast", "Fail fast when creating snapshot.").Envar("KOPIA_SNAPSHOT_FAIL_FAST").BoolVar(&c.snapshotCreateFailFast)
+	cmd.Flag("force-hash", "Force hashing of source files for a given percentage of files [0..100]").Default("0").IntVar(&c.snapshotCreateForceHash)
+	cmd.Flag("parallel", "Upload N files in parallel").PlaceHolder("N").Default("0").IntVar(&c.snapshotCreateParallelUploads)
+	cmd.Flag("start-time", "Override snapshot start timestamp.").StringVar(&c.snapshotCreateStartTime)
+	cmd.Flag("end-time", "Override snapshot end timestamp.").StringVar(&c.snapshotCreateEndTime)
+	cmd.Flag("force-enable-actions", "Enable snapshot actions even if globally disabled on this client").Hidden().BoolVar(&c.snapshotCreateForceEnableActions)
+	cmd.Flag("force-disable-actions", "Disable snapshot actions even if globally enabled on this client").Hidden().BoolVar(&c.snapshotCreateForceDisableActions)
+	cmd.Flag("stdin-file", "File path to be used for stdin data snapshot.").StringVar(&c.snapshotCreateStdinFileName)
+	cmd.Flag("tags", "Tags applied on the snapshot. Must be provided in the <key>:<value> format.").StringsVar(&c.snapshotCreateTags)
+
+	c.jo.setup(cmd)
+
+	c.svc = svc
+	cmd.Action(svc.repositoryWriterAction(c.run))
+}
+
+func (c *commandSnapshotCreate) run(ctx context.Context, rep repo.RepositoryWriter) error {
+	sources := c.snapshotCreateSources
 
 	if err := maybeAutoUpgradeRepository(ctx, rep); err != nil {
 		return errors.Wrap(err, "error upgrading repository")
 	}
 
-	if *snapshotCreateAll {
+	if c.snapshotCreateAll {
 		local, err := getLocalBackupPaths(ctx, rep)
 		if err != nil {
 			return err
@@ -61,19 +86,19 @@ func runSnapshotCommand(ctx context.Context, rep repo.RepositoryWriter) error {
 		return errors.New("no snapshot sources")
 	}
 
-	if err := validateStartEndTime(*snapshotCreateStartTime, *snapshotCreateEndTime); err != nil {
+	if err := validateStartEndTime(c.snapshotCreateStartTime, c.snapshotCreateEndTime); err != nil {
 		return err
 	}
 
-	if len(*snapshotCreateDescription) > maxSnapshotDescriptionLength {
+	if len(c.snapshotCreateDescription) > maxSnapshotDescriptionLength {
 		return errors.New("description too long")
 	}
 
-	u := setupUploader(rep)
+	u := c.setupUploader(rep)
 
 	var finalErrors []string
 
-	tags, err := getTags(*snapshotCreateTags)
+	tags, err := getTags(c.snapshotCreateTags)
 	if err != nil {
 		return err
 	}
@@ -95,7 +120,7 @@ func runSnapshotCommand(ctx context.Context, rep repo.RepositoryWriter) error {
 			UserName: rep.ClientOptions().Username,
 		}
 
-		if err := snapshotSingleSource(ctx, rep, u, sourceInfo, tags); err != nil {
+		if err := c.snapshotSingleSource(ctx, rep, u, sourceInfo, tags); err != nil {
 			finalErrors = append(finalErrors, err.Error())
 		}
 	}
@@ -153,29 +178,29 @@ func validateStartEndTime(st, et string) error {
 	return nil
 }
 
-func setupUploader(rep repo.RepositoryWriter) *snapshotfs.Uploader {
+func (c *commandSnapshotCreate) setupUploader(rep repo.RepositoryWriter) *snapshotfs.Uploader {
 	u := snapshotfs.NewUploader(rep)
-	u.MaxUploadBytes = *snapshotCreateCheckpointUploadLimitMB << 20 //nolint:gomnd
+	u.MaxUploadBytes = c.snapshotCreateCheckpointUploadLimitMB << 20 //nolint:gomnd
 
-	if *snapshotCreateForceEnableActions {
+	if c.snapshotCreateForceEnableActions {
 		u.EnableActions = true
 	}
 
-	if *snapshotCreateForceDisableActions {
+	if c.snapshotCreateForceDisableActions {
 		u.EnableActions = false
 	}
 
-	if interval := *snapshotCreateCheckpointInterval; interval != 0 {
+	if interval := c.snapshotCreateCheckpointInterval; interval != 0 {
 		u.CheckpointInterval = interval
 	}
 
 	onCtrlC(u.Cancel)
 
-	u.ForceHashPercentage = *snapshotCreateForceHash
-	u.ParallelUploads = *snapshotCreateParallelUploads
+	u.ForceHashPercentage = c.snapshotCreateForceHash
+	u.ParallelUploads = c.snapshotCreateParallelUploads
 
-	u.FailFast = *snapshotCreateFailFast
-	u.Progress = progress
+	u.FailFast = c.snapshotCreateFailFast
+	u.Progress = c.svc.getProgress()
 
 	return u
 }
@@ -194,7 +219,7 @@ func startTimeAfterEndTime(startTime, endTime time.Time) bool {
 		startTime.After(endTime)
 }
 
-func snapshotSingleSource(ctx context.Context, rep repo.RepositoryWriter, u *snapshotfs.Uploader, sourceInfo snapshot.SourceInfo, tags map[string]string) error {
+func (c *commandSnapshotCreate) snapshotSingleSource(ctx context.Context, rep repo.RepositoryWriter, u *snapshotfs.Uploader, sourceInfo snapshot.SourceInfo, tags map[string]string) error {
 	log(ctx).Infof("Snapshotting %v ...", sourceInfo)
 
 	var (
@@ -203,11 +228,11 @@ func snapshotSingleSource(ctx context.Context, rep repo.RepositoryWriter, u *sna
 		setManual bool
 	)
 
-	if *snapshotCreateStdinFileName != "" {
+	if c.snapshotCreateStdinFileName != "" {
 		// stdin source will be snapshotted using a virtual static root directory with a single streaming file entry
 		// Create a new static directory with the given name and add a streaming file entry with os.Stdin reader
 		fsEntry = virtualfs.NewStaticDirectory(sourceInfo.Path, fs.Entries{
-			virtualfs.StreamingFileFromReader(*snapshotCreateStdinFileName, os.Stdin),
+			virtualfs.StreamingFileFromReader(c.snapshotCreateStdinFileName, os.Stdin),
 		})
 		setManual = true
 	} else {
@@ -236,10 +261,10 @@ func snapshotSingleSource(ctx context.Context, rep repo.RepositoryWriter, u *sna
 		return errors.Wrap(err, "upload error")
 	}
 
-	manifest.Description = *snapshotCreateDescription
+	manifest.Description = c.snapshotCreateDescription
 	manifest.Tags = tags
-	startTimeOverride, _ := parseTimestamp(*snapshotCreateStartTime)
-	endTimeOverride, _ := parseTimestamp(*snapshotCreateEndTime)
+	startTimeOverride, _ := parseTimestamp(c.snapshotCreateStartTime)
+	endTimeOverride, _ := parseTimestamp(c.snapshotCreateEndTime)
 
 	if !startTimeOverride.IsZero() {
 		if endTimeOverride.IsZero() {
@@ -278,12 +303,12 @@ func snapshotSingleSource(ctx context.Context, rep repo.RepositoryWriter, u *sna
 		return errors.Wrap(ferr, "flush error")
 	}
 
-	progress.Finish()
+	c.svc.getProgress().Finish()
 
-	return reportSnapshotStatus(ctx, manifest)
+	return c.reportSnapshotStatus(ctx, manifest)
 }
 
-func reportSnapshotStatus(ctx context.Context, manifest *snapshot.Manifest) error {
+func (c *commandSnapshotCreate) reportSnapshotStatus(ctx context.Context, manifest *snapshot.Manifest) error {
 	var maybePartial string
 	if manifest.IncompleteReason != "" {
 		maybePartial = " partial"
@@ -293,8 +318,8 @@ func reportSnapshotStatus(ctx context.Context, manifest *snapshot.Manifest) erro
 
 	snapID := manifest.ID
 
-	if jsonOutput {
-		printStdout("%s\n", jsonIndentedBytes(manifest, "  "))
+	if c.jo.jsonOutput {
+		printStdout("%s\n", c.jo.jsonIndentedBytes(manifest, "  "))
 		return nil
 	}
 
@@ -392,9 +417,4 @@ func shouldSnapshotSource(ctx context.Context, src snapshot.SourceInfo, rep repo
 	return src.Host == rep.ClientOptions().Hostname &&
 		src.UserName == rep.ClientOptions().Username &&
 		!policy.IsManualSnapshot(policyTree), nil
-}
-
-func init() {
-	registerJSONOutputFlags(snapshotCreateCommand)
-	snapshotCreateCommand.Action(repositoryWriterAction(runSnapshotCommand))
 }

@@ -11,12 +11,30 @@ import (
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
-func policyTargets(ctx context.Context, rep repo.Repository, globalFlag *bool, targetsFlag *[]string) ([]snapshot.SourceInfo, error) {
-	if *globalFlag == (len(*targetsFlag) > 0) {
+type commandPolicy struct {
+	edit   commandPolicyEdit
+	list   commandPolicyList
+	delete commandPolicyDelete
+	set    commandPolicySet
+	show   commandPolicyShow
+}
+
+func (c *commandPolicy) setup(svc appServices, parent commandParent) {
+	cmd := parent.Command("policy", "Commands to manipulate snapshotting policies.").Alias("policies")
+
+	c.edit.setup(svc, cmd)
+	c.list.setup(svc, cmd)
+	c.delete.setup(svc, cmd)
+	c.set.setup(svc, cmd)
+	c.show.setup(svc, cmd)
+}
+
+func policyTargets(ctx context.Context, rep repo.Repository, globalFlag bool, targetsFlag []string) ([]snapshot.SourceInfo, error) {
+	if globalFlag == (len(targetsFlag) > 0) {
 		return nil, errors.New("must pass either '--global' or a list of path targets")
 	}
 
-	if *globalFlag {
+	if globalFlag {
 		return []snapshot.SourceInfo{
 			policy.GlobalPolicySourceInfo,
 		}, nil
@@ -24,7 +42,7 @@ func policyTargets(ctx context.Context, rep repo.Repository, globalFlag *bool, t
 
 	var res []snapshot.SourceInfo
 
-	for _, ts := range *targetsFlag {
+	for _, ts := range targetsFlag {
 		// try loading policy by its manifest ID
 		if t, err := policy.GetPolicyByID(ctx, rep, manifest.ID(ts)); err == nil {
 			res = append(res, t.Target())

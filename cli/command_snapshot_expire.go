@@ -11,22 +11,29 @@ import (
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
-var (
-	snapshotExpireCommand = snapshotCommands.Command("expire", "Remove old snapshots according to defined expiration policies.")
+type commandSnapshotExpire struct {
+	snapshotExpireAll    bool
+	snapshotExpirePaths  []string
+	snapshotExpireDelete bool
+}
 
-	snapshotExpireAll    = snapshotExpireCommand.Flag("all", "Expire all snapshots").Bool()
-	snapshotExpirePaths  = snapshotExpireCommand.Arg("path", "Expire snapshots for given paths only").Strings()
-	snapshotExpireDelete = snapshotExpireCommand.Flag("delete", "Whether to actually delete snapshots").Bool()
-)
+func (c *commandSnapshotExpire) setup(svc appServices, parent commandParent) {
+	cmd := parent.Command("expire", "Remove old snapshots according to defined expiration policies.")
 
-func getSnapshotSourcesToExpire(ctx context.Context, rep repo.Repository) ([]snapshot.SourceInfo, error) {
-	if *snapshotExpireAll {
+	cmd.Flag("all", "Expire all snapshots").BoolVar(&c.snapshotExpireAll)
+	cmd.Arg("path", "Expire snapshots for given paths only").StringsVar(&c.snapshotExpirePaths)
+	cmd.Flag("delete", "Whether to actually delete snapshots").BoolVar(&c.snapshotExpireDelete)
+	cmd.Action(svc.repositoryWriterAction(c.run))
+}
+
+func (c *commandSnapshotExpire) getSnapshotSourcesToExpire(ctx context.Context, rep repo.Repository) ([]snapshot.SourceInfo, error) {
+	if c.snapshotExpireAll {
 		return snapshot.ListSources(ctx, rep)
 	}
 
 	var result []snapshot.SourceInfo
 
-	for _, p := range *snapshotExpirePaths {
+	for _, p := range c.snapshotExpirePaths {
 		src, err := snapshot.ParseSourceInfo(p, rep.ClientOptions().Hostname, rep.ClientOptions().Username)
 		if err != nil {
 			return nil, errors.Wrapf(err, "unable to parse %q", p)
@@ -38,8 +45,8 @@ func getSnapshotSourcesToExpire(ctx context.Context, rep repo.Repository) ([]sna
 	return result, nil
 }
 
-func runExpireCommand(ctx context.Context, rep repo.RepositoryWriter) error {
-	sources, err := getSnapshotSourcesToExpire(ctx, rep)
+func (c *commandSnapshotExpire) run(ctx context.Context, rep repo.RepositoryWriter) error {
+	sources, err := c.getSnapshotSourcesToExpire(ctx, rep)
 	if err != nil {
 		return err
 	}
@@ -49,7 +56,7 @@ func runExpireCommand(ctx context.Context, rep repo.RepositoryWriter) error {
 	})
 
 	for _, src := range sources {
-		deleted, err := policy.ApplyRetentionPolicy(ctx, rep, src, *snapshotExpireDelete)
+		deleted, err := policy.ApplyRetentionPolicy(ctx, rep, src, c.snapshotExpireDelete)
 		if err != nil {
 			return errors.Wrapf(err, "error applying retention policy to %v", src)
 		}
@@ -59,7 +66,7 @@ func runExpireCommand(ctx context.Context, rep repo.RepositoryWriter) error {
 			continue
 		}
 
-		if *snapshotExpireDelete {
+		if c.snapshotExpireDelete {
 			log(ctx).Infof("Deleted %v snapshots of %v...", len(deleted), src)
 		} else {
 			log(ctx).Infof("%v snapshot(s) of %v would be deleted. Pass --delete to do it.", len(deleted), src)
@@ -71,8 +78,4 @@ func runExpireCommand(ctx context.Context, rep repo.RepositoryWriter) error {
 	}
 
 	return nil
-}
-
-func init() {
-	snapshotExpireCommand.Action(repositoryWriterAction(runExpireCommand))
 }

@@ -3,40 +3,54 @@ package cli
 import (
 	"context"
 
+	"github.com/alecthomas/kingpin"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
-var (
+type policyCompressionFlags struct {
+	policySetCompressionAlgorithm string
+	policySetCompressionMinSize   string
+	policySetCompressionMaxSize   string
 
+	policySetAddOnlyCompress    []string
+	policySetRemoveOnlyCompress []string
+	policySetClearOnlyCompress  bool
+
+	policySetAddNeverCompress    []string
+	policySetRemoveNeverCompress []string
+	policySetClearNeverCompress  bool
+}
+
+func (c *policyCompressionFlags) setup(cmd *kingpin.CmdClause) {
 	// Name of compression algorithm.
-	policySetCompressionAlgorithm = policySetCommand.Flag("compression", "Compression algorithm").Enum(supportedCompressionAlgorithms()...)
-	policySetCompressionMinSize   = policySetCommand.Flag("compression-min-size", "Min size of file to attempt compression for").String()
-	policySetCompressionMaxSize   = policySetCommand.Flag("compression-max-size", "Max size of file to attempt compression for").String()
+	cmd.Flag("compression", "Compression algorithm").EnumVar(&c.policySetCompressionAlgorithm, supportedCompressionAlgorithms()...)
+	cmd.Flag("compression-min-size", "Min size of file to attempt compression for").StringVar(&c.policySetCompressionMinSize)
+	cmd.Flag("compression-max-size", "Max size of file to attempt compression for").StringVar(&c.policySetCompressionMaxSize)
 
 	// Files to only compress.
-	policySetAddOnlyCompress    = policySetCommand.Flag("add-only-compress", "List of extensions to add to the only-compress list").PlaceHolder("PATTERN").Strings()
-	policySetRemoveOnlyCompress = policySetCommand.Flag("remove-only-compress", "List of extensions to remove from the only-compress list").PlaceHolder("PATTERN").Strings()
-	policySetClearOnlyCompress  = policySetCommand.Flag("clear-only-compress", "Clear list of extensions in the only-compress list").Bool()
+	cmd.Flag("add-only-compress", "List of extensions to add to the only-compress list").PlaceHolder("PATTERN").StringsVar(&c.policySetAddOnlyCompress)
+	cmd.Flag("remove-only-compress", "List of extensions to remove from the only-compress list").PlaceHolder("PATTERN").StringsVar(&c.policySetRemoveOnlyCompress)
+	cmd.Flag("clear-only-compress", "Clear list of extensions in the only-compress list").BoolVar(&c.policySetClearOnlyCompress)
 
 	// Files to never compress.
-	policySetAddNeverCompress    = policySetCommand.Flag("add-never-compress", "List of extensions to add to the never compress list").PlaceHolder("PATTERN").Strings()
-	policySetRemoveNeverCompress = policySetCommand.Flag("remove-never-compress", "List of extensions to remove from the never compress list").PlaceHolder("PATTERN").Strings()
-	policySetClearNeverCompress  = policySetCommand.Flag("clear-never-compress", "Clear list of extensions in the never compress list").Bool()
-)
+	cmd.Flag("add-never-compress", "List of extensions to add to the never compress list").PlaceHolder("PATTERN").StringsVar(&c.policySetAddNeverCompress)
+	cmd.Flag("remove-never-compress", "List of extensions to remove from the never compress list").PlaceHolder("PATTERN").StringsVar(&c.policySetRemoveNeverCompress)
+	cmd.Flag("clear-never-compress", "Clear list of extensions in the never compress list").BoolVar(&c.policySetClearNeverCompress)
+}
 
-func setCompressionPolicyFromFlags(ctx context.Context, p *policy.CompressionPolicy, changeCount *int) error {
-	if err := applyPolicyNumber64(ctx, "minimum file size subject to compression", &p.MinSize, *policySetCompressionMinSize, changeCount); err != nil {
+func (c *policyCompressionFlags) setCompressionPolicyFromFlags(ctx context.Context, p *policy.CompressionPolicy, changeCount *int) error {
+	if err := applyPolicyNumber64(ctx, "minimum file size subject to compression", &p.MinSize, c.policySetCompressionMinSize, changeCount); err != nil {
 		return errors.Wrap(err, "minimum file size subject to compression")
 	}
 
-	if err := applyPolicyNumber64(ctx, "maximum file size subject to compression", &p.MaxSize, *policySetCompressionMaxSize, changeCount); err != nil {
+	if err := applyPolicyNumber64(ctx, "maximum file size subject to compression", &p.MaxSize, c.policySetCompressionMaxSize, changeCount); err != nil {
 		return errors.Wrap(err, "maximum file size subject to compression")
 	}
 
-	if v := *policySetCompressionAlgorithm; v != "" {
+	if v := c.policySetCompressionAlgorithm; v != "" {
 		*changeCount++
 
 		if v == inheritPolicyString {
@@ -51,10 +65,10 @@ func setCompressionPolicyFromFlags(ctx context.Context, p *policy.CompressionPol
 	}
 
 	applyPolicyStringList(ctx, "only-compress extensions",
-		&p.OnlyCompress, *policySetAddOnlyCompress, *policySetRemoveOnlyCompress, *policySetClearOnlyCompress, changeCount)
+		&p.OnlyCompress, c.policySetAddOnlyCompress, c.policySetRemoveOnlyCompress, c.policySetClearOnlyCompress, changeCount)
 
 	applyPolicyStringList(ctx, "never-compress extensions",
-		&p.NeverCompress, *policySetAddNeverCompress, *policySetRemoveNeverCompress, *policySetClearNeverCompress, changeCount)
+		&p.NeverCompress, c.policySetAddNeverCompress, c.policySetRemoveNeverCompress, c.policySetClearNeverCompress, changeCount)
 
 	return nil
 }

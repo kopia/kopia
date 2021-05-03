@@ -11,17 +11,20 @@ import (
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
-var policyListCommand = policyCommands.Command("list", "List policies.").Alias("ls")
-
-func init() {
-	registerJSONOutputFlags(policyListCommand)
-	policyListCommand.Action(repositoryReaderAction(listPolicies))
+type commandPolicyList struct {
+	jo jsonOutput
 }
 
-func listPolicies(ctx context.Context, rep repo.Repository) error {
+func (c *commandPolicyList) setup(svc appServices, parent commandParent) {
+	cmd := parent.Command("list", "List policies.").Alias("ls")
+	c.jo.setup(cmd)
+	cmd.Action(svc.repositoryReaderAction(c.run))
+}
+
+func (c *commandPolicyList) run(ctx context.Context, rep repo.Repository) error {
 	var jl jsonList
 
-	jl.begin()
+	jl.begin(&c.jo)
 	defer jl.end()
 
 	policies, err := policy.ListPolicies(ctx, rep)
@@ -34,7 +37,7 @@ func listPolicies(ctx context.Context, rep repo.Repository) error {
 	})
 
 	for _, pol := range policies {
-		if jsonOutput {
+		if c.jo.jsonOutput {
 			jl.emit(policy.TargetWithPolicy{ID: pol.ID(), Target: pol.Target(), Policy: pol})
 		} else {
 			fmt.Println(pol.ID(), pol.Target())

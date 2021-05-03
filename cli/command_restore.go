@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/alecthomas/kingpin"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/timetrack"
@@ -62,23 +61,41 @@ directory ID and optionally a sub-directory path. For example,
 	bitsPerByte = 8
 )
 
-var (
-	restoreCommand                = app.Command("restore", restoreCommandHelp)
-	restoreSourceID               = ""
-	restoreTargetPath             = ""
-	restoreOverwriteDirectories   = true
-	restoreOverwriteFiles         = true
-	restoreOverwriteSymlinks      = true
-	restoreConsistentAttributes   = false
-	restoreMode                   = restoreModeAuto
-	restoreParallel               = 8
-	restoreIgnorePermissionErrors = true
-	restoreSkipTimes              = false
-	restoreSkipOwners             = false
-	restoreSkipPermissions        = false
-	restoreIncremental            = false
-	restoreIgnoreErrors           = false
-)
+type commandRestore struct {
+	restoreSourceID               string
+	restoreTargetPath             string
+	restoreOverwriteDirectories   bool
+	restoreOverwriteFiles         bool
+	restoreOverwriteSymlinks      bool
+	restoreConsistentAttributes   bool
+	restoreMode                   string
+	restoreParallel               int
+	restoreIgnorePermissionErrors bool
+	restoreSkipTimes              bool
+	restoreSkipOwners             bool
+	restoreSkipPermissions        bool
+	restoreIncremental            bool
+	restoreIgnoreErrors           bool
+}
+
+func (c *commandRestore) setup(svc appServices, parent commandParent) {
+	cmd := parent.Command("restore", restoreCommandHelp)
+	cmd.Arg("source", restoreCommandSourcePathHelp).Required().StringVar(&c.restoreSourceID)
+	cmd.Arg("target-path", "Path of the directory for the contents to be restored").Required().StringVar(&c.restoreTargetPath)
+	cmd.Flag("overwrite-directories", "Overwrite existing directories").Default("true").BoolVar(&c.restoreOverwriteDirectories)
+	cmd.Flag("overwrite-files", "Specifies whether or not to overwrite already existing files").Default("true").BoolVar(&c.restoreOverwriteFiles)
+	cmd.Flag("overwrite-symlinks", "Specifies whether or not to overwrite already existing symlinks").Default("true").BoolVar(&c.restoreOverwriteSymlinks)
+	cmd.Flag("consistent-attributes", "When multiple snapshots match, fail if they have inconsistent attributes").Envar("KOPIA_RESTORE_CONSISTENT_ATTRIBUTES").BoolVar(&c.restoreConsistentAttributes)
+	cmd.Flag("mode", "Override restore mode").Default(restoreModeAuto).EnumVar(&c.restoreMode, restoreModeAuto, restoreModeLocal, restoreModeZip, restoreModeZipNoCompress, restoreModeTar, restoreModeTgz)
+	cmd.Flag("parallel", "Restore parallelism (1=disable)").Default("8").IntVar(&c.restoreParallel)
+	cmd.Flag("skip-owners", "Skip owners during restore").BoolVar(&c.restoreSkipOwners)
+	cmd.Flag("skip-permissions", "Skip permissions during restore").BoolVar(&c.restoreSkipPermissions)
+	cmd.Flag("skip-times", "Skip times during restore").BoolVar(&c.restoreSkipTimes)
+	cmd.Flag("ignore-permission-errors", "Ignore permission errors").Default("true").BoolVar(&c.restoreIgnorePermissionErrors)
+	cmd.Flag("ignore-errors", "Ignore all errors").BoolVar(&c.restoreIgnoreErrors)
+	cmd.Flag("skip-existing", "Skip files and symlinks that exist in the output").BoolVar(&c.restoreIncremental)
+	cmd.Action(svc.repositoryReaderAction(c.run))
+}
 
 const (
 	restoreModeLocal         = "local"
@@ -89,45 +106,28 @@ const (
 	restoreModeTgz           = "tgz"
 )
 
-func addRestoreFlags(cmd *kingpin.CmdClause) {
-	cmd.Arg("source", restoreCommandSourcePathHelp).Required().StringVar(&restoreSourceID)
-	cmd.Arg("target-path", "Path of the directory for the contents to be restored").Required().StringVar(&restoreTargetPath)
-	cmd.Flag("overwrite-directories", "Overwrite existing directories").BoolVar(&restoreOverwriteDirectories)
-	cmd.Flag("overwrite-files", "Specifies whether or not to overwrite already existing files").BoolVar(&restoreOverwriteFiles)
-	cmd.Flag("overwrite-symlinks", "Specifies whether or not to overwrite already existing symlinks").BoolVar(&restoreOverwriteSymlinks)
-	cmd.Flag("consistent-attributes", "When multiple snapshots match, fail if they have inconsistent attributes").Envar("KOPIA_RESTORE_CONSISTENT_ATTRIBUTES").BoolVar(&restoreConsistentAttributes)
-	cmd.Flag("mode", "Override restore mode").EnumVar(&restoreMode, restoreModeAuto, restoreModeLocal, restoreModeZip, restoreModeZipNoCompress, restoreModeTar, restoreModeTgz)
-	cmd.Flag("parallel", "Restore parallelism (1=disable)").IntVar(&restoreParallel)
-	cmd.Flag("skip-owners", "Skip owners during restore").BoolVar(&restoreSkipOwners)
-	cmd.Flag("skip-permissions", "Skip permissions during restore").BoolVar(&restoreSkipPermissions)
-	cmd.Flag("skip-times", "Skip times during restore").BoolVar(&restoreSkipTimes)
-	cmd.Flag("ignore-permission-errors", "Ignore permission errors").BoolVar(&restoreIgnorePermissionErrors)
-	cmd.Flag("ignore-errors", "Ignore all errors").BoolVar(&restoreIgnoreErrors)
-	cmd.Flag("skip-existing", "Skip files and symlinks that exist in the output").BoolVar(&restoreIncremental)
-}
-
-func restoreOutput(ctx context.Context) (restore.Output, error) {
-	p, err := filepath.Abs(restoreTargetPath)
+func (c *commandRestore) restoreOutput(ctx context.Context) (restore.Output, error) {
+	p, err := filepath.Abs(c.restoreTargetPath)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to resolve path")
 	}
 
-	m := detectRestoreMode(ctx, restoreMode)
+	m := c.detectRestoreMode(ctx, c.restoreMode)
 	switch m {
 	case restoreModeLocal:
 		return &restore.FilesystemOutput{
 			TargetPath:             p,
-			OverwriteDirectories:   restoreOverwriteDirectories,
-			OverwriteFiles:         restoreOverwriteFiles,
-			OverwriteSymlinks:      restoreOverwriteSymlinks,
-			IgnorePermissionErrors: restoreIgnorePermissionErrors,
-			SkipOwners:             restoreSkipOwners,
-			SkipPermissions:        restoreSkipPermissions,
-			SkipTimes:              restoreSkipTimes,
+			OverwriteDirectories:   c.restoreOverwriteDirectories,
+			OverwriteFiles:         c.restoreOverwriteFiles,
+			OverwriteSymlinks:      c.restoreOverwriteSymlinks,
+			IgnorePermissionErrors: c.restoreIgnorePermissionErrors,
+			SkipOwners:             c.restoreSkipOwners,
+			SkipPermissions:        c.restoreSkipPermissions,
+			SkipTimes:              c.restoreSkipTimes,
 		}, nil
 
 	case restoreModeZip, restoreModeZipNoCompress:
-		f, err := os.Create(restoreTargetPath)
+		f, err := os.Create(c.restoreTargetPath)
 		if err != nil {
 			return nil, errors.Wrap(err, "unable to create output file")
 		}
@@ -140,7 +140,7 @@ func restoreOutput(ctx context.Context) (restore.Output, error) {
 		return restore.NewZipOutput(f, method), nil
 
 	case restoreModeTar:
-		f, err := os.Create(restoreTargetPath)
+		f, err := os.Create(c.restoreTargetPath)
 		if err != nil {
 			return nil, errors.Wrap(err, "unable to create output file")
 		}
@@ -148,7 +148,7 @@ func restoreOutput(ctx context.Context) (restore.Output, error) {
 		return restore.NewTarOutput(f), nil
 
 	case restoreModeTgz:
-		f, err := os.Create(restoreTargetPath)
+		f, err := os.Create(c.restoreTargetPath)
 		if err != nil {
 			return nil, errors.Wrap(err, "unable to create output file")
 		}
@@ -160,26 +160,26 @@ func restoreOutput(ctx context.Context) (restore.Output, error) {
 	}
 }
 
-func detectRestoreMode(ctx context.Context, m string) string {
+func (c *commandRestore) detectRestoreMode(ctx context.Context, m string) string {
 	if m != "auto" {
 		return m
 	}
 
 	switch {
-	case strings.HasSuffix(restoreTargetPath, ".zip"):
-		log(ctx).Infof("Restoring to a zip file (%v)...", restoreTargetPath)
+	case strings.HasSuffix(c.restoreTargetPath, ".zip"):
+		log(ctx).Infof("Restoring to a zip file (%v)...", c.restoreTargetPath)
 		return restoreModeZip
 
-	case strings.HasSuffix(restoreTargetPath, ".tar"):
-		log(ctx).Infof("Restoring to an uncompressed tar file (%v)...", restoreTargetPath)
+	case strings.HasSuffix(c.restoreTargetPath, ".tar"):
+		log(ctx).Infof("Restoring to an uncompressed tar file (%v)...", c.restoreTargetPath)
 		return restoreModeTar
 
-	case strings.HasSuffix(restoreTargetPath, ".tar.gz") || strings.HasSuffix(restoreTargetPath, ".tgz"):
-		log(ctx).Infof("Restoring to a tar+gzip file (%v)...", restoreTargetPath)
+	case strings.HasSuffix(c.restoreTargetPath, ".tar.gz") || strings.HasSuffix(c.restoreTargetPath, ".tgz"):
+		log(ctx).Infof("Restoring to a tar+gzip file (%v)...", c.restoreTargetPath)
 		return restoreModeTgz
 
 	default:
-		log(ctx).Infof("Restoring to local filesystem (%v) with parallelism=%v...", restoreTargetPath, restoreParallel)
+		log(ctx).Infof("Restoring to local filesystem (%v) with parallelism=%v...", c.restoreTargetPath, c.restoreParallel)
 		return restoreModeLocal
 	}
 }
@@ -203,13 +203,13 @@ func printRestoreStats(ctx context.Context, st restore.Stats) {
 		maybeSkipped, maybeErrors)
 }
 
-func runRestoreCommand(ctx context.Context, rep repo.Repository) error {
-	output, err := restoreOutput(ctx)
+func (c *commandRestore) run(ctx context.Context, rep repo.Repository) error {
+	output, err := c.restoreOutput(ctx)
 	if err != nil {
 		return errors.Wrap(err, "unable to initialize output")
 	}
 
-	rootEntry, err := snapshotfs.FilesystemEntryFromIDWithPath(ctx, rep, restoreSourceID, restoreConsistentAttributes)
+	rootEntry, err := snapshotfs.FilesystemEntryFromIDWithPath(ctx, rep, c.restoreSourceID, c.restoreConsistentAttributes)
 	if err != nil {
 		return errors.Wrap(err, "unable to get filesystem entry")
 	}
@@ -217,9 +217,9 @@ func runRestoreCommand(ctx context.Context, rep repo.Repository) error {
 	eta := timetrack.Start()
 
 	st, err := restore.Entry(ctx, rep, output, rootEntry, restore.Options{
-		Parallel:     restoreParallel,
-		Incremental:  restoreIncremental,
-		IgnoreErrors: restoreIgnoreErrors,
+		Parallel:     c.restoreParallel,
+		Incremental:  c.restoreIncremental,
+		IgnoreErrors: c.restoreIgnoreErrors,
 		ProgressCallback: func(ctx context.Context, stats restore.Stats) {
 			restoredCount := stats.RestoredFileCount + stats.RestoredDirCount + stats.RestoredSymlinkCount + stats.SkippedCount
 			enqueuedCount := stats.EnqueuedFileCount + stats.EnqueuedDirCount + stats.EnqueuedSymlinkCount
@@ -261,9 +261,4 @@ func runRestoreCommand(ctx context.Context, rep repo.Repository) error {
 	printRestoreStats(ctx, st)
 
 	return nil
-}
-
-func init() {
-	addRestoreFlags(restoreCommand)
-	restoreCommand.Action(repositoryReaderAction(runRestoreCommand))
 }

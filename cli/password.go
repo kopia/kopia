@@ -12,7 +12,11 @@ import (
 	"github.com/kopia/kopia/repo"
 )
 
-var password = app.Flag("password", "Repository password.").Envar("KOPIA_PASSWORD").Short('p').String()
+// TODO - remove those globals.
+var (
+	globalPassword          string // bound to the --password flag.
+	globalPasswordFromToken string // set dynamically
+)
 
 func askForNewRepositoryPassword() (string, error) {
 	for {
@@ -45,22 +49,20 @@ func askForExistingRepositoryPassword() (string, error) {
 	return p1, nil
 }
 
-var passwordFromToken string
-
-func getPasswordFromFlags(ctx context.Context, isNew, allowPersistent bool) (string, error) {
+func (c *App) getPasswordFromFlags(ctx context.Context, isNew, allowPersistent bool) (string, error) {
 	switch {
-	case passwordFromToken != "":
+	case globalPasswordFromToken != "":
 		// password extracted from connection token
-		return passwordFromToken, nil
-	case *password != "":
+		return globalPasswordFromToken, nil
+	case globalPassword != "":
 		// password provided via --password flag or KOPIA_PASSWORD environment variable
-		return strings.TrimSpace(*password), nil
+		return strings.TrimSpace(globalPassword), nil
 	case isNew:
 		// this is a new repository, ask for password
 		return askForNewRepositoryPassword()
 	case allowPersistent:
 		// try fetching the password from persistent storage specific to the configuration file.
-		pass, ok := repo.GetPersistedPassword(ctx, repositoryConfigFileName())
+		pass, ok := repo.GetPersistedPassword(ctx, c.repositoryConfigFileName())
 		if ok {
 			return pass, nil
 		}

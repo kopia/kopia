@@ -10,13 +10,18 @@ import (
 	"github.com/kopia/kopia/repo"
 )
 
-var (
-	userInfoCommand = userCommands.Command("info", "Info about particular user")
-	userInfoName    = userInfoCommand.Arg("username", "The username to look up.").Required().String()
-)
+type commandServerUserInfo struct {
+	name string
+}
 
-func runUserInfo(ctx context.Context, rep repo.DirectRepository) error {
-	up, err := user.GetUserProfile(ctx, rep, *userInfoName)
+func (c *commandServerUserInfo) setup(svc appServices, parent commandParent) {
+	cmd := parent.Command("info", "Info about particular user")
+	cmd.Arg("username", "The username to look up.").Required().StringVar(&c.name)
+	cmd.Action(svc.repositoryReaderAction(c.run))
+}
+
+func (c *commandServerUserInfo) run(ctx context.Context, rep repo.Repository) error {
+	up, err := user.GetUserProfile(ctx, rep, c.name)
 	if err != nil {
 		return errors.Wrap(err, "error getting user profile")
 	}
@@ -29,8 +34,4 @@ func runUserInfo(ctx context.Context, rep repo.DirectRepository) error {
 	printStdout("%s", j)
 
 	return nil
-}
-
-func init() {
-	userInfoCommand.Action(directRepositoryReadAction(runUserInfo))
 }

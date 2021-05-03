@@ -20,16 +20,27 @@ import (
 	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
 
-var (
-	verifyCommand               = snapshotCommands.Command("verify", "Verify the contents of stored snapshot")
-	verifyCommandErrorThreshold = verifyCommand.Flag("max-errors", "Maximum number of errors before stopping").Default("0").Int()
-	verifyCommandDirObjectIDs   = verifyCommand.Flag("directory-id", "Directory object IDs to verify").Strings()
-	verifyCommandFileObjectIDs  = verifyCommand.Flag("file-id", "File object IDs to verify").Strings()
-	verifyCommandAllSources     = verifyCommand.Flag("all-sources", "Verify all snapshots (DEPRECATED)").Hidden().Bool()
-	verifyCommandSources        = verifyCommand.Flag("sources", "Verify the provided sources").Strings()
-	verifyCommandParallel       = verifyCommand.Flag("parallel", "Parallelization").Default("16").Int()
-	verifyCommandFilesPercent   = verifyCommand.Flag("verify-files-percent", "Randomly verify a percentage of files").Default("0").Int()
-)
+type commandSnapshotVerify struct {
+	verifyCommandErrorThreshold int
+	verifyCommandDirObjectIDs   []string
+	verifyCommandFileObjectIDs  []string
+	verifyCommandAllSources     bool
+	verifyCommandSources        []string
+	verifyCommandParallel       int
+	verifyCommandFilesPercent   int
+}
+
+func (c *commandSnapshotVerify) setup(svc appServices, parent commandParent) {
+	cmd := parent.Command("verify", "Verify the contents of stored snapshot")
+	cmd.Flag("max-errors", "Maximum number of errors before stopping").Default("0").IntVar(&c.verifyCommandErrorThreshold)
+	cmd.Flag("directory-id", "Directory object IDs to verify").StringsVar(&c.verifyCommandDirObjectIDs)
+	cmd.Flag("file-id", "File object IDs to verify").StringsVar(&c.verifyCommandFileObjectIDs)
+	cmd.Flag("all-sources", "Verify all snapshots (DEPRECATED)").Hidden().BoolVar(&c.verifyCommandAllSources)
+	cmd.Flag("sources", "Verify the provided sources").StringsVar(&c.verifyCommandSources)
+	cmd.Flag("parallel", "Parallelization").Default("16").IntVar(&c.verifyCommandParallel)
+	cmd.Flag("verify-files-percent", "Randomly verify a percentage of files").Default("0").IntVar(&c.verifyCommandFilesPercent)
+	cmd.Action(svc.repositoryReaderAction(c.run))
+}
 
 type verifier struct {
 	rep       repo.Repository
@@ -42,6 +53,9 @@ type verifier struct {
 	blobMap map[blob.ID]blob.Metadata
 
 	errors []error
+
+	errorsThreshold      int
+	downloadFilesPercent int
 }
 
 func (v *verifier) progressCallback(ctx context.Context, enqueued, active, completed int64) {
@@ -58,11 +72,11 @@ func (v *verifier) tooManyErrors() bool {
 	v.mu.Lock()
 	defer v.mu.Unlock()
 
-	if *verifyCommandErrorThreshold == 0 {
+	if v.errorsThreshold == 0 {
 		return false
 	}
 
-	return len(v.errors) >= *verifyCommandErrorThreshold
+	return len(v.errors) >= v.errorsThreshold
 }
 
 func (v *verifier) reportError(ctx context.Context, path string, err error) {
@@ -161,7 +175,7 @@ func (v *verifier) doVerifyObject(ctx context.Context, oid object.ID, path strin
 	}
 
 	//nolint:gomnd,gosec
-	if rand.Intn(100) < *verifyCommandFilesPercent {
+	if rand.Intn(100) < v.downloadFilesPercent {
 		if err := v.readEntireObject(ctx, oid, path); err != nil {
 			v.reportError(ctx, path, errors.Wrapf(err, "error reading object %v", oid))
 		}
@@ -185,16 +199,18 @@ func (v *verifier) readEntireObject(ctx context.Context, oid object.ID, path str
 	return errors.Wrap(err, "unable to read data")
 }
 
-func runVerifyCommand(ctx context.Context, rep repo.Repository) error {
-	if *verifyCommandAllSources {
+func (c *commandSnapshotVerify) run(ctx context.Context, rep repo.Repository) error {
+	if c.verifyCommandAllSources {
 		log(ctx).Errorf("DEPRECATED: --all-sources flag has no effect and is the default when no sources are provided.")
 	}
 
 	v := &verifier{
-		rep:       rep,
-		tt:        timetrack.Start(),
-		workQueue: parallelwork.NewQueue(),
-		seen:      map[object.ID]bool{},
+		rep:                  rep,
+		tt:                   timetrack.Start(),
+		workQueue:            parallelwork.NewQueue(),
+		seen:                 map[object.ID]bool{},
+		errorsThreshold:      c.verifyCommandErrorThreshold,
+		downloadFilesPercent: c.verifyCommandFilesPercent,
 	}
 
 	if dr, ok := rep.(repo.DirectRepository); ok {
@@ -206,12 +222,12 @@ func runVerifyCommand(ctx context.Context, rep repo.Repository) error {
 		v.blobMap = blobMap
 	}
 
-	if err := enqueueRootsToVerify(ctx, v, rep); err != nil {
+	if err := c.enqueueRootsToVerify(ctx, v, rep); err != nil {
 		return err
 	}
 
 	v.workQueue.ProgressCallback = v.progressCallback
-	if err := v.workQueue.Process(ctx, *verifyCommandParallel); err != nil {
+	if err := v.workQueue.Process(ctx, c.verifyCommandParallel); err != nil {
 		return errors.Wrap(err, "error processing work queue")
 	}
 
@@ -222,8 +238,8 @@ func runVerifyCommand(ctx context.Context, rep repo.Repository) error {
 	return errors.Errorf("encountered %v errors", len(v.errors))
 }
 
-func enqueueRootsToVerify(ctx context.Context, v *verifier, rep repo.Repository) error {
-	manifests, err := loadSourceManifests(ctx, rep, *verifyCommandSources)
+func (c *commandSnapshotVerify) enqueueRootsToVerify(ctx context.Context, v *verifier, rep repo.Repository) error {
+	manifests, err := c.loadSourceManifests(ctx, rep, c.verifyCommandSources)
 	if err != nil {
 		return err
 	}
@@ -242,7 +258,7 @@ func enqueueRootsToVerify(ctx context.Context, v *verifier, rep repo.Repository)
 		}
 	}
 
-	for _, oidStr := range *verifyCommandDirObjectIDs {
+	for _, oidStr := range c.verifyCommandDirObjectIDs {
 		oid, err := snapshotfs.ParseObjectIDWithPath(ctx, rep, oidStr)
 		if err != nil {
 			return errors.Wrapf(err, "unable to parse: %q", oidStr)
@@ -251,7 +267,7 @@ func enqueueRootsToVerify(ctx context.Context, v *verifier, rep repo.Repository)
 		v.enqueueVerifyDirectory(ctx, oid, oidStr)
 	}
 
-	for _, oidStr := range *verifyCommandFileObjectIDs {
+	for _, oidStr := range c.verifyCommandFileObjectIDs {
 		oid, err := snapshotfs.ParseObjectIDWithPath(ctx, rep, oidStr)
 		if err != nil {
 			return errors.Wrapf(err, "unable to parse %q", oidStr)
@@ -263,10 +279,10 @@ func enqueueRootsToVerify(ctx context.Context, v *verifier, rep repo.Repository)
 	return nil
 }
 
-func loadSourceManifests(ctx context.Context, rep repo.Repository, sources []string) ([]*snapshot.Manifest, error) {
+func (c *commandSnapshotVerify) loadSourceManifests(ctx context.Context, rep repo.Repository, sources []string) ([]*snapshot.Manifest, error) {
 	var manifestIDs []manifest.ID
 
-	if len(sources)+len(*verifyCommandDirObjectIDs)+len(*verifyCommandFileObjectIDs) == 0 {
+	if len(sources)+len(c.verifyCommandDirObjectIDs)+len(c.verifyCommandFileObjectIDs) == 0 {
 		man, err := snapshot.ListSnapshotManifests(ctx, rep, nil, nil)
 		if err != nil {
 			return nil, errors.Wrap(err, "unable to list snapshot manifests")
@@ -288,8 +304,4 @@ func loadSourceManifests(ctx context.Context, rep repo.Repository, sources []str
 	}
 
 	return snapshot.LoadSnapshots(ctx, rep, manifestIDs)
-}
-
-func init() {
-	verifyCommand.Action(repositoryReaderAction(runVerifyCommand))
 }

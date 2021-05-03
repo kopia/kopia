@@ -9,15 +9,20 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 )
 
-var (
-	blobDeleteCommand = blobCommands.Command("delete", "Delete blobs by ID").Alias("remove").Alias("rm")
-	blobDeleteBlobIDs = blobDeleteCommand.Arg("blobIDs", "Blob IDs").Required().Strings()
-)
+type commandBlobDelete struct {
+	blobIDs []string
+}
 
-func runDeleteBlobs(ctx context.Context, rep repo.DirectRepositoryWriter) error {
+func (c *commandBlobDelete) setup(svc appServices, parent commandParent) {
+	cmd := parent.Command("delete", "Delete blobs by ID").Alias("remove").Alias("rm")
+	cmd.Arg("blobIDs", "Blob IDs").Required().StringsVar(&c.blobIDs)
+	cmd.Action(svc.directRepositoryWriteAction(c.run))
+}
+
+func (c *commandBlobDelete) run(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	advancedCommand(ctx)
 
-	for _, b := range *blobDeleteBlobIDs {
+	for _, b := range c.blobIDs {
 		err := rep.BlobStorage().DeleteBlob(ctx, blob.ID(b))
 		if err != nil {
 			return errors.Wrapf(err, "error deleting %v", b)
@@ -25,8 +30,4 @@ func runDeleteBlobs(ctx context.Context, rep repo.DirectRepositoryWriter) error 
 	}
 
 	return nil
-}
-
-func init() {
-	blobDeleteCommand.Action(directRepositoryWriteAction(runDeleteBlobs))
 }

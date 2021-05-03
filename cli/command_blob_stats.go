@@ -12,13 +12,19 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 )
 
-var (
-	blobStatsCommand = blobCommands.Command("stats", "Content statistics")
-	blobStatsRaw     = blobStatsCommand.Flag("raw", "Raw numbers").Short('r').Bool()
-	blobStatsPrefix  = blobStatsCommand.Flag("prefix", "Blob name prefix").String()
-)
+type commandBlobStats struct {
+	raw    bool
+	prefix string
+}
 
-func runBlobStatsCommand(ctx context.Context, rep repo.DirectRepository) error {
+func (c *commandBlobStats) setup(svc appServices, parent commandParent) {
+	cmd := parent.Command("stats", "Content statistics")
+	cmd.Flag("raw", "Raw numbers").Short('r').BoolVar(&c.raw)
+	cmd.Flag("prefix", "Blob name prefix").StringVar(&c.prefix)
+	cmd.Action(svc.directRepositoryReadAction(c.run))
+}
+
+func (c *commandBlobStats) run(ctx context.Context, rep repo.DirectRepository) error {
 	var sizeThreshold int64 = 10
 
 	countMap := map[int64]int{}
@@ -36,7 +42,7 @@ func runBlobStatsCommand(ctx context.Context, rep repo.DirectRepository) error {
 
 	if err := rep.BlobReader().ListBlobs(
 		ctx,
-		blob.ID(*blobStatsPrefix),
+		blob.ID(c.prefix),
 		func(b blob.Metadata) error {
 			totalSize += b.Length
 			count++
@@ -55,7 +61,7 @@ func runBlobStatsCommand(ctx context.Context, rep repo.DirectRepository) error {
 	}
 
 	sizeToString := units.BytesStringBase10
-	if *blobStatsRaw {
+	if c.raw {
 		sizeToString = func(l int64) string { return strconv.FormatInt(l, 10) }
 	}
 
@@ -84,8 +90,4 @@ func runBlobStatsCommand(ctx context.Context, rep repo.DirectRepository) error {
 	}
 
 	return nil
-}
-
-func init() {
-	blobStatsCommand.Action(directRepositoryReadAction(runBlobStatsCommand))
 }

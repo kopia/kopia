@@ -7,17 +7,24 @@ import (
 
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/maintenance"
 	"github.com/kopia/kopia/snapshot/snapshotgc"
 )
 
-var (
-	snapshotGCCommand = snapshotCommands.Command("gc", "Mark contents as deleted which are not used by any snapshot").Hidden()
-	snapshotGCDelete  = snapshotGCCommand.Flag("delete", "Delete unreferenced contents").Bool()
-	snapshotGCSafety  = safetyFlag(snapshotGCCommand)
-)
+type commandSnapshotGC struct {
+	snapshotGCDelete bool
+	snapshotGCSafety maintenance.SafetyParameters
+}
 
-func runSnapshotGCCommand(ctx context.Context, rep repo.DirectRepositoryWriter) error {
-	st, err := snapshotgc.Run(ctx, rep, *snapshotGCDelete, *snapshotGCSafety)
+func (c *commandSnapshotGC) setup(svc appServices, parent commandParent) {
+	cmd := parent.Command("gc", "Mark contents as deleted which are not used by any snapshot").Hidden()
+	cmd.Flag("delete", "Delete unreferenced contents").BoolVar(&c.snapshotGCDelete)
+	safetyFlagVar(cmd, &c.snapshotGCSafety)
+	cmd.Action(svc.directRepositoryWriteAction(c.run))
+}
+
+func (c *commandSnapshotGC) run(ctx context.Context, rep repo.DirectRepositoryWriter) error {
+	st, err := snapshotgc.Run(ctx, rep, c.snapshotGCDelete, c.snapshotGCSafety)
 
 	log(ctx).Infof("GC found %v unused contents (%v bytes)", st.UnusedCount, units.BytesStringBase2(st.UnusedBytes))
 	log(ctx).Infof("GC found %v unused contents that are too recent to delete (%v bytes)", st.TooRecentCount, units.BytesStringBase2(st.TooRecentBytes))
@@ -25,8 +32,4 @@ func runSnapshotGCCommand(ctx context.Context, rep repo.DirectRepositoryWriter) 
 	log(ctx).Infof("GC found %v in-use system-contents (%v bytes)", st.SystemCount, units.BytesStringBase2(st.SystemBytes))
 
 	return errors.Wrap(err, "error running snapshot GC")
-}
-
-func init() {
-	snapshotGCCommand.Action(directRepositoryWriteAction(runSnapshotGCCommand))
 }

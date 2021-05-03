@@ -7,12 +7,16 @@ import (
 	"github.com/kopia/kopia/internal/serverapi"
 )
 
-var serverCancelUploadCommand = serverCommands.Command("cancel", "Cancels in-progress uploads for one or more sources")
-
-func init() {
-	serverCancelUploadCommand.Action(serverAction(runServerCancelUpload))
+type commandServerCancel struct {
+	sf serverClientFlags
 }
 
-func runServerCancelUpload(ctx context.Context, cli *apiclient.KopiaAPIClient) error {
+func (c *commandServerCancel) setup(svc appServices, parent commandParent) {
+	cmd := parent.Command("cancel", "Cancels in-progress uploads for one or more sources")
+	c.sf.setup(cmd)
+	cmd.Action(svc.serverAction(&c.sf, c.runServerCancelUpload))
+}
+
+func (c *commandServerCancel) runServerCancelUpload(ctx context.Context, cli *apiclient.KopiaAPIClient) error {
 	return cli.Post(ctx, "sources/cancel", &serverapi.Empty{}, &serverapi.Empty{})
 }

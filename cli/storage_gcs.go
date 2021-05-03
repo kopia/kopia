@@ -12,35 +12,32 @@ import (
 	"github.com/kopia/kopia/repo/blob/gcs"
 )
 
-func init() {
-	var options gcs.Options
+type storageGCSFlags struct {
+	options gcs.Options
 
-	var embedCredentials bool
+	embedCredentials bool
+}
 
-	RegisterStorageConnectFlags(
-		"google",
-		"a Google Cloud Storage bucket",
-		func(cmd *kingpin.CmdClause) {
-			cmd.Flag("bucket", "Name of the Google Cloud Storage bucket").Required().StringVar(&options.BucketName)
-			cmd.Flag("prefix", "Prefix to use for objects in the bucket").StringVar(&options.Prefix)
-			cmd.Flag("read-only", "Use read-only GCS scope to prevent write access").BoolVar(&options.ReadOnly)
-			cmd.Flag("credentials-file", "Use the provided JSON file with credentials").ExistingFileVar(&options.ServiceAccountCredentialsFile)
-			cmd.Flag("max-download-speed", "Limit the download speed.").PlaceHolder("BYTES_PER_SEC").IntVar(&options.MaxDownloadSpeedBytesPerSecond)
-			cmd.Flag("max-upload-speed", "Limit the upload speed.").PlaceHolder("BYTES_PER_SEC").IntVar(&options.MaxUploadSpeedBytesPerSecond)
-			cmd.Flag("embed-credentials", "Embed GCS credentials JSON in Kopia configuration").BoolVar(&embedCredentials)
-		},
-		func(ctx context.Context, isNew bool) (blob.Storage, error) {
-			if embedCredentials {
-				data, err := ioutil.ReadFile(options.ServiceAccountCredentialsFile)
-				if err != nil {
-					return nil, errors.Wrap(err, "unable to open service account credentials file")
-				}
+func (c *storageGCSFlags) setup(cmd *kingpin.CmdClause) {
+	cmd.Flag("bucket", "Name of the Google Cloud Storage bucket").Required().StringVar(&c.options.BucketName)
+	cmd.Flag("prefix", "Prefix to use for objects in the bucket").StringVar(&c.options.Prefix)
+	cmd.Flag("read-only", "Use read-only GCS scope to prevent write access").BoolVar(&c.options.ReadOnly)
+	cmd.Flag("credentials-file", "Use the provided JSON file with credentials").ExistingFileVar(&c.options.ServiceAccountCredentialsFile)
+	cmd.Flag("max-download-speed", "Limit the download speed.").PlaceHolder("BYTES_PER_SEC").IntVar(&c.options.MaxDownloadSpeedBytesPerSecond)
+	cmd.Flag("max-upload-speed", "Limit the upload speed.").PlaceHolder("BYTES_PER_SEC").IntVar(&c.options.MaxUploadSpeedBytesPerSecond)
+	cmd.Flag("embed-credentials", "Embed GCS credentials JSON in Kopia configuration").BoolVar(&c.embedCredentials)
+}
 
-				options.ServiceAccountCredentialJSON = json.RawMessage(data)
-				options.ServiceAccountCredentialsFile = ""
-			}
+func (c *storageGCSFlags) connect(ctx context.Context, isNew bool) (blob.Storage, error) {
+	if c.embedCredentials {
+		data, err := ioutil.ReadFile(c.options.ServiceAccountCredentialsFile)
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to open service account credentials file")
+		}
 
-			return gcs.New(ctx, &options)
-		},
-	)
+		c.options.ServiceAccountCredentialJSON = json.RawMessage(data)
+		c.options.ServiceAccountCredentialsFile = ""
+	}
+
+	return gcs.New(ctx, &c.options)
 }

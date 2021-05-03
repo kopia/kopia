@@ -16,23 +16,32 @@ import (
 	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
 
-var (
-	snapshotEstimate            = snapshotCommands.Command("estimate", "Estimate the snapshot size and upload time.")
-	snapshotEstimateSource      = snapshotEstimate.Arg("source", "File or directory to analyze.").Required().ExistingFileOrDir()
-	snapshotEstimateShowFiles   = snapshotEstimate.Flag("show-files", "Show files").Bool()
-	snapshotEstimateQuiet       = snapshotEstimate.Flag("quiet", "Do not display scanning progress").Short('q').Bool()
-	snapshotEstimateUploadSpeed = snapshotEstimate.Flag("upload-speed", "Upload speed to use for estimation").Default("10").PlaceHolder("mbit/s").Float64()
-)
+type commandSnapshotEstimate struct {
+	snapshotEstimateSource      string
+	snapshotEstimateShowFiles   bool
+	snapshotEstimateQuiet       bool
+	snapshotEstimateUploadSpeed float64
+}
+
+func (c *commandSnapshotEstimate) setup(svc appServices, parent commandParent) {
+	cmd := parent.Command("estimate", "Estimate the snapshot size and upload time.")
+	cmd.Arg("source", "File or directory to analyze.").Required().ExistingFileOrDirVar(&c.snapshotEstimateSource)
+	cmd.Flag("show-files", "Show files").BoolVar(&c.snapshotEstimateShowFiles)
+	cmd.Flag("quiet", "Do not display scanning progress").Short('q').BoolVar(&c.snapshotEstimateQuiet)
+	cmd.Flag("upload-speed", "Upload speed to use for estimation").Default("10").PlaceHolder("mbit/s").Float64Var(&c.snapshotEstimateUploadSpeed)
+	cmd.Action(svc.repositoryReaderAction(c.run))
+}
 
 type estimateProgress struct {
 	stats        snapshot.Stats
 	included     snapshotfs.SampleBuckets
 	excluded     snapshotfs.SampleBuckets
 	excludedDirs []string
+	quiet        bool
 }
 
 func (ep *estimateProgress) Processing(ctx context.Context, dirname string) {
-	if !*snapshotEstimateQuiet {
+	if !ep.quiet {
 		log(ctx).Infof("Analyzing %v...", dirname)
 	}
 }
@@ -52,8 +61,8 @@ func (ep *estimateProgress) Stats(ctx context.Context, st *snapshot.Stats, inclu
 	ep.excludedDirs = excludedDirs
 }
 
-func runSnapshotEstimateCommand(ctx context.Context, rep repo.Repository) error {
-	path, err := filepath.Abs(*snapshotEstimateSource)
+func (c *commandSnapshotEstimate) run(ctx context.Context, rep repo.Repository) error {
+	path, err := filepath.Abs(c.snapshotEstimateSource)
 	if err != nil {
 		return errors.Errorf("invalid path: '%s': %s", path, err)
 	}
@@ -76,6 +85,8 @@ func runSnapshotEstimateCommand(ctx context.Context, rep repo.Repository) error 
 
 	var ep estimateProgress
 
+	ep.quiet = c.snapshotEstimateQuiet
+
 	policyTree, err := policy.TreeForSource(ctx, rep, sourceInfo)
 	if err != nil {
 		return errors.Wrapf(err, "error creating policy tree for %v", sourceInfo)
@@ -86,7 +97,7 @@ func runSnapshotEstimateCommand(ctx context.Context, rep repo.Repository) error 
 	}
 
 	fmt.Printf("Snapshot includes %v files, total size %v\n", ep.stats.TotalFileCount, units.BytesStringBase10(ep.stats.TotalFileSize))
-	showBuckets(ep.included, *snapshotEstimateShowFiles)
+	showBuckets(ep.included, c.snapshotEstimateShowFiles)
 	fmt.Println()
 
 	if ep.stats.ExcludedFileCount > 0 {
@@ -111,10 +122,10 @@ func runSnapshotEstimateCommand(ctx context.Context, rep repo.Repository) error 
 	}
 
 	megabits := float64(ep.stats.TotalFileSize) * 8 / 1000000 //nolint:gomnd
-	seconds := megabits / *snapshotEstimateUploadSpeed
+	seconds := megabits / c.snapshotEstimateUploadSpeed
 
 	fmt.Println()
-	fmt.Printf("Estimated upload time: %v at %v Mbit/s\n", time.Duration(seconds)*time.Second, *snapshotEstimateUploadSpeed)
+	fmt.Printf("Estimated upload time: %v at %v Mbit/s\n", time.Duration(seconds)*time.Second, c.snapshotEstimateUploadSpeed)
 
 	return nil
 }
@@ -146,8 +157,4 @@ func showBuckets(buckets snapshotfs.SampleBuckets, showFiles bool) {
 			}
 		}
 	}
-}
-
-func init() {
-	snapshotEstimate.Action(repositoryReaderAction(runSnapshotEstimateCommand))
 }

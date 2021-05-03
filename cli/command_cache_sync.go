@@ -6,12 +6,13 @@ import (
 	"github.com/kopia/kopia/repo"
 )
 
-var cacheSyncCommand = cacheCommands.Command("sync", "Synchronizes the metadata cache with blobs in storage")
+type commandCacheSync struct{}
 
-func runCacheSyncCommand(ctx context.Context, rep repo.DirectRepositoryWriter) error {
-	return rep.ContentManager().SyncMetadataCache(ctx)
+func (c *commandCacheSync) setup(svc appServices, parent commandParent) {
+	cmd := parent.Command("sync", "Synchronizes the metadata cache with blobs in storage")
+	cmd.Action(svc.directRepositoryWriteAction(c.run))
 }
 
-func init() {
-	cacheSyncCommand.Action(directRepositoryWriteAction(runCacheSyncCommand))
+func (c *commandCacheSync) run(ctx context.Context, rep repo.DirectRepositoryWriter) error {
+	return rep.ContentManager().SyncMetadataCache(ctx)
 }

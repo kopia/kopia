@@ -11,26 +11,30 @@ import (
 	"github.com/kopia/kopia/repo"
 )
 
-var (
-	manifestListCommand = manifestCommands.Command("list", "List manifest items").Alias("ls").Default()
-	manifestListFilter  = manifestListCommand.Flag("filter", "List of key:value pairs").Strings()
-	manifestListSort    = manifestListCommand.Flag("sort", "List of keys to sort by").Strings()
-)
+type commandManifestList struct {
+	manifestListFilter []string
+	manifestListSort   []string
 
-func init() {
-	registerJSONOutputFlags(manifestListCommand)
-	manifestListCommand.Action(repositoryReaderAction(listManifestItems))
+	jo jsonOutput
 }
 
-func listManifestItems(ctx context.Context, rep repo.Repository) error {
+func (c *commandManifestList) setup(svc appServices, parent commandParent) {
+	cmd := parent.Command("list", "List manifest items").Alias("ls").Default()
+	cmd.Flag("filter", "List of key:value pairs").StringsVar(&c.manifestListFilter)
+	cmd.Flag("sort", "List of keys to sort by").StringsVar(&c.manifestListSort)
+	c.jo.setup(cmd)
+	cmd.Action(svc.repositoryReaderAction(c.listManifestItems))
+}
+
+func (c *commandManifestList) listManifestItems(ctx context.Context, rep repo.Repository) error {
 	var jl jsonList
 
-	jl.begin()
+	jl.begin(&c.jo)
 	defer jl.end()
 
 	filter := map[string]string{}
 
-	for _, kv := range *manifestListFilter {
+	for _, kv := range c.manifestListFilter {
 		p := strings.Index(kv, ":")
 		if p <= 0 {
 			return errors.Errorf("invalid list filter %q, missing ':'", kv)
@@ -45,7 +49,7 @@ func listManifestItems(ctx context.Context, rep repo.Repository) error {
 	}
 
 	sort.Slice(items, func(i, j int) bool {
-		for _, key := range *manifestListSort {
+		for _, key := range c.manifestListSort {
 			if v1, v2 := items[i].Labels[key], items[j].Labels[key]; v1 != v2 {
 				return v1 < v2
 			}
@@ -55,7 +59,7 @@ func listManifestItems(ctx context.Context, rep repo.Repository) error {
 	})
 
 	for _, it := range items {
-		if jsonOutput {
+		if c.jo.jsonOutput {
 			jl.emit(it)
 		} else {
 			t := it.Labels["type"]

@@ -12,26 +12,44 @@ import (
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
-var booleanEnumValues = []string{"true", "false", "inherit"}
+type commandPolicySet struct {
+	targets []string
+	global  bool
+	inherit []bool // not really a list, just an optional boolean
 
-var (
-	policySetCommand = policyCommands.Command("set", "Set snapshot policy for a single directory, user@host or a global policy.")
-	policySetTargets = policySetCommand.Arg("target", "Target of a policy ('global','user@host','@host') or a path").Strings()
-	policySetGlobal  = policySetCommand.Flag("global", "Set global policy").Bool()
-	policySetInherit = policySetCommand.Flag(inheritPolicyString, "Enable or disable inheriting policies from the parent").BoolList()
-)
+	policyActionFlags
+	policyCompressionFlags
+	policyErrorFlags
+	policyFilesFlags
+	policyRetentionFlags
+	policySchedulingFlags
+}
+
+func (c *commandPolicySet) setup(svc appServices, parent commandParent) {
+	cmd := parent.Command("set", "Set snapshot policy for a single directory, user@host or a global policy.")
+	cmd.Arg("target", "Target of a policy ('global','user@host','@host') or a path").StringsVar(&c.targets)
+	cmd.Flag("global", "Set global policy").BoolVar(&c.global)
+	cmd.Flag(inheritPolicyString, "Enable or disable inheriting policies from the parent").BoolListVar(&c.inherit)
+
+	c.policyActionFlags.setup(cmd)
+	c.policyCompressionFlags.setup(cmd)
+	c.policyErrorFlags.setup(cmd)
+	c.policyFilesFlags.setup(cmd)
+	c.policyRetentionFlags.setup(cmd)
+	c.policySchedulingFlags.setup(cmd)
+
+	cmd.Action(svc.repositoryWriterAction(c.run))
+}
+
+var booleanEnumValues = []string{"true", "false", "inherit"}
 
 const (
 	inheritPolicyString = "inherit"
 	defaultPolicyString = "default"
 )
 
-func init() {
-	policySetCommand.Action(repositoryWriterAction(setPolicy))
-}
-
-func setPolicy(ctx context.Context, rep repo.RepositoryWriter) error {
-	targets, err := policyTargets(ctx, rep, policySetGlobal, policySetTargets)
+func (c *commandPolicySet) run(ctx context.Context, rep repo.RepositoryWriter) error {
+	targets, err := policyTargets(ctx, rep, c.global, c.targets)
 	if err != nil {
 		return err
 	}
@@ -49,7 +67,7 @@ func setPolicy(ctx context.Context, rep repo.RepositoryWriter) error {
 		log(ctx).Infof("Setting policy for %v\n", target)
 
 		changeCount := 0
-		if err := setPolicyFromFlags(ctx, p, &changeCount); err != nil {
+		if err := c.setPolicyFromFlags(ctx, p, &changeCount); err != nil {
 			return err
 		}
 
@@ -65,33 +83,33 @@ func setPolicy(ctx context.Context, rep repo.RepositoryWriter) error {
 	return nil
 }
 
-func setPolicyFromFlags(ctx context.Context, p *policy.Policy, changeCount *int) error {
-	if err := setRetentionPolicyFromFlags(ctx, &p.RetentionPolicy, changeCount); err != nil {
+func (c *commandPolicySet) setPolicyFromFlags(ctx context.Context, p *policy.Policy, changeCount *int) error {
+	if err := c.setRetentionPolicyFromFlags(ctx, &p.RetentionPolicy, changeCount); err != nil {
 		return errors.Wrap(err, "retention policy")
 	}
 
-	if err := setFilesPolicyFromFlags(ctx, &p.FilesPolicy, changeCount); err != nil {
+	if err := c.setFilesPolicyFromFlags(ctx, &p.FilesPolicy, changeCount); err != nil {
 		return errors.Wrap(err, "files policy")
 	}
 
-	if err := setErrorHandlingPolicyFromFlags(ctx, &p.ErrorHandlingPolicy, changeCount); err != nil {
+	if err := c.setErrorHandlingPolicyFromFlags(ctx, &p.ErrorHandlingPolicy, changeCount); err != nil {
 		return errors.Wrap(err, "error handling policy")
 	}
 
-	if err := setCompressionPolicyFromFlags(ctx, &p.CompressionPolicy, changeCount); err != nil {
+	if err := c.setCompressionPolicyFromFlags(ctx, &p.CompressionPolicy, changeCount); err != nil {
 		return errors.Wrap(err, "compression policy")
 	}
 
-	if err := setSchedulingPolicyFromFlags(ctx, &p.SchedulingPolicy, changeCount); err != nil {
+	if err := c.setSchedulingPolicyFromFlags(ctx, &p.SchedulingPolicy, changeCount); err != nil {
 		return errors.Wrap(err, "scheduling policy")
 	}
 
-	if err := setActionsFromFlags(ctx, &p.Actions, changeCount); err != nil {
+	if err := c.setActionsFromFlags(ctx, &p.Actions, changeCount); err != nil {
 		return errors.Wrap(err, "actions policy")
 	}
 
 	// It's not really a list, just optional boolean, last one wins.
-	for _, inherit := range *policySetInherit {
+	for _, inherit := range c.inherit {
 		*changeCount++
 
 		p.NoParent = !inherit

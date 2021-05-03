@@ -11,9 +11,17 @@ import (
 	"github.com/kopia/kopia/repo/maintenance"
 )
 
-var maintenanceInfoCommand = maintenanceCommands.Command("info", "Display maintenance information").Alias("status")
+type commandMaintenanceInfo struct {
+	jo jsonOutput
+}
 
-func runMaintenanceInfoCommand(ctx context.Context, rep repo.DirectRepository) error {
+func (c *commandMaintenanceInfo) setup(svc appServices, parent commandParent) {
+	cmd := parent.Command("info", "Display maintenance information").Alias("status")
+	c.jo.setup(cmd)
+	cmd.Action(svc.directRepositoryReadAction(c.run))
+}
+
+func (c *commandMaintenanceInfo) run(ctx context.Context, rep repo.DirectRepository) error {
 	p, err := maintenance.GetParams(ctx, rep)
 	if err != nil {
 		return errors.Wrap(err, "unable to get maintenance params")
@@ -24,8 +32,8 @@ func runMaintenanceInfoCommand(ctx context.Context, rep repo.DirectRepository) e
 		return errors.Wrap(err, "unable to get maintenance schedule")
 	}
 
-	if jsonOutput {
-		printStdout("%s\n", jsonBytes(s))
+	if c.jo.jsonOutput {
+		printStdout("%s\n", c.jo.jsonBytes(s))
 		return nil
 	}
 
@@ -72,9 +80,4 @@ func displayCycleInfo(c *maintenance.CycleParams, t time.Time, rep repo.DirectRe
 			printStdout("  next run: now\n")
 		}
 	}
-}
-
-func init() {
-	registerJSONOutputFlags(maintenanceInfoCommand)
-	maintenanceInfoCommand.Action(directRepositoryReadAction(runMaintenanceInfoCommand))
 }

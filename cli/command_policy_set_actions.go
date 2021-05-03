@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"strings"
+	"time"
 
+	"github.com/alecthomas/kingpin"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/snapshot/policy"
@@ -14,37 +16,47 @@ import (
 
 const maxScriptLength = 32000
 
-var (
-	policySetBeforeFolderActionCommand       = policySetCommand.Flag("before-folder-action", "Path to before-folder action command ('none' to remove)").Default("-").PlaceHolder("COMMAND").String()
-	policySetAfterFolderActionCommand        = policySetCommand.Flag("after-folder-action", "Path to after-folder action command ('none' to remove)").Default("-").PlaceHolder("COMMAND").String()
-	policySetBeforeSnapshotRootActionCommand = policySetCommand.Flag("before-snapshot-root-action", "Path to before-snapshot-root action command ('none' to remove or 'inherit')").Default("-").PlaceHolder("COMMAND").String()
-	policySetAfterSnapshotRootActionCommand  = policySetCommand.Flag("after-snapshot-root-action", "Path to after-snapshot-root action command ('none' to remove or 'inherit')").Default("-").PlaceHolder("COMMAND").String()
-	policySetActionCommandTimeout            = policySetCommand.Flag("action-command-timeout", "Max time allowed for a action to run in seconds").Default("5m").Duration()
-	policySetActionCommandMode               = policySetCommand.Flag("action-command-mode", "Action command mode").Default("essential").Enum("essential", "optional", "async")
-	policySetPersistActionScript             = policySetCommand.Flag("persist-action-script", "Persist action script").Bool()
-)
+type policyActionFlags struct {
+	policySetBeforeFolderActionCommand       string
+	policySetAfterFolderActionCommand        string
+	policySetBeforeSnapshotRootActionCommand string
+	policySetAfterSnapshotRootActionCommand  string
+	policySetActionCommandTimeout            time.Duration
+	policySetActionCommandMode               string
+	policySetPersistActionScript             bool
+}
 
-func setActionsFromFlags(ctx context.Context, p *policy.ActionsPolicy, changeCount *int) error {
-	if err := setActionCommandFromFlags(ctx, "before-folder", &p.BeforeFolder, *policySetBeforeFolderActionCommand, changeCount); err != nil {
+func (c *policyActionFlags) setup(cmd *kingpin.CmdClause) {
+	cmd.Flag("before-folder-action", "Path to before-folder action command ('none' to remove)").Default("-").PlaceHolder("COMMAND").StringVar(&c.policySetBeforeFolderActionCommand)
+	cmd.Flag("after-folder-action", "Path to after-folder action command ('none' to remove)").Default("-").PlaceHolder("COMMAND").StringVar(&c.policySetAfterFolderActionCommand)
+	cmd.Flag("before-snapshot-root-action", "Path to before-snapshot-root action command ('none' to remove or 'inherit')").Default("-").PlaceHolder("COMMAND").StringVar(&c.policySetBeforeSnapshotRootActionCommand)
+	cmd.Flag("after-snapshot-root-action", "Path to after-snapshot-root action command ('none' to remove or 'inherit')").Default("-").PlaceHolder("COMMAND").StringVar(&c.policySetAfterSnapshotRootActionCommand)
+	cmd.Flag("action-command-timeout", "Max time allowed for a action to run in seconds").Default("5m").DurationVar(&c.policySetActionCommandTimeout)
+	cmd.Flag("action-command-mode", "Action command mode").Default("essential").EnumVar(&c.policySetActionCommandMode, "essential", "optional", "async")
+	cmd.Flag("persist-action-script", "Persist action script").BoolVar(&c.policySetPersistActionScript)
+}
+
+func (c *policyActionFlags) setActionsFromFlags(ctx context.Context, p *policy.ActionsPolicy, changeCount *int) error {
+	if err := c.setActionCommandFromFlags(ctx, "before-folder", &p.BeforeFolder, c.policySetBeforeFolderActionCommand, changeCount); err != nil {
 		return errors.Wrap(err, "invalid before-folder-action")
 	}
 
-	if err := setActionCommandFromFlags(ctx, "after-folder", &p.AfterFolder, *policySetAfterFolderActionCommand, changeCount); err != nil {
+	if err := c.setActionCommandFromFlags(ctx, "after-folder", &p.AfterFolder, c.policySetAfterFolderActionCommand, changeCount); err != nil {
 		return errors.Wrap(err, "invalid after-folder-action")
 	}
 
-	if err := setActionCommandFromFlags(ctx, "before-snapshot-root", &p.BeforeSnapshotRoot, *policySetBeforeSnapshotRootActionCommand, changeCount); err != nil {
+	if err := c.setActionCommandFromFlags(ctx, "before-snapshot-root", &p.BeforeSnapshotRoot, c.policySetBeforeSnapshotRootActionCommand, changeCount); err != nil {
 		return errors.Wrap(err, "invalid before-snapshot-root-action")
 	}
 
-	if err := setActionCommandFromFlags(ctx, "after-snapshot-root", &p.AfterSnapshotRoot, *policySetAfterSnapshotRootActionCommand, changeCount); err != nil {
+	if err := c.setActionCommandFromFlags(ctx, "after-snapshot-root", &p.AfterSnapshotRoot, c.policySetAfterSnapshotRootActionCommand, changeCount); err != nil {
 		return errors.Wrap(err, "invalid after-snapshot-root-action")
 	}
 
 	return nil
 }
 
-func setActionCommandFromFlags(ctx context.Context, actionName string, cmd **policy.ActionCommand, value string, changeCount *int) error {
+func (c *policyActionFlags) setActionCommandFromFlags(ctx context.Context, actionName string, cmd **policy.ActionCommand, value string, changeCount *int) error {
 	if value == "-" {
 		// not set
 		return nil
@@ -61,13 +73,13 @@ func setActionCommandFromFlags(ctx context.Context, actionName string, cmd **pol
 	}
 
 	*cmd = &policy.ActionCommand{
-		TimeoutSeconds: int(policySetActionCommandTimeout.Seconds()),
-		Mode:           *policySetActionCommandMode,
+		TimeoutSeconds: int(c.policySetActionCommandTimeout.Seconds()),
+		Mode:           c.policySetActionCommandMode,
 	}
 
 	*changeCount++
 
-	if *policySetPersistActionScript {
+	if c.policySetPersistActionScript {
 		script, err := ioutil.ReadFile(value) //nolint:gosec
 		if err != nil {
 			return errors.Wrap(err, "unable to read script file")
@@ -77,7 +89,7 @@ func setActionCommandFromFlags(ctx context.Context, actionName string, cmd **pol
 			return errors.Errorf("action script file (%v) too long: %v, max allowed %d", value, len(script), maxScriptLength)
 		}
 
-		log(ctx).Infof(" - setting %v (%v) action script from file %v (%v bytes) with timeout %v", actionName, *policySetActionCommandMode, value, len(script), *policySetActionCommandTimeout)
+		log(ctx).Infof(" - setting %v (%v) action script from file %v (%v bytes) with timeout %v", actionName, c.policySetActionCommandMode, value, len(script), c.policySetActionCommandTimeout)
 
 		(*cmd).Script = string(script)
 
@@ -97,9 +109,9 @@ func setActionCommandFromFlags(ctx context.Context, actionName string, cmd **pol
 	(*cmd).Arguments = fields[1:]
 
 	if len((*cmd).Arguments) == 0 {
-		log(ctx).Infof(" - setting %v (%v) action command to %v and timeout %v", actionName, *policySetActionCommandMode, quoteArguments((*cmd).Command), *policySetActionCommandTimeout)
+		log(ctx).Infof(" - setting %v (%v) action command to %v and timeout %v", actionName, c.policySetActionCommandMode, quoteArguments((*cmd).Command), c.policySetActionCommandTimeout)
 	} else {
-		log(ctx).Infof(" - setting %v (%v) action command to %v with arguments %v and timeout %v", actionName, *policySetActionCommandMode, quoteArguments((*cmd).Command), quoteArguments((*cmd).Arguments...), *policySetActionCommandTimeout)
+		log(ctx).Infof(" - setting %v (%v) action command to %v with arguments %v and timeout %v", actionName, c.policySetActionCommandMode, quoteArguments((*cmd).Command), quoteArguments((*cmd).Arguments...), c.policySetActionCommandTimeout)
 	}
 
 	return nil

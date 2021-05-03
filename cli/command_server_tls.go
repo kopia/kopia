@@ -23,25 +23,15 @@ import (
 
 const oneDay = 24 * time.Hour
 
-var (
-	serverStartTLSGenerateCert          = serverStartCommand.Flag("tls-generate-cert", "Generate TLS certificate").Hidden().Bool()
-	serverStartTLSCertFile              = serverStartCommand.Flag("tls-cert-file", "TLS certificate PEM").String()
-	serverStartTLSKeyFile               = serverStartCommand.Flag("tls-key-file", "TLS key PEM file").String()
-	serverStartTLSGenerateRSAKeySize    = serverStartCommand.Flag("tls-generate-rsa-key-size", "TLS RSA Key size (bits)").Hidden().Default("4096").Int()
-	serverStartTLSGenerateCertValidDays = serverStartCommand.Flag("tls-generate-cert-valid-days", "How long should the TLS certificate be valid").Default("3650").Hidden().Int()
-	serverStartTLSGenerateCertNames     = serverStartCommand.Flag("tls-generate-cert-name", "Host names/IP addresses to generate TLS certificate for").Default("127.0.0.1").Hidden().Strings()
-	serverStartTLSPrintFullServerCert   = serverStartCommand.Flag("tls-print-server-cert", "Print server certificate").Hidden().Bool()
-)
-
-func generateServerCertificate(ctx context.Context) (*x509.Certificate, *rsa.PrivateKey, error) {
+func (c *commandServerStart) generateServerCertificate(ctx context.Context) (*x509.Certificate, *rsa.PrivateKey, error) {
 	return tlsutil.GenerateServerCertificate(
 		ctx,
-		*serverStartTLSGenerateRSAKeySize,
-		time.Duration(*serverStartTLSGenerateCertValidDays)*oneDay, //nolint:durationcheck
-		*serverStartTLSGenerateCertNames)
+		c.serverStartTLSGenerateRSAKeySize,
+		time.Duration(c.serverStartTLSGenerateCertValidDays)*oneDay,
+		c.serverStartTLSGenerateCertNames)
 }
 
-func startServerWithOptionalTLS(ctx context.Context, httpServer *http.Server) error {
+func (c *commandServerStart) startServerWithOptionalTLS(ctx context.Context, httpServer *http.Server) error {
 	l, err := net.Listen("tcp", httpServer.Addr)
 	if err != nil {
 		return errors.Wrap(err, "listen error")
@@ -50,23 +40,23 @@ func startServerWithOptionalTLS(ctx context.Context, httpServer *http.Server) er
 
 	httpServer.Addr = l.Addr().String()
 
-	return startServerWithOptionalTLSAndListener(ctx, httpServer, l)
+	return c.startServerWithOptionalTLSAndListener(ctx, httpServer, l)
 }
 
-func maybeGenerateTLS(ctx context.Context) error {
-	if !*serverStartTLSGenerateCert || *serverStartTLSCertFile == "" || *serverStartTLSKeyFile == "" {
+func (c *commandServerStart) maybeGenerateTLS(ctx context.Context) error {
+	if !c.serverStartTLSGenerateCert || c.serverStartTLSCertFile == "" || c.serverStartTLSKeyFile == "" {
 		return nil
 	}
 
-	if _, err := os.Stat(*serverStartTLSCertFile); err == nil {
-		return errors.Errorf("TLS cert file already exists: %q", *serverStartTLSCertFile)
+	if _, err := os.Stat(c.serverStartTLSCertFile); err == nil {
+		return errors.Errorf("TLS cert file already exists: %q", c.serverStartTLSCertFile)
 	}
 
-	if _, err := os.Stat(*serverStartTLSKeyFile); err == nil {
-		return errors.Errorf("TLS key file already exists: %q", *serverStartTLSKeyFile)
+	if _, err := os.Stat(c.serverStartTLSKeyFile); err == nil {
+		return errors.Errorf("TLS key file already exists: %q", c.serverStartTLSKeyFile)
 	}
 
-	cert, key, err := generateServerCertificate(ctx)
+	cert, key, err := c.generateServerCertificate(ctx)
 	if err != nil {
 		return errors.Wrap(err, "unable to generate server cert")
 	}
@@ -74,37 +64,37 @@ func maybeGenerateTLS(ctx context.Context) error {
 	fingerprint := sha256.Sum256(cert.Raw)
 	fmt.Fprintf(os.Stderr, "SERVER CERT SHA256: %v\n", hex.EncodeToString(fingerprint[:]))
 
-	log(ctx).Infof("writing TLS certificate to %v", *serverStartTLSCertFile)
+	log(ctx).Infof("writing TLS certificate to %v", c.serverStartTLSCertFile)
 
-	if err := tlsutil.WriteCertificateToFile(*serverStartTLSCertFile, cert); err != nil {
+	if err := tlsutil.WriteCertificateToFile(c.serverStartTLSCertFile, cert); err != nil {
 		return errors.Wrap(err, "unable to write private key")
 	}
 
-	log(ctx).Infof("writing TLS private key to %v", *serverStartTLSKeyFile)
+	log(ctx).Infof("writing TLS private key to %v", c.serverStartTLSKeyFile)
 
-	if err := tlsutil.WritePrivateKeyToFile(*serverStartTLSKeyFile, key); err != nil {
+	if err := tlsutil.WritePrivateKeyToFile(c.serverStartTLSKeyFile, key); err != nil {
 		return errors.Wrap(err, "unable to write private key")
 	}
 
 	return nil
 }
 
-func startServerWithOptionalTLSAndListener(ctx context.Context, httpServer *http.Server, listener net.Listener) error {
-	if err := maybeGenerateTLS(ctx); err != nil {
+func (c *commandServerStart) startServerWithOptionalTLSAndListener(ctx context.Context, httpServer *http.Server, listener net.Listener) error {
+	if err := c.maybeGenerateTLS(ctx); err != nil {
 		return err
 	}
 
 	switch {
-	case *serverStartTLSCertFile != "" && *serverStartTLSKeyFile != "":
+	case c.serverStartTLSCertFile != "" && c.serverStartTLSKeyFile != "":
 		// PEM files provided
 		fmt.Fprintf(os.Stderr, "SERVER ADDRESS: https://%v\n", httpServer.Addr)
-		showServerUIPrompt(ctx)
+		c.showServerUIPrompt(ctx)
 
-		return httpServer.ServeTLS(listener, *serverStartTLSCertFile, *serverStartTLSKeyFile)
+		return httpServer.ServeTLS(listener, c.serverStartTLSCertFile, c.serverStartTLSKeyFile)
 
-	case *serverStartTLSGenerateCert:
+	case c.serverStartTLSGenerateCert:
 		// PEM files not provided, generate in-memory TLS cert/key but don't persit.
-		cert, key, err := generateServerCertificate(ctx)
+		cert, key, err := c.generateServerCertificate(ctx)
 		if err != nil {
 			return errors.Wrap(err, "unable to generate server cert")
 		}
@@ -122,7 +112,7 @@ func startServerWithOptionalTLSAndListener(ctx context.Context, httpServer *http
 		fingerprint := sha256.Sum256(cert.Raw)
 		fmt.Fprintf(os.Stderr, "SERVER CERT SHA256: %v\n", hex.EncodeToString(fingerprint[:]))
 
-		if *serverStartTLSPrintFullServerCert {
+		if c.serverStartTLSPrintFullServerCert {
 			// dump PEM-encoded server cert, only used by KopiaUI to securely connnect.
 			var b bytes.Buffer
 
@@ -134,24 +124,24 @@ func startServerWithOptionalTLSAndListener(ctx context.Context, httpServer *http
 		}
 
 		fmt.Fprintf(os.Stderr, "SERVER ADDRESS: https://%v\n", httpServer.Addr)
-		showServerUIPrompt(ctx)
+		c.showServerUIPrompt(ctx)
 
 		return httpServer.ServeTLS(listener, "", "")
 
 	default:
-		if !*serverStartInsecure {
+		if !c.serverStartInsecure {
 			return errors.Errorf("TLS not configured. To start server without encryption pass --insecure.")
 		}
 
 		fmt.Fprintf(os.Stderr, "SERVER ADDRESS: http://%v\n", httpServer.Addr)
-		showServerUIPrompt(ctx)
+		c.showServerUIPrompt(ctx)
 
 		return httpServer.Serve(listener)
 	}
 }
 
-func showServerUIPrompt(ctx context.Context) {
-	if *serverStartUI {
+func (c *commandServerStart) showServerUIPrompt(ctx context.Context) {
+	if c.serverStartUI {
 		log(ctx).Infof("Open the address above in a web browser to use the UI.")
 	}
 }

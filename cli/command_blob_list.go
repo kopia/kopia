@@ -8,38 +8,43 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 )
 
-var (
-	blobListCommand = blobCommands.Command("list", "List BLOBs").Alias("ls")
-	blobListPrefix  = blobListCommand.Flag("prefix", "Blob ID prefix").String()
-	blobListMinSize = blobListCommand.Flag("min-size", "Minimum size").Int64()
-	blobListMaxSize = blobListCommand.Flag("max-size", "Maximum size").Int64()
-)
+type commandBlobList struct {
+	blobListPrefix  string
+	blobListMinSize int64
+	blobListMaxSize int64
 
-func runBlobList(ctx context.Context, rep repo.DirectRepository) error {
+	jo jsonOutput
+}
+
+func (c *commandBlobList) setup(svc appServices, parent commandParent) {
+	cmd := parent.Command("list", "List BLOBs").Alias("ls")
+	cmd.Flag("prefix", "Blob ID prefix").StringVar(&c.blobListPrefix)
+	cmd.Flag("min-size", "Minimum size").Int64Var(&c.blobListMinSize)
+	cmd.Flag("max-size", "Maximum size").Int64Var(&c.blobListMaxSize)
+	c.jo.setup(cmd)
+	cmd.Action(svc.directRepositoryReadAction(c.run))
+}
+
+func (c *commandBlobList) run(ctx context.Context, rep repo.DirectRepository) error {
 	var jl jsonList
 
-	jl.begin()
+	jl.begin(&c.jo)
 	defer jl.end()
 
-	return rep.BlobReader().ListBlobs(ctx, blob.ID(*blobListPrefix), func(b blob.Metadata) error {
-		if *blobListMaxSize != 0 && b.Length > *blobListMaxSize {
+	return rep.BlobReader().ListBlobs(ctx, blob.ID(c.blobListPrefix), func(b blob.Metadata) error {
+		if c.blobListMaxSize != 0 && b.Length > c.blobListMaxSize {
 			return nil
 		}
 
-		if *blobListMinSize != 0 && b.Length < *blobListMinSize {
+		if c.blobListMinSize != 0 && b.Length < c.blobListMinSize {
 			return nil
 		}
 
-		if jsonOutput {
+		if c.jo.jsonOutput {
 			jl.emit(b)
 		} else {
 			fmt.Printf("%-70v %10v %v\n", b.BlobID, b.Length, formatTimestamp(b.Timestamp))
 		}
 		return nil
 	})
-}
-
-func init() {
-	registerJSONOutputFlags(blobListCommand)
-	blobListCommand.Action(directRepositoryReadAction(runBlobList))
 }

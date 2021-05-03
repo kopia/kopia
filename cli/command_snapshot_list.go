@@ -20,21 +20,40 @@ import (
 	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
 
-var (
-	snapshotListCommand              = snapshotCommands.Command("list", "List snapshots of files and directories.").Alias("ls")
-	snapshotListPath                 = snapshotListCommand.Arg("source", "File or directory to show history of.").String()
-	snapshotListIncludeIncomplete    = snapshotListCommand.Flag("incomplete", "Include incomplete.").Short('i').Bool()
-	snapshotListShowHumanReadable    = snapshotListCommand.Flag("human-readable", "Show human-readable units").Default("true").Bool()
-	snapshotListShowDelta            = snapshotListCommand.Flag("delta", "Include deltas.").Short('d').Bool()
-	snapshotListShowItemID           = snapshotListCommand.Flag("manifest-id", "Include manifest item ID.").Short('m').Bool()
-	snapshotListShowRetentionReasons = snapshotListCommand.Flag("retention", "Include retention reasons.").Default("true").Bool()
-	snapshotListShowModTime          = snapshotListCommand.Flag("mtime", "Include file mod time").Bool()
-	shapshotListShowOwner            = snapshotListCommand.Flag("owner", "Include owner").Bool()
-	snapshotListShowIdentical        = snapshotListCommand.Flag("show-identical", "Show identical snapshots").Short('l').Bool()
-	snapshotListShowAll              = snapshotListCommand.Flag("all", "Show all shapshots (not just current username/host)").Short('a').Bool()
-	maxResultsPerPath                = snapshotListCommand.Flag("max-results", "Maximum number of entries per source.").Short('n').Int()
-	snapshotListTags                 = snapshotListCommand.Flag("tags", "Tag filters to apply on the list items. Must be provided in the <key>:<value> format.").Strings()
-)
+type commandSnapshotList struct {
+	snapshotListPath                 string
+	snapshotListIncludeIncomplete    bool
+	snapshotListShowHumanReadable    bool
+	snapshotListShowDelta            bool
+	snapshotListShowItemID           bool
+	snapshotListShowRetentionReasons bool
+	snapshotListShowModTime          bool
+	shapshotListShowOwner            bool
+	snapshotListShowIdentical        bool
+	snapshotListShowAll              bool
+	maxResultsPerPath                int
+	snapshotListTags                 []string
+
+	jo jsonOutput
+}
+
+func (c *commandSnapshotList) setup(svc appServices, parent commandParent) {
+	cmd := parent.Command("list", "List snapshots of files and directories.").Alias("ls")
+	cmd.Arg("source", "File or directory to show history of.").StringVar(&c.snapshotListPath)
+	cmd.Flag("incomplete", "Include incomplete.").Short('i').BoolVar(&c.snapshotListIncludeIncomplete)
+	cmd.Flag("human-readable", "Show human-readable units").Default("true").BoolVar(&c.snapshotListShowHumanReadable)
+	cmd.Flag("delta", "Include deltas.").Short('d').BoolVar(&c.snapshotListShowDelta)
+	cmd.Flag("manifest-id", "Include manifest item ID.").Short('m').BoolVar(&c.snapshotListShowItemID)
+	cmd.Flag("retention", "Include retention reasons.").Default("true").BoolVar(&c.snapshotListShowRetentionReasons)
+	cmd.Flag("mtime", "Include file mod time").BoolVar(&c.snapshotListShowModTime)
+	cmd.Flag("owner", "Include owner").BoolVar(&c.shapshotListShowOwner)
+	cmd.Flag("show-identical", "Show identical snapshots").Short('l').BoolVar(&c.snapshotListShowIdentical)
+	cmd.Flag("all", "Show all shapshots (not just current username/host)").Short('a').BoolVar(&c.snapshotListShowAll)
+	cmd.Flag("max-results", "Maximum number of entries per source.").Short('n').IntVar(&c.maxResultsPerPath)
+	cmd.Flag("tags", "Tag filters to apply on the list items. Must be provided in the <key>:<value> format.").StringsVar(&c.snapshotListTags)
+	c.jo.setup(cmd)
+	cmd.Action(svc.repositoryReaderAction(c.run))
+}
 
 func findSnapshotsForSource(ctx context.Context, rep repo.Repository, sourceInfo snapshot.SourceInfo, tags map[string]string) (manifestIDs []manifest.ID, relPath string, err error) {
 	for len(sourceInfo.Path) > 0 {
@@ -85,18 +104,18 @@ func findManifestIDs(ctx context.Context, rep repo.Repository, source string, ta
 	return manifestIDs, relPath, err
 }
 
-func runSnapshotsCommand(ctx context.Context, rep repo.Repository) error {
+func (c *commandSnapshotList) run(ctx context.Context, rep repo.Repository) error {
 	var jl jsonList
 
-	jl.begin()
+	jl.begin(&c.jo)
 	defer jl.end()
 
-	tags, err := getTags(*snapshotListTags)
+	tags, err := getTags(c.snapshotListTags)
 	if err != nil {
 		return err
 	}
 
-	manifestIDs, relPath, err := findManifestIDs(ctx, rep, *snapshotListPath, tags)
+	manifestIDs, relPath, err := findManifestIDs(ctx, rep, c.snapshotListPath, tags)
 	if err != nil {
 		return err
 	}
@@ -106,7 +125,7 @@ func runSnapshotsCommand(ctx context.Context, rep repo.Repository) error {
 		return errors.Wrap(err, "unable to load snapshots")
 	}
 
-	if jsonOutput {
+	if c.jo.jsonOutput {
 		for _, snapshotGroup := range snapshot.GroupBySource(manifests) {
 			for _, m := range snapshotGroup {
 				jl.emit(m)
@@ -116,11 +135,11 @@ func runSnapshotsCommand(ctx context.Context, rep repo.Repository) error {
 		return nil
 	}
 
-	return outputManifestGroups(ctx, rep, manifests, strings.Split(relPath, "/"))
+	return c.outputManifestGroups(ctx, rep, manifests, strings.Split(relPath, "/"))
 }
 
-func shouldOutputSnapshotSource(rep repo.Repository, src snapshot.SourceInfo) bool {
-	if *snapshotListShowAll {
+func (c *commandSnapshotList) shouldOutputSnapshotSource(rep repo.Repository, src snapshot.SourceInfo) bool {
+	if c.snapshotListShowAll {
 		return true
 	}
 
@@ -133,14 +152,14 @@ func shouldOutputSnapshotSource(rep repo.Repository, src snapshot.SourceInfo) bo
 	return src.UserName == co.Username
 }
 
-func outputManifestGroups(ctx context.Context, rep repo.Repository, manifests []*snapshot.Manifest, relPathParts []string) error {
+func (c *commandSnapshotList) outputManifestGroups(ctx context.Context, rep repo.Repository, manifests []*snapshot.Manifest, relPathParts []string) error {
 	separator := ""
 
 	var anyOutput bool
 
 	for _, snapshotGroup := range snapshot.GroupBySource(manifests) {
 		src := snapshotGroup[0].Source
-		if !shouldOutputSnapshotSource(rep, src) {
+		if !c.shouldOutputSnapshotSource(rep, src) {
 			log(ctx).Debugf("skipping %v", src)
 			continue
 		}
@@ -157,19 +176,19 @@ func outputManifestGroups(ctx context.Context, rep repo.Repository, manifests []
 			pol.RetentionPolicy.ComputeRetentionReasons(snapshotGroup)
 		}
 
-		if err := outputManifestFromSingleSource(ctx, rep, snapshotGroup, relPathParts); err != nil {
+		if err := c.outputManifestFromSingleSource(ctx, rep, snapshotGroup, relPathParts); err != nil {
 			return err
 		}
 	}
 
-	if !anyOutput && !*snapshotListShowAll && len(manifests) > 0 {
+	if !anyOutput && !c.snapshotListShowAll && len(manifests) > 0 {
 		log(ctx).Infof("No snapshots found. Pass --all to show snapshots from all users/hosts.\n")
 	}
 
 	return nil
 }
 
-func outputManifestFromSingleSource(ctx context.Context, rep repo.Repository, manifests []*snapshot.Manifest, parts []string) error {
+func (c *commandSnapshotList) outputManifestFromSingleSource(ctx context.Context, rep repo.Repository, manifests []*snapshot.Manifest, parts []string) error {
 	var (
 		count             int
 		lastTotalFileSize int64
@@ -179,8 +198,8 @@ func outputManifestFromSingleSource(ctx context.Context, rep repo.Repository, ma
 	)
 
 	manifests = snapshot.SortByTime(manifests, false)
-	if *maxResultsPerPath > 0 && len(manifests) > *maxResultsPerPath {
-		manifests = manifests[len(manifests)-*maxResultsPerPath:]
+	if c.maxResultsPerPath > 0 && len(manifests) > c.maxResultsPerPath {
+		manifests = manifests[len(manifests)-c.maxResultsPerPath:]
 	}
 
 	outputElided := func() {
@@ -211,14 +230,14 @@ func outputManifestFromSingleSource(ctx context.Context, rep repo.Repository, ma
 			continue
 		}
 
-		if m.IncompleteReason != "" && !*snapshotListIncludeIncomplete {
+		if m.IncompleteReason != "" && !c.snapshotListIncludeIncomplete {
 			continue
 		}
 
-		bits, col := entryBits(ctx, m, ent, lastTotalFileSize)
+		bits, col := c.entryBits(ctx, m, ent, lastTotalFileSize)
 
 		oid := ent.(object.HasObjectID).ObjectID()
-		if !*snapshotListShowIdentical && oid == previousOID {
+		if !c.snapshotListShowIdentical && oid == previousOID {
 			elidedCount++
 
 			maxElidedTime = m.StartTime
@@ -245,7 +264,7 @@ func outputManifestFromSingleSource(ctx context.Context, rep repo.Repository, ma
 	return nil
 }
 
-func entryBits(ctx context.Context, m *snapshot.Manifest, ent fs.Entry, lastTotalFileSize int64) (bits []string, col *color.Color) {
+func (c *commandSnapshotList) entryBits(ctx context.Context, m *snapshot.Manifest, ent fs.Entry, lastTotalFileSize int64) (bits []string, col *color.Color) {
 	col = color.New() // default color
 
 	if m.IncompleteReason != "" {
@@ -253,23 +272,23 @@ func entryBits(ctx context.Context, m *snapshot.Manifest, ent fs.Entry, lastTota
 	}
 
 	bits = append(bits,
-		maybeHumanReadableBytes(*snapshotListShowHumanReadable, ent.Size()),
+		maybeHumanReadableBytes(c.snapshotListShowHumanReadable, ent.Size()),
 		fmt.Sprintf("%v", ent.Mode()))
-	if *shapshotListShowOwner {
+	if c.shapshotListShowOwner {
 		bits = append(bits,
 			fmt.Sprintf("uid:%v", ent.Owner().UserID),
 			fmt.Sprintf("gid:%v", ent.Owner().GroupID))
 	}
 
-	if *snapshotListShowModTime {
+	if c.snapshotListShowModTime {
 		bits = append(bits, fmt.Sprintf("modified:%v", formatTimestamp(ent.ModTime())))
 	}
 
-	if *snapshotListShowItemID {
+	if c.snapshotListShowItemID {
 		bits = append(bits, "manifest:"+string(m.ID))
 	}
 
-	if *snapshotListShowDelta {
+	if c.snapshotListShowDelta {
 		bits = append(bits, deltaBytes(ent.Size()-lastTotalFileSize))
 	}
 
@@ -285,7 +304,7 @@ func entryBits(ctx context.Context, m *snapshot.Manifest, ent fs.Entry, lastTota
 		}
 	}
 
-	if *snapshotListShowRetentionReasons {
+	if c.snapshotListShowRetentionReasons {
 		if len(m.RetentionReasons) > 0 {
 			bits = append(bits, "("+strings.Join(m.RetentionReasons, ",")+")")
 		}
@@ -300,9 +319,4 @@ func deltaBytes(b int64) string {
 	}
 
 	return ""
-}
-
-func init() {
-	registerJSONOutputFlags(snapshotListCommand)
-	snapshotListCommand.Action(repositoryReaderAction(runSnapshotsCommand))
 }

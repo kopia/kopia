@@ -10,23 +10,35 @@ import (
 	"github.com/kopia/kopia/repo/maintenance"
 )
 
-var (
-	maintenanceSetCommand = maintenanceCommands.Command("set", "Set maintenance parameters")
+type commandMaintenanceSet struct {
+	maintenanceSetOwner          string
+	maintenanceSetEnableQuick    []bool          // optional boolean
+	maintenanceSetEnableFull     []bool          // optional boolean
+	maintenanceSetQuickFrequency []time.Duration // optional duration
+	maintenanceSetFullFrequency  []time.Duration // optional duration
+	maintenanceSetPauseQuick     []time.Duration // optional duration
+	maintenanceSetPauseFull      []time.Duration // optional duration
+}
 
-	maintenanceSetOwner = maintenanceSetCommand.Flag("owner", "Set maintenance owner user@hostname").String()
+func (c *commandMaintenanceSet) setup(svc appServices, parent commandParent) {
+	cmd := parent.Command("set", "Set maintenance parameters")
 
-	maintenanceSetEnableQuick = maintenanceSetCommand.Flag("enable-quick", "Enable or disable quick maintenance").BoolList()
-	maintenanceSetEnableFull  = maintenanceSetCommand.Flag("enable-full", "Enable or disable full maintenance").BoolList()
+	cmd.Flag("owner", "Set maintenance owner user@hostname").StringVar(&c.maintenanceSetOwner)
 
-	maintenanceSetQuickFrequency = maintenanceSetCommand.Flag("quick-interval", "Set quick maintenance interval").DurationList()
-	maintenanceSetFullFrequency  = maintenanceSetCommand.Flag("full-interval", "Set full maintenance interval").DurationList()
+	cmd.Flag("enable-quick", "Enable or disable quick maintenance").BoolListVar(&c.maintenanceSetEnableQuick)
+	cmd.Flag("enable-full", "Enable or disable full maintenance").BoolListVar(&c.maintenanceSetEnableFull)
 
-	maintenanceSetPauseQuick = maintenanceSetCommand.Flag("pause-quick", "Pause quick maintenance for a specified duration").DurationList()
-	maintenanceSetPauseFull  = maintenanceSetCommand.Flag("pause-full", "Pause full maintenance for a specified duration").DurationList()
-)
+	cmd.Flag("quick-interval", "Set quick maintenance interval").DurationListVar(&c.maintenanceSetQuickFrequency)
+	cmd.Flag("full-interval", "Set full maintenance interval").DurationListVar(&c.maintenanceSetFullFrequency)
 
-func setMaintenanceOwnerFromFlags(ctx context.Context, p *maintenance.Params, rep repo.DirectRepositoryWriter, changed *bool) {
-	if v := *maintenanceSetOwner; v != "" {
+	cmd.Flag("pause-quick", "Pause quick maintenance for a specified duration").DurationListVar(&c.maintenanceSetPauseQuick)
+	cmd.Flag("pause-full", "Pause full maintenance for a specified duration").DurationListVar(&c.maintenanceSetPauseFull)
+
+	cmd.Action(svc.directRepositoryWriteAction(c.run))
+}
+
+func (c *commandMaintenanceSet) setMaintenanceOwnerFromFlags(ctx context.Context, p *maintenance.Params, rep repo.DirectRepositoryWriter, changed *bool) {
+	if v := c.maintenanceSetOwner; v != "" {
 		if v == "me" {
 			p.Owner = rep.ClientOptions().UsernameAtHost()
 		} else {
@@ -39,12 +51,12 @@ func setMaintenanceOwnerFromFlags(ctx context.Context, p *maintenance.Params, re
 	}
 }
 
-func setMaintenanceEnabledAndIntervalFromFlags(ctx context.Context, c *maintenance.CycleParams, cycleName string, enableFlag []bool, intervalFlag []time.Duration, changed *bool) {
+func (c *commandMaintenanceSet) setMaintenanceEnabledAndIntervalFromFlags(ctx context.Context, cp *maintenance.CycleParams, cycleName string, enableFlag []bool, intervalFlag []time.Duration, changed *bool) {
 	// we use lists to distinguish between flag not set
 	// Zero elements == not set, more than zero - flag set, in which case we pick the last value
 	if len(enableFlag) > 0 {
 		lastVal := enableFlag[len(enableFlag)-1]
-		c.Enabled = lastVal
+		cp.Enabled = lastVal
 		*changed = true
 
 		if lastVal {
@@ -56,14 +68,14 @@ func setMaintenanceEnabledAndIntervalFromFlags(ctx context.Context, c *maintenan
 
 	if len(intervalFlag) > 0 {
 		lastVal := intervalFlag[len(intervalFlag)-1]
-		c.Interval = lastVal
+		cp.Interval = lastVal
 		*changed = true
 
 		log(ctx).Infof("Interval for %v maintenance set to %v.", cycleName, lastVal)
 	}
 }
 
-func runMaintenanceSetParams(ctx context.Context, rep repo.DirectRepositoryWriter) error {
+func (c *commandMaintenanceSet) run(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	p, err := maintenance.GetParams(ctx, rep)
 	if err != nil {
 		return errors.Wrap(err, "unable to get current parameters")
@@ -76,11 +88,11 @@ func runMaintenanceSetParams(ctx context.Context, rep repo.DirectRepositoryWrite
 
 	var changedParams, changedSchedule bool
 
-	setMaintenanceOwnerFromFlags(ctx, p, rep, &changedParams)
-	setMaintenanceEnabledAndIntervalFromFlags(ctx, &p.QuickCycle, "quick", *maintenanceSetEnableQuick, *maintenanceSetQuickFrequency, &changedParams)
-	setMaintenanceEnabledAndIntervalFromFlags(ctx, &p.FullCycle, "full", *maintenanceSetEnableFull, *maintenanceSetFullFrequency, &changedParams)
+	c.setMaintenanceOwnerFromFlags(ctx, p, rep, &changedParams)
+	c.setMaintenanceEnabledAndIntervalFromFlags(ctx, &p.QuickCycle, "quick", c.maintenanceSetEnableQuick, c.maintenanceSetQuickFrequency, &changedParams)
+	c.setMaintenanceEnabledAndIntervalFromFlags(ctx, &p.FullCycle, "full", c.maintenanceSetEnableFull, c.maintenanceSetFullFrequency, &changedParams)
 
-	if v := *maintenanceSetPauseQuick; len(v) > 0 {
+	if v := c.maintenanceSetPauseQuick; len(v) > 0 {
 		pauseDuration := v[len(v)-1]
 		s.NextQuickMaintenanceTime = rep.Time().Add(pauseDuration)
 		changedSchedule = true
@@ -88,7 +100,7 @@ func runMaintenanceSetParams(ctx context.Context, rep repo.DirectRepositoryWrite
 		log(ctx).Infof("Quick maintenance paused until %v", formatTimestamp(s.NextQuickMaintenanceTime))
 	}
 
-	if v := *maintenanceSetPauseFull; len(v) > 0 {
+	if v := c.maintenanceSetPauseFull; len(v) > 0 {
 		pauseDuration := v[len(v)-1]
 		s.NextFullMaintenanceTime = rep.Time().Add(pauseDuration)
 		changedSchedule = true
@@ -113,8 +125,4 @@ func runMaintenanceSetParams(ctx context.Context, rep repo.DirectRepositoryWrite
 	}
 
 	return nil
-}
-
-func init() {
-	maintenanceSetCommand.Action(directRepositoryWriteAction(runMaintenanceSetParams))
 }

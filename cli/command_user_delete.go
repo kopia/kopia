@@ -9,22 +9,23 @@ import (
 	"github.com/kopia/kopia/repo"
 )
 
-var (
-	userDeleteCommand = userCommands.Command("delete", "Delete user").Alias("remove").Alias("rm")
-	userDeleteName    = userDeleteCommand.Arg("username", "The username to delete.").Required().String()
-)
+type commandServerUserDelete struct {
+	name string
+}
 
-func runUserDelete(ctx context.Context, rep repo.RepositoryWriter) error {
-	err := user.DeleteUserProfile(ctx, rep, *userDeleteName)
+func (c *commandServerUserDelete) setup(svc appServices, parent commandParent) {
+	cmd := parent.Command("delete", "Delete user").Alias("remove").Alias("rm")
+	cmd.Arg("username", "The username to delete.").Required().StringVar(&c.name)
+	cmd.Action(svc.repositoryWriterAction(c.run))
+}
+
+func (c *commandServerUserDelete) run(ctx context.Context, rep repo.RepositoryWriter) error {
+	err := user.DeleteUserProfile(ctx, rep, c.name)
 	if err != nil {
 		return errors.Wrap(err, "error deleting user profile")
 	}
 
-	log(ctx).Infof("User %q deleted.", *userDeleteName)
+	log(ctx).Infof("User %q deleted.", c.name)
 
 	return nil
-}
-
-func init() {
-	userDeleteCommand.Action(repositoryWriterAction(runUserDelete))
 }

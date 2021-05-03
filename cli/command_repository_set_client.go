@@ -8,22 +8,35 @@ import (
 	"github.com/kopia/kopia/repo"
 )
 
-var (
-	repoClientOptionsCommand = repositoryCommands.Command("set-client", "Set repository client options.")
+type commandRepositorySetClient struct {
+	repoClientOptionsReadOnly    bool
+	repoClientOptionsReadWrite   bool
+	repoClientOptionsDescription []string
+	repoClientOptionsUsername    []string
+	repoClientOptionsHostname    []string
 
-	repoClientOptionsReadOnly    = repoClientOptionsCommand.Flag("read-only", "Set repository to read-only").Bool()
-	repoClientOptionsReadWrite   = repoClientOptionsCommand.Flag("read-write", "Set repository to read-write").Bool()
-	repoClientOptionsDescription = repoClientOptionsCommand.Flag("description", "Change description").Strings()
-	repoClientOptionsUsername    = repoClientOptionsCommand.Flag("username", "Change username").Strings()
-	repoClientOptionsHostname    = repoClientOptionsCommand.Flag("hostname", "Change hostname").Strings()
-)
+	svc appServices
+}
 
-func runRepoClientOptionsCommand(ctx context.Context, rep repo.Repository) error {
+func (c *commandRepositorySetClient) setup(svc appServices, parent commandParent) {
+	cmd := parent.Command("set-client", "Set repository client options.")
+
+	cmd.Flag("read-only", "Set repository to read-only").BoolVar(&c.repoClientOptionsReadOnly)
+	cmd.Flag("read-write", "Set repository to read-write").BoolVar(&c.repoClientOptionsReadWrite)
+	cmd.Flag("description", "Change description").StringsVar(&c.repoClientOptionsDescription)
+	cmd.Flag("username", "Change username").StringsVar(&c.repoClientOptionsUsername)
+	cmd.Flag("hostname", "Change hostname").StringsVar(&c.repoClientOptionsHostname)
+	cmd.Action(svc.repositoryReaderAction(c.run))
+
+	c.svc = svc
+}
+
+func (c *commandRepositorySetClient) run(ctx context.Context, rep repo.Repository) error {
 	var anyChange bool
 
 	opt := rep.ClientOptions()
 
-	if *repoClientOptionsReadOnly {
+	if c.repoClientOptionsReadOnly {
 		if opt.ReadOnly {
 			log(ctx).Infof("Repository is already in read-only mode.")
 		} else {
@@ -34,7 +47,7 @@ func runRepoClientOptionsCommand(ctx context.Context, rep repo.Repository) error
 		}
 	}
 
-	if *repoClientOptionsReadWrite {
+	if c.repoClientOptionsReadWrite {
 		if !opt.ReadOnly {
 			log(ctx).Infof("Repository is already in read-write mode.")
 		} else {
@@ -45,21 +58,21 @@ func runRepoClientOptionsCommand(ctx context.Context, rep repo.Repository) error
 		}
 	}
 
-	if v := *repoClientOptionsDescription; len(v) > 0 {
+	if v := c.repoClientOptionsDescription; len(v) > 0 {
 		opt.Description = v[0]
 		anyChange = true
 
 		log(ctx).Infof("Setting description to %v", opt.Description)
 	}
 
-	if v := *repoClientOptionsUsername; len(v) > 0 {
+	if v := c.repoClientOptionsUsername; len(v) > 0 {
 		opt.Username = v[0]
 		anyChange = true
 
 		log(ctx).Infof("Setting local username to %v", opt.Username)
 	}
 
-	if v := *repoClientOptionsHostname; len(v) > 0 {
+	if v := c.repoClientOptionsHostname; len(v) > 0 {
 		opt.Hostname = v[0]
 		anyChange = true
 
@@ -70,9 +83,5 @@ func runRepoClientOptionsCommand(ctx context.Context, rep repo.Repository) error
 		return errors.Errorf("no changes")
 	}
 
-	return repo.SetClientOptions(ctx, repositoryConfigFileName(), opt)
-}
-
-func init() {
-	repoClientOptionsCommand.Action(repositoryReaderAction(runRepoClientOptionsCommand))
+	return repo.SetClientOptions(ctx, c.svc.repositoryConfigFileName(), opt)
 }

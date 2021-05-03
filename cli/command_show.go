@@ -11,15 +11,20 @@ import (
 	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
 
-var (
-	catCommand     = app.Command("show", "Displays contents of a repository object.").Alias("cat")
-	catCommandPath = catCommand.Arg("object-path", "Path").Required().String()
-)
+type commandShow struct {
+	path string
+}
 
-func runCatCommand(ctx context.Context, rep repo.Repository) error {
-	oid, err := snapshotfs.ParseObjectIDWithPath(ctx, rep, *catCommandPath)
+func (c *commandShow) setup(svc appServices, parent commandParent) {
+	cmd := parent.Command("show", "Displays contents of a repository object.").Alias("cat")
+	cmd.Arg("object-path", "Path").Required().StringVar(&c.path)
+	cmd.Action(svc.repositoryReaderAction(c.run))
+}
+
+func (c *commandShow) run(ctx context.Context, rep repo.Repository) error {
+	oid, err := snapshotfs.ParseObjectIDWithPath(ctx, rep, c.path)
 	if err != nil {
-		return errors.Wrapf(err, "unable to parse ID: %v", *catCommandPath)
+		return errors.Wrapf(err, "unable to parse ID: %v", c.path)
 	}
 
 	r, err := rep.OpenObject(ctx, oid)
@@ -32,8 +37,4 @@ func runCatCommand(ctx context.Context, rep repo.Repository) error {
 	_, err = iocopy.Copy(os.Stdout, r)
 
 	return errors.Wrap(err, "unable to copy data")
-}
-
-func init() {
-	catCommand.Action(repositoryReaderAction(runCatCommand))
 }

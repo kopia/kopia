@@ -4,6 +4,8 @@ import (
 	"context"
 	"sort"
 
+	atunits "github.com/alecthomas/units"
+
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo/content"
@@ -11,15 +13,23 @@ import (
 	"github.com/kopia/kopia/repo/hashing"
 )
 
-var (
-	benchmarkCryptoCommand              = benchmarkCommands.Command("crypto", "Run hash and encryption benchmarks")
-	benchmarkCryptoBlockSize            = benchmarkCryptoCommand.Flag("block-size", "Size of a block to encrypt").Default("1MB").Bytes()
-	benchmarkCryptoRepeat               = benchmarkCryptoCommand.Flag("repeat", "Number of repetitions").Default("100").Int()
-	benchmarkCryptoDeprecatedAlgorithms = benchmarkCryptoCommand.Flag("deprecated", "Include deprecated algorithms").Bool()
-	benchmarkCryptoOptionPrint          = benchmarkCryptoCommand.Flag("print-options", "Print out options usable for repository creation").Bool()
-)
+type commandBenchmarkCrypto struct {
+	blockSize            atunits.Base2Bytes
+	repeat               int
+	deprecatedAlgorithms bool
+	optionPrint          bool
+}
 
-func runBenchmarkCryptoAction(ctx context.Context) error {
+func (c *commandBenchmarkCrypto) setup(svc appServices, parent commandParent) {
+	cmd := parent.Command("crypto", "Run hash and encryption benchmarks")
+	cmd.Flag("block-size", "Size of a block to encrypt").Default("1MB").BytesVar(&c.blockSize)
+	cmd.Flag("repeat", "Number of repetitions").Default("100").IntVar(&c.repeat)
+	cmd.Flag("deprecated", "Include deprecated algorithms").BoolVar(&c.deprecatedAlgorithms)
+	cmd.Flag("print-options", "Print out options usable for repository creation").BoolVar(&c.optionPrint)
+	cmd.Action(svc.noRepositoryAction(c.run))
+}
+
+func (c *commandBenchmarkCrypto) run(ctx context.Context) error {
 	type benchResult struct {
 		hash       string
 		encryption string
@@ -28,7 +38,7 @@ func runBenchmarkCryptoAction(ctx context.Context) error {
 
 	var results []benchResult
 
-	data := make([]byte, *benchmarkCryptoBlockSize)
+	data := make([]byte, c.blockSize)
 
 	const (
 		maxEncryptionOverhead = 1024
@@ -40,7 +50,7 @@ func runBenchmarkCryptoAction(ctx context.Context) error {
 	encryptOutput := make([]byte, len(data)+maxEncryptionOverhead)
 
 	for _, ha := range hashing.SupportedAlgorithms() {
-		for _, ea := range encryption.SupportedAlgorithms(*benchmarkCryptoDeprecatedAlgorithms) {
+		for _, ea := range encryption.SupportedAlgorithms(c.deprecatedAlgorithms) {
 			h, e, err := content.CreateHashAndEncryptor(&content.FormattingOptions{
 				Encryption: ea,
 				Hash:       ha,
@@ -51,11 +61,11 @@ func runBenchmarkCryptoAction(ctx context.Context) error {
 				continue
 			}
 
-			log(ctx).Infof("Benchmarking hash '%v' and encryption '%v'... (%v x %v bytes)", ha, ea, *benchmarkCryptoRepeat, len(data))
+			log(ctx).Infof("Benchmarking hash '%v' and encryption '%v'... (%v x %v bytes)", ha, ea, c.repeat, len(data))
 
 			tt := timetrack.Start()
 
-			hashCount := *benchmarkCryptoRepeat
+			hashCount := c.repeat
 
 			for i := 0; i < hashCount; i++ {
 				contentID := h(hashOutput[:0], data)
@@ -80,7 +90,7 @@ func runBenchmarkCryptoAction(ctx context.Context) error {
 	for ndx, r := range results {
 		printStdout("%3d. %-20v %-20v %v / second", ndx, r.hash, r.encryption, units.BytesStringBase2(int64(r.throughput)))
 
-		if *benchmarkCryptoOptionPrint {
+		if c.optionPrint {
 			printStdout(",   --block-hash=%s --encryption=%s", r.hash, r.encryption)
 		}
 
@@ -91,8 +101,4 @@ func runBenchmarkCryptoAction(ctx context.Context) error {
 	printStdout("Fastest option for this machine is: --block-hash=%s --encryption=%s\n", results[0].hash, results[0].encryption)
 
 	return nil
-}
-
-func init() {
-	benchmarkCryptoCommand.Action(noRepositoryAction(runBenchmarkCryptoAction))
 }

@@ -11,13 +11,14 @@ import (
 	"github.com/kopia/kopia/repo/manifest"
 )
 
-var (
-	manifestShowCommand = manifestCommands.Command("show", "Show manifest items")
-	manifestShowItems   = manifestShowCommand.Arg("item", "List of items").Required().Strings()
-)
+type commandManifestShow struct {
+	manifestShowItems []string
+}
 
-func init() {
-	manifestShowCommand.Action(repositoryReaderAction(showManifestItems))
+func (c *commandManifestShow) setup(svc appServices, parent commandParent) {
+	cmd := parent.Command("show", "Show manifest items")
+	cmd.Arg("item", "List of items").Required().StringsVar(&c.manifestShowItems)
+	cmd.Action(svc.repositoryReaderAction(c.showManifestItems))
 }
 
 func toManifestIDs(s []string) []manifest.ID {
@@ -30,8 +31,8 @@ func toManifestIDs(s []string) []manifest.ID {
 	return result
 }
 
-func showManifestItems(ctx context.Context, rep repo.Repository) error {
-	for _, it := range toManifestIDs(*manifestShowItems) {
+func (c *commandManifestShow) showManifestItems(ctx context.Context, rep repo.Repository) error {
+	for _, it := range toManifestIDs(c.manifestShowItems) {
 		var b json.RawMessage
 
 		md, err := rep.GetManifest(ctx, it, &b)
