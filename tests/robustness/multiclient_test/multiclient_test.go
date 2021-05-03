@@ -36,7 +36,9 @@ func TestManySmallFiles(t *testing.T) {
 		fiofilewriter.MinNumFilesPerWriteField: strconv.Itoa(numFiles),
 	}
 
-	f := func(ctx context.Context) {
+	f := func(ctx context.Context, t *testing.T) {
+		t.Helper()
+
 		err := tryRestoreIntoDataDirectory(ctx, t)
 		testenv.AssertNoError(t, err)
 
@@ -51,7 +53,7 @@ func TestManySmallFiles(t *testing.T) {
 	}
 
 	ctx := testlogging.Context(t)
-	th.RunN(ctx, numClients, f)
+	th.RunN(ctx, t, numClients, f)
 }
 
 func TestOneLargeFile(t *testing.T) {
@@ -67,7 +69,9 @@ func TestOneLargeFile(t *testing.T) {
 		fiofilewriter.MinNumFilesPerWriteField: strconv.Itoa(numFiles),
 	}
 
-	f := func(ctx context.Context) {
+	f := func(ctx context.Context, t *testing.T) {
+		t.Helper()
+
 		err := tryRestoreIntoDataDirectory(ctx, t)
 		testenv.AssertNoError(t, err)
 
@@ -82,7 +86,7 @@ func TestOneLargeFile(t *testing.T) {
 	}
 
 	ctx := testlogging.Context(t)
-	th.RunN(ctx, numClients, f)
+	th.RunN(ctx, t, numClients, f)
 }
 
 func TestManySmallFilesAcrossDirecoryTree(t *testing.T) {
@@ -102,7 +106,9 @@ func TestManySmallFilesAcrossDirecoryTree(t *testing.T) {
 		engine.ActionRepeaterField:             strconv.Itoa(actionRepeats),
 	}
 
-	f := func(ctx context.Context) {
+	f := func(ctx context.Context, t *testing.T) {
+		t.Helper()
+
 		err := tryRestoreIntoDataDirectory(ctx, t)
 		testenv.AssertNoError(t, err)
 
@@ -117,7 +123,7 @@ func TestManySmallFilesAcrossDirecoryTree(t *testing.T) {
 	}
 
 	ctx := testlogging.Context(t)
-	th.RunN(ctx, numClients, f)
+	th.RunN(ctx, t, numClients, f)
 }
 
 func TestRandomizedSmall(t *testing.T) {
@@ -140,7 +146,9 @@ func TestRandomizedSmall(t *testing.T) {
 		},
 	}
 
-	f := func(ctx context.Context) {
+	f := func(ctx context.Context, t *testing.T) {
+		t.Helper()
+
 		err := tryRestoreIntoDataDirectory(ctx, t)
 		testenv.AssertNoError(t, err)
 
@@ -151,10 +159,10 @@ func TestRandomizedSmall(t *testing.T) {
 	}
 
 	ctx := testlogging.Context(t)
-	th.RunN(ctx, numClients, f)
+	th.RunN(ctx, t, numClients, f)
 }
 
-// tryExecAction runs eng.ExecAction on the given parameters and masks no-op errors.
+// tryRestoreIntoDataDirectory runs eng.ExecAction on the given parameters and masks no-op errors.
 func tryRestoreIntoDataDirectory(ctx context.Context, t *testing.T) error {
 	t.Helper()
 
