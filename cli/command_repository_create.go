@@ -24,6 +24,7 @@ type commandRepositoryCreate struct {
 
 	co  connectOptions
 	svc advancedAppServices
+	out textOutput
 }
 
 func (c *commandRepositoryCreate) setup(svc advancedAppServices, parent commandParent) {
@@ -36,6 +37,7 @@ func (c *commandRepositoryCreate) setup(svc advancedAppServices, parent commandP
 
 	c.co.setup(cmd)
 	c.svc = svc
+	c.out.setup(svc)
 
 	for _, prov := range storageProviders {
 		if prov.name == "from-config" {
@@ -133,10 +135,10 @@ func (c *commandRepositoryCreate) populateRepository(ctx context.Context, passwo
 			return errors.Wrap(err, "unable to set global policy")
 		}
 
-		printRetentionPolicy(policy.DefaultPolicy, nil)
-		printCompressionPolicy(policy.DefaultPolicy, nil)
+		printRetentionPolicy(&c.out, policy.DefaultPolicy, nil)
+		printCompressionPolicy(&c.out, policy.DefaultPolicy, nil)
 
-		printStderr("\nTo find more information about default policy run 'kopia policy get'.\nTo change the policy use 'kopia policy set' command.\n")
+		c.out.printStderr("\nTo find more information about default policy run 'kopia policy get'.\nTo change the policy use 'kopia policy set' command.\n")
 
 		if err := setDefaultMaintenanceParameters(ctx, w); err != nil {
 			return errors.Wrap(err, "unable to set maintenance parameters")

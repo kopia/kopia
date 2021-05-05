@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"path/filepath"
 	"reflect"
@@ -20,6 +19,7 @@ type commandRepositoryStatus struct {
 	statusReconnectTokenIncludePassword bool
 
 	svc advancedAppServices
+	out textOutput
 }
 
 func (c *commandRepositoryStatus) setup(svc advancedAppServices, parent commandParent) {
@@ -29,37 +29,38 @@ func (c *commandRepositoryStatus) setup(svc advancedAppServices, parent commandP
 	cmd.Action(svc.repositoryReaderAction(c.run))
 
 	c.svc = svc
+	c.out.setup(svc)
 }
 
 func (c *commandRepositoryStatus) run(ctx context.Context, rep repo.Repository) error {
-	fmt.Printf("Config file:         %v\n", c.svc.repositoryConfigFileName())
-	fmt.Println()
-	fmt.Printf("Description:         %v\n", rep.ClientOptions().Description)
-	fmt.Printf("Hostname:            %v\n", rep.ClientOptions().Hostname)
-	fmt.Printf("Username:            %v\n", rep.ClientOptions().Username)
-	fmt.Printf("Read-only:           %v\n", rep.ClientOptions().ReadOnly)
+	c.out.printStdout("Config file:         %v\n", c.svc.repositoryConfigFileName())
+	c.out.printStdout("\n")
+	c.out.printStdout("Description:         %v\n", rep.ClientOptions().Description)
+	c.out.printStdout("Hostname:            %v\n", rep.ClientOptions().Hostname)
+	c.out.printStdout("Username:            %v\n", rep.ClientOptions().Username)
+	c.out.printStdout("Read-only:           %v\n", rep.ClientOptions().ReadOnly)
 
 	dr, ok := rep.(repo.DirectRepository)
 	if !ok {
 		return nil
 	}
 
-	fmt.Println()
+	c.out.printStdout("\n")
 
 	ci := dr.BlobReader().ConnectionInfo()
-	fmt.Printf("Storage type:        %v\n", ci.Type)
+	c.out.printStdout("Storage type:        %v\n", ci.Type)
 
 	if cjson, err := json.MarshalIndent(scrubber.ScrubSensitiveData(reflect.ValueOf(ci.Config)).Interface(), "                     ", "  "); err == nil {
-		fmt.Printf("Storage config:      %v\n", string(cjson))
+		c.out.printStdout("Storage config:      %v\n", string(cjson))
 	}
 
-	fmt.Println()
-	fmt.Printf("Unique ID:           %x\n", dr.UniqueID())
-	fmt.Printf("Hash:                %v\n", dr.ContentReader().ContentFormat().Hash)
-	fmt.Printf("Encryption:          %v\n", dr.ContentReader().ContentFormat().Encryption)
-	fmt.Printf("Splitter:            %v\n", dr.ObjectFormat().Splitter)
-	fmt.Printf("Format version:      %v\n", dr.ContentReader().ContentFormat().Version)
-	fmt.Printf("Max pack length:     %v\n", units.BytesStringBase2(int64(dr.ContentReader().ContentFormat().MaxPackSize)))
+	c.out.printStdout("\n")
+	c.out.printStdout("Unique ID:           %x\n", dr.UniqueID())
+	c.out.printStdout("Hash:                %v\n", dr.ContentReader().ContentFormat().Hash)
+	c.out.printStdout("Encryption:          %v\n", dr.ContentReader().ContentFormat().Encryption)
+	c.out.printStdout("Splitter:            %v\n", dr.ObjectFormat().Splitter)
+	c.out.printStdout("Format version:      %v\n", dr.ContentReader().ContentFormat().Version)
+	c.out.printStdout("Max pack length:     %v\n", units.BytesStringBase2(int64(dr.ContentReader().ContentFormat().MaxPackSize)))
 
 	if !c.statusReconnectToken {
 		return nil
@@ -81,10 +82,10 @@ func (c *commandRepositoryStatus) run(ctx context.Context, rep repo.Repository) 
 		return errors.Wrap(err, "error computing repository token")
 	}
 
-	fmt.Printf("\nTo reconnect to the repository use:\n\n$ kopia repository connect from-config --token %v\n\n", tok)
+	c.out.printStdout("\nTo reconnect to the repository use:\n\n$ kopia repository connect from-config --token %v\n\n", tok)
 
 	if pass != "" {
-		fmt.Printf("NOTICE: The token printed above can be trivially decoded to reveal the repository password. Do not store it in an unsecured place.\n")
+		c.out.printStdout("NOTICE: The token printed above can be trivially decoded to reveal the repository password. Do not store it in an unsecured place.\n")
 	}
 
 	return nil

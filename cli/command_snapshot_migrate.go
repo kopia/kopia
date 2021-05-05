@@ -24,6 +24,7 @@ type commandSnapshotMigrate struct {
 	migrateParallel          int
 
 	svc advancedAppServices
+	out textOutput
 }
 
 func (c *commandSnapshotMigrate) setup(svc advancedAppServices, parent commandParent) {
@@ -38,6 +39,7 @@ func (c *commandSnapshotMigrate) setup(svc advancedAppServices, parent commandPa
 	cmd.Action(svc.repositoryWriterAction(c.run))
 
 	c.svc = svc
+	c.out.setup(svc)
 }
 
 func (c *commandSnapshotMigrate) run(ctx context.Context, destRepo repo.RepositoryWriter) error {
@@ -121,7 +123,7 @@ func (c *commandSnapshotMigrate) run(ctx context.Context, destRepo repo.Reposito
 
 	wg.Wait()
 	c.svc.getProgress().FinishShared()
-	printStderr("\r\n")
+	c.out.printStderr("\r\n")
 	log(ctx).Infof("Migration finished.")
 
 	return nil

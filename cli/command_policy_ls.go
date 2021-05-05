@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"fmt"
 	"sort"
 
 	"github.com/pkg/errors"
@@ -12,12 +11,14 @@ import (
 )
 
 type commandPolicyList struct {
-	jo jsonOutput
+	jo  jsonOutput
+	out textOutput
 }
 
 func (c *commandPolicyList) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("list", "List policies.").Alias("ls")
-	c.jo.setup(cmd)
+	c.jo.setup(svc, cmd)
+	c.out.setup(svc)
 	cmd.Action(svc.repositoryReaderAction(c.run))
 }
 
@@ -40,7 +41,7 @@ func (c *commandPolicyList) run(ctx context.Context, rep repo.Repository) error 
 		if c.jo.jsonOutput {
 			jl.emit(policy.TargetWithPolicy{ID: pol.ID(), Target: pol.Target(), Policy: pol})
 		} else {
-			fmt.Println(pol.ID(), pol.Target())
+			c.out.printStdout("%v %v\n", pol.ID(), pol.Target())
 		}
 	}
 

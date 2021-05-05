@@ -12,12 +12,16 @@ import (
 
 type commandIndexInspect struct {
 	ids []string
+
+	out textOutput
 }
 
 func (c *commandIndexInspect) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("inspect", "Inpect index blob")
 	cmd.Arg("blobs", "Names of index blobs to inspect").StringsVar(&c.ids)
 	cmd.Action(svc.directRepositoryReadAction(c.run))
+
+	c.out.setup(svc)
 }
 
 func (c *commandIndexInspect) run(ctx context.Context, rep repo.DirectRepository) error {
@@ -37,7 +41,7 @@ func (c *commandIndexInspect) dumpIndexBlobEntries(bm blob.Metadata, entries []c
 			state = "deleted"
 		}
 
-		printStdout("%v %v %v %v %v %v %v %v\n",
+		c.out.printStderr("%v %v %v %v %v %v %v %v\n",
 			formatTimestampPrecise(bm.Timestamp), bm.BlobID,
 			ci.GetContentID(), state, formatTimestampPrecise(ci.Timestamp()), ci.GetPackBlobID(), ci.GetPackOffset(), ci.GetPackedLength())
 	}

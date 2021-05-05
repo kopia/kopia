@@ -32,6 +32,8 @@ type commandRepositorySyncTo struct {
 	syncProgressMutex      sync.Mutex
 	nextSyncOutputTime     timetrack.Throttle
 	setTimeUnsupportedOnce sync.Once
+
+	out textOutput
 }
 
 func (c *commandRepositorySyncTo) setup(svc advancedAppServices, parent commandParent) {
@@ -42,6 +44,8 @@ func (c *commandRepositorySyncTo) setup(svc advancedAppServices, parent commandP
 	cmd.Flag("parallel", "Copy parallelism.").Default("1").IntVar(&c.repositorySyncParallelism)
 	cmd.Flag("must-exist", "Fail if destination does not have repository format blob.").BoolVar(&c.repositorySyncDestinationMustExist)
 	cmd.Flag("times", "Synchronize blob times if supported.").BoolVar(&c.repositorySyncTimes)
+
+	c.out.setup(svc)
 
 	for _, prov := range storageProviders {
 		// Set up 'sync-to' subcommand
@@ -200,14 +204,14 @@ func (c *commandRepositorySyncTo) outputSyncProgress(s string) {
 	}
 
 	if c.nextSyncOutputTime.ShouldOutput(syncProgressInterval) {
-		printStderr("\r%v", s)
+		c.out.printStderr("\r%v", s)
 	}
 
 	c.lastSyncProgress = s
 }
 
 func (c *commandRepositorySyncTo) finishSyncProcess() {
-	printStderr("\r%v\n", c.lastSyncProgress)
+	c.out.printStderr("\r%v\n", c.lastSyncProgress)
 }
 
 func (c *commandRepositorySyncTo) runSyncBlobs(ctx context.Context, src blob.Reader, dst blob.Storage, blobsToCopy, blobsToDelete []blob.Metadata, totalBytes int64) error {

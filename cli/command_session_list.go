@@ -8,11 +8,14 @@ import (
 	"github.com/kopia/kopia/repo"
 )
 
-type commandSessionList struct{}
+type commandSessionList struct {
+	out textOutput
+}
 
 func (c *commandSessionList) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("list", "List sessions").Alias("ls")
 	cmd.Action(svc.directRepositoryReadAction(c.run))
+	c.out.setup(svc)
 }
 
 func (c *commandSessionList) run(ctx context.Context, rep repo.DirectRepository) error {
@@ -22,7 +25,7 @@ func (c *commandSessionList) run(ctx context.Context, rep repo.DirectRepository)
 	}
 
 	for _, s := range sessions {
-		printStdout("%v %v@%v %v %v\n", s.ID, s.User, s.Host, formatTimestamp(s.StartTime), formatTimestamp(s.CheckpointTime))
+		c.out.printStdout("%v %v@%v %v %v\n", s.ID, s.User, s.Host, formatTimestamp(s.StartTime), formatTimestamp(s.CheckpointTime))
 	}
 
 	return nil

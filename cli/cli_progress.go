@@ -2,7 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -19,6 +18,18 @@ import (
 const (
 	spinner = `|/-\`
 )
+
+type progressFlags struct {
+	enableProgress         bool
+	progressUpdateInterval time.Duration
+	out                    textOutput
+}
+
+func (p *progressFlags) setup(svc appServices, app *kingpin.Application) {
+	app.Flag("progress", "Enable progress bar").Hidden().Default("true").BoolVar(&p.enableProgress)
+	app.Flag("progress-update-interval", "How ofter to update progress information").Hidden().Default("300ms").DurationVar(&p.progressUpdateInterval)
+	p.out.setup(svc)
+}
 
 type cliProgress struct {
 	snapshotfs.NullUploadProgress
@@ -51,13 +62,7 @@ type cliProgress struct {
 
 	outputMutex sync.Mutex
 
-	enableProgress         bool
-	progressUpdateInterval time.Duration
-}
-
-func (p *cliProgress) setup(app *kingpin.Application) {
-	app.Flag("progress", "Enable progress bar").Hidden().Default("true").BoolVar(&p.enableProgress)
-	app.Flag("progress-update-interval", "How ofter to update progress information").Hidden().Default("300ms").DurationVar(&p.progressUpdateInterval)
+	progressFlags
 }
 
 func (p *cliProgress) HashingFile(fname string) {
@@ -150,7 +155,7 @@ func (p *cliProgress) output(col *color.Color, msg string) {
 			prefix = ""
 		}
 
-		col.Fprintf(os.Stderr, "%v%v", prefix, msg) // nolint:errcheck
+		col.Fprintf(p.out.stderr(), "%v%v", prefix, msg) // nolint:errcheck
 	}
 
 	if !p.enableProgress {
@@ -173,7 +178,7 @@ func (p *cliProgress) output(col *color.Color, msg string) {
 	}
 
 	p.lastLineLength = len(line)
-	printStderr("\r%v%v", line, extraSpaces)
+	p.out.printStderr("\r%v%v", line, extraSpaces)
 }
 
 func (p *cliProgress) spinnerCharacter() string {
@@ -193,6 +198,7 @@ func (p *cliProgress) StartShared() {
 		uploading:       1,
 		uploadStartTime: timetrack.Start(),
 		shared:          true,
+		progressFlags:   p.progressFlags,
 	}
 }
 
@@ -210,6 +216,7 @@ func (p *cliProgress) UploadStarted() {
 	*p = cliProgress{
 		uploading:       1,
 		uploadStartTime: timetrack.Start(),
+		progressFlags:   p.progressFlags,
 	}
 }
 
@@ -242,7 +249,7 @@ func (p *cliProgress) Finish() {
 	p.output(defaultColor, "")
 
 	if p.enableProgress {
-		printStderr("\n")
+		p.out.printStderr("\n")
 	}
 }
 

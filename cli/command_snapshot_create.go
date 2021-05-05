@@ -40,6 +40,7 @@ type commandSnapshotCreate struct {
 
 	jo  jsonOutput
 	svc appServices
+	out textOutput
 }
 
 func (c *commandSnapshotCreate) setup(svc appServices, parent commandParent) {
@@ -60,7 +61,8 @@ func (c *commandSnapshotCreate) setup(svc appServices, parent commandParent) {
 	cmd.Flag("stdin-file", "File path to be used for stdin data snapshot.").StringVar(&c.snapshotCreateStdinFileName)
 	cmd.Flag("tags", "Tags applied on the snapshot. Must be provided in the <key>:<value> format.").StringsVar(&c.snapshotCreateTags)
 
-	c.jo.setup(cmd)
+	c.jo.setup(svc, cmd)
+	c.out.setup(svc)
 
 	c.svc = svc
 	cmd.Action(svc.repositoryWriterAction(c.run))
@@ -319,7 +321,7 @@ func (c *commandSnapshotCreate) reportSnapshotStatus(ctx context.Context, manife
 	snapID := manifest.ID
 
 	if c.jo.jsonOutput {
-		printStdout("%s\n", c.jo.jsonIndentedBytes(manifest, "  "))
+		c.out.printStdout("%s\n", c.jo.jsonIndentedBytes(manifest, "  "))
 		return nil
 	}
 

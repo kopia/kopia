@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -20,6 +19,8 @@ type commandList struct {
 	showOID      bool
 	errorSummary bool
 	path         string
+
+	out textOutput
 }
 
 func (c *commandList) setup(svc appServices, parent commandParent) {
@@ -31,6 +32,8 @@ func (c *commandList) setup(svc appServices, parent commandParent) {
 	cmd.Flag("error-summary", "Emit error summary").Default("true").BoolVar(&c.errorSummary)
 	cmd.Arg("object-path", "Path").Required().StringVar(&c.path)
 	cmd.Action(svc.repositoryReaderAction(c.run))
+
+	c.out.setup(svc)
 }
 
 func (c *commandList) run(ctx context.Context, rep repo.Repository) error {
@@ -64,10 +67,10 @@ func (c *commandList) listDirectory(ctx context.Context, d fs.Directory, prefix,
 
 	if dws, ok := d.(fs.DirectoryWithSummary); ok && c.errorSummary {
 		if ds, _ := dws.Summary(ctx); ds != nil && ds.FatalErrorCount > 0 {
-			errorColor.Fprintf(os.Stderr, "\nNOTE: Encountered %v errors while snapshotting this directory:\n\n", ds.FatalErrorCount) //nolint:errcheck
+			errorColor.Fprintf(c.out.stderr(), "\nNOTE: Encountered %v errors while snapshotting this directory:\n\n", ds.FatalErrorCount) //nolint:errcheck
 
 			for _, e := range ds.FailedEntries {
-				errorColor.Fprintf(os.Stderr, "- Error in \"%v\": %v\n", e.EntryPath, e.Error) //nolint:errcheck
+				errorColor.Fprintf(c.out.stderr(), "- Error in \"%v\": %v\n", e.EntryPath, e.Error) //nolint:errcheck
 			}
 		}
 	}

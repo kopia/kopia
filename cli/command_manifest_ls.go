@@ -15,14 +15,16 @@ type commandManifestList struct {
 	manifestListFilter []string
 	manifestListSort   []string
 
-	jo jsonOutput
+	jo  jsonOutput
+	out textOutput
 }
 
 func (c *commandManifestList) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("list", "List manifest items").Alias("ls").Default()
 	cmd.Flag("filter", "List of key:value pairs").StringsVar(&c.manifestListFilter)
 	cmd.Flag("sort", "List of keys to sort by").StringsVar(&c.manifestListSort)
-	c.jo.setup(cmd)
+	c.jo.setup(svc, cmd)
+	c.out.setup(svc)
 	cmd.Action(svc.repositoryReaderAction(c.listManifestItems))
 }
 
@@ -63,7 +65,7 @@ func (c *commandManifestList) listManifestItems(ctx context.Context, rep repo.Re
 			jl.emit(it)
 		} else {
 			t := it.Labels["type"]
-			fmt.Printf("%v %10v %v type:%v %v\n", it.ID, it.Length, formatTimestamp(it.ModTime.Local()), t, sortedMapValues(it.Labels))
+			c.out.printStdout("%v %10v %v type:%v %v\n", it.ID, it.Length, formatTimestamp(it.ModTime.Local()), t, sortedMapValues(it.Labels))
 		}
 	}
 

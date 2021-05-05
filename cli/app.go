@@ -3,8 +3,12 @@ package cli
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"net/http"
 	"os"
+	"runtime/debug"
+	"strings"
 	"time"
 
 	"github.com/alecthomas/kingpin"
@@ -27,6 +31,43 @@ var (
 	errorColor   = color.New(color.FgHiRed)
 )
 
+type textOutput struct {
+	svc appServices
+}
+
+func (o *textOutput) setup(svc appServices) {
+	s := string(debug.Stack())
+	if strings.Contains(s, "cliProgress") {
+		fmt.Printf("setting up %s with %v\n", debug.Stack(), svc.stdout())
+	}
+
+	o.svc = svc
+}
+
+func (o *textOutput) stdout() io.Writer {
+	if o.svc == nil {
+		return os.Stdout
+	}
+
+	return o.svc.stdout()
+}
+
+func (o *textOutput) stderr() io.Writer {
+	if o.svc == nil {
+		return os.Stderr
+	}
+
+	return o.svc.stderr()
+}
+
+func (o *textOutput) printStdout(msg string, args ...interface{}) {
+	fmt.Fprintf(o.stdout(), msg, args...)
+}
+
+func (o *textOutput) printStderr(msg string, args ...interface{}) {
+	fmt.Fprintf(o.stderr(), msg, args...)
+}
+
 // appServices are the methods of *App that command handles are allowed to call.
 type appServices interface {
 	noRepositoryAction(act func(ctx context.Context) error) func(ctx *kingpin.ParseContext) error
@@ -39,6 +80,9 @@ type appServices interface {
 
 	repositoryConfigFileName() string
 	getProgress() *cliProgress
+
+	stdout() io.Writer
+	stderr() io.Writer
 }
 
 type advancedAppServices interface {
@@ -85,10 +129,23 @@ type App struct {
 	mount       commandMount
 	maintenance commandMaintenance
 	repository  commandRepository
+
+	// testability hooks
+	osExit       func(int) // allows replacing os.Exit() with custom code
+	stdoutWriter io.Writer
+	stderrWriter io.Writer
 }
 
 func (c *App) getProgress() *cliProgress {
 	return c.progress
+}
+
+func (c *App) stdout() io.Writer {
+	return c.stdoutWriter
+}
+
+func (c *App) stderr() io.Writer {
+	return c.stderrWriter
 }
 
 func (c *App) setup(app *kingpin.Application) {
@@ -113,15 +170,15 @@ func (c *App) setup(app *kingpin.Application) {
 	c.setupOSSpecificKeychainFlags(app)
 
 	_ = app.Flag("caching", "Enables caching of objects (disable with --no-caching)").Default("true").Hidden().Action(
-		deprecatedFlag("The '--caching' flag is deprecated and has no effect, use 'kopia cache set' instead."),
+		deprecatedFlag(c.stderrWriter, "The '--caching' flag is deprecated and has no effect, use 'kopia cache set' instead."),
 	).Bool()
 
 	_ = app.Flag("list-caching", "Enables caching of list results (disable with --no-list-caching)").Default("true").Hidden().Action(
-		deprecatedFlag("The '--list-caching' flag is deprecated and has no effect, use 'kopia cache set' instead."),
+		deprecatedFlag(c.stderrWriter, "The '--list-caching' flag is deprecated and has no effect, use 'kopia cache set' instead."),
 	).Bool()
 
 	c.mt.setup(app)
-	c.progress.setup(app)
+	c.progress.setup(c, app)
 
 	c.blob.setup(c, app)
 	c.benchmark.setup(c, app)
@@ -147,15 +204,21 @@ type commandParent interface {
 	Command(name, help string) *kingpin.CmdClause
 }
 
-// Attach creates new App object and attaches all the flags to the provided application.
-func Attach(app *kingpin.Application) *App {
-	a := &App{
+// NewApp creates a new instance of App.
+func NewApp() *App {
+	return &App{
 		progress: &cliProgress{},
+
+		// testability hooks
+		osExit:       os.Exit,
+		stdoutWriter: os.Stdout,
+		stderrWriter: os.Stderr,
 	}
+}
 
-	a.setup(app)
-
-	return a
+// Attach attaches the CLI parser to the application.
+func (c *App) Attach(app *kingpin.Application) {
+	c.setup(app)
 }
 
 var safetyByName = map[string]maintenance.SafetyParameters{
