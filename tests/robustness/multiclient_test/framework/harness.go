@@ -208,13 +208,11 @@ func (th *TestHarness) Engine() *engine.Engine {
 
 // Run runs the provided function asynchronously for each of the given client
 // contexts, waits for all of them to finish, and optionally cleans up clients.
-func (th *TestHarness) Run( // nolint:thelper
+func (th *TestHarness) Run( //nolint:thelper
 	ctxs []context.Context,
 	t *testing.T, cleanup bool,
 	f func(context.Context, *testing.T),
 ) {
-	t.Helper()
-
 	t.Run("group", func(t *testing.T) {
 		testNum := 0
 
@@ -240,14 +238,12 @@ func (th *TestHarness) Run( // nolint:thelper
 
 // RunN creates client contexts, runs the provided function asynchronously for
 // each client, waits for all of them to finish, and cleans up clients.
-func (th *TestHarness) RunN(
+func (th *TestHarness) RunN( //nolint:thelper
 	ctx context.Context,
 	t *testing.T,
 	numClients int,
 	f func(context.Context, *testing.T),
 ) {
-	t.Helper()
-
 	ctxs := NewClientContexts(ctx, numClients)
 	th.Run(ctxs, t, true, f)
 }
