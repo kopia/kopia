@@ -36,9 +36,7 @@ func TestManySmallFiles(t *testing.T) {
 		fiofilewriter.MinNumFilesPerWriteField: strconv.Itoa(numFiles),
 	}
 
-	f := func(ctx context.Context, t *testing.T) {
-		t.Helper()
-
+	f := func(ctx context.Context, t *testing.T) { //nolint:thelper
 		err := tryRestoreIntoDataDirectory(ctx, t)
 		testenv.AssertNoError(t, err)
 
@@ -69,9 +67,7 @@ func TestOneLargeFile(t *testing.T) {
 		fiofilewriter.MinNumFilesPerWriteField: strconv.Itoa(numFiles),
 	}
 
-	f := func(ctx context.Context, t *testing.T) {
-		t.Helper()
-
+	f := func(ctx context.Context, t *testing.T) { //nolint:thelper
 		err := tryRestoreIntoDataDirectory(ctx, t)
 		testenv.AssertNoError(t, err)
 
@@ -106,9 +102,7 @@ func TestManySmallFilesAcrossDirecoryTree(t *testing.T) {
 		engine.ActionRepeaterField:             strconv.Itoa(actionRepeats),
 	}
 
-	f := func(ctx context.Context, t *testing.T) {
-		t.Helper()
-
+	f := func(ctx context.Context, t *testing.T) { //nolint:thelper
 		err := tryRestoreIntoDataDirectory(ctx, t)
 		testenv.AssertNoError(t, err)
 
@@ -146,9 +140,7 @@ func TestRandomizedSmall(t *testing.T) {
 		},
 	}
 
-	f := func(ctx context.Context, t *testing.T) {
-		t.Helper()
-
+	f := func(ctx context.Context, t *testing.T) { //nolint:thelper
 		err := tryRestoreIntoDataDirectory(ctx, t)
 		testenv.AssertNoError(t, err)
 
@@ -163,9 +155,7 @@ func TestRandomizedSmall(t *testing.T) {
 }
 
 // tryRestoreIntoDataDirectory runs eng.ExecAction on the given parameters and masks no-op errors.
-func tryRestoreIntoDataDirectory(ctx context.Context, t *testing.T) error {
-	t.Helper()
-
+func tryRestoreIntoDataDirectory(ctx context.Context, t *testing.T) error { //nolint:thelper
 	_, err := eng.ExecAction(ctx, engine.RestoreIntoDataDirectoryActionKey, nil)
 	if errors.Is(err, robustness.ErrNoOp) {
 		t.Log("Action resulted in no-op")
@@ -176,9 +166,7 @@ func tryRestoreIntoDataDirectory(ctx context.Context, t *testing.T) error {
 }
 
 // tryRandomAction runs eng.ExecAction on the given parameters and masks no-op errors.
-func tryRandomAction(ctx context.Context, t *testing.T, opts engine.ActionOpts) error {
-	t.Helper()
-
+func tryRandomAction(ctx context.Context, t *testing.T, opts engine.ActionOpts) error { //nolint:thelper
 	err := eng.RandomAction(ctx, opts)
 	if errors.Is(err, robustness.ErrNoOp) {
 		t.Log("Random action resulted in no-op")
