@@ -8,8 +8,12 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 )
 
+type storageProviderServices interface {
+	setPasswordFromToken(pwd string)
+}
+
 type storageFlags interface {
-	setup(cmd *kingpin.CmdClause)
+	setup(sps storageProviderServices, cmd *kingpin.CmdClause)
 	connect(ctx context.Context, isNew bool) (blob.Storage, error)
 }
 

@@ -28,7 +28,7 @@ func (c *commandRepositoryConnect) setup(svc advancedAppServices, parent command
 		// Set up 'connect' subcommand
 		f := prov.newFlags()
 		cc := cmd.Command(prov.name, "Connect to repository in "+prov.description)
-		f.setup(cc)
+		f.setup(svc, cc)
 		cc.Action(func(_ *kingpin.ParseContext) error {
 			ctx := rootContext()
 			st, err := f.connect(ctx, false)

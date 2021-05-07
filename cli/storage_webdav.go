@@ -15,7 +15,7 @@ type storageWebDAVFlags struct {
 	connectFlat bool
 }
 
-func (c *storageWebDAVFlags) setup(cmd *kingpin.CmdClause) {
+func (c *storageWebDAVFlags) setup(_ storageProviderServices, cmd *kingpin.CmdClause) {
 	cmd.Flag("url", "URL of WebDAV server").Required().StringVar(&c.options.URL)
 	cmd.Flag("flat", "Use flat directory structure").BoolVar(&c.connectFlat)
 	cmd.Flag("webdav-username", "WebDAV username").Envar("KOPIA_WEBDAV_USERNAME").StringVar(&c.options.Username)

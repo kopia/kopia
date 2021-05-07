@@ -29,7 +29,7 @@ type storageFilesystemFlags struct {
 	connectFlat     bool
 }
 
-func (c *storageFilesystemFlags) setup(cmd *kingpin.CmdClause) {
+func (c *storageFilesystemFlags) setup(_ storageProviderServices, cmd *kingpin.CmdClause) {
 	cmd.Flag("path", "Path to the repository").Required().StringVar(&c.options.Path)
 	cmd.Flag("owner-uid", "User ID owning newly created files").PlaceHolder("USER").StringVar(&c.connectOwnerUID)
 	cmd.Flag("owner-gid", "Group ID owning newly created files").PlaceHolder("GROUP").StringVar(&c.connectOwnerGID)

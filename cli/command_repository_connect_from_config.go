@@ -13,11 +13,15 @@ import (
 type storageFromConfigFlags struct {
 	connectFromConfigFile  string
 	connectFromConfigToken string
+
+	sps storageProviderServices
 }
 
-func (c *storageFromConfigFlags) setup(cmd *kingpin.CmdClause) {
+func (c *storageFromConfigFlags) setup(sps storageProviderServices, cmd *kingpin.CmdClause) {
 	cmd.Flag("file", "Path to the configuration file").StringVar(&c.connectFromConfigFile)
 	cmd.Flag("token", "Configuration token").StringVar(&c.connectFromConfigToken)
+
+	c.sps = sps
 }
 
 func (c *storageFromConfigFlags) connect(ctx context.Context, isNew bool) (blob.Storage, error) {
@@ -51,7 +55,9 @@ func (c *storageFromConfigFlags) connectToStorageFromConfigToken(ctx context.Con
 		return nil, errors.Wrap(err, "invalid token")
 	}
 
-	globalPasswordFromToken = pass
+	if pass != "" {
+		c.sps.setPasswordFromToken(pass)
+	}
 
 	return blob.NewStorage(ctx, ci)
 }

@@ -17,7 +17,7 @@ type storageRcloneFlags struct {
 	embedRCloneConfigFile string
 }
 
-func (c *storageRcloneFlags) setup(cmd *kingpin.CmdClause) {
+func (c *storageRcloneFlags) setup(_ storageProviderServices, cmd *kingpin.CmdClause) {
 	cmd.Flag("remote-path", "Rclone remote:path").Required().StringVar(&c.opt.RemotePath)
 	cmd.Flag("flat", "Use flat directory structure").BoolVar(&c.connectFlat)
 	cmd.Flag("rclone-exe", "Path to rclone binary").StringVar(&c.opt.RCloneExe)

@@ -13,7 +13,7 @@ type storageAzureFlags struct {
 	azOptions azure.Options
 }
 
-func (c *storageAzureFlags) setup(cmd *kingpin.CmdClause) {
+func (c *storageAzureFlags) setup(_ storageProviderServices, cmd *kingpin.CmdClause) {
 	cmd.Flag("container", "Name of the Azure blob container").Required().StringVar(&c.azOptions.Container)
 	cmd.Flag("storage-account", "Azure storage account name(overrides AZURE_STORAGE_ACCOUNT environment variable)").Required().Envar("AZURE_STORAGE_ACCOUNT").StringVar(&c.azOptions.StorageAccount)
 	cmd.Flag("storage-key", "Azure storage account key(overrides AZURE_STORAGE_KEY environment variable)").Required().Envar("AZURE_STORAGE_KEY").StringVar(&c.azOptions.StorageKey)
