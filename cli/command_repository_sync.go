@@ -51,7 +51,7 @@ func (c *commandRepositorySyncTo) setup(svc advancedAppServices, parent commandP
 		// Set up 'sync-to' subcommand
 		f := prov.newFlags()
 		cc := cmd.Command(prov.name, "Synchronize repository data to another repository in "+prov.description)
-		f.setup(cc)
+		f.setup(svc, cc)
 		cc.Action(func(_ *kingpin.ParseContext) error {
 			ctx := rootContext()
 			st, err := f.connect(ctx, false)

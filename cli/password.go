@@ -13,11 +13,6 @@ import (
 	"github.com/kopia/kopia/repo"
 )
 
-// TODO - remove those globals.
-var (
-	globalPasswordFromToken string // set dynamically
-)
-
 func askForNewRepositoryPassword(out io.Writer) (string, error) {
 	for {
 		p1, err := askPass(out, "Enter password to create new repository: ")
@@ -49,11 +44,12 @@ func askForExistingRepositoryPassword(out io.Writer) (string, error) {
 	return p1, nil
 }
 
+func (c *App) setPasswordFromToken(pwd string) {
+	c.password = pwd
+}
+
 func (c *App) getPasswordFromFlags(ctx context.Context, isNew, allowPersistent bool) (string, error) {
 	switch {
-	case globalPasswordFromToken != "":
-		// password extracted from connection token
-		return globalPasswordFromToken, nil
 	case c.password != "":
 		// password provided via --password flag or KOPIA_PASSWORD environment variable
 		return strings.TrimSpace(c.password), nil

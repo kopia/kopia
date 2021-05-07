@@ -17,7 +17,7 @@ type storageSFTPFlags struct {
 	embedCredentials bool
 }
 
-func (c *storageSFTPFlags) setup(cmd *kingpin.CmdClause) {
+func (c *storageSFTPFlags) setup(_ storageProviderServices, cmd *kingpin.CmdClause) {
 	cmd.Flag("path", "Path to the repository in the SFTP/SSH server").Required().StringVar(&c.options.Path)
 	cmd.Flag("host", "SFTP/SSH server hostname").Required().StringVar(&c.options.Host)
 	cmd.Flag("port", "SFTP/SSH server port").Default("22").IntVar(&c.options.Port)

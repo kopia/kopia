@@ -18,7 +18,7 @@ type storageGCSFlags struct {
 	embedCredentials bool
 }
 
-func (c *storageGCSFlags) setup(cmd *kingpin.CmdClause) {
+func (c *storageGCSFlags) setup(_ storageProviderServices, cmd *kingpin.CmdClause) {
 	cmd.Flag("bucket", "Name of the Google Cloud Storage bucket").Required().StringVar(&c.options.BucketName)
 	cmd.Flag("prefix", "Prefix to use for objects in the bucket").StringVar(&c.options.Prefix)
 	cmd.Flag("read-only", "Use read-only GCS scope to prevent write access").BoolVar(&c.options.ReadOnly)

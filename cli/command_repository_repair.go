@@ -18,7 +18,7 @@ type commandRepositoryRepair struct {
 	repairDryDrun                          bool
 }
 
-func (c *commandRepositoryRepair) setup(_ appServices, parent commandParent) {
+func (c *commandRepositoryRepair) setup(svc advancedAppServices, parent commandParent) {
 	cmd := parent.Command("repair", "Repairs repository.")
 
 	cmd.Flag("recover-format", "Recover format blob from a copy").Default("auto").EnumVar(&c.repairCommandRecoverFormatBlob, "auto", "yes", "no")
@@ -28,7 +28,7 @@ func (c *commandRepositoryRepair) setup(_ appServices, parent commandParent) {
 	for _, prov := range storageProviders {
 		f := prov.newFlags()
 		cc := cmd.Command(prov.name, "Repair repository in "+prov.description)
-		f.setup(cc)
+		f.setup(svc, cc)
 		cc.Action(func(_ *kingpin.ParseContext) error {
 			ctx := rootContext()
 			st, err := f.connect(ctx, false)
