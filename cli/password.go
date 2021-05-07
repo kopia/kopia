@@ -15,7 +15,6 @@ import (
 
 // TODO - remove those globals.
 var (
-	globalPassword          string // bound to the --password flag.
 	globalPasswordFromToken string // set dynamically
 )
 
@@ -55,9 +54,9 @@ func (c *App) getPasswordFromFlags(ctx context.Context, isNew, allowPersistent b
 	case globalPasswordFromToken != "":
 		// password extracted from connection token
 		return globalPasswordFromToken, nil
-	case globalPassword != "":
+	case c.password != "":
 		// password provided via --password flag or KOPIA_PASSWORD environment variable
-		return strings.TrimSpace(globalPassword), nil
+		return strings.TrimSpace(c.password), nil
 	case isNew:
 		// this is a new repository, ask for password
 		return askForNewRepositoryPassword(c.stdoutWriter)

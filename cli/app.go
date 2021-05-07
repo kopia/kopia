@@ -107,6 +107,7 @@ type App struct {
 	initialUpdateCheckDelay       time.Duration
 	updateCheckInterval           time.Duration
 	updateAvailableNotifyInterval time.Duration
+	password                      string
 	configPath                    string
 	traceStorage                  bool
 	metricsListenAddr             string
@@ -165,7 +166,7 @@ func (c *App) setup(app *kingpin.Application) {
 	app.Flag("trace-storage", "Enables tracing of storage operations.").Default("true").Hidden().BoolVar(&c.traceStorage)
 	app.Flag("metrics-listen-addr", "Expose Prometheus metrics on a given host:port").Hidden().StringVar(&c.metricsListenAddr)
 	app.Flag("timezone", "Format time according to specified time zone (local, utc, original or time zone name)").Default("local").Hidden().StringVar(&timeZone)
-	app.Flag("password", "Repository password.").Envar("KOPIA_PASSWORD").Short('p').StringVar(&globalPassword)
+	app.Flag("password", "Repository password.").Envar("KOPIA_PASSWORD").Short('p').StringVar(&c.password)
 
 	c.setupOSSpecificKeychainFlags(app)
 
