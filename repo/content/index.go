@@ -1,14 +1,12 @@
 package content
 
 import (
-	"encoding/binary"
 	"io"
 
 	"github.com/pkg/errors"
 )
 
 const (
-	maxEntrySize     = 256
 	maxContentIDSize = maxHashSize + 1
 	unknownKeySize   = 255
 )
@@ -52,44 +50,21 @@ var AllPrefixedIDs = IDRange{"g", maxIDCharacterPlus1}
 // AllNonPrefixedIDs is an IDRange that contains all valid IDs non-prefixed IDs ('0' .. 'f').
 var AllNonPrefixedIDs = IDRange{"0", "g"}
 
-type headerInfo struct {
-	version    int
-	keySize    int
-	valueSize  int
-	entryCount int
-}
-
-func readHeader(readerAt io.ReaderAt) (headerInfo, error) {
-	var header [8]byte
-
-	if n, err := readerAt.ReadAt(header[:], 0); err != nil || n != 8 {
-		return headerInfo{}, errors.Wrap(err, "invalid header")
-	}
-
-	hi := headerInfo{
-		version:    int(header[0]),
-		keySize:    int(header[1]),
-		valueSize:  int(binary.BigEndian.Uint16(header[2:4])),
-		entryCount: int(binary.BigEndian.Uint32(header[4:8])),
-	}
-
-	if hi.keySize <= 1 || hi.valueSize < 0 || hi.entryCount < 0 {
-		return headerInfo{}, errors.Errorf("invalid header")
-	}
-
-	return hi, nil
-}
-
 // openPackIndex reads an Index from a given reader. The caller must call Close() when the index is no longer used.
 func openPackIndex(readerAt io.ReaderAt, v1PerContentOverhead uint32) (packIndex, error) {
-	h, err := readHeader(readerAt)
+	h, err := v1ReadHeader(readerAt)
 	if err != nil {
 		return nil, errors.Wrap(err, "invalid header")
 	}
 
-	if h.version != 1 {
+	switch h.version {
+	case v1IndexVersion:
+		return openV1PackIndex(h, readerAt, v1PerContentOverhead)
+
+	case v2IndexVersion:
+		return openV2PackIndex(readerAt)
+
+	default:
 		return nil, errors.Errorf("invalid header format: %v", h.version)
 	}
-
-	return &indexV1{hdr: h, readerAt: readerAt, v1PerContentOverhead: v1PerContentOverhead}, nil
 }

@@ -123,7 +123,7 @@ func (sm *SharedManager) compactIndexBlobs(ctx context.Context, indexBlobs []Ind
 	dropContentsFromBuilder(ctx, bld, opt)
 
 	var buf bytes.Buffer
-	if err := bld.Build(&buf); err != nil {
+	if err := bld.Build(&buf, sm.indexVersion); err != nil {
 		return errors.Wrap(err, "unable to build an index")
 	}
 

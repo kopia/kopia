@@ -116,7 +116,7 @@ func mustBuildPackIndex(t *testing.T, b packIndexBuilder) []byte {
 	t.Helper()
 
 	var buf bytes.Buffer
-	if err := b.Build(&buf); err != nil {
+	if err := b.Build(&buf, v2IndexVersion); err != nil {
 		t.Fatal(err)
 	}
 

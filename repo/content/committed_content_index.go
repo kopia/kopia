@@ -28,6 +28,7 @@ type committedContentIndex struct {
 	merged mergedIndex
 
 	v1PerContentOverhead uint32
+	indexVersion         int
 }
 
 type committedContentIndexCache interface {
@@ -186,7 +187,7 @@ func (c *committedContentIndex) combineSmallIndexes(m mergedIndex) (mergedIndex,
 
 	var buf bytes.Buffer
 
-	if err := b.Build(&buf); err != nil {
+	if err := b.Build(&buf, c.indexVersion); err != nil {
 		return nil, errors.Wrap(err, "error building combined in-memory index")
 	}
 
@@ -211,7 +212,7 @@ func (c *committedContentIndex) close() error {
 	return nil
 }
 
-func newCommittedContentIndex(caching *CachingOptions, v1PerContentOverhead uint32) *committedContentIndex {
+func newCommittedContentIndex(caching *CachingOptions, v1PerContentOverhead uint32, indexVersion int) *committedContentIndex {
 	var cache committedContentIndexCache
 
 	if caching.CacheDirectory != "" {
@@ -228,5 +229,6 @@ func newCommittedContentIndex(caching *CachingOptions, v1PerContentOverhead uint
 		cache:                cache,
 		inUse:                map[blob.ID]packIndex{},
 		v1PerContentOverhead: v1PerContentOverhead,
+		indexVersion:         indexVersion,
 	}
 }

@@ -40,6 +40,7 @@ type SharedManager struct {
 	maxPreambleLength       int
 	paddingUnit             int
 	repositoryFormatBytes   []byte
+	indexVersion            int
 
 	encryptionBufferPool *buf.Pool
 }
@@ -281,7 +282,7 @@ func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *Ca
 		return errors.Wrap(err, "unable to initialize own writes cache")
 	}
 
-	contentIndex := newCommittedContentIndex(caching, uint32(sm.encryptor.Overhead()))
+	contentIndex := newCommittedContentIndex(caching, uint32(sm.encryptor.Overhead()), sm.indexVersion)
 
 	// once everything is ready, set it up
 	sm.contentCache = dataCache
@@ -368,6 +369,7 @@ func NewSharedManager(ctx context.Context, st blob.Storage, f *FormattingOptions
 		checkInvariantsOnUnlock: os.Getenv("KOPIA_VERIFY_INVARIANTS") != "",
 		writeFormatVersion:      int32(f.Version),
 		encryptionBufferPool:    buf.NewPool(ctx, defaultEncryptionBufferPoolSegmentSize+encryptor.Overhead(), "content-manager-encryption"),
+		indexVersion:            v1IndexVersion,
 	}
 
 	caching = caching.CloneOrDefault()

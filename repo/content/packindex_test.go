@@ -5,11 +5,16 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
+	"reflect"
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/compression"
 )
 
 const fakeEncryptionOverhead = 27
@@ -45,17 +50,44 @@ func deterministicPackedOffset(id int) uint32 {
 	s := rand.NewSource(int64(id + 1))
 	rnd := rand.New(s)
 
-	return uint32(rnd.Int31())
+	return uint32(rnd.Int31()) & (1<<28 - 1)
+}
+
+func deterministicOriginalLength(id, version int) uint32 {
+	if version == 1 {
+		return deterministicPackedLength(id) - fakeEncryptionOverhead
+	}
+
+	s := rand.NewSource(int64(id + 4))
+	rnd := rand.New(s)
+
+	return uint32(rnd.Int31()) & (1<<28 - 1)
 }
 
 func deterministicPackedLength(id int) uint32 {
 	s := rand.NewSource(int64(id + 2))
 	rnd := rand.New(s)
 
-	return uint32(rnd.Int31())
+	return uint32(rnd.Int31()) % v2MaxContentLength
 }
 
 func deterministicFormatVersion(id int) byte {
+	return byte(id % 100)
+}
+
+func deterministicCompressionHeaderID(id, version int) compression.HeaderID {
+	if version == 1 {
+		return 0
+	}
+
+	return compression.HeaderID(id % 100)
+}
+
+func deterministicEncryptionKeyID(id, version int) byte {
+	if version == 1 {
+		return 0
+	}
+
 	return byte(id % 100)
 }
 
@@ -63,32 +95,51 @@ func randomUnixTime() int64 {
 	return int64(rand.Int31())
 }
 
-//nolint:gocyclo
-func TestPackIndex(t *testing.T) {
-	var infos []Info
+func TestPackIndex_V1(t *testing.T) {
+	testPackIndex(t, v1IndexVersion)
+}
 
+func TestPackIndex_V2(t *testing.T) {
+	testPackIndex(t, v2IndexVersion)
+}
+
+// nolint:thelper,gocyclo,cyclop
+func testPackIndex(t *testing.T, version int) {
+	var infos []Info
 	// deleted contents with all information
 	for i := 0; i < 100; i++ {
 		infos = append(infos, &InfoStruct{
-			TimestampSeconds: randomUnixTime(),
-			Deleted:          true,
-			ContentID:        deterministicContentID("deleted-packed", i),
-			PackBlobID:       deterministicPackBlobID(i),
-			PackOffset:       deterministicPackedOffset(i),
-			PackedLength:     deterministicPackedLength(i),
-			FormatVersion:    deterministicFormatVersion(i),
+			TimestampSeconds:    randomUnixTime(),
+			Deleted:             true,
+			ContentID:           deterministicContentID("deleted-packed", i),
+			PackBlobID:          deterministicPackBlobID(i),
+			PackOffset:          deterministicPackedOffset(i),
+			PackedLength:        deterministicPackedLength(i),
+			FormatVersion:       deterministicFormatVersion(i),
+			OriginalLength:      deterministicOriginalLength(i, version),
+			CompressionHeaderID: deterministicCompressionHeaderID(i, version),
+			EncryptionKeyID:     deterministicEncryptionKeyID(i, version),
 		})
 	}
 	// non-deleted content
 	for i := 0; i < 100; i++ {
 		infos = append(infos, &InfoStruct{
-			TimestampSeconds: randomUnixTime(),
-			ContentID:        deterministicContentID("packed", i),
-			PackBlobID:       deterministicPackBlobID(i),
-			PackOffset:       deterministicPackedOffset(i),
-			PackedLength:     deterministicPackedLength(i),
-			FormatVersion:    deterministicFormatVersion(i),
+			TimestampSeconds:    randomUnixTime(),
+			ContentID:           deterministicContentID("packed", i),
+			PackBlobID:          deterministicPackBlobID(i),
+			PackOffset:          deterministicPackedOffset(i),
+			PackedLength:        deterministicPackedLength(i),
+			FormatVersion:       deterministicFormatVersion(i),
+			OriginalLength:      deterministicOriginalLength(i, version),
+			CompressionHeaderID: deterministicCompressionHeaderID(i, version),
+			EncryptionKeyID:     deterministicEncryptionKeyID(i, version),
 		})
+	}
+
+	// dear future reader, if this fails because the number of methods has changed,
+	// you need to add additional test cases above.
+	if cnt := reflect.TypeOf((*Info)(nil)).Elem().NumMethod(); cnt != 11 {
+		t.Fatalf("unexpected number of methods on content.Info: %v, must update the test", cnt)
 	}
 
 	infoMap := map[ID]Info{}
@@ -105,26 +156,26 @@ func TestPackIndex(t *testing.T) {
 
 	var buf1, buf2, buf3 bytes.Buffer
 
-	if err := b1.Build(&buf1); err != nil {
-		t.Errorf("unable to build: %v", err)
+	if err := b1.Build(&buf1, version); err != nil {
+		t.Fatalf("unable to build: %v", err)
 	}
 
-	if err := b1.Build(&buf2); err != nil {
-		t.Errorf("unable to build: %v", err)
+	if err := b2.Build(&buf2, version); err != nil {
+		t.Fatalf("unable to build: %v", err)
 	}
 
-	if err := b1.Build(&buf3); err != nil {
-		t.Errorf("unable to build: %v", err)
+	if err := b3.Build(&buf3, version); err != nil {
+		t.Fatalf("unable to build: %v", err)
 	}
 
 	data1 := buf1.Bytes()
 	data2 := buf2.Bytes()
 	data3 := buf3.Bytes()
 
-	// each build produces exactly idendical prefix except for the trailing random bytes.
-	data1Prefix := data1[0 : len(data1)-randomSuffixSize]
-	data2Prefix := data2[0 : len(data2)-randomSuffixSize]
-	data3Prefix := data3[0 : len(data3)-randomSuffixSize]
+	// each build produces exactly identical prefix except for the trailing random bytes.
+	data1Prefix := data1[0 : len(data1)-v1RandomSuffixSize]
+	data2Prefix := data2[0 : len(data2)-v1RandomSuffixSize]
+	data3Prefix := data3[0 : len(data3)-v1RandomSuffixSize]
 
 	if !bytes.Equal(data1Prefix, data2Prefix) {
 		t.Errorf("builder output not stable: %x vs %x", hex.Dump(data1Prefix), hex.Dump(data2Prefix))
@@ -155,7 +206,10 @@ func TestPackIndex(t *testing.T) {
 			continue
 		}
 
-		want = withOriginalLength{want, want.GetPackedLength() - fakeEncryptionOverhead}
+		if version == 1 {
+			// v1 does not preserve original length.
+			want = withOriginalLength{want, want.GetPackedLength() - fakeEncryptionOverhead}
+		}
 
 		if diff := infoDiff(want, info2); len(diff) != 0 {
 			t.Errorf("invalid value retrieved: diff: %v", diff)
@@ -166,7 +220,10 @@ func TestPackIndex(t *testing.T) {
 
 	assertNoError(t, ndx.Iterate(AllIDs, func(info2 Info) error {
 		want := infoMap[info2.GetContentID()]
-		want = withOriginalLength{want, want.GetPackedLength() - fakeEncryptionOverhead}
+		if version == 1 {
+			// v1 does not preserve original length.
+			want = withOriginalLength{want, want.GetPackedLength() - fakeEncryptionOverhead}
+		}
 
 		if diff := infoDiff(want, info2); len(diff) != 0 {
 			t.Errorf("invalid value retrieved: %v", diff)
@@ -206,6 +263,98 @@ func TestPackIndex(t *testing.T) {
 		}))
 		t.Logf("found %v elements with prefix %q", cnt2, prefix)
 	}
+}
+
+func TestPackIndexPerContentLimits(t *testing.T) {
+	cases := []struct {
+		info   *InfoStruct
+		errMsg string
+	}{
+		{&InfoStruct{PackedLength: v2MaxContentLength}, "maximum content length is too high"},
+		{&InfoStruct{PackedLength: v2MaxContentLength - 1}, ""},
+		{&InfoStruct{OriginalLength: v2MaxContentLength}, "maximum content length is too high"},
+		{&InfoStruct{OriginalLength: v2MaxContentLength - 1}, ""},
+		{&InfoStruct{PackOffset: v2MaxPackOffset}, "pack offset 1073741824 is too high"},
+		{&InfoStruct{PackOffset: v2MaxPackOffset - 1}, ""},
+	}
+
+	for _, tc := range cases {
+		cid := deterministicContentID("hello-world", 1)
+		tc.info.ContentID = cid
+
+		b := packIndexBuilder{
+			cid: tc.info,
+		}
+
+		var result bytes.Buffer
+
+		if tc.errMsg == "" {
+			require.NoError(t, b.buildV2(&result))
+
+			pi, err := openPackIndex(bytes.NewReader(result.Bytes()), fakeEncryptionOverhead)
+			require.NoError(t, err)
+
+			got, err := pi.GetInfo(cid)
+			require.NoError(t, err)
+
+			require.Empty(t, infoDiff(got, tc.info))
+		} else {
+			err := b.buildV2(&result)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tc.errMsg)
+		}
+	}
+}
+
+func TestSortedContents(t *testing.T) {
+	b := packIndexBuilder{}
+
+	for i := 0; i < 100; i++ {
+		v := deterministicContentID("", i)
+
+		b.Add(&InfoStruct{
+			ContentID: v,
+		})
+	}
+
+	got := b.sortedContents()
+
+	var last ID
+	for _, info := range got {
+		if info.GetContentID() < last {
+			t.Fatalf("not sorted %v (was %v)!", info.GetContentID(), last)
+		}
+
+		last = info.GetContentID()
+	}
+}
+
+func TestPackIndexV2TooManyUniqueFormats(t *testing.T) {
+	b := packIndexBuilder{}
+
+	for i := 0; i < v2MaxFormatCount; i++ {
+		v := deterministicContentID("", i)
+
+		b.Add(&InfoStruct{
+			ContentID:           v,
+			PackBlobID:          blob.ID(v),
+			FormatVersion:       1,
+			CompressionHeaderID: compression.HeaderID(1000 + i),
+		})
+	}
+
+	require.NoError(t, b.buildV2(ioutil.Discard))
+
+	// add one more to push it over the edge
+	b.Add(&InfoStruct{
+		ContentID:           deterministicContentID("", v2MaxFormatCount),
+		FormatVersion:       1,
+		CompressionHeaderID: compression.HeaderID(5000),
+	})
+
+	err := b.buildV2(ioutil.Discard)
+	require.Error(t, err)
+	require.Equal(t, err.Error(), "unsupported - too many unique formats 256 (max 255)")
 }
 
 func fuzzTestIndexOpen(originalData []byte) {
@@ -284,6 +433,7 @@ func (o withDeleted) GetDeleted() bool {
 	return o.deleted
 }
 
+// nolint:gocyclo
 func infoDiff(i1, i2 Info, ignore ...string) []string {
 	var diffs []string
 
@@ -317,6 +467,24 @@ func infoDiff(i1, i2 Info, ignore ...string) []string {
 
 	if l, r := i1.GetTimestampSeconds(), i2.GetTimestampSeconds(); l != r {
 		diffs = append(diffs, fmt.Sprintf("GetTimestampSeconds %v != %v", l, r))
+	}
+
+	if l, r := i1.Timestamp(), i2.Timestamp(); !l.Equal(r) {
+		diffs = append(diffs, fmt.Sprintf("Timestamp %v != %v", l, r))
+	}
+
+	if l, r := i1.GetCompressionHeaderID(), i2.GetCompressionHeaderID(); l != r {
+		diffs = append(diffs, fmt.Sprintf("GetCompressionHeaderID %v != %v", l, r))
+	}
+
+	if l, r := i1.GetEncryptionKeyID(), i2.GetEncryptionKeyID(); l != r {
+		diffs = append(diffs, fmt.Sprintf("GetEncryptionKeyID %v != %v", l, r))
+	}
+
+	// dear future reader, if this fails because the number of methods has changed,
+	// you need to add additional verification above.
+	if cnt := reflect.TypeOf((*Info)(nil)).Elem().NumMethod(); cnt != 11 {
+		diffs = append(diffs, fmt.Sprintf("unexpected number of methods on content.Info: %v, must update the test", cnt))
 	}
 
 	var result []string
