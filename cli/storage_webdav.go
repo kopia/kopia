@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"os"
 
 	"github.com/alecthomas/kingpin"
 
@@ -25,7 +26,7 @@ func (c *storageWebDAVFlags) connect(ctx context.Context, isNew bool) (blob.Stor
 	wo := c.options
 
 	if wo.Username != "" && wo.Password == "" {
-		pass, err := askPass("Enter WebDAV password: ")
+		pass, err := askPass(os.Stdout, "Enter WebDAV password: ")
 		if err != nil {
 			return nil, err
 		}

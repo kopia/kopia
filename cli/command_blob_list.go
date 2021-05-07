@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
@@ -13,7 +12,8 @@ type commandBlobList struct {
 	blobListMinSize int64
 	blobListMaxSize int64
 
-	jo jsonOutput
+	jo  jsonOutput
+	out textOutput
 }
 
 func (c *commandBlobList) setup(svc appServices, parent commandParent) {
@@ -21,7 +21,8 @@ func (c *commandBlobList) setup(svc appServices, parent commandParent) {
 	cmd.Flag("prefix", "Blob ID prefix").StringVar(&c.blobListPrefix)
 	cmd.Flag("min-size", "Minimum size").Int64Var(&c.blobListMinSize)
 	cmd.Flag("max-size", "Maximum size").Int64Var(&c.blobListMaxSize)
-	c.jo.setup(cmd)
+	c.jo.setup(svc, cmd)
+	c.out.setup(svc)
 	cmd.Action(svc.directRepositoryReadAction(c.run))
 }
 
@@ -43,7 +44,7 @@ func (c *commandBlobList) run(ctx context.Context, rep repo.DirectRepository) er
 		if c.jo.jsonOutput {
 			jl.emit(b)
 		} else {
-			fmt.Printf("%-70v %10v %v\n", b.BlobID, b.Length, formatTimestamp(b.Timestamp))
+			c.out.printStdout("%-70v %10v %v\n", b.BlobID, b.Length, formatTimestamp(b.Timestamp))
 		}
 		return nil
 	})

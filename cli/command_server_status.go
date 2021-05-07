@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/pkg/errors"
 
@@ -12,12 +11,15 @@ import (
 
 type commandServerStatus struct {
 	sf serverClientFlags
+
+	out textOutput
 }
 
 func (c *commandServerStatus) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("status", "Status of Kopia server")
 
 	c.sf.setup(cmd)
+	c.out.setup(svc)
 
 	cmd.Action(svc.serverAction(&c.sf, c.runServerStatus))
 }
@@ -29,7 +31,7 @@ func (c *commandServerStatus) runServerStatus(ctx context.Context, cli *apiclien
 	}
 
 	for _, src := range status.Sources {
-		fmt.Printf("%15v %v\n", src.Status, src.Source)
+		c.out.printStdout("%15v %v\n", src.Status, src.Source)
 	}
 
 	return nil

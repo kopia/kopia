@@ -34,7 +34,8 @@ type commandSnapshotList struct {
 	maxResultsPerPath                int
 	snapshotListTags                 []string
 
-	jo jsonOutput
+	jo  jsonOutput
+	out textOutput
 }
 
 func (c *commandSnapshotList) setup(svc appServices, parent commandParent) {
@@ -51,7 +52,8 @@ func (c *commandSnapshotList) setup(svc appServices, parent commandParent) {
 	cmd.Flag("all", "Show all shapshots (not just current username/host)").Short('a').BoolVar(&c.snapshotListShowAll)
 	cmd.Flag("max-results", "Maximum number of entries per source.").Short('n').IntVar(&c.maxResultsPerPath)
 	cmd.Flag("tags", "Tag filters to apply on the list items. Must be provided in the <key>:<value> format.").StringsVar(&c.snapshotListTags)
-	c.jo.setup(cmd)
+	c.jo.setup(svc, cmd)
+	c.out.setup(svc)
 	cmd.Action(svc.repositoryReaderAction(c.run))
 }
 
@@ -164,7 +166,7 @@ func (c *commandSnapshotList) outputManifestGroups(ctx context.Context, rep repo
 			continue
 		}
 
-		fmt.Printf("%v%v\n", separator, src)
+		c.out.printStdout("%v%v\n", separator, src)
 
 		separator = "\n"
 		anyOutput = true
@@ -204,7 +206,7 @@ func (c *commandSnapshotList) outputManifestFromSingleSource(ctx context.Context
 
 	outputElided := func() {
 		if elidedCount > 0 {
-			fmt.Printf(
+			c.out.printStdout(
 				"  + %v identical snapshots until %v\n",
 				elidedCount,
 				formatTimestamp(maxElidedTime),
@@ -215,13 +217,13 @@ func (c *commandSnapshotList) outputManifestFromSingleSource(ctx context.Context
 	for _, m := range manifests {
 		root, err := snapshotfs.SnapshotRoot(rep, m)
 		if err != nil {
-			fmt.Printf("  %v <ERROR> %v\n", formatTimestamp(m.StartTime), err)
+			c.out.printStdout("  %v <ERROR> %v\n", formatTimestamp(m.StartTime), err)
 			continue
 		}
 
 		ent, err := snapshotfs.GetNestedEntry(ctx, root, parts)
 		if err != nil {
-			fmt.Printf("  %v <ERROR> %v\n", formatTimestamp(m.StartTime), err)
+			c.out.printStdout("  %v <ERROR> %v\n", formatTimestamp(m.StartTime), err)
 			continue
 		}
 

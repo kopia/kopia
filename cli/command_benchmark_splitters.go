@@ -20,6 +20,8 @@ type commandBenchmarkSplitters struct {
 	blockSize   atunits.Base2Bytes
 	blockCount  int
 	printOption bool
+
+	out textOutput
 }
 
 func (c *commandBenchmarkSplitters) setup(svc appServices, parent commandParent) {
@@ -31,6 +33,8 @@ func (c *commandBenchmarkSplitters) setup(svc appServices, parent commandParent)
 	cmd.Flag("print-options", "Print out fastest dynamic splitter option").BoolVar(&c.printOption)
 
 	cmd.Action(svc.noRepositoryAction(c.run))
+
+	c.out.setup(svc)
 }
 
 func (c *commandBenchmarkSplitters) run(ctx context.Context) error { //nolint:funlen
@@ -109,7 +113,7 @@ func (c *commandBenchmarkSplitters) run(ctx context.Context) error { //nolint:fu
 			segmentLengths[len(segmentLengths)-1],
 		}
 
-		printStdout("%-25v %6v ms count:%v min:%v 10th:%v 25th:%v 50th:%v 75th:%v 90th:%v max:%v\n",
+		c.out.printStdout("%-25v %6v ms count:%v min:%v 10th:%v 25th:%v 50th:%v 75th:%v 90th:%v max:%v\n",
 			r.splitter,
 			r.duration.Nanoseconds()/1e6,
 			r.segmentCount,
@@ -121,10 +125,10 @@ func (c *commandBenchmarkSplitters) run(ctx context.Context) error { //nolint:fu
 	sort.Slice(results, func(i, j int) bool {
 		return results[i].duration < results[j].duration
 	})
-	printStdout("-----------------------------------------------------------------\n")
+	c.out.printStdout("-----------------------------------------------------------------\n")
 
 	for ndx, r := range results {
-		printStdout("%3v. %-25v %6v ms count:%v min:%v 10th:%v 25th:%v 50th:%v 75th:%v 90th:%v max:%v\n",
+		c.out.printStdout("%3v. %-25v %6v ms count:%v min:%v 10th:%v 25th:%v 50th:%v 75th:%v 90th:%v max:%v\n",
 			ndx,
 			r.splitter,
 			r.duration.Nanoseconds()/1e6,
@@ -137,7 +141,7 @@ func (c *commandBenchmarkSplitters) run(ctx context.Context) error { //nolint:fu
 	}
 
 	if c.printOption {
-		printStdout("Fastest option for this machine is: --object-splitter=%s\n", best.splitter)
+		c.out.printStdout("Fastest option for this machine is: --object-splitter=%s\n", best.splitter)
 	}
 
 	return nil

@@ -285,7 +285,7 @@ func main() {
 	flag.Parse()
 
 	kingpinApp := kingpin.New("kopia", "Kopia - Fast And Secure Open-Source Backup").Author("http://kopia.github.io/")
-	cli.Attach(kingpinApp)
+	cli.NewApp().Attach(kingpinApp)
 
 	app := kingpinApp.Model()
 

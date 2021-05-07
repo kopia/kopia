@@ -57,6 +57,7 @@ type commandServerStart struct {
 
 	sf  serverFlags
 	svc appServices
+	out textOutput
 }
 
 func (c *commandServerStart) setup(svc appServices, parent commandParent) {
@@ -90,6 +91,7 @@ func (c *commandServerStart) setup(svc appServices, parent commandParent) {
 	c.sf.setup(cmd)
 	c.co.setup(cmd)
 	c.svc = svc
+	c.out.setup(svc)
 
 	cmd.Action(svc.maybeRepositoryAction(c.run, repositoryAccessMode{
 		mustBeConnected:    false,
@@ -260,7 +262,6 @@ func serveIndexFileForKnownUIRoutes(fs http.FileSystem) http.Handler {
 		}
 
 		if r.URL.Path == "/" && indexBytes != nil {
-			fmt.Println("serving patched index")
 			http.ServeContent(w, r, "/", clock.Now(), bytes.NewReader(indexBytes))
 			return
 		}
@@ -302,7 +303,7 @@ func (c *commandServerStart) getAuthenticator(ctx context.Context) (auth.Authent
 		randomPassword := hex.EncodeToString(b)
 
 		// print it to the stderr bypassing any log file so that the user or calling process can connect
-		fmt.Fprintln(os.Stderr, "SERVER PASSWORD:", randomPassword)
+		fmt.Fprintln(c.out.stderr(), "SERVER PASSWORD:", randomPassword)
 
 		authenticators = append(authenticators, auth.AuthenticateSingleUser(c.sf.serverUsername, randomPassword))
 	}

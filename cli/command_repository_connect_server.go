@@ -17,11 +17,13 @@ type commandRepositoryConnectServer struct {
 	connectAPIServerUseGRPCAPI      bool
 
 	svc advancedAppServices
+	out textOutput
 }
 
 func (c *commandRepositoryConnectServer) setup(svc advancedAppServices, parent commandParent, co *connectOptions) {
 	c.co = co
 	c.svc = svc
+	c.out.setup(svc)
 
 	cmd := parent.Command("server", "Connect to a repository API Server.")
 	cmd.Flag("url", "Server URL").Required().StringVar(&c.connectAPIServerURL)

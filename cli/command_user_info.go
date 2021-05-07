@@ -12,12 +12,15 @@ import (
 
 type commandServerUserInfo struct {
 	name string
+
+	out textOutput
 }
 
 func (c *commandServerUserInfo) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("info", "Info about particular user")
 	cmd.Arg("username", "The username to look up.").Required().StringVar(&c.name)
 	cmd.Action(svc.repositoryReaderAction(c.run))
+	c.out.setup(svc)
 }
 
 func (c *commandServerUserInfo) run(ctx context.Context, rep repo.Repository) error {
@@ -31,7 +34,7 @@ func (c *commandServerUserInfo) run(ctx context.Context, rep repo.Repository) er
 		return errors.Wrap(err, "error marshaling JSON")
 	}
 
-	printStdout("%s", j)
+	c.out.printStdout("%s", j)
 
 	return nil
 }

@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/pkg/errors"
 
@@ -12,19 +11,22 @@ import (
 
 type commandServerUpload struct {
 	sf serverClientFlags
+
+	out textOutput
 }
 
 func (c *commandServerUpload) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("upload", "Trigger upload for one or more sources")
 	c.sf.setup(cmd)
+	c.out.setup(svc)
 	cmd.Action(svc.serverAction(&c.sf, c.run))
 }
 
 func (c *commandServerUpload) run(ctx context.Context, cli *apiclient.KopiaAPIClient) error {
-	return triggerActionOnMatchingSources(ctx, cli, "sources/upload")
+	return c.triggerActionOnMatchingSources(ctx, cli, "sources/upload")
 }
 
-func triggerActionOnMatchingSources(ctx context.Context, cli *apiclient.KopiaAPIClient, path string) error {
+func (c *commandServerUpload) triggerActionOnMatchingSources(ctx context.Context, cli *apiclient.KopiaAPIClient, path string) error {
 	var resp serverapi.MultipleSourceActionResponse
 
 	if err := cli.Post(ctx, path, &serverapi.Empty{}, &resp); err != nil {
@@ -33,9 +35,9 @@ func triggerActionOnMatchingSources(ctx context.Context, cli *apiclient.KopiaAPI
 
 	for src, resp := range resp.Sources {
 		if resp.Success {
-			fmt.Println("SUCCESS", src)
+			c.out.printStdout("SUCCESS %v\n", src)
 		} else {
-			fmt.Println("FAILED", src)
+			c.out.printStdout("FAILED %v\n", src)
 		}
 	}
 

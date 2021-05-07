@@ -16,6 +16,7 @@ type commandCacheInfo struct {
 	onlyShowPath bool
 
 	svc appServices
+	out textOutput
 }
 
 func (c *commandCacheInfo) setup(svc appServices, parent commandParent) {
@@ -24,6 +25,7 @@ func (c *commandCacheInfo) setup(svc appServices, parent commandParent) {
 	cmd.Action(svc.repositoryReaderAction(c.run))
 
 	c.svc = svc
+	c.out.setup(svc)
 }
 
 func (c *commandCacheInfo) run(ctx context.Context, rep repo.Repository) error {
@@ -33,7 +35,7 @@ func (c *commandCacheInfo) run(ctx context.Context, rep repo.Repository) error {
 	}
 
 	if c.onlyShowPath {
-		fmt.Println(opts.CacheDirectory)
+		c.out.printStdout("%v\n", opts.CacheDirectory)
 		return nil
 	}
 
@@ -69,11 +71,11 @@ func (c *commandCacheInfo) run(ctx context.Context, rep repo.Repository) error {
 			maybeLimit = fmt.Sprintf(" (duration %vs)", opts.MaxListCacheDurationSec)
 		}
 
-		fmt.Printf("%v: %v files %v%v\n", subdir, fileCount, units.BytesStringBase10(totalFileSize), maybeLimit)
+		c.out.printStdout("%v: %v files %v%v\n", subdir, fileCount, units.BytesStringBase10(totalFileSize), maybeLimit)
 	}
 
-	printStderr("To adjust cache sizes use 'kopia cache set'.\n")
-	printStderr("To clear caches use 'kopia cache clear'.\n")
+	c.out.printStderr("To adjust cache sizes use 'kopia cache set'.\n")
+	c.out.printStderr("To clear caches use 'kopia cache clear'.\n")
 
 	return nil
 }

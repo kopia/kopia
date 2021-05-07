@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 
 	"github.com/pkg/errors"
@@ -15,6 +14,8 @@ import (
 type commandBlobStats struct {
 	raw    bool
 	prefix string
+
+	out textOutput
 }
 
 func (c *commandBlobStats) setup(svc appServices, parent commandParent) {
@@ -22,6 +23,7 @@ func (c *commandBlobStats) setup(svc appServices, parent commandParent) {
 	cmd.Flag("raw", "Raw numbers").Short('r').BoolVar(&c.raw)
 	cmd.Flag("prefix", "Blob name prefix").StringVar(&c.prefix)
 	cmd.Action(svc.directRepositoryReadAction(c.run))
+	c.out.setup(svc)
 }
 
 func (c *commandBlobStats) run(ctx context.Context, rep repo.DirectRepository) error {
@@ -65,21 +67,21 @@ func (c *commandBlobStats) run(ctx context.Context, rep repo.DirectRepository) e
 		sizeToString = func(l int64) string { return strconv.FormatInt(l, 10) }
 	}
 
-	fmt.Println("Count:", count)
-	fmt.Println("Total:", sizeToString(totalSize))
+	c.out.printStdout("Count: %v\n", count)
+	c.out.printStdout("Total: %v\n", sizeToString(totalSize))
 
 	if count == 0 {
 		return nil
 	}
 
-	fmt.Println("Average:", sizeToString(totalSize/count))
+	c.out.printStdout("Average: %v\n", sizeToString(totalSize/count))
 
-	fmt.Printf("Histogram:\n\n")
+	c.out.printStdout("Histogram:\n\n")
 
 	var lastSize int64
 
 	for _, size := range sizeThresholds {
-		fmt.Printf("%9v between %v and %v (total %v)\n",
+		c.out.printStdout("%9v between %v and %v (total %v)\n",
 			countMap[size]-countMap[lastSize],
 			sizeToString(lastSize),
 			sizeToString(size),

@@ -2,6 +2,8 @@ package cli
 
 import (
 	"encoding/json"
+	"fmt"
+	"io"
 
 	"github.com/alecthomas/kingpin"
 
@@ -13,12 +15,16 @@ type jsonOutput struct {
 	jsonOutput  bool
 	jsonIndent  bool
 	jsonVerbose bool // output non-essential stats as part of JSON
+
+	out io.Writer
 }
 
-func (c *jsonOutput) setup(cmd *kingpin.CmdClause) {
+func (c *jsonOutput) setup(svc appServices, cmd *kingpin.CmdClause) {
 	cmd.Flag("json", "Output result in JSON format to stdout").BoolVar(&c.jsonOutput)
 	cmd.Flag("json-indent", "Output result in indented JSON format to stdout").Hidden().BoolVar(&c.jsonIndent)
 	cmd.Flag("json-verbose", "Output non-essential data (e.g. statistics) in JSON format").Hidden().BoolVar(&c.jsonVerbose)
+
+	c.out = svc.stdout()
 }
 
 func (c *jsonOutput) cleanupSnapshotManifestForJSON(v *snapshot.Manifest) interface{} {
@@ -93,7 +99,7 @@ func (l *jsonList) begin(o *jsonOutput) {
 	l.o = o
 
 	if o.jsonOutput {
-		printStdout("[")
+		fmt.Fprintf(l.o.out, "[")
 
 		if !o.jsonIndent {
 			l.separator = "\n "
@@ -104,16 +110,16 @@ func (l *jsonList) begin(o *jsonOutput) {
 func (l *jsonList) end() {
 	if l.o.jsonOutput {
 		if !l.o.jsonIndent {
-			printStdout("\n")
+			fmt.Fprintf(l.o.out, "\n")
 		}
 
-		printStdout("]")
+		fmt.Fprintf(l.o.out, "]")
 	}
 }
 
 func (l *jsonList) emit(v interface{}) {
-	printStdout(l.separator)
-	printStdout("%s", l.o.jsonBytes(v))
+	fmt.Fprintf(l.o.out, l.separator)
+	fmt.Fprintf(l.o.out, "%s", l.o.jsonBytes(v))
 
 	if l.o.jsonIndent {
 		l.separator = ","

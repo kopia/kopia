@@ -53,6 +53,8 @@ const policyEditSchedulingHelpText = `
 type commandPolicyEdit struct {
 	targets []string
 	global  bool
+
+	out textOutput
 }
 
 func (c *commandPolicyEdit) setup(svc appServices, parent commandParent) {
@@ -60,6 +62,7 @@ func (c *commandPolicyEdit) setup(svc appServices, parent commandParent) {
 	cmd.Arg("target", "Target of a policy ('global','user@host','@host') or a path").StringsVar(&c.targets)
 	cmd.Flag("global", "Set global policy").BoolVar(&c.global)
 	cmd.Action(svc.repositoryWriterAction(c.run))
+	c.out.setup(svc)
 }
 
 func (c *commandPolicyEdit) run(ctx context.Context, rep repo.RepositoryWriter) error {
@@ -99,7 +102,7 @@ func (c *commandPolicyEdit) run(ctx context.Context, rep repo.RepositoryWriter) 
 
 		log(ctx).Infof("Updated policy for %v\n%v", target, prettyJSON(updated))
 
-		fmt.Print("Save updated policy? (y/N) ")
+		c.out.printStdout("Save updated policy? (y/N) ")
 
 		var shouldSave string
 

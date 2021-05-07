@@ -19,6 +19,7 @@ type commandServerUserAddSet struct {
 	userSetPasswordHash        string
 
 	isNew bool // true == 'add', false == 'update'
+	out   textOutput
 }
 
 func (c *commandServerUserAddSet) setup(svc appServices, parent commandParent, isNew bool) {
@@ -38,6 +39,8 @@ func (c *commandServerUserAddSet) setup(svc appServices, parent commandParent, i
 	cmd.Flag("user-password-hash-version", "Password hash version").Default("1").IntVar(&c.userSetPasswordHashVersion)
 	cmd.Arg("username", "Username").Required().StringVar(&c.userSetName)
 	cmd.Action(svc.repositoryWriterAction(c.runServerUserAddSet))
+
+	c.out.setup(svc)
 }
 
 func (c *commandServerUserAddSet) getExistingOrNewUserProfile(ctx context.Context, rep repo.Repository, username string) (*user.Profile, error) {
@@ -88,12 +91,12 @@ func (c *commandServerUserAddSet) runServerUserAddSet(ctx context.Context, rep r
 	}
 
 	if up.PasswordHash == nil || c.userAskPassword {
-		pwd, err := askPass("Enter new password for user " + username + ": ")
+		pwd, err := askPass(c.out.stdout(), "Enter new password for user "+username+": ")
 		if err != nil {
 			return errors.Wrap(err, "error asking for password")
 		}
 
-		pwd2, err := askPass("Re-enter new password for verification: ")
+		pwd2, err := askPass(c.out.stdout(), "Re-enter new password for verification: ")
 		if err != nil {
 			return errors.Wrap(err, "error asking for password")
 		}

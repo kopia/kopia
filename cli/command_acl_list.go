@@ -11,13 +11,15 @@ import (
 )
 
 type commandACLList struct {
-	jo jsonOutput
+	jo  jsonOutput
+	out textOutput
 }
 
 func (c *commandACLList) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("list", "List ACL entries").Alias("ls")
 
-	c.jo.setup(cmd)
+	c.jo.setup(svc, cmd)
+	c.out.setup(svc)
 	cmd.Action(svc.repositoryReaderAction(c.run))
 }
 
@@ -36,7 +38,7 @@ func (c *commandACLList) run(ctx context.Context, rep repo.Repository) error {
 		if c.jo.jsonOutput {
 			jl.emit(aclListItem{e.ManifestID, e})
 		} else {
-			printStdout("id:%v user:%v access:%v target:%v\n", e.ManifestID, e.User, e.Access, e.Target)
+			c.out.printStdout("id:%v user:%v access:%v target:%v\n", e.ManifestID, e.User, e.Access, e.Target)
 		}
 	}
 

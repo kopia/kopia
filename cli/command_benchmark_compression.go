@@ -22,6 +22,8 @@ type commandBenchmarkCompression struct {
 	bySize       bool
 	verifyStable bool
 	optionPrint  bool
+
+	out textOutput
 }
 
 func (c *commandBenchmarkCompression) setup(svc appServices, parent commandParent) {
@@ -33,6 +35,7 @@ func (c *commandBenchmarkCompression) setup(svc appServices, parent commandParen
 	cmd.Flag("verify-stable", "Verify that compression is stable").BoolVar(&c.verifyStable)
 	cmd.Flag("print-options", "Print out options usable for repository creation").BoolVar(&c.optionPrint)
 	cmd.Action(svc.noRepositoryAction(c.run))
+	c.out.setup(svc)
 }
 
 func (c *commandBenchmarkCompression) run(ctx context.Context) error {
@@ -105,17 +108,17 @@ func (c *commandBenchmarkCompression) run(ctx context.Context) error {
 		})
 	}
 
-	printStdout("     %-30v %-15v %v\n", "Compression", "Compressed Size", "Throughput")
-	printStdout("-----------------------------------------------------------------\n")
+	c.out.printStdout("     %-30v %-15v %v\n", "Compression", "Compressed Size", "Throughput")
+	c.out.printStdout("-----------------------------------------------------------------\n")
 
 	for ndx, r := range results {
-		printStdout("%3d. %-30v %-15v %v / second", ndx, r.compression, r.compressedSize, units.BytesStringBase2(int64(r.throughput)))
+		c.out.printStdout("%3d. %-30v %-15v %v / second", ndx, r.compression, r.compressedSize, units.BytesStringBase2(int64(r.throughput)))
 
 		if c.optionPrint {
-			printStdout(", --compression=%s", r.compression)
+			c.out.printStdout(", --compression=%s", r.compression)
 		}
 
-		printStdout("\n")
+		c.out.printStdout("\n")
 	}
 
 	return nil

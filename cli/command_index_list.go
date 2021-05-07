@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"fmt"
 	"sort"
 
 	"github.com/pkg/errors"
@@ -15,7 +14,8 @@ type commandIndexList struct {
 	blockIndexListIncludeSuperseded bool
 	blockIndexListSort              string
 
-	jo jsonOutput
+	jo  jsonOutput
+	out textOutput
 }
 
 func (c *commandIndexList) setup(svc appServices, parent commandParent) {
@@ -23,7 +23,8 @@ func (c *commandIndexList) setup(svc appServices, parent commandParent) {
 	cmd.Flag("summary", "Display index blob summary").BoolVar(&c.blockIndexListSummary)
 	cmd.Flag("superseded", "Include inactive index files superseded by compaction").BoolVar(&c.blockIndexListIncludeSuperseded)
 	cmd.Flag("sort", "Index blob sort order").Default("time").EnumVar(&c.blockIndexListSort, "time", "size", "name")
-	c.jo.setup(cmd)
+	c.jo.setup(svc, cmd)
+	c.out.setup(svc)
 	cmd.Action(svc.directRepositoryReadAction(c.run))
 }
 
@@ -57,12 +58,12 @@ func (c *commandIndexList) run(ctx context.Context, rep repo.DirectRepository) e
 		if c.jo.jsonOutput {
 			jl.emit(b)
 		} else {
-			fmt.Printf("%-40v %10v %v %v\n", b.BlobID, b.Length, formatTimestampPrecise(b.Timestamp), b.Superseded)
+			c.out.printStdout("%-40v %10v %v %v\n", b.BlobID, b.Length, formatTimestampPrecise(b.Timestamp), b.Superseded)
 		}
 	}
 
 	if c.blockIndexListSummary && !c.jo.jsonOutput {
-		fmt.Printf("total %v indexes\n", len(blks))
+		c.out.printStdout("total %v indexes\n", len(blks))
 	}
 
 	return nil
