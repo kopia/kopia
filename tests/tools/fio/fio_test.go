@@ -5,12 +5,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kopia/kopia/tests/testenv"
+	"github.com/stretchr/testify/require"
 )
 
 func TestFIORun(t *testing.T) {
 	r, err := NewRunner()
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	defer r.Cleanup()
 
@@ -31,7 +31,7 @@ func TestFIORun(t *testing.T) {
 
 func TestFIORunConfig(t *testing.T) {
 	r, err := NewRunner()
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	defer r.Cleanup()
 
@@ -46,7 +46,7 @@ func TestFIORunConfig(t *testing.T) {
 		},
 	}
 	stdout, stderr, err := r.RunConfigs(cfg)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	if stderr != "" {
 		t.Error("Stderr was not empty")
@@ -59,7 +59,7 @@ func TestFIORunConfig(t *testing.T) {
 
 func TestFIOGlobalConfigOverride(t *testing.T) {
 	r, err := NewRunner()
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	defer r.Cleanup()
 
@@ -82,7 +82,7 @@ func TestFIOGlobalConfigOverride(t *testing.T) {
 		},
 	}
 	stdout, _, err := r.RunConfigs(cfgs...)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	if !strings.Contains(stdout, "rw=read") {
 		t.Fatal("Expected the global config 'rw' flag to be overwritten by the passed config")
@@ -99,10 +99,10 @@ func TestFIODockerRunner(t *testing.T) {
 	defer os.Setenv(FioExeEnvKey, prevExeEnv)
 
 	err := os.Unsetenv(FioExeEnvKey)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	r, err := NewRunner()
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	defer r.Cleanup()
 
@@ -120,5 +120,5 @@ func TestFIODockerRunner(t *testing.T) {
 	}
 
 	_, _, err = r.RunConfigs(cfgs...)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 }

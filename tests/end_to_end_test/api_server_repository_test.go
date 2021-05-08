@@ -14,6 +14,7 @@ import (
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/tests/clitestutil"
 	"github.com/kopia/kopia/tests/testdirtree"
 	"github.com/kopia/kopia/tests/testenv"
 )
@@ -218,7 +219,7 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 	e2.RemoveDefaultPassword()
 
 	// should see one snapshot
-	snapshots := e2.ListSnapshotsAndExpectSuccess(t)
+	snapshots := clitestutil.ListSnapshotsAndExpectSuccess(t, e2)
 	if got, want := len(snapshots), 1; got != want {
 		t.Errorf("invalid number of snapshots for foo@bar")
 	}
@@ -250,7 +251,7 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 	e2.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir2)
 
 	// now should see two snapshots
-	snapshots = e2.ListSnapshotsAndExpectSuccess(t)
+	snapshots = clitestutil.ListSnapshotsAndExpectSuccess(t, e2)
 	if got, want := len(snapshots), 3; got != want {
 		t.Errorf("invalid number of snapshots for foo@bar")
 	}

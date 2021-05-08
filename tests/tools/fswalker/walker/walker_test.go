@@ -9,15 +9,15 @@ import (
 	"testing"
 
 	fspb "github.com/google/fswalker/proto/fswalker"
+	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/tests/testdirtree"
-	"github.com/kopia/kopia/tests/testenv"
 )
 
 func TestWalk(t *testing.T) {
 	dataDir, err := ioutil.TempDir("", "walk-data-")
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	defer os.RemoveAll(dataDir)
 
@@ -31,7 +31,7 @@ func TestWalk(t *testing.T) {
 		},
 		counters,
 	)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	ctx := testlogging.Context(t)
 
@@ -42,7 +42,7 @@ func TestWalk(t *testing.T) {
 			},
 			WalkCrossDevice: true,
 		})
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	fileList := walk.GetFile()
 	if got, want := len(fileList), counters.Files+counters.Directories; got != want {

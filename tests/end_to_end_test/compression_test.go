@@ -8,7 +8,9 @@ import (
 	"testing"
 
 	"github.com/kopia/kopia/internal/testutil"
+	"github.com/kopia/kopia/tests/clitestutil"
 	"github.com/kopia/kopia/tests/testenv"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCompression(t *testing.T) {
@@ -42,13 +44,14 @@ func TestCompression(t *testing.T) {
 		"hello world",
 		"how are you",
 	}
+
 	// add a file that compresses well
-	testenv.AssertNoError(t, ioutil.WriteFile(filepath.Join(dataDir, "some-file1"), []byte(strings.Join(dataLines, "\n")), 0o600))
+	require.NoError(t, ioutil.WriteFile(filepath.Join(dataDir, "some-file1"), []byte(strings.Join(dataLines, "\n")), 0o600))
 
 	e.RunAndExpectSuccess(t, "snapshot", "create", dataDir)
-	sources := e.ListSnapshotsAndExpectSuccess(t)
+	sources := clitestutil.ListSnapshotsAndExpectSuccess(t, e)
 	oid := sources[0].Snapshots[0].ObjectID
-	entries := e.ListDirectory(t, oid)
+	entries := clitestutil.ListDirectory(t, e, oid)
 
 	if !strings.HasPrefix(entries[0].ObjectID, "Z") {
 		t.Errorf("expected compressed object, got %v", entries[0].ObjectID)

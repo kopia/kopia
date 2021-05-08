@@ -8,9 +8,9 @@ import (
 
 	"github.com/golang/protobuf/ptypes/timestamp"
 	fspb "github.com/google/fswalker/proto/fswalker"
+	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/testlogging"
-	"github.com/kopia/kopia/tests/testenv"
 )
 
 func TestReporterWithFiles(t *testing.T) {
@@ -116,7 +116,7 @@ func TestReporterWithFiles(t *testing.T) {
 	}
 
 	report, err := Report(ctx, config, beforeWalk, afterWalk)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	if got, want := len(report.Deleted), 0; got != want {
 		t.Errorf("Expected %d deleted files, but got %d", want, got)

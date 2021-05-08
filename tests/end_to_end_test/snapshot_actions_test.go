@@ -12,6 +12,7 @@ import (
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/testutil"
+	"github.com/kopia/kopia/tests/clitestutil"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
@@ -122,8 +123,8 @@ func TestSnapshotActionsBeforeSnapshotRoot(t *testing.T) {
 
 	// since we redirected to sharedTestDataDir2 the object ID of last snapshot of sharedTestDataDir1
 	// will be the same as snapshots of sharedTestDataDir2
-	snaps1 := e.ListSnapshotsAndExpectSuccess(t, sharedTestDataDir1)[0].Snapshots
-	snaps2 := e.ListSnapshotsAndExpectSuccess(t, sharedTestDataDir2)[0].Snapshots
+	snaps1 := clitestutil.ListSnapshotsAndExpectSuccess(t, e, sharedTestDataDir1)[0].Snapshots
+	snaps2 := clitestutil.ListSnapshotsAndExpectSuccess(t, e, sharedTestDataDir2)[0].Snapshots
 
 	if snaps1[0].ObjectID == snaps2[0].ObjectID {
 		t.Fatal("failed sanity check - snapshots are the same")
@@ -143,7 +144,7 @@ func TestSnapshotActionsBeforeSnapshotRoot(t *testing.T) {
 	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
 
 	// verify redirection had no effect - last snapshot will be the same as the first one
-	snaps1 = e.ListSnapshotsAndExpectSuccess(t, sharedTestDataDir1)[0].Snapshots
+	snaps1 = clitestutil.ListSnapshotsAndExpectSuccess(t, e, sharedTestDataDir1)[0].Snapshots
 	if got, want := snaps1[len(snaps1)-1].ObjectID, snaps1[0].ObjectID; got != want {
 		t.Fatalf("invalid snapshot ID after async action %v, wanted %v", got, want)
 	}
@@ -255,7 +256,7 @@ func TestSnapshotActionsEmbeddedScript(t *testing.T) {
 	e.RunAndExpectSuccess(t, "policy", "set", sharedTestDataDir1, "--before-folder-action", successScript2, "--persist-action-script")
 	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
 
-	snaps1 := e.ListSnapshotsAndExpectSuccess(t, sharedTestDataDir1)[0].Snapshots
+	snaps1 := clitestutil.ListSnapshotsAndExpectSuccess(t, e, sharedTestDataDir1)[0].Snapshots
 	if snaps1[0].ObjectID == snaps1[1].ObjectID {
 		t.Fatalf("redirection did not happen!")
 	}

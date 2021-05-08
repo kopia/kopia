@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/kopia/kopia/internal/testutil"
+	"github.com/kopia/kopia/tests/clitestutil"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
@@ -19,7 +20,7 @@ func TestRepositorySync(t *testing.T) {
 	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
 	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir2)
 
-	sources := e.ListSnapshotsAndExpectSuccess(t)
+	sources := clitestutil.ListSnapshotsAndExpectSuccess(t, e)
 
 	// synchronize repository blobs to another directory
 	dir2 := testutil.TempDirectory(t)
@@ -33,7 +34,7 @@ func TestRepositorySync(t *testing.T) {
 	e.RunAndExpectSuccess(t, "repo", "connect", "filesystem", "--path", dir2)
 
 	// snapshot list should be the same
-	sources2 := e.ListSnapshotsAndExpectSuccess(t)
+	sources2 := clitestutil.ListSnapshotsAndExpectSuccess(t, e)
 	if got, want := len(sources2), len(sources); got != want {
 		t.Errorf("unexpected number of sources: %v, want %v in %#v", got, want, sources2)
 	}

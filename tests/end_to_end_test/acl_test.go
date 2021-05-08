@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/kopia/kopia/internal/auth"
+	"github.com/kopia/kopia/tests/clitestutil"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
@@ -86,12 +87,12 @@ func TestACL(t *testing.T) {
 	foobarClientEnvironment.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
 
 	// foo@bar sees one snapshot
-	if snaps := foobarClientEnvironment.ListSnapshotsAndExpectSuccess(t, "-a"); len(snaps) != 1 {
+	if snaps := clitestutil.ListSnapshotsAndExpectSuccess(t, foobarClientEnvironment, "-a"); len(snaps) != 1 {
 		t.Fatalf("foo@bar expected to see 1 sources (own, got %v", snaps)
 	}
 
 	// alice@wonderland sees zero sources
-	if snaps := aliceInWonderlandClientEnvironment.ListSnapshotsAndExpectSuccess(t, "-a"); len(snaps) != 0 {
+	if snaps := clitestutil.ListSnapshotsAndExpectSuccess(t, aliceInWonderlandClientEnvironment, "-a"); len(snaps) != 0 {
 		t.Fatalf("foo@bar expected to see 0 sources (own), got %v", snaps)
 	}
 
@@ -99,12 +100,12 @@ func TestACL(t *testing.T) {
 	aliceInWonderlandClientEnvironment.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
 
 	// foo@bar now can see two snapshot sources (own and alice's)
-	if snaps := foobarClientEnvironment.ListSnapshotsAndExpectSuccess(t, "-a"); len(snaps) != 2 {
+	if snaps := clitestutil.ListSnapshotsAndExpectSuccess(t, foobarClientEnvironment, "-a"); len(snaps) != 2 {
 		t.Fatalf("foo@bar expected to see 2 sources (own and alice), got %v", snaps)
 	}
 
 	// alice@wonderland can only see her own
-	if snaps := aliceInWonderlandClientEnvironment.ListSnapshotsAndExpectSuccess(t, "-a"); len(snaps) != 1 {
+	if snaps := clitestutil.ListSnapshotsAndExpectSuccess(t, aliceInWonderlandClientEnvironment, "-a"); len(snaps) != 1 {
 		t.Fatalf("foo@bar expected to see 1 source (own), got %v", snaps)
 	}
 
