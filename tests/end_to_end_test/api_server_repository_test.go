@@ -11,8 +11,10 @@ import (
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/internal/testlogging"
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/tests/testdirtree"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
@@ -68,8 +70,8 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 
 	var pBlobsBefore, qBlobsBefore []blob.Metadata
 
-	mustParseJSONLines(t, e1.RunAndExpectSuccess(t, "blob", "list", "--prefix=p", "--json"), &pBlobsBefore)
-	mustParseJSONLines(t, e1.RunAndExpectSuccess(t, "blob", "list", "--prefix=q", "--json"), &qBlobsBefore)
+	testutil.MustParseJSONLines(t, e1.RunAndExpectSuccess(t, "blob", "list", "--prefix=p", "--json"), &pBlobsBefore)
+	testutil.MustParseJSONLines(t, e1.RunAndExpectSuccess(t, "blob", "list", "--prefix=q", "--json"), &qBlobsBefore)
 
 	originalPBlobCount := len(pBlobsBefore)
 	originalQBlobCount := len(qBlobsBefore)
@@ -224,7 +226,7 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 	// create very small directory
 	smallDataDir := filepath.Join(sharedTestDataDirBase, "dir-small")
 
-	testenv.CreateDirectoryTree(smallDataDir, testenv.DirectoryTreeOptions{
+	testdirtree.CreateDirectoryTree(smallDataDir, testdirtree.DirectoryTreeOptions{
 		Depth:                  1,
 		MaxSubdirsPerDirectory: 1,
 		MaxFilesPerDirectory:   1,

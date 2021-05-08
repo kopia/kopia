@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/kopia/kopia/internal/testutil"
+	"github.com/kopia/kopia/tests/testdirtree"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
@@ -282,7 +283,7 @@ func createSimplestFileTree(t *testing.T, dirDepth, currDepth int, currPath stri
 	fileName := fmt.Sprintf("file%d", currDepth+1)
 	filePath := filepath.Join(dirPath, fileName)
 
-	testenv.MustCreateRandomFile(t, filePath, testenv.DirectoryTreeOptions{}, nil)
+	testdirtree.MustCreateRandomFile(t, filePath, testdirtree.DirectoryTreeOptions{}, nil)
 
 	if dirDepth > currDepth+1 {
 		createSimplestFileTree(t, dirDepth, currDepth+1, dirPath)

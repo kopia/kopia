@@ -6,6 +6,7 @@ import (
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/encryption"
 	"github.com/kopia/kopia/repo/hashing"
+	"github.com/kopia/kopia/tests/testdirtree"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
@@ -13,7 +14,7 @@ func TestAllFormatsSmokeTest(t *testing.T) {
 	srcDir := testutil.TempDirectory(t)
 
 	// 3-level directory with <=10 files and <=10 subdirectories at each level
-	testenv.CreateDirectoryTree(srcDir, testenv.DirectoryTreeOptions{
+	testdirtree.CreateDirectoryTree(srcDir, testdirtree.DirectoryTreeOptions{
 		Depth:                  2,
 		MaxSubdirsPerDirectory: 5,
 		MaxFilesPerDirectory:   5,

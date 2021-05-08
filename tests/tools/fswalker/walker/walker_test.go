@@ -11,6 +11,7 @@ import (
 	fspb "github.com/google/fswalker/proto/fswalker"
 
 	"github.com/kopia/kopia/internal/testlogging"
+	"github.com/kopia/kopia/tests/testdirtree"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
@@ -20,10 +21,10 @@ func TestWalk(t *testing.T) {
 
 	defer os.RemoveAll(dataDir)
 
-	counters := new(testenv.DirectoryTreeCounters)
-	err = testenv.CreateDirectoryTree(
+	counters := new(testdirtree.DirectoryTreeCounters)
+	err = testdirtree.CreateDirectoryTree(
 		dataDir,
-		testenv.DirectoryTreeOptions{
+		testdirtree.DirectoryTreeOptions{
 			Depth:                  2,
 			MaxSubdirsPerDirectory: 2,
 			MaxFilesPerDirectory:   2,

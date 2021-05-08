@@ -22,6 +22,7 @@ import (
 	"github.com/kopia/kopia/internal/fshasher"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
+	"github.com/kopia/kopia/tests/testdirtree"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
@@ -41,7 +42,7 @@ func TestRestoreCommand(t *testing.T) {
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 
 	source := filepath.Join(testutil.TempDirectory(t), "source")
-	testenv.MustCreateDirectoryTree(t, source, testenv.DirectoryTreeOptions{
+	testdirtree.MustCreateDirectoryTree(t, source, testdirtree.DirectoryTreeOptions{
 		Depth:                              1,
 		MaxFilesPerDirectory:               10,
 		MaxSymlinksPerDirectory:            4,
@@ -157,14 +158,14 @@ func TestSnapshotRestore(t *testing.T) {
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 
 	source := testutil.TempDirectory(t)
-	testenv.MustCreateDirectoryTree(t, filepath.Join(source, "subdir1"), testenv.MaybeSimplifyFilesystem(testenv.DirectoryTreeOptions{
+	testdirtree.MustCreateDirectoryTree(t, filepath.Join(source, "subdir1"), testdirtree.MaybeSimplifyFilesystem(testdirtree.DirectoryTreeOptions{
 		Depth:                              3,
 		MaxSubdirsPerDirectory:             3,
 		MaxFilesPerDirectory:               3,
 		MaxSymlinksPerDirectory:            4,
 		NonExistingSymlinkTargetPercentage: 50,
 	}))
-	testenv.MustCreateDirectoryTree(t, filepath.Join(source, "subdir2"), testenv.MaybeSimplifyFilesystem(testenv.DirectoryTreeOptions{
+	testdirtree.MustCreateDirectoryTree(t, filepath.Join(source, "subdir2"), testdirtree.MaybeSimplifyFilesystem(testdirtree.DirectoryTreeOptions{
 		Depth:                   2,
 		MaxSubdirsPerDirectory:  1,
 		MaxFilesPerDirectory:    5,

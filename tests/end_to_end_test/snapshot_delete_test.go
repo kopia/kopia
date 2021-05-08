@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/kopia/kopia/internal/testutil"
+	"github.com/kopia/kopia/tests/testdirtree"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
@@ -178,7 +179,7 @@ func TestSnapshotDeleteRestore(t *testing.T) {
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 
 	source := filepath.Join(testutil.TempDirectory(t), "source")
-	testenv.MustCreateDirectoryTree(t, source, testenv.DirectoryTreeOptions{
+	testdirtree.MustCreateDirectoryTree(t, source, testdirtree.DirectoryTreeOptions{
 		Depth:                  1,
 		MaxSubdirsPerDirectory: 10,
 		MaxFilesPerDirectory:   10,

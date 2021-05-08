@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/tests/testenv"
 )
@@ -23,7 +24,7 @@ func TestFullMaintenance(t *testing.T) {
 		t.Fatalf("unexpected number of initial blobs: %v, want %v", got, want)
 	}
 
-	mustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1, "--json"), &snap)
+	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1, "--json"), &snap)
 
 	// avoid create and delete in the same second.
 	time.Sleep(2 * time.Second)

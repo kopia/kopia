@@ -63,7 +63,7 @@ how are you
 	// data block + directory block + manifest block + manifest block from manifest deletion
 	var contentInfo []content.InfoStruct
 
-	mustParseJSONLines(t, e.RunAndExpectSuccess(t, "content", "list", "--json"), &contentInfo)
+	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "content", "list", "--json"), &contentInfo)
 
 	if got, want := len(contentInfo), expectedContentCount; got != want {
 		t.Fatalf("unexpected number of contents: %v, want %v", got, want)

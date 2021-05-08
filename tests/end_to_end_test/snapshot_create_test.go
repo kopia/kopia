@@ -1,7 +1,6 @@
 package endtoend_test
 
 import (
-	"encoding/json"
 	"os"
 	"path"
 	"path/filepath"
@@ -43,8 +42,8 @@ func TestSnapshotCreate(t *testing.T) {
 
 	var man1, man2 snapshot.Manifest
 
-	mustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir2, "--json"), &man1)
-	mustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir2, "--json"), &man2)
+	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir2, "--json"), &man1)
+	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir2, "--json"), &man2)
 
 	if man1.ID == "" {
 		t.Fatalf("missing root id")
@@ -68,7 +67,7 @@ func TestSnapshotCreate(t *testing.T) {
 
 	var manifests []snapshot.Manifest
 
-	mustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "list", "-a", "--json"), &manifests)
+	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "list", "-a", "--json"), &manifests)
 
 	if got, want := len(manifests), 6; got != want {
 		t.Fatalf("unexpected number of snapshots %v want %v", got, want)
@@ -94,13 +93,13 @@ func TestTagging(t *testing.T) {
 
 	var manifests []snapshot.Manifest
 
-	mustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "list", "-a", "--json"), &manifests)
+	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "list", "-a", "--json"), &manifests)
 
 	if got, want := len(manifests), 2; got != want {
 		t.Fatalf("unexpected number of snapshots %v want %v", got, want)
 	}
 
-	mustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "list", "-a", "--tags", "testkey1:testkey2", "--json"), &manifests)
+	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "list", "-a", "--tags", "testkey1:testkey2", "--json"), &manifests)
 
 	if got, want := len(manifests), 1; got != want {
 		t.Fatalf("unexpected number of snapshots %v want %v", got, want)
@@ -666,16 +665,4 @@ func createFileStructure(baseDir string, files []testFileEntry) error {
 	}
 
 	return nil
-}
-
-func mustParseJSONLines(t *testing.T, lines []string, v interface{}) {
-	t.Helper()
-
-	allJSON := strings.Join(lines, "\n")
-	dec := json.NewDecoder(strings.NewReader(allJSON))
-	dec.DisallowUnknownFields()
-
-	if err := dec.Decode(v); err != nil {
-		t.Fatalf("failed to parse JSON %v: %v", allJSON, err)
-	}
 }

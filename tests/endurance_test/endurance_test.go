@@ -14,6 +14,7 @@ import (
 
 	"golang.org/x/net/webdav"
 
+	"github.com/kopia/kopia/tests/testdirtree"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
@@ -189,12 +190,12 @@ func actionAddNewSource(t *testing.T, e *testenv.CLITest, s *runnerState) {
 
 	s.dirs = append(s.dirs, srcDir)
 
-	testenv.CreateDirectoryTree(srcDir, testenv.MaybeSimplifyFilesystem(testenv.DirectoryTreeOptions{
+	testdirtree.CreateDirectoryTree(srcDir, testdirtree.MaybeSimplifyFilesystem(testdirtree.DirectoryTreeOptions{
 		Depth:                  3,
 		MaxSubdirsPerDirectory: 10,
 		MaxFilesPerDirectory:   10,
 		MaxFileSize:            100,
-	}), &testenv.DirectoryTreeCounters{})
+	}), &testdirtree.DirectoryTreeCounters{})
 }
 
 func actionMutateDirectoryTree(t *testing.T, e *testenv.CLITest, s *runnerState) {
@@ -202,12 +203,12 @@ func actionMutateDirectoryTree(t *testing.T, e *testenv.CLITest, s *runnerState)
 
 	randomPath := s.dirs[rand.Intn(len(s.dirs))]
 
-	testenv.CreateDirectoryTree(randomPath, testenv.DirectoryTreeOptions{
+	testdirtree.CreateDirectoryTree(randomPath, testdirtree.DirectoryTreeOptions{
 		Depth:                  2,
 		MaxSubdirsPerDirectory: 10,
 		MaxFilesPerDirectory:   10,
 		MaxFileSize:            100,
-	}, &testenv.DirectoryTreeCounters{})
+	}, &testdirtree.DirectoryTreeCounters{})
 }
 
 func pickRandomEnduranceTestAction() action {

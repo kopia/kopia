@@ -10,7 +10,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/testutil"
-	"github.com/kopia/kopia/tests/testenv"
+	"github.com/kopia/kopia/tests/testdirtree"
 )
 
 var (
@@ -34,11 +34,11 @@ func oneTimeSetup() error {
 		os.MkdirAll(sharedTestDataDirBase, 0700)
 	}
 
-	var counters1, counters2, counters3 testenv.DirectoryTreeCounters
+	var counters1, counters2, counters3 testdirtree.DirectoryTreeCounters
 
 	sharedTestDataDir1 = filepath.Join(sharedTestDataDirBase, "dir1")
 	// 3-level directory with <=10 files and <=10 subdirectories at each level
-	testenv.CreateDirectoryTree(sharedTestDataDir1, testenv.MaybeSimplifyFilesystem(testenv.DirectoryTreeOptions{
+	testdirtree.CreateDirectoryTree(sharedTestDataDir1, testdirtree.MaybeSimplifyFilesystem(testdirtree.DirectoryTreeOptions{
 		Depth:                  3,
 		MaxSubdirsPerDirectory: 10,
 		MaxFilesPerDirectory:   10,
@@ -47,7 +47,7 @@ func oneTimeSetup() error {
 
 	// directory with very few big files
 	sharedTestDataDir2 = filepath.Join(sharedTestDataDirBase, "dir2")
-	testenv.CreateDirectoryTree(sharedTestDataDir2, testenv.MaybeSimplifyFilesystem(testenv.DirectoryTreeOptions{
+	testdirtree.CreateDirectoryTree(sharedTestDataDir2, testdirtree.MaybeSimplifyFilesystem(testdirtree.DirectoryTreeOptions{
 		Depth:                  3,
 		MaxSubdirsPerDirectory: 2,
 		MaxFilesPerDirectory:   2,
@@ -55,7 +55,7 @@ func oneTimeSetup() error {
 	}), &counters2)
 
 	sharedTestDataDir3 = filepath.Join(sharedTestDataDirBase, "dir3")
-	testenv.CreateDirectoryTree(sharedTestDataDir3, testenv.MaybeSimplifyFilesystem(testenv.DirectoryTreeOptions{
+	testdirtree.CreateDirectoryTree(sharedTestDataDir3, testdirtree.MaybeSimplifyFilesystem(testdirtree.DirectoryTreeOptions{
 		Depth:                  3,
 		MaxFilesPerDirectory:   500,
 		MaxSubdirsPerDirectory: 3,
