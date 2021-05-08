@@ -7,34 +7,34 @@ import (
 	"os"
 	"testing"
 
-	"github.com/kopia/kopia/tests/testenv"
+	"github.com/stretchr/testify/require"
 )
 
 func TestParseSnapListAllExeTest(t *testing.T) {
 	baseDir, err := ioutil.TempDir("", t.Name())
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	defer os.RemoveAll(baseDir)
 
 	repoDir, err := ioutil.TempDir(baseDir, "repo")
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	sourceDir, err := ioutil.TempDir(baseDir, "source")
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	ks, err := NewKopiaSnapshotter(repoDir)
 	if errors.Is(err, ErrExeVariableNotSet) {
 		t.Skip("KOPIA_EXE not set, skipping test")
 	}
 
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	err = ks.ConnectOrCreateFilesystem(repoDir)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	// Empty snapshot list
 	snapIDListSnap, err := ks.snapIDsFromSnapListAll()
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	if got, want := len(snapIDListSnap), 0; got != want {
 		t.Errorf("Snapshot list (len %d) should be empty", got)
@@ -45,11 +45,11 @@ func TestParseSnapListAllExeTest(t *testing.T) {
 	const numSnapsToTest = 5
 	for snapCount := 0; snapCount < numSnapsToTest; snapCount++ {
 		snapID, err := ks.CreateSnapshot(sourceDir)
-		testenv.AssertNoError(t, err)
+		require.NoError(t, err)
 
 		// Validate the list against kopia snapshot list --all
 		snapIDListSnap, err := ks.snapIDsFromSnapListAll()
-		testenv.AssertNoError(t, err)
+		require.NoError(t, err)
 
 		if got, want := len(snapIDListSnap), snapCount+1; got != want {
 			t.Errorf("Snapshot list len (%d) does not match expected number of snapshots (%d)", got, want)
@@ -61,7 +61,7 @@ func TestParseSnapListAllExeTest(t *testing.T) {
 
 		// Validate the list against kopia snapshot list --all
 		snapIDListMan, err := ks.snapIDsFromManifestList()
-		testenv.AssertNoError(t, err)
+		require.NoError(t, err)
 
 		if got, want := len(snapIDListMan), snapCount+1; got != want {
 			t.Errorf("Snapshot list len (%d) does not match expected number of snapshots (%d)", got, want)

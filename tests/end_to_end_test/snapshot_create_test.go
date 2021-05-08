@@ -1,7 +1,6 @@
 package endtoend_test
 
 import (
-	"encoding/json"
 	"os"
 	"path"
 	"path/filepath"
@@ -17,6 +16,7 @@ import (
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
+	"github.com/kopia/kopia/tests/clitestutil"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
@@ -43,8 +43,8 @@ func TestSnapshotCreate(t *testing.T) {
 
 	var man1, man2 snapshot.Manifest
 
-	mustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir2, "--json"), &man1)
-	mustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir2, "--json"), &man2)
+	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir2, "--json"), &man1)
+	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir2, "--json"), &man2)
 
 	if man1.ID == "" {
 		t.Fatalf("missing root id")
@@ -68,13 +68,13 @@ func TestSnapshotCreate(t *testing.T) {
 
 	var manifests []snapshot.Manifest
 
-	mustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "list", "-a", "--json"), &manifests)
+	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "list", "-a", "--json"), &manifests)
 
 	if got, want := len(manifests), 6; got != want {
 		t.Fatalf("unexpected number of snapshots %v want %v", got, want)
 	}
 
-	sources := e.ListSnapshotsAndExpectSuccess(t)
+	sources := clitestutil.ListSnapshotsAndExpectSuccess(t, e)
 	// will only list snapshots we created, not foo@foo
 	if got, want := len(sources), 3; got != want {
 		t.Errorf("unexpected number of sources: %v, want %v in %#v", got, want, sources)
@@ -94,13 +94,13 @@ func TestTagging(t *testing.T) {
 
 	var manifests []snapshot.Manifest
 
-	mustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "list", "-a", "--json"), &manifests)
+	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "list", "-a", "--json"), &manifests)
 
 	if got, want := len(manifests), 2; got != want {
 		t.Fatalf("unexpected number of snapshots %v want %v", got, want)
 	}
 
-	mustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "list", "-a", "--tags", "testkey1:testkey2", "--json"), &manifests)
+	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "list", "-a", "--tags", "testkey1:testkey2", "--json"), &manifests)
 
 	if got, want := len(manifests), 1; got != want {
 		t.Fatalf("unexpected number of snapshots %v want %v", got, want)
@@ -133,7 +133,7 @@ func TestStartTimeOverride(t *testing.T) {
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1, "--start-time", "2000-01-01 01:01:00 UTC")
-	sources := e.ListSnapshotsAndExpectSuccess(t)
+	sources := clitestutil.ListSnapshotsAndExpectSuccess(t, e)
 
 	gotTime := sources[0].Snapshots[0].Time
 	wantTime, _ := time.Parse("2006-01-02 15:04:05 MST", "2000-01-01 01:01:00 UTC")
@@ -152,7 +152,7 @@ func TestEndTimeOverride(t *testing.T) {
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1, "--end-time", "2000-01-01 01:01:00 UTC")
-	sources := e.ListSnapshotsAndExpectSuccess(t)
+	sources := clitestutil.ListSnapshotsAndExpectSuccess(t, e)
 
 	gotTime := sources[0].Snapshots[0].Time
 	wantTime, _ := time.Parse("2006-01-02 15:04:05 MST", "2000-01-01 01:01:00 UTC")
@@ -190,7 +190,7 @@ func TestSnapshottingCacheDirectory(t *testing.T) {
 	}
 
 	e.RunAndExpectSuccess(t, "snapshot", "create", cachePath)
-	snapshots := e.ListSnapshotsAndExpectSuccess(t, cachePath)
+	snapshots := clitestutil.ListSnapshotsAndExpectSuccess(t, e, cachePath)
 
 	rootID := snapshots[0].Snapshots[0].ObjectID
 	if got, want := len(e.RunAndExpectSuccess(t, "ls", rootID)), 0; got != want {
@@ -489,9 +489,9 @@ func TestSnapshotCreateWithIgnore(t *testing.T) {
 			defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 			e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 			e.RunAndExpectSuccess(t, "snapshot", "create", baseDir)
-			sources := e.ListSnapshotsAndExpectSuccess(t)
+			sources := clitestutil.ListSnapshotsAndExpectSuccess(t, e)
 			oid := sources[0].Snapshots[0].ObjectID
-			entries := e.ListDirectoryRecursive(t, oid)
+			entries := clitestutil.ListDirectoryRecursive(t, e, oid)
 
 			var output []string
 			for _, s := range entries {
@@ -580,7 +580,7 @@ func TestSnapshotCreateWithStdinStream(t *testing.T) {
 	e.RunAndVerifyOutputLineCount(t, 2, "policy", "list")
 
 	// Obtain snapshot root id and use it for restore
-	si := e.ListSnapshotsAndExpectSuccess(t)
+	si := clitestutil.ListSnapshotsAndExpectSuccess(t, e)
 	if got, want := len(si), 1; got != want {
 		t.Fatalf("got %v sources, wanted %v", got, want)
 	}
@@ -666,16 +666,4 @@ func createFileStructure(baseDir string, files []testFileEntry) error {
 	}
 
 	return nil
-}
-
-func mustParseJSONLines(t *testing.T, lines []string, v interface{}) {
-	t.Helper()
-
-	allJSON := strings.Join(lines, "\n")
-	dec := json.NewDecoder(strings.NewReader(allJSON))
-	dec.DisallowUnknownFields()
-
-	if err := dec.Decode(v); err != nil {
-		t.Fatalf("failed to parse JSON %v: %v", allJSON, err)
-	}
 }

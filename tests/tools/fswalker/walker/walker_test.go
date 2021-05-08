@@ -9,28 +9,29 @@ import (
 	"testing"
 
 	fspb "github.com/google/fswalker/proto/fswalker"
+	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/testlogging"
-	"github.com/kopia/kopia/tests/testenv"
+	"github.com/kopia/kopia/tests/testdirtree"
 )
 
 func TestWalk(t *testing.T) {
 	dataDir, err := ioutil.TempDir("", "walk-data-")
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	defer os.RemoveAll(dataDir)
 
-	counters := new(testenv.DirectoryTreeCounters)
-	err = testenv.CreateDirectoryTree(
+	counters := new(testdirtree.DirectoryTreeCounters)
+	err = testdirtree.CreateDirectoryTree(
 		dataDir,
-		testenv.DirectoryTreeOptions{
+		testdirtree.DirectoryTreeOptions{
 			Depth:                  2,
 			MaxSubdirsPerDirectory: 2,
 			MaxFilesPerDirectory:   2,
 		},
 		counters,
 	)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	ctx := testlogging.Context(t)
 
@@ -41,7 +42,7 @@ func TestWalk(t *testing.T) {
 			},
 			WalkCrossDevice: true,
 		})
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	fileList := walk.GetFile()
 	if got, want := len(fileList), counters.Files+counters.Directories; got != want {

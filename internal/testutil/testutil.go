@@ -1,6 +1,7 @@
 package testutil
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"runtime"
@@ -66,4 +67,17 @@ func MyTestMain(m *testing.M) {
 	}
 
 	os.Exit(v)
+}
+
+// MustParseJSONLines parses the lines containing JSON into the provided object.
+func MustParseJSONLines(t *testing.T, lines []string, v interface{}) {
+	t.Helper()
+
+	allJSON := strings.Join(lines, "\n")
+	dec := json.NewDecoder(strings.NewReader(allJSON))
+	dec.DisallowUnknownFields()
+
+	if err := dec.Decode(v); err != nil {
+		t.Fatalf("failed to parse JSON %v: %v", allJSON, err)
+	}
 }

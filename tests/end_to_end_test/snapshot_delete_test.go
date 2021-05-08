@@ -7,11 +7,15 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/kopia/kopia/internal/testutil"
+	"github.com/kopia/kopia/tests/clitestutil"
+	"github.com/kopia/kopia/tests/testdirtree"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
-type deleteArgMaker func(manifestID, objectID string, source testenv.SourceInfo) []string
+type deleteArgMaker func(manifestID, objectID string, source clitestutil.SourceInfo) []string
 
 func TestSnapshotDelete(t *testing.T) {
 	t.Parallel()
@@ -28,70 +32,70 @@ func TestSnapshotDelete(t *testing.T) {
 	}{
 		{
 			"Test manifest rm function",
-			func(manifestID, objectID string, source testenv.SourceInfo) []string {
+			func(manifestID, objectID string, source clitestutil.SourceInfo) []string {
 				return []string{"manifest", "rm", manifestID}
 			},
 			expectSuccess,
 		},
 		{
 			"Dry run - by manifest ID",
-			func(manifestID, objectID string, source testenv.SourceInfo) []string {
+			func(manifestID, objectID string, source clitestutil.SourceInfo) []string {
 				return []string{"snapshot", "delete", manifestID}
 			},
 			expectSuccess,
 		},
 		{
 			"Delete - by manifest ID",
-			func(manifestID, objectID string, source testenv.SourceInfo) []string {
+			func(manifestID, objectID string, source clitestutil.SourceInfo) []string {
 				return []string{"snapshot", "delete", manifestID, "--delete"}
 			},
 			expectSuccess,
 		},
 		{
 			"Delete - by manifest ID - legacy flag",
-			func(manifestID, objectID string, source testenv.SourceInfo) []string {
+			func(manifestID, objectID string, source clitestutil.SourceInfo) []string {
 				return []string{"snapshot", "delete", manifestID, "--unsafe-ignore-source"}
 			},
 			expectSuccess,
 		},
 		{
 			"Dry run - by objectID ID",
-			func(manifestID, objectID string, source testenv.SourceInfo) []string {
+			func(manifestID, objectID string, source clitestutil.SourceInfo) []string {
 				return []string{"snapshot", "delete", objectID}
 			},
 			expectSuccess,
 		},
 		{
 			"Delete - by object ID",
-			func(manifestID, objectID string, source testenv.SourceInfo) []string {
+			func(manifestID, objectID string, source clitestutil.SourceInfo) []string {
 				return []string{"snapshot", "delete", objectID, "--delete"}
 			},
 			expectSuccess,
 		},
 		{
 			"Dry run - invalid object ID",
-			func(manifestID, objectID string, source testenv.SourceInfo) []string {
+			func(manifestID, objectID string, source clitestutil.SourceInfo) []string {
 				return []string{"snapshot", "delete", "no-such-manifest"}
 			},
 			expectFail,
 		},
 		{
 			"Delete - invalid manifest ID",
-			func(manifestID, objectID string, source testenv.SourceInfo) []string {
+			func(manifestID, objectID string, source clitestutil.SourceInfo) []string {
 				return []string{"snapshot", "delete", "no-such-manifest", "--delete"}
 			},
 			expectFail,
 		},
 		{
 			"Dry run - invalid object ID",
-			func(manifestID, objectID string, source testenv.SourceInfo) []string {
+			func(manifestID, objectID string, source clitestutil.SourceInfo) []string {
 				return []string{"snapshot", "delete", "k001122"}
 			},
 			expectFail,
 		},
 		{
 			"Delete - invalid object ID",
-			func(manifestID, objectID string, source testenv.SourceInfo) []string {
+			func(manifestID, objectID string, source clitestutil.SourceInfo) []string {
 				return []string{"snapshot", "delete", "k001122", "--delete"}
 			},
 			expectFail,
@@ -111,8 +115,8 @@ func testSnapshotDelete(t *testing.T, argMaker deleteArgMaker, expectDeleteSucce
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 
 	dataDir := testutil.TempDirectory(t)
-	testenv.AssertNoError(t, os.MkdirAll(dataDir, 0o777))
-	testenv.AssertNoError(t, ioutil.WriteFile(filepath.Join(dataDir, "some-file1"), []byte(`
+	require.NoError(t, os.MkdirAll(dataDir, 0o777))
+	require.NoError(t, ioutil.WriteFile(filepath.Join(dataDir, "some-file1"), []byte(`
 hello world
 how are you
 `), 0o600))
@@ -121,7 +125,7 @@ how are you
 	e.RunAndExpectSuccess(t, "snap", "create", dataDir)
 
 	// now delete all manifests, making the content unreachable
-	si := e.ListSnapshotsAndExpectSuccess(t, dataDir)
+	si := clitestutil.ListSnapshotsAndExpectSuccess(t, e, dataDir)
 	for _, source := range si {
 		for _, ss := range source.Snapshots {
 			manifestID := ss.SnapshotID
@@ -178,7 +182,7 @@ func TestSnapshotDeleteRestore(t *testing.T) {
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 
 	source := filepath.Join(testutil.TempDirectory(t), "source")
-	testenv.MustCreateDirectoryTree(t, source, testenv.DirectoryTreeOptions{
+	testdirtree.MustCreateDirectoryTree(t, source, testdirtree.DirectoryTreeOptions{
 		Depth:                  1,
 		MaxSubdirsPerDirectory: 10,
 		MaxFilesPerDirectory:   10,
@@ -188,7 +192,7 @@ func TestSnapshotDeleteRestore(t *testing.T) {
 	e.RunAndExpectSuccess(t, "snapshot", "create", source)
 
 	// obtain snapshot root id and use it for restore
-	si := e.ListSnapshotsAndExpectSuccess(t, source)
+	si := clitestutil.ListSnapshotsAndExpectSuccess(t, e, source)
 	if got, want := len(si), 1; got != want {
 		t.Fatalf("got %v sources, wanted %v", got, want)
 	}
@@ -207,7 +211,7 @@ func TestSnapshotDeleteRestore(t *testing.T) {
 	// the way the top FS entry is created in snapshotfs. Force the permissions
 	// of the top directory to match those of the source so the recursive
 	// directory comparison has a chance of succeeding.
-	testenv.AssertNoError(t, os.Chmod(restoreDir, 0o700))
+	require.NoError(t, os.Chmod(restoreDir, 0o700))
 	compareDirs(t, source, restoreDir)
 
 	// snapshot delete should succeed
@@ -230,7 +234,7 @@ func TestSnapshotDeleteRestore(t *testing.T) {
 	restoreDir2 := testutil.TempDirectory(t)
 
 	e.RunAndExpectSuccess(t, "restore", rootID, restoreDir2)
-	testenv.AssertNoError(t, os.Chmod(restoreDir2, 0o700))
+	require.NoError(t, os.Chmod(restoreDir2, 0o700))
 	compareDirs(t, source, restoreDir2)
 }
 
@@ -239,7 +243,7 @@ func assertEmptyDir(t *testing.T, dir string) {
 
 	// Make sure the restore did not happen from the deleted snapshot
 	fileInfo, err := ioutil.ReadDir(dir)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	if len(fileInfo) != 0 {
 		t.Fatalf("expected nothing to be restored")

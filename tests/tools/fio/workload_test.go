@@ -6,12 +6,12 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/kopia/kopia/tests/testenv"
+	"github.com/stretchr/testify/require"
 )
 
 func TestWriteFiles(t *testing.T) {
 	r, err := NewRunner()
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	defer r.Cleanup()
 
@@ -22,11 +22,11 @@ func TestWriteFiles(t *testing.T) {
 
 	// Test a call to WriteFiles
 	err = r.WriteFiles(relativeWritePath, fioOpt)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	fullPath := filepath.Join(r.LocalDataDir, relativeWritePath)
 	dir, err := ioutil.ReadDir(fullPath)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	if got, want := len(dir), numFiles; got != want {
 		t.Errorf("Did not get expected number of files %v (actual) != %v (expected", got, want)
@@ -46,7 +46,7 @@ func TestWriteFiles(t *testing.T) {
 
 func TestWriteFilesAtDepth(t *testing.T) {
 	r, err := NewRunner()
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	defer r.Cleanup()
 
@@ -102,7 +102,7 @@ func testWriteAtDepth(t *testing.T, r *Runner, depth, expFileCount int) {
 	fioOpt := Options{}.WithSize(sizeB).WithNumFiles(expFileCount)
 
 	err := r.WriteFilesAtDepth(testSubdir, depth, fioOpt)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	defer r.DeleteRelDir(testSubdir)
 
@@ -122,7 +122,7 @@ func testWriteAtDepth(t *testing.T, r *Runner, depth, expFileCount int) {
 
 		return nil
 	})
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	if got, want := fileCount, expFileCount; got != want {
 		t.Errorf("Expected %v files, only found %v", want, got)
@@ -137,7 +137,7 @@ func testWriteAtDepth(t *testing.T, r *Runner, depth, expFileCount int) {
 
 func TestDeleteFilesAtDepth(t *testing.T) {
 	r, err := NewRunner()
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	defer r.Cleanup()
 
@@ -201,7 +201,7 @@ func testDeleteAtDepth(t *testing.T, r *Runner, wrDepth, delDepth, expDirCount i
 	fioOpt := Options{}.WithSize(sizeB).WithNumFiles(numFiles)
 
 	err := r.WriteFilesAtDepth(testSubdir, wrDepth, fioOpt)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	defer r.DeleteRelDir(testSubdir)
 
@@ -211,7 +211,7 @@ func testDeleteAtDepth(t *testing.T, r *Runner, wrDepth, delDepth, expDirCount i
 			t.Fatalf("Expected error but got none")
 		}
 	} else {
-		testenv.AssertNoError(t, err)
+		require.NoError(t, err)
 	}
 
 	dirCount := 0
@@ -230,7 +230,7 @@ func testDeleteAtDepth(t *testing.T, r *Runner, wrDepth, delDepth, expDirCount i
 
 		return nil
 	})
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	// Expect number of directories to equal the requested depth, plus one
 	// since the walk starts in a directory
@@ -285,7 +285,7 @@ func TestDeleteContentsAtDepth(t *testing.T) {
 // nolint:thelper
 func testDeleteContentsAtDepth(t *testing.T, prob float32, checker func(t *testing.T, fileCount int)) {
 	r, err := NewRunner()
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	defer r.Cleanup()
 
@@ -298,13 +298,13 @@ func testDeleteContentsAtDepth(t *testing.T, prob float32, checker func(t *testi
 
 	wrDepth := 3
 	err = r.WriteFilesAtDepth(testSubdir, wrDepth, fioOpt)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	defer r.DeleteRelDir(testSubdir)
 
 	delDepth := 3
 	err = r.DeleteContentsAtDepth(testSubdir, delDepth, prob)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	fileCount := 0
 
@@ -320,7 +320,7 @@ func testDeleteContentsAtDepth(t *testing.T, prob float32, checker func(t *testi
 		return nil
 	})
 
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	checker(t, fileCount)
 }

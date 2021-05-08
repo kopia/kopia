@@ -11,8 +11,11 @@ import (
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/internal/testlogging"
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/tests/clitestutil"
+	"github.com/kopia/kopia/tests/testdirtree"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
@@ -68,8 +71,8 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 
 	var pBlobsBefore, qBlobsBefore []blob.Metadata
 
-	mustParseJSONLines(t, e1.RunAndExpectSuccess(t, "blob", "list", "--prefix=p", "--json"), &pBlobsBefore)
-	mustParseJSONLines(t, e1.RunAndExpectSuccess(t, "blob", "list", "--prefix=q", "--json"), &qBlobsBefore)
+	testutil.MustParseJSONLines(t, e1.RunAndExpectSuccess(t, "blob", "list", "--prefix=p", "--json"), &pBlobsBefore)
+	testutil.MustParseJSONLines(t, e1.RunAndExpectSuccess(t, "blob", "list", "--prefix=q", "--json"), &qBlobsBefore)
 
 	originalPBlobCount := len(pBlobsBefore)
 	originalQBlobCount := len(qBlobsBefore)
@@ -216,7 +219,7 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 	e2.RemoveDefaultPassword()
 
 	// should see one snapshot
-	snapshots := e2.ListSnapshotsAndExpectSuccess(t)
+	snapshots := clitestutil.ListSnapshotsAndExpectSuccess(t, e2)
 	if got, want := len(snapshots), 1; got != want {
 		t.Errorf("invalid number of snapshots for foo@bar")
 	}
@@ -224,7 +227,7 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 	// create very small directory
 	smallDataDir := filepath.Join(sharedTestDataDirBase, "dir-small")
 
-	testenv.CreateDirectoryTree(smallDataDir, testenv.DirectoryTreeOptions{
+	testdirtree.CreateDirectoryTree(smallDataDir, testdirtree.DirectoryTreeOptions{
 		Depth:                  1,
 		MaxSubdirsPerDirectory: 1,
 		MaxFilesPerDirectory:   1,
@@ -248,7 +251,7 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 	e2.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir2)
 
 	// now should see two snapshots
-	snapshots = e2.ListSnapshotsAndExpectSuccess(t)
+	snapshots = clitestutil.ListSnapshotsAndExpectSuccess(t, e2)
 	if got, want := len(snapshots), 3; got != want {
 		t.Errorf("invalid number of snapshots for foo@bar")
 	}

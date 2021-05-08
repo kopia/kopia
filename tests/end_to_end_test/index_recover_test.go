@@ -6,6 +6,7 @@ import (
 
 	"github.com/kylelemons/godebug/pretty"
 
+	"github.com/kopia/kopia/tests/clitestutil"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
@@ -25,7 +26,7 @@ func TestIndexRecover(t *testing.T) {
 	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir2)
 	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir2)
 
-	sources := e.ListSnapshotsAndExpectSuccess(t)
+	sources := clitestutil.ListSnapshotsAndExpectSuccess(t, e)
 	if got, want := len(sources), 3; got != want {
 		t.Errorf("unexpected number of sources: %v, want %v in %#v", got, want, sources)
 	}

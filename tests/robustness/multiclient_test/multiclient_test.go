@@ -11,12 +11,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/tests/robustness"
 	"github.com/kopia/kopia/tests/robustness/engine"
 	"github.com/kopia/kopia/tests/robustness/fiofilewriter"
-	"github.com/kopia/kopia/tests/testenv"
 )
 
 const defaultTestDur = 5 * time.Minute
@@ -38,16 +39,16 @@ func TestManySmallFiles(t *testing.T) {
 
 	f := func(ctx context.Context) {
 		err := tryRestoreIntoDataDirectory(ctx, t)
-		testenv.AssertNoError(t, err)
+		require.NoError(t, err)
 
 		_, err = eng.ExecAction(ctx, engine.WriteRandomFilesActionKey, fileWriteOpts)
-		testenv.AssertNoError(t, err)
+		require.NoError(t, err)
 
 		_, err = eng.ExecAction(ctx, engine.SnapshotDirActionKey, nil)
-		testenv.AssertNoError(t, err)
+		require.NoError(t, err)
 
 		_, err = eng.ExecAction(ctx, engine.RestoreSnapshotActionKey, nil)
-		testenv.AssertNoError(t, err)
+		require.NoError(t, err)
 	}
 
 	ctx := testlogging.Context(t)
@@ -69,16 +70,16 @@ func TestOneLargeFile(t *testing.T) {
 
 	f := func(ctx context.Context) {
 		err := tryRestoreIntoDataDirectory(ctx, t)
-		testenv.AssertNoError(t, err)
+		require.NoError(t, err)
 
 		_, err = eng.ExecAction(ctx, engine.WriteRandomFilesActionKey, fileWriteOpts)
-		testenv.AssertNoError(t, err)
+		require.NoError(t, err)
 
 		snapOut, err := eng.ExecAction(ctx, engine.SnapshotDirActionKey, nil)
-		testenv.AssertNoError(t, err)
+		require.NoError(t, err)
 
 		_, err = eng.ExecAction(ctx, engine.RestoreSnapshotActionKey, snapOut)
-		testenv.AssertNoError(t, err)
+		require.NoError(t, err)
 	}
 
 	ctx := testlogging.Context(t)
@@ -104,16 +105,16 @@ func TestManySmallFilesAcrossDirecoryTree(t *testing.T) {
 
 	f := func(ctx context.Context) {
 		err := tryRestoreIntoDataDirectory(ctx, t)
-		testenv.AssertNoError(t, err)
+		require.NoError(t, err)
 
 		_, err = eng.ExecAction(ctx, engine.WriteRandomFilesActionKey, fileWriteOpts)
-		testenv.AssertNoError(t, err)
+		require.NoError(t, err)
 
 		snapOut, err := eng.ExecAction(ctx, engine.SnapshotDirActionKey, nil)
-		testenv.AssertNoError(t, err)
+		require.NoError(t, err)
 
 		_, err = eng.ExecAction(ctx, engine.RestoreSnapshotActionKey, snapOut)
-		testenv.AssertNoError(t, err)
+		require.NoError(t, err)
 	}
 
 	ctx := testlogging.Context(t)
@@ -142,11 +143,11 @@ func TestRandomizedSmall(t *testing.T) {
 
 	f := func(ctx context.Context) {
 		err := tryRestoreIntoDataDirectory(ctx, t)
-		testenv.AssertNoError(t, err)
+		require.NoError(t, err)
 
 		for clock.Since(st) <= *randomizedTestDur {
 			err := tryRandomAction(ctx, t, opts)
-			testenv.AssertNoError(t, err)
+			require.NoError(t, err)
 		}
 	}
 

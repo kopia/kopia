@@ -11,7 +11,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/kopia/kopia/internal/testutil"
+	"github.com/kopia/kopia/tests/testdirtree"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
@@ -270,19 +273,19 @@ func createSimplestFileTree(t *testing.T, dirDepth, currDepth int, currPath stri
 	dirname := fmt.Sprintf("dir%d", currDepth)
 	dirPath := filepath.Join(currPath, dirname)
 	err := os.MkdirAll(dirPath, 0o700)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	// Put an empty directory in the new directory
 	emptyDirName := fmt.Sprintf("emptyDir%v", currDepth+1)
 	emptyDirPath := filepath.Join(dirPath, emptyDirName)
 	err = os.MkdirAll(emptyDirPath, 0o700)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	// Put a file in the new directory
 	fileName := fmt.Sprintf("file%d", currDepth+1)
 	filePath := filepath.Join(dirPath, fileName)
 
-	testenv.MustCreateRandomFile(t, filePath, testenv.DirectoryTreeOptions{}, nil)
+	testdirtree.MustCreateRandomFile(t, filePath, testdirtree.DirectoryTreeOptions{}, nil)
 
 	if dirDepth > currDepth+1 {
 		createSimplestFileTree(t, dirDepth, currDepth+1, dirPath)
@@ -298,7 +301,7 @@ func testPermissions(t *testing.T, e *testenv.CLITest, source, modifyEntry, rest
 	var numSuccessfulSnapshots int
 
 	changeFile, err := os.Stat(modifyEntry)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	// Iterate over all permission bit configurations
 	for chmod, expected := range expect {
@@ -309,13 +312,13 @@ func testPermissions(t *testing.T, e *testenv.CLITest, source, modifyEntry, rest
 			// restore permissions even if we fail to avoid leaving non-deletable files behind.
 			defer func() {
 				t.Logf("restoring file mode on %s to %v", modifyEntry, mode)
-				testenv.AssertNoError(t, os.Chmod(modifyEntry, mode.Perm()))
+				require.NoError(t, os.Chmod(modifyEntry, mode.Perm()))
 			}()
 
 			t.Logf("Chmod: path: %s, isDir: %v, prevMode: %v, newMode: %v", modifyEntry, changeFile.IsDir(), mode, chmod)
 
 			err := os.Chmod(modifyEntry, chmod)
-			testenv.AssertNoError(t, err)
+			require.NoError(t, err)
 
 			// set up environment for the child process.
 			oldEnv := e.Environment

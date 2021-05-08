@@ -6,6 +6,8 @@ import (
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/encryption"
 	"github.com/kopia/kopia/repo/hashing"
+	"github.com/kopia/kopia/tests/clitestutil"
+	"github.com/kopia/kopia/tests/testdirtree"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
@@ -13,7 +15,7 @@ func TestAllFormatsSmokeTest(t *testing.T) {
 	srcDir := testutil.TempDirectory(t)
 
 	// 3-level directory with <=10 files and <=10 subdirectories at each level
-	testenv.CreateDirectoryTree(srcDir, testenv.DirectoryTreeOptions{
+	testdirtree.CreateDirectoryTree(srcDir, testdirtree.DirectoryTreeOptions{
 		Depth:                  2,
 		MaxSubdirsPerDirectory: 5,
 		MaxFilesPerDirectory:   5,
@@ -38,7 +40,7 @@ func TestAllFormatsSmokeTest(t *testing.T) {
 					e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--block-hash", hashAlgo, "--encryption", encryptionAlgo)
 					e.RunAndExpectSuccess(t, "snap", "create", srcDir)
 
-					sources := e.ListSnapshotsAndExpectSuccess(t)
+					sources := clitestutil.ListSnapshotsAndExpectSuccess(t, e)
 					if got, want := len(sources), 1; got != want {
 						t.Errorf("unexpected number of sources: %v, want %v in %#v", got, want, sources)
 					}
@@ -46,7 +48,7 @@ func TestAllFormatsSmokeTest(t *testing.T) {
 					e.RunAndExpectSuccess(t, "repo", "disconnect")
 					e.RunAndExpectSuccess(t, "repo", "connect", "filesystem", "--path", e.RepoDir)
 
-					sources = e.ListSnapshotsAndExpectSuccess(t)
+					sources = clitestutil.ListSnapshotsAndExpectSuccess(t, e)
 					if got, want := len(sources), 1; got != want {
 						t.Errorf("unexpected number of sources: %v, want %v in %#v", got, want, sources)
 					}

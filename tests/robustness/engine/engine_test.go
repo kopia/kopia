@@ -23,6 +23,7 @@ import (
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
+	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/testlogging"
@@ -30,7 +31,6 @@ import (
 	"github.com/kopia/kopia/tests/robustness"
 	"github.com/kopia/kopia/tests/robustness/fiofilewriter"
 	"github.com/kopia/kopia/tests/robustness/snapmeta"
-	"github.com/kopia/kopia/tests/testenv"
 	"github.com/kopia/kopia/tests/tools/fio"
 	"github.com/kopia/kopia/tests/tools/fswalker"
 	"github.com/kopia/kopia/tests/tools/kopiarunner"
@@ -61,18 +61,18 @@ func TestEngineWritefilesBasicFS(t *testing.T) {
 		t.Skip(err)
 	}
 
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	defer func() {
 		cleanupErr := th.Cleanup(ctx)
-		testenv.AssertNoError(t, cleanupErr)
+		require.NoError(t, cleanupErr)
 
 		os.RemoveAll(fsRepoBaseDirPath)
 	}()
 
 	opts := map[string]string{}
 	err = eng.Init(ctx)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	fileSize := int64(256 * 1024)
 	numFiles := 10
@@ -80,19 +80,19 @@ func TestEngineWritefilesBasicFS(t *testing.T) {
 	fioOpts := fio.Options{}.WithFileSize(fileSize).WithNumFiles(numFiles)
 	fioRunner := th.FioRunner()
 	err = fioRunner.WriteFiles("", fioOpts)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	snapIDs := eng.Checker.GetSnapIDs()
 
 	snapID, err := eng.Checker.TakeSnapshot(ctx, fioRunner.LocalDataDir, opts)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	err = eng.Checker.RestoreSnapshot(ctx, snapID, os.Stdout, opts)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	for _, sID := range snapIDs {
 		err = eng.Checker.RestoreSnapshot(ctx, sID, os.Stdout, opts)
-		testenv.AssertNoError(t, err)
+		require.NoError(t, err)
 	}
 }
 
@@ -122,11 +122,11 @@ func makeTempS3Bucket(t *testing.T) (bucketName string, cleanupCB func()) {
 		Secure: true,
 		Region: "",
 	})
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	bucketName = fmt.Sprintf("engine-unit-tests-%s", randomString(4))
 	err = cli.MakeBucket(ctx, bucketName, minio.MakeBucketOptions{})
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	return bucketName, func() {
 		objChan := make(chan minio.ObjectInfo)
@@ -160,7 +160,7 @@ func makeTempS3Bucket(t *testing.T) (bucketName string, cleanupCB func()) {
 				break
 			}
 		}
-		testenv.AssertNoError(t, err)
+		require.NoError(t, err)
 	}
 }
 
@@ -178,16 +178,16 @@ func TestWriteFilesBasicS3(t *testing.T) {
 		t.Skip(err)
 	}
 
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	defer func() {
 		cleanupErr := th.Cleanup(ctx)
-		testenv.AssertNoError(t, cleanupErr)
+		require.NoError(t, cleanupErr)
 	}()
 
 	opts := map[string]string{}
 	err = eng.Init(ctx)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	fileSize := int64(256 * 1024)
 	numFiles := 10
@@ -195,19 +195,19 @@ func TestWriteFilesBasicS3(t *testing.T) {
 	fioOpts := fio.Options{}.WithFileSize(fileSize).WithNumFiles(numFiles)
 	fioRunner := th.FioRunner()
 	err = fioRunner.WriteFiles("", fioOpts)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	snapIDs := eng.Checker.GetLiveSnapIDs()
 
 	snapID, err := eng.Checker.TakeSnapshot(ctx, fioRunner.LocalDataDir, opts)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	err = eng.Checker.RestoreSnapshot(ctx, snapID, os.Stdout, opts)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	for _, sID := range snapIDs {
 		err = eng.Checker.RestoreSnapshot(ctx, sID, os.Stdout, opts)
-		testenv.AssertNoError(t, err)
+		require.NoError(t, err)
 	}
 }
 
@@ -225,16 +225,16 @@ func TestDeleteSnapshotS3(t *testing.T) {
 		t.Skip(err)
 	}
 
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	defer func() {
 		cleanupErr := th.Cleanup(ctx)
-		testenv.AssertNoError(t, cleanupErr)
+		require.NoError(t, cleanupErr)
 	}()
 
 	opts := map[string]string{}
 	err = eng.Init(ctx)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	fileSize := int64(256 * 1024)
 	numFiles := 10
@@ -242,16 +242,16 @@ func TestDeleteSnapshotS3(t *testing.T) {
 	fioOpts := fio.Options{}.WithFileSize(fileSize).WithNumFiles(numFiles)
 	fioRunner := th.FioRunner()
 	err = fioRunner.WriteFiles("", fioOpts)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	snapID, err := eng.Checker.TakeSnapshot(ctx, fioRunner.LocalDataDir, opts)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	err = eng.Checker.RestoreSnapshot(ctx, snapID, os.Stdout, opts)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	err = eng.Checker.DeleteSnapshot(ctx, snapID, opts)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	err = eng.Checker.RestoreSnapshot(ctx, snapID, os.Stdout, opts)
 	if err == nil {
@@ -273,16 +273,16 @@ func TestSnapshotVerificationFail(t *testing.T) {
 		t.Skip(err)
 	}
 
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	defer func() {
 		cleanupErr := th.Cleanup(ctx)
-		testenv.AssertNoError(t, cleanupErr)
+		require.NoError(t, cleanupErr)
 	}()
 
 	opts := map[string]string{}
 	err = eng.Init(ctx)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	// Perform writes
 	fileSize := int64(256 * 1024)
@@ -291,33 +291,33 @@ func TestSnapshotVerificationFail(t *testing.T) {
 
 	fioRunner := th.FioRunner()
 	err = fioRunner.WriteFiles("", fioOpt)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	// Take a first snapshot
 	snapID1, err := eng.Checker.TakeSnapshot(ctx, fioRunner.LocalDataDir, opts)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	// Get the metadata collected on that snapshot
 	ssMeta1, err := eng.Checker.GetSnapshotMetadata(snapID1)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	// Do additional writes, writing 1 extra byte than before
 	err = fioRunner.WriteFiles("", fioOpt.WithFileSize(fileSize+1))
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	// Take a second snapshot
 	snapID2, err := eng.Checker.TakeSnapshot(ctx, fioRunner.LocalDataDir, opts)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	// Get the second snapshot's metadata
 	ssMeta2, err := eng.Checker.GetSnapshotMetadata(snapID2)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	// Swap second snapshot's validation data into the first's metadata
 	ssMeta1.ValidationData = ssMeta2.ValidationData
 
 	restoreDir, err := ioutil.TempDir(eng.Checker.RestoreDir, fmt.Sprintf("restore-snap-%v", snapID1))
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	defer os.RemoveAll(restoreDir)
 
@@ -344,16 +344,16 @@ func TestDataPersistency(t *testing.T) {
 		t.Skip(err)
 	}
 
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	defer func() {
 		cleanupErr := th.Cleanup(ctx)
-		testenv.AssertNoError(t, cleanupErr)
+		require.NoError(t, cleanupErr)
 	}()
 
 	opts := map[string]string{}
 	err = eng.Init(ctx)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	// Perform writes
 	fileSize := int64(256 * 1024)
@@ -362,27 +362,27 @@ func TestDataPersistency(t *testing.T) {
 	fioOpt := fio.Options{}.WithFileSize(fileSize).WithNumFiles(numFiles)
 	fioRunner := th.FioRunner()
 	err = fioRunner.WriteFiles("", fioOpt)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	// Take a snapshot
 	snapID, err := eng.Checker.TakeSnapshot(ctx, fioRunner.LocalDataDir, opts)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	// Get the walk data associated with the snapshot that was taken
 	dataDirWalk, err := eng.Checker.GetSnapshotMetadata(snapID)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	// Save the snapshot ID index
 	err = eng.saveSnapIDIndex()
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	// Flush the snapshot metadata to persistent storage
 	err = eng.MetaStore.FlushMetadata()
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	// Create a new engine
 	th2, eng2, err := newTestHarness(ctx, t, dataRepoPath, metadataRepoPath)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	defer func() {
 		th2.eng.cleanComponents()
@@ -395,16 +395,16 @@ func TestDataPersistency(t *testing.T) {
 	// and the data will be chosen to be restored to this engine's DataDir
 	// as a starting point.
 	err = eng2.Init(ctx)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	fioRunner2 := th2.FioRunner()
 	err = eng2.Checker.RestoreSnapshotToPath(ctx, snapID, fioRunner2.LocalDataDir, os.Stdout, opts)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	// Compare the data directory of the second engine with the fingerprint
 	// of the snapshot taken earlier. They should match.
 	err = fswalker.NewWalkCompare().Compare(ctx, fioRunner2.LocalDataDir, dataDirWalk.ValidationData, os.Stdout, opts)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestPickActionWeighted(t *testing.T) {
@@ -512,17 +512,17 @@ func TestActionsFilesystem(t *testing.T) {
 		t.Skip(err)
 	}
 
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	defer func() {
 		cleanupErr := th.Cleanup(ctx)
-		testenv.AssertNoError(t, cleanupErr)
+		require.NoError(t, cleanupErr)
 
 		os.RemoveAll(fsRepoBaseDirPath)
 	}()
 
 	err = eng.Init(ctx)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	actionOpts := ActionOpts{
 		WriteRandomFilesActionKey: map[string]string{
@@ -561,15 +561,15 @@ func TestActionsS3(t *testing.T) {
 		t.Skip(err)
 	}
 
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	defer func() {
 		cleanupErr := th.Cleanup(ctx)
-		testenv.AssertNoError(t, cleanupErr)
+		require.NoError(t, cleanupErr)
 	}()
 
 	err = eng.Init(ctx)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	actionOpts := ActionOpts{
 		WriteRandomFilesActionKey: map[string]string{
@@ -608,17 +608,17 @@ func TestIOLimitPerWriteAction(t *testing.T) {
 		t.Skip(err)
 	}
 
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	defer func() {
 		cleanupErr := th.Cleanup(ctx)
-		testenv.AssertNoError(t, cleanupErr)
+		require.NoError(t, cleanupErr)
 
 		os.RemoveAll(fsRepoBaseDirPath)
 	}()
 
 	err = eng.Init(ctx)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	ioLimitBytes := 1 * 1024 * 1024
 
@@ -641,7 +641,7 @@ func TestIOLimitPerWriteAction(t *testing.T) {
 	}
 
 	err = eng.RandomAction(ctx, actionOpts)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	size := 0
 
@@ -654,7 +654,7 @@ func TestIOLimitPerWriteAction(t *testing.T) {
 	walkFunc := func(path string, info fs.FileInfo, err error) error {
 		if !info.IsDir() && info.Size() > 0 {
 			fileContentB, err := ioutil.ReadFile(path)
-			testenv.AssertNoError(t, err)
+			require.NoError(t, err)
 
 			nonZeroByteCount := 0
 
@@ -674,7 +674,7 @@ func TestIOLimitPerWriteAction(t *testing.T) {
 
 	// Walk the FIO data directory tree, counting the non-zero data written.
 	err = filepath.Walk(fioPath, walkFunc)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	if got, want := size, ioLimitBytes; got > want {
 		t.Fatalf("IO write limit exceeded for write action. Wrote %v B with io limit %v", got, want)
@@ -694,7 +694,7 @@ func TestIOLimitPerWriteAction(t *testing.T) {
 
 func TestStatsPersist(t *testing.T) {
 	tmpDir, err := ioutil.TempDir("", "stats-persist-test")
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	defer os.RemoveAll(tmpDir)
 
@@ -703,10 +703,10 @@ func TestStatsPersist(t *testing.T) {
 		t.Skip(err)
 	}
 
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	err = snapStore.ConnectOrCreateFilesystem(tmpDir)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	actionstats := &ActionStats{
 		Count:        120,
@@ -730,27 +730,27 @@ func TestStatsPersist(t *testing.T) {
 	}
 
 	err = eng.saveStats()
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	err = eng.MetaStore.FlushMetadata()
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	snapStoreNew, err := snapmeta.NewPersister(tmpDir)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	// Connect to the same metadata store
 	err = snapStoreNew.ConnectOrCreateFilesystem(tmpDir)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	err = snapStoreNew.LoadMetadata()
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	engNew := &Engine{
 		MetaStore: snapStoreNew,
 	}
 
 	err = engNew.loadStats()
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	if got, want := engNew.Stats(), eng.Stats(); got != want {
 		t.Errorf("Stats do not match\n%v\n%v", got, want)
@@ -762,7 +762,7 @@ func TestStatsPersist(t *testing.T) {
 
 func TestLogsPersist(t *testing.T) {
 	tmpDir, err := ioutil.TempDir("", "logs-persist-test")
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	defer os.RemoveAll(tmpDir)
 
@@ -771,10 +771,10 @@ func TestLogsPersist(t *testing.T) {
 		t.Skip(err)
 	}
 
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	err = snapStore.ConnectOrCreateFilesystem(tmpDir)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	logData := Log{
 		Log: []*LogEntry{
@@ -800,27 +800,27 @@ func TestLogsPersist(t *testing.T) {
 	}
 
 	err = eng.saveLog()
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	err = eng.MetaStore.FlushMetadata()
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	snapStoreNew, err := snapmeta.NewPersister(tmpDir)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	// Connect to the same metadata store
 	err = snapStoreNew.ConnectOrCreateFilesystem(tmpDir)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	err = snapStoreNew.LoadMetadata()
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	engNew := &Engine{
 		MetaStore: snapStoreNew,
 	}
 
 	err = engNew.loadLog()
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	if got, want := engNew.EngineLog.String(), eng.EngineLog.String(); got != want {
 		t.Errorf("Logs do not match\n%v\n%v", got, want)

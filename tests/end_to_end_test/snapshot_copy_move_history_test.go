@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/kopia/kopia/snapshot"
+	"github.com/kopia/kopia/tests/clitestutil"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
@@ -82,7 +83,7 @@ func TestSnapshotCopy(t *testing.T) {
 func assertSnapshotCount(t *testing.T, e *testenv.CLITest, wantSnapshotCounts map[snapshot.SourceInfo]int) {
 	t.Helper()
 
-	gotSnapshots := e.ListSnapshotsAndExpectSuccess(t, "-a")
+	gotSnapshots := clitestutil.ListSnapshotsAndExpectSuccess(t, e, "-a")
 
 	for si, wantCnt := range wantSnapshotCounts {
 		found := false
