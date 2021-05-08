@@ -97,7 +97,7 @@ type DirEntry struct {
 	ObjectID string
 }
 
-func MustParseDirectoryEntries(lines []string) []DirEntry {
+func mustParseDirectoryEntries(lines []string) []DirEntry {
 	var result []DirEntry
 
 	for _, l := range lines {
@@ -131,7 +131,7 @@ func ListDirectory(t *testing.T, e testEnv, targets ...string) []DirEntry {
 
 	lines := e.RunAndExpectSuccess(t, append([]string{"ls", "-l"}, targets...)...)
 
-	return MustParseDirectoryEntries(lines)
+	return mustParseDirectoryEntries(lines)
 }
 
 // ListDirectoryRecursive lists a given directory recursively and returns directory entries.
@@ -140,5 +140,5 @@ func ListDirectoryRecursive(t *testing.T, e testEnv, targets ...string) []DirEnt
 
 	lines := e.RunAndExpectSuccess(t, append([]string{"ls", "-lr"}, targets...)...)
 
-	return MustParseDirectoryEntries(lines)
+	return mustParseDirectoryEntries(lines)
 }

@@ -12,10 +12,11 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/internal/testutil"
-	"github.com/pkg/errors"
 )
 
 var globalRandomNameCounter = new(int32)

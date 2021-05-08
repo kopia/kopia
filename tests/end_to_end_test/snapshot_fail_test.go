@@ -11,10 +11,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/tests/testdirtree"
 	"github.com/kopia/kopia/tests/testenv"
-	"github.com/stretchr/testify/require"
 )
 
 func TestSnapshotNonexistent(t *testing.T) {
