@@ -23,7 +23,8 @@ import (
 func TestSnapshotCreate(t *testing.T) {
 	t.Parallel()
 
-	e := testenv.NewCLITest(t)
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, runner)
 
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
@@ -84,7 +85,8 @@ func TestSnapshotCreate(t *testing.T) {
 func TestTagging(t *testing.T) {
 	t.Parallel()
 
-	e := testenv.NewCLITest(t)
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, runner)
 
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
@@ -110,7 +112,8 @@ func TestTagging(t *testing.T) {
 func TestTaggingBadTags(t *testing.T) {
 	t.Parallel()
 
-	e := testenv.NewCLITest(t)
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, runner)
 
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
@@ -129,7 +132,8 @@ func TestTaggingBadTags(t *testing.T) {
 func TestStartTimeOverride(t *testing.T) {
 	t.Parallel()
 
-	e := testenv.NewCLITest(t)
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, runner)
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1, "--start-time", "2000-01-01 01:01:00 UTC")
@@ -148,7 +152,8 @@ func TestStartTimeOverride(t *testing.T) {
 func TestEndTimeOverride(t *testing.T) {
 	t.Parallel()
 
-	e := testenv.NewCLITest(t)
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, runner)
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1, "--end-time", "2000-01-01 01:01:00 UTC")
@@ -168,7 +173,8 @@ func TestEndTimeOverride(t *testing.T) {
 func TestInvalidTimeOverride(t *testing.T) {
 	t.Parallel()
 
-	e := testenv.NewCLITest(t)
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, runner)
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 	e.RunAndExpectFailure(t, "snapshot", "create", sharedTestDataDir1, "--start-time", "2000-01-01 01:01:00 UTC", "--end-time", "1999-01-01 01:01:00 UTC")
@@ -177,7 +183,8 @@ func TestInvalidTimeOverride(t *testing.T) {
 func TestSnapshottingCacheDirectory(t *testing.T) {
 	t.Parallel()
 
-	e := testenv.NewCLITest(t)
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, runner)
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
@@ -478,7 +485,8 @@ func TestSnapshotCreateWithIgnore(t *testing.T) {
 	for _, tc := range cases {
 		tc := tc
 		t.Run(tc.desc, func(t *testing.T) {
-			e := testenv.NewCLITest(t)
+			runner := testenv.NewInProcRunner(t)
+			e := testenv.NewCLITest(t, runner)
 
 			baseDir := testutil.TempDirectory(t)
 
@@ -525,7 +533,8 @@ func TestSnapshotCreateWithIgnore(t *testing.T) {
 func TestSnapshotCreateAllWithManualSnapshot(t *testing.T) {
 	t.Parallel()
 
-	e := testenv.NewCLITest(t)
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, runner)
 
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
@@ -552,7 +561,8 @@ func TestSnapshotCreateAllWithManualSnapshot(t *testing.T) {
 func TestSnapshotCreateWithStdinStream(t *testing.T) {
 	t.Parallel()
 
-	e := testenv.NewCLITest(t)
+	runner := testenv.NewExeRunner(t)
+	e := testenv.NewCLITest(t, runner)
 
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
@@ -572,7 +582,7 @@ func TestSnapshotCreateWithStdinStream(t *testing.T) {
 	w.Close()
 
 	streamFileName := "stream-file"
-	e.NextCommandStdin = r
+	runner.NextCommandStdin = r
 
 	e.RunAndExpectSuccess(t, "snapshot", "create", "rootdir", "--stdin-file", streamFileName)
 

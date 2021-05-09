@@ -119,7 +119,7 @@ type App struct {
 	metricsListenAddr             string
 	keyRingEnabled                bool
 	persistCredentials            bool
-	advancedCommands              string
+	AdvancedCommands              string
 
 	// subcommands
 	blob        commandBlob
@@ -193,7 +193,7 @@ func (c *App) setup(app *kingpin.Application) {
 	app.Flag("timezone", "Format time according to specified time zone (local, utc, original or time zone name)").Default("local").Hidden().StringVar(&timeZone)
 	app.Flag("password", "Repository password.").Envar("KOPIA_PASSWORD").Short('p').StringVar(&c.password)
 	app.Flag("persist-credentials", "Persist credentials").Default("true").Envar("KOPIA_PERSIST_CREDENTIALS_ON_CONNECT").BoolVar(&c.persistCredentials)
-	app.Flag("advanced-commands", "Enable advanced (and potentially dangerous) commands.").Hidden().Envar("KOPIA_ADVANCED_COMMANDS").StringVar(&c.advancedCommands)
+	app.Flag("advanced-commands", "Enable advanced (and potentially dangerous) commands.").Hidden().Envar("KOPIA_ADVANCED_COMMANDS").StringVar(&c.AdvancedCommands)
 
 	c.setupOSSpecificKeychainFlags(app)
 

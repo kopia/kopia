@@ -55,14 +55,16 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 		connectArgs = []string{"--no-grpc"}
 	}
 
-	e := testenv.NewCLITest(t)
+	runner := testenv.NewExeRunner(t)
+	e := testenv.NewCLITest(t, runner)
+
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
 	// create one snapshot as foo@bar
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--override-username", "foo", "--override-hostname", "bar")
 	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
 
-	e1 := testenv.NewCLITest(t)
+	e1 := testenv.NewCLITest(t, runner)
 	defer e1.RunAndExpectSuccess(t, "repo", "disconnect")
 
 	// create one snapshot as not-foo@bar
@@ -201,7 +203,9 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 		verifyFindManifestCount(ctx, t, writeSess, someLabels, 1)
 	}
 
-	e2 := testenv.NewCLITest(t)
+	runner2 := testenv.NewExeRunner(t)
+	e2 := testenv.NewCLITest(t, runner2)
+
 	defer e2.RunAndExpectSuccess(t, "repo", "disconnect")
 
 	e2.RunAndExpectSuccess(t, append([]string{
@@ -216,7 +220,7 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 	// we are providing custom password to connect, make sure we won't be providing
 	// (different) default password via environment variable, as command-line password
 	// takes precedence over persisted password.
-	e2.RemoveDefaultPassword()
+	runner2.RemoveDefaultPassword()
 
 	// should see one snapshot
 	snapshots := clitestutil.ListSnapshotsAndExpectSuccess(t, e2)

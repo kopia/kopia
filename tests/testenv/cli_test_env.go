@@ -3,17 +3,17 @@ package testenv
 
 import (
 	"bufio"
-	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
-	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/testutil"
@@ -26,77 +26,34 @@ const (
 	maxOutputLinesToLog = 4000
 )
 
+// CLIRunner encapsulates running kopia subcommands for testing purposes.
+// It supports implementations that use subprocesses or in-process invocations.
+type CLIRunner interface {
+	Start(t *testing.T, args []string) (stdout, stderr io.Reader, wait func() error, kill func())
+}
+
 // CLITest encapsulates state for a CLI-based test.
 type CLITest struct {
 	startTime time.Time
 
 	RepoDir   string
 	ConfigDir string
-	Exe       string
 
-	fixedArgs   []string
-	Environment []string
+	Runner CLIRunner
+
+	fixedArgs []string
 
 	DefaultRepositoryCreateFlags []string
-
-	PassthroughStderr bool // this is for debugging only
-
-	NextCommandStdin io.Reader // this is used for stdin source tests
-
-	LogsDir string
 }
 
 // NewCLITest creates a new instance of *CLITest.
-func NewCLITest(t *testing.T) *CLITest {
+func NewCLITest(t *testing.T, runner CLIRunner) *CLITest {
 	t.Helper()
-
-	exe := os.Getenv("KOPIA_EXE")
-	if exe == "" {
-		if os.Getenv("VSCODE_PID") != "" {
-			// we're launched from VSCode, use system-installed kopia executable.
-			exe = "kopia"
-		} else {
-			t.Skip()
-		}
-	}
-
-	// unset environment variables that disrupt tests when passed to subprocesses.
-	os.Unsetenv("KOPIA_PASSWORD")
-
 	configDir := testutil.TempDirectory(t)
-
-	cleanName := strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(
-		t.Name(),
-		"/", "_"), "\\", "_"), ":", "_")
-
-	logsBaseDir := os.Getenv("KOPIA_LOGS_DIR")
-	if logsBaseDir == "" {
-		logsBaseDir = filepath.Join(os.TempDir(), "kopia-logs")
-	}
-
-	logsDir := filepath.Join(logsBaseDir, cleanName+"."+clock.Now().Local().Format("20060102150405"))
-
-	t.Cleanup(func() {
-		if t.Failed() {
-			t.Logf("FAULURE ABOVE ^^^^")
-		}
-
-		if os.Getenv("KOPIA_KEEP_LOGS") != "" {
-			t.Logf("logs preserved in %v", logsDir)
-			return
-		}
-
-		if t.Failed() && os.Getenv("KOPIA_DISABLE_LOG_DUMP_ON_FAILURE") == "" {
-			dumpLogs(t, logsDir)
-		}
-
-		os.RemoveAll(logsDir)
-	})
 
 	fixedArgs := []string{
 		// use per-test config file, to avoid clobbering current user's setup.
 		"--config-file", filepath.Join(configDir, ".kopia.config"),
-		"--log-dir", logsDir,
 	}
 
 	// disable the use of keyring
@@ -122,14 +79,9 @@ func NewCLITest(t *testing.T) *CLITest {
 		startTime:                    clock.Now(),
 		RepoDir:                      testutil.TempDirectory(t),
 		ConfigDir:                    configDir,
-		Exe:                          filepath.FromSlash(exe),
 		fixedArgs:                    fixedArgs,
 		DefaultRepositoryCreateFlags: formatFlags,
-		LogsDir:                      logsDir,
-		Environment: []string{
-			"KOPIA_PASSWORD=" + TestRepoPassword,
-			"KOPIA_ADVANCED_COMMANDS=enabled",
-		},
+		Runner:                       runner,
 	}
 }
 
@@ -165,19 +117,6 @@ func dumpLogFile(t *testing.T, fname string) {
 	t.Logf("LOG FILE: %v %v", fname, trimOutput(string(data)))
 }
 
-// RemoveDefaultPassword prevents KOPIA_PASSWORD from being passed to kopia.
-func (e *CLITest) RemoveDefaultPassword() {
-	var newEnv []string
-
-	for _, s := range e.Environment {
-		if !strings.HasPrefix(s, "KOPIA_PASSWORD=") {
-			newEnv = append(newEnv, s)
-		}
-	}
-
-	e.Environment = newEnv
-}
-
 // RunAndExpectSuccess runs the given command, expects it to succeed and returns its output lines.
 func (e *CLITest) RunAndExpectSuccess(t *testing.T, args ...string) []string {
 	t.Helper()
@@ -191,23 +130,13 @@ func (e *CLITest) RunAndExpectSuccess(t *testing.T, args ...string) []string {
 }
 
 // RunAndProcessStderr runs the given command, and streams its output line-by-line to a given function until it returns false.
-func (e *CLITest) RunAndProcessStderr(t *testing.T, callback func(line string) bool, args ...string) *exec.Cmd {
+func (e *CLITest) RunAndProcessStderr(t *testing.T, callback func(line string) bool, args ...string) (kill func()) {
 	t.Helper()
 
-	c := exec.Command(e.Exe, e.cmdArgs(args)...)
-	c.Env = append(os.Environ(), e.Environment...)
-	t.Logf("running '%v %v'", c.Path, c.Args)
+	stdout, stderr, _, kill := e.Runner.Start(t, e.cmdArgs(args))
+	go io.Copy(io.Discard, stdout)
 
-	stderrPipe, err := c.StderrPipe()
-	if err != nil {
-		t.Fatalf("can't set up stderr pipe reader")
-	}
-
-	if err := c.Start(); err != nil {
-		t.Fatalf("unable to start")
-	}
-
-	scanner := bufio.NewScanner(stderrPipe)
+	scanner := bufio.NewScanner(stderr)
 	for scanner.Scan() {
 		if !callback(scanner.Text()) {
 			break
@@ -221,7 +150,7 @@ func (e *CLITest) RunAndProcessStderr(t *testing.T, callback func(line string) b
 		}
 	}()
 
-	return c
+	return kill
 }
 
 // RunAndExpectSuccessWithErrOut runs the given command, expects it to succeed and returns its stdout and stderr lines.
@@ -276,28 +205,44 @@ func (e *CLITest) cmdArgs(args []string) []string {
 func (e *CLITest) Run(t *testing.T, expectedError bool, args ...string) (stdout, stderr []string, err error) {
 	t.Helper()
 
-	c := exec.Command(e.Exe, e.cmdArgs(args)...)
-	c.Env = append(os.Environ(), e.Environment...)
+	t.Logf("running 'kopia %v'", strings.Join(args, " "))
+	stdoutReader, stderrReader, wait, _ := e.Runner.Start(t, e.cmdArgs(args))
 
-	t.Logf("running '%v %v'", c.Path, c.Args)
+	var wg sync.WaitGroup
 
-	errOut := &bytes.Buffer{}
-	c.Stderr = errOut
+	wg.Add(1)
 
-	if e.PassthroughStderr {
-		c.Stderr = os.Stderr
+	go func() {
+		defer wg.Done()
+
+		scanner := bufio.NewScanner(stdoutReader)
+		for scanner.Scan() {
+			stdout = append(stdout, scanner.Text())
+		}
+	}()
+
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+
+		scanner := bufio.NewScanner(stderrReader)
+		for scanner.Scan() {
+			stderr = append(stderr, scanner.Text())
+		}
+	}()
+
+	wg.Wait()
+
+	gotErr := wait()
+
+	if expectedError {
+		require.Error(t, gotErr, "unexpected success when running 'kopia %v' (stdout:\n%v\nstderr:\n%v", strings.Join(args, " "), strings.Join(stdout, "\n"), strings.Join(stderr, "\n"))
+	} else {
+		require.NoError(t, gotErr, "unexpected error when running 'kopia %v' (stdout:\n%v\nstderr:\n%v", strings.Join(args, " "), strings.Join(stdout, "\n"), strings.Join(stderr, "\n"))
 	}
 
-	c.Stdin = e.NextCommandStdin
-	e.NextCommandStdin = nil
-
-	o, err := c.Output()
-
-	if err != nil && !expectedError {
-		t.Logf("finished 'kopia %v' with err=%v (expected=%v) and output:\n%v\nstderr:\n%v\n", strings.Join(args, " "), err, expectedError, trimOutput(string(o)), trimOutput(errOut.String()))
-	}
-
-	return splitLines(string(o)), splitLines(errOut.String()), err
+	return stdout, stderr, gotErr
 }
 
 func trimOutput(s string) string {

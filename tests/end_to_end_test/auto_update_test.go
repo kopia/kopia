@@ -40,14 +40,15 @@ func TestAutoUpdateEnableTest(t *testing.T) {
 
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
-			e := testenv.NewCLITest(t)
+			runner := testenv.NewExeRunner(t)
+			e := testenv.NewCLITest(t, runner)
 
 			// create repo
 			args := append([]string{
 				"repo", "create", "filesystem", "--path", e.RepoDir,
 			}, tc.extraArgs...)
 
-			e.Environment = append(e.Environment, tc.extraEnv...)
+			runner.Environment = append(runner.Environment, tc.extraEnv...)
 			e.RunAndExpectSuccess(t, args...)
 
 			updateInfoFile := filepath.Join(e.ConfigDir, ".kopia.config.update-info.json")

@@ -21,17 +21,18 @@ func TestSnapshotActionsBeforeSnapshotRoot(t *testing.T) {
 
 	th := os.Getenv("TESTING_ACTION_EXE")
 	if th == "" {
-		t.Skip("TESTING_ACTION_EXE verifyNoError be set")
+		t.Skip("TESTING_ACTION_EXE must be set")
 	}
 
-	e := testenv.NewCLITest(t)
+	runner := testenv.NewExeRunner(t)
+	e := testenv.NewCLITest(t, runner)
 
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--override-hostname=foo", "--override-username=foo", "--enable-actions")
 	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir2)
 
-	envFile1 := filepath.Join(e.LogsDir, "env1.txt")
+	envFile1 := filepath.Join(runner.LogsDir, "env1.txt")
 
 	// set a action before-snapshot-root that fails and which saves the environment to a file.
 	e.RunAndExpectSuccess(t,
@@ -42,7 +43,7 @@ func TestSnapshotActionsBeforeSnapshotRoot(t *testing.T) {
 	// this prevents the snapshot from being created
 	e.RunAndExpectFailure(t, "snapshot", "create", sharedTestDataDir1)
 
-	envFile2 := filepath.Join(e.LogsDir, "env2.txt")
+	envFile2 := filepath.Join(runner.LogsDir, "env2.txt")
 
 	// now set a action before-snapshot-root that succeeds and saves environment to a different file
 	e.RunAndExpectSuccess(t,
@@ -155,10 +156,11 @@ func TestSnapshotActionsBeforeAfterFolder(t *testing.T) {
 
 	th := os.Getenv("TESTING_ACTION_EXE")
 	if th == "" {
-		t.Skip("TESTING_ACTION_EXE verifyNoError be set")
+		t.Skip("TESTING_ACTION_EXE must be set")
 	}
 
-	e := testenv.NewCLITest(t)
+	runner := testenv.NewExeRunner(t)
+	e := testenv.NewCLITest(t, runner)
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--enable-actions")
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
@@ -226,7 +228,8 @@ func TestSnapshotActionsBeforeAfterFolder(t *testing.T) {
 func TestSnapshotActionsEmbeddedScript(t *testing.T) {
 	t.Parallel()
 
-	e := testenv.NewCLITest(t)
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, runner)
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--enable-actions")
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
@@ -273,7 +276,7 @@ func TestSnapshotActionsEnable(t *testing.T) {
 
 	th := os.Getenv("TESTING_ACTION_EXE")
 	if th == "" {
-		t.Skip("TESTING_ACTION_EXE verifyNoError be set")
+		t.Skip("TESTING_ACTION_EXE must be set")
 	}
 
 	cases := []struct {
@@ -297,13 +300,14 @@ func TestSnapshotActionsEnable(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 
-			e := testenv.NewCLITest(t)
+			runner := testenv.NewExeRunner(t)
+			e := testenv.NewCLITest(t, runner)
 
 			defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
 			e.RunAndExpectSuccess(t, append([]string{"repo", "create", "filesystem", "--path", e.RepoDir}, tc.connectFlags...)...)
 
-			envFile := filepath.Join(e.LogsDir, "env1.txt")
+			envFile := filepath.Join(runner.LogsDir, "env1.txt")
 
 			// set an action before-snapshot-root that fails and which saves the environment to a file.
 			e.RunAndExpectSuccess(t,

@@ -12,7 +12,8 @@ import (
 func TestFullMaintenance(t *testing.T) {
 	t.Parallel()
 
-	e := testenv.NewCLITest(t)
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, runner)
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
