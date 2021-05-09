@@ -51,7 +51,7 @@ func (c *commandManifestShow) showManifestItems(ctx context.Context, rep repo.Re
 			c.out.printStdout("// label %v:%v\n", k, v)
 		}
 
-		if showerr := showContentWithFlags(bytes.NewReader(b), false, true); showerr != nil {
+		if showerr := showContentWithFlags(c.out.stdout(), bytes.NewReader(b), false, true); showerr != nil {
 			return showerr
 		}
 	}

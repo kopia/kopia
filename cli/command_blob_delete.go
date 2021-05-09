@@ -11,16 +11,20 @@ import (
 
 type commandBlobDelete struct {
 	blobIDs []string
+
+	svc appServices
 }
 
 func (c *commandBlobDelete) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("delete", "Delete blobs by ID").Alias("remove").Alias("rm")
 	cmd.Arg("blobIDs", "Blob IDs").Required().StringsVar(&c.blobIDs)
 	cmd.Action(svc.directRepositoryWriteAction(c.run))
+
+	c.svc = svc
 }
 
 func (c *commandBlobDelete) run(ctx context.Context, rep repo.DirectRepositoryWriter) error {
-	advancedCommand(ctx)
+	c.svc.advancedCommand(ctx)
 
 	for _, b := range c.blobIDs {
 		err := rep.BlobStorage().DeleteBlob(ctx, blob.ID(b))

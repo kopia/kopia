@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"os"
 	"time"
 
 	"github.com/pkg/errors"
@@ -19,7 +18,7 @@ import (
 // TODO - remove this global.
 var timeZone string
 
-func showContentWithFlags(rd io.Reader, unzip, indentJSON bool) error {
+func showContentWithFlags(w io.Writer, rd io.Reader, unzip, indentJSON bool) error {
 	if unzip {
 		gz, err := gzip.NewReader(rd)
 		if err != nil {
@@ -43,7 +42,7 @@ func showContentWithFlags(rd io.Reader, unzip, indentJSON bool) error {
 		rd = ioutil.NopCloser(&buf2)
 	}
 
-	if _, err := iocopy.Copy(os.Stdout, rd); err != nil {
+	if _, err := iocopy.Copy(w, rd); err != nil {
 		return errors.Wrap(err, "error copying data")
 	}
 

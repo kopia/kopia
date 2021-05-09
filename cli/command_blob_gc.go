@@ -15,6 +15,8 @@ type commandBlobGC struct {
 	parallel int
 	prefix   string
 	safety   maintenance.SafetyParameters
+
+	svc appServices
 }
 
 func (c *commandBlobGC) setup(svc appServices, parent commandParent) {
@@ -24,10 +26,12 @@ func (c *commandBlobGC) setup(svc appServices, parent commandParent) {
 	cmd.Flag("prefix", "Only GC blobs with given prefix").StringVar(&c.prefix)
 	safetyFlagVar(cmd, &c.safety)
 	cmd.Action(svc.directRepositoryWriteAction(c.run))
+
+	c.svc = svc
 }
 
 func (c *commandBlobGC) run(ctx context.Context, rep repo.DirectRepositoryWriter) error {
-	advancedCommand(ctx)
+	c.svc.advancedCommand(ctx)
 
 	opts := maintenance.DeleteUnreferencedBlobsOptions{
 		DryRun:   c.delete != "yes",

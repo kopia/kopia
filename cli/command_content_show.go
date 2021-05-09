@@ -14,6 +14,8 @@ type commandContentShow struct {
 	ids        []string
 	indentJSON bool
 	decompress bool
+
+	out textOutput
 }
 
 func (c *commandContentShow) setup(svc appServices, parent commandParent) {
@@ -23,6 +25,8 @@ func (c *commandContentShow) setup(svc appServices, parent commandParent) {
 	cmd.Flag("json", "Pretty-print JSON content").Short('j').BoolVar(&c.indentJSON)
 	cmd.Flag("unzip", "Transparently decompress the content").Short('z').BoolVar(&c.decompress)
 	cmd.Action(svc.directRepositoryReadAction(c.run))
+
+	c.out.setup(svc)
 }
 
 func (c *commandContentShow) run(ctx context.Context, rep repo.DirectRepository) error {
@@ -41,5 +45,5 @@ func (c *commandContentShow) contentShow(ctx context.Context, r repo.DirectRepos
 		return errors.Wrapf(err, "error getting content %v", contentID)
 	}
 
-	return showContentWithFlags(bytes.NewReader(data), c.decompress, c.indentJSON)
+	return showContentWithFlags(c.out.stdout(), bytes.NewReader(data), c.decompress, c.indentJSON)
 }

@@ -19,6 +19,7 @@ type commandContentRewrite struct {
 	contentRewriteSafety        maintenance.SafetyParameters
 
 	contentRange contentRangeFlags
+	svc          appServices
 }
 
 func (c *commandContentRewrite) setup(svc appServices, parent commandParent) {
@@ -33,10 +34,12 @@ func (c *commandContentRewrite) setup(svc appServices, parent commandParent) {
 	c.contentRange.setup(cmd)
 	safetyFlagVar(cmd, &c.contentRewriteSafety)
 	cmd.Action(svc.directRepositoryWriteAction(c.runContentRewriteCommand))
+
+	c.svc = svc
 }
 
 func (c *commandContentRewrite) runContentRewriteCommand(ctx context.Context, rep repo.DirectRepositoryWriter) error {
-	advancedCommand(ctx)
+	c.svc.advancedCommand(ctx)
 
 	return maintenance.RewriteContents(ctx, rep, &maintenance.RewriteContentsOptions{
 		ContentIDRange: c.contentRange.contentIDRange(),

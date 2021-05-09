@@ -69,8 +69,6 @@ func main() {
 	app := cli.NewApp()
 	kp := kingpin.New("kopia", "Kopia - Fast And Secure Open-Source Backup").Author("http://kopia.github.io/")
 
-	kingpin.EnableFileExpansion = false
-
 	logging.SetDefault(func(module string) logging.Logger {
 		return gologging.MustGetLogger(module)
 	})

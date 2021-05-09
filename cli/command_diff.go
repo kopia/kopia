@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"os"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -18,6 +17,8 @@ type commandDiff struct {
 	diffSecondObjectPath string
 	diffCompareFiles     bool
 	diffCommandCommand   string
+
+	out textOutput
 }
 
 func (c *commandDiff) setup(svc appServices, parent commandParent) {
@@ -27,6 +28,8 @@ func (c *commandDiff) setup(svc appServices, parent commandParent) {
 	cmd.Flag("files", "Compare files by launching diff command for all pairs of (old,new)").Short('f').BoolVar(&c.diffCompareFiles)
 	cmd.Flag("diff-command", "Displays differences between two repository objects (files or directories)").Default(defaultDiffCommand()).Envar("KOPIA_DIFF").StringVar(&c.diffCommandCommand)
 	cmd.Action(svc.repositoryReaderAction(c.run))
+
+	c.out.setup(svc)
 }
 
 func (c *commandDiff) run(ctx context.Context, rep repo.Repository) error {
@@ -47,7 +50,7 @@ func (c *commandDiff) run(ctx context.Context, rep repo.Repository) error {
 		return errors.New("arguments do diff must both be directories or both non-directories")
 	}
 
-	d, err := diff.NewComparer(os.Stdout)
+	d, err := diff.NewComparer(c.out.stdout())
 	if err != nil {
 		return errors.Wrap(err, "error creating comparer")
 	}
