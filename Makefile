@@ -153,7 +153,7 @@ ci-integration-tests: integration-tests robustness-tool-tests
 	$(MAKE) stress-test
 
 ci-publish-coverage:
-ifeq ($(GOOS)/$(GOARCH)/$(IS_PULL_REQUEST),linux/amd64/false)
+ifeq ($(GOOS)/$(GOARCH),linux/amd64)
 	-bash -c "bash <(curl -s https://codecov.io/bash) -f coverage.txt"
 endif
 
