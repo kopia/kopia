@@ -206,7 +206,11 @@ func (e *CLITest) Run(t *testing.T, expectedError bool, args ...string) (stdout,
 	t.Helper()
 
 	t.Logf("running 'kopia %v'", strings.Join(args, " "))
-	stdoutReader, stderrReader, wait, _ := e.Runner.Start(t, e.cmdArgs(args))
+
+	args = e.cmdArgs(args)
+	t0 := clock.Now()
+
+	stdoutReader, stderrReader, wait, _ := e.Runner.Start(t, args)
 
 	var wg sync.WaitGroup
 
@@ -241,6 +245,8 @@ func (e *CLITest) Run(t *testing.T, expectedError bool, args ...string) (stdout,
 	} else {
 		require.NoError(t, gotErr, "unexpected error when running 'kopia %v' (stdout:\n%v\nstderr:\n%v", strings.Join(args, " "), strings.Join(stdout, "\n"), strings.Join(stderr, "\n"))
 	}
+
+	t.Logf("finished in %v: 'kopia %v'", clock.Since(t0).Milliseconds(), strings.Join(args, " "))
 
 	return stdout, stderr, gotErr
 }

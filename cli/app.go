@@ -444,7 +444,7 @@ func (c *App) maybeRunMaintenance(ctx context.Context, rep repo.Repository) erro
 }
 
 func (c *App) advancedCommand(ctx context.Context) {
-	if c.advancedCommands != "enabled" {
+	if c.AdvancedCommands != "enabled" {
 		_, _ = errorColor.Fprintf(c.stderrWriter, `
 This command could be dangerous or lead to repository corruption when used improperly.
 

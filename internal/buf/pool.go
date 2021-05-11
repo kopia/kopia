@@ -12,6 +12,10 @@ import (
 	"go.opencensus.io/tag"
 )
 
+// DisableBufferManagement is a global flag that disables memory buffer reuse,
+// which can be useful in tests to reduce overall memory usage.
+var DisableBufferManagement = false
+
 type segment struct {
 	mu sync.RWMutex
 
@@ -103,7 +107,7 @@ func (s *segment) allocate(n int) (Buf, bool) {
 //
 // The pool uses N segments, with each segment tracking its high water mark usage.
 //
-// Allocation simply advances the high water mark within first segment that has capacity
+// ation simply advances the high water mark within first segment that has capacity
 // and increments per-segment refcount.
 //
 // On Buf.Release() the refcount is decremented and when it hits zero, the entire segment becomes instantly
@@ -243,7 +247,7 @@ func (p *Pool) AddSegments(n int) {
 // Allocate allocates from the buffer a slice of size n.
 func (p *Pool) Allocate(n int) Buf {
 	// requested more than the pool can cache, allocate throw-away buffer.
-	if p == nil || n > p.segmentSize {
+	if p == nil || n > p.segmentSize || DisableBufferManagement {
 		return Buf{make([]byte, n), 0, 0, nil}
 	}
 

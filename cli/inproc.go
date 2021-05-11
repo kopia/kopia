@@ -12,24 +12,23 @@ import (
 
 // RunSubcommand executes the subcommand asynchronously in current process
 // with flags in an isolated CLI environment and returns standard output and standard error.
-func RunSubcommand(ctx context.Context, argsAndFlags []string) (stdout, stderr io.Reader, wait func() error, kill func()) {
+func (c *App) RunSubcommand(ctx context.Context, argsAndFlags []string) (stdout, stderr io.Reader, wait func() error, kill func()) {
 	kpapp := kingpin.New("test", "test")
-	ta := NewApp()
 
 	stdoutReader, stdoutWriter := io.Pipe()
 	stderrReader, stderrWriter := io.Pipe()
 
-	ta.stdoutWriter = stdoutWriter
-	ta.stderrWriter = stderrWriter
-	ta.rootctx = logging.WithLogger(ctx, logging.Writer(stderrWriter))
+	c.stdoutWriter = stdoutWriter
+	c.stderrWriter = stderrWriter
+	c.rootctx = logging.WithLogger(ctx, logging.Writer(stderrWriter))
 
-	ta.Attach(kpapp)
+	c.Attach(kpapp)
 
 	var exitCode int
 
 	resultErr := make(chan error, 1)
 
-	ta.osExit = func(ec int) {
+	c.osExit = func(ec int) {
 		exitCode = ec
 	}
 
