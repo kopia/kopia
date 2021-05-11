@@ -16,7 +16,7 @@ import (
 )
 
 // TODO - remove this global.
-var timeZone string
+var timeZone = "local"
 
 func showContentWithFlags(w io.Writer, rd io.Reader, unzip, indentJSON bool) error {
 	if unzip {
