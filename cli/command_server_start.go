@@ -56,11 +56,11 @@ type commandServerStart struct {
 	serverStartTLSPrintFullServerCert   bool
 
 	sf  serverFlags
-	svc appServices
+	svc advancedAppServices
 	out textOutput
 }
 
-func (c *commandServerStart) setup(svc appServices, parent commandParent) {
+func (c *commandServerStart) setup(svc advancedAppServices, parent commandParent) {
 	cmd := parent.Command("start", "Start Kopia server").Default()
 	cmd.Flag("html", "Server the provided HTML at the root URL").ExistingDirVar(&c.serverStartHTMLPath)
 	cmd.Flag("ui", "Start the server with HTML UI").Default("true").BoolVar(&c.serverStartUI)
@@ -114,6 +114,7 @@ func (c *commandServerStart) run(ctx context.Context, rep repo.Repository) error
 		Authorizer:           auth.DefaultAuthorizer(),
 		AuthCookieSigningKey: c.serverAuthCookieSingingKey,
 		UIUser:               c.sf.serverUsername,
+		PasswordPersist:      c.svc.passwordPersistenceStrategy(),
 	})
 	if err != nil {
 		return errors.Wrap(err, "unable to initialize server")

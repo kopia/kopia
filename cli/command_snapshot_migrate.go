@@ -130,13 +130,13 @@ func (c *commandSnapshotMigrate) run(ctx context.Context, destRepo repo.Reposito
 }
 
 func (c *commandSnapshotMigrate) openSourceRepo(ctx context.Context) (repo.Repository, error) {
-	pass, ok := repo.GetPersistedPassword(ctx, c.migrateSourceConfig)
-	if !ok {
-		var err error
+	pass, err := c.svc.passwordPersistenceStrategy().GetPassword(ctx, c.migrateSourceConfig)
+	if err != nil {
+		pass, err = c.svc.getPasswordFromFlags(ctx, false, false)
+	}
 
-		if pass, err = c.svc.getPasswordFromFlags(ctx, false, false); err != nil {
-			return nil, errors.Wrap(err, "source repository password")
-		}
+	if err != nil {
+		return nil, errors.Wrap(err, "source repository password")
 	}
 
 	sourceRepo, err := repo.Open(ctx, c.migrateSourceConfig, pass, c.svc.optionsFromFlags(ctx))

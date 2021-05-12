@@ -8,6 +8,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/passwordpersist"
 	"github.com/kopia/kopia/internal/remoterepoapi"
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/repo"
@@ -243,7 +244,9 @@ func (s *Server) getConnectOptions(cliOpts repo.ClientOptions) *repo.ConnectOpti
 }
 
 func (s *Server) connectAPIServerAndOpen(ctx context.Context, si *repo.APIServerInfo, password string, cliOpts repo.ClientOptions) *apiError {
-	if err := repo.ConnectAPIServer(ctx, s.options.ConfigFile, si, password, s.getConnectOptions(cliOpts)); err != nil {
+	if err := passwordpersist.OnSuccess(
+		ctx, repo.ConnectAPIServer(ctx, s.options.ConfigFile, si, password, s.getConnectOptions(cliOpts)),
+		s.options.PasswordPersist, s.options.ConfigFile, password); err != nil {
 		return repoErrorToAPIError(err)
 	}
 
@@ -257,7 +260,9 @@ func (s *Server) connectAndOpen(ctx context.Context, conn blob.ConnectionInfo, p
 	}
 	defer st.Close(ctx) //nolint:errcheck
 
-	if err = repo.Connect(ctx, s.options.ConfigFile, st, password, s.getConnectOptions(cliOpts)); err != nil {
+	if err = passwordpersist.OnSuccess(
+		ctx, repo.Connect(ctx, s.options.ConfigFile, st, password, s.getConnectOptions(cliOpts)),
+		s.options.PasswordPersist, s.options.ConfigFile, password); err != nil {
 		return repoErrorToAPIError(err)
 	}
 
@@ -294,6 +299,10 @@ func (s *Server) handleRepoDisconnect(ctx context.Context, r *http.Request, body
 	}
 
 	if err := repo.Disconnect(ctx, s.options.ConfigFile); err != nil {
+		return nil, internalServerError(err)
+	}
+
+	if err := s.options.PasswordPersist.DeletePassword(ctx, s.options.ConfigFile); err != nil {
 		return nil, internalServerError(err)
 	}
 

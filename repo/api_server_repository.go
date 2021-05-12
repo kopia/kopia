@@ -289,5 +289,5 @@ func ConnectAPIServer(ctx context.Context, configFile string, si *APIServerInfo,
 		return errors.Wrap(err, "unable to write config file")
 	}
 
-	return verifyConnect(ctx, configFile, password, opt.PersistCredentials)
+	return verifyConnect(ctx, configFile, password)
 }

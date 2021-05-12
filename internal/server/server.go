@@ -17,6 +17,7 @@ import (
 
 	"github.com/kopia/kopia/internal/auth"
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/passwordpersist"
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/internal/uitask"
 	"github.com/kopia/kopia/repo"
@@ -610,6 +611,7 @@ type Options struct {
 	MaxConcurrency       int
 	Authenticator        auth.Authenticator
 	Authorizer           auth.Authorizer
+	PasswordPersist      passwordpersist.Strategy
 	AuthCookieSigningKey string
 	UIUser               string // name of the user allowed to access the UI
 }
@@ -619,6 +621,10 @@ type Options struct {
 func New(ctx context.Context, options Options) (*Server, error) {
 	if options.Authorizer == nil {
 		return nil, errors.Errorf("missing authorizer")
+	}
+
+	if options.PasswordPersist == nil {
+		return nil, errors.Errorf("missing password persistence")
 	}
 
 	if options.AuthCookieSigningKey == "" {
