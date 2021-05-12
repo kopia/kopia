@@ -11,7 +11,9 @@ import (
 func TestACL(t *testing.T) {
 	t.Parallel()
 
-	serverEnvironment := testenv.NewCLITest(t)
+	serverRunner := testenv.NewExeRunner(t)
+	serverEnvironment := testenv.NewCLITest(t, serverRunner)
+
 	defer serverEnvironment.RunAndExpectSuccess(t, "repo", "disconnect")
 
 	serverEnvironment.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", serverEnvironment.RepoDir, "--override-hostname=foo", "--override-username=foo", "--enable-actions")
@@ -39,7 +41,7 @@ func TestACL(t *testing.T) {
 
 	var sp serverParameters
 
-	srv := serverEnvironment.RunAndProcessStderr(t, sp.ProcessOutput,
+	kill := serverEnvironment.RunAndProcessStderr(t, sp.ProcessOutput,
 		"server", "start",
 		"--address=localhost:0",
 		"--server-username=admin-user",
@@ -50,12 +52,14 @@ func TestACL(t *testing.T) {
 
 	t.Logf("detected server parameters %#v", sp)
 
-	defer srv.Process.Kill()
+	defer kill()
 
-	foobarClientEnvironment := testenv.NewCLITest(t)
+	fooBarRunner := testenv.NewExeRunner(t)
+	foobarClientEnvironment := testenv.NewCLITest(t, fooBarRunner)
+
 	defer foobarClientEnvironment.RunAndExpectSuccess(t, "repo", "disconnect")
 
-	foobarClientEnvironment.RemoveDefaultPassword()
+	fooBarRunner.RemoveDefaultPassword()
 
 	// connect as foo@bar with password baz
 	foobarClientEnvironment.RunAndExpectSuccess(t, "repo", "connect", "server",
@@ -66,10 +70,12 @@ func TestACL(t *testing.T) {
 		"--password", "baz",
 	)
 
-	aliceInWonderlandClientEnvironment := testenv.NewCLITest(t)
+	aliceInWonderlandRunner := testenv.NewExeRunner(t)
+	aliceInWonderlandClientEnvironment := testenv.NewCLITest(t, aliceInWonderlandRunner)
+
 	defer aliceInWonderlandClientEnvironment.RunAndExpectSuccess(t, "repo", "disconnect")
 
-	aliceInWonderlandClientEnvironment.RemoveDefaultPassword()
+	aliceInWonderlandRunner.RemoveDefaultPassword()
 
 	// connect as alice@wonderland with password baz
 	aliceInWonderlandClientEnvironment.RunAndExpectSuccess(t, "repo", "connect", "server",

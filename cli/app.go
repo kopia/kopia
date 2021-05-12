@@ -79,6 +79,7 @@ type appServices interface {
 	repositoryWriterAction(act func(ctx context.Context, rep repo.RepositoryWriter) error) func(ctx *kingpin.ParseContext) error
 	maybeRepositoryAction(act func(ctx context.Context, rep repo.Repository) error, mode repositoryAccessMode) func(ctx *kingpin.ParseContext) error
 
+	advancedCommand(ctx context.Context)
 	repositoryConfigFileName() string
 	getProgress() *cliProgress
 
@@ -99,6 +100,8 @@ type advancedAppServices interface {
 	passwordPersistenceStrategy() passwordpersist.Strategy
 	getPasswordFromFlags(ctx context.Context, isNew, allowPersistent bool) (string, error)
 	optionsFromFlags(ctx context.Context) *repo.Options
+
+	rootContext() context.Context
 }
 
 // App contains per-invocation flags and state of Kopia CLI.
@@ -116,6 +119,7 @@ type App struct {
 	metricsListenAddr             string
 	keyRingEnabled                bool
 	persistCredentials            bool
+	AdvancedCommands              string
 
 	// subcommands
 	blob        commandBlob
@@ -140,6 +144,7 @@ type App struct {
 	osExit       func(int) // allows replacing os.Exit() with custom code
 	stdoutWriter io.Writer
 	stderrWriter io.Writer
+	rootctx      context.Context
 }
 
 func (c *App) getProgress() *cliProgress {
@@ -185,9 +190,10 @@ func (c *App) setup(app *kingpin.Application) {
 	app.Flag("config-file", "Specify the config file to use.").Default(defaultConfigFileName()).Envar("KOPIA_CONFIG_PATH").StringVar(&c.configPath)
 	app.Flag("trace-storage", "Enables tracing of storage operations.").Default("true").Hidden().BoolVar(&c.traceStorage)
 	app.Flag("metrics-listen-addr", "Expose Prometheus metrics on a given host:port").Hidden().StringVar(&c.metricsListenAddr)
-	app.Flag("timezone", "Format time according to specified time zone (local, utc, original or time zone name)").Default("local").Hidden().StringVar(&timeZone)
+	app.Flag("timezone", "Format time according to specified time zone (local, utc, original or time zone name)").Hidden().StringVar(&timeZone)
 	app.Flag("password", "Repository password.").Envar("KOPIA_PASSWORD").Short('p').StringVar(&c.password)
 	app.Flag("persist-credentials", "Persist credentials").Default("true").Envar("KOPIA_PERSIST_CREDENTIALS_ON_CONNECT").BoolVar(&c.persistCredentials)
+	app.Flag("advanced-commands", "Enable advanced (and potentially dangerous) commands.").Hidden().Envar("KOPIA_ADVANCED_COMMANDS").StringVar(&c.AdvancedCommands)
 
 	c.setupOSSpecificKeychainFlags(app)
 
@@ -235,6 +241,7 @@ func NewApp() *App {
 		osExit:       os.Exit,
 		stdoutWriter: os.Stdout,
 		stderrWriter: os.Stderr,
+		rootctx:      context.Background(),
 	}
 }
 
@@ -268,7 +275,7 @@ func safetyFlagVar(cmd *kingpin.CmdClause, result *maintenance.SafetyParameters)
 
 func (c *App) noRepositoryAction(act func(ctx context.Context) error) func(ctx *kingpin.ParseContext) error {
 	return func(_ *kingpin.ParseContext) error {
-		return act(rootContext())
+		return act(c.rootContext())
 	}
 }
 
@@ -284,7 +291,7 @@ func (c *App) serverAction(sf *serverClientFlags, act func(ctx context.Context, 
 			return errors.Wrap(err, "unable to create API client")
 		}
 
-		return act(rootContext(), apiClient)
+		return act(c.rootContext(), apiClient)
 	}
 }
 
@@ -348,8 +355,8 @@ func (c *App) repositoryWriterAction(act func(ctx context.Context, rep repo.Repo
 	})
 }
 
-func rootContext() context.Context {
-	return context.Background()
+func (c *App) rootContext() context.Context {
+	return c.rootctx
 }
 
 type repositoryAccessMode struct {
@@ -359,7 +366,7 @@ type repositoryAccessMode struct {
 
 func (c *App) maybeRepositoryAction(act func(ctx context.Context, rep repo.Repository) error, mode repositoryAccessMode) func(ctx *kingpin.ParseContext) error {
 	return func(kpc *kingpin.ParseContext) error {
-		ctx := rootContext()
+		ctx := c.rootContext()
 
 		if err := withProfiling(func() error {
 			c.mt.startMemoryTracking(ctx)
@@ -398,7 +405,7 @@ func (c *App) maybeRepositoryAction(act func(ctx context.Context, rep repo.Repos
 		}); err != nil {
 			// print error in red
 			log(ctx).Errorf("ERROR: %v", err.Error())
-			os.Exit(1)
+			c.osExit(1)
 		}
 
 		return nil
@@ -436,15 +443,20 @@ func (c *App) maybeRunMaintenance(ctx context.Context, rep repo.Repository) erro
 	return errors.Wrap(err, "error running maintenance")
 }
 
-func advancedCommand(ctx context.Context) {
-	if os.Getenv("KOPIA_ADVANCED_COMMANDS") != "enabled" {
-		log(ctx).Errorf(`
+func (c *App) advancedCommand(ctx context.Context) {
+	if c.AdvancedCommands != "enabled" {
+		_, _ = errorColor.Fprintf(c.stderrWriter, `
 This command could be dangerous or lead to repository corruption when used improperly.
 
 Running this command is not needed for using Kopia. Instead, most users should rely on periodic repository maintenance. See https://kopia.io/docs/advanced/maintenance/ for more information.
 To run this command despite the warning, set KOPIA_ADVANCED_COMMANDS=enabled
 
 `)
-		os.Exit(1)
+
+		c.osExit(1)
 	}
+}
+
+func init() {
+	kingpin.EnableFileExpansion = false
 }

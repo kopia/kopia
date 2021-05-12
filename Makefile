@@ -1,4 +1,4 @@
-COVERAGE_PACKAGES=github.com/kopia/kopia/repo/...,github.com/kopia/kopia/fs/...,github.com/kopia/kopia/snapshot/...
+COVERAGE_PACKAGES=./repo/...,./fs/...,./snapshot/...,./cli/...,./internal/...
 TEST_FLAGS?=
 
 KOPIA_INTEGRATION_EXE=$(CURDIR)/dist/testing_$(GOOS)_$(GOARCH)/kopia.exe
@@ -153,7 +153,7 @@ ci-integration-tests: integration-tests robustness-tool-tests
 	$(MAKE) stress-test
 
 ci-publish-coverage:
-ifeq ($(GOOS)/$(GOARCH)/$(IS_PULL_REQUEST),linux/amd64/false)
+ifeq ($(GOOS)/$(GOARCH),linux/amd64)
 	-bash -c "bash <(curl -s https://codecov.io/bash) -f coverage.txt"
 endif
 
@@ -186,11 +186,11 @@ dev-deps:
 	GO111MODULE=off go get -u github.com/sqs/goreturns
 
 test-with-coverage: $(gotestsum)
-	$(GO_TEST) $(UNIT_TEST_RACE_FLAGS) -count=$(REPEAT_TEST) -covermode=atomic -coverprofile=coverage.txt --coverpkg $(COVERAGE_PACKAGES) -timeout 300s ./...
+	$(GO_TEST) $(UNIT_TEST_RACE_FLAGS) -tags testing -count=$(REPEAT_TEST) -covermode=atomic -coverprofile=coverage.txt --coverpkg $(COVERAGE_PACKAGES) -timeout 300s ./...
 
 test: GOTESTSUM_FLAGS=--format=$(GOTESTSUM_FORMAT) --no-summary=skipped --jsonfile=.tmp.unit-tests.json
 test: $(gotestsum)
-	$(GO_TEST) $(UNIT_TEST_RACE_FLAGS) -count=$(REPEAT_TEST) -timeout $(UNIT_TESTS_TIMEOUT) ./...
+	$(GO_TEST) $(UNIT_TEST_RACE_FLAGS) -tags testing -count=$(REPEAT_TEST) -timeout $(UNIT_TESTS_TIMEOUT) ./...
 	-$(gotestsum) tool slowest --jsonfile .tmp.unit-tests.json  --threshold 1000ms
 
 provider-tests: export KOPIA_PROVIDER_TEST=true

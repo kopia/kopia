@@ -10,7 +10,8 @@ import (
 func TestSnapshotMigrate(t *testing.T) {
 	t.Parallel()
 
-	e := testenv.NewCLITest(t)
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, runner)
 
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
@@ -30,7 +31,7 @@ func TestSnapshotMigrate(t *testing.T) {
 	sourceSnapshotCount := len(e.RunAndExpectSuccess(t, "snapshot", "list", ".", "-a"))
 	sourcePolicyCount := len(e.RunAndExpectSuccess(t, "policy", "list"))
 
-	dstenv := testenv.NewCLITest(t)
+	dstenv := testenv.NewCLITest(t, runner)
 
 	dstenv.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", dstenv.RepoDir)
 

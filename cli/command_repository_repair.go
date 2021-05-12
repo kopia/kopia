@@ -30,7 +30,7 @@ func (c *commandRepositoryRepair) setup(svc advancedAppServices, parent commandP
 		cc := cmd.Command(prov.name, "Repair repository in "+prov.description)
 		f.setup(svc, cc)
 		cc.Action(func(_ *kingpin.ParseContext) error {
-			ctx := rootContext()
+			ctx := svc.rootContext()
 			st, err := f.connect(ctx, false)
 			if err != nil {
 				return errors.Wrap(err, "can't connect to storage")

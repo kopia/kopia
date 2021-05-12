@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"os"
 
 	"github.com/pkg/errors"
 
@@ -17,6 +16,8 @@ import (
 type commandBlobShow struct {
 	blobShowDecrypt bool
 	blobShowIDs     []string
+
+	out textOutput
 }
 
 func (c *commandBlobShow) setup(svc appServices, parent commandParent) {
@@ -24,11 +25,13 @@ func (c *commandBlobShow) setup(svc appServices, parent commandParent) {
 	cmd.Flag("decrypt", "Decrypt blob if possible").BoolVar(&c.blobShowDecrypt)
 	cmd.Arg("blobID", "Blob IDs").Required().StringsVar(&c.blobShowIDs)
 	cmd.Action(svc.directRepositoryReadAction(c.run))
+
+	c.out.setup(svc)
 }
 
 func (c *commandBlobShow) run(ctx context.Context, rep repo.DirectRepository) error {
 	for _, blobID := range c.blobShowIDs {
-		if err := c.maybeDecryptBlob(ctx, os.Stdout, rep, blob.ID(blobID)); err != nil {
+		if err := c.maybeDecryptBlob(ctx, c.out.stdout(), rep, blob.ID(blobID)); err != nil {
 			return errors.Wrap(err, "error presenting blob")
 		}
 	}

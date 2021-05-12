@@ -9,7 +9,9 @@ import (
 func TestRepositoryRepair(t *testing.T) {
 	t.Parallel()
 
-	e := testenv.NewCLITest(t)
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, runner)
+
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
@@ -31,7 +33,7 @@ func TestRepositoryRepair(t *testing.T) {
 	e.RunAndExpectFailure(t, "repo", "connect", "filesystem", "--path", e.RepoDir)
 
 	// now run repair, which will recover the format blob from one of the pack blobs.
-	e.RunAndExpectSuccess(t, "repo", "repair", "--log-level=debug", "--trace-storage", "filesystem", "--path", e.RepoDir)
+	e.RunAndExpectSuccess(t, "repo", "repair", "filesystem", "--path", e.RepoDir)
 
 	// now connect can succeed
 	e.RunAndExpectSuccess(t, "repo", "connect", "filesystem", "--path", e.RepoDir)

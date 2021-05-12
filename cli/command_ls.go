@@ -113,7 +113,7 @@ func (c *commandList) printDirectoryEntry(ctx context.Context, e fs.Entry, prefi
 		info = fmt.Sprintf("%v%v", c.nameToDisplay(prefix, e), errorSummary)
 	}
 
-	col.Println(info) //nolint:errcheck
+	col.Fprintln(c.out.stdout(), info) //nolint:errcheck
 
 	if c.recursive {
 		if subdir, ok := e.(fs.Directory); ok {

@@ -56,7 +56,9 @@ func (s *serverParameters) ProcessOutput(l string) bool {
 func TestServerStart(t *testing.T) {
 	ctx := testlogging.Context(t)
 
-	e := testenv.NewCLITest(t)
+	runner := testenv.NewExeRunner(t)
+	e := testenv.NewCLITest(t, runner)
+
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--override-hostname=fake-hostname", "--override-username=fake-username")
@@ -66,7 +68,8 @@ func TestServerStart(t *testing.T) {
 
 	var sp serverParameters
 
-	e.Environment = append(e.Environment, `KOPIA_UI_TITLE_PREFIX=Blah: <script>bleh</script> `)
+	runner.Environment = append(runner.Environment, `KOPIA_UI_TITLE_PREFIX=Blah: <script>bleh</script> `)
+
 	e.RunAndProcessStderr(t, sp.ProcessOutput,
 		"server", "start",
 		"--ui",
@@ -190,7 +193,8 @@ func TestServerCreateAndConnectViaAPI(t *testing.T) {
 
 	ctx := testlogging.Context(t)
 
-	e := testenv.NewCLITest(t)
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, runner)
 
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
@@ -258,7 +262,8 @@ func TestConnectToExistingRepositoryViaAPI(t *testing.T) {
 
 	ctx := testlogging.Context(t)
 
-	e := testenv.NewCLITest(t)
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, runner)
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--override-hostname=fake-hostname", "--override-username=fake-username")
 	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
 	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
@@ -337,7 +342,9 @@ func TestServerStartInsecure(t *testing.T) {
 
 	ctx := testlogging.Context(t)
 
-	e := testenv.NewCLITest(t)
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, runner)
+
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--override-hostname=fake-hostname", "--override-username=fake-username")
@@ -347,15 +354,13 @@ func TestServerStartInsecure(t *testing.T) {
 	var sp serverParameters
 
 	// server starts without password and no TLS when --insecure is provided.
-	c := e.RunAndProcessStderr(t, sp.ProcessOutput,
+	e.RunAndProcessStderr(t, sp.ProcessOutput,
 		"server", "start",
 		"--ui",
 		"--address=localhost:0",
 		"--without-password",
 		"--insecure",
 	)
-
-	defer c.Process.Kill()
 
 	cli, err := apiclient.NewKopiaAPIClient(apiclient.Options{
 		BaseURL: sp.baseURL,

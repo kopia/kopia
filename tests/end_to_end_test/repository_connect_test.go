@@ -14,7 +14,8 @@ import (
 func TestFilesystemRequiresAbsolutePaths(t *testing.T) {
 	t.Parallel()
 
-	e := testenv.NewCLITest(t)
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, runner)
 
 	e.RunAndExpectFailure(t, "repo", "create", "filesystem", "--path", "./relative-path")
 }
@@ -27,7 +28,8 @@ func TestFilesystemSupportsTildeToReferToHome(t *testing.T) {
 		t.Skip("home directory not available")
 	}
 
-	e := testenv.NewCLITest(t)
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, runner)
 
 	subdir := "repo-" + uuid.NewString()
 	fullPath := filepath.Join(home, subdir)
@@ -45,7 +47,8 @@ func TestFilesystemSupportsTildeToReferToHome(t *testing.T) {
 func TestReconnect(t *testing.T) {
 	t.Parallel()
 
-	e := testenv.NewCLITest(t)
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, runner)
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 	e.RunAndExpectSuccess(t, "repo", "disconnect")
@@ -56,7 +59,8 @@ func TestReconnect(t *testing.T) {
 func TestReconnectUsingToken(t *testing.T) {
 	t.Parallel()
 
-	e := testenv.NewCLITest(t)
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, runner)
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 	lines := e.RunAndExpectSuccess(t, "repo", "status", "-t", "-s")

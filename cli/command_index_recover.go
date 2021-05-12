@@ -13,6 +13,8 @@ import (
 type commandIndexRecover struct {
 	blobIDs []string
 	commit  bool
+
+	svc appServices
 }
 
 func (c *commandIndexRecover) setup(svc appServices, parent commandParent) {
@@ -20,10 +22,12 @@ func (c *commandIndexRecover) setup(svc appServices, parent commandParent) {
 	cmd.Flag("blobs", "Names of pack blobs to recover from (default=all packs)").StringsVar(&c.blobIDs)
 	cmd.Flag("commit", "Commit recovered content").BoolVar(&c.commit)
 	cmd.Action(svc.directRepositoryWriteAction(c.run))
+
+	c.svc = svc
 }
 
 func (c *commandIndexRecover) run(ctx context.Context, rep repo.DirectRepositoryWriter) error {
-	advancedCommand(ctx)
+	c.svc.advancedCommand(ctx)
 
 	var totalCount int
 

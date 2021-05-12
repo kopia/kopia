@@ -21,7 +21,8 @@ import (
 func TestSnapshotNonexistent(t *testing.T) {
 	t.Parallel()
 
-	e := testenv.NewCLITest(t)
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, runner)
 
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
@@ -239,7 +240,8 @@ func testSnapshotFail(t *testing.T, isFailFast bool, snapshotCreateFlags, snapsh
 				t.Run(tname, func(t *testing.T) {
 					t.Parallel()
 
-					e := testenv.NewCLITest(t)
+					runner := testenv.NewExeRunner(t)
+					e := testenv.NewCLITest(t, runner)
 
 					defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
@@ -258,7 +260,7 @@ func testSnapshotFail(t *testing.T, isFailFast bool, snapshotCreateFlags, snapsh
 
 					e.RunAndExpectSuccess(t, "policy", "set", snapSource, "--ignore-dir-errors", tcIgnoreDirErr, "--ignore-file-errors", tcIgnoreFileErr)
 					restoreDir := fmt.Sprintf("%s%d_%v_%v", restoreDirPrefix, tcIdx, tcIgnoreDirErr, tcIgnoreFileErr)
-					testPermissions(t, e, snapSource, modifyEntry, restoreDir, tc.expectSuccess, snapshotCreateFlags, snapshotCreateEnv)
+					testPermissions(t, runner, e, snapSource, modifyEntry, restoreDir, tc.expectSuccess, snapshotCreateFlags, snapshotCreateEnv)
 
 					e.RunAndExpectSuccess(t, "policy", "remove", snapSource)
 				})
@@ -297,7 +299,7 @@ func createSimplestFileTree(t *testing.T, dirDepth, currDepth int, currPath stri
 // against "source" and will test permissions against all entries in "parentDir".
 // It returns the number of successful snapshot operations.
 // nolint:thelper
-func testPermissions(t *testing.T, e *testenv.CLITest, source, modifyEntry, restoreDir string, expect map[os.FileMode]expectedSnapshotResult, snapshotCreateFlags, snapshotCreateEnv []string) int {
+func testPermissions(t *testing.T, runner *testenv.CLIExeRunner, e *testenv.CLITest, source, modifyEntry, restoreDir string, expect map[os.FileMode]expectedSnapshotResult, snapshotCreateFlags, snapshotCreateEnv []string) int {
 	var numSuccessfulSnapshots int
 
 	changeFile, err := os.Stat(modifyEntry)
@@ -321,14 +323,14 @@ func testPermissions(t *testing.T, e *testenv.CLITest, source, modifyEntry, rest
 			require.NoError(t, err)
 
 			// set up environment for the child process.
-			oldEnv := e.Environment
-			e.Environment = append(append([]string{}, e.Environment...), snapshotCreateEnv...)
+			oldEnv := runner.Environment
+			runner.Environment = append(append([]string{}, runner.Environment...), snapshotCreateEnv...)
 
-			defer func() { e.Environment = oldEnv }()
+			defer func() { runner.Environment = oldEnv }()
 
 			snapshotCreateWithArgs := append([]string{"snapshot", "create", source}, snapshotCreateFlags...)
 
-			_, errOut, runErr := e.Run(t, expected.success, snapshotCreateWithArgs...)
+			_, errOut, runErr := e.Run(t, !expected.success, snapshotCreateWithArgs...)
 
 			if got, want := (runErr == nil), expected.success; got != want {
 				t.Fatalf("unexpected success %v, want %v", got, want)

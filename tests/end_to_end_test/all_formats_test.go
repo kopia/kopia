@@ -14,6 +14,8 @@ import (
 func TestAllFormatsSmokeTest(t *testing.T) {
 	srcDir := testutil.TempDirectory(t)
 
+	runner := testenv.NewInProcRunner(t)
+
 	// 3-level directory with <=10 files and <=10 subdirectories at each level
 	testdirtree.CreateDirectoryTree(srcDir, testdirtree.DirectoryTreeOptions{
 		Depth:                  2,
@@ -32,7 +34,7 @@ func TestAllFormatsSmokeTest(t *testing.T) {
 				t.Run(hashAlgo, func(t *testing.T) {
 					t.Parallel()
 
-					e := testenv.NewCLITest(t)
+					e := testenv.NewCLITest(t, runner)
 					defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
 					e.DefaultRepositoryCreateFlags = nil

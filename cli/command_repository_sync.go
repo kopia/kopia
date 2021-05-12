@@ -21,6 +21,8 @@ import (
 )
 
 type commandRepositorySyncTo struct {
+	nextSyncOutputTime *timetrack.Throttle
+
 	repositorySyncUpdate               bool
 	repositorySyncDelete               bool
 	repositorySyncDryRun               bool
@@ -30,7 +32,6 @@ type commandRepositorySyncTo struct {
 
 	lastSyncProgress       string
 	syncProgressMutex      sync.Mutex
-	nextSyncOutputTime     timetrack.Throttle
 	setTimeUnsupportedOnce sync.Once
 
 	out textOutput
@@ -47,13 +48,16 @@ func (c *commandRepositorySyncTo) setup(svc advancedAppServices, parent commandP
 
 	c.out.setup(svc)
 
+	// needs to be 64-bit aligned on ARM
+	c.nextSyncOutputTime = new(timetrack.Throttle)
+
 	for _, prov := range storageProviders {
 		// Set up 'sync-to' subcommand
 		f := prov.newFlags()
 		cc := cmd.Command(prov.name, "Synchronize repository data to another repository in "+prov.description)
 		f.setup(svc, cc)
 		cc.Action(func(_ *kingpin.ParseContext) error {
-			ctx := rootContext()
+			ctx := svc.rootContext()
 			st, err := f.connect(ctx, false)
 			if err != nil {
 				return errors.Wrap(err, "can't connect to storage")

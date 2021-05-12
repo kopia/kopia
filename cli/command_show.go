@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"os"
 
 	"github.com/pkg/errors"
 
@@ -13,12 +12,16 @@ import (
 
 type commandShow struct {
 	path string
+
+	out textOutput
 }
 
 func (c *commandShow) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("show", "Displays contents of a repository object.").Alias("cat")
 	cmd.Arg("object-path", "Path").Required().StringVar(&c.path)
 	cmd.Action(svc.repositoryReaderAction(c.run))
+
+	c.out.setup(svc)
 }
 
 func (c *commandShow) run(ctx context.Context, rep repo.Repository) error {
@@ -34,7 +37,7 @@ func (c *commandShow) run(ctx context.Context, rep repo.Repository) error {
 
 	defer r.Close() //nolint:errcheck
 
-	_, err = iocopy.Copy(os.Stdout, r)
+	_, err = iocopy.Copy(c.out.stdout(), r)
 
 	return errors.Wrap(err, "unable to copy data")
 }

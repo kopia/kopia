@@ -252,7 +252,7 @@ func (c *commandSnapshotList) outputManifestFromSingleSource(ctx context.Context
 		elidedCount = 0
 		previousOID = oid
 
-		col.Print(fmt.Sprintf("  %v %v %v\n", formatTimestamp(m.StartTime), oid, strings.Join(bits, " "))) //nolint:errcheck
+		col.Fprint(c.out.stdout(), fmt.Sprintf("  %v %v %v\n", formatTimestamp(m.StartTime), oid, strings.Join(bits, " "))) //nolint:errcheck
 
 		count++
 

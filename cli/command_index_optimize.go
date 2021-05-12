@@ -13,6 +13,8 @@ type commandIndexOptimize struct {
 	optimizeDropDeletedOlderThan time.Duration
 	optimizeDropContents         []string
 	optimizeAllIndexes           bool
+
+	svc appServices
 }
 
 func (c *commandIndexOptimize) setup(svc appServices, parent commandParent) {
@@ -22,10 +24,12 @@ func (c *commandIndexOptimize) setup(svc appServices, parent commandParent) {
 	cmd.Flag("drop-contents", "Drop contents with given IDs").StringsVar(&c.optimizeDropContents)
 	cmd.Flag("all", "Optimize all indexes, even those above maximum size.").BoolVar(&c.optimizeAllIndexes)
 	cmd.Action(svc.directRepositoryWriteAction(c.runOptimizeCommand))
+
+	c.svc = svc
 }
 
 func (c *commandIndexOptimize) runOptimizeCommand(ctx context.Context, rep repo.DirectRepositoryWriter) error {
-	advancedCommand(ctx)
+	c.svc.advancedCommand(ctx)
 
 	opt := content.CompactOptions{
 		MaxSmallBlobs: c.optimizeMaxSmallBlobs,

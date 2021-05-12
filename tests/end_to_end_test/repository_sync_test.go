@@ -11,7 +11,8 @@ import (
 func TestRepositorySync(t *testing.T) {
 	t.Parallel()
 
-	e := testenv.NewCLITest(t)
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, runner)
 
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
@@ -40,7 +41,7 @@ func TestRepositorySync(t *testing.T) {
 	}
 
 	// now create a whole new repository
-	e2 := testenv.NewCLITest(t)
+	e2 := testenv.NewCLITest(t, runner)
 
 	defer e2.RunAndExpectSuccess(t, "repo", "disconnect")
 
