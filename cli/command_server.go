@@ -42,7 +42,7 @@ func (c *serverClientFlags) setup(cmd *kingpin.CmdClause) {
 	cmd.Flag("server-cert-fingerprint", "Server certificate fingerprint").StringVar(&c.serverCertFingerprint)
 }
 
-func (c *commandServer) setup(svc appServices, parent commandParent) {
+func (c *commandServer) setup(svc advancedAppServices, parent commandParent) {
 	cmd := parent.Command("server", "Commands to control HTTP API server.")
 
 	c.cancel.setup(svc, cmd)

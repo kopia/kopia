@@ -13,7 +13,6 @@ import (
 
 // ConnectOptions specifies options when persisting configuration to connect to a repository.
 type ConnectOptions struct {
-	PersistCredentials bool `json:"persistCredentials"`
 	ClientOptions
 
 	content.CachingOptions
@@ -58,10 +57,10 @@ func Connect(ctx context.Context, configFile string, st blob.Storage, password s
 		return errors.Wrap(err, "unable to write config file")
 	}
 
-	return verifyConnect(ctx, configFile, password, opt.PersistCredentials)
+	return verifyConnect(ctx, configFile, password)
 }
 
-func verifyConnect(ctx context.Context, configFile, password string, persist bool) error {
+func verifyConnect(ctx context.Context, configFile, password string) error {
 	// now verify that the repository can be opened with the provided config file.
 	r, err := Open(ctx, configFile, password, nil)
 	if err != nil {
@@ -74,14 +73,6 @@ func verifyConnect(ctx context.Context, configFile, password string, persist boo
 		return err
 	}
 
-	if persist {
-		if err := persistPassword(ctx, configFile, password); err != nil {
-			return errors.Wrap(err, "unable to persist password")
-		}
-	} else {
-		deletePassword(ctx, configFile)
-	}
-
 	return r.Close(ctx)
 }
 
@@ -91,8 +82,6 @@ func Disconnect(ctx context.Context, configFile string) error {
 	if err != nil {
 		return err
 	}
-
-	deletePassword(ctx, configFile)
 
 	if cfg.Caching != nil && cfg.Caching.CacheDirectory != "" {
 		if !filepath.IsAbs(cfg.Caching.CacheDirectory) {

@@ -7,6 +7,7 @@ import (
 	"github.com/alecthomas/kingpin"
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/passwordpersist"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
@@ -42,7 +43,6 @@ func (c *commandRepositoryConnect) setup(svc advancedAppServices, parent command
 }
 
 type connectOptions struct {
-	connectPersistCredentials     bool
 	connectCacheDirectory         string
 	connectMaxCacheSizeMB         int64
 	connectMaxMetadataCacheSizeMB int64
@@ -58,7 +58,6 @@ type connectOptions struct {
 func (c *connectOptions) setup(cmd *kingpin.CmdClause) {
 	// Set up flags shared between 'create' and 'connect'. Note that because those flags are used by both command
 	// we must use *Var() methods, otherwise one of the commands would always get default flag values.
-	cmd.Flag("persist-credentials", "Persist credentials").Default("true").Envar("KOPIA_PERSIST_CREDENTIALS_ON_CONNECT").BoolVar(&c.connectPersistCredentials)
 	cmd.Flag("cache-directory", "Cache directory").PlaceHolder("PATH").Envar("KOPIA_CACHE_DIRECTORY").StringVar(&c.connectCacheDirectory)
 	cmd.Flag("content-cache-size-mb", "Size of local content cache").PlaceHolder("MB").Default("5000").Int64Var(&c.connectMaxCacheSizeMB)
 	cmd.Flag("metadata-cache-size-mb", "Size of local metadata cache").PlaceHolder("MB").Default("5000").Int64Var(&c.connectMaxMetadataCacheSizeMB)
@@ -73,7 +72,6 @@ func (c *connectOptions) setup(cmd *kingpin.CmdClause) {
 
 func (c *connectOptions) toRepoConnectOptions() *repo.ConnectOptions {
 	return &repo.ConnectOptions{
-		PersistCredentials: c.connectPersistCredentials,
 		CachingOptions: content.CachingOptions{
 			CacheDirectory:            c.connectCacheDirectory,
 			MaxCacheSizeBytes:         c.connectMaxCacheSizeMB << 20,         //nolint:gomnd
@@ -101,7 +99,9 @@ func (c *App) runConnectCommandWithStorage(ctx context.Context, co *connectOptio
 
 func (c *App) runConnectCommandWithStorageAndPassword(ctx context.Context, co *connectOptions, st blob.Storage, password string) error {
 	configFile := c.repositoryConfigFileName()
-	if err := repo.Connect(ctx, configFile, st, password, co.toRepoConnectOptions()); err != nil {
+	if err := passwordpersist.OnSuccess(
+		ctx, repo.Connect(ctx, configFile, st, password, co.toRepoConnectOptions()),
+		c.passwordPersistenceStrategy(), configFile, password); err != nil {
 		return errors.Wrap(err, "error connecting to repository")
 	}
 

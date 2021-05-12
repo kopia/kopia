@@ -6,6 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/passwordpersist"
 	"github.com/kopia/kopia/repo"
 )
 
@@ -59,7 +60,9 @@ func (c *commandRepositoryConnectServer) run(ctx context.Context) error {
 		return errors.Wrap(err, "getting password")
 	}
 
-	if err := repo.ConnectAPIServer(ctx, configFile, as, pass, opt); err != nil {
+	if err := passwordpersist.OnSuccess(
+		ctx, repo.ConnectAPIServer(ctx, configFile, as, pass, opt),
+		c.svc.passwordPersistenceStrategy(), configFile, pass); err != nil {
 		return errors.Wrap(err, "error connecting to API server")
 	}
 

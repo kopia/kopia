@@ -10,7 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/term"
 
-	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/internal/passwordpersist"
 )
 
 func askForNewRepositoryPassword(out io.Writer) (string, error) {
@@ -58,9 +58,13 @@ func (c *App) getPasswordFromFlags(ctx context.Context, isNew, allowPersistent b
 		return askForNewRepositoryPassword(c.stdoutWriter)
 	case allowPersistent:
 		// try fetching the password from persistent storage specific to the configuration file.
-		pass, ok := repo.GetPersistedPassword(ctx, c.repositoryConfigFileName())
-		if ok {
+		pass, err := c.passwordPersistenceStrategy().GetPassword(ctx, c.repositoryConfigFileName())
+		if err == nil {
 			return pass, nil
+		}
+
+		if !errors.Is(err, passwordpersist.ErrPasswordNotFound) {
+			return "", errors.Wrap(err, "error getting persistent password")
 		}
 	}
 

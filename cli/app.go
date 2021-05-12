@@ -16,6 +16,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/apiclient"
+	"github.com/kopia/kopia/internal/passwordpersist"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/logging"
@@ -95,6 +96,7 @@ type advancedAppServices interface {
 
 	maybeInitializeUpdateCheck(ctx context.Context, co *connectOptions)
 	removeUpdateState()
+	passwordPersistenceStrategy() passwordpersist.Strategy
 	getPasswordFromFlags(ctx context.Context, isNew, allowPersistent bool) (string, error)
 	optionsFromFlags(ctx context.Context) *repo.Options
 }
@@ -112,6 +114,8 @@ type App struct {
 	configPath                    string
 	traceStorage                  bool
 	metricsListenAddr             string
+	keyRingEnabled                bool
+	persistCredentials            bool
 
 	// subcommands
 	blob        commandBlob
@@ -150,6 +154,21 @@ func (c *App) stderr() io.Writer {
 	return c.stderrWriter
 }
 
+func (c *App) passwordPersistenceStrategy() passwordpersist.Strategy {
+	if !c.persistCredentials {
+		return passwordpersist.None
+	}
+
+	if c.keyRingEnabled {
+		return passwordpersist.Multiple{
+			passwordpersist.Keyring,
+			passwordpersist.File,
+		}
+	}
+
+	return passwordpersist.File
+}
+
 func (c *App) setup(app *kingpin.Application) {
 	_ = app.Flag("help-full", "Show help for all commands, including hidden").Action(func(pc *kingpin.ParseContext) error {
 		_ = app.UsageForContextWithTemplate(pc, 0, kingpin.DefaultUsageTemplate)
@@ -168,6 +187,7 @@ func (c *App) setup(app *kingpin.Application) {
 	app.Flag("metrics-listen-addr", "Expose Prometheus metrics on a given host:port").Hidden().StringVar(&c.metricsListenAddr)
 	app.Flag("timezone", "Format time according to specified time zone (local, utc, original or time zone name)").Default("local").Hidden().StringVar(&timeZone)
 	app.Flag("password", "Repository password.").Envar("KOPIA_PASSWORD").Short('p').StringVar(&c.password)
+	app.Flag("persist-credentials", "Persist credentials").Default("true").Envar("KOPIA_PERSIST_CREDENTIALS_ON_CONNECT").BoolVar(&c.persistCredentials)
 
 	c.setupOSSpecificKeychainFlags(app)
 

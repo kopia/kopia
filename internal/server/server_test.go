@@ -16,6 +16,7 @@ import (
 
 	"github.com/kopia/kopia/internal/apiclient"
 	"github.com/kopia/kopia/internal/auth"
+	"github.com/kopia/kopia/internal/passwordpersist"
 	"github.com/kopia/kopia/internal/repotesting"
 	"github.com/kopia/kopia/internal/server"
 	"github.com/kopia/kopia/internal/testlogging"
@@ -44,8 +45,9 @@ func startServer(ctx context.Context, t *testing.T) *repo.APIServerInfo {
 	_, env := repotesting.NewEnvironment(t)
 
 	s, err := server.New(ctx, server.Options{
-		ConfigFile: env.ConfigFile(),
-		Authorizer: auth.LegacyAuthorizer(),
+		ConfigFile:      env.ConfigFile(),
+		PasswordPersist: passwordpersist.File,
+		Authorizer:      auth.LegacyAuthorizer(),
 		Authenticator: auth.CombineAuthenticators(
 			auth.AuthenticateSingleUser(testUsername+"@"+testHostname, testPassword),
 			auth.AuthenticateSingleUser(testUIUsername, testUIPassword),
@@ -53,6 +55,8 @@ func startServer(ctx context.Context, t *testing.T) *repo.APIServerInfo {
 		RefreshInterval: 1 * time.Minute,
 		UIUser:          testUIUsername,
 	})
+
+	require.NoError(t, err)
 
 	s.SetRepository(ctx, env.Repository)
 
