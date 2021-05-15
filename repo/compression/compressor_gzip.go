@@ -59,12 +59,8 @@ func (c *gzipCompressor) Compress(output *bytes.Buffer, input []byte) error {
 }
 
 func (c *gzipCompressor) Decompress(output *bytes.Buffer, b []byte) error {
-	if len(b) < compressionHeaderSize {
-		return errors.Errorf("invalid compression header")
-	}
-
-	if !bytes.Equal(b[0:compressionHeaderSize], c.header) {
-		return errors.Errorf("invalid compression header")
+	if err := verifyCompressionHeader(b, c.header); err != nil {
+		return err
 	}
 
 	r, err := gzip.NewReader(bytes.NewReader(b[compressionHeaderSize:]))

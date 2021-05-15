@@ -64,3 +64,18 @@ func mustSucceed(err error) {
 		panic("unexpected error: " + err.Error())
 	}
 }
+
+func verifyCompressionHeader(got, want []byte) error {
+	if !bytes.HasPrefix(got, want) {
+		var gotHeader []byte
+		if len(got) >= len(want) {
+			gotHeader = got[0:len(want)]
+		} else {
+			gotHeader = got
+		}
+
+		return errors.Errorf("invalid compression header, expected %x but got %x (len %v)", want, gotHeader, len(got))
+	}
+
+	return nil
+}
