@@ -253,20 +253,21 @@ func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, dat
 	}
 
 	info := &InfoStruct{
-		Deleted:             isDeleted,
-		ContentID:           contentID,
-		PackBlobID:          pp.packBlobID,
-		PackOffset:          uint32(pp.currentPackData.Length()),
-		TimestampSeconds:    bm.timeNow().Unix(),
-		FormatVersion:       byte(bm.writeFormatVersion),
-		OriginalLength:      uint32(len(data)),
-		CompressionHeaderID: comp,
+		Deleted:          isDeleted,
+		ContentID:        contentID,
+		PackBlobID:       pp.packBlobID,
+		PackOffset:       uint32(pp.currentPackData.Length()),
+		TimestampSeconds: bm.timeNow().Unix(),
+		FormatVersion:    byte(bm.writeFormatVersion),
+		OriginalLength:   uint32(len(data)),
 	}
 
-	if err := bm.maybeCompressAndEncryptDataForPacking(pp.currentPackData, data, contentID, comp); err != nil {
+	actualComp, err := bm.maybeCompressAndEncryptDataForPacking(pp.currentPackData, data, contentID, comp)
+	if err != nil {
 		return errors.Wrapf(err, "unable to encrypt %q", contentID)
 	}
 
+	info.CompressionHeaderID = actualComp
 	info.PackedLength = uint32(pp.currentPackData.Length()) - info.PackOffset
 
 	pp.currentPackItems[contentID] = info

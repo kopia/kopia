@@ -1,6 +1,7 @@
 package content
 
 import (
+	"bytes"
 	"context"
 	"os"
 	"sync"
@@ -13,6 +14,7 @@ import (
 	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/encryption"
 	"github.com/kopia/kopia/repo/hashing"
 )
@@ -218,9 +220,29 @@ func (sm *SharedManager) decryptContentAndVerify(payload []byte, bi Info) ([]byt
 		return nil, err
 	}
 
+	// reserved for future use
+	if k := bi.GetEncryptionKeyID(); k != 0 {
+		return nil, errors.Errorf("unsupported encryption key ID: %v", k)
+	}
+
 	decrypted, err := sm.decryptAndVerify(payload, iv)
 	if err != nil {
 		return nil, errors.Wrapf(err, "invalid checksum at %v offset %v length %v", bi.GetPackBlobID(), bi.GetPackOffset(), len(payload))
+	}
+
+	if h := bi.GetCompressionHeaderID(); h != 0 {
+		c := compression.ByHeaderID[h]
+		if c == nil {
+			return nil, errors.Errorf("unsupported compressor %x", h)
+		}
+
+		out := bytes.NewBuffer(nil)
+
+		if err := c.Decompress(out, decrypted); err != nil {
+			return nil, errors.Wrap(err, "error decompressing")
+		}
+
+		return out.Bytes(), nil
 	}
 
 	return decrypted, nil
@@ -384,7 +406,7 @@ func NewSharedManager(ctx context.Context, st blob.Storage, f *FormattingOptions
 		repositoryFormatBytes:   opts.RepositoryFormatBytes,
 		checkInvariantsOnUnlock: os.Getenv("KOPIA_VERIFY_INVARIANTS") != "",
 		writeFormatVersion:      int32(f.Version),
-		encryptionBufferPool:    buf.NewPool(ctx, defaultEncryptionBufferPoolSegmentSize+encryptor.Overhead(), "content-manager-encryption"),
+		encryptionBufferPool:    buf.NewPool(ctx, defaultEncryptionBufferPoolSegmentSize+encryptor.Overhead()+maxCompressionOverheadPerContent, "content-manager-encryption"),
 		indexVersion:            actualIndexVersion,
 	}
 
