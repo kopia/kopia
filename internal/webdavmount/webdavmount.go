@@ -60,6 +60,7 @@ func (f *webdavFile) Read(b []byte) (int, error) {
 		return 0, err
 	}
 
+	// nolint:wrapcheck
 	return r.Read(b)
 }
 
@@ -69,6 +70,7 @@ func (f *webdavFile) Seek(offset int64, whence int) (int64, error) {
 		return 0, err
 	}
 
+	// nolint:wrapcheck
 	return r.Seek(offset, whence)
 }
 
@@ -83,6 +85,7 @@ func (f *webdavFile) Close() error {
 	f.mu.Unlock()
 
 	if r != nil {
+		// nolint:wrapcheck
 		return r.Close()
 	}
 

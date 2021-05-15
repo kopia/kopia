@@ -121,6 +121,7 @@ func (rd *repositoryDirectory) Summary(ctx context.Context) (*fs.DirectorySummar
 }
 
 func (rd *repositoryDirectory) Child(ctx context.Context, name string) (fs.Entry, error) {
+	// nolint:wrapcheck
 	return fs.ReadDirAndFindChild(ctx, rd, name)
 }
 

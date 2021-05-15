@@ -74,6 +74,7 @@ func (s *b2Storage) GetBlob(ctx context.Context, id blob.ID, offset, length int6
 		return nil, translateError(err)
 	}
 
+	// nolint:wrapcheck
 	return blob.EnsureLengthExactly(fetched, length)
 }
 

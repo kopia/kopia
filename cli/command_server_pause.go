@@ -18,5 +18,6 @@ func (c *commandServerPause) setup(svc appServices, parent commandParent) {
 }
 
 func runServerPause(ctx context.Context, cli *apiclient.KopiaAPIClient) error {
+	// nolint:wrapcheck
 	return cli.Post(ctx, "sources/pause", &serverapi.Empty{}, &serverapi.Empty{})
 }

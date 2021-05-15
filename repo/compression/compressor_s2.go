@@ -45,6 +45,7 @@ func (c *s2Compressor) Compress(output *bytes.Buffer, input []byte) error {
 		return errors.Wrap(err, "unable to write header")
 	}
 
+	// nolint:forcetypeassert
 	w := c.pool.Get().(*s2.Writer)
 	defer c.pool.Put(w)
 

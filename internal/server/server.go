@@ -194,6 +194,7 @@ func (s *Server) isAuthCookieValid(username, cookieValue string) bool {
 }
 
 func (s *Server) generateShortTermAuthCookie(username string, now time.Time) (string, error) {
+	// nolint:wrapcheck
 	return jwt.NewWithClaims(jwt.SigningMethodHS256, &jwt.StandardClaims{
 		Subject:   username,
 		NotBefore: now.Add(-time.Minute).Unix(),
@@ -510,9 +511,11 @@ func periodicMaintenanceOnce(ctx context.Context, rep repo.Repository) error {
 		return errors.Errorf("not a direct repository")
 	}
 
+	// nolint:wrapcheck
 	return repo.DirectWriteSession(ctx, dr, repo.WriteSessionOptions{
 		Purpose: "periodicMaintenanceOnce",
 	}, func(w repo.DirectRepositoryWriter) error {
+		// nolint:wrapcheck
 		return snapshotmaintenance.Run(ctx, w, maintenance.ModeAuto, false, maintenance.SafetyFull)
 	})
 }

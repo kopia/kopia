@@ -46,6 +46,7 @@ func (c *storageFromConfigFlags) connectToStorageFromConfigFile(ctx context.Cont
 		return nil, errors.Wrap(err, "unable to open config")
 	}
 
+	// nolint:wrapcheck
 	return blob.NewStorage(ctx, *cfg.Storage)
 }
 
@@ -59,5 +60,6 @@ func (c *storageFromConfigFlags) connectToStorageFromConfigToken(ctx context.Con
 		c.sps.setPasswordFromToken(pass)
 	}
 
+	// nolint:wrapcheck
 	return blob.NewStorage(ctx, ci)
 }

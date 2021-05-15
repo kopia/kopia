@@ -43,6 +43,7 @@ func (a AccessLevel) MarshalJSON() ([]byte, error) {
 		return nil, errors.Errorf("Invalid access level: %v", a)
 	}
 
+	// nolint:wrapcheck
 	return json.Marshal(j)
 }
 

@@ -24,11 +24,13 @@ import (
 const oneDay = 24 * time.Hour
 
 func (c *commandServerStart) generateServerCertificate(ctx context.Context) (*x509.Certificate, *rsa.PrivateKey, error) {
-	return tlsutil.GenerateServerCertificate(
+	cert, key, err := tlsutil.GenerateServerCertificate(
 		ctx,
 		c.serverStartTLSGenerateRSAKeySize,
 		time.Duration(c.serverStartTLSGenerateCertValidDays)*oneDay,
 		c.serverStartTLSGenerateCertNames)
+
+	return cert, key, errors.Wrap(err, "error generating server certificate")
 }
 
 func (c *commandServerStart) startServerWithOptionalTLS(ctx context.Context, httpServer *http.Server) error {
@@ -90,7 +92,7 @@ func (c *commandServerStart) startServerWithOptionalTLSAndListener(ctx context.C
 		fmt.Fprintf(c.out.stderr(), "SERVER ADDRESS: https://%v\n", httpServer.Addr)
 		c.showServerUIPrompt(ctx)
 
-		return httpServer.ServeTLS(listener, c.serverStartTLSCertFile, c.serverStartTLSKeyFile)
+		return errors.Wrap(httpServer.ServeTLS(listener, c.serverStartTLSCertFile, c.serverStartTLSKeyFile), "error starting TLS server")
 
 	case c.serverStartTLSGenerateCert:
 		// PEM files not provided, generate in-memory TLS cert/key but don't persit.
@@ -126,7 +128,7 @@ func (c *commandServerStart) startServerWithOptionalTLSAndListener(ctx context.C
 		fmt.Fprintf(c.out.stderr(), "SERVER ADDRESS: https://%v\n", httpServer.Addr)
 		c.showServerUIPrompt(ctx)
 
-		return httpServer.ServeTLS(listener, "", "")
+		return errors.Wrap(httpServer.ServeTLS(listener, "", ""), "error starting TLS server")
 
 	default:
 		if !c.serverStartInsecure {
@@ -136,7 +138,7 @@ func (c *commandServerStart) startServerWithOptionalTLSAndListener(ctx context.C
 		fmt.Fprintf(c.out.stderr(), "SERVER ADDRESS: http://%v\n", httpServer.Addr)
 		c.showServerUIPrompt(ctx)
 
-		return httpServer.Serve(listener)
+		return errors.Wrap(httpServer.Serve(listener), "error starting server")
 	}
 }
 

@@ -31,7 +31,6 @@ func Connect(ctx context.Context, configFile string, st blob.Storage, password s
 	formatBytes, err := st.GetBlob(ctx, FormatBlobID, 0, -1)
 	if err != nil {
 		if errors.Is(err, blob.ErrBlobNotFound) {
-			// nolint:wrapcheck
 			return ErrRepositoryNotInitialized
 		}
 
@@ -73,7 +72,7 @@ func verifyConnect(ctx context.Context, configFile, password string) error {
 		return err
 	}
 
-	return r.Close(ctx)
+	return errors.Wrap(r.Close(ctx), "error closing repository")
 }
 
 // Disconnect removes the specified configuration file and any local cache directories.
@@ -98,6 +97,7 @@ func Disconnect(ctx context.Context, configFile string) error {
 		log(ctx).Errorf("unable to remove maintenance lock file", maintenanceLock)
 	}
 
+	// nolint:wrapcheck
 	return os.Remove(configFile)
 }
 

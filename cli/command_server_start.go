@@ -186,7 +186,7 @@ func (c *commandServerStart) run(ctx context.Context, rep repo.Repository) error
 		return err
 	}
 
-	return srv.SetRepository(ctx, nil)
+	return errors.Wrap(srv.SetRepository(ctx, nil), "error setting active repository")
 }
 
 func initPrometheus(mux *http.ServeMux) error {

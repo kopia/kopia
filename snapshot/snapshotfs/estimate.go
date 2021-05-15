@@ -110,6 +110,7 @@ func estimate(ctx context.Context, relativePath string, entry fs.Entry, policyTr
 	// see if the context got canceled
 	select {
 	case <-ctx.Done():
+		// nolint:wrapcheck
 		return ctx.Err()
 
 	default:

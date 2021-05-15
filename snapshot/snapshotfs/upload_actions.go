@@ -155,7 +155,7 @@ func runActionCommand(
 	cmd.Stderr = os.Stderr
 
 	if h.Mode == "async" {
-		return cmd.Start()
+		return errors.Wrap(cmd.Start(), "error starting action command asynchronously")
 	}
 
 	v, err := cmd.Output()
@@ -186,6 +186,7 @@ func parseCaptures(v []byte, captures map[string]string) error {
 		}
 	}
 
+	// nolint:wrapcheck
 	return s.Err()
 }
 
@@ -214,7 +215,9 @@ func (u *Uploader) executeBeforeFolderAction(ctx context.Context, actionType str
 
 	if p := captures["KOPIA_SNAPSHOT_PATH"]; p != "" {
 		hc.SnapshotPath = p
-		return localfs.Directory(hc.SnapshotPath)
+		d, err := localfs.Directory(hc.SnapshotPath)
+
+		return d, errors.Wrap(err, "error getting local directory specified in KOPIA_SNAPSHOT_PATH")
 	}
 
 	return nil, nil

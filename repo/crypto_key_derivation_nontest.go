@@ -15,6 +15,7 @@ func (f *formatBlob) deriveMasterKeyFromPassword(password string) ([]byte, error
 
 	switch f.KeyDerivationAlgorithm {
 	case "scrypt-65536-8-1":
+		// nolint:wrapcheck
 		return scrypt.Key([]byte(password), f.UniqueID, 65536, 8, 1, masterKeySize)
 
 	default:

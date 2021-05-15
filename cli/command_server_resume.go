@@ -18,5 +18,6 @@ func (c *commandServerResume) setup(svc appServices, parent commandParent) {
 }
 
 func (c *commandServerResume) run(ctx context.Context, cli *apiclient.KopiaAPIClient) error {
+	// nolint:wrapcheck
 	return cli.Post(ctx, "sources/resume", &serverapi.Empty{}, &serverapi.Empty{})
 }

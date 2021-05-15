@@ -183,6 +183,7 @@ type basicAuthTransport struct {
 func (t basicAuthTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	req.SetBasicAuth(t.username, t.password)
 
+	// nolint:wrapcheck
 	return t.base.RoundTrip(req)
 }
 

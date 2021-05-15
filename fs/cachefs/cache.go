@@ -89,6 +89,7 @@ func (c *Cache) Readdir(ctx context.Context, d fs.Directory) (fs.Entries, error)
 		return c.getEntries(ctx, cacheID, dirCacheExpiration, d.Readdir)
 	}
 
+	// nolint:wrapcheck
 	return d.Readdir(ctx)
 }
 

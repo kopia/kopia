@@ -32,6 +32,7 @@ func (c *commandBlobList) run(ctx context.Context, rep repo.DirectRepository) er
 	jl.begin(&c.jo)
 	defer jl.end()
 
+	// nolint:wrapcheck
 	return rep.BlobReader().ListBlobs(ctx, blob.ID(c.blobListPrefix), func(b blob.Metadata) error {
 		if c.blobListMaxSize != 0 && b.Length > c.blobListMaxSize {
 			return nil
@@ -46,6 +47,7 @@ func (c *commandBlobList) run(ctx context.Context, rep repo.DirectRepository) er
 		} else {
 			c.out.printStdout("%-70v %10v %v\n", b.BlobID, b.Length, formatTimestamp(b.Timestamp))
 		}
+
 		return nil
 	})
 }

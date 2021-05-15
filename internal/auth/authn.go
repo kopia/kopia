@@ -80,7 +80,7 @@ func (a htpasswdAuthenticator) IsValid(ctx context.Context, rep repo.Repository,
 }
 
 func (a htpasswdAuthenticator) Refresh(ctx context.Context) error {
-	return a.f.Reload(nil)
+	return errors.Wrap(a.f.Reload(nil), "error reloading password file")
 }
 
 // AuthenticateHtpasswdFile returns an authenticator that accepts users in the provided htpasswd file.

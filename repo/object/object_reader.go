@@ -314,7 +314,7 @@ func decompress(output *bytes.Buffer, b []byte) error {
 		return errors.Errorf("unsupported compressor %x", compressorID)
 	}
 
-	return compressor.Decompress(output, b)
+	return errors.Wrap(compressor.Decompress(output, b), "error decompressing")
 }
 
 type readerWithData struct {

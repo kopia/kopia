@@ -173,6 +173,7 @@ func (r *grpcRepositoryClient) ClientOptions() ClientOptions {
 }
 
 func (r *grpcRepositoryClient) OpenObject(ctx context.Context, id object.ID) (object.Reader, error) {
+	// nolint:wrapcheck
 	return object.Open(ctx, r, id)
 }
 
@@ -181,6 +182,7 @@ func (r *grpcRepositoryClient) NewObjectWriter(ctx context.Context, opt object.W
 }
 
 func (r *grpcRepositoryClient) VerifyObject(ctx context.Context, id object.ID) ([]content.ID, error) {
+	// nolint:wrapcheck
 	return object.VerifyObject(ctx, r, id)
 }
 
@@ -410,12 +412,13 @@ func (r *grpcRepositoryClient) maybeRetry(ctx context.Context, attempt sessionAt
 // If the grpcRepositoryClient set to automatically retry and the provided callback returns io.EOF,
 // the inner session will be killed and re-established as necessary.
 func (r *grpcRepositoryClient) retry(ctx context.Context, attempt sessionAttemptFunc) (interface{}, error) {
+	// nolint:wrapcheck
 	return retry.WithExponentialBackoff(ctx, "invoking GRPC API", func() (interface{}, error) {
 		v, err := r.inSessionWithoutRetry(ctx, attempt)
 		if errors.Is(err, io.EOF) {
 			r.killInnerSession()
 
-			return nil, errShouldRetry //nolint:wrapcheck
+			return nil, errShouldRetry
 		}
 
 		return v, err
@@ -497,6 +500,7 @@ func unhandledSessionResponse(resp *apipb.SessionResponse) error {
 }
 
 func (r *grpcRepositoryClient) GetContent(ctx context.Context, contentID content.ID) ([]byte, error) {
+	// nolint:wrapcheck
 	return r.contentCache.GetOrLoad(ctx, string(contentID), func() ([]byte, error) {
 		v, err := r.maybeRetry(ctx, func(ctx context.Context, sess *grpcInnerSession) (interface{}, error) {
 			return sess.GetContent(ctx, contentID)
@@ -723,6 +727,7 @@ func (r *grpcRepositoryClient) getOrEstablishInnerSession(ctx context.Context) (
 			return nil, errors.Wrap(err, "error establishing session")
 		}
 
+		// nolint:forcetypeassert
 		r.innerSession = v.(*grpcInnerSession)
 	}
 

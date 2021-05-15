@@ -247,6 +247,7 @@ func (u *Uploader) uploadStreamingFileInternal(ctx context.Context, relativePath
 }
 
 func (u *Uploader) copyWithProgress(dst io.Writer, src io.Reader, completed, length int64) (int64, error) {
+	// nolint:forcetypeassert
 	uploadBufPtr := u.uploadBufPool.Get().(*[]byte)
 	defer u.uploadBufPool.Put(uploadBufPtr)
 
@@ -495,7 +496,6 @@ func (u *Uploader) foreachEntryUnlessCanceled(ctx context.Context, parallel int,
 		eg.Go(func() error {
 			for entry := range ch {
 				if u.IsCanceled() {
-					// nolint:wrapcheck
 					return errCanceled
 				}
 
@@ -509,6 +509,7 @@ func (u *Uploader) foreachEntryUnlessCanceled(ctx context.Context, parallel int,
 		})
 	}
 
+	// nolint:wrapcheck
 	return eg.Wait()
 }
 

@@ -50,6 +50,10 @@ linters:
   enable-all: true
   disable:
     - maligned
+    - tagliatelle
+    - golint
+    - interfacer
+    - scopelint
     - prealloc
     - gochecknoglobals
     - gochecknoinits
@@ -78,6 +82,7 @@ issues:
       - nestif
       - wrapcheck
       - nolintlint
+      - forcetypeassert
     - text: "Magic number: 1e"
       linters:
       - gomnd

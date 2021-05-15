@@ -39,5 +39,6 @@ func (c *storageGCSFlags) connect(ctx context.Context, isNew bool) (blob.Storage
 		c.options.ServiceAccountCredentialsFile = ""
 	}
 
+	// nolint:wrapcheck
 	return gcs.New(ctx, &c.options)
 }

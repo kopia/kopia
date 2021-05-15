@@ -54,7 +54,7 @@ func (c *commandSnapshotDelete) deleteSnapshot(ctx context.Context, rep repo.Rep
 
 	log(ctx).Infof("Deleting %v...", desc)
 
-	return rep.DeleteManifest(ctx, m.ID)
+	return errors.Wrap(rep.DeleteManifest(ctx, m.ID), "error deleting manifest")
 }
 
 func (c *commandSnapshotDelete) deleteSnapshotsByRootObjectID(ctx context.Context, rep repo.RepositoryWriter, rootID object.ID) error {

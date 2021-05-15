@@ -36,6 +36,7 @@ func (c *Comparer) Compare(ctx context.Context, e1, e2 fs.Entry) error {
 
 // Close removes all temporary files used by the comparer.
 func (c *Comparer) Close() error {
+	// nolint:wrapcheck
 	return os.RemoveAll(c.tmpDir)
 }
 

@@ -242,6 +242,7 @@ func (fsf *filesystemFile) Open(ctx context.Context) (fs.Reader, error) {
 }
 
 func (fsl *filesystemSymlink) Readlink(ctx context.Context) (string, error) {
+	// nolint:wrapcheck
 	return os.Readlink(fsl.fullPath())
 }
 

@@ -126,6 +126,7 @@ func (m mergedIndex) Iterate(r IDRange, cb func(i Info) error) error {
 	var pendingItem Info
 
 	for len(minHeap) > 0 {
+		// nolint:forcetypeassert
 		min := heap.Pop(&minHeap).(*nextInfo)
 		if pendingItem == nil || pendingItem.GetContentID() != min.it.GetContentID() {
 			if pendingItem != nil {

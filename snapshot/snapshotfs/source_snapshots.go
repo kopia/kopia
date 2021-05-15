@@ -61,6 +61,7 @@ func safeName(path string) string {
 }
 
 func (s *sourceSnapshots) Child(ctx context.Context, name string) (fs.Entry, error) {
+	// nolint:wrapcheck
 	return fs.ReadDirAndFindChild(ctx, s, name)
 }
 

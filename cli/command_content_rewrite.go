@@ -41,6 +41,7 @@ func (c *commandContentRewrite) setup(svc appServices, parent commandParent) {
 func (c *commandContentRewrite) runContentRewriteCommand(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	c.svc.advancedCommand(ctx)
 
+	// nolint:wrapcheck
 	return maintenance.RewriteContents(ctx, rep, &maintenance.RewriteContentsOptions{
 		ContentIDRange: c.contentRange.contentIDRange(),
 		ContentIDs:     toContentIDs(c.contentRewriteIDs),

@@ -64,6 +64,7 @@ func (n *memoryOwnWritesCache) merge(ctx context.Context, prefix blob.ID, source
 	var result []blob.Metadata
 
 	n.entries.Range(func(key, value interface{}) bool {
+		// nolint:forcetypeassert
 		md := value.(blob.Metadata)
 		if !strings.HasPrefix(string(md.BlobID), string(prefix)) {
 			return true
@@ -95,7 +96,7 @@ func (d *persistentOwnWritesCache) add(ctx context.Context, mb blob.Metadata) er
 		return errors.Wrap(err, "unable to marshal JSON")
 	}
 
-	return d.st.PutBlob(ctx, mb.BlobID, gather.FromSlice(j))
+	return errors.Wrap(d.st.PutBlob(ctx, mb.BlobID, gather.FromSlice(j)), "error adding blob to own writes cache")
 }
 
 func (d *persistentOwnWritesCache) merge(ctx context.Context, prefix blob.ID, source []blob.Metadata) ([]blob.Metadata, error) {

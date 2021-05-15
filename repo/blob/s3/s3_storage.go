@@ -75,6 +75,7 @@ func (s *s3Storage) GetBlob(ctx context.Context, b blob.ID, offset, length int64
 		return nil, translateError(err)
 	}
 
+	// nolint:wrapcheck
 	return blob.EnsureLengthExactly(fetched, length)
 }
 

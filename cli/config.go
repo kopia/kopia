@@ -87,6 +87,7 @@ func resolveSymlink(path string) (string, error) {
 		return path, nil
 	}
 
+	// nolint:wrapcheck
 	return filepath.EvalSymlinks(path)
 }
 

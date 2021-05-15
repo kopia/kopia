@@ -83,5 +83,6 @@ func (c *commandRepositorySetClient) run(ctx context.Context, rep repo.Repositor
 		return errors.Errorf("no changes")
 	}
 
+	// nolint:wrapcheck
 	return repo.SetClientOptions(ctx, c.svc.repositoryConfigFileName(), opt)
 }

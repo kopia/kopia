@@ -77,7 +77,6 @@ func (c *commandRepositoryCreate) ensureEmpty(ctx context.Context, s blob.Storag
 	hasDataError := errors.Errorf("has data")
 
 	err := s.ListBlobs(ctx, "", func(cb blob.Metadata) error {
-		// nolint:wrapcheck
 		return hasDataError
 	})
 
@@ -128,6 +127,7 @@ func (c *commandRepositoryCreate) populateRepository(ctx context.Context, passwo
 	}
 	defer rep.Close(ctx) //nolint:errcheck
 
+	// nolint:wrapcheck
 	return repo.WriteSession(ctx, rep, repo.WriteSessionOptions{
 		Purpose: "populateRepository",
 	}, func(w repo.RepositoryWriter) error {

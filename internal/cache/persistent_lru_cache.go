@@ -197,7 +197,7 @@ func (c *PersistentCache) sweepDirectory(ctx context.Context) (err error) {
 		totalRetainedSize += it.Length
 
 		if totalRetainedSize > c.maxSizeBytes {
-			oldest := heap.Pop(&h).(blob.Metadata)
+			oldest := heap.Pop(&h).(blob.Metadata) //nolint:forcetypeassert
 			if delerr := c.cacheStorage.DeleteBlob(ctx, oldest.BlobID); delerr != nil {
 				log(ctx).Errorf("unable to remove %v: %v", oldest.BlobID, delerr)
 			} else {
@@ -237,7 +237,6 @@ func NewPersistentCache(ctx context.Context, description string, cacheStorage St
 
 	// verify that cache storage is functional by listing from it
 	if err := c.cacheStorage.ListBlobs(ctx, "", func(it blob.Metadata) error {
-		// nolint:wrapcheck
 		return errGood
 	}); err != nil && !errors.Is(err, errGood) {
 		return nil, errors.Wrapf(err, "unable to open %v", c.description)

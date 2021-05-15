@@ -41,6 +41,7 @@ func (c *pgzipCompressor) Compress(output *bytes.Buffer, input []byte) error {
 		return errors.Wrap(err, "unable to write header")
 	}
 
+	// nolint:forcetypeassert
 	w := c.pool.Get().(*pgzip.Writer)
 	defer c.pool.Put(w)
 

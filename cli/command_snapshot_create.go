@@ -212,6 +212,7 @@ func parseTimestamp(timestamp string) (time.Time, error) {
 		return time.Time{}, nil
 	}
 
+	// nolint:wrapcheck
 	return time.Parse(timeFormat, timestamp)
 }
 

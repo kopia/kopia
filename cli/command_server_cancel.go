@@ -18,5 +18,6 @@ func (c *commandServerCancel) setup(svc appServices, parent commandParent) {
 }
 
 func (c *commandServerCancel) runServerCancelUpload(ctx context.Context, cli *apiclient.KopiaAPIClient) error {
+	// nolint:wrapcheck
 	return cli.Post(ctx, "sources/cancel", &serverapi.Empty{}, &serverapi.Empty{})
 }

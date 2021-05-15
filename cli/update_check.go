@@ -61,7 +61,7 @@ func (c *App) writeUpdateState(us *updateState) error {
 		return errors.Wrap(err, "unable to marshal JSON")
 	}
 
-	return atomicfile.Write(c.updateStateFilename(), &buf)
+	return errors.Wrap(atomicfile.Write(c.updateStateFilename(), &buf), "error writing update state")
 }
 
 func (c *App) removeUpdateState() {

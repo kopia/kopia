@@ -105,7 +105,12 @@ func getContentCacheOrNil(ctx context.Context, opt *content.CachingOptions, pass
 		return nil, errors.Wrap(err, "unable to initialize protection")
 	}
 
-	return cache.NewPersistentCache(ctx, "cache-storage", cs, prot, opt.MaxCacheSizeBytes, cache.DefaultTouchThreshold, cache.DefaultSweepFrequency)
+	pc, err := cache.NewPersistentCache(ctx, "cache-storage", cs, prot, opt.MaxCacheSizeBytes, cache.DefaultTouchThreshold, cache.DefaultSweepFrequency)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to open persistent cache")
+	}
+
+	return pc, nil
 }
 
 // OpenAPIServer connects remote repository over Kopia API.
@@ -181,7 +186,6 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 
 	repoConfig, err := f.decryptFormatBytes(masterKey)
 	if err != nil {
-		// nolint:wrapcheck
 		return nil, ErrInvalidPassword
 	}
 
@@ -268,7 +272,7 @@ func writeCacheMarker(cacheDir string) error {
 		return errors.Wrap(err, "unable to write cachedir marker contents")
 	}
 
-	return f.Close()
+	return errors.Wrap(f.Close(), "error closing cache marker file")
 }
 
 func readAndCacheFormatBlobBytes(ctx context.Context, st blob.Storage, cacheDirectory string) ([]byte, error) {

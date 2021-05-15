@@ -58,6 +58,7 @@ func (r *apiServerRepository) ClientOptions() ClientOptions {
 }
 
 func (r *apiServerRepository) OpenObject(ctx context.Context, id object.ID) (object.Reader, error) {
+	// nolint:wrapcheck
 	return object.Open(ctx, r, id)
 }
 
@@ -66,6 +67,7 @@ func (r *apiServerRepository) NewObjectWriter(ctx context.Context, opt object.Wr
 }
 
 func (r *apiServerRepository) VerifyObject(ctx context.Context, id object.ID) ([]content.ID, error) {
+	// nolint:wrapcheck
 	return object.VerifyObject(ctx, r, id)
 }
 
@@ -76,6 +78,7 @@ func (r *apiServerRepository) GetManifest(ctx context.Context, id manifest.ID, d
 		return nil, errors.Wrap(err, "GetManifest")
 	}
 
+	// nolint:wrapcheck
 	return mm.Metadata, json.Unmarshal(mm.Payload, data)
 }
 
@@ -162,6 +165,7 @@ func (r *apiServerRepository) ContentInfo(ctx context.Context, contentID content
 }
 
 func (r *apiServerRepository) GetContent(ctx context.Context, contentID content.ID) ([]byte, error) {
+	// nolint:wrapcheck
 	return r.contentCache.GetOrLoad(ctx, string(contentID), func() ([]byte, error) {
 		var result []byte
 

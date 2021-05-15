@@ -14,5 +14,6 @@ type passthroughContentCache struct {
 func (c passthroughContentCache) close(ctx context.Context) {}
 
 func (c passthroughContentCache) getContent(ctx context.Context, cacheKey cacheKey, blobID blob.ID, offset, length int64) ([]byte, error) {
+	// nolint:wrapcheck
 	return c.st.GetBlob(ctx, blobID, offset, length)
 }

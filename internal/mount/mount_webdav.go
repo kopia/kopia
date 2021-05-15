@@ -74,7 +74,7 @@ type webdavController struct {
 }
 
 func (c webdavController) Unmount(ctx context.Context) error {
-	return c.s.Shutdown(ctx)
+	return errors.Wrap(c.s.Shutdown(ctx), "error shutting down webdav server")
 }
 
 func (c webdavController) MountPath() string {

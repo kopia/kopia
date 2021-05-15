@@ -23,5 +23,6 @@ func (c *storageB2Flags) setup(_ storageProviderServices, cmd *kingpin.CmdClause
 }
 
 func (c *storageB2Flags) connect(ctx context.Context, isNew bool) (blob.Storage, error) {
+	// nolint:wrapcheck
 	return b2.New(ctx, &c.b2options)
 }

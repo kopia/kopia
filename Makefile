@@ -59,6 +59,10 @@ lint: $(linter)
 lint-and-log: $(linter)
 	$(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags) | tee .linterr.txt
 
+lint-all: $(linter)
+	GOOS=windows $(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
+	GOOS=linux $(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
+	GOOS=darwin $(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
 
 vet:
 	go vet -all .

@@ -55,6 +55,7 @@ func (az *azStorage) GetBlob(ctx context.Context, b blob.ID, offset, length int6
 			return nil, errors.Wrap(err, "AddReader")
 		}
 
+		// nolint:wrapcheck
 		return ioutil.ReadAll(throttled)
 	}
 
@@ -63,6 +64,7 @@ func (az *azStorage) GetBlob(ctx context.Context, b blob.ID, offset, length int6
 		return nil, translateError(err)
 	}
 
+	// nolint:wrapcheck
 	return blob.EnsureLengthExactly(fetched, length)
 }
 
@@ -197,7 +199,7 @@ func (az *azStorage) DisplayName() string {
 }
 
 func (az *azStorage) Close(ctx context.Context) error {
-	return az.bucket.Close()
+	return errors.Wrap(az.bucket.Close(), "error closing bucket")
 }
 
 func toBandwidth(bytesPerSecond int) iothrottler.Bandwidth {

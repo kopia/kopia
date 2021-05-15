@@ -71,5 +71,6 @@ func (c *storageSFTPFlags) connect(ctx context.Context, isNew bool) (blob.Storag
 		sftpo.DirectoryShards = []int{}
 	}
 
+	// nolint:wrapcheck
 	return sftp.New(ctx, &sftpo)
 }

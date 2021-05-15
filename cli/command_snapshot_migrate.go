@@ -195,7 +195,7 @@ func (c *commandSnapshotMigrate) migrateSinglePolicy(ctx context.Context, source
 
 	log(ctx).Infof("migrating policy for %v", si)
 
-	return policy.SetPolicy(ctx, destRepo, si, pol)
+	return errors.Wrap(policy.SetPolicy(ctx, destRepo, si, pol), "error setting policy")
 }
 
 func (c *commandSnapshotMigrate) findPreviousSnapshotManifestWithStartTime(ctx context.Context, rep repo.Repository, sourceInfo snapshot.SourceInfo, startTime time.Time) (*snapshot.Manifest, error) {
@@ -314,6 +314,7 @@ func (c *commandSnapshotMigrate) getSourcesToMigrate(ctx context.Context, rep re
 	}
 
 	if c.migrateAll {
+		// nolint:wrapcheck
 		return snapshot.ListSources(ctx, rep)
 	}
 
