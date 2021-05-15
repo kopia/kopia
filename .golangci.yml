@@ -50,6 +50,7 @@ linters:
   enable-all: true
   disable:
     - maligned
+    - tagliatelle
     - prealloc
     - gochecknoglobals
     - gochecknoinits
