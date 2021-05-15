@@ -60,6 +60,7 @@ func (c *commandRepositoryStatus) run(ctx context.Context, rep repo.Repository) 
 	c.out.printStdout("Encryption:          %v\n", dr.ContentReader().ContentFormat().Encryption)
 	c.out.printStdout("Splitter:            %v\n", dr.ObjectFormat().Splitter)
 	c.out.printStdout("Format version:      %v\n", dr.ContentReader().ContentFormat().Version)
+	c.out.printStdout("Content compression: %v\n", dr.ContentReader().SupportsContentCompression())
 	c.out.printStdout("Max pack length:     %v\n", units.BytesStringBase2(int64(dr.ContentReader().ContentFormat().MaxPackSize)))
 
 	if !c.statusReconnectToken {
