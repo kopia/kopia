@@ -38,5 +38,6 @@ func (c *storageWebDAVFlags) connect(ctx context.Context, isNew bool) (blob.Stor
 		wo.DirectoryShards = []int{}
 	}
 
+	// nolint:wrapcheck
 	return webdav.New(ctx, &wo)
 }

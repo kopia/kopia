@@ -28,5 +28,6 @@ func (c *storageS3Flags) setup(_ storageProviderServices, cmd *kingpin.CmdClause
 }
 
 func (c *storageS3Flags) connect(ctx context.Context, isNew bool) (blob.Storage, error) {
+	// nolint:wrapcheck
 	return s3.New(ctx, &c.s3options)
 }

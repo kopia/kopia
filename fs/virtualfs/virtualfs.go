@@ -69,6 +69,7 @@ type staticDirectory struct {
 
 // Child gets the named child of a directory.
 func (sd *staticDirectory) Child(ctx context.Context, name string) (fs.Entry, error) {
+	// nolint:wrapcheck
 	return fs.ReadDirAndFindChild(ctx, sd, name)
 }
 

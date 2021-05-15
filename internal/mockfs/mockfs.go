@@ -208,6 +208,7 @@ func (imd *Directory) Subdir(name ...string) *Directory {
 			panic(fmt.Sprintf("'%s' is not a directory in '%s'", n, i.Name()))
 		}
 
+		// nolint:forcetypeassert
 		i = i2.(*Directory)
 	}
 
@@ -239,6 +240,7 @@ func (imd *Directory) OnReaddir(cb func()) {
 
 // Child gets the named child of a directory.
 func (imd *Directory) Child(ctx context.Context, name string) (fs.Entry, error) {
+	// nolint:wrapcheck
 	return fs.ReadDirAndFindChild(ctx, imd, name)
 }
 

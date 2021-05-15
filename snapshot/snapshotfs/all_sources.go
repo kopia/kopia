@@ -54,6 +54,7 @@ func (s *repositoryAllSources) LocalFilesystemPath() string {
 }
 
 func (s *repositoryAllSources) Child(ctx context.Context, name string) (fs.Entry, error) {
+	// nolint:wrapcheck
 	return fs.ReadDirAndFindChild(ctx, s, name)
 }
 

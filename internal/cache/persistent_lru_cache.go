@@ -197,7 +197,7 @@ func (c *PersistentCache) sweepDirectory(ctx context.Context) (err error) {
 		totalRetainedSize += it.Length
 
 		if totalRetainedSize > c.maxSizeBytes {
-			oldest := heap.Pop(&h).(blob.Metadata)
+			oldest := heap.Pop(&h).(blob.Metadata) //nolint:forcetypeassert
 			if delerr := c.cacheStorage.DeleteBlob(ctx, oldest.BlobID); delerr != nil {
 				log(ctx).Errorf("unable to remove %v: %v", oldest.BlobID, delerr)
 			} else {

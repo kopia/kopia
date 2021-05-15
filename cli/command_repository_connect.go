@@ -37,6 +37,7 @@ func (c *commandRepositoryConnect) setup(svc advancedAppServices, parent command
 				return errors.Wrap(err, "can't connect to storage")
 			}
 
+			// nolint:wrapcheck
 			return svc.runConnectCommandWithStorage(ctx, &c.co, st)
 		})
 	}

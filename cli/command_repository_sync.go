@@ -344,7 +344,7 @@ func (c *commandRepositorySyncTo) ensureRepositoriesHaveSameFormatBlob(ctx conte
 				return errors.Errorf("destination repository does not have a format blob")
 			}
 
-			return dst.PutBlob(ctx, repo.FormatBlobID, gather.FromSlice(srcData))
+			return errors.Wrap(dst.PutBlob(ctx, repo.FormatBlobID, gather.FromSlice(srcData)), "error saving format blob")
 		}
 
 		return errors.Wrap(err, "error reading destination repository format blob")

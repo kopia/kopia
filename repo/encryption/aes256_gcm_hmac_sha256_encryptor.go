@@ -19,6 +19,7 @@ type aes256GCMHmacSha256 struct {
 
 // aeadForContent returns cipher.AEAD using key derived from a given contentID.
 func (e aes256GCMHmacSha256) aeadForContent(contentID []byte) (cipher.AEAD, error) {
+	// nolint:forcetypeassert
 	h := e.hmacPool.Get().(hash.Hash)
 	defer e.hmacPool.Put(h)
 	h.Reset()
@@ -35,6 +36,7 @@ func (e aes256GCMHmacSha256) aeadForContent(contentID []byte) (cipher.AEAD, erro
 		return nil, errors.Wrap(err, "unable to create AES-256 cipher")
 	}
 
+	// nolint:wrapcheck
 	return cipher.NewGCM(c)
 }
 

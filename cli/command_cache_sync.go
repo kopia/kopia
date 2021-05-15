@@ -14,5 +14,6 @@ func (c *commandCacheSync) setup(svc appServices, parent commandParent) {
 }
 
 func (c *commandCacheSync) run(ctx context.Context, rep repo.DirectRepositoryWriter) error {
+	// nolint:wrapcheck
 	return rep.ContentManager().SyncMetadataCache(ctx)
 }

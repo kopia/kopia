@@ -423,7 +423,7 @@ func (b *indexV2) entryToInfo(contentID ID, entryData []byte) (Info, error) {
 // Close closes the index and the underlying reader.
 func (b *indexV2) Close() error {
 	if closer, ok := b.readerAt.(io.Closer); ok {
-		return closer.Close()
+		return errors.Wrap(closer.Close(), "error closing index file")
 	}
 
 	return nil
@@ -639,7 +639,7 @@ func (b packIndexBuilder) buildV2(output io.Writer) error {
 		return errors.Wrap(err, "error writing extra random suffix to ensure indexes are always globally unique")
 	}
 
-	return w.Flush()
+	return errors.Wrap(w.Flush(), "error flushing index")
 }
 
 func (b *indexBuilderV2) prepareExtraData(sortedInfos []Info) []byte {

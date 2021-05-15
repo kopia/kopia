@@ -70,6 +70,7 @@ func (c *storageFilesystemFlags) connect(ctx context.Context, isNew bool) (blob.
 		}
 	}
 
+	// nolint:wrapcheck
 	return filesystem.New(ctx, &fso)
 }
 

@@ -40,5 +40,6 @@ func (c *storageRcloneFlags) connect(ctx context.Context, isNew bool) (blob.Stor
 		c.opt.EmbeddedConfig = string(cfg)
 	}
 
+	// nolint:wrapcheck
 	return rclone.New(ctx, &c.opt)
 }

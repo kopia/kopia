@@ -93,6 +93,7 @@ func (s *Server) handleEstimate(ctx context.Context, r *http.Request, body []byt
 			return errors.Wrap(err, "unable to get policy tree")
 		}
 
+		// nolint:wrapcheck
 		return snapshotfs.Estimate(estimatectx, rep, dir, policyTree, estimateTaskProgress{ctrl})
 	})
 

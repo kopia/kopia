@@ -38,6 +38,7 @@ func (o *ZipOutput) Close(ctx context.Context) error {
 		return errors.Wrap(err, "error closing zip")
 	}
 
+	// nolint:wrapcheck
 	return o.w.Close()
 }
 

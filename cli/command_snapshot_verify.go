@@ -303,5 +303,6 @@ func (c *commandSnapshotVerify) loadSourceManifests(ctx context.Context, rep rep
 		}
 	}
 
+	// nolint:wrapcheck
 	return snapshot.LoadSnapshots(ctx, rep, manifestIDs)
 }

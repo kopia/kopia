@@ -47,5 +47,5 @@ func (c *commandACLAdd) run(ctx context.Context, rep repo.RepositoryWriter) erro
 		Access: al,
 	}
 
-	return acl.AddACL(ctx, rep, e)
+	return errors.Wrap(acl.AddACL(ctx, rep, e), "error adding ACL entry")
 }

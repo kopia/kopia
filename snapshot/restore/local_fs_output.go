@@ -269,6 +269,7 @@ func isWindows() bool {
 func (o *FilesystemOutput) createDirectory(ctx context.Context, path string) error {
 	switch stat, err := os.Stat(path); {
 	case os.IsNotExist(err):
+		// nolint:wrapcheck
 		return os.MkdirAll(path, 0o700)
 	case err != nil:
 		return errors.Wrap(err, "failed to stat path "+path)
@@ -308,6 +309,7 @@ func (o *FilesystemOutput) copyFileContent(ctx context.Context, targetPath strin
 
 	log(ctx).Debugf("copying file contents to: %v", targetPath)
 
+	// nolint:wrapcheck
 	return atomicfile.Write(targetPath, r)
 }
 

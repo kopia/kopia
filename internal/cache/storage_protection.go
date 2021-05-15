@@ -47,6 +47,7 @@ func (p checksumProtection) Protect(id string, b []byte) []byte {
 }
 
 func (p checksumProtection) Verify(id string, b []byte) ([]byte, error) {
+	// nolint:wrapcheck
 	return hmac.VerifyAndStrip(b, p.Secret)
 }
 
@@ -82,7 +83,12 @@ func (authenticatedEncryptionProtection) SupportsPartial() bool {
 }
 
 func (p authenticatedEncryptionProtection) Verify(id string, b []byte) ([]byte, error) {
-	return p.e.Decrypt(nil, b, p.deriveIV(id))
+	v, err := p.e.Decrypt(nil, b, p.deriveIV(id))
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to decrypt cache content")
+	}
+
+	return v, nil
 }
 
 type authenticatedEncryptionProtectionKey []byte

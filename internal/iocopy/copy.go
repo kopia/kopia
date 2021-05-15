@@ -18,9 +18,11 @@ var bufferPool = sync.Pool{
 
 // Copy is equivalent to io.Copy().
 func Copy(dst io.Writer, src io.Reader) (int64, error) {
+	// nolint:forcetypeassert
 	bufPtr := bufferPool.Get().(*[]byte)
 
 	defer bufferPool.Put(bufPtr)
 
+	// nolint:wrapcheck
 	return io.CopyBuffer(dst, src, *bufPtr)
 }

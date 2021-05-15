@@ -54,6 +54,7 @@ func (p Permissions) MarshalJSON() ([]byte, error) {
 
 	s := "0" + strconv.FormatInt(int64(p), 8)
 
+	// nolint:wrapcheck
 	return json.Marshal(&s)
 }
 

@@ -13,6 +13,7 @@ const maxSmallBlobsForIndexCompaction = 8
 func IndexCompaction(ctx context.Context, rep repo.DirectRepositoryWriter, safety SafetyParameters) error {
 	log(ctx).Infof("Compacting indexes...")
 
+	// nolint:wrapcheck
 	return rep.ContentManager().CompactIndexes(ctx, content.CompactOptions{
 		MaxSmallBlobs:                    maxSmallBlobsForIndexCompaction,
 		DisableEventualConsistencySafety: safety.DisableEventualConsistencySafety,

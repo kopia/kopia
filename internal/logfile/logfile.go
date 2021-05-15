@@ -315,5 +315,6 @@ func (w *onDemandBackend) Log(level logging.Level, depth int, rec *logging.Recor
 		return errors.New("no backend")
 	}
 
+	// nolint:wrapcheck
 	return w.backend.Log(level, depth+1, rec)
 }

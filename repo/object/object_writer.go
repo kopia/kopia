@@ -162,6 +162,8 @@ func (w *objectWriter) flushBuffer() error {
 	w.asyncWritesWG.Add(1)
 
 	asyncBuf := w.om.bufferPool.Allocate(length)
+
+	// nolint:gocritic
 	asyncBytes := append(asyncBuf.Data[:0], w.buffer.Bytes()...)
 
 	go func() {

@@ -84,6 +84,7 @@ func (fs *fsImpl) GetBlobFromPath(ctx context.Context, dirPath, path string, off
 		defer f.Close() //nolint:errcheck,gosec
 
 		if length < 0 {
+			// nolint:wrapcheck
 			return ioutil.ReadAll(f)
 		}
 
@@ -122,6 +123,7 @@ func (fs *fsImpl) GetBlobFromPath(ctx context.Context, dirPath, path string, off
 		return nil, err
 	}
 
+	// nolint:wrapcheck
 	return blob.EnsureLengthExactly(val.([]byte), length)
 }
 
@@ -143,6 +145,7 @@ func (fs *fsImpl) GetMetadataFromPath(ctx context.Context, dirPath, path string)
 }
 
 func (fs *fsImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data blob.Bytes) error {
+	// nolint:wrapcheck
 	return retry.WithExponentialBackoffNoValue(ctx, "PutBlobInPath:"+path, func() error {
 		randSuffix := make([]byte, 8)
 		if _, err := rand.Read(randSuffix); err != nil {
@@ -193,6 +196,7 @@ func (fs *fsImpl) createTempFileAndDir(tempFile string) (*os.File, error) {
 			return nil, errors.Wrap(err, "cannot create directory")
 		}
 
+		// nolint:wrapcheck
 		return os.OpenFile(tempFile, flags, fs.fileMode()) //nolint:gosec
 	}
 
@@ -201,6 +205,7 @@ func (fs *fsImpl) createTempFileAndDir(tempFile string) (*os.File, error) {
 }
 
 func (fs *fsImpl) DeleteBlobInPath(ctx context.Context, dirPath, path string) error {
+	// nolint:wrapcheck
 	return retry.WithExponentialBackoffNoValue(ctx, "DeleteBlobInPath:"+path, func() error {
 		err := os.Remove(path)
 		if err == nil || os.IsNotExist(err) {
@@ -230,6 +235,7 @@ func (fs *fsImpl) ReadDir(ctx context.Context, dirname string) ([]os.FileInfo, e
 func (fs *fsImpl) SetTimeInPath(ctx context.Context, dirPath, filePath string, n time.Time) error {
 	log(ctx).Debugf("updating timestamp on %v to %v", filePath, n)
 
+	// nolint:wrapcheck
 	return os.Chtimes(filePath, n, n)
 }
 
@@ -252,6 +258,7 @@ func (fs *fsStorage) TouchBlob(ctx context.Context, blobID blob.ID, threshold ti
 
 	log(ctx).Debugf("updating timestamp on %v to %v", path, n)
 
+	// nolint:wrapcheck
 	return os.Chtimes(path, n, n)
 }
 

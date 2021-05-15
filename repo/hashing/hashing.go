@@ -55,6 +55,7 @@ func truncatedHMACHashFuncFactory(hf func() hash.Hash, truncate int) HashFuncFac
 		}
 
 		return func(output, b []byte) []byte {
+			// nolint:forcetypeassert
 			h := pool.Get().(hash.Hash)
 			defer pool.Put(h)
 
@@ -83,6 +84,7 @@ func truncatedKeyedHashFuncFactory(hf func(key []byte) (hash.Hash, error), trunc
 		}
 
 		return func(output, b []byte) []byte {
+			// nolint:forcetypeassert
 			h := pool.Get().(hash.Hash)
 			defer pool.Put(h)
 

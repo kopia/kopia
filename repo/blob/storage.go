@@ -109,6 +109,7 @@ func ListAllBlobs(ctx context.Context, st Storage, prefix ID) ([]Metadata, error
 // IterateAllPrefixesInParallel invokes the provided callback and returns the first error returned by the callback or nil.
 func IterateAllPrefixesInParallel(ctx context.Context, parallelism int, st Storage, prefixes []ID, callback func(Metadata) error) error {
 	if len(prefixes) == 1 {
+		// nolint:wrapcheck
 		return st.ListBlobs(ctx, prefixes[0], callback)
 	}
 

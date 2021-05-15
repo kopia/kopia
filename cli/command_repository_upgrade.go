@@ -14,5 +14,6 @@ func (c *commandRepositoryUpgrade) setup(svc appServices, parent commandParent) 
 }
 
 func (c *commandRepositoryUpgrade) run(ctx context.Context, rep repo.DirectRepositoryWriter) error {
+	// nolint:wrapcheck
 	return rep.Upgrade(ctx)
 }

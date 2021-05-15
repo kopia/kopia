@@ -53,7 +53,7 @@ func (c *contentCacheForMetadata) sync(ctx context.Context) error {
 		return errors.Wrap(err, "error listing blobs")
 	}
 
-	return eg.Wait()
+	return errors.Wrap(eg.Wait(), "error synchronizing metadata cache")
 }
 
 func (c *contentCacheForMetadata) mutexForBlob(blobID blob.ID) *sync.Mutex {

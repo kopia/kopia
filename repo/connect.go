@@ -72,7 +72,7 @@ func verifyConnect(ctx context.Context, configFile, password string) error {
 		return err
 	}
 
-	return r.Close(ctx)
+	return errors.Wrap(r.Close(ctx), "error closing repository")
 }
 
 // Disconnect removes the specified configuration file and any local cache directories.
@@ -97,6 +97,7 @@ func Disconnect(ctx context.Context, configFile string) error {
 		log(ctx).Errorf("unable to remove maintenance lock file", maintenanceLock)
 	}
 
+	// nolint:wrapcheck
 	return os.Remove(configFile)
 }
 

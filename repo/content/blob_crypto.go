@@ -22,7 +22,12 @@ func getIndexBlobIV(s blob.ID) ([]byte, error) {
 		return nil, errors.Errorf("blob id too short: %v", s)
 	}
 
-	return hex.DecodeString(string(s[len(s)-(aes.BlockSize*2):])) //nolint:gomnd
+	v, err := hex.DecodeString(string(s[len(s)-(aes.BlockSize*2):])) //nolint:gomnd
+	if err != nil {
+		return nil, errors.Errorf("invalid blob ID: %v", s)
+	}
+
+	return v, nil
 }
 
 func encryptFullBlob(h hashing.HashFunc, enc encryption.Encryptor, data []byte, prefix blob.ID, sessionID SessionID) (blob.ID, []byte, error) {

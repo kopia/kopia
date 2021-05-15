@@ -19,10 +19,12 @@ type readonlyStorage struct {
 }
 
 func (s readonlyStorage) GetBlob(ctx context.Context, id blob.ID, offset, length int64) ([]byte, error) {
+	// nolint:wrapcheck
 	return s.base.GetBlob(ctx, id, offset, length)
 }
 
 func (s readonlyStorage) GetMetadata(ctx context.Context, id blob.ID) (blob.Metadata, error) {
+	// nolint:wrapcheck
 	return s.base.GetMetadata(ctx, id)
 }
 
@@ -39,10 +41,12 @@ func (s readonlyStorage) DeleteBlob(ctx context.Context, id blob.ID) error {
 }
 
 func (s readonlyStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback func(blob.Metadata) error) error {
+	// nolint:wrapcheck
 	return s.base.ListBlobs(ctx, prefix, callback)
 }
 
 func (s readonlyStorage) Close(ctx context.Context) error {
+	// nolint:wrapcheck
 	return s.base.Close(ctx)
 }
 

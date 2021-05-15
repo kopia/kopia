@@ -17,6 +17,7 @@ func newBlake3(key []byte) (hash.Hash, error) {
 		key = xKey[:blake3KeySize]
 	}
 
+	// nolint:wrapcheck
 	return blake3.NewKeyed(key[:blake3KeySize])
 }
 

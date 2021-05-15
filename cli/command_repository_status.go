@@ -94,7 +94,7 @@ func (c *commandRepositoryStatus) run(ctx context.Context, rep repo.Repository) 
 func scanCacheDir(dirname string) (fileCount int, totalFileLength int64, err error) {
 	entries, err := ioutil.ReadDir(dirname)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, errors.Wrap(err, "unable to read cache directory")
 	}
 
 	for _, e := range entries {

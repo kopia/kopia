@@ -53,6 +53,7 @@ func (gcs *gcsStorage) GetBlob(ctx context.Context, b blob.ID, offset, length in
 		}
 		defer reader.Close() //nolint:errcheck
 
+		// nolint:wrapcheck
 		return ioutil.ReadAll(reader)
 	}
 
@@ -61,6 +62,7 @@ func (gcs *gcsStorage) GetBlob(ctx context.Context, b blob.ID, offset, length in
 		return nil, translateError(err)
 	}
 
+	// nolint:wrapcheck
 	return blob.EnsureLengthExactly(fetched, length)
 }
 
@@ -174,7 +176,7 @@ func (gcs *gcsStorage) DisplayName() string {
 }
 
 func (gcs *gcsStorage) Close(ctx context.Context) error {
-	return gcs.storageClient.Close()
+	return errors.Wrap(gcs.storageClient.Close(), "error closing GCS storage")
 }
 
 func toBandwidth(bytesPerSecond int) iothrottler.Bandwidth {

@@ -56,6 +56,7 @@ func (d *davStorageImpl) GetBlobFromPath(ctx context.Context, dirPath, path stri
 		return nil, errors.Wrap(blob.ErrInvalidRange, "invalid offset")
 	}
 
+	// nolint:wrapcheck
 	return blob.EnsureLengthAndTruncate(data[offset:], length)
 }
 
@@ -118,12 +119,15 @@ func (d *davStorageImpl) PutBlobInPath(ctx context.Context, dirPath, filePath st
 
 	b := buf.Bytes()
 
+	// nolint:wrapcheck
 	return retry.WithExponentialBackoffNoValue(ctx, "WriteTemporaryFileAndCreateParentDirs", func() error {
 		mkdirAttempted := false
 
 		for {
+			// nolint:wrapcheck
 			err := d.translateError(d.cli.Write(tmpPath, b, defaultFilePerm))
 			if err == nil {
+				// nolint:wrapcheck
 				return d.cli.Rename(tmpPath, filePath, true)
 			}
 
@@ -152,6 +156,7 @@ func (d *davStorageImpl) SetTimeInPath(ctx context.Context, dirPath, filePath st
 
 func (d *davStorageImpl) DeleteBlobInPath(ctx context.Context, dirPath, filePath string) error {
 	return d.translateError(retry.WithExponentialBackoffNoValue(ctx, "DeleteBlobInPath", func() error {
+		// nolint:wrapcheck
 		return d.cli.Remove(filePath)
 	}, isRetriable))
 }

@@ -36,5 +36,10 @@ func aeadOpenPrefixedWithNonce(output []byte, a cipher.AEAD, ciphertext, content
 		return nil, errors.Errorf("ciphertext too short")
 	}
 
-	return a.Open(output[:0], ciphertext[0:a.NonceSize()], ciphertext[a.NonceSize():], contentID)
+	v, err := a.Open(output[:0], ciphertext[0:a.NonceSize()], ciphertext[a.NonceSize():], contentID)
+	if err != nil {
+		return nil, errors.Errorf("unable to decrypt content")
+	}
+
+	return v, nil
 }

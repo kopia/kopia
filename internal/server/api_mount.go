@@ -38,11 +38,11 @@ func (s *Server) handleMountCreate(ctx context.Context, r *http.Request, body []
 		}
 
 		if actual, loaded := s.mounts.LoadOrStore(oid, c); loaded {
-			c.Unmount(ctx) // nolint:errcheck
-			c = actual.(mount.Controller)
+			c.Unmount(ctx)                // nolint:errcheck
+			c = actual.(mount.Controller) // nolint:forcetypeassert
 		}
 	} else {
-		c = v.(mount.Controller)
+		c = v.(mount.Controller) // nolint:forcetypeassert
 	}
 
 	log(ctx).Debugf("mount for %v => %v", oid, c.MountPath())
@@ -61,7 +61,7 @@ func (s *Server) handleMountGet(ctx context.Context, r *http.Request, body []byt
 		return nil, notFoundError("mount point not found")
 	}
 
-	c := v.(mount.Controller)
+	c := v.(mount.Controller) // nolint:forcetypeassert
 
 	return &serverapi.MountedSnapshot{
 		Path: c.MountPath(),
@@ -77,7 +77,7 @@ func (s *Server) handleMountDelete(ctx context.Context, r *http.Request, body []
 		return nil, notFoundError("mount point not found")
 	}
 
-	c := v.(mount.Controller)
+	c := v.(mount.Controller) // nolint:forcetypeassert
 
 	if err := c.Unmount(ctx); err != nil {
 		return nil, internalServerError(err)
@@ -94,8 +94,8 @@ func (s *Server) handleMountList(ctx context.Context, r *http.Request, body []by
 	}
 
 	s.mounts.Range(func(key, val interface{}) bool {
-		oid := key.(object.ID)
-		c := val.(mount.Controller)
+		oid := key.(object.ID)      // nolint:forcetypeassert
+		c := val.(mount.Controller) // nolint:forcetypeassert
 
 		res.Items = append(res.Items, &serverapi.MountedSnapshot{
 			Path: c.MountPath(),
@@ -109,7 +109,7 @@ func (s *Server) handleMountList(ctx context.Context, r *http.Request, body []by
 
 func (s *Server) unmountAll(ctx context.Context) {
 	s.mounts.Range(func(key, val interface{}) bool {
-		c := val.(mount.Controller)
+		c := val.(mount.Controller) // nolint:forcetypeassert
 
 		log(ctx).Debugf("unmounting %v from %v", key, c.MountPath())
 

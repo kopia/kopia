@@ -27,7 +27,9 @@ func adjustCacheKey(cacheKey cacheKey) cacheKey {
 func (c *contentCacheForData) getContent(ctx context.Context, cacheKey cacheKey, blobID blob.ID, offset, length int64) ([]byte, error) {
 	cacheKey = adjustCacheKey(cacheKey)
 
+	// nolint:wrapcheck
 	return c.pc.GetOrLoad(ctx, string(cacheKey), func() ([]byte, error) {
+		// nolint:wrapcheck
 		return c.st.GetBlob(ctx, blobID, offset, length)
 	})
 }

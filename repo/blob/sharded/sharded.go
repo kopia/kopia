@@ -37,6 +37,8 @@ type Storage struct {
 // GetBlob implements blob.Storage.
 func (s Storage) GetBlob(ctx context.Context, blobID blob.ID, offset, length int64) ([]byte, error) {
 	dirPath, filePath := s.GetShardedPathAndFilePath(blobID)
+
+	// nolint:wrapcheck
 	return s.Impl.GetBlobFromPath(ctx, dirPath, filePath, offset, length)
 }
 
@@ -112,6 +114,7 @@ func (s Storage) GetMetadata(ctx context.Context, blobID blob.ID) (blob.Metadata
 func (s Storage) PutBlob(ctx context.Context, blobID blob.ID, data blob.Bytes) error {
 	dirPath, filePath := s.GetShardedPathAndFilePath(blobID)
 
+	// nolint:wrapcheck
 	return s.Impl.PutBlobInPath(ctx, dirPath, filePath, data)
 }
 
@@ -119,12 +122,15 @@ func (s Storage) PutBlob(ctx context.Context, blobID blob.ID, data blob.Bytes) e
 func (s Storage) SetTime(ctx context.Context, blobID blob.ID, n time.Time) error {
 	dirPath, filePath := s.GetShardedPathAndFilePath(blobID)
 
+	// nolint:wrapcheck
 	return s.Impl.SetTimeInPath(ctx, dirPath, filePath, n)
 }
 
 // DeleteBlob implements blob.Storage.
 func (s Storage) DeleteBlob(ctx context.Context, blobID blob.ID) error {
 	dirPath, filePath := s.GetShardedPathAndFilePath(blobID)
+
+	// nolint:wrapcheck
 	return s.Impl.DeleteBlobInPath(ctx, dirPath, filePath)
 }
 

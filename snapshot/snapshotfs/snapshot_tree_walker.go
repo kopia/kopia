@@ -66,6 +66,7 @@ func (w *TreeWalker) Run(ctx context.Context) error {
 		log(ctx).Infof("  Processed %v contents, discovered %v...", completed, enqueued)
 	}
 
+	// nolint:wrapcheck
 	return w.queue.Process(ctx, w.Parallelism)
 }
 

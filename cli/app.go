@@ -314,6 +314,7 @@ func assertDirectRepository(act func(ctx context.Context, rep repo.DirectReposit
 
 func (c *App) directRepositoryWriteAction(act func(ctx context.Context, rep repo.DirectRepositoryWriter) error) func(ctx *kingpin.ParseContext) error {
 	return c.maybeRepositoryAction(assertDirectRepository(func(ctx context.Context, rep repo.DirectRepository) error {
+		// nolint:wrapcheck
 		return repo.DirectWriteSession(ctx, rep, repo.WriteSessionOptions{
 			Purpose:  "directRepositoryWriteAction",
 			OnUpload: c.progress.UploadedBytes,
@@ -344,6 +345,7 @@ func (c *App) repositoryReaderAction(act func(ctx context.Context, rep repo.Repo
 
 func (c *App) repositoryWriterAction(act func(ctx context.Context, rep repo.RepositoryWriter) error) func(ctx *kingpin.ParseContext) error {
 	return c.maybeRepositoryAction(func(ctx context.Context, rep repo.Repository) error {
+		// nolint:wrapcheck
 		return repo.WriteSession(ctx, rep, repo.WriteSessionOptions{
 			Purpose:  "repositoryWriterAction",
 			OnUpload: c.progress.UploadedBytes,
@@ -430,6 +432,7 @@ func (c *App) maybeRunMaintenance(ctx context.Context, rep repo.Repository) erro
 		Purpose:  "maybeRunMaintenance",
 		OnUpload: c.progress.UploadedBytes,
 	}, func(w repo.DirectRepositoryWriter) error {
+		// nolint:wrapcheck
 		return snapshotmaintenance.Run(ctx, w, maintenance.ModeAuto, false, maintenance.SafetyFull)
 	})
 
