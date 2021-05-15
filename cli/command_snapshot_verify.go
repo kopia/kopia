@@ -61,7 +61,7 @@ type verifier struct {
 func (v *verifier) progressCallback(ctx context.Context, enqueued, active, completed int64) {
 	maybeTimeRemaining := ""
 
-	if est, ok := v.tt.Estimate(float64(active), float64(completed)); ok {
+	if est, ok := v.tt.Estimate(float64(completed), float64(enqueued)+float64(completed)); ok {
 		maybeTimeRemaining = fmt.Sprintf(" remaining %v (ETA %v)", est.Remaining, formatTimestamp(est.EstimatedEndTime))
 	}
 
