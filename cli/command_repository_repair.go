@@ -88,7 +88,6 @@ func (c *commandRepositoryRepair) recoverFormatBlob(ctx context.Context, st blob
 
 				log(ctx).Infof("recovered replica block from %v", bi.BlobID)
 
-				// nolint:wrapcheck
 				return errSuccess
 			}
 

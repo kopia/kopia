@@ -59,7 +59,7 @@ func truncatedHMACHashFuncFactory(hf func() hash.Hash, truncate int) HashFuncFac
 			defer pool.Put(h)
 
 			h.Reset()
-			h.Write(b) // nolint:errcheck
+			h.Write(b)
 
 			return h.Sum(output)[0:truncate]
 		}, nil
@@ -87,7 +87,7 @@ func truncatedKeyedHashFuncFactory(hf func(key []byte) (hash.Hash, error), trunc
 			defer pool.Put(h)
 
 			h.Reset()
-			h.Write(b) // nolint:errcheck
+			h.Write(b)
 
 			return h.Sum(output)[0:truncate]
 		}, nil

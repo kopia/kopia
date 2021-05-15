@@ -237,7 +237,6 @@ func NewPersistentCache(ctx context.Context, description string, cacheStorage St
 
 	// verify that cache storage is functional by listing from it
 	if err := c.cacheStorage.ListBlobs(ctx, "", func(it blob.Metadata) error {
-		// nolint:wrapcheck
 		return errGood
 	}); err != nil && !errors.Is(err, errGood) {
 		return nil, errors.Wrapf(err, "unable to open %v", c.description)

@@ -104,7 +104,6 @@ func (fs *fsImpl) GetBlobFromPath(ctx context.Context, dirPath, path string, off
 					// this sometimes fails on macOS for unknown reasons, likely a bug in the filesystem
 					// retry deals with this transient state.
 					// see see https://github.com/kopia/kopia/issues/299
-					// nolint:wrapcheck
 					return nil, errRetriableInvalidLength
 				}
 			}

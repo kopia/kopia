@@ -77,7 +77,6 @@ func (c *commandRepositoryCreate) ensureEmpty(ctx context.Context, s blob.Storag
 	hasDataError := errors.Errorf("has data")
 
 	err := s.ListBlobs(ctx, "", func(cb blob.Metadata) error {
-		// nolint:wrapcheck
 		return hasDataError
 	})
 

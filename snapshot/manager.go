@@ -93,7 +93,6 @@ func LoadSnapshot(ctx context.Context, rep repo.Repository, manifestID manifest.
 	em, err := rep.GetManifest(ctx, manifestID, sm)
 	if err != nil {
 		if errors.Is(err, manifest.ErrNotFound) {
-			// nolint:wrapcheck
 			return nil, ErrSnapshotNotFound
 		}
 

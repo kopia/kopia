@@ -495,7 +495,6 @@ func (u *Uploader) foreachEntryUnlessCanceled(ctx context.Context, parallel int,
 		eg.Go(func() error {
 			for entry := range ch {
 				if u.IsCanceled() {
-					// nolint:wrapcheck
 					return errCanceled
 				}
 

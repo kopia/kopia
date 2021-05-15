@@ -88,7 +88,6 @@ func ReadDirAndFindChild(ctx context.Context, d Directory, name string) (Entry, 
 
 	e := children.FindByName(name)
 	if e == nil {
-		// nolint:wrapcheck
 		return nil, ErrEntryNotFound
 	}
 

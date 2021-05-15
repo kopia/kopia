@@ -31,7 +31,6 @@ func Connect(ctx context.Context, configFile string, st blob.Storage, password s
 	formatBytes, err := st.GetBlob(ctx, FormatBlobID, 0, -1)
 	if err != nil {
 		if errors.Is(err, blob.ErrBlobNotFound) {
-			// nolint:wrapcheck
 			return ErrRepositoryNotInitialized
 		}
 

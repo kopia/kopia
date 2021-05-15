@@ -11,7 +11,7 @@ import (
 // Append computes HMAC-SHA256 checksum for a given block of bytes and appends it.
 func Append(data, secret []byte) []byte {
 	h := hmac.New(sha256.New, secret)
-	h.Write(data) // nolint:errcheck
+	h.Write(data)
 
 	return h.Sum(data)
 }
@@ -27,7 +27,7 @@ func VerifyAndStrip(b, secret []byte) ([]byte, error) {
 	signature := b[p:]
 
 	h := hmac.New(sha256.New, secret)
-	h.Write(data) // nolint:errcheck
+	h.Write(data)
 
 	var sigBuf [32]byte
 	validSignature := h.Sum(sigBuf[:0])

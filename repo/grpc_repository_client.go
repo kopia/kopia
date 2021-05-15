@@ -415,7 +415,7 @@ func (r *grpcRepositoryClient) retry(ctx context.Context, attempt sessionAttempt
 		if errors.Is(err, io.EOF) {
 			r.killInnerSession()
 
-			return nil, errShouldRetry //nolint:wrapcheck
+			return nil, errShouldRetry
 		}
 
 		return v, err

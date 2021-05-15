@@ -103,7 +103,6 @@ func recoverFormatBlobWithLength(ctx context.Context, st blob.Storage, blobID bl
 	}
 
 	if chunkLength <= minRecoverableChunkLength {
-		// nolint:wrapcheck
 		return nil, errFormatBlobNotFound
 	}
 
@@ -133,7 +132,6 @@ func recoverFormatBlobWithLength(ctx context.Context, st blob.Storage, blobID bl
 		}
 	}
 
-	// nolint:wrapcheck
 	return nil, errFormatBlobNotFound
 }
 
@@ -148,7 +146,7 @@ func verifyFormatBlobChecksum(b []byte) ([]byte, bool) {
 
 	data, checksum := b[0:len(b)-formatBlobChecksumSize], b[len(b)-formatBlobChecksumSize:]
 	h := hmac.New(sha256.New, formatBlobChecksumSecret)
-	h.Write(data) //nolint:errcheck
+	h.Write(data)
 	actualChecksum := h.Sum(nil)
 
 	if !hmac.Equal(actualChecksum, checksum) {
@@ -267,7 +265,7 @@ func encryptFormatBytes(f *formatBlob, format *repositoryObjectFormat, masterKey
 
 func addFormatBlobChecksumAndLength(fb []byte) ([]byte, error) {
 	h := hmac.New(sha256.New, formatBlobChecksumSecret)
-	h.Write(fb) //nolint:errcheck
+	h.Write(fb)
 	checksummedFormatBytes := h.Sum(fb)
 
 	l := len(checksummedFormatBytes)

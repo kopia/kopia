@@ -126,7 +126,7 @@ func (c *commandBenchmarkCompression) run(ctx context.Context) error {
 
 func hashOf(b []byte) uint64 {
 	h := fnv.New64a()
-	h.Write(b) //nolint:errcheck
+	h.Write(b)
 
 	return h.Sum64()
 }

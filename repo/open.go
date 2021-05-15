@@ -181,7 +181,6 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 
 	repoConfig, err := f.decryptFormatBytes(masterKey)
 	if err != nil {
-		// nolint:wrapcheck
 		return nil, ErrInvalidPassword
 	}
 
