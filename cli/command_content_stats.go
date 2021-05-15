@@ -8,6 +8,7 @@ import (
 
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content"
 )
 
@@ -25,39 +26,24 @@ func (c *commandContentStats) setup(svc appServices, parent commandParent) {
 	cmd.Action(svc.directRepositoryReadAction(c.run))
 }
 
+type contentStatsTotals struct {
+	originalSize, packedSize, count int64
+}
+
 func (c *commandContentStats) run(ctx context.Context, rep repo.DirectRepository) error {
-	var sizeThreshold uint32 = 10
-
-	countMap := map[uint32]int{}
-	totalSizeOfContentsUnder := map[uint32]int64{}
-
-	var sizeThresholds []uint32
+	var (
+		sizeThreshold uint32 = 10
+		sizeBuckets   []uint32
+	)
 
 	for i := 0; i < 8; i++ {
-		sizeThresholds = append(sizeThresholds, sizeThreshold)
-		countMap[sizeThreshold] = 0
+		sizeBuckets = append(sizeBuckets, sizeThreshold)
 		sizeThreshold *= 10
 	}
 
-	var totalSize, count int64
-
-	if err := rep.ContentReader().IterateContents(
-		ctx,
-		content.IterateOptions{
-			Range: c.contentRange.contentIDRange(),
-		},
-		func(b content.Info) error {
-			totalSize += int64(b.GetPackedLength())
-			count++
-			for s := range countMap {
-				if b.GetPackedLength() < s {
-					countMap[s]++
-					totalSizeOfContentsUnder[s] += int64(b.GetPackedLength())
-				}
-			}
-			return nil
-		}); err != nil {
-		return errors.Wrap(err, "error iterating contents")
+	grandTotal, byCompressionTotal, countMap, totalSizeOfContentsUnder, err := c.calculateStats(ctx, rep, sizeBuckets)
+	if err != nil {
+		return errors.Wrap(err, "error calculating totals")
 	}
 
 	sizeToString := units.BytesStringBase10
@@ -65,20 +51,47 @@ func (c *commandContentStats) run(ctx context.Context, rep repo.DirectRepository
 		sizeToString = func(l int64) string { return strconv.FormatInt(l, 10) }
 	}
 
-	c.out.printStdout("Count: %v\n", count)
-	c.out.printStdout("Total: %v\n", sizeToString(totalSize))
+	c.out.printStdout("Count: %v\n", grandTotal.count)
+	c.out.printStdout("Total Bytes: %v\n", sizeToString(grandTotal.originalSize))
 
-	if count == 0 {
+	if grandTotal.packedSize < grandTotal.originalSize {
+		c.out.printStdout(
+			"Total Packed: %v (compression %v)\n",
+			sizeToString(grandTotal.packedSize),
+			formatCompressionRatio(grandTotal.originalSize, grandTotal.packedSize))
+	}
+
+	if len(byCompressionTotal) > 1 {
+		c.out.printStdout("By Method:\n")
+
+		if bct := byCompressionTotal[content.NoCompression]; bct != nil {
+			c.out.printStdout("  %-22v count: %v size: %v\n", "(uncompressed)", bct.count, sizeToString(bct.originalSize))
+		}
+
+		for hdrID, bct := range byCompressionTotal {
+			cname := compression.HeaderIDToName[hdrID]
+			if cname == "" {
+				continue
+			}
+
+			c.out.printStdout("  %-22v count: %v size: %v packed: %v compression: %v\n",
+				cname, bct.count,
+				sizeToString(bct.originalSize),
+				sizeToString(bct.packedSize),
+				formatCompressionRatio(bct.originalSize, bct.packedSize))
+		}
+	}
+
+	if grandTotal.count == 0 {
 		return nil
 	}
 
-	c.out.printStdout("Average: %v\n", sizeToString(totalSize/count))
-
+	c.out.printStdout("Average: %v\n", sizeToString(grandTotal.originalSize/grandTotal.count))
 	c.out.printStdout("Histogram:\n\n")
 
 	var lastSize uint32
 
-	for _, size := range sizeThresholds {
+	for _, size := range sizeBuckets {
 		c.out.printStdout("%9v between %v and %v (total %v)\n",
 			countMap[size]-countMap[lastSize],
 			sizeToString(int64(lastSize)),
@@ -90,4 +103,52 @@ func (c *commandContentStats) run(ctx context.Context, rep repo.DirectRepository
 	}
 
 	return nil
+}
+
+func (c *commandContentStats) calculateStats(ctx context.Context, rep repo.DirectRepository, sizeBuckets []uint32) (
+	grandTotal contentStatsTotals,
+	byCompressionTotal map[compression.HeaderID]*contentStatsTotals,
+	countMap map[uint32]int,
+	totalSizeOfContentsUnder map[uint32]int64,
+	err error,
+) {
+	byCompressionTotal = make(map[compression.HeaderID]*contentStatsTotals)
+	totalSizeOfContentsUnder = make(map[uint32]int64)
+	countMap = make(map[uint32]int)
+
+	for _, s := range sizeBuckets {
+		countMap[s] = 0
+	}
+
+	err = rep.ContentReader().IterateContents(
+		ctx,
+		content.IterateOptions{
+			Range: c.contentRange.contentIDRange(),
+		},
+		func(b content.Info) error {
+			grandTotal.packedSize += int64(b.GetPackedLength())
+			grandTotal.originalSize += int64(b.GetOriginalLength())
+			grandTotal.count++
+
+			bct := byCompressionTotal[b.GetCompressionHeaderID()]
+			if bct == nil {
+				bct = &contentStatsTotals{}
+				byCompressionTotal[b.GetCompressionHeaderID()] = bct
+			}
+
+			bct.packedSize += int64(b.GetPackedLength())
+			bct.originalSize += int64(b.GetOriginalLength())
+			bct.count++
+
+			for s := range countMap {
+				if b.GetPackedLength() < s {
+					countMap[s]++
+					totalSizeOfContentsUnder[s] += int64(b.GetPackedLength())
+				}
+			}
+			return nil
+		})
+
+	// nolint:wrapcheck
+	return grandTotal, byCompressionTotal, countMap, totalSizeOfContentsUnder, err
 }
