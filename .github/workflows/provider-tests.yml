@@ -28,7 +28,7 @@ jobs:
         KOPIA_B2_TEST_KEY_ID: ${{ secrets.KOPIA_B2_TEST_KEY_ID }}
 
         # used in GCS tests
-        KOPIA_GCS_CREDENTIALS_FILE: ${{ secrets.KOPIA_GCS_CREDENTIALS_FILE }}
+        KOPIA_GCS_CREDENTIALS_JSON_GZIP: ${{ secrets.KOPIA_GCS_CREDENTIALS_JSON_GZIP }}
         KOPIA_GCS_TEST_BUCKET: ${{ secrets.KOPIA_GCS_TEST_BUCKET }}
 
         # used in S3 tests
@@ -47,14 +47,6 @@ jobs:
 
         # used in rclone tests
         KOPIA_RCLONE_EMBEDDED_CONFIG_B64: ${{ secrets.KOPIA_RCLONE_EMBEDDED_CONFIG_B64 }}
-
-        # used in SFTP tests
-        KOPIA_SFTP_TEST_HOST: ${{ secrets.KOPIA_SFTP_TEST_HOST }}
-        KOPIA_SFTP_TEST_PORT: ${{ secrets.KOPIA_SFTP_TEST_PORT }}
-        KOPIA_SFTP_TEST_USER: ${{ secrets.KOPIA_SFTP_TEST_USER }}
-        KOPIA_SFTP_TEST_PATH: ${{ secrets.KOPIA_SFTP_TEST_PATH }}
-        KOPIA_SFTP_KEYFILE: ${{ secrets.KOPIA_SFTP_KEYFILE }}
-        KOPIA_SFTP_KNOWN_HOSTS_FILE: ${{ secrets.KOPIA_SFTP_KNOWN_HOSTS_FILE }}
 
         # used in WebDAV tests
         KOPIA_WEBDAV_TEST_URL: ${{ secrets.KOPIA_WEBDAV_TEST_URL }}
