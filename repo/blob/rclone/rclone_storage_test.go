@@ -26,7 +26,7 @@ const defaultCleanupAge = time.Hour
 
 var rcloneExternalProviders = map[string]string{
 	"GoogleDrive": "gdrive:/kopia",
-	"OneDrive":    "onedrive:/kopia",
+	// "OneDrive":    "onedrive:/kopia", broken
 }
 
 func mustGetRcloneExeOrSkip(t *testing.T) string {
