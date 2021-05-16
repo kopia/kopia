@@ -1,6 +1,9 @@
 package gcs_test
 
 import (
+	"bytes"
+	"compress/gzip"
+	"encoding/base64"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -21,9 +24,14 @@ func TestGCSStorage(t *testing.T) {
 		t.Skip("KOPIA_GCS_TEST_BUCKET not provided")
 	}
 
-	credData, err := ioutil.ReadFile(os.Getenv("KOPIA_GCS_CREDENTIALS_FILE"))
+	credDataGZ, err := base64.StdEncoding.DecodeString(os.Getenv("KOPIA_GCS_CREDENTIALS_JSON_GZIP"))
 	if err != nil {
-		t.Skip("skipping test because GCS credentials file can't be opened")
+		t.Skip("skipping test because GCS credentials file can't be decoded")
+	}
+
+	credData, err := gunzip(credDataGZ)
+	if err != nil {
+		t.Skip("skipping test because GCS credentials file can't be unzipped")
 	}
 
 	ctx := testlogging.Context(t)
@@ -74,4 +82,15 @@ func TestGCSStorageInvalid(t *testing.T) {
 	}); err == nil {
 		t.Fatalf("unexpected success connecting to GCS, wanted error")
 	}
+}
+
+func gunzip(d []byte) ([]byte, error) {
+	z, err := gzip.NewReader(bytes.NewReader(d))
+	if err != nil {
+		return nil, err
+	}
+
+	defer z.Close()
+
+	return ioutil.ReadAll(z)
 }
