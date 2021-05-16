@@ -220,6 +220,9 @@ integration-tests: build-integration-test-binary $(gotestsum) $(TESTING_ACTION_E
 	 $(GO_TEST) $(TEST_FLAGS) -count=$(REPEAT_TEST) -parallel $(PARALLEL) -timeout 3600s github.com/kopia/kopia/tests/end_to_end_test
 	 -$(gotestsum) tool slowest --jsonfile .tmp.integration-tests.json  --threshold 1000ms
 
+integration-tests-v2:
+	KOPIA_CREATE_INDEX_VERSION=2 $(MAKE) integration-tests
+
 endurance-tests: export KOPIA_EXE ?= $(KOPIA_INTEGRATION_EXE)
 endurance-tests: export KOPIA_LOGS_DIR=$(CURDIR)/.logs
 endurance-tests: build-integration-test-binary $(gotestsum)

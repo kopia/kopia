@@ -35,7 +35,7 @@ func (c *commandRepositoryCreate) setup(svc advancedAppServices, parent commandP
 	cmd.Flag("encryption", "Content encryption algorithm.").PlaceHolder("ALGO").Default(encryption.DefaultAlgorithm).EnumVar(&c.createBlockEncryptionFormat, encryption.SupportedAlgorithms(false)...)
 	cmd.Flag("object-splitter", "The splitter to use for new objects in the repository").Default(splitter.DefaultAlgorithm).EnumVar(&c.createSplitter, splitter.SupportedAlgorithms()...)
 	cmd.Flag("create-only", "Create repository, but don't connect to it.").Short('c').BoolVar(&c.createOnly)
-	cmd.Flag("index-version", "Force particular index version").Hidden().IntVar(&c.createIndexVersion)
+	cmd.Flag("index-version", "Force particular index version").Hidden().Envar("KOPIA_CREATE_INDEX_VERSION").IntVar(&c.createIndexVersion)
 
 	c.co.setup(cmd)
 	c.svc = svc
