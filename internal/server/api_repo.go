@@ -49,19 +49,21 @@ func (s *Server) handleRepoStatus(ctx context.Context, r *http.Request, body []b
 	dr, ok := s.rep.(repo.DirectRepository)
 	if ok {
 		return &serverapi.StatusResponse{
-			Connected:     true,
-			ConfigFile:    dr.ConfigFilename(),
-			Hash:          dr.ContentReader().ContentFormat().Hash,
-			Encryption:    dr.ContentReader().ContentFormat().Encryption,
-			MaxPackSize:   dr.ContentReader().ContentFormat().MaxPackSize,
-			Splitter:      dr.ObjectFormat().Splitter,
-			Storage:       dr.BlobReader().ConnectionInfo().Type,
-			ClientOptions: dr.ClientOptions(),
+			Connected:                  true,
+			ConfigFile:                 dr.ConfigFilename(),
+			Hash:                       dr.ContentReader().ContentFormat().Hash,
+			Encryption:                 dr.ContentReader().ContentFormat().Encryption,
+			MaxPackSize:                dr.ContentReader().ContentFormat().MaxPackSize,
+			Splitter:                   dr.ObjectFormat().Splitter,
+			Storage:                    dr.BlobReader().ConnectionInfo().Type,
+			ClientOptions:              dr.ClientOptions(),
+			SupportsContentCompression: dr.ContentReader().SupportsContentCompression(),
 		}, nil
 	}
 
 	type remoteRepository interface {
 		APIServerURL() string
+		SupportsContentCompression() bool
 	}
 
 	result := &serverapi.StatusResponse{
@@ -71,6 +73,7 @@ func (s *Server) handleRepoStatus(ctx context.Context, r *http.Request, body []b
 
 	if rr, ok := s.rep.(remoteRepository); ok {
 		result.APIServerURL = rr.APIServerURL()
+		result.SupportsContentCompression = rr.SupportsContentCompression()
 	}
 
 	return result, nil
