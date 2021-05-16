@@ -22,4 +22,6 @@ const (
 	headerPgzipDefault         HeaderID = 0x1300
 	headerPgzipBestSpeed       HeaderID = 0x1301
 	headerPgzipBestCompression HeaderID = 0x1302
+
+	headerLZ4Default HeaderID = 0x1400
 )
