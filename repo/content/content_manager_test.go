@@ -26,6 +26,7 @@ import (
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/logging"
+	"github.com/kopia/kopia/repo/compression"
 )
 
 const (
@@ -1921,6 +1922,94 @@ func verifyContentManagerDataSet(ctx context.Context, t *testing.T, mgr *WriteMa
 	}
 }
 
+func TestCompression_Disabled(t *testing.T) {
+	data := blobtesting.DataMap{}
+	st := blobtesting.NewMapStorage(data, nil, nil)
+	bm := newTestContentManagerWithTweaks(t, st, &contentManagerTestTweaks{
+		indexVersion: v1IndexVersion,
+	})
+
+	require.False(t, bm.SupportsContentCompression())
+	ctx := testlogging.Context(t)
+	compressibleData := bytes.Repeat([]byte{1, 2, 3, 4}, 1000)
+
+	// with index v1 the compression is disabled
+	_, err := bm.WriteContent(ctx, compressibleData, "", compression.ByName["pgzip"].HeaderID())
+	require.Error(t, err)
+}
+
+func TestCompression_CompressibleData(t *testing.T) {
+	data := blobtesting.DataMap{}
+	st := blobtesting.NewMapStorage(data, nil, nil)
+	bm := newTestContentManagerWithTweaks(t, st, &contentManagerTestTweaks{
+		indexVersion: v2IndexVersion,
+	})
+
+	require.True(t, bm.SupportsContentCompression())
+
+	ctx := testlogging.Context(t)
+	compressibleData := bytes.Repeat([]byte{1, 2, 3, 4}, 1000)
+	headerID := compression.ByName["gzip"].HeaderID()
+
+	cid, err := bm.WriteContent(ctx, compressibleData, "", headerID)
+	require.NoError(t, err)
+
+	ci, err := bm.ContentInfo(ctx, cid)
+	require.NoError(t, err)
+
+	// gzip-compressed length
+	require.Equal(t, uint32(79), ci.GetPackedLength())
+	require.Equal(t, uint32(len(compressibleData)), ci.GetOriginalLength())
+	require.Equal(t, headerID, ci.GetCompressionHeaderID())
+
+	verifyContent(ctx, t, bm, cid, compressibleData)
+
+	require.NoError(t, bm.Flush(ctx))
+	verifyContent(ctx, t, bm, cid, compressibleData)
+
+	bm2 := newTestContentManagerWithTweaks(t, st, &contentManagerTestTweaks{
+		indexVersion: v2IndexVersion,
+	})
+	verifyContent(ctx, t, bm2, cid, compressibleData)
+}
+
+func TestCompression_NonCompressibleData(t *testing.T) {
+	data := blobtesting.DataMap{}
+	st := blobtesting.NewMapStorage(data, nil, nil)
+	bm := newTestContentManagerWithTweaks(t, st, &contentManagerTestTweaks{
+		indexVersion: v2IndexVersion,
+	})
+
+	require.True(t, bm.SupportsContentCompression())
+
+	ctx := testlogging.Context(t)
+	nonCompressibleData := make([]byte, 65000)
+	headerID := compression.ByName["pgzip"].HeaderID()
+
+	rand.Read(nonCompressibleData)
+
+	cid, err := bm.WriteContent(ctx, nonCompressibleData, "", headerID)
+	require.NoError(t, err)
+
+	verifyContent(ctx, t, bm, cid, nonCompressibleData)
+
+	ci, err := bm.ContentInfo(ctx, cid)
+	require.NoError(t, err)
+
+	// verify compression did not occur
+	require.True(t, ci.GetPackedLength() > ci.GetOriginalLength())
+	require.Equal(t, uint32(len(nonCompressibleData)), ci.GetOriginalLength())
+	require.Equal(t, NoCompression, ci.GetCompressionHeaderID())
+
+	require.NoError(t, bm.Flush(ctx))
+	verifyContent(ctx, t, bm, cid, nonCompressibleData)
+
+	bm2 := newTestContentManagerWithTweaks(t, st, &contentManagerTestTweaks{
+		indexVersion: v2IndexVersion,
+	})
+	verifyContent(ctx, t, bm2, cid, nonCompressibleData)
+}
+
 func newTestContentManager(t *testing.T, data blobtesting.DataMap) *WriteManager {
 	t.Helper()
 
@@ -1944,6 +2033,8 @@ func newTestContentManagerWithCustomTime(t *testing.T, data blobtesting.DataMap,
 type contentManagerTestTweaks struct {
 	CachingOptions
 	ManagerOptions
+
+	indexVersion int
 }
 
 func newTestContentManagerWithTweaks(t *testing.T, st blob.Storage, tweaks *contentManagerTestTweaks) *WriteManager {
@@ -1964,6 +2055,8 @@ func newTestContentManagerWithTweaks(t *testing.T, st blob.Storage, tweaks *cont
 		HMACSecret:  hmacSecret,
 		MaxPackSize: maxPackSize,
 		Version:     1,
+
+		IndexVersion: tweaks.indexVersion,
 	}
 
 	bm, err := NewManager(ctx, st, fo, &tweaks.CachingOptions, &tweaks.ManagerOptions)
