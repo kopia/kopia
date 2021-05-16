@@ -60,12 +60,8 @@ func (c *zstdCompressor) Compress(output *bytes.Buffer, input []byte) error {
 }
 
 func (c *zstdCompressor) Decompress(output *bytes.Buffer, input []byte) error {
-	if len(input) < compressionHeaderSize {
-		return errors.Errorf("invalid compression header")
-	}
-
-	if !bytes.Equal(input[0:compressionHeaderSize], c.header) {
-		return errors.Errorf("invalid compression header")
+	if err := verifyCompressionHeader(input, c.header); err != nil {
+		return err
 	}
 
 	r, err := zstd.NewReader(bytes.NewReader(input[compressionHeaderSize:]))
