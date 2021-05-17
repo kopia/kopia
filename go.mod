@@ -6,7 +6,6 @@ require (
 	cloud.google.com/go/storage v1.15.0
 	contrib.go.opencensus.io/exporter/prometheus v0.3.0
 	github.com/Azure/azure-storage-blob-go v0.13.0
-	github.com/Azure/go-autorest/autorest v0.11.18 // indirect
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962 // indirect
 	github.com/StackExchange/wmi v0.0.0-20210224194228-fe8f1750fd46 // indirect
 	github.com/alecthomas/kingpin v0.0.0-20200323085623-b6657d9477a6 // this is pulling master, which is newer than v2
@@ -25,7 +24,6 @@ require (
 	github.com/google/go-cmp v0.5.5
 	github.com/google/readahead v0.0.0-20161222183148-eaceba169032 // indirect
 	github.com/google/uuid v1.2.0
-	github.com/google/wire v0.5.0 // indirect
 	github.com/gorilla/mux v1.8.0
 	github.com/hanwen/go-fuse/v2 v2.0.4-0.20210104155004-09a3c381714c
 	github.com/klauspost/compress v1.12.2
@@ -38,7 +36,7 @@ require (
 	github.com/montanaflynn/stats v0.6.5 // indirect
 	github.com/natefinch/atomic v0.0.0-20200526193002-18c0533a5b09
 	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
-	github.com/pierrec/lz4 v2.6.0+incompatible // indirect
+	github.com/pierrec/lz4 v2.6.0+incompatible
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/profile v1.6.0
 	github.com/pkg/sftp v1.13.0
@@ -55,14 +53,14 @@ require (
 	github.com/zalando/go-keyring v0.1.1
 	github.com/zeebo/blake3 v0.1.1
 	go.opencensus.io v0.23.0
-	gocloud.dev v0.22.0
-	golang.org/x/crypto v0.0.0-20210317152858-513c2a44f670
+	gocloud.dev v0.23.0
+	golang.org/x/crypto v0.0.0-20210506145944-38f3c27a63bf
 	golang.org/x/exp v0.0.0-20210220032938-85be41e4509f
 	golang.org/x/mod v0.4.2
-	golang.org/x/net v0.0.0-20210503060351-7fd8e65b6420
+	golang.org/x/net v0.0.0-20210505214959-0714010a04ed
 	golang.org/x/oauth2 v0.0.0-20210427180440-81ed05c6b58c
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	golang.org/x/sys v0.0.0-20210503080704-8803ae5d1324
+	golang.org/x/sys v0.0.0-20210503173754-0981d6026fa6
 	golang.org/x/term v0.0.0-20210317153231-de623e64d2a6
 	google.golang.org/api v0.46.0
 	google.golang.org/grpc v1.37.0
