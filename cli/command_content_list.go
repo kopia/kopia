@@ -88,28 +88,6 @@ func (c *commandContentList) run(ctx context.Context, rep repo.DirectRepository)
 }
 
 func (c *commandContentList) outputLong(b content.Info) {
-	var (
-		optionalDeleted     string
-		optionalCompression string
-	)
-
-	if b.GetDeleted() {
-		optionalDeleted = " (deleted)"
-	}
-
-	if h := b.GetCompressionHeaderID(); h != content.NoCompression {
-		optionalCompression = string(compression.HeaderIDToName[h])
-		if optionalCompression == "" {
-			optionalCompression = fmt.Sprintf("compression-%x", h)
-		}
-
-		if b.GetOriginalLength() > 0 {
-			optionalCompression += " " + formatCompressionRatio(int64(b.GetOriginalLength()), int64(b.GetPackedLength()))
-		}
-	} else {
-		optionalCompression = "-"
-	}
-
 	c.out.printStdout("%v %v %v %v %v+%v%v %v\n",
 		b.GetContentID(),
 		b.GetOriginalLength(),
@@ -117,36 +95,43 @@ func (c *commandContentList) outputLong(b content.Info) {
 		b.GetPackBlobID(),
 		b.GetPackOffset(),
 		maybeHumanReadableBytes(c.human, int64(b.GetPackedLength())),
-		optionalDeleted,
-		optionalCompression)
+		c.deletedInfoString(b),
+		c.compressionInfoStringString(b),
+	)
 }
 
 func (c *commandContentList) outputCompressed(b content.Info) {
-	var (
-		optionalDeleted     string
-		optionalCompression string
-	)
-
-	if b.GetDeleted() {
-		optionalDeleted = " (deleted)"
-	}
-
-	if h := b.GetCompressionHeaderID(); h != content.NoCompression {
-		optionalCompression = string(compression.HeaderIDToName[h])
-		if optionalCompression == "" {
-			optionalCompression = fmt.Sprintf("compression-%x", h)
-		}
-
-		optionalCompression += " " + formatCompressionRatio(int64(b.GetOriginalLength()), int64(b.GetPackedLength()))
-	} else {
-		optionalCompression = "-"
-	}
-
-	c.out.printStdout("%v original %v packed %v %v %v\n",
+	c.out.printStdout("%v length %v packed %v %v %v\n",
 		b.GetContentID(),
 		maybeHumanReadableBytes(c.human, int64(b.GetOriginalLength())),
 		maybeHumanReadableBytes(c.human, int64(b.GetPackedLength())),
-		optionalCompression,
-		optionalDeleted,
+		c.compressionInfoStringString(b),
+		c.deletedInfoString(b),
 	)
+}
+
+func (c *commandContentList) deletedInfoString(b content.Info) string {
+	if b.GetDeleted() {
+		return " (deleted)"
+	}
+
+	return ""
+}
+
+func (c *commandContentList) compressionInfoStringString(b content.Info) string {
+	h := b.GetCompressionHeaderID()
+	if h == content.NoCompression {
+		return "-"
+	}
+
+	s := string(compression.HeaderIDToName[h])
+	if s == "" {
+		s = fmt.Sprintf("compression-%x", h)
+	}
+
+	if b.GetOriginalLength() > 0 {
+		s += " " + formatCompressionRatio(int64(b.GetOriginalLength()), int64(b.GetPackedLength()))
+	}
+
+	return s
 }

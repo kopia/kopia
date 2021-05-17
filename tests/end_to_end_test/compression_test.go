@@ -56,7 +56,7 @@ func TestCompression(t *testing.T) {
 	oid := sources[0].Snapshots[0].ObjectID
 	entries := clitestutil.ListDirectory(t, e, oid)
 
-	supportsContentLevelCompression := containsLine(
+	supportsContentLevelCompression := containsLineStartingWith(
 		e.RunAndExpectSuccess(t, "repo", "status"),
 		"Content compression: true",
 	)
@@ -86,9 +86,9 @@ func TestCompression(t *testing.T) {
 	}
 }
 
-func containsLine(lines []string, line string) bool {
+func containsLineStartingWith(lines []string, prefix string) bool {
 	for _, l := range lines {
-		if line == l {
+		if strings.HasPrefix(l, prefix) {
 			return true
 		}
 	}
