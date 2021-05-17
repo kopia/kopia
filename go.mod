@@ -16,7 +16,7 @@ require (
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/dustinkirkland/golang-petname v0.0.0-20191129215211-8e5a1ed0cff0
 	github.com/efarrer/iothrottler v0.0.1
-	github.com/fatih/color v1.10.0
+	github.com/fatih/color v1.11.0
 	github.com/foomo/htpasswd v0.0.0-20200116085101-e3a90e78da9c
 	github.com/go-ole/go-ole v1.2.5 // indirect
 	github.com/gofrs/flock v0.8.0
@@ -38,7 +38,7 @@ require (
 	github.com/montanaflynn/stats v0.6.5 // indirect
 	github.com/natefinch/atomic v0.0.0-20200526193002-18c0533a5b09
 	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
-	github.com/pierrec/lz4 v2.6.0+incompatible // indirect
+	github.com/pierrec/lz4 v2.6.0+incompatible
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/profile v1.6.0
 	github.com/pkg/sftp v1.13.0
