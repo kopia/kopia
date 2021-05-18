@@ -23,6 +23,16 @@ const (
 	StatusFailed    Status = "FAILED"
 )
 
+// IsFinished returns true if the given status is finished.
+func (s Status) IsFinished() bool {
+	switch s {
+	case StatusCanceled, StatusSuccess, StatusFailed:
+		return true
+	default:
+		return false
+	}
+}
+
 // LogLevel represents the log level associated with LogEntry.
 type LogLevel int
 

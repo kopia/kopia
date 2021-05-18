@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"path/filepath"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/kopia/kopia/internal/ospath"
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/internal/uitask"
+	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
@@ -45,6 +47,51 @@ func (p estimateTaskProgress) Stats(ctx context.Context, st *snapshot.Stats, inc
 		"Errors":               uitask.ErrorCounter(int64(st.ErrorCount)),
 		"Ignored Errors":       uitask.ErrorCounter(int64(st.IgnoredErrorCount)),
 	})
+
+	if final {
+		logBucketSamples(ctx, included, "Included", false)
+		logBucketSamples(ctx, excluded, "Excluded", true)
+	}
+}
+
+func logBucketSamples(ctx context.Context, buckets snapshotfs.SampleBuckets, prefix string, showExamples bool) {
+	any := false
+
+	for i, bucket := range buckets {
+		if bucket.Count == 0 {
+			continue
+		}
+
+		var sizeRange string
+
+		if i == 0 {
+			sizeRange = fmt.Sprintf("< %-6v",
+				units.BytesStringBase10(bucket.MinSize))
+		} else {
+			sizeRange = fmt.Sprintf("%-6v...%6v",
+				units.BytesStringBase10(bucket.MinSize),
+				units.BytesStringBase10(buckets[i-1].MinSize))
+		}
+
+		log(ctx).Infof("%v files %v: %7v files, total size %v\n",
+			prefix,
+			sizeRange,
+			bucket.Count, units.BytesStringBase10(bucket.TotalSize))
+
+		any = true
+
+		if showExamples && len(bucket.Examples) > 0 {
+			log(ctx).Infof("Examples:")
+
+			for _, sample := range bucket.Examples {
+				log(ctx).Infof(" - %v\n", sample)
+			}
+		}
+	}
+
+	if !any {
+		log(ctx).Infof("%v files: None", prefix)
+	}
 }
 
 var _ snapshotfs.EstimateProgress = estimateTaskProgress{}
@@ -94,7 +141,7 @@ func (s *Server) handleEstimate(ctx context.Context, r *http.Request, body []byt
 		}
 
 		// nolint:wrapcheck
-		return snapshotfs.Estimate(estimatectx, rep, dir, policyTree, estimateTaskProgress{ctrl})
+		return snapshotfs.Estimate(estimatectx, rep, dir, policyTree, estimateTaskProgress{ctrl}, req.MaxExamplesPerBucket)
 	})
 
 	taskID := <-taskIDChan

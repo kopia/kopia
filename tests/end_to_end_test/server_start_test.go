@@ -11,11 +11,13 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/apiclient"
 	"github.com/kopia/kopia/internal/retry"
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/internal/testlogging"
+	"github.com/kopia/kopia/internal/uitask"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/filesystem"
 	"github.com/kopia/kopia/snapshot"
@@ -56,7 +58,7 @@ func (s *serverParameters) ProcessOutput(l string) bool {
 func TestServerStart(t *testing.T) {
 	ctx := testlogging.Context(t)
 
-	runner := testenv.NewExeRunner(t)
+	runner := testenv.NewInProcRunner(t)
 	e := testenv.NewCLITest(t, runner)
 
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
@@ -68,8 +70,6 @@ func TestServerStart(t *testing.T) {
 
 	var sp serverParameters
 
-	runner.Environment = append(runner.Environment, `KOPIA_UI_TITLE_PREFIX=Blah: <script>bleh</script> `)
-
 	e.RunAndProcessStderr(t, sp.ProcessOutput,
 		"server", "start",
 		"--ui",
@@ -79,6 +79,7 @@ func TestServerStart(t *testing.T) {
 		"--tls-generate-rsa-key-size=2048", // use shorter key size to speed up generation
 		"--override-hostname=fake-hostname",
 		"--override-username=fake-username",
+		"--ui-title-prefix", "Blah: <script>bleh</script> ",
 	)
 	t.Logf("detected server parameters %#v", sp)
 
@@ -89,9 +90,7 @@ func TestServerStart(t *testing.T) {
 		TrustedServerCertificateFingerprint: sp.sha256Fingerprint,
 		LogRequests:                         true,
 	})
-	if err != nil {
-		t.Fatalf("unable to create API apiclient")
-	}
+	require.NoError(t, err)
 
 	defer serverapi.Shutdown(ctx, cli)
 
@@ -99,29 +98,27 @@ func TestServerStart(t *testing.T) {
 	verifyUIServedWithCorrectTitle(t, cli, sp)
 
 	st := verifyServerConnected(t, cli, true)
-	if got, want := st.Storage, "filesystem"; got != want {
-		t.Errorf("unexpected storage type: %v, want %v", got, want)
-	}
+	require.Equal(t, "filesystem", st.Storage)
 
 	sources := verifySourceCount(t, cli, nil, 1)
-	if got, want := sources[0].Source.Path, sharedTestDataDir1; got != want {
-		t.Errorf("unexpected source path: %v, want %v", got, want)
-	}
+	require.Equal(t, sharedTestDataDir1, sources[0].Source.Path)
+
+	et := estimateSnapshotSize(ctx, t, cli, sharedTestDataDir3)
+	require.NotEqual(t, int64(0), et.Counters["Bytes"].Value)
+	require.NotEqual(t, int64(0), et.Counters["Directories"].Value)
+	require.NotEqual(t, int64(0), et.Counters["Files"].Value)
+	require.Equal(t, int64(0), et.Counters["Excluded Directories"].Value)
+	require.Equal(t, int64(0), et.Counters["Excluded Files"].Value)
+	require.Equal(t, int64(0), et.Counters["Errors"].Value)
+	require.Equal(t, int64(0), et.Counters["Ignored Errors"].Value)
 
 	createResp, err := serverapi.CreateSnapshotSource(ctx, cli, &serverapi.CreateSnapshotSourceRequest{
 		Path: sharedTestDataDir2,
 	})
-	if err != nil {
-		t.Fatalf("create snapshot source error: %v", err)
-	}
+	require.NoError(t, err)
 
-	if !createResp.Created {
-		t.Errorf("unexpected value of 'created': %v", createResp.Created)
-	}
-
-	if createResp.SnapshotStarted {
-		t.Errorf("unexpected value of 'snapshotStarted': %v", createResp.SnapshotStarted)
-	}
+	require.True(t, createResp.Created)
+	require.False(t, createResp.SnapshotStarted)
 
 	verifySourceCount(t, cli, nil, 2)
 	verifySourceCount(t, cli, &snapshot.SourceInfo{Host: "no-such-host"}, 0)
@@ -135,22 +132,18 @@ func TestServerStart(t *testing.T) {
 	uploadMatchingSnapshots(t, cli, &snapshot.SourceInfo{Host: "fake-hostname", UserName: "fake-username", Path: sharedTestDataDir2})
 	waitForSnapshotCount(ctx, t, cli, &snapshot.SourceInfo{Host: "fake-hostname", UserName: "fake-username", Path: sharedTestDataDir2}, 1)
 
-	if _, err = serverapi.CancelUpload(ctx, cli, nil); err != nil {
-		t.Fatalf("cancel failed: %v", err)
-	}
+	_, err = serverapi.CancelUpload(ctx, cli, nil)
+	require.NoError(t, err)
 
 	snaps := verifySnapshotCount(t, cli, &snapshot.SourceInfo{Host: "fake-hostname", UserName: "fake-username", Path: sharedTestDataDir2}, 1)
 
 	rootPayload, err := serverapi.GetObject(ctx, cli, snaps[0].RootEntry)
-	if err != nil {
-		t.Fatalf("getObject %v", err)
-	}
+	require.NoError(t, err)
 
 	// make sure root payload is valid JSON for the directory.
 	var dummy map[string]interface{}
-	if err = json.Unmarshal(rootPayload, &dummy); err != nil {
-		t.Fatalf("invalid JSON received: %v", err)
-	}
+	err = json.Unmarshal(rootPayload, &dummy)
+	require.NoError(t, err)
 
 	keepDaily := 77
 
@@ -163,27 +156,15 @@ func TestServerStart(t *testing.T) {
 			},
 		},
 	})
+	require.NoError(t, err)
 
-	if err != nil {
-		t.Fatalf("unable to create source")
-	}
-
-	if !createResp.SnapshotStarted {
-		t.Errorf("unexpected value of 'snapshotStarted': %v", createResp.SnapshotStarted)
-	}
+	require.True(t, createResp.SnapshotStarted)
 
 	policies, err := serverapi.ListPolicies(ctx, cli, &snapshot.SourceInfo{Host: "fake-hostname", UserName: "fake-username", Path: sharedTestDataDir3})
-	if err != nil {
-		t.Errorf("aaa")
-	}
+	require.NoError(t, err)
 
-	if len(policies.Policies) != 1 {
-		t.Fatalf("unexpected number of policies")
-	}
-
-	if got, want := *policies.Policies[0].Policy.RetentionPolicy.KeepDaily, keepDaily; got != want {
-		t.Errorf("initial policy not persisted")
-	}
+	require.Len(t, policies.Policies, 1)
+	require.Equal(t, keepDaily, *policies.Policies[0].Policy.RetentionPolicy.KeepDaily)
 
 	waitForSnapshotCount(ctx, t, cli, &snapshot.SourceInfo{Host: "fake-hostname", UserName: "fake-username", Path: sharedTestDataDir3}, 1)
 }
@@ -221,9 +202,7 @@ func TestServerCreateAndConnectViaAPI(t *testing.T) {
 		Password:                            sp.password,
 		TrustedServerCertificateFingerprint: sp.sha256Fingerprint,
 	})
-	if err != nil {
-		t.Fatalf("unable to create API apiclient")
-	}
+	require.NoError(t, err)
 
 	defer serverapi.Shutdown(ctx, cli)
 
@@ -292,9 +271,7 @@ func TestConnectToExistingRepositoryViaAPI(t *testing.T) {
 		Password:                            sp.password,
 		TrustedServerCertificateFingerprint: sp.sha256Fingerprint,
 	})
-	if err != nil {
-		t.Fatalf("unable to create API apiclient")
-	}
+	require.NoError(t, err)
 
 	defer serverapi.Shutdown(ctx, cli)
 
@@ -365,9 +342,7 @@ func TestServerStartInsecure(t *testing.T) {
 	cli, err := apiclient.NewKopiaAPIClient(apiclient.Options{
 		BaseURL: sp.baseURL,
 	})
-	if err != nil {
-		t.Fatalf("unable to create API apiclient")
-	}
+	require.NoError(t, err)
 
 	defer serverapi.Shutdown(ctx, cli)
 
@@ -385,9 +360,7 @@ func verifyServerConnected(t *testing.T, cli *apiclient.KopiaAPIClient, want boo
 	t.Helper()
 
 	st, err := serverapi.Status(testlogging.Context(t), cli)
-	if err != nil {
-		t.Fatalf("status error: %v", err)
-	}
+	require.NoError(t, err)
 
 	if got := st.Connected; got != want {
 		t.Errorf("invalid status connected %v, want %v", st.Connected, want)
@@ -415,11 +388,31 @@ func waitForSnapshotCount(ctx context.Context, t *testing.T, cli *apiclient.Kopi
 
 		return nil
 	}, retry.Always)
-	if err != nil {
-		t.Fatal(err)
-	}
+
+	require.NoError(t, err)
 
 	return result
+}
+
+func estimateSnapshotSize(ctx context.Context, t *testing.T, cli *apiclient.KopiaAPIClient, dir string) *uitask.Info {
+	t.Helper()
+
+	estimateTask, err := serverapi.Estimate(ctx, cli, &serverapi.EstimateRequest{
+		Root:                 dir,
+		MaxExamplesPerBucket: 3,
+	})
+	require.NoError(t, err)
+
+	estimateTaskID := estimateTask.TaskID
+
+	for !estimateTask.Status.IsFinished() {
+		time.Sleep(1 * time.Second)
+
+		estimateTask, err = serverapi.GetTask(ctx, cli, estimateTaskID)
+		require.NoError(t, err)
+	}
+
+	return estimateTask
 }
 
 func uploadMatchingSnapshots(t *testing.T, cli *apiclient.KopiaAPIClient, match *snapshot.SourceInfo) {
@@ -434,9 +427,7 @@ func verifySnapshotCount(t *testing.T, cli *apiclient.KopiaAPIClient, match *sna
 	t.Helper()
 
 	snapshots, err := serverapi.ListSnapshots(testlogging.Context(t), cli, match)
-	if err != nil {
-		t.Fatalf("error listing sources: %v", err)
-	}
+	require.NoError(t, err)
 
 	if got := len(snapshots.Snapshots); got != want {
 		t.Errorf("unexpected number of snapshots %v, want %v", got, want)
@@ -449,9 +440,7 @@ func verifySourceCount(t *testing.T, cli *apiclient.KopiaAPIClient, match *snaps
 	t.Helper()
 
 	sources, err := serverapi.ListSources(testlogging.Context(t), cli, match)
-	if err != nil {
-		t.Fatalf("error listing sources: %v", err)
-	}
+	require.NoError(t, err)
 
 	if got, want := sources.LocalHost, "fake-hostname"; got != want {
 		t.Errorf("unexpected local host: %v, want %v", got, want)
@@ -472,28 +461,22 @@ func verifyUIServedWithCorrectTitle(t *testing.T, cli *apiclient.KopiaAPIClient,
 	t.Helper()
 
 	req, err := http.NewRequestWithContext(context.Background(), "GET", sp.baseURL, nil)
-	if err != nil {
-		t.Fatalf("unable to create HTTP request: %v", err)
-	}
+	require.NoError(t, err)
 
 	req.SetBasicAuth("kopia", sp.password)
 
 	resp, err := cli.HTTPClient.Do(req)
-	if err != nil {
-		t.Fatalf("unable to get HTML root: %v", err)
-	}
+	require.NoError(t, err)
 
 	defer resp.Body.Close()
 
 	b, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		t.Fatalf("error reading response body: %v", err)
-	}
+	require.NoError(t, err)
 
 	// make sure the UI correctly inserts prefix from KOPIA_UI_TITLE_PREFIX
 	// and it's correctly HTML-escaped.
 	if !bytes.Contains(b, []byte(`<title>Blah: &lt;script&gt;bleh&lt;/script&gt; Kopia UI`)) {
-		t.Errorf("invalid title served by the UI: %v.", string(b))
+		t.Fatalf("invalid title served by the UI: %v.", string(b))
 	}
 }
 

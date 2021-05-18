@@ -151,7 +151,7 @@ ifeq ($(GOARCH),amd64)
 	$(retry) $(MAKE) kopia-ui
 endif
 
-ci-tests: lint vet test-with-coverage
+ci-tests: lint vet test
 
 ci-integration-tests: integration-tests robustness-tool-tests
 	$(MAKE) stress-test

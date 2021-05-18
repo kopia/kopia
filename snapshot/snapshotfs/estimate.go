@@ -13,8 +13,6 @@ import (
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
-const maxExamplesPerBucket = 10
-
 // SampleBucket keeps track of count and total size of files above in certain size range and
 // includes small number of examples of such files.
 type SampleBucket struct {
@@ -24,7 +22,7 @@ type SampleBucket struct {
 	Examples  []string `json:"examples,omitempty"`
 }
 
-func (b *SampleBucket) add(fname string, size int64) {
+func (b *SampleBucket) add(fname string, size int64, maxExamplesPerBucket int) {
 	b.Count++
 	b.TotalSize += size
 
@@ -36,10 +34,10 @@ func (b *SampleBucket) add(fname string, size int64) {
 // SampleBuckets is a collection of buckets for interesting file sizes sorted in descending order.
 type SampleBuckets []*SampleBucket
 
-func (b SampleBuckets) add(fname string, size int64) {
+func (b SampleBuckets) add(fname string, size int64, maxExamplesPerBucket int) {
 	for _, bucket := range b {
 		if size >= bucket.MinSize {
-			bucket.add(fname, size)
+			bucket.add(fname, size, maxExamplesPerBucket)
 			break
 		}
 	}
@@ -73,7 +71,7 @@ type EstimateProgress interface {
 
 // Estimate walks the provided directory tree and invokes provided progress callback as it discovers
 // items to be snapshotted.
-func Estimate(ctx context.Context, rep repo.Repository, entry fs.Directory, policyTree *policy.Tree, progress EstimateProgress) error {
+func Estimate(ctx context.Context, rep repo.Repository, entry fs.Directory, policyTree *policy.Tree, progress EstimateProgress, maxExamplesPerBucket int) error {
 	stats := &snapshot.Stats{}
 	ed := []string{}
 	ib := makeBuckets()
@@ -97,16 +95,16 @@ func Estimate(ctx context.Context, rep repo.Repository, entry fs.Directory, poli
 			log(ctx).Debugf("excluded file %v (%v)", relativePath, units.BytesStringBase10(e.Size()))
 			stats.ExcludedFileCount++
 			stats.ExcludedTotalFileSize += e.Size()
-			eb.add(relativePath, e.Size())
+			eb.add(relativePath, e.Size(), maxExamplesPerBucket)
 		}
 	}
 
 	entry = ignorefs.New(entry, policyTree, ignorefs.ReportIgnoredFiles(onIgnoredFile))
 
-	return estimate(ctx, ".", entry, policyTree, stats, ib, eb, &ed, progress)
+	return estimate(ctx, ".", entry, policyTree, stats, ib, eb, &ed, progress, maxExamplesPerBucket)
 }
 
-func estimate(ctx context.Context, relativePath string, entry fs.Entry, policyTree *policy.Tree, stats *snapshot.Stats, ib, eb SampleBuckets, ed *[]string, progress EstimateProgress) error {
+func estimate(ctx context.Context, relativePath string, entry fs.Entry, policyTree *policy.Tree, stats *snapshot.Stats, ib, eb SampleBuckets, ed *[]string, progress EstimateProgress, maxExamplesPerBucket int) error {
 	// see if the context got canceled
 	select {
 	case <-ctx.Done():
@@ -135,7 +133,7 @@ func estimate(ctx context.Context, relativePath string, entry fs.Entry, policyTr
 			progress.Error(ctx, relativePath, err, isIgnored)
 		} else {
 			for _, child := range children {
-				if err := estimate(ctx, filepath.Join(relativePath, child.Name()), child, policyTree.Child(child.Name()), stats, ib, eb, ed, progress); err != nil {
+				if err := estimate(ctx, filepath.Join(relativePath, child.Name()), child, policyTree.Child(child.Name()), stats, ib, eb, ed, progress, maxExamplesPerBucket); err != nil {
 					return err
 				}
 			}
@@ -144,7 +142,7 @@ func estimate(ctx context.Context, relativePath string, entry fs.Entry, policyTr
 		progress.Stats(ctx, stats, ib, eb, *ed, false)
 
 	case fs.File:
-		ib.add(relativePath, entry.Size())
+		ib.add(relativePath, entry.Size(), maxExamplesPerBucket)
 		stats.TotalFileCount++
 		stats.TotalFileSize += entry.Size()
 	}

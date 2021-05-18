@@ -103,8 +103,6 @@ jobs:
     - name: Integration Tests
       run: make -j2 ci-integration-tests
       continue-on-error: ${{ github.event_name != 'pull_request' }}
-    - name: Publish Coverage Results
-      run: make ci-publish-coverage
     - name: Upload Kopia Artifacts
       uses: actions/upload-artifact@v2
       with:

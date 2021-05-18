@@ -54,6 +54,7 @@ type commandServerStart struct {
 	serverStartTLSGenerateCertValidDays int
 	serverStartTLSGenerateCertNames     []string
 	serverStartTLSPrintFullServerCert   bool
+	uiTitlePrefix                       string
 
 	sf  serverFlags
 	svc advancedAppServices
@@ -87,6 +88,8 @@ func (c *commandServerStart) setup(svc advancedAppServices, parent commandParent
 	cmd.Flag("tls-generate-cert-valid-days", "How long should the TLS certificate be valid").Default("3650").Hidden().IntVar(&c.serverStartTLSGenerateCertValidDays)
 	cmd.Flag("tls-generate-cert-name", "Host names/IP addresses to generate TLS certificate for").Default("127.0.0.1").Hidden().StringsVar(&c.serverStartTLSGenerateCertNames)
 	cmd.Flag("tls-print-server-cert", "Print server certificate").Hidden().BoolVar(&c.serverStartTLSPrintFullServerCert)
+
+	cmd.Flag("ui-title-prefix", "UI title prefix").Hidden().Envar("KOPIA_UI_TITLE_PREFIX").StringVar(&c.uiTitlePrefix)
 
 	c.sf.setup(cmd)
 	c.co.setup(cmd)
@@ -133,10 +136,10 @@ func (c *commandServerStart) run(ctx context.Context, rep repo.Repository) error
 	mux.Handle("/api/", srv.APIHandlers(c.serverStartLegacyRepositoryAPI))
 
 	if c.serverStartHTMLPath != "" {
-		fileServer := srv.RequireUIUserAuth(serveIndexFileForKnownUIRoutes(http.Dir(c.serverStartHTMLPath)))
+		fileServer := srv.RequireUIUserAuth(c.serveIndexFileForKnownUIRoutes(http.Dir(c.serverStartHTMLPath)))
 		mux.Handle("/", fileServer)
 	} else if c.serverStartUI {
-		mux.Handle("/", srv.RequireUIUserAuth(serveIndexFileForKnownUIRoutes(server.AssetFile())))
+		mux.Handle("/", srv.RequireUIUserAuth(c.serveIndexFileForKnownUIRoutes(server.AssetFile())))
 	}
 
 	httpServer := &http.Server{Addr: stripProtocol(c.sf.serverAddress)}
@@ -215,16 +218,16 @@ func stripProtocol(addr string) string {
 	return strings.TrimPrefix(strings.TrimPrefix(addr, "https://"), "http://")
 }
 
-func isKnownUIRoute(path string) bool {
+func (c *commandServerStart) isKnownUIRoute(path string) bool {
 	return strings.HasPrefix(path, "/snapshots") ||
 		strings.HasPrefix(path, "/policies") ||
 		strings.HasPrefix(path, "/tasks") ||
 		strings.HasPrefix(path, "/repo")
 }
 
-func patchIndexBytes(b []byte) []byte {
-	if prefix := os.Getenv("KOPIA_UI_TITLE_PREFIX"); prefix != "" {
-		b = bytes.ReplaceAll(b, []byte("<title>"), []byte("<title>"+html.EscapeString(prefix)))
+func (c *commandServerStart) patchIndexBytes(b []byte) []byte {
+	if c.uiTitlePrefix != "" {
+		b = bytes.ReplaceAll(b, []byte("<title>"), []byte("<title>"+html.EscapeString(c.uiTitlePrefix)))
 	}
 
 	return b
@@ -246,14 +249,14 @@ func maybeReadIndexBytes(fs http.FileSystem) []byte {
 	return rd
 }
 
-func serveIndexFileForKnownUIRoutes(fs http.FileSystem) http.Handler {
+func (c *commandServerStart) serveIndexFileForKnownUIRoutes(fs http.FileSystem) http.Handler {
 	h := http.FileServer(fs)
 
 	// read bytes from 'index.html' and patch based on optional environment variables.
-	indexBytes := patchIndexBytes(maybeReadIndexBytes(fs))
+	indexBytes := c.patchIndexBytes(maybeReadIndexBytes(fs))
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if isKnownUIRoute(r.URL.Path) {
+		if c.isKnownUIRoute(r.URL.Path) {
 			r2 := new(http.Request)
 			*r2 = *r
 			r2.URL = new(url.URL)
