@@ -98,7 +98,7 @@ func NewExeRunner(t *testing.T) *CLIExeRunner {
 
 	t.Cleanup(func() {
 		if t.Failed() {
-			t.Logf("FAULURE ABOVE ^^^^")
+			t.Logf("FAILURE ABOVE ^^^^")
 		}
 
 		if os.Getenv("KOPIA_KEEP_LOGS") != "" {
