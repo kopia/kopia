@@ -216,5 +216,6 @@ type RestoreRequest struct {
 
 // EstimateRequest contains request to estimate the size of the snapshot in a given root.
 type EstimateRequest struct {
-	Root string `json:"root"`
+	Root                 string `json:"root"`
+	MaxExamplesPerBucket int    `json:"maxExamplesPerBucket"`
 }

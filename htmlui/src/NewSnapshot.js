@@ -65,6 +65,7 @@ export class NewSnapshot extends Component {
 
         let req = {
             root: this.state.path,
+            maxExamplesPerBucket: 10,
         }
 
         axios.post('/api/v1/estimate', req).then(result => {
