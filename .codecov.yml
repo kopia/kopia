@@ -1,3 +1,11 @@
+coverage:
+  range: 60..80
+  status:
+    project:
+      default:
+        # TODO - raise it to 70-75% over time
+        target: 62%    # the required coverage value
+        threshold: 1%  # the leniency in hitting the target
 ignore:
  - repo/blob/gcs/
  - repo/blob/s3/
@@ -6,3 +14,8 @@ ignore:
  - repo/blob/b2/
  - repo/blob/rclone/
  - repo/blob/webdav/
+ - internal/testutil/
+ - internal/testlogging/
+ - internal/mockfs/
+ - internal/repotesting/
+ 
