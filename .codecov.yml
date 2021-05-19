@@ -14,8 +14,11 @@ ignore:
  - repo/blob/b2/
  - repo/blob/rclone/
  - repo/blob/webdav/
+ # exclude test-only packages
  - internal/testutil/
  - internal/testlogging/
  - internal/mockfs/
  - internal/repotesting/
+ - internal/fshasher/
+ - internal/blobtesting/
  
