@@ -6,12 +6,13 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
 	"path"
-	"sync"
 	"syscall"
+	"testing"
 
 	"github.com/kopia/kopia/tests/robustness/engine"
 	"github.com/kopia/kopia/tests/robustness/fiofilewriter"
@@ -207,31 +208,44 @@ func (th *TestHarness) Engine() *engine.Engine {
 
 // Run runs the provided function asynchronously for each of the given client
 // contexts, waits for all of them to finish, and optionally cleans up clients.
-func (th *TestHarness) Run(ctxs []context.Context, cleanup bool, f func(context.Context)) {
-	var wg sync.WaitGroup
+func (th *TestHarness) Run( //nolint:thelper
+	ctxs []context.Context,
+	t *testing.T, cleanup bool,
+	f func(context.Context, *testing.T),
+) {
+	t.Run("group", func(t *testing.T) {
+		testNum := 0
 
-	for _, ctx := range ctxs {
-		wg.Add(1)
+		for _, ctx := range ctxs {
+			ctx := ctx
+			testNum++
 
-		go func(ctx context.Context) {
-			f(ctx)
+			t.Run(fmt.Sprint(testNum), func(t *testing.T) {
+				t.Parallel()
+				f(ctx, t)
+			})
+		}
+	})
 
-			if cleanup {
-				th.snapshotter.CleanupClient(ctx)
-			}
-
-			wg.Done()
-		}(ctx)
+	if !cleanup {
+		return
 	}
 
-	wg.Wait()
+	for _, ctx := range ctxs {
+		th.snapshotter.CleanupClient(ctx)
+	}
 }
 
 // RunN creates client contexts, runs the provided function asynchronously for
 // each client, waits for all of them to finish, and cleans up clients.
-func (th *TestHarness) RunN(ctx context.Context, numClients int, f func(context.Context)) {
+func (th *TestHarness) RunN( //nolint:thelper
+	ctx context.Context,
+	t *testing.T,
+	numClients int,
+	f func(context.Context, *testing.T),
+) {
 	ctxs := NewClientContexts(ctx, numClients)
-	th.Run(ctxs, true, f)
+	th.Run(ctxs, t, true, f)
 }
 
 // Cleanup shuts down the engine and stops the test app. It requires a context

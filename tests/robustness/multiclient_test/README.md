@@ -34,7 +34,9 @@ func TestExample(t *testing.T) {
 	numClients := 4
 
 	// Define per-client test actions
-	f := func(ctx context.Context) {
+	f := func(ctx context.Context, t *testing.T) {
+		t.Helper()
+
 		_, err := eng.ExecAction(ctx, /* engine-action-key */, /* opts */)
 		// ... other actions ...
 	}
@@ -43,6 +45,6 @@ func TestExample(t *testing.T) {
 	ctx := testlogging.Context(t)
 
 	// Run test actions for each client concurrently
-	th.RunN(ctx, numClients, f)
+	th.RunN(ctx, t, numClients, f)
 }
 ```
