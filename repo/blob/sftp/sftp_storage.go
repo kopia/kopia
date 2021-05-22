@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -245,6 +246,10 @@ func getHostKeyCallback(opt *Options) (ssh.HostKeyCallback, error) {
 		return knownhosts.New(tmpFile)
 	}
 
+	if f := opt.knownHostsFile(); !filepath.IsAbs(f) {
+		return nil, errors.Errorf("known hosts path must be absolute")
+	}
+
 	// nolint:wrapcheck
 	return knownhosts.New(opt.knownHostsFile())
 }
@@ -261,6 +266,10 @@ func getSigner(opts *Options) (ssh.Signer, error) {
 		privateKeyData = []byte(opts.KeyData)
 	} else {
 		var err error
+
+		if f := opts.Keyfile; !filepath.IsAbs(f) {
+			return nil, errors.Errorf("key file path must be absolute")
+		}
 
 		privateKeyData, err = ioutil.ReadFile(opts.Keyfile)
 		if err != nil {
