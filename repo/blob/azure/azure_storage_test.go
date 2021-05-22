@@ -20,9 +20,10 @@ import (
 )
 
 const (
-	testContainerEnv      = "KOPIA_AZURE_TEST_CONTAINER"
-	testStorageAccountEnv = "KOPIA_AZURE_TEST_STORAGE_ACCOUNT"
-	testStorageKeyEnv     = "KOPIA_AZURE_TEST_STORAGE_KEY"
+	testContainerEnv       = "KOPIA_AZURE_TEST_CONTAINER"
+	testStorageAccountEnv  = "KOPIA_AZURE_TEST_STORAGE_ACCOUNT"
+	testStorageKeyEnv      = "KOPIA_AZURE_TEST_STORAGE_KEY"
+	testStorageSASTokenEnv = "KOPIA_AZURE_TEST_SAS_TOKEN"
 )
 
 func getEnvOrSkip(t *testing.T, name string) string {
@@ -91,6 +92,50 @@ func TestAzureStorage(t *testing.T) {
 		StorageAccount: storageAccount,
 		StorageKey:     storageKey,
 		Prefix:         fmt.Sprintf("test-%v-%x-", clock.Now().Unix(), data),
+	})
+	if err != nil {
+		t.Fatalf("unable to connect to Azure: %v", err)
+	}
+
+	if err := st.ListBlobs(ctx, "", func(bm blob.Metadata) error {
+		return st.DeleteBlob(ctx, bm.BlobID)
+	}); err != nil {
+		t.Fatalf("unable to clear Azure blob container: %v", err)
+	}
+
+	blobtesting.VerifyStorage(ctx, t, st)
+	blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
+
+	// delete everything again
+	if err := st.ListBlobs(ctx, "", func(bm blob.Metadata) error {
+		return st.DeleteBlob(ctx, bm.BlobID)
+	}); err != nil {
+		t.Fatalf("unable to clear Azure blob container: %v", err)
+	}
+
+	if err := st.Close(ctx); err != nil {
+		t.Fatalf("err: %v", err)
+	}
+}
+
+func TestAzureStorageSASToken(t *testing.T) {
+	t.Parallel()
+	testutil.ProviderTest(t)
+
+	container := getEnvOrSkip(t, testContainerEnv)
+	storageAccount := getEnvOrSkip(t, testStorageAccountEnv)
+	sasToken := getEnvOrSkip(t, testStorageSASTokenEnv)
+
+	data := make([]byte, 8)
+	rand.Read(data)
+
+	ctx := testlogging.Context(t)
+
+	st, err := azure.New(ctx, &azure.Options{
+		Container:      container,
+		StorageAccount: storageAccount,
+		SASToken:       sasToken,
+		Prefix:         fmt.Sprintf("sastest-%v-%x-", clock.Now().Unix(), data),
 	})
 	if err != nil {
 		t.Fatalf("unable to connect to Azure: %v", err)

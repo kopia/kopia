@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Azure/azure-pipeline-go/pipeline"
 	"github.com/Azure/azure-storage-blob-go/azblob"
 	"github.com/efarrer/iothrottler"
 	"github.com/pkg/errors"
@@ -218,17 +219,36 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 		return nil, errors.New("container name must be specified")
 	}
 
-	// create a credentials object.
-	credential, err := azureblob.NewCredential(azureblob.AccountName(opt.StorageAccount), azureblob.AccountKey(opt.StorageKey))
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to initialize credentials")
+	var (
+		abo          azureblob.Options
+		pl           pipeline.Pipeline
+		pipelineOpts azblob.PipelineOptions
+		account      = azureblob.AccountName(opt.StorageAccount)
+	)
+
+	if opt.SASToken != "" {
+		abo.SASToken = azureblob.SASToken(opt.SASToken)
+		// don't set abo.Credential
+		pl = azureblob.NewPipeline(azblob.NewAnonymousCredential(), pipelineOpts)
+	} else {
+		if opt.StorageKey == "" {
+			return nil, errors.Errorf("either storage key or SAS token must be provided")
+		}
+
+		// create a credentials object.
+		cred, err := azureblob.NewCredential(account, azureblob.AccountKey(opt.StorageKey))
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to initialize credentials")
+		}
+
+		abo.Credential = cred
+		pl = azureblob.NewPipeline(cred, pipelineOpts)
 	}
 
-	// create a Pipeline with credentials.
-	pipeline := azureblob.NewPipeline(credential, azblob.PipelineOptions{})
+	abo.StorageDomain = azureblob.StorageDomain(opt.StorageDomain)
 
 	// create a *blob.Bucket.
-	bucket, err := azureblob.OpenBucket(ctx, pipeline, azureblob.AccountName(opt.StorageAccount), opt.Container, &azureblob.Options{Credential: credential})
+	bucket, err := azureblob.OpenBucket(ctx, pl, account, opt.Container, &abo)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to open bucket")
 	}
