@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"io/ioutil"
+	"path/filepath"
 
 	"github.com/alecthomas/kingpin"
 	"github.com/pkg/errors"
@@ -35,7 +36,7 @@ func (c *storageSFTPFlags) setup(_ storageProviderServices, cmd *kingpin.CmdClau
 	cmd.Flag("flat", "Use flat directory structure").BoolVar(&c.connectFlat)
 }
 
-func (c *storageSFTPFlags) connect(ctx context.Context, isNew bool) (blob.Storage, error) {
+func (c *storageSFTPFlags) getOptions() (*sftp.Options, error) {
 	sftpo := c.options
 
 	// nolint:nestif
@@ -62,8 +63,32 @@ func (c *storageSFTPFlags) connect(ctx context.Context, isNew bool) (blob.Storag
 			}
 		}
 
-		if sftpo.KeyData == "" && sftpo.Keyfile == "" {
-			return nil, errors.Errorf("must provide either key file or key data")
+		switch {
+		case sftpo.KeyData != "": // ok
+
+		case sftpo.Keyfile != "":
+			a, err := filepath.Abs(sftpo.Keyfile)
+			if err != nil {
+				return nil, errors.Wrap(err, "error getting absolute path")
+			}
+
+			sftpo.Keyfile = a
+		default:
+			return nil, errors.Errorf("must provide either --keyfile or --key-data")
+		}
+
+		switch {
+		case sftpo.KnownHostsData != "": // ok
+
+		case sftpo.KnownHostsFile != "":
+			a, err := filepath.Abs(sftpo.KnownHostsFile)
+			if err != nil {
+				return nil, errors.Wrap(err, "error getting absolute path")
+			}
+
+			sftpo.KnownHostsFile = a
+		default:
+			return nil, errors.Errorf("must provide either --known-hosts or --known-hosts-data")
 		}
 	}
 
@@ -71,6 +96,15 @@ func (c *storageSFTPFlags) connect(ctx context.Context, isNew bool) (blob.Storag
 		sftpo.DirectoryShards = []int{}
 	}
 
+	return &sftpo, nil
+}
+
+func (c *storageSFTPFlags) connect(ctx context.Context, isNew bool) (blob.Storage, error) {
+	opt, err := c.getOptions()
+	if err != nil {
+		return nil, err
+	}
+
 	// nolint:wrapcheck
-	return sftp.New(ctx, &sftpo)
+	return sftp.New(ctx, opt)
 }

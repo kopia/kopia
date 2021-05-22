@@ -1,0 +1,163 @@
+package cli
+
+import (
+	"fmt"
+	"io/ioutil"
+	"path/filepath"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/kopia/kopia/repo/blob/sftp"
+)
+
+func TestSFTPOptions(t *testing.T) {
+	td := t.TempDir()
+
+	myKeyFile := filepath.Join(td, "my-key")
+	myKnownHostsFile := filepath.Join(td, "my-known-hosts")
+
+	require.NoError(t, ioutil.WriteFile(myKeyFile, []byte("fake-key-data"), 0600))
+	require.NoError(t, ioutil.WriteFile(myKnownHostsFile, []byte("fake-known-hosts-data"), 0600))
+
+	cases := []struct {
+		input   storageSFTPFlags
+		want    *sftp.Options
+		wantErr string
+	}{
+		// 0
+		{
+			input: storageSFTPFlags{
+				options: sftp.Options{
+					Host:           "some-host",
+					Port:           222,
+					Username:       "user",
+					KnownHostsFile: "my-known-hosts",
+					Keyfile:        "my-key",
+				},
+			},
+			want: &sftp.Options{
+				Host:           "some-host",
+				Port:           222,
+				Username:       "user",
+				KnownHostsFile: mustFileAbs(t, "my-known-hosts"),
+				Keyfile:        mustFileAbs(t, "my-key"),
+			},
+		},
+		// 1
+		{
+			input: storageSFTPFlags{
+				options: sftp.Options{
+					Host:           "some-host",
+					Port:           222,
+					Username:       "user",
+					Keyfile:        "no-such-file",
+					KnownHostsFile: myKnownHostsFile,
+				},
+				embedCredentials: true,
+			},
+			wantErr: "unable to read key file",
+		},
+		// 2
+		{
+			input: storageSFTPFlags{
+				options: sftp.Options{
+					Host:           "some-host",
+					Port:           222,
+					Username:       "user",
+					Keyfile:        myKeyFile,
+					KnownHostsFile: "no-such-file",
+				},
+				embedCredentials: true,
+			},
+			wantErr: "unable to read known hosts file",
+		},
+		// 3
+		{
+			input: storageSFTPFlags{
+				options: sftp.Options{
+					Host:           "some-host",
+					Port:           222,
+					Username:       "user",
+					KnownHostsFile: "my-known-hosts",
+				},
+			},
+			wantErr: "must provide either --keyfile or --key-data",
+		},
+		// 4
+		{
+			input: storageSFTPFlags{
+				options: sftp.Options{
+					Host:     "some-host",
+					Port:     222,
+					Username: "user",
+					Keyfile:  "my-key",
+				},
+			},
+			wantErr: "must provide either --known-hosts or --known-hosts-data",
+		},
+		// 5
+		{
+			input: storageSFTPFlags{
+				options: sftp.Options{
+					Host:           "some-host",
+					Port:           222,
+					Username:       "user",
+					KnownHostsFile: myKnownHostsFile,
+					Keyfile:        myKeyFile,
+				},
+				embedCredentials: true,
+			},
+			want: &sftp.Options{
+				Host:           "some-host",
+				Port:           222,
+				Username:       "user",
+				KeyData:        "fake-key-data",
+				KnownHostsData: "fake-known-hosts-data",
+			},
+		},
+		// 6
+		{
+			input: storageSFTPFlags{
+				options: sftp.Options{
+					Host:           "some-host",
+					Port:           222,
+					Username:       "user",
+					KnownHostsFile: "my-known-hosts",
+					Keyfile:        "my-key",
+				},
+				connectFlat: true,
+			},
+			want: &sftp.Options{
+				Host:            "some-host",
+				Port:            222,
+				Username:        "user",
+				KnownHostsFile:  mustFileAbs(t, "my-known-hosts"),
+				Keyfile:         mustFileAbs(t, "my-key"),
+				DirectoryShards: []int{},
+			},
+		},
+	}
+
+	for i, tc := range cases {
+		t.Run(fmt.Sprintf("case-%v", i), func(t *testing.T) {
+			got, err := tc.input.getOptions()
+			if tc.wantErr == "" {
+				require.NoError(t, err)
+				require.Equal(t, tc.want, got)
+			} else {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.wantErr)
+			}
+		})
+	}
+}
+
+func mustFileAbs(t *testing.T, fname string) string {
+	t.Helper()
+
+	result, err := filepath.Abs(fname)
+	require.NoError(t, err)
+
+	return result
+}
