@@ -13,18 +13,22 @@ export class SetupAzure extends Component {
     }
 
     validate() {
-        return validateRequiredFields(this, ["container", "storageAccount", "storageKey"])
+        return validateRequiredFields(this, ["container", "storageAccount"])
     }
 
     render() {
         return <>
             <Form.Row>
                 {RequiredField(this, "Container", "container", { autoFocus: true, placeholder: "enter container name" })}
-                {OptionalField(this, "Object Name Prefix", "prefix", { placeholder: "enter object name prefix or leave empty", type: "password" })}
+                {OptionalField(this, "Object Name Prefix", "prefix", { placeholder: "enter object name prefix or leave empty" })}
             </Form.Row>
             <Form.Row>
-                {RequiredField(this, "Access Key ID", "storageAccount", { placeholder: "enter access key ID" })}
-                {RequiredField(this, "Secret Access Key", "storageKey", { placeholder: "enter secret access key", type: "password" })}
+                {RequiredField(this, "Storage Account", "storageAccount", { placeholder: "enter access key ID" })}
+                {OptionalField(this, "Access Key", "storageKey", { placeholder: "enter secret access key", type: "password" })}
+            </Form.Row>
+            <Form.Row>
+                {OptionalField(this, "Azure Storage Domain", "storageDomain", { placeholder: "enter storage domain or leave empty for default 'blob.core.windows.net'" })}
+                {OptionalField(this, "SAS Token", "sasToken", { placeholder: "enter secret SAS Token", type: "password" })}
             </Form.Row>
         </>;
     }

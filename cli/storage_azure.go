@@ -15,8 +15,10 @@ type storageAzureFlags struct {
 
 func (c *storageAzureFlags) setup(_ storageProviderServices, cmd *kingpin.CmdClause) {
 	cmd.Flag("container", "Name of the Azure blob container").Required().StringVar(&c.azOptions.Container)
-	cmd.Flag("storage-account", "Azure storage account name(overrides AZURE_STORAGE_ACCOUNT environment variable)").Required().Envar("AZURE_STORAGE_ACCOUNT").StringVar(&c.azOptions.StorageAccount)
-	cmd.Flag("storage-key", "Azure storage account key(overrides AZURE_STORAGE_KEY environment variable)").Required().Envar("AZURE_STORAGE_KEY").StringVar(&c.azOptions.StorageKey)
+	cmd.Flag("storage-account", "Azure storage account name (overrides AZURE_STORAGE_ACCOUNT environment variable)").Required().Envar("AZURE_STORAGE_ACCOUNT").StringVar(&c.azOptions.StorageAccount)
+	cmd.Flag("storage-key", "Azure storage account key (overrides AZURE_STORAGE_KEY environment variable)").Envar("AZURE_STORAGE_KEY").StringVar(&c.azOptions.StorageKey)
+	cmd.Flag("storage-domain", "Azure storage domain").Envar("AZURE_STORAGE_DOMAIN").StringVar(&c.azOptions.StorageDomain)
+	cmd.Flag("sas-token", "Azure SAS Token").Envar("AZURE_STORAGE_SAS_TOKEN").StringVar(&c.azOptions.SASToken)
 	cmd.Flag("prefix", "Prefix to use for objects in the bucket").StringVar(&c.azOptions.Prefix)
 	cmd.Flag("max-download-speed", "Limit the download speed.").PlaceHolder("BYTES_PER_SEC").IntVar(&c.azOptions.MaxDownloadSpeedBytesPerSecond)
 	cmd.Flag("max-upload-speed", "Limit the upload speed.").PlaceHolder("BYTES_PER_SEC").IntVar(&c.azOptions.MaxUploadSpeedBytesPerSecond)

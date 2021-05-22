@@ -12,6 +12,11 @@ type Options struct {
 	StorageAccount string `json:"storageAccount"`
 	StorageKey     string `json:"storageKey" kopia:"sensitive"`
 
+	// Alternatively provide SAS Token
+	SASToken string `json:"sasToken" kopia:"sensitive"`
+
+	StorageDomain string `json:"storageDomain,omitempty"`
+
 	MaxUploadSpeedBytesPerSecond   int `json:"maxUploadSpeedBytesPerSecond,omitempty"`
 	MaxDownloadSpeedBytesPerSecond int `json:"maxDownloadSpeedBytesPerSecond,omitempty"`
 }

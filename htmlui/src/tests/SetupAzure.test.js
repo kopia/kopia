@@ -11,9 +11,11 @@ it('can set fields', async () => {
   // required
   changeControlValue(getByTestId("control-container"), "some-container");
   changeControlValue(getByTestId("control-storageAccount"), "some-storageAccount");
-  changeControlValue(getByTestId("control-storageKey"), "some-storageKey");
   expect(ref.current.validate()).toBe(true);
   // optional
+  changeControlValue(getByTestId("control-storageKey"), "some-storageKey");
+  changeControlValue(getByTestId("control-sasToken"), "some-sas-token");
+  changeControlValue(getByTestId("control-storageDomain"), "some-storage-domain");
   changeControlValue(getByTestId("control-prefix"), "some-prefix");
   expect(ref.current.validate()).toBe(true);
 
@@ -22,5 +24,7 @@ it('can set fields', async () => {
     "container": "some-container",
     "prefix": "some-prefix",
     "storageKey": "some-storageKey",
+    "sasToken": "some-sas-token",
+    "storageDomain": "some-storage-domain",
   });
 });
