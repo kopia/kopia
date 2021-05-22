@@ -75,6 +75,7 @@ func TestCompression(t *testing.T) {
 			if strings.HasPrefix(l, entries[0].ObjectID) {
 				require.Contains(t, l, "pgzip")
 				found = true
+				break
 			}
 		}
 

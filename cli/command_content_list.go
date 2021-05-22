@@ -110,7 +110,7 @@ func (c *commandContentList) outputCompressed(b content.Info) {
 	)
 }
 
-func (c *commandContentList) deletedInfoString(b content.Info) string {
+func (*commandContentList) deletedInfoString(b content.Info) string {
 	if b.GetDeleted() {
 		return " (deleted)"
 	}
@@ -118,7 +118,7 @@ func (c *commandContentList) deletedInfoString(b content.Info) string {
 	return ""
 }
 
-func (c *commandContentList) compressionInfoStringString(b content.Info) string {
+func (*commandContentList) compressionInfoStringString(b content.Info) string {
 	h := b.GetCompressionHeaderID()
 	if h == content.NoCompression {
 		return "-"
@@ -130,7 +130,7 @@ func (c *commandContentList) compressionInfoStringString(b content.Info) string 
 	}
 
 	if b.GetOriginalLength() > 0 {
-		s += " " + formatCompressionRatio(int64(b.GetOriginalLength()), int64(b.GetPackedLength()))
+		s += " " + formatCompressionPercentage(int64(b.GetOriginalLength()), int64(b.GetPackedLength()))
 	}
 
 	return s

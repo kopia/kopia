@@ -58,7 +58,7 @@ func (c *commandContentStats) run(ctx context.Context, rep repo.DirectRepository
 		c.out.printStdout(
 			"Total Packed: %v (compression %v)\n",
 			sizeToString(grandTotal.packedSize),
-			formatCompressionRatio(grandTotal.originalSize, grandTotal.packedSize))
+			formatCompressionPercentage(grandTotal.originalSize, grandTotal.packedSize))
 	}
 
 	if len(byCompressionTotal) > 1 {
@@ -78,7 +78,7 @@ func (c *commandContentStats) run(ctx context.Context, rep repo.DirectRepository
 				cname, bct.count,
 				sizeToString(bct.originalSize),
 				sizeToString(bct.packedSize),
-				formatCompressionRatio(bct.originalSize, bct.packedSize))
+				formatCompressionPercentage(bct.originalSize, bct.packedSize))
 		}
 	}
 

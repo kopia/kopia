@@ -93,7 +93,7 @@ func convertTimezone(ts time.Time) time.Time {
 	}
 }
 
-func formatCompressionRatio(original, compressed int64) string {
+func formatCompressionPercentage(original, compressed int64) string {
 	if compressed >= original {
 		return "0%"
 	}
