@@ -314,9 +314,15 @@ func (sm *SharedManager) addRef() {
 
 // release removes a reference to the shared manager and destroys it if no more references are remaining.
 func (sm *SharedManager) release(ctx context.Context) error {
+	if atomic.LoadInt32(&sm.closed) != 0 {
+		// already closed
+		return nil
+	}
+
 	remaining := atomic.AddInt32(&sm.refCount, -1)
 	if remaining != 0 {
 		log(ctx).Debugf("not closing shared manager, remaining = %v", remaining)
+
 		return nil
 	}
 

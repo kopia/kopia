@@ -13,7 +13,7 @@ func TestContentIndexRecovery(t *testing.T) {
 	ctx := testlogging.Context(t)
 	data := blobtesting.DataMap{}
 	keyTime := map[blob.ID]time.Time{}
-	bm := newTestContentManager(t, data, keyTime, nil)
+	bm := newTestContentManagerWithCustomTime(t, data, keyTime, nil)
 
 	content1 := writeContentAndVerify(ctx, t, bm, seededRandomData(10, 100))
 	content2 := writeContentAndVerify(ctx, t, bm, seededRandomData(11, 100))
@@ -32,7 +32,7 @@ func TestContentIndexRecovery(t *testing.T) {
 	bm.Close(ctx)
 
 	// now with index blobs gone, all contents appear to not be found
-	bm = newTestContentManager(t, data, keyTime, nil)
+	bm = newTestContentManagerWithCustomTime(t, data, keyTime, nil)
 	defer bm.Close(ctx)
 
 	verifyContentNotFound(ctx, t, bm, content1)
