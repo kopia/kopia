@@ -15,6 +15,8 @@ import (
 	"github.com/kopia/kopia/internal/units"
 )
 
+const oneHundredPercent = 100.0
+
 // TODO - remove this global.
 var timeZone = "local"
 
@@ -89,4 +91,16 @@ func convertTimezone(ts time.Time) time.Time {
 
 		return ts
 	}
+}
+
+func formatCompressionPercentage(original, compressed int64) string {
+	if compressed >= original {
+		return "0%"
+	}
+
+	if original == 0 {
+		return "0%"
+	}
+
+	return fmt.Sprintf("%.1f%%", oneHundredPercent*(1-float64(compressed)/float64(original)))
 }

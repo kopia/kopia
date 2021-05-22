@@ -6,6 +6,7 @@ import (
 
 // Reader defines content read API.
 type Reader interface {
+	SupportsContentCompression() bool
 	ContentFormat() FormattingOptions
 	GetContent(ctx context.Context, id ID) ([]byte, error)
 	ContentInfo(ctx context.Context, id ID) (Info, error)

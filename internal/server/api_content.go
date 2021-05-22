@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/gorilla/mux"
 
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/manifest"
 )
@@ -66,7 +68,21 @@ func (s *Server) handleContentPut(ctx context.Context, r *http.Request, data []b
 		return nil, accessDeniedError()
 	}
 
-	actualCID, err := dr.ContentManager().WriteContent(ctx, data, prefix)
+	var comp compression.HeaderID
+
+	if c := r.URL.Query().Get("compression"); c != "" {
+		v, err := strconv.ParseInt(c, 16, 32)
+		if err != nil {
+			return nil, requestError(serverapi.ErrorMalformedRequest, "malformed compression ID")
+		}
+
+		comp = compression.HeaderID(v)
+		if _, ok := compression.ByHeaderID[comp]; !ok {
+			return nil, requestError(serverapi.ErrorMalformedRequest, "invalid compression ID")
+		}
+	}
+
+	actualCID, err := dr.ContentManager().WriteContent(ctx, data, prefix, comp)
 	if err != nil {
 		return nil, internalServerError(err)
 	}

@@ -153,7 +153,10 @@ endif
 
 ci-tests: lint vet test
 
-ci-integration-tests: integration-tests robustness-tool-tests
+ci-integration-tests:
+	$(MAKE) integration-tests
+	$(MAKE) integration-tests-index-v2
+	$(MAKE) robustness-tool-tests
 	$(MAKE) stress-test
 
 ci-publish-coverage:
@@ -219,6 +222,9 @@ integration-tests: GOTESTSUM_FLAGS=--format=testname --no-summary=skipped --json
 integration-tests: build-integration-test-binary $(gotestsum) $(TESTING_ACTION_EXE)
 	 $(GO_TEST) $(TEST_FLAGS) -count=$(REPEAT_TEST) -parallel $(PARALLEL) -timeout 3600s github.com/kopia/kopia/tests/end_to_end_test
 	 -$(gotestsum) tool slowest --jsonfile .tmp.integration-tests.json  --threshold 1000ms
+
+integration-tests-index-v2:
+	KOPIA_CREATE_INDEX_VERSION=2 KOPIA_RUN_ALL_INTEGRATION_TESTS=true $(MAKE) integration-tests
 
 endurance-tests: export KOPIA_EXE ?= $(KOPIA_INTEGRATION_EXE)
 endurance-tests: export KOPIA_LOGS_DIR=$(CURDIR)/.logs

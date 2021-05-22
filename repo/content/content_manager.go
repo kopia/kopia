@@ -18,6 +18,7 @@ import (
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/logging"
 )
 
@@ -31,10 +32,14 @@ const (
 	PackBlobIDPrefixRegular blob.ID = "p"
 	PackBlobIDPrefixSpecial blob.ID = "q"
 
+	NoCompression compression.HeaderID = 0
+
 	FormatLogModule = "kopia/format"
 
 	maxHashSize                            = 64
 	defaultEncryptionBufferPoolSegmentSize = 8 << 20 // 8 MB
+
+	DefaultIndexVersion = 1
 )
 
 // PackBlobIDPrefixes contains all possible prefixes for pack blobs.
@@ -208,7 +213,7 @@ func (bm *WriteManager) maybeRetryWritingFailedPacksUnlocked(ctx context.Context
 	return nil
 }
 
-func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, data []byte, isDeleted bool) error {
+func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, data []byte, isDeleted bool, comp compression.HeaderID) error {
 	// see if the current index is old enough to cause automatic flush.
 	if err := bm.maybeFlushBasedOnTimeUnlocked(ctx); err != nil {
 		return errors.Wrap(err, "unable to flush old pending writes")
@@ -257,10 +262,12 @@ func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, dat
 		OriginalLength:   uint32(len(data)),
 	}
 
-	if err := bm.maybeEncryptContentDataForPacking(pp.currentPackData, data, contentID); err != nil {
+	actualComp, err := bm.maybeCompressAndEncryptDataForPacking(pp.currentPackData, data, contentID, comp)
+	if err != nil {
 		return errors.Wrapf(err, "unable to encrypt %q", contentID)
 	}
 
+	info.CompressionHeaderID = actualComp
 	info.PackedLength = uint32(pp.currentPackData.Length()) - info.PackOffset
 
 	pp.currentPackItems[contentID] = info
@@ -528,6 +535,8 @@ func (bm *WriteManager) Flush(ctx context.Context) error {
 }
 
 // RewriteContent causes reads and re-writes a given content using the most recent format.
+// TODO(jkowalski): this will currently always re-encrypt and re-compress data, perhaps consider a
+// pass-through mode that preserves encrypted/compressed bits.
 func (bm *WriteManager) RewriteContent(ctx context.Context, contentID ID) error {
 	formatLog(ctx).Debugf("rewrite-content %v", contentID)
 
@@ -541,7 +550,7 @@ func (bm *WriteManager) RewriteContent(ctx context.Context, contentID ID) error 
 		return err
 	}
 
-	return bm.addToPackUnlocked(ctx, contentID, data, bi.GetDeleted())
+	return bm.addToPackUnlocked(ctx, contentID, data, bi.GetDeleted(), bi.GetCompressionHeaderID())
 }
 
 // UndeleteContent rewrites the content with the given ID if the content exists
@@ -564,7 +573,7 @@ func (bm *WriteManager) UndeleteContent(ctx context.Context, contentID ID) error
 		return err
 	}
 
-	return bm.addToPackUnlocked(ctx, contentID, data, false)
+	return bm.addToPackUnlocked(ctx, contentID, data, false, bi.GetCompressionHeaderID())
 }
 
 func packPrefixForContentID(contentID ID) blob.ID {
@@ -609,9 +618,14 @@ func (bm *WriteManager) getOrCreatePendingPackInfoLocked(ctx context.Context, pr
 	return bm.pendingPacks[prefix], nil
 }
 
+// SupportsContentCompression returns true if content manager supports content-compression.
+func (bm *WriteManager) SupportsContentCompression() bool {
+	return bm.format.IndexVersion >= v2IndexVersion
+}
+
 // WriteContent saves a given content of data to a pack group with a provided name and returns a contentID
 // that's based on the contents of data written.
-func (bm *WriteManager) WriteContent(ctx context.Context, data []byte, prefix ID) (ID, error) {
+func (bm *WriteManager) WriteContent(ctx context.Context, data []byte, prefix ID, comp compression.HeaderID) (ID, error) {
 	if err := bm.maybeRetryWritingFailedPacksUnlocked(ctx); err != nil {
 		return "", err
 	}
@@ -639,7 +653,7 @@ func (bm *WriteManager) WriteContent(ctx context.Context, data []byte, prefix ID
 		formatLog(ctx).Debugf("write-content %v new", contentID)
 	}
 
-	err := bm.addToPackUnlocked(ctx, contentID, data, false)
+	err := bm.addToPackUnlocked(ctx, contentID, data, false, comp)
 
 	return contentID, err
 }

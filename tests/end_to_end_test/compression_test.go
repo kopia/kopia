@@ -56,11 +56,43 @@ func TestCompression(t *testing.T) {
 	oid := sources[0].Snapshots[0].ObjectID
 	entries := clitestutil.ListDirectory(t, e, oid)
 
-	if !strings.HasPrefix(entries[0].ObjectID, "Z") {
-		t.Errorf("expected compressed object, got %v", entries[0].ObjectID)
+	supportsContentLevelCompression := containsLineStartingWith(
+		e.RunAndExpectSuccess(t, "repo", "status"),
+		"Content compression: true",
+	)
+
+	// without content-level compression, we'll do it at object level and object ID will be prefixed with 'Z'
+	if !supportsContentLevelCompression {
+		if !strings.HasPrefix(entries[0].ObjectID, "Z") {
+			t.Errorf("expected compressed object, got %v", entries[0].ObjectID)
+		}
+	} else {
+		// with content-level compression we're looking for a content with compression.
+		lines := e.RunAndExpectSuccess(t, "content", "ls", "-c")
+		found := false
+
+		for _, l := range lines {
+			if strings.HasPrefix(l, entries[0].ObjectID) {
+				require.Contains(t, l, "pgzip")
+				found = true
+				break
+			}
+		}
+
+		require.True(t, found)
 	}
 
 	if lines := e.RunAndExpectSuccess(t, "show", entries[0].ObjectID); !reflect.DeepEqual(dataLines, lines) {
 		t.Errorf("invalid object contents")
 	}
+}
+
+func containsLineStartingWith(lines []string, prefix string) bool {
+	for _, l := range lines {
+		if strings.HasPrefix(l, prefix) {
+			return true
+		}
+	}
+
+	return false
 }

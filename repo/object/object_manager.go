@@ -34,7 +34,8 @@ type contentReader interface {
 
 type contentManager interface {
 	contentReader
-	WriteContent(ctx context.Context, data []byte, prefix content.ID) (content.ID, error)
+	SupportsContentCompression() bool
+	WriteContent(ctx context.Context, data []byte, prefix content.ID, comp compression.HeaderID) (content.ID, error)
 }
 
 // Format describes the format of objects in a repository.

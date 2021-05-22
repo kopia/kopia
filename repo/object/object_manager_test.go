@@ -17,6 +17,7 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/kopia/kopia/internal/clock"
@@ -29,8 +30,10 @@ import (
 )
 
 type fakeContentManager struct {
-	mu   sync.Mutex
-	data map[content.ID][]byte
+	mu                         sync.Mutex
+	data                       map[content.ID][]byte
+	compresionIDs              map[content.ID]compression.HeaderID
+	supportsContentCompression bool
 }
 
 func (f *fakeContentManager) GetContent(ctx context.Context, contentID content.ID) ([]byte, error) {
@@ -44,7 +47,7 @@ func (f *fakeContentManager) GetContent(ctx context.Context, contentID content.I
 	return nil, content.ErrContentNotFound
 }
 
-func (f *fakeContentManager) WriteContent(ctx context.Context, data []byte, prefix content.ID) (content.ID, error) {
+func (f *fakeContentManager) WriteContent(ctx context.Context, data []byte, prefix content.ID, comp compression.HeaderID) (content.ID, error) {
 	h := sha256.New()
 	h.Write(data)
 	contentID := prefix + content.ID(hex.EncodeToString(h.Sum(nil)))
@@ -53,8 +56,15 @@ func (f *fakeContentManager) WriteContent(ctx context.Context, data []byte, pref
 	defer f.mu.Unlock()
 
 	f.data[contentID] = append([]byte(nil), data...)
+	if f.compresionIDs != nil {
+		f.compresionIDs[contentID] = comp
+	}
 
 	return contentID, nil
+}
+
+func (f *fakeContentManager) SupportsContentCompression() bool {
+	return f.supportsContentCompression
 }
 
 func (f *fakeContentManager) ContentInfo(ctx context.Context, contentID content.ID) (content.Info, error) {
@@ -72,16 +82,16 @@ func (f *fakeContentManager) Flush(ctx context.Context) error {
 	return nil
 }
 
-func setupTest(t *testing.T) (map[content.ID][]byte, *Manager) {
+func setupTest(t *testing.T, compressionHeaderID map[content.ID]compression.HeaderID) (map[content.ID][]byte, *Manager) {
 	t.Helper()
 
-	return setupTestWithData(t, map[content.ID][]byte{})
-}
+	data := map[content.ID][]byte{}
 
-func setupTestWithData(t *testing.T, data map[content.ID][]byte) (map[content.ID][]byte, *Manager) {
-	t.Helper()
-
-	r, err := NewObjectManager(testlogging.Context(t), &fakeContentManager{data: data}, Format{
+	r, err := NewObjectManager(testlogging.Context(t), &fakeContentManager{
+		data:                       data,
+		supportsContentCompression: compressionHeaderID != nil,
+		compresionIDs:              compressionHeaderID,
+	}, Format{
 		Splitter: "FIXED-1M",
 	})
 	if err != nil {
@@ -109,7 +119,7 @@ func TestWriters(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		data, om := setupTest(t)
+		data, om := setupTest(t, nil)
 
 		writer := om.NewWriter(ctx, WriterOptions{})
 
@@ -144,9 +154,46 @@ func objectIDsEqual(o1, o2 ID) bool {
 	return o1 == o2
 }
 
+func TestCompression_ContentCompressionEnabled(t *testing.T) {
+	ctx := testlogging.Context(t)
+
+	cmap := map[content.ID]compression.HeaderID{}
+	_, om := setupTest(t, cmap)
+
+	w := om.NewWriter(ctx, WriterOptions{
+		Compressor: "gzip",
+	})
+	w.Write(bytes.Repeat([]byte{1, 2, 3, 4}, 1000))
+	oid, err := w.Result()
+	require.NoError(t, err)
+
+	cid, isCompressed, ok := oid.ContentID()
+	require.True(t, ok)
+	require.False(t, isCompressed) // oid will not indicate compression
+	require.Equal(t, compression.ByName["gzip"].HeaderID(), cmap[cid])
+}
+
+func TestCompression_ContentCompressionDisabled(t *testing.T) {
+	ctx := testlogging.Context(t)
+
+	// this disables content compression
+	_, om := setupTest(t, nil)
+
+	w := om.NewWriter(ctx, WriterOptions{
+		Compressor: "gzip",
+	})
+	w.Write(bytes.Repeat([]byte{1, 2, 3, 4}, 1000))
+	oid, err := w.Result()
+	require.NoError(t, err)
+
+	_, isCompressed, ok := oid.ContentID()
+	require.True(t, ok)
+	require.True(t, isCompressed) // oid will indicate compression
+}
+
 func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
 	ctx := testlogging.Context(t)
-	_, om := setupTest(t)
+	_, om := setupTest(t, nil)
 
 	b := make([]byte, 100)
 	writer := om.NewWriter(ctx, WriterOptions{})
@@ -161,7 +208,7 @@ func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
 
 func TestCheckpointing(t *testing.T) {
 	ctx := testlogging.Context(t)
-	_, om := setupTest(t)
+	_, om := setupTest(t, nil)
 
 	writer := om.NewWriter(ctx, WriterOptions{})
 
@@ -348,7 +395,7 @@ func TestIndirection(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		data, om := setupTest(t)
+		data, om := setupTest(t, nil)
 
 		contentBytes := make([]byte, c.dataLength)
 
@@ -400,7 +447,7 @@ func TestHMAC(t *testing.T) {
 	ctx := testlogging.Context(t)
 	c := bytes.Repeat([]byte{0xcd}, 50)
 
-	_, om := setupTest(t)
+	_, om := setupTest(t, nil)
 
 	w := om.NewWriter(ctx, WriterOptions{})
 	w.Write(c)
@@ -414,7 +461,7 @@ func TestHMAC(t *testing.T) {
 // nolint:gocyclo
 func TestConcatenate(t *testing.T) {
 	ctx := testlogging.Context(t)
-	_, om := setupTest(t)
+	_, om := setupTest(t, nil)
 
 	phrase := []byte("hello world\n")
 	phraseLength := len(phrase)
@@ -549,7 +596,7 @@ func mustWriteObject(t *testing.T, om *Manager, data []byte, compressor compress
 
 func TestReader(t *testing.T) {
 	ctx := testlogging.Context(t)
-	data, om := setupTest(t)
+	data, om := setupTest(t, nil)
 
 	storedPayload := []byte("foo\nbar")
 	data["a76999788386641a3ec798554f1fe7e6"] = storedPayload
@@ -589,7 +636,7 @@ func TestReader(t *testing.T) {
 
 func TestReaderStoredBlockNotFound(t *testing.T) {
 	ctx := testlogging.Context(t)
-	_, om := setupTest(t)
+	_, om := setupTest(t, nil)
 
 	objectID, err := ParseID("deadbeef")
 	if err != nil {
@@ -610,7 +657,7 @@ func TestEndToEndReadAndSeek(t *testing.T) {
 			t.Parallel()
 
 			ctx := testlogging.Context(t)
-			_, om := setupTest(t)
+			_, om := setupTest(t, nil)
 
 			for _, size := range []int{1, 199, 200, 201, 9999, 512434, 5012434} {
 				// Create some random data sample of the specified size.
@@ -663,7 +710,7 @@ func TestEndToEndReadAndSeekWithCompression(t *testing.T) {
 
 				totalBytesWritten := 0
 
-				data, om := setupTest(t)
+				data, om := setupTest(t, nil)
 
 				for _, size := range sizes {
 					var inputData []byte
@@ -762,7 +809,7 @@ func verify(ctx context.Context, t *testing.T, cr contentReader, objectID ID, ex
 // nolint:gocyclo
 func TestSeek(t *testing.T) {
 	ctx := testlogging.Context(t)
-	_, om := setupTest(t)
+	_, om := setupTest(t, nil)
 
 	for _, size := range []int{0, 1, 500000, 15000000} {
 		randomData := make([]byte, size)

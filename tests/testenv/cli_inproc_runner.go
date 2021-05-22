@@ -31,7 +31,7 @@ func (e *CLIInProcRunner) Start(t *testing.T, args []string) (stdout, stderr io.
 func NewInProcRunner(t *testing.T) *CLIInProcRunner {
 	t.Helper()
 
-	if os.Getenv("KOPIA_EXE") != "" {
+	if os.Getenv("KOPIA_EXE") != "" && os.Getenv("KOPIA_RUN_ALL_INTEGRATION_TESTS") == "" {
 		t.Skip("not running test since it's also included in the unit tests")
 	}
 

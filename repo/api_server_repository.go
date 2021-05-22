@@ -14,6 +14,7 @@ import (
 	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/remoterepoapi"
+	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/hashing"
 	"github.com/kopia/kopia/repo/manifest"
@@ -30,12 +31,13 @@ type APIServerInfo struct {
 // remoteRepository is an implementation of Repository that connects to an instance of
 // API server hosted by `kopia server`, instead of directly manipulating files in the BLOB storage.
 type apiServerRepository struct {
-	cli          *apiclient.KopiaAPIClient
-	h            hashing.HashFunc
-	objectFormat object.Format
-	cliOpts      ClientOptions
-	omgr         *object.Manager
-	wso          WriteSessionOptions
+	cli                              *apiclient.KopiaAPIClient
+	h                                hashing.HashFunc
+	objectFormat                     object.Format
+	serverSupportsContentCompression bool
+	cliOpts                          ClientOptions
+	omgr                             *object.Manager
+	wso                              WriteSessionOptions
 
 	isSharedReadOnlySession bool
 	contentCache            *cache.PersistentCache
@@ -136,6 +138,10 @@ func (r *apiServerRepository) Flush(ctx context.Context) error {
 	return errors.Wrap(r.cli.Post(ctx, "flush", nil, nil), "Flush")
 }
 
+func (r *apiServerRepository) SupportsContentCompression() bool {
+	return r.serverSupportsContentCompression
+}
+
 func (r *apiServerRepository) NewWriter(ctx context.Context, opt WriteSessionOptions) (RepositoryWriter, error) {
 	// apiServerRepository is stateless except object manager.
 	r2 := *r
@@ -177,7 +183,7 @@ func (r *apiServerRepository) GetContent(ctx context.Context, contentID content.
 	})
 }
 
-func (r *apiServerRepository) WriteContent(ctx context.Context, data []byte, prefix content.ID) (content.ID, error) {
+func (r *apiServerRepository) WriteContent(ctx context.Context, data []byte, prefix content.ID, comp compression.HeaderID) (content.ID, error) {
 	if err := content.ValidatePrefix(prefix); err != nil {
 		return "", errors.Wrap(err, "invalid prefix")
 	}
@@ -194,7 +200,12 @@ func (r *apiServerRepository) WriteContent(ctx context.Context, data []byte, pre
 
 	r.wso.OnUpload(int64(len(data)))
 
-	if err := r.cli.Put(ctx, "contents/"+string(contentID), data, nil); err != nil {
+	maybeCompression := ""
+	if comp != content.NoCompression {
+		maybeCompression = fmt.Sprintf("?compression=%x", comp)
+	}
+
+	if err := r.cli.Put(ctx, "contents/"+string(contentID)+maybeCompression, data, nil); err != nil {
 		return "", errors.Wrapf(err, "error writing content %v", contentID)
 	}
 
@@ -266,6 +277,7 @@ func openRestAPIRepository(ctx context.Context, si *APIServerInfo, cliOpts Clien
 
 	rr.h = hf
 	rr.objectFormat = p.Format
+	rr.serverSupportsContentCompression = p.SupportsContentCompression
 
 	// create object manager using rr as contentManager implementation.
 	omgr, err := object.NewObjectManager(ctx, rr, rr.objectFormat)

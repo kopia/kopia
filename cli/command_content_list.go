@@ -2,11 +2,13 @@ package cli
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/stats"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content"
 )
 
@@ -16,6 +18,7 @@ type commandContentList struct {
 	deletedOnly    bool
 	summary        bool
 	human          bool
+	compression    bool
 
 	contentRange contentRangeFlags
 	jo           jsonOutput
@@ -25,6 +28,7 @@ type commandContentList struct {
 func (c *commandContentList) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("list", "List contents").Alias("ls")
 	cmd.Flag("long", "Long output").Short('l').BoolVar(&c.long)
+	cmd.Flag("compression", "Compression").Short('c').BoolVar(&c.compression)
 	cmd.Flag("deleted", "Include deleted content").BoolVar(&c.includeDeleted)
 	cmd.Flag("deleted-only", "Only show deleted content").BoolVar(&c.deletedOnly)
 	cmd.Flag("summary", "Summarize the list").Short('s').BoolVar(&c.summary)
@@ -56,24 +60,14 @@ func (c *commandContentList) run(ctx context.Context, rep repo.DirectRepository)
 
 			totalSize.Add(int64(b.GetPackedLength()))
 
-			if c.jo.jsonOutput {
+			switch {
+			case c.jo.jsonOutput:
 				jl.emit(b)
-				return nil
-			}
-
-			if c.long {
-				optionalDeleted := ""
-				if b.GetDeleted() {
-					optionalDeleted = " (deleted)"
-				}
-				c.out.printStdout("%v %v %v %v+%v%v\n",
-					b.GetContentID(),
-					formatTimestamp(b.Timestamp()),
-					b.GetPackBlobID(),
-					b.GetPackOffset(),
-					maybeHumanReadableBytes(c.human, int64(b.GetPackedLength())),
-					optionalDeleted)
-			} else {
+			case c.compression:
+				c.outputCompressed(b)
+			case c.long:
+				c.outputLong(b)
+			default:
 				c.out.printStdout("%v\n", b.GetContentID())
 			}
 
@@ -91,4 +85,53 @@ func (c *commandContentList) run(ctx context.Context, rep repo.DirectRepository)
 	}
 
 	return nil
+}
+
+func (c *commandContentList) outputLong(b content.Info) {
+	c.out.printStdout("%v %v %v %v %v+%v%v %v\n",
+		b.GetContentID(),
+		b.GetOriginalLength(),
+		formatTimestamp(b.Timestamp()),
+		b.GetPackBlobID(),
+		b.GetPackOffset(),
+		maybeHumanReadableBytes(c.human, int64(b.GetPackedLength())),
+		c.deletedInfoString(b),
+		c.compressionInfoStringString(b),
+	)
+}
+
+func (c *commandContentList) outputCompressed(b content.Info) {
+	c.out.printStdout("%v length %v packed %v %v %v\n",
+		b.GetContentID(),
+		maybeHumanReadableBytes(c.human, int64(b.GetOriginalLength())),
+		maybeHumanReadableBytes(c.human, int64(b.GetPackedLength())),
+		c.compressionInfoStringString(b),
+		c.deletedInfoString(b),
+	)
+}
+
+func (*commandContentList) deletedInfoString(b content.Info) string {
+	if b.GetDeleted() {
+		return " (deleted)"
+	}
+
+	return ""
+}
+
+func (*commandContentList) compressionInfoStringString(b content.Info) string {
+	h := b.GetCompressionHeaderID()
+	if h == content.NoCompression {
+		return "-"
+	}
+
+	s := string(compression.HeaderIDToName[h])
+	if s == "" {
+		s = fmt.Sprintf("compression-%x", h)
+	}
+
+	if b.GetOriginalLength() > 0 {
+		s += " " + formatCompressionPercentage(int64(b.GetOriginalLength()), int64(b.GetPackedLength()))
+	}
+
+	return s
 }

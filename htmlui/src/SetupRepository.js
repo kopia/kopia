@@ -61,6 +61,7 @@ export class SetupRepository extends Component {
                 hash: result.data.defaultHash,
                 encryption: result.data.defaultEncryption,
                 splitter: result.data.defaultSplitter,
+                indexVersion: "",
             });
         });
         axios.get('/api/v1/current-user').then(result => {
@@ -107,7 +108,7 @@ export class SetupRepository extends Component {
             return;
         }
 
-        const request = {
+        let request = {
             storage: {
                 type: this.state.provider,
                 config: this.state.providerSettings,
@@ -123,6 +124,10 @@ export class SetupRepository extends Component {
                 },
             },
         };
+
+        if (this.state.indexVersion) {
+            request.options.blockFormat.indexVersion = parseInt(this.state.indexVersion)
+        }
 
         request.clientOptions = this.clientOptions();
 
@@ -358,6 +363,18 @@ export class SetupRepository extends Component {
                                 data-testid="control-splitter"
                                 value={this.state.splitter}>
                                 {this.state.algorithms.splitter.map(x => <option key={x} value={x}>{x}</option>)}
+                            </Form.Control>
+                        </Form.Group>
+                        <Form.Group as={Col}>
+                            <Form.Label className="required">Index Format</Form.Label>
+                            <Form.Control as="select"
+                                name="indexVersion"
+                                onChange={this.handleChange}
+                                data-testid="control-indexVersion"
+                                value={this.state.indexVersion}>
+                                    <option value="">(default)</option>
+                                    <option value={1}>v1</option>
+                                    <option value={2}>v2 (experimental)</option>
                             </Form.Control>
                         </Form.Group>
                     </Form.Row>

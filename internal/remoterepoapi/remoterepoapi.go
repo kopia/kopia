@@ -11,8 +11,9 @@ import (
 // Parameters encapsulates all parameters for repository.
 // returned by /api/v1/repo/parameters.
 type Parameters struct {
-	HashFunction string `json:"hash"`
-	HMACSecret   []byte `json:"hmacSecret"`
+	HashFunction               string `json:"hash"`
+	HMACSecret                 []byte `json:"hmacSecret"`
+	SupportsContentCompression bool   `json:"supportsContentCompression"`
 
 	object.Format
 }

@@ -95,7 +95,7 @@ func stressWorker(ctx context.Context, t *testing.T, deadline time.Time, openMgr
 
 		dataCopy := append([]byte{}, data...)
 
-		contentID, err := bm.WriteContent(ctx, data, "")
+		contentID, err := bm.WriteContent(ctx, data, "", content.NoCompression)
 		if err != nil {
 			t.Errorf("err: %v", err)
 			return

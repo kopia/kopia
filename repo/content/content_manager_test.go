@@ -26,6 +26,7 @@ import (
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/logging"
+	"github.com/kopia/kopia/repo/compression"
 )
 
 const (
@@ -253,7 +254,7 @@ func TestContentManagerWriteMultiple(t *testing.T) {
 	for i := 0; i < repeatCount; i++ {
 		b := seededRandomData(i, i%113)
 
-		blkID, err := bm.WriteContent(ctx, b, "")
+		blkID, err := bm.WriteContent(ctx, b, "", NoCompression)
 		if err != nil {
 			t.Errorf("err: %v", err)
 		}
@@ -324,12 +325,12 @@ func TestContentManagerFailedToWritePack(t *testing.T) {
 		},
 	}
 
-	_, err = bm.WriteContent(ctx, seededRandomData(1, 10), "")
+	_, err = bm.WriteContent(ctx, seededRandomData(1, 10), "", NoCompression)
 	if !errors.Is(err, sessionPutErr) {
 		t.Fatalf("can't create first content: %v", err)
 	}
 
-	b1, err := bm.WriteContent(ctx, seededRandomData(1, 10), "")
+	b1, err := bm.WriteContent(ctx, seededRandomData(1, 10), "", NoCompression)
 	if err != nil {
 		t.Fatalf("can't create content: %v", err)
 	}
@@ -337,7 +338,7 @@ func TestContentManagerFailedToWritePack(t *testing.T) {
 	// advance time enough to cause auto-flush, which will fail (firstPutErr)
 	ta.Advance(1 * time.Hour)
 
-	if _, err := bm.WriteContent(ctx, seededRandomData(2, 10), ""); !errors.Is(err, firstPutErr) {
+	if _, err := bm.WriteContent(ctx, seededRandomData(2, 10), "", NoCompression); !errors.Is(err, firstPutErr) {
 		t.Fatalf("can't create 2nd content: %v", err)
 	}
 
@@ -1771,7 +1772,7 @@ func verifyVersionCompat(t *testing.T, writeVersion int) {
 		data := make([]byte, i)
 		cryptorand.Read(data)
 
-		cid, err := mgr.WriteContent(ctx, data, "")
+		cid, err := mgr.WriteContent(ctx, data, "", NoCompression)
 		if err != nil {
 			t.Fatalf("unable to write %v bytes: %v", len(data), err)
 		}
@@ -1921,6 +1922,94 @@ func verifyContentManagerDataSet(ctx context.Context, t *testing.T, mgr *WriteMa
 	}
 }
 
+func TestCompression_Disabled(t *testing.T) {
+	data := blobtesting.DataMap{}
+	st := blobtesting.NewMapStorage(data, nil, nil)
+	bm := newTestContentManagerWithTweaks(t, st, &contentManagerTestTweaks{
+		indexVersion: v1IndexVersion,
+	})
+
+	require.False(t, bm.SupportsContentCompression())
+	ctx := testlogging.Context(t)
+	compressibleData := bytes.Repeat([]byte{1, 2, 3, 4}, 1000)
+
+	// with index v1 the compression is disabled
+	_, err := bm.WriteContent(ctx, compressibleData, "", compression.ByName["pgzip"].HeaderID())
+	require.Error(t, err)
+}
+
+func TestCompression_CompressibleData(t *testing.T) {
+	data := blobtesting.DataMap{}
+	st := blobtesting.NewMapStorage(data, nil, nil)
+	bm := newTestContentManagerWithTweaks(t, st, &contentManagerTestTweaks{
+		indexVersion: v2IndexVersion,
+	})
+
+	require.True(t, bm.SupportsContentCompression())
+
+	ctx := testlogging.Context(t)
+	compressibleData := bytes.Repeat([]byte{1, 2, 3, 4}, 1000)
+	headerID := compression.ByName["gzip"].HeaderID()
+
+	cid, err := bm.WriteContent(ctx, compressibleData, "", headerID)
+	require.NoError(t, err)
+
+	ci, err := bm.ContentInfo(ctx, cid)
+	require.NoError(t, err)
+
+	// gzip-compressed length
+	require.Equal(t, uint32(79), ci.GetPackedLength())
+	require.Equal(t, uint32(len(compressibleData)), ci.GetOriginalLength())
+	require.Equal(t, headerID, ci.GetCompressionHeaderID())
+
+	verifyContent(ctx, t, bm, cid, compressibleData)
+
+	require.NoError(t, bm.Flush(ctx))
+	verifyContent(ctx, t, bm, cid, compressibleData)
+
+	bm2 := newTestContentManagerWithTweaks(t, st, &contentManagerTestTweaks{
+		indexVersion: v2IndexVersion,
+	})
+	verifyContent(ctx, t, bm2, cid, compressibleData)
+}
+
+func TestCompression_NonCompressibleData(t *testing.T) {
+	data := blobtesting.DataMap{}
+	st := blobtesting.NewMapStorage(data, nil, nil)
+	bm := newTestContentManagerWithTweaks(t, st, &contentManagerTestTweaks{
+		indexVersion: v2IndexVersion,
+	})
+
+	require.True(t, bm.SupportsContentCompression())
+
+	ctx := testlogging.Context(t)
+	nonCompressibleData := make([]byte, 65000)
+	headerID := compression.ByName["pgzip"].HeaderID()
+
+	rand.Read(nonCompressibleData)
+
+	cid, err := bm.WriteContent(ctx, nonCompressibleData, "", headerID)
+	require.NoError(t, err)
+
+	verifyContent(ctx, t, bm, cid, nonCompressibleData)
+
+	ci, err := bm.ContentInfo(ctx, cid)
+	require.NoError(t, err)
+
+	// verify compression did not occur
+	require.True(t, ci.GetPackedLength() > ci.GetOriginalLength())
+	require.Equal(t, uint32(len(nonCompressibleData)), ci.GetOriginalLength())
+	require.Equal(t, NoCompression, ci.GetCompressionHeaderID())
+
+	require.NoError(t, bm.Flush(ctx))
+	verifyContent(ctx, t, bm, cid, nonCompressibleData)
+
+	bm2 := newTestContentManagerWithTweaks(t, st, &contentManagerTestTweaks{
+		indexVersion: v2IndexVersion,
+	})
+	verifyContent(ctx, t, bm2, cid, nonCompressibleData)
+}
+
 func newTestContentManager(t *testing.T, data blobtesting.DataMap) *WriteManager {
 	t.Helper()
 
@@ -1944,6 +2033,8 @@ func newTestContentManagerWithCustomTime(t *testing.T, data blobtesting.DataMap,
 type contentManagerTestTweaks struct {
 	CachingOptions
 	ManagerOptions
+
+	indexVersion int
 }
 
 func newTestContentManagerWithTweaks(t *testing.T, st blob.Storage, tweaks *contentManagerTestTweaks) *WriteManager {
@@ -1964,6 +2055,8 @@ func newTestContentManagerWithTweaks(t *testing.T, st blob.Storage, tweaks *cont
 		HMACSecret:  hmacSecret,
 		MaxPackSize: maxPackSize,
 		Version:     1,
+
+		IndexVersion: tweaks.indexVersion,
 	}
 
 	bm, err := NewManager(ctx, st, fo, &tweaks.CachingOptions, &tweaks.ManagerOptions)
@@ -2023,7 +2116,7 @@ func verifyContent(ctx context.Context, t *testing.T, bm *WriteManager, contentI
 func writeContentAndVerify(ctx context.Context, t *testing.T, bm *WriteManager, b []byte) ID {
 	t.Helper()
 
-	contentID, err := bm.WriteContent(ctx, b, "")
+	contentID, err := bm.WriteContent(ctx, b, "", NoCompression)
 	if err != nil {
 		t.Errorf("err: %v", err)
 	}
@@ -2061,13 +2154,13 @@ func writeContentWithRetriesAndVerify(ctx context.Context, t *testing.T, bm *Wri
 
 	log(ctx).Infof("*** starting writeContentWithRetriesAndVerify")
 
-	contentID, err := bm.WriteContent(ctx, b, "")
+	contentID, err := bm.WriteContent(ctx, b, "", NoCompression)
 	for i := 0; err != nil && i < maxRetries; i++ {
 		retryCount++
 
 		log(ctx).Infof("*** try %v", retryCount)
 
-		contentID, err = bm.WriteContent(ctx, b, "")
+		contentID, err = bm.WriteContent(ctx, b, "", NoCompression)
 	}
 
 	if err != nil {
