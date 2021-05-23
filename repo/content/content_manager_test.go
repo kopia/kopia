@@ -491,7 +491,7 @@ func validateIndexCount(t *testing.T, data map[blob.ID][]byte, wantIndexCount, w
 	var indexCnt, compactionLogCnt int
 
 	for blobID := range data {
-		if strings.HasPrefix(string(blobID), indexBlobPrefix) {
+		if strings.HasPrefix(string(blobID), IndexBlobPrefix) {
 			indexCnt++
 		}
 
@@ -1119,14 +1119,14 @@ func TestFlushWaitsForAllPendingWriters(t *testing.T) {
 
 	verifyBlobCount(t, data, map[blob.ID]int{
 		PackBlobIDPrefixRegular: 2,
-		indexBlobPrefix:         1,
+		IndexBlobPrefix:         1,
 	})
 
 	bm.Flush(ctx)
 
 	verifyBlobCount(t, data, map[blob.ID]int{
 		PackBlobIDPrefixRegular: 2,
-		indexBlobPrefix:         1,
+		IndexBlobPrefix:         1,
 	})
 }
 

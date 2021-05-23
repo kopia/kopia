@@ -19,6 +19,10 @@ import (
 	"github.com/kopia/kopia/repo/hashing"
 )
 
+// number of bytes to read from each pack index when recovering the index.
+// per-pack indexes are usually short (<100-200 contents).
+const indexRecoverPostambleSize = 8192
+
 // SharedManager is responsible for read-only access to committed data.
 type SharedManager struct {
 	refCount int32 // number of Manager objects that refer to this SharedManager
@@ -48,10 +52,27 @@ type SharedManager struct {
 }
 
 func (sm *SharedManager) readPackFileLocalIndex(ctx context.Context, packFile blob.ID, packFileLength int64) ([]byte, error) {
-	// TODO(jkowalski): optimize read when packFileLength is provided
-	_ = packFileLength
+	if packFileLength >= indexRecoverPostambleSize {
+		data, err := sm.attemptReadPackFileLocalIndex(ctx, packFile, packFileLength-indexRecoverPostambleSize, indexRecoverPostambleSize)
+		if err == nil {
+			log(ctx).Debugf("recovered %v index bytes from blob %v using optimized method", len(data), packFile)
+			return data, nil
+		}
 
-	payload, err := sm.st.GetBlob(ctx, packFile, 0, -1)
+		log(ctx).Debugf("unable to recover using optimized method: %v", err)
+	}
+
+	data, err := sm.attemptReadPackFileLocalIndex(ctx, packFile, 0, -1)
+	if err == nil {
+		log(ctx).Debugf("recovered %v index bytes from blob %v using full blob read", len(data), packFile)
+		return data, nil
+	}
+
+	return nil, err
+}
+
+func (sm *SharedManager) attemptReadPackFileLocalIndex(ctx context.Context, packFile blob.ID, offset, length int64) ([]byte, error) {
+	payload, err := sm.st.GetBlob(ctx, packFile, offset, length)
 	if err != nil {
 		return nil, errors.Wrapf(err, "error getting blob %v", packFile)
 	}
@@ -61,9 +82,15 @@ func (sm *SharedManager) readPackFileLocalIndex(ctx context.Context, packFile bl
 		return nil, errors.Errorf("unable to find valid postamble in file %v", packFile)
 	}
 
+	if uint32(offset) > postamble.localIndexOffset {
+		return nil, errors.Errorf("not enough data read during optimized attempt %v", packFile)
+	}
+
+	postamble.localIndexOffset -= uint32(offset)
+
 	if uint64(postamble.localIndexOffset+postamble.localIndexLength) > uint64(len(payload)) {
 		// invalid offset/length
-		return nil, errors.Errorf("unable to find valid local index in file %v", packFile)
+		return nil, errors.Errorf("unable to find valid local index in file %v - invalid offset/length", packFile)
 	}
 
 	encryptedLocalIndexBytes := payload[postamble.localIndexOffset : postamble.localIndexOffset+postamble.localIndexLength]
