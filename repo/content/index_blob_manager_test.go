@@ -681,7 +681,7 @@ func getAllFakeContentsInternal(ctx context.Context, m indexBlobManager) (map[st
 func assertBlobCounts(t *testing.T, data blobtesting.DataMap, wantN, wantM, wantL int) {
 	t.Helper()
 	require.Len(t, keysWithPrefix(data, compactionLogBlobPrefix), wantM)
-	require.Len(t, keysWithPrefix(data, indexBlobPrefix), wantN)
+	require.Len(t, keysWithPrefix(data, IndexBlobPrefix), wantN)
 	require.Len(t, keysWithPrefix(data, "l"), wantL)
 }
 

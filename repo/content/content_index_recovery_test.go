@@ -24,7 +24,7 @@ func TestContentIndexRecovery(t *testing.T) {
 	}
 
 	// delete all index blobs
-	assertNoError(t, bm.st.ListBlobs(ctx, indexBlobPrefix, func(bi blob.Metadata) error {
+	assertNoError(t, bm.st.ListBlobs(ctx, IndexBlobPrefix, func(bi blob.Metadata) error {
 		log(ctx).Debugf("deleting %v", bi.BlobID)
 		return bm.st.DeleteBlob(ctx, bi.BlobID)
 	}))

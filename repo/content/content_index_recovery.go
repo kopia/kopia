@@ -28,6 +28,9 @@ func (bm *WriteManager) RecoverIndexFromPackBlob(ctx context.Context, packFile b
 
 	var recovered []Info
 
+	bm.lock()
+	defer bm.unlock()
+
 	err = ndx.Iterate(AllIDs, func(i Info) error {
 		recovered = append(recovered, i)
 		if commit {

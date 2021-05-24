@@ -92,7 +92,7 @@ func (m *indexBlobManagerImpl) listIndexBlobs(ctx context.Context, includeInacti
 	})
 
 	eg.Go(func() error {
-		v, err := m.listAndMergeOwnWrites(ctx, indexBlobPrefix)
+		v, err := m.listAndMergeOwnWrites(ctx, IndexBlobPrefix)
 		storageIndexBlobs = v
 		return err
 	})
@@ -133,7 +133,7 @@ func (m *indexBlobManagerImpl) listIndexBlobs(ctx context.Context, includeInacti
 }
 
 func (m *indexBlobManagerImpl) flushCache() {
-	m.listCache.deleteListCache(indexBlobPrefix)
+	m.listCache.deleteListCache(IndexBlobPrefix)
 	m.listCache.deleteListCache(compactionLogBlobPrefix)
 }
 
@@ -182,7 +182,7 @@ func (m *indexBlobManagerImpl) getEncryptedBlob(ctx context.Context, blobID blob
 }
 
 func (m *indexBlobManagerImpl) writeIndexBlob(ctx context.Context, data []byte, sessionID SessionID) (blob.Metadata, error) {
-	return m.encryptAndWriteBlob(ctx, data, indexBlobPrefix, sessionID)
+	return m.encryptAndWriteBlob(ctx, data, IndexBlobPrefix, sessionID)
 }
 
 func (m *indexBlobManagerImpl) encryptAndWriteBlob(ctx context.Context, data []byte, prefix blob.ID, sessionID SessionID) (blob.Metadata, error) {

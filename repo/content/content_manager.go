@@ -48,10 +48,12 @@ var PackBlobIDPrefixes = []blob.ID{
 	PackBlobIDPrefixSpecial,
 }
 
+// IndexBlobPrefix is the prefix for all index blobs.
+const IndexBlobPrefix = "n"
+
 const (
 	parallelFetches          = 5                // number of parallel reads goroutines
 	flushPackIndexTimeout    = 10 * time.Minute // time after which all pending indexes are flushes
-	indexBlobPrefix          = "n"
 	defaultMinPreambleLength = 32
 	defaultMaxPreambleLength = 32
 	defaultPaddingUnit       = 4096
