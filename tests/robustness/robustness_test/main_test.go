@@ -73,7 +73,7 @@ type kopiaRobustnessTestHarness struct {
 	baseDirPath string
 	fileWriter  *fiofilewriter.FileWriter
 	snapshotter *snapmeta.KopiaSnapshotter
-	persister   *snapmeta.KopiaPersister
+	persister   *snapmeta.KopiaPersisterLight
 	engine      *engine.Engine
 
 	skipTest bool
@@ -154,16 +154,9 @@ func (th *kopiaRobustnessTestHarness) getSnapshotter() bool {
 }
 
 func (th *kopiaRobustnessTestHarness) getPersister() bool {
-	kp, err := snapmeta.NewPersister(th.baseDirPath)
+	kp, err := snapmeta.NewPersisterLight(th.baseDirPath)
 	if err != nil {
-		if errors.Is(err, kopiarunner.ErrExeVariableNotSet) {
-			log.Println("Skipping robustness tests because KOPIA_EXE is not set")
-
-			th.skipTest = true
-		} else {
-			log.Println("Error creating kopia Persister:", err)
-		}
-
+		log.Println("Error creating kopia Persister:", err)
 		return false
 	}
 
