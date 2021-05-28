@@ -44,10 +44,10 @@ func TestManySmallFiles(t *testing.T) {
 		_, err = eng.ExecAction(ctx, engine.WriteRandomFilesActionKey, fileWriteOpts)
 		require.NoError(t, err)
 
-		_, err = eng.ExecAction(ctx, engine.SnapshotDirActionKey, nil)
+		snapOut, err := eng.ExecAction(ctx, engine.SnapshotDirActionKey, nil)
 		assertNoError(t, err)
 
-		_, err = eng.ExecAction(ctx, engine.RestoreSnapshotActionKey, nil)
+		_, err = eng.ExecAction(ctx, engine.RestoreSnapshotActionKey, snapOut)
 		assertNoError(t, err)
 	}
 
@@ -122,7 +122,7 @@ func TestManySmallFilesAcrossDirecoryTree(t *testing.T) {
 }
 
 func TestRandomizedSmall(t *testing.T) {
-	numClients := 2
+	numClients := 4
 	st := clock.Now()
 
 	opts := engine.ActionOpts{
