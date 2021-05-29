@@ -197,6 +197,9 @@ func isRetriable(err error) bool {
 func New(ctx context.Context, opts *Options) (blob.Storage, error) {
 	cli := gowebdav.NewClient(opts.URL, opts.Username, opts.Password)
 
+	// Since we're handling encrypted data, there's no point compressing it server-side.
+	cli.SetHeader("Accept-Encoding", "identity")
+
 	if opts.TrustedServerCertificateFingerprint != "" {
 		cli.SetTransport(tlsutil.TransportTrustingSingleCertificate(opts.TrustedServerCertificateFingerprint))
 	}
