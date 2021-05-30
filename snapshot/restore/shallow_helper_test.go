@@ -1,10 +1,9 @@
-// +build !windows
-
 package restore
 
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/kopia/kopia/fs/localfs"
@@ -14,13 +13,9 @@ func TestSafeRemoveAll(t *testing.T) {
 	tdir := t.TempDir()
 	suffleng := len(localfs.ShallowEntrySuffix)
 
-	for fnl := MaxFilenameLength - suffleng - 1; fnl < MaxFilenameLength+2; fnl++ {
-		buffy := make([]byte, 0, fnl)
-		for i := 0; i < fnl; i++ {
-			buffy = append(buffy, 'x')
-		}
+	for fnl := MaxFilenameLength - suffleng*2 - 1; fnl < MaxFilenameLength+2; fnl++ {
+		filename := strings.Repeat("d", fnl)
 
-		filename := string(buffy)
 		path := filepath.Join(tdir, filename)
 		filenameext := filename + localfs.ShallowEntrySuffix
 		pathext := filepath.Join(tdir, filenameext)
@@ -29,7 +24,7 @@ func TestSafeRemoveAll(t *testing.T) {
 
 		// Some of these will fail because their names will be too long. This is
 		// not a fatal error.
-		err := os.WriteFile(pathext, buffy, 0600)
+		err := os.WriteFile(pathext, []byte(filename), 0600)
 		canmakefile := err == nil
 
 		if !canmakefile {
@@ -39,7 +34,7 @@ func TestSafeRemoveAll(t *testing.T) {
 		// SafeRemoveAll should succeed regardless of whether or not the file is
 		// too long.
 		if err := SafeRemoveAll(path); err != nil {
-			t.Fatalf("safe remove of %q should  have succeeded: %v", path, err)
+			t.Errorf("safe remove x*%d + %d (%q) should  have succeeded: %v", fnl, suffleng, path, err)
 		}
 
 		// If we actually made a file, it should now be gone.

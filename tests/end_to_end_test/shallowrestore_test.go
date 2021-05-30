@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/fs/localfs"
+	"github.com/kopia/kopia/internal/atomicfile"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/tests/clitestutil"
 	"github.com/kopia/kopia/snapshot/restore"
@@ -100,7 +101,7 @@ func TestShallowFullCycle(t *testing.T) {
 	fpathinlong := filepath.Join(dirpathlong, "nestedfile")
 
 	require.NoError(t, os.Mkdir(dirpathlong, 0o755))
-	testdirtree.MustCreateRandomFile(t, fpathinlong, testdirtree.DirectoryTreeOptions{}, (*testdirtree.DirectoryTreeCounters)(nil))
+	testenv.MustCreateRandomFile(t, atomicfile.MaybePrefixLongFilenameOnWindows(fpathinlong), testenv.DirectoryTreeOptions{}, (*testenv.DirectoryTreeCounters)(nil))
 
 	e.RunAndExpectSuccess(t, "snapshot", "create", source)
 	sources := clitestutil.ListSnapshotsAndExpectSuccess(t, e)
@@ -178,6 +179,11 @@ func addOneFile(m *mutatorArgs) {
 func doNothing(_ *mutatorArgs) {
 }
 
+// mplfow makes atomicfile.MaybePrefixLongFilenameOnWindows easier to type.
+func mplfow(fname string) string {
+	return atomicfile.MaybePrefixLongFilenameOnWindows(fname)
+}
+
 // moveDirectory moves a directory from one location to another (in the
 // shallow and original trees.
 func moveDirectory(m *mutatorArgs) {
@@ -201,11 +207,11 @@ func moveDirectory(m *mutatorArgs) {
 	require.NoError(m.t, os.Mkdir(neworiginaldir, 0o755))
 
 	// 3. move shallow dir into new dir, original dir into new dir
-	require.NoError(m.t, os.Rename(dirinshallow, filepath.Join(newshallowdir, relpath)))
-	require.NoError(m.t, os.Rename(filepath.Join(m.original, relpathinreal), filepath.Join(neworiginaldir, relpathinreal)))
+	require.NoError(m.t, os.Rename(mplfow(dirinshallow), mplfow(filepath.Join(newshallowdir, relpath))))
+	require.NoError(m.t, os.Rename(mplfow(filepath.Join(m.original, relpathinreal)), mplfow(filepath.Join(neworiginaldir, relpathinreal))))
 
 	// 4. fix new directory timestamp to be the same
-	fi, err := os.Stat(newshallowdir)
+	fi, err := os.Stat(mplfow(newshallowdir))
 	require.NoError(m.t, err)
 	require.NoError(m.t, os.Chtimes(neworiginaldir, fi.ModTime(), fi.ModTime()))
 	require.NoError(m.t, os.Chtimes(newshallowdir, fi.ModTime(), fi.ModTime()))
@@ -232,11 +238,11 @@ func moveFile(m *mutatorArgs) {
 	require.NoError(m.t, os.Mkdir(neworiginaldir, 0o755))
 
 	// 3. move shallow file into new dir, original dir into new dir
-	require.NoError(m.t, os.Rename(fileinshallow, filepath.Join(newshallowdir, relpath)))
-	require.NoError(m.t, os.Rename(filepath.Join(m.original, localfs.TrimShallowSuffix(relpath)), filepath.Join(neworiginaldir, localfs.TrimShallowSuffix(relpath))))
+	require.NoError(m.t, os.Rename(mplfow(fileinshallow), mplfow(filepath.Join(newshallowdir, relpath))))
+	require.NoError(m.t, os.Rename(mplfow(filepath.Join(m.original, localfs.TrimShallowSuffix(relpath))), mplfow(filepath.Join(neworiginaldir, localfs.TrimShallowSuffix(relpath)))))
 
 	// 4. fix new directory timestamp to be the same
-	fi, err := os.Stat(newshallowdir)
+	fi, err := os.Stat(mplfow(newshallowdir))
 	require.NoError(m.t, err)
 	require.NoError(m.t, os.Chtimes(neworiginaldir, fi.ModTime(), fi.ModTime()))
 	require.NoError(m.t, os.Chtimes(newshallowdir, fi.ModTime(), fi.ModTime()))

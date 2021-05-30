@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/natefinch/atomic"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/fs"
@@ -58,7 +57,7 @@ func WriteShallowPlaceholder(path string, de *snapshot.DirEntry) (string, error)
 	}
 
 	// Write the placeholder file.
-	if err := atomic.WriteFile(mp, buffy); err != nil {
+	if err := atomicfile.Write(mp, buffy); err != nil {
 		return "", errors.Wrapf(err, "error writing placeholder to %q", mp)
 	}
 
