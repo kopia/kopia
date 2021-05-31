@@ -5,7 +5,7 @@ go 1.16
 require (
 	cloud.google.com/go/storage v1.15.0
 	contrib.go.opencensus.io/exporter/prometheus v0.3.0
-	github.com/Azure/azure-pipeline-go v0.2.3 // indirect
+	github.com/Azure/azure-pipeline-go v0.2.3
 	github.com/Azure/azure-storage-blob-go v0.13.0
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962 // indirect
 	github.com/StackExchange/wmi v0.0.0-20210224194228-fe8f1750fd46 // indirect
@@ -27,7 +27,7 @@ require (
 	github.com/google/uuid v1.2.0
 	github.com/gorilla/mux v1.8.0
 	github.com/hanwen/go-fuse/v2 v2.0.4-0.20210104155004-09a3c381714c
-	github.com/klauspost/compress v1.12.2
+	github.com/klauspost/compress v1.12.3
 	github.com/klauspost/cpuid/v2 v2.0.5 // indirect
 	github.com/klauspost/pgzip v1.2.5
 	github.com/kylelemons/godebug v1.1.0
