@@ -43,7 +43,7 @@ func TestFormatters(t *testing.T) {
 				t.Run(encryptionAlgo, func(t *testing.T) {
 					ctx := testlogging.Context(t)
 
-					h, e, err := CreateHashAndEncryptor(&FormattingOptions{
+					cr, err := CreateCrypter(&FormattingOptions{
 						HMACSecret: secret,
 						MasterKey:  make([]byte, 32),
 						Hash:       hashAlgo,
@@ -66,14 +66,14 @@ func TestFormatters(t *testing.T) {
 						return
 					}
 
-					contentID := h(nil, data)
+					contentID := cr.HashFunction(nil, data)
 
-					cipherText, err := e.Encrypt(nil, data, contentID)
+					cipherText, err := cr.Encryptor.Encrypt(nil, data, contentID)
 					if err != nil || cipherText == nil {
 						t.Errorf("invalid response from Encrypt: %v %v", cipherText, err)
 					}
 
-					plainText, err := e.Decrypt(nil, cipherText, contentID)
+					plainText, err := cr.Encryptor.Decrypt(nil, cipherText, contentID)
 					if err != nil || plainText == nil {
 						t.Errorf("invalid response from Decrypt: %v %v", plainText, err)
 					}

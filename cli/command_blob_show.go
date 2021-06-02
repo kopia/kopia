@@ -45,8 +45,10 @@ func (c *commandBlobShow) maybeDecryptBlob(ctx context.Context, w io.Writer, rep
 		err error
 	)
 
+	d, err = rep.BlobReader().GetBlob(ctx, blobID, 0, -1)
+
 	if c.blobShowDecrypt && canDecryptBlob(blobID) {
-		d, err = rep.IndexBlobReader().DecryptBlob(ctx, blobID)
+		d, err = rep.Crypter().DecryptBLOB(d, blobID)
 
 		if isJSONBlob(blobID) && err == nil {
 			var b bytes.Buffer
@@ -57,8 +59,6 @@ func (c *commandBlobShow) maybeDecryptBlob(ctx context.Context, w io.Writer, rep
 
 			d = b.Bytes()
 		}
-	} else {
-		d, err = rep.BlobReader().GetBlob(ctx, blobID, 0, -1)
 	}
 
 	if err != nil {
