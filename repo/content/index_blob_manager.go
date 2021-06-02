@@ -10,8 +10,6 @@ import (
 
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
-	"github.com/kopia/kopia/repo/encryption"
-	"github.com/kopia/kopia/repo/hashing"
 )
 
 // indexBlobManager is the API of index blob manager as used by content manager.
@@ -57,8 +55,7 @@ type cleanupEntry struct {
 
 type indexBlobManagerImpl struct {
 	st             blob.Storage
-	hasher         hashing.HashFunc
-	encryptor      encryption.Encryptor
+	crypter        *Crypter
 	listCache      *listCache
 	ownWritesCache ownWritesCache
 	timeNow        func() time.Time
@@ -178,7 +175,7 @@ func (m *indexBlobManagerImpl) getEncryptedBlob(ctx context.Context, blobID blob
 		return nil, errors.Wrap(err, "getContent")
 	}
 
-	return decryptFullBlob(m.hasher, m.encryptor, payload, blobID)
+	return m.crypter.DecryptBLOB(payload, blobID)
 }
 
 func (m *indexBlobManagerImpl) writeIndexBlob(ctx context.Context, data []byte, sessionID SessionID) (blob.Metadata, error) {
@@ -186,7 +183,7 @@ func (m *indexBlobManagerImpl) writeIndexBlob(ctx context.Context, data []byte, 
 }
 
 func (m *indexBlobManagerImpl) encryptAndWriteBlob(ctx context.Context, data []byte, prefix blob.ID, sessionID SessionID) (blob.Metadata, error) {
-	blobID, data2, err := encryptFullBlob(m.hasher, m.encryptor, data, prefix, sessionID)
+	blobID, data2, err := m.crypter.EncryptBLOB(data, prefix, sessionID)
 	if err != nil {
 		return blob.Metadata{}, errors.Wrap(err, "error encrypting")
 	}

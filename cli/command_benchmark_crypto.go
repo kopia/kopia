@@ -54,7 +54,7 @@ func (c *commandBenchmarkCrypto) run(ctx context.Context) error {
 
 	for _, ha := range hashing.SupportedAlgorithms() {
 		for _, ea := range encryption.SupportedAlgorithms(c.deprecatedAlgorithms) {
-			h, e, err := content.CreateHashAndEncryptor(&content.FormattingOptions{
+			cr, err := content.CreateCrypter(&content.FormattingOptions{
 				Encryption: ea,
 				Hash:       ha,
 				MasterKey:  make([]byte, 32),
@@ -71,8 +71,8 @@ func (c *commandBenchmarkCrypto) run(ctx context.Context) error {
 			hashCount := c.repeat
 
 			for i := 0; i < hashCount; i++ {
-				contentID := h(hashOutput[:0], data)
-				if _, encerr := e.Encrypt(encryptOutput[:0], data, contentID); encerr != nil {
+				contentID := cr.HashFunction(hashOutput[:0], data)
+				if _, encerr := cr.Encryptor.Encrypt(encryptOutput[:0], data, contentID); encerr != nil {
 					log(ctx).Errorf("encryption failed: %v", encerr)
 					break
 				}

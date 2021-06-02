@@ -774,10 +774,12 @@ func newIndexBlobManagerForTesting(t *testing.T, st blob.Storage, localTimeNow f
 			localTimeNow,
 		},
 		indexBlobCache: passthroughContentCache{st},
-		encryptor:      enc,
-		hasher:         hf,
-		listCache:      lc,
-		timeNow:        localTimeNow,
+		crypter: &Crypter{
+			HashFunction: hf,
+			Encryptor:    enc,
+		},
+		listCache: lc,
+		timeNow:   localTimeNow,
 	}
 
 	return m

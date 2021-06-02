@@ -51,6 +51,7 @@ type DirectRepository interface {
 	BlobReader() blob.Reader
 	ContentReader() content.Reader
 	IndexBlobReader() content.IndexBlobReader
+	Crypter() *content.Crypter
 
 	NewDirectWriter(ctx context.Context, opt WriteSessionOptions) (DirectRepositoryWriter, error)
 
@@ -117,6 +118,11 @@ func (r *directRepository) ContentManager() *content.WriteManager {
 // ConfigFilename returns the name of the configuration file.
 func (r *directRepository) ConfigFilename() string {
 	return r.configFile
+}
+
+// Crypter returns a Crypter object.
+func (r *directRepository) Crypter() *content.Crypter {
+	return r.sm.Crypter()
 }
 
 // NewObjectWriter creates an object writer.

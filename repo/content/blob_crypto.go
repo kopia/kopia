@@ -1,7 +1,6 @@
 package content
 
 import (
-	"bytes"
 	"crypto/aes"
 	"encoding/hex"
 	"strings"
@@ -13,7 +12,25 @@ import (
 	"github.com/kopia/kopia/repo/hashing"
 )
 
-func getIndexBlobIV(s blob.ID) ([]byte, error) {
+// Crypter ecapsulates hashing and encryption and provides utilities for whole-BLOB encryption.
+// Whole-BLOB encryption relies on BLOB identifiers formatted as:
+//
+// <prefix><hash>[-optionalSuffix]
+//
+// Where:
+//   'prefix' is arbitrary string without dashes
+//   'hash' is base16-encoded 128-bit hash of contents, used as initialization vector (IV)
+//          for the encryption. In case of longer hash functions, we use last 16 bytes of
+//          their outputs.
+//   'optionalSuffix' can be any string
+type Crypter struct {
+	HashFunction hashing.HashFunc
+	Encryptor    encryption.Encryptor
+}
+
+// getIndexBlobIV gets the initialization vector from the provided blob ID by taking
+// 32 characters immediately preceding the first dash ('-') and decoding them using base16.
+func (c *Crypter) getIndexBlobIV(s blob.ID) ([]byte, error) {
 	if p := strings.Index(string(s), "-"); p >= 0 { // nolint:gocritic
 		s = s[0:p]
 	}
@@ -30,58 +47,43 @@ func getIndexBlobIV(s blob.ID) ([]byte, error) {
 	return v, nil
 }
 
-func encryptFullBlob(h hashing.HashFunc, enc encryption.Encryptor, data []byte, prefix blob.ID, sessionID SessionID) (blob.ID, []byte, error) {
+// EncryptBLOB encrypts the given data using crypter-defined key and returns a name that should
+// be used to save the blob in thre repository.
+func (c *Crypter) EncryptBLOB(data []byte, prefix blob.ID, sessionID SessionID) (blob.ID, []byte, error) {
 	var hashOutput [maxHashSize]byte
 
-	hash := h(hashOutput[:0], data)
+	hash := c.HashFunction(hashOutput[:0], data)
 	blobID := prefix + blob.ID(hex.EncodeToString(hash))
 
 	if sessionID != "" {
 		blobID += blob.ID("-" + sessionID)
 	}
 
-	iv, err := getIndexBlobIV(blobID)
+	iv, err := c.getIndexBlobIV(blobID)
 	if err != nil {
 		return "", nil, err
 	}
 
-	data2, err := enc.Encrypt(nil, data, iv)
+	data2, err := c.Encryptor.Encrypt(nil, data, iv)
 	if err != nil {
-		return "", nil, errors.Wrapf(err, "error encrypting blob %v", blobID)
+		return "", nil, errors.Wrapf(err, "error encrypting BLOB %v", blobID)
 	}
 
 	return blobID, data2, nil
 }
 
-func decryptFullBlob(h hashing.HashFunc, enc encryption.Encryptor, payload []byte, blobID blob.ID) ([]byte, error) {
-	iv, err := getIndexBlobIV(blobID)
+// DecryptBLOB decrypts the provided data using provided blobID to derive initialization vector.
+func (c *Crypter) DecryptBLOB(payload []byte, blobID blob.ID) ([]byte, error) {
+	iv, err := c.getIndexBlobIV(blobID)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to get index blob IV")
 	}
 
-	payload, err = enc.Decrypt(nil, payload, iv)
+	// Decrypt will verify the payload.
+	payload, err = c.Encryptor.Decrypt(nil, payload, iv)
 	if err != nil {
-		return nil, errors.Wrap(err, "decrypt error")
-	}
-
-	// Since the encryption key is a function of data, we must be able to generate exactly the same key
-	// after decrypting the content. This serves as a checksum.
-	if err := verifyChecksum(h, payload, iv); err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "error decrypting BLOB %v", blobID)
 	}
 
 	return payload, nil
-}
-
-func verifyChecksum(h hashing.HashFunc, data, iv []byte) error {
-	var hashOutput [maxHashSize]byte
-
-	expected := h(hashOutput[:0], data)
-	expected = expected[len(expected)-aes.BlockSize:]
-
-	if !bytes.HasSuffix(iv, expected) {
-		return errors.Errorf("invalid checksum for blob %x, expected %x", iv, expected)
-	}
-
-	return nil
 }

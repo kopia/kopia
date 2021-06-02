@@ -15,8 +15,6 @@ import (
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/compression"
-	"github.com/kopia/kopia/repo/encryption"
-	"github.com/kopia/kopia/repo/hashing"
 )
 
 // number of bytes to read from each pack index when recovering the index.
@@ -34,8 +32,7 @@ type SharedManager struct {
 	contentCache      contentCache
 	metadataCache     contentCache
 	committedContents *committedContentIndex
-	hasher            hashing.HashFunc
-	encryptor         encryption.Encryptor
+	crypter           *Crypter
 	timeNow           func() time.Time
 
 	format                  FormattingOptions
@@ -49,6 +46,11 @@ type SharedManager struct {
 	indexVersion            int
 
 	encryptionBufferPool *buf.Pool
+}
+
+// Crypter returns the crypter.
+func (sm *SharedManager) Crypter() *Crypter {
+	return sm.crypter
 }
 
 func (sm *SharedManager) readPackFileLocalIndex(ctx context.Context, packFile blob.ID, packFileLength int64) ([]byte, error) {
@@ -276,7 +278,7 @@ func (sm *SharedManager) decryptContentAndVerify(payload []byte, bi Info) ([]byt
 }
 
 func (sm *SharedManager) decryptAndVerify(encrypted, iv []byte) ([]byte, error) {
-	decrypted, err := sm.encryptor.Decrypt(nil, encrypted, iv)
+	decrypted, err := sm.crypter.Encryptor.Decrypt(nil, encrypted, iv)
 	if err != nil {
 		sm.Stats.foundInvalidContent()
 		return nil, errors.Wrap(err, "decrypt")
@@ -332,7 +334,7 @@ func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *Ca
 		return errors.Wrap(err, "unable to initialize own writes cache")
 	}
 
-	contentIndex := newCommittedContentIndex(caching, uint32(sm.encryptor.Overhead()), sm.indexVersion)
+	contentIndex := newCommittedContentIndex(caching, uint32(sm.crypter.Encryptor.Overhead()), sm.indexVersion)
 
 	// once everything is ready, set it up
 	sm.contentCache = dataCache
@@ -341,8 +343,7 @@ func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *Ca
 
 	sm.indexBlobManager = &indexBlobManagerImpl{
 		st:             sm.st,
-		encryptor:      sm.encryptor,
-		hasher:         sm.hasher,
+		crypter:        sm.crypter,
 		timeNow:        sm.timeNow,
 		ownWritesCache: owc,
 		listCache:      listCache,
@@ -405,7 +406,7 @@ func NewSharedManager(ctx context.Context, st blob.Storage, f *FormattingOptions
 		return nil, errors.Errorf("can't handle repositories created using version %v (min supported %v, max supported %v)", f.Version, minSupportedWriteVersion, maxSupportedWriteVersion)
 	}
 
-	hasher, encryptor, err := CreateHashAndEncryptor(f)
+	crypter, err := CreateCrypter(f)
 	if err != nil {
 		return nil, err
 	}
@@ -421,8 +422,7 @@ func NewSharedManager(ctx context.Context, st blob.Storage, f *FormattingOptions
 
 	sm := &SharedManager{
 		st:                      st,
-		encryptor:               encryptor,
-		hasher:                  hasher,
+		crypter:                 crypter,
 		Stats:                   new(Stats),
 		timeNow:                 opts.TimeNow,
 		format:                  *f,
@@ -433,7 +433,7 @@ func NewSharedManager(ctx context.Context, st blob.Storage, f *FormattingOptions
 		repositoryFormatBytes:   opts.RepositoryFormatBytes,
 		checkInvariantsOnUnlock: os.Getenv("KOPIA_VERIFY_INVARIANTS") != "",
 		writeFormatVersion:      int32(f.Version),
-		encryptionBufferPool:    buf.NewPool(ctx, defaultEncryptionBufferPoolSegmentSize+encryptor.Overhead()+maxCompressionOverheadPerContent, "content-manager-encryption"),
+		encryptionBufferPool:    buf.NewPool(ctx, defaultEncryptionBufferPoolSegmentSize+crypter.Encryptor.Overhead()+maxCompressionOverheadPerContent, "content-manager-encryption"),
 		indexVersion:            actualIndexVersion,
 	}
 

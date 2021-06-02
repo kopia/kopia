@@ -60,10 +60,10 @@ func (sm *SharedManager) maybeCompressAndEncryptDataForPacking(output *gather.Wr
 		}
 	}
 
-	b := sm.encryptionBufferPool.Allocate(len(data) + sm.encryptor.Overhead())
+	b := sm.encryptionBufferPool.Allocate(len(data) + sm.crypter.Encryptor.Overhead())
 	defer b.Release()
 
-	cipherText, err := sm.encryptor.Encrypt(b.Data[:0], data, iv)
+	cipherText, err := sm.crypter.Encryptor.Encrypt(b.Data[:0], data, iv)
 	if err != nil {
 		return NoCompression, errors.Wrap(err, "unable to encrypt")
 	}
@@ -180,31 +180,30 @@ func (bm *WriteManager) writePackFileNotLocked(ctx context.Context, packFile blo
 
 func (sm *SharedManager) hashData(output, data []byte) []byte {
 	// Hash the content and compute encryption key.
-	contentID := sm.hasher(output, data)
+	contentID := sm.crypter.HashFunction(output, data)
 	sm.Stats.hashedContent(len(data))
 
 	return contentID
 }
 
-// CreateHashAndEncryptor returns new hashing and encrypting functions based on
-// the specified formatting options.
-func CreateHashAndEncryptor(f *FormattingOptions) (hashing.HashFunc, encryption.Encryptor, error) {
+// CreateCrypter returns a Crypter based on the specified formatting options.
+func CreateCrypter(f *FormattingOptions) (*Crypter, error) {
 	h, err := hashing.CreateHashFunc(f)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "unable to create hash")
+		return nil, errors.Wrap(err, "unable to create hash")
 	}
 
 	e, err := encryption.CreateEncryptor(f)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "unable to create encryptor")
+		return nil, errors.Wrap(err, "unable to create encryptor")
 	}
 
 	contentID := h(nil, nil)
 
 	_, err = e.Encrypt(nil, nil, contentID)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "invalid encryptor")
+		return nil, errors.Wrap(err, "invalid encryptor")
 	}
 
-	return h, e, nil
+	return &Crypter{h, e}, nil
 }
