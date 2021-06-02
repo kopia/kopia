@@ -3,6 +3,8 @@ package content
 import (
 	"bytes"
 	"encoding/hex"
+
+	"github.com/kopia/kopia/repo/hashing"
 )
 
 // unpackedContentIDPrefix is a prefix for all content IDs that are stored unpacked in the index.
@@ -40,7 +42,7 @@ func contentIDToBytes(output []byte, c ID) []byte {
 		output = append(output, 0)
 	}
 
-	var hashBuf [maxHashSize]byte
+	var hashBuf [hashing.MaxHashSize]byte
 
 	n, err := hex.Decode(hashBuf[:], []byte(c[skip:]))
 	if err != nil {
