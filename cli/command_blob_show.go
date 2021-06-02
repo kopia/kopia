@@ -74,7 +74,7 @@ func (c *commandBlobShow) maybeDecryptBlob(ctx context.Context, w io.Writer, rep
 
 func canDecryptBlob(b blob.ID) bool {
 	switch b[0] {
-	case 'n', 'm', 'l':
+	case '_', 'n', 'm', 'l':
 		return true
 	default:
 		return false
