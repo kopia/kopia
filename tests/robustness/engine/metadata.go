@@ -3,6 +3,7 @@
 package engine
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 
@@ -17,18 +18,18 @@ const (
 )
 
 // saveLog saves the engine Log in the metadata store.
-func (e *Engine) saveLog() error {
+func (e *Engine) saveLog(ctx context.Context) error {
 	b, err := json.Marshal(e.EngineLog)
 	if err != nil {
 		return err
 	}
 
-	return e.MetaStore.Store(engineLogsStoreKey, b)
+	return e.MetaStore.Store(ctx, engineLogsStoreKey, b)
 }
 
 // loadLog loads the engine log from the metadata store.
-func (e *Engine) loadLog() error {
-	b, err := e.MetaStore.Load(engineLogsStoreKey)
+func (e *Engine) loadLog(ctx context.Context) error {
+	b, err := e.MetaStore.Load(ctx, engineLogsStoreKey)
 	if err != nil {
 		if errors.Is(err, robustness.ErrKeyNotFound) {
 			// Swallow key-not-found error. May not have historical logs
@@ -49,18 +50,18 @@ func (e *Engine) loadLog() error {
 }
 
 // saveStats saves the engine Stats in the metadata store.
-func (e *Engine) saveStats() error {
+func (e *Engine) saveStats(ctx context.Context) error {
 	cumulStatRaw, err := json.Marshal(e.CumulativeStats)
 	if err != nil {
 		return err
 	}
 
-	return e.MetaStore.Store(engineStatsStoreKey, cumulStatRaw)
+	return e.MetaStore.Store(ctx, engineStatsStoreKey, cumulStatRaw)
 }
 
 // loadStats loads the engine Stats from the metadata store.
-func (e *Engine) loadStats() error {
-	b, err := e.MetaStore.Load(engineStatsStoreKey)
+func (e *Engine) loadStats(ctx context.Context) error {
+	b, err := e.MetaStore.Load(ctx, engineStatsStoreKey)
 	if err != nil {
 		if errors.Is(err, robustness.ErrKeyNotFound) {
 			// Swallow key-not-found error. We may not have historical
@@ -78,18 +79,18 @@ func (e *Engine) loadStats() error {
 }
 
 // saveSnapIDIndex saves the Checker's snapshot ID index in the metadata store.
-func (e *Engine) saveSnapIDIndex() error {
+func (e *Engine) saveSnapIDIndex(ctx context.Context) error {
 	snapIDIdxRaw, err := json.Marshal(e.Checker.SnapIDIndex)
 	if err != nil {
 		return err
 	}
 
-	return e.MetaStore.Store(snapIDIndexStoreKey, snapIDIdxRaw)
+	return e.MetaStore.Store(ctx, snapIDIndexStoreKey, snapIDIdxRaw)
 }
 
 // loadSnapIDIndex loads the Checker's snapshot ID index from the metadata store.
-func (e *Engine) loadSnapIDIndex() error {
-	b, err := e.MetaStore.Load(snapIDIndexStoreKey)
+func (e *Engine) loadSnapIDIndex(ctx context.Context) error {
+	b, err := e.MetaStore.Load(ctx, snapIDIndexStoreKey)
 	if err != nil {
 		if errors.Is(err, robustness.ErrKeyNotFound) {
 			// Swallow key-not-found error. We may not have historical

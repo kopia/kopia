@@ -3,6 +3,8 @@
 package snapmeta
 
 import (
+	"context"
+
 	"github.com/kopia/kopia/tests/robustness"
 )
 
@@ -24,7 +26,7 @@ func NewSimple() *Simple {
 }
 
 // Store implements the Storer interface Store method.
-func (s *Simple) Store(key string, val []byte) error {
+func (s *Simple) Store(ctx context.Context, key string, val []byte) error {
 	buf := make([]byte, len(val))
 	_ = copy(buf, val)
 
@@ -34,7 +36,7 @@ func (s *Simple) Store(key string, val []byte) error {
 }
 
 // Load implements the Storer interface Load method.
-func (s *Simple) Load(key string) ([]byte, error) {
+func (s *Simple) Load(ctx context.Context, key string) ([]byte, error) {
 	if buf, found := s.Data[key]; found {
 		retBuf := make([]byte, len(buf))
 		_ = copy(retBuf, buf)
@@ -46,6 +48,6 @@ func (s *Simple) Load(key string) ([]byte, error) {
 }
 
 // Delete implements the Storer interface Delete method.
-func (s *Simple) Delete(key string) {
+func (s *Simple) Delete(ctx context.Context, key string) {
 	delete(s.Data, key)
 }
