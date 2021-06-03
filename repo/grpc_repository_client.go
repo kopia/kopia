@@ -389,13 +389,13 @@ func (r *grpcInnerSession) Flush(ctx context.Context) error {
 	return errNoSessionResponse()
 }
 
-func (r *grpcRepositoryClient) NewWriter(ctx context.Context, opt WriteSessionOptions) (RepositoryWriter, error) {
+func (r *grpcRepositoryClient) NewWriter(ctx context.Context, opt WriteSessionOptions) (context.Context, RepositoryWriter, error) {
 	w, err := newGRPCAPIRepositoryForConnection(ctx, r.conn, r.connRefCount, r.cliOpts, opt, r.contentCache, false)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return w, nil
+	return ctx, w, nil
 }
 
 type sessionAttemptFunc func(ctx context.Context, sess *grpcInnerSession) (interface{}, error)

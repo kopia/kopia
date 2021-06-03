@@ -89,7 +89,7 @@ func (s *Server) handleSourcesCreate(ctx context.Context, r *http.Request, body 
 
 		if err = repo.WriteSession(ctx, s.rep, repo.WriteSessionOptions{
 			Purpose: "handleSourcesCreate",
-		}, func(w repo.RepositoryWriter) error {
+		}, func(ctx context.Context, w repo.RepositoryWriter) error {
 			// nolint:wrapcheck
 			return policy.SetPolicy(ctx, w, sourceInfo, &req.InitialPolicy)
 		}); err != nil {

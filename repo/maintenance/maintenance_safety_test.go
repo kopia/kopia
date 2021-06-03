@@ -33,7 +33,7 @@ func TestMaintenanceSafety(t *testing.T) {
 	var objectID object.ID
 
 	// create object that's immediately orphaned since nobody refers to it.
-	require.NoError(t, repo.WriteSession(ctx, env.Repository, repo.WriteSessionOptions{}, func(w repo.RepositoryWriter) error {
+	require.NoError(t, repo.WriteSession(ctx, env.Repository, repo.WriteSessionOptions{}, func(ctx context.Context, w repo.RepositoryWriter) error {
 		ow := w.NewObjectWriter(ctx, object.WriterOptions{Prefix: "y"})
 		fmt.Fprintf(ow, "hello world")
 		var err error
@@ -42,7 +42,7 @@ func TestMaintenanceSafety(t *testing.T) {
 	}))
 
 	// create another object in separate pack.
-	require.NoError(t, repo.WriteSession(ctx, env.Repository, repo.WriteSessionOptions{}, func(w repo.RepositoryWriter) error {
+	require.NoError(t, repo.WriteSession(ctx, env.Repository, repo.WriteSessionOptions{}, func(ctx context.Context, w repo.RepositoryWriter) error {
 		ow := w.NewObjectWriter(ctx, object.WriterOptions{Prefix: "y"})
 		fmt.Fprintf(ow, "hello universe")
 		_, err := ow.Result()
@@ -112,7 +112,7 @@ func verifyContentDeletedState(ctx context.Context, t *testing.T, rep repo.Repos
 
 	cid, _, _ := objectID.ContentID()
 
-	require.NoError(t, repo.DirectWriteSession(ctx, rep.(repo.DirectRepository), repo.WriteSessionOptions{}, func(dw repo.DirectRepositoryWriter) error {
+	require.NoError(t, repo.DirectWriteSession(ctx, rep.(repo.DirectRepository), repo.WriteSessionOptions{}, func(ctx context.Context, dw repo.DirectRepositoryWriter) error {
 		info, err := dw.ContentReader().ContentInfo(ctx, cid)
 		require.NoError(t, err)
 		require.Equal(t, want, info.GetDeleted())
@@ -123,7 +123,7 @@ func verifyContentDeletedState(ctx context.Context, t *testing.T, rep repo.Repos
 func verifyObjectReadable(ctx context.Context, t *testing.T, rep repo.Repository, objectID object.ID) {
 	t.Helper()
 
-	require.NoError(t, repo.WriteSession(ctx, rep, repo.WriteSessionOptions{}, func(w repo.RepositoryWriter) error {
+	require.NoError(t, repo.WriteSession(ctx, rep, repo.WriteSessionOptions{}, func(ctx context.Context, w repo.RepositoryWriter) error {
 		r, err := w.OpenObject(ctx, objectID)
 		require.NoError(t, err)
 		r.Close()
@@ -134,7 +134,7 @@ func verifyObjectReadable(ctx context.Context, t *testing.T, rep repo.Repository
 func verifyObjectNotFound(ctx context.Context, t *testing.T, rep repo.Repository, objectID object.ID) {
 	t.Helper()
 
-	require.NoError(t, repo.WriteSession(ctx, rep, repo.WriteSessionOptions{}, func(w repo.RepositoryWriter) error {
+	require.NoError(t, repo.WriteSession(ctx, rep, repo.WriteSessionOptions{}, func(ctx context.Context, w repo.RepositoryWriter) error {
 		_, err := w.OpenObject(ctx, objectID)
 		require.ErrorIs(t, err, object.ErrObjectNotFound)
 		return nil

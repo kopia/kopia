@@ -24,7 +24,7 @@ type Repository interface {
 	Time() time.Time
 	ClientOptions() ClientOptions
 
-	NewWriter(ctx context.Context, opt WriteSessionOptions) (RepositoryWriter, error)
+	NewWriter(ctx context.Context, opt WriteSessionOptions) (context.Context, RepositoryWriter, error)
 
 	UpdateDescription(d string)
 
@@ -53,7 +53,7 @@ type DirectRepository interface {
 	IndexBlobReader() content.IndexBlobReader
 	Crypter() *content.Crypter
 
-	NewDirectWriter(ctx context.Context, opt WriteSessionOptions) (DirectRepositoryWriter, error)
+	NewDirectWriter(ctx context.Context, opt WriteSessionOptions) (context.Context, DirectRepositoryWriter, error)
 
 	// misc
 	UniqueID() []byte
@@ -178,12 +178,12 @@ func (r *directRepository) UpdateDescription(d string) {
 }
 
 // NewWriter returns new RepositoryWriter session for repository.
-func (r *directRepository) NewWriter(ctx context.Context, opt WriteSessionOptions) (RepositoryWriter, error) {
+func (r *directRepository) NewWriter(ctx context.Context, opt WriteSessionOptions) (context.Context, RepositoryWriter, error) {
 	return r.NewDirectWriter(ctx, opt)
 }
 
 // NewDirectWriter returns new DirectRepositoryWriter session for repository.
-func (r *directRepository) NewDirectWriter(ctx context.Context, opt WriteSessionOptions) (DirectRepositoryWriter, error) {
+func (r *directRepository) NewDirectWriter(ctx context.Context, opt WriteSessionOptions) (context.Context, DirectRepositoryWriter, error) {
 	cmgr := content.NewWriteManager(r.sm, content.SessionOptions{
 		SessionUser: r.cliOpts.Username,
 		SessionHost: r.cliOpts.Hostname,
@@ -194,12 +194,12 @@ func (r *directRepository) NewDirectWriter(ctx context.Context, opt WriteSession
 		TimeNow: r.timeNow,
 	})
 	if err != nil {
-		return nil, errors.Wrap(err, "error creating manifest manager")
+		return nil, nil, errors.Wrap(err, "error creating manifest manager")
 	}
 
 	omgr, err := object.NewObjectManager(ctx, cmgr, r.omgr.Format)
 	if err != nil {
-		return nil, errors.Wrap(err, "error creating object manager")
+		return nil, nil, errors.Wrap(err, "error creating object manager")
 	}
 
 	w := &directRepository{
@@ -212,7 +212,7 @@ func (r *directRepository) NewDirectWriter(ctx context.Context, opt WriteSession
 		closed:                     make(chan struct{}),
 	}
 
-	return w, nil
+	return ctx, w, nil
 }
 
 // Close closes the repository and releases all resources.
@@ -315,23 +315,23 @@ type WriteSessionOptions struct {
 }
 
 // WriteSession executes the provided callback in a repository writer created for the purpose and flushes writes.
-func WriteSession(ctx context.Context, r Repository, opt WriteSessionOptions, cb func(w RepositoryWriter) error) error {
-	w, err := r.NewWriter(ctx, opt)
+func WriteSession(ctx context.Context, r Repository, opt WriteSessionOptions, cb func(ctx context.Context, w RepositoryWriter) error) error {
+	ctx, w, err := r.NewWriter(ctx, opt)
 	if err != nil {
 		return errors.Wrap(err, "unable to create writer")
 	}
 
-	return handleWriteSessionResult(ctx, w, opt, cb(w))
+	return handleWriteSessionResult(ctx, w, opt, cb(ctx, w))
 }
 
 // DirectWriteSession executes the provided callback in a DirectRepositoryWriter created for the purpose and flushes writes.
-func DirectWriteSession(ctx context.Context, r DirectRepository, opt WriteSessionOptions, cb func(dw DirectRepositoryWriter) error) error {
-	w, err := r.NewDirectWriter(ctx, opt)
+func DirectWriteSession(ctx context.Context, r DirectRepository, opt WriteSessionOptions, cb func(ctx context.Context, dw DirectRepositoryWriter) error) error {
+	ctx, w, err := r.NewDirectWriter(ctx, opt)
 	if err != nil {
 		return errors.Wrap(err, "unable to create direct writer")
 	}
 
-	return handleWriteSessionResult(ctx, w, opt, cb(w))
+	return handleWriteSessionResult(ctx, w, opt, cb(ctx, w))
 }
 
 func handleWriteSessionResult(ctx context.Context, w RepositoryWriter, opt WriteSessionOptions, resultErr error) error {

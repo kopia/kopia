@@ -318,7 +318,7 @@ func (c *App) directRepositoryWriteAction(act func(ctx context.Context, rep repo
 		return repo.DirectWriteSession(ctx, rep, repo.WriteSessionOptions{
 			Purpose:  "directRepositoryWriteAction",
 			OnUpload: c.progress.UploadedBytes,
-		}, func(dw repo.DirectRepositoryWriter) error { return act(ctx, dw) })
+		}, func(ctx context.Context, dw repo.DirectRepositoryWriter) error { return act(ctx, dw) })
 	}), repositoryAccessMode{
 		mustBeConnected:    true,
 		disableMaintenance: true,
@@ -349,7 +349,7 @@ func (c *App) repositoryWriterAction(act func(ctx context.Context, rep repo.Repo
 		return repo.WriteSession(ctx, rep, repo.WriteSessionOptions{
 			Purpose:  "repositoryWriterAction",
 			OnUpload: c.progress.UploadedBytes,
-		}, func(w repo.RepositoryWriter) error {
+		}, func(ctx context.Context, w repo.RepositoryWriter) error {
 			return act(ctx, w)
 		})
 	}, repositoryAccessMode{
@@ -431,7 +431,7 @@ func (c *App) maybeRunMaintenance(ctx context.Context, rep repo.Repository) erro
 	err := repo.DirectWriteSession(ctx, dr, repo.WriteSessionOptions{
 		Purpose:  "maybeRunMaintenance",
 		OnUpload: c.progress.UploadedBytes,
-	}, func(w repo.DirectRepositoryWriter) error {
+	}, func(ctx context.Context, w repo.DirectRepositoryWriter) error {
 		// nolint:wrapcheck
 		return snapshotmaintenance.Run(ctx, w, maintenance.ModeAuto, false, maintenance.SafetyFull)
 	})

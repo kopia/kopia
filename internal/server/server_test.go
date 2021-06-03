@@ -203,7 +203,7 @@ func remoteRepositoryTest(ctx context.Context, t *testing.T, rep repo.Repository
 		OnUpload: func(i int64) {
 			uploaded += i
 		},
-	}, func(w repo.RepositoryWriter) error {
+	}, func(ctx context.Context, w repo.RepositoryWriter) error {
 		mustGetObjectNotFound(ctx, t, w, "abcd")
 		mustGetManifestNotFound(ctx, t, w, "mnosuchmanifest")
 		mustManifestNotFound(t, w.DeleteManifest(ctx, manifestID2))
