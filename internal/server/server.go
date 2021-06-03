@@ -514,7 +514,7 @@ func periodicMaintenanceOnce(ctx context.Context, rep repo.Repository) error {
 	// nolint:wrapcheck
 	return repo.DirectWriteSession(ctx, dr, repo.WriteSessionOptions{
 		Purpose: "periodicMaintenanceOnce",
-	}, func(w repo.DirectRepositoryWriter) error {
+	}, func(ctx context.Context, w repo.DirectRepositoryWriter) error {
 		// nolint:wrapcheck
 		return snapshotmaintenance.Run(ctx, w, maintenance.ModeAuto, false, maintenance.SafetyFull)
 	})

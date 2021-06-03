@@ -126,7 +126,7 @@ func (s *Server) handleRepoCreate(ctx context.Context, r *http.Request, body []b
 
 	if err := repo.WriteSession(ctx, s.rep, repo.WriteSessionOptions{
 		Purpose: "handleRepoCreate",
-	}, func(w repo.RepositoryWriter) error {
+	}, func(ctx context.Context, w repo.RepositoryWriter) error {
 		if err := policy.SetPolicy(ctx, w, policy.GlobalPolicySourceInfo, policy.DefaultPolicy); err != nil {
 			return errors.Wrap(err, "set global policy")
 		}

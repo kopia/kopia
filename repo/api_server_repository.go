@@ -142,7 +142,7 @@ func (r *apiServerRepository) SupportsContentCompression() bool {
 	return r.serverSupportsContentCompression
 }
 
-func (r *apiServerRepository) NewWriter(ctx context.Context, opt WriteSessionOptions) (RepositoryWriter, error) {
+func (r *apiServerRepository) NewWriter(ctx context.Context, opt WriteSessionOptions) (context.Context, RepositoryWriter, error) {
 	// apiServerRepository is stateless except object manager.
 	r2 := *r
 	w := &r2
@@ -150,14 +150,14 @@ func (r *apiServerRepository) NewWriter(ctx context.Context, opt WriteSessionOpt
 	// create object manager using a remote repo as contentManager implementation.
 	omgr, err := object.NewObjectManager(ctx, w, r.objectFormat)
 	if err != nil {
-		return nil, errors.Wrap(err, "error initializing object manager")
+		return nil, nil, errors.Wrap(err, "error initializing object manager")
 	}
 
 	w.omgr = omgr
 	w.wso = opt
 	w.isSharedReadOnlySession = false
 
-	return w, nil
+	return ctx, w, nil
 }
 
 func (r *apiServerRepository) ContentInfo(ctx context.Context, contentID content.ID) (content.Info, error) {

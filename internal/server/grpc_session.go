@@ -101,7 +101,7 @@ func (s *Server) Session(srv grpcapi.KopiaRepository_SessionServer) error {
 	}
 
 	// nolint:wrapcheck
-	return repo.DirectWriteSession(ctx, dr, opt, func(dw repo.DirectRepositoryWriter) error {
+	return repo.DirectWriteSession(ctx, dr, opt, func(ctx context.Context, dw repo.DirectRepositoryWriter) error {
 		// channel to which workers will be sending errors, only holds 1 slot and sends are non-blocking.
 		lastErr := make(chan error, 1)
 

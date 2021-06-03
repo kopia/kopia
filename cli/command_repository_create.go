@@ -133,7 +133,7 @@ func (c *commandRepositoryCreate) populateRepository(ctx context.Context, passwo
 	// nolint:wrapcheck
 	return repo.WriteSession(ctx, rep, repo.WriteSessionOptions{
 		Purpose: "populateRepository",
-	}, func(w repo.RepositoryWriter) error {
+	}, func(ctx context.Context, w repo.RepositoryWriter) error {
 		if err := policy.SetPolicy(ctx, w, policy.GlobalPolicySourceInfo, policy.DefaultPolicy); err != nil {
 			return errors.Wrap(err, "unable to set global policy")
 		}

@@ -17,7 +17,7 @@ func TestRepositoryAuthenticator(t *testing.T) {
 	ctx, env := repotesting.NewEnvironment(t)
 
 	require.NoError(t, repo.WriteSession(ctx, env.Repository, repo.WriteSessionOptions{},
-		func(w repo.RepositoryWriter) error {
+		func(ctx context.Context, w repo.RepositoryWriter) error {
 			p := &user.Profile{
 				Username: "user1@host1",
 			}

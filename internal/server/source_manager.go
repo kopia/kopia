@@ -267,7 +267,7 @@ func (s *sourceManager) snapshotInternal(ctx context.Context, ctrl uitask.Contro
 			// once we have the uploader
 			onUpload(numBytes)
 		},
-	}, func(w repo.RepositoryWriter) error {
+	}, func(ctx context.Context, w repo.RepositoryWriter) error {
 		log(ctx).Debugf("uploading %v", s.src)
 		u := snapshotfs.NewUploader(w)
 

@@ -89,7 +89,7 @@ func (e *Environment) setup(t *testing.T, opts ...Options) *Environment {
 
 	e.Repository = rep
 
-	e.RepositoryWriter, err = rep.(repo.DirectRepository).NewDirectWriter(ctx, repo.WriteSessionOptions{Purpose: "test"})
+	_, e.RepositoryWriter, err = rep.(repo.DirectRepository).NewDirectWriter(ctx, repo.WriteSessionOptions{Purpose: "test"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,7 +142,7 @@ func (e *Environment) MustReopen(t *testing.T, openOpts ...func(*repo.Options)) 
 
 	t.Cleanup(func() { rep.Close(ctx) })
 
-	e.RepositoryWriter, err = rep.(repo.DirectRepository).NewDirectWriter(ctx, repo.WriteSessionOptions{Purpose: "test"})
+	_, e.RepositoryWriter, err = rep.(repo.DirectRepository).NewDirectWriter(ctx, repo.WriteSessionOptions{Purpose: "test"})
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -163,7 +163,7 @@ func (e *Environment) MustOpenAnother(t *testing.T) repo.RepositoryWriter {
 		rep2.Close(ctx)
 	})
 
-	w, err := rep2.NewWriter(ctx, repo.WriteSessionOptions{Purpose: "test"})
+	_, w, err := rep2.NewWriter(ctx, repo.WriteSessionOptions{Purpose: "test"})
 	if err != nil {
 		t.Fatal(err)
 	}

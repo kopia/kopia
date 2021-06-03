@@ -1,6 +1,7 @@
 package maintenance_test
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -79,7 +80,7 @@ func TestContentRewrite(t *testing.T) {
 
 			// run N sessions to create N individual pack blobs for each content prefix
 			for i := 0; i < tc.numPContents; i++ {
-				require.NoError(t, repo.WriteSession(ctx, env.Repository, repo.WriteSessionOptions{}, func(w repo.RepositoryWriter) error {
+				require.NoError(t, repo.WriteSession(ctx, env.Repository, repo.WriteSessionOptions{}, func(ctx context.Context, w repo.RepositoryWriter) error {
 					ow := w.NewObjectWriter(ctx, object.WriterOptions{})
 					fmt.Fprintf(ow, "%v", uuid.NewString())
 					_, err := ow.Result()
@@ -88,7 +89,7 @@ func TestContentRewrite(t *testing.T) {
 			}
 
 			for i := 0; i < tc.numQContents; i++ {
-				require.NoError(t, repo.WriteSession(ctx, env.Repository, repo.WriteSessionOptions{}, func(w repo.RepositoryWriter) error {
+				require.NoError(t, repo.WriteSession(ctx, env.Repository, repo.WriteSessionOptions{}, func(ctx context.Context, w repo.RepositoryWriter) error {
 					ow := w.NewObjectWriter(ctx, object.WriterOptions{Prefix: "k"})
 					fmt.Fprintf(ow, "%v", uuid.NewString())
 					_, err := ow.Result()
@@ -102,7 +103,7 @@ func TestContentRewrite(t *testing.T) {
 			qBlobsBefore, err := blob.ListAllBlobs(ctx, env.RepositoryWriter.BlobStorage(), "q")
 			require.NoError(t, err)
 
-			require.NoError(t, repo.DirectWriteSession(ctx, env.RepositoryWriter, repo.WriteSessionOptions{}, func(w repo.DirectRepositoryWriter) error {
+			require.NoError(t, repo.DirectWriteSession(ctx, env.RepositoryWriter, repo.WriteSessionOptions{}, func(ctx context.Context, w repo.DirectRepositoryWriter) error {
 				return maintenance.RewriteContents(ctx, w, tc.opt, maintenance.SafetyNone)
 			}))
 
