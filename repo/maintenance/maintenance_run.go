@@ -57,25 +57,25 @@ func shouldRun(ctx context.Context, rep repo.DirectRepository, p *Params) (Mode,
 	// check full cycle first, as it does more than the quick cycle
 	if p.FullCycle.Enabled {
 		if rep.Time().After(s.NextFullMaintenanceTime) {
-			log(ctx).Debugf("due for full manintenance cycle")
+			log(ctx).Debugf("due for full maintenance cycle")
 			return ModeFull, nil
 		}
 
-		log(ctx).Debugf("not due for full manintenance cycle until %v", s.NextFullMaintenanceTime)
+		log(ctx).Debugf("not due for full maintenance cycle until %v", s.NextFullMaintenanceTime)
 	} else {
-		log(ctx).Debugf("full manintenance cycle not enabled")
+		log(ctx).Debugf("full maintenance cycle not enabled")
 	}
 
 	// no time for full cycle, check quick cycle
 	if p.QuickCycle.Enabled {
 		if rep.Time().After(s.NextQuickMaintenanceTime) {
-			log(ctx).Debugf("due for quick manintenance cycle")
+			log(ctx).Debugf("due for quick maintenance cycle")
 			return ModeQuick, nil
 		}
 
-		log(ctx).Debugf("not due for quick manintenance cycle until %v", s.NextQuickMaintenanceTime)
+		log(ctx).Debugf("not due for quick maintenance cycle until %v", s.NextQuickMaintenanceTime)
 	} else {
-		log(ctx).Debugf("quick manintenance cycle not enabled")
+		log(ctx).Debugf("quick maintenance cycle not enabled")
 	}
 
 	return ModeNone, nil

@@ -31,7 +31,7 @@ func (co *CompactOptions) maxEventualConsistencySettleTime() time.Duration {
 
 // CompactIndexes performs compaction of index blobs ensuring that # of small index blobs is below opt.maxSmallBlobs.
 func (bm *WriteManager) CompactIndexes(ctx context.Context, opt CompactOptions) error {
-	log(ctx).Debugf("CompactIndexes(%+v)", opt)
+	bm.log.Debugf("CompactIndexes(%+v)", opt)
 
 	bm.lock()
 	defer bm.unlock()
@@ -41,7 +41,7 @@ func (bm *WriteManager) CompactIndexes(ctx context.Context, opt CompactOptions) 
 		return errors.Wrap(err, "error loading indexes")
 	}
 
-	blobsToCompact := bm.getBlobsToCompact(ctx, indexBlobs, opt)
+	blobsToCompact := bm.getBlobsToCompact(indexBlobs, opt)
 
 	if err := bm.compactIndexBlobs(ctx, blobsToCompact, opt); err != nil {
 		return errors.Wrap(err, "error performing compaction")
@@ -59,7 +59,7 @@ func (bm *WriteManager) CompactIndexes(ctx context.Context, opt CompactOptions) 
 	return nil
 }
 
-func (sm *SharedManager) getBlobsToCompact(ctx context.Context, indexBlobs []IndexBlobInfo, opt CompactOptions) []IndexBlobInfo {
+func (sm *SharedManager) getBlobsToCompact(indexBlobs []IndexBlobInfo, opt CompactOptions) []IndexBlobInfo {
 	var nonCompactedBlobs, verySmallBlobs []IndexBlobInfo
 
 	var totalSizeNonCompactedBlobs, totalSizeVerySmallBlobs, totalSizeMediumSizedBlobs int64
@@ -85,16 +85,16 @@ func (sm *SharedManager) getBlobsToCompact(ctx context.Context, indexBlobs []Ind
 
 	if len(nonCompactedBlobs) < opt.MaxSmallBlobs {
 		// current count is below min allowed - nothing to do
-		log(ctx).Debugf("no small contents to compact")
+		sm.log.Debugf("no small contents to compact")
 		return nil
 	}
 
 	if len(verySmallBlobs) > len(nonCompactedBlobs)/2 && mediumSizedBlobCount+1 < opt.MaxSmallBlobs {
-		log(ctx).Debugf("compacting %v very small contents", len(verySmallBlobs))
+		sm.log.Debugf("compacting %v very small contents", len(verySmallBlobs))
 		return verySmallBlobs
 	}
 
-	log(ctx).Debugf("compacting all %v non-compacted contents", len(nonCompactedBlobs))
+	sm.log.Debugf("compacting all %v non-compacted contents", len(nonCompactedBlobs))
 
 	return nonCompactedBlobs
 }
@@ -109,7 +109,7 @@ func (sm *SharedManager) compactIndexBlobs(ctx context.Context, indexBlobs []Ind
 	var inputs, outputs []blob.Metadata
 
 	for i, indexBlob := range indexBlobs {
-		formatLog(ctx).Debugf("compacting-entries[%v/%v] %v", i, len(indexBlobs), indexBlob)
+		sm.log.Debugf("compacting-entries[%v/%v] %v", i, len(indexBlobs), indexBlob)
 
 		if err := sm.addIndexBlobsToBuilder(ctx, bld, indexBlob); err != nil {
 			return errors.Wrap(err, "error adding index to builder")
@@ -120,7 +120,7 @@ func (sm *SharedManager) compactIndexBlobs(ctx context.Context, indexBlobs []Ind
 
 	// after we built index map in memory, drop contents from it
 	// we must do it after all input blobs have been merged, otherwise we may resurrect contents.
-	dropContentsFromBuilder(ctx, bld, opt)
+	sm.dropContentsFromBuilder(bld, opt)
 
 	var buf bytes.Buffer
 	if err := bld.Build(&buf, sm.indexVersion); err != nil {
@@ -136,7 +136,7 @@ func (sm *SharedManager) compactIndexBlobs(ctx context.Context, indexBlobs []Ind
 	// it must be a no-op.
 	for _, indexBlob := range indexBlobs {
 		if indexBlob.BlobID == compactedIndexBlob.BlobID {
-			formatLog(ctx).Debugf("compaction-noop")
+			sm.log.Debugf("compaction-noop")
 			return nil
 		}
 	}
@@ -150,25 +150,25 @@ func (sm *SharedManager) compactIndexBlobs(ctx context.Context, indexBlobs []Ind
 	return nil
 }
 
-func dropContentsFromBuilder(ctx context.Context, bld packIndexBuilder, opt CompactOptions) {
+func (sm *SharedManager) dropContentsFromBuilder(bld packIndexBuilder, opt CompactOptions) {
 	for _, dc := range opt.DropContents {
 		if _, ok := bld[dc]; ok {
-			formatLog(ctx).Debugf("manual-drop-from-index %v", dc)
+			sm.log.Debugf("manual-drop-from-index %v", dc)
 			delete(bld, dc)
 		}
 	}
 
 	if !opt.DropDeletedBefore.IsZero() {
-		formatLog(ctx).Debugf("drop-content-deleted-before %v", opt.DropDeletedBefore)
+		sm.log.Debugf("drop-content-deleted-before %v", opt.DropDeletedBefore)
 
 		for _, i := range bld {
 			if i.GetDeleted() && i.Timestamp().Before(opt.DropDeletedBefore) {
-				formatLog(ctx).Debugf("drop-from-index-old-deleted %v %v", i.GetContentID(), i.Timestamp())
+				sm.log.Debugf("drop-from-index-old-deleted %v %v", i.GetContentID(), i.Timestamp())
 				delete(bld, i.GetContentID())
 			}
 		}
 
-		formatLog(ctx).Debugf("finished drop-content-deleted-before %v", opt.DropDeletedBefore)
+		sm.log.Debugf("finished drop-content-deleted-before %v", opt.DropDeletedBefore)
 	}
 }
 

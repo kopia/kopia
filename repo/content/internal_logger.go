@@ -54,13 +54,13 @@ func (m *internalLogManager) encryptAndWriteLogBlob(prefix blob.ID, data []byte)
 
 // NewLogger creates new logger.
 func (m *internalLogManager) NewLogger() *internalLogger {
-	var rnd [4]byte
+	var rnd [2]byte
 
 	rand.Read(rnd[:]) // nolint:errcheck
 
 	return &internalLogger{
 		m:      m,
-		prefix: blob.ID(fmt.Sprintf("_log_%v_%x", clock.Now().UTC().Format("20060102"), rnd)),
+		prefix: blob.ID(fmt.Sprintf("_log_%v_%x", clock.Now().Local().Format("20060102150405"), rnd)),
 	}
 }
 
@@ -79,6 +79,10 @@ type internalLogger struct {
 }
 
 func (l *internalLogger) enable() {
+	if l == nil {
+		return
+	}
+
 	atomic.StoreInt32(&l.enabled, 1)
 }
 

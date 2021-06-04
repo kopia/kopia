@@ -23,6 +23,7 @@ import (
 	"github.com/kopia/kopia/repo/blob/logging"
 	"github.com/kopia/kopia/repo/encryption"
 	"github.com/kopia/kopia/repo/hashing"
+	repologging "github.com/kopia/kopia/repo/logging"
 )
 
 // we use two fake time sources - one for local client and one for the remote store
@@ -207,22 +208,22 @@ func TestIndexBlobManagerStress(t *testing.T) {
 			for fakeTimeFunc().Before(deadline) && clock.Now().Before(localTimeDeadline) {
 				switch pickRandomActionTestIndexBlobManagerStress() {
 				case actionRead:
-					if err := verifyFakeContentsWritten(ctx, m, numWritten, contentPrefix, deletedContents); err != nil {
+					if err := verifyFakeContentsWritten(ctx, t, m, numWritten, contentPrefix, deletedContents); err != nil {
 						return errors.Wrapf(err, "actor[%v] error verifying contents", actorID)
 					}
 
 				case actionWrite:
-					if err := writeFakeContents(ctx, m, contentPrefix, rand.Intn(10)+5, &numWritten, fakeTimeFunc); err != nil {
+					if err := writeFakeContents(ctx, t, m, contentPrefix, rand.Intn(10)+5, &numWritten, fakeTimeFunc); err != nil {
 						return errors.Wrapf(err, "actor[%v] write error", actorID)
 					}
 
 				case actionDelete:
-					if err := deleteFakeContents(ctx, m, contentPrefix, numWritten, deletedContents, fakeTimeFunc); err != nil {
+					if err := deleteFakeContents(ctx, t, m, contentPrefix, numWritten, deletedContents, fakeTimeFunc); err != nil {
 						return errors.Wrapf(err, "actor[%v] delete error", actorID)
 					}
 
 				case actionUndelete:
-					if err := undeleteFakeContents(ctx, m, deletedContents, fakeTimeFunc); err != nil {
+					if err := undeleteFakeContents(ctx, t, m, deletedContents, fakeTimeFunc); err != nil {
 						return errors.Wrapf(err, "actor[%v] undelete error", actorID)
 					}
 
@@ -232,7 +233,7 @@ func TestIndexBlobManagerStress(t *testing.T) {
 						continue
 					}
 
-					if err := fakeCompaction(ctx, m, false); err != nil {
+					if err := fakeCompaction(ctx, t, m, false); err != nil {
 						return errors.Wrapf(err, "actor[%v] compaction error", actorID)
 					}
 
@@ -242,7 +243,7 @@ func TestIndexBlobManagerStress(t *testing.T) {
 						continue
 					}
 
-					if err := fakeCompaction(ctx, m, true); err != nil {
+					if err := fakeCompaction(ctx, t, m, true); err != nil {
 						return errors.Wrapf(err, "actor[%v] compaction error", actorID)
 					}
 				}
@@ -295,19 +296,19 @@ func TestCompactionCreatesPreviousIndex(t *testing.T) {
 	})
 
 	// index#1 - add content1
-	require.NoError(t, writeFakeContents(ctx, m, prefix, 1, &numWritten, fakeTimeFunc))
+	require.NoError(t, writeFakeContents(ctx, t, m, prefix, 1, &numWritten, fakeTimeFunc))
 	fakeTime.Advance(1 * time.Second)
 
 	// index#2 - add content2
-	require.NoError(t, writeFakeContents(ctx, m, prefix, 1, &numWritten, fakeTimeFunc))
+	require.NoError(t, writeFakeContents(ctx, t, m, prefix, 1, &numWritten, fakeTimeFunc))
 	fakeTime.Advance(1 * time.Second)
 
 	// index#3 - {content1, content2}, index#1, index#2 marked for deletion
-	require.NoError(t, fakeCompaction(ctx, m, false))
+	require.NoError(t, fakeCompaction(ctx, t, m, false))
 	fakeTime.Advance(1 * time.Second)
 
 	// index#4 - delete content1
-	require.NoError(t, deleteFakeContents(ctx, m, prefix, 1, deleted, fakeTimeFunc))
+	require.NoError(t, deleteFakeContents(ctx, t, m, prefix, 1, deleted, fakeTimeFunc))
 	fakeTime.Advance(1 * time.Second)
 
 	// this will create index identical to index#2,
@@ -315,11 +316,11 @@ func TestCompactionCreatesPreviousIndex(t *testing.T) {
 	// otherwise (since indexes are based on hash of content) they would create the same blob ID.
 	// if this was the case, first compaction marks index#1 as deleted and second compaction
 	// revives it.
-	require.NoError(t, fakeCompaction(ctx, m, true))
+	require.NoError(t, fakeCompaction(ctx, t, m, true))
 	fakeTime.Advance(testEventualConsistencySettleTime)
 
 	// if we were not to add randomness to index blobs, this would fail.
-	require.NoError(t, verifyFakeContentsWritten(ctx, m, 2, prefix, deleted))
+	require.NoError(t, verifyFakeContentsWritten(ctx, t, m, 2, prefix, deleted))
 }
 
 func TestIndexBlobManagerPreventsResurrectOfDeletedContents_RandomizedTimings(t *testing.T) {
@@ -375,23 +376,23 @@ func verifyIndexBlobManagerPreventsResurrectOfDeletedContents(t *testing.T, dela
 	})
 
 	// index#1 - write 2 contents
-	require.NoError(t, writeFakeContents(ctx, m, prefix, 2, &numWritten, fakeTimeFunc))
+	require.NoError(t, writeFakeContents(ctx, t, m, prefix, 2, &numWritten, fakeTimeFunc))
 	fakeTime.Advance(delay1)
 	// index#2 - delete first of the two contents.
-	require.NoError(t, deleteFakeContents(ctx, m, prefix, 1, deleted, fakeTimeFunc))
+	require.NoError(t, deleteFakeContents(ctx, t, m, prefix, 1, deleted, fakeTimeFunc))
 	fakeTime.Advance(delay2)
 	// index#3, log#3 - replaces index#1 and #2
-	require.NoError(t, fakeCompaction(ctx, m, true))
+	require.NoError(t, fakeCompaction(ctx, t, m, true))
 	fakeTime.Advance(delay3)
 
 	numWritten2 := numWritten
 
 	// index#4 - create one more content
-	require.NoError(t, writeFakeContents(ctx, m, prefix, 2, &numWritten, fakeTimeFunc))
+	require.NoError(t, writeFakeContents(ctx, t, m, prefix, 2, &numWritten, fakeTimeFunc))
 	fakeTime.Advance(delay4)
 
 	// index#5, log#4 replaces index#3 and index#4, this will delete index#1 and index#2 and log#3
-	require.NoError(t, fakeCompaction(ctx, m, true))
+	require.NoError(t, fakeCompaction(ctx, t, m, true))
 
 	t.Logf("************************************************ VERIFY")
 
@@ -401,14 +402,14 @@ func verifyIndexBlobManagerPreventsResurrectOfDeletedContents(t *testing.T, dela
 	// using another reader, make sure that all writes up to numWritten2 are correct regardless of whether
 	// compaction is visible
 	another := newIndexBlobManagerForTesting(t, st, fakeTimeFunc)
-	require.NoError(t, verifyFakeContentsWritten(ctx, another, numWritten2, prefix, deleted))
+	require.NoError(t, verifyFakeContentsWritten(ctx, t, another, numWritten2, prefix, deleted))
 
 	// verify that this reader can see all its own writes regardless of eventual consistency
-	require.NoError(t, verifyFakeContentsWritten(ctx, m, numWritten, prefix, deleted))
+	require.NoError(t, verifyFakeContentsWritten(ctx, t, m, numWritten, prefix, deleted))
 
 	// after eventual consistency is settled, another reader can see all our writes
 	fakeTime.Advance(testEventualConsistencySettleTime)
-	require.NoError(t, verifyFakeContentsWritten(ctx, another, numWritten, prefix, deleted))
+	require.NoError(t, verifyFakeContentsWritten(ctx, t, another, numWritten, prefix, deleted))
 }
 
 type fakeContentIndexEntry struct {
@@ -416,15 +417,17 @@ type fakeContentIndexEntry struct {
 	Deleted bool
 }
 
-func verifyFakeContentsWritten(ctx context.Context, m indexBlobManager, numWritten int, contentPrefix string, deletedContents map[string]bool) error {
+func verifyFakeContentsWritten(ctx context.Context, t *testing.T, m indexBlobManager, numWritten int, contentPrefix string, deletedContents map[string]bool) error {
+	t.Helper()
+
 	if numWritten == 0 {
 		return nil
 	}
 
-	log(ctx).Debugf("verifyFakeContentsWritten()")
-	defer log(ctx).Debugf("finished verifyFakeContentsWritten()")
+	t.Logf("verifyFakeContentsWritten()")
+	defer t.Logf("finished verifyFakeContentsWritten()")
 
-	all, _, err := getAllFakeContents(ctx, m)
+	all, _, err := getAllFakeContents(ctx, t, m)
 	if err != nil {
 		return errors.Wrap(err, "error getting all contents")
 	}
@@ -448,11 +451,13 @@ func verifyFakeContentsWritten(ctx context.Context, m indexBlobManager, numWritt
 	return nil
 }
 
-func fakeCompaction(ctx context.Context, m indexBlobManager, dropDeleted bool) error {
-	log(ctx).Debugf("fakeCompaction(dropDeleted=%v)", dropDeleted)
-	defer log(ctx).Debugf("finished fakeCompaction(dropDeleted=%v)", dropDeleted)
+func fakeCompaction(ctx context.Context, t *testing.T, m indexBlobManager, dropDeleted bool) error {
+	t.Helper()
 
-	allContents, allBlobs, err := getAllFakeContents(ctx, m)
+	t.Logf("fakeCompaction(dropDeleted=%v)", dropDeleted)
+	defer t.Logf("finished fakeCompaction(dropDeleted=%v)", dropDeleted)
+
+	allContents, allBlobs, err := getAllFakeContents(ctx, t, m)
 	if err != nil {
 		return errors.Wrap(err, "error getting contents")
 	}
@@ -473,13 +478,13 @@ func fakeCompaction(ctx context.Context, m indexBlobManager, dropDeleted bool) e
 		return nil
 	}
 
-	outputBM, err := writeFakeIndex(ctx, m, allContents)
+	outputBM, err := writeFakeIndex(ctx, t, m, allContents)
 	if err != nil {
 		return errors.Wrap(err, "unable to write index")
 	}
 
 	for cid, e := range dropped {
-		log(ctx).Debugf("dropped deleted %v %v from %v", cid, e, outputBM)
+		t.Logf("dropped deleted %v %v from %v", cid, e, outputBM)
 	}
 
 	var (
@@ -507,13 +512,15 @@ func fakeContentID(prefix string, n int) string {
 	return fmt.Sprintf("%v-%06v", prefix, n)
 }
 
-func deleteFakeContents(ctx context.Context, m indexBlobManager, prefix string, numWritten int, deleted map[string]bool, timeFunc func() time.Time) error {
+func deleteFakeContents(ctx context.Context, t *testing.T, m indexBlobManager, prefix string, numWritten int, deleted map[string]bool, timeFunc func() time.Time) error {
+	t.Helper()
+
 	if numWritten == 0 {
 		return nil
 	}
 
-	log(ctx).Debugf("deleteFakeContents()")
-	defer log(ctx).Debugf("finished deleteFakeContents()")
+	t.Logf("deleteFakeContents()")
+	defer t.Logf("finished deleteFakeContents()")
 
 	count := rand.Intn(10) + 5
 
@@ -537,18 +544,20 @@ func deleteFakeContents(ctx context.Context, m indexBlobManager, prefix string, 
 		return nil
 	}
 
-	_, err := writeFakeIndex(ctx, m, ndx)
+	_, err := writeFakeIndex(ctx, t, m, ndx)
 
 	return err
 }
 
-func undeleteFakeContents(ctx context.Context, m indexBlobManager, deleted map[string]bool, timeFunc func() time.Time) error {
+func undeleteFakeContents(ctx context.Context, t *testing.T, m indexBlobManager, deleted map[string]bool, timeFunc func() time.Time) error {
+	t.Helper()
+
 	if len(deleted) == 0 {
 		return nil
 	}
 
-	log(ctx).Debugf("undeleteFakeContents()")
-	defer log(ctx).Debugf("finished undeleteFakeContents()")
+	t.Logf("undeleteFakeContents()")
+	defer t.Logf("finished undeleteFakeContents()")
 
 	count := rand.Intn(5)
 
@@ -573,14 +582,16 @@ func undeleteFakeContents(ctx context.Context, m indexBlobManager, deleted map[s
 		return nil
 	}
 
-	_, err := writeFakeIndex(ctx, m, ndx)
+	_, err := writeFakeIndex(ctx, t, m, ndx)
 
 	return err
 }
 
-func writeFakeContents(ctx context.Context, m indexBlobManager, prefix string, count int, numWritten *int, timeFunc func() time.Time) error {
-	log(ctx).Debugf("writeFakeContents()")
-	defer log(ctx).Debugf("finished writeFakeContents()")
+func writeFakeContents(ctx context.Context, t *testing.T, m indexBlobManager, prefix string, count int, numWritten *int, timeFunc func() time.Time) error {
+	t.Helper()
+
+	t.Logf("writeFakeContents()")
+	defer t.Logf("finished writeFakeContents()")
 
 	ndx := map[string]fakeContentIndexEntry{}
 
@@ -593,7 +604,7 @@ func writeFakeContents(ctx context.Context, m indexBlobManager, prefix string, c
 		(*numWritten)++
 	}
 
-	_, err := writeFakeIndex(ctx, m, ndx)
+	_, err := writeFakeIndex(ctx, t, m, ndx)
 
 	return err
 }
@@ -603,7 +614,9 @@ type fakeIndexData struct {
 	Entries  map[string]fakeContentIndexEntry
 }
 
-func writeFakeIndex(ctx context.Context, m indexBlobManager, ndx map[string]fakeContentIndexEntry) (blob.Metadata, error) {
+func writeFakeIndex(ctx context.Context, t *testing.T, m indexBlobManager, ndx map[string]fakeContentIndexEntry) (blob.Metadata, error) {
+	t.Helper()
+
 	j, err := json.Marshal(fakeIndexData{
 		RandomID: rand.Int63(),
 		Entries:  ndx,
@@ -618,7 +631,7 @@ func writeFakeIndex(ctx context.Context, m indexBlobManager, ndx map[string]fake
 	}
 
 	for k, v := range ndx {
-		log(ctx).Debugf("wrote content %v %v in blob %v", k, v, bm)
+		t.Logf("wrote content %v %v in blob %v", k, v, bm)
 	}
 
 	return bm, nil
@@ -626,23 +639,27 @@ func writeFakeIndex(ctx context.Context, m indexBlobManager, ndx map[string]fake
 
 var errGetAllFakeContentsRetry = errors.New("retry")
 
-func getAllFakeContents(ctx context.Context, m indexBlobManager) (map[string]fakeContentIndexEntry, []IndexBlobInfo, error) {
-	allContents, allBlobs, err := getAllFakeContentsInternal(ctx, m)
+func getAllFakeContents(ctx context.Context, t *testing.T, m indexBlobManager) (map[string]fakeContentIndexEntry, []IndexBlobInfo, error) {
+	t.Helper()
+
+	allContents, allBlobs, err := getAllFakeContentsInternal(ctx, t, m)
 
 	for errors.Is(err, errGetAllFakeContentsRetry) {
-		allContents, allBlobs, err = getAllFakeContentsInternal(ctx, m)
+		allContents, allBlobs, err = getAllFakeContentsInternal(ctx, t, m)
 	}
 
 	return allContents, allBlobs, err
 }
 
-func getAllFakeContentsInternal(ctx context.Context, m indexBlobManager) (map[string]fakeContentIndexEntry, []IndexBlobInfo, error) {
+func getAllFakeContentsInternal(ctx context.Context, t *testing.T, m indexBlobManager) (map[string]fakeContentIndexEntry, []IndexBlobInfo, error) {
+	t.Helper()
+
 	blobs, err := m.listIndexBlobs(ctx, false)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "error listing index blobs")
 	}
 
-	log(ctx).Debugf("got blobs: %v", blobs)
+	t.Logf("got blobs: %v", blobs)
 
 	allContents := map[string]fakeContentIndexEntry{}
 
@@ -659,7 +676,7 @@ func getAllFakeContentsInternal(ctx context.Context, m indexBlobManager) (map[st
 		var indexData fakeIndexData
 
 		if err := json.Unmarshal(bb, &indexData); err != nil {
-			log(ctx).Debugf("invalid JSON %v: %v", string(bb), err)
+			t.Logf("invalid JSON %v: %v", string(bb), err)
 			return nil, nil, errors.Wrap(err, "error unmarshaling")
 		}
 
@@ -762,7 +779,7 @@ func newIndexBlobManagerForTesting(t *testing.T, st blob.Storage, localTimeNow f
 		t.Fatalf("unable to create hash: %v", err)
 	}
 
-	lc, err := newListCache(st, &CachingOptions{})
+	lc, err := newListCache(st, &CachingOptions{}, repologging.Printf(t.Logf)("test"))
 	if err != nil {
 		t.Fatalf("unable to create list cache: %v", err)
 	}
@@ -772,6 +789,7 @@ func newIndexBlobManagerForTesting(t *testing.T, st blob.Storage, localTimeNow f
 		ownWritesCache: &persistentOwnWritesCache{
 			blobtesting.NewMapStorage(blobtesting.DataMap{}, nil, localTimeNow),
 			localTimeNow,
+			lc.log,
 		},
 		indexBlobCache: passthroughContentCache{st},
 		crypter: &Crypter{
@@ -780,6 +798,7 @@ func newIndexBlobManagerForTesting(t *testing.T, st blob.Storage, localTimeNow f
 		},
 		listCache: lc,
 		timeNow:   localTimeNow,
+		log:       repologging.Printf(t.Logf)("test"),
 	}
 
 	return m

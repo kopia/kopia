@@ -19,12 +19,8 @@ import (
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/compression"
+	"github.com/kopia/kopia/repo/hashing"
 	"github.com/kopia/kopia/repo/logging"
-)
-
-var (
-	log       = logging.GetContextLoggerFunc("kopia/content")
-	formatLog = logging.GetContextLoggerFunc(FormatLogModule)
 )
 
 // Prefixes for pack blobs.
@@ -36,7 +32,6 @@ const (
 
 	FormatLogModule = "kopia/format"
 
-	maxHashSize                            = 64
 	defaultEncryptionBufferPoolSegmentSize = 8 << 20 // 8 MB
 
 	DefaultIndexVersion = 1
@@ -103,6 +98,8 @@ type WriteManager struct {
 	onUpload func(int64)
 
 	*SharedManager
+
+	log logging.Logger
 }
 
 type pendingPackInfo struct {
@@ -129,7 +126,7 @@ func (bm *WriteManager) DeleteContent(ctx context.Context, contentID ID) error {
 
 	atomic.AddInt64(&bm.revision, 1)
 
-	formatLog(ctx).Debugf("delete-content %v", contentID)
+	bm.log.Debugf("delete-content %v", contentID)
 
 	// remove from all pending packs
 	for _, pp := range bm.pendingPacks {
@@ -194,7 +191,7 @@ func (bm *WriteManager) maybeRetryWritingFailedPacksUnlocked(ctx context.Context
 
 	// do not start new uploads while flushing
 	for bm.flushing {
-		formatLog(ctx).Debugf("wait-before-retry")
+		bm.log.Debugf("wait-before-retry")
 		bm.cond.Wait()
 	}
 
@@ -205,7 +202,7 @@ func (bm *WriteManager) maybeRetryWritingFailedPacksUnlocked(ctx context.Context
 	// will remove from it on success.
 	fp := append([]*pendingPackInfo(nil), bm.failedPacks...)
 	for _, pp := range fp {
-		formatLog(ctx).Debugf("retry-write %v", pp.packBlobID)
+		bm.log.Debugf("retry-write %v", pp.packBlobID)
 
 		if err := bm.writePackAndAddToIndex(ctx, pp, true); err != nil {
 			return errors.Wrap(err, "error writing previously failed pack")
@@ -229,7 +226,7 @@ func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, dat
 
 	// do not start new uploads while flushing
 	for bm.flushing {
-		formatLog(ctx).Debugf("wait-before-flush")
+		bm.log.Debugf("wait-before-flush")
 		bm.cond.Wait()
 	}
 
@@ -240,7 +237,7 @@ func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, dat
 	// will remove from it on success.
 	fp := append([]*pendingPackInfo(nil), bm.failedPacks...)
 	for _, pp := range fp {
-		formatLog(ctx).Debugf("retry-write %v", pp.packBlobID)
+		bm.log.Debugf("retry-write %v", pp.packBlobID)
 
 		if err := bm.writePackAndAddToIndex(ctx, pp, true); err != nil {
 			bm.unlock()
@@ -299,7 +296,7 @@ func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, dat
 func (bm *WriteManager) DisableIndexFlush(ctx context.Context) {
 	bm.lock()
 	defer bm.unlock()
-	log(ctx).Debugf("DisableIndexFlush()")
+	bm.log.Debugf("DisableIndexFlush()")
 	bm.disableIndexFlushCount++
 }
 
@@ -308,7 +305,7 @@ func (bm *WriteManager) DisableIndexFlush(ctx context.Context) {
 func (bm *WriteManager) EnableIndexFlush(ctx context.Context) {
 	bm.lock()
 	defer bm.unlock()
-	log(ctx).Debugf("EnableIndexFlush()")
+	bm.log.Debugf("EnableIndexFlush()")
 	bm.disableIndexFlushCount--
 }
 
@@ -360,7 +357,7 @@ func (bm *WriteManager) assertInvariant(ok bool, errorMsg string, arg ...interfa
 
 func (bm *WriteManager) flushPackIndexesLocked(ctx context.Context) error {
 	if bm.disableIndexFlushCount > 0 {
-		log(ctx).Debugf("not flushing index because flushes are currently disabled")
+		bm.log.Debugf("not flushing index because flushes are currently disabled")
 		return nil
 	}
 
@@ -446,18 +443,18 @@ func (bm *WriteManager) writePackAndAddToIndex(ctx context.Context, pp *pendingP
 }
 
 func (bm *WriteManager) prepareAndWritePackInternal(ctx context.Context, pp *pendingPackInfo) (packIndexBuilder, error) {
-	packFileIndex, err := bm.preparePackDataContent(ctx, pp)
+	packFileIndex, err := bm.preparePackDataContent(pp)
 	if err != nil {
 		return nil, errors.Wrap(err, "error preparing data content")
 	}
 
 	if pp.currentPackData.Length() > 0 {
 		if err := bm.writePackFileNotLocked(ctx, pp.packBlobID, pp.currentPackData.Bytes()); err != nil {
-			formatLog(ctx).Debugf("failed-pack %v %v", pp.packBlobID, err)
+			bm.log.Debugf("failed-pack %v %v", pp.packBlobID, err)
 			return nil, errors.Wrapf(err, "can't save pack data blob %v", pp.packBlobID)
 		}
 
-		formatLog(ctx).Debugf("wrote-pack %v %v", pp.packBlobID, pp.currentPackData.Length())
+		bm.log.Debugf("wrote-pack %v %v", pp.packBlobID, pp.currentPackData.Length())
 	}
 
 	return packFileIndex, nil
@@ -492,7 +489,7 @@ func (bm *WriteManager) Flush(ctx context.Context) error {
 	bm.lock()
 	defer bm.unlock()
 
-	formatLog(ctx).Debugf("flush")
+	bm.log.Debugf("flush")
 
 	bm.flushing = true
 
@@ -510,7 +507,7 @@ func (bm *WriteManager) Flush(ctx context.Context) error {
 	// will remove from it on success.
 	fp := append([]*pendingPackInfo(nil), bm.failedPacks...)
 	for _, pp := range fp {
-		formatLog(ctx).Debugf("retry-write %v", pp.packBlobID)
+		bm.log.Debugf("retry-write %v", pp.packBlobID)
 
 		if err := bm.writePackAndAddToIndex(ctx, pp, true); err != nil {
 			return errors.Wrap(err, "error writing previously failed pack")
@@ -518,7 +515,7 @@ func (bm *WriteManager) Flush(ctx context.Context) error {
 	}
 
 	for len(bm.writingPacks) > 0 {
-		log(ctx).Debugf("waiting for %v in-progress packs to finish", len(bm.writingPacks))
+		bm.log.Debugf("waiting for %v in-progress packs to finish", len(bm.writingPacks))
 
 		// wait packs that are currently writing in other goroutines to finish
 		bm.cond.Wait()
@@ -540,7 +537,7 @@ func (bm *WriteManager) Flush(ctx context.Context) error {
 // TODO(jkowalski): this will currently always re-encrypt and re-compress data, perhaps consider a
 // pass-through mode that preserves encrypted/compressed bits.
 func (bm *WriteManager) RewriteContent(ctx context.Context, contentID ID) error {
-	formatLog(ctx).Debugf("rewrite-content %v", contentID)
+	bm.log.Debugf("rewrite-content %v", contentID)
 
 	pp, bi, err := bm.getContentInfo(contentID)
 	if err != nil {
@@ -559,7 +556,7 @@ func (bm *WriteManager) RewriteContent(ctx context.Context, contentID ID) error 
 // and is mark deleted. If the content exists and is not marked deleted, this
 // operation is a no-op.
 func (bm *WriteManager) UndeleteContent(ctx context.Context, contentID ID) error {
-	log(ctx).Debugf("UndeleteContent(%q)", contentID)
+	bm.log.Debugf("UndeleteContent(%q)", contentID)
 
 	pp, bi, err := bm.getContentInfo(contentID)
 	if err != nil {
@@ -590,6 +587,8 @@ func (bm *WriteManager) getOrCreatePendingPackInfoLocked(ctx context.Context, pr
 	if pp := bm.pendingPacks[prefix]; pp != nil {
 		return pp, nil
 	}
+
+	bm.internalLogger.enable()
 
 	b := gather.NewWriteBuffer()
 
@@ -639,20 +638,20 @@ func (bm *WriteManager) WriteContent(ctx context.Context, data []byte, prefix ID
 		return "", err
 	}
 
-	var hashOutput [maxHashSize]byte
+	var hashOutput [hashing.MaxHashSize]byte
 
 	contentID := prefix + ID(hex.EncodeToString(bm.hashData(hashOutput[:0], data)))
 
 	// content already tracked
 	if _, bi, err := bm.getContentInfo(contentID); err == nil {
 		if !bi.GetDeleted() {
-			formatLog(ctx).Debugf("write-content %v already-exists", contentID)
+			bm.log.Debugf("write-content %v already-exists", contentID)
 			return contentID, nil
 		}
 
-		formatLog(ctx).Debugf("write-content %v previously-deleted", contentID)
+		bm.log.Debugf("write-content %v previously-deleted", contentID)
 	} else {
-		formatLog(ctx).Debugf("write-content %v new", contentID)
+		bm.log.Debugf("write-content %v new", contentID)
 	}
 
 	err := bm.addToPackUnlocked(ctx, contentID, data, false, comp)
@@ -724,7 +723,7 @@ func (bm *WriteManager) getContentInfo(contentID ID) (*pendingPackInfo, Info, er
 func (bm *WriteManager) ContentInfo(ctx context.Context, contentID ID) (Info, error) {
 	_, bi, err := bm.getContentInfo(contentID)
 	if err != nil {
-		log(ctx).Debugf("ContentInfo(%q) - error %v", err)
+		bm.log.Debugf("ContentInfo(%q) - error %v", err)
 		return nil, err
 	}
 
@@ -748,12 +747,12 @@ func (bm *WriteManager) Refresh(ctx context.Context) (bool, error) {
 	bm.lock()
 	defer bm.unlock()
 
-	log(ctx).Debugf("Refresh started")
+	bm.log.Debugf("Refresh started")
 
 	t0 := clock.Now()
 
 	_, updated, err := bm.loadPackIndexesUnlocked(ctx)
-	log(ctx).Debugf("Refresh completed in %v and updated=%v", clock.Since(t0), updated)
+	bm.log.Debugf("Refresh completed in %v and updated=%v", clock.Since(t0), updated)
 
 	return updated, err
 }
@@ -764,7 +763,7 @@ func (bm *WriteManager) SyncMetadataCache(ctx context.Context) error {
 		return cm.sync(ctx)
 	}
 
-	log(ctx).Debugf("metadata cache not enabled")
+	bm.log.Debugf("metadata cache not enabled")
 
 	return nil
 }
@@ -779,6 +778,7 @@ func (bm *WriteManager) DecryptBlob(ctx context.Context, blobID blob.ID) ([]byte
 type ManagerOptions struct {
 	RepositoryFormatBytes []byte
 	TimeNow               func() time.Time // Time provider
+	DisableInternalLog    bool
 
 	ownWritesCache ownWritesCache // test hook to allow overriding own-writes cache
 }
@@ -794,8 +794,8 @@ func (o *ManagerOptions) CloneOrDefault() *ManagerOptions {
 	return &o2
 }
 
-// NewManager creates new content manager with given packing options and a formatter.
-func NewManager(ctx context.Context, st blob.Storage, f *FormattingOptions, caching *CachingOptions, options *ManagerOptions) (*WriteManager, error) {
+// NewManagerForTesting creates new content manager with given packing options and a formatter.
+func NewManagerForTesting(ctx context.Context, st blob.Storage, f *FormattingOptions, caching *CachingOptions, options *ManagerOptions) (*WriteManager, error) {
 	options = options.CloneOrDefault()
 	if options.TimeNow == nil {
 		options.TimeNow = clock.Now
@@ -806,7 +806,7 @@ func NewManager(ctx context.Context, st blob.Storage, f *FormattingOptions, cach
 		return nil, errors.Wrap(err, "error initializing read manager")
 	}
 
-	return NewWriteManager(sharedManager, SessionOptions{}), nil
+	return NewWriteManager(ctx, sharedManager, SessionOptions{}, ""), nil
 }
 
 // SessionOptions specifies session options.
@@ -817,7 +817,7 @@ type SessionOptions struct {
 }
 
 // NewWriteManager returns a session write manager.
-func NewWriteManager(sm *SharedManager, options SessionOptions) *WriteManager {
+func NewWriteManager(ctx context.Context, sm *SharedManager, options SessionOptions, writeManagerID string) *WriteManager {
 	mu := &sync.RWMutex{}
 
 	sm.addRef()
@@ -838,5 +838,7 @@ func NewWriteManager(sm *SharedManager, options SessionOptions) *WriteManager {
 		sessionUser:           options.SessionUser,
 		sessionHost:           options.SessionHost,
 		onUpload:              options.OnUpload,
+
+		log: logging.WithPrefix(writeManagerID, sm.sharedBaseLogger),
 	}
 }

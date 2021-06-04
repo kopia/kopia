@@ -25,7 +25,7 @@ const maxCompressionOverheadPerContent = 16384
 const indexBlobCompactionWarningThreshold = 1000
 
 func (sm *SharedManager) maybeCompressAndEncryptDataForPacking(output *gather.WriteBuffer, data []byte, contentID ID, comp compression.HeaderID) (compression.HeaderID, error) {
-	var hashOutput [maxHashSize]byte
+	var hashOutput [hashing.MaxHashSize]byte
 
 	iv, err := getPackedContentIV(hashOutput[:], contentID)
 	if err != nil {
@@ -119,7 +119,7 @@ func (bm *WriteManager) getContentDataUnlocked(ctx context.Context, pp *pendingP
 	return bm.decryptContentAndVerify(payload, bi)
 }
 
-func (bm *WriteManager) preparePackDataContent(ctx context.Context, pp *pendingPackInfo) (packIndexBuilder, error) {
+func (bm *WriteManager) preparePackDataContent(pp *pendingPackInfo) (packIndexBuilder, error) {
 	packFileIndex := packIndexBuilder{}
 	haveContent := false
 
@@ -128,7 +128,7 @@ func (bm *WriteManager) preparePackDataContent(ctx context.Context, pp *pendingP
 			haveContent = true
 		}
 
-		formatLog(ctx).Debugf("add-to-pack %v %v p:%v %v d:%v", pp.packBlobID, info.GetContentID(), info.GetPackBlobID(), info.GetPackedLength(), info.GetDeleted())
+		bm.log.Debugf("add-to-pack %v %v p:%v %v d:%v", pp.packBlobID, info.GetContentID(), info.GetPackBlobID(), info.GetPackedLength(), info.GetDeleted())
 
 		packFileIndex.Add(info)
 	}

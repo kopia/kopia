@@ -25,7 +25,7 @@ func TestContentIndexRecovery(t *testing.T) {
 
 	// delete all index blobs
 	assertNoError(t, bm.st.ListBlobs(ctx, IndexBlobPrefix, func(bi blob.Metadata) error {
-		log(ctx).Debugf("deleting %v", bi.BlobID)
+		t.Logf("deleting %v", bi.BlobID)
 		return bm.st.DeleteBlob(ctx, bi.BlobID)
 	}))
 
@@ -49,7 +49,7 @@ func TestContentIndexRecovery(t *testing.T) {
 				return err
 			}
 			totalRecovered += len(infos)
-			log(ctx).Debugf("recovered %v contents", len(infos))
+			t.Logf("recovered %v contents", len(infos))
 			return nil
 		})
 		if err != nil {
@@ -76,7 +76,7 @@ func TestContentIndexRecovery(t *testing.T) {
 				return rerr
 			}
 			totalRecovered += len(infos)
-			log(ctx).Debugf("recovered %v contents", len(infos))
+			t.Logf("recovered %v contents", len(infos))
 			return nil
 		})
 		if err != nil {

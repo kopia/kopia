@@ -41,7 +41,7 @@ func stressTestWithStorage(t *testing.T, st blob.Storage, duration time.Duration
 	ctx := testlogging.Context(t)
 
 	openMgr := func() (*content.WriteManager, error) {
-		return content.NewManager(ctx, st, &content.FormattingOptions{
+		return content.NewManagerForTesting(ctx, st, &content.FormattingOptions{
 			Version:     1,
 			Hash:        "HMAC-SHA256-128",
 			Encryption:  encryption.DefaultAlgorithm,

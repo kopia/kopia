@@ -98,7 +98,7 @@ func verifyEndToEndFormatter(ctx context.Context, t *testing.T, hashAlgo, encryp
 	keyTime := map[blob.ID]time.Time{}
 	st := blobtesting.NewMapStorage(data, keyTime, nil)
 
-	bm, err := NewManager(testlogging.Context(t), st, &FormattingOptions{
+	bm, err := NewManagerForTesting(testlogging.Context(t), st, &FormattingOptions{
 		Hash:        hashAlgo,
 		Encryption:  encryptionAlgo,
 		HMACSecret:  hmacSecret,
