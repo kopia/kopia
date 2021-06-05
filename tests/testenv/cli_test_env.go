@@ -146,7 +146,7 @@ func (e *CLITest) RunAndProcessStderr(t *testing.T, callback func(line string) b
 	// complete the scan in background without processing lines.
 	go func() {
 		for scanner.Scan() {
-			t.Logf("[stderr] %v", scanner.Text())
+			// ignore
 		}
 	}()
 
