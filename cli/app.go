@@ -119,6 +119,7 @@ type App struct {
 	metricsListenAddr             string
 	keyRingEnabled                bool
 	persistCredentials            bool
+	disableInternalLog            bool
 	AdvancedCommands              string
 
 	// subcommands
@@ -139,6 +140,7 @@ type App struct {
 	mount       commandMount
 	maintenance commandMaintenance
 	repository  commandRepository
+	logs        commandLogs
 
 	// testability hooks
 	osExit       func(int) // allows replacing os.Exit() with custom code
@@ -193,6 +195,7 @@ func (c *App) setup(app *kingpin.Application) {
 	app.Flag("timezone", "Format time according to specified time zone (local, utc, original or time zone name)").Hidden().StringVar(&timeZone)
 	app.Flag("password", "Repository password.").Envar("KOPIA_PASSWORD").Short('p').StringVar(&c.password)
 	app.Flag("persist-credentials", "Persist credentials").Default("true").Envar("KOPIA_PERSIST_CREDENTIALS_ON_CONNECT").BoolVar(&c.persistCredentials)
+	app.Flag("disable-internal-log", "Disable internal log").Hidden().Envar("KOPIA_DISABLE_INTERNAL_LOG").BoolVar(&c.disableInternalLog)
 	app.Flag("advanced-commands", "Enable advanced (and potentially dangerous) commands.").Hidden().Envar("KOPIA_ADVANCED_COMMANDS").StringVar(&c.AdvancedCommands)
 
 	c.setupOSSpecificKeychainFlags(app)
@@ -215,6 +218,7 @@ func (c *App) setup(app *kingpin.Application) {
 	c.diff.setup(c, app)
 	c.index.setup(c, app)
 	c.list.setup(c, app)
+	c.logs.setup(c, app)
 	c.server.setup(c, app)
 	c.session.setup(c, app)
 	c.restore.setup(c, app)
