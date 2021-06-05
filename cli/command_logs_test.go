@@ -77,8 +77,11 @@ func TestLogsMaintenance(t *testing.T) {
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
+	time.Sleep(time.Second)
 	e.RunAndExpectSuccess(t, "snapshot", "create", testutil.TempDirectory(t))
+	time.Sleep(time.Second)
 	e.RunAndExpectSuccess(t, "snapshot", "create", testutil.TempDirectory(t))
+	time.Sleep(time.Second)
 	e.RunAndExpectSuccess(t, "snapshot", "create", testutil.TempDirectory(t))
 	e.RunAndVerifyOutputLineCount(t, 4, "logs", "list")
 
