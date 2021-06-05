@@ -40,6 +40,7 @@ const (
 	TaskRewriteContentsFull       = "full-rewrite-contents"
 	TaskDropDeletedContentsFull   = "full-drop-deleted-content"
 	TaskIndexCompaction           = "index-compaction"
+	TaskCleanupLogs               = "cleanup-logs"
 )
 
 // shouldRun returns Mode if repository is due for periodic maintenance.
@@ -245,6 +246,10 @@ func runQuickMaintenance(ctx context.Context, runParams RunParameters, safety Sa
 		return errors.Wrap(err, "error performing index compaction")
 	}
 
+	if err := runTaskCleanupLogs(ctx, runParams, s); err != nil {
+		return errors.Wrap(err, "error cleaning up logs")
+	}
+
 	return nil
 }
 
@@ -261,6 +266,16 @@ func notDeletingOrphanedBlobs(ctx context.Context, s *Schedule, safety SafetyPar
 func runTaskIndexCompaction(ctx context.Context, runParams RunParameters, s *Schedule, safety SafetyParameters) error {
 	return ReportRun(ctx, runParams.rep, TaskIndexCompaction, s, func() error {
 		return IndexCompaction(ctx, runParams.rep, safety)
+	})
+}
+
+func runTaskCleanupLogs(ctx context.Context, runParams RunParameters, s *Schedule) error {
+	return ReportRun(ctx, runParams.rep, TaskCleanupLogs, s, func() error {
+		deleted, err := CleanupLogs(ctx, runParams.rep, runParams.Params.LogRetention.OrDefault())
+
+		log(ctx).Infof("Cleaned up %v logs.", len(deleted))
+
+		return err
 	})
 }
 

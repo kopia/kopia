@@ -6,35 +6,82 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/maintenance"
 )
 
 type commandMaintenanceSet struct {
 	maintenanceSetOwner          string
-	maintenanceSetEnableQuick    []bool          // optional boolean
-	maintenanceSetEnableFull     []bool          // optional boolean
-	maintenanceSetQuickFrequency []time.Duration // optional duration
-	maintenanceSetFullFrequency  []time.Duration // optional duration
-	maintenanceSetPauseQuick     []time.Duration // optional duration
-	maintenanceSetPauseFull      []time.Duration // optional duration
+	maintenanceSetEnableQuick    []bool // optional boolean
+	maintenanceSetEnableFull     []bool // optional boolean
+	maintenanceSetQuickFrequency time.Duration
+	maintenanceSetFullFrequency  time.Duration
+	maintenanceSetPauseQuick     time.Duration
+	maintenanceSetPauseFull      time.Duration
+
+	maxRetainedLogCount       int
+	maxRetainedLogAge         time.Duration
+	maxTotalRetainedLogSizeMB int64
 }
 
 func (c *commandMaintenanceSet) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("set", "Set maintenance parameters")
+
+	c.maintenanceSetQuickFrequency = -1
+	c.maintenanceSetFullFrequency = -1
+	c.maintenanceSetPauseQuick = -1
+	c.maintenanceSetPauseFull = -1
+
+	c.maxRetainedLogCount = -1
+	c.maxRetainedLogAge = -1
+	c.maxTotalRetainedLogSizeMB = -1
 
 	cmd.Flag("owner", "Set maintenance owner user@hostname").StringVar(&c.maintenanceSetOwner)
 
 	cmd.Flag("enable-quick", "Enable or disable quick maintenance").BoolListVar(&c.maintenanceSetEnableQuick)
 	cmd.Flag("enable-full", "Enable or disable full maintenance").BoolListVar(&c.maintenanceSetEnableFull)
 
-	cmd.Flag("quick-interval", "Set quick maintenance interval").DurationListVar(&c.maintenanceSetQuickFrequency)
-	cmd.Flag("full-interval", "Set full maintenance interval").DurationListVar(&c.maintenanceSetFullFrequency)
+	cmd.Flag("quick-interval", "Set quick maintenance interval").DurationVar(&c.maintenanceSetQuickFrequency)
+	cmd.Flag("full-interval", "Set full maintenance interval").DurationVar(&c.maintenanceSetFullFrequency)
 
-	cmd.Flag("pause-quick", "Pause quick maintenance for a specified duration").DurationListVar(&c.maintenanceSetPauseQuick)
-	cmd.Flag("pause-full", "Pause full maintenance for a specified duration").DurationListVar(&c.maintenanceSetPauseFull)
+	cmd.Flag("pause-quick", "Pause quick maintenance for a specified duration").DurationVar(&c.maintenanceSetPauseQuick)
+	cmd.Flag("pause-full", "Pause full maintenance for a specified duration").DurationVar(&c.maintenanceSetPauseFull)
+
+	cmd.Flag("max-retained-log-count", "Set maximum number of log sessions to retain").IntVar(&c.maxRetainedLogCount)
+	cmd.Flag("max-retained-log-age", "Set maximum age of log sessions to retain").DurationVar(&c.maxRetainedLogAge)
+	cmd.Flag("max-retained-log-size-mb", "Set maximum total size of log sessions").Int64Var(&c.maxTotalRetainedLogSizeMB)
 
 	cmd.Action(svc.directRepositoryWriteAction(c.run))
+}
+
+func (c *commandMaintenanceSet) setLogCleanupParametersFromFlags(ctx context.Context, p *maintenance.Params, changed *bool) {
+	if v := c.maxRetainedLogCount; v != -1 {
+		cl := p.LogRetention.OrDefault()
+		cl.MaxCount = v
+		p.LogRetention = cl
+		*changed = true
+
+		log(ctx).Infof("Setting max retained log count to %v.", cl.MaxCount)
+	}
+
+	if v := c.maxRetainedLogAge; v != -1 {
+		cl := p.LogRetention.OrDefault()
+		cl.MaxAge = v
+		p.LogRetention = cl
+		*changed = true
+
+		log(ctx).Infof("Setting max retained log age to %v.", cl.MaxAge)
+	}
+
+	if v := c.maxTotalRetainedLogSizeMB; v != -1 {
+		cl := p.LogRetention.OrDefault()
+		cl.MaxTotalSize = v << 20 // nolint:gomnd
+		p.LogRetention = cl
+		*changed = true
+
+		log(ctx).Infof("Setting total retained log size to %v.", units.BytesStringBase2(cl.MaxTotalSize))
+	}
 }
 
 func (c *commandMaintenanceSet) setMaintenanceOwnerFromFlags(ctx context.Context, p *maintenance.Params, rep repo.DirectRepositoryWriter, changed *bool) {
@@ -51,7 +98,7 @@ func (c *commandMaintenanceSet) setMaintenanceOwnerFromFlags(ctx context.Context
 	}
 }
 
-func (c *commandMaintenanceSet) setMaintenanceEnabledAndIntervalFromFlags(ctx context.Context, cp *maintenance.CycleParams, cycleName string, enableFlag []bool, intervalFlag []time.Duration, changed *bool) {
+func (c *commandMaintenanceSet) setMaintenanceEnabledAndIntervalFromFlags(ctx context.Context, cp *maintenance.CycleParams, cycleName string, enableFlag []bool, interval time.Duration, changed *bool) {
 	// we use lists to distinguish between flag not set
 	// Zero elements == not set, more than zero - flag set, in which case we pick the last value
 	if len(enableFlag) > 0 {
@@ -66,12 +113,11 @@ func (c *commandMaintenanceSet) setMaintenanceEnabledAndIntervalFromFlags(ctx co
 		}
 	}
 
-	if len(intervalFlag) > 0 {
-		lastVal := intervalFlag[len(intervalFlag)-1]
-		cp.Interval = lastVal
+	if interval != -1 {
+		cp.Interval = interval
 		*changed = true
 
-		log(ctx).Infof("Interval for %v maintenance set to %v.", cycleName, lastVal)
+		log(ctx).Infof("Interval for %v maintenance set to %v.", cycleName, interval)
 	}
 }
 
@@ -91,17 +137,16 @@ func (c *commandMaintenanceSet) run(ctx context.Context, rep repo.DirectReposito
 	c.setMaintenanceOwnerFromFlags(ctx, p, rep, &changedParams)
 	c.setMaintenanceEnabledAndIntervalFromFlags(ctx, &p.QuickCycle, "quick", c.maintenanceSetEnableQuick, c.maintenanceSetQuickFrequency, &changedParams)
 	c.setMaintenanceEnabledAndIntervalFromFlags(ctx, &p.FullCycle, "full", c.maintenanceSetEnableFull, c.maintenanceSetFullFrequency, &changedParams)
+	c.setLogCleanupParametersFromFlags(ctx, p, &changedParams)
 
-	if v := c.maintenanceSetPauseQuick; len(v) > 0 {
-		pauseDuration := v[len(v)-1]
+	if pauseDuration := c.maintenanceSetPauseQuick; pauseDuration != -1 {
 		s.NextQuickMaintenanceTime = rep.Time().Add(pauseDuration)
 		changedSchedule = true
 
 		log(ctx).Infof("Quick maintenance paused until %v", formatTimestamp(s.NextQuickMaintenanceTime))
 	}
 
-	if v := c.maintenanceSetPauseFull; len(v) > 0 {
-		pauseDuration := v[len(v)-1]
+	if pauseDuration := c.maintenanceSetPauseFull; pauseDuration != -1 {
 		s.NextFullMaintenanceTime = rep.Time().Add(pauseDuration)
 		changedSchedule = true
 
