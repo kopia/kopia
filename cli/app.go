@@ -122,6 +122,8 @@ type App struct {
 	disableInternalLog            bool
 	AdvancedCommands              string
 
+	currentAction string
+
 	// subcommands
 	blob        commandBlob
 	benchmark   commandBenchmark
@@ -177,6 +179,16 @@ func (c *App) passwordPersistenceStrategy() passwordpersist.Strategy {
 }
 
 func (c *App) setup(app *kingpin.Application) {
+	app.PreAction(func(pc *kingpin.ParseContext) error {
+		if sc := pc.SelectedCommand; sc != nil {
+			c.currentAction = sc.FullCommand()
+		} else {
+			c.currentAction = "unknown-action"
+		}
+
+		return nil
+	})
+
 	_ = app.Flag("help-full", "Show help for all commands, including hidden").Action(func(pc *kingpin.ParseContext) error {
 		_ = app.UsageForContextWithTemplate(pc, 0, kingpin.DefaultUsageTemplate)
 		os.Exit(0)
@@ -277,6 +289,10 @@ func safetyFlagVar(cmd *kingpin.CmdClause, result *maintenance.SafetyParameters)
 	}).EnumVar(&str, "full", "none")
 }
 
+func (c *App) currentActionName() string {
+	return c.currentAction
+}
+
 func (c *App) noRepositoryAction(act func(ctx context.Context) error) func(ctx *kingpin.ParseContext) error {
 	return func(_ *kingpin.ParseContext) error {
 		return act(c.rootContext())
@@ -320,7 +336,7 @@ func (c *App) directRepositoryWriteAction(act func(ctx context.Context, rep repo
 	return c.maybeRepositoryAction(assertDirectRepository(func(ctx context.Context, rep repo.DirectRepository) error {
 		// nolint:wrapcheck
 		return repo.DirectWriteSession(ctx, rep, repo.WriteSessionOptions{
-			Purpose:  "directRepositoryWriteAction",
+			Purpose:  "cli:" + c.currentActionName(),
 			OnUpload: c.progress.UploadedBytes,
 		}, func(ctx context.Context, dw repo.DirectRepositoryWriter) error { return act(ctx, dw) })
 	}), repositoryAccessMode{
@@ -351,7 +367,7 @@ func (c *App) repositoryWriterAction(act func(ctx context.Context, rep repo.Repo
 	return c.maybeRepositoryAction(func(ctx context.Context, rep repo.Repository) error {
 		// nolint:wrapcheck
 		return repo.WriteSession(ctx, rep, repo.WriteSessionOptions{
-			Purpose:  "repositoryWriterAction",
+			Purpose:  "cli:" + c.currentActionName(),
 			OnUpload: c.progress.UploadedBytes,
 		}, func(ctx context.Context, w repo.RepositoryWriter) error {
 			return act(ctx, w)
