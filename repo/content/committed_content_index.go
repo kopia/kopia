@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 
 	"github.com/pkg/errors"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/repo/blob"
@@ -30,6 +31,9 @@ type committedContentIndex struct {
 
 	v1PerContentOverhead uint32
 	indexVersion         int
+
+	// fetchOne loads one index blob
+	fetchOne func(ctx context.Context, blobID blob.ID) ([]byte, error)
 
 	log logging.Logger
 }
@@ -224,7 +228,72 @@ func (c *committedContentIndex) close() error {
 	return nil
 }
 
-func newCommittedContentIndex(caching *CachingOptions, v1PerContentOverhead uint32, indexVersion int, baseLog logging.Logger) *committedContentIndex {
+func (c *committedContentIndex) fetchIndexBlobs(
+	ctx context.Context,
+	indexBlobs []blob.ID,
+) error {
+	ch, err := c.missingIndexBlobs(ctx, indexBlobs)
+	if err != nil {
+		return err
+	}
+
+	if len(ch) == 0 {
+		return nil
+	}
+
+	c.log.Debugf("Downloading %v new index blobs...", len(indexBlobs))
+
+	eg, ctx := errgroup.WithContext(ctx)
+	for i := 0; i < parallelFetches; i++ {
+		eg.Go(func() error {
+			for indexBlobID := range ch {
+				data, err := c.fetchOne(ctx, indexBlobID)
+				if err != nil {
+					return errors.Wrapf(err, "error loading index blob %v", indexBlobID)
+				}
+
+				if err := c.addContent(ctx, indexBlobID, data, false); err != nil {
+					return errors.Wrap(err, "unable to add to committed content cache")
+				}
+			}
+			return nil
+		})
+	}
+
+	if err := eg.Wait(); err != nil {
+		return errors.Wrap(err, "error downloading indexes")
+	}
+
+	c.log.Debugf("Index blobs downloaded.")
+
+	return nil
+}
+
+// missingIndexBlobs returns a closed channel filled with blob IDs that are not in committedContents cache.
+func (c *committedContentIndex) missingIndexBlobs(ctx context.Context, blobs []blob.ID) (<-chan blob.ID, error) {
+	ch := make(chan blob.ID, len(blobs))
+	defer close(ch)
+
+	for _, id := range blobs {
+		has, err := c.cache.hasIndexBlobID(ctx, id)
+		if err != nil {
+			return nil, errors.Wrapf(err, "error determining whether index blob %v has been downloaded", id)
+		}
+
+		if !has {
+			ch <- id
+		}
+	}
+
+	return ch, nil
+}
+
+func newCommittedContentIndex(caching *CachingOptions,
+	v1PerContentOverhead uint32,
+	indexVersion int,
+	fetchOne func(ctx context.Context, blobID blob.ID) ([]byte, error),
+	baseLog logging.Logger,
+) *committedContentIndex {
 	log := logging.WithPrefix("[committed-content-index] ", baseLog)
 
 	var cache committedContentIndexCache
@@ -244,6 +313,7 @@ func newCommittedContentIndex(caching *CachingOptions, v1PerContentOverhead uint
 		inUse:                map[blob.ID]packIndex{},
 		v1PerContentOverhead: v1PerContentOverhead,
 		indexVersion:         indexVersion,
+		fetchOne:             fetchOne,
 		log:                  baseLog,
 	}
 }
