@@ -20,8 +20,8 @@ func TestFullMaintenance(t *testing.T) {
 
 	var snap snapshot.Manifest
 
-	// after creation we'll have kopia.repository, 1 index + 1 pack blob
-	if got, want := e.RunAndExpectSuccess(t, "blob", "list"), 3; len(got) != want {
+	// after creation we'll have kopia.repository, 1 index + 1 pack blob + 1 log
+	if got, want := e.RunAndExpectSuccess(t, "blob", "list"), 4; len(got) != want {
 		t.Fatalf("unexpected number of initial blobs: %v, want %v", got, want)
 	}
 
