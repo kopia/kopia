@@ -285,14 +285,9 @@ func (r *directRepository) IndexBlobReader() content.IndexBlobReader {
 	return r.cmgr
 }
 
-// Refresh periodically makes external changes visible to repository.
+// Refresh makes external changes visible to repository.
 func (r *directRepository) Refresh(ctx context.Context) error {
-	_, err := r.cmgr.Refresh(ctx)
-	if err != nil {
-		return errors.Wrap(err, "error refreshing content index")
-	}
-
-	return nil
+	return errors.Wrap(r.cmgr.Refresh(ctx), "error refreshing content index")
 }
 
 // RefreshPeriodically periodically refreshes the repository to reflect the changes made by other hosts.

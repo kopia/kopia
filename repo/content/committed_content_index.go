@@ -112,43 +112,54 @@ func (c *committedContentIndex) packFilesChanged(packFiles []blob.ID) bool {
 	return false
 }
 
-// Uses packFiles for indexing and returns whether or not the set of index
-// packs have changed compared to the previous set. An error is returned if the
-// indices cannot be read for any reason.
-func (c *committedContentIndex) use(ctx context.Context, packFiles []blob.ID) (bool, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	if !c.packFilesChanged(packFiles) {
-		return false, nil
-	}
-
-	atomic.AddInt64(&c.rev, 1)
-
-	var newMerged mergedIndex
-
-	newInUse := map[blob.ID]packIndex{}
+func (c *committedContentIndex) merge(ctx context.Context, packFiles []blob.ID) (merged mergedIndex, used map[blob.ID]packIndex, finalErr error) {
+	used = map[blob.ID]packIndex{}
 
 	defer func() {
-		newMerged.Close() //nolint:errcheck
+		// we failed along the way, close the merged index.
+		if finalErr != nil {
+			merged.Close() //nolint:errcheck
+		}
 	}()
 
 	for _, e := range packFiles {
 		ndx, err := c.cache.openIndex(ctx, e)
 		if err != nil {
-			return false, errors.Wrapf(err, "unable to open pack index %q", e)
+			return nil, nil, errors.Wrapf(err, "unable to open pack index %q", e)
 		}
 
-		newMerged = append(newMerged, ndx)
-		newInUse[e] = ndx
+		merged = append(merged, ndx)
+		used[e] = ndx
 	}
 
-	mergedAndCombined, err := c.combineSmallIndexes(newMerged)
+	mergedAndCombined, err := c.combineSmallIndexes(merged)
 	if err != nil {
-		return false, errors.Wrap(err, "unable to combine small indexes")
+		return nil, nil, errors.Wrap(err, "unable to combine small indexes")
 	}
 
-	c.log.Debugf("combined %v into %v index segments", len(newMerged), len(mergedAndCombined))
+	c.log.Debugf("combined %v into %v index segments", len(merged), len(mergedAndCombined))
+
+	merged = mergedAndCombined
+
+	return
+}
+
+// Uses packFiles for indexing. An error is returned if the
+// indices cannot be read for any reason.
+func (c *committedContentIndex) use(ctx context.Context, packFiles []blob.ID) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if !c.packFilesChanged(packFiles) {
+		return nil
+	}
+
+	mergedAndCombined, newInUse, err := c.merge(ctx, packFiles)
+	if err != nil {
+		return err
+	}
+
+	atomic.AddInt64(&c.rev, 1)
 
 	c.merged = mergedAndCombined
 	c.inUse = newInUse
@@ -157,9 +168,7 @@ func (c *committedContentIndex) use(ctx context.Context, packFiles []blob.ID) (b
 		c.log.Errorf("unable to expire unused content index files: %v", err)
 	}
 
-	newMerged = nil // prevent closing newMerged indices
-
-	return true, nil
+	return nil
 }
 
 func (c *committedContentIndex) combineSmallIndexes(m mergedIndex) (mergedIndex, error) {
