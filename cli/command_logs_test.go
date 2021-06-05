@@ -45,6 +45,14 @@ func TestLogsCommands(t *testing.T) {
 	thirdLogLines := e.RunAndExpectSuccess(t, "logs", "show", thirdLogID)
 	e.RunAndExpectFailure(t, "logs", "show", "no-such-log")
 
+	lines2 := e.RunAndVerifyOutputLineCount(t, 1, "logs", "list", "-n1")
+	require.Equal(t, thirdLogID, strings.Split(lines2[0], " ")[0])
+
+	e.RunAndVerifyOutputLineCount(t, 0, "logs", "list", "--younger-than=1ms")
+	e.RunAndVerifyOutputLineCount(t, 3, "logs", "list", "--younger-than=1h")
+	e.RunAndVerifyOutputLineCount(t, 3, "logs", "list", "--older-than=1ms")
+	e.RunAndVerifyOutputLineCount(t, 0, "logs", "list", "--older-than=1h")
+
 	require.NotEqual(t, firstLogLines, secondLogLines)
 	require.NotEqual(t, secondLogLines, thirdLogLines)
 
@@ -85,4 +93,15 @@ func TestLogsMaintenance(t *testing.T) {
 
 	e.RunAndExpectSuccess(t, "maintenance", "run")
 	e.RunAndVerifyOutputLineCount(t, 0, "logs", "list")
+
+	e.RunAndExpectSuccess(t, "maintenance", "set",
+		"--max-retained-log-age=22h",
+		"--max-retained-log-size-mb=33",
+		"--max-retained-log-count=44",
+	)
+
+	infoLines := e.RunAndExpectSuccess(t, "maintenance", "info")
+	require.Contains(t, infoLines, "  max age of logs: 22h0m0s")
+	require.Contains(t, infoLines, "  max total size:  33 MiB")
+	require.Contains(t, infoLines, "  max count:       44")
 }
