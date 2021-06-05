@@ -59,6 +59,8 @@ func TestLogsCommands(t *testing.T) {
 	// by default cleanup retains a lot of logs.
 	e.RunAndExpectSuccess(t, "logs", "cleanup")
 	e.RunAndVerifyOutputLineCount(t, 3, "logs", "list")
+	e.RunAndExpectSuccess(t, "logs", "cleanup", "--max-count=2", "--dry-run")
+	e.RunAndVerifyOutputLineCount(t, 3, "logs", "list")
 	e.RunAndExpectSuccess(t, "logs", "cleanup", "--max-count=2")
 	e.RunAndVerifyOutputLineCount(t, 2, "logs", "list")
 	e.RunAndExpectSuccess(t, "logs", "cleanup", "--max-count=1")
