@@ -15,34 +15,34 @@ func TestFullMaintenance(t *testing.T) {
 	runner := testenv.NewInProcRunner(t)
 	e := testenv.NewCLITest(t, runner)
 
-	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--disable-internal-log")
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
 	var snap snapshot.Manifest
 
-	// after creation we'll have kopia.repository, 1 index + 1 pack blob + 1 log
-	if got, want := e.RunAndExpectSuccess(t, "blob", "list"), 4; len(got) != want {
+	// after creation we'll have kopia.repository, 1 index + 1 pack blob
+	if got, want := e.RunAndExpectSuccess(t, "blob", "list"), 3; len(got) != want {
 		t.Fatalf("unexpected number of initial blobs: %v, want %v", got, want)
 	}
 
-	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1, "--json"), &snap)
+	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1, "--json", "--disable-internal-log"), &snap)
 
 	// avoid create and delete in the same second.
 	time.Sleep(2 * time.Second)
-	e.RunAndExpectSuccess(t, "snapshot", "delete", string(snap.ID), "--delete")
+	e.RunAndExpectSuccess(t, "snapshot", "delete", string(snap.ID), "--delete", "--disable-internal-log")
 
 	e.RunAndVerifyOutputLineCount(t, 0, "snapshot", "list")
 
 	originalBlobCount := len(e.RunAndExpectSuccess(t, "blob", "list"))
 
-	e.RunAndVerifyOutputLineCount(t, 0, "maintenance", "run", "--full")
+	e.RunAndVerifyOutputLineCount(t, 0, "maintenance", "run", "--full", "--disable-internal-log")
 
 	if got := len(e.RunAndExpectSuccess(t, "blob", "list")); got != originalBlobCount {
 		t.Fatalf("full maintenance is not expected to change any blobs due to safety margins (got %v, was %v)", got, originalBlobCount)
 	}
 
 	// now rerun with --safety=none
-	e.RunAndExpectSuccess(t, "maintenance", "run", "--full", "--safety=none")
+	e.RunAndExpectSuccess(t, "maintenance", "run", "--full", "--safety=none", "--disable-internal-log")
 
 	if got := len(e.RunAndExpectSuccess(t, "blob", "list")); got >= originalBlobCount {
 		t.Fatalf("maintenance did not remove blobs: %v, had %v", got, originalBlobCount)
