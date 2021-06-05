@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 
 	"github.com/pkg/errors"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/repo/blob"
@@ -30,6 +31,9 @@ type committedContentIndex struct {
 
 	v1PerContentOverhead uint32
 	indexVersion         int
+
+	// fetchOne loads one index blob
+	fetchOne func(ctx context.Context, blobID blob.ID) ([]byte, error)
 
 	log logging.Logger
 }
@@ -112,43 +116,54 @@ func (c *committedContentIndex) packFilesChanged(packFiles []blob.ID) bool {
 	return false
 }
 
-// Uses packFiles for indexing and returns whether or not the set of index
-// packs have changed compared to the previous set. An error is returned if the
-// indices cannot be read for any reason.
-func (c *committedContentIndex) use(ctx context.Context, packFiles []blob.ID) (bool, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	if !c.packFilesChanged(packFiles) {
-		return false, nil
-	}
-
-	atomic.AddInt64(&c.rev, 1)
-
-	var newMerged mergedIndex
-
-	newInUse := map[blob.ID]packIndex{}
+func (c *committedContentIndex) merge(ctx context.Context, packFiles []blob.ID) (merged mergedIndex, used map[blob.ID]packIndex, finalErr error) {
+	used = map[blob.ID]packIndex{}
 
 	defer func() {
-		newMerged.Close() //nolint:errcheck
+		// we failed along the way, close the merged index.
+		if finalErr != nil {
+			merged.Close() //nolint:errcheck
+		}
 	}()
 
 	for _, e := range packFiles {
 		ndx, err := c.cache.openIndex(ctx, e)
 		if err != nil {
-			return false, errors.Wrapf(err, "unable to open pack index %q", e)
+			return nil, nil, errors.Wrapf(err, "unable to open pack index %q", e)
 		}
 
-		newMerged = append(newMerged, ndx)
-		newInUse[e] = ndx
+		merged = append(merged, ndx)
+		used[e] = ndx
 	}
 
-	mergedAndCombined, err := c.combineSmallIndexes(newMerged)
+	mergedAndCombined, err := c.combineSmallIndexes(merged)
 	if err != nil {
-		return false, errors.Wrap(err, "unable to combine small indexes")
+		return nil, nil, errors.Wrap(err, "unable to combine small indexes")
 	}
 
-	c.log.Debugf("combined %v into %v index segments", len(newMerged), len(mergedAndCombined))
+	c.log.Debugf("combined %v into %v index segments", len(merged), len(mergedAndCombined))
+
+	merged = mergedAndCombined
+
+	return
+}
+
+// Uses packFiles for indexing. An error is returned if the
+// indices cannot be read for any reason.
+func (c *committedContentIndex) use(ctx context.Context, packFiles []blob.ID) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if !c.packFilesChanged(packFiles) {
+		return nil
+	}
+
+	mergedAndCombined, newInUse, err := c.merge(ctx, packFiles)
+	if err != nil {
+		return err
+	}
+
+	atomic.AddInt64(&c.rev, 1)
 
 	c.merged = mergedAndCombined
 	c.inUse = newInUse
@@ -157,9 +172,7 @@ func (c *committedContentIndex) use(ctx context.Context, packFiles []blob.ID) (b
 		c.log.Errorf("unable to expire unused content index files: %v", err)
 	}
 
-	newMerged = nil // prevent closing newMerged indices
-
-	return true, nil
+	return nil
 }
 
 func (c *committedContentIndex) combineSmallIndexes(m mergedIndex) (mergedIndex, error) {
@@ -215,7 +228,72 @@ func (c *committedContentIndex) close() error {
 	return nil
 }
 
-func newCommittedContentIndex(caching *CachingOptions, v1PerContentOverhead uint32, indexVersion int, baseLog logging.Logger) *committedContentIndex {
+func (c *committedContentIndex) fetchIndexBlobs(
+	ctx context.Context,
+	indexBlobs []blob.ID,
+) error {
+	ch, err := c.missingIndexBlobs(ctx, indexBlobs)
+	if err != nil {
+		return err
+	}
+
+	if len(ch) == 0 {
+		return nil
+	}
+
+	c.log.Debugf("Downloading %v new index blobs...", len(indexBlobs))
+
+	eg, ctx := errgroup.WithContext(ctx)
+	for i := 0; i < parallelFetches; i++ {
+		eg.Go(func() error {
+			for indexBlobID := range ch {
+				data, err := c.fetchOne(ctx, indexBlobID)
+				if err != nil {
+					return errors.Wrapf(err, "error loading index blob %v", indexBlobID)
+				}
+
+				if err := c.addContent(ctx, indexBlobID, data, false); err != nil {
+					return errors.Wrap(err, "unable to add to committed content cache")
+				}
+			}
+			return nil
+		})
+	}
+
+	if err := eg.Wait(); err != nil {
+		return errors.Wrap(err, "error downloading indexes")
+	}
+
+	c.log.Debugf("Index blobs downloaded.")
+
+	return nil
+}
+
+// missingIndexBlobs returns a closed channel filled with blob IDs that are not in committedContents cache.
+func (c *committedContentIndex) missingIndexBlobs(ctx context.Context, blobs []blob.ID) (<-chan blob.ID, error) {
+	ch := make(chan blob.ID, len(blobs))
+	defer close(ch)
+
+	for _, id := range blobs {
+		has, err := c.cache.hasIndexBlobID(ctx, id)
+		if err != nil {
+			return nil, errors.Wrapf(err, "error determining whether index blob %v has been downloaded", id)
+		}
+
+		if !has {
+			ch <- id
+		}
+	}
+
+	return ch, nil
+}
+
+func newCommittedContentIndex(caching *CachingOptions,
+	v1PerContentOverhead uint32,
+	indexVersion int,
+	fetchOne func(ctx context.Context, blobID blob.ID) ([]byte, error),
+	baseLog logging.Logger,
+) *committedContentIndex {
 	log := logging.WithPrefix("[committed-content-index] ", baseLog)
 
 	var cache committedContentIndexCache
@@ -235,6 +313,7 @@ func newCommittedContentIndex(caching *CachingOptions, v1PerContentOverhead uint
 		inUse:                map[blob.ID]packIndex{},
 		v1PerContentOverhead: v1PerContentOverhead,
 		indexVersion:         indexVersion,
+		fetchOne:             fetchOne,
 		log:                  baseLog,
 	}
 }

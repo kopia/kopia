@@ -36,7 +36,7 @@ func (bm *WriteManager) CompactIndexes(ctx context.Context, opt CompactOptions) 
 	bm.lock()
 	defer bm.unlock()
 
-	indexBlobs, _, err := bm.loadPackIndexesUnlocked(ctx)
+	indexBlobs, err := bm.loadPackIndexesUnlocked(ctx)
 	if err != nil {
 		return errors.Wrap(err, "error loading indexes")
 	}
@@ -52,7 +52,7 @@ func (bm *WriteManager) CompactIndexes(ctx context.Context, opt CompactOptions) 
 	}
 
 	// reload indexes after cleanup.
-	if _, _, err := bm.loadPackIndexesUnlocked(ctx); err != nil {
+	if _, err := bm.loadPackIndexesUnlocked(ctx); err != nil {
 		return errors.Wrap(err, "error re-loading indexes")
 	}
 

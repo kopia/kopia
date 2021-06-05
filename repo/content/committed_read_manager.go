@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"os"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -118,13 +117,13 @@ func (sm *SharedManager) attemptReadPackFileLocalIndex(ctx context.Context, pack
 	return localIndexBytes, nil
 }
 
-func (sm *SharedManager) loadPackIndexesUnlocked(ctx context.Context) ([]IndexBlobInfo, bool, error) {
+func (sm *SharedManager) loadPackIndexesUnlocked(ctx context.Context) ([]IndexBlobInfo, error) {
 	nextSleepTime := 100 * time.Millisecond //nolint:gomnd
 
 	for i := 0; i < indexLoadAttempts; i++ {
 		if err := ctx.Err(); err != nil {
 			// nolint:wrapcheck
-			return nil, false, err
+			return nil, err
 		}
 
 		if i > 0 {
@@ -136,109 +135,34 @@ func (sm *SharedManager) loadPackIndexesUnlocked(ctx context.Context) ([]IndexBl
 
 		indexBlobs, err := sm.indexBlobManager.listIndexBlobs(ctx, false)
 		if err != nil {
-			return nil, false, errors.Wrap(err, "error listing index blobs")
+			return nil, errors.Wrap(err, "error listing index blobs")
 		}
 
-		err = sm.tryLoadPackIndexBlobsUnlocked(ctx, indexBlobs)
+		var indexBlobIDs []blob.ID
+		for _, b := range indexBlobs {
+			indexBlobIDs = append(indexBlobIDs, b.BlobID)
+		}
+
+		err = sm.committedContents.fetchIndexBlobs(ctx, indexBlobIDs)
 		if err == nil {
-			var indexBlobIDs []blob.ID
-			for _, b := range indexBlobs {
-				indexBlobIDs = append(indexBlobIDs, b.BlobID)
-			}
-
-			var updated bool
-
-			updated, err = sm.committedContents.use(ctx, indexBlobIDs)
+			err = sm.committedContents.use(ctx, indexBlobIDs)
 			if err != nil {
-				return nil, false, err
+				return nil, err
 			}
 
 			if len(indexBlobs) > indexBlobCompactionWarningThreshold {
 				sm.log.Errorf("Found too many index blobs (%v), this may result in degraded performance.\n\nPlease ensure periodic repository maintenance is enabled or run 'kopia maintenance'.", len(indexBlobs))
 			}
 
-			return indexBlobs, updated, nil
+			return indexBlobs, nil
 		}
 
 		if !errors.Is(err, blob.ErrBlobNotFound) {
-			return nil, false, err
+			return nil, err
 		}
 	}
 
-	return nil, false, errors.Errorf("unable to load pack indexes despite %v retries", indexLoadAttempts)
-}
-
-func (sm *SharedManager) tryLoadPackIndexBlobsUnlocked(ctx context.Context, indexBlobs []IndexBlobInfo) error {
-	ch, unprocessedIndexesSize, err := sm.unprocessedIndexBlobsUnlocked(ctx, indexBlobs)
-	if err != nil {
-		return err
-	}
-
-	if len(ch) == 0 {
-		return nil
-	}
-
-	sm.log.Debugf("downloading %v new index blobs (%v bytes)...", len(ch), unprocessedIndexesSize)
-
-	var wg sync.WaitGroup
-
-	errch := make(chan error, parallelFetches)
-
-	for i := 0; i < parallelFetches; i++ {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
-			for indexBlobID := range ch {
-				data, err := sm.indexBlobManager.getIndexBlob(ctx, indexBlobID)
-				if err != nil {
-					errch <- err
-					return
-				}
-
-				if err := sm.committedContents.addContent(ctx, indexBlobID, data, false); err != nil {
-					errch <- errors.Wrap(err, "unable to add to committed content cache")
-					return
-				}
-			}
-		}()
-	}
-
-	wg.Wait()
-	close(errch)
-
-	// Propagate async errors, if any.
-	for err := range errch {
-		return err
-	}
-
-	sm.log.Debugf("Index contents downloaded.")
-
-	return nil
-}
-
-// unprocessedIndexBlobsUnlocked returns a closed channel filled with content IDs that are not in committedContents cache.
-func (sm *SharedManager) unprocessedIndexBlobsUnlocked(ctx context.Context, contents []IndexBlobInfo) (resultCh <-chan blob.ID, totalSize int64, err error) {
-	ch := make(chan blob.ID, len(contents))
-	defer close(ch)
-
-	for _, c := range contents {
-		has, err := sm.committedContents.cache.hasIndexBlobID(ctx, c.BlobID)
-		if err != nil {
-			return nil, 0, errors.Wrapf(err, "error determining whether index blob %v has been downloaded", c.BlobID)
-		}
-
-		if has {
-			sm.log.Debugf("index-already-cached %v", c.BlobID)
-			continue
-		}
-
-		ch <- c.BlobID
-		totalSize += c.Length
-	}
-
-	return ch, totalSize, nil
+	return nil, errors.Errorf("unable to load pack indexes despite %v retries", indexLoadAttempts)
 }
 
 func (sm *SharedManager) getCacheForContentID(id ID) contentCache {
@@ -344,13 +268,6 @@ func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *Ca
 		return errors.Wrap(err, "unable to initialize own writes cache")
 	}
 
-	contentIndex := newCommittedContentIndex(caching, uint32(sm.crypter.Encryptor.Overhead()), sm.indexVersion, sm.sharedBaseLogger)
-
-	// once everything is ready, set it up
-	sm.contentCache = dataCache
-	sm.metadataCache = metadataCache
-	sm.committedContents = contentIndex
-
 	sm.indexBlobManager = &indexBlobManagerImpl{
 		st:             sm.st,
 		crypter:        sm.crypter,
@@ -360,6 +277,11 @@ func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *Ca
 		indexBlobCache: metadataCache,
 		log:            logging.WithPrefix("[index-blob-manager] ", sm.sharedBaseLogger),
 	}
+
+	// once everything is ready, set it up
+	sm.contentCache = dataCache
+	sm.metadataCache = metadataCache
+	sm.committedContents = newCommittedContentIndex(caching, uint32(sm.crypter.Encryptor.Overhead()), sm.indexVersion, sm.indexBlobManager.getIndexBlob, sm.sharedBaseLogger)
 
 	return nil
 }
@@ -486,7 +408,7 @@ func NewSharedManager(ctx context.Context, st blob.Storage, f *FormattingOptions
 		return nil, errors.Wrap(err, "error setting up read manager caches")
 	}
 
-	if _, _, err := sm.loadPackIndexesUnlocked(ctx); err != nil {
+	if _, err := sm.loadPackIndexesUnlocked(ctx); err != nil {
 		return nil, errors.Wrap(err, "error loading indexes")
 	}
 

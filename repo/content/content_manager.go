@@ -743,7 +743,7 @@ func (bm *WriteManager) unlock() {
 }
 
 // Refresh reloads the committed content indexes.
-func (bm *WriteManager) Refresh(ctx context.Context) (bool, error) {
+func (bm *WriteManager) Refresh(ctx context.Context) error {
 	bm.lock()
 	defer bm.unlock()
 
@@ -751,10 +751,10 @@ func (bm *WriteManager) Refresh(ctx context.Context) (bool, error) {
 
 	t0 := clock.Now()
 
-	_, updated, err := bm.loadPackIndexesUnlocked(ctx)
-	bm.log.Debugf("Refresh completed in %v and updated=%v", clock.Since(t0), updated)
+	_, err := bm.loadPackIndexesUnlocked(ctx)
+	bm.log.Debugf("Refresh completed in %v", clock.Since(t0))
 
-	return updated, err
+	return err
 }
 
 // SyncMetadataCache synchronizes metadata cache with metadata blobs in storage.
@@ -766,12 +766,6 @@ func (bm *WriteManager) SyncMetadataCache(ctx context.Context) error {
 	bm.log.Debugf("metadata cache not enabled")
 
 	return nil
-}
-
-// DecryptBlob returns the contents of an encrypted blob that can be decrypted (n,m,l).
-func (bm *WriteManager) DecryptBlob(ctx context.Context, blobID blob.ID) ([]byte, error) {
-	// nolint:wrapcheck
-	return bm.indexBlobManager.getIndexBlob(ctx, blobID)
 }
 
 // ManagerOptions are the optional parameters for manager creation.
