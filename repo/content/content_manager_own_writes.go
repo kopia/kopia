@@ -14,6 +14,7 @@ import (
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/filesystem"
+	"github.com/kopia/kopia/repo/logging"
 )
 
 const ownWritesCacheRetention = 15 * time.Minute
@@ -46,7 +47,6 @@ type memoryOwnWritesCache struct {
 }
 
 func (n *memoryOwnWritesCache) add(ctx context.Context, mb blob.Metadata) error {
-	formatLog(ctx).Debugf("own-writes-cache-add %v", mb)
 	n.entries.Store(mb.BlobID, mb)
 
 	return nil
@@ -73,8 +73,6 @@ func (n *memoryOwnWritesCache) merge(ctx context.Context, prefix blob.ID, source
 		if age := n.timeNow().Sub(md.Timestamp); age < ownWritesCacheRetention {
 			result = append(result, md)
 		} else {
-			formatLog(ctx).Debugf("own-writes-cache-expired %v %v", key, age)
-
 			n.entries.Delete(key)
 		}
 
@@ -88,6 +86,7 @@ func (n *memoryOwnWritesCache) merge(ctx context.Context, prefix blob.ID, source
 type persistentOwnWritesCache struct {
 	st      blob.Storage
 	timeNow func() time.Time
+	log     logging.Logger
 }
 
 func (d *persistentOwnWritesCache) add(ctx context.Context, mb blob.Metadata) error {
@@ -123,7 +122,7 @@ func (d *persistentOwnWritesCache) merge(ctx context.Context, prefix blob.ID, so
 		if age := d.timeNow().Sub(md.Timestamp); age < ownWritesCacheRetention {
 			myWrites = append(myWrites, originalMD)
 		} else {
-			log(ctx).Debugf("own-writes-cache-expired: %v (%v)", md, age)
+			d.log.Debugf("own-writes-cache-expired: %v (%v)", md, age)
 
 			if err := d.st.DeleteBlob(ctx, md.BlobID); err != nil && !errors.Is(err, blob.ErrBlobNotFound) {
 				return errors.Wrap(err, "error deleting stale blob")
@@ -168,7 +167,9 @@ func mergeOwnWrites(source, own []blob.Metadata) []blob.Metadata {
 	return s
 }
 
-func newOwnWritesCache(ctx context.Context, caching *CachingOptions, timeNow func() time.Time) (ownWritesCache, error) {
+func newOwnWritesCache(ctx context.Context, caching *CachingOptions, timeNow func() time.Time, baseLog logging.Logger) (ownWritesCache, error) {
+	log := logging.WithPrefix("ownWritesCache", baseLog)
+
 	if caching.CacheDirectory == "" {
 		return &memoryOwnWritesCache{timeNow: timeNow}, nil
 	}
@@ -187,5 +188,5 @@ func newOwnWritesCache(ctx context.Context, caching *CachingOptions, timeNow fun
 		return nil, errors.Wrap(err, "unable to create own writes cache storage")
 	}
 
-	return &persistentOwnWritesCache{st, timeNow}, nil
+	return &persistentOwnWritesCache{st, timeNow, log}, nil
 }

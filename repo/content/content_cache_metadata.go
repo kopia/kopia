@@ -30,9 +30,6 @@ type contentCacheForMetadata struct {
 func (c *contentCacheForMetadata) sync(ctx context.Context) error {
 	sem := make(chan struct{}, metadataCacheSyncParallelism)
 
-	log(ctx).Debugf("synchronizing metadata cache...")
-	defer log(ctx).Debugf("finished synchronizing metadata cache.")
-
 	var eg errgroup.Group
 
 	// list all blobs and fetch contents into cache in parallel.

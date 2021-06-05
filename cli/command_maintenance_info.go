@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/maintenance"
 )
@@ -45,6 +46,13 @@ func (c *commandMaintenanceInfo) run(ctx context.Context, rep repo.DirectReposit
 
 	c.out.printStdout("Full Cycle:\n")
 	c.displayCycleInfo(&p.FullCycle, s.NextFullMaintenanceTime, rep)
+
+	cl := p.LogRetention.OrDefault()
+
+	c.out.printStdout("Log Retention:\n")
+	c.out.printStdout("  max count:       %v\n", cl.MaxCount)
+	c.out.printStdout("  max age of logs: %v\n", cl.MaxAge)
+	c.out.printStdout("  max total size:  %v\n", units.BytesStringBase2(cl.MaxTotalSize))
 
 	c.out.printStdout("Recent Maintenance Runs:\n")
 

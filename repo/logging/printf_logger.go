@@ -18,7 +18,7 @@ func (l *printfLogger) Errorf(msg string, args ...interface{}) { l.printf(l.pref
 // Printf returns LoggerForModuleFunc that uses given printf-style function to print log output.
 func Printf(printf func(msg string, args ...interface{})) LoggerForModuleFunc {
 	return func(module string) Logger {
-		return &printfLogger{printf, "[" + module + "]"}
+		return &printfLogger{printf, "[" + module + "] "}
 	}
 }
 

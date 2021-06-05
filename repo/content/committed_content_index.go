@@ -11,6 +11,7 @@ import (
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/logging"
 )
 
 // smallIndexEntryCountThreshold is the threshold to determine whether an
@@ -29,6 +30,8 @@ type committedContentIndex struct {
 
 	v1PerContentOverhead uint32
 	indexVersion         int
+
+	log logging.Logger
 }
 
 type committedContentIndexCache interface {
@@ -145,13 +148,13 @@ func (c *committedContentIndex) use(ctx context.Context, packFiles []blob.ID) (b
 		return false, errors.Wrap(err, "unable to combine small indexes")
 	}
 
-	log(ctx).Debugf("combined %v into %v index segments", len(newMerged), len(mergedAndCombined))
+	c.log.Debugf("combined %v into %v index segments", len(newMerged), len(mergedAndCombined))
 
 	c.merged = mergedAndCombined
 	c.inUse = newInUse
 
 	if err := c.cache.expireUnused(ctx, packFiles); err != nil {
-		log(ctx).Errorf("unable to expire unused content index files: %v", err)
+		c.log.Errorf("unable to expire unused content index files: %v", err)
 	}
 
 	newMerged = nil // prevent closing newMerged indices
@@ -212,12 +215,14 @@ func (c *committedContentIndex) close() error {
 	return nil
 }
 
-func newCommittedContentIndex(caching *CachingOptions, v1PerContentOverhead uint32, indexVersion int) *committedContentIndex {
+func newCommittedContentIndex(caching *CachingOptions, v1PerContentOverhead uint32, indexVersion int, baseLog logging.Logger) *committedContentIndex {
+	log := logging.WithPrefix("[committed-content-index] ", baseLog)
+
 	var cache committedContentIndexCache
 
 	if caching.CacheDirectory != "" {
 		dirname := filepath.Join(caching.CacheDirectory, "indexes")
-		cache = &diskCommittedContentIndexCache{dirname, clock.Now, v1PerContentOverhead}
+		cache = &diskCommittedContentIndexCache{dirname, clock.Now, v1PerContentOverhead, log}
 	} else {
 		cache = &memoryCommittedContentIndexCache{
 			contents:             map[blob.ID]packIndex{},
@@ -230,5 +235,6 @@ func newCommittedContentIndex(caching *CachingOptions, v1PerContentOverhead uint
 		inUse:                map[blob.ID]packIndex{},
 		v1PerContentOverhead: v1PerContentOverhead,
 		indexVersion:         indexVersion,
+		log:                  baseLog,
 	}
 }

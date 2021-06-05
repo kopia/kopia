@@ -15,6 +15,7 @@ import (
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/hmac"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/logging"
 )
 
 type listCache struct {
@@ -22,6 +23,7 @@ type listCache struct {
 	cacheFilePrefix   string
 	listCacheDuration time.Duration
 	hmacSecret        []byte
+	log               logging.Logger
 }
 
 func (c *listCache) listBlobs(ctx context.Context, prefix blob.ID) ([]blob.Metadata, error) {
@@ -30,38 +32,38 @@ func (c *listCache) listBlobs(ctx context.Context, prefix blob.ID) ([]blob.Metad
 		if err == nil {
 			expirationTime := ci.Timestamp.Add(c.listCacheDuration)
 			if clock.Now().Before(expirationTime) {
-				formatLog(ctx).Debugf("list-from-cache '%v' found %v", prefix, len(ci.Blobs))
+				c.log.Debugf("list-from-cache '%v' found %v", prefix, len(ci.Blobs))
 				return ci.Blobs, nil
 			}
 		} else if !errors.Is(err, blob.ErrBlobNotFound) {
-			log(ctx).Errorf("unable to open cache file: %v", err)
+			c.log.Errorf("unable to open cache file: %v", err)
 		}
 	}
 
 	blobs, err := blob.ListAllBlobs(ctx, c.st, prefix)
 	if err == nil {
-		c.saveListToCache(ctx, prefix, &cachedList{
+		c.saveListToCache(prefix, &cachedList{
 			Blobs:     blobs,
 			Timestamp: clock.Now(),
 		})
 	}
 
-	log(ctx).Debugf("listed %v index blobs with prefix %v from source", len(blobs), prefix)
+	c.log.Debugf("listed %v index blobs with prefix %v from source", len(blobs), prefix)
 
 	return blobs, errors.Wrap(err, "error listing blobs")
 }
 
-func (c *listCache) saveListToCache(ctx context.Context, prefix blob.ID, ci *cachedList) {
+func (c *listCache) saveListToCache(prefix blob.ID, ci *cachedList) {
 	if c.cacheFilePrefix == "" {
 		return
 	}
 
-	log(ctx).Debugf("saving %v blobs with prefix %v to cache", len(ci.Blobs), prefix)
+	c.log.Debugf("saving %v blobs with prefix %v to cache", len(ci.Blobs), prefix)
 
 	if data, err := json.Marshal(ci); err == nil {
 		b := hmac.Append(data, c.hmacSecret)
 		if err := atomicfile.Write(c.cacheFilePrefix+string(prefix), bytes.NewReader(b)); err != nil {
-			log(ctx).Errorf("unable to write list cache: %v", err)
+			c.log.Errorf("unable to write list cache: %v", err)
 		}
 	}
 }
@@ -103,7 +105,7 @@ type cachedList struct {
 	Blobs     []blob.Metadata `json:"blobs"`
 }
 
-func newListCache(st blob.Storage, caching *CachingOptions) (*listCache, error) {
+func newListCache(st blob.Storage, caching *CachingOptions, log logging.Logger) (*listCache, error) {
 	var listCacheFilePrefix string
 
 	if caching.CacheDirectory != "" {
@@ -123,6 +125,7 @@ func newListCache(st blob.Storage, caching *CachingOptions) (*listCache, error) 
 		cacheFilePrefix:   listCacheFilePrefix,
 		hmacSecret:        caching.HMACSecret,
 		listCacheDuration: time.Duration(caching.MaxListCacheDurationSec) * time.Second,
+		log:               log,
 	}
 
 	return c, nil

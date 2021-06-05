@@ -40,6 +40,7 @@ const (
 	TaskRewriteContentsFull       = "full-rewrite-contents"
 	TaskDropDeletedContentsFull   = "full-drop-deleted-content"
 	TaskIndexCompaction           = "index-compaction"
+	TaskCleanupLogs               = "cleanup-logs"
 )
 
 // shouldRun returns Mode if repository is due for periodic maintenance.
@@ -57,25 +58,25 @@ func shouldRun(ctx context.Context, rep repo.DirectRepository, p *Params) (Mode,
 	// check full cycle first, as it does more than the quick cycle
 	if p.FullCycle.Enabled {
 		if rep.Time().After(s.NextFullMaintenanceTime) {
-			log(ctx).Debugf("due for full manintenance cycle")
+			log(ctx).Debugf("due for full maintenance cycle")
 			return ModeFull, nil
 		}
 
-		log(ctx).Debugf("not due for full manintenance cycle until %v", s.NextFullMaintenanceTime)
+		log(ctx).Debugf("not due for full maintenance cycle until %v", s.NextFullMaintenanceTime)
 	} else {
-		log(ctx).Debugf("full manintenance cycle not enabled")
+		log(ctx).Debugf("full maintenance cycle not enabled")
 	}
 
 	// no time for full cycle, check quick cycle
 	if p.QuickCycle.Enabled {
 		if rep.Time().After(s.NextQuickMaintenanceTime) {
-			log(ctx).Debugf("due for quick manintenance cycle")
+			log(ctx).Debugf("due for quick maintenance cycle")
 			return ModeQuick, nil
 		}
 
-		log(ctx).Debugf("not due for quick manintenance cycle until %v", s.NextQuickMaintenanceTime)
+		log(ctx).Debugf("not due for quick maintenance cycle until %v", s.NextQuickMaintenanceTime)
 	} else {
-		log(ctx).Debugf("quick manintenance cycle not enabled")
+		log(ctx).Debugf("quick maintenance cycle not enabled")
 	}
 
 	return ModeNone, nil
@@ -245,6 +246,10 @@ func runQuickMaintenance(ctx context.Context, runParams RunParameters, safety Sa
 		return errors.Wrap(err, "error performing index compaction")
 	}
 
+	if err := runTaskCleanupLogs(ctx, runParams, s); err != nil {
+		return errors.Wrap(err, "error cleaning up logs")
+	}
+
 	return nil
 }
 
@@ -261,6 +266,16 @@ func notDeletingOrphanedBlobs(ctx context.Context, s *Schedule, safety SafetyPar
 func runTaskIndexCompaction(ctx context.Context, runParams RunParameters, s *Schedule, safety SafetyParameters) error {
 	return ReportRun(ctx, runParams.rep, TaskIndexCompaction, s, func() error {
 		return IndexCompaction(ctx, runParams.rep, safety)
+	})
+}
+
+func runTaskCleanupLogs(ctx context.Context, runParams RunParameters, s *Schedule) error {
+	return ReportRun(ctx, runParams.rep, TaskCleanupLogs, s, func() error {
+		deleted, err := CleanupLogs(ctx, runParams.rep, runParams.Params.LogRetention.OrDefault())
+
+		log(ctx).Infof("Cleaned up %v logs.", len(deleted))
+
+		return err
 	})
 }
 

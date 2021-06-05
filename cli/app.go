@@ -119,7 +119,10 @@ type App struct {
 	metricsListenAddr             string
 	keyRingEnabled                bool
 	persistCredentials            bool
+	disableInternalLog            bool
 	AdvancedCommands              string
+
+	currentAction string
 
 	// subcommands
 	blob        commandBlob
@@ -139,6 +142,7 @@ type App struct {
 	mount       commandMount
 	maintenance commandMaintenance
 	repository  commandRepository
+	logs        commandLogs
 
 	// testability hooks
 	osExit       func(int) // allows replacing os.Exit() with custom code
@@ -175,6 +179,16 @@ func (c *App) passwordPersistenceStrategy() passwordpersist.Strategy {
 }
 
 func (c *App) setup(app *kingpin.Application) {
+	app.PreAction(func(pc *kingpin.ParseContext) error {
+		if sc := pc.SelectedCommand; sc != nil {
+			c.currentAction = sc.FullCommand()
+		} else {
+			c.currentAction = "unknown-action"
+		}
+
+		return nil
+	})
+
 	_ = app.Flag("help-full", "Show help for all commands, including hidden").Action(func(pc *kingpin.ParseContext) error {
 		_ = app.UsageForContextWithTemplate(pc, 0, kingpin.DefaultUsageTemplate)
 		os.Exit(0)
@@ -193,6 +207,7 @@ func (c *App) setup(app *kingpin.Application) {
 	app.Flag("timezone", "Format time according to specified time zone (local, utc, original or time zone name)").Hidden().StringVar(&timeZone)
 	app.Flag("password", "Repository password.").Envar("KOPIA_PASSWORD").Short('p').StringVar(&c.password)
 	app.Flag("persist-credentials", "Persist credentials").Default("true").Envar("KOPIA_PERSIST_CREDENTIALS_ON_CONNECT").BoolVar(&c.persistCredentials)
+	app.Flag("disable-internal-log", "Disable internal log").Hidden().Envar("KOPIA_DISABLE_INTERNAL_LOG").BoolVar(&c.disableInternalLog)
 	app.Flag("advanced-commands", "Enable advanced (and potentially dangerous) commands.").Hidden().Envar("KOPIA_ADVANCED_COMMANDS").StringVar(&c.AdvancedCommands)
 
 	c.setupOSSpecificKeychainFlags(app)
@@ -215,6 +230,7 @@ func (c *App) setup(app *kingpin.Application) {
 	c.diff.setup(c, app)
 	c.index.setup(c, app)
 	c.list.setup(c, app)
+	c.logs.setup(c, app)
 	c.server.setup(c, app)
 	c.session.setup(c, app)
 	c.restore.setup(c, app)
@@ -273,6 +289,10 @@ func safetyFlagVar(cmd *kingpin.CmdClause, result *maintenance.SafetyParameters)
 	}).EnumVar(&str, "full", "none")
 }
 
+func (c *App) currentActionName() string {
+	return c.currentAction
+}
+
 func (c *App) noRepositoryAction(act func(ctx context.Context) error) func(ctx *kingpin.ParseContext) error {
 	return func(_ *kingpin.ParseContext) error {
 		return act(c.rootContext())
@@ -316,7 +336,7 @@ func (c *App) directRepositoryWriteAction(act func(ctx context.Context, rep repo
 	return c.maybeRepositoryAction(assertDirectRepository(func(ctx context.Context, rep repo.DirectRepository) error {
 		// nolint:wrapcheck
 		return repo.DirectWriteSession(ctx, rep, repo.WriteSessionOptions{
-			Purpose:  "directRepositoryWriteAction",
+			Purpose:  "cli:" + c.currentActionName(),
 			OnUpload: c.progress.UploadedBytes,
 		}, func(ctx context.Context, dw repo.DirectRepositoryWriter) error { return act(ctx, dw) })
 	}), repositoryAccessMode{
@@ -347,7 +367,7 @@ func (c *App) repositoryWriterAction(act func(ctx context.Context, rep repo.Repo
 	return c.maybeRepositoryAction(func(ctx context.Context, rep repo.Repository) error {
 		// nolint:wrapcheck
 		return repo.WriteSession(ctx, rep, repo.WriteSessionOptions{
-			Purpose:  "repositoryWriterAction",
+			Purpose:  "cli:" + c.currentActionName(),
 			OnUpload: c.progress.UploadedBytes,
 		}, func(ctx context.Context, w repo.RepositoryWriter) error {
 			return act(ctx, w)

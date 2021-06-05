@@ -45,10 +45,9 @@ func (c *commandBenchmarkCrypto) run(ctx context.Context) error {
 
 	const (
 		maxEncryptionOverhead = 1024
-		maxHashSize           = 64
 	)
 
-	var hashOutput [maxHashSize]byte
+	var hashOutput [hashing.MaxHashSize]byte
 
 	encryptOutput := make([]byte, len(data)+maxEncryptionOverhead)
 

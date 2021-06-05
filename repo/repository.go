@@ -2,6 +2,8 @@ package repo
 
 import (
 	"context"
+	"fmt"
+	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
@@ -9,6 +11,7 @@ import (
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/repo/object"
 )
@@ -54,6 +57,7 @@ type DirectRepository interface {
 	Crypter() *content.Crypter
 
 	NewDirectWriter(ctx context.Context, opt WriteSessionOptions) (context.Context, DirectRepositoryWriter, error)
+	InternalLogger() logging.Logger
 
 	// misc
 	UniqueID() []byte
@@ -80,6 +84,7 @@ type directRepositoryParameters struct {
 	timeNow        func() time.Time
 	formatBlob     *formatBlob
 	masterKey      []byte
+	nextWriterID   *int32
 }
 
 // directRepository is an implementation of repository that directly manipulates underlying storage.
@@ -177,6 +182,11 @@ func (r *directRepository) UpdateDescription(d string) {
 	r.cliOpts.Description = d
 }
 
+// Logger returns the internal logger for the repository.
+func (r *directRepository) InternalLogger() logging.Logger {
+	return r.sm.InternalLogger()
+}
+
 // NewWriter returns new RepositoryWriter session for repository.
 func (r *directRepository) NewWriter(ctx context.Context, opt WriteSessionOptions) (context.Context, RepositoryWriter, error) {
 	return r.NewDirectWriter(ctx, opt)
@@ -184,11 +194,13 @@ func (r *directRepository) NewWriter(ctx context.Context, opt WriteSessionOption
 
 // NewDirectWriter returns new DirectRepositoryWriter session for repository.
 func (r *directRepository) NewDirectWriter(ctx context.Context, opt WriteSessionOptions) (context.Context, DirectRepositoryWriter, error) {
-	cmgr := content.NewWriteManager(r.sm, content.SessionOptions{
+	writeManagerID := fmt.Sprintf("[writer-%v:%v] ", atomic.AddInt32(r.nextWriterID, 1), opt.Purpose)
+
+	cmgr := content.NewWriteManager(ctx, r.sm, content.SessionOptions{
 		SessionUser: r.cliOpts.Username,
 		SessionHost: r.cliOpts.Hostname,
 		OnUpload:    opt.OnUpload,
-	})
+	}, writeManagerID)
 
 	mmgr, err := manifest.NewManager(ctx, cmgr, manifest.ManagerOptions{
 		TimeNow: r.timeNow,

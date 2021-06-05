@@ -66,6 +66,8 @@ func (c *App) optionsFromFlags(ctx context.Context) *repo.Options {
 		opts.TraceStorage = log(ctx).Debugf
 	}
 
+	opts.DisableInternalLog = c.disableInternalLog
+
 	return &opts
 }
 

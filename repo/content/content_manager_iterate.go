@@ -225,7 +225,7 @@ func (bm *WriteManager) IteratePacks(ctx context.Context, options IteratePackOpt
 func (bm *WriteManager) IterateUnreferencedBlobs(ctx context.Context, blobPrefixes []blob.ID, parallellism int, callback func(blob.Metadata) error) error {
 	var usedPacks sync.Map
 
-	log(ctx).Debugf("determining blobs in use")
+	bm.log.Debugf("determining blobs in use")
 	// find packs in use
 	if err := bm.IteratePacks(
 		ctx,
@@ -261,7 +261,7 @@ func (bm *WriteManager) IterateUnreferencedBlobs(ctx context.Context, blobPrefix
 		}
 	}
 
-	log(ctx).Debugf("scanning prefixes %v", prefixes)
+	bm.log.Debugf("scanning prefixes %v", prefixes)
 
 	if err := blob.IterateAllPrefixesInParallel(ctx, parallellism, bm.st, prefixes,
 		func(bm blob.Metadata) error {
@@ -276,7 +276,7 @@ func (bm *WriteManager) IterateUnreferencedBlobs(ctx context.Context, blobPrefix
 		return errors.Wrap(err, "error iterating blobs")
 	}
 
-	log(ctx).Debugf("found %v pack blobs not in use", *unusedCount)
+	bm.log.Debugf("found %v pack blobs not in use", *unusedCount)
 
 	return nil
 }
