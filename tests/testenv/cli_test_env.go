@@ -183,7 +183,7 @@ func (e *CLITest) RunAndVerifyOutputLineCount(t *testing.T, wantLines int, args 
 
 	lines := e.RunAndExpectSuccess(t, args...)
 	if len(lines) != wantLines {
-		t.Errorf("unexpected list of results of 'kopia %v': %v (%v lines), wanted %v", strings.Join(args, " "), lines, len(lines), wantLines)
+		t.Fatalf("unexpected list of results of 'kopia %v': %v lines (%v) wanted %v", strings.Join(args, " "), len(lines), lines, wantLines)
 	}
 
 	return lines

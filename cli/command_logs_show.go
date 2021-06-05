@@ -35,10 +35,6 @@ func (c *commandLogsShow) run(ctx context.Context, rep repo.DirectRepository) er
 
 	sessions = c.crit.filterLogSessions(sessions)
 
-	if len(sessions) == 0 {
-		return errors.Errorf("no logs found")
-	}
-
 	if len(c.logSessionIDs) > 0 {
 		sessions = filterLogSessions(sessions, func(l *logSessionInfo) bool {
 			for _, sid := range c.logSessionIDs {
@@ -49,6 +45,10 @@ func (c *commandLogsShow) run(ctx context.Context, rep repo.DirectRepository) er
 
 			return false
 		})
+	}
+
+	if len(sessions) == 0 {
+		return errors.Errorf("no logs found")
 	}
 
 	// by default show latest one
