@@ -40,14 +40,16 @@ func (v Estimator) Estimate(completed, total float64) (Timings, bool) {
 		predictedEndTime := v.startTime.Add(time.Duration(predictedSeconds) * time.Second)
 
 		dt := clock.Until(predictedEndTime).Truncate(time.Second)
-		if dt > 0 {
-			return Timings{
-				PercentComplete:  100 * completed / total,
-				EstimatedEndTime: now.Add(dt),
-				Remaining:        dt,
-				SpeedPerSecond:   completed / elapsed.Seconds(),
-			}, true
+		if dt < 0 {
+			dt = 0
 		}
+
+		return Timings{
+			PercentComplete:  100 * completed / total,
+			EstimatedEndTime: now.Add(dt),
+			Remaining:        dt,
+			SpeedPerSecond:   completed / elapsed.Seconds(),
+		}, true
 	}
 
 	return Timings{}, false
