@@ -117,7 +117,9 @@ func (l *internalLogger) maybeEncryptAndWriteChunkUnlocked(data []byte) {
 
 	endTime := l.m.timeFunc().Unix()
 
+	l.mu.Lock()
 	prefix := blob.ID(fmt.Sprintf("%v_%v_%v_%v_", l.prefix, l.startTime, endTime, atomic.AddInt32(&l.nextChunkNumber, 1)))
+	l.mu.Unlock()
 
 	l.m.encryptAndWriteLogBlob(prefix, data)
 }
