@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -69,23 +70,22 @@ func (c *commandContentVerify) run(ctx context.Context, rep repo.DirectRepositor
 	successCount := new(int32)
 	errorCount := new(int32)
 	totalCount := new(int32)
+	subctx, cancel := context.WithCancel(ctx)
 
-	// start a goroutine that will estimate the number of contents we will be verifying.
+	var wg sync.WaitGroup
+
+	// ensure we cancel estimation goroutine and wait for it before returning
+	defer func() {
+		cancel()
+		wg.Wait()
+	}()
+
+	// start a goroutine that will populate totalCount
+	wg.Add(1)
+
 	go func() {
-		var tc int32
-
-		if err := rep.ContentReader().IterateContents(ctx, content.IterateOptions{
-			Range:          c.contentRange.contentIDRange(),
-			IncludeDeleted: c.contentVerifyIncludeDeleted,
-		}, func(ci content.Info) error {
-			tc++
-			return nil
-		}); err != nil {
-			log(ctx).Debugf("error estimating content count: %v", err)
-			return
-		}
-
-		atomic.StoreInt32(totalCount, tc)
+		defer wg.Done()
+		c.getTotalContentCount(subctx, rep, totalCount)
 	}()
 
 	log(ctx).Infof("Verifying all contents...")
@@ -137,6 +137,27 @@ func (c *commandContentVerify) run(ctx context.Context, rep repo.DirectRepositor
 	}
 
 	return errors.Errorf("encountered %v errors", ec)
+}
+
+func (c *commandContentVerify) getTotalContentCount(ctx context.Context, rep repo.DirectRepository, totalCount *int32) {
+	var tc int32
+
+	if err := rep.ContentReader().IterateContents(ctx, content.IterateOptions{
+		Range:          c.contentRange.contentIDRange(),
+		IncludeDeleted: c.contentVerifyIncludeDeleted,
+	}, func(ci content.Info) error {
+		if err := ctx.Err(); err != nil {
+			return errors.Wrap(err, "context error")
+		}
+
+		tc++
+		return nil
+	}); err != nil {
+		log(ctx).Debugf("error estimating content count: %v", err)
+		return
+	}
+
+	atomic.StoreInt32(totalCount, tc)
 }
 
 func (c *commandContentVerify) contentVerify(ctx context.Context, r content.Reader, ci content.Info, blobMap map[blob.ID]blob.Metadata) error {
