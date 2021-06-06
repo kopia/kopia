@@ -3,7 +3,6 @@ package content
 import (
 	"bytes"
 	"crypto/sha1"
-	"encoding/hex"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
@@ -164,7 +163,7 @@ func testPackIndex(t *testing.T, version int) {
 		t.Fatalf("unable to build: %v", err)
 	}
 
-	if err := b3.Build(&buf3, version); err != nil {
+	if err := b3.BuildStable(&buf3, version); err != nil {
 		t.Fatalf("unable to build: %v", err)
 	}
 
@@ -173,21 +172,12 @@ func testPackIndex(t *testing.T, version int) {
 	data3 := buf3.Bytes()
 
 	// each build produces exactly identical prefix except for the trailing random bytes.
-	data1Prefix := data1[0 : len(data1)-v1RandomSuffixSize]
-	data2Prefix := data2[0 : len(data2)-v1RandomSuffixSize]
-	data3Prefix := data3[0 : len(data3)-v1RandomSuffixSize]
+	data1Prefix := data1[0 : len(data1)-randomSuffixSize]
+	data2Prefix := data2[0 : len(data2)-randomSuffixSize]
 
-	if !bytes.Equal(data1Prefix, data2Prefix) {
-		t.Errorf("builder output not stable: %x vs %x", hex.Dump(data1Prefix), hex.Dump(data2Prefix))
-	}
-
-	if !bytes.Equal(data2Prefix, data3Prefix) {
-		t.Errorf("builder output not stable: %x vs %x", hex.Dump(data2Prefix), hex.Dump(data3Prefix))
-	}
-
-	if bytes.Equal(data1, data2) {
-		t.Errorf("builder output expected to be different, but was the same")
-	}
+	require.Equal(t, data1Prefix, data2Prefix)
+	require.Equal(t, data2Prefix, data3)
+	require.NotEqual(t, data1, data2)
 
 	t.Run("FuzzTest", func(t *testing.T) {
 		fuzzTestIndexOpen(data1)

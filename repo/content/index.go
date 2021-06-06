@@ -70,3 +70,16 @@ func openPackIndex(readerAt io.ReaderAt, v1PerContentOverhead uint32) (packIndex
 		return nil, errors.Errorf("invalid header format: %v", h.version)
 	}
 }
+
+func readAtAll(ra io.ReaderAt, p []byte, offset int64) error {
+	n, err := ra.ReadAt(p, offset)
+	if n != len(p) {
+		return errors.Errorf("incomplete read at offset %v, got %v bytes, expected %v", offset, n, len(p))
+	}
+
+	if err == nil || errors.Is(err, io.EOF) {
+		return nil
+	}
+
+	return errors.Wrapf(err, "invalid read at offset %v (%v bytes)", offset, len(p))
+}

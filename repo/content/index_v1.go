@@ -3,7 +3,6 @@ package content
 import (
 	"bufio"
 	"bytes"
-	"crypto/rand"
 	"encoding/binary"
 	"io"
 	"sort"
@@ -16,12 +15,11 @@ import (
 )
 
 const (
-	v1IndexVersion     = 1
-	v1HeaderSize       = 8
-	v1DeletedMarker    = 0x80000000
-	v1MaxEntrySize     = 256 // maximum length of content ID + per-entry data combined
-	v1EntryLength      = 20
-	v1RandomSuffixSize = 32
+	v1IndexVersion  = 1
+	v1HeaderSize    = 8
+	v1DeletedMarker = 0x80000000
+	v1MaxEntrySize  = 256 // maximum length of content ID + per-entry data combined
+	v1EntryLength   = 20
 )
 
 // FormatV1 describes a format of a single pack index. The actual structure is not used,
@@ -69,8 +67,7 @@ func (e indexEntryInfoV1) GetPackBlobID() blob.ID {
 
 	var nameBuf [256]byte
 
-	n, err := e.b.readerAt.ReadAt(nameBuf[0:nameLength], int64(nameOffset))
-	if err != nil || n != nameLength {
+	if err := readAtAll(e.b.readerAt, nameBuf[0:nameLength], int64(nameOffset)); err != nil {
 		return invalidBlobID
 	}
 
@@ -135,8 +132,7 @@ func (b *indexV1) Iterate(r IDRange, cb func(Info) error) error {
 	entry := make([]byte, stride)
 
 	for i := startPos; i < b.hdr.entryCount; i++ {
-		n, err := b.readerAt.ReadAt(entry, int64(v1HeaderSize+stride*i))
-		if err != nil || n != len(entry) {
+		if err := readAtAll(b.readerAt, entry, int64(v1HeaderSize+stride*i)); err != nil {
 			return errors.Wrap(err, "unable to read from index")
 		}
 
@@ -179,8 +175,8 @@ func (b *indexV1) findEntryPosition(contentID ID) (int, error) {
 		if readErr != nil {
 			return false
 		}
-		_, err := b.readerAt.ReadAt(entryBuf, int64(v1HeaderSize+stride*p))
-		if err != nil {
+
+		if err := readAtAll(b.readerAt, entryBuf, int64(v1HeaderSize+stride*p)); err != nil {
 			readErr = err
 			return false
 		}
@@ -200,8 +196,8 @@ func (b *indexV1) findEntryPositionExact(idBytes, entryBuf []byte) (int, error) 
 		if readErr != nil {
 			return false
 		}
-		_, err := b.readerAt.ReadAt(entryBuf, int64(v1HeaderSize+stride*p))
-		if err != nil {
+
+		if err := readAtAll(b.readerAt, entryBuf, int64(v1HeaderSize+stride*p)); err != nil {
 			readErr = err
 			return false
 		}
@@ -247,7 +243,7 @@ func (b *indexV1) findEntry(output []byte, contentID ID) ([]byte, error) {
 		return nil, nil
 	}
 
-	if _, err := b.readerAt.ReadAt(entryBuf, int64(v1HeaderSize+stride*position)); err != nil {
+	if err := readAtAll(b.readerAt, entryBuf, int64(v1HeaderSize+stride*position)); err != nil {
 		return nil, errors.Wrap(err, "error reading header")
 	}
 
@@ -337,15 +333,6 @@ func (b packIndexBuilder) buildV1(output io.Writer) error {
 
 	if _, err := w.Write(extraData); err != nil {
 		return errors.Wrap(err, "error writing extra data")
-	}
-
-	randomSuffix := make([]byte, v1RandomSuffixSize)
-	if _, err := rand.Read(randomSuffix); err != nil {
-		return errors.Wrap(err, "error getting random bytes for suffix")
-	}
-
-	if _, err := w.Write(randomSuffix); err != nil {
-		return errors.Wrap(err, "error writing extra random suffix to ensure indexes are always globally unique")
 	}
 
 	return errors.Wrap(w.Flush(), "error flushing index")
@@ -444,7 +431,7 @@ type v1HeaderInfo struct {
 func v1ReadHeader(readerAt io.ReaderAt) (v1HeaderInfo, error) {
 	var header [8]byte
 
-	if n, err := readerAt.ReadAt(header[:], 0); err != nil || n != 8 {
+	if err := readAtAll(readerAt, header[:], 0); err != nil {
 		return v1HeaderInfo{}, errors.Wrap(err, "invalid header")
 	}
 
