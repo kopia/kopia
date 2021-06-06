@@ -133,7 +133,7 @@ func (sm *SharedManager) loadPackIndexesUnlocked(ctx context.Context) ([]IndexBl
 			nextSleepTime *= 2
 		}
 
-		indexBlobs, err := sm.indexBlobManager.listIndexBlobs(ctx, false)
+		indexBlobs, err := sm.indexBlobManager.listActiveIndexBlobs(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err, "error listing index blobs")
 		}
@@ -227,8 +227,13 @@ func (sm *SharedManager) decryptAndVerify(encrypted, iv []byte) ([]byte, error) 
 
 // IndexBlobs returns the list of active index blobs.
 func (sm *SharedManager) IndexBlobs(ctx context.Context, includeInactive bool) ([]IndexBlobInfo, error) {
+	if includeInactive {
+		// nolint:wrapcheck
+		return sm.indexBlobManager.listAllIndexBlobs(ctx)
+	}
+
 	// nolint:wrapcheck
-	return sm.indexBlobManager.listIndexBlobs(ctx, includeInactive)
+	return sm.indexBlobManager.listActiveIndexBlobs(ctx)
 }
 
 func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *CachingOptions) error {

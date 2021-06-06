@@ -3,7 +3,6 @@ package content
 import (
 	"bufio"
 	"bytes"
-	"crypto/rand"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -33,7 +32,6 @@ const (
 	v2MaxContentLength      = 1 << 28 // max supported content length (representible using 3.5 bytes)
 	v2MaxShortContentLength = 1 << 24 // max content length representible using 3 bytes
 	v2MaxPackOffset         = 1 << 30 // max pack offset 1GiB to leave 2 bits for flags
-	v2RandomSuffixSize      = 32      // number of random bytes to append at the end to make the index blob unique
 	v2DeletedMarker         = 0x80000000
 	v2MaxEntrySize          = 256 // maximum length of content ID + per-entry data combined
 )
@@ -254,7 +252,7 @@ func (b *indexV2) getPackBlobIDByIndex(ndx uint32) blob.ID {
 
 	var buf [v2PackInfoSize]byte
 
-	if n, err := b.readerAt.ReadAt(buf[:], b.hdr.packsOffset+int64(v2PackInfoSize*ndx)); n != v2PackInfoSize || err != nil {
+	if err := readAtAll(b.readerAt, buf[:], b.hdr.packsOffset+int64(v2PackInfoSize*ndx)); err != nil {
 		return invalidBlobID
 	}
 
@@ -263,7 +261,7 @@ func (b *indexV2) getPackBlobIDByIndex(ndx uint32) blob.ID {
 
 	var nameBuf [256]byte
 
-	if n, err := b.readerAt.ReadAt(nameBuf[0:nameLength], int64(nameOffset)); err != nil || n != nameLength {
+	if err := readAtAll(b.readerAt, nameBuf[0:nameLength], int64(nameOffset)); err != nil {
 		return invalidBlobID
 	}
 
@@ -287,8 +285,7 @@ func (b *indexV2) Iterate(r IDRange, cb func(Info) error) error {
 	entry := entryBuf[0:b.hdr.entryStride]
 
 	for i := startPos; i < b.hdr.entryCount; i++ {
-		n, err := b.readerAt.ReadAt(entry, b.entryOffset(i))
-		if err != nil || n != len(entry) {
+		if err := readAtAll(b.readerAt, entry, b.entryOffset(i)); err != nil {
 			return errors.Wrap(err, "unable to read from index")
 		}
 
@@ -327,8 +324,7 @@ func (b *indexV2) findEntryPosition(contentID ID) (int, error) {
 			return false
 		}
 
-		_, err := b.readerAt.ReadAt(entryBuf, b.entryOffset(p))
-		if err != nil {
+		if err := readAtAll(b.readerAt, entryBuf, b.entryOffset(p)); err != nil {
 			readErr = err
 			return false
 		}
@@ -346,8 +342,8 @@ func (b *indexV2) findEntryPositionExact(idBytes, entryBuf []byte) (int, error) 
 		if readErr != nil {
 			return false
 		}
-		_, err := b.readerAt.ReadAt(entryBuf, b.entryOffset(p))
-		if err != nil {
+
+		if err := readAtAll(b.readerAt, entryBuf, b.entryOffset(p)); err != nil {
 			readErr = err
 			return false
 		}
@@ -384,7 +380,7 @@ func (b *indexV2) findEntry(output []byte, contentID ID) ([]byte, error) {
 		return nil, nil
 	}
 
-	if _, err := b.readerAt.ReadAt(entryBuf, b.entryOffset(position)); err != nil {
+	if err := readAtAll(b.readerAt, entryBuf, b.entryOffset(position)); err != nil {
 		return nil, errors.Wrap(err, "error reading header")
 	}
 
@@ -630,15 +626,6 @@ func (b packIndexBuilder) buildV2(output io.Writer) error {
 		return errors.Wrap(err, "error writing extra data")
 	}
 
-	randomSuffix := make([]byte, v2RandomSuffixSize)
-	if _, err := rand.Read(randomSuffix); err != nil {
-		return errors.Wrap(err, "error getting random bytes for suffix")
-	}
-
-	if _, err := w.Write(randomSuffix); err != nil {
-		return errors.Wrap(err, "error writing extra random suffix to ensure indexes are always globally unique")
-	}
-
 	return errors.Wrap(w.Flush(), "error flushing index")
 }
 
@@ -764,7 +751,7 @@ func (b *indexBuilderV2) writeIndexValueEntry(w io.Writer, it Info) error {
 func openV2PackIndex(readerAt io.ReaderAt) (packIndex, error) {
 	var header [v2IndexHeaderSize]byte
 
-	if n, err := readerAt.ReadAt(header[:], 0); err != nil || n != v2IndexHeaderSize {
+	if err := readAtAll(readerAt, header[:], 0); err != nil {
 		return nil, errors.Wrap(err, "invalid header")
 	}
 
@@ -793,7 +780,7 @@ func openV2PackIndex(readerAt io.ReaderAt) (packIndex, error) {
 
 	// pre-read formats section
 	formatsBuf := make([]byte, int(hi.formatCount)*v2FormatInfoSize)
-	if n, err := readerAt.ReadAt(formatsBuf, hi.formatsOffset); n != len(formatsBuf) || err != nil {
+	if err := readAtAll(readerAt, formatsBuf, hi.formatsOffset); err != nil {
 		return nil, errors.Errorf("unable to read formats section")
 	}
 

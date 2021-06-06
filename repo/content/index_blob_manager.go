@@ -16,7 +16,8 @@ import (
 // indexBlobManager is the API of index blob manager as used by content manager.
 type indexBlobManager interface {
 	writeIndexBlob(ctx context.Context, data []byte, sessionID SessionID) (blob.Metadata, error)
-	listIndexBlobs(ctx context.Context, includeInactive bool) ([]IndexBlobInfo, error)
+	listActiveIndexBlobs(ctx context.Context) ([]IndexBlobInfo, error)
+	listAllIndexBlobs(ctx context.Context) ([]IndexBlobInfo, error)
 	getIndexBlob(ctx context.Context, blobID blob.ID) ([]byte, error)
 	registerCompaction(ctx context.Context, inputs, outputs []blob.Metadata, maxEventualConsistencySettleTime time.Duration) error
 	cleanup(ctx context.Context, maxEventualConsistencySettleTime time.Duration) error
@@ -76,6 +77,14 @@ func (m *indexBlobManagerImpl) listAndMergeOwnWrites(ctx context.Context, prefix
 	}
 
 	return merged, nil
+}
+
+func (m *indexBlobManagerImpl) listActiveIndexBlobs(ctx context.Context) ([]IndexBlobInfo, error) {
+	return m.listIndexBlobs(ctx, false)
+}
+
+func (m *indexBlobManagerImpl) listAllIndexBlobs(ctx context.Context) ([]IndexBlobInfo, error) {
+	return m.listIndexBlobs(ctx, true)
 }
 
 func (m *indexBlobManagerImpl) listIndexBlobs(ctx context.Context, includeInactive bool) ([]IndexBlobInfo, error) {

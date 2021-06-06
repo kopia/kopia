@@ -3,6 +3,7 @@ package testlogging
 
 import (
 	"context"
+	"testing"
 
 	"github.com/kopia/kopia/repo/logging"
 )
@@ -58,6 +59,12 @@ func (l *testLogger) Errorf(msg string, args ...interface{}) {
 }
 
 var _ logging.Logger = &testLogger{}
+
+// NewTestLogger returns logger bound to the provided testing.T.
+// nolint:thelper
+func NewTestLogger(t *testing.T) logging.Logger {
+	return &testLogger{t, "", LevelDebug}
+}
 
 // Context returns a context with attached logger that emits all log entries to go testing.T log output.
 func Context(t testingT) context.Context {

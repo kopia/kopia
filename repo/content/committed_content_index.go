@@ -228,10 +228,7 @@ func (c *committedContentIndex) close() error {
 	return nil
 }
 
-func (c *committedContentIndex) fetchIndexBlobs(
-	ctx context.Context,
-	indexBlobs []blob.ID,
-) error {
+func (c *committedContentIndex) fetchIndexBlobs(ctx context.Context, indexBlobs []blob.ID) error {
 	ch, err := c.missingIndexBlobs(ctx, indexBlobs)
 	if err != nil {
 		return err

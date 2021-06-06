@@ -1,6 +1,7 @@
 package content
 
 import (
+	"crypto/rand"
 	"io"
 	"runtime"
 	"sort"
@@ -8,6 +9,8 @@ import (
 
 	"github.com/pkg/errors"
 )
+
+const randomSuffixSize = 32 // number of random bytes to append at the end to make the index blob unique
 
 // packIndexBuilder prepares and writes content index.
 type packIndexBuilder map[ID]Info
@@ -107,6 +110,25 @@ func (b packIndexBuilder) sortedContents() []Info {
 
 // Build writes the pack index to the provided output.
 func (b packIndexBuilder) Build(output io.Writer, version int) error {
+	if err := b.BuildStable(output, version); err != nil {
+		return err
+	}
+
+	randomSuffix := make([]byte, randomSuffixSize)
+
+	if _, err := rand.Read(randomSuffix); err != nil {
+		return errors.Wrap(err, "error getting random bytes for suffix")
+	}
+
+	if _, err := output.Write(randomSuffix); err != nil {
+		return errors.Wrap(err, "error writing extra random suffix to ensure indexes are always globally unique")
+	}
+
+	return nil
+}
+
+// BuildStable writes the pack index to the provided output.
+func (b packIndexBuilder) BuildStable(output io.Writer, version int) error {
 	switch version {
 	case v1IndexVersion:
 		return b.buildV1(output)

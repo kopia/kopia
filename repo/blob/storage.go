@@ -178,3 +178,14 @@ func EnsureLengthAndTruncate(b []byte, length int64) ([]byte, error) {
 
 	return b[0:length], nil
 }
+
+// IDsFroMetadata returns IDs for blobs in Metadata slice.
+func IDsFroMetadata(mds []Metadata) []ID {
+	ids := make([]ID, len(mds))
+
+	for i, md := range mds {
+		ids[i] = md.BlobID
+	}
+
+	return ids
+}
