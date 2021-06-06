@@ -16,7 +16,7 @@ import (
 
 const (
 	metadataCacheSyncParallelism = 16
-	metadataCacheMutexShards     = 16
+	metadataCacheMutexShards     = 256
 )
 
 type contentCacheForMetadata struct {
@@ -63,13 +63,14 @@ func (c *contentCacheForMetadata) mutexForBlob(blobID blob.ID) *sync.Mutex {
 }
 
 func (c *contentCacheForMetadata) getContent(ctx context.Context, cacheKey cacheKey, blobID blob.ID, offset, length int64) ([]byte, error) {
-	m := c.mutexForBlob(blobID)
-	m.Lock()
-	defer m.Unlock()
-
+	// try getting from cache first
 	if v := c.pc.Get(ctx, string(blobID), offset, length); v != nil {
 		return v, nil
 	}
+
+	m := c.mutexForBlob(blobID)
+	m.Lock()
+	defer m.Unlock()
 
 	// read the entire blob
 	blobData, err := c.st.GetBlob(ctx, blobID, 0, -1)
