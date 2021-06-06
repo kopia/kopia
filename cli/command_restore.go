@@ -14,9 +14,9 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/internal/units"
-	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot/restore"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
@@ -103,7 +103,7 @@ type commandRestore struct {
 	restoreSkipPermissions        bool
 	restoreIncremental            bool
 	restoreIgnoreErrors           bool
-	restoreShallowAtDepth int32
+	restoreShallowAtDepth         int32
 }
 
 func (c *commandRestore) setup(svc appServices, parent commandParent) {
@@ -273,9 +273,9 @@ func (c *commandRestore) run(ctx context.Context, rep repo.Repository) error {
 	eta := timetrack.Start()
 
 	st, err := restore.Entry(ctx, rep, output, rootEntry, restore.Options{
-		Parallel:     c.restoreParallel,
-		Incremental:  c.restoreIncremental,
-		IgnoreErrors: c.restoreIgnoreErrors,
+		Parallel:               c.restoreParallel,
+		Incremental:            c.restoreIncremental,
+		IgnoreErrors:           c.restoreIgnoreErrors,
 		RestoreDirEntryAtDepth: c.restoreShallowAtDepth,
 		ProgressCallback: func(ctx context.Context, stats restore.Stats) {
 			restoredCount := stats.RestoredFileCount + stats.RestoredDirCount + stats.RestoredSymlinkCount + stats.SkippedCount

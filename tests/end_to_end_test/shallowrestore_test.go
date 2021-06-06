@@ -19,10 +19,10 @@ import (
 	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/internal/atomicfile"
 	"github.com/kopia/kopia/snapshot"
-	"github.com/kopia/kopia/tests/clitestutil"
 	"github.com/kopia/kopia/snapshot/restore"
-	"github.com/kopia/kopia/tests/testenv"
+	"github.com/kopia/kopia/tests/clitestutil"
 	"github.com/kopia/kopia/tests/testdirtree"
+	"github.com/kopia/kopia/tests/testenv"
 )
 
 func TestShallowrestore(t *testing.T) {
@@ -101,7 +101,7 @@ func TestShallowFullCycle(t *testing.T) {
 	fpathinlong := filepath.Join(dirpathlong, "nestedfile")
 
 	require.NoError(t, os.Mkdir(dirpathlong, 0o755))
-	testenv.MustCreateRandomFile(t, atomicfile.MaybePrefixLongFilenameOnWindows(fpathinlong), testenv.DirectoryTreeOptions{}, (*testenv.DirectoryTreeCounters)(nil))
+	testdirtree.MustCreateRandomFile(t, atomicfile.MaybePrefixLongFilenameOnWindows(fpathinlong), testdirtree.DirectoryTreeOptions{}, (*testdirtree.DirectoryTreeCounters)(nil))
 
 	e.RunAndExpectSuccess(t, "snapshot", "create", source)
 	sources := clitestutil.ListSnapshotsAndExpectSuccess(t, e)
@@ -114,7 +114,7 @@ func TestShallowFullCycle(t *testing.T) {
 		addOneFile,
 		moveFile,
 		deepenSubtreeFile,
-	 	deepenSubtreeDirectory,
+		deepenSubtreeDirectory,
 		removeEntry,
 		moveDirectory,
 		deepenOneSubtreeLevel,
@@ -394,7 +394,7 @@ func TestShallowifyTree(t *testing.T) {
 
 	// 2. overwrite the tree with a shallow tree. Expected to fail: overwriting is
 	// dangerous so causes an error.
-	e.RunAndExpectFailure(t, "shallowrestore", originalsnapshotid, mutatedoriginal)
+	e.RunAndExpectFailure(t, "shallow", "--shallow=0", originalsnapshotid, mutatedoriginal)
 }
 
 func TestPlaceholderAndRealFails(t *testing.T) {

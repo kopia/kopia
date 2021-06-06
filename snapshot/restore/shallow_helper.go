@@ -22,6 +22,7 @@ func PathIfPlaceholder(path string) string {
 // exist without experiencing errors caused by long file names.
 func SafeRemoveAll(path string) error {
 	if SafelySuffixablePath(path) {
+		// nolint:wrapcheck
 		return os.RemoveAll(atomicfile.MaybePrefixLongFilenameOnWindows(path + localfs.ShallowEntrySuffix))
 	}
 

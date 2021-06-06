@@ -13,7 +13,7 @@ import (
 	"github.com/kopia/kopia/snapshot"
 )
 
-// shallowFilesystemOutput overrides methods in FilesystemOutput with
+// ShallowFilesystemOutput overrides methods in FilesystemOutput with
 // shallow versions.
 type ShallowFilesystemOutput struct {
 	FilesystemOutput
