@@ -6,7 +6,7 @@ import (
 	"github.com/kopia/kopia/fs/localfs"
 )
 
-// MaxFilenameLength is set for compatability with Linux. 
+// MaxFilenameLength is set for compatability with Linux.
 const MaxFilenameLength = 255
 
 // SafelySuffixablePath returns true if path can be suffixed with the
