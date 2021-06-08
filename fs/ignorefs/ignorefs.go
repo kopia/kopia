@@ -137,7 +137,7 @@ func (d *ignoreDirectory) DirEntryOrNil(ctx context.Context) (*snapshot.DirEntry
 		// nolint:wrapcheck
 		return defp.DirEntryOrNil(ctx)
 	}
-	// Entry implementations don't have to have
+	// Ignored directories do not have DirEntry objects.
 	return nil, nil
 }
 

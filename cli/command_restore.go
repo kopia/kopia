@@ -8,7 +8,6 @@ import (
 	"math"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -23,7 +22,7 @@ import (
 )
 
 const (
-	restoreCommandHelp = `Restore from placeholder or snapshot.
+	restoreCommandHelp = `Restore a directory or a file.
 
 Restore can operate in two modes: 
 
@@ -85,7 +84,8 @@ directory ID and optionally a sub-directory path. For example,
 'kffbb7c28ea6c34d6cbe555d1cf80faa9/subdir1/subdir2'
 `
 
-	bitsPerByte = 8
+	bitsPerByte    = 8
+	unlimitedDepth = math.MaxInt32
 )
 
 type commandRestore struct {
@@ -107,6 +107,8 @@ type commandRestore struct {
 }
 
 func (c *commandRestore) setup(svc appServices, parent commandParent) {
+	c.restoreShallowAtDepth = unlimitedDepth
+
 	cmd := parent.Command("restore", restoreCommandHelp)
 	cmd.Arg("source", restoreCommandSourcePathHelp).Required().StringVar(&c.restoreSourceID)
 	cmd.Arg("target-path", "Path of the directory for the contents to be restored. Required unless restoring a shallow placeholder.").StringVar(&c.restoreTargetPath)
@@ -122,7 +124,7 @@ func (c *commandRestore) setup(svc appServices, parent commandParent) {
 	cmd.Flag("ignore-permission-errors", "Ignore permission errors").Default("true").BoolVar(&c.restoreIgnorePermissionErrors)
 	cmd.Flag("ignore-errors", "Ignore all errors").BoolVar(&c.restoreIgnoreErrors)
 	cmd.Flag("skip-existing", "Skip files and symlinks that exist in the output").BoolVar(&c.restoreIncremental)
-	cmd.Flag("shallow", "Shallow restore the directory hierarchy starting at this level (default is to deep restore the entire hierarchy.)").Default(strconv.FormatInt(math.MaxInt32, 10)).Int32Var(&c.restoreShallowAtDepth)
+	cmd.Flag("shallow", "Shallow restore the directory hierarchy starting at this level (default is to deep restore the entire hierarchy.)").Int32Var(&c.restoreShallowAtDepth)
 	cmd.Action(svc.repositoryReaderAction(c.run))
 }
 
@@ -257,8 +259,8 @@ func (c *commandRestore) run(ctx context.Context, rep repo.Repository) error {
 
 		rootEntry = re
 
-		// Depth defaults to 0 when expanding a placeholder.
-		if c.restoreShallowAtDepth == math.MaxInt32 {
+		// restoreShallowAtDepth defaults to 0 when expanding a placeholder.
+		if c.restoreShallowAtDepth == unlimitedDepth {
 			c.restoreShallowAtDepth = 0
 		}
 	} else {
