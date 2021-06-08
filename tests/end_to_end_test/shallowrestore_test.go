@@ -68,6 +68,51 @@ func TestShallowrestore(t *testing.T) {
 	}
 }
 
+func TestShallowrestoreWithMinSize(t *testing.T) {
+	t.Parallel()
+
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, runner)
+
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	// create some snapshots using different hostname/username
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
+
+	source := filepath.Join(t.TempDir(), "source")
+	require.NoError(t, os.Mkdir(source, 0o755))
+
+	big := filepath.Join(source, "big")
+	testdirtree.MustCreateRandomFile(t, big, testdirtree.DirectoryTreeOptions{
+		MinFileSize: 1000,
+	}, (*testdirtree.DirectoryTreeCounters)(nil))
+
+	little := filepath.Join(source, "little")
+	testdirtree.MustCreateRandomFile(t, little, testdirtree.DirectoryTreeOptions{
+		MaxFileSize: 1000,
+	}, (*testdirtree.DirectoryTreeCounters)(nil))
+
+	e.RunAndExpectSuccess(t, "snapshot", "create", source)
+	sources := clitestutil.ListSnapshotsAndExpectSuccess(t, e)
+
+	if got, want := len(sources), 1; got != want {
+		t.Errorf("unexpected number of sources: %v, want %v in %#v", got, want, sources)
+	}
+
+	snapID := sources[0].Snapshots[0].SnapshotID
+	shallowrestoredir := filepath.Join(t.TempDir(), "shallowrestoredir")
+
+	e.RunAndExpectSuccess(t, "restore", "--shallow=0", "--shallow-minsize=1000", snapID, shallowrestoredir)
+
+	little = filepath.Join(shallowrestoredir, "little")
+	big = filepath.Join(shallowrestoredir, "big")
+
+	require.FileExists(t, little)
+	require.NoFileExists(t, little+localfs.ShallowEntrySuffix)
+	require.FileExists(t, big+localfs.ShallowEntrySuffix)
+	require.NoFileExists(t, big)
+}
+
 func TestShallowFullCycle(t *testing.T) {
 	t.Parallel()
 	runner := testenv.NewInProcRunner(t)

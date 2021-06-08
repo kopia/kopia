@@ -17,13 +17,17 @@ import (
 // shallow versions.
 type ShallowFilesystemOutput struct {
 	FilesystemOutput
+
+	// Files smaller than this will be written directly as part of the restore.
+	MinSizeForPlaceholder int32
 }
 
-func makeShallowFilesystemOutput(o Output) Output {
+func makeShallowFilesystemOutput(o Output, options Options) Output {
 	fso, ok := o.(*FilesystemOutput)
 	if ok {
 		return &ShallowFilesystemOutput{
-			FilesystemOutput: *fso,
+			FilesystemOutput:      *fso,
+			MinSizeForPlaceholder: options.MinSizeForPlaceholder,
 		}
 	}
 
@@ -53,7 +57,14 @@ func (o *ShallowFilesystemOutput) WriteFile(ctx context.Context, relativePath st
 		return errors.Errorf("fs object is not HasDirEntry?")
 	}
 
-	placeholderpath, err := o.writeShallowEntry(ctx, relativePath, mde.DirEntry())
+	de := mde.DirEntry()
+
+	// Write small files directly instead of writing placeholders.
+	if de.FileSize < int64(o.MinSizeForPlaceholder) {
+		return o.FilesystemOutput.WriteFile(ctx, relativePath, f)
+	}
+
+	placeholderpath, err := o.writeShallowEntry(ctx, relativePath, de)
 	if err != nil {
 		return errors.Wrap(err, "shallow WriteFile")
 	}
@@ -73,7 +84,6 @@ func (o *ShallowFilesystemOutput) writeShallowEntry(ctx context.Context, relativ
 
 	log(ctx).Debugf("ShallowFilesystemOutput.writeShallowEntry %v ", path)
 
-	// TODO(rjk): Conceivably one could write small files instead of writing files with metadata.
 	placeholderpath, err := localfs.WriteShallowPlaceholder(path, de)
 	if err != nil {
 		return "", errors.Wrap(err, "error writing placeholder")

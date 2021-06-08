@@ -48,6 +48,7 @@ type DirectoryTreeOptions struct {
 	MaxFilesPerDirectory               int
 	MaxSymlinksPerDirectory            int
 	MaxFileSize                        int
+	MinFileSize                        int
 	MinNameLength                      int
 	MaxNameLength                      int
 	NonExistingSymlinkTargetPercentage int // 0..100
@@ -193,6 +194,10 @@ func createRandomFile(filename string, options DirectoryTreeOptions, counters *D
 	maxFileSize := int64(intOrDefault(options.MaxFileSize, 100000))
 
 	length := rand.Int63n(maxFileSize)
+
+	if mfs := int64(options.MinFileSize); length < mfs {
+		length = mfs
+	}
 
 	_, err = iocopy.Copy(f, io.LimitReader(rand.New(rand.NewSource(clock.Now().UnixNano())), length))
 	if err != nil {
