@@ -27,6 +27,7 @@ func TestMaybePrefixLongFilenameOnWindows(t *testing.T) {
 		{"C:\\" + veryLongSegment + "\\.\\foo", "\\\\?\\C:\\" + veryLongSegment + "\\foo"},
 		{"C:\\" + veryLongSegment + "/.\\foo", "\\\\?\\C:\\" + veryLongSegment + "\\foo"},
 		{"C:\\" + veryLongSegment + "\\./foo", "\\\\?\\C:\\" + veryLongSegment + "\\foo"},
+		{"\\\\?\\C:\\" + veryLongSegment + "\\foo", "\\\\?\\C:\\" + veryLongSegment + "\\foo"},
 
 		// relative
 		{veryLongSegment + "\\foo", veryLongSegment + "\\foo"},

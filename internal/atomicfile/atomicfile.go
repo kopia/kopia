@@ -29,6 +29,8 @@ func MaybePrefixLongFilenameOnWindows(fname string) string {
 		return fname
 	}
 
+	fname = strings.TrimPrefix(fname, "\\\\?\\")
+
 	if !filepath.IsAbs(fname) {
 		// only convert absolute paths
 		return fname

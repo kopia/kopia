@@ -12,6 +12,7 @@ import (
 	"github.com/kopia/kopia/internal/wcmatch"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/logging"
+	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
@@ -126,6 +127,18 @@ func (d *ignoreDirectory) skipCacheDirectory(ctx context.Context, entries fs.Ent
 	}
 
 	return entries
+}
+
+// Make sure that ignoreDirectory implements HasDirEntryFromPlaceholder.
+var _ snapshot.HasDirEntryOrNil = &ignoreDirectory{}
+
+func (d *ignoreDirectory) DirEntryOrNil(ctx context.Context) (*snapshot.DirEntry, error) {
+	if defp, ok := d.Directory.(snapshot.HasDirEntryOrNil); ok {
+		// nolint:wrapcheck
+		return defp.DirEntryOrNil(ctx)
+	}
+	// Ignored directories do not have DirEntry objects.
+	return nil, nil
 }
 
 func (d *ignoreDirectory) Readdir(ctx context.Context) (fs.Entries, error) {

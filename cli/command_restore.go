@@ -5,12 +5,15 @@ import (
 	"compress/gzip"
 	"context"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
@@ -19,10 +22,18 @@ import (
 )
 
 const (
-	restoreCommandHelp = `Restore a directory or file from a snapshot into the specified target path.
+	restoreCommandHelp = `Restore a directory or a file.
 
-By default, the target path will be created by the restore command if it does
-not exist.
+Restore can operate in two modes: 
+
+* from a snapshot: restoring (possibly shallowly) a specified file or
+directory from a snapshot into a target path. By default, the target
+path will be created by the restore command if it does not exist.
+
+* by expanding a shallow placeholder in situ where the placeholder was
+created by a previous restore.
+
+In the from-snapshot mode: 
 
 The source to be restored is specified in the form of a directory or file ID and
 optionally a sub-directory path.
@@ -47,10 +58,25 @@ has been set (to prevent overwrite of each type):
 --no-overwrite-directories
 --no-overwrite-symlinks
 
-The restore will only attempt to overwrite an existing file system entry if
-it is the same type as in the source. For example a if restoring a symlink,
-an existing symlink with the same name will be overwritten, but a directory
-with the same name will not; an error will be thrown instead.
+If the '--shallow' option is provided, files and directories this
+depth and below in the directory hierarchy will be represented by
+compact placeholder files of the form 'entry.kopia-entry' instead of
+being restored. (I.e. setting '--shallow' to 0 will only shallow
+restore.) Snapshots created of directory contents represented by
+placeholder files will be identical to snapshots of the equivalent
+fully expanded tree.
+
+In the expanding-a-placeholder mode:
+
+The source to be restored is a pre-existing placeholder entry of the form
+'entry.kopia-entry'. The target will be 'entry'. '--shallow' controls the depth
+of the expansion and defaults to 0. For example:
+
+'restore d3.kopiadir'
+
+will remove the d3.kopiadir placeholder and restore the referenced repository
+contents into path d3 where the contents of the newly created path d3 will
+themselves be placeholder files.
 `
 	restoreCommandSourcePathHelp = `Source directory ID/path in the form of a
 directory ID and optionally a sub-directory path. For example,
@@ -58,7 +84,8 @@ directory ID and optionally a sub-directory path. For example,
 'kffbb7c28ea6c34d6cbe555d1cf80faa9/subdir1/subdir2'
 `
 
-	bitsPerByte = 8
+	bitsPerByte    = 8
+	unlimitedDepth = math.MaxInt32
 )
 
 type commandRestore struct {
@@ -76,12 +103,15 @@ type commandRestore struct {
 	restoreSkipPermissions        bool
 	restoreIncremental            bool
 	restoreIgnoreErrors           bool
+	restoreShallowAtDepth         int32
 }
 
 func (c *commandRestore) setup(svc appServices, parent commandParent) {
+	c.restoreShallowAtDepth = unlimitedDepth
+
 	cmd := parent.Command("restore", restoreCommandHelp)
 	cmd.Arg("source", restoreCommandSourcePathHelp).Required().StringVar(&c.restoreSourceID)
-	cmd.Arg("target-path", "Path of the directory for the contents to be restored").Required().StringVar(&c.restoreTargetPath)
+	cmd.Arg("target-path", "Path of the directory for the contents to be restored. Required unless restoring a shallow placeholder.").StringVar(&c.restoreTargetPath)
 	cmd.Flag("overwrite-directories", "Overwrite existing directories").Default("true").BoolVar(&c.restoreOverwriteDirectories)
 	cmd.Flag("overwrite-files", "Specifies whether or not to overwrite already existing files").Default("true").BoolVar(&c.restoreOverwriteFiles)
 	cmd.Flag("overwrite-symlinks", "Specifies whether or not to overwrite already existing symlinks").Default("true").BoolVar(&c.restoreOverwriteSymlinks)
@@ -94,6 +124,7 @@ func (c *commandRestore) setup(svc appServices, parent commandParent) {
 	cmd.Flag("ignore-permission-errors", "Ignore permission errors").Default("true").BoolVar(&c.restoreIgnorePermissionErrors)
 	cmd.Flag("ignore-errors", "Ignore all errors").BoolVar(&c.restoreIgnoreErrors)
 	cmd.Flag("skip-existing", "Skip files and symlinks that exist in the output").BoolVar(&c.restoreIncremental)
+	cmd.Flag("shallow", "Shallow restore the directory hierarchy starting at this level (default is to deep restore the entire hierarchy.)").Int32Var(&c.restoreShallowAtDepth)
 	cmd.Action(svc.repositoryReaderAction(c.run))
 }
 
@@ -107,7 +138,16 @@ const (
 )
 
 func (c *commandRestore) restoreOutput(ctx context.Context) (restore.Output, error) {
-	p, err := filepath.Abs(c.restoreTargetPath)
+	targetpath := restore.PathIfPlaceholder(c.restoreSourceID)
+	if targetpath == "" {
+		if c.restoreTargetPath == "" {
+			return nil, errors.Errorf("restore requires a target-path unless restoring a placeholder")
+		}
+
+		targetpath = c.restoreTargetPath
+	}
+
+	p, err := filepath.Abs(targetpath)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to resolve path")
 	}
@@ -204,22 +244,41 @@ func printRestoreStats(ctx context.Context, st restore.Stats) {
 }
 
 func (c *commandRestore) run(ctx context.Context, rep repo.Repository) error {
-	output, err := c.restoreOutput(ctx)
-	if err != nil {
-		return errors.Wrap(err, "unable to initialize output")
+	output, oerr := c.restoreOutput(ctx)
+	if oerr != nil {
+		return errors.Wrap(oerr, "unable to initialize output")
 	}
 
-	rootEntry, err := snapshotfs.FilesystemEntryFromIDWithPath(ctx, rep, c.restoreSourceID, c.restoreConsistentAttributes)
-	if err != nil {
-		return errors.Wrap(err, "unable to get filesystem entry")
+	var rootEntry fs.Entry
+
+	if placeholderpath := restore.PathIfPlaceholder(c.restoreSourceID); placeholderpath != "" {
+		re, err := snapshotfs.GetEntryFromPlaceholder(ctx, rep, localfs.PlaceholderFilePath(c.restoreSourceID))
+		if err != nil {
+			return errors.Wrapf(err, "unable to get filesystem entry for placeholder %q", c.restoreSourceID)
+		}
+
+		rootEntry = re
+
+		// restoreShallowAtDepth defaults to 0 when expanding a placeholder.
+		if c.restoreShallowAtDepth == unlimitedDepth {
+			c.restoreShallowAtDepth = 0
+		}
+	} else {
+		re, err := snapshotfs.FilesystemEntryFromIDWithPath(ctx, rep, c.restoreSourceID, c.restoreConsistentAttributes)
+		if err != nil {
+			return errors.Wrap(err, "unable to get filesystem entry")
+		}
+
+		rootEntry = re
 	}
 
 	eta := timetrack.Start()
 
 	st, err := restore.Entry(ctx, rep, output, rootEntry, restore.Options{
-		Parallel:     c.restoreParallel,
-		Incremental:  c.restoreIncremental,
-		IgnoreErrors: c.restoreIgnoreErrors,
+		Parallel:               c.restoreParallel,
+		Incremental:            c.restoreIncremental,
+		IgnoreErrors:           c.restoreIgnoreErrors,
+		RestoreDirEntryAtDepth: c.restoreShallowAtDepth,
 		ProgressCallback: func(ctx context.Context, stats restore.Stats) {
 			restoredCount := stats.RestoredFileCount + stats.RestoredDirCount + stats.RestoredSymlinkCount + stats.SkippedCount
 			enqueuedCount := stats.EnqueuedFileCount + stats.EnqueuedDirCount + stats.EnqueuedSymlinkCount

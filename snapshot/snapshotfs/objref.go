@@ -194,3 +194,16 @@ func toJSON(v interface{}) string {
 	b, _ := json.Marshal(v)
 	return string(b)
 }
+
+// GetEntryFromPlaceholder returns a fs.Entry for shallow placeholder
+// defp referencing a real Entry in Repository r.
+func GetEntryFromPlaceholder(ctx context.Context, r repo.Repository, defp snapshot.HasDirEntryOrNil) (fs.Entry, error) {
+	de, err := defp.DirEntryOrNil(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to get direntry from placeholder")
+	}
+
+	log(ctx).Debugf("GetDirEntryFromPlaceholder %v %v ", r, de)
+
+	return EntryFromDirEntry(r, de), nil
+}

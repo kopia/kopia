@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -73,7 +74,7 @@ var _ os.FileInfo = (*filesystemEntry)(nil)
 
 func newEntry(fi os.FileInfo, parentDir string) filesystemEntry {
 	return filesystemEntry{
-		fi.Name(),
+		TrimShallowSuffix(fi.Name()),
 		fi.Size(),
 		fi.ModTime().UnixNano(),
 		fi.Mode(),
@@ -258,19 +259,7 @@ func NewEntry(path string) (fs.Entry, error) {
 		return nil, errors.Wrap(err, "unable to determine entry type")
 	}
 
-	switch fi.Mode() & os.ModeType {
-	case os.ModeDir:
-		return &filesystemDirectory{newEntry(fi, filepath.Dir(path))}, nil
-
-	case os.ModeSymlink:
-		return &filesystemSymlink{newEntry(fi, filepath.Dir(path))}, nil
-
-	case 0:
-		return &filesystemFile{newEntry(fi, filepath.Dir(path))}, nil
-
-	default:
-		return &filesystemErrorEntry{newEntry(fi, filepath.Dir(path)), fs.ErrUnknown}, nil
-	}
+	return entryFromChildFileInfo(fi, filepath.Dir(path)), nil
 }
 
 // Directory returns fs.Directory for the specified path.
@@ -288,15 +277,24 @@ func Directory(path string) (fs.Directory, error) {
 }
 
 func entryFromChildFileInfo(fi os.FileInfo, parentDir string) fs.Entry {
-	switch fi.Mode() & os.ModeType {
-	case os.ModeDir:
+	isplaceholder := strings.HasSuffix(fi.Name(), ShallowEntrySuffix)
+	maskedmode := fi.Mode() & os.ModeType
+
+	switch {
+	case maskedmode == os.ModeDir && !isplaceholder:
 		return &filesystemDirectory{newEntry(fi, parentDir)}
 
-	case os.ModeSymlink:
+	case maskedmode == os.ModeDir && isplaceholder:
+		return &shallowFilesystemDirectory{newEntry(fi, parentDir)}
+
+	case maskedmode == os.ModeSymlink && !isplaceholder:
 		return &filesystemSymlink{newEntry(fi, parentDir)}
 
-	case 0:
+	case maskedmode == 0 && !isplaceholder:
 		return &filesystemFile{newEntry(fi, parentDir)}
+
+	case maskedmode == 0 && isplaceholder:
+		return &shallowFilesystemFile{newEntry(fi, parentDir)}
 
 	default:
 		return &filesystemErrorEntry{newEntry(fi, parentDir), fs.ErrUnknown}
