@@ -11,7 +11,7 @@ require (
 	github.com/StackExchange/wmi v0.0.0-20210224194228-fe8f1750fd46 // indirect
 	github.com/alecthomas/kingpin v0.0.0-20200323085623-b6657d9477a6 // this is pulling master, which is newer than v2
 	github.com/alecthomas/units v0.0.0-20210208195552-ff826a37aa15
-	github.com/aws/aws-sdk-go v1.38.41
+	github.com/aws/aws-sdk-go v1.38.57
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/dustinkirkland/golang-petname v0.0.0-20191129215211-8e5a1ed0cff0
@@ -44,6 +44,7 @@ require (
 	github.com/pquerna/ffjson v0.0.0-20190930134022-aa0246cd15f7 // indirect
 	github.com/prometheus/client_golang v1.10.0
 	github.com/prometheus/common v0.19.0 // indirect
+	github.com/sanity-io/litter v1.3.0
 	github.com/shirou/gopsutil/v3 v3.21.2 // indirect
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
