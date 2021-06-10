@@ -104,6 +104,7 @@ type commandRestore struct {
 	restoreIncremental            bool
 	restoreIgnoreErrors           bool
 	restoreShallowAtDepth         int32
+	minSizeForPlaceholder         int32
 }
 
 func (c *commandRestore) setup(svc appServices, parent commandParent) {
@@ -125,6 +126,7 @@ func (c *commandRestore) setup(svc appServices, parent commandParent) {
 	cmd.Flag("ignore-errors", "Ignore all errors").BoolVar(&c.restoreIgnoreErrors)
 	cmd.Flag("skip-existing", "Skip files and symlinks that exist in the output").BoolVar(&c.restoreIncremental)
 	cmd.Flag("shallow", "Shallow restore the directory hierarchy starting at this level (default is to deep restore the entire hierarchy.)").Int32Var(&c.restoreShallowAtDepth)
+	cmd.Flag("shallow-minsize", "When doing a shallow restore, write actual files instead of placeholders smaller than this size.").Int32Var(&c.minSizeForPlaceholder)
 	cmd.Action(svc.repositoryReaderAction(c.run))
 }
 
@@ -279,6 +281,7 @@ func (c *commandRestore) run(ctx context.Context, rep repo.Repository) error {
 		Incremental:            c.restoreIncremental,
 		IgnoreErrors:           c.restoreIgnoreErrors,
 		RestoreDirEntryAtDepth: c.restoreShallowAtDepth,
+		MinSizeForPlaceholder:  c.minSizeForPlaceholder,
 		ProgressCallback: func(ctx context.Context, stats restore.Stats) {
 			restoredCount := stats.RestoredFileCount + stats.RestoredDirCount + stats.RestoredSymlinkCount + stats.SkippedCount
 			enqueuedCount := stats.EnqueuedFileCount + stats.EnqueuedDirCount + stats.EnqueuedSymlinkCount

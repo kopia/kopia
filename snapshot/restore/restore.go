@@ -69,6 +69,7 @@ type Options struct {
 	Incremental            bool  `json:"incremental"`
 	IgnoreErrors           bool  `json:"ignoreErrors"`
 	RestoreDirEntryAtDepth int32 `json:"restoreDirEntryAtDepth"`
+	MinSizeForPlaceholder  int32 `json:"minSizeForPlaceholder"`
 
 	ProgressCallback func(ctx context.Context, s Stats)
 	Cancel           chan struct{} // channel that can be externally closed to signal cancelation
@@ -78,7 +79,7 @@ type Options struct {
 func Entry(ctx context.Context, rep repo.Repository, output Output, rootEntry fs.Entry, options Options) (Stats, error) {
 	c := copier{
 		output:        output,
-		shallowoutput: makeShallowFilesystemOutput(output),
+		shallowoutput: makeShallowFilesystemOutput(output, options),
 		q:             parallelwork.NewQueue(),
 		incremental:   options.Incremental,
 		ignoreErrors:  options.IgnoreErrors,
