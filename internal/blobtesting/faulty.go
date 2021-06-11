@@ -113,7 +113,6 @@ func (s *FaultyStorage) getNextFault(ctx context.Context, method string, args ..
 	faults := s.Faults[method]
 	if len(faults) == 0 {
 		s.mu.Unlock()
-		log(ctx).Debugf("no faults for %v %v", method, args)
 
 		return nil
 	}

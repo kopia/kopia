@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"golang.org/x/sync/errgroup"
 )
 
 // ErrSetTimeUnsupported is returned by implementations of Storage that don't support SetTime.
@@ -179,8 +180,8 @@ func EnsureLengthAndTruncate(b []byte, length int64) ([]byte, error) {
 	return b[0:length], nil
 }
 
-// IDsFroMetadata returns IDs for blobs in Metadata slice.
-func IDsFroMetadata(mds []Metadata) []ID {
+// IDsFromMetadata returns IDs for blobs in Metadata slice.
+func IDsFromMetadata(mds []Metadata) []ID {
 	ids := make([]ID, len(mds))
 
 	for i, md := range mds {
@@ -188,4 +189,40 @@ func IDsFroMetadata(mds []Metadata) []ID {
 	}
 
 	return ids
+}
+
+// MaxTimestamp returns IDs for blobs in Metadata slice.
+func MaxTimestamp(mds []Metadata) time.Time {
+	max := time.Time{}
+
+	for _, md := range mds {
+		if md.Timestamp.After(max) {
+			max = md.Timestamp
+		}
+	}
+
+	return max
+}
+
+// DeleteMultiple deletes multiple blobs in parallel.
+func DeleteMultiple(ctx context.Context, st Storage, ids []ID, parallelism int) error {
+	eg, ctx := errgroup.WithContext(ctx)
+	sem := make(chan struct{}, parallelism)
+
+	for _, id := range ids {
+		// acquire semaphore
+		sem <- struct{}{}
+
+		id := id
+
+		eg.Go(func() error {
+			defer func() {
+				<-sem // release semaphore
+			}()
+
+			return errors.Wrapf(st.DeleteBlob(ctx, id), "deleting %v", id)
+		})
+	}
+
+	return errors.Wrap(eg.Wait(), "error deleting blobs")
 }
