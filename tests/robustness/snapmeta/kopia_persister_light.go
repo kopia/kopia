@@ -48,7 +48,7 @@ func (kpl *KopiaPersisterLight) ConnectOrCreateRepo(repoPath string) error {
 }
 
 // Store pushes the key value pair to the Kopia repository.
-func (kpl *KopiaPersisterLight) Store(key string, val []byte) error {
+func (kpl *KopiaPersisterLight) Store(ctx context.Context, key string, val []byte) error {
 	kpl.waitFor(key)
 	defer kpl.doneWith(key)
 
@@ -72,7 +72,7 @@ func (kpl *KopiaPersisterLight) Store(key string, val []byte) error {
 }
 
 // Load pulls the key value pair from the Kopia repo and returns the value.
-func (kpl *KopiaPersisterLight) Load(key string) ([]byte, error) {
+func (kpl *KopiaPersisterLight) Load(ctx context.Context, key string) ([]byte, error) {
 	kpl.waitFor(key)
 	defer kpl.doneWith(key)
 
@@ -80,7 +80,7 @@ func (kpl *KopiaPersisterLight) Load(key string) ([]byte, error) {
 
 	log.Println("pulling metadata for", key)
 
-	if err := kpl.kc.SnapshotRestore(context.Background(), dirPath); err != nil {
+	if err := kpl.kc.SnapshotRestore(ctx, dirPath); err != nil {
 		return nil, err
 	}
 
@@ -97,7 +97,7 @@ func (kpl *KopiaPersisterLight) Load(key string) ([]byte, error) {
 }
 
 // Delete deletes all snapshots associated with the given key.
-func (kpl *KopiaPersisterLight) Delete(key string) error {
+func (kpl *KopiaPersisterLight) Delete(ctx context.Context, key string) error {
 	kpl.waitFor(key)
 	defer kpl.doneWith(key)
 
@@ -105,7 +105,7 @@ func (kpl *KopiaPersisterLight) Delete(key string) error {
 
 	dirPath, _ := kpl.getPathsFromKey(key)
 
-	return kpl.kc.SnapshotDelete(context.Background(), dirPath)
+	return kpl.kc.SnapshotDelete(ctx, dirPath)
 }
 
 // LoadMetadata is a no-op. It is included to satisfy the Persister interface.

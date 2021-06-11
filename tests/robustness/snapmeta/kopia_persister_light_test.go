@@ -4,6 +4,7 @@ package snapmeta
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -16,6 +17,8 @@ var (
 )
 
 func TestStoreLoadDelete(t *testing.T) {
+	ctx := context.Background()
+
 	repoPath, err := os.MkdirTemp("", "kopia-test-repo-")
 	assertNoError(t, err)
 
@@ -24,11 +27,13 @@ func TestStoreLoadDelete(t *testing.T) {
 	kpl := initKPL(t, repoPath)
 	defer kpl.Cleanup()
 
-	kpl.testStoreLoad(t, key, val)
-	kpl.testDelete(t, key)
+	kpl.testStoreLoad(ctx, t, key, val)
+	kpl.testDelete(ctx, t, key)
 }
 
 func TestConcurrency(t *testing.T) {
+	ctx := context.Background()
+
 	repoPath, err := os.MkdirTemp("", "kopia-test-repo-")
 	assertNoError(t, err)
 
@@ -45,7 +50,7 @@ func TestConcurrency(t *testing.T) {
 			j := i
 			t.Run(fmt.Sprint(i), func(t *testing.T) {
 				t.Parallel()
-				kpl.testStoreLoad(t, keys[j%3], vals[j%3])
+				kpl.testStoreLoad(ctx, t, keys[j%3], vals[j%3])
 			})
 		}
 	})
@@ -55,18 +60,18 @@ func TestConcurrency(t *testing.T) {
 			j := i
 			t.Run(fmt.Sprint(i), func(t *testing.T) {
 				t.Parallel()
-				kpl.testDelete(t, keys[j%3])
+				kpl.testDelete(ctx, t, keys[j%3])
 			})
 		}
 	})
 }
 
 // Store and test that subsequent Load succeeds.
-func (kpl *KopiaPersisterLight) testStoreLoad(t *testing.T, key string, val []byte) { //nolint:thelper
-	err := kpl.Store(key, val)
+func (kpl *KopiaPersisterLight) testStoreLoad(ctx context.Context, t *testing.T, key string, val []byte) { //nolint:thelper
+	err := kpl.Store(ctx, key, val)
 	assertNoError(t, err)
 
-	valOut, err := kpl.Load(key)
+	valOut, err := kpl.Load(ctx, key)
 	assertNoError(t, err)
 
 	if !bytes.Equal(valOut, val) {
@@ -75,10 +80,10 @@ func (kpl *KopiaPersisterLight) testStoreLoad(t *testing.T, key string, val []by
 }
 
 // Delete and test that subsequent Load fails.
-func (kpl *KopiaPersisterLight) testDelete(t *testing.T, key string) { //nolint:thelper
-	kpl.Delete(key)
+func (kpl *KopiaPersisterLight) testDelete(ctx context.Context, t *testing.T, key string) { //nolint:thelper
+	kpl.Delete(ctx, key)
 
-	_, err := kpl.Load(key)
+	_, err := kpl.Load(ctx, key)
 	log.Println("err:", err)
 
 	if err == nil {
@@ -87,20 +92,22 @@ func (kpl *KopiaPersisterLight) testDelete(t *testing.T, key string) { //nolint:
 }
 
 func TestPersistence(t *testing.T) {
+	ctx := context.Background()
+
 	repoPath, err := os.MkdirTemp("", "kopia-test-repo-")
 	assertNoError(t, err)
 
 	kpl := initKPL(t, repoPath)
 
 	// Store and cleanup kpl
-	err = kpl.Store(key, val)
+	err = kpl.Store(ctx, key, val)
 	assertNoError(t, err)
 
 	kpl.Cleanup()
 
 	// Re-initialize and Load
 	kpl = initKPL(t, repoPath)
-	valOut, err := kpl.Load(key)
+	valOut, err := kpl.Load(ctx, key)
 	assertNoError(t, err)
 
 	if !bytes.Equal(valOut, val) {

@@ -4,6 +4,7 @@ package snapmeta
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"testing"
 
@@ -11,9 +12,11 @@ import (
 )
 
 func TestSimpleBasic(t *testing.T) {
+	ctx := context.Background()
+
 	simple := NewSimple()
 
-	gotData, err := simple.Load("non-existent-key")
+	gotData, err := simple.Load(ctx, "non-existent-key")
 	if !errors.Is(err, robustness.ErrKeyNotFound) {
 		t.Fatalf("Did not get expected error: %q", err)
 	}
@@ -24,9 +27,9 @@ func TestSimpleBasic(t *testing.T) {
 
 	storeKey := "key-to-store"
 	data := []byte("some stored data")
-	simple.Store(storeKey, data)
+	simple.Store(ctx, storeKey, data)
 
-	gotData, err = simple.Load(storeKey)
+	gotData, err = simple.Load(ctx, storeKey)
 	if err != nil {
 		t.Fatalf("Error getting key: %v", err)
 	}
@@ -35,9 +38,9 @@ func TestSimpleBasic(t *testing.T) {
 		t.Fatalf("Did not get the correct data")
 	}
 
-	simple.Delete(storeKey)
+	simple.Delete(ctx, storeKey)
 
-	gotData, err = simple.Load(storeKey)
+	gotData, err = simple.Load(ctx, storeKey)
 	if !errors.Is(err, robustness.ErrKeyNotFound) {
 		t.Fatalf("Did not get expected error: %q", err)
 	}
