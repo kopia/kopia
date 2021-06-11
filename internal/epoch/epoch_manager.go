@@ -466,23 +466,6 @@ func (e *Manager) WroteIndex(ctx context.Context, bm blob.Metadata) error {
 	return nil
 }
 
-// GetIndexesFromEpoch returns the list of blob IDs for a given epoch.
-func (e *Manager) GetIndexesFromEpoch(ctx context.Context, epoch int) ([]blob.ID, error) {
-	for {
-		cs, err := e.committedState(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		result, err := e.getIndexesFromEpochInternal(ctx, cs, epoch)
-		if e.timeFunc().Before(cs.ValidUntil) {
-			return result, err
-		}
-
-		e.log.Debugf("GetIndexesFromEpoch took too long, retrying to ensure correctness")
-	}
-}
-
 func (e *Manager) getIndexesFromEpochInternal(ctx context.Context, cs snapshot, epoch int) ([]blob.ID, error) {
 	// check if the epoch is old enough to possibly have compacted blobs
 	epochSettled := cs.isSettledEpochNumber(epoch)
