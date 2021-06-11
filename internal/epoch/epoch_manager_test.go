@@ -233,6 +233,9 @@ func TestGetCompleteIndexSetRetriesIfTookTooLong(t *testing.T) {
 
 	cnt := 0
 
+	// ensure we're not running any background goroutines before modifying 'Faults'
+	te.mgr.Flush()
+
 	te.faultyStorage.Faults = map[string][]*blobtesting.Fault{
 		"ListBlobs": {
 			&blobtesting.Fault{
