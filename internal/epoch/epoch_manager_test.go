@@ -320,6 +320,9 @@ func TestLateWriteIsIgnored(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, epoch+2, epoch3)
 
+	// on Windows the time does not always move forward, give it a nudge.
+	te.ft.Advance(2 * time.Second)
+
 	require.NoError(t, te.st.PutBlob(ctx, blobID2, gather.FromSlice([]byte("dummy"))))
 	bm, err = te.unloggedst.GetMetadata(ctx, blobID2)
 
