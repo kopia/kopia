@@ -65,6 +65,7 @@ func TestMatchWithBaseDir(t *testing.T) {
 
 func TestMatch(t *testing.T) {
 	cases := []wcCase{
+
 		// Basic
 		{"", "", true, true},
 		{"*", "", true, true},
@@ -174,6 +175,12 @@ func TestMatch(t *testing.T) {
 		{"  \tfoo", "foo", true, true},
 		{"  foo  ", "foo", true, true},
 		{" foo\\ ", "/foo ", true, true},
+
+		{"/users/user1/logs", "/users/user1/logs", true, true},
+		{"/users/**/logs", "/users/user1/logs", true, true},
+		{"/users/user?/logs", "/users/user1/logs", true, true},
+		{"/users/user*/logs", "/users/user1/logs", true, true},
+		{"/users/*/logs", "/users/user1/logs", true, true},
 	}
 
 	testHelper(t, cases)

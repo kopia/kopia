@@ -382,7 +382,8 @@ func doMatch(tokens []token, text []rune, ignoreCase bool) matchResult {
 					return wcNoMatch
 				}
 
-				t.pos = slashIndex
+				// Skip all characters up to the upcoming directory sep.
+				t.pos += slashIndex - 1
 
 				break
 			}
