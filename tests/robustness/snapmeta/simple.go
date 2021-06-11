@@ -46,6 +46,8 @@ func (s *Simple) Load(key string) ([]byte, error) {
 }
 
 // Delete implements the Storer interface Delete method.
-func (s *Simple) Delete(key string) {
+func (s *Simple) Delete(key string) error {
 	delete(s.Data, key)
+
+	return nil
 }

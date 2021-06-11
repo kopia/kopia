@@ -7,7 +7,7 @@ package robustness
 type Store interface {
 	Store(key string, val []byte) error
 	Load(key string) ([]byte, error)
-	Delete(key string)
+	Delete(key string) error
 }
 
 // Persister describes the ability to flush metadata
