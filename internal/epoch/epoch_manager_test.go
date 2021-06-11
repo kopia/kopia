@@ -7,6 +7,7 @@ import (
 	"math"
 	"math/rand"
 	"sort"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -199,14 +200,11 @@ func TestRefreshRetriesIfTakingTooLong(t *testing.T) {
 	te := newTestEnv(t)
 	defer te.mgr.Flush()
 
-	cnt := 0
-
 	te.faultyStorage.Faults = map[string][]*blobtesting.Fault{
 		"ListBlobs": {
 			&blobtesting.Fault{
 				Repeat: 4, // refresh does 3 lists, so this will cause 2 unsuccessful retries
 				ErrCallback: func() error {
-					cnt++
 					te.ft.Advance(24 * time.Hour)
 
 					return nil
@@ -231,7 +229,7 @@ func TestGetCompleteIndexSetRetriesIfTookTooLong(t *testing.T) {
 	// load committed state
 	require.NoError(t, te.mgr.Refresh(ctx))
 
-	cnt := 0
+	cnt := new(int32)
 
 	// ensure we're not running any background goroutines before modifying 'Faults'
 	te.mgr.Flush()
@@ -241,10 +239,10 @@ func TestGetCompleteIndexSetRetriesIfTookTooLong(t *testing.T) {
 			&blobtesting.Fault{
 				Repeat: 1000,
 				ErrCallback: func() error {
-					cnt++
-					if cnt == 1 {
+					if atomic.AddInt32(cnt, 1) == 1 {
 						te.ft.Advance(24 * time.Hour)
 					}
+
 					return nil
 				},
 			},
