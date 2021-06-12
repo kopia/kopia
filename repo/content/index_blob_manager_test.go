@@ -796,9 +796,11 @@ func newIndexBlobManagerForTesting(t *testing.T, st blob.Storage, localTimeNow f
 			HashFunction: hf,
 			Encryptor:    enc,
 		},
-		listCache: lc,
-		timeNow:   localTimeNow,
-		log:       repologging.Printf(t.Logf)("test"),
+		listCache:    lc,
+		timeNow:      localTimeNow,
+		maxPackSize:  20 << 20,
+		indexVersion: 1,
+		log:          repologging.Printf(t.Logf)("test"),
 	}
 
 	return m

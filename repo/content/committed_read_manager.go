@@ -117,13 +117,13 @@ func (sm *SharedManager) attemptReadPackFileLocalIndex(ctx context.Context, pack
 	return localIndexBytes, nil
 }
 
-func (sm *SharedManager) loadPackIndexesUnlocked(ctx context.Context) ([]IndexBlobInfo, error) {
+func (sm *SharedManager) loadPackIndexesUnlocked(ctx context.Context) error {
 	nextSleepTime := 100 * time.Millisecond //nolint:gomnd
 
 	for i := 0; i < indexLoadAttempts; i++ {
 		if err := ctx.Err(); err != nil {
 			// nolint:wrapcheck
-			return nil, err
+			return err
 		}
 
 		if i > 0 {
@@ -135,7 +135,7 @@ func (sm *SharedManager) loadPackIndexesUnlocked(ctx context.Context) ([]IndexBl
 
 		indexBlobs, err := sm.indexBlobManager.listActiveIndexBlobs(ctx)
 		if err != nil {
-			return nil, errors.Wrap(err, "error listing index blobs")
+			return errors.Wrap(err, "error listing index blobs")
 		}
 
 		var indexBlobIDs []blob.ID
@@ -147,22 +147,22 @@ func (sm *SharedManager) loadPackIndexesUnlocked(ctx context.Context) ([]IndexBl
 		if err == nil {
 			err = sm.committedContents.use(ctx, indexBlobIDs)
 			if err != nil {
-				return nil, err
+				return err
 			}
 
 			if len(indexBlobs) > indexBlobCompactionWarningThreshold {
 				sm.log.Errorf("Found too many index blobs (%v), this may result in degraded performance.\n\nPlease ensure periodic repository maintenance is enabled or run 'kopia maintenance'.", len(indexBlobs))
 			}
 
-			return indexBlobs, nil
+			return nil
 		}
 
 		if !errors.Is(err, blob.ErrBlobNotFound) {
-			return nil, err
+			return err
 		}
 	}
 
-	return nil, errors.Errorf("unable to load pack indexes despite %v retries", indexLoadAttempts)
+	return errors.Errorf("unable to load pack indexes despite %v retries", indexLoadAttempts)
 }
 
 func (sm *SharedManager) getCacheForContentID(id ID) contentCache {
@@ -280,6 +280,8 @@ func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *Ca
 		ownWritesCache: owc,
 		listCache:      listCache,
 		indexBlobCache: metadataCache,
+		maxPackSize:    sm.maxPackSize,
+		indexVersion:   sm.indexVersion,
 		log:            logging.WithPrefix("[index-blob-manager] ", sm.sharedBaseLogger),
 	}
 
@@ -413,7 +415,7 @@ func NewSharedManager(ctx context.Context, st blob.Storage, f *FormattingOptions
 		return nil, errors.Wrap(err, "error setting up read manager caches")
 	}
 
-	if _, err := sm.loadPackIndexesUnlocked(ctx); err != nil {
+	if err := sm.loadPackIndexesUnlocked(ctx); err != nil {
 		return nil, errors.Wrap(err, "error loading indexes")
 	}
 
