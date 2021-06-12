@@ -1,6 +1,7 @@
 package content
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"time"
@@ -452,6 +453,138 @@ func (m *indexBlobManagerImpl) cleanup(ctx context.Context, maxEventualConsisten
 	}
 
 	m.flushCache()
+
+	return nil
+}
+
+func (m *indexBlobManagerImpl) getBlobsToCompact(indexBlobs []IndexBlobInfo, opt CompactOptions) []IndexBlobInfo {
+	var nonCompactedBlobs, verySmallBlobs []IndexBlobInfo
+
+	var totalSizeNonCompactedBlobs, totalSizeVerySmallBlobs, totalSizeMediumSizedBlobs int64
+
+	var mediumSizedBlobCount int
+
+	for _, b := range indexBlobs {
+		if b.Length > int64(m.maxPackSize) && !opt.AllIndexes {
+			continue
+		}
+
+		nonCompactedBlobs = append(nonCompactedBlobs, b)
+		totalSizeNonCompactedBlobs += b.Length
+
+		if b.Length < int64(m.maxPackSize/verySmallContentFraction) {
+			verySmallBlobs = append(verySmallBlobs, b)
+			totalSizeVerySmallBlobs += b.Length
+		} else {
+			mediumSizedBlobCount++
+			totalSizeMediumSizedBlobs += b.Length
+		}
+	}
+
+	if len(nonCompactedBlobs) < opt.MaxSmallBlobs {
+		// current count is below min allowed - nothing to do
+		m.log.Debugf("no small contents to compact")
+		return nil
+	}
+
+	if len(verySmallBlobs) > len(nonCompactedBlobs)/2 && mediumSizedBlobCount+1 < opt.MaxSmallBlobs {
+		m.log.Debugf("compacting %v very small contents", len(verySmallBlobs))
+		return verySmallBlobs
+	}
+
+	m.log.Debugf("compacting all %v non-compacted contents", len(nonCompactedBlobs))
+
+	return nonCompactedBlobs
+}
+
+func (m *indexBlobManagerImpl) compactIndexBlobs(ctx context.Context, indexBlobs []IndexBlobInfo, opt CompactOptions) error {
+	if len(indexBlobs) <= 1 && opt.DropDeletedBefore.IsZero() && len(opt.DropContents) == 0 {
+		return nil
+	}
+
+	bld := make(packIndexBuilder)
+
+	var inputs, outputs []blob.Metadata
+
+	for i, indexBlob := range indexBlobs {
+		m.log.Debugf("compacting-entries[%v/%v] %v", i, len(indexBlobs), indexBlob)
+
+		if err := m.addIndexBlobsToBuilder(ctx, bld, indexBlob); err != nil {
+			return errors.Wrap(err, "error adding index to builder")
+		}
+
+		inputs = append(inputs, indexBlob.Metadata)
+	}
+
+	// after we built index map in memory, drop contents from it
+	// we must do it after all input blobs have been merged, otherwise we may resurrect contents.
+	m.dropContentsFromBuilder(bld, opt)
+
+	var buf bytes.Buffer
+	if err := bld.Build(&buf, m.indexVersion); err != nil {
+		return errors.Wrap(err, "unable to build an index")
+	}
+
+	compactedIndexBlob, err := m.writeIndexBlob(ctx, buf.Bytes(), "")
+	if err != nil {
+		return errors.Wrap(err, "unable to write compacted indexes")
+	}
+
+	// compaction wrote index blob that's the same as one of the sources
+	// it must be a no-op.
+	for _, indexBlob := range indexBlobs {
+		if indexBlob.BlobID == compactedIndexBlob.BlobID {
+			m.log.Debugf("compaction-noop")
+			return nil
+		}
+	}
+
+	outputs = append(outputs, compactedIndexBlob)
+
+	if err := m.registerCompaction(ctx, inputs, outputs, opt.maxEventualConsistencySettleTime()); err != nil {
+		return errors.Wrap(err, "unable to register compaction")
+	}
+
+	return nil
+}
+
+func (m *indexBlobManagerImpl) dropContentsFromBuilder(bld packIndexBuilder, opt CompactOptions) {
+	for _, dc := range opt.DropContents {
+		if _, ok := bld[dc]; ok {
+			m.log.Debugf("manual-drop-from-index %v", dc)
+			delete(bld, dc)
+		}
+	}
+
+	if !opt.DropDeletedBefore.IsZero() {
+		m.log.Debugf("drop-content-deleted-before %v", opt.DropDeletedBefore)
+
+		for _, i := range bld {
+			if i.GetDeleted() && i.Timestamp().Before(opt.DropDeletedBefore) {
+				m.log.Debugf("drop-from-index-old-deleted %v %v", i.GetContentID(), i.Timestamp())
+				delete(bld, i.GetContentID())
+			}
+		}
+
+		m.log.Debugf("finished drop-content-deleted-before %v", opt.DropDeletedBefore)
+	}
+}
+
+func (m *indexBlobManagerImpl) addIndexBlobsToBuilder(ctx context.Context, bld packIndexBuilder, indexBlob IndexBlobInfo) error {
+	data, err := m.getIndexBlob(ctx, indexBlob.BlobID)
+	if err != nil {
+		return errors.Wrapf(err, "error getting index %q", indexBlob.BlobID)
+	}
+
+	index, err := openPackIndex(bytes.NewReader(data), uint32(m.crypter.Encryptor.Overhead()))
+	if err != nil {
+		return errors.Wrapf(err, "unable to open index blob %q", indexBlob)
+	}
+
+	_ = index.Iterate(AllIDs, func(i Info) error {
+		bld.Add(i)
+		return nil
+	})
 
 	return nil
 }
