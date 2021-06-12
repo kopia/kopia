@@ -58,6 +58,11 @@ func (s readonlyStorage) DisplayName() string {
 	return s.base.DisplayName()
 }
 
+func (s readonlyStorage) FlushCaches(ctx context.Context) error {
+	// nolint:wrapcheck
+	return s.base.FlushCaches(ctx)
+}
+
 // NewWrapper returns a readonly Storage wrapper that prevents any mutations to the underlying storage.
 func NewWrapper(wrapped blob.Storage) blob.Storage {
 	return &readonlyStorage{base: wrapped}

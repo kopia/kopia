@@ -17,6 +17,7 @@ import (
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/faketime"
+	"github.com/kopia/kopia/internal/ownwrites"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
@@ -779,24 +780,18 @@ func newIndexBlobManagerForTesting(t *testing.T, st blob.Storage, localTimeNow f
 		t.Fatalf("unable to create hash: %v", err)
 	}
 
-	lc, err := newListCache(st, &CachingOptions{}, repologging.Printf(t.Logf)("test"))
-	if err != nil {
-		t.Fatalf("unable to create list cache: %v", err)
-	}
-
 	m := &indexBlobManagerImpl{
-		st: st,
-		ownWritesCache: &persistentOwnWritesCache{
-			blobtesting.NewMapStorage(blobtesting.DataMap{}, nil, localTimeNow),
-			localTimeNow,
-			lc.log,
-		},
+		st: ownwrites.NewWrapper(
+			st,
+			blobtesting.NewMapStorage(blobtesting.DataMap{}, nil, nil),
+			[]blob.ID{IndexBlobPrefix, compactionLogBlobPrefix, cleanupBlobPrefix},
+			15*time.Minute,
+		),
 		indexBlobCache: passthroughContentCache{st},
 		crypter: &Crypter{
 			HashFunction: hf,
 			Encryptor:    enc,
 		},
-		listCache:    lc,
 		timeNow:      localTimeNow,
 		maxPackSize:  20 << 20,
 		indexVersion: 1,

@@ -22,6 +22,7 @@ import (
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/faketime"
+	"github.com/kopia/kopia/internal/ownwrites"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
@@ -1835,10 +1836,7 @@ func TestReadsOwnWritesWithEventualConsistencyPersistentOwnWritesCache(t *testin
 		timeNow)
 
 	// disable own writes cache, will still be ok if store is strongly consistent
-	verifyReadsOwnWrites(t, ecst, timeNow, &persistentOwnWritesCache{
-		st:      cacheSt,
-		timeNow: timeNow,
-	})
+	verifyReadsOwnWrites(t, ownwrites.NewWrapper(ecst, cacheSt, cachedIndexBlobPrefixes, ownWritesCacheDuration), timeNow)
 }
 
 func TestReadsOwnWritesWithStrongConsistencyAndNoCaching(t *testing.T) {
@@ -1850,30 +1848,17 @@ func TestReadsOwnWritesWithStrongConsistencyAndNoCaching(t *testing.T) {
 	// st = blobtesting.NewEventuallyConsistentStorage(logging.NewWrapper(st, t.Logf, "[STORAGE] "), 0.1)
 
 	// disable own writes cache, will still be ok if store is strongly consistent
-	verifyReadsOwnWrites(t, st, timeNow, &nullOwnWritesCache{})
+	verifyReadsOwnWrites(t, st, timeNow)
 }
 
-func TestReadsOwnWritesWithEventualConsistencyInMemoryOwnWritesCache(t *testing.T) {
-	data := blobtesting.DataMap{}
-	timeNow := faketime.AutoAdvance(fakeTime, 1*time.Second)
-	st := blobtesting.NewMapStorage(data, nil, timeNow)
-	ecst := blobtesting.NewEventuallyConsistentStorage(
-		logging.NewWrapper(st, t.Logf, "[STORAGE] "),
-		3*time.Second,
-		timeNow)
-
-	verifyReadsOwnWrites(t, ecst, timeNow, &memoryOwnWritesCache{timeNow: timeNow})
-}
-
-func verifyReadsOwnWrites(t *testing.T, st blob.Storage, timeNow func() time.Time, sharedOwnWritesCache ownWritesCache) {
+func verifyReadsOwnWrites(t *testing.T, st blob.Storage, timeNow func() time.Time) {
 	t.Helper()
 
 	ctx := testlogging.Context(t)
 
 	tweaks := &contentManagerTestTweaks{
 		ManagerOptions: ManagerOptions{
-			ownWritesCache: sharedOwnWritesCache,
-			TimeNow:        timeNow,
+			TimeNow: timeNow,
 		},
 	}
 

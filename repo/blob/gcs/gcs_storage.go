@@ -179,6 +179,10 @@ func (gcs *gcsStorage) Close(ctx context.Context) error {
 	return errors.Wrap(gcs.storageClient.Close(), "error closing GCS storage")
 }
 
+func (gcs *gcsStorage) FlushCaches(ctx context.Context) error {
+	return nil
+}
+
 func toBandwidth(bytesPerSecond int) iothrottler.Bandwidth {
 	if bytesPerSecond <= 0 {
 		return iothrottler.Unlimited

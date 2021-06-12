@@ -75,6 +75,9 @@ type Storage interface {
 
 	// Close releases all resources associated with storage.
 	Close(ctx context.Context) error
+
+	// FlushCaches flushes any local caches associated with storage.
+	FlushCaches(ctx context.Context) error
 }
 
 // ID is a string that represents blob identifier.

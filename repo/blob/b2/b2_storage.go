@@ -228,6 +228,10 @@ func (s *b2Storage) Close(ctx context.Context) error {
 	return nil
 }
 
+func (s *b2Storage) FlushCaches(ctx context.Context) error {
+	return nil
+}
+
 func (s *b2Storage) String() string {
 	return fmt.Sprintf("b2://%s/%s", s.BucketName, s.Prefix)
 }

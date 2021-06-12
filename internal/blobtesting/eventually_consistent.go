@@ -269,6 +269,10 @@ func (s *eventuallyConsistentStorage) DisplayName() string {
 	return s.realStorage.DisplayName()
 }
 
+func (s *eventuallyConsistentStorage) FlushCaches(ctx context.Context) error {
+	return s.realStorage.FlushCaches(ctx)
+}
+
 // NewEventuallyConsistentStorage returns an eventually-consistent storage wrapper on top
 // of provided storage.
 func NewEventuallyConsistentStorage(st blob.Storage, listSettleTime time.Duration, timeNow func() time.Time) blob.Storage {

@@ -773,8 +773,6 @@ type ManagerOptions struct {
 	RepositoryFormatBytes []byte
 	TimeNow               func() time.Time // Time provider
 	DisableInternalLog    bool
-
-	ownWritesCache ownWritesCache // test hook to allow overriding own-writes cache
 }
 
 // CloneOrDefault returns a clone of provided ManagerOptions or default empty struct if nil.
