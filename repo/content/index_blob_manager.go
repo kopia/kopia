@@ -19,8 +19,8 @@ type indexBlobManager interface {
 	listActiveIndexBlobs(ctx context.Context) ([]IndexBlobInfo, error)
 	listAllIndexBlobs(ctx context.Context) ([]IndexBlobInfo, error)
 	getIndexBlob(ctx context.Context, blobID blob.ID) ([]byte, error)
+	compact(ctx context.Context, opts CompactOptions) error
 	registerCompaction(ctx context.Context, inputs, outputs []blob.Metadata, maxEventualConsistencySettleTime time.Duration) error
-	cleanup(ctx context.Context, maxEventualConsistencySettleTime time.Duration) error
 	flushCache()
 }
 
@@ -63,6 +63,8 @@ type indexBlobManagerImpl struct {
 	timeNow        func() time.Time
 	indexBlobCache contentCache
 	log            logging.Logger
+	maxPackSize    int
+	indexVersion   int
 }
 
 func (m *indexBlobManagerImpl) listAndMergeOwnWrites(ctx context.Context, prefix blob.ID) ([]blob.Metadata, error) {
@@ -143,6 +145,25 @@ func (m *indexBlobManagerImpl) listIndexBlobs(ctx context.Context, includeInacti
 func (m *indexBlobManagerImpl) flushCache() {
 	m.listCache.deleteListCache(IndexBlobPrefix)
 	m.listCache.deleteListCache(compactionLogBlobPrefix)
+}
+
+func (m *indexBlobManagerImpl) compact(ctx context.Context, opt CompactOptions) error {
+	indexBlobs, err := m.listActiveIndexBlobs(ctx)
+	if err != nil {
+		return errors.Wrap(err, "error listing active index blobs")
+	}
+
+	blobsToCompact := m.getBlobsToCompact(indexBlobs, opt)
+
+	if err := m.compactIndexBlobs(ctx, blobsToCompact, opt); err != nil {
+		return errors.Wrap(err, "error performing compaction")
+	}
+
+	if err := m.cleanup(ctx, opt.maxEventualConsistencySettleTime()); err != nil {
+		return errors.Wrap(err, "error cleaning up index blobs")
+	}
+
+	return nil
 }
 
 func (m *indexBlobManagerImpl) registerCompaction(ctx context.Context, inputs, outputs []blob.Metadata, maxEventualConsistencySettleTime time.Duration) error {

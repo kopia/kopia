@@ -33,33 +33,19 @@ func (co *CompactOptions) maxEventualConsistencySettleTime() time.Duration {
 func (bm *WriteManager) CompactIndexes(ctx context.Context, opt CompactOptions) error {
 	bm.log.Debugf("CompactIndexes(%+v)", opt)
 
-	bm.lock()
-	defer bm.unlock()
-
-	indexBlobs, err := bm.loadPackIndexesUnlocked(ctx)
-	if err != nil {
-		return errors.Wrap(err, "error loading indexes")
-	}
-
-	blobsToCompact := bm.getBlobsToCompact(indexBlobs, opt)
-
-	if err := bm.compactIndexBlobs(ctx, blobsToCompact, opt); err != nil {
+	if err := bm.indexBlobManager.compact(ctx, opt); err != nil {
 		return errors.Wrap(err, "error performing compaction")
 	}
 
-	if err := bm.indexBlobManager.cleanup(ctx, opt.maxEventualConsistencySettleTime()); err != nil {
-		return errors.Wrap(err, "error cleaning up index blobs")
-	}
-
-	// reload indexes after cleanup.
-	if _, err := bm.loadPackIndexesUnlocked(ctx); err != nil {
+	// reload indexes after compaction.
+	if err := bm.loadPackIndexesUnlocked(ctx); err != nil {
 		return errors.Wrap(err, "error re-loading indexes")
 	}
 
 	return nil
 }
 
-func (sm *SharedManager) getBlobsToCompact(indexBlobs []IndexBlobInfo, opt CompactOptions) []IndexBlobInfo {
+func (m *indexBlobManagerImpl) getBlobsToCompact(indexBlobs []IndexBlobInfo, opt CompactOptions) []IndexBlobInfo {
 	var nonCompactedBlobs, verySmallBlobs []IndexBlobInfo
 
 	var totalSizeNonCompactedBlobs, totalSizeVerySmallBlobs, totalSizeMediumSizedBlobs int64
@@ -67,14 +53,14 @@ func (sm *SharedManager) getBlobsToCompact(indexBlobs []IndexBlobInfo, opt Compa
 	var mediumSizedBlobCount int
 
 	for _, b := range indexBlobs {
-		if b.Length > int64(sm.maxPackSize) && !opt.AllIndexes {
+		if b.Length > int64(m.maxPackSize) && !opt.AllIndexes {
 			continue
 		}
 
 		nonCompactedBlobs = append(nonCompactedBlobs, b)
 		totalSizeNonCompactedBlobs += b.Length
 
-		if b.Length < int64(sm.maxPackSize/verySmallContentFraction) {
+		if b.Length < int64(m.maxPackSize/verySmallContentFraction) {
 			verySmallBlobs = append(verySmallBlobs, b)
 			totalSizeVerySmallBlobs += b.Length
 		} else {
@@ -85,21 +71,21 @@ func (sm *SharedManager) getBlobsToCompact(indexBlobs []IndexBlobInfo, opt Compa
 
 	if len(nonCompactedBlobs) < opt.MaxSmallBlobs {
 		// current count is below min allowed - nothing to do
-		sm.log.Debugf("no small contents to compact")
+		m.log.Debugf("no small contents to compact")
 		return nil
 	}
 
 	if len(verySmallBlobs) > len(nonCompactedBlobs)/2 && mediumSizedBlobCount+1 < opt.MaxSmallBlobs {
-		sm.log.Debugf("compacting %v very small contents", len(verySmallBlobs))
+		m.log.Debugf("compacting %v very small contents", len(verySmallBlobs))
 		return verySmallBlobs
 	}
 
-	sm.log.Debugf("compacting all %v non-compacted contents", len(nonCompactedBlobs))
+	m.log.Debugf("compacting all %v non-compacted contents", len(nonCompactedBlobs))
 
 	return nonCompactedBlobs
 }
 
-func (sm *SharedManager) compactIndexBlobs(ctx context.Context, indexBlobs []IndexBlobInfo, opt CompactOptions) error {
+func (m *indexBlobManagerImpl) compactIndexBlobs(ctx context.Context, indexBlobs []IndexBlobInfo, opt CompactOptions) error {
 	if len(indexBlobs) <= 1 && opt.DropDeletedBefore.IsZero() && len(opt.DropContents) == 0 {
 		return nil
 	}
@@ -109,9 +95,9 @@ func (sm *SharedManager) compactIndexBlobs(ctx context.Context, indexBlobs []Ind
 	var inputs, outputs []blob.Metadata
 
 	for i, indexBlob := range indexBlobs {
-		sm.log.Debugf("compacting-entries[%v/%v] %v", i, len(indexBlobs), indexBlob)
+		m.log.Debugf("compacting-entries[%v/%v] %v", i, len(indexBlobs), indexBlob)
 
-		if err := sm.addIndexBlobsToBuilder(ctx, bld, indexBlob); err != nil {
+		if err := m.addIndexBlobsToBuilder(ctx, bld, indexBlob); err != nil {
 			return errors.Wrap(err, "error adding index to builder")
 		}
 
@@ -120,14 +106,14 @@ func (sm *SharedManager) compactIndexBlobs(ctx context.Context, indexBlobs []Ind
 
 	// after we built index map in memory, drop contents from it
 	// we must do it after all input blobs have been merged, otherwise we may resurrect contents.
-	sm.dropContentsFromBuilder(bld, opt)
+	m.dropContentsFromBuilder(bld, opt)
 
 	var buf bytes.Buffer
-	if err := bld.Build(&buf, sm.indexVersion); err != nil {
+	if err := bld.Build(&buf, m.indexVersion); err != nil {
 		return errors.Wrap(err, "unable to build an index")
 	}
 
-	compactedIndexBlob, err := sm.indexBlobManager.writeIndexBlob(ctx, buf.Bytes(), "")
+	compactedIndexBlob, err := m.writeIndexBlob(ctx, buf.Bytes(), "")
 	if err != nil {
 		return errors.Wrap(err, "unable to write compacted indexes")
 	}
@@ -136,49 +122,49 @@ func (sm *SharedManager) compactIndexBlobs(ctx context.Context, indexBlobs []Ind
 	// it must be a no-op.
 	for _, indexBlob := range indexBlobs {
 		if indexBlob.BlobID == compactedIndexBlob.BlobID {
-			sm.log.Debugf("compaction-noop")
+			m.log.Debugf("compaction-noop")
 			return nil
 		}
 	}
 
 	outputs = append(outputs, compactedIndexBlob)
 
-	if err := sm.indexBlobManager.registerCompaction(ctx, inputs, outputs, opt.maxEventualConsistencySettleTime()); err != nil {
+	if err := m.registerCompaction(ctx, inputs, outputs, opt.maxEventualConsistencySettleTime()); err != nil {
 		return errors.Wrap(err, "unable to register compaction")
 	}
 
 	return nil
 }
 
-func (sm *SharedManager) dropContentsFromBuilder(bld packIndexBuilder, opt CompactOptions) {
+func (m *indexBlobManagerImpl) dropContentsFromBuilder(bld packIndexBuilder, opt CompactOptions) {
 	for _, dc := range opt.DropContents {
 		if _, ok := bld[dc]; ok {
-			sm.log.Debugf("manual-drop-from-index %v", dc)
+			m.log.Debugf("manual-drop-from-index %v", dc)
 			delete(bld, dc)
 		}
 	}
 
 	if !opt.DropDeletedBefore.IsZero() {
-		sm.log.Debugf("drop-content-deleted-before %v", opt.DropDeletedBefore)
+		m.log.Debugf("drop-content-deleted-before %v", opt.DropDeletedBefore)
 
 		for _, i := range bld {
 			if i.GetDeleted() && i.Timestamp().Before(opt.DropDeletedBefore) {
-				sm.log.Debugf("drop-from-index-old-deleted %v %v", i.GetContentID(), i.Timestamp())
+				m.log.Debugf("drop-from-index-old-deleted %v %v", i.GetContentID(), i.Timestamp())
 				delete(bld, i.GetContentID())
 			}
 		}
 
-		sm.log.Debugf("finished drop-content-deleted-before %v", opt.DropDeletedBefore)
+		m.log.Debugf("finished drop-content-deleted-before %v", opt.DropDeletedBefore)
 	}
 }
 
-func (sm *SharedManager) addIndexBlobsToBuilder(ctx context.Context, bld packIndexBuilder, indexBlob IndexBlobInfo) error {
-	data, err := sm.indexBlobManager.getIndexBlob(ctx, indexBlob.BlobID)
+func (m *indexBlobManagerImpl) addIndexBlobsToBuilder(ctx context.Context, bld packIndexBuilder, indexBlob IndexBlobInfo) error {
+	data, err := m.getIndexBlob(ctx, indexBlob.BlobID)
 	if err != nil {
 		return errors.Wrapf(err, "error getting index %q", indexBlob.BlobID)
 	}
 
-	index, err := openPackIndex(bytes.NewReader(data), uint32(sm.crypter.Encryptor.Overhead()))
+	index, err := openPackIndex(bytes.NewReader(data), uint32(m.crypter.Encryptor.Overhead()))
 	if err != nil {
 		return errors.Wrapf(err, "unable to open index blob %q", indexBlob)
 	}

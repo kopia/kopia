@@ -751,7 +751,7 @@ func (bm *WriteManager) Refresh(ctx context.Context) error {
 
 	t0 := clock.Now()
 
-	_, err := bm.loadPackIndexesUnlocked(ctx)
+	err := bm.loadPackIndexesUnlocked(ctx)
 	bm.log.Debugf("Refresh completed in %v", clock.Since(t0))
 
 	return err
