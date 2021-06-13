@@ -75,6 +75,12 @@ func TestListCache(t *testing.T) {
 	cacheTime.Advance(1)
 	blobtesting.AssertListResultsIDs(ctx, t, lc, "n", "n1", "n3", "n4", "n5")
 
+	// explicit flush
+	require.NoError(t, realStorage.PutBlob(ctx, "n6", gather.FromSlice([]byte{1, 2, 3})))
+	blobtesting.AssertListResultsIDs(ctx, t, lc, "n", "n1", "n3", "n4", "n5")
+	require.NoError(t, lc.FlushCaches(ctx))
+	blobtesting.AssertListResultsIDs(ctx, t, lc, "n", "n1", "n3", "n4", "n5", "n6")
+
 	// non-cached results
 	blobtesting.AssertListResultsIDs(ctx, t, lc, "nc")
 	require.NoError(t, realStorage.PutBlob(ctx, "nc1", gather.FromSlice([]byte{1, 2, 3})))

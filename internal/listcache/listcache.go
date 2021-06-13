@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/hmac"
@@ -50,7 +52,6 @@ func (s *listCacheStorage) readBlobsFromCache(ctx context.Context, prefix blob.I
 
 	data, err := s.cacheStorage.GetBlob(ctx, prefix, 0, -1)
 	if err != nil {
-		log(ctx).Debugf("error getting %v from cache: %v", prefix, err)
 		return nil
 	}
 
@@ -93,7 +94,6 @@ func (s *listCacheStorage) ListBlobs(ctx context.Context, prefix blob.ID, cb fun
 			Blobs:       all,
 		}
 
-		log(ctx).Debugf("saving %v to cache under %v", cached, prefix)
 		s.saveListToCache(ctx, prefix, cached)
 	}
 
@@ -113,6 +113,14 @@ func (s *listCacheStorage) PutBlob(ctx context.Context, blobID blob.ID, data blo
 
 	// nolint:wrapcheck
 	return err
+}
+
+func (s *listCacheStorage) FlushCaches(ctx context.Context) error {
+	if err := s.Storage.FlushCaches(ctx); err != nil {
+		return errors.Wrap(err, "error flushing caches")
+	}
+
+	return errors.Wrap(blob.DeleteMultiple(ctx, s.cacheStorage, s.prefixes, len(s.prefixes)), "error deleting cached lists")
 }
 
 // DeleteBlob implements blob.Storage and writes markers into local cache for all successful deletes.
