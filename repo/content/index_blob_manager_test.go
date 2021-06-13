@@ -418,7 +418,7 @@ type fakeContentIndexEntry struct {
 	Deleted bool
 }
 
-func verifyFakeContentsWritten(ctx context.Context, t *testing.T, m indexBlobManager, numWritten int, contentPrefix string, deletedContents map[string]bool) error {
+func verifyFakeContentsWritten(ctx context.Context, t *testing.T, m *indexBlobManagerV0, numWritten int, contentPrefix string, deletedContents map[string]bool) error {
 	t.Helper()
 
 	if numWritten == 0 {
@@ -452,7 +452,7 @@ func verifyFakeContentsWritten(ctx context.Context, t *testing.T, m indexBlobMan
 	return nil
 }
 
-func fakeCompaction(ctx context.Context, t *testing.T, m indexBlobManager, dropDeleted bool) error {
+func fakeCompaction(ctx context.Context, t *testing.T, m *indexBlobManagerV0, dropDeleted bool) error {
 	t.Helper()
 
 	t.Logf("fakeCompaction(dropDeleted=%v)", dropDeleted)
@@ -513,7 +513,7 @@ func fakeContentID(prefix string, n int) string {
 	return fmt.Sprintf("%v-%06v", prefix, n)
 }
 
-func deleteFakeContents(ctx context.Context, t *testing.T, m indexBlobManager, prefix string, numWritten int, deleted map[string]bool, timeFunc func() time.Time) error {
+func deleteFakeContents(ctx context.Context, t *testing.T, m *indexBlobManagerV0, prefix string, numWritten int, deleted map[string]bool, timeFunc func() time.Time) error {
 	t.Helper()
 
 	if numWritten == 0 {
@@ -550,7 +550,7 @@ func deleteFakeContents(ctx context.Context, t *testing.T, m indexBlobManager, p
 	return err
 }
 
-func undeleteFakeContents(ctx context.Context, t *testing.T, m indexBlobManager, deleted map[string]bool, timeFunc func() time.Time) error {
+func undeleteFakeContents(ctx context.Context, t *testing.T, m *indexBlobManagerV0, deleted map[string]bool, timeFunc func() time.Time) error {
 	t.Helper()
 
 	if len(deleted) == 0 {
@@ -588,7 +588,7 @@ func undeleteFakeContents(ctx context.Context, t *testing.T, m indexBlobManager,
 	return err
 }
 
-func writeFakeContents(ctx context.Context, t *testing.T, m indexBlobManager, prefix string, count int, numWritten *int, timeFunc func() time.Time) error {
+func writeFakeContents(ctx context.Context, t *testing.T, m *indexBlobManagerV0, prefix string, count int, numWritten *int, timeFunc func() time.Time) error {
 	t.Helper()
 
 	t.Logf("writeFakeContents()")
@@ -615,7 +615,7 @@ type fakeIndexData struct {
 	Entries  map[string]fakeContentIndexEntry
 }
 
-func writeFakeIndex(ctx context.Context, t *testing.T, m indexBlobManager, ndx map[string]fakeContentIndexEntry) (blob.Metadata, error) {
+func writeFakeIndex(ctx context.Context, t *testing.T, m *indexBlobManagerV0, ndx map[string]fakeContentIndexEntry) (blob.Metadata, error) {
 	t.Helper()
 
 	j, err := json.Marshal(fakeIndexData{
@@ -640,7 +640,7 @@ func writeFakeIndex(ctx context.Context, t *testing.T, m indexBlobManager, ndx m
 
 var errGetAllFakeContentsRetry = errors.New("retry")
 
-func getAllFakeContents(ctx context.Context, t *testing.T, m indexBlobManager) (map[string]fakeContentIndexEntry, []IndexBlobInfo, error) {
+func getAllFakeContents(ctx context.Context, t *testing.T, m *indexBlobManagerV0) (map[string]fakeContentIndexEntry, []IndexBlobInfo, error) {
 	t.Helper()
 
 	allContents, allBlobs, err := getAllFakeContentsInternal(ctx, t, m)
@@ -652,7 +652,7 @@ func getAllFakeContents(ctx context.Context, t *testing.T, m indexBlobManager) (
 	return allContents, allBlobs, err
 }
 
-func getAllFakeContentsInternal(ctx context.Context, t *testing.T, m indexBlobManager) (map[string]fakeContentIndexEntry, []IndexBlobInfo, error) {
+func getAllFakeContentsInternal(ctx context.Context, t *testing.T, m *indexBlobManagerV0) (map[string]fakeContentIndexEntry, []IndexBlobInfo, error) {
 	t.Helper()
 
 	blobs, err := m.listActiveIndexBlobs(ctx)
@@ -715,7 +715,7 @@ func keysWithPrefix(data blobtesting.DataMap, prefix blob.ID) []blob.ID {
 	return res
 }
 
-func mustRegisterCompaction(t *testing.T, m indexBlobManager, inputs, outputs []blob.Metadata) {
+func mustRegisterCompaction(t *testing.T, m *indexBlobManagerV0, inputs, outputs []blob.Metadata) {
 	t.Helper()
 
 	t.Logf("compacting %v to %v", inputs, outputs)
@@ -726,7 +726,7 @@ func mustRegisterCompaction(t *testing.T, m indexBlobManager, inputs, outputs []
 	}
 }
 
-func mustWriteIndexBlob(t *testing.T, m indexBlobManager, data string) blob.Metadata {
+func mustWriteIndexBlob(t *testing.T, m *indexBlobManagerV0, data string) blob.Metadata {
 	t.Helper()
 
 	t.Logf("writing index blob %q", data)
@@ -739,7 +739,7 @@ func mustWriteIndexBlob(t *testing.T, m indexBlobManager, data string) blob.Meta
 	return blobMD
 }
 
-func assertIndexBlobList(t *testing.T, m indexBlobManager, wantMD ...blob.Metadata) {
+func assertIndexBlobList(t *testing.T, m *indexBlobManagerV0, wantMD ...blob.Metadata) {
 	t.Helper()
 
 	var want []blob.ID
@@ -762,7 +762,7 @@ func assertIndexBlobList(t *testing.T, m indexBlobManager, wantMD ...blob.Metada
 	require.ElementsMatch(t, got, want)
 }
 
-func newIndexBlobManagerForTesting(t *testing.T, st blob.Storage, localTimeNow func() time.Time) indexBlobManager {
+func newIndexBlobManagerForTesting(t *testing.T, st blob.Storage, localTimeNow func() time.Time) *indexBlobManagerV0 {
 	t.Helper()
 
 	p := &FormattingOptions{
@@ -780,22 +780,30 @@ func newIndexBlobManagerForTesting(t *testing.T, st blob.Storage, localTimeNow f
 		t.Fatalf("unable to create hash: %v", err)
 	}
 
-	m := &indexBlobManagerImpl{
-		st: ownwrites.NewWrapper(
-			st,
-			blobtesting.NewMapStorage(blobtesting.DataMap{}, nil, nil),
-			[]blob.ID{IndexBlobPrefix, compactionLogBlobPrefix, cleanupBlobPrefix},
-			15*time.Minute,
-		),
-		indexBlobCache: passthroughContentCache{st},
-		crypter: &Crypter{
-			HashFunction: hf,
-			Encryptor:    enc,
+	st = ownwrites.NewWrapper(
+		st,
+		blobtesting.NewMapStorage(blobtesting.DataMap{}, nil, nil),
+		[]blob.ID{IndexBlobPrefix, compactionLogBlobPrefix, cleanupBlobPrefix},
+		15*time.Minute,
+	)
+
+	log := repologging.Printf(t.Logf)("test")
+
+	m := &indexBlobManagerV0{
+		st: st,
+		enc: &encryptedBlobMgr{
+			st:             st,
+			indexBlobCache: passthroughContentCache{st},
+			crypter: &Crypter{
+				HashFunction: hf,
+				Encryptor:    enc,
+			},
+			log: log,
 		},
 		timeNow:      localTimeNow,
 		maxPackSize:  20 << 20,
 		indexVersion: 1,
-		log:          repologging.Printf(t.Logf)("test"),
+		log:          log,
 	}
 
 	return m

@@ -47,7 +47,7 @@ func (bm *WriteManager) CompactIndexes(ctx context.Context, opt CompactOptions) 
 
 // ParseIndexBlob loads entries in a given index blob and returns them.
 func (sm *SharedManager) ParseIndexBlob(ctx context.Context, blobID blob.ID) ([]Info, error) {
-	data, err := sm.indexBlobManager.getIndexBlob(ctx, blobID)
+	data, err := sm.enc.getEncryptedBlob(ctx, blobID)
 	if err != nil {
 		return nil, errors.Wrapf(err, "error getting index %q", blobID)
 	}
