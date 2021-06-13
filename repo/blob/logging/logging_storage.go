@@ -104,6 +104,16 @@ func (s *loggingStorage) DisplayName() string {
 	return s.base.DisplayName()
 }
 
+func (s *loggingStorage) FlushCaches(ctx context.Context) error {
+	t0 := clock.Now()
+	err := s.base.FlushCaches(ctx)
+	dt := clock.Since(t0)
+	s.printf(s.prefix+"FlushCaches()=%#v took %v", err, dt)
+
+	// nolint:wrapcheck
+	return err
+}
+
 // NewWrapper returns a Storage wrapper that logs all storage commands.
 func NewWrapper(wrapped blob.Storage, printf func(msg string, args ...interface{}), prefix string) blob.Storage {
 	return &loggingStorage{base: wrapped, printf: printf, prefix: prefix}

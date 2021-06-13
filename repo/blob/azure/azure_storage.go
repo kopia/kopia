@@ -203,6 +203,10 @@ func (az *azStorage) Close(ctx context.Context) error {
 	return errors.Wrap(az.bucket.Close(), "error closing bucket")
 }
 
+func (az *azStorage) FlushCaches(ctx context.Context) error {
+	return nil
+}
+
 func toBandwidth(bytesPerSecond int) iothrottler.Bandwidth {
 	if bytesPerSecond <= 0 {
 		return iothrottler.Unlimited

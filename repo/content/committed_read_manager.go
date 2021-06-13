@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"os"
+	"path/filepath"
 	"sync/atomic"
 	"time"
 
@@ -12,7 +13,10 @@ import (
 	"github.com/kopia/kopia/internal/buf"
 	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/listcache"
+	"github.com/kopia/kopia/internal/ownwrites"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/blob/filesystem"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/hashing"
 	"github.com/kopia/kopia/repo/logging"
@@ -21,6 +25,10 @@ import (
 // number of bytes to read from each pack index when recovering the index.
 // per-pack indexes are usually short (<100-200 contents).
 const indexRecoverPostambleSize = 8192
+
+const ownWritesCacheDuration = 15 * time.Minute
+
+var cachedIndexBlobPrefixes = []blob.ID{IndexBlobPrefix, compactionLogBlobPrefix, cleanupBlobPrefix}
 
 // SharedManager is responsible for read-only access to committed data.
 type SharedManager struct {
@@ -127,7 +135,7 @@ func (sm *SharedManager) loadPackIndexesUnlocked(ctx context.Context) error {
 		}
 
 		if i > 0 {
-			sm.indexBlobManager.flushCache()
+			sm.indexBlobManager.flushCache(ctx)
 			sm.log.Debugf("encountered NOT_FOUND when loading, sleeping %v before retrying #%v", nextSleepTime, i)
 			time.Sleep(nextSleepTime)
 			nextSleepTime *= 2
@@ -236,6 +244,44 @@ func (sm *SharedManager) IndexBlobs(ctx context.Context, includeInactive bool) (
 	return sm.indexBlobManager.listActiveIndexBlobs(ctx)
 }
 
+func newOwnWritesCache(ctx context.Context, st blob.Storage, caching *CachingOptions) (blob.Storage, error) {
+	cacheSt, err := newCacheBackingStorage(ctx, caching, "own-writes")
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to get list cache backing storage")
+	}
+
+	return ownwrites.NewWrapper(st, cacheSt, cachedIndexBlobPrefixes, ownWritesCacheDuration), nil
+}
+
+func newListCache(ctx context.Context, st blob.Storage, caching *CachingOptions) (blob.Storage, error) {
+	cacheSt, err := newCacheBackingStorage(ctx, caching, "blob-list")
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to get list cache backing storage")
+	}
+
+	return listcache.NewWrapper(st, cacheSt, cachedIndexBlobPrefixes, caching.HMACSecret, time.Duration(caching.MaxListCacheDurationSec)*time.Second), nil
+}
+
+func newCacheBackingStorage(ctx context.Context, caching *CachingOptions, subdir string) (blob.Storage, error) {
+	if caching.CacheDirectory == "" {
+		return nil, nil
+	}
+
+	blobListCacheDir := filepath.Join(caching.CacheDirectory, subdir)
+
+	if _, err := os.Stat(blobListCacheDir); os.IsNotExist(err) {
+		if err := os.MkdirAll(blobListCacheDir, 0o700); err != nil {
+			return nil, errors.Wrap(err, "error creating list cache directory")
+		}
+	}
+
+	// nolint:wrapcheck
+	return filesystem.New(ctx, &filesystem.Options{
+		Path:            blobListCacheDir,
+		DirectoryShards: []int{},
+	})
+}
+
 func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *CachingOptions) error {
 	dataCacheStorage, err := cache.NewStorageOrNil(ctx, caching.CacheDirectory, caching.MaxCacheSizeBytes, "contents")
 	if err != nil {
@@ -262,23 +308,20 @@ func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *Ca
 		return errors.Wrap(err, "unable to initialize metadata cache")
 	}
 
-	listCache, err := newListCache(sm.st, caching, sm.sharedBaseLogger)
-	if err != nil {
-		return errors.Wrap(err, "unable to initialize list cache")
-	}
-
-	// this is test action to allow test to specify custom cache
-	owc, err := newOwnWritesCache(ctx, caching, sm.timeNow, sm.sharedBaseLogger)
+	ownWritesCachingSt, err := newOwnWritesCache(ctx, sm.st, caching)
 	if err != nil {
 		return errors.Wrap(err, "unable to initialize own writes cache")
 	}
 
+	cachedSt, err := newListCache(ctx, ownWritesCachingSt, caching)
+	if err != nil {
+		return errors.Wrap(err, "unable to initialize list cache")
+	}
+
 	sm.indexBlobManager = &indexBlobManagerImpl{
-		st:             sm.st,
+		st:             cachedSt,
 		crypter:        sm.crypter,
 		timeNow:        sm.timeNow,
-		ownWritesCache: owc,
-		listCache:      listCache,
 		indexBlobCache: metadataCache,
 		maxPackSize:    sm.maxPackSize,
 		indexVersion:   sm.indexVersion,

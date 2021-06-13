@@ -177,6 +177,10 @@ func (d *davStorage) Close(ctx context.Context) error {
 	return nil
 }
 
+func (d *davStorage) FlushCaches(ctx context.Context) error {
+	return nil
+}
+
 func isRetriable(err error) bool {
 	var pe *os.PathError
 

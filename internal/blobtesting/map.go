@@ -167,6 +167,10 @@ func (s *mapStorage) DisplayName() string {
 	return "Map"
 }
 
+func (s *mapStorage) FlushCaches(ctx context.Context) error {
+	return nil
+}
+
 // NewMapStorage returns an implementation of Storage backed by the contents of given map.
 // Used primarily for testing.
 func NewMapStorage(data DataMap, keyTime map[blob.ID]time.Time, timeNow func() time.Time) blob.Storage {

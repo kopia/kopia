@@ -22,7 +22,7 @@ type indexBlobManager interface {
 	getIndexBlob(ctx context.Context, blobID blob.ID) ([]byte, error)
 	compact(ctx context.Context, opts CompactOptions) error
 	registerCompaction(ctx context.Context, inputs, outputs []blob.Metadata, maxEventualConsistencySettleTime time.Duration) error
-	flushCache()
+	flushCache(ctx context.Context)
 }
 
 const (
@@ -59,27 +59,11 @@ type cleanupEntry struct {
 type indexBlobManagerImpl struct {
 	st             blob.Storage
 	crypter        *Crypter
-	listCache      *listCache
-	ownWritesCache ownWritesCache
 	timeNow        func() time.Time
 	indexBlobCache contentCache
 	log            logging.Logger
 	maxPackSize    int
 	indexVersion   int
-}
-
-func (m *indexBlobManagerImpl) listAndMergeOwnWrites(ctx context.Context, prefix blob.ID) ([]blob.Metadata, error) {
-	found, err := m.listCache.listBlobs(ctx, prefix)
-	if err != nil {
-		return nil, errors.Wrapf(err, "error listing %v blobs", prefix)
-	}
-
-	merged, err := m.ownWritesCache.merge(ctx, prefix, found)
-	if err != nil {
-		return nil, errors.Wrapf(err, "error merging local writes for %v blobs", prefix)
-	}
-
-	return merged, nil
 }
 
 func (m *indexBlobManagerImpl) listActiveIndexBlobs(ctx context.Context) ([]IndexBlobInfo, error) {
@@ -95,17 +79,19 @@ func (m *indexBlobManagerImpl) listIndexBlobs(ctx context.Context, includeInacti
 
 	var eg errgroup.Group
 
-	// list index and cleanup blobs in parallel and merge with own-writes cache.
+	// list index and cleanup blobs in parallel.
 	eg.Go(func() error {
-		v, err := m.listAndMergeOwnWrites(ctx, compactionLogBlobPrefix)
+		v, err := blob.ListAllBlobs(ctx, m.st, compactionLogBlobPrefix)
 		compactionLogMetadata = v
-		return err
+
+		return errors.Wrap(err, "error listing compaction blobs")
 	})
 
 	eg.Go(func() error {
-		v, err := m.listAndMergeOwnWrites(ctx, IndexBlobPrefix)
+		v, err := blob.ListAllBlobs(ctx, m.st, IndexBlobPrefix)
 		storageIndexBlobs = v
-		return err
+
+		return errors.Wrap(err, "error listing index blobs")
 	})
 
 	if err := eg.Wait(); err != nil {
@@ -143,9 +129,10 @@ func (m *indexBlobManagerImpl) listIndexBlobs(ctx context.Context, includeInacti
 	return results, nil
 }
 
-func (m *indexBlobManagerImpl) flushCache() {
-	m.listCache.deleteListCache(IndexBlobPrefix)
-	m.listCache.deleteListCache(compactionLogBlobPrefix)
+func (m *indexBlobManagerImpl) flushCache(ctx context.Context) {
+	if err := m.st.FlushCaches(ctx); err != nil {
+		m.log.Debugf("error flushing caches: %v", err)
+	}
 }
 
 func (m *indexBlobManagerImpl) compact(ctx context.Context, opt CompactOptions) error {
@@ -221,8 +208,6 @@ func (m *indexBlobManagerImpl) encryptAndWriteBlob(ctx context.Context, data []b
 		return blob.Metadata{}, errors.Wrap(err, "error encrypting")
 	}
 
-	m.listCache.deleteListCache(prefix)
-
 	err = m.st.PutBlob(ctx, blobID, gather.FromSlice(data2))
 	if err != nil {
 		m.log.Debugf("write-index-blob %v failed %v", blobID, err)
@@ -236,10 +221,6 @@ func (m *indexBlobManagerImpl) encryptAndWriteBlob(ctx context.Context, data []b
 	}
 
 	m.log.Debugf("write-index-blob %v %v %v", blobID, bm.Length, bm.Timestamp)
-
-	if err := m.ownWritesCache.add(ctx, bm); err != nil {
-		m.log.Errorf("own-writes-cache failure: %v", err)
-	}
 
 	return bm, nil
 }
@@ -301,7 +282,7 @@ func (m *indexBlobManagerImpl) getCleanupEntries(ctx context.Context, latestServ
 }
 
 func (m *indexBlobManagerImpl) deleteOldBlobs(ctx context.Context, latestBlob blob.Metadata, maxEventualConsistencySettleTime time.Duration) error {
-	allCompactionLogBlobs, err := m.listCache.listBlobs(ctx, compactionLogBlobPrefix)
+	allCompactionLogBlobs, err := blob.ListAllBlobs(ctx, m.st, compactionLogBlobPrefix)
 	if err != nil {
 		return errors.Wrap(err, "error listing compaction log blobs")
 	}
@@ -411,17 +392,13 @@ func (m *indexBlobManagerImpl) deleteBlobsFromStorageAndCache(ctx context.Contex
 		}
 
 		m.log.Debugf("delete-blob succeeded %v", blobID)
-
-		if err := m.ownWritesCache.delete(ctx, blobID); err != nil {
-			return errors.Wrapf(err, "unable to delete blob %v from own-writes cache", blobID)
-		}
 	}
 
 	return nil
 }
 
 func (m *indexBlobManagerImpl) cleanup(ctx context.Context, maxEventualConsistencySettleTime time.Duration) error {
-	allCleanupBlobs, err := m.listCache.listBlobs(ctx, cleanupBlobPrefix)
+	allCleanupBlobs, err := blob.ListAllBlobs(ctx, m.st, cleanupBlobPrefix)
 	if err != nil {
 		return errors.Wrap(err, "error listing cleanup blobs")
 	}
@@ -452,7 +429,7 @@ func (m *indexBlobManagerImpl) cleanup(ctx context.Context, maxEventualConsisten
 		return errors.Wrap(err, "unable to delete cleanup blobs")
 	}
 
-	m.flushCache()
+	m.flushCache(ctx)
 
 	return nil
 }

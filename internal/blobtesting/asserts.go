@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/repo/blob"
 )
@@ -143,6 +144,22 @@ func AssertListResults(ctx context.Context, t *testing.T, s blob.Storage, prefix
 	if !reflect.DeepEqual(names, want) {
 		t.Errorf("ListBlobs(%v) returned %v, but wanted %v", prefix, names, want)
 	}
+}
+
+// AssertListResultsIDs asserts that the list results with given prefix return the specified list of names.
+func AssertListResultsIDs(ctx context.Context, t *testing.T, s blob.Storage, prefix blob.ID, want ...blob.ID) {
+	t.Helper()
+
+	var names []blob.ID
+
+	if err := s.ListBlobs(ctx, prefix, func(m blob.Metadata) error {
+		names = append(names, m.BlobID)
+		return nil
+	}); err != nil {
+		t.Errorf("err: %v", err)
+	}
+
+	require.ElementsMatch(t, names, want)
 }
 
 func sorted(s []blob.ID) []blob.ID {

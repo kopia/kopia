@@ -204,6 +204,10 @@ func (s *s3Storage) DisplayName() string {
 	return fmt.Sprintf("S3: %v %v", s.Endpoint, s.BucketName)
 }
 
+func (s *s3Storage) FlushCaches(ctx context.Context) error {
+	return nil
+}
+
 func toBandwidth(bytesPerSecond int) iothrottler.Bandwidth {
 	if bytesPerSecond <= 0 {
 		return iothrottler.Unlimited
