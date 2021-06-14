@@ -54,14 +54,6 @@ type indexBlobManagerV0 struct {
 }
 
 func (m *indexBlobManagerV0) listActiveIndexBlobs(ctx context.Context) ([]IndexBlobInfo, error) {
-	return m.listIndexBlobs(ctx, false)
-}
-
-func (m *indexBlobManagerV0) listAllIndexBlobs(ctx context.Context) ([]IndexBlobInfo, error) {
-	return m.listIndexBlobs(ctx, true)
-}
-
-func (m *indexBlobManagerV0) listIndexBlobs(ctx context.Context, includeInactive bool) ([]IndexBlobInfo, error) {
 	var compactionLogMetadata, storageIndexBlobs []blob.Metadata
 
 	var eg errgroup.Group
@@ -102,7 +94,7 @@ func (m *indexBlobManagerV0) listIndexBlobs(ctx context.Context, includeInactive
 	}
 
 	// remove entries from indexMap that have been compacted and replaced by other indexes.
-	m.removeCompactedIndexes(indexMap, compactionLogs, includeInactive)
+	m.removeCompactedIndexes(indexMap, compactionLogs)
 
 	var results []IndexBlobInfo
 	for _, v := range indexMap {
@@ -533,7 +525,7 @@ func blobsOlderThan(m []blob.Metadata, cutoffTime time.Time) []blob.Metadata {
 	return res
 }
 
-func (m *indexBlobManagerV0) removeCompactedIndexes(bimap map[blob.ID]*IndexBlobInfo, compactionLogs map[blob.ID]*compactionLogEntry, markAsSuperseded bool) {
+func (m *indexBlobManagerV0) removeCompactedIndexes(bimap map[blob.ID]*IndexBlobInfo, compactionLogs map[blob.ID]*compactionLogEntry) {
 	var validCompactionLogs []*compactionLogEntry
 
 	for _, cl := range compactionLogs {
@@ -561,11 +553,7 @@ func (m *indexBlobManagerV0) removeCompactedIndexes(bimap map[blob.ID]*IndexBlob
 			if md := bimap[ib.BlobID]; md != nil && md.Superseded == nil {
 				m.log.Debugf("ignore-index-blob %v compacted to %v", ib, cl.OutputMetadata)
 
-				if markAsSuperseded {
-					md.Superseded = cl.OutputMetadata
-				} else {
-					delete(bimap, ib.BlobID)
-				}
+				delete(bimap, ib.BlobID)
 			}
 		}
 	}

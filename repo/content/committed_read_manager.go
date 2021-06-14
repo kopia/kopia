@@ -34,7 +34,6 @@ var cachedIndexBlobPrefixes = []blob.ID{IndexBlobPrefix, compactionLogBlobPrefix
 type indexBlobManager interface {
 	writeIndexBlob(ctx context.Context, data []byte, sessionID SessionID) (blob.Metadata, error)
 	listActiveIndexBlobs(ctx context.Context) ([]IndexBlobInfo, error)
-	listAllIndexBlobs(ctx context.Context) ([]IndexBlobInfo, error)
 	compact(ctx context.Context, opts CompactOptions) error
 	flushCache(ctx context.Context)
 }
@@ -246,8 +245,22 @@ func (sm *SharedManager) decryptAndVerify(encrypted, iv []byte) ([]byte, error) 
 // IndexBlobs returns the list of active index blobs.
 func (sm *SharedManager) IndexBlobs(ctx context.Context, includeInactive bool) ([]IndexBlobInfo, error) {
 	if includeInactive {
-		// nolint:wrapcheck
-		return sm.indexBlobManager.listAllIndexBlobs(ctx)
+		var result []IndexBlobInfo
+
+		prefixes := []blob.ID{IndexBlobPrefix}
+
+		for _, prefix := range prefixes {
+			blobs, err := blob.ListAllBlobs(ctx, sm.st, prefix)
+			if err != nil {
+				return nil, errors.Wrapf(err, "error listing %v blogs", prefix)
+			}
+
+			for _, bm := range blobs {
+				result = append(result, IndexBlobInfo{Metadata: bm})
+			}
+		}
+
+		return result, nil
 	}
 
 	// nolint:wrapcheck
