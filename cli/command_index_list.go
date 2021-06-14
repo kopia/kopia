@@ -34,7 +34,7 @@ func (c *commandIndexList) run(ctx context.Context, rep repo.DirectRepository) e
 	jl.begin(&c.jo)
 	defer jl.end()
 
-	blks, err := rep.IndexBlobReader().IndexBlobs(ctx, c.blockIndexListIncludeSuperseded)
+	blks, err := rep.IndexBlobs(ctx, c.blockIndexListIncludeSuperseded)
 	if err != nil {
 		return errors.Wrap(err, "error listing index blobs")
 	}

@@ -46,13 +46,13 @@ func (bm *WriteManager) CompactIndexes(ctx context.Context, opt CompactOptions) 
 }
 
 // ParseIndexBlob loads entries in a given index blob and returns them.
-func (sm *SharedManager) ParseIndexBlob(ctx context.Context, blobID blob.ID) ([]Info, error) {
-	data, err := sm.indexBlobManager.getIndexBlob(ctx, blobID)
+func ParseIndexBlob(ctx context.Context, blobID blob.ID, data []byte, crypter *Crypter) ([]Info, error) {
+	data, err := crypter.DecryptBLOB(data, blobID)
 	if err != nil {
-		return nil, errors.Wrapf(err, "error getting index %q", blobID)
+		return nil, errors.Wrap(err, "unable to decrypt index blob")
 	}
 
-	index, err := openPackIndex(bytes.NewReader(data), uint32(sm.crypter.Encryptor.Overhead()))
+	index, err := openPackIndex(bytes.NewReader(data), uint32(crypter.Encryptor.Overhead()))
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to open index blob")
 	}

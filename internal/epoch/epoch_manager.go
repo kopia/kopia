@@ -20,6 +20,9 @@ import (
 	"github.com/kopia/kopia/repo/logging"
 )
 
+// LatestEpoch represents the current epoch number in GetCompleteIndexSet.
+const LatestEpoch = -1
+
 // Parameters encapsulates all parameters that influence the behavior of epoch manager.
 type Parameters struct {
 	// how frequently each client will list blobs to determine the current epoch.
@@ -376,11 +379,15 @@ func (e *Manager) Current(ctx context.Context) (int, error) {
 }
 
 // GetCompleteIndexSet returns the set of blobs forming a complete index set up to the provided epoch number.
-func (e *Manager) GetCompleteIndexSet(ctx context.Context, maxEpoch int) ([]blob.ID, error) {
+func (e *Manager) GetCompleteIndexSet(ctx context.Context, maxEpoch int) ([]blob.Metadata, error) {
 	for {
 		cs, err := e.committedState(ctx)
 		if err != nil {
 			return nil, err
+		}
+
+		if maxEpoch == LatestEpoch {
+			maxEpoch = cs.WriteEpoch + 1
 		}
 
 		result, err := e.getCompleteIndexSetForCommittedState(ctx, cs, maxEpoch)
@@ -401,17 +408,17 @@ func (e *Manager) GetCompleteIndexSet(ctx context.Context, maxEpoch int) ([]blob
 	}
 }
 
-func (e *Manager) getCompleteIndexSetForCommittedState(ctx context.Context, cs snapshot, maxEpoch int) ([]blob.ID, error) {
+func (e *Manager) getCompleteIndexSetForCommittedState(ctx context.Context, cs snapshot, maxEpoch int) ([]blob.Metadata, error) {
 	var (
 		startEpoch int
 
 		resultMutex sync.Mutex
-		result      []blob.ID
+		result      []blob.Metadata
 	)
 
 	for i := maxEpoch; i >= 0; i-- {
 		if blobs := cs.FullCheckpointSets[i]; blobs != nil {
-			result = append(result, blob.IDsFromMetadata(blobs)...)
+			result = append(result, blobs...)
 			startEpoch = i + 1
 
 			e.log.Debugf("using full checkpoint at epoch %v", i)
@@ -466,11 +473,11 @@ func (e *Manager) WroteIndex(ctx context.Context, bm blob.Metadata) error {
 	return nil
 }
 
-func (e *Manager) getIndexesFromEpochInternal(ctx context.Context, cs snapshot, epoch int) ([]blob.ID, error) {
+func (e *Manager) getIndexesFromEpochInternal(ctx context.Context, cs snapshot, epoch int) ([]blob.Metadata, error) {
 	// check if the epoch is old enough to possibly have compacted blobs
 	epochSettled := cs.isSettledEpochNumber(epoch)
 	if epochSettled && cs.SingleEpochCompactionSets[epoch] != nil {
-		return blob.IDsFromMetadata(cs.SingleEpochCompactionSets[epoch]), nil
+		return cs.SingleEpochCompactionSets[epoch], nil
 	}
 
 	// load uncompacted blobs for this epoch
@@ -516,7 +523,7 @@ func (e *Manager) getIndexesFromEpochInternal(ctx context.Context, cs snapshot, 
 	}
 
 	// return uncompacted blobs to the caller while we're compacting them in background
-	return blob.IDsFromMetadata(uncompactedBlobs), nil
+	return uncompactedBlobs, nil
 }
 
 func (e *Manager) advanceEpoch(ctx context.Context, newEpoch int) error {
@@ -549,7 +556,7 @@ func (e *Manager) generateFullCheckpointFromCommittedState(ctx context.Context, 
 		return errors.Errorf("not generating full checkpoint - the committed state is no longer valid")
 	}
 
-	if err := e.compact(ctx, completeSet, fullCheckpointBlobPrefix(epoch)); err != nil {
+	if err := e.compact(ctx, blob.IDsFromMetadata(completeSet), fullCheckpointBlobPrefix(epoch)); err != nil {
 		return errors.Wrap(err, "unable to compact blobs")
 	}
 

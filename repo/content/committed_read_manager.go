@@ -30,6 +30,14 @@ const ownWritesCacheDuration = 15 * time.Minute
 
 var cachedIndexBlobPrefixes = []blob.ID{IndexBlobPrefix, compactionLogBlobPrefix, cleanupBlobPrefix}
 
+// indexBlobManager is the API of index blob manager as used by content manager.
+type indexBlobManager interface {
+	writeIndexBlob(ctx context.Context, data []byte, sessionID SessionID) (blob.Metadata, error)
+	listActiveIndexBlobs(ctx context.Context) ([]IndexBlobInfo, error)
+	compact(ctx context.Context, opts CompactOptions) error
+	flushCache(ctx context.Context)
+}
+
 // SharedManager is responsible for read-only access to committed data.
 type SharedManager struct {
 	refCount int32 // number of Manager objects that refer to this SharedManager
@@ -42,6 +50,7 @@ type SharedManager struct {
 	metadataCache     contentCache
 	committedContents *committedContentIndex
 	crypter           *Crypter
+	enc               *encryptedBlobMgr
 	timeNow           func() time.Time
 
 	format                  FormattingOptions
@@ -236,8 +245,22 @@ func (sm *SharedManager) decryptAndVerify(encrypted, iv []byte) ([]byte, error) 
 // IndexBlobs returns the list of active index blobs.
 func (sm *SharedManager) IndexBlobs(ctx context.Context, includeInactive bool) ([]IndexBlobInfo, error) {
 	if includeInactive {
-		// nolint:wrapcheck
-		return sm.indexBlobManager.listAllIndexBlobs(ctx)
+		var result []IndexBlobInfo
+
+		prefixes := []blob.ID{IndexBlobPrefix}
+
+		for _, prefix := range prefixes {
+			blobs, err := blob.ListAllBlobs(ctx, sm.st, prefix)
+			if err != nil {
+				return nil, errors.Wrapf(err, "error listing %v blogs", prefix)
+			}
+
+			for _, bm := range blobs {
+				result = append(result, IndexBlobInfo{Metadata: bm})
+			}
+		}
+
+		return result, nil
 	}
 
 	// nolint:wrapcheck
@@ -318,20 +341,26 @@ func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *Ca
 		return errors.Wrap(err, "unable to initialize list cache")
 	}
 
-	sm.indexBlobManager = &indexBlobManagerImpl{
+	sm.enc = &encryptedBlobMgr{
 		st:             cachedSt,
 		crypter:        sm.crypter,
-		timeNow:        sm.timeNow,
 		indexBlobCache: metadataCache,
-		maxPackSize:    sm.maxPackSize,
-		indexVersion:   sm.indexVersion,
-		log:            logging.WithPrefix("[index-blob-manager] ", sm.sharedBaseLogger),
+		log:            logging.WithPrefix("[encrypted-blob-manager] ", sm.sharedBaseLogger),
+	}
+
+	sm.indexBlobManager = &indexBlobManagerV0{
+		st:           cachedSt,
+		enc:          sm.enc,
+		timeNow:      sm.timeNow,
+		maxPackSize:  sm.maxPackSize,
+		indexVersion: sm.indexVersion,
+		log:          logging.WithPrefix("[index-blob-manager] ", sm.sharedBaseLogger),
 	}
 
 	// once everything is ready, set it up
 	sm.contentCache = dataCache
 	sm.metadataCache = metadataCache
-	sm.committedContents = newCommittedContentIndex(caching, uint32(sm.crypter.Encryptor.Overhead()), sm.indexVersion, sm.indexBlobManager.getIndexBlob, sm.sharedBaseLogger)
+	sm.committedContents = newCommittedContentIndex(caching, uint32(sm.crypter.Encryptor.Overhead()), sm.indexVersion, sm.enc.getEncryptedBlob, sm.sharedBaseLogger)
 
 	return nil
 }

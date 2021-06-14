@@ -53,7 +53,12 @@ func (c *commandIndexInspect) inspectSingleIndexBlob(ctx context.Context, rep re
 		return errors.Wrapf(err, "unable to get metadata for %v", blobID)
 	}
 
-	entries, err := rep.IndexBlobReader().ParseIndexBlob(ctx, blobID)
+	data, err := rep.BlobReader().GetBlob(ctx, blobID, 0, -1)
+	if err != nil {
+		return errors.Wrapf(err, "unable to get data for %v", blobID)
+	}
+
+	entries, err := content.ParseIndexBlob(ctx, blobID, data, rep.Crypter())
 	if err != nil {
 		return errors.Wrapf(err, "unable to recover index from %v", blobID)
 	}

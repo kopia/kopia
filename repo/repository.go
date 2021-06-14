@@ -53,7 +53,7 @@ type DirectRepository interface {
 	ObjectFormat() object.Format
 	BlobReader() blob.Reader
 	ContentReader() content.Reader
-	IndexBlobReader() content.IndexBlobReader
+	IndexBlobs(ctx context.Context, includeInactive bool) ([]content.IndexBlobInfo, error)
 	Crypter() *content.Crypter
 
 	NewDirectWriter(ctx context.Context, opt WriteSessionOptions) (context.Context, DirectRepositoryWriter, error)
@@ -280,9 +280,10 @@ func (r *directRepository) ContentReader() content.Reader {
 	return r.cmgr
 }
 
-// IndexBlobReader returns the index blob reader.
-func (r *directRepository) IndexBlobReader() content.IndexBlobReader {
-	return r.cmgr
+// IndexBlobs returns the index blobs in use.
+func (r *directRepository) IndexBlobs(ctx context.Context, includeInactive bool) ([]content.IndexBlobInfo, error) {
+	// nolint:wrapcheck
+	return r.cmgr.IndexBlobs(ctx, includeInactive)
 }
 
 // Refresh makes external changes visible to repository.
