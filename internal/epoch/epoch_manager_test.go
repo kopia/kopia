@@ -22,8 +22,6 @@ import (
 	"github.com/kopia/kopia/repo/blob/logging"
 )
 
-const verifyAllEpochs = -1
-
 type fakeIndex struct {
 	Entries []int `json:"entries"`
 }
@@ -333,10 +331,10 @@ func TestLateWriteIsIgnored(t *testing.T) {
 	require.NoError(t, err)
 
 	// blobID1 will be included in the index.
-	require.Contains(t, iset, blobID1)
+	require.Contains(t, blob.IDsFromMetadata(iset), blobID1)
 
 	// blobID2 will be excluded from the index.
-	require.NotContains(t, iset, blobID2)
+	require.NotContains(t, blob.IDsFromMetadata(iset), blobID2)
 }
 
 // nolint:thelper
@@ -354,7 +352,7 @@ func verifySequentialWrites(t *testing.T, te *epochManagerTestEnv) {
 		te.mustWriteIndexFile(ctx, t, newFakeIndexWithEntries(indexNum))
 
 		expected.Entries = append(expected.Entries, indexNum)
-		te.verifyCompleteIndexSet(ctx, t, verifyAllEpochs, expected)
+		te.verifyCompleteIndexSet(ctx, t, LatestEpoch, expected)
 
 		dt := randomTime(1*time.Minute, 8*time.Hour)
 		t.Logf("advancing time by %v", dt)
@@ -387,18 +385,11 @@ func randomTime(min, max time.Duration) time.Duration {
 func (te *epochManagerTestEnv) verifyCompleteIndexSet(ctx context.Context, t *testing.T, maxEpoch int, want *fakeIndex) {
 	t.Helper()
 
-	if maxEpoch == verifyAllEpochs {
-		n, err := te.mgr.Current(ctx)
-		require.NoError(t, err)
-
-		maxEpoch = n + 1
-	}
-
 	blobs, err := te.mgr.GetCompleteIndexSet(ctx, maxEpoch)
 	t.Logf("complete set length: %v", len(blobs))
 	require.NoError(t, err)
 
-	merged, err := te.getMergedIndexContents(ctx, blobs)
+	merged, err := te.getMergedIndexContents(ctx, blob.IDsFromMetadata(blobs))
 	require.NoError(t, err)
 	require.Equal(t, want.Entries, merged.Entries)
 }
