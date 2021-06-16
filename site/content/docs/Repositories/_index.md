@@ -17,6 +17,8 @@ A repository is a place where Kopia stores its snapshot data. Kopia currently su
 
 In addition, Kopia can connect to a [Kopia Repository Server](/docs/repository-server/) that acts as a proxy for the storage backend.
 
+Many storage providers offer products with a variety of "tiers" suitable for different use cases. Choosing appropriate storage tiers may result in lower costs depending on, for example, how frequently data needs to be retrieved. See [Storage Tiers](/docs/advanced/storage-tiers/) for further details.
+
 ## Google Cloud Storage
 
 Google Cloud Storage is a globally unified, scalable, and highly durable object storage for developers and enterprises.
