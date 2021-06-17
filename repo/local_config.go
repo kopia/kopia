@@ -15,6 +15,8 @@ import (
 	"github.com/kopia/kopia/repo/object"
 )
 
+const configDirMode = 0o700
+
 // ClientOptions contains client-specific options that are persisted in local configuration file.
 type ClientOptions struct {
 	Hostname string `json:"hostname"`
@@ -109,7 +111,7 @@ func (lc *LocalConfig) writeToFile(filename string) error {
 		return errors.Wrap(err, "error creating config file contents")
 	}
 
-	if err = os.MkdirAll(filepath.Dir(filename), 0o700); err != nil {
+	if err = os.MkdirAll(filepath.Dir(filename), configDirMode); err != nil {
 		return errors.Wrap(err, "unable to create config directory")
 	}
 

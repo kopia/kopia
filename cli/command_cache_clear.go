@@ -7,6 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/retry"
 	"github.com/kopia/kopia/repo"
 )
@@ -59,7 +60,7 @@ func clearCacheDirectory(ctx context.Context, d string) error {
 		return errors.Wrap(err, "error removing cache directory")
 	}
 
-	if err := os.MkdirAll(d, 0o700); err != nil {
+	if err := os.MkdirAll(d, cache.DirMode); err != nil {
 		return errors.Wrap(err, "error creating cache directory")
 	}
 

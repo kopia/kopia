@@ -18,7 +18,10 @@ import (
 	"github.com/kopia/kopia/repo/logging"
 )
 
-const manifestLoadParallelism = 8
+const (
+	manifestLoadParallelism = 8
+	manifestIDLength        = 16
+)
 
 var log = logging.GetContextLoggerFunc("kopia/manifest")
 
@@ -66,7 +69,7 @@ func (m *Manager) Put(ctx context.Context, labels map[string]string, payload int
 		return "", errors.Errorf("'type' label is required")
 	}
 
-	random := make([]byte, 16)
+	random := make([]byte, manifestIDLength)
 	if _, err := rand.Read(random); err != nil {
 		return "", errors.Wrap(err, "can't initialize randomness")
 	}

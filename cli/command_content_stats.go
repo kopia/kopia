@@ -48,7 +48,9 @@ func (c *commandContentStats) run(ctx context.Context, rep repo.DirectRepository
 
 	sizeToString := units.BytesStringBase10
 	if c.raw {
-		sizeToString = func(l int64) string { return strconv.FormatInt(l, 10) }
+		sizeToString = func(l int64) string {
+			return strconv.FormatInt(l, 10) // nolint:gomnd
+		}
 	}
 
 	c.out.printStdout("Count: %v\n", grandTotal.count)

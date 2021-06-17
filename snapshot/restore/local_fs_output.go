@@ -17,9 +17,11 @@ import (
 	"github.com/kopia/kopia/snapshot"
 )
 
-const modBits = os.ModePerm | os.ModeSetgid | os.ModeSetuid | os.ModeSticky
-
-const maxTimeDeltaToConsiderFileTheSame = 2 * time.Second
+const (
+	modBits                           = os.ModePerm | os.ModeSetgid | os.ModeSetuid | os.ModeSticky
+	outputDirMode                     = 0o700 // default mode to create directories in before setting their ACLs
+	maxTimeDeltaToConsiderFileTheSame = 2 * time.Second
+)
 
 // FilesystemOutput contains the options for outputting a file system tree.
 type FilesystemOutput struct {
@@ -279,7 +281,7 @@ func (o *FilesystemOutput) createDirectory(ctx context.Context, path string) err
 	switch stat, err := os.Stat(path); {
 	case os.IsNotExist(err):
 		// nolint:wrapcheck
-		return os.MkdirAll(path, 0o700)
+		return os.MkdirAll(path, outputDirMode)
 	case err != nil:
 		return errors.Wrap(err, "failed to stat path "+path)
 	case stat.Mode().IsDir():

@@ -175,6 +175,7 @@ func runActionCommand(
 func parseCaptures(v []byte, captures map[string]string) error {
 	s := bufio.NewScanner(bytes.NewReader(v))
 	for s.Scan() {
+		// nolint:gomnd
 		l := strings.SplitN(s.Text(), "=", 2)
 		if len(l) <= 1 {
 			continue

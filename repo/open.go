@@ -96,6 +96,7 @@ func getContentCacheOrNil(ctx context.Context, opt *content.CachingOptions, pass
 	// derive content cache key from the password & HMAC secret using scrypt.
 	salt := append([]byte("content-cache-protection"), opt.HMACSecret...)
 
+	// nolint:gomnd
 	cacheEncryptionKey, err := scrypt.Key([]byte(password), salt, 65536, 8, 1, 32)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to derive cache encryption key from password")
@@ -190,6 +191,7 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 		return nil, ErrInvalidPassword
 	}
 
+	// nolint:gomnd
 	caching.HMACSecret = deriveKeyFromMasterKey(masterKey, f.UniqueID, []byte("local-cache-integrity"), 16)
 
 	fo := &repoConfig.FormattingOptions
@@ -282,7 +284,7 @@ func readAndCacheFormatBlobBytes(ctx context.Context, st blob.Storage, cacheDire
 	cachedFile := filepath.Join(cacheDirectory, "kopia.repository")
 
 	if cacheDirectory != "" {
-		if err := os.MkdirAll(cacheDirectory, 0o700); err != nil && !os.IsExist(err) {
+		if err := os.MkdirAll(cacheDirectory, cache.DirMode); err != nil && !os.IsExist(err) {
 			log(ctx).Errorf("unable to create cache directory: %v", err)
 		}
 

@@ -13,6 +13,8 @@ import (
 
 const chacha20poly1305hmacSha256EncryptorOverhead = 28
 
+const chacha20KeyDerivationSecretSize = 32
+
 type chacha20poly1305hmacSha256Encryptor struct {
 	hmacPool *sync.Pool
 }
@@ -60,7 +62,7 @@ func (e chacha20poly1305hmacSha256Encryptor) Overhead() int {
 
 func init() {
 	Register("CHACHA20-POLY1305-HMAC-SHA256", "CHACHA20-POLY1305 using per-content key generated using HMAC-SHA256", false, func(p Parameters) (Encryptor, error) {
-		keyDerivationSecret, err := deriveKey(p, []byte(purposeEncryptionKey), 32)
+		keyDerivationSecret, err := deriveKey(p, []byte(purposeEncryptionKey), chacha20KeyDerivationSecretSize)
 		if err != nil {
 			return nil, err
 		}

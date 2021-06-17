@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/exp/mmap"
 
+	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/logging"
 )
@@ -115,7 +116,7 @@ func writeTempFileAtomic(dirname string, data []byte) (string, error) {
 	tf, err := ioutil.TempFile(dirname, "tmp")
 	if err != nil {
 		if os.IsNotExist(err) {
-			os.MkdirAll(dirname, 0o700) //nolint:errcheck
+			os.MkdirAll(dirname, cache.DirMode) //nolint:errcheck
 			tf, err = ioutil.TempFile(dirname, "tmp")
 		}
 	}

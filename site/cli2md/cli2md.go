@@ -20,8 +20,13 @@ import (
 var baseDir = "content/docs/Reference/Command-Line"
 
 const (
-	advancedSection = "Advanced"
-	commonSection   = "Common"
+	advancedSection        = "Advanced"
+	advancedCommandsWeight = 6
+
+	commonSection        = "Common"
+	commonCommandsWeight = 5
+
+	dirMode = 0o750
 )
 
 var overrideDefault = map[string]string{
@@ -140,7 +145,8 @@ weight: 3
 
 func generateCommands(app *kingpin.ApplicationModel, section string, weight int, advanced bool) error {
 	dir := filepath.Join(baseDir, section)
-	if err := os.MkdirAll(dir, 0o750); err != nil {
+
+	if err := os.MkdirAll(dir, dirMode); err != nil {
 		return errors.Wrapf(err, "error creating section directory for %v", section)
 	}
 
@@ -293,11 +299,11 @@ func main() {
 		log.Fatalf("unable to generate common flags: %v", err)
 	}
 
-	if err := generateCommands(app, commonSection, 5, false); err != nil {
+	if err := generateCommands(app, commonSection, commonCommandsWeight, false); err != nil {
 		log.Fatalf("unable to generate common commands: %v", err)
 	}
 
-	if err := generateCommands(app, advancedSection, 6, true); err != nil {
+	if err := generateCommands(app, advancedSection, advancedCommandsWeight, true); err != nil {
 		log.Fatalf("unable to generate advanced commands: %v", err)
 	}
 }

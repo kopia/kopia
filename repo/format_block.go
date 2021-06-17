@@ -209,8 +209,8 @@ func (f *formatBlob) decryptFormatBytes(masterKey []byte) (*repositoryObjectForm
 }
 
 func initCrypto(masterKey, repositoryID []byte) (cipher.AEAD, []byte, error) {
-	aesKey := deriveKeyFromMasterKey(masterKey, repositoryID, purposeAESKey, 32)
-	authData := deriveKeyFromMasterKey(masterKey, repositoryID, purposeAuthData, 32)
+	aesKey := deriveKeyFromMasterKey(masterKey, repositoryID, purposeAESKey, 32)     // nolint:gomnd
+	authData := deriveKeyFromMasterKey(masterKey, repositoryID, purposeAuthData, 32) // nolint:gomnd
 
 	blk, err := aes.NewCipher(aesKey)
 	if err != nil {

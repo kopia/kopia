@@ -26,6 +26,8 @@ import (
 	"github.com/kopia/kopia/repo"
 )
 
+const serverRandomPasswordLength = 32
+
 type commandServerStart struct {
 	co connectOptions
 
@@ -301,7 +303,7 @@ func (c *commandServerStart) getAuthenticator(ctx context.Context) (auth.Authent
 
 	case c.serverStartRandomPassword:
 		// generate very long random one-time password
-		b := make([]byte, 32)
+		b := make([]byte, serverRandomPasswordLength)
 		io.ReadFull(rand.Reader, b) //nolint:errcheck
 
 		randomPassword := hex.EncodeToString(b)

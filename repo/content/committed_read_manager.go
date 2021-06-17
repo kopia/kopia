@@ -293,7 +293,7 @@ func newCacheBackingStorage(ctx context.Context, caching *CachingOptions, subdir
 	blobListCacheDir := filepath.Join(caching.CacheDirectory, subdir)
 
 	if _, err := os.Stat(blobListCacheDir); os.IsNotExist(err) {
-		if err := os.MkdirAll(blobListCacheDir, 0o700); err != nil {
+		if err := os.MkdirAll(blobListCacheDir, cache.DirMode); err != nil {
 			return nil, errors.Wrap(err, "error creating list cache directory")
 		}
 	}

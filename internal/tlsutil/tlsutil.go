@@ -24,6 +24,11 @@ import (
 	"github.com/kopia/kopia/repo/logging"
 )
 
+const (
+	privateKeyFileMode  = 0o600
+	certificateFileMode = 0o600
+)
+
 var log = logging.GetContextLoggerFunc("tls")
 
 // GenerateServerCertificate generates random TLS certificate and key.
@@ -38,6 +43,7 @@ func GenerateServerCertificate(ctx context.Context, keySize int, certValid time.
 	notBefore := clock.Now()
 	notAfter := notBefore.Add(certValid)
 
+	// nolint:gomnd
 	serialNumber, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "unable to generate serial number")
@@ -81,7 +87,7 @@ func GenerateServerCertificate(ctx context.Context, keySize int, certValid time.
 
 // WritePrivateKeyToFile writes the private key to a given file.
 func WritePrivateKeyToFile(fname string, priv *rsa.PrivateKey) error {
-	f, err := os.OpenFile(fname, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600) //nolint:gosec
+	f, err := os.OpenFile(fname, os.O_RDWR|os.O_CREATE|os.O_TRUNC, privateKeyFileMode) //nolint:gosec
 	if err != nil {
 		return errors.Wrap(err, "error opening private key file")
 	}
@@ -101,7 +107,7 @@ func WritePrivateKeyToFile(fname string, priv *rsa.PrivateKey) error {
 
 // WriteCertificateToFile writes the certificate to a given file.
 func WriteCertificateToFile(fname string, cert *x509.Certificate) error {
-	f, err := os.OpenFile(fname, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600) //nolint:gosec
+	f, err := os.OpenFile(fname, os.O_RDWR|os.O_CREATE|os.O_TRUNC, certificateFileMode) //nolint:gosec
 	if err != nil {
 		return errors.Wrap(err, "error opening certificate file")
 	}

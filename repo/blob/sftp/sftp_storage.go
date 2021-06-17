@@ -28,8 +28,9 @@ import (
 var log = logging.GetContextLoggerFunc("sftp")
 
 const (
-	sftpStorageType      = "sftp"
-	fsStorageChunkSuffix = ".f"
+	sftpStorageType         = "sftp"
+	fsStorageChunkSuffix    = ".f"
+	tempFileRandomSuffixLen = 8
 
 	packetSize = 1 << 15
 )
@@ -109,7 +110,7 @@ func (s *sftpImpl) GetMetadataFromPath(ctx context.Context, dirPath, fullPath st
 }
 
 func (s *sftpImpl) PutBlobInPath(ctx context.Context, dirPath, fullPath string, data blob.Bytes) error {
-	randSuffix := make([]byte, 8)
+	randSuffix := make([]byte, tempFileRandomSuffixLen)
 	if _, err := rand.Read(randSuffix); err != nil {
 		return errors.Wrap(err, "can't get random bytes")
 	}

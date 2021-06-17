@@ -514,9 +514,7 @@ func TestSnapshotCreateWithIgnore(t *testing.T) {
 				if !strings.HasSuffix(ex, "/") {
 					for d, _ := path.Split(ex); d != ""; d, _ = path.Split(d) {
 						expected = appendIfMissing(expected, d)
-						if strings.HasSuffix(d, "/") {
-							d = d[:len(d)-1]
-						}
+						d = strings.TrimSuffix(d, "/")
 					}
 				}
 			}

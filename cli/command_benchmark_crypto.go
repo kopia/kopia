@@ -56,8 +56,8 @@ func (c *commandBenchmarkCrypto) run(ctx context.Context) error {
 			cr, err := content.CreateCrypter(&content.FormattingOptions{
 				Encryption: ea,
 				Hash:       ha,
-				MasterKey:  make([]byte, 32),
-				HMACSecret: make([]byte, 32),
+				MasterKey:  make([]byte, 32), // nolint:gomnd
+				HMACSecret: make([]byte, 32), // nolint:gomnd
 			})
 			if err != nil {
 				continue

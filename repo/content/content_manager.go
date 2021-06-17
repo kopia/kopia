@@ -34,6 +34,8 @@ const (
 
 	defaultEncryptionBufferPoolSegmentSize = 8 << 20 // 8 MB
 
+	packBlobIDLength = 16
+
 	DefaultIndexVersion = 1
 )
 
@@ -597,7 +599,7 @@ func (bm *WriteManager) getOrCreatePendingPackInfoLocked(ctx context.Context, pr
 		return nil, errors.Wrap(err, "unable to get session ID")
 	}
 
-	blobID := make([]byte, 16)
+	blobID := make([]byte, packBlobIDLength)
 	if _, err := cryptorand.Read(blobID); err != nil {
 		return nil, errors.Wrap(err, "unable to read crypto bytes")
 	}

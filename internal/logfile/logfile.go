@@ -24,6 +24,8 @@ import (
 	repologging "github.com/kopia/kopia/repo/logging"
 )
 
+const logsDirMode = 0o700
+
 var contentLogFormat = logging.MustStringFormatter(
 	`%{time:2006-01-02 15:04:05.0000000} %{message}`)
 
@@ -178,7 +180,7 @@ func (c *loggingFlags) setupLogFileBasedLogger(now time.Time, subdir, suffix, lo
 	logDir := filepath.Dir(logFileName)
 	logFileBaseName := filepath.Base(logFileName)
 
-	if err := os.MkdirAll(logDir, 0o700); err != nil {
+	if err := os.MkdirAll(logDir, logsDirMode); err != nil {
 		fmt.Fprintln(os.Stderr, "Unable to create logs directory:", err)
 	}
 
