@@ -24,8 +24,9 @@ import (
 var log = logging.GetContextLoggerFunc("repo/filesystem")
 
 const (
-	fsStorageType        = "filesystem"
-	fsStorageChunkSuffix = ".f"
+	fsStorageType           = "filesystem"
+	fsStorageChunkSuffix    = ".f"
+	tempFileRandomSuffixLen = 8
 
 	fsDefaultFileMode os.FileMode = 0o600
 	fsDefaultDirMode  os.FileMode = 0o700
@@ -147,7 +148,7 @@ func (fs *fsImpl) GetMetadataFromPath(ctx context.Context, dirPath, path string)
 func (fs *fsImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data blob.Bytes) error {
 	// nolint:wrapcheck
 	return retry.WithExponentialBackoffNoValue(ctx, "PutBlobInPath:"+path, func() error {
-		randSuffix := make([]byte, 8)
+		randSuffix := make([]byte, tempFileRandomSuffixLen)
 		if _, err := rand.Read(randSuffix); err != nil {
 			return errors.Wrap(err, "can't get random bytes")
 		}

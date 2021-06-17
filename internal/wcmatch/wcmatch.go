@@ -103,7 +103,7 @@ func NewWildcardMatcher(pattern string, options ...Option) (matcher *WildcardMat
 		p.read()
 	}
 
-	var isPatternRooted bool = p.peek(0) == '/'
+	isPatternRooted := p.peek(0) == '/'
 
 	// Prepend the base directory to the pattern if we have one.
 	if args.BaseDir != "" && pattern != "" {

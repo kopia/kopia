@@ -44,7 +44,7 @@ func RegisterCompressor(name Name, c Compressor) {
 }
 
 func compressionHeader(id HeaderID) []byte {
-	b := make([]byte, 4)
+	b := make([]byte, compressionHeaderSize)
 	binary.BigEndian.PutUint32(b, uint32(id))
 
 	return b

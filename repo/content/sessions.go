@@ -18,6 +18,8 @@ import (
 // Each blob ID will consist of {sessionID}.{suffix}.
 const BlobIDPrefixSession blob.ID = "s"
 
+const sessionIDLength = 8
+
 // SessionID represents identifier of a session.
 type SessionID string
 
@@ -43,7 +45,7 @@ func generateSessionID(now time.Time) (SessionID, error) {
 	// Given number of seconds per month, this allows >1000 sessions per
 	// second before significant probability of collision while keeping the
 	// session identifiers relatively short.
-	r := make([]byte, 8)
+	r := make([]byte, sessionIDLength)
 	if _, err := cryptorand.Read(r); err != nil {
 		return "", errors.Wrap(err, "unable to read crypto bytes")
 	}

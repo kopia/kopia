@@ -71,6 +71,7 @@ func (s *Server) handleContentPut(ctx context.Context, r *http.Request, data []b
 	var comp compression.HeaderID
 
 	if c := r.URL.Query().Get("compression"); c != "" {
+		// nolint:gomnd
 		v, err := strconv.ParseInt(c, 16, 32)
 		if err != nil {
 			return nil, requestError(serverapi.ErrorMalformedRequest, "malformed compression ID")

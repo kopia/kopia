@@ -18,6 +18,8 @@ import (
 	"github.com/kopia/kopia/repo/object"
 )
 
+const dirMode = 0o700
+
 var log = logging.GetContextLoggerFunc("diff")
 
 // Comparer outputs diff information between two filesystems.
@@ -268,7 +270,7 @@ func (c *Comparer) compareFiles(ctx context.Context, f1, f2 fs.File, fname strin
 }
 
 func downloadFile(ctx context.Context, f fs.File, fname string) error {
-	if err := os.MkdirAll(filepath.Dir(fname), 0o700); err != nil {
+	if err := os.MkdirAll(filepath.Dir(fname), dirMode); err != nil {
 		return errors.Wrap(err, "error making directory")
 	}
 

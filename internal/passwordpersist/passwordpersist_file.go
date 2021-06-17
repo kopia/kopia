@@ -12,6 +12,8 @@ import (
 // File is a Strategy that persists the base64-encoded password in a file next to repository config file.
 var File Strategy = filePasswordStorage{}
 
+const passwordFileMode = 0o600
+
 type filePasswordStorage struct{}
 
 func (filePasswordStorage) GetPassword(ctx context.Context, configFile string) (string, error) {
@@ -39,7 +41,7 @@ func (filePasswordStorage) PersistPassword(ctx context.Context, configFile, pass
 	log(ctx).Debugf("Saving password to file %v.", fn)
 
 	// nolint:wrapcheck
-	return ioutil.WriteFile(fn, []byte(base64.StdEncoding.EncodeToString([]byte(password))), 0o600)
+	return ioutil.WriteFile(fn, []byte(base64.StdEncoding.EncodeToString([]byte(password))), passwordFileMode)
 }
 
 func (filePasswordStorage) DeletePassword(ctx context.Context, configFile string) error {

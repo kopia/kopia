@@ -18,6 +18,8 @@ var (
 	retryMaxSleepAmount     = 32 * time.Second
 )
 
+const retryExponent = 1.5
+
 // AttemptFunc performs an attempt and returns a value (optional, may be nil) and an error.
 type AttemptFunc func() (interface{}, error)
 
@@ -28,7 +30,7 @@ type IsRetriableFunc func(err error) bool
 // deemed retriable by the provided function. The delay between retries grows exponentially up to
 // a certain limit.
 func WithExponentialBackoff(ctx context.Context, desc string, attempt AttemptFunc, isRetriableError IsRetriableFunc) (interface{}, error) {
-	return internalRetry(ctx, desc, attempt, isRetriableError, retryInitialSleepAmount, retryMaxSleepAmount, maxAttempts, 1.5)
+	return internalRetry(ctx, desc, attempt, isRetriableError, retryInitialSleepAmount, retryMaxSleepAmount, maxAttempts, retryExponent)
 }
 
 // Periodically runs the provided attempt until it succeeds, waiting given fixed amount between attempts.

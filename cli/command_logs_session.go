@@ -80,6 +80,7 @@ func getLogSessions(ctx context.Context, st blob.Reader) ([]*logSessionInfo, err
 
 		id := parts[2] + "_" + parts[3]
 
+		// nolint:gomnd
 		startTime, err := strconv.ParseInt(parts[4], 10, 64)
 		if err != nil {
 			log(ctx).Errorf("invalid start time - skipping unrecognized log: %v", bm.BlobID)
@@ -88,6 +89,7 @@ func getLogSessions(ctx context.Context, st blob.Reader) ([]*logSessionInfo, err
 			return nil
 		}
 
+		// nolint:gomnd
 		endTime, err := strconv.ParseInt(parts[5], 10, 64)
 		if err != nil {
 			log(ctx).Errorf("invalid end time - skipping unrecognized log: %v", bm.BlobID)
