@@ -495,3 +495,68 @@ func infoDiff(i1, i2 Info, ignore ...string) []string {
 
 	return result
 }
+
+func TestShard(t *testing.T) {
+	b := packIndexBuilder{}
+
+	// generate 10000 IDs in random order
+	ids := make([]int, 10000)
+	for i := range ids {
+		ids[i] = i
+	}
+
+	rand.Shuffle(len(ids), func(i, j int) {
+		ids[i], ids[j] = ids[j], ids[i]
+	})
+
+	// add ID to the builder
+	for _, id := range ids {
+		b.Add(&InfoStruct{
+			ContentID: deterministicContentID("", id),
+		})
+	}
+
+	// verify number of shards
+	verifyAllShardedIDs(t, b.shard(100000), len(b), 1)
+	verifyAllShardedIDs(t, b.shard(100), len(b), 100)
+
+	// sharding will always produce stable results, verify sorted shard lengths here
+	require.ElementsMatch(t,
+		[]int{460, 472, 473, 477, 479, 483, 486, 492, 498, 499, 501, 503, 504, 505, 511, 519, 524, 528, 542, 544},
+		verifyAllShardedIDs(t, b.shard(500), len(b), 20))
+	require.ElementsMatch(t,
+		[]int{945, 964, 988, 988, 993, 1002, 1014, 1017, 1021, 1068},
+		verifyAllShardedIDs(t, b.shard(1000), len(b), 10))
+	require.ElementsMatch(t,
+		[]int{1952, 1995, 2005, 2013, 2035},
+		verifyAllShardedIDs(t, b.shard(2000), len(b), 5))
+}
+
+func verifyAllShardedIDs(t *testing.T, sharded []packIndexBuilder, numTotal, numShards int) []int {
+	t.Helper()
+
+	require.Len(t, sharded, numShards)
+
+	m := map[ID]bool{}
+	for i := 0; i < numTotal; i++ {
+		m[deterministicContentID("", i)] = true
+	}
+
+	cnt := 0
+
+	var lens []int
+
+	for _, s := range sharded {
+		cnt += len(s)
+		lens = append(lens, len(s))
+
+		for _, v := range s {
+			delete(m, v.GetContentID())
+		}
+	}
+
+	require.Equal(t, numTotal, cnt, "invalid total number of sharded elements")
+	require.Empty(t, m)
+
+	return lens
+}

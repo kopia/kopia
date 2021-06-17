@@ -2,6 +2,7 @@ package content
 
 import (
 	"crypto/rand"
+	"hash/fnv"
 	"io"
 	"runtime"
 	"sort"
@@ -139,4 +140,27 @@ func (b packIndexBuilder) BuildStable(output io.Writer, version int) error {
 	default:
 		return errors.Errorf("unsupported index version: %v", version)
 	}
+}
+
+func (b packIndexBuilder) shard(maxShardSize int) []packIndexBuilder {
+	numShards := (len(b) + maxShardSize - 1) / maxShardSize
+	if numShards <= 1 {
+		return []packIndexBuilder{b}
+	}
+
+	result := make([]packIndexBuilder, numShards)
+	for i := range result {
+		result[i] = make(packIndexBuilder)
+	}
+
+	for k, v := range b {
+		h := fnv.New32a()
+		io.WriteString(h, string(k)) // nolint:errcheck
+
+		shard := h.Sum32() % uint32(numShards)
+
+		result[shard][k] = v
+	}
+
+	return result
 }
