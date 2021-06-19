@@ -2,6 +2,7 @@ package epoch
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -13,8 +14,10 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/kopia/kopia/internal/blobtesting"
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/faketime"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/testlogging"
@@ -92,11 +95,12 @@ func newTestEnv(t *testing.T) *epochManagerTestEnv {
 	st = logging.NewWrapper(st, t.Logf, "[STORAGE] ")
 	te := &epochManagerTestEnv{unloggedst: unloggedst, st: st, ft: ft}
 	m := NewManager(te.st, Parameters{
-		EpochRefreshFrequency:                 20 * time.Minute,
-		FullCheckpointFrequency:               7,
-		CleanupSafetyMargin:                   1 * time.Hour,
+		EpochRefreshFrequency:   20 * time.Minute,
+		FullCheckpointFrequency: 7,
+		// increased safety margin because we're moving fake clock very fast
+		CleanupSafetyMargin:                   48 * time.Hour,
 		MinEpochDuration:                      12 * time.Hour,
-		EpochAdvanceOnCountThreshold:          25,
+		EpochAdvanceOnCountThreshold:          15,
 		EpochAdvanceOnTotalSizeBytesThreshold: 20 << 20,
 		DeleteParallelism:                     1,
 	}, te.compact, testlogging.NewTestLogger(t))
@@ -108,12 +112,139 @@ func newTestEnv(t *testing.T) *epochManagerTestEnv {
 	return te
 }
 
+func (te *epochManagerTestEnv) another() *epochManagerTestEnv {
+	te2 := &epochManagerTestEnv{
+		data:          te.data,
+		unloggedst:    te.unloggedst,
+		st:            te.st,
+		ft:            te.ft,
+		faultyStorage: te.faultyStorage,
+	}
+
+	te2.mgr = NewManager(te2.st, te.mgr.Params, te2.compact, te.mgr.log)
+
+	return te2
+}
+
 func TestIndexEpochManager_Regular(t *testing.T) {
 	t.Parallel()
 
 	te := newTestEnv(t)
 
 	verifySequentialWrites(t, te)
+}
+
+func TestIndexEpochManager_Parallel(t *testing.T) {
+	t.Parallel()
+
+	te := newTestEnv(t)
+	ctx := testlogging.Context(t)
+
+	eg, ctx := errgroup.WithContext(ctx)
+
+	// run for 30 seconds of real time or 60 days of fake time which advances much faster
+	endFakeTime := te.ft.NowFunc()().Add(60 * 24 * time.Hour)
+	endTimeReal := clock.Now().Add(30 * time.Second)
+
+	for worker := 1; worker <= 5; worker++ {
+		worker := worker
+		te2 := te.another()
+		indexNum := 1e6 * worker
+
+		eg.Go(func() error {
+			_ = te2
+
+			var (
+				previousEntries      []int
+				writtenEntries       []int
+				blobNotFoundCount    int
+				successfulMergeCount int
+			)
+
+			for te2.ft.NowFunc()().Before(endFakeTime) && clock.Now().Before(endTimeReal) {
+				if err := ctx.Err(); err != nil {
+					return err
+				}
+
+				indexNum++
+
+				var rnd [8]byte
+
+				rand.Read(rnd[:])
+
+				ndx := newFakeIndexWithEntries(indexNum)
+
+				if _, err := te2.mgr.WriteIndex(ctx, blob.ID(fmt.Sprintf("w%vr%x", worker, rnd)), gather.FromSlice(ndx.Bytes())); err != nil {
+					return errors.Wrap(err, "error writing")
+				}
+
+				writtenEntries = append(writtenEntries, indexNum)
+
+				blobs, err := te2.mgr.GetCompleteIndexSet(ctx, LatestEpoch)
+				if err != nil {
+					return errors.Wrap(err, "GetCompleteIndexSet")
+				}
+
+				merged, err := te2.getMergedIndexContents(ctx, blob.IDsFromMetadata(blobs))
+				if err != nil {
+					if errors.Is(err, blob.ErrBlobNotFound) {
+						// ErrBlobNotFound is unavoidable because another thread may decide
+						// to delete some blobs after we compute the index set.
+						blobNotFoundCount++
+						continue
+					}
+
+					return errors.Wrap(err, "getMergedIndexContents")
+				}
+
+				successfulMergeCount++
+
+				if err := verifySuperset(previousEntries, merged.Entries); err != nil {
+					return errors.Wrap(err, "verifySuperset")
+				}
+
+				if err := verifySuperset(writtenEntries, merged.Entries); err != nil {
+					return errors.Wrap(err, "verifySuperset")
+				}
+
+				previousEntries = merged.Entries
+
+				dt := randomTime(1*time.Minute, 3*time.Hour)
+				te2.ft.Advance(dt)
+
+				time.Sleep(100 * time.Millisecond)
+			}
+
+			// allow for 5% of NOT_FOUND races
+			if float64(blobNotFoundCount)/float64(successfulMergeCount) > 0.05 {
+				t.Fatalf("too many not found cases")
+			}
+
+			t.Logf("worker %v wrote %v", worker, indexNum)
+
+			return nil
+		})
+	}
+
+	require.NoError(t, eg.Wait())
+}
+
+// verifySuperset verifies that every element in 'a' is also found in 'b'.
+// Both sets are sorted and unique.
+func verifySuperset(a, b []int) error {
+	nextB := 0
+
+	for _, it := range a {
+		for nextB < len(b) && b[nextB] < it {
+			nextB++
+		}
+
+		if nextB >= len(b) || b[nextB] != it {
+			return errors.Errorf("%v not found", it)
+		}
+	}
+
+	return nil
 }
 
 func TestIndexEpochManager_RogueBlobs(t *testing.T) {
@@ -123,7 +254,7 @@ func TestIndexEpochManager_RogueBlobs(t *testing.T) {
 
 	te.data[epochMarkerIndexBlobPrefix+"zzzz"] = []byte{1}
 	te.data[singleEpochCompactionBlobPrefix+"zzzz"] = []byte{1}
-	te.data[fullCheckpointIndexBlobPrefix+"zzzz"] = []byte{1}
+	te.data[rangeCheckpointIndexBlobPrefix+"zzzz"] = []byte{1}
 
 	verifySequentialWrites(t, te)
 	te.mgr.Cleanup(testlogging.Context(t))
@@ -201,7 +332,7 @@ func TestRefreshRetriesIfTakingTooLong(t *testing.T) {
 	te.faultyStorage.Faults = map[string][]*blobtesting.Fault{
 		"ListBlobs": {
 			&blobtesting.Fault{
-				Repeat: 4, // refresh does 3 lists, so this will cause 2 unsuccessful retries
+				Repeat: 8, // refresh does 7 lists, so this will cause 2 unsuccessful retries
 				ErrCallback: func() error {
 					te.ft.Advance(24 * time.Hour)
 
@@ -253,88 +384,50 @@ func TestGetCompleteIndexSetRetriesIfTookTooLong(t *testing.T) {
 	require.EqualValues(t, 1, *te.mgr.getCompleteIndexSetTooSlow)
 }
 
-func TestLateWriteIsIgnored(t *testing.T) {
+func TestSlowWrite(t *testing.T) {
 	te := newTestEnv(t)
 	defer te.mgr.Flush()
 
 	ctx := testlogging.Context(t)
 
-	// get current epoch number
-	epoch, err := te.mgr.Current(ctx)
-	require.NoError(t, err)
-
-	var rnd [8]byte
-
-	rand.Read(rnd[:])
-
-	blobID1 := blob.ID(fmt.Sprintf("%v%v_%x", uncompactedIndexBlobPrefix, epoch, rnd[:]))
-
-	rand.Read(rnd[:])
-	blobID2 := blob.ID(fmt.Sprintf("%v%v_%x", uncompactedIndexBlobPrefix, epoch, rnd[:]))
-
-	// at this point it's possible that the process hangs for a very long time, during which the
-	// current epoch moves by 2. This would be dangerous, since we'd potentially modify an already
-	// settled epoch.
-	// To verify this, we call WroteIndex() after the write which will fail if the write finished
-	// late. During read we will ignore index files with dates that are too late.
-
-	// simulate process process hanging for a very long time, during which time the epoch moves.
-	for i := 0; i < 30; i++ {
-		te.mustWriteIndexFile(ctx, t, newFakeIndexWithEntries(100+i))
-		te.ft.Advance(time.Hour)
+	te.faultyStorage.Faults = map[string][]*blobtesting.Fault{
+		"PutBlob": {
+			{
+				Repeat: 10,
+				ErrCallback: func() error {
+					te.ft.Advance(24 * time.Hour)
+					return nil
+				},
+			},
+		},
 	}
 
-	// epoch advance is triggered during reads.
-	_, err = te.mgr.GetCompleteIndexSet(ctx, epoch+1)
+	te.mustWriteIndexFile(ctx, t, newFakeIndexWithEntries(1))
+	require.EqualValues(t, 11, *te.mgr.writeIndexTooSlow)
+	te.mustWriteIndexFile(ctx, t, newFakeIndexWithEntries(2))
+	te.verifyCompleteIndexSet(ctx, t, LatestEpoch, newFakeIndexWithEntries(1, 2))
+}
+
+func TestForceAdvanceEpoch(t *testing.T) {
+	te := newTestEnv(t)
+	defer te.mgr.Flush()
+
+	ctx := testlogging.Context(t)
+	cs, err := te.mgr.Current(ctx)
 	require.NoError(t, err)
+	require.Equal(t, 0, cs.WriteEpoch)
 
-	// make sure the epoch has moved
-	epoch2, err := te.mgr.Current(ctx)
+	require.NoError(t, te.mgr.ForceAdvanceEpoch(ctx))
+
+	cs, err = te.mgr.Current(ctx)
 	require.NoError(t, err)
-	require.Equal(t, epoch+1, epoch2)
+	require.Equal(t, 1, cs.WriteEpoch)
 
-	require.NoError(t, te.st.PutBlob(ctx, blobID1, gather.FromSlice([]byte("dummy"))))
-	bm, err := te.unloggedst.GetMetadata(ctx, blobID1)
+	require.NoError(t, te.mgr.ForceAdvanceEpoch(ctx))
 
+	cs, err = te.mgr.Current(ctx)
 	require.NoError(t, err)
-
-	// it's not an error to finish the write in the next epoch.
-	require.NoError(t, te.mgr.WroteIndex(ctx, bm))
-
-	// move the epoch one more.
-	for i := 0; i < 30; i++ {
-		te.mustWriteIndexFile(ctx, t, newFakeIndexWithEntries(100+i))
-		te.ft.Advance(time.Hour)
-	}
-
-	// epoch advance is triggered during reads.
-	_, err = te.mgr.GetCompleteIndexSet(ctx, epoch+2)
-	require.NoError(t, err)
-
-	// make sure the epoch has moved
-	epoch3, err := te.mgr.Current(ctx)
-	require.NoError(t, err)
-	require.Equal(t, epoch+2, epoch3)
-
-	// on Windows the time does not always move forward, give it a nudge.
-	te.ft.Advance(2 * time.Second)
-
-	require.NoError(t, te.st.PutBlob(ctx, blobID2, gather.FromSlice([]byte("dummy"))))
-	bm, err = te.unloggedst.GetMetadata(ctx, blobID2)
-
-	require.NoError(t, err)
-
-	// at this point WroteIndex() will fail because epoch #0 is already settled.
-	require.Error(t, te.mgr.WroteIndex(ctx, bm))
-
-	iset, err := te.mgr.GetCompleteIndexSet(ctx, epoch3)
-	require.NoError(t, err)
-
-	// blobID1 will be included in the index.
-	require.Contains(t, blob.IDsFromMetadata(iset), blobID1)
-
-	// blobID2 will be excluded from the index.
-	require.NotContains(t, blob.IDsFromMetadata(iset), blobID2)
+	require.Equal(t, 2, cs.WriteEpoch)
 }
 
 // nolint:thelper
@@ -419,18 +512,10 @@ func (te *epochManagerTestEnv) getMergedIndexContents(ctx context.Context, blobI
 func (te *epochManagerTestEnv) mustWriteIndexFile(ctx context.Context, t *testing.T, ndx *fakeIndex) {
 	t.Helper()
 
-	epoch, err := te.mgr.Current(ctx)
-	require.NoError(t, err)
-
 	var rnd [8]byte
 
 	rand.Read(rnd[:])
 
-	blobID := blob.ID(fmt.Sprintf("%v%v_%x", uncompactedIndexBlobPrefix, epoch, rnd[:]))
-
-	require.NoError(t, te.st.PutBlob(ctx, blobID, gather.FromSlice(ndx.Bytes())))
-	bm, err := te.unloggedst.GetMetadata(ctx, blobID)
-
+	_, err := te.mgr.WriteIndex(ctx, blob.ID(hex.EncodeToString(rnd[:])), gather.FromSlice(ndx.Bytes()))
 	require.NoError(t, err)
-	require.NoError(t, te.mgr.WroteIndex(ctx, bm))
 }
