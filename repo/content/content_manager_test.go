@@ -302,12 +302,14 @@ func TestContentManagerFailedToWritePack(t *testing.T) {
 	ta := faketime.NewTimeAdvance(fakeTime, 0)
 
 	bm, err := NewManagerForTesting(testlogging.Context(t), st, &FormattingOptions{
-		Version:     1,
-		Hash:        "HMAC-SHA256-128",
-		Encryption:  "AES256-GCM-HMAC-SHA256",
-		MaxPackSize: maxPackSize,
-		HMACSecret:  []byte("foo"),
-		MasterKey:   []byte("0123456789abcdef0123456789abcdef"),
+		Version:    1,
+		Hash:       "HMAC-SHA256-128",
+		Encryption: "AES256-GCM-HMAC-SHA256",
+		MutableParameters: MutableParameters{
+			MaxPackSize: maxPackSize,
+		},
+		HMACSecret: []byte("foo"),
+		MasterKey:  []byte("0123456789abcdef0123456789abcdef"),
 	}, nil, &ManagerOptions{TimeNow: ta.NowFunc()})
 	if err != nil {
 		t.Fatalf("can't create bm: %v", err)
@@ -2035,13 +2037,14 @@ func newTestContentManagerWithTweaks(t *testing.T, st blob.Storage, tweaks *cont
 
 	ctx := testlogging.Context(t)
 	fo := &FormattingOptions{
-		Hash:        "HMAC-SHA256",
-		Encryption:  "AES256-GCM-HMAC-SHA256",
-		HMACSecret:  hmacSecret,
-		MaxPackSize: maxPackSize,
-		Version:     1,
-
-		IndexVersion: tweaks.indexVersion,
+		Hash:       "HMAC-SHA256",
+		Encryption: "AES256-GCM-HMAC-SHA256",
+		HMACSecret: hmacSecret,
+		MutableParameters: MutableParameters{
+			MaxPackSize:  maxPackSize,
+			IndexVersion: tweaks.indexVersion,
+		},
+		Version: 1,
 	}
 
 	bm, err := NewManagerForTesting(ctx, st, fo, &tweaks.CachingOptions, &tweaks.ManagerOptions)

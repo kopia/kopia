@@ -42,11 +42,13 @@ func stressTestWithStorage(t *testing.T, st blob.Storage, duration time.Duration
 
 	openMgr := func() (*content.WriteManager, error) {
 		return content.NewManagerForTesting(ctx, st, &content.FormattingOptions{
-			Version:     1,
-			Hash:        "HMAC-SHA256-128",
-			Encryption:  encryption.DefaultAlgorithm,
-			MaxPackSize: 20000000,
-			MasterKey:   []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
+			Version:    1,
+			Hash:       "HMAC-SHA256-128",
+			Encryption: encryption.DefaultAlgorithm,
+			MutableParameters: content.MutableParameters{
+				MaxPackSize: 20000000,
+			},
+			MasterKey: []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
 		}, nil, nil)
 	}
 
