@@ -63,7 +63,12 @@ func Initialize(ctx context.Context, st blob.Storage, opt *NewRepositoryOptions,
 		return errors.Wrap(err, "unable to derive master key")
 	}
 
-	if err := encryptFormatBytes(format, repositoryObjectFormatFromOptions(opt), masterKey, format.UniqueID); err != nil {
+	f := repositoryObjectFormatFromOptions(opt)
+	if err := f.MutableParameters.Validate(); err != nil {
+		return errors.Wrap(err, "invalid parameters")
+	}
+
+	if err := encryptFormatBytes(format, f, masterKey, format.UniqueID); err != nil {
 		return errors.Wrap(err, "unable to encrypt format bytes")
 	}
 
@@ -89,13 +94,15 @@ func formatBlobFromOptions(opt *NewRepositoryOptions) *formatBlob {
 func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) *repositoryObjectFormat {
 	f := &repositoryObjectFormat{
 		FormattingOptions: content.FormattingOptions{
-			Version:      1,
-			Hash:         applyDefaultString(opt.BlockFormat.Hash, hashing.DefaultAlgorithm),
-			Encryption:   applyDefaultString(opt.BlockFormat.Encryption, encryption.DefaultAlgorithm),
-			HMACSecret:   applyDefaultRandomBytes(opt.BlockFormat.HMACSecret, hmacSecretLength),
-			MasterKey:    applyDefaultRandomBytes(opt.BlockFormat.MasterKey, masterKeyLength),
-			MaxPackSize:  applyDefaultInt(opt.BlockFormat.MaxPackSize, 20<<20), //nolint:gomnd
-			IndexVersion: applyDefaultInt(opt.BlockFormat.IndexVersion, content.DefaultIndexVersion),
+			Version:    1,
+			Hash:       applyDefaultString(opt.BlockFormat.Hash, hashing.DefaultAlgorithm),
+			Encryption: applyDefaultString(opt.BlockFormat.Encryption, encryption.DefaultAlgorithm),
+			HMACSecret: applyDefaultRandomBytes(opt.BlockFormat.HMACSecret, hmacSecretLength),
+			MasterKey:  applyDefaultRandomBytes(opt.BlockFormat.MasterKey, masterKeyLength),
+			MutableParameters: content.MutableParameters{
+				MaxPackSize:  applyDefaultInt(opt.BlockFormat.MaxPackSize, 20<<20), //nolint:gomnd
+				IndexVersion: applyDefaultInt(opt.BlockFormat.IndexVersion, content.DefaultIndexVersion),
+			},
 		},
 		Format: object.Format{
 			Splitter: applyDefaultString(opt.ObjectFormat.Splitter, splitter.DefaultAlgorithm),

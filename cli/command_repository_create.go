@@ -65,9 +65,11 @@ func (c *commandRepositoryCreate) setup(svc advancedAppServices, parent commandP
 func (c *commandRepositoryCreate) newRepositoryOptionsFromFlags() *repo.NewRepositoryOptions {
 	return &repo.NewRepositoryOptions{
 		BlockFormat: content.FormattingOptions{
-			Hash:         c.createBlockHashFormat,
-			Encryption:   c.createBlockEncryptionFormat,
-			IndexVersion: c.createIndexVersion,
+			Hash:       c.createBlockHashFormat,
+			Encryption: c.createBlockEncryptionFormat,
+			MutableParameters: content.MutableParameters{
+				IndexVersion: c.createIndexVersion,
+			},
 		},
 
 		ObjectFormat: object.Format{
