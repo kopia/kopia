@@ -78,7 +78,7 @@ func (kc *KopiaClient) SnapshotCreate(ctx context.Context, key string, val []byt
 		return errors.Wrap(err, "cannot open repository")
 	}
 
-	rw, err := r.NewWriter(ctx, repo.WriteSessionOptions{})
+	ctx, rw, err := r.NewWriter(ctx, repo.WriteSessionOptions{})
 	if err != nil {
 		return errors.Wrap(err, "cannot get new repository writer")
 	}
@@ -157,7 +157,7 @@ func (kc *KopiaClient) SnapshotDelete(ctx context.Context, key string) error {
 		return errors.Wrap(err, "cannot open repository")
 	}
 
-	rw, err := r.NewWriter(ctx, repo.WriteSessionOptions{})
+	ctx, rw, err := r.NewWriter(ctx, repo.WriteSessionOptions{})
 	if err != nil {
 		return errors.Wrap(err, "cannot get new repository writer")
 	}
