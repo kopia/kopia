@@ -6,7 +6,6 @@ import (
 	"context"
 	"log"
 	"os"
-	"path/filepath"
 	"sync"
 
 	"github.com/kopia/kopia/tests/robustness"
@@ -23,8 +22,6 @@ type KopiaPersisterLight struct {
 }
 
 var _ robustness.Persister = (*KopiaPersisterLight)(nil)
-
-const fileName = "data"
 
 // NewPersisterLight returns a new KopiaPersisterLight.
 func NewPersisterLight(baseDir string) (*KopiaPersisterLight, error) {
@@ -52,23 +49,9 @@ func (kpl *KopiaPersisterLight) Store(ctx context.Context, key string, val []byt
 	kpl.waitFor(key)
 	defer kpl.doneWith(key)
 
-	dirPath, filePath := kpl.getPathsFromKey(key)
-
-	if err := os.Mkdir(dirPath, 0o700); err != nil {
-		return err
-	}
-
-	if err := os.WriteFile(filePath, val, 0o700); err != nil {
-		return err
-	}
-
 	log.Println("pushing metadata for", key)
 
-	if err := kpl.kc.SnapshotCreate(context.Background(), dirPath); err != nil {
-		return err
-	}
-
-	return os.RemoveAll(dirPath)
+	return kpl.kc.SnapshotCreate(ctx, key, val)
 }
 
 // Load pulls the key value pair from the Kopia repo and returns the value.
@@ -76,24 +59,9 @@ func (kpl *KopiaPersisterLight) Load(ctx context.Context, key string) ([]byte, e
 	kpl.waitFor(key)
 	defer kpl.doneWith(key)
 
-	dirPath, filePath := kpl.getPathsFromKey(key)
-
 	log.Println("pulling metadata for", key)
 
-	if err := kpl.kc.SnapshotRestore(ctx, dirPath); err != nil {
-		return nil, err
-	}
-
-	val, err := os.ReadFile(filePath)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := os.RemoveAll(dirPath); err != nil {
-		return nil, err
-	}
-
-	return val, nil
+	return kpl.kc.SnapshotRestore(ctx, key)
 }
 
 // Delete deletes all snapshots associated with the given key.
@@ -103,9 +71,7 @@ func (kpl *KopiaPersisterLight) Delete(ctx context.Context, key string) error {
 
 	log.Println("deleting metadata for", key)
 
-	dirPath, _ := kpl.getPathsFromKey(key)
-
-	return kpl.kc.SnapshotDelete(ctx, dirPath)
+	return kpl.kc.SnapshotDelete(ctx, key)
 }
 
 // LoadMetadata is a no-op. It is included to satisfy the Persister interface.
@@ -128,13 +94,6 @@ func (kpl *KopiaPersisterLight) Cleanup() {
 	if err := os.RemoveAll(kpl.baseDir); err != nil {
 		log.Println("cannot remove persistence dir")
 	}
-}
-
-func (kpl *KopiaPersisterLight) getPathsFromKey(key string) (dirPath, filePath string) {
-	dirPath = filepath.Join(kpl.baseDir, key)
-	filePath = filepath.Join(dirPath, fileName)
-
-	return dirPath, filePath
 }
 
 func (kpl *KopiaPersisterLight) waitFor(key string) {

@@ -75,7 +75,7 @@ func (kpl *KopiaPersisterLight) testStoreLoad(ctx context.Context, t *testing.T,
 	assertNoError(t, err)
 
 	if !bytes.Equal(valOut, val) {
-		t.Fatal("loaded value does not equal stored value")
+		t.Fatal("loaded value does not equal stored value", valOut, val)
 	}
 }
 

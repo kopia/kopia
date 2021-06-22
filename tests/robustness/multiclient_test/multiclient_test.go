@@ -51,7 +51,7 @@ func TestManySmallFiles(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	ctx := testlogging.Context(t)
+	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
 	th.RunN(ctx, t, numClients, f)
 }
 
@@ -82,7 +82,7 @@ func TestOneLargeFile(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	ctx := testlogging.Context(t)
+	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
 	th.RunN(ctx, t, numClients, f)
 }
 
@@ -117,7 +117,7 @@ func TestManySmallFilesAcrossDirecoryTree(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	ctx := testlogging.Context(t)
+	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
 	th.RunN(ctx, t, numClients, f)
 }
 
@@ -151,7 +151,7 @@ func TestRandomizedSmall(t *testing.T) {
 		}
 	}
 
-	ctx := testlogging.Context(t)
+	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
 	th.RunN(ctx, t, numClients, f)
 }
 

@@ -29,7 +29,7 @@ func TestManySmallFiles(t *testing.T) {
 		fiofilewriter.MinNumFilesPerWriteField: strconv.Itoa(numFiles),
 	}
 
-	ctx := testlogging.Context(t)
+	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
 
 	_, err := eng.ExecAction(ctx, engine.WriteRandomFilesActionKey, fileWriteOpts)
 	require.NoError(t, err)
@@ -53,7 +53,7 @@ func TestOneLargeFile(t *testing.T) {
 		fiofilewriter.MinNumFilesPerWriteField: strconv.Itoa(numFiles),
 	}
 
-	ctx := testlogging.Context(t)
+	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
 
 	_, err := eng.ExecAction(ctx, engine.WriteRandomFilesActionKey, fileWriteOpts)
 	require.NoError(t, err)
@@ -81,7 +81,7 @@ func TestManySmallFilesAcrossDirecoryTree(t *testing.T) {
 		engine.ActionRepeaterField:             strconv.Itoa(actionRepeats),
 	}
 
-	ctx := testlogging.Context(t)
+	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
 
 	_, err := eng.ExecAction(ctx, engine.WriteRandomFilesActionKey, fileWriteOpts)
 	require.NoError(t, err)
@@ -112,9 +112,8 @@ func TestRandomizedSmall(t *testing.T) {
 		},
 	}
 
+	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
 	for clock.Since(st) <= *randomizedTestDur {
-		ctx := testlogging.Context(t)
-
 		err := eng.RandomAction(ctx, opts)
 		if errors.Is(err, robustness.ErrNoOp) {
 			t.Log("Random action resulted in no-op")
