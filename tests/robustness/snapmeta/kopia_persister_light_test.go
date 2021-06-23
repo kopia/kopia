@@ -99,6 +99,17 @@ func TestPersistence(t *testing.T) {
 
 	kpl := initKPL(t, repoPath)
 
+	// Persistence directory should be set.
+	if persistDir := kpl.GetPersistDir(); persistDir == "" {
+		t.Error("could not get persistence directory")
+	}
+
+	// These are no-ops and should always succeed.
+	err = kpl.LoadMetadata()
+	assertNoError(t, err)
+	err = kpl.FlushMetadata()
+	assertNoError(t, err)
+
 	// Store and cleanup kpl
 	err = kpl.Store(ctx, key, val)
 	assertNoError(t, err)
@@ -112,6 +123,24 @@ func TestPersistence(t *testing.T) {
 
 	if !bytes.Equal(valOut, val) {
 		t.Fatal("loaded value does not equal stored value")
+	}
+
+	kpl.Cleanup()
+	os.RemoveAll(repoPath)
+}
+
+func TestS3Connect(t *testing.T) {
+	repoPath, err := os.MkdirTemp("", "kopia-test-repo-")
+	assertNoError(t, err)
+
+	// Test the S3 code path by attempting to connect to a nonexistent bucket.
+	os.Setenv(S3BucketNameEnvKey, "does-not-exist")
+
+	kpl, err := NewPersisterLight("")
+	assertNoError(t, err)
+
+	if err := kpl.ConnectOrCreateRepo(repoPath); err == nil {
+		t.Error("should not be able to connect to nonexistent S3 bucket")
 	}
 
 	kpl.Cleanup()
