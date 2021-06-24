@@ -137,6 +137,8 @@ func writeTempFileAtomic(dirname string, data []byte) (string, error) {
 }
 
 func (c *diskCommittedContentIndexCache) expireUnused(ctx context.Context, used []blob.ID) error {
+	c.log.Debugf("expireUnused (except %v)", used)
+
 	entries, err := ioutil.ReadDir(c.dirname)
 	if err != nil {
 		return errors.Wrap(err, "can't list cache")

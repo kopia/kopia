@@ -386,7 +386,7 @@ func (bm *WriteManager) flushPackIndexesLocked(ctx context.Context) error {
 
 		// if we managed to commit the session marker blobs, the index is now fully committed
 		// and will be visible to others, including blob GC.
-		if err := bm.committedContents.addContent(ctx, indexBlobMD.BlobID, dataCopy, true); err != nil {
+		if err := bm.committedContents.addIndexBlob(ctx, indexBlobMD.BlobID, dataCopy, true); err != nil {
 			return errors.Wrap(err, "unable to add committed content")
 		}
 
@@ -678,6 +678,7 @@ func (bm *WriteManager) GetContent(ctx context.Context, contentID ID) (v []byte,
 
 	pp, bi, err := bm.getContentInfo(contentID)
 	if err != nil {
+		bm.log.Debugf("getContentInfo(%v) error %v", contentID, err)
 		return nil, err
 	}
 
