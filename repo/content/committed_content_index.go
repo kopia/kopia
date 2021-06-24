@@ -65,7 +65,7 @@ func (c *committedContentIndex) getContent(contentID ID) (Info, error) {
 	return nil, err
 }
 
-func (c *committedContentIndex) addContent(ctx context.Context, indexBlobID blob.ID, data []byte, use bool) error {
+func (c *committedContentIndex) addIndexBlob(ctx context.Context, indexBlobID blob.ID, data []byte, use bool) error {
 	atomic.AddInt64(&c.rev, 1)
 
 	if err := c.cache.addContentToCache(ctx, indexBlobID, data); err != nil {
@@ -82,6 +82,8 @@ func (c *committedContentIndex) addContent(ctx context.Context, indexBlobID blob
 	if c.inUse[indexBlobID] != nil {
 		return nil
 	}
+
+	c.log.Debugf("use-new-committed-index %v", indexBlobID)
 
 	ndx, err := c.cache.openIndex(ctx, indexBlobID)
 	if err != nil {
@@ -102,13 +104,13 @@ func (c *committedContentIndex) listContents(r IDRange, cb func(i Info) error) e
 	return m.Iterate(r, cb)
 }
 
-func (c *committedContentIndex) packFilesChanged(packFiles []blob.ID) bool {
-	if len(packFiles) != len(c.inUse) {
+func (c *committedContentIndex) indexFilesChanged(indexFiles []blob.ID) bool {
+	if len(indexFiles) != len(c.inUse) {
 		return true
 	}
 
-	for _, packFile := range packFiles {
-		if c.inUse[packFile] == nil {
+	for _, ndx := range indexFiles {
+		if c.inUse[ndx] == nil {
 			return true
 		}
 	}
@@ -116,7 +118,7 @@ func (c *committedContentIndex) packFilesChanged(packFiles []blob.ID) bool {
 	return false
 }
 
-func (c *committedContentIndex) merge(ctx context.Context, packFiles []blob.ID) (merged mergedIndex, used map[blob.ID]packIndex, finalErr error) {
+func (c *committedContentIndex) merge(ctx context.Context, indexFiles []blob.ID) (merged mergedIndex, used map[blob.ID]packIndex, finalErr error) {
 	used = map[blob.ID]packIndex{}
 
 	defer func() {
@@ -126,7 +128,7 @@ func (c *committedContentIndex) merge(ctx context.Context, packFiles []blob.ID) 
 		}
 	}()
 
-	for _, e := range packFiles {
+	for _, e := range indexFiles {
 		ndx, err := c.cache.openIndex(ctx, e)
 		if err != nil {
 			return nil, nil, errors.Wrapf(err, "unable to open pack index %q", e)
@@ -148,17 +150,19 @@ func (c *committedContentIndex) merge(ctx context.Context, packFiles []blob.ID) 
 	return
 }
 
-// Uses packFiles for indexing. An error is returned if the
+// Uses indexFiles for indexing. An error is returned if the
 // indices cannot be read for any reason.
-func (c *committedContentIndex) use(ctx context.Context, packFiles []blob.ID) error {
+func (c *committedContentIndex) use(ctx context.Context, indexFiles []blob.ID) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if !c.packFilesChanged(packFiles) {
+	if !c.indexFilesChanged(indexFiles) {
 		return nil
 	}
 
-	mergedAndCombined, newInUse, err := c.merge(ctx, packFiles)
+	c.log.Debugf("use-indexes", indexFiles)
+
+	mergedAndCombined, newInUse, err := c.merge(ctx, indexFiles)
 	if err != nil {
 		return err
 	}
@@ -168,8 +172,8 @@ func (c *committedContentIndex) use(ctx context.Context, packFiles []blob.ID) er
 	c.merged = mergedAndCombined
 	c.inUse = newInUse
 
-	if err := c.cache.expireUnused(ctx, packFiles); err != nil {
-		c.log.Errorf("unable to expire unused content index files: %v", err)
+	if err := c.cache.expireUnused(ctx, indexFiles); err != nil {
+		c.log.Errorf("unable to expire unused index files: %v", err)
 	}
 
 	return nil
@@ -249,7 +253,7 @@ func (c *committedContentIndex) fetchIndexBlobs(ctx context.Context, indexBlobs 
 					return errors.Wrapf(err, "error loading index blob %v", indexBlobID)
 				}
 
-				if err := c.addContent(ctx, indexBlobID, data, false); err != nil {
+				if err := c.addIndexBlob(ctx, indexBlobID, data, false); err != nil {
 					return errors.Wrap(err, "unable to add to committed content cache")
 				}
 			}

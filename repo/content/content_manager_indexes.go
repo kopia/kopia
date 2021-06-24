@@ -31,6 +31,11 @@ func (co *CompactOptions) maxEventualConsistencySettleTime() time.Duration {
 
 // CompactIndexes performs compaction of index blobs ensuring that # of small index blobs is below opt.maxSmallBlobs.
 func (bm *WriteManager) CompactIndexes(ctx context.Context, opt CompactOptions) error {
+	// we must hold the lock here to avoid the race with Refresh() which can reload the
+	// current set of indexes while we process them.
+	bm.mu.Lock()
+	defer bm.mu.Unlock()
+
 	bm.log.Debugf("CompactIndexes(%+v)", opt)
 
 	if err := bm.indexBlobManager.compact(ctx, opt); err != nil {
