@@ -91,7 +91,6 @@ followed by the path of the directory for the contents to be restored.
 	unlimitedDepth = math.MaxInt32
 )
 
-// TODO(rjk): I need to push this concept down through the stack.
 type restoreSourceTarget struct {
 	source        string
 	target        string
@@ -205,19 +204,7 @@ func (c *commandRestore) restoreOutput(ctx context.Context) (restore.Output, err
 		return nil, err
 	}
 
-	// TODO(rjk): This is outdated but the general thrust is the same. I need
-	// to add support down into the stack for the restore pairs.
-
-	// TODO(rjk): This is temporary code because I've not yet supported
-	// multi-restore in FilesystemOutput. In particular, I need to add
-	// support to the restore implementation to take in an array of paths
-	// instead of a single path embedded in FilesystemOutput. (A property of
-	// a placeholder is that we can always determine the sourceId given the
-	// placeholder's file.
 	targetpath := c.restores[0].target
-
-	// TODO(rjk): Future work will mean that FilesystemOutput.TargetPath will
-	// be removed in the implementation for expanding multiple placeholders.
 
 	m := c.detectRestoreMode(ctx, c.restoreMode, targetpath)
 	switch m {
@@ -310,83 +297,100 @@ func printRestoreStats(ctx context.Context, st restore.Stats) {
 		maybeSkipped, maybeErrors)
 }
 
+func (c *commandRestore) setupPlaceholderExpansion(ctx context.Context, rep repo.Repository, rstp restoreSourceTarget, output restore.Output) (fs.Entry, error) {
+	rootEntry, err := snapshotfs.GetEntryFromPlaceholder(ctx, rep, localfs.PlaceholderFilePath(rstp.source))
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to get filesystem entry for placeholder %q", rstp.source)
+	}
+
+	fso, ok := output.(*restore.FilesystemOutput)
+	if !ok {
+		return nil, errors.New("placeholder expansion is only relevant to filesystem output")
+	}
+
+	fso.TargetPath = rstp.target
+
+	// restoreShallowAtDepth defaults to 0 when expanding a placeholder.
+	if c.restoreShallowAtDepth == unlimitedDepth {
+		c.restoreShallowAtDepth = 0
+	}
+
+	return rootEntry, nil
+}
+
 func (c *commandRestore) run(ctx context.Context, rep repo.Repository) error {
 	output, oerr := c.restoreOutput(ctx)
 	if oerr != nil {
 		return errors.Wrap(oerr, "unable to initialize output")
 	}
 
-	var rootEntry fs.Entry
+	for _, rstp := range c.restores {
+		var rootEntry fs.Entry
 
-	// TODO(rjk): Loop here to update all of them when there are multiple.
-	if c.restores[0].isplaceholder {
-		re, err := snapshotfs.GetEntryFromPlaceholder(ctx, rep, localfs.PlaceholderFilePath(c.restores[0].source))
+		if rstp.isplaceholder {
+			re, err := c.setupPlaceholderExpansion(ctx, rep, rstp, output)
+			if err != nil {
+				return errors.Wrap(err, "placeholder can't be reified")
+			}
+
+			rootEntry = re
+		} else {
+			re, err := snapshotfs.FilesystemEntryFromIDWithPath(ctx, rep, rstp.source, c.restoreConsistentAttributes)
+			if err != nil {
+				return errors.Wrap(err, "unable to get filesystem entry")
+			}
+
+			rootEntry = re
+		}
+
+		eta := timetrack.Start()
+
+		st, err := restore.Entry(ctx, rep, output, rootEntry, restore.Options{
+			Parallel:               c.restoreParallel,
+			Incremental:            c.restoreIncremental,
+			IgnoreErrors:           c.restoreIgnoreErrors,
+			RestoreDirEntryAtDepth: c.restoreShallowAtDepth,
+			MinSizeForPlaceholder:  c.minSizeForPlaceholder,
+			ProgressCallback: func(ctx context.Context, stats restore.Stats) {
+				restoredCount := stats.RestoredFileCount + stats.RestoredDirCount + stats.RestoredSymlinkCount + stats.SkippedCount
+				enqueuedCount := stats.EnqueuedFileCount + stats.EnqueuedDirCount + stats.EnqueuedSymlinkCount
+
+				if restoredCount == 0 {
+					return
+				}
+
+				var maybeRemaining, maybeSkipped, maybeErrors string
+
+				if est, ok := eta.Estimate(float64(stats.RestoredTotalFileSize), float64(stats.EnqueuedTotalFileSize)); ok {
+					bitsPerSecond := est.SpeedPerSecond * float64(bitsPerByte)
+					maybeRemaining = fmt.Sprintf(" %v (%.1f%%) remaining %v",
+						units.BitsPerSecondsString(bitsPerSecond),
+						est.PercentComplete,
+						est.Remaining)
+				}
+
+				if stats.SkippedCount > 0 {
+					maybeSkipped = fmt.Sprintf(", skipped %v (%v)", stats.SkippedCount, units.BytesStringBase10(stats.SkippedTotalFileSize))
+				}
+
+				if stats.IgnoredErrorCount > 0 {
+					maybeErrors = fmt.Sprintf(", ignored %v errors", stats.IgnoredErrorCount)
+				}
+
+				log(ctx).Infof("Processed %v (%v) of %v (%v)%v%v%v.",
+					restoredCount, units.BytesStringBase10(stats.RestoredTotalFileSize),
+					enqueuedCount, units.BytesStringBase10(stats.EnqueuedTotalFileSize),
+					maybeSkipped,
+					maybeErrors,
+					maybeRemaining)
+			},
+		})
 		if err != nil {
-			return errors.Wrapf(err, "unable to get filesystem entry for placeholder %q", c.restores[0].source)
+			return errors.Wrap(err, "error restoring")
 		}
 
-		rootEntry = re
-
-		// restoreShallowAtDepth defaults to 0 when expanding a placeholder.
-		if c.restoreShallowAtDepth == unlimitedDepth {
-			c.restoreShallowAtDepth = 0
-		}
-	} else {
-		re, err := snapshotfs.FilesystemEntryFromIDWithPath(ctx, rep, c.restores[0].source, c.restoreConsistentAttributes)
-		if err != nil {
-			return errors.Wrap(err, "unable to get filesystem entry")
-		}
-
-		rootEntry = re
+		printRestoreStats(ctx, st)
 	}
-
-	eta := timetrack.Start()
-
-	st, err := restore.Entry(ctx, rep, output, rootEntry, restore.Options{
-		Parallel:               c.restoreParallel,
-		Incremental:            c.restoreIncremental,
-		IgnoreErrors:           c.restoreIgnoreErrors,
-		RestoreDirEntryAtDepth: c.restoreShallowAtDepth,
-		MinSizeForPlaceholder:  c.minSizeForPlaceholder,
-		ProgressCallback: func(ctx context.Context, stats restore.Stats) {
-			restoredCount := stats.RestoredFileCount + stats.RestoredDirCount + stats.RestoredSymlinkCount + stats.SkippedCount
-			enqueuedCount := stats.EnqueuedFileCount + stats.EnqueuedDirCount + stats.EnqueuedSymlinkCount
-
-			if restoredCount == 0 {
-				return
-			}
-
-			var maybeRemaining, maybeSkipped, maybeErrors string
-
-			if est, ok := eta.Estimate(float64(stats.RestoredTotalFileSize), float64(stats.EnqueuedTotalFileSize)); ok {
-				bitsPerSecond := est.SpeedPerSecond * float64(bitsPerByte)
-				maybeRemaining = fmt.Sprintf(" %v (%.1f%%) remaining %v",
-					units.BitsPerSecondsString(bitsPerSecond),
-					est.PercentComplete,
-					est.Remaining)
-			}
-
-			if stats.SkippedCount > 0 {
-				maybeSkipped = fmt.Sprintf(", skipped %v (%v)", stats.SkippedCount, units.BytesStringBase10(stats.SkippedTotalFileSize))
-			}
-
-			if stats.IgnoredErrorCount > 0 {
-				maybeErrors = fmt.Sprintf(", ignored %v errors", stats.IgnoredErrorCount)
-			}
-
-			log(ctx).Infof("Processed %v (%v) of %v (%v)%v%v%v.",
-				restoredCount, units.BytesStringBase10(stats.RestoredTotalFileSize),
-				enqueuedCount, units.BytesStringBase10(stats.EnqueuedTotalFileSize),
-				maybeSkipped,
-				maybeErrors,
-				maybeRemaining)
-		},
-	})
-	if err != nil {
-		return errors.Wrap(err, "error restoring")
-	}
-
-	printRestoreStats(ctx, st)
 
 	return nil
 }
