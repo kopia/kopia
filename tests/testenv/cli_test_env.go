@@ -3,9 +3,7 @@ package testenv
 
 import (
 	"bufio"
-	"fmt"
 	"io"
-	"io/ioutil"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -22,8 +20,6 @@ import (
 const (
 	// TestRepoPassword is a password for repositories created in tests.
 	TestRepoPassword = "qWQPJ2hiiLgWRRCr"
-
-	maxOutputLinesToLog = 4000
 )
 
 // CLIRunner encapsulates running kopia subcommands for testing purposes.
@@ -83,38 +79,6 @@ func NewCLITest(t *testing.T, runner CLIRunner) *CLITest {
 		DefaultRepositoryCreateFlags: formatFlags,
 		Runner:                       runner,
 	}
-}
-
-func dumpLogs(t *testing.T, dirname string) {
-	t.Helper()
-
-	entries, err := ioutil.ReadDir(dirname)
-	if err != nil {
-		t.Errorf("unable to read %v: %v", dirname, err)
-
-		return
-	}
-
-	for _, e := range entries {
-		if e.IsDir() {
-			dumpLogs(t, filepath.Join(dirname, e.Name()))
-			continue
-		}
-
-		dumpLogFile(t, filepath.Join(dirname, e.Name()))
-	}
-}
-
-func dumpLogFile(t *testing.T, fname string) {
-	t.Helper()
-
-	data, err := ioutil.ReadFile(fname)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-
-	t.Logf("LOG FILE: %v %v", fname, trimOutput(string(data)))
 }
 
 // RunAndExpectSuccess runs the given command, expects it to succeed and returns its output lines.
@@ -249,31 +213,4 @@ func (e *CLITest) Run(t *testing.T, expectedError bool, args ...string) (stdout,
 	t.Logf("finished in %v: 'kopia %v'", clock.Since(t0).Milliseconds(), strings.Join(args, " "))
 
 	return stdout, stderr, gotErr
-}
-
-func trimOutput(s string) string {
-	lines := splitLines(s)
-	if len(lines) <= maxOutputLinesToLog {
-		return s
-	}
-
-	lines2 := append([]string(nil), lines[0:(maxOutputLinesToLog/2)]...)
-	lines2 = append(lines2, fmt.Sprintf("/* %v lines removed */", len(lines)-maxOutputLinesToLog))
-	lines2 = append(lines2, lines[len(lines)-(maxOutputLinesToLog/2):]...)
-
-	return strings.Join(lines2, "\n")
-}
-
-func splitLines(s string) []string {
-	s = strings.TrimSpace(s)
-	if s == "" {
-		return nil
-	}
-
-	var result []string
-	for _, l := range strings.Split(s, "\n") {
-		result = append(result, strings.TrimRight(l, "\r"))
-	}
-
-	return result
 }
