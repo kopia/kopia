@@ -5,35 +5,193 @@ import (
 	cryptorand "crypto/rand"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"math/rand"
 	"os"
 	"path/filepath"
-	"runtime"
-	"strings"
-	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/testlogging"
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob/filesystem"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/logging"
+	"github.com/kopia/kopia/tests/repository_stress_test/repomodel"
 )
+
+const (
+	shortStressTestDuration = 10 * time.Second
+	longStressTestDuration  = 120 * time.Second
+)
+
+type actName string
+
+const (
+	actWriteRandomContent = "writeRandomContent"
+	actReadPendingContent = "readPendingContent"
+	actReadFlushContent   = "readFlushedContent"
+
+	actListContents           = "listContents"
+	actListAndReadAllContents = "listAndReadAllContents"
+
+	actCompact = "compact"
+	actFlush   = "flush"
+	actRefresh = "refresh"
+
+	actReadPendingManifest = "readPendingManifest"
+	actReadFlushedManifest = "readFlushedManifest"
+	actWriteRandomManifest = "writeRandomManifest"
+)
+
+var actions = map[actName]func(ctx context.Context, r repo.DirectRepositoryWriter, rs *repomodel.RepositorySession, log logging.Logger) error{
+	actWriteRandomContent:     writeRandomContent,
+	actReadPendingContent:     readPendingContent,
+	actReadFlushContent:       readFlushedContent,
+	actListContents:           listContents,
+	actListAndReadAllContents: listAndReadAllContents,
+	actCompact:                compact,
+	actFlush:                  flush,
+	actRefresh:                refresh,
+	actReadPendingManifest:    readPendingManifest,
+	actReadFlushedManifest:    readFlushedManifest,
+	actWriteRandomManifest:    writeRandomManifest,
+}
+
+type StressOptions struct {
+	ConfigsPerRepository      int
+	OpenRepositoriesPerConfig int
+	SessionsPerOpenRepository int
+	WorkersPerSession         int
+
+	ActionWeights map[actName]int
+}
+
+var errSkipped = errors.Errorf("skipped")
 
 const masterPassword = "foo-bar-baz-1234"
 
-var (
-	knownBlocks      []content.ID
-	knownBlocksMutex sync.Mutex
-)
+func init() {
+	rand.Seed(clock.Now().UnixNano())
+}
 
-func TestStressRepository(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping stress test during short tests")
+func TestStressRepositoryMixAll(t *testing.T) {
+	runStress(t, &StressOptions{
+		ConfigsPerRepository:      2,
+		OpenRepositoriesPerConfig: 2,
+		SessionsPerOpenRepository: 2,
+		WorkersPerSession:         2,
+
+		ActionWeights: map[actName]int{
+			actWriteRandomContent:     10,
+			actReadPendingContent:     500,
+			actReadFlushContent:       500,
+			actListContents:           10,
+			actListAndReadAllContents: 10,
+			actCompact:                2,
+			actFlush:                  10,
+			actRefresh:                20,
+			actReadPendingManifest:    300,
+			actReadFlushedManifest:    300,
+			actWriteRandomManifest:    20,
+		},
+	})
+}
+
+func TestStressRepositoryRandomMix(t *testing.T) {
+	runStress(t, &StressOptions{
+		ConfigsPerRepository:      1 + rand.Intn(3),
+		OpenRepositoriesPerConfig: 1 + rand.Intn(2),
+		SessionsPerOpenRepository: 1 + rand.Intn(2),
+		WorkersPerSession:         1 + rand.Intn(2),
+
+		ActionWeights: map[actName]int{
+			actWriteRandomContent:     1 + rand.Intn(100),
+			actReadPendingContent:     1 + rand.Intn(100),
+			actReadFlushContent:       1 + rand.Intn(100),
+			actListContents:           1 + rand.Intn(100),
+			actListAndReadAllContents: 1 + rand.Intn(100),
+			actCompact:                1 + rand.Intn(100),
+			actFlush:                  1 + rand.Intn(100),
+			actRefresh:                1 + rand.Intn(100),
+			actReadPendingManifest:    1 + rand.Intn(100),
+			actReadFlushedManifest:    1 + rand.Intn(100),
+			actWriteRandomManifest:    1 + rand.Intn(100),
+		},
+	})
+}
+
+func TestStressRepositoryManifests(t *testing.T) {
+	runStress(t, &StressOptions{
+		ConfigsPerRepository:      1,
+		OpenRepositoriesPerConfig: 1,
+		SessionsPerOpenRepository: 2,
+		WorkersPerSession:         1,
+
+		ActionWeights: map[actName]int{
+			actCompact:             2,
+			actFlush:               10,
+			actRefresh:             20,
+			actReadPendingManifest: 300,
+			actReadFlushedManifest: 300,
+			actWriteRandomManifest: 1,
+		},
+	})
+}
+
+func TestStressContentWriteHeavy(t *testing.T) {
+	runStress(t, &StressOptions{
+		ConfigsPerRepository:      2,
+		OpenRepositoriesPerConfig: 2,
+		SessionsPerOpenRepository: 2,
+		WorkersPerSession:         2,
+
+		ActionWeights: map[actName]int{
+			actWriteRandomContent:     500,
+			actReadPendingContent:     10,
+			actReadFlushContent:       10,
+			actListContents:           10,
+			actListAndReadAllContents: 10,
+			actCompact:                2,
+			actFlush:                  10,
+			actRefresh:                20,
+		},
+	})
+}
+
+func TestStressContentReadHeavy(t *testing.T) {
+	runStress(t, &StressOptions{
+		ConfigsPerRepository:      2,
+		OpenRepositoriesPerConfig: 2,
+		SessionsPerOpenRepository: 2,
+		WorkersPerSession:         2,
+
+		ActionWeights: map[actName]int{
+			actWriteRandomContent:     5,
+			actReadPendingContent:     500,
+			actReadFlushContent:       500,
+			actListContents:           500,
+			actListAndReadAllContents: 10,
+			actCompact:                2,
+			actFlush:                  10,
+			actRefresh:                20,
+		},
+	})
+}
+
+// nolint:thelper
+func runStress(t *testing.T, opt *StressOptions) {
+	if os.Getenv("KOPIA_STRESS_TEST") == "" {
+		t.Skip("skipping stress test")
 	}
+
+	t.Logf("running stress test with options: %#v", *opt)
 
 	ctx := testlogging.Context(t)
 
@@ -51,8 +209,6 @@ func TestStressRepository(t *testing.T) {
 	t.Logf("path: %v", tmpPath)
 
 	storagePath := filepath.Join(tmpPath, "storage")
-	configFile1 := filepath.Join(tmpPath, "kopia1.config")
-	configFile2 := filepath.Join(tmpPath, "kopia2.config")
 
 	assertNoError(t, os.MkdirAll(storagePath, 0o700))
 
@@ -64,281 +220,302 @@ func TestStressRepository(t *testing.T) {
 	}
 
 	// create repository
-	if err := repo.Initialize(ctx, st, &repo.NewRepositoryOptions{}, masterPassword); err != nil {
+	if err = repo.Initialize(ctx, st, &repo.NewRepositoryOptions{}, masterPassword); err != nil {
 		t.Fatalf("unable to initialize repository: %v", err)
 	}
 
+	var configFiles []string
+
 	// set up two parallel kopia connections, each with its own config file and cache.
-	if err := repo.Connect(ctx, configFile1, st, masterPassword, &repo.ConnectOptions{
-		CachingOptions: content.CachingOptions{
-			CacheDirectory:    filepath.Join(tmpPath, "cache1"),
-			MaxCacheSizeBytes: 2000000000,
-		},
-	}); err != nil {
-		t.Fatalf("unable to connect 1: %v", err)
+	for i := 0; i < opt.ConfigsPerRepository; i++ {
+		configFile := filepath.Join(tmpPath, fmt.Sprintf("kopia-%v.config", i))
+		configFiles = append(configFiles, configFile)
+
+		if err = repo.Connect(ctx, configFile, st, masterPassword, &repo.ConnectOptions{
+			CachingOptions: content.CachingOptions{
+				CacheDirectory:    filepath.Join(tmpPath, fmt.Sprintf("cache-%v", i)),
+				MaxCacheSizeBytes: 2000000000,
+			},
+		}); err != nil {
+			t.Fatalf("unable to connect %v: %v", configFile, err)
+		}
 	}
 
-	if err := repo.Connect(ctx, configFile2, st, masterPassword, &repo.ConnectOptions{
-		CachingOptions: content.CachingOptions{
-			CacheDirectory:    filepath.Join(tmpPath, "cache2"),
-			MaxCacheSizeBytes: 2000000000,
-		},
-	}); err != nil {
-		t.Fatalf("unable to connect 2: %v", err)
+	stop := new(int32)
+
+	eg, ctx := errgroup.WithContext(ctx)
+
+	logDir := testutil.TempLogDirectory(t)
+
+	rm := repomodel.NewRepositoryData()
+
+	logFileName := filepath.Join(logDir, "workers.log")
+	logFile, err := os.Create(logFileName)
+	require.NoError(t, err)
+	t.Logf("log file: %v", logFileName)
+
+	defer logFile.Close()
+
+	for _, configFile := range configFiles {
+		configFile := configFile
+
+		for i := 0; i < opt.OpenRepositoriesPerConfig; i++ {
+			i := i
+
+			eg.Go(func() error {
+				log := logging.WithPrefix(fmt.Sprintf("%v::o%v", filepath.Base(configFile), i), logging.Broadcast{
+					logging.Printf(func(msg string, args ...interface{}) {
+						fmt.Fprintf(logFile, clock.Now().Format("2006-01-02T15:04:05.000000Z07:00")+" "+msg+"\n", args...)
+					})("test"),
+				})
+
+				ctx2 := logging.WithLogger(ctx, func(module string) logging.Logger {
+					return log
+				})
+
+				return longLivedRepositoryTest(ctx2, t, configFile, rm, log, opt, stop)
+			})
+		}
 	}
 
-	cancel := make(chan struct{})
+	duration := shortStressTestDuration
+	if os.Getenv("CI") != "" && os.Getenv("IS_PULL_REQUEST") == "false" {
+		duration = longStressTestDuration
+	}
 
-	var wg sync.WaitGroup
+	time.Sleep(duration)
+	atomic.StoreInt32(stop, 1)
 
-	wg.Add(1)
-
-	go longLivedRepositoryTest(ctx, t, cancel, configFile1, &wg)
-
-	wg.Add(1)
-
-	go longLivedRepositoryTest(ctx, t, cancel, configFile1, &wg)
-
-	wg.Add(1)
-
-	go longLivedRepositoryTest(ctx, t, cancel, configFile1, &wg)
-
-	wg.Add(1)
-
-	go longLivedRepositoryTest(ctx, t, cancel, configFile1, &wg)
-
-	wg.Add(1)
-
-	go longLivedRepositoryTest(ctx, t, cancel, configFile2, &wg)
-
-	wg.Add(1)
-
-	go longLivedRepositoryTest(ctx, t, cancel, configFile2, &wg)
-
-	wg.Add(1)
-
-	go longLivedRepositoryTest(ctx, t, cancel, configFile2, &wg)
-
-	wg.Add(1)
-
-	go longLivedRepositoryTest(ctx, t, cancel, configFile2, &wg)
-
-	time.Sleep(5 * time.Second)
-	close(cancel)
-
-	wg.Wait()
+	require.NoError(t, eg.Wait())
 }
 
-func longLivedRepositoryTest(ctx context.Context, t *testing.T, cancel chan struct{}, configFile string, wg *sync.WaitGroup) {
+func longLivedRepositoryTest(ctx context.Context, t *testing.T, configFile string, rm *repomodel.RepositoryData, log logging.Logger, opt *StressOptions, stop *int32) error {
 	t.Helper()
 
-	defer wg.Done()
+	// important to call OpenRepository() before repo.Open() to ensure we're not seeing state
+	// added between repo.Open() and OpenRepository()
+	or := rm.OpenRepository()
 
 	rep, err := repo.Open(ctx, configFile, masterPassword, &repo.Options{})
 	if err != nil {
-		t.Errorf("error opening repository: %v", err)
-		return
+		return errors.Wrap(err, "error opening repository")
 	}
+
 	defer rep.Close(ctx)
 
-	_, w, err := rep.(repo.DirectRepository).NewDirectWriter(ctx, repo.WriteSessionOptions{Purpose: "longLivedRepositoryTest"})
-	if err != nil {
-		t.Errorf("error opening writer: %v", err)
-		return
+	eg, ctx := errgroup.WithContext(ctx)
+
+	for i := 0; i < opt.SessionsPerOpenRepository; i++ {
+		ors := or.NewSession()
+
+		_, w, err := rep.(repo.DirectRepository).NewDirectWriter(ctx, repo.WriteSessionOptions{
+			Purpose: fmt.Sprintf("longLivedRepositoryTest-w%v", i),
+		})
+		if err != nil {
+			return errors.Wrap(err, "error opening writer")
+		}
+
+		for j := 0; j < opt.WorkersPerSession; j++ {
+			log2 := logging.WithPrefix(fmt.Sprintf("s%vw%v::", i, j), log)
+
+			eg.Go(func() error {
+				return repositoryTest(ctx, t, stop, w, ors, log2, opt)
+			})
+		}
 	}
 
-	var wg2 sync.WaitGroup
-
-	for i := 0; i < 4; i++ {
-		wg2.Add(1)
-
-		go func() {
-			defer wg2.Done()
-
-			repositoryTest(ctx, t, cancel, w)
-		}()
-	}
-
-	wg2.Wait()
+	return eg.Wait()
 }
 
-func repositoryTest(ctx context.Context, t *testing.T, cancel chan struct{}, rep repo.DirectRepositoryWriter) {
+func repositoryTest(ctx context.Context, t *testing.T, stop *int32, rep repo.DirectRepositoryWriter, rs *repomodel.RepositorySession, log logging.Logger, opt *StressOptions) error {
 	t.Helper()
 
-	workTypes := []*struct {
-		name     string
-		fun      func(ctx context.Context, t *testing.T, r repo.DirectRepositoryWriter) error
-		weight   int
-		hitCount int
-	}{
-		// {"reopen", reopen, 1, 0},
-		{"writeRandomBlock", writeRandomBlock, 100, 0},
-		{"writeRandomManifest", writeRandomManifest, 100, 0},
-		{"readKnownBlock", readKnownBlock, 500, 0},
-		{"listContents", listContents, 50, 0},
-		{"listAndReadAllContents", listAndReadAllContents, 5, 0},
-		{"readRandomManifest", readRandomManifest, 50, 0},
-		{"compact", compact, 1, 0},
-		{"refresh", refresh, 3, 0},
-		{"flush", flush, 1, 0},
-	}
-
 	var totalWeight int
-	for _, w := range workTypes {
-		totalWeight += w.weight
+	for _, w := range opt.ActionWeights {
+		totalWeight += w
 	}
 
-	iter := 0
-
-	for {
-		select {
-		case <-cancel:
-			return
-		default:
-		}
-
-		if iter%1000 == 0 {
-			var bits []string
-			for _, w := range workTypes {
-				bits = append(bits, fmt.Sprintf("%v:%v", w.name, w.hitCount))
-			}
-
-			log.Printf("#%v %v %v goroutines", iter, strings.Join(bits, " "), runtime.NumGoroutine())
-		}
-		iter++
-
+	for ctx.Err() == nil && atomic.LoadInt32(stop) == 0 {
 		roulette := rand.Intn(totalWeight)
-		for _, w := range workTypes {
-			if roulette < w.weight {
-				w.hitCount++
+		for act, weight := range opt.ActionWeights {
+			if roulette < weight {
+				if err := actions[act](ctx, rep, rs, log); err != nil {
+					if errors.Is(err, errSkipped) {
+						break
+					}
 
-				if err := w.fun(ctx, t, rep); err != nil {
-					w.hitCount++
-					t.Errorf("error: %v", errors.Wrapf(err, "error running %v", w.name))
+					log.Errorf("FAILED %v: %v", act, err)
 
-					return
+					return errors.Wrapf(err, "error running %v", act)
 				}
+
+				log.Errorf("SUCCEEDED %v", act)
 
 				break
 			}
 
-			roulette -= w.weight
+			roulette -= weight
 		}
 	}
+
+	return nil
 }
 
-func writeRandomBlock(ctx context.Context, t *testing.T, r repo.DirectRepositoryWriter) error {
-	t.Helper()
-
+func writeRandomContent(ctx context.Context, r repo.DirectRepositoryWriter, rs *repomodel.RepositorySession, log logging.Logger) error {
 	data := make([]byte, 1000)
 	cryptorand.Read(data)
 
 	contentID, err := r.ContentManager().WriteContent(ctx, data, "", content.NoCompression)
-	if err == nil {
-		knownBlocksMutex.Lock()
-		if len(knownBlocks) >= 1000 {
-			n := rand.Intn(len(knownBlocks))
-			knownBlocks[n] = contentID
-		} else {
-			knownBlocks = append(knownBlocks, contentID)
-		}
-		knownBlocksMutex.Unlock()
+	if err != nil {
+		return errors.Wrap(err, "WriteContent error")
 	}
 
-	return err
+	log.Debugf("writeRandomContent(%v,%x)", contentID, data[0:16])
+
+	rs.WriteContent(contentID)
+
+	return errors.Wrapf(err, "writeRandomContent(%v)", contentID)
 }
 
-func readKnownBlock(ctx context.Context, t *testing.T, r repo.DirectRepositoryWriter) error {
-	t.Helper()
-
-	knownBlocksMutex.Lock()
-	if len(knownBlocks) == 0 {
-		knownBlocksMutex.Unlock()
-		return nil
+func readPendingContent(ctx context.Context, r repo.DirectRepositoryWriter, rs *repomodel.RepositorySession, log logging.Logger) error {
+	contentID := rs.WrittenContents.PickRandom()
+	if contentID == "" {
+		return errSkipped
 	}
 
-	contentID := knownBlocks[rand.Intn(len(knownBlocks))]
-	knownBlocksMutex.Unlock()
+	log.Debugf("readPendingContent(%v)", contentID)
 
 	_, err := r.ContentReader().GetContent(ctx, contentID)
-	if err == nil || errors.Is(err, content.ErrContentNotFound) {
+	if err == nil {
 		return nil
 	}
 
-	return err
+	return errors.Wrapf(err, "readPendingContent(%v)", contentID)
 }
 
-func listContents(ctx context.Context, t *testing.T, r repo.DirectRepositoryWriter) error {
-	t.Helper()
+func readFlushedContent(ctx context.Context, r repo.DirectRepositoryWriter, rs *repomodel.RepositorySession, log logging.Logger) error {
+	contentID := rs.OpenRepo.Contents.PickRandom()
+	if contentID == "" {
+		return errSkipped
+	}
 
-	return r.ContentReader().IterateContents(
+	log.Debugf("readFlushedContent(%v)", contentID)
+
+	_, err := r.ContentReader().GetContent(ctx, contentID)
+	if err == nil {
+		return nil
+	}
+
+	return errors.Wrapf(err, "readFlushedContent(%v)", contentID)
+}
+
+func listContents(ctx context.Context, r repo.DirectRepositoryWriter, _ *repomodel.RepositorySession, log logging.Logger) error {
+	log.Debugf("listContents()")
+
+	return errors.Wrapf(r.ContentReader().IterateContents(
 		ctx,
 		content.IterateOptions{},
 		func(i content.Info) error { return nil },
-	)
+	), "listContents()")
 }
 
-func listAndReadAllContents(ctx context.Context, t *testing.T, r repo.DirectRepositoryWriter) error {
-	t.Helper()
+func listAndReadAllContents(ctx context.Context, r repo.DirectRepositoryWriter, _ *repomodel.RepositorySession, log logging.Logger) error {
+	log.Debugf("listAndReadAllContents()")
 
-	return r.ContentReader().IterateContents(
+	return errors.Wrapf(r.ContentReader().IterateContents(
 		ctx,
 		content.IterateOptions{},
 		func(ci content.Info) error {
 			cid := ci.GetContentID()
 			_, err := r.ContentReader().GetContent(ctx, cid)
 			if err != nil {
-				if errors.Is(err, content.ErrContentNotFound) && strings.HasPrefix(string(cid), "m") {
-					// this is ok, sometimes manifest manager will perform compaction and 'm' contents will be marked as deleted
-					return nil
-				}
 				return errors.Wrapf(err, "error reading content %v", cid)
 			}
 
 			return nil
-		})
+		}), "listAndReadAllContents()")
 }
 
-func compact(ctx context.Context, t *testing.T, r repo.DirectRepositoryWriter) error {
-	t.Helper()
-
-	return r.ContentManager().CompactIndexes(ctx, content.CompactOptions{MaxSmallBlobs: 1})
-}
-
-func flush(ctx context.Context, t *testing.T, r repo.DirectRepositoryWriter) error {
-	t.Helper()
-
-	return r.Flush(ctx)
-}
-
-func refresh(ctx context.Context, t *testing.T, r repo.DirectRepositoryWriter) error {
-	t.Helper()
-
-	return r.Refresh(ctx)
-}
-
-func readRandomManifest(ctx context.Context, t *testing.T, r repo.DirectRepositoryWriter) error {
-	t.Helper()
-
-	manifests, err := r.FindManifests(ctx, nil)
-	if err != nil {
-		return err
+func compact(ctx context.Context, r repo.DirectRepositoryWriter, rs *repomodel.RepositorySession, log logging.Logger) error {
+	if !rs.OpenRepo.EnableMaintenance {
+		return errSkipped
 	}
 
-	if len(manifests) == 0 {
+	log.Debugf("compact()")
+
+	return errors.Wrapf(
+		r.ContentManager().CompactIndexes(ctx, content.CompactOptions{MaxSmallBlobs: 1}),
+		"compact()")
+}
+
+func flush(ctx context.Context, r repo.DirectRepositoryWriter, rs *repomodel.RepositorySession, log logging.Logger) error {
+	log.Debugf("flush()")
+
+	// capture contents and manifests we had before we start flushing.
+	// this is necessary since operations can proceed in parallel to Flush() which might add more data
+	// to the model. It would be incorrect to flush the latest state of the model
+	// because we don't know for sure if the corresponding repository data has indeed been flushed.
+	wc := rs.WrittenContents.Snapshot()
+	wm := rs.WrittenManifests.Snapshot()
+
+	if err := r.Flush(ctx); err != nil {
+		return errors.Wrap(err, "error flushing")
+	}
+
+	// flush model after flushing the repository to communicate to other sessions that they can expect
+	// to see flushed items now.
+	rs.Flush(&wc, &wm)
+
+	return nil
+}
+
+func refresh(ctx context.Context, r repo.DirectRepositoryWriter, rs *repomodel.RepositorySession, log logging.Logger) error {
+	log.Debugf("refresh()")
+
+	// refresh model before refreshing repository to guarantee that repository has at least all the items in
+	// the model (possibly more).
+	rs.Refresh()
+
+	if err := r.Refresh(ctx); err != nil {
+		return errors.Wrap(err, "refresh error")
+	}
+
+	return nil
+}
+
+func readPendingManifest(ctx context.Context, r repo.DirectRepositoryWriter, rs *repomodel.RepositorySession, log logging.Logger) error {
+	manifestID := rs.WrittenManifests.PickRandom()
+	if manifestID == "" {
+		return errSkipped
+	}
+
+	log.Debugf("readPendingManifest(%v)", manifestID)
+
+	_, err := r.GetManifest(ctx, manifestID, nil)
+	if err == nil {
 		return nil
 	}
 
-	n := rand.Intn(len(manifests))
-
-	_, err = r.GetManifest(ctx, manifests[n].ID, nil)
-
-	return err
+	return errors.Wrapf(err, "readPendingManifest(%v)", manifestID)
 }
 
-func writeRandomManifest(ctx context.Context, t *testing.T, r repo.DirectRepositoryWriter) error {
-	t.Helper()
+func readFlushedManifest(ctx context.Context, r repo.DirectRepositoryWriter, rs *repomodel.RepositorySession, log logging.Logger) error {
+	manifestID := rs.OpenRepo.Manifests.PickRandom()
+	if manifestID == "" {
+		return errSkipped
+	}
 
+	log.Debugf("readFlushedManifest(%v)", manifestID)
+
+	_, err := r.GetManifest(ctx, manifestID, nil)
+	if err == nil {
+		return nil
+	}
+
+	return errors.Wrapf(err, "readFlushedManifest(%v)", manifestID)
+}
+
+func writeRandomManifest(ctx context.Context, r repo.DirectRepositoryWriter, rs *repomodel.RepositorySession, log logging.Logger) error {
 	key1 := fmt.Sprintf("key-%v", rand.Intn(10))
 	key2 := fmt.Sprintf("key-%v", rand.Intn(10))
 	val1 := fmt.Sprintf("val1-%v", rand.Intn(10))
@@ -347,7 +524,8 @@ func writeRandomManifest(ctx context.Context, t *testing.T, r repo.DirectReposit
 	content2 := fmt.Sprintf("content-%v", rand.Intn(10))
 	content1val := fmt.Sprintf("val1-%v", rand.Intn(10))
 	content2val := fmt.Sprintf("val2-%v", rand.Intn(10))
-	_, err := r.PutManifest(ctx, map[string]string{
+
+	mid, err := r.PutManifest(ctx, map[string]string{
 		"type": key1,
 		key1:   val1,
 		key2:   val2,
@@ -355,6 +533,12 @@ func writeRandomManifest(ctx context.Context, t *testing.T, r repo.DirectReposit
 		content1: content1val,
 		content2: content2val,
 	})
+	if err != nil {
+		return err
+	}
+
+	log.Debugf("writeRandomManifest(%v)", mid)
+	rs.WriteManifest(mid)
 
 	return err
 }
