@@ -78,19 +78,27 @@ will remove the d3.kopiadir placeholder and restore the referenced repository
 contents into path d3 where the contents of the newly created path d3 will
 themselves be placeholder files.
 `
-	restoreCommandSourcePathHelp = `Source directory ID/path in the form of a
+	restoreCommandSourcePathHelp = `Two forms: 1. Source directory ID/path in the form of a
 directory ID and optionally a sub-directory path. For example,
 'kffbb7c28ea6c34d6cbe555d1cf80faa9' or
 'kffbb7c28ea6c34d6cbe555d1cf80faa9/subdir1/subdir2'
+followed by the path of the directory for the contents to be restored.
+
+2. one or more placeholder files of the form path.kopia-entry
 `
 
 	bitsPerByte    = 8
 	unlimitedDepth = math.MaxInt32
 )
 
+type restoreSourceTarget struct {
+	source        string
+	target        string
+	isplaceholder bool
+}
+
 type commandRestore struct {
-	restoreSourceID               string
-	restoreTargetPath             string
+	restoreTargetPaths            []string
 	restoreOverwriteDirectories   bool
 	restoreOverwriteFiles         bool
 	restoreOverwriteSymlinks      bool
@@ -105,14 +113,15 @@ type commandRestore struct {
 	restoreIgnoreErrors           bool
 	restoreShallowAtDepth         int32
 	minSizeForPlaceholder         int32
+
+	restores []restoreSourceTarget
 }
 
 func (c *commandRestore) setup(svc appServices, parent commandParent) {
 	c.restoreShallowAtDepth = unlimitedDepth
 
 	cmd := parent.Command("restore", restoreCommandHelp)
-	cmd.Arg("source", restoreCommandSourcePathHelp).Required().StringVar(&c.restoreSourceID)
-	cmd.Arg("target-path", "Path of the directory for the contents to be restored. Required unless restoring a shallow placeholder.").StringVar(&c.restoreTargetPath)
+	cmd.Arg("sources", restoreCommandSourcePathHelp).Required().StringsVar(&c.restoreTargetPaths)
 	cmd.Flag("overwrite-directories", "Overwrite existing directories").Default("true").BoolVar(&c.restoreOverwriteDirectories)
 	cmd.Flag("overwrite-files", "Specifies whether or not to overwrite already existing files").Default("true").BoolVar(&c.restoreOverwriteFiles)
 	cmd.Flag("overwrite-symlinks", "Specifies whether or not to overwrite already existing symlinks").Default("true").BoolVar(&c.restoreOverwriteSymlinks)
@@ -139,26 +148,69 @@ const (
 	restoreModeTgz           = "tgz"
 )
 
-func (c *commandRestore) restoreOutput(ctx context.Context) (restore.Output, error) {
-	targetpath := restore.PathIfPlaceholder(c.restoreSourceID)
-	if targetpath == "" {
-		if c.restoreTargetPath == "" {
-			return nil, errors.Errorf("restore requires a target-path unless restoring a placeholder")
+// constructTargetPairs builds the sourceIdPathPairs array for this
+// command for the two forms of command: expansion of one or more
+// placeholders or restoring of a single source to a single destination.
+func (c *commandRestore) constructTargetPairs() error {
+	targetPairs := make([]restoreSourceTarget, 0, len(c.restoreTargetPaths))
+
+	for _, p := range c.restoreTargetPaths {
+		tp := restore.PathIfPlaceholder(p)
+		if tp != "" {
+			absp, err := filepath.Abs(p)
+			if err != nil {
+				return errors.Wrapf(err, "restore can't resolve path for %q", p)
+			}
+
+			targetPairs = append(targetPairs, restoreSourceTarget{
+				source:        absp,
+				target:        restore.PathIfPlaceholder(absp),
+				isplaceholder: true,
+			})
+		}
+	}
+
+	switch tplen, restpslen := len(targetPairs), len(c.restoreTargetPaths); {
+	case tplen == 0 && restpslen == 2:
+		// This means that none of the restoreTargetPaths are placeholders and we
+		// we have two args: a sourceID and a destination directory.
+		absp, err := filepath.Abs(c.restoreTargetPaths[1])
+		if err != nil {
+			return errors.Wrapf(err, "restore can't resolve path for %q", c.restoreTargetPaths[1])
 		}
 
-		targetpath = c.restoreTargetPath
+		c.restores = []restoreSourceTarget{
+			{
+				source:        c.restoreTargetPaths[0],
+				target:        absp,
+				isplaceholder: false,
+			},
+		}
+
+		return nil
+	case tplen == restpslen:
+		// All arguments are placeholders.
+		c.restores = targetPairs
+		return nil
 	}
 
-	p, err := filepath.Abs(targetpath)
+	// Some undefined mixture of placeholders and other arguments.
+	return errors.Errorf("restore requires a source and targetpath or placeholders")
+}
+
+func (c *commandRestore) restoreOutput(ctx context.Context) (restore.Output, error) {
+	err := c.constructTargetPairs()
 	if err != nil {
-		return nil, errors.Wrap(err, "unable to resolve path")
+		return nil, err
 	}
 
-	m := c.detectRestoreMode(ctx, c.restoreMode)
+	targetpath := c.restores[0].target
+
+	m := c.detectRestoreMode(ctx, c.restoreMode, targetpath)
 	switch m {
 	case restoreModeLocal:
 		return &restore.FilesystemOutput{
-			TargetPath:             p,
+			TargetPath:             targetpath,
 			OverwriteDirectories:   c.restoreOverwriteDirectories,
 			OverwriteFiles:         c.restoreOverwriteFiles,
 			OverwriteSymlinks:      c.restoreOverwriteSymlinks,
@@ -169,7 +221,7 @@ func (c *commandRestore) restoreOutput(ctx context.Context) (restore.Output, err
 		}, nil
 
 	case restoreModeZip, restoreModeZipNoCompress:
-		f, err := os.Create(c.restoreTargetPath)
+		f, err := os.Create(targetpath)
 		if err != nil {
 			return nil, errors.Wrap(err, "unable to create output file")
 		}
@@ -182,7 +234,7 @@ func (c *commandRestore) restoreOutput(ctx context.Context) (restore.Output, err
 		return restore.NewZipOutput(f, method), nil
 
 	case restoreModeTar:
-		f, err := os.Create(c.restoreTargetPath)
+		f, err := os.Create(targetpath)
 		if err != nil {
 			return nil, errors.Wrap(err, "unable to create output file")
 		}
@@ -190,7 +242,7 @@ func (c *commandRestore) restoreOutput(ctx context.Context) (restore.Output, err
 		return restore.NewTarOutput(f), nil
 
 	case restoreModeTgz:
-		f, err := os.Create(c.restoreTargetPath)
+		f, err := os.Create(targetpath)
 		if err != nil {
 			return nil, errors.Wrap(err, "unable to create output file")
 		}
@@ -202,26 +254,26 @@ func (c *commandRestore) restoreOutput(ctx context.Context) (restore.Output, err
 	}
 }
 
-func (c *commandRestore) detectRestoreMode(ctx context.Context, m string) string {
+func (c *commandRestore) detectRestoreMode(ctx context.Context, m, targetpath string) string {
 	if m != "auto" {
 		return m
 	}
 
 	switch {
-	case strings.HasSuffix(c.restoreTargetPath, ".zip"):
-		log(ctx).Infof("Restoring to a zip file (%v)...", c.restoreTargetPath)
+	case strings.HasSuffix(targetpath, ".zip"):
+		log(ctx).Infof("Restoring to a zip file (%v)...", targetpath)
 		return restoreModeZip
 
-	case strings.HasSuffix(c.restoreTargetPath, ".tar"):
-		log(ctx).Infof("Restoring to an uncompressed tar file (%v)...", c.restoreTargetPath)
+	case strings.HasSuffix(targetpath, ".tar"):
+		log(ctx).Infof("Restoring to an uncompressed tar file (%v)...", targetpath)
 		return restoreModeTar
 
-	case strings.HasSuffix(c.restoreTargetPath, ".tar.gz") || strings.HasSuffix(c.restoreTargetPath, ".tgz"):
-		log(ctx).Infof("Restoring to a tar+gzip file (%v)...", c.restoreTargetPath)
+	case strings.HasSuffix(targetpath, ".tar.gz") || strings.HasSuffix(targetpath, ".tgz"):
+		log(ctx).Infof("Restoring to a tar+gzip file (%v)...", targetpath)
 		return restoreModeTgz
 
 	default:
-		log(ctx).Infof("Restoring to local filesystem (%v) with parallelism=%v...", c.restoreTargetPath, c.restoreParallel)
+		log(ctx).Infof("Restoring to local filesystem (%v) with parallelism=%v...", targetpath, c.restoreParallel)
 		return restoreModeLocal
 	}
 }
@@ -245,82 +297,100 @@ func printRestoreStats(ctx context.Context, st restore.Stats) {
 		maybeSkipped, maybeErrors)
 }
 
+func (c *commandRestore) setupPlaceholderExpansion(ctx context.Context, rep repo.Repository, rstp restoreSourceTarget, output restore.Output) (fs.Entry, error) {
+	rootEntry, err := snapshotfs.GetEntryFromPlaceholder(ctx, rep, localfs.PlaceholderFilePath(rstp.source))
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to get filesystem entry for placeholder %q", rstp.source)
+	}
+
+	fso, ok := output.(*restore.FilesystemOutput)
+	if !ok {
+		return nil, errors.New("placeholder expansion is only relevant to filesystem output")
+	}
+
+	fso.TargetPath = rstp.target
+
+	// restoreShallowAtDepth defaults to 0 when expanding a placeholder.
+	if c.restoreShallowAtDepth == unlimitedDepth {
+		c.restoreShallowAtDepth = 0
+	}
+
+	return rootEntry, nil
+}
+
 func (c *commandRestore) run(ctx context.Context, rep repo.Repository) error {
 	output, oerr := c.restoreOutput(ctx)
 	if oerr != nil {
 		return errors.Wrap(oerr, "unable to initialize output")
 	}
 
-	var rootEntry fs.Entry
+	for _, rstp := range c.restores {
+		var rootEntry fs.Entry
 
-	if placeholderpath := restore.PathIfPlaceholder(c.restoreSourceID); placeholderpath != "" {
-		re, err := snapshotfs.GetEntryFromPlaceholder(ctx, rep, localfs.PlaceholderFilePath(c.restoreSourceID))
+		if rstp.isplaceholder {
+			re, err := c.setupPlaceholderExpansion(ctx, rep, rstp, output)
+			if err != nil {
+				return errors.Wrap(err, "placeholder can't be reified")
+			}
+
+			rootEntry = re
+		} else {
+			re, err := snapshotfs.FilesystemEntryFromIDWithPath(ctx, rep, rstp.source, c.restoreConsistentAttributes)
+			if err != nil {
+				return errors.Wrap(err, "unable to get filesystem entry")
+			}
+
+			rootEntry = re
+		}
+
+		eta := timetrack.Start()
+
+		st, err := restore.Entry(ctx, rep, output, rootEntry, restore.Options{
+			Parallel:               c.restoreParallel,
+			Incremental:            c.restoreIncremental,
+			IgnoreErrors:           c.restoreIgnoreErrors,
+			RestoreDirEntryAtDepth: c.restoreShallowAtDepth,
+			MinSizeForPlaceholder:  c.minSizeForPlaceholder,
+			ProgressCallback: func(ctx context.Context, stats restore.Stats) {
+				restoredCount := stats.RestoredFileCount + stats.RestoredDirCount + stats.RestoredSymlinkCount + stats.SkippedCount
+				enqueuedCount := stats.EnqueuedFileCount + stats.EnqueuedDirCount + stats.EnqueuedSymlinkCount
+
+				if restoredCount == 0 {
+					return
+				}
+
+				var maybeRemaining, maybeSkipped, maybeErrors string
+
+				if est, ok := eta.Estimate(float64(stats.RestoredTotalFileSize), float64(stats.EnqueuedTotalFileSize)); ok {
+					bitsPerSecond := est.SpeedPerSecond * float64(bitsPerByte)
+					maybeRemaining = fmt.Sprintf(" %v (%.1f%%) remaining %v",
+						units.BitsPerSecondsString(bitsPerSecond),
+						est.PercentComplete,
+						est.Remaining)
+				}
+
+				if stats.SkippedCount > 0 {
+					maybeSkipped = fmt.Sprintf(", skipped %v (%v)", stats.SkippedCount, units.BytesStringBase10(stats.SkippedTotalFileSize))
+				}
+
+				if stats.IgnoredErrorCount > 0 {
+					maybeErrors = fmt.Sprintf(", ignored %v errors", stats.IgnoredErrorCount)
+				}
+
+				log(ctx).Infof("Processed %v (%v) of %v (%v)%v%v%v.",
+					restoredCount, units.BytesStringBase10(stats.RestoredTotalFileSize),
+					enqueuedCount, units.BytesStringBase10(stats.EnqueuedTotalFileSize),
+					maybeSkipped,
+					maybeErrors,
+					maybeRemaining)
+			},
+		})
 		if err != nil {
-			return errors.Wrapf(err, "unable to get filesystem entry for placeholder %q", c.restoreSourceID)
+			return errors.Wrap(err, "error restoring")
 		}
 
-		rootEntry = re
-
-		// restoreShallowAtDepth defaults to 0 when expanding a placeholder.
-		if c.restoreShallowAtDepth == unlimitedDepth {
-			c.restoreShallowAtDepth = 0
-		}
-	} else {
-		re, err := snapshotfs.FilesystemEntryFromIDWithPath(ctx, rep, c.restoreSourceID, c.restoreConsistentAttributes)
-		if err != nil {
-			return errors.Wrap(err, "unable to get filesystem entry")
-		}
-
-		rootEntry = re
+		printRestoreStats(ctx, st)
 	}
-
-	eta := timetrack.Start()
-
-	st, err := restore.Entry(ctx, rep, output, rootEntry, restore.Options{
-		Parallel:               c.restoreParallel,
-		Incremental:            c.restoreIncremental,
-		IgnoreErrors:           c.restoreIgnoreErrors,
-		RestoreDirEntryAtDepth: c.restoreShallowAtDepth,
-		MinSizeForPlaceholder:  c.minSizeForPlaceholder,
-		ProgressCallback: func(ctx context.Context, stats restore.Stats) {
-			restoredCount := stats.RestoredFileCount + stats.RestoredDirCount + stats.RestoredSymlinkCount + stats.SkippedCount
-			enqueuedCount := stats.EnqueuedFileCount + stats.EnqueuedDirCount + stats.EnqueuedSymlinkCount
-
-			if restoredCount == 0 {
-				return
-			}
-
-			var maybeRemaining, maybeSkipped, maybeErrors string
-
-			if est, ok := eta.Estimate(float64(stats.RestoredTotalFileSize), float64(stats.EnqueuedTotalFileSize)); ok {
-				bitsPerSecond := est.SpeedPerSecond * float64(bitsPerByte)
-				maybeRemaining = fmt.Sprintf(" %v (%.1f%%) remaining %v",
-					units.BitsPerSecondsString(bitsPerSecond),
-					est.PercentComplete,
-					est.Remaining)
-			}
-
-			if stats.SkippedCount > 0 {
-				maybeSkipped = fmt.Sprintf(", skipped %v (%v)", stats.SkippedCount, units.BytesStringBase10(stats.SkippedTotalFileSize))
-			}
-
-			if stats.IgnoredErrorCount > 0 {
-				maybeErrors = fmt.Sprintf(", ignored %v errors", stats.IgnoredErrorCount)
-			}
-
-			log(ctx).Infof("Processed %v (%v) of %v (%v)%v%v%v.",
-				restoredCount, units.BytesStringBase10(stats.RestoredTotalFileSize),
-				enqueuedCount, units.BytesStringBase10(stats.EnqueuedTotalFileSize),
-				maybeSkipped,
-				maybeErrors,
-				maybeRemaining)
-		},
-	})
-	if err != nil {
-		return errors.Wrap(err, "error restoring")
-	}
-
-	printRestoreStats(ctx, st)
 
 	return nil
 }

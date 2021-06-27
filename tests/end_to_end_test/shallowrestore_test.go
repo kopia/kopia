@@ -334,7 +334,7 @@ func deepenSubtreeFile(m *mutatorArgs) {
 // the correct form.
 func deepenOneSubtreeLevel(m *mutatorArgs) {
 	// 1. find a (shallow) directory
-	dirinshallow, _ := findFileDir(m.t, m.shallow)
+	dirinshallow, fileinshallow := findFileDir(m.t, m.shallow)
 	if dirinshallow == "" {
 		m.t.Errorf("can't run deepenOneSubtreeLevel, no shallow directory")
 		return
@@ -344,13 +344,14 @@ func deepenOneSubtreeLevel(m *mutatorArgs) {
 	m.t.Log("relpath", relpath)
 
 	// 2. shallow restore it into the shallow tree
-	m.e.RunAndExpectSuccess(m.t, "restore", dirinshallow)
+	m.e.RunAndExpectSuccess(m.t, "restore", dirinshallow, fileinshallow)
 
 	// 2.5 verify that the restored subtree is correctly real and shallow
 	origpath := filepath.Join(m.original, relpath)
 
 	// depth is 1 because we've expanded one level down.
 	compareShallowToOriginalDir(m.t, m.rdc, localfs.TrimShallowSuffix(origpath), localfs.TrimShallowSuffix(dirinshallow), 1)
+	compareShallowToOriginalDir(m.t, m.rdc, localfs.TrimShallowSuffix(origpath), localfs.TrimShallowSuffix(fileinshallow), 1)
 
 	// 3. Original shouldn't require any changes.
 } // nolint:wsl
