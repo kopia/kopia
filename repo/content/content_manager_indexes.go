@@ -7,6 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/repo/blob"
 )
 
@@ -29,21 +30,36 @@ func (co *CompactOptions) maxEventualConsistencySettleTime() time.Duration {
 	return defaultEventualConsistencySettleTime
 }
 
+// Refresh reloads the committed content indexes.
+func (sm *SharedManager) Refresh(ctx context.Context) error {
+	sm.indexesLock.Lock()
+	defer sm.indexesLock.Unlock()
+
+	sm.log.Debugf("Refresh started")
+
+	t0 := clock.Now()
+
+	err := sm.loadPackIndexesUnlocked(ctx)
+	sm.log.Debugf("Refresh completed in %v", clock.Since(t0))
+
+	return err
+}
+
 // CompactIndexes performs compaction of index blobs ensuring that # of small index blobs is below opt.maxSmallBlobs.
-func (bm *WriteManager) CompactIndexes(ctx context.Context, opt CompactOptions) error {
+func (sm *SharedManager) CompactIndexes(ctx context.Context, opt CompactOptions) error {
 	// we must hold the lock here to avoid the race with Refresh() which can reload the
 	// current set of indexes while we process them.
-	bm.mu.Lock()
-	defer bm.mu.Unlock()
+	sm.indexesLock.Lock()
+	defer sm.indexesLock.Unlock()
 
-	bm.log.Debugf("CompactIndexes(%+v)", opt)
+	sm.log.Debugf("CompactIndexes(%+v)", opt)
 
-	if err := bm.indexBlobManager.compact(ctx, opt); err != nil {
+	if err := sm.indexBlobManager.compact(ctx, opt); err != nil {
 		return errors.Wrap(err, "error performing compaction")
 	}
 
 	// reload indexes after compaction.
-	if err := bm.loadPackIndexesUnlocked(ctx); err != nil {
+	if err := sm.loadPackIndexesUnlocked(ctx); err != nil {
 		return errors.Wrap(err, "error re-loading indexes")
 	}
 

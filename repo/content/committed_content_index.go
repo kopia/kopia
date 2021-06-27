@@ -160,7 +160,7 @@ func (c *committedContentIndex) use(ctx context.Context, indexFiles []blob.ID) e
 		return nil
 	}
 
-	c.log.Debugf("use-indexes", indexFiles)
+	c.log.Debugf("use-indexes %v", indexFiles)
 
 	mergedAndCombined, newInUse, err := c.merge(ctx, indexFiles)
 	if err != nil {
