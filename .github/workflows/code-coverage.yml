@@ -18,3 +18,10 @@ jobs:
       run: make test-with-coverage
     - name: Publish Coverage Results
       run: make ci-publish-coverage
+    - name: Upload Logs
+      uses: actions/upload-artifact@v2
+      with:
+        name: logs
+        path: .logs/**/*.log
+        if-no-files-found: ignore
+      if: ${{ always() }}
