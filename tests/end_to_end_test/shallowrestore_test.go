@@ -114,6 +114,8 @@ func TestShallowrestoreWithMinSize(t *testing.T) {
 }
 
 func writeKopiaIgnore(t *testing.T, source string) {
+	t.Helper()
+
 	fp := filepath.Join(source, ".kopiaignore")
 	require.NoError(t, os.WriteFile(fp, []byte(".Trash\n"), 0644))
 }
@@ -776,6 +778,12 @@ func findFileDir(t *testing.T, shallow string) (dirinshallow, fileinshallow stri
 		// Really long directories can't participate in shallow restores and will
 		// be real in a shallow tree. Skip them.
 		if !restore.SafelySuffixablePath(f) {
+			continue
+		}
+
+		// .kopiaignore files are always restored and will be real in a shallow
+		// tree. Skip them.
+		if fi.Name() == ".kopiaignore" {
 			continue
 		}
 

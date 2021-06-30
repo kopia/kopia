@@ -64,6 +64,12 @@ func (o *ShallowFilesystemOutput) WriteFile(ctx context.Context, relativePath st
 		return o.FilesystemOutput.WriteFile(ctx, relativePath, f)
 	}
 
+	// Always restore .kopiaignore files so that they correctly apply to
+	// later snapshots.
+	if f.Name() == ".kopiaignore" {
+		return o.FilesystemOutput.WriteFile(ctx, relativePath, f)
+	}
+
 	placeholderpath, err := o.writeShallowEntry(ctx, relativePath, de)
 	if err != nil {
 		return errors.Wrap(err, "shallow WriteFile")
