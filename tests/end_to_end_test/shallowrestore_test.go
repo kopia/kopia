@@ -113,6 +113,11 @@ func TestShallowrestoreWithMinSize(t *testing.T) {
 	require.NoFileExists(t, big)
 }
 
+func writeKopiaIgnore(t *testing.T, source string) {
+	fp := filepath.Join(source, ".kopiaignore")
+	require.NoError(t, os.WriteFile(fp, []byte(".Trash\n"), 0644))
+}
+
 func TestShallowFullCycle(t *testing.T) {
 	t.Parallel()
 	runner := testenv.NewInProcRunner(t)
@@ -130,6 +135,10 @@ func TestShallowFullCycle(t *testing.T) {
 		MaxSymlinksPerDirectory:            4,
 		NonExistingSymlinkTargetPercentage: 50,
 	})
+
+	// A .kopiaignore file confuses the shallow restore
+	// cycle. Make one to demonstrate this.
+	writeKopiaIgnore(t, source)
 
 	// Some of the different mutations require a directory to exist. Let's make
 	// certain that we have one.
