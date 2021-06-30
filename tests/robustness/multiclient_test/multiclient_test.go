@@ -44,14 +44,14 @@ func TestManySmallFiles(t *testing.T) {
 		_, err = eng.ExecAction(ctx, engine.WriteRandomFilesActionKey, fileWriteOpts)
 		require.NoError(t, err)
 
-		_, err = eng.ExecAction(ctx, engine.SnapshotDirActionKey, nil)
+		snapOut, err := eng.ExecAction(ctx, engine.SnapshotDirActionKey, nil)
 		require.NoError(t, err)
 
-		_, err = eng.ExecAction(ctx, engine.RestoreSnapshotActionKey, nil)
+		_, err = eng.ExecAction(ctx, engine.RestoreSnapshotActionKey, snapOut)
 		require.NoError(t, err)
 	}
 
-	ctx := testlogging.Context(t)
+	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
 	th.RunN(ctx, t, numClients, f)
 }
 
@@ -82,7 +82,7 @@ func TestOneLargeFile(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	ctx := testlogging.Context(t)
+	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
 	th.RunN(ctx, t, numClients, f)
 }
 
@@ -117,12 +117,12 @@ func TestManySmallFilesAcrossDirecoryTree(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	ctx := testlogging.Context(t)
+	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
 	th.RunN(ctx, t, numClients, f)
 }
 
 func TestRandomizedSmall(t *testing.T) {
-	numClients := 2
+	numClients := 4
 	st := clock.Now()
 
 	opts := engine.ActionOpts{
@@ -151,7 +151,7 @@ func TestRandomizedSmall(t *testing.T) {
 		}
 	}
 
-	ctx := testlogging.Context(t)
+	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
 	th.RunN(ctx, t, numClients, f)
 }
 

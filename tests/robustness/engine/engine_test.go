@@ -298,7 +298,7 @@ func TestSnapshotVerificationFail(t *testing.T) {
 	require.NoError(t, err)
 
 	// Get the metadata collected on that snapshot
-	ssMeta1, err := eng.Checker.GetSnapshotMetadata(snapID1)
+	ssMeta1, err := eng.Checker.GetSnapshotMetadata(ctx, snapID1)
 	require.NoError(t, err)
 
 	// Do additional writes, writing 1 extra byte than before
@@ -310,7 +310,7 @@ func TestSnapshotVerificationFail(t *testing.T) {
 	require.NoError(t, err)
 
 	// Get the second snapshot's metadata
-	ssMeta2, err := eng.Checker.GetSnapshotMetadata(snapID2)
+	ssMeta2, err := eng.Checker.GetSnapshotMetadata(ctx, snapID2)
 	require.NoError(t, err)
 
 	// Swap second snapshot's validation data into the first's metadata
@@ -369,11 +369,11 @@ func TestDataPersistency(t *testing.T) {
 	require.NoError(t, err)
 
 	// Get the walk data associated with the snapshot that was taken
-	dataDirWalk, err := eng.Checker.GetSnapshotMetadata(snapID)
+	dataDirWalk, err := eng.Checker.GetSnapshotMetadata(ctx, snapID)
 	require.NoError(t, err)
 
 	// Save the snapshot ID index
-	err = eng.saveSnapIDIndex()
+	err = eng.saveSnapIDIndex(ctx)
 	require.NoError(t, err)
 
 	// Flush the snapshot metadata to persistent storage
@@ -693,6 +693,8 @@ func TestIOLimitPerWriteAction(t *testing.T) {
 }
 
 func TestStatsPersist(t *testing.T) {
+	ctx := context.Background()
+
 	tmpDir, err := ioutil.TempDir("", "stats-persist-test")
 	require.NoError(t, err)
 
@@ -729,7 +731,7 @@ func TestStatsPersist(t *testing.T) {
 		},
 	}
 
-	err = eng.saveStats()
+	err = eng.saveStats(ctx)
 	require.NoError(t, err)
 
 	err = eng.MetaStore.FlushMetadata()
@@ -749,7 +751,7 @@ func TestStatsPersist(t *testing.T) {
 		MetaStore: snapStoreNew,
 	}
 
-	err = engNew.loadStats()
+	err = engNew.loadStats(ctx)
 	require.NoError(t, err)
 
 	if got, want := engNew.Stats(), eng.Stats(); got != want {
@@ -761,6 +763,8 @@ func TestStatsPersist(t *testing.T) {
 }
 
 func TestLogsPersist(t *testing.T) {
+	ctx := context.Background()
+
 	tmpDir, err := ioutil.TempDir("", "logs-persist-test")
 	require.NoError(t, err)
 
@@ -799,7 +803,7 @@ func TestLogsPersist(t *testing.T) {
 		EngineLog: logData,
 	}
 
-	err = eng.saveLog()
+	err = eng.saveLog(ctx)
 	require.NoError(t, err)
 
 	err = eng.MetaStore.FlushMetadata()
@@ -819,7 +823,7 @@ func TestLogsPersist(t *testing.T) {
 		MetaStore: snapStoreNew,
 	}
 
-	err = engNew.loadLog()
+	err = engNew.loadLog(ctx)
 	require.NoError(t, err)
 
 	if got, want := engNew.EngineLog.String(), eng.EngineLog.String(); got != want {
