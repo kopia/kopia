@@ -12,7 +12,7 @@
     "axios": "^0.21.1",
     "bootstrap": "^4.6.0",
     "moment": "^2.29.1",
-    "postcss": "^8.2.15",
+    "postcss": "^8.3.5",
     "pretty": "^2.0.0",
     "react": "^17.0.2",
     "react-bootstrap": "^1.6.0",
