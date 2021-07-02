@@ -20,8 +20,8 @@ import (
 const goroutineCount = 16
 
 func TestStressBlockManager(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping stress test during short tests")
+	if os.Getenv("KOPIA_STRESS_TEST") == "" {
+		t.Skip("skipping stress test")
 	}
 
 	data := blobtesting.DataMap{}
@@ -29,7 +29,7 @@ func TestStressBlockManager(t *testing.T) {
 	memst := blobtesting.NewMapStorage(data, keyTimes, clock.Now)
 
 	duration := 3 * time.Second
-	if os.Getenv("KOPIA_LONG_STRESS_TEST") != "" {
+	if os.Getenv("CI") != "" {
 		duration = 30 * time.Second
 	}
 

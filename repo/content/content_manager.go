@@ -375,6 +375,12 @@ func (bm *WriteManager) flushPackIndexesLocked(ctx context.Context) error {
 
 		bm.onUpload(int64(len(data)))
 
+		// we must hold a lock between writing an index and adding index blob to committed contents index
+		// otherwise it is possible for concurrent compaction or refresh to forget about the blob we have just
+		// written
+		bm.indexesLock.RLock()
+		defer bm.indexesLock.RUnlock()
+
 		indexBlobMD, err := bm.indexBlobManager.writeIndexBlob(ctx, data, bm.currentSessionInfo.ID)
 		if err != nil {
 			return errors.Wrap(err, "error writing index blob")
@@ -743,21 +749,6 @@ func (bm *WriteManager) unlock() {
 	}
 
 	bm.mu.Unlock()
-}
-
-// Refresh reloads the committed content indexes.
-func (bm *WriteManager) Refresh(ctx context.Context) error {
-	bm.lock()
-	defer bm.unlock()
-
-	bm.log.Debugf("Refresh started")
-
-	t0 := clock.Now()
-
-	err := bm.loadPackIndexesUnlocked(ctx)
-	bm.log.Debugf("Refresh completed in %v", clock.Since(t0))
-
-	return err
 }
 
 // SyncMetadataCache synchronizes metadata cache with metadata blobs in storage.

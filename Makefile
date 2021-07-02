@@ -157,7 +157,6 @@ ci-integration-tests:
 	$(MAKE) integration-tests
 	$(MAKE) integration-tests-index-v2
 	$(MAKE) robustness-tool-tests
-	$(MAKE) stress-test
 
 ci-publish-coverage:
 ifeq ($(GOOS)/$(GOARCH),linux/amd64)
@@ -250,10 +249,13 @@ ifeq ($(GOOS)/$(GOARCH),linux/amd64)
 	$(GO_TEST) -count=$(REPEAT_TEST) github.com/kopia/kopia/tests/tools/... github.com/kopia/kopia/tests/robustness/engine/... $(TEST_FLAGS)
 endif
 
-stress_test: export KOPIA_LONG_STRESS_TEST=1
+stress-test: export KOPIA_STRESS_TEST=1
+stress-test: export KOPIA_DEBUG_MANIFEST_MANAGER=1
+stress-test: export KOPIA_LOGS_DIR=$(CURDIR)/.logs
+stress-test: export KOPIA_KEEP_LOGS=1
 stress-test: $(gotestsum)
-	$(GO_TEST) -count=$(REPEAT_TEST) -timeout 200s github.com/kopia/kopia/tests/stress_test
-	$(GO_TEST) -count=$(REPEAT_TEST) -timeout 200s github.com/kopia/kopia/tests/repository_stress_test
+	$(GO_TEST) -count=$(REPEAT_TEST) -timeout 3600s github.com/kopia/kopia/tests/stress_test
+	$(GO_TEST) -count=$(REPEAT_TEST) -timeout 3600s github.com/kopia/kopia/tests/repository_stress_test
 
 layering-test:
 ifneq ($(GOOS),windows)

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/testutil"
 )
 
 // CLIExeRunner is a CLIExeRunner that invokes the commands via external executable.
@@ -85,33 +85,7 @@ func NewExeRunner(t *testing.T) *CLIExeRunner {
 	// unset environment variables that disrupt tests when passed to subprocesses.
 	os.Unsetenv("KOPIA_PASSWORD")
 
-	cleanName := strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(
-		t.Name(),
-		"/", "_"), "\\", "_"), ":", "_")
-
-	logsBaseDir := os.Getenv("KOPIA_LOGS_DIR")
-	if logsBaseDir == "" {
-		logsBaseDir = filepath.Join(os.TempDir(), "kopia-logs")
-	}
-
-	logsDir := filepath.Join(logsBaseDir, cleanName+"."+clock.Now().Local().Format("20060102150405"))
-
-	t.Cleanup(func() {
-		if t.Failed() {
-			t.Logf("FAILURE ABOVE ^^^^")
-		}
-
-		if os.Getenv("KOPIA_KEEP_LOGS") != "" {
-			t.Logf("logs preserved in %v", logsDir)
-			return
-		}
-
-		if t.Failed() && os.Getenv("KOPIA_DISABLE_LOG_DUMP_ON_FAILURE") == "" {
-			dumpLogs(t, logsDir)
-		}
-
-		os.RemoveAll(logsDir)
-	})
+	logsDir := testutil.TempLogDirectory(t)
 
 	return &CLIExeRunner{
 		Exe: filepath.FromSlash(exe),

@@ -1,8 +1,16 @@
-name: Code Coverage
-on: [push,pull_request]
+name: Stress Test
+on:
+  push:
+    branches: [ master ]
+    tags:
+      - v*
+  pull_request: {}
+  schedule:
+    # run every 2 hours
+    - cron:  '12 */2 * * *'
 jobs:
-  tests:
-    name: Code Coverage Tests
+  endurance-test:
+    name: Stress Test
     runs-on: ubuntu-latest
     steps:
     - name: Set up Go.
@@ -14,10 +22,8 @@ jobs:
       uses: actions/checkout@v2
       with:
         fetch-depth: 0
-    - name: Run Tests
-      run: make test-with-coverage
-    - name: Publish Coverage Results
-      run: make ci-publish-coverage
+    - name: Stress Test
+      run: make stress-test
     - name: Upload Logs
       uses: actions/upload-artifact@v2
       with:

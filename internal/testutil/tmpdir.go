@@ -1,6 +1,7 @@
 package testutil
 
 import (
+	"fmt"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -9,6 +10,14 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
+
+	"github.com/kopia/kopia/internal/clock"
+)
+
+const (
+	maxOutputLinesToLog = 4000
+	logsDirPermissions  = 0o750
 )
 
 var interestingLengths = []int{10, 50, 100, 240, 250, 260, 270}
@@ -54,4 +63,100 @@ func TempDirectory(t *testing.T) string {
 	})
 
 	return d
+}
+
+// TempLogDirectory returns a temporary directory used for storing logs.
+// If KOPIA_LOGS_DIR is provided.
+func TempLogDirectory(t *testing.T) string {
+	t.Helper()
+
+	cleanName := strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(
+		t.Name(),
+		"/", "_"), "\\", "_"), ":", "_")
+
+	t.Helper()
+
+	logsBaseDir := os.Getenv("KOPIA_LOGS_DIR")
+	if logsBaseDir == "" {
+		logsBaseDir = filepath.Join(os.TempDir(), "kopia-logs")
+	}
+
+	logsDir := filepath.Join(logsBaseDir, cleanName+"."+clock.Now().Local().Format("20060102150405"))
+
+	require.NoError(t, os.MkdirAll(logsDir, logsDirPermissions))
+
+	t.Cleanup(func() {
+		if os.Getenv("KOPIA_KEEP_LOGS") != "" {
+			t.Logf("logs preserved in %v", logsDir)
+			return
+		}
+
+		if t.Failed() && os.Getenv("KOPIA_DISABLE_LOG_DUMP_ON_FAILURE") == "" {
+			dumpLogs(t, logsDir)
+		}
+
+		os.RemoveAll(logsDir) // nolint:errcheck
+	})
+
+	return logsDir
+}
+
+func dumpLogs(t *testing.T, dirname string) {
+	t.Helper()
+
+	entries, err := ioutil.ReadDir(dirname)
+	if err != nil {
+		t.Errorf("unable to read %v: %v", dirname, err)
+
+		return
+	}
+
+	for _, e := range entries {
+		if e.IsDir() {
+			dumpLogs(t, filepath.Join(dirname, e.Name()))
+			continue
+		}
+
+		dumpLogFile(t, filepath.Join(dirname, e.Name()))
+	}
+}
+
+func dumpLogFile(t *testing.T, fname string) {
+	t.Helper()
+
+	// nolint:gosec
+	data, err := ioutil.ReadFile(fname)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	t.Logf("LOG FILE: %v %v", fname, trimOutput(string(data)))
+}
+
+func trimOutput(s string) string {
+	lines := splitLines(s)
+	if len(lines) <= maxOutputLinesToLog {
+		return s
+	}
+
+	lines2 := append([]string(nil), lines[0:(maxOutputLinesToLog/2)]...) // nolint:gomnd
+	lines2 = append(lines2, fmt.Sprintf("/* %v lines removed */", len(lines)-maxOutputLinesToLog))
+	lines2 = append(lines2, lines[len(lines)-(maxOutputLinesToLog/2):]...) // nolint:gomnd
+
+	return strings.Join(lines2, "\n")
+}
+
+func splitLines(s string) []string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return nil
+	}
+
+	var result []string
+	for _, l := range strings.Split(s, "\n") {
+		result = append(result, strings.TrimRight(l, "\r"))
+	}
+
+	return result
 }

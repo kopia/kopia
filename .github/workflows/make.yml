@@ -103,6 +103,13 @@ jobs:
     - name: Integration Tests
       run: make -j2 ci-integration-tests
       continue-on-error: ${{ github.event_name != 'pull_request' }}
+    - name: Upload Logs
+      uses: actions/upload-artifact@v2
+      with:
+        name: logs
+        path: .logs/**/*.log
+        if-no-files-found: ignore
+      if: ${{ always() }}
     - name: Upload Kopia Artifacts
       uses: actions/upload-artifact@v2
       with:

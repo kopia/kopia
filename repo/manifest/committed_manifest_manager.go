@@ -5,9 +5,13 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
+	"fmt"
+	"os"
+	"sort"
 	"sync"
 
 	"github.com/pkg/errors"
+	"golang.org/x/exp/rand"
 
 	"github.com/kopia/kopia/repo/content"
 )
@@ -15,6 +19,8 @@ import (
 // committedManifestManager manages committed manifest entries stored in 'm' contents.
 type committedManifestManager struct {
 	b contentManager
+
+	debugID string
 
 	cmmu                sync.Mutex
 	lastRevision        int64
@@ -24,28 +30,48 @@ type committedManifestManager struct {
 }
 
 func (m *committedManifestManager) getCommittedEntryOrNil(ctx context.Context, id ID) (*manifestEntry, error) {
-	if err := m.ensureInitialized(ctx); err != nil {
-		return nil, err
-	}
-
 	m.lock()
 	defer m.unlock()
+
+	if err := m.ensureInitializedLocked(ctx); err != nil {
+		return nil, err
+	}
 
 	return m.committedEntries[id], nil
 }
 
-func (m *committedManifestManager) findCommittedEntries(ctx context.Context, labels map[string]string) (map[ID]*manifestEntry, error) {
-	if err := m.ensureInitialized(ctx); err != nil {
-		return nil, err
+func (m *committedManifestManager) dump(ctx context.Context, prefix string) {
+	if m.debugID == "" {
+		return
 	}
 
+	var keys []string
+
+	for k := range m.committedEntries {
+		keys = append(keys, string(k))
+	}
+
+	sort.Strings(keys)
+
+	log(ctx).Debugf(prefix+"["+m.debugID+"] committed keys %v: %v rev=%v", len(keys), keys, m.lastRevision)
+}
+
+func (m *committedManifestManager) findCommittedEntries(ctx context.Context, labels map[string]string) (map[ID]*manifestEntry, error) {
 	m.lock()
 	defer m.unlock()
+
+	if err := m.ensureInitializedLocked(ctx); err != nil {
+		return nil, err
+	}
 
 	return findEntriesMatchingLabels(m.committedEntries, labels), nil
 }
 
 func (m *committedManifestManager) commitEntries(ctx context.Context, entries map[ID]*manifestEntry) (map[content.ID]bool, error) {
+	if len(entries) == 0 {
+		return nil, nil
+	}
+
 	m.lock()
 	defer m.unlock()
 
@@ -243,14 +269,17 @@ func (m *committedManifestManager) mergeEntryLocked(e *manifestEntry) {
 	}
 }
 
-func (m *committedManifestManager) ensureInitialized(ctx context.Context) error {
-	m.lock()
-	defer m.unlock()
-
+func (m *committedManifestManager) ensureInitializedLocked(ctx context.Context) error {
 	rev := m.b.Revision()
 	if m.lastRevision == rev {
+		if m.debugID != "" {
+			log(ctx).Debugf("%v up-to-date rev=%v last=%v", m.debugID, rev, m.lastRevision)
+		}
+
 		return nil
 	}
+
+	log(ctx).Debugf("reloading committed manifest contents: rev=%v last=%v", rev, m.lastRevision)
 
 	if err := m.loadCommittedContentsLocked(ctx); err != nil {
 		return err
@@ -258,6 +287,7 @@ func (m *committedManifestManager) ensureInitialized(ctx context.Context) error 
 
 	m.lastRevision = rev
 
+	m.dump(ctx, "after ensureInitialized: ")
 	// it is possible that the content manager revision has changed while we were reading it,
 	// that's ok - we read __some__ consistent set of data and next time we will invalidate again.
 
@@ -301,8 +331,14 @@ func loadManifestContent(ctx context.Context, b contentManager, contentID conten
 }
 
 func newCommittedManager(b contentManager) *committedManifestManager {
+	debugID := ""
+	if os.Getenv("KOPIA_DEBUG_MANIFEST_MANAGER") != "" {
+		debugID = fmt.Sprintf("%x", rand.Int63())
+	}
+
 	return &committedManifestManager{
 		b:                   b,
+		debugID:             debugID,
 		committedEntries:    map[ID]*manifestEntry{},
 		committedContentIDs: map[content.ID]bool{},
 	}

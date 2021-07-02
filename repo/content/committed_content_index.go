@@ -66,7 +66,11 @@ func (c *committedContentIndex) getContent(contentID ID) (Info, error) {
 }
 
 func (c *committedContentIndex) addIndexBlob(ctx context.Context, indexBlobID blob.ID, data []byte, use bool) error {
-	atomic.AddInt64(&c.rev, 1)
+	// ensure we bump revision number AFTER this function
+	// doing it prematurely might confuse callers of revision() who may cache
+	// a set of old contents and associate it with new revision, before new contents
+	// are actually available.
+	defer atomic.AddInt64(&c.rev, 1)
 
 	if err := c.cache.addContentToCache(ctx, indexBlobID, data); err != nil {
 		return errors.Wrap(err, "error adding content to cache")
@@ -160,7 +164,7 @@ func (c *committedContentIndex) use(ctx context.Context, indexFiles []blob.ID) e
 		return nil
 	}
 
-	c.log.Debugf("use-indexes", indexFiles)
+	c.log.Debugf("use-indexes %v", indexFiles)
 
 	mergedAndCombined, newInUse, err := c.merge(ctx, indexFiles)
 	if err != nil {
