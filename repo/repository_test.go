@@ -156,18 +156,6 @@ func TestHMAC(t *testing.T) {
 	}
 }
 
-func TestUpgrade(t *testing.T) {
-	ctx, env := repotesting.NewEnvironment(t)
-
-	if err := env.RepositoryWriter.Upgrade(ctx); err != nil {
-		t.Errorf("upgrade error: %v", err)
-	}
-
-	if err := env.RepositoryWriter.Upgrade(ctx); err != nil {
-		t.Errorf("2nd upgrade error: %v", err)
-	}
-}
-
 func TestReaderStoredBlockNotFound(t *testing.T) {
 	ctx, env := repotesting.NewEnvironment(t)
 

@@ -74,7 +74,6 @@ type DirectRepositoryWriter interface {
 	BlobStorage() blob.Storage
 	ContentManager() *content.WriteManager
 	SetParameters(ctx context.Context, m content.MutableParameters) error
-	Upgrade(ctx context.Context) error
 }
 
 type directRepositoryParameters struct {

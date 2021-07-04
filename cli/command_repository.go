@@ -9,7 +9,6 @@ type commandRepository struct {
 	setParameters commandRepositorySetParameters
 	status        commandRepositoryStatus
 	syncTo        commandRepositorySyncTo
-	upgrade       commandRepositoryUpgrade
 }
 
 func (c *commandRepository) setup(svc advancedAppServices, parent commandParent) {
@@ -23,5 +22,4 @@ func (c *commandRepository) setup(svc advancedAppServices, parent commandParent)
 	c.setParameters.setup(svc, cmd)
 	c.status.setup(svc, cmd)
 	c.syncTo.setup(svc, cmd)
-	c.upgrade.setup(svc, cmd)
 }
