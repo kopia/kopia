@@ -12,6 +12,7 @@ func TestLongestRangeCheckpoint(t *testing.T) {
 	m10_19 := newEpochRangeMetadataForTesting(10, 19)
 	m20_29 := newEpochRangeMetadataForTesting(20, 29)
 	m30_39 := newEpochRangeMetadataForTesting(30, 39)
+	m40_49 := newEpochRangeMetadataForTesting(40, 49)
 	m50_59 := newEpochRangeMetadataForTesting(50, 59)
 	m10_59 := newEpochRangeMetadataForTesting(10, 59)
 
@@ -49,6 +50,11 @@ func TestLongestRangeCheckpoint(t *testing.T) {
 		},
 		{
 			input: []*RangeMetadata{m0_9, m0_9, m0_29, m10_59, m30_39},
+			want:  []*RangeMetadata{m0_9, m10_59},
+		},
+		{
+			// two equivalent sequences, shorter one wins
+			input: []*RangeMetadata{m10_59, m30_39, m50_59, m40_49, m0_9, m0_29},
 			want:  []*RangeMetadata{m0_9, m10_59},
 		},
 	}

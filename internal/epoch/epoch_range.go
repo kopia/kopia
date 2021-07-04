@@ -35,7 +35,7 @@ func findLongestRangeCheckpointStartingAt(startEpoch int, byMin, memo map[int][]
 	for _, cp := range byMin[startEpoch] {
 		combined := append([]*RangeMetadata{cp}, findLongestRangeCheckpointStartingAt(cp.MaxEpoch+1, byMin, memo)...)
 
-		if max := combined[len(combined)-1].MaxEpoch; max > longest {
+		if max := combined[len(combined)-1].MaxEpoch; (max > longest) || (max == longest && len(combined) < len(longestMetadata)) {
 			longest = max
 			longestMetadata = combined
 		}

@@ -95,6 +95,7 @@ func newTestEnv(t *testing.T) *epochManagerTestEnv {
 	st = logging.NewWrapper(st, t.Logf, "[STORAGE] ")
 	te := &epochManagerTestEnv{unloggedst: unloggedst, st: st, ft: ft}
 	m := NewManager(te.st, Parameters{
+		Enabled:                 true,
 		EpochRefreshFrequency:   20 * time.Minute,
 		FullCheckpointFrequency: 7,
 		// increased safety margin because we're moving fake clock very fast
@@ -108,6 +109,8 @@ func newTestEnv(t *testing.T) *epochManagerTestEnv {
 	te.mgr = m
 	te.faultyStorage = fs
 	te.data = data
+
+	t.Cleanup(te.mgr.Flush)
 
 	return te
 }
@@ -174,7 +177,9 @@ func TestIndexEpochManager_Parallel(t *testing.T) {
 
 				ndx := newFakeIndexWithEntries(indexNum)
 
-				if _, err := te2.mgr.WriteIndex(ctx, blob.ID(fmt.Sprintf("w%vr%x", worker, rnd)), gather.FromSlice(ndx.Bytes())); err != nil {
+				if _, err := te2.mgr.WriteIndex(ctx, map[blob.ID]blob.Bytes{
+					blob.ID(fmt.Sprintf("w%vr%x", worker, rnd)): gather.FromSlice(ndx.Bytes()),
+				}); err != nil {
 					return errors.Wrap(err, "error writing")
 				}
 
@@ -252,9 +257,9 @@ func TestIndexEpochManager_RogueBlobs(t *testing.T) {
 
 	te := newTestEnv(t)
 
-	te.data[epochMarkerIndexBlobPrefix+"zzzz"] = []byte{1}
-	te.data[singleEpochCompactionBlobPrefix+"zzzz"] = []byte{1}
-	te.data[rangeCheckpointIndexBlobPrefix+"zzzz"] = []byte{1}
+	te.data[EpochMarkerIndexBlobPrefix+"zzzz"] = []byte{1}
+	te.data[SingleEpochCompactionBlobPrefix+"zzzz"] = []byte{1}
+	te.data[RangeCheckpointIndexBlobPrefix+"zzzz"] = []byte{1}
 
 	verifySequentialWrites(t, te)
 	te.mgr.Cleanup(testlogging.Context(t))
@@ -327,7 +332,6 @@ func TestIndexEpochManager_DeletionFailing(t *testing.T) {
 
 func TestRefreshRetriesIfTakingTooLong(t *testing.T) {
 	te := newTestEnv(t)
-	defer te.mgr.Flush()
 
 	te.faultyStorage.Faults = map[string][]*blobtesting.Fault{
 		"ListBlobs": {
@@ -351,7 +355,6 @@ func TestRefreshRetriesIfTakingTooLong(t *testing.T) {
 
 func TestGetCompleteIndexSetRetriesIfTookTooLong(t *testing.T) {
 	te := newTestEnv(t)
-	defer te.mgr.Flush()
 
 	ctx := testlogging.Context(t)
 
@@ -386,7 +389,6 @@ func TestGetCompleteIndexSetRetriesIfTookTooLong(t *testing.T) {
 
 func TestSlowWrite(t *testing.T) {
 	te := newTestEnv(t)
-	defer te.mgr.Flush()
 
 	ctx := testlogging.Context(t)
 
@@ -410,7 +412,6 @@ func TestSlowWrite(t *testing.T) {
 
 func TestForceAdvanceEpoch(t *testing.T) {
 	te := newTestEnv(t)
-	defer te.mgr.Flush()
 
 	ctx := testlogging.Context(t)
 	cs, err := te.mgr.Current(ctx)
@@ -471,6 +472,15 @@ func verifySequentialWrites(t *testing.T, te *epochManagerTestEnv) {
 	t.Logf("total remaining %v", len(te.data))
 }
 
+func TestIndexEpochManager_Disabled(t *testing.T) {
+	te := newTestEnv(t)
+
+	te.mgr.Params.Enabled = false
+
+	_, err := te.mgr.Current(testlogging.Context(t))
+	require.Error(t, err)
+}
+
 func randomTime(min, max time.Duration) time.Duration {
 	return time.Duration(float64(max-min)*rand.Float64() + float64(min))
 }
@@ -516,6 +526,8 @@ func (te *epochManagerTestEnv) mustWriteIndexFile(ctx context.Context, t *testin
 
 	rand.Read(rnd[:])
 
-	_, err := te.mgr.WriteIndex(ctx, blob.ID(hex.EncodeToString(rnd[:])), gather.FromSlice(ndx.Bytes()))
+	_, err := te.mgr.WriteIndex(ctx, map[blob.ID]blob.Bytes{
+		blob.ID(hex.EncodeToString(rnd[:])): gather.FromSlice(ndx.Bytes()),
+	})
 	require.NoError(t, err)
 }
