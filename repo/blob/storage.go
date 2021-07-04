@@ -194,7 +194,31 @@ func IDsFromMetadata(mds []Metadata) []ID {
 	return ids
 }
 
-// MaxTimestamp returns IDs for blobs in Metadata slice.
+// TotalLength returns minimum timestamp for blobs in Metadata slice.
+func TotalLength(mds []Metadata) int64 {
+	var total int64
+
+	for _, md := range mds {
+		total += md.Length
+	}
+
+	return total
+}
+
+// MinTimestamp returns minimum timestamp for blobs in Metadata slice.
+func MinTimestamp(mds []Metadata) time.Time {
+	min := time.Time{}
+
+	for _, md := range mds {
+		if min.IsZero() || md.Timestamp.Before(min) {
+			min = md.Timestamp
+		}
+	}
+
+	return min
+}
+
+// MaxTimestamp returns maxinum timestamp for blobs in Metadata slice.
 func MaxTimestamp(mds []Metadata) time.Time {
 	max := time.Time{}
 
