@@ -1,14 +1,15 @@
-package epoch
+package completeset_test
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/kopia/kopia/internal/completeset"
 	"github.com/kopia/kopia/repo/blob"
 )
 
-func TestFindCompleteSetOfBlobs(t *testing.T) {
+func TestFindFirst(t *testing.T) {
 	cases := []struct {
 		input []blob.ID
 		want  []blob.ID
@@ -81,7 +82,7 @@ func TestFindCompleteSetOfBlobs(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		require.Equal(t, tc.want, blob.IDsFromMetadata(findCompleteSetOfBlobs(dummyMetadataForIDs(tc.input))), "invalid result for %v", tc.input)
+		require.Equal(t, tc.want, blob.IDsFromMetadata(completeset.FindFirst(dummyMetadataForIDs(tc.input))), "invalid result for %v", tc.input)
 	}
 }
 

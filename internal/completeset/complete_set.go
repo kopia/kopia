@@ -1,4 +1,5 @@
-package epoch
+// Package completeset manages complete set of blob metadata.
+package completeset
 
 import (
 	"strconv"
@@ -7,7 +8,7 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 )
 
-// findCompleteSetOfBlobs looks for a complete set of blobs IDs following a naming convention:
+// FindFirst looks for a first complete set of blobs IDs following a naming convention:
 //    '<any>-s<set>-c<count>'
 // where:
 //   'prefix' is arbitrary string not containing a dash ('-')
@@ -15,7 +16,7 @@ import (
 //   'count' is a number that specifies how many items must be in the set to make it complete.
 //
 // The algorithm returns IDs of blobs that form the first complete set.
-func findCompleteSetOfBlobs(bms []blob.Metadata) []blob.Metadata {
+func FindFirst(bms []blob.Metadata) []blob.Metadata {
 	sets := map[string][]blob.Metadata{}
 
 	for _, bm := range bms {
