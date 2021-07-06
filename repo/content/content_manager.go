@@ -2,7 +2,6 @@
 package content
 
 import (
-	"bytes"
 	"context"
 	cryptorand "crypto/rand"
 	"encoding/hex"
@@ -35,6 +34,8 @@ const (
 	defaultEncryptionBufferPoolSegmentSize = 8 << 20 // 8 MB
 
 	packBlobIDLength = 16
+
+	defaultIndexShardSize = 16e6 // slightly less than 2^24, which lets index use 24-bit/3-byte indexes
 
 	DefaultIndexVersion = 1
 )
@@ -364,16 +365,10 @@ func (bm *WriteManager) flushPackIndexesLocked(ctx context.Context) error {
 	}
 
 	if len(bm.packIndexBuilder) > 0 {
-		var b bytes.Buffer
-
-		if err := bm.packIndexBuilder.Build(&b, bm.indexVersion); err != nil {
+		dataShards, err := bm.packIndexBuilder.buildShards(bm.indexVersion, true, bm.indexShardSize)
+		if err != nil {
 			return errors.Wrap(err, "unable to build pack index")
 		}
-
-		data := b.Bytes()
-		dataCopy := append([]byte(nil), data...)
-
-		bm.onUpload(int64(len(data)))
 
 		// we must hold a lock between writing an index and adding index blob to committed contents index
 		// otherwise it is possible for concurrent compaction or refresh to forget about the blob we have just
@@ -381,7 +376,7 @@ func (bm *WriteManager) flushPackIndexesLocked(ctx context.Context) error {
 		bm.indexesLock.RLock()
 		defer bm.indexesLock.RUnlock()
 
-		indexBlobMD, err := bm.indexBlobManager.writeIndexBlob(ctx, data, bm.currentSessionInfo.ID)
+		indexBlobMDs, err := bm.indexBlobManager.writeIndexBlobs(ctx, dataShards, bm.currentSessionInfo.ID)
 		if err != nil {
 			return errors.Wrap(err, "error writing index blob")
 		}
@@ -392,8 +387,13 @@ func (bm *WriteManager) flushPackIndexesLocked(ctx context.Context) error {
 
 		// if we managed to commit the session marker blobs, the index is now fully committed
 		// and will be visible to others, including blob GC.
-		if err := bm.committedContents.addIndexBlob(ctx, indexBlobMD.BlobID, dataCopy, true); err != nil {
-			return errors.Wrap(err, "unable to add committed content")
+
+		for i, indexBlobMD := range indexBlobMDs {
+			bm.onUpload(int64(len(dataShards[i])))
+
+			if err := bm.committedContents.addIndexBlob(ctx, indexBlobMD.BlobID, dataShards[i], true); err != nil {
+				return errors.Wrap(err, "unable to add committed content")
+			}
 		}
 
 		bm.packIndexBuilder = make(packIndexBuilder)

@@ -45,12 +45,13 @@ type cleanupEntry struct {
 }
 
 type indexBlobManagerV0 struct {
-	st           blob.Storage
-	enc          *encryptedBlobMgr
-	timeNow      func() time.Time
-	log          logging.Logger
-	maxPackSize  int
-	indexVersion int
+	st             blob.Storage
+	enc            *encryptedBlobMgr
+	timeNow        func() time.Time
+	log            logging.Logger
+	maxPackSize    int
+	indexVersion   int
+	indexShardSize int
 }
 
 func (m *indexBlobManagerV0) listActiveIndexBlobs(ctx context.Context) ([]IndexBlobInfo, error) {
@@ -168,8 +169,19 @@ func (m *indexBlobManagerV0) getIndexBlob(ctx context.Context, blobID blob.ID) (
 	return m.enc.getEncryptedBlob(ctx, blobID)
 }
 
-func (m *indexBlobManagerV0) writeIndexBlob(ctx context.Context, data []byte, sessionID SessionID) (blob.Metadata, error) {
-	return m.enc.encryptAndWriteBlob(ctx, data, IndexBlobPrefix, sessionID)
+func (m *indexBlobManagerV0) writeIndexBlobs(ctx context.Context, dataShards [][]byte, sessionID SessionID) ([]blob.Metadata, error) {
+	var result []blob.Metadata
+
+	for _, data := range dataShards {
+		bm, err := m.enc.encryptAndWriteBlob(ctx, data, IndexBlobPrefix, sessionID)
+		if err != nil {
+			return nil, errors.Wrap(err, "error writing index blbo")
+		}
+
+		result = append(result, bm)
+	}
+
+	return result, nil
 }
 
 func (m *indexBlobManagerV0) getCompactionLogEntries(ctx context.Context, blobs []blob.Metadata) (map[blob.ID]*compactionLogEntry, error) {
@@ -444,26 +456,17 @@ func (m *indexBlobManagerV0) compactIndexBlobs(ctx context.Context, indexBlobs [
 	// we must do it after all input blobs have been merged, otherwise we may resurrect contents.
 	m.dropContentsFromBuilder(bld, opt)
 
-	var buf bytes.Buffer
-	if err := bld.Build(&buf, m.indexVersion); err != nil {
+	dataShards, err := bld.buildShards(m.indexVersion, false, m.indexShardSize)
+	if err != nil {
 		return errors.Wrap(err, "unable to build an index")
 	}
 
-	compactedIndexBlob, err := m.writeIndexBlob(ctx, buf.Bytes(), "")
+	compactedIndexBlobs, err := m.writeIndexBlobs(ctx, dataShards, "")
 	if err != nil {
 		return errors.Wrap(err, "unable to write compacted indexes")
 	}
 
-	// compaction wrote index blob that's the same as one of the sources
-	// it must be a no-op.
-	for _, indexBlob := range indexBlobs {
-		if indexBlob.BlobID == compactedIndexBlob.BlobID {
-			m.log.Debugf("compaction-noop")
-			return nil
-		}
-	}
-
-	outputs = append(outputs, compactedIndexBlob)
+	outputs = append(outputs, compactedIndexBlobs...)
 
 	if err := m.registerCompaction(ctx, inputs, outputs, opt.maxEventualConsistencySettleTime()); err != nil {
 		return errors.Wrap(err, "unable to register compaction")

@@ -33,7 +33,7 @@ var cachedIndexBlobPrefixes = []blob.ID{IndexBlobPrefix, compactionLogBlobPrefix
 
 // indexBlobManager is the API of index blob manager as used by content manager.
 type indexBlobManager interface {
-	writeIndexBlob(ctx context.Context, data []byte, sessionID SessionID) (blob.Metadata, error)
+	writeIndexBlobs(ctx context.Context, data [][]byte, sessionID SessionID) ([]blob.Metadata, error)
 	listActiveIndexBlobs(ctx context.Context) ([]IndexBlobInfo, error)
 	compact(ctx context.Context, opts CompactOptions) error
 	flushCache(ctx context.Context)
@@ -68,6 +68,7 @@ type SharedManager struct {
 	paddingUnit             int
 	repositoryFormatBytes   []byte
 	indexVersion            int
+	indexShardSize          int
 	encryptionBufferPool    *buf.Pool
 
 	// logger where logs should be written
@@ -355,12 +356,13 @@ func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *Ca
 	}
 
 	sm.indexBlobManager = &indexBlobManagerV0{
-		st:           cachedSt,
-		enc:          sm.enc,
-		timeNow:      sm.timeNow,
-		maxPackSize:  sm.maxPackSize,
-		indexVersion: sm.indexVersion,
-		log:          logging.WithPrefix("[index-blob-manager] ", sm.sharedBaseLogger),
+		st:             cachedSt,
+		enc:            sm.enc,
+		timeNow:        sm.timeNow,
+		maxPackSize:    sm.maxPackSize,
+		indexVersion:   sm.indexVersion,
+		indexShardSize: sm.indexShardSize,
+		log:            logging.WithPrefix("[index-blob-manager] ", sm.sharedBaseLogger),
 	}
 
 	// once everything is ready, set it up
@@ -479,6 +481,7 @@ func NewSharedManager(ctx context.Context, st blob.Storage, f *FormattingOptions
 		writeFormatVersion:      int32(f.Version),
 		encryptionBufferPool:    buf.NewPool(ctx, defaultEncryptionBufferPoolSegmentSize+crypter.Encryptor.Overhead()+maxCompressionOverheadPerContent, "content-manager-encryption"),
 		indexVersion:            actualIndexVersion,
+		indexShardSize:          defaultIndexShardSize,
 		internalLogManager:      ilm,
 		internalLogger:          internalLog,
 		sharedBaseLogger:        sharedBaseLogger,

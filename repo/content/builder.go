@@ -1,6 +1,7 @@
 package content
 
 import (
+	"bytes"
 	"crypto/rand"
 	"hash/fnv"
 	"io"
@@ -163,4 +164,38 @@ func (b packIndexBuilder) shard(maxShardSize int) []packIndexBuilder {
 	}
 
 	return result
+}
+
+func (b packIndexBuilder) buildShards(indexVersion int, stable bool, shardSize int) ([][]byte, error) {
+	if shardSize == 0 {
+		return nil, errors.Errorf("invalid shard size")
+	}
+
+	var (
+		shardedBuilders = b.shard(shardSize)
+		dataShards      [][]byte
+		randomSuffix    [32]byte
+	)
+
+	for _, s := range shardedBuilders {
+		var buf bytes.Buffer
+
+		if err := s.BuildStable(&buf, indexVersion); err != nil {
+			return nil, errors.Wrap(err, "error building index shard")
+		}
+
+		if !stable {
+			if _, err := rand.Read(randomSuffix[:]); err != nil {
+				return nil, errors.Wrap(err, "error getting random bytes for suffix")
+			}
+
+			if _, err := buf.Write(randomSuffix[:]); err != nil {
+				return nil, errors.Wrap(err, "error writing extra random suffix to ensure indexes are always globally unique")
+			}
+		}
+
+		dataShards = append(dataShards, buf.Bytes())
+	}
+
+	return dataShards, nil
 }
