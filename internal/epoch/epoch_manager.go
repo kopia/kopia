@@ -14,6 +14,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/completeset"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/logging"
@@ -286,7 +287,7 @@ func (e *Manager) loadRangeCheckpoints(ctx context.Context, cs *CurrentSnapshot)
 
 	for epoch1, m := range groupByEpochRanges(blobs) {
 		for epoch2, bms := range m {
-			if comp := findCompleteSetOfBlobs(bms); comp != nil {
+			if comp := completeset.FindFirst(bms); comp != nil {
 				erm := &RangeMetadata{
 					MinEpoch: epoch1,
 					MaxEpoch: epoch2,
@@ -310,7 +311,7 @@ func (e *Manager) loadSingleEpochCompactions(ctx context.Context, cs *CurrentSna
 	}
 
 	for epoch, bms := range groupByEpochNumber(blobs) {
-		if comp := findCompleteSetOfBlobs(bms); comp != nil {
+		if comp := completeset.FindFirst(bms); comp != nil {
 			cs.SingleEpochCompactionSets[epoch] = comp
 		}
 	}
