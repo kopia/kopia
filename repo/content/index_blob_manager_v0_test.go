@@ -490,15 +490,10 @@ func fakeCompaction(ctx context.Context, t *testing.T, m *indexBlobManagerV0, dr
 
 	var (
 		inputs  []blob.Metadata
-		outputs = []blob.Metadata{outputBM}
+		outputs = outputBM
 	)
 
 	for _, bi := range allBlobs {
-		if bi.BlobID == outputBM.BlobID {
-			// no compaction, output is the same as one of the inputs
-			return nil
-		}
-
 		inputs = append(inputs, bi.Metadata)
 	}
 
@@ -615,7 +610,7 @@ type fakeIndexData struct {
 	Entries  map[string]fakeContentIndexEntry
 }
 
-func writeFakeIndex(ctx context.Context, t *testing.T, m *indexBlobManagerV0, ndx map[string]fakeContentIndexEntry) (blob.Metadata, error) {
+func writeFakeIndex(ctx context.Context, t *testing.T, m *indexBlobManagerV0, ndx map[string]fakeContentIndexEntry) ([]blob.Metadata, error) {
 	t.Helper()
 
 	j, err := json.Marshal(fakeIndexData{
@@ -623,19 +618,15 @@ func writeFakeIndex(ctx context.Context, t *testing.T, m *indexBlobManagerV0, nd
 		Entries:  ndx,
 	})
 	if err != nil {
-		return blob.Metadata{}, errors.Wrap(err, "json error")
+		return nil, errors.Wrap(err, "json error")
 	}
 
-	bm, err := m.writeIndexBlob(ctx, j, "")
+	bms, err := m.writeIndexBlobs(ctx, [][]byte{j}, "")
 	if err != nil {
-		return blob.Metadata{}, errors.Wrap(err, "error writing blob")
+		return nil, errors.Wrap(err, "error writing blob")
 	}
 
-	for k, v := range ndx {
-		t.Logf("wrote content %v %v in blob %v", k, v, bm)
-	}
-
-	return bm, nil
+	return bms, nil
 }
 
 var errGetAllFakeContentsRetry = errors.New("retry")
@@ -731,12 +722,12 @@ func mustWriteIndexBlob(t *testing.T, m *indexBlobManagerV0, data string) blob.M
 
 	t.Logf("writing index blob %q", data)
 
-	blobMD, err := m.writeIndexBlob(testlogging.Context(t), []byte(data), "")
+	blobMDs, err := m.writeIndexBlobs(testlogging.Context(t), [][]byte{[]byte(data)}, "")
 	if err != nil {
 		t.Fatalf("failed to write index blob: %v", err)
 	}
 
-	return blobMD
+	return blobMDs[0]
 }
 
 func assertIndexBlobList(t *testing.T, m *indexBlobManagerV0, wantMD ...blob.Metadata) {
