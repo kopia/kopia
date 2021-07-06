@@ -14,6 +14,7 @@ import (
 	"github.com/kopia/kopia/internal/buf"
 	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/epoch"
 	"github.com/kopia/kopia/internal/listcache"
 	"github.com/kopia/kopia/internal/ownwrites"
 	"github.com/kopia/kopia/repo/blob"
@@ -29,7 +30,16 @@ const indexRecoverPostambleSize = 8192
 
 const ownWritesCacheDuration = 15 * time.Minute
 
-var cachedIndexBlobPrefixes = []blob.ID{IndexBlobPrefix, compactionLogBlobPrefix, cleanupBlobPrefix}
+var cachedIndexBlobPrefixes = []blob.ID{
+	IndexBlobPrefix,
+	compactionLogBlobPrefix,
+	cleanupBlobPrefix,
+
+	epoch.UncompactedIndexBlobPrefix,
+	epoch.EpochMarkerIndexBlobPrefix,
+	epoch.SingleEpochCompactionBlobPrefix,
+	epoch.RangeCheckpointIndexBlobPrefix,
+}
 
 // indexBlobManager is the API of index blob manager as used by content manager.
 type indexBlobManager interface {
@@ -44,9 +54,13 @@ type SharedManager struct {
 	refCount int32 // number of Manager objects that refer to this SharedManager
 	closed   int32 // set to 1 if shared manager has been closed
 
-	Stats             *Stats
-	st                blob.Storage
-	indexBlobManager  indexBlobManager
+	Stats *Stats
+	st    blob.Storage
+
+	indexBlobManager   indexBlobManager // points at either indexBlobManagerV0 or indexBlobManagerV1
+	indexBlobManagerV0 *indexBlobManagerV0
+	indexBlobManagerV1 *indexBlobManagerV1
+
 	contentCache      contentCache
 	metadataCache     contentCache
 	committedContents *committedContentIndex
@@ -355,7 +369,8 @@ func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *Ca
 		log:            logging.WithPrefix("[encrypted-blob-manager] ", sm.sharedBaseLogger),
 	}
 
-	sm.indexBlobManager = &indexBlobManagerV0{
+	// set up legacy index blob manager
+	sm.indexBlobManagerV0 = &indexBlobManagerV0{
 		st:             cachedSt,
 		enc:            sm.enc,
 		timeNow:        sm.timeNow,
@@ -365,12 +380,41 @@ func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *Ca
 		log:            logging.WithPrefix("[index-blob-manager] ", sm.sharedBaseLogger),
 	}
 
+	// set up new index blob manager
+	sm.indexBlobManagerV1 = &indexBlobManagerV1{
+		st:             cachedSt,
+		enc:            sm.enc,
+		timeNow:        sm.timeNow,
+		maxPackSize:    sm.maxPackSize,
+		indexShardSize: sm.indexShardSize,
+		indexVersion:   sm.indexVersion,
+		log:            logging.WithPrefix("[index-blob-manager] ", sm.sharedBaseLogger),
+	}
+	sm.indexBlobManagerV1.epochMgr = epoch.NewManager(cachedSt, sm.format.EpochParameters, sm.indexBlobManagerV1.compactEpoch, sm.sharedBaseLogger)
+
+	// select active index blob manager based on parameters
+	if sm.format.EpochParameters.Enabled {
+		sm.indexBlobManager = sm.indexBlobManagerV1
+	} else {
+		sm.indexBlobManager = sm.indexBlobManagerV0
+	}
+
 	// once everything is ready, set it up
 	sm.contentCache = dataCache
 	sm.metadataCache = metadataCache
 	sm.committedContents = newCommittedContentIndex(caching, uint32(sm.crypter.Encryptor.Overhead()), sm.indexVersion, sm.enc.getEncryptedBlob, sm.sharedBaseLogger)
 
 	return nil
+}
+
+// EpochManager returns the epoch manager.
+func (sm *SharedManager) EpochManager() (*epoch.Manager, bool) {
+	ibm1, ok := sm.indexBlobManager.(*indexBlobManagerV1)
+	if !ok {
+		return nil, false
+	}
+
+	return ibm1.epochMgr, true
 }
 
 // AddRef adds a reference to shared manager to prevents its closing on Release().

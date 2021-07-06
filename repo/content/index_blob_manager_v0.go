@@ -445,7 +445,7 @@ func (m *indexBlobManagerV0) compactIndexBlobs(ctx context.Context, indexBlobs [
 	for i, indexBlob := range indexBlobs {
 		m.log.Debugf("compacting-entries[%v/%v] %v", i, len(indexBlobs), indexBlob)
 
-		if err := m.addIndexBlobsToBuilder(ctx, bld, indexBlob); err != nil {
+		if err := addIndexBlobsToBuilder(ctx, m.enc, bld, indexBlob.BlobID); err != nil {
 			return errors.Wrap(err, "error adding index to builder")
 		}
 
@@ -497,15 +497,15 @@ func (m *indexBlobManagerV0) dropContentsFromBuilder(bld packIndexBuilder, opt C
 	}
 }
 
-func (m *indexBlobManagerV0) addIndexBlobsToBuilder(ctx context.Context, bld packIndexBuilder, indexBlob IndexBlobInfo) error {
-	data, err := m.getIndexBlob(ctx, indexBlob.BlobID)
+func addIndexBlobsToBuilder(ctx context.Context, enc *encryptedBlobMgr, bld packIndexBuilder, indexBlobID blob.ID) error {
+	data, err := enc.getEncryptedBlob(ctx, indexBlobID)
 	if err != nil {
-		return errors.Wrapf(err, "error getting index %q", indexBlob.BlobID)
+		return errors.Wrapf(err, "error getting index %q", indexBlobID)
 	}
 
-	index, err := openPackIndex(bytes.NewReader(data), uint32(m.enc.crypter.Encryptor.Overhead()))
+	index, err := openPackIndex(bytes.NewReader(data), uint32(enc.crypter.Encryptor.Overhead()))
 	if err != nil {
-		return errors.Wrapf(err, "unable to open index blob %q", indexBlob)
+		return errors.Wrapf(err, "unable to open index blob %q", indexBlobID)
 	}
 
 	_ = index.Iterate(AllIDs, func(i Info) error {
