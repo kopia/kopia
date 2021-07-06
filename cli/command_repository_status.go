@@ -61,8 +61,27 @@ func (c *commandRepositoryStatus) run(ctx context.Context, rep repo.Repository) 
 	c.out.printStdout("Splitter:            %v\n", dr.ObjectFormat().Splitter)
 	c.out.printStdout("Format version:      %v\n", dr.ContentReader().ContentFormat().Version)
 	c.out.printStdout("Content compression: %v\n", dr.ContentReader().SupportsContentCompression())
+
 	c.out.printStdout("Max pack length:     %v\n", units.BytesStringBase2(int64(dr.ContentReader().ContentFormat().MaxPackSize)))
 	c.out.printStdout("Index Format:        v%v\n", dr.ContentReader().ContentFormat().IndexVersion)
+
+	if emgr, ok := dr.ContentReader().EpochManager(); ok {
+		c.out.printStdout("\n")
+		c.out.printStdout("Epoch Manager:       enabled\n")
+
+		snap, err := emgr.Current(ctx)
+		if err == nil {
+			c.out.printStdout("Current Epoch: %v\n", snap.WriteEpoch)
+		}
+
+		c.out.printStdout("\n")
+		c.out.printStdout("Epoch refresh frequency: %v\n", emgr.Params.EpochRefreshFrequency)
+		c.out.printStdout("Epoch advance on:        %v blobs or %v, minimum %v\n", emgr.Params.EpochAdvanceOnCountThreshold, units.BytesStringBase2(emgr.Params.EpochAdvanceOnTotalSizeBytesThreshold), emgr.Params.MinEpochDuration)
+		c.out.printStdout("Epoch cleanup margin:    %v\n", emgr.Params.CleanupSafetyMargin)
+		c.out.printStdout("Epoch checkpoint every:  %v epochs\n", emgr.Params.FullCheckpointFrequency)
+	} else {
+		c.out.printStdout("Epoch Manager:       disabled\n")
+	}
 
 	if !c.statusReconnectToken {
 		return nil
