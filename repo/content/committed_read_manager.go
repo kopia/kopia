@@ -458,6 +458,8 @@ func (sm *SharedManager) release(ctx context.Context) error {
 
 	sm.internalLogManager.Close(ctx)
 
+	sm.indexBlobManagerV1.epochMgr.Flush()
+
 	return errors.Wrap(sm.st.Close(ctx), "error closing storage")
 }
 
