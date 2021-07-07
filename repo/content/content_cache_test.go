@@ -28,8 +28,8 @@ func newUnderlyingStorageForContentCacheTesting(t *testing.T) blob.Storage {
 	ctx := testlogging.Context(t)
 	data := blobtesting.DataMap{}
 	st := blobtesting.NewMapStorage(data, nil, nil)
-	assertNoError(t, st.PutBlob(ctx, "content-1", gather.FromSlice([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10})))
-	assertNoError(t, st.PutBlob(ctx, "content-4k", gather.FromSlice(bytes.Repeat([]byte{1, 2, 3, 4}, 1000)))) // 4000 bytes
+	require.NoError(t, st.PutBlob(ctx, "content-1", gather.FromSlice([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10})))
+	require.NoError(t, st.PutBlob(ctx, "content-4k", gather.FromSlice(bytes.Repeat([]byte{1, 2, 3, 4}, 1000)))) // 4000 bytes
 
 	return st
 }
@@ -70,13 +70,13 @@ func TestCacheExpiration(t *testing.T) {
 	defer cc.close(ctx)
 
 	_, err = cc.getContent(ctx, "00000a", "content-4k", 0, -1) // 4k
-	assertNoError(t, err)
+	require.NoError(t, err)
 	_, err = cc.getContent(ctx, "00000b", "content-4k", 0, -1) // 4k
-	assertNoError(t, err)
+	require.NoError(t, err)
 	_, err = cc.getContent(ctx, "00000c", "content-4k", 0, -1) // 4k
-	assertNoError(t, err)
+	require.NoError(t, err)
 	_, err = cc.getContent(ctx, "00000d", "content-4k", 0, -1) // 4k
-	assertNoError(t, err)
+	require.NoError(t, err)
 
 	// wait for a sweep
 	time.Sleep(2 * time.Second)
@@ -84,7 +84,7 @@ func TestCacheExpiration(t *testing.T) {
 	// 00000a and 00000b will be removed from cache because it's the oldest.
 	// to verify, let's remove content-4k from the underlying storage and make sure we can still read
 	// 00000c and 00000d from the cache but not 00000a nor 00000b
-	assertNoError(t, underlyingStorage.DeleteBlob(ctx, "content-4k"))
+	require.NoError(t, underlyingStorage.DeleteBlob(ctx, "content-4k"))
 
 	cases := []struct {
 		blobID        blob.ID
@@ -309,7 +309,7 @@ func verifyStorageContentList(t *testing.T, st blob.Storage, expectedContents ..
 
 	var foundContents []blob.ID
 
-	assertNoError(t, st.ListBlobs(testlogging.Context(t), "", func(bm blob.Metadata) error {
+	require.NoError(t, st.ListBlobs(testlogging.Context(t), "", func(bm blob.Metadata) error {
 		foundContents = append(foundContents, bm.BlobID)
 		return nil
 	}))
@@ -320,14 +320,6 @@ func verifyStorageContentList(t *testing.T, st blob.Storage, expectedContents ..
 
 	if !reflect.DeepEqual(foundContents, expectedContents) {
 		t.Errorf("unexpected content list: %v, wanted %v", foundContents, expectedContents)
-	}
-}
-
-func assertNoError(t *testing.T, err error) {
-	t.Helper()
-
-	if err != nil {
-		t.Errorf("err: %v", err)
 	}
 }
 
