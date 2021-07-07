@@ -208,7 +208,7 @@ func testPackIndex(t *testing.T, version int) {
 
 	cnt := 0
 
-	assertNoError(t, ndx.Iterate(AllIDs, func(info2 Info) error {
+	require.NoError(t, ndx.Iterate(AllIDs, func(info2 Info) error {
 		want := infoMap[info2.GetContentID()]
 		if version == 1 {
 			// v1 does not preserve original length.
@@ -244,7 +244,7 @@ func testPackIndex(t *testing.T, version int) {
 	for _, prefix := range prefixes {
 		cnt2 := 0
 		prefix := prefix
-		assertNoError(t, ndx.Iterate(PrefixRange(prefix), func(info2 Info) error {
+		require.NoError(t, ndx.Iterate(PrefixRange(prefix), func(info2 Info) error {
 			cnt2++
 			if !strings.HasPrefix(string(info2.GetContentID()), string(prefix)) {
 				t.Errorf("unexpected item %v when iterating prefix %v", info2.GetContentID(), prefix)

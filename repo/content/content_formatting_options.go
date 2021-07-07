@@ -3,6 +3,7 @@ package content
 import (
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/epoch"
 	"github.com/kopia/kopia/internal/units"
 )
 
@@ -24,8 +25,9 @@ type FormattingOptions struct {
 // MutableParameters represents parameters of the content manager that can be mutated after the repository
 // is created.
 type MutableParameters struct {
-	MaxPackSize  int `json:"maxPackSize,omitempty"`  // maximum size of a pack object
-	IndexVersion int `json:"indexVersion,omitempty"` // force particular index format version (1,2,..)
+	MaxPackSize     int              `json:"maxPackSize,omitempty"`     // maximum size of a pack object
+	IndexVersion    int              `json:"indexVersion,omitempty"`    // force particular index format version (1,2,..)
+	EpochParameters epoch.Parameters `json:"epochParameters,omitempty"` // epoch manager parameters
 }
 
 // Validate validates the parameters.
@@ -40,6 +42,10 @@ func (v *MutableParameters) Validate() error {
 
 	if v.IndexVersion < 0 || v.IndexVersion > v2IndexVersion {
 		return errors.Errorf("invalid index version, supported versions are 1 & 2")
+	}
+
+	if err := v.EpochParameters.Validate(); err != nil {
+		return errors.Wrap(err, "invalid epoch parameters")
 	}
 
 	return nil

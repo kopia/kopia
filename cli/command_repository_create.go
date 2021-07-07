@@ -6,6 +6,7 @@ import (
 	"github.com/alecthomas/kingpin"
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/epoch"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
@@ -22,6 +23,7 @@ type commandRepositoryCreate struct {
 	createSplitter              string
 	createOnly                  bool
 	createIndexVersion          int
+	createIndexEpochs           bool
 
 	co  connectOptions
 	svc advancedAppServices
@@ -36,6 +38,7 @@ func (c *commandRepositoryCreate) setup(svc advancedAppServices, parent commandP
 	cmd.Flag("object-splitter", "The splitter to use for new objects in the repository").Default(splitter.DefaultAlgorithm).EnumVar(&c.createSplitter, splitter.SupportedAlgorithms()...)
 	cmd.Flag("create-only", "Create repository, but don't connect to it.").Short('c').BoolVar(&c.createOnly)
 	cmd.Flag("index-version", "Force particular index version").Hidden().Envar("KOPIA_CREATE_INDEX_VERSION").IntVar(&c.createIndexVersion)
+	cmd.Flag("enable-index-epochs", "Enable index epochs").Hidden().BoolVar(&c.createIndexEpochs)
 
 	c.co.setup(cmd)
 	c.svc = svc
@@ -62,13 +65,22 @@ func (c *commandRepositoryCreate) setup(svc advancedAppServices, parent commandP
 	}
 }
 
+func (c *commandRepositoryCreate) epochParametersFromFlags() epoch.Parameters {
+	if !c.createIndexEpochs {
+		return epoch.Parameters{}
+	}
+
+	return epoch.DefaultParameters
+}
+
 func (c *commandRepositoryCreate) newRepositoryOptionsFromFlags() *repo.NewRepositoryOptions {
 	return &repo.NewRepositoryOptions{
 		BlockFormat: content.FormattingOptions{
 			Hash:       c.createBlockHashFormat,
 			Encryption: c.createBlockEncryptionFormat,
 			MutableParameters: content.MutableParameters{
-				IndexVersion: c.createIndexVersion,
+				IndexVersion:    c.createIndexVersion,
+				EpochParameters: c.epochParametersFromFlags(),
 			},
 		},
 

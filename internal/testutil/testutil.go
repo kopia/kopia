@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"reflect"
 	"runtime"
 	"strings"
 	"testing"
@@ -79,5 +80,23 @@ func MustParseJSONLines(t *testing.T, lines []string, v interface{}) {
 
 	if err := dec.Decode(v); err != nil {
 		t.Fatalf("failed to parse JSON %v: %v", allJSON, err)
+	}
+}
+
+// RunAllTestsWithParam uses reflection to run all test methods starting with 'Test' on the provided object.
+// nolint:thelper
+func RunAllTestsWithParam(t *testing.T, v interface{}) {
+	m := reflect.ValueOf(v)
+	typ := m.Type()
+
+	for i := 0; i < typ.NumMethod(); i++ {
+		i := i
+		meth := typ.Method(i)
+
+		if strings.HasPrefix(meth.Name, "Test") {
+			t.Run(meth.Name, func(t *testing.T) {
+				m.Method(i).Call([]reflect.Value{reflect.ValueOf(t)})
+			})
+		}
 	}
 }

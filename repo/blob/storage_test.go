@@ -162,6 +162,31 @@ func TestMaxTimestamp(t *testing.T) {
 	require.Equal(t, time.Time{}, blob.MaxTimestamp([]blob.Metadata{}))
 }
 
+func TestMinTimestamp(t *testing.T) {
+	t0 := time.Date(2020, 1, 2, 3, 4, 5, 6, time.UTC)
+	t1 := t0.Add(1 * time.Hour)
+	t2 := t0.Add(-1 * time.Hour)
+
+	require.Equal(t,
+		t2,
+		blob.MinTimestamp([]blob.Metadata{
+			{BlobID: "foo", Timestamp: t0},
+			{BlobID: "bar", Timestamp: t1},
+			{BlobID: "baz", Timestamp: t2},
+		}))
+
+	require.Equal(t, time.Time{}, blob.MinTimestamp([]blob.Metadata{}))
+}
+
+func TestTotalLength(t *testing.T) {
+	require.Equal(t,
+		int64(357),
+		blob.TotalLength([]blob.Metadata{
+			{BlobID: "foo", Length: 123},
+			{BlobID: "bar", Length: 234},
+		}))
+}
+
 func TestDeleteMultiple(t *testing.T) {
 	data := blobtesting.DataMap{
 		"foo": []byte{1, 2, 3},

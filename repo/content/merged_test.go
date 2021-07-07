@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMerged(t *testing.T) {
@@ -49,7 +50,7 @@ func TestMerged(t *testing.T) {
 		t.Errorf("invalid pack offset %v, wanted %v", got, want)
 	}
 
-	assertNoError(t, m.Iterate(AllIDs, func(i Info) error {
+	require.NoError(t, m.Iterate(AllIDs, func(i Info) error {
 		if i.GetContentID() == "de1e1e" {
 			if i.GetDeleted() {
 				t.Errorf("iteration preferred deleted content over non-deleted")
@@ -138,7 +139,7 @@ func iterateIDRange(t *testing.T, m packIndex, r IDRange) []ID {
 
 	var inOrder []ID
 
-	assertNoError(t, m.Iterate(r, func(i Info) error {
+	require.NoError(t, m.Iterate(r, func(i Info) error {
 		inOrder = append(inOrder, i.GetContentID())
 		return nil
 	}))
