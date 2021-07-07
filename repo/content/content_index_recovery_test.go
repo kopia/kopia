@@ -1,6 +1,7 @@
 package content
 
 import (
+	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
@@ -10,8 +11,7 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 )
 
-func (s *contentManagerSuite) TestContentIndexRecovery() {
-	t := s.T()
+func (s *contentManagerSuite) TestContentIndexRecovery(t *testing.T) {
 	ctx := testlogging.Context(t)
 	data := blobtesting.DataMap{}
 	keyTime := map[blob.ID]time.Time{}

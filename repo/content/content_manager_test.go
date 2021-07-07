@@ -19,7 +19,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
-	"github.com/stretchr/testify/suite"
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/epoch"
@@ -48,7 +47,7 @@ var (
 func TestMain(m *testing.M) { testutil.MyTestMain(m) }
 
 func TestLegacyFormat(t *testing.T) {
-	suite.Run(t, &contentManagerSuite{
+	testutil.RunAllTestsWithParam(t, &contentManagerSuite{
 		mutableParameters: MutableParameters{
 			MaxPackSize: maxPackSize,
 		},
@@ -56,7 +55,7 @@ func TestLegacyFormat(t *testing.T) {
 }
 
 func TestEpochManager(t *testing.T) {
-	suite.Run(t, &contentManagerSuite{
+	testutil.RunAllTestsWithParam(t, &contentManagerSuite{
 		mutableParameters: MutableParameters{
 			MaxPackSize:     maxPackSize,
 			IndexVersion:    v2IndexVersion,
@@ -66,12 +65,10 @@ func TestEpochManager(t *testing.T) {
 }
 
 type contentManagerSuite struct {
-	suite.Suite
 	mutableParameters MutableParameters
 }
 
-func (s *contentManagerSuite) TestContentManagerEmptyFlush() {
-	t := s.T()
+func (s *contentManagerSuite) TestContentManagerEmptyFlush(t *testing.T) {
 	ctx := testlogging.Context(t)
 	data := blobtesting.DataMap{}
 	st := blobtesting.NewMapStorage(data, nil, nil)
@@ -85,8 +82,7 @@ func (s *contentManagerSuite) TestContentManagerEmptyFlush() {
 	}
 }
 
-func (s *contentManagerSuite) TestContentZeroBytes1() {
-	t := s.T()
+func (s *contentManagerSuite) TestContentZeroBytes1(t *testing.T) {
 	ctx := testlogging.Context(t)
 	data := blobtesting.DataMap{}
 	st := blobtesting.NewMapStorage(data, nil, nil)
@@ -108,8 +104,7 @@ func (s *contentManagerSuite) TestContentZeroBytes1() {
 	verifyContent(ctx, t, bm, contentID, []byte{})
 }
 
-func (s *contentManagerSuite) TestContentZeroBytes2() {
-	t := s.T()
+func (s *contentManagerSuite) TestContentZeroBytes2(t *testing.T) {
 	ctx := testlogging.Context(t)
 	data := blobtesting.DataMap{}
 	st := blobtesting.NewMapStorage(data, nil, nil)
@@ -127,8 +122,7 @@ func (s *contentManagerSuite) TestContentZeroBytes2() {
 	}
 }
 
-func (s *contentManagerSuite) TestContentManagerSmallContentWrites() {
-	t := s.T()
+func (s *contentManagerSuite) TestContentManagerSmallContentWrites(t *testing.T) {
 	ctx := testlogging.Context(t)
 	data := blobtesting.DataMap{}
 	st := blobtesting.NewMapStorage(data, nil, nil)
@@ -151,8 +145,7 @@ func (s *contentManagerSuite) TestContentManagerSmallContentWrites() {
 	}
 }
 
-func (s *contentManagerSuite) TestContentManagerDedupesPendingContents() {
-	t := s.T()
+func (s *contentManagerSuite) TestContentManagerDedupesPendingContents(t *testing.T) {
 	ctx := testlogging.Context(t)
 	data := blobtesting.DataMap{}
 	st := blobtesting.NewMapStorage(data, nil, nil)
@@ -177,8 +170,7 @@ func (s *contentManagerSuite) TestContentManagerDedupesPendingContents() {
 	}
 }
 
-func (s *contentManagerSuite) TestContentManagerDedupesPendingAndUncommittedContents() {
-	t := s.T()
+func (s *contentManagerSuite) TestContentManagerDedupesPendingAndUncommittedContents(t *testing.T) {
 	ctx := testlogging.Context(t)
 	data := blobtesting.DataMap{}
 	st := blobtesting.NewMapStorage(data, nil, nil)
@@ -216,8 +208,7 @@ func (s *contentManagerSuite) TestContentManagerDedupesPendingAndUncommittedCont
 	}
 }
 
-func (s *contentManagerSuite) TestContentManagerEmpty() {
-	t := s.T()
+func (s *contentManagerSuite) TestContentManagerEmpty(t *testing.T) {
 	ctx := testlogging.Context(t)
 	data := blobtesting.DataMap{}
 	st := blobtesting.NewMapStorage(data, nil, nil)
@@ -254,8 +245,7 @@ func verifyActiveIndexBlobCount(ctx context.Context, t *testing.T, bm *WriteMana
 	}
 }
 
-func (s *contentManagerSuite) TestContentManagerInternalFlush() {
-	t := s.T()
+func (s *contentManagerSuite) TestContentManagerInternalFlush(t *testing.T) {
 	ctx := testlogging.Context(t)
 	data := blobtesting.DataMap{}
 	st := blobtesting.NewMapStorage(data, nil, nil)
@@ -293,8 +283,7 @@ func (s *contentManagerSuite) TestContentManagerInternalFlush() {
 	}
 }
 
-func (s *contentManagerSuite) TestContentManagerWriteMultiple() {
-	t := s.T()
+func (s *contentManagerSuite) TestContentManagerWriteMultiple(t *testing.T) {
 	ctx := testlogging.Context(t)
 	data := blobtesting.DataMap{}
 	keyTime := map[blob.ID]time.Time{}
@@ -348,8 +337,7 @@ func (s *contentManagerSuite) TestContentManagerWriteMultiple() {
 
 // This is regression test for a bug where we would corrupt data when encryption
 // was done in place and clobbered pending data in memory.
-func (s *contentManagerSuite) TestContentManagerFailedToWritePack() {
-	t := s.T()
+func (s *contentManagerSuite) TestContentManagerFailedToWritePack(t *testing.T) {
 	ctx := testlogging.Context(t)
 	data := blobtesting.DataMap{}
 	keyTime := map[blob.ID]time.Time{}
@@ -418,9 +406,7 @@ func (s *contentManagerSuite) TestContentManagerFailedToWritePack() {
 	faulty.VerifyAllFaultsExercised(t)
 }
 
-func (s *contentManagerSuite) TestIndexCompactionDropsContent() {
-	t := s.T()
-
+func (s *contentManagerSuite) TestIndexCompactionDropsContent(t *testing.T) {
 	if s.mutableParameters.EpochParameters.Enabled {
 		t.Skip("dropping index entries not implemented")
 	}
@@ -465,8 +451,7 @@ func (s *contentManagerSuite) TestIndexCompactionDropsContent() {
 	verifyContentNotFound(ctx, t, bm, content1)
 }
 
-func (s *contentManagerSuite) TestContentManagerConcurrency() {
-	t := s.T()
+func (s *contentManagerSuite) TestContentManagerConcurrency(t *testing.T) {
 	ctx := testlogging.Context(t)
 	data := blobtesting.DataMap{}
 	keyTime := map[blob.ID]time.Time{}
@@ -582,8 +567,7 @@ func validateIndexCount(t *testing.T, data map[blob.ID][]byte, wantIndexCount, w
 	}
 }
 
-func (s *contentManagerSuite) TestDeleteContent() {
-	t := s.T()
+func (s *contentManagerSuite) TestDeleteContent(t *testing.T) {
 	ctx := testlogging.Context(t)
 	data := blobtesting.DataMap{}
 	st := blobtesting.NewMapStorage(data, nil, nil)
@@ -630,8 +614,7 @@ func (s *contentManagerSuite) TestDeleteContent() {
 }
 
 // nolint:gocyclo
-func (s *contentManagerSuite) TestUndeleteContentSimple() {
-	t := s.T()
+func (s *contentManagerSuite) TestUndeleteContentSimple(t *testing.T) {
 	ctx := testlogging.Context(t)
 	data := blobtesting.DataMap{}
 	st := blobtesting.NewMapStorage(data, nil, nil)
@@ -785,8 +768,7 @@ func (s *contentManagerSuite) TestUndeleteContentSimple() {
 }
 
 // nolint:gocyclo
-func (s *contentManagerSuite) TestUndeleteContent() {
-	t := s.T()
+func (s *contentManagerSuite) TestUndeleteContent(t *testing.T) {
 	ctx := testlogging.Context(t)
 	data := blobtesting.DataMap{}
 	st := blobtesting.NewMapStorage(data, nil, nil)
@@ -905,8 +887,7 @@ func (s *contentManagerSuite) TestUndeleteContent() {
 	}
 }
 
-func (s *contentManagerSuite) TestDeleteAfterUndelete() {
-	t := s.T()
+func (s *contentManagerSuite) TestDeleteAfterUndelete(t *testing.T) {
 	ctx := testlogging.Context(t)
 	data := blobtesting.DataMap{}
 	st := blobtesting.NewMapStorage(data, nil, nil)
@@ -983,8 +964,7 @@ func deleteContentAfterUndeleteAndCheck(ctx context.Context, t *testing.T, bm *W
 	}
 }
 
-func (s *contentManagerSuite) TestParallelWrites() {
-	t := s.T()
+func (s *contentManagerSuite) TestParallelWrites(t *testing.T) {
 	t.Parallel()
 
 	ctx := testlogging.Context(t)
@@ -1097,8 +1077,7 @@ func (s *contentManagerSuite) TestParallelWrites() {
 	flusherWG.Wait()
 }
 
-func (s *contentManagerSuite) TestFlushResumesWriters() {
-	t := s.T()
+func (s *contentManagerSuite) TestFlushResumesWriters(t *testing.T) {
 	t.Parallel()
 
 	ctx := testlogging.Context(t)
@@ -1165,8 +1144,7 @@ func (s *contentManagerSuite) TestFlushResumesWriters() {
 	})
 }
 
-func (s *contentManagerSuite) TestFlushWaitsForAllPendingWriters() {
-	t := s.T()
+func (s *contentManagerSuite) TestFlushWaitsForAllPendingWriters(t *testing.T) {
 	t.Parallel()
 
 	ctx := testlogging.Context(t)
@@ -1238,8 +1216,7 @@ func (s *contentManagerSuite) verifyAllDataPresent(ctx context.Context, t *testi
 	}
 }
 
-func (s *contentManagerSuite) TestHandleWriteErrors() {
-	t := s.T()
+func (s *contentManagerSuite) TestHandleWriteErrors(t *testing.T) {
 	// genFaults(S0,F0,S1,F1,...,) generates a list of faults
 	// where success is returned Sn times followed by failure returned Fn times
 	genFaults := func(counts ...int) []*blobtesting.Fault {
@@ -1338,9 +1315,7 @@ func (s *contentManagerSuite) TestHandleWriteErrors() {
 	}
 }
 
-func (s *contentManagerSuite) TestRewriteNonDeleted() {
-	t := s.T()
-
+func (s *contentManagerSuite) TestRewriteNonDeleted(t *testing.T) {
 	const stepBehaviors = 3
 
 	// perform a sequence WriteContent() <action1> RewriteContent() <action2> GetContent()
@@ -1386,8 +1361,7 @@ func (s *contentManagerSuite) TestRewriteNonDeleted() {
 	}
 }
 
-func (s *contentManagerSuite) TestDisableFlush() {
-	t := s.T()
+func (s *contentManagerSuite) TestDisableFlush(t *testing.T) {
 	ctx := testlogging.Context(t)
 	data := blobtesting.DataMap{}
 	st := blobtesting.NewMapStorage(data, nil, nil)
@@ -1411,9 +1385,7 @@ func (s *contentManagerSuite) TestDisableFlush() {
 	verifyActiveIndexBlobCount(ctx, t, bm, 1)
 }
 
-func (s *contentManagerSuite) TestRewriteDeleted() {
-	t := s.T()
-
+func (s *contentManagerSuite) TestRewriteDeleted(t *testing.T) {
 	const stepBehaviors = 3
 
 	// perform a sequence WriteContent() <action1> Delete() <action2> RewriteContent() <action3> GetContent()
@@ -1470,8 +1442,7 @@ func (s *contentManagerSuite) TestRewriteDeleted() {
 	}
 }
 
-func (s *contentManagerSuite) TestDeleteAndRecreate() {
-	t := s.T()
+func (s *contentManagerSuite) TestDeleteAndRecreate(t *testing.T) {
 	ctx := testlogging.Context(t)
 	// simulate race between delete/recreate and delete
 	// delete happens at t0+10, recreate at t0+20 and second delete time is parameterized.
@@ -1540,8 +1511,7 @@ func (s *contentManagerSuite) TestDeleteAndRecreate() {
 	}
 }
 
-func (s *contentManagerSuite) TestIterateContents() {
-	t := s.T()
+func (s *contentManagerSuite) TestIterateContents(t *testing.T) {
 	ctx := testlogging.Context(t)
 	data := blobtesting.DataMap{}
 	st := blobtesting.NewMapStorage(data, nil, nil)
@@ -1682,8 +1652,7 @@ func (s *contentManagerSuite) TestIterateContents() {
 	}
 }
 
-func (s *contentManagerSuite) TestFindUnreferencedBlobs() {
-	t := s.T()
+func (s *contentManagerSuite) TestFindUnreferencedBlobs(t *testing.T) {
 	ctx := testlogging.Context(t)
 	data := blobtesting.DataMap{}
 	st := blobtesting.NewMapStorage(data, nil, nil)
@@ -1731,8 +1700,7 @@ func (s *contentManagerSuite) TestFindUnreferencedBlobs() {
 	verifyUnreferencedBlobsCount(ctx, t, bm, 2)
 }
 
-func (s *contentManagerSuite) TestFindUnreferencedBlobs2() {
-	t := s.T()
+func (s *contentManagerSuite) TestFindUnreferencedBlobs2(t *testing.T) {
 	ctx := testlogging.Context(t)
 	data := blobtesting.DataMap{}
 	st := blobtesting.NewMapStorage(data, nil, nil)
@@ -1805,8 +1773,7 @@ func verifyUnreferencedBlobsCount(ctx context.Context, t *testing.T, bm *WriteMa
 	}
 }
 
-func (s *contentManagerSuite) TestContentWriteAliasing() {
-	t := s.T()
+func (s *contentManagerSuite) TestContentWriteAliasing(t *testing.T) {
 	ctx := testlogging.Context(t)
 	data := blobtesting.DataMap{}
 	keyTime := map[blob.ID]time.Time{}
@@ -1835,8 +1802,7 @@ func (s *contentManagerSuite) TestContentWriteAliasing() {
 	verifyContent(ctx, t, bm, id4, []byte{103, 0, 0})
 }
 
-func (s *contentManagerSuite) TestContentReadAliasing() {
-	t := s.T()
+func (s *contentManagerSuite) TestContentReadAliasing(t *testing.T) {
 	ctx := testlogging.Context(t)
 	data := blobtesting.DataMap{}
 	keyTime := map[blob.ID]time.Time{}
@@ -1860,9 +1826,7 @@ func (s *contentManagerSuite) TestContentReadAliasing() {
 	verifyContent(ctx, t, bm, id1, contentData)
 }
 
-func (s *contentManagerSuite) TestVersionCompatibility() {
-	t := s.T()
-
+func (s *contentManagerSuite) TestVersionCompatibility(t *testing.T) {
 	for writeVer := minSupportedReadVersion; writeVer <= currentWriteVersion; writeVer++ {
 		writeVer := writeVer
 		t.Run(fmt.Sprintf("version-%v", writeVer), func(t *testing.T) {
@@ -1941,8 +1905,7 @@ func (s *contentManagerSuite) verifyVersionCompat(t *testing.T, writeVersion int
 	verifyContentManagerDataSet(ctx, t, mgr, dataSet)
 }
 
-func (s *contentManagerSuite) TestReadsOwnWritesWithEventualConsistencyPersistentOwnWritesCache() {
-	t := s.T()
+func (s *contentManagerSuite) TestReadsOwnWritesWithEventualConsistencyPersistentOwnWritesCache(t *testing.T) {
 	data := blobtesting.DataMap{}
 	timeNow := faketime.AutoAdvance(fakeTime, 1*time.Second)
 	st := blobtesting.NewMapStorage(data, nil, timeNow)
@@ -1958,8 +1921,7 @@ func (s *contentManagerSuite) TestReadsOwnWritesWithEventualConsistencyPersisten
 	s.verifyReadsOwnWrites(t, ownwrites.NewWrapper(ecst, cacheSt, cachedIndexBlobPrefixes, ownWritesCacheDuration), timeNow)
 }
 
-func (s *contentManagerSuite) TestReadsOwnWritesWithStrongConsistencyAndNoCaching() {
-	t := s.T()
+func (s *contentManagerSuite) TestReadsOwnWritesWithStrongConsistencyAndNoCaching(t *testing.T) {
 	data := blobtesting.DataMap{}
 	timeNow := faketime.AutoAdvance(fakeTime, 1*time.Second)
 	st := blobtesting.NewMapStorage(data, nil, timeNow)
@@ -2027,8 +1989,7 @@ func verifyContentManagerDataSet(ctx context.Context, t *testing.T, mgr *WriteMa
 	}
 }
 
-func (s *contentManagerSuite) TestCompression_Disabled() {
-	t := s.T()
+func (s *contentManagerSuite) TestCompression_Disabled(t *testing.T) {
 	data := blobtesting.DataMap{}
 	st := blobtesting.NewMapStorage(data, nil, nil)
 	bm := s.newTestContentManagerWithTweaks(t, st, &contentManagerTestTweaks{
@@ -2044,8 +2005,7 @@ func (s *contentManagerSuite) TestCompression_Disabled() {
 	require.Error(t, err)
 }
 
-func (s *contentManagerSuite) TestCompression_CompressibleData() {
-	t := s.T()
+func (s *contentManagerSuite) TestCompression_CompressibleData(t *testing.T) {
 	data := blobtesting.DataMap{}
 	st := blobtesting.NewMapStorage(data, nil, nil)
 	bm := s.newTestContentManagerWithTweaks(t, st, &contentManagerTestTweaks{
@@ -2080,8 +2040,7 @@ func (s *contentManagerSuite) TestCompression_CompressibleData() {
 	verifyContent(ctx, t, bm2, cid, compressibleData)
 }
 
-func (s *contentManagerSuite) TestCompression_NonCompressibleData() {
-	t := s.T()
+func (s *contentManagerSuite) TestCompression_NonCompressibleData(t *testing.T) {
 	data := blobtesting.DataMap{}
 	st := blobtesting.NewMapStorage(data, nil, nil)
 	bm := s.newTestContentManagerWithTweaks(t, st, &contentManagerTestTweaks{
