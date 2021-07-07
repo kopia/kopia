@@ -44,6 +44,10 @@ func (v *MutableParameters) Validate() error {
 		return errors.Errorf("invalid index version, supported versions are 1 & 2")
 	}
 
+	if err := v.EpochParameters.Validate(); err != nil {
+		return errors.Wrap(err, "invalid epoch parameters")
+	}
+
 	return nil
 }
 

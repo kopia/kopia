@@ -21,18 +21,20 @@ type commandRepositorySetParameters struct {
 	epochAdvanceOnCount      int
 	epochAdvanceOnSizeMB     int64
 	epochDeleteParallelism   int
-	epochEnable              bool
+	epochCheckpointFrequency int
+
+	upgradeRepositoryFormat bool
 
 	svc appServices
 }
 
 func (c *commandRepositorySetParameters) setup(svc appServices, parent commandParent) {
-	cmd := parent.Command("set-parameters", "Set repository parameters.")
+	cmd := parent.Command("set-parameters", "Set repository parameters.").Alias("set-params")
 
 	cmd.Flag("max-pack-size-mb", "Set max pack file size").PlaceHolder("MB").IntVar(&c.maxPackSizeMB)
 	cmd.Flag("index-version", "Set version of index format used for writing").IntVar(&c.indexFormatVersion)
 
-	cmd.Flag("epoch-enable", "Uprade indexes to use epoch manager").BoolVar(&c.epochEnable)
+	cmd.Flag("upgrade", "Uprade repository to the latest format").BoolVar(&c.upgradeRepositoryFormat)
 
 	cmd.Flag("epoch-refresh-frequency", "Epoch refresh frequency").DurationVar(&c.epochRefreshFrequency)
 	cmd.Flag("epoch-min-duration", "Minimal duration of a single epoch").DurationVar(&c.epochMinDuration)
@@ -40,6 +42,7 @@ func (c *commandRepositorySetParameters) setup(svc appServices, parent commandPa
 	cmd.Flag("epoch-advance-on-count", "Advance epoch if the number of indexes exceeds given threshold").IntVar(&c.epochAdvanceOnCount)
 	cmd.Flag("epoch-advance-on-size-mb", "Advance epoch if the total size of indexes exceeds given threshold").Int64Var(&c.epochAdvanceOnSizeMB)
 	cmd.Flag("epoch-delete-parallelism", "Epoch delete parallelism").IntVar(&c.epochDeleteParallelism)
+	cmd.Flag("epoch-checkpoint-frequency", "Checkpoint frequency").IntVar(&c.epochCheckpointFrequency)
 
 	cmd.Action(svc.directRepositoryWriteAction(c.run))
 
@@ -97,13 +100,10 @@ func (c *commandRepositorySetParameters) run(ctx context.Context, rep repo.Direc
 
 	upgradeToEpochManager := false
 
-	if c.epochEnable {
-		if mp.EpochParameters.Enabled {
-			return errors.Errorf("epoch manager already enabled")
-		}
-
+	if c.upgradeRepositoryFormat && !mp.EpochParameters.Enabled {
 		mp.EpochParameters = epoch.DefaultParameters
 		upgradeToEpochManager = true
+		mp.IndexVersion = 2
 		anyChange = true
 	}
 
@@ -116,6 +116,7 @@ func (c *commandRepositorySetParameters) run(ctx context.Context, rep repo.Direc
 	c.setIntParameter(ctx, c.epochAdvanceOnCount, "epoch advance on count", &mp.EpochParameters.EpochAdvanceOnCountThreshold, &anyChange)
 	c.setInt64SizeMBParameter(ctx, c.epochAdvanceOnSizeMB, "epoch advance on total size", &mp.EpochParameters.EpochAdvanceOnTotalSizeBytesThreshold, &anyChange)
 	c.setIntParameter(ctx, c.epochDeleteParallelism, "epoch delete parallelism", &mp.EpochParameters.DeleteParallelism, &anyChange)
+	c.setIntParameter(ctx, c.epochCheckpointFrequency, "epoch checkpoint frequency", &mp.EpochParameters.FullCheckpointFrequency, &anyChange)
 
 	if !anyChange {
 		return errors.Errorf("no changes")

@@ -56,6 +56,40 @@ type Parameters struct {
 	DeleteParallelism int
 }
 
+// Validate validates epoch parameters.
+// nolint:gomnd
+func (p *Parameters) Validate() error {
+	if !p.Enabled {
+		return nil
+	}
+
+	if p.MinEpochDuration < 10*time.Minute {
+		return errors.Errorf("minimum epoch duration too low: %v", p.MinEpochDuration)
+	}
+
+	if p.EpochRefreshFrequency*3 > p.MinEpochDuration {
+		return errors.Errorf("epoch refresh frequency too high, must be 1/3 or minimal epoch duration or less")
+	}
+
+	if p.FullCheckpointFrequency <= 0 {
+		return errors.Errorf("invalid epoch checkpoint frequency")
+	}
+
+	if p.CleanupSafetyMargin*3 < p.EpochRefreshFrequency {
+		return errors.Errorf("invalid cleanup safety margin, must be at least 3x epoch refresh frequency")
+	}
+
+	if p.EpochAdvanceOnCountThreshold < 10 {
+		return errors.Errorf("epoch advance on count too low")
+	}
+
+	if p.EpochAdvanceOnTotalSizeBytesThreshold < 1<<20 {
+		return errors.Errorf("epoch advance on size too low")
+	}
+
+	return nil
+}
+
 // DefaultParameters contains default epoch manager parameters.
 // nolint:gomnd
 var DefaultParameters = Parameters{
