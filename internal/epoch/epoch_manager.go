@@ -287,6 +287,10 @@ func blobSetWrittenEarlyEnough(replacementSet []blob.Metadata, maxReplacementTim
 }
 
 func (e *Manager) refreshLocked(ctx context.Context) error {
+	if ctx.Err() != nil {
+		return errors.Wrap(ctx.Err(), "refreshLocked")
+	}
+
 	nextDelayTime := initiaRefreshAttemptSleep
 
 	if !e.Params.Enabled {
@@ -294,6 +298,10 @@ func (e *Manager) refreshLocked(ctx context.Context) error {
 	}
 
 	for err := e.refreshAttemptLocked(ctx); err != nil; err = e.refreshAttemptLocked(ctx) {
+		if ctx.Err() != nil {
+			return errors.Wrap(ctx.Err(), "refreshAttemptLocked")
+		}
+
 		e.log.Debugf("refresh attempt failed: %v, sleeping %v before next retry", err, nextDelayTime)
 
 		nextDelayTime = time.Duration(float64(nextDelayTime) * maxRefreshAttemptSleepExponent)

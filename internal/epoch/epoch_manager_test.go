@@ -481,6 +481,18 @@ func TestIndexEpochManager_Disabled(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestIndexEpochManager_RefreshContextCanceled(t *testing.T) {
+	t.Parallel()
+
+	te := newTestEnv(t)
+
+	ctx, cancel := context.WithCancel(testlogging.Context(t))
+	cancel()
+
+	_, err := te.mgr.Current(ctx)
+	require.ErrorIs(t, err, ctx.Err())
+}
+
 func randomTime(min, max time.Duration) time.Duration {
 	return time.Duration(float64(max-min)*rand.Float64() + float64(min))
 }
