@@ -287,6 +287,10 @@ func blobSetWrittenEarlyEnough(replacementSet []blob.Metadata, maxReplacementTim
 }
 
 func (e *Manager) refreshLocked(ctx context.Context) error {
+	if ctx.Err() != nil {
+		return errors.Wrap(ctx.Err(), "refreshLocked")
+	}
+
 	nextDelayTime := initiaRefreshAttemptSleep
 
 	if !e.Params.Enabled {
@@ -294,7 +298,12 @@ func (e *Manager) refreshLocked(ctx context.Context) error {
 	}
 
 	for err := e.refreshAttemptLocked(ctx); err != nil; err = e.refreshAttemptLocked(ctx) {
+		if ctx.Err() != nil {
+			return errors.Wrap(ctx.Err(), "refreshAttemptLocked")
+		}
+
 		e.log.Debugf("refresh attempt failed: %v, sleeping %v before next retry", err, nextDelayTime)
+		time.Sleep(nextDelayTime)
 
 		nextDelayTime = time.Duration(float64(nextDelayTime) * maxRefreshAttemptSleepExponent)
 
@@ -459,15 +468,16 @@ func (e *Manager) refreshAttemptLocked(ctx context.Context) error {
 
 	e.log.Infof("refreshAttemptLocked")
 
-	eg, ctx := errgroup.WithContext(ctx)
+	eg, ctx1 := errgroup.WithContext(ctx)
+
 	eg.Go(func() error {
-		return e.loadWriteEpoch(ctx, &cs)
+		return e.loadWriteEpoch(ctx1, &cs)
 	})
 	eg.Go(func() error {
-		return e.loadSingleEpochCompactions(ctx, &cs)
+		return e.loadSingleEpochCompactions(ctx1, &cs)
 	})
 	eg.Go(func() error {
-		return e.loadRangeCheckpoints(ctx, &cs)
+		return e.loadRangeCheckpoints(ctx1, &cs)
 	})
 
 	if err := eg.Wait(); err != nil {
