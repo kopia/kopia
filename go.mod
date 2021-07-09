@@ -49,7 +49,7 @@ require (
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
 	github.com/stretchr/testify v1.7.0
-	github.com/studio-b12/gowebdav v0.0.0-20210203212356-8244b5a5f51a
+	github.com/studio-b12/gowebdav v0.0.0-20210630100626-7ff61aa87be8
 	github.com/tg123/go-htpasswd v1.0.0
 	github.com/tklauser/go-sysconf v0.3.5 // indirect
 	github.com/zalando/go-keyring v0.1.1
