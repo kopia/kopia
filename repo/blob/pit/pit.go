@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/blob/readonly"
 )
 
 type pitStorage struct {
@@ -33,11 +34,11 @@ func NewWrapper(ctx context.Context, s blob.Storage, pointInTime *time.Time) (bl
 			return nil, errors.Errorf("cannot create point-in-time view for non-versioned bucket store")
 		}
 
-		return &pitStorage{
+		return readonly.NewWrapper(&pitStorage{
 			Storage:     s,
 			pointInTime: *pointInTime,
 			vs:          v,
-		}, nil
+		}), nil
 	}
 
 	return s, nil
