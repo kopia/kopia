@@ -598,6 +598,11 @@ func (r *grpcRepositoryClient) WriteContent(ctx context.Context, data []byte, pr
 		return "", errors.Wrap(err, "invalid prefix")
 	}
 
+	// we will be writing asynchronously and server will reject this write, fail early.
+	if prefix == manifest.ContentPrefix {
+		return "", errors.Errorf("writing manifest contents not allowed")
+	}
+
 	var hashOutput [128]byte
 
 	contentID := prefix + content.ID(hex.EncodeToString(r.h(hashOutput[:0], data)))

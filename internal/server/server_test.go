@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -12,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/apiclient"
@@ -211,18 +211,22 @@ func remoteRepositoryTest(ctx context.Context, t *testing.T, rep repo.Repository
 
 		result = mustWriteObject(ctx, t, w, written)
 
+		require.NoError(t, w.Flush(ctx))
+
 		if uploaded == 0 {
-			t.Fatalf("did not report uploaded bytes")
+			return errors.Errorf("did not report uploaded bytes")
 		}
 
 		uploaded = 0
 		result2 := mustWriteObject(ctx, t, w, written)
+		require.NoError(t, w.Flush(ctx))
+
 		if uploaded != 0 {
-			t.Fatalf("unexpected upload when writing duplicate object")
+			return errors.Errorf("unexpected upload when writing duplicate object")
 		}
 
 		if result != result2 {
-			t.Fatalf("two identical object with different IDs: %v vs %v", result, result2)
+			return errors.Errorf("two identical object with different IDs: %v vs %v", result, result2)
 		}
 
 		// verify data is read back the same.
@@ -237,7 +241,7 @@ func remoteRepositoryTest(ctx context.Context, t *testing.T, rep repo.Repository
 
 		_, err = ow.Result()
 		if err == nil {
-			t.Fatalf("unexpected success writing object with 'm' prefix")
+			return errors.Errorf("unexpected success writing object with 'm' prefix")
 		}
 
 		manifestID, err = snapshot.SaveSnapshot(ctx, w, &snapshot.Manifest{
