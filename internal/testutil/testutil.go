@@ -23,26 +23,26 @@ func ProviderTest(t *testing.T) {
 
 // TestSkipUnlessCI skips the current test with a provided message, except when running
 // in CI environment, in which case it causes hard failure.
-func TestSkipUnlessCI(t *testing.T, msg string, args ...interface{}) {
-	t.Helper()
+func TestSkipUnlessCI(tb testing.TB, msg string, args ...interface{}) {
+	tb.Helper()
 
 	if len(args) > 0 {
 		msg = fmt.Sprintf(msg, args...)
 	}
 
 	if os.Getenv("CI") != "" {
-		t.Fatal(msg)
+		tb.Fatal(msg)
 	} else {
-		t.Skip(msg)
+		tb.Skip(msg)
 	}
 }
 
 // TestSkipOnCIUnlessLinuxAMD64 skips the current test if running on CI unless the environment is Linux/AMD64.
-func TestSkipOnCIUnlessLinuxAMD64(t *testing.T) {
-	t.Helper()
+func TestSkipOnCIUnlessLinuxAMD64(tb testing.TB) {
+	tb.Helper()
 
 	if os.Getenv("CI") != "" && runtime.GOOS+"/"+runtime.GOARCH != "linux/amd64" {
-		t.Skip("test not supported in this environment.")
+		tb.Skip("test not supported in this environment.")
 	}
 }
 

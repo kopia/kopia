@@ -46,19 +46,19 @@ func GetInterestingTempDirectoryName() (string, error) {
 
 // TempDirectory returns an interesting temporary directory and cleans it up before test
 // completes.
-func TempDirectory(t *testing.T) string {
-	t.Helper()
+func TempDirectory(tb testing.TB) string {
+	tb.Helper()
 
 	d, err := GetInterestingTempDirectoryName()
 	if err != nil {
-		t.Fatal(err)
+		tb.Fatal(err)
 	}
 
-	t.Cleanup(func() {
-		if !t.Failed() {
+	tb.Cleanup(func() {
+		if !tb.Failed() {
 			os.RemoveAll(d) // nolint:errcheck
 		} else {
-			t.Logf("temporary files left in %v", d)
+			tb.Logf("temporary files left in %v", d)
 		}
 	})
 

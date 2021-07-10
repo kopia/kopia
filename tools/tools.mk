@@ -231,6 +231,13 @@ $(gotestsum):
 	-$(mkdir) $(TOOLS_DIR)
 	go get gotest.tools/gotestsum
 
+MINIO_MC_PATH=$(TOOLS_DIR)/bin/mc$(exe_suffix)
+
+$(MINIO_MC_PATH):
+	GOBIN=$(TOOLS_DIR)/bin go install github.com/minio/mc@latest
+
+export MINIO_MC_PATH
+
 # goreleaser
 goreleaser_dir=$(TOOLS_DIR)$(slash)goreleaser-$(GORELEASER_VERSION)
 goreleaser=$(goreleaser_dir)$(slash)goreleaser$(exe_suffix)

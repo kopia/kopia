@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
 	"strings"
 	"testing"
 	"time"
@@ -19,7 +20,7 @@ import (
 	"github.com/google/uuid"
 	minio "github.com/minio/minio-go/v7"
 	miniocreds "github.com/minio/minio-go/v7/pkg/credentials"
-	"github.com/minio/minio/pkg/madmin"
+	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/clock"
@@ -34,11 +35,11 @@ const (
 	// https://github.com/minio/minio-go
 
 	// fake creadentials used by minio server we're launching.
-	minioAccessKeyID     = "fake-key"
-	minioSecretAccessKey = "fake-secret"
-	minioUseSSL          = false
-	minioRegion          = "fake-region-1"
-	minioBucketName      = "my-bucket" // we use ephemeral minio for each test so this does not need to be unique
+	minioRootAccessKeyID     = "fake-key"
+	minioRootSecretAccessKey = "fake-secret"
+	minioUseSSL              = false
+	minioRegion              = "fake-region-1"
+	minioBucketName          = "my-bucket" // we use ephemeral minio for each test so this does not need to be unique
 
 	// default aws S3 endpoint.
 	awsEndpoint = "s3.amazonaws.com"
@@ -78,8 +79,8 @@ func startDockerMinioOrSkip(t *testing.T) string {
 
 	containerID := testutil.RunContainerAndKillOnCloseOrSkip(t,
 		"run", "--rm", "-p", "0:9000",
-		"-e", "MINIO_ROOT_USER="+minioAccessKeyID,
-		"-e", "MINIO_ROOT_PASSWORD="+minioSecretAccessKey,
+		"-e", "MINIO_ROOT_USER="+minioRootAccessKeyID,
+		"-e", "MINIO_ROOT_PASSWORD="+minioRootSecretAccessKey,
 		"-e", "MINIO_REGION_NAME="+minioRegion,
 		"-d", "minio/minio", "server", "/data")
 	endpoint := testutil.GetContainerMappedPortAddress(t, containerID, "9000")
@@ -227,8 +228,8 @@ func TestS3StorageMinio(t *testing.T) {
 		testutil.Retry(t, func(t *testutil.RetriableT) {
 			options := &Options{
 				Endpoint:        minioEndpoint,
-				AccessKeyID:     minioAccessKeyID,
-				SecretAccessKey: minioSecretAccessKey,
+				AccessKeyID:     minioRootAccessKeyID,
+				SecretAccessKey: minioRootSecretAccessKey,
 				BucketName:      minioBucketName,
 				Region:          minioRegion,
 				DoNotUseTLS:     !minioUseSSL,
@@ -253,8 +254,8 @@ func TestInvalidCredsFailsFast(t *testing.T) {
 
 	if _, err := New(ctx, &Options{
 		Endpoint:        minioEndpoint,
-		AccessKeyID:     minioAccessKeyID,
-		SecretAccessKey: minioSecretAccessKey + "bad",
+		AccessKeyID:     minioRootAccessKeyID,
+		SecretAccessKey: minioRootSecretAccessKey + "bad",
 		BucketName:      minioBucketName,
 		Region:          minioRegion,
 		DoNotUseTLS:     false,
@@ -274,6 +275,10 @@ func TestS3StorageMinioSTS(t *testing.T) {
 
 	minioEndpoint := startDockerMinioOrSkip(t)
 
+	time.Sleep(2 * time.Second)
+
+	ma := newMinioAdmin(t, "http://"+minioEndpoint, minioRootAccessKeyID, minioRootSecretAccessKey)
+
 	for _, disableTLSVerify := range []bool{true, false} {
 		disableTLSVerify := disableTLSVerify
 
@@ -282,8 +287,9 @@ func TestS3StorageMinioSTS(t *testing.T) {
 			kopiaUserName := generateName("kopiauser")
 			kopiaUserPasswd := generateName("kopiapassword")
 
-			createMinioUser(t, minioEndpoint, kopiaUserName, kopiaUserPasswd)
-			defer deleteMinioUser(t, minioEndpoint, kopiaUserName)
+			ma.createMinioUser(t, kopiaUserName, kopiaUserPasswd)
+			defer ma.deleteMinioUser(t, kopiaUserName)
+
 			kopiaAccessKeyID, kopiaSecretKey, kopiaSessionToken := createMinioSessionToken(t, minioEndpoint, kopiaUserName, kopiaUserPasswd, minioBucketName)
 
 			options := &Options{
@@ -299,8 +305,8 @@ func TestS3StorageMinioSTS(t *testing.T) {
 
 			createBucket(t, &Options{
 				Endpoint:        minioEndpoint,
-				AccessKeyID:     minioAccessKeyID,
-				SecretAccessKey: minioSecretAccessKey,
+				AccessKeyID:     minioRootAccessKeyID,
+				SecretAccessKey: minioRootSecretAccessKey,
 				BucketName:      minioBucketName,
 				Region:          minioRegion,
 				DoNotUseTLS:     !minioUseSSL,
@@ -466,35 +472,42 @@ func makeBucket(tb testing.TB, cli *minio.Client, opt *Options, objectLocking bo
 	}
 }
 
-func createMinioUser(t *testutil.RetriableT, minioEndpoint, kopiaUserName, kopiaPasswd string) {
-	// create minio admin client
-	adminCli, err := madmin.New(minioEndpoint, minioAccessKeyID, minioSecretAccessKey, minioUseSSL)
-	if err != nil {
-		t.Fatalf("can't initialize minio admin client: %v", err)
-	}
-
-	ctx := testlogging.Context(t)
-	// add new kopia user
-	if err = adminCli.AddUser(ctx, kopiaUserName, kopiaPasswd); err != nil {
-		t.Fatalf("failed to add new minio user: %v", err)
-	}
-
-	// set user policy
-	if err = adminCli.SetPolicy(ctx, "readwrite", kopiaUserName, false); err != nil {
-		t.Fatalf("failed to set user policy: %v", err)
-	}
+type minioAdmin struct {
+	configDir string
 }
 
-func deleteMinioUser(t *testutil.RetriableT, minioEndpoint, kopiaUserName string) {
-	// create minio admin client
-	adminCli, err := madmin.New(minioEndpoint, minioAccessKeyID, minioSecretAccessKey, minioUseSSL)
-	if err != nil {
-		t.Fatalf("can't initialize minio admin client: %v", err)
-	}
+func newMinioAdmin(tb testing.TB, endpoint, user, pass string) *minioAdmin {
+	tb.Helper()
 
-	// delete temp kopia user
-	// ignore error
-	_ = adminCli.RemoveUser(testlogging.Context(t), kopiaUserName)
+	a := &minioAdmin{testutil.TempDirectory(tb)}
+	a.run(tb, "alias", "set", "myminio", endpoint, user, pass)
+
+	return a
+}
+
+func (a *minioAdmin) run(tb testing.TB, args ...string) {
+	tb.Helper()
+
+	testutil.TestSkipOnCIUnlessLinuxAMD64(tb)
+
+	cmd := exec.Command(getEnvOrSkip(tb, "MINIO_MC_PATH"),
+		append([]string{"--config-dir", a.configDir}, args...)...)
+
+	_, err := cmd.CombinedOutput()
+	require.NoError(tb, err)
+}
+
+func (a *minioAdmin) createMinioUser(tb testing.TB, kopiaUserName, kopiaPasswd string) {
+	tb.Helper()
+
+	a.run(tb, "admin", "user", "add", "myminio", kopiaUserName, kopiaPasswd)
+	a.run(tb, "admin", "policy", "set", "myminio", "readwrite", "user="+kopiaUserName)
+}
+
+func (a *minioAdmin) deleteMinioUser(tb testing.TB, kopiaUserName string) {
+	tb.Helper()
+
+	a.run(tb, "admin", "user", "remove", "myminio", kopiaUserName)
 }
 
 func createMinioSessionToken(t *testutil.RetriableT, minioEndpoint, kopiaUserName, kopiaUserPasswd, bucketName string) (accessID, secretKey, sessionToken string) {
