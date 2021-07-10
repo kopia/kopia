@@ -16,7 +16,7 @@ jobs:
         fetch-depth: 0
     - name: Install Minio MC
       run:
-        GOBIN=$(pwd)/tools/.tools/minio-mc go install -o tools/.tools/mc github.com/minio/mc@latest
+        GOBIN=$(pwd)/tools/.tools/minio-mc go install github.com/minio/mc@latest
     - name: Provider Tests
       run: make provider-tests
       env:
