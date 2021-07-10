@@ -206,7 +206,7 @@ test: $(gotestsum)
 provider-tests: export KOPIA_PROVIDER_TEST=true
 provider-tests: export RCLONE_EXE=$(rclone)
 provider-tests: GOTESTSUM_FLAGS=--format=$(GOTESTSUM_FORMAT) --no-summary=skipped --jsonfile=.tmp.provider-tests.json
-provider-tests: $(gotestsum) $(rclone)
+provider-tests: $(gotestsum) $(rclone) $(MINIO_MC_PATH)
 	$(GO_TEST) $(UNIT_TEST_RACE_FLAGS) -count=$(REPEAT_TEST) -timeout $(UNIT_TESTS_TIMEOUT) ./repo/blob/...
 	-$(gotestsum) tool slowest --jsonfile .tmp.provider-tests.json  --threshold 1000ms
 

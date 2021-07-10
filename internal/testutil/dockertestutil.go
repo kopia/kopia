@@ -10,9 +10,9 @@ import (
 )
 
 // RunDockerAndGetOutputOrSkip runs Docker and returns the output as a string.
-func RunDockerAndGetOutputOrSkip(t *testing.T, args ...string) string {
-	t.Helper()
-	t.Logf("running docker %v", args)
+func RunDockerAndGetOutputOrSkip(tb testing.TB, args ...string) string {
+	tb.Helper()
+	tb.Logf("running docker %v", args)
 
 	c := exec.Command("docker", args...) //nolint:gosec
 
@@ -23,7 +23,7 @@ func RunDockerAndGetOutputOrSkip(t *testing.T, args ...string) string {
 	out, err := c.Output()
 	if err != nil {
 		// skip or fail hard when running in CI environment.
-		TestSkipUnlessCI(t, "unable to run docker: %v %s (stderr %v)", err, out, stderr.String())
+		TestSkipUnlessCI(tb, "unable to run docker: %v %s (stderr %v)", err, out, stderr.String())
 	}
 
 	return strings.TrimSpace(string(out))

@@ -8,7 +8,6 @@ require (
 	github.com/Azure/azure-pipeline-go v0.2.3
 	github.com/Azure/azure-storage-blob-go v0.13.0
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962 // indirect
-	github.com/StackExchange/wmi v0.0.0-20210224194228-fe8f1750fd46 // indirect
 	github.com/alecthomas/kingpin v0.0.0-20200323085623-b6657d9477a6 // this is pulling master, which is newer than v2
 	github.com/alecthomas/units v0.0.0-20210208195552-ff826a37aa15
 	github.com/aws/aws-sdk-go v1.38.69
@@ -18,7 +17,7 @@ require (
 	github.com/efarrer/iothrottler v0.0.1
 	github.com/fatih/color v1.12.0
 	github.com/foomo/htpasswd v0.0.0-20200116085101-e3a90e78da9c
-	github.com/go-ole/go-ole v1.2.5 // indirect
+	github.com/frankban/quicktest v1.10.2 // indirect
 	github.com/gofrs/flock v0.8.0
 	github.com/golang/protobuf v1.5.2
 	github.com/google/fswalker v0.2.1-0.20200214223026-f0e929ba4126
@@ -30,11 +29,11 @@ require (
 	github.com/klauspost/compress v1.12.2
 	github.com/klauspost/cpuid/v2 v2.0.5 // indirect
 	github.com/klauspost/pgzip v1.2.5
+	github.com/kr/text v0.2.0 // indirect
 	github.com/kylelemons/godebug v1.1.0
 	github.com/minio/md5-simd v1.1.2 // indirect
-	github.com/minio/minio v0.0.0-20210319224201-98ff91b4842d
 	github.com/minio/minio-go/v7 v7.0.11-0.20210302210017-6ae69c73ce78
-	github.com/montanaflynn/stats v0.6.5 // indirect
+	github.com/minio/sha256-simd v1.0.0 // indirect
 	github.com/natefinch/atomic v0.0.0-20200526193002-18c0533a5b09
 	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
 	github.com/pierrec/lz4 v2.6.0+incompatible
@@ -45,13 +44,12 @@ require (
 	github.com/prometheus/client_golang v1.10.0
 	github.com/prometheus/common v0.19.0 // indirect
 	github.com/sanity-io/litter v1.3.0
-	github.com/shirou/gopsutil/v3 v3.21.2 // indirect
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
+	github.com/smartystreets/assertions v1.1.1 // indirect
 	github.com/stretchr/testify v1.7.0
 	github.com/studio-b12/gowebdav v0.0.0-20210630100626-7ff61aa87be8
 	github.com/tg123/go-htpasswd v1.0.0
-	github.com/tklauser/go-sysconf v0.3.5 // indirect
 	github.com/zalando/go-keyring v0.1.1
 	github.com/zeebo/blake3 v0.1.1
 	go.opencensus.io v0.23.0
@@ -67,6 +65,7 @@ require (
 	google.golang.org/api v0.48.0
 	google.golang.org/grpc v1.38.0
 	google.golang.org/protobuf v1.26.0
+	gopkg.in/check.v1 v1.0.0-20200902074654-038fdea0a05b // indirect
 	gopkg.in/ini.v1 v1.62.0 // indirect
 	gopkg.in/kothar/go-backblaze.v0 v0.0.0-20210124194846-35409b867216
 	gopkg.in/yaml.v2 v2.4.0 // indirect
