@@ -45,13 +45,17 @@ endif
 -include ./Makefile.local.mk
 
 install: html-ui
-	go install $(KOPIA_BUILD_FLAGS) -tags embedhtml
+	go install $(KOPIA_BUILD_FLAGS) -tags $(KOPIA_BUILD_TAGS)
+
+install-profiling: KOPIA_BUILD_TAGS=embedhtml,profiling
+install-profiling: html-ui
+	go install $(KOPIA_BUILD_FLAGS) -tags $(KOPIA_BUILD_TAGS)
 
 install-noui:
 	go install $(KOPIA_BUILD_FLAGS)
 
 install-race:
-	go install -race $(KOPIA_BUILD_FLAGS) -tags embedhtml
+	go install -race $(KOPIA_BUILD_FLAGS) -tags $(KOPIA_BUILD_TAGS)
 
 lint: $(linter)
 	$(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
@@ -106,8 +110,8 @@ htmlui/build/index.html: html-ui
 
 # on macOS build and sign AMD64, ARM64 and Universal binary and *.tar.gz files for them
 dist/kopia_darwin_universal/kopia dist/kopia_darwin_amd64/kopia dist/kopia_darwin_arm6/kopia: htmlui/build/index.html $(all_go_sources)
-	GOARCH=arm64 go build $(KOPIA_BUILD_FLAGS) -o dist/kopia_darwin_arm64/kopia -tags embedhtml
-	GOARCH=amd64 go build $(KOPIA_BUILD_FLAGS) -o dist/kopia_darwin_amd64/kopia -tags embedhtml
+	GOARCH=arm64 go build $(KOPIA_BUILD_FLAGS) -o dist/kopia_darwin_arm64/kopia -tags $(KOPIA_BUILD_TAGS)
+	GOARCH=amd64 go build $(KOPIA_BUILD_FLAGS) -o dist/kopia_darwin_amd64/kopia -tags $(KOPIA_BUILD_TAGS)
 	mkdir -p dist/kopia_darwin_universal
 	lipo -create -output dist/kopia_darwin_universal/kopia dist/kopia_darwin_arm64/kopia dist/kopia_darwin_amd64/kopia
 ifneq ($(MACOS_SIGNING_IDENTITY),)
@@ -121,7 +125,7 @@ endif
 
 # on Windows build and sign AMD64 and *.zip file
 dist/kopia_windows_amd64/kopia.exe: htmlui/build/index.html $(all_go_sources)
-	GOOS=windows GOARCH=amd64 go build $(KOPIA_BUILD_FLAGS) -o dist/kopia_windows_amd64/kopia.exe -tags embedhtml
+	GOOS=windows GOARCH=amd64 go build $(KOPIA_BUILD_FLAGS) -o dist/kopia_windows_amd64/kopia.exe -tags $(KOPIA_BUILD_TAGS)
 ifneq ($(WINDOWS_SIGN_TOOL),)
 	tools/.tools/signtool.exe sign //sha1 $(WINDOWS_CERT_SHA1) //fd sha256 //tr "http://timestamp.digicert.com" //v dist/kopia_windows_amd64/kopia.exe
 endif
@@ -136,7 +140,7 @@ dist/kopia_linux_amd64/kopia dist/kopia_linux_arm64/kopia dist/kopia_linux_arm_6
 ifeq ($(GOARCH),amd64)
 	$(MAKE) goreleaser
 else
-	go build $(KOPIA_BUILD_FLAGS) -o $(kopia_ui_embedded_exe) -tags embedhtml
+	go build $(KOPIA_BUILD_FLAGS) -o $(kopia_ui_embedded_exe) -tags $(KOPIA_BUILD_TAGS)
 endif
 
 # builds kopia CLI binary that will be later used as a server for kopia-ui.
