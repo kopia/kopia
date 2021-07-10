@@ -7,8 +7,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"runtime/debug"
-	"strings"
 	"time"
 
 	"github.com/alecthomas/kingpin"
@@ -37,11 +35,6 @@ type textOutput struct {
 }
 
 func (o *textOutput) setup(svc appServices) {
-	s := string(debug.Stack())
-	if strings.Contains(s, "cliProgress") {
-		fmt.Printf("setting up %s with %v\n", debug.Stack(), svc.stdout())
-	}
-
 	o.svc = svc
 }
 
@@ -108,6 +101,7 @@ type advancedAppServices interface {
 type App struct {
 	// global flags
 	enableAutomaticMaintenance    bool
+	pf                            profileFlags
 	mt                            memoryTracker
 	progress                      *cliProgress
 	initialUpdateCheckDelay       time.Duration
@@ -221,6 +215,7 @@ func (c *App) setup(app *kingpin.Application) {
 	).Bool()
 
 	c.mt.setup(app)
+	c.pf.setup(app)
 	c.progress.setup(c, app)
 
 	c.blob.setup(c, app)
@@ -390,7 +385,7 @@ func (c *App) maybeRepositoryAction(act func(ctx context.Context, rep repo.Repos
 	return func(kpc *kingpin.ParseContext) error {
 		ctx := c.rootContext()
 
-		if err := withProfiling(func() error {
+		if err := c.pf.withProfiling(func() error {
 			c.mt.startMemoryTracking(ctx)
 			defer c.mt.finishMemoryTracking(ctx)
 
