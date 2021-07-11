@@ -130,7 +130,7 @@ export class TaskDetails extends Component {
                 break;
         }
 
-        return <Badge key={label} className="counter-badge" variant={variant}>{label}: {formatted}</Badge>
+        return <Badge key={label} className="counter-badge" bg={variant}>{label}: {formatted}</Badge>
     }
 
     counterLevelToSortOrder(l) {

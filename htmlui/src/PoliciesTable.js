@@ -140,19 +140,19 @@ export class PoliciesTable extends Component {
 
         let bits = [];
         if (!isEmpty(p.policy.retention)) {
-            bits.push(<><Badge variant="success">retention</Badge>{' '}</>);
+            bits.push(<><Badge bg="success">retention</Badge>{' '}</>);
         }
         if (!isEmpty(p.policy.files)) {
-            bits.push(<><Badge variant="primary">files</Badge>{' '}</>);
+            bits.push(<><Badge bg="primary">files</Badge>{' '}</>);
         }
         if (!isEmpty(p.policy.errorHandling)) {
-            bits.push(<><Badge variant="danger">errors</Badge>{' '}</>);
+            bits.push(<><Badge bg="danger">errors</Badge>{' '}</>);
         }
         if (!isEmpty(p.policy.compression)) {
-            bits.push(<><Badge variant="secondary">compression</Badge>{' '}</>);
+            bits.push(<><Badge bg="secondary">compression</Badge>{' '}</>);
         }
         if (!isEmpty(p.policy.scheduling)) {
-            bits.push(<><Badge variant="warning">scheduling</Badge>{' '}</>);
+            bits.push(<><Badge bg="warning">scheduling</Badge>{' '}</>);
         }
 
         return bits;

@@ -224,7 +224,7 @@ export class SourcesTable extends Component {
                 <p title={moment(x.cell.value).toLocaleString()}>{moment(x.cell.value).fromNow()}
                     {moment(x.cell.value).isBefore(moment()) && <>
                         &nbsp;
-                    <Badge variant="secondary">overdue</Badge>
+                    <Badge bg="secondary">overdue</Badge>
                     </>}
                 </p>
             </> : '',

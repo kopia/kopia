@@ -126,7 +126,7 @@ export class SnapshotsTable extends Component {
             accessor: 'retention',
             width: "",
             Cell: x => <span>{x.cell.value.map(l =>
-                <><Badge variant={pillVariant(l)}>{l}</Badge>{' '}</>
+                <><Badge bg={pillVariant(l)}>{l}</Badge>{' '}</>
             )}</span>
         }, {
             Header: 'Size',
