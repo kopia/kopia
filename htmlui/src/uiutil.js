@@ -2,11 +2,11 @@ import { faBan, faCheck, faChevronLeft, faExclamationCircle, faExclamationTriang
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import axios from 'axios';
 import React from 'react';
-import Button from 'react-bootstrap/Button';
-import Form from 'react-bootstrap/Form';
-import FormControl from 'react-bootstrap/FormControl';
-import InputGroup from 'react-bootstrap/InputGroup';
-import Spinner from 'react-bootstrap/Spinner';
+import Button from 'react-bootstrap-v5/lib/Button';
+import Form from 'react-bootstrap-v5/lib/Form';
+import FormControl from 'react-bootstrap-v5/lib/FormControl';
+import InputGroup from 'react-bootstrap-v5/lib/InputGroup';
+import Spinner from 'react-bootstrap-v5/lib/Spinner';
 
 const base10UnitPrefixes = ["", "K", "M", "G", "T"];
 
@@ -235,10 +235,8 @@ export function DirectorySelector(props) {
 
     return <InputGroup>
         <FormControl size="sm" {...inputProps} />
-        <InputGroup.Append>
-            <Button size="sm" onClick={() => selectDirectory(onDirectorySelected)}>
-                <FontAwesomeIcon icon={faFolderOpen} />
-            </Button>
-        </InputGroup.Append>
+        <Button size="sm" onClick={() => selectDirectory(onDirectorySelected)}>
+            <FontAwesomeIcon icon={faFolderOpen} />
+        </Button>
     </InputGroup>;
 }

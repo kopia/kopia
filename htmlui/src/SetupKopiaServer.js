@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import Form from 'react-bootstrap/Form';
+import Row from 'react-bootstrap-v5/lib/Row';
 import { handleChange, OptionalField, RequiredField, validateRequiredFields } from './forms';
 
 export class SetupKopiaServer extends Component {
@@ -18,12 +18,12 @@ export class SetupKopiaServer extends Component {
 
     render() {
         return <>
-            <Form.Row>
+            <Row>
                 {RequiredField(this, "Server address", "url", { autoFocus: true, placeholder: "enter server URL (https://<host>:port)" })}
-            </Form.Row>
-            <Form.Row>
+            </Row>
+            <Row>
                 {OptionalField(this, "Trusted server certificate fingerprint (SHA256)", "serverCertFingerprint", { placeholder: "enter trusted server certificate fingerprint printed at server startup" })}
-            </Form.Row>
+            </Row>
         </>;
     }
 }

@@ -2,11 +2,12 @@ import { faAngleDoubleDown, faAngleDoubleUp } from '@fortawesome/free-solid-svg-
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import axios from 'axios';
 import React, { Component } from 'react';
-import Button from 'react-bootstrap/Button';
-import Col from 'react-bootstrap/Col';
-import Collapse from 'react-bootstrap/Collapse';
-import Form from 'react-bootstrap/Form';
-import Spinner from 'react-bootstrap/Spinner';
+import Button from 'react-bootstrap-v5/lib/Button';
+import Col from 'react-bootstrap-v5/lib/Col';
+import Collapse from 'react-bootstrap-v5/lib/Collapse';
+import Form from 'react-bootstrap-v5/lib/Form';
+import Row from 'react-bootstrap-v5/lib/Row';
+import Spinner from 'react-bootstrap-v5/lib/Spinner';
 import { handleChange, RequiredBoolean, RequiredField, validateRequiredFields } from './forms';
 import { SetupAzure } from './SetupAzure';
 import { SetupB2 } from "./SetupB2";
@@ -212,7 +213,7 @@ export class SetupRepository extends Component {
         return <>
             <h3>Select Storage Type</h3>
             <p>To connect to a repository or create one, select the preferred storage type.</p>
-            <Form.Row>
+            <Row>
                 {supportedProviders.map(x =>
                     <Button key={x.provider}
                         data-testid={'provider-' + x.provider}
@@ -220,7 +221,7 @@ export class SetupRepository extends Component {
                         variant={x.provider.startsWith("_") ? "outline-success" : "outline-primary"}
                         className="providerIcon" >{x.description}</Button>
                 )}
-            </Form.Row>
+            </Row>
         </>;
     }
 
@@ -327,14 +328,14 @@ export class SetupRepository extends Component {
         return <Form onSubmit={this.createRepository}>
             <h3>Create New Repository</h3>
             <p>Enter a strong password to create Kopia repository in the provided storage.</p>
-            <Form.Row>
+            <Row>
                 {RequiredField(this, "Repository Password", "password", { autoFocus: true, type: "password", placeholder: "enter repository password" }, "The password used to encrypt repository contents.")}
                 {RequiredField(this, "Confirm Repository Password", "confirmPassword", { type: "password", placeholder: "enter repository password again" })}
-            </Form.Row>
+            </Row>
             {this.toggleAdvancedButton()}
             <Collapse in={this.state.showAdvanced}>
                 <div id="advanced-options-div">
-                    <Form.Row>
+                    <Row>
                         <Form.Group as={Col}>
                             <Form.Label className="required">Encryption</Form.Label>
                             <Form.Control as="select"
@@ -377,13 +378,13 @@ export class SetupRepository extends Component {
                                     <option value={2}>v2 (experimental)</option>
                             </Form.Control>
                         </Form.Group>
-                    </Form.Row>
+                    </Row>
                     {this.overrideUsernameHostnameRow()}
-                    <Form.Row>
+                    <Row>
                         <Form.Group as={Col}>
                             <Form.Text>Additional parameters can be set when creating repository using command line</Form.Text>
                         </Form.Group>
-                    </Form.Row>
+                    </Row>
                 </div>
             </Collapse>
             {this.connectionErrorInfo()}
@@ -396,24 +397,24 @@ export class SetupRepository extends Component {
     }
 
     overrideUsernameHostnameRow() {
-        return <Form.Row>
+        return <Row>
             {RequiredField(this, "Username", "username", {}, "Override this when restoring snapshot taken by another user.")}
             {RequiredField(this, "Hostname", "hostname", {}, "Override this when restoring snapshot taken on another machine.")}
-        </Form.Row>;
+        </Row>;
     }
 
     connectionErrorInfo() {
-        return this.state.connectError && <Form.Row>
+        return this.state.connectError && <Row>
             <Form.Group as={Col}>
                 <Form.Text className="error">Connect Error: {this.state.connectError}</Form.Text>
             </Form.Group>
-        </Form.Row>;
+        </Row>;
     }
 
     renderConfirmConnect() {
         return <Form onSubmit={this.connectToRepository}>
             <h3>Connect To Repository</h3>
-            <Form.Row>
+            <Row>
                 <Form.Group as={Col}>
                     <Form.Label className="required">Connect As</Form.Label>
                     <Form.Control
@@ -422,20 +423,20 @@ export class SetupRepository extends Component {
                         size="sm" />
                     <Form.Text className="text-muted">To override, click 'Show Advanced Options'</Form.Text>
                 </Form.Group>
-            </Form.Row>
-            <Form.Row>
+            </Row>
+            <Row>
                 {(this.state.provider !== "_token" && this.state.provider !== "_server") && RequiredField(this, "Repository Password", "password", { autoFocus: true, type: "password", placeholder: "enter repository password" }, "The password used to encrypt repository contents.")}
                 {this.state.provider === "_server" && RequiredField(this, "Server Password", "password", { autoFocus: true, type: "password", placeholder: "enter password to connect to server" })}
-            </Form.Row>
-            <Form.Row>
+            </Row>
+            <Row>
                 {RequiredField(this, "Repository Description", "description", { autoFocus: this.state.provider === "_token", placeholder: "enter repository description" }, "Description helps you distinguish between multiple connected repositories.")}
-            </Form.Row>
+            </Row>
             {this.toggleAdvancedButton()}
             <Collapse in={this.state.showAdvanced}>
                 <div id="advanced-options-div" className="advancedOptions">
-                    <Form.Row>
+                    <Row>
                         {RequiredBoolean(this, "Connect in read-only mode", "readonly", "Read-only mode prevents any changes to the repository.")}
-                    </Form.Row>
+                    </Row>
                     {this.overrideUsernameHostnameRow()}
                 </div>
             </Collapse>

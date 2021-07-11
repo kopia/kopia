@@ -1,9 +1,10 @@
 import axios from 'axios';
 import React, { Component } from 'react';
-import Badge from 'react-bootstrap/Badge';
-import Form from 'react-bootstrap/Form';
-import Row from 'react-bootstrap/Row';
-import Spinner from 'react-bootstrap/Spinner';
+import Badge from 'react-bootstrap-v5/lib/Badge';
+import Form from 'react-bootstrap-v5/lib/Form';
+import Row from 'react-bootstrap-v5/lib/Row';
+import Col from 'react-bootstrap-v5/lib/Col';
+import Spinner from 'react-bootstrap-v5/lib/Spinner';
 import { Link } from "react-router-dom";
 import MyTable from './Table';
 import { compare, GoBackButton, objectLink, parseQuery, rfc3339TimestampForDisplay, sizeWithFailures, sourceQueryStringParams } from './uiutil';
@@ -125,7 +126,7 @@ export class SnapshotsTable extends Component {
             accessor: 'retention',
             width: "",
             Cell: x => <span>{x.cell.value.map(l =>
-                <><Badge variant={pillVariant(l)}>{l}</Badge>{' '}</>
+                <><Badge bg={pillVariant(l)}>{l}</Badge>{' '}</>
             )}</span>
         }, {
             Header: 'Size',
@@ -144,6 +145,7 @@ export class SnapshotsTable extends Component {
 
         return <div className="padded">
             <Row>
+                <Col>
             <GoBackButton onClick={this.props.history.goBack} />
             &nbsp;
             Displaying {filteredSnapshots.length !== snapshots.length ? filteredSnapshots.length + ' out of ' + snapshots.length : snapshots.length} snapshots of&nbsp;<b>{this.state.userName}@{this.state.host}:{this.state.path}</b>
@@ -155,7 +157,7 @@ export class SnapshotsTable extends Component {
                             label={'Show ' + hiddenCount + ' identical snapshots'}
                             onChange={this.onChange} />
                     </Form.Group></>}
-
+                    </Col>
             </Row>
             <hr />
             <Row>

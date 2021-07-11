@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import Form from 'react-bootstrap/Form';
+import Row from 'react-bootstrap-v5/lib/Row';
 import { handleChange, OptionalField, RequiredField, validateRequiredFields } from './forms';
 
 export class SetupB2 extends Component {
@@ -18,16 +18,16 @@ export class SetupB2 extends Component {
 
     render() {
         return <>
-            <Form.Row>
+            <Row>
                 {RequiredField(this, "B2 Bucket", "bucket", { autoFocus: true, placeholder: "enter bucket name" })}
-            </Form.Row>
-            <Form.Row>
+            </Row>
+            <Row>
                 {RequiredField(this, "Key ID", "keyId", { placeholder: "enter application or account key ID" })}
                 {RequiredField(this, "Key", "key", { placeholder: "enter secret application or account key", type: "password" })}
-            </Form.Row>
-            <Form.Row>
+            </Row>
+            <Row>
                 {OptionalField(this, "Object Name Prefix", "prefix", { placeholder: "enter object name prefix or leave empty", type: "password" })}
-            </Form.Row>
+            </Row>
         </>;
     }
 }

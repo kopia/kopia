@@ -2,9 +2,10 @@ import { faWindowClose } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import axios from 'axios';
 import React, { Component } from 'react';
-import Button from 'react-bootstrap/Button';
-import Col from 'react-bootstrap/Col';
-import Form from 'react-bootstrap/Form';
+import Button from 'react-bootstrap-v5/lib/Button';
+import Col from 'react-bootstrap-v5/lib/Col';
+import Form from 'react-bootstrap-v5/lib/Form';
+import Row from 'react-bootstrap-v5/lib/Row';
 import { handleChange, validateRequiredFields } from './forms';
 import { PolicyEditor } from './PolicyEditor';
 import { TaskDetails } from './TaskDetails';
@@ -110,14 +111,14 @@ export class NewSnapshot extends Component {
 
     render() {
         return <>
-            <Form.Row>
+            <Row>
                 <Form.Group>
                     <GoBackButton onClick={this.props.history.goBack} />
                 </Form.Group>
                 &nbsp;&nbsp;&nbsp;<h4>New Snapshot</h4>
-            </Form.Row>
+            </Row>
             <br />
-            <Form.Row>
+            <Row>
                 <Col>
                     <Form.Group>
                         <DirectorySelector onDirectorySelected={p => this.setState({ path: p })} autoFocus placeholder="enter path to snapshot" name="path" value={this.state.path} onChange={this.handleChange}
@@ -144,7 +145,7 @@ export class NewSnapshot extends Component {
                         variant="primary"
                         onClick={this.togglePolicyEditor}>Policy</Button>
                 </Col>
-            </Form.Row>
+            </Row>
             {this.state.estimateTaskID && this.state.estimateTaskVisible &&
                 <div className="estimate-results">
                     <h5>
@@ -156,7 +157,7 @@ export class NewSnapshot extends Component {
             }
             <br />
 
-            {this.state.path && this.state.policyEditorVisibleFor === this.state.path && <Form.Row>
+            {this.state.path && this.state.policyEditorVisibleFor === this.state.path && <Row>
                 <Col xs={12}>
                     <PolicyEditor ref={this.policyEditorRef} 
                     embedded 
@@ -165,16 +166,17 @@ export class NewSnapshot extends Component {
                     path={this.state.path} 
                     close={this.togglePolicyEditor} />
                 </Col>
-            </Form.Row>}
+            </Row>}
 
-            <Form.Row>
+            <Row>
+                <Col>
                 <Button size="sm"
                     disabled={!this.state.path}
                     title="Snapshot Now"
                     variant="primary"
-                    onClick={this.snapshotNow}
-                >Snapshot Now</Button>
-            </Form.Row>
+                    onClick={this.snapshotNow}>Snapshot Now</Button>
+                </Col>
+            </Row>
         </>;
     }
 }

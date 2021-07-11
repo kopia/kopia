@@ -1,7 +1,7 @@
 import React, { Component } from 'react';
-import Form from 'react-bootstrap/Form';
+import Row from 'react-bootstrap-v5/lib/Row';
+import { handleChange, OptionalField, RequiredField, validateRequiredFields } from './forms';
 
-import { validateRequiredFields, handleChange, RequiredField, OptionalField } from './forms';
 
 export class SetupGCS extends Component {
     constructor(props) {
@@ -19,16 +19,16 @@ export class SetupGCS extends Component {
 
     render() {
         return <>
-            <Form.Row>
+            <Row>
                 {RequiredField(this, "GCS Bucket", "bucket", { autoFocus: true, placeholder: "enter bucket name" })}
                 {OptionalField(this, "Object Name Prefix", "prefix", { placeholder: "enter object name prefix or leave empty", type: "password" })}
-            </Form.Row>
-            <Form.Row>
+            </Row>
+            <Row>
                 {OptionalField(this, "Credentials File", "credentialsFile", { placeholder: "enter name of credentials JSON file" })}
-            </Form.Row>
-            <Form.Row>
+            </Row>
+            <Row>
                 {OptionalField(this, "Credentials JSON", "credentials", { placeholder: "paste JSON credentials here", as: "textarea", rows: 5 })}
-            </Form.Row>
+            </Row>
         </>;
     }
 }

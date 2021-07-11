@@ -2,12 +2,12 @@ import { faUserFriends } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import axios from 'axios';
 import React, { Component } from 'react';
-import Badge from 'react-bootstrap/Badge';
-import Button from 'react-bootstrap/Button';
-import Col from 'react-bootstrap/Col';
-import Dropdown from 'react-bootstrap/Dropdown';
-import Form from 'react-bootstrap/Form';
-import Row from 'react-bootstrap/Row';
+import Badge from 'react-bootstrap-v5/lib/Badge';
+import Button from 'react-bootstrap-v5/lib/Button';
+import Col from 'react-bootstrap-v5/lib/Col';
+import Dropdown from 'react-bootstrap-v5/lib/Dropdown';
+import Form from 'react-bootstrap-v5/lib/Form';
+import Row from 'react-bootstrap-v5/lib/Row';
 import { handleChange } from './forms';
 import { PolicyEditor } from './PolicyEditor';
 import MyTable from './Table';
@@ -140,19 +140,19 @@ export class PoliciesTable extends Component {
 
         let bits = [];
         if (!isEmpty(p.policy.retention)) {
-            bits.push(<><Badge variant="success">retention</Badge>{' '}</>);
+            bits.push(<><Badge bg="success">retention</Badge>{' '}</>);
         }
         if (!isEmpty(p.policy.files)) {
-            bits.push(<><Badge variant="primary">files</Badge>{' '}</>);
+            bits.push(<><Badge bg="primary">files</Badge>{' '}</>);
         }
         if (!isEmpty(p.policy.errorHandling)) {
-            bits.push(<><Badge variant="danger">errors</Badge>{' '}</>);
+            bits.push(<><Badge bg="danger">errors</Badge>{' '}</>);
         }
         if (!isEmpty(p.policy.compression)) {
-            bits.push(<><Badge variant="secondary">compression</Badge>{' '}</>);
+            bits.push(<><Badge bg="secondary">compression</Badge>{' '}</>);
         }
         if (!isEmpty(p.policy.scheduling)) {
-            bits.push(<><Badge variant="warning">scheduling</Badge>{' '}</>);
+            bits.push(<><Badge bg="warning">scheduling</Badge>{' '}</>);
         }
 
         return bits;
