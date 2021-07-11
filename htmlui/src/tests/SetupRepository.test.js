@@ -1,8 +1,8 @@
-import { render, waitForElement, wait } from '@testing-library/react';
+import { findByTestId, render, waitFor } from '@testing-library/react';
 import React from 'react';
 import { SetupRepository } from '../SetupRepository';
 import { setupAPIMock } from './api_mocks';
-import { simulateClick, changeControlValue } from './testutils';
+import { changeControlValue, simulateClick } from './testutils';
 
 it('can create new repository when not initialized', async () => {
   let serverMock = setupAPIMock();
@@ -22,27 +22,24 @@ it('can create new repository when not initialized', async () => {
     },
   }).reply(200, {});
 
-  const { getByTestId } = render(<SetupRepository />);
+  const { getByTestId, container } = render(<SetupRepository />);
 
   simulateClick(getByTestId('provider-filesystem'))
-  await waitForElement(() => getByTestId('control-path'));
-
-  changeControlValue(getByTestId("control-path"), "some-path")
+  
+  changeControlValue(await findByTestId(container, 'control-path'), "some-path")
   simulateClick(getByTestId('submit-button'));
 
-  await waitForElement(() => getByTestId('control-password'));
-  changeControlValue(getByTestId("control-password"), "foo")
+  changeControlValue(await findByTestId(container, 'control-password'), "foo")
 
   simulateClick(getByTestId('submit-button'));
-  await wait(() => serverMock.history.post.length == 1);
-  await waitForElement(() => getByTestId('control-encryption'));
-  changeControlValue(getByTestId("control-encryption"), "e-baz")
+  await waitFor(() => serverMock.history.post.length == 1);
+  changeControlValue(await findByTestId(container, 'control-encryption'), "e-baz")
   changeControlValue(getByTestId("control-splitter"), "s-foo")
   changeControlValue(getByTestId("control-hash"), "h-bar")
   changeControlValue(getByTestId("control-confirmPassword"), "foo")
 
   simulateClick(getByTestId('submit-button'));
-  await wait(() => serverMock.history.post.length == 2);
+  await waitFor(() => serverMock.history.post.length == 2);
 });
 
 it('can connect to existing repository when already initialized', async () => {
@@ -53,17 +50,14 @@ it('can connect to existing repository when already initialized', async () => {
     storage: { type: 'filesystem', config: { path: 'some-path' } },
   }).reply(200, {});
 
-  const { getByTestId } = render(<SetupRepository />)
+  const { getByTestId, container } = render(<SetupRepository />)
   simulateClick(getByTestId('provider-filesystem'));
-  await waitForElement(() => getByTestId('control-path'));
-  changeControlValue(getByTestId("control-path"), "some-path")
+  changeControlValue(await findByTestId(container, 'control-path'), "some-path")
   simulateClick(getByTestId('submit-button'));
-
-  await waitForElement(() => getByTestId('control-password'));
-  changeControlValue(getByTestId("control-password"), "foo")
+  changeControlValue(await findByTestId(container, 'control-password'), "foo")
 
   simulateClick(getByTestId('submit-button'));
-  await wait(() => serverMock.history.post.length == 1);
+  await waitFor(() => serverMock.history.post.length == 1);
 });
 
 it('can connect to existing repository using token', async () => {
@@ -73,11 +67,10 @@ it('can connect to existing repository using token', async () => {
     token: "my-token",
   }).reply(200, {});
 
-  const { getByTestId } = render(<SetupRepository />)
+  const { getByTestId, container } = render(<SetupRepository />)
   simulateClick(getByTestId('provider-_token'))
-  await waitForElement(() => getByTestId('control-token'));
-  changeControlValue(getByTestId("control-token"), "my-token")
+  changeControlValue(await findByTestId(container, 'control-token'), "my-token")
 
   simulateClick(getByTestId('submit-button'));
-  await wait(() => serverMock.history.post.length == 1);
+  await waitFor(() => serverMock.history.post.length == 1);
 });
