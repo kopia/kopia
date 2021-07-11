@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import Form from 'react-bootstrap/Form';
+import Row from 'react-bootstrap-v5/lib/Row';
 import { handleChange, OptionalField, RequiredField, validateRequiredFields } from './forms';
 
 export class SetupAzure extends Component {
@@ -18,18 +18,18 @@ export class SetupAzure extends Component {
 
     render() {
         return <>
-            <Form.Row>
+            <Row>
                 {RequiredField(this, "Container", "container", { autoFocus: true, placeholder: "enter container name" })}
                 {OptionalField(this, "Object Name Prefix", "prefix", { placeholder: "enter object name prefix or leave empty" })}
-            </Form.Row>
-            <Form.Row>
+            </Row>
+            <Row>
                 {RequiredField(this, "Storage Account", "storageAccount", { placeholder: "enter access key ID" })}
                 {OptionalField(this, "Access Key", "storageKey", { placeholder: "enter secret access key", type: "password" })}
-            </Form.Row>
-            <Form.Row>
+            </Row>
+            <Row>
                 {OptionalField(this, "Azure Storage Domain", "storageDomain", { placeholder: "enter storage domain or leave empty for default 'blob.core.windows.net'" })}
                 {OptionalField(this, "SAS Token", "sasToken", { placeholder: "enter secret SAS Token", type: "password" })}
-            </Form.Row>
+            </Row>
         </>;
     }
 }

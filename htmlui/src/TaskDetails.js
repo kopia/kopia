@@ -3,12 +3,13 @@ import { faChevronCircleDown, faChevronCircleUp, faStopCircle } from '@fortaweso
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import axios from 'axios';
 import React, { Component } from 'react';
-import Alert from 'react-bootstrap/Alert';
-import Badge from 'react-bootstrap/Badge';
-import Button from 'react-bootstrap/Button';
-import Col from 'react-bootstrap/Col';
-import Form from 'react-bootstrap/Form';
-import Spinner from 'react-bootstrap/Spinner';
+import Alert from 'react-bootstrap-v5/lib/Alert';
+import Badge from 'react-bootstrap-v5/lib/Badge';
+import Button from 'react-bootstrap-v5/lib/Button';
+import Col from 'react-bootstrap-v5/lib/Col';
+import Form from 'react-bootstrap-v5/lib/Form';
+import Row from 'react-bootstrap-v5/lib/Row';
+import Spinner from 'react-bootstrap-v5/lib/Spinner';
 import { TaskLogs } from './TaskLogs';
 import { cancelTask, formatDuration, GoBackButton, redirectIfNotConnected, sizeDisplayName } from './uiutil';
 
@@ -180,15 +181,15 @@ export class TaskDetails extends Component {
 
         return <Form>
             {this.props.history &&
-                <Form.Row>
+                <Row>
                     <Form.Group>
                         <GoBackButton onClick={this.props.history.goBack} />
                         {task.status === "RUNNING" && <>
                             &nbsp;<Button size="sm" variant="danger" onClick={() => cancelTask(task.id)} ><FontAwesomeIcon icon={faStopCircle} /> Stop </Button>
                         </>}
                     </Form.Group>
-                </Form.Row>}
-            {!this.props.hideDescription && <Form.Row>
+                </Row>}
+            {!this.props.hideDescription && <Row>
                 <Col xs={3} >
                     <Form.Group>
                         <Form.Control type="text" readOnly={true} value={task.kind} />
@@ -199,8 +200,8 @@ export class TaskDetails extends Component {
                         <Form.Control type="text" readOnly={true} value={task.description} />
                     </Form.Group>
                 </Col>
-            </Form.Row>}
-            <Form.Row>
+            </Row>}
+            <Row>
                 <Col xs={9}>
                     {this.summaryControl(task)}
                 </Col>
@@ -209,21 +210,21 @@ export class TaskDetails extends Component {
                         <Form.Control type="text" readOnly={true} value={"Started: " + new Date(task.startTime).toLocaleString()} />
                     </Form.Group>
                 </Col>
-            </Form.Row>
-            {task.counters && <Form.Row>
+            </Row>
+            {task.counters && <Row>
                 <Col>
                     {this.sortedBadges(task.counters)}
                 </Col>
-            </Form.Row>}
+            </Row>}
             <hr />
-            <Form.Row>
+            <Row>
                 <Col>
                     {this.state.showLog ? <>
                         <Button size="sm" onClick={() => this.setState({ showLog: false })}><FontAwesomeIcon icon={faChevronCircleUp} /> Hide Log</Button>
                         <TaskLogs taskID={this.taskID(this.props)} />
                     </> : <Button size="sm" onClick={() => this.setState({ showLog: true })}><FontAwesomeIcon icon={faChevronCircleDown} /> Show Log</Button>}
                 </Col>
-            </Form.Row>
+            </Row>
         </Form>
             ;
     }

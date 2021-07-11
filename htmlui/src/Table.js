@@ -1,6 +1,6 @@
 import React from 'react';
-import Pagination from 'react-bootstrap/Pagination';
-import Table from 'react-bootstrap/Table';
+import Pagination from 'react-bootstrap-v5/lib/Pagination';
+import Table from 'react-bootstrap-v5/lib/Table';
 import { usePagination, useSortBy, useTable } from 'react-table';
 
 function paginationItems(count, active, gotoPage) {
@@ -89,7 +89,7 @@ export default function MyTable({ columns, data }) {
   return (
     <>
       <Table size="sm" striped bordered hover {...getTableProps()}>
-        <thead className="thead-dark">
+        <thead className="table-dark">
           {headerGroups.map(headerGroup => (
             <tr {...headerGroup.getHeaderGroupProps()}>
               {headerGroup.headers.map(column => (

@@ -1,7 +1,9 @@
 import axios from 'axios';
 import React, { Component } from 'react';
-import Button from 'react-bootstrap/Button';
-import Form from 'react-bootstrap/Form';
+import Button from 'react-bootstrap-v5/lib/Button';
+import Form from 'react-bootstrap-v5/lib/Form';
+import Row from 'react-bootstrap-v5/lib/Row';
+import Col from 'react-bootstrap-v5/lib/Col';
 import { Link } from "react-router-dom";
 import { handleChange, RequiredBoolean, RequiredField, validateRequiredFields } from './forms';
 import { errorAlert, GoBackButton } from './uiutil';
@@ -86,43 +88,45 @@ export class BeginRestore extends Component {
             <GoBackButton onClick={this.props.history.goBack} />&nbsp;<span className="page-title">Restore</span>
             <hr/>
             <Form onSubmit={this.start}>
-                <Form.Row>
+                <Row>
                     {RequiredField(this, "Destination", "destination", {
                         autoFocus: true,
                         placeholder: "enter destination path",
                     },
                         "You can also restore to a .zip or .tar file by providing the appropriate extension.")}
-                </Form.Row>
-                <Form.Row>
+                </Row>
+                <Row>
                     {RequiredBoolean(this, "Skip previously restored files and symlinks", "incremental")}
-                </Form.Row>
-                <Form.Row>
+                </Row>
+                <Row>
                     {RequiredBoolean(this, "Continue on Errors", "continueOnErrors", "When a restore error occurs, attempt to continue instead of failing fast.")}
-                </Form.Row>
-                <Form.Row>
+                </Row>
+                <Row>
                     {RequiredBoolean(this, "Restore File Ownership", "restoreOwnership")}
-                </Form.Row>
-                <Form.Row>
+                </Row>
+                <Row>
                     {RequiredBoolean(this, "Restore File Permissions", "restorePermissions")}
-                </Form.Row>
-                <Form.Row>
+                </Row>
+                <Row>
                     {RequiredBoolean(this, "Restore File Modification Time", "restoreModTimes")}
-                </Form.Row>
-                <Form.Row>
+                </Row>
+                <Row>
                     {RequiredBoolean(this, "Overwrite Files", "overwriteFiles")}
-                </Form.Row>
-                <Form.Row>
+                </Row>
+                <Row>
                     {RequiredBoolean(this, "Overwrite Directories", "overwriteDirectories")}
-                </Form.Row>
-                <Form.Row>
+                </Row>
+                <Row>
                     {RequiredBoolean(this, "Overwrite Symbolic Links", "overwriteSymlinks")}
-                </Form.Row>
-                <Form.Row>
+                </Row>
+                <Row>
                     {RequiredBoolean(this, "Disable ZIP compression", "uncompressedZip", "Do not compress when restoring to a ZIP file (faster).")}
-                </Form.Row>
-                <Form.Row>
-                    <Button variant="primary" type="submit" data-testid="submit-button">Begin Restore</Button>
-                </Form.Row>
+                </Row>
+                <Row>
+                    <Col>
+                        <Button variant="primary" type="submit" data-testid="submit-button">Begin Restore</Button>
+                    </Col>
+                </Row>
             </Form>
         </div>;
     }

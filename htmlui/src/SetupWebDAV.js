@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
-import Form from 'react-bootstrap/Form';
-import { validateRequiredFields, handleChange, RequiredField, OptionalField } from './forms';
+import Row from 'react-bootstrap-v5/lib/Row';
+import { handleChange, OptionalField, RequiredField, validateRequiredFields } from './forms';
 
 export class SetupWebDAV extends Component {
     constructor(props) {
@@ -18,13 +18,13 @@ export class SetupWebDAV extends Component {
 
     render() {
         return <>
-            <Form.Row>
+            <Row>
             {RequiredField(this, "WebDAV Server URL", "url", { autoFocus: true, placeholder: "http[s]://server:port/path" })}
-            </Form.Row>
-            <Form.Row>
+            </Row>
+            <Row>
             {OptionalField(this, "Username", "username", { placeholder: "enter username" })}
             {OptionalField(this, "Password", "password", { placeholder: "enter password", type: "password" })}
-            </Form.Row>
+            </Row>
         </>;
     }
 }

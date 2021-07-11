@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
-import Form from 'react-bootstrap/Form';
-import { validateRequiredFields, handleChange, RequiredField } from './forms';
+import Row from 'react-bootstrap-v5/lib/Row';
+import { handleChange, RequiredField, validateRequiredFields } from './forms';
 
 export class SetupToken extends Component {
     constructor(props) {
@@ -18,9 +18,9 @@ export class SetupToken extends Component {
 
     render() {
         return <>
-            <Form.Row>
+            <Row>
                 {RequiredField(this, "Token", "token", { autoFocus: true, type: "password", placeholder: "paste connection token" })}
-            </Form.Row>
+            </Row>
         </>;
     }
 }

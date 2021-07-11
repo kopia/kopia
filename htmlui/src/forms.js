@@ -1,6 +1,6 @@
 import React from 'react';
-import Form from 'react-bootstrap/Form';
-import Col from 'react-bootstrap/Col';
+import Form from 'react-bootstrap-v5/lib/Form';
+import Col from 'react-bootstrap-v5/lib/Col';
 
 export function validateRequiredFields(component, fields) {
     let updateState = {};

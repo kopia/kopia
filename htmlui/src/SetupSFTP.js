@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
-import Form from 'react-bootstrap/Form';
-import { handleChange, OptionalField, OptionalNumberField, RequiredField, validateRequiredFields, hasExactlyOneOf, RequiredBoolean } from './forms';
+import Row from 'react-bootstrap-v5/lib/Row';
+import { handleChange, hasExactlyOneOf, OptionalField, OptionalNumberField, RequiredBoolean, RequiredField, validateRequiredFields } from './forms';
 
 export class SetupSFTP extends Component {
     constructor(props) {
@@ -40,20 +40,20 @@ export class SetupSFTP extends Component {
 
     render() {
         return <>
-            <Form.Row>
+            <Row>
                 {RequiredField(this, "Host", "host", { autoFocus: true, placeholder: "ssh host name (e.g. example.com)" })}
                 {RequiredField(this, "User", "username", { placeholder: "user name" })}
                 {OptionalNumberField(this, "Port", "port", { placeholder: "port number (e.g. 22)" })}
-            </Form.Row>
-            <Form.Row>
+            </Row>
+            <Row>
                 {RequiredField(this, "Path", "path", { placeholder: "enter remote path to repository, e.g. '/mnt/data/repository'" })}
-            </Form.Row>
+            </Row>
             {!this.state.externalSSH && <>
-            <Form.Row>
+            <Row>
                 {OptionalField(this, "Path to key file", "keyfile", { placeholder: "enter path to the key file" })}
                 {OptionalField(this, "Path to known_hosts File", "knownHostsFile", { placeholder: "enter path to known_hosts file" })}
-            </Form.Row>
-            <Form.Row>
+            </Row>
+            <Row>
                 {OptionalField(this, "Key Data", "keyData", { 
                     placeholder: "paste contents of the key file", 
                     as: "textarea", 
@@ -66,13 +66,13 @@ export class SetupSFTP extends Component {
                     rows: 5,
                     isInvalid: this.state.validated && !this.state.externalSSH && !hasExactlyOneOf(this, ["knownHostsFile", "knownHostsData"]),
                 }, null, <>Either <b>Known Hosts File</b> or <b>Known Hosts Data</b> is required, but not both.</>)}
-            </Form.Row>
+            </Row>
             </>}
             {RequiredBoolean(this, "Launch external password-less SSH command", "externalSSH", "By default Kopia connects to the server using internal SSH client which supports limited options. Alternatively it may launch external password-less SSH command, which supports additional options.")}
-            {this.state.externalSSH && <><Form.Row>
+            {this.state.externalSSH && <><Row>
                 {OptionalField(this, "SSH Command", "sshCommand", { placeholder: "provide enter passwordless SSH command to execute (typically 'ssh')" })}
                 {OptionalField(this, "SSH Arguments", "sshArguments", { placeholder: "enter SSH command arguments ('user@host -s sftp' will be appended automatically)" })}
-            </Form.Row></>}
+            </Row></>}
 
         </>;
     }

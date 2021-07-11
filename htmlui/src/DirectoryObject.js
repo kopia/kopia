@@ -2,9 +2,10 @@ import { faCopy } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import axios from 'axios';
 import React, { Component } from 'react';
-import Button from 'react-bootstrap/Button';
-import Row from 'react-bootstrap/Row';
-import Spinner from 'react-bootstrap/Spinner';
+import Button from 'react-bootstrap-v5/lib/Button';
+import Row from 'react-bootstrap-v5/lib/Row';
+import Col from 'react-bootstrap-v5/lib/Col';
+import Spinner from 'react-bootstrap-v5/lib/Spinner';
 import { DirectoryItems } from "./DirectoryItems";
 import { GoBackButton } from './uiutil';
 
@@ -118,6 +119,7 @@ export class DirectoryObject extends Component {
 
         return <div className="padded">
             <Row>
+                <Col>
             <GoBackButton onClick={this.props.history.goBack} />
             &nbsp;
             { this.state.mountInfo.path ? <>
@@ -133,6 +135,7 @@ export class DirectoryObject extends Component {
             </>}
             &nbsp;
             <Button size="sm" variant="info" href={"/snapshots/dir/" + this.props.match.params.oid +"/restore"}>Restore...</Button>
+            </Col>
             </Row>
             <hr/>
             <Row>

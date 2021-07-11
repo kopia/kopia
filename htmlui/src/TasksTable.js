@@ -4,11 +4,11 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import axios from 'axios';
 import moment from 'moment';
 import React, { Component } from 'react';
-import Alert from 'react-bootstrap/Alert';
-import Col from 'react-bootstrap/Col';
-import Dropdown from 'react-bootstrap/Dropdown';
-import Form from 'react-bootstrap/Form';
-import Row from 'react-bootstrap/Row';
+import Alert from 'react-bootstrap-v5/lib/Alert';
+import Col from 'react-bootstrap-v5/lib/Col';
+import Dropdown from 'react-bootstrap-v5/lib/Dropdown';
+import Form from 'react-bootstrap-v5/lib/Form';
+import Row from 'react-bootstrap-v5/lib/Row';
 import { Link } from 'react-router-dom';
 import { handleChange } from './forms';
 import MyTable from './Table';
@@ -155,14 +155,14 @@ export class TasksTable extends Component {
                     </Col>
                 </Row>
                 </div>
-                <Form.Row>
+                <Row>
                     <Col>
                         {!items.length ?
                             <Alert variant="info">
                                 <FontAwesomeIcon size="sm" icon={faInfoCircle} /> A list of tasks will appear here when you create snapshots, restore, run maintenance, etc.
                         </Alert> : <MyTable data={filteredItems} columns={columns} />}
                     </Col>
-                </Form.Row>
+                </Row>
             </Form>
         </div>;
     }
