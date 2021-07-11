@@ -5,15 +5,12 @@
   "repository": "github:kopia/kopia",
   "dependencies": {
     "auto-launch": "^5.0.5",
-    "bootstrap": "^4.6.0",
     "electron-first-run": "^3.0.0",
     "electron-is-dev": "^2.0.0",
     "electron-log": "^4.3.5",
     "electron-updater": "^4.3.9",
     "react": "^17.0.2",
-    "react-bootstrap": "^1.6.0",
     "react-dom": "^17.0.2",
-    "react-router-dom": "^5.2.0",
     "react-scripts": "^4.0.3",
     "uuid": "^8.3.2"
   },
