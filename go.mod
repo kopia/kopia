@@ -39,7 +39,7 @@ require (
 	github.com/pierrec/lz4 v2.6.0+incompatible
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/profile v1.6.0
-	github.com/pkg/sftp v1.13.0
+	github.com/pkg/sftp v1.13.2
 	github.com/pquerna/ffjson v0.0.0-20190930134022-aa0246cd15f7 // indirect
 	github.com/prometheus/client_golang v1.10.0
 	github.com/prometheus/common v0.19.0 // indirect
