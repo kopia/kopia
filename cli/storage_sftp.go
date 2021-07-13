@@ -34,6 +34,7 @@ func (c *storageSFTPFlags) setup(_ storageProviderServices, cmd *kingpin.CmdClau
 	cmd.Flag("ssh-args", "Arguments to external SSH command").StringVar(&c.options.SSHArguments)
 
 	cmd.Flag("flat", "Use flat directory structure").BoolVar(&c.connectFlat)
+	cmd.Flag("max-connections", "Maximum number of SFTP server connections to establish").Default("1").IntVar(&c.options.MaxConnections)
 }
 
 func (c *storageSFTPFlags) getOptions() (*sftp.Options, error) {

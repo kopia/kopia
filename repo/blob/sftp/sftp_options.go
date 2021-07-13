@@ -16,6 +16,7 @@ type Options struct {
 	KeyData        string `json:"keyData,omitempty" kopia:"sensitive"`
 	KnownHostsFile string `json:"knownHostsFile,omitempty"`
 	KnownHostsData string `json:"knownHostsData,omitempty"`
+	MaxConnections int    `json:"maxConnections"`
 
 	ExternalSSH  bool   `json:"externalSSH"`
 	SSHCommand   string `json:"sshCommand,omitempty"` // default "ssh"
@@ -40,4 +41,12 @@ func (sftpo *Options) knownHostsFile() string {
 	}
 
 	return sftpo.KnownHostsFile
+}
+
+func (sftpo *Options) maxConnections() int {
+	if sftpo.MaxConnections <= 0 {
+		return 1
+	}
+
+	return sftpo.MaxConnections
 }
