@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/pkg/errors"
 
@@ -28,6 +29,8 @@ type ClientOptions struct {
 	Description string `json:"description,omitempty"`
 
 	EnableActions bool `json:"enableActions"`
+
+	FormatBlobCacheDuration time.Duration `json:"formatBlobCacheDuration,omitempty"`
 }
 
 // ApplyDefaults returns a copy of ClientOptions with defaults filled out.
@@ -42,6 +45,10 @@ func (o ClientOptions) ApplyDefaults(ctx context.Context, defaultDesc string) Cl
 
 	if o.Description == "" {
 		o.Description = defaultDesc
+	}
+
+	if o.FormatBlobCacheDuration == 0 {
+		o.FormatBlobCacheDuration = defaultFormatBlobCacheDuration
 	}
 
 	return o

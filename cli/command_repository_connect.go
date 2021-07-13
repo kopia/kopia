@@ -54,6 +54,9 @@ type connectOptions struct {
 	connectReadonly               bool
 	connectDescription            string
 	connectEnableActions          bool
+
+	formatBlobCacheDuration time.Duration
+	disableFormatBlobCache  bool
 }
 
 func (c *connectOptions) setup(cmd *kingpin.CmdClause) {
@@ -69,6 +72,16 @@ func (c *connectOptions) setup(cmd *kingpin.CmdClause) {
 	cmd.Flag("readonly", "Make repository read-only to avoid accidental changes").BoolVar(&c.connectReadonly)
 	cmd.Flag("description", "Human-readable description of the repository").StringVar(&c.connectDescription)
 	cmd.Flag("enable-actions", "Allow snapshot actions").BoolVar(&c.connectEnableActions)
+	cmd.Flag("repository-format-cache-duration", "Duration of kopia.repository format blob cache").Hidden().DurationVar(&c.formatBlobCacheDuration)
+	cmd.Flag("disable-repository-format-cache", "Disable caching of kopia.repository format blob").Hidden().BoolVar(&c.disableFormatBlobCache)
+}
+
+func (c *connectOptions) getFormatBlobCacheDuration() time.Duration {
+	if c.disableFormatBlobCache {
+		return -1
+	}
+
+	return c.formatBlobCacheDuration
 }
 
 func (c *connectOptions) toRepoConnectOptions() *repo.ConnectOptions {
@@ -80,11 +93,12 @@ func (c *connectOptions) toRepoConnectOptions() *repo.ConnectOptions {
 			MaxListCacheDurationSec:   int(c.connectMaxListCacheDuration.Seconds()),
 		},
 		ClientOptions: repo.ClientOptions{
-			Hostname:      c.connectHostname,
-			Username:      c.connectUsername,
-			ReadOnly:      c.connectReadonly,
-			Description:   c.connectDescription,
-			EnableActions: c.connectEnableActions,
+			Hostname:                c.connectHostname,
+			Username:                c.connectUsername,
+			ReadOnly:                c.connectReadonly,
+			Description:             c.connectDescription,
+			EnableActions:           c.connectEnableActions,
+			FormatBlobCacheDuration: c.getFormatBlobCacheDuration(),
 		},
 	}
 }

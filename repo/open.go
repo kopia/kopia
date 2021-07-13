@@ -13,6 +13,7 @@ import (
 
 	"github.com/kopia/kopia/internal/atomicfile"
 	"github.com/kopia/kopia/internal/cache"
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/repo/blob"
 	loggingwrapper "github.com/kopia/kopia/repo/blob/logging"
 	"github.com/kopia/kopia/repo/blob/readonly"
@@ -31,6 +32,10 @@ const CacheDirMarkerHeader = "Signature: 8a477f597d28d172789f06886806bc55"
 
 // refresh indexes every 15 minutes while the repository remains open.
 const backgroundRefreshInterval = 15 * time.Minute
+
+// defaultFormatBlobCacheDuration is the duration for which we treat cached kopia.repository
+// as valid.
+const defaultFormatBlobCacheDuration = 15 * time.Minute
 
 const cacheDirMarkerContents = CacheDirMarkerHeader + `
 #
@@ -162,7 +167,7 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 	caching = caching.CloneOrDefault()
 
 	// Read format blob, potentially from cache.
-	fb, err := readAndCacheFormatBlobBytes(ctx, st, caching.CacheDirectory)
+	fb, err := readAndCacheFormatBlobBytes(ctx, st, caching.CacheDirectory, lc.FormatBlobCacheDuration)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to read format blob")
 	}
@@ -280,19 +285,55 @@ func writeCacheMarker(cacheDir string) error {
 	return errors.Wrap(f.Close(), "error closing cache marker file")
 }
 
-func readAndCacheFormatBlobBytes(ctx context.Context, st blob.Storage, cacheDirectory string) ([]byte, error) {
+func formatBytesCachingEnabled(cacheDirectory string, validDuration time.Duration) bool {
+	if cacheDirectory == "" {
+		return false
+	}
+
+	return validDuration > 0
+}
+
+func readFormatBlobBytesFromCache(ctx context.Context, cachedFile string, validDuration time.Duration) ([]byte, error) {
+	if err := os.MkdirAll(filepath.Dir(cachedFile), cache.DirMode); err != nil && !os.IsExist(err) {
+		log(ctx).Errorf("unable to create cache directory: %v", err)
+	}
+
+	cst, err := os.Stat(cachedFile)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to open cache file")
+	}
+
+	if clock.Since(cst.ModTime()) > validDuration {
+		// got cached file, but it's too old, remove it
+		if err := os.Remove(cachedFile); err != nil {
+			log(ctx).Debugf("unable to remove cache file: %v", err)
+		}
+
+		return nil, errors.Errorf("cached file too old")
+	}
+
+	return ioutil.ReadFile(cachedFile) //nolint:gosec,wrapcheck
+}
+
+func readAndCacheFormatBlobBytes(ctx context.Context, st blob.Storage, cacheDirectory string, validDuration time.Duration) ([]byte, error) {
 	cachedFile := filepath.Join(cacheDirectory, "kopia.repository")
 
-	if cacheDirectory != "" {
-		if err := os.MkdirAll(cacheDirectory, cache.DirMode); err != nil && !os.IsExist(err) {
-			log(ctx).Errorf("unable to create cache directory: %v", err)
-		}
+	if validDuration == 0 {
+		validDuration = defaultFormatBlobCacheDuration
+	}
 
-		b, err := ioutil.ReadFile(cachedFile) //nolint:gosec
+	cacheEnabled := formatBytesCachingEnabled(cacheDirectory, validDuration)
+	if cacheEnabled {
+		b, err := readFormatBlobBytesFromCache(ctx, cachedFile, validDuration)
 		if err == nil {
-			// read from cache.
+			log(ctx).Debugf("kopia.repository retrieved from cache")
+
 			return b, nil
 		}
+
+		log(ctx).Debugf("kopia.repository could not be fetched from cache: %v", err)
+	} else {
+		log(ctx).Debugf("kopia.repository cache not enabled")
 	}
 
 	b, err := st.GetBlob(ctx, FormatBlobID, 0, -1)
@@ -300,7 +341,7 @@ func readAndCacheFormatBlobBytes(ctx context.Context, st blob.Storage, cacheDire
 		return nil, errors.Wrap(err, "error getting format blob")
 	}
 
-	if cacheDirectory != "" {
+	if cacheEnabled {
 		if err := atomicfile.Write(cachedFile, bytes.NewReader(b)); err != nil {
 			log(ctx).Errorf("warning: unable to write cache: %v", err)
 		}
