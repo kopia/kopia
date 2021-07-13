@@ -12,19 +12,19 @@ import (
 func (r *directRepository) ChangePassword(ctx context.Context, newPassword string) error {
 	f := r.formatBlob
 
-	repoConfig, err := f.decryptFormatBytes(r.masterKey)
+	repoConfig, err := f.decryptFormatBytes(r.formatEncryptionKey)
 	if err != nil {
 		return errors.Wrap(err, "unable to decrypt repository config")
 	}
 
-	newMasterKey, err := f.deriveMasterKeyFromPassword(newPassword)
+	newFormatEncryptionKey, err := f.deriveFormatEncryptionKeyFromPassword(newPassword)
 	if err != nil {
 		return errors.Wrap(err, "unable to derive master key")
 	}
 
-	r.masterKey = newMasterKey
+	r.formatEncryptionKey = newFormatEncryptionKey
 
-	if err := encryptFormatBytes(f, repoConfig, newMasterKey, f.UniqueID); err != nil {
+	if err := encryptFormatBytes(f, repoConfig, newFormatEncryptionKey, f.UniqueID); err != nil {
 		return errors.Wrap(err, "unable to encrypt format bytes")
 	}
 

@@ -14,7 +14,7 @@ import (
 func (r *directRepository) SetParameters(ctx context.Context, m content.MutableParameters) error {
 	f := r.formatBlob
 
-	repoConfig, err := f.decryptFormatBytes(r.masterKey)
+	repoConfig, err := f.decryptFormatBytes(r.formatEncryptionKey)
 	if err != nil {
 		return errors.Wrap(err, "unable to decrypt repository config")
 	}
@@ -25,7 +25,7 @@ func (r *directRepository) SetParameters(ctx context.Context, m content.MutableP
 
 	repoConfig.FormattingOptions.MutableParameters = m
 
-	if err := encryptFormatBytes(f, repoConfig, r.masterKey, f.UniqueID); err != nil {
+	if err := encryptFormatBytes(f, repoConfig, r.formatEncryptionKey, f.UniqueID); err != nil {
 		return errors.Errorf("unable to encrypt format bytes")
 	}
 

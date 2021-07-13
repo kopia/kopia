@@ -58,9 +58,9 @@ func Initialize(ctx context.Context, st blob.Storage, opt *NewRepositoryOptions,
 
 	format := formatBlobFromOptions(opt)
 
-	masterKey, err := format.deriveMasterKeyFromPassword(password)
+	formatEncryptionKey, err := format.deriveFormatEncryptionKeyFromPassword(password)
 	if err != nil {
-		return errors.Wrap(err, "unable to derive master key")
+		return errors.Wrap(err, "unable to derive format encryption key")
 	}
 
 	f := repositoryObjectFormatFromOptions(opt)
@@ -68,7 +68,7 @@ func Initialize(ctx context.Context, st blob.Storage, opt *NewRepositoryOptions,
 		return errors.Wrap(err, "invalid parameters")
 	}
 
-	if err := encryptFormatBytes(format, f, masterKey, format.UniqueID); err != nil {
+	if err := encryptFormatBytes(format, f, formatEncryptionKey, format.UniqueID); err != nil {
 		return errors.Wrap(err, "unable to encrypt format bytes")
 	}
 

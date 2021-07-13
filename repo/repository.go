@@ -78,14 +78,14 @@ type DirectRepositoryWriter interface {
 }
 
 type directRepositoryParameters struct {
-	uniqueID       []byte
-	configFile     string
-	cachingOptions content.CachingOptions
-	cliOpts        ClientOptions
-	timeNow        func() time.Time
-	formatBlob     *formatBlob
-	masterKey      []byte
-	nextWriterID   *int32
+	uniqueID            []byte
+	configFile          string
+	cachingOptions      content.CachingOptions
+	cliOpts             ClientOptions
+	timeNow             func() time.Time
+	formatBlob          *formatBlob
+	formatEncryptionKey []byte
+	nextWriterID        *int32
 }
 
 // directRepository is an implementation of repository that directly manipulates underlying storage.
@@ -103,7 +103,7 @@ type directRepository struct {
 
 // DeriveKey derives encryption key of the provided length from the master key.
 func (r *directRepository) DeriveKey(purpose []byte, keyLength int) []byte {
-	return deriveKeyFromMasterKey(r.masterKey, r.uniqueID, purpose, keyLength)
+	return deriveKeyFromMasterKey(r.formatEncryptionKey, r.uniqueID, purpose, keyLength)
 }
 
 // ClientOptions returns client options.

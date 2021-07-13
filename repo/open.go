@@ -186,18 +186,22 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 		return nil, errors.Errorf("unable to add checksum")
 	}
 
-	masterKey, err := f.deriveMasterKeyFromPassword(password)
+	formatEncryptionKey, err := f.deriveFormatEncryptionKeyFromPassword(password)
 	if err != nil {
 		return nil, err
 	}
 
-	repoConfig, err := f.decryptFormatBytes(masterKey)
+	repoConfig, err := f.decryptFormatBytes(formatEncryptionKey)
 	if err != nil {
 		return nil, ErrInvalidPassword
 	}
 
+	// TODO(jkowalski): this is actually a bug, we should be deriving caching key from
+	// repoConfig.FormattingOptions.MasterKey and not formatEncryptionKey
+	// both are ok, but formatEncryptionKey will change when we change the password
+	//
 	// nolint:gomnd
-	caching.HMACSecret = deriveKeyFromMasterKey(masterKey, f.UniqueID, []byte("local-cache-integrity"), 16)
+	caching.HMACSecret = deriveKeyFromMasterKey(formatEncryptionKey, f.UniqueID, []byte("local-cache-integrity"), 16)
 
 	fo := &repoConfig.FormattingOptions
 
@@ -244,14 +248,14 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 		mmgr:  manifests,
 		sm:    scm,
 		directRepositoryParameters: directRepositoryParameters{
-			uniqueID:       f.UniqueID,
-			cachingOptions: *caching,
-			formatBlob:     f,
-			masterKey:      masterKey,
-			timeNow:        cmOpts.TimeNow,
-			cliOpts:        lc.ClientOptions.ApplyDefaults(ctx, "Repository in "+st.DisplayName()),
-			configFile:     configFile,
-			nextWriterID:   new(int32),
+			uniqueID:            f.UniqueID,
+			cachingOptions:      *caching,
+			formatBlob:          f,
+			formatEncryptionKey: formatEncryptionKey,
+			timeNow:             cmOpts.TimeNow,
+			cliOpts:             lc.ClientOptions.ApplyDefaults(ctx, "Repository in "+st.DisplayName()),
+			configFile:          configFile,
+			nextWriterID:        new(int32),
 		},
 		closed: make(chan struct{}),
 	}
