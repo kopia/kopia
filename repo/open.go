@@ -212,6 +212,11 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 		DisableInternalLog:    options.DisableInternalLog,
 	}
 
+	// do not embed repository format info in pack blobs when password change is enabled.
+	if fo.EnablePasswordChange {
+		cmOpts.RepositoryFormatBytes = nil
+	}
+
 	scm, err := content.NewSharedManager(ctx, st, fo, caching, cmOpts)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create shared content manager")

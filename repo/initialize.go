@@ -104,6 +104,7 @@ func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) *repositoryObj
 				IndexVersion:    applyDefaultInt(opt.BlockFormat.IndexVersion, content.DefaultIndexVersion),
 				EpochParameters: opt.BlockFormat.EpochParameters,
 			},
+			EnablePasswordChange: opt.BlockFormat.EnablePasswordChange,
 		},
 		Format: object.Format{
 			Splitter: applyDefaultString(opt.ObjectFormat.Splitter, splitter.DefaultAlgorithm),

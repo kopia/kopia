@@ -6,7 +6,22 @@ import (
 	"github.com/kopia/kopia/tests/testenv"
 )
 
-func TestRepositoryRepair(t *testing.T) {
+// when password change is enabled, replicas of kopia.repository are not embedded in blobs
+// so `kopia repository repair` will not work.
+func TestRepositoryRepair_PasswordChangeEnabled(t *testing.T) {
+	t.Parallel()
+
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, runner)
+
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
+	e.RunAndExpectSuccess(t, "blob", "rm", "kopia.repository")
+	e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	e.RunAndExpectFailure(t, "repo", "repair", "filesystem", "--path", e.RepoDir)
+}
+
+func TestRepositoryRepair_PasswordChangeDisabled(t *testing.T) {
 	t.Parallel()
 
 	runner := testenv.NewInProcRunner(t)
@@ -14,7 +29,7 @@ func TestRepositoryRepair(t *testing.T) {
 
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
-	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--no-enable-password-change")
 
 	e.RunAndExpectSuccess(t, "snapshot", "create", ".")
 	e.RunAndExpectSuccess(t, "snapshot", "list", ".")
