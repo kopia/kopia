@@ -37,6 +37,11 @@ const backgroundRefreshInterval = 15 * time.Minute
 // as valid.
 const defaultFormatBlobCacheDuration = 15 * time.Minute
 
+// localCacheIntegrityHMACSecretLength length of HMAC secret protecting local cache items.
+const localCacheIntegrityHMACSecretLength = 16
+
+var localCacheIntegrityPurpose = []byte("local-cache-integrity")
+
 const cacheDirMarkerContents = CacheDirMarkerHeader + `
 #
 # This file is a cache directory tag created by Kopia - Fast And Secure Open-Source Backup.
@@ -196,12 +201,12 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 		return nil, ErrInvalidPassword
 	}
 
-	// TODO(jkowalski): this is actually a bug, we should be deriving caching key from
-	// repoConfig.FormattingOptions.MasterKey and not formatEncryptionKey
-	// both are ok, but formatEncryptionKey will change when we change the password
-	//
-	// nolint:gomnd
-	caching.HMACSecret = deriveKeyFromMasterKey(formatEncryptionKey, f.UniqueID, []byte("local-cache-integrity"), 16)
+	if repoConfig.FormattingOptions.EnablePasswordChange {
+		caching.HMACSecret = deriveKeyFromMasterKey(repoConfig.HMACSecret, f.UniqueID, localCacheIntegrityPurpose, localCacheIntegrityHMACSecretLength)
+	} else {
+		// deriving from formatEncryptionKey was actually a bug, that only matters will change when we change the password
+		caching.HMACSecret = deriveKeyFromMasterKey(formatEncryptionKey, f.UniqueID, localCacheIntegrityPurpose, localCacheIntegrityHMACSecretLength)
+	}
 
 	fo := &repoConfig.FormattingOptions
 

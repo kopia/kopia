@@ -67,6 +67,7 @@ func (c *commandRepositoryStatus) run(ctx context.Context, rep repo.Repository) 
 	c.out.printStdout("Splitter:            %v\n", dr.ObjectFormat().Splitter)
 	c.out.printStdout("Format version:      %v\n", dr.ContentReader().ContentFormat().Version)
 	c.out.printStdout("Content compression: %v\n", dr.ContentReader().SupportsContentCompression())
+	c.out.printStdout("Password changes:    %v\n", dr.ContentReader().ContentFormat().EnablePasswordChange)
 
 	c.out.printStdout("Max pack length:     %v\n", units.BytesStringBase2(int64(dr.ContentReader().ContentFormat().MaxPackSize)))
 	c.out.printStdout("Index Format:        v%v\n", dr.ContentReader().ContentFormat().IndexVersion)

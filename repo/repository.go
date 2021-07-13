@@ -103,6 +103,13 @@ type directRepository struct {
 
 // DeriveKey derives encryption key of the provided length from the master key.
 func (r *directRepository) DeriveKey(purpose []byte, keyLength int) []byte {
+	if r.cmgr.ContentFormat().EnablePasswordChange {
+		return deriveKeyFromMasterKey(r.cmgr.ContentFormat().MasterKey, r.uniqueID, purpose, keyLength)
+	}
+
+	// version of kopia <v0.9 had a bug where certain keys were derived directly from
+	// the password and not from the random master key. This made it impossible to change
+	// password.
 	return deriveKeyFromMasterKey(r.formatEncryptionKey, r.uniqueID, purpose, keyLength)
 }
 
