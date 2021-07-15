@@ -200,7 +200,11 @@ func (mcs *MultiClientSnapshotter) createOrGetSnapshotter(ctx context.Context) (
 	}
 
 	// Register client with server and create connection
-	if err := mcs.server.AuthorizeClient(c.ID); err != nil {
+	mcs.mu.Lock()
+	err = mcs.server.AuthorizeClient(c.ID)
+	mcs.mu.Unlock()
+
+	if err != nil {
 		return nil, err
 	}
 
