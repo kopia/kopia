@@ -15,7 +15,11 @@ func TestRepositorySetClient(t *testing.T) {
 
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
-	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--description", "My Repo", "--override-username", "myuser", "--override-hostname", "myhost")
+	e.RunAndExpectSuccess(t, "repo", "create",
+		"filesystem", "--path", e.RepoDir, "--description", "My Repo",
+		"--override-username", "myuser",
+		"--override-hostname", "myhost",
+		"--repository-format-cache-duration=7m")
 
 	sl := e.RunAndExpectSuccess(t, "repo", "status")
 	verifyHasLine(t, sl, func(l string) bool {
@@ -30,11 +34,16 @@ func TestRepositorySetClient(t *testing.T) {
 	verifyHasLine(t, sl, func(l string) bool {
 		return strings.Contains(l, "Hostname:") && strings.Contains(l, "myhost")
 	})
+	verifyHasLine(t, sl, func(l string) bool {
+		return strings.Contains(l, "Format blob cache:") && strings.Contains(l, "7m0s")
+	})
 
 	e.RunAndExpectSuccess(t, "repo", "set-client",
 		"--read-only",
 		"--description", "My Updated Repo",
-		"--hostname", "my-updated-host")
+		"--hostname", "my-updated-host",
+		"--disable-repository-format-cache",
+	)
 
 	sl = e.RunAndExpectSuccess(t, "repo", "status")
 	verifyHasLine(t, sl, func(l string) bool {
@@ -46,13 +55,21 @@ func TestRepositorySetClient(t *testing.T) {
 	verifyHasLine(t, sl, func(l string) bool {
 		return strings.Contains(l, "Hostname:") && strings.Contains(l, "my-updated-host")
 	})
+	verifyHasLine(t, sl, func(l string) bool {
+		return strings.Contains(l, "Format blob cache:") && strings.Contains(l, "disabled")
+	})
 
 	// repo is read-only
 	e.RunAndExpectFailure(t, "snapshot", "create", sharedTestDataDir1)
 
 	// set to read-write and snapshot will now succeeded
-	e.RunAndExpectSuccess(t, "repo", "set-client", "--read-write")
+	e.RunAndExpectSuccess(t, "repo", "set-client", "--read-write", "--repository-format-cache-duration=5s")
 	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
+
+	sl = e.RunAndExpectSuccess(t, "repo", "status")
+	verifyHasLine(t, sl, func(l string) bool {
+		return strings.Contains(l, "Format blob cache:") && strings.Contains(l, "5s")
+	})
 }
 
 func verifyHasLine(t *testing.T, lines []string, ok func(s string) bool) {

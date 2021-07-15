@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"time"
 
 	"github.com/pkg/errors"
 
@@ -15,6 +16,9 @@ type commandRepositorySetClient struct {
 	repoClientOptionsUsername    []string
 	repoClientOptionsHostname    []string
 
+	formatBlobCacheDuration time.Duration
+	disableFormatBlobCache  bool
+
 	svc appServices
 }
 
@@ -26,6 +30,8 @@ func (c *commandRepositorySetClient) setup(svc appServices, parent commandParent
 	cmd.Flag("description", "Change description").StringsVar(&c.repoClientOptionsDescription)
 	cmd.Flag("username", "Change username").StringsVar(&c.repoClientOptionsUsername)
 	cmd.Flag("hostname", "Change hostname").StringsVar(&c.repoClientOptionsHostname)
+	cmd.Flag("repository-format-cache-duration", "Duration of kopia.repository format blob cache").DurationVar(&c.formatBlobCacheDuration)
+	cmd.Flag("disable-repository-format-cache", "Disable caching of kopia.repository format blob").BoolVar(&c.disableFormatBlobCache)
 	cmd.Action(svc.repositoryReaderAction(c.run))
 
 	c.svc = svc
@@ -77,6 +83,20 @@ func (c *commandRepositorySetClient) run(ctx context.Context, rep repo.Repositor
 		anyChange = true
 
 		log(ctx).Infof("Setting local hostname to %v", opt.Hostname)
+	}
+
+	if v := c.formatBlobCacheDuration; v != 0 {
+		opt.FormatBlobCacheDuration = v
+		anyChange = true
+
+		log(ctx).Infof("Setting format blob cache duration to %v", v)
+	}
+
+	if c.disableFormatBlobCache {
+		opt.FormatBlobCacheDuration = -1
+		anyChange = true
+
+		log(ctx).Infof("Disabling format blob cache")
 	}
 
 	if !anyChange {

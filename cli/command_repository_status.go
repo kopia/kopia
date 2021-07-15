@@ -40,6 +40,12 @@ func (c *commandRepositoryStatus) run(ctx context.Context, rep repo.Repository) 
 	c.out.printStdout("Username:            %v\n", rep.ClientOptions().Username)
 	c.out.printStdout("Read-only:           %v\n", rep.ClientOptions().ReadOnly)
 
+	if t := rep.ClientOptions().FormatBlobCacheDuration; t > 0 {
+		c.out.printStdout("Format blob cache:   %v\n", t)
+	} else {
+		c.out.printStdout("Format blob cache:   disabled\n")
+	}
+
 	dr, ok := rep.(repo.DirectRepository)
 	if !ok {
 		return nil
