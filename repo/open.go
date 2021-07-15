@@ -308,10 +308,6 @@ func formatBytesCachingEnabled(cacheDirectory string, validDuration time.Duratio
 }
 
 func readFormatBlobBytesFromCache(ctx context.Context, cachedFile string, validDuration time.Duration) ([]byte, error) {
-	if err := os.MkdirAll(filepath.Dir(cachedFile), cache.DirMode); err != nil && !os.IsExist(err) {
-		log(ctx).Errorf("unable to create cache directory: %v", err)
-	}
-
 	cst, err := os.Stat(cachedFile)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to open cache file")
@@ -334,6 +330,12 @@ func readAndCacheFormatBlobBytes(ctx context.Context, st blob.Storage, cacheDire
 
 	if validDuration == 0 {
 		validDuration = defaultFormatBlobCacheDuration
+	}
+
+	if cacheDirectory != "" {
+		if err := os.MkdirAll(cacheDirectory, cache.DirMode); err != nil && !os.IsExist(err) {
+			log(ctx).Errorf("unable to create cache directory: %v", err)
+		}
 	}
 
 	cacheEnabled := formatBytesCachingEnabled(cacheDirectory, validDuration)
