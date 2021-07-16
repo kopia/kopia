@@ -17,6 +17,10 @@ func (r *directRepository) ChangePassword(ctx context.Context, newPassword strin
 		return errors.Wrap(err, "unable to decrypt repository config")
 	}
 
+	if !repoConfig.EnablePasswordChange {
+		return errors.Errorf("password changes are not supported for repositories created using Kopia v0.8 or older")
+	}
+
 	newFormatEncryptionKey, err := f.deriveFormatEncryptionKeyFromPassword(newPassword)
 	if err != nil {
 		return errors.Wrap(err, "unable to derive master key")

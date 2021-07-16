@@ -48,9 +48,10 @@ func (e *Environment) setup(t *testing.T, opts ...Options) *Environment {
 
 	opt := &repo.NewRepositoryOptions{
 		BlockFormat: content.FormattingOptions{
-			HMACSecret: []byte{},
-			Hash:       "HMAC-SHA256",
-			Encryption: encryption.DefaultAlgorithm,
+			HMACSecret:           []byte{},
+			Hash:                 "HMAC-SHA256",
+			Encryption:           encryption.DefaultAlgorithm,
+			EnablePasswordChange: true,
 		},
 		ObjectFormat: object.Format{
 			Splitter: "FIXED-1M",
