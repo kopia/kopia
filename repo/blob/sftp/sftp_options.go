@@ -23,6 +23,7 @@ type Options struct {
 	SSHArguments string `json:"sshArguments,omitempty"`
 
 	DirectoryShards []int `json:"dirShards"`
+	ListParallelism int   `json:"listParallelism,omitempty"`
 }
 
 func (sftpo *Options) shards() []int {

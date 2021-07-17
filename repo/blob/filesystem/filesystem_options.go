@@ -13,6 +13,8 @@ type Options struct {
 
 	FileUID *int `json:"uid,omitempty"`
 	FileGID *int `json:"gid,omitempty"`
+
+	ListParallelism int `json:"listParallelism,omitempty"`
 }
 
 func (fso *Options) fileMode() os.FileMode {

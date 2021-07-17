@@ -53,12 +53,6 @@ func (r *rcloneStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes)
 	return errors.Wrap(r.Storage.PutBlob(ctx, b, data), "error writing blob using WebDAV")
 }
 
-func (r *rcloneStorage) DeleteBlob(ctx context.Context, b blob.ID) error {
-	atomic.StoreInt32(r.changeCount, 1)
-
-	return errors.Wrap(r.Storage.DeleteBlob(ctx, b), "error deleting blob using WebDAV")
-}
-
 func (r *rcloneStorage) ConnectionInfo() blob.ConnectionInfo {
 	return blob.ConnectionInfo{
 		Type:   rcloneStorageType,
@@ -290,6 +284,7 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 		Username:                            webdavUsername,
 		Password:                            webdavPassword,
 		TrustedServerCertificateFingerprint: hex.EncodeToString(fingerprintBytes[:]),
+		ListParallelism:                     opt.ListParallelism,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "error connecting to webdav storage")

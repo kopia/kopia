@@ -7,6 +7,7 @@ type Options struct {
 	Username                            string `json:"username,omitempty"`
 	Password                            string `json:"password,omitempty" kopia:"sensitive"`
 	TrustedServerCertificateFingerprint string `json:"trustedServerCertificateFingerprint,omitempty"`
+	ListParallelism                     int    `json:"listParallelism,omitempty"`
 }
 
 func (fso *Options) shards() []int {
