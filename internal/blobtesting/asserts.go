@@ -21,13 +21,10 @@ func AssertGetBlob(ctx context.Context, t *testing.T, s blob.Storage, blobID blo
 	t.Helper()
 
 	b, err := s.GetBlob(ctx, blobID, 0, -1)
-	if err != nil {
-		t.Errorf("GetBlob(%v) returned error %v, expected data: %v", blobID, err, expected)
-		return
-	}
+	require.NoErrorf(t, err, "GetBlob(%v)", blobID)
 
 	if !bytes.Equal(b, expected) {
-		t.Errorf("GetBlob(%v) returned %x, but expected %x", blobID, b, expected)
+		t.Fatalf("GetBlob(%v) returned %x, but expected %x", blobID, b, expected)
 	}
 
 	half := int64(len(expected) / 2)
@@ -37,33 +34,33 @@ func AssertGetBlob(ctx context.Context, t *testing.T, s blob.Storage, blobID blo
 
 	b, err = s.GetBlob(ctx, blobID, 0, 0)
 	if err != nil {
-		t.Errorf("GetBlob(%v) returned error %v, expected data: %v", blobID, err, expected)
+		t.Fatalf("GetBlob(%v) returned error %v, expected data: %v", blobID, err, expected)
 		return
 	}
 
 	if len(b) != 0 {
-		t.Errorf("GetBlob(%v) returned non-zero length: %v", blobID, len(b))
+		t.Fatalf("GetBlob(%v) returned non-zero length: %v", blobID, len(b))
 		return
 	}
 
 	b, err = s.GetBlob(ctx, blobID, 0, half)
 	if err != nil {
-		t.Errorf("GetBlob(%v) returned error %v, expected data: %v", blobID, err, expected)
+		t.Fatalf("GetBlob(%v) returned error %v, expected data: %v", blobID, err, expected)
 		return
 	}
 
 	if !bytes.Equal(b, expected[0:half]) {
-		t.Errorf("GetBlob(%v) returned %x, but expected %x", blobID, b, expected[0:half])
+		t.Fatalf("GetBlob(%v) returned %x, but expected %x", blobID, b, expected[0:half])
 	}
 
 	b, err = s.GetBlob(ctx, blobID, half, int64(len(expected))-half)
 	if err != nil {
-		t.Errorf("GetBlob(%v) returned error %v, expected data: %v", blobID, err, expected)
+		t.Fatalf("GetBlob(%v) returned error %v, expected data: %v", blobID, err, expected)
 		return
 	}
 
 	if !bytes.Equal(b, expected[len(expected)-int(half):]) {
-		t.Errorf("GetBlob(%v) returned %x, but expected %x", blobID, b, expected[len(expected)-int(half):])
+		t.Fatalf("GetBlob(%v) returned %x, but expected %x", blobID, b, expected[len(expected)-int(half):])
 	}
 
 	AssertInvalidOffsetLength(ctx, t, s, blobID, -3, 1)
@@ -77,7 +74,7 @@ func AssertInvalidOffsetLength(ctx context.Context, t *testing.T, s blob.Storage
 	t.Helper()
 
 	if _, err := s.GetBlob(ctx, blobID, offset, length); err == nil {
-		t.Errorf("GetBlob(%v,%v,%v) did not return error for invalid offset/length", blobID, offset, length)
+		t.Fatalf("GetBlob(%v,%v,%v) did not return error for invalid offset/length", blobID, offset, length)
 	}
 }
 
@@ -87,7 +84,7 @@ func AssertGetBlobNotFound(ctx context.Context, t *testing.T, s blob.Storage, bl
 
 	b, err := s.GetBlob(ctx, blobID, 0, -1)
 	if !errors.Is(err, blob.ErrBlobNotFound) || b != nil {
-		t.Errorf("GetBlob(%v) returned %v, %v but expected ErrNotFound", blobID, b, err)
+		t.Fatalf("GetBlob(%v) returned %v, %v but expected ErrNotFound", blobID, b, err)
 	}
 }
 
@@ -97,7 +94,7 @@ func AssertGetMetadataNotFound(ctx context.Context, t *testing.T, s blob.Storage
 
 	_, err := s.GetMetadata(ctx, blobID)
 	if !errors.Is(err, blob.ErrBlobNotFound) {
-		t.Errorf("GetMetadata(%v) returned %v but expected ErrNotFound", blobID, err)
+		t.Fatalf("GetMetadata(%v) returned %v but expected ErrNotFound", blobID, err)
 	}
 }
 
@@ -112,15 +109,15 @@ func AssertListResults(ctx context.Context, t *testing.T, s blob.Storage, prefix
 
 		m2, err := s.GetMetadata(ctx, m.BlobID)
 		if err != nil {
-			t.Errorf("GetMetadata() failed: %v", err)
+			t.Fatalf("GetMetadata() failed: %v", err)
 		}
 
 		if got, want := m2.BlobID, m.BlobID; got != want {
-			t.Errorf("invalid blob ID on %v: %v, want %v", m.BlobID, got, want)
+			t.Fatalf("invalid blob ID on %v: %v, want %v", m.BlobID, got, want)
 		}
 
 		if got, want := m2.Length, m.Length; got != want {
-			t.Errorf("invalid length on %v: %v, want %v", m.BlobID, got, want)
+			t.Fatalf("invalid length on %v: %v, want %v", m.BlobID, got, want)
 		}
 
 		timeDiff := m2.Timestamp.Sub(m.Timestamp)
@@ -130,19 +127,19 @@ func AssertListResults(ctx context.Context, t *testing.T, s blob.Storage, prefix
 
 		// truncated time comparison, because some providers return different precision of time in list vs get
 		if timeDiff > maxTimeDiffBetweenGetAndList {
-			t.Errorf("invalid timestamp on %v: getmetadata returned %v, list returned %v", m.BlobID, m2.Timestamp, m.Timestamp)
+			t.Fatalf("invalid timestamp on %v: getmetadata returned %v, list returned %v", m.BlobID, m2.Timestamp, m.Timestamp)
 		}
 
 		return nil
 	}); err != nil {
-		t.Errorf("err: %v", err)
+		t.Fatalf("err: %v", err)
 	}
 
 	names = sorted(names)
 	want = sorted(want)
 
 	if !reflect.DeepEqual(names, want) {
-		t.Errorf("ListBlobs(%v) returned %v, but wanted %v", prefix, names, want)
+		t.Fatalf("ListBlobs(%v) returned %v, but wanted %v", prefix, names, want)
 	}
 }
 
@@ -156,7 +153,7 @@ func AssertListResultsIDs(ctx context.Context, t *testing.T, s blob.Storage, pre
 		names = append(names, m.BlobID)
 		return nil
 	}); err != nil {
-		t.Errorf("err: %v", err)
+		t.Fatalf("err: %v", err)
 	}
 
 	require.ElementsMatch(t, names, want)
