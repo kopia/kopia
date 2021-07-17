@@ -210,10 +210,12 @@ provider-tests: $(gotestsum) $(rclone) $(MINIO_MC_PATH)
 	$(GO_TEST) $(UNIT_TEST_RACE_FLAGS) -count=$(REPEAT_TEST) -timeout $(UNIT_TESTS_TIMEOUT) ./repo/blob/...
 	-$(gotestsum) tool slowest --jsonfile .tmp.provider-tests.json  --threshold 1000ms
 
+ALLOWED_LICENSES=Apache-2.0;MIT;BSD-2-Clause;BSD-3-Clause;CC0-1.0;ISC;MPL-2.0;CC-BY-3.0;CC-BY-4.0;ODC-By-1.0;WTFPL;0BSD;Python-2.0;BSD;Unlicense
+
 license-check: $(wwhrd) htmlui-node-modules app-node-modules
 	$(wwhrd) check
-	(cd htmlui && npx license-checker --summary --failOn "GPL-2.0;GPL-3.0;AGPL-2.0;AGPL-3.0")
-	(cd app && npx license-checker --summary --failOn "GPL-2.0;GPL-3.0;AGPL-2.0;AGPL-3.0")
+	(cd htmlui && npx license-checker --summary --onlyAllow "$(ALLOWED_LICENSES)")
+	(cd app && npx license-checker --summary --onlyAllow "$(ALLOWED_LICENSES)")
 
 vtest: $(gotestsum)
 	$(GO_TEST) -count=$(REPEAT_TEST) -short -v -timeout $(UNIT_TESTS_TIMEOUT) ./...
