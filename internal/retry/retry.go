@@ -14,7 +14,7 @@ var log = logging.GetContextLoggerFunc("retry")
 
 var (
 	maxAttempts             = 10
-	retryInitialSleepAmount = 1 * time.Second
+	retryInitialSleepAmount = 100 * time.Millisecond
 	retryMaxSleepAmount     = 32 * time.Second
 )
 
