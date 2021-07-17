@@ -20,6 +20,8 @@ type FormattingOptions struct {
 	HMACSecret []byte `json:"secret,omitempty"`     // HMAC secret used to generate encryption keys
 	MasterKey  []byte `json:"masterKey,omitempty"`  // master encryption key (SIV-mode encryption only)
 	MutableParameters
+
+	EnablePasswordChange bool `json:"enablePasswordChange"` // disables replication of kopia.repository blob in packs
 }
 
 // MutableParameters represents parameters of the content manager that can be mutated after the repository

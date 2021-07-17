@@ -37,6 +37,11 @@ const backgroundRefreshInterval = 15 * time.Minute
 // as valid.
 const defaultFormatBlobCacheDuration = 15 * time.Minute
 
+// localCacheIntegrityHMACSecretLength length of HMAC secret protecting local cache items.
+const localCacheIntegrityHMACSecretLength = 16
+
+var localCacheIntegrityPurpose = []byte("local-cache-integrity")
+
 const cacheDirMarkerContents = CacheDirMarkerHeader + `
 #
 # This file is a cache directory tag created by Kopia - Fast And Secure Open-Source Backup.
@@ -186,18 +191,22 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 		return nil, errors.Errorf("unable to add checksum")
 	}
 
-	masterKey, err := f.deriveMasterKeyFromPassword(password)
+	formatEncryptionKey, err := f.deriveFormatEncryptionKeyFromPassword(password)
 	if err != nil {
 		return nil, err
 	}
 
-	repoConfig, err := f.decryptFormatBytes(masterKey)
+	repoConfig, err := f.decryptFormatBytes(formatEncryptionKey)
 	if err != nil {
 		return nil, ErrInvalidPassword
 	}
 
-	// nolint:gomnd
-	caching.HMACSecret = deriveKeyFromMasterKey(masterKey, f.UniqueID, []byte("local-cache-integrity"), 16)
+	if repoConfig.FormattingOptions.EnablePasswordChange {
+		caching.HMACSecret = deriveKeyFromMasterKey(repoConfig.HMACSecret, f.UniqueID, localCacheIntegrityPurpose, localCacheIntegrityHMACSecretLength)
+	} else {
+		// deriving from formatEncryptionKey was actually a bug, that only matters will change when we change the password
+		caching.HMACSecret = deriveKeyFromMasterKey(formatEncryptionKey, f.UniqueID, localCacheIntegrityPurpose, localCacheIntegrityHMACSecretLength)
+	}
 
 	fo := &repoConfig.FormattingOptions
 
@@ -210,6 +219,11 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 		RepositoryFormatBytes: fb,
 		TimeNow:               defaultTime(options.TimeNowFunc),
 		DisableInternalLog:    options.DisableInternalLog,
+	}
+
+	// do not embed repository format info in pack blobs when password change is enabled.
+	if fo.EnablePasswordChange {
+		cmOpts.RepositoryFormatBytes = nil
 	}
 
 	scm, err := content.NewSharedManager(ctx, st, fo, caching, cmOpts)
@@ -239,14 +253,14 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 		mmgr:  manifests,
 		sm:    scm,
 		directRepositoryParameters: directRepositoryParameters{
-			uniqueID:       f.UniqueID,
-			cachingOptions: *caching,
-			formatBlob:     f,
-			masterKey:      masterKey,
-			timeNow:        cmOpts.TimeNow,
-			cliOpts:        lc.ClientOptions.ApplyDefaults(ctx, "Repository in "+st.DisplayName()),
-			configFile:     configFile,
-			nextWriterID:   new(int32),
+			uniqueID:            f.UniqueID,
+			cachingOptions:      *caching,
+			formatBlob:          f,
+			formatEncryptionKey: formatEncryptionKey,
+			timeNow:             cmOpts.TimeNow,
+			cliOpts:             lc.ClientOptions.ApplyDefaults(ctx, "Repository in "+st.DisplayName()),
+			configFile:          configFile,
+			nextWriterID:        new(int32),
 		},
 		closed: make(chan struct{}),
 	}
@@ -294,10 +308,6 @@ func formatBytesCachingEnabled(cacheDirectory string, validDuration time.Duratio
 }
 
 func readFormatBlobBytesFromCache(ctx context.Context, cachedFile string, validDuration time.Duration) ([]byte, error) {
-	if err := os.MkdirAll(filepath.Dir(cachedFile), cache.DirMode); err != nil && !os.IsExist(err) {
-		log(ctx).Errorf("unable to create cache directory: %v", err)
-	}
-
 	cst, err := os.Stat(cachedFile)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to open cache file")
@@ -320,6 +330,12 @@ func readAndCacheFormatBlobBytes(ctx context.Context, st blob.Storage, cacheDire
 
 	if validDuration == 0 {
 		validDuration = defaultFormatBlobCacheDuration
+	}
+
+	if cacheDirectory != "" {
+		if err := os.MkdirAll(cacheDirectory, cache.DirMode); err != nil && !os.IsExist(err) {
+			log(ctx).Errorf("unable to create cache directory: %v", err)
+		}
 	}
 
 	cacheEnabled := formatBytesCachingEnabled(cacheDirectory, validDuration)

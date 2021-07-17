@@ -11,7 +11,7 @@ import (
 // defaultKeyDerivationAlgorithm is the key derivation algorithm for new configurations.
 const defaultKeyDerivationAlgorithm = "testing-only-insecure"
 
-func (f *formatBlob) deriveMasterKeyFromPassword(password string) ([]byte, error) {
+func (f *formatBlob) deriveFormatEncryptionKeyFromPassword(password string) ([]byte, error) {
 	const masterKeySize = 32
 
 	switch f.KeyDerivationAlgorithm {

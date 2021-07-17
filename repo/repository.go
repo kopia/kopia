@@ -74,17 +74,18 @@ type DirectRepositoryWriter interface {
 	BlobStorage() blob.Storage
 	ContentManager() *content.WriteManager
 	SetParameters(ctx context.Context, m content.MutableParameters) error
+	ChangePassword(ctx context.Context, newPassword string) error
 }
 
 type directRepositoryParameters struct {
-	uniqueID       []byte
-	configFile     string
-	cachingOptions content.CachingOptions
-	cliOpts        ClientOptions
-	timeNow        func() time.Time
-	formatBlob     *formatBlob
-	masterKey      []byte
-	nextWriterID   *int32
+	uniqueID            []byte
+	configFile          string
+	cachingOptions      content.CachingOptions
+	cliOpts             ClientOptions
+	timeNow             func() time.Time
+	formatBlob          *formatBlob
+	formatEncryptionKey []byte
+	nextWriterID        *int32
 }
 
 // directRepository is an implementation of repository that directly manipulates underlying storage.
@@ -102,7 +103,14 @@ type directRepository struct {
 
 // DeriveKey derives encryption key of the provided length from the master key.
 func (r *directRepository) DeriveKey(purpose []byte, keyLength int) []byte {
-	return deriveKeyFromMasterKey(r.masterKey, r.uniqueID, purpose, keyLength)
+	if r.cmgr.ContentFormat().EnablePasswordChange {
+		return deriveKeyFromMasterKey(r.cmgr.ContentFormat().MasterKey, r.uniqueID, purpose, keyLength)
+	}
+
+	// version of kopia <v0.9 had a bug where certain keys were derived directly from
+	// the password and not from the random master key. This made it impossible to change
+	// password.
+	return deriveKeyFromMasterKey(r.formatEncryptionKey, r.uniqueID, purpose, keyLength)
 }
 
 // ClientOptions returns client options.
