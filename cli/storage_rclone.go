@@ -24,6 +24,8 @@ func (c *storageRcloneFlags) setup(_ storageProviderServices, cmd *kingpin.CmdCl
 	cmd.Flag("rclone-args", "Pass additional parameters to rclone").StringsVar(&c.opt.RCloneArgs)
 	cmd.Flag("rclone-env", "Pass additional environment (key=value) to rclone").StringsVar(&c.opt.RCloneEnv)
 	cmd.Flag("embed-rclone-config", "Embed the provider RClone config").ExistingFileVar(&c.embedRCloneConfigFile)
+	cmd.Flag("rclone-debug", "Log rclone output").Hidden().BoolVar(&c.opt.Debug)
+	cmd.Flag("rclone-nowait-for-transfers", "Don't wait for transfers when closing storage").Hidden().BoolVar(&c.opt.NoWaitForTransfers)
 }
 
 func (c *storageRcloneFlags) connect(ctx context.Context, isNew bool) (blob.Storage, error) {
