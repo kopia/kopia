@@ -37,7 +37,6 @@ const (
 	// fake creadentials used by minio server we're launching.
 	minioRootAccessKeyID     = "fake-key"
 	minioRootSecretAccessKey = "fake-secret"
-	minioUseSSL              = false
 	minioRegion              = "fake-region-1"
 	minioBucketName          = "my-bucket" // we use ephemeral minio for each test so this does not need to be unique
 
@@ -232,7 +231,7 @@ func TestS3StorageMinio(t *testing.T) {
 				SecretAccessKey: minioRootSecretAccessKey,
 				BucketName:      minioBucketName,
 				Region:          minioRegion,
-				DoNotUseTLS:     !minioUseSSL,
+				DoNotUseTLS:     true,
 				DoNotVerifyTLS:  disableTLSVerify,
 			}
 
@@ -279,42 +278,36 @@ func TestS3StorageMinioSTS(t *testing.T) {
 
 	ma := newMinioAdmin(t, "http://"+minioEndpoint, minioRootAccessKeyID, minioRootSecretAccessKey)
 
-	for _, disableTLSVerify := range []bool{true, false} {
-		disableTLSVerify := disableTLSVerify
+	testutil.Retry(t, func(t *testutil.RetriableT) {
+		// create kopia user and session token
+		kopiaUserName := generateName("kopiauser")
+		kopiaUserPasswd := generateName("kopiapassword")
 
-		testutil.Retry(t, func(t *testutil.RetriableT) {
-			// create kopia user and session token
-			kopiaUserName := generateName("kopiauser")
-			kopiaUserPasswd := generateName("kopiapassword")
+		ma.createMinioUser(t, kopiaUserName, kopiaUserPasswd)
+		defer ma.deleteMinioUser(t, kopiaUserName)
 
-			ma.createMinioUser(t, kopiaUserName, kopiaUserPasswd)
-			defer ma.deleteMinioUser(t, kopiaUserName)
+		kopiaAccessKeyID, kopiaSecretKey, kopiaSessionToken := createMinioSessionToken(t, minioEndpoint, kopiaUserName, kopiaUserPasswd, minioBucketName)
 
-			kopiaAccessKeyID, kopiaSecretKey, kopiaSessionToken := createMinioSessionToken(t, minioEndpoint, kopiaUserName, kopiaUserPasswd, minioBucketName)
+		options := &Options{
+			Endpoint:        minioEndpoint,
+			AccessKeyID:     kopiaAccessKeyID,
+			SecretAccessKey: kopiaSecretKey,
+			SessionToken:    kopiaSessionToken,
+			BucketName:      minioBucketName,
+			Region:          minioRegion,
+			DoNotUseTLS:     true,
+		}
 
-			options := &Options{
-				Endpoint:        minioEndpoint,
-				AccessKeyID:     kopiaAccessKeyID,
-				SecretAccessKey: kopiaSecretKey,
-				SessionToken:    kopiaSessionToken,
-				BucketName:      minioBucketName,
-				Region:          minioRegion,
-				DoNotUseTLS:     !minioUseSSL,
-				DoNotVerifyTLS:  disableTLSVerify,
-			}
-
-			createBucket(t, &Options{
-				Endpoint:        minioEndpoint,
-				AccessKeyID:     minioRootAccessKeyID,
-				SecretAccessKey: minioRootSecretAccessKey,
-				BucketName:      minioBucketName,
-				Region:          minioRegion,
-				DoNotUseTLS:     !minioUseSSL,
-				DoNotVerifyTLS:  disableTLSVerify,
-			})
-			testStorage(t, options)
+		createBucket(t, &Options{
+			Endpoint:        minioEndpoint,
+			AccessKeyID:     minioRootAccessKeyID,
+			SecretAccessKey: minioRootSecretAccessKey,
+			BucketName:      minioBucketName,
+			Region:          minioRegion,
+			DoNotUseTLS:     true,
 		})
-	}
+		testStorage(t, options)
+	})
 }
 
 func TestNeedMD5AWS(t *testing.T) {
@@ -517,7 +510,7 @@ func createMinioSessionToken(t *testutil.RetriableT, minioEndpoint, kopiaUserNam
 		Endpoint:         aws.String(minioEndpoint),
 		Region:           aws.String(minioRegion),
 		S3ForcePathStyle: aws.Bool(true),
-		DisableSSL:       aws.Bool(!minioUseSSL),
+		DisableSSL:       aws.Bool(true),
 	}
 
 	awsSession, err := session.NewSession(awsConfig)
