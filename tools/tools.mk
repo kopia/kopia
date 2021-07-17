@@ -238,6 +238,11 @@ $(MINIO_MC_PATH):
 
 export MINIO_MC_PATH
 
+wwhrd=$(TOOLS_DIR)/bin/wwhrd$(exe_suffix)
+
+$(wwhrd):
+	GOBIN=$(TOOLS_DIR)/bin go install github.com/frapposelli/wwhrd@latest
+
 # goreleaser
 goreleaser_dir=$(TOOLS_DIR)$(slash)goreleaser-$(GORELEASER_VERSION)
 goreleaser=$(goreleaser_dir)$(slash)goreleaser$(exe_suffix)

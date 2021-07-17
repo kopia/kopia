@@ -1,0 +1,20 @@
+name: License Check
+on: [push,pull_request]
+jobs:
+  tests:
+    name: License Check
+    runs-on: ubuntu-latest
+    steps:
+    - name: Set up Go.
+      uses: actions/setup-go@v2
+      with:
+        go-version: ^1.16
+      id: go
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+    - name: Download dependencies
+      run: go mod vendor
+    - name: Run License Check
+      run: make license-check

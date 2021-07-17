@@ -210,6 +210,9 @@ provider-tests: $(gotestsum) $(rclone) $(MINIO_MC_PATH)
 	$(GO_TEST) $(UNIT_TEST_RACE_FLAGS) -count=$(REPEAT_TEST) -timeout $(UNIT_TESTS_TIMEOUT) ./repo/blob/...
 	-$(gotestsum) tool slowest --jsonfile .tmp.provider-tests.json  --threshold 1000ms
 
+license-check: $(wwhrd)
+	$(wwhrd) check
+
 vtest: $(gotestsum)
 	$(GO_TEST) -count=$(REPEAT_TEST) -short -v -timeout $(UNIT_TESTS_TIMEOUT) ./...
 
