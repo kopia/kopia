@@ -40,11 +40,11 @@ func (c *commandRepositoryChangePassword) run(ctx context.Context, rep repo.Dire
 		return errors.Wrap(err, "unable to change password")
 	}
 
+	log(ctx).Infof(`NOTE: Repository password has been changed.`)
+
 	if err := c.svc.passwordPersistenceStrategy().PersistPassword(ctx, c.svc.repositoryConfigFileName(), newPass); err != nil {
 		return errors.Wrap(err, "unable to persist password")
 	}
-
-	log(ctx).Infof(`NOTE: Repository password has been changed.`)
 
 	return nil
 }
