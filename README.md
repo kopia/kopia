@@ -79,8 +79,4 @@ Cryptography Notice
   Administration Regulations, Section 740.13) for both object code and
   source code.
 
-
-[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fkopia%2Fkopia.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Fkopia%2Fkopia?ref=badge_large)
-
-
 [![Netlify Status](https://api.netlify.com/api/v1/badges/6b5c1fe4-a0da-4e7e-939b-ff1105251985/deploy-status)](https://app.netlify.com/sites/kopia/deploys)
