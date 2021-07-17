@@ -26,7 +26,7 @@ const defaultCleanupAge = time.Hour
 
 var rcloneExternalProviders = map[string]string{
 	"GoogleDrive": "gdrive:/kopia",
-	// "OneDrive":    "onedrive:/kopia", broken
+	"OneDrive":    "onedrive:/kopia",
 }
 
 func mustGetRcloneExeOrSkip(t *testing.T) string {
@@ -129,7 +129,6 @@ func TestRCloneStorageInvalidFlags(t *testing.T) {
 }
 
 func TestRCloneProviders(t *testing.T) {
-	t.Parallel()
 	testutil.ProviderTest(t)
 
 	var (
@@ -150,6 +149,11 @@ func TestRCloneProviders(t *testing.T) {
 		rcloneArgs = append(rcloneArgs, "--config="+cfg)
 	}
 
+	rcloneArgs = append(rcloneArgs,
+		"--vfs-cache-max-size=100M",
+		"--vfs-cache-mode=full",
+	)
+
 	if len(rcloneArgs)+len(embeddedConfig) == 0 {
 		t.Skipf("Either KOPIA_RCLONE_EMBEDDED_CONFIG_B64 or KOPIA_RCLONE_CONFIG_FILE must be provided")
 	}
@@ -160,18 +164,26 @@ func TestRCloneProviders(t *testing.T) {
 		rp := rp
 
 		opt := &rclone.Options{
-			RemotePath:     rp,
-			RCloneExe:      rcloneExe,
-			RCloneArgs:     rcloneArgs,
-			EmbeddedConfig: embeddedConfig,
+			RemotePath:      rp,
+			RCloneExe:       rcloneExe,
+			RCloneArgs:      rcloneArgs,
+			EmbeddedConfig:  embeddedConfig,
+			Debug:           true,
+			ListParallelism: 16,
 		}
 
-		t.Run(name, func(t *testing.T) {
+		t.Run("Cleanup-"+name, func(t *testing.T) {
 			t.Parallel()
 
 			ctx := testlogging.Context(t)
 
 			cleanupOldData(ctx, t, opt, defaultCleanupAge)
+		})
+
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			ctx := testlogging.Context(t)
 
 			// we are using shared storage, append a guid so that tests don't collide
 			opt.RemotePath += "/" + uuid.NewString()

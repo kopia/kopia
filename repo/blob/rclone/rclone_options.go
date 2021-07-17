@@ -11,4 +11,5 @@ type Options struct {
 	NoWaitForTransfers bool     `json:"noWaitForTransfers,omitempty"` // when set to true, don't wait for transfers to finish when closing
 	DirectoryShards    []int    `json:"dirShards"`
 	EmbeddedConfig     string   `json:"embeddedConfig,omitempty"`
+	ListParallelism    int      `json:"listParallelism,omitempty"`
 }
