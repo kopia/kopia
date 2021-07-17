@@ -212,6 +212,8 @@ provider-tests: $(gotestsum) $(rclone) $(MINIO_MC_PATH)
 
 license-check: $(wwhrd)
 	$(wwhrd) check
+	(cd htmlui && npx license-checker --summary --failOn "GPL-2.0;GPL-3.0;AGPL-2.0;AGPL-3.0")
+	(cd app && npx license-checker --summary --failOn "GPL-2.0;GPL-3.0;AGPL-2.0;AGPL-3.0")
 
 vtest: $(gotestsum)
 	$(GO_TEST) -count=$(REPEAT_TEST) -short -v -timeout $(UNIT_TESTS_TIMEOUT) ./...

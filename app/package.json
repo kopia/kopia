@@ -1,7 +1,6 @@
 {
   "name": "kopia-ui",
-  "version": "0.5.0-test1",
-  "private": true,
+  "version": "1.0.0",
   "repository": "github:kopia/kopia",
   "dependencies": {
     "auto-launch": "^5.0.5",
