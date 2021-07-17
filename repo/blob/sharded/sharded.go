@@ -9,7 +9,9 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"golang.org/x/sync/errgroup"
 
+	"github.com/kopia/kopia/internal/parallelwork"
 	"github.com/kopia/kopia/repo/blob"
 )
 
@@ -29,9 +31,10 @@ type Impl interface {
 type Storage struct {
 	Impl Impl
 
-	RootPath string
-	Suffix   string
-	Shards   []int
+	RootPath        string
+	Suffix          string
+	Shards          []int
+	ListParallelism int
 }
 
 // GetBlob implements blob.Storage.
@@ -56,16 +59,29 @@ func (s Storage) makeFileName(blobID blob.ID) string {
 
 // ListBlobs implements blob.Storage.
 func (s Storage) ListBlobs(ctx context.Context, prefix blob.ID, callback func(blob.Metadata) error) error {
+	pw := parallelwork.NewQueue()
+
+	// channel to which pw will write blob.Metadata, some buf
+	result := make(chan blob.Metadata, 128) // nolint:gomnd
+
+	finished := make(chan struct{})
+	defer close(finished)
+
 	var walkDir func(string, string) error
 
 	walkDir = func(directory string, currentPrefix string) error {
+		select {
+		case <-finished: // already finished
+			return nil
+		default:
+		}
+
 		entries, err := s.Impl.ReadDir(ctx, directory)
 		if err != nil {
 			return errors.Wrap(err, "error reading directory")
 		}
 
 		for _, e := range entries {
-			// nolint:nestif
 			if e.IsDir() {
 				var match bool
 
@@ -77,27 +93,66 @@ func (s Storage) ListBlobs(ctx context.Context, prefix blob.ID, callback func(bl
 				}
 
 				if match {
-					if err := walkDir(directory+"/"+e.Name(), currentPrefix+e.Name()); err != nil {
-						return err
-					}
+					subdir := directory + "/" + e.Name()
+					subprefix := currentPrefix + e.Name()
+
+					pw.EnqueueFront(ctx, func() error {
+						return walkDir(subdir, subprefix)
+					})
 				}
-			} else if fullID, ok := s.getBlobIDFromFileName(currentPrefix + e.Name()); ok {
-				if strings.HasPrefix(string(fullID), string(prefix)) {
-					if err := callback(blob.Metadata{
-						BlobID:    fullID,
-						Length:    e.Size(),
-						Timestamp: e.ModTime(),
-					}); err != nil {
-						return err
-					}
-				}
+
+				continue
+			}
+
+			fullID, ok := s.getBlobIDFromFileName(currentPrefix + e.Name())
+			if !ok {
+				continue
+			}
+
+			if !strings.HasPrefix(string(fullID), string(prefix)) {
+				continue
+			}
+
+			select {
+			case result <- blob.Metadata{
+				BlobID:    fullID,
+				Length:    e.Size(),
+				Timestamp: e.ModTime(),
+			}:
+			case <-finished:
 			}
 		}
 
 		return nil
 	}
 
-	return walkDir(s.RootPath, "")
+	pw.EnqueueFront(ctx, func() error {
+		return walkDir(s.RootPath, "")
+	})
+
+	par := s.ListParallelism
+	if par == 0 {
+		par = 1
+	}
+
+	var eg errgroup.Group
+
+	// start populating the channel in parallel
+	eg.Go(func() error {
+		defer close(result)
+
+		return errors.Wrap(pw.Process(ctx, par), "error processing directory shards")
+	})
+
+	// invoke the callback on the current goroutine until it fails
+	for bm := range result {
+		if err := callback(bm); err != nil {
+			return err
+		}
+	}
+
+	// nolint:wrapcheck
+	return eg.Wait()
 }
 
 // GetMetadata implements blob.Storage.

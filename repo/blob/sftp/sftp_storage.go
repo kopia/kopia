@@ -591,10 +591,11 @@ func New(ctx context.Context, opts *Options) (blob.Storage, error) {
 
 	r := &sftpStorage{
 		sharded.Storage{
-			Impl:     impl,
-			RootPath: opts.Path,
-			Suffix:   fsStorageChunkSuffix,
-			Shards:   opts.shards(),
+			Impl:            impl,
+			RootPath:        opts.Path,
+			Suffix:          fsStorageChunkSuffix,
+			Shards:          opts.shards(),
+			ListParallelism: opts.ListParallelism,
 		},
 	}
 

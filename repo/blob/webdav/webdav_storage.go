@@ -214,9 +214,10 @@ func New(ctx context.Context, opts *Options) (blob.Storage, error) {
 				Options: *opts,
 				cli:     cli,
 			},
-			RootPath: "",
-			Suffix:   fsStorageChunkSuffix,
-			Shards:   opts.shards(),
+			RootPath:        "",
+			Suffix:          fsStorageChunkSuffix,
+			Shards:          opts.shards(),
+			ListParallelism: opts.ListParallelism,
 		},
 	})
 

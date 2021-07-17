@@ -292,10 +292,11 @@ func New(ctx context.Context, opts *Options) (blob.Storage, error) {
 
 	return &fsStorage{
 		sharded.Storage{
-			Impl:     &fsImpl{Options: *opts},
-			RootPath: opts.Path,
-			Suffix:   fsStorageChunkSuffix,
-			Shards:   opts.shards(),
+			Impl:            &fsImpl{Options: *opts},
+			RootPath:        opts.Path,
+			Suffix:          fsStorageChunkSuffix,
+			Shards:          opts.shards(),
+			ListParallelism: opts.ListParallelism,
 		},
 	}, nil
 }
