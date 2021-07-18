@@ -14,7 +14,7 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 )
 
-const maxTimeDiffBetweenGetAndList = 5 * time.Second
+const maxTimeDiffBetweenGetAndList = time.Minute
 
 // AssertGetBlob asserts that the specified BLOB has correct content.
 func AssertGetBlob(ctx context.Context, t *testing.T, s blob.Storage, blobID blob.ID, expected []byte) {

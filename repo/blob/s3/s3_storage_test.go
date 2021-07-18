@@ -2,13 +2,11 @@ package s3
 
 import (
 	"context"
-	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"os"
-	"os/exec"
 	"strings"
 	"testing"
 	"time"
@@ -83,17 +81,6 @@ func startDockerMinioOrSkip(t *testing.T) string {
 	t.Logf("endpoint: %v", endpoint)
 
 	return endpoint
-}
-
-func generateName(name string) string {
-	b := make([]byte, 3)
-
-	_, err := rand.Read(b)
-	if err != nil {
-		return fmt.Sprintf("%s-1", name)
-	}
-
-	return fmt.Sprintf("%s-%x", name, b)
 }
 
 func getEnvOrSkip(tb testing.TB, name string) string {
@@ -240,18 +227,7 @@ func TestS3StorageMinioSTS(t *testing.T) {
 
 	minioEndpoint := startDockerMinioOrSkip(t)
 
-	time.Sleep(2 * time.Second)
-
-	ma := newMinioAdmin(t, "http://"+minioEndpoint, minioRootAccessKeyID, minioRootSecretAccessKey)
-
-	// create kopia user and session token
-	kopiaUserName := generateName("kopiauser")
-	kopiaUserPasswd := generateName("kopiapassword")
-
-	ma.createMinioUser(t, kopiaUserName, kopiaUserPasswd)
-	defer ma.deleteMinioUser(t, kopiaUserName)
-
-	kopiaAccessKeyID, kopiaSecretKey, kopiaSessionToken := createMinioSessionToken(t, minioEndpoint, kopiaUserName, kopiaUserPasswd, minioBucketName)
+	kopiaAccessKeyID, kopiaSecretKey, kopiaSessionToken := createMinioSessionToken(t, minioEndpoint, minioRootAccessKeyID, minioRootSecretAccessKey, minioBucketName)
 
 	createBucket(t, &Options{
 		Endpoint:        minioEndpoint,
@@ -262,7 +238,8 @@ func TestS3StorageMinioSTS(t *testing.T) {
 		DoNotUseTLS:     true,
 	})
 
-	time.Sleep(2 * time.Second)
+	require.NotEqual(t, kopiaAccessKeyID, minioRootAccessKeyID)
+	require.NotEqual(t, kopiaSecretKey, minioRootSecretAccessKey)
 
 	testStorage(t, &Options{
 		Endpoint:        minioEndpoint,
@@ -423,44 +400,6 @@ func makeBucket(tb testing.TB, cli *minio.Client, opt *Options, objectLocking bo
 	}
 }
 
-type minioAdmin struct {
-	configDir string
-}
-
-func newMinioAdmin(tb testing.TB, endpoint, user, pass string) *minioAdmin {
-	tb.Helper()
-
-	a := &minioAdmin{testutil.TempDirectory(tb)}
-	a.run(tb, "alias", "set", "myminio", endpoint, user, pass)
-
-	return a
-}
-
-func (a *minioAdmin) run(tb testing.TB, args ...string) {
-	tb.Helper()
-
-	testutil.TestSkipOnCIUnlessLinuxAMD64(tb)
-
-	cmd := exec.Command(getEnvOrSkip(tb, "MINIO_MC_PATH"),
-		append([]string{"--config-dir", a.configDir}, args...)...)
-
-	_, err := cmd.CombinedOutput()
-	require.NoError(tb, err)
-}
-
-func (a *minioAdmin) createMinioUser(tb testing.TB, kopiaUserName, kopiaPasswd string) {
-	tb.Helper()
-
-	a.run(tb, "admin", "user", "add", "myminio", kopiaUserName, kopiaPasswd)
-	a.run(tb, "admin", "policy", "set", "myminio", "readwrite", "user="+kopiaUserName)
-}
-
-func (a *minioAdmin) deleteMinioUser(tb testing.TB, kopiaUserName string) {
-	tb.Helper()
-
-	a.run(tb, "admin", "user", "remove", "myminio", kopiaUserName)
-}
-
 func createMinioSessionToken(t *testing.T, minioEndpoint, kopiaUserName, kopiaUserPasswd, bucketName string) (accessID, secretKey, sessionToken string) {
 	t.Helper()
 
@@ -482,7 +421,22 @@ func createMinioSessionToken(t *testing.T, minioEndpoint, kopiaUserName, kopiaUs
 
 	input := &sts.AssumeRoleInput{
 		// give access to only S3 bucket with name bucketName
-		Policy: aws.String(fmt.Sprintf(`{"Version":"2012-10-17","Statement":[{"Sid":"Stmt1","Effect":"Allow","Action":"s3:*","Resource":"arn:aws:s3:::%s/*"}]}`, bucketName)),
+		Policy: aws.String(fmt.Sprintf(`{
+			"Version":"2012-10-17",
+			"Statement":[
+				{
+					"Sid": "ReadBucket",
+					"Effect": "Allow",
+					"Action": "s3:ListBucket",
+					"Resource": "arn:aws:s3:::%v"
+				  },
+				  {
+					"Sid": "AllowFullAccessInBucket",
+					"Effect": "Allow",
+					"Action": "s3:*",
+					"Resource": "arn:aws:s3:::%v/*"
+				  }
+			]}`, bucketName, bucketName)),
 		// RoleArn and RoleSessionName are not meaningful for MinIO and can be set to any value
 		RoleArn:         aws.String("arn:xxx:xxx:xxx:xxxx"),
 		RoleSessionName: aws.String("kopiaTestSession"),
