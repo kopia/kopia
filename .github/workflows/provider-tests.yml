@@ -36,13 +36,13 @@ jobs:
         KOPIA_B2_TEST_BUCKET: ${{ secrets.KOPIA_B2_TEST_BUCKET }}
         KOPIA_B2_TEST_KEY: ${{ secrets.KOPIA_B2_TEST_KEY }}
         KOPIA_B2_TEST_KEY_ID: ${{ secrets.KOPIA_B2_TEST_KEY_ID }}
-      if: succeeded() || failed()
+      if: ${{ success() || failure() }}
     - name: GCS
       run: make provider-tests PROVIDER_TEST_TARGET=gcs
       env:
         KOPIA_GCS_CREDENTIALS_JSON_GZIP: ${{ secrets.KOPIA_GCS_CREDENTIALS_JSON_GZIP }}
         KOPIA_GCS_TEST_BUCKET: ${{ secrets.KOPIA_GCS_TEST_BUCKET }}
-      if: succeeded() || failed()
+      if: ${{ success() || failure() }}
     - name: S3
       run: make provider-tests PROVIDER_TEST_TARGET=gcs
       env:
@@ -57,19 +57,19 @@ jobs:
         KOPIA_S3_CREDS: ${{ secrets.KOPIA_S3_CREDS }}
         KOPIA_S3_WASABI_CREDS: ${{ secrets.KOPIA_S3_WASABI_CREDS }}
         KOPIA_S3_WASABI_VERSIONED_CREDS: ${{ secrets.KOPIA_S3_WASABI_VERSIONED_CREDS }}
-      if: succeeded() || failed()
+      if: ${{ success() || failure() }}
     - name: Rclone
       run: make provider-tests PROVIDER_TEST_TARGET=rclone
       env:
         KOPIA_RCLONE_EMBEDDED_CONFIG_B64: ${{ secrets.KOPIA_RCLONE_EMBEDDED_CONFIG_B64 }}
-      if: succeeded() || failed()
+      if: ${{ success() || failure() }}
     - name: SFTP
       run: make provider-tests PROVIDER_TEST_TARGET=sftp
-      if: succeeded() || failed()
+      if: ${{ success() || failure() }}
     - name: WebDAV
       run: make provider-tests PROVIDER_TEST_TARGET=webdav
       env:
         KOPIA_WEBDAV_TEST_URL: ${{ secrets.KOPIA_WEBDAV_TEST_URL }}
         KOPIA_WEBDAV_TEST_USERNAME: ${{ secrets.KOPIA_WEBDAV_TEST_USERNAME }}
         KOPIA_WEBDAV_TEST_PASSWORD: ${{ secrets.KOPIA_WEBDAV_TEST_PASSWORD }}
-      if: succeeded() || failed()
+      if: ${{ success() || failure() }}
