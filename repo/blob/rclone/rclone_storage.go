@@ -48,9 +48,13 @@ type rcloneStorage struct {
 }
 
 func (r *rcloneStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes) error {
-	atomic.StoreInt32(r.changeCount, 1)
+	err := r.Storage.PutBlob(ctx, b, data)
+	if err == nil {
+		atomic.StoreInt32(r.changeCount, 1)
+		return nil
+	}
 
-	return errors.Wrap(r.Storage.PutBlob(ctx, b, data), "error writing blob using WebDAV")
+	return errors.Wrap(err, "error writing blob using WebDAV")
 }
 
 func (r *rcloneStorage) ConnectionInfo() blob.ConnectionInfo {
