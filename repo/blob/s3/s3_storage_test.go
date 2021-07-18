@@ -25,7 +25,6 @@ import (
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/gather"
-	"github.com/kopia/kopia/internal/retry"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
@@ -42,9 +41,6 @@ const (
 
 	// default aws S3 endpoint.
 	awsEndpoint = "s3.amazonaws.com"
-
-	// the test takes a few seconds, delete stuff older than 1h to avoid accumulating cruft.
-	defaultCleanupAge = 1 * time.Hour
 
 	// env vars need to be set to execute TestS3StorageAWS.
 	testEndpointEnv        = "KOPIA_S3_TEST_ENDPOINT"
@@ -137,22 +133,6 @@ func getProviderOptions(tb testing.TB, envName string) *Options {
 	return &o
 }
 
-func getProviderOptionsAndCleanup(tb testing.TB, envName string) *Options {
-	tb.Helper()
-
-	o := getProviderOptions(tb, envName)
-
-	cleanupOldData(context.Background(), tb, o, defaultCleanupAge)
-
-	o.Prefix = uuid.NewString() + "-"
-
-	tb.Cleanup(func() {
-		cleanupOldData(context.Background(), tb, o, 0)
-	})
-
-	return o
-}
-
 func TestS3StorageProviders(t *testing.T) {
 	t.Parallel()
 
@@ -160,9 +140,9 @@ func TestS3StorageProviders(t *testing.T) {
 		env := env
 
 		t.Run(k, func(t *testing.T) {
-			options := getProviderOptionsAndCleanup(t, env)
+			opt := getProviderOptions(t, env)
 
-			testStorage(t, options)
+			testStorage(t, opt)
 		})
 	}
 }
@@ -238,7 +218,7 @@ func TestInvalidCredsFailsFast(t *testing.T) {
 
 	t0 := clock.Now()
 
-	if _, err := New(ctx, &Options{
+	_, err := New(ctx, &Options{
 		Endpoint:        minioEndpoint,
 		AccessKeyID:     minioRootAccessKeyID,
 		SecretAccessKey: minioRootSecretAccessKey + "bad",
@@ -246,9 +226,8 @@ func TestInvalidCredsFailsFast(t *testing.T) {
 		Region:          minioRegion,
 		DoNotUseTLS:     false,
 		DoNotVerifyTLS:  false,
-	}); err == nil {
-		t.Fatalf("unexpected success with bad credentials")
-	}
+	})
+	require.Error(t, err)
 
 	if dt := clock.Since(t0); dt > 10*time.Second {
 		t.Fatalf("opening storage took too long, probably due to retries")
@@ -331,7 +310,7 @@ func TestNeedMD5AWS(t *testing.T) {
 	require.NoError(t, err, "could not create storage")
 
 	t.Cleanup(func() {
-		cleanupOldData(context.Background(), t, options, 0)
+		blobtesting.CleanupOldData(context.Background(), t, s, 0)
 	})
 
 	err = s.PutBlob(ctx, blob.ID("test-put-blob-0"), gather.FromSlice([]byte("xxyasdf243z")))
@@ -343,31 +322,25 @@ func TestNeedMD5AWS(t *testing.T) {
 func testStorage(t *testing.T, options *Options) {
 	ctx := testlogging.Context(t)
 
-	data := make([]byte, 8)
-	rand.Read(data)
+	require.Equal(t, "", options.Prefix)
 
-	cleanupOldData(ctx, t, options, time.Hour)
+	st0, err := New(testlogging.Context(t), options)
+	require.NoError(t, err)
 
-	if options.Prefix == "" {
-		options.Prefix = fmt.Sprintf("test-%v-%x-", clock.Now().Unix(), data)
-	}
+	defer st0.Close(ctx)
 
-	attempt := func() (interface{}, error) {
-		return New(testlogging.Context(t), options)
-	}
+	blobtesting.CleanupOldData(ctx, t, st0, blobtesting.MinCleanupAge)
 
-	v, err := retry.WithExponentialBackoff(ctx, "New() S3 storage", attempt, func(err error) bool { return err != nil })
-	if err != nil {
-		t.Fatalf("err: %v, options:%v", err, options)
-	}
+	options.Prefix = uuid.NewString()
 
-	st := v.(blob.Storage)
+	st, err := New(testlogging.Context(t), options)
+	require.NoError(t, err)
+
+	defer st.Close(ctx)
+	defer blobtesting.CleanupOldData(ctx, t, st, 0)
+
 	blobtesting.VerifyStorage(ctx, t, st)
 	blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
-
-	if err := st.Close(ctx); err != nil {
-		t.Fatalf("err: %v", err)
-	}
 }
 
 func TestCustomTransportNoSSLVerify(t *testing.T) {
@@ -527,26 +500,4 @@ func createMinioSessionToken(t *testing.T, minioEndpoint, kopiaUserName, kopiaUs
 	t.Logf("created session token with assume role: expiration: %s", result.Credentials.Expiration)
 
 	return *result.Credentials.AccessKeyId, *result.Credentials.SecretAccessKey, *result.Credentials.SessionToken
-}
-
-func cleanupOldData(ctx context.Context, tb testing.TB, options *Options, cleanupAge time.Duration) {
-	tb.Helper()
-
-	tb.Logf("cleaning up prefix %q", options.Prefix)
-
-	// cleanup old data from the bucket
-	st, err := New(testlogging.Context(tb), options)
-	if err != nil {
-		tb.Fatalf("err: %v", err)
-	}
-
-	_ = st.ListBlobs(ctx, "", func(it blob.Metadata) error {
-		age := clock.Since(it.Timestamp)
-		if age > cleanupAge {
-			if err := st.DeleteBlob(ctx, it.BlobID); err != nil {
-				tb.Errorf("warning: unable to delete %q: %v", it.BlobID, err)
-			}
-		}
-		return nil
-	})
 }

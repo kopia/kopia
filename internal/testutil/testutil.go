@@ -1,3 +1,4 @@
+// Package testutil contains test utilities.
 package testutil
 
 import (
