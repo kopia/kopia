@@ -253,16 +253,6 @@ func TestS3StorageMinioSTS(t *testing.T) {
 
 	kopiaAccessKeyID, kopiaSecretKey, kopiaSessionToken := createMinioSessionToken(t, minioEndpoint, kopiaUserName, kopiaUserPasswd, minioBucketName)
 
-	options := &Options{
-		Endpoint:        minioEndpoint,
-		AccessKeyID:     kopiaAccessKeyID,
-		SecretAccessKey: kopiaSecretKey,
-		SessionToken:    kopiaSessionToken,
-		BucketName:      minioBucketName,
-		Region:          minioRegion,
-		DoNotUseTLS:     true,
-	}
-
 	createBucket(t, &Options{
 		Endpoint:        minioEndpoint,
 		AccessKeyID:     minioRootAccessKeyID,
@@ -271,7 +261,18 @@ func TestS3StorageMinioSTS(t *testing.T) {
 		Region:          minioRegion,
 		DoNotUseTLS:     true,
 	})
-	testStorage(t, options)
+
+	time.Sleep(2 * time.Second)
+
+	testStorage(t, &Options{
+		Endpoint:        minioEndpoint,
+		AccessKeyID:     kopiaAccessKeyID,
+		SecretAccessKey: kopiaSecretKey,
+		SessionToken:    kopiaSessionToken,
+		BucketName:      minioBucketName,
+		Region:          minioRegion,
+		DoNotUseTLS:     true,
+	})
 }
 
 func TestNeedMD5AWS(t *testing.T) {
