@@ -2,10 +2,12 @@ package b2_test
 
 import (
 	"context"
-	"crypto/rand"
 	"fmt"
 	"os"
 	"testing"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/clock"
@@ -32,6 +34,27 @@ func getEnvOrSkip(t *testing.T, name string) string {
 	return value
 }
 
+func TestCleanupOldData(t *testing.T) {
+	t.Parallel()
+	testutil.ProviderTest(t)
+
+	bucket := getEnvOrSkip(t, testBucketEnv)
+	keyID := getEnvOrSkip(t, testKeyIDEnv)
+	key := getEnvOrSkip(t, testKeyEnv)
+
+	opt := &b2.Options{
+		BucketName: bucket,
+		KeyID:      keyID,
+		Key:        key,
+	}
+
+	ctx := testlogging.Context(t)
+	st, err := b2.New(ctx, opt)
+	require.NoError(t, err)
+
+	blobtesting.CleanupOldData(ctx, t, st, blobtesting.MinCleanupAge)
+}
+
 func TestB2Storage(t *testing.T) {
 	t.Parallel()
 	testutil.ProviderTest(t)
@@ -39,41 +62,23 @@ func TestB2Storage(t *testing.T) {
 	bucket := getEnvOrSkip(t, testBucketEnv)
 	keyID := getEnvOrSkip(t, testKeyIDEnv)
 	key := getEnvOrSkip(t, testKeyEnv)
-	testutil.Retry(t, func(t *testutil.RetriableT) {
-		data := make([]byte, 8)
-		rand.Read(data)
 
-		ctx := testlogging.Context(t)
-		st, err := b2.New(ctx, &b2.Options{
-			BucketName: bucket,
-			KeyID:      keyID,
-			Key:        key,
-			Prefix:     fmt.Sprintf("test-%v-%x-", clock.Now().Unix(), data),
-		})
-		if err != nil {
-			t.Fatalf("unable to build b2 storage: %v", err)
-		}
+	opt := &b2.Options{
+		BucketName: bucket,
+		KeyID:      keyID,
+		Key:        key,
+		Prefix:     uuid.NewString(),
+	}
 
-		if err := st.ListBlobs(ctx, "", func(bm blob.Metadata) error {
-			return st.DeleteBlob(ctx, bm.BlobID)
-		}); err != nil {
-			t.Fatalf("unable to clear b2 bucket: %v", err)
-		}
+	ctx := testlogging.Context(t)
+	st, err := b2.New(ctx, opt)
+	require.NoError(t, err)
 
-		blobtesting.VerifyStorage(ctx, t.T, st)
-		blobtesting.AssertConnectionInfoRoundTrips(ctx, t.T, st)
+	defer st.Close(ctx)
+	defer blobtesting.CleanupOldData(ctx, t, st, 0)
 
-		// delete everything again
-		if err := st.ListBlobs(ctx, "", func(bm blob.Metadata) error {
-			return st.DeleteBlob(ctx, bm.BlobID)
-		}); err != nil {
-			t.Fatalf("unable to clear b2 bucket: %v", err)
-		}
-
-		if err := st.Close(ctx); err != nil {
-			t.Fatalf("err: %v", err)
-		}
-	})
+	blobtesting.VerifyStorage(ctx, t, st)
+	blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
 }
 
 func TestB2StorageInvalidBlob(t *testing.T) {
@@ -91,9 +96,7 @@ func TestB2StorageInvalidBlob(t *testing.T) {
 		KeyID:      keyID,
 		Key:        key,
 	})
-	if err != nil {
-		t.Fatalf("unable to build b2 storage: %v", err)
-	}
+	require.NoError(t, err)
 
 	defer st.Close(ctx)
 
@@ -117,10 +120,7 @@ func TestB2StorageInvalidBucket(t *testing.T) {
 		KeyID:      keyID,
 		Key:        key,
 	})
-
-	if err == nil {
-		t.Errorf("unexpected success building b2 storage, wanted error")
-	}
+	require.Error(t, err)
 }
 
 func TestB2StorageInvalidCreds(t *testing.T) {
@@ -137,8 +137,5 @@ func TestB2StorageInvalidCreds(t *testing.T) {
 		KeyID:      keyID,
 		Key:        key,
 	})
-
-	if err == nil {
-		t.Errorf("unexpected success building b2 storage, wanted error")
-	}
+	require.Error(t, err)
 }

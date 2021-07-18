@@ -10,12 +10,12 @@ import (
 
 	"github.com/Azure/azure-storage-blob-go/azblob"
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
-	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/azure"
 )
 
@@ -71,6 +71,26 @@ func createContainer(t *testing.T, container, storageAccount, storageKey string)
 	t.Fatalf("failed to create blob storage container: %v", err)
 }
 
+func TestCleanupOldData(t *testing.T) {
+	ctx := testlogging.Context(t)
+
+	container := getEnvOrSkip(t, testContainerEnv)
+	storageAccount := getEnvOrSkip(t, testStorageAccountEnv)
+	storageKey := getEnvOrSkip(t, testStorageKeyEnv)
+
+	st, err := azure.New(ctx, &azure.Options{
+		Container:      container,
+		StorageAccount: storageAccount,
+		StorageKey:     storageKey,
+	})
+
+	require.NoError(t, err)
+
+	defer st.Close(ctx)
+
+	blobtesting.CleanupOldData(ctx, t, st, blobtesting.MinCleanupAge)
+}
+
 func TestAzureStorage(t *testing.T) {
 	t.Parallel()
 	testutil.ProviderTest(t)
@@ -93,29 +113,12 @@ func TestAzureStorage(t *testing.T) {
 		StorageKey:     storageKey,
 		Prefix:         fmt.Sprintf("test-%v-%x-", clock.Now().Unix(), data),
 	})
-	if err != nil {
-		t.Fatalf("unable to connect to Azure: %v", err)
-	}
+	require.NoError(t, err)
 
-	if err := st.ListBlobs(ctx, "", func(bm blob.Metadata) error {
-		return st.DeleteBlob(ctx, bm.BlobID)
-	}); err != nil {
-		t.Fatalf("unable to clear Azure blob container: %v", err)
-	}
+	defer st.Close(ctx)
 
 	blobtesting.VerifyStorage(ctx, t, st)
 	blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
-
-	// delete everything again
-	if err := st.ListBlobs(ctx, "", func(bm blob.Metadata) error {
-		return st.DeleteBlob(ctx, bm.BlobID)
-	}); err != nil {
-		t.Fatalf("unable to clear Azure blob container: %v", err)
-	}
-
-	if err := st.Close(ctx); err != nil {
-		t.Fatalf("err: %v", err)
-	}
 }
 
 func TestAzureStorageSASToken(t *testing.T) {
@@ -137,29 +140,13 @@ func TestAzureStorageSASToken(t *testing.T) {
 		SASToken:       sasToken,
 		Prefix:         fmt.Sprintf("sastest-%v-%x-", clock.Now().Unix(), data),
 	})
-	if err != nil {
-		t.Fatalf("unable to connect to Azure: %v", err)
-	}
+	require.NoError(t, err)
 
-	if err := st.ListBlobs(ctx, "", func(bm blob.Metadata) error {
-		return st.DeleteBlob(ctx, bm.BlobID)
-	}); err != nil {
-		t.Fatalf("unable to clear Azure blob container: %v", err)
-	}
+	defer st.Close(ctx)
+	defer blobtesting.CleanupOldData(ctx, t, st, 0)
 
 	blobtesting.VerifyStorage(ctx, t, st)
 	blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
-
-	// delete everything again
-	if err := st.ListBlobs(ctx, "", func(bm blob.Metadata) error {
-		return st.DeleteBlob(ctx, bm.BlobID)
-	}); err != nil {
-		t.Fatalf("unable to clear Azure blob container: %v", err)
-	}
-
-	if err := st.Close(ctx); err != nil {
-		t.Fatalf("err: %v", err)
-	}
 }
 
 func TestAzureStorageInvalidBlob(t *testing.T) {
