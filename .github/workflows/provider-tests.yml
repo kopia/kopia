@@ -1,5 +1,12 @@
 name: Provider Test
-on: [push]
+on:
+  push:
+    branches: [ master ]
+    tags:
+      - v*
+  schedule:
+    # run every 2 hours
+    - cron:  '15 */2 * * *'
 jobs:
   endurance-test:
     name: Provider Test
