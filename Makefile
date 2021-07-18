@@ -203,11 +203,13 @@ test: $(gotestsum)
 	$(GO_TEST) $(UNIT_TEST_RACE_FLAGS) -tags testing -count=$(REPEAT_TEST) -timeout $(UNIT_TESTS_TIMEOUT) ./...
 	-$(gotestsum) tool slowest --jsonfile .tmp.unit-tests.json  --threshold 1000ms
 
+PROVIDER_TEST_TARGET=...
+
 provider-tests: export KOPIA_PROVIDER_TEST=true
 provider-tests: export RCLONE_EXE=$(rclone)
 provider-tests: GOTESTSUM_FLAGS=--format=$(GOTESTSUM_FORMAT) --no-summary=skipped --jsonfile=.tmp.provider-tests.json
 provider-tests: $(gotestsum) $(rclone) $(MINIO_MC_PATH)
-	$(GO_TEST) $(UNIT_TEST_RACE_FLAGS) -count=$(REPEAT_TEST) -timeout $(UNIT_TESTS_TIMEOUT) ./repo/blob/...
+	$(GO_TEST) $(UNIT_TEST_RACE_FLAGS) -count=$(REPEAT_TEST) -timeout $(UNIT_TESTS_TIMEOUT) ./repo/blob/$(PROVIDER_TEST_TARGET)
 	-$(gotestsum) tool slowest --jsonfile .tmp.provider-tests.json  --threshold 1000ms
 
 ALLOWED_LICENSES=Apache-2.0;MIT;BSD-2-Clause;BSD-3-Clause;CC0-1.0;ISC;MPL-2.0;CC-BY-3.0;CC-BY-4.0;ODC-By-1.0;WTFPL;0BSD;Python-2.0;BSD;Unlicense
