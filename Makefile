@@ -203,6 +203,8 @@ test: $(gotestsum)
 	$(GO_TEST) $(UNIT_TEST_RACE_FLAGS) -tags testing -count=$(REPEAT_TEST) -timeout $(UNIT_TESTS_TIMEOUT) ./...
 	-$(gotestsum) tool slowest --jsonfile .tmp.unit-tests.json  --threshold 1000ms
 
+provider-tests-deps: $(gotestsum) $(rclone) $(MINIO_MC_PATH)
+
 PROVIDER_TEST_TARGET=...
 
 provider-tests: export KOPIA_PROVIDER_TEST=true
