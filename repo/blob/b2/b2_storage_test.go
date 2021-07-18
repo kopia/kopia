@@ -39,41 +39,39 @@ func TestB2Storage(t *testing.T) {
 	bucket := getEnvOrSkip(t, testBucketEnv)
 	keyID := getEnvOrSkip(t, testKeyIDEnv)
 	key := getEnvOrSkip(t, testKeyEnv)
-	testutil.Retry(t, func(t *testutil.RetriableT) {
-		data := make([]byte, 8)
-		rand.Read(data)
+	data := make([]byte, 8)
+	rand.Read(data)
 
-		ctx := testlogging.Context(t)
-		st, err := b2.New(ctx, &b2.Options{
-			BucketName: bucket,
-			KeyID:      keyID,
-			Key:        key,
-			Prefix:     fmt.Sprintf("test-%v-%x-", clock.Now().Unix(), data),
-		})
-		if err != nil {
-			t.Fatalf("unable to build b2 storage: %v", err)
-		}
-
-		if err := st.ListBlobs(ctx, "", func(bm blob.Metadata) error {
-			return st.DeleteBlob(ctx, bm.BlobID)
-		}); err != nil {
-			t.Fatalf("unable to clear b2 bucket: %v", err)
-		}
-
-		blobtesting.VerifyStorage(ctx, t.T, st)
-		blobtesting.AssertConnectionInfoRoundTrips(ctx, t.T, st)
-
-		// delete everything again
-		if err := st.ListBlobs(ctx, "", func(bm blob.Metadata) error {
-			return st.DeleteBlob(ctx, bm.BlobID)
-		}); err != nil {
-			t.Fatalf("unable to clear b2 bucket: %v", err)
-		}
-
-		if err := st.Close(ctx); err != nil {
-			t.Fatalf("err: %v", err)
-		}
+	ctx := testlogging.Context(t)
+	st, err := b2.New(ctx, &b2.Options{
+		BucketName: bucket,
+		KeyID:      keyID,
+		Key:        key,
+		Prefix:     fmt.Sprintf("test-%v-%x-", clock.Now().Unix(), data),
 	})
+	if err != nil {
+		t.Fatalf("unable to build b2 storage: %v", err)
+	}
+
+	if err := st.ListBlobs(ctx, "", func(bm blob.Metadata) error {
+		return st.DeleteBlob(ctx, bm.BlobID)
+	}); err != nil {
+		t.Fatalf("unable to clear b2 bucket: %v", err)
+	}
+
+	blobtesting.VerifyStorage(ctx, t, st)
+	blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
+
+	// delete everything again
+	if err := st.ListBlobs(ctx, "", func(bm blob.Metadata) error {
+		return st.DeleteBlob(ctx, bm.BlobID)
+	}); err != nil {
+		t.Fatalf("unable to clear b2 bucket: %v", err)
+	}
+
+	if err := st.Close(ctx); err != nil {
+		t.Fatalf("err: %v", err)
+	}
 }
 
 func TestB2StorageInvalidBlob(t *testing.T) {

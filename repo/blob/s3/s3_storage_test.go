@@ -162,9 +162,7 @@ func TestS3StorageProviders(t *testing.T) {
 		t.Run(k, func(t *testing.T) {
 			options := getProviderOptionsAndCleanup(t, env)
 
-			testutil.Retry(t, func(t *testutil.RetriableT) {
-				testStorage(t, options)
-			})
+			testStorage(t, options)
 		})
 	}
 }
@@ -172,47 +170,43 @@ func TestS3StorageProviders(t *testing.T) {
 func TestS3StorageAWS(t *testing.T) {
 	t.Parallel()
 
-	testutil.Retry(t, func(t *testutil.RetriableT) {
-		// skip the test if AWS creds are not provided
-		options := &Options{
-			Endpoint:        getEnv(testEndpointEnv, awsEndpoint),
-			AccessKeyID:     getEnvOrSkip(t, testAccessKeyIDEnv),
-			SecretAccessKey: getEnvOrSkip(t, testSecretAccessKeyEnv),
-			BucketName:      getEnvOrSkip(t, testBucketEnv),
-			Region:          getEnvOrSkip(t, testRegionEnv),
-		}
+	// skip the test if AWS creds are not provided
+	options := &Options{
+		Endpoint:        getEnv(testEndpointEnv, awsEndpoint),
+		AccessKeyID:     getEnvOrSkip(t, testAccessKeyIDEnv),
+		SecretAccessKey: getEnvOrSkip(t, testSecretAccessKeyEnv),
+		BucketName:      getEnvOrSkip(t, testBucketEnv),
+		Region:          getEnvOrSkip(t, testRegionEnv),
+	}
 
-		createBucket(t, options)
-		testStorage(t, options)
-	})
+	createBucket(t, options)
+	testStorage(t, options)
 }
 
 func TestS3StorageAWSSTS(t *testing.T) {
 	t.Parallel()
 	testutil.ProviderTest(t)
 
-	testutil.Retry(t, func(t *testutil.RetriableT) {
-		// skip the test if AWS STS creds are not provided
-		options := &Options{
-			Endpoint:        getEnv(testEndpointEnv, awsEndpoint),
-			AccessKeyID:     getEnvOrSkip(t, testSTSAccessKeyIDEnv),
-			SecretAccessKey: getEnvOrSkip(t, testSTSSecretAccessKeyEnv),
-			SessionToken:    getEnvOrSkip(t, testSessionTokenEnv),
-			BucketName:      getEnvOrSkip(t, testBucketEnv),
-			Region:          getEnvOrSkip(t, testRegionEnv),
-		}
+	// skip the test if AWS STS creds are not provided
+	options := &Options{
+		Endpoint:        getEnv(testEndpointEnv, awsEndpoint),
+		AccessKeyID:     getEnvOrSkip(t, testSTSAccessKeyIDEnv),
+		SecretAccessKey: getEnvOrSkip(t, testSTSSecretAccessKeyEnv),
+		SessionToken:    getEnvOrSkip(t, testSessionTokenEnv),
+		BucketName:      getEnvOrSkip(t, testBucketEnv),
+		Region:          getEnvOrSkip(t, testRegionEnv),
+	}
 
-		// STS token may no have permission to create bucket
-		// use accesskeyid and secretaccesskey to create the bucket
-		createBucket(t, &Options{
-			Endpoint:        getEnv(testEndpointEnv, awsEndpoint),
-			AccessKeyID:     getEnv(testAccessKeyIDEnv, ""),
-			SecretAccessKey: getEnv(testSecretAccessKeyEnv, ""),
-			BucketName:      options.BucketName,
-			Region:          options.Region,
-		})
-		testStorage(t, options)
+	// STS token may no have permission to create bucket
+	// use accesskeyid and secretaccesskey to create the bucket
+	createBucket(t, &Options{
+		Endpoint:        getEnv(testEndpointEnv, awsEndpoint),
+		AccessKeyID:     getEnv(testAccessKeyIDEnv, ""),
+		SecretAccessKey: getEnv(testSecretAccessKeyEnv, ""),
+		BucketName:      options.BucketName,
+		Region:          options.Region,
 	})
+	testStorage(t, options)
 }
 
 func TestS3StorageMinio(t *testing.T) {
@@ -221,24 +215,17 @@ func TestS3StorageMinio(t *testing.T) {
 
 	minioEndpoint := startDockerMinioOrSkip(t)
 
-	for _, disableTLSVerify := range []bool{true, false} {
-		disableTLSVerify := disableTLSVerify
-
-		testutil.Retry(t, func(t *testutil.RetriableT) {
-			options := &Options{
-				Endpoint:        minioEndpoint,
-				AccessKeyID:     minioRootAccessKeyID,
-				SecretAccessKey: minioRootSecretAccessKey,
-				BucketName:      minioBucketName,
-				Region:          minioRegion,
-				DoNotUseTLS:     true,
-				DoNotVerifyTLS:  disableTLSVerify,
-			}
-
-			createBucket(t, options)
-			testStorage(t, options)
-		})
+	options := &Options{
+		Endpoint:        minioEndpoint,
+		AccessKeyID:     minioRootAccessKeyID,
+		SecretAccessKey: minioRootSecretAccessKey,
+		BucketName:      minioBucketName,
+		Region:          minioRegion,
+		DoNotUseTLS:     true,
 	}
+
+	createBucket(t, options)
+	testStorage(t, options)
 }
 
 func TestInvalidCredsFailsFast(t *testing.T) {
@@ -278,36 +265,34 @@ func TestS3StorageMinioSTS(t *testing.T) {
 
 	ma := newMinioAdmin(t, "http://"+minioEndpoint, minioRootAccessKeyID, minioRootSecretAccessKey)
 
-	testutil.Retry(t, func(t *testutil.RetriableT) {
-		// create kopia user and session token
-		kopiaUserName := generateName("kopiauser")
-		kopiaUserPasswd := generateName("kopiapassword")
+	// create kopia user and session token
+	kopiaUserName := generateName("kopiauser")
+	kopiaUserPasswd := generateName("kopiapassword")
 
-		ma.createMinioUser(t, kopiaUserName, kopiaUserPasswd)
-		defer ma.deleteMinioUser(t, kopiaUserName)
+	ma.createMinioUser(t, kopiaUserName, kopiaUserPasswd)
+	defer ma.deleteMinioUser(t, kopiaUserName)
 
-		kopiaAccessKeyID, kopiaSecretKey, kopiaSessionToken := createMinioSessionToken(t, minioEndpoint, kopiaUserName, kopiaUserPasswd, minioBucketName)
+	kopiaAccessKeyID, kopiaSecretKey, kopiaSessionToken := createMinioSessionToken(t, minioEndpoint, kopiaUserName, kopiaUserPasswd, minioBucketName)
 
-		options := &Options{
-			Endpoint:        minioEndpoint,
-			AccessKeyID:     kopiaAccessKeyID,
-			SecretAccessKey: kopiaSecretKey,
-			SessionToken:    kopiaSessionToken,
-			BucketName:      minioBucketName,
-			Region:          minioRegion,
-			DoNotUseTLS:     true,
-		}
+	options := &Options{
+		Endpoint:        minioEndpoint,
+		AccessKeyID:     kopiaAccessKeyID,
+		SecretAccessKey: kopiaSecretKey,
+		SessionToken:    kopiaSessionToken,
+		BucketName:      minioBucketName,
+		Region:          minioRegion,
+		DoNotUseTLS:     true,
+	}
 
-		createBucket(t, &Options{
-			Endpoint:        minioEndpoint,
-			AccessKeyID:     minioRootAccessKeyID,
-			SecretAccessKey: minioRootSecretAccessKey,
-			BucketName:      minioBucketName,
-			Region:          minioRegion,
-			DoNotUseTLS:     true,
-		})
-		testStorage(t, options)
+	createBucket(t, &Options{
+		Endpoint:        minioEndpoint,
+		AccessKeyID:     minioRootAccessKeyID,
+		SecretAccessKey: minioRootSecretAccessKey,
+		BucketName:      minioBucketName,
+		Region:          minioRegion,
+		DoNotUseTLS:     true,
 	})
+	testStorage(t, options)
 }
 
 func TestNeedMD5AWS(t *testing.T) {
@@ -323,40 +308,39 @@ func TestNeedMD5AWS(t *testing.T) {
 		Region:          getEnvOrSkip(t, testRegionEnv),
 	}
 
-	testutil.Retry(t, func(t *testutil.RetriableT) {
-		ctx := testlogging.Context(t)
-		cli := createClient(t, options)
-		makeBucket(t, cli, options, true)
+	ctx := testlogging.Context(t)
+	cli := createClient(t, options)
+	makeBucket(t, cli, options, true)
 
-		// ensure it is a bucket with object locking enabled
-		want := "Enabled"
-		if got, _, _, _, _ := cli.GetObjectLockConfig(ctx, options.BucketName); got != want {
-			t.Fatalf("object locking is not enabled: got '%s', want '%s'", got, want)
-		}
+	// ensure it is a bucket with object locking enabled
+	want := "Enabled"
+	if got, _, _, _, _ := cli.GetObjectLockConfig(ctx, options.BucketName); got != want {
+		t.Fatalf("object locking is not enabled: got '%s', want '%s'", got, want)
+	}
 
-		// ensure a locking configuration is in place
-		lockingMode := minio.Governance
-		unit := uint(1)
-		days := minio.Days
-		err := cli.SetBucketObjectLockConfig(ctx, options.BucketName, &lockingMode, &unit, &days)
-		noError(t, err, "could not set object lock config")
+	// ensure a locking configuration is in place
+	lockingMode := minio.Governance
+	unit := uint(1)
+	days := minio.Days
+	err := cli.SetBucketObjectLockConfig(ctx, options.BucketName, &lockingMode, &unit, &days)
+	require.NoError(t, err, "could not set object lock config")
 
-		options.Prefix = uuid.NewString() + "/"
+	options.Prefix = uuid.NewString() + "/"
 
-		s, err := New(ctx, options)
-		noError(t, err, "could not create storage")
+	s, err := New(ctx, options)
+	require.NoError(t, err, "could not create storage")
 
-		t.Cleanup(func() {
-			cleanupOldData(context.Background(), t, options, 0)
-		})
-
-		err = s.PutBlob(ctx, blob.ID("test-put-blob-0"), gather.FromSlice([]byte("xxyasdf243z")))
-
-		noError(t, err, "could not put test blob")
+	t.Cleanup(func() {
+		cleanupOldData(context.Background(), t, options, 0)
 	})
+
+	err = s.PutBlob(ctx, blob.ID("test-put-blob-0"), gather.FromSlice([]byte("xxyasdf243z")))
+
+	require.NoError(t, err, "could not put test blob")
 }
 
-func testStorage(t *testutil.RetriableT, options *Options) {
+// nolint:thelper
+func testStorage(t *testing.T, options *Options) {
 	ctx := testlogging.Context(t)
 
 	data := make([]byte, 8)
@@ -378,8 +362,8 @@ func testStorage(t *testutil.RetriableT, options *Options) {
 	}
 
 	st := v.(blob.Storage)
-	blobtesting.VerifyStorage(ctx, t.T, st)
-	blobtesting.AssertConnectionInfoRoundTrips(ctx, t.T, st)
+	blobtesting.VerifyStorage(ctx, t, st)
+	blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
 
 	if err := st.Close(ctx); err != nil {
 		t.Fatalf("err: %v", err)
@@ -503,7 +487,9 @@ func (a *minioAdmin) deleteMinioUser(tb testing.TB, kopiaUserName string) {
 	a.run(tb, "admin", "user", "remove", "myminio", kopiaUserName)
 }
 
-func createMinioSessionToken(t *testutil.RetriableT, minioEndpoint, kopiaUserName, kopiaUserPasswd, bucketName string) (accessID, secretKey, sessionToken string) {
+func createMinioSessionToken(t *testing.T, minioEndpoint, kopiaUserName, kopiaUserPasswd, bucketName string) (accessID, secretKey, sessionToken string) {
+	t.Helper()
+
 	// Configure to use MinIO Server
 	awsConfig := &aws.Config{
 		Credentials:      credentials.NewStaticCredentials(kopiaUserName, kopiaUserPasswd, ""),
@@ -563,12 +549,4 @@ func cleanupOldData(ctx context.Context, tb testing.TB, options *Options, cleanu
 		}
 		return nil
 	})
-}
-
-func noError(tb testing.TB, err error, msg string) {
-	tb.Helper()
-
-	if err != nil {
-		tb.Fatal(msg, "error: ", err)
-	}
 }
