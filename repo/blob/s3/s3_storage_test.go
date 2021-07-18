@@ -227,6 +227,8 @@ func TestS3StorageMinioSTS(t *testing.T) {
 
 	minioEndpoint := startDockerMinioOrSkip(t)
 
+	time.Sleep(2 * time.Second)
+
 	kopiaAccessKeyID, kopiaSecretKey, kopiaSessionToken := createMinioSessionToken(t, minioEndpoint, minioRootAccessKeyID, minioRootSecretAccessKey, minioBucketName)
 
 	createBucket(t, &Options{
