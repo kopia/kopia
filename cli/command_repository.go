@@ -1,15 +1,16 @@
 package cli
 
 type commandRepository struct {
-	connect        commandRepositoryConnect
-	create         commandRepositoryCreate
-	disconnect     commandRepositoryDisconnect
-	repair         commandRepositoryRepair
-	setClient      commandRepositorySetClient
-	setParameters  commandRepositorySetParameters
-	changePassword commandRepositoryChangePassword
-	status         commandRepositoryStatus
-	syncTo         commandRepositorySyncTo
+	connect          commandRepositoryConnect
+	create           commandRepositoryCreate
+	disconnect       commandRepositoryDisconnect
+	repair           commandRepositoryRepair
+	setClient        commandRepositorySetClient
+	setParameters    commandRepositorySetParameters
+	changePassword   commandRepositoryChangePassword
+	status           commandRepositoryStatus
+	syncTo           commandRepositorySyncTo
+	validateProvider commandRepositoryValidateProvider
 }
 
 func (c *commandRepository) setup(svc advancedAppServices, parent commandParent) {
@@ -24,4 +25,5 @@ func (c *commandRepository) setup(svc advancedAppServices, parent commandParent)
 	c.status.setup(svc, cmd)
 	c.syncTo.setup(svc, cmd)
 	c.changePassword.setup(svc, cmd)
+	c.validateProvider.setup(svc, cmd)
 }
