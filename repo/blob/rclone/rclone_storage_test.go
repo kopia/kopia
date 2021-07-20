@@ -170,6 +170,7 @@ func TestRCloneProviders(t *testing.T) {
 			EmbeddedConfig:  embeddedConfig,
 			Debug:           true,
 			ListParallelism: 16,
+			AtomicWrites:    true,
 		}
 
 		t.Run("Cleanup-"+name, func(t *testing.T) {
