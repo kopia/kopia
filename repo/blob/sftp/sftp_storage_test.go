@@ -19,6 +19,7 @@ import (
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/providervalidation"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
@@ -187,6 +188,7 @@ func TestSFTPStorageValid(t *testing.T) {
 
 			blobtesting.VerifyStorage(ctx, t, st)
 			blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
+			require.NoError(t, providervalidation.ValidateProvider(ctx, st, blobtesting.TestValidationOptions))
 
 			// delete everything again
 			deleteBlobs(ctx, t, st)

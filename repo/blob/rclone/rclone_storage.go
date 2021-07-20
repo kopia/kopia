@@ -111,7 +111,7 @@ func (r *rcloneStorage) DisplayName() string {
 	return "RClone " + r.Options.RemotePath
 }
 
-func (r *rcloneStorage) processStderrStatus(ctx context.Context, s *bufio.Scanner) {
+func (r *rcloneStorage) processStderrStatus(ctx context.Context, statsMarker string, s *bufio.Scanner) {
 	for s.Scan() {
 		l := s.Text()
 
@@ -119,8 +119,8 @@ func (r *rcloneStorage) processStderrStatus(ctx context.Context, s *bufio.Scanne
 			log(ctx).Debugf("[RCLONE] %v", l)
 		}
 
-		if strings.HasPrefix(l, "Transferred:") && strings.HasSuffix(l, "%") {
-			if strings.HasSuffix(l, "100%") {
+		if strings.Contains(l, statsMarker) {
+			if strings.Contains(l, " 100%,") {
 				atomic.StoreInt32(r.allTransfersComplete, 1)
 			} else {
 				atomic.StoreInt32(r.allTransfersComplete, 0)
@@ -129,7 +129,7 @@ func (r *rcloneStorage) processStderrStatus(ctx context.Context, s *bufio.Scanne
 	}
 }
 
-func (r *rcloneStorage) runRCloneAndWaitForServerAddress(ctx context.Context, c *exec.Cmd, startupTimeout time.Duration) (string, error) {
+func (r *rcloneStorage) runRCloneAndWaitForServerAddress(ctx context.Context, c *exec.Cmd, statsMarker string, startupTimeout time.Duration) (string, error) {
 	rcloneAddressChan := make(chan string)
 	rcloneErrChan := make(chan error)
 
@@ -159,7 +159,7 @@ func (r *rcloneStorage) runRCloneAndWaitForServerAddress(ctx context.Context, c 
 				if p := strings.Index(l, "https://"); p >= 0 {
 					rcloneAddressChan <- l[p:]
 
-					go r.processStderrStatus(ctx, s)
+					go r.processStderrStatus(ctx, statsMarker, s)
 
 					return
 				}
@@ -245,6 +245,8 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 		rcloneExe = opt.RCloneExe
 	}
 
+	statsMarker := "STATS:KOPIA"
+
 	arguments := append([]string{
 		"-v",
 		"serve", "webdav", opt.RemotePath,
@@ -253,6 +255,8 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 		"--key", temporaryKeyPath,
 		"--htpasswd", temporaryHtpassword,
 		"--stats", "1s",
+		"--stats-one-line",
+		"--stats-one-line-date-format=" + statsMarker,
 	}, opt.RCloneArgs...)
 
 	if opt.EmbeddedConfig != "" {
@@ -274,7 +278,7 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 		startupTimeout = time.Duration(opt.StartupTimeout) * time.Second
 	}
 
-	rcloneAddr, err := r.runRCloneAndWaitForServerAddress(ctx, r.cmd, startupTimeout)
+	rcloneAddr, err := r.runRCloneAndWaitForServerAddress(ctx, r.cmd, statsMarker, startupTimeout)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to start rclone")
 	}
