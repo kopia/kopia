@@ -111,7 +111,13 @@ func (d *davStorageImpl) ReadDir(ctx context.Context, dir string) ([]os.FileInfo
 }
 
 func (d *davStorageImpl) PutBlobInPath(ctx context.Context, dirPath, filePath string, data blob.Bytes) error {
-	tmpPath := fmt.Sprintf("%v-%v", filePath, rand.Int63()) //nolint:gosec
+	var writePath string
+
+	if d.Options.AtomicWrites {
+		writePath = filePath
+	} else {
+		writePath = fmt.Sprintf("%v-%v", filePath, rand.Int63()) //nolint:gosec
+	}
 
 	var buf bytes.Buffer
 
@@ -125,10 +131,14 @@ func (d *davStorageImpl) PutBlobInPath(ctx context.Context, dirPath, filePath st
 
 		for {
 			// nolint:wrapcheck
-			err := d.translateError(d.cli.Write(tmpPath, b, defaultFilePerm))
+			err := d.translateError(d.cli.Write(writePath, b, defaultFilePerm))
 			if err == nil {
+				if d.Options.AtomicWrites {
+					return nil
+				}
+
 				// nolint:wrapcheck
-				return d.cli.Rename(tmpPath, filePath, true)
+				return d.cli.Rename(writePath, filePath, true)
 			}
 
 			// An error above may indicate that the directory doesn't exist.
