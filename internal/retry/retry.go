@@ -53,11 +53,15 @@ func PeriodicallyNoValue(ctx context.Context, interval time.Duration, count int,
 func internalRetry(ctx context.Context, desc string, attempt AttemptFunc, isRetriableError IsRetriableFunc, initial, max time.Duration, count int, factor float64) (interface{}, error) {
 	sleepAmount := initial
 
+	var lastError error
+
 	for i := 0; i < count; i++ {
 		v, err := attempt()
 		if err == nil {
 			return v, nil
 		}
+
+		lastError = err
 
 		if !isRetriableError(err) {
 			return v, err
@@ -72,7 +76,7 @@ func internalRetry(ctx context.Context, desc string, attempt AttemptFunc, isRetr
 		}
 	}
 
-	return nil, errors.Errorf("unable to complete %v despite %v retries", desc, count)
+	return nil, errors.Errorf("unable to complete %v despite %v retries, last error: %v", desc, count, lastError)
 }
 
 // WithExponentialBackoffNoValue is a shorthand for WithExponentialBackoff except the
