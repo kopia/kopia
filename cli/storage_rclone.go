@@ -27,6 +27,7 @@ func (c *storageRcloneFlags) setup(_ storageProviderServices, cmd *kingpin.CmdCl
 	cmd.Flag("rclone-debug", "Log rclone output").Hidden().BoolVar(&c.opt.Debug)
 	cmd.Flag("rclone-nowait-for-transfers", "Don't wait for transfers when closing storage").Hidden().BoolVar(&c.opt.NoWaitForTransfers)
 	cmd.Flag("list-parallelism", "Set list parallelism").Hidden().IntVar(&c.opt.ListParallelism)
+	cmd.Flag("atomic-writes", "Assume provider writes are atomic").Default("true").BoolVar(&c.opt.AtomicWrites)
 }
 
 func (c *storageRcloneFlags) connect(ctx context.Context, isNew bool) (blob.Storage, error) {

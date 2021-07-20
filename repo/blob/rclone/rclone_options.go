@@ -12,4 +12,5 @@ type Options struct {
 	DirectoryShards    []int    `json:"dirShards"`
 	EmbeddedConfig     string   `json:"embeddedConfig,omitempty"`
 	ListParallelism    int      `json:"listParallelism,omitempty"`
+	AtomicWrites       bool     `json:"atomicWrites"`
 }

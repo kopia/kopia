@@ -120,7 +120,7 @@ func (r *rcloneStorage) processStderrStatus(ctx context.Context, statsMarker str
 		}
 
 		if strings.Contains(l, statsMarker) {
-			if strings.Contains(l, " 100%,") {
+			if strings.Contains(l, " 100%,") || strings.Contains(l, ", -,") {
 				atomic.StoreInt32(r.allTransfersComplete, 1)
 			} else {
 				atomic.StoreInt32(r.allTransfersComplete, 0)
@@ -293,6 +293,7 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 		Password:                            webdavPassword,
 		TrustedServerCertificateFingerprint: hex.EncodeToString(fingerprintBytes[:]),
 		ListParallelism:                     opt.ListParallelism,
+		AtomicWrites:                        opt.AtomicWrites,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "error connecting to webdav storage")
