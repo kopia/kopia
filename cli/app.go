@@ -28,6 +28,7 @@ var (
 	defaultColor = color.New()
 	warningColor = color.New(color.FgYellow)
 	errorColor   = color.New(color.FgHiRed)
+	noteColor    = color.New(color.FgHiCyan)
 )
 
 type textOutput struct {

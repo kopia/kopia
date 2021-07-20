@@ -17,6 +17,12 @@ import (
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
+const runValidationNote = `NOTE: To validate that your provider is compatible with Kopia, please run:
+
+$ kopia repository validate-provider
+
+`
+
 type commandRepositoryCreate struct {
 	createBlockHashFormat       string
 	createBlockEncryptionFormat string
@@ -137,7 +143,13 @@ func (c *commandRepositoryCreate) runCreateCommandWithStorage(ctx context.Contex
 		return errors.Wrap(err, "unable to connect to repository")
 	}
 
-	return c.populateRepository(ctx, pass)
+	if err := c.populateRepository(ctx, pass); err != nil {
+		return errors.Wrap(err, "error populating repository")
+	}
+
+	noteColor.Fprintf(c.out.stdout(), runValidationNote) // nolint:errcheck
+
+	return nil
 }
 
 func (c *commandRepositoryCreate) populateRepository(ctx context.Context, password string) error {
