@@ -133,7 +133,7 @@ func (d *davStorageImpl) PutBlobInPath(ctx context.Context, dirPath, filePath st
 
 			// An error above may indicate that the directory doesn't exist.
 			// Attempt to create required directories and try again, if successful.
-			if !mkdirAttempted {
+			if !mkdirAttempted && dirPath != "" {
 				mkdirAttempted = true
 
 				if mkdirErr := d.cli.MkdirAll(dirPath, defaultDirPerm); mkdirErr == nil {
