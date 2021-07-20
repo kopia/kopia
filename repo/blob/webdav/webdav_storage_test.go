@@ -9,9 +9,11 @@ import (
 	"os"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"golang.org/x/net/webdav"
 
 	"github.com/kopia/kopia/internal/blobtesting"
+	"github.com/kopia/kopia/internal/providervalidation"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
@@ -164,6 +166,7 @@ func verifyWebDAVStorage(t *testing.T, url, username, password string, shardSpec
 
 	blobtesting.VerifyStorage(ctx, t, st)
 	blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
+	require.NoError(t, providervalidation.ValidateProvider(ctx, st, blobtesting.TestValidationOptions))
 
 	if err := st.Close(ctx); err != nil {
 		t.Fatalf("err: %v", err)

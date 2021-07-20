@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/gather"
+	"github.com/kopia/kopia/internal/providervalidation"
 	"github.com/kopia/kopia/repo/blob"
 )
 
@@ -167,4 +168,16 @@ func AssertConnectionInfoRoundTrips(ctx context.Context, t *testing.T, s blob.St
 	require.Equal(t, ci, ci2)
 
 	require.NoError(t, s2.Close(ctx))
+}
+
+// TestValidationOptions is the set of options used when running providing validation from tests.
+// nolint:gomnd
+var TestValidationOptions = providervalidation.Options{
+	MaxClockDrift:           3 * time.Minute,
+	ConcurrencyTestDuration: 15 * time.Second,
+	NumPutBlobWorkers:       3,
+	NumGetBlobWorkers:       3,
+	NumGetMetadataWorkers:   3,
+	NumListBlobsWorkers:     3,
+	MaxBlobLength:           10e6,
 }

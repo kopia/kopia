@@ -6,8 +6,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/gather"
+	"github.com/kopia/kopia/internal/providervalidation"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
@@ -42,6 +45,7 @@ func TestFileStorage(t *testing.T) {
 
 		blobtesting.VerifyStorage(ctx, t, r)
 		blobtesting.AssertConnectionInfoRoundTrips(ctx, t, r)
+		require.NoError(t, providervalidation.ValidateProvider(ctx, r, blobtesting.TestValidationOptions))
 
 		if err := r.Close(ctx); err != nil {
 			t.Fatalf("err: %v", err)
