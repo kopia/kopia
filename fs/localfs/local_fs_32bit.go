@@ -1,5 +1,5 @@
 // +build !windows
-// +build !amd64,!arm64,!arm darwin openbsd
+// +build !amd64,!arm64,!arm,!386 darwin openbsd
 
 package localfs
 
