@@ -19,6 +19,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/blob/pit"
 	"github.com/kopia/kopia/repo/blob/retrying"
 )
 
@@ -37,8 +38,12 @@ type s3Storage struct {
 }
 
 func (s *s3Storage) GetBlob(ctx context.Context, b blob.ID, offset, length int64) ([]byte, error) {
+	return s.GetBlobWithVersion(ctx, b, "", offset, length)
+}
+
+func (s *s3Storage) GetBlobWithVersion(ctx context.Context, b blob.ID, version string, offset, length int64) ([]byte, error) {
 	attempt := func() ([]byte, error) {
-		var opt minio.GetObjectOptions
+		opt := minio.GetObjectOptions{VersionID: version}
 
 		if length > 0 {
 			if err := opt.SetRange(offset, offset+length-1); err != nil {
@@ -257,13 +262,18 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 		return nil, errors.Errorf("bucket %q does not exist", opt.BucketName)
 	}
 
-	return retrying.NewWrapper(&s3Storage{
+	s, err := pit.NewWrapper(ctx, &s3Storage{
 		Options:           *opt,
 		cli:               cli,
 		sendMD5:           0,
 		downloadThrottler: downloadThrottler,
 		uploadThrottler:   uploadThrottler,
-	}), nil
+	}, opt.PointInTime)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not create PIT storage")
+	}
+
+	return retrying.NewWrapper(s), nil
 }
 
 func init() {
