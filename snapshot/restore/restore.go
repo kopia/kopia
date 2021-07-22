@@ -65,11 +65,12 @@ func (s *Stats) clone() Stats {
 
 // Options provides optional restore parameters.
 type Options struct {
-	Parallel               int   `json:"parallel"`
-	Incremental            bool  `json:"incremental"`
-	IgnoreErrors           bool  `json:"ignoreErrors"`
-	RestoreDirEntryAtDepth int32 `json:"restoreDirEntryAtDepth"`
-	MinSizeForPlaceholder  int32 `json:"minSizeForPlaceholder"`
+	Parallel               int      `json:"parallel"`
+	Incremental            bool     `json:"incremental"`
+	IgnoreErrors           bool     `json:"ignoreErrors"`
+	RestoreDirEntryAtDepth int32    `json:"restoreDirEntryAtDepth"`
+	MinSizeForPlaceholder  int32    `json:"minSizeForPlaceholder"`
+	DotIgnoreFiles         []string `json:"ignoreDotFiles,omitempty"`
 
 	ProgressCallback func(ctx context.Context, s Stats)
 	Cancel           chan struct{} // channel that can be externally closed to signal cancelation
