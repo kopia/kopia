@@ -20,6 +20,8 @@ type ShallowFilesystemOutput struct {
 
 	// Files smaller than this will be written directly as part of the restore.
 	MinSizeForPlaceholder int32
+
+	DotIgnoreFiles []string
 }
 
 func makeShallowFilesystemOutput(o Output, options Options) Output {
@@ -28,6 +30,7 @@ func makeShallowFilesystemOutput(o Output, options Options) Output {
 		return &ShallowFilesystemOutput{
 			FilesystemOutput:      *fso,
 			MinSizeForPlaceholder: options.MinSizeForPlaceholder,
+			DotIgnoreFiles:        options.DotIgnoreFiles,
 		}
 	}
 
@@ -62,6 +65,14 @@ func (o *ShallowFilesystemOutput) WriteFile(ctx context.Context, relativePath st
 	// Write small files directly instead of writing placeholders.
 	if de.FileSize < int64(o.MinSizeForPlaceholder) {
 		return o.FilesystemOutput.WriteFile(ctx, relativePath, f)
+	}
+
+	// Always deep restore the configured DotIgnoreFiles so that they correctly apply to
+	// a later snapshot.
+	for _, df := range o.DotIgnoreFiles {
+		if f.Name() == df {
+			return o.FilesystemOutput.WriteFile(ctx, relativePath, f)
+		}
 	}
 
 	placeholderpath, err := o.writeShallowEntry(ctx, relativePath, de)

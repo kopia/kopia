@@ -17,6 +17,8 @@ import (
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/snapshot"
+	"github.com/kopia/kopia/snapshot/policy"
 	"github.com/kopia/kopia/snapshot/restore"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
@@ -113,6 +115,7 @@ type commandRestore struct {
 	restoreIgnoreErrors           bool
 	restoreShallowAtDepth         int32
 	minSizeForPlaceholder         int32
+	dotIgnoreFiles                []string
 
 	restores []restoreSourceTarget
 }
@@ -148,7 +151,7 @@ const (
 	restoreModeTgz           = "tgz"
 )
 
-// constructTargetPairs builds the sourceIdPathPairs array for this
+// constructTargetPairs builds the restoreSourceTarget array for this
 // command for the two forms of command: expansion of one or more
 // placeholders or restoring of a single source to a single destination.
 func (c *commandRestore) constructTargetPairs() error {
@@ -318,6 +321,35 @@ func (c *commandRestore) setupPlaceholderExpansion(ctx context.Context, rep repo
 	return rootEntry, nil
 }
 
+func (c *commandRestore) getDotIgnoreFilesFromPolicy(ctx context.Context, rep repo.Repository, rst restoreSourceTarget) error {
+	// When restoring a directory id, use the policy corresponding to the
+	// directory target (i.e.the non-placeholder case.)
+	path := rst.target
+
+	if rst.isplaceholder {
+		// When expanding an existing placeholder, restoreSourceTarget.source is
+		// an absolute path appropriate for determining what the policy would be
+		// when snapshotting the expanded placeholder.
+		path = rst.source
+	}
+
+	// Build a SourceInfo instance as if it would be when we snapshot the
+	// shallow restore path in the future.
+	src, err := snapshot.ParseSourceInfo(path, rep.ClientOptions().Hostname, rep.ClientOptions().Username)
+	if err != nil {
+		return errors.Wrapf(err, "unable to parse source info: %q", path)
+	}
+
+	pol, _, err := policy.GetEffectivePolicy(ctx, rep, src)
+	if err != nil {
+		return errors.Wrapf(err, "unable to determine effective policy for %v", src)
+	}
+
+	c.dotIgnoreFiles = pol.FilesPolicy.DotIgnoreFiles
+
+	return nil
+}
+
 func (c *commandRestore) run(ctx context.Context, rep repo.Repository) error {
 	output, oerr := c.restoreOutput(ctx)
 	if oerr != nil {
@@ -343,6 +375,12 @@ func (c *commandRestore) run(ctx context.Context, rep repo.Repository) error {
 			rootEntry = re
 		}
 
+		// TODO(rjk): error handling... plumbing, etc.
+		// I don't think that
+		if err := c.getDotIgnoreFilesFromPolicy(ctx, rep, rstp); err != nil {
+			return errors.Wrap(err, "unable to get dotfiles policy for entry")
+		}
+
 		eta := timetrack.Start()
 
 		st, err := restore.Entry(ctx, rep, output, rootEntry, restore.Options{
@@ -351,6 +389,7 @@ func (c *commandRestore) run(ctx context.Context, rep repo.Repository) error {
 			IgnoreErrors:           c.restoreIgnoreErrors,
 			RestoreDirEntryAtDepth: c.restoreShallowAtDepth,
 			MinSizeForPlaceholder:  c.minSizeForPlaceholder,
+			DotIgnoreFiles:         c.dotIgnoreFiles,
 			ProgressCallback: func(ctx context.Context, stats restore.Stats) {
 				restoredCount := stats.RestoredFileCount + stats.RestoredDirCount + stats.RestoredSymlinkCount + stats.SkippedCount
 				enqueuedCount := stats.EnqueuedFileCount + stats.EnqueuedDirCount + stats.EnqueuedSymlinkCount
