@@ -57,7 +57,7 @@ type Uploader struct {
 	// probability with cached entries will be ignored, must be [0..100]
 	// 0=always use cached object entries if possible
 	// 100=never use cached entries
-	ForceHashPercentage int
+	ForceHashPercentage float64
 
 	// Number of files to hash and upload in parallel.
 	ParallelUploads int
@@ -782,7 +782,7 @@ func findCachedEntry(ctx context.Context, entry fs.Entry, prevEntries []fs.Entri
 
 func (u *Uploader) maybeIgnoreCachedEntry(ctx context.Context, ent fs.Entry) fs.Entry {
 	if h, ok := ent.(object.HasObjectID); ok {
-		if rand.Intn(100) < u.ForceHashPercentage { // nolint:gomnd,gosec
+		if 100*rand.Float64() < u.ForceHashPercentage { // nolint:gosec
 			log(ctx).Debugf("re-hashing cached object: %v", h.ObjectID())
 			return nil
 		}

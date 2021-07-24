@@ -28,7 +28,7 @@ type commandSnapshotCreate struct {
 	snapshotCreateDescription             string
 	snapshotCreateCheckpointInterval      time.Duration
 	snapshotCreateFailFast                bool
-	snapshotCreateForceHash               int
+	snapshotCreateForceHash               float64
 	snapshotCreateParallelUploads         int
 	snapshotCreateStartTime               string
 	snapshotCreateEndTime                 string
@@ -52,7 +52,7 @@ func (c *commandSnapshotCreate) setup(svc appServices, parent commandParent) {
 	cmd.Flag("checkpoint-interval", "Frequency for creating periodic checkpoint.").DurationVar(&c.snapshotCreateCheckpointInterval)
 	cmd.Flag("description", "Free-form snapshot description.").StringVar(&c.snapshotCreateDescription)
 	cmd.Flag("fail-fast", "Fail fast when creating snapshot.").Envar("KOPIA_SNAPSHOT_FAIL_FAST").BoolVar(&c.snapshotCreateFailFast)
-	cmd.Flag("force-hash", "Force hashing of source files for a given percentage of files [0..100]").Default("0").IntVar(&c.snapshotCreateForceHash)
+	cmd.Flag("force-hash", "Force hashing of source files for a given percentage of files [0..100]").Default("0").Float64Var(&c.snapshotCreateForceHash)
 	cmd.Flag("parallel", "Upload N files in parallel").PlaceHolder("N").Default("0").IntVar(&c.snapshotCreateParallelUploads)
 	cmd.Flag("start-time", "Override snapshot start timestamp.").StringVar(&c.snapshotCreateStartTime)
 	cmd.Flag("end-time", "Override snapshot end timestamp.").StringVar(&c.snapshotCreateEndTime)
