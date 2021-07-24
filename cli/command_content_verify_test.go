@@ -22,7 +22,7 @@ func TestContentVerify(t *testing.T) {
 	env.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", env.RepoDir)
 	env.RunAndExpectSuccess(t, "content", "verify")
 	env.RunAndExpectSuccess(t, "snapshot", "create", dir)
-	env.RunAndExpectSuccess(t, "content", "verify")
+	env.RunAndExpectSuccess(t, "content", "verify", "--download-percent=30")
 
 	// delete one of 'p' blobs.
 	blobIDToDelete := strings.Split(env.RunAndExpectSuccess(t, "blob", "list", "--prefix=p")[0], " ")[0]

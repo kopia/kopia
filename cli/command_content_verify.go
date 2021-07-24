@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"math/rand"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -18,6 +19,7 @@ type commandContentVerify struct {
 	contentVerifyParallel       int
 	contentVerifyFull           bool
 	contentVerifyIncludeDeleted bool
+	contentVerifyPercent        float64
 	progressInterval            time.Duration
 
 	contentRange contentRangeFlags
@@ -29,6 +31,7 @@ func (c *commandContentVerify) setup(svc appServices, parent commandParent) {
 	cmd.Flag("parallel", "Parallelism").Default("16").IntVar(&c.contentVerifyParallel)
 	cmd.Flag("full", "Full verification (including download)").BoolVar(&c.contentVerifyFull)
 	cmd.Flag("include-deleted", "Include deleted contents").BoolVar(&c.contentVerifyIncludeDeleted)
+	cmd.Flag("download-percent", "Download a percentage of files [0.0 .. 100.0]").Float64Var(&c.contentVerifyPercent)
 	cmd.Flag("progress-interval", "Progress output interval").Default("3s").DurationVar(&c.progressInterval)
 	c.contentRange.setup(cmd)
 	cmd.Action(svc.directRepositoryReadAction(c.run))
@@ -56,14 +59,15 @@ func readBlobMap(ctx context.Context, br blob.Reader) (map[blob.ID]blob.Metadata
 
 func (c *commandContentVerify) run(ctx context.Context, rep repo.DirectRepository) error {
 	blobMap := map[blob.ID]blob.Metadata{}
+	downloadPercent := c.contentVerifyPercent
 
-	if !c.contentVerifyFull {
-		m, err := readBlobMap(ctx, rep.BlobReader())
-		if err != nil {
-			return err
-		}
+	if c.contentVerifyFull {
+		downloadPercent = 100.0
+	}
 
-		blobMap = m
+	blobMap, err := readBlobMap(ctx, rep.BlobReader())
+	if err != nil {
+		return err
 	}
 
 	verifiedCount := new(int32)
@@ -93,12 +97,12 @@ func (c *commandContentVerify) run(ctx context.Context, rep repo.DirectRepositor
 	throttle := new(timetrack.Throttle)
 	est := timetrack.Start()
 
-	err := rep.ContentReader().IterateContents(ctx, content.IterateOptions{
+	if err := rep.ContentReader().IterateContents(ctx, content.IterateOptions{
 		Range:          c.contentRange.contentIDRange(),
 		Parallel:       c.contentVerifyParallel,
 		IncludeDeleted: c.contentVerifyIncludeDeleted,
 	}, func(ci content.Info) error {
-		if err := c.contentVerify(ctx, rep.ContentReader(), ci, blobMap); err != nil {
+		if err := c.contentVerify(ctx, rep.ContentReader(), ci, blobMap, downloadPercent); err != nil {
 			log(ctx).Errorf("error %v", err)
 			atomic.AddInt32(errorCount, 1)
 		} else {
@@ -124,8 +128,7 @@ func (c *commandContentVerify) run(ctx context.Context, rep repo.DirectRepositor
 		}
 
 		return nil
-	})
-	if err != nil {
+	}); err != nil {
 		return errors.Wrap(err, "iterate contents")
 	}
 
@@ -160,15 +163,7 @@ func (c *commandContentVerify) getTotalContentCount(ctx context.Context, rep rep
 	atomic.StoreInt32(totalCount, tc)
 }
 
-func (c *commandContentVerify) contentVerify(ctx context.Context, r content.Reader, ci content.Info, blobMap map[blob.ID]blob.Metadata) error {
-	if c.contentVerifyFull {
-		if _, err := r.GetContent(ctx, ci.GetContentID()); err != nil {
-			return errors.Wrapf(err, "content %v is invalid", ci.GetContentID())
-		}
-
-		return nil
-	}
-
+func (c *commandContentVerify) contentVerify(ctx context.Context, r content.Reader, ci content.Info, blobMap map[blob.ID]blob.Metadata, downloadPercent float64) error {
 	bi, ok := blobMap[ci.GetPackBlobID()]
 	if !ok {
 		return errors.Errorf("content %v depends on missing blob %v", ci.GetContentID(), ci.GetPackBlobID())
@@ -176,6 +171,15 @@ func (c *commandContentVerify) contentVerify(ctx context.Context, r content.Read
 
 	if int64(ci.GetPackOffset()+ci.GetPackedLength()) > bi.Length {
 		return errors.Errorf("content %v out of bounds of its pack blob %v", ci.GetContentID(), ci.GetPackBlobID())
+	}
+
+	// nolint:gosec
+	if 100*rand.Float64() < downloadPercent {
+		if _, err := r.GetContent(ctx, ci.GetContentID()); err != nil {
+			return errors.Wrapf(err, "content %v is invalid", ci.GetContentID())
+		}
+
+		return nil
 	}
 
 	return nil
