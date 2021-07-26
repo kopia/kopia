@@ -135,6 +135,18 @@ func TestRetentionPolicyTest(t *testing.T) {
 				"incomplete-2020-04-02T23:50:00Z": {"incomplete"},
 			},
 		},
+		{
+			&RetentionPolicy{
+				KeepWeekly: intPtr(3),
+			},
+			map[string][]string{
+				"2020-01-01T12:00:00Z": {},
+				"2020-01-01T15:00:00Z": {"weekly-3"},
+				"2020-01-08T12:00:00Z": {},
+				"2020-01-09T12:00:00Z": {"weekly-2"},
+				"2020-01-15T12:00:00Z": {"weekly-1"},
+			},
+		},
 	}
 
 	for _, tc := range cases {
