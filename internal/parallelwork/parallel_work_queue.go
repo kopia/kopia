@@ -59,6 +59,8 @@ func (v *Queue) enqueue(ctx context.Context, front bool, callback CallbackFunc) 
 // Process starts N workers, which will be processing elements in the queue until the queue
 // is empty and all workers are idle or until any of the workers returns an error.
 func (v *Queue) Process(ctx context.Context, workers int) error {
+	defer v.reportProgress(ctx)
+
 	eg, ctx := errgroup.WithContext(context.Background())
 
 	for i := 0; i < workers; i++ {
@@ -125,19 +127,21 @@ func (v *Queue) completed(ctx context.Context) {
 	v.monitor.Broadcast()
 }
 
-func (v *Queue) maybeReportProgress(ctx context.Context) {
+func (v *Queue) reportProgress(ctx context.Context) {
 	cb := v.ProgressCallback
-	if cb == nil {
-		return
+	if cb != nil {
+		cb(ctx, v.enqueuedWork, v.activeWorkerCount, v.completedWork)
 	}
+}
 
+func (v *Queue) maybeReportProgress(ctx context.Context) {
 	if clock.Now().Before(v.nextReportTime) {
 		return
 	}
 
 	v.nextReportTime = clock.Now().Add(1 * time.Second)
 
-	cb(ctx, v.enqueuedWork, v.activeWorkerCount, v.completedWork)
+	v.reportProgress(ctx)
 }
 
 // OnNthCompletion invokes the provided callback once the returned callback function has been invoked exactly n times.
