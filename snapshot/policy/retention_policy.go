@@ -63,7 +63,7 @@ func (r *RetentionPolicy) ComputeRetentionReasons(manifests []*snapshot.Manifest
 		monthly: cutoffTime(r.KeepMonthly, monthsAgo),
 		daily:   cutoffTime(r.KeepDaily, daysAgo),
 		hourly:  cutoffTime(r.KeepHourly, hoursAgo),
-		weekly:  cutoffTime(r.KeepHourly, weeksAgo),
+		weekly:  cutoffTime(r.KeepWeekly, weeksAgo),
 	}
 
 	ids := make(map[string]bool)
