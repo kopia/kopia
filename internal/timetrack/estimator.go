@@ -29,7 +29,7 @@ func (v Estimator) Estimate(completed, total float64) (Timings, bool) {
 	if elapsed > 1*time.Second && total > 0 && completed > 0 {
 		completedRatio := completed / total
 		if completedRatio > 1 {
-			completedRatio = 0
+			completedRatio = 1
 		}
 
 		if completedRatio < 0 {
