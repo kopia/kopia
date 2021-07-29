@@ -44,7 +44,7 @@ jobs:
         KOPIA_GCS_TEST_BUCKET: ${{ secrets.KOPIA_GCS_TEST_BUCKET }}
       if: ${{ success() || failure() }}
     - name: S3
-      run: make provider-tests PROVIDER_TEST_TARGET=gcs
+      run: make provider-tests PROVIDER_TEST_TARGET=s3
       env:
         KOPIA_S3_TEST_ENDPOINT: ${{ secrets.KOPIA_S3_TEST_ENDPOINT }}
         KOPIA_S3_TEST_ACCESS_KEY_ID: ${{ secrets.KOPIA_S3_TEST_ACCESS_KEY_ID }}
