@@ -51,7 +51,7 @@ require (
 	github.com/studio-b12/gowebdav v0.0.0-20210630100626-7ff61aa87be8
 	github.com/tg123/go-htpasswd v1.0.0
 	github.com/zalando/go-keyring v0.1.1
-	github.com/zeebo/blake3 v0.1.1
+	github.com/zeebo/blake3 v0.2.0
 	go.opencensus.io v0.23.0
 	gocloud.dev v0.23.0
 	golang.org/x/crypto v0.0.0-20210506145944-38f3c27a63bf
