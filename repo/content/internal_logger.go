@@ -19,6 +19,9 @@ import (
 
 const blobLoggerFlushThreshold = 4 << 20
 
+// TextLogBlobPrefix is a prefix given to text logs stored in repositor.
+const TextLogBlobPrefix = "_log_"
+
 type internalLogManager struct {
 	ctx            context.Context
 	st             blob.Storage
@@ -60,7 +63,7 @@ func (m *internalLogManager) NewLogger() *internalLogger {
 
 	return &internalLogger{
 		m:      m,
-		prefix: blob.ID(fmt.Sprintf("_log_%v_%x", clock.Now().Local().Format("20060102150405"), rnd)),
+		prefix: blob.ID(fmt.Sprintf("%v%v_%x", TextLogBlobPrefix, clock.Now().Local().Format("20060102150405"), rnd)),
 	}
 }
 
