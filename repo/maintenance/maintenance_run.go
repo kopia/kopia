@@ -204,6 +204,11 @@ func Run(ctx context.Context, runParams RunParameters, safety SafetyParameters) 
 }
 
 func runQuickMaintenance(ctx context.Context, runParams RunParameters, safety SafetyParameters) error {
+	if _, ok := runParams.rep.ContentManager().EpochManager(); ok {
+		log(ctx).Debugf("quick maintenance not required for epoch manager")
+		return nil
+	}
+
 	s, err := GetSchedule(ctx, runParams.rep)
 	if err != nil {
 		return errors.Wrap(err, "unable to get schedule")
@@ -364,6 +369,10 @@ func runFullMaintenance(ctx context.Context, runParams RunParameters, safety Saf
 		}
 	} else {
 		notDeletingOrphanedBlobs(ctx, s, safety)
+	}
+
+	if err := runTaskCleanupLogs(ctx, runParams, s); err != nil {
+		return errors.Wrap(err, "error cleaning up logs")
 	}
 
 	return nil
