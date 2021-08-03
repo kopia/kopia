@@ -10,7 +10,7 @@ require (
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962 // indirect
 	github.com/alecthomas/kingpin v0.0.0-20200323085623-b6657d9477a6 // this is pulling master, which is newer than v2
 	github.com/alecthomas/units v0.0.0-20210208195552-ff826a37aa15
-	github.com/aws/aws-sdk-go v1.39.4
+	github.com/aws/aws-sdk-go v1.40.12
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/dustinkirkland/golang-petname v0.0.0-20191129215211-8e5a1ed0cff0
@@ -23,10 +23,10 @@ require (
 	github.com/google/fswalker v0.2.1-0.20200214223026-f0e929ba4126
 	github.com/google/go-cmp v0.5.6
 	github.com/google/readahead v0.0.0-20161222183148-eaceba169032 // indirect
-	github.com/google/uuid v1.2.0
+	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
 	github.com/hanwen/go-fuse/v2 v2.0.4-0.20210104155004-09a3c381714c
-	github.com/klauspost/compress v1.12.2
+	github.com/klauspost/compress v1.13.2
 	github.com/klauspost/cpuid/v2 v2.0.5 // indirect
 	github.com/klauspost/pgzip v1.2.5
 	github.com/kr/text v0.2.0 // indirect
@@ -51,7 +51,7 @@ require (
 	github.com/studio-b12/gowebdav v0.0.0-20210630100626-7ff61aa87be8
 	github.com/tg123/go-htpasswd v1.0.0
 	github.com/zalando/go-keyring v0.1.1
-	github.com/zeebo/blake3 v0.1.1
+	github.com/zeebo/blake3 v0.2.0
 	go.opencensus.io v0.23.0
 	gocloud.dev v0.23.0
 	golang.org/x/crypto v0.0.0-20210506145944-38f3c27a63bf
