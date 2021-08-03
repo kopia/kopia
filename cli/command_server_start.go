@@ -18,6 +18,7 @@ import (
 	"contrib.go.opencensus.io/exporter/prometheus"
 	"github.com/pkg/errors"
 	prom "github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 	htpasswd "github.com/tg123/go-htpasswd"
 
 	"github.com/kopia/kopia/internal/auth"
@@ -196,11 +197,11 @@ func (c *commandServerStart) run(ctx context.Context, rep repo.Repository) error
 
 func initPrometheus(mux *http.ServeMux) error {
 	reg := prom.NewRegistry()
-	if err := reg.Register(prom.NewProcessCollector(prom.ProcessCollectorOpts{})); err != nil {
+	if err := reg.Register(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{})); err != nil {
 		return errors.Wrap(err, "error registering process collector")
 	}
 
-	if err := reg.Register(prom.NewGoCollector()); err != nil {
+	if err := reg.Register(collectors.NewGoCollector()); err != nil {
 		return errors.Wrap(err, "error registering go collector")
 	}
 
