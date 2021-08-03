@@ -646,7 +646,7 @@ func getAllFakeContents(ctx context.Context, t *testing.T, m *indexBlobManagerV0
 func getAllFakeContentsInternal(ctx context.Context, t *testing.T, m *indexBlobManagerV0) (map[string]fakeContentIndexEntry, []IndexBlobInfo, error) {
 	t.Helper()
 
-	blobs, err := m.listActiveIndexBlobs(ctx)
+	blobs, _, err := m.listActiveIndexBlobs(ctx)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "error listing index blobs")
 	}
@@ -738,7 +738,7 @@ func assertIndexBlobList(t *testing.T, m *indexBlobManagerV0, wantMD ...blob.Met
 		want = append(want, it.BlobID)
 	}
 
-	l, err := m.listActiveIndexBlobs(testlogging.Context(t))
+	l, _, err := m.listActiveIndexBlobs(testlogging.Context(t))
 	if err != nil {
 		t.Fatalf("failed to list index blobs: %v", err)
 	}

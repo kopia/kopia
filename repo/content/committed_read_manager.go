@@ -44,7 +44,7 @@ var cachedIndexBlobPrefixes = []blob.ID{
 // indexBlobManager is the API of index blob manager as used by content manager.
 type indexBlobManager interface {
 	writeIndexBlobs(ctx context.Context, data [][]byte, sessionID SessionID) ([]blob.Metadata, error)
-	listActiveIndexBlobs(ctx context.Context) ([]IndexBlobInfo, error)
+	listActiveIndexBlobs(ctx context.Context) ([]IndexBlobInfo, time.Time, error)
 	compact(ctx context.Context, opts CompactOptions) error
 	flushCache(ctx context.Context)
 }
@@ -171,7 +171,7 @@ func (sm *SharedManager) loadPackIndexesUnlocked(ctx context.Context) error {
 			nextSleepTime *= 2
 		}
 
-		indexBlobs, err := sm.indexBlobManager.listActiveIndexBlobs(ctx)
+		indexBlobs, ignoreDeletedBefore, err := sm.indexBlobManager.listActiveIndexBlobs(ctx)
 		if err != nil {
 			return errors.Wrap(err, "error listing index blobs")
 		}
@@ -183,7 +183,7 @@ func (sm *SharedManager) loadPackIndexesUnlocked(ctx context.Context) error {
 
 		err = sm.committedContents.fetchIndexBlobs(ctx, indexBlobIDs)
 		if err == nil {
-			err = sm.committedContents.use(ctx, indexBlobIDs)
+			err = sm.committedContents.use(ctx, indexBlobIDs, ignoreDeletedBefore)
 			if err != nil {
 				return err
 			}
@@ -284,8 +284,10 @@ func (sm *SharedManager) IndexBlobs(ctx context.Context, includeInactive bool) (
 		return result, nil
 	}
 
+	blobs, _, err := sm.indexBlobManager.listActiveIndexBlobs(ctx)
+
 	// nolint:wrapcheck
-	return sm.indexBlobManager.listActiveIndexBlobs(ctx)
+	return blobs, err
 }
 
 func newOwnWritesCache(ctx context.Context, st blob.Storage, caching *CachingOptions) (blob.Storage, error) {

@@ -54,7 +54,7 @@ type indexBlobManagerV0 struct {
 	indexShardSize int
 }
 
-func (m *indexBlobManagerV0) listActiveIndexBlobs(ctx context.Context) ([]IndexBlobInfo, error) {
+func (m *indexBlobManagerV0) listActiveIndexBlobs(ctx context.Context) ([]IndexBlobInfo, time.Time, error) {
 	var compactionLogMetadata, storageIndexBlobs []blob.Metadata
 
 	var eg errgroup.Group
@@ -75,7 +75,7 @@ func (m *indexBlobManagerV0) listActiveIndexBlobs(ctx context.Context) ([]IndexB
 	})
 
 	if err := eg.Wait(); err != nil {
-		return nil, errors.Wrap(err, "error listing indexes")
+		return nil, time.Time{}, errors.Wrap(err, "error listing indexes")
 	}
 
 	for i, sib := range storageIndexBlobs {
@@ -91,7 +91,7 @@ func (m *indexBlobManagerV0) listActiveIndexBlobs(ctx context.Context) ([]IndexB
 
 	compactionLogs, err := m.getCompactionLogEntries(ctx, compactionLogMetadata)
 	if err != nil {
-		return nil, errors.Wrap(err, "error reading compaction log")
+		return nil, time.Time{}, errors.Wrap(err, "error reading compaction log")
 	}
 
 	// remove entries from indexMap that have been compacted and replaced by other indexes.
@@ -106,7 +106,7 @@ func (m *indexBlobManagerV0) listActiveIndexBlobs(ctx context.Context) ([]IndexB
 		m.log.Debugf("active-index-blobs[%v] = %v", i, res)
 	}
 
-	return results, nil
+	return results, time.Time{}, nil
 }
 
 func (m *indexBlobManagerV0) flushCache(ctx context.Context) {
@@ -116,7 +116,7 @@ func (m *indexBlobManagerV0) flushCache(ctx context.Context) {
 }
 
 func (m *indexBlobManagerV0) compact(ctx context.Context, opt CompactOptions) error {
-	indexBlobs, err := m.listActiveIndexBlobs(ctx)
+	indexBlobs, _, err := m.listActiveIndexBlobs(ctx)
 	if err != nil {
 		return errors.Wrap(err, "error listing active index blobs")
 	}

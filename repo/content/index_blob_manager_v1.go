@@ -25,10 +25,10 @@ type indexBlobManagerV1 struct {
 	indexShardSize int
 }
 
-func (m *indexBlobManagerV1) listActiveIndexBlobs(ctx context.Context) ([]IndexBlobInfo, error) {
-	active, err := m.epochMgr.GetCompleteIndexSet(ctx, epoch.LatestEpoch)
+func (m *indexBlobManagerV1) listActiveIndexBlobs(ctx context.Context) ([]IndexBlobInfo, time.Time, error) {
+	active, deletionWatermark, err := m.epochMgr.GetCompleteIndexSet(ctx, epoch.LatestEpoch)
 	if err != nil {
-		return nil, errors.Wrap(err, "error getting index set")
+		return nil, time.Time{}, errors.Wrap(err, "error getting index set")
 	}
 
 	var result []IndexBlobInfo
@@ -37,9 +37,9 @@ func (m *indexBlobManagerV1) listActiveIndexBlobs(ctx context.Context) ([]IndexB
 		result = append(result, IndexBlobInfo{Metadata: bm})
 	}
 
-	m.log.Errorf("active indexes %v", blob.IDsFromMetadata(active))
+	m.log.Errorf("active indexes %v deletion watermark %v", blob.IDsFromMetadata(active), deletionWatermark)
 
-	return result, nil
+	return result, deletionWatermark, nil
 }
 
 func (m *indexBlobManagerV1) flushCache(ctx context.Context) {
@@ -49,7 +49,11 @@ func (m *indexBlobManagerV1) flushCache(ctx context.Context) {
 }
 
 func (m *indexBlobManagerV1) compact(ctx context.Context, opt CompactOptions) error {
-	return nil
+	if opt.DropDeletedBefore.IsZero() {
+		return nil
+	}
+
+	return errors.Wrap(m.epochMgr.AdvanceDeletionWatermark(ctx, opt.DropDeletedBefore), "error advancing deletion watermark")
 }
 
 func (m *indexBlobManagerV1) compactEpoch(ctx context.Context, blobIDs []blob.ID, outputPrefix blob.ID) error {
@@ -112,7 +116,7 @@ var _ indexBlobManager = (*indexBlobManagerV1)(nil)
 func (sm *SharedManager) PrepareUpgradeToIndexBlobManagerV1(ctx context.Context, params epoch.Parameters) error {
 	sm.indexBlobManagerV1.epochMgr.Params = params
 
-	ibl, err := sm.indexBlobManagerV0.listActiveIndexBlobs(ctx)
+	ibl, _, err := sm.indexBlobManagerV0.listActiveIndexBlobs(ctx)
 	if err != nil {
 		return errors.Wrap(err, "error listing active index blobs")
 	}

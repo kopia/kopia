@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
@@ -25,9 +26,10 @@ type committedContentIndex struct {
 	rev   int64
 	cache committedContentIndexCache
 
-	mu     sync.Mutex
-	inUse  map[blob.ID]packIndex
-	merged mergedIndex
+	mu                sync.Mutex
+	deletionWatermark time.Time
+	inUse             map[blob.ID]packIndex
+	merged            mergedIndex
 
 	v1PerContentOverhead uint32
 	indexVersion         int
@@ -55,6 +57,10 @@ func (c *committedContentIndex) getContent(contentID ID) (Info, error) {
 
 	info, err := c.merged.GetInfo(contentID)
 	if info != nil {
+		if c.shouldIgnore(info) {
+			return nil, ErrContentNotFound
+		}
+
 		return info, nil
 	}
 
@@ -63,6 +69,14 @@ func (c *committedContentIndex) getContent(contentID ID) (Info, error) {
 	}
 
 	return nil, err
+}
+
+func (c *committedContentIndex) shouldIgnore(id Info) bool {
+	if !id.GetDeleted() {
+		return false
+	}
+
+	return !id.Timestamp().After(c.deletionWatermark)
 }
 
 func (c *committedContentIndex) addIndexBlob(ctx context.Context, indexBlobID blob.ID, data []byte, use bool) error {
@@ -105,7 +119,13 @@ func (c *committedContentIndex) listContents(r IDRange, cb func(i Info) error) e
 	m := append(mergedIndex(nil), c.merged...)
 	c.mu.Unlock()
 
-	return m.Iterate(r, cb)
+	return m.Iterate(r, func(i Info) error {
+		if c.shouldIgnore(i) {
+			return nil
+		}
+
+		return cb(i)
+	})
 }
 
 func (c *committedContentIndex) indexFilesChanged(indexFiles []blob.ID) bool {
@@ -156,9 +176,11 @@ func (c *committedContentIndex) merge(ctx context.Context, indexFiles []blob.ID)
 
 // Uses indexFiles for indexing. An error is returned if the
 // indices cannot be read for any reason.
-func (c *committedContentIndex) use(ctx context.Context, indexFiles []blob.ID) error {
+func (c *committedContentIndex) use(ctx context.Context, indexFiles []blob.ID, ignoreDeletedBefore time.Time) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
+	c.deletionWatermark = ignoreDeletedBefore
 
 	if !c.indexFilesChanged(indexFiles) {
 		return nil
