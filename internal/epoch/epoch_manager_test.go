@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"math"
 	"math/rand"
 	"sort"
 	"sync/atomic"
@@ -315,13 +314,13 @@ func TestIndexEpochManager_DeletionFailing(t *testing.T) {
 	te := newTestEnv(t)
 	te.faultyStorage.Faults = map[string][]*blobtesting.Fault{
 		"DeleteBlob": {
-			{Repeat: math.MaxInt32, Err: errors.Errorf("something bad happened")},
+			{Repeat: 200, Err: errors.Errorf("something bad happened")},
 		},
 	}
 
 	// set up test environment in which compactions never succeed for whatever reason.
 	te.mgr.compact = func(ctx context.Context, blobIDs []blob.ID, outputPrefix blob.ID) error {
-		if rand.Intn(100) < 20 {
+		if rand.Intn(100) < 5 {
 			return te.interruptedCompaction(ctx, blobIDs, outputPrefix)
 		}
 
