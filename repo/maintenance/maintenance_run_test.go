@@ -82,6 +82,7 @@ func TestShouldDeleteOrphanedBlobs(t *testing.T) {
 func TestShouldRewriteContents(t *testing.T) {
 	cases := []struct {
 		runs      map[TaskType][]RunInfo
+		safety    SafetyParameters
 		wantFull  bool
 		wantQuick bool
 	}{
@@ -99,6 +100,7 @@ func TestShouldRewriteContents(t *testing.T) {
 					RunInfo{Success: true, End: t0700},
 				},
 			},
+			safety:    SafetyFull,
 			wantFull:  true,
 			wantQuick: true,
 		},
@@ -111,7 +113,34 @@ func TestShouldRewriteContents(t *testing.T) {
 					RunInfo{Success: true, End: t0715},
 				},
 			},
+			safety:    SafetyFull,
 			wantFull:  false,
+			wantQuick: false,
+		},
+		{
+			runs: map[TaskType][]RunInfo{
+				TaskDeleteOrphanedBlobsQuick: {
+					RunInfo{Success: true, End: t0700},
+				},
+				TaskRewriteContentsFull: {
+					RunInfo{Success: true, End: t0715},
+				},
+			},
+			safety:    SafetyNone,
+			wantFull:  true,
+			wantQuick: true,
+		},
+		{
+			runs: map[TaskType][]RunInfo{
+				TaskDeleteOrphanedBlobsQuick: {
+					RunInfo{Success: true, End: t0700},
+				},
+				TaskRewriteContentsQuick: {
+					RunInfo{Success: true, End: t0715},
+				},
+			},
+			safety:    SafetyFull,
+			wantFull:  true, // will be allowed despite quick run having just finished
 			wantQuick: false,
 		},
 		{
@@ -123,8 +152,9 @@ func TestShouldRewriteContents(t *testing.T) {
 					RunInfo{Success: true, End: t0715},
 				},
 			},
+			safety:    SafetyNone,
 			wantFull:  true, // will be allowed despite quick run having just finished
-			wantQuick: false,
+			wantQuick: true,
 		},
 		{
 			runs: map[TaskType][]RunInfo{
@@ -135,6 +165,7 @@ func TestShouldRewriteContents(t *testing.T) {
 					RunInfo{Success: true, End: t0700},
 				},
 			},
+			safety:    SafetyFull,
 			wantFull:  true,
 			wantQuick: true,
 		},
@@ -143,10 +174,10 @@ func TestShouldRewriteContents(t *testing.T) {
 	for _, tc := range cases {
 		require.Equal(t, tc.wantQuick, shouldQuickRewriteContents(&Schedule{
 			Runs: tc.runs,
-		}))
+		}, tc.safety), tc.runs)
 		require.Equal(t, tc.wantFull, shouldFullRewriteContents(&Schedule{
 			Runs: tc.runs,
-		}))
+		}, tc.safety), tc.runs)
 	}
 }
 

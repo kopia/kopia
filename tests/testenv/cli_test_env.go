@@ -4,6 +4,7 @@ package testenv
 import (
 	"bufio"
 	"io"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -185,6 +186,10 @@ func (e *CLITest) Run(t *testing.T, expectedError bool, args ...string) (stdout,
 
 		scanner := bufio.NewScanner(stdoutReader)
 		for scanner.Scan() {
+			if os.Getenv("KOPIA_TEST_LOG_OUTPUT") != "" {
+				t.Logf("[stdout] %v", scanner.Text())
+			}
+
 			stdout = append(stdout, scanner.Text())
 		}
 	}()
@@ -196,6 +201,10 @@ func (e *CLITest) Run(t *testing.T, expectedError bool, args ...string) (stdout,
 
 		scanner := bufio.NewScanner(stderrReader)
 		for scanner.Scan() {
+			if os.Getenv("KOPIA_TEST_LOG_OUTPUT") != "" {
+				t.Logf("[stderr] %v", scanner.Text())
+			}
+
 			stderr = append(stderr, scanner.Text())
 		}
 	}()

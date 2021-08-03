@@ -39,6 +39,13 @@ func setDefaultMaintenanceParameters(ctx context.Context, rep repo.RepositoryWri
 	p := maintenance.DefaultParams()
 	p.Owner = rep.ClientOptions().UsernameAtHost()
 
+	if dw, ok := rep.(repo.DirectRepositoryWriter); ok {
+		if _, ok := dw.ContentReader().EpochManager(); ok {
+			// disable quick maintenance cycle
+			p.QuickCycle.Enabled = false
+		}
+	}
+
 	if err := maintenance.SetParams(ctx, rep, &p); err != nil {
 		return errors.Wrap(err, "unable to set maintenance params")
 	}

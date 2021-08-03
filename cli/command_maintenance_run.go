@@ -25,7 +25,9 @@ func (c *commandMaintenanceRun) setup(svc appServices, parent commandParent) {
 
 func (c *commandMaintenanceRun) run(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	mode := maintenance.ModeQuick
-	if c.maintenanceRunFull {
+	_, supportsEpochManager := rep.ContentManager().EpochManager()
+
+	if c.maintenanceRunFull || supportsEpochManager {
 		mode = maintenance.ModeFull
 	}
 

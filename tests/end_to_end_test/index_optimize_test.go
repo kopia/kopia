@@ -1,6 +1,7 @@
 package endtoend_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/kopia/kopia/tests/testenv"
@@ -15,6 +16,12 @@ func TestIndexOptimize(t *testing.T) {
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
+
+	for _, line := range e.RunAndExpectSuccess(t, "repository", "status") {
+		if strings.HasPrefix(line, "Epoch Manager:") && strings.Contains(line, "enabled") {
+			t.Skip()
+		}
+	}
 
 	e.RunAndExpectSuccess(t, "snapshot", "create", ".")
 

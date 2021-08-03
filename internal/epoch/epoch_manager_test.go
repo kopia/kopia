@@ -185,7 +185,7 @@ func TestIndexEpochManager_Parallel(t *testing.T) {
 
 				writtenEntries = append(writtenEntries, indexNum)
 
-				blobs, err := te2.mgr.GetCompleteIndexSet(ctx, LatestEpoch)
+				blobs, _, err := te2.mgr.GetCompleteIndexSet(ctx, LatestEpoch)
 				if err != nil {
 					return errors.Wrap(err, "GetCompleteIndexSet")
 				}
@@ -260,6 +260,7 @@ func TestIndexEpochManager_RogueBlobs(t *testing.T) {
 	te.data[EpochMarkerIndexBlobPrefix+"zzzz"] = []byte{1}
 	te.data[SingleEpochCompactionBlobPrefix+"zzzz"] = []byte{1}
 	te.data[RangeCheckpointIndexBlobPrefix+"zzzz"] = []byte{1}
+	te.data[DeletionWatermarkBlobPrefix+"zzzz"] = []byte{1}
 
 	verifySequentialWrites(t, te)
 	te.mgr.Cleanup(testlogging.Context(t))
@@ -381,7 +382,7 @@ func TestGetCompleteIndexSetRetriesIfTookTooLong(t *testing.T) {
 		},
 	}
 
-	_, err := te.mgr.GetCompleteIndexSet(ctx, 0)
+	_, _, err := te.mgr.GetCompleteIndexSet(ctx, 0)
 	require.NoError(t, err)
 
 	require.EqualValues(t, 1, *te.mgr.getCompleteIndexSetTooSlow)
@@ -407,7 +408,7 @@ func TestSlowWrite(t *testing.T) {
 	te.mustWriteIndexFile(ctx, t, newFakeIndexWithEntries(1))
 	require.EqualValues(t, 11, *te.mgr.writeIndexTooSlow)
 	te.mustWriteIndexFile(ctx, t, newFakeIndexWithEntries(2))
-	te.verifyCompleteIndexSet(ctx, t, LatestEpoch, newFakeIndexWithEntries(1, 2))
+	te.verifyCompleteIndexSet(ctx, t, LatestEpoch, newFakeIndexWithEntries(1, 2), time.Time{})
 }
 
 func TestForceAdvanceEpoch(t *testing.T) {
@@ -439,6 +440,7 @@ func verifySequentialWrites(t *testing.T, te *epochManagerTestEnv) {
 	endTime := te.ft.NowFunc()().Add(90 * 24 * time.Hour)
 
 	indexNum := 1
+	lastDeletionWatermark := time.Time{}
 
 	for te.ft.NowFunc()().Before(endTime) {
 		indexNum++
@@ -446,7 +448,7 @@ func verifySequentialWrites(t *testing.T, te *epochManagerTestEnv) {
 		te.mustWriteIndexFile(ctx, t, newFakeIndexWithEntries(indexNum))
 
 		expected.Entries = append(expected.Entries, indexNum)
-		te.verifyCompleteIndexSet(ctx, t, LatestEpoch, expected)
+		te.verifyCompleteIndexSet(ctx, t, LatestEpoch, expected, lastDeletionWatermark)
 
 		dt := randomTime(1*time.Minute, 8*time.Hour)
 		t.Logf("advancing time by %v", dt)
@@ -459,6 +461,13 @@ func verifySequentialWrites(t *testing.T, te *epochManagerTestEnv) {
 		if indexNum%27 == 0 {
 			// do not require.NoError because we'll be sometimes inducing faults
 			te.mgr.Cleanup(ctx)
+		}
+
+		if indexNum%13 == 0 {
+			ts := te.ft.NowFunc()().Truncate(time.Second)
+			require.NoError(t, te.mgr.AdvanceDeletionWatermark(ctx, ts))
+			require.Error(t, te.mgr.AdvanceDeletionWatermark(ctx, ts.Add(-time.Second)))
+			lastDeletionWatermark = ts
 		}
 	}
 
@@ -493,20 +502,95 @@ func TestIndexEpochManager_RefreshContextCanceled(t *testing.T) {
 	require.ErrorIs(t, err, ctx.Err())
 }
 
+func TestValidateParameters(t *testing.T) {
+	cases := []struct {
+		p       Parameters
+		wantErr string
+	}{
+		{DefaultParameters, ""},
+		{
+			Parameters{
+				Enabled: false,
+			}, "",
+		},
+		{
+			Parameters{
+				Enabled:          true,
+				MinEpochDuration: 1 * time.Second,
+			}, "minimum epoch duration too low: 1s",
+		},
+		{
+			Parameters{
+				Enabled:               true,
+				MinEpochDuration:      1 * time.Hour,
+				EpochRefreshFrequency: 30 * time.Minute,
+			}, "epoch refresh frequency too high, must be 1/3 or minimal epoch duration or less",
+		},
+		{
+			Parameters{
+				Enabled:                 true,
+				MinEpochDuration:        1 * time.Hour,
+				EpochRefreshFrequency:   10 * time.Minute,
+				FullCheckpointFrequency: -1,
+			}, "invalid epoch checkpoint frequency",
+		},
+		{
+			Parameters{
+				Enabled:                 true,
+				MinEpochDuration:        1 * time.Hour,
+				EpochRefreshFrequency:   10 * time.Minute,
+				FullCheckpointFrequency: 5,
+				CleanupSafetyMargin:     15 * time.Minute,
+			}, "invalid cleanup safety margin, must be at least 3x epoch refresh frequency",
+		},
+		{
+			Parameters{
+				Enabled:                      true,
+				MinEpochDuration:             1 * time.Hour,
+				EpochRefreshFrequency:        10 * time.Minute,
+				FullCheckpointFrequency:      5,
+				CleanupSafetyMargin:          time.Hour,
+				EpochAdvanceOnCountThreshold: 1,
+			}, "epoch advance on count too low",
+		},
+		{
+			Parameters{
+				Enabled:                      true,
+				MinEpochDuration:             1 * time.Hour,
+				EpochRefreshFrequency:        10 * time.Minute,
+				FullCheckpointFrequency:      5,
+				CleanupSafetyMargin:          time.Hour,
+				EpochAdvanceOnCountThreshold: 10,
+			}, "epoch advance on size too low",
+		},
+	}
+
+	for _, tc := range cases {
+		err := tc.p.Validate()
+		if tc.wantErr != "" {
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tc.wantErr)
+		} else {
+			require.NoError(t, err)
+		}
+	}
+}
+
 func randomTime(min, max time.Duration) time.Duration {
 	return time.Duration(float64(max-min)*rand.Float64() + float64(min))
 }
 
-func (te *epochManagerTestEnv) verifyCompleteIndexSet(ctx context.Context, t *testing.T, maxEpoch int, want *fakeIndex) {
+func (te *epochManagerTestEnv) verifyCompleteIndexSet(ctx context.Context, t *testing.T, maxEpoch int, want *fakeIndex, wantDeletionWatermark time.Time) {
 	t.Helper()
 
-	blobs, err := te.mgr.GetCompleteIndexSet(ctx, maxEpoch)
+	blobs, deletionWatermark, err := te.mgr.GetCompleteIndexSet(ctx, maxEpoch)
 	t.Logf("complete set length: %v", len(blobs))
 	require.NoError(t, err)
 
 	merged, err := te.getMergedIndexContents(ctx, blob.IDsFromMetadata(blobs))
 	require.NoError(t, err)
 	require.Equal(t, want.Entries, merged.Entries)
+	require.True(t, wantDeletionWatermark.Equal(deletionWatermark), "invalid deletion watermark %v %v", deletionWatermark, wantDeletionWatermark)
 }
 
 func (te *epochManagerTestEnv) getMergedIndexContents(ctx context.Context, blobIDs []blob.ID) (*fakeIndex, error) {
