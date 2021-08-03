@@ -209,7 +209,7 @@ func runQuickMaintenance(ctx context.Context, runParams RunParameters, safety Sa
 		return errors.Wrap(err, "unable to get schedule")
 	}
 
-	if shouldQuickRewriteContents(s) {
+	if shouldQuickRewriteContents(s, safety) {
 		// find 'q' packs that are less than 80% full and rewrite contents in them into
 		// new consolidated packs, orphaning old packs in the process.
 		if err := runTaskRewriteContentsQuick(ctx, runParams, s, safety); err != nil {
@@ -341,13 +341,7 @@ func runFullMaintenance(ctx context.Context, runParams RunParameters, safety Saf
 		return errors.Wrap(err, "unable to get schedule")
 	}
 
-	// rewrite indexes by dropping content entries that have been marked
-	// as deleted for a long time
-	if err := runTaskDropDeletedContentsFull(ctx, runParams, s, safety); err != nil {
-		return errors.Wrap(err, "error dropping deleted contents")
-	}
-
-	if shouldFullRewriteContents(s) {
+	if shouldFullRewriteContents(s, safety) {
 		// find packs that are less than 80% full and rewrite contents in them into
 		// new consolidated packs, orphaning old packs in the process.
 		if err := runTaskRewriteContentsFull(ctx, runParams, s, safety); err != nil {
@@ -355,6 +349,12 @@ func runFullMaintenance(ctx context.Context, runParams RunParameters, safety Saf
 		}
 	} else {
 		notRewritingContents(ctx)
+	}
+
+	// rewrite indexes by dropping content entries that have been marked
+	// as deleted for a long time
+	if err := runTaskDropDeletedContentsFull(ctx, runParams, s, safety); err != nil {
+		return errors.Wrap(err, "error dropping deleted contents")
 	}
 
 	if shouldDeleteOrphanedPacks(runParams.rep.Time(), s, safety) {
@@ -372,12 +372,12 @@ func runFullMaintenance(ctx context.Context, runParams RunParameters, safety Saf
 // shouldRewriteContents returns true if it's currently ok to rewrite contents.
 // since each content rewrite will require deleting of orphaned blobs after some time passes,
 // we don't want to starve blob deletion by constantly doing rewrites.
-func shouldQuickRewriteContents(s *Schedule) bool {
+func shouldQuickRewriteContents(s *Schedule, safety SafetyParameters) bool {
 	latestContentRewriteEndTime := maxEndTime(s.Runs[TaskRewriteContentsFull], s.Runs[TaskRewriteContentsQuick])
 	latestBlobDeleteTime := maxEndTime(s.Runs[TaskDeleteOrphanedBlobsFull], s.Runs[TaskDeleteOrphanedBlobsQuick])
 
 	// never did rewrite - safe to do so.
-	if latestContentRewriteEndTime.IsZero() {
+	if latestContentRewriteEndTime.IsZero() || safety.MinRewriteToOrphanDeletionDelay == 0 {
 		return true
 	}
 
@@ -387,14 +387,14 @@ func shouldQuickRewriteContents(s *Schedule) bool {
 // shouldFullRewriteContents returns true if it's currently ok to rewrite contents.
 // since each content rewrite will require deleting of orphaned blobs after some time passes,
 // we don't want to starve blob deletion by constantly doing rewrites.
-func shouldFullRewriteContents(s *Schedule) bool {
+func shouldFullRewriteContents(s *Schedule, safety SafetyParameters) bool {
 	// NOTE - we're not looking at TaskRewriteContentsQuick here, this allows full rewrite to sometimes
 	// follow quick rewrite.
 	latestContentRewriteEndTime := maxEndTime(s.Runs[TaskRewriteContentsFull])
 	latestBlobDeleteTime := maxEndTime(s.Runs[TaskDeleteOrphanedBlobsFull], s.Runs[TaskDeleteOrphanedBlobsQuick])
 
 	// never did rewrite - safe to do so.
-	if latestContentRewriteEndTime.IsZero() {
+	if latestContentRewriteEndTime.IsZero() || safety.MinRewriteToOrphanDeletionDelay == 0 {
 		return true
 	}
 

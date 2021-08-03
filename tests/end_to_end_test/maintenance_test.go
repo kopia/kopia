@@ -20,10 +20,13 @@ func TestFullMaintenance(t *testing.T) {
 
 	var snap snapshot.Manifest
 
-	// after creation we'll have kopia.repository, 1 index + 1 pack blob
-	if got, want := e.RunAndExpectSuccess(t, "blob", "list"), 3; len(got) != want {
+	// after creation we'll have 1 pack blob
+	if got, want := e.RunAndExpectSuccess(t, "blob", "list", "--data-only"), 1; len(got) != want {
 		t.Fatalf("unexpected number of initial blobs: %v, want %v", got, want)
 	}
+
+	beforeSnapshotBlobs := e.RunAndExpectSuccess(t, "blob", "list", "--data-only")
+	_ = beforeSnapshotBlobs
 
 	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1, "--json", "--disable-internal-log"), &snap)
 
@@ -33,30 +36,28 @@ func TestFullMaintenance(t *testing.T) {
 
 	e.RunAndVerifyOutputLineCount(t, 0, "snapshot", "list")
 
-	originalBlobCount := len(e.RunAndExpectSuccess(t, "blob", "list"))
+	originalBlobs := e.RunAndExpectSuccess(t, "blob", "list", "--data-only")
 
 	e.RunAndVerifyOutputLineCount(t, 0, "maintenance", "run", "--full", "--disable-internal-log")
 
-	if got := len(e.RunAndExpectSuccess(t, "blob", "list")); got != originalBlobCount {
-		t.Fatalf("full maintenance is not expected to change any blobs due to safety margins (got %v, was %v)", got, originalBlobCount)
+	if got := e.RunAndExpectSuccess(t, "blob", "list", "--data-only"); len(got) != len(originalBlobs) {
+		t.Fatalf("full maintenance is not expected to change any blobs due to safety margins (got %v, was %v)", got, originalBlobs)
 	}
 
 	// now rerun with --safety=none
 	e.RunAndExpectSuccess(t, "maintenance", "run", "--full", "--safety=none", "--disable-internal-log")
 
-	if got := len(e.RunAndExpectSuccess(t, "blob", "list")); got >= originalBlobCount {
-		t.Fatalf("maintenance did not remove blobs: %v, had %v", got, originalBlobCount)
+	if got := e.RunAndExpectSuccess(t, "blob", "list", "--data-only"); len(got) >= len(originalBlobs) {
+		t.Fatalf("maintenance did not remove blobs: %v, had %v", got, originalBlobs)
 	}
 
-	// we're expecting to have 5 or 6 blobs:
-	// - kopia.maintenance
-	// - kopia.repository
-	// - 2 index blobs
-	// - 1 or 2 q blob
+	e.RunAndExpectSuccess(t, "content", "list", "-l")
 
-	const blobCountAfterFullWipeout = 6
+	// we're expecting to have 1 or 2 q blob
 
-	if got, want := e.RunAndExpectSuccess(t, "blob", "list"), blobCountAfterFullWipeout; len(got) > want {
+	const blobCountAfterFullWipeout = 2
+
+	if got, want := e.RunAndExpectSuccess(t, "blob", "list", "--data-only"), blobCountAfterFullWipeout; len(got) > want {
 		t.Fatalf("maintenance left unwanted blobs: %v, want %v", got, want)
 	}
 }
