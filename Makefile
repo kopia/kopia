@@ -13,7 +13,7 @@ rwildcard=$(foreach d,$(wildcard $1*),$(call rwildcard,$d/,$2) $(filter $(subst 
 go_source_dirs=cli fs internal repo snapshot
 all_go_sources=$(foreach d,$(go_source_dirs),$(call rwildcard,$d/,*.go)) $(wildcard *.go)
 
-all: test lint vet integration-tests
+all: test lint vet integration-tests integration-tests-index-v2
 
 include tools/tools.mk
 
