@@ -238,7 +238,7 @@ integration-tests: build-integration-test-binary $(gotestsum) $(TESTING_ACTION_E
 	 -$(gotestsum) tool slowest --jsonfile .tmp.integration-tests.json  --threshold 1000ms
 
 integration-tests-index-v2:
-	KOPIA_CREATE_INDEX_VERSION=2 KOPIA_RUN_ALL_INTEGRATION_TESTS=true $(MAKE) integration-tests
+	KOPIA_CREATE_INDEX_VERSION=2 KOPIA_ENABLE_INDEX_EPOCHS=true KOPIA_RUN_ALL_INTEGRATION_TESTS=true $(MAKE) integration-tests
 
 endurance-tests: export KOPIA_EXE ?= $(KOPIA_INTEGRATION_EXE)
 endurance-tests: export KOPIA_LOGS_DIR=$(CURDIR)/.logs
