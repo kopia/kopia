@@ -36,7 +36,7 @@ func (b packIndexBuilder) clone() packIndexBuilder {
 func (b packIndexBuilder) Add(i Info) {
 	cid := i.GetContentID()
 
-	if old, ok := b[cid]; !ok || i.GetTimestampSeconds() >= old.GetTimestampSeconds() {
+	if contentInfoGreaterThan(i, b[cid]) {
 		b[cid] = i
 	}
 }

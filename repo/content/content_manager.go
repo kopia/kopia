@@ -732,7 +732,7 @@ func (bm *WriteManager) getContentInfo(contentID ID) (*pendingPackInfo, Info, er
 func (bm *WriteManager) ContentInfo(ctx context.Context, contentID ID) (Info, error) {
 	_, bi, err := bm.getContentInfo(contentID)
 	if err != nil {
-		bm.log.Debugf("ContentInfo(%q) - error %v", err)
+		bm.log.Debugf("ContentInfo(%q) - error %v", contentID, err)
 		return nil, err
 	}
 

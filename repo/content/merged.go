@@ -32,6 +32,32 @@ func (m mergedIndex) Close() error {
 	return nil
 }
 
+func contentInfoGreaterThan(a, b Info) bool {
+	if b == nil {
+		// everyrhing is greater than nil
+		return true
+	}
+
+	if a == nil {
+		// nil is less than everything
+		return false
+	}
+
+	if l, r := a.GetTimestampSeconds(), b.GetTimestampSeconds(); l != r {
+		// different timestamps, higher one wins
+		return l > r
+	}
+
+	if l, r := a.GetDeleted(), b.GetDeleted(); l != r {
+		// non-deleted is greater than deleted.
+		return !a.GetDeleted()
+	}
+
+	// both same time, both deleted, we must ensure we always resolve to the same pack blob.
+	// since pack blobs are random and unique, simple lexicographic ordering will suffice.
+	return a.GetPackBlobID() > b.GetPackBlobID()
+}
+
 // GetInfo returns information about a single content. If a content is not found, returns (nil,nil).
 func (m mergedIndex) GetInfo(id ID) (Info, error) {
 	var best Info
@@ -42,10 +68,8 @@ func (m mergedIndex) GetInfo(id ID) (Info, error) {
 			return nil, errors.Wrapf(err, "error getting id %v from index shard", id)
 		}
 
-		if i != nil {
-			if best == nil || i.GetTimestampSeconds() > best.GetTimestampSeconds() || (i.GetTimestampSeconds() == best.GetTimestampSeconds() && !i.GetDeleted()) {
-				best = i
-			}
+		if contentInfoGreaterThan(i, best) {
+			best = i
 		}
 	}
 
@@ -65,11 +89,7 @@ func (h nextInfoHeap) Less(i, j int) bool {
 		return a < b
 	}
 
-	if a, b := h[i].it.GetTimestampSeconds(), h[j].it.GetTimestampSeconds(); a != b {
-		return a < b
-	}
-
-	return !h[i].it.GetDeleted()
+	return !contentInfoGreaterThan(h[i].it, h[j].it)
 }
 
 func (h nextInfoHeap) Swap(i, j int) { h[i], h[j] = h[j], h[i] }
@@ -136,7 +156,7 @@ func (m mergedIndex) Iterate(r IDRange, cb func(i Info) error) error {
 			}
 
 			pendingItem = min.it
-		} else if min.it.GetTimestampSeconds() > pendingItem.GetTimestampSeconds() {
+		} else if contentInfoGreaterThan(min.it, pendingItem) {
 			pendingItem = min.it
 		}
 
