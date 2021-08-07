@@ -44,7 +44,6 @@ var cachedIndexBlobPrefixes = []blob.ID{
 var allIndexBlobPrefixes = []blob.ID{
 	IndexBlobPrefix,
 	epoch.UncompactedIndexBlobPrefix,
-	epoch.EpochMarkerIndexBlobPrefix,
 	epoch.SingleEpochCompactionBlobPrefix,
 	epoch.RangeCheckpointIndexBlobPrefix,
 }
