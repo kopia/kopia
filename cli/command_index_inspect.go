@@ -11,22 +11,53 @@ import (
 )
 
 type commandIndexInspect struct {
-	ids []string
+	all     bool
+	active  bool
+	blobIDs []string
+
+	contentIDs []string
 
 	out textOutput
 }
 
 func (c *commandIndexInspect) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("inspect", "Inpect index blob")
-	cmd.Arg("blobs", "Names of index blobs to inspect").StringsVar(&c.ids)
+	cmd.Flag("all", "Inspect all index blobs in the repository, including inactive").BoolVar(&c.all)
+	cmd.Flag("active", "Inspect all active index blobs").BoolVar(&c.active)
+	cmd.Flag("content-id", "Inspect all active index blobs").StringsVar(&c.contentIDs)
+	cmd.Arg("blobs", "Names of index blobs to inspect").StringsVar(&c.blobIDs)
 	cmd.Action(svc.directRepositoryReadAction(c.run))
 
 	c.out.setup(svc)
 }
 
 func (c *commandIndexInspect) run(ctx context.Context, rep repo.DirectRepository) error {
-	for _, indexBlobID := range c.ids {
-		if err := c.inspectSingleIndexBlob(ctx, rep, blob.ID(indexBlobID)); err != nil {
+	switch {
+	case c.all:
+		return c.inspectAllBlobs(ctx, rep, true)
+	case c.active:
+		return c.inspectAllBlobs(ctx, rep, false)
+	case len(c.blobIDs) > 0:
+		for _, indexBlobID := range c.blobIDs {
+			if err := c.inspectSingleIndexBlob(ctx, rep, blob.ID(indexBlobID)); err != nil {
+				return err
+			}
+		}
+	default:
+		return errors.Errorf("must pass either --all, --active or provide a list of blob IDs to inspect")
+	}
+
+	return nil
+}
+
+func (c *commandIndexInspect) inspectAllBlobs(ctx context.Context, rep repo.DirectRepository, includeInactive bool) error {
+	indexes, err := rep.IndexBlobs(ctx, includeInactive)
+	if err != nil {
+		return errors.Wrap(err, "error listing index blobs")
+	}
+
+	for _, bm := range indexes {
+		if err := c.inspectSingleIndexBlob(ctx, rep, bm.BlobID); err != nil {
 			return err
 		}
 	}
@@ -41,13 +72,35 @@ func (c *commandIndexInspect) dumpIndexBlobEntries(bm blob.Metadata, entries []c
 			state = "deleted"
 		}
 
+		if !c.shouldInclude(ci) {
+			continue
+		}
+
 		c.out.printStdout("%v %v %v %v %v %v %v %v\n",
 			formatTimestampPrecise(bm.Timestamp), bm.BlobID,
 			ci.GetContentID(), state, formatTimestampPrecise(ci.Timestamp()), ci.GetPackBlobID(), ci.GetPackOffset(), ci.GetPackedLength())
 	}
 }
 
+func (c *commandIndexInspect) shouldInclude(ci content.Info) bool {
+	if len(c.contentIDs) == 0 {
+		return true
+	}
+
+	contentID := string(ci.GetContentID())
+
+	for _, cid := range c.contentIDs {
+		if cid == contentID {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (c *commandIndexInspect) inspectSingleIndexBlob(ctx context.Context, rep repo.DirectRepository, blobID blob.ID) error {
+	log(ctx).Debugf("Inspecting blob %v...", blobID)
+
 	bm, err := rep.BlobReader().GetMetadata(ctx, blobID)
 	if err != nil {
 		return errors.Wrapf(err, "unable to get metadata for %v", blobID)

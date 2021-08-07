@@ -41,6 +41,14 @@ var cachedIndexBlobPrefixes = []blob.ID{
 	epoch.RangeCheckpointIndexBlobPrefix,
 }
 
+var allIndexBlobPrefixes = []blob.ID{
+	IndexBlobPrefix,
+	epoch.UncompactedIndexBlobPrefix,
+	epoch.EpochMarkerIndexBlobPrefix,
+	epoch.SingleEpochCompactionBlobPrefix,
+	epoch.RangeCheckpointIndexBlobPrefix,
+}
+
 // indexBlobManager is the API of index blob manager as used by content manager.
 type indexBlobManager interface {
 	writeIndexBlobs(ctx context.Context, data [][]byte, sessionID SessionID) ([]blob.Metadata, error)
@@ -268,9 +276,7 @@ func (sm *SharedManager) IndexBlobs(ctx context.Context, includeInactive bool) (
 	if includeInactive {
 		var result []IndexBlobInfo
 
-		prefixes := []blob.ID{IndexBlobPrefix}
-
-		for _, prefix := range prefixes {
+		for _, prefix := range allIndexBlobPrefixes {
 			blobs, err := blob.ListAllBlobs(ctx, sm.st, prefix)
 			if err != nil {
 				return nil, errors.Wrapf(err, "error listing %v blogs", prefix)
