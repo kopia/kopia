@@ -41,7 +41,7 @@ func (c *commandIndexInspect) dumpIndexBlobEntries(bm blob.Metadata, entries []c
 			state = "deleted"
 		}
 
-		c.out.printStderr("%v %v %v %v %v %v %v %v\n",
+		c.out.printStdout("%v %v %v %v %v %v %v %v\n",
 			formatTimestampPrecise(bm.Timestamp), bm.BlobID,
 			ci.GetContentID(), state, formatTimestampPrecise(ci.Timestamp()), ci.GetPackBlobID(), ci.GetPackOffset(), ci.GetPackedLength())
 	}
