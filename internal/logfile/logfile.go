@@ -27,10 +27,10 @@ import (
 const logsDirMode = 0o700
 
 var contentLogFormat = logging.MustStringFormatter(
-	`%{time:2006-01-02 15:04:05.0000000} %{message}`)
+	`%{time:2006-01-02 15:04:05.000000} %{message}`)
 
 var fileLogFormat = logging.MustStringFormatter(
-	`%{time:2006-01-02 15:04:05.000} %{level:.1s} [%{shortfile}] %{message}`)
+	`%{time:2006-01-02 15:04:05.000000} %{level:.1s} [%{shortfile}] %{message}`)
 
 // warning is for backwards compatibility, same as error.
 var logLevels = []string{"debug", "info", "warning", "error"}
@@ -45,6 +45,7 @@ type loggingFlags struct {
 	contentLogDirMaxAge   time.Duration
 	logLevel              string
 	fileLogLevel          string
+	fileLogLocalTimezone  bool
 	forceColor            bool
 	disableColor          bool
 	consoleLogTimestamps  bool
@@ -61,6 +62,7 @@ func (c *loggingFlags) setup(app *kingpin.Application) {
 	app.Flag("content-log-dir-max-age", "Maximum age of content log files to retain").Envar("KOPIA_CONTENT_LOG_DIR_MAX_AGE").Default("720h").Hidden().DurationVar(&c.contentLogDirMaxAge)
 	app.Flag("log-level", "Console log level").Default("info").EnumVar(&c.logLevel, logLevels...)
 	app.Flag("file-log-level", "File log level").Default("debug").EnumVar(&c.fileLogLevel, logLevels...)
+	app.Flag("file-log-local-tz", "When logging to a file, use local timezone").Hidden().Envar("KOPIA_FILE_LOG_LOCAL_TZ").BoolVar(&c.fileLogLocalTimezone)
 	app.Flag("force-color", "Force color output").Hidden().Envar("KOPIA_FORCE_COLOR").BoolVar(&c.forceColor)
 	app.Flag("disable-color", "Disable color output").Hidden().Envar("KOPIA_DISABLE_COLOR").BoolVar(&c.disableColor)
 	app.Flag("console-timestamps", "Log timestamps to stderr.").Hidden().Default("false").Envar("KOPIA_CONSOLE_TIMESTAMPS").BoolVar(&c.consoleLogTimestamps)
@@ -88,6 +90,11 @@ func (c *loggingFlags) initialize(ctx *kingpin.ParseContext) error {
 	}
 
 	now := clock.Now()
+	if c.fileLogLocalTimezone {
+		now = now.Local()
+	} else {
+		now = now.UTC()
+	}
 
 	suffix := "unknown"
 	if c := ctx.SelectedCommand; c != nil {
@@ -193,6 +200,7 @@ func (c *loggingFlags) setupLogFileBasedLogger(now time.Time, subdir, suffix, lo
 		logDir:          logDir,
 		logFileBaseName: logFileBaseName,
 		symlinkName:     symlinkName,
+		utc:             !c.fileLogLocalTimezone,
 	}
 }
 
@@ -290,6 +298,7 @@ type onDemandBackend struct {
 	logDir          string
 	logFileBaseName string
 	symlinkName     string
+	utc             bool
 
 	backend logging.Backend
 	once    sync.Once
@@ -315,6 +324,12 @@ func (w *onDemandBackend) Log(level logging.Level, depth int, rec *logging.Recor
 
 	if w.backend == nil {
 		return errors.New("no backend")
+	}
+
+	if w.utc {
+		rec.Time = rec.Time.UTC()
+	} else {
+		rec.Time = rec.Time.Local()
 	}
 
 	// nolint:wrapcheck
