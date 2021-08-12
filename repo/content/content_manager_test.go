@@ -2293,7 +2293,7 @@ func deleteContent(ctx context.Context, t *testing.T, bm *WriteManager, c ID) {
 func getContentInfo(t *testing.T, bm *WriteManager, c ID) Info {
 	t.Helper()
 
-	_, i, err := bm.getContentInfo(c)
+	_, i, err := bm.getContentInfo(testlogging.Context(t), c)
 	if err != nil {
 		t.Fatalf("Unable to get content info for %q: %v", c, err)
 	}

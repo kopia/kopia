@@ -30,9 +30,6 @@ const CacheDirMarkerFile = "CACHEDIR.TAG"
 // CacheDirMarkerHeader is the header signature for cache dir marker files.
 const CacheDirMarkerHeader = "Signature: 8a477f597d28d172789f06886806bc55"
 
-// refresh indexes every 15 minutes while the repository remains open.
-const backgroundRefreshInterval = 15 * time.Minute
-
 // defaultFormatBlobCacheDuration is the duration for which we treat cached kopia.repository
 // as valid.
 const defaultFormatBlobCacheDuration = 15 * time.Minute
@@ -264,8 +261,6 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 		},
 		closed: make(chan struct{}),
 	}
-
-	go dr.RefreshPeriodically(ctx, backgroundRefreshInterval)
 
 	return dr, nil
 }

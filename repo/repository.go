@@ -299,25 +299,6 @@ func (r *directRepository) Refresh(ctx context.Context) error {
 	return errors.Wrap(r.cmgr.Refresh(ctx), "error refreshing content index")
 }
 
-// RefreshPeriodically periodically refreshes the repository to reflect the changes made by other hosts.
-func (r *directRepository) RefreshPeriodically(ctx context.Context, interval time.Duration) {
-	for {
-		select {
-		case <-r.closed:
-			// stop background refresh when repository is closed
-			return
-
-		case <-ctx.Done():
-			return
-
-		case <-time.After(interval):
-			if err := r.Refresh(ctx); err != nil {
-				log(ctx).Errorf("error refreshing repository: %v", err)
-			}
-		}
-	}
-}
-
 // Time returns the current local time for the repo.
 func (r *directRepository) Time() time.Time {
 	return defaultTime(r.timeNow)()
