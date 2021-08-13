@@ -28,6 +28,8 @@ import (
 // per-pack indexes are usually short (<100-200 contents).
 const indexRecoverPostambleSize = 8192
 
+const indexRefreshFrequency = 15 * time.Minute
+
 const ownWritesCacheDuration = 15 * time.Minute
 
 var cachedIndexBlobPrefixes = []blob.ID{
@@ -79,6 +81,9 @@ type SharedManager struct {
 	// shared lock will be acquired when writing new content to allow it to happen in parallel
 	// exclusive lock will be acquired during compaction or refresh.
 	indexesLock sync.RWMutex
+
+	// maybeRefreshIndexes() will call Refresh() after this point in ime.
+	refreshIndexesAfter time.Time
 
 	format                  FormattingOptions
 	checkInvariantsOnUnlock bool
@@ -162,7 +167,7 @@ func (sm *SharedManager) attemptReadPackFileLocalIndex(ctx context.Context, pack
 	return localIndexBytes, nil
 }
 
-func (sm *SharedManager) loadPackIndexesUnlocked(ctx context.Context) error {
+func (sm *SharedManager) loadPackIndexesLocked(ctx context.Context) error {
 	nextSleepTime := 100 * time.Millisecond //nolint:gomnd
 
 	for i := 0; i < indexLoadAttempts; i++ {
@@ -198,6 +203,8 @@ func (sm *SharedManager) loadPackIndexesUnlocked(ctx context.Context) error {
 			if len(indexBlobs) > indexBlobCompactionWarningThreshold {
 				sm.log.Errorf("Found too many index blobs (%v), this may result in degraded performance.\n\nPlease ensure periodic repository maintenance is enabled or run 'kopia maintenance'.", len(indexBlobs))
 			}
+
+			sm.refreshIndexesAfter = sm.timeNow().Add(indexRefreshFrequency)
 
 			return nil
 		}
@@ -475,6 +482,23 @@ func (sm *SharedManager) InternalLogger() logging.Logger {
 	return sm.internalLogger
 }
 
+func (sm *SharedManager) shouldRefreshIndexes() bool {
+	sm.indexesLock.RLock()
+	defer sm.indexesLock.RUnlock()
+
+	return sm.timeNow().After(sm.refreshIndexesAfter)
+}
+
+func (sm *SharedManager) maybeRefreshIndexes(ctx context.Context) error {
+	if sm.shouldRefreshIndexes() {
+		if err := sm.Refresh(ctx); err != nil {
+			return errors.Wrap(err, "error refreshing indexes")
+		}
+	}
+
+	return nil
+}
+
 // NewSharedManager returns SharedManager that is used by SessionWriteManagers on top of a repository.
 func NewSharedManager(ctx context.Context, st blob.Storage, f *FormattingOptions, caching *CachingOptions, opts *ManagerOptions) (*SharedManager, error) {
 	opts = opts.CloneOrDefault()
@@ -549,7 +573,7 @@ func NewSharedManager(ctx context.Context, st blob.Storage, f *FormattingOptions
 		return nil, errors.Wrap(err, "error setting up read manager caches")
 	}
 
-	if err := sm.loadPackIndexesUnlocked(ctx); err != nil {
+	if err := sm.loadPackIndexesLocked(ctx); err != nil {
 		return nil, errors.Wrap(err, "error loading indexes")
 	}
 

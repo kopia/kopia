@@ -151,7 +151,11 @@ func (bm *WriteManager) DeleteContent(ctx context.Context, contentID ID) error {
 		return bm.deletePreexistingContent(ctx, bi)
 	}
 
-	// see if the block existed before
+	// see if the content existed before
+	if err := bm.maybeRefreshIndexes(ctx); err != nil {
+		return err
+	}
+
 	bi, err := bm.committedContents.getContent(contentID)
 	if err != nil {
 		return err
@@ -547,7 +551,7 @@ func (bm *WriteManager) Flush(ctx context.Context) error {
 func (bm *WriteManager) RewriteContent(ctx context.Context, contentID ID) error {
 	bm.log.Debugf("rewrite-content %v", contentID)
 
-	pp, bi, err := bm.getContentInfo(contentID)
+	pp, bi, err := bm.getContentInfo(ctx, contentID)
 	if err != nil {
 		return err
 	}
@@ -566,7 +570,7 @@ func (bm *WriteManager) RewriteContent(ctx context.Context, contentID ID) error 
 func (bm *WriteManager) UndeleteContent(ctx context.Context, contentID ID) error {
 	bm.log.Debugf("UndeleteContent(%q)", contentID)
 
-	pp, bi, err := bm.getContentInfo(contentID)
+	pp, bi, err := bm.getContentInfo(ctx, contentID)
 	if err != nil {
 		return err
 	}
@@ -651,7 +655,7 @@ func (bm *WriteManager) WriteContent(ctx context.Context, data []byte, prefix ID
 	contentID := prefix + ID(hex.EncodeToString(bm.hashData(hashOutput[:0], data)))
 
 	// content already tracked
-	if _, bi, err := bm.getContentInfo(contentID); err == nil {
+	if _, bi, err := bm.getContentInfo(ctx, contentID); err == nil {
 		if !bi.GetDeleted() {
 			bm.log.Debugf("write-content %v already-exists", contentID)
 			return contentID, nil
@@ -682,7 +686,7 @@ func (bm *WriteManager) GetContent(ctx context.Context, contentID ID) (v []byte,
 		}
 	}()
 
-	pp, bi, err := bm.getContentInfo(contentID)
+	pp, bi, err := bm.getContentInfo(ctx, contentID)
 	if err != nil {
 		bm.log.Debugf("getContentInfo(%v) error %v", contentID, err)
 		return nil, err
@@ -718,9 +722,14 @@ func (bm *WriteManager) getOverlayContentInfo(contentID ID) (*pendingPackInfo, I
 	return nil, nil, false
 }
 
-func (bm *WriteManager) getContentInfo(contentID ID) (*pendingPackInfo, Info, error) {
+func (bm *WriteManager) getContentInfo(ctx context.Context, contentID ID) (*pendingPackInfo, Info, error) {
 	if pp, ci, ok := bm.getOverlayContentInfo(contentID); ok {
 		return pp, ci, nil
+	}
+
+	// see if the content existed before
+	if err := bm.maybeRefreshIndexes(ctx); err != nil {
+		return nil, nil, err
 	}
 
 	info, err := bm.committedContents.getContent(contentID)
@@ -730,7 +739,7 @@ func (bm *WriteManager) getContentInfo(contentID ID) (*pendingPackInfo, Info, er
 
 // ContentInfo returns information about a single content.
 func (bm *WriteManager) ContentInfo(ctx context.Context, contentID ID) (Info, error) {
-	_, bi, err := bm.getContentInfo(contentID)
+	_, bi, err := bm.getContentInfo(ctx, contentID)
 	if err != nil {
 		bm.log.Debugf("ContentInfo(%q) - error %v", contentID, err)
 		return nil, err

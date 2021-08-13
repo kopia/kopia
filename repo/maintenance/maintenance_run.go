@@ -186,6 +186,10 @@ func RunExclusive(ctx context.Context, rep repo.DirectRepositoryWriter, mode Mod
 	log(ctx).Infof("Running %v maintenance...", runParams.Mode)
 	defer log(ctx).Infof("Finished %v maintenance.", runParams.Mode)
 
+	if err := runParams.rep.Refresh(ctx); err != nil {
+		return errors.Wrap(err, "error refreshing indexes before maintenance")
+	}
+
 	return cb(runParams)
 }
 

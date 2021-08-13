@@ -39,7 +39,7 @@ func (sm *SharedManager) Refresh(ctx context.Context) error {
 
 	t0 := clock.Now()
 
-	err := sm.loadPackIndexesUnlocked(ctx)
+	err := sm.loadPackIndexesLocked(ctx)
 	sm.log.Debugf("Refresh completed in %v", clock.Since(t0))
 
 	return err
@@ -59,7 +59,7 @@ func (sm *SharedManager) CompactIndexes(ctx context.Context, opt CompactOptions)
 	}
 
 	// reload indexes after compaction.
-	if err := sm.loadPackIndexesUnlocked(ctx); err != nil {
+	if err := sm.loadPackIndexesLocked(ctx); err != nil {
 		return errors.Wrap(err, "error re-loading indexes")
 	}
 

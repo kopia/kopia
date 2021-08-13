@@ -143,6 +143,10 @@ func (bm *WriteManager) IterateContents(ctx context.Context, opts IterateOptions
 		_ = invokeCallback(bi)
 	}
 
+	if err := bm.maybeRefreshIndexes(ctx); err != nil {
+		return err
+	}
+
 	if err := bm.committedContents.listContents(opts.Range, invokeCallback); err != nil {
 		return err
 	}
