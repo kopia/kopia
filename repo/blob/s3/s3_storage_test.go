@@ -61,6 +61,7 @@ const (
 
 var providerCreds = map[string]string{
 	"S3":               "KOPIA_S3_CREDS",
+	"S3-Versioned":     "KOPIA_S3_VERSIONED_CREDS",
 	"Wasabi":           "KOPIA_S3_WASABI_CREDS",
 	"Wasabi-Versioned": "KOPIA_S3_WASABI_VERSIONED_CREDS",
 }
