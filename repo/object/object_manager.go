@@ -7,14 +7,10 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/internal/buf"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/splitter"
 )
-
-// maxCompressionOverheadPerSegment is maximum overhead that compression can incur.
-const maxCompressionOverheadPerSegment = 16384
 
 // ErrObjectNotFound is returned when an object cannot be found.
 var ErrObjectNotFound = errors.New("object not found")
@@ -49,7 +45,6 @@ type Manager struct {
 
 	contentMgr  contentManager
 	newSplitter splitter.Factory
-	bufferPool  *buf.Pool
 }
 
 // NewWriter creates an ObjectWriter for writing to the repository.
@@ -69,8 +64,6 @@ func (om *Manager) NewWriter(ctx context.Context, opt WriterOptions) Writer {
 	if opt.AsyncWrites > 0 {
 		w.asyncWritesSemaphore = make(chan struct{}, opt.AsyncWrites)
 	}
-
-	w.initBuffer()
 
 	return w
 }
@@ -193,13 +186,5 @@ func NewObjectManager(ctx context.Context, bm contentManager, f Format) (*Manage
 
 	om.newSplitter = splitter.Pooled(os)
 
-	om.bufferPool = buf.NewPool(ctx, om.newSplitter().MaxSegmentSize()+maxCompressionOverheadPerSegment, "object-manager")
-
 	return om, nil
-}
-
-// Close closes the object manager.
-func (om *Manager) Close() error {
-	om.bufferPool.Close()
-	return nil
 }

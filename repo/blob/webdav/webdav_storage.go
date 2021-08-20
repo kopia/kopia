@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"math/rand"
 	"net/http"
 	"os"
@@ -15,6 +16,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/studio-b12/gowebdav"
 
+	"github.com/kopia/kopia/internal/gather"
+	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/internal/retry"
 	"github.com/kopia/kopia/internal/tlsutil"
 	"github.com/kopia/kopia/repo/blob"
@@ -46,18 +49,36 @@ type davStorageImpl struct {
 	cli *gowebdav.Client
 }
 
-func (d *davStorageImpl) GetBlobFromPath(ctx context.Context, dirPath, path string, offset, length int64) ([]byte, error) {
-	data, err := d.cli.Read(path)
-	if err != nil {
-		return nil, d.translateError(err)
+func (d *davStorageImpl) GetBlobFromPath(ctx context.Context, dirPath, path string, offset, length int64, output *gather.WriteBuffer) error {
+	output.Reset()
+
+	if offset < 0 {
+		return blob.ErrInvalidRange
 	}
 
-	if int(offset) > len(data) || offset < 0 {
-		return nil, errors.Wrap(blob.ErrInvalidRange, "invalid offset")
+	s, err := d.cli.ReadStream(path)
+	if err != nil {
+		return d.translateError(err)
+	}
+
+	defer s.Close() // nolint:errcheck
+
+	if length < 0 {
+		// nolint:wrapcheck
+		return iocopy.JustCopy(output, s)
+	}
+
+	// this is horrible, but gowebdav does not support seeking (yet).
+	if err := iocopy.JustCopy(io.Discard, io.LimitReader(s, offset)); err != nil {
+		return errors.Wrap(err, "error discarding data from stream")
+	}
+
+	if err := iocopy.JustCopy(output, io.LimitReader(s, length)); err != nil {
+		return errors.Wrap(err, "error reading stream")
 	}
 
 	// nolint:wrapcheck
-	return blob.EnsureLengthAndTruncate(data[offset:], length)
+	return blob.EnsureLengthExactly(output.Length(), length)
 }
 
 func (d *davStorageImpl) GetMetadataFromPath(ctx context.Context, dirPath, path string) (blob.Metadata, error) {

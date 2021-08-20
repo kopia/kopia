@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/parallelwork"
 	"github.com/kopia/kopia/repo/blob"
 )
@@ -19,7 +20,7 @@ const minShardedBlobIDLength = 20
 
 // Impl must be implemented by underlying provided.
 type Impl interface {
-	GetBlobFromPath(ctx context.Context, dirPath, filePath string, offset, length int64) ([]byte, error)
+	GetBlobFromPath(ctx context.Context, dirPath, filePath string, offset, length int64, output *gather.WriteBuffer) error
 	GetMetadataFromPath(ctx context.Context, dirPath, filePath string) (blob.Metadata, error)
 	PutBlobInPath(ctx context.Context, dirPath, filePath string, dataSlices blob.Bytes) error
 	SetTimeInPath(ctx context.Context, dirPath, filePath string, t time.Time) error
@@ -38,11 +39,11 @@ type Storage struct {
 }
 
 // GetBlob implements blob.Storage.
-func (s Storage) GetBlob(ctx context.Context, blobID blob.ID, offset, length int64) ([]byte, error) {
+func (s Storage) GetBlob(ctx context.Context, blobID blob.ID, offset, length int64, output *gather.WriteBuffer) error {
 	dirPath, filePath := s.GetShardedPathAndFilePath(blobID)
 
 	// nolint:wrapcheck
-	return s.Impl.GetBlobFromPath(ctx, dirPath, filePath, offset, length)
+	return s.Impl.GetBlobFromPath(ctx, dirPath, filePath, offset, length, output)
 }
 
 func (s Storage) getBlobIDFromFileName(name string) (blob.ID, bool) {

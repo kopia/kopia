@@ -33,7 +33,7 @@ func showContentWithFlags(w io.Writer, rd io.Reader, unzip, indentJSON bool) err
 	var buf1, buf2 bytes.Buffer
 
 	if indentJSON {
-		if _, err := iocopy.Copy(&buf1, rd); err != nil {
+		if err := iocopy.JustCopy(&buf1, rd); err != nil {
 			return errors.Wrap(err, "error copying data")
 		}
 
@@ -44,7 +44,7 @@ func showContentWithFlags(w io.Writer, rd io.Reader, unzip, indentJSON bool) err
 		rd = ioutil.NopCloser(&buf2)
 	}
 
-	if _, err := iocopy.Copy(w, rd); err != nil {
+	if err := iocopy.JustCopy(w, rd); err != nil {
 		return errors.Wrap(err, "error copying data")
 	}
 

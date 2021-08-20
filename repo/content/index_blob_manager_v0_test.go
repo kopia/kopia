@@ -17,6 +17,7 @@ import (
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/faketime"
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/ownwrites"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
@@ -613,15 +614,15 @@ type fakeIndexData struct {
 func writeFakeIndex(ctx context.Context, t *testing.T, m *indexBlobManagerV0, ndx map[string]fakeContentIndexEntry) ([]blob.Metadata, error) {
 	t.Helper()
 
-	j, err := json.Marshal(fakeIndexData{
+	var tmp gather.WriteBuffer
+	defer tmp.Close()
+
+	require.NoError(t, json.NewEncoder(&tmp).Encode(fakeIndexData{
 		RandomID: rand.Int63(),
 		Entries:  ndx,
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "json error")
-	}
+	}))
 
-	bms, err := m.writeIndexBlobs(ctx, [][]byte{j}, "")
+	bms, err := m.writeIndexBlobs(ctx, []gather.Bytes{tmp.Bytes()}, "")
 	if err != nil {
 		return nil, errors.Wrap(err, "error writing blob")
 	}
@@ -655,8 +656,11 @@ func getAllFakeContentsInternal(ctx context.Context, t *testing.T, m *indexBlobM
 
 	allContents := map[string]fakeContentIndexEntry{}
 
+	var bb gather.WriteBuffer
+	defer bb.Close()
+
 	for _, bi := range blobs {
-		bb, err := m.getIndexBlob(ctx, bi.BlobID)
+		err := m.getIndexBlob(ctx, bi.BlobID, &bb)
 		if errors.Is(err, blob.ErrBlobNotFound) {
 			return nil, nil, errGetAllFakeContentsRetry
 		}
@@ -667,8 +671,8 @@ func getAllFakeContentsInternal(ctx context.Context, t *testing.T, m *indexBlobM
 
 		var indexData fakeIndexData
 
-		if err := json.Unmarshal(bb, &indexData); err != nil {
-			t.Logf("invalid JSON %v: %v", string(bb), err)
+		if err := json.NewDecoder(bb.Bytes().Reader()).Decode(&indexData); err != nil {
+			t.Logf("invalid JSON %v: %v", string(bb.ToByteSlice()), err)
 			return nil, nil, errors.Wrap(err, "error unmarshaling")
 		}
 
@@ -722,7 +726,7 @@ func mustWriteIndexBlob(t *testing.T, m *indexBlobManagerV0, data string) blob.M
 
 	t.Logf("writing index blob %q", data)
 
-	blobMDs, err := m.writeIndexBlobs(testlogging.Context(t), [][]byte{[]byte(data)}, "")
+	blobMDs, err := m.writeIndexBlobs(testlogging.Context(t), []gather.Bytes{gather.FromSlice([]byte(data))}, "")
 	if err != nil {
 		t.Fatalf("failed to write index blob: %v", err)
 	}

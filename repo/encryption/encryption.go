@@ -8,6 +8,8 @@ import (
 
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/hkdf"
+
+	"github.com/kopia/kopia/internal/gather"
 )
 
 const (
@@ -20,12 +22,12 @@ const (
 type Encryptor interface {
 	// Encrypt appends the encrypted bytes corresponding to the given plaintext to a given slice.
 	// Must not clobber the input slice and return ciphertext with additional padding and checksum.
-	Encrypt(output, plainText, contentID []byte) ([]byte, error)
+	Encrypt(plainText gather.Bytes, contentID []byte, output *gather.WriteBuffer) error
 
 	// Decrypt appends the unencrypted bytes corresponding to the given ciphertext to a given slice.
 	// Must not clobber the input slice. If IsAuthenticated() == true, Decrypt will perform
 	// authenticity check before decrypting.
-	Decrypt(output, cipherText, contentID []byte) ([]byte, error)
+	Decrypt(cipherText gather.Bytes, contentID []byte, output *gather.WriteBuffer) error
 
 	// Overhead is the number of bytes of overhead added by Encrypt()
 	Overhead() int

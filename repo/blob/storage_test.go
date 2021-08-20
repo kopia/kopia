@@ -101,39 +101,10 @@ func TestIterateAllPrefixesInParallel(t *testing.T) {
 }
 
 func TestEnsureLengthExactly(t *testing.T) {
-	v, err := blob.EnsureLengthExactly([]byte{1, 2, 3}, 3)
-	require.NoError(t, err)
-	require.Equal(t, []byte{1, 2, 3}, v)
-
-	v, err = blob.EnsureLengthExactly([]byte{1, 2, 3}, -1)
-	require.NoError(t, err)
-	require.Equal(t, []byte{1, 2, 3}, v)
-
-	v, err = blob.EnsureLengthExactly([]byte{1, 2, 3}, 4)
-	require.Error(t, err)
-	require.Nil(t, v)
-
-	v, err = blob.EnsureLengthExactly([]byte{1, 2, 3}, 2)
-	require.Error(t, err)
-	require.Nil(t, v)
-}
-
-func TestEnsureLengthAndTruncate(t *testing.T) {
-	v, err := blob.EnsureLengthAndTruncate([]byte{1, 2, 3}, 3)
-	require.NoError(t, err)
-	require.Equal(t, []byte{1, 2, 3}, v)
-
-	v, err = blob.EnsureLengthAndTruncate([]byte{1, 2, 3}, -1)
-	require.NoError(t, err)
-	require.Equal(t, []byte{1, 2, 3}, v)
-
-	v, err = blob.EnsureLengthAndTruncate([]byte{1, 2, 3}, 4)
-	require.Error(t, err)
-	require.Nil(t, v)
-
-	v, err = blob.EnsureLengthAndTruncate([]byte{1, 2, 3}, 2)
-	require.NoError(t, err)
-	require.Equal(t, []byte{1, 2}, v)
+	require.NoError(t, blob.EnsureLengthExactly(3, 3))
+	require.NoError(t, blob.EnsureLengthExactly(3, -1))
+	require.Error(t, blob.EnsureLengthExactly(3, 4))
+	require.Error(t, blob.EnsureLengthExactly(3, 2))
 }
 
 func TestIDsFromMetadata(t *testing.T) {

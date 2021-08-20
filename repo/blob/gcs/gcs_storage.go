@@ -19,6 +19,7 @@ import (
 	"google.golang.org/api/option"
 
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/internal/throttle"
 	"github.com/kopia/kopia/repo/blob"
@@ -41,29 +42,28 @@ type gcsStorage struct {
 	uploadThrottler   *iothrottler.IOThrottlerPool
 }
 
-func (gcs *gcsStorage) GetBlob(ctx context.Context, b blob.ID, offset, length int64) ([]byte, error) {
+func (gcs *gcsStorage) GetBlob(ctx context.Context, b blob.ID, offset, length int64, output *gather.WriteBuffer) error {
 	if offset < 0 {
-		return nil, blob.ErrInvalidRange
+		return blob.ErrInvalidRange
 	}
 
-	attempt := func() ([]byte, error) {
+	attempt := func() error {
 		reader, err := gcs.bucket.Object(gcs.getObjectNameString(b)).NewRangeReader(gcs.ctx, offset, length)
 		if err != nil {
-			return nil, errors.Wrap(err, "NewRangeReader")
+			return errors.Wrap(err, "NewRangeReader")
 		}
 		defer reader.Close() //nolint:errcheck
 
 		// nolint:wrapcheck
-		return ioutil.ReadAll(reader)
+		return iocopy.JustCopy(output, reader)
 	}
 
-	fetched, err := attempt()
-	if err != nil {
-		return nil, translateError(err)
+	if err := attempt(); err != nil {
+		return translateError(err)
 	}
 
 	// nolint:wrapcheck
-	return blob.EnsureLengthExactly(fetched, length)
+	return blob.EnsureLengthExactly(output.Length(), length)
 }
 
 func (gcs *gcsStorage) GetMetadata(ctx context.Context, b blob.ID) (blob.Metadata, error) {
@@ -106,7 +106,7 @@ func (gcs *gcsStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes) 
 	writer.ChunkSize = writerChunkSize
 	writer.ContentType = "application/x-kopia"
 
-	_, err := iocopy.Copy(writer, data.Reader())
+	err := iocopy.JustCopy(writer, data.Reader())
 	if err != nil {
 		// cancel context before closing the writer causes it to abandon the upload.
 		cancel()

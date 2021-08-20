@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"io"
 
 	"github.com/pkg/errors"
 )
@@ -17,8 +18,8 @@ type Name string
 // Compressor implements compression and decompression of a byte slice.
 type Compressor interface {
 	HeaderID() HeaderID
-	Compress(output *bytes.Buffer, input []byte) error
-	Decompress(output *bytes.Buffer, input []byte) error
+	Compress(output io.Writer, input io.Reader) error
+	Decompress(output io.Writer, input io.Reader, withHeader bool) error
 }
 
 // maps of registered compressors by header ID and name.
@@ -50,13 +51,22 @@ func compressionHeader(id HeaderID) []byte {
 	return b
 }
 
-// IDFromHeader retrieves compression ID from content header.
-func IDFromHeader(b []byte) (HeaderID, error) {
-	if len(b) < compressionHeaderSize {
-		return 0, errors.Errorf("invalid size: %v", len(b))
+// DecompressByHeader decodes compression header from the provided input and decompresses the remainder.
+func DecompressByHeader(output io.Writer, input io.Reader) error {
+	var b [compressionHeaderSize]byte
+
+	if _, err := io.ReadFull(input, b[:]); err != nil {
+		return errors.Wrap(err, "error reading compression header")
 	}
 
-	return HeaderID(binary.BigEndian.Uint32(b[0:compressionHeaderSize])), nil
+	compressorID := HeaderID(binary.BigEndian.Uint32(b[0:compressionHeaderSize]))
+
+	compressor := ByHeaderID[compressorID]
+	if compressor == nil {
+		return errors.Errorf("unsupported compressor %x", compressorID)
+	}
+
+	return errors.Wrap(compressor.Decompress(output, input, false), "error decompressing")
 }
 
 func mustSucceed(err error) {
@@ -65,16 +75,15 @@ func mustSucceed(err error) {
 	}
 }
 
-func verifyCompressionHeader(got, want []byte) error {
-	if !bytes.HasPrefix(got, want) {
-		var gotHeader []byte
-		if len(got) >= len(want) {
-			gotHeader = got[0:len(want)]
-		} else {
-			gotHeader = got
-		}
+func verifyCompressionHeader(reader io.Reader, want []byte) error {
+	var actual [compressionHeaderSize]byte
 
-		return errors.Errorf("invalid compression header, expected %x but got %x (len %v)", want, gotHeader, len(got))
+	if _, err := io.ReadFull(reader, actual[:]); err != nil {
+		return errors.Wrap(err, "error reading compression header")
+	}
+
+	if !bytes.Equal(actual[:], want) {
+		return errors.Errorf("invalid compression header, expected %x but got %x", want, actual[:])
 	}
 
 	return nil

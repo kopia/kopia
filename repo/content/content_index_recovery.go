@@ -1,7 +1,6 @@
 package content
 
 import (
-	"bytes"
 	"context"
 	"encoding/binary"
 	"hash/crc32"
@@ -15,12 +14,14 @@ import (
 // RecoverIndexFromPackBlob attempts to recover index blob entries from a given pack file.
 // Pack file length may be provided (if known) to reduce the number of bytes that are read from the storage.
 func (bm *WriteManager) RecoverIndexFromPackBlob(ctx context.Context, packFile blob.ID, packFileLength int64, commit bool) ([]Info, error) {
-	localIndexBytes, err := bm.readPackFileLocalIndex(ctx, packFile, packFileLength)
-	if err != nil {
+	var localIndexBytes gather.WriteBuffer
+	defer localIndexBytes.Close()
+
+	if err := bm.readPackFileLocalIndex(ctx, packFile, packFileLength, &localIndexBytes); err != nil {
 		return nil, err
 	}
 
-	ndx, err := openPackIndex(bytes.NewReader(localIndexBytes), uint32(bm.crypter.Encryptor.Overhead()))
+	ndx, err := openPackIndex(localIndexBytes.Bytes(), uint32(bm.crypter.Encryptor.Overhead()))
 	if err != nil {
 		return nil, errors.Errorf("unable to open index in file %v", packFile)
 	}
@@ -160,46 +161,51 @@ func decodePostamble(payload []byte) *packContentPostamble {
 	}
 }
 
-func (sm *SharedManager) buildLocalIndex(pending packIndexBuilder) ([]byte, error) {
-	var buf bytes.Buffer
-	if err := pending.Build(&buf, sm.indexVersion); err != nil {
-		return nil, errors.Wrap(err, "unable to build local index")
+func (sm *SharedManager) buildLocalIndex(pending packIndexBuilder, output *gather.WriteBuffer) error {
+	if err := pending.Build(output, sm.indexVersion); err != nil {
+		return errors.Wrap(err, "unable to build local index")
 	}
 
-	return buf.Bytes(), nil
+	return nil
 }
 
 // writePackFileIndexRecoveryData appends data designed to help with recovery of pack index in case it gets damaged or lost.
-func (sm *SharedManager) writePackFileIndexRecoveryData(buf *gather.WriteBuffer, pending packIndexBuilder) error {
+func (sm *SharedManager) writePackFileIndexRecoveryData(pending packIndexBuilder, output *gather.WriteBuffer) error {
 	// build, encrypt and append local index
-	localIndexOffset := buf.Length()
+	localIndexOffset := output.Length()
 
-	localIndex, err := sm.buildLocalIndex(pending)
-	if err != nil {
+	var localIndex gather.WriteBuffer
+	defer localIndex.Close()
+
+	if err := sm.buildLocalIndex(pending, &localIndex); err != nil {
 		return err
 	}
 
-	localIndexIV := sm.hashData(nil, localIndex)
+	localIndexIV := sm.hashData(nil, localIndex.Bytes())
 
-	encryptedLocalIndex, err := sm.crypter.Encryptor.Encrypt(nil, localIndex, localIndexIV)
-	if err != nil {
+	var encryptedLocalIndex gather.WriteBuffer
+	defer encryptedLocalIndex.Close()
+
+	if err := sm.crypter.Encryptor.Encrypt(localIndex.Bytes(), localIndexIV, &encryptedLocalIndex); err != nil {
 		return errors.Wrap(err, "encryption error")
 	}
 
 	postamble := packContentPostamble{
 		localIndexIV:     localIndexIV,
 		localIndexOffset: uint32(localIndexOffset),
-		localIndexLength: uint32(len(encryptedLocalIndex)),
+		localIndexLength: uint32(encryptedLocalIndex.Length()),
 	}
 
-	buf.Append(encryptedLocalIndex)
+	if _, err := encryptedLocalIndex.Bytes().WriteTo(output); err != nil {
+		return errors.Wrap(err, "error copying encrypted index to buffer")
+	}
 
 	postambleBytes, err := postamble.toBytes()
 	if err != nil {
 		return err
 	}
 
-	buf.Append(postambleBytes)
+	output.Append(postambleBytes)
 
 	return nil
 }

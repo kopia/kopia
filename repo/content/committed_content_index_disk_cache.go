@@ -12,6 +12,7 @@ import (
 	"golang.org/x/exp/mmap"
 
 	"github.com/kopia/kopia/internal/cache"
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/logging"
 )
@@ -80,7 +81,7 @@ func (c *diskCommittedContentIndexCache) hasIndexBlobID(ctx context.Context, ind
 	return false, errors.Wrapf(err, "error checking %v", indexBlobID)
 }
 
-func (c *diskCommittedContentIndexCache) addContentToCache(ctx context.Context, indexBlobID blob.ID, data []byte) error {
+func (c *diskCommittedContentIndexCache) addContentToCache(ctx context.Context, indexBlobID blob.ID, data gather.Bytes) error {
 	exists, err := c.hasIndexBlobID(ctx, indexBlobID)
 	if err != nil {
 		return err
@@ -90,7 +91,7 @@ func (c *diskCommittedContentIndexCache) addContentToCache(ctx context.Context, 
 		return nil
 	}
 
-	tmpFile, err := writeTempFileAtomic(c.dirname, data)
+	tmpFile, err := writeTempFileAtomic(c.dirname, data.ToByteSlice())
 	if err != nil {
 		return err
 	}

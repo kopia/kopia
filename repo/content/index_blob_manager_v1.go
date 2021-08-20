@@ -65,10 +65,12 @@ func (m *indexBlobManagerV1) compactEpoch(ctx context.Context, blobIDs []blob.ID
 		}
 	}
 
-	dataShards, err := tmpbld.buildShards(m.indexVersion, true, m.indexShardSize)
+	dataShards, cleanupShards, err := tmpbld.buildShards(m.indexVersion, true, m.indexShardSize)
 	if err != nil {
 		return errors.Wrap(err, "unable to build index dataShards")
 	}
+
+	defer cleanupShards()
 
 	var rnd [8]byte
 
@@ -78,13 +80,18 @@ func (m *indexBlobManagerV1) compactEpoch(ctx context.Context, blobIDs []blob.ID
 
 	sessionID := fmt.Sprintf("s%x-c%v", rnd[:], len(dataShards))
 
+	var data2 gather.WriteBuffer
+	defer data2.Close()
+
 	for _, data := range dataShards {
-		blobID, data2, err := m.enc.crypter.EncryptBLOB(data, outputPrefix, SessionID(sessionID))
+		data2.Reset()
+
+		blobID, err := m.enc.crypter.EncryptBLOB(data, outputPrefix, SessionID(sessionID), &data2)
 		if err != nil {
 			return errors.Wrap(err, "error encrypting")
 		}
 
-		if err := m.st.PutBlob(ctx, blobID, gather.FromSlice(data2)); err != nil {
+		if err := m.st.PutBlob(ctx, blobID, data2.Bytes()); err != nil {
 			return errors.Wrap(err, "error writing index blob")
 		}
 	}
@@ -92,18 +99,22 @@ func (m *indexBlobManagerV1) compactEpoch(ctx context.Context, blobIDs []blob.ID
 	return nil
 }
 
-func (m *indexBlobManagerV1) writeIndexBlobs(ctx context.Context, dataShards [][]byte, sessionID SessionID) ([]blob.Metadata, error) {
+func (m *indexBlobManagerV1) writeIndexBlobs(ctx context.Context, dataShards []gather.Bytes, sessionID SessionID) ([]blob.Metadata, error) {
 	shards := map[blob.ID]blob.Bytes{}
 
 	sessionID = SessionID(fmt.Sprintf("%v-c%v", sessionID, len(dataShards)))
 
 	for _, data := range dataShards {
-		unprefixedBlobID, data2, err := m.enc.crypter.EncryptBLOB(data, "", sessionID)
+		// important - we're intentionally using data2 in the inner loop scheduling multiple Close()
+		data2 := gather.NewWriteBuffer()
+		defer data2.Close()
+
+		unprefixedBlobID, err := m.enc.crypter.EncryptBLOB(data, "", sessionID, data2)
 		if err != nil {
 			return nil, errors.Wrap(err, "error encrypting")
 		}
 
-		shards[unprefixedBlobID] = gather.FromSlice(data2)
+		shards[unprefixedBlobID] = data2.Bytes()
 	}
 
 	// nolint:wrapcheck

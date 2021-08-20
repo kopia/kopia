@@ -245,10 +245,6 @@ func (r *directRepository) Close(ctx context.Context) error {
 	default:
 	}
 
-	if err := r.omgr.Close(); err != nil {
-		return errors.Wrap(err, "error closing object manager")
-	}
-
 	// this will release shared manager and MAY release blob.Store (on last outstanding reference).
 	if err := r.cmgr.Close(ctx); err != nil {
 		return errors.Wrap(err, "error closing content-addressable storage manager")

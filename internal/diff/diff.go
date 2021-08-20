@@ -287,9 +287,7 @@ func downloadFile(ctx context.Context, f fs.File, fname string) error {
 
 	defer dst.Close() //nolint:errcheck,gosec
 
-	_, err = iocopy.Copy(dst, src)
-
-	return errors.Wrap(err, "error downloading file")
+	return errors.Wrap(iocopy.JustCopy(dst, src), "error downloading file")
 }
 
 func (c *Comparer) output(msg string, args ...interface{}) {

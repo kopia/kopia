@@ -5,41 +5,47 @@ import (
 	"crypto/rand"
 
 	"github.com/pkg/errors"
+
+	"github.com/kopia/kopia/internal/gather"
 )
 
 // aeadSealWithRandomNonce returns AEAD-sealed content prepended with random nonce.
-func aeadSealWithRandomNonce(result []byte, a cipher.AEAD, plaintext, contentID []byte) ([]byte, error) {
-	resultLen := len(plaintext) + a.NonceSize() + a.Overhead()
+func aeadSealWithRandomNonce(a cipher.AEAD, plaintext gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {
+	resultLen := plaintext.Length() + a.NonceSize() + a.Overhead()
 
-	if cap(result) < resultLen {
-		// result slice too small, make a new one
-		result = make([]byte, 0, resultLen)
-	}
+	var tmp gather.WriteBuffer
+	defer tmp.Close()
 
-	result = result[0:a.NonceSize()]
+	buf := tmp.MakeContiguous(resultLen)
+	nonce, rest := buf[0:a.NonceSize()], buf[a.NonceSize():a.NonceSize()]
 
-	n, err := rand.Read(result)
+	n, err := rand.Read(nonce)
 	if err != nil {
-		return nil, errors.Wrap(err, "unable to initialize nonce")
+		return errors.Wrap(err, "unable to initialize nonce")
 	}
 
 	if n != a.NonceSize() {
-		return nil, errors.Errorf("did not read exactly %v bytes, got %v", a.NonceSize(), n)
+		return errors.Errorf("did not read exactly %v bytes, got %v", a.NonceSize(), n)
 	}
 
-	return a.Seal(result, result[0:a.NonceSize()], plaintext, contentID), nil
+	a.Seal(rest, nonce, plaintext.ToByteSlice(), contentID)
+	output.Append(buf)
+
+	return nil
 }
 
 // aeadOpenPrefixedWithNonce opens AEAD-protected content, assuming first bytes are the nonce.
-func aeadOpenPrefixedWithNonce(output []byte, a cipher.AEAD, ciphertext, contentID []byte) ([]byte, error) {
-	if len(ciphertext) < a.NonceSize() {
-		return nil, errors.Errorf("ciphertext too short")
+func aeadOpenPrefixedWithNonce(a cipher.AEAD, ciphertext gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {
+	if ciphertext.Length() < a.NonceSize()+a.Overhead() {
+		return errors.Errorf("ciphertext too short: %v", ciphertext.Length())
 	}
 
-	v, err := a.Open(output[:0], ciphertext[0:a.NonceSize()], ciphertext[a.NonceSize():], contentID)
-	if err != nil {
-		return nil, errors.Errorf("unable to decrypt content")
+	input := ciphertext.ToByteSlice()
+	outbuf := output.MakeContiguous(ciphertext.Length() - a.NonceSize() - a.Overhead())
+
+	if _, err := a.Open(outbuf[:0], input[0:a.NonceSize()], input[a.NonceSize():], contentID); err != nil {
+		return errors.Errorf("unable to decrypt content")
 	}
 
-	return v, nil
+	return nil
 }

@@ -7,6 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 )
 
@@ -23,11 +24,11 @@ func (m *memoryCommittedContentIndexCache) hasIndexBlobID(ctx context.Context, i
 	return m.contents[indexBlobID] != nil, nil
 }
 
-func (m *memoryCommittedContentIndexCache) addContentToCache(ctx context.Context, indexBlobID blob.ID, data []byte) error {
+func (m *memoryCommittedContentIndexCache) addContentToCache(ctx context.Context, indexBlobID blob.ID, data gather.Bytes) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	ndx, err := openPackIndex(bytes.NewReader(data), m.v1PerContentOverhead)
+	ndx, err := openPackIndex(bytes.NewReader(data.ToByteSlice()), m.v1PerContentOverhead)
 	if err != nil {
 		return err
 	}

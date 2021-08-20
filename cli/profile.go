@@ -1,5 +1,3 @@
-// +build profiling
-
 package cli
 
 import (
@@ -30,12 +28,15 @@ func (c *profileFlags) withProfiling(callback func() error) error {
 		if c.profileMemory > 0 {
 			defer profile.Start(pp, profile.MemProfileRate(c.profileMemory)).Stop()
 		}
+
 		if c.profileCPU {
 			defer profile.Start(pp, profile.CPUProfile).Stop()
 		}
+
 		if c.profileBlocking {
 			defer profile.Start(pp, profile.BlockProfile).Stop()
 		}
+
 		if c.profileMutex {
 			defer profile.Start(pp, profile.MutexProfile).Stop()
 		}

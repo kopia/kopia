@@ -20,6 +20,8 @@ import (
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
 
+	"github.com/kopia/kopia/internal/gather"
+	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/internal/retry"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/retrying"
@@ -202,53 +204,48 @@ func (s *sftpImpl) closeAllConnections(ctx context.Context) {
 	s.allConn = nil
 }
 
-func (s *sftpImpl) GetBlobFromPath(ctx context.Context, dirPath, fullPath string, offset, length int64) ([]byte, error) {
-	v, err := s.usingClient(ctx, "GetBlobFromPath", func(cli *sftp.Client) (interface{}, error) {
+func (s *sftpImpl) GetBlobFromPath(ctx context.Context, dirPath, fullPath string, offset, length int64, output *gather.WriteBuffer) error {
+	return s.usingClientNoResult(ctx, "GetBlobFromPath", func(cli *sftp.Client) error {
 		r, err := cli.Open(fullPath)
 		if isNotExist(err) {
-			return nil, blob.ErrBlobNotFound
+			return blob.ErrBlobNotFound
 		}
 
 		if err != nil {
-			return nil, errors.Wrapf(err, "unrecognized error when opening SFTP file %v", fullPath)
+			return errors.Wrapf(err, "unrecognized error when opening SFTP file %v", fullPath)
 		}
 		defer r.Close() //nolint:errcheck
 
 		if length < 0 {
 			// read entire blob
+			output.Reset()
+
 			// nolint:wrapcheck
-			return ioutil.ReadAll(r)
+			return iocopy.JustCopy(output, r)
 		}
 
 		// parial read, seek to the provided offset and read given number of bytes.
 		if _, err = r.Seek(offset, io.SeekStart); err != nil {
-			return nil, errors.Wrapf(blob.ErrInvalidRange, "seek error: %v", err)
+			return errors.Wrapf(blob.ErrInvalidRange, "seek error: %v", err)
 		}
 
-		b := make([]byte, length)
-
-		if _, err := r.Read(b); err != nil {
+		if err := iocopy.JustCopy(output, io.LimitReader(r, length)); err != nil {
 			var se *sftp.StatusError
 
 			if errors.As(err, &se) {
-				return nil, blob.ErrInvalidRange
+				return blob.ErrInvalidRange
 			}
 
 			if errors.Is(err, io.EOF) {
-				return nil, blob.ErrInvalidRange
+				return blob.ErrInvalidRange
 			}
 
-			return nil, errors.Wrap(err, "read error")
+			return errors.Wrap(err, "read error")
 		}
 
 		// nolint:wrapcheck
-		return blob.EnsureLengthExactly(b, length)
+		return blob.EnsureLengthExactly(output.Length(), length)
 	})
-	if err != nil {
-		return nil, err
-	}
-
-	return v.([]byte), nil
 }
 
 func (s *sftpImpl) GetMetadataFromPath(ctx context.Context, dirPath, fullPath string) (blob.Metadata, error) {

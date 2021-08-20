@@ -22,27 +22,27 @@ func TestCompressor(t *testing.T) {
 
 			var cData bytes.Buffer
 
-			if err := comp.Compress(&cData, data); err != nil {
+			if err := comp.Compress(&cData, bytes.NewReader(data)); err != nil {
 				t.Fatalf("compression error %v", err)
 				return
 			}
 
 			if cData.Len() >= len(data) {
-				t.Errorf("compression not effective for all-zero data")
+				t.Errorf("compression not effective for all-zero data (len: %v, expected less than %v)", cData.Len(), len(data))
 			}
 
 			for id2, comp2 := range ByHeaderID {
 				if id != id2 {
 					var dData bytes.Buffer
 
-					if err2 := comp2.Decompress(&dData, cData.Bytes()); err2 == nil {
+					if err2 := comp2.Decompress(&dData, bytes.NewReader(cData.Bytes()), true); err2 == nil {
 						t.Errorf("compressor %x was able to decompress results of %x", id2, id)
 					}
 				}
 			}
 
 			var data2 bytes.Buffer
-			if err := comp.Decompress(&data2, cData.Bytes()); err != nil {
+			if err := comp.Decompress(&data2, bytes.NewReader(cData.Bytes()), true); err != nil {
 				t.Fatalf("decompression error %v", err)
 			}
 
@@ -60,7 +60,7 @@ func TestCompressor(t *testing.T) {
 
 			var cData bytes.Buffer
 
-			err := comp.Compress(&cData, data)
+			err := comp.Compress(&cData, bytes.NewReader(data))
 			if err != nil {
 				t.Fatalf("compression error %v", err)
 				return
@@ -71,7 +71,7 @@ func TestCompressor(t *testing.T) {
 			}
 
 			var data2 bytes.Buffer
-			if err := comp.Decompress(&data2, cData.Bytes()); err != nil {
+			if err := comp.Decompress(&data2, &cData, true); err != nil {
 				t.Fatalf("decompression error %v", err)
 			}
 
@@ -134,10 +134,13 @@ func compressionBenchmark(b *testing.B, comp Compressor, input []byte, output *b
 	b.Helper()
 	b.ReportAllocs()
 
+	rdr := bytes.NewReader(input)
+
 	for i := 0; i < b.N; i++ {
 		output.Reset()
+		rdr.Reset(input)
 
-		if err := comp.Compress(output, input); err != nil {
+		if err := comp.Compress(output, rdr); err != nil {
 			b.Fatalf("compression error %v", err)
 			return
 		}
@@ -148,10 +151,14 @@ func decompressionBenchmark(b *testing.B, comp Compressor, input []byte, output 
 	b.Helper()
 	b.ReportAllocs()
 
+	rdr := bytes.NewReader(input)
+
 	for i := 0; i < b.N; i++ {
 		output.Reset()
 
-		if err := comp.Decompress(output, input); err != nil {
+		rdr.Reset(input)
+
+		if err := comp.Decompress(output, rdr, true); err != nil {
 			b.Fatalf("compression error %v", err)
 			return
 		}

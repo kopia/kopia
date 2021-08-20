@@ -7,6 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
 )
@@ -28,8 +29,10 @@ func Connect(ctx context.Context, configFile string, st blob.Storage, password s
 		opt = &ConnectOptions{}
 	}
 
-	formatBytes, err := st.GetBlob(ctx, FormatBlobID, 0, -1)
-	if err != nil {
+	var formatBytes gather.WriteBuffer
+	defer formatBytes.Close()
+
+	if err := st.GetBlob(ctx, FormatBlobID, 0, -1, &formatBytes); err != nil {
 		if errors.Is(err, blob.ErrBlobNotFound) {
 			return ErrRepositoryNotInitialized
 		}
@@ -37,7 +40,7 @@ func Connect(ctx context.Context, configFile string, st blob.Storage, password s
 		return errors.Wrap(err, "unable to read format blob")
 	}
 
-	f, err := parseFormatBlob(formatBytes)
+	f, err := parseFormatBlob(formatBytes.ToByteSlice())
 	if err != nil {
 		return err
 	}

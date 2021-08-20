@@ -6,6 +6,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/cache"
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 )
 
@@ -24,14 +25,14 @@ func adjustCacheKey(cacheKey cacheKey) cacheKey {
 	return cacheKey
 }
 
-func (c *contentCacheForData) getContent(ctx context.Context, cacheKey cacheKey, blobID blob.ID, offset, length int64) ([]byte, error) {
+func (c *contentCacheForData) getContent(ctx context.Context, cacheKey cacheKey, blobID blob.ID, offset, length int64, output *gather.WriteBuffer) error {
 	cacheKey = adjustCacheKey(cacheKey)
 
 	// nolint:wrapcheck
-	return c.pc.GetOrLoad(ctx, string(cacheKey), func() ([]byte, error) {
+	return c.pc.GetOrLoad(ctx, string(cacheKey), func(output *gather.WriteBuffer) error {
 		// nolint:wrapcheck
-		return c.st.GetBlob(ctx, blobID, offset, length)
-	})
+		return c.st.GetBlob(ctx, blobID, offset, length, output)
+	}, output)
 }
 
 func (c *contentCacheForData) close(ctx context.Context) {

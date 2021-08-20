@@ -15,6 +15,7 @@ import (
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
@@ -77,7 +78,10 @@ func TestRCloneStorage(t *testing.T) {
 	// described in https://github.com/kopia/kopia/issues/624
 	for i := 0; i < 100; i++ {
 		eg.Go(func() error {
-			if _, err := st.GetBlob(ctx, blob.ID(uuid.New().String()), 0, -1); !errors.Is(err, blob.ErrBlobNotFound) {
+			var tmp gather.WriteBuffer
+			defer tmp.Close()
+
+			if err := st.GetBlob(ctx, blob.ID(uuid.New().String()), 0, -1, &tmp); !errors.Is(err, blob.ErrBlobNotFound) {
 				return errors.Errorf("unexpected error when downloading non-existent blob: %v", err)
 			}
 

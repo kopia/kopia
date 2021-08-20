@@ -81,10 +81,13 @@ func (c *commandBenchmarkCompression) run(ctx context.Context) error {
 			compressed     bytes.Buffer
 		)
 
+		input := bytes.NewReader(nil)
+
 		for i := 0; i < cnt; i++ {
 			compressed.Reset()
+			input.Reset(data)
 
-			if err := comp.Compress(&compressed, data); err != nil {
+			if err := comp.Compress(&compressed, input); err != nil {
 				log(ctx).Errorf("compression %q failed: %v", name, err)
 				continue
 			}

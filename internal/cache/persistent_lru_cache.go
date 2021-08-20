@@ -46,55 +46,55 @@ type PersistentCache struct {
 
 // GetOrLoad is utility function gets the provided item from the cache or invokes the provided fetch function.
 // The function also appends and verifies HMAC checksums using provided secret on all cached items to ensure data integrity.
-func (c *PersistentCache) GetOrLoad(ctx context.Context, key string, fetch func() ([]byte, error)) ([]byte, error) {
+func (c *PersistentCache) GetOrLoad(ctx context.Context, key string, fetch func(output *gather.WriteBuffer) error, output *gather.WriteBuffer) error {
 	if c == nil {
 		// special case - also works on non-initialized cache pointer.
-		return fetch()
+		return fetch(output)
 	}
 
-	if b := c.Get(ctx, key, 0, -1); b != nil {
-		return b, nil
+	if c.Get(ctx, key, 0, -1, output) {
+		return nil
 	}
 
-	b, err := fetch()
-	if err != nil {
+	if err := fetch(output); err != nil {
 		stats.Record(ctx, MetricMissErrors.M(1))
 
-		return nil, err
+		return err
 	}
 
-	stats.Record(ctx, MetricMissBytes.M(int64(len(b))))
+	stats.Record(ctx, MetricMissBytes.M(int64(output.Length())))
 
-	c.Put(ctx, key, b)
+	c.Put(ctx, key, output.Bytes())
 
-	return b, nil
+	return nil
 }
 
 // Get fetches the contents of a cached blob when (length < 0) or a subset of it (when length >= 0).
 // returns nil if not found.
-func (c *PersistentCache) Get(ctx context.Context, key string, offset, length int64) []byte {
+func (c *PersistentCache) Get(ctx context.Context, key string, offset, length int64, output *gather.WriteBuffer) bool {
 	if c == nil {
-		return nil
+		return false
 	}
 
 	if length >= 0 && !c.storageProtection.SupportsPartial() {
-		return nil
+		return false
 	}
 
-	v, err := c.cacheStorage.GetBlob(ctx, blob.ID(key), offset, length)
-	if err == nil {
-		vb, err := c.storageProtection.Verify(key, v)
-		if err == nil {
+	var tmp gather.WriteBuffer
+	defer tmp.Close()
+
+	if err := c.cacheStorage.GetBlob(ctx, blob.ID(key), offset, length, &tmp); err == nil {
+		if err := c.storageProtection.Verify(key, tmp.Bytes(), output); err == nil {
 			// cache hit
 			stats.Record(ctx,
 				MetricHitCount.M(1),
-				MetricHitBytes.M(int64(len(vb))),
+				MetricHitBytes.M(int64(output.Length())),
 			)
 
 			// cache hit
 			c.cacheStorage.TouchBlob(ctx, blob.ID(key), c.touchThreshold) //nolint:errcheck
 
-			return vb
+			return true
 		}
 
 		// delete invalid blob
@@ -108,18 +108,23 @@ func (c *PersistentCache) Get(ctx context.Context, key string, offset, length in
 	// cache miss
 	stats.Record(ctx, MetricMissCount.M(1))
 
-	return nil
+	return false
 }
 
 // Put adds the provided key-value pair to the cache.
-func (c *PersistentCache) Put(ctx context.Context, key string, data []byte) {
+func (c *PersistentCache) Put(ctx context.Context, key string, data gather.Bytes) {
 	if c == nil {
 		return
 	}
 
 	atomic.StoreInt32(&c.anyChange, 1)
 
-	if err := c.cacheStorage.PutBlob(ctx, blob.ID(key), gather.FromSlice(c.storageProtection.Protect(key, data))); err != nil {
+	var protected gather.WriteBuffer
+	defer protected.Close()
+
+	c.storageProtection.Protect(key, data, &protected)
+
+	if err := c.cacheStorage.PutBlob(ctx, blob.ID(key), protected.Bytes()); err != nil {
 		stats.Record(ctx, MetricStoreErrors.M(1))
 
 		log(ctx).Errorf("unable to add %v to %v: %v", key, c.description, err)

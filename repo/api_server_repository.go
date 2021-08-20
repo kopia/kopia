@@ -13,6 +13,7 @@ import (
 	"github.com/kopia/kopia/internal/apiclient"
 	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/remoterepoapi"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content"
@@ -171,16 +172,26 @@ func (r *apiServerRepository) ContentInfo(ctx context.Context, contentID content
 }
 
 func (r *apiServerRepository) GetContent(ctx context.Context, contentID content.ID) ([]byte, error) {
-	// nolint:wrapcheck
-	return r.contentCache.GetOrLoad(ctx, string(contentID), func() ([]byte, error) {
+	var tmp gather.WriteBuffer
+	defer tmp.Close()
+
+	err := r.contentCache.GetOrLoad(ctx, string(contentID), func(output *gather.WriteBuffer) error {
 		var result []byte
 
 		if err := r.cli.Get(ctx, "contents/"+string(contentID), content.ErrContentNotFound, &result); err != nil {
-			return nil, errors.Wrap(err, "GetContent")
+			return errors.Wrap(err, "GetContent")
 		}
 
-		return result, nil
-	})
+		tmp.Write(result) // nolint:errcheck
+
+		return nil
+	}, &tmp)
+	if err != nil {
+		// nolint:wrapcheck
+		return nil, err
+	}
+
+	return tmp.ToByteSlice(), nil
 }
 
 func (r *apiServerRepository) WriteContent(ctx context.Context, data []byte, prefix content.ID, comp compression.HeaderID) (content.ID, error) {
@@ -190,7 +201,7 @@ func (r *apiServerRepository) WriteContent(ctx context.Context, data []byte, pre
 
 	var hashOutput [128]byte
 
-	contentID := prefix + content.ID(hex.EncodeToString(r.h(hashOutput[:0], data)))
+	contentID := prefix + content.ID(hex.EncodeToString(r.h(hashOutput[:0], gather.FromSlice(data))))
 
 	// avoid uploading the content body if it already exists.
 	if _, err := r.ContentInfo(ctx, contentID); err == nil {
@@ -211,7 +222,7 @@ func (r *apiServerRepository) WriteContent(ctx context.Context, data []byte, pre
 
 	if prefix != "" {
 		// add all prefixed contents to the cache.
-		r.contentCache.Put(ctx, string(contentID), data)
+		r.contentCache.Put(ctx, string(contentID), gather.FromSlice(data))
 	}
 
 	return contentID, nil
@@ -223,14 +234,6 @@ func (r *apiServerRepository) UpdateDescription(d string) {
 }
 
 func (r *apiServerRepository) Close(ctx context.Context) error {
-	if r.omgr != nil {
-		if err := r.omgr.Close(); err != nil {
-			return errors.Wrap(err, "error closing object manager")
-		}
-
-		r.omgr = nil
-	}
-
 	if r.isSharedReadOnlySession && r.contentCache != nil {
 		r.contentCache.Close(ctx)
 		r.contentCache = nil

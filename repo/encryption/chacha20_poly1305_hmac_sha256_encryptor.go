@@ -9,6 +9,8 @@ import (
 
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/chacha20poly1305"
+
+	"github.com/kopia/kopia/internal/gather"
 )
 
 const chacha20poly1305hmacSha256EncryptorOverhead = 28
@@ -38,22 +40,22 @@ func (e chacha20poly1305hmacSha256Encryptor) aeadForContent(contentID []byte) (c
 	return chacha20poly1305.New(key)
 }
 
-func (e chacha20poly1305hmacSha256Encryptor) Decrypt(output, input, contentID []byte) ([]byte, error) {
+func (e chacha20poly1305hmacSha256Encryptor) Decrypt(input gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {
 	a, err := e.aeadForContent(contentID)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return aeadOpenPrefixedWithNonce(output, a, input, contentID)
+	return aeadOpenPrefixedWithNonce(a, input, contentID, output)
 }
 
-func (e chacha20poly1305hmacSha256Encryptor) Encrypt(output, input, contentID []byte) ([]byte, error) {
+func (e chacha20poly1305hmacSha256Encryptor) Encrypt(input gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {
 	a, err := e.aeadForContent(contentID)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return aeadSealWithRandomNonce(output, a, input, contentID)
+	return aeadSealWithRandomNonce(a, input, contentID, output)
 }
 
 func (e chacha20poly1305hmacSha256Encryptor) Overhead() int {

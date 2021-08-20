@@ -18,6 +18,8 @@ import (
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/gather"
+	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/retrying"
 )
@@ -36,47 +38,52 @@ type s3Storage struct {
 	uploadThrottler   *iothrottler.IOThrottlerPool
 }
 
-func (s *s3Storage) GetBlob(ctx context.Context, b blob.ID, offset, length int64) ([]byte, error) {
-	attempt := func() ([]byte, error) {
+func (s *s3Storage) GetBlob(ctx context.Context, b blob.ID, offset, length int64, output *gather.WriteBuffer) error {
+	output.Reset()
+
+	attempt := func() error {
 		var opt minio.GetObjectOptions
 
 		if length > 0 {
 			if err := opt.SetRange(offset, offset+length-1); err != nil {
-				return nil, errors.Wrap(blob.ErrInvalidRange, "unable to set range")
+				return errors.Wrap(blob.ErrInvalidRange, "unable to set range")
+			}
+		}
+
+		if length == 0 {
+			// zero-length ranges require special handling, set non-zero range and
+			// we won't be trying to read the response anyway.
+			if err := opt.SetRange(0, 1); err != nil {
+				return errors.Wrap(blob.ErrInvalidRange, "unable to set range")
 			}
 		}
 
 		o, err := s.cli.GetObject(ctx, s.BucketName, s.getObjectNameString(b), opt)
 		if err != nil {
-			return nil, errors.Wrap(err, "GetObject")
+			return errors.Wrap(err, "GetObject")
 		}
 
 		defer o.Close() //nolint:errcheck
 
 		throttled, err := s.downloadThrottler.AddReader(o)
 		if err != nil {
-			return nil, errors.Wrap(err, "AddReader")
-		}
-
-		v, err := ioutil.ReadAll(throttled)
-		if err != nil {
-			return nil, errors.Wrap(err, "ReadAll")
+			return errors.Wrap(err, "AddReader")
 		}
 
 		if length == 0 {
-			return []byte{}, nil
+			return nil
 		}
 
-		return v, nil
+		// nolint:wrapcheck
+		return iocopy.JustCopy(output, throttled)
 	}
 
-	fetched, err := attempt()
-	if err != nil {
-		return nil, translateError(err)
+	if err := attempt(); err != nil {
+		return translateError(err)
 	}
 
 	// nolint:wrapcheck
-	return blob.EnsureLengthExactly(fetched, length)
+	return blob.EnsureLengthExactly(output.Length(), length)
 }
 
 func translateError(err error) error {

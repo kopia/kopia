@@ -1,11 +1,11 @@
 package cli
 
 import (
-	"bytes"
 	"context"
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo"
 )
 
@@ -57,19 +57,23 @@ func (c *commandLogsShow) run(ctx context.Context, rep repo.DirectRepository) er
 		log(ctx).Infof("Showing latest log (%v)", formatTimestamp(sessions[0].startTime))
 	}
 
+	var data gather.WriteBuffer
+	defer data.Close()
+
+	var decrypted gather.WriteBuffer
+	defer decrypted.Close()
+
 	for _, s := range sessions {
 		for _, bm := range s.segments {
-			data, err := rep.BlobReader().GetBlob(ctx, bm.BlobID, 0, -1)
-			if err != nil {
+			if err := rep.BlobReader().GetBlob(ctx, bm.BlobID, 0, -1, &data); err != nil {
 				return errors.Wrap(err, "error getting log")
 			}
 
-			data, err = rep.Crypter().DecryptBLOB(data, bm.BlobID)
-			if err != nil {
+			if err := rep.Crypter().DecryptBLOB(data.Bytes(), bm.BlobID, &decrypted); err != nil {
 				return errors.Wrap(err, "error decrypting log")
 			}
 
-			if err := showContentWithFlags(c.out.stdout(), bytes.NewReader(data), true, false); err != nil {
+			if err := showContentWithFlags(c.out.stdout(), decrypted.Bytes().Reader(), true, false); err != nil {
 				log(ctx).Errorf("error showing log: %v", err)
 			}
 		}

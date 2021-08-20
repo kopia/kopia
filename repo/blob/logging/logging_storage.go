@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 )
 
@@ -17,19 +18,19 @@ type loggingStorage struct {
 	prefix string
 }
 
-func (s *loggingStorage) GetBlob(ctx context.Context, id blob.ID, offset, length int64) ([]byte, error) {
+func (s *loggingStorage) GetBlob(ctx context.Context, id blob.ID, offset, length int64, output *gather.WriteBuffer) error {
 	t0 := clock.Now()
-	result, err := s.base.GetBlob(ctx, id, offset, length)
+	err := s.base.GetBlob(ctx, id, offset, length, output)
 	dt := clock.Since(t0)
 
-	if len(result) < maxLoggedBlobLength {
-		s.printf(s.prefix+"GetBlob(%q,%v,%v)=(%v, %#v) took %v", id, offset, length, result, err, dt)
+	if output.Length() < maxLoggedBlobLength {
+		s.printf(s.prefix+"GetBlob(%q,%v,%v)=(%v, %#v) took %v", id, offset, length, output, err, dt)
 	} else {
-		s.printf(s.prefix+"GetBlob(%q,%v,%v)=({%v bytes}, %#v) took %v", id, offset, length, len(result), err, dt)
+		s.printf(s.prefix+"GetBlob(%q,%v,%v)=({%v bytes}, %#v) took %v", id, offset, length, output.Length(), err, dt)
 	}
 
 	// nolint:wrapcheck
-	return result, err
+	return err
 }
 
 func (s *loggingStorage) GetMetadata(ctx context.Context, id blob.ID) (blob.Metadata, error) {

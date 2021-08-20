@@ -18,6 +18,7 @@ import (
 	"gocloud.dev/gcerrors"
 
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/retrying"
@@ -38,35 +39,34 @@ type azStorage struct {
 	uploadThrottler   *iothrottler.IOThrottlerPool
 }
 
-func (az *azStorage) GetBlob(ctx context.Context, b blob.ID, offset, length int64) ([]byte, error) {
+func (az *azStorage) GetBlob(ctx context.Context, b blob.ID, offset, length int64, output *gather.WriteBuffer) error {
 	if offset < 0 {
-		return nil, errors.Wrap(blob.ErrInvalidRange, "invalid offset")
+		return errors.Wrap(blob.ErrInvalidRange, "invalid offset")
 	}
 
-	attempt := func() ([]byte, error) {
+	attempt := func() error {
 		reader, err := az.bucket.NewRangeReader(ctx, az.getObjectNameString(b), offset, length, nil)
 		if err != nil {
-			return nil, errors.Wrap(err, "NewRangeReader")
+			return errors.Wrap(err, "NewRangeReader")
 		}
 
 		defer reader.Close() //nolint:errcheck
 
 		throttled, err := az.downloadThrottler.AddReader(reader)
 		if err != nil {
-			return nil, errors.Wrap(err, "AddReader")
+			return errors.Wrap(err, "AddReader")
 		}
 
 		// nolint:wrapcheck
-		return ioutil.ReadAll(throttled)
+		return iocopy.JustCopy(output, throttled)
 	}
 
-	fetched, err := attempt()
-	if err != nil {
-		return nil, translateError(err)
+	if err := attempt(); err != nil {
+		return translateError(err)
 	}
 
 	// nolint:wrapcheck
-	return blob.EnsureLengthExactly(fetched, length)
+	return blob.EnsureLengthExactly(output.Length(), length)
 }
 
 func (az *azStorage) GetMetadata(ctx context.Context, b blob.ID) (blob.Metadata, error) {
@@ -123,8 +123,7 @@ func (az *azStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes) er
 		return err
 	}
 
-	_, err = iocopy.Copy(writer, throttled)
-	if err != nil {
+	if err := iocopy.JustCopy(writer, throttled); err != nil {
 		// cancel context before closing the writer causes it to abandon the upload.
 		cancel()
 

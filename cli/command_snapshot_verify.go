@@ -194,9 +194,7 @@ func (v *verifier) readEntireObject(ctx context.Context, oid object.ID, path str
 	}
 	defer r.Close() //nolint:errcheck
 
-	_, err = iocopy.Copy(ioutil.Discard, r)
-
-	return errors.Wrap(err, "unable to read data")
+	return errors.Wrap(iocopy.JustCopy(ioutil.Discard, r), "unable to read data")
 }
 
 func (c *commandSnapshotVerify) run(ctx context.Context, rep repo.Repository) error {

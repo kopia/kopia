@@ -5,6 +5,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
@@ -106,12 +107,14 @@ func (c *commandIndexInspect) inspectSingleIndexBlob(ctx context.Context, rep re
 		return errors.Wrapf(err, "unable to get metadata for %v", blobID)
 	}
 
-	data, err := rep.BlobReader().GetBlob(ctx, blobID, 0, -1)
-	if err != nil {
+	var data gather.WriteBuffer
+	defer data.Close()
+
+	if err = rep.BlobReader().GetBlob(ctx, blobID, 0, -1, &data); err != nil {
 		return errors.Wrapf(err, "unable to get data for %v", blobID)
 	}
 
-	entries, err := content.ParseIndexBlob(ctx, blobID, data, rep.Crypter())
+	entries, err := content.ParseIndexBlob(ctx, blobID, data.Bytes(), rep.Crypter())
 	if err != nil {
 		return errors.Wrapf(err, "unable to recover index from %v", blobID)
 	}

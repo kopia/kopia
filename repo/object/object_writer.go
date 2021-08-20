@@ -1,7 +1,6 @@
 package object
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"io"
@@ -9,7 +8,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/internal/buf"
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/logging"
@@ -69,8 +68,7 @@ type objectWriter struct {
 	compressor compression.Compressor
 
 	prefix      content.ID
-	buf         buf.Buf
-	buffer      *bytes.Buffer
+	buffer      gather.WriteBuffer
 	totalLength int64
 
 	currentPosition int64
@@ -93,16 +91,9 @@ type objectWriter struct {
 	contentWriteError      error // stores async write error, propagated in Result()
 }
 
-func (w *objectWriter) initBuffer() {
-	w.buf = w.om.bufferPool.Allocate(w.splitter.MaxSegmentSize())
-	w.buffer = bytes.NewBuffer(w.buf.Data[:0])
-}
-
 func (w *objectWriter) Close() error {
 	// wait for any async writes to complete
 	w.asyncWritesWG.Wait()
-
-	w.buf.Release()
 
 	if w.splitter != nil {
 		w.splitter.Close()
@@ -122,12 +113,17 @@ func (w *objectWriter) Write(data []byte) (n int, err error) {
 		n := w.splitter.NextSplitPoint(data)
 		if n < 0 {
 			// no split points in the buffer
-			w.buffer.Write(data)
+			if _, err := w.buffer.Write(data); err != nil {
+				return 0, errors.Wrap(err, "error writing to buffer")
+			}
+
 			break
 		}
 
 		// found a split point after `n` bytes, write first n bytes then flush and repeat with the remainder.
-		w.buffer.Write(data[0:n])
+		if _, err := w.buffer.Write(data[0:n]); err != nil {
+			return 0, errors.Wrap(err, "error writing to buffer")
+		}
 
 		if err := w.flushBuffer(); err != nil {
 			return 0, err
@@ -140,7 +136,7 @@ func (w *objectWriter) Write(data []byte) (n int, err error) {
 }
 
 func (w *objectWriter) flushBuffer() error {
-	length := w.buffer.Len()
+	length := w.buffer.Length()
 
 	// hold a lock as we may grow the index
 	w.indirectIndexGrowMutex.Lock()
@@ -161,20 +157,20 @@ func (w *objectWriter) flushBuffer() error {
 	w.asyncWritesSemaphore <- struct{}{}
 	w.asyncWritesWG.Add(1)
 
-	asyncBuf := w.om.bufferPool.Allocate(length)
-
-	// nolint:gocritic
-	asyncBytes := append(asyncBuf.Data[:0], w.buffer.Bytes()...)
+	asyncBuf := gather.NewWriteBuffer()
+	if _, err := w.buffer.Bytes().WriteTo(asyncBuf); err != nil {
+		return errors.Wrap(err, "error copying buffer for async copy")
+	}
 
 	go func() {
 		defer func() {
 			// release write semaphore and buffer
 			<-w.asyncWritesSemaphore
-			asyncBuf.Release()
+			asyncBuf.Close()
 			w.asyncWritesWG.Done()
 		}()
 
-		if err := w.prepareAndWriteContentChunk(chunkID, asyncBytes); err != nil {
+		if err := w.prepareAndWriteContentChunk(chunkID, asyncBuf.Bytes()); err != nil {
 			log(w.ctx).Errorf("async write error: %v", err)
 
 			_ = w.saveError(err)
@@ -184,11 +180,11 @@ func (w *objectWriter) flushBuffer() error {
 	return nil
 }
 
-func (w *objectWriter) prepareAndWriteContentChunk(chunkID int, data []byte) error {
-	// allocate buffer to hold either compressed bytes or the uncompressed
-	b := w.om.bufferPool.Allocate(len(data) + maxCompressionOverheadPerSegment)
-	defer b.Release()
+func (w *objectWriter) prepareAndWriteContentChunk(chunkID int, data gather.Bytes) error {
+	var b gather.WriteBuffer
+	defer b.Close()
 
+	// allocate buffer to hold either compressed bytes or the uncompressed
 	comp := content.NoCompression
 	objectComp := w.compressor
 
@@ -199,12 +195,12 @@ func (w *objectWriter) prepareAndWriteContentChunk(chunkID int, data []byte) err
 	}
 
 	// contentBytes is what we're going to write to the content manager, it potentially uses bytes from b
-	contentBytes, isCompressed, err := maybeCompressedContentBytes(objectComp, bytes.NewBuffer(b.Data[:0]), data)
+	contentBytes, isCompressed, err := maybeCompressedContentBytes(objectComp, data, &b)
 	if err != nil {
 		return errors.Wrap(err, "unable to prepare content bytes")
 	}
 
-	contentID, err := w.om.contentMgr.WriteContent(w.ctx, contentBytes, w.prefix, comp)
+	contentID, err := w.om.contentMgr.WriteContent(w.ctx, contentBytes.ToByteSlice(), w.prefix, comp)
 	if err != nil {
 		return errors.Wrapf(err, "unable to write content chunk %v of %v: %v", chunkID, w.description, err)
 	}
@@ -238,13 +234,13 @@ func maybeCompressedObjectID(contentID content.ID, isCompressed bool) ID {
 	return oid
 }
 
-func maybeCompressedContentBytes(comp compression.Compressor, output *bytes.Buffer, input []byte) (data []byte, isCompressed bool, err error) {
+func maybeCompressedContentBytes(comp compression.Compressor, input gather.Bytes, output *gather.WriteBuffer) (data gather.Bytes, isCompressed bool, err error) {
 	if comp != nil {
-		if err := comp.Compress(output, input); err != nil {
-			return nil, false, errors.Wrap(err, "compression error")
+		if err := comp.Compress(output, input.Reader()); err != nil {
+			return gather.Bytes{}, false, errors.Wrap(err, "compression error")
 		}
 
-		if output.Len() < len(input) {
+		if output.Length() < input.Length() {
 			return output.Bytes(), true, nil
 		}
 	}
@@ -258,7 +254,7 @@ func (w *objectWriter) Result() (ID, error) {
 
 	// no need to hold a lock on w.indirectIndexGrowMutex, since growing index only happens synchronously
 	// and never in parallel with calling Result()
-	if w.buffer.Len() > 0 || len(w.indirectIndex) == 0 {
+	if w.buffer.Length() > 0 || len(w.indirectIndex) == 0 {
 		if err := w.flushBuffer(); err != nil {
 			return "", err
 		}
@@ -305,8 +301,6 @@ func (w *objectWriter) checkpointLocked() (ID, error) {
 		// force a prefix for indirect contents to make sure they get packaged into metadata (q) blobs.
 		iw.prefix = indirectContentPrefix
 	}
-
-	iw.initBuffer()
 
 	defer iw.Close() //nolint:errcheck
 

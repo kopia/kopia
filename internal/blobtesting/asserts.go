@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 )
 
@@ -20,11 +21,14 @@ const maxTimeDiffBetweenGetAndList = time.Minute
 func AssertGetBlob(ctx context.Context, t *testing.T, s blob.Storage, blobID blob.ID, expected []byte) {
 	t.Helper()
 
-	b, err := s.GetBlob(ctx, blobID, 0, -1)
+	var b gather.WriteBuffer
+	defer b.Close()
+
+	err := s.GetBlob(ctx, blobID, 0, -1, &b)
 	require.NoErrorf(t, err, "GetBlob(%v)", blobID)
 
-	if !bytes.Equal(b, expected) {
-		t.Fatalf("GetBlob(%v) returned %x, but expected %x", blobID, b, expected)
+	if v := b.ToByteSlice(); !bytes.Equal(v, expected) {
+		t.Fatalf("GetBlob(%v) returned %x, but expected %x", blobID, v, expected)
 	}
 
 	half := int64(len(expected) / 2)
@@ -32,35 +36,35 @@ func AssertGetBlob(ctx context.Context, t *testing.T, s blob.Storage, blobID blo
 		return
 	}
 
-	b, err = s.GetBlob(ctx, blobID, 0, 0)
+	err = s.GetBlob(ctx, blobID, 0, 0, &b)
 	if err != nil {
 		t.Fatalf("GetBlob(%v) returned error %v, expected data: %v", blobID, err, expected)
 		return
 	}
 
-	if len(b) != 0 {
-		t.Fatalf("GetBlob(%v) returned non-zero length: %v", blobID, len(b))
+	if b.Length() != 0 {
+		t.Fatalf("GetBlob(%v) returned non-zero length: %v", blobID, b.Length())
 		return
 	}
 
-	b, err = s.GetBlob(ctx, blobID, 0, half)
+	err = s.GetBlob(ctx, blobID, 0, half, &b)
 	if err != nil {
 		t.Fatalf("GetBlob(%v) returned error %v, expected data: %v", blobID, err, expected)
 		return
 	}
 
-	if !bytes.Equal(b, expected[0:half]) {
-		t.Fatalf("GetBlob(%v) returned %x, but expected %x", blobID, b, expected[0:half])
+	if v := b.ToByteSlice(); !bytes.Equal(v, expected[0:half]) {
+		t.Fatalf("GetBlob(%v) returned %x, but expected %x", blobID, v, expected[0:half])
 	}
 
-	b, err = s.GetBlob(ctx, blobID, half, int64(len(expected))-half)
+	err = s.GetBlob(ctx, blobID, half, int64(len(expected))-half, &b)
 	if err != nil {
 		t.Fatalf("GetBlob(%v) returned error %v, expected data: %v", blobID, err, expected)
 		return
 	}
 
-	if !bytes.Equal(b, expected[len(expected)-int(half):]) {
-		t.Fatalf("GetBlob(%v) returned %x, but expected %x", blobID, b, expected[len(expected)-int(half):])
+	if v := b.ToByteSlice(); !bytes.Equal(v, expected[len(expected)-int(half):]) {
+		t.Fatalf("GetBlob(%v) returned %x, but expected %x", blobID, v, expected[len(expected)-int(half):])
 	}
 
 	AssertInvalidOffsetLength(ctx, t, s, blobID, -3, 1)
@@ -73,7 +77,10 @@ func AssertGetBlob(ctx context.Context, t *testing.T, s blob.Storage, blobID blo
 func AssertInvalidOffsetLength(ctx context.Context, t *testing.T, s blob.Storage, blobID blob.ID, offset, length int64) {
 	t.Helper()
 
-	if _, err := s.GetBlob(ctx, blobID, offset, length); err == nil {
+	var tmp gather.WriteBuffer
+	defer tmp.Close()
+
+	if err := s.GetBlob(ctx, blobID, offset, length, &tmp); err == nil {
 		t.Fatalf("GetBlob(%v,%v,%v) did not return error for invalid offset/length", blobID, offset, length)
 	}
 }
@@ -82,9 +89,12 @@ func AssertInvalidOffsetLength(ctx context.Context, t *testing.T, s blob.Storage
 func AssertGetBlobNotFound(ctx context.Context, t *testing.T, s blob.Storage, blobID blob.ID) {
 	t.Helper()
 
-	b, err := s.GetBlob(ctx, blobID, 0, -1)
-	if !errors.Is(err, blob.ErrBlobNotFound) || b != nil {
-		t.Fatalf("GetBlob(%v) returned %v, %v but expected ErrNotFound", blobID, b, err)
+	var b gather.WriteBuffer
+	defer b.Close()
+
+	err := s.GetBlob(ctx, blobID, 0, -1, &b)
+	if !errors.Is(err, blob.ErrBlobNotFound) || b.Length() != 0 {
+		t.Fatalf("GetBlob(%v) returned %v, %v but expected ErrNotFound", blobID, b.Length(), err)
 	}
 }
 

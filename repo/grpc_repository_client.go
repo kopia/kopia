@@ -19,6 +19,7 @@ import (
 	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/ctxutil"
+	"github.com/kopia/kopia/internal/gather"
 	apipb "github.com/kopia/kopia/internal/grpcapi"
 	"github.com/kopia/kopia/internal/retry"
 	"github.com/kopia/kopia/internal/tlsutil"
@@ -522,23 +523,28 @@ func unhandledSessionResponse(resp *apipb.SessionResponse) error {
 }
 
 func (r *grpcRepositoryClient) GetContent(ctx context.Context, contentID content.ID) ([]byte, error) {
-	b, err := r.contentCache.GetOrLoad(ctx, string(contentID), func() ([]byte, error) {
+	var b gather.WriteBuffer
+	defer b.Close()
+
+	err := r.contentCache.GetOrLoad(ctx, string(contentID), func(output *gather.WriteBuffer) error {
 		v, err := r.maybeRetry(ctx, func(ctx context.Context, sess *grpcInnerSession) (interface{}, error) {
 			return sess.GetContent(ctx, contentID)
 		})
 		if err != nil {
-			return nil, err
+			return err
 		}
 
-		return v.([]byte), nil
-	})
+		_, err = output.Write(v.([]byte))
+
+		// nolint:wrapcheck
+		return err
+	}, &b)
 
 	if err == nil && contentID.HasPrefix() {
 		r.recent.add(contentID)
 	}
 
-	// nolint:wrapcheck
-	return b, err
+	return b.ToByteSlice(), err
 }
 
 func (r *grpcInnerSession) GetContent(ctx context.Context, contentID content.ID) ([]byte, error) {
@@ -583,7 +589,7 @@ func (r *grpcRepositoryClient) doWrite(ctx context.Context, contentID content.ID
 
 	if prefix != "" {
 		// add all prefixed contents to the cache.
-		r.contentCache.Put(ctx, string(contentID), data)
+		r.contentCache.Put(ctx, string(contentID), gather.FromSlice(data))
 	}
 
 	if v.(content.ID) != contentID {
@@ -605,7 +611,7 @@ func (r *grpcRepositoryClient) WriteContent(ctx context.Context, data []byte, pr
 
 	var hashOutput [128]byte
 
-	contentID := prefix + content.ID(hex.EncodeToString(r.h(hashOutput[:0], data)))
+	contentID := prefix + content.ID(hex.EncodeToString(r.h(hashOutput[:0], gather.FromSlice(data))))
 
 	if r.recent.exists(contentID) {
 		return contentID, nil
@@ -664,10 +670,6 @@ func (r *grpcRepositoryClient) Close(ctx context.Context) error {
 	if r.omgr == nil {
 		// already closed
 		return nil
-	}
-
-	if err := r.omgr.Close(); err != nil {
-		return errors.Wrap(err, "error closing object manager")
 	}
 
 	r.omgr = nil

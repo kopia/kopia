@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"testing"
 
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/hashing"
 )
 
@@ -36,9 +37,9 @@ func TestRoundTrip(t *testing.T) {
 			}
 
 			outputBuffer := make([]byte, 0, 256)
-			hash1a := f(nil, data1)
-			hash1b := f(outputBuffer, data1)
-			hash2 := f(nil, data2)
+			hash1a := f(nil, gather.FromSlice(data1))
+			hash1b := f(outputBuffer, gather.FromSlice(data1))
+			hash2 := f(nil, gather.FromSlice(data2))
 
 			if !bytes.Equal(hash1a, hash1b) {
 				t.Fatalf("hashing not stable: %x %x", hash1a, hash1b)

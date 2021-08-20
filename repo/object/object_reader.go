@@ -289,7 +289,7 @@ func newRawReader(ctx context.Context, cr contentReader, objectID ID, assertLeng
 	if compressed {
 		var b bytes.Buffer
 
-		if err = decompress(&b, payload); err != nil {
+		if err = compression.DecompressByHeader(&b, bytes.NewReader(payload)); err != nil {
 			return nil, errors.Wrap(err, "decompression error")
 		}
 
@@ -301,20 +301,6 @@ func newRawReader(ctx context.Context, cr contentReader, objectID ID, assertLeng
 	}
 
 	return newObjectReaderWithData(payload), nil
-}
-
-func decompress(output *bytes.Buffer, b []byte) error {
-	compressorID, err := compression.IDFromHeader(b)
-	if err != nil {
-		return errors.Wrap(err, "invalid compression header")
-	}
-
-	compressor := compression.ByHeaderID[compressorID]
-	if compressor == nil {
-		return errors.Errorf("unsupported compressor %x", compressorID)
-	}
-
-	return errors.Wrap(compressor.Decompress(output, b), "error decompressing")
 }
 
 type readerWithData struct {

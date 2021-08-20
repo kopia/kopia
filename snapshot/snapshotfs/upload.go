@@ -21,6 +21,7 @@ import (
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/ignorefs"
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/repo/object"
@@ -30,8 +31,6 @@ import (
 
 // DefaultCheckpointInterval is the default frequency of mid-upload checkpointing.
 const DefaultCheckpointInterval = 45 * time.Minute
-
-const copyBufferSize = 128 * 1024
 
 var log = logging.GetContextLoggerFunc("snapshotfs")
 
@@ -76,8 +75,6 @@ type Uploader struct {
 	// stats must be allocated on heap to enforce 64-bit alignment due to atomic access on ARM.
 	stats    *snapshot.Stats
 	canceled int32
-
-	uploadBufPool sync.Pool
 
 	getTicker func(time.Duration) <-chan time.Time
 
@@ -263,11 +260,8 @@ func (u *Uploader) uploadStreamingFileInternal(ctx context.Context, relativePath
 }
 
 func (u *Uploader) copyWithProgress(dst io.Writer, src io.Reader, completed, length int64) (int64, error) {
-	// nolint:forcetypeassert
-	uploadBufPtr := u.uploadBufPool.Get().(*[]byte)
-	defer u.uploadBufPool.Put(uploadBufPtr)
-
-	uploadBuf := *uploadBufPtr
+	uploadBuf := iocopy.GetBuffer()
+	defer iocopy.ReleaseBuffer(uploadBuf)
 
 	var written int64
 
@@ -1094,13 +1088,6 @@ func NewUploader(r repo.RepositoryWriter) *Uploader {
 		EnableActions:      r.ClientOptions().EnableActions,
 		CheckpointInterval: DefaultCheckpointInterval,
 		getTicker:          time.Tick,
-		uploadBufPool: sync.Pool{
-			New: func() interface{} {
-				p := make([]byte, copyBufferSize)
-
-				return &p
-			},
-		},
 	}
 }
 

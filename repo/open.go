@@ -1,7 +1,6 @@
 package repo
 
 import (
-	"bytes"
 	"context"
 	"io/ioutil"
 	"os"
@@ -14,6 +13,7 @@ import (
 	"github.com/kopia/kopia/internal/atomicfile"
 	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 	loggingwrapper "github.com/kopia/kopia/repo/blob/logging"
 	"github.com/kopia/kopia/repo/blob/readonly"
@@ -352,16 +352,18 @@ func readAndCacheFormatBlobBytes(ctx context.Context, st blob.Storage, cacheDire
 		log(ctx).Debugf("kopia.repository cache not enabled")
 	}
 
-	b, err := st.GetBlob(ctx, FormatBlobID, 0, -1)
-	if err != nil {
+	var b gather.WriteBuffer
+	defer b.Close()
+
+	if err := st.GetBlob(ctx, FormatBlobID, 0, -1, &b); err != nil {
 		return nil, errors.Wrap(err, "error getting format blob")
 	}
 
 	if cacheEnabled {
-		if err := atomicfile.Write(cachedFile, bytes.NewReader(b)); err != nil {
+		if err := atomicfile.Write(cachedFile, b.Bytes().Reader()); err != nil {
 			log(ctx).Errorf("warning: unable to write cache: %v", err)
 		}
 	}
 
-	return b, nil
+	return b.ToByteSlice(), nil
 }

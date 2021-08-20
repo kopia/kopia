@@ -13,6 +13,8 @@ import (
 	"github.com/pkg/errors"
 	backblaze "gopkg.in/kothar/go-backblaze.v0"
 
+	"github.com/kopia/kopia/internal/gather"
+	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/retrying"
 )
@@ -33,10 +35,16 @@ type b2Storage struct {
 	uploadThrottler   *iothrottler.IOThrottlerPool
 }
 
-func (s *b2Storage) GetBlob(ctx context.Context, id blob.ID, offset, length int64) ([]byte, error) {
+func (s *b2Storage) GetBlob(ctx context.Context, id blob.ID, offset, length int64, output *gather.WriteBuffer) error {
 	fileName := s.getObjectNameString(id)
 
-	attempt := func() ([]byte, error) {
+	if offset < 0 {
+		return blob.ErrInvalidRange
+	}
+
+	output.Reset()
+
+	attempt := func() error {
 		var fileRange *backblaze.FileRange
 
 		if length > 0 {
@@ -48,34 +56,29 @@ func (s *b2Storage) GetBlob(ctx context.Context, id blob.ID, offset, length int6
 
 		_, r, err := s.bucket.DownloadFileRangeByName(fileName, fileRange)
 		if err != nil {
-			return nil, errors.Wrap(err, "DownloadFileRangeByName")
+			return errors.Wrap(err, "DownloadFileRangeByName")
 		}
 		defer r.Close() //nolint:errcheck
 
 		throttled, err := s.downloadThrottler.AddReader(r)
 		if err != nil {
-			return nil, errors.Wrap(err, "DownloadFileRangeByName")
-		}
-
-		v, err := ioutil.ReadAll(throttled)
-		if err != nil {
-			return nil, errors.Wrap(err, "ReadAll")
+			return errors.Wrap(err, "DownloadFileRangeByName")
 		}
 
 		if length == 0 {
-			return []byte{}, nil
+			return nil
 		}
 
-		return v, nil
+		// nolint:wrapcheck
+		return iocopy.JustCopy(output, throttled)
 	}
 
-	fetched, err := attempt()
-	if err != nil {
-		return nil, translateError(err)
+	if err := attempt(); err != nil {
+		return translateError(err)
 	}
 
 	// nolint:wrapcheck
-	return blob.EnsureLengthExactly(fetched, length)
+	return blob.EnsureLengthExactly(output.Length(), length)
 }
 
 func (s *b2Storage) resolveFileID(fileName string) (string, error) {

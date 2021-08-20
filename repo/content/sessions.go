@@ -107,14 +107,17 @@ func (bm *WriteManager) writeSessionMarkerLocked(ctx context.Context) error {
 		return errors.Wrap(err, "unable to serialize session marker payload")
 	}
 
-	sessionBlobID, encrypted, err := bm.crypter.EncryptBLOB(js, BlobIDPrefixSession, bm.currentSessionInfo.ID)
+	var encrypted gather.WriteBuffer
+	defer encrypted.Close()
+
+	sessionBlobID, err := bm.crypter.EncryptBLOB(gather.FromSlice(js), BlobIDPrefixSession, bm.currentSessionInfo.ID, &encrypted)
 	if err != nil {
 		return errors.Wrap(err, "unable to encrypt session marker")
 	}
 
-	bm.onUpload(int64(len(encrypted)))
+	bm.onUpload(int64(encrypted.Length()))
 
-	if err := bm.st.PutBlob(ctx, sessionBlobID, gather.FromSlice(encrypted)); err != nil {
+	if err := bm.st.PutBlob(ctx, sessionBlobID, encrypted.Bytes()); err != nil {
 		return errors.Wrapf(err, "unable to write session marker: %v", string(sessionBlobID))
 	}
 
@@ -148,7 +151,16 @@ func (bm *WriteManager) ListActiveSessions(ctx context.Context) (map[SessionID]*
 
 	m := map[SessionID]*SessionInfo{}
 
+	var payload gather.WriteBuffer
+	defer payload.Close()
+
+	var decrypted gather.WriteBuffer
+	defer decrypted.Close()
+
 	for _, b := range blobs {
+		payload.Reset()
+		decrypted.Reset()
+
 		sid := SessionIDFromBlobID(b.BlobID)
 		if sid == "" {
 			return nil, errors.Errorf("found invalid session blob %v", b.BlobID)
@@ -156,7 +168,7 @@ func (bm *WriteManager) ListActiveSessions(ctx context.Context) (map[SessionID]*
 
 		si := &SessionInfo{}
 
-		payload, err := bm.st.GetBlob(ctx, b.BlobID, 0, -1)
+		err := bm.st.GetBlob(ctx, b.BlobID, 0, -1, &payload)
 		if err != nil {
 			if errors.Is(err, blob.ErrBlobNotFound) {
 				continue
@@ -165,12 +177,12 @@ func (bm *WriteManager) ListActiveSessions(ctx context.Context) (map[SessionID]*
 			return nil, errors.Wrapf(err, "error loading session: %v", b.BlobID)
 		}
 
-		payload, err = bm.crypter.DecryptBLOB(payload, b.BlobID)
+		err = bm.crypter.DecryptBLOB(payload.Bytes(), b.BlobID, &decrypted)
 		if err != nil {
 			return nil, errors.Wrapf(err, "error decrypting session: %v", b.BlobID)
 		}
 
-		if err := json.Unmarshal(payload, si); err != nil {
+		if err := json.NewDecoder(decrypted.Bytes().Reader()).Decode(si); err != nil {
 			return nil, errors.Wrapf(err, "error parsing session: %v", b.BlobID)
 		}
 

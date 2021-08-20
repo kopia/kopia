@@ -8,6 +8,8 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
+
+	"github.com/kopia/kopia/internal/gather"
 )
 
 // MaxHashSize is the maximum hash size supported in the system.
@@ -20,7 +22,7 @@ type Parameters interface {
 }
 
 // HashFunc computes hash of content of data using a cryptographic hash function, possibly with HMAC and/or truncation.
-type HashFunc func(output, data []byte) []byte
+type HashFunc func(output []byte, data gather.Bytes) []byte
 
 // HashFuncFactory returns a hash function for given formatting options.
 type HashFuncFactory func(p Parameters) (HashFunc, error)
@@ -57,13 +59,13 @@ func truncatedHMACHashFuncFactory(hf func() hash.Hash, truncate int) HashFuncFac
 			},
 		}
 
-		return func(output, b []byte) []byte {
+		return func(output []byte, data gather.Bytes) []byte {
 			// nolint:forcetypeassert
 			h := pool.Get().(hash.Hash)
 			defer pool.Put(h)
 
 			h.Reset()
-			h.Write(b)
+			data.WriteTo(h) //nolint:errcheck
 
 			return h.Sum(output)[0:truncate]
 		}, nil
@@ -86,13 +88,13 @@ func truncatedKeyedHashFuncFactory(hf func(key []byte) (hash.Hash, error), trunc
 			},
 		}
 
-		return func(output, b []byte) []byte {
+		return func(output []byte, data gather.Bytes) []byte {
 			// nolint:forcetypeassert
 			h := pool.Get().(hash.Hash)
 			defer pool.Put(h)
 
 			h.Reset()
-			h.Write(b)
+			data.WriteTo(h) //nolint:errcheck
 
 			return h.Sum(output)[0:truncate]
 		}, nil
