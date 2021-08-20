@@ -640,7 +640,7 @@ func createFileStructure(baseDir string, files []testFileEntry) error {
 		fullPath := path.Join(baseDir, ent.Name)
 
 		if strings.HasSuffix(ent.Name, "/") {
-			err := os.MkdirAll(fullPath, 0777)
+			err := os.MkdirAll(fullPath, 0o777)
 			if err != nil {
 				return errors.Errorf("failed to create directory %v: %v", fullPath, err)
 			}
@@ -648,7 +648,7 @@ func createFileStructure(baseDir string, files []testFileEntry) error {
 			dir, _ := path.Split(fullPath)
 			if dir != "" {
 				if _, err := os.Stat(dir); os.IsNotExist(err) {
-					err := os.MkdirAll(dir, 0777)
+					err := os.MkdirAll(dir, 0o777)
 					if err != nil {
 						return errors.Errorf("failed to create directory %v: %v", dir, err)
 					}

@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	defaultPermissions os.FileMode = 0777
+	defaultPermissions os.FileMode = 0o777
 )
 
 // virtualEntry is an in-memory implementation of a directory entry.

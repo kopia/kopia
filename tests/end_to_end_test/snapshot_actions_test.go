@@ -172,10 +172,10 @@ func TestSnapshotActionsBeforeAfterFolder(t *testing.T) {
 	sd11 := filepath.Join(rootDir, "subdir1", "subdir1")
 	sd12 := filepath.Join(rootDir, "subdir1", "subdir2")
 
-	verifyNoError(t, os.Mkdir(sd1, 0700))
-	verifyNoError(t, os.Mkdir(sd2, 0700))
-	verifyNoError(t, os.Mkdir(sd11, 0700))
-	verifyNoError(t, os.Mkdir(sd12, 0700))
+	verifyNoError(t, os.Mkdir(sd1, 0o700))
+	verifyNoError(t, os.Mkdir(sd2, 0o700))
+	verifyNoError(t, os.Mkdir(sd11, 0o700))
+	verifyNoError(t, os.Mkdir(sd12, 0o700))
 
 	actionRanDir := testutil.TempDirectory(t)
 

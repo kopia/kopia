@@ -35,7 +35,7 @@ func TestShardedFileStorage(t *testing.T) {
 					DirectoryShards: shardSpec,
 				})
 
-				ioutil.WriteFile(filepath.Join(path, "foreign-file"), []byte{1, 2, 3}, 0600)
+				ioutil.WriteFile(filepath.Join(path, "foreign-file"), []byte{1, 2, 3}, 0o600)
 
 				if r == nil || err != nil {
 					t.Errorf("unexpected result: %v %v", r, err)

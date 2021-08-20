@@ -36,7 +36,7 @@ func GetInterestingTempDirectoryName() (string, error) {
 	if n := len(td); n < targetLen {
 		td = filepath.Join(td, strings.Repeat("f", targetLen-n))
 		// nolint:gomnd
-		if err := os.MkdirAll(td, 0700); err != nil {
+		if err := os.MkdirAll(td, 0o700); err != nil {
 			return "", errors.Wrap(err, "unable to create temp directory")
 		}
 	}

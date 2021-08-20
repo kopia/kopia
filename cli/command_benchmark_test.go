@@ -35,7 +35,7 @@ func TestCommandBenchmarkCompression(t *testing.T) {
 	e := testenv.NewCLITest(t, runner)
 
 	testFile := filepath.Join(testutil.TempDirectory(t), "testfile.txt")
-	ioutil.WriteFile(testFile, bytes.Repeat([]byte{1, 2, 3, 4, 5, 6}, 10000), 0600)
+	ioutil.WriteFile(testFile, bytes.Repeat([]byte{1, 2, 3, 4, 5, 6}, 10000), 0o600)
 
 	e.RunAndExpectSuccess(t, "benchmark", "compression", "--data-file", testFile, "--repeat=2", "--verify-stable", "--print-options")
 	e.RunAndExpectSuccess(t, "benchmark", "compression", "--data-file", testFile, "--repeat=2", "--by-size")

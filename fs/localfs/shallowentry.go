@@ -14,7 +14,7 @@ const (
 	ShallowEntrySuffix = ".kopia-entry"
 
 	// dirMode is the FileMode for placeholder directories.
-	dirMode = 0700
+	dirMode = 0o700
 )
 
 // TrimShallowSuffix returns the path without the placeholder suffix.

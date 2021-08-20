@@ -569,7 +569,7 @@ const (
 	// d1 + kSUBFILE is the DirEntry placeholder for placeholder directory d1.kopia-entry.
 	sUBFILE = string(filepath.Separator) + localfs.ShallowEntrySuffix
 
-	dirMode = 0700
+	dirMode = 0o700
 )
 
 // getShallowDirEntry reads the DirEntry in the placeholder associated

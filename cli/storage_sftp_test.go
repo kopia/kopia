@@ -17,8 +17,8 @@ func TestSFTPOptions(t *testing.T) {
 	myKeyFile := filepath.Join(td, "my-key")
 	myKnownHostsFile := filepath.Join(td, "my-known-hosts")
 
-	require.NoError(t, ioutil.WriteFile(myKeyFile, []byte("fake-key-data"), 0600))
-	require.NoError(t, ioutil.WriteFile(myKnownHostsFile, []byte("fake-known-hosts-data"), 0600))
+	require.NoError(t, ioutil.WriteFile(myKeyFile, []byte("fake-key-data"), 0o600))
+	require.NoError(t, ioutil.WriteFile(myKnownHostsFile, []byte("fake-known-hosts-data"), 0o600))
 
 	cases := []struct {
 		input   storageSFTPFlags

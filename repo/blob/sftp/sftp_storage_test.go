@@ -150,7 +150,7 @@ func startDockerSFTPServerOrSkip(t *testing.T, idRSA string) (host string, port 
 
 		t.Logf("knownHostsData: %s", knownHostsData)
 
-		ioutil.WriteFile(knownHostsFile, knownHostsData, 0600)
+		ioutil.WriteFile(knownHostsFile, knownHostsData, 0o600)
 
 		t.Logf("SFTP server OK on host:%q port:%v. Known hosts file: %v", host, port, knownHostsFile)
 
@@ -210,7 +210,7 @@ func TestInvalidServerFailsFast(t *testing.T) {
 	knownHostsFile := filepath.Join(tmpDir, "known_hosts")
 
 	mustRunCommand(t, "ssh-keygen", "-t", "rsa", "-P", "", "-f", idRSA)
-	ioutil.WriteFile(knownHostsFile, nil, 0600)
+	ioutil.WriteFile(knownHostsFile, nil, 0o600)
 
 	t0 := clock.Now()
 
@@ -227,7 +227,7 @@ func TestSFTPStorageRelativeKeyFile(t *testing.T) {
 	t.Parallel()
 
 	kh := filepath.Join(t.TempDir(), "some-relative-path")
-	require.NoError(t, ioutil.WriteFile(kh, []byte{}, 0600))
+	require.NoError(t, ioutil.WriteFile(kh, []byte{}, 0o600))
 
 	opt := &sftp.Options{
 		Path:           "/upload",

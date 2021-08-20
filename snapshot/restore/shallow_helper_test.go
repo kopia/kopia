@@ -24,7 +24,7 @@ func TestSafeRemoveAll(t *testing.T) {
 
 		// Some of these will fail because their names will be too long. This is
 		// not a fatal error.
-		err := os.WriteFile(pathext, []byte(filename), 0600)
+		err := os.WriteFile(pathext, []byte(filename), 0o600)
 		canmakefile := err == nil
 
 		if !canmakefile {
