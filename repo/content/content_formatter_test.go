@@ -9,7 +9,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/kopia/kopia/internal/blobtesting"
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/encryption"
@@ -66,19 +69,19 @@ func TestFormatters(t *testing.T) {
 						return
 					}
 
-					contentID := cr.HashFunction(nil, data)
+					contentID := cr.HashFunction(nil, gather.FromSlice(data))
 
-					cipherText, err := cr.Encryptor.Encrypt(nil, data, contentID)
-					if err != nil || cipherText == nil {
-						t.Errorf("invalid response from Encrypt: %v %v", cipherText, err)
-					}
+					var cipherText gather.WriteBuffer
+					defer cipherText.Close()
 
-					plainText, err := cr.Encryptor.Decrypt(nil, cipherText, contentID)
-					if err != nil || plainText == nil {
-						t.Errorf("invalid response from Decrypt: %v %v", plainText, err)
-					}
+					require.NoError(t, cr.Encryptor.Encrypt(gather.FromSlice(data), contentID, &cipherText))
 
-					h1 := sha1.Sum(plainText)
+					var plainText gather.WriteBuffer
+					defer plainText.Close()
+
+					require.NoError(t, cr.Encryptor.Decrypt(cipherText.Bytes(), contentID, &plainText))
+
+					h1 := sha1.Sum(plainText.ToByteSlice())
 
 					if !bytes.Equal(h0[:], h1[:]) {
 						t.Errorf("Encrypt()/Decrypt() does not round-trip: %x %x", h0, h1)
@@ -91,9 +94,8 @@ func TestFormatters(t *testing.T) {
 	}
 }
 
+// nolint:thelper
 func verifyEndToEndFormatter(ctx context.Context, t *testing.T, hashAlgo, encryptionAlgo string) {
-	t.Helper()
-
 	data := blobtesting.DataMap{}
 	keyTime := map[blob.ID]time.Time{}
 	st := blobtesting.NewMapStorage(data, keyTime, nil)
@@ -132,7 +134,7 @@ func verifyEndToEndFormatter(ctx context.Context, t *testing.T, hashAlgo, encryp
 
 		b2, err := bm.GetContent(ctx, contentID)
 		if err != nil {
-			t.Errorf("unable to read content %q: %v", contentID, err)
+			t.Fatalf("unable to read content %q: %v", contentID, err)
 			return
 		}
 
@@ -147,7 +149,7 @@ func verifyEndToEndFormatter(ctx context.Context, t *testing.T, hashAlgo, encryp
 
 		b3, err := bm.GetContent(ctx, contentID)
 		if err != nil {
-			t.Errorf("unable to read content after flush %q: %v", contentID, err)
+			t.Fatalf("unable to read content after flush %q: %v", contentID, err)
 			return
 		}
 

@@ -7,8 +7,10 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/cache"
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
@@ -30,26 +32,31 @@ func TestPersistentLRUCache(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if got := pc.Get(ctx, "key", 0, -1); got != nil {
-		t.Fatalf("unexpected cache hit on empty cache: %x", got)
+	var tmp gather.WriteBuffer
+	defer tmp.Close()
+
+	if got := pc.Get(ctx, "key", 0, -1, &tmp); got {
+		t.Fatalf("unexpected cache hit on empty cache")
 	}
 
 	someData := bytes.Repeat([]byte{1}, 300)
 
-	pc.Put(ctx, "key1", someData)
+	pc.Put(ctx, "key1", gather.FromSlice(someData))
 	verifyBlobExists(ctx, t, cs, "key1")
 
 	// sleep between adding key1 and the rest to make it easily the oldest
 	// even if the filesystem is not very precise keeping time.
 	time.Sleep(2 * time.Second)
-	pc.Put(ctx, "key2", someData)
+	pc.Put(ctx, "key2", gather.FromSlice(someData))
 	verifyBlobExists(ctx, t, cs, "key2")
-	pc.Put(ctx, "key3", someData)
+	pc.Put(ctx, "key3", gather.FromSlice(someData))
 	verifyBlobExists(ctx, t, cs, "key3")
-	pc.Put(ctx, "key4", someData)
+	pc.Put(ctx, "key4", gather.FromSlice(someData))
 	verifyBlobExists(ctx, t, cs, "key4")
 
-	if got, want := pc.Get(ctx, "key2", 0, -1), someData; !bytes.Equal(got, want) {
+	require.True(t, pc.Get(ctx, "key2", 0, -1, &tmp))
+
+	if got, want := tmp.ToByteSlice(), someData; !bytes.Equal(got, want) {
 		t.Fatalf("invalid data retrieved from cache: %x", got)
 	}
 
@@ -77,8 +84,17 @@ func TestPersistentLRUCache(t *testing.T) {
 func verifyCached(ctx context.Context, t *testing.T, pc *cache.PersistentCache, key string, want []byte) {
 	t.Helper()
 
-	if got := pc.Get(ctx, key, 0, -1); !bytes.Equal(got, want) {
-		t.Fatalf("invalid cached result for %v: %x, want %x", key, got, want)
+	var tmp gather.WriteBuffer
+	defer tmp.Close()
+
+	if want == nil {
+		require.False(t, pc.Get(ctx, key, 0, -1, &tmp))
+	} else {
+		require.True(t, pc.Get(ctx, key, 0, -1, &tmp))
+
+		if got := tmp.ToByteSlice(); !bytes.Equal(got, want) {
+			t.Fatalf("invalid cached result for %v: %x, want %x", key, got, want)
+		}
 	}
 }
 

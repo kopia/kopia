@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/pprof"
 	"os"
 	"time"
 
@@ -14,6 +15,8 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/apiclient"
+	"github.com/kopia/kopia/internal/gather"
+	"github.com/kopia/kopia/internal/memtrack"
 	"github.com/kopia/kopia/internal/passwordpersist"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
@@ -112,6 +115,7 @@ type App struct {
 	configPath                    string
 	traceStorage                  bool
 	metricsListenAddr             string
+	enablePProf                   bool
 	keyRingEnabled                bool
 	persistCredentials            bool
 	disableInternalLog            bool
@@ -199,6 +203,7 @@ func (c *App) setup(app *kingpin.Application) {
 	app.Flag("config-file", "Specify the config file to use.").Default(defaultConfigFileName()).Envar("KOPIA_CONFIG_PATH").StringVar(&c.configPath)
 	app.Flag("trace-storage", "Enables tracing of storage operations.").Default("true").Hidden().BoolVar(&c.traceStorage)
 	app.Flag("metrics-listen-addr", "Expose Prometheus metrics on a given host:port").Hidden().StringVar(&c.metricsListenAddr)
+	app.Flag("enable-pprof", "Expose pprof handlers").Hidden().BoolVar(&c.enablePProf)
 	app.Flag("timezone", "Format time according to specified time zone (local, utc, original or time zone name)").Hidden().StringVar(&timeZone)
 	app.Flag("password", "Repository password.").Envar("KOPIA_PASSWORD").Short('p').StringVar(&c.password)
 	app.Flag("persist-credentials", "Persist credentials").Default("true").Envar("KOPIA_PERSIST_CREDENTIALS_ON_CONNECT").BoolVar(&c.persistCredentials)
@@ -384,11 +389,13 @@ type repositoryAccessMode struct {
 
 func (c *App) maybeRepositoryAction(act func(ctx context.Context, rep repo.Repository) error, mode repositoryAccessMode) func(ctx *kingpin.ParseContext) error {
 	return func(kpc *kingpin.ParseContext) error {
-		ctx := c.rootContext()
+		ctx0 := c.rootContext()
 
 		if err := c.pf.withProfiling(func() error {
-			c.mt.startMemoryTracking(ctx)
-			defer c.mt.finishMemoryTracking(ctx)
+			ctx, finishMemoryTracking := c.mt.startMemoryTracking(ctx0)
+			defer finishMemoryTracking()
+
+			defer gather.DumpStats(ctx)
 
 			if c.metricsListenAddr != "" {
 				mux := http.NewServeMux()
@@ -396,11 +403,23 @@ func (c *App) maybeRepositoryAction(act func(ctx context.Context, rep repo.Repos
 					return errors.Wrap(err, "unable to initialize prometheus.")
 				}
 
+				if c.enablePProf {
+					mux.HandleFunc("/debug/pprof/", pprof.Index)
+					mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+					mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+					mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+					mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+				}
+
 				log(ctx).Infof("starting prometheus metrics on %v", c.metricsListenAddr)
 				go http.ListenAndServe(c.metricsListenAddr, mux) // nolint:errcheck
 			}
 
+			memtrack.Dump(ctx, "before openRepository")
+
 			rep, err := c.openRepository(ctx, mode.mustBeConnected)
+
+			memtrack.Dump(ctx, "after openRepository")
 			if err != nil && mode.mustBeConnected {
 				return errors.Wrap(err, "open repository")
 			}
@@ -408,21 +427,29 @@ func (c *App) maybeRepositoryAction(act func(ctx context.Context, rep repo.Repos
 			err = act(ctx, rep)
 
 			if rep != nil && !mode.disableMaintenance {
+				memtrack.Dump(ctx, "before auto maintenance")
+
 				if merr := c.maybeRunMaintenance(ctx, rep); merr != nil {
 					log(ctx).Errorf("error running maintenance: %v", merr)
 				}
+
+				memtrack.Dump(ctx, "after auto maintenance")
 			}
 
 			if rep != nil && mode.mustBeConnected {
+				memtrack.Dump(ctx, "before close repository")
+
 				if cerr := rep.Close(ctx); cerr != nil {
 					return errors.Wrap(cerr, "unable to close repository")
 				}
+
+				memtrack.Dump(ctx, "after close repository")
 			}
 
 			return err
 		}); err != nil {
 			// print error in red
-			log(ctx).Errorf("ERROR: %v", err.Error())
+			log(ctx0).Errorf("ERROR: %v", err.Error())
 			c.osExit(1)
 		}
 

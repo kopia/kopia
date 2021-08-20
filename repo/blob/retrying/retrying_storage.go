@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/retry"
 	"github.com/kopia/kopia/repo/blob"
 )
@@ -16,16 +17,14 @@ type retryingStorage struct {
 	blob.Storage
 }
 
-func (s retryingStorage) GetBlob(ctx context.Context, id blob.ID, offset, length int64) ([]byte, error) {
-	v, err := retry.WithExponentialBackoff(ctx, fmt.Sprintf("GetBlob(%v,%v,%v)", id, offset, length), func() (interface{}, error) {
-		// nolint:wrapcheck
-		return s.Storage.GetBlob(ctx, id, offset, length)
-	}, isRetriable)
-	if err != nil {
-		return nil, err // nolint:wrapcheck
-	}
+func (s retryingStorage) GetBlob(ctx context.Context, id blob.ID, offset, length int64, output *gather.WriteBuffer) error {
+	// nolint:wrapcheck
+	return retry.WithExponentialBackoffNoValue(ctx, fmt.Sprintf("GetBlob(%v,%v,%v)", id, offset, length), func() error {
+		output.Reset()
 
-	return v.([]byte), nil
+		// nolint:wrapcheck
+		return s.Storage.GetBlob(ctx, id, offset, length, output)
+	}, isRetriable)
 }
 
 func (s retryingStorage) GetMetadata(ctx context.Context, id blob.ID) (blob.Metadata, error) {

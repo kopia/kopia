@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/logging"
 )
@@ -143,7 +144,7 @@ func (m *indexBlobManagerV0) registerCompaction(ctx context.Context, inputs, out
 		return errors.Wrap(err, "unable to marshal log entry bytes")
 	}
 
-	compactionLogBlobMetadata, err := m.enc.encryptAndWriteBlob(ctx, logEntryBytes, compactionLogBlobPrefix, "")
+	compactionLogBlobMetadata, err := m.enc.encryptAndWriteBlob(ctx, gather.FromSlice(logEntryBytes), compactionLogBlobPrefix, "")
 	if err != nil {
 		return errors.Wrap(err, "unable to write compaction log")
 	}
@@ -165,11 +166,11 @@ func (m *indexBlobManagerV0) registerCompaction(ctx context.Context, inputs, out
 	return nil
 }
 
-func (m *indexBlobManagerV0) getIndexBlob(ctx context.Context, blobID blob.ID) ([]byte, error) {
-	return m.enc.getEncryptedBlob(ctx, blobID)
+func (m *indexBlobManagerV0) getIndexBlob(ctx context.Context, blobID blob.ID, output *gather.WriteBuffer) error {
+	return m.enc.getEncryptedBlob(ctx, blobID, output)
 }
 
-func (m *indexBlobManagerV0) writeIndexBlobs(ctx context.Context, dataShards [][]byte, sessionID SessionID) ([]blob.Metadata, error) {
+func (m *indexBlobManagerV0) writeIndexBlobs(ctx context.Context, dataShards []gather.Bytes, sessionID SessionID) ([]blob.Metadata, error) {
 	var result []blob.Metadata
 
 	for _, data := range dataShards {
@@ -187,8 +188,11 @@ func (m *indexBlobManagerV0) writeIndexBlobs(ctx context.Context, dataShards [][
 func (m *indexBlobManagerV0) getCompactionLogEntries(ctx context.Context, blobs []blob.Metadata) (map[blob.ID]*compactionLogEntry, error) {
 	results := map[blob.ID]*compactionLogEntry{}
 
+	var data gather.WriteBuffer
+	defer data.Close()
+
 	for _, cb := range blobs {
-		data, err := m.enc.getEncryptedBlob(ctx, cb.BlobID)
+		err := m.enc.getEncryptedBlob(ctx, cb.BlobID, &data)
 
 		if errors.Is(err, blob.ErrBlobNotFound) {
 			continue
@@ -200,7 +204,7 @@ func (m *indexBlobManagerV0) getCompactionLogEntries(ctx context.Context, blobs 
 
 		le := &compactionLogEntry{}
 
-		if err := json.Unmarshal(data, le); err != nil {
+		if err := json.NewDecoder(data.Bytes().Reader()).Decode(le); err != nil {
 			return nil, errors.Wrap(err, "unable to read compaction log entry %q")
 		}
 
@@ -215,8 +219,13 @@ func (m *indexBlobManagerV0) getCompactionLogEntries(ctx context.Context, blobs 
 func (m *indexBlobManagerV0) getCleanupEntries(ctx context.Context, latestServerBlobTime time.Time, blobs []blob.Metadata) (map[blob.ID]*cleanupEntry, error) {
 	results := map[blob.ID]*cleanupEntry{}
 
+	var data gather.WriteBuffer
+	defer data.Close()
+
 	for _, cb := range blobs {
-		data, err := m.enc.getEncryptedBlob(ctx, cb.BlobID)
+		data.Reset()
+
+		err := m.enc.getEncryptedBlob(ctx, cb.BlobID, &data)
 
 		if errors.Is(err, blob.ErrBlobNotFound) {
 			continue
@@ -228,7 +237,7 @@ func (m *indexBlobManagerV0) getCleanupEntries(ctx context.Context, latestServer
 
 		le := &cleanupEntry{}
 
-		if err := json.Unmarshal(data, le); err != nil {
+		if err := json.NewDecoder(data.Bytes().Reader()).Decode(le); err != nil {
 			return nil, errors.Wrap(err, "unable to read compaction log entry %q")
 		}
 
@@ -336,7 +345,7 @@ func (m *indexBlobManagerV0) delayCleanupBlobs(ctx context.Context, blobIDs []bl
 		return errors.Wrap(err, "unable to marshal cleanup log bytes")
 	}
 
-	if _, err := m.enc.encryptAndWriteBlob(ctx, payload, cleanupBlobPrefix, ""); err != nil {
+	if _, err := m.enc.encryptAndWriteBlob(ctx, gather.FromSlice(payload), cleanupBlobPrefix, ""); err != nil {
 		return errors.Wrap(err, "unable to cleanup log")
 	}
 
@@ -456,10 +465,12 @@ func (m *indexBlobManagerV0) compactIndexBlobs(ctx context.Context, indexBlobs [
 	// we must do it after all input blobs have been merged, otherwise we may resurrect contents.
 	m.dropContentsFromBuilder(bld, opt)
 
-	dataShards, err := bld.buildShards(m.indexVersion, false, m.indexShardSize)
+	dataShards, cleanupShards, err := bld.buildShards(m.indexVersion, false, m.indexShardSize)
 	if err != nil {
 		return errors.Wrap(err, "unable to build an index")
 	}
+
+	defer cleanupShards()
 
 	compactedIndexBlobs, err := m.writeIndexBlobs(ctx, dataShards, "")
 	if err != nil {
@@ -498,12 +509,15 @@ func (m *indexBlobManagerV0) dropContentsFromBuilder(bld packIndexBuilder, opt C
 }
 
 func addIndexBlobsToBuilder(ctx context.Context, enc *encryptedBlobMgr, bld packIndexBuilder, indexBlobID blob.ID) error {
-	data, err := enc.getEncryptedBlob(ctx, indexBlobID)
+	var data gather.WriteBuffer
+	defer data.Close()
+
+	err := enc.getEncryptedBlob(ctx, indexBlobID, &data)
 	if err != nil {
 		return errors.Wrapf(err, "error getting index %q", indexBlobID)
 	}
 
-	index, err := openPackIndex(bytes.NewReader(data), uint32(enc.crypter.Encryptor.Overhead()))
+	index, err := openPackIndex(bytes.NewReader(data.ToByteSlice()), uint32(enc.crypter.Encryptor.Overhead()))
 	if err != nil {
 		return errors.Wrapf(err, "unable to open index blob %q", indexBlobID)
 	}

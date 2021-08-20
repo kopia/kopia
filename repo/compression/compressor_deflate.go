@@ -1,7 +1,7 @@
 package compression
 
 import (
-	"bytes"
+	"io"
 	"sync"
 
 	"github.com/klauspost/compress/flate"
@@ -19,7 +19,7 @@ func init() {
 func newDeflateCompressor(id HeaderID, level int) Compressor {
 	return &deflateCompressor{id, compressionHeader(id), sync.Pool{
 		New: func() interface{} {
-			v, err := flate.NewWriter(bytes.NewBuffer(nil), level)
+			v, err := flate.NewWriter(io.Discard, level)
 			if err != nil {
 				panic("unable to create deflate compressor")
 			}
@@ -39,7 +39,7 @@ func (c *deflateCompressor) HeaderID() HeaderID {
 	return c.id
 }
 
-func (c *deflateCompressor) Compress(output *bytes.Buffer, input []byte) error {
+func (c *deflateCompressor) Compress(output io.Writer, input io.Reader) error {
 	if _, err := output.Write(c.header); err != nil {
 		return errors.Wrap(err, "unable to write header")
 	}
@@ -50,7 +50,7 @@ func (c *deflateCompressor) Compress(output *bytes.Buffer, input []byte) error {
 
 	w.Reset(output)
 
-	if _, err := w.Write(input); err != nil {
+	if err := iocopy.JustCopy(w, input); err != nil {
 		return errors.Wrap(err, "compression error")
 	}
 
@@ -61,14 +61,16 @@ func (c *deflateCompressor) Compress(output *bytes.Buffer, input []byte) error {
 	return nil
 }
 
-func (c *deflateCompressor) Decompress(output *bytes.Buffer, input []byte) error {
-	if err := verifyCompressionHeader(input, c.header); err != nil {
-		return err
+func (c *deflateCompressor) Decompress(output io.Writer, input io.Reader, withHeader bool) error {
+	if withHeader {
+		if err := verifyCompressionHeader(input, c.header); err != nil {
+			return err
+		}
 	}
 
-	r := flate.NewReader(bytes.NewReader(input[compressionHeaderSize:]))
+	r := flate.NewReader(input)
 
-	if _, err := iocopy.Copy(output, r); err != nil {
+	if err := iocopy.JustCopy(output, r); err != nil {
 		return errors.Wrap(err, "decompression error")
 	}
 

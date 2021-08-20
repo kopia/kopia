@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 )
 
@@ -24,31 +25,35 @@ type mapStorage struct {
 	mutex   sync.RWMutex
 }
 
-func (s *mapStorage) GetBlob(ctx context.Context, id blob.ID, offset, length int64) ([]byte, error) {
+func (s *mapStorage) GetBlob(ctx context.Context, id blob.ID, offset, length int64, output *gather.WriteBuffer) error {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
+	output.Reset()
+
 	data, ok := s.data[id]
 	if ok {
-		data = append([]byte(nil), data...)
-
 		if length < 0 {
-			return data, nil
+			output.Append(data)
+
+			return nil
 		}
 
 		if int(offset) > len(data) || offset < 0 {
-			return nil, errors.Wrapf(blob.ErrInvalidRange, "invalid offset: %v", offset)
+			return errors.Wrapf(blob.ErrInvalidRange, "invalid offset: %v", offset)
 		}
 
 		data = data[offset:]
 		if int(length) > len(data) {
-			return nil, errors.Wrapf(blob.ErrInvalidRange, "invalid length: %v", length)
+			return errors.Wrapf(blob.ErrInvalidRange, "invalid length: %v", length)
 		}
 
-		return data[0:length], nil
+		output.Append(data[0:length])
+
+		return nil
 	}
 
-	return nil, blob.ErrBlobNotFound
+	return blob.ErrBlobNotFound
 }
 
 func (s *mapStorage) GetMetadata(ctx context.Context, id blob.ID) (blob.Metadata, error) {

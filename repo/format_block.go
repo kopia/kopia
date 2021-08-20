@@ -107,10 +107,14 @@ func recoverFormatBlobWithLength(ctx context.Context, st blob.Storage, blobID bl
 	}
 
 	// try prefix
-	prefixChunk, err := st.GetBlob(ctx, blobID, 0, chunkLength)
-	if err != nil {
+	var tmp gather.WriteBuffer
+	defer tmp.Close()
+
+	if err := st.GetBlob(ctx, blobID, 0, chunkLength, &tmp); err != nil {
 		return nil, errors.Wrapf(err, "error getting blob %v prefix", blobID)
 	}
+
+	prefixChunk := tmp.ToByteSlice()
 
 	l := decodeInt16(prefixChunk)
 	if l <= maxChecksummedFormatBytesLength && l+lengthOfRecoverBlockLength < len(prefixChunk) {
@@ -120,10 +124,11 @@ func recoverFormatBlobWithLength(ctx context.Context, st blob.Storage, blobID bl
 	}
 
 	// try the suffix
-	suffixChunk, err := st.GetBlob(ctx, blobID, length-chunkLength, chunkLength)
-	if err != nil {
+	if err := st.GetBlob(ctx, blobID, length-chunkLength, chunkLength, &tmp); err != nil {
 		return nil, errors.Wrapf(err, "error getting blob %v suffix", blobID)
 	}
+
+	suffixChunk := tmp.ToByteSlice()
 
 	l = decodeInt16(suffixChunk[len(suffixChunk)-lengthOfRecoverBlockLength:])
 	if l <= maxChecksummedFormatBytesLength && l+lengthOfRecoverBlockLength < len(suffixChunk) {

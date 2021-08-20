@@ -69,13 +69,16 @@ func TestCacheExpiration(t *testing.T) {
 
 	defer cc.close(ctx)
 
-	_, err = cc.getContent(ctx, "00000a", "content-4k", 0, -1) // 4k
+	var tmp gather.WriteBuffer
+	defer tmp.Close()
+
+	err = cc.getContent(ctx, "00000a", "content-4k", 0, -1, &tmp) // 4k
 	require.NoError(t, err)
-	_, err = cc.getContent(ctx, "00000b", "content-4k", 0, -1) // 4k
+	err = cc.getContent(ctx, "00000b", "content-4k", 0, -1, &tmp) // 4k
 	require.NoError(t, err)
-	_, err = cc.getContent(ctx, "00000c", "content-4k", 0, -1) // 4k
+	err = cc.getContent(ctx, "00000c", "content-4k", 0, -1, &tmp) // 4k
 	require.NoError(t, err)
-	_, err = cc.getContent(ctx, "00000d", "content-4k", 0, -1) // 4k
+	err = cc.getContent(ctx, "00000d", "content-4k", 0, -1, &tmp) // 4k
 	require.NoError(t, err)
 
 	// wait for a sweep
@@ -97,7 +100,7 @@ func TestCacheExpiration(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		_, got := cc.getContent(ctx, cacheKey(tc.blobID), "content-4k", 0, -1)
+		got := cc.getContent(ctx, cacheKey(tc.blobID), "content-4k", 0, -1, &tmp)
 		if want := tc.expectedError; !errors.Is(got, want) {
 			t.Errorf("unexpected error when getting content %v: %v wanted %v", tc.blobID, got, want)
 		} else {
@@ -154,15 +157,18 @@ func verifyContentCache(t *testing.T, cc contentCache, cacheStorage blob.Storage
 			{"xf0f0f6", "content-1", -1, 5, nil, errors.Errorf("invalid offset: -1: invalid blob offset or length")},
 		}
 
+		var v gather.WriteBuffer
+		defer v.Close()
+
 		for _, tc := range cases {
-			v, err := cc.getContent(ctx, tc.cacheKey, tc.blobID, tc.offset, tc.length)
+			err := cc.getContent(ctx, tc.cacheKey, tc.blobID, tc.offset, tc.length, &v)
 			if (err != nil) != (tc.err != nil) {
 				t.Errorf("unexpected error for %v: %+v, wanted %+v", tc.cacheKey, err, tc.err)
 			} else if err != nil && err.Error() != tc.err.Error() {
 				t.Errorf("unexpected error for %v: %q, wanted %q", tc.cacheKey, err.Error(), tc.err.Error())
 			}
-			if !bytes.Equal(v, tc.expected) {
-				t.Errorf("unexpected data for %v: %x, wanted %x", tc.cacheKey, v, tc.expected)
+			if got := v.ToByteSlice(); !bytes.Equal(got, tc.expected) {
+				t.Errorf("unexpected data for %v: %x, wanted %x", tc.cacheKey, got, tc.expected)
 			}
 		}
 
@@ -172,20 +178,23 @@ func verifyContentCache(t *testing.T, cc contentCache, cacheStorage blob.Storage
 	t.Run("DataCorruption", func(t *testing.T) {
 		const cacheKey = "f0f0f1x"
 
-		d, err := cacheStorage.GetBlob(ctx, cacheKey, 0, -1)
-		require.NoError(t, err)
+		var tmp gather.WriteBuffer
+		defer tmp.Close()
+
+		require.NoError(t, cacheStorage.GetBlob(ctx, cacheKey, 0, -1, &tmp))
 
 		// corrupt the data and write back
-		d[0] ^= 1
+		b := tmp.Bytes()
+		b.Slices[0][0] ^= 1
 
-		require.NoError(t, cacheStorage.PutBlob(ctx, cacheKey, gather.FromSlice(d)))
+		require.NoError(t, cacheStorage.PutBlob(ctx, cacheKey, b))
 
-		v, err := cc.getContent(ctx, "xf0f0f1", "content-1", 1, 5)
+		err := cc.getContent(ctx, "xf0f0f1", "content-1", 1, 5, &tmp)
 		if err != nil {
 			t.Fatalf("error in getContent: %v", err)
 		}
 
-		if got, want := v, []byte{2, 3, 4, 5, 6}; !reflect.DeepEqual(v, want) {
+		if got, want := tmp.ToByteSlice(), []byte{2, 3, 4, 5, 6}; !reflect.DeepEqual(got, want) {
 			t.Errorf("invalid result when reading corrupted data: %v, wanted %v", got, want)
 		}
 	})
@@ -248,12 +257,14 @@ func TestCacheFailureToWrite(t *testing.T) {
 		},
 	}
 
-	v, err := cc.getContent(ctx, "aa", "content-1", 0, 3)
-	if err != nil {
+	var v gather.WriteBuffer
+	defer v.Close()
+
+	if err = cc.getContent(ctx, "aa", "content-1", 0, 3, &v); err != nil {
 		t.Errorf("write failure wasn't ignored: %v", err)
 	}
 
-	if got, want := v, []byte{1, 2, 3}; !reflect.DeepEqual(got, want) {
+	if got, want := v.ToByteSlice(), []byte{1, 2, 3}; !reflect.DeepEqual(got, want) {
 		t.Errorf("unexpected value retrieved from cache: %v, want: %v", got, want)
 	}
 
@@ -292,13 +303,13 @@ func TestCacheFailureToRead(t *testing.T) {
 		},
 	}
 
-	for i := 0; i < 2; i++ {
-		v, err := cc.getContent(ctx, "aa", "content-1", 0, 3)
-		if err != nil {
-			t.Errorf("read failure wasn't ignored: %v", err)
-		}
+	var v gather.WriteBuffer
+	defer v.Close()
 
-		if got, want := v, []byte{1, 2, 3}; !reflect.DeepEqual(got, want) {
+	for i := 0; i < 2; i++ {
+		require.NoError(t, cc.getContent(ctx, "aa", "content-1", 0, 3, &v))
+
+		if got, want := v.ToByteSlice(), []byte{1, 2, 3}; !reflect.DeepEqual(got, want) {
 			t.Errorf("unexpected value retrieved from cache: %v, want: %v", got, want)
 		}
 	}

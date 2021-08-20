@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/faketime"
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
@@ -113,7 +114,7 @@ func testCache(t *testing.T, cache committedContentIndexCache, fakeTime *faketim
 	}
 }
 
-func mustBuildPackIndex(t *testing.T, b packIndexBuilder) []byte {
+func mustBuildPackIndex(t *testing.T, b packIndexBuilder) gather.Bytes {
 	t.Helper()
 
 	var buf bytes.Buffer
@@ -121,5 +122,5 @@ func mustBuildPackIndex(t *testing.T, b packIndexBuilder) []byte {
 		t.Fatal(err)
 	}
 
-	return buf.Bytes()
+	return gather.FromSlice(buf.Bytes())
 }

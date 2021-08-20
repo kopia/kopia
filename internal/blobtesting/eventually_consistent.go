@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 )
 
@@ -101,10 +102,10 @@ func (s *eventuallyConsistentStorage) randomFrontendCache() *ecFrontendCache {
 	return s.caches[n]
 }
 
-func (s *eventuallyConsistentStorage) GetBlob(ctx context.Context, id blob.ID, offset, length int64) ([]byte, error) {
+func (s *eventuallyConsistentStorage) GetBlob(ctx context.Context, id blob.ID, offset, length int64, output *gather.WriteBuffer) error {
 	// don't bother caching partial reads
 	if length >= 0 {
-		return s.realStorage.GetBlob(ctx, id, offset, length)
+		return s.realStorage.GetBlob(ctx, id, offset, length, output)
 	}
 
 	c := s.randomFrontendCache()
@@ -113,25 +114,27 @@ func (s *eventuallyConsistentStorage) GetBlob(ctx context.Context, id blob.ID, o
 	e := c.get(id)
 	if e != nil {
 		if e.data == nil {
-			return nil, blob.ErrBlobNotFound
+			return blob.ErrBlobNotFound
 		}
 
-		return append([]byte(nil), e.data...), nil
+		output.Append(e.data)
+
+		return nil
 	}
 
 	// fetch from the underlying storage.
-	v, err := s.realStorage.GetBlob(ctx, id, offset, length)
+	err := s.realStorage.GetBlob(ctx, id, offset, length, output)
 	if err != nil {
 		if errors.Is(err, blob.ErrBlobNotFound) {
 			c.put(id, nil)
 		}
 
-		return nil, err
+		return err
 	}
 
-	c.put(id, v)
+	c.put(id, output.ToByteSlice())
 
-	return v, nil
+	return nil
 }
 
 func (s *eventuallyConsistentStorage) GetMetadata(ctx context.Context, id blob.ID) (blob.Metadata, error) {

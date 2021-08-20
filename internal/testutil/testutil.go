@@ -9,8 +9,6 @@ import (
 	"runtime"
 	"strings"
 	"testing"
-
-	"github.com/kopia/kopia/internal/buf"
 )
 
 // ProviderTest marks the test method so that it only runs in provider-tests suite.
@@ -59,14 +57,6 @@ func ShouldReduceTestComplexity() bool {
 // MyTestMain runs tests and verifies some post-run invariants.
 func MyTestMain(m *testing.M) {
 	v := m.Run()
-
-	if ap := buf.ActivePools(); len(ap) != 0 {
-		for _, v := range ap {
-			fmt.Fprintf(os.Stderr, "test did not release pool allocated from: %v\n", v)
-		}
-
-		os.Exit(1)
-	}
 
 	os.Exit(v)
 }

@@ -8,16 +8,19 @@ import (
 
 func TestGatherWriteBuffer(t *testing.T) {
 	// reset for testing
-	freeList = nil
-	freeListHighWaterMark = 0
+	all := &chunkAllocator{
+		chunkSize: 100,
+	}
 
 	w := NewWriteBuffer()
+	w.alloc = all
+
 	defer w.Close()
 
 	w.Append([]byte("hello "))
 	fmt.Fprintf(w, "world!")
 
-	if got, want := w.GetBytes(nil), []byte("hello world!"); !bytes.Equal(got, want) {
+	if got, want := w.ToByteSlice(), []byte("hello world!"); !bytes.Equal(got, want) {
 		t.Errorf("invaldi bytes %v, want %v", string(got), string(want))
 	}
 
@@ -25,9 +28,9 @@ func TestGatherWriteBuffer(t *testing.T) {
 		t.Errorf("invalid number of slices %v, want %v", got, want)
 	}
 
-	w.Append(bytes.Repeat([]byte("x"), chunkSize))
+	w.Append(bytes.Repeat([]byte("x"), all.chunkSize))
 
-	if got, want := w.Length(), chunkSize+12; got != want {
+	if got, want := w.Length(), all.chunkSize+12; got != want {
 		t.Errorf("invalid length: %v, want %v", got, want)
 	}
 
@@ -37,7 +40,7 @@ func TestGatherWriteBuffer(t *testing.T) {
 	}
 
 	// write to fill the remainder of 2nd slice
-	w.Append(bytes.Repeat([]byte("x"), chunkSize-12))
+	w.Append(bytes.Repeat([]byte("x"), all.chunkSize-12))
 
 	// still 2 slices
 	if got, want := len(w.inner.Slices), 2; got != want {

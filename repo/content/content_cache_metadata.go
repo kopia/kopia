@@ -11,6 +11,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/kopia/kopia/internal/cache"
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 )
 
@@ -41,8 +42,10 @@ func (c *contentCacheForMetadata) sync(ctx context.Context) error {
 				<-sem
 			}()
 
-			_, err := c.getContent(ctx, "dummy", bm.BlobID, 0, 1)
-			return err
+			var tmp gather.WriteBuffer
+			defer tmp.Close()
+
+			return c.getContent(ctx, "dummy", bm.BlobID, 0, 1, &tmp)
 		})
 
 		return nil
@@ -62,48 +65,60 @@ func (c *contentCacheForMetadata) mutexForBlob(blobID blob.ID) *sync.Mutex {
 	return &c.shardedMutexes[mutexID]
 }
 
-func (c *contentCacheForMetadata) getContent(ctx context.Context, cacheKey cacheKey, blobID blob.ID, offset, length int64) ([]byte, error) {
+func (c *contentCacheForMetadata) getContent(ctx context.Context, cacheKey cacheKey, blobID blob.ID, offset, length int64, output *gather.WriteBuffer) error {
 	// try getting from cache first
-	if v := c.pc.Get(ctx, string(blobID), offset, length); v != nil {
-		return v, nil
+	if c.pc.Get(ctx, string(blobID), offset, length, output) {
+		return nil
 	}
 
 	m := c.mutexForBlob(blobID)
 	m.Lock()
 	defer m.Unlock()
 
+	var blobData gather.WriteBuffer
+	defer blobData.Close()
+
 	// read the entire blob
-	blobData, err := c.st.GetBlob(ctx, blobID, 0, -1)
+	err := c.st.GetBlob(ctx, blobID, 0, -1, &blobData)
 
 	if err != nil {
 		stats.Record(ctx, cache.MetricMissErrors.M(1))
 	} else {
-		stats.Record(ctx, cache.MetricMissBytes.M(int64(len(blobData))))
+		stats.Record(ctx, cache.MetricMissBytes.M(int64(blobData.Length())))
 	}
 
 	if errors.Is(err, blob.ErrBlobNotFound) {
 		// not found in underlying storage
 		// nolint:wrapcheck
-		return nil, err
+		return err
 	}
 
 	if err != nil {
 		// nolint:wrapcheck
-		return nil, err
+		return err
 	}
 
 	// store the whole blob in the cache.
-	c.pc.Put(ctx, string(blobID), blobData)
+	c.pc.Put(ctx, string(blobID), blobData.Bytes())
 
 	if offset == 0 && length == -1 {
-		return blobData, nil
+		_, err := blobData.Bytes().WriteTo(output)
+
+		return errors.Wrap(err, "error copying results")
 	}
 
-	if offset < 0 || offset+length > int64(len(blobData)) {
-		return nil, errors.Errorf("invalid (offset=%v,length=%v) for blob %q of size %v", offset, length, blobID, len(blobData))
+	if offset < 0 || offset+length > int64(blobData.Length()) {
+		return errors.Errorf("invalid (offset=%v,length=%v) for blob %q of size %v", offset, length, blobID, blobData.Length())
 	}
 
-	return blobData[offset : offset+length], nil
+	output.Reset()
+
+	if err := blobData.AppendSectionTo(output, int(offset), int(length)); err != nil {
+		// should never happen
+		return errors.Wrap(err, "error appending to result")
+	}
+
+	return nil
 }
 
 func (c *contentCacheForMetadata) close(ctx context.Context) {

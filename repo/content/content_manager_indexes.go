@@ -1,13 +1,13 @@
 package content
 
 import (
-	"bytes"
 	"context"
 	"time"
 
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 )
 
@@ -67,13 +67,15 @@ func (sm *SharedManager) CompactIndexes(ctx context.Context, opt CompactOptions)
 }
 
 // ParseIndexBlob loads entries in a given index blob and returns them.
-func ParseIndexBlob(ctx context.Context, blobID blob.ID, data []byte, crypter *Crypter) ([]Info, error) {
-	data, err := crypter.DecryptBLOB(data, blobID)
-	if err != nil {
+func ParseIndexBlob(ctx context.Context, blobID blob.ID, encrypted gather.Bytes, crypter *Crypter) ([]Info, error) {
+	var data gather.WriteBuffer
+	defer data.Close()
+
+	if err := crypter.DecryptBLOB(encrypted, blobID, &data); err != nil {
 		return nil, errors.Wrap(err, "unable to decrypt index blob")
 	}
 
-	index, err := openPackIndex(bytes.NewReader(data), uint32(crypter.Encryptor.Overhead()))
+	index, err := openPackIndex(data.Bytes(), uint32(crypter.Encryptor.Overhead()))
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to open index blob")
 	}

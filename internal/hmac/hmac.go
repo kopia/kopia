@@ -4,41 +4,51 @@ package hmac
 import (
 	"crypto/hmac"
 	"crypto/sha256"
+	"io"
 
 	"github.com/pkg/errors"
+
+	"github.com/kopia/kopia/internal/gather"
 )
 
 // Append computes HMAC-SHA256 checksum for a given block of bytes and appends it.
-func Append(data, secret []byte) []byte {
+func Append(input gather.Bytes, secret []byte, output *gather.WriteBuffer) {
 	h := hmac.New(sha256.New, secret)
-	h.Write(data)
 
-	return h.Sum(data)
+	input.WriteTo(output) // nolint:errcheck
+	input.WriteTo(h)      // nolint:errcheck
+
+	var hash [sha256.Size]byte
+
+	output.Write(h.Sum(hash[:0])) // nolint:errcheck
 }
 
 // VerifyAndStrip verifies that given block of bytes has correct HMAC-SHA256 checksum and strips it.
-func VerifyAndStrip(b, secret []byte) ([]byte, error) {
-	if len(b) < sha256.Size {
-		return nil, errors.New("invalid data - too short")
+func VerifyAndStrip(input gather.Bytes, secret []byte, output *gather.WriteBuffer) error {
+	if input.Length() < sha256.Size {
+		return errors.New("invalid data - too short")
 	}
 
-	p := len(b) - sha256.Size
-	data := b[0:p]
-	signature := b[p:]
+	p := input.Length() - sha256.Size
 
 	h := hmac.New(sha256.New, secret)
-	h.Write(data)
+	r := input.Reader()
 
-	var sigBuf [32]byte
+	if _, err := io.CopyN(io.MultiWriter(h, output), r, int64(p)); err != nil {
+		return errors.Wrap(err, "error hashing")
+	}
+
+	var sigBuf, actualSignature [sha256.Size]byte
 	validSignature := h.Sum(sigBuf[:0])
 
-	if len(signature) != len(validSignature) {
-		return nil, errors.New("invalid signature length")
+	n, err := r.Read(actualSignature[:])
+	if err != nil || n != sha256.Size {
+		return errors.Wrap(err, "error reading signature")
 	}
 
-	if hmac.Equal(validSignature, signature) {
-		return data, nil
+	if hmac.Equal(validSignature, actualSignature[:]) {
+		return nil
 	}
 
-	return nil, errors.New("invalid data - corrupted")
+	return errors.New("invalid data - corrupted")
 }

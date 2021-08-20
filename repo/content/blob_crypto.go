@@ -7,6 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/encryption"
 	"github.com/kopia/kopia/repo/hashing"
@@ -49,10 +50,10 @@ func (c *Crypter) getIndexBlobIV(s blob.ID) ([]byte, error) {
 
 // EncryptBLOB encrypts the given data using crypter-defined key and returns a name that should
 // be used to save the blob in thre repository.
-func (c *Crypter) EncryptBLOB(data []byte, prefix blob.ID, sessionID SessionID) (blob.ID, []byte, error) {
+func (c *Crypter) EncryptBLOB(payload gather.Bytes, prefix blob.ID, sessionID SessionID, output *gather.WriteBuffer) (blob.ID, error) {
 	var hashOutput [hashing.MaxHashSize]byte
 
-	hash := c.HashFunction(hashOutput[:0], data)
+	hash := c.HashFunction(hashOutput[:0], payload)
 	blobID := prefix + blob.ID(hex.EncodeToString(hash))
 
 	if sessionID != "" {
@@ -61,29 +62,31 @@ func (c *Crypter) EncryptBLOB(data []byte, prefix blob.ID, sessionID SessionID) 
 
 	iv, err := c.getIndexBlobIV(blobID)
 	if err != nil {
-		return "", nil, err
+		return "", err
 	}
 
-	data2, err := c.Encryptor.Encrypt(nil, data, iv)
-	if err != nil {
-		return "", nil, errors.Wrapf(err, "error encrypting BLOB %v", blobID)
+	output.Reset()
+
+	if err := c.Encryptor.Encrypt(payload, iv, output); err != nil {
+		return "", errors.Wrapf(err, "error encrypting BLOB %v", blobID)
 	}
 
-	return blobID, data2, nil
+	return blobID, nil
 }
 
 // DecryptBLOB decrypts the provided data using provided blobID to derive initialization vector.
-func (c *Crypter) DecryptBLOB(payload []byte, blobID blob.ID) ([]byte, error) {
+func (c *Crypter) DecryptBLOB(payload gather.Bytes, blobID blob.ID, output *gather.WriteBuffer) error {
 	iv, err := c.getIndexBlobIV(blobID)
 	if err != nil {
-		return nil, errors.Wrap(err, "unable to get index blob IV")
+		return errors.Wrap(err, "unable to get index blob IV")
 	}
+
+	output.Reset()
 
 	// Decrypt will verify the payload.
-	payload, err = c.Encryptor.Decrypt(nil, payload, iv)
-	if err != nil {
-		return nil, errors.Wrapf(err, "error decrypting BLOB %v", blobID)
+	if err := c.Encryptor.Decrypt(payload, iv, output); err != nil {
+		return errors.Wrapf(err, "error decrypting BLOB %v", blobID)
 	}
 
-	return payload, nil
+	return nil
 }

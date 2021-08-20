@@ -31,8 +31,6 @@ const (
 
 	FormatLogModule = "kopia/format"
 
-	defaultEncryptionBufferPoolSegmentSize = 8 << 20 // 8 MB
-
 	packBlobIDLength = 16
 
 	defaultIndexShardSize = 16e6 // slightly less than 2^24, which lets index use 24-bit/3-byte indexes
@@ -219,7 +217,7 @@ func (bm *WriteManager) maybeRetryWritingFailedPacksUnlocked(ctx context.Context
 	return nil
 }
 
-func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, data []byte, isDeleted bool, comp compression.HeaderID) error {
+func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, data gather.Bytes, isDeleted bool, comp compression.HeaderID) error {
 	// see if the current index is old enough to cause automatic flush.
 	if err := bm.maybeFlushBasedOnTimeUnlocked(ctx); err != nil {
 		return errors.Wrap(err, "unable to flush old pending writes")
@@ -265,10 +263,10 @@ func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, dat
 		PackOffset:       uint32(pp.currentPackData.Length()),
 		TimestampSeconds: bm.timeNow().Unix(),
 		FormatVersion:    byte(bm.writeFormatVersion),
-		OriginalLength:   uint32(len(data)),
+		OriginalLength:   uint32(data.Length()),
 	}
 
-	actualComp, err := bm.maybeCompressAndEncryptDataForPacking(pp.currentPackData, data, contentID, comp)
+	actualComp, err := bm.maybeCompressAndEncryptDataForPacking(data, contentID, comp, pp.currentPackData)
 	if err != nil {
 		return errors.Wrapf(err, "unable to encrypt %q", contentID)
 	}
@@ -369,10 +367,12 @@ func (bm *WriteManager) flushPackIndexesLocked(ctx context.Context) error {
 	}
 
 	if len(bm.packIndexBuilder) > 0 {
-		dataShards, err := bm.packIndexBuilder.buildShards(bm.indexVersion, true, bm.indexShardSize)
+		dataShards, closeShards, err := bm.packIndexBuilder.buildShards(bm.indexVersion, true, bm.indexShardSize)
 		if err != nil {
 			return errors.Wrap(err, "unable to build pack index")
 		}
+
+		defer closeShards()
 
 		// we must hold a lock between writing an index and adding index blob to committed contents index
 		// otherwise it is possible for concurrent compaction or refresh to forget about the blob we have just
@@ -393,7 +393,7 @@ func (bm *WriteManager) flushPackIndexesLocked(ctx context.Context) error {
 		// and will be visible to others, including blob GC.
 
 		for i, indexBlobMD := range indexBlobMDs {
-			bm.onUpload(int64(len(dataShards[i])))
+			bm.onUpload(int64(dataShards[i].Length()))
 
 			if err := bm.committedContents.addIndexBlob(ctx, indexBlobMD.BlobID, dataShards[i], true); err != nil {
 				return errors.Wrap(err, "unable to add committed content")
@@ -556,12 +556,14 @@ func (bm *WriteManager) RewriteContent(ctx context.Context, contentID ID) error 
 		return err
 	}
 
-	data, err := bm.getContentDataUnlocked(ctx, pp, bi)
-	if err != nil {
+	var data gather.WriteBuffer
+	defer data.Close()
+
+	if err := bm.getContentDataUnlocked(ctx, pp, bi, &data); err != nil {
 		return err
 	}
 
-	return bm.addToPackUnlocked(ctx, contentID, data, bi.GetDeleted(), bi.GetCompressionHeaderID())
+	return bm.addToPackUnlocked(ctx, contentID, data.Bytes(), bi.GetDeleted(), bi.GetCompressionHeaderID())
 }
 
 // UndeleteContent rewrites the content with the given ID if the content exists
@@ -579,12 +581,14 @@ func (bm *WriteManager) UndeleteContent(ctx context.Context, contentID ID) error
 		return nil
 	}
 
-	data, err := bm.getContentDataUnlocked(ctx, pp, bi)
-	if err != nil {
+	var data gather.WriteBuffer
+	defer data.Close()
+
+	if err := bm.getContentDataUnlocked(ctx, pp, bi, &data); err != nil {
 		return err
 	}
 
-	return bm.addToPackUnlocked(ctx, contentID, data, false, bi.GetCompressionHeaderID())
+	return bm.addToPackUnlocked(ctx, contentID, data.Bytes(), false, bi.GetCompressionHeaderID())
 }
 
 func packPrefixForContentID(contentID ID) blob.ID {
@@ -652,7 +656,7 @@ func (bm *WriteManager) WriteContent(ctx context.Context, data []byte, prefix ID
 
 	var hashOutput [hashing.MaxHashSize]byte
 
-	contentID := prefix + ID(hex.EncodeToString(bm.hashData(hashOutput[:0], data)))
+	contentID := prefix + ID(hex.EncodeToString(bm.hashData(hashOutput[:0], gather.FromSlice(data))))
 
 	// content already tracked
 	if _, bi, err := bm.getContentInfo(ctx, contentID); err == nil {
@@ -666,7 +670,7 @@ func (bm *WriteManager) WriteContent(ctx context.Context, data []byte, prefix ID
 		bm.log.Debugf("write-content %v new", contentID)
 	}
 
-	err := bm.addToPackUnlocked(ctx, contentID, data, false, comp)
+	err := bm.addToPackUnlocked(ctx, contentID, gather.FromSlice(data), false, comp)
 
 	return contentID, err
 }
@@ -692,8 +696,15 @@ func (bm *WriteManager) GetContent(ctx context.Context, contentID ID) (v []byte,
 		return nil, err
 	}
 
+	var tmp gather.WriteBuffer
+	defer tmp.Close()
+
 	// Return content even if it is bi.GetDeleted() so it can be recovered during GC among others.
-	return bm.getContentDataUnlocked(ctx, pp, bi)
+	if err := bm.getContentDataUnlocked(ctx, pp, bi, &tmp); err != nil {
+		return nil, err
+	}
+
+	return tmp.ToByteSlice(), nil
 }
 
 func (bm *WriteManager) getOverlayContentInfo(contentID ID) (*pendingPackInfo, Info, bool) {

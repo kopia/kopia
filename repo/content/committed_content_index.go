@@ -12,6 +12,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/logging"
 )
@@ -35,14 +36,14 @@ type committedContentIndex struct {
 	indexVersion         int
 
 	// fetchOne loads one index blob
-	fetchOne func(ctx context.Context, blobID blob.ID) ([]byte, error)
+	fetchOne func(ctx context.Context, blobID blob.ID, output *gather.WriteBuffer) error
 
 	log logging.Logger
 }
 
 type committedContentIndexCache interface {
 	hasIndexBlobID(ctx context.Context, indexBlob blob.ID) (bool, error)
-	addContentToCache(ctx context.Context, indexBlob blob.ID, data []byte) error
+	addContentToCache(ctx context.Context, indexBlob blob.ID, data gather.Bytes) error
 	openIndex(ctx context.Context, indexBlob blob.ID) (packIndex, error)
 	expireUnused(ctx context.Context, used []blob.ID) error
 }
@@ -79,7 +80,7 @@ func (c *committedContentIndex) shouldIgnore(id Info) bool {
 	return !id.Timestamp().After(c.deletionWatermark)
 }
 
-func (c *committedContentIndex) addIndexBlob(ctx context.Context, indexBlobID blob.ID, data []byte, use bool) error {
+func (c *committedContentIndex) addIndexBlob(ctx context.Context, indexBlobID blob.ID, data gather.Bytes, use bool) error {
 	// ensure we bump revision number AFTER this function
 	// doing it prematurely might confuse callers of revision() who may cache
 	// a set of old contents and associate it with new revision, before new contents
@@ -273,13 +274,17 @@ func (c *committedContentIndex) fetchIndexBlobs(ctx context.Context, indexBlobs 
 	eg, ctx := errgroup.WithContext(ctx)
 	for i := 0; i < parallelFetches; i++ {
 		eg.Go(func() error {
+			var data gather.WriteBuffer
+			defer data.Close()
+
 			for indexBlobID := range ch {
-				data, err := c.fetchOne(ctx, indexBlobID)
-				if err != nil {
+				data.Reset()
+
+				if err := c.fetchOne(ctx, indexBlobID, &data); err != nil {
 					return errors.Wrapf(err, "error loading index blob %v", indexBlobID)
 				}
 
-				if err := c.addIndexBlob(ctx, indexBlobID, data, false); err != nil {
+				if err := c.addIndexBlob(ctx, indexBlobID, data.Bytes(), false); err != nil {
 					return errors.Wrap(err, "unable to add to committed content cache")
 				}
 			}
@@ -318,7 +323,7 @@ func (c *committedContentIndex) missingIndexBlobs(ctx context.Context, blobs []b
 func newCommittedContentIndex(caching *CachingOptions,
 	v1PerContentOverhead uint32,
 	indexVersion int,
-	fetchOne func(ctx context.Context, blobID blob.ID) ([]byte, error),
+	fetchOne func(ctx context.Context, blobID blob.ID, output *gather.WriteBuffer) error,
 	baseLog logging.Logger,
 ) *committedContentIndex {
 	log := logging.WithPrefix("[committed-content-index] ", baseLog)

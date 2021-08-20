@@ -1,7 +1,7 @@
 package compression
 
 import (
-	"bytes"
+	"io"
 	"sync"
 
 	"github.com/pierrec/lz4"
@@ -17,7 +17,7 @@ func init() {
 func newLZ4Compressor(id HeaderID) Compressor {
 	return &lz4Compressor{id, compressionHeader(id), sync.Pool{
 		New: func() interface{} {
-			return lz4.NewWriter(bytes.NewBuffer(nil))
+			return lz4.NewWriter(io.Discard)
 		},
 	}}
 }
@@ -32,7 +32,7 @@ func (c *lz4Compressor) HeaderID() HeaderID {
 	return c.id
 }
 
-func (c *lz4Compressor) Compress(output *bytes.Buffer, input []byte) error {
+func (c *lz4Compressor) Compress(output io.Writer, input io.Reader) error {
 	if _, err := output.Write(c.header); err != nil {
 		return errors.Wrap(err, "unable to write header")
 	}
@@ -43,7 +43,7 @@ func (c *lz4Compressor) Compress(output *bytes.Buffer, input []byte) error {
 
 	w.Reset(output)
 
-	if _, err := w.Write(input); err != nil {
+	if err := iocopy.JustCopy(w, input); err != nil {
 		return errors.Wrap(err, "compression error")
 	}
 
@@ -54,14 +54,16 @@ func (c *lz4Compressor) Compress(output *bytes.Buffer, input []byte) error {
 	return nil
 }
 
-func (c *lz4Compressor) Decompress(output *bytes.Buffer, input []byte) error {
-	if err := verifyCompressionHeader(input, c.header); err != nil {
-		return err
+func (c *lz4Compressor) Decompress(output io.Writer, input io.Reader, withHeader bool) error {
+	if withHeader {
+		if err := verifyCompressionHeader(input, c.header); err != nil {
+			return err
+		}
 	}
 
-	r := lz4.NewReader(bytes.NewReader(input[compressionHeaderSize:]))
+	r := lz4.NewReader(input)
 
-	if _, err := iocopy.Copy(output, r); err != nil {
+	if err := iocopy.JustCopy(output, r); err != nil {
 		return errors.Wrap(err, "decompression error")
 	}
 

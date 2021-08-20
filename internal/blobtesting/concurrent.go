@@ -54,6 +54,9 @@ func VerifyConcurrentAccess(t *testing.T, st blob.Storage, options ConcurrentAcc
 	// start readers that will be reading random blob out of the pool
 	for i := 0; i < options.Getters; i++ {
 		eg.Go(func() error {
+			var data gather.WriteBuffer
+			defer data.Close()
+
 			for i := 0; i < options.Iterations; i++ {
 				blobID := randomBlobID()
 				offset := int64(0)
@@ -64,10 +67,10 @@ func VerifyConcurrentAccess(t *testing.T, st blob.Storage, options ConcurrentAcc
 					length = 3
 				}
 
-				data, err := st.GetBlob(ctx, blobID, offset, length)
+				err := st.GetBlob(ctx, blobID, offset, length, &data)
 				switch {
 				case err == nil:
-					if got, want := string(data), string(blobID); !strings.HasPrefix(got, want) {
+					if got, want := string(data.ToByteSlice()), string(blobID); !strings.HasPrefix(got, want) {
 						return errors.Wrapf(err, "GetBlob returned invalid data for %v: %v, want prefix of %v", blobID, got, want)
 					}
 

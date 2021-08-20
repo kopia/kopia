@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"io/ioutil"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 var sample1 = []byte("hello! how are you? nice to meet you.")
@@ -15,17 +17,17 @@ func TestGatherBytes(t *testing.T) {
 		sliced Bytes
 	}{
 		{
-			whole:  nil,
+			whole:  []byte{},
 			sliced: Bytes{},
 		},
 		{
-			whole: nil,
+			whole: []byte{},
 			sliced: Bytes{Slices: [][]byte{
 				nil,
 			}},
 		},
 		{
-			whole: nil,
+			whole: []byte{},
 			sliced: Bytes{Slices: [][]byte{
 				nil,
 				{},
@@ -91,18 +93,22 @@ func TestGatherBytes(t *testing.T) {
 		}
 
 		// GetBytes
-		all = b.GetBytes(nil)
+		all = b.ToByteSlice()
 		if !bytes.Equal(all, tc.whole) {
 			t.Errorf("unexpected data from GetBytes() %v, want %v", string(all), string(tc.whole))
 		}
 
 		// AppendSectionTo - test exhaustively all combinationf os start, length
+		var tmp WriteBuffer
+		defer tmp.Close()
+
 		for i := 0; i <= len(tc.whole); i++ {
 			for j := i; j <= len(tc.whole); j++ {
-				result := b.AppendSectionTo(nil, i, j-i)
-				if !bytes.Equal(result, tc.whole[i:j]) {
-					t.Fatalf("invalid section")
-				}
+				tmp.Reset()
+
+				b.AppendSectionTo(&tmp, i, j-i)
+
+				require.Equal(t, tmp.ToByteSlice(), tc.whole[i:j])
 			}
 		}
 	}

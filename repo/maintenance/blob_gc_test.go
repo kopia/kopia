@@ -207,10 +207,11 @@ func mustPutDummySessionBlob(t *testing.T, st blob.Storage, sessionIDSuffix blob
 
 	require.NoError(t, err)
 
-	enc, err := e.Encrypt(nil, j, iv)
-	require.NoError(t, err)
+	var enc gather.WriteBuffer
+	defer enc.Close()
 
-	require.NoError(t, st.PutBlob(testlogging.Context(t), blobID, gather.FromSlice(enc)))
+	require.NoError(t, e.Encrypt(gather.FromSlice(j), iv, &enc))
+	require.NoError(t, st.PutBlob(testlogging.Context(t), blobID, enc.Bytes()))
 
 	return blobID
 }

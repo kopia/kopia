@@ -131,9 +131,5 @@ func writeFile(ctx context.Context, w io.Writer, f fs.File) error {
 	}
 	defer r.Close() //nolint:errcheck
 
-	if _, err = iocopy.Copy(w, r); err != nil {
-		return err
-	}
-
-	return nil
+	return iocopy.JustCopy(w, r)
 }

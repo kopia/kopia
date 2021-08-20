@@ -1,7 +1,6 @@
 package content
 
 import (
-	"bytes"
 	"context"
 	"os"
 	"path/filepath"
@@ -11,10 +10,10 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/internal/buf"
 	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/epoch"
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/listcache"
 	"github.com/kopia/kopia/internal/ownwrites"
 	"github.com/kopia/kopia/repo/blob"
@@ -52,7 +51,7 @@ var allIndexBlobPrefixes = []blob.ID{
 
 // indexBlobManager is the API of index blob manager as used by content manager.
 type indexBlobManager interface {
-	writeIndexBlobs(ctx context.Context, data [][]byte, sessionID SessionID) ([]blob.Metadata, error)
+	writeIndexBlobs(ctx context.Context, data []gather.Bytes, sessionID SessionID) ([]blob.Metadata, error)
 	listActiveIndexBlobs(ctx context.Context) ([]IndexBlobInfo, time.Time, error)
 	compact(ctx context.Context, opts CompactOptions) error
 	flushCache(ctx context.Context)
@@ -95,7 +94,6 @@ type SharedManager struct {
 	repositoryFormatBytes   []byte
 	indexVersion            int
 	indexShardSize          int
-	encryptionBufferPool    *buf.Pool
 
 	// logger where logs should be written
 	log logging.Logger
@@ -112,59 +110,65 @@ func (sm *SharedManager) Crypter() *Crypter {
 	return sm.crypter
 }
 
-func (sm *SharedManager) readPackFileLocalIndex(ctx context.Context, packFile blob.ID, packFileLength int64) ([]byte, error) {
+func (sm *SharedManager) readPackFileLocalIndex(ctx context.Context, packFile blob.ID, packFileLength int64, output *gather.WriteBuffer) error {
+	var err error
+
 	if packFileLength >= indexRecoverPostambleSize {
-		data, err := sm.attemptReadPackFileLocalIndex(ctx, packFile, packFileLength-indexRecoverPostambleSize, indexRecoverPostambleSize)
-		if err == nil {
-			sm.log.Debugf("recovered %v index bytes from blob %v using optimized method", len(data), packFile)
-			return data, nil
+		if err = sm.attemptReadPackFileLocalIndex(ctx, packFile, packFileLength-indexRecoverPostambleSize, indexRecoverPostambleSize, output); err == nil {
+			sm.log.Debugf("recovered %v index bytes from blob %v using optimized method", output.Length(), packFile)
+			return nil
 		}
 
 		sm.log.Debugf("unable to recover using optimized method: %v", err)
 	}
 
-	data, err := sm.attemptReadPackFileLocalIndex(ctx, packFile, 0, -1)
-	if err == nil {
-		sm.log.Debugf("recovered %v index bytes from blob %v using full blob read", len(data), packFile)
-		return data, nil
+	if err = sm.attemptReadPackFileLocalIndex(ctx, packFile, 0, -1, output); err == nil {
+		sm.log.Debugf("recovered %v index bytes from blob %v using full blob read", output.Length(), packFile)
+
+		return nil
 	}
 
-	return nil, err
+	return err
 }
 
-func (sm *SharedManager) attemptReadPackFileLocalIndex(ctx context.Context, packFile blob.ID, offset, length int64) ([]byte, error) {
-	payload, err := sm.st.GetBlob(ctx, packFile, offset, length)
+func (sm *SharedManager) attemptReadPackFileLocalIndex(ctx context.Context, packFile blob.ID, offset, length int64, output *gather.WriteBuffer) error {
+	var payload gather.WriteBuffer
+	defer payload.Close()
+
+	output.Reset()
+
+	err := sm.st.GetBlob(ctx, packFile, offset, length, &payload)
 	if err != nil {
-		return nil, errors.Wrapf(err, "error getting blob %v", packFile)
+		return errors.Wrapf(err, "error getting blob %v", packFile)
 	}
 
-	postamble := findPostamble(payload)
+	postamble := findPostamble(payload.Bytes().ToByteSlice())
 	if postamble == nil {
-		return nil, errors.Errorf("unable to find valid postamble in file %v", packFile)
+		return errors.Errorf("unable to find valid postamble in file %v", packFile)
 	}
 
 	if uint32(offset) > postamble.localIndexOffset {
-		return nil, errors.Errorf("not enough data read during optimized attempt %v", packFile)
+		return errors.Errorf("not enough data read during optimized attempt %v", packFile)
 	}
 
 	postamble.localIndexOffset -= uint32(offset)
 
-	if uint64(postamble.localIndexOffset+postamble.localIndexLength) > uint64(len(payload)) {
+	if uint64(postamble.localIndexOffset+postamble.localIndexLength) > uint64(payload.Length()) {
 		// invalid offset/length
-		return nil, errors.Errorf("unable to find valid local index in file %v - invalid offset/length", packFile)
+		return errors.Errorf("unable to find valid local index in file %v - invalid offset/length", packFile)
 	}
 
-	encryptedLocalIndexBytes := payload[postamble.localIndexOffset : postamble.localIndexOffset+postamble.localIndexLength]
-	if encryptedLocalIndexBytes == nil {
-		return nil, errors.Errorf("unable to find valid local index in file %v", packFile)
+	var encryptedLocalIndexBytes gather.WriteBuffer
+	defer encryptedLocalIndexBytes.Close()
+
+	if err := payload.AppendSectionTo(&encryptedLocalIndexBytes, int(postamble.localIndexOffset), int(postamble.localIndexLength)); err != nil {
+		// should never happen
+		return errors.Wrap(err, "error appending to local index bytes")
 	}
 
-	localIndexBytes, err := sm.decryptAndVerify(encryptedLocalIndexBytes, postamble.localIndexIV)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to decrypt local index")
-	}
-
-	return localIndexBytes, nil
+	return errors.Wrap(
+		sm.decryptAndVerify(encryptedLocalIndexBytes.Bytes(), postamble.localIndexIV, output),
+		"unable to decrypt local index")
 }
 
 func (sm *SharedManager) loadPackIndexesLocked(ctx context.Context) error {
@@ -225,56 +229,58 @@ func (sm *SharedManager) getCacheForContentID(id ID) contentCache {
 	return sm.contentCache
 }
 
-func (sm *SharedManager) decryptContentAndVerify(payload []byte, bi Info) ([]byte, error) {
-	sm.Stats.readContent(len(payload))
+func (sm *SharedManager) decryptContentAndVerify(payload gather.Bytes, bi Info, output *gather.WriteBuffer) error {
+	sm.Stats.readContent(payload.Length())
 
 	var hashBuf [hashing.MaxHashSize]byte
 
 	iv, err := getPackedContentIV(hashBuf[:], bi.GetContentID())
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// reserved for future use
 	if k := bi.GetEncryptionKeyID(); k != 0 {
-		return nil, errors.Errorf("unsupported encryption key ID: %v", k)
+		return errors.Errorf("unsupported encryption key ID: %v", k)
 	}
 
-	decrypted, err := sm.decryptAndVerify(payload, iv)
-	if err != nil {
-		return nil, errors.Wrapf(err, "invalid checksum at %v offset %v length %v", bi.GetPackBlobID(), bi.GetPackOffset(), len(payload))
+	h := bi.GetCompressionHeaderID()
+	if h == 0 {
+		return errors.Wrapf(
+			sm.decryptAndVerify(payload, iv, output),
+			"invalid checksum at %v offset %v length %v/%v", bi.GetPackBlobID(), bi.GetPackOffset(), bi.GetPackedLength(), payload.Length())
 	}
 
-	if h := bi.GetCompressionHeaderID(); h != 0 {
-		c := compression.ByHeaderID[h]
-		if c == nil {
-			return nil, errors.Errorf("unsupported compressor %x", h)
-		}
+	var tmp gather.WriteBuffer
+	defer tmp.Close()
 
-		out := bytes.NewBuffer(nil)
-
-		if err := c.Decompress(out, decrypted); err != nil {
-			return nil, errors.Wrap(err, "error decompressing")
-		}
-
-		return out.Bytes(), nil
+	if err := sm.decryptAndVerify(payload, iv, &tmp); err != nil {
+		return errors.Wrapf(err, "invalid checksum at %v offset %v length %v/%v", bi.GetPackBlobID(), bi.GetPackOffset(), bi.GetPackedLength(), payload.Length())
 	}
 
-	return decrypted, nil
+	c := compression.ByHeaderID[h]
+	if c == nil {
+		return errors.Errorf("unsupported compressor %x", h)
+	}
+
+	if err := c.Decompress(output, tmp.Bytes().Reader(), true); err != nil {
+		return errors.Wrap(err, "error decompressing")
+	}
+
+	return nil
 }
 
-func (sm *SharedManager) decryptAndVerify(encrypted, iv []byte) ([]byte, error) {
-	decrypted, err := sm.crypter.Encryptor.Decrypt(nil, encrypted, iv)
-	if err != nil {
+func (sm *SharedManager) decryptAndVerify(encrypted gather.Bytes, iv []byte, output *gather.WriteBuffer) error {
+	if err := sm.crypter.Encryptor.Decrypt(encrypted, iv, output); err != nil {
 		sm.Stats.foundInvalidContent()
-		return nil, errors.Wrap(err, "decrypt")
+		return errors.Wrap(err, "decrypt")
 	}
 
 	sm.Stats.foundValidContent()
-	sm.Stats.decrypted(len(decrypted))
+	sm.Stats.decrypted(output.Length())
 
 	// already verified
-	return decrypted, nil
+	return nil
 }
 
 // IndexBlobs returns the list of active index blobs.
@@ -464,7 +470,6 @@ func (sm *SharedManager) release(ctx context.Context) error {
 
 	sm.contentCache.close(ctx)
 	sm.metadataCache.close(ctx)
-	sm.encryptionBufferPool.Close()
 
 	if sm.internalLogger != nil {
 		sm.internalLogger.Close(ctx)
@@ -556,7 +561,6 @@ func NewSharedManager(ctx context.Context, st blob.Storage, f *FormattingOptions
 		repositoryFormatBytes:   opts.RepositoryFormatBytes,
 		checkInvariantsOnUnlock: os.Getenv("KOPIA_VERIFY_INVARIANTS") != "",
 		writeFormatVersion:      int32(f.Version),
-		encryptionBufferPool:    buf.NewPool(ctx, defaultEncryptionBufferPoolSegmentSize+crypter.Encryptor.Overhead()+maxCompressionOverheadPerContent, "content-manager-encryption"),
 		indexVersion:            actualIndexVersion,
 		indexShardSize:          defaultIndexShardSize,
 		internalLogManager:      ilm,

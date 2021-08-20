@@ -56,7 +56,10 @@ func (c *commandRepositoryRepair) runRepairCommandWithStorage(ctx context.Contex
 	case "auto":
 		log(ctx).Infof("looking for format blob...")
 
-		if _, err := st.GetBlob(ctx, repo.FormatBlobID, 0, -1); err == nil {
+		var tmp gather.WriteBuffer
+		defer tmp.Close()
+
+		if err := st.GetBlob(ctx, repo.FormatBlobID, 0, -1, &tmp); err == nil {
 			log(ctx).Infof("format blob already exists, not recovering, pass --recover-format=yes")
 			return nil
 		}

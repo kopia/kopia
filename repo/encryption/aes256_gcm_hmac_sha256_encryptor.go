@@ -9,6 +9,8 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
+
+	"github.com/kopia/kopia/internal/gather"
 )
 
 const aes256GCMHmacSha256Overhead = 28
@@ -42,22 +44,22 @@ func (e aes256GCMHmacSha256) aeadForContent(contentID []byte) (cipher.AEAD, erro
 	return cipher.NewGCM(c)
 }
 
-func (e aes256GCMHmacSha256) Decrypt(output, input, contentID []byte) ([]byte, error) {
+func (e aes256GCMHmacSha256) Decrypt(input gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {
 	a, err := e.aeadForContent(contentID)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return aeadOpenPrefixedWithNonce(output, a, input, contentID)
+	return aeadOpenPrefixedWithNonce(a, input, contentID, output)
 }
 
-func (e aes256GCMHmacSha256) Encrypt(output, input, contentID []byte) ([]byte, error) {
+func (e aes256GCMHmacSha256) Encrypt(input gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {
 	a, err := e.aeadForContent(contentID)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return aeadSealWithRandomNonce(output, a, input, contentID)
+	return aeadSealWithRandomNonce(a, input, contentID, output)
 }
 
 func (e aes256GCMHmacSha256) Overhead() int {

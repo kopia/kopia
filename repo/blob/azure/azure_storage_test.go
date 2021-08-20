@@ -14,6 +14,7 @@ import (
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/providervalidation"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
@@ -172,7 +173,10 @@ func TestAzureStorageInvalidBlob(t *testing.T) {
 
 	defer st.Close(ctx)
 
-	_, err = st.GetBlob(ctx, "xxx", 0, 30)
+	var tmp gather.WriteBuffer
+	defer tmp.Close()
+
+	err = st.GetBlob(ctx, "xxx", 0, 30, &tmp)
 	if err == nil {
 		t.Errorf("unexpected success when adding to non-existent container")
 	}

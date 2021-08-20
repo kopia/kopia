@@ -7,6 +7,9 @@ import (
 	mathrand "math/rand"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/encryption"
 )
 
@@ -40,68 +43,54 @@ func TestRoundTrip(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			cipherText1, err := e.Encrypt(nil, data, contentID1)
-			if err != nil || cipherText1 == nil {
-				t.Errorf("invalid response from Encrypt: %v %v", cipherText1, err)
+			var cipherText1 gather.WriteBuffer
+			defer cipherText1.Close()
+
+			var cipherText1b gather.WriteBuffer
+			defer cipherText1b.Close()
+
+			require.NoError(t, e.Encrypt(gather.FromSlice(data), contentID1, &cipherText1))
+			require.NoError(t, e.Encrypt(gather.FromSlice(data), contentID1, &cipherText1b))
+
+			if v := cipherText1.ToByteSlice(); bytes.Equal(v, cipherText1b.ToByteSlice()) {
+				t.Errorf("multiple Encrypt returned the same ciphertext: %x", v)
 			}
 
-			cipherText1b, err2 := e.Encrypt(nil, data, contentID1)
-			if err2 != nil || cipherText1b == nil {
-				t.Errorf("invalid response from Encrypt: %v %v", cipherText1, err2)
+			var plainText1 gather.WriteBuffer
+			defer plainText1.Close()
+
+			require.NoError(t, e.Decrypt(cipherText1.Bytes(), contentID1, &plainText1))
+
+			if v := plainText1.ToByteSlice(); !bytes.Equal(v, data) {
+				t.Errorf("Encrypt()/Decrypt() does not round-trip: %x %x", v, data)
 			}
 
-			if bytes.Equal(cipherText1, cipherText1b) {
-				t.Errorf("multiple Encrypt returned the same ciphertext: %x", cipherText1)
+			var cipherText2 gather.WriteBuffer
+			defer cipherText2.Close()
+
+			require.NoError(t, e.Encrypt(gather.FromSlice(data), contentID2, &cipherText2))
+
+			var plainText2 gather.WriteBuffer
+			defer plainText2.Close()
+
+			require.NoError(t, e.Decrypt(cipherText2.Bytes(), contentID2, &plainText2))
+
+			if v := plainText2.ToByteSlice(); !bytes.Equal(v, data) {
+				t.Errorf("Encrypt()/Decrypt() does not round-trip: %x %x", v, data)
 			}
 
-			plainText1, err := e.Decrypt(nil, cipherText1, contentID1)
-			if err != nil || plainText1 == nil {
-				t.Errorf("invalid response from Decrypt: %v %v", plainText1, err)
-			}
-
-			if !bytes.Equal(plainText1, data) {
-				t.Errorf("Encrypt()/Decrypt() does not round-trip: %x %x", plainText1, data)
-			}
-
-			plaintextOutput := make([]byte, 0, 256)
-
-			plainText1a, err := e.Decrypt(plaintextOutput, cipherText1, contentID1)
-			if err != nil || plainText1 == nil {
-				t.Errorf("invalid response from Decrypt: %v %v", plainText1, err)
-			}
-
-			if !bytes.Equal(plainText1a, plaintextOutput[0:len(plainText1a)]) {
-				t.Errorf("Decrypt() does not use output buffer")
-			}
-
-			cipherText2, err := e.Encrypt(nil, data, contentID2)
-			if err != nil || cipherText2 == nil {
-				t.Errorf("invalid response from Encrypt: %v %v", cipherText2, err)
-			}
-
-			plainText2, err := e.Decrypt(nil, cipherText2, contentID2)
-			if err != nil || plainText2 == nil {
-				t.Errorf("invalid response from Decrypt: %v %v", plainText2, err)
-			}
-
-			if !bytes.Equal(plainText2, data) {
-				t.Errorf("Encrypt()/Decrypt() does not round-trip: %x %x", plainText2, data)
-			}
-
-			if bytes.Equal(cipherText1, cipherText2) {
-				t.Errorf("ciphertexts should be different, were %x", cipherText1)
+			if v := cipherText1.ToByteSlice(); bytes.Equal(v, cipherText2.ToByteSlice()) {
+				t.Errorf("ciphertexts should be different, were %x", v)
 			}
 
 			// decrypt using wrong content ID
-			if _, err := e.Decrypt(nil, cipherText2, contentID1); err == nil {
-				t.Fatalf("expected decrypt to fail for authenticated encryption")
-			}
+			require.Error(t, e.Decrypt(cipherText2.Bytes(), contentID1, &plainText2))
 
 			// flip some bits in the cipherText
-			cipherText2[mathrand.Intn(len(cipherText2))] ^= byte(1 + mathrand.Intn(254))
-			if _, err := e.Decrypt(nil, cipherText2, contentID1); err == nil {
-				t.Errorf("expected decrypt failure on invalid ciphertext, got success")
-			}
+			b := cipherText2.Bytes()
+			b.Slices[0][mathrand.Intn(b.Length())] ^= byte(1 + mathrand.Intn(254))
+
+			require.Error(t, e.Decrypt(b, contentID1, &plainText2))
 		})
 	}
 }
@@ -153,12 +142,11 @@ func verifyCiphertextSamples(t *testing.T, masterKey, contentID, payload []byte,
 
 		ct := samples[encryptionAlgo]
 		if ct == "" {
-			v, err := enc.Encrypt(nil, payload, contentID)
-			if err != nil {
-				t.Fatal(err)
-			}
+			var v gather.WriteBuffer
+			defer v.Close()
+			require.NoError(t, enc.Encrypt(gather.FromSlice(payload), contentID, &v))
 
-			t.Errorf("missing ciphertext sample for %q: %q,", encryptionAlgo, hex.EncodeToString(v))
+			t.Errorf("missing ciphertext sample for %q: %q,", encryptionAlgo, hex.EncodeToString(payload))
 		} else {
 			b, err := hex.DecodeString(ct)
 			if err != nil {
@@ -166,14 +154,13 @@ func verifyCiphertextSamples(t *testing.T, masterKey, contentID, payload []byte,
 				continue
 			}
 
-			plainText, err := enc.Decrypt(nil, b, contentID)
-			if err != nil {
-				t.Errorf("unable to decrypt %v: %v", encryptionAlgo, err)
-				continue
-			}
+			var plainText gather.WriteBuffer
+			defer plainText.Close()
 
-			if !bytes.Equal(plainText, payload) {
-				t.Errorf("invalid plaintext after decryption %x, want %x", plainText, payload)
+			require.NoError(t, enc.Decrypt(gather.FromSlice(b), contentID, &plainText))
+
+			if v := plainText.ToByteSlice(); !bytes.Equal(v, payload) {
+				t.Errorf("invalid plaintext after decryption %x, want %x", v, payload)
 			}
 		}
 	}

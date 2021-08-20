@@ -1,7 +1,6 @@
 package content
 
 import (
-	"bytes"
 	"crypto/rand"
 	"hash/fnv"
 	"io"
@@ -10,6 +9,8 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
+
+	"github.com/kopia/kopia/internal/gather"
 )
 
 const randomSuffixSize = 32 // number of random bytes to append at the end to make the index blob unique
@@ -166,36 +167,49 @@ func (b packIndexBuilder) shard(maxShardSize int) []packIndexBuilder {
 	return result
 }
 
-func (b packIndexBuilder) buildShards(indexVersion int, stable bool, shardSize int) ([][]byte, error) {
+func (b packIndexBuilder) buildShards(indexVersion int, stable bool, shardSize int) ([]gather.Bytes, func(), error) {
 	if shardSize == 0 {
-		return nil, errors.Errorf("invalid shard size")
+		return nil, nil, errors.Errorf("invalid shard size")
 	}
 
 	var (
 		shardedBuilders = b.shard(shardSize)
-		dataShards      [][]byte
+		dataShardsBuf   []*gather.WriteBuffer
+		dataShards      []gather.Bytes
 		randomSuffix    [32]byte
 	)
 
-	for _, s := range shardedBuilders {
-		var buf bytes.Buffer
+	closeShards := func() {
+		for _, ds := range dataShardsBuf {
+			ds.Close()
+		}
+	}
 
-		if err := s.BuildStable(&buf, indexVersion); err != nil {
-			return nil, errors.Wrap(err, "error building index shard")
+	for _, s := range shardedBuilders {
+		buf := gather.NewWriteBuffer()
+
+		if err := s.BuildStable(buf, indexVersion); err != nil {
+			closeShards()
+
+			return nil, nil, errors.Wrap(err, "error building index shard")
 		}
 
 		if !stable {
 			if _, err := rand.Read(randomSuffix[:]); err != nil {
-				return nil, errors.Wrap(err, "error getting random bytes for suffix")
+				closeShards()
+
+				return nil, nil, errors.Wrap(err, "error getting random bytes for suffix")
 			}
 
 			if _, err := buf.Write(randomSuffix[:]); err != nil {
-				return nil, errors.Wrap(err, "error writing extra random suffix to ensure indexes are always globally unique")
+				closeShards()
+
+				return nil, nil, errors.Wrap(err, "error writing extra random suffix to ensure indexes are always globally unique")
 			}
 		}
 
 		dataShards = append(dataShards, buf.Bytes())
 	}
 
-	return dataShards, nil
+	return dataShards, closeShards, nil
 }

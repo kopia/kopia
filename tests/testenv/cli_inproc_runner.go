@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/kopia/kopia/cli"
-	"github.com/kopia/kopia/internal/buf"
 	"github.com/kopia/kopia/internal/testlogging"
 )
 
@@ -43,9 +42,3 @@ func NewInProcRunner(t *testing.T) *CLIInProcRunner {
 }
 
 var _ CLIRunner = (*CLIInProcRunner)(nil)
-
-func init() {
-	// disable buffer management in end-to-end tests as running too many of them in parallel causes too
-	// much memory usage on low-end platforms.
-	buf.DisableBufferManagement = true
-}

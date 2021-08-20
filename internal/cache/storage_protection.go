@@ -5,6 +5,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/hmac"
 	"github.com/kopia/kopia/repo/encryption"
 )
@@ -15,18 +16,22 @@ var encryptionProtectionAlgorithm = "AES256-GCM-HMAC-SHA256"
 // StorageProtection encapsulates protection (HMAC and/or encryption) applied to local cache items.
 type StorageProtection interface {
 	SupportsPartial() bool
-	Protect(id string, b []byte) []byte
-	Verify(id string, b []byte) ([]byte, error)
+	Protect(id string, input gather.Bytes, output *gather.WriteBuffer)
+	Verify(id string, input gather.Bytes, output *gather.WriteBuffer) error
 }
 
 type nullStorageProtection struct{}
 
-func (nullStorageProtection) Protect(id string, b []byte) []byte {
-	return b
+func (nullStorageProtection) Protect(id string, input gather.Bytes, output *gather.WriteBuffer) {
+	output.Reset()
+	input.WriteTo(output) // nolint:errcheck
 }
 
-func (nullStorageProtection) Verify(id string, b []byte) ([]byte, error) {
-	return b, nil
+func (nullStorageProtection) Verify(id string, input gather.Bytes, output *gather.WriteBuffer) error {
+	output.Reset()
+	input.WriteTo(output) // nolint:errcheck
+
+	return nil
 }
 
 func (nullStorageProtection) SupportsPartial() bool {
@@ -42,13 +47,15 @@ type checksumProtection struct {
 	Secret []byte
 }
 
-func (p checksumProtection) Protect(id string, b []byte) []byte {
-	return hmac.Append(b, p.Secret)
+func (p checksumProtection) Protect(id string, input gather.Bytes, output *gather.WriteBuffer) {
+	output.Reset()
+	hmac.Append(input, p.Secret, output)
 }
 
-func (p checksumProtection) Verify(id string, b []byte) ([]byte, error) {
+func (p checksumProtection) Verify(id string, input gather.Bytes, output *gather.WriteBuffer) error {
+	output.Reset()
 	// nolint:wrapcheck
-	return hmac.VerifyAndStrip(b, p.Secret)
+	return hmac.VerifyAndStrip(input, p.Secret, output)
 }
 
 func (checksumProtection) SupportsPartial() bool {
@@ -69,26 +76,26 @@ func (p authenticatedEncryptionProtection) deriveIV(id string) []byte {
 	return contentID[:]
 }
 
-func (p authenticatedEncryptionProtection) Protect(id string, b []byte) []byte {
-	c, err := p.e.Encrypt(nil, b, p.deriveIV(id))
-	if err != nil {
+func (p authenticatedEncryptionProtection) Protect(id string, input gather.Bytes, output *gather.WriteBuffer) {
+	output.Reset()
+
+	if err := p.e.Encrypt(input, p.deriveIV(id), output); err != nil {
 		panic("encryption unexpectedly failed: " + err.Error())
 	}
-
-	return c
 }
 
 func (authenticatedEncryptionProtection) SupportsPartial() bool {
 	return false
 }
 
-func (p authenticatedEncryptionProtection) Verify(id string, b []byte) ([]byte, error) {
-	v, err := p.e.Decrypt(nil, b, p.deriveIV(id))
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to decrypt cache content")
+func (p authenticatedEncryptionProtection) Verify(id string, input gather.Bytes, output *gather.WriteBuffer) error {
+	output.Reset()
+
+	if err := p.e.Decrypt(input, p.deriveIV(id), output); err != nil {
+		return errors.Wrap(err, "unable to decrypt cache content")
 	}
 
-	return v, nil
+	return nil
 }
 
 type authenticatedEncryptionProtectionKey []byte

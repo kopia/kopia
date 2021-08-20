@@ -291,8 +291,10 @@ func sliceToChannel(ctx context.Context, md []blob.Metadata) chan blob.Metadata 
 }
 
 func (c *commandRepositorySyncTo) syncCopyBlob(ctx context.Context, m blob.Metadata, src blob.Reader, dst blob.Storage) error {
-	data, err := src.GetBlob(ctx, m.BlobID, 0, -1)
-	if err != nil {
+	var data gather.WriteBuffer
+	defer data.Close()
+
+	if err := src.GetBlob(ctx, m.BlobID, 0, -1, &data); err != nil {
 		if errors.Is(err, blob.ErrBlobNotFound) {
 			log(ctx).Infof("ignoring BLOB not found: %v", m.BlobID)
 			return nil
@@ -301,7 +303,7 @@ func (c *commandRepositorySyncTo) syncCopyBlob(ctx context.Context, m blob.Metad
 		return errors.Wrapf(err, "error reading blob '%v' from source", m.BlobID)
 	}
 
-	if err := dst.PutBlob(ctx, m.BlobID, gather.FromSlice(data)); err != nil {
+	if err := dst.PutBlob(ctx, m.BlobID, data.Bytes()); err != nil {
 		return errors.Wrapf(err, "error writing blob '%v' to destination", m.BlobID)
 	}
 
@@ -331,26 +333,30 @@ func syncDeleteBlob(ctx context.Context, m blob.Metadata, dst blob.Storage) erro
 }
 
 func (c *commandRepositorySyncTo) ensureRepositoriesHaveSameFormatBlob(ctx context.Context, src blob.Reader, dst blob.Storage) error {
-	srcData, err := src.GetBlob(ctx, repo.FormatBlobID, 0, -1)
-	if err != nil {
+	var srcData gather.WriteBuffer
+	defer srcData.Close()
+
+	if err := src.GetBlob(ctx, repo.FormatBlobID, 0, -1, &srcData); err != nil {
 		return errors.Wrap(err, "error reading format blob")
 	}
 
-	dstData, err := dst.GetBlob(ctx, repo.FormatBlobID, 0, -1)
-	if err != nil {
+	var dstData gather.WriteBuffer
+	defer dstData.Close()
+
+	if err := dst.GetBlob(ctx, repo.FormatBlobID, 0, -1, &dstData); err != nil {
 		// target does not have format blob, save it there first.
 		if errors.Is(err, blob.ErrBlobNotFound) {
 			if c.repositorySyncDestinationMustExist {
 				return errors.Errorf("destination repository does not have a format blob")
 			}
 
-			return errors.Wrap(dst.PutBlob(ctx, repo.FormatBlobID, gather.FromSlice(srcData)), "error saving format blob")
+			return errors.Wrap(dst.PutBlob(ctx, repo.FormatBlobID, srcData.Bytes()), "error saving format blob")
 		}
 
 		return errors.Wrap(err, "error reading destination repository format blob")
 	}
 
-	if bytes.Equal(srcData, dstData) {
+	if bytes.Equal(srcData.ToByteSlice(), dstData.ToByteSlice()) {
 		return nil
 	}
 

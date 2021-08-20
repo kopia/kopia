@@ -7,6 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/encryption"
@@ -47,7 +48,10 @@ func Initialize(ctx context.Context, st blob.Storage, opt *NewRepositoryOptions,
 	}
 
 	// get the blob - expect ErrNotFound
-	_, err := st.GetBlob(ctx, FormatBlobID, 0, -1)
+	var tmp gather.WriteBuffer
+	defer tmp.Close()
+
+	err := st.GetBlob(ctx, FormatBlobID, 0, -1, &tmp)
 	if err == nil {
 		return ErrAlreadyInitialized
 	}

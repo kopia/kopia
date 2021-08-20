@@ -1,7 +1,7 @@
 package compression
 
 import (
-	"bytes"
+	"io"
 	"sync"
 
 	"github.com/klauspost/compress/zstd"
@@ -20,7 +20,7 @@ func init() {
 func newZstdCompressor(id HeaderID, level zstd.EncoderLevel) Compressor {
 	return &zstdCompressor{id, compressionHeader(id), sync.Pool{
 		New: func() interface{} {
-			w, err := zstd.NewWriter(bytes.NewBuffer(nil), zstd.WithEncoderLevel(level))
+			w, err := zstd.NewWriter(io.Discard, zstd.WithEncoderLevel(level))
 			mustSucceed(err)
 			return w
 		},
@@ -37,7 +37,7 @@ func (c *zstdCompressor) HeaderID() HeaderID {
 	return c.id
 }
 
-func (c *zstdCompressor) Compress(output *bytes.Buffer, input []byte) error {
+func (c *zstdCompressor) Compress(output io.Writer, input io.Reader) error {
 	if _, err := output.Write(c.header); err != nil {
 		return errors.Wrap(err, "unable to write header")
 	}
@@ -48,7 +48,7 @@ func (c *zstdCompressor) Compress(output *bytes.Buffer, input []byte) error {
 
 	w.Reset(output)
 
-	if _, err := w.Write(input); err != nil {
+	if err := iocopy.JustCopy(w, input); err != nil {
 		return errors.Wrap(err, "compression error")
 	}
 
@@ -59,18 +59,20 @@ func (c *zstdCompressor) Compress(output *bytes.Buffer, input []byte) error {
 	return nil
 }
 
-func (c *zstdCompressor) Decompress(output *bytes.Buffer, input []byte) error {
-	if err := verifyCompressionHeader(input, c.header); err != nil {
-		return err
+func (c *zstdCompressor) Decompress(output io.Writer, input io.Reader, withHeader bool) error {
+	if withHeader {
+		if err := verifyCompressionHeader(input, c.header); err != nil {
+			return err
+		}
 	}
 
-	r, err := zstd.NewReader(bytes.NewReader(input[compressionHeaderSize:]))
+	r, err := zstd.NewReader(input)
 	if err != nil {
 		return errors.Wrap(err, "unable to open zstd stream")
 	}
 	defer r.Close()
 
-	if _, err := iocopy.Copy(output, r); err != nil {
+	if err := iocopy.JustCopy(output, r); err != nil {
 		return errors.Wrap(err, "decompression error")
 	}
 

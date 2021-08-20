@@ -47,10 +47,6 @@ endif
 install: html-ui
 	go install $(KOPIA_BUILD_FLAGS) -tags $(KOPIA_BUILD_TAGS)
 
-install-profiling: KOPIA_BUILD_TAGS=embedhtml,profiling
-install-profiling: html-ui
-	go install $(KOPIA_BUILD_FLAGS) -tags $(KOPIA_BUILD_TAGS)
-
 install-noui:
 	go install $(KOPIA_BUILD_FLAGS)
 

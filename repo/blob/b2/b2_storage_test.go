@@ -11,6 +11,7 @@ import (
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/providervalidation"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
@@ -102,7 +103,10 @@ func TestB2StorageInvalidBlob(t *testing.T) {
 
 	defer st.Close(ctx)
 
-	_, err = st.GetBlob(ctx, blob.ID(fmt.Sprintf("invalid-blob-%v", clock.Now().UnixNano())), 0, 30)
+	var tmp gather.WriteBuffer
+	defer tmp.Close()
+
+	err = st.GetBlob(ctx, blob.ID(fmt.Sprintf("invalid-blob-%v", clock.Now().UnixNano())), 0, 30, &tmp)
 	if err == nil {
 		t.Errorf("unexpected success when requesting non-existing blob")
 	}

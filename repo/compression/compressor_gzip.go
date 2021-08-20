@@ -1,8 +1,8 @@
 package compression
 
 import (
-	"bytes"
 	"compress/gzip"
+	"io"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -19,7 +19,7 @@ func init() {
 func newGZipCompressor(id HeaderID, level int) Compressor {
 	return &gzipCompressor{id, compressionHeader(id), sync.Pool{
 		New: func() interface{} {
-			w, err := gzip.NewWriterLevel(bytes.NewBuffer(nil), level)
+			w, err := gzip.NewWriterLevel(io.Discard, level)
 			mustSucceed(err)
 			return w
 		},
@@ -36,7 +36,7 @@ func (c *gzipCompressor) HeaderID() HeaderID {
 	return c.id
 }
 
-func (c *gzipCompressor) Compress(output *bytes.Buffer, input []byte) error {
+func (c *gzipCompressor) Compress(output io.Writer, input io.Reader) error {
 	if _, err := output.Write(c.header); err != nil {
 		return errors.Wrap(err, "unable to write header")
 	}
@@ -47,7 +47,7 @@ func (c *gzipCompressor) Compress(output *bytes.Buffer, input []byte) error {
 
 	w.Reset(output)
 
-	if _, err := w.Write(input); err != nil {
+	if err := iocopy.JustCopy(w, input); err != nil {
 		return errors.Wrap(err, "compression error")
 	}
 
@@ -58,18 +58,20 @@ func (c *gzipCompressor) Compress(output *bytes.Buffer, input []byte) error {
 	return nil
 }
 
-func (c *gzipCompressor) Decompress(output *bytes.Buffer, b []byte) error {
-	if err := verifyCompressionHeader(b, c.header); err != nil {
-		return err
+func (c *gzipCompressor) Decompress(output io.Writer, input io.Reader, withHeader bool) error {
+	if withHeader {
+		if err := verifyCompressionHeader(input, c.header); err != nil {
+			return err
+		}
 	}
 
-	r, err := gzip.NewReader(bytes.NewReader(b[compressionHeaderSize:]))
+	r, err := gzip.NewReader(input)
 	if err != nil {
 		return errors.Wrap(err, "unable to open gzip stream")
 	}
 	defer r.Close() //nolint:errcheck
 
-	if _, err := iocopy.Copy(output, r); err != nil {
+	if err := iocopy.JustCopy(output, r); err != nil {
 		return errors.Wrap(err, "decompression error")
 	}
 

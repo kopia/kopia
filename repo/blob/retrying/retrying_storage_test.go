@@ -52,19 +52,22 @@ func TestRetrying(t *testing.T) {
 
 	require.NoError(t, rs.SetTime(ctx, blobID, clock.Now()))
 
-	_, err := rs.GetBlob(ctx, blobID, 0, -1)
+	var tmp gather.WriteBuffer
+	defer tmp.Close()
+
+	err := rs.GetBlob(ctx, blobID, 0, -1, &tmp)
 	require.NoError(t, err)
 
 	_, err = rs.GetMetadata(ctx, blobID)
 	require.NoError(t, err)
 
-	if _, err = rs.GetBlob(ctx, blobID, 4, 10000); !errors.Is(err, blob.ErrInvalidRange) {
+	if err = rs.GetBlob(ctx, blobID, 4, 10000, &tmp); !errors.Is(err, blob.ErrInvalidRange) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
 	require.NoError(t, rs.DeleteBlob(ctx, blobID))
 
-	if _, err = rs.GetBlob(ctx, blobID, 0, -1); !errors.Is(err, blob.ErrBlobNotFound) {
+	if err = rs.GetBlob(ctx, blobID, 0, -1, &tmp); !errors.Is(err, blob.ErrBlobNotFound) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 

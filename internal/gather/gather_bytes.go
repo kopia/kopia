@@ -5,7 +5,12 @@ package gather
 import (
 	"bytes"
 	"io"
+
+	"github.com/google/uuid"
+	"github.com/pkg/errors"
 )
+
+var invalidSliceBuf = []byte(uuid.NewString())
 
 // Bytes represents a sequence of bytes split into slices.
 type Bytes struct {
@@ -16,8 +21,25 @@ type Bytes struct {
 	sliceBuf [1][]byte
 }
 
-// AppendSectionTo appends the section of the buffer to the provided slice and returns it.
-func (b *Bytes) AppendSectionTo(output []byte, offset, size int) []byte {
+func (b *Bytes) invalidate() {
+	b.sliceBuf[0] = invalidSliceBuf
+	b.Slices = nil
+}
+
+func (b *Bytes) assertValid() {
+	if len(b.sliceBuf[0]) == len(invalidSliceBuf) && bytes.Equal(b.sliceBuf[0], invalidSliceBuf) {
+		panic("gather.Bytes is invalid")
+	}
+}
+
+// AppendSectionTo writes the section of the buffer to the provided writer.
+func (b *Bytes) AppendSectionTo(w io.Writer, offset, size int) error {
+	b.assertValid()
+
+	if offset < 0 {
+		return errors.Errorf("invalid offset")
+	}
+
 	// find the index of starting slice
 	sliceNdx := -1
 
@@ -44,7 +66,10 @@ func (b *Bytes) AppendSectionTo(output []byte, offset, size int) []byte {
 		firstChunkSize = len(b.Slices[sliceNdx]) - offset
 	}
 
-	output = append(output, b.Slices[sliceNdx][offset:offset+firstChunkSize]...)
+	if _, err := w.Write(b.Slices[sliceNdx][offset : offset+firstChunkSize]); err != nil {
+		return errors.Wrap(err, "error appending")
+	}
+
 	size -= firstChunkSize
 	sliceNdx++
 
@@ -58,16 +83,21 @@ func (b *Bytes) AppendSectionTo(output []byte, offset, size int) []byte {
 			l = len(s)
 		}
 
-		output = append(output, s[0:l]...)
+		if _, err := w.Write(s[0:l]); err != nil {
+			return errors.Wrap(err, "error appending")
+		}
+
 		size -= l
 		sliceNdx++
 	}
 
-	return output
+	return nil
 }
 
 // Length returns the combined length of all slices.
 func (b Bytes) Length() int {
+	b.assertValid()
+
 	l := 0
 
 	for _, data := range b.Slices {
@@ -77,8 +107,17 @@ func (b Bytes) Length() int {
 	return l
 }
 
+// ReadAt implements io.ReaderAt interface.
+func (b Bytes) ReadAt(p []byte, off int64) (n int, err error) {
+	b.assertValid()
+
+	return len(p), b.AppendSectionTo(bytes.NewBuffer(p[:0]), int(off), len(p))
+}
+
 // Reader returns a reader for the data.
 func (b Bytes) Reader() io.Reader {
+	b.assertValid()
+
 	switch len(b.Slices) {
 	case 0:
 		return bytes.NewReader(nil)
@@ -97,8 +136,12 @@ func (b Bytes) Reader() io.Reader {
 	}
 }
 
-// GetBytes appends all bytes to the provided slice and returns it.
-func (b Bytes) GetBytes(output []byte) []byte {
+// ToByteSlice returns contents as a newly-allocated byte slice.
+func (b Bytes) ToByteSlice() []byte {
+	b.assertValid()
+
+	output := []byte{}
+
 	for _, v := range b.Slices {
 		output = append(output, v...)
 	}
@@ -108,6 +151,8 @@ func (b Bytes) GetBytes(output []byte) []byte {
 
 // WriteTo writes contents to the specified writer and returns number of bytes written.
 func (b Bytes) WriteTo(w io.Writer) (int64, error) {
+	b.assertValid()
+
 	var totalN int64
 
 	for _, v := range b.Slices {

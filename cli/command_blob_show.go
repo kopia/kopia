@@ -8,6 +8,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
@@ -41,31 +42,38 @@ func (c *commandBlobShow) run(ctx context.Context, rep repo.DirectRepository) er
 
 func (c *commandBlobShow) maybeDecryptBlob(ctx context.Context, w io.Writer, rep repo.DirectRepository, blobID blob.ID) error {
 	var (
-		d   []byte
-		err error
+		d gather.WriteBuffer
+		b gather.Bytes
 	)
 
-	d, err = rep.BlobReader().GetBlob(ctx, blobID, 0, -1)
+	if err := rep.BlobReader().GetBlob(ctx, blobID, 0, -1, &d); err != nil {
+		return errors.Wrap(err, "error reading blob")
+	}
+
+	b = d.Bytes()
 
 	if c.blobShowDecrypt && canDecryptBlob(blobID) {
-		d, err = rep.Crypter().DecryptBLOB(d, blobID)
+		var tmp gather.WriteBuffer
+		defer tmp.Close()
 
-		if isJSONBlob(blobID) && err == nil {
-			var b bytes.Buffer
-
-			if err = json.Indent(&b, d, "", "  "); err != nil {
-				return errors.Wrap(err, "invalid JSON")
-			}
-
-			d = b.Bytes()
+		if err := rep.Crypter().DecryptBLOB(b, blobID, &tmp); err != nil {
+			return errors.Wrap(err, "error decrypting blob")
 		}
+
+		b = tmp.Bytes()
 	}
 
-	if err != nil {
-		return errors.Wrapf(err, "error getting %v", blobID)
+	if isJSONBlob(blobID) {
+		var buf bytes.Buffer
+
+		if err := json.Indent(&buf, b.ToByteSlice(), "", "  "); err != nil {
+			return errors.Wrap(err, "invalid JSON")
+		}
+
+		b = gather.FromSlice(buf.Bytes())
 	}
 
-	if _, err := iocopy.Copy(w, bytes.NewReader(d)); err != nil {
+	if err := iocopy.JustCopy(w, b.Reader()); err != nil {
 		return errors.Wrap(err, "error copying data")
 	}
 

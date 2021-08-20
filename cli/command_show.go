@@ -37,7 +37,5 @@ func (c *commandShow) run(ctx context.Context, rep repo.Repository) error {
 
 	defer r.Close() //nolint:errcheck
 
-	_, err = iocopy.Copy(c.out.stdout(), r)
-
-	return errors.Wrap(err, "unable to copy data")
+	return errors.Wrap(iocopy.JustCopy(c.out.stdout(), r), "unable to copy data")
 }

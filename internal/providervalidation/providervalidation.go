@@ -66,13 +66,16 @@ func ValidateProvider(ctx context.Context, st blob.Storage, opt Options) error {
 
 	log(ctx).Infof("Validating non-existent blob responses")
 
+	var out gather.WriteBuffer
+	defer out.Close()
+
 	// read non-existent full blob
-	if _, err := st.GetBlob(ctx, prefix1+"1", 0, -1); !errors.Is(err, blob.ErrBlobNotFound) {
+	if err := st.GetBlob(ctx, prefix1+"1", 0, -1, &out); !errors.Is(err, blob.ErrBlobNotFound) {
 		return errors.Errorf("got unexpected error when reading non-existent blob: %v", err)
 	}
 
 	// read non-existent partial blob
-	if _, err := st.GetBlob(ctx, prefix1+"1", 0, 5); !errors.Is(err, blob.ErrBlobNotFound) {
+	if err := st.GetBlob(ctx, prefix1+"1", 0, 5, &out); !errors.Is(err, blob.ErrBlobNotFound) {
 		return errors.Errorf("got unexpected error when reading non-existent partial blob: %v", err)
 	}
 
@@ -118,12 +121,12 @@ func ValidateProvider(ctx context.Context, st blob.Storage, opt Options) error {
 	}
 
 	for _, tc := range partialBlobCases {
-		v, err := st.GetBlob(ctx, prefix1+"1", tc.offset, tc.length)
+		err := st.GetBlob(ctx, prefix1+"1", tc.offset, tc.length, &out)
 		if err != nil {
 			return errors.Wrapf(err, "got unexpected error when reading partial blob @%v+%v", tc.offset, tc.length)
 		}
 
-		if got, want := v, blobData[tc.offset:tc.offset+tc.length]; !bytes.Equal(got, want) {
+		if got, want := out.ToByteSlice(), blobData[tc.offset:tc.offset+tc.length]; !bytes.Equal(got, want) {
 			return errors.Errorf("got unexpected data after reading partial blob @%v+%v: %x, wanted %x", tc.offset, tc.length, got, want)
 		}
 	}
@@ -131,12 +134,12 @@ func ValidateProvider(ctx context.Context, st blob.Storage, opt Options) error {
 	log(ctx).Infof("Validating full reads...")
 
 	// read full blob
-	v, err := st.GetBlob(ctx, prefix1+"1", 0, -1)
+	err := st.GetBlob(ctx, prefix1+"1", 0, -1, &out)
 	if err != nil {
 		return errors.Wrap(err, "got unexpected error when reading partial blob")
 	}
 
-	if got, want := v, blobData; !bytes.Equal(got, want) {
+	if got, want := out.ToByteSlice(), blobData; !bytes.Equal(got, want) {
 		return errors.Errorf("got unexpected data after reading partial blob: %x, wanted %x", got, want)
 	}
 
@@ -261,6 +264,9 @@ func (c *concurrencyTest) pickBlob() (blob.ID, []byte, bool) {
 
 func (c *concurrencyTest) getBlobWorker(ctx context.Context, worker int) func() error {
 	return func() error {
+		var out gather.WriteBuffer
+		defer out.Close()
+
 		for clock.Now().Before(c.deadline) {
 			c.randomSleep()
 
@@ -271,7 +277,7 @@ func (c *concurrencyTest) getBlobWorker(ctx context.Context, worker int) func() 
 
 			log(ctx).Debugf("GetBlob worker %v reading %v", worker, blobID)
 
-			v, err := c.st.GetBlob(ctx, blobID, 0, -1)
+			err := c.st.GetBlob(ctx, blobID, 0, -1, &out)
 			if err != nil {
 				if !errors.Is(err, blob.ErrBlobNotFound) || fullyWritten {
 					return errors.Wrapf(err, "unexpected error when reading %v", blobID)
@@ -282,7 +288,7 @@ func (c *concurrencyTest) getBlobWorker(ctx context.Context, worker int) func() 
 				continue
 			}
 
-			if !bytes.Equal(v, blobData) {
+			if !bytes.Equal(out.ToByteSlice(), blobData) {
 				return errors.Wrapf(err, "invalid data read for %v", blobID)
 			}
 

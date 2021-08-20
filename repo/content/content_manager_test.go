@@ -1979,7 +1979,7 @@ func verifyContentManagerDataSet(ctx context.Context, t *testing.T, mgr *WriteMa
 	for contentID, originalPayload := range dataSet {
 		v, err := mgr.GetContent(ctx, contentID)
 		if err != nil {
-			t.Errorf("unable to read content %q: %v", contentID, err)
+			t.Fatalf("unable to read content %q: %v", contentID, err)
 			continue
 		}
 

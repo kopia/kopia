@@ -9,6 +9,8 @@ import (
 
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/kopia/kopia/internal/gather"
 )
 
 // ErrSetTimeUnsupported is returned by implementations of Storage that don't support SetTime.
@@ -32,7 +34,7 @@ type Reader interface {
 	// If length>0, the the function retrieves a range of bytes [offset,offset+length)
 	// If length<0, the entire blob must be fetched.
 	// Returns ErrInvalidRange if the fetched blob length is invalid.
-	GetBlob(ctx context.Context, blobID ID, offset, length int64) ([]byte, error)
+	GetBlob(ctx context.Context, blobID ID, offset, length int64, output *gather.WriteBuffer) error
 
 	// GetMetadata returns Metadata about single blob.
 	GetMetadata(ctx context.Context, blobID ID) (Metadata, error)
@@ -156,31 +158,16 @@ func IterateAllPrefixesInParallel(ctx context.Context, parallelism int, st Stora
 // EnsureLengthExactly validates that length of the given slice is exactly the provided value.
 // and returns ErrInvalidRange if the length is of the slice if not.
 // As a special case length < 0 disables validation.
-func EnsureLengthExactly(b []byte, length int64) ([]byte, error) {
+func EnsureLengthExactly(gotLength int, length int64) error {
 	if length < 0 {
-		return b, nil
+		return nil
 	}
 
-	if len(b) != int(length) {
-		return nil, errors.Wrapf(ErrInvalidRange, "invalid length %v, expected %v", len(b), length)
+	if gotLength != int(length) {
+		return errors.Wrapf(ErrInvalidRange, "invalid length %v, expected %v", gotLength, length)
 	}
 
-	return b, nil
-}
-
-// EnsureLengthAndTruncate validates that length of the given slice is at least the provided value
-// and returns ErrInvalidRange if the length is of the slice if not.
-// As a special case length < 0 disables validation.
-func EnsureLengthAndTruncate(b []byte, length int64) ([]byte, error) {
-	if length < 0 {
-		return b, nil
-	}
-
-	if len(b) < int(length) {
-		return nil, errors.Wrapf(ErrInvalidRange, "invalid length %v, expected at least %v", len(b), length)
-	}
-
-	return b[0:length], nil
+	return nil
 }
 
 // IDsFromMetadata returns IDs for blobs in Metadata slice.

@@ -1,7 +1,6 @@
 package content
 
 import (
-	"bytes"
 	"compress/gzip"
 	"context"
 	"crypto/rand"
@@ -36,19 +35,28 @@ func (m *internalLogManager) Close(ctx context.Context) {
 	m.wg.Wait()
 }
 
-func (m *internalLogManager) encryptAndWriteLogBlob(prefix blob.ID, data []byte) {
-	blobID, encrypted, err := m.bc.EncryptBLOB(data, prefix, "")
+func (m *internalLogManager) encryptAndWriteLogBlob(prefix blob.ID, data gather.Bytes, closeFunc func()) {
+	encrypted := gather.NewWriteBuffer()
+	// Close happens in a goroutine
+
+	blobID, err := m.bc.EncryptBLOB(data, prefix, "", encrypted)
 	if err != nil {
+		encrypted.Close()
+
 		// this should not happen, also nothing can be done about this, we're not in a place where we can return error, log it.
 		return
 	}
+
+	b := encrypted.Bytes()
 
 	m.wg.Add(1)
 
 	go func() {
 		defer m.wg.Done()
+		defer encrypted.Close()
+		defer closeFunc()
 
-		if err := m.st.PutBlob(m.ctx, blobID, gather.FromSlice(encrypted)); err != nil {
+		if err := m.st.PutBlob(m.ctx, blobID, b); err != nil {
 			// nothing can be done about this, we're not in a place where we can return error, log it.
 			return
 		}
@@ -75,7 +83,7 @@ type internalLogger struct {
 
 	m         *internalLogManager
 	mu        sync.Mutex
-	buf       *bytes.Buffer
+	buf       *gather.WriteBuffer
 	gzw       *gzip.Writer
 	startTime int64 // unix timestamp of the first log
 	prefix    blob.ID
@@ -92,10 +100,10 @@ func (l *internalLogger) enable() {
 // Close closes the log session and saves any pending log.
 func (l *internalLogger) Close(ctx context.Context) {
 	l.mu.Lock()
-	data := l.flushAndResetLocked()
+	data, closeFunc := l.flushAndResetLocked()
 	l.mu.Unlock()
 
-	l.maybeEncryptAndWriteChunkUnlocked(data)
+	l.maybeEncryptAndWriteChunkUnlocked(data, closeFunc)
 }
 
 func (l *internalLogger) nowString() string {
@@ -109,8 +117,8 @@ func (l *internalLogger) add(level, msg string, args []interface{}) {
 	l.maybeEncryptAndWriteChunkUnlocked(l.addLineAndMaybeFlush(line))
 }
 
-func (l *internalLogger) maybeEncryptAndWriteChunkUnlocked(data []byte) {
-	if data == nil {
+func (l *internalLogger) maybeEncryptAndWriteChunkUnlocked(data gather.Bytes, closeFunc func()) {
+	if data.Length() == 0 {
 		return
 	}
 
@@ -124,10 +132,10 @@ func (l *internalLogger) maybeEncryptAndWriteChunkUnlocked(data []byte) {
 	prefix := blob.ID(fmt.Sprintf("%v_%v_%v_%v_", l.prefix, l.startTime, endTime, atomic.AddInt32(&l.nextChunkNumber, 1)))
 	l.mu.Unlock()
 
-	l.m.encryptAndWriteLogBlob(prefix, data)
+	l.m.encryptAndWriteLogBlob(prefix, data, closeFunc)
 }
 
-func (l *internalLogger) addLineAndMaybeFlush(line string) []byte {
+func (l *internalLogger) addLineAndMaybeFlush(line string) (payload gather.Bytes, closeFunc func()) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -136,8 +144,8 @@ func (l *internalLogger) addLineAndMaybeFlush(line string) []byte {
 	_, err := io.WriteString(w, line)
 	l.logUnexpectedError(err)
 
-	if l.buf.Len() < l.m.flushThreshold {
-		return nil
+	if l.buf.Length() < l.m.flushThreshold {
+		return gather.Bytes{}, func() {}
 	}
 
 	return l.flushAndResetLocked()
@@ -145,7 +153,7 @@ func (l *internalLogger) addLineAndMaybeFlush(line string) []byte {
 
 func (l *internalLogger) ensureWriterInitializedLocked() io.Writer {
 	if l.gzw == nil {
-		l.buf = new(bytes.Buffer)
+		l.buf = gather.NewWriteBuffer()
 		l.gzw = gzip.NewWriter(l.buf)
 		l.startTime = l.m.timeFunc().Unix()
 	}
@@ -153,20 +161,21 @@ func (l *internalLogger) ensureWriterInitializedLocked() io.Writer {
 	return l.gzw
 }
 
-func (l *internalLogger) flushAndResetLocked() []byte {
+func (l *internalLogger) flushAndResetLocked() (payload gather.Bytes, closeFunc func()) {
 	if l.gzw == nil {
-		return nil
+		return gather.Bytes{}, func() {}
 	}
 
 	l.logUnexpectedError(l.gzw.Flush())
 	l.logUnexpectedError(l.gzw.Close())
 
+	closeBuf := l.buf.Close
 	res := l.buf.Bytes()
 
 	l.buf = nil
 	l.gzw = nil
 
-	return res
+	return res, closeBuf
 }
 
 func (l *internalLogger) logUnexpectedError(err error) {

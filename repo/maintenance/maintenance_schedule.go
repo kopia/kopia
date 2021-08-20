@@ -72,8 +72,11 @@ func getAES256GCM(rep repo.DirectRepository) (cipher.AEAD, error) {
 
 // GetSchedule gets the scheduled maintenance times.
 func GetSchedule(ctx context.Context, rep repo.DirectRepository) (*Schedule, error) {
+	var tmp gather.WriteBuffer
+	defer tmp.Close()
+
 	// read
-	v, err := rep.BlobReader().GetBlob(ctx, maintenanceScheduleBlobID, 0, -1)
+	err := rep.BlobReader().GetBlob(ctx, maintenanceScheduleBlobID, 0, -1, &tmp)
 	if errors.Is(err, blob.ErrBlobNotFound) {
 		return &Schedule{}, nil
 	}
@@ -87,6 +90,8 @@ func GetSchedule(ctx context.Context, rep repo.DirectRepository) (*Schedule, err
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to get cipher")
 	}
+
+	v := tmp.ToByteSlice()
 
 	if len(v) < c.NonceSize() {
 		return nil, errors.Errorf("invalid schedule blob")

@@ -595,13 +595,16 @@ func (te *epochManagerTestEnv) verifyCompleteIndexSet(ctx context.Context, t *te
 func (te *epochManagerTestEnv) getMergedIndexContents(ctx context.Context, blobIDs []blob.ID) (*fakeIndex, error) {
 	result := &fakeIndex{}
 
+	var v gather.WriteBuffer
+	defer v.Close()
+
 	for _, blobID := range blobIDs {
-		v, err := te.unloggedst.GetBlob(ctx, blobID, 0, -1)
+		err := te.unloggedst.GetBlob(ctx, blobID, 0, -1, &v)
 		if err != nil {
 			return nil, errors.Wrap(err, "unable to get blob")
 		}
 
-		ndx, err := parseFakeIndex(v)
+		ndx, err := parseFakeIndex(v.ToByteSlice())
 		if err != nil {
 			return nil, errors.Wrap(err, "unable to parse fake index")
 		}

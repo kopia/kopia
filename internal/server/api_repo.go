@@ -8,6 +8,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/passwordpersist"
 	"github.com/kopia/kopia/internal/remoterepoapi"
 	"github.com/kopia/kopia/internal/serverapi"
@@ -160,8 +161,10 @@ func (s *Server) handleRepoExists(ctx context.Context, r *http.Request, body []b
 
 	defer st.Close(ctx) // nolint:errcheck
 
-	_, err = st.GetBlob(ctx, repo.FormatBlobID, 0, -1)
-	if err != nil {
+	var tmp gather.WriteBuffer
+	defer tmp.Close()
+
+	if err := st.GetBlob(ctx, repo.FormatBlobID, 0, -1, &tmp); err != nil {
 		if errors.Is(err, blob.ErrBlobNotFound) {
 			return nil, requestError(serverapi.ErrorNotInitialized, "repository not initialized")
 		}
