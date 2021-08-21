@@ -19,8 +19,8 @@ import (
 )
 
 var (
-	// ErrorInvalidArgs is returned if the constructor arguments are incorrect.
-	ErrorInvalidArgs = fmt.Errorf("invalid arguments")
+	// ErrInvalidArgs is returned if the constructor arguments are incorrect.
+	ErrInvalidArgs = fmt.Errorf("invalid arguments")
 
 	noSpaceOnDeviceMatchStr = "no space left on device"
 )
@@ -42,7 +42,7 @@ type Args struct {
 // Validate checks the arguments for correctness.
 func (a *Args) Validate() error {
 	if a.MetaStore == nil || a.TestRepo == nil || a.FileWriter == nil || a.WorkingDir == "" {
-		return ErrorInvalidArgs
+		return ErrInvalidArgs
 	}
 
 	return nil

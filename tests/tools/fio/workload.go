@@ -63,7 +63,7 @@ func (fr *Runner) WriteFilesAtDepth(relBasePath string, depth int, opt Options) 
 
 	fullBasePath := filepath.Join(fr.LocalDataDir, relBasePath)
 
-	err = os.MkdirAll(fullBasePath, 0700)
+	err = os.MkdirAll(fullBasePath, 0o700)
 	if err != nil {
 		return errors.Wrapf(err, "unable to make base dir %v for writing at depth", fullBasePath)
 	}
@@ -82,7 +82,7 @@ func (fr *Runner) WriteFilesAtDepthRandomBranch(relBasePath string, depth int, o
 
 	fullBasePath := filepath.Join(fr.LocalDataDir, relBasePath)
 
-	err = os.MkdirAll(fullBasePath, 0700)
+	err = os.MkdirAll(fullBasePath, 0o700)
 	if err != nil {
 		return errors.Wrapf(err, "unable to make base dir %v for writing at depth with a branch", fullBasePath)
 	}

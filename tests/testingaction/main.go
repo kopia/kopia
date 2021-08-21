@@ -28,7 +28,7 @@ func main() {
 	flag.Parse()
 
 	if fn := *saveEnvironmentToFile; fn != "" {
-		if err := ioutil.WriteFile(fn, []byte(strings.Join(os.Environ(), "\n")), 0600); err != nil {
+		if err := ioutil.WriteFile(fn, []byte(strings.Join(os.Environ(), "\n")), 0o600); err != nil {
 			log.Fatalf("error writing environment file: %v", err)
 		}
 	}
@@ -56,7 +56,7 @@ func main() {
 			log.Fatalf("unexpected file found: %v", fn)
 		}
 
-		if err := ioutil.WriteFile(fn, nil, 0600); err != nil {
+		if err := ioutil.WriteFile(fn, nil, 0o600); err != nil {
 			log.Fatalf("unable to create file: %v", err)
 		}
 	}

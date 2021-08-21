@@ -31,7 +31,7 @@ func oneTimeSetup() error {
 	// make sure the base directory is quite long to trigger very long filenames on Windows.
 	if n, targetLen := len(sharedTestDataDirBase), 270; n < targetLen {
 		sharedTestDataDirBase = filepath.Join(sharedTestDataDirBase, strings.Repeat("f", targetLen-n))
-		os.MkdirAll(sharedTestDataDirBase, 0700)
+		os.MkdirAll(sharedTestDataDirBase, 0o700)
 	}
 
 	var counters1, counters2, counters3 testdirtree.DirectoryTreeCounters

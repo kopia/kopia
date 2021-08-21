@@ -72,7 +72,7 @@ func (o *ShallowFilesystemOutput) WriteFile(ctx context.Context, relativePath st
 	return o.setAttributes(placeholderpath, f, readonlyfilemode)
 }
 
-const readonlyfilemode = 0222
+const readonlyfilemode = 0o222
 
 func (o *ShallowFilesystemOutput) writeShallowEntry(ctx context.Context, relativePath string, de *snapshot.DirEntry) (string, error) {
 	path := filepath.Join(o.TargetPath, filepath.FromSlash(relativePath))

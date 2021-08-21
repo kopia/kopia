@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	defaultPermissions = 0777
+	defaultPermissions = 0o777
 )
 
 type testHarness struct {
