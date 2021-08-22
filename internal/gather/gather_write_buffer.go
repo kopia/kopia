@@ -41,8 +41,14 @@ func (b *WriteBuffer) MakeContiguous(length int) []byte {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	b.alloc = contiguousAllocator
-	v := b.allocChunk()[0:length]
+	var v []byte
+
+	if length > contiguousAllocator.chunkSize {
+		v = make([]byte, length)
+	} else {
+		b.alloc = contiguousAllocator
+		v = b.allocChunk()[0:length]
+	}
 
 	b.inner.Slices = [][]byte{v}
 

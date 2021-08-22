@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"fmt"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestGatherWriteBuffer(t *testing.T) {
@@ -67,4 +69,15 @@ func TestGatherDefaultWriteBuffer(t *testing.T) {
 	if got, want := len(w.inner.Slices), 1; got != want {
 		t.Errorf("invalid number of slices %v, want %v", got, want)
 	}
+}
+
+func TestGatherWriteBufferContig(t *testing.T) {
+	var w WriteBuffer
+	defer w.Close()
+
+	// allocate more than contig allocator can provide
+	theCap := contiguousAllocator.chunkSize + 10
+	b := w.MakeContiguous(theCap)
+	require.Equal(t, theCap, len(b))
+	require.Equal(t, theCap, cap(b))
 }
