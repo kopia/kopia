@@ -26,8 +26,7 @@ func (rs *rabinKarp64Splitter) Reset() {
 func (rs *rabinKarp64Splitter) NextSplitPoint(b []byte) int {
 	var fastPathBytes int
 
-	// simple optimization, if we're below minSize, there's no reason to even
-	// look at the Sum64() or maxSize
+	// until minSize, only hash the last splitterSlidingWindowSize bytes
 	if left := rs.minSize - rs.count - 1; left > 0 {
 		fastPathBytes = left
 		if fastPathBytes > len(b) {
@@ -36,11 +35,9 @@ func (rs *rabinKarp64Splitter) NextSplitPoint(b []byte) int {
 
 		var i int
 
-		for i = 0; i < fastPathBytes-3; i += 4 {
-			rs.rh.Roll(b[i])
-			rs.rh.Roll(b[i+1])
-			rs.rh.Roll(b[i+2])
-			rs.rh.Roll(b[i+3])
+		i = fastPathBytes - splitterSlidingWindowSize
+		if i < 0 {
+			i = 0
 		}
 
 		for ; i < fastPathBytes; i++ {
@@ -51,16 +48,18 @@ func (rs *rabinKarp64Splitter) NextSplitPoint(b []byte) int {
 		b = b[fastPathBytes:]
 	}
 
-	// second optimization, if we're safely below maxSize, there's no reason to check it
-	// in a loop
-	if left := rs.maxSize - rs.count - 1; left > 0 {
+	// until the max size, check if we have any splitting point
+	if left := rs.maxSize - rs.count; left > 0 {
 		fp := left
 		if fp >= len(b) {
 			fp = len(b)
 		}
 
 		for i, b := range b[0:fp] {
-			if rs.shouldSplitNoMax(b) {
+			rs.rh.Roll(b)
+			rs.count++
+
+			if rs.rh.Sum64()&rs.mask == 0 {
 				rs.count = 0
 				return fastPathBytes + i + 1
 			}
@@ -70,29 +69,13 @@ func (rs *rabinKarp64Splitter) NextSplitPoint(b []byte) int {
 		b = b[fp:]
 	}
 
-	for i, b := range b {
-		if rs.shouldSplitWithMaxCheck(b) {
-			rs.count = 0
-			return fastPathBytes + i + 1
-		}
+	// if we're over the max size, split
+	if rs.count >= rs.maxSize {
+		rs.count = 0
+		return fastPathBytes
 	}
 
 	return -1
-}
-
-func (rs *rabinKarp64Splitter) shouldSplitWithMaxCheck(b byte) bool {
-	if rs.shouldSplitNoMax(b) || rs.count >= rs.maxSize {
-		return true
-	}
-
-	return false
-}
-
-func (rs *rabinKarp64Splitter) shouldSplitNoMax(b byte) bool {
-	rs.rh.Roll(b)
-	rs.count++
-
-	return rs.rh.Sum64()&rs.mask == 0
 }
 
 func (rs *rabinKarp64Splitter) MaxSegmentSize() int {
