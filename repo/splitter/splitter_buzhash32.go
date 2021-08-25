@@ -66,7 +66,6 @@ func (rs *buzhash32Splitter) NextSplitPoint(b []byte) int {
 		}
 
 		fastPathBytes += fp
-		b = b[fp:]
 	}
 
 	// if we're over the max size, split
