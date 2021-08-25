@@ -88,7 +88,7 @@ func ValidatePrefix(prefix ID) error {
 	return errors.Errorf("invalid prefix, must be a empty or single letter between 'g' and 'z'")
 }
 
-func (bm *WriteManager) getContentDataUnlocked(ctx context.Context, pp *pendingPackInfo, bi Info, output *gather.WriteBuffer) error {
+func (bm *WriteManager) getContentDataReadLocked(ctx context.Context, pp *pendingPackInfo, bi Info, output *gather.WriteBuffer) error {
 	var payload gather.WriteBuffer
 	defer payload.Close()
 

@@ -559,19 +559,32 @@ func (bm *WriteManager) Flush(ctx context.Context) error {
 func (bm *WriteManager) RewriteContent(ctx context.Context, contentID ID) error {
 	bm.log.Debugf("rewrite-content %v", contentID)
 
-	pp, bi, err := bm.getContentInfo(ctx, contentID)
-	if err != nil {
-		return err
-	}
-
 	var data gather.WriteBuffer
 	defer data.Close()
 
-	if err := bm.getContentDataUnlocked(ctx, pp, bi, &data); err != nil {
-		return err
+	bi, err := bm.getContentDataAndInfo(ctx, contentID, &data)
+	if err != nil {
+		return errors.Wrap(err, "unable to get content data and info")
 	}
 
 	return bm.addToPackUnlocked(ctx, contentID, data.Bytes(), bi.GetDeleted(), bi.GetCompressionHeaderID())
+}
+
+func (bm *WriteManager) getContentDataAndInfo(ctx context.Context, contentID ID, output *gather.WriteBuffer) (Info, error) {
+	// acquire read lock since to preven flush from happening between getContentInfoReadLocked() and getContentDataReadLocked().
+	bm.mu.RLock()
+	defer bm.mu.RUnlock()
+
+	pp, bi, err := bm.getContentInfoReadLocked(ctx, contentID)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := bm.getContentDataReadLocked(ctx, pp, bi, output); err != nil {
+		return nil, err
+	}
+
+	return bi, nil
 }
 
 // UndeleteContent rewrites the content with the given ID if the content exists
@@ -580,20 +593,16 @@ func (bm *WriteManager) RewriteContent(ctx context.Context, contentID ID) error 
 func (bm *WriteManager) UndeleteContent(ctx context.Context, contentID ID) error {
 	bm.log.Debugf("UndeleteContent(%q)", contentID)
 
-	pp, bi, err := bm.getContentInfo(ctx, contentID)
+	var data gather.WriteBuffer
+	defer data.Close()
+
+	bi, err := bm.getContentDataAndInfo(ctx, contentID, &data)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "unable to get content data and info")
 	}
 
 	if !bi.GetDeleted() {
 		return nil
-	}
-
-	var data gather.WriteBuffer
-	defer data.Close()
-
-	if err := bm.getContentDataUnlocked(ctx, pp, bi, &data); err != nil {
-		return err
 	}
 
 	return bm.addToPackUnlocked(ctx, contentID, data.Bytes(), false, bi.GetCompressionHeaderID())
@@ -666,8 +675,12 @@ func (bm *WriteManager) WriteContent(ctx context.Context, data []byte, prefix ID
 
 	contentID := prefix + ID(hex.EncodeToString(bm.hashData(hashOutput[:0], gather.FromSlice(data))))
 
+	bm.mu.RLock()
+	_, bi, err := bm.getContentInfoReadLocked(ctx, contentID)
+	bm.mu.RUnlock()
+
 	// content already tracked
-	if _, bi, err := bm.getContentInfo(ctx, contentID); err == nil {
+	if err == nil {
 		if !bi.GetDeleted() {
 			bm.log.Debugf("write-content %v already-exists", contentID)
 			return contentID, nil
@@ -678,9 +691,7 @@ func (bm *WriteManager) WriteContent(ctx context.Context, data []byte, prefix ID
 		bm.log.Debugf("write-content %v new", contentID)
 	}
 
-	err := bm.addToPackUnlocked(ctx, contentID, gather.FromSlice(data), false, comp)
-
-	return contentID, err
+	return contentID, bm.addToPackUnlocked(ctx, contentID, gather.FromSlice(data), false, comp)
 }
 
 // GetContent gets the contents of a given content. If the content is not found returns ErrContentNotFound.
@@ -698,27 +709,19 @@ func (bm *WriteManager) GetContent(ctx context.Context, contentID ID) (v []byte,
 		}
 	}()
 
-	pp, bi, err := bm.getContentInfo(ctx, contentID)
-	if err != nil {
-		bm.log.Debugf("getContentInfo(%v) error %v", contentID, err)
-		return nil, err
-	}
-
 	var tmp gather.WriteBuffer
 	defer tmp.Close()
 
-	// Return content even if it is bi.GetDeleted() so it can be recovered during GC among others.
-	if err := bm.getContentDataUnlocked(ctx, pp, bi, &tmp); err != nil {
+	_, err = bm.getContentDataAndInfo(ctx, contentID, &tmp)
+	if err != nil {
+		bm.log.Debugf("getContentInfoReadLocked(%v) error %v", contentID, err)
 		return nil, err
 	}
 
 	return tmp.ToByteSlice(), nil
 }
 
-func (bm *WriteManager) getOverlayContentInfo(contentID ID) (*pendingPackInfo, Info, bool) {
-	bm.mu.RLock()
-	defer bm.mu.RUnlock()
-
+func (bm *WriteManager) getOverlayContentInfoReadLocked(contentID ID) (*pendingPackInfo, Info, bool) {
 	// check added contents, not written to any packs yet.
 	for _, pp := range bm.pendingPacks {
 		if ci, ok := pp.currentPackItems[contentID]; ok {
@@ -741,8 +744,8 @@ func (bm *WriteManager) getOverlayContentInfo(contentID ID) (*pendingPackInfo, I
 	return nil, nil, false
 }
 
-func (bm *WriteManager) getContentInfo(ctx context.Context, contentID ID) (*pendingPackInfo, Info, error) {
-	if pp, ci, ok := bm.getOverlayContentInfo(contentID); ok {
+func (bm *WriteManager) getContentInfoReadLocked(ctx context.Context, contentID ID) (*pendingPackInfo, Info, error) {
+	if pp, ci, ok := bm.getOverlayContentInfoReadLocked(contentID); ok {
 		return pp, ci, nil
 	}
 
@@ -758,7 +761,10 @@ func (bm *WriteManager) getContentInfo(ctx context.Context, contentID ID) (*pend
 
 // ContentInfo returns information about a single content.
 func (bm *WriteManager) ContentInfo(ctx context.Context, contentID ID) (Info, error) {
-	_, bi, err := bm.getContentInfo(ctx, contentID)
+	bm.mu.RLock()
+	defer bm.mu.RUnlock()
+
+	_, bi, err := bm.getContentInfoReadLocked(ctx, contentID)
 	if err != nil {
 		bm.log.Debugf("ContentInfo(%q) - error %v", contentID, err)
 		return nil, err
