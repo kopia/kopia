@@ -209,7 +209,7 @@ func (bm *WriteManager) maybeRetryWritingFailedPacksUnlocked(ctx context.Context
 	for _, pp := range fp {
 		bm.log.Debugf("retry-write %v", pp.packBlobID)
 
-		if err := bm.writePackAndAddToIndex(ctx, pp, true); err != nil {
+		if err := bm.writePackAndAddToIndexLocked(ctx, pp, true); err != nil {
 			return errors.Wrap(err, "error writing previously failed pack")
 		}
 	}
@@ -224,6 +224,15 @@ func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, dat
 	}
 
 	prefix := packPrefixForContentID(contentID)
+
+	var compressedAndEncrypted gather.WriteBuffer
+	defer compressedAndEncrypted.Close()
+
+	// encrypt and compress before taking lock
+	actualComp, err := bm.maybeCompressAndEncryptDataForPacking(data, contentID, comp, &compressedAndEncrypted)
+	if err != nil {
+		return errors.Wrapf(err, "unable to encrypt %q", contentID)
+	}
 
 	bm.lock()
 
@@ -244,7 +253,7 @@ func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, dat
 	for _, pp := range fp {
 		bm.log.Debugf("retry-write %v", pp.packBlobID)
 
-		if err := bm.writePackAndAddToIndex(ctx, pp, true); err != nil {
+		if err = bm.writePackAndAddToIndexLocked(ctx, pp, true); err != nil {
 			bm.unlock()
 			return errors.Wrap(err, "error writing previously failed pack")
 		}
@@ -266,9 +275,8 @@ func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, dat
 		OriginalLength:   uint32(data.Length()),
 	}
 
-	actualComp, err := bm.maybeCompressAndEncryptDataForPacking(data, contentID, comp, pp.currentPackData)
-	if err != nil {
-		return errors.Wrapf(err, "unable to encrypt %q", contentID)
+	if _, err := compressedAndEncrypted.Bytes().WriteTo(pp.currentPackData); err != nil {
+		return errors.Wrapf(err, "unable to append %q to pack data", contentID)
 	}
 
 	info.CompressionHeaderID = actualComp
@@ -289,7 +297,7 @@ func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, dat
 	// at this point we're unlocked so different goroutines can encrypt and
 	// save to storage in parallel.
 	if shouldWrite {
-		if err := bm.writePackAndAddToIndex(ctx, pp, false); err != nil {
+		if err := bm.writePackAndAddToIndexLocked(ctx, pp, false); err != nil {
 			return errors.Wrap(err, "unable to write pack")
 		}
 	}
@@ -413,7 +421,7 @@ func (bm *WriteManager) finishAllPacksLocked(ctx context.Context) error {
 		delete(bm.pendingPacks, prefix)
 		bm.writingPacks = append(bm.writingPacks, pp)
 
-		if err := bm.writePackAndAddToIndex(ctx, pp, true); err != nil {
+		if err := bm.writePackAndAddToIndexLocked(ctx, pp, true); err != nil {
 			return errors.Wrap(err, "error writing pack content")
 		}
 	}
@@ -421,7 +429,7 @@ func (bm *WriteManager) finishAllPacksLocked(ctx context.Context) error {
 	return nil
 }
 
-func (bm *WriteManager) writePackAndAddToIndex(ctx context.Context, pp *pendingPackInfo, holdingLock bool) error {
+func (bm *WriteManager) writePackAndAddToIndexLocked(ctx context.Context, pp *pendingPackInfo, holdingLock bool) error {
 	packFileIndex, err := bm.prepareAndWritePackInternal(ctx, pp)
 
 	if !holdingLock {
@@ -521,7 +529,7 @@ func (bm *WriteManager) Flush(ctx context.Context) error {
 	for _, pp := range fp {
 		bm.log.Debugf("retry-write %v", pp.packBlobID)
 
-		if err := bm.writePackAndAddToIndex(ctx, pp, true); err != nil {
+		if err := bm.writePackAndAddToIndexLocked(ctx, pp, true); err != nil {
 			return errors.Wrap(err, "error writing previously failed pack")
 		}
 	}

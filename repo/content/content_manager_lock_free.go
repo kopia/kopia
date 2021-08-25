@@ -143,7 +143,7 @@ func (bm *WriteManager) preparePackDataContent(pp *pendingPackInfo) (packIndexBu
 		}
 	}
 
-	err := bm.writePackFileIndexRecoveryData(packFileIndex, pp.currentPackData)
+	err := bm.appendPackFileIndexRecoveryData(packFileIndex, pp.currentPackData)
 
 	return packFileIndex, err
 }
