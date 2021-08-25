@@ -169,8 +169,8 @@ func (sm *SharedManager) buildLocalIndex(pending packIndexBuilder, output *gathe
 	return nil
 }
 
-// writePackFileIndexRecoveryData appends data designed to help with recovery of pack index in case it gets damaged or lost.
-func (sm *SharedManager) writePackFileIndexRecoveryData(pending packIndexBuilder, output *gather.WriteBuffer) error {
+// appendPackFileIndexRecoveryData appends data designed to help with recovery of pack index in case it gets damaged or lost.
+func (sm *SharedManager) appendPackFileIndexRecoveryData(pending packIndexBuilder, output *gather.WriteBuffer) error {
 	// build, encrypt and append local index
 	localIndexOffset := output.Length()
 
