@@ -7,11 +7,11 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
-	"github.com/kopia/kopia/repo/blob/filesystem"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/encryption"
 	"github.com/kopia/kopia/repo/object"
@@ -26,9 +26,9 @@ type Environment struct {
 
 	Password string
 
-	configDir  string
-	storageDir string
-	connected  bool
+	configDir string
+	st        blob.Storage
+	connected bool
 }
 
 // Options used during Environment Setup.
@@ -43,7 +43,6 @@ func (e *Environment) setup(t *testing.T, opts ...Options) *Environment {
 
 	ctx := testlogging.Context(t)
 	e.configDir = testutil.TempDirectory(t)
-	e.storageDir = testutil.TempDirectory(t)
 	openOpt := &repo.Options{}
 
 	opt := &repo.NewRepositoryOptions{
@@ -68,22 +67,19 @@ func (e *Environment) setup(t *testing.T, opts ...Options) *Environment {
 		}
 	}
 
-	st, err := filesystem.New(ctx, &filesystem.Options{
-		Path: e.storageDir,
-	})
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
+	st := blobtesting.NewMapStorage(blobtesting.DataMap{}, nil, openOpt.TimeNowFunc)
+	st = newReconnectableStorage(t, st)
+	e.st = st
 
 	if e.Password == "" {
 		e.Password = defaultPassword
 	}
 
-	if err = repo.Initialize(ctx, st, opt, e.Password); err != nil {
+	if err := repo.Initialize(ctx, st, opt, e.Password); err != nil {
 		t.Fatalf("err: %v", err)
 	}
 
-	if err = repo.Connect(ctx, e.ConfigFile(), st, e.Password, nil); err != nil {
+	if err := repo.Connect(ctx, e.ConfigFile(), st, e.Password, nil); err != nil {
 		t.Fatalf("can't connect: %v", err)
 	}
 
@@ -185,13 +181,6 @@ func (e *Environment) MustConnectOpenAnother(t *testing.T, openOpts ...func(*rep
 
 	ctx := testlogging.Context(t)
 
-	st, err := filesystem.New(ctx, &filesystem.Options{
-		Path: e.storageDir,
-	})
-	if err != nil {
-		t.Fatal("err:", err)
-	}
-
 	config := filepath.Join(testutil.TempDirectory(t), "kopia.config")
 	connOpts := &repo.ConnectOptions{
 		CachingOptions: content.CachingOptions{
@@ -199,7 +188,7 @@ func (e *Environment) MustConnectOpenAnother(t *testing.T, openOpts ...func(*rep
 		},
 	}
 
-	if err = repo.Connect(ctx, config, st, e.Password, connOpts); err != nil {
+	if err := repo.Connect(ctx, config, e.st, e.Password, connOpts); err != nil {
 		t.Fatal("can't connect:", err)
 	}
 
