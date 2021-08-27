@@ -78,7 +78,7 @@ func (a *chunkAllocator) dumpStats(ctx context.Context, prefix string) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	log(ctx).Infof("%v (%v) - allocated %v chunks freed %v alive %v max %v free list high water mark: %v",
+	log(ctx).Debugf("%v (%v) - allocated %v chunks freed %v alive %v max %v free list high water mark: %v",
 		prefix,
 		units.Base2Bytes(int64(a.chunkSize)),
 		a.allocated, a.freed, a.allocated-a.freed, a.allocHighWaterMark, a.freeListHighWaterMark)
