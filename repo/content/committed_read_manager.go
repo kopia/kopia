@@ -494,16 +494,6 @@ func (sm *SharedManager) shouldRefreshIndexes() bool {
 	return sm.timeNow().After(sm.refreshIndexesAfter)
 }
 
-func (sm *SharedManager) maybeRefreshIndexes(ctx context.Context) error {
-	if sm.shouldRefreshIndexes() {
-		if err := sm.Refresh(ctx); err != nil {
-			return errors.Wrap(err, "error refreshing indexes")
-		}
-	}
-
-	return nil
-}
-
 // NewSharedManager returns SharedManager that is used by SessionWriteManagers on top of a repository.
 func NewSharedManager(ctx context.Context, st blob.Storage, f *FormattingOptions, caching *CachingOptions, opts *ManagerOptions) (*SharedManager, error) {
 	opts = opts.CloneOrDefault()

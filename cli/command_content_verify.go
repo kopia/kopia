@@ -94,6 +94,8 @@ func (c *commandContentVerify) run(ctx context.Context, rep repo.DirectRepositor
 
 	log(ctx).Infof("Verifying all contents...")
 
+	rep.DisableIndexRefresh()
+
 	throttle := new(timetrack.Throttle)
 	est := timetrack.Start()
 

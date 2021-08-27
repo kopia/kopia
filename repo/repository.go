@@ -64,6 +64,8 @@ type DirectRepository interface {
 	ConfigFilename() string
 	DeriveKey(purpose []byte, keyLength int) []byte
 	Token(password string) (string, error)
+
+	DisableIndexRefresh()
 }
 
 // DirectRepositoryWriter provides low-level write access to the repository.
@@ -141,6 +143,11 @@ func (r *directRepository) Crypter() *content.Crypter {
 // NewObjectWriter creates an object writer.
 func (r *directRepository) NewObjectWriter(ctx context.Context, opt object.WriterOptions) object.Writer {
 	return r.omgr.NewWriter(ctx, opt)
+}
+
+// DisableIndexRefresh disables index refresh for the duration of the write session.
+func (r *directRepository) DisableIndexRefresh() {
+	r.cmgr.DisableIndexRefresh()
 }
 
 // OpenObject opens the reader for a given object, returns object.ErrNotFound.

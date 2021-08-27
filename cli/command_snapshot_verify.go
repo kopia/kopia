@@ -202,6 +202,10 @@ func (c *commandSnapshotVerify) run(ctx context.Context, rep repo.Repository) er
 		log(ctx).Errorf("DEPRECATED: --all-sources flag has no effect and is the default when no sources are provided.")
 	}
 
+	if dr, ok := rep.(repo.DirectRepositoryWriter); ok {
+		dr.DisableIndexRefresh()
+	}
+
 	v := &verifier{
 		rep:                  rep,
 		tt:                   timetrack.Start(),
