@@ -125,9 +125,15 @@ func (s *s3Storage) GetMetadata(ctx context.Context, b blob.ID) (blob.Metadata, 
 }
 
 func (s *s3Storage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes) error {
+	_, err := s.putBlob(ctx, b, data)
+
+	return err
+}
+
+func (s *s3Storage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes) (versionMetadata, error) {
 	throttled, err := s.uploadThrottler.AddReader(ioutil.NopCloser(data.Reader()))
 	if err != nil {
-		return errors.Wrap(err, "AddReader")
+		return versionMetadata{}, errors.Wrap(err, "AddReader")
 	}
 
 	uploadInfo, err := s.cli.PutObject(ctx, s.BucketName, s.getObjectNameString(b), throttled, int64(data.Length()), minio.PutObjectOptions{
@@ -140,7 +146,7 @@ func (s *s3Storage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes) err
 	if errors.As(err, &er) && er.Code == "InvalidRequest" && strings.Contains(strings.ToLower(er.Message), "content-md5") {
 		atomic.StoreInt32(&s.sendMD5, 1) // set sendMD5 on retry
 
-		return err // nolint:wrapcheck
+		return versionMetadata{}, err // nolint:wrapcheck
 	}
 
 	if errors.Is(err, io.EOF) && uploadInfo.Size == 0 {
@@ -150,8 +156,18 @@ func (s *s3Storage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes) err
 		})
 	}
 
-	// nolint:wrapcheck
-	return err
+	if err != nil {
+		return versionMetadata{}, err // nolint:wrapcheck
+	}
+
+	return versionMetadata{
+		Metadata: blob.Metadata{
+			BlobID:    b,
+			Length:    uploadInfo.Size,
+			Timestamp: uploadInfo.LastModified,
+		},
+		Version: uploadInfo.VersionID,
+	}, nil
 }
 
 func (s *s3Storage) SetTime(ctx context.Context, b blob.ID, t time.Time) error {
