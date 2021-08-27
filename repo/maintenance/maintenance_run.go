@@ -11,11 +11,14 @@ import (
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/logging"
 )
 
 var log = logging.GetContextLoggerFunc("maintenance")
+
+const maxClockSkew = 5 * time.Minute
 
 // Mode describes the mode of maintenance to perfor.
 type Mode string
@@ -165,6 +168,10 @@ func RunExclusive(ctx context.Context, rep repo.DirectRepositoryWriter, mode Mod
 		return errors.Wrap(err, "error updating maintenance schedule")
 	}
 
+	if err = ensureNoClockSkew(ctx, runParams.rep.BlobReader(), runParams.rep.Time()); err != nil {
+		return errors.Wrap(err, "error checking for clock skew")
+	}
+
 	lockFile := rep.ConfigFilename() + ".mlock"
 	log(ctx).Debugf("Acquiring maintenance lock in file %v", lockFile)
 
@@ -191,6 +198,26 @@ func RunExclusive(ctx context.Context, rep repo.DirectRepositoryWriter, mode Mod
 	}
 
 	return cb(runParams)
+}
+
+func ensureNoClockSkew(ctx context.Context, st blob.Reader, now time.Time) error {
+	bm, err := st.GetMetadata(ctx, maintenanceScheduleBlobID)
+	if err != nil {
+		return errors.Wrap(err, "error getting maintenance blob time")
+	}
+
+	repoTime := bm.Timestamp
+
+	clockSkew := bm.Timestamp.Sub(now)
+	if clockSkew < 0 {
+		clockSkew = -clockSkew
+	}
+
+	if clockSkew > maxClockSkew {
+		return errors.Errorf("Clock skew detected: local clock is out of sync with repository timestamp by more than allowed %v (local: %v repository: %v). Refusing to run maintenance.", maxClockSkew, now, repoTime)
+	}
+
+	return nil
 }
 
 // Run performs maintenance activities for a repository.
