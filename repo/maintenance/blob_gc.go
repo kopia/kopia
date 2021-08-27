@@ -2,6 +2,7 @@ package maintenance
 
 import (
 	"context"
+	"time"
 
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
@@ -15,13 +16,14 @@ import (
 
 // DeleteUnreferencedBlobsOptions provides option for blob garbage collection algorithm.
 type DeleteUnreferencedBlobsOptions struct {
-	Parallel int
-	Prefix   blob.ID
-	DryRun   bool
+	Parallel     int
+	Prefix       blob.ID
+	DryRun       bool
+	NotAfterTime time.Time
 }
 
-// DeleteUnreferencedBlobs deletes old blobs that are no longer referenced by index entries.
-// nolint:gocyclo
+// DeleteUnreferencedBlobs deletes o was created after maintenance startederenced by index entries.
+// nolint:gocyclo,funlen
 func DeleteUnreferencedBlobs(ctx context.Context, rep repo.DirectRepositoryWriter, opt DeleteUnreferencedBlobsOptions, safety SafetyParameters) (int, error) {
 	if opt.Parallel == 0 {
 		opt.Parallel = 16
@@ -69,17 +71,34 @@ func DeleteUnreferencedBlobs(ctx context.Context, rep repo.DirectRepositoryWrite
 		return 0, errors.Wrap(err, "unable to load active sessions")
 	}
 
+	cutoffTime := opt.NotAfterTime
+	if cutoffTime.IsZero() {
+		cutoffTime = rep.Time()
+	}
+
+	// move the cutoff time a bit forward, because on Windows clock does not reliably move forward so we may end
+	// up not deleting some blobs - this only really affects tests, since BlobDeleteMinAge provides real
+	// protection here.
+	const cutoffTimeSlack = 1 * time.Second
+
+	cutoffTime = cutoffTime.Add(cutoffTimeSlack)
+
 	// iterate all pack blobs + session blobs and keep ones that are too young or
 	// belong to alive sessions.
 	if err := rep.ContentManager().IterateUnreferencedBlobs(ctx, prefixes, opt.Parallel, func(bm blob.Metadata) error {
-		if age := rep.Time().Sub(bm.Timestamp); age < safety.BlobDeleteMinAge {
+		if bm.Timestamp.After(cutoffTime) {
+			log(ctx).Debugf("  preserving %v because it was created after maintenance started", bm.BlobID)
+			return nil
+		}
+
+		if age := cutoffTime.Sub(bm.Timestamp); age < safety.BlobDeleteMinAge {
 			log(ctx).Debugf("  preserving %v because it's too new (age: %v<%v)", bm.BlobID, age, safety.BlobDeleteMinAge)
 			return nil
 		}
 
 		sid := content.SessionIDFromBlobID(bm.BlobID)
 		if s, ok := activeSessions[sid]; ok {
-			if age := rep.Time().Sub(s.CheckpointTime); age < safety.SessionExpirationAge {
+			if age := cutoffTime.Sub(s.CheckpointTime); age < safety.SessionExpirationAge {
 				log(ctx).Debugf("  preserving %v because it's part of an active session (%v)", bm.BlobID, sid)
 				return nil
 			}

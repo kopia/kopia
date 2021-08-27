@@ -76,7 +76,8 @@ type IndexBlobInfo struct {
 
 // WriteManager builds content-addressable storage with encryption, deduplication and packaging on top of BLOB store.
 type WriteManager struct {
-	revision int64 // changes on each local write
+	revision            int64 // changes on each local write
+	disableIndexRefresh int32
 
 	mu       *sync.RWMutex
 	cond     *sync.Cond
@@ -160,6 +161,16 @@ func (bm *WriteManager) DeleteContent(ctx context.Context, contentID ID) error {
 	}
 
 	return bm.deletePreexistingContent(ctx, bi)
+}
+
+func (bm *WriteManager) maybeRefreshIndexes(ctx context.Context) error {
+	if atomic.LoadInt32(&bm.disableIndexRefresh) == 0 && bm.shouldRefreshIndexes() {
+		if err := bm.Refresh(ctx); err != nil {
+			return errors.Wrap(err, "error refreshing indexes")
+		}
+	}
+
+	return nil
 }
 
 // Intentionally passing bi by value.
@@ -771,6 +782,11 @@ func (bm *WriteManager) ContentInfo(ctx context.Context, contentID ID) (Info, er
 	}
 
 	return bi, err
+}
+
+// DisableIndexRefresh disables index refresh for the remainder of this session.
+func (bm *WriteManager) DisableIndexRefresh() {
+	atomic.StoreInt32(&bm.disableIndexRefresh, 1)
 }
 
 func (bm *WriteManager) lock() {
