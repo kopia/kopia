@@ -11,7 +11,6 @@ import (
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/logging"
 )
@@ -124,6 +123,9 @@ type RunParameters struct {
 	Mode Mode
 
 	Params *Params
+
+	// timestamp of the last update of maintenance schedule blob
+	MaintenanceStartTime time.Time
 }
 
 // NotOwnedError is returned when maintenance cannot run because it is owned by another user.
@@ -139,6 +141,8 @@ func (e NotOwnedError) Error() string {
 // lock can be acquired. Lock is passed to the function, which ensures that every call to Run()
 // is within the exclusive context.
 func RunExclusive(ctx context.Context, rep repo.DirectRepositoryWriter, mode Mode, force bool, cb func(runParams RunParameters) error) error {
+	rep.DisableIndexRefresh()
+
 	p, err := GetParams(ctx, rep)
 	if err != nil {
 		return errors.Wrap(err, "unable to get maintenance params")
@@ -160,7 +164,7 @@ func RunExclusive(ctx context.Context, rep repo.DirectRepositoryWriter, mode Mod
 		return nil
 	}
 
-	runParams := RunParameters{rep, mode, p}
+	runParams := RunParameters{rep, mode, p, time.Time{}}
 
 	// update schedule so that we don't run the maintenance again immediately if
 	// this process crashes.
@@ -168,7 +172,14 @@ func RunExclusive(ctx context.Context, rep repo.DirectRepositoryWriter, mode Mod
 		return errors.Wrap(err, "error updating maintenance schedule")
 	}
 
-	if err = ensureNoClockSkew(ctx, runParams.rep.BlobReader(), runParams.rep.Time()); err != nil {
+	bm, err := runParams.rep.BlobReader().GetMetadata(ctx, maintenanceScheduleBlobID)
+	if err != nil {
+		return errors.Wrap(err, "error getting maintenance blob time")
+	}
+
+	runParams.MaintenanceStartTime = bm.Timestamp
+
+	if err = ensureNoClockSkew(runParams); err != nil {
 		return errors.Wrap(err, "error checking for clock skew")
 	}
 
@@ -200,21 +211,17 @@ func RunExclusive(ctx context.Context, rep repo.DirectRepositoryWriter, mode Mod
 	return cb(runParams)
 }
 
-func ensureNoClockSkew(ctx context.Context, st blob.Reader, now time.Time) error {
-	bm, err := st.GetMetadata(ctx, maintenanceScheduleBlobID)
-	if err != nil {
-		return errors.Wrap(err, "error getting maintenance blob time")
-	}
+func ensureNoClockSkew(rp RunParameters) error {
+	localTime := rp.rep.Time()
+	repoTime := rp.MaintenanceStartTime
 
-	repoTime := bm.Timestamp
-
-	clockSkew := bm.Timestamp.Sub(now)
+	clockSkew := repoTime.Sub(localTime)
 	if clockSkew < 0 {
 		clockSkew = -clockSkew
 	}
 
 	if clockSkew > maxClockSkew {
-		return errors.Errorf("Clock skew detected: local clock is out of sync with repository timestamp by more than allowed %v (local: %v repository: %v). Refusing to run maintenance.", maxClockSkew, now, repoTime)
+		return errors.Errorf("Clock skew detected: local clock is out of sync with repository timestamp by more than allowed %v (local: %v repository: %v). Refusing to run maintenance.", maxClockSkew, localTime, repoTime)
 	}
 
 	return nil
@@ -357,7 +364,9 @@ func runTaskRewriteContentsFull(ctx context.Context, runParams RunParameters, s 
 
 func runTaskDeleteOrphanedBlobsFull(ctx context.Context, runParams RunParameters, s *Schedule, safety SafetyParameters) error {
 	return ReportRun(ctx, runParams.rep, TaskDeleteOrphanedBlobsFull, s, func() error {
-		_, err := DeleteUnreferencedBlobs(ctx, runParams.rep, DeleteUnreferencedBlobsOptions{}, safety)
+		_, err := DeleteUnreferencedBlobs(ctx, runParams.rep, DeleteUnreferencedBlobsOptions{
+			NotAfterTime: runParams.MaintenanceStartTime,
+		}, safety)
 		return err
 	})
 }
@@ -365,7 +374,8 @@ func runTaskDeleteOrphanedBlobsFull(ctx context.Context, runParams RunParameters
 func runTaskDeleteOrphanedBlobsQuick(ctx context.Context, runParams RunParameters, s *Schedule, safety SafetyParameters) error {
 	return ReportRun(ctx, runParams.rep, TaskDeleteOrphanedBlobsQuick, s, func() error {
 		_, err := DeleteUnreferencedBlobs(ctx, runParams.rep, DeleteUnreferencedBlobsOptions{
-			Prefix: content.PackBlobIDPrefixSpecial,
+			NotAfterTime: runParams.MaintenanceStartTime,
+			Prefix:       content.PackBlobIDPrefixSpecial,
 		}, safety)
 		return err
 	})
