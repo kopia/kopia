@@ -141,7 +141,7 @@ func TestMaintenanceReuseDirManifest(t *testing.T) {
 
 	mustFlush(t, th.RepositoryWriter) // finish maintenance
 
-	th.MustReopen(t)
+	th.MustReopen(t, th.fakeTimeOpenRepoOption)
 
 	info, err = th.RepositoryWriter.ContentReader().ContentInfo(ctx, content.ID(s2.RootObjectID()))
 	require.NoError(t, err)
