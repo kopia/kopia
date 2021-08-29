@@ -112,16 +112,22 @@ func translateError(err error) error {
 }
 
 func (s *s3Storage) GetMetadata(ctx context.Context, b blob.ID) (blob.Metadata, error) {
-	oi, err := s.cli.StatObject(ctx, s.BucketName, s.getObjectNameString(b), minio.StatObjectOptions{})
-	if err != nil {
-		return blob.Metadata{}, errors.Wrap(translateError(err), "StatObject")
+	vm, err := s.getVersionMetadata(ctx, b, "")
+
+	return vm.Metadata, err
+}
+
+func (s *s3Storage) getVersionMetadata(ctx context.Context, b blob.ID, version string) (versionMetadata, error) {
+	opts := minio.GetObjectOptions{
+		VersionID: version,
 	}
 
-	return blob.Metadata{
-		BlobID:    b,
-		Length:    oi.Size,
-		Timestamp: oi.LastModified,
-	}, nil
+	oi, err := s.cli.StatObject(ctx, s.BucketName, s.getObjectNameString(b), opts)
+	if err != nil {
+		return versionMetadata{}, errors.Wrap(translateError(err), "StatObject")
+	}
+
+	return infoToVersionMetadata(s.Prefix, &oi), nil
 }
 
 func (s *s3Storage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes) error {
