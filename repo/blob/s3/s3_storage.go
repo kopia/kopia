@@ -239,6 +239,20 @@ func getCustomTransport(insecureSkipVerify bool) (transport *http.Transport) {
 //
 // - the 'BucketName' field is required and all other parameters are optional.
 func New(ctx context.Context, opt *Options) (blob.Storage, error) {
+	st, err := newStorage(ctx, opt)
+	if err != nil {
+		return nil, err
+	}
+
+	s, err := maybePointInTimeStore(ctx, st, opt.PointInTime)
+	if err != nil {
+		return nil, err
+	}
+
+	return retrying.NewWrapper(s), nil
+}
+
+func newStorage(ctx context.Context, opt *Options) (*s3Storage, error) {
 	if opt.BucketName == "" {
 		return nil, errors.New("bucket name must be specified")
 	}
@@ -270,18 +284,13 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 		return nil, errors.Errorf("bucket %q does not exist", opt.BucketName)
 	}
 
-	s, err := maybePointInTimeStore(ctx, &s3Storage{
+	return &s3Storage{
 		Options:           *opt,
 		cli:               cli,
 		sendMD5:           0,
 		downloadThrottler: downloadThrottler,
 		uploadThrottler:   uploadThrottler,
-	}, opt.PointInTime)
-	if err != nil {
-		return nil, err
-	}
-
-	return retrying.NewWrapper(s), nil
+	}, nil
 }
 
 func init() {
