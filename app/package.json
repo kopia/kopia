@@ -112,7 +112,7 @@
     "concurrently": "^6.2.0",
     "electron": "^12.0.7",
     "electron-builder": "^22.10.5",
-    "electron-notarize": "^1.0.1"
+    "electron-notarize": "^1.1.0"
   },
   "homepage": "./",
   "description": "Fast and secure open source backup.",
