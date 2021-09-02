@@ -35,7 +35,9 @@ const (
 
 	defaultIndexShardSize = 16e6 // slightly less than 2^24, which lets index use 24-bit/3-byte indexes
 
-	DefaultIndexVersion = 1
+	DefaultIndexVersion = 2
+
+	legacyIndexVersion = 1
 )
 
 // PackBlobIDPrefixes contains all possible prefixes for pack blobs.

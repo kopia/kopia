@@ -46,7 +46,7 @@ func (c *commandRepositoryCreate) setup(svc advancedAppServices, parent commandP
 	cmd.Flag("create-only", "Create repository, but don't connect to it.").Short('c').BoolVar(&c.createOnly)
 	cmd.Flag("enable-password-change", "Enable password change").Hidden().Default("true").BoolVar(&c.enablePasswordChange)
 	cmd.Flag("index-version", "Force particular index version").Hidden().Envar("KOPIA_CREATE_INDEX_VERSION").IntVar(&c.createIndexVersion)
-	cmd.Flag("enable-index-epochs", "Enable index epochs").Hidden().Envar("KOPIA_ENABLE_INDEX_EPOCHS").BoolVar(&c.createIndexEpochs)
+	cmd.Flag("enable-index-epochs", "Enable index epochs").Hidden().Default("true").Envar("KOPIA_ENABLE_INDEX_EPOCHS").BoolVar(&c.createIndexEpochs)
 
 	c.co.setup(cmd)
 	c.svc = svc

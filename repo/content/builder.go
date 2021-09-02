@@ -147,6 +147,10 @@ func (b packIndexBuilder) BuildStable(output io.Writer, version int) error {
 func (b packIndexBuilder) shard(maxShardSize int) []packIndexBuilder {
 	numShards := (len(b) + maxShardSize - 1) / maxShardSize
 	if numShards <= 1 {
+		if len(b) == 0 {
+			return []packIndexBuilder{}
+		}
+
 		return []packIndexBuilder{b}
 	}
 
@@ -164,7 +168,15 @@ func (b packIndexBuilder) shard(maxShardSize int) []packIndexBuilder {
 		result[shard][k] = v
 	}
 
-	return result
+	var nonEmpty []packIndexBuilder
+
+	for _, r := range result {
+		if len(r) > 0 {
+			nonEmpty = append(nonEmpty, r)
+		}
+	}
+
+	return nonEmpty
 }
 
 func (b packIndexBuilder) buildShards(indexVersion int, stable bool, shardSize int) ([]gather.Bytes, func(), error) {

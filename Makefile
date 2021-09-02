@@ -13,7 +13,7 @@ rwildcard=$(foreach d,$(wildcard $1*),$(call rwildcard,$d/,$2) $(filter $(subst 
 go_source_dirs=cli fs internal repo snapshot
 all_go_sources=$(foreach d,$(go_source_dirs),$(call rwildcard,$d/,*.go)) $(wildcard *.go)
 
-all: test lint vet integration-tests integration-tests-index-v2
+all: test lint vet integration-tests integration-tests-index-v1
 
 include tools/tools.mk
 
@@ -155,7 +155,7 @@ ci-tests: lint vet test
 
 ci-integration-tests:
 	$(MAKE) integration-tests
-	$(MAKE) integration-tests-index-v2
+	$(MAKE) integration-tests-index-v1
 	$(MAKE) robustness-tool-tests
 
 ci-publish-coverage:
@@ -233,8 +233,8 @@ integration-tests: build-integration-test-binary $(gotestsum) $(TESTING_ACTION_E
 	 $(GO_TEST) $(TEST_FLAGS) -count=$(REPEAT_TEST) -parallel $(PARALLEL) -timeout 3600s github.com/kopia/kopia/tests/end_to_end_test
 	 -$(gotestsum) tool slowest --jsonfile .tmp.integration-tests.json  --threshold 1000ms
 
-integration-tests-index-v2:
-	KOPIA_CREATE_INDEX_VERSION=2 KOPIA_ENABLE_INDEX_EPOCHS=true KOPIA_RUN_ALL_INTEGRATION_TESTS=true $(MAKE) integration-tests
+integration-tests-index-v1:
+	KOPIA_CREATE_INDEX_VERSION=1 KOPIA_ENABLE_INDEX_EPOCHS=false KOPIA_RUN_ALL_INTEGRATION_TESTS=true $(MAKE) integration-tests
 
 endurance-tests: export KOPIA_EXE ?= $(KOPIA_INTEGRATION_EXE)
 endurance-tests: export KOPIA_LOGS_DIR=$(CURDIR)/.logs
