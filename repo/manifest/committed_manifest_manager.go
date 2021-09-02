@@ -6,12 +6,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"os"
 	"sort"
 	"sync"
 
 	"github.com/pkg/errors"
-	"golang.org/x/exp/rand"
 
 	"github.com/kopia/kopia/repo/content"
 )
@@ -333,7 +333,7 @@ func loadManifestContent(ctx context.Context, b contentManager, contentID conten
 func newCommittedManager(b contentManager) *committedManifestManager {
 	debugID := ""
 	if os.Getenv("KOPIA_DEBUG_MANIFEST_MANAGER") != "" {
-		debugID = fmt.Sprintf("%x", rand.Int63())
+		debugID = fmt.Sprintf("%x", rand.Int63()) // nolint:gosec
 	}
 
 	return &committedManifestManager{
