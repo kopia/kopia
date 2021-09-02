@@ -11,7 +11,7 @@ import (
 func TestRepositorySetParameters(t *testing.T) {
 	env := testenv.NewCLITest(t, testenv.NewInProcRunner(t))
 
-	env.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", env.RepoDir)
+	env.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", env.RepoDir, "--index-version=1")
 	out := env.RunAndExpectSuccess(t, "repository", "status")
 
 	// default values
@@ -37,7 +37,7 @@ func TestRepositorySetParameters(t *testing.T) {
 func TestRepositorySetParametersUpgrade(t *testing.T) {
 	env := testenv.NewCLITest(t, testenv.NewInProcRunner(t))
 
-	env.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", env.RepoDir)
+	env.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", env.RepoDir, "--index-version=1", "--no-enable-index-epochs")
 	out := env.RunAndExpectSuccess(t, "repository", "status")
 
 	// default values

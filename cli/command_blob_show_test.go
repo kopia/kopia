@@ -12,11 +12,27 @@ func TestBlobShow(t *testing.T) {
 
 	env.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", env.RepoDir)
 
-	someNBlob := strings.Split(env.RunAndExpectSuccess(t, "blob", "list", "--prefix=n")[0], " ")[0]
+	var hasEpochManager bool
+
+	for _, line := range env.RunAndExpectSuccess(t, "repository", "status") {
+		if strings.HasPrefix(line, "Epoch Manager:") && strings.Contains(line, "enabled") {
+			hasEpochManager = true
+		}
+	}
+
 	someQBlob := strings.Split(env.RunAndExpectSuccess(t, "blob", "list", "--prefix=q")[0], " ")[0]
-	env.RunAndExpectSuccess(t, "blob", "show", someNBlob)
+
+	if hasEpochManager {
+		someXNBlob := strings.Split(env.RunAndExpectSuccess(t, "blob", "list", "--prefix=xn")[0], " ")[0]
+		env.RunAndExpectSuccess(t, "blob", "show", someXNBlob)
+		env.RunAndExpectSuccess(t, "blob", "show", "--decrypt", someXNBlob)
+	} else {
+		someNBlob := strings.Split(env.RunAndExpectSuccess(t, "blob", "list", "--prefix=n")[0], " ")[0]
+		env.RunAndExpectSuccess(t, "blob", "show", someNBlob)
+		env.RunAndExpectSuccess(t, "blob", "show", "--decrypt", someNBlob)
+	}
+
 	env.RunAndExpectSuccess(t, "blob", "show", someQBlob)
-	env.RunAndExpectSuccess(t, "blob", "show", "--decrypt", someNBlob)
 	// --decrypt will be ignored
 	env.RunAndExpectSuccess(t, "blob", "show", "--decrypt", someQBlob)
 }

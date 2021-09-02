@@ -572,7 +572,7 @@ func (b packIndexBuilder) buildV2(output io.Writer) error {
 	extraData := b2.prepareExtraData(sortedInfos)
 
 	if b2.keyLength <= 1 {
-		return errors.Errorf("invalid key length: %v", b2.keyLength)
+		return errors.Errorf("invalid key length: %v for %v", b2.keyLength, len(b))
 	}
 
 	// write header

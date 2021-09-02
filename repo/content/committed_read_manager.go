@@ -516,7 +516,7 @@ func NewSharedManager(ctx context.Context, st blob.Storage, f *FormattingOptions
 
 	actualIndexVersion := f.IndexVersion
 	if actualIndexVersion == 0 {
-		actualIndexVersion = DefaultIndexVersion
+		actualIndexVersion = legacyIndexVersion
 	}
 
 	if actualIndexVersion < v1IndexVersion || actualIndexVersion > v2IndexVersion {
