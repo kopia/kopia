@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/alecthomas/kingpin"
-	"github.com/araddon/dateparse"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/repo/blob"
@@ -33,7 +32,7 @@ func (c *storageS3Flags) setup(_ storageProviderServices, cmd *kingpin.CmdClause
 
 	pitPreAction := func(pc *kingpin.ParseContext) error {
 		if pointInTimeStr != "" {
-			t, err := dateparse.ParseStrict(pointInTimeStr)
+			t, err := time.Parse(time.RFC3339, pointInTimeStr)
 			if err != nil {
 				return errors.Wrap(err, "invalid point-in-time argument")
 			}
