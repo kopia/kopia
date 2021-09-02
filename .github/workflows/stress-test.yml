@@ -11,6 +11,7 @@ on:
 jobs:
   endurance-test:
     name: Stress Test
+    if: ${{ github.repository == 'kopia/kopia' }}
     runs-on: ubuntu-latest
     steps:
     - name: Set up Go.
