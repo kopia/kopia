@@ -25,7 +25,8 @@ import (
 )
 
 const (
-	s3storageType = "s3"
+	s3storageType   = "s3"
+	latestVersionID = ""
 )
 
 type s3Storage struct {
@@ -39,10 +40,15 @@ type s3Storage struct {
 }
 
 func (s *s3Storage) GetBlob(ctx context.Context, b blob.ID, offset, length int64, output *gather.WriteBuffer) error {
+	return s.getBlobWithVersion(ctx, b, latestVersionID, offset, length, output)
+}
+
+// getBlobWithVersion returns full or partial contents of a blob with given ID and version.
+func (s *s3Storage) getBlobWithVersion(ctx context.Context, b blob.ID, version string, offset, length int64, output *gather.WriteBuffer) error {
 	output.Reset()
 
 	attempt := func() error {
-		var opt minio.GetObjectOptions
+		opt := minio.GetObjectOptions{VersionID: version}
 
 		if length > 0 {
 			if err := opt.SetRange(offset, offset+length-1); err != nil {
@@ -106,22 +112,34 @@ func translateError(err error) error {
 }
 
 func (s *s3Storage) GetMetadata(ctx context.Context, b blob.ID) (blob.Metadata, error) {
-	oi, err := s.cli.StatObject(ctx, s.BucketName, s.getObjectNameString(b), minio.StatObjectOptions{})
-	if err != nil {
-		return blob.Metadata{}, errors.Wrap(translateError(err), "StatObject")
+	vm, err := s.getVersionMetadata(ctx, b, "")
+
+	return vm.Metadata, err
+}
+
+func (s *s3Storage) getVersionMetadata(ctx context.Context, b blob.ID, version string) (versionMetadata, error) {
+	opts := minio.GetObjectOptions{
+		VersionID: version,
 	}
 
-	return blob.Metadata{
-		BlobID:    b,
-		Length:    oi.Size,
-		Timestamp: oi.LastModified,
-	}, nil
+	oi, err := s.cli.StatObject(ctx, s.BucketName, s.getObjectNameString(b), opts)
+	if err != nil {
+		return versionMetadata{}, errors.Wrap(translateError(err), "StatObject")
+	}
+
+	return infoToVersionMetadata(s.Prefix, &oi), nil
 }
 
 func (s *s3Storage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes) error {
+	_, err := s.putBlob(ctx, b, data)
+
+	return err
+}
+
+func (s *s3Storage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes) (versionMetadata, error) {
 	throttled, err := s.uploadThrottler.AddReader(ioutil.NopCloser(data.Reader()))
 	if err != nil {
-		return errors.Wrap(err, "AddReader")
+		return versionMetadata{}, errors.Wrap(err, "AddReader")
 	}
 
 	uploadInfo, err := s.cli.PutObject(ctx, s.BucketName, s.getObjectNameString(b), throttled, int64(data.Length()), minio.PutObjectOptions{
@@ -134,7 +152,7 @@ func (s *s3Storage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes) err
 	if errors.As(err, &er) && er.Code == "InvalidRequest" && strings.Contains(strings.ToLower(er.Message), "content-md5") {
 		atomic.StoreInt32(&s.sendMD5, 1) // set sendMD5 on retry
 
-		return err // nolint:wrapcheck
+		return versionMetadata{}, err // nolint:wrapcheck
 	}
 
 	if errors.Is(err, io.EOF) && uploadInfo.Size == 0 {
@@ -144,8 +162,18 @@ func (s *s3Storage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes) err
 		})
 	}
 
-	// nolint:wrapcheck
-	return err
+	if err != nil {
+		return versionMetadata{}, err // nolint:wrapcheck
+	}
+
+	return versionMetadata{
+		Metadata: blob.Metadata{
+			BlobID:    b,
+			Length:    uploadInfo.Size,
+			Timestamp: uploadInfo.LastModified,
+		},
+		Version: uploadInfo.VersionID,
+	}, nil
 }
 
 func (s *s3Storage) SetTime(ctx context.Context, b blob.ID, t time.Time) error {
@@ -233,6 +261,20 @@ func getCustomTransport(insecureSkipVerify bool) (transport *http.Transport) {
 //
 // - the 'BucketName' field is required and all other parameters are optional.
 func New(ctx context.Context, opt *Options) (blob.Storage, error) {
+	st, err := newStorage(ctx, opt)
+	if err != nil {
+		return nil, err
+	}
+
+	s, err := maybePointInTimeStore(ctx, st, opt.PointInTime)
+	if err != nil {
+		return nil, err
+	}
+
+	return retrying.NewWrapper(s), nil
+}
+
+func newStorage(ctx context.Context, opt *Options) (*s3Storage, error) {
 	if opt.BucketName == "" {
 		return nil, errors.New("bucket name must be specified")
 	}
@@ -264,13 +306,13 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 		return nil, errors.Errorf("bucket %q does not exist", opt.BucketName)
 	}
 
-	return retrying.NewWrapper(&s3Storage{
+	return &s3Storage{
 		Options:           *opt,
 		cli:               cli,
 		sendMD5:           0,
 		downloadThrottler: downloadThrottler,
 		uploadThrottler:   uploadThrottler,
-	}), nil
+	}, nil
 }
 
 func init() {
