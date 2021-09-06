@@ -7,6 +7,7 @@ const { toggleLaunchAtStartup, willLaunchAtStartup, refreshWillLaunchAtStartup }
 const { serverForRepo } = require('./server');
 const log = require("electron-log")
 const { loadConfigs, allConfigs, deleteConfigIfDisconnected, addNewConfig, configDir, isFirstRun, isPortableConfig } = require('./config');
+const { electron } = require('process');
 
 app.name = 'KopiaUI';
 
@@ -132,27 +133,31 @@ function checkForUpdates() {
   autoUpdater.checkForUpdatesAndNotify();
 }
 
-function maybeMoveToApplicationsFolder() {
+function isOutsideOfApplicationsFolderOnMac() {
   if (isDev || isPortableConfig()) {
-    return;
+    return false; 
   }
 
-  try {
-    if (!app.isInApplicationsFolder()) {
-      let result = dialog.showMessageBoxSync({
-        buttons: ["Yes", "No"],
-        message: "For best experience, Kopia needs to be installed in Applications folder.\n\nDo you want to move it now?"
-      });
-      if (result == 0) {
-        return app.moveToApplicationsFolder();
-      }
+  // this method is only available on Mac.
+  if (!app.isInApplicationsFolder) {
+    return false;
+  }
+
+  return !app.isInApplicationsFolder();
+}
+
+function maybeMoveToApplicationsFolder() {
+  dialog.showMessageBox({
+    buttons: ["Yes", "No"],
+    message: "For best experience, Kopia needs to be installed in Applications folder.\n\nDo you want to move it now?"
+  }).then(r => {
+    log.info('response ' + r);
+    if (r.response == 0) {
+      app.moveToApplicationsFolder();
     }
-  }
-  catch (e) {
-    log.error('error' + e);
-    // ignore
-  }
-  return false;
+  }).catch(e => {
+    log.info(e);
+  });
 }
 
 function updateDockIcon() {
@@ -186,10 +191,6 @@ app.on('ready', () => {
   log.transports.file.level = "debug"
   autoUpdater.logger = log
 
-  if (maybeMoveToApplicationsFolder()) {
-    return
-  }
-
   checkForUpdates();
 
   // re-check for updates every 24 hours
@@ -221,6 +222,13 @@ app.on('ready', () => {
       });
     }
   }
+
+  log.info('1');
+  if (isOutsideOfApplicationsFolderOnMac()) {
+    log.info('2');
+    setTimeout(maybeMoveToApplicationsFolder, 1000);
+  }
+  log.info('3');
 })
 
 ipcMain.addListener('config-list-updated-event', () => updateTrayContextMenu());

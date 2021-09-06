@@ -6,6 +6,9 @@ build-html: build/index.html
 
 deps: node_modules/.up-to-date
 
+install:
+	$(npm) install
+
 dev: node_modules/.up-to-date
 	$(npm) $(npm_flags) run start
 
