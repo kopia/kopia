@@ -29,7 +29,7 @@ func TestRepositoryRepair_PasswordChangeDisabled(t *testing.T) {
 
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
-	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--no-enable-password-change")
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--format-version=1")
 
 	e.RunAndExpectSuccess(t, "snapshot", "create", ".")
 	e.RunAndExpectSuccess(t, "snapshot", "list", ".")

@@ -190,6 +190,9 @@ func TestMaintenanceAutoLiveness(t *testing.T) {
 		OpenOptions: func(o *repo.Options) {
 			o.TimeNowFunc = ft.NowFunc()
 		},
+		NewRepositoryOptions: func(nro *repo.NewRepositoryOptions) {
+			nro.BlockFormat.Version = content.FormatVersion1
+		},
 	})
 
 	// create dummy snapshot.

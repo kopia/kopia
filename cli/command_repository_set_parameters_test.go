@@ -11,12 +11,12 @@ import (
 func TestRepositorySetParameters(t *testing.T) {
 	env := testenv.NewCLITest(t, testenv.NewInProcRunner(t))
 
-	env.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", env.RepoDir, "--index-version=1")
+	env.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", env.RepoDir, "--format-version=1")
 	out := env.RunAndExpectSuccess(t, "repository", "status")
 
 	// default values
 	require.Contains(t, out, "Max pack length:     20 MiB")
-	require.Contains(t, out, "Index Format:        v1")
+	require.Contains(t, out, "Format version:      1")
 
 	// failure cases
 	env.RunAndExpectFailure(t, "repository", "set-parameters")
@@ -27,7 +27,6 @@ func TestRepositorySetParameters(t *testing.T) {
 	env.RunAndExpectSuccess(t, "repository", "set-parameters", "--index-version=2", "--max-pack-size-mb=33")
 	out = env.RunAndExpectSuccess(t, "repository", "status")
 	require.Contains(t, out, "Max pack length:     33 MiB")
-	require.Contains(t, out, "Index Format:        v2")
 
 	env.RunAndExpectSuccess(t, "repository", "set-parameters", "--max-pack-size-mb=44")
 	out = env.RunAndExpectSuccess(t, "repository", "status")
@@ -37,12 +36,12 @@ func TestRepositorySetParameters(t *testing.T) {
 func TestRepositorySetParametersUpgrade(t *testing.T) {
 	env := testenv.NewCLITest(t, testenv.NewInProcRunner(t))
 
-	env.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", env.RepoDir, "--index-version=1", "--no-enable-index-epochs")
+	env.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", env.RepoDir, "--format-version=1")
 	out := env.RunAndExpectSuccess(t, "repository", "status")
 
 	// default values
 	require.Contains(t, out, "Max pack length:     20 MiB")
-	require.Contains(t, out, "Index Format:        v1")
+	require.Contains(t, out, "Format version:      1")
 	require.Contains(t, out, "Epoch Manager:       disabled")
 
 	env.RunAndExpectFailure(t, "index", "epoch", "list")

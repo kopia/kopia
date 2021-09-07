@@ -15,7 +15,7 @@ const (
 // FormatVersion denotes content format version.
 type FormatVersion int
 
-// supported format versions
+// Supported format versions.
 const (
 	FormatVersion1 FormatVersion = 1
 	FormatVersion2 FormatVersion = 2 // new in v0.9
@@ -34,24 +34,24 @@ type FormattingOptions struct {
 }
 
 // ResolveFormatVersion applies format options parameters based on the format version.
-func (o *FormattingOptions) ResolveFormatVersion() error {
-	switch o.Version {
+func (f *FormattingOptions) ResolveFormatVersion() error {
+	switch f.Version {
 	case FormatVersion2:
-		o.EnablePasswordChange = true
-		o.IndexVersion = v2IndexVersion
-		o.EpochParameters = epoch.DefaultParameters
+		f.EnablePasswordChange = true
+		f.IndexVersion = v2IndexVersion
+		f.EpochParameters = epoch.DefaultParameters
 
 		return nil
 
 	case FormatVersion1:
-		o.EnablePasswordChange = false
-		o.IndexVersion = v1IndexVersion
-		o.EpochParameters = epoch.Parameters{}
+		f.EnablePasswordChange = false
+		f.IndexVersion = v1IndexVersion
+		f.EpochParameters = epoch.Parameters{}
 
 		return nil
 
 	default:
-		return errors.Errorf("Unsupported format version: %v", o.Version)
+		return errors.Errorf("Unsupported format version: %v", f.Version)
 	}
 }
 

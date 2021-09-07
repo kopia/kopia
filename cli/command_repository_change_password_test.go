@@ -41,6 +41,6 @@ func TestRepositoryChangePassword_LegacDisallowed(t *testing.T) {
 	env1 := testenv.NewCLITest(t, testenv.NewInProcRunner(t))
 	// pass --no-enable-password-change to create repository using old format that does
 	// not support password change.
-	env1.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", env1.RepoDir, "--disable-repository-format-cache", "--no-enable-password-change")
+	env1.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", env1.RepoDir, "--disable-repository-format-cache", "--format-version=0.8")
 	env1.RunAndExpectFailure(t, "repo", "change-password", "--new-password", "newPass")
 }
