@@ -19,6 +19,12 @@ https://github.com/gotestyourself/gotestsum/releases/download/v1.7.0/gotestsum_1
 https://github.com/gotestyourself/gotestsum/releases/download/v1.7.0/gotestsum_1.7.0_linux_arm64.tar.gz: ee57c91abadc464a7cd9f8abbffe94a673aab7deeb9af8c17b96de4bb8f37e41
 https://github.com/gotestyourself/gotestsum/releases/download/v1.7.0/gotestsum_1.7.0_linux_armv6.tar.gz: 53638cb0021ed31d74f99c9327ad1fecad42e0dbdfd3676730798369360e1bf1
 https://github.com/gotestyourself/gotestsum/releases/download/v1.7.0/gotestsum_1.7.0_windows_amd64.tar.gz: 7ae12ddb171375f0c14d6a09dd27a5c1d1fc72edeea674e3d6e7489a533b40c1
+https://github.com/kopia/kopia/releases/download/v0.8.4/kopia-0.8.4-linux-arm.tar.gz: 31e9ecd9600dc60f98d4777fb64043b3431ad758dc7ba57d9a7661a103946d6f
+https://github.com/kopia/kopia/releases/download/v0.8.4/kopia-0.8.4-linux-arm64.tar.gz: 3ad81fd7e856ec177b737130710823ef0e64a344be1233d9a7ef456c78e535f2
+https://github.com/kopia/kopia/releases/download/v0.8.4/kopia-0.8.4-linux-x64.tar.gz: 118e3eece462d6e5bd8e357f6cbb48eabaecc3a22b99c804b54eaba6f6f1b7d5
+https://github.com/kopia/kopia/releases/download/v0.8.4/kopia-0.8.4-macOS-arm64.tar.gz: 1b4e2f151ca0db80a7e0ee7b164697af7c6aaeae58f0846952693da327e46af7
+https://github.com/kopia/kopia/releases/download/v0.8.4/kopia-0.8.4-macOS-x64.tar.gz: 818e466f8404d9d4805a4b86386d8388e90979b54ffa87f1858890cf13311902
+https://github.com/kopia/kopia/releases/download/v0.8.4/kopia-0.8.4-windows-x64.zip: 25529dffea8ecfd1206cd6e8eb76e45bdcdd334fc99ccb14683fe56c34426837
 https://github.com/rclone/rclone/releases/download/v1.56.0/rclone-v1.56.0-linux-amd64.zip: d23d0c1f295a7399114b9a07fa987e7dc216dbe989b5d88530eb01d3c87c9c1f
 https://github.com/rclone/rclone/releases/download/v1.56.0/rclone-v1.56.0-linux-arm.zip: 955e8412ad58aa45ee195deaf5cd8cacbb9b823ad3b17e1817a03143034da878
 https://github.com/rclone/rclone/releases/download/v1.56.0/rclone-v1.56.0-linux-arm64.zip: 861fe019ac96ac55b5e0e97c8d6138773a11b64f8cbd3530f51f56eb6009326c

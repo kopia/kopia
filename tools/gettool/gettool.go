@@ -78,6 +78,15 @@ var tools = map[string]ToolInfo{
 			"arm": "armv6",
 		},
 	},
+	"kopia": {
+		urlTemplate: "https://github.com/kopia/kopia/releases/download/vVERSION/kopia-VERSION-GOOS-GOARCH.EXT",
+		archMap: map[string]string{
+			"amd64": "x64",
+		},
+		osMap: map[string]string{
+			"darwin": "macOS",
+		},
+	},
 	"rclone": {
 		urlTemplate: "https://github.com/rclone/rclone/releases/download/vVERSION/rclone-vVERSION-GOOS-GOARCH.zip",
 		osMap:       map[string]string{"darwin": "osx"},
