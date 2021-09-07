@@ -44,6 +44,7 @@ export class SetupRepository extends Component {
             storageVerified: false,
             providerSettings: {},
             description: "My Repository",
+            formatVersion: "2",
         };
 
         this.handleChange = handleChange.bind(this);
@@ -117,6 +118,7 @@ export class SetupRepository extends Component {
             password: this.state.password,
             options: {
                 blockFormat: {
+                    version: parseInt(this.state.formatVersion),
                     hash: this.state.hash,
                     encryption: this.state.encryption,
                 },
@@ -125,10 +127,6 @@ export class SetupRepository extends Component {
                 },
             },
         };
-
-        if (this.state.indexVersion) {
-            request.options.blockFormat.indexVersion = parseInt(this.state.indexVersion)
-        }
 
         request.clientOptions = this.clientOptions();
 
@@ -367,15 +365,14 @@ export class SetupRepository extends Component {
                             </Form.Control>
                         </Form.Group>
                         <Form.Group as={Col}>
-                            <Form.Label className="required">Index Format</Form.Label>
+                            <Form.Label className="required">Repository Format</Form.Label>
                             <Form.Control as="select"
-                                name="indexVersion"
+                                name="formatVersion"
                                 onChange={this.handleChange}
-                                data-testid="control-indexVersion"
-                                value={this.state.indexVersion}>
-                                    <option value="">(default)</option>
-                                    <option value={1}>v1</option>
-                                    <option value={2}>v2 (experimental)</option>
+                                data-testid="control-formatVersion"
+                                value={this.state.formatVersion}>
+                                    <option value="2">Latest format</option>
+                                    <option value="1">Legacy format compatible with v0.8</option>
                             </Form.Control>
                         </Form.Group>
                     </Row>
