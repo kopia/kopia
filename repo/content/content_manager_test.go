@@ -1836,7 +1836,7 @@ func (s *contentManagerSuite) TestVersionCompatibility(t *testing.T) {
 	}
 }
 
-func (s *contentManagerSuite) verifyVersionCompat(t *testing.T, writeVersion int) {
+func (s *contentManagerSuite) verifyVersionCompat(t *testing.T, writeVersion FormatVersion) {
 	t.Helper()
 
 	ctx := testlogging.Context(t)

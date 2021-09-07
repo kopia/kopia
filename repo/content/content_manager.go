@@ -37,7 +37,7 @@ const (
 
 	DefaultIndexVersion = 2
 
-	legacyIndexVersion = 1
+	legacyIndexVersion = v1IndexVersion
 )
 
 // PackBlobIDPrefixes contains all possible prefixes for pack blobs.
@@ -56,13 +56,13 @@ const (
 	defaultMaxPreambleLength = 32
 	defaultPaddingUnit       = 4096
 
-	currentWriteVersion = 1
+	currentWriteVersion = FormatVersion2
 
-	minSupportedWriteVersion = 1
-	maxSupportedWriteVersion = currentWriteVersion
+	minSupportedWriteVersion = FormatVersion1
+	maxSupportedWriteVersion = FormatVersion2
 
-	minSupportedReadVersion = 1
-	maxSupportedReadVersion = currentWriteVersion
+	minSupportedReadVersion = FormatVersion1
+	maxSupportedReadVersion = FormatVersion2
 
 	indexLoadAttempts = 10
 )
