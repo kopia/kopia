@@ -11,6 +11,7 @@ import (
 	"github.com/kopia/kopia/internal/faketime"
 	"github.com/kopia/kopia/internal/repotesting"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/maintenance"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot/snapshotmaintenance"
@@ -105,10 +106,12 @@ func (s *formatSpecificTestSuite) TestMaintenanceSafety(t *testing.T) {
 	require.NoError(t, env.Repository.Refresh(ctx))
 	verifyObjectNotFound(ctx, t, env.Repository, objectID)
 
-	t.Logf("====")
-	ft.Advance(10 * time.Hour)
-	require.NoError(t, anotherClient.Refresh(ctx))
-	verifyObjectNotFound(ctx, t, anotherClient, objectID)
+	if s.formatVersion == content.FormatVersion1 {
+		require.NoError(t, anotherClient.Refresh(ctx))
+		verifyObjectNotFound(ctx, t, anotherClient, objectID)
+	} else {
+		t.Skip()
+	}
 }
 
 func verifyContentDeletedState(ctx context.Context, t *testing.T, rep repo.Repository, objectID object.ID, want bool) {
