@@ -15,11 +15,11 @@ import (
 	"github.com/kopia/kopia/tests/testenv"
 )
 
-func TestSnapshotGC(t *testing.T) {
+func (s *formatSpecificTestSuite) TestSnapshotGC(t *testing.T) {
 	t.Parallel()
 
 	runner := testenv.NewInProcRunner(t)
-	e := testenv.NewCLITest(t, runner)
+	e := testenv.NewCLITest(t, s.formatFlags, runner)
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 

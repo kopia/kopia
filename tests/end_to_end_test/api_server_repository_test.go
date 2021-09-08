@@ -56,7 +56,7 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 	}
 
 	runner := testenv.NewExeRunner(t)
-	e := testenv.NewCLITest(t, runner)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
 
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
@@ -64,7 +64,7 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--override-username", "foo", "--override-hostname", "bar")
 	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
 
-	e1 := testenv.NewCLITest(t, runner)
+	e1 := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
 	defer e1.RunAndExpectSuccess(t, "repo", "disconnect")
 
 	// create one snapshot as not-foo@bar
@@ -204,7 +204,7 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 	}
 
 	runner2 := testenv.NewExeRunner(t)
-	e2 := testenv.NewCLITest(t, runner2)
+	e2 := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner2)
 
 	defer e2.RunAndExpectSuccess(t, "repo", "disconnect")
 

@@ -22,7 +22,7 @@ func TestSnapshotNonexistent(t *testing.T) {
 	t.Parallel()
 
 	runner := testenv.NewInProcRunner(t)
-	e := testenv.NewCLITest(t, runner)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
 
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
@@ -241,7 +241,7 @@ func testSnapshotFail(t *testing.T, isFailFast bool, snapshotCreateFlags, snapsh
 					t.Parallel()
 
 					runner := testenv.NewExeRunner(t)
-					e := testenv.NewCLITest(t, runner)
+					e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
 
 					defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 

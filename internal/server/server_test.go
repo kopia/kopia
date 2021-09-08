@@ -42,7 +42,7 @@ const (
 
 // nolint:thelper
 func startServer(ctx context.Context, t *testing.T) *repo.APIServerInfo {
-	_, env := repotesting.NewEnvironment(t)
+	_, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
 
 	s, err := server.New(ctx, server.Options{
 		ConfigFile:      env.ConfigFile(),

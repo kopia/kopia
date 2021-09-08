@@ -12,7 +12,7 @@ func TestSnapshotCopy(t *testing.T) {
 	t.Parallel()
 
 	runner := testenv.NewInProcRunner(t)
-	e := testenv.NewCLITest(t, runner)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
 
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 

@@ -5,18 +5,24 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
-func TestRepositorySetParameters(t *testing.T) {
-	env := testenv.NewCLITest(t, testenv.NewInProcRunner(t))
+func (s *formatSpecificTestSuite) TestRepositorySetParameters(t *testing.T) {
+	env := testenv.NewCLITest(t, s.formatFlags, testenv.NewInProcRunner(t))
 
-	env.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", env.RepoDir, "--format-version=1")
+	env.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", env.RepoDir)
 	out := env.RunAndExpectSuccess(t, "repository", "status")
 
 	// default values
 	require.Contains(t, out, "Max pack length:     20 MiB")
-	require.Contains(t, out, "Format version:      1")
+
+	if s.formatVersion == content.FormatVersion1 {
+		require.Contains(t, out, "Format version:      1")
+	} else {
+		require.Contains(t, out, "Format version:      2")
+	}
 
 	// failure cases
 	env.RunAndExpectFailure(t, "repository", "set-parameters")
@@ -33,21 +39,26 @@ func TestRepositorySetParameters(t *testing.T) {
 	require.Contains(t, out, "Max pack length:     44 MiB")
 }
 
-func TestRepositorySetParametersUpgrade(t *testing.T) {
-	env := testenv.NewCLITest(t, testenv.NewInProcRunner(t))
+func (s *formatSpecificTestSuite) TestRepositorySetParametersUpgrade(t *testing.T) {
+	env := testenv.NewCLITest(t, s.formatFlags, testenv.NewInProcRunner(t))
 
-	env.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", env.RepoDir, "--format-version=1")
+	env.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", env.RepoDir)
 	out := env.RunAndExpectSuccess(t, "repository", "status")
 
 	// default values
 	require.Contains(t, out, "Max pack length:     20 MiB")
-	require.Contains(t, out, "Format version:      1")
-	require.Contains(t, out, "Epoch Manager:       disabled")
 
-	env.RunAndExpectFailure(t, "index", "epoch", "list")
+	if s.formatVersion == content.FormatVersion1 {
+		require.Contains(t, out, "Format version:      1")
+		require.Contains(t, out, "Epoch Manager:       disabled")
+		env.RunAndExpectFailure(t, "index", "epoch", "list")
+	} else {
+		require.Contains(t, out, "Format version:      2")
+		require.Contains(t, out, "Epoch Manager:       enabled")
+		env.RunAndExpectSuccess(t, "index", "epoch", "list")
+	}
 
 	env.RunAndExpectSuccess(t, "repository", "set-parameters", "--upgrade")
-
 	env.RunAndExpectSuccess(t, "repository", "set-parameters", "--epoch-min-duration", "3h")
 	env.RunAndExpectSuccess(t, "repository", "set-parameters", "--epoch-cleanup-safety-margin", "23h")
 	env.RunAndExpectSuccess(t, "repository", "set-parameters", "--epoch-advance-on-size-mb", "77")

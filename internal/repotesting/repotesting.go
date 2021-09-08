@@ -38,7 +38,7 @@ type Options struct {
 }
 
 // setup sets up a test environment.
-func (e *Environment) setup(t *testing.T, opts ...Options) *Environment {
+func (e *Environment) setup(t *testing.T, version content.FormatVersion, opts ...Options) *Environment {
 	t.Helper()
 
 	ctx := testlogging.Context(t)
@@ -47,6 +47,7 @@ func (e *Environment) setup(t *testing.T, opts ...Options) *Environment {
 
 	opt := &repo.NewRepositoryOptions{
 		BlockFormat: content.FormattingOptions{
+			Version:              version,
 			HMACSecret:           []byte{},
 			Hash:                 "HMAC-SHA256",
 			Encryption:           encryption.DefaultAlgorithm,
@@ -228,15 +229,18 @@ func repoOptions(openOpts []func(*repo.Options)) *repo.Options {
 	return openOpt
 }
 
+// FormatNotImportant chooses arbitrary format version where it's not important to the test.
+const FormatNotImportant = content.FormatVersion2
+
 // NewEnvironment creates a new repository testing environment and ensures its cleanup at the end of the test.
-func NewEnvironment(t *testing.T, opts ...Options) (context.Context, *Environment) {
+func NewEnvironment(t *testing.T, version content.FormatVersion, opts ...Options) (context.Context, *Environment) {
 	t.Helper()
 
 	ctx := testlogging.Context(t)
 
 	var env Environment
 
-	env.setup(t, opts...)
+	env.setup(t, version, opts...)
 
 	t.Cleanup(func() {
 		env.Close(ctx, t)

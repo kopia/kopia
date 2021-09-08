@@ -46,7 +46,7 @@ var (
 
 func TestMain(m *testing.M) { testutil.MyTestMain(m) }
 
-func TestLegacyFormat(t *testing.T) {
+func TestFormatV1(t *testing.T) {
 	testutil.RunAllTestsWithParam(t, &contentManagerSuite{
 		mutableParameters: MutableParameters{
 			IndexVersion: 1,
@@ -55,7 +55,7 @@ func TestLegacyFormat(t *testing.T) {
 	})
 }
 
-func TestEpochManager(t *testing.T) {
+func TestFormatV2(t *testing.T) {
 	testutil.RunAllTestsWithParam(t, &contentManagerSuite{
 		mutableParameters: MutableParameters{
 			MaxPackSize:     maxPackSize,

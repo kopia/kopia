@@ -14,7 +14,7 @@ import (
 )
 
 func TestSnapshotEstimate(t *testing.T) {
-	env := testenv.NewCLITest(t, testenv.NewInProcRunner(t))
+	env := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, testenv.NewInProcRunner(t))
 
 	dir := testutil.TempDirectory(t)
 	require.NoError(t, ioutil.WriteFile(filepath.Join(dir, "file1.txt"), bytes.Repeat([]byte{1, 2, 3, 4, 5}, 15000), 0o600))
@@ -48,7 +48,7 @@ func TestSnapshotEstimate(t *testing.T) {
 }
 
 func TestSnapshotEstimate_NotADirectory(t *testing.T) {
-	env := testenv.NewCLITest(t, testenv.NewInProcRunner(t))
+	env := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, testenv.NewInProcRunner(t))
 
 	dir := testutil.TempDirectory(t)
 	require.NoError(t, ioutil.WriteFile(filepath.Join(dir, "file1.txt"), []byte{1, 2, 3}, 0o600))

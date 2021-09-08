@@ -61,7 +61,7 @@ func (d webdavDirWithFakeClock) OpenFile(ctx context.Context, fname string, flag
 
 func TestEndurance(t *testing.T) {
 	runner := testenv.NewExeRunner(t)
-	e := testenv.NewCLITest(t, runner)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
 
 	tmpDir, err := ioutil.TempDir("", "endurance")
 	if err != nil {
@@ -234,7 +234,7 @@ func enduranceRunner(t *testing.T, runnerID int, fakeTimeServer, webdavServer st
 	t.Helper()
 
 	runner := testenv.NewExeRunner(t)
-	e := testenv.NewCLITest(t, runner)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
 
 	runner.Environment = append(runner.Environment,
 		"KOPIA_FAKE_CLOCK_ENDPOINT="+fakeTimeServer,

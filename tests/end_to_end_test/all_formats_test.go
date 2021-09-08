@@ -34,7 +34,7 @@ func TestAllFormatsSmokeTest(t *testing.T) {
 				t.Run(hashAlgo, func(t *testing.T) {
 					t.Parallel()
 
-					e := testenv.NewCLITest(t, runner)
+					e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
 					defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
 					e.DefaultRepositoryCreateFlags = nil

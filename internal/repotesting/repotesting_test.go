@@ -14,7 +14,7 @@ import (
 )
 
 func TestTimeFuncWiring(t *testing.T) {
-	ctx, env := NewEnvironment(t)
+	ctx, env := NewEnvironment(t, FormatNotImportant)
 
 	ft := faketime.NewTimeAdvance(time.Date(2018, time.February, 6, 0, 0, 0, 0, time.UTC), 0)
 

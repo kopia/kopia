@@ -1,4 +1,4 @@
-package maintenance
+package maintenance_test
 
 import (
 	"encoding/json"
@@ -8,42 +8,43 @@ import (
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/repotesting"
+	"github.com/kopia/kopia/repo/maintenance"
 )
 
-func TestMaintenanceSchedule(t *testing.T) {
-	ctx, env := repotesting.NewEnvironment(t)
+func (s *formatSpecificTestSuite) TestMaintenanceSchedule(t *testing.T) {
+	ctx, env := repotesting.NewEnvironment(t, s.formatVersion)
 
-	s, err := GetSchedule(ctx, env.RepositoryWriter)
+	sch, err := maintenance.GetSchedule(ctx, env.RepositoryWriter)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
 
-	if !s.NextFullMaintenanceTime.IsZero() {
-		t.Errorf("unexpected NextFullMaintenanceTime: %v", s.NextFullMaintenanceTime)
+	if !sch.NextFullMaintenanceTime.IsZero() {
+		t.Errorf("unexpected NextFullMaintenanceTime: %v", sch.NextFullMaintenanceTime)
 	}
 
-	if !s.NextQuickMaintenanceTime.IsZero() {
-		t.Errorf("unexpected NextQuickMaintenanceTime: %v", s.NextQuickMaintenanceTime)
+	if !sch.NextQuickMaintenanceTime.IsZero() {
+		t.Errorf("unexpected NextQuickMaintenanceTime: %v", sch.NextQuickMaintenanceTime)
 	}
 
-	s.NextFullMaintenanceTime = clock.Now()
-	s.NextQuickMaintenanceTime = clock.Now()
-	s.ReportRun("foo", RunInfo{
+	sch.NextFullMaintenanceTime = clock.Now()
+	sch.NextQuickMaintenanceTime = clock.Now()
+	sch.ReportRun("foo", maintenance.RunInfo{
 		Start:   clock.Now(),
 		End:     clock.Now(),
 		Success: true,
 	})
 
-	if err = SetSchedule(ctx, env.RepositoryWriter, s); err != nil {
+	if err = maintenance.SetSchedule(ctx, env.RepositoryWriter, sch); err != nil {
 		t.Fatalf("unable to set schedule: %v", err)
 	}
 
-	s2, err := GetSchedule(ctx, env.RepositoryWriter)
+	s2, err := maintenance.GetSchedule(ctx, env.RepositoryWriter)
 	if err != nil {
 		t.Fatalf("unable to get schedule: %v", err)
 	}
 
-	if got, want := toJSON(s2), toJSON(s); got != want {
+	if got, want := toJSON(s2), toJSON(sch); got != want {
 		t.Errorf("invalid schedule (-want,+got) %v", pretty.Compare(want, got))
 	}
 }

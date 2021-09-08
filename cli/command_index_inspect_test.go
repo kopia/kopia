@@ -9,8 +9,8 @@ import (
 	"github.com/kopia/kopia/tests/testenv"
 )
 
-func TestIndexInspect(t *testing.T) {
-	env := testenv.NewCLITest(t, testenv.NewInProcRunner(t))
+func (s *formatSpecificTestSuite) TestIndexInspect(t *testing.T) {
+	env := testenv.NewCLITest(t, s.formatFlags, testenv.NewInProcRunner(t))
 
 	env.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", env.RepoDir)
 

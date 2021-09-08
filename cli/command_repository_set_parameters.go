@@ -100,11 +100,14 @@ func (c *commandRepositorySetParameters) run(ctx context.Context, rep repo.Direc
 
 	upgradeToEpochManager := false
 
-	if c.upgradeRepositoryFormat && !mp.EpochParameters.Enabled {
-		mp.EpochParameters = epoch.DefaultParameters
-		upgradeToEpochManager = true
-		mp.IndexVersion = 2
+	if c.upgradeRepositoryFormat {
 		anyChange = true
+
+		if !mp.EpochParameters.Enabled {
+			mp.EpochParameters = epoch.DefaultParameters
+			upgradeToEpochManager = true
+			mp.IndexVersion = 2
+		}
 	}
 
 	c.setSizeMBParameter(ctx, c.maxPackSizeMB, "maximum pack size", &mp.MaxPackSize, &anyChange)

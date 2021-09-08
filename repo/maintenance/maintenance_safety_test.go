@@ -16,10 +16,10 @@ import (
 	"github.com/kopia/kopia/snapshot/snapshotmaintenance"
 )
 
-func TestMaintenanceSafety(t *testing.T) {
+func (s *formatSpecificTestSuite) TestMaintenanceSafety(t *testing.T) {
 	ft := faketime.NewClockTimeWithOffset(0)
 
-	ctx, env := repotesting.NewEnvironment(t, repotesting.Options{
+	ctx, env := repotesting.NewEnvironment(t, s.formatVersion, repotesting.Options{
 		OpenOptions: func(o *repo.Options) {
 			o.TraceStorage = t.Logf
 			o.TimeNowFunc = ft.NowFunc()
@@ -101,9 +101,13 @@ func TestMaintenanceSafety(t *testing.T) {
 	t.Logf("**** MAINTENANCE #5")
 	ft.Advance(4 * time.Hour)
 	require.NoError(t, snapshotmaintenance.Run(ctx, env.RepositoryWriter, maintenance.ModeFull, true, maintenance.SafetyFull))
-	require.NoError(t, anotherClient.Refresh(ctx))
+	require.NoError(t, env.RepositoryWriter.Flush(ctx))
 	require.NoError(t, env.Repository.Refresh(ctx))
 	verifyObjectNotFound(ctx, t, env.Repository, objectID)
+
+	t.Logf("====")
+	ft.Advance(10 * time.Hour)
+	require.NoError(t, anotherClient.Refresh(ctx))
 	verifyObjectNotFound(ctx, t, anotherClient, objectID)
 }
 

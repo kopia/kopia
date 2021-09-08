@@ -13,8 +13,8 @@ import (
 	"github.com/kopia/kopia/tests/testenv"
 )
 
-func TestContentVerify(t *testing.T) {
-	env := testenv.NewCLITest(t, testenv.NewInProcRunner(t))
+func (s *formatSpecificTestSuite) TestContentVerify(t *testing.T) {
+	env := testenv.NewCLITest(t, s.formatFlags, testenv.NewInProcRunner(t))
 
 	dir := testutil.TempDirectory(t)
 	require.NoError(t, ioutil.WriteFile(filepath.Join(dir, "file1.txt"), bytes.Repeat([]byte{1, 2, 3, 4, 5}, 15000), 0o600))

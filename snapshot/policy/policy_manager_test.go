@@ -14,7 +14,7 @@ import (
 )
 
 func TestPolicyManagerInheritanceTest(t *testing.T) {
-	ctx, env := repotesting.NewEnvironment(t)
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
 
 	defaultPolicyWithLabels := policyWithLabels(DefaultPolicy, map[string]string{
 		"policyType": "global",
@@ -165,7 +165,7 @@ func defaultPolicyWithKeepDaily(t *testing.T, keepDaily int) *Policy {
 }
 
 func TestPolicyManagerResolvesConflicts(t *testing.T) {
-	ctx, env := repotesting.NewEnvironment(t)
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
 
 	r1 := env.RepositoryWriter
 	r2 := env.MustOpenAnother(t)
@@ -231,7 +231,7 @@ func TestParentPathOSIndependent(t *testing.T) {
 // TestApplicablePoliciesForSource verifies that when we build a policy tree, we pick the appropriate policies
 // defined for the subtree regardless of path style (Unix or Windows).
 func TestApplicablePoliciesForSource(t *testing.T) {
-	ctx, env := repotesting.NewEnvironment(t)
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
 
 	setPols := map[snapshot.SourceInfo]*Policy{
 		// unix-style path names

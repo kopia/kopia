@@ -25,7 +25,7 @@ func TestSnapshotActionsBeforeSnapshotRoot(t *testing.T) {
 	}
 
 	runner := testenv.NewExeRunner(t)
-	e := testenv.NewCLITest(t, runner)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
 
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
@@ -160,7 +160,7 @@ func TestSnapshotActionsBeforeAfterFolder(t *testing.T) {
 	}
 
 	runner := testenv.NewExeRunner(t)
-	e := testenv.NewCLITest(t, runner)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--enable-actions")
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
@@ -229,7 +229,7 @@ func TestSnapshotActionsEmbeddedScript(t *testing.T) {
 	t.Parallel()
 
 	runner := testenv.NewInProcRunner(t)
-	e := testenv.NewCLITest(t, runner)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--enable-actions")
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
@@ -301,7 +301,7 @@ func TestSnapshotActionsEnable(t *testing.T) {
 			t.Parallel()
 
 			runner := testenv.NewExeRunner(t)
-			e := testenv.NewCLITest(t, runner)
+			e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
 
 			defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 

@@ -11,7 +11,7 @@ import (
 )
 
 func TestUserManager(t *testing.T) {
-	ctx, env := repotesting.NewEnvironment(t)
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
 
 	if _, err := user.GetUserProfile(ctx, env.RepositoryWriter, "alice@somehost"); !errors.Is(err, user.ErrUserNotFound) {
 		t.Fatalf("unexpected error: %v", err)
