@@ -40,10 +40,10 @@ func mustGetRcloneExeOrSkip(t *testing.T) string {
 
 	if err := exec.Command(rcloneExe, "version").Run(); err != nil {
 		if os.Getenv("CI") == "" {
-			t.Skip("rclone not installed")
+			t.Skipf("rclone not installed: %v", err)
 		} else {
 			// on CI fail hard
-			t.Fatal("rclone not installed")
+			t.Fatalf("rclone not installed: %v", err)
 		}
 	}
 
