@@ -88,8 +88,9 @@ var tools = map[string]ToolInfo{
 		},
 	},
 	"rclone": {
-		urlTemplate: "https://github.com/rclone/rclone/releases/download/vVERSION/rclone-vVERSION-GOOS-GOARCH.zip",
-		osMap:       map[string]string{"darwin": "osx"},
+		urlTemplate:         "https://github.com/rclone/rclone/releases/download/vVERSION/rclone-vVERSION-GOOS-GOARCH.zip",
+		osMap:               map[string]string{"darwin": "osx"},
+		stripPathComponents: 1,
 	},
 	"goreleaser": {
 		urlTemplate: "https://github.com/goreleaser/goreleaser/releases/download/VERSION/goreleaser_GOOS_GOARCH.EXT",
