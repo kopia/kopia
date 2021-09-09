@@ -34,7 +34,7 @@ func (c *commandRepositorySetParameters) setup(svc appServices, parent commandPa
 	cmd.Flag("max-pack-size-mb", "Set max pack file size").PlaceHolder("MB").IntVar(&c.maxPackSizeMB)
 	cmd.Flag("index-version", "Set version of index format used for writing").IntVar(&c.indexFormatVersion)
 
-	cmd.Flag("upgrade", "Uprade repository to the latest format").BoolVar(&c.upgradeRepositoryFormat)
+	cmd.Flag("upgrade", "Uprade repository to the latest stable format").BoolVar(&c.upgradeRepositoryFormat)
 
 	cmd.Flag("epoch-refresh-frequency", "Epoch refresh frequency").DurationVar(&c.epochRefreshFrequency)
 	cmd.Flag("epoch-min-duration", "Minimal duration of a single epoch").DurationVar(&c.epochMinDuration)
@@ -100,11 +100,14 @@ func (c *commandRepositorySetParameters) run(ctx context.Context, rep repo.Direc
 
 	upgradeToEpochManager := false
 
-	if c.upgradeRepositoryFormat && !mp.EpochParameters.Enabled {
-		mp.EpochParameters = epoch.DefaultParameters
-		upgradeToEpochManager = true
-		mp.IndexVersion = 2
+	if c.upgradeRepositoryFormat {
 		anyChange = true
+
+		if !mp.EpochParameters.Enabled {
+			mp.EpochParameters = epoch.DefaultParameters
+			upgradeToEpochManager = true
+			mp.IndexVersion = 2
+		}
 	}
 
 	c.setSizeMBParameter(ctx, c.maxPackSizeMB, "maximum pack size", &mp.MaxPackSize, &anyChange)

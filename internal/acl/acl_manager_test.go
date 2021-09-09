@@ -150,7 +150,7 @@ func TestEffectivePermissions(t *testing.T) {
 }
 
 func TestLoadEntries(t *testing.T) {
-	ctx, env := repotesting.NewEnvironment(t)
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
 
 	// load from nil repository
 	entries, err := acl.LoadEntries(ctx, nil, nil)

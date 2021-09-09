@@ -9,11 +9,11 @@ import (
 	"github.com/kopia/kopia/tests/testenv"
 )
 
-func TestFullMaintenance(t *testing.T) {
+func (s *formatSpecificTestSuite) TestFullMaintenance(t *testing.T) {
 	t.Parallel()
 
 	runner := testenv.NewInProcRunner(t)
-	e := testenv.NewCLITest(t, runner)
+	e := testenv.NewCLITest(t, s.formatFlags, runner)
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--disable-internal-log")
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")

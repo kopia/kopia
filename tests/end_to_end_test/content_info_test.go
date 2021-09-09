@@ -14,22 +14,12 @@ import (
 	"github.com/kopia/kopia/tests/testenv"
 )
 
-func TestContentListAndStats_Indexv1(t *testing.T) {
-	t.Parallel()
-	testContentListAndStats(t, "1")
-}
-
-func TestContentListAndStats_Indexv2(t *testing.T) {
-	t.Parallel()
-	testContentListAndStats(t, "2")
-}
-
 // nolint:thelper
-func testContentListAndStats(t *testing.T, indexVersion string) {
+func (s *formatSpecificTestSuite) TestContentListAndStats(t *testing.T) {
 	runner := testenv.NewInProcRunner(t)
-	e := testenv.NewCLITest(t, runner)
+	e := testenv.NewCLITest(t, s.formatFlags, runner)
 
-	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--index-version", indexVersion)
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 
 	require.Empty(t, e.RunAndExpectSuccess(t, "content", "list", "--deleted-only"))
 	e.RunAndExpectSuccess(t, "policy", "set", "--global", "--compression", "pgzip")

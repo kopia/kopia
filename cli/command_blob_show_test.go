@@ -7,8 +7,8 @@ import (
 	"github.com/kopia/kopia/tests/testenv"
 )
 
-func TestBlobShow(t *testing.T) {
-	env := testenv.NewCLITest(t, testenv.NewInProcRunner(t))
+func (s *formatSpecificTestSuite) TestBlobShow(t *testing.T) {
+	env := testenv.NewCLITest(t, s.formatFlags, testenv.NewInProcRunner(t))
 
 	env.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", env.RepoDir)
 

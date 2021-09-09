@@ -41,7 +41,7 @@ func TestAutoUpdateEnableTest(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 			runner := testenv.NewExeRunner(t)
-			e := testenv.NewCLITest(t, runner)
+			e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
 
 			// create repo
 			args := append([]string{

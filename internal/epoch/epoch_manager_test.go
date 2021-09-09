@@ -103,8 +103,7 @@ func newTestEnv(t *testing.T) *epochManagerTestEnv {
 		EpochAdvanceOnCountThreshold:          15,
 		EpochAdvanceOnTotalSizeBytesThreshold: 20 << 20,
 		DeleteParallelism:                     1,
-	}, te.compact, testlogging.NewTestLogger(t))
-	m.timeFunc = te.ft.NowFunc()
+	}, te.compact, testlogging.NewTestLogger(t), te.ft.NowFunc())
 	te.mgr = m
 	te.faultyStorage = fs
 	te.data = data
@@ -123,7 +122,7 @@ func (te *epochManagerTestEnv) another() *epochManagerTestEnv {
 		faultyStorage: te.faultyStorage,
 	}
 
-	te2.mgr = NewManager(te2.st, te.mgr.Params, te2.compact, te.mgr.log)
+	te2.mgr = NewManager(te2.st, te.mgr.Params, te2.compact, te.mgr.log, te.mgr.timeFunc)
 
 	return te2
 }

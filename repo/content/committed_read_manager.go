@@ -410,7 +410,7 @@ func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *Ca
 		indexVersion:   sm.indexVersion,
 		log:            logging.WithPrefix("[index-blob-manager] ", sm.sharedBaseLogger),
 	}
-	sm.indexBlobManagerV1.epochMgr = epoch.NewManager(cachedSt, sm.format.EpochParameters, sm.indexBlobManagerV1.compactEpoch, sm.sharedBaseLogger)
+	sm.indexBlobManagerV1.epochMgr = epoch.NewManager(cachedSt, sm.format.EpochParameters, sm.indexBlobManagerV1.compactEpoch, sm.sharedBaseLogger, sm.timeNow)
 
 	// select active index blob manager based on parameters
 	if sm.format.EpochParameters.Enabled {

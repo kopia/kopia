@@ -14,7 +14,7 @@ import (
 
 func TestRepositoryAuthenticator(t *testing.T) {
 	a := auth.AuthenticateRepositoryUsers()
-	ctx, env := repotesting.NewEnvironment(t)
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
 
 	require.NoError(t, repo.WriteSession(ctx, env.Repository, repo.WriteSessionOptions{},
 		func(ctx context.Context, w repo.RepositoryWriter) error {

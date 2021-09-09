@@ -1,4 +1,4 @@
-package maintenance
+package maintenance_test
 
 import (
 	"crypto/hmac"
@@ -22,6 +22,7 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/encryption"
+	"github.com/kopia/kopia/repo/maintenance"
 	"github.com/kopia/kopia/repo/object"
 )
 
@@ -29,12 +30,12 @@ var testHMACSecret = []byte{1, 2, 3}
 
 var testMasterKey = []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}
 
-func TestDeleteUnreferencedBlobs(t *testing.T) {
+func (s *formatSpecificTestSuite) TestDeleteUnreferencedBlobs(t *testing.T) {
 	// set up fake clock which is initially synchronized to wall clock time
 	// and moved at the same speed but which can be moved forward.
 	ta := faketime.NewClockTimeWithOffset(0)
 
-	ctx, env := repotesting.NewEnvironment(t, repotesting.Options{
+	ctx, env := repotesting.NewEnvironment(t, s.formatVersion, repotesting.Options{
 		OpenOptions: func(o *repo.Options) {
 			o.TimeNowFunc = ta.NowFunc()
 		},
@@ -73,7 +74,7 @@ func TestDeleteUnreferencedBlobs(t *testing.T) {
 	verifyBlobExists(t, env.RepositoryWriter.BlobStorage(), extraBlobID2)
 
 	// new blobs not will be deleted because of minimum age requirement
-	if _, err = DeleteUnreferencedBlobs(ctx, env.RepositoryWriter, DeleteUnreferencedBlobsOptions{}, SafetyFull); err != nil {
+	if _, err = maintenance.DeleteUnreferencedBlobs(ctx, env.RepositoryWriter, maintenance.DeleteUnreferencedBlobsOptions{}, maintenance.SafetyFull); err != nil {
 		t.Fatal(err)
 	}
 
@@ -81,13 +82,13 @@ func TestDeleteUnreferencedBlobs(t *testing.T) {
 	verifyBlobExists(t, env.RepositoryWriter.BlobStorage(), extraBlobID2)
 
 	// mixed safety parameters
-	safetyFastDeleteLongSessionExpiration := SafetyParameters{
+	safetyFastDeleteLongSessionExpiration := maintenance.SafetyParameters{
 		BlobDeleteMinAge:     1,
 		SessionExpirationAge: 4 * 24 * time.Hour,
 	}
 
 	// new blobs will be deleted
-	if _, err = DeleteUnreferencedBlobs(ctx, env.RepositoryWriter, DeleteUnreferencedBlobsOptions{}, SafetyNone); err != nil {
+	if _, err = maintenance.DeleteUnreferencedBlobs(ctx, env.RepositoryWriter, maintenance.DeleteUnreferencedBlobsOptions{}, maintenance.SafetyNone); err != nil {
 		t.Fatal(err)
 	}
 
@@ -112,7 +113,7 @@ func TestDeleteUnreferencedBlobs(t *testing.T) {
 		CheckpointTime: ta.NowFunc()(),
 	})
 
-	if _, err = DeleteUnreferencedBlobs(ctx, env.RepositoryWriter, DeleteUnreferencedBlobsOptions{}, safetyFastDeleteLongSessionExpiration); err != nil {
+	if _, err = maintenance.DeleteUnreferencedBlobs(ctx, env.RepositoryWriter, maintenance.DeleteUnreferencedBlobsOptions{}, safetyFastDeleteLongSessionExpiration); err != nil {
 		t.Fatal(err)
 	}
 
@@ -125,7 +126,7 @@ func TestDeleteUnreferencedBlobs(t *testing.T) {
 	// now finish session 2
 	env.RepositoryWriter.BlobStorage().DeleteBlob(ctx, session2Marker)
 
-	if _, err = DeleteUnreferencedBlobs(ctx, env.RepositoryWriter, DeleteUnreferencedBlobsOptions{}, safetyFastDeleteLongSessionExpiration); err != nil {
+	if _, err = maintenance.DeleteUnreferencedBlobs(ctx, env.RepositoryWriter, maintenance.DeleteUnreferencedBlobsOptions{}, safetyFastDeleteLongSessionExpiration); err != nil {
 		t.Fatal(err)
 	}
 
@@ -138,7 +139,7 @@ func TestDeleteUnreferencedBlobs(t *testing.T) {
 	// now move time into the future making session 1 timed out
 	ta.Advance(7 * 24 * time.Hour)
 
-	if _, err = DeleteUnreferencedBlobs(ctx, env.RepositoryWriter, DeleteUnreferencedBlobsOptions{}, SafetyFull); err != nil {
+	if _, err = maintenance.DeleteUnreferencedBlobs(ctx, env.RepositoryWriter, maintenance.DeleteUnreferencedBlobsOptions{}, maintenance.SafetyFull); err != nil {
 		t.Fatal(err)
 	}
 

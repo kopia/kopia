@@ -6,7 +6,6 @@ import (
 	"github.com/alecthomas/kingpin"
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/internal/epoch"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
@@ -28,9 +27,7 @@ type commandRepositoryCreate struct {
 	createBlockEncryptionFormat string
 	createSplitter              string
 	createOnly                  bool
-	createIndexVersion          int
-	createIndexEpochs           bool
-	enablePasswordChange        bool
+	createFormatVersion         int
 
 	co  connectOptions
 	svc advancedAppServices
@@ -44,9 +41,7 @@ func (c *commandRepositoryCreate) setup(svc advancedAppServices, parent commandP
 	cmd.Flag("encryption", "Content encryption algorithm.").PlaceHolder("ALGO").Default(encryption.DefaultAlgorithm).EnumVar(&c.createBlockEncryptionFormat, encryption.SupportedAlgorithms(false)...)
 	cmd.Flag("object-splitter", "The splitter to use for new objects in the repository").Default(splitter.DefaultAlgorithm).EnumVar(&c.createSplitter, splitter.SupportedAlgorithms()...)
 	cmd.Flag("create-only", "Create repository, but don't connect to it.").Short('c').BoolVar(&c.createOnly)
-	cmd.Flag("enable-password-change", "Enable password change").Hidden().Default("true").BoolVar(&c.enablePasswordChange)
-	cmd.Flag("index-version", "Force particular index version").Hidden().Envar("KOPIA_CREATE_INDEX_VERSION").IntVar(&c.createIndexVersion)
-	cmd.Flag("enable-index-epochs", "Enable index epochs").Hidden().Default("true").Envar("KOPIA_ENABLE_INDEX_EPOCHS").BoolVar(&c.createIndexEpochs)
+	cmd.Flag("format-version", "Force a particular repository format version (1 or 2, 0==default)").IntVar(&c.createFormatVersion)
 
 	c.co.setup(cmd)
 	c.svc = svc
@@ -73,24 +68,12 @@ func (c *commandRepositoryCreate) setup(svc advancedAppServices, parent commandP
 	}
 }
 
-func (c *commandRepositoryCreate) epochParametersFromFlags() epoch.Parameters {
-	if !c.createIndexEpochs {
-		return epoch.Parameters{}
-	}
-
-	return epoch.DefaultParameters
-}
-
 func (c *commandRepositoryCreate) newRepositoryOptionsFromFlags() *repo.NewRepositoryOptions {
 	return &repo.NewRepositoryOptions{
 		BlockFormat: content.FormattingOptions{
+			Version:    content.FormatVersion(c.createFormatVersion),
 			Hash:       c.createBlockHashFormat,
 			Encryption: c.createBlockEncryptionFormat,
-			MutableParameters: content.MutableParameters{
-				IndexVersion:    c.createIndexVersion,
-				EpochParameters: c.epochParametersFromFlags(),
-			},
-			EnablePasswordChange: c.enablePasswordChange,
 		},
 
 		ObjectFormat: object.Format{
@@ -127,6 +110,11 @@ func (c *commandRepositoryCreate) runCreateCommandWithStorage(ctx context.Contex
 	}
 
 	log(ctx).Infof("Initializing repository with:")
+
+	if options.BlockFormat.Version != 0 {
+		log(ctx).Infof("  format version:      %v", options.BlockFormat.Version)
+	}
+
 	log(ctx).Infof("  block hash:          %v", options.BlockFormat.Hash)
 	log(ctx).Infof("  encryption:          %v", options.BlockFormat.Encryption)
 	log(ctx).Infof("  splitter:            %v", options.ObjectFormat.Splitter)

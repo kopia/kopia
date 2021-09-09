@@ -13,7 +13,6 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/completeset"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
@@ -837,14 +836,14 @@ func rangeCheckpointBlobPrefix(epoch1, epoch2 int) blob.ID {
 }
 
 // NewManager creates new epoch manager.
-func NewManager(st blob.Storage, params Parameters, compactor CompactionFunc, sharedBaseLogger logging.Logger) *Manager {
+func NewManager(st blob.Storage, params Parameters, compactor CompactionFunc, sharedBaseLogger logging.Logger, timeNow func() time.Time) *Manager {
 	log := logging.WithPrefix("[epoch-manager] ", sharedBaseLogger)
 
 	return &Manager{
 		st:                           st,
 		log:                          log,
 		compact:                      compactor,
-		timeFunc:                     clock.Now,
+		timeFunc:                     timeNow,
 		Params:                       params,
 		getCompleteIndexSetTooSlow:   new(int32),
 		committedStateRefreshTooSlow: new(int32),

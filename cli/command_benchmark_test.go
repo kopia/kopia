@@ -14,7 +14,7 @@ func TestCommandBenchmarkCrypto(t *testing.T) {
 	t.Parallel()
 
 	runner := testenv.NewInProcRunner(t)
-	e := testenv.NewCLITest(t, runner)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
 
 	e.RunAndExpectSuccess(t, "benchmark", "crypto", "--repeat=1", "--block-size=1KB", "--print-options")
 }
@@ -23,7 +23,7 @@ func TestCommandBenchmarkSpliter(t *testing.T) {
 	t.Parallel()
 
 	runner := testenv.NewInProcRunner(t)
-	e := testenv.NewCLITest(t, runner)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
 
 	e.RunAndExpectSuccess(t, "benchmark", "splitter", "--block-count=1", "--print-options")
 }
@@ -32,7 +32,7 @@ func TestCommandBenchmarkCompression(t *testing.T) {
 	t.Parallel()
 
 	runner := testenv.NewInProcRunner(t)
-	e := testenv.NewCLITest(t, runner)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
 
 	testFile := filepath.Join(testutil.TempDirectory(t), "testfile.txt")
 	ioutil.WriteFile(testFile, bytes.Repeat([]byte{1, 2, 3, 4, 5, 6}, 10000), 0o600)

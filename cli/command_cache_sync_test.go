@@ -10,7 +10,7 @@ import (
 )
 
 func TestCacheClearSync(t *testing.T) {
-	env := testenv.NewCLITest(t, testenv.NewInProcRunner(t))
+	env := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, testenv.NewInProcRunner(t))
 
 	emptyDir := testutil.TempDirectory(t)
 

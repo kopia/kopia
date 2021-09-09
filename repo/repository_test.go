@@ -12,15 +12,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/repotesting"
-	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/object"
 )
 
-func TestMain(m *testing.M) { testutil.MyTestMain(m) }
-
-func TestWriters(t *testing.T) {
+func (s *formatSpecificTestSuite) TestWriters(t *testing.T) {
 	cases := []struct {
 		data     []byte
 		objectID object.ID
@@ -33,7 +30,7 @@ func TestWriters(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		ctx, env := repotesting.NewEnvironment(t)
+		ctx, env := repotesting.NewEnvironment(t, s.formatVersion)
 
 		writer := env.RepositoryWriter.NewObjectWriter(ctx, object.WriterOptions{})
 		if _, err := writer.Write(c.data); err != nil {
@@ -58,8 +55,8 @@ func objectIDsEqual(o1, o2 object.ID) bool {
 	return o1 == o2
 }
 
-func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
-	ctx, env := repotesting.NewEnvironment(t)
+func (s *formatSpecificTestSuite) TestWriterCompleteChunkInTwoWrites(t *testing.T) {
+	ctx, env := repotesting.NewEnvironment(t, s.formatVersion)
 
 	b := make([]byte, 100)
 	writer := env.RepositoryWriter.NewObjectWriter(ctx, object.WriterOptions{})
@@ -72,8 +69,8 @@ func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
 	}
 }
 
-func TestPackingSimple(t *testing.T) {
-	ctx, env := repotesting.NewEnvironment(t)
+func (s *formatSpecificTestSuite) TestPackingSimple(t *testing.T) {
+	ctx, env := repotesting.NewEnvironment(t, s.formatVersion)
 
 	content1 := "hello, how do you do?"
 	content2 := "hi, how are you?"
@@ -142,8 +139,8 @@ func TestPackingSimple(t *testing.T) {
 	verify(ctx, t, env.RepositoryWriter, oid3a, []byte(content3), "packed-object-3")
 }
 
-func TestHMAC(t *testing.T) {
-	ctx, env := repotesting.NewEnvironment(t)
+func (s *formatSpecificTestSuite) TestHMAC(t *testing.T) {
+	ctx, env := repotesting.NewEnvironment(t, s.formatVersion)
 
 	c := bytes.Repeat([]byte{0xcd}, 50)
 
@@ -156,8 +153,8 @@ func TestHMAC(t *testing.T) {
 	}
 }
 
-func TestReaderStoredBlockNotFound(t *testing.T) {
-	ctx, env := repotesting.NewEnvironment(t)
+func (s *formatSpecificTestSuite) TestReaderStoredBlockNotFound(t *testing.T) {
+	ctx, env := repotesting.NewEnvironment(t, s.formatVersion)
 
 	objectID, err := object.ParseID("Ddeadbeef")
 	if err != nil {
@@ -259,7 +256,7 @@ func TestFormats(t *testing.T) {
 	}
 
 	for caseIndex, c := range cases {
-		ctx, env := repotesting.NewEnvironment(t, repotesting.Options{NewRepositoryOptions: c.format})
+		ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant, repotesting.Options{NewRepositoryOptions: c.format})
 
 		for k, v := range c.oids {
 			bytesToWrite := []byte(k)
@@ -294,7 +291,7 @@ func TestFormats(t *testing.T) {
 }
 
 func TestWriterScope(t *testing.T) {
-	ctx, env := repotesting.NewEnvironment(t)
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
 
 	rep := env.Repository // read-only
 
@@ -386,8 +383,8 @@ func TestWriterScope(t *testing.T) {
 	verify(ctx, t, rep, o4, o4Data, "o3-rep")
 }
 
-func TestWriteSessionFlushOnSuccess(t *testing.T) {
-	ctx, env := repotesting.NewEnvironment(t)
+func (s *formatSpecificTestSuite) TestWriteSessionFlushOnSuccess(t *testing.T) {
+	ctx, env := repotesting.NewEnvironment(t, s.formatVersion)
 
 	var oid object.ID
 
@@ -399,8 +396,8 @@ func TestWriteSessionFlushOnSuccess(t *testing.T) {
 	verify(ctx, t, env.Repository, oid, []byte{1, 2, 3}, "test-1")
 }
 
-func TestWriteSessionNoFlushOnFailure(t *testing.T) {
-	ctx, env := repotesting.NewEnvironment(t)
+func (s *formatSpecificTestSuite) TestWriteSessionNoFlushOnFailure(t *testing.T) {
+	ctx, env := repotesting.NewEnvironment(t, s.formatVersion)
 
 	var oid object.ID
 
@@ -417,8 +414,8 @@ func TestWriteSessionNoFlushOnFailure(t *testing.T) {
 	verifyNotFound(ctx, t, env.Repository, oid, "test-1")
 }
 
-func TestWriteSessionFlushOnFailure(t *testing.T) {
-	ctx, env := repotesting.NewEnvironment(t)
+func (s *formatSpecificTestSuite) TestWriteSessionFlushOnFailure(t *testing.T) {
+	ctx, env := repotesting.NewEnvironment(t, s.formatVersion)
 
 	var oid object.ID
 
@@ -437,14 +434,17 @@ func TestWriteSessionFlushOnFailure(t *testing.T) {
 	verify(ctx, t, env.Repository, oid, []byte{1, 2, 3}, "test-1")
 }
 
-func TestChangePassword(t *testing.T) {
-	ctx, env := repotesting.NewEnvironment(t)
+func (s *formatSpecificTestSuite) TestChangePassword(t *testing.T) {
+	ctx, env := repotesting.NewEnvironment(t, s.formatVersion)
+	if s.formatVersion == content.FormatVersion1 {
+		require.Error(t, env.RepositoryWriter.ChangePassword(ctx, "new-password"))
+	} else {
+		require.NoError(t, env.RepositoryWriter.ChangePassword(ctx, "new-password"))
 
-	require.NoError(t, env.RepositoryWriter.ChangePassword(ctx, "new-password"))
-
-	r, err := repo.Open(ctx, env.RepositoryWriter.ConfigFilename(), "new-password", nil)
-	require.NoError(t, err)
-	r.Close(ctx)
+		r, err := repo.Open(ctx, env.RepositoryWriter.ConfigFilename(), "new-password", nil)
+		require.NoError(t, err)
+		r.Close(ctx)
+	}
 }
 
 func verifyNotFound(ctx context.Context, t *testing.T, rep repo.Repository, objectID object.ID, testCaseID string) {

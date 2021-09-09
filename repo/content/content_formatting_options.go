@@ -12,16 +12,47 @@ const (
 	maxValidPackSize = 120 << 20
 )
 
+// FormatVersion denotes content format version.
+type FormatVersion int
+
+// Supported format versions.
+const (
+	FormatVersion1 FormatVersion = 1
+	FormatVersion2 FormatVersion = 2 // new in v0.9
+)
+
 // FormattingOptions describes the rules for formatting contents in repository.
 type FormattingOptions struct {
-	Version    int    `json:"version,omitempty"`    // version number, must be "1"
-	Hash       string `json:"hash,omitempty"`       // identifier of the hash algorithm used
-	Encryption string `json:"encryption,omitempty"` // identifier of the encryption algorithm used
-	HMACSecret []byte `json:"secret,omitempty"`     // HMAC secret used to generate encryption keys
-	MasterKey  []byte `json:"masterKey,omitempty"`  // master encryption key (SIV-mode encryption only)
+	Version    FormatVersion `json:"version,omitempty"`    // version number, must be "1" or "2"
+	Hash       string        `json:"hash,omitempty"`       // identifier of the hash algorithm used
+	Encryption string        `json:"encryption,omitempty"` // identifier of the encryption algorithm used
+	HMACSecret []byte        `json:"secret,omitempty"`     // HMAC secret used to generate encryption keys
+	MasterKey  []byte        `json:"masterKey,omitempty"`  // master encryption key (SIV-mode encryption only)
 	MutableParameters
 
 	EnablePasswordChange bool `json:"enablePasswordChange"` // disables replication of kopia.repository blob in packs
+}
+
+// ResolveFormatVersion applies format options parameters based on the format version.
+func (f *FormattingOptions) ResolveFormatVersion() error {
+	switch f.Version {
+	case FormatVersion2:
+		f.EnablePasswordChange = true
+		f.IndexVersion = v2IndexVersion
+		f.EpochParameters = epoch.DefaultParameters
+
+		return nil
+
+	case FormatVersion1:
+		f.EnablePasswordChange = false
+		f.IndexVersion = v1IndexVersion
+		f.EpochParameters = epoch.Parameters{}
+
+		return nil
+
+	default:
+		return errors.Errorf("Unsupported format version: %v", f.Version)
+	}
 }
 
 // MutableParameters represents parameters of the content manager that can be mutated after the repository

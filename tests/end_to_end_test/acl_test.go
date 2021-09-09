@@ -12,7 +12,7 @@ func TestACL(t *testing.T) {
 	t.Parallel()
 
 	serverRunner := testenv.NewExeRunner(t)
-	serverEnvironment := testenv.NewCLITest(t, serverRunner)
+	serverEnvironment := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, serverRunner)
 
 	defer serverEnvironment.RunAndExpectSuccess(t, "repo", "disconnect")
 
@@ -55,7 +55,7 @@ func TestACL(t *testing.T) {
 	defer kill()
 
 	fooBarRunner := testenv.NewExeRunner(t)
-	foobarClientEnvironment := testenv.NewCLITest(t, fooBarRunner)
+	foobarClientEnvironment := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, fooBarRunner)
 
 	defer foobarClientEnvironment.RunAndExpectSuccess(t, "repo", "disconnect")
 
@@ -71,7 +71,7 @@ func TestACL(t *testing.T) {
 	)
 
 	aliceInWonderlandRunner := testenv.NewExeRunner(t)
-	aliceInWonderlandClientEnvironment := testenv.NewCLITest(t, aliceInWonderlandRunner)
+	aliceInWonderlandClientEnvironment := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, aliceInWonderlandRunner)
 
 	defer aliceInWonderlandClientEnvironment.RunAndExpectSuccess(t, "repo", "disconnect")
 

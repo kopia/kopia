@@ -165,6 +165,14 @@ gotestsum=$(gotestsum_dir)$(slash)gotestsum$(exe_suffix)
 $(gotestsum):
 	go run github.com/kopia/kopia/tools/gettool --tool gotestsum:$(GOTESTSUM_VERSION) --output-dir $(gotestsum_dir)
 
+# kopia 0.8 for backwards compat testing
+kopia08_version=0.8.4
+kopia08_dir=$(TOOLS_DIR)$(slash)kopia-$(kopia08_version)
+kopia08=$(kopia08_dir)$(slash)kopia-$(kopia08_version)$(exe_suffix)
+
+$(kopia08):
+	go run github.com/kopia/kopia/tools/gettool --tool kopia:$(kopia08_version) --output-dir $(kopia08_dir)
+
 MINIO_MC_PATH=$(TOOLS_DIR)/bin/mc$(exe_suffix)
 
 $(MINIO_MC_PATH):
@@ -262,7 +270,7 @@ endif
 verify-all-tool-checksums:
 	go run github.com/kopia/kopia/tools/gettool --test-all \
 	  --output-dir /tmp/all-tools \
-	  --tool node:$(NODE_VERSION),linter:$(GOLANGCI_LINT_VERSION),hugo:$(HUGO_VERSION),rclone:$(RCLONE_VERSION),gotestsum:$(GOTESTSUM_VERSION),goreleaser:$(GORELEASER_VERSION)
+	  --tool node:$(NODE_VERSION),linter:$(GOLANGCI_LINT_VERSION),hugo:$(HUGO_VERSION),rclone:$(RCLONE_VERSION),gotestsum:$(GOTESTSUM_VERSION),goreleaser:$(GORELEASER_VERSION),kopia:0.8.4
 
 all-tools: $(gotestsum) $(npm) $(linter) $(maybehugo)
 

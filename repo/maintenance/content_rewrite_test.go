@@ -15,7 +15,7 @@ import (
 	"github.com/kopia/kopia/repo/object"
 )
 
-func TestContentRewrite(t *testing.T) {
+func (s *formatSpecificTestSuite) TestContentRewrite(t *testing.T) {
 	cases := []struct {
 		numPContents int
 		numQContents int
@@ -76,7 +76,7 @@ func TestContentRewrite(t *testing.T) {
 		tc := tc
 
 		t.Run(fmt.Sprintf("case-%v", tc), func(t *testing.T) {
-			ctx, env := repotesting.NewEnvironment(t)
+			ctx, env := repotesting.NewEnvironment(t, s.formatVersion)
 
 			// run N sessions to create N individual pack blobs for each content prefix
 			for i := 0; i < tc.numPContents; i++ {

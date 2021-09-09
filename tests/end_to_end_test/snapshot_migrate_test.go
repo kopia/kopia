@@ -7,11 +7,11 @@ import (
 	"github.com/kopia/kopia/tests/testenv"
 )
 
-func TestSnapshotMigrate(t *testing.T) {
+func (s *formatSpecificTestSuite) TestSnapshotMigrate(t *testing.T) {
 	t.Parallel()
 
 	runner := testenv.NewInProcRunner(t)
-	e := testenv.NewCLITest(t, runner)
+	e := testenv.NewCLITest(t, s.formatFlags, runner)
 
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
@@ -31,7 +31,7 @@ func TestSnapshotMigrate(t *testing.T) {
 	sourceSnapshotCount := len(e.RunAndExpectSuccess(t, "snapshot", "list", ".", "-a"))
 	sourcePolicyCount := len(e.RunAndExpectSuccess(t, "policy", "list"))
 
-	dstenv := testenv.NewCLITest(t, runner)
+	dstenv := testenv.NewCLITest(t, s.formatFlags, runner)
 
 	dstenv.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", dstenv.RepoDir)
 

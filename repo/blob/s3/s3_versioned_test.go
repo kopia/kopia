@@ -568,7 +568,7 @@ func makeVersionsMetadata(t *testing.T, blobID blob.ID, n int, base time.Time) [
 		vs[i].Timestamp = ct
 		vs[i].Length = int64(rand.Int31())
 
-		ct = ct.Add(-time.Duration((2 + rand.Intn(10)) * int(time.Second)))
+		ct = ct.Add(-time.Duration((2 + rand.Int63n(10)) * int64(time.Second)))
 	}
 
 	vs[0].IsLatest = true

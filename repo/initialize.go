@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"io"
+	"os"
 
 	"github.com/pkg/errors"
 
@@ -67,7 +68,11 @@ func Initialize(ctx context.Context, st blob.Storage, opt *NewRepositoryOptions,
 		return errors.Wrap(err, "unable to derive format encryption key")
 	}
 
-	f := repositoryObjectFormatFromOptions(opt)
+	f, err := repositoryObjectFormatFromOptions(opt)
+	if err != nil {
+		return errors.Wrap(err, "invalid parameters")
+	}
+
 	if err := f.MutableParameters.Validate(); err != nil {
 		return errors.Wrap(err, "invalid parameters")
 	}
@@ -95,10 +100,22 @@ func formatBlobFromOptions(opt *NewRepositoryOptions) *formatBlob {
 	}
 }
 
-func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) *repositoryObjectFormat {
+func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) (*repositoryObjectFormat, error) {
+	fv := opt.BlockFormat.Version
+	if fv == 0 {
+		switch os.Getenv("KOPIA_REPOSITORY_FORMAT_VERSION") {
+		case "1":
+			fv = content.FormatVersion1
+		case "2":
+			fv = content.FormatVersion2
+		default:
+			fv = content.FormatVersion2
+		}
+	}
+
 	f := &repositoryObjectFormat{
 		FormattingOptions: content.FormattingOptions{
-			Version:    1,
+			Version:    fv,
 			Hash:       applyDefaultString(opt.BlockFormat.Hash, hashing.DefaultAlgorithm),
 			Encryption: applyDefaultString(opt.BlockFormat.Encryption, encryption.DefaultAlgorithm),
 			HMACSecret: applyDefaultRandomBytes(opt.BlockFormat.HMACSecret, hmacSecretLength),
@@ -119,7 +136,11 @@ func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) *repositoryObj
 		f.HMACSecret = nil
 	}
 
-	return f
+	if err := f.FormattingOptions.ResolveFormatVersion(); err != nil {
+		return nil, errors.Wrap(err, "error resolving format version")
+	}
+
+	return f, nil
 }
 
 func randomBytes(n int) []byte {

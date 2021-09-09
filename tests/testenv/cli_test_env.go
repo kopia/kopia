@@ -43,8 +43,11 @@ type CLITest struct {
 	DefaultRepositoryCreateFlags []string
 }
 
+// RepoFormatNotImportant chooses arbitrary format version where it's not important to the test.
+var RepoFormatNotImportant []string
+
 // NewCLITest creates a new instance of *CLITest.
-func NewCLITest(t *testing.T, runner CLIRunner) *CLITest {
+func NewCLITest(t *testing.T, repoCreateFlags []string, runner CLIRunner) *CLITest {
 	t.Helper()
 	configDir := testutil.TempDirectory(t)
 
@@ -65,11 +68,12 @@ func NewCLITest(t *testing.T, runner CLIRunner) *CLITest {
 
 	var formatFlags []string
 
+	formatFlags = append(formatFlags, repoCreateFlags...)
+
 	if testutil.ShouldReduceTestComplexity() {
-		formatFlags = []string{
+		formatFlags = append(formatFlags,
 			"--encryption", "CHACHA20-POLY1305-HMAC-SHA256",
-			"--block-hash", "BLAKE2S-256",
-		}
+			"--block-hash", "BLAKE2S-256")
 	}
 
 	return &CLITest{
@@ -170,9 +174,9 @@ func (e *CLITest) cmdArgs(args []string) []string {
 func (e *CLITest) Run(t *testing.T, expectedError bool, args ...string) (stdout, stderr []string, err error) {
 	t.Helper()
 
+	args = e.cmdArgs(args)
 	t.Logf("running 'kopia %v'", strings.Join(args, " "))
 
-	args = e.cmdArgs(args)
 	t0 := clock.Now()
 
 	stdoutReader, stderrReader, wait, _ := e.Runner.Start(t, args)

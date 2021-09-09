@@ -31,9 +31,9 @@ type testHarness struct {
 	sourceDir *mockfs.Directory
 }
 
-func TestSnapshotGCSimple(t *testing.T) {
+func (s *formatSpecificTestSuite) TestSnapshotGCSimple(t *testing.T) {
 	ctx := testlogging.Context(t)
-	th := newTestHarness(t)
+	th := newTestHarness(t, s.formatVersion)
 
 	require.NotNil(t, th)
 	require.NotNil(t, th.sourceDir)
@@ -86,9 +86,9 @@ func TestSnapshotGCSimple(t *testing.T) {
 //   maintenance
 // - Check full maintenance can be run afterwards
 // - Verify contents.
-func TestMaintenanceReuseDirManifest(t *testing.T) {
+func (s *formatSpecificTestSuite) TestMaintenanceReuseDirManifest(t *testing.T) {
 	ctx := testlogging.Context(t)
-	th := newTestHarness(t)
+	th := newTestHarness(t, s.formatVersion)
 
 	require.NotNil(t, th)
 	require.NotNil(t, th.sourceDir)
@@ -167,7 +167,7 @@ func TestMaintenanceReuseDirManifest(t *testing.T) {
 	t.Log("root info:", pretty.Sprint(info))
 }
 
-func newTestHarness(t *testing.T) *testHarness {
+func newTestHarness(t *testing.T, formatVersion content.FormatVersion) *testHarness {
 	t.Helper()
 
 	baseTime := time.Date(2020, 9, 10, 0, 0, 0, 0, time.UTC)
@@ -176,19 +176,22 @@ func newTestHarness(t *testing.T) *testHarness {
 		sourceDir: mockfs.NewDirectory(),
 	}
 
-	_, th.Environment = repotesting.NewEnvironment(t, repotesting.Options{OpenOptions: th.fakeTimeOpenRepoOption})
+	_, th.Environment = repotesting.NewEnvironment(t, formatVersion, repotesting.Options{OpenOptions: th.fakeTimeOpenRepoOption})
 
 	require.NotNil(t, th.RepositoryWriter)
 
 	return th
 }
 
-func TestMaintenanceAutoLiveness(t *testing.T) {
+func (s *formatSpecificTestSuite) TestMaintenanceAutoLiveness(t *testing.T) {
 	ft := faketime.NewClockTimeWithOffset(0)
 
-	ctx, env := repotesting.NewEnvironment(t, repotesting.Options{
+	ctx, env := repotesting.NewEnvironment(t, s.formatVersion, repotesting.Options{
 		OpenOptions: func(o *repo.Options) {
 			o.TimeNowFunc = ft.NowFunc()
+		},
+		NewRepositoryOptions: func(nro *repo.NewRepositoryOptions) {
+			nro.BlockFormat.Version = content.FormatVersion1
 		},
 	})
 

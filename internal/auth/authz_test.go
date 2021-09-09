@@ -92,21 +92,21 @@ func TestNoAccess(t *testing.T) {
 }
 
 func TestLegacyAuthorizer(t *testing.T) {
-	ctx, env := repotesting.NewEnvironment(t)
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
 
 	verifyLegacyAuthorizer(ctx, t, env.Repository, auth.LegacyAuthorizer())
 }
 
 // repository with no ACLs.
 func TestDefaultAuthorizer_NoACLs(t *testing.T) {
-	ctx, env := repotesting.NewEnvironment(t)
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
 
 	verifyLegacyAuthorizer(ctx, t, env.Repository, auth.DefaultAuthorizer())
 }
 
 // repository with default ACLs.
 func TestDefaultAuthorizer_DefaultACLs(t *testing.T) {
-	ctx, env := repotesting.NewEnvironment(t)
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
 
 	for _, e := range auth.DefaultACLs {
 		require.NoError(t, acl.AddACL(ctx, env.RepositoryWriter, e))
