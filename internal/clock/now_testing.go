@@ -1,3 +1,4 @@
+//go:build testing
 // +build testing
 
 package clock
@@ -35,18 +36,21 @@ func getTimeFromServer(endpoint string) func() time.Time {
 	var mu sync.Mutex
 
 	var timeInfo struct {
-		Next  int64 `json:"next"`
-		Step  int64 `json:"step"`
-		Until int64 `json:"until"`
+		Time     time.Time     `json:"time"`
+		ValidFor time.Duration `json:"validFor"`
 	}
 
-	nextRefreshRealTime := time.Now() // nolint:forbidigo
+	var (
+		nextRefreshRealTime time.Time     // nolint:forbidigo
+		localTimeOffset     time.Duration // offset to be added to time.Now() to produce server time
+	)
 
 	return func() time.Time {
 		mu.Lock()
 		defer mu.Unlock()
 
-		if timeInfo.Next >= timeInfo.Until || time.Now().After(nextRefreshRealTime) { // nolint:forbidigo
+		localTime := time.Now() // nolint:forbidigo
+		if localTime.After(nextRefreshRealTime) {
 			resp, err := http.Get(endpoint) //nolint:gosec,noctx
 			if err != nil {
 				log.Fatalf("unable to get fake time from server: %v", err)
@@ -61,14 +65,12 @@ func getTimeFromServer(endpoint string) func() time.Time {
 				log.Fatalf("invalid time received from fake time server: %v", err)
 			}
 
-			nextRefreshRealTime = time.Now().Add(refreshServerTimeEvery) // nolint:forbidigo
+			nextRefreshRealTime = localTime.Add(timeInfo.ValidFor) // nolint:forbidigo
+
+			// compute offset such that localTime + localTimeOffset == serverTime
+			localTimeOffset = timeInfo.Time.Sub(localTime)
 		}
 
-		v := timeInfo.Next
-		timeInfo.Next += timeInfo.Step
-
-		n := time.Unix(0, v)
-
-		return n
+		return localTime.Add(localTimeOffset)
 	}
 }
