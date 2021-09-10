@@ -8,12 +8,15 @@ import (
 	"math/rand"
 	"net/http/httptest"
 	"os"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"golang.org/x/net/webdav"
 
+	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/faketime"
 	"github.com/kopia/kopia/tests/testdirtree"
 	"github.com/kopia/kopia/tests/testenv"
 )
@@ -24,11 +27,10 @@ const (
 )
 
 var (
-	// We will simulate 2 weeks of running with clock moving by a lot every time it's read.
+	// We will simulate 2 weeks of running with clock moving faster than usual.
 	startTime         = time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 	simulatedDuration = 14 * 24 * time.Hour
 	endTime           = startTime.Add(simulatedDuration)
-	tickIncrement     = 350 * time.Millisecond
 )
 
 type webdavDirWithFakeClock struct {
@@ -70,7 +72,8 @@ func TestEndurance(t *testing.T) {
 
 	defer os.RemoveAll(tmpDir)
 
-	fts := testenv.NewFakeTimeServer(startTime, tickIncrement)
+	testTime := faketime.NewClockTimeWithOffset(startTime.Sub(clock.Now()))
+	fts := testenv.NewFakeTimeServer(testTime.NowFunc())
 
 	ft := httptest.NewServer(fts)
 	defer ft.Close()
@@ -86,6 +89,7 @@ func TestEndurance(t *testing.T) {
 	e.RunAndExpectSuccess(t, "repo", "create", "webdav", "--url", sts.URL)
 
 	failureCount := new(int32)
+	rwMutex := &sync.RWMutex{}
 
 	t.Run("Runners", func(t *testing.T) {
 		for i := 0; i < enduranceRunnerCount; i++ {
@@ -99,7 +103,7 @@ func TestEndurance(t *testing.T) {
 					}
 				}()
 
-				enduranceRunner(t, i, ft.URL, sts.URL, failureCount, fts.Now)
+				enduranceRunner(t, i, ft.URL, sts.URL, failureCount, rwMutex, testTime)
 			})
 		}
 	})
@@ -112,29 +116,37 @@ type runnerState struct {
 	dirs                []string
 	snapshottedAnything bool
 	runnerID            int
+	fakeClock           *faketime.ClockTimeWithOffset
 }
 
 type action func(t *testing.T, e *testenv.CLITest, s *runnerState)
 
-// actionsTestIndexBlobManagerStress is a set of actionsTestIndexBlobManagerStress by each actor performed in TestIndexBlobManagerStress with weights.
-var actionsTestIndexBlobManagerStress = []struct {
-	a      action
-	weight int
-}{
-	{actionSnapshotExisting, 50},
-	{actionSnapshotAll, 30},
-	{actionAddNewSource, 1},
-	{actionMutateDirectoryTree, 1},
-	{actionSnapshotVerify, 10},
-	{actionContentVerify, 5},
-	{actionMaintenance, 5},
+type actionInfo struct {
+	name      string
+	act       action
+	weight    int
+	exclusive bool
+}
+
+// actions is a set of actions by each actor performed in TestIndexBlobManagerStress with weights.
+var actions = []*actionInfo{
+	{"actionSnapshotExisting", actionSnapshotExisting, 50, false},
+	{"actionSnapshotAll", actionSnapshotAll, 30, false},
+	{"actionAddNewSource", actionAddNewSource, 1, false},
+	{"actionMutateDirectoryTree", actionMutateDirectoryTree, 1, false},
+	{"actionSnapshotVerify", actionSnapshotVerify, 10, false},
+	{"actionContentVerify", actionContentVerify, 5, false},
+	{"actionMaintenance", actionMaintenance, 5, true},
+	{"actionSmallClockJump", actionSmallClockJump, 500, false},
+	{"actionMediumClockJump", actionMediumClockJump, 10, true},
+	{"actionLargeClockJump", actionLargeClockJump, 10, true},
 }
 
 func actionSnapshotExisting(t *testing.T, e *testenv.CLITest, s *runnerState) {
 	t.Helper()
 
 	randomPath := s.dirs[rand.Intn(len(s.dirs))]
-	e.RunAndExpectSuccess(t, "snapshot", "create", randomPath, "--no-progress")
+	e.RunAndExpectSuccess(t, "snapshot", "create", randomPath)
 
 	s.snapshottedAnything = true
 }
@@ -146,7 +158,7 @@ func actionSnapshotAll(t *testing.T, e *testenv.CLITest, s *runnerState) {
 		return
 	}
 
-	e.RunAndExpectSuccess(t, "snapshot", "create", "--all", "--no-progress")
+	e.RunAndExpectSuccess(t, "snapshot", "create", "--all")
 }
 
 func actionSnapshotVerify(t *testing.T, e *testenv.CLITest, s *runnerState) {
@@ -175,6 +187,24 @@ func actionMaintenance(t *testing.T, e *testenv.CLITest, s *runnerState) {
 	if s.runnerID == 0 {
 		e.RunAndExpectSuccess(t, "maintenance", "run", "--full")
 	}
+}
+
+func actionSmallClockJump(t *testing.T, e *testenv.CLITest, s *runnerState) {
+	t.Helper()
+
+	s.fakeClock.Advance(5 * time.Minute)
+}
+
+func actionMediumClockJump(t *testing.T, e *testenv.CLITest, s *runnerState) {
+	t.Helper()
+
+	s.fakeClock.Advance(11 * time.Minute)
+}
+
+func actionLargeClockJump(t *testing.T, e *testenv.CLITest, s *runnerState) {
+	t.Helper()
+
+	s.fakeClock.Advance(31 * time.Minute)
 }
 
 func actionAddNewSource(t *testing.T, e *testenv.CLITest, s *runnerState) {
@@ -212,16 +242,16 @@ func actionMutateDirectoryTree(t *testing.T, e *testenv.CLITest, s *runnerState)
 	}, &testdirtree.DirectoryTreeCounters{})
 }
 
-func pickRandomEnduranceTestAction() action {
+func pickRandomEnduranceTestAction() *actionInfo {
 	sum := 0
-	for _, a := range actionsTestIndexBlobManagerStress {
+	for _, a := range actions {
 		sum += a.weight
 	}
 
 	n := rand.Intn(sum)
-	for _, a := range actionsTestIndexBlobManagerStress {
+	for _, a := range actions {
 		if n < a.weight {
-			return a.a
+			return a
 		}
 
 		n -= a.weight
@@ -230,8 +260,10 @@ func pickRandomEnduranceTestAction() action {
 	panic("impossible")
 }
 
-func enduranceRunner(t *testing.T, runnerID int, fakeTimeServer, webdavServer string, failureCount *int32, nowFunc func() time.Time) {
+func enduranceRunner(t *testing.T, runnerID int, fakeTimeServer, webdavServer string, failureCount *int32, lock *sync.RWMutex, fakeClock *faketime.ClockTimeWithOffset) {
 	t.Helper()
+
+	nowFunc := fakeClock.NowFunc()
 
 	runner := testenv.NewExeRunner(t)
 	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
@@ -250,6 +282,7 @@ func enduranceRunner(t *testing.T, runnerID int, fakeTimeServer, webdavServer st
 	var s runnerState
 
 	s.runnerID = runnerID
+	s.fakeClock = fakeClock
 
 	actionAddNewSource(t, e, &s)
 
@@ -261,9 +294,24 @@ func enduranceRunner(t *testing.T, runnerID int, fakeTimeServer, webdavServer st
 
 		percent := 100 * now.Sub(startTime).Seconds() / endTime.Sub(startTime).Seconds()
 
-		t.Logf("ITERATION %v NOW=%v (%.2f %%)", k, now, percent)
+		ai := pickRandomEnduranceTestAction()
 
-		act := pickRandomEnduranceTestAction()
-		act(t, e, &s)
+		t.Logf("runner %v ITERATION %v NOW=%v (%.2f %%), running %v exclusive=%v", runnerID, k, now.UTC(), percent, ai.name, ai.exclusive)
+
+		runOneIterationUsingLock(t, ai, e, &s, lock)
 	}
+}
+
+func runOneIterationUsingLock(t *testing.T, ai *actionInfo, e *testenv.CLITest, s *runnerState, lock *sync.RWMutex) {
+	t.Helper()
+
+	if ai.exclusive {
+		lock.Lock()
+		defer lock.Unlock()
+	} else {
+		lock.RLock()
+		defer lock.RUnlock()
+	}
+
+	ai.act(t, e, s)
 }
