@@ -141,11 +141,21 @@ jobs:
           dist/*/kopia.exe
         if-no-files-found: ignore
       if: ${{ !contains(matrix.os, 'self-hosted') }}
+  check:
+    name: Check publish artifacts
+    runs-on: ubuntu-latest
+    outputs:
+      publish_artifacts: ${{ steps.out.outputs.publish_artifacts }}
+    steps:
+    - id: out
+      name: Set publish artifacts
+      if: env.PUBLISH_ARTIFACTS
+      run: echo "::set-output name=publish_artifacts::1"
   publish:
     name: Stage And Publish Artifacts
     runs-on: ubuntu-latest
-    needs: build
-    if: github.event_name != 'pull_request'
+    needs: [ check, build ]
+    if: github.event_name != 'pull_request' && needs.check.outputs.publish_artifacts != null
     steps:
     - uses: actions/checkout@v2
     - name: Set up QEMU
