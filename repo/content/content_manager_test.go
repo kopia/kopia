@@ -49,6 +49,7 @@ func TestMain(m *testing.M) { testutil.MyTestMain(m) }
 func TestFormatV1(t *testing.T) {
 	testutil.RunAllTestsWithParam(t, &contentManagerSuite{
 		mutableParameters: MutableParameters{
+			Version:      1,
 			IndexVersion: 1,
 			MaxPackSize:  maxPackSize,
 		},
@@ -58,6 +59,7 @@ func TestFormatV1(t *testing.T) {
 func TestFormatV2(t *testing.T) {
 	testutil.RunAllTestsWithParam(t, &contentManagerSuite{
 		mutableParameters: MutableParameters{
+			Version:         2,
 			MaxPackSize:     maxPackSize,
 			IndexVersion:    v2IndexVersion,
 			EpochParameters: epoch.DefaultParameters,
@@ -351,7 +353,6 @@ func (s *contentManagerSuite) TestContentManagerFailedToWritePack(t *testing.T) 
 	ta := faketime.NewTimeAdvance(fakeTime, 0)
 
 	bm, err := NewManagerForTesting(testlogging.Context(t), st, &FormattingOptions{
-		Version:           1,
 		Hash:              "HMAC-SHA256-128",
 		Encryption:        "AES256-GCM-HMAC-SHA256",
 		MutableParameters: s.mutableParameters,
@@ -2114,6 +2115,7 @@ func (s *contentManagerSuite) newTestContentManagerWithTweaks(t *testing.T, st b
 
 	mp := s.mutableParameters
 	mp.IndexVersion = tweaks.indexVersion
+	mp.Version = 1
 
 	ctx := testlogging.Context(t)
 	fo := &FormattingOptions{
@@ -2121,7 +2123,6 @@ func (s *contentManagerSuite) newTestContentManagerWithTweaks(t *testing.T, st b
 		Encryption:        "AES256-GCM-HMAC-SHA256",
 		HMACSecret:        hmacSecret,
 		MutableParameters: mp,
-		Version:           1,
 	}
 
 	bm, err := NewManagerForTesting(ctx, st, fo, &tweaks.CachingOptions, &tweaks.ManagerOptions)

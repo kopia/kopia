@@ -1,0 +1,30 @@
+name: Compatibility Test
+on:
+  push:
+    branches: [ master ]
+    tags:
+      - v*
+  pull_request: {}
+jobs:
+  compat-test:
+    name: Compat Test
+    runs-on: ubuntu-latest
+    steps:
+    - name: Set up Go.
+      uses: actions/setup-go@v2
+      with:
+        go-version: ^1.17
+      id: go
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+    - name: Compat Test
+      run: make compat-tests
+    - name: Upload Logs
+      uses: actions/upload-artifact@v2
+      with:
+        name: logs
+        path: .logs/**/*.log
+        if-no-files-found: ignore
+      if: ${{ always() }}

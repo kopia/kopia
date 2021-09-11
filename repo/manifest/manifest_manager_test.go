@@ -145,9 +145,9 @@ func TestManifestInitCorruptedBlock(t *testing.T) {
 		Hash:       hashing.DefaultAlgorithm,
 		Encryption: encryption.DefaultAlgorithm,
 		MutableParameters: content.MutableParameters{
+			Version:     1,
 			MaxPackSize: 100000,
 		},
-		Version: 1,
 	}
 
 	// write some data to storage
@@ -308,9 +308,9 @@ func newManagerForTesting(ctx context.Context, t *testing.T, data blobtesting.Da
 		Hash:       hashing.DefaultAlgorithm,
 		Encryption: encryption.DefaultAlgorithm,
 		MutableParameters: content.MutableParameters{
+			Version:     1,
 			MaxPackSize: 100000,
 		},
-		Version: 1,
 	}, nil, nil)
 	if err != nil {
 		t.Fatalf("can't create content manager: %v", err)

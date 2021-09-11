@@ -23,11 +23,10 @@ const (
 
 // FormattingOptions describes the rules for formatting contents in repository.
 type FormattingOptions struct {
-	Version    FormatVersion `json:"version,omitempty"`    // version number, must be "1" or "2"
-	Hash       string        `json:"hash,omitempty"`       // identifier of the hash algorithm used
-	Encryption string        `json:"encryption,omitempty"` // identifier of the encryption algorithm used
-	HMACSecret []byte        `json:"secret,omitempty"`     // HMAC secret used to generate encryption keys
-	MasterKey  []byte        `json:"masterKey,omitempty"`  // master encryption key (SIV-mode encryption only)
+	Hash       string `json:"hash,omitempty"`       // identifier of the hash algorithm used
+	Encryption string `json:"encryption,omitempty"` // identifier of the encryption algorithm used
+	HMACSecret []byte `json:"secret,omitempty"`     // HMAC secret used to generate encryption keys
+	MasterKey  []byte `json:"masterKey,omitempty"`  // master encryption key (SIV-mode encryption only)
 	MutableParameters
 
 	EnablePasswordChange bool `json:"enablePasswordChange"` // disables replication of kopia.repository blob in packs
@@ -58,6 +57,7 @@ func (f *FormattingOptions) ResolveFormatVersion() error {
 // MutableParameters represents parameters of the content manager that can be mutated after the repository
 // is created.
 type MutableParameters struct {
+	Version         FormatVersion    `json:"version,omitempty"`         // version number, must be "1" or "2"
 	MaxPackSize     int              `json:"maxPackSize,omitempty"`     // maximum size of a pack object
 	IndexVersion    int              `json:"indexVersion,omitempty"`    // force particular index format version (1,2,..)
 	EpochParameters epoch.Parameters `json:"epochParameters,omitempty"` // epoch manager parameters
