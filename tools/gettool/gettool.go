@@ -86,6 +86,7 @@ var tools = map[string]ToolInfo{
 		osMap: map[string]string{
 			"darwin": "macOS",
 		},
+		stripPathComponents: 1,
 	},
 	"rclone": {
 		urlTemplate:         "https://github.com/rclone/rclone/releases/download/vVERSION/rclone-vVERSION-GOOS-GOARCH.zip",

@@ -65,7 +65,7 @@ func (e *CLIExeRunner) RemoveDefaultPassword() {
 	e.Environment = newEnv
 }
 
-// NewExeRunner resutns a CLIRunner that will execute kopia commands by launching subprocesses
+// NewExeRunner returns a CLIRunner that will execute kopia commands by launching subprocesses
 // for each. The kopia executable must be passed via KOPIA_EXE environment variable. The test
 // will be skipped if it's not provided (unless running inside an IDE in which case system-wide
 // `kopia` will be used by default).
@@ -81,6 +81,14 @@ func NewExeRunner(t *testing.T) *CLIExeRunner {
 			t.Skip()
 		}
 	}
+
+	return NewExeRunnerWithBinary(t, exe)
+}
+
+// NewExeRunnerWithBinary returns a CLIRunner that will execute kopia commands by launching subprocesses
+// for each.
+func NewExeRunnerWithBinary(t *testing.T, exe string) *CLIExeRunner {
+	t.Helper()
 
 	// unset environment variables that disrupt tests when passed to subprocesses.
 	os.Unsetenv("KOPIA_PASSWORD")

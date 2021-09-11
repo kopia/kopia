@@ -233,6 +233,13 @@ integration-tests: build-integration-test-binary $(gotestsum) $(TESTING_ACTION_E
 	 $(GO_TEST) $(TEST_FLAGS) -count=$(REPEAT_TEST) -parallel $(PARALLEL) -timeout 3600s github.com/kopia/kopia/tests/end_to_end_test
 	 -$(gotestsum) tool slowest --jsonfile .tmp.integration-tests.json  --threshold 1000ms
 
+compat-tests: export KOPIA_CURRENT_EXE=$(CURDIR)/$(kopia_ui_embedded_exe)
+compat-tests: export KOPIA_08_EXE=$(kopia08)
+compat-tests: GOTESTSUM_FLAGS=--format=testname --no-summary=skipped --jsonfile=.tmp.compat-tests.json
+compat-tests: $(kopia_ui_embedded_exe) $(kopia08) $(gotestsum)
+	$(GO_TEST) $(TEST_FLAGS) -count=$(REPEAT_TEST) -parallel $(PARALLEL) -timeout 3600s github.com/kopia/kopia/tests/compat_test
+	#  -$(gotestsum) tool slowest --jsonfile .tmp.compat-tests.json  --threshold 1000ms
+
 endurance-tests: export KOPIA_EXE ?= $(KOPIA_INTEGRATION_EXE)
 endurance-tests: export KOPIA_LOGS_DIR=$(CURDIR)/.logs
 endurance-tests: build-integration-test-binary $(gotestsum)
@@ -344,24 +351,6 @@ ifneq ($(GH_RELEASE_REPO),)
 	gh --repo $(GH_RELEASE_REPO) release upload $(GH_RELEASE_NAME) $(RELEASE_STAGING_DIR)/*
 else
 	@echo Not creating Github Release
-endif
-
-ifneq ($(CI_TAG),)
-
-create-long-term-repository: build-integration-test-binary
-
-ifeq ($(REPO_OWNER),kopia)
-	echo Creating long-term repository $(CI_TAG)...
-	KOPIA_EXE=$(KOPIA_INTEGRATION_EXE) ./tests/compat_test/gen-compat-repo.sh
-else
-	@echo Not creating long-term repository from a fork.
-endif
-
-else
-
-create-long-term-repository:
-	echo Not creating long-term repository.
-
 endif
 
 publish-apt:
