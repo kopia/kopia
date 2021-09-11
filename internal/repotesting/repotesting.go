@@ -47,7 +47,9 @@ func (e *Environment) setup(t *testing.T, version content.FormatVersion, opts ..
 
 	opt := &repo.NewRepositoryOptions{
 		BlockFormat: content.FormattingOptions{
-			Version:              version,
+			MutableParameters: content.MutableParameters{
+				Version: version,
+			},
 			HMACSecret:           []byte{},
 			Hash:                 "HMAC-SHA256",
 			Encryption:           encryption.DefaultAlgorithm,

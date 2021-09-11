@@ -9,6 +9,7 @@ import (
 	"github.com/kopia/kopia/internal/epoch"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/content"
 )
 
 type commandRepositorySetParameters struct {
@@ -107,6 +108,10 @@ func (c *commandRepositorySetParameters) run(ctx context.Context, rep repo.Direc
 			mp.EpochParameters = epoch.DefaultParameters
 			upgradeToEpochManager = true
 			mp.IndexVersion = 2
+		}
+
+		if mp.Version < content.FormatVersion2 {
+			mp.Version = content.FormatVersion2
 		}
 	}
 

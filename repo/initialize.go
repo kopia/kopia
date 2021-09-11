@@ -115,12 +115,12 @@ func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) (*repositoryOb
 
 	f := &repositoryObjectFormat{
 		FormattingOptions: content.FormattingOptions{
-			Version:    fv,
 			Hash:       applyDefaultString(opt.BlockFormat.Hash, hashing.DefaultAlgorithm),
 			Encryption: applyDefaultString(opt.BlockFormat.Encryption, encryption.DefaultAlgorithm),
 			HMACSecret: applyDefaultRandomBytes(opt.BlockFormat.HMACSecret, hmacSecretLength),
 			MasterKey:  applyDefaultRandomBytes(opt.BlockFormat.MasterKey, masterKeyLength),
 			MutableParameters: content.MutableParameters{
+				Version:         fv,
 				MaxPackSize:     applyDefaultInt(opt.BlockFormat.MaxPackSize, 20<<20), //nolint:gomnd
 				IndexVersion:    applyDefaultInt(opt.BlockFormat.IndexVersion, content.DefaultIndexVersion),
 				EpochParameters: opt.BlockFormat.EpochParameters,
