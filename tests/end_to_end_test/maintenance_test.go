@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kopia/kopia/cli"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/tests/testenv"
@@ -18,7 +19,13 @@ func (s *formatSpecificTestSuite) TestFullMaintenance(t *testing.T) {
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--disable-internal-log")
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
-	var snap snapshot.Manifest
+	var (
+		snap snapshot.Manifest
+		mi   cli.MaintenanceInfo
+	)
+
+	e.RunAndExpectSuccess(t, "maintenance", "info")
+	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "maintenance", "info", "--json"), &mi)
 
 	// after creation we'll have 1 pack blob
 	if got, want := e.RunAndExpectSuccess(t, "blob", "list", "--data-only"), 1; len(got) != want {
@@ -38,7 +45,11 @@ func (s *formatSpecificTestSuite) TestFullMaintenance(t *testing.T) {
 
 	originalBlobs := e.RunAndExpectSuccess(t, "blob", "list", "--data-only")
 
+	e.RunAndExpectSuccess(t, "maintenance", "info")
+	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "maintenance", "info", "--json"), &mi)
 	e.RunAndVerifyOutputLineCount(t, 0, "maintenance", "run", "--full", "--disable-internal-log")
+	e.RunAndExpectSuccess(t, "maintenance", "info")
+	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "maintenance", "info", "--json"), &mi)
 
 	if got := e.RunAndExpectSuccess(t, "blob", "list", "--data-only"); len(got) != len(originalBlobs) {
 		t.Fatalf("full maintenance is not expected to change any blobs due to safety margins (got %v, was %v)", got, originalBlobs)
@@ -46,6 +57,8 @@ func (s *formatSpecificTestSuite) TestFullMaintenance(t *testing.T) {
 
 	// now rerun with --safety=none
 	e.RunAndExpectSuccess(t, "maintenance", "run", "--full", "--safety=none", "--disable-internal-log")
+	e.RunAndExpectSuccess(t, "maintenance", "info")
+	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "maintenance", "info", "--json"), &mi)
 
 	if got := e.RunAndExpectSuccess(t, "blob", "list", "--data-only"); len(got) >= len(originalBlobs) {
 		t.Fatalf("maintenance did not remove blobs: %v, had %v", got, originalBlobs)
