@@ -119,10 +119,12 @@ func (l *internalLogger) add(level, msg string, args []interface{}) {
 
 func (l *internalLogger) maybeEncryptAndWriteChunkUnlocked(data gather.Bytes, closeFunc func()) {
 	if data.Length() == 0 {
+		closeFunc()
 		return
 	}
 
 	if atomic.LoadInt32(&l.enabled) == 0 {
+		closeFunc()
 		return
 	}
 
