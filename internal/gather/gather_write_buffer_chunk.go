@@ -2,12 +2,25 @@ package gather
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"reflect"
+	"runtime"
+	"strings"
 	"sync"
+	"unsafe"
 
 	"github.com/alecthomas/units"
 )
 
+const (
+	mynamespace                  = "kopia/kopia/internal/gather"
+	maxCallersToTrackAllocations = 3
+)
+
 var (
+	trackChunkAllocations = os.Getenv("KOPIA_TRACK_CHUNK_ALLOC") != ""
+
 	defaultAllocator = &chunkAllocator{
 		name:            "default",
 		chunkSize:       1 << 16, // nolint:gomnd
@@ -32,6 +45,37 @@ type chunkAllocator struct {
 	allocHighWaterMark    int
 	allocated             int
 	freed                 int
+	activeChunks          map[uintptr]string
+}
+
+func (a *chunkAllocator) trackAlloc(v []byte) []byte {
+	if trackChunkAllocations {
+		var (
+			pcbuf        [8]uintptr
+			callerFrames []string
+		)
+
+		n := runtime.Callers(maxCallersToTrackAllocations, pcbuf[:])
+		frames := runtime.CallersFrames(pcbuf[0:n])
+
+		for f, ok := frames.Next(); ok; f, ok = frames.Next() {
+			fn := fmt.Sprintf("%v %v:%v", f.Func.Name(), f.File, f.Line)
+
+			if fn != "" && !strings.Contains(fn, mynamespace) {
+				callerFrames = append(callerFrames, fn)
+			}
+		}
+
+		hdr := (*reflect.SliceHeader)(unsafe.Pointer(&v)) //nolint:gosec
+
+		if a.activeChunks == nil {
+			a.activeChunks = map[uintptr]string{}
+		}
+
+		a.activeChunks[hdr.Data] = strings.Join(callerFrames, "\n")
+	}
+
+	return v
 }
 
 func (a *chunkAllocator) allocChunk() []byte {
@@ -46,13 +90,13 @@ func (a *chunkAllocator) allocChunk() []byte {
 
 	l := len(a.freeList)
 	if l == 0 {
-		return make([]byte, 0, a.chunkSize)
+		return a.trackAlloc(make([]byte, 0, a.chunkSize))
 	}
 
 	ch := a.freeList[l-1]
 	a.freeList = a.freeList[0 : l-1]
 
-	return ch
+	return a.trackAlloc(ch)
 }
 
 func (a *chunkAllocator) releaseChunk(s []byte) {
@@ -62,6 +106,11 @@ func (a *chunkAllocator) releaseChunk(s []byte) {
 
 	a.mu.Lock()
 	defer a.mu.Unlock()
+
+	if a.activeChunks != nil {
+		hdr := (*reflect.SliceHeader)(unsafe.Pointer(&s)) //nolint:gosec
+		delete(a.activeChunks, hdr.Data)
+	}
 
 	a.freed++
 
@@ -78,10 +127,26 @@ func (a *chunkAllocator) dumpStats(ctx context.Context, prefix string) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	log(ctx).Debugf("%v (%v) - allocated %v chunks freed %v alive %v max %v free list high water mark: %v",
+	method := log(ctx).Debugf
+
+	alive := a.allocated - a.freed
+	if alive > 0 {
+		method = log(ctx).Errorf
+	}
+
+	method("%v (%v) - allocated %v chunks freed %v alive %v max %v free list high water mark: %v",
 		prefix,
 		units.Base2Bytes(int64(a.chunkSize)),
-		a.allocated, a.freed, a.allocated-a.freed, a.allocHighWaterMark, a.freeListHighWaterMark)
+		a.allocated, a.freed, alive, a.allocHighWaterMark, a.freeListHighWaterMark)
+
+	for _, v := range a.activeChunks {
+		method("leaked chunk from %v", v)
+	}
+
+	if trackChunkAllocations && len(a.activeChunks) > 0 {
+		// nolint:gocritic
+		os.Exit(1)
+	}
 }
 
 // DumpStats logs the allocator statistics.

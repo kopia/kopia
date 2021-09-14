@@ -227,6 +227,7 @@ $(TESTING_ACTION_EXE): tests/testingaction/main.go
 
 integration-tests: export KOPIA_EXE ?= $(KOPIA_INTEGRATION_EXE)
 integration-tests: export KOPIA_08_EXE=$(kopia08)
+integration-tests: export KOPIA_TRACK_CHUNK_ALLOC=1
 integration-tests: export TESTING_ACTION_EXE ?= $(TESTING_ACTION_EXE)
 integration-tests: GOTESTSUM_FLAGS=--format=testname --no-summary=skipped --jsonfile=.tmp.integration-tests.json
 integration-tests: build-integration-test-binary $(gotestsum) $(TESTING_ACTION_EXE) $(kopia08)
@@ -242,6 +243,7 @@ compat-tests: $(kopia_ui_embedded_exe) $(kopia08) $(gotestsum)
 
 endurance-tests: export KOPIA_EXE ?= $(KOPIA_INTEGRATION_EXE)
 endurance-tests: export KOPIA_LOGS_DIR=$(CURDIR)/.logs
+endurance-tests: export KOPIA_TRACK_CHUNK_ALLOC=1
 endurance-tests: build-integration-test-binary $(gotestsum)
 	 go test $(TEST_FLAGS) -count=$(REPEAT_TEST) -parallel $(PARALLEL) -timeout 3600s github.com/kopia/kopia/tests/endurance_test
 

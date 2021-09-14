@@ -200,6 +200,8 @@ func (b packIndexBuilder) buildShards(indexVersion int, stable bool, shardSize i
 	for _, s := range shardedBuilders {
 		buf := gather.NewWriteBuffer()
 
+		dataShardsBuf = append(dataShardsBuf, buf)
+
 		if err := s.BuildStable(buf, indexVersion); err != nil {
 			closeShards()
 
