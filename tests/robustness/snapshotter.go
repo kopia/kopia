@@ -1,3 +1,4 @@
+//go:build (darwin && amd64) || (linux && amd64)
 // +build darwin,amd64 linux,amd64
 
 // Package robustness contains tests that that validate data stability over time.

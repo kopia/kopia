@@ -1,3 +1,4 @@
+//go:build (darwin && amd64) || (linux && amd64)
 // +build darwin,amd64 linux,amd64
 
 // Package checker defines the framework for creating and restoring snapshots

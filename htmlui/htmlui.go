@@ -1,3 +1,4 @@
+//go:build embedhtml
 // +build embedhtml
 
 package htmlui

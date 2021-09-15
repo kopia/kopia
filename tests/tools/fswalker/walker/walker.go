@@ -1,3 +1,4 @@
+//go:build (darwin && amd64) || (linux && amd64)
 // +build darwin,amd64 linux,amd64
 
 // Package walker wraps calls to the the fswalker Walker

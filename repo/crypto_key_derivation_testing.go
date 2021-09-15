@@ -1,3 +1,4 @@
+//go:build testing
 // +build testing
 
 package repo
