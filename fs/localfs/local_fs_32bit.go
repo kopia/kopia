@@ -1,3 +1,4 @@
+//go:build !windows && ((!amd64 && !arm64 && !arm) || darwin || openbsd)
 // +build !windows
 // +build !amd64,!arm64,!arm darwin openbsd
 
