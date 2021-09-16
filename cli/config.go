@@ -72,11 +72,13 @@ func (c *App) optionsFromFlags(ctx context.Context) *repo.Options {
 }
 
 func (c *App) repositoryConfigFileName() string {
-	return c.configPath
-}
+	if filepath.Base(c.configPath) != c.configPath {
+		return c.configPath
+	}
 
-func defaultConfigFileName() string {
-	return filepath.Join(ospath.ConfigDir(), "repository.config")
+	// bare filename specified without any directory (absolute or relative)
+	// resolve against OS-specific directory.
+	return filepath.Join(ospath.ConfigDir(), c.configPath)
 }
 
 func resolveSymlink(path string) (string, error) {
