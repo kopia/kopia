@@ -79,6 +79,28 @@ func TestPersistentLRUCache(t *testing.T) {
 	verifyCached(ctx, t, pc, "key2", someData)
 	verifyCached(ctx, t, pc, "key3", someData)
 	verifyCached(ctx, t, pc, "key4", someData)
+
+	// create another persistent cache based on the same storage but wrong protection key.
+	// all reads from cache will be invalid, which means GetOrLoad will fetch them from the source.
+	pc2, err := cache.NewPersistentCache(ctx, "testing", cs, cache.ChecksumProtection([]byte{3, 2, 1}), maxSizeBytes, cache.DefaultTouchThreshold, cache.DefaultSweepFrequency)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var tmp2 gather.WriteBuffer
+	defer tmp2.Close()
+
+	require.NoError(t, pc2.GetOrLoad(ctx, "key2", func(output *gather.WriteBuffer) error {
+		output.Append([]byte{1, 2, 3})
+		return nil
+	}, &tmp2))
+
+	// make sure we received data returned by the callback.
+	require.Equal(t, []byte{1, 2, 3}, tmp2.ToByteSlice())
+
+	// at this point 'cs' was updated with a different checksum, so attempting to read it using
+	// 'pc' will return cache miss.
+	verifyCached(ctx, t, pc, "key2", nil)
 }
 
 func verifyCached(ctx context.Context, t *testing.T, pc *cache.PersistentCache, key string, want []byte) {

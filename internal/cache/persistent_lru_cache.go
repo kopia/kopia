@@ -56,6 +56,8 @@ func (c *PersistentCache) GetOrLoad(ctx context.Context, key string, fetch func(
 		return nil
 	}
 
+	output.Reset()
+
 	if err := fetch(output); err != nil {
 		stats.Record(ctx, MetricMissErrors.M(1))
 
