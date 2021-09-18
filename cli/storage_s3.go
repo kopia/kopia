@@ -22,6 +22,8 @@ func (c *storageS3Flags) setup(_ storageProviderServices, cmd *kingpin.CmdClause
 	cmd.Flag("access-key", "Access key ID (overrides AWS_ACCESS_KEY_ID environment variable)").Required().Envar("AWS_ACCESS_KEY_ID").StringVar(&c.s3options.AccessKeyID)
 	cmd.Flag("secret-access-key", "Secret access key (overrides AWS_SECRET_ACCESS_KEY environment variable)").Required().Envar("AWS_SECRET_ACCESS_KEY").StringVar(&c.s3options.SecretAccessKey)
 	cmd.Flag("session-token", "Session token (overrides AWS_SESSION_TOKEN environment variable)").Envar("AWS_SESSION_TOKEN").StringVar(&c.s3options.SessionToken)
+	cmd.Flag("storage-class", "Storage class for all blobs").Default("STANDARD").StringVar(&c.s3options.StorageClass)
+	cmd.Flag("storage-class-data", "Overrides storage class for data blobs when set").Default("").StringVar(&c.s3options.StorageClassDataBlob)
 	cmd.Flag("prefix", "Prefix to use for objects in the bucket").StringVar(&c.s3options.Prefix)
 	cmd.Flag("disable-tls", "Disable TLS security (HTTPS)").BoolVar(&c.s3options.DoNotUseTLS)
 	cmd.Flag("disable-tls-verification", "Disable TLS (HTTPS) certificate verification").BoolVar(&c.s3options.DoNotVerifyTLS)

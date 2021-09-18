@@ -142,9 +142,15 @@ func (s *s3Storage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes) (ve
 		return versionMetadata{}, errors.Wrap(err, "AddReader")
 	}
 
+	var storageClass = s.Options.StorageClass
+	if s.Options.StorageClassDataBlob != "" && b[0:1] == "p" {
+		storageClass = s.Options.StorageClassDataBlob
+	}
+
 	uploadInfo, err := s.cli.PutObject(ctx, s.BucketName, s.getObjectNameString(b), throttled, int64(data.Length()), minio.PutObjectOptions{
 		ContentType:    "application/x-kopia",
 		SendContentMd5: atomic.LoadInt32(&s.sendMD5) > 0,
+		StorageClass:   storageClass,
 	})
 
 	var er minio.ErrorResponse
@@ -159,6 +165,7 @@ func (s *s3Storage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes) (ve
 		// special case empty stream
 		_, err = s.cli.PutObject(ctx, s.BucketName, s.getObjectNameString(b), bytes.NewBuffer(nil), 0, minio.PutObjectOptions{
 			ContentType: "application/x-kopia",
+			StorageClass: storageClass,
 		})
 	}
 

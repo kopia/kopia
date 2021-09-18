@@ -18,6 +18,9 @@ type Options struct {
 	SecretAccessKey string `json:"secretAccessKey" kopia:"sensitive"`
 	SessionToken    string `json:"sessionToken" kopia:"sensitive"`
 
+	StorageClass         string `json:"storageClass"`
+	StorageClassDataBlob string `json:"storageClassDataBlob"`
+
 	// Region is an optional region to pass in authorization header.
 	Region string `json:"region,omitempty"`
 
