@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -14,9 +15,13 @@ import (
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/parallelwork"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/logging"
 )
 
-const minShardedBlobIDLength = 20
+// CompleteBlobSuffix is the extension for sharded blobs that have completed writing.
+const CompleteBlobSuffix = ".f"
+
+var log = logging.GetContextLoggerFunc("sharded")
 
 // Impl must be implemented by underlying provided.
 type Impl interface {
@@ -33,33 +38,38 @@ type Storage struct {
 	Impl Impl
 
 	RootPath        string
-	Suffix          string
 	Shards          []int
 	ListParallelism int
+
+	parametersMutex sync.Mutex
+	parameters      *Parameters
 }
 
 // GetBlob implements blob.Storage.
-func (s Storage) GetBlob(ctx context.Context, blobID blob.ID, offset, length int64, output *gather.WriteBuffer) error {
-	dirPath, filePath := s.GetShardedPathAndFilePath(blobID)
+func (s *Storage) GetBlob(ctx context.Context, blobID blob.ID, offset, length int64, output *gather.WriteBuffer) error {
+	dirPath, filePath, err := s.GetShardedPathAndFilePath(ctx, blobID)
+	if err != nil {
+		return errors.Wrap(err, "error determining sharded path")
+	}
 
 	// nolint:wrapcheck
 	return s.Impl.GetBlobFromPath(ctx, dirPath, filePath, offset, length, output)
 }
 
-func (s Storage) getBlobIDFromFileName(name string) (blob.ID, bool) {
-	if strings.HasSuffix(name, s.Suffix) {
-		return blob.ID(name[0 : len(name)-len(s.Suffix)]), true
+func (s *Storage) getBlobIDFromFileName(name string) (blob.ID, bool) {
+	if strings.HasSuffix(name, CompleteBlobSuffix) {
+		return blob.ID(name[0 : len(name)-len(CompleteBlobSuffix)]), true
 	}
 
 	return blob.ID(""), false
 }
 
-func (s Storage) makeFileName(blobID blob.ID) string {
-	return string(blobID) + s.Suffix
+func (s *Storage) makeFileName(blobID blob.ID) string {
+	return string(blobID) + CompleteBlobSuffix
 }
 
 // ListBlobs implements blob.Storage.
-func (s Storage) ListBlobs(ctx context.Context, prefix blob.ID, callback func(blob.Metadata) error) error {
+func (s *Storage) ListBlobs(ctx context.Context, prefix blob.ID, callback func(blob.Metadata) error) error {
 	pw := parallelwork.NewQueue()
 
 	// channel to which pw will write blob.Metadata, some buf
@@ -157,8 +167,11 @@ func (s Storage) ListBlobs(ctx context.Context, prefix blob.ID, callback func(bl
 }
 
 // GetMetadata implements blob.Storage.
-func (s Storage) GetMetadata(ctx context.Context, blobID blob.ID) (blob.Metadata, error) {
-	dirPath, filePath := s.GetShardedPathAndFilePath(blobID)
+func (s *Storage) GetMetadata(ctx context.Context, blobID blob.ID) (blob.Metadata, error) {
+	dirPath, filePath, err := s.GetShardedPathAndFilePath(ctx, blobID)
+	if err != nil {
+		return blob.Metadata{}, errors.Wrap(err, "error determining sharded path")
+	}
 
 	m, err := s.Impl.GetMetadataFromPath(ctx, dirPath, filePath)
 	m.BlobID = blobID
@@ -167,47 +180,100 @@ func (s Storage) GetMetadata(ctx context.Context, blobID blob.ID) (blob.Metadata
 }
 
 // PutBlob implements blob.Storage.
-func (s Storage) PutBlob(ctx context.Context, blobID blob.ID, data blob.Bytes) error {
-	dirPath, filePath := s.GetShardedPathAndFilePath(blobID)
+func (s *Storage) PutBlob(ctx context.Context, blobID blob.ID, data blob.Bytes) error {
+	dirPath, filePath, err := s.GetShardedPathAndFilePath(ctx, blobID)
+	if err != nil {
+		return errors.Wrap(err, "error determining sharded path")
+	}
 
 	// nolint:wrapcheck
 	return s.Impl.PutBlobInPath(ctx, dirPath, filePath, data)
 }
 
 // SetTime implements blob.Storage.
-func (s Storage) SetTime(ctx context.Context, blobID blob.ID, n time.Time) error {
-	dirPath, filePath := s.GetShardedPathAndFilePath(blobID)
+func (s *Storage) SetTime(ctx context.Context, blobID blob.ID, n time.Time) error {
+	dirPath, filePath, err := s.GetShardedPathAndFilePath(ctx, blobID)
+	if err != nil {
+		return errors.Wrap(err, "error determining sharded path")
+	}
 
 	// nolint:wrapcheck
 	return s.Impl.SetTimeInPath(ctx, dirPath, filePath, n)
 }
 
 // DeleteBlob implements blob.Storage.
-func (s Storage) DeleteBlob(ctx context.Context, blobID blob.ID) error {
-	dirPath, filePath := s.GetShardedPathAndFilePath(blobID)
+func (s *Storage) DeleteBlob(ctx context.Context, blobID blob.ID) error {
+	dirPath, filePath, err := s.GetShardedPathAndFilePath(ctx, blobID)
+	if err != nil {
+		return errors.Wrap(err, "error determining sharded path")
+	}
 
 	// nolint:wrapcheck
 	return s.Impl.DeleteBlobInPath(ctx, dirPath, filePath)
 }
 
-func (s Storage) getShardDirectory(blobID blob.ID) (string, blob.ID) {
-	shardPath := s.RootPath
+func (s *Storage) getParameters(ctx context.Context) (*Parameters, error) {
+	s.parametersMutex.Lock()
+	defer s.parametersMutex.Unlock()
 
-	if len(blobID) < minShardedBlobIDLength {
-		return shardPath, blobID
+	if s.parameters != nil {
+		return s.parameters, nil
 	}
 
-	for _, size := range s.Shards {
-		shardPath = path.Join(shardPath, string(blobID[0:size]))
-		blobID = blobID[size:]
+	var tmp gather.WriteBuffer
+	defer tmp.Close()
+
+	dotShardsFile := path.Join(s.RootPath, ParametersFile)
+
+	// nolint:nestif
+	if err := s.Impl.GetBlobFromPath(ctx, s.RootPath, dotShardsFile, 0, -1, &tmp); err != nil {
+		if !errors.Is(err, blob.ErrBlobNotFound) {
+			return nil, errors.Wrap(err, "error getting sharding parameters for storage")
+		}
+
+		// blob.ErrBlobNotFound is ok, initialize parameters from defaults.
+		s.parameters = DefaultParameters(s.Shards)
+
+		tmp.Reset()
+
+		if err := s.parameters.Save(&tmp); err != nil {
+			return nil, errors.Wrap(err, "error serializing sharding parameters")
+		}
+
+		if err := s.Impl.PutBlobInPath(ctx, s.RootPath, dotShardsFile, tmp.Bytes()); err != nil {
+			log(ctx).Errorf("warning: unable to persist sharding parameters: %v", err)
+		}
+	} else {
+		par := &Parameters{}
+
+		if err := par.Load(tmp.Bytes().Reader()); err != nil {
+			return nil, errors.Wrap(err, "error parsing sharding parameters for storage")
+		}
+
+		s.parameters = par
 	}
 
-	return shardPath, blobID
+	return s.parameters, nil
+}
+
+func (s *Storage) getShardDirectory(ctx context.Context, blobID blob.ID) (string, blob.ID, error) {
+	p, err := s.getParameters(ctx)
+	if err != nil {
+		return "", "", err
+	}
+
+	shardedPath, shardedBlob := p.GetShardDirectoryAndBlob(s.RootPath, blobID)
+
+	return shardedPath, shardedBlob, nil
 }
 
 // GetShardedPathAndFilePath returns the path of the shard and file name within the shard for a given blob ID.
-func (s Storage) GetShardedPathAndFilePath(blobID blob.ID) (shardPath, filePath string) {
-	shardPath, blobID = s.getShardDirectory(blobID)
+func (s *Storage) GetShardedPathAndFilePath(ctx context.Context, blobID blob.ID) (shardPath, filePath string, err error) {
+	shardPath, blobID, err = s.getShardDirectory(ctx, blobID)
+	if err != nil {
+		return
+	}
+
 	filePath = path.Join(shardPath, s.makeFileName(blobID))
 
 	return

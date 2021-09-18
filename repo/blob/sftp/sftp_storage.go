@@ -33,7 +33,6 @@ var log = logging.GetContextLoggerFunc("sftp")
 
 const (
 	sftpStorageType         = "sftp"
-	fsStorageChunkSuffix    = ".f"
 	tempFileRandomSuffixLen = 8
 
 	packetSize = 1 << 15
@@ -590,7 +589,6 @@ func New(ctx context.Context, opts *Options) (blob.Storage, error) {
 		sharded.Storage{
 			Impl:            impl,
 			RootPath:        opts.Path,
-			Suffix:          fsStorageChunkSuffix,
 			Shards:          opts.shards(),
 			ListParallelism: opts.ListParallelism,
 		},
