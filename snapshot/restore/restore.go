@@ -65,6 +65,8 @@ func (s *Stats) clone() Stats {
 
 // Options provides optional restore parameters.
 type Options struct {
+	// NOTE: this structure is passed as-is from the UI, make sure to add
+	// required bindings in the UI.
 	Parallel               int   `json:"parallel"`
 	Incremental            bool  `json:"incremental"`
 	IgnoreErrors           bool  `json:"ignoreErrors"`
