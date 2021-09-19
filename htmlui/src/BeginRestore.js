@@ -5,7 +5,7 @@ import Form from 'react-bootstrap-v5/lib/Form';
 import Row from 'react-bootstrap-v5/lib/Row';
 import Col from 'react-bootstrap-v5/lib/Col';
 import { Link } from "react-router-dom";
-import { handleChange, RequiredBoolean, RequiredField, validateRequiredFields } from './forms';
+import { handleChange, RequiredBoolean, RequiredField, RequiredNumberField, validateRequiredFields } from './forms';
 import { errorAlert, GoBackButton } from './uiutil';
 
 export class BeginRestore extends Component {
@@ -23,6 +23,8 @@ export class BeginRestore extends Component {
             overwriteDirectories: false,
             overwriteSymlinks: false,
             ignorePermissionErrors: true,
+            restoreDirEntryAtDepth: 1000,
+            minSizeForPlaceholder: 0,
             restoreTask: "",
         };
 
@@ -44,6 +46,8 @@ export class BeginRestore extends Component {
             options: {
                 incremental: this.state.incremental,
                 ignoreErrors: this.state.continueOnErrors,
+                restoreDirEntryAtDepth: this.state.restoreDirEntryAtDepth,
+                minSizeForPlaceholder: this.state.minSizeForPlaceholder,
             },
         }
 
@@ -120,7 +124,20 @@ export class BeginRestore extends Component {
                     {RequiredBoolean(this, "Overwrite Symbolic Links", "overwriteSymlinks")}
                 </Row>
                 <Row>
+                    <Col><hr/></Col>
+                </Row>
+                <Row>
+                    {RequiredNumberField(this, "Shallow Restore At Depth", "restoreDirEntryAtDepth")}
+                    {RequiredNumberField(this, "Minimal File Size For Shallow Restore", "minSizeForPlaceholder")}
+                </Row>
+                <Row>
+                    <Col><hr/></Col>
+                </Row>
+                <Row>
                     {RequiredBoolean(this, "Disable ZIP compression", "uncompressedZip", "Do not compress when restoring to a ZIP file (faster).")}
+                </Row>
+                <Row>
+                    <Col><hr/></Col>
                 </Row>
                 <Row>
                     <Col>

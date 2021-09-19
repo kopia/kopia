@@ -160,7 +160,7 @@ export class RepoStatus extends Component {
                                 <Form.Control readOnly defaultValue={this.state.status.splitter} />
                             </Form.Group>
                             <Form.Group as={Col}>
-                                <Form.Label>Supports Content Compression</Form.Label>
+                                <Form.Label>Internal Compression</Form.Label>
                                 <Form.Control readOnly defaultValue={this.state.status.supportsContentCompression ? "yes" : "no"} />
                             </Form.Group>
                         </Row>
