@@ -46,6 +46,10 @@ func (c *storageFromConfigFlags) connectToStorageFromConfigFile(ctx context.Cont
 		return nil, errors.Wrap(err, "unable to open config")
 	}
 
+	if cfg.Storage == nil {
+		return nil, errors.Errorf("connection file does not specify blob storage connection parameters, kopia server connections are not supported")
+	}
+
 	// nolint:wrapcheck
 	return blob.NewStorage(ctx, *cfg.Storage)
 }
