@@ -35,7 +35,6 @@ export class SnapshotsTable extends Component {
             snapshots: [],
             showHidden: false,
             isLoading: false,
-            forceFirstPage: false,
             error: null,
         };
         this.onChange = this.onChange.bind(this);
@@ -95,7 +94,6 @@ export class SnapshotsTable extends Component {
     onChange(x) {
         this.setState({
             showHidden: x.target.checked,
-            forceFirstPage: true,
         });
     }
 
@@ -107,14 +105,6 @@ export class SnapshotsTable extends Component {
 
         if (isLoading) {
             return <Spinner animation="border" variant="primary" />;
-        }
-
-        const willForceFirstPage = this.state.forceFirstPage;
-
-        if (this.state.forceFirstPage) {
-            this.setState({
-                forceFirstPage: false,
-            })
         }
 
         snapshots.sort((a, b) => -compare(a.startTime, b.startTime));
@@ -171,7 +161,7 @@ export class SnapshotsTable extends Component {
             </Row>
             <hr />
             <Row>
-                <MyTable data={filteredSnapshots} columns={columns} forceFirstPage={willForceFirstPage} />
+                <MyTable data={filteredSnapshots} columns={columns} />
             </Row>
         </div>;
     }

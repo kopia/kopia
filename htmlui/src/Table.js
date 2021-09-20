@@ -44,7 +44,7 @@ function paginationItems(count, active, gotoPage) {
   return items;
 }
 
-export default function MyTable({ columns, data, forceFirstPage }) {
+export default function MyTable({ columns, data }) {
   // Use the state and functions returned from useTable to build your UI
   const {
     getTableProps,
@@ -71,8 +71,8 @@ export default function MyTable({ columns, data, forceFirstPage }) {
     usePagination,
   )
 
-  if (forceFirstPage && pageIndex !== 0) {
-    gotoPage(0);
+  if (pageIndex >= pageCount && pageIndex !== 0 && pageCount > 0) {
+    gotoPage(pageCount - 1);
   }
 
   const paginationUI = pageOptions.length > 1 && 
