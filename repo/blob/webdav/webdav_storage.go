@@ -26,8 +26,7 @@ import (
 )
 
 const (
-	davStorageType       = "webdav"
-	fsStorageChunkSuffix = ".f"
+	davStorageType = "webdav"
 
 	defaultFilePerm = 0o600
 	defaultDirPerm  = 0o700
@@ -246,7 +245,6 @@ func New(ctx context.Context, opts *Options) (blob.Storage, error) {
 				cli:     cli,
 			},
 			RootPath:        "",
-			Suffix:          fsStorageChunkSuffix,
 			Shards:          opts.shards(),
 			ListParallelism: opts.ListParallelism,
 		},

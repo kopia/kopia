@@ -27,7 +27,6 @@ var log = logging.GetContextLoggerFunc("repo/filesystem")
 
 const (
 	fsStorageType           = "filesystem"
-	fsStorageChunkSuffix    = ".f"
 	tempFileRandomSuffixLen = 8
 
 	fsDefaultFileMode os.FileMode = 0o600
@@ -245,7 +244,10 @@ func (fs *fsImpl) SetTimeInPath(ctx context.Context, dirPath, filePath string, n
 
 // TouchBlob updates file modification time to current time if it's sufficiently old.
 func (fs *fsStorage) TouchBlob(ctx context.Context, blobID blob.ID, threshold time.Duration) error {
-	_, path := fs.Storage.GetShardedPathAndFilePath(blobID)
+	_, path, err := fs.Storage.GetShardedPathAndFilePath(ctx, blobID)
+	if err != nil {
+		return errors.Wrap(err, "error getting sharded path")
+	}
 
 	st, err := os.Stat(path)
 	if err != nil {
@@ -297,7 +299,6 @@ func New(ctx context.Context, opts *Options) (blob.Storage, error) {
 		sharded.Storage{
 			Impl:            &fsImpl{Options: *opts},
 			RootPath:        opts.Path,
-			Suffix:          fsStorageChunkSuffix,
 			Shards:          opts.shards(),
 			ListParallelism: opts.ListParallelism,
 		},
