@@ -12,6 +12,7 @@ import (
 
 	"github.com/alecthomas/kingpin"
 	"github.com/fatih/color"
+	"github.com/mattn/go-colorable"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/apiclient"
@@ -256,8 +257,8 @@ func NewApp() *App {
 
 		// testability hooks
 		osExit:       os.Exit,
-		stdoutWriter: os.Stdout,
-		stderrWriter: os.Stderr,
+		stdoutWriter: colorable.NewColorableStdout(),
+		stderrWriter: colorable.NewColorableStderr(),
 		rootctx:      context.Background(),
 	}
 }
