@@ -4,7 +4,7 @@ linkTitle: "Release Notes"
 weight: 1
 ---
 
-* [0.9](v0.8/) - release candidate
+* [0.9](v0.9/) - release candidate
 * [0.8](v0.8/) - latest stable release
 * [0.7](v0.7/)
 * [0.6](v0.6/)
