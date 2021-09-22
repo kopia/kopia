@@ -29,7 +29,7 @@ ifeq ($(GOARCH),arm)
 endif
 
 GOTESTSUM_FORMAT=pkgname-and-test-fails
-GOTESTSUM_FLAGS=--format=$(GOTESTSUM_FORMAT) --no-summary=skipped 
+GOTESTSUM_FLAGS=--format=$(GOTESTSUM_FORMAT) --no-summary=skipped
 GO_TEST?=$(gotestsum) $(GOTESTSUM_FLAGS) --
 
 LINTER_DEADLINE=300s
@@ -237,8 +237,8 @@ integration-tests: export KOPIA_TRACK_CHUNK_ALLOC=1
 integration-tests: export TESTING_ACTION_EXE ?= $(TESTING_ACTION_EXE)
 integration-tests: GOTESTSUM_FLAGS=--format=testname --no-summary=skipped --jsonfile=.tmp.integration-tests.json
 integration-tests: build-integration-test-binary $(gotestsum) $(TESTING_ACTION_EXE) $(kopia08)
-	 $(GO_TEST) $(TEST_FLAGS) -count=$(REPEAT_TEST) -parallel $(PARALLEL) -timeout 3600s github.com/kopia/kopia/tests/end_to_end_test
-	 -$(gotestsum) tool slowest --jsonfile .tmp.integration-tests.json  --threshold 1000ms
+	$(GO_TEST) $(TEST_FLAGS) -count=$(REPEAT_TEST) -parallel $(PARALLEL) -timeout 3600s github.com/kopia/kopia/tests/end_to_end_test
+	-$(gotestsum) tool slowest --jsonfile .tmp.integration-tests.json  --threshold 1000ms
 
 compat-tests: export KOPIA_CURRENT_EXE=$(CURDIR)/$(kopia_ui_embedded_exe)
 compat-tests: export KOPIA_08_EXE=$(kopia08)
@@ -251,7 +251,7 @@ endurance-tests: export KOPIA_EXE ?= $(KOPIA_INTEGRATION_EXE)
 endurance-tests: export KOPIA_LOGS_DIR=$(CURDIR)/.logs
 endurance-tests: export KOPIA_TRACK_CHUNK_ALLOC=1
 endurance-tests: build-integration-test-binary $(gotestsum)
-	 go test $(TEST_FLAGS) -count=$(REPEAT_TEST) -parallel $(PARALLEL) -timeout 3600s github.com/kopia/kopia/tests/endurance_test
+	go test $(TEST_FLAGS) -count=$(REPEAT_TEST) -parallel $(PARALLEL) -timeout 3600s github.com/kopia/kopia/tests/endurance_test
 
 robustness-tests: export KOPIA_EXE ?= $(KOPIA_INTEGRATION_EXE)
 robustness-tests: GOTESTSUM_FORMAT=testname
