@@ -32,8 +32,7 @@ function showRepoWindow(repoID) {
     title: 'Kopia UI Loading...',
     autoHideMenuBar: true,
     webPreferences: {
-      nodeIntegration: true,
-      enableRemoteModule: true,
+      preload: path.join(__dirname, 'preload.js'),
     },
   })
 
@@ -125,6 +124,18 @@ app.on('certificate-error', (event, webContents, url, error, certificate, callba
 
 // Ignore
 app.on('window-all-closed', function () { })
+
+ipcMain.handle('select-dir', async (event, arg) => {
+  const result = await dialog.showOpenDialog({
+    properties: ['openDirectory']
+  });
+  
+  if (result.filePaths) {
+    return result.filePaths[0];
+  } else {
+    return null;
+  };
+})
 
 ipcMain.on('server-status-updated', updateTrayContextMenu);
 ipcMain.on('launch-at-startup-updated', updateTrayContextMenu);
