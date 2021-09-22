@@ -33,6 +33,10 @@
     ],
     "extraResources": [
       {
+        "from": "public/preload.js",
+        "to": "."
+      },
+      {
         "from": "resources/${os}",
         "to": ".",
         "filter": [
@@ -136,14 +140,10 @@
   },
   "browserslist": {
     "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
+      "last 1 electron version"
     ],
     "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
+      "last 1 electron version"
     ]
   }
 }

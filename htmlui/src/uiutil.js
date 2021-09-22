@@ -165,26 +165,6 @@ export function GoBackButton(props) {
     return <Button size="sm" variant="outline-secondary" {...props}><FontAwesomeIcon icon={faChevronLeft} /> Return </Button>;
 }
 
-function selectDirectory(onSelected) {
-    // populated in 'preload.js' in Electron
-    if (!window.require) {
-        alert('Directory selection is not supported in a web browser.\n\nPlease enter path manually.');
-        return;
-    }
-
-    const { dialog } = window.require('electron').remote;
-    try {
-        let dir = dialog.showOpenDialogSync({
-            properties: ['openDirectory']
-        });
-        if (dir) {
-            onSelected(dir[0]);
-        }
-    } catch (e) {
-        window.alert('Error: ' + e);
-    }
-}
-
 export function sourceQueryStringParams(src) {
     return 'userName=' + encodeURIComponent(src.userName) + '&host=' + encodeURIComponent(src.host) + '&path=' + encodeURIComponent(src.path);
 }
@@ -225,17 +205,15 @@ export function errorAlert(err, prefix) {
 }
 
 export function DirectorySelector(props) {
-    const selectSupported = !!window.require;
-
     let { onDirectorySelected, ...inputProps } = props;
 
-    if (!selectSupported) {
+    if (!window.kopiaUI) {
         return <Form.Control size="sm" {...inputProps} />
     }
 
     return <InputGroup>
         <FormControl size="sm" {...inputProps} />
-        <Button size="sm" onClick={() => selectDirectory(onDirectorySelected)}>
+        <Button size="sm" onClick={() => window.kopiaUI.selectDirectory(onDirectorySelected)}>
             <FontAwesomeIcon icon={faFolderOpen} />
         </Button>
     </InputGroup>;

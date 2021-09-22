@@ -85,13 +85,12 @@ export class DirectoryObject extends Component {
     }
 
     browseMounted() {
-        if (!window.require) {
+        if (!window.kopiaUI) {
             alert('Directory browsing is not supported in a web browser. Use Kopia UI.');
             return;
         }
 
-        const { shell } = window.require('electron').remote;
-        shell.openItem(this.state.mountInfo.path)
+        window.kopiaUI.browseDirectory(this.state.mountInfo.path);
     }
 
     copyPath() {
@@ -115,8 +114,6 @@ export class DirectoryObject extends Component {
             return <Spinner animation="border" variant="primary" />;
         }
 
-        const browsingSupported = !!window.require;
-
         return <div className="padded">
             <Row>
                 <Col>
@@ -124,7 +121,7 @@ export class DirectoryObject extends Component {
             &nbsp;
             { this.state.mountInfo.path ? <>
             <Button size="sm" variant="info" onClick={this.unmount} >Unmount</Button>
-            {browsingSupported && <>
+            {window.kopiaUI && <>
             &nbsp;
             <Button size="sm" variant="info" onClick={this.browseMounted} >Browse</Button>
             </>}
