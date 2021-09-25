@@ -194,14 +194,14 @@ func (r *apiServerRepository) GetContent(ctx context.Context, contentID content.
 	return tmp.ToByteSlice(), nil
 }
 
-func (r *apiServerRepository) WriteContent(ctx context.Context, data []byte, prefix content.ID, comp compression.HeaderID) (content.ID, error) {
+func (r *apiServerRepository) WriteContent(ctx context.Context, data gather.Bytes, prefix content.ID, comp compression.HeaderID) (content.ID, error) {
 	if err := content.ValidatePrefix(prefix); err != nil {
 		return "", errors.Wrap(err, "invalid prefix")
 	}
 
 	var hashOutput [128]byte
 
-	contentID := prefix + content.ID(hex.EncodeToString(r.h(hashOutput[:0], gather.FromSlice(data))))
+	contentID := prefix + content.ID(hex.EncodeToString(r.h(hashOutput[:0], data)))
 
 	// avoid uploading the content body if it already exists.
 	if _, err := r.ContentInfo(ctx, contentID); err == nil {
@@ -209,20 +209,20 @@ func (r *apiServerRepository) WriteContent(ctx context.Context, data []byte, pre
 		return contentID, nil
 	}
 
-	r.wso.OnUpload(int64(len(data)))
+	r.wso.OnUpload(int64(data.Length()))
 
 	maybeCompression := ""
 	if comp != content.NoCompression {
 		maybeCompression = fmt.Sprintf("?compression=%x", comp)
 	}
 
-	if err := r.cli.Put(ctx, "contents/"+string(contentID)+maybeCompression, data, nil); err != nil {
+	if err := r.cli.Put(ctx, "contents/"+string(contentID)+maybeCompression, data.ToByteSlice(), nil); err != nil {
 		return "", errors.Wrapf(err, "error writing content %v", contentID)
 	}
 
 	if prefix != "" {
 		// add all prefixed contents to the cache.
-		r.contentCache.Put(ctx, string(contentID), gather.FromSlice(data))
+		r.contentCache.Put(ctx, string(contentID), data)
 	}
 
 	return contentID, nil

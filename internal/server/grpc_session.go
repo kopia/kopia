@@ -17,6 +17,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/kopia/kopia/internal/auth"
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/grpcapi"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/compression"
@@ -231,7 +232,7 @@ func handleWriteContentRequest(ctx context.Context, dw repo.DirectRepositoryWrit
 		return accessDeniedResponse()
 	}
 
-	contentID, err := dw.ContentManager().WriteContent(ctx, req.GetData(), content.ID(req.GetPrefix()), compression.HeaderID(req.GetCompression()))
+	contentID, err := dw.ContentManager().WriteContent(ctx, gather.FromSlice(req.GetData()), content.ID(req.GetPrefix()), compression.HeaderID(req.GetCompression()))
 	if err != nil {
 		return errorResponse(err)
 	}

@@ -599,7 +599,7 @@ func (r *grpcRepositoryClient) doWrite(ctx context.Context, contentID content.ID
 	return nil
 }
 
-func (r *grpcRepositoryClient) WriteContent(ctx context.Context, data []byte, prefix content.ID, comp compression.HeaderID) (content.ID, error) {
+func (r *grpcRepositoryClient) WriteContent(ctx context.Context, data gather.Bytes, prefix content.ID, comp compression.HeaderID) (content.ID, error) {
 	if err := content.ValidatePrefix(prefix); err != nil {
 		return "", errors.Wrap(err, "invalid prefix")
 	}
@@ -611,7 +611,7 @@ func (r *grpcRepositoryClient) WriteContent(ctx context.Context, data []byte, pr
 
 	var hashOutput [128]byte
 
-	contentID := prefix + content.ID(hex.EncodeToString(r.h(hashOutput[:0], gather.FromSlice(data))))
+	contentID := prefix + content.ID(hex.EncodeToString(r.h(hashOutput[:0], data)))
 
 	if r.recent.exists(contentID) {
 		return contentID, nil
@@ -621,15 +621,18 @@ func (r *grpcRepositoryClient) WriteContent(ctx context.Context, data []byte, pr
 	r.asyncWritesSemaphore <- struct{}{}
 
 	// clone so that caller can reuse the buffer
-	data = append([]byte(nil), data...)
+	var cloneBuf gather.WriteBuffer
+	clone := cloneBuf.CloneContiguous(data)
 
 	r.asyncWritesWG.Go(func() error {
 		defer func() {
 			// release semaphore
 			<-r.asyncWritesSemaphore
+
+			defer cloneBuf.Close()
 		}()
 
-		return r.doWrite(ctxutil.Detach(ctx), contentID, data, prefix, comp)
+		return r.doWrite(ctxutil.Detach(ctx), contentID, clone, prefix, comp)
 	})
 
 	return contentID, nil

@@ -4,9 +4,11 @@ package object
 import (
 	"context"
 	"io"
+	"sync"
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/splitter"
@@ -31,7 +33,7 @@ type contentReader interface {
 type contentManager interface {
 	contentReader
 	SupportsContentCompression() bool
-	WriteContent(ctx context.Context, data []byte, prefix content.ID, comp compression.HeaderID) (content.ID, error)
+	WriteContent(ctx context.Context, data gather.Bytes, prefix content.ID, comp compression.HeaderID) (content.ID, error)
 }
 
 // Format describes the format of objects in a repository.
@@ -45,27 +47,40 @@ type Manager struct {
 
 	contentMgr  contentManager
 	newSplitter splitter.Factory
+	writerPool  sync.Pool
 }
 
 // NewWriter creates an ObjectWriter for writing to the repository.
 func (om *Manager) NewWriter(ctx context.Context, opt WriterOptions) Writer {
-	w := &objectWriter{
-		ctx:         ctx,
-		om:          om,
-		splitter:    om.newSplitter(),
-		description: opt.Description,
-		prefix:      opt.Prefix,
-		compressor:  compression.ByName[opt.Compressor],
-	}
+	w, _ := om.writerPool.Get().(*objectWriter)
+	w.ctx = ctx
+	w.om = om
+	w.splitter = om.newSplitter()
+	w.description = opt.Description
+	w.prefix = opt.Prefix
+	w.compressor = compression.ByName[opt.Compressor]
+	w.totalLength = 0
+	w.currentPosition = 0
 
 	// point the slice at the embedded array, so that we avoid allocations most of the time
 	w.indirectIndex = w.indirectIndexBuf[:0]
 
 	if opt.AsyncWrites > 0 {
-		w.asyncWritesSemaphore = make(chan struct{}, opt.AsyncWrites)
+		if len(w.asyncWritesSemaphore) != 0 || cap(w.asyncWritesSemaphore) != opt.AsyncWrites {
+			w.asyncWritesSemaphore = make(chan struct{}, opt.AsyncWrites)
+		}
+	} else {
+		w.asyncWritesSemaphore = nil
 	}
 
+	w.buffer.Reset()
+	w.contentWriteError = nil
+
 	return w
+}
+
+func (om *Manager) closedWriter(ow *objectWriter) {
+	om.writerPool.Put(ow)
 }
 
 // Concatenate creates an object that's a result of concatenation of other objects. This is more efficient than reading
@@ -172,6 +187,12 @@ func NewObjectManager(ctx context.Context, bm contentManager, f Format) (*Manage
 	om := &Manager{
 		contentMgr: bm,
 		Format:     f,
+	}
+
+	om.writerPool = sync.Pool{
+		New: func() interface{} {
+			return new(objectWriter)
+		},
 	}
 
 	splitterID := f.Splitter

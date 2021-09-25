@@ -172,6 +172,7 @@ func (b Bytes) WriteTo(w io.Writer) (int64, error) {
 // FromSlice creates Bytes from the specified slice.
 func FromSlice(b []byte) Bytes {
 	var r Bytes
+
 	r.sliceBuf[0] = b
 	r.Slices = r.sliceBuf[:]
 

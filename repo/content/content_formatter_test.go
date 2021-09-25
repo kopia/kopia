@@ -117,11 +117,11 @@ func verifyEndToEndFormatter(ctx context.Context, t *testing.T, hashAlgo, encryp
 
 	defer bm.Close(ctx)
 
-	cases := [][]byte{
-		{},
-		{1, 2, 3},
-		make([]byte, 256),
-		bytes.Repeat([]byte{1, 2, 3, 5}, 1024),
+	cases := []gather.Bytes{
+		gather.FromSlice([]byte{}),
+		gather.FromSlice([]byte{1, 2, 3}),
+		gather.FromSlice(make([]byte, 256)),
+		gather.FromSlice(bytes.Repeat([]byte{1, 2, 3, 5}, 1024)),
 	}
 
 	for _, b := range cases {
@@ -138,7 +138,7 @@ func verifyEndToEndFormatter(ctx context.Context, t *testing.T, hashAlgo, encryp
 			return
 		}
 
-		if got, want := b2, b; !bytes.Equal(got, want) {
+		if got, want := b2, b.ToByteSlice(); !bytes.Equal(got, want) {
 			t.Errorf("content %q data mismatch: got %x, wanted %x", contentID, got, want)
 			return
 		}
@@ -153,7 +153,7 @@ func verifyEndToEndFormatter(ctx context.Context, t *testing.T, hashAlgo, encryp
 			return
 		}
 
-		if got, want := b3, b; !bytes.Equal(got, want) {
+		if got, want := b3, b.ToByteSlice(); !bytes.Equal(got, want) {
 			t.Errorf("content %q data mismatch: got %x, wanted %x", contentID, got, want)
 			return
 		}

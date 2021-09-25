@@ -21,6 +21,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
@@ -47,15 +48,15 @@ func (f *fakeContentManager) GetContent(ctx context.Context, contentID content.I
 	return nil, content.ErrContentNotFound
 }
 
-func (f *fakeContentManager) WriteContent(ctx context.Context, data []byte, prefix content.ID, comp compression.HeaderID) (content.ID, error) {
+func (f *fakeContentManager) WriteContent(ctx context.Context, data gather.Bytes, prefix content.ID, comp compression.HeaderID) (content.ID, error) {
 	h := sha256.New()
-	h.Write(data)
+	data.WriteTo(h)
 	contentID := prefix + content.ID(hex.EncodeToString(h.Sum(nil)))
 
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	f.data[contentID] = append([]byte(nil), data...)
+	f.data[contentID] = data.ToByteSlice()
 	if f.compresionIDs != nil {
 		f.compresionIDs[contentID] = comp
 	}

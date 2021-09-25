@@ -17,6 +17,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo"
@@ -365,7 +366,7 @@ func writeRandomContent(ctx context.Context, r repo.DirectRepositoryWriter, rs *
 	data := make([]byte, 1000)
 	cryptorand.Read(data)
 
-	contentID, err := r.ContentManager().WriteContent(ctx, data, "", content.NoCompression)
+	contentID, err := r.ContentManager().WriteContent(ctx, gather.FromSlice(data), "", content.NoCompression)
 	if err != nil {
 		return errors.Wrap(err, "WriteContent error")
 	}

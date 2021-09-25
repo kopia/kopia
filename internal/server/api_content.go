@@ -9,6 +9,7 @@ import (
 
 	"github.com/gorilla/mux"
 
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/compression"
@@ -83,7 +84,7 @@ func (s *Server) handleContentPut(ctx context.Context, r *http.Request, data []b
 		}
 	}
 
-	actualCID, err := dr.ContentManager().WriteContent(ctx, data, prefix, comp)
+	actualCID, err := dr.ContentManager().WriteContent(ctx, gather.FromSlice(data), prefix, comp)
 	if err != nil {
 		return nil, internalServerError(err)
 	}
