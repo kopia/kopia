@@ -672,13 +672,13 @@ func (bm *WriteManager) SupportsContentCompression() bool {
 
 // WriteContent saves a given content of data to a pack group with a provided name and returns a contentID
 // that's based on the contents of data written.
-func (bm *WriteManager) WriteContent(ctx context.Context, data []byte, prefix ID, comp compression.HeaderID) (ID, error) {
+func (bm *WriteManager) WriteContent(ctx context.Context, data gather.Bytes, prefix ID, comp compression.HeaderID) (ID, error) {
 	if err := bm.maybeRetryWritingFailedPacksUnlocked(ctx); err != nil {
 		return "", err
 	}
 
 	stats.Record(ctx, metricContentWriteContentCount.M(1))
-	stats.Record(ctx, metricContentWriteContentBytes.M(int64(len(data))))
+	stats.Record(ctx, metricContentWriteContentBytes.M(int64(data.Length())))
 
 	if err := ValidatePrefix(prefix); err != nil {
 		return "", err
@@ -686,7 +686,7 @@ func (bm *WriteManager) WriteContent(ctx context.Context, data []byte, prefix ID
 
 	var hashOutput [hashing.MaxHashSize]byte
 
-	contentID := prefix + ID(hex.EncodeToString(bm.hashData(hashOutput[:0], gather.FromSlice(data))))
+	contentID := prefix + ID(hex.EncodeToString(bm.hashData(hashOutput[:0], data)))
 
 	bm.mu.RLock()
 	_, bi, err := bm.getContentInfoReadLocked(ctx, contentID)
@@ -704,7 +704,7 @@ func (bm *WriteManager) WriteContent(ctx context.Context, data []byte, prefix ID
 		bm.log.Debugf("write-content %v new", contentID)
 	}
 
-	return contentID, bm.addToPackUnlocked(ctx, contentID, gather.FromSlice(data), false, comp)
+	return contentID, bm.addToPackUnlocked(ctx, contentID, data, false, comp)
 }
 
 // GetContent gets the contents of a given content. If the content is not found returns ErrContentNotFound.

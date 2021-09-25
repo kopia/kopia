@@ -99,6 +99,10 @@ func (w *objectWriter) Close() error {
 		w.splitter.Close()
 	}
 
+	w.buffer.Close()
+
+	w.om.closedWriter(w)
+
 	return nil
 }
 
@@ -200,7 +204,7 @@ func (w *objectWriter) prepareAndWriteContentChunk(chunkID int, data gather.Byte
 		return errors.Wrap(err, "unable to prepare content bytes")
 	}
 
-	contentID, err := w.om.contentMgr.WriteContent(w.ctx, contentBytes.ToByteSlice(), w.prefix, comp)
+	contentID, err := w.om.contentMgr.WriteContent(w.ctx, contentBytes, w.prefix, comp)
 	if err != nil {
 		return errors.Wrapf(err, "unable to write content chunk %v of %v: %v", chunkID, w.description, err)
 	}

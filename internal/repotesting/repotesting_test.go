@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/internal/faketime"
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/mockfs"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/content"
@@ -43,7 +44,7 @@ func TestTimeFuncWiring(t *testing.T) {
 	// verify wiring for the content layer
 	nt := ft.Advance(20 * time.Second)
 
-	cid, err := env.RepositoryWriter.ContentManager().WriteContent(ctx, []byte("foo"), "", content.NoCompression)
+	cid, err := env.RepositoryWriter.ContentManager().WriteContent(ctx, gather.FromSlice([]byte("foo")), "", content.NoCompression)
 	if err != nil {
 		t.Fatal("failed to write content:", err)
 	}

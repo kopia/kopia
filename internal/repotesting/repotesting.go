@@ -38,11 +38,11 @@ type Options struct {
 }
 
 // setup sets up a test environment.
-func (e *Environment) setup(t *testing.T, version content.FormatVersion, opts ...Options) *Environment {
-	t.Helper()
+func (e *Environment) setup(tb testing.TB, version content.FormatVersion, opts ...Options) *Environment {
+	tb.Helper()
 
-	ctx := testlogging.Context(t)
-	e.configDir = testutil.TempDirectory(t)
+	ctx := testlogging.Context(tb)
+	e.configDir = testutil.TempDirectory(tb)
 	openOpt := &repo.Options{}
 
 	opt := &repo.NewRepositoryOptions{
@@ -71,7 +71,7 @@ func (e *Environment) setup(t *testing.T, version content.FormatVersion, opts ..
 	}
 
 	st := blobtesting.NewMapStorage(blobtesting.DataMap{}, nil, openOpt.TimeNowFunc)
-	st = newReconnectableStorage(t, st)
+	st = newReconnectableStorage(tb, st)
 	e.st = st
 
 	if e.Password == "" {
@@ -79,49 +79,49 @@ func (e *Environment) setup(t *testing.T, version content.FormatVersion, opts ..
 	}
 
 	if err := repo.Initialize(ctx, st, opt, e.Password); err != nil {
-		t.Fatalf("err: %v", err)
+		tb.Fatalf("err: %v", err)
 	}
 
 	if err := repo.Connect(ctx, e.ConfigFile(), st, e.Password, nil); err != nil {
-		t.Fatalf("can't connect: %v", err)
+		tb.Fatalf("can't connect: %v", err)
 	}
 
 	e.connected = true
 
 	rep, err := repo.Open(ctx, e.ConfigFile(), e.Password, openOpt)
 	if err != nil {
-		t.Fatalf("can't open: %v", err)
+		tb.Fatalf("can't open: %v", err)
 	}
 
 	e.Repository = rep
 
 	_, e.RepositoryWriter, err = rep.(repo.DirectRepository).NewDirectWriter(ctx, repo.WriteSessionOptions{Purpose: "test"})
 	if err != nil {
-		t.Fatal(err)
+		tb.Fatal(err)
 	}
 
-	t.Cleanup(func() { rep.Close(ctx) })
+	tb.Cleanup(func() { rep.Close(ctx) })
 
 	return e
 }
 
 // Close closes testing environment.
-func (e *Environment) Close(ctx context.Context, t *testing.T) {
-	t.Helper()
+func (e *Environment) Close(ctx context.Context, tb testing.TB) {
+	tb.Helper()
 
 	if err := e.RepositoryWriter.Close(ctx); err != nil {
-		t.Fatalf("unable to close: %v", err)
+		tb.Fatalf("unable to close: %v", err)
 	}
 
 	if e.connected {
 		if err := repo.Disconnect(ctx, e.ConfigFile()); err != nil {
-			t.Errorf("error disconnecting: %v", err)
+			tb.Errorf("error disconnecting: %v", err)
 		}
 	}
 
 	if err := os.Remove(e.configDir); err != nil {
 		// should be empty, assuming Disconnect was successful
-		t.Errorf("error removing config directory: %v", err)
+		tb.Errorf("error removing config directory: %v", err)
 	}
 }
 
@@ -131,47 +131,47 @@ func (e *Environment) ConfigFile() string {
 }
 
 // MustReopen closes and reopens the repository.
-func (e *Environment) MustReopen(t *testing.T, openOpts ...func(*repo.Options)) {
-	t.Helper()
+func (e *Environment) MustReopen(tb testing.TB, openOpts ...func(*repo.Options)) {
+	tb.Helper()
 
-	ctx := testlogging.Context(t)
+	ctx := testlogging.Context(tb)
 
 	err := e.RepositoryWriter.Close(ctx)
 	if err != nil {
-		t.Fatalf("close error: %v", err)
+		tb.Fatalf("close error: %v", err)
 	}
 
 	rep, err := repo.Open(ctx, e.ConfigFile(), e.Password, repoOptions(openOpts))
 	if err != nil {
-		t.Fatalf("err: %v", err)
+		tb.Fatalf("err: %v", err)
 	}
 
-	t.Cleanup(func() { rep.Close(ctx) })
+	tb.Cleanup(func() { rep.Close(ctx) })
 
 	_, e.RepositoryWriter, err = rep.(repo.DirectRepository).NewDirectWriter(ctx, repo.WriteSessionOptions{Purpose: "test"})
 	if err != nil {
-		t.Fatalf("err: %v", err)
+		tb.Fatalf("err: %v", err)
 	}
 }
 
 // MustOpenAnother opens another repository backend by the same storage.
-func (e *Environment) MustOpenAnother(t *testing.T) repo.RepositoryWriter {
-	t.Helper()
+func (e *Environment) MustOpenAnother(tb testing.TB) repo.RepositoryWriter {
+	tb.Helper()
 
-	ctx := testlogging.Context(t)
+	ctx := testlogging.Context(tb)
 
 	rep2, err := repo.Open(ctx, e.ConfigFile(), e.Password, &repo.Options{})
 	if err != nil {
-		t.Fatalf("err: %v", err)
+		tb.Fatalf("err: %v", err)
 	}
 
-	t.Cleanup(func() {
+	tb.Cleanup(func() {
 		rep2.Close(ctx)
 	})
 
 	_, w, err := rep2.NewWriter(ctx, repo.WriteSessionOptions{Purpose: "test"})
 	if err != nil {
-		t.Fatal(err)
+		tb.Fatal(err)
 	}
 
 	return w
@@ -179,43 +179,43 @@ func (e *Environment) MustOpenAnother(t *testing.T) repo.RepositoryWriter {
 
 // MustConnectOpenAnother opens another repository backend by the same storage,
 // with independent config and cache options.
-func (e *Environment) MustConnectOpenAnother(t *testing.T, openOpts ...func(*repo.Options)) repo.Repository {
-	t.Helper()
+func (e *Environment) MustConnectOpenAnother(tb testing.TB, openOpts ...func(*repo.Options)) repo.Repository {
+	tb.Helper()
 
-	ctx := testlogging.Context(t)
+	ctx := testlogging.Context(tb)
 
-	config := filepath.Join(testutil.TempDirectory(t), "kopia.config")
+	config := filepath.Join(testutil.TempDirectory(tb), "kopia.config")
 	connOpts := &repo.ConnectOptions{
 		CachingOptions: content.CachingOptions{
-			CacheDirectory: testutil.TempDirectory(t),
+			CacheDirectory: testutil.TempDirectory(tb),
 		},
 	}
 
 	if err := repo.Connect(ctx, config, e.st, e.Password, connOpts); err != nil {
-		t.Fatal("can't connect:", err)
+		tb.Fatal("can't connect:", err)
 	}
 
 	rep, err := repo.Open(ctx, e.ConfigFile(), e.Password, repoOptions(openOpts))
 	if err != nil {
-		t.Fatal("can't open:", err)
+		tb.Fatal("can't open:", err)
 	}
 
 	return rep
 }
 
 // VerifyBlobCount verifies that the underlying storage contains the specified number of blobs.
-func (e *Environment) VerifyBlobCount(t *testing.T, want int) {
-	t.Helper()
+func (e *Environment) VerifyBlobCount(tb testing.TB, want int) {
+	tb.Helper()
 
 	var got int
 
-	_ = e.RepositoryWriter.BlobReader().ListBlobs(testlogging.Context(t), "", func(_ blob.Metadata) error {
+	_ = e.RepositoryWriter.BlobReader().ListBlobs(testlogging.Context(tb), "", func(_ blob.Metadata) error {
 		got++
 		return nil
 	})
 
 	if got != want {
-		t.Errorf("got unexpected number of BLOBs: %v, wanted %v", got, want)
+		tb.Errorf("got unexpected number of BLOBs: %v, wanted %v", got, want)
 	}
 }
 
@@ -235,17 +235,17 @@ func repoOptions(openOpts []func(*repo.Options)) *repo.Options {
 const FormatNotImportant = content.FormatVersion2
 
 // NewEnvironment creates a new repository testing environment and ensures its cleanup at the end of the test.
-func NewEnvironment(t *testing.T, version content.FormatVersion, opts ...Options) (context.Context, *Environment) {
-	t.Helper()
+func NewEnvironment(tb testing.TB, version content.FormatVersion, opts ...Options) (context.Context, *Environment) {
+	tb.Helper()
 
-	ctx := testlogging.Context(t)
+	ctx := testlogging.Context(tb)
 
 	var env Environment
 
-	env.setup(t, version, opts...)
+	env.setup(tb, version, opts...)
 
-	t.Cleanup(func() {
-		env.Close(ctx, t)
+	tb.Cleanup(func() {
+		env.Close(ctx, tb)
 	})
 
 	return ctx, &env

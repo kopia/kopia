@@ -31,13 +31,13 @@ type reconnectableStorageOptions struct {
 // newReconnectableStorage wraps the provided storage that may or may not be round-trippable
 // in a wrapper that globally caches storage instance and ensures its connection info is
 // round-trippable.
-func newReconnectableStorage(t *testing.T, st blob.Storage) blob.Storage {
-	t.Helper()
+func newReconnectableStorage(tb testing.TB, st blob.Storage) blob.Storage {
+	tb.Helper()
 
 	st2 := reconnectableStorage{st, &reconnectableStorageOptions{UUID: uuid.NewString()}}
 
 	reconnectableStorageByUUID.Store(st2.opt.UUID, st2)
-	t.Cleanup(func() {
+	tb.Cleanup(func() {
 		reconnectableStorageByUUID.Delete(st2.opt.UUID)
 	})
 

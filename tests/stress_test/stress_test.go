@@ -11,6 +11,7 @@ import (
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
@@ -97,7 +98,7 @@ func stressWorker(ctx context.Context, t *testing.T, deadline time.Time, openMgr
 
 		dataCopy := append([]byte{}, data...)
 
-		contentID, err := bm.WriteContent(ctx, data, "", content.NoCompression)
+		contentID, err := bm.WriteContent(ctx, gather.FromSlice(data), "", content.NoCompression)
 		if err != nil {
 			t.Errorf("err: %v", err)
 			return

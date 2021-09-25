@@ -13,6 +13,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/content"
 )
 
@@ -96,7 +97,9 @@ func (m *committedManifestManager) writeEntriesLocked(ctx context.Context, entri
 		man.Entries = append(man.Entries, e)
 	}
 
-	var buf bytes.Buffer
+	var buf gather.WriteBuffer
+	defer buf.Close()
+
 	gz := gzip.NewWriter(&buf)
 	mustSucceed(json.NewEncoder(gz).Encode(man))
 	mustSucceed(gz.Flush())

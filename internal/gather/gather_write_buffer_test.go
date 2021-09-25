@@ -81,3 +81,16 @@ func TestGatherWriteBufferContig(t *testing.T) {
 	require.Equal(t, theCap, len(b))
 	require.Equal(t, theCap, cap(b))
 }
+
+func TestGatherWriteBufferCloneContig(t *testing.T) {
+	var w WriteBuffer
+	defer w.Close()
+
+	w.Append([]byte{1, 2, 3})
+	w.Append([]byte{4, 5, 6})
+
+	var w2 WriteBuffer
+	contig := w2.CloneContiguous(w.Bytes())
+
+	require.Equal(t, []byte{1, 2, 3, 4, 5, 6}, contig)
+}
