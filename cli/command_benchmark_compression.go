@@ -4,7 +4,8 @@ import (
 	"bytes"
 	"context"
 	"hash/fnv"
-	"io/ioutil"
+	"io"
+	"os"
 	"sort"
 
 	"github.com/pkg/errors"
@@ -37,6 +38,35 @@ func (c *commandBenchmarkCompression) setup(svc appServices, parent commandParen
 	c.out.setup(svc)
 }
 
+func (c *commandBenchmarkCompression) readInputFile(ctx context.Context) ([]byte, error) {
+	f, err := os.Open(c.dataFile)
+	if err != nil {
+		return nil, errors.Wrap(err, "error opening input file")
+	}
+
+	defer f.Close() // nolint:errcheck,gosec
+
+	st, err := f.Stat()
+	if err != nil {
+		return nil, errors.Wrap(err, "stat error")
+	}
+
+	dataLength := st.Size()
+	if dataLength > defaultCompressedDataByMethod {
+		dataLength = defaultCompressedDataByMethod
+
+		log(ctx).Infof("NOTICE: The provided input file is too big, using first %v.", units.BytesStringBase2(dataLength))
+	}
+
+	data := make([]byte, dataLength)
+
+	if _, err := io.ReadFull(f, data); err != nil {
+		return nil, errors.Wrap(err, "error reading file")
+	}
+
+	return data, nil
+}
+
 func (c *commandBenchmarkCompression) run(ctx context.Context) error {
 	type benchResult struct {
 		compression    compression.Name
@@ -46,9 +76,9 @@ func (c *commandBenchmarkCompression) run(ctx context.Context) error {
 
 	var results []benchResult
 
-	data, err := ioutil.ReadFile(c.dataFile)
+	data, err := c.readInputFile(ctx)
 	if err != nil {
-		return errors.Wrap(err, "error reading compression data file")
+		return err
 	}
 
 	if len(data) == 0 {
