@@ -68,7 +68,7 @@ Simply download file named `KopiaUI-Setup-X.Y.Z.exe`, double click and follow on
 
 ### macOS CLI using Homebrew
 
-On macOS you can use [Homebrew](https://brew.sh) to install and keep Kopia up-to-date.
+On macOS, you can use [Homebrew](https://brew.sh) to install and keep Kopia up-to-date.
 
 To install:
 
@@ -109,7 +109,7 @@ echo "deb http://packages.kopia.io/apt/ stable main" | sudo tee /etc/apt/sources
 sudo apt update
 ```
 
->By default the **stable** channel provides official stable releases. If you prefer you can also select **testing** channel (which also provides release candidates and is generally stable) or **unstable** which includes all latest changes, but may not be stable.
+>By default, the **stable** channel provides official stable releases. If you prefer you can also select **testing** channel (which also provides release candidates and is generally stable) or **unstable** which includes all latest changes, but may not be stable.
 
 Finally, install Kopia or KopiaUI:
 
@@ -141,9 +141,9 @@ gpgkey=https://kopia.io/signing-key
 EOF
 ```
 
->By default the **stable** channel provides official stable releases. If you prefer you can also select **testing** channel (which also provides release candidates and is generally stable) or **unstable** which includes all latest changes, but may not be stable.
+>By default, the **stable** channel provides official stable releases. If you prefer you can also select **testing** channel (which also provides release candidates and is generally stable) or **unstable** which includes all latest changes, but may not be stable.
 
-Finally install Kopia or KopiaUI:
+Finally, install Kopia or KopiaUI:
 
 ```shell
 sudo yum install kopia
@@ -217,9 +217,9 @@ Kopia provides pre-built Docker container images for `amd64`, `arm64` and `arm` 
 
 The following tags are available:
 
-* `latest` - tracks latest stable release
-* `testing` - tracks latest stable or pre-release (such as a beta or release candidate)
-* `unstable` - tracks latest unstable nightly build
+* `latest` - tracks the latest stable release
+* `testing` - tracks the latest stable or pre-release (such as a beta or release candidate)
+* `unstable` - tracks the latest unstable nightly build
 * `major.minor` - latest patch release for a given major and minor version (e.g. `0.8`)
 * `major.minor.patch` - specific stable release
 

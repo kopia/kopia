@@ -17,7 +17,7 @@ type commandShow struct {
 }
 
 func (c *commandShow) setup(svc appServices, parent commandParent) {
-	cmd := parent.Command("show", "Displays contents of a repository object.").Alias("cat")
+	cmd := parent.Command("show", "Displays the contents of a repository object.").Alias("cat")
 	cmd.Arg("object-path", "Path").Required().StringVar(&c.path)
 	cmd.Action(svc.repositoryReaderAction(c.run))
 

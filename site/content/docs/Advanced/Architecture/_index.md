@@ -69,7 +69,7 @@ The API for CAOS can be found in https://godoc.org/github.com/kopia/kopia/repo/o
 
 ### Label-Addressable Manifest Storage (LAMS)
 
-While content-addressable storage is a neat idea, dealing with cryptographic hashes its not very convenient for humans to use.
+While content-addressable storage is a neat idea, dealing with cryptographic hashes is not very convenient for humans to use.
 
 To address that, Kopia supports another type of storage, used to persist small JSON objects called **Manifests** (describing snapshots, policies, etc.) which are identified by arbitrary `key=value` pairs called labels.
 

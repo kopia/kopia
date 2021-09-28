@@ -31,7 +31,7 @@ func (c *policyActionFlags) setup(cmd *kingpin.CmdClause) {
 	cmd.Flag("after-folder-action", "Path to after-folder action command ('none' to remove)").Default("-").PlaceHolder("COMMAND").StringVar(&c.policySetAfterFolderActionCommand)
 	cmd.Flag("before-snapshot-root-action", "Path to before-snapshot-root action command ('none' to remove or 'inherit')").Default("-").PlaceHolder("COMMAND").StringVar(&c.policySetBeforeSnapshotRootActionCommand)
 	cmd.Flag("after-snapshot-root-action", "Path to after-snapshot-root action command ('none' to remove or 'inherit')").Default("-").PlaceHolder("COMMAND").StringVar(&c.policySetAfterSnapshotRootActionCommand)
-	cmd.Flag("action-command-timeout", "Max time allowed for a action to run in seconds").Default("5m").DurationVar(&c.policySetActionCommandTimeout)
+	cmd.Flag("action-command-timeout", "Max time allowed for an action to run in seconds").Default("5m").DurationVar(&c.policySetActionCommandTimeout)
 	cmd.Flag("action-command-mode", "Action command mode").Default("essential").EnumVar(&c.policySetActionCommandMode, "essential", "optional", "async")
 	cmd.Flag("persist-action-script", "Persist action script").BoolVar(&c.policySetPersistActionScript)
 }

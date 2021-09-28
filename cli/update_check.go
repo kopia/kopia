@@ -128,7 +128,7 @@ func getLatestReleaseNameFromGitHub(ctx context.Context) (string, error) {
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&responseObject); err != nil {
-		return "", errors.Wrap(err, "invalid Github API response")
+		return "", errors.Wrap(err, "invalid GitHub API response")
 	}
 
 	return responseObject.Name, nil
@@ -172,7 +172,7 @@ func (c *App) maybeCheckForUpdates(ctx context.Context) (string, error) {
 	}
 
 	if err := c.maybeCheckGithub(ctx, us); err != nil {
-		return "", errors.Wrap(err, "error checking github")
+		return "", errors.Wrap(err, "error checking GitHub")
 	}
 
 	log(ctx).Debugf("build version %v, available %v", ensureVPrefix(repo.BuildVersion), ensureVPrefix(us.AvailableVersion))
@@ -211,10 +211,10 @@ func (c *App) maybeCheckGithub(ctx context.Context, us *updateState) error {
 
 	newAvailableVersion, err := getLatestReleaseNameFromGitHub(ctx)
 	if err != nil {
-		return errors.Wrap(err, "update to get latest release from GitHub")
+		return errors.Wrap(err, "update to get the latest release from GitHub")
 	}
 
-	log(ctx).Debugf("latest version on github: %v previous %v", newAvailableVersion, us.AvailableVersion)
+	log(ctx).Debugf("latest version on GitHub: %v previous %v", newAvailableVersion, us.AvailableVersion)
 
 	// we got updated version from GitHub, write it in a state file again
 	if newAvailableVersion != us.AvailableVersion {

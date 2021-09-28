@@ -4,14 +4,14 @@ linkTitle: "Repository Server"
 weight: 44
 ---
 
-By default every user of Kopia repository directly connects to a underlying storage using read-write access. If the users who share repository don't completely trust each other, some malicious actors can delete repository data structures causing data loss for others.
+By default, every user of Kopia repository directly connects to an underlying storage using read-write access. If the users who share repository don't completely trust each other, some malicious actors can delete repository data structures causing data loss for others.
 
 Repository Server allows an instance of kopia to proxy access to the underlying storage and has Kopia clients proxy all access through it, only requiring username and password to talk to server without any knowledge of
 repository storage credentials. 
 
 In repository server mode, each user is limited to seeing their own snapshots and policy manifest without being able to access those from another user account. 
 
->NOTE: Only snapshot and policy manifests are access-controlled, not the underlying contents. If two users shared the same file, it will be backed using exactly the same same content IDs. The consequence of this is that if a third user can guess the content ID of files in the repository, they will be able to access the files. Because content IDs are one-way salted hashes of contents, in principle it should be impossible to guess content ID without possessing original content.
+>NOTE: Only snapshot and policy manifests are access-controlled, not the underlying contents. If two users shared the same file, it will be backed using exactly the same content IDs. The consequence of this is that if a third user can guess the content ID of files in the repository, they will be able to access the files. Because content IDs are one-way salted hashes of contents, in principle it should be impossible to guess content ID without possessing original content.
 
 ## Starting Repository Server
 
@@ -42,7 +42,7 @@ Other commands are also available:
 
 ## Configuring Allowed Users - Kopia v0.7
 
->NOTE: This method is still supported in v0.8 but it's recommended to use `kopia server user` to manage users
+>NOTE: This method is still supported in v0.8, but it's recommended to use `kopia server user` to manage users
 instead.
 
 In Kopia v7.0 the user list must be put in a text file formatted using the [htpasswd](https://httpd.apache.org/docs/2.4/programs/htpasswd.html) utility from Apache. 

@@ -36,13 +36,13 @@ $ kopia policy set /some/dir --before-snapshot-root-action /path/to/command
 $ kopia policy set /some/dir --after-snapshot-root-action /path/to/command
 ```
 
->NOTE: Unlike all other policy options, `--before-folder-action` and `--after-folder-action` are not inherited and must be set explicitly on target folders, while `--before-snapshot-root-action` and `--after-snapshot-root-action` are interited from their parents and can be set at global, host, user or directory level.
+>NOTE: Unlike all other policy options, `--before-folder-action` and `--after-folder-action` are not inherited and must be set explicitly on target folders, while `--before-snapshot-root-action` and `--after-snapshot-root-action` are inherited from their parents and can be set at global, host, user or directory level.
 
 Actions can be `essential` (must succeed, default behavior), `optional` (failures are tolerated) or `async` (kopia will start the action but not wait for it to finish). This can be set 
 using `--action-command-mode`, for example:
 
 ```
-$ kopia policy set /some/dir  --mode=async \
+$ kopia policy set /some/dir  --action-command-mode=async \
    --before-folder-action /usr/local/bin/notifier.sh
 ```
 
@@ -55,10 +55,10 @@ $ kopia policy set /some/dir  --action-command-timeout=180s \
 
 Finally, the action command itself can be stored in a repository, when `--persist-action-script` is passed. To prevent binaries from being stored, the maximum script length can be up to 32000 characters.
 
-Scripts stored like this will be temporarily extracted to a local directory and executed using shell command, which is:
+Scripts stored like this will be temporarily extracted to a local directory and executed using a shell command, which is:
 
-* On Linux and macOS: `sh -e /path/to/temporary/script/file.sh"
-* On Windows: "cmd.exe /c C:\path\to\temporary\script\file.cmd"
+* On Linux and macOS: `sh -e /path/to/temporary/script/file.sh`
+* On Windows: `cmd.exe /c C:\path\to\temporary\script\file.cmd`
 
 On Unix, if the script has `#!` prefix, it will be executed directly, bypassing the `/bin/sh` shell.
 
@@ -131,7 +131,7 @@ Those are just some initial ideas, we're certain more interesting types of actio
 
 If you have ideas for extending this mechanism, definitely [file an Issue on Github](https://github.com/kopia/kopia/issues).
 
-If you develop a useful action script that you'd like to share with the communnity, we encourage you
+If you develop a useful action script that you'd like to share with the community, we encourage you
 to do so by sending us a pull request to add to this web page or you can put them in your own repository and we'll be happy to link it from here.
 
 To get started, click 'Edit This Page' link.

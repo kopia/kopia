@@ -118,7 +118,7 @@ uploaded snapshot 8a45c3b079cf5e7b99fb855a3701607a
   (root kfe997567fb1cf8a13341e4ca11652f70) in 563.670362ms
 ```
 
-Notice that snapshot creation was nearly instantenous - Kopia did not have to upload
+Notice that snapshot creation was nearly instantaneous - Kopia did not have to upload
 almost any files to the repository, except tiny piece of metadata about the snapshot itself.
 
 All snapshots in Kopia are always incremental - they will only upload files that are not in the repository yet, which saves storage space and upload time. This even applies to files that were moved or renamed. In fact if two computers have exactly the same file, it will still be stored only once.
@@ -324,7 +324,7 @@ Files policy:
     .kopiaignore                   inherited from (global)
 ```
 
-Finally to list all policies, we can use `kopia policy list`:
+Finally, to list all policies, we can use `kopia policy list`:
 
 ```
 $ kopia policy list

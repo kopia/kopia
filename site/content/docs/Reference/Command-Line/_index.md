@@ -59,7 +59,7 @@ NOTICE: The token printed above can be trivially decoded to reveal the repositor
 
 For each repository connection, Kopia maintains a configuration file and local cache:
 
-By default the configuration file is located in your home directory under:
+By default, the configuration file is located in your home directory under:
 
 * `%APPDATA%\kopia\repository.config` on Windows
 * `$HOME/Library/Application Support/kopia/repository.config` on macOS

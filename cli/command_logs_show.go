@@ -54,7 +54,7 @@ func (c *commandLogsShow) run(ctx context.Context, rep repo.DirectRepository) er
 	// by default show latest one
 	if !c.crit.any() {
 		sessions = sessions[len(sessions)-1:]
-		log(ctx).Infof("Showing latest log (%v)", formatTimestamp(sessions[0].startTime))
+		log(ctx).Infof("Showing the latest log (%v)", formatTimestamp(sessions[0].startTime))
 	}
 
 	var data gather.WriteBuffer

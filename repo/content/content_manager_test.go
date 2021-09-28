@@ -2158,7 +2158,7 @@ func verifyDeletedContentRead(ctx context.Context, t *testing.T, bm *WriteManage
 	}
 
 	if !ci.GetDeleted() {
-		t.Errorf("Expected content to be deleted but it is not: %#v", ci)
+		t.Errorf("Expected content to be deleted, but it is not: %#v", ci)
 	}
 }
 
