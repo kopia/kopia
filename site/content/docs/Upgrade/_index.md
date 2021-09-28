@@ -6,7 +6,7 @@ weight: 21
 
 ### Upgrading Kopia to v0.9
 
-Kopia v0.9 adds support for several new features thanks to brand new index format.
+Kopia v0.9 adds support for several new features thanks to a brand-new index format.
 
 If your repository was created in a version older than v0.9, please follow the steps below to upgrade.
 

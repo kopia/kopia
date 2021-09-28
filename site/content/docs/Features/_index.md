@@ -24,7 +24,7 @@ Kopia also uses splitting based on [rolling hash](https://en.wikipedia.org/wiki/
 
 ### Restore
 
-To restore data, Kopia can mount contents of a Repository as a local disk and you can use normal file copy tools to perform full or selective restore.
+To restore data, Kopia can mount the contents of a Repository as a local disk, and you can use normal file copy tools to perform full or selective restore.
 
 ### Encryption
 
@@ -43,7 +43,7 @@ Compression and decompression can be parallelized to speed up the process.
 
 * [zstd](https://github.com/klauspost/compress/tree/master/zstd) : [Zstandard](https://facebook.github.io/zstd/) is a real-time compression algorithm, providing high compression ratios. It offers a very wide range of compression / speed trade-off, while being backed by a very fast decoder. A high performance compression algorithm is implemented. For now focused on speed.
 
-You can activate compression on a per directory basis
+You can activate compression on a per-directory basis
 
 ```shell
 kopia policy set <path> --compression=<pgzip|s2|zstd>
@@ -86,7 +86,7 @@ Kopia has rich command-line interface for managing snapshots and policies, but a
 
 ### API Server
 
-Kopia can be run in a server mode, in which case it exposes a HTTP API that can be used to build client tools that can trigger snapshots, get their status and access snapshotted data.
+Kopia can be run in a server mode, in which case it exposes an HTTP API that can be used to build client tools that can trigger snapshots, get their status and access snapshotted data.
 
 ### Disaster Recovery
 

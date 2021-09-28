@@ -131,7 +131,7 @@ sftp>
 
 ### Creating a repository
 
-Once the passwordless connection works, then you can create a Kopia SFTP repository. Assuming you want the files to be stored under `/remote/path`, run the command below. Adjust the user name and paths to the key file and known hosts file as necessary.
+Once the passwordless connection works, then you can create a Kopia SFTP repository. Assuming you want the files to be stored under `/remote/path`, run the command below. Adjust the username and paths to the key file and known hosts file as necessary.
 
 ```shell
 $ kopia repository create sftp \
@@ -180,7 +180,7 @@ server-side timestamps.
 
 ### Creating a repository
 
-First you should follow rclone instructions for setting up a remote. This is provider specific, detailed instructions can be fount at https://rclone.org/#providers.
+First you should follow rclone instructions for setting up a remote. This is provider specific, detailed instructions can be found at https://rclone.org/#providers.
 
 Assuming you've configured a remote named `my-remote`, you may create Kopia repository using:
 

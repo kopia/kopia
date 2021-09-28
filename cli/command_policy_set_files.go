@@ -39,7 +39,7 @@ func (c *policyFilesFlags) setup(cmd *kingpin.CmdClause) {
 	cmd.Flag("clear-dot-ignore", "Clear list of paths in the dot-ignore list").BoolVar(&c.policySetClearDotIgnore)
 	cmd.Flag("max-file-size", "Exclude files above given size").PlaceHolder("N").StringVar(&c.policySetMaxFileSize)
 
-	// Ignore other mounted fileystems.
+	// Ignore other mounted filesystems.
 	cmd.Flag("one-file-system", "Stay in parent filesystem when finding files ('true', 'false', 'inherit')").EnumVar(&c.policyOneFileSystem, booleanEnumValues...)
 
 	cmd.Flag("ignore-cache-dirs", "Ignore cache directories ('true', 'false', 'inherit')").EnumVar(&c.policyIgnoreCacheDirs, booleanEnumValues...)

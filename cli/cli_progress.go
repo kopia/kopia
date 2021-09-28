@@ -27,7 +27,7 @@ type progressFlags struct {
 
 func (p *progressFlags) setup(svc appServices, app *kingpin.Application) {
 	app.Flag("progress", "Enable progress bar").Hidden().Default("true").BoolVar(&p.enableProgress)
-	app.Flag("progress-update-interval", "How ofter to update progress information").Hidden().Default("300ms").DurationVar(&p.progressUpdateInterval)
+	app.Flag("progress-update-interval", "How often to update progress information").Hidden().Default("300ms").DurationVar(&p.progressUpdateInterval)
 	p.out.setup(svc)
 }
 

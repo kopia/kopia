@@ -49,7 +49,7 @@ func (c *commandSnapshotList) setup(svc appServices, parent commandParent) {
 	cmd.Flag("mtime", "Include file mod time").BoolVar(&c.snapshotListShowModTime)
 	cmd.Flag("owner", "Include owner").BoolVar(&c.shapshotListShowOwner)
 	cmd.Flag("show-identical", "Show identical snapshots").Short('l').BoolVar(&c.snapshotListShowIdentical)
-	cmd.Flag("all", "Show all shapshots (not just current username/host)").Short('a').BoolVar(&c.snapshotListShowAll)
+	cmd.Flag("all", "Show all snapshots (not just current username/host)").Short('a').BoolVar(&c.snapshotListShowAll)
 	cmd.Flag("max-results", "Maximum number of entries per source.").Short('n').IntVar(&c.maxResultsPerPath)
 	cmd.Flag("tags", "Tag filters to apply on the list items. Must be provided in the <key>:<value> format.").StringsVar(&c.snapshotListTags)
 	c.jo.setup(svc, cmd)

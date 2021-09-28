@@ -79,7 +79,7 @@ The current user must be the maintenance owner.
 
 ## Maintenance Safety
 
-Kopia's maintenance routine follows certain safety rules which rely on passage of time to ensure correctness. This is needed in case other Kopia clients are currently operating on the repository. To guarantee correctness, certain length of time must pass to ensure all caches and transient state are properly synchronized with the repository. Kopia must also also account for eventual consistency delays intoduced by the blob storage provider.
+Kopia's maintenance routine follows certain safety rules which rely on passage of time to ensure correctness. This is needed in case other Kopia clients are currently operating on the repository. To guarantee correctness, certain length of time must pass to ensure all caches and transient state are properly synchronized with the repository. Kopia must also account for eventual consistency delays introduced by the blob storage provider.
 
 This means that effects of full maintenance are not immediate - it may take several hours and/or multiple maintenance cycles to remove blobs that are not in use.
 

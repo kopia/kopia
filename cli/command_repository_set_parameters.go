@@ -35,7 +35,7 @@ func (c *commandRepositorySetParameters) setup(svc appServices, parent commandPa
 	cmd.Flag("max-pack-size-mb", "Set max pack file size").PlaceHolder("MB").IntVar(&c.maxPackSizeMB)
 	cmd.Flag("index-version", "Set version of index format used for writing").IntVar(&c.indexFormatVersion)
 
-	cmd.Flag("upgrade", "Uprade repository to the latest stable format").BoolVar(&c.upgradeRepositoryFormat)
+	cmd.Flag("upgrade", "Upgrade repository to the latest stable format").BoolVar(&c.upgradeRepositoryFormat)
 
 	cmd.Flag("epoch-refresh-frequency", "Epoch refresh frequency").DurationVar(&c.epochRefreshFrequency)
 	cmd.Flag("epoch-min-duration", "Minimal duration of a single epoch").DurationVar(&c.epochMinDuration)

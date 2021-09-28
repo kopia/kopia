@@ -22,7 +22,7 @@ type commandIndexInspect struct {
 }
 
 func (c *commandIndexInspect) setup(svc appServices, parent commandParent) {
-	cmd := parent.Command("inspect", "Inpect index blob")
+	cmd := parent.Command("inspect", "Inspect index blob")
 	cmd.Flag("all", "Inspect all index blobs in the repository, including inactive").BoolVar(&c.all)
 	cmd.Flag("active", "Inspect all active index blobs").BoolVar(&c.active)
 	cmd.Flag("content-id", "Inspect all active index blobs").StringsVar(&c.contentIDs)

@@ -16,7 +16,7 @@ In order to ensure that snapshots created with Kopia will be available as the pr
 
   - for releases with major version >= `v2` (i.e. `vx.y.z`), *previous version* means previous *major* version (`v(x-1)`).
 
-2. While not explicitly guaranteed, it is possible and likely that Kopia will be able to read (but not necessarily write) snapshots created with even older versions of software than explicitly guaranteed. For example it's likely that Kopia `v0.6.0` will read snapshots created using `v0.3.0`, even though it's three releases behind.
+2. While not explicitly guaranteed, it is possible and likely that Kopia will be able to read (but not necessarily write) snapshots created with even older versions of software than explicitly guaranteed. For example, it's likely that Kopia `v0.6.0` will read snapshots created using `v0.3.0`, even though it's three releases behind.
 
 3. In order to avoid corrupting data, Kopia will refuse to mutate repositories it's not designed to safely handle. That means, it will typically only allow reading, but not writing older versions of repository, unless explicitly documented and tested.
 

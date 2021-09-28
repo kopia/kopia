@@ -17,9 +17,9 @@ Default Cache Directory Location varies by operating system:
 Where `{unique-id}` is a hash of configuration file used and unique identifier that's specific to a
 connected repository.
 
-The cache directory location can be overridden when connecting to a repository by specifying `--cache-directory` flag or `KOPIA_CACHE_DIRECTORY` environment variable. It will be persited in the configuration file.
+The cache directory location can be overridden when connecting to a repository by specifying `--cache-directory` flag or `KOPIA_CACHE_DIRECTORY` environment variable. It will be persisted in the configuration file.
 
-When set `KOPIA_CACHE_DIRECTORY` environment variable takes precendence over location stored in the configuration file.
+When set `KOPIA_CACHE_DIRECTORY` environment variable takes precedence over location stored in the configuration file.
 
 ### Cache Types
 
