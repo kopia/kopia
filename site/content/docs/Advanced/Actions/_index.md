@@ -57,7 +57,7 @@ Finally, the action command itself can be stored in a repository, when `--persis
 
 Scripts stored like this will be temporarily extracted to a local directory and executed using a shell command, which is:
 
-* On Linux and macOS: `sh -e /path/to/temporary/script/file.sh'
+* On Linux and macOS: `sh -e /path/to/temporary/script/file.sh`
 * On Windows: "cmd.exe /c C:\path\to\temporary\script\file.cmd"
 
 On Unix, if the script has `#!` prefix, it will be executed directly, bypassing the `/bin/sh` shell.
