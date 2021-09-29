@@ -38,7 +38,7 @@ $ kopia policy set /some/dir --after-snapshot-root-action /path/to/command
 
 >NOTE: Unlike all other policy options, `--before-folder-action` and `--after-folder-action` are not inherited and must be set explicitly on target folders, while `--before-snapshot-root-action` and `--after-snapshot-root-action` are inherited from their parents and can be set at global, host, user or directory level.
 
-Actions can be `essential` (must succeed, default behavior), `optional` (failures are tolerated) or `async` (kopia will start the action but not wait for it to finish). This can be set 
+Actions can be `essential` (must succeed, default behavior), `optional` (failures are tolerated) or `async` (kopia will start the action but not wait for it to finish). This can be set
 using `--action-command-mode`, for example:
 
 ```
@@ -80,7 +80,7 @@ KOPIA_SNAPSHOT_PATH=<new-directory>
 
 This can be used to create point-in-time snapshots - see examples below.
 
-The `After` action will receive the same parameters as `Before` plus the actual directory that was 
+The `After` action will receive the same parameters as `Before` plus the actual directory that was
 snapshotted (either `KOPIA_SOURCE_PATH` or `KOPIA_SNAPSHOT_PATH` if returned by the `Before` script).
 
 ## Examples
@@ -90,7 +90,7 @@ snapshotted (either `KOPIA_SOURCE_PATH` or `KOPIA_SNAPSHOT_PATH` if returned by 
 This script invokes `mysqldump` to create a file called `dump.sql` in the directory
 that's being snapshotted. This can be used to automate database backups.
 
-```
+```shell
 #!/bin/sh
 set -e
 mysqldump SomeDatabase --result-file=$KOPIA_SOURCE_PATH/dump.sql
@@ -105,7 +105,7 @@ After snapshotting, we need to unmount and destroy the temporary snapshot using 
 
 Before:
 
-```
+```shell
 #!/bin/sh
 set -e
 ZPOOL_NAME=tank
@@ -117,7 +117,7 @@ echo KOPIA_SNAPSHOT_PATH: /mnt/$KOPIA_SNAPSHOT_ID
 
 After:
 
-```
+```shell
 #!/bin/sh
 ZPOOL_NAME=tank
 umount /mnt/$KOPIA_SNAPSHOT_ID
@@ -125,9 +125,52 @@ rmdir /mnt/$KOPIA_SNAPSHOT_ID
 zfs destroy $ZPOOL_NAME@$KOPIA_SNAPSHOT_ID
 ```
 
+
+#### Windows shadow copy
+
+When backing up files opened with exclusive lock in Windows, Kopia would fail the snapshot task because it can't read the file content.
+One of the popular solutions is taking a [shadow copy](https://en.wikipedia.org/wiki/Shadow_Copy) of the storage volume and ask Kopia to backup that instead.
+
+In this example, we will use PowerShell to take a shadow copy in the "before" action of the target directory and clean everything up in the "after" action.
+
+before.ps1:
+
+```powershell
+$sourceDrive = Split-Path -Qualifier $env:KOPIA_SOURCE_PATH
+$sourcePath = Split-Path -NoQualifier $env:KOPIA_SOURCE_PATH
+# use Kopia snapshot ID as mount point name for extra caution for duplication
+$mountPoint = "${PSScriptRoot}\${env:KOPIA_SNAPSHOT_ID}"
+
+$shadowId = (Invoke-CimMethod -ClassName Win32_ShadowCopy -MethodName Create -Arguments @{ Volume = "${sourceDrive}\" }).ShadowID
+$shadowDevice = (Get-CimInstance -ClassName Win32_ShadowCopy | Where-Object { $_.ID -eq $shadowId }).DeviceObject
+if (-not $shadowDevice) {
+    # fail the Kopia snapshot early if shadow copy was not created
+    exit 1
+}
+
+cmd /c mklink /d $mountPoint "${shadowDevice}\"
+Write-Output "KOPIA_SNAPSHOT_PATH=${mountPoint}${sourcePath}"
+```
+
+after.ps1:
+
+```powershell
+$mountPoint = Get-Item "${PSScriptRoot}\${env:KOPIA_SNAPSHOT_ID}"
+$mountedVolume = $mountPoint.Target
+Remove-Item $mountPoint
+Get-CimInstance -ClassName Win32_ShadowCopy | Where-Object { "$($_.DeviceObject)\" -eq "\\?\${mountedVolume}" } | Remove-CimInstance
+```
+
+To install the actions:
+
+```
+kopia policy set <target_dir> --before-folder-action 'pwsh -WindowStyle Hidden <path_to_script>\before.ps1'
+kopia policy set <target_dir> --after-folder-action  'pwsh -WindowStyle Hidden <path_to_script>\after.ps1'
+```
+
 #### Contributions Welcome
 
-Those are just some initial ideas, we're certain more interesting types of actions will be developed using this mechanism, including Windows VSS snapshots, LVM snapshots, BTRFS Snapshots, notifications and more. 
+Those are just some initial ideas, we're certain more interesting types of actions will be developed using this mechanism, including LVM snapshots, BTRFS Snapshots, notifications and more.
 
 If you have ideas for extending this mechanism, definitely [file an Issue on Github](https://github.com/kopia/kopia/issues).
 
