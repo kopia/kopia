@@ -486,6 +486,21 @@ func (u *Uploader) foreachEntryUnlessCanceled(ctx context.Context, parallel int,
 		return nil
 	}
 
+	if parallel == 1 {
+		for _, entry := range entries {
+			if u.IsCanceled() {
+				return errCanceled
+			}
+
+			entryRelativePath := path.Join(relativePath, entry.Name())
+			if err := cb(ctx, entry, entryRelativePath); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	}
+
 	ch := make(chan fs.Entry)
 	eg, ctx := errgroup.WithContext(ctx)
 
