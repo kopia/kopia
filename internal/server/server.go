@@ -178,14 +178,14 @@ func (s *Server) isAuthenticated(w http.ResponseWriter, r *http.Request) bool {
 }
 
 func (s *Server) isAuthCookieValid(username, cookieValue string) bool {
-	tok, err := jwt.ParseWithClaims(cookieValue, &jwt.StandardClaims{}, func(t *jwt.Token) (interface{}, error) {
+	tok, err := jwt.ParseWithClaims(cookieValue, &jwt.RegisteredClaims{}, func(t *jwt.Token) (interface{}, error) {
 		return s.authCookieSigningKey, nil
 	})
 	if err != nil {
 		return false
 	}
 
-	sc, ok := tok.Claims.(*jwt.StandardClaims)
+	sc, ok := tok.Claims.(*jwt.RegisteredClaims)
 	if !ok {
 		return false
 	}
@@ -195,13 +195,13 @@ func (s *Server) isAuthCookieValid(username, cookieValue string) bool {
 
 func (s *Server) generateShortTermAuthCookie(username string, now time.Time) (string, error) {
 	// nolint:wrapcheck
-	return jwt.NewWithClaims(jwt.SigningMethodHS256, &jwt.StandardClaims{
+	return jwt.NewWithClaims(jwt.SigningMethodHS256, &jwt.RegisteredClaims{
 		Subject:   username,
-		NotBefore: now.Add(-time.Minute).Unix(),
-		ExpiresAt: now.Add(kopiaAuthCookieTTL).Unix(),
-		IssuedAt:  now.Unix(),
-		Audience:  kopiaAuthCookieAudience,
-		Id:        uuid.New().String(),
+		NotBefore: jwt.NewNumericDate(now.Add(-time.Minute)),
+		ExpiresAt: jwt.NewNumericDate(now.Add(kopiaAuthCookieTTL)),
+		IssuedAt:  jwt.NewNumericDate(now),
+		Audience:  jwt.ClaimStrings{kopiaAuthCookieAudience},
+		ID:        uuid.New().String(),
 		Issuer:    kopiaAuthCookieIssuer,
 	}).SignedString(s.authCookieSigningKey)
 }
