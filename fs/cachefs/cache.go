@@ -80,13 +80,16 @@ func (c *Cache) remove(e *cacheEntry) {
 // Loader provides data to be stored in the cache.
 type Loader func(ctx context.Context) (fs.Entries, error)
 
+// EntryWrapper allows an fs.Entry to be modified before inserting into the cache.
+type EntryWrapper func(entry fs.Entry) fs.Entry
+
 // Readdir reads the contents of a provided directory using ObjectID of a directory (if any) to cache
 // the results.
-func (c *Cache) Readdir(ctx context.Context, d fs.Directory) (fs.Entries, error) {
+func (c *Cache) Readdir(ctx context.Context, d fs.Directory, w EntryWrapper) (fs.Entries, error) {
 	if h, ok := d.(object.HasObjectID); ok {
 		cacheID := string(h.ObjectID())
 
-		return c.getEntries(ctx, cacheID, dirCacheExpiration, d.Readdir)
+		return c.getEntries(ctx, cacheID, dirCacheExpiration, d.Readdir, w)
 	}
 
 	// nolint:wrapcheck
@@ -118,7 +121,7 @@ func (c *Cache) getEntriesFromCacheLocked(ctx context.Context, id string) fs.Ent
 
 // getEntries consults the cache and either retrieves the contents of directory listing from the cache
 // or invokes the provides callback and adds the results to cache.
-func (c *Cache) getEntries(ctx context.Context, id string, expirationTime time.Duration, cb Loader) (fs.Entries, error) {
+func (c *Cache) getEntries(ctx context.Context, id string, expirationTime time.Duration, cb Loader, w EntryWrapper) (fs.Entries, error) {
 	if c == nil {
 		return cb(ctx)
 	}
@@ -139,21 +142,26 @@ func (c *Cache) getEntries(ctx context.Context, id string, expirationTime time.D
 		return nil, err
 	}
 
-	if len(raw) > c.maxDirectoryEntries {
+	wrapped := make(fs.Entries, len(raw))
+	for i, entry := range raw {
+		wrapped[i] = w(entry)
+	}
+
+	if len(wrapped) > c.maxDirectoryEntries {
 		// no point caching since it would not fit anyway, just return it.
-		return raw, nil
+		return wrapped, nil
 	}
 
 	entry := &cacheEntry{
 		id:          id,
-		entries:     raw,
+		entries:     wrapped,
 		expireAfter: clock.Now().Add(expirationTime),
 	}
 
 	c.addToHead(entry)
 	c.data[id] = entry
 
-	c.totalDirectoryEntries += len(raw)
+	c.totalDirectoryEntries += len(wrapped)
 	for c.totalDirectoryEntries > c.maxDirectoryEntries || len(c.data) > c.maxDirectories {
 		c.removeEntryLocked(c.tail)
 	}

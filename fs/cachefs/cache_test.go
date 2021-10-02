@@ -24,6 +24,10 @@ type cacheSource struct {
 	callCounter map[string]int
 }
 
+func identityWrapper(e fs.Entry) fs.Entry {
+	return e
+}
+
 func (cs *cacheSource) get(id string) func(ctx context.Context) (fs.Entries, error) {
 	return func(context.Context) (fs.Entries, error) {
 		cs.callCounter[id]++
@@ -187,57 +191,57 @@ func TestCache(t *testing.T) {
 	cv.verifyCacheOrdering(t)
 
 	// fetch id1
-	_, _ = c.getEntries(ctx, id1, expirationTime, cs.get(id1))
+	_, _ = c.getEntries(ctx, id1, expirationTime, cs.get(id1), identityWrapper)
 	cv.verifyCacheMiss(t, id1)
 	cv.verifyCacheOrdering(t, id1)
 
 	// fetch id1 again - cache hit, no change
-	_, _ = c.getEntries(ctx, id1, expirationTime, cs.get(id1))
+	_, _ = c.getEntries(ctx, id1, expirationTime, cs.get(id1), identityWrapper)
 	cv.verifyCacheHit(t, id1)
 	cv.verifyCacheOrdering(t, id1)
 
 	// fetch id2
-	_, _ = c.getEntries(ctx, id2, expirationTime, cs.get(id2))
+	_, _ = c.getEntries(ctx, id2, expirationTime, cs.get(id2), identityWrapper)
 	cv.verifyCacheMiss(t, id2)
 	cv.verifyCacheOrdering(t, id2, id1)
 
 	// fetch id1 again - cache hit, id1 moved to the top of the LRU list
-	_, _ = c.getEntries(ctx, id1, expirationTime, cs.get(id1))
+	_, _ = c.getEntries(ctx, id1, expirationTime, cs.get(id1), identityWrapper)
 	cv.verifyCacheHit(t, id1)
 	cv.verifyCacheOrdering(t, id1, id2)
 
 	// fetch id2 again
-	_, _ = c.getEntries(ctx, id2, expirationTime, cs.get(id2))
+	_, _ = c.getEntries(ctx, id2, expirationTime, cs.get(id2), identityWrapper)
 	cv.verifyCacheHit(t, id2)
 	cv.verifyCacheOrdering(t, id2, id1)
 
 	// fetch id3
-	_, _ = c.getEntries(ctx, id3, expirationTime, cs.get(id3))
+	_, _ = c.getEntries(ctx, id3, expirationTime, cs.get(id3), identityWrapper)
 	cv.verifyCacheMiss(t, id3)
 	cv.verifyCacheOrdering(t, id3, id2, id1)
 
 	// fetch id4
-	_, _ = c.getEntries(ctx, id4, expirationTime, cs.get(id4))
+	_, _ = c.getEntries(ctx, id4, expirationTime, cs.get(id4), identityWrapper)
 	cv.verifyCacheMiss(t, id4)
 	cv.verifyCacheOrdering(t, id4, id3)
 
 	// fetch id1 again
-	_, _ = c.getEntries(ctx, id1, expirationTime, cs.get(id1))
+	_, _ = c.getEntries(ctx, id1, expirationTime, cs.get(id1), identityWrapper)
 	cv.verifyCacheMiss(t, id1)
 	cv.verifyCacheOrdering(t, id1, id4)
 
 	// fetch id5, it's a big one that expels all but one
-	_, _ = c.getEntries(ctx, id5, expirationTime, cs.get(id5))
+	_, _ = c.getEntries(ctx, id5, expirationTime, cs.get(id5), identityWrapper)
 	cv.verifyCacheMiss(t, id5)
 	cv.verifyCacheOrdering(t, id5, id1)
 
 	// fetch id6
-	_, _ = c.getEntries(ctx, id6, expirationTime, cs.get(id6))
+	_, _ = c.getEntries(ctx, id6, expirationTime, cs.get(id6), identityWrapper)
 	cv.verifyCacheMiss(t, id6)
 	cv.verifyCacheOrdering(t, id6)
 
 	// fetch id7
-	_, _ = c.getEntries(ctx, id7, expirationTime, cs.get(id7))
+	_, _ = c.getEntries(ctx, id7, expirationTime, cs.get(id7), identityWrapper)
 	cv.verifyCacheMiss(t, id7)
 	cv.verifyCacheOrdering(t, id6)
 }
@@ -264,7 +268,7 @@ func TestCacheGetEntriesLocking(t *testing.T) {
 	cs.setEntryCount(id1, 1)
 
 	// fetch non-existing entry, the loader will return an error
-	actualEs, err := c.getEntries(ctx, id1, expirationTime, cs.get("foo"))
+	actualEs, err := c.getEntries(ctx, id1, expirationTime, cs.get("foo"), identityWrapper)
 	if err == nil {
 		t.Fatal("Expected non-nil error when retrieving non-existing cache entry")
 	}
@@ -281,10 +285,10 @@ func TestCacheGetEntriesLocking(t *testing.T) {
 	}
 
 	// fetch id1
-	_, _ = c.getEntries(ctx, id1, expirationTime, cs.get(id1))
+	_, _ = c.getEntries(ctx, id1, expirationTime, cs.get(id1), identityWrapper)
 	cv.verifyCacheMiss(t, id1)
 	// fetch id1 again - cache hit, no change
-	_, _ = c.getEntries(ctx, id1, expirationTime, cs.get(id1))
+	_, _ = c.getEntries(ctx, id1, expirationTime, cs.get(id1), identityWrapper)
 	cv.verifyCacheHit(t, id1)
 	// cache must be unlocked and there should be no double unlock: See #132
 	if !lock.Unlocked() {
