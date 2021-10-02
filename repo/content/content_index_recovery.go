@@ -35,7 +35,10 @@ func (bm *WriteManager) RecoverIndexFromPackBlob(ctx context.Context, packFile b
 	err = ndx.Iterate(AllIDs, func(i Info) error {
 		recovered = append(recovered, i)
 		if commit {
-			bm.packIndexBuilder.Add(i)
+			// 'i' is ephemeral and will depend on temporary buffers which
+			// won't be available when this function returns, we need to
+			// convert it to durable struct.
+			bm.packIndexBuilder.Add(ToInfoStruct(i))
 		}
 		return nil
 	})
