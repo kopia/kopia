@@ -128,8 +128,8 @@ type entryWithError struct {
 	err   error
 }
 
-func toDirEntryOrNil(de os.DirEntry, dirPath string) (fs.Entry, error) {
-	fi, err := de.Info()
+func toDirEntryOrNil(basename, dirPath string) (fs.Entry, error) {
+	fi, err := os.Lstat(dirPath + "/" + basename)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil
@@ -150,13 +150,13 @@ func (fsd *filesystemDirectory) Readdir(ctx context.Context) (fs.Entries, error)
 	}
 	defer f.Close() //nolint:errcheck,gosec
 
+	var entries fs.Entries
+
 	// read first batch of directory entries using Readdir() before parallelization.
-	firstBatch, firstBatchErr := f.ReadDir(numEntriesToReadFirst)
+	firstBatch, firstBatchErr := f.Readdirnames(numEntriesToReadFirst)
 	if firstBatchErr != nil && !errors.Is(firstBatchErr, io.EOF) {
 		return nil, errors.Wrap(firstBatchErr, "unable to read directory entries")
 	}
-
-	var entries fs.Entries
 
 	for _, de := range firstBatch {
 		e, err := toDirEntryOrNil(de, fullPath)
@@ -178,7 +178,7 @@ func (fsd *filesystemDirectory) Readdir(ctx context.Context) (fs.Entries, error)
 
 	// first batch was shorter than expected, perform another read to make sure we get EOF.
 	if len(firstBatch) < numEntriesToRead {
-		secondBatch, secondBatchErr := f.ReadDir(numEntriesToRead)
+		secondBatch, secondBatchErr := f.Readdirnames(numEntriesToRead)
 		if secondBatchErr != nil && !errors.Is(secondBatchErr, io.EOF) {
 			return nil, errors.Wrap(secondBatchErr, "unable to read directory entries")
 		}
@@ -208,7 +208,7 @@ func (fsd *filesystemDirectory) Readdir(ctx context.Context) (fs.Entries, error)
 
 func (fsd *filesystemDirectory) readRemainingDirEntriesInParallel(fullPath string, entries fs.Entries, f *os.File) (fs.Entries, error) {
 	// start feeding directory entries to dirEntryCh
-	dirEntryCh := make(chan os.DirEntry, dirListingPrefetch)
+	dirEntryCh := make(chan string, dirListingPrefetch)
 
 	var readDirErr error
 
@@ -216,7 +216,7 @@ func (fsd *filesystemDirectory) readRemainingDirEntriesInParallel(fullPath strin
 		defer close(dirEntryCh)
 
 		for {
-			des, err := f.ReadDir(numEntriesToRead)
+			des, err := f.Readdirnames(numEntriesToRead)
 			for _, de := range des {
 				dirEntryCh <- de
 			}
@@ -248,7 +248,7 @@ func (fsd *filesystemDirectory) readRemainingDirEntriesInParallel(fullPath strin
 			for de := range dirEntryCh {
 				e, err := toDirEntryOrNil(de, fullPath)
 				if err != nil {
-					entriesCh <- entryWithError{err: errors.Errorf("unable to stat directory entry %q: %v", de.Name(), err)}
+					entriesCh <- entryWithError{err: errors.Errorf("unable to stat directory entry %q: %v", de, err)}
 					continue
 				}
 
