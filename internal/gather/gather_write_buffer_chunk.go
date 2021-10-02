@@ -24,13 +24,13 @@ var (
 	defaultAllocator = &chunkAllocator{
 		name:            "default",
 		chunkSize:       1 << 16, // nolint:gomnd
-		maxFreeListSize: 512,     // nolint:gomnd
+		maxFreeListSize: 2048,    // nolint:gomnd
 	}
 
 	// contiguousAllocator is used for short-term buffers for encryption.
 	contiguousAllocator = &chunkAllocator{
 		name:            "contiguous",
-		chunkSize:       16<<20 + 128, // nolint:gomnd
+		chunkSize:       8<<20 + 128, // nolint:gomnd
 		maxFreeListSize: runtime.NumCPU(),
 	}
 )
