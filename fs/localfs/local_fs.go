@@ -15,8 +15,10 @@ import (
 )
 
 const (
-	numEntriesToRead   = 100 // number of directory entries to read in one shot
-	dirListingPrefetch = 200 // number of directory items to os.Lstat() in advance
+	numEntriesToReadFirst    = 100 // number of directory entries to read in the first batch before parallelism kicks in.
+	numEntriesToRead         = 100 // number of directory entries to read in one shot
+	dirListingPrefetch       = 200 // number of directory items to os.Lstat() in advance
+	paralellelStatGoroutines = 4   // how many goroutines to use when Lstat() on large directory
 )
 
 type filesystemEntry struct {
@@ -118,12 +120,25 @@ func (fsd *filesystemDirectory) Child(ctx context.Context, name string) (fs.Entr
 		return nil, errors.Wrap(err, "unable to get child")
 	}
 
-	return entryFromChildFileInfo(st, fullPath), nil
+	return entryFromDirEntry(st, fullPath), nil
 }
 
 type entryWithError struct {
 	entry fs.Entry
 	err   error
+}
+
+func toDirEntryOrNil(basename, dirPath string) (fs.Entry, error) {
+	fi, err := os.Lstat(dirPath + "/" + basename)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+
+		return nil, errors.Wrap(err, "error reading directory")
+	}
+
+	return entryFromDirEntry(fi, dirPath), nil
 }
 
 func (fsd *filesystemDirectory) Readdir(ctx context.Context) (fs.Entries, error) {
@@ -135,18 +150,75 @@ func (fsd *filesystemDirectory) Readdir(ctx context.Context) (fs.Entries, error)
 	}
 	defer f.Close() //nolint:errcheck,gosec
 
-	// start feeding directory entry names to namesCh
-	namesCh := make(chan string, dirListingPrefetch)
+	var entries fs.Entries
+
+	// read first batch of directory entries using Readdir() before parallelization.
+	firstBatch, firstBatchErr := f.Readdirnames(numEntriesToReadFirst)
+	if firstBatchErr != nil && !errors.Is(firstBatchErr, io.EOF) {
+		return nil, errors.Wrap(firstBatchErr, "unable to read directory entries")
+	}
+
+	for _, de := range firstBatch {
+		e, err := toDirEntryOrNil(de, fullPath)
+		if err != nil {
+			return nil, errors.Wrap(err, "error reading entry")
+		}
+
+		if e != nil {
+			entries = append(entries, e)
+		}
+	}
+
+	// first batch was complete with EOF, we're done here.
+	if errors.Is(firstBatchErr, io.EOF) {
+		entries.Sort()
+
+		return entries, nil
+	}
+
+	// first batch was shorter than expected, perform another read to make sure we get EOF.
+	if len(firstBatch) < numEntriesToRead {
+		secondBatch, secondBatchErr := f.Readdirnames(numEntriesToRead)
+		if secondBatchErr != nil && !errors.Is(secondBatchErr, io.EOF) {
+			return nil, errors.Wrap(secondBatchErr, "unable to read directory entries")
+		}
+
+		// process results in case it's not EOF.
+		for _, de := range secondBatch {
+			e, err := toDirEntryOrNil(de, fullPath)
+			if err != nil {
+				return nil, errors.Wrap(err, "error reading entry")
+			}
+
+			if e != nil {
+				entries = append(entries, e)
+			}
+		}
+
+		// if we got EOF at this point, return.
+		if errors.Is(secondBatchErr, io.EOF) {
+			entries.Sort()
+
+			return entries, nil
+		}
+	}
+
+	return fsd.readRemainingDirEntriesInParallel(fullPath, entries, f)
+}
+
+func (fsd *filesystemDirectory) readRemainingDirEntriesInParallel(fullPath string, entries fs.Entries, f *os.File) (fs.Entries, error) {
+	// start feeding directory entries to dirEntryCh
+	dirEntryCh := make(chan string, dirListingPrefetch)
 
 	var readDirErr error
 
 	go func() {
-		defer close(namesCh)
+		defer close(dirEntryCh)
 
 		for {
-			names, err := f.Readdirnames(numEntriesToRead)
-			for _, name := range names {
-				namesCh <- name
+			des, err := f.Readdirnames(numEntriesToRead)
+			for _, de := range des {
+				dirEntryCh <- de
 			}
 
 			if err == nil {
@@ -167,39 +239,33 @@ func (fsd *filesystemDirectory) Readdir(ctx context.Context) (fs.Entries, error)
 
 	var workersWG sync.WaitGroup
 
-	// launch N workers to os.Lstat() each name in parallel and push to entriesCh
-	workers := 16
-	for i := 0; i < workers; i++ {
+	for i := 0; i < paralellelStatGoroutines; i++ {
 		workersWG.Add(1)
 
 		go func() {
 			defer workersWG.Done()
 
-			for n := range namesCh {
-				fi, staterr := os.Lstat(fullPath + "/" + n)
-
-				switch {
-				case os.IsNotExist(staterr):
-					// lost the race - ignore.
-					continue
-				case staterr != nil:
-					entriesCh <- entryWithError{err: errors.Errorf("unable to stat directory entry %q: %v", n, staterr)}
+			for de := range dirEntryCh {
+				e, err := toDirEntryOrNil(de, fullPath)
+				if err != nil {
+					entriesCh <- entryWithError{err: errors.Errorf("unable to stat directory entry %q: %v", de, err)}
 					continue
 				}
 
-				entriesCh <- entryWithError{entry: entryFromChildFileInfo(fi, fullPath)}
+				if e != nil {
+					entriesCh <- entryWithError{entry: e}
+				}
 			}
 		}()
 	}
 
-	// close entriesCh channel when all workers terminate
+	// close entriesCh channel when all goroutines terminate
 	go func() {
 		workersWG.Wait()
 		close(entriesCh)
 	}()
 
 	// drain the entriesCh into a slice and sort it
-	var entries fs.Entries
 
 	for e := range entriesCh {
 		if e.err != nil {
@@ -259,7 +325,7 @@ func NewEntry(path string) (fs.Entry, error) {
 		return nil, errors.Wrap(err, "unable to determine entry type")
 	}
 
-	return entryFromChildFileInfo(fi, filepath.Dir(path)), nil
+	return entryFromDirEntry(fi, filepath.Dir(path)), nil
 }
 
 // Directory returns fs.Directory for the specified path.
@@ -276,7 +342,7 @@ func Directory(path string) (fs.Directory, error) {
 	return nil, errors.Errorf("not a directory: %v", path)
 }
 
-func entryFromChildFileInfo(fi os.FileInfo, parentDir string) fs.Entry {
+func entryFromDirEntry(fi os.FileInfo, parentDir string) fs.Entry {
 	isplaceholder := strings.HasSuffix(fi.Name(), ShallowEntrySuffix)
 	maskedmode := fi.Mode() & os.ModeType
 
