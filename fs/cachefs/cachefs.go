@@ -35,7 +35,6 @@ func (d *directory) Readdir(ctx context.Context) (fs.Entries, error) {
 	entries, err := d.ctx.cacher.Readdir(ctx, d.Directory, func(e fs.Entry) fs.Entry {
 		return wrapWithContext(e, d.ctx)
 	})
-
 	if err != nil {
 		// nolint:wrapcheck
 		return entries, err

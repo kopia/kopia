@@ -80,7 +80,7 @@ func (c *Cache) remove(e *cacheEntry) {
 // Loader provides data to be stored in the cache.
 type Loader func(ctx context.Context) (fs.Entries, error)
 
-// EntryWrapper allows an fs.Entry to be modified before inserting into the cache
+// EntryWrapper allows an fs.Entry to be modified before inserting into the cache.
 type EntryWrapper func(entry fs.Entry) fs.Entry
 
 // Readdir reads the contents of a provided directory using ObjectID of a directory (if any) to cache
