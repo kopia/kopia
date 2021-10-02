@@ -24,13 +24,21 @@ var (
 	defaultAllocator = &chunkAllocator{
 		name:            "default",
 		chunkSize:       1 << 16, // nolint:gomnd
-		maxFreeListSize: 512,     // nolint:gomnd
+		maxFreeListSize: 2048,    // nolint:gomnd
 	}
 
-	contiguousAllocator = &chunkAllocator{
-		name:            "contiguous",
+	// typicalContiguousAllocator is used for short-term buffers for encryption.
+	typicalContiguousAllocator = &chunkAllocator{
+		name:            "mid-size contiguous",
 		chunkSize:       8<<20 + 128, // nolint:gomnd
-		maxFreeListSize: 2,           // nolint:gomnd
+		maxFreeListSize: runtime.NumCPU(),
+	}
+
+	// maxContiguousAllocator is used for short-term buffers for encryption.
+	maxContiguousAllocator = &chunkAllocator{
+		name:            "contiguous",
+		chunkSize:       16<<20 + 128, // nolint:gomnd
+		maxFreeListSize: runtime.NumCPU(),
 	}
 )
 
@@ -44,6 +52,7 @@ type chunkAllocator struct {
 	freeListHighWaterMark int
 	allocHighWaterMark    int
 	allocated             int
+	slicesAllocated       int
 	freed                 int
 	activeChunks          map[uintptr]string
 }
@@ -90,6 +99,7 @@ func (a *chunkAllocator) allocChunk() []byte {
 
 	l := len(a.freeList)
 	if l == 0 {
+		a.slicesAllocated++
 		return a.trackAlloc(make([]byte, 0, a.chunkSize))
 	}
 
@@ -134,10 +144,10 @@ func (a *chunkAllocator) dumpStats(ctx context.Context, prefix string) {
 		method = log(ctx).Errorf
 	}
 
-	method("%v (%v) - allocated %v chunks freed %v alive %v max %v free list high water mark: %v",
+	method("%v (%v) - allocated %v(%v) chunks freed %v alive %v max %v free list high water mark: %v",
 		prefix,
 		units.Base2Bytes(int64(a.chunkSize)),
-		a.allocated, a.freed, alive, a.allocHighWaterMark, a.freeListHighWaterMark)
+		a.allocated, a.slicesAllocated, a.freed, alive, a.allocHighWaterMark, a.freeListHighWaterMark)
 
 	for _, v := range a.activeChunks {
 		method("leaked chunk from %v", v)
@@ -152,5 +162,6 @@ func (a *chunkAllocator) dumpStats(ctx context.Context, prefix string) {
 // DumpStats logs the allocator statistics.
 func DumpStats(ctx context.Context) {
 	defaultAllocator.dumpStats(ctx, "default")
-	contiguousAllocator.dumpStats(ctx, "contig")
+	typicalContiguousAllocator.dumpStats(ctx, "typical-contig")
+	maxContiguousAllocator.dumpStats(ctx, "contig")
 }

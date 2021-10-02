@@ -165,3 +165,30 @@ func verifyCiphertextSamples(t *testing.T, masterKey, contentID, payload []byte,
 		}
 	}
 }
+
+func BenchmarkEncryption(b *testing.B) {
+	masterKey := make([]byte, 32)
+	rand.Read(masterKey)
+
+	enc, err := encryption.CreateEncryptor(parameters{encryption.DefaultAlgorithm, masterKey})
+	require.NoError(b, err)
+
+	// 8 MiB
+	plainText := gather.FromSlice(bytes.Repeat([]byte{1, 2, 3, 4, 5, 6, 7, 8}, 1<<20))
+
+	var warmupOut gather.WriteBuffer
+
+	iv := []byte{0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3, 4, 5, 6, 7}
+
+	require.NoError(b, enc.Encrypt(plainText, iv, &warmupOut))
+	warmupOut.Close()
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		var out gather.WriteBuffer
+
+		enc.Encrypt(plainText, iv, &out)
+		out.Close()
+	}
+}

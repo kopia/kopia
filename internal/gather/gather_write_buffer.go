@@ -33,19 +33,6 @@ func (b *WriteBuffer) Close() {
 	b.inner.invalidate()
 }
 
-// CloneContiguous initializes the write buffer with a contiguous (single-slice) copy of the provided
-// slices.
-func (b *WriteBuffer) CloneContiguous(byt Bytes) []byte {
-	contig := b.MakeContiguous(byt.Length())
-	output := contig[:0]
-
-	for _, s := range byt.Slices {
-		output = append(output, s...)
-	}
-
-	return contig
-}
-
 // MakeContiguous ensures the write buffer consists of exactly one contiguous single slice of the provided length
 // and returns the slice.
 func (b *WriteBuffer) MakeContiguous(length int) []byte {
@@ -56,11 +43,18 @@ func (b *WriteBuffer) MakeContiguous(length int) []byte {
 
 	var v []byte
 
-	if length > contiguousAllocator.chunkSize {
-		v = make([]byte, length)
-	} else {
-		b.alloc = contiguousAllocator
+	switch {
+	case length <= typicalContiguousAllocator.chunkSize:
+		// most commonly used allocator for default chunk size with max 8MB
+		b.alloc = typicalContiguousAllocator
 		v = b.allocChunk()[0:length]
+
+	case length <= maxContiguousAllocator.chunkSize:
+		b.alloc = maxContiguousAllocator
+		v = b.allocChunk()[0:length]
+
+	default:
+		v = make([]byte, length)
 	}
 
 	b.inner.Slices = [][]byte{v}
@@ -80,6 +74,8 @@ func (b *WriteBuffer) Reset() {
 	}
 
 	b.inner.invalidate()
+
+	b.alloc = nil
 
 	b.inner = Bytes{}
 }

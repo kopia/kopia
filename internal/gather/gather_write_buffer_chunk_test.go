@@ -3,6 +3,8 @@ package gather
 import (
 	"bytes"
 	"testing"
+
+	"github.com/kopia/kopia/repo/splitter"
 )
 
 func TestWriteBufferChunk(t *testing.T) {
@@ -57,5 +59,19 @@ func TestWriteBufferChunk(t *testing.T) {
 	chunk4 := all.allocChunk()
 	if got, want := chunk4[0:6], []byte("chunk2"); !bytes.Equal(got, want) {
 		t.Errorf("got wrong chunk data %q, want %q", string(got), string(want))
+	}
+}
+
+func TestContigAllocatorChunkSize(t *testing.T) {
+	// verify that contiguous allocator has chunk size big enough for all splitter results
+	// + some minimal overhead.
+	const maxOverhead = 128
+
+	for _, s := range splitter.SupportedAlgorithms() {
+		mss := splitter.GetFactory(s)().MaxSegmentSize()
+
+		if got, want := maxContiguousAllocator.chunkSize, mss+maxOverhead; got < want {
+			t.Errorf("contiguous allocator chunk size too small: %v, want %v ", got, want)
+		}
 	}
 }

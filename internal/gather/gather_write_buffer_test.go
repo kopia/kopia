@@ -76,21 +76,28 @@ func TestGatherWriteBufferContig(t *testing.T) {
 	defer w.Close()
 
 	// allocate more than contig allocator can provide
-	theCap := contiguousAllocator.chunkSize + 10
+	theCap := maxContiguousAllocator.chunkSize + 10
 	b := w.MakeContiguous(theCap)
 	require.Equal(t, theCap, len(b))
 	require.Equal(t, theCap, cap(b))
 }
 
-func TestGatherWriteBufferCloneContig(t *testing.T) {
+func TestGatherWriteBufferAllocatorSelector(t *testing.T) {
 	var w WriteBuffer
 	defer w.Close()
 
-	w.Append([]byte{1, 2, 3})
-	w.Append([]byte{4, 5, 6})
+	w.MakeContiguous(1)
+	require.Equal(t, w.alloc, typicalContiguousAllocator)
 
-	var w2 WriteBuffer
-	contig := w2.CloneContiguous(w.Bytes())
+	w.MakeContiguous(typicalContiguousAllocator.chunkSize)
+	require.Equal(t, w.alloc, typicalContiguousAllocator)
 
-	require.Equal(t, []byte{1, 2, 3, 4, 5, 6}, contig)
+	w.MakeContiguous(typicalContiguousAllocator.chunkSize + 1)
+	require.Equal(t, w.alloc, maxContiguousAllocator)
+
+	w.MakeContiguous(maxContiguousAllocator.chunkSize)
+	require.Equal(t, w.alloc, maxContiguousAllocator)
+
+	w.MakeContiguous(maxContiguousAllocator.chunkSize + 1)
+	require.Nil(t, w.alloc)
 }
