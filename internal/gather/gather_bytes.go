@@ -136,17 +136,22 @@ func (b Bytes) Reader() io.Reader {
 	}
 }
 
-// ToByteSlice returns contents as a newly-allocated byte slice.
-func (b Bytes) ToByteSlice() []byte {
+// AppendToSlice appends the contents to the provided slice.
+func (b Bytes) AppendToSlice(output []byte) []byte {
 	b.assertValid()
-
-	output := []byte{}
 
 	for _, v := range b.Slices {
 		output = append(output, v...)
 	}
 
 	return output
+}
+
+// ToByteSlice returns contents as a newly-allocated byte slice.
+func (b Bytes) ToByteSlice() []byte {
+	b.assertValid()
+
+	return b.AppendToSlice(make([]byte, 0, b.Length()))
 }
 
 // WriteTo writes contents to the specified writer and returns number of bytes written.

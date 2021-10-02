@@ -621,15 +621,12 @@ func (r *grpcRepositoryClient) WriteContent(ctx context.Context, data gather.Byt
 	r.asyncWritesSemaphore <- struct{}{}
 
 	// clone so that caller can reuse the buffer
-	var cloneBuf gather.WriteBuffer
-	clone := cloneBuf.CloneContiguous(data)
+	clone := data.ToByteSlice()
 
 	r.asyncWritesWG.Go(func() error {
 		defer func() {
 			// release semaphore
 			<-r.asyncWritesSemaphore
-
-			defer cloneBuf.Close()
 		}()
 
 		return r.doWrite(ctxutil.Detach(ctx), contentID, clone, prefix, comp)

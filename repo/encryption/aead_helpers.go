@@ -13,11 +13,20 @@ import (
 func aeadSealWithRandomNonce(a cipher.AEAD, plaintext gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {
 	resultLen := plaintext.Length() + a.NonceSize() + a.Overhead()
 
+	// allocate a single, contiguous slice that will be use as temporary input buffer
+	// and also the output buffer for cipher.AEAD.Seal().
+
+	// The buffer layout is:
+
+	// input:  [nonce][plaintext][..unused..]
+	// output: [nonce][ciphertext + overhead]
 	var tmp gather.WriteBuffer
 	defer tmp.Close()
 
 	buf := tmp.MakeContiguous(resultLen)
 	nonce, rest := buf[0:a.NonceSize()], buf[a.NonceSize():a.NonceSize()]
+
+	input := plaintext.AppendToSlice(rest[:0])
 
 	n, err := rand.Read(nonce)
 	if err != nil {
@@ -28,7 +37,7 @@ func aeadSealWithRandomNonce(a cipher.AEAD, plaintext gather.Bytes, contentID []
 		return errors.Errorf("did not read exactly %v bytes, got %v", a.NonceSize(), n)
 	}
 
-	a.Seal(rest, nonce, plaintext.ToByteSlice(), contentID)
+	a.Seal(input[:0], nonce, input, contentID)
 	output.Append(buf)
 
 	return nil
@@ -40,12 +49,27 @@ func aeadOpenPrefixedWithNonce(a cipher.AEAD, ciphertext gather.Bytes, contentID
 		return errors.Errorf("ciphertext too short: %v", ciphertext.Length())
 	}
 
-	input := ciphertext.ToByteSlice()
-	outbuf := output.MakeContiguous(ciphertext.Length() - a.NonceSize() - a.Overhead())
+	// allocate a single, contiguous slice that will be use as temporary input buffer
+	// and also the output buffer for cipher.AEAD.Open().
 
-	if _, err := a.Open(outbuf[:0], input[0:a.NonceSize()], input[a.NonceSize():], contentID); err != nil {
-		return errors.Errorf("unable to decrypt content")
+	// The buffer layout is:
+
+	// input:  [nonce][ciphertext + overhead]
+	// output: [nonce][plaintext]
+	var tmp gather.WriteBuffer
+	defer tmp.Close()
+
+	buf := tmp.MakeContiguous(ciphertext.Length())
+	buf = ciphertext.AppendToSlice(buf[:0])
+
+	nonce, input := buf[0:a.NonceSize()], buf[a.NonceSize():]
+
+	result, err := a.Open(input[:0], nonce, input, contentID)
+	if err != nil {
+		return errors.Errorf("unable to decrypt content: %v", err)
 	}
+
+	output.Append(result)
 
 	return nil
 }

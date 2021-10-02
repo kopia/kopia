@@ -33,19 +33,6 @@ func (b *WriteBuffer) Close() {
 	b.inner.invalidate()
 }
 
-// CloneContiguous initializes the write buffer with a contiguous (single-slice) copy of the provided
-// slices.
-func (b *WriteBuffer) CloneContiguous(byt Bytes) []byte {
-	contig := b.MakeContiguous(byt.Length())
-	output := contig[:0]
-
-	for _, s := range byt.Slices {
-		output = append(output, s...)
-	}
-
-	return contig
-}
-
 // MakeContiguous ensures the write buffer consists of exactly one contiguous single slice of the provided length
 // and returns the slice.
 func (b *WriteBuffer) MakeContiguous(length int) []byte {
