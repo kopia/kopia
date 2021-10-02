@@ -27,10 +27,17 @@ var (
 		maxFreeListSize: 2048,    // nolint:gomnd
 	}
 
-	// contiguousAllocator is used for short-term buffers for encryption.
-	contiguousAllocator = &chunkAllocator{
-		name:            "contiguous",
+	// typicalContiguousAllocator is used for short-term buffers for encryption.
+	typicalContiguousAllocator = &chunkAllocator{
+		name:            "mid-size contiguous",
 		chunkSize:       8<<20 + 128, // nolint:gomnd
+		maxFreeListSize: runtime.NumCPU(),
+	}
+
+	// maxContiguousAllocator is used for short-term buffers for encryption.
+	maxContiguousAllocator = &chunkAllocator{
+		name:            "contiguous",
+		chunkSize:       16<<20 + 128, // nolint:gomnd
 		maxFreeListSize: runtime.NumCPU(),
 	}
 )
@@ -155,5 +162,6 @@ func (a *chunkAllocator) dumpStats(ctx context.Context, prefix string) {
 // DumpStats logs the allocator statistics.
 func DumpStats(ctx context.Context) {
 	defaultAllocator.dumpStats(ctx, "default")
-	contiguousAllocator.dumpStats(ctx, "contig")
+	typicalContiguousAllocator.dumpStats(ctx, "typical-contig")
+	maxContiguousAllocator.dumpStats(ctx, "contig")
 }

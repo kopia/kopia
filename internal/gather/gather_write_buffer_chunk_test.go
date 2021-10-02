@@ -70,7 +70,7 @@ func TestContigAllocatorChunkSize(t *testing.T) {
 	for _, s := range splitter.SupportedAlgorithms() {
 		mss := splitter.GetFactory(s)().MaxSegmentSize()
 
-		if got, want := contiguousAllocator.chunkSize, mss+maxOverhead; got < want {
+		if got, want := maxContiguousAllocator.chunkSize, mss+maxOverhead; got < want {
 			t.Errorf("contiguous allocator chunk size too small: %v, want %v ", got, want)
 		}
 	}
