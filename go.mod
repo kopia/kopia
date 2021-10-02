@@ -45,7 +45,6 @@ require (
 	github.com/sanity-io/litter v1.5.1
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
-	github.com/smartystreets/assertions v1.2.1 // indirect
 	github.com/stretchr/testify v1.7.0
 	github.com/studio-b12/gowebdav v0.0.0-20210917133250-a3a86976a1df
 	github.com/tg123/go-htpasswd v1.1.0
@@ -94,8 +93,6 @@ require (
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/kr/fs v0.1.0 // indirect
-	github.com/kr/pretty v0.3.0 // indirect
-	github.com/kr/text v0.2.0 // indirect
 	github.com/mattn/go-ieproxy v0.0.1 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
@@ -107,12 +104,9 @@ require (
 	github.com/prometheus/common v0.31.1 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
 	github.com/prometheus/statsd_exporter v0.22.2 // indirect
-	github.com/rogpeppe/go-internal v1.6.1 // indirect
 	github.com/rs/xid v1.3.0 // indirect
-	github.com/stretchr/objx v0.2.0 // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20211001223012-bfb93cce50d9 // indirect
-	gopkg.in/alecthomas/kingpin.v2 v2.2.6 // indirect
 )
