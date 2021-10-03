@@ -37,6 +37,7 @@ type s3Storage struct {
 
 	downloadThrottler *iothrottler.IOThrottlerPool
 	uploadThrottler   *iothrottler.IOThrottlerPool
+	storageConfig     *StorageConfig
 }
 
 func (s *s3Storage) GetBlob(ctx context.Context, b blob.ID, offset, length int64, output *gather.WriteBuffer) error {
@@ -142,10 +143,7 @@ func (s *s3Storage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes) (ve
 		return versionMetadata{}, errors.Wrap(err, "AddReader")
 	}
 
-	var storageClass = s.Options.StorageClass
-	if s.Options.StorageClassDataBlob != "" && b[0:1] == "p" {
-		storageClass = s.Options.StorageClassDataBlob
-	}
+	storageClass := s.storageConfig.getStorageClassForBlobID(b)
 
 	uploadInfo, err := s.cli.PutObject(ctx, s.BucketName, s.getObjectNameString(b), throttled, int64(data.Length()), minio.PutObjectOptions{
 		ContentType:    "application/x-kopia",
@@ -164,7 +162,7 @@ func (s *s3Storage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes) (ve
 	if errors.Is(err, io.EOF) && uploadInfo.Size == 0 {
 		// special case empty stream
 		_, err = s.cli.PutObject(ctx, s.BucketName, s.getObjectNameString(b), bytes.NewBuffer(nil), 0, minio.PutObjectOptions{
-			ContentType: "application/x-kopia",
+			ContentType:  "application/x-kopia",
 			StorageClass: storageClass,
 		})
 	}
@@ -313,13 +311,28 @@ func newStorage(ctx context.Context, opt *Options) (*s3Storage, error) {
 		return nil, errors.Errorf("bucket %q does not exist", opt.BucketName)
 	}
 
-	return &s3Storage{
+	s := s3Storage{
 		Options:           *opt,
 		cli:               cli,
 		sendMD5:           0,
 		downloadThrottler: downloadThrottler,
 		uploadThrottler:   uploadThrottler,
-	}, nil
+		storageConfig:     &StorageConfig{},
+	}
+
+	if _, err = s.GetMetadata(ctx, ConfigName); err == nil {
+		var tmp gather.WriteBuffer
+
+		if err := s.GetBlob(ctx, ConfigName, 0, -1, &tmp); err != nil {
+			return nil, errors.Wrapf(err, "error retrieving storage config from bucket %q", opt.BucketName)
+		}
+
+		if err := s.storageConfig.Load(tmp.Bytes().Reader()); err != nil {
+			return nil, errors.Wrapf(err, "error parsing storage config for bucket %q", opt.BucketName)
+		}
+	}
+
+	return &s, nil
 }
 
 func init() {
