@@ -162,7 +162,6 @@ function maybeMoveToApplicationsFolder() {
     buttons: ["Yes", "No"],
     message: "For best experience, Kopia needs to be installed in Applications folder.\n\nDo you want to move it now?"
   }).then(r => {
-    log.info('response ' + r);
     if (r.response == 0) {
       app.moveToApplicationsFolder();
     }
@@ -219,8 +218,6 @@ app.on('ready', () => {
 
   allConfigs().forEach(repoID => serverForRepo(repoID).actuateServer());
 
-  tray.on('double-click', showAllRepoWindows);
-
   if (isFirstRun()) {
     // open all repo windows on first run.
     showAllRepoWindows();
@@ -234,12 +231,9 @@ app.on('ready', () => {
     }
   }
 
-  log.info('1');
   if (isOutsideOfApplicationsFolderOnMac()) {
-    log.info('2');
     setTimeout(maybeMoveToApplicationsFolder, 1000);
   }
-  log.info('3');
 })
 
 ipcMain.addListener('config-list-updated-event', () => updateTrayContextMenu());
@@ -256,7 +250,8 @@ function updateTrayContextMenu() {
     return;
   }
 
-  let reposTemplates = [];
+  let defaultReposTemplates = [];
+  let additionalReposTemplates = [];
 
   allConfigs().forEach(repoID => {
     const sd = serverForRepo(repoID).getServerStatusDetails();
@@ -270,16 +265,23 @@ function updateTrayContextMenu() {
       desc = sd.description;
     }
 
-    reposTemplates.push(
+    // put primary repository first.
+    const collection = repoID === ("repository") ? defaultReposTemplates : additionalReposTemplates
+
+    collection.push(
       {
-        label: desc, click: () => showRepoWindow(repoID),
+        label: desc, 
+        click: () => showRepoWindow(repoID),
+        toolTip: desc + " (" + repoID + ")",
       },
     );
   });
 
-  reposTemplates.sort((a, b) => a.label.localeCompare(b.label));
+  if (additionalReposTemplates.length > 0) {
+    additionalReposTemplates.sort((a, b) => a.label.localeCompare(b.label));
+  }
 
-  template = reposTemplates.concat([
+  template = defaultReposTemplates.concat(additionalReposTemplates).concat([
     { type: 'separator' },
     { label: 'Connect To Another Repository...', click: addAnotherRepository },
     { type: 'separator' },
