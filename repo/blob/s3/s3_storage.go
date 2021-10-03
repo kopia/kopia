@@ -320,16 +320,14 @@ func newStorage(ctx context.Context, opt *Options) (*s3Storage, error) {
 		storageConfig:     &StorageConfig{},
 	}
 
-	if _, err = s.GetMetadata(ctx, ConfigName); err == nil {
-		var tmp gather.WriteBuffer
+	var scOutput gather.WriteBuffer
 
-		if err := s.GetBlob(ctx, ConfigName, 0, -1, &tmp); err != nil {
-			return nil, errors.Wrapf(err, "error retrieving storage config from bucket %q", opt.BucketName)
+	if getBlobErr := s.GetBlob(ctx, ConfigName, 0, -1, &scOutput); getBlobErr == nil {
+		if scErr := s.storageConfig.Load(scOutput.Bytes().Reader()); scErr != nil {
+			return nil, errors.Wrapf(scErr, "error parsing storage config for bucket %q", opt.BucketName)
 		}
-
-		if err := s.storageConfig.Load(tmp.Bytes().Reader()); err != nil {
-			return nil, errors.Wrapf(err, "error parsing storage config for bucket %q", opt.BucketName)
-		}
+	} else if !errors.Is(getBlobErr, blob.ErrBlobNotFound) {
+		return nil, errors.Wrapf(getBlobErr, "error retrieving storage config from bucket %q", opt.BucketName)
 	}
 
 	return &s, nil

@@ -34,19 +34,6 @@ func (p *StorageConfig) Save(w io.Writer) error {
 	return errors.Wrap(json.NewEncoder(w).Encode(p), "error writing JSON")
 }
 
-// Clone returns a clone of sharding parameters.
-func (p *StorageConfig) Clone() *StorageConfig {
-	var clonedBlobOptions []PrefixAndStorageClass
-
-	for _, o := range p.BlobOptions {
-		clonedBlobOptions = append(clonedBlobOptions, PrefixAndStorageClass{o.Prefix, o.StorageClass})
-	}
-
-	return &StorageConfig{
-		BlobOptions: clonedBlobOptions,
-	}
-}
-
 func (p *StorageConfig) getStorageClassForBlobID(id blob.ID) string {
 	for _, o := range p.BlobOptions {
 		if strings.HasPrefix(string(id), string(o.Prefix)) {
