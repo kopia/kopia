@@ -48,6 +48,11 @@ unexport CSC_KEY_PASSWORD
 
 endif
 
+# build x86_64 and apple silicon binaries
+ifeq ($(GOOS),darwin)
+electron_builder_flags+=--x64 --arm64
+endif
+
 dev: node_modules/.up-to-date
 	$(npm) $(npm_flags) run dev
 
