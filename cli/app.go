@@ -496,7 +496,7 @@ func (c *App) advancedCommand(ctx context.Context) {
 This command could be dangerous or lead to repository corruption when used improperly.
 
 Running this command is not needed for using Kopia. Instead, most users should rely on periodic repository maintenance. See https://kopia.io/docs/advanced/maintenance/ for more information.
-To run this command despite the warning, set KOPIA_ADVANCED_COMMANDS=enabled
+To run this command despite the warning, set --advanced-commands=enabled
 
 `)
 

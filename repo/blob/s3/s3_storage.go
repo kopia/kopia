@@ -37,6 +37,7 @@ type s3Storage struct {
 
 	downloadThrottler *iothrottler.IOThrottlerPool
 	uploadThrottler   *iothrottler.IOThrottlerPool
+	storageConfig     *StorageConfig
 }
 
 func (s *s3Storage) GetBlob(ctx context.Context, b blob.ID, offset, length int64, output *gather.WriteBuffer) error {
@@ -142,9 +143,12 @@ func (s *s3Storage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes) (ve
 		return versionMetadata{}, errors.Wrap(err, "AddReader")
 	}
 
+	storageClass := s.storageConfig.getStorageClassForBlobID(b)
+
 	uploadInfo, err := s.cli.PutObject(ctx, s.BucketName, s.getObjectNameString(b), throttled, int64(data.Length()), minio.PutObjectOptions{
 		ContentType:    "application/x-kopia",
 		SendContentMd5: atomic.LoadInt32(&s.sendMD5) > 0,
+		StorageClass:   storageClass,
 	})
 
 	var er minio.ErrorResponse
@@ -158,7 +162,8 @@ func (s *s3Storage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes) (ve
 	if errors.Is(err, io.EOF) && uploadInfo.Size == 0 {
 		// special case empty stream
 		_, err = s.cli.PutObject(ctx, s.BucketName, s.getObjectNameString(b), bytes.NewBuffer(nil), 0, minio.PutObjectOptions{
-			ContentType: "application/x-kopia",
+			ContentType:  "application/x-kopia",
+			StorageClass: storageClass,
 		})
 	}
 
@@ -210,6 +215,10 @@ func (s *s3Storage) ListBlobs(ctx context.Context, prefix blob.ID, callback func
 			BlobID:    blob.ID(o.Key[len(s.Prefix):]),
 			Length:    o.Size,
 			Timestamp: o.LastModified,
+		}
+
+		if bm.BlobID == ConfigName {
+			continue
 		}
 
 		if err := callback(bm); err != nil {
@@ -306,13 +315,26 @@ func newStorage(ctx context.Context, opt *Options) (*s3Storage, error) {
 		return nil, errors.Errorf("bucket %q does not exist", opt.BucketName)
 	}
 
-	return &s3Storage{
+	s := s3Storage{
 		Options:           *opt,
 		cli:               cli,
 		sendMD5:           0,
 		downloadThrottler: downloadThrottler,
 		uploadThrottler:   uploadThrottler,
-	}, nil
+		storageConfig:     &StorageConfig{},
+	}
+
+	var scOutput gather.WriteBuffer
+
+	if getBlobErr := s.GetBlob(ctx, ConfigName, 0, -1, &scOutput); getBlobErr == nil {
+		if scErr := s.storageConfig.Load(scOutput.Bytes().Reader()); scErr != nil {
+			return nil, errors.Wrapf(scErr, "error parsing storage config for bucket %q", opt.BucketName)
+		}
+	} else if !errors.Is(getBlobErr, blob.ErrBlobNotFound) {
+		return nil, errors.Wrapf(getBlobErr, "error retrieving storage config from bucket %q", opt.BucketName)
+	}
+
+	return &s, nil
 }
 
 func init() {
