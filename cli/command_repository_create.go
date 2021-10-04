@@ -101,7 +101,7 @@ func (c *commandRepositoryCreate) ensureEmpty(ctx context.Context, s blob.Storag
 func (c *commandRepositoryCreate) runCreateCommandWithStorage(ctx context.Context, st blob.Storage) error {
 	err := c.ensureEmpty(ctx, st)
 	if err != nil {
-		//return errors.Wrap(err, "unable to get repository storage")
+		return errors.Wrap(err, "unable to get repository storage")
 	}
 
 	options := c.newRepositoryOptionsFromFlags()

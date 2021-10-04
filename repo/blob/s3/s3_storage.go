@@ -217,6 +217,10 @@ func (s *s3Storage) ListBlobs(ctx context.Context, prefix blob.ID, callback func
 			Timestamp: o.LastModified,
 		}
 
+		if bm.BlobID == ConfigName {
+			continue
+		}
+
 		if err := callback(bm); err != nil {
 			return err
 		}
