@@ -9,7 +9,8 @@
             "bin": [
                 "kopia.exe"
             ],
-            "hash": "HASH_WINDOWS_AMD64"
+            "hash": "HASH_WINDOWS_AMD64",
+            "extract_dir": "kopia-VERSION-windows-x64"
         }
     }
 }
