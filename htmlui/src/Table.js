@@ -59,7 +59,8 @@ export default function MyTable({ columns, data }) {
     gotoPage,
     nextPage,
     previousPage,
-    state: { pageIndex },
+    setPageSize,
+    state: { pageIndex, pageSize },
   } = useTable({
     columns,
     data,
@@ -80,13 +81,14 @@ export default function MyTable({ columns, data }) {
     <Pagination size="sm" variant="dark">
       <Pagination.First onClick={() => gotoPage(0)} disabled={!canPreviousPage} />
       <Pagination.Prev onClick={() => previousPage()} disabled={!canPreviousPage} />
+      {paginationItems(pageOptions.length, pageIndex+1, gotoPage)}
       <Pagination.Next onClick={() => nextPage()} disabled={!canNextPage} />
       <Pagination.Last onClick={() => gotoPage(pageCount - 1)} disabled={!canNextPage} />
     </Pagination>
-
-    &nbsp;
     <Pagination size="sm" variant="dark">
-      {paginationItems(pageOptions.length, pageIndex+1, gotoPage)}
+    <select value={pageSize} onChange={e => {setPageSize(Number(e.target.value))}}>
+      {[10, 20, 30, 40, 50, 100].map(pageSize => (<option key={pageSize} value={pageSize}>Show {pageSize}</option>))}
+    </select>
     </Pagination>
     </>;
 
