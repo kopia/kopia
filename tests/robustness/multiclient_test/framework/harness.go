@@ -8,7 +8,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"path"
@@ -92,7 +91,7 @@ func (th *TestHarness) init(ctx context.Context) {
 }
 
 func (th *TestHarness) makeBaseDir() bool {
-	baseDir, err := ioutil.TempDir("", "engine-data-")
+	baseDir, err := os.MkdirTemp("", "engine-data-")
 	if err != nil {
 		log.Println("Error creating temp dir:", err)
 		return false

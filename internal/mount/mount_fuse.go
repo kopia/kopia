@@ -5,7 +5,6 @@ package mount
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 	"time"
 
@@ -48,7 +47,7 @@ func Directory(ctx context.Context, entry fs.Directory, mountPoint string, mount
 	if mountPoint == "*" {
 		var err error
 
-		mountPoint, err = ioutil.TempDir("", "kopia-mount")
+		mountPoint, err = os.MkdirTemp("", "kopia-mount")
 		if err != nil {
 			return nil, errors.Wrap(err, "error creating temp directory")
 		}

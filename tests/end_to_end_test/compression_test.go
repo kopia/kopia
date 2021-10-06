@@ -1,7 +1,7 @@
 package endtoend_test
 
 import (
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -49,7 +49,7 @@ func (s *formatSpecificTestSuite) TestCompression(t *testing.T) {
 	}
 
 	// add a file that compresses well
-	require.NoError(t, ioutil.WriteFile(filepath.Join(dataDir, "some-file1"), []byte(strings.Join(dataLines, "\n")), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dataDir, "some-file1"), []byte(strings.Join(dataLines, "\n")), 0o600))
 
 	e.RunAndExpectSuccess(t, "snapshot", "create", dataDir)
 	sources := clitestutil.ListSnapshotsAndExpectSuccess(t, e)

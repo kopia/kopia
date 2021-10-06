@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -65,7 +64,7 @@ func WriteShallowPlaceholder(path string, de *snapshot.DirEntry) (string, error)
 }
 
 func dirEntryFromPlaceholder(path string) (*snapshot.DirEntry, error) {
-	b, err := ioutil.ReadFile(atomicfile.MaybePrefixLongFilenameOnWindows(path))
+	b, err := os.ReadFile(atomicfile.MaybePrefixLongFilenameOnWindows(path))
 	if err != nil {
 		return nil, errors.Wrap(err, "dirEntryFromPlaceholder reading placeholder")
 	}

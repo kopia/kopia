@@ -5,7 +5,6 @@ package fswalker
 
 import (
 	"bytes"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -55,7 +54,7 @@ func TestWalkChecker_GatherCompare(t *testing.T) {
 				GlobalFilterMatchers: nil,
 			},
 			fileTreeMaker: func(rootDir string) error {
-				return ioutil.WriteFile(filepath.Join(rootDir, "test-file"), []byte("some data"), 0o700)
+				return os.WriteFile(filepath.Join(rootDir, "test-file"), []byte("some data"), 0o700)
 			},
 			fileTreeModifier: func(rootDir string) error { return nil },
 			wantErr:          false,
@@ -66,10 +65,10 @@ func TestWalkChecker_GatherCompare(t *testing.T) {
 				GlobalFilterMatchers: nil,
 			},
 			fileTreeMaker: func(rootDir string) error {
-				return ioutil.WriteFile(filepath.Join(rootDir, "test-file"), []byte("some data"), 0o700)
+				return os.WriteFile(filepath.Join(rootDir, "test-file"), []byte("some data"), 0o700)
 			},
 			fileTreeModifier: func(rootDir string) error {
-				ioutil.WriteFile(filepath.Join(rootDir, "test-file"), []byte("some different data"), 0o700)
+				os.WriteFile(filepath.Join(rootDir, "test-file"), []byte("some different data"), 0o700)
 				return nil
 			},
 			wantErr: true,
@@ -87,11 +86,11 @@ func TestWalkChecker_GatherCompare(t *testing.T) {
 					return err
 				}
 
-				return ioutil.WriteFile(filepath.Join(subdir, "test-file"), []byte("some data"), 0o700)
+				return os.WriteFile(filepath.Join(subdir, "test-file"), []byte("some data"), 0o700)
 			},
 			fileTreeModifier: func(rootDir string) error {
 				subdir := filepath.Join(rootDir, "some", "really", "really", "very", "substantially", "deep", "directory", "tree")
-				return ioutil.WriteFile(filepath.Join(subdir, "test-file"), []byte("some different data"), 0o700)
+				return os.WriteFile(filepath.Join(subdir, "test-file"), []byte("some different data"), 0o700)
 			},
 			wantErr: true,
 		},
@@ -104,7 +103,7 @@ func TestWalkChecker_GatherCompare(t *testing.T) {
 				return nil
 			},
 			fileTreeModifier: func(rootDir string) error {
-				return ioutil.WriteFile(filepath.Join(rootDir, "test-file"), []byte("some data"), 0o700)
+				return os.WriteFile(filepath.Join(rootDir, "test-file"), []byte("some data"), 0o700)
 			},
 			wantErr: true,
 		},
@@ -114,7 +113,7 @@ func TestWalkChecker_GatherCompare(t *testing.T) {
 				GlobalFilterMatchers: nil,
 			},
 			fileTreeMaker: func(rootDir string) error {
-				return ioutil.WriteFile(filepath.Join(rootDir, "test-file"), []byte("some data"), 0o700)
+				return os.WriteFile(filepath.Join(rootDir, "test-file"), []byte("some data"), 0o700)
 			},
 			fileTreeModifier: func(rootDir string) error {
 				return os.Remove(filepath.Join(rootDir, "test-file"))
@@ -127,7 +126,7 @@ func TestWalkChecker_GatherCompare(t *testing.T) {
 				GlobalFilterMatchers: nil,
 			},
 			fileTreeMaker: func(rootDir string) error {
-				return ioutil.WriteFile(filepath.Join(rootDir, "test-file"), []byte("some data"), 0o700)
+				return os.WriteFile(filepath.Join(rootDir, "test-file"), []byte("some data"), 0o700)
 			},
 			fileTreeModifier: func(rootDir string) error {
 				return os.Chmod(filepath.Join(rootDir, "test-file"), 0o000)
@@ -157,10 +156,10 @@ func TestWalkChecker_GatherCompare(t *testing.T) {
 				},
 			},
 			fileTreeMaker: func(rootDir string) error {
-				return ioutil.WriteFile(filepath.Join(rootDir, "test-file"), []byte("some data"), 0o700)
+				return os.WriteFile(filepath.Join(rootDir, "test-file"), []byte("some data"), 0o700)
 			},
 			fileTreeModifier: func(rootDir string) error {
-				ioutil.WriteFile(filepath.Join(rootDir, "test-file"), []byte("some different data"), 0o700)
+				os.WriteFile(filepath.Join(rootDir, "test-file"), []byte("some different data"), 0o700)
 				return nil
 			},
 			wantErr: true,
@@ -175,10 +174,10 @@ func TestWalkChecker_GatherCompare(t *testing.T) {
 				},
 			},
 			fileTreeMaker: func(rootDir string) error {
-				return ioutil.WriteFile(filepath.Join(rootDir, "test-file"), []byte("some data"), 0o700)
+				return os.WriteFile(filepath.Join(rootDir, "test-file"), []byte("some data"), 0o700)
 			},
 			fileTreeModifier: func(rootDir string) error {
-				ioutil.WriteFile(filepath.Join(rootDir, "test-file"), []byte("some different data"), 0o700)
+				os.WriteFile(filepath.Join(rootDir, "test-file"), []byte("some different data"), 0o700)
 				return nil
 			},
 			wantErr: false,
@@ -201,7 +200,7 @@ func TestWalkChecker_GatherCompare(t *testing.T) {
 			},
 		}
 
-		tmpDir, err := ioutil.TempDir("", "")
+		tmpDir, err := os.MkdirTemp("", "")
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"flag"
-	"io/ioutil"
 	"log"
 	"os"
 	"path"
@@ -100,7 +99,7 @@ func (th *kopiaRobustnessTestHarness) init(ctx context.Context, dataRepoPath, me
 }
 
 func (th *kopiaRobustnessTestHarness) makeBaseDir() bool {
-	baseDir, err := ioutil.TempDir("", "engine-data-")
+	baseDir, err := os.MkdirTemp("", "engine-data-")
 	if err != nil {
 		log.Println("Error creating temp dir:", err)
 		return false

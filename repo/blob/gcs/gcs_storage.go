@@ -5,8 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
+	"os"
 	"time"
 
 	gcsclient "cloud.google.com/go/storage"
@@ -192,7 +192,7 @@ func toBandwidth(bytesPerSecond int) iothrottler.Bandwidth {
 }
 
 func tokenSourceFromCredentialsFile(ctx context.Context, fn string, scopes ...string) (oauth2.TokenSource, error) {
-	data, err := ioutil.ReadFile(fn) //nolint:gosec
+	data, err := os.ReadFile(fn) //nolint:gosec
 	if err != nil {
 		return nil, errors.Wrap(err, "error reading credentials file")
 	}

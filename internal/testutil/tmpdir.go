@@ -24,7 +24,7 @@ var interestingLengths = []int{10, 50, 100, 240, 250, 260, 270}
 
 // GetInterestingTempDirectoryName returns interesting directory name used for testing.
 func GetInterestingTempDirectoryName() (string, error) {
-	td, err := ioutil.TempDir("", "kopia-test")
+	td, err := os.MkdirTemp("", "kopia-test")
 	if err != nil {
 		return "", errors.Wrap(err, "unable to create temp directory")
 	}
@@ -125,7 +125,7 @@ func dumpLogFile(t *testing.T, fname string) {
 	t.Helper()
 
 	// nolint:gosec
-	data, err := ioutil.ReadFile(fname)
+	data, err := os.ReadFile(fname)
 	if err != nil {
 		t.Error(err)
 		return

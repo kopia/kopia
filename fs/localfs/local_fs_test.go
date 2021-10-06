@@ -2,7 +2,6 @@ package localfs
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -47,9 +46,9 @@ func TestFiles(t *testing.T) {
 	}
 
 	// Now list a directory with 3 files.
-	assertNoError(t, ioutil.WriteFile(filepath.Join(tmp, "f3"), []byte{1, 2, 3}, 0o777))
-	assertNoError(t, ioutil.WriteFile(filepath.Join(tmp, "f2"), []byte{1, 2, 3, 4}, 0o777))
-	assertNoError(t, ioutil.WriteFile(filepath.Join(tmp, "f1"), []byte{1, 2, 3, 4, 5}, 0o777))
+	assertNoError(t, os.WriteFile(filepath.Join(tmp, "f3"), []byte{1, 2, 3}, 0o777))
+	assertNoError(t, os.WriteFile(filepath.Join(tmp, "f2"), []byte{1, 2, 3, 4}, 0o777))
+	assertNoError(t, os.WriteFile(filepath.Join(tmp, "f1"), []byte{1, 2, 3, 4, 5}, 0o777))
 
 	assertNoError(t, os.Mkdir(filepath.Join(tmp, "z"), 0o777))
 	assertNoError(t, os.Mkdir(filepath.Join(tmp, "y"), 0o777))

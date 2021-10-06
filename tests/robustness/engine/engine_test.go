@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"io/ioutil"
 	"log"
 	"math"
 	"os"
@@ -317,7 +316,7 @@ func TestSnapshotVerificationFail(t *testing.T) {
 	// Swap second snapshot's validation data into the first's metadata
 	ssMeta1.ValidationData = ssMeta2.ValidationData
 
-	restoreDir, err := ioutil.TempDir(eng.Checker.RestoreDir, fmt.Sprintf("restore-snap-%v", snapID1))
+	restoreDir, err := os.MkdirTemp(eng.Checker.RestoreDir, fmt.Sprintf("restore-snap-%v", snapID1))
 	require.NoError(t, err)
 
 	defer os.RemoveAll(restoreDir)
@@ -654,7 +653,7 @@ func TestIOLimitPerWriteAction(t *testing.T) {
 	// written to it, due to the I/O limit.
 	walkFunc := func(path string, info fs.FileInfo, err error) error {
 		if !info.IsDir() && info.Size() > 0 {
-			fileContentB, err := ioutil.ReadFile(path)
+			fileContentB, err := os.ReadFile(path)
 			require.NoError(t, err)
 
 			nonZeroByteCount := 0
@@ -696,7 +695,7 @@ func TestIOLimitPerWriteAction(t *testing.T) {
 func TestStatsPersist(t *testing.T) {
 	ctx := context.Background()
 
-	tmpDir, err := ioutil.TempDir("", "stats-persist-test")
+	tmpDir, err := os.MkdirTemp("", "stats-persist-test")
 	require.NoError(t, err)
 
 	defer os.RemoveAll(tmpDir)
@@ -766,7 +765,7 @@ func TestStatsPersist(t *testing.T) {
 func TestLogsPersist(t *testing.T) {
 	ctx := context.Background()
 
-	tmpDir, err := ioutil.TempDir("", "logs-persist-test")
+	tmpDir, err := os.MkdirTemp("", "logs-persist-test")
 	require.NoError(t, err)
 
 	defer os.RemoveAll(tmpDir)
@@ -850,7 +849,7 @@ func newTestHarness(ctx context.Context, t *testing.T, dataRepoPath, metaRepoPat
 		err error
 	)
 
-	if th.baseDir, err = ioutil.TempDir("", "engine-data-"); err != nil {
+	if th.baseDir, err = os.MkdirTemp("", "engine-data-"); err != nil {
 		return nil, nil, err
 	}
 

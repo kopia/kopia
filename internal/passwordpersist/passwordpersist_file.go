@@ -3,7 +3,6 @@ package passwordpersist
 import (
 	"context"
 	"encoding/base64"
-	"io/ioutil"
 	"os"
 
 	"github.com/pkg/errors"
@@ -17,7 +16,7 @@ const passwordFileMode = 0o600
 type filePasswordStorage struct{}
 
 func (filePasswordStorage) GetPassword(ctx context.Context, configFile string) (string, error) {
-	b, err := ioutil.ReadFile(passwordFileName(configFile))
+	b, err := os.ReadFile(passwordFileName(configFile))
 	if os.IsNotExist(err) {
 		return "", ErrPasswordNotFound
 	}
@@ -41,7 +40,7 @@ func (filePasswordStorage) PersistPassword(ctx context.Context, configFile, pass
 	log(ctx).Debugf("Saving password to file %v.", fn)
 
 	// nolint:wrapcheck
-	return ioutil.WriteFile(fn, []byte(base64.StdEncoding.EncodeToString([]byte(password))), passwordFileMode)
+	return os.WriteFile(fn, []byte(base64.StdEncoding.EncodeToString([]byte(password))), passwordFileMode)
 }
 
 func (filePasswordStorage) DeletePassword(ctx context.Context, configFile string) error {

@@ -2,7 +2,6 @@ package cli_test
 
 import (
 	"bytes"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -17,10 +16,10 @@ func TestSnapshotEstimate(t *testing.T) {
 	env := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, testenv.NewInProcRunner(t))
 
 	dir := testutil.TempDirectory(t)
-	require.NoError(t, ioutil.WriteFile(filepath.Join(dir, "file1.txt"), bytes.Repeat([]byte{1, 2, 3, 4, 5}, 15000), 0o600))
-	require.NoError(t, ioutil.WriteFile(filepath.Join(dir, "file2.txt"), bytes.Repeat([]byte{2, 3, 4, 5, 6}, 10000), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "file1.txt"), bytes.Repeat([]byte{1, 2, 3, 4, 5}, 15000), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "file2.txt"), bytes.Repeat([]byte{2, 3, 4, 5, 6}, 10000), 0o600))
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, "subdir"), 0o755))
-	require.NoError(t, ioutil.WriteFile(filepath.Join(dir, "subdir", "file2.txt"), bytes.Repeat([]byte{3, 4, 5, 6, 7}, 5000), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "subdir", "file2.txt"), bytes.Repeat([]byte{3, 4, 5, 6, 7}, 5000), 0o600))
 
 	env.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", env.RepoDir)
 	out := env.RunAndExpectSuccess(t, "snapshot", "estimate", dir)
@@ -51,7 +50,7 @@ func TestSnapshotEstimate_NotADirectory(t *testing.T) {
 	env := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, testenv.NewInProcRunner(t))
 
 	dir := testutil.TempDirectory(t)
-	require.NoError(t, ioutil.WriteFile(filepath.Join(dir, "file1.txt"), []byte{1, 2, 3}, 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "file1.txt"), []byte{1, 2, 3}, 0o600))
 
 	env.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", env.RepoDir)
 	env.RunAndExpectFailure(t, "snapshot", "estimate", filepath.Join(dir, "file1.txt"))

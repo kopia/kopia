@@ -3,7 +3,7 @@ package repo_test
 import (
 	"bytes"
 	"context"
-	"io/ioutil"
+	"io"
 	"math/rand"
 	"runtime/debug"
 	"testing"
@@ -278,7 +278,7 @@ func TestFormats(t *testing.T) {
 				continue
 			}
 
-			bytesRead, err := ioutil.ReadAll(rc)
+			bytesRead, err := io.ReadAll(rc)
 			if err != nil {
 				t.Errorf("error reading: %v", err)
 			}

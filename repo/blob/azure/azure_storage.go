@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"time"
 
@@ -110,7 +109,7 @@ func (az *azStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes) er
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	throttled, err := az.uploadThrottler.AddReader(ioutil.NopCloser(data.Reader()))
+	throttled, err := az.uploadThrottler.AddReader(io.NopCloser(data.Reader()))
 	if err != nil {
 		// nolint:wrapcheck
 		return err

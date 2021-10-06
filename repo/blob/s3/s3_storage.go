@@ -7,14 +7,13 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"strings"
 	"sync/atomic"
 	"time"
 
 	"github.com/efarrer/iothrottler"
-	minio "github.com/minio/minio-go/v7"
+	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/pkg/errors"
 
@@ -138,7 +137,7 @@ func (s *s3Storage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes) err
 }
 
 func (s *s3Storage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes) (versionMetadata, error) {
-	throttled, err := s.uploadThrottler.AddReader(ioutil.NopCloser(data.Reader()))
+	throttled, err := s.uploadThrottler.AddReader(io.NopCloser(data.Reader()))
 	if err != nil {
 		return versionMetadata{}, errors.Wrap(err, "AddReader")
 	}

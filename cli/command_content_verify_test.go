@@ -2,7 +2,7 @@ package cli_test
 
 import (
 	"bytes"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -17,7 +17,7 @@ func (s *formatSpecificTestSuite) TestContentVerify(t *testing.T) {
 	env := testenv.NewCLITest(t, s.formatFlags, testenv.NewInProcRunner(t))
 
 	dir := testutil.TempDirectory(t)
-	require.NoError(t, ioutil.WriteFile(filepath.Join(dir, "file1.txt"), bytes.Repeat([]byte{1, 2, 3, 4, 5}, 15000), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "file1.txt"), bytes.Repeat([]byte{1, 2, 3, 4, 5}, 15000), 0o600))
 
 	env.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", env.RepoDir)
 	env.RunAndExpectSuccess(t, "content", "verify")

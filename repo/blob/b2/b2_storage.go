@@ -4,14 +4,14 @@ package b2
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/efarrer/iothrottler"
 	"github.com/pkg/errors"
-	backblaze "gopkg.in/kothar/go-backblaze.v0"
+	"gopkg.in/kothar/go-backblaze.v0"
 
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/iocopy"
@@ -149,7 +149,7 @@ func translateError(err error) error {
 }
 
 func (s *b2Storage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes) error {
-	throttled, err := s.uploadThrottler.AddReader(ioutil.NopCloser(data.Reader()))
+	throttled, err := s.uploadThrottler.AddReader(io.NopCloser(data.Reader()))
 	if err != nil {
 		return translateError(err)
 	}

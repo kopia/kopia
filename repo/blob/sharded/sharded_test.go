@@ -3,7 +3,6 @@ package sharded_test
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -43,7 +42,7 @@ func TestShardedFileStorage(t *testing.T) {
 					DirectoryShards: shardSpec,
 				})
 
-				ioutil.WriteFile(filepath.Join(path, "foreign-file"), []byte{1, 2, 3}, 0o600)
+				os.WriteFile(filepath.Join(path, "foreign-file"), []byte{1, 2, 3}, 0o600)
 
 				if r == nil || err != nil {
 					t.Errorf("unexpected result: %v %v", r, err)
@@ -140,7 +139,7 @@ func TestShardedFileStorageShardingMap(t *testing.T) {
 			dotShardsFile := filepath.Join(path, ".shards")
 
 			// write shards file
-			require.NoError(t, ioutil.WriteFile(dotShardsFile, []byte(tc.shardMapJSON), 0o600))
+			require.NoError(t, os.WriteFile(dotShardsFile, []byte(tc.shardMapJSON), 0o600))
 
 			var allBlobIDs []blob.ID
 
@@ -185,7 +184,7 @@ func TestShardedFileStorageShardingMap_Invalid(t *testing.T) {
 	dotShardsFile := filepath.Join(path, ".shards")
 
 	// write malformed shards file
-	require.NoError(t, ioutil.WriteFile(dotShardsFile, []byte{1, 2, 3}, 0o600))
+	require.NoError(t, os.WriteFile(dotShardsFile, []byte{1, 2, 3}, 0o600))
 
 	var tmp gather.WriteBuffer
 	defer tmp.Close()
@@ -200,7 +199,7 @@ func TestShardedFileStorageShardingMap_Invalid(t *testing.T) {
 
 	// write malformed file again, but will be ignored since it was successfully loaded
 	// in this session.
-	require.NoError(t, ioutil.WriteFile(dotShardsFile, []byte{1, 2, 3}, 0o600))
+	require.NoError(t, os.WriteFile(dotShardsFile, []byte{1, 2, 3}, 0o600))
 
 	require.NoError(t, r.PutBlob(ctx, "someblob2", gather.FromSlice([]byte("foo"))))
 }

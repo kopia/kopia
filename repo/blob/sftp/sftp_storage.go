@@ -6,7 +6,6 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"os"
 	"os/exec"
@@ -290,7 +289,7 @@ func (s *sftpStorage) Close(ctx context.Context) error {
 }
 
 func writeKnownHostsDataStringToTempFile(data string) (string, error) {
-	tf, err := ioutil.TempFile("", "kopia-known-hosts")
+	tf, err := os.CreateTemp("", "kopia-known-hosts")
 	if err != nil {
 		return "", errors.Wrap(err, "error creating temp file")
 	}
@@ -351,7 +350,7 @@ func getSigner(opt *Options) (ssh.Signer, error) {
 			return nil, errors.Errorf("key file path must be absolute")
 		}
 
-		privateKeyData, err = ioutil.ReadFile(opt.Keyfile)
+		privateKeyData, err = os.ReadFile(opt.Keyfile)
 		if err != nil {
 			return nil, errors.Wrap(err, "error reading private key file")
 		}

@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/base64"
-	"io/ioutil"
+	"io"
 	"os"
 	"testing"
 
@@ -75,7 +75,7 @@ func gunzip(d []byte) ([]byte, error) {
 
 	defer z.Close()
 
-	return ioutil.ReadAll(z)
+	return io.ReadAll(z)
 }
 
 func mustGetOptionsOrSkip(t *testing.T, prefix string) *gcs.Options {

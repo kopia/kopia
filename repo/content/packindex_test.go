@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"crypto/sha1"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math/rand"
 	"reflect"
 	"strings"
@@ -333,7 +333,7 @@ func TestPackIndexV2TooManyUniqueFormats(t *testing.T) {
 		})
 	}
 
-	require.NoError(t, b.buildV2(ioutil.Discard))
+	require.NoError(t, b.buildV2(io.Discard))
 
 	// add one more to push it over the edge
 	b.Add(&InfoStruct{
@@ -342,7 +342,7 @@ func TestPackIndexV2TooManyUniqueFormats(t *testing.T) {
 		CompressionHeaderID: compression.HeaderID(5000),
 	})
 
-	err := b.buildV2(ioutil.Discard)
+	err := b.buildV2(io.Discard)
 	require.Error(t, err)
 	require.Equal(t, err.Error(), "unsupported - too many unique formats 256 (max 255)")
 }

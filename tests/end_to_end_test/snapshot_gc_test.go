@@ -1,7 +1,6 @@
 package endtoend_test
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,7 +26,7 @@ func (s *formatSpecificTestSuite) TestSnapshotGC(t *testing.T) {
 
 	dataDir := testutil.TempDirectory(t)
 	require.NoError(t, os.MkdirAll(dataDir, 0o777))
-	require.NoError(t, ioutil.WriteFile(filepath.Join(dataDir, "some-file1"), []byte(`
+	require.NoError(t, os.WriteFile(filepath.Join(dataDir, "some-file1"), []byte(`
 hello world
 how are you
 `), 0o600))

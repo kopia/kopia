@@ -6,8 +6,8 @@ package framework
 import (
 	"context"
 	"io"
-	"io/ioutil"
 	"log"
+	"os"
 	"os/exec"
 	"strconv"
 	"sync"
@@ -190,7 +190,7 @@ func (mcs *MultiClientSnapshotter) createOrGetSnapshotter(ctx context.Context) (
 	}
 
 	// Create new ClientSnapshotter
-	clientDir, err := ioutil.TempDir(mcs.baseDirPath, "client-")
+	clientDir, err := os.MkdirTemp(mcs.baseDirPath, "client-")
 	if err != nil {
 		return nil, err
 	}

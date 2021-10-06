@@ -2,7 +2,7 @@ package endtoend_test
 
 import (
 	"context"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -86,7 +86,7 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 		e.RunAndExpectSuccess(t, "server", "users", "add", "foo@bar", "--user-password", "baz")
 	} else {
 		htpasswordFile := filepath.Join(e.ConfigDir, "htpasswd.txt")
-		ioutil.WriteFile(htpasswordFile, htpasswdFileContents, 0o755)
+		os.WriteFile(htpasswordFile, htpasswdFileContents, 0o755)
 		serverStartArgs = append(serverStartArgs, "--htpasswd-file", htpasswordFile)
 	}
 

@@ -5,7 +5,6 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -23,7 +22,7 @@ var log = logging.GetContextLoggerFunc("editor")
 // It creates a temporary file with 'initial' contents and repeatedly invokes the editor until the provided 'parse' function
 // returns nil result indicating success. The 'parse' function is passed the contents of edited files without # line comments.
 func EditLoop(ctx context.Context, fname, initial string, parse func(updated string) error) error {
-	tmpDir, err := ioutil.TempDir("", "kopia")
+	tmpDir, err := os.MkdirTemp("", "kopia")
 	if err != nil {
 		return errors.Wrap(err, "unable to create temp directory")
 	}
@@ -32,7 +31,7 @@ func EditLoop(ctx context.Context, fname, initial string, parse func(updated str
 	defer os.RemoveAll(tmpDir) //nolint:errcheck
 
 	// nolint:gomnd
-	if err := ioutil.WriteFile(tmpFile, []byte(initial), 0o600); err != nil {
+	if err := os.WriteFile(tmpFile, []byte(initial), 0o600); err != nil {
 		return errors.Wrap(err, "unable to write file to edit")
 	}
 

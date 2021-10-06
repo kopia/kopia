@@ -6,7 +6,6 @@ package snapmeta
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -27,12 +26,12 @@ var _ robustness.Persister = (*KopiaPersister)(nil)
 // NewPersister returns a Kopia based Persister.
 // ConnectOrCreateRepo must be invoked to enable the interface.
 func NewPersister(baseDir string) (*KopiaPersister, error) {
-	localDir, err := ioutil.TempDir(baseDir, "kopia-local-metadata-")
+	localDir, err := os.MkdirTemp(baseDir, "kopia-local-metadata-")
 	if err != nil {
 		return nil, err
 	}
 
-	persistenceDir, err := ioutil.TempDir(localDir, "kopia-persistence-root")
+	persistenceDir, err := os.MkdirTemp(localDir, "kopia-persistence-root")
 	if err != nil {
 		return nil, err
 	}

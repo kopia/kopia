@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -554,7 +553,7 @@ func TestForeignReposCauseErrors(t *testing.T) {
 		buffy := &bytes.Buffer{}
 		encoder := json.NewEncoder(buffy)
 		require.NoError(t, encoder.Encode(s.de))
-		require.NoError(t, ioutil.WriteFile(depath, buffy.Bytes(), 0o444))
+		require.NoError(t, os.WriteFile(depath, buffy.Bytes(), 0o444))
 		e.RunAndExpectFailure(t, "snapshot", "create", source)
 		require.NoError(t, os.RemoveAll(spath))
 	}
@@ -590,7 +589,7 @@ func getShallowDirEntry(t *testing.T, fpath string) *snapshot.DirEntry {
 			p += s
 		}
 
-		b, err = ioutil.ReadFile(p)
+		b, err = os.ReadFile(p)
 		if err == nil {
 			break
 		}
