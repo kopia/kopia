@@ -35,7 +35,8 @@ type Reconnector struct {
 	activeConnection Connection
 }
 
-func (r *Reconnector) getActiveConnection(ctx context.Context) (Connection, error) {
+// GetOrOpenConnection gets or establishes new connection and returns it.
+func (r *Reconnector) GetOrOpenConnection(ctx context.Context) (Connection, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -57,7 +58,7 @@ func (r *Reconnector) getActiveConnection(ctx context.Context) (Connection, erro
 func (r *Reconnector) UsingConnection(ctx context.Context, desc string, cb func(cli Connection) (interface{}, error)) (interface{}, error) {
 	// nolint:wrapcheck
 	return retry.WithExponentialBackoff(ctx, desc, func() (interface{}, error) {
-		conn, err := r.getActiveConnection(ctx)
+		conn, err := r.GetOrOpenConnection(ctx)
 		if err != nil {
 			if r.connector.IsConnectionClosedError(err) {
 				log(ctx).Errorf("connection failed: %v, will retry", err)

@@ -500,20 +500,19 @@ func New(ctx context.Context, opts *Options) (blob.Storage, error) {
 
 	impl.rec = connection.NewReconnector(impl)
 
-	if err := impl.rec.UsingConnectionNoResult(ctx, "OpenSFTP", func(conn connection.Connection) error {
-		if _, err := sftpClientFromConnection(conn).Stat(opts.Path); err != nil {
-			if isNotExist(err) {
-				if err = sftpClientFromConnection(conn).MkdirAll(opts.Path); err != nil {
-					return errors.Wrap(err, "cannot create path")
-				}
-			} else {
-				return errors.Wrapf(err, "path doesn't exist: %s", opts.Path)
-			}
-		}
-
-		return nil
-	}); err != nil {
+	conn, err := impl.rec.GetOrOpenConnection(ctx)
+	if err != nil {
 		return nil, errors.Wrap(err, "unable to open SFTP storage")
+	}
+
+	if _, err := sftpClientFromConnection(conn).Stat(opts.Path); err != nil {
+		if isNotExist(err) {
+			if err = sftpClientFromConnection(conn).MkdirAll(opts.Path); err != nil {
+				return nil, errors.Wrap(err, "cannot create path")
+			}
+		} else {
+			return nil, errors.Wrapf(err, "path doesn't exist: %s", opts.Path)
+		}
 	}
 
 	return retrying.NewWrapper(r), nil
