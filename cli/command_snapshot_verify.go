@@ -3,7 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math/rand"
 	"sync"
 
@@ -194,7 +194,7 @@ func (v *verifier) readEntireObject(ctx context.Context, oid object.ID, path str
 	}
 	defer r.Close() //nolint:errcheck
 
-	return errors.Wrap(iocopy.JustCopy(ioutil.Discard, r), "unable to read data")
+	return errors.Wrap(iocopy.JustCopy(io.Discard, r), "unable to read data")
 }
 
 func (c *commandSnapshotVerify) run(ctx context.Context, rep repo.Repository) error {

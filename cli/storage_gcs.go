@@ -3,7 +3,7 @@ package cli
 import (
 	"context"
 	"encoding/json"
-	"io/ioutil"
+	"os"
 
 	"github.com/alecthomas/kingpin"
 	"github.com/pkg/errors"
@@ -30,7 +30,7 @@ func (c *storageGCSFlags) setup(_ storageProviderServices, cmd *kingpin.CmdClaus
 
 func (c *storageGCSFlags) connect(ctx context.Context, isNew bool) (blob.Storage, error) {
 	if c.embedCredentials {
-		data, err := ioutil.ReadFile(c.options.ServiceAccountCredentialsFile)
+		data, err := os.ReadFile(c.options.ServiceAccountCredentialsFile)
 		if err != nil {
 			return nil, errors.Wrap(err, "unable to open service account credentials file")
 		}

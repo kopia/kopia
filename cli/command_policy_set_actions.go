@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/csv"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strings"
 	"time"
 
@@ -80,7 +80,7 @@ func (c *policyActionFlags) setActionCommandFromFlags(ctx context.Context, actio
 	*changeCount++
 
 	if c.policySetPersistActionScript {
-		script, err := ioutil.ReadFile(value) //nolint:gosec
+		script, err := os.ReadFile(value)
 		if err != nil {
 			return errors.Wrap(err, "unable to read script file")
 		}

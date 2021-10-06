@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"time"
 
 	"github.com/pkg/errors"
@@ -41,7 +40,7 @@ func showContentWithFlags(w io.Writer, rd io.Reader, unzip, indentJSON bool) err
 			return errors.Wrap(err, "errors indenting JSON")
 		}
 
-		rd = ioutil.NopCloser(&buf2)
+		rd = io.NopCloser(&buf2)
 	}
 
 	if err := iocopy.JustCopy(w, rd); err != nil {

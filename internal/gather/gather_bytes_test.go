@@ -2,7 +2,7 @@ package gather
 
 import (
 	"bytes"
-	"io/ioutil"
+	"io"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -83,7 +83,7 @@ func TestGatherBytes(t *testing.T) {
 		}
 
 		// reader
-		all, err := ioutil.ReadAll(b.Reader())
+		all, err := io.ReadAll(b.Reader())
 		if err != nil {
 			t.Errorf("unable to read: %v", err)
 		}

@@ -93,7 +93,7 @@ func NewRunner() (fr *Runner, err error) {
 
 	var Exe string
 
-	dataDir, err := ioutil.TempDir(localDataPath, "fio-data-")
+	dataDir, err := os.MkdirTemp(localDataPath, "fio-data-")
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create temp directory for fio runner")
 	}

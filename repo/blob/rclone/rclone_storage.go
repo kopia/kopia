@@ -6,7 +6,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -188,7 +187,7 @@ func (r *rcloneStorage) runRCloneAndWaitForServerAddress(ctx context.Context, c 
 // nolint:funlen
 func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 	// generate directory for all temp files.
-	td, err := ioutil.TempDir("", "kopia-rclone")
+	td, err := os.MkdirTemp("", "kopia-rclone")
 	if err != nil {
 		return nil, errors.Wrap(err, "error getting temporary dir")
 	}
@@ -263,7 +262,7 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 		tmpConfigFile := filepath.Join(r.temporaryDir, "rclone.conf")
 
 		// nolint:gomnd
-		if err = ioutil.WriteFile(tmpConfigFile, []byte(opt.EmbeddedConfig), 0o600); err != nil {
+		if err = os.WriteFile(tmpConfigFile, []byte(opt.EmbeddedConfig), 0o600); err != nil {
 			return nil, errors.Wrap(err, "unable to write config file")
 		}
 

@@ -6,6 +6,13 @@ linters-settings:
     statements: 60
   forbidigo:
     forbid:
+    - ioutil.Discard # use io.Discard
+    - ioutil.NopCloser # use io.NopCloser
+    - ioutil.ReadAll # use io.ReadAll
+    - ioutil.ReadFile # use os.ReadFile
+    - ioutil.TempDir # use os.MkdirTemp
+    - ioutil.TempFile # use os.CreateTemp
+    - ioutil.WriteFile # use os.WriteFile
     - time.Now # use clock.Now
     - time.Since # use clock.Since
     - time.Until # use clock.Until
@@ -100,7 +107,7 @@ issues:
         - dupl
     - text: "Line contains TODO"
       linters:
-        - godox 
+        - godox
     - text: ".*Magic number\\: [01],"
       linters:
         - gomnd

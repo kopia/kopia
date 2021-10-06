@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 	"strconv"
@@ -45,7 +44,7 @@ type Checker struct {
 // NewChecker instantiates a new Checker, returning its pointer. A temporary
 // directory is created to mount restored data.
 func NewChecker(snapIssuer robustness.Snapshotter, snapmetaStore robustness.Store, restoreDir string) (*Checker, error) {
-	restoreDir, err := ioutil.TempDir(restoreDir, "restore-data-")
+	restoreDir, err := os.MkdirTemp(restoreDir, "restore-data-")
 	if err != nil {
 		return nil, err
 	}
@@ -239,7 +238,7 @@ func (chk *Checker) TakeSnapshot(ctx context.Context, sourceDir string, opts map
 // resulting tree using the saved snapshot data.
 func (chk *Checker) RestoreSnapshot(ctx context.Context, snapID string, reportOut io.Writer, opts map[string]string) error {
 	// Make an independent directory for the restore
-	restoreSubDir, err := ioutil.TempDir(chk.RestoreDir, fmt.Sprintf("restore-snap-%v", snapID))
+	restoreSubDir, err := os.MkdirTemp(chk.RestoreDir, fmt.Sprintf("restore-snap-%v", snapID))
 	if err != nil {
 		return err
 	}

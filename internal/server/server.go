@@ -4,13 +4,13 @@ package server
 import (
 	"context"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"sync"
 	"time"
 
-	jwt "github.com/golang-jwt/jwt/v4"
+	"github.com/golang-jwt/jwt/v4"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
@@ -257,7 +257,7 @@ func (s *Server) handleAPIPossiblyNotConnected(isAuthorized isAuthorizedFunc, f 
 		// we must pre-read request body before acquiring the lock as it sometimes leads to deadlock
 		// in HTTP/2 server.
 		// See https://github.com/golang/go/issues/40816
-		body, berr := ioutil.ReadAll(r.Body)
+		body, berr := io.ReadAll(r.Body)
 		if berr != nil {
 			http.Error(w, "error reading request body", http.StatusInternalServerError)
 			return

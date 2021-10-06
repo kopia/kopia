@@ -4,7 +4,6 @@
 package walker
 
 import (
-	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
@@ -17,7 +16,7 @@ import (
 )
 
 func TestWalk(t *testing.T) {
-	dataDir, err := ioutil.TempDir("", "walk-data-")
+	dataDir, err := os.MkdirTemp("", "walk-data-")
 	require.NoError(t, err)
 
 	defer os.RemoveAll(dataDir)

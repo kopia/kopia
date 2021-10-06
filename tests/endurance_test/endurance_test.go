@@ -3,7 +3,6 @@ package endurance_test
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"math/rand"
 	"net/http/httptest"
@@ -65,7 +64,7 @@ func TestEndurance(t *testing.T) {
 	runner := testenv.NewExeRunner(t)
 	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
 
-	tmpDir, err := ioutil.TempDir("", "endurance")
+	tmpDir, err := os.MkdirTemp("", "endurance")
 	if err != nil {
 		t.Fatalf("unable to get temp dir: %v", err)
 	}
@@ -214,7 +213,7 @@ func actionAddNewSource(t *testing.T, e *testenv.CLITest, s *runnerState) {
 		return
 	}
 
-	srcDir, err := ioutil.TempDir("", "kopiasrc")
+	srcDir, err := os.MkdirTemp("", "kopiasrc")
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}

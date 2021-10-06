@@ -1,7 +1,6 @@
 package endtoend_test
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -31,11 +30,11 @@ func TestDiff(t *testing.T) {
 
 	// create some directories and files
 	require.NoError(t, os.MkdirAll(filepath.Join(dataDir, "foo"), 0o700))
-	require.NoError(t, ioutil.WriteFile(filepath.Join(dataDir, "some-file1"), []byte(`
+	require.NoError(t, os.WriteFile(filepath.Join(dataDir, "some-file1"), []byte(`
 hello world
 how are you
 `), 0o600))
-	require.NoError(t, ioutil.WriteFile(filepath.Join(dataDir, "some-file2"), []byte(`
+	require.NoError(t, os.WriteFile(filepath.Join(dataDir, "some-file2"), []byte(`
 quick brown
 fox jumps
 over the lazy
@@ -44,7 +43,7 @@ dog
 	e.RunAndExpectSuccess(t, "snapshot", "create", dataDir)
 
 	// change some files
-	require.NoError(t, ioutil.WriteFile(filepath.Join(dataDir, "some-file2"), []byte(`
+	require.NoError(t, os.WriteFile(filepath.Join(dataDir, "some-file2"), []byte(`
 quick brown
 fox jumps
 over the lazy

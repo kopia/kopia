@@ -4,7 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -297,7 +297,7 @@ func mustReadObject(ctx context.Context, t *testing.T, r repo.Repository, oid ob
 	or, err := r.OpenObject(ctx, oid)
 	require.NoError(t, err)
 
-	data, err := ioutil.ReadAll(or)
+	data, err := io.ReadAll(or)
 	require.NoError(t, err)
 
 	// verify data is read back the same.

@@ -6,7 +6,6 @@ package reporter
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 
 	"github.com/google/fswalker"
@@ -71,7 +70,7 @@ func ReportFiles(ctx context.Context, config *fspb.ReportConfig, beforeFile, aft
 }
 
 func writeTempConfigFile(config *fspb.ReportConfig) (string, error) {
-	f, err := ioutil.TempFile("", "fswalker-report-config-")
+	f, err := os.CreateTemp("", "fswalker-report-config-")
 	if err != nil {
 		return "", err
 	}

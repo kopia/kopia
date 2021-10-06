@@ -2,7 +2,6 @@ package endtoend_test
 
 import (
 	"bufio"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -330,7 +329,7 @@ func TestSnapshotActionsEnable(t *testing.T) {
 func tmpfileWithContents(t *testing.T, contents string) string {
 	t.Helper()
 
-	f, err := ioutil.TempFile("", "kopia-test")
+	f, err := os.CreateTemp("", "kopia-test")
 	verifyNoError(t, err)
 
 	f.WriteString(contents)

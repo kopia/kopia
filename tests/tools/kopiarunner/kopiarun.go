@@ -4,7 +4,6 @@ package kopiarunner
 import (
 	"bytes"
 	"errors"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -34,7 +33,7 @@ func NewRunner(baseDir string) (*Runner, error) {
 		return nil, ErrExeVariableNotSet
 	}
 
-	configDir, err := ioutil.TempDir(baseDir, "kopia-config")
+	configDir, err := os.MkdirTemp(baseDir, "kopia-config")
 	if err != nil {
 		return nil, err
 	}

@@ -3,7 +3,6 @@ package kopiarunner
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -11,15 +10,15 @@ import (
 )
 
 func TestParseSnapListAllExeTest(t *testing.T) {
-	baseDir, err := ioutil.TempDir("", t.Name())
+	baseDir, err := os.MkdirTemp("", t.Name())
 	require.NoError(t, err)
 
 	defer os.RemoveAll(baseDir)
 
-	repoDir, err := ioutil.TempDir(baseDir, "repo")
+	repoDir, err := os.MkdirTemp(baseDir, "repo")
 	require.NoError(t, err)
 
-	sourceDir, err := ioutil.TempDir(baseDir, "source")
+	sourceDir, err := os.MkdirTemp(baseDir, "source")
 	require.NoError(t, err)
 
 	ks, err := NewKopiaSnapshotter(repoDir)

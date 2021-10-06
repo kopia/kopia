@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"html"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -175,7 +174,7 @@ func (c *commandServerStart) run(ctx context.Context, rep repo.Repository) error
 
 		go func() {
 			// consume all stdin and close the server when it closes
-			ioutil.ReadAll(os.Stdin) //nolint:errcheck
+			io.ReadAll(os.Stdin) //nolint:errcheck
 			log(ctx).Infof("Shutting down server...")
 			httpServer.Shutdown(ctx) //nolint:errcheck
 		}()
@@ -244,7 +243,7 @@ func maybeReadIndexBytes(fs http.FileSystem) []byte {
 
 	defer rootFile.Close() //nolint:errcheck
 
-	rd, err := ioutil.ReadAll(rootFile)
+	rd, err := io.ReadAll(rootFile)
 	if err != nil {
 		return nil
 	}

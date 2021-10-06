@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"runtime"
 	"runtime/debug"
@@ -328,7 +327,7 @@ func verifyFull(ctx context.Context, t *testing.T, om *Manager, oid ID, want []b
 
 	defer r.Close()
 
-	data, err := ioutil.ReadAll(r)
+	data, err := io.ReadAll(r)
 	if err != nil {
 		t.Fatalf("unable to read all: %v", err)
 	}
@@ -617,7 +616,7 @@ func TestReader(t *testing.T) {
 			continue
 		}
 
-		d, err := ioutil.ReadAll(reader)
+		d, err := io.ReadAll(reader)
 		if err != nil {
 			t.Errorf("cannot read all data for %v: %v", objectID, err)
 			continue

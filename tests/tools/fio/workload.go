@@ -215,7 +215,7 @@ func (fr *Runner) writeFilesAtDepth(fromDirPath string, depth, branchDepth int, 
 		var err error
 
 		// Couldn't find a subdir, create one instead
-		subdirPath, err = ioutil.TempDir(fromDirPath, "dir_")
+		subdirPath, err = os.MkdirTemp(fromDirPath, "dir_")
 		if err != nil {
 			return errors.Wrapf(err, "unable to create temp dir at %v", fromDirPath)
 		}

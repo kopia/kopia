@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	minio "github.com/minio/minio-go/v7"
+	"github.com/minio/minio-go/v7"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/repo/blob"

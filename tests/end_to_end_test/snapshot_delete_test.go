@@ -118,7 +118,7 @@ func testSnapshotDelete(t *testing.T, argMaker deleteArgMaker, expectDeleteSucce
 
 	dataDir := testutil.TempDirectory(t)
 	require.NoError(t, os.MkdirAll(dataDir, 0o777))
-	require.NoError(t, ioutil.WriteFile(filepath.Join(dataDir, "some-file1"), []byte(`
+	require.NoError(t, os.WriteFile(filepath.Join(dataDir, "some-file1"), []byte(`
 hello world
 how are you
 `), 0o600))

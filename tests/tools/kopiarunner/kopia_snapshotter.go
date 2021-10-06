@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"encoding/pem"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -369,7 +368,7 @@ func (ks *KopiaSnapshotter) ConnectOrCreateRepoWithServer(serverAddr string, arg
 
 	var tempDirErr error
 
-	if tempDir, tempDirErr = ioutil.TempDir("", "kopia"); tempDirErr != nil {
+	if tempDir, tempDirErr = os.MkdirTemp("", "kopia"); tempDirErr != nil {
 		return nil, "", tempDirErr
 	}
 
@@ -445,7 +444,7 @@ func (ks *KopiaSnapshotter) setServerPermissions(args ...string) error {
 }
 
 func getFingerPrintFromCert(path string) (string, error) {
-	pemData, err := ioutil.ReadFile(path) //nolint:gosec
+	pemData, err := os.ReadFile(path) //nolint:gosec
 	if err != nil {
 		return "", err
 	}

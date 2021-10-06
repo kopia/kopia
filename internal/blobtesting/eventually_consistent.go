@@ -2,7 +2,7 @@ package blobtesting
 
 import (
 	"context"
-	"io/ioutil"
+	"io"
 	"math"
 	"math/rand"
 	"strings"
@@ -157,7 +157,7 @@ func (s *eventuallyConsistentStorage) PutBlob(ctx context.Context, id blob.ID, d
 		return err
 	}
 
-	d, err := ioutil.ReadAll(data.Reader())
+	d, err := io.ReadAll(data.Reader())
 	if err != nil {
 		return errors.Wrap(err, "invalid data")
 	}

@@ -114,11 +114,11 @@ func (c *diskCommittedContentIndexCache) addContentToCache(ctx context.Context, 
 
 func writeTempFileAtomic(dirname string, data []byte) (string, error) {
 	// write to a temp file to avoid race where two processes are writing at the same time.
-	tf, err := ioutil.TempFile(dirname, "tmp")
+	tf, err := os.CreateTemp(dirname, "tmp")
 	if err != nil {
 		if os.IsNotExist(err) {
 			os.MkdirAll(dirname, cache.DirMode) //nolint:errcheck
-			tf, err = ioutil.TempFile(dirname, "tmp")
+			tf, err = os.CreateTemp(dirname, "tmp")
 		}
 	}
 

@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -296,7 +295,7 @@ func (c *Comparer) output(msg string, args ...interface{}) {
 
 // NewComparer creates a comparer for a given repository that will output the results to a given writer.
 func NewComparer(out io.Writer) (*Comparer, error) {
-	tmp, err := ioutil.TempDir("", "kopia")
+	tmp, err := os.MkdirTemp("", "kopia")
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating temp directory")
 	}

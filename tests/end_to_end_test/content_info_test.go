@@ -2,7 +2,7 @@ package endtoend_test
 
 import (
 	"bytes"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -25,7 +25,7 @@ func (s *formatSpecificTestSuite) TestContentListAndStats(t *testing.T) {
 	e.RunAndExpectSuccess(t, "policy", "set", "--global", "--compression", "pgzip")
 
 	srcDir := testutil.TempDirectory(t)
-	ioutil.WriteFile(filepath.Join(srcDir, "compressible.txt"),
+	os.WriteFile(filepath.Join(srcDir, "compressible.txt"),
 		bytes.Repeat([]byte{1, 2, 3, 4}, 1000),
 		0o600,
 	)

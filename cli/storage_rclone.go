@@ -2,7 +2,7 @@ package cli
 
 import (
 	"context"
-	"io/ioutil"
+	"os"
 
 	"github.com/alecthomas/kingpin"
 	"github.com/pkg/errors"
@@ -36,7 +36,7 @@ func (c *storageRcloneFlags) connect(ctx context.Context, isNew bool) (blob.Stor
 	}
 
 	if c.embedRCloneConfigFile != "" {
-		cfg, err := ioutil.ReadFile(c.embedRCloneConfigFile)
+		cfg, err := os.ReadFile(c.embedRCloneConfigFile)
 		if err != nil {
 			return nil, errors.Wrap(err, "unable to read rclone config file")
 		}

@@ -6,7 +6,6 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -68,7 +67,7 @@ func (hc *actionContext) ensureInitialized(ctx context.Context, actionType, dirP
 	hc.SourcePath = dirPathOrEmpty
 	hc.SnapshotPath = hc.SourcePath
 
-	wd, err := ioutil.TempDir("", "kopia-action")
+	wd, err := os.MkdirTemp("", "kopia-action")
 	if err != nil {
 		return errors.Wrap(err, "error temporary directory for action execution")
 	}
@@ -102,7 +101,7 @@ func prepareCommandForAction(ctx context.Context, actionType string, h *policy.A
 	switch {
 	case h.Script != "":
 		scriptFile := filepath.Join(workDir, actionType+actionScriptExtension())
-		if err := ioutil.WriteFile(scriptFile, []byte(h.Script), actionScriptPermissions); err != nil {
+		if err := os.WriteFile(scriptFile, []byte(h.Script), actionScriptPermissions); err != nil {
 			cancel()
 
 			return nil, nil, errors.Wrap(err, "error writing script for execution")

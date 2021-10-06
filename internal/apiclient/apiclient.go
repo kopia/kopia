@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/cookiejar"
 
@@ -115,7 +114,7 @@ func decodeResponse(resp *http.Response, respPayload interface{}) error {
 	}
 
 	if b, ok := respPayload.(*[]byte); ok {
-		v, err := ioutil.ReadAll(resp.Body)
+		v, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return errors.Wrap(err, "unable to read response")
 		}

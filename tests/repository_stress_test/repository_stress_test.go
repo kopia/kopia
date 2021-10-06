@@ -4,7 +4,6 @@ import (
 	"context"
 	cryptorand "crypto/rand"
 	"fmt"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -196,7 +195,7 @@ func runStress(t *testing.T, opt *StressOptions) {
 
 	ctx := testlogging.Context(t)
 
-	tmpPath, err := ioutil.TempDir("", "kopia")
+	tmpPath, err := os.MkdirTemp("", "kopia")
 	if err != nil {
 		t.Fatalf("unable to create temp directory")
 	}

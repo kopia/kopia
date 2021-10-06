@@ -2,7 +2,7 @@ package cli
 
 import (
 	"context"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/alecthomas/kingpin"
@@ -44,7 +44,7 @@ func (c *storageSFTPFlags) getOptions() (*sftp.Options, error) {
 	if !sftpo.ExternalSSH {
 		if c.embedCredentials {
 			if sftpo.KeyData == "" {
-				d, err := ioutil.ReadFile(sftpo.Keyfile)
+				d, err := os.ReadFile(sftpo.Keyfile)
 				if err != nil {
 					return nil, errors.Wrap(err, "unable to read key file")
 				}
@@ -54,7 +54,7 @@ func (c *storageSFTPFlags) getOptions() (*sftp.Options, error) {
 			}
 
 			if sftpo.KnownHostsData == "" && sftpo.KnownHostsFile != "" {
-				d, err := ioutil.ReadFile(sftpo.KnownHostsFile)
+				d, err := os.ReadFile(sftpo.KnownHostsFile)
 				if err != nil {
 					return nil, errors.Wrap(err, "unable to read known hosts file")
 				}

@@ -3,7 +3,6 @@ package throttle
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"testing"
 
@@ -43,8 +42,8 @@ func (fp *fakePool) AddReader(r io.ReadCloser) (io.ReadCloser, error) {
 
 //nolint:gocyclo
 func TestRoundTripper(t *testing.T) {
-	downloadBody := ioutil.NopCloser(bytes.NewReader([]byte("data1")))
-	uploadBody := ioutil.NopCloser(bytes.NewReader([]byte("data1")))
+	downloadBody := io.NopCloser(bytes.NewReader([]byte("data1")))
+	uploadBody := io.NopCloser(bytes.NewReader([]byte("data1")))
 
 	base := &baseRoundTripper{
 		responses: make(map[*http.Request]*http.Response),

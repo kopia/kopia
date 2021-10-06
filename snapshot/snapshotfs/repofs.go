@@ -3,7 +3,7 @@ package snapshotfs
 
 import (
 	"context"
-	"io/ioutil"
+	"io"
 	"os"
 	"time"
 
@@ -164,7 +164,7 @@ func (rsl *repositorySymlink) Readlink(ctx context.Context) (string, error) {
 
 	defer r.Close() //nolint:errcheck
 
-	b, err := ioutil.ReadAll(r)
+	b, err := io.ReadAll(r)
 	if err != nil {
 		return "", errors.Wrapf(err, "unable to read object: %v", rsl.metadata.ObjectID)
 	}

@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math"
 	"math/rand"
 	"path"
@@ -263,7 +262,7 @@ func TestGetBlobWithVersion(t *testing.T) {
 
 					require.NoError(t, err)
 
-					c, err := ioutil.ReadAll(bv.contents(t).Reader())
+					c, err := io.ReadAll(bv.contents(t).Reader())
 
 					require.NoError(t, err)
 					require.Equal(t, c, b.ToByteSlice())
