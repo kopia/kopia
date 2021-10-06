@@ -79,19 +79,19 @@ func TestShardedFileStorageShardingMap(t *testing.T) {
 			}`,
 			map[blob.ID]string{
 				// non-sharded because of ID length
-				"ab": "ab.f",
+				"ab": "ab" + sharded.CompleteBlobSuffix,
 
 				// sharded according to default shards - 3,2,1
-				"defaultsharded": "def/au/l/tsharded.f",
+				"defaultsharded": "def/au/l/tsharded" + sharded.CompleteBlobSuffix,
 
 				// sharded according to first override
-				"phello":   "ph/el/lo.f",
-				"pgoodbye": "pg/oo/dbye.f",
+				"phello":   "ph/el/lo" + sharded.CompleteBlobSuffix,
+				"pgoodbye": "pg/oo/dbye" + sharded.CompleteBlobSuffix,
 
 				// second override
-				"xhello": "x/h/e/llo.f",
-				"xbye":   "x/b/y/e.f",
-				"xo":     "xo.f",
+				"xhello": "x/h/e/llo" + sharded.CompleteBlobSuffix,
+				"xbye":   "x/b/y/e" + sharded.CompleteBlobSuffix,
+				"xo":     "xo" + sharded.CompleteBlobSuffix,
 			},
 		},
 		{
@@ -102,8 +102,8 @@ func TestShardedFileStorageShardingMap(t *testing.T) {
 				"maxNonShardedLength": 10
 			}`,
 			map[blob.ID]string{
-				"foobarbar":    "foobarbar.f",
-				"foobarbarbar": "foo/bar/barbar.f",
+				"foobarbar":    "foobarbar" + sharded.CompleteBlobSuffix,
+				"foobarbarbar": "foo/bar/barbar" + sharded.CompleteBlobSuffix,
 			},
 		},
 		{
@@ -114,12 +114,12 @@ func TestShardedFileStorageShardingMap(t *testing.T) {
 				"maxNonShardedLength": 0
 			}`,
 			map[blob.ID]string{
-				"fo":      "fo.f",
-				"foo":     "foo.f",
-				"foob":    "foo/b.f",
-				"fooba":   "foo/ba.f",
-				"foobar":  "foo/bar.f",
-				"foobar2": "foo/bar/2.f",
+				"fo":      "fo" + sharded.CompleteBlobSuffix,
+				"foo":     "foo" + sharded.CompleteBlobSuffix,
+				"foob":    "foo/b" + sharded.CompleteBlobSuffix,
+				"fooba":   "foo/ba" + sharded.CompleteBlobSuffix,
+				"foobar":  "foo/bar" + sharded.CompleteBlobSuffix,
+				"foobar2": "foo/bar/2" + sharded.CompleteBlobSuffix,
 			},
 		},
 	}

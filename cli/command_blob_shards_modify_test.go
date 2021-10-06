@@ -20,38 +20,38 @@ func TestBlobShardsModify(t *testing.T) {
 
 	// verify default sharding is 3,3
 	require.FileExists(t, filepath.Join(env.RepoDir, someQBlob[0:3], someQBlob[3:6], someQBlob[6:]+sharded.CompleteBlobSuffix))
-	require.FileExists(t, filepath.Join(env.RepoDir, "kopia.repository.f"))
+	require.FileExists(t, filepath.Join(env.RepoDir, "kopia.repository"+sharded.CompleteBlobSuffix))
 
 	env.RunAndExpectSuccess(t, "blob", "shards", "modify", "--path", env.RepoDir, "--default-shards=5,5", "--i-am-sure-kopia-is-not-running")
 
 	// verify new sharding is 5,5
 	require.FileExists(t, filepath.Join(env.RepoDir, someQBlob[0:5], someQBlob[5:10], someQBlob[10:]+sharded.CompleteBlobSuffix))
 	require.NoFileExists(t, filepath.Join(env.RepoDir, someQBlob[0:3], someQBlob[3:6], someQBlob[6:]+sharded.CompleteBlobSuffix))
-	require.FileExists(t, filepath.Join(env.RepoDir, "kopia.repository.f"))
+	require.FileExists(t, filepath.Join(env.RepoDir, "kopia.repository"+sharded.CompleteBlobSuffix))
 
 	env.RunAndExpectSuccess(t, "blob", "shards", "modify", "--path", env.RepoDir, "--unsharded-length=0", "--i-am-sure-kopia-is-not-running")
 
 	require.FileExists(t, filepath.Join(env.RepoDir, someQBlob[0:5], someQBlob[5:10], someQBlob[10:]+sharded.CompleteBlobSuffix))
-	require.FileExists(t, filepath.Join(env.RepoDir, "kopia/.repo/sitory.f"))
-	require.NoFileExists(t, filepath.Join(env.RepoDir, "kopia.repository.f"))
+	require.FileExists(t, filepath.Join(env.RepoDir, "kopia/.repo/sitory"+sharded.CompleteBlobSuffix))
+	require.NoFileExists(t, filepath.Join(env.RepoDir, "kopia.repository"+sharded.CompleteBlobSuffix))
 
 	env.RunAndExpectSuccess(t, "blob", "shards", "modify", "--path", env.RepoDir, "--override=kop=2,,,2", "--i-am-sure-kopia-is-not-running")
-	require.FileExists(t, filepath.Join(env.RepoDir, "ko/pi/a.repository.f"))
-	require.NoFileExists(t, filepath.Join(env.RepoDir, "kopia.repository.f"))
+	require.FileExists(t, filepath.Join(env.RepoDir, "ko/pi/a.repository"+sharded.CompleteBlobSuffix))
+	require.NoFileExists(t, filepath.Join(env.RepoDir, "kopia.repository"+sharded.CompleteBlobSuffix))
 
 	env.RunAndExpectSuccess(t, "blob", "shards", "modify", "--path", env.RepoDir, "--remove-override=nosuchprefix", "--remove-override=kop", "--i-am-sure-kopia-is-not-running")
-	require.FileExists(t, filepath.Join(env.RepoDir, "kopia/.repo/sitory.f"))
+	require.FileExists(t, filepath.Join(env.RepoDir, "kopia/.repo/sitory"+sharded.CompleteBlobSuffix))
 
 	env.RunAndExpectSuccess(t, "blob", "shards", "modify", "--path", env.RepoDir, "--i-am-sure-kopia-is-not-running")
 
 	env.RunAndExpectSuccess(t, "blob", "shards", "modify", "--path", env.RepoDir, "--override=kop=flat", "--i-am-sure-kopia-is-not-running", "--dry-run")
-	require.FileExists(t, filepath.Join(env.RepoDir, "kopia/.repo/sitory.f"))
+	require.FileExists(t, filepath.Join(env.RepoDir, "kopia/.repo/sitory"+sharded.CompleteBlobSuffix))
 
 	env.RunAndExpectSuccess(t, "blob", "shards", "modify", "--path", env.RepoDir, "--override=kop=flat", "--i-am-sure-kopia-is-not-running")
-	require.FileExists(t, filepath.Join(env.RepoDir, "kopia.repository.f"))
+	require.FileExists(t, filepath.Join(env.RepoDir, "kopia.repository"+sharded.CompleteBlobSuffix))
 
 	env.RunAndExpectSuccess(t, "blob", "shards", "modify", "--path", env.RepoDir, "--override=kop=4,4", "--i-am-sure-kopia-is-not-running")
-	require.FileExists(t, filepath.Join(env.RepoDir, "kopi/a.re/pository.f"))
+	require.FileExists(t, filepath.Join(env.RepoDir, "kopi/a.re/pository"+sharded.CompleteBlobSuffix))
 
 	// some invalid cases
 	env.RunAndExpectFailure(t, "blob", "shards", "modify", "--path", env.RepoDir, "--default-shards=invalid", "--i-am-sure-kopia-is-not-running")

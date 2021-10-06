@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/kopia/kopia/repo/blob/sharded"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
@@ -39,7 +40,7 @@ func TestFilesystemSupportsTildeToReferToHome(t *testing.T) {
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path=~/"+subdir)
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
-	if _, err := os.Stat(filepath.Join(fullPath, "kopia.repository.f")); err != nil {
+	if _, err := os.Stat(filepath.Join(fullPath, "kopia.repository"+sharded.CompleteBlobSuffix)); err != nil {
 		t.Fatalf("error: %v", err)
 	}
 }
