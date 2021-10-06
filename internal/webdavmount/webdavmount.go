@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/pkg/errors"
 	"golang.org/x/net/context"
@@ -98,6 +99,8 @@ type webdavDir struct {
 	entry fs.Directory
 }
 
+var symlinksAreUnsupportedLogged = new(int32)
+
 func (d *webdavDir) Readdir(n int) ([]os.FileInfo, error) {
 	entries, err := d.entry.Readdir(d.ctx)
 	if err != nil {
@@ -109,7 +112,16 @@ func (d *webdavDir) Readdir(n int) ([]os.FileInfo, error) {
 	}
 
 	var fis []os.FileInfo
+
 	for _, e := range entries {
+		if _, isSymlink := e.(fs.Symlink); isSymlink {
+			if atomic.AddInt32(symlinksAreUnsupportedLogged, 1) == 1 {
+				log(d.ctx).Errorf("Mounting directories containing symbolic links using WebDAV is not supported. The link entries will be skipped.")
+			}
+
+			continue
+		}
+
 		fis = append(fis, &webdavFileInfo{e})
 	}
 
