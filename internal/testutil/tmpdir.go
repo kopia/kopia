@@ -124,7 +124,6 @@ func dumpLogs(t *testing.T, dirname string) {
 func dumpLogFile(t *testing.T, fname string) {
 	t.Helper()
 
-	// nolint:gosec
 	data, err := os.ReadFile(fname)
 	if err != nil {
 		t.Error(err)

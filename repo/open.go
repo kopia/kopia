@@ -316,7 +316,7 @@ func readFormatBlobBytesFromCache(ctx context.Context, cachedFile string, validD
 		return nil, errors.Errorf("cached file too old")
 	}
 
-	return os.ReadFile(cachedFile) //nolint:gosec,wrapcheck
+	return os.ReadFile(cachedFile) //nolint:wrapcheck
 }
 
 func readAndCacheFormatBlobBytes(ctx context.Context, st blob.Storage, cacheDirectory string, validDuration time.Duration) ([]byte, error) {
