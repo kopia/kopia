@@ -9,6 +9,7 @@ linters-settings:
     - ioutil.Discard # use io.Discard
     - ioutil.NopCloser # use io.NopCloser
     - ioutil.ReadAll # use io.ReadAll
+    - ioutil.ReadDir # use os.ReadDir
     - ioutil.ReadFile # use os.ReadFile
     - ioutil.TempDir # use os.MkdirTemp
     - ioutil.TempFile # use os.CreateTemp

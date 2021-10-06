@@ -6,7 +6,6 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -221,7 +220,7 @@ func (fs *fsImpl) DeleteBlobInPath(ctx context.Context, dirPath, path string) er
 
 func (fs *fsImpl) ReadDir(ctx context.Context, dirname string) ([]os.FileInfo, error) {
 	v, err := retry.WithExponentialBackoff(ctx, "ReadDir:"+dirname, func() (interface{}, error) {
-		v, err := ioutil.ReadDir(dirname)
+		v, err := os.ReadDir(dirname)
 		// nolint:wrapcheck
 		return v, err
 	}, isRetriable)
@@ -230,7 +229,19 @@ func (fs *fsImpl) ReadDir(ctx context.Context, dirname string) ([]os.FileInfo, e
 		return nil, err
 	}
 
-	return v.([]os.FileInfo), nil
+	fileInfos := make([]os.FileInfo, 0, len(v.([]os.DirEntry)))
+
+	for _, e := range v.([]os.DirEntry) {
+		fi, err := e.Info()
+		if err != nil {
+			// nolint:wrapcheck
+			return nil, err
+		}
+
+		fileInfos = append(fileInfos, fi)
+	}
+
+	return fileInfos, nil
 }
 
 // SetTime updates file modification time to the provided time.

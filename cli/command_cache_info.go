@@ -3,7 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/pkg/errors"
@@ -39,7 +39,7 @@ func (c *commandCacheInfo) run(ctx context.Context, rep repo.Repository) error {
 		return nil
 	}
 
-	entries, err := ioutil.ReadDir(opts.CacheDirectory)
+	entries, err := os.ReadDir(opts.CacheDirectory)
 	if err != nil {
 		return errors.Wrap(err, "unable to scan cache directory")
 	}

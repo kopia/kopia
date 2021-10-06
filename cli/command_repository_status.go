@@ -3,7 +3,7 @@ package cli
 import (
 	"context"
 	"encoding/json"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"reflect"
 
@@ -120,14 +120,19 @@ func (c *commandRepositoryStatus) run(ctx context.Context, rep repo.Repository) 
 }
 
 func scanCacheDir(dirname string) (fileCount int, totalFileLength int64, err error) {
-	entries, err := ioutil.ReadDir(dirname)
+	entries, err := os.ReadDir(dirname)
 	if err != nil {
 		return 0, 0, errors.Wrap(err, "unable to read cache directory")
 	}
 
 	for _, e := range entries {
-		if e.IsDir() {
-			subdir := filepath.Join(dirname, e.Name())
+		fi, err := e.Info()
+		if err != nil {
+			return 0, 0, errors.Wrap(err, "unable to read file info")
+		}
+
+		if fi.IsDir() {
+			subdir := filepath.Join(dirname, fi.Name())
 
 			c, l, err2 := scanCacheDir(subdir)
 			if err2 != nil {
@@ -142,8 +147,8 @@ func scanCacheDir(dirname string) (fileCount int, totalFileLength int64, err err
 
 		fileCount++
 
-		totalFileLength += e.Size()
+		totalFileLength += fi.Size()
 	}
 
-	return
+	return fileCount, totalFileLength, nil
 }

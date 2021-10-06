@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"regexp"
@@ -116,7 +115,7 @@ func parseRepoSize(fname string) (int64, error) {
 }
 
 func main() {
-	files, err := ioutil.ReadDir(".")
+	files, err := os.ReadDir(".")
 	if err != nil {
 		log.Fatal(err)
 	}

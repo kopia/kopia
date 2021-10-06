@@ -2,7 +2,6 @@ package testutil
 
 import (
 	"fmt"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -102,7 +101,7 @@ func TempLogDirectory(t *testing.T) string {
 func dumpLogs(t *testing.T, dirname string) {
 	t.Helper()
 
-	entries, err := ioutil.ReadDir(dirname)
+	entries, err := os.ReadDir(dirname)
 	if err != nil {
 		t.Errorf("unable to read %v: %v", dirname, err)
 

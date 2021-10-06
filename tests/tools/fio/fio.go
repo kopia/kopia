@@ -7,7 +7,6 @@ package fio
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"math/rand"
 	"os"
@@ -190,16 +189,21 @@ func (fr *Runner) verifySetupWithTestWrites() error {
 		return errors.Wrap(err, "unable to perform writes")
 	}
 
-	fl, err := ioutil.ReadDir(filepath.Join(fr.LocalDataDir, subDirPath))
+	dirEntries, err := os.ReadDir(filepath.Join(fr.LocalDataDir, subDirPath))
 	if err != nil {
 		return errors.Wrapf(err, "error reading path %v", subDirPath)
 	}
 
-	if got, want := len(fl), nrFiles; got != want {
+	if got, want := len(dirEntries), nrFiles; got != want {
 		return errors.Errorf("did not find the expected number of files %v != %v (expected)", got, want)
 	}
 
-	for _, fi := range fl {
+	for _, entry := range dirEntries {
+		fi, err := entry.Info()
+		if err != nil {
+			return errors.Wrap(err, "unable to read file info")
+		}
+
 		if got, want := fi.Size(), int64(fileSizeB); got != want {
 			return errors.Errorf("did not get expected file size from writes %v != %v (expected)", got, want)
 		}
