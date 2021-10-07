@@ -29,7 +29,7 @@ type filesystemEntry struct {
 	owner      fs.OwnerInfo
 	device     fs.DeviceInfo
 
-	parentDir string
+	prefix string
 }
 
 func (e *filesystemEntry) Name() string {
@@ -57,7 +57,7 @@ func (e *filesystemEntry) Sys() interface{} {
 }
 
 func (e *filesystemEntry) fullPath() string {
-	return filepath.Join(e.parentDir, e.Name())
+	return e.prefix + e.Name()
 }
 
 func (e *filesystemEntry) Owner() fs.OwnerInfo {
@@ -74,7 +74,7 @@ func (e *filesystemEntry) LocalFilesystemPath() string {
 
 var _ os.FileInfo = (*filesystemEntry)(nil)
 
-func newEntry(fi os.FileInfo, parentDir string) filesystemEntry {
+func newEntry(fi os.FileInfo, prefix string) filesystemEntry {
 	return filesystemEntry{
 		TrimShallowSuffix(fi.Name()),
 		fi.Size(),
@@ -82,7 +82,7 @@ func newEntry(fi os.FileInfo, parentDir string) filesystemEntry {
 		fi.Mode(),
 		platformSpecificOwnerInfo(fi),
 		platformSpecificDeviceInfo(fi),
-		parentDir,
+		prefix,
 	}
 }
 
@@ -120,7 +120,7 @@ func (fsd *filesystemDirectory) Child(ctx context.Context, name string) (fs.Entr
 		return nil, errors.Wrap(err, "unable to get child")
 	}
 
-	return entryFromDirEntry(st, fullPath), nil
+	return entryFromDirEntry(st, fullPath+string(filepath.Separator)), nil
 }
 
 type entryWithError struct {
@@ -128,8 +128,8 @@ type entryWithError struct {
 	err   error
 }
 
-func toDirEntryOrNil(basename, dirPath string) (fs.Entry, error) {
-	fi, err := os.Lstat(dirPath + "/" + basename)
+func toDirEntryOrNil(basename, prefix string) (fs.Entry, error) {
+	fi, err := os.Lstat(prefix + basename)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil
@@ -138,7 +138,7 @@ func toDirEntryOrNil(basename, dirPath string) (fs.Entry, error) {
 		return nil, errors.Wrap(err, "error reading directory")
 	}
 
-	return entryFromDirEntry(fi, dirPath), nil
+	return entryFromDirEntry(fi, prefix), nil
 }
 
 func (fsd *filesystemDirectory) Readdir(ctx context.Context) (fs.Entries, error) {
@@ -158,8 +158,10 @@ func (fsd *filesystemDirectory) Readdir(ctx context.Context) (fs.Entries, error)
 		return nil, errors.Wrap(firstBatchErr, "unable to read directory entries")
 	}
 
+	childPrefix := fullPath + string(filepath.Separator)
+
 	for _, de := range firstBatch {
-		e, err := toDirEntryOrNil(de, fullPath)
+		e, err := toDirEntryOrNil(de, childPrefix)
 		if err != nil {
 			return nil, errors.Wrap(err, "error reading entry")
 		}
@@ -185,7 +187,7 @@ func (fsd *filesystemDirectory) Readdir(ctx context.Context) (fs.Entries, error)
 
 		// process results in case it's not EOF.
 		for _, de := range secondBatch {
-			e, err := toDirEntryOrNil(de, fullPath)
+			e, err := toDirEntryOrNil(de, childPrefix)
 			if err != nil {
 				return nil, errors.Wrap(err, "error reading entry")
 			}
@@ -203,10 +205,10 @@ func (fsd *filesystemDirectory) Readdir(ctx context.Context) (fs.Entries, error)
 		}
 	}
 
-	return fsd.readRemainingDirEntriesInParallel(fullPath, entries, f)
+	return fsd.readRemainingDirEntriesInParallel(childPrefix, entries, f)
 }
 
-func (fsd *filesystemDirectory) readRemainingDirEntriesInParallel(fullPath string, entries fs.Entries, f *os.File) (fs.Entries, error) {
+func (fsd *filesystemDirectory) readRemainingDirEntriesInParallel(childPrefix string, entries fs.Entries, f *os.File) (fs.Entries, error) {
 	// start feeding directory entries to dirEntryCh
 	dirEntryCh := make(chan string, dirListingPrefetch)
 
@@ -246,7 +248,7 @@ func (fsd *filesystemDirectory) readRemainingDirEntriesInParallel(fullPath strin
 			defer workersWG.Done()
 
 			for de := range dirEntryCh {
-				e, err := toDirEntryOrNil(de, fullPath)
+				e, err := toDirEntryOrNil(de, childPrefix)
 				if err != nil {
 					entriesCh <- entryWithError{err: errors.Errorf("unable to stat directory entry %q: %v", de, err)}
 					continue
@@ -296,7 +298,7 @@ func (f *fileWithMetadata) Entry() (fs.Entry, error) {
 		return nil, errors.Wrap(err, "unable to stat() local file")
 	}
 
-	return &filesystemFile{newEntry(fi, filepath.Dir(f.Name()))}, nil
+	return &filesystemFile{newEntry(fi, dirPrefix(f.Name()))}, nil
 }
 
 func (fsf *filesystemFile) Open(ctx context.Context) (fs.Reader, error) {
@@ -317,6 +319,18 @@ func (e *filesystemErrorEntry) ErrorInfo() error {
 	return e.err
 }
 
+// dirPrefix returns the directory prefix for a given path - the initial part of the path up to and including the final slash (or backslash on Windows).
+// this is similar to filepath.Dir() except dirPrefix("\\foo\bar") == "\\foo\", which is unsupported in filepath.
+func dirPrefix(s string) string {
+	for i := len(s) - 1; i >= 0; i-- {
+		if s[i] == filepath.Separator || s[i] == '/' {
+			return s[0 : i+1]
+		}
+	}
+
+	return ""
+}
+
 // NewEntry returns fs.Entry for the specified path, the result will be one of supported entry types: fs.File, fs.Directory, fs.Symlink
 // or fs.UnsupportedEntry.
 func NewEntry(path string) (fs.Entry, error) {
@@ -325,7 +339,7 @@ func NewEntry(path string) (fs.Entry, error) {
 		return nil, errors.Wrap(err, "unable to determine entry type")
 	}
 
-	return entryFromDirEntry(fi, filepath.Dir(path)), nil
+	return entryFromDirEntry(fi, dirPrefix(path)), nil
 }
 
 // Directory returns fs.Directory for the specified path.
@@ -342,28 +356,28 @@ func Directory(path string) (fs.Directory, error) {
 	return nil, errors.Errorf("not a directory: %v", path)
 }
 
-func entryFromDirEntry(fi os.FileInfo, parentDir string) fs.Entry {
+func entryFromDirEntry(fi os.FileInfo, prefix string) fs.Entry {
 	isplaceholder := strings.HasSuffix(fi.Name(), ShallowEntrySuffix)
 	maskedmode := fi.Mode() & os.ModeType
 
 	switch {
 	case maskedmode == os.ModeDir && !isplaceholder:
-		return &filesystemDirectory{newEntry(fi, parentDir)}
+		return &filesystemDirectory{newEntry(fi, prefix)}
 
 	case maskedmode == os.ModeDir && isplaceholder:
-		return &shallowFilesystemDirectory{newEntry(fi, parentDir)}
+		return &shallowFilesystemDirectory{newEntry(fi, prefix)}
 
 	case maskedmode == os.ModeSymlink && !isplaceholder:
-		return &filesystemSymlink{newEntry(fi, parentDir)}
+		return &filesystemSymlink{newEntry(fi, prefix)}
 
 	case maskedmode == 0 && !isplaceholder:
-		return &filesystemFile{newEntry(fi, parentDir)}
+		return &filesystemFile{newEntry(fi, prefix)}
 
 	case maskedmode == 0 && isplaceholder:
-		return &shallowFilesystemFile{newEntry(fi, parentDir)}
+		return &shallowFilesystemFile{newEntry(fi, prefix)}
 
 	default:
-		return &filesystemErrorEntry{newEntry(fi, parentDir), fs.ErrUnknown}
+		return &filesystemErrorEntry{newEntry(fi, prefix), fs.ErrUnknown}
 	}
 }
 

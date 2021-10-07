@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/clock"
@@ -134,6 +136,33 @@ func verifyChild(t *testing.T, dir fs.Directory) {
 
 	if got, want := child2.Size(), int64(3); got != want {
 		t.Errorf("unexpected child2 size: %v, want %v", got, want)
+	}
+}
+
+func TestDirPrefix(t *testing.T) {
+	cases := map[string]string{
+		"foo":      "",
+		"/":        "/",
+		"/tmp":     "/",
+		"/tmp/":    "/tmp/",
+		"/tmp/foo": "/tmp/",
+	}
+
+	if runtime.GOOS == "windows" {
+		cases["c:/"] = "c:/"
+		cases["c:\\"] = "c:\\"
+		cases["c:/temp"] = "c:/"
+		cases["c:\\temp"] = "c:\\"
+		cases["c:/temp/orary"] = "c:/temp/"
+		cases["c:\\temp\\orary"] = "c:\\temp\\"
+		cases["c:/temp\\orary"] = "c:/temp\\"
+		cases["c:\\temp/orary"] = "c:\\temp/"
+		cases["\\\\server\\path"] = "\\\\server\\"
+		cases["\\\\server\\path\\subdir"] = "\\\\server\\path\\"
+	}
+
+	for input, want := range cases {
+		require.Equal(t, want, dirPrefix(input), input)
 	}
 }
 
