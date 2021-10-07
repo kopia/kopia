@@ -145,7 +145,7 @@ jobs:
     name: Stage And Publish Artifacts
     runs-on: ubuntu-latest
     needs: build
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' && github.repository == 'kopia/kopia'
     steps:
     - uses: actions/checkout@v2
     - name: Set up QEMU
