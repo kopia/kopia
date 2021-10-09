@@ -10,7 +10,7 @@ import (
 	"github.com/kopia/kopia/repo/logging"
 )
 
-var log = logging.GetContextLoggerFunc("retry")
+var log = logging.Module("retry")
 
 var (
 	maxAttempts             = 10

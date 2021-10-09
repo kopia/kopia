@@ -20,7 +20,7 @@ import (
 	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
 
-var log = logging.GetContextLoggerFunc("snapshotgc")
+var log = logging.Module("snapshotgc")
 
 func oidOf(entry fs.Entry) object.ID {
 	return entry.(object.HasObjectID).ObjectID()

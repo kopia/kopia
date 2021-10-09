@@ -531,7 +531,7 @@ func NewSharedManager(ctx context.Context, st blob.Storage, f *FormattingOptions
 	var internalLog *internalLogger
 
 	// capture logger (usually console or log file) associated with current context.
-	sharedBaseLogger := logging.GetContextLoggerFunc(FormatLogModule)(ctx)
+	sharedBaseLogger := logging.Module(FormatLogModule)(ctx)
 
 	if !opts.DisableInternalLog {
 		internalLog = ilm.NewLogger()

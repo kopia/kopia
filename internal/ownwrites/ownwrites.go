@@ -17,7 +17,7 @@ import (
 	"github.com/kopia/kopia/repo/logging"
 )
 
-var log = logging.GetContextLoggerFunc("ownwrites")
+var log = logging.Module("ownwrites")
 
 const (
 	sweepFrequency = 5 * time.Minute

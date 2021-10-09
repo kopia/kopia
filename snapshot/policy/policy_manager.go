@@ -35,7 +35,7 @@ const typeKey = manifest.TypeLabelKey
 // GlobalPolicySourceInfo is a source where global policy is attached.
 var GlobalPolicySourceInfo = snapshot.SourceInfo{}
 
-var log = logging.GetContextLoggerFunc("kopia/snapshot/policy")
+var log = logging.Module("kopia/snapshot/policy")
 
 // GetEffectivePolicy calculates effective snapshot policy for a given source by combining the source-specifc policy (if any)
 // with parent policies. The source must contain a path.

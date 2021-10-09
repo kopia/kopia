@@ -23,7 +23,7 @@ import (
 	"github.com/kopia/kopia/repo/logging"
 )
 
-var log = logging.GetContextLoggerFunc("repo/filesystem")
+var log = logging.Module("repo/filesystem")
 
 const (
 	fsStorageType           = "filesystem"

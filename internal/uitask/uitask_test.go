@@ -16,8 +16,8 @@ import (
 )
 
 var (
-	log        = logging.GetContextLoggerFunc("uitasktest")
-	ignoredLog = logging.GetContextLoggerFunc(content.FormatLogModule)
+	log        = logging.Module("uitasktest")
+	ignoredLog = logging.Module(content.FormatLogModule)
 )
 
 func TestUITask(t *testing.T) {

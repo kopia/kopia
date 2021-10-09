@@ -21,7 +21,7 @@ import (
 	"github.com/kopia/kopia/repo/logging"
 )
 
-var log = logging.GetContextLoggerFunc("fuse")
+var log = logging.Module("fuse")
 
 const fakeBlockSize = 4096
 

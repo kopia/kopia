@@ -15,7 +15,7 @@ import (
 	"github.com/kopia/kopia/repo/splitter"
 )
 
-var log = logging.GetContextLoggerFunc("object")
+var log = logging.Module("object")
 
 const indirectContentPrefix = "x"
 

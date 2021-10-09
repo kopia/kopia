@@ -26,7 +26,7 @@ import (
 	"github.com/kopia/kopia/snapshot/snapshotmaintenance"
 )
 
-var log = logging.GetContextLoggerFunc("kopia/cli")
+var log = logging.Module("kopia/cli")
 
 var (
 	defaultColor = color.New()
@@ -145,10 +145,11 @@ type App struct {
 	logs        commandLogs
 
 	// testability hooks
-	osExit       func(int) // allows replacing os.Exit() with custom code
-	stdoutWriter io.Writer
-	stderrWriter io.Writer
-	rootctx      context.Context
+	osExit        func(int) // allows replacing os.Exit() with custom code
+	stdoutWriter  io.Writer
+	stderrWriter  io.Writer
+	rootctx       context.Context
+	loggerFactory logging.LoggerFactory
 }
 
 func (c *App) getProgress() *cliProgress {
@@ -161,6 +162,11 @@ func (c *App) stdout() io.Writer {
 
 func (c *App) stderr() io.Writer {
 	return c.stderrWriter
+}
+
+// SetLoggerFactory sets the logger factory to be used throughout the app.
+func (c *App) SetLoggerFactory(loggerForModule logging.LoggerFactory) {
+	c.loggerFactory = loggerForModule
 }
 
 func (c *App) passwordPersistenceStrategy() passwordpersist.Strategy {
@@ -380,7 +386,13 @@ func (c *App) repositoryWriterAction(act func(ctx context.Context, rep repo.Repo
 }
 
 func (c *App) rootContext() context.Context {
-	return c.rootctx
+	ctx := c.rootctx
+
+	if c.loggerFactory != nil {
+		ctx = logging.WithLogger(ctx, c.loggerFactory)
+	}
+
+	return ctx
 }
 
 type repositoryAccessMode struct {

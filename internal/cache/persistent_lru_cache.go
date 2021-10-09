@@ -17,7 +17,7 @@ import (
 	"github.com/kopia/kopia/repo/logging"
 )
 
-var log = logging.GetContextLoggerFunc("cache")
+var log = logging.Module("cache")
 
 const (
 	// DefaultSweepFrequency is how frequently the contents of cache are sweeped to remove excess data.

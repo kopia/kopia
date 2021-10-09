@@ -29,7 +29,7 @@ const (
 	certificateFileMode = 0o600
 )
 
-var log = logging.GetContextLoggerFunc("tls")
+var log = logging.Module("tls")
 
 // GenerateServerCertificate generates random TLS certificate and key.
 func GenerateServerCertificate(ctx context.Context, keySize int, certValid time.Duration, names []string) (*x509.Certificate, *rsa.PrivateKey, error) {

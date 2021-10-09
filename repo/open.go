@@ -49,7 +49,7 @@ const cacheDirMarkerContents = CacheDirMarkerHeader + `
 #   http://www.brynosaurus.com/cachedir/
 `
 
-var log = logging.GetContextLoggerFunc("kopia/repo")
+var log = logging.Module("kopia/repo")
 
 // Options provides configuration parameters for connection to a repository.
 type Options struct {

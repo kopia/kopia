@@ -32,7 +32,7 @@ const (
 	rcloneStartupTimeout = 15 * time.Second
 )
 
-var log = logging.GetContextLoggerFunc("rclone")
+var log = logging.Module("rclone")
 
 type rcloneStorage struct {
 	blob.Storage // the underlying WebDAV storage used to implement all methods.

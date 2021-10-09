@@ -13,7 +13,7 @@ import (
 	"github.com/kopia/kopia/repo/logging"
 )
 
-var log = logging.GetContextLoggerFunc("connection")
+var log = logging.Module("connection")
 
 // Connection encapsulates a single connection.
 type Connection interface {

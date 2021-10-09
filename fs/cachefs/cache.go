@@ -11,7 +11,7 @@ import (
 	"github.com/kopia/kopia/repo/object"
 )
 
-var log = logging.GetContextLoggerFunc("kopia/cachefs")
+var log = logging.Module("kopia/cachefs")
 
 const dirCacheExpiration = 24 * time.Hour
 

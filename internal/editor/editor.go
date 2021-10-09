@@ -16,7 +16,7 @@ import (
 	"github.com/kopia/kopia/repo/logging"
 )
 
-var log = logging.GetContextLoggerFunc("editor")
+var log = logging.Module("editor")
 
 // EditLoop launches OS-specific editor (VI, notepad.exe or another editor configured through environment variables)
 // It creates a temporary file with 'initial' contents and repeatedly invokes the editor until the provided 'parse' function

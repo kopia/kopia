@@ -1,6 +1,7 @@
 package logging_test
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -52,4 +53,15 @@ func TestBroadcast(t *testing.T) {
 		"[first] C",
 		"[second] C",
 	}, lines)
+}
+
+func BenchmarkLogger(b *testing.B) {
+	mod1 := logging.Module("mod1")
+	ctx := logging.WithLogger(context.Background(), logging.Printf(b.Logf))
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		mod1(ctx)
+	}
 }

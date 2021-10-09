@@ -12,7 +12,7 @@ import (
 	"github.com/kopia/kopia/repo/logging"
 )
 
-var log = logging.GetContextLoggerFunc("auth")
+var log = logging.Module("auth")
 
 // Authenticator verifies that the provided username/password is valid.
 type Authenticator interface {

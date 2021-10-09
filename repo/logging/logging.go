@@ -5,20 +5,8 @@ import (
 	"context"
 )
 
-// defaultLoggerForModuleFunc is a logger to use when context-specific logger is not set.
-var defaultLoggerForModuleFunc = getNullLogger
-
-// LoggerForModuleFunc retrieves logger for a given module.
-type LoggerForModuleFunc func(module string) Logger
-
-// SetDefault sets the logger to use when context-specific logger is not set.
-func SetDefault(l LoggerForModuleFunc) {
-	if l == nil {
-		defaultLoggerForModuleFunc = getNullLogger
-	} else {
-		defaultLoggerForModuleFunc = l
-	}
-}
+// LoggerFactory retrieves logger for a given module.
+type LoggerFactory func(module string) Logger
 
 // Logger is an interface used by Kopia to output logs.
 type Logger interface {
@@ -27,13 +15,13 @@ type Logger interface {
 	Errorf(msg string, args ...interface{})
 }
 
-// GetContextLoggerFunc returns an function that returns a logger for a given module when provided with a context.
-func GetContextLoggerFunc(module string) func(ctx context.Context) Logger {
+// Module returns an function that returns a logger for a given module when provided with a context.
+func Module(module string) func(ctx context.Context) Logger {
 	return func(ctx context.Context) Logger {
-		if l := ctx.Value(loggerKey); l != nil {
-			return l.(LoggerForModuleFunc)(module)
+		if l := ctx.Value(loggerCacheKey); l != nil {
+			return l.(*loggerCache).getLogger(module)
 		}
 
-		return defaultLoggerForModuleFunc(module)
+		return nullLoggerInstance
 	}
 }

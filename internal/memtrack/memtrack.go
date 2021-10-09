@@ -10,7 +10,7 @@ import (
 	"github.com/kopia/kopia/repo/logging"
 )
 
-var log = logging.GetContextLoggerFunc("memtrack")
+var log = logging.Module("memtrack")
 
 type tracker struct {
 	name                                  string

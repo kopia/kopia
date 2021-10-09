@@ -17,7 +17,7 @@ import (
 	"github.com/kopia/kopia/repo/logging"
 )
 
-var log = logging.GetContextLoggerFunc("listcache")
+var log = logging.Module("listcache")
 
 type listCacheStorage struct {
 	blob.Storage

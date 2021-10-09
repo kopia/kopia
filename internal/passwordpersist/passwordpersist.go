@@ -15,7 +15,7 @@ var ErrPasswordNotFound = errors.Errorf("password not found")
 // ErrUnsupported is returned when a password storage is not supported.
 var ErrUnsupported = errors.Errorf("password storage not supported")
 
-var log = logging.GetContextLoggerFunc("passwordpersist")
+var log = logging.Module("passwordpersist")
 
 // Strategy encapsulates persisting and fetching passwords.
 type Strategy interface {

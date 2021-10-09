@@ -16,7 +16,7 @@ import (
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
-var log = logging.GetContextLoggerFunc("ignorefs")
+var log = logging.Module("ignorefs")
 
 // IgnoreCallback is a function called by ignorefs to report whenever a file or directory is being ignored while listing its parent.
 type IgnoreCallback func(path string, metadata fs.Entry)

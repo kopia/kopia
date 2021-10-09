@@ -16,14 +16,14 @@ func (l *printfLogger) Infof(msg string, args ...interface{})  { l.printf(l.pref
 func (l *printfLogger) Errorf(msg string, args ...interface{}) { l.printf(l.prefix+msg, args...) }
 
 // Printf returns LoggerForModuleFunc that uses given printf-style function to print log output.
-func Printf(printf func(msg string, args ...interface{})) LoggerForModuleFunc {
+func Printf(printf func(msg string, args ...interface{})) LoggerFactory {
 	return func(module string) Logger {
 		return &printfLogger{printf, "[" + module + "] "}
 	}
 }
 
 // Writer returns LoggerForModuleFunc that uses given writer for log output.
-func Writer(w io.Writer) LoggerForModuleFunc {
+func Writer(w io.Writer) LoggerFactory {
 	printf := func(msg string, args ...interface{}) {
 		msg = fmt.Sprintf(msg, args...)
 

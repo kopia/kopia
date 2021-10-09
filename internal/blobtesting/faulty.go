@@ -11,7 +11,7 @@ import (
 	"github.com/kopia/kopia/repo/logging"
 )
 
-var log = logging.GetContextLoggerFunc("faulty-storage")
+var log = logging.Module("faulty-storage")
 
 // Fault describes the behavior of a single fault.
 type Fault struct {

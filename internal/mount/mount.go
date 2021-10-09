@@ -7,7 +7,7 @@ import (
 	"github.com/kopia/kopia/repo/logging"
 )
 
-var log = logging.GetContextLoggerFunc("mount")
+var log = logging.Module("mount")
 
 // Controller allows controlling mounts.
 type Controller interface {

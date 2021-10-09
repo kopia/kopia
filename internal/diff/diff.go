@@ -19,7 +19,7 @@ import (
 
 const dirMode = 0o700
 
-var log = logging.GetContextLoggerFunc("diff")
+var log = logging.Module("diff")
 
 // Comparer outputs diff information between two filesystems.
 type Comparer struct {
