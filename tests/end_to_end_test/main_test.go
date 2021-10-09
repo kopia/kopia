@@ -28,10 +28,13 @@ func oneTimeSetup() error {
 		return errors.Wrap(err, "unable to create data directory")
 	}
 
-	// make sure the base directory is quite long to trigger very long filenames on Windows.
-	if n, targetLen := len(sharedTestDataDirBase), 270; n < targetLen {
-		sharedTestDataDirBase = filepath.Join(sharedTestDataDirBase, strings.Repeat("f", targetLen-n))
-		os.MkdirAll(sharedTestDataDirBase, 0o700)
+	// if enabled, make sure the base directory is quite long to trigger very long filenames on Windows
+	// skipped during race detection, on ARM, and by default to keep logs cleaner
+	if !testutil.ShouldSkipLongFilenames() {
+		if n, targetLen := len(sharedTestDataDirBase), 270; n < targetLen {
+			sharedTestDataDirBase = filepath.Join(sharedTestDataDirBase, strings.Repeat("f", targetLen-n))
+			os.MkdirAll(sharedTestDataDirBase, 0o700)
+		}
 	}
 
 	var counters1, counters2, counters3 testdirtree.DirectoryTreeCounters

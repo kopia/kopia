@@ -23,6 +23,10 @@ env:
   NON_TAG_RELEASE_REPO: ${{ secrets.NON_TAG_RELEASE_REPO }}
   # RPM and APT packages GCS bucket/hostname.
   PACKAGES_HOST: ${{ secrets.PACKAGES_HOST }}
+  # set (to any value other than false) to trigger random unicode filenames testing (logs may be difficult to read)
+  ENABLE_UNICODE_FILENAMES: ${{ secrets.ENABLE_UNICODE_FILENAMES }}
+  # set (to any value other than false) to trigger very long filenames testing
+  ENABLE_LONG_FILENAMES: ${{ secrets.ENABLE_LONG_FILENAMES }}
 jobs:
   build:
     strategy:

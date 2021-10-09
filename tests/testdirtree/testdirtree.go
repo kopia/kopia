@@ -11,8 +11,11 @@ import (
 	"path/filepath"
 	"sync/atomic"
 	"testing"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/pkg/errors"
+	"golang.org/x/text/unicode/norm"
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/iocopy"
@@ -29,16 +32,73 @@ func intOrDefault(a, b int) int {
 	return b
 }
 
-func randomName(opt DirectoryTreeOptions) string {
-	maxNameLength := intOrDefault(opt.MaxNameLength, 15)
-	minNameLength := intOrDefault(opt.MinNameLength, 3)
-
-	l := rand.Intn(maxNameLength-minNameLength+1) + minNameLength
+func generateHexString(l int) string {
+	// original hex filename generator
 	b := make([]byte, (l+1)/2)
 
 	cryptorand.Read(b)
 
-	return fmt.Sprintf("%v.%v", hex.EncodeToString(b)[:l], atomic.AddInt32(globalRandomNameCounter, 1))
+	return hex.EncodeToString(b)[:l]
+}
+
+func generateUnicodeString(rangeMin, rangeMax, l int) string {
+	// generate a random unicode string within a defined range
+	s := ""
+
+	for i := 0; i < l; {
+		c := rand.Intn(rangeMax-rangeMin+1) + rangeMin
+		r := rune(c)
+		// IsLetter & IsDigit function as a sanity check to prevent writing punctuation/control characters
+		// ValidRune is a sanity check for macOS since APFS can't handle invalid utf-8 and will error out
+		if (unicode.IsLetter(r) || unicode.IsDigit(r)) && utf8.ValidRune(r) {
+			s += string(r)
+			i++
+		}
+	}
+
+	return s
+}
+
+func randomUnicodeName(l int) string {
+	// random language selection for unicode
+	s := ""
+	n := rand.Intn(4)
+
+	switch n {
+	case 1:
+		// cyrillic runs 0x0400 (1024) to 0x052F (1327)
+		s += generateUnicodeString(1024, 1327, l)
+	case 2:
+		// arabic characters run 0x0600 (1536) to 0x06FF (1791)
+		s += generateUnicodeString(1536, 1791, l)
+	case 3:
+		// cjk characters run 0x4E00 (19968) to 0x9FFF (40959)
+		// however the end of the range has compatibility issues due to infrequent usage, so we trim the range a bit (36864)
+		s += generateUnicodeString(19968, 36864, l)
+	default:
+		// latin characters (including extensions A & B) run 0x0020 (32) to 0x024F (591)
+		s += generateUnicodeString(32, 591, l)
+	}
+
+	return norm.NFKD.String(s)
+}
+
+func randomName(opt DirectoryTreeOptions) string {
+	maxNameLength := intOrDefault(opt.MaxNameLength, 15)
+	minNameLength := intOrDefault(opt.MinNameLength, 3)
+
+	s := ""
+	l := rand.Intn(maxNameLength-minNameLength+1) + minNameLength
+
+	// check if we should skip unicode filename testing
+	// skipped during race detection, on ARM, and by default to keep logs cleaner
+	if testutil.ShouldSkipUnicodeFilenames() {
+		s += generateHexString(l)
+	} else {
+		s += randomUnicodeName(l)
+	}
+
+	return fmt.Sprintf("%v.%v", s, atomic.AddInt32(globalRandomNameCounter, 1))
 }
 
 // DirectoryTreeOptions lists options for CreateDirectoryTree.
