@@ -54,6 +54,30 @@ func ShouldReduceTestComplexity() bool {
 	return strings.Contains(runtime.GOARCH, "arm")
 }
 
+// ShouldSkipUnicodeFilenames returns true if:
+// an environmental variable is unset, set to false, test is running on ARM, or if running race detection.
+func ShouldSkipUnicodeFilenames() bool {
+	val, enable := os.LookupEnv("ENABLE_UNICODE_FILENAMES")
+
+	if !enable || isRaceDetector || strings.EqualFold(val, "false") {
+		return true
+	}
+
+	return strings.Contains(runtime.GOARCH, "arm")
+}
+
+// ShouldSkipLongFilenames returns true if:
+// an environmental variable is unset, set to false, test is running on ARM, or if running race detection.
+func ShouldSkipLongFilenames() bool {
+	val, enable := os.LookupEnv("ENABLE_LONG_FILENAMES")
+
+	if !enable || isRaceDetector || strings.EqualFold(val, "false") {
+		return true
+	}
+
+	return strings.Contains(runtime.GOARCH, "arm")
+}
+
 // MyTestMain runs tests and verifies some post-run invariants.
 func MyTestMain(m *testing.M) {
 	v := m.Run()
