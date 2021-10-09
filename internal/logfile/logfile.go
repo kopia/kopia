@@ -76,7 +76,7 @@ func Attach(app *kingpin.Application) {
 	lf.setup(app)
 }
 
-var log = repologging.GetContextLoggerFunc("kopia")
+var log = repologging.Module("kopia")
 
 const (
 	logFileNamePrefix = "kopia-"

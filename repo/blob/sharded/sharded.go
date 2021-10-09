@@ -21,7 +21,7 @@ import (
 // CompleteBlobSuffix is the extension for sharded blobs that have completed writing.
 const CompleteBlobSuffix = ".f"
 
-var log = logging.GetContextLoggerFunc("sharded")
+var log = logging.Module("sharded")
 
 // Impl must be implemented by underlying provided.
 type Impl interface {

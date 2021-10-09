@@ -24,7 +24,7 @@ const (
 	manifestIDLength        = 16
 )
 
-var log = logging.GetContextLoggerFunc("kopia/manifest")
+var log = logging.Module("kopia/manifest")
 
 // ErrNotFound is returned when the metadata item is not found.
 var ErrNotFound = errors.New("not found")

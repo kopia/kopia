@@ -17,7 +17,7 @@ import (
 	"github.com/kopia/kopia/repo/logging"
 )
 
-var log = logging.GetContextLoggerFunc("kopia/internal/fshasher")
+var log = logging.Module("kopia/internal/fshasher")
 
 // Hash computes a recursive hash of e using the given hasher h.
 func Hash(ctx context.Context, e fs.Entry) ([]byte, error) {

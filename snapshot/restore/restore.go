@@ -15,7 +15,7 @@ import (
 	"github.com/kopia/kopia/snapshot"
 )
 
-var log = logging.GetContextLoggerFunc("restore")
+var log = logging.Module("restore")
 
 // Output encapsulates output for restore operation.
 type Output interface {

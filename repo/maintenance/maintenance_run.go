@@ -15,7 +15,7 @@ import (
 	"github.com/kopia/kopia/repo/logging"
 )
 
-var log = logging.GetContextLoggerFunc("maintenance")
+var log = logging.Module("maintenance")
 
 const maxClockSkew = 5 * time.Minute
 

@@ -16,7 +16,7 @@ import (
 	"github.com/kopia/kopia/repo/logging"
 )
 
-var log = logging.GetContextLoggerFunc("client")
+var log = logging.Module("client")
 
 // KopiaAPIClient provides helper methods for communicating with Kopia API server.
 type KopiaAPIClient struct {

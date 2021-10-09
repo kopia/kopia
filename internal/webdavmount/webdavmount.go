@@ -15,7 +15,7 @@ import (
 	"github.com/kopia/kopia/repo/logging"
 )
 
-var log = logging.GetContextLoggerFunc("kopia/webdavmount")
+var log = logging.Module("kopia/webdavmount")
 
 var (
 	_ os.FileInfo = webdavFileInfo{}

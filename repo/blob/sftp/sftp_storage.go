@@ -28,7 +28,7 @@ import (
 	"github.com/kopia/kopia/repo/logging"
 )
 
-var log = logging.GetContextLoggerFunc("sftp")
+var log = logging.Module("sftp")
 
 const (
 	sftpStorageType         = "sftp"

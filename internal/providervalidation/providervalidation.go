@@ -46,7 +46,7 @@ var DefaultOptions = Options{
 
 const blobIDLength = 16
 
-var log = logging.GetContextLoggerFunc("providervalidation")
+var log = logging.Module("providervalidation")
 
 // ValidateProvider runs a series of tests against provided storage to validate that
 // it can be used with Kopia.

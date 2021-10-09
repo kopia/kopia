@@ -28,7 +28,7 @@ import (
 	"github.com/kopia/kopia/snapshot/snapshotmaintenance"
 )
 
-var log = logging.GetContextLoggerFunc("kopia/server")
+var log = logging.Module("kopia/server")
 
 const (
 	maintenanceAttemptFrequency = 10 * time.Minute

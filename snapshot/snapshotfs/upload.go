@@ -32,7 +32,7 @@ import (
 // DefaultCheckpointInterval is the default frequency of mid-upload checkpointing.
 const DefaultCheckpointInterval = 45 * time.Minute
 
-var log = logging.GetContextLoggerFunc("snapshotfs")
+var log = logging.Module("snapshotfs")
 
 var errCanceled = errors.New("canceled")
 

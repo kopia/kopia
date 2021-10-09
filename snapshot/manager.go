@@ -31,7 +31,7 @@ const (
 	loadSnapshotsConcurrency = 50 // number of snapshots to load in parallel
 )
 
-var log = logging.GetContextLoggerFunc("kopia/snapshot")
+var log = logging.Module("kopia/snapshot")
 
 // ListSources lists all snapshot sources in a given repository.
 func ListSources(ctx context.Context, rep repo.Repository) ([]SourceInfo, error) {
