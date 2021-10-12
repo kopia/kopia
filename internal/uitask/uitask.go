@@ -40,6 +40,7 @@ type LogLevel int
 const (
 	LogLevelDebug LogLevel = iota
 	LogLevelInfo
+	LogLevelWarning
 	LogLevelError
 )
 
@@ -178,6 +179,10 @@ func (l runningTaskLogger) Debugf(msg string, args ...interface{}) {
 
 func (l runningTaskLogger) Infof(msg string, args ...interface{}) {
 	l.r.addLogEntry(l.module, LogLevelInfo, msg, args)
+}
+
+func (l runningTaskLogger) Warnf(msg string, args ...interface{}) {
+	l.r.addLogEntry(l.module, LogLevelWarning, msg, args)
 }
 
 func (l runningTaskLogger) Errorf(msg string, args ...interface{}) {

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/clock"
@@ -98,11 +99,10 @@ type SharedManager struct {
 	// logger where logs should be written
 	log logging.Logger
 
-	// base logger used by other related components with their own prefixes,
-	// do not log there directly.
-	sharedBaseLogger   logging.Logger
+	// logger associated with the context that opened the repository.
+	contextLogger      logging.Logger
 	internalLogManager *internalLogManager
-	internalLogger     *internalLogger // backing logger for 'sharedBaseLogger'
+	internalLogger     *zap.SugaredLogger // backing logger for 'sharedBaseLogger'
 }
 
 // Crypter returns the crypter.
@@ -346,6 +346,14 @@ func newCacheBackingStorage(ctx context.Context, caching *CachingOptions, subdir
 	})
 }
 
+func (sm *SharedManager) namedLogger(n string) logging.Logger {
+	if sm.internalLogger != nil {
+		return logging.Broadcast{sm.contextLogger, sm.internalLogger.Named("[" + n + "]")}
+	}
+
+	return sm.contextLogger
+}
+
 func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *CachingOptions) error {
 	dataCacheStorage, err := cache.NewStorageOrNil(ctx, caching.CacheDirectory, caching.MaxCacheSizeBytes, "contents")
 	if err != nil {
@@ -386,7 +394,7 @@ func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *Ca
 		st:             cachedSt,
 		crypter:        sm.crypter,
 		indexBlobCache: metadataCache,
-		log:            logging.WithPrefix("[encrypted-blob-manager] ", sm.sharedBaseLogger),
+		log:            sm.namedLogger("encrypted-blob-manager"),
 	}
 
 	// set up legacy index blob manager
@@ -397,7 +405,7 @@ func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *Ca
 		maxPackSize:    sm.maxPackSize,
 		indexVersion:   sm.indexVersion,
 		indexShardSize: sm.indexShardSize,
-		log:            logging.WithPrefix("[index-blob-manager] ", sm.sharedBaseLogger),
+		log:            sm.namedLogger("index-blob-manager"),
 	}
 
 	// set up new index blob manager
@@ -408,9 +416,9 @@ func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *Ca
 		maxPackSize:    sm.maxPackSize,
 		indexShardSize: sm.indexShardSize,
 		indexVersion:   sm.indexVersion,
-		log:            logging.WithPrefix("[index-blob-manager] ", sm.sharedBaseLogger),
+		log:            sm.namedLogger("index-blob-manager"),
 	}
-	sm.indexBlobManagerV1.epochMgr = epoch.NewManager(cachedSt, sm.format.EpochParameters, sm.indexBlobManagerV1.compactEpoch, sm.sharedBaseLogger, sm.timeNow)
+	sm.indexBlobManagerV1.epochMgr = epoch.NewManager(cachedSt, sm.format.EpochParameters, sm.indexBlobManagerV1.compactEpoch, sm.namedLogger("epoch-manager"), sm.timeNow)
 
 	// select active index blob manager based on parameters
 	if sm.format.EpochParameters.Enabled {
@@ -422,7 +430,7 @@ func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *Ca
 	// once everything is ready, set it up
 	sm.contentCache = dataCache
 	sm.metadataCache = metadataCache
-	sm.committedContents = newCommittedContentIndex(caching, uint32(sm.crypter.Encryptor.Overhead()), sm.indexVersion, sm.enc.getEncryptedBlob, sm.sharedBaseLogger)
+	sm.committedContents = newCommittedContentIndex(caching, uint32(sm.crypter.Encryptor.Overhead()), sm.indexVersion, sm.enc.getEncryptedBlob, sm.namedLogger("committed-content-index"))
 
 	return nil
 }
@@ -472,7 +480,7 @@ func (sm *SharedManager) release(ctx context.Context) error {
 	sm.metadataCache.close(ctx)
 
 	if sm.internalLogger != nil {
-		sm.internalLogger.Close(ctx)
+		sm.internalLogger.Sync() // nolint:errcheck
 	}
 
 	sm.internalLogManager.Close(ctx)
@@ -528,14 +536,11 @@ func NewSharedManager(ctx context.Context, st blob.Storage, f *FormattingOptions
 
 	// sharedBaseLogger writes to the both context and internal log
 	// and is used as a base for all content manager components.
-	var internalLog *internalLogger
+	var internalLog *zap.SugaredLogger
 
 	// capture logger (usually console or log file) associated with current context.
-	sharedBaseLogger := logging.Module(FormatLogModule)(ctx)
-
 	if !opts.DisableInternalLog {
 		internalLog = ilm.NewLogger()
-		sharedBaseLogger = logging.Broadcast{sharedBaseLogger, internalLog}
 	}
 
 	sm := &SharedManager{
@@ -555,11 +560,11 @@ func NewSharedManager(ctx context.Context, st blob.Storage, f *FormattingOptions
 		indexShardSize:          defaultIndexShardSize,
 		internalLogManager:      ilm,
 		internalLogger:          internalLog,
-		sharedBaseLogger:        sharedBaseLogger,
-
-		// remember logger defined for the context.
-		log: logging.WithPrefix("[shared-manager] ", sharedBaseLogger),
+		contextLogger:           logging.Module(FormatLogModule)(ctx),
 	}
+
+	// remember logger defined for the context.
+	sm.log = sm.namedLogger("shared-manager")
 
 	caching = caching.CloneOrDefault()
 

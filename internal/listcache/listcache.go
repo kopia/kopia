@@ -64,12 +64,12 @@ func (s *listCacheStorage) readBlobsFromCache(ctx context.Context, prefix blob.I
 	defer verified.Close()
 
 	if err := hmac.VerifyAndStrip(data.Bytes(), s.hmacSecret, &verified); err != nil {
-		log(ctx).Debugf("warning: invalid list cache HMAC for %v, ignoring", prefix)
+		log(ctx).Warnf("invalid list cache HMAC for %v, ignoring", prefix)
 		return nil
 	}
 
 	if err := json.NewDecoder(verified.Bytes().Reader()).Decode(&cl); err != nil {
-		log(ctx).Debugf("warning: cant't unmarshal cached list results for %v, ignoring", prefix)
+		log(ctx).Warnf("cant't unmarshal cached list results for %v, ignoring", prefix)
 		return nil
 	}
 

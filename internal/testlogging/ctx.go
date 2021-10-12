@@ -22,6 +22,7 @@ type Level int
 const (
 	LevelDebug Level = iota
 	LevelInfo
+	LevelWarn
 	LevelError
 )
 
@@ -42,6 +43,15 @@ func (l *testLogger) Debugf(msg string, args ...interface{}) {
 
 func (l *testLogger) Infof(msg string, args ...interface{}) {
 	if l.minLevel > LevelInfo {
+		return
+	}
+
+	l.t.Helper()
+	l.t.Logf(l.prefix+msg, args...)
+}
+
+func (l *testLogger) Warnf(msg string, args ...interface{}) {
+	if l.minLevel > LevelWarn {
 		return
 	}
 

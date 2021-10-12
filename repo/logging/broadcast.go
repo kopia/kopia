@@ -17,6 +17,13 @@ func (b Broadcast) Infof(msg string, args ...interface{}) {
 	}
 }
 
+// Warnf implements Logger.
+func (b Broadcast) Warnf(msg string, args ...interface{}) {
+	for _, l := range b {
+		l.Warnf(msg, args...)
+	}
+}
+
 // Errorf implements Logger.
 func (b Broadcast) Errorf(msg string, args ...interface{}) {
 	for _, l := range b {

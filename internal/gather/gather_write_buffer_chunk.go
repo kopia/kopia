@@ -137,20 +137,15 @@ func (a *chunkAllocator) dumpStats(ctx context.Context, prefix string) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	method := log(ctx).Debugf
-
 	alive := a.allocated - a.freed
-	if alive > 0 {
-		method = log(ctx).Errorf
-	}
 
-	method("%v (%v) - allocated %v(%v) chunks freed %v alive %v max %v free list high water mark: %v",
+	log(ctx).Debugf("%v (%v) - allocated %v(%v) chunks freed %v alive %v max %v free list high water mark: %v",
 		prefix,
 		units.Base2Bytes(int64(a.chunkSize)),
 		a.allocated, a.slicesAllocated, a.freed, alive, a.allocHighWaterMark, a.freeListHighWaterMark)
 
 	for _, v := range a.activeChunks {
-		method("leaked chunk from %v", v)
+		log(ctx).Debugf("leaked chunk from %v", v)
 	}
 
 	if trackChunkAllocations && len(a.activeChunks) > 0 {

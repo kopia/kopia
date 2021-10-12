@@ -56,7 +56,7 @@ func (o *textOutput) stderr() io.Writer {
 		return os.Stderr
 	}
 
-	return o.svc.stderr()
+	return o.svc.Stderr()
 }
 
 func (o *textOutput) printStdout(msg string, args ...interface{}) {
@@ -82,7 +82,7 @@ type appServices interface {
 	getProgress() *cliProgress
 
 	stdout() io.Writer
-	stderr() io.Writer
+	Stderr() io.Writer
 }
 
 type advancedAppServices interface {
@@ -160,7 +160,8 @@ func (c *App) stdout() io.Writer {
 	return c.stdoutWriter
 }
 
-func (c *App) stderr() io.Writer {
+// Stderr returns the stderr writer.
+func (c *App) Stderr() io.Writer {
 	return c.stderrWriter
 }
 

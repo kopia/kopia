@@ -6,10 +6,12 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/gather"
@@ -22,6 +24,8 @@ const blobLoggerFlushThreshold = 4 << 20
 const TextLogBlobPrefix = "_log_"
 
 type internalLogManager struct {
+	enabled int32 // set by enable(), logger is ineffective until called
+
 	ctx            context.Context
 	st             blob.Storage
 	bc             *Crypter
@@ -64,22 +68,32 @@ func (m *internalLogManager) encryptAndWriteLogBlob(prefix blob.ID, data gather.
 }
 
 // NewLogger creates new logger.
-func (m *internalLogManager) NewLogger() *internalLogger {
+func (m *internalLogManager) NewLogger() *zap.SugaredLogger {
 	var rnd [2]byte
 
 	rand.Read(rnd[:]) // nolint:errcheck
 
-	return &internalLogger{
+	w := &internalLogger{
 		m:      m,
 		prefix: blob.ID(fmt.Sprintf("%v%v_%x", TextLogBlobPrefix, clock.Now().Local().Format("20060102150405"), rnd)),
 	}
+
+	return zap.New(zapcore.NewCore(
+		zapcore.NewConsoleEncoder(zapcore.EncoderConfig{
+			TimeKey:          "t",
+			MessageKey:       "msg",
+			NameKey:          "logger",
+			EncodeTime:       zapcore.TimeEncoderOfLayout("2006-01-02T15:04:05.000000Z07:00"),
+			EncodeDuration:   zapcore.StringDurationEncoder,
+			ConsoleSeparator: " ",
+		}),
+		w, zap.DebugLevel), zap.WithClock(clock.UTC)).Sugar()
 }
 
 // internalLogger represents a single log session that saves log files as blobs in the repository.
 // The logger starts disabled and to actually persist logs enable() must be called.
 type internalLogger struct {
 	nextChunkNumber int32 // chunk number incremented using atomic.AddInt32()
-	enabled         int32 // set by enable(), logger is ineffective until called
 
 	m         *internalLogManager
 	mu        sync.Mutex
@@ -89,32 +103,17 @@ type internalLogger struct {
 	prefix    blob.ID
 }
 
-func (l *internalLogger) enable() {
-	if l == nil {
+func (m *internalLogManager) enable() {
+	if m == nil {
 		return
 	}
 
-	atomic.StoreInt32(&l.enabled, 1)
+	atomic.StoreInt32(&m.enabled, 1)
 }
 
-// Close closes the log session and saves any pending log.
-func (l *internalLogger) Close(ctx context.Context) {
-	l.mu.Lock()
-	data, closeFunc := l.flushAndResetLocked()
-	l.mu.Unlock()
-
-	l.maybeEncryptAndWriteChunkUnlocked(data, closeFunc)
-}
-
-func (l *internalLogger) nowString() string {
-	return l.m.timeFunc().UTC().Format("2006-01-02T15:04:05.000000Z")
-}
-
-func (l *internalLogger) add(level, msg string, args []interface{}) {
-	prefix := l.nowString() + " " + level + " "
-	line := strings.TrimSpace(fmt.Sprintf(prefix+msg, args...)) + "\n"
-
-	l.maybeEncryptAndWriteChunkUnlocked(l.addLineAndMaybeFlush(line))
+func (l *internalLogger) Write(b []byte) (int, error) {
+	l.maybeEncryptAndWriteChunkUnlocked(l.addAndMaybeFlush(b))
+	return len(b), nil
 }
 
 func (l *internalLogger) maybeEncryptAndWriteChunkUnlocked(data gather.Bytes, closeFunc func()) {
@@ -123,7 +122,7 @@ func (l *internalLogger) maybeEncryptAndWriteChunkUnlocked(data gather.Bytes, cl
 		return
 	}
 
-	if atomic.LoadInt32(&l.enabled) == 0 {
+	if atomic.LoadInt32(&l.m.enabled) == 0 {
 		closeFunc()
 		return
 	}
@@ -137,13 +136,13 @@ func (l *internalLogger) maybeEncryptAndWriteChunkUnlocked(data gather.Bytes, cl
 	l.m.encryptAndWriteLogBlob(prefix, data, closeFunc)
 }
 
-func (l *internalLogger) addLineAndMaybeFlush(line string) (payload gather.Bytes, closeFunc func()) {
+func (l *internalLogger) addAndMaybeFlush(b []byte) (payload gather.Bytes, closeFunc func()) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
 	w := l.ensureWriterInitializedLocked()
 
-	_, err := io.WriteString(w, line)
+	_, err := w.Write(b)
 	l.logUnexpectedError(err)
 
 	if l.buf.Length() < l.m.flushThreshold {
@@ -186,16 +185,14 @@ func (l *internalLogger) logUnexpectedError(err error) {
 	}
 }
 
-func (l *internalLogger) Debugf(msg string, args ...interface{}) {
-	l.add("DEBUG", msg, args)
-}
+func (l *internalLogger) Sync() error {
+	l.mu.Lock()
+	data, closeFunc := l.flushAndResetLocked()
+	l.mu.Unlock()
 
-func (l *internalLogger) Infof(msg string, args ...interface{}) {
-	l.add("INFO", msg, args)
-}
+	l.maybeEncryptAndWriteChunkUnlocked(data, closeFunc)
 
-func (l *internalLogger) Errorf(msg string, args ...interface{}) {
-	l.add("ERROR", msg, args)
+	return nil
 }
 
 // newInternalLogManager creates a new blobLogManager that will emit logs as repository blobs with a given prefix.

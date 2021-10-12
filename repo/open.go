@@ -355,7 +355,7 @@ func readAndCacheFormatBlobBytes(ctx context.Context, st blob.Storage, cacheDire
 
 	if cacheEnabled {
 		if err := atomicfile.Write(cachedFile, b.Bytes().Reader()); err != nil {
-			log(ctx).Errorf("warning: unable to write cache: %v", err)
+			log(ctx).Warnf("unable to write cache: %v", err)
 		}
 	}
 

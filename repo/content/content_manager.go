@@ -634,7 +634,7 @@ func (bm *WriteManager) getOrCreatePendingPackInfoLocked(ctx context.Context, pr
 		return pp, nil
 	}
 
-	bm.internalLogger.enable()
+	bm.internalLogManager.enable()
 
 	b := gather.NewWriteBuffer()
 
@@ -877,6 +877,6 @@ func NewWriteManager(ctx context.Context, sm *SharedManager, options SessionOpti
 		sessionHost:           options.SessionHost,
 		onUpload:              options.OnUpload,
 
-		log: logging.WithPrefix(writeManagerID, sm.sharedBaseLogger),
+		log: sm.namedLogger(writeManagerID),
 	}
 }
