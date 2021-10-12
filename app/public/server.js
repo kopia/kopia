@@ -1,11 +1,11 @@
 const { ipcMain } = require('electron');
-const path = require('path');
 const https = require('https');
 
 const { defaultServerBinary } = require('./utils');
 const { spawn } = require('child_process');
 const log = require("electron-log")
-const { configDir, isPortableConfig } = require('./config');
+const { isPortableConfig, returnLogDir, updateCacheDir, returnConfigPath } = require('./config');
+const { hasCliConfigFlag, hasLogDirFlag } = require('./cli');
 
 let servers = {};
 
@@ -41,13 +41,19 @@ function newServerForRepo(repoID) {
                 '--shutdown-on-stdin', // shutdown the server when parent dies
                 '--address=localhost:0');
     
+            args.push(`--config-file=${returnConfigPath(repoID)}`)
+ 
+            // the config file will need to have its cache directory updated either way
+            if (isPortableConfig() || hasCliConfigFlag()) {
+                let cacheDir = updateCacheDir(repoID);
+                log.info(`cache directory for ${repoID} set to ${cacheDir}`);
+            }
 
-            args.push("--config-file", path.resolve(configDir(), repoID + ".config"));
-            if (isPortableConfig()) {
-                const cacheDir = path.resolve(configDir(), "cache", repoID);
-                const logsDir = path.resolve(configDir(), "logs", repoID);
-                args.push("--cache-directory", cacheDir);
-                args.push("--log-dir", logsDir);
+            // only provide a custom log-dir if running in some form of portable mode
+            if (isPortableConfig() || hasLogDirFlag()) {
+                let logDir = returnLogDir(repoID);
+                log.info(`log directory for ${repoID} set to ${logDir}`);
+                args.push(`--log-dir=${logDir}`);
             }
 
             log.info(`spawning ${kopiaPath} ${args.join(' ')}`);
@@ -76,14 +82,14 @@ function newServerForRepo(repoID) {
                     method: "GET",
                     path: "/api/v1/repo/status",
                     headers: {
-                        'Authorization': 'Basic ' + Buffer.from("kopia" + ':' + runningServerPassword).toString('base64')
+                        'Authorization': 'Basic ' + Buffer.from("kopia:" + runningServerPassword).toString('base64')
                      }  
                 }, (resp) => {
                     if (resp.statusCode === 200) {
                         resp.on('data', x => { 
                             try {
                                 const newDetails = JSON.parse(x);
-                                if (JSON.stringify(newDetails) != JSON.stringify(runningServerStatusDetails)) {
+                                if (JSON.stringify(newDetails) !== JSON.stringify(runningServerStatusDetails)) {
                                     runningServerStatusDetails = newDetails;
                                     statusUpdated();
                                 }
@@ -147,6 +153,9 @@ function newServerForRepo(repoID) {
                         runningServerAddress = value;
                         this.raiseStatusUpdatedEvent();
                         break;
+
+                    default:
+                        log.error(`detectServerParam encountered an invalid key: ${key}`)
                 }
             }
 

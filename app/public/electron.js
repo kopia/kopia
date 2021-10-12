@@ -6,17 +6,15 @@ const { resourcesPath, selectByOS } = require('./utils');
 const { toggleLaunchAtStartup, willLaunchAtStartup, refreshWillLaunchAtStartup } = require('./auto-launch');
 const { serverForRepo } = require('./server');
 const log = require("electron-log")
-const { loadConfigs, allConfigs, deleteConfigIfDisconnected, addNewConfig, configDir, isFirstRun, isPortableConfig } = require('./config');
-const { electron } = require('process');
+const { loadConfigs, allConfigs, deleteConfigIfDisconnected, addNewConfig, configDir, isFirstRun, isPortableConfig, setUserData } = require('./config');
+const { parseCliFlags, hasCliConfigFlag } = require('./cli');
 
 app.name = 'KopiaUI';
 
-if (isPortableConfig()) {
-  // in portable mode, write cache under 'repositories'
-  app.setPath('userData', path.join(configDir(), 'cache'));
-}
+parseCliFlags();
+setUserData();
 
-let tray = null
+let tray = null;
 let repoWindows = {};
 let repoIDForWebContents = {};
 
@@ -162,7 +160,7 @@ function maybeMoveToApplicationsFolder() {
     buttons: ["Yes", "No"],
     message: "For best experience, Kopia needs to be installed in Applications folder.\n\nDo you want to move it now?"
   }).then(r => {
-    if (r.response == 0) {
+    if (r.response === 0) {
       app.moveToApplicationsFolder();
     }
   }).catch(e => {
@@ -170,10 +168,23 @@ function maybeMoveToApplicationsFolder() {
   });
 }
 
+function manualConfigNotification() {
+  dialog.showMessageBox({
+    buttons: ["Continue", "Exit"],
+    message: "You have started KopiaUI with the '--config-file' option. This disables connecting to new repositories through the GUI, as well as the launch at startup option."
+  }).then(r => {
+    if (r.response === 1) {
+      app.exit(1);
+    }
+  }).catch(e => {
+      log.info(e);
+  })
+}
+
 function updateDockIcon() {
   if (process.platform === 'darwin') {
     let any = false
-    for (const k in repoWindows) {
+    for (const _k in repoWindows) {
       any = true;
     }
     if (any) {
@@ -192,9 +203,14 @@ app.on('ready', () => {
   loadConfigs();
 
   if (isPortableConfig()) {
-    const logDir = path.join(configDir(), "logs");
-
-    log.transports.file.resolvePath = (variables) => path.join(logDir, variables.fileName);
+    if (hasCliConfigFlag()) {
+      // if in cli portable mode, put logs in the temp folder
+      const logDir = path.join(app.getPath("temp"), "KopiaUiLogs")
+      log.transports.file.resolvePath = (variables) => path.join(logDir, variables.fileName);
+    } else {
+      const logDir = path.join(configDir(), "logs");
+      log.transports.file.resolvePath = (variables) => path.join(logDir, variables.fileName);
+    }
   }
 
   log.transports.console.level = "warn"
@@ -233,6 +249,10 @@ app.on('ready', () => {
 
   if (isOutsideOfApplicationsFolderOnMac()) {
     setTimeout(maybeMoveToApplicationsFolder, 1000);
+  }
+
+  if (hasCliConfigFlag()) {
+    setTimeout(manualConfigNotification, 1000);
   }
 })
 
@@ -281,7 +301,7 @@ function updateTrayContextMenu() {
     additionalReposTemplates.sort((a, b) => a.label.localeCompare(b.label));
   }
 
-  template = defaultReposTemplates.concat(additionalReposTemplates).concat([
+  let template = defaultReposTemplates.concat(additionalReposTemplates).concat([
     { type: 'separator' },
     { label: 'Connect To Another Repository...', click: addAnotherRepository },
     { type: 'separator' },
@@ -291,5 +311,17 @@ function updateTrayContextMenu() {
     { label: 'Quit', role: 'quit' },
   ]);
 
-  tray.setContextMenu(Menu.buildFromTemplate(template));
+  // if hasCliConfigFlag(), we don't have a configDir, so adding new repos is disabled
+  // additionally, since the cli configs are manually specified, remove the launch at startup option
+  let templateCli = defaultReposTemplates.concat(additionalReposTemplates).concat([
+    { type: 'separator' },
+    { label: 'Check For Updates Now', click: checkForUpdates },
+    { label: 'Quit', role: 'quit' },
+  ]);
+
+  if (hasCliConfigFlag()) {
+    tray.setContextMenu(Menu.buildFromTemplate(templateCli));
+  } else {
+    tray.setContextMenu(Menu.buildFromTemplate(template));
+  }
 }
