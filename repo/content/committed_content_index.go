@@ -324,10 +324,8 @@ func newCommittedContentIndex(caching *CachingOptions,
 	v1PerContentOverhead uint32,
 	indexVersion int,
 	fetchOne func(ctx context.Context, blobID blob.ID, output *gather.WriteBuffer) error,
-	baseLog logging.Logger,
+	log logging.Logger,
 ) *committedContentIndex {
-	log := logging.WithPrefix("[committed-content-index] ", baseLog)
-
 	var cache committedContentIndexCache
 
 	if caching.CacheDirectory != "" {
@@ -346,6 +344,6 @@ func newCommittedContentIndex(caching *CachingOptions,
 		v1PerContentOverhead: v1PerContentOverhead,
 		indexVersion:         indexVersion,
 		fetchOne:             fetchOne,
-		log:                  baseLog,
+		log:                  log,
 	}
 }

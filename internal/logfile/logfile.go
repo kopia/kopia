@@ -15,24 +15,18 @@ import (
 
 	"github.com/alecthomas/kingpin"
 	"github.com/fatih/color"
-	logging "github.com/op/go-logging"
-	"github.com/pkg/errors"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
+	"github.com/kopia/kopia/cli"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/ospath"
 	"github.com/kopia/kopia/repo/content"
-	repologging "github.com/kopia/kopia/repo/logging"
+	"github.com/kopia/kopia/repo/logging"
 )
 
 const logsDirMode = 0o700
 
-var contentLogFormat = logging.MustStringFormatter(
-	`%{time:2006-01-02 15:04:05.000000} %{message}`)
-
-var fileLogFormat = logging.MustStringFormatter(
-	`%{time:2006-01-02 15:04:05.000000} %{level:.1s} [%{shortfile}] %{message}`)
-
-// warning is for backwards compatibility, same as error.
 var logLevels = []string{"debug", "info", "warning", "error"}
 
 type loggingFlags struct {
@@ -49,9 +43,11 @@ type loggingFlags struct {
 	forceColor            bool
 	disableColor          bool
 	consoleLogTimestamps  bool
+
+	cliApp *cli.App
 }
 
-func (c *loggingFlags) setup(app *kingpin.Application) {
+func (c *loggingFlags) setup(cliApp *cli.App, app *kingpin.Application) {
 	app.Flag("log-file", "Override log file.").StringVar(&c.logFile)
 	app.Flag("content-log-file", "Override content log file.").Hidden().StringVar(&c.contentLogFile)
 
@@ -68,15 +64,16 @@ func (c *loggingFlags) setup(app *kingpin.Application) {
 	app.Flag("console-timestamps", "Log timestamps to stderr.").Hidden().Default("false").Envar("KOPIA_CONSOLE_TIMESTAMPS").BoolVar(&c.consoleLogTimestamps)
 
 	app.PreAction(c.initialize)
+	c.cliApp = cliApp
 }
 
 // Attach attaches logging flags to the provided application.
-func Attach(app *kingpin.Application) {
+func Attach(cliApp *cli.App, app *kingpin.Application) {
 	lf := &loggingFlags{}
-	lf.setup(app)
+	lf.setup(cliApp, app)
 }
 
-var log = repologging.Module("kopia")
+var log = logging.Module("kopia")
 
 const (
 	logFileNamePrefix = "kopia-"
@@ -101,14 +98,30 @@ func (c *loggingFlags) initialize(ctx *kingpin.ParseContext) error {
 		suffix = strings.ReplaceAll(c.FullCommand(), " ", "-")
 	}
 
-	// activate backends
-	logging.SetBackend(
-		multiLogger{
-			c.setupConsoleBackend(),
-			c.setupLogFileBackend(now, suffix),
-			c.setupContentLogFileBackend(now, suffix),
-		},
-	)
+	// First, define our level-handling logic.
+
+	var clockOption zap.Option
+
+	if c.fileLogLocalTimezone {
+		clockOption = zap.WithClock(clock.Local)
+	} else {
+		clockOption = zap.WithClock(clock.UTC)
+	}
+
+	rootLogger := zap.New(zapcore.NewTee(
+		c.setupConsoleCore(),
+		c.setupLogFileCore(now, suffix),
+	), clockOption)
+
+	contentLogger := zap.New(c.setupContentLogFileBackend(now, suffix), clockOption).Sugar()
+
+	c.cliApp.SetLoggerFactory(func(module string) logging.Logger {
+		if module == content.FormatLogModule {
+			return contentLogger
+		}
+
+		return rootLogger.Named(module).Sugar()
+	})
 
 	if c.forceColor {
 		color.NoColor = false
@@ -121,52 +134,45 @@ func (c *loggingFlags) initialize(ctx *kingpin.ParseContext) error {
 	return nil
 }
 
-type multiLogger []logging.Backend
-
-func (m multiLogger) Log(l logging.Level, calldepth int, rec *logging.Record) error {
-	// use clock.Now() which can be overridden in e2e tests.
-	rec.Time = clock.Now()
-
-	for _, child := range m {
-		// Shallow copy of the record for the formatted cache on Record and get the
-		// record formatter from the backend.
-		r2 := *rec
-		child.Log(l, calldepth, &r2) //nolint:errcheck
+func (c *loggingFlags) setupConsoleCore() zapcore.Core {
+	ec := zapcore.EncoderConfig{
+		LevelKey:         "L",
+		MessageKey:       "M",
+		LineEnding:       zapcore.DefaultLineEnding,
+		EncodeTime:       zapcore.RFC3339NanoTimeEncoder,
+		EncodeDuration:   zapcore.StringDurationEncoder,
+		EncodeCaller:     zapcore.ShortCallerEncoder,
+		ConsoleSeparator: " ",
 	}
 
-	return nil
-}
+	if c.consoleLogTimestamps {
+		ec.TimeKey = "T"
+		ec.EncodeTime = zapcore.TimeEncoderOfLayout("15:04:05.000")
+	}
 
-func (c *loggingFlags) setupConsoleBackend() logging.Backend {
-	var (
-		prefix         = "%{color}"
-		suffix         = "%{message}%{color:reset}"
-		maybeTimestamp = "%{time:15:04:05.000} "
+	ec.EncodeLevel = func(l zapcore.Level, pae zapcore.PrimitiveArrayEncoder) {
+		if l == zap.InfoLevel {
+			// info log does not have a prefix.
+			return
+		}
+
+		if c.disableColor {
+			zapcore.CapitalLevelEncoder(l, pae)
+		} else {
+			zapcore.CapitalColorLevelEncoder(l, pae)
+		}
+	}
+
+	consoleFormat := zapcore.NewConsoleEncoder(ec)
+
+	return zapcore.NewCore(
+		consoleFormat,
+		zapcore.AddSync(c.cliApp.Stderr()),
+		logLevelFromFlag(c.logLevel),
 	)
-
-	if c.disableColor {
-		prefix = ""
-		suffix = "%{message}"
-	}
-
-	if !c.consoleLogTimestamps {
-		maybeTimestamp = ""
-	}
-
-	l := logging.AddModuleLevel(logging.NewBackendFormatter(
-		logging.NewLogBackend(os.Stderr, "", 0),
-		logging.MustStringFormatter(prefix+maybeTimestamp+suffix)))
-
-	// do not output content logs to the console
-	l.SetLevel(logging.CRITICAL, content.FormatLogModule)
-
-	// log everything else at a level specified using --log-level
-	l.SetLevel(logLevelFromFlag(c.logLevel), "")
-
-	return l
 }
 
-func (c *loggingFlags) setupLogFileBasedLogger(now time.Time, subdir, suffix, logFileOverride string, maxFiles int, maxAge time.Duration) logging.Backend {
+func (c *loggingFlags) setupLogFileBasedLogger(now time.Time, subdir, suffix, logFileOverride string, maxFiles int, maxAge time.Duration) zapcore.WriteSyncer {
 	var logFileName, symlinkName string
 
 	if logFileOverride != "" {
@@ -196,42 +202,43 @@ func (c *loggingFlags) setupLogFileBasedLogger(now time.Time, subdir, suffix, lo
 		go sweepLogDir(context.TODO(), logDir, maxFiles, maxAge)
 	}
 
-	return &onDemandBackend{
+	return &onDemandFile{
 		logDir:          logDir,
 		logFileBaseName: logFileBaseName,
 		symlinkName:     symlinkName,
-		utc:             !c.fileLogLocalTimezone,
 	}
 }
 
-func (c *loggingFlags) setupLogFileBackend(now time.Time, suffix string) logging.Backend {
-	l := logging.AddModuleLevel(
-		logging.NewBackendFormatter(
-			c.setupLogFileBasedLogger(now, "cli-logs", suffix, c.logFile, c.logDirMaxFiles, c.logDirMaxAge),
-			fileLogFormat))
-
-	// do not output content logs to the regular log file
-	l.SetLevel(logging.CRITICAL, content.FormatLogModule)
-
-	// log everything else at a level specified using --file-level
-	l.SetLevel(logLevelFromFlag(c.fileLogLevel), "")
-
-	return l
+func (c *loggingFlags) setupLogFileCore(now time.Time, suffix string) zapcore.Core {
+	return zapcore.NewCore(
+		zapcore.NewConsoleEncoder(zapcore.EncoderConfig{
+			TimeKey:          "t",
+			MessageKey:       "msg",
+			NameKey:          "logger",
+			LevelKey:         "lvl",
+			EncodeName:       zapcore.FullNameEncoder,
+			EncodeLevel:      zapcore.CapitalLevelEncoder,
+			EncodeTime:       zapcore.TimeEncoderOfLayout("2006-01-02T15:04:05.000000Z07:00"),
+			EncodeDuration:   zapcore.StringDurationEncoder,
+			ConsoleSeparator: " ",
+		}),
+		c.setupLogFileBasedLogger(now, "cli-logs", suffix, c.logFile, c.logDirMaxFiles, c.logDirMaxAge),
+		logLevelFromFlag(c.fileLogLevel),
+	)
 }
 
-func (c *loggingFlags) setupContentLogFileBackend(now time.Time, suffix string) logging.Backend {
-	l := logging.AddModuleLevel(
-		logging.NewBackendFormatter(
-			c.setupLogFileBasedLogger(now, "content-logs", suffix, c.contentLogFile, c.contentLogDirMaxFiles, c.contentLogDirMaxAge),
-			contentLogFormat))
-
-	// only log content entries
-	l.SetLevel(logging.DEBUG, content.FormatLogModule)
-
-	// do not log anything else
-	l.SetLevel(logging.CRITICAL, "")
-
-	return l
+func (c *loggingFlags) setupContentLogFileBackend(now time.Time, suffix string) zapcore.Core {
+	return zapcore.NewCore(
+		zapcore.NewConsoleEncoder(zapcore.EncoderConfig{
+			TimeKey:          "t",
+			MessageKey:       "msg",
+			NameKey:          "logger",
+			EncodeTime:       zapcore.TimeEncoderOfLayout("2006-01-02T15:04:05.000000Z07:00"),
+			EncodeDuration:   zapcore.StringDurationEncoder,
+			ConsoleSeparator: " ",
+		}),
+		c.setupLogFileBasedLogger(now, "content-logs", suffix, c.contentLogFile, c.contentLogDirMaxFiles, c.contentLogDirMaxAge),
+		zap.DebugLevel)
 }
 
 func shouldSweepLog(maxFiles int, maxAge time.Duration) bool {
@@ -279,32 +286,41 @@ func sweepLogDir(ctx context.Context, dirname string, maxCount int, maxAge time.
 	}
 }
 
-func logLevelFromFlag(levelString string) logging.Level {
+func logLevelFromFlag(levelString string) zapcore.LevelEnabler {
 	switch levelString {
 	case "debug":
-		return logging.DEBUG
+		return zap.DebugLevel
 	case "info":
-		return logging.INFO
+		return zap.InfoLevel
 	case "warning":
-		return logging.WARNING
+		return zap.WarnLevel
 	case "error":
-		return logging.ERROR
+		return zap.ErrorLevel
 	default:
-		return logging.CRITICAL
+		return zap.FatalLevel
 	}
 }
 
-type onDemandBackend struct {
+type onDemandFile struct {
 	logDir          string
 	logFileBaseName string
 	symlinkName     string
-	utc             bool
 
-	backend logging.Backend
-	once    sync.Once
+	f *os.File
+
+	once sync.Once
 }
 
-func (w *onDemandBackend) Log(level logging.Level, depth int, rec *logging.Record) error {
+func (w *onDemandFile) Sync() error {
+	if w.f == nil {
+		return nil
+	}
+
+	// nolint:wrapcheck
+	return w.f.Sync()
+}
+
+func (w *onDemandFile) Write(b []byte) (int, error) {
 	w.once.Do(func() {
 		lf := filepath.Join(w.logDir, w.logFileBaseName)
 		f, err := os.Create(lf)
@@ -313,7 +329,7 @@ func (w *onDemandBackend) Log(level logging.Level, depth int, rec *logging.Recor
 			return
 		}
 
-		w.backend = logging.NewLogBackend(f, "", 0)
+		w.f = f
 
 		if w.symlinkName != "" {
 			symlink := filepath.Join(w.logDir, w.symlinkName)
@@ -322,16 +338,10 @@ func (w *onDemandBackend) Log(level logging.Level, depth int, rec *logging.Recor
 		}
 	})
 
-	if w.backend == nil {
-		return errors.New("no backend")
-	}
-
-	if w.utc {
-		rec.Time = rec.Time.UTC()
-	} else {
-		rec.Time = rec.Time.Local()
+	if w.f == nil {
+		return 0, nil
 	}
 
 	// nolint:wrapcheck
-	return w.backend.Log(level, depth+1, rec)
+	return w.f.Write(b)
 }

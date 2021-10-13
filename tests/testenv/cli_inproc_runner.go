@@ -5,6 +5,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/alecthomas/kingpin"
+
 	"github.com/kopia/kopia/cli"
 	"github.com/kopia/kopia/internal/testlogging"
 )
@@ -12,6 +14,8 @@ import (
 // CLIInProcRunner is a CLIRunner that invokes provided commands in the current process.
 type CLIInProcRunner struct {
 	RepoPassword string
+
+	CustomizeApp func(a *cli.App, kp *kingpin.Application)
 }
 
 // Start implements CLIRunner.
@@ -23,7 +27,13 @@ func (e *CLIInProcRunner) Start(t *testing.T, args []string) (stdout, stderr io.
 	a := cli.NewApp()
 	a.AdvancedCommands = "enabled"
 
-	return a.RunSubcommand(ctx, append([]string{
+	kpapp := kingpin.New("test", "test")
+
+	if e.CustomizeApp != nil {
+		e.CustomizeApp(a, kpapp)
+	}
+
+	return a.RunSubcommand(ctx, kpapp, append([]string{
 		"--password", e.RepoPassword,
 	}, args...))
 }

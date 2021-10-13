@@ -120,10 +120,8 @@ div.tab-body {
 
 .loglevel-0 { color: #444; } /* debug */
 .loglevel-1 { color: black; } /* info */
-.loglevel-2 { color: blue; font-weight: bold; } /* notice */
-.loglevel-3 { color: rgb(169, 112, 5); font-weight: bold;} /* warning */
-.loglevel-4 { color: red; font-weight: bold; } /* error */
-.loglevel-5 { color: red; font-weight: bold; } /* fatal */
+.loglevel-2 { color: rgb(169, 112, 5); font-weight: bold;} /* warning */
+.loglevel-3 { color: red; font-weight: bold; } /* error */
 
 .counter-badge {
   font-size: 90%;

@@ -12,9 +12,7 @@ import (
 
 // RunSubcommand executes the subcommand asynchronously in current process
 // with flags in an isolated CLI environment and returns standard output and standard error.
-func (c *App) RunSubcommand(ctx context.Context, argsAndFlags []string) (stdout, stderr io.Reader, wait func() error, kill func()) {
-	kpapp := kingpin.New("test", "test")
-
+func (c *App) RunSubcommand(ctx context.Context, kpapp *kingpin.Application, argsAndFlags []string) (stdout, stderr io.Reader, wait func() error, kill func()) {
 	stdoutReader, stdoutWriter := io.Pipe()
 	stderrReader, stderrWriter := io.Pipe()
 

@@ -241,7 +241,7 @@ func (s *Storage) getParameters(ctx context.Context) (*Parameters, error) {
 		}
 
 		if err := s.Impl.PutBlobInPath(ctx, s.RootPath, dotShardsFile, tmp.Bytes()); err != nil {
-			log(ctx).Errorf("warning: unable to persist sharding parameters: %v", err)
+			log(ctx).Warnf("unable to persist sharding parameters: %v", err)
 		}
 	} else {
 		par := &Parameters{}

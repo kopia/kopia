@@ -16,6 +16,11 @@ func (p *prefixLogger) Infof(msg string, args ...interface{}) {
 	p.inner.Infof(p.prefixFunc()+msg, args...)
 }
 
+// Warnf implements Logger.
+func (p *prefixLogger) Warnf(msg string, args ...interface{}) {
+	p.inner.Warnf(p.prefixFunc()+msg, args...)
+}
+
 // Errorf implements Logger.
 func (p *prefixLogger) Errorf(msg string, args ...interface{}) {
 	p.inner.Errorf(p.prefixFunc()+msg, args...)

@@ -13,12 +13,10 @@ import (
 	"os"
 
 	"github.com/alecthomas/kingpin"
-	gologging "github.com/op/go-logging"
 
 	"github.com/kopia/kopia/cli"
 	"github.com/kopia/kopia/internal/logfile"
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/repo/logging"
 )
 
 const usageTemplate = `{{define "FormatCommand"}}\
@@ -69,12 +67,8 @@ func main() {
 	app := cli.NewApp()
 	kp := kingpin.New("kopia", "Kopia - Fast And Secure Open-Source Backup").Author("http://kopia.github.io/")
 
-	app.SetLoggerFactory(func(module string) logging.Logger {
-		return gologging.MustGetLogger(module)
-	})
-
 	kp.Version(repo.BuildVersion + " build: " + repo.BuildInfo + " from: " + repo.BuildGitHubRepo)
-	logfile.Attach(kp)
+	logfile.Attach(app, kp)
 	kp.ErrorWriter(os.Stderr)
 	kp.UsageWriter(os.Stdout)
 	kp.UsageTemplate(usageTemplate)

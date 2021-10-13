@@ -836,9 +836,7 @@ func rangeCheckpointBlobPrefix(epoch1, epoch2 int) blob.ID {
 }
 
 // NewManager creates new epoch manager.
-func NewManager(st blob.Storage, params Parameters, compactor CompactionFunc, sharedBaseLogger logging.Logger, timeNow func() time.Time) *Manager {
-	log := logging.WithPrefix("[epoch-manager] ", sharedBaseLogger)
-
+func NewManager(st blob.Storage, params Parameters, compactor CompactionFunc, log logging.Logger, timeNow func() time.Time) *Manager {
 	return &Manager{
 		st:                           st,
 		log:                          log,
