@@ -21,6 +21,7 @@ import (
 	"github.com/kopia/kopia/cli"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/ospath"
+	"github.com/kopia/kopia/internal/zaplogutil"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/logging"
 )
@@ -98,22 +99,12 @@ func (c *loggingFlags) initialize(ctx *kingpin.ParseContext) error {
 		suffix = strings.ReplaceAll(c.FullCommand(), " ", "-")
 	}
 
-	// First, define our level-handling logic.
-
-	var clockOption zap.Option
-
-	if c.fileLogLocalTimezone {
-		clockOption = zap.WithClock(clock.Local)
-	} else {
-		clockOption = zap.WithClock(clock.UTC)
-	}
-
 	rootLogger := zap.New(zapcore.NewTee(
 		c.setupConsoleCore(),
 		c.setupLogFileCore(now, suffix),
-	), clockOption)
+	), zap.WithClock(zaplogutil.Clock))
 
-	contentLogger := zap.New(c.setupContentLogFileBackend(now, suffix), clockOption).Sugar()
+	contentLogger := zap.New(c.setupContentLogFileBackend(now, suffix), zap.WithClock(zaplogutil.Clock)).Sugar()
 
 	c.cliApp.SetLoggerFactory(func(module string) logging.Logger {
 		if module == content.FormatLogModule {
@@ -147,7 +138,8 @@ func (c *loggingFlags) setupConsoleCore() zapcore.Core {
 
 	if c.consoleLogTimestamps {
 		ec.TimeKey = "T"
-		ec.EncodeTime = zapcore.TimeEncoderOfLayout("15:04:05.000")
+		// always log local timestamps to the console, not UTC
+		ec.EncodeTime = zaplogutil.TimezoneAdjust(zapcore.TimeEncoderOfLayout("15:04:05.000"), true)
 	}
 
 	ec.EncodeLevel = func(l zapcore.Level, pae zapcore.PrimitiveArrayEncoder) {
@@ -218,7 +210,7 @@ func (c *loggingFlags) setupLogFileCore(now time.Time, suffix string) zapcore.Co
 			LevelKey:         "lvl",
 			EncodeName:       zapcore.FullNameEncoder,
 			EncodeLevel:      zapcore.CapitalLevelEncoder,
-			EncodeTime:       zapcore.TimeEncoderOfLayout("2006-01-02T15:04:05.000000Z07:00"),
+			EncodeTime:       zaplogutil.TimezoneAdjust(zaplogutil.PreciseTimeEncoder, c.fileLogLocalTimezone),
 			EncodeDuration:   zapcore.StringDurationEncoder,
 			ConsoleSeparator: " ",
 		}),
@@ -233,7 +225,7 @@ func (c *loggingFlags) setupContentLogFileBackend(now time.Time, suffix string) 
 			TimeKey:          "t",
 			MessageKey:       "msg",
 			NameKey:          "logger",
-			EncodeTime:       zapcore.TimeEncoderOfLayout("2006-01-02T15:04:05.000000Z07:00"),
+			EncodeTime:       zaplogutil.TimezoneAdjust(zaplogutil.PreciseTimeEncoder, false),
 			EncodeDuration:   zapcore.StringDurationEncoder,
 			ConsoleSeparator: " ",
 		}),

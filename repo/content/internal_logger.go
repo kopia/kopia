@@ -15,6 +15,7 @@ import (
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/gather"
+	"github.com/kopia/kopia/internal/zaplogutil"
 	"github.com/kopia/kopia/repo/blob"
 )
 
@@ -83,11 +84,11 @@ func (m *internalLogManager) NewLogger() *zap.SugaredLogger {
 			TimeKey:          "t",
 			MessageKey:       "msg",
 			NameKey:          "logger",
-			EncodeTime:       zapcore.TimeEncoderOfLayout("2006-01-02T15:04:05.000000Z07:00"),
+			EncodeTime:       zaplogutil.TimezoneAdjust(zaplogutil.PreciseTimeEncoder, false),
 			EncodeDuration:   zapcore.StringDurationEncoder,
 			ConsoleSeparator: " ",
 		}),
-		w, zap.DebugLevel), zap.WithClock(clock.UTC)).Sugar()
+		w, zap.DebugLevel), zap.WithClock(zaplogutil.Clock)).Sugar()
 }
 
 // internalLogger represents a single log session that saves log files as blobs in the repository.

@@ -11,14 +11,16 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/logfile"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
 var (
-	cliLogFormat     = regexp.MustCompile(`^\d{4}-\d\d\-\d\dT\d\d:\d\d:\d\d\.\d{6}Z (DEBUG|INFO) [a-z/]+ .*$`)
-	contentLogFormat = regexp.MustCompile(`^\d{4}-\d\d\-\d\dT\d\d:\d\d:\d\d\.\d{6}Z .*$`)
+	cliLogFormat              = regexp.MustCompile(`^\d{4}-\d\d\-\d\dT\d\d:\d\d:\d\d\.\d{6}Z (DEBUG|INFO) [a-z/]+ .*$`)
+	contentLogFormat          = regexp.MustCompile(`^\d{4}-\d\d\-\d\dT\d\d:\d\d:\d\d\.\d{6}Z .*$`)
+	cliLogFormatLocalTimezone = regexp.MustCompile(`^\d{4}-\d\d\-\d\dT\d\d:\d\d:\d\d\.\d{6}[^Z][^ ]+ (DEBUG|INFO) [a-z/]+ .*$`)
 )
 
 func TestLoggingFlags(t *testing.T) {
@@ -57,6 +59,14 @@ func TestLoggingFlags(t *testing.T) {
 		"--file-log-local-tz", "--no-progress", "--log-level=debug", "--disable-color",
 		"--no-auto-maintenance", "--log-dir", tmpLogDir)
 	require.NoError(t, err)
+
+	if isUTC() {
+		verifyFileLogFormat(t, filepath.Join(tmpLogDir, "cli-logs", "latest.log"), cliLogFormat)
+	} else {
+		verifyFileLogFormat(t, filepath.Join(tmpLogDir, "cli-logs", "latest.log"), cliLogFormatLocalTimezone)
+	}
+
+	verifyFileLogFormat(t, filepath.Join(tmpLogDir, "content-logs", "latest.log"), contentLogFormat)
 
 	for _, l := range stderr {
 		require.NotContains(t, l, "INFO") // INFO is omitted
@@ -98,4 +108,10 @@ func verifyFileLogFormat(t *testing.T, fname string, re *regexp.Regexp) {
 	for s.Scan() {
 		require.True(t, re.MatchString(s.Text()), "log line does not match the format: %v", s.Text())
 	}
+}
+
+func isUTC() bool {
+	_, offset := clock.Now().Zone()
+
+	return offset == 0
 }
