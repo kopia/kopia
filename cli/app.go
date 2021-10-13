@@ -463,7 +463,7 @@ func (c *App) maybeRepositoryAction(act func(ctx context.Context, rep repo.Repos
 			return err
 		}); err != nil {
 			// print error in red
-			log(ctx0).Errorf("ERROR: %v", err.Error())
+			log(ctx0).Errorf("%v", err.Error())
 			c.osExit(1)
 		}
 
