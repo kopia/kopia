@@ -330,7 +330,7 @@ func (c *commandSnapshotCreate) reportSnapshotStatus(ctx context.Context, manife
 
 	if ds := manifest.RootEntry.DirSummary; ds != nil {
 		if ds.IgnoredErrorCount > 0 {
-			log(ctx).Errorf("Ignored %v error(s) while snapshotting %v.", ds.IgnoredErrorCount, sourceInfo)
+			log(ctx).Warnf("Ignored %v error(s) while snapshotting %v.", ds.IgnoredErrorCount, sourceInfo)
 		}
 
 		if ds.FatalErrorCount > 0 {
