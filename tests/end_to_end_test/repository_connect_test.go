@@ -7,9 +7,30 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
 
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/tests/testenv"
 )
+
+func TestFilesystemFlat(t *testing.T) {
+	t.Parallel()
+
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--flat")
+	e.RunAndExpectSuccess(t, "snapshot", "create", testutil.TempDirectory(t))
+
+	entries, err := os.ReadDir(e.RepoDir)
+	require.NoError(t, err)
+
+	// make sure there are no subdirectories in the repo.
+	for _, ent := range entries {
+		t.Logf("found %v %v", ent.Name(), ent.IsDir())
+		require.False(t, ent.IsDir())
+	}
+}
 
 func TestFilesystemRequiresAbsolutePaths(t *testing.T) {
 	t.Parallel()

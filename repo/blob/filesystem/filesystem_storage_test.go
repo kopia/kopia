@@ -1,6 +1,7 @@
 package filesystem
 
 import (
+	"path/filepath"
 	"reflect"
 	"sort"
 	"testing"
@@ -126,6 +127,27 @@ func TestFileStorageConcurrency(t *testing.T) {
 		RangeGetPercentage:              10,
 		NonExistentListPrefixPercentage: 10,
 	})
+}
+
+func TestFilesystemStorageDirectoryShards(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+
+	dataDir := testutil.TempDirectory(t)
+
+	st, err := New(ctx, &Options{
+		Path:            dataDir,
+		DirectoryShards: []int{5, 2},
+	})
+	if err != nil {
+		t.Fatalf("unable to connect to rclone backend: %v", err)
+	}
+
+	defer st.Close(ctx)
+
+	require.NoError(t, st.PutBlob(ctx, "someblob1234567812345678", gather.FromSlice([]byte{1, 2, 3})))
+	require.FileExists(t, filepath.Join(dataDir, "someb", "lo", "b1234567812345678.f"))
 }
 
 func verifyBlobTimestampOrder(t *testing.T, st blob.Storage, want ...blob.ID) {
