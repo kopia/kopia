@@ -1,10 +1,12 @@
 package retry
 
 import (
+	"context"
 	"testing"
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/testlogging"
 )
@@ -57,4 +59,17 @@ func TestRetry(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRetryContextCancel(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+
+	canceledctx, cancel := context.WithCancel(ctx)
+	cancel()
+
+	require.ErrorIs(t, context.Canceled, WithExponentialBackoffNoValue(canceledctx, "canceled", func() error {
+		return errRetriable
+	}, isRetriable))
 }
