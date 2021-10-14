@@ -61,7 +61,7 @@ func (v *Queue) enqueue(ctx context.Context, front bool, callback CallbackFunc) 
 func (v *Queue) Process(ctx context.Context, workers int) error {
 	defer v.reportProgress(ctx)
 
-	eg, ctx := errgroup.WithContext(context.Background())
+	eg, ctx := errgroup.WithContext(ctx)
 
 	for i := 0; i < workers; i++ {
 		eg.Go(func() error {
