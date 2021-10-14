@@ -56,6 +56,11 @@ func internalRetry(ctx context.Context, desc string, attempt AttemptFunc, isRetr
 	var lastError error
 
 	for i := 0; i < count; i++ {
+		if cerr := ctx.Err(); cerr != nil {
+			// nolint:wrapcheck
+			return nil, cerr
+		}
+
 		v, err := attempt()
 		if err == nil {
 			return v, nil
