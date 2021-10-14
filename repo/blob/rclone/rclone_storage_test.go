@@ -5,12 +5,14 @@ import (
 	"encoding/base64"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/kopia/kopia/internal/blobtesting"
@@ -95,6 +97,32 @@ func TestRCloneStorage(t *testing.T) {
 
 	blobtesting.VerifyStorage(ctx, t, st)
 	blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
+}
+
+func TestRCloneStorageDirectoryShards(t *testing.T) {
+	t.Parallel()
+
+	testutil.ProviderTest(t)
+
+	ctx := testlogging.Context(t)
+
+	rcloneExe := mustGetRcloneExeOrSkip(t)
+	dataDir := testutil.TempDirectory(t)
+
+	st, err := rclone.New(ctx, &rclone.Options{
+		// pass local file as remote path.
+		RemotePath:      dataDir,
+		RCloneExe:       rcloneExe,
+		DirectoryShards: []int{5, 2},
+	})
+	if err != nil {
+		t.Fatalf("unable to connect to rclone backend: %v", err)
+	}
+
+	defer st.Close(ctx)
+
+	require.NoError(t, st.PutBlob(ctx, "someblob1234567812345678", gather.FromSlice([]byte{1, 2, 3})))
+	require.FileExists(t, filepath.Join(dataDir, "someb", "lo", "b1234567812345678.f"))
 }
 
 func TestRCloneStorageInvalidExe(t *testing.T) {

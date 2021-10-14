@@ -293,6 +293,7 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 		TrustedServerCertificateFingerprint: hex.EncodeToString(fingerprintBytes[:]),
 		ListParallelism:                     opt.ListParallelism,
 		AtomicWrites:                        opt.AtomicWrites,
+		DirectoryShards:                     opt.DirectoryShards,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "error connecting to webdav storage")
