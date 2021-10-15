@@ -19,8 +19,10 @@ jobs:
         fetch-depth: 0
     - name: Run Tests
       run: make test-with-coverage
-    - name: Publish Coverage Results
-      run: make ci-publish-coverage
+    - name: Upload Coverage
+      uses: codecov/codecov-action@v2
+      with:
+        files: coverage.txt
     - name: Upload Logs
       uses: actions/upload-artifact@v2
       with:
