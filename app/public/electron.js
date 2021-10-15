@@ -1,13 +1,12 @@
-const { app, BrowserWindow, Menu, Tray, ipcMain, dialog } = require('electron')
+const { app, BrowserWindow, Notification, Menu, Tray, ipcMain, dialog, shell } = require('electron')
 const path = require('path');
 const isDev = require('electron-is-dev');
 const { autoUpdater } = require("electron-updater");
 const { resourcesPath, selectByOS } = require('./utils');
 const { toggleLaunchAtStartup, willLaunchAtStartup, refreshWillLaunchAtStartup } = require('./auto-launch');
 const { serverForRepo } = require('./server');
-const log = require("electron-log")
+const log = require("electron-log");
 const { loadConfigs, allConfigs, deleteConfigIfDisconnected, addNewConfig, configDir, isFirstRun, isPortableConfig } = require('./config');
-const { electron } = require('process');
 
 app.name = 'KopiaUI';
 
@@ -107,7 +106,7 @@ app.on('login', (event, webContents, request, authInfo, callback) => {
 
 app.on('certificate-error', (event, webContents, url, error, certificate, callback) => {
   const repoID = repoIDForWebContents[webContents.id];
-  // intercept certificate errors and automatically trust the certificate the server has printed for us. 
+  // intercept certificate errors and automatically trust the certificate the server has printed for us.
   const expected = 'sha256/' + Buffer.from(serverForRepo(repoID).getServerCertSHA256(), 'hex').toString('base64');
   if (certificate.fingerprint === expected) {
     log.debug('accepting server certificate.');
@@ -129,7 +128,7 @@ ipcMain.handle('select-dir', async (event, arg) => {
   const result = await dialog.showOpenDialog({
     properties: ['openDirectory']
   });
-  
+
   if (result.filePaths) {
     return result.filePaths[0];
   } else {
@@ -140,13 +139,93 @@ ipcMain.handle('select-dir', async (event, arg) => {
 ipcMain.on('server-status-updated', updateTrayContextMenu);
 ipcMain.on('launch-at-startup-updated', updateTrayContextMenu);
 
+let updateAvailableInfo = null;
+let updateDownloadStatusInfo = "";
+
+// set this environment variable when developing
+// to allow offering downgrade to the latest released version.
+autoUpdater.allowDowngrade = process.env["KOPIA_UI_ALLOW_DOWNGRADE"] == "1";
+
+// we will be manually triggering download and quit&install.
+autoUpdater.autoDownload = false;
+autoUpdater.autoInstallOnAppQuit = false;
+
+let lastNotifiedVersion = "";
+
+autoUpdater.on('update-available', a => {
+  log.info('update available ' + a.version);
+
+  updateAvailableInfo = a;
+  updateDownloadStatusInfo = "";
+  updateTrayContextMenu();
+
+  // do not notify more than once for a particular version.
+  if (lastNotifiedVersion != a.version) {
+    lastNotifiedVersion = a.version;
+
+    const n = new Notification({
+      title: "New version of KopiaUI",
+      body: "Version v" + a.version + " is available.\n\nClick here to download and install it.",
+    });
+
+    n.on('click', () => installUpdate());
+    n.show();
+  }
+})
+
+autoUpdater.on('update-not-available', () => {
+  updateAvailableInfo = null;
+  updateDownloadStatusInfo = "";
+  updateTrayContextMenu();
+})
+
+autoUpdater.on('download-progress', progress => {
+  if (updateAvailableInfo) {
+    updateDownloadStatusInfo = "Downloading Update: v" + updateAvailableInfo.version + " (" + (Math.round(progress.percent * 10) / 10.0) + "%) ...";
+    updateTrayContextMenu();
+  }
+});
+
+autoUpdater.on('update-downloaded', info => {
+  updateDownloadStatusInfo = "Installing Update: v" + updateAvailableInfo.version + " ...";
+  updateTrayContextMenu();
+
+  autoUpdater.quitAndInstall();
+});
+
+autoUpdater.on('error', a => {
+  updateAvailableInfo = null;
+  updateDownloadStatusInfo = "Error checking for updates.";
+  updateTrayContextMenu();
+});
+
 function checkForUpdates() {
-  autoUpdater.checkForUpdatesAndNotify();
+  updateReadyToInstall = false;
+  updateDownloadStatusInfo = "Checking for update...";
+  updateAvailableInfo = null;
+  updateTrayContextMenu();
+
+  autoUpdater.checkForUpdates();
+}
+
+function installUpdate() {
+  updateDownloadStatusInfo = "Downloading and installing update...";
+  autoUpdater.downloadUpdate();
+}
+
+function viewReleaseNotes() {
+  const ver = updateAvailableInfo.version + "";
+  if (ver.match(/^\d{8}\./)) {
+    // kopia-test builds are named yyyymmdd.0.hhmmss
+    shell.openExternal("https://github.com/kopia/kopia-test-builds/releases/v" + ver);
+  } else {
+    shell.openExternal("https://github.com/kopia/kopia/releases/v" + ver);
+  }
 }
 
 function isOutsideOfApplicationsFolderOnMac() {
   if (isDev || isPortableConfig()) {
-    return false; 
+    return false;
   }
 
   // this method is only available on Mac.
@@ -164,6 +243,8 @@ function maybeMoveToApplicationsFolder() {
   }).then(r => {
     if (r.response == 0) {
       app.moveToApplicationsFolder();
+    } else {
+      checkForUpdates();
     }
   }).catch(e => {
     log.info(e);
@@ -201,8 +282,6 @@ app.on('ready', () => {
   log.transports.file.level = "debug"
   autoUpdater.logger = log
 
-  checkForUpdates();
-
   // re-check for updates every 24 hours
   setInterval(checkForUpdates, 86400000);
 
@@ -233,6 +312,8 @@ app.on('ready', () => {
 
   if (isOutsideOfApplicationsFolderOnMac()) {
     setTimeout(maybeMoveToApplicationsFolder, 1000);
+  } else {
+    checkForUpdates();
   }
 })
 
@@ -270,7 +351,7 @@ function updateTrayContextMenu() {
 
     collection.push(
       {
-        label: desc, 
+        label: desc,
         click: () => showRepoWindow(repoID),
         toolTip: desc + " (" + repoID + ")",
       },
@@ -281,11 +362,23 @@ function updateTrayContextMenu() {
     additionalReposTemplates.sort((a, b) => a.label.localeCompare(b.label));
   }
 
+  let autoUpdateMenuItems = [];
+
+  if (updateDownloadStatusInfo) {
+    autoUpdateMenuItems.push({ label: updateDownloadStatusInfo, enabled: false });
+  } else if (updateAvailableInfo) {
+    autoUpdateMenuItems.push({ label: 'Update Available: v' + updateAvailableInfo.version, click: viewReleaseNotes });
+    autoUpdateMenuItems.push({ label: 'Download And Install...', click: installUpdate });
+  } else {
+    autoUpdateMenuItems.push({ label: "KopiaUI is up-to-date: " + app.getVersion(), enabled: false });
+  }
+
   template = defaultReposTemplates.concat(additionalReposTemplates).concat([
     { type: 'separator' },
     { label: 'Connect To Another Repository...', click: addAnotherRepository },
     { type: 'separator' },
     { label: 'Check For Updates Now', click: checkForUpdates },
+  ]).concat(autoUpdateMenuItems).concat([
     { type: 'separator' },
     { label: 'Launch At Startup', type: 'checkbox', click: toggleLaunchAtStartup, checked: willLaunchAtStartup() },
     { label: 'Quit', role: 'quit' },
