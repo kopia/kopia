@@ -16,6 +16,7 @@ linters-settings:
     - time.Now # use clock.Now
     - time.Since # use clock.Since
     - time.Until # use clock.Until
+    - filepath.IsAbs # use ospath.IsAbs which supports windows UNC paths
   gocognit:
     min-complexity: 40
   gocyclo:

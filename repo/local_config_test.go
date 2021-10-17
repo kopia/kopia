@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kopia/kopia/internal/ospath"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/content"
 )
@@ -31,7 +32,7 @@ func TestLocalConfig_withCaching(t *testing.T) {
 	loadedLC, err := LoadConfigFromFile(cfgFile)
 	require.NoError(t, err)
 
-	if filepath.IsAbs(rawLC.Caching.CacheDirectory) {
+	if ospath.IsAbs(rawLC.Caching.CacheDirectory) {
 		t.Fatalf("cache directory must be stored relative, was %v", rawLC.Caching.CacheDirectory)
 	}
 

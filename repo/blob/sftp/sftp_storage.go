@@ -10,7 +10,6 @@ import (
 	"os"
 	"os/exec"
 	"path"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -22,6 +21,7 @@ import (
 	"github.com/kopia/kopia/internal/connection"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/iocopy"
+	"github.com/kopia/kopia/internal/ospath"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/retrying"
 	"github.com/kopia/kopia/repo/blob/sharded"
@@ -325,7 +325,7 @@ func getHostKeyCallback(opt *Options) (ssh.HostKeyCallback, error) {
 		return knownhosts.New(tmpFile)
 	}
 
-	if f := opt.knownHostsFile(); !filepath.IsAbs(f) {
+	if f := opt.knownHostsFile(); !ospath.IsAbs(f) {
 		return nil, errors.Errorf("known hosts path must be absolute")
 	}
 
@@ -346,7 +346,7 @@ func getSigner(opt *Options) (ssh.Signer, error) {
 	} else {
 		var err error
 
-		if f := opt.Keyfile; !filepath.IsAbs(f) {
+		if f := opt.Keyfile; !ospath.IsAbs(f) {
 			return nil, errors.Errorf("key file path must be absolute")
 		}
 
