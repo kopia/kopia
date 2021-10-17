@@ -69,11 +69,21 @@ func (s *repositoryAllSources) Readdir(ctx context.Context) (fs.Entries, error) 
 		users[fmt.Sprintf("%v@%v", src.UserName, src.Host)] = true
 	}
 
+	// step 2 - compute safe name for each path
+	name2safe := map[string]string{}
+
+	for u := range users {
+		name2safe[u] = safeNameForMount(u)
+	}
+
+	name2safe = disambiguateSafeNames(name2safe)
+
 	var result fs.Entries
 	for u := range users {
 		result = append(result, &sourceDirectories{
 			rep:      s.rep,
 			userHost: u,
+			name:     name2safe[u],
 		})
 	}
 

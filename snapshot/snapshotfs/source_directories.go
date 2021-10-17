@@ -2,7 +2,10 @@ package snapshotfs
 
 import (
 	"context"
+	"fmt"
 	"os"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -15,6 +18,7 @@ import (
 type sourceDirectories struct {
 	rep      repo.Repository
 	userHost string
+	name     string
 }
 
 func (s *sourceDirectories) IsDir() bool {
@@ -22,7 +26,7 @@ func (s *sourceDirectories) IsDir() bool {
 }
 
 func (s *sourceDirectories) Name() string {
-	return s.userHost
+	return s.name
 }
 
 func (s *sourceDirectories) Mode() os.FileMode {
@@ -59,24 +63,98 @@ func (s *sourceDirectories) Child(ctx context.Context, name string) (fs.Entry, e
 }
 
 func (s *sourceDirectories) Readdir(ctx context.Context) (fs.Entries, error) {
-	sources, err := snapshot.ListSources(ctx, s.rep)
+	sources0, err := snapshot.ListSources(ctx, s.rep)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to list sources")
 	}
 
-	var result fs.Entries
+	// step 1 - filter sources.
+	var sources []snapshot.SourceInfo
 
-	for _, src := range sources {
+	for _, src := range sources0 {
 		if src.UserName+"@"+src.Host != s.userHost {
 			continue
 		}
 
-		result = append(result, &sourceSnapshots{s.rep, src})
+		sources = append(sources, src)
+	}
+
+	// step 2 - compute safe name for each path
+	name2safe := map[string]string{}
+
+	for _, src := range sources {
+		name2safe[src.Path] = safeNameForMount(src.Path)
+	}
+
+	name2safe = disambiguateSafeNames(name2safe)
+
+	var result fs.Entries
+
+	for _, src := range sources {
+		result = append(result, &sourceSnapshots{s.rep, src, name2safe[src.Path]})
 	}
 
 	result.Sort()
 
 	return result, nil
+}
+
+func disambiguateSafeNames(m map[string]string) map[string]string {
+	safe2original := map[string][]string{}
+
+	for name, safe := range m {
+		l := strings.ToLower(safe)
+
+		// make sure we disambiguate in the lowercase space, so that both case sensitive and case-insensitive
+		// filesystems will be covered.
+		safe2original[l] = append(safe2original[l], name)
+	}
+
+	result := map[string]string{}
+	any := false
+
+	for _, originals := range safe2original {
+		if len(originals) == 1 {
+			result[originals[0]] = m[originals[0]]
+		} else {
+			// more than 1 path map to the same path, append .1, .2, and so on in deterministic order
+			sort.Strings(originals)
+
+			for i, orig := range originals {
+				if i > 0 {
+					result[orig] += fmt.Sprintf("%v (%v)", m[orig], i+1)
+				} else {
+					result[orig] += m[orig]
+				}
+			}
+
+			any = true
+		}
+	}
+
+	if !any {
+		return result
+	}
+
+	// we could have just produced some newly ambiguous names, resolve again.
+	return disambiguateSafeNames(result)
+}
+
+func safeNameForMount(p string) string {
+	if p == "/" {
+		return "__root"
+	}
+
+	// on Windows : is not allowed, c:/ => c_ and c:\ => c_
+	p = strings.ReplaceAll(p, ":/", "_")
+	p = strings.ReplaceAll(p, ":\\", "_")
+	p = strings.TrimLeft(p, "/")
+	p = strings.ReplaceAll(p, "/", "_")
+	p = strings.ReplaceAll(p, "\\", "_")
+	p = strings.TrimRight(p, "_")
+	p = strings.TrimRight(p, ":")
+
+	return p
 }
 
 var _ fs.Directory = (*sourceDirectories)(nil)
