@@ -253,3 +253,36 @@ func assertEmptyDir(t *testing.T, dir string) {
 		t.Fatalf("expected nothing to be restored")
 	}
 }
+
+func TestDeleteAllSnapshotsForSource(t *testing.T) {
+	t.Parallel()
+
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
+	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
+	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
+	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
+	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir2)
+	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir2)
+
+	// first source is header + 3 lines, 2nd source is header + 2 lines + separator between them.
+	e.RunAndVerifyOutputLineCount(t, 8, "snapshot", "list", "-l")
+
+	// failure cases
+	e.RunAndExpectFailure(t, "snapshot", "delete", "--all-snapshots-for-source", "no-such-user@no-such-host:/tmp")
+	e.RunAndExpectFailure(t, "snapshot", "delete", "--all-snapshots-for-source", testutil.TempDirectory(t))
+
+	// dry run has no effect
+	e.RunAndExpectSuccess(t, "snapshot", "delete", "--all-snapshots-for-source", sharedTestDataDir2)
+	e.RunAndVerifyOutputLineCount(t, 8, "snapshot", "list", "-l")
+
+	// passing --delete actually removes snapshots
+	e.RunAndExpectSuccess(t, "snapshot", "delete", "--all-snapshots-for-source", sharedTestDataDir2, "--delete")
+	e.RunAndVerifyOutputLineCount(t, 4, "snapshot", "list", "-l")
+	e.RunAndExpectSuccess(t, "snapshot", "delete", "--all-snapshots-for-source", sharedTestDataDir1, "--delete")
+	e.RunAndVerifyOutputLineCount(t, 0, "snapshot", "list", "-l")
+}
