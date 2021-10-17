@@ -17,6 +17,7 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/localfs"
+	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
@@ -34,11 +35,13 @@ type actionContext struct {
 	WorkDir        string
 }
 
-func (hc *actionContext) envars() []string {
+func (hc *actionContext) envars(actionType string) []string {
 	return []string{
+		fmt.Sprintf("KOPIA_ACTION=%v", actionType),
 		fmt.Sprintf("KOPIA_SNAPSHOT_ID=%v", hc.SnapshotID),
 		fmt.Sprintf("KOPIA_SOURCE_PATH=%v", hc.SourcePath),
 		fmt.Sprintf("KOPIA_SNAPSHOT_PATH=%v", hc.SnapshotPath),
+		fmt.Sprintf("KOPIA_VERSION=%v", repo.BuildVersion),
 	}
 }
 
@@ -209,7 +212,7 @@ func (u *Uploader) executeBeforeFolderAction(ctx context.Context, actionType str
 		"KOPIA_SNAPSHOT_PATH": "",
 	}
 
-	if err := runActionCommand(ctx, actionType, h, hc.envars(), captures, hc.WorkDir); err != nil {
+	if err := runActionCommand(ctx, actionType, h, hc.envars(actionType), captures, hc.WorkDir); err != nil {
 		return nil, errors.Wrapf(err, "error running '%v' action", actionType)
 	}
 
@@ -236,7 +239,7 @@ func (u *Uploader) executeAfterFolderAction(ctx context.Context, actionType stri
 		return
 	}
 
-	if err := runActionCommand(ctx, actionType, h, hc.envars(), nil, hc.WorkDir); err != nil {
+	if err := runActionCommand(ctx, actionType, h, hc.envars(actionType), nil, hc.WorkDir); err != nil {
 		log(ctx).Errorf("error running '%v' action: %v", actionType, err)
 	}
 }

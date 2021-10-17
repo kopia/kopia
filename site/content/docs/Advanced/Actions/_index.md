@@ -66,10 +66,13 @@ On Unix, if the script has `#!` prefix, it will be executed directly, bypassing 
 
 When kopia invokes `Before` actions, it passes the following parameters:
 
-| Variable                 | Before | After | Description            |
-| ------------------------ | ------ | ----- | ---------------------- |
-| `KOPIA_SNAPSHOT_ID`      |  Yes   | Yes   | Random 64-bit number   |
-| `KOPIA_SOURCE_PATH`      |  Yes   | Yes   | Path being snapshotted |
+| Variable                 | Description                               |
+| ------------------------ | ----------------------------------------- |
+| `KOPIA_ACTION`           | `before-folder` or `before-snapshot-root` |
+| `KOPIA_SNAPSHOT_ID`      | Random 64-bit number                      |
+| `KOPIA_SOURCE_PATH`      | Path being snapshotted                    |
+| `KOPIA_SNAPSHOT_PATH`    | Path being snapshotted                    |
+| `KOPIA_VERSION`          | Version of Kopia (e.g. `0.9.2`)           |
 
 The action command can modify the contents source directory in place or it can request other directory
 be snapshotted instead by printing a line to standard output:
@@ -80,8 +83,17 @@ KOPIA_SNAPSHOT_PATH=<new-directory>
 
 This can be used to create point-in-time snapshots - see examples below.
 
-The `After` action will receive the same parameters as `Before` plus the actual directory that was
+The `After` action will receive similar parameters as `Before` plus the actual directory that was
 snapshotted (either `KOPIA_SOURCE_PATH` or `KOPIA_SNAPSHOT_PATH` if returned by the `Before` script).
+
+| Variable                 | Description                               |
+| ------------------------ | ----------------------------------------- |
+| `KOPIA_ACTION`           | `after-folder` or `after-snapshot-root`   |
+| `KOPIA_SNAPSHOT_ID`      | Random 64-bit number                      |
+| `KOPIA_SOURCE_PATH`      | Source path being snapshotted             |
+| `KOPIA_SNAPSHOT_PATH`    | Actual path being snapshotted (returned by the _before_ action) |
+| `KOPIA_VERSION`          | Version of Kopia (e.g. `0.9.2`)           |
+
 
 ## Examples
 

@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/tests/clitestutil"
@@ -50,16 +52,28 @@ func TestSnapshotActionsBeforeSnapshotRoot(t *testing.T) {
 		"--before-snapshot-root-action",
 		th+" --save-env="+envFile2)
 
+	envFile3 := filepath.Join(runner.LogsDir, "env2.txt")
+
+	// set a action after-snapshot-root that succeeds and saves environment to a different file
+	e.RunAndExpectSuccess(t,
+		"policy", "set", sharedTestDataDir1,
+		"--after-snapshot-root-action",
+		th+" --save-env="+envFile3)
+
 	// snapshot now succeeds.
 	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
 
 	env1 := mustReadEnvFile(t, envFile1)
 	env2 := mustReadEnvFile(t, envFile2)
+	env3 := mustReadEnvFile(t, envFile3)
 
 	// make sure snapshot IDs are different between two attempts
-	if id1, id2 := env1["KOPIA_SNAPSHOT_ID"], env2["KOPIA_SNAPSHOT_ID"]; id1 == id2 {
-		t.Errorf("KOPIA_SNAPSHOT_ID passed to action was not different between runs %v", id1)
-	}
+	require.NotEqual(t, env1["KOPIA_SNAPSHOT_ID"], env2["KOPIA_SNAPSHOT_ID"], "KOPIA_SNAPSHOT_ID passed to action was not different between runs")
+
+	require.Equal(t, env1["KOPIA_ACTION"], "before-snapshot-root")
+	require.Equal(t, env3["KOPIA_ACTION"], "after-snapshot-root")
+	require.NotEmpty(t, env1["KOPIA_VERSION"])
+	require.NotEmpty(t, env3["KOPIA_VERSION"])
 
 	// Now set up the action again, in optional mode,
 	e.RunAndExpectSuccess(t,
@@ -187,6 +201,9 @@ func TestSnapshotActionsBeforeAfterFolder(t *testing.T) {
 	actionRanFileBeforeSD2 := filepath.Join(actionRanDir, "before-sd2")
 	actionRanFileAfterSD2 := filepath.Join(actionRanDir, "before-sd2")
 
+	envFile1 := filepath.Join(runner.LogsDir, "env1.txt")
+	envFile2 := filepath.Join(runner.LogsDir, "env2.txt")
+
 	// setup actions that will write a marker file when the action is executed.
 	//
 	// We are not setting a policy on 'sd12' to ensure it's not inherited
@@ -201,9 +218,9 @@ func TestSnapshotActionsBeforeAfterFolder(t *testing.T) {
 	e.RunAndExpectSuccess(t, "policy", "set", sd1,
 		"--after-folder-action", th+" --create-file="+actionRanFileAfterSD1)
 	e.RunAndExpectSuccess(t, "policy", "set", sd2,
-		"--before-folder-action", th+" --create-file="+actionRanFileBeforeSD2)
+		"--before-folder-action", th+" --create-file="+actionRanFileBeforeSD2+" --save-env="+envFile1)
 	e.RunAndExpectSuccess(t, "policy", "set", sd2,
-		"--after-folder-action", th+" --create-file="+actionRanFileAfterSD2)
+		"--after-folder-action", th+" --create-file="+actionRanFileAfterSD2+" --save-env="+envFile2)
 	e.RunAndExpectSuccess(t, "policy", "set", sd11,
 		"--before-folder-action", th+" --create-file="+actionRanFileBeforeSD11)
 	e.RunAndExpectSuccess(t, "policy", "set", sd11,
@@ -219,6 +236,16 @@ func TestSnapshotActionsBeforeAfterFolder(t *testing.T) {
 	verifyFileExists(t, actionRanFileAfterSD1)
 	verifyFileExists(t, actionRanFileBeforeSD2)
 	verifyFileExists(t, actionRanFileAfterSD2)
+
+	env1 := mustReadEnvFile(t, envFile1)
+	env2 := mustReadEnvFile(t, envFile2)
+
+	require.Equal(t, env1["KOPIA_ACTION"], "before-folder")
+	require.Equal(t, env2["KOPIA_ACTION"], "after-folder")
+	require.Equal(t, env1["KOPIA_SOURCE_PATH"], sd2)
+	require.Equal(t, env2["KOPIA_SOURCE_PATH"], sd2)
+	require.NotEmpty(t, env1["KOPIA_VERSION"])
+	require.NotEmpty(t, env2["KOPIA_VERSION"])
 
 	// the action will fail to run the next time since all 'actionRan*' files already exist.
 	e.RunAndExpectFailure(t, "snapshot", "create", rootDir)
