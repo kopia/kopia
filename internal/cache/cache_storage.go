@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/ctxutil"
+	"github.com/kopia/kopia/internal/ospath"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/filesystem"
 )
@@ -28,7 +29,7 @@ func NewStorageOrNil(ctx context.Context, cacheDir string, maxBytes int64, subdi
 		return nil, nil
 	}
 
-	if !filepath.IsAbs(cacheDir) {
+	if !ospath.IsAbs(cacheDir) {
 		return nil, errors.Errorf("cache dir %q was not absolute", cacheDir)
 	}
 

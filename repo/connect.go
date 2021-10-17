@@ -3,11 +3,11 @@ package repo
 import (
 	"context"
 	"os"
-	"path/filepath"
 
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/gather"
+	"github.com/kopia/kopia/internal/ospath"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
 )
@@ -86,7 +86,7 @@ func Disconnect(ctx context.Context, configFile string) error {
 	}
 
 	if cfg.Caching != nil && cfg.Caching.CacheDirectory != "" {
-		if !filepath.IsAbs(cfg.Caching.CacheDirectory) {
+		if !ospath.IsAbs(cfg.Caching.CacheDirectory) {
 			return errors.Errorf("cache directory was not absolute, refusing to delete")
 		}
 

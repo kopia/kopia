@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/atomicfile"
+	"github.com/kopia/kopia/internal/ospath"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/object"
@@ -141,12 +142,12 @@ func LoadConfigFromFile(fileName string) (*LocalConfig, error) {
 
 	// cache directory is stored as relative to config file name, resolve it to absolute.
 	if lc.Caching != nil {
-		if lc.Caching.CacheDirectory != "" && !filepath.IsAbs(lc.Caching.CacheDirectory) {
+		if lc.Caching.CacheDirectory != "" && !ospath.IsAbs(lc.Caching.CacheDirectory) {
 			lc.Caching.CacheDirectory = filepath.Join(filepath.Dir(fileName), lc.Caching.CacheDirectory)
 		}
 
 		// override cache directory from the environment variable.
-		if cd := os.Getenv("KOPIA_CACHE_DIRECTORY"); cd != "" && filepath.IsAbs(cd) {
+		if cd := os.Getenv("KOPIA_CACHE_DIRECTORY"); cd != "" && ospath.IsAbs(cd) {
 			lc.Caching.CacheDirectory = cd
 		}
 	}

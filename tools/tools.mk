@@ -97,6 +97,10 @@ TOOLS_DIR:=$(SELF_DIR)$(slash).tools
 
 retry:=$(SELF_DIR)/retry.sh
 
+ifeq ($(GOOS),windows)
+retry:=
+endif
+
 # tool versions
 GOLANGCI_LINT_VERSION=1.42.1
 NODE_VERSION=14.17.6

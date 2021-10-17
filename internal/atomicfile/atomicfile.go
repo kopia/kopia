@@ -3,11 +3,12 @@ package atomicfile
 
 import (
 	"io"
-	"path/filepath"
 	"runtime"
 	"strings"
 
 	"github.com/natefinch/atomic"
+
+	"github.com/kopia/kopia/internal/ospath"
 )
 
 // Do not prefix files shorter than this, we are intentionally using less than MAX_PATH
@@ -31,7 +32,7 @@ func MaybePrefixLongFilenameOnWindows(fname string) string {
 
 	fname = strings.TrimPrefix(fname, "\\\\?\\")
 
-	if !filepath.IsAbs(fname) {
+	if !ospath.IsAbs(fname) {
 		// only convert absolute paths
 		return fname
 	}

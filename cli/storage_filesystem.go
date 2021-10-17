@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"os"
-	"path/filepath"
 	"strconv"
 
 	"github.com/alecthomas/kingpin"
@@ -44,7 +43,7 @@ func (c *storageFilesystemFlags) connect(ctx context.Context, isNew bool) (blob.
 
 	fso.Path = ospath.ResolveUserFriendlyPath(fso.Path, false)
 
-	if !filepath.IsAbs(fso.Path) {
+	if !ospath.IsAbs(fso.Path) {
 		return nil, errors.Errorf("filesystem repository path must be absolute")
 	}
 
