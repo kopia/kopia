@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -15,8 +14,9 @@ import (
 )
 
 type sourceSnapshots struct {
-	rep repo.Repository
-	src snapshot.SourceInfo
+	rep  repo.Repository
+	src  snapshot.SourceInfo
+	name string
 }
 
 func (s *sourceSnapshots) IsDir() bool {
@@ -24,7 +24,7 @@ func (s *sourceSnapshots) IsDir() bool {
 }
 
 func (s *sourceSnapshots) Name() string {
-	return fmt.Sprintf("%v", safeName(s.src.Path))
+	return s.name
 }
 
 func (s *sourceSnapshots) Mode() os.FileMode {
@@ -53,11 +53,6 @@ func (s *sourceSnapshots) Device() fs.DeviceInfo {
 
 func (s *sourceSnapshots) LocalFilesystemPath() string {
 	return ""
-}
-
-func safeName(path string) string {
-	path = strings.TrimLeft(path, "/")
-	return strings.Replace(path, "/", "_", -1)
 }
 
 func (s *sourceSnapshots) Child(ctx context.Context, name string) (fs.Entry, error) {
