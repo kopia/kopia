@@ -83,7 +83,7 @@ func ParseIndexBlob(ctx context.Context, blobID blob.ID, encrypted gather.Bytes,
 	var results []Info
 
 	err = index.Iterate(AllIDs, func(i Info) error {
-		results = append(results, i)
+		results = append(results, ToInfoStruct(i))
 		return nil
 	})
 
