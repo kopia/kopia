@@ -14,6 +14,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/kopia/kopia/internal/completeset"
+	"github.com/kopia/kopia/internal/ctxutil"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/logging"
@@ -479,6 +480,9 @@ func (e *Manager) maybeGenerateNextRangeCheckpointAsync(ctx context.Context, cs 
 
 	e.log.Debugf("generating range checkpoint")
 
+	// we're starting background work, ignore parent cancelation signal.
+	ctx = ctxutil.Detach(ctx)
+
 	e.backgroundWork.Add(1)
 
 	go func() {
@@ -494,6 +498,9 @@ func (e *Manager) maybeOptimizeRangeCheckpointsAsync(ctx context.Context, cs Cur
 }
 
 func (e *Manager) maybeStartCleanupAsync(ctx context.Context, cs CurrentSnapshot) {
+	// we're starting background work, ignore parent cancelation signal.
+	ctx = ctxutil.Detach(ctx)
+
 	e.backgroundWork.Add(1)
 
 	go func() {
@@ -786,6 +793,9 @@ func (e *Manager) getIndexesFromEpochInternal(ctx context.Context, cs CurrentSna
 	)
 
 	if epochSettled {
+		// we're starting background work, ignore parent cancelation signal.
+		ctx = ctxutil.Detach(ctx)
+
 		e.backgroundWork.Add(1)
 
 		go func() {
