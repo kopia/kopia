@@ -468,7 +468,7 @@ func (u *Uploader) uploadDirWithCheckpointing(ctx context.Context, rootDir fs.Di
 	}
 
 	if overrideDir != nil {
-		rootDir = overrideDir
+		rootDir = u.wrapIgnorefs(overrideDir, policyTree)
 	}
 
 	defer u.executeAfterFolderAction(ctx, "after-snapshot-root", policyTree.EffectivePolicy().Actions.AfterSnapshotRoot, localDirPathOrEmpty, &hc)
@@ -999,7 +999,7 @@ func uploadDirInternal(
 	defer u.executeAfterFolderAction(ctx, "after-folder", definedActions.AfterFolder, localDirPathOrEmpty, &hc)
 
 	if overrideDir != nil {
-		directory = overrideDir
+		directory = u.wrapIgnorefs(overrideDir, policyTree)
 	}
 
 	if de, err := uploadShallowDirInternal(ctx, directory, u); de != nil || err != nil {
@@ -1171,15 +1171,7 @@ func (u *Uploader) Upload(
 
 		scanWG.Add(1)
 
-		entry = ignorefs.New(entry, policyTree, ignorefs.ReportIgnoredFiles(func(fname string, md fs.Entry) {
-			if md.IsDir() {
-				u.Progress.ExcludedDir(fname)
-			} else {
-				u.Progress.ExcludedFile(fname, md.Size())
-			}
-
-			u.stats.AddExcluded(md)
-		}))
+		entry = u.wrapIgnorefs(entry, policyTree)
 
 		go func() {
 			defer scanWG.Done()
@@ -1211,4 +1203,16 @@ func (u *Uploader) Upload(
 	s.Stats = *u.stats
 
 	return s, nil
+}
+
+func (u *Uploader) wrapIgnorefs(entry fs.Directory, policyTree *policy.Tree) fs.Directory {
+	return ignorefs.New(entry, policyTree, ignorefs.ReportIgnoredFiles(func(fname string, md fs.Entry) {
+		if md.IsDir() {
+			u.Progress.ExcludedDir(fname)
+		} else {
+			u.Progress.ExcludedFile(fname, md.Size())
+		}
+
+		u.stats.AddExcluded(md)
+	}))
 }
