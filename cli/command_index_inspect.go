@@ -2,8 +2,10 @@ package cli
 
 import (
 	"context"
+	"sync"
 
 	"github.com/pkg/errors"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo"
@@ -17,6 +19,7 @@ type commandIndexInspect struct {
 	blobIDs []string
 
 	contentIDs []string
+	parallel   int
 
 	out textOutput
 }
@@ -26,6 +29,7 @@ func (c *commandIndexInspect) setup(svc appServices, parent commandParent) {
 	cmd.Flag("all", "Inspect all index blobs in the repository, including inactive").BoolVar(&c.all)
 	cmd.Flag("active", "Inspect all active index blobs").BoolVar(&c.active)
 	cmd.Flag("content-id", "Inspect all active index blobs").StringsVar(&c.contentIDs)
+	cmd.Flag("parallel", "Parallelism").Default("8").IntVar(&c.parallel)
 	cmd.Arg("blobs", "Names of index blobs to inspect").StringsVar(&c.blobIDs)
 	cmd.Action(svc.directRepositoryReadAction(c.run))
 
@@ -33,14 +37,34 @@ func (c *commandIndexInspect) setup(svc appServices, parent commandParent) {
 }
 
 func (c *commandIndexInspect) run(ctx context.Context, rep repo.DirectRepository) error {
+	output := make(chan indexBlobPlusContentInfo)
+
+	var wg sync.WaitGroup
+
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+
+		c.dumpIndexBlobEntries(output)
+	}()
+
+	err := c.runWithOutput(ctx, rep, output)
+	close(output)
+	wg.Wait()
+
+	return err
+}
+
+func (c *commandIndexInspect) runWithOutput(ctx context.Context, rep repo.DirectRepository, output chan indexBlobPlusContentInfo) error {
 	switch {
 	case c.all:
-		return c.inspectAllBlobs(ctx, rep, true)
+		return c.inspectAllBlobs(ctx, rep, true, output)
 	case c.active:
-		return c.inspectAllBlobs(ctx, rep, false)
+		return c.inspectAllBlobs(ctx, rep, false, output)
 	case len(c.blobIDs) > 0:
 		for _, indexBlobID := range c.blobIDs {
-			if err := c.inspectSingleIndexBlob(ctx, rep, blob.ID(indexBlobID)); err != nil {
+			if err := c.inspectSingleIndexBlob(ctx, rep, blob.ID(indexBlobID), output); err != nil {
 				return err
 			}
 		}
@@ -51,23 +75,42 @@ func (c *commandIndexInspect) run(ctx context.Context, rep repo.DirectRepository
 	return nil
 }
 
-func (c *commandIndexInspect) inspectAllBlobs(ctx context.Context, rep repo.DirectRepository, includeInactive bool) error {
+func (c *commandIndexInspect) inspectAllBlobs(ctx context.Context, rep repo.DirectRepository, includeInactive bool, output chan indexBlobPlusContentInfo) error {
 	indexes, err := rep.IndexBlobs(ctx, includeInactive)
 	if err != nil {
 		return errors.Wrap(err, "error listing index blobs")
 	}
 
+	indexesCh := make(chan content.IndexBlobInfo, len(indexes))
 	for _, bm := range indexes {
-		if err := c.inspectSingleIndexBlob(ctx, rep, bm.BlobID); err != nil {
-			return err
-		}
+		indexesCh <- bm
 	}
 
-	return nil
+	close(indexesCh)
+
+	var eg errgroup.Group
+
+	for i := 0; i < c.parallel; i++ {
+		eg.Go(func() error {
+			for bm := range indexesCh {
+				if err := c.inspectSingleIndexBlob(ctx, rep, bm.BlobID, output); err != nil {
+					return err
+				}
+			}
+
+			return nil
+		})
+	}
+
+	// nolint:wrapcheck
+	return eg.Wait()
 }
 
-func (c *commandIndexInspect) dumpIndexBlobEntries(bm blob.Metadata, entries []content.Info) {
-	for _, ci := range entries {
+func (c *commandIndexInspect) dumpIndexBlobEntries(entries chan indexBlobPlusContentInfo) {
+	for ent := range entries {
+		ci := ent.contentInfo
+		bm := ent.indexBlob
+
 		state := "created"
 		if ci.GetDeleted() {
 			state = "deleted"
@@ -99,7 +142,12 @@ func (c *commandIndexInspect) shouldInclude(ci content.Info) bool {
 	return false
 }
 
-func (c *commandIndexInspect) inspectSingleIndexBlob(ctx context.Context, rep repo.DirectRepository, blobID blob.ID) error {
+type indexBlobPlusContentInfo struct {
+	indexBlob   blob.Metadata
+	contentInfo content.Info
+}
+
+func (c *commandIndexInspect) inspectSingleIndexBlob(ctx context.Context, rep repo.DirectRepository, blobID blob.ID, output chan indexBlobPlusContentInfo) error {
 	log(ctx).Debugf("Inspecting blob %v...", blobID)
 
 	bm, err := rep.BlobReader().GetMetadata(ctx, blobID)
@@ -119,7 +167,9 @@ func (c *commandIndexInspect) inspectSingleIndexBlob(ctx context.Context, rep re
 		return errors.Wrapf(err, "unable to recover index from %v", blobID)
 	}
 
-	c.dumpIndexBlobEntries(bm, entries)
+	for _, ent := range entries {
+		output <- indexBlobPlusContentInfo{bm, content.ToInfoStruct(ent)}
+	}
 
 	return nil
 }
