@@ -334,9 +334,15 @@ func dirPrefix(s string) string {
 // NewEntry returns fs.Entry for the specified path, the result will be one of supported entry types: fs.File, fs.Directory, fs.Symlink
 // or fs.UnsupportedEntry.
 func NewEntry(path string) (fs.Entry, error) {
+	path = filepath.Clean(path)
+
 	fi, err := os.Lstat(path)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to determine entry type")
+	}
+
+	if path == "/" {
+		return entryFromDirEntry(fi, ""), nil
 	}
 
 	return entryFromDirEntry(fi, dirPrefix(path)), nil

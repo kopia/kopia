@@ -13,6 +13,7 @@ import (
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/testutil"
+	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/tests/clitestutil"
 	"github.com/kopia/kopia/tests/testenv"
 )
@@ -406,4 +407,47 @@ func mustReadEnvFile(t *testing.T, fname string) map[string]string {
 	verifyNoError(t, s.Err())
 
 	return m
+}
+
+func TestSnapshotActionsHonorIgnoreRules(t *testing.T) {
+	t.Parallel()
+
+	th := os.Getenv("TESTING_ACTION_EXE")
+	if th == "" {
+		t.Skip("TESTING_ACTION_EXE must be set")
+	}
+
+	runner := testenv.NewExeRunner(t)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--override-hostname=foo", "--override-username=foo", "--enable-actions")
+
+	sourceDir := testutil.TempDirectory(t)
+	redirectedDir := testutil.TempDirectory(t)
+
+	os.WriteFile(filepath.Join(redirectedDir, "some-file"), []byte{1, 2, 3}, 0o666)
+	os.WriteFile(filepath.Join(redirectedDir, "some-ignored-file"), []byte{1, 2, 3}, 0o666)
+	os.WriteFile(filepath.Join(redirectedDir, ".kopiaignore"), []byte(`
+some-ignored-file
+`), 0o666)
+
+	// set up action that redirects sourceDir to redirectedDir, simulating a filesystem
+	// snapshot situation
+	e.RunAndExpectSuccess(t,
+		"policy", "set", sourceDir,
+		"--before-snapshot-root-action",
+		th+" --stdout-file="+tmpfileWithContents(t, "KOPIA_SNAPSHOT_PATH="+redirectedDir+"\n"))
+
+	var man snapshot.Manifest
+
+	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "create", sourceDir, "--json"), &man)
+	entries := e.RunAndExpectSuccess(t, "ls", string(man.RootObjectID()))
+
+	require.Contains(t, entries, ".kopiaignore")
+	require.Contains(t, entries, "some-file")
+
+	// make sure .kopiaignore was honored
+	require.NotContains(t, entries, "some-ignored-file")
 }

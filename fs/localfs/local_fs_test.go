@@ -139,6 +139,30 @@ func verifyChild(t *testing.T, dir fs.Directory) {
 	}
 }
 
+func TestLocalFilesystemPath(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip()
+	}
+
+	testDir := testutil.TempDirectory(t)
+
+	cases := map[string]string{
+		"/":           "/",
+		testDir:       testDir,
+		testDir + "/": testDir,
+	}
+
+	for input, want := range cases {
+		ent, err := NewEntry(input)
+		require.NoError(t, err)
+
+		dir, ok := ent.(fs.Directory)
+		require.True(t, ok, input)
+
+		require.Equal(t, want, dir.LocalFilesystemPath())
+	}
+}
+
 func TestDirPrefix(t *testing.T) {
 	cases := map[string]string{
 		"foo":      "",
