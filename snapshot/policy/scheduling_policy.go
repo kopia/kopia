@@ -70,6 +70,46 @@ func (p *SchedulingPolicy) SetInterval(d time.Duration) {
 	p.IntervalSeconds = int64(d.Seconds())
 }
 
+// NextSnapshotTime computes next snapshot time given previous
+// snapshot time and current wall clock time.
+func (p *SchedulingPolicy) NextSnapshotTime(previousSnapshotTime, now time.Time) (time.Time, bool) {
+	const oneDay = 24 * time.Hour
+
+	var (
+		nextSnapshotTime time.Time
+		ok               bool
+	)
+
+	// compute next snapshot time based on interval
+	if interval := p.IntervalSeconds; interval != 0 {
+		interval := time.Duration(interval) * time.Second
+
+		nt := previousSnapshotTime.Add(interval).Truncate(interval)
+		nextSnapshotTime = nt
+		ok = true
+
+		if nextSnapshotTime.Before(now) {
+			nextSnapshotTime = now
+		}
+	}
+
+	for _, tod := range p.TimesOfDay {
+		nowLocalTime := now.Local()
+		localSnapshotTime := time.Date(nowLocalTime.Year(), nowLocalTime.Month(), nowLocalTime.Day(), tod.Hour, tod.Minute, 0, 0, time.Local)
+
+		if now.After(localSnapshotTime) {
+			localSnapshotTime = localSnapshotTime.Add(oneDay)
+		}
+
+		if !ok || localSnapshotTime.Before(nextSnapshotTime) {
+			nextSnapshotTime = localSnapshotTime
+			ok = true
+		}
+	}
+
+	return nextSnapshotTime, ok
+}
+
 // Merge applies default values from the provided policy.
 func (p *SchedulingPolicy) Merge(src SchedulingPolicy) {
 	if p.IntervalSeconds == 0 {

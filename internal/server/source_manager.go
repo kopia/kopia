@@ -312,29 +312,12 @@ func (s *sourceManager) snapshotInternal(ctx context.Context, ctrl uitask.Contro
 }
 
 func (s *sourceManager) findClosestNextSnapshotTime() *time.Time {
-	var nextSnapshotTime *time.Time
-
-	// compute next snapshot time based on interval
-	if interval := s.pol.IntervalSeconds; interval != 0 {
-		interval := time.Duration(interval) * time.Second
-		nt := s.lastSnapshot.StartTime.Add(interval).Truncate(interval)
-		nextSnapshotTime = &nt
+	t, ok := s.pol.NextSnapshotTime(s.lastCompleteSnapshot.StartTime, clock.Now())
+	if !ok {
+		return nil
 	}
 
-	for _, tod := range s.pol.TimesOfDay {
-		nowLocalTime := clock.Now().Local()
-		localSnapshotTime := time.Date(nowLocalTime.Year(), nowLocalTime.Month(), nowLocalTime.Day(), tod.Hour, tod.Minute, 0, 0, time.Local)
-
-		if tod.Hour < nowLocalTime.Hour() || (tod.Hour == nowLocalTime.Hour() && tod.Minute < nowLocalTime.Minute()) {
-			localSnapshotTime = localSnapshotTime.Add(oneDay)
-		}
-
-		if nextSnapshotTime == nil || localSnapshotTime.Before(*nextSnapshotTime) {
-			nextSnapshotTime = &localSnapshotTime
-		}
-	}
-
-	return nextSnapshotTime
+	return &t
 }
 
 func (s *sourceManager) refreshStatus(ctx context.Context) {
