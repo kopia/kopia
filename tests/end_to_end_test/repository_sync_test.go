@@ -27,6 +27,11 @@ func TestRepositorySync(t *testing.T) {
 	dir2 := testutil.TempDirectory(t)
 	e.RunAndExpectSuccess(t, "repo", "sync-to", "filesystem", "--path", dir2, "--times")
 
+	// change some parameter in the repository format and make sure we can still synchronize.
+	// this is equivalent to an upgrade.
+	e.RunAndExpectSuccess(t, "repo", "set-parameters", "--max-pack-size-mb", "21")
+	e.RunAndExpectSuccess(t, "repo", "sync-to", "filesystem", "--path", dir2, "--times")
+
 	// synchronizing to empty directory fails with --must-exist
 	dir3 := testutil.TempDirectory(t)
 	e.RunAndExpectFailure(t, "repo", "sync-to", "filesystem", "--path", dir3, "--must-exist")
