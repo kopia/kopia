@@ -182,7 +182,9 @@ func (e *Manager) AdvanceDeletionWatermark(ctx context.Context, ts time.Time) er
 	}
 
 	if ts.Before(cs.DeletionWatermark) {
-		return errors.Errorf("deletion watermark time cannot move backwards")
+		e.log.Debugf("ignoring attempt to move deletion watermark time backwards (%v < %v)", ts.Format(time.RFC3339), cs.DeletionWatermark.Format(time.RFC3339))
+
+		return nil
 	}
 
 	blobID := blob.ID(fmt.Sprintf("%v%v", string(DeletionWatermarkBlobPrefix), ts.Unix()))
