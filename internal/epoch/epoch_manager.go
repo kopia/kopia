@@ -589,11 +589,12 @@ func (e *Manager) refreshAttemptLocked(ctx context.Context) error {
 
 	cs.UncompactedEpochSets = ues
 
-	e.log.Debugf("current epoch %v, uncompacted epoch sets %v %v %v",
+	e.log.Debugf("current epoch %v, uncompacted epoch sets %v %v %v, valid until %v",
 		cs.WriteEpoch,
 		len(ues[cs.WriteEpoch-1]),
 		len(ues[cs.WriteEpoch]),
-		len(ues[cs.WriteEpoch+1]))
+		len(ues[cs.WriteEpoch+1]),
+		cs.ValidUntil.Format(time.RFC3339Nano))
 
 	if shouldAdvance(cs.UncompactedEpochSets[cs.WriteEpoch], e.Params.MinEpochDuration, e.Params.EpochAdvanceOnCountThreshold, e.Params.EpochAdvanceOnTotalSizeBytesThreshold) {
 		if err := e.advanceEpoch(ctx, cs); err != nil {
@@ -601,10 +602,10 @@ func (e *Manager) refreshAttemptLocked(ctx context.Context) error {
 		}
 	}
 
-	if e.timeFunc().After(cs.ValidUntil) {
+	if now := e.timeFunc(); now.After(cs.ValidUntil) {
 		atomic.AddInt32(e.committedStateRefreshTooSlow, 1)
 
-		return errors.Errorf("refreshing committed state took too long")
+		return errors.Errorf("refreshing committed state took too long (now %v, valid until %v)", now, cs.ValidUntil.Format(time.RFC3339Nano))
 	}
 
 	e.lastKnownState = cs
@@ -630,8 +631,8 @@ func (e *Manager) committedState(ctx context.Context) (CurrentSnapshot, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	if e.timeFunc().After(e.lastKnownState.ValidUntil) {
-		e.log.Debugf("refreshing committed state because it's no longer valid")
+	if now := e.timeFunc(); now.After(e.lastKnownState.ValidUntil) {
+		e.log.Debugf("refreshing committed state because it's no longer valid (now %v, valid until %v)", now, e.lastKnownState.ValidUntil.Format(time.RFC3339Nano))
 
 		if err := e.refreshLocked(ctx); err != nil {
 			return CurrentSnapshot{}, err
@@ -680,6 +681,8 @@ func (e *Manager) WriteIndex(ctx context.Context, dataShards map[blob.ID]blob.By
 			return nil, errors.Wrap(err, "error getting committed state")
 		}
 
+		e.log.Debugf("writing %v index shard(s) - valid until %v (%v remaining)", len(dataShards), cs.ValidUntil.Format(time.RFC3339Nano), cs.ValidUntil.Sub(e.timeFunc()))
+
 		var results []blob.Metadata
 
 		for unprefixedBlobID, data := range dataShards {
@@ -694,15 +697,19 @@ func (e *Manager) WriteIndex(ctx context.Context, dataShards map[blob.ID]blob.By
 				return nil, errors.Wrap(err, "error getting index metadata")
 			}
 
+			e.log.Debugf("wrote-index %v", bm)
+
 			results = append(results, bm)
 		}
 
-		if !e.timeFunc().Before(cs.ValidUntil) {
-			e.log.Debugf("write was too slow, retrying")
+		if now := e.timeFunc(); !now.Before(cs.ValidUntil) {
+			e.log.Debugf("write was too slow, retrying (now %v, valid until %v)", now, cs.ValidUntil.Format(time.RFC3339Nano))
 			atomic.AddInt32(e.writeIndexTooSlow, 1)
 
 			continue
 		}
+
+		e.log.Debugf("index-write-success, valid until %v", cs.ValidUntil.Format(time.RFC3339Nano))
 
 		e.Invalidate()
 
