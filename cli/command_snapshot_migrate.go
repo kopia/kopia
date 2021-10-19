@@ -291,7 +291,7 @@ func (c *commandSnapshotMigrate) migrateSingleSourceSnapshot(ctx context.Context
 
 func (c *commandSnapshotMigrate) filterSnapshotsToMigrate(s []*snapshot.Manifest) []*snapshot.Manifest {
 	if c.migrateLatestOnly && len(s) > 0 {
-		s = s[0:1]
+		s = s[len(s)-1:]
 	}
 
 	return s
