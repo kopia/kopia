@@ -6,6 +6,7 @@ import (
 	"hash/fnv"
 	"io"
 	"os"
+	"runtime"
 	"sort"
 
 	"github.com/pkg/errors"
@@ -21,6 +22,7 @@ type commandBenchmarkCompression struct {
 	repeat       int
 	dataFile     string
 	bySize       bool
+	byAllocated  bool
 	verifyStable bool
 	optionPrint  bool
 
@@ -32,6 +34,7 @@ func (c *commandBenchmarkCompression) setup(svc appServices, parent commandParen
 	cmd.Flag("repeat", "Number of repetitions").Default("0").IntVar(&c.repeat)
 	cmd.Flag("data-file", "Use data from the given file").Required().ExistingFileVar(&c.dataFile)
 	cmd.Flag("by-size", "Sort results by size").BoolVar(&c.bySize)
+	cmd.Flag("by-alloc", "Sort results by allocated bytes").BoolVar(&c.byAllocated)
 	cmd.Flag("verify-stable", "Verify that compression is stable").BoolVar(&c.verifyStable)
 	cmd.Flag("print-options", "Print out options usable for repository creation").BoolVar(&c.optionPrint)
 	cmd.Action(svc.noRepositoryAction(c.run))
@@ -67,14 +70,16 @@ func (c *commandBenchmarkCompression) readInputFile(ctx context.Context) ([]byte
 	return data, nil
 }
 
-func (c *commandBenchmarkCompression) run(ctx context.Context) error {
-	type benchResult struct {
-		compression    compression.Name
-		throughput     float64
-		compressedSize int64
-	}
+type compressionBechmarkResult struct {
+	compression    compression.Name
+	throughput     float64
+	compressedSize int64
+	allocations    int64
+	allocBytes     int64
+}
 
-	var results []benchResult
+func (c *commandBenchmarkCompression) run(ctx context.Context) error {
+	var results []compressionBechmarkResult
 
 	data, err := c.readInputFile(ctx)
 	if err != nil {
@@ -113,6 +118,10 @@ func (c *commandBenchmarkCompression) run(ctx context.Context) error {
 
 		input := bytes.NewReader(nil)
 
+		var startMS, endMS runtime.MemStats
+
+		runtime.ReadMemStats(&startMS)
+
 		for i := 0; i < cnt; i++ {
 			compressed.Reset()
 			input.Reset(data)
@@ -136,26 +145,56 @@ func (c *commandBenchmarkCompression) run(ctx context.Context) error {
 			}
 		}
 
+		runtime.ReadMemStats(&endMS)
+
 		_, perSecond := tt.Completed(float64(len(data)) * float64(cnt))
 
-		results = append(results, benchResult{compression: name, throughput: perSecond, compressedSize: compressedSize})
+		results = append(results,
+			compressionBechmarkResult{
+				compression:    name,
+				throughput:     perSecond,
+				compressedSize: compressedSize,
+				allocations:    int64(endMS.Mallocs - startMS.Mallocs),
+				allocBytes:     int64(endMS.TotalAlloc - startMS.TotalAlloc),
+			})
 	}
 
-	if c.bySize {
+	c.sortResults(results)
+	c.printResults(results)
+
+	return nil
+}
+
+func (c *commandBenchmarkCompression) sortResults(results []compressionBechmarkResult) {
+	switch {
+	case c.bySize:
 		sort.Slice(results, func(i, j int) bool {
 			return results[i].compressedSize < results[j].compressedSize
 		})
-	} else {
+	case c.byAllocated:
+		sort.Slice(results, func(i, j int) bool {
+			return results[i].allocBytes < results[j].allocBytes
+		})
+	default:
 		sort.Slice(results, func(i, j int) bool {
 			return results[i].throughput > results[j].throughput
 		})
 	}
+}
 
-	c.out.printStdout("     %-30v %-15v %v\n", "Compression", "Compressed Size", "Throughput")
-	c.out.printStdout("-----------------------------------------------------------------\n")
+func (c *commandBenchmarkCompression) printResults(results []compressionBechmarkResult) {
+	c.out.printStdout("     %-26v %-12v %-12v %v\n", "Compression", "Compressed", "Throughput", "Memory Usage")
+	c.out.printStdout("------------------------------------------------------------------------------------------------\n")
 
 	for ndx, r := range results {
-		c.out.printStdout("%3d. %-30v %-15v %v / second", ndx, r.compression, r.compressedSize, units.BytesStringBase2(int64(r.throughput)))
+		c.out.printStdout("%3d. %-26v %-12v %-12v %-6v %v",
+			ndx,
+			r.compression,
+			units.BytesStringBase2(r.compressedSize),
+			units.BytesStringBase2(int64(r.throughput))+"/s",
+			r.allocations,
+			units.BytesStringBase2(r.allocBytes),
+		)
 
 		if c.optionPrint {
 			c.out.printStdout(", --compression=%s", r.compression)
@@ -163,8 +202,6 @@ func (c *commandBenchmarkCompression) run(ctx context.Context) error {
 
 		c.out.printStdout("\n")
 	}
-
-	return nil
 }
 
 func hashOf(b []byte) uint64 {
