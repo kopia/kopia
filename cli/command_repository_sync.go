@@ -1,8 +1,8 @@
 package cli
 
 import (
-	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
@@ -356,9 +356,35 @@ func (c *commandRepositorySyncTo) ensureRepositoriesHaveSameFormatBlob(ctx conte
 		return errors.Wrap(err, "error reading destination repository format blob")
 	}
 
-	if bytes.Equal(srcData.ToByteSlice(), dstData.ToByteSlice()) {
+	uniqueID1, err := parseUniqueID(srcData.Bytes())
+	if err != nil {
+		return errors.Wrap(err, "error parsing unique ID of source repository")
+	}
+
+	uniqueID2, err := parseUniqueID(dstData.Bytes())
+	if err != nil {
+		return errors.Wrap(err, "error parsing unique ID of destination repository")
+	}
+
+	if uniqueID1 == uniqueID2 {
 		return nil
 	}
 
 	return errors.Errorf("destination repository contains incompatible data")
+}
+
+func parseUniqueID(r gather.Bytes) (string, error) {
+	var f struct {
+		UniqueID string `json:"uniqueID"`
+	}
+
+	if err := json.NewDecoder(r.Reader()).Decode(&f); err != nil {
+		return "", errors.Wrap(err, "invalid JSON")
+	}
+
+	if f.UniqueID == "" {
+		return "", errors.Errorf("unique ID not found")
+	}
+
+	return f.UniqueID, nil
 }
