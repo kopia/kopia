@@ -340,6 +340,33 @@ func TestSetSchedulingPolicyFromFlags(t *testing.T) {
 			expErr:         false,
 			expChangeCount: 2,
 		},
+		{
+			name: "Change time of day",
+			startingPolicy: &policy.SchedulingPolicy{
+				TimesOfDay: []policy.TimeOfDay{{Hour: 12, Minute: 0}},
+			},
+			timesOfDayArg: []string{"13:00,14:00"},
+			expResult: &policy.SchedulingPolicy{
+				TimesOfDay: []policy.TimeOfDay{
+					{Hour: 13, Minute: 0},
+					{Hour: 14, Minute: 0},
+				},
+			},
+			expErr:         false,
+			expChangeCount: 1,
+		},
+		{
+			name: "Remove time of day",
+			startingPolicy: &policy.SchedulingPolicy{
+				TimesOfDay: []policy.TimeOfDay{{Hour: 12, Minute: 0}},
+			},
+			timesOfDayArg: []string{"inherit"},
+			expResult: &policy.SchedulingPolicy{
+				TimesOfDay: nil,
+			},
+			expErr:         false,
+			expChangeCount: 1,
+		},
 	} {
 		t.Log(tc.name)
 

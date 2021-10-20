@@ -19,7 +19,7 @@ type policySchedulingFlags struct {
 
 func (c *policySchedulingFlags) setup(cmd *kingpin.CmdClause) {
 	cmd.Flag("snapshot-interval", "Interval between snapshots").DurationListVar(&c.policySetInterval)
-	cmd.Flag("snapshot-time", "Times of day when to take snapshot (HH:mm)").StringsVar(&c.policySetTimesOfDay)
+	cmd.Flag("snapshot-time", "Comma-separated times of day when to take snapshot (HH:mm,HH:mm,...) or 'inherit' to remove override").StringsVar(&c.policySetTimesOfDay)
 	cmd.Flag("manual", "Only create snapshots manually").BoolVar(&c.policySetManual)
 }
 
