@@ -312,7 +312,12 @@ func (s *sourceManager) snapshotInternal(ctx context.Context, ctrl uitask.Contro
 }
 
 func (s *sourceManager) findClosestNextSnapshotTime() *time.Time {
-	t, ok := s.pol.NextSnapshotTime(s.lastCompleteSnapshot.StartTime, clock.Now())
+	var lastCompleteSnapshotTime time.Time
+	if lcs := s.lastCompleteSnapshot; lcs != nil {
+		lastCompleteSnapshotTime = lcs.StartTime
+	}
+
+	t, ok := s.pol.NextSnapshotTime(lastCompleteSnapshotTime, clock.Now())
 	if !ok {
 		return nil
 	}

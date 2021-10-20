@@ -42,6 +42,10 @@ func (m *indexBlobManagerV1) listActiveIndexBlobs(ctx context.Context) ([]IndexB
 	return result, deletionWatermark, nil
 }
 
+func (m *indexBlobManagerV1) invalidate(ctx context.Context) {
+	m.epochMgr.Invalidate()
+}
+
 func (m *indexBlobManagerV1) flushCache(ctx context.Context) {
 	if err := m.st.FlushCaches(ctx); err != nil {
 		m.log.Debugf("error flushing caches: %v", err)

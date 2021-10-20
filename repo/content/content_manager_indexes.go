@@ -37,6 +37,8 @@ func (sm *SharedManager) Refresh(ctx context.Context) error {
 
 	sm.log.Debugf("Refresh started")
 
+	sm.indexBlobManager.invalidate(ctx)
+
 	t0 := clock.Now()
 
 	err := sm.loadPackIndexesLocked(ctx)

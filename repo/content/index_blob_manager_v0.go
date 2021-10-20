@@ -110,6 +110,9 @@ func (m *indexBlobManagerV0) listActiveIndexBlobs(ctx context.Context) ([]IndexB
 	return results, time.Time{}, nil
 }
 
+func (m *indexBlobManagerV0) invalidate(ctx context.Context) {
+}
+
 func (m *indexBlobManagerV0) flushCache(ctx context.Context) {
 	if err := m.st.FlushCaches(ctx); err != nil {
 		m.log.Debugf("error flushing caches: %v", err)
