@@ -9,9 +9,11 @@ import (
 type Options struct {
 	Path string `json:"path"`
 
-	Host           string `json:"host"`
-	Port           int    `json:"port"`
-	Username       string `json:"username"`
+	Host     string `json:"host"`
+	Port     int    `json:"port"`
+	Username string `json:"username"`
+	// if password is specified Keyfile/Keydata is ignored.
+	Password       string `json:"password" kopia:"sensitive"`
 	Keyfile        string `json:"keyfile,omitempty"`
 	KeyData        string `json:"keyData,omitempty" kopia:"sensitive"`
 	KnownHostsFile string `json:"knownHostsFile,omitempty"`

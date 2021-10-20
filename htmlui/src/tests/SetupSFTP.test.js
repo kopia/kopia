@@ -16,6 +16,8 @@ it('can set fields', async () => {
   changeControlValue(getByTestId("control-keyfile"), "some-keyfile");
   changeControlValue(getByTestId("control-knownHostsFile"), "some-knownHostsFile");
   expect(ref.current.validate()).toBe(true);
+
+  // key file + known hosts file
   expect(ref.current.state).toStrictEqual({
     "host": "some-host",
     "username": "some-username",
@@ -31,16 +33,36 @@ it('can set fields', async () => {
   expect(ref.current.validate()).toBe(false);
   changeControlValue(getByTestId("control-keyfile"), "");
   expect(ref.current.validate()).toBe(true);
-  changeControlValue(getByTestId("control-knownHostsData"), "some-knownHostsData");
-  expect(ref.current.validate()).toBe(false);
-  changeControlValue(getByTestId("control-knownHostsFile"), "");
-  expect(ref.current.validate()).toBe(true);
 
+  // key data + known hosts file
   expect(ref.current.state).toStrictEqual({
     "host": "some-host",
     "username": "some-username",
     "keyfile": "",
     "keyData": "some-keyData",
+    "knownHostsFile": "some-knownHostsFile",
+    "path": "some-path",
+    "port": 22,
+    "validated": true,
+  });
+
+  changeControlValue(getByTestId("control-password"), "some-password");
+  expect(ref.current.validate()).toBe(false);
+  changeControlValue(getByTestId("control-keyData"), "");
+  expect(ref.current.validate()).toBe(true);
+
+  changeControlValue(getByTestId("control-knownHostsData"), "some-knownHostsData");
+  expect(ref.current.validate()).toBe(false);
+  changeControlValue(getByTestId("control-knownHostsFile"), "");
+  expect(ref.current.validate()).toBe(true);
+
+  // known hosts data + password
+  expect(ref.current.state).toStrictEqual({
+    "host": "some-host",
+    "username": "some-username",
+    "password": "some-password",
+    "keyfile": "",
+    "keyData": "",
     "knownHostsFile": "",
     "knownHostsData": "some-knownHostsData",
     "path": "some-path",

@@ -23,10 +23,16 @@ func (c *storageSFTPFlags) setup(_ storageProviderServices, cmd *kingpin.CmdClau
 	cmd.Flag("host", "SFTP/SSH server hostname").Required().StringVar(&c.options.Host)
 	cmd.Flag("port", "SFTP/SSH server port").Default("22").IntVar(&c.options.Port)
 	cmd.Flag("username", "SFTP/SSH server username").Required().StringVar(&c.options.Username)
+
+	// one of those 3 must be provided
+	cmd.Flag("sftp-password", "SFTP/SSH server password").StringVar(&c.options.Password)
 	cmd.Flag("keyfile", "path to private key file for SFTP/SSH server").StringVar(&c.options.Keyfile)
 	cmd.Flag("key-data", "private key data").StringVar(&c.options.KeyData)
+
+	// one of those 2 must be provided
 	cmd.Flag("known-hosts", "path to known_hosts file").StringVar(&c.options.KnownHostsFile)
 	cmd.Flag("known-hosts-data", "known_hosts file entries").StringVar(&c.options.KnownHostsData)
+
 	cmd.Flag("embed-credentials", "Embed key and known_hosts in Kopia configuration").BoolVar(&c.embedCredentials)
 
 	cmd.Flag("external", "Launch external passwordless SSH command").BoolVar(&c.options.ExternalSSH)
@@ -37,6 +43,7 @@ func (c *storageSFTPFlags) setup(_ storageProviderServices, cmd *kingpin.CmdClau
 	cmd.Flag("list-parallelism", "Set list parallelism").Hidden().IntVar(&c.options.ListParallelism)
 }
 
+// nolint:gocyclo
 func (c *storageSFTPFlags) getOptions() (*sftp.Options, error) {
 	sftpo := c.options
 
@@ -65,6 +72,8 @@ func (c *storageSFTPFlags) getOptions() (*sftp.Options, error) {
 		}
 
 		switch {
+		case sftpo.Password != "": // ok
+
 		case sftpo.KeyData != "": // ok
 
 		case sftpo.Keyfile != "":
@@ -74,8 +83,9 @@ func (c *storageSFTPFlags) getOptions() (*sftp.Options, error) {
 			}
 
 			sftpo.Keyfile = a
+
 		default:
-			return nil, errors.Errorf("must provide either --keyfile or --key-data")
+			return nil, errors.Errorf("must provide either --sftp-password, --keyfile or --key-data")
 		}
 
 		switch {

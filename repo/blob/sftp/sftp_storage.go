@@ -372,16 +372,22 @@ func createSSHConfig(ctx context.Context, opt *Options) (*ssh.ClientConfig, erro
 		return nil, errors.Wrapf(err, "unable to getHostKey: %s", opt.Host)
 	}
 
-	signer, err := getSigner(opt)
-	if err != nil {
-		return nil, errors.Wrapf(err, "unable to getSigner")
+	var auth []ssh.AuthMethod
+
+	if opt.Password != "" {
+		auth = append(auth, ssh.Password(opt.Password))
+	} else {
+		signer, err := getSigner(opt)
+		if err != nil {
+			return nil, errors.Wrapf(err, "unable to getSigner")
+		}
+
+		auth = append(auth, ssh.PublicKeys(signer))
 	}
 
 	return &ssh.ClientConfig{
-		User: opt.Username,
-		Auth: []ssh.AuthMethod{
-			ssh.PublicKeys(signer),
-		},
+		User:            opt.Username,
+		Auth:            auth,
 		HostKeyCallback: hostKeyCallback,
 	}, nil
 }
