@@ -56,6 +56,7 @@ type indexBlobManager interface {
 	listActiveIndexBlobs(ctx context.Context) ([]IndexBlobInfo, time.Time, error)
 	compact(ctx context.Context, opts CompactOptions) error
 	flushCache(ctx context.Context)
+	invalidate(ctx context.Context)
 }
 
 // SharedManager is responsible for read-only access to committed data.

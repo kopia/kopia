@@ -23,6 +23,7 @@ export class SourcesTable extends Component {
         this.state = {
             sources: [],
             isLoading: false,
+            isRefreshing: false,
             error: null,
 
             localSourceName: "",
@@ -56,12 +57,14 @@ export class SourcesTable extends Component {
                 multiUser: result.data.multiUser,
                 sources: result.data.sources,
                 isLoading: false,
+                isRefreshing: false,
             });
         }).catch(error => {
             redirectIfNotConnected(error);
             this.setState({
                 error,
-                isLoading: false
+                isRefreshing: false,
+                isLoading: false,
             });
         });
     }
@@ -73,14 +76,14 @@ export class SourcesTable extends Component {
     }
 
     sync() {
-        this.setState({ isLoading: true });
+        this.setState({ isRefreshing: true });
         axios.post('/api/v1/repo/sync', {}).then(result => {
             this.fetchSourcesWithoutSpinner();
         }).catch(error => {
             errorAlert(error);
             this.setState({
                 error,
-                isLoading: false
+                isRefreshing: false
             });
         });
     }
@@ -259,7 +262,9 @@ export class SourcesTable extends Component {
                     <Col>
                     </Col>
                     <Col xs="auto">
-                        <Button size="sm" variant="primary"><FontAwesomeIcon icon={faSync} /></Button>
+                        <Button size="sm" variant="primary">
+                            {this.state.isRefreshing ? <Spinner animation="border" variant="light" size="sm" /> : <FontAwesomeIcon icon={faSync} onClick={this.sync} />}
+                        </Button>
                     </Col>
                 </Row>
             </div>

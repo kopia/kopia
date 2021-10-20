@@ -581,9 +581,10 @@ func (s *Server) syncSourcesLocked(ctx context.Context) error {
 	}
 
 	for src := range sources {
-		if _, ok := oldSourceManagers[src]; ok {
+		if sm, ok := oldSourceManagers[src]; ok {
 			// pre-existing source, already has a manager
 			delete(oldSourceManagers, src)
+			sm.refreshStatus(ctx)
 		} else {
 			sm := newSourceManager(src, s)
 			s.sourceManagers[src] = sm
