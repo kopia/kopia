@@ -12,15 +12,25 @@ If your repository was created in a version older than v0.9, please follow the s
 
 ### Notes
 
-* After the upgrade, kopia v0.8 and earlier will not be able to open the repository anymore.
+It is critical to follow the process outlined before exactly and to verify that during the upgrade steps no instance of `kopia` is connected to the repository. 
 
-* It is very important to perform repository upgrade without other clients accessing repository to avoid data loss.
+This includes:
+
+* `kopia` or `KopiaUI` running interactively on in scripts,
+* running as a scheduled background tasks (e.g. using `crontab`),
+* running in server mode either as the current user or system-wide daemon (e.g. using `systemd`),
+* running in Docker containers and similar.
+
+Also note, that after the upgrade, kopia v0.8 and earlier will not be able to open the repository anymore. Once upgraded all new v0.9 features will be supported except password change, which is only
+available for newly-created repositories.
 
 ### Upgrade Process
 
-1. Disconnect all but one kopia clients:
+1. Select one kopia client that will perform the upgrade, if there are more clients, pick the one that is currently the owner of maintenance process, which is typically the client that first created the repository.
 
-* using CLI run 
+2. Disconnect all other kopia clients:
+
+* using CLI run:
 
 ```
 $ kopia repository disconnect
@@ -28,15 +38,17 @@ $ kopia repository disconnect
 
 * using KopiaUI, click `Repository` | `Disconnect`.  
 
-2. Upgrade all kopia executables to >=v0.9.0-rc1
+* make sure to stop any running `kopia server` instances and disable all background kopia tasks, such as periodic snapshots in `crontab`.
 
-3. Using the remaining connected `kopia` client, run:
+3. Upgrade all kopia clients to the latest version >=v0.9.x
+
+4. Using the designated `kopia` client, run:
 
 ```
 $ kopia repository set-parameters --upgrade
 ```
 
-4. Verify upgrade by:
+5. Verify upgrade by:
 
 ```
 $ kopia repository status
@@ -44,6 +56,6 @@ $ kopia repository status
 
 You should see `Format version:      2`
 
-5. Reconnect kopia clients that were disconnected in step 1
+5. Reconnect kopia clients that were disconnected in step 2 and re-enable all disabled background jobs.
 
-After upgrade all new v0.9 features will be supported except password change.
+6. When in doubt, it's better not to guess, but post a question on https://kopia.discourse.group
