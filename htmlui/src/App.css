@@ -18,6 +18,10 @@ body {
   font-weight: bold;
 }
 
+.form-label {
+  padding-top: 5px;
+}
+
 .required {
   font-weight: bold;
 }

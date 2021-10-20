@@ -26,9 +26,11 @@ import (
 )
 
 const (
-	dockerImage  = "atmoz/sftp"
-	dialTimeout  = 10 * time.Second
-	sftpUsername = "foo"
+	dockerImage                  = "atmoz/sftp"
+	dialTimeout                  = 10 * time.Second
+	sftpUsernameWithKeyAuth      = "foo"
+	sftpUsernameWithPasswordAuth = "foo2"
+	sftpUserPassword             = "bar2"
 )
 
 func mustGetLocalTmpDir(t *testing.T) string {
@@ -97,11 +99,12 @@ func startDockerSFTPServerOrSkip(t *testing.T, idRSA string) (host string, port 
 	// see https://github.com/atmoz/sftp for instructions
 	shortContainerID := testutil.RunContainerAndKillOnCloseOrSkip(t,
 		"run", "--rm", "-p", "0:22",
-		"-v", idRSA+".pub:/home/"+sftpUsername+"/.ssh/keys/id_rsa.pub:ro",
+		"-v", idRSA+".pub:/home/"+sftpUsernameWithKeyAuth+"/.ssh/keys/id_rsa.pub:ro",
 		"-v", sshHostED25519Key+":/etc/ssh/ssh_host_ed25519_key:ro",
 		"-v", sshHostRSAKey+":/etc/ssh/ssh_host_rsa_key:ro",
 		"-d", dockerImage,
-		sftpUsername+"::::upload")
+		sftpUsernameWithKeyAuth+"::::upload",
+		sftpUsernameWithPasswordAuth+":"+sftpUserPassword+":::upload2")
 	sftpEndpoint := testutil.GetContainerMappedPortAddress(t, shortContainerID, "22")
 
 	// wait for SFTP server to come up.
@@ -178,7 +181,14 @@ func TestSFTPStorageValid(t *testing.T) {
 		t.Run(fmt.Sprintf("Embed=%v", embedCreds), func(t *testing.T) {
 			ctx := testlogging.Context(t)
 
-			st, err := createSFTPStorage(ctx, t, host, port, idRSA, knownHostsFile, embedCreds)
+			st, err := createSFTPStorage(ctx, t, sftp.Options{
+				Path:           "/upload",
+				Host:           host,
+				Username:       sftpUsernameWithKeyAuth,
+				Port:           port,
+				Keyfile:        idRSA,
+				KnownHostsFile: knownHostsFile,
+			}, embedCreds)
 			if err != nil {
 				t.Fatalf("unable to connect to SSH: %v", err)
 			}
@@ -197,6 +207,35 @@ func TestSFTPStorageValid(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("PasswordCreds", func(t *testing.T) {
+		ctx := testlogging.Context(t)
+
+		st, err := createSFTPStorage(ctx, t, sftp.Options{
+			Path:           "/upload2",
+			Host:           host,
+			Username:       sftpUsernameWithPasswordAuth,
+			Password:       sftpUserPassword,
+			Port:           port,
+			Keyfile:        idRSA,
+			KnownHostsFile: knownHostsFile,
+		}, false)
+		if err != nil {
+			t.Fatalf("unable to connect to SSH: %v", err)
+		}
+
+		deleteBlobs(ctx, t, st)
+
+		blobtesting.VerifyStorage(ctx, t, st)
+		blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
+
+		// delete everything again
+		deleteBlobs(ctx, t, st)
+
+		if err := st.Close(ctx); err != nil {
+			t.Fatalf("err: %v", err)
+		}
+	})
 }
 
 func TestInvalidServerFailsFast(t *testing.T) {
@@ -213,7 +252,14 @@ func TestInvalidServerFailsFast(t *testing.T) {
 
 	t0 := clock.Now()
 
-	if _, err := createSFTPStorage(ctx, t, "no-such-host", 22, idRSA, knownHostsFile, false); err == nil {
+	if _, err := createSFTPStorage(ctx, t, sftp.Options{
+		Path:           "/upload",
+		Host:           "no-such-host",
+		Username:       sftpUsernameWithKeyAuth,
+		Port:           22,
+		Keyfile:        idRSA,
+		KnownHostsFile: knownHostsFile,
+	}, false); err == nil {
 		t.Fatalf("unexpected success with bad credentials")
 	}
 
@@ -231,7 +277,7 @@ func TestSFTPStorageRelativeKeyFile(t *testing.T) {
 	opt := &sftp.Options{
 		Path:           "/upload",
 		Host:           "some-host",
-		Username:       sftpUsername,
+		Username:       sftpUsernameWithKeyAuth,
 		Port:           22,
 		Keyfile:        "some-relative-path",
 		KnownHostsFile: kh,
@@ -248,7 +294,7 @@ func TestSFTPStorageRelativeKnownHostsFile(t *testing.T) {
 	opt := &sftp.Options{
 		Path:           "/upload",
 		Host:           "some-host",
-		Username:       sftpUsername,
+		Username:       sftpUsernameWithKeyAuth,
 		Port:           22,
 		Keyfile:        filepath.Join(t.TempDir(), "some-relative-path"),
 		KnownHostsFile: "some-relative-path",
@@ -269,20 +315,12 @@ func deleteBlobs(ctx context.Context, t *testing.T, st blob.Storage) {
 	}
 }
 
-func createSFTPStorage(ctx context.Context, t *testing.T, host string, port int, idRSA, knownHostsFile string, embed bool) (blob.Storage, error) {
+// nolint:gocritic
+func createSFTPStorage(ctx context.Context, t *testing.T, opt sftp.Options, embed bool) (blob.Storage, error) {
 	t.Helper()
 
-	if _, err := os.Stat(knownHostsFile); err != nil {
-		t.Fatalf("skipping test because SFTP known hosts file can't be opened: %v", knownHostsFile)
-	}
-
-	opt := &sftp.Options{
-		Path:           "/upload",
-		Host:           host,
-		Username:       sftpUsername,
-		Port:           port,
-		Keyfile:        idRSA,
-		KnownHostsFile: knownHostsFile,
+	if _, err := os.Stat(opt.KnownHostsFile); err != nil {
+		t.Fatalf("skipping test because SFTP known hosts file can't be opened: %v", opt.KnownHostsFile)
 	}
 
 	if embed {
@@ -293,7 +331,7 @@ func createSFTPStorage(ctx context.Context, t *testing.T, host string, port int,
 		opt.KnownHostsFile = ""
 	}
 
-	return sftp.New(ctx, opt)
+	return sftp.New(ctx, &opt)
 }
 
 func mustReadFileToString(t *testing.T, fname string) string {

@@ -82,7 +82,7 @@ func TestSFTPOptions(t *testing.T) {
 					KnownHostsFile: "my-known-hosts",
 				},
 			},
-			wantErr: "must provide either --keyfile or --key-data",
+			wantErr: "must provide either --sftp-password, --keyfile or --key-data",
 		},
 		// 4
 		{
@@ -134,6 +134,27 @@ func TestSFTPOptions(t *testing.T) {
 				Username:        "user",
 				KnownHostsFile:  mustFileAbs(t, "my-known-hosts"),
 				Keyfile:         mustFileAbs(t, "my-key"),
+				DirectoryShards: []int{},
+			},
+		},
+		// 7
+		{
+			input: storageSFTPFlags{
+				options: sftp.Options{
+					Host:           "some-host",
+					Port:           222,
+					Username:       "user",
+					Password:       "my-password",
+					KnownHostsFile: "my-known-hosts",
+				},
+				connectFlat: true,
+			},
+			want: &sftp.Options{
+				Host:            "some-host",
+				Port:            222,
+				Username:        "user",
+				KnownHostsFile:  mustFileAbs(t, "my-known-hosts"),
+				Password:        "my-password",
 				DirectoryShards: []int{},
 			},
 		},
