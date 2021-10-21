@@ -22,6 +22,7 @@ type commandSnapshotMigrate struct {
 	migrateOverwritePolicies bool
 	migrateLatestOnly        bool
 	migrateParallel          int
+	applyIgnoreRules         bool
 
 	svc advancedAppServices
 	out textOutput
@@ -36,6 +37,7 @@ func (c *commandSnapshotMigrate) setup(svc advancedAppServices, parent commandPa
 	cmd.Flag("overwrite-policies", "Overwrite policies").BoolVar(&c.migrateOverwritePolicies)
 	cmd.Flag("latest-only", "Only migrate the latest snapshot").BoolVar(&c.migrateLatestOnly)
 	cmd.Flag("parallel", "Number of sources to migrate in parallel").Default("1").IntVar(&c.migrateParallel)
+	cmd.Flag("apply-ignore-rules", "When migrating also apply current ignore rules").BoolVar(&c.applyIgnoreRules)
 	cmd.Action(svc.repositoryWriterAction(c.run))
 
 	c.svc = svc
@@ -269,7 +271,12 @@ func (c *commandSnapshotMigrate) migrateSingleSourceSnapshot(ctx context.Context
 		return err
 	}
 
-	var policyTree *policy.Tree
+	policyTree, err := policy.TreeForSource(ctx, destRepo, m.Source)
+	if err != nil {
+		return errors.Wrap(err, "error generating policy tree")
+	}
+
+	uploader.DisableIgnoreRules = !c.applyIgnoreRules
 
 	newm, err := uploader.Upload(ctx, sourceEntry, policyTree, m.Source, previous...)
 	if err != nil {

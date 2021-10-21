@@ -70,6 +70,9 @@ type Uploader struct {
 	// How frequently to create checkpoint snapshot entries.
 	CheckpointInterval time.Duration
 
+	// When set to true, do not ignore any files, regardless of policy settings.
+	DisableIgnoreRules bool
+
 	repo repo.RepositoryWriter
 
 	// stats must be allocated on heap to enforce 64-bit alignment due to atomic access on ARM.
@@ -1206,6 +1209,10 @@ func (u *Uploader) Upload(
 }
 
 func (u *Uploader) wrapIgnorefs(entry fs.Directory, policyTree *policy.Tree) fs.Directory {
+	if u.DisableIgnoreRules {
+		return entry
+	}
+
 	return ignorefs.New(entry, policyTree, ignorefs.ReportIgnoredFiles(func(fname string, md fs.Entry) {
 		if md.IsDir() {
 			u.Progress.ExcludedDir(fname)
