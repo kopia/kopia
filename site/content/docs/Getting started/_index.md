@@ -339,7 +339,7 @@ Kopia provides low-level commands to examine the contents of repository, perform
 
 ### BLOBs
 
-We can list the files in the repository using `kopia blob ls`, which shows how kopia manages snapshots. We can see that repository contents are groupped into Pack files (starting with `p`) and indexed using Index files (starting with `n`). Both index and pack files are encrypted, which makes it impossible to get data and metadata about snapshotted files without knowing the password.
+We can list the files in the repository using `kopia blob ls`, which shows how kopia manages snapshots. We can see that repository contents are grouped into Pack files (starting with `p`) and indexed using Index files (starting with `n`). Both index and pack files are encrypted, which makes it impossible to get data and metadata about snapshotted files without knowing the password.
 
 ```
 $ kopia blob ls

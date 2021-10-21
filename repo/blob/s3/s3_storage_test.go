@@ -178,6 +178,70 @@ func TestS3StorageAWSSTS(t *testing.T) {
 	testStorage(t, options, false)
 }
 
+func TestS3StorageAWSRetention(t *testing.T) {
+	t.Parallel()
+
+	// skip the test if AWS creds are not provided
+	options := &Options{
+		Endpoint:        getEnv(testEndpointEnv, awsEndpoint),
+		AccessKeyID:     getEnvOrSkip(t, testAccessKeyIDEnv),
+		SecretAccessKey: getEnvOrSkip(t, testSecretAccessKeyEnv),
+		BucketName:      getEnvOrSkip(t, testBucketEnv),
+		Region:          getEnvOrSkip(t, testRegionEnv),
+	}
+
+	createBucket(t, options)
+	testStorage(t, options, false)
+}
+
+func TestS3StorageAWSRetentionLockedBucket(t *testing.T) {
+	t.Parallel()
+
+	// skip the test if AWS creds are not provided
+	options := &Options{
+		Endpoint:        getEnv(testEndpointEnv, awsEndpoint),
+		AccessKeyID:     getEnvOrSkip(t, testAccessKeyIDEnv),
+		SecretAccessKey: getEnvOrSkip(t, testSecretAccessKeyEnv),
+		BucketName:      getEnvOrSkip(t, testLockedBucketEnv),
+		Region:          getEnvOrSkip(t, testRegionEnv),
+	}
+
+	createBucket(t, options)
+	testStorage(t, options, false)
+}
+
+func TestS3StorageAWSInvalidRetention(t *testing.T) {
+	t.Parallel()
+
+	// skip the test if AWS creds are not provided
+	options := &Options{
+		Endpoint:        getEnv(testEndpointEnv, awsEndpoint),
+		AccessKeyID:     getEnvOrSkip(t, testAccessKeyIDEnv),
+		SecretAccessKey: getEnvOrSkip(t, testSecretAccessKeyEnv),
+		BucketName:      getEnvOrSkip(t, testBucketEnv),
+		Region:          getEnvOrSkip(t, testRegionEnv),
+	}
+
+	createBucket(t, options)
+	testStorage(t, options, false)
+}
+
+func TestS3StorageAWSInvalidRetentionLockedBucket(t *testing.T) {
+	t.Parallel()
+
+	// skip the test if AWS creds are not provided
+	options := &Options{
+		Endpoint:        getEnv(testEndpointEnv, awsEndpoint),
+		AccessKeyID:     getEnvOrSkip(t, testAccessKeyIDEnv),
+		SecretAccessKey: getEnvOrSkip(t, testSecretAccessKeyEnv),
+		BucketName:      getEnvOrSkip(t, testLockedBucketEnv),
+		Region:          getEnvOrSkip(t, testRegionEnv),
+	}
+
+	createBucket(t, options)
+	testStorage(t, options, false)
+}
+
 func TestS3StorageMinio(t *testing.T) {
 	t.Parallel()
 	testutil.ProviderTest(t)
@@ -296,7 +360,7 @@ func TestNeedMD5AWS(t *testing.T) {
 		blobtesting.CleanupOldData(context.Background(), t, s, 0)
 	})
 
-	err = s.PutBlob(ctx, blob.ID("test-put-blob-0"), gather.FromSlice([]byte("xxyasdf243z")))
+	err = s.PutBlob(ctx, blob.ID("test-put-blob-0"), gather.FromSlice([]byte("xxyasdf243z")), blob.StoragePutBlobOptions{})
 
 	require.NoError(t, err, "could not put test blob")
 }

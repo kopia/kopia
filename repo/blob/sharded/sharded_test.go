@@ -144,7 +144,7 @@ func TestShardedFileStorageShardingMap(t *testing.T) {
 			var allBlobIDs []blob.ID
 
 			for blobID, wantFilename := range tc.blobFilePathMap {
-				require.NoError(t, r.PutBlob(ctx, blobID, gather.FromSlice([]byte("foo"))))
+				require.NoError(t, r.PutBlob(ctx, blobID, gather.FromSlice([]byte("foo")), blob.StoragePutBlobOptions{}))
 				require.FileExists(t, filepath.Join(path, wantFilename))
 
 				allBlobIDs = append(allBlobIDs, blobID)
@@ -189,19 +189,19 @@ func TestShardedFileStorageShardingMap_Invalid(t *testing.T) {
 	var tmp gather.WriteBuffer
 	defer tmp.Close()
 
-	require.Error(t, r.PutBlob(ctx, "someblob", gather.FromSlice([]byte("foo"))))
+	require.Error(t, r.PutBlob(ctx, "someblob", gather.FromSlice([]byte("foo")), blob.StoragePutBlobOptions{}))
 
 	// delete invalid .shards file
 	require.NoError(t, os.Remove(dotShardsFile))
 
 	// now putting the blob will succeed
-	require.NoError(t, r.PutBlob(ctx, "someblob", gather.FromSlice([]byte("foo"))))
+	require.NoError(t, r.PutBlob(ctx, "someblob", gather.FromSlice([]byte("foo")), blob.StoragePutBlobOptions{}))
 
 	// write malformed file again, but will be ignored since it was successfully loaded
 	// in this session.
 	require.NoError(t, os.WriteFile(dotShardsFile, []byte{1, 2, 3}, 0o600))
 
-	require.NoError(t, r.PutBlob(ctx, "someblob2", gather.FromSlice([]byte("foo"))))
+	require.NoError(t, r.PutBlob(ctx, "someblob2", gather.FromSlice([]byte("foo")), blob.StoragePutBlobOptions{}))
 }
 
 func TestClone(t *testing.T) {

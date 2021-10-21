@@ -180,7 +180,11 @@ func (s *Storage) GetMetadata(ctx context.Context, blobID blob.ID) (blob.Metadat
 }
 
 // PutBlob implements blob.Storage.
-func (s *Storage) PutBlob(ctx context.Context, blobID blob.ID, data blob.Bytes) error {
+func (s *Storage) PutBlob(ctx context.Context, blobID blob.ID, data blob.Bytes, opts blob.StoragePutBlobOptions) error {
+	if opts.RetentionPeriod != 0 || opts.RetentionMode != "" {
+		return blob.ErrBlobRetentionUnsupported
+	}
+
 	dirPath, filePath, err := s.GetShardedPathAndFilePath(ctx, blobID)
 	if err != nil {
 		return errors.Wrap(err, "error determining sharded path")

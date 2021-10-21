@@ -17,6 +17,7 @@ import (
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/repo/blob"
@@ -130,30 +131,60 @@ func (s *s3Storage) getVersionMetadata(ctx context.Context, b blob.ID, version s
 	return infoToVersionMetadata(s.Prefix, &oi), nil
 }
 
-func (s *s3Storage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes) error {
-	_, err := s.putBlob(ctx, b, data)
+func (s *s3Storage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes, opts blob.StoragePutBlobOptions) error {
+	_, err := s.putBlob(ctx, b, data, opts)
 
 	return err
 }
 
-func (s *s3Storage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes) (versionMetadata, error) {
+func (s *s3Storage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes, opts blob.StoragePutBlobOptions) (versionMetadata, error) {
 	throttled, err := s.uploadThrottler.AddReader(io.NopCloser(data.Reader()))
 	if err != nil {
 		return versionMetadata{}, errors.Wrap(err, "AddReader")
 	}
 
-	storageClass := s.storageConfig.getStorageClassForBlobID(b)
+	var (
+		storageClass    = s.storageConfig.getStorageClassForBlobID(b)
+		retentionMode   minio.RetentionMode
+		retainUntilDate time.Time
+	)
+
+	if opts.RetentionPeriod != 0 {
+		retentionMode = minio.RetentionMode(opts.RetentionMode)
+		if !retentionMode.IsValid() {
+			return versionMetadata{}, errors.Wrapf(blob.ErrBlobRetentionInvalid, "invalid retention mode: %q", opts.RetentionMode)
+		}
+
+		retainUntilDate = clock.Now().Add(opts.RetentionPeriod).UTC()
+	}
 
 	uploadInfo, err := s.cli.PutObject(ctx, s.BucketName, s.getObjectNameString(b), throttled, int64(data.Length()), minio.PutObjectOptions{
-		ContentType:    "application/x-kopia",
-		SendContentMd5: atomic.LoadInt32(&s.sendMD5) > 0,
-		StorageClass:   storageClass,
+		ContentType: "application/x-kopia",
+		SendContentMd5: atomic.LoadInt32(&s.sendMD5) > 0 ||
+			// The Content-MD5 header is required for any request to upload an object
+			// with a retention period configured using Amazon S3 Object Lock
+			!retainUntilDate.IsZero(),
+		StorageClass:    storageClass,
+		RetainUntilDate: retainUntilDate,
+		Mode:            retentionMode,
 	})
 
 	var er minio.ErrorResponse
-
-	if errors.As(err, &er) && er.Code == "InvalidRequest" && strings.Contains(strings.ToLower(er.Message), "content-md5") {
-		atomic.StoreInt32(&s.sendMD5, 1) // set sendMD5 on retry
+	if errors.As(err, &er) {
+		switch {
+		case er.Code == "InvalidRequest" && strings.Contains(strings.ToLower(er.Message), "content-md5"):
+			atomic.StoreInt32(&s.sendMD5, 1) // set sendMD5 on retry
+		case (er.Code == "InvalidRequest" &&
+			// this can happen when object-locking is not enabled on the target
+			// bucket
+			strings.Contains(er.Message, "Bucket is missing ObjectLockConfiguration")):
+			return versionMetadata{}, errors.Wrap(blob.ErrBlobRetentionDisabled, er.Error())
+		case (er.Code == "InvalidArgument" &&
+			// this can happen when the retention-period is too small (less
+			// than 1-day)
+			strings.Contains(er.Message, "The retain until date must be in the future")):
+			return versionMetadata{}, errors.Wrap(blob.ErrBlobRetentionInvalid, er.Error())
+		}
 
 		return versionMetadata{}, err // nolint:wrapcheck
 	}
@@ -161,8 +192,10 @@ func (s *s3Storage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes) (ve
 	if errors.Is(err, io.EOF) && uploadInfo.Size == 0 {
 		// special case empty stream
 		_, err = s.cli.PutObject(ctx, s.BucketName, s.getObjectNameString(b), bytes.NewBuffer(nil), 0, minio.PutObjectOptions{
-			ContentType:  "application/x-kopia",
-			StorageClass: storageClass,
+			ContentType:     "application/x-kopia",
+			StorageClass:    storageClass,
+			RetainUntilDate: retainUntilDate,
+			Mode:            retentionMode,
 		})
 	}
 

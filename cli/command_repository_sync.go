@@ -303,7 +303,7 @@ func (c *commandRepositorySyncTo) syncCopyBlob(ctx context.Context, m blob.Metad
 		return errors.Wrapf(err, "error reading blob '%v' from source", m.BlobID)
 	}
 
-	if err := dst.PutBlob(ctx, m.BlobID, data.Bytes()); err != nil {
+	if err := dst.PutBlob(ctx, m.BlobID, data.Bytes(), blob.StoragePutBlobOptions{}); err != nil {
 		return errors.Wrapf(err, "error writing blob '%v' to destination", m.BlobID)
 	}
 
@@ -350,7 +350,7 @@ func (c *commandRepositorySyncTo) ensureRepositoriesHaveSameFormatBlob(ctx conte
 				return errors.Errorf("destination repository does not have a format blob")
 			}
 
-			return errors.Wrap(dst.PutBlob(ctx, repo.FormatBlobID, srcData.Bytes()), "error saving format blob")
+			return errors.Wrap(dst.PutBlob(ctx, repo.FormatBlobID, srcData.Bytes(), blob.StoragePutBlobOptions{}), "error saving format blob")
 		}
 
 		return errors.Wrap(err, "error reading destination repository format blob")
