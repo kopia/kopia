@@ -62,7 +62,7 @@ func VerifyStorage(ctx context.Context, t *testing.T, r blob.Storage) {
 				t.Run(fmt.Sprintf("%v-%v", b.blk, i), func(t *testing.T) {
 					t.Parallel()
 
-					if err := r.PutBlob(ctx, b.blk, gather.FromSlice(b.contents)); err != nil {
+					if err := r.PutBlob(ctx, b.blk, gather.FromSlice(b.contents), blob.StoragePutBlobOptions{}); err != nil {
 						t.Fatalf("can't put blob: %v", err)
 					}
 				})
@@ -114,7 +114,7 @@ func VerifyStorage(ctx context.Context, t *testing.T, r blob.Storage) {
 			t.Run(string(b.blk), func(t *testing.T) {
 				t.Parallel()
 
-				require.NoErrorf(t, r.PutBlob(ctx, b.blk, gather.FromSlice(b.contents)), "can't put blob: %v", b)
+				require.NoErrorf(t, r.PutBlob(ctx, b.blk, gather.FromSlice(b.contents), blob.StoragePutBlobOptions{}), "can't put blob: %v", b)
 				AssertGetBlob(ctx, t, r, b.blk, b.contents)
 			})
 		}

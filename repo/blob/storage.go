@@ -17,6 +17,18 @@ var ErrSetTimeUnsupported = errors.Errorf("SetTime is not supported")
 // ErrInvalidRange is returned when the requested blob offset or length is invalid.
 var ErrInvalidRange = errors.Errorf("invalid blob offset or length")
 
+// ErrBlobRetentionUnsupported is returned by implementations of Storage that
+// don't support setting blob-retention times.
+var ErrBlobRetentionUnsupported = errors.Errorf("setting blob-retention is not supported")
+
+// ErrBlobRetentionDisabled is returned by storage where the retention policies
+// are disabled.
+var ErrBlobRetentionDisabled = errors.Errorf("setting blob-retention is disabled")
+
+// ErrBlobRetentionInvalid is returned by storage where the retention settings
+// are invalid.
+var ErrBlobRetentionInvalid = errors.Errorf("invalid blob-retention settings")
+
 // Bytes encapsulates a sequence of bytes, possibly stored in a non-contiguous buffers,
 // which can be written sequentially or treated as a io.Reader.
 type Bytes interface {
@@ -57,6 +69,12 @@ type Reader interface {
 	DisplayName() string
 }
 
+// StoragePutBlobOptions represents put-options for a single BLOB in a storage.
+type StoragePutBlobOptions struct {
+	RetentionMode   string
+	RetentionPeriod time.Duration
+}
+
 // Storage encapsulates API for connecting to blob storage.
 //
 // The underlying storage system must provide:
@@ -73,7 +91,7 @@ type Storage interface {
 
 	// PutBlob uploads the blob with given data to the repository or replaces existing blob with the provided
 	// id with contents gathered from the specified list of slices.
-	PutBlob(ctx context.Context, blobID ID, data Bytes) error
+	PutBlob(ctx context.Context, blobID ID, data Bytes, opts StoragePutBlobOptions) error
 
 	// SetTime changes last modification time of a given blob, if supported, returns ErrSetTimeUnsupported otherwise.
 	SetTime(ctx context.Context, blobID ID, t time.Time) error
