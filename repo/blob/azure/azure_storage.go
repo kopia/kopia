@@ -104,7 +104,11 @@ func translateError(err error) error {
 	}
 }
 
-func (az *azStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes) error {
+func (az *azStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes, opts blob.StoragePutBlobOptions) error {
+	if opts.RetentionPeriod != 0 || opts.RetentionMode != "" {
+		return blob.ErrBlobRetentionUnsupported
+	}
+
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 

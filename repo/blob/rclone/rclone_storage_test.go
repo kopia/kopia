@@ -121,7 +121,7 @@ func TestRCloneStorageDirectoryShards(t *testing.T) {
 
 	defer st.Close(ctx)
 
-	require.NoError(t, st.PutBlob(ctx, "someblob1234567812345678", gather.FromSlice([]byte{1, 2, 3})))
+	require.NoError(t, st.PutBlob(ctx, "someblob1234567812345678", gather.FromSlice([]byte{1, 2, 3}), blob.StoragePutBlobOptions{}))
 	require.FileExists(t, filepath.Join(dataDir, "someb", "lo", "b1234567812345678.f"))
 }
 
