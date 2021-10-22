@@ -75,7 +75,7 @@ func (t *ClockTimeWithOffset) NowFunc() func() time.Time {
 		t.mu.Lock()
 		defer t.mu.Unlock()
 
-		return clock.Now().Add(t.offset)
+		return clock.WallClockTime().Add(t.offset)
 	}
 }
 
@@ -87,5 +87,5 @@ func (t *ClockTimeWithOffset) Advance(dt time.Duration) time.Time {
 
 	t.offset += dt
 
-	return clock.Now().Add(t.offset)
+	return clock.WallClockTime().Add(t.offset)
 }

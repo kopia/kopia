@@ -113,7 +113,7 @@ func TestAzureStorage(t *testing.T) {
 		Container:      container,
 		StorageAccount: storageAccount,
 		StorageKey:     storageKey,
-		Prefix:         fmt.Sprintf("test-%v-%x-", clock.Now().Unix(), data),
+		Prefix:         fmt.Sprintf("test-%v-%x-", clock.WallClockTime().Unix(), data),
 	})
 	require.NoError(t, err)
 
@@ -141,7 +141,7 @@ func TestAzureStorageSASToken(t *testing.T) {
 		Container:      container,
 		StorageAccount: storageAccount,
 		SASToken:       sasToken,
-		Prefix:         fmt.Sprintf("sastest-%v-%x-", clock.Now().Unix(), data),
+		Prefix:         fmt.Sprintf("sastest-%v-%x-", clock.WallClockTime().Unix(), data),
 	})
 	require.NoError(t, err)
 
@@ -185,7 +185,7 @@ func TestAzureStorageInvalidBlob(t *testing.T) {
 func TestAzureStorageInvalidContainer(t *testing.T) {
 	testutil.ProviderTest(t)
 
-	container := fmt.Sprintf("invalid-container-%v", clock.Now().UnixNano())
+	container := fmt.Sprintf("invalid-container-%v", clock.WallClockTime().UnixNano())
 	storageAccount := getEnvOrSkip(t, testStorageAccountEnv)
 	storageKey := getEnvOrSkip(t, testStorageKeyEnv)
 

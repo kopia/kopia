@@ -111,7 +111,7 @@ func verifyFileLogFormat(t *testing.T, fname string, re *regexp.Regexp) {
 }
 
 func isUTC() bool {
-	_, offset := clock.Now().Zone()
+	_, offset := clock.WallClockTime().Zone()
 
 	return offset == 0
 }

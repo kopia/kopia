@@ -42,7 +42,7 @@ func (s *Server) handleObjectGet(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Disposition", "attachment; filename=\""+p+"\"")
 	}
 
-	mtime := clock.Now()
+	mtime := clock.WallClockTime()
 
 	if p := r.URL.Query().Get("mtime"); p != "" {
 		if m, err := time.Parse(time.RFC3339Nano, p); err == nil {

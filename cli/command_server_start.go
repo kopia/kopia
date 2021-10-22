@@ -268,7 +268,7 @@ func (c *commandServerStart) serveIndexFileForKnownUIRoutes(fs http.FileSystem) 
 		}
 
 		if r.URL.Path == "/" && indexBytes != nil {
-			http.ServeContent(w, r, "/", clock.Now(), bytes.NewReader(indexBytes))
+			http.ServeContent(w, r, "/", clock.WallClockTime(), bytes.NewReader(indexBytes))
 			return
 		}
 

@@ -6,7 +6,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 )
@@ -39,10 +38,10 @@ func (sm *SharedManager) Refresh(ctx context.Context) error {
 
 	sm.indexBlobManager.invalidate(ctx)
 
-	t0 := clock.Now()
+	t0 := time.Now() // nolint:forbidigo
 
 	err := sm.loadPackIndexesLocked(ctx)
-	sm.log.Debugf("Refresh completed in %v", clock.Since(t0))
+	sm.log.Debugf("Refresh completed in %v", time.Since(t0)) // nolint:forbidigo
 
 	return err
 }

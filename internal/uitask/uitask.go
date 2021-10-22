@@ -151,7 +151,7 @@ func (t *runningTaskInfo) addLogEntry(module string, level LogLevel, msg string,
 	defer t.mu.Unlock()
 
 	t.LogLines = append(t.LogLines, LogEntry{
-		Timestamp: float64(clock.Now().UnixNano()) / 1e9,
+		Timestamp: float64(clock.WallClockTime().UnixNano()) / 1e9,
 		Level:     level,
 		Module:    module,
 		Text:      fmt.Sprintf(msg, args...),

@@ -13,9 +13,9 @@ linters-settings:
     - ioutil.TempDir # use os.MkdirTemp
     - ioutil.TempFile # use os.CreateTemp
     - ioutil.WriteFile # use os.WriteFile
-    - time.Now # use clock.Now
-    - time.Since # use clock.Since
-    - time.Until # use clock.Until
+    - time.Now # use clock.WallClockTime except for local duration measurement
+    - time.Since # use only for local duration measurement
+    - time.Until # use only for local duration measurement
     - filepath.IsAbs # use ospath.IsAbs which supports windows UNC paths
   gocognit:
     min-complexity: 40

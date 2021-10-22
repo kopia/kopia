@@ -76,7 +76,7 @@ func (m *internalLogManager) NewLogger() *zap.SugaredLogger {
 
 	w := &internalLogger{
 		m:      m,
-		prefix: blob.ID(fmt.Sprintf("%v%v_%x", TextLogBlobPrefix, clock.Now().Local().Format("20060102150405"), rnd)),
+		prefix: blob.ID(fmt.Sprintf("%v%v_%x", TextLogBlobPrefix, clock.WallClockTime().Local().Format("20060102150405"), rnd)),
 	}
 
 	return zap.New(zapcore.NewCore(
@@ -203,6 +203,6 @@ func newInternalLogManager(ctx context.Context, st blob.Storage, bc *Crypter) *i
 		st:             st,
 		bc:             bc,
 		flushThreshold: blobLoggerFlushThreshold,
-		timeFunc:       clock.Now,
+		timeFunc:       clock.WallClockTime,
 	}
 }

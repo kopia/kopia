@@ -98,7 +98,7 @@ func (c *Cache) Readdir(ctx context.Context, d fs.Directory, w EntryWrapper) (fs
 
 func (c *Cache) getEntriesFromCacheLocked(ctx context.Context, id string) fs.Entries {
 	if v, ok := c.data[id]; id != "" && ok {
-		if clock.Now().Before(v.expireAfter) {
+		if clock.WallClockTime().Before(v.expireAfter) {
 			c.moveToHead(v)
 
 			if c.debug {
@@ -155,7 +155,7 @@ func (c *Cache) getEntries(ctx context.Context, id string, expirationTime time.D
 	entry := &cacheEntry{
 		id:          id,
 		entries:     wrapped,
-		expireAfter: clock.Now().Add(expirationTime),
+		expireAfter: clock.WallClockTime().Add(expirationTime),
 	}
 
 	c.addToHead(entry)

@@ -135,11 +135,11 @@ func (v *Queue) reportProgress(ctx context.Context) {
 }
 
 func (v *Queue) maybeReportProgress(ctx context.Context) {
-	if clock.Now().Before(v.nextReportTime) {
+	if clock.WallClockTime().Before(v.nextReportTime) {
 		return
 	}
 
-	v.nextReportTime = clock.Now().Add(1 * time.Second)
+	v.nextReportTime = clock.WallClockTime().Add(1 * time.Second)
 
 	v.reportProgress(ctx)
 }

@@ -126,7 +126,7 @@ func (s *sourceManager) runLocal(ctx context.Context) {
 		var waitTime time.Duration
 
 		if s.nextSnapshotTime != nil {
-			waitTime = clock.Until(*s.nextSnapshotTime)
+			waitTime = s.nextSnapshotTime.Sub(clock.WallClockTime())
 		} else {
 			waitTime = oneDay
 		}
@@ -137,7 +137,7 @@ func (s *sourceManager) runLocal(ctx context.Context) {
 			return
 
 		case <-s.snapshotRequests:
-			nt := clock.Now()
+			nt := clock.WallClockTime()
 			s.nextSnapshotTime = &nt
 
 			continue
@@ -164,7 +164,7 @@ func (s *sourceManager) backoffBeforeNextSnapshot() {
 		return
 	}
 
-	t := clock.Now().Add(failedSnapshotRetryInterval)
+	t := clock.WallClockTime().Add(failedSnapshotRetryInterval)
 	s.nextSnapshotTime = &t
 }
 
@@ -232,7 +232,7 @@ func (s *sourceManager) snapshot(ctx context.Context) error {
 	// nolint:wrapcheck
 	return s.server.taskmgr.Run(ctx,
 		"Snapshot",
-		fmt.Sprintf("%v at %v", s.src, clock.Now().Format(time.RFC3339)),
+		fmt.Sprintf("%v at %v", s.src, clock.WallClockTime().Format(time.RFC3339)),
 		s.snapshotInternal)
 }
 
@@ -317,7 +317,7 @@ func (s *sourceManager) findClosestNextSnapshotTime() *time.Time {
 		lastCompleteSnapshotTime = lcs.StartTime
 	}
 
-	t, ok := s.pol.NextSnapshotTime(lastCompleteSnapshotTime, clock.Now())
+	t, ok := s.pol.NextSnapshotTime(lastCompleteSnapshotTime, clock.WallClockTime())
 	if !ok {
 		return nil
 	}
@@ -381,7 +381,7 @@ func (t *uitaskProgress) report(final bool) {
 
 // maybeReport occasionally reports current progress to UI task.
 func (t *uitaskProgress) maybeReport() {
-	n := clock.Now().UnixNano()
+	n := clock.WallClockTime().UnixNano()
 
 	nrt := atomic.LoadInt64(&t.nextReportTimeNanos)
 	if n > nrt && atomic.CompareAndSwapInt64(&t.nextReportTimeNanos, nrt, n+time.Second.Nanoseconds()) {

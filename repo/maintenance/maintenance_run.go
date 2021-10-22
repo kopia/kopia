@@ -301,7 +301,7 @@ func notRewritingContents(ctx context.Context) {
 }
 
 func notDeletingOrphanedBlobs(ctx context.Context, s *Schedule, safety SafetyParameters) {
-	left := clock.Until(nextBlobDeleteTime(s, safety)).Truncate(time.Second)
+	left := nextBlobDeleteTime(s, safety).Sub(clock.WallClockTime()).Truncate(time.Second)
 
 	log(ctx).Infof("Skipping blob deletion because not enough time has passed yet (%v left).", left)
 }

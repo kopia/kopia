@@ -26,7 +26,7 @@ func (e *Engine) ExecAction(ctx context.Context, actionKey ActionKey, opts map[s
 	e.statsIncrActionCountAndLog(actionKey)
 
 	action := actions[actionKey]
-	st := clock.Now()
+	st := clock.WallClockTime()
 
 	logEntry := &LogEntry{
 		StartTime:       st,

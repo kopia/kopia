@@ -12,7 +12,7 @@ import (
 func TestFrozen(t *testing.T) {
 	times := []time.Time{
 		time.Date(2015, 1, 3, 0, 0, 0, 0, time.UTC),
-		clock.Now(),
+		clock.WallClockTime(),
 	}
 
 	for _, tm := range times {

@@ -55,7 +55,7 @@ func (c *ecFrontendCache) put(id blob.ID, data []byte) {
 	}
 
 	c.cachedEntries[id] = &ecCacheEntry{
-		accessTime: clock.Now(),
+		accessTime: clock.WallClockTime(),
 		data:       data,
 	}
 }
@@ -75,7 +75,7 @@ type ecCacheEntry struct {
 }
 
 func (e *ecCacheEntry) isValid() bool {
-	return clock.Since(e.accessTime) < ecCacheDuration
+	return clock.WallClockTime().Sub(e.accessTime) < ecCacheDuration
 }
 
 type eventuallyConsistentStorage struct {

@@ -107,7 +107,7 @@ func (s *formatSpecificTestSuite) TestDeleteUnreferencedBlobs(t *testing.T) {
 	mustPutDummyBlob(t, env.RepositoryWriter.BlobStorage(), extraBlobIDWithSession3)
 
 	session1Marker := mustPutDummySessionBlob(t, env.RepositoryWriter.BlobStorage(), "s01", &content.SessionInfo{
-		CheckpointTime: clock.Now(),
+		CheckpointTime: clock.WallClockTime(),
 	})
 	session2Marker := mustPutDummySessionBlob(t, env.RepositoryWriter.BlobStorage(), "s02", &content.SessionInfo{
 		CheckpointTime: ta.NowFunc()(),

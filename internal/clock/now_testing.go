@@ -14,8 +14,8 @@ import (
 
 const refreshServerTimeEvery = 3 * time.Second
 
-// Now is overridable function that returns current wall clock time.
-var Now = time.Now // nolint:forbidigo
+// WallClockTime is overridable function that returns current wall clock time.
+var WallClockTime = time.Now // nolint:forbidigo
 
 func init() {
 	fakeTimeServer := os.Getenv("KOPIA_FAKE_CLOCK_ENDPOINT")
@@ -23,7 +23,7 @@ func init() {
 		return
 	}
 
-	Now = getTimeFromServer(fakeTimeServer)
+	WallClockTime = getTimeFromServer(fakeTimeServer)
 }
 
 // getTimeFromServer returns a function that will return timestamp as returned by the server

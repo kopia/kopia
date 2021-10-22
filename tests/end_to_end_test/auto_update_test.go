@@ -84,7 +84,7 @@ func TestAutoUpdateEnableTest(t *testing.T) {
 				}
 
 				// verify that initial delay is approximately wantInitialDelay from now +/- 1 minute
-				if got, want := clock.Now().Add(tc.wantInitialDelay), state.NextCheckTime; absDuration(got.Sub(want)) > 1*time.Minute {
+				if got, want := clock.WallClockTime().Add(tc.wantInitialDelay), state.NextCheckTime; absDuration(got.Sub(want)) > 1*time.Minute {
 					t.Errorf("unexpected NextCheckTime: %v, want approx %v", got, want)
 				}
 			}

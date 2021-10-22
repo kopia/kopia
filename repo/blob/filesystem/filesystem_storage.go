@@ -255,7 +255,7 @@ func (fs *fsStorage) TouchBlob(ctx context.Context, blobID blob.ID, threshold ti
 		return err
 	}
 
-	n := clock.Now()
+	n := clock.WallClockTime()
 
 	age := n.Sub(st.ModTime())
 	if age < threshold {

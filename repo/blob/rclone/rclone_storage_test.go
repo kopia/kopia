@@ -257,9 +257,10 @@ func cleanupOldData(ctx context.Context, t *testing.T, opt *rclone.Options, clea
 func cleanupAllBlobs(ctx context.Context, t *testing.T, st blob.Storage, cleanupAge time.Duration) {
 	t.Helper()
 
+	now := clock.WallClockTime()
+
 	_ = st.ListBlobs(ctx, "", func(it blob.Metadata) error {
-		age := clock.Since(it.Timestamp)
-		if age > cleanupAge {
+		if age := now.Sub(it.Timestamp); age > cleanupAge {
 			if err := st.DeleteBlob(ctx, it.BlobID); err != nil {
 				t.Errorf("warning: unable to delete %q: %v", it.BlobID, err)
 			}

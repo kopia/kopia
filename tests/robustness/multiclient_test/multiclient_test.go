@@ -14,7 +14,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/tests/robustness"
 	"github.com/kopia/kopia/tests/robustness/engine"
@@ -124,7 +123,7 @@ func TestManySmallFilesAcrossDirecoryTree(t *testing.T) {
 
 func TestRandomizedSmall(t *testing.T) {
 	numClients := 4
-	st := clock.Now()
+	st := time.Now() // nolint:forbidigo
 
 	opts := engine.ActionOpts{
 		engine.ActionControlActionKey: map[string]string{
@@ -146,7 +145,8 @@ func TestRandomizedSmall(t *testing.T) {
 		err := tryRestoreIntoDataDirectory(ctx, t)
 		require.NoError(t, err)
 
-		for clock.Since(st) <= *randomizedTestDur {
+		// nolint:forbidigo
+		for time.Since(st) <= *randomizedTestDur {
 			err := tryRandomAction(ctx, t, opts)
 			require.NoError(t, err)
 		}

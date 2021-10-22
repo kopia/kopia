@@ -150,7 +150,7 @@ func (m *Manager) startTask(r *runningTaskInfo) string {
 	m.nextTaskID++
 
 	taskID := fmt.Sprintf("%x", m.nextTaskID)
-	r.StartTime = clock.Now()
+	r.StartTime = clock.WallClockTime()
 	r.TaskID = taskID
 	r.sequenceNumber = m.nextTaskID
 	m.running[taskID] = r
@@ -181,7 +181,7 @@ func (m *Manager) completeTask(r *runningTaskInfo, err error) {
 
 	r.ProgressInfo = ""
 
-	now := clock.Now()
+	now := clock.WallClockTime()
 	r.EndTime = &now
 
 	delete(m.running, r.TaskID)

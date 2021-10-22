@@ -128,7 +128,7 @@ func (r *apiServerRepository) DeleteManifest(ctx context.Context, id manifest.ID
 }
 
 func (r *apiServerRepository) Time() time.Time {
-	return clock.Now()
+	return clock.WallClockTime()
 }
 
 func (r *apiServerRepository) Refresh(ctx context.Context) error {

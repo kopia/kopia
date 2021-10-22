@@ -11,7 +11,6 @@ import (
 	"github.com/pkg/errors"
 	"go.opencensus.io/stats"
 
-	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/logging"
@@ -193,7 +192,7 @@ func (h *contentMetadataHeap) Pop() interface{} {
 }
 
 func (c *PersistentCache) sweepDirectory(ctx context.Context) (err error) {
-	t0 := clock.Now()
+	t0 := time.Now() // nolint:forbidigo
 
 	var h contentMetadataHeap
 
@@ -217,7 +216,9 @@ func (c *PersistentCache) sweepDirectory(ctx context.Context) (err error) {
 		return errors.Wrapf(err, "error listing %v", c.description)
 	}
 
-	log(ctx).Debugf("finished sweeping %v in %v and retained %v/%v bytes (%v %%)", c.description, clock.Since(t0), totalRetainedSize, c.maxSizeBytes, 100*totalRetainedSize/c.maxSizeBytes)
+	dur := time.Since(t0) // nolint:forbidigo
+
+	log(ctx).Debugf("finished sweeping %v in %v and retained %v/%v bytes (%v %%)", c.description, dur, totalRetainedSize, c.maxSizeBytes, 100*totalRetainedSize/c.maxSizeBytes)
 
 	return nil
 }

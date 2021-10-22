@@ -27,7 +27,7 @@ func TestStressBlockManager(t *testing.T) {
 
 	data := blobtesting.DataMap{}
 	keyTimes := map[blob.ID]time.Time{}
-	memst := blobtesting.NewMapStorage(data, keyTimes, clock.Now)
+	memst := blobtesting.NewMapStorage(data, keyTimes, clock.WallClockTime)
 
 	duration := 3 * time.Second
 	if os.Getenv("CI") != "" {
@@ -53,11 +53,11 @@ func stressTestWithStorage(t *testing.T, st blob.Storage, duration time.Duration
 		}, nil, nil)
 	}
 
-	seed0 := clock.Now().Nanosecond()
+	seed0 := clock.WallClockTime().Nanosecond()
 
 	t.Logf("running with seed %v", seed0)
 
-	deadline := clock.Now().Add(duration)
+	deadline := clock.WallClockTime().Add(duration)
 
 	t.Run("workers", func(t *testing.T) {
 		for i := 0; i < goroutineCount; i++ {
@@ -87,7 +87,7 @@ func stressWorker(ctx context.Context, t *testing.T, deadline time.Time, openMgr
 
 	var workerBlocks []writtenBlock
 
-	for clock.Now().Before(deadline) {
+	for clock.WallClockTime().Before(deadline) {
 		l := rnd.Intn(30000)
 		data := make([]byte, l)
 

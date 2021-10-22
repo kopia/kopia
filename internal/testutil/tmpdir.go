@@ -81,7 +81,7 @@ func TempLogDirectory(t *testing.T) string {
 		logsBaseDir = filepath.Join(os.TempDir(), "kopia-logs")
 	}
 
-	logsDir := filepath.Join(logsBaseDir, cleanName+"."+clock.Now().Local().Format("20060102150405"))
+	logsDir := filepath.Join(logsBaseDir, cleanName+"."+clock.WallClockTime().Local().Format("20060102150405"))
 
 	require.NoError(t, os.MkdirAll(logsDir, logsDirPermissions))
 

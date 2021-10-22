@@ -343,7 +343,7 @@ func (chk *Checker) DeleteSnapshot(ctx context.Context, snapID string, opts map[
 		return err
 	}
 
-	ssMeta.DeletionTime = clock.Now()
+	ssMeta.DeletionTime = clock.WallClockTime()
 	ssMeta.ValidationData = nil
 
 	return chk.safeDeleteFinish(ctx, ssMeta)

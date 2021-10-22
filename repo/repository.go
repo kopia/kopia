@@ -355,7 +355,7 @@ func defaultTime(f func() time.Time) func() time.Time {
 		return f
 	}
 
-	return clock.Now
+	return clock.WallClockTime
 }
 
 var _ DirectRepositoryWriter = (*directRepository)(nil)

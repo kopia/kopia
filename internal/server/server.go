@@ -161,7 +161,7 @@ func (s *Server) isAuthenticated(w http.ResponseWriter, r *http.Request) bool {
 		return false
 	}
 
-	now := clock.Now()
+	now := clock.WallClockTime()
 
 	ac, err := s.generateShortTermAuthCookie(username, now)
 	if err != nil {

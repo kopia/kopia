@@ -330,7 +330,7 @@ func newCommittedContentIndex(caching *CachingOptions,
 
 	if caching.CacheDirectory != "" {
 		dirname := filepath.Join(caching.CacheDirectory, "indexes")
-		cache = &diskCommittedContentIndexCache{dirname, clock.Now, v1PerContentOverhead, log}
+		cache = &diskCommittedContentIndexCache{dirname, clock.WallClockTime, v1PerContentOverhead, log}
 	} else {
 		cache = &memoryCommittedContentIndexCache{
 			contents:             map[blob.ID]packIndex{},

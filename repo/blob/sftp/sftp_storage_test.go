@@ -108,8 +108,8 @@ func startDockerSFTPServerOrSkip(t *testing.T, idRSA string) (host string, port 
 	sftpEndpoint := testutil.GetContainerMappedPortAddress(t, shortContainerID, "22")
 
 	// wait for SFTP server to come up.
-	deadline := clock.Now().Add(dialTimeout)
-	for clock.Now().Before(deadline) {
+	deadline := clock.WallClockTime().Add(dialTimeout)
+	for clock.WallClockTime().Before(deadline) {
 		t.Logf("waiting for SFTP server to come up on '%v'...", sftpEndpoint)
 
 		conn, err := net.DialTimeout("tcp", sftpEndpoint, time.Second)
@@ -250,7 +250,7 @@ func TestInvalidServerFailsFast(t *testing.T) {
 	mustRunCommand(t, "ssh-keygen", "-t", "rsa", "-P", "", "-f", idRSA)
 	os.WriteFile(knownHostsFile, nil, 0o600)
 
-	t0 := clock.Now()
+	t0 := time.Now() // nolint:forbidigo
 
 	if _, err := createSFTPStorage(ctx, t, sftp.Options{
 		Path:           "/upload",
@@ -263,7 +263,8 @@ func TestInvalidServerFailsFast(t *testing.T) {
 		t.Fatalf("unexpected success with bad credentials")
 	}
 
-	if dt := clock.Since(t0); dt > 10*time.Second {
+	// nolint:forbidigo
+	if dt := time.Since(t0); dt > 10*time.Second {
 		t.Fatalf("opening storage took too long, probably due to retries")
 	}
 }

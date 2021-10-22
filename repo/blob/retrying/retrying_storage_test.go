@@ -50,7 +50,7 @@ func TestRetrying(t *testing.T) {
 
 	require.NoError(t, rs.PutBlob(ctx, blobID2, gather.FromSlice([]byte{1, 2, 3, 4})))
 
-	require.NoError(t, rs.SetTime(ctx, blobID, clock.Now()))
+	require.NoError(t, rs.SetTime(ctx, blobID, clock.WallClockTime()))
 
 	var tmp gather.WriteBuffer
 	defer tmp.Close()
@@ -81,7 +81,7 @@ func TestRetrying(t *testing.T) {
 		{Err: blob.ErrSetTimeUnsupported},
 	}
 
-	if err := rs.SetTime(ctx, blobID, clock.Now()); !errors.Is(err, blob.ErrSetTimeUnsupported) {
+	if err := rs.SetTime(ctx, blobID, clock.WallClockTime()); !errors.Is(err, blob.ErrSetTimeUnsupported) {
 		t.Fatalf("unexpected error from SetTime: %v", err)
 	}
 

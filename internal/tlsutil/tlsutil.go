@@ -40,7 +40,7 @@ func GenerateServerCertificate(ctx context.Context, keySize int, certValid time.
 		return nil, nil, errors.Wrap(err, "unable to generate RSA key")
 	}
 
-	notBefore := clock.Now()
+	notBefore := clock.WallClockTime()
 	notAfter := notBefore.Add(certValid)
 
 	// nolint:gomnd

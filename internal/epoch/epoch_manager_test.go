@@ -145,7 +145,7 @@ func TestIndexEpochManager_Parallel(t *testing.T) {
 
 	// run for 30 seconds of real time or 60 days of fake time which advances much faster
 	endFakeTime := te.ft.NowFunc()().Add(60 * 24 * time.Hour)
-	endTimeReal := clock.Now().Add(30 * time.Second)
+	endTimeReal := clock.WallClockTime().Add(30 * time.Second)
 
 	for worker := 1; worker <= 5; worker++ {
 		worker := worker
@@ -162,7 +162,7 @@ func TestIndexEpochManager_Parallel(t *testing.T) {
 				successfulMergeCount int
 			)
 
-			for te2.ft.NowFunc()().Before(endFakeTime) && clock.Now().Before(endTimeReal) {
+			for te2.ft.NowFunc()().Before(endFakeTime) && clock.WallClockTime().Before(endTimeReal) {
 				if err := ctx.Err(); err != nil {
 					return err
 				}

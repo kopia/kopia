@@ -170,7 +170,7 @@ func NewWrapper(st, cacheStorage blob.Storage, prefixes []blob.ID, hmacSecret []
 		Storage:       st,
 		cacheStorage:  cacheStorage,
 		prefixes:      prefixes,
-		cacheTimeFunc: clock.Now,
+		cacheTimeFunc: clock.WallClockTime,
 		hmacSecret:    hmacSecret,
 		cacheDuration: duration,
 	}

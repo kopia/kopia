@@ -254,7 +254,7 @@ func TestCheckpointing(t *testing.T) {
 }
 
 func TestObjectWriterRaceBetweenCheckpointAndResult(t *testing.T) {
-	rand.Seed(clock.Now().UnixNano())
+	rand.Seed(clock.WallClockTime().UnixNano())
 
 	ctx := testlogging.Context(t)
 	data := map[content.ID][]byte{}

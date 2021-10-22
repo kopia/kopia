@@ -116,8 +116,8 @@ func (ac *aclCache) Authorize(ctx context.Context, rep repo.Repository, username
 	}
 
 	// see if we're due for a refresh and refresh aclEntries
-	if clock.Now().After(ac.nextRefreshTime) {
-		ac.nextRefreshTime = clock.Now().Add(ac.aclRefreshFrequency)
+	if clock.WallClockTime().After(ac.nextRefreshTime) {
+		ac.nextRefreshTime = clock.WallClockTime().Add(ac.aclRefreshFrequency)
 
 		newMap, err := acl.LoadEntries(ctx, rep, ac.aclEntries)
 		if err != nil {

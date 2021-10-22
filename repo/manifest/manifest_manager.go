@@ -268,7 +268,7 @@ type ManagerOptions struct {
 func NewManager(ctx context.Context, b contentManager, options ManagerOptions) (*Manager, error) {
 	timeNow := options.TimeNow
 	if timeNow == nil {
-		timeNow = clock.Now
+		timeNow = clock.WallClockTime
 	}
 
 	m := &Manager{

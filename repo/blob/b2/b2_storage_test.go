@@ -106,7 +106,7 @@ func TestB2StorageInvalidBlob(t *testing.T) {
 	var tmp gather.WriteBuffer
 	defer tmp.Close()
 
-	err = st.GetBlob(ctx, blob.ID(fmt.Sprintf("invalid-blob-%v", clock.Now().UnixNano())), 0, 30, &tmp)
+	err = st.GetBlob(ctx, blob.ID(fmt.Sprintf("invalid-blob-%v", clock.WallClockTime().UnixNano())), 0, 30, &tmp)
 	if err == nil {
 		t.Errorf("unexpected success when requesting non-existing blob")
 	}
@@ -116,7 +116,7 @@ func TestB2StorageInvalidBucket(t *testing.T) {
 	t.Parallel()
 	testutil.ProviderTest(t)
 
-	bucket := fmt.Sprintf("invalid-bucket-%v", clock.Now().UnixNano())
+	bucket := fmt.Sprintf("invalid-bucket-%v", clock.WallClockTime().UnixNano())
 	keyID := getEnvOrSkip(t, testKeyIDEnv)
 	key := getEnvOrSkip(t, testKeyEnv)
 

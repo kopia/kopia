@@ -44,7 +44,7 @@ func defaultLogRetention() LogRetentionOptions {
 // CleanupLogs deletes old logs blobs beyond certain age, total size or count.
 func CleanupLogs(ctx context.Context, rep repo.DirectRepositoryWriter, opt LogRetentionOptions) ([]blob.Metadata, error) {
 	if opt.TimeFunc == nil {
-		opt.TimeFunc = clock.Now
+		opt.TimeFunc = clock.WallClockTime
 	}
 
 	allLogBlobs, err := blob.ListAllBlobs(ctx, rep.BlobStorage(), "_")

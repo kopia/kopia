@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -95,7 +96,7 @@ func TestManySmallFilesAcrossDirecoryTree(t *testing.T) {
 }
 
 func TestRandomizedSmall(t *testing.T) {
-	st := clock.Now()
+	st := clock.WallClockTime()
 
 	opts := engine.ActionOpts{
 		engine.ActionControlActionKey: map[string]string{
@@ -114,7 +115,9 @@ func TestRandomizedSmall(t *testing.T) {
 	}
 
 	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
-	for clock.Since(st) <= *randomizedTestDur {
+
+	// nolint:forbidigo
+	for time.Since(st) <= *randomizedTestDur {
 		err := eng.RandomAction(ctx, opts)
 		if errors.Is(err, robustness.ErrNoOp) {
 			t.Log("Random action resulted in no-op")

@@ -27,11 +27,11 @@ func (s *formatSpecificTestSuite) TestMaintenanceSchedule(t *testing.T) {
 		t.Errorf("unexpected NextQuickMaintenanceTime: %v", sch.NextQuickMaintenanceTime)
 	}
 
-	sch.NextFullMaintenanceTime = clock.Now()
-	sch.NextQuickMaintenanceTime = clock.Now()
+	sch.NextFullMaintenanceTime = clock.WallClockTime()
+	sch.NextQuickMaintenanceTime = clock.WallClockTime()
 	sch.ReportRun("foo", maintenance.RunInfo{
-		Start:   clock.Now(),
-		End:     clock.Now(),
+		Start:   clock.WallClockTime(),
+		End:     clock.WallClockTime(),
 		Success: true,
 	})
 

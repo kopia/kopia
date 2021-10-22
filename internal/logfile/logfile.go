@@ -87,7 +87,7 @@ func (c *loggingFlags) initialize(ctx *kingpin.ParseContext) error {
 		return nil
 	}
 
-	now := clock.Now()
+	now := clock.WallClockTime()
 	if c.fileLogLocalTimezone {
 		now = now.Local()
 	} else {
@@ -240,7 +240,7 @@ func shouldSweepLog(maxFiles int, maxAge time.Duration) bool {
 func sweepLogDir(ctx context.Context, dirname string, maxCount int, maxAge time.Duration) {
 	var timeCutoff time.Time
 	if maxAge > 0 {
-		timeCutoff = clock.Now().Add(-maxAge)
+		timeCutoff = clock.WallClockTime().Add(-maxAge)
 	}
 
 	if maxCount == 0 {

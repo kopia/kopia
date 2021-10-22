@@ -63,7 +63,7 @@ func TestCheckpointRegistry(t *testing.T) {
 		t.Fatalf("error running checkpoints: %v", err)
 	}
 
-	dm := dmb.Build(clock.Now(), "checkpoint")
+	dm := dmb.Build(clock.WallClockTime(), "checkpoint")
 	if got, want := len(dm.Entries), 4; got != want {
 		t.Fatalf("got %v entries, wanted %v (%+#v)", got, want, dm.Entries)
 	}

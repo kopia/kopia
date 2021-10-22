@@ -68,7 +68,7 @@ func (e *Engine) loadStats(ctx context.Context) error {
 			// Swallow key-not-found error. We may not have historical
 			// stats data. Initialize the action map for the cumulative stats
 			e.CumulativeStats.PerActionStats = make(map[ActionKey]*ActionStats)
-			e.CumulativeStats.CreationTime = clock.Now()
+			e.CumulativeStats.CreationTime = clock.WallClockTime()
 
 			return nil
 		}

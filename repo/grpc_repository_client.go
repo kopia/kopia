@@ -373,7 +373,7 @@ func (r *grpcInnerSession) DeleteManifest(ctx context.Context, id manifest.ID) e
 }
 
 func (r *grpcRepositoryClient) Time() time.Time {
-	return clock.Now()
+	return clock.WallClockTime()
 }
 
 func (r *grpcRepositoryClient) Refresh(ctx context.Context) error {

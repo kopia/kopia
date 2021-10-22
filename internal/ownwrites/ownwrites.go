@@ -193,7 +193,7 @@ func NewWrapper(st, cacheStorage blob.Storage, prefixes []blob.ID, cacheDuration
 		Storage:       st,
 		cacheStorage:  cacheStorage,
 		prefixes:      prefixes,
-		cacheTimeFunc: clock.Now,
+		cacheTimeFunc: clock.WallClockTime,
 		cacheDuration: cacheDuration,
 	}
 }

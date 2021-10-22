@@ -3,9 +3,9 @@ package loggingfs
 
 import (
 	"context"
+	"time"
 
 	"github.com/kopia/kopia/fs"
-	"github.com/kopia/kopia/internal/clock"
 )
 
 type loggingOptions struct {
@@ -20,9 +20,9 @@ type loggingDirectory struct {
 }
 
 func (ld *loggingDirectory) Child(ctx context.Context, name string) (fs.Entry, error) {
-	t0 := clock.Now()
+	t0 := time.Now() // nolint:forbidigo
 	entry, err := ld.Directory.Child(ctx, name)
-	dt := clock.Since(t0)
+	dt := time.Since(t0) // nolint:forbidigo
 	ld.options.printf(ld.options.prefix+"Child(%v) took %v and returned %v", ld.relativePath, dt, err)
 
 	if err != nil {
@@ -34,9 +34,9 @@ func (ld *loggingDirectory) Child(ctx context.Context, name string) (fs.Entry, e
 }
 
 func (ld *loggingDirectory) Readdir(ctx context.Context) (fs.Entries, error) {
-	t0 := clock.Now()
+	t0 := time.Now() // nolint:forbidigo
 	entries, err := ld.Directory.Readdir(ctx)
-	dt := clock.Since(t0)
+	dt := time.Since(t0) // nolint:forbidigo
 	ld.options.printf(ld.options.prefix+"Readdir(%v) took %v and returned %v items", ld.relativePath, dt, len(entries))
 
 	loggingEntries := make(fs.Entries, len(entries))

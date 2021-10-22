@@ -155,7 +155,7 @@ func ValidateProvider(ctx context.Context, st blob.Storage, opt Options) error {
 		return errors.Errorf("invalid length returned by GetMetadata(): %v, wanted %v", got, want)
 	}
 
-	now := clock.Now()
+	now := clock.WallClockTime()
 
 	timeDiff := now.Sub(bm.Timestamp)
 	if timeDiff < 0 {
@@ -200,7 +200,7 @@ func newConcurrencyTest(st blob.Storage, prefix blob.ID, opt Options) *concurren
 		opt:      opt,
 		st:       st,
 		prefix:   prefix,
-		deadline: clock.Now().Add(opt.ConcurrencyTestDuration),
+		deadline: clock.WallClockTime().Add(opt.ConcurrencyTestDuration),
 
 		blobData:    make(map[blob.ID][]byte),
 		blobWritten: make(map[blob.ID]bool),
@@ -209,7 +209,7 @@ func newConcurrencyTest(st blob.Storage, prefix blob.ID, opt Options) *concurren
 
 func (c *concurrencyTest) putBlobWorker(ctx context.Context, worker int) func() error {
 	return func() error {
-		for clock.Now().Before(c.deadline) {
+		for clock.WallClockTime().Before(c.deadline) {
 			blobLen := blobIDLength + rand.Intn(c.opt.MaxBlobLength-blobIDLength) //nolint:gosec
 
 			data := make([]byte, blobLen)
@@ -267,7 +267,7 @@ func (c *concurrencyTest) getBlobWorker(ctx context.Context, worker int) func() 
 		var out gather.WriteBuffer
 		defer out.Close()
 
-		for clock.Now().Before(c.deadline) {
+		for clock.WallClockTime().Before(c.deadline) {
 			c.randomSleep()
 
 			blobID, blobData, fullyWritten := c.pickBlob()
@@ -301,7 +301,7 @@ func (c *concurrencyTest) getBlobWorker(ctx context.Context, worker int) func() 
 
 func (c *concurrencyTest) getMetadataWorker(ctx context.Context, worker int) func() error {
 	return func() error {
-		for clock.Now().Before(c.deadline) {
+		for clock.WallClockTime().Before(c.deadline) {
 			c.randomSleep()
 
 			blobID, blobData, fullyWritten := c.pickBlob()

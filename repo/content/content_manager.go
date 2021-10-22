@@ -836,7 +836,7 @@ func (o *ManagerOptions) CloneOrDefault() *ManagerOptions {
 func NewManagerForTesting(ctx context.Context, st blob.Storage, f *FormattingOptions, caching *CachingOptions, options *ManagerOptions) (*WriteManager, error) {
 	options = options.CloneOrDefault()
 	if options.TimeNow == nil {
-		options.TimeNow = clock.Now
+		options.TimeNow = clock.WallClockTime
 	}
 
 	sharedManager, err := NewSharedManager(ctx, st, f, caching, options)

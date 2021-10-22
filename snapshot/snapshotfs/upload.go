@@ -251,7 +251,7 @@ func (u *Uploader) uploadStreamingFileInternal(ctx context.Context, relativePath
 
 	de.FileSize = written
 	streamSize = written
-	de.ModTime = clock.Now()
+	de.ModTime = clock.WallClockTime()
 
 	atomic.AddInt32(&u.stats.TotalFileCount, 1)
 	atomic.AddInt64(&u.stats.TotalFileSize, de.FileSize)

@@ -507,7 +507,7 @@ func (sm *SharedManager) shouldRefreshIndexes() bool {
 func NewSharedManager(ctx context.Context, st blob.Storage, f *FormattingOptions, caching *CachingOptions, opts *ManagerOptions) (*SharedManager, error) {
 	opts = opts.CloneOrDefault()
 	if opts.TimeNow == nil {
-		opts.TimeNow = clock.Now
+		opts.TimeNow = clock.WallClockTime
 	}
 
 	if f.Version < minSupportedReadVersion || f.Version > currentWriteVersion {

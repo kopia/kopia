@@ -184,7 +184,7 @@ func NewMapStorage(data DataMap, keyTime map[blob.ID]time.Time, timeNow func() t
 	}
 
 	if timeNow == nil {
-		timeNow = clock.Now
+		timeNow = clock.WallClockTime
 	}
 
 	return &mapStorage{data: data, keyTime: keyTime, timeNow: timeNow}

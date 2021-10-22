@@ -160,7 +160,7 @@ func pickRandomActionTestIndexBlobManagerStress() action {
 // nolint:gocyclo
 func TestIndexBlobManagerStress(t *testing.T) {
 	t.Parallel()
-	rand.Seed(clock.Now().UnixNano())
+	rand.Seed(clock.WallClockTime().UnixNano())
 
 	for i := range actionsTestIndexBlobManagerStress {
 		actionsTestIndexBlobManagerStress[i].weight = rand.Intn(100)
@@ -170,10 +170,10 @@ func TestIndexBlobManagerStress(t *testing.T) {
 	var (
 		fakeTimeFunc      = faketime.AutoAdvance(fakeLocalStartTime, 100*time.Millisecond)
 		deadline          time.Time // when (according to fakeTimeFunc should the test finish)
-		localTimeDeadline time.Time // when (according to clock.Now, the test should finish)
+		localTimeDeadline time.Time // when (according to clock.WallClockTime, the test should finish)
 	)
 
-	localTimeDeadline = clock.Now().Add(30 * time.Second)
+	localTimeDeadline = clock.WallClockTime().Add(30 * time.Second)
 
 	if os.Getenv("CI") != "" {
 		// when running on CI, simulate 4 hours, this takes about ~15-20 seconds.
@@ -207,7 +207,7 @@ func TestIndexBlobManagerStress(t *testing.T) {
 			m := newIndexBlobManagerForTesting(t, loggedSt, fakeTimeFunc)
 
 			// run stress test until the deadline, aborting early on any failure
-			for fakeTimeFunc().Before(deadline) && clock.Now().Before(localTimeDeadline) {
+			for fakeTimeFunc().Before(deadline) && clock.WallClockTime().Before(localTimeDeadline) {
 				switch pickRandomActionTestIndexBlobManagerStress() {
 				case actionRead:
 					if err := verifyFakeContentsWritten(ctx, t, m, numWritten, contentPrefix, deletedContents); err != nil {
@@ -261,7 +261,7 @@ func TestIndexBlobManagerStress(t *testing.T) {
 }
 
 func TestIndexBlobManagerPreventsResurrectOfDeletedContents(t *testing.T) {
-	rand.Seed(clock.Now().UnixNano())
+	rand.Seed(clock.WallClockTime().UnixNano())
 
 	// the test is randomized and runs very quickly, run it lots of times
 	failed := false
@@ -275,7 +275,7 @@ func TestIndexBlobManagerPreventsResurrectOfDeletedContents(t *testing.T) {
 }
 
 func TestCompactionCreatesPreviousIndex(t *testing.T) {
-	rand.Seed(clock.Now().UnixNano())
+	rand.Seed(clock.WallClockTime().UnixNano())
 
 	storageData := blobtesting.DataMap{}
 
@@ -326,7 +326,7 @@ func TestCompactionCreatesPreviousIndex(t *testing.T) {
 }
 
 func TestIndexBlobManagerPreventsResurrectOfDeletedContents_RandomizedTimings(t *testing.T) {
-	rand.Seed(clock.Now().UnixNano())
+	rand.Seed(clock.WallClockTime().UnixNano())
 
 	numAttempts := 1000
 	if testutil.ShouldReduceTestComplexity() {

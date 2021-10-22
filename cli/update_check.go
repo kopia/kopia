@@ -89,8 +89,8 @@ func (c *App) getUpdateState() (*updateState, error) {
 func (c *App) maybeInitializeUpdateCheck(ctx context.Context, co *connectOptions) {
 	if co.connectCheckForUpdates {
 		us := &updateState{
-			NextCheckTime:  clock.Now().Add(c.initialUpdateCheckDelay),
-			NextNotifyTime: clock.Now().Add(c.initialUpdateCheckDelay),
+			NextCheckTime:  clock.WallClockTime().Add(c.initialUpdateCheckDelay),
+			NextNotifyTime: clock.WallClockTime().Add(c.initialUpdateCheckDelay),
 		}
 		if err := c.writeUpdateState(us); err != nil {
 			log(ctx).Debugf("error initializing update state")
@@ -182,8 +182,8 @@ func (c *App) maybeCheckForUpdates(ctx context.Context) (string, error) {
 		return "", nil
 	}
 
-	if clock.Now().After(us.NextNotifyTime) {
-		us.NextNotifyTime = clock.Now().Add(c.updateAvailableNotifyInterval)
+	if clock.WallClockTime().After(us.NextNotifyTime) {
+		us.NextNotifyTime = clock.WallClockTime().Add(c.updateAvailableNotifyInterval)
 		if err := c.writeUpdateState(us); err != nil {
 			return "", errors.Wrap(err, "unable to write update state")
 		}
@@ -196,7 +196,7 @@ func (c *App) maybeCheckForUpdates(ctx context.Context) (string, error) {
 }
 
 func (c *App) maybeCheckGithub(ctx context.Context, us *updateState) error {
-	if !clock.Now().After(us.NextCheckTime) {
+	if !clock.WallClockTime().After(us.NextCheckTime) {
 		return nil
 	}
 
@@ -204,7 +204,7 @@ func (c *App) maybeCheckGithub(ctx context.Context, us *updateState) error {
 
 	// before we check for update, write update state file again, so if this fails
 	// we won't bother GitHub for a while
-	us.NextCheckTime = clock.Now().Add(c.updateCheckInterval)
+	us.NextCheckTime = clock.WallClockTime().Add(c.updateCheckInterval)
 	if err := c.writeUpdateState(us); err != nil {
 		return errors.Wrap(err, "unable to write update state")
 	}

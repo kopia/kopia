@@ -522,7 +522,7 @@ func TestUploadWithCheckpointing(t *testing.T) {
 	for _, d := range dirsToCheckpointAt {
 		d.OnReaddir(func() {
 			// trigger checkpoint
-			fakeTicker <- clock.Now()
+			fakeTicker <- clock.WallClockTime()
 			// wait for checkpoint
 			<-u.checkpointFinished
 		})

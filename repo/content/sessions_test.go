@@ -8,7 +8,7 @@ import (
 )
 
 func TestGenerateSessionID(t *testing.T) {
-	n := clock.Now()
+	n := clock.WallClockTime()
 
 	s1, err := generateSessionID(n)
 	if err != nil {

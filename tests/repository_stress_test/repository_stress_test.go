@@ -78,7 +78,7 @@ var errSkipped = errors.Errorf("skipped")
 const masterPassword = "foo-bar-baz-1234"
 
 func init() {
-	rand.Seed(clock.Now().UnixNano())
+	rand.Seed(clock.WallClockTime().UnixNano())
 }
 
 func TestStressRepositoryMixAll(t *testing.T) {
@@ -265,7 +265,7 @@ func runStress(t *testing.T, opt *StressOptions) {
 			eg.Go(func() error {
 				log := logging.WithPrefix(fmt.Sprintf("%v::o%v", filepath.Base(configFile), i), logging.Broadcast{
 					logging.Printf(func(msg string, args ...interface{}) {
-						fmt.Fprintf(logFile, clock.Now().Format("2006-01-02T15:04:05.000000Z07:00")+" "+msg+"\n", args...)
+						fmt.Fprintf(logFile, clock.WallClockTime().Format("2006-01-02T15:04:05.000000Z07:00")+" "+msg+"\n", args...)
 					})("test"),
 				})
 

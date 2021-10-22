@@ -35,8 +35,8 @@ func (ac *repositoryUserAuthenticator) IsValid(ctx context.Context, rep repo.Rep
 	}
 
 	// see if we're due for a refresh and refresh userProfiles map
-	if clock.Now().After(ac.nextRefreshTime) {
-		ac.nextRefreshTime = clock.Now().Add(ac.userProfileRefreshFrequency)
+	if clock.WallClockTime().After(ac.nextRefreshTime) {
+		ac.nextRefreshTime = clock.WallClockTime().Add(ac.userProfileRefreshFrequency)
 
 		newUsers, err := user.LoadProfileMap(ctx, rep, ac.userProfiles)
 		if err != nil {

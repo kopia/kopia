@@ -71,7 +71,7 @@ func TestEndurance(t *testing.T) {
 
 	defer os.RemoveAll(tmpDir)
 
-	testTime := faketime.NewClockTimeWithOffset(startTime.Sub(clock.Now()))
+	testTime := faketime.NewClockTimeWithOffset(startTime.Sub(clock.WallClockTime()))
 	fts := testenv.NewFakeTimeServer(testTime.NowFunc())
 
 	ft := httptest.NewServer(fts)

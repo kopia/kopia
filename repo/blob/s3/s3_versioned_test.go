@@ -373,7 +373,7 @@ func TestInfoToVersionMetadata(t *testing.T) {
 func TestGetOlderThan(t *testing.T) {
 	t.Parallel()
 
-	base := clock.Now().UTC().Truncate(time.Second)
+	base := clock.WallClockTime().UTC().Truncate(time.Second)
 	vs := makeVersionsMetadata(t, blob.ID("blobfux"), 11, base)
 	want := append([]versionMetadata(nil), vs...)
 
@@ -393,7 +393,7 @@ func TestGetOlderThan(t *testing.T) {
 func TestGetOlderThanSameTime(t *testing.T) {
 	t.Parallel()
 
-	base := clock.Now().UTC().Truncate(time.Second)
+	base := clock.WallClockTime().UTC().Truncate(time.Second)
 	vs := makeVersionsMetadata(t, blob.ID("foobarx"), 4, base)
 
 	// two consecutive versions with the same timestamp
@@ -419,7 +419,7 @@ func TestGetOlderThanSameTime(t *testing.T) {
 func TestNewestAtUnlessDeleted_NonDeleted(t *testing.T) {
 	t.Parallel()
 
-	base := clock.Now().UTC().Truncate(time.Second)
+	base := clock.WallClockTime().UTC().Truncate(time.Second)
 	vs := makeVersionsMetadata(t, blob.ID("blobfux"), 11, base)
 
 	for i, v := range vs {
@@ -448,7 +448,7 @@ func TestNewestAtUnlessDeleted_NonDeleted(t *testing.T) {
 func TestNewestAtUnlessDeleted_Deleted(t *testing.T) {
 	t.Parallel()
 
-	base := clock.Now().UTC().Truncate(time.Second)
+	base := clock.WallClockTime().UTC().Truncate(time.Second)
 	vs := makeVersionsMetadata(t, blob.ID("blobfux"), 5, base)
 
 	// insert a couple of deletion markers
@@ -486,7 +486,7 @@ func TestNewestAtUnlessDeleted_Deleted(t *testing.T) {
 func TestNewestAtUnlessDeleted_AllDeleted(t *testing.T) {
 	t.Parallel()
 
-	base := clock.Now().UTC().Truncate(time.Second)
+	base := clock.WallClockTime().UTC().Truncate(time.Second)
 	vs := makeVersionsMetadata(t, blob.ID("blobfux"), 5, base)
 
 	// make them all deletion markers

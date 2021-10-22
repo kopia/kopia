@@ -717,7 +717,7 @@ func TestStatsPersist(t *testing.T) {
 		MaxRuntime:   35 * time.Minute,
 	}
 
-	creationTime := clock.Now().Add(-time.Hour)
+	creationTime := clock.WallClockTime().Add(-time.Hour)
 
 	eng := &Engine{
 		MetaStore: snapStore,
@@ -783,8 +783,8 @@ func TestLogsPersist(t *testing.T) {
 	logData := Log{
 		Log: []*LogEntry{
 			{
-				StartTime: clock.Now().Add(-time.Hour),
-				EndTime:   clock.Now(),
+				StartTime: clock.WallClockTime().Add(-time.Hour),
+				EndTime:   clock.WallClockTime(),
 				Action:    ActionKey("some action"),
 				Error:     "some error",
 				Idx:       11235,

@@ -5,7 +5,7 @@ package clock
 
 import "time"
 
-// Now returns current wall clock time.
-func Now() time.Time {
-	return time.Now() // nolint:forbidigo
+// WallClockTime returns current wall clock time.
+func WallClockTime() time.Time {
+	return discardMonotonicTime(time.Now()) // nolint:forbidigo
 }

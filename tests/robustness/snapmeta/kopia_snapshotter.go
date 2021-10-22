@@ -93,14 +93,14 @@ func (ks *KopiaSnapshotter) CreateSnapshot(ctx context.Context, sourceDir string
 		return
 	}
 
-	ssStart := clock.Now()
+	ssStart := clock.WallClockTime()
 
 	snapID, err = ks.snap.CreateSnapshot(sourceDir)
 	if err != nil {
 		return
 	}
 
-	ssEnd := clock.Now()
+	ssEnd := clock.WallClockTime()
 
 	snapStats = &robustness.CreateSnapshotStats{
 		SnapStartTime: ssStart,

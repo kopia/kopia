@@ -259,7 +259,7 @@ func createRandomFile(filename string, options DirectoryTreeOptions, counters *D
 		length = mfs
 	}
 
-	if err := iocopy.JustCopy(f, io.LimitReader(rand.New(rand.NewSource(clock.Now().UnixNano())), length)); err != nil {
+	if err := iocopy.JustCopy(f, io.LimitReader(rand.New(rand.NewSource(clock.WallClockTime().UnixNano())), length)); err != nil {
 		return errors.Wrap(err, "file create error")
 	}
 
