@@ -307,7 +307,7 @@ func readFormatBlobBytesFromCache(ctx context.Context, cachedFile string, validD
 		return nil, errors.Wrap(err, "unable to open cache file")
 	}
 
-	if clock.Since(cst.ModTime()) > validDuration {
+	if clock.Now().Sub(cst.ModTime()) > validDuration {
 		// got cached file, but it's too old, remove it
 		if err := os.Remove(cachedFile); err != nil {
 			log(ctx).Debugf("unable to remove cache file: %v", err)

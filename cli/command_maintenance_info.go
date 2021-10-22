@@ -97,7 +97,7 @@ func (c *commandMaintenanceInfo) displayCycleInfo(cp *maintenance.CycleParams, t
 		c.out.printStdout("  interval: %v\n", cp.Interval)
 
 		if rep.Time().Before(t) {
-			c.out.printStdout("  next run: %v (in %v)\n", formatTimestamp(t), clock.Until(t).Truncate(time.Second))
+			c.out.printStdout("  next run: %v (in %v)\n", formatTimestamp(t), t.Sub(clock.Now()).Truncate(time.Second))
 		} else {
 			c.out.printStdout("  next run: now\n")
 		}

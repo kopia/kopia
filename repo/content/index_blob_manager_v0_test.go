@@ -170,7 +170,7 @@ func TestIndexBlobManagerStress(t *testing.T) {
 	var (
 		fakeTimeFunc      = faketime.AutoAdvance(fakeLocalStartTime, 100*time.Millisecond)
 		deadline          time.Time // when (according to fakeTimeFunc should the test finish)
-		localTimeDeadline time.Time // when (according to clock.Now, the test should finish)
+		localTimeDeadline time.Time // when (according to clock.WallClockTime, the test should finish)
 	)
 
 	localTimeDeadline = clock.Now().Add(30 * time.Second)

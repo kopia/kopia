@@ -11,8 +11,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/testlogging"
+	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/tests/robustness"
 	"github.com/kopia/kopia/tests/robustness/engine"
 	"github.com/kopia/kopia/tests/robustness/fiofilewriter"
@@ -95,7 +95,7 @@ func TestManySmallFilesAcrossDirecoryTree(t *testing.T) {
 }
 
 func TestRandomizedSmall(t *testing.T) {
-	st := clock.Now()
+	st := timetrack.StartTimer()
 
 	opts := engine.ActionOpts{
 		engine.ActionControlActionKey: map[string]string{
@@ -114,7 +114,8 @@ func TestRandomizedSmall(t *testing.T) {
 	}
 
 	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
-	for clock.Since(st) <= *randomizedTestDur {
+
+	for st.Elapsed() <= *randomizedTestDur {
 		err := eng.RandomAction(ctx, opts)
 		if errors.Is(err, robustness.ErrNoOp) {
 			t.Log("Random action resulted in no-op")

@@ -48,13 +48,13 @@ func (c *logSelectionCriteria) filterLogSessions(allSessions []*logSessionInfo) 
 
 	if c.youngerThan > 0 {
 		allSessions = filterLogSessions(allSessions, func(ls *logSessionInfo) bool {
-			return clock.Since(ls.startTime) < c.youngerThan
+			return clock.Now().Sub(ls.startTime) < c.youngerThan
 		})
 	}
 
 	if c.olderThan > 0 {
 		allSessions = filterLogSessions(allSessions, func(ls *logSessionInfo) bool {
-			return clock.Since(ls.startTime) > c.olderThan
+			return clock.Now().Sub(ls.startTime) > c.olderThan
 		})
 	}
 

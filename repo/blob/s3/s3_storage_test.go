@@ -21,11 +21,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/blobtesting"
-	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/providervalidation"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
+	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/repo/blob"
 )
 
@@ -205,7 +205,7 @@ func TestInvalidCredsFailsFast(t *testing.T) {
 
 	ctx := testlogging.Context(t)
 
-	t0 := clock.Now()
+	timer := timetrack.StartTimer()
 
 	_, err := New(ctx, &Options{
 		Endpoint:        minioEndpoint,
@@ -218,7 +218,8 @@ func TestInvalidCredsFailsFast(t *testing.T) {
 	})
 	require.Error(t, err)
 
-	if dt := clock.Since(t0); dt > 10*time.Second {
+	// nolint:forbidigo
+	if dt := timer.Elapsed(); dt > 10*time.Second {
 		t.Fatalf("opening storage took too long, probably due to retries")
 	}
 }

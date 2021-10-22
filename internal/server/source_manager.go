@@ -126,7 +126,7 @@ func (s *sourceManager) runLocal(ctx context.Context) {
 		var waitTime time.Duration
 
 		if s.nextSnapshotTime != nil {
-			waitTime = clock.Until(*s.nextSnapshotTime)
+			waitTime = s.nextSnapshotTime.Sub(clock.Now())
 		} else {
 			waitTime = oneDay
 		}

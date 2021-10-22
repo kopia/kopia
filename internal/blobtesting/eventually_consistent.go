@@ -75,7 +75,7 @@ type ecCacheEntry struct {
 }
 
 func (e *ecCacheEntry) isValid() bool {
-	return clock.Since(e.accessTime) < ecCacheDuration
+	return clock.Now().Sub(e.accessTime) < ecCacheDuration
 }
 
 type eventuallyConsistentStorage struct {
