@@ -116,7 +116,7 @@ func (s *ActionStats) AverageRuntime() time.Duration {
 // Record records the current time against the provided start time
 // and updates the stats accordingly.
 func (s *ActionStats) Record(st time.Time, err error) {
-	thisRuntime := clock.Since(st)
+	thisRuntime := clock.Now().Sub(st)
 	s.TotalRuntime += thisRuntime
 
 	if thisRuntime > s.MaxRuntime {
@@ -135,7 +135,7 @@ func (s *ActionStats) Record(st time.Time, err error) {
 }
 
 func (stats *Stats) getLifetimeSeconds() int64 {
-	return durationToSec(clock.Since(stats.CreationTime))
+	return durationToSec(clock.Now().Sub(stats.CreationTime))
 }
 
 func durationToSec(dur time.Duration) int64 {
@@ -155,7 +155,7 @@ func (e *Engine) getTimestampS() int64 {
 }
 
 func (e *Engine) getRuntimeSeconds() int64 {
-	return durationToSec(e.CumulativeStats.RunTime + clock.Since(e.RunStats.CreationTime))
+	return durationToSec(e.CumulativeStats.RunTime + clock.Now().Sub(e.RunStats.CreationTime))
 }
 
 type statsUpdatetype int

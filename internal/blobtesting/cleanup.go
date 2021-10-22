@@ -21,8 +21,10 @@ func CleanupOldData(ctx context.Context, tb testing.TB, st blob.Storage, cleanup
 
 	pq := parallelwork.NewQueue()
 
+	now := clock.Now()
+
 	_ = st.ListBlobs(ctx, "", func(it blob.Metadata) error {
-		age := clock.Since(it.Timestamp)
+		age := now.Sub(it.Timestamp)
 		if age > cleanupAge {
 			pq.EnqueueBack(ctx, func() error {
 				tb.Logf("deleting %v", it.BlobID)

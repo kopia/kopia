@@ -129,7 +129,7 @@ func (e *Engine) Shutdown(ctx context.Context) error {
 
 	log.Print(cleanupSummaryBuilder.String())
 
-	e.RunStats.RunTime = clock.Since(e.RunStats.CreationTime)
+	e.RunStats.RunTime = clock.Now().Sub(e.RunStats.CreationTime)
 	e.CumulativeStats.RunTime += e.RunStats.RunTime
 
 	defer e.cleanComponents()

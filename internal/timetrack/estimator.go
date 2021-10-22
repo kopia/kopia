@@ -39,7 +39,7 @@ func (v Estimator) Estimate(completed, total float64) (Timings, bool) {
 		predictedSeconds := elapsed.Seconds() / completedRatio
 		predictedEndTime := v.startTime.Add(time.Duration(predictedSeconds) * time.Second)
 
-		dt := clock.Until(predictedEndTime).Truncate(time.Second)
+		dt := predictedEndTime.Sub(clock.Now()).Truncate(time.Second)
 		if dt < 0 {
 			dt = 0
 		}

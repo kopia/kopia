@@ -11,7 +11,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/internal/tlsutil"
 	"github.com/kopia/kopia/repo/logging"
 )
@@ -191,15 +191,16 @@ type loggingTransport struct {
 }
 
 func (t loggingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	t0 := clock.Now()
-
+	timer := timetrack.StartTimer()
 	resp, err := t.base.RoundTrip(req)
+	dur := timer.Elapsed()
+
 	if err != nil {
-		log(req.Context()).Debugf("%v %v took %v and failed with %v", req.Method, req.URL, clock.Since(t0), err)
+		log(req.Context()).Debugf("%v %v took %v and failed with %v", req.Method, req.URL, dur, err)
 		return nil, errors.Wrap(err, "round-trip error")
 	}
 
-	log(req.Context()).Debugf("%v %v took %v and returned %v", req.Method, req.URL, clock.Since(t0), resp.Status)
+	log(req.Context()).Debugf("%v %v took %v and returned %v", req.Method, req.URL, dur, resp.Status)
 
 	return resp, nil
 }

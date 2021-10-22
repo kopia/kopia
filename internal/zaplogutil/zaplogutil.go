@@ -17,7 +17,7 @@ type theClock struct{}
 func (c theClock) Now() time.Time                         { return clock.Now() }
 func (c theClock) NewTicker(d time.Duration) *time.Ticker { return time.NewTicker(d) }
 
-// Clock isn aimplementation of zapcore.Clock that uses clock.Now().
+// Clock is an implementation of zapcore.Clock that uses clock.Now().
 var Clock zapcore.Clock = theClock{}
 
 // TimezoneAdjust returns zapcore.TimeEncoder that adjusts the time to either UTC or local time before logging.
