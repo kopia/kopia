@@ -37,8 +37,8 @@ func newUnderlyingStorageForContentCacheTesting(t *testing.T) blob.Storage {
 func TestCacheExpiration(t *testing.T) {
 	cacheData := blobtesting.DataMap{}
 
-	// on Windows, the time does not always move forward (sometimes clock.WallClockTime() returns exactly the same value for consecutive invocations)
-	// this matters here so we return a fake clock.WallClockTime() function that always moves forward.
+	// on Windows, the time does not always move forward (sometimes clock.Now() returns exactly the same value for consecutive invocations)
+	// this matters here so we return a fake clock.Now() function that always moves forward.
 	var currentTimeMutex sync.Mutex
 
 	currentTime := clock.Now()
