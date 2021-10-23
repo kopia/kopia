@@ -58,11 +58,13 @@ Object IDs can also have an optional single-letter prefix `g..z` that helps quic
 
 * `k` represents directory listing (e.g. `kfed1b0498dc54d07cd69f272fb347ca3`)
 * `m` represents manifest block (e.g. `m0bf4da00801bd8c6ecfb66cffa67f32c`)
-* `x` represents indirect content, which is explained below (e.g. `xac47f7ce280fdd81f04c670fec2353dc`)
+* `x` represents indirect JSON content (e.g. `xac47f7ce280fdd81f04c670fec2353dc`)
 
 Objects without prefixes are stored in the `p` pack while objects with prefixes are stored in the `q` metadata pack by the CABS layer.
 
-To represent objects larger than the size of a single CABS block, Kopia links together multiple blocks via special indirect JSON content. Such blocks are distinguished from regular blocks the `I` virtual prefix. Indirection can be applied to any object type, including metadata such as directory listing. However, when applied to a data block, an `x` prefix is added to ensure than the indrect JSON is stored in a metadata pack instead of a data pack by the CABS layer. For example large file object might have an identifier such as `Ixac47f7ce280fdd81f04c670fec2353dc` and JSON content:
+To represent objects larger than the size of a single CABS block, Kopia links together multiple blocks via special indirect JSON content. Such blocks are distinguished from regular blocks the `I` virtual prefix. Indirection can be applied to any object type, including metadata such as directory listing. However, when applied to a data block, an `x` prefix is added to ensure than the indrect JSON is stored in a metadata pack instead of a data pack by the CABS layer.
+
+For example large file object might have an identifier such as `Ixac47f7ce280fdd81f04c670fec2353dc` and JSON content:
 
 ```json
 {"stream":"kopia:indirect","entries":[
