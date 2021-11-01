@@ -742,7 +742,7 @@ func (u *Uploader) processSubdirectories(
 			var dre dirReadError
 			if errors.As(err, &dre) {
 				u.reportErrorAndMaybeCancel(dre.error,
-					childTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreDirectoryErrorsOrDefault(false),
+					childTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreDirectoryErrors.OrDefault(false),
 					parentDirBuilder,
 					entryRelativePath)
 			} else {
@@ -857,7 +857,7 @@ func (u *Uploader) processNonDirectories(ctx context.Context, parentCheckpointRe
 		case fs.Symlink:
 			de, err := u.uploadSymlinkInternal(ctx, entryRelativePath, entry)
 			if err != nil {
-				isIgnoredError := policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreFileErrorsOrDefault(false)
+				isIgnoredError := policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreFileErrors.OrDefault(false)
 
 				u.reportErrorAndMaybeCancel(err, isIgnoredError, parentDirBuilder, entryRelativePath)
 			} else {
@@ -871,7 +871,7 @@ func (u *Uploader) processNonDirectories(ctx context.Context, parentCheckpointRe
 
 			de, err := u.uploadFileInternal(ctx, parentCheckpointRegistry, entryRelativePath, entry, policyTree.Child(entry.Name()).EffectivePolicy(), asyncWritesPerFile)
 			if err != nil {
-				isIgnoredError := policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreFileErrorsOrDefault(false)
+				isIgnoredError := policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreFileErrors.OrDefault(false)
 
 				u.reportErrorAndMaybeCancel(err, isIgnoredError, parentDirBuilder, entryRelativePath)
 			} else {
@@ -883,9 +883,9 @@ func (u *Uploader) processNonDirectories(ctx context.Context, parentCheckpointRe
 		case fs.ErrorEntry:
 			var isIgnoredError bool
 			if errors.Is(entry.ErrorInfo(), fs.ErrUnknown) {
-				isIgnoredError = policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreUnknownTypesOrDefault(true)
+				isIgnoredError = policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreUnknownTypes.OrDefault(true)
 			} else {
-				isIgnoredError = policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreFileErrorsOrDefault(false)
+				isIgnoredError = policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreFileErrors.OrDefault(false)
 			}
 
 			u.reportErrorAndMaybeCancel(entry.ErrorInfo(), isIgnoredError, parentDirBuilder, entryRelativePath)
@@ -897,7 +897,7 @@ func (u *Uploader) processNonDirectories(ctx context.Context, parentCheckpointRe
 
 			de, err := u.uploadStreamingFileInternal(ctx, entryRelativePath, entry)
 			if err != nil {
-				isIgnoredError := policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreFileErrorsOrDefault(false)
+				isIgnoredError := policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreFileErrors.OrDefault(false)
 
 				u.reportErrorAndMaybeCancel(err, isIgnoredError, parentDirBuilder, entryRelativePath)
 			} else {

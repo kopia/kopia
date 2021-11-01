@@ -122,7 +122,7 @@ func estimate(ctx context.Context, relativePath string, entry fs.Entry, policyTr
 
 		children, err := entry.Readdir(ctx)
 		if err != nil {
-			isIgnored := policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreDirectoryErrorsOrDefault(false)
+			isIgnored := policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreDirectoryErrors.OrDefault(false)
 
 			if isIgnored {
 				stats.IgnoredErrorCount++

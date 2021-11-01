@@ -220,7 +220,7 @@ func applyPolicyNumber64(ctx context.Context, desc string, val *int64, str strin
 	return nil
 }
 
-func applyPolicyBoolPtr(ctx context.Context, desc string, val **bool, str string, changeCount *int) error {
+func applyPolicyBoolPtr(ctx context.Context, desc string, val **policy.OptionalBool, str string, changeCount *int) error {
 	if str == "" {
 		// not changed
 		return nil
@@ -244,7 +244,9 @@ func applyPolicyBoolPtr(ctx context.Context, desc string, val **bool, str string
 	*changeCount++
 
 	log(ctx).Infof(" - setting %q to %v.\n", desc, v)
-	*val = &v
+
+	ov := policy.OptionalBool(v)
+	*val = &ov
 
 	return nil
 }

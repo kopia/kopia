@@ -273,7 +273,7 @@ func TestUpload_SubDirectoryReadFailureIgnoredNoFailFast(t *testing.T) {
 
 	u := NewUploader(th.repo)
 
-	trueValue := true
+	trueValue := policy.OptionalBool(true)
 
 	policyTree := policy.BuildTree(nil, &policy.Policy{
 		ErrorHandlingPolicy: policy.ErrorHandlingPolicy{
@@ -306,8 +306,8 @@ func TestUpload_ErrorEntries(t *testing.T) {
 	th.sourceDir.Subdir("d1").AddErrorEntry("some-failed-entry", 0, errors.Errorf("some-other-error"))
 	th.sourceDir.Subdir("d2").AddErrorEntry("another-failed-entry", os.ModeIrregular, errors.Errorf("another-error"))
 
-	trueValue := true
-	falseValue := false
+	trueValue := policy.OptionalBool(true)
+	falseValue := policy.OptionalBool(false)
 
 	cases := []struct {
 		desc              string
@@ -453,7 +453,7 @@ func TestUpload_SubDirectoryReadFailureSomeIgnoredNoFailFast(t *testing.T) {
 
 	u := NewUploader(th.repo)
 
-	trueValue := true
+	trueValue := policy.OptionalBool(true)
 
 	// set up a policy tree where errors from d3 are ignored.
 	policyTree := policy.BuildTree(map[string]*policy.Policy{
@@ -465,7 +465,7 @@ func TestUpload_SubDirectoryReadFailureSomeIgnoredNoFailFast(t *testing.T) {
 		},
 	}, policy.DefaultPolicy)
 
-	if got, want := policyTree.Child("d3").EffectivePolicy().ErrorHandlingPolicy.IgnoreDirectoryErrorsOrDefault(false), true; got != want {
+	if got, want := policyTree.Child("d3").EffectivePolicy().ErrorHandlingPolicy.IgnoreDirectoryErrors.OrDefault(false), true; got != want {
 		t.Fatalf("policy not effective")
 	}
 

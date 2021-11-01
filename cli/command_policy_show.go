@@ -133,9 +133,9 @@ func printFilesPolicy(out *textOutput, p *policy.Policy, parents []*policy.Polic
 	out.printStdout("Files policy:\n")
 
 	out.printStdout("  Ignore cache directories:       %5v       %v\n",
-		p.FilesPolicy.IgnoreCacheDirectoriesOrDefault(true),
+		p.FilesPolicy.IgnoreCacheDirectories.OrDefault(true),
 		getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
-			return pol.FilesPolicy.IgnoreCacheDirs != nil
+			return pol.FilesPolicy.IgnoreCacheDirectories != nil
 		}))
 
 	if len(p.FilesPolicy.IgnoreRules) > 0 {
@@ -171,7 +171,7 @@ func printFilesPolicy(out *textOutput, p *policy.Policy, parents []*policy.Polic
 	}
 
 	out.printStdout("  Scan one filesystem only:       %5v       %v\n",
-		p.FilesPolicy.OneFileSystemOrDefault(false),
+		p.FilesPolicy.OneFileSystem.OrDefault(false),
 		getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
 			return pol.FilesPolicy.OneFileSystem != nil
 		}))
@@ -181,19 +181,19 @@ func printErrorHandlingPolicy(out *textOutput, p *policy.Policy, parents []*poli
 	out.printStdout("Error handling policy:\n")
 
 	out.printStdout("  Ignore file read errors:       %5v       %v\n",
-		p.ErrorHandlingPolicy.IgnoreFileErrorsOrDefault(false),
+		p.ErrorHandlingPolicy.IgnoreFileErrors.OrDefault(false),
 		getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
 			return pol.ErrorHandlingPolicy.IgnoreFileErrors != nil
 		}))
 
 	out.printStdout("  Ignore directory read errors:  %5v       %v\n",
-		p.ErrorHandlingPolicy.IgnoreDirectoryErrorsOrDefault(false),
+		p.ErrorHandlingPolicy.IgnoreDirectoryErrors.OrDefault(false),
 		getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
 			return pol.ErrorHandlingPolicy.IgnoreDirectoryErrors != nil
 		}))
 
 	out.printStdout("  Ignore unknown types:          %5v       %v\n",
-		p.ErrorHandlingPolicy.IgnoreUnknownTypesOrDefault(true),
+		p.ErrorHandlingPolicy.IgnoreUnknownTypes.OrDefault(true),
 		getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
 			return pol.ErrorHandlingPolicy.IgnoreUnknownTypes != nil
 		}))

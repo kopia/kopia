@@ -53,7 +53,7 @@ func (c *policyFilesFlags) setFilesPolicyFromFlags(ctx context.Context, fp *poli
 	applyPolicyStringList(ctx, "dot-ignore filenames", &fp.DotIgnoreFiles, c.policySetAddDotIgnore, c.policySetRemoveDotIgnore, c.policySetClearDotIgnore, changeCount)
 	applyPolicyStringList(ctx, "ignore rules", &fp.IgnoreRules, c.policySetAddIgnore, c.policySetRemoveIgnore, c.policySetClearIgnore, changeCount)
 
-	if err := applyPolicyBoolPtr(ctx, "ignore cache dirs", &fp.IgnoreCacheDirs, c.policyIgnoreCacheDirs, changeCount); err != nil {
+	if err := applyPolicyBoolPtr(ctx, "ignore cache dirs", &fp.IgnoreCacheDirectories, c.policyIgnoreCacheDirs, changeCount); err != nil {
 		return err
 	}
 

@@ -104,7 +104,7 @@ func isCorrectCacheDirSignature(ctx context.Context, f fs.File) (bool, error) {
 }
 
 func (d *ignoreDirectory) skipCacheDirectory(ctx context.Context, entries fs.Entries, relativePath string, policyTree *policy.Tree) fs.Entries {
-	if !policyTree.EffectivePolicy().FilesPolicy.IgnoreCacheDirectoriesOrDefault(true) {
+	if !policyTree.EffectivePolicy().FilesPolicy.IgnoreCacheDirectories.OrDefault(true) {
 		return entries
 	}
 
@@ -236,7 +236,7 @@ func (c *ignoreContext) overrideFromPolicy(fp *policy.FilesPolicy, dirPath strin
 		c.maxFileSize = fp.MaxFileSize
 	}
 
-	c.oneFileSystem = fp.OneFileSystemOrDefault(false)
+	c.oneFileSystem = fp.OneFileSystem.OrDefault(false)
 
 	// append policy-level rules
 	for _, rule := range fp.IgnoreRules {
