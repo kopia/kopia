@@ -46,7 +46,7 @@ require (
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
 	github.com/stretchr/testify v1.7.0
 	github.com/studio-b12/gowebdav v0.0.0-20210917133250-a3a86976a1df
-	github.com/tg123/go-htpasswd v1.1.0
+	github.com/tg123/go-htpasswd v1.2.0
 	github.com/zalando/go-keyring v0.1.1
 	github.com/zeebo/blake3 v0.2.1
 	go.opencensus.io v0.23.0
