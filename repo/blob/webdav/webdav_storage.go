@@ -16,7 +16,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/studio-b12/gowebdav"
 
-	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/internal/retry"
 	"github.com/kopia/kopia/internal/tlsutil"
@@ -48,7 +47,7 @@ type davStorageImpl struct {
 	cli *gowebdav.Client
 }
 
-func (d *davStorageImpl) GetBlobFromPath(ctx context.Context, dirPath, path string, offset, length int64, output *gather.WriteBuffer) error {
+func (d *davStorageImpl) GetBlobFromPath(ctx context.Context, dirPath, path string, offset, length int64, output blob.OutputBuffer) error {
 	output.Reset()
 
 	if offset < 0 {

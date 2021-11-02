@@ -11,7 +11,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/clock"
-	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 )
 
@@ -25,7 +24,7 @@ type mapStorage struct {
 	mutex   sync.RWMutex
 }
 
-func (s *mapStorage) GetBlob(ctx context.Context, id blob.ID, offset, length int64, output *gather.WriteBuffer) error {
+func (s *mapStorage) GetBlob(ctx context.Context, id blob.ID, offset, length int64, output blob.OutputBuffer) error {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 

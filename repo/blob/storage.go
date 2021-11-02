@@ -9,8 +9,6 @@ import (
 
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
-
-	"github.com/kopia/kopia/internal/gather"
 )
 
 // ErrSetTimeUnsupported is returned by implementations of Storage that don't support SetTime.
@@ -28,13 +26,23 @@ type Bytes interface {
 	Reader() io.Reader
 }
 
+// OutputBuffer is implemented by *gather.WriteBuffer.
+type OutputBuffer interface {
+	io.Writer
+
+	Reset()
+	Length() int
+	ToByteSlice() []byte
+	Append(data []byte)
+}
+
 // Reader defines read access API to blob storage.
 type Reader interface {
 	// GetBlob returns full or partial contents of a blob with given ID.
 	// If length>0, the the function retrieves a range of bytes [offset,offset+length)
 	// If length<0, the entire blob must be fetched.
 	// Returns ErrInvalidRange if the fetched blob length is invalid.
-	GetBlob(ctx context.Context, blobID ID, offset, length int64, output *gather.WriteBuffer) error
+	GetBlob(ctx context.Context, blobID ID, offset, length int64, output OutputBuffer) error
 
 	// GetMetadata returns Metadata about single blob.
 	GetMetadata(ctx context.Context, blobID ID) (Metadata, error)

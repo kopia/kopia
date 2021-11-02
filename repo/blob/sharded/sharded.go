@@ -25,7 +25,7 @@ var log = logging.Module("sharded")
 
 // Impl must be implemented by underlying provided.
 type Impl interface {
-	GetBlobFromPath(ctx context.Context, dirPath, filePath string, offset, length int64, output *gather.WriteBuffer) error
+	GetBlobFromPath(ctx context.Context, dirPath, filePath string, offset, length int64, output blob.OutputBuffer) error
 	GetMetadataFromPath(ctx context.Context, dirPath, filePath string) (blob.Metadata, error)
 	PutBlobInPath(ctx context.Context, dirPath, filePath string, dataSlices blob.Bytes) error
 	SetTimeInPath(ctx context.Context, dirPath, filePath string, t time.Time) error
@@ -46,7 +46,7 @@ type Storage struct {
 }
 
 // GetBlob implements blob.Storage.
-func (s *Storage) GetBlob(ctx context.Context, blobID blob.ID, offset, length int64, output *gather.WriteBuffer) error {
+func (s *Storage) GetBlob(ctx context.Context, blobID blob.ID, offset, length int64, output blob.OutputBuffer) error {
 	dirPath, filePath, err := s.GetShardedPathAndFilePath(ctx, blobID)
 	if err != nil {
 		return errors.Wrap(err, "error determining sharded path")

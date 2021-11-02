@@ -39,12 +39,12 @@ type s3Storage struct {
 	storageConfig     *StorageConfig
 }
 
-func (s *s3Storage) GetBlob(ctx context.Context, b blob.ID, offset, length int64, output *gather.WriteBuffer) error {
+func (s *s3Storage) GetBlob(ctx context.Context, b blob.ID, offset, length int64, output blob.OutputBuffer) error {
 	return s.getBlobWithVersion(ctx, b, latestVersionID, offset, length, output)
 }
 
 // getBlobWithVersion returns full or partial contents of a blob with given ID and version.
-func (s *s3Storage) getBlobWithVersion(ctx context.Context, b blob.ID, version string, offset, length int64, output *gather.WriteBuffer) error {
+func (s *s3Storage) getBlobWithVersion(ctx context.Context, b blob.ID, version string, offset, length int64, output blob.OutputBuffer) error {
 	output.Reset()
 
 	attempt := func() error {

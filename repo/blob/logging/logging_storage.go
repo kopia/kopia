@@ -5,7 +5,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/repo/blob"
 )
@@ -18,7 +17,7 @@ type loggingStorage struct {
 	prefix string
 }
 
-func (s *loggingStorage) GetBlob(ctx context.Context, id blob.ID, offset, length int64, output *gather.WriteBuffer) error {
+func (s *loggingStorage) GetBlob(ctx context.Context, id blob.ID, offset, length int64, output blob.OutputBuffer) error {
 	timer := timetrack.StartTimer()
 	err := s.base.GetBlob(ctx, id, offset, length, output)
 	dt := timer.Elapsed()

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/retry"
 	"github.com/kopia/kopia/repo/blob"
 )
@@ -17,7 +16,7 @@ type retryingStorage struct {
 	blob.Storage
 }
 
-func (s retryingStorage) GetBlob(ctx context.Context, id blob.ID, offset, length int64, output *gather.WriteBuffer) error {
+func (s retryingStorage) GetBlob(ctx context.Context, id blob.ID, offset, length int64, output blob.OutputBuffer) error {
 	// nolint:wrapcheck
 	return retry.WithExponentialBackoffNoValue(ctx, fmt.Sprintf("GetBlob(%v,%v,%v)", id, offset, length), func() error {
 		output.Reset()

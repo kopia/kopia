@@ -6,7 +6,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/readonly"
 )
@@ -54,7 +53,7 @@ func (s *s3PointInTimeStorage) ListBlobs(ctx context.Context, blobIDPrefix blob.
 	return nil
 }
 
-func (s *s3PointInTimeStorage) GetBlob(ctx context.Context, blobID blob.ID, offset, length int64, output *gather.WriteBuffer) error {
+func (s *s3PointInTimeStorage) GetBlob(ctx context.Context, blobID blob.ID, offset, length int64, output blob.OutputBuffer) error {
 	// getMetadata returns the specific blob version at time t
 	m, err := s.getMetadata(ctx, blobID)
 	if err != nil {

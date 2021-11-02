@@ -12,7 +12,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/clock"
-	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 )
 
@@ -102,7 +101,7 @@ func (s *eventuallyConsistentStorage) randomFrontendCache() *ecFrontendCache {
 	return s.caches[n]
 }
 
-func (s *eventuallyConsistentStorage) GetBlob(ctx context.Context, id blob.ID, offset, length int64, output *gather.WriteBuffer) error {
+func (s *eventuallyConsistentStorage) GetBlob(ctx context.Context, id blob.ID, offset, length int64, output blob.OutputBuffer) error {
 	// don't bother caching partial reads
 	if length >= 0 {
 		return s.realStorage.GetBlob(ctx, id, offset, length, output)
