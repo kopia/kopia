@@ -131,7 +131,7 @@ func TestS3StorageProviders(t *testing.T) {
 		t.Run(k, func(t *testing.T) {
 			opt := getProviderOptions(t, env)
 
-			testStorage(t, opt)
+			testStorage(t, opt, false)
 		})
 	}
 }
@@ -149,7 +149,7 @@ func TestS3StorageAWS(t *testing.T) {
 	}
 
 	createBucket(t, options)
-	testStorage(t, options)
+	testStorage(t, options, false)
 }
 
 func TestS3StorageAWSSTS(t *testing.T) {
@@ -175,7 +175,7 @@ func TestS3StorageAWSSTS(t *testing.T) {
 		BucketName:      options.BucketName,
 		Region:          options.Region,
 	})
-	testStorage(t, options)
+	testStorage(t, options, false)
 }
 
 func TestS3StorageMinio(t *testing.T) {
@@ -194,7 +194,7 @@ func TestS3StorageMinio(t *testing.T) {
 	}
 
 	createBucket(t, options)
-	testStorage(t, options)
+	testStorage(t, options, true)
 }
 
 func TestInvalidCredsFailsFast(t *testing.T) {
@@ -254,7 +254,7 @@ func TestS3StorageMinioSTS(t *testing.T) {
 		BucketName:      minioBucketName,
 		Region:          minioRegion,
 		DoNotUseTLS:     true,
-	})
+	}, true)
 }
 
 func TestNeedMD5AWS(t *testing.T) {
@@ -302,7 +302,7 @@ func TestNeedMD5AWS(t *testing.T) {
 }
 
 // nolint:thelper
-func testStorage(t *testing.T, options *Options) {
+func testStorage(t *testing.T, options *Options, runValidationTest bool) {
 	ctx := testlogging.Context(t)
 
 	require.Equal(t, "", options.Prefix)
@@ -324,7 +324,10 @@ func testStorage(t *testing.T, options *Options) {
 
 	blobtesting.VerifyStorage(ctx, t, st)
 	blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
-	require.NoError(t, providervalidation.ValidateProvider(ctx, st, blobtesting.TestValidationOptions))
+
+	if runValidationTest {
+		require.NoError(t, providervalidation.ValidateProvider(ctx, st, blobtesting.TestValidationOptions))
+	}
 }
 
 func TestCustomTransportNoSSLVerify(t *testing.T) {
