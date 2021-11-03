@@ -53,9 +53,9 @@ var log = logging.Module("kopia/repo")
 
 // Options provides configuration parameters for connection to a repository.
 type Options struct {
-	TraceStorage       func(f string, args ...interface{}) // Logs all storage access using provided Printf-style function
-	TimeNowFunc        func() time.Time                    // Time provider
-	DisableInternalLog bool                                // Disable internal log
+	TraceStorage       bool             // Logs all storage access using provided Printf-style function
+	TimeNowFunc        func() time.Time // Time provider
+	DisableInternalLog bool             // Disable internal log
 }
 
 // ErrInvalidPassword is returned when repository password is invalid.
@@ -146,8 +146,8 @@ func openDirect(ctx context.Context, configFile string, lc *LocalConfig, passwor
 		return nil, errors.Wrap(err, "cannot open storage")
 	}
 
-	if options.TraceStorage != nil {
-		st = loggingwrapper.NewWrapper(st, options.TraceStorage, "[STORAGE] ")
+	if options.TraceStorage {
+		st = loggingwrapper.NewWrapper(st, log(ctx), "[STORAGE] ")
 	}
 
 	if lc.ReadOnly {

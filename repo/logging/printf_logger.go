@@ -48,8 +48,13 @@ func (l *printfLogger) Infof(msg string, args ...interface{})  { l.printf(l.pref
 func (l *printfLogger) Warnf(msg string, args ...interface{})  { l.printf(l.prefix+msg, args...) }
 func (l *printfLogger) Errorf(msg string, args ...interface{}) { l.printf(l.prefix+msg, args...) }
 
-// Printf returns LoggerForModuleFunc that uses given printf-style function to print log output.
-func Printf(printf func(msg string, args ...interface{})) LoggerFactory {
+// Printf returns a logger that uses given printf-style function to print log output.
+func Printf(printf func(msg string, args ...interface{}), prefix string) Logger {
+	return &printfLogger{printf, prefix}
+}
+
+// PrintfFactory returns LoggerForModuleFunc that uses given printf-style function to print log output.
+func PrintfFactory(printf func(msg string, args ...interface{})) LoggerFactory {
 	return func(module string) Logger {
 		return &printfLogger{printf, "[" + module + "] "}
 	}

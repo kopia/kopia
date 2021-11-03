@@ -7,14 +7,13 @@ import (
 
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/logging"
 )
-
-const maxLoggedBlobLength = 20 // maximum length of the blob to log contents of
 
 type loggingStorage struct {
 	base   blob.Storage
-	printf func(string, ...interface{})
 	prefix string
+	logger logging.Logger
 }
 
 func (s *loggingStorage) GetBlob(ctx context.Context, id blob.ID, offset, length int64, output blob.OutputBuffer) error {
@@ -22,11 +21,14 @@ func (s *loggingStorage) GetBlob(ctx context.Context, id blob.ID, offset, length
 	err := s.base.GetBlob(ctx, id, offset, length, output)
 	dt := timer.Elapsed()
 
-	if output.Length() < maxLoggedBlobLength {
-		s.printf(s.prefix+"GetBlob(%q,%v,%v)=(%v, %#v) took %v", id, offset, length, output, err, dt)
-	} else {
-		s.printf(s.prefix+"GetBlob(%q,%v,%v)=({%v bytes}, %#v) took %v", id, offset, length, output.Length(), err, dt)
-	}
+	s.logger.Debugw(s.prefix+"GetBlob",
+		"blobID", id,
+		"offset", offset,
+		"length", length,
+		"outputLength", output.Length(),
+		"error", err,
+		"duration", dt,
+	)
 
 	// nolint:wrapcheck
 	return err
@@ -37,7 +39,12 @@ func (s *loggingStorage) GetMetadata(ctx context.Context, id blob.ID) (blob.Meta
 	result, err := s.base.GetMetadata(ctx, id)
 	dt := timer.Elapsed()
 
-	s.printf(s.prefix+"GetMetadata(%q)=(%v, %#v) took %v", id, result, err, dt)
+	s.logger.Debugw(s.prefix+"GetMetadata",
+		"blobID", id,
+		"result", result,
+		"error", err,
+		"duration", dt,
+	)
 
 	// nolint:wrapcheck
 	return result, err
@@ -47,7 +54,13 @@ func (s *loggingStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Byte
 	timer := timetrack.StartTimer()
 	err := s.base.PutBlob(ctx, id, data)
 	dt := timer.Elapsed()
-	s.printf(s.prefix+"PutBlob(%q,len=%v)=%#v took %v", id, data.Length(), err, dt)
+
+	s.logger.Debugw(s.prefix+"PutBlob",
+		"blobID", id,
+		"length", data.Length(),
+		"error", err,
+		"duration", dt,
+	)
 
 	// nolint:wrapcheck
 	return err
@@ -57,7 +70,13 @@ func (s *loggingStorage) SetTime(ctx context.Context, id blob.ID, t time.Time) e
 	timer := timetrack.StartTimer()
 	err := s.base.SetTime(ctx, id, t)
 	dt := timer.Elapsed()
-	s.printf(s.prefix+"SetTime(%q,%v)=%#v took %v", id, t, err, dt)
+
+	s.logger.Debugw(s.prefix+"SetTime",
+		"blobID", id,
+		"time", t,
+		"error", err,
+		"duration", dt,
+	)
 
 	// nolint:wrapcheck
 	return err
@@ -67,8 +86,12 @@ func (s *loggingStorage) DeleteBlob(ctx context.Context, id blob.ID) error {
 	timer := timetrack.StartTimer()
 	err := s.base.DeleteBlob(ctx, id)
 	dt := timer.Elapsed()
-	s.printf(s.prefix+"DeleteBlob(%q)=%#v took %v", id, err, dt)
 
+	s.logger.Debugw(s.prefix+"DeleteBlob",
+		"blobID", id,
+		"error", err,
+		"duration", dt,
+	)
 	// nolint:wrapcheck
 	return err
 }
@@ -80,7 +103,14 @@ func (s *loggingStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback
 		cnt++
 		return callback(bi)
 	})
-	s.printf(s.prefix+"ListBlobs(%q)=%v returned %v items and took %v", prefix, err, cnt, timer.Elapsed())
+	dt := timer.Elapsed()
+
+	s.logger.Debugw(s.prefix+"ListBlobs",
+		"prefix", prefix,
+		"resultCount", cnt,
+		"error", err,
+		"duration", dt,
+	)
 
 	// nolint:wrapcheck
 	return err
@@ -90,7 +120,11 @@ func (s *loggingStorage) Close(ctx context.Context) error {
 	timer := timetrack.StartTimer()
 	err := s.base.Close(ctx)
 	dt := timer.Elapsed()
-	s.printf(s.prefix+"Close()=%#v took %v", err, dt)
+
+	s.logger.Debugw(s.prefix+"Close",
+		"error", err,
+		"duration", dt,
+	)
 
 	// nolint:wrapcheck
 	return err
@@ -108,13 +142,17 @@ func (s *loggingStorage) FlushCaches(ctx context.Context) error {
 	timer := timetrack.StartTimer()
 	err := s.base.FlushCaches(ctx)
 	dt := timer.Elapsed()
-	s.printf(s.prefix+"FlushCaches()=%#v took %v", err, dt)
+
+	s.logger.Debugw(s.prefix+"FlushCaches",
+		"error", err,
+		"duration", dt,
+	)
 
 	// nolint:wrapcheck
 	return err
 }
 
 // NewWrapper returns a Storage wrapper that logs all storage commands.
-func NewWrapper(wrapped blob.Storage, printf func(msg string, args ...interface{}), prefix string) blob.Storage {
-	return &loggingStorage{base: wrapped, printf: printf, prefix: prefix}
+func NewWrapper(wrapped blob.Storage, logger logging.Logger, prefix string) blob.Storage {
+	return &loggingStorage{base: wrapped, logger: logger, prefix: prefix}
 }

@@ -60,15 +60,10 @@ func (c *App) openRepository(ctx context.Context, required bool) (repo.Repositor
 }
 
 func (c *App) optionsFromFlags(ctx context.Context) *repo.Options {
-	var opts repo.Options
-
-	if c.traceStorage {
-		opts.TraceStorage = log(ctx).Debugf
+	return &repo.Options{
+		TraceStorage:       c.traceStorage,
+		DisableInternalLog: c.disableInternalLog,
 	}
-
-	opts.DisableInternalLog = c.disableInternalLog
-
-	return &opts
 }
 
 func (c *App) repositoryConfigFileName() string {

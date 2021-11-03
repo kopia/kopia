@@ -16,7 +16,7 @@ func TestPrefix(t *testing.T) {
 
 	l0 := logging.Printf(func(msg string, args ...interface{}) {
 		lines = append(lines, fmt.Sprintf(msg, args...))
-	})("module1")
+	}, "[module1] ")
 
 	l := logging.WithPrefix("PREFIX:", l0)
 	l.Debugf("A")
@@ -39,11 +39,11 @@ func TestBroadcast(t *testing.T) {
 
 	l0 := logging.Printf(func(msg string, args ...interface{}) {
 		lines = append(lines, fmt.Sprintf(msg, args...))
-	})("first")
+	}, "[first] ")
 
 	l1 := logging.Printf(func(msg string, args ...interface{}) {
 		lines = append(lines, fmt.Sprintf(msg, args...))
-	})("second")
+	}, "[second] ")
 
 	l := logging.Broadcast{l0, l1}
 	l.Debugf("A")
@@ -124,7 +124,7 @@ func TestNonNullWriterModule(t *testing.T) {
 
 func BenchmarkLogger(b *testing.B) {
 	mod1 := logging.Module("mod1")
-	ctx := logging.WithLogger(context.Background(), logging.Printf(b.Logf))
+	ctx := logging.WithLogger(context.Background(), logging.PrintfFactory(b.Logf))
 
 	b.ResetTimer()
 

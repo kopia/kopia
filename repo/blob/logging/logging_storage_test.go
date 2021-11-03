@@ -9,6 +9,7 @@ import (
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/logging"
 )
 
 func TestLoggingStorage(t *testing.T) {
@@ -27,7 +28,7 @@ func TestLoggingStorage(t *testing.T) {
 	kt := map[blob.ID]time.Time{}
 	underlying := blobtesting.NewMapStorage(data, kt, nil)
 
-	st := NewWrapper(underlying, myOutput, myPrefix)
+	st := NewWrapper(underlying, logging.Printf(myOutput, ""), myPrefix)
 	if st == nil {
 		t.Fatalf("unexpected result: %v", st)
 	}
