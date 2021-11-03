@@ -13,7 +13,6 @@ import (
 	"github.com/pkg/errors"
 	"gopkg.in/kothar/go-backblaze.v0"
 
-	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/retrying"
@@ -35,7 +34,7 @@ type b2Storage struct {
 	uploadThrottler   *iothrottler.IOThrottlerPool
 }
 
-func (s *b2Storage) GetBlob(ctx context.Context, id blob.ID, offset, length int64, output *gather.WriteBuffer) error {
+func (s *b2Storage) GetBlob(ctx context.Context, id blob.ID, offset, length int64, output blob.OutputBuffer) error {
 	fileName := s.getObjectNameString(id)
 
 	if offset < 0 {

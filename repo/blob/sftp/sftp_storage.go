@@ -19,7 +19,6 @@ import (
 	"golang.org/x/crypto/ssh/knownhosts"
 
 	"github.com/kopia/kopia/internal/connection"
-	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/internal/ospath"
 	"github.com/kopia/kopia/repo/blob"
@@ -104,7 +103,7 @@ func (s *sftpImpl) IsConnectionClosedError(err error) bool {
 	return false
 }
 
-func (s *sftpImpl) GetBlobFromPath(ctx context.Context, dirPath, fullPath string, offset, length int64, output *gather.WriteBuffer) error {
+func (s *sftpImpl) GetBlobFromPath(ctx context.Context, dirPath, fullPath string, offset, length int64, output blob.OutputBuffer) error {
 	// nolint:wrapcheck
 	return s.rec.UsingConnectionNoResult(ctx, "GetBlobFromPath", func(conn connection.Connection) error {
 		r, err := sftpClientFromConnection(conn).Open(fullPath)

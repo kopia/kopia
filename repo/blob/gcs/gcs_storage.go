@@ -19,7 +19,6 @@ import (
 	"google.golang.org/api/option"
 
 	"github.com/kopia/kopia/internal/clock"
-	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/internal/throttle"
 	"github.com/kopia/kopia/repo/blob"
@@ -42,7 +41,7 @@ type gcsStorage struct {
 	uploadThrottler   *iothrottler.IOThrottlerPool
 }
 
-func (gcs *gcsStorage) GetBlob(ctx context.Context, b blob.ID, offset, length int64, output *gather.WriteBuffer) error {
+func (gcs *gcsStorage) GetBlob(ctx context.Context, b blob.ID, offset, length int64, output blob.OutputBuffer) error {
 	if offset < 0 {
 		return blob.ErrInvalidRange
 	}

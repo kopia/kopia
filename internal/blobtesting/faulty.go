@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/logging"
 )
@@ -31,7 +30,7 @@ type FaultyStorage struct {
 }
 
 // GetBlob implements blob.Storage.
-func (s *FaultyStorage) GetBlob(ctx context.Context, id blob.ID, offset, length int64, output *gather.WriteBuffer) error {
+func (s *FaultyStorage) GetBlob(ctx context.Context, id blob.ID, offset, length int64, output blob.OutputBuffer) error {
 	if err := s.getNextFault(ctx, "GetBlob", id, offset, length); err != nil {
 		return err
 	}
