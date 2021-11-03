@@ -177,6 +177,10 @@ func (l runningTaskLogger) Debugf(msg string, args ...interface{}) {
 	l.r.addLogEntry(l.module, LogLevelDebug, msg, args)
 }
 
+func (l runningTaskLogger) Debugw(msg string, keyValuePairs ...interface{}) {
+	l.r.addLogEntry(l.module, LogLevelDebug, logging.DebugMessageWithKeyValuePairs(msg, keyValuePairs), nil)
+}
+
 func (l runningTaskLogger) Infof(msg string, args ...interface{}) {
 	l.r.addLogEntry(l.module, LogLevelInfo, msg, args)
 }

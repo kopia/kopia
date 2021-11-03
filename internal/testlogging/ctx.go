@@ -41,6 +41,15 @@ func (l *testLogger) Debugf(msg string, args ...interface{}) {
 	l.t.Logf(l.prefix+msg, args...)
 }
 
+func (l *testLogger) Debugw(msg string, keyValuePairs ...interface{}) {
+	if l.minLevel > LevelDebug {
+		return
+	}
+
+	l.t.Helper()
+	l.t.Logf(logging.DebugMessageWithKeyValuePairs(msg, keyValuePairs))
+}
+
 func (l *testLogger) Infof(msg string, args ...interface{}) {
 	if l.minLevel > LevelInfo {
 		return
