@@ -32,8 +32,6 @@ type OutputBuffer interface {
 
 	Reset()
 	Length() int
-	ToByteSlice() []byte
-	Append(data []byte)
 }
 
 // Reader defines read access API to blob storage.

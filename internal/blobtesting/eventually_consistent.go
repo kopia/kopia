@@ -12,6 +12,8 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/gather"
+	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/repo/blob"
 )
 
@@ -116,13 +118,17 @@ func (s *eventuallyConsistentStorage) GetBlob(ctx context.Context, id blob.ID, o
 			return blob.ErrBlobNotFound
 		}
 
-		output.Append(e.data)
+		if _, err := output.Write(e.data); err != nil {
+			return errors.Wrap(err, "error appending to output")
+		}
 
 		return nil
 	}
 
+	var buf gather.WriteBuffer
+
 	// fetch from the underlying storage.
-	err := s.realStorage.GetBlob(ctx, id, offset, length, output)
+	err := s.realStorage.GetBlob(ctx, id, offset, length, &buf)
 	if err != nil {
 		if errors.Is(err, blob.ErrBlobNotFound) {
 			c.put(id, nil)
@@ -131,9 +137,9 @@ func (s *eventuallyConsistentStorage) GetBlob(ctx context.Context, id blob.ID, o
 		return err
 	}
 
-	c.put(id, output.ToByteSlice())
+	c.put(id, buf.ToByteSlice())
 
-	return nil
+	return iocopy.JustCopy(output, buf.Bytes().Reader())
 }
 
 func (s *eventuallyConsistentStorage) GetMetadata(ctx context.Context, id blob.ID) (blob.Metadata, error) {

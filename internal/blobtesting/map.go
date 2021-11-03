@@ -31,28 +31,32 @@ func (s *mapStorage) GetBlob(ctx context.Context, id blob.ID, offset, length int
 	output.Reset()
 
 	data, ok := s.data[id]
-	if ok {
-		if length < 0 {
-			output.Append(data)
+	if !ok {
+		return blob.ErrBlobNotFound
+	}
 
-			return nil
+	if length < 0 {
+		if _, err := output.Write(data); err != nil {
+			return errors.Wrap(err, "error writing data to output")
 		}
-
-		if int(offset) > len(data) || offset < 0 {
-			return errors.Wrapf(blob.ErrInvalidRange, "invalid offset: %v", offset)
-		}
-
-		data = data[offset:]
-		if int(length) > len(data) {
-			return errors.Wrapf(blob.ErrInvalidRange, "invalid length: %v", length)
-		}
-
-		output.Append(data[0:length])
 
 		return nil
 	}
 
-	return blob.ErrBlobNotFound
+	if int(offset) > len(data) || offset < 0 {
+		return errors.Wrapf(blob.ErrInvalidRange, "invalid offset: %v", offset)
+	}
+
+	data = data[offset:]
+	if int(length) > len(data) {
+		return errors.Wrapf(blob.ErrInvalidRange, "invalid length: %v", length)
+	}
+
+	if _, err := output.Write(data[0:length]); err != nil {
+		return errors.Wrap(err, "error writing data to output")
+	}
+
+	return nil
 }
 
 func (s *mapStorage) GetMetadata(ctx context.Context, id blob.ID) (blob.Metadata, error) {
