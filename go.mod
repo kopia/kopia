@@ -3,7 +3,7 @@ module github.com/kopia/kopia
 go 1.17
 
 require (
-	cloud.google.com/go/storage v1.17.0
+	cloud.google.com/go/storage v1.18.2
 	contrib.go.opencensus.io/exporter/prometheus v0.4.0
 	github.com/Azure/azure-pipeline-go v0.2.3
 	github.com/Azure/azure-storage-blob-go v0.14.0
@@ -56,7 +56,7 @@ require (
 	golang.org/x/exp v0.0.0-20210916165020-5cb4fee858ee
 	golang.org/x/mod v0.5.1
 	golang.org/x/net v0.0.0-20210929193557-e81a3d93ecf6
-	golang.org/x/oauth2 v0.0.0-20210819190943-2bc19b11175f
+	golang.org/x/oauth2 v0.0.0-20211005180243-6b3c2da341f1
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/sys v0.0.0-20211001092434-39dca1131b70
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
@@ -110,5 +110,5 @@ require (
 	go.uber.org/multierr v1.7.0 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20211001223012-bfb93cce50d9 // indirect
+	google.golang.org/genproto v0.0.0-20211016002631-37fc39342514 // indirect
 )
