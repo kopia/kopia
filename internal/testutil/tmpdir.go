@@ -70,9 +70,7 @@ func TempDirectory(tb testing.TB) string {
 func TempLogDirectory(t *testing.T) string {
 	t.Helper()
 
-	cleanName := strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(
-		t.Name(),
-		"/", "_"), "\\", "_"), ":", "_")
+	cleanName := strings.NewReplacer("/", "_", "\\", "_", ":", "_").Replace(t.Name())
 
 	t.Helper()
 
