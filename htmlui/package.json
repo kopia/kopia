@@ -8,7 +8,7 @@
     "@fortawesome/free-solid-svg-icons": "^5.15.4",
     "@fortawesome/react-fontawesome": "^0.1.15",
     "@testing-library/jest-dom": "^5.14.1",
-    "@testing-library/react": "^12.1.1",
+    "@testing-library/react": "^12.1.2",
     "axios": "^0.22.0",
     "bootstrap": "^5.1.1",
     "moment": "^2.29.1",
