@@ -128,8 +128,8 @@ type entryWithError struct {
 	err   error
 }
 
-func toDirEntryOrNil(basename, prefix string) (fs.Entry, error) {
-	fi, err := os.Lstat(prefix + basename)
+func toDirEntryOrNil(dirEntry os.DirEntry, prefix string) (fs.Entry, error) {
+	fi, err := os.Lstat(prefix + dirEntry.Name())
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil
@@ -153,7 +153,7 @@ func (fsd *filesystemDirectory) Readdir(ctx context.Context) (fs.Entries, error)
 	var entries fs.Entries
 
 	// read first batch of directory entries using Readdir() before parallelization.
-	firstBatch, firstBatchErr := f.Readdirnames(numEntriesToReadFirst)
+	firstBatch, firstBatchErr := f.ReadDir(numEntriesToReadFirst)
 	if firstBatchErr != nil && !errors.Is(firstBatchErr, io.EOF) {
 		return nil, errors.Wrap(firstBatchErr, "unable to read directory entries")
 	}
@@ -180,7 +180,7 @@ func (fsd *filesystemDirectory) Readdir(ctx context.Context) (fs.Entries, error)
 
 	// first batch was shorter than expected, perform another read to make sure we get EOF.
 	if len(firstBatch) < numEntriesToRead {
-		secondBatch, secondBatchErr := f.Readdirnames(numEntriesToRead)
+		secondBatch, secondBatchErr := f.ReadDir(numEntriesToRead)
 		if secondBatchErr != nil && !errors.Is(secondBatchErr, io.EOF) {
 			return nil, errors.Wrap(secondBatchErr, "unable to read directory entries")
 		}
@@ -210,7 +210,7 @@ func (fsd *filesystemDirectory) Readdir(ctx context.Context) (fs.Entries, error)
 
 func (fsd *filesystemDirectory) readRemainingDirEntriesInParallel(childPrefix string, entries fs.Entries, f *os.File) (fs.Entries, error) {
 	// start feeding directory entries to dirEntryCh
-	dirEntryCh := make(chan string, dirListingPrefetch)
+	dirEntryCh := make(chan os.DirEntry, dirListingPrefetch)
 
 	var readDirErr error
 
@@ -218,7 +218,7 @@ func (fsd *filesystemDirectory) readRemainingDirEntriesInParallel(childPrefix st
 		defer close(dirEntryCh)
 
 		for {
-			des, err := f.Readdirnames(numEntriesToRead)
+			des, err := f.ReadDir(numEntriesToRead)
 			for _, de := range des {
 				dirEntryCh <- de
 			}

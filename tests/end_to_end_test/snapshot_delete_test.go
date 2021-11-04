@@ -1,7 +1,6 @@
 package endtoend_test
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -246,10 +245,10 @@ func assertEmptyDir(t *testing.T, dir string) {
 	t.Helper()
 
 	// Make sure the restore did not happen from the deleted snapshot
-	fileInfo, err := ioutil.ReadDir(dir)
+	dirEntries, err := os.ReadDir(dir)
 	require.NoError(t, err)
 
-	if len(fileInfo) != 0 {
+	if len(dirEntries) != 0 {
 		t.Fatalf("expected nothing to be restored")
 	}
 }

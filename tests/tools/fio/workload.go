@@ -1,7 +1,6 @@
 package fio
 
 import (
-	"io/ioutil"
 	"log"
 	"math/rand"
 	"os"
@@ -133,14 +132,14 @@ func (fr *Runner) DeleteContentsAtDepth(relBasePath string, depth int, prob floa
 	fullBasePath := filepath.Join(fr.LocalDataDir, relBasePath)
 
 	return fr.operateAtDepth(fullBasePath, depth, func(dirPath string) error {
-		fileInfoList, err := ioutil.ReadDir(dirPath)
+		dirEntries, err := os.ReadDir(dirPath)
 		if err != nil {
 			return err
 		}
 
-		for _, fi := range fileInfoList {
+		for _, entry := range dirEntries {
 			if rand.Float32() < prob {
-				path := filepath.Join(dirPath, fi.Name())
+				path := filepath.Join(dirPath, entry.Name())
 				err = os.RemoveAll(path)
 				if err != nil {
 					return err
@@ -164,16 +163,16 @@ func (fr *Runner) operateAtDepth(path string, depth int, f func(string) error) e
 		return f(path)
 	}
 
-	fileInfoList, err := ioutil.ReadDir(path)
+	dirEntries, err := os.ReadDir(path)
 	if err != nil {
 		return errors.Wrapf(err, "unable to read dir at path %v", path)
 	}
 
 	var dirList []string
 
-	for _, fi := range fileInfoList {
-		if fi.IsDir() {
-			dirList = append(dirList, filepath.Join(path, fi.Name()))
+	for _, entry := range dirEntries {
+		if entry.IsDir() {
+			dirList = append(dirList, filepath.Join(path, entry.Name()))
 		}
 	}
 
@@ -225,16 +224,16 @@ func (fr *Runner) writeFilesAtDepth(fromDirPath string, depth, branchDepth int, 
 }
 
 func pickRandSubdirPath(dirPath string) (subdirPath string) {
-	fileInfoList, err := ioutil.ReadDir(dirPath)
+	dirEntries, err := os.ReadDir(dirPath)
 	if err != nil {
 		return ""
 	}
 
-	// Find all entries that are directories, record each of their fileInfoList indexes
-	dirIdxs := make([]int, 0, len(fileInfoList))
+	// Find all entries that are directories, record each of their dirEntries indexes
+	dirIdxs := make([]int, 0, len(dirEntries))
 
-	for idx, fi := range fileInfoList {
-		if fi.IsDir() {
+	for idx, entry := range dirEntries {
+		if entry.IsDir() {
 			dirIdxs = append(dirIdxs, idx)
 		}
 	}
@@ -243,9 +242,9 @@ func pickRandSubdirPath(dirPath string) (subdirPath string) {
 		return ""
 	}
 
-	// Pick a random index from the list of indexes of fileInfo entries known to be directories.
+	// Pick a random index from the list of indexes of DirEntry entries known to be directories.
 	randDirIdx := dirIdxs[rand.Intn(len(dirIdxs))] //nolint:gosec
-	randDirInfo := fileInfoList[randDirIdx]
+	randDirInfo := dirEntries[randDirIdx]
 
 	return filepath.Join(dirPath, randDirInfo.Name())
 }

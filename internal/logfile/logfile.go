@@ -4,7 +4,6 @@ package logfile
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"math"
 	"os"
 	"path/filepath"
@@ -269,31 +268,43 @@ func sweepLogDir(ctx context.Context, dirname string, maxCount int, maxAge time.
 		maxCount = math.MaxInt32
 	}
 
-	entries, err := ioutil.ReadDir(dirname)
+	entries, err := os.ReadDir(dirname)
 	if err != nil {
 		log(ctx).Errorf("unable to read log directory: %v", err)
 		return
 	}
 
-	sort.Slice(entries, func(i, j int) bool {
-		return entries[i].ModTime().After(entries[j].ModTime())
+	fileInfos := make([]os.FileInfo, 0, len(entries))
+
+	for _, e := range entries {
+		info, err2 := e.Info()
+		if err2 != nil {
+			log(ctx).Errorf("unable to read file info: %v", err2)
+			return
+		}
+
+		fileInfos = append(fileInfos, info)
+	}
+
+	sort.Slice(fileInfos, func(i, j int) bool {
+		return fileInfos[i].ModTime().After(fileInfos[j].ModTime())
 	})
 
 	cnt := 0
 
-	for _, e := range entries {
-		if !strings.HasPrefix(e.Name(), logFileNamePrefix) {
+	for _, fi := range fileInfos {
+		if !strings.HasPrefix(fi.Name(), logFileNamePrefix) {
 			continue
 		}
 
-		if !strings.HasSuffix(e.Name(), logFileNameSuffix) {
+		if !strings.HasSuffix(fi.Name(), logFileNameSuffix) {
 			continue
 		}
 
 		cnt++
 
-		if cnt > maxCount || e.ModTime().Before(timeCutoff) {
-			if err = os.Remove(filepath.Join(dirname, e.Name())); err != nil && !os.IsNotExist(err) {
+		if cnt > maxCount || fi.ModTime().Before(timeCutoff) {
+			if err = os.Remove(filepath.Join(dirname, fi.Name())); err != nil && !os.IsNotExist(err) {
 				log(ctx).Errorf("unable to remove log file: %v", err)
 			}
 		}

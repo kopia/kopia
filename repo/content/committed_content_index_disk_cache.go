@@ -2,7 +2,6 @@ package content
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -140,7 +139,7 @@ func writeTempFileAtomic(dirname string, data []byte) (string, error) {
 func (c *diskCommittedContentIndexCache) expireUnused(ctx context.Context, used []blob.ID) error {
 	c.log.Debugf("expireUnused (except %v)", used)
 
-	entries, err := ioutil.ReadDir(c.dirname)
+	entries, err := os.ReadDir(c.dirname)
 	if err != nil {
 		return errors.Wrap(err, "can't list cache")
 	}
@@ -148,9 +147,14 @@ func (c *diskCommittedContentIndexCache) expireUnused(ctx context.Context, used 
 	remaining := map[blob.ID]os.FileInfo{}
 
 	for _, ent := range entries {
+		fi, err := ent.Info()
+		if err != nil {
+			return errors.Wrap(err, "failed to read file info")
+		}
+
 		if strings.HasSuffix(ent.Name(), simpleIndexSuffix) {
 			n := strings.TrimSuffix(ent.Name(), simpleIndexSuffix)
-			remaining[blob.ID(n)] = ent
+			remaining[blob.ID(n)] = fi
 		}
 	}
 

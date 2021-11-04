@@ -1,7 +1,6 @@
 package fio
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -25,16 +24,21 @@ func TestWriteFiles(t *testing.T) {
 	require.NoError(t, err)
 
 	fullPath := filepath.Join(r.LocalDataDir, relativeWritePath)
-	dir, err := ioutil.ReadDir(fullPath)
+	dirEntries, err := os.ReadDir(fullPath)
 	require.NoError(t, err)
 
-	if got, want := len(dir), numFiles; got != want {
+	if got, want := len(dirEntries), numFiles; got != want {
 		t.Errorf("Did not get expected number of files %v (actual) != %v (expected", got, want)
 	}
 
 	sizeTot := int64(0)
 
-	for _, fi := range dir {
+	for _, entry := range dirEntries {
+		fi, err := entry.Info()
+		if err != nil {
+			t.Fatalf("Failed to read file info: %v", err)
+		}
+
 		sizeTot += fi.Size()
 	}
 
