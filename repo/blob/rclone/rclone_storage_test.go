@@ -231,7 +231,7 @@ func TestRCloneProviders(t *testing.T) {
 			// at the end of a test delete all blobs that were created.
 			defer cleanupAllBlobs(ctx, t, st, 0)
 
-			blobtesting.VerifyStorage(ctx, t, logging.NewWrapper(st, t.Logf, "[RCLONE-STORAGE] "))
+			blobtesting.VerifyStorage(ctx, t, logging.NewWrapper(st, testlogging.NewTestLogger(t), "[RCLONE-STORAGE] "))
 			blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
 		})
 	}

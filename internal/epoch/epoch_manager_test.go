@@ -91,7 +91,7 @@ func newTestEnv(t *testing.T) *epochManagerTestEnv {
 		Base: st,
 	}
 	st = fs
-	st = logging.NewWrapper(st, t.Logf, "[STORAGE] ")
+	st = logging.NewWrapper(st, testlogging.NewTestLogger(t), "[STORAGE] ")
 	te := &epochManagerTestEnv{unloggedst: unloggedst, st: st, ft: ft}
 	m := NewManager(te.st, Parameters{
 		Enabled:                 true,

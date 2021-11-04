@@ -266,7 +266,7 @@ func runStress(t *testing.T, opt *StressOptions) {
 				log := logging.WithPrefix(fmt.Sprintf("%v::o%v", filepath.Base(configFile), i), logging.Broadcast{
 					logging.Printf(func(msg string, args ...interface{}) {
 						fmt.Fprintf(logFile, clock.Now().Format("2006-01-02T15:04:05.000000Z07:00")+" "+msg+"\n", args...)
-					})("test"),
+					}, ""),
 				})
 
 				ctx2 := logging.WithLogger(ctx, func(module string) logging.Logger {

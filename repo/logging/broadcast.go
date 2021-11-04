@@ -10,6 +10,13 @@ func (b Broadcast) Debugf(msg string, args ...interface{}) {
 	}
 }
 
+// Debugw implements Logger.
+func (b Broadcast) Debugw(msg string, keyValuePairs ...interface{}) {
+	for _, l := range b {
+		l.Debugw(msg, keyValuePairs...)
+	}
+}
+
 // Infof implements Logger.
 func (b Broadcast) Infof(msg string, args ...interface{}) {
 	for _, l := range b {

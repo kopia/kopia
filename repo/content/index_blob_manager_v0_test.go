@@ -192,9 +192,9 @@ func TestIndexBlobManagerStress(t *testing.T) {
 
 	for actorID := 0; actorID < numActors; actorID++ {
 		actorID := actorID
-		loggedSt := logging.NewWrapper(st, func(m string, args ...interface{}) {
+		loggedSt := logging.NewWrapper(st, repologging.Printf(func(m string, args ...interface{}) {
 			t.Logf(fmt.Sprintf("@%v actor[%v]:", fakeTimeFunc().Format("150405.000"), actorID)+m, args...)
-		}, "")
+		}, ""), "")
 		contentPrefix := fmt.Sprintf("a%v", actorID)
 
 		eg.Go(func() error {
@@ -284,9 +284,9 @@ func TestCompactionCreatesPreviousIndex(t *testing.T) {
 
 	st := blobtesting.NewMapStorage(storageData, nil, fakeTimeFunc)
 	st = blobtesting.NewEventuallyConsistentStorage(st, testEventualConsistencySettleTime, fakeTimeFunc)
-	st = logging.NewWrapper(st, func(msg string, args ...interface{}) {
+	st = logging.NewWrapper(st, repologging.Printf(func(msg string, args ...interface{}) {
 		t.Logf("[store] "+fakeTimeFunc().Format("150405.000")+" "+msg, args...)
-	}, "store: ")
+	}, ""), "")
 	m := newIndexBlobManagerForTesting(t, st, fakeTimeFunc)
 
 	numWritten := 0
@@ -364,9 +364,9 @@ func verifyIndexBlobManagerPreventsResurrectOfDeletedContents(t *testing.T, dela
 
 	st := blobtesting.NewMapStorage(storageData, nil, fakeTimeFunc)
 	st = blobtesting.NewEventuallyConsistentStorage(st, testEventualConsistencySettleTime, fakeTimeFunc)
-	st = logging.NewWrapper(st, func(msg string, args ...interface{}) {
-		t.Logf("[store] "+fakeTimeFunc().Format("150405.000")+" "+msg, args...)
-	}, "store: ")
+	st = logging.NewWrapper(st, repologging.Printf(func(msg string, args ...interface{}) {
+		t.Logf(fakeTimeFunc().Format("150405.000")+" "+msg, args...)
+	}, ""), "")
 	m := newIndexBlobManagerForTesting(t, st, fakeTimeFunc)
 
 	numWritten := 0
@@ -782,7 +782,7 @@ func newIndexBlobManagerForTesting(t *testing.T, st blob.Storage, localTimeNow f
 		15*time.Minute,
 	)
 
-	log := repologging.Printf(t.Logf)("test")
+	log := repologging.Printf(t.Logf, "test")
 
 	m := &indexBlobManagerV0{
 		st: st,

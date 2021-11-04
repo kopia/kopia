@@ -11,6 +11,7 @@ type LoggerFactory func(module string) Logger
 // Logger is an interface used by Kopia to output logs.
 type Logger interface {
 	Debugf(msg string, args ...interface{})
+	Debugw(msg string, keyValuePairs ...interface{})
 	Infof(msg string, args ...interface{})
 	Warnf(msg string, args ...interface{})
 	Errorf(msg string, args ...interface{})

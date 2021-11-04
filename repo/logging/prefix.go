@@ -11,6 +11,11 @@ func (p *prefixLogger) Debugf(msg string, args ...interface{}) {
 	p.inner.Debugf(p.prefixFunc()+msg, args...)
 }
 
+// Debugw implements Logger.
+func (p *prefixLogger) Debugw(msg string, keyValuePairs ...interface{}) {
+	p.inner.Debugw(p.prefixFunc()+msg, keyValuePairs...)
+}
+
 // Infof implements Logger.
 func (p *prefixLogger) Infof(msg string, args ...interface{}) {
 	p.inner.Infof(p.prefixFunc()+msg, args...)

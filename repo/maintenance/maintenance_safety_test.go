@@ -21,7 +21,7 @@ func (s *formatSpecificTestSuite) TestMaintenanceSafety(t *testing.T) {
 
 	ctx, env := repotesting.NewEnvironment(t, s.formatVersion, repotesting.Options{
 		OpenOptions: func(o *repo.Options) {
-			o.TraceStorage = t.Logf
+			o.TraceStorage = true
 			o.TimeNowFunc = ft.NowFunc()
 		},
 	})
