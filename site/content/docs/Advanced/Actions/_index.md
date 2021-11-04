@@ -143,41 +143,71 @@ zfs destroy $ZPOOL_NAME@$KOPIA_SNAPSHOT_ID
 When backing up files opened with exclusive lock in Windows, Kopia would fail the snapshot task because it can't read the file content.
 One of the popular solutions is taking a [shadow copy](https://en.wikipedia.org/wiki/Shadow_Copy) of the storage volume and ask Kopia to backup that instead.
 
-In this example, we will use PowerShell to take a shadow copy in the "before" action of the target directory and clean everything up in the "after" action.
+In this example, we will use [PowerShell](https://github.com/PowerShell/PowerShell/) to take a shadow copy in the "before" action of the target directory and clean everything up in the "after" action.
+The script also self-elevates as administrator (required to take shadow copy) if Kopia is ran with an unprivileged account.
+
+Make sure `pwsh` is reachable in the PATH environment variable.
 
 before.ps1:
 
 ```powershell
-$sourceDrive = Split-Path -Qualifier $env:KOPIA_SOURCE_PATH
-$sourcePath = Split-Path -NoQualifier $env:KOPIA_SOURCE_PATH
-# use Kopia snapshot ID as mount point name for extra caution for duplication
-$mountPoint = "${PSScriptRoot}\${env:KOPIA_SNAPSHOT_ID}"
-
-$shadowId = (Invoke-CimMethod -ClassName Win32_ShadowCopy -MethodName Create -Arguments @{ Volume = "${sourceDrive}\" }).ShadowID
-$shadowDevice = (Get-CimInstance -ClassName Win32_ShadowCopy | Where-Object { $_.ID -eq $shadowId }).DeviceObject
-if (-not $shadowDevice) {
-    # fail the Kopia snapshot early if shadow copy was not created
-    exit 1
+if ($args.Length -eq 0) {
+    $kopiaSnapshotId = $env:KOPIA_SNAPSHOT_ID
+    $kopiaSourcePath = $env:KOPIA_SOURCE_PATH
+} else {
+    $kopiaSnapshotId = $args[0]
+    $kopiaSourcePath = $args[1]
 }
 
-cmd /c mklink /d $mountPoint "${shadowDevice}\"
+$sourceDrive = Split-Path -Qualifier $kopiaSourcePath
+$sourcePath = Split-Path -NoQualifier $kopiaSourcePath
+# use Kopia snapshot ID as mount point name for extra caution for duplication
+$mountPoint = "${PSScriptRoot}\${kopiaSnapshotId}"
+
+if (([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] 'Administrator')) {
+    $shadowId = (Invoke-CimMethod -ClassName Win32_ShadowCopy -MethodName Create -Arguments @{ Volume = "${sourceDrive}\" }).ShadowID
+    $shadowDevice = (Get-CimInstance -ClassName Win32_ShadowCopy | Where-Object { $_.ID -eq $shadowId }).DeviceObject
+    if (-not $shadowDevice) {
+        # fail the Kopia snapshot early if shadow copy was not created
+        exit 1
+    }
+
+    cmd /c mklink /d $mountPoint "${shadowDevice}\"
+} else {
+    $proc = Start-Process 'pwsh' '-f', $MyInvocation.MyCommand.Path, $kopiaSnapshotId, $kopiaSourcePath -PassThru -Verb RunAs -WindowStyle Hidden -Wait
+    if ($proc.ExitCode) {
+        exit $proc.ExitCode
+    }
+}
+
 Write-Output "KOPIA_SNAPSHOT_PATH=${mountPoint}${sourcePath}"
 ```
 
 after.ps1:
 
 ```powershell
-$mountPoint = Get-Item "${PSScriptRoot}\${env:KOPIA_SNAPSHOT_ID}"
-$mountedVolume = $mountPoint.Target
-Remove-Item $mountPoint
-Get-CimInstance -ClassName Win32_ShadowCopy | Where-Object { "$($_.DeviceObject)\" -eq "\\?\${mountedVolume}" } | Remove-CimInstance
+if ($args.Length -eq 0) {
+    $kopiaSnapshotId = $env:KOPIA_SNAPSHOT_ID
+} else {
+    $kopiaSnapshotId = $args[0]
+}
+
+if (([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] 'Administrator')) {
+    $mountPoint = Get-Item "${PSScriptRoot}\${kopiaSnapshotId}"
+    $mountedVolume = $mountPoint.Target
+
+    Remove-Item $mountPoint
+    Get-CimInstance -ClassName Win32_ShadowCopy | Where-Object { "$($_.DeviceObject)\" -eq "\\?\${mountedVolume}" } | Remove-CimInstance
+} else {
+    Start-Process 'pwsh' '-f', $MyInvocation.MyCommand.Path, $kopiaSnapshotId -Verb RunAs -WindowStyle Hidden -Wait
+}
 ```
 
 To install the actions:
 
-```
-kopia policy set <target_dir> --before-folder-action 'pwsh -WindowStyle Hidden <path_to_script>\before.ps1'
-kopia policy set <target_dir> --after-folder-action  'pwsh -WindowStyle Hidden <path_to_script>\after.ps1'
+```shell
+kopia policy set <target_dir> --before-folder-action "pwsh -WindowStyle Hidden <path_to_script>\before.ps1"
+kopia policy set <target_dir> --after-folder-action  "pwsh -WindowStyle Hidden <path_to_script>\after.ps1"
 ```
 
 #### Contributions Welcome
