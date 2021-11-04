@@ -151,7 +151,12 @@ func (c *loggingFlags) setupConsoleCore() zapcore.Core {
 		}
 	}
 
-	if !c.jsonLogConsole {
+	if c.jsonLogConsole {
+		ec.EncodeLevel = zapcore.CapitalLevelEncoder
+
+		ec.NameKey = "n"
+		ec.EncodeName = zapcore.FullNameEncoder
+	} else {
 		ec.EncodeLevel = func(l zapcore.Level, pae zapcore.PrimitiveArrayEncoder) {
 			if l == zap.InfoLevel {
 				// info log does not have a prefix.
@@ -164,13 +169,6 @@ func (c *loggingFlags) setupConsoleCore() zapcore.Core {
 				zapcore.CapitalColorLevelEncoder(l, pae)
 			}
 		}
-	} else {
-		ec.EncodeLevel = zapcore.CapitalLevelEncoder
-	}
-
-	if c.jsonLogConsole {
-		ec.NameKey = "n"
-		ec.EncodeName = zapcore.FullNameEncoder
 	}
 
 	return zapcore.NewCore(
