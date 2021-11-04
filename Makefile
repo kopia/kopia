@@ -24,8 +24,16 @@ ifeq ($(GOOS),darwin)
 	kopia_ui_embedded_exe=dist/kopia_darwin_universal/kopia
 endif
 
+ifeq ($(GOOS),linux)
+
 ifeq ($(GOARCH),arm)
-	kopia_ui_embedded_exe=dist/kopia_linux_arm_6/kopia
+	kopia_ui_embedded_exe=dist/kopia_linux_armv7l/kopia
+endif
+
+ifeq ($(GOARCH),amd64)
+	kopia_ui_embedded_exe=dist/kopia_linux_x64/kopia
+endif
+
 endif
 
 GOTESTSUM_FORMAT=pkgname-and-test-fails
@@ -138,9 +146,13 @@ endif
 
 # On Linux use use goreleaser which will build Kopia for all supported Linux architectures
 # and creates .tar.gz, rpm and deb packages.
-dist/kopia_linux_amd64/kopia dist/kopia_linux_arm64/kopia dist/kopia_linux_arm_6/kopia: htmlui/build/index.html $(all_go_sources)
+dist/kopia_linux_x64/kopia dist/kopia_linux_arm64/kopia dist/kopia_linux_armv7l/kopia: htmlui/build/index.html $(all_go_sources)
 ifeq ($(GOARCH),amd64)
 	$(MAKE) goreleaser
+	rm -f dist/kopia_linux_x64
+	ln -sf kopia_linux_amd64 dist/kopia_linux_x64
+	rm -f dist/kopia_linux_armv7l
+	ln -sf kopia_linux_arm_6 dist/kopia_linux_armv7l
 else
 	go build $(KOPIA_BUILD_FLAGS) -o $(kopia_ui_embedded_exe) -tags $(KOPIA_BUILD_TAGS)
 endif
