@@ -55,6 +55,13 @@ electron_builder_flags+=--x64 --arm64
 endif
 endif
 
+# build x86_64 and arm64 binaries
+ifeq ($(GOOS),linux)
+ifeq ($(KOPIA_UI_CURRENT_ARCH_ONLY),)
+electron_builder_flags+=--x64 --arm64
+endif
+endif
+
 dev: node_modules/.up-to-date
 	$(npm) $(npm_flags) run dev
 
