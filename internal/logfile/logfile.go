@@ -278,6 +278,11 @@ func sweepLogDir(ctx context.Context, dirname string, maxCount int, maxAge time.
 
 	for _, e := range entries {
 		info, err2 := e.Info()
+		if os.IsNotExist(err2) {
+			// we lost the race, the file was deleted since it was listed.
+			continue
+		}
+
 		if err2 != nil {
 			log(ctx).Errorf("unable to read file info: %v", err2)
 			return
