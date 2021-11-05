@@ -235,7 +235,25 @@ func TestRCloneProviders(t *testing.T) {
 func cleanupOldData(t *testing.T, rcloneExe, remotePath string) {
 	t.Helper()
 
-	c := exec.Command(rcloneExe, "lsjson", remotePath)
+	configFile := os.Getenv("KOPIA_RCLONE_CONFIG_FILE")
+
+	if cfg := os.Getenv("KOPIA_RCLONE_EMBEDDED_CONFIG_B64"); cfg != "" {
+		b, err := base64.StdEncoding.DecodeString(cfg)
+		if err != nil {
+			t.Fatalf("unable to decode KOPIA_RCLONE_EMBEDDED_CONFIG_B64: %v", err)
+		}
+
+		tmpDir := testutil.TempDirectory(t)
+
+		configFile = filepath.Join(tmpDir, "rclone.conf")
+
+		// nolint:gomnd
+		if err = os.WriteFile(configFile, b, 0o600); err != nil {
+			t.Fatalf("unable to write config file: %v", err)
+		}
+	}
+
+	c := exec.Command(rcloneExe, "--config", configFile, "lsjson", remotePath)
 	b, err := c.Output()
 	require.NoError(t, err)
 
@@ -256,7 +274,7 @@ func cleanupOldData(t *testing.T, rcloneExe, remotePath string) {
 		if age > cleanupAge {
 			t.Logf("purging: %v %v", e.Name, age)
 
-			if err := exec.Command(rcloneExe, "purge", remotePath+"/"+e.Name).Run(); err != nil {
+			if err := exec.Command(rcloneExe, "--config", configFile, "purge", remotePath+"/"+e.Name).Run(); err != nil {
 				t.Logf("error purging %v: %v", e.Name, err)
 			}
 		}
