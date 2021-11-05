@@ -45,7 +45,7 @@ require (
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
 	github.com/stretchr/testify v1.7.0
-	github.com/studio-b12/gowebdav v0.0.0-20210917133250-a3a86976a1df
+	github.com/studio-b12/gowebdav v0.0.0-20211106090535-29e74efa701f
 	github.com/tg123/go-htpasswd v1.2.0
 	github.com/zalando/go-keyring v0.1.1
 	github.com/zeebo/blake3 v0.2.1
