@@ -1,8 +1,8 @@
 package rclone_test
 
 import (
-	"context"
 	"encoding/base64"
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -25,7 +25,7 @@ import (
 	"github.com/kopia/kopia/repo/blob/rclone"
 )
 
-const defaultCleanupAge = time.Hour
+const cleanupAge = 4 * time.Hour
 
 var rcloneExternalProviders = map[string]string{
 	"GoogleDrive": "gdrive:/kopia",
@@ -208,9 +208,7 @@ func TestRCloneProviders(t *testing.T) {
 		t.Run("Cleanup-"+name, func(t *testing.T) {
 			t.Parallel()
 
-			ctx := testlogging.Context(t)
-
-			cleanupOldData(ctx, t, opt, defaultCleanupAge)
+			cleanupOldData(t, rcloneExe, rp)
 		})
 
 		t.Run(name, func(t *testing.T) {
@@ -228,43 +226,39 @@ func TestRCloneProviders(t *testing.T) {
 
 			defer st.Close(ctx)
 
-			// at the end of a test delete all blobs that were created.
-			defer cleanupAllBlobs(ctx, t, st, 0)
-
 			blobtesting.VerifyStorage(ctx, t, logging.NewWrapper(st, testlogging.NewTestLogger(t), "[RCLONE-STORAGE] "))
 			blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
 		})
 	}
 }
 
-func cleanupOldData(ctx context.Context, t *testing.T, opt *rclone.Options, cleanupAge time.Duration) {
+func cleanupOldData(t *testing.T, rcloneExe, remotePath string) {
 	t.Helper()
 
-	t.Logf("cleaning up %v", opt.RemotePath)
-	defer t.Logf("finished cleaning up %v", opt.RemotePath)
+	c := exec.Command(rcloneExe, "lsjson", remotePath)
+	b, err := c.Output()
+	require.NoError(t, err)
 
-	// cleanup old data from the bucket
-	st, err := rclone.New(ctx, opt)
-	if err != nil {
-		t.Fatalf("err: %v", err)
+	var entries []struct {
+		IsDir   bool
+		Name    string
+		ModTime time.Time
 	}
 
-	defer st.Close(ctx)
+	require.NoError(t, json.Unmarshal(b, &entries))
 
-	cleanupAllBlobs(ctx, t, st, cleanupAge)
-}
+	for _, e := range entries {
+		if !e.IsDir {
+			continue
+		}
 
-func cleanupAllBlobs(ctx context.Context, t *testing.T, st blob.Storage, cleanupAge time.Duration) {
-	t.Helper()
+		age := clock.Now().Sub(e.ModTime)
+		if age > cleanupAge {
+			t.Logf("purging: %v %v", e.Name, age)
 
-	now := clock.Now()
-
-	_ = st.ListBlobs(ctx, "", func(it blob.Metadata) error {
-		if age := now.Sub(it.Timestamp); age > cleanupAge {
-			if err := st.DeleteBlob(ctx, it.BlobID); err != nil {
-				t.Errorf("warning: unable to delete %q: %v", it.BlobID, err)
+			if err := exec.Command(rcloneExe, "purge", remotePath+"/"+e.Name).Run(); err != nil {
+				t.Logf("error purging %v: %v", e.Name, err)
 			}
 		}
-		return nil
-	})
+	}
 }
