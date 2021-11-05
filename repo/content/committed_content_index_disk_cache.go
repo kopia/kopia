@@ -148,6 +148,11 @@ func (c *diskCommittedContentIndexCache) expireUnused(ctx context.Context, used 
 
 	for _, ent := range entries {
 		fi, err := ent.Info()
+		if os.IsNotExist(err) {
+			// we lost the race, the file was deleted since it was listed.
+			continue
+		}
+
 		if err != nil {
 			return errors.Wrap(err, "failed to read file info")
 		}

@@ -233,6 +233,12 @@ func (fs *fsImpl) ReadDir(ctx context.Context, dirname string) ([]os.FileInfo, e
 
 	for _, e := range v.([]os.DirEntry) {
 		fi, err := e.Info()
+
+		if os.IsNotExist(err) {
+			// we lost the race, the file was deleted since it was listed.
+			continue
+		}
+
 		if err != nil {
 			// nolint:wrapcheck
 			return nil, err

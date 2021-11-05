@@ -127,6 +127,11 @@ func scanCacheDir(dirname string) (fileCount int, totalFileLength int64, err err
 
 	for _, e := range entries {
 		fi, err := e.Info()
+		if os.IsNotExist(err) {
+			// we lost the race, the file was deleted since it was listed.
+			continue
+		}
+
 		if err != nil {
 			return 0, 0, errors.Wrap(err, "unable to read file info")
 		}
