@@ -84,7 +84,12 @@ for f in $rpm_files; do
       dists="unstable"
     fi
 
-    echo "f: $f arch: $arch dists: $dists"
+    if [[ "$architectures" != *"$arch"* ]]; then
+      echo "ignoring unsupported architecture: $f arch: $arch dists: $dists"
+      continue
+    fi
+
+    echo "signing: $f arch: $arch dists: $dists"
 
     bn=$(basename $f)
     for d in $dists; do
