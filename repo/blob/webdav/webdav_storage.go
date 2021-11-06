@@ -54,25 +54,32 @@ func (d *davStorageImpl) GetBlobFromPath(ctx context.Context, dirPath, path stri
 		return blob.ErrInvalidRange
 	}
 
-	s, err := d.cli.ReadStream(path)
+	var (
+		s   io.ReadCloser
+		err error
+	)
+
+	switch {
+	case length < 0:
+		s, err = d.cli.ReadStream(path)
+	case length == 0:
+		s, err = d.cli.ReadStreamRange(path, offset, 1)
+	default:
+		s, err = d.cli.ReadStreamRange(path, offset, length)
+	}
+
 	if err != nil {
 		return d.translateError(err)
 	}
 
 	defer s.Close() // nolint:errcheck
 
-	if length < 0 {
-		// nolint:wrapcheck
-		return iocopy.JustCopy(output, s)
+	if length == 0 {
+		return nil
 	}
 
-	// this is horrible, but gowebdav does not support seeking (yet).
-	if err := iocopy.JustCopy(io.Discard, io.LimitReader(s, offset)); err != nil {
-		return errors.Wrap(err, "error discarding data from stream")
-	}
-
-	if err := iocopy.JustCopy(output, io.LimitReader(s, length)); err != nil {
-		return errors.Wrap(err, "error reading stream")
+	if err := iocopy.JustCopy(output, s); err != nil {
+		return errors.Wrap(err, "error populating output")
 	}
 
 	// nolint:wrapcheck
