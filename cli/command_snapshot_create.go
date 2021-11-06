@@ -38,6 +38,9 @@ type commandSnapshotCreate struct {
 	snapshotCreateCheckpointUploadLimitMB int64
 	snapshotCreateTags                    []string
 
+	logDirDetail   int
+	logEntryDetail int
+
 	jo  jsonOutput
 	svc appServices
 	out textOutput
@@ -60,6 +63,12 @@ func (c *commandSnapshotCreate) setup(svc appServices, parent commandParent) {
 	cmd.Flag("force-disable-actions", "Disable snapshot actions even if globally enabled on this client").Hidden().BoolVar(&c.snapshotCreateForceDisableActions)
 	cmd.Flag("stdin-file", "File path to be used for stdin data snapshot.").StringVar(&c.snapshotCreateStdinFileName)
 	cmd.Flag("tags", "Tags applied on the snapshot. Must be provided in the <key>:<value> format.").StringsVar(&c.snapshotCreateTags)
+
+	c.logDirDetail = -1
+	c.logEntryDetail = -1
+
+	cmd.Flag("log-dir-detail", "Override log level for directories").IntVar(&c.logDirDetail)
+	cmd.Flag("log-entry-detail", "Override log level for entries").IntVar(&c.logEntryDetail)
 
 	c.jo.setup(svc, cmd)
 	c.out.setup(svc)
@@ -190,6 +199,18 @@ func (c *commandSnapshotCreate) setupUploader(rep repo.RepositoryWriter) *snapsh
 
 	if c.snapshotCreateForceDisableActions {
 		u.EnableActions = false
+	}
+
+	if l := c.logDirDetail; l != -1 {
+		ld := policy.LogDetail(l)
+
+		u.OverrideDirLogDetail = &ld
+	}
+
+	if l := c.logEntryDetail; l != -1 {
+		ld := policy.LogDetail(l)
+
+		u.OverrideEntryLogDetail = &ld
 	}
 
 	if interval := c.snapshotCreateCheckpointInterval; interval != 0 {

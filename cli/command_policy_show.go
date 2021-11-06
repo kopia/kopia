@@ -93,6 +93,8 @@ func printPolicy(out *textOutput, p *policy.Policy, parents []*policy.Policy) {
 	printCompressionPolicy(out, p, parents)
 	out.printStdout("\n")
 	printActions(out, p, parents)
+	out.printStdout("\n")
+	printLoggingPolicy(out, p, parents)
 }
 
 func printRetentionPolicy(out *textOutput, p *policy.Policy, parents []*policy.Policy) {
@@ -196,6 +198,46 @@ func printErrorHandlingPolicy(out *textOutput, p *policy.Policy, parents []*poli
 		p.ErrorHandlingPolicy.IgnoreUnknownTypes.OrDefault(true),
 		getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
 			return pol.ErrorHandlingPolicy.IgnoreUnknownTypes != nil
+		}))
+}
+
+func printLoggingPolicy(out *textOutput, p *policy.Policy, parents []*policy.Policy) {
+	out.printStdout("Logging details (%v-none, %v-maximum):\n", policy.LogDetailNone, policy.LogDetailMax)
+
+	out.printStdout("  Directory snapshotted:  %5v       %v\n",
+		p.LoggingPolicy.Directories.Snapshotted.OrDefault(policy.LogDetailNone),
+		getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
+			return pol.LoggingPolicy.Directories.Snapshotted != nil
+		}))
+
+	out.printStdout("  Directory ignored:      %5v       %v\n",
+		p.LoggingPolicy.Directories.Ignored.OrDefault(policy.LogDetailNone),
+		getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
+			return pol.LoggingPolicy.Directories.Ignored != nil
+		}))
+
+	out.printStdout("  Entry snapshotted:      %5v       %v\n",
+		p.LoggingPolicy.Entries.Snapshotted.OrDefault(policy.LogDetailNone),
+		getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
+			return pol.LoggingPolicy.Entries.Snapshotted != nil
+		}))
+
+	out.printStdout("  Entry ignored:          %5v       %v\n",
+		p.LoggingPolicy.Entries.Ignored.OrDefault(policy.LogDetailNone),
+		getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
+			return pol.LoggingPolicy.Entries.Ignored != nil
+		}))
+
+	out.printStdout("  Entry cache hit         %5v       %v\n",
+		p.LoggingPolicy.Entries.CacheHit.OrDefault(policy.LogDetailNone),
+		getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
+			return pol.LoggingPolicy.Entries.CacheHit != nil
+		}))
+
+	out.printStdout("  Entry cache miss        %5v       %v\n",
+		p.LoggingPolicy.Entries.CacheMiss.OrDefault(policy.LogDetailNone),
+		getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
+			return pol.LoggingPolicy.Entries.CacheMiss != nil
 		}))
 }
 
