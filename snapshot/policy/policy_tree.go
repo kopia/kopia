@@ -11,6 +11,7 @@ var DefaultPolicy = &Policy{
 	CompressionPolicy:   defaultCompressionPolicy,
 	ErrorHandlingPolicy: defaultErrorHandlingPolicy,
 	SchedulingPolicy:    defaultSchedulingPolicy,
+	LoggingPolicy:       defaultLoggingPolicy,
 	Actions:             defaultActionsPolicy,
 }
 
