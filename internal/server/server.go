@@ -17,6 +17,7 @@ import (
 
 	"github.com/kopia/kopia/internal/auth"
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/ctxutil"
 	"github.com/kopia/kopia/internal/passwordpersist"
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/internal/uitask"
@@ -271,7 +272,9 @@ func (s *Server) handleAPIPossiblyNotConnected(isAuthorized isAuthorizedFunc, f 
 
 		ctx := r.Context()
 
-		log(ctx).Debugf("request %v (%v bytes)", r.URL, len(body))
+		if s.options.LogRequests {
+			log(ctx).Debugf("request %v (%v bytes)", r.URL, len(body))
+		}
 
 		w.Header().Set("Content-Type", "application/json")
 		e := json.NewEncoder(w)
@@ -301,7 +304,10 @@ func (s *Server) handleAPIPossiblyNotConnected(isAuthorized isAuthorizedFunc, f 
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.WriteHeader(err.httpErrorCode)
-		log(ctx).Debugf("error code %v message %v", err.apiErrorCode, err.message)
+
+		if s.options.LogRequests && err.apiErrorCode == serverapi.ErrorNotConnected {
+			log(ctx).Debugf("%v: error code %v message %v", r.URL, err.apiErrorCode, err.message)
+		}
 
 		_ = e.Encode(&serverapi.ErrorResponse{
 			Code:  err.apiErrorCode,
@@ -423,6 +429,10 @@ func (s *Server) endUpload(ctx context.Context, src snapshot.SourceInfo) {
 func (s *Server) SetRepository(ctx context.Context, rep repo.Repository) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	// ensure context does not have a deadline since we'll be
+	// launching goroutines that need to outlive the current request.
+	ctx = ctxutil.Detach(ctx)
 
 	if s.rep == rep {
 		// nothing to do
@@ -635,6 +645,7 @@ type Options struct {
 	Authorizer           auth.Authorizer
 	PasswordPersist      passwordpersist.Strategy
 	AuthCookieSigningKey string
+	LogRequests          bool
 	UIUser               string // name of the user allowed to access the UI
 }
 

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"html"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -58,6 +59,8 @@ type commandServerStart struct {
 	serverStartTLSPrintFullServerCert   bool
 	uiTitlePrefix                       string
 
+	logServerRequests bool
+
 	sf  serverFlags
 	svc advancedAppServices
 	out textOutput
@@ -93,6 +96,8 @@ func (c *commandServerStart) setup(svc advancedAppServices, parent commandParent
 
 	cmd.Flag("ui-title-prefix", "UI title prefix").Hidden().Envar("KOPIA_UI_TITLE_PREFIX").StringVar(&c.uiTitlePrefix)
 
+	cmd.Flag("log-server-requests", "Log server requests").Hidden().BoolVar(&c.logServerRequests)
+
 	c.sf.setup(cmd)
 	c.co.setup(cmd)
 	c.svc = svc
@@ -119,6 +124,7 @@ func (c *commandServerStart) run(ctx context.Context, rep repo.Repository) error
 		Authorizer:           auth.DefaultAuthorizer(),
 		AuthCookieSigningKey: c.serverAuthCookieSingingKey,
 		UIUser:               c.sf.serverUsername,
+		LogRequests:          c.logServerRequests,
 		PasswordPersist:      c.svc.passwordPersistenceStrategy(),
 	})
 	if err != nil {
@@ -144,7 +150,13 @@ func (c *commandServerStart) run(ctx context.Context, rep repo.Repository) error
 		mux.Handle("/", srv.RequireUIUserAuth(c.serveIndexFileForKnownUIRoutes(server.AssetFile())))
 	}
 
-	httpServer := &http.Server{Addr: stripProtocol(c.sf.serverAddress)}
+	httpServer := &http.Server{
+		Addr: stripProtocol(c.sf.serverAddress),
+		BaseContext: func(l net.Listener) context.Context {
+			return ctx
+		},
+	}
+
 	srv.OnShutdown = httpServer.Shutdown
 
 	onCtrlC(func() {
