@@ -32,8 +32,8 @@ func TestSnapshotEstimate(t *testing.T) {
 	out = env.RunAndExpectSuccess(t, "snapshot", "estimate", dir)
 	require.Contains(t, out, "Snapshot includes 1 file(s), total size 75 KB")
 	require.Contains(t, out, "Snapshot excludes 2 file(s), total size 75 KB")
-	require.Contains(t, out, " - ./file2.txt - 50 KB")
-	require.Contains(t, out, " - ./subdir/file2.txt - 25 KB")
+	require.Contains(t, out, " - file2.txt - 50 KB")
+	require.Contains(t, out, " - subdir/file2.txt - 25 KB")
 	require.Contains(t, out, "Snapshot excludes no directories.")
 
 	// ignore a dir
@@ -41,8 +41,8 @@ func TestSnapshotEstimate(t *testing.T) {
 	out = env.RunAndExpectSuccess(t, "snapshot", "estimate", dir)
 	require.Contains(t, out, "Snapshot includes 1 file(s), total size 75 KB")
 	require.Contains(t, out, "Snapshot excludes 1 file(s), total size 50 KB")
-	require.Contains(t, out, " - ./file2.txt - 50 KB")
-	require.Contains(t, out, " - ./subdir")
+	require.Contains(t, out, " - file2.txt - 50 KB")
+	require.Contains(t, out, " - subdir")
 	require.Contains(t, out, "Snapshot excludes 1 directories. Examples:")
 }
 

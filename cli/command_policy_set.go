@@ -21,6 +21,7 @@ type commandPolicySet struct {
 	policyCompressionFlags
 	policyErrorFlags
 	policyFilesFlags
+	policyLoggingFlags
 	policyRetentionFlags
 	policySchedulingFlags
 }
@@ -35,6 +36,7 @@ func (c *commandPolicySet) setup(svc appServices, parent commandParent) {
 	c.policyCompressionFlags.setup(cmd)
 	c.policyErrorFlags.setup(cmd)
 	c.policyFilesFlags.setup(cmd)
+	c.policyLoggingFlags.setup(cmd)
 	c.policyRetentionFlags.setup(cmd)
 	c.policySchedulingFlags.setup(cmd)
 
@@ -64,7 +66,7 @@ func (c *commandPolicySet) run(ctx context.Context, rep repo.RepositoryWriter) e
 			return errors.Wrap(err, "could not get defined policy")
 		}
 
-		log(ctx).Infof("Setting policy for %v\n", target)
+		log(ctx).Infof("Setting policy for %v", target)
 
 		changeCount := 0
 		if err := c.setPolicyFromFlags(ctx, p, &changeCount); err != nil {
@@ -108,6 +110,10 @@ func (c *commandPolicySet) setPolicyFromFlags(ctx context.Context, p *policy.Pol
 		return errors.Wrap(err, "actions policy")
 	}
 
+	if err := c.setLoggingPolicyFromFlags(ctx, &p.LoggingPolicy, changeCount); err != nil {
+		return errors.Wrap(err, "actions policy")
+	}
+
 	// It's not really a list, just optional boolean, last one wins.
 	for _, inherit := range c.inherit {
 		*changeCount++
@@ -120,7 +126,7 @@ func (c *commandPolicySet) setPolicyFromFlags(ctx context.Context, p *policy.Pol
 
 func applyPolicyStringList(ctx context.Context, desc string, val *[]string, add, remove []string, clear bool, changeCount *int) {
 	if clear {
-		log(ctx).Infof(" - removing all from %q\n", desc)
+		log(ctx).Infof(" - removing all from %q", desc)
 
 		*changeCount++
 
@@ -137,7 +143,7 @@ func applyPolicyStringList(ctx context.Context, desc string, val *[]string, add,
 	for _, b := range add {
 		*changeCount++
 
-		log(ctx).Infof(" - adding %q to %q\n", b, desc)
+		log(ctx).Infof(" - adding %q to %q", b, desc)
 
 		entries[b] = true
 	}
@@ -145,7 +151,7 @@ func applyPolicyStringList(ctx context.Context, desc string, val *[]string, add,
 	for _, b := range remove {
 		*changeCount++
 
-		log(ctx).Infof(" - removing %q from %q\n", b, desc)
+		log(ctx).Infof(" - removing %q from %q", b, desc)
 		delete(entries, b)
 	}
 
@@ -168,7 +174,7 @@ func applyPolicyNumber(ctx context.Context, desc string, val **int, str string, 
 	if str == inheritPolicyString || str == defaultPolicyString {
 		*changeCount++
 
-		log(ctx).Infof(" - resetting %q to a default value inherited from parent.\n", desc)
+		log(ctx).Infof(" - resetting %q to a default value inherited from parent.", desc)
 
 		*val = nil
 
@@ -184,7 +190,7 @@ func applyPolicyNumber(ctx context.Context, desc string, val **int, str string, 
 	i := int(v)
 	*changeCount++
 
-	log(ctx).Infof(" - setting %q to %v.\n", desc, i)
+	log(ctx).Infof(" - setting %q to %v.", desc, i)
 	*val = &i
 
 	return nil
@@ -199,7 +205,7 @@ func applyPolicyNumber64(ctx context.Context, desc string, val *int64, str strin
 	if str == inheritPolicyString || str == defaultPolicyString {
 		*changeCount++
 
-		log(ctx).Infof(" - resetting %q to a default value inherited from parent.\n", desc)
+		log(ctx).Infof(" - resetting %q to a default value inherited from parent.", desc)
 
 		*val = 0
 
@@ -214,13 +220,13 @@ func applyPolicyNumber64(ctx context.Context, desc string, val *int64, str strin
 
 	*changeCount++
 
-	log(ctx).Infof(" - setting %q to %v.\n", desc, v)
+	log(ctx).Infof(" - setting %q to %v.", desc, v)
 	*val = v
 
 	return nil
 }
 
-func applyPolicyBoolPtr(ctx context.Context, desc string, val **bool, str string, changeCount *int) error {
+func applyPolicyBoolPtr(ctx context.Context, desc string, val **policy.OptionalBool, str string, changeCount *int) error {
 	if str == "" {
 		// not changed
 		return nil
@@ -229,7 +235,7 @@ func applyPolicyBoolPtr(ctx context.Context, desc string, val **bool, str string
 	if str == inheritPolicyString || str == defaultPolicyString {
 		*changeCount++
 
-		log(ctx).Infof(" - resetting %q to a default value inherited from parent.\n", desc)
+		log(ctx).Infof(" - resetting %q to a default value inherited from parent.", desc)
 
 		*val = nil
 
@@ -243,8 +249,10 @@ func applyPolicyBoolPtr(ctx context.Context, desc string, val **bool, str string
 
 	*changeCount++
 
-	log(ctx).Infof(" - setting %q to %v.\n", desc, v)
-	*val = &v
+	log(ctx).Infof(" - setting %q to %v.", desc, v)
+
+	ov := policy.OptionalBool(v)
+	*val = &ov
 
 	return nil
 }

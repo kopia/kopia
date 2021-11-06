@@ -54,11 +54,11 @@ func (c *policyCompressionFlags) setCompressionPolicyFromFlags(ctx context.Conte
 		*changeCount++
 
 		if v == inheritPolicyString {
-			log(ctx).Infof(" - resetting compression algorithm to default value inherited from parent\n")
+			log(ctx).Infof(" - resetting compression algorithm to default value inherited from parent")
 
 			p.CompressorName = ""
 		} else {
-			log(ctx).Infof(" - setting compression algorithm to %v\n", v)
+			log(ctx).Infof(" - setting compression algorithm to %v", v)
 
 			p.CompressorName = compression.Name(v)
 		}

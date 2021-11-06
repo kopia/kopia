@@ -2,9 +2,11 @@ package snapshotfs
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"testing"
 	"time"
 
@@ -21,6 +23,7 @@ import (
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob/filesystem"
+	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
@@ -60,7 +63,7 @@ func newUploadTestHarness(ctx context.Context, t *testing.T) *uploadTestHarness 
 		panic("unable to create repository: " + initerr.Error())
 	}
 
-	log(ctx).Debugf("repo dir: %v", repoDir)
+	t.Logf("repo dir: %v", repoDir)
 
 	configFile := filepath.Join(repoDir, ".kopia.config")
 	if conerr := repo.Connect(ctx, configFile, storage, masterPassword, nil); conerr != nil {
@@ -118,7 +121,7 @@ func TestUpload(t *testing.T) {
 
 	defer th.cleanup()
 
-	log(ctx).Infof("Uploading s1")
+	t.Logf("Uploading s1")
 
 	u := NewUploader(th.repo)
 
@@ -129,9 +132,9 @@ func TestUpload(t *testing.T) {
 		t.Errorf("Upload error: %v", err)
 	}
 
-	log(ctx).Infof("s1: %v", s1.RootEntry)
+	t.Logf("s1: %v", s1.RootEntry)
 
-	log(ctx).Infof("Uploading s2")
+	t.Logf("Uploading s2")
 
 	s2, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{}, s1)
 	if err != nil {
@@ -273,7 +276,7 @@ func TestUpload_SubDirectoryReadFailureIgnoredNoFailFast(t *testing.T) {
 
 	u := NewUploader(th.repo)
 
-	trueValue := true
+	trueValue := policy.OptionalBool(true)
 
 	policyTree := policy.BuildTree(nil, &policy.Policy{
 		ErrorHandlingPolicy: policy.ErrorHandlingPolicy{
@@ -306,8 +309,8 @@ func TestUpload_ErrorEntries(t *testing.T) {
 	th.sourceDir.Subdir("d1").AddErrorEntry("some-failed-entry", 0, errors.Errorf("some-other-error"))
 	th.sourceDir.Subdir("d2").AddErrorEntry("another-failed-entry", os.ModeIrregular, errors.Errorf("another-error"))
 
-	trueValue := true
-	falseValue := false
+	trueValue := policy.OptionalBool(true)
+	falseValue := policy.OptionalBool(false)
 
 	cases := []struct {
 		desc              string
@@ -453,7 +456,7 @@ func TestUpload_SubDirectoryReadFailureSomeIgnoredNoFailFast(t *testing.T) {
 
 	u := NewUploader(th.repo)
 
-	trueValue := true
+	trueValue := policy.OptionalBool(true)
 
 	// set up a policy tree where errors from d3 are ignored.
 	policyTree := policy.BuildTree(map[string]*policy.Policy{
@@ -465,7 +468,7 @@ func TestUpload_SubDirectoryReadFailureSomeIgnoredNoFailFast(t *testing.T) {
 		},
 	}, policy.DefaultPolicy)
 
-	if got, want := policyTree.Child("d3").EffectivePolicy().ErrorHandlingPolicy.IgnoreDirectoryErrorsOrDefault(false), true; got != want {
+	if got, want := policyTree.Child("d3").EffectivePolicy().ErrorHandlingPolicy.IgnoreDirectoryErrors.OrDefault(false), true; got != want {
 		t.Fatalf("policy not effective")
 	}
 
@@ -619,7 +622,7 @@ func TestUpload_VirtualDirectoryWithStreamingFile(t *testing.T) {
 
 	defer th.cleanup()
 
-	log(ctx).Infof("Uploading static directory with streaming file")
+	t.Logf("Uploading static directory with streaming file")
 
 	u := NewUploader(th.repo)
 
@@ -666,4 +669,374 @@ func TestUpload_VirtualDirectoryWithStreamingFile(t *testing.T) {
 		// must have one file
 		t.Fatalf("unexpected manifest file count: %v, want %v", got, want)
 	}
+}
+
+type mockLogger struct {
+	logging.Logger
+
+	logged []loggedAction
+}
+
+func (l *mockLogger) Debugw(msg string, keysAndValues ...interface{}) {
+	m := map[string]interface{}{}
+
+	for i := 0; i+1 < len(keysAndValues); i += 2 {
+		s, ok := keysAndValues[i].(string)
+		if !ok {
+			panic("not a string key")
+		}
+
+		m[s] = keysAndValues[i+1]
+	}
+
+	l.logged = append(l.logged, loggedAction{msg, m})
+}
+
+type loggedAction struct {
+	msg           string
+	keysAndValues map[string]interface{}
+}
+
+func TestUploadLogging(t *testing.T) {
+	sourceDir := mockfs.NewDirectory()
+	sourceDir.AddFile("f1", []byte{1, 2, 3}, defaultPermissions)
+	sourceDir.AddFile("f2", []byte{1, 2, 3, 4}, defaultPermissions)
+	sourceDir.AddFile("f3", []byte{1, 2, 3, 4, 5}, defaultPermissions)
+	sourceDir.AddSymlink("f4", "f2", defaultPermissions)
+	sourceDir.AddErrorEntry("f5", defaultPermissions, errors.New("some error"))
+
+	sourceDir.AddDir("d1", defaultPermissions)
+	sourceDir.AddDir("d1/d3", defaultPermissions)
+	sourceDir.AddFile("d1/d3/f1", []byte{1, 2, 3}, defaultPermissions)
+	sourceDir.AddFile("d1/d3/f2", []byte{1, 2, 3, 4}, defaultPermissions)
+	sourceDir.AddSymlink("d1/d3/f3", "f1", defaultPermissions)
+
+	cases := []struct {
+		desc                string
+		globalLoggingPolicy *policy.LoggingPolicy
+		globalFilesPolicy   *policy.FilesPolicy
+		dirLogDetail        *policy.LogDetail
+		entryLogDetail      *policy.LogDetail
+		wantEntries         []string
+		wantEntriesSecond   []string
+		wantDetailKeys      map[string][]string
+	}{
+		{
+			desc:           "override-logging disabled",
+			dirLogDetail:   policy.NewLogDetail(0),
+			entryLogDetail: policy.NewLogDetail(0),
+			wantEntries: []string{
+				// errors are always logged
+				"error f5",
+			},
+			wantEntriesSecond: []string{
+				// errors are always logged
+				"error f5",
+			},
+			wantDetailKeys: map[string][]string{
+				"cached": {"dur", "path"},
+				"error":  {"error", "path"},
+			},
+		},
+		{
+			desc:           "override-minimal logging",
+			dirLogDetail:   policy.NewLogDetail(1),
+			entryLogDetail: policy.NewLogDetail(1),
+			wantEntries: []string{
+				"snapshotted file d1/d3/f1",
+				"snapshotted file d1/d3/f2",
+				"snapshotted symlink d1/d3/f3",
+				"snapshotted directory d1/d3",
+				"snapshotted directory d1",
+				"snapshotted file f1",
+				"snapshotted file f2",
+				"snapshotted file f3",
+				"snapshotted symlink f4",
+				"error f5",
+				"snapshotted directory .",
+			},
+			wantEntriesSecond: []string{
+				"cached d1/d3/f1",
+				"cached d1/d3/f2",
+				"cached d1/d3/f3",
+				"snapshotted directory d1/d3",
+				"snapshotted directory d1",
+				"cached f1",
+				"cached f2",
+				"cached f3",
+				"cached f4",
+				"error f5",
+				"snapshotted directory .",
+			},
+			// at level 1 only durations and paths are logged
+			wantDetailKeys: map[string][]string{
+				"cached":                {"dur", "path"},
+				"error":                 {"path", "error", "dur"},
+				"snapshotted file":      {"path", "dur"},
+				"snapshotted directory": {"path", "dur"},
+				"snapshotted symlink":   {"path", "dur"},
+			},
+		},
+		// only directories are logged
+		{
+			desc:           "override-directory-only-logging",
+			dirLogDetail:   policy.NewLogDetail(policy.LogDetailMax),
+			entryLogDetail: policy.NewLogDetail(0),
+			wantEntries: []string{
+				"snapshotted directory d1/d3",
+				"snapshotted directory d1",
+				"error f5",
+				"snapshotted directory .",
+			},
+			wantEntriesSecond: []string{
+				"snapshotted directory d1/d3",
+				"snapshotted directory d1",
+				"error f5",
+				"snapshotted directory .",
+			},
+			// at level 10 a lot of details are logged.
+			wantDetailKeys: map[string][]string{
+				"error":                 {"path", "error"},
+				"snapshotted directory": {"dirs", "dur", "errors", "files", "mtime", "oid", "path", "size"},
+			},
+		},
+		// only entries are scheduled.
+		{
+			desc:           "override-entry-only-logging",
+			dirLogDetail:   policy.NewLogDetail(0),
+			entryLogDetail: policy.NewLogDetail(policy.LogDetailMax),
+			wantEntries: []string{
+				"snapshotted file d1/d3/f1",
+				"snapshotted file d1/d3/f2",
+				"snapshotted symlink d1/d3/f3",
+				"snapshotted file f1",
+				"snapshotted file f2",
+				"snapshotted file f3",
+				"snapshotted symlink f4",
+				"error f5",
+			},
+			wantEntriesSecond: []string{
+				"cached d1/d3/f1",
+				"cached d1/d3/f2",
+				"cached d1/d3/f3",
+				"cached f1",
+				"cached f2",
+				"cached f3",
+				"cached f4",
+				"error f5",
+			},
+			// at level 10 a lot of details are logged.
+			wantDetailKeys: map[string][]string{
+				"cached":              {"dur", "mtime", "oid", "path", "size"},
+				"error":               {"dur", "error", "path"},
+				"snapshotted file":    {"dur", "mtime", "oid", "path", "size"},
+				"snapshotted symlink": {"dur", "mtime", "oid", "path", "size"},
+			},
+		},
+		{
+			desc: "default-policy",
+			wantDetailKeys: map[string][]string{
+				"cached":                {"dur", "mtime", "oid", "path", "size"},
+				"error":                 {"error", "path"},
+				"snapshotted file":      {"dur", "path", "size"},
+				"snapshotted symlink":   {"dur", "path", "size"},
+				"snapshotted directory": {"dirs", "dur", "errors", "files", "path", "size"},
+			},
+			wantEntries: []string{
+				"snapshotted directory d1/d3",
+				"snapshotted directory d1",
+				"error f5",
+				"snapshotted directory .",
+			},
+			// cache hits are not logged
+			wantEntriesSecond: []string{
+				"snapshotted directory d1/d3",
+				"snapshotted directory d1",
+				"error f5",
+				"snapshotted directory .",
+			},
+		},
+		{
+			desc: "global-logging-policy",
+			globalLoggingPolicy: &policy.LoggingPolicy{
+				Directories: policy.DirLoggingPolicy{
+					Snapshotted: policy.NewLogDetail(3),
+				},
+				Entries: policy.EntryLoggingPolicy{
+					Snapshotted: policy.NewLogDetail(3),
+				},
+			},
+			wantDetailKeys: map[string][]string{
+				"cached":                {"dur", "mtime", "oid", "path", "size"},
+				"error":                 {"dur", "error", "path"},
+				"snapshotted file":      {"dur", "path", "size"},
+				"snapshotted symlink":   {"dur", "path", "size"},
+				"snapshotted directory": {"dur", "path", "size"},
+			},
+			wantEntries: []string{
+				"snapshotted file d1/d3/f1",
+				"snapshotted file d1/d3/f2",
+				"snapshotted symlink d1/d3/f3",
+				"snapshotted directory d1/d3",
+				"snapshotted directory d1",
+				"snapshotted file f1",
+				"snapshotted file f2",
+				"snapshotted file f3",
+				"snapshotted symlink f4",
+				"error f5",
+				"snapshotted directory .",
+			},
+			// cache hits are not logged
+			wantEntriesSecond: []string{
+				"snapshotted directory d1/d3",
+				"snapshotted directory d1",
+				"error f5",
+				"snapshotted directory .",
+			},
+		},
+		{
+			desc: "complex-logging-policy",
+			globalLoggingPolicy: &policy.LoggingPolicy{
+				Directories: policy.DirLoggingPolicy{
+					Snapshotted: policy.NewLogDetail(3),
+					Ignored:     policy.NewLogDetail(4),
+				},
+				Entries: policy.EntryLoggingPolicy{
+					Ignored:     policy.NewLogDetail(3),
+					Snapshotted: policy.NewLogDetail(3),
+					CacheMiss:   policy.NewLogDetail(4),
+					CacheHit:    policy.NewLogDetail(5),
+				},
+			},
+			globalFilesPolicy: &policy.FilesPolicy{
+				IgnoreRules: []string{"f1", "d3"},
+			},
+			wantDetailKeys: map[string][]string{
+				"cache miss":            {"mode", "mtime", "path", "size"},
+				"cached":                {"dur", "path", "size"},
+				"error":                 {"dur", "error", "path"},
+				"snapshotted file":      {"dur", "path", "size"},
+				"snapshotted symlink":   {"dur", "path", "size"},
+				"snapshotted directory": {"dur", "path", "size"},
+				"ignored directory":     {"dur", "path"},
+				"ignored":               {"dur", "path"},
+			},
+			wantEntries: []string{
+				"ignored f1",
+				"ignored directory d1/d3",
+				"snapshotted directory d1",
+				"snapshotted file f2",
+				"snapshotted file f3",
+				"snapshotted symlink f4",
+				"error f5",
+				"snapshotted directory .",
+			},
+			wantEntriesSecond: []string{
+				"ignored f1",
+				"ignored directory d1/d3",
+				"snapshotted directory d1",
+				"cached f2",
+				"cached f3",
+				"cached f4",
+				"error f5",
+				"snapshotted directory .",
+			},
+		},
+	}
+
+	sourceInfo := snapshot.SourceInfo{
+		Host:     "somehost",
+		UserName: "someuser",
+		Path:     "/somepath",
+	}
+
+	for _, tc := range cases {
+		t.Run(fmt.Sprintf("%v", tc.desc), func(t *testing.T) {
+			ml := &mockLogger{
+				Logger: logging.NullLogger,
+			}
+
+			ctx := testlogging.Context(t)
+			ctx = logging.WithLogger(ctx, func(module string) logging.Logger {
+				if module == "uploader" {
+					// only capture logs from the uploader, not the estimator.
+					return ml
+				}
+
+				return logging.NullLogger
+			})
+			th := newUploadTestHarness(ctx, t)
+
+			defer th.cleanup()
+
+			u := NewUploader(th.repo)
+
+			// make sure uploads are strictly sequential to get predictable log output.
+			u.ParallelUploads = 1
+
+			pol := *policy.DefaultPolicy
+			if p := tc.globalLoggingPolicy; p != nil {
+				pol.LoggingPolicy = *p
+			}
+
+			if p := tc.globalFilesPolicy; p != nil {
+				pol.FilesPolicy = *p
+			}
+
+			policy.SetPolicy(ctx, th.repo, policy.GlobalPolicySourceInfo, &pol)
+
+			u.OverrideDirLogDetail = tc.dirLogDetail
+			u.OverrideEntryLogDetail = tc.entryLogDetail
+
+			ml.logged = nil
+
+			polTree, err := policy.TreeForSource(ctx, th.repo, sourceInfo)
+			require.NoError(t, err)
+
+			man1, err := u.Upload(ctx, sourceDir, polTree, sourceInfo)
+			require.NoError(t, err)
+
+			var gotEntries []string
+
+			for _, l := range ml.logged {
+				gotEntries = append(gotEntries, fmt.Sprintf("%v %v", l.msg, l.keysAndValues["path"]))
+
+				require.Contains(t, tc.wantDetailKeys, l.msg)
+				verifyLogDetails(t, l.msg, tc.wantDetailKeys[l.msg], l.keysAndValues)
+			}
+
+			require.Equal(t, tc.wantEntries, gotEntries)
+
+			ml.logged = nil
+
+			// run second upload with previous manifest to trigger cache.
+			_, err = u.Upload(ctx, sourceDir, polTree, sourceInfo, man1)
+			require.NoError(t, err)
+
+			var gotEntriesSecond []string
+
+			for _, l := range ml.logged {
+				gotEntriesSecond = append(gotEntriesSecond, fmt.Sprintf("%v %v", l.msg, l.keysAndValues["path"]))
+
+				require.Contains(t, tc.wantDetailKeys, l.msg)
+				verifyLogDetails(t, "second "+l.msg, tc.wantDetailKeys[l.msg], l.keysAndValues)
+			}
+
+			require.Equal(t, tc.wantEntriesSecond, gotEntriesSecond)
+		})
+	}
+}
+
+func verifyLogDetails(t *testing.T, desc string, wantDetailKeys []string, keysAndValues map[string]interface{}) {
+	t.Helper()
+
+	var gotDetailKeys []string
+
+	for k := range keysAndValues {
+		gotDetailKeys = append(gotDetailKeys, k)
+	}
+
+	sort.Strings(gotDetailKeys)
+	sort.Strings(wantDetailKeys)
+	require.Equal(t, wantDetailKeys, gotDetailKeys, "invalid details for "+desc)
 }

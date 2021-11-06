@@ -246,7 +246,7 @@ func AutoDetectEntryFromObjectID(ctx context.Context, rep repo.Repository, oid o
 	if IsDirectoryID(oid) {
 		dirEntry := DirectoryEntry(rep, oid, nil)
 		if _, err := dirEntry.Readdir(ctx); err == nil {
-			log(ctx).Debugf("%v auto-detected as directory", oid)
+			repoFSLog(ctx).Debugf("%v auto-detected as directory", oid)
 			return dirEntry
 		}
 	}
@@ -263,7 +263,7 @@ func AutoDetectEntryFromObjectID(ctx context.Context, rep repo.Repository, oid o
 		r.Close() //nolint:errcheck
 	}
 
-	log(ctx).Debugf("%v auto-detected as a file with name %v and size %v", oid, maybeName, fileSize)
+	repoFSLog(ctx).Debugf("%v auto-detected as a file with name %v and size %v", oid, maybeName, fileSize)
 
 	f := EntryFromDirEntry(rep, &snapshot.DirEntry{
 		Name:        maybeName,

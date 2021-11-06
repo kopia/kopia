@@ -19,7 +19,7 @@ import (
 var log = logging.Module("ignorefs")
 
 // IgnoreCallback is a function called by ignorefs to report whenever a file or directory is being ignored while listing its parent.
-type IgnoreCallback func(path string, metadata fs.Entry)
+type IgnoreCallback func(ctx context.Context, path string, metadata fs.Entry, pol *policy.Tree)
 
 type ignoreContext struct {
 	parent *ignoreContext
@@ -33,13 +33,13 @@ type ignoreContext struct {
 	oneFileSystem bool // should we enter other mounted filesystems
 }
 
-func (c *ignoreContext) shouldIncludeByName(path string, e fs.Entry) bool {
+func (c *ignoreContext) shouldIncludeByName(ctx context.Context, path string, e fs.Entry, policyTree *policy.Tree) bool {
 	shouldIgnore := false
 
 	// Start by checking with any ignores defined in a parent directory (if there is one).
 	// Any matches here may be negated by .ignore-files in lower directories.
 	if c.parent != nil {
-		shouldIgnore = !c.parent.shouldIncludeByName(path, e)
+		shouldIgnore = !c.parent.shouldIncludeByName(ctx, path, e, policyTree)
 	}
 
 	for _, m := range c.matchers {
@@ -52,7 +52,7 @@ func (c *ignoreContext) shouldIncludeByName(path string, e fs.Entry) bool {
 
 	if shouldIgnore {
 		for _, oi := range c.onIgnore {
-			oi(path, e)
+			oi(ctx, strings.TrimPrefix(path, "./"), e, policyTree)
 		}
 
 		return false
@@ -104,7 +104,7 @@ func isCorrectCacheDirSignature(ctx context.Context, f fs.File) (bool, error) {
 }
 
 func (d *ignoreDirectory) skipCacheDirectory(ctx context.Context, entries fs.Entries, relativePath string, policyTree *policy.Tree) fs.Entries {
-	if !policyTree.EffectivePolicy().FilesPolicy.IgnoreCacheDirectoriesOrDefault(true) {
+	if !policyTree.EffectivePolicy().FilesPolicy.IgnoreCacheDirectories.OrDefault(true) {
 		return entries
 	}
 
@@ -119,7 +119,7 @@ func (d *ignoreDirectory) skipCacheDirectory(ctx context.Context, entries fs.Ent
 		if correct {
 			// if the given directory contains a marker file used for kopia cache, pretend the directory was empty.
 			for _, oi := range d.parentContext.onIgnore {
-				oi(relativePath, d)
+				oi(ctx, strings.TrimPrefix(relativePath, "./"), d, policyTree)
 			}
 
 			return nil
@@ -158,7 +158,7 @@ func (d *ignoreDirectory) Readdir(ctx context.Context) (fs.Entries, error) {
 	result := make(fs.Entries, 0, len(entries))
 
 	for _, e := range entries {
-		if !thisContext.shouldIncludeByName(d.relativePath+"/"+e.Name(), e) {
+		if !thisContext.shouldIncludeByName(ctx, d.relativePath+"/"+e.Name(), e, d.policyTree) {
 			continue
 		}
 
@@ -236,7 +236,7 @@ func (c *ignoreContext) overrideFromPolicy(fp *policy.FilesPolicy, dirPath strin
 		c.maxFileSize = fp.MaxFileSize
 	}
 
-	c.oneFileSystem = fp.OneFileSystemOrDefault(false)
+	c.oneFileSystem = fp.OneFileSystem.OrDefault(false)
 
 	// append policy-level rules
 	for _, rule := range fp.IgnoreRules {

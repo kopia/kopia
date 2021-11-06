@@ -37,7 +37,7 @@ func (c *policySchedulingFlags) setScheduleFromFlags(ctx context.Context, sp *po
 		*changeCount++
 
 		sp.SetInterval(interval)
-		log(ctx).Infof(" - setting snapshot interval to %v\n", sp.Interval())
+		log(ctx).Infof(" - setting snapshot interval to %v", sp.Interval())
 
 		break
 	}
@@ -65,9 +65,9 @@ func (c *policySchedulingFlags) setScheduleFromFlags(ctx context.Context, sp *po
 		sp.TimesOfDay = policy.SortAndDedupeTimesOfDay(timesOfDay)
 
 		if timesOfDay == nil {
-			log(ctx).Infof(" - resetting snapshot times of day to default\n")
+			log(ctx).Infof(" - resetting snapshot times of day to default")
 		} else {
-			log(ctx).Infof(" - setting snapshot times to %v\n", timesOfDay)
+			log(ctx).Infof(" - setting snapshot times to %v", timesOfDay)
 		}
 	}
 

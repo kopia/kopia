@@ -28,6 +28,7 @@ type Policy struct {
 	SchedulingPolicy    SchedulingPolicy    `json:"scheduling,omitempty"`
 	CompressionPolicy   CompressionPolicy   `json:"compression,omitempty"`
 	Actions             ActionsPolicy       `json:"actions"`
+	LoggingPolicy       LoggingPolicy       `json:"logging"`
 	NoParent            bool                `json:"noParent,omitempty"`
 }
 
@@ -73,6 +74,7 @@ func MergePolicies(policies []*Policy) *Policy {
 		merged.SchedulingPolicy.Merge(p.SchedulingPolicy)
 		merged.CompressionPolicy.Merge(p.CompressionPolicy)
 		merged.Actions.Merge(p.Actions)
+		merged.LoggingPolicy.Merge(p.LoggingPolicy)
 	}
 
 	// Merge default expiration policy.
@@ -82,6 +84,7 @@ func MergePolicies(policies []*Policy) *Policy {
 	merged.SchedulingPolicy.Merge(defaultSchedulingPolicy)
 	merged.CompressionPolicy.Merge(defaultCompressionPolicy)
 	merged.Actions.Merge(defaultActionsPolicy)
+	merged.LoggingPolicy.Merge(defaultLoggingPolicy)
 
 	if len(policies) > 0 {
 		merged.Actions.MergeNonInheritable(policies[0].Actions)

@@ -13,6 +13,9 @@ import (
 	"github.com/kopia/kopia/fs"
 )
 
+// DefaultModTime is the default modification time for mock filesystem entries.
+var DefaultModTime = time.Date(2021, 1, 2, 3, 4, 5, 0, time.UTC)
+
 // ReaderSeekerCloser implements io.Reader, io.Seeker and io.Closer.
 type ReaderSeekerCloser interface {
 	io.Reader
@@ -92,9 +95,10 @@ func (imd *Directory) AddFile(name string, content []byte, permissions os.FileMo
 	imd, name = imd.resolveSubdir(name)
 	file := &File{
 		entry: entry{
-			name: name,
-			mode: permissions,
-			size: int64(len(content)),
+			name:    name,
+			mode:    permissions,
+			size:    int64(len(content)),
+			modTime: DefaultModTime,
 		},
 		source: func() (ReaderSeekerCloser, error) {
 			return readerSeekerCloser{bytes.NewReader(content)}, nil
@@ -106,15 +110,34 @@ func (imd *Directory) AddFile(name string, content []byte, permissions os.FileMo
 	return file
 }
 
+// AddSymlink adds a mock symlink with the specified name, target and permissions.
+func (imd *Directory) AddSymlink(name, target string, permissions os.FileMode) *Symlink {
+	imd, name = imd.resolveSubdir(name)
+	sl := &Symlink{
+		entry: entry{
+			name:    name,
+			mode:    permissions | os.ModeSymlink,
+			size:    int64(len(target)),
+			modTime: DefaultModTime,
+		},
+		target: target,
+	}
+
+	imd.addChild(sl)
+
+	return sl
+}
+
 // AddFileDevice adds a mock file with the specified name, content, permissions, and device info.
 func (imd *Directory) AddFileDevice(name string, content []byte, permissions os.FileMode, deviceInfo fs.DeviceInfo) *File {
 	imd, name = imd.resolveSubdir(name)
 	file := &File{
 		entry: entry{
-			name:   name,
-			mode:   permissions,
-			size:   int64(len(content)),
-			device: deviceInfo,
+			name:    name,
+			mode:    permissions,
+			size:    int64(len(content)),
+			device:  deviceInfo,
+			modTime: DefaultModTime,
 		},
 		source: func() (ReaderSeekerCloser, error) {
 			return readerSeekerCloser{bytes.NewReader(content)}, nil
@@ -132,8 +155,9 @@ func (imd *Directory) AddDir(name string, permissions os.FileMode) *Directory {
 
 	subdir := &Directory{
 		entry: entry{
-			name: name,
-			mode: permissions | os.ModeDir,
+			name:    name,
+			mode:    permissions | os.ModeDir,
+			modTime: DefaultModTime,
 		},
 	}
 
@@ -148,8 +172,9 @@ func (imd *Directory) AddErrorEntry(name string, permissions os.FileMode, err er
 
 	ee := &ErrorEntry{
 		entry: entry{
-			name: name,
-			mode: permissions | os.ModeDir,
+			name:    name,
+			mode:    permissions | os.ModeDir,
+			modTime: DefaultModTime,
 		},
 		err: err,
 	}
@@ -165,9 +190,10 @@ func (imd *Directory) AddDirDevice(name string, permissions os.FileMode, deviceI
 
 	subdir := &Directory{
 		entry: entry{
-			name:   name,
-			mode:   permissions | os.ModeDir,
-			device: deviceInfo,
+			name:    name,
+			mode:    permissions | os.ModeDir,
+			device:  deviceInfo,
+			modTime: DefaultModTime,
 		},
 	}
 
@@ -293,20 +319,25 @@ func (imf *File) Open(ctx context.Context) (fs.Reader, error) {
 	}, nil
 }
 
-type inmemorySymlink struct {
+// Symlink is a mock implementation of the fs.Symlink interface.
+type Symlink struct {
 	entry
+
+	target string
 }
 
-func (imsl *inmemorySymlink) Readlink(ctx context.Context) (string, error) {
-	panic("not implemented yet")
+// Readlink implements fs.Symlink interface.
+func (imsl *Symlink) Readlink(ctx context.Context) (string, error) {
+	return imsl.target, nil
 }
 
 // NewDirectory returns new mock directory.
 func NewDirectory() *Directory {
 	return &Directory{
 		entry: entry{
-			name: "<root>",
-			mode: 0o777 | os.ModeDir, // nolint:gomnd
+			name:    "<root>",
+			mode:    0o777 | os.ModeDir, // nolint:gomnd
+			modTime: DefaultModTime,
 		},
 	}
 }
@@ -325,6 +356,6 @@ func (e *ErrorEntry) ErrorInfo() error {
 var (
 	_ fs.Directory  = &Directory{}
 	_ fs.File       = &File{}
-	_ fs.Symlink    = &inmemorySymlink{}
+	_ fs.Symlink    = &Symlink{}
 	_ fs.ErrorEntry = &ErrorEntry{}
 )

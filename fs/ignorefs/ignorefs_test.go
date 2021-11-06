@@ -85,7 +85,7 @@ var rootAndSrcPolicy = policy.BuildTree(map[string]*policy.Policy{
 	},
 }, policy.DefaultPolicy)
 
-var trueValue = true
+var trueValue = policy.OptionalBool(true)
 
 var oneFileSystemPolicy = policy.BuildTree(map[string]*policy.Policy{
 	".": {
