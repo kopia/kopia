@@ -112,7 +112,9 @@ type CurrentSnapshot struct {
 	SingleEpochCompactionSets  map[int][]blob.Metadata `json:"singleEpochCompactionSets"`
 	EpochStartTime             map[int]time.Time       `json:"epochStartTimes"`
 	DeletionWatermark          time.Time               `json:"deletionWatermark"`
-	ValidUntil                 time.Time               `json:"validUntil"` // time after which the contents of this struct are no longer valid
+	ValidUntil                 time.Time               `json:"validUntil"`             // time after which the contents of this struct are no longer valid
+	EpochMarkerBlobs           []blob.Metadata         `json:"epochMarkers"`           // list of epoch markers
+	DeletionWatermarkBlobs     []blob.Metadata         `json:"deletionWatermarkBlobs"` // list of deletion watermark blobs
 }
 
 func (cs *CurrentSnapshot) isSettledEpochNumber(epoch int) bool {
@@ -276,16 +278,12 @@ func (e *Manager) cleanupEpochMarkers(ctx context.Context, cs CurrentSnapshot) e
 	// delete epoch markers for epoch < current-1
 	var toDelete []blob.ID
 
-	if err := e.st.ListBlobs(ctx, EpochMarkerIndexBlobPrefix, func(bm blob.Metadata) error {
+	for _, bm := range cs.EpochMarkerBlobs {
 		if n, ok := epochNumberFromBlobID(bm.BlobID); ok {
 			if n < cs.WriteEpoch-1 {
 				toDelete = append(toDelete, bm.BlobID)
 			}
 		}
-
-		return nil
-	}); err != nil {
-		return errors.Wrap(err, "error listing epoch markers")
 	}
 
 	return errors.Wrap(blob.DeleteMultiple(ctx, e.st, toDelete, e.Params.DeleteParallelism), "error deleting index blob marker")
@@ -294,23 +292,19 @@ func (e *Manager) cleanupEpochMarkers(ctx context.Context, cs CurrentSnapshot) e
 func (e *Manager) cleanupWatermarks(ctx context.Context, cs CurrentSnapshot, maxReplacementTime time.Time) error {
 	var toDelete []blob.ID
 
-	if err := e.st.ListBlobs(ctx, DeletionWatermarkBlobPrefix, func(bm blob.Metadata) error {
+	for _, bm := range cs.DeletionWatermarkBlobs {
 		ts, ok := deletionWatermarkFromBlobID(bm.BlobID)
 		if !ok {
-			return nil
+			continue
 		}
 
 		if ts.Equal(cs.DeletionWatermark) {
-			return nil
+			continue
 		}
 
 		if bm.Timestamp.Before(maxReplacementTime) {
 			toDelete = append(toDelete, bm.BlobID)
 		}
-
-		return nil
-	}); err != nil {
-		return errors.Wrap(err, "error listing watermark blobs")
 	}
 
 	return errors.Wrap(blob.DeleteMultiple(ctx, e.st, toDelete, e.Params.DeleteParallelism), "error deleting watermark blobs")
@@ -395,6 +389,8 @@ func (e *Manager) loadWriteEpoch(ctx context.Context, cs *CurrentSnapshot) error
 		}
 	}
 
+	cs.EpochMarkerBlobs = blobs
+
 	return nil
 }
 
@@ -415,6 +411,8 @@ func (e *Manager) loadDeletionWatermark(ctx context.Context, cs *CurrentSnapshot
 			cs.DeletionWatermark = t
 		}
 	}
+
+	cs.DeletionWatermarkBlobs = blobs
 
 	return nil
 }
@@ -559,7 +557,7 @@ func (e *Manager) refreshAttemptLocked(ctx context.Context) error {
 		ValidUntil:                e.timeFunc().Add(e.Params.EpochRefreshFrequency),
 	}
 
-	e.log.Infof("refreshAttemptLocked")
+	e.log.Debugf("refreshAttemptLocked")
 
 	eg, ctx1 := errgroup.WithContext(ctx)
 
@@ -780,10 +778,15 @@ func (e *Manager) getIndexesFromEpochInternal(ctx context.Context, cs CurrentSna
 		return cs.SingleEpochCompactionSets[epoch], nil
 	}
 
-	// load uncompacted blobs for this epoch
-	uncompactedBlobs, err := blob.ListAllBlobs(ctx, e.st, UncompactedEpochBlobPrefix(epoch))
-	if err != nil {
-		return nil, errors.Wrapf(err, "error listing uncompacted indexes for epoch %v", epoch)
+	// load uncompacted blobs for this epoch, reusing UncompactedEpochSets if we have it.
+	uncompactedBlobs, ok := cs.UncompactedEpochSets[epoch]
+	if !ok {
+		ue, err := blob.ListAllBlobs(ctx, e.st, UncompactedEpochBlobPrefix(epoch))
+		if err != nil {
+			return nil, errors.Wrapf(err, "error listing uncompacted indexes for epoch %v", epoch)
+		}
+
+		uncompactedBlobs = ue
 	}
 
 	// Ignore blobs written after the epoch has been settled.
