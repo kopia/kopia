@@ -56,7 +56,7 @@ func (hc *actionContext) ensureInitialized(ctx context.Context, actionType, dirP
 	}
 
 	if !uploaderEnabled {
-		log(ctx).Infof("Not executing %v action on %v because it's been disabled for this client.", actionType, dirPathOrEmpty)
+		uploadLog(ctx).Infof("Not executing %v action on %v because it's been disabled for this client.", actionType, dirPathOrEmpty)
 		return nil
 	}
 
@@ -166,7 +166,7 @@ func runActionCommand(
 			return errors.Wrap(err, "essential action failed")
 		}
 
-		log(ctx).Errorf("error running non-essential action command: %v", err)
+		uploadLog(ctx).Errorf("error running non-essential action command: %v", err)
 	}
 
 	return parseCaptures(v, captures)
@@ -206,7 +206,7 @@ func (u *Uploader) executeBeforeFolderAction(ctx context.Context, actionType str
 		return nil, nil
 	}
 
-	log(ctx).Debugf("running action %v on %v %#v", actionType, hc.SourcePath, *h)
+	uploadLog(ctx).Debugf("running action %v on %v %#v", actionType, hc.SourcePath, *h)
 
 	captures := map[string]string{
 		"KOPIA_SNAPSHOT_PATH": "",
@@ -232,7 +232,7 @@ func (u *Uploader) executeAfterFolderAction(ctx context.Context, actionType stri
 	}
 
 	if err := hc.ensureInitialized(ctx, actionType, dirPathOrEmpty, u.EnableActions); err != nil {
-		log(ctx).Errorf("error initializing action context: %v", err)
+		uploadLog(ctx).Errorf("error initializing action context: %v", err)
 	}
 
 	if !hc.ActionsEnabled {
@@ -240,14 +240,14 @@ func (u *Uploader) executeAfterFolderAction(ctx context.Context, actionType stri
 	}
 
 	if err := runActionCommand(ctx, actionType, h, hc.envars(actionType), nil, hc.WorkDir); err != nil {
-		log(ctx).Errorf("error running '%v' action: %v", actionType, err)
+		uploadLog(ctx).Errorf("error running '%v' action: %v", actionType, err)
 	}
 }
 
 func cleanupActionContext(ctx context.Context, hc *actionContext) {
 	if hc.WorkDir != "" {
 		if err := os.RemoveAll(hc.WorkDir); err != nil {
-			log(ctx).Debugf("unable to remove action working directory: %v", err)
+			uploadLog(ctx).Debugf("unable to remove action working directory: %v", err)
 		}
 	}
 }

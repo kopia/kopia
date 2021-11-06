@@ -82,7 +82,7 @@ func Estimate(ctx context.Context, rep repo.Repository, entry fs.Directory, poli
 		progress.Stats(ctx, stats, ib, eb, ed, true)
 	}()
 
-	onIgnoredFile := func(relativePath string, e fs.Entry) {
+	onIgnoredFile := func(ctx context.Context, relativePath string, e fs.Entry, pol *policy.Tree) {
 		if e.IsDir() {
 			if len(ed) < maxExamplesPerBucket {
 				ed = append(ed, relativePath)
@@ -90,9 +90,9 @@ func Estimate(ctx context.Context, rep repo.Repository, entry fs.Directory, poli
 
 			stats.ExcludedDirCount++
 
-			log(ctx).Debugf("excluded dir %v", relativePath)
+			estimateLog(ctx).Debugf("excluded dir %v", relativePath)
 		} else {
-			log(ctx).Debugf("excluded file %v (%v)", relativePath, units.BytesStringBase10(e.Size()))
+			estimateLog(ctx).Debugf("excluded file %v (%v)", relativePath, units.BytesStringBase10(e.Size()))
 			stats.ExcludedFileCount++
 			stats.ExcludedTotalFileSize += e.Size()
 			eb.add(relativePath, e.Size(), maxExamplesPerBucket)

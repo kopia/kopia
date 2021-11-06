@@ -102,7 +102,7 @@ func findSnapshotByRootObjectIDOrManifestID(ctx context.Context, rep repo.Reposi
 		return nil, errors.Errorf("found multiple snapshots matching %v with inconsistent root attributes.", rootID)
 	}
 
-	log(ctx).Debugf("Found multiple snapshots matching %v with inconsistent root attributes. Picking latest one.", rootID)
+	repoFSLog(ctx).Debugf("Found multiple snapshots matching %v with inconsistent root attributes. Picking latest one.", rootID)
 
 	return latestManifest(mans), nil
 }
@@ -203,7 +203,7 @@ func GetEntryFromPlaceholder(ctx context.Context, r repo.Repository, defp snapsh
 		return nil, errors.Wrap(err, "unable to get direntry from placeholder")
 	}
 
-	log(ctx).Debugf("GetDirEntryFromPlaceholder %v %v ", r, de)
+	repoFSLog(ctx).Debugf("GetDirEntryFromPlaceholder %v %v ", r, de)
 
 	return EntryFromDirEntry(r, de), nil
 }
