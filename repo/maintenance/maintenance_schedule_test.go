@@ -3,8 +3,10 @@ package maintenance_test
 import (
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/kylelemons/godebug/pretty"
+	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/repotesting"
@@ -46,6 +48,85 @@ func (s *formatSpecificTestSuite) TestMaintenanceSchedule(t *testing.T) {
 
 	if got, want := toJSON(s2), toJSON(sch); got != want {
 		t.Errorf("invalid schedule (-want,+got) %v", pretty.Compare(want, got))
+	}
+}
+
+func TestTimeToAttemptNextMaintenance(t *testing.T) {
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
+
+	now := time.Date(2020, 1, 1, 12, 0, 0, 0, time.UTC)
+	max := now.Add(10 * time.Hour)
+
+	cases := []struct {
+		desc   string
+		params maintenance.Params
+		sched  maintenance.Schedule
+		want   time.Time
+	}{
+		{
+			desc: "both enabled, quick first",
+			params: maintenance.Params{
+				Owner:      env.Repository.ClientOptions().UsernameAtHost(),
+				QuickCycle: maintenance.CycleParams{Enabled: true},
+				FullCycle:  maintenance.CycleParams{Enabled: true},
+			},
+			sched: maintenance.Schedule{
+				NextFullMaintenanceTime:  now.Add(3 * time.Hour),
+				NextQuickMaintenanceTime: now.Add(1 * time.Hour),
+			},
+			want: now.Add(1 * time.Hour),
+		},
+		{
+			desc: "both enabled, full first",
+			params: maintenance.Params{
+				Owner:      env.Repository.ClientOptions().UsernameAtHost(),
+				QuickCycle: maintenance.CycleParams{Enabled: true},
+				FullCycle:  maintenance.CycleParams{Enabled: true},
+			},
+			sched: maintenance.Schedule{
+				NextFullMaintenanceTime:  now.Add(2 * time.Hour),
+				NextQuickMaintenanceTime: now.Add(3 * time.Hour),
+			},
+			want: now.Add(2 * time.Hour),
+		},
+		{
+			desc: "both disabled",
+			params: maintenance.Params{
+				Owner:      env.Repository.ClientOptions().UsernameAtHost(),
+				QuickCycle: maintenance.CycleParams{Enabled: false},
+				FullCycle:  maintenance.CycleParams{Enabled: false},
+			},
+			sched: maintenance.Schedule{
+				NextFullMaintenanceTime:  now.Add(2 * time.Hour),
+				NextQuickMaintenanceTime: now.Add(3 * time.Hour),
+			},
+			want: max,
+		},
+		{
+			desc: "not owned",
+			params: maintenance.Params{
+				Owner:      "some-other-owner",
+				QuickCycle: maintenance.CycleParams{Enabled: true},
+				FullCycle:  maintenance.CycleParams{Enabled: true},
+			},
+			sched: maintenance.Schedule{
+				NextFullMaintenanceTime:  now.Add(2 * time.Hour),
+				NextQuickMaintenanceTime: now.Add(3 * time.Hour),
+			},
+			want: max,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.desc, func(t *testing.T) {
+			require.NoError(t, maintenance.SetParams(ctx, env.RepositoryWriter, &tc.params))
+			require.NoError(t, maintenance.SetSchedule(ctx, env.RepositoryWriter, &tc.sched))
+
+			nmt, err := maintenance.TimeToAttemptNextMaintenance(ctx, env.RepositoryWriter, max)
+			require.NoError(t, err)
+
+			require.Equal(t, tc.want, nmt)
+		})
 	}
 }
 

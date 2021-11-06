@@ -31,11 +31,14 @@ import (
 var log = logging.Module("kopia/server")
 
 const (
-	maintenanceAttemptFrequency = 10 * time.Minute
-	kopiaAuthCookie             = "Kopia-Auth"
-	kopiaAuthCookieTTL          = 1 * time.Minute
-	kopiaAuthCookieAudience     = "kopia"
-	kopiaAuthCookieIssuer       = "kopia-server"
+	// maximum time between attempts to run maintenance.
+	maxMaintenanceAttemptFrequency = 4 * time.Hour
+	sleepOnMaintenanceError        = 30 * time.Minute
+
+	kopiaAuthCookie         = "Kopia-Auth"
+	kopiaAuthCookieTTL      = 1 * time.Minute
+	kopiaAuthCookieAudience = "kopia"
+	kopiaAuthCookieIssuer   = "kopia-server"
 )
 
 type apiRequestFunc func(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError)
@@ -460,7 +463,10 @@ func (s *Server) SetRepository(ctx context.Context, rep repo.Repository) error {
 
 	ctx, s.cancelRep = context.WithCancel(ctx)
 	go s.refreshPeriodically(ctx, rep)
-	go s.periodicMaintenance(ctx, rep)
+
+	if dr, ok := rep.(repo.DirectRepository); ok {
+		go s.periodicMaintenance(ctx, dr)
+	}
 
 	return nil
 }
@@ -483,24 +489,36 @@ func (s *Server) refreshPeriodically(ctx context.Context, r repo.Repository) {
 	}
 }
 
-func (s *Server) periodicMaintenance(ctx context.Context, rep repo.Repository) {
+func (s *Server) periodicMaintenance(ctx context.Context, rep repo.DirectRepository) {
 	for {
-		select {
-		case <-ctx.Done():
-			return
+		now := clock.Now()
 
-		case <-time.After(maintenanceAttemptFrequency):
-			if owned, err := maintenance.IsOwnedByThisUser(ctx, rep); err == nil && !owned {
-				// maintenance not owned by this user, don't run, but keep trying because
-				// maintenance ownership MAY change to this user in the future.
-				continue
-			}
+		// this will return time == now or in the past if the maintenance is currently runnable
+		// by the current user.
+		nextMaintenanceTime, err := maintenance.TimeToAttemptNextMaintenance(ctx, rep, now.Add(maxMaintenanceAttemptFrequency))
+		if err != nil {
+			log(ctx).Debugw("unable to determine time till next maintenance", "error", err)
+			time.Sleep(sleepOnMaintenanceError)
 
-			if err := s.taskmgr.Run(ctx, "Maintenance", "Periodic maintenance", func(ctx context.Context, _ uitask.Controller) error {
-				return periodicMaintenanceOnce(ctx, rep)
-			}); err != nil {
-				log(ctx).Errorf("unable to run maintenance: %v", err)
+			continue
+		}
+
+		// maintenance is not due yet, sleep interruptibly
+		if nextMaintenanceTime.After(now) {
+			log(ctx).Debugw("sleeping until next maintenance attempt", "time", nextMaintenanceTime)
+
+			select {
+			case <-ctx.Done():
+				return
+
+				// we woke up after sleeping, do not run maintenance immediately, but re-check first,
+				// we may have lost ownership or parameters may have changed.
+			case <-time.After(nextMaintenanceTime.Sub(now)):
 			}
+		} else if err := s.taskmgr.Run(ctx, "Maintenance", "Periodic maintenance", func(ctx context.Context, _ uitask.Controller) error {
+			return periodicMaintenanceOnce(ctx, rep)
+		}); err != nil {
+			log(ctx).Errorf("unable to run maintenance: %v", err)
 		}
 	}
 }
