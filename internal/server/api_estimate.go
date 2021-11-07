@@ -11,7 +11,6 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/localfs"
-	"github.com/kopia/kopia/internal/ctxutil"
 	"github.com/kopia/kopia/internal/ospath"
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/internal/uitask"
@@ -103,7 +102,6 @@ func (s *Server) handleEstimate(ctx context.Context, r *http.Request, body []byt
 		return nil, requestError(serverapi.ErrorMalformedRequest, "malformed request body")
 	}
 
-	ctx = ctxutil.Detach(ctx)
 	rep := s.rep
 
 	resolvedRoot := filepath.Clean(ospath.ResolveUserFriendlyPath(req.Root, true))

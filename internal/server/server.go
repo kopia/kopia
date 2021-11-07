@@ -283,6 +283,11 @@ func (s *Server) handleAPIPossiblyNotConnected(isAuthorized isAuthorizedFunc, f 
 		var v interface{}
 		var err *apiError
 
+		// process the request while ignoring the cancelation signal
+		// to ensure all goroutines started by it won't be canceled
+		// when the request finishes.
+		ctx = ctxutil.Detach(ctx)
+
 		if isAuthorized(s, r) {
 			v, err = f(ctx, r, body)
 		} else {
@@ -429,10 +434,6 @@ func (s *Server) endUpload(ctx context.Context, src snapshot.SourceInfo) {
 func (s *Server) SetRepository(ctx context.Context, rep repo.Repository) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
-	// ensure context does not have a deadline since we'll be
-	// launching goroutines that need to outlive the current request.
-	ctx = ctxutil.Detach(ctx)
 
 	if s.rep == rep {
 		// nothing to do
