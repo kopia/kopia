@@ -146,7 +146,7 @@ func (c *copier) copyEntry(ctx context.Context, e fs.Entry, targetPath string, c
 		switch e := e.(type) {
 		case fs.File:
 			if c.output.FileExists(ctx, targetPath, e) {
-				log(ctx).Debugf("skipping file %v because it already exists and metadata matches", targetPath)
+				log(ctx).Debugw("skipping file because it already exists and metadata matches", "path", targetPath)
 				atomic.AddInt32(&c.stats.SkippedCount, 1)
 				atomic.AddInt64(&c.stats.SkippedTotalFileSize, e.Size())
 
@@ -156,7 +156,7 @@ func (c *copier) copyEntry(ctx context.Context, e fs.Entry, targetPath string, c
 		case fs.Symlink:
 			if c.output.SymlinkExists(ctx, targetPath, e) {
 				atomic.AddInt32(&c.stats.SkippedCount, 1)
-				log(ctx).Debugf("skipping symlink %v because it already exists", targetPath)
+				log(ctx).Debugw("skipping symlink because it already exists", "path", targetPath)
 
 				return onCompletion()
 			}
@@ -181,10 +181,10 @@ func (c *copier) copyEntry(ctx context.Context, e fs.Entry, targetPath string, c
 func (c *copier) copyEntryInternal(ctx context.Context, e fs.Entry, targetPath string, currentdepth, maxdepth int32, onCompletion func() error) error {
 	switch e := e.(type) {
 	case fs.Directory:
-		log(ctx).Debugf("dir: '%v'", targetPath)
+		log(ctx).Debugw("directory", "path", targetPath)
 		return c.copyDirectory(ctx, e, targetPath, currentdepth, maxdepth, onCompletion)
 	case fs.File:
-		log(ctx).Debugf("file: '%v'", targetPath)
+		log(ctx).Debugw("file", "path", targetPath)
 
 		atomic.AddInt32(&c.stats.RestoredFileCount, 1)
 		atomic.AddInt64(&c.stats.RestoredTotalFileSize, e.Size())
@@ -203,7 +203,7 @@ func (c *copier) copyEntryInternal(ctx context.Context, e fs.Entry, targetPath s
 
 	case fs.Symlink:
 		atomic.AddInt32(&c.stats.RestoredSymlinkCount, 1)
-		log(ctx).Debugf("symlink: '%v'", targetPath)
+		log(ctx).Debugw("symlink", "path", targetPath)
 
 		if err := c.output.CreateSymlink(ctx, targetPath, e); err != nil {
 			return errors.Wrap(err, "create symlink")

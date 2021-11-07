@@ -102,7 +102,7 @@ func (c *committedContentIndex) addIndexBlob(ctx context.Context, indexBlobID bl
 		return nil
 	}
 
-	c.log.Debugf("use-new-committed-index %v", indexBlobID)
+	c.log.Debugw("use-new-committed-index", "blobID", indexBlobID)
 
 	ndx, err := c.cache.openIndex(ctx, indexBlobID)
 	if err != nil {
@@ -168,7 +168,7 @@ func (c *committedContentIndex) merge(ctx context.Context, indexFiles []blob.ID)
 		return nil, nil, errors.Wrap(err, "unable to combine small indexes")
 	}
 
-	c.log.Debugf("combined %v into %v index segments", len(merged), len(mergedAndCombined))
+	c.log.Debugw("combined into index segments", "merged", len(merged), "combined", len(mergedAndCombined))
 
 	merged = mergedAndCombined
 
@@ -187,7 +187,7 @@ func (c *committedContentIndex) use(ctx context.Context, indexFiles []blob.ID, i
 		return nil
 	}
 
-	c.log.Debugf("use-indexes %v", indexFiles)
+	c.log.Debugw("use-indexes", "files", indexFiles)
 
 	mergedAndCombined, newInUse, err := c.merge(ctx, indexFiles)
 	if err != nil {
@@ -269,7 +269,7 @@ func (c *committedContentIndex) fetchIndexBlobs(ctx context.Context, indexBlobs 
 		return nil
 	}
 
-	c.log.Debugf("Downloading %v new index blobs...", len(indexBlobs))
+	c.log.Debugw("downloading new index blobs", "total", len(indexBlobs))
 
 	eg, ctx := errgroup.WithContext(ctx)
 	for i := 0; i < parallelFetches; i++ {
@@ -296,7 +296,7 @@ func (c *committedContentIndex) fetchIndexBlobs(ctx context.Context, indexBlobs 
 		return errors.Wrap(err, "error downloading indexes")
 	}
 
-	c.log.Debugf("Index blobs downloaded.")
+	c.log.Debugw("Index blobs downloaded.")
 
 	return nil
 }

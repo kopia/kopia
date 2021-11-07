@@ -39,17 +39,17 @@ func (m *encryptedBlobMgr) encryptAndWriteBlob(ctx context.Context, data gather.
 
 	err = m.st.PutBlob(ctx, blobID, data2.Bytes())
 	if err != nil {
-		m.log.Debugf("write-index-blob %v failed %v", blobID, err)
+		m.log.Debugw("write-index-blob failed", "blobID", blobID, "error", err)
 		return blob.Metadata{}, errors.Wrapf(err, "error writing blob %v", blobID)
 	}
 
 	bm, err := m.st.GetMetadata(ctx, blobID)
 	if err != nil {
-		m.log.Debugf("write-index-blob-get-metadata %v failed %v", blobID, err)
+		m.log.Debugw("write-index-blob-get-metadata failed", "blobID", blobID, "error", err)
 		return blob.Metadata{}, errors.Wrap(err, "unable to get blob metadata")
 	}
 
-	m.log.Debugf("write-index-blob %v %v %v", blobID, bm.Length, bm.Timestamp)
+	m.log.Debugw("write-index-blob", "blobID", blobID, "size", bm.Length, "time", bm.Timestamp)
 
 	return bm, nil
 }

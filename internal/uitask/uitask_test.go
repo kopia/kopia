@@ -54,8 +54,8 @@ func TestUITask(t *testing.T) {
 		})
 
 		verifyTaskLog(t, m, tid1a, nil)
-		log(ctx).Debugf("first")
-		ignoredLog(ctx).Debugf("this is ignored")
+		log(ctx).Debugw("first")
+		ignoredLog(ctx).Debugw("this is ignored")
 		log(ctx).Infof("iii")
 		verifyTaskLog(t, m, tid1a, []string{
 			"first",

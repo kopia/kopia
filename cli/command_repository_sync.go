@@ -234,7 +234,7 @@ func (c *commandRepositorySyncTo) runSyncBlobs(ctx context.Context, src blob.Rea
 
 		eg.Go(func() error {
 			for m := range copyCh {
-				log(ctx).Debugf("[%v] Copying %v (%v bytes)...\n", workerID, m.BlobID, m.Length)
+				log(ctx).Debugw("copying blob", "workerID", workerID, "blobID", m.BlobID, "size", m.Length)
 				if err := c.syncCopyBlob(ctx, m, src, dst); err != nil {
 					return errors.Wrapf(err, "error copying %v", m.BlobID)
 				}
@@ -256,7 +256,7 @@ func (c *commandRepositorySyncTo) runSyncBlobs(ctx context.Context, src blob.Rea
 			}
 
 			for m := range deleteCh {
-				log(ctx).Debugf("[%v] Deleting %v (%v bytes)...\n", workerID, m.BlobID, m.Length)
+				log(ctx).Debugw("deleting blob", "workerID", workerID, "blobID", m.BlobID, "size", m.Length)
 				if err := syncDeleteBlob(ctx, m, dst); err != nil {
 					return errors.Wrapf(err, "error deleting %v", m.BlobID)
 				}

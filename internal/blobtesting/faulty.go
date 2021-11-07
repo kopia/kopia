@@ -131,7 +131,7 @@ func (s *FaultyStorage) getNextFault(ctx context.Context, method string, args ..
 	f := faults[0]
 	if f.Repeat > 0 {
 		f.Repeat--
-		log(ctx).Debugf("will repeat %v more times the fault for %v %v", f.Repeat, method, args)
+		log(ctx).Debugw("repeating due to fault", "remaining", f.Repeat, "method", method, "arguments", args)
 	} else {
 		if remaining := faults[1:]; len(remaining) > 0 {
 			s.Faults[method] = remaining
@@ -143,23 +143,23 @@ func (s *FaultyStorage) getNextFault(ctx context.Context, method string, args ..
 	s.mu.Unlock()
 
 	if f.WaitFor != nil {
-		log(ctx).Debugf("waiting for channel to be closed in %v %v", method, args)
+		log(ctx).Debugw("waiting for channel to be closed", "method", method, "arguments", args)
 		<-f.WaitFor
 	}
 
 	if f.Sleep > 0 {
-		log(ctx).Debugf("sleeping for %v in %v %v", f.Sleep, method, args)
+		log(ctx).Debugw("sleeping for duration", "duration", f.Sleep, "method", method, "arguments", args)
 		time.Sleep(f.Sleep)
 	}
 
 	if f.ErrCallback != nil {
 		err := f.ErrCallback()
-		log(ctx).Debugf("returning %v for %v %v", err, method, args)
+		log(ctx).Debugw("returning error", "error", err, "method", method, "arguments", args)
 
 		return err
 	}
 
-	log(ctx).Debugf("returning %v for %v %v", f.Err, method, args)
+	log(ctx).Debugw("returning error", "error", f.Err, "method", method, "arguments", args)
 
 	return f.Err
 }

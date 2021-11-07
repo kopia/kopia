@@ -66,7 +66,7 @@ func (c *commandMount) run(ctx context.Context, rep repo.Repository) error {
 
 	if c.mountTraceFS {
 		// nolint:forcetypeassert
-		entry = loggingfs.Wrap(entry, log(ctx).Debugf).(fs.Directory)
+		entry = loggingfs.Wrap(entry, log(ctx).Debugw).(fs.Directory)
 	}
 
 	// nolint:forcetypeassert

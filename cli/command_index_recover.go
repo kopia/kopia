@@ -145,7 +145,7 @@ func (c *commandIndexRecover) recoverIndexesFromAllPacks(ctx context.Context, re
 			for bm := range blobCh {
 				finishedBlobs := atomic.LoadInt32(processedBlobCount)
 
-				log(ctx).Debugf("worker %v got %v", worker, cnt)
+				log(ctx).Debugw("worker got blob", "worker", worker, "count", cnt)
 				cnt++
 
 				if tt.ShouldOutput(time.Second) {
@@ -181,7 +181,7 @@ func (c *commandIndexRecover) recoverIndexesFromAllPacks(ctx context.Context, re
 }
 
 func (c *commandIndexRecover) recoverIndexFromSinglePackFile(ctx context.Context, rep repo.DirectRepositoryWriter, blobID blob.ID, length int64, processedBlobCount, recoveredContentCount *int32) error {
-	log(ctx).Debugf("recovering from %v", blobID)
+	log(ctx).Debugw("recovering from blob", "blobID", blobID)
 
 	recovered, err := rep.ContentManager().RecoverIndexFromPackBlob(ctx, blobID, length, c.commit)
 	if err != nil {
@@ -194,7 +194,7 @@ func (c *commandIndexRecover) recoverIndexFromSinglePackFile(ctx context.Context
 
 	atomic.AddInt32(recoveredContentCount, int32(len(recovered)))
 	atomic.AddInt32(processedBlobCount, 1)
-	log(ctx).Debugf("Recovered %v entries from %v (commit=%v)", len(recovered), blobID, c.commit)
+	log(ctx).Debugw("recovered entries from blob in commit", "entries", len(recovered), "blobID", blobID, "commit", c.commit)
 
 	return nil
 }

@@ -130,7 +130,7 @@ func (bm *WriteManager) DeleteContent(ctx context.Context, contentID ID) error {
 
 	atomic.AddInt64(&bm.revision, 1)
 
-	bm.log.Debugf("delete-content %v", contentID)
+	bm.log.Debugw("delete-content", "contentID", contentID)
 
 	// remove from all pending packs
 	for _, pp := range bm.pendingPacks {
@@ -209,7 +209,7 @@ func (bm *WriteManager) maybeRetryWritingFailedPacksUnlocked(ctx context.Context
 
 	// do not start new uploads while flushing
 	for bm.flushing {
-		bm.log.Debugf("wait-before-retry")
+		bm.log.Debugw("wait-before-retry")
 		bm.cond.Wait()
 	}
 
@@ -220,7 +220,7 @@ func (bm *WriteManager) maybeRetryWritingFailedPacksUnlocked(ctx context.Context
 	// will remove from it on success.
 	fp := append([]*pendingPackInfo(nil), bm.failedPacks...)
 	for _, pp := range fp {
-		bm.log.Debugf("retry-write %v", pp.packBlobID)
+		bm.log.Debugw("retry-write", "blobID", pp.packBlobID)
 
 		if err := bm.writePackAndAddToIndexLocked(ctx, pp, true); err != nil {
 			return errors.Wrap(err, "error writing previously failed pack")
@@ -253,7 +253,7 @@ func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, dat
 
 	// do not start new uploads while flushing
 	for bm.flushing {
-		bm.log.Debugf("wait-before-flush")
+		bm.log.Debugw("wait-before-flush")
 		bm.cond.Wait()
 	}
 
@@ -264,7 +264,7 @@ func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, dat
 	// will remove from it on success.
 	fp := append([]*pendingPackInfo(nil), bm.failedPacks...)
 	for _, pp := range fp {
-		bm.log.Debugf("retry-write %v", pp.packBlobID)
+		bm.log.Debugw("retry-write", "blobID", pp.packBlobID)
 
 		if err = bm.writePackAndAddToIndexLocked(ctx, pp, true); err != nil {
 			bm.unlock()
@@ -322,7 +322,7 @@ func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, dat
 func (bm *WriteManager) DisableIndexFlush(ctx context.Context) {
 	bm.lock()
 	defer bm.unlock()
-	bm.log.Debugf("DisableIndexFlush()")
+	bm.log.Debugw("DisableIndexFlush()")
 	bm.disableIndexFlushCount++
 }
 
@@ -331,7 +331,7 @@ func (bm *WriteManager) DisableIndexFlush(ctx context.Context) {
 func (bm *WriteManager) EnableIndexFlush(ctx context.Context) {
 	bm.lock()
 	defer bm.unlock()
-	bm.log.Debugf("EnableIndexFlush()")
+	bm.log.Debugw("EnableIndexFlush()")
 	bm.disableIndexFlushCount--
 }
 
@@ -383,7 +383,7 @@ func (bm *WriteManager) assertInvariant(ok bool, errorMsg string, arg ...interfa
 
 func (bm *WriteManager) flushPackIndexesLocked(ctx context.Context) error {
 	if bm.disableIndexFlushCount > 0 {
-		bm.log.Debugf("not flushing index because flushes are currently disabled")
+		bm.log.Debugw("not flushing index because flushes are currently disabled")
 		return nil
 	}
 
@@ -483,11 +483,11 @@ func (bm *WriteManager) prepareAndWritePackInternal(ctx context.Context, pp *pen
 
 	if pp.currentPackData.Length() > 0 {
 		if err := bm.writePackFileNotLocked(ctx, pp.packBlobID, pp.currentPackData.Bytes()); err != nil {
-			bm.log.Debugf("failed-pack %v %v", pp.packBlobID, err)
+			bm.log.Debugw("failed-pack", "blobID", pp.packBlobID, "error", err)
 			return nil, errors.Wrapf(err, "can't save pack data blob %v", pp.packBlobID)
 		}
 
-		bm.log.Debugf("wrote-pack %v %v", pp.packBlobID, pp.currentPackData.Length())
+		bm.log.Debugw("wrote-pack", "blobID", pp.packBlobID, "size", pp.currentPackData.Length())
 	}
 
 	return packFileIndex, nil
@@ -522,7 +522,7 @@ func (bm *WriteManager) Flush(ctx context.Context) error {
 	bm.lock()
 	defer bm.unlock()
 
-	bm.log.Debugf("flush")
+	bm.log.Debugw("flush")
 
 	bm.flushing = true
 
@@ -540,7 +540,7 @@ func (bm *WriteManager) Flush(ctx context.Context) error {
 	// will remove from it on success.
 	fp := append([]*pendingPackInfo(nil), bm.failedPacks...)
 	for _, pp := range fp {
-		bm.log.Debugf("retry-write %v", pp.packBlobID)
+		bm.log.Debugw("retry-write", "blobID", pp.packBlobID)
 
 		if err := bm.writePackAndAddToIndexLocked(ctx, pp, true); err != nil {
 			return errors.Wrap(err, "error writing previously failed pack")
@@ -548,7 +548,7 @@ func (bm *WriteManager) Flush(ctx context.Context) error {
 	}
 
 	for len(bm.writingPacks) > 0 {
-		bm.log.Debugf("waiting for %v in-progress packs to finish", len(bm.writingPacks))
+		bm.log.Debugw("waiting for in-progress packs to finish", "remaining", len(bm.writingPacks))
 
 		// wait packs that are currently writing in other goroutines to finish
 		bm.cond.Wait()
@@ -570,7 +570,7 @@ func (bm *WriteManager) Flush(ctx context.Context) error {
 // TODO(jkowalski): this will currently always re-encrypt and re-compress data, perhaps consider a
 // pass-through mode that preserves encrypted/compressed bits.
 func (bm *WriteManager) RewriteContent(ctx context.Context, contentID ID) error {
-	bm.log.Debugf("rewrite-content %v", contentID)
+	bm.log.Debugw("rewrite-content", "contentID", contentID)
 
 	var data gather.WriteBuffer
 	defer data.Close()
@@ -604,7 +604,7 @@ func (bm *WriteManager) getContentDataAndInfo(ctx context.Context, contentID ID,
 // and is mark deleted. If the content exists and is not marked deleted, this
 // operation is a no-op.
 func (bm *WriteManager) UndeleteContent(ctx context.Context, contentID ID) error {
-	bm.log.Debugf("UndeleteContent(%q)", contentID)
+	bm.log.Debugw("UndeleteContent", "contentID", contentID)
 
 	var data gather.WriteBuffer
 	defer data.Close()
@@ -695,13 +695,13 @@ func (bm *WriteManager) WriteContent(ctx context.Context, data gather.Bytes, pre
 	// content already tracked
 	if err == nil {
 		if !bi.GetDeleted() {
-			bm.log.Debugf("write-content %v already-exists", contentID)
+			bm.log.Debugw("write-content already-exists", "contentID", contentID)
 			return contentID, nil
 		}
 
-		bm.log.Debugf("write-content %v previously-deleted", contentID)
+		bm.log.Debugw("write-content previously-deleted", "contentID", contentID)
 	} else {
-		bm.log.Debugf("write-content %v new", contentID)
+		bm.log.Debugw("write-content new", "contentID", contentID)
 	}
 
 	return contentID, bm.addToPackUnlocked(ctx, contentID, data, false, comp)
@@ -727,7 +727,7 @@ func (bm *WriteManager) GetContent(ctx context.Context, contentID ID) (v []byte,
 
 	_, err = bm.getContentDataAndInfo(ctx, contentID, &tmp)
 	if err != nil {
-		bm.log.Debugf("getContentInfoReadLocked(%v) error %v", contentID, err)
+		bm.log.Debugw("getContentInfoReadLocked", "contentID", contentID, "error", err)
 		return nil, err
 	}
 
@@ -779,7 +779,7 @@ func (bm *WriteManager) ContentInfo(ctx context.Context, contentID ID) (Info, er
 
 	_, bi, err := bm.getContentInfoReadLocked(ctx, contentID)
 	if err != nil {
-		bm.log.Debugf("ContentInfo(%q) - error %v", contentID, err)
+		bm.log.Debugw("ContentInfo error", "contentID", contentID, "error", err)
 		return nil, err
 	}
 
@@ -809,7 +809,7 @@ func (bm *WriteManager) SyncMetadataCache(ctx context.Context) error {
 		return cm.sync(ctx)
 	}
 
-	bm.log.Debugf("metadata cache not enabled")
+	bm.log.Debugw("metadata cache not enabled")
 
 	return nil
 }

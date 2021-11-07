@@ -244,7 +244,7 @@ func (c *commandBlobShardsModify) renameBlobs(ctx context.Context, dir, prefix s
 			destFile := fmt.Sprintf("%v/%v%v", destDir, destBlobID, sharded.CompleteBlobSuffix)
 
 			if srcFile == destFile {
-				log(ctx).Debugf("Unchanged: %v", srcFile)
+				log(ctx).Debugw("unchanged", "file", srcFile)
 
 				*numUnchanged++
 			} else {

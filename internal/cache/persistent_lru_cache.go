@@ -219,7 +219,7 @@ func (c *PersistentCache) sweepDirectory(ctx context.Context) (err error) {
 
 	dur := timer.Elapsed()
 
-	log(ctx).Debugf("finished sweeping %v in %v and retained %v/%v bytes (%v %%)", c.description, dur, totalRetainedSize, c.maxSizeBytes, 100*totalRetainedSize/c.maxSizeBytes)
+	log(ctx).Debugw("finished sweeping cache", "cache", c.description, "duration", dur, "retainedSize", totalRetainedSize, "maxSize", c.maxSizeBytes, "percent", 100*totalRetainedSize/c.maxSizeBytes)
 
 	return nil
 }

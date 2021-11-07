@@ -48,7 +48,7 @@ func (m *indexBlobManagerV1) invalidate(ctx context.Context) {
 
 func (m *indexBlobManagerV1) flushCache(ctx context.Context) {
 	if err := m.st.FlushCaches(ctx); err != nil {
-		m.log.Debugf("error flushing caches: %v", err)
+		m.log.Debugw("error flushing caches", "error", err)
 	}
 }
 

@@ -107,7 +107,7 @@ func (r *grpcInnerSession) readLoop(ctx context.Context) {
 		close(ch)
 	}
 
-	log(ctx).Debugf("GRPC stream read loop terminated with %v", err)
+	log(ctx).Debugw("GRPC stream read loop terminated with error", "error", err)
 
 	// when a read loop error occurs, close all pending client channels with an artificial error.
 	r.activeRequestsMutex.Lock()
@@ -675,7 +675,7 @@ func (r *grpcRepositoryClient) Close(ctx context.Context) error {
 	r.omgr = nil
 
 	if atomic.AddInt32(r.connRefCount, -1) == 0 {
-		log(ctx).Debugf("closing GPRC connection to %v", r.conn.Target())
+		log(ctx).Debugw("closing GPRC connection", "target", r.conn.Target())
 
 		defer r.contentCache.Close(ctx)
 
@@ -758,7 +758,7 @@ func (r *grpcRepositoryClient) getOrEstablishInnerSession(ctx context.Context) (
 	if r.innerSession == nil {
 		cli := apipb.NewKopiaRepositoryClient(r.conn)
 
-		log(ctx).Debugf("establishing new GRPC streaming session (purpose=%v)", r.opt.Purpose)
+		log(ctx).Debugw("establishing new GRPC streaming session", "purpose", r.opt.Purpose)
 
 		retryPolicy := retry.Always
 		if r.transparentRetries && r.innerSessionAttemptCount == 0 {

@@ -139,13 +139,18 @@ func (a *chunkAllocator) dumpStats(ctx context.Context, prefix string) {
 
 	alive := a.allocated - a.freed
 
-	log(ctx).Debugf("%v (%v) - allocated %v(%v) chunks freed %v alive %v max %v free list high water mark: %v",
-		prefix,
-		units.Base2Bytes(int64(a.chunkSize)),
-		a.allocated, a.slicesAllocated, a.freed, alive, a.allocHighWaterMark, a.freeListHighWaterMark)
+	log(ctx).Debugw("chunk allocator statistics",
+		"prefix", prefix,
+		"chunkSize", units.Base2Bytes(int64(a.chunkSize)),
+		"chunksAllocated", a.allocated,
+		"slicesAllocated", a.slicesAllocated,
+		"freed", a.freed,
+		"alive", alive,
+		"maxAllocation", a.allocHighWaterMark,
+		"freeListHighWater", a.freeListHighWaterMark)
 
 	for _, v := range a.activeChunks {
-		log(ctx).Debugf("leaked chunk from %v", v)
+		log(ctx).Debugw("leaked chunk", "chunk", v)
 	}
 
 	if trackChunkAllocations && len(a.activeChunks) > 0 {

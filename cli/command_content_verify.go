@@ -158,7 +158,7 @@ func (c *commandContentVerify) getTotalContentCount(ctx context.Context, rep rep
 		tc++
 		return nil
 	}); err != nil {
-		log(ctx).Debugf("error estimating content count: %v", err)
+		log(ctx).Debugw("error estimating content count", "error", err)
 		return
 	}
 

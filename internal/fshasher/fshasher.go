@@ -47,7 +47,7 @@ func write(ctx context.Context, tw *tar.Writer, fullpath string, e fs.Entry) err
 		return err
 	}
 
-	log(ctx).Debugf("%v %v %v %v %v", e.Mode(), h.ModTime.Format(time.RFC3339), h.Size, h.Name, h.Linkname)
+	log(ctx).Debugw("", "mode", e.Mode(), "modTime", h.ModTime.Format(time.RFC3339), "size", h.Size, "name", h.Name, "linkname", h.Linkname)
 
 	if err := tw.WriteHeader(h); err != nil {
 		return err

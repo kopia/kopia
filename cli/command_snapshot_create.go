@@ -276,7 +276,7 @@ func (c *commandSnapshotCreate) snapshotSingleSource(ctx context.Context, rep re
 		return errors.Wrap(err, "unable to get policy tree")
 	}
 
-	log(ctx).Debugf("uploading %v using %v previous manifests", sourceInfo, len(previous))
+	log(ctx).Debugw("uploading source using previous manifests", "sourceInfo", sourceInfo, "manifests", len(previous))
 
 	manifest, err := u.Upload(ctx, fsEntry, policyTree, sourceInfo, previous...)
 	if err != nil {
@@ -407,7 +407,7 @@ func findPreviousSnapshotManifest(ctx context.Context, rep repo.Repository, sour
 }
 
 func getLocalBackupPaths(ctx context.Context, rep repo.Repository) ([]string, error) {
-	log(ctx).Debugf("Looking for previous backups of '%v@%v'...", rep.ClientOptions().Hostname, rep.ClientOptions().Username)
+	log(ctx).Debugw("looking for previous backups from user on host", "hostname", rep.ClientOptions().Hostname, "username", rep.ClientOptions().Username)
 
 	sources, err := snapshot.ListSources(ctx, rep)
 	if err != nil {

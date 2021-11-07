@@ -78,14 +78,14 @@ func (s *Server) handleSourcesCreate(ctx context.Context, r *http.Request, body 
 	switch {
 	case err == nil:
 		// already have policy, do nothing
-		log(ctx).Debugf("policy for %v already exists", sourceInfo)
+		log(ctx).Debugw("policy already exists", "source", sourceInfo)
 
 		resp.Created = false
 
 	case errors.Is(err, policy.ErrPolicyNotFound):
 		resp.Created = true
 		// don't have policy - create an empty one
-		log(ctx).Debugf("policy for %v not found, creating empty one", sourceInfo)
+		log(ctx).Debugw("policy not found, creating empty one", "source", sourceInfo)
 
 		if err = repo.WriteSession(ctx, s.rep, repo.WriteSessionOptions{
 			Purpose: "handleSourcesCreate",
@@ -104,7 +104,7 @@ func (s *Server) handleSourcesCreate(ctx context.Context, r *http.Request, body 
 	s.mu.RUnlock()
 	s.mu.Lock()
 	if s.sourceManagers[sourceInfo] == nil {
-		log(ctx).Debugf("creating source manager for %v", sourceInfo)
+		log(ctx).Debugw("creating source manager", "source", sourceInfo)
 		sm := newSourceManager(sourceInfo, s)
 		s.sourceManagers[sourceInfo] = sm
 
@@ -121,7 +121,7 @@ func (s *Server) handleSourcesCreate(ctx context.Context, r *http.Request, body 
 	if req.CreateSnapshot {
 		resp.SnapshotStarted = true
 
-		log(ctx).Debugf("scheduling snapshot of %v immediately...", sourceInfo)
+		log(ctx).Debugw("scheduling snapshot immediately", "source", sourceInfo)
 		manager.scheduleSnapshotNow()
 	}
 

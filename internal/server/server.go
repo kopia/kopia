@@ -273,7 +273,7 @@ func (s *Server) handleAPIPossiblyNotConnected(isAuthorized isAuthorizedFunc, f 
 		ctx := r.Context()
 
 		if s.options.LogRequests {
-			log(ctx).Debugf("request %v (%v bytes)", r.URL, len(body))
+			log(ctx).Debugw("request", "url", r.URL, "size", len(body))
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -311,7 +311,7 @@ func (s *Server) handleAPIPossiblyNotConnected(isAuthorized isAuthorizedFunc, f 
 		w.WriteHeader(err.httpErrorCode)
 
 		if s.options.LogRequests && err.apiErrorCode == serverapi.ErrorNotConnected {
-			log(ctx).Debugf("%v: error code %v message %v", r.URL, err.apiErrorCode, err.message)
+			log(ctx).Debugw("request returned error", "url", r.URL, "errorCode", err.apiErrorCode, "error", err.message)
 		}
 
 		_ = e.Encode(&serverapi.ErrorResponse{
@@ -418,14 +418,14 @@ func (s *Server) handleCancel(ctx context.Context, r *http.Request, body []byte)
 }
 
 func (s *Server) beginUpload(ctx context.Context, src snapshot.SourceInfo) {
-	log(ctx).Debugf("waiting on semaphore to upload %v", src)
+	log(ctx).Debugw("waiting on semaphore for upload", "source", src)
 	s.uploadSemaphore <- struct{}{}
 
-	log(ctx).Debugf("entered semaphore to upload %v", src)
+	log(ctx).Debugw("entered semaphore for upload", "source", src)
 }
 
 func (s *Server) endUpload(ctx context.Context, src snapshot.SourceInfo) {
-	log(ctx).Debugf("finished uploading %v", src)
+	log(ctx).Debugw("finished upload", "source", src)
 	<-s.uploadSemaphore
 }
 
@@ -664,7 +664,7 @@ func New(ctx context.Context, options Options) (*Server, error) {
 	if options.AuthCookieSigningKey == "" {
 		// generate random signing key
 		options.AuthCookieSigningKey = uuid.New().String()
-		log(ctx).Debugf("generated random auth cookie signing key: %v", options.AuthCookieSigningKey)
+		log(ctx).Debugw("generated random auth cookie signing key", "key", options.AuthCookieSigningKey)
 	}
 
 	s := &Server{

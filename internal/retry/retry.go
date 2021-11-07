@@ -72,7 +72,7 @@ func internalRetry(ctx context.Context, desc string, attempt AttemptFunc, isRetr
 			return v, err
 		}
 
-		log(ctx).Debugf("got error %v when %v (#%v), sleeping for %v before retrying", err, desc, i, sleepAmount)
+		log(ctx).Debugw("encountered error, sleeping before retry", "error", err, "description", desc, "attempt", i, "delay", sleepAmount)
 		time.Sleep(sleepAmount)
 		sleepAmount = time.Duration(float64(sleepAmount) * factor)
 

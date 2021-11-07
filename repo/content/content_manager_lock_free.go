@@ -114,7 +114,12 @@ func (bm *WriteManager) preparePackDataContent(pp *pendingPackInfo) (packIndexBu
 			haveContent = true
 		}
 
-		bm.log.Debugf("add-to-pack %v %v p:%v %v d:%v", pp.packBlobID, info.GetContentID(), info.GetPackBlobID(), info.GetPackedLength(), info.GetDeleted())
+		bm.log.Debugw("add-to-pack",
+			"blobID", pp.packBlobID,
+			"contentID", info.GetContentID(),
+			"originalPack", info.GetPackBlobID(),
+			"size", info.GetPackedLength(),
+			"deleted", info.GetDeleted())
 
 		packFileIndex.Add(info)
 	}

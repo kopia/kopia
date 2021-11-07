@@ -50,7 +50,11 @@ func (o *ShallowFilesystemOutput) WriteDirEntry(ctx context.Context, relativePat
 
 // WriteFile implements restore.Output interface.
 func (o *ShallowFilesystemOutput) WriteFile(ctx context.Context, relativePath string, f fs.File) error {
-	log(ctx).Debugf("(Shallow) WriteFile %v (%v bytes) %v, %v", filepath.Join(o.TargetPath, relativePath), f.Size(), f.Mode(), f.ModTime())
+	log(ctx).Debugw("(Shallow) WriteFile",
+		"path", filepath.Join(o.TargetPath, relativePath),
+		"size", f.Size(),
+		"mode", f.Mode(),
+		"modTime", f.ModTime())
 
 	mde, ok := f.(snapshot.HasDirEntry)
 	if !ok {
@@ -82,7 +86,7 @@ func (o *ShallowFilesystemOutput) writeShallowEntry(ctx context.Context, relativ
 		return "", errors.Errorf("real path %v exists. cowardly refusing to add placeholder", path)
 	}
 
-	log(ctx).Debugf("ShallowFilesystemOutput.writeShallowEntry %v ", path)
+	log(ctx).Debugw("ShallowFilesystemOutput.writeShallowEntry", "path", path)
 
 	placeholderpath, err := localfs.WriteShallowPlaceholder(path, de)
 	if err != nil {

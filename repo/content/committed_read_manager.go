@@ -116,15 +116,15 @@ func (sm *SharedManager) readPackFileLocalIndex(ctx context.Context, packFile bl
 
 	if packFileLength >= indexRecoverPostambleSize {
 		if err = sm.attemptReadPackFileLocalIndex(ctx, packFile, packFileLength-indexRecoverPostambleSize, indexRecoverPostambleSize, output); err == nil {
-			sm.log.Debugf("recovered %v index bytes from blob %v using optimized method", output.Length(), packFile)
+			sm.log.Debugw("recovered index bytes from blob using optimized method", "bytesRecovered", output.Length(), "blobID", packFile)
 			return nil
 		}
 
-		sm.log.Debugf("unable to recover using optimized method: %v", err)
+		sm.log.Debugw("unable to recover using optimized method", "error", err)
 	}
 
 	if err = sm.attemptReadPackFileLocalIndex(ctx, packFile, 0, -1, output); err == nil {
-		sm.log.Debugf("recovered %v index bytes from blob %v using full blob read", output.Length(), packFile)
+		sm.log.Debugw("recovered index bytes from blob using full blob read", "bytesRecovered", output.Length(), "blobID", packFile)
 
 		return nil
 	}
@@ -183,7 +183,7 @@ func (sm *SharedManager) loadPackIndexesLocked(ctx context.Context) error {
 
 		if i > 0 {
 			sm.indexBlobManager.flushCache(ctx)
-			sm.log.Debugf("encountered NOT_FOUND when loading, sleeping %v before retrying #%v", nextSleepTime, i)
+			sm.log.Debugw("encountered NOT_FOUND when loading, sleeping before retry", "delay", nextSleepTime, "attempt", i)
 			time.Sleep(nextSleepTime)
 			nextSleepTime *= 2
 		}
@@ -464,14 +464,14 @@ func (sm *SharedManager) release(ctx context.Context) error {
 
 	remaining := atomic.AddInt32(&sm.refCount, -1)
 	if remaining != 0 {
-		sm.log.Debugf("not closing shared manager, remaining = %v", remaining)
+		sm.log.Debugw("not closing shared manager due to remaining references", "numRemaining", remaining)
 
 		return nil
 	}
 
 	atomic.StoreInt32(&sm.closed, 1)
 
-	sm.log.Debugf("closing shared manager")
+	sm.log.Debugw("closing shared manager")
 
 	if err := sm.committedContents.close(); err != nil {
 		return errors.Wrap(err, "error closing committed content index")

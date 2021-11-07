@@ -97,7 +97,7 @@ func editFile(ctx context.Context, file string) error {
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 
-	log(ctx).Debugf("launching editor %q on file %q", editor, file)
+	log(ctx).Debugw("launching file editor", "editor", editor, "file", file)
 
 	err := cmd.Run()
 	if err != nil {

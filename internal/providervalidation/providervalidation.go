@@ -228,7 +228,7 @@ func (c *concurrencyTest) putBlobWorker(ctx context.Context, worker int) func() 
 			// not written.
 			c.randomSleep()
 
-			log(ctx).Debugf("PutBlob worker %v writing %v (%v bytes)", worker, id, len(data))
+			log(ctx).Debugw("PutBlob", "workerID", worker, "blobID", id, "size", len(data))
 
 			if err := c.st.PutBlob(ctx, id, gather.FromSlice(data)); err != nil {
 				return errors.Wrap(err, "error writing blob")
@@ -238,7 +238,7 @@ func (c *concurrencyTest) putBlobWorker(ctx context.Context, worker int) func() 
 			c.blobWritten[id] = true
 			c.mu.Unlock()
 
-			log(ctx).Debugf("PutBlob worker %v finished writing %v (%v bytes)", worker, id, len(data))
+			log(ctx).Debugw("PutBlob worker finished", "workerID", worker, "blobID", id, "size", len(data))
 		}
 
 		return nil
@@ -275,7 +275,7 @@ func (c *concurrencyTest) getBlobWorker(ctx context.Context, worker int) func() 
 				continue
 			}
 
-			log(ctx).Debugf("GetBlob worker %v reading %v", worker, blobID)
+			log(ctx).Debugw("GetBlob", "workerID", worker, "blobID", blobID)
 
 			err := c.st.GetBlob(ctx, blobID, 0, -1, &out)
 			if err != nil {
@@ -283,7 +283,7 @@ func (c *concurrencyTest) getBlobWorker(ctx context.Context, worker int) func() 
 					return errors.Wrapf(err, "unexpected error when reading %v", blobID)
 				}
 
-				log(ctx).Debugf("GetBlob worker %v - valid error when reading %v", worker, blobID)
+				log(ctx).Debugw("GetBlob worker encountered valid error when reading blob", "workerID", worker, "blobID", blobID)
 
 				continue
 			}
@@ -292,7 +292,7 @@ func (c *concurrencyTest) getBlobWorker(ctx context.Context, worker int) func() 
 				return errors.Wrapf(err, "invalid data read for %v", blobID)
 			}
 
-			log(ctx).Debugf("GetBlob worker %v - valid data read %v", worker, blobID)
+			log(ctx).Debugw("GetBlob worker read valid data", "workerID", worker, "blobID", blobID)
 		}
 
 		return nil
@@ -309,7 +309,7 @@ func (c *concurrencyTest) getMetadataWorker(ctx context.Context, worker int) fun
 				continue
 			}
 
-			log(ctx).Debugf("GetMetadata worker %v: %v", worker, blobID)
+			log(ctx).Debugw("GetMetadata worker", "workerID", worker, "blobID", blobID)
 
 			bm, err := c.st.GetMetadata(ctx, blobID)
 			if err != nil {
@@ -317,7 +317,7 @@ func (c *concurrencyTest) getMetadataWorker(ctx context.Context, worker int) fun
 					return errors.Wrapf(err, "unexpected error when reading %v", blobID)
 				}
 
-				log(ctx).Debugf("GetMetadata worker %v - valid error when reading %v", worker, blobID)
+				log(ctx).Debugw("GetMetadata worker returned valid error when reading blob", "workerID", worker, "blobID", blobID)
 
 				continue
 			}
@@ -326,7 +326,7 @@ func (c *concurrencyTest) getMetadataWorker(ctx context.Context, worker int) fun
 				return errors.Wrapf(err, "unexpected partial read - invalid length read for %v: %v wanted %v", blobID, bm.Length, len(blobData))
 			}
 
-			log(ctx).Debugf("GetMetadata worker %v - valid data read %v", worker, blobID)
+			log(ctx).Debugw("GetMetadata worker read valid data from blob", "workerID", worker, "blobID", blobID)
 		}
 
 		return nil
@@ -367,7 +367,7 @@ func cleanupAllBlobs(ctx context.Context, st blob.Storage, prefix blob.ID) {
 	if err := st.ListBlobs(ctx, prefix, func(bm blob.Metadata) error {
 		return errors.Wrapf(st.DeleteBlob(ctx, bm.BlobID), "error deleting blob %v", bm.BlobID)
 	}); err != nil {
-		log(ctx).Debugf("error cleaning up")
+		log(ctx).Debugw("error cleaning up")
 	}
 }
 

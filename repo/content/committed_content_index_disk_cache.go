@@ -58,7 +58,7 @@ func (c *diskCommittedContentIndexCache) mmapOpenWithRetry(path string) (*mmap.R
 	retryCount := 0
 	for err != nil && retryCount < maxRetries {
 		retryCount++
-		c.log.Debugf("retry #%v unable to mmap.Open(): %v", retryCount, err)
+		c.log.Debugw("retrying, unable to mmap.Open()", "attempt", retryCount, "error", err)
 		time.Sleep(nextDelay)
 		nextDelay *= 2
 		f, err = mmap.Open(path)
@@ -137,7 +137,7 @@ func writeTempFileAtomic(dirname string, data []byte) (string, error) {
 }
 
 func (c *diskCommittedContentIndexCache) expireUnused(ctx context.Context, used []blob.ID) error {
-	c.log.Debugf("expireUnused (except %v)", used)
+	c.log.Debugw("expireUnused", "used", used)
 
 	entries, err := os.ReadDir(c.dirname)
 	if err != nil {
@@ -169,13 +169,13 @@ func (c *diskCommittedContentIndexCache) expireUnused(ctx context.Context, used 
 
 	for _, rem := range remaining {
 		if c.timeNow().Sub(rem.ModTime()) > unusedCommittedContentIndexCleanupTime {
-			c.log.Debugf("removing unused %v %v", rem.Name(), rem.ModTime())
+			c.log.Debugw("removing unused content", "content", rem.Name(), "modTime", rem.ModTime())
 
 			if err := os.Remove(filepath.Join(c.dirname, rem.Name())); err != nil {
 				c.log.Errorf("unable to remove unused index file: %v", err)
 			}
 		} else {
-			c.log.Debugf("keeping unused %v because it's too new %v", rem.Name(), rem.ModTime())
+			c.log.Debugw("keeping unused content because it is too new", "content", rem.Name(), "modTime", rem.ModTime())
 		}
 	}
 

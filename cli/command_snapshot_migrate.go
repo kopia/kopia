@@ -245,7 +245,7 @@ func (c *commandSnapshotMigrate) migrateSingleSource(ctx context.Context, upload
 
 func (c *commandSnapshotMigrate) migrateSingleSourceSnapshot(ctx context.Context, uploader *snapshotfs.Uploader, sourceRepo repo.Repository, destRepo repo.RepositoryWriter, s snapshot.SourceInfo, m *snapshot.Manifest) error {
 	if m.IncompleteReason != "" {
-		log(ctx).Debugf("ignoring incomplete %v at %v", s, formatTimestamp(m.StartTime))
+		log(ctx).Debugw("ignoring incomplete snapshot", "snapshot", s, "time", formatTimestamp(m.StartTime))
 		return nil
 	}
 

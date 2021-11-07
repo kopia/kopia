@@ -24,7 +24,7 @@ func (keyringStrategy) GetPassword(ctx context.Context, configFile string) (stri
 
 	switch {
 	case err == nil:
-		log(ctx).Debugf("password for %v retrieved from OS keyring", configFile)
+		log(ctx).Debugw("password for repository retrieved from OS keyring", "configFile", configFile)
 		return kr, nil
 	case errors.Is(err, keyring.ErrNotFound):
 		return "", ErrPasswordNotFound
@@ -36,13 +36,13 @@ func (keyringStrategy) GetPassword(ctx context.Context, configFile string) (stri
 }
 
 func (keyringStrategy) PersistPassword(ctx context.Context, configFile, password string) error {
-	log(ctx).Debugf("saving password to OS keyring...")
+	log(ctx).Debugw("saving password to OS keyring...")
 
 	err := keyring.Set(getKeyringItemID(configFile), keyringUsername(ctx), password)
 
 	switch {
 	case err == nil:
-		log(ctx).Debugf("Saved password in OS keyring")
+		log(ctx).Debugw("Saved password in OS keyring")
 		return nil
 
 	case errors.Is(err, keyring.ErrUnsupportedPlatform):

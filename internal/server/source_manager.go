@@ -111,10 +111,10 @@ func (s *sourceManager) run(ctx context.Context) {
 	defer s.wg.Done()
 
 	if s.server.rep.ClientOptions().Hostname == s.src.Host && !s.server.rep.ClientOptions().ReadOnly {
-		log(ctx).Debugf("starting local source manager for %v", s.src)
+		log(ctx).Debugw("starting local source manager", "source", s.src)
 		s.runLocal(ctx)
 	} else {
-		log(ctx).Debugf("starting read-only source manager for %v", s.src)
+		log(ctx).Debugw("starting read-only source manager", "source", s.src)
 		s.runReadOnly(ctx)
 	}
 }
@@ -146,7 +146,7 @@ func (s *sourceManager) runLocal(ctx context.Context) {
 			s.refreshStatus(ctx)
 
 		case <-time.After(waitTime):
-			log(ctx).Debugf("snapshotting %v", s.src)
+			log(ctx).Debugw("snapshotting", "source", s.src)
 
 			if err := s.snapshot(ctx); err != nil {
 				log(ctx).Errorf("snapshot error: %v", err)
@@ -208,7 +208,7 @@ func (s *sourceManager) cancel(ctx context.Context) serverapi.SourceActionRespon
 }
 
 func (s *sourceManager) stop(ctx context.Context) {
-	log(ctx).Debugf("stopping source manager for %v", s.src)
+	log(ctx).Debugw("stopping source manager", "source", s.src)
 
 	if u := s.currentUploader(); u != nil {
 		log(ctx).Infof("canceling current upload")
@@ -220,7 +220,7 @@ func (s *sourceManager) stop(ctx context.Context) {
 
 func (s *sourceManager) waitUntilStopped(ctx context.Context) {
 	s.wg.Wait()
-	log(ctx).Debugf("source manager for %v has stopped", s.src)
+	log(ctx).Debugw("source manager has stopped", "source", s.src)
 }
 
 func (s *sourceManager) snapshot(ctx context.Context) error {
@@ -268,7 +268,7 @@ func (s *sourceManager) snapshotInternal(ctx context.Context, ctrl uitask.Contro
 			onUpload(numBytes)
 		},
 	}, func(ctx context.Context, w repo.RepositoryWriter) error {
-		log(ctx).Debugf("uploading %v", s.src)
+		log(ctx).Debugw("uploading", "source", s.src)
 		u := snapshotfs.NewUploader(w)
 
 		ctrl.OnCancel(u.Cancel)
@@ -285,7 +285,7 @@ func (s *sourceManager) snapshotInternal(ctx context.Context, ctrl uitask.Contro
 			u.Progress.UploadedBytes(numBytes)
 		}
 
-		log(ctx).Debugf("starting upload of %v", s.src)
+		log(ctx).Debugw("starting upload", "source", s.src)
 		s.setUploader(u)
 
 		manifest, err := u.Upload(ctx, localEntry, policyTree, s.src, s.manifestsSinceLastCompleteSnapshot...)
@@ -306,7 +306,7 @@ func (s *sourceManager) snapshotInternal(ctx context.Context, ctrl uitask.Contro
 			return errors.Wrap(err, "unable to apply retention policy")
 		}
 
-		log(ctx).Debugf("created snapshot %v", snapshotID)
+		log(ctx).Debugw("created snapshot", "snapshotID", snapshotID)
 		return nil
 	})
 }

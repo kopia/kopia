@@ -48,7 +48,7 @@ const (
 // shouldRun returns Mode if repository is due for periodic maintenance.
 func shouldRun(ctx context.Context, rep repo.DirectRepository, p *Params) (Mode, error) {
 	if myUsername := rep.ClientOptions().UsernameAtHost(); p.Owner != myUsername {
-		log(ctx).Debugf("maintenance owned by another user '%v'", p.Owner)
+		log(ctx).Debugw("maintenance owned by another user", "user", p.Owner)
 		return ModeNone, nil
 	}
 
@@ -60,25 +60,25 @@ func shouldRun(ctx context.Context, rep repo.DirectRepository, p *Params) (Mode,
 	// check full cycle first, as it does more than the quick cycle
 	if p.FullCycle.Enabled {
 		if rep.Time().After(s.NextFullMaintenanceTime) {
-			log(ctx).Debugf("due for full maintenance cycle")
+			log(ctx).Debugw("due for full maintenance cycle")
 			return ModeFull, nil
 		}
 
-		log(ctx).Debugf("not due for full maintenance cycle until %v", s.NextFullMaintenanceTime)
+		log(ctx).Debugw("not due for full maintenance cycle", "time", s.NextFullMaintenanceTime)
 	} else {
-		log(ctx).Debugf("full maintenance cycle not enabled")
+		log(ctx).Debugw("full maintenance cycle not enabled")
 	}
 
 	// no time for full cycle, check quick cycle
 	if p.QuickCycle.Enabled {
 		if rep.Time().After(s.NextQuickMaintenanceTime) {
-			log(ctx).Debugf("due for quick maintenance cycle")
+			log(ctx).Debugw("due for quick maintenance cycle")
 			return ModeQuick, nil
 		}
 
-		log(ctx).Debugf("not due for quick maintenance cycle until %v", s.NextQuickMaintenanceTime)
+		log(ctx).Debugw("not due for quick maintenance cycle", "time", s.NextQuickMaintenanceTime)
 	} else {
-		log(ctx).Debugf("quick maintenance cycle not enabled")
+		log(ctx).Debugw("quick maintenance cycle not enabled")
 	}
 
 	return ModeNone, nil
@@ -98,13 +98,13 @@ func updateSchedule(ctx context.Context, runParams RunParameters) error {
 		// on full cycle, also update the quick cycle
 		s.NextFullMaintenanceTime = rep.Time().Add(p.FullCycle.Interval)
 		s.NextQuickMaintenanceTime = rep.Time().Add(p.QuickCycle.Interval)
-		log(ctx).Debugf("scheduling next full cycle at %v", s.NextFullMaintenanceTime)
-		log(ctx).Debugf("scheduling next quick cycle at %v", s.NextQuickMaintenanceTime)
+		log(ctx).Debugw("scheduling next full cycle", "time", s.NextFullMaintenanceTime)
+		log(ctx).Debugw("scheduling next quick cycle", "time", s.NextQuickMaintenanceTime)
 
 		return SetSchedule(ctx, rep, s)
 
 	case ModeQuick:
-		log(ctx).Debugf("scheduling next quick cycle at %v", s.NextQuickMaintenanceTime)
+		log(ctx).Debugw("scheduling next quick cycle", "time", s.NextQuickMaintenanceTime)
 		s.NextQuickMaintenanceTime = rep.Time().Add(p.QuickCycle.Interval)
 
 		return SetSchedule(ctx, rep, s)
@@ -162,7 +162,7 @@ func RunExclusive(ctx context.Context, rep repo.DirectRepositoryWriter, mode Mod
 	}
 
 	if mode == ModeNone {
-		log(ctx).Debugf("not due for maintenance")
+		log(ctx).Debugw("not due for maintenance")
 		return nil
 	}
 
@@ -186,7 +186,7 @@ func RunExclusive(ctx context.Context, rep repo.DirectRepositoryWriter, mode Mod
 	}
 
 	lockFile := rep.ConfigFilename() + ".mlock"
-	log(ctx).Debugf("Acquiring maintenance lock in file %v", lockFile)
+	log(ctx).Debugw("Acquiring maintenance lock in file", "path", lockFile)
 
 	// acquire local lock on a config file
 	l := flock.New(lockFile)
@@ -197,7 +197,7 @@ func RunExclusive(ctx context.Context, rep repo.DirectRepositoryWriter, mode Mod
 	}
 
 	if !ok {
-		log(ctx).Debugf("maintenance is already in progress locally")
+		log(ctx).Debugw("maintenance is already in progress locally")
 		return nil
 	}
 
@@ -245,7 +245,7 @@ func Run(ctx context.Context, runParams RunParameters, safety SafetyParameters) 
 
 func runQuickMaintenance(ctx context.Context, runParams RunParameters, safety SafetyParameters) error {
 	if _, ok := runParams.rep.ContentManager().EpochManager(); ok {
-		log(ctx).Debugf("quick maintenance not required for epoch manager")
+		log(ctx).Debugw("quick maintenance not required for epoch manager")
 		return nil
 	}
 
@@ -272,10 +272,10 @@ func runQuickMaintenance(ctx context.Context, runParams RunParameters, safety Sa
 		// running full orphaned blob deletion, otherwise next quick maintenance will start a quick rewrite
 		// and we'd never delete blobs orphaned by full rewrite.
 		if hadRecentFullRewrite(s) {
-			log(ctx).Debugf("Had recent full rewrite - performing full blob deletion.")
+			log(ctx).Debugw("Had recent full rewrite - performing full blob deletion.")
 			err = runTaskDeleteOrphanedBlobsFull(ctx, runParams, s, safety)
 		} else {
-			log(ctx).Debugf("Performing quick blob deletion.")
+			log(ctx).Debugw("Performing quick blob deletion.")
 			err = runTaskDeleteOrphanedBlobsQuick(ctx, runParams, s, safety)
 		}
 

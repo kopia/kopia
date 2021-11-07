@@ -80,11 +80,11 @@ func (m *indexBlobManagerV0) listActiveIndexBlobs(ctx context.Context) ([]IndexB
 	}
 
 	for i, sib := range storageIndexBlobs {
-		m.log.Debugf("found-index-blobs[%v] = %v", i, sib)
+		m.log.Debugw("found-index-blobs", "total", i, "blobs", sib)
 	}
 
 	for i, clm := range compactionLogMetadata {
-		m.log.Debugf("found-compaction-blobs[%v] %v", i, clm)
+		m.log.Debugw("found-compaction-blobs", "total", i, "metadata", clm)
 	}
 
 	indexMap := map[blob.ID]*IndexBlobInfo{}
@@ -104,7 +104,7 @@ func (m *indexBlobManagerV0) listActiveIndexBlobs(ctx context.Context) ([]IndexB
 	}
 
 	for i, res := range results {
-		m.log.Debugf("active-index-blobs[%v] = %v", i, res)
+		m.log.Debugw("active-index-blobs", "total", i, "blobs", res)
 	}
 
 	return results, time.Time{}, nil
@@ -115,7 +115,7 @@ func (m *indexBlobManagerV0) invalidate(ctx context.Context) {
 
 func (m *indexBlobManagerV0) flushCache(ctx context.Context) {
 	if err := m.st.FlushCaches(ctx); err != nil {
-		m.log.Debugf("error flushing caches: %v", err)
+		m.log.Debugw("error flushing caches", "error", err)
 	}
 }
 
@@ -153,14 +153,14 @@ func (m *indexBlobManagerV0) registerCompaction(ctx context.Context, inputs, out
 	}
 
 	for i, input := range inputs {
-		m.log.Debugf("compacted-input[%v/%v] %v", i, len(inputs), input)
+		m.log.Debugw("compacted-input", "num", i, "total", len(inputs), "data", input)
 	}
 
 	for i, output := range outputs {
-		m.log.Debugf("compacted-output[%v/%v] %v", i, len(outputs), output)
+		m.log.Debugw("compacted-output", "num", i, "total", len(outputs), "data", output)
 	}
 
-	m.log.Debugf("compaction-log %v %v", compactionLogBlobMetadata.BlobID, compactionLogBlobMetadata.Timestamp)
+	m.log.Debugw("compaction-log", "blobID", compactionLogBlobMetadata.BlobID, "time", compactionLogBlobMetadata.Timestamp)
 
 	if err := m.deleteOldBlobs(ctx, compactionLogBlobMetadata, maxEventualConsistencySettleTime); err != nil {
 		return errors.Wrap(err, "error deleting old index blobs")
@@ -263,7 +263,7 @@ func (m *indexBlobManagerV0) deleteOldBlobs(ctx context.Context, latestBlob blob
 	compactionLogServerTimeCutoff := latestBlob.Timestamp.Add(-maxEventualConsistencySettleTime)
 	compactionBlobs := blobsOlderThan(allCompactionLogBlobs, compactionLogServerTimeCutoff)
 
-	m.log.Debugf("fetching %v/%v compaction logs older than %v", len(compactionBlobs), len(allCompactionLogBlobs), compactionLogServerTimeCutoff)
+	m.log.Debugw("fetching compaction logs older than time", "numFetched", len(compactionBlobs), "total", len(allCompactionLogBlobs), "time", compactionLogServerTimeCutoff)
 
 	compactionBlobEntries, err := m.getCompactionLogEntries(ctx, compactionBlobs)
 	if err != nil {
@@ -293,12 +293,16 @@ func (m *indexBlobManagerV0) findIndexBlobsToDelete(latestServerBlobTime time.Ti
 	for _, cl := range entries {
 		// are the input index blobs in this compaction eligble for deletion?
 		if age := latestServerBlobTime.Sub(cl.metadata.Timestamp); age < maxEventualConsistencySettleTime {
-			m.log.Debugf("not deleting compacted index blob used as inputs for compaction %v, because it's too recent: %v < %v", cl.metadata.BlobID, age, maxEventualConsistencySettleTime)
+			m.log.Debugw("not deleting compacted index blob used as inputs for compaction because it's too recent",
+				"blobID", cl.metadata.BlobID,
+				"age", age,
+				"maxSettleTime", maxEventualConsistencySettleTime)
+
 			continue
 		}
 
 		for _, b := range cl.InputMetadata {
-			m.log.Debugf("will delete old index %v compacted to %v", b, cl.OutputMetadata)
+			m.log.Debugw("will delete old compacted index", "old", b, "new", cl.OutputMetadata)
 
 			tmp[b.BlobID] = true
 		}
@@ -317,7 +321,7 @@ func (m *indexBlobManagerV0) findCompactionLogBlobsToDelayCleanup(compactionBlob
 	var result []blob.ID
 
 	for _, cb := range compactionBlobs {
-		m.log.Debugf("will delete compaction log blob %v", cb)
+		m.log.Debugw("will delete compaction log blob", "blobID", cb)
 		result = append(result, cb.BlobID)
 	}
 
@@ -358,11 +362,11 @@ func (m *indexBlobManagerV0) delayCleanupBlobs(ctx context.Context, blobIDs []bl
 func (m *indexBlobManagerV0) deleteBlobsFromStorageAndCache(ctx context.Context, blobIDs []blob.ID) error {
 	for _, blobID := range blobIDs {
 		if err := m.st.DeleteBlob(ctx, blobID); err != nil && !errors.Is(err, blob.ErrBlobNotFound) {
-			m.log.Debugf("delete-blob failed %v %v", blobID, err)
+			m.log.Debugw("delete-blob failed", "blobID", blobID, "error", err)
 			return errors.Wrapf(err, "unable to delete blob %v", blobID)
 		}
 
-		m.log.Debugf("delete-blob succeeded %v", blobID)
+		m.log.Debugw("delete-blob succeeded", "blobID", blobID)
 	}
 
 	return nil
@@ -431,16 +435,16 @@ func (m *indexBlobManagerV0) getBlobsToCompact(indexBlobs []IndexBlobInfo, opt C
 
 	if len(nonCompactedBlobs) < opt.MaxSmallBlobs {
 		// current count is below min allowed - nothing to do
-		m.log.Debugf("no small contents to compact")
+		m.log.Debugw("no small contents to compact")
 		return nil
 	}
 
 	if len(verySmallBlobs) > len(nonCompactedBlobs)/2 && mediumSizedBlobCount+1 < opt.MaxSmallBlobs {
-		m.log.Debugf("compacting %v very small contents", len(verySmallBlobs))
+		m.log.Debugw("compacting very small contents", "total", len(verySmallBlobs))
 		return verySmallBlobs
 	}
 
-	m.log.Debugf("compacting all %v non-compacted contents", len(nonCompactedBlobs))
+	m.log.Debugw("compacting all non-compacted contents", "total", len(nonCompactedBlobs))
 
 	return nonCompactedBlobs
 }
@@ -455,7 +459,7 @@ func (m *indexBlobManagerV0) compactIndexBlobs(ctx context.Context, indexBlobs [
 	var inputs, outputs []blob.Metadata
 
 	for i, indexBlob := range indexBlobs {
-		m.log.Debugf("compacting-entries[%v/%v] %v", i, len(indexBlobs), indexBlob)
+		m.log.Debugw("compacting-entries", "num", i, "total", len(indexBlobs), "blobID", indexBlob)
 
 		if err := addIndexBlobsToBuilder(ctx, m.enc, bld, indexBlob.BlobID); err != nil {
 			return errors.Wrap(err, "error adding index to builder")
@@ -492,22 +496,22 @@ func (m *indexBlobManagerV0) compactIndexBlobs(ctx context.Context, indexBlobs [
 func (m *indexBlobManagerV0) dropContentsFromBuilder(bld packIndexBuilder, opt CompactOptions) {
 	for _, dc := range opt.DropContents {
 		if _, ok := bld[dc]; ok {
-			m.log.Debugf("manual-drop-from-index %v", dc)
+			m.log.Debugw("manual-drop-from-index", "contentsID", dc)
 			delete(bld, dc)
 		}
 	}
 
 	if !opt.DropDeletedBefore.IsZero() {
-		m.log.Debugf("drop-content-deleted-before %v", opt.DropDeletedBefore)
+		m.log.Debugw("drop-content-deleted-before", "time", opt.DropDeletedBefore)
 
 		for _, i := range bld {
 			if i.GetDeleted() && i.Timestamp().Before(opt.DropDeletedBefore) {
-				m.log.Debugf("drop-from-index-old-deleted %v %v", i.GetContentID(), i.Timestamp())
+				m.log.Debugw("drop-from-index-old-deleted", "contentID", i.GetContentID(), "time", i.Timestamp())
 				delete(bld, i.GetContentID())
 			}
 		}
 
-		m.log.Debugf("finished drop-content-deleted-before %v", opt.DropDeletedBefore)
+		m.log.Debugw("finished drop-content-deleted-before", "time", opt.DropDeletedBefore)
 	}
 }
 
@@ -556,7 +560,7 @@ func (m *indexBlobManagerV0) removeCompactedIndexes(bimap map[blob.ID]*IndexBlob
 			if bimap[o.BlobID] == nil {
 				haveAllOutputs = false
 
-				m.log.Debugf("blob %v referenced by compaction log is not found", o.BlobID)
+				m.log.Debugw("blob referenced by compaction log is not found", "blobID", o.BlobID)
 
 				break
 			}
@@ -571,7 +575,7 @@ func (m *indexBlobManagerV0) removeCompactedIndexes(bimap map[blob.ID]*IndexBlob
 	for _, cl := range validCompactionLogs {
 		for _, ib := range cl.InputMetadata {
 			if md := bimap[ib.BlobID]; md != nil && md.Superseded == nil {
-				m.log.Debugf("ignore-index-blob %v compacted to %v", ib, cl.OutputMetadata)
+				m.log.Debugw("ignore-index-blob compacted", "ignoreIndexBlob", ib, "output", cl.OutputMetadata)
 
 				delete(bimap, ib.BlobID)
 			}

@@ -252,7 +252,7 @@ func (fs *fsImpl) ReadDir(ctx context.Context, dirname string) ([]os.FileInfo, e
 
 // SetTime updates file modification time to the provided time.
 func (fs *fsImpl) SetTimeInPath(ctx context.Context, dirPath, filePath string, n time.Time) error {
-	log(ctx).Debugf("updating timestamp on %v to %v", filePath, n)
+	log(ctx).Debugw("updating timestamp", "path", filePath, "time", n)
 
 	// nolint:wrapcheck
 	return os.Chtimes(filePath, n, n)
@@ -278,7 +278,7 @@ func (fs *fsStorage) TouchBlob(ctx context.Context, blobID blob.ID, threshold ti
 		return nil
 	}
 
-	log(ctx).Debugf("updating timestamp on %v to %v", path, n)
+	log(ctx).Debugw("updating timestamp", "path", path, "time", n)
 
 	// nolint:wrapcheck
 	return os.Chtimes(path, n, n)

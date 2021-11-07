@@ -39,10 +39,10 @@ func Directory(ctx context.Context, entry fs.Directory, driveLetter string, _ Op
 
 func netUse(ctx context.Context, args ...string) (string, error) {
 	nu := exec.CommandContext(ctx, "net", append([]string{"use"}, args...)...) //nolint:gosec
-	log(ctx).Debugf("running %v %v", nu.Path, nu.Args)
+	log(ctx).Debugw("running command", "path", nu.Path, "arguments", nu.Args)
 
 	out, err := nu.Output()
-	log(ctx).Debugf("net use finished with %v %v", string(out), err)
+	log(ctx).Debugw("net use finished", "output", string(out), "error", err)
 
 	return string(out), errors.Wrap(err, "error running 'net use'")
 }

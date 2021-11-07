@@ -83,7 +83,7 @@ func (o *ZipOutput) FileExists(ctx context.Context, relativePath string, l fs.Fi
 
 // CreateSymlink implements restore.Output interface.
 func (o *ZipOutput) CreateSymlink(ctx context.Context, relativePath string, e fs.Symlink) error {
-	log(ctx).Debugf("create symlink not implemented yet")
+	log(ctx).Debugw("create symlink not implemented yet")
 	return nil
 }
 

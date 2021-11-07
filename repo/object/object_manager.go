@@ -117,7 +117,7 @@ func (om *Manager) Concatenate(ctx context.Context, objectIDs []ID) (ID, error) 
 		}
 	}
 
-	log(ctx).Debugf("concatenated: %v total: %v", concatenatedEntries, totalLength)
+	log(ctx).Debugw("concatenated entries", "num", concatenatedEntries, "total", totalLength)
 
 	w := om.NewWriter(ctx, WriterOptions{
 		Prefix:      indirectContentPrefix,

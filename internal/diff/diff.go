@@ -42,7 +42,7 @@ func (c *Comparer) Close() error {
 }
 
 func (c *Comparer) compareDirectories(ctx context.Context, dir1, dir2 fs.Directory, parent string) error {
-	log(ctx).Debugf("comparing directories %v", parent)
+	log(ctx).Debugw("comparing directories", "directory", parent)
 
 	var entries1, entries2 fs.Entries
 
@@ -71,7 +71,7 @@ func (c *Comparer) compareEntry(ctx context.Context, e1, e2 fs.Entry, path strin
 	if h1, ok := e1.(object.HasObjectID); ok {
 		if h2, ok := e2.(object.HasObjectID); ok {
 			if h1.ObjectID() == h2.ObjectID() {
-				log(ctx).Debugf("unchanged %v", path)
+				log(ctx).Debugw("path unchanged", "path", path)
 				return nil
 			}
 		}

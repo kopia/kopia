@@ -22,14 +22,14 @@ func webdavServerLogger(r *http.Request, err error) {
 	if err != nil {
 		log(r.Context()).Errorf("%v %v%v err: %v\n", r.Method, r.URL.RequestURI(), maybeRange, err)
 	} else {
-		log(r.Context()).Debugf("%v %v%v OK\n", r.Method, r.URL.RequestURI(), maybeRange)
+		log(r.Context()).Debugw("OK", "method", r.Method, "url", r.URL.RequestURI(), "range", maybeRange)
 	}
 }
 
 // DirectoryWebDAV exposes the provided filesystem directory via WebDAV on a random port on localhost
 // and returns a controller.
 func DirectoryWebDAV(ctx context.Context, entry fs.Directory) (Controller, error) {
-	log(ctx).Debugf("creating webdav server...")
+	log(ctx).Debugw("creating webdav server...")
 
 	mux := http.NewServeMux()
 
@@ -61,7 +61,7 @@ func DirectoryWebDAV(ctx context.Context, entry fs.Directory) (Controller, error
 	})
 
 	go func() {
-		log(ctx).Debugf("web server finished with %v", srv.Serve(l))
+		log(ctx).Debugw("web server finished", "output", srv.Serve(l))
 	}()
 
 	return webdavController{"http://" + l.Addr().String(), srv, done}, nil

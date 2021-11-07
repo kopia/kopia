@@ -163,7 +163,7 @@ func (c *commandServerStart) run(ctx context.Context, rep repo.Repository) error
 		log(ctx).Infof("Shutting down...")
 
 		if err = httpServer.Shutdown(ctx); err != nil {
-			log(ctx).Debugf("unable to shut down: %v", err)
+			log(ctx).Debugw("unable to shut down", "error", err)
 		}
 	})
 

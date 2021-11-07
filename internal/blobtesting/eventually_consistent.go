@@ -223,7 +223,7 @@ func (s *eventuallyConsistentStorage) shouldApplyInconsistency(ctx context.Conte
 	prob := 1 - math.Pow(x, power)
 
 	if rand.Float64() < prob {
-		log(ctx).Debugf("applying inconsistency %v (probability %v)", desc, prob)
+		log(ctx).Debugw("applying inconsistency", "inconsistency", desc, "probability", prob)
 		return true
 	}
 

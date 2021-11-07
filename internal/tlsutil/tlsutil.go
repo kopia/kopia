@@ -33,7 +33,7 @@ var log = logging.Module("tls")
 
 // GenerateServerCertificate generates random TLS certificate and key.
 func GenerateServerCertificate(ctx context.Context, keySize int, certValid time.Duration, names []string) (*x509.Certificate, *rsa.PrivateKey, error) {
-	log(ctx).Debugf("generating new TLS certificate")
+	log(ctx).Debugw("generating new TLS certificate")
 
 	priv, err := rsa.GenerateKey(rand.Reader, keySize)
 	if err != nil {
@@ -64,10 +64,10 @@ func GenerateServerCertificate(ctx context.Context, keySize int, certValid time.
 
 	for _, n := range names {
 		if ip := net.ParseIP(n); ip != nil {
-			log(ctx).Debugf("adding alternative IP to certificate: %v", ip)
+			log(ctx).Debugw("adding alternative IP to certificate", "ip", ip)
 			template.IPAddresses = append(template.IPAddresses, ip)
 		} else {
-			log(ctx).Debugf("adding alternative DNS name to certificate: %v", n)
+			log(ctx).Debugw("adding alternative DNS name to certificate", "dns", n)
 			template.DNSNames = append(template.DNSNames, n)
 		}
 	}

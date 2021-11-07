@@ -28,7 +28,7 @@ func (s *Server) handleMountCreate(ctx context.Context, r *http.Request, body []
 
 	v, ok := s.mounts.Load(oid)
 	if !ok {
-		log(ctx).Debugf("mount controller for %v not found, starting", oid)
+		log(ctx).Debugw("mount controller not found, starting", "objectID", oid)
 
 		var err error
 		c, err = mount.Directory(ctx, snapshotfs.DirectoryEntry(s.rep, oid, nil), "*", mount.Options{})
@@ -45,7 +45,7 @@ func (s *Server) handleMountCreate(ctx context.Context, r *http.Request, body []
 		c = v.(mount.Controller) // nolint:forcetypeassert
 	}
 
-	log(ctx).Debugf("mount for %v => %v", oid, c.MountPath())
+	log(ctx).Debugw("mounted object at path", "objectID", oid, "path", c.MountPath())
 
 	return &serverapi.MountedSnapshot{
 		Path: c.MountPath(),
@@ -111,7 +111,7 @@ func (s *Server) unmountAll(ctx context.Context) {
 	s.mounts.Range(func(key, val interface{}) bool {
 		c := val.(mount.Controller) // nolint:forcetypeassert
 
-		log(ctx).Debugf("unmounting %v from %v", key, c.MountPath())
+		log(ctx).Debugw("unmounting object from path", "objectID", key, "path", c.MountPath())
 
 		if err := c.Unmount(ctx); err != nil {
 			log(ctx).Errorf("unable to unmount %v", key)

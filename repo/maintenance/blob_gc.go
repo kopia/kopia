@@ -87,19 +87,19 @@ func DeleteUnreferencedBlobs(ctx context.Context, rep repo.DirectRepositoryWrite
 	// belong to alive sessions.
 	if err := rep.ContentManager().IterateUnreferencedBlobs(ctx, prefixes, opt.Parallel, func(bm blob.Metadata) error {
 		if bm.Timestamp.After(cutoffTime) {
-			log(ctx).Debugf("  preserving %v because it was created after maintenance started", bm.BlobID)
+			log(ctx).Debugw("  preserving blob because it was created after maintenance started", "blobID", bm.BlobID)
 			return nil
 		}
 
 		if age := cutoffTime.Sub(bm.Timestamp); age < safety.BlobDeleteMinAge {
-			log(ctx).Debugf("  preserving %v because it's too new (age: %v<%v)", bm.BlobID, age, safety.BlobDeleteMinAge)
+			log(ctx).Debugw("  preserving blob because it's too new", "blobID", bm.BlobID, "age", age, "minAge", safety.BlobDeleteMinAge)
 			return nil
 		}
 
 		sid := content.SessionIDFromBlobID(bm.BlobID)
 		if s, ok := activeSessions[sid]; ok {
 			if age := cutoffTime.Sub(s.CheckpointTime); age < safety.SessionExpirationAge {
-				log(ctx).Debugf("  preserving %v because it's part of an active session (%v)", bm.BlobID, sid)
+				log(ctx).Debugw("  preserving blob because it's part of an active session", "blobID", bm.BlobID, "sessionID", sid)
 				return nil
 			}
 		}
@@ -118,7 +118,7 @@ func DeleteUnreferencedBlobs(ctx context.Context, rep repo.DirectRepositoryWrite
 	close(unused)
 
 	unreferencedCount, unreferencedSize := unreferenced.Approximate()
-	log(ctx).Debugf("Found %v blobs to delete (%v)", unreferencedCount, units.BytesStringBase10(unreferencedSize))
+	log(ctx).Debugw("found blobs to delete", "total", unreferencedCount, "size", units.BytesStringBase10(unreferencedSize))
 
 	// wait for all delete workers to finish.
 	if err := eg.Wait(); err != nil {

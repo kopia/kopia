@@ -413,7 +413,7 @@ func (u *Uploader) checkpointRoot(ctx context.Context, cp *checkpointRegistry, p
 
 	rootEntry := checkpointManifest.Entries[0]
 
-	uploadLog(ctx).Debugf("checkpointed root %v", rootEntry.ObjectID)
+	uploadLog(ctx).Debugw("checkpointed root", "rootID", rootEntry.ObjectID)
 
 	man := *prototypeManifest
 	man.RootEntry = rootEntry
@@ -1251,7 +1251,7 @@ func (u *Uploader) maybeOpenDirectoryFromManifest(ctx context.Context, man *snap
 
 	dir, ok := ent.(fs.Directory)
 	if !ok {
-		uploadLog(ctx).Debugf("previous manifest root is not a directory (was %T %+v)", ent, man.RootEntry)
+		uploadLog(ctx).Debugw("previous manifest root is not a directory", "type", ent, "rootID", man.RootEntry)
 		return nil
 	}
 
@@ -1267,7 +1267,7 @@ func (u *Uploader) Upload(
 	sourceInfo snapshot.SourceInfo,
 	previousManifests ...*snapshot.Manifest,
 ) (*snapshot.Manifest, error) {
-	uploadLog(ctx).Debugf("Uploading %v", sourceInfo)
+	uploadLog(ctx).Debugw("uploading", "source", sourceInfo)
 
 	s := &snapshot.Manifest{
 		Source: sourceInfo,

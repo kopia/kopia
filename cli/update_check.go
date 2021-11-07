@@ -93,7 +93,7 @@ func (c *App) maybeInitializeUpdateCheck(ctx context.Context, co *connectOptions
 			NextNotifyTime: clock.Now().Add(c.initialUpdateCheckDelay),
 		}
 		if err := c.writeUpdateState(us); err != nil {
-			log(ctx).Debugf("error initializing update state")
+			log(ctx).Debugw("error initializing update state", "error", err)
 			return
 		}
 
@@ -175,7 +175,7 @@ func (c *App) maybeCheckForUpdates(ctx context.Context) (string, error) {
 		return "", errors.Wrap(err, "error checking GitHub")
 	}
 
-	log(ctx).Debugf("build version %v, available %v", ensureVPrefix(repo.BuildVersion), ensureVPrefix(us.AvailableVersion))
+	log(ctx).Debugw("version comparison", "build", ensureVPrefix(repo.BuildVersion), "available", ensureVPrefix(us.AvailableVersion))
 
 	if us.AvailableVersion == "" || semver.Compare(ensureVPrefix(repo.BuildVersion), ensureVPrefix(us.AvailableVersion)) >= 0 {
 		// no new version available
@@ -200,7 +200,7 @@ func (c *App) maybeCheckGithub(ctx context.Context, us *updateState) error {
 		return nil
 	}
 
-	log(ctx).Debugf("time for next update check has been reached")
+	log(ctx).Debugw("time for next update check has been reached")
 
 	// before we check for update, write update state file again, so if this fails
 	// we won't bother GitHub for a while
@@ -214,7 +214,7 @@ func (c *App) maybeCheckGithub(ctx context.Context, us *updateState) error {
 		return errors.Wrap(err, "update to get the latest release from GitHub")
 	}
 
-	log(ctx).Debugf("latest version on GitHub: %v previous %v", newAvailableVersion, us.AvailableVersion)
+	log(ctx).Debugw("github version comparison", "new", newAvailableVersion, "previous", us.AvailableVersion)
 
 	// we got updated version from GitHub, write it in a state file again
 	if newAvailableVersion != us.AvailableVersion {
@@ -241,12 +241,12 @@ func (c *App) maybePrintUpdateNotification(ctx context.Context) {
 
 	updatedVersion, err := c.maybeCheckForUpdates(ctx)
 	if err != nil {
-		log(ctx).Debugf("unable to check for updates: %v", err)
+		log(ctx).Debugw("unable to check for updates", "error", err)
 		return
 	}
 
 	if updatedVersion == "" {
-		log(ctx).Debugf("no updated version available")
+		log(ctx).Debugw("no updated version available")
 		return
 	}
 

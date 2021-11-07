@@ -148,7 +148,7 @@ type indexBlobPlusContentInfo struct {
 }
 
 func (c *commandIndexInspect) inspectSingleIndexBlob(ctx context.Context, rep repo.DirectRepository, blobID blob.ID, output chan indexBlobPlusContentInfo) error {
-	log(ctx).Debugf("Inspecting blob %v...", blobID)
+	log(ctx).Debugw("inspecting blob...", "blobID", blobID)
 
 	bm, err := rep.BlobReader().GetMetadata(ctx, blobID)
 	if err != nil {

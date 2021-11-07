@@ -65,18 +65,18 @@ func (r *rcloneStorage) ConnectionInfo() blob.ConnectionInfo {
 
 func (r *rcloneStorage) waitForTransfersToEnd(ctx context.Context) {
 	if atomic.LoadInt32(r.changeCount) == 0 {
-		log(ctx).Debugf("no writes in this session, no need to wait")
+		log(ctx).Debugw("no writes in this session, no need to wait")
 		return
 	}
 
-	log(ctx).Debugf("waiting for background rclone transfers to complete...")
+	log(ctx).Debugw("waiting for background rclone transfers to complete...")
 
 	for atomic.LoadInt32(r.allTransfersComplete) == 0 {
-		log(ctx).Debugf("still waiting for background rclone transfers to complete...")
+		log(ctx).Debugw("still waiting for background rclone transfers to complete...")
 		time.Sleep(1 * time.Second)
 	}
 
-	log(ctx).Debugf("all background rclone transfers have completed.")
+	log(ctx).Debugw("all background rclone transfers have completed.")
 }
 
 func (r *rcloneStorage) Close(ctx context.Context) error {
@@ -92,7 +92,7 @@ func (r *rcloneStorage) Close(ctx context.Context) error {
 
 	// this will kill rclone process if any
 	if r.cmd != nil && r.cmd.Process != nil {
-		log(ctx).Debugf("killing rclone")
+		log(ctx).Debugw("killing rclone")
 		r.cmd.Process.Kill() // nolint:errcheck
 		r.cmd.Wait()         // nolint:errcheck
 	}
@@ -115,7 +115,7 @@ func (r *rcloneStorage) processStderrStatus(ctx context.Context, statsMarker str
 		l := s.Text()
 
 		if r.Debug {
-			log(ctx).Debugf("[RCLONE] %v", l)
+			log(ctx).Debugw("[RCLONE]", "output", l)
 		}
 
 		if strings.Contains(l, statsMarker) {
@@ -132,7 +132,7 @@ func (r *rcloneStorage) runRCloneAndWaitForServerAddress(ctx context.Context, c 
 	rcloneAddressChan := make(chan string)
 	rcloneErrChan := make(chan error)
 
-	log(ctx).Debugf("starting %v", c.Path)
+	log(ctx).Debugw("starting", "path", c.Path)
 
 	go func() {
 		stderr, err := c.StderrPipe()
@@ -282,7 +282,7 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 		return nil, errors.Wrap(err, "unable to start rclone")
 	}
 
-	log(ctx).Debugf("detected webdav address: %v", rcloneAddr)
+	log(ctx).Debugw("detected webdav address", "address", rcloneAddr)
 
 	fingerprintBytes := sha256.Sum256(cert.Raw)
 

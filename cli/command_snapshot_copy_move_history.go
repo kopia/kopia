@@ -102,7 +102,7 @@ func (c *commandSnapshotCopyMoveHistory) run(ctx context.Context, rep repo.Repos
 		dstSource := getCopyDestination(manifest.Source, di)
 
 		if dstSource == manifest.Source {
-			log(ctx).Debugf("%v is the same as destination, ignoring", dstSource)
+			log(ctx).Debugw("source is the same as destination, ignoring", "source", dstSource)
 			continue
 		}
 

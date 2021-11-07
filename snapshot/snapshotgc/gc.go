@@ -118,12 +118,12 @@ func runInternal(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete 
 		}
 
 		if rep.Time().Sub(ci.Timestamp()) < safety.MinContentAgeSubjectToGC {
-			log(ctx).Debugf("recent unreferenced content %v (%v bytes, modified %v)", ci.GetContentID(), ci.GetPackedLength(), ci.Timestamp())
+			log(ctx).Debugw("recent unreferenced content", "contentID", ci.GetContentID(), "size", ci.GetPackedLength(), "time", ci.Timestamp())
 			tooRecent.Add(int64(ci.GetPackedLength()))
 			return nil
 		}
 
-		log(ctx).Debugf("unreferenced %v (%v bytes, modified %v)", ci.GetContentID(), ci.GetPackedLength(), ci.Timestamp())
+		log(ctx).Debugw("unreferenced content", "contentID", ci.GetContentID(), "size", ci.GetPackedLength(), "time", ci.Timestamp())
 		cnt, totalSize := unused.Add(int64(ci.GetPackedLength()))
 
 		if gcDelete {

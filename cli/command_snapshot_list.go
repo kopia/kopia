@@ -74,7 +74,7 @@ func findSnapshotsForSource(ctx context.Context, rep repo.Repository, sourceInfo
 			relPath = filepath.Base(sourceInfo.Path)
 		}
 
-		log(ctx).Debugf("No snapshots of %v@%v:%v", sourceInfo.UserName, sourceInfo.Host, sourceInfo.Path)
+		log(ctx).Debugw("no previous snapshots for this user@host:path", "username", sourceInfo.UserName, "hostname", sourceInfo.Host, "path", sourceInfo.Path)
 
 		parentPath := filepath.Dir(sourceInfo.Path)
 		if parentPath == sourceInfo.Path {
@@ -162,7 +162,7 @@ func (c *commandSnapshotList) outputManifestGroups(ctx context.Context, rep repo
 	for _, snapshotGroup := range snapshot.GroupBySource(manifests) {
 		src := snapshotGroup[0].Source
 		if !c.shouldOutputSnapshotSource(rep, src) {
-			log(ctx).Debugf("skipping %v", src)
+			log(ctx).Debugw("skipping source", "source", src)
 			continue
 		}
 

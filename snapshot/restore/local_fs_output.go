@@ -92,7 +92,12 @@ func (o *FilesystemOutput) Close(ctx context.Context) error {
 
 // WriteFile implements restore.Output interface.
 func (o *FilesystemOutput) WriteFile(ctx context.Context, relativePath string, f fs.File) error {
-	log(ctx).Debugf("WriteFile %v (%v bytes) %v, %v", filepath.Join(o.TargetPath, relativePath), f.Size(), f.Mode(), f.ModTime())
+	log(ctx).Debugw("writefile",
+		"path", filepath.Join(o.TargetPath, relativePath),
+		"size", f.Size(),
+		"mode", f.Mode(),
+		"modTime", f.ModTime())
+
 	path := filepath.Join(o.TargetPath, filepath.FromSlash(relativePath))
 
 	if err := o.copyFileContent(ctx, path, f); err != nil {
@@ -138,7 +143,10 @@ func (o *FilesystemOutput) CreateSymlink(ctx context.Context, relativePath strin
 		return errors.Wrap(err, "error reading link target")
 	}
 
-	log(ctx).Debugf("CreateSymlink %v => %v, time %v", filepath.Join(o.TargetPath, relativePath), targetPath, e.ModTime())
+	log(ctx).Debugw("create symlink",
+		"path", filepath.Join(o.TargetPath, relativePath),
+		"target", targetPath,
+		"modTime", e.ModTime())
 
 	path := filepath.Join(o.TargetPath, filepath.FromSlash(relativePath))
 
@@ -291,7 +299,7 @@ func (o *FilesystemOutput) createDirectory(ctx context.Context, path string) err
 			}
 		}
 
-		log(ctx).Debugf("Not creating already existing directory: %v", path)
+		log(ctx).Debugw("Not creating already existing directory", "path", path)
 
 		return nil
 	default:
@@ -307,7 +315,7 @@ func (o *FilesystemOutput) copyFileContent(ctx context.Context, targetPath strin
 			return errors.Errorf("unable to create %q, it already exists", targetPath)
 		}
 
-		log(ctx).Debugf("Overwriting existing file: %v", targetPath)
+		log(ctx).Debugw("Overwriting existing file", "path", targetPath)
 	default:
 		return errors.Wrap(err, "failed to stat "+targetPath)
 	}
@@ -318,7 +326,7 @@ func (o *FilesystemOutput) copyFileContent(ctx context.Context, targetPath strin
 	}
 	defer r.Close() //nolint:errcheck
 
-	log(ctx).Debugf("copying file contents to: %v", targetPath)
+	log(ctx).Debugw("copying file contents to target", "path", targetPath)
 
 	// nolint:wrapcheck
 	return atomicfile.Write(targetPath, r)

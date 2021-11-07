@@ -112,7 +112,7 @@ func (d *ignoreDirectory) skipCacheDirectory(ctx context.Context, entries fs.Ent
 	if ok {
 		correct, err := isCorrectCacheDirSignature(ctx, f)
 		if err != nil {
-			log(ctx).Debugf("unable to check cache dir signature, assuming not a cache directory: %v", err)
+			log(ctx).Debugw("unable to check cache dir signature, assuming not a cache directory", "directory", d, "error", err)
 			return entries
 		}
 

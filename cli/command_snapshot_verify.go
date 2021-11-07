@@ -123,7 +123,7 @@ func (v *verifier) enqueueVerifyObject(ctx context.Context, oid object.ID, path 
 }
 
 func (v *verifier) doVerifyDirectory(ctx context.Context, oid object.ID, path string) error {
-	log(ctx).Debugf("verifying directory %q (%v)", path, oid)
+	log(ctx).Debugw("verifying directory", "path", path, "objectID", oid)
 
 	d := snapshotfs.DirectoryEntry(v.rep, oid, nil)
 
@@ -152,7 +152,7 @@ func (v *verifier) doVerifyDirectory(ctx context.Context, oid object.ID, path st
 }
 
 func (v *verifier) doVerifyObject(ctx context.Context, oid object.ID, path string) error {
-	log(ctx).Debugf("verifying object %v", oid)
+	log(ctx).Debugw("verifying object", "objectID", oid)
 
 	contentIDs, err := v.rep.VerifyObject(ctx, oid)
 	if err != nil {
@@ -185,7 +185,7 @@ func (v *verifier) doVerifyObject(ctx context.Context, oid object.ID, path strin
 }
 
 func (v *verifier) readEntireObject(ctx context.Context, oid object.ID, path string) error {
-	log(ctx).Debugf("reading object %v %v", oid, path)
+	log(ctx).Debugw("reading object", "objectID", oid, "path", path)
 
 	// also read the entire file
 	r, err := v.rep.OpenObject(ctx, oid)

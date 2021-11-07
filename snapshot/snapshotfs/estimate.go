@@ -90,9 +90,9 @@ func Estimate(ctx context.Context, rep repo.Repository, entry fs.Directory, poli
 
 			stats.ExcludedDirCount++
 
-			estimateLog(ctx).Debugf("excluded dir %v", relativePath)
+			estimateLog(ctx).Debugw("excluded directory", "path", relativePath)
 		} else {
-			estimateLog(ctx).Debugf("excluded file %v (%v)", relativePath, units.BytesStringBase10(e.Size()))
+			estimateLog(ctx).Debugw("excluded file", "path", relativePath, "size", units.BytesStringBase10(e.Size()))
 			stats.ExcludedFileCount++
 			stats.ExcludedTotalFileSize += e.Size()
 			eb.add(relativePath, e.Size(), maxExamplesPerBucket)

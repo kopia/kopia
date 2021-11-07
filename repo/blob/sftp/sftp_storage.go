@@ -364,7 +364,7 @@ func getSigner(opt *Options) (ssh.Signer, error) {
 }
 
 func createSSHConfig(ctx context.Context, opt *Options) (*ssh.ClientConfig, error) {
-	log(ctx).Debugf("using internal SSH client")
+	log(ctx).Debugw("using internal SSH client")
 
 	hostKeyCallback, err := getHostKeyCallback(opt)
 	if err != nil {
@@ -409,7 +409,7 @@ func getSFTPClientExternal(ctx context.Context, opt *Options) (*sftpConnection, 
 		sshCommand = "ssh"
 	}
 
-	log(ctx).Debugf("launching external SSH process %v %v", sshCommand, strings.Join(cmdArgs, " "))
+	log(ctx).Debugw("launching external SSH process", "path", sshCommand, "arguments", strings.Join(cmdArgs, " "))
 
 	cmd := exec.Command(sshCommand, cmdArgs...) //nolint:gosec
 

@@ -173,12 +173,12 @@ func (s *CacheStorage) maybeSweepCache(ctx context.Context) {
 		}
 
 		if err := s.cacheStorage.DeleteBlob(ctx, bm.BlobID); err != nil {
-			log(ctx).Debugf("error deleting cached write marker: %v", err)
+			log(ctx).Debugw("error deleting cached write marker", "error", err)
 		}
 
 		return nil
 	}); err != nil {
-		log(ctx).Debugf("unable to sweep cache: %v", err)
+		log(ctx).Debugw("unable to sweep cache", "error", err)
 	}
 }
 

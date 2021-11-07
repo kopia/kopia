@@ -30,14 +30,14 @@ func (filePasswordStorage) GetPassword(ctx context.Context, configFile string) (
 		return "", errors.Wrap(err, "error invalid persisted password")
 	}
 
-	log(ctx).Debugf("password for %v retrieved from password file", configFile)
+	log(ctx).Debugw("password for repository retrieved from password file", "configFile", configFile)
 
 	return string(s), nil
 }
 
 func (filePasswordStorage) PersistPassword(ctx context.Context, configFile, password string) error {
 	fn := passwordFileName(configFile)
-	log(ctx).Debugf("Saving password to file %v.", fn)
+	log(ctx).Debugw("saving password to file", "file", fn)
 
 	// nolint:wrapcheck
 	return os.WriteFile(fn, []byte(base64.StdEncoding.EncodeToString([]byte(password))), passwordFileMode)

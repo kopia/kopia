@@ -65,7 +65,7 @@ func (c *storageFilesystemFlags) connect(ctx context.Context, isNew bool) (blob.
 	}
 
 	if isNew {
-		log(ctx).Debugf("creating directory for repository: %v dir mode: %v", fso.Path, fso.DirectoryMode)
+		log(ctx).Debugw("creating directory for repository", "directory", fso.Path, "mode", fso.DirectoryMode)
 
 		if err := os.MkdirAll(fso.Path, fso.DirectoryMode); err != nil {
 			log(ctx).Errorf("unable to create directory: %v", fso.Path)

@@ -206,7 +206,7 @@ func (u *Uploader) executeBeforeFolderAction(ctx context.Context, actionType str
 		return nil, nil
 	}
 
-	uploadLog(ctx).Debugf("running action %v on %v %#v", actionType, hc.SourcePath, *h)
+	uploadLog(ctx).Debugw("running action on path", "type", actionType, "path", hc.SourcePath, "command", *h)
 
 	captures := map[string]string{
 		"KOPIA_SNAPSHOT_PATH": "",
@@ -247,7 +247,7 @@ func (u *Uploader) executeAfterFolderAction(ctx context.Context, actionType stri
 func cleanupActionContext(ctx context.Context, hc *actionContext) {
 	if hc.WorkDir != "" {
 		if err := os.RemoveAll(hc.WorkDir); err != nil {
-			uploadLog(ctx).Debugf("unable to remove action working directory: %v", err)
+			uploadLog(ctx).Debugw("unable to remove action working directory", "error", err)
 		}
 	}
 }

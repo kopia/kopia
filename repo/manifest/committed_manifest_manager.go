@@ -123,7 +123,7 @@ func (m *committedManifestManager) writeEntriesLocked(ctx context.Context, entri
 func (m *committedManifestManager) loadCommittedContentsLocked(ctx context.Context) error {
 	m.verifyLocked()
 
-	log(ctx).Debugf("listing manifest contents")
+	log(ctx).Debugw("listing manifest contents")
 
 	var (
 		mu        sync.Mutex
@@ -204,7 +204,7 @@ func (m *committedManifestManager) maybeCompactLocked(ctx context.Context) error
 		return nil
 	}
 
-	log(ctx).Debugf("performing automatic compaction of %v contents", len(m.committedContentIDs))
+	log(ctx).Debugw("performing automatic compaction of contents", "total", len(m.committedContentIDs))
 
 	if err := m.compactLocked(ctx); err != nil {
 		return errors.Wrap(err, "unable to compact manifest contents")
@@ -220,7 +220,7 @@ func (m *committedManifestManager) maybeCompactLocked(ctx context.Context) error
 func (m *committedManifestManager) compactLocked(ctx context.Context) error {
 	m.verifyLocked()
 
-	log(ctx).Debugf("compactLocked: contentIDs=%v", len(m.committedContentIDs))
+	log(ctx).Debugw("compactLocked", "total", len(m.committedContentIDs))
 
 	if len(m.committedContentIDs) == 1 {
 		return nil
@@ -276,13 +276,13 @@ func (m *committedManifestManager) ensureInitializedLocked(ctx context.Context) 
 	rev := m.b.Revision()
 	if m.lastRevision == rev {
 		if m.debugID != "" {
-			log(ctx).Debugf("%v up-to-date rev=%v last=%v", m.debugID, rev, m.lastRevision)
+			log(ctx).Debugw("up-to-date", "debugID", m.debugID, "revision", rev, "previous", m.lastRevision)
 		}
 
 		return nil
 	}
 
-	log(ctx).Debugf("reloading committed manifest contents: rev=%v last=%v", rev, m.lastRevision)
+	log(ctx).Debugw("reloading committed manifest contents", "revision", rev, "previous", m.lastRevision)
 
 	if err := m.loadCommittedContentsLocked(ctx); err != nil {
 		return err

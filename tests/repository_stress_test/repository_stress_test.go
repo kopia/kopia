@@ -370,7 +370,7 @@ func writeRandomContent(ctx context.Context, r repo.DirectRepositoryWriter, rs *
 		return errors.Wrap(err, "WriteContent error")
 	}
 
-	log.Debugf("writeRandomContent(%v,%x)", contentID, data[0:16])
+	log.Debugw("writeRandomContent", "contentID", contentID, "data", data[0:16])
 
 	rs.WriteContent(contentID)
 
@@ -383,7 +383,7 @@ func readPendingContent(ctx context.Context, r repo.DirectRepositoryWriter, rs *
 		return errSkipped
 	}
 
-	log.Debugf("readPendingContent(%v)", contentID)
+	log.Debugw("readPendingContent", "contentID", contentID)
 
 	_, err := r.ContentReader().GetContent(ctx, contentID)
 	if err == nil {
@@ -399,7 +399,7 @@ func readFlushedContent(ctx context.Context, r repo.DirectRepositoryWriter, rs *
 		return errSkipped
 	}
 
-	log.Debugf("readFlushedContent(%v)", contentID)
+	log.Debugw("readFlushedContent(%v)", "contentID", contentID)
 
 	_, err := r.ContentReader().GetContent(ctx, contentID)
 	if err == nil {
@@ -410,7 +410,7 @@ func readFlushedContent(ctx context.Context, r repo.DirectRepositoryWriter, rs *
 }
 
 func listContents(ctx context.Context, r repo.DirectRepositoryWriter, _ *repomodel.RepositorySession, log logging.Logger) error {
-	log.Debugf("listContents()")
+	log.Debugw("listContents()")
 
 	return errors.Wrapf(r.ContentReader().IterateContents(
 		ctx,
@@ -420,7 +420,7 @@ func listContents(ctx context.Context, r repo.DirectRepositoryWriter, _ *repomod
 }
 
 func listAndReadAllContents(ctx context.Context, r repo.DirectRepositoryWriter, _ *repomodel.RepositorySession, log logging.Logger) error {
-	log.Debugf("listAndReadAllContents()")
+	log.Debugw("listAndReadAllContents()")
 
 	return errors.Wrapf(r.ContentReader().IterateContents(
 		ctx,
@@ -441,7 +441,7 @@ func compact(ctx context.Context, r repo.DirectRepositoryWriter, rs *repomodel.R
 		return errSkipped
 	}
 
-	log.Debugf("compact()")
+	log.Debugw("compact()")
 
 	return errors.Wrapf(
 		r.ContentManager().CompactIndexes(ctx, content.CompactOptions{MaxSmallBlobs: 1}),
@@ -449,7 +449,7 @@ func compact(ctx context.Context, r repo.DirectRepositoryWriter, rs *repomodel.R
 }
 
 func flush(ctx context.Context, r repo.DirectRepositoryWriter, rs *repomodel.RepositorySession, log logging.Logger) error {
-	log.Debugf("flush()")
+	log.Debugw("flush()")
 
 	// capture contents and manifests we had before we start flushing.
 	// this is necessary since operations can proceed in parallel to Flush() which might add more data
@@ -470,7 +470,7 @@ func flush(ctx context.Context, r repo.DirectRepositoryWriter, rs *repomodel.Rep
 }
 
 func refresh(ctx context.Context, r repo.DirectRepositoryWriter, rs *repomodel.RepositorySession, log logging.Logger) error {
-	log.Debugf("refresh()")
+	log.Debugw("refresh()")
 
 	// refresh model before refreshing repository to guarantee that repository has at least all the items in
 	// the model (possibly more).
@@ -489,7 +489,7 @@ func readPendingManifest(ctx context.Context, r repo.DirectRepositoryWriter, rs 
 		return errSkipped
 	}
 
-	log.Debugf("readPendingManifest(%v)", manifestID)
+	log.Debugw("readPendingManifest", "manifestID", manifestID)
 
 	_, err := r.GetManifest(ctx, manifestID, nil)
 	if err == nil {
@@ -505,7 +505,7 @@ func readFlushedManifest(ctx context.Context, r repo.DirectRepositoryWriter, rs 
 		return errSkipped
 	}
 
-	log.Debugf("readFlushedManifest(%v)", manifestID)
+	log.Debugw("readFlushedManifest", "manifestID", manifestID)
 
 	_, err := r.GetManifest(ctx, manifestID, nil)
 	if err == nil {
@@ -537,7 +537,7 @@ func writeRandomManifest(ctx context.Context, r repo.DirectRepositoryWriter, rs 
 		return err
 	}
 
-	log.Debugf("writeRandomManifest(%v)", mid)
+	log.Debugw("writeRandomManifest", "mainfestID", mid)
 	rs.WriteManifest(mid)
 
 	return err

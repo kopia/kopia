@@ -310,7 +310,7 @@ func readFormatBlobBytesFromCache(ctx context.Context, cachedFile string, validD
 	if clock.Now().Sub(cst.ModTime()) > validDuration {
 		// got cached file, but it's too old, remove it
 		if err := os.Remove(cachedFile); err != nil {
-			log(ctx).Debugf("unable to remove cache file: %v", err)
+			log(ctx).Debugw("unable to remove cache file", "error", err)
 		}
 
 		return nil, errors.Errorf("cached file too old")
@@ -336,14 +336,14 @@ func readAndCacheFormatBlobBytes(ctx context.Context, st blob.Storage, cacheDire
 	if cacheEnabled {
 		b, err := readFormatBlobBytesFromCache(ctx, cachedFile, validDuration)
 		if err == nil {
-			log(ctx).Debugf("kopia.repository retrieved from cache")
+			log(ctx).Debugw("kopia.repository retrieved from cache")
 
 			return b, nil
 		}
 
-		log(ctx).Debugf("kopia.repository could not be fetched from cache: %v", err)
+		log(ctx).Debugw("kopia.repository could not be fetched from cache", "error", err)
 	} else {
-		log(ctx).Debugf("kopia.repository cache not enabled")
+		log(ctx).Debugw("kopia.repository cache not enabled")
 	}
 
 	var b gather.WriteBuffer

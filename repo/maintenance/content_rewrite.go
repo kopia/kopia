@@ -83,11 +83,22 @@ func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *
 
 				age := rep.Time().Sub(c.Timestamp())
 				if age < safety.RewriteMinAge {
-					log(ctx).Debugf("Not rewriting content %v (%v bytes) from pack %v%v %v, because it's too new.", c.GetContentID(), c.GetPackedLength(), c.GetPackBlobID(), optDeleted, age)
+					log(ctx).Debugw("not rewriting content from pack because it's too new.",
+						"contentID", c.GetContentID(),
+						"size", c.GetPackedLength(),
+						"blobID", c.GetPackBlobID(),
+						"deleted", optDeleted,
+						"age", age)
+
 					continue
 				}
 
-				log(ctx).Debugf("Rewriting content %v (%v bytes) from pack %v%v %v", c.GetContentID(), c.GetPackedLength(), c.GetPackBlobID(), optDeleted, age)
+				log(ctx).Debugw("Rewriting content %v (%v bytes) from pack %v%v %v",
+					"contentID", c.GetContentID(),
+					"size", c.GetPackedLength(),
+					"blobID", c.GetPackBlobID(),
+					"deleted", optDeleted,
+					"age", age)
 				mu.Lock()
 				totalBytes += int64(c.GetPackedLength())
 				mu.Unlock()
@@ -108,7 +119,7 @@ func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *
 
 	wg.Wait()
 
-	log(ctx).Debugf("Total bytes rewritten %v", units.BytesStringBase10(totalBytes))
+	log(ctx).Debugw("total bytes rewritten", "total", units.BytesStringBase10(totalBytes))
 
 	if failedCount == 0 {
 		// nolint:wrapcheck
