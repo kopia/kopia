@@ -7,7 +7,8 @@ build-html: build/index.html
 deps: node_modules/.up-to-date
 
 install:
-	$(npm) install
+	$(npm) install --no-audit
+	$(npm) audit --production
 
 dev: node_modules/.up-to-date
 	$(npm) $(npm_flags) run start
