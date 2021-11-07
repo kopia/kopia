@@ -10,7 +10,6 @@
     "electron-updater": "^4.3.9",
     "react": "^17.0.2",
     "react-dom": "^17.0.2",
-    "react-scripts": "^4.0.3",
     "uuid": "^8.3.2"
   },
   "author": {
@@ -116,7 +115,8 @@
     "concurrently": "^6.3.0",
     "electron": "^15.3.0",
     "electron-builder": "^22.13.1",
-    "electron-notarize": "^1.1.1"
+    "electron-notarize": "^1.1.1",
+    "react-scripts": "^4.0.3"
   },
   "homepage": "./",
   "description": "Fast and secure open source backup.",
