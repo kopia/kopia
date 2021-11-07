@@ -91,13 +91,13 @@ func TestLogsMaintenance(t *testing.T) {
 	e.RunAndVerifyOutputLineCount(t, 5, "logs", "list")
 
 	e.RunAndExpectSuccess(t, "maintenance", "run")
-	e.RunAndVerifyOutputLineCount(t, 2, "logs", "list")
-
-	e.RunAndExpectSuccess(t, "maintenance", "set", "--max-retained-log-age=1ms")
 	e.RunAndVerifyOutputLineCount(t, 3, "logs", "list")
 
+	e.RunAndExpectSuccess(t, "maintenance", "set", "--max-retained-log-age=1ms")
+	e.RunAndVerifyOutputLineCount(t, 4, "logs", "list")
+
 	e.RunAndExpectSuccess(t, "maintenance", "run")
-	e.RunAndVerifyOutputLineCount(t, 0, "logs", "list")
+	e.RunAndVerifyOutputLineCount(t, 1, "logs", "list")
 
 	e.RunAndExpectSuccess(t, "maintenance", "set",
 		"--max-retained-log-age=22h",

@@ -15,7 +15,7 @@ import (
 func Run(ctx context.Context, dr repo.DirectRepositoryWriter, mode maintenance.Mode, force bool, safety maintenance.SafetyParameters) error {
 	// nolint:wrapcheck
 	return maintenance.RunExclusive(ctx, dr, mode, force,
-		func(runParams maintenance.RunParameters) error {
+		func(ctx context.Context, runParams maintenance.RunParameters) error {
 			// run snapshot GC before full maintenance
 			if runParams.Mode == maintenance.ModeFull {
 				if _, err := snapshotgc.Run(ctx, dr, true, safety); err != nil {

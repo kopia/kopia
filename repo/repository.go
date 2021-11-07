@@ -11,7 +11,6 @@ import (
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
-	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/repo/object"
 )
@@ -57,7 +56,7 @@ type DirectRepository interface {
 	Crypter() *content.Crypter
 
 	NewDirectWriter(ctx context.Context, opt WriteSessionOptions) (context.Context, DirectRepositoryWriter, error)
-	InternalLogger() logging.Logger
+	AlsoLogToContentLog(ctx context.Context) context.Context
 
 	// misc
 	UniqueID() []byte
@@ -197,9 +196,9 @@ func (r *directRepository) UpdateDescription(d string) {
 	r.cliOpts.Description = d
 }
 
-// Logger returns the internal logger for the repository.
-func (r *directRepository) InternalLogger() logging.Logger {
-	return r.sm.InternalLogger()
+// AlsoLogToContentLog returns a context that causes all logs to also be sent to content log.
+func (r *directRepository) AlsoLogToContentLog(ctx context.Context) context.Context {
+	return r.sm.AlsoLogToContentLog(ctx)
 }
 
 // NewWriter returns new RepositoryWriter session for repository.
