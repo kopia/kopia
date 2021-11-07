@@ -9,7 +9,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/internal/ctxutil"
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/internal/uitask"
 	"github.com/kopia/kopia/snapshot/restore"
@@ -35,7 +34,6 @@ func (s *Server) handleRestore(ctx context.Context, r *http.Request, body []byte
 		return nil, requestError(serverapi.ErrorMalformedRequest, "malformed request body")
 	}
 
-	ctx = ctxutil.Detach(ctx)
 	rep := s.rep
 
 	if req.Root == "" {
