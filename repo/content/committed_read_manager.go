@@ -491,9 +491,12 @@ func (sm *SharedManager) release(ctx context.Context) error {
 	return errors.Wrap(sm.st.Close(ctx), "error closing storage")
 }
 
-// InternalLogger returns the internal logger.
-func (sm *SharedManager) InternalLogger() logging.Logger {
-	return sm.internalLogger
+// AlsoLogToContentLog wraps the provided content so that all logs are also sent to
+// internal content log.
+func (sm *SharedManager) AlsoLogToContentLog(ctx context.Context) context.Context {
+	sm.internalLogManager.enable()
+
+	return logging.AlsoLogTo(ctx, sm.log)
 }
 
 func (sm *SharedManager) shouldRefreshIndexes() bool {

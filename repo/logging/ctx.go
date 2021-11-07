@@ -33,3 +33,22 @@ func WithLogger(ctx context.Context, l LoggerFactory) context.Context {
 		createLoggerForModule: l,
 	})
 }
+
+// loggerFactoryFromContext returns a LoggerFactory associated with current context.
+func loggerFactoryFromContext(ctx context.Context) LoggerFactory {
+	v := ctx.Value(loggerCacheKey)
+	if v == nil {
+		return getNullLogger
+	}
+
+	return v.(*loggerCache).getLogger
+}
+
+// AlsoLogTo returns a context where all logging is emitted the the original output plus the provided loggers.
+func AlsoLogTo(ctx context.Context, loggers ...Logger) context.Context {
+	originalLogFactory := loggerFactoryFromContext(ctx)
+
+	return WithLogger(ctx, func(module string) Logger {
+		return append(Broadcast{originalLogFactory(module)}, loggers...)
+	})
+}

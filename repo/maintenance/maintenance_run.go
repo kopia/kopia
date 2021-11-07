@@ -140,8 +140,10 @@ func (e NotOwnedError) Error() string {
 // RunExclusive runs the provided callback if the maintenance is owned by local user and
 // lock can be acquired. Lock is passed to the function, which ensures that every call to Run()
 // is within the exclusive context.
-func RunExclusive(ctx context.Context, rep repo.DirectRepositoryWriter, mode Mode, force bool, cb func(runParams RunParameters) error) error {
+func RunExclusive(ctx context.Context, rep repo.DirectRepositoryWriter, mode Mode, force bool, cb func(ctx context.Context, runParams RunParameters) error) error {
 	rep.DisableIndexRefresh()
+
+	ctx = rep.AlsoLogToContentLog(ctx)
 
 	p, err := GetParams(ctx, rep)
 	if err != nil {
@@ -208,7 +210,7 @@ func RunExclusive(ctx context.Context, rep repo.DirectRepositoryWriter, mode Mod
 		return errors.Wrap(err, "error refreshing indexes before maintenance")
 	}
 
-	return cb(runParams)
+	return cb(ctx, runParams)
 }
 
 func ensureNoClockSkew(rp RunParameters) error {
