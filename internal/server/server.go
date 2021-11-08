@@ -76,11 +76,14 @@ func (s *Server) APIHandlers(legacyAPI bool) http.Handler {
 	// sources
 	m.HandleFunc("/api/v1/sources", s.handleAPI(requireUIUser, s.handleSourcesList)).Methods(http.MethodGet)
 	m.HandleFunc("/api/v1/sources", s.handleAPI(requireUIUser, s.handleSourcesCreate)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/sources/delete", s.handleAPI(requireUIUser, s.handleDelete)).Methods(http.MethodDelete)
 	m.HandleFunc("/api/v1/sources/upload", s.handleAPI(requireUIUser, s.handleUpload)).Methods(http.MethodPost)
 	m.HandleFunc("/api/v1/sources/cancel", s.handleAPI(requireUIUser, s.handleCancel)).Methods(http.MethodPost)
 
 	// snapshots
 	m.HandleFunc("/api/v1/snapshots", s.handleAPI(requireUIUser, s.handleSnapshotList)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/snapshots/{snapshotID}", s.handleAPI(requireUIUser, s.handleSnapshotDelete)).Methods(http.MethodDelete)
+	m.HandleFunc("/api/v1/snapshots:batchDelete", s.handleAPI(requireUIUser, s.handleSnapshotDeleteBatch)).Methods(http.MethodPost)
 
 	m.HandleFunc("/api/v1/policy", s.handleAPI(requireUIUser, s.handlePolicyGet)).Methods(http.MethodGet)
 	m.HandleFunc("/api/v1/policy", s.handleAPI(requireUIUser, s.handlePolicyPut)).Methods(http.MethodPut)
@@ -415,6 +418,10 @@ func (s *Server) handleUpload(ctx context.Context, r *http.Request, body []byte)
 
 func (s *Server) handleCancel(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
 	return s.forAllSourceManagersMatchingURLFilter(ctx, (*sourceManager).cancel, r.URL.Query())
+}
+
+func (s *Server) handleDelete(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
+	return s.forAllSourceManagersMatchingURLFilter(ctx, (*sourceManager).delete, r.URL.Query())
 }
 
 func (s *Server) beginUpload(ctx context.Context, src snapshot.SourceInfo) {

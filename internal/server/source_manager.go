@@ -196,6 +196,12 @@ func (s *sourceManager) upload(ctx context.Context) serverapi.SourceActionRespon
 	return serverapi.SourceActionResponse{Success: true}
 }
 
+func (s *sourceManager) delete(ctx context.Context) serverapi.SourceActionResponse {
+	log(ctx).Infof("deletion triggered via API: %v", s.src)
+
+	return serverapi.SourceActionResponse{Success: false}
+}
+
 func (s *sourceManager) cancel(ctx context.Context) serverapi.SourceActionResponse {
 	log(ctx).Infof("cancel triggered via API: %v", s.src)
 

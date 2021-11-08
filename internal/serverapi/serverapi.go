@@ -147,6 +147,11 @@ type CreateSnapshotSourceResponse struct {
 	SnapshotStarted bool `json:"snapshotted"` // whether snapshotting has been started
 }
 
+// BatchSnapshotDeleteRequest contains a list of snapshot IDs to be deleted.
+type BatchSnapshotDeleteRequest struct {
+	SnapshotManifestIds []string `json:"snapshotManifestIDs"`
+}
+
 // Snapshot describes single snapshot entry.
 type Snapshot struct {
 	ID               manifest.ID          `json:"id"`
