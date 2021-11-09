@@ -67,6 +67,8 @@ linters:
     - gochecknoglobals
     - gochecknoinits
     - whitespace
+    - ireturn # this one may be interesting to control allocations
+    - varnamelen # this one may be interesting, but too much churn
     - nlreturn
     - testpackage
     - ifshort
