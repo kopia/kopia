@@ -92,6 +92,7 @@ issues:
       - wrapcheck
       - nolintlint
       - forcetypeassert
+      - contextcheck
     - text: "Magic number: 1e"
       linters:
       - gomnd

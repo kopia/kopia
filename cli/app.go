@@ -249,7 +249,7 @@ func (c *App) setup(app *kingpin.Application) {
 	c.policy.setup(c, app)
 	c.mount.setup(c, app)
 	c.maintenance.setup(c, app)
-	c.repository.setup(c, app)
+	c.repository.setup(c, app) // nolint:contextcheck
 }
 
 // commandParent is implemented by app and commands that can have sub-commands.
@@ -272,7 +272,7 @@ func NewApp() *App {
 
 // Attach attaches the CLI parser to the application.
 func (c *App) Attach(app *kingpin.Application) {
-	c.setup(app)
+	c.setup(app) // nolint:contextcheck
 }
 
 var safetyByName = map[string]maintenance.SafetyParameters{

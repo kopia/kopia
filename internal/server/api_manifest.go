@@ -29,7 +29,7 @@ func (s *Server) handleManifestGet(ctx context.Context, r *http.Request, body []
 		return nil, internalServerError(err)
 	}
 
-	if !hasManifestAccess(s, r, md.Labels, auth.AccessLevelRead) {
+	if !hasManifestAccess(ctx, s, r, md.Labels, auth.AccessLevelRead) {
 		return nil, accessDeniedError()
 	}
 
@@ -58,7 +58,7 @@ func (s *Server) handleManifestDelete(ctx context.Context, r *http.Request, body
 		return nil, internalServerError(err)
 	}
 
-	if !hasManifestAccess(s, r, em.Labels, auth.AccessLevelFull) {
+	if !hasManifestAccess(ctx, s, r, em.Labels, auth.AccessLevelFull) {
 		return nil, accessDeniedError()
 	}
 
@@ -87,7 +87,7 @@ func (s *Server) handleManifestList(ctx context.Context, r *http.Request, body [
 		return nil, internalServerError(err)
 	}
 
-	return filterManifests(m, s.httpAuthorizationInfo(r)), nil
+	return filterManifests(m, s.httpAuthorizationInfo(ctx, r)), nil
 }
 
 func filterManifests(manifests []*manifest.EntryMetadata, authz auth.AuthorizationInfo) []*manifest.EntryMetadata {
@@ -114,7 +114,7 @@ func (s *Server) handleManifestCreate(ctx context.Context, r *http.Request, body
 		return nil, requestError(serverapi.ErrorMalformedRequest, "malformed request")
 	}
 
-	if !hasManifestAccess(s, r, req.Metadata.Labels, auth.AccessLevelAppend) {
+	if !hasManifestAccess(ctx, s, r, req.Metadata.Labels, auth.AccessLevelAppend) {
 		return nil, accessDeniedError()
 	}
 
