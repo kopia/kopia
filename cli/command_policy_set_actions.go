@@ -80,7 +80,7 @@ func (c *policyActionFlags) setActionCommandFromFlags(ctx context.Context, actio
 	*changeCount++
 
 	if c.policySetPersistActionScript {
-		script, err := os.ReadFile(value)
+		script, err := os.ReadFile(value) //nolint:gosec
 		if err != nil {
 			return errors.Wrap(err, "unable to read script file")
 		}

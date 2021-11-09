@@ -14,7 +14,7 @@ func RunDockerAndGetOutputOrSkip(tb testing.TB, args ...string) string {
 	tb.Helper()
 	tb.Logf("running docker %v", args)
 
-	c := exec.Command("docker", args...) //nolint:gosec
+	c := exec.Command("docker", args...)
 
 	var stderr bytes.Buffer
 
