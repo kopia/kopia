@@ -5,3 +5,4 @@ tech-doc-hugo
 .tools/
 package-lock.json
 *.deb
+.hugo_build.lock

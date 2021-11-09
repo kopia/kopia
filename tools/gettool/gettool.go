@@ -26,10 +26,15 @@ type ToolInfo struct {
 	archMap             map[string]string
 	stripPathComponents int
 	unsupportedArch     map[string]bool
+	unsupportedOSArch   map[string]bool
 }
 
 func (ti ToolInfo) actualURL(version, goos, goarch string) string {
 	if ti.unsupportedArch[goarch] {
+		return ""
+	}
+
+	if ti.unsupportedOSArch[goos+"/"+goarch] {
 		return ""
 	}
 
@@ -63,8 +68,10 @@ var tools = map[string]ToolInfo{
 			"linux": "Linux", "darwin": "macOS",
 		},
 		unsupportedArch: map[string]bool{
-			"arm":   true,
-			"arm64": true,
+			"arm": true,
+		},
+		unsupportedOSArch: map[string]bool{
+			"linux/arm64": true,
 		},
 	},
 	"gotestsum": {
@@ -197,6 +204,10 @@ func main() {
 		fmt.Println(l)
 	}
 
+	if *regenerateChecksums {
+		return
+	}
+
 	log.Fatalf("Error(s) encountered, see log messages above.")
 }
 
@@ -231,7 +242,6 @@ func downloadTool(toolName, toolVersion string, checksums map[string]string, err
 			}
 
 			if checksums[u] != "" {
-				log.Printf("have checksum", u)
 				continue
 			}
 

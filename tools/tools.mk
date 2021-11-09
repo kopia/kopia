@@ -104,7 +104,7 @@ endif
 # tool versions
 GOLANGCI_LINT_VERSION=1.42.1
 NODE_VERSION=16.13.0
-HUGO_VERSION=0.87.0
+HUGO_VERSION=0.89.2
 GOTESTSUM_VERSION=1.7.0
 GORELEASER_VERSION=v0.176.0
 RCLONE_VERSION=1.56.0
@@ -149,7 +149,7 @@ $(linter):
 	go run github.com/kopia/kopia/tools/gettool --tool linter:$(GOLANGCI_LINT_VERSION) --output-dir $(linter_dir)
 
 # hugo
-hugo_dir=$(TOOLS_DIR)$(slash)hugo-$(GOTESTSUM_VERSION)
+hugo_dir=$(TOOLS_DIR)$(slash)hugo-$(HUGO_VERSION)
 hugo=$(hugo_dir)/hugo$(exe_suffix)
 
 $(hugo):
