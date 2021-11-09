@@ -1,5 +1,5 @@
-//go:build (darwin && amd64) || (linux && amd64)
-// +build darwin,amd64 linux,amd64
+//go:build darwin || (linux && amd64)
+// +build darwin linux,amd64
 
 // Package engine provides the framework for a snapshot repository testing engine
 package engine
@@ -51,8 +51,8 @@ var (
 )
 
 func TestEngineWritefilesBasicFS(t *testing.T) {
-	os.Setenv(snapmeta.EngineModeEnvKey, snapmeta.EngineModeBasic)
-	os.Setenv(snapmeta.S3BucketNameEnvKey, "")
+	t.Setenv(snapmeta.EngineModeEnvKey, snapmeta.EngineModeBasic)
+	t.Setenv(snapmeta.S3BucketNameEnvKey, "")
 
 	ctx := testlogging.Context(t)
 
@@ -168,8 +168,8 @@ func TestWriteFilesBasicS3(t *testing.T) {
 	bucketName, cleanupCB := makeTempS3Bucket(t)
 	defer cleanupCB()
 
-	os.Setenv(snapmeta.EngineModeEnvKey, snapmeta.EngineModeBasic)
-	os.Setenv(snapmeta.S3BucketNameEnvKey, bucketName)
+	t.Setenv(snapmeta.EngineModeEnvKey, snapmeta.EngineModeBasic)
+	t.Setenv(snapmeta.S3BucketNameEnvKey, bucketName)
 
 	ctx := testlogging.Context(t)
 
@@ -215,8 +215,8 @@ func TestDeleteSnapshotS3(t *testing.T) {
 	bucketName, cleanupCB := makeTempS3Bucket(t)
 	defer cleanupCB()
 
-	os.Setenv(snapmeta.EngineModeEnvKey, snapmeta.EngineModeBasic)
-	os.Setenv(snapmeta.S3BucketNameEnvKey, bucketName)
+	t.Setenv(snapmeta.EngineModeEnvKey, snapmeta.EngineModeBasic)
+	t.Setenv(snapmeta.S3BucketNameEnvKey, bucketName)
 
 	ctx := testlogging.Context(t)
 
@@ -263,8 +263,8 @@ func TestSnapshotVerificationFail(t *testing.T) {
 	bucketName, cleanupCB := makeTempS3Bucket(t)
 	defer cleanupCB()
 
-	os.Setenv(snapmeta.EngineModeEnvKey, snapmeta.EngineModeBasic)
-	os.Setenv(snapmeta.S3BucketNameEnvKey, bucketName)
+	t.Setenv(snapmeta.EngineModeEnvKey, snapmeta.EngineModeBasic)
+	t.Setenv(snapmeta.S3BucketNameEnvKey, bucketName)
 
 	ctx := testlogging.Context(t)
 
@@ -329,8 +329,8 @@ func TestSnapshotVerificationFail(t *testing.T) {
 }
 
 func TestDataPersistency(t *testing.T) {
-	os.Setenv(snapmeta.EngineModeEnvKey, snapmeta.EngineModeBasic)
-	os.Setenv(snapmeta.S3BucketNameEnvKey, "")
+	t.Setenv(snapmeta.EngineModeEnvKey, snapmeta.EngineModeBasic)
+	t.Setenv(snapmeta.S3BucketNameEnvKey, "")
 
 	tempDir := testutil.TempDirectory(t)
 
@@ -502,8 +502,8 @@ func TestPickActionWeighted(t *testing.T) {
 }
 
 func TestActionsFilesystem(t *testing.T) {
-	os.Setenv(snapmeta.EngineModeEnvKey, snapmeta.EngineModeBasic)
-	os.Setenv(snapmeta.S3BucketNameEnvKey, "")
+	t.Setenv(snapmeta.EngineModeEnvKey, snapmeta.EngineModeBasic)
+	t.Setenv(snapmeta.S3BucketNameEnvKey, "")
 
 	ctx := testlogging.Context(t)
 
@@ -551,8 +551,8 @@ func TestActionsS3(t *testing.T) {
 	bucketName, cleanupCB := makeTempS3Bucket(t)
 	defer cleanupCB()
 
-	os.Setenv(snapmeta.EngineModeEnvKey, snapmeta.EngineModeBasic)
-	os.Setenv(snapmeta.S3BucketNameEnvKey, bucketName)
+	t.Setenv(snapmeta.EngineModeEnvKey, snapmeta.EngineModeBasic)
+	t.Setenv(snapmeta.S3BucketNameEnvKey, bucketName)
 
 	ctx := testlogging.Context(t)
 
@@ -598,8 +598,8 @@ func TestIOLimitPerWriteAction(t *testing.T) {
 	// Instruct a write action to write a large amount of data, but add
 	// an I/O limit parameter. Expect that the FIO action should limit
 	// the amount of data it writes.
-	os.Setenv(snapmeta.EngineModeEnvKey, snapmeta.EngineModeBasic)
-	os.Setenv(snapmeta.S3BucketNameEnvKey, "")
+	t.Setenv(snapmeta.EngineModeEnvKey, snapmeta.EngineModeBasic)
+	t.Setenv(snapmeta.S3BucketNameEnvKey, "")
 
 	ctx := testlogging.Context(t)
 
