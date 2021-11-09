@@ -229,6 +229,47 @@ func TestUpload_TopLevelDirectoryReadFailure(t *testing.T) {
 	}
 }
 
+func TestUploadDoesNotReportProgressForIgnoredFilesTwice(t *testing.T) {
+	ctx := testlogging.Context(t)
+	th := newUploadTestHarness(ctx, t)
+
+	defer th.cleanup()
+
+	sourceDir := mockfs.NewDirectory()
+	sourceDir.AddFile("f1", []byte{1, 2, 3}, defaultPermissions)
+	sourceDir.AddFile("f2", []byte{1, 2, 3, 4}, defaultPermissions)
+	sourceDir.AddFile("f3", []byte{1, 2, 3, 4, 5}, defaultPermissions)
+
+	sourceDir.AddDir("d1", defaultPermissions)
+	sourceDir.AddFile("d1/f1", []byte{1, 2, 3}, defaultPermissions)
+
+	sourceDir.AddDir("d2", defaultPermissions)
+	sourceDir.AddFile("d2/f1", []byte{1, 2, 3}, defaultPermissions)
+	sourceDir.AddFile("d2/f2", []byte{1, 2, 3, 4}, defaultPermissions)
+
+	u := NewUploader(th.repo)
+	cup := &CountingUploadProgress{}
+	u.Progress = cup
+	u.OverrideEntryLogDetail = policy.NewLogDetail(10)
+	u.OverrideDirLogDetail = policy.NewLogDetail(10)
+
+	policyTree := policy.BuildTree(map[string]*policy.Policy{
+		".": {
+			FilesPolicy: policy.FilesPolicy{
+				IgnoreRules: []string{"d2", "f2"},
+			},
+		},
+	}, policy.DefaultPolicy)
+
+	_, err := u.Upload(ctx, sourceDir, policyTree, snapshot.SourceInfo{})
+	require.NoError(t, err)
+
+	// make sure ignored counter is only incremented by 1, even though we process each directory twice
+	// - once during estimation and once during upload.
+	require.EqualValues(t, 1, cup.counters.TotalExcludedFiles)
+	require.EqualValues(t, 1, cup.counters.TotalExcludedDirs)
+}
+
 func TestUpload_SubDirectoryReadFailureFailFast(t *testing.T) {
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
