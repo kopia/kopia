@@ -17,7 +17,8 @@ server: $(hugo)
 	$(hugo) server --watch=$(WATCH)
 
 node_modules: $(npm)
-	$(npm) $(npm_flags) install
+	$(npm) $(npm_flags) install --no-audit
+	$(npm) $(npm_flags) audit --production
 
 clean:
 	rm -rf public/ resources/ node_modules/ $(TOOLS_DIR)/

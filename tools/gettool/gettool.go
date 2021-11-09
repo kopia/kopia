@@ -25,15 +25,10 @@ type ToolInfo struct {
 	osMap               map[string]string
 	archMap             map[string]string
 	stripPathComponents int
-	darwinForceAMD64    bool
 	unsupportedArch     map[string]bool
 }
 
 func (ti ToolInfo) actualURL(version, goos, goarch string) string {
-	if ti.darwinForceAMD64 && goos == "darwin" {
-		goarch = "amd64"
-	}
-
 	if ti.unsupportedArch[goarch] {
 		return ""
 	}
@@ -110,7 +105,6 @@ var tools = map[string]ToolInfo{
 		osMap:               map[string]string{"windows": "win"},
 		archMap:             map[string]string{"arm": "armv7l", "amd64": "x64"},
 		stripPathComponents: 1,
-		darwinForceAMD64:    true,
 	},
 }
 
@@ -118,7 +112,8 @@ var (
 	tool      = flag.String("tool", "", "Name of the tool:version")
 	outputDir = flag.String("output-dir", "", "Output directory")
 
-	testAll = flag.Bool("test-all", false, "Unpacks the package for all GOOS/ARCH combinations")
+	testAll             = flag.Bool("test-all", false, "Unpacks the package for all GOOS/ARCH combinations")
+	regenerateChecksums = flag.Bool("regenerate-checksums", false, "Regenerate checksums")
 )
 
 var buildArchitectures = []struct {
@@ -185,7 +180,7 @@ func main() {
 	}
 
 	// all good
-	if errorCount == 0 {
+	if errorCount == 0 && !*regenerateChecksums {
 		return
 	}
 
@@ -217,6 +212,30 @@ func downloadTool(toolName, toolVersion string, checksums map[string]string, err
 			if u == "" {
 				continue
 			}
+
+			if err := autodownload.Download(u, filepath.Join(*outputDir, ba.goos, ba.goarch), checksums, t.stripPathComponents); err != nil {
+				log.Printf("ERROR %v: %v", u, err)
+
+				*errorCount++
+			}
+		}
+
+		return nil
+	}
+
+	if *regenerateChecksums {
+		for _, ba := range buildArchitectures {
+			u := t.actualURL(toolVersion, ba.goos, ba.goarch)
+			if u == "" {
+				continue
+			}
+
+			if checksums[u] != "" {
+				log.Printf("have checksum", u)
+				continue
+			}
+
+			log.Printf("downloading %v...", u)
 
 			if err := autodownload.Download(u, filepath.Join(*outputDir, ba.goos, ba.goarch), checksums, t.stripPathComponents); err != nil {
 				log.Printf("ERROR %v: %v", u, err)

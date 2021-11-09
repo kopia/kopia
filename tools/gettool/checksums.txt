@@ -31,8 +31,9 @@ https://github.com/rclone/rclone/releases/download/v1.56.0/rclone-v1.56.0-linux-
 https://github.com/rclone/rclone/releases/download/v1.56.0/rclone-v1.56.0-osx-amd64.zip: d079a0e04f148d409c460742d2a5d740a0a405f4a77d7cf0878becdcc0488bbd
 https://github.com/rclone/rclone/releases/download/v1.56.0/rclone-v1.56.0-osx-arm64.zip: 4effd67edbd0e9e5894223df9ce97c635e2056db54bd0cf602fa00a99c27eef3
 https://github.com/rclone/rclone/releases/download/v1.56.0/rclone-v1.56.0-windows-amd64.zip: 61c8c29cf73fe8fa440d5c051371bef924d969f95be3da8013bad867a778922c
-https://nodejs.org/dist/v14.17.6/node-v14.17.6-darwin-x64.tar.gz: e3e4c02240d74fb1dc8a514daa62e5de04f7eaee0bcbca06a366ece73a52ad88
-https://nodejs.org/dist/v14.17.6/node-v14.17.6-linux-arm64.tar.gz: 3355eae15582be48f6be0910e279abbf2324f4538d3ccb2da7e66edab6e6b0fe
-https://nodejs.org/dist/v14.17.6/node-v14.17.6-linux-armv7l.tar.gz: 977e0ae2f6729f4feba5f75a4c317174bc9617610699afd2c478c7dff6c5ba13
-https://nodejs.org/dist/v14.17.6/node-v14.17.6-linux-x64.tar.gz: 19e376214450e93e58687198070b4ab46e42357032ec65f23a7e35b0e86ad6e2
-https://nodejs.org/dist/v14.17.6/node-v14.17.6-win-x64.zip: b83e9ce542fda7fc519cec6eb24a2575a84862ea4227dedc171a8e0b5b614ac0
+https://nodejs.org/dist/v16.13.0/node-v16.13.0-darwin-arm64.tar.gz: 46d83fc0bd971db5050ef1b15afc44a6665dee40bd6c1cbaec23e1b40fa49e6d
+https://nodejs.org/dist/v16.13.0/node-v16.13.0-darwin-x64.tar.gz: 37e09a8cf2352f340d1204c6154058d81362fef4ec488b0197b2ce36b3f0367a
+https://nodejs.org/dist/v16.13.0/node-v16.13.0-linux-arm64.tar.gz: 46e3857f5552abd36d9548380d795b043a3ceec2504e69fe1a754fa76012daaf
+https://nodejs.org/dist/v16.13.0/node-v16.13.0-linux-armv7l.tar.gz: 3d22bc15b47c26129d56745cd587ead7e240a36968ceb3c4105bebc5c6a0be16
+https://nodejs.org/dist/v16.13.0/node-v16.13.0-linux-x64.tar.gz: 589b7e7eb22f8358797a2c14a0bd865459d0b44458b8f05d2721294dacc7f734
+https://nodejs.org/dist/v16.13.0/node-v16.13.0-win-x64.zip: 5a39ec5d4786c2814a6c04488bebac6423c2aaa12832b24f0882456f2e4674e1
