@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -50,7 +49,7 @@ type updateState struct {
 
 // updateStateFilename returns the name of the update state.
 func (c *App) updateStateFilename() string {
-	return filepath.Join(c.repositoryConfigFileName() + ".update-info.json")
+	return c.repositoryConfigFileName() + ".update-info.json"
 }
 
 // writeUpdateState writes update state file.
@@ -108,7 +107,7 @@ func getLatestReleaseNameFromGitHub(ctx context.Context) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, githubTimeout)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf(latestReleaseGitHubURLFormat, repo.BuildGitHubRepo), nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf(latestReleaseGitHubURLFormat, repo.BuildGitHubRepo), http.NoBody)
 	if err != nil {
 		return "", errors.Wrap(err, "unable to get latest release from github")
 	}
@@ -139,7 +138,7 @@ func verifyGitHubReleaseIsComplete(ctx context.Context, releaseName string) erro
 	ctx, cancel := context.WithTimeout(ctx, githubTimeout)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf(checksumsURLFormat, repo.BuildGitHubRepo, releaseName), nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf(checksumsURLFormat, repo.BuildGitHubRepo, releaseName), http.NoBody)
 	if err != nil {
 		return errors.Wrap(err, "unable to download releases checksum")
 	}

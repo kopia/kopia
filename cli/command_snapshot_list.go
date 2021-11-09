@@ -275,7 +275,7 @@ func (c *commandSnapshotList) entryBits(ctx context.Context, m *snapshot.Manifes
 
 	bits = append(bits,
 		maybeHumanReadableBytes(c.snapshotListShowHumanReadable, ent.Size()),
-		fmt.Sprintf("%v", ent.Mode()))
+		ent.Mode().String())
 	if c.shapshotListShowOwner {
 		bits = append(bits,
 			fmt.Sprintf("uid:%v", ent.Owner().UserID),
