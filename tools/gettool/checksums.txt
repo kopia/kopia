@@ -1,6 +1,7 @@
-https://github.com/gohugoio/hugo/releases/download/v0.87.0/hugo_extended_0.87.0_Linux-64bit.tar.gz: f216af92c06809c03981296f513ce54d3d690715d3c9fdfaff802d4a6759a260
-https://github.com/gohugoio/hugo/releases/download/v0.87.0/hugo_extended_0.87.0_macOS-64bit.tar.gz: 93bfda80e562ea52e590b2984b101700b5c511ec89db0043d654d3bd8285aa6a
-https://github.com/gohugoio/hugo/releases/download/v0.87.0/hugo_extended_0.87.0_windows-64bit.zip: a4f7f96e97931d4147fe620e59d4999df7ae1f243be462f3545f7f9813e053e9
+https://github.com/gohugoio/hugo/releases/download/v0.89.2/hugo_extended_0.89.2_Linux-64bit.tar.gz: 8efea63ab960a91918a4c6131d10c244635cd983e4d083afdba6c6b99edb55b6
+https://github.com/gohugoio/hugo/releases/download/v0.89.2/hugo_extended_0.89.2_macOS-64bit.tar.gz: f9185f6d14eb84d9029d59cdd8a977f2f0be334c4f9d38f2099e56a0c0734731
+https://github.com/gohugoio/hugo/releases/download/v0.89.2/hugo_extended_0.89.2_macOS-ARM64.tar.gz: 99a5b4738528d4858a0237199eabc7aee77674c8c7edcfe269efb4b515566cec
+https://github.com/gohugoio/hugo/releases/download/v0.89.2/hugo_extended_0.89.2_windows-64bit.zip: 8d79db4f24fbf023c64862c37d09291ac216875dad91e71dd8753cb5883e4274
 https://github.com/golangci/golangci-lint/releases/download/v1.42.1/golangci-lint-1.42.1-darwin-amd64.tar.gz: 9c0042e91218dc1dd4eb7b54e29c7331eff081b3ac3f88b0d5df89b976fcd45c
 https://github.com/golangci/golangci-lint/releases/download/v1.42.1/golangci-lint-1.42.1-darwin-arm64.tar.gz: f649893bf2b1d24b2632b5e109884a15f3bf25cfdad46b34fb8fd13a016098fd
 https://github.com/golangci/golangci-lint/releases/download/v1.42.1/golangci-lint-1.42.1-linux-amd64.tar.gz: 214b093c15863430c4b66dd39df677dab6e38fc873ded147e331740d50eea51f
@@ -31,8 +32,9 @@ https://github.com/rclone/rclone/releases/download/v1.56.0/rclone-v1.56.0-linux-
 https://github.com/rclone/rclone/releases/download/v1.56.0/rclone-v1.56.0-osx-amd64.zip: d079a0e04f148d409c460742d2a5d740a0a405f4a77d7cf0878becdcc0488bbd
 https://github.com/rclone/rclone/releases/download/v1.56.0/rclone-v1.56.0-osx-arm64.zip: 4effd67edbd0e9e5894223df9ce97c635e2056db54bd0cf602fa00a99c27eef3
 https://github.com/rclone/rclone/releases/download/v1.56.0/rclone-v1.56.0-windows-amd64.zip: 61c8c29cf73fe8fa440d5c051371bef924d969f95be3da8013bad867a778922c
-https://nodejs.org/dist/v14.17.6/node-v14.17.6-darwin-x64.tar.gz: e3e4c02240d74fb1dc8a514daa62e5de04f7eaee0bcbca06a366ece73a52ad88
-https://nodejs.org/dist/v14.17.6/node-v14.17.6-linux-arm64.tar.gz: 3355eae15582be48f6be0910e279abbf2324f4538d3ccb2da7e66edab6e6b0fe
-https://nodejs.org/dist/v14.17.6/node-v14.17.6-linux-armv7l.tar.gz: 977e0ae2f6729f4feba5f75a4c317174bc9617610699afd2c478c7dff6c5ba13
-https://nodejs.org/dist/v14.17.6/node-v14.17.6-linux-x64.tar.gz: 19e376214450e93e58687198070b4ab46e42357032ec65f23a7e35b0e86ad6e2
-https://nodejs.org/dist/v14.17.6/node-v14.17.6-win-x64.zip: b83e9ce542fda7fc519cec6eb24a2575a84862ea4227dedc171a8e0b5b614ac0
+https://nodejs.org/dist/v16.13.0/node-v16.13.0-darwin-arm64.tar.gz: 46d83fc0bd971db5050ef1b15afc44a6665dee40bd6c1cbaec23e1b40fa49e6d
+https://nodejs.org/dist/v16.13.0/node-v16.13.0-darwin-x64.tar.gz: 37e09a8cf2352f340d1204c6154058d81362fef4ec488b0197b2ce36b3f0367a
+https://nodejs.org/dist/v16.13.0/node-v16.13.0-linux-arm64.tar.gz: 46e3857f5552abd36d9548380d795b043a3ceec2504e69fe1a754fa76012daaf
+https://nodejs.org/dist/v16.13.0/node-v16.13.0-linux-armv7l.tar.gz: 3d22bc15b47c26129d56745cd587ead7e240a36968ceb3c4105bebc5c6a0be16
+https://nodejs.org/dist/v16.13.0/node-v16.13.0-linux-x64.tar.gz: 589b7e7eb22f8358797a2c14a0bd865459d0b44458b8f05d2721294dacc7f734
+https://nodejs.org/dist/v16.13.0/node-v16.13.0-win-x64.zip: 5a39ec5d4786c2814a6c04488bebac6423c2aaa12832b24f0882456f2e4674e1
