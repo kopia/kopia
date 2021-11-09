@@ -489,7 +489,7 @@ func (u *Uploader) uploadDirWithCheckpointing(ctx context.Context, rootDir fs.Di
 	}
 
 	if overrideDir != nil {
-		rootDir = u.wrapIgnorefs(uploadLog(ctx), overrideDir, policyTree)
+		rootDir = u.wrapIgnorefs(uploadLog(ctx), overrideDir, policyTree, true)
 	}
 
 	defer u.executeAfterFolderAction(ctx, "after-snapshot-root", policyTree.EffectivePolicy().Actions.AfterSnapshotRoot, localDirPathOrEmpty, &hc)
@@ -1132,7 +1132,7 @@ func uploadDirInternal(
 	defer u.executeAfterFolderAction(ctx, "after-folder", definedActions.AfterFolder, localDirPathOrEmpty, &hc)
 
 	if overrideDir != nil {
-		directory = u.wrapIgnorefs(uploadLog(ctx), overrideDir, policyTree)
+		directory = u.wrapIgnorefs(uploadLog(ctx), overrideDir, policyTree, true)
 	}
 
 	if de, err := uploadShallowDirInternal(ctx, directory, u); de != nil || err != nil {
@@ -1305,14 +1305,14 @@ func (u *Uploader) Upload(
 		go func() {
 			defer scanWG.Done()
 
-			wrapped := u.wrapIgnorefs(estimateLog(ctx), entry, policyTree)
+			wrapped := u.wrapIgnorefs(estimateLog(ctx), entry, policyTree, false /* reportIgnoreStats */)
 
 			ds, _ := u.scanDirectory(scanctx, wrapped, policyTree)
 
 			u.Progress.EstimatedDataSize(ds.numFiles, ds.totalFileSize)
 		}()
 
-		wrapped := u.wrapIgnorefs(uploadLog(ctx), entry, policyTree)
+		wrapped := u.wrapIgnorefs(uploadLog(ctx), entry, policyTree, true /* reportIgnoreStats */)
 
 		s.RootEntry, err = u.uploadDirWithCheckpointing(ctx, wrapped, policyTree, previousDirs, sourceInfo)
 
@@ -1338,7 +1338,7 @@ func (u *Uploader) Upload(
 	return s, nil
 }
 
-func (u *Uploader) wrapIgnorefs(logger logging.Logger, entry fs.Directory, policyTree *policy.Tree) fs.Directory {
+func (u *Uploader) wrapIgnorefs(logger logging.Logger, entry fs.Directory, policyTree *policy.Tree, reportIgnoreStats bool) fs.Directory {
 	if u.DisableIgnoreRules {
 		return entry
 	}
@@ -1350,14 +1350,18 @@ func (u *Uploader) wrapIgnorefs(logger logging.Logger, entry fs.Directory, polic
 				policyTree.EffectivePolicy().LoggingPolicy.Directories.Ignored.OrDefault(policy.LogDetailNone),
 				"ignored directory", fname, nil, nil, timetrack.StartTimer())
 
-			u.Progress.ExcludedDir(fname)
+			if reportIgnoreStats {
+				u.Progress.ExcludedDir(fname)
+			}
 		} else {
 			maybeLogEntryProcessed(
 				logger,
 				policyTree.EffectivePolicy().LoggingPolicy.Entries.Ignored.OrDefault(policy.LogDetailNone),
 				"ignored", fname, nil, nil, timetrack.StartTimer())
 
-			u.Progress.ExcludedFile(fname, md.Size())
+			if reportIgnoreStats {
+				u.Progress.ExcludedFile(fname, md.Size())
+			}
 		}
 
 		u.stats.AddExcluded(md)
