@@ -22,6 +22,7 @@ The following installation options are available:
 * [Arch Linux/Manjaro (AUR)](#linux-installation-using-aur-arch-manjaro)
 * [macOS CLI Homebrew](#macos-cli-using-homebrew)
 * [macOS GUI](#macos-gui-installer)
+* [OpenBSD](#openbsd-installation-via-ports)
 * [Docker Images](#docker-images)
 
 If you like to test the latest unreleased version of Kopia:
@@ -181,6 +182,19 @@ or if you use an AUR helper such as yay:
 ```shell
 yay -S kopia-bin
 ```
+
+### OpenBSD installation via ports
+
+OpenBSD now has kopia in -current ports, which means it gets built as packages in snapshots for several platforms (amd64, arm64, mips64 and i386) and will appear as a package for OpenBSD 7.1 and later releases.
+
+To install the kopia package, run:
+
+```shell
+# pkg_add kopia
+```
+
+To build Kopia from ports yourself, cd /usr/ports/sysutils/kopia and follow the [Ports](https://www.openbsd.org/faq/ports/ports.html) guide on building ports as usual.
+
 
 ### Verifying package integrity
 
