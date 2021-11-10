@@ -68,15 +68,14 @@ lint-and-log: $(linter)
 	$(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags) | tee .linterr.txt
 
 lint-all: $(linter)
-	GOOS=windows $(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
-	GOOS=linux $(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
+	GOOS=windows GOARCH=amd64 $(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
 	GOOS=linux GOARCH=amd64 $(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
 	GOOS=linux GOARCH=arm64 $(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
 	GOOS=linux GOARCH=arm $(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
 	GOOS=darwin GOARCH=amd64 $(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
 	GOOS=darwin GOARCH=arm64 $(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
-	GOOS=openbsd $(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
-	GOOS=freebsd $(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
+	GOOS=openbsd GOARCH=amd64 $(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
+	GOOS=freebsd GOARCH=amd64 $(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
 
 vet:
 	go vet -all .
