@@ -131,13 +131,13 @@ func (s *s3Storage) getVersionMetadata(ctx context.Context, b blob.ID, version s
 	return infoToVersionMetadata(s.Prefix, &oi), nil
 }
 
-func (s *s3Storage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes, opts blob.StoragePutBlobOptions) error {
+func (s *s3Storage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes, opts blob.PutOptions) error {
 	_, err := s.putBlob(ctx, b, data, opts)
 
 	return err
 }
 
-func (s *s3Storage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes, opts blob.StoragePutBlobOptions) (versionMetadata, error) {
+func (s *s3Storage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes, opts blob.PutOptions) (versionMetadata, error) {
 	throttled, err := s.uploadThrottler.AddReader(io.NopCloser(data.Reader()))
 	if err != nil {
 		return versionMetadata{}, errors.Wrap(err, "AddReader")

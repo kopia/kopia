@@ -69,15 +69,15 @@ type Reader interface {
 	DisplayName() string
 }
 
-// StoragePutBlobOptions represents put-options for a single BLOB in a storage.
-type StoragePutBlobOptions struct {
+// PutOptions represents put-options for a single BLOB in a storage.
+type PutOptions struct {
 	RetentionMode   string
 	RetentionPeriod time.Duration
 }
 
 // HasRetentionOptions returns true when blob-retention settings have been
 // specified, otherwise retruns false.
-func (o StoragePutBlobOptions) HasRetentionOptions() bool {
+func (o PutOptions) HasRetentionOptions() bool {
 	return o.RetentionPeriod != 0 || o.RetentionMode != ""
 }
 
@@ -97,7 +97,7 @@ type Storage interface {
 
 	// PutBlob uploads the blob with given data to the repository or replaces existing blob with the provided
 	// id with contents gathered from the specified list of slices.
-	PutBlob(ctx context.Context, blobID ID, data Bytes, opts StoragePutBlobOptions) error
+	PutBlob(ctx context.Context, blobID ID, data Bytes, opts PutOptions) error
 
 	// SetTime changes last modification time of a given blob, if supported, returns ErrSetTimeUnsupported otherwise.
 	SetTime(ctx context.Context, blobID ID, t time.Time) error

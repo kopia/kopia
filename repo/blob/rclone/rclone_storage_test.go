@@ -95,7 +95,7 @@ func TestRCloneStorage(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	blobtesting.VerifyStorage(ctx, t, st, blob.StoragePutBlobOptions{})
+	blobtesting.VerifyStorage(ctx, t, st, blob.PutOptions{})
 	blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
 }
 
@@ -121,7 +121,7 @@ func TestRCloneStorageDirectoryShards(t *testing.T) {
 
 	defer st.Close(ctx)
 
-	require.NoError(t, st.PutBlob(ctx, "someblob1234567812345678", gather.FromSlice([]byte{1, 2, 3}), blob.StoragePutBlobOptions{}))
+	require.NoError(t, st.PutBlob(ctx, "someblob1234567812345678", gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{}))
 	require.FileExists(t, filepath.Join(dataDir, "someb", "lo", "b1234567812345678.f"))
 }
 
@@ -227,7 +227,7 @@ func TestRCloneProviders(t *testing.T) {
 			defer st.Close(ctx)
 
 			blobtesting.VerifyStorage(ctx, t, logging.NewWrapper(st, testlogging.NewTestLogger(t), "[RCLONE-STORAGE] "),
-				blob.StoragePutBlobOptions{})
+				blob.PutOptions{})
 			blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
 		})
 	}
