@@ -75,6 +75,12 @@ type StoragePutBlobOptions struct {
 	RetentionPeriod time.Duration
 }
 
+// HasRetentionOptions returns true when blob-retention settings have been
+// specified, otherwise retruns false.
+func (o StoragePutBlobOptions) HasRetentionOptions() bool {
+	return o.RetentionPeriod != 0 || o.RetentionMode != ""
+}
+
 // Storage encapsulates API for connecting to blob storage.
 //
 // The underlying storage system must provide:

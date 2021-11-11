@@ -97,7 +97,7 @@ func translateError(err error) error {
 }
 
 func (gcs *gcsStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes, opts blob.StoragePutBlobOptions) error {
-	if opts.RetentionPeriod != 0 || opts.RetentionMode != "" {
+	if opts.HasRetentionOptions() {
 		return blob.ErrBlobRetentionUnsupported
 	}
 
