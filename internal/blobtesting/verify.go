@@ -18,7 +18,7 @@ import (
 
 // VerifyStorage verifies the behavior of the specified storage.
 // nolint:gocyclo,thelper
-func VerifyStorage(ctx context.Context, t *testing.T, r blob.Storage) {
+func VerifyStorage(ctx context.Context, t *testing.T, r blob.Storage, opts blob.StoragePutBlobOptions) {
 	blocks := []struct {
 		blk      blob.ID
 		contents []byte
@@ -62,7 +62,7 @@ func VerifyStorage(ctx context.Context, t *testing.T, r blob.Storage) {
 				t.Run(fmt.Sprintf("%v-%v", b.blk, i), func(t *testing.T) {
 					t.Parallel()
 
-					if err := r.PutBlob(ctx, b.blk, gather.FromSlice(b.contents), blob.StoragePutBlobOptions{}); err != nil {
+					if err := r.PutBlob(ctx, b.blk, gather.FromSlice(b.contents), opts); err != nil {
 						t.Fatalf("can't put blob: %v", err)
 					}
 				})

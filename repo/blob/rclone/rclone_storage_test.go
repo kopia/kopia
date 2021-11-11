@@ -95,7 +95,7 @@ func TestRCloneStorage(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	blobtesting.VerifyStorage(ctx, t, st)
+	blobtesting.VerifyStorage(ctx, t, st, blob.StoragePutBlobOptions{})
 	blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
 }
 
@@ -226,7 +226,8 @@ func TestRCloneProviders(t *testing.T) {
 
 			defer st.Close(ctx)
 
-			blobtesting.VerifyStorage(ctx, t, logging.NewWrapper(st, testlogging.NewTestLogger(t), "[RCLONE-STORAGE] "))
+			blobtesting.VerifyStorage(ctx, t, logging.NewWrapper(st, testlogging.NewTestLogger(t), "[RCLONE-STORAGE] "),
+				blob.StoragePutBlobOptions{})
 			blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
 		})
 	}
