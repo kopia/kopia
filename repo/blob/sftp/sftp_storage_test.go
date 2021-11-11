@@ -196,7 +196,7 @@ func TestSFTPStorageValid(t *testing.T) {
 
 			deleteBlobs(ctx, t, st)
 
-			blobtesting.VerifyStorage(ctx, t, st)
+			blobtesting.VerifyStorage(ctx, t, st, blob.StoragePutBlobOptions{})
 			blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
 			require.NoError(t, providervalidation.ValidateProvider(ctx, st, blobtesting.TestValidationOptions))
 
@@ -227,7 +227,7 @@ func TestSFTPStorageValid(t *testing.T) {
 
 		deleteBlobs(ctx, t, st)
 
-		blobtesting.VerifyStorage(ctx, t, st)
+		blobtesting.VerifyStorage(ctx, t, st, blob.StoragePutBlobOptions{})
 		blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
 
 		// delete everything again
