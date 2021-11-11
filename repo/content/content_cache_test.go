@@ -28,8 +28,8 @@ func newUnderlyingStorageForContentCacheTesting(t *testing.T) blob.Storage {
 	ctx := testlogging.Context(t)
 	data := blobtesting.DataMap{}
 	st := blobtesting.NewMapStorage(data, nil, nil)
-	require.NoError(t, st.PutBlob(ctx, "content-1", gather.FromSlice([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}), blob.StoragePutBlobOptions{}))
-	require.NoError(t, st.PutBlob(ctx, "content-4k", gather.FromSlice(bytes.Repeat([]byte{1, 2, 3, 4}, 1000)), blob.StoragePutBlobOptions{})) // 4000 bytes
+	require.NoError(t, st.PutBlob(ctx, "content-1", gather.FromSlice([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}), blob.PutOptions{}))
+	require.NoError(t, st.PutBlob(ctx, "content-4k", gather.FromSlice(bytes.Repeat([]byte{1, 2, 3, 4}, 1000)), blob.PutOptions{})) // 4000 bytes
 
 	return st
 }
@@ -187,7 +187,7 @@ func verifyContentCache(t *testing.T, cc contentCache, cacheStorage blob.Storage
 		b := tmp.Bytes()
 		b.Slices[0][0] ^= 1
 
-		require.NoError(t, cacheStorage.PutBlob(ctx, cacheKey, b, blob.StoragePutBlobOptions{}))
+		require.NoError(t, cacheStorage.PutBlob(ctx, cacheKey, b, blob.PutOptions{}))
 
 		err := cc.getContent(ctx, "xf0f0f1", "content-1", 1, 5, &tmp)
 		if err != nil {

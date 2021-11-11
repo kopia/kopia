@@ -157,7 +157,7 @@ func (s *eventuallyConsistentStorage) GetMetadata(ctx context.Context, id blob.I
 	return s.realStorage.GetMetadata(ctx, id)
 }
 
-func (s *eventuallyConsistentStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes, opts blob.StoragePutBlobOptions) error {
+func (s *eventuallyConsistentStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes, opts blob.PutOptions) error {
 	if err := s.realStorage.PutBlob(ctx, id, data, opts); err != nil {
 		return err
 	}

@@ -104,7 +104,7 @@ func translateError(err error) error {
 	}
 }
 
-func (az *azStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes, opts blob.StoragePutBlobOptions) error {
+func (az *azStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes, opts blob.PutOptions) error {
 	if opts.HasRetentionOptions() {
 		return blob.ErrBlobRetentionUnsupported
 	}

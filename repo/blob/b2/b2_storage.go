@@ -147,7 +147,7 @@ func translateError(err error) error {
 	return err
 }
 
-func (s *b2Storage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes, opts blob.StoragePutBlobOptions) error {
+func (s *b2Storage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes, opts blob.PutOptions) error {
 	throttled, err := s.uploadThrottler.AddReader(io.NopCloser(data.Reader()))
 	if err != nil {
 		return translateError(err)

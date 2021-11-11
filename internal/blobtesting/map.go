@@ -75,7 +75,7 @@ func (s *mapStorage) GetMetadata(ctx context.Context, id blob.ID) (blob.Metadata
 	return blob.Metadata{}, blob.ErrBlobNotFound
 }
 
-func (s *mapStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes, opts blob.StoragePutBlobOptions) error {
+func (s *mapStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes, opts blob.PutOptions) error {
 	if opts.HasRetentionOptions() {
 		return blob.ErrBlobRetentionUnsupported
 	}

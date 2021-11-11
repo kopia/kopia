@@ -47,7 +47,7 @@ func (s retryingStorage) SetTime(ctx context.Context, id blob.ID, t time.Time) e
 	return err // nolint:wrapcheck
 }
 
-func (s retryingStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes, opts blob.StoragePutBlobOptions) error {
+func (s retryingStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes, opts blob.PutOptions) error {
 	_, err := retry.WithExponentialBackoff(ctx, "PutBlob("+string(id)+")", func() (interface{}, error) {
 		// nolint:wrapcheck
 		return true, s.Storage.PutBlob(ctx, id, data, opts)

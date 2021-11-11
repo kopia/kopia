@@ -15,5 +15,5 @@ func TestMapStorage(t *testing.T) {
 		t.Errorf("unexpected result: %v", r)
 	}
 
-	VerifyStorage(testlogging.Context(t), t, r, blob.StoragePutBlobOptions{})
+	VerifyStorage(testlogging.Context(t), t, r, blob.PutOptions{})
 }
