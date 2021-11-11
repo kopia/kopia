@@ -131,7 +131,7 @@ func TestS3StorageProviders(t *testing.T) {
 		t.Run(k, func(t *testing.T) {
 			opt := getProviderOptions(t, env)
 
-			testStorage(t, opt, false)
+			testStorage(t, opt, false, blob.StoragePutBlobOptions{})
 		})
 	}
 }
@@ -149,7 +149,7 @@ func TestS3StorageAWS(t *testing.T) {
 	}
 
 	createBucket(t, options)
-	testStorage(t, options, false)
+	testStorage(t, options, false, blob.StoragePutBlobOptions{})
 }
 
 func TestS3StorageAWSSTS(t *testing.T) {
@@ -175,10 +175,10 @@ func TestS3StorageAWSSTS(t *testing.T) {
 		BucketName:      options.BucketName,
 		Region:          options.Region,
 	})
-	testStorage(t, options, false)
+	testStorage(t, options, false, blob.StoragePutBlobOptions{})
 }
 
-func TestS3StorageAWSRetention(t *testing.T) {
+func TestS3StorageAWSRetentionUnversionedBucket(t *testing.T) {
 	t.Parallel()
 
 	// skip the test if AWS creds are not provided
@@ -191,7 +191,10 @@ func TestS3StorageAWSRetention(t *testing.T) {
 	}
 
 	createBucket(t, options)
-	testStorage(t, options, false)
+	testPutBlobWithInvalidRetention(t, options, blob.StoragePutBlobOptions{
+		RetentionMode:   minio.Governance.String(),
+		RetentionPeriod: time.Hour * 24,
+	}, blob.ErrBlobRetentionDisabled)
 }
 
 func TestS3StorageAWSRetentionLockedBucket(t *testing.T) {
@@ -207,10 +210,13 @@ func TestS3StorageAWSRetentionLockedBucket(t *testing.T) {
 	}
 
 	createBucket(t, options)
-	testStorage(t, options, false)
+	testStorage(t, options, false, blob.StoragePutBlobOptions{
+		RetentionMode:   minio.Governance.String(),
+		RetentionPeriod: time.Hour * 24,
+	})
 }
 
-func TestS3StorageAWSInvalidRetention(t *testing.T) {
+func TestS3StorageAWSRetentionInvalidPeriod(t *testing.T) {
 	t.Parallel()
 
 	// skip the test if AWS creds are not provided
@@ -223,10 +229,13 @@ func TestS3StorageAWSInvalidRetention(t *testing.T) {
 	}
 
 	createBucket(t, options)
-	testStorage(t, options, false)
+	testPutBlobWithInvalidRetention(t, options, blob.StoragePutBlobOptions{
+		RetentionMode:   minio.Governance.String(),
+		RetentionPeriod: time.Nanosecond,
+	}, blob.ErrBlobRetentionInvalid)
 }
 
-func TestS3StorageAWSInvalidRetentionLockedBucket(t *testing.T) {
+func TestS3StorageAWSRetentionInvalidPeriodLockedBucket(t *testing.T) {
 	t.Parallel()
 
 	// skip the test if AWS creds are not provided
@@ -239,7 +248,10 @@ func TestS3StorageAWSInvalidRetentionLockedBucket(t *testing.T) {
 	}
 
 	createBucket(t, options)
-	testStorage(t, options, false)
+	testPutBlobWithInvalidRetention(t, options, blob.StoragePutBlobOptions{
+		RetentionMode:   minio.Governance.String(),
+		RetentionPeriod: time.Nanosecond,
+	}, blob.ErrBlobRetentionInvalid)
 }
 
 func TestS3StorageMinio(t *testing.T) {
@@ -258,7 +270,7 @@ func TestS3StorageMinio(t *testing.T) {
 	}
 
 	createBucket(t, options)
-	testStorage(t, options, true)
+	testStorage(t, options, true, blob.StoragePutBlobOptions{})
 }
 
 func TestInvalidCredsFailsFast(t *testing.T) {
@@ -318,7 +330,7 @@ func TestS3StorageMinioSTS(t *testing.T) {
 		BucketName:      minioBucketName,
 		Region:          minioRegion,
 		DoNotUseTLS:     true,
-	}, true)
+	}, true, blob.StoragePutBlobOptions{})
 }
 
 func TestNeedMD5AWS(t *testing.T) {
@@ -366,7 +378,7 @@ func TestNeedMD5AWS(t *testing.T) {
 }
 
 // nolint:thelper
-func testStorage(t *testing.T, options *Options, runValidationTest bool) {
+func testStorage(t *testing.T, options *Options, runValidationTest bool, opts blob.StoragePutBlobOptions) {
 	ctx := testlogging.Context(t)
 
 	require.Equal(t, "", options.Prefix)
@@ -386,12 +398,34 @@ func testStorage(t *testing.T, options *Options, runValidationTest bool) {
 	defer st.Close(ctx)
 	defer blobtesting.CleanupOldData(ctx, t, st, 0)
 
-	blobtesting.VerifyStorage(ctx, t, st)
+	blobtesting.VerifyStorage(ctx, t, st, opts)
 	blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
 
 	if runValidationTest {
 		require.NoError(t, providervalidation.ValidateProvider(ctx, st, blobtesting.TestValidationOptions))
 	}
+}
+
+// nolint:thelper
+func testPutBlobWithInvalidRetention(t *testing.T, options *Options, opts blob.StoragePutBlobOptions, expectedError error) {
+	ctx := testlogging.Context(t)
+
+	require.Equal(t, "", options.Prefix)
+	options.Prefix = uuid.NewString()
+
+	// non-retrying storage
+	st, err := newStorage(testlogging.Context(t), options)
+	require.NoError(t, err)
+
+	defer st.Close(ctx)
+	defer blobtesting.CleanupOldData(ctx, t, st, 0)
+
+	// Now attempt to add a block and expect to fail
+	require.ErrorAs(t,
+		st.PutBlob(ctx, blob.ID("abcdbbf4f0507d054ed5a80a5b65086f602b"), gather.FromSlice([]byte{}), opts),
+		&expectedError)
+
+	blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
 }
 
 func TestCustomTransportNoSSLVerify(t *testing.T) {

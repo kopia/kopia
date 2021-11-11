@@ -44,7 +44,7 @@ func TestFileStorage(t *testing.T) {
 			t.Errorf("unexpected result: %v %v", r, err)
 		}
 
-		blobtesting.VerifyStorage(ctx, t, r)
+		blobtesting.VerifyStorage(ctx, t, r, blob.StoragePutBlobOptions{})
 		blobtesting.AssertConnectionInfoRoundTrips(ctx, t, r)
 		require.NoError(t, providervalidation.ValidateProvider(ctx, r, blobtesting.TestValidationOptions))
 
