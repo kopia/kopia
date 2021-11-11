@@ -131,7 +131,7 @@ func TestS3StorageProviders(t *testing.T) {
 		t.Run(k, func(t *testing.T) {
 			opt := getProviderOptions(t, env)
 
-			testStorage(t, opt, false, blob.StoragePutBlobOptions{})
+			testStorage(t, opt, false, blob.PutOptions{})
 		})
 	}
 }
@@ -149,7 +149,7 @@ func TestS3StorageAWS(t *testing.T) {
 	}
 
 	createBucket(t, options)
-	testStorage(t, options, false, blob.StoragePutBlobOptions{})
+	testStorage(t, options, false, blob.PutOptions{})
 }
 
 func TestS3StorageAWSSTS(t *testing.T) {
@@ -175,7 +175,7 @@ func TestS3StorageAWSSTS(t *testing.T) {
 		BucketName:      options.BucketName,
 		Region:          options.Region,
 	})
-	testStorage(t, options, false, blob.StoragePutBlobOptions{})
+	testStorage(t, options, false, blob.PutOptions{})
 }
 
 func TestS3StorageAWSRetentionUnversionedBucket(t *testing.T) {
@@ -191,7 +191,7 @@ func TestS3StorageAWSRetentionUnversionedBucket(t *testing.T) {
 	}
 
 	createBucket(t, options)
-	testPutBlobWithInvalidRetention(t, options, blob.StoragePutBlobOptions{
+	testPutBlobWithInvalidRetention(t, options, blob.PutOptions{
 		RetentionMode:   minio.Governance.String(),
 		RetentionPeriod: time.Hour * 24,
 	}, blob.ErrBlobRetentionDisabled)
@@ -210,7 +210,7 @@ func TestS3StorageAWSRetentionLockedBucket(t *testing.T) {
 	}
 
 	createBucket(t, options)
-	testStorage(t, options, false, blob.StoragePutBlobOptions{
+	testStorage(t, options, false, blob.PutOptions{
 		RetentionMode:   minio.Governance.String(),
 		RetentionPeriod: time.Hour * 24,
 	})
@@ -229,7 +229,7 @@ func TestS3StorageAWSRetentionInvalidPeriod(t *testing.T) {
 	}
 
 	createBucket(t, options)
-	testPutBlobWithInvalidRetention(t, options, blob.StoragePutBlobOptions{
+	testPutBlobWithInvalidRetention(t, options, blob.PutOptions{
 		RetentionMode:   minio.Governance.String(),
 		RetentionPeriod: time.Nanosecond,
 	}, blob.ErrBlobRetentionInvalid)
@@ -248,7 +248,7 @@ func TestS3StorageAWSRetentionInvalidPeriodLockedBucket(t *testing.T) {
 	}
 
 	createBucket(t, options)
-	testPutBlobWithInvalidRetention(t, options, blob.StoragePutBlobOptions{
+	testPutBlobWithInvalidRetention(t, options, blob.PutOptions{
 		RetentionMode:   minio.Governance.String(),
 		RetentionPeriod: time.Nanosecond,
 	}, blob.ErrBlobRetentionInvalid)
@@ -270,7 +270,7 @@ func TestS3StorageMinio(t *testing.T) {
 	}
 
 	createBucket(t, options)
-	testStorage(t, options, true, blob.StoragePutBlobOptions{})
+	testStorage(t, options, true, blob.PutOptions{})
 }
 
 func TestInvalidCredsFailsFast(t *testing.T) {
@@ -330,7 +330,7 @@ func TestS3StorageMinioSTS(t *testing.T) {
 		BucketName:      minioBucketName,
 		Region:          minioRegion,
 		DoNotUseTLS:     true,
-	}, true, blob.StoragePutBlobOptions{})
+	}, true, blob.PutOptions{})
 }
 
 func TestNeedMD5AWS(t *testing.T) {
@@ -372,13 +372,13 @@ func TestNeedMD5AWS(t *testing.T) {
 		blobtesting.CleanupOldData(context.Background(), t, s, 0)
 	})
 
-	err = s.PutBlob(ctx, blob.ID("test-put-blob-0"), gather.FromSlice([]byte("xxyasdf243z")), blob.StoragePutBlobOptions{})
+	err = s.PutBlob(ctx, blob.ID("test-put-blob-0"), gather.FromSlice([]byte("xxyasdf243z")), blob.PutOptions{})
 
 	require.NoError(t, err, "could not put test blob")
 }
 
 // nolint:thelper
-func testStorage(t *testing.T, options *Options, runValidationTest bool, opts blob.StoragePutBlobOptions) {
+func testStorage(t *testing.T, options *Options, runValidationTest bool, opts blob.PutOptions) {
 	ctx := testlogging.Context(t)
 
 	require.Equal(t, "", options.Prefix)
@@ -407,7 +407,7 @@ func testStorage(t *testing.T, options *Options, runValidationTest bool, opts bl
 }
 
 // nolint:thelper
-func testPutBlobWithInvalidRetention(t *testing.T, options *Options, opts blob.StoragePutBlobOptions, expectedError error) {
+func testPutBlobWithInvalidRetention(t *testing.T, options *Options, opts blob.PutOptions, expectedError error) {
 	ctx := testlogging.Context(t)
 
 	require.Equal(t, "", options.Prefix)

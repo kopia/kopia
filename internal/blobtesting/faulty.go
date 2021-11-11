@@ -48,7 +48,7 @@ func (s *FaultyStorage) GetMetadata(ctx context.Context, id blob.ID) (blob.Metad
 }
 
 // PutBlob implements blob.Storage.
-func (s *FaultyStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes, opts blob.StoragePutBlobOptions) error {
+func (s *FaultyStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes, opts blob.PutOptions) error {
 	if err := s.getNextFault(ctx, "PutBlob", id); err != nil {
 		return err
 	}
