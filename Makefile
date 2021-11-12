@@ -40,7 +40,7 @@ GOTESTSUM_FORMAT=pkgname-and-test-fails
 GOTESTSUM_FLAGS=--format=$(GOTESTSUM_FORMAT) --no-summary=skipped
 GO_TEST?=$(gotestsum) $(GOTESTSUM_FLAGS) --
 
-LINTER_DEADLINE=300s
+LINTER_DEADLINE=600s
 UNIT_TESTS_TIMEOUT=300s
 
 ifeq ($(GOARCH),amd64)
@@ -68,15 +68,14 @@ lint-and-log: $(linter)
 	$(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags) | tee .linterr.txt
 
 lint-all: $(linter)
-	GOOS=windows $(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
-	GOOS=linux $(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
+	GOOS=windows GOARCH=amd64 $(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
 	GOOS=linux GOARCH=amd64 $(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
 	GOOS=linux GOARCH=arm64 $(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
 	GOOS=linux GOARCH=arm $(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
 	GOOS=darwin GOARCH=amd64 $(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
 	GOOS=darwin GOARCH=arm64 $(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
-	GOOS=openbsd $(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
-	GOOS=freebsd $(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
+	GOOS=openbsd GOARCH=amd64 $(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
+	GOOS=freebsd GOARCH=amd64 $(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
 
 vet:
 	go vet -all .

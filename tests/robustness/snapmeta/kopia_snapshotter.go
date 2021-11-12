@@ -1,5 +1,5 @@
-//go:build (darwin && amd64) || (linux && amd64)
-// +build darwin,amd64 linux,amd64
+//go:build darwin || (linux && amd64)
+// +build darwin linux,amd64
 
 package snapmeta
 
@@ -164,11 +164,13 @@ func (ks *KopiaSnapshotter) ConnectOrCreateFilesystem(path string) error {
 
 // ConnectOrCreateS3WithServer TBD: remove this.
 func (ks *KopiaSnapshotter) ConnectOrCreateS3WithServer(serverAddr, bucketName, pathPrefix string) (*exec.Cmd, error) {
+	// nolint:nilnil
 	return nil, nil
 }
 
 // ConnectOrCreateFilesystemWithServer TBD: remove this.
 func (ks *KopiaSnapshotter) ConnectOrCreateFilesystemWithServer(serverAddr, repoPath string) (*exec.Cmd, error) {
+	// nolint:nilnil
 	return nil, nil
 }
 

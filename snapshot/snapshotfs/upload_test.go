@@ -992,7 +992,7 @@ func TestUploadLogging(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		t.Run(fmt.Sprintf("%v", tc.desc), func(t *testing.T) {
+		t.Run(tc.desc, func(t *testing.T) {
 			ml := &mockLogger{
 				Logger: logging.NullLogger,
 			}

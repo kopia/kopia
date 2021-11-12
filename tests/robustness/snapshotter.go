@@ -1,5 +1,5 @@
-//go:build (darwin && amd64) || (linux && amd64)
-// +build darwin,amd64 linux,amd64
+//go:build darwin || (linux && amd64)
+// +build darwin linux,amd64
 
 // Package robustness contains tests that that validate data stability over time.
 // The package, while designed for Kopia, is written with abstractions that

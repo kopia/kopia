@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/kopia/kopia/internal/auth"
@@ -26,12 +27,12 @@ func handlerWillCheckAuthorization(s *Server, r *http.Request) bool {
 
 func requireContentAccess(level auth.AccessLevel) isAuthorizedFunc {
 	return func(s *Server, r *http.Request) bool {
-		return s.httpAuthorizationInfo(r).ContentAccessLevel() >= level
+		return s.httpAuthorizationInfo(r.Context(), r).ContentAccessLevel() >= level
 	}
 }
 
-func hasManifestAccess(s *Server, r *http.Request, labels map[string]string, level auth.AccessLevel) bool {
-	return s.httpAuthorizationInfo(r).ManifestAccessLevel(labels) >= level
+func hasManifestAccess(ctx context.Context, s *Server, r *http.Request, labels map[string]string, level auth.AccessLevel) bool {
+	return s.httpAuthorizationInfo(ctx, r).ManifestAccessLevel(labels) >= level
 }
 
 var (

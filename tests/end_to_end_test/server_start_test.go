@@ -460,7 +460,7 @@ func verifySourceCount(t *testing.T, cli *apiclient.KopiaAPIClient, match *snaps
 func verifyUIServedWithCorrectTitle(t *testing.T, cli *apiclient.KopiaAPIClient, sp serverParameters) {
 	t.Helper()
 
-	req, err := http.NewRequestWithContext(context.Background(), "GET", sp.baseURL, nil)
+	req, err := http.NewRequestWithContext(context.Background(), "GET", sp.baseURL, http.NoBody)
 	require.NoError(t, err)
 
 	req.SetBasicAuth("kopia", sp.password)

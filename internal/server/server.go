@@ -220,11 +220,11 @@ func (s *Server) requireAuth(f http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-func (s *Server) httpAuthorizationInfo(r *http.Request) auth.AuthorizationInfo {
+func (s *Server) httpAuthorizationInfo(ctx context.Context, r *http.Request) auth.AuthorizationInfo {
 	// authentication already done
 	userAtHost, _, _ := r.BasicAuth()
 
-	authz := s.authorizer.Authorize(r.Context(), s.rep, userAtHost)
+	authz := s.authorizer.Authorize(ctx, s.rep, userAtHost)
 	if authz == nil {
 		authz = auth.NoAccess()
 	}

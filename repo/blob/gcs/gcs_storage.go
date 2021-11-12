@@ -33,7 +33,6 @@ const (
 type gcsStorage struct {
 	Options
 
-	ctx           context.Context
 	storageClient *gcsclient.Client
 	bucket        *gcsclient.BucketHandle
 
@@ -47,7 +46,7 @@ func (gcs *gcsStorage) GetBlob(ctx context.Context, b blob.ID, offset, length in
 	}
 
 	attempt := func() error {
-		reader, err := gcs.bucket.Object(gcs.getObjectNameString(b)).NewRangeReader(gcs.ctx, offset, length)
+		reader, err := gcs.bucket.Object(gcs.getObjectNameString(b)).NewRangeReader(ctx, offset, length)
 		if err != nil {
 			return errors.Wrap(err, "NewRangeReader")
 		}
@@ -126,7 +125,7 @@ func (gcs *gcsStorage) SetTime(ctx context.Context, b blob.ID, t time.Time) erro
 }
 
 func (gcs *gcsStorage) DeleteBlob(ctx context.Context, b blob.ID) error {
-	err := translateError(gcs.bucket.Object(gcs.getObjectNameString(b)).Delete(gcs.ctx))
+	err := translateError(gcs.bucket.Object(gcs.getObjectNameString(b)).Delete(ctx))
 	if errors.Is(err, blob.ErrBlobNotFound) {
 		return nil
 	}
@@ -139,7 +138,7 @@ func (gcs *gcsStorage) getObjectNameString(blobID blob.ID) string {
 }
 
 func (gcs *gcsStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback func(blob.Metadata) error) error {
-	lst := gcs.bucket.Objects(gcs.ctx, &gcsclient.Query{
+	lst := gcs.bucket.Objects(ctx, &gcsclient.Query{
 		Prefix: gcs.getObjectNameString(prefix),
 	})
 
@@ -191,7 +190,7 @@ func toBandwidth(bytesPerSecond int) iothrottler.Bandwidth {
 }
 
 func tokenSourceFromCredentialsFile(ctx context.Context, fn string, scopes ...string) (oauth2.TokenSource, error) {
-	data, err := os.ReadFile(fn)
+	data, err := os.ReadFile(fn) //nolint:gosec
 	if err != nil {
 		return nil, errors.Wrap(err, "error reading credentials file")
 	}
@@ -258,7 +257,6 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 
 	gcs := &gcsStorage{
 		Options:           *opt,
-		ctx:               ctx,
 		storageClient:     cli,
 		bucket:            cli.Bucket(opt.BucketName),
 		downloadThrottler: downloadThrottler,

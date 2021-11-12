@@ -2,7 +2,6 @@ package policy
 
 import (
 	"encoding/json"
-	"fmt"
 	"sort"
 	"testing"
 
@@ -109,7 +108,7 @@ func TestPolicyManagerInheritanceTest(t *testing.T) {
 
 	for _, tc := range cases {
 		tc := tc
-		t.Run(fmt.Sprintf("%v", tc.sourceInfo), func(t *testing.T) {
+		t.Run(tc.sourceInfo.String(), func(t *testing.T) {
 			pol, src, err := GetEffectivePolicy(ctx, env.RepositoryWriter, tc.sourceInfo)
 			if err != nil {
 				t.Fatalf("err: %v", err)
@@ -392,7 +391,7 @@ func TestApplicablePoliciesForSource(t *testing.T) {
 
 	for _, tc := range cases {
 		tc := tc
-		t.Run(fmt.Sprintf("%v", tc.si), func(t *testing.T) {
+		t.Run(tc.si.String(), func(t *testing.T) {
 			res, err := applicablePoliciesForSource(ctx, env.RepositoryWriter, tc.si)
 			if err != nil {
 				t.Fatalf("error in applicablePoliciesForSource(%v): %v", tc.si, err)

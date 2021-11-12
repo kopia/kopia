@@ -295,7 +295,7 @@ func writeKnownHostsDataStringToTempFile(data string) (string, error) {
 
 	defer tf.Close() //nolint:errcheck,gosec
 
-	if _, err := io.WriteString(tf, data); err != nil {
+	if _, err := tf.WriteString(data); err != nil {
 		return "", errors.Wrap(err, "error writing temporary file")
 	}
 

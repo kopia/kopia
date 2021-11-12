@@ -1,10 +1,9 @@
-//go:build (darwin && amd64) || (linux && amd64)
-// +build darwin,amd64 linux,amd64
+//go:build darwin || (linux && amd64)
+// +build darwin linux,amd64
 
 package snapmeta
 
 import (
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -13,7 +12,7 @@ import (
 func TestKopiaConnector(t *testing.T) {
 	assert := assert.New(t) // nolint:gocritic
 
-	os.Setenv("KOPIA_EXE", "kopia.exe")
+	t.Setenv("KOPIA_EXE", "kopia.exe")
 
 	tc := &testConnector{}
 
@@ -33,31 +32,31 @@ func TestKopiaConnector(t *testing.T) {
 	repoPath := "repoPath"
 	bucketName := "bucketName"
 
-	os.Setenv(EngineModeEnvKey, EngineModeBasic)
-	os.Setenv(S3BucketNameEnvKey, "")
+	t.Setenv(EngineModeEnvKey, EngineModeBasic)
+	t.Setenv(S3BucketNameEnvKey, "")
 	tc.reset()
 	assert.NoError(tc.connectOrCreateRepo(repoPath))
 	assert.True(tc.initFilesystemCalled)
 	assert.Equal(repoPath, tc.tcRepoPath)
 
-	os.Setenv(EngineModeEnvKey, EngineModeBasic)
-	os.Setenv(S3BucketNameEnvKey, bucketName)
+	t.Setenv(EngineModeEnvKey, EngineModeBasic)
+	t.Setenv(S3BucketNameEnvKey, bucketName)
 	tc.reset()
 	assert.NoError(tc.connectOrCreateRepo(repoPath))
 	assert.True(tc.initS3Called)
 	assert.Equal(repoPath, tc.tcRepoPath)
 	assert.Equal(bucketName, tc.tcBucketName)
 
-	os.Setenv(EngineModeEnvKey, EngineModeServer)
-	os.Setenv(S3BucketNameEnvKey, "")
+	t.Setenv(EngineModeEnvKey, EngineModeServer)
+	t.Setenv(S3BucketNameEnvKey, "")
 	tc.reset()
 	assert.NoError(tc.connectOrCreateRepo(repoPath))
 	assert.True(tc.initFilesystemWithServerCalled)
 	assert.Equal(repoPath, tc.tcRepoPath)
 	assert.Equal(defaultAddr, tc.tcAddr)
 
-	os.Setenv(EngineModeEnvKey, EngineModeServer)
-	os.Setenv(S3BucketNameEnvKey, bucketName)
+	t.Setenv(EngineModeEnvKey, EngineModeServer)
+	t.Setenv(S3BucketNameEnvKey, bucketName)
 	tc.reset()
 	assert.NoError(tc.connectOrCreateRepo(repoPath))
 	assert.True(tc.initS3WithServerCalled)

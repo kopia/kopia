@@ -1,5 +1,5 @@
-//go:build (darwin && amd64) || (linux && amd64)
-// +build darwin,amd64 linux,amd64
+//go:build darwin || (linux && amd64)
+// +build darwin linux,amd64
 
 package snapmeta
 
@@ -135,7 +135,7 @@ func TestS3Connect(t *testing.T) {
 	assertNoError(t, err)
 
 	// Test the S3 code path by attempting to connect to a nonexistent bucket.
-	os.Setenv(S3BucketNameEnvKey, "does-not-exist")
+	t.Setenv(S3BucketNameEnvKey, "does-not-exist")
 
 	kpl, err := NewPersisterLight("")
 	assertNoError(t, err)
