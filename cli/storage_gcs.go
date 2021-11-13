@@ -23,9 +23,9 @@ func (c *storageGCSFlags) setup(_ storageProviderServices, cmd *kingpin.CmdClaus
 	cmd.Flag("prefix", "Prefix to use for objects in the bucket").StringVar(&c.options.Prefix)
 	cmd.Flag("read-only", "Use read-only GCS scope to prevent write access").BoolVar(&c.options.ReadOnly)
 	cmd.Flag("credentials-file", "Use the provided JSON file with credentials").ExistingFileVar(&c.options.ServiceAccountCredentialsFile)
-	cmd.Flag("max-download-speed", "Limit the download speed.").PlaceHolder("BYTES_PER_SEC").IntVar(&c.options.MaxDownloadSpeedBytesPerSecond)
-	cmd.Flag("max-upload-speed", "Limit the upload speed.").PlaceHolder("BYTES_PER_SEC").IntVar(&c.options.MaxUploadSpeedBytesPerSecond)
 	cmd.Flag("embed-credentials", "Embed GCS credentials JSON in Kopia configuration").BoolVar(&c.embedCredentials)
+
+	commonThrottlingFlags(cmd, &c.options.Limits)
 }
 
 func (c *storageGCSFlags) connect(ctx context.Context, isCreate bool, formatVersion int) (blob.Storage, error) {

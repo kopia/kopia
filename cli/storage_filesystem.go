@@ -36,6 +36,8 @@ func (c *storageFilesystemFlags) setup(_ storageProviderServices, cmd *kingpin.C
 	cmd.Flag("dir-mode", "Mode of newly directory files (0700)").PlaceHolder("MODE").StringVar(&c.connectDirMode)
 	cmd.Flag("flat", "Use flat directory structure").BoolVar(&c.connectFlat)
 	cmd.Flag("list-parallelism", "Set list parallelism").Hidden().IntVar(&c.options.ListParallelism)
+
+	commonThrottlingFlags(cmd, &c.options.Limits)
 }
 
 func (c *storageFilesystemFlags) connect(ctx context.Context, isCreate bool, formatVersion int) (blob.Storage, error) {

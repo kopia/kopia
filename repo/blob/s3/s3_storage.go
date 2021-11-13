@@ -323,8 +323,8 @@ func newStorage(ctx context.Context, opt *Options) (*s3Storage, error) {
 		return nil, errors.Wrap(err, "unable to create client")
 	}
 
-	downloadThrottler := iothrottler.NewIOThrottlerPool(toBandwidth(opt.MaxDownloadSpeedBytesPerSecond))
-	uploadThrottler := iothrottler.NewIOThrottlerPool(toBandwidth(opt.MaxUploadSpeedBytesPerSecond))
+	downloadThrottler := iothrottler.NewIOThrottlerPool(toBandwidth(int(opt.DownloadBytesPerSecond)))
+	uploadThrottler := iothrottler.NewIOThrottlerPool(toBandwidth(int(opt.UploadBytesPerSecond)))
 
 	ok, err := cli.BucketExists(ctx, opt.BucketName)
 	if err != nil {

@@ -1,6 +1,9 @@
 package rclone
 
-import "github.com/kopia/kopia/repo/blob/sharded"
+import (
+	"github.com/kopia/kopia/repo/blob/sharded"
+	"github.com/kopia/kopia/repo/blob/throttling"
+)
 
 // Options defines options for RClone storage.
 type Options struct {
@@ -15,4 +18,5 @@ type Options struct {
 	AtomicWrites       bool     `json:"atomicWrites"`
 
 	sharded.Options
+	throttling.Limits
 }

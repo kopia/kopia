@@ -185,7 +185,7 @@ func (gcs *gcsStorage) FlushCaches(ctx context.Context) error {
 	return nil
 }
 
-func toBandwidth(bytesPerSecond int) iothrottler.Bandwidth {
+func toBandwidth(bytesPerSecond float64) iothrottler.Bandwidth {
 	if bytesPerSecond <= 0 {
 		return iothrottler.Unlimited
 	}
@@ -244,8 +244,8 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 		return nil, errors.Wrap(err, "unable to initialize token source")
 	}
 
-	downloadThrottler := iothrottler.NewIOThrottlerPool(toBandwidth(opt.MaxDownloadSpeedBytesPerSecond))
-	uploadThrottler := iothrottler.NewIOThrottlerPool(toBandwidth(opt.MaxUploadSpeedBytesPerSecond))
+	downloadThrottler := iothrottler.NewIOThrottlerPool(toBandwidth(opt.DownloadBytesPerSecond))
+	uploadThrottler := iothrottler.NewIOThrottlerPool(toBandwidth(opt.UploadBytesPerSecond))
 
 	hc := oauth2.NewClient(ctx, ts)
 	hc.Transport = throttle.NewRoundTripper(hc.Transport, downloadThrottler, uploadThrottler)

@@ -258,8 +258,8 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 		return nil, errors.Wrap(err, "unable to open bucket")
 	}
 
-	downloadThrottler := iothrottler.NewIOThrottlerPool(toBandwidth(opt.MaxDownloadSpeedBytesPerSecond))
-	uploadThrottler := iothrottler.NewIOThrottlerPool(toBandwidth(opt.MaxUploadSpeedBytesPerSecond))
+	downloadThrottler := iothrottler.NewIOThrottlerPool(toBandwidth(int(opt.DownloadBytesPerSecond)))
+	uploadThrottler := iothrottler.NewIOThrottlerPool(toBandwidth(int(opt.UploadBytesPerSecond)))
 
 	az := retrying.NewWrapper(&azStorage{
 		Options:           *opt,

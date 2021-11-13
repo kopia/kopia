@@ -238,7 +238,7 @@ func (s *b2Storage) String() string {
 	return fmt.Sprintf("b2://%s/%s", s.BucketName, s.Prefix)
 }
 
-func toBandwidth(bytesPerSecond int) iothrottler.Bandwidth {
+func toBandwidth(bytesPerSecond float64) iothrottler.Bandwidth {
 	if bytesPerSecond <= 0 {
 		return iothrottler.Unlimited
 	}
@@ -257,8 +257,8 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 		return nil, errors.Wrap(err, "unable to create client")
 	}
 
-	downloadThrottler := iothrottler.NewIOThrottlerPool(toBandwidth(opt.MaxDownloadSpeedBytesPerSecond))
-	uploadThrottler := iothrottler.NewIOThrottlerPool(toBandwidth(opt.MaxUploadSpeedBytesPerSecond))
+	downloadThrottler := iothrottler.NewIOThrottlerPool(toBandwidth(opt.DownloadBytesPerSecond))
+	uploadThrottler := iothrottler.NewIOThrottlerPool(toBandwidth(opt.UploadBytesPerSecond))
 
 	bucket, err := cli.Bucket(opt.BucketName)
 	if err != nil {

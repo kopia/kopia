@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 
 	"github.com/kopia/kopia/repo/blob/sharded"
+	"github.com/kopia/kopia/repo/blob/throttling"
 )
 
 // Options defines options for sftp-backed storage.
@@ -26,6 +27,7 @@ type Options struct {
 	SSHArguments string `json:"sshArguments,omitempty"`
 
 	sharded.Options
+	throttling.Limits
 }
 
 func (sftpo *Options) knownHostsFile() string {

@@ -22,6 +22,8 @@ func (c *storageWebDAVFlags) setup(_ storageProviderServices, cmd *kingpin.CmdCl
 	cmd.Flag("webdav-password", "WebDAV password").Envar("KOPIA_WEBDAV_PASSWORD").StringVar(&c.options.Password)
 	cmd.Flag("list-parallelism", "Set list parallelism").Hidden().IntVar(&c.options.ListParallelism)
 	cmd.Flag("atomic-writes", "Assume WebDAV provider implements atomic writes").BoolVar(&c.options.AtomicWrites)
+
+	commonThrottlingFlags(cmd, &c.options.Limits)
 }
 
 func (c *storageWebDAVFlags) connect(ctx context.Context, isCreate bool, formatVersion int) (blob.Storage, error) {

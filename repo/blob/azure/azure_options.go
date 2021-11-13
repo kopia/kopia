@@ -1,5 +1,9 @@
 package azure
 
+import (
+	"github.com/kopia/kopia/repo/blob/throttling"
+)
+
 // Options defines options for Azure blob storage storage.
 type Options struct {
 	// Container is the name of the azure storage container where data is stored.
@@ -17,6 +21,5 @@ type Options struct {
 
 	StorageDomain string `json:"storageDomain,omitempty"`
 
-	MaxUploadSpeedBytesPerSecond   int `json:"maxUploadSpeedBytesPerSecond,omitempty"`
-	MaxDownloadSpeedBytesPerSecond int `json:"maxDownloadSpeedBytesPerSecond,omitempty"`
+	throttling.Limits
 }

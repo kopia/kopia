@@ -41,6 +41,8 @@ func (c *storageSFTPFlags) setup(_ storageProviderServices, cmd *kingpin.CmdClau
 
 	cmd.Flag("flat", "Use flat directory structure").BoolVar(&c.connectFlat)
 	cmd.Flag("list-parallelism", "Set list parallelism").Hidden().IntVar(&c.options.ListParallelism)
+
+	commonThrottlingFlags(cmd, &c.options.Limits)
 }
 
 func (c *storageSFTPFlags) getOptions(formatVersion int) (*sftp.Options, error) {

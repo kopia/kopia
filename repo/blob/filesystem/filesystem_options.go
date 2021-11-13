@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"github.com/kopia/kopia/repo/blob/sharded"
+	"github.com/kopia/kopia/repo/blob/throttling"
 )
 
 // Options defines options for Filesystem-backed storage.
@@ -17,6 +18,7 @@ type Options struct {
 	FileGID *int `json:"gid,omitempty"`
 
 	sharded.Options
+	throttling.Limits
 }
 
 func (fso *Options) fileMode() os.FileMode {

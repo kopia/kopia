@@ -6,6 +6,7 @@ import (
 	"github.com/alecthomas/kingpin"
 
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/blob/throttling"
 )
 
 type storageProviderServices interface {
@@ -34,4 +35,9 @@ var storageProviders = []storageProvider{
 	{"s3", "an S3 bucket", func() storageFlags { return &storageS3Flags{} }},
 	{"sftp", "an SFTP storage", func() storageFlags { return &storageSFTPFlags{} }},
 	{"webdav", "a WebDAV storage", func() storageFlags { return &storageWebDAVFlags{} }},
+}
+
+func commonThrottlingFlags(cmd *kingpin.CmdClause, limits *throttling.Limits) {
+	cmd.Flag("max-download-speed", "Limit the download speed.").PlaceHolder("BYTES_PER_SEC").FloatVar(&limits.DownloadBytesPerSecond)
+	cmd.Flag("max-upload-speed", "Limit the upload speed.").PlaceHolder("BYTES_PER_SEC").FloatVar(&limits.UploadBytesPerSecond)
 }
