@@ -4,12 +4,10 @@ package b2
 import (
 	"context"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 	"time"
 
-	"github.com/efarrer/iothrottler"
 	"github.com/pkg/errors"
 	"gopkg.in/kothar/go-backblaze.v0"
 
@@ -29,9 +27,6 @@ type b2Storage struct {
 
 	cli    *backblaze.B2
 	bucket *backblaze.Bucket
-
-	downloadThrottler *iothrottler.IOThrottlerPool
-	uploadThrottler   *iothrottler.IOThrottlerPool
 }
 
 func (s *b2Storage) GetBlob(ctx context.Context, id blob.ID, offset, length int64, output blob.OutputBuffer) error {
@@ -59,17 +54,12 @@ func (s *b2Storage) GetBlob(ctx context.Context, id blob.ID, offset, length int6
 		}
 		defer r.Close() //nolint:errcheck
 
-		throttled, err := s.downloadThrottler.AddReader(r)
-		if err != nil {
-			return errors.Wrap(err, "DownloadFileRangeByName")
-		}
-
 		if length == 0 {
 			return nil
 		}
 
 		// nolint:wrapcheck
-		return iocopy.JustCopy(output, throttled)
+		return iocopy.JustCopy(output, r)
 	}
 
 	if err := attempt(); err != nil {
@@ -148,13 +138,8 @@ func translateError(err error) error {
 }
 
 func (s *b2Storage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes, opts blob.PutOptions) error {
-	throttled, err := s.uploadThrottler.AddReader(io.NopCloser(data.Reader()))
-	if err != nil {
-		return translateError(err)
-	}
-
 	fileName := s.getObjectNameString(id)
-	_, err = s.bucket.UploadFile(fileName, nil, throttled)
+	_, err := s.bucket.UploadFile(fileName, nil, data.Reader())
 
 	return translateError(err)
 }
@@ -238,14 +223,6 @@ func (s *b2Storage) String() string {
 	return fmt.Sprintf("b2://%s/%s", s.BucketName, s.Prefix)
 }
 
-func toBandwidth(bytesPerSecond float64) iothrottler.Bandwidth {
-	if bytesPerSecond <= 0 {
-		return iothrottler.Unlimited
-	}
-
-	return iothrottler.Bandwidth(bytesPerSecond) * iothrottler.BytesPerSecond
-}
-
 // New creates new B2-backed storage with specified options.
 func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 	if opt.BucketName == "" {
@@ -257,9 +234,6 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 		return nil, errors.Wrap(err, "unable to create client")
 	}
 
-	downloadThrottler := iothrottler.NewIOThrottlerPool(toBandwidth(opt.DownloadBytesPerSecond))
-	uploadThrottler := iothrottler.NewIOThrottlerPool(toBandwidth(opt.UploadBytesPerSecond))
-
 	bucket, err := cli.Bucket(opt.BucketName)
 	if err != nil {
 		return nil, errors.Wrapf(err, "cannot open bucket %q", opt.BucketName)
@@ -270,12 +244,10 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 	}
 
 	return retrying.NewWrapper(&b2Storage{
-		Options:           *opt,
-		ctx:               ctx,
-		cli:               cli,
-		bucket:            bucket,
-		downloadThrottler: downloadThrottler,
-		uploadThrottler:   uploadThrottler,
+		Options: *opt,
+		ctx:     ctx,
+		cli:     cli,
+		bucket:  bucket,
 	}), nil
 }
 
