@@ -5,6 +5,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/repo/logging"
 )
 
@@ -81,9 +83,13 @@ func (b *tokenBucket) Return(ctx context.Context, n float64) {
 	}
 }
 
-func (b *tokenBucket) SetLimit(maxTokens float64) {
+func (b *tokenBucket) SetLimit(maxTokens float64) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+
+	if maxTokens < 0 {
+		return errors.Errorf("limit cannot be negative")
+	}
 
 	b.maxTokens = maxTokens
 	b.addTokensPerTimeUnit = maxTokens
@@ -91,6 +97,8 @@ func (b *tokenBucket) SetLimit(maxTokens float64) {
 	if b.numTokens > b.maxTokens {
 		b.numTokens = b.maxTokens
 	}
+
+	return nil
 }
 
 func sleepWithContext(ctx context.Context, dur time.Duration) {

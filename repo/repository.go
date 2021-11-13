@@ -65,6 +65,8 @@ type DirectRepository interface {
 	DeriveKey(purpose []byte, keyLength int) []byte
 	Token(password string) (string, error)
 
+	Throttler() throttling.SettableThrottler
+
 	DisableIndexRefresh()
 }
 
@@ -125,6 +127,11 @@ func (r *directRepository) ClientOptions() ClientOptions {
 // BlobStorage returns the blob storage.
 func (r *directRepository) BlobStorage() blob.Storage {
 	return r.blobs
+}
+
+// Throttler returns the blob storage throttler.
+func (r *directRepository) Throttler() throttling.SettableThrottler {
+	return r.throttler
 }
 
 // ContentManager returns the content manager.

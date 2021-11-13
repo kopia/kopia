@@ -173,6 +173,7 @@ func openDirect(ctx context.Context, configFile string, lc *LocalConfig, passwor
 }
 
 // openWithConfig opens the repository with a given configuration, avoiding the need for a config file.
+// nolint:funlen
 func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, password string, options *Options, caching *content.CachingOptions, configFile string) (DirectRepository, error) {
 	caching = caching.CloneOrDefault()
 
@@ -231,7 +232,10 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 		cmOpts.RepositoryFormatBytes = nil
 	}
 
-	st, throttler := addThrottler(ctx, st)
+	st, throttler, err := addThrottler(ctx, st)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to add throttler")
+	}
 
 	scm, err := content.NewSharedManager(ctx, st, fo, caching, cmOpts)
 	if err != nil {
@@ -276,11 +280,14 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 	return dr, nil
 }
 
-func addThrottler(ctx context.Context, st blob.Storage) (blob.Storage, throttling.SettableThrottler) {
-	throttler := throttling.NewThrottler(
+func addThrottler(ctx context.Context, st blob.Storage) (blob.Storage, throttling.SettableThrottler, error) {
+	throttler, err := throttling.NewThrottler(
 		throttlingLimitsFromConnectionInfo(ctx, st.ConnectionInfo()), throttlingWindow, throttleBucketInitialFill)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "unable to create throttler")
+	}
 
-	return throttling.NewWrapper(st, throttler), throttler
+	return throttling.NewWrapper(st, throttler), throttler, nil
 }
 
 func throttlingLimitsFromConnectionInfo(ctx context.Context, ci blob.ConnectionInfo) throttling.Limits {

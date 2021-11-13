@@ -26,7 +26,10 @@ func TestThrottler(t *testing.T) {
 	const window = time.Second
 
 	ctx := context.Background()
-	th := NewThrottler(limits, window, 0.0 /* start empty */)
+	th, err := NewThrottler(limits, window, 0.0 /* start empty */)
+	require.NoError(t, err)
+	require.Equal(t, limits, th.Limits())
+
 	testRateLimiting(t, "DownloadBytesPerSecond", limits.DownloadBytesPerSecond, func(total *int64) {
 		numBytes := rand.Int63n(1500)
 		excess := rand.Int63n(10)
@@ -35,26 +38,30 @@ func TestThrottler(t *testing.T) {
 		atomic.AddInt64(total, numBytes)
 	})
 
-	th = NewThrottler(limits, window, 0.0 /* start empty */)
+	th, err = NewThrottler(limits, window, 0.0 /* start empty */)
+	require.NoError(t, err)
 	testRateLimiting(t, "UploadBytesPerSecond", limits.UploadBytesPerSecond, func(total *int64) {
 		numBytes := rand.Int63n(1500)
 		th.BeforeUpload(ctx, numBytes)
 		atomic.AddInt64(total, numBytes)
 	})
 
-	th = NewThrottler(limits, window, 0.0 /* start empty */)
+	th, err = NewThrottler(limits, window, 0.0 /* start empty */)
+	require.NoError(t, err)
 	testRateLimiting(t, "ReadsPerSecond", limits.ReadsPerSecond, func(total *int64) {
 		th.BeforeOperation(ctx, "GetBlob")
 		atomic.AddInt64(total, 1)
 	})
 
-	th = NewThrottler(limits, window, 0.0 /* start empty */)
+	th, err = NewThrottler(limits, window, 0.0 /* start empty */)
+	require.NoError(t, err)
 	testRateLimiting(t, "WritesPerSecond", limits.WritesPerSecond, func(total *int64) {
 		th.BeforeOperation(ctx, "PutBlob")
 		atomic.AddInt64(total, 1)
 	})
 
-	th = NewThrottler(limits, window, 0.0 /* start empty */)
+	th, err = NewThrottler(limits, window, 0.0 /* start empty */)
+	require.NoError(t, err)
 	testRateLimiting(t, "ListsPerSecond", limits.ListsPerSecond, func(total *int64) {
 		th.BeforeOperation(ctx, "ListBlobs")
 		atomic.AddInt64(total, 1)
@@ -71,7 +78,8 @@ func TestThrottlerLargeWindow(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	th := NewThrottler(limits, time.Minute, 1.0 /* start full */)
+	th, err := NewThrottler(limits, time.Minute, 1.0 /* start full */)
+	require.NoError(t, err)
 
 	// make sure we can consume 60x worth the quota without
 	timer := timetrack.StartTimer()
