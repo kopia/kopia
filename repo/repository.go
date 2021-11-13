@@ -10,6 +10,7 @@ import (
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/blob/throttling"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/repo/object"
@@ -98,6 +99,8 @@ type directRepository struct {
 	omgr  *object.Manager
 	mmgr  *manifest.Manager
 	sm    *content.SharedManager
+
+	throttler throttling.SettableThrottler
 
 	closed chan struct{}
 }
