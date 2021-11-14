@@ -285,7 +285,7 @@ func init() {
 		func() interface{} {
 			return &Options{}
 		},
-		func(ctx context.Context, o interface{}) (blob.Storage, error) {
+		func(ctx context.Context, o interface{}, isCreate bool) (blob.Storage, error) {
 			return New(ctx, o.(*Options))
 		})
 }

@@ -38,7 +38,7 @@ func (c *storageFilesystemFlags) setup(_ storageProviderServices, cmd *kingpin.C
 	cmd.Flag("list-parallelism", "Set list parallelism").Hidden().IntVar(&c.options.ListParallelism)
 }
 
-func (c *storageFilesystemFlags) connect(ctx context.Context, isNew bool) (blob.Storage, error) {
+func (c *storageFilesystemFlags) connect(ctx context.Context, isCreate bool) (blob.Storage, error) {
 	fso := c.options
 
 	fso.Path = ospath.ResolveUserFriendlyPath(fso.Path, false)
@@ -64,16 +64,8 @@ func (c *storageFilesystemFlags) connect(ctx context.Context, isNew bool) (blob.
 		fso.DirectoryShards = []int{}
 	}
 
-	if isNew {
-		log(ctx).Debugf("creating directory for repository: %v dir mode: %v", fso.Path, fso.DirectoryMode)
-
-		if err := os.MkdirAll(fso.Path, fso.DirectoryMode); err != nil {
-			log(ctx).Errorf("unable to create directory: %v", fso.Path)
-		}
-	}
-
 	// nolint:wrapcheck
-	return filesystem.New(ctx, &fso)
+	return filesystem.New(ctx, &fso, isCreate)
 }
 
 func getIntPtrValue(value string, base int) *int {

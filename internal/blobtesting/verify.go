@@ -159,7 +159,7 @@ func VerifyStorage(ctx context.Context, t *testing.T, r blob.Storage, opts blob.
 func AssertConnectionInfoRoundTrips(ctx context.Context, t *testing.T, s blob.Storage) {
 	ci := s.ConnectionInfo()
 
-	s2, err := blob.NewStorage(ctx, ci)
+	s2, err := blob.NewStorage(ctx, ci, false)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}

@@ -54,7 +54,7 @@ func newUploadTestHarness(ctx context.Context, t *testing.T) *uploadTestHarness 
 
 	storage, err := filesystem.New(ctx, &filesystem.Options{
 		Path: repoDir,
-	})
+	}, true)
 	if err != nil {
 		panic("cannot create storage directory: " + err.Error())
 	}

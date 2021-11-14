@@ -46,8 +46,8 @@ func (c *storageS3Flags) setup(_ storageProviderServices, cmd *kingpin.CmdClause
 	cmd.Flag("point-in-time", "Use a point-in-time view of the storage repository when supported").PlaceHolder(time.RFC3339).PreAction(pitPreAction).StringVar(&pointInTimeStr)
 }
 
-func (c *storageS3Flags) connect(ctx context.Context, isNew bool) (blob.Storage, error) {
-	if isNew && c.s3options.PointInTime != nil && !c.s3options.PointInTime.IsZero() {
+func (c *storageS3Flags) connect(ctx context.Context, isCreate bool) (blob.Storage, error) {
+	if isCreate && c.s3options.PointInTime != nil && !c.s3options.PointInTime.IsZero() {
 		return nil, errors.New("Cannot specify a 'point-in-time' option when creating a repository")
 	}
 

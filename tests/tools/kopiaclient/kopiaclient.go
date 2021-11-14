@@ -199,7 +199,7 @@ func (kc *KopiaClient) getStorage(ctx context.Context, repoDir, bucketName strin
 		fsOpts := &filesystem.Options{
 			Path: repoDir,
 		}
-		st, err = filesystem.New(ctx, fsOpts)
+		st, err = filesystem.New(ctx, fsOpts, false)
 	}
 
 	return st, errors.Wrap(err, "unable to get storage")

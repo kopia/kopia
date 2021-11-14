@@ -12,6 +12,7 @@ import (
 	"github.com/kopia/kopia/internal/ospath"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/filesystem"
+	"github.com/kopia/kopia/repo/blob/sharded"
 )
 
 // DirMode is the directory mode for all caches.
@@ -42,9 +43,11 @@ func NewStorageOrNil(ctx context.Context, cacheDir string, maxBytes int64, subdi
 	}
 
 	fs, err := filesystem.New(ctxutil.Detach(ctx), &filesystem.Options{
-		Path:            contentCacheDir,
-		DirectoryShards: []int{2},
-	})
+		Path: contentCacheDir,
+		Options: sharded.Options{
+			DirectoryShards: []int{2},
+		},
+	}, false)
 	if err != nil {
 		return nil, errors.Wrap(err, "error initializing filesystem cache")
 	}

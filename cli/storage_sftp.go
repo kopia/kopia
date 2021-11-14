@@ -110,12 +110,12 @@ func (c *storageSFTPFlags) getOptions() (*sftp.Options, error) {
 	return &sftpo, nil
 }
 
-func (c *storageSFTPFlags) connect(ctx context.Context, isNew bool) (blob.Storage, error) {
+func (c *storageSFTPFlags) connect(ctx context.Context, isCreate bool) (blob.Storage, error) {
 	opt, err := c.getOptions()
 	if err != nil {
 		return nil, err
 	}
 
 	// nolint:wrapcheck
-	return sftp.New(ctx, opt)
+	return sftp.New(ctx, opt, isCreate)
 }

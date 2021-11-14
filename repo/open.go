@@ -141,7 +141,7 @@ func openDirect(ctx context.Context, configFile string, lc *LocalConfig, passwor
 		return nil, errors.Errorf("storage not set in the configuration file")
 	}
 
-	st, err := blob.NewStorage(ctx, *lc.Storage)
+	st, err := blob.NewStorage(ctx, *lc.Storage, false)
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot open storage")
 	}

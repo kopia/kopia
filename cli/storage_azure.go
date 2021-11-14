@@ -24,7 +24,7 @@ func (c *storageAzureFlags) setup(_ storageProviderServices, cmd *kingpin.CmdCla
 	cmd.Flag("max-upload-speed", "Limit the upload speed.").PlaceHolder("BYTES_PER_SEC").IntVar(&c.azOptions.MaxUploadSpeedBytesPerSecond)
 }
 
-func (c *storageAzureFlags) connect(ctx context.Context, isNew bool) (blob.Storage, error) {
+func (c *storageAzureFlags) connect(ctx context.Context, isCreate bool) (blob.Storage, error) {
 	// nolint:wrapcheck
 	return azure.New(ctx, &c.azOptions)
 }

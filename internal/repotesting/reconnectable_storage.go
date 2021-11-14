@@ -57,7 +57,7 @@ func init() {
 	blob.AddSupportedStorage(
 		reconnectableStorageType,
 		func() interface{} { return &reconnectableStorageOptions{} },
-		func(ctx context.Context, o interface{}) (blob.Storage, error) {
+		func(ctx context.Context, o interface{}, isCreate bool) (blob.Storage, error) {
 			opt, ok := o.(*reconnectableStorageOptions)
 			if !ok {
 				return nil, errors.Errorf("invalid options %T", o)

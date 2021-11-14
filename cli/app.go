@@ -96,7 +96,7 @@ type advancedAppServices interface {
 	maybeInitializeUpdateCheck(ctx context.Context, co *connectOptions)
 	removeUpdateState()
 	passwordPersistenceStrategy() passwordpersist.Strategy
-	getPasswordFromFlags(ctx context.Context, isNew, allowPersistent bool) (string, error)
+	getPasswordFromFlags(ctx context.Context, isCreate, allowPersistent bool) (string, error)
 	optionsFromFlags(ctx context.Context) *repo.Options
 
 	rootContext() context.Context

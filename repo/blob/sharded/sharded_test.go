@@ -19,6 +19,36 @@ import (
 	"github.com/kopia/kopia/repo/blob/sharded"
 )
 
+func TestShardedOpenLegacyFileStorage(t *testing.T) {
+	t.Parallel()
+	ctx := testlogging.Context(t)
+	dir := testutil.TempDirectory(t)
+
+	st, err := filesystem.New(ctx, &filesystem.Options{
+		Path:    dir,
+		Options: sharded.Options{},
+	}, false)
+
+	require.NoError(t, err)
+	require.NoError(t, st.PutBlob(ctx, "foobarbaz12345678910123213123", gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{}))
+	require.FileExists(t, filepath.Join(dir, "foo", "bar", "baz12345678910123213123.f"))
+}
+
+func TestShardedOpenLatestFileStorage(t *testing.T) {
+	t.Parallel()
+	ctx := testlogging.Context(t)
+	dir := testutil.TempDirectory(t)
+
+	st, err := filesystem.New(ctx, &filesystem.Options{
+		Path:    dir,
+		Options: sharded.Options{},
+	}, true)
+
+	require.NoError(t, err)
+	require.NoError(t, st.PutBlob(ctx, "foobarbaz12345678910123213123", gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{}))
+	require.FileExists(t, filepath.Join(dir, "f", "oob", "arbaz12345678910123213123.f"))
+}
+
 func TestShardedFileStorage(t *testing.T) {
 	t.Parallel()
 
@@ -38,9 +68,11 @@ func TestShardedFileStorage(t *testing.T) {
 				path := testutil.TempDirectory(t)
 
 				r, err := filesystem.New(ctx, &filesystem.Options{
-					Path:            path,
-					DirectoryShards: shardSpec,
-				})
+					Path: path,
+					Options: sharded.Options{
+						DirectoryShards: shardSpec,
+					},
+				}, true)
 
 				os.WriteFile(filepath.Join(path, "foreign-file"), []byte{1, 2, 3}, 0o600)
 
@@ -133,7 +165,7 @@ func TestShardedFileStorageShardingMap(t *testing.T) {
 
 			r, err := filesystem.New(ctx, &filesystem.Options{
 				Path: path,
-			})
+			}, true)
 			require.NoError(t, err)
 
 			dotShardsFile := filepath.Join(path, ".shards")
@@ -178,7 +210,7 @@ func TestShardedFileStorageShardingMap_Invalid(t *testing.T) {
 
 	r, err := filesystem.New(ctx, &filesystem.Options{
 		Path: path,
-	})
+	}, true)
 	require.NoError(t, err)
 
 	dotShardsFile := filepath.Join(path, ".shards")

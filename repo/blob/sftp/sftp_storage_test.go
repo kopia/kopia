@@ -285,7 +285,7 @@ func TestSFTPStorageRelativeKeyFile(t *testing.T) {
 		KnownHostsFile: kh,
 	}
 
-	_, err := sftp.New(testlogging.Context(t), opt)
+	_, err := sftp.New(testlogging.Context(t), opt, false)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "key file path must be absolute")
 }
@@ -302,7 +302,7 @@ func TestSFTPStorageRelativeKnownHostsFile(t *testing.T) {
 		KnownHostsFile: "some-relative-path",
 	}
 
-	_, err := sftp.New(testlogging.Context(t), opt)
+	_, err := sftp.New(testlogging.Context(t), opt, false)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "known hosts path must be absolute")
 }
@@ -333,7 +333,7 @@ func createSFTPStorage(ctx context.Context, t *testing.T, opt sftp.Options, embe
 		opt.KnownHostsFile = ""
 	}
 
-	return sftp.New(ctx, &opt)
+	return sftp.New(ctx, &opt, true)
 }
 
 func mustReadFileToString(t *testing.T, fname string) string {

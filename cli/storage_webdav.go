@@ -24,7 +24,7 @@ func (c *storageWebDAVFlags) setup(_ storageProviderServices, cmd *kingpin.CmdCl
 	cmd.Flag("atomic-writes", "Assume WebDAV provider implements atomic writes").BoolVar(&c.options.AtomicWrites)
 }
 
-func (c *storageWebDAVFlags) connect(ctx context.Context, isNew bool) (blob.Storage, error) {
+func (c *storageWebDAVFlags) connect(ctx context.Context, isCreate bool) (blob.Storage, error) {
 	wo := c.options
 
 	if wo.Username != "" && wo.Password == "" {
@@ -41,5 +41,5 @@ func (c *storageWebDAVFlags) connect(ctx context.Context, isNew bool) (blob.Stor
 	}
 
 	// nolint:wrapcheck
-	return webdav.New(ctx, &wo)
+	return webdav.New(ctx, &wo, isCreate)
 }

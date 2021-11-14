@@ -31,8 +31,6 @@ const (
 	fsDefaultDirMode  os.FileMode = 0o700
 )
 
-var fsDefaultShards = []int{3, 3}
-
 type fsStorage struct {
 	sharded.Storage
 }
@@ -304,20 +302,23 @@ func (fs *fsStorage) FlushCaches(ctx context.Context) error {
 }
 
 // New creates new filesystem-backed storage in a specified directory.
-func New(ctx context.Context, opts *Options) (blob.Storage, error) {
+func New(ctx context.Context, opts *Options, isCreate bool) (blob.Storage, error) {
 	var err error
+
+	if isCreate {
+		log(ctx).Debugf("creating directory: %v dir mode: %v", opts.Path, opts.dirMode())
+
+		if mkdirErr := os.MkdirAll(opts.Path, opts.dirMode()); mkdirErr != nil {
+			log(ctx).Errorf("unable to create directory: %v", mkdirErr)
+		}
+	}
 
 	if _, err = os.Stat(opts.Path); err != nil {
 		return nil, errors.Wrap(err, "cannot access storage path")
 	}
 
 	return &fsStorage{
-		sharded.Storage{
-			Impl:            &fsImpl{Options: *opts},
-			RootPath:        opts.Path,
-			Shards:          opts.shards(),
-			ListParallelism: opts.ListParallelism,
-		},
+		sharded.New(&fsImpl{Options: *opts}, opts.Path, opts.Options, isCreate),
 	}, nil
 }
 
@@ -325,7 +326,7 @@ func init() {
 	blob.AddSupportedStorage(
 		fsStorageType,
 		func() interface{} { return &Options{} },
-		func(ctx context.Context, o interface{}) (blob.Storage, error) {
-			return New(ctx, o.(*Options))
+		func(ctx context.Context, o interface{}, isCreate bool) (blob.Storage, error) {
+			return New(ctx, o.(*Options), isCreate)
 		})
 }

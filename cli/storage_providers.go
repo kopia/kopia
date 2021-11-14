@@ -14,7 +14,7 @@ type storageProviderServices interface {
 
 type storageFlags interface {
 	setup(sps storageProviderServices, cmd *kingpin.CmdClause)
-	connect(ctx context.Context, isNew bool) (blob.Storage, error)
+	connect(ctx context.Context, isCreate bool) (blob.Storage, error)
 }
 
 type storageProvider struct {
