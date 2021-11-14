@@ -167,7 +167,7 @@ func TestSFTPOptions(t *testing.T) {
 
 	for i, tc := range cases {
 		t.Run(fmt.Sprintf("case-%v", i), func(t *testing.T) {
-			got, err := tc.input.getOptions()
+			got, err := tc.input.getOptions(2)
 			if tc.wantErr == "" {
 				require.NoError(t, err)
 				require.Equal(t, tc.want, got)

@@ -30,10 +30,8 @@ func (c *storageRcloneFlags) setup(_ storageProviderServices, cmd *kingpin.CmdCl
 	cmd.Flag("atomic-writes", "Assume provider writes are atomic").Default("true").BoolVar(&c.opt.AtomicWrites)
 }
 
-func (c *storageRcloneFlags) connect(ctx context.Context, isCreate bool) (blob.Storage, error) {
-	if c.connectFlat {
-		c.opt.DirectoryShards = []int{}
-	}
+func (c *storageRcloneFlags) connect(ctx context.Context, isCreate bool, formatVersion int) (blob.Storage, error) {
+	c.opt.DirectoryShards = initialDirectoryShards(c.connectFlat, formatVersion)
 
 	if c.embedRCloneConfigFile != "" {
 		cfg, err := os.ReadFile(c.embedRCloneConfigFile)

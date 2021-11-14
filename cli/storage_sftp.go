@@ -43,8 +43,7 @@ func (c *storageSFTPFlags) setup(_ storageProviderServices, cmd *kingpin.CmdClau
 	cmd.Flag("list-parallelism", "Set list parallelism").Hidden().IntVar(&c.options.ListParallelism)
 }
 
-// nolint:gocyclo
-func (c *storageSFTPFlags) getOptions() (*sftp.Options, error) {
+func (c *storageSFTPFlags) getOptions(formatVersion int) (*sftp.Options, error) {
 	sftpo := c.options
 
 	// nolint:nestif
@@ -103,15 +102,13 @@ func (c *storageSFTPFlags) getOptions() (*sftp.Options, error) {
 		}
 	}
 
-	if c.connectFlat {
-		sftpo.DirectoryShards = []int{}
-	}
+	sftpo.DirectoryShards = initialDirectoryShards(c.connectFlat, formatVersion)
 
 	return &sftpo, nil
 }
 
-func (c *storageSFTPFlags) connect(ctx context.Context, isCreate bool) (blob.Storage, error) {
-	opt, err := c.getOptions()
+func (c *storageSFTPFlags) connect(ctx context.Context, isCreate bool, formatVersion int) (blob.Storage, error) {
+	opt, err := c.getOptions(formatVersion)
 	if err != nil {
 		return nil, err
 	}

@@ -24,7 +24,7 @@ func (c *storageFromConfigFlags) setup(sps storageProviderServices, cmd *kingpin
 	c.sps = sps
 }
 
-func (c *storageFromConfigFlags) connect(ctx context.Context, isCreate bool) (blob.Storage, error) {
+func (c *storageFromConfigFlags) connect(ctx context.Context, isCreate bool, formatVersion int) (blob.Storage, error) {
 	if isCreate {
 		return nil, errors.New("not supported")
 	}

@@ -38,7 +38,7 @@ func (c *storageFilesystemFlags) setup(_ storageProviderServices, cmd *kingpin.C
 	cmd.Flag("list-parallelism", "Set list parallelism").Hidden().IntVar(&c.options.ListParallelism)
 }
 
-func (c *storageFilesystemFlags) connect(ctx context.Context, isCreate bool) (blob.Storage, error) {
+func (c *storageFilesystemFlags) connect(ctx context.Context, isCreate bool, formatVersion int) (blob.Storage, error) {
 	fso := c.options
 
 	fso.Path = ospath.ResolveUserFriendlyPath(fso.Path, false)
@@ -59,13 +59,24 @@ func (c *storageFilesystemFlags) connect(ctx context.Context, isCreate bool) (bl
 
 	fso.FileMode = getFileModeValue(c.connectFileMode, defaultFileMode)
 	fso.DirectoryMode = getFileModeValue(c.connectDirMode, defaultDirMode)
-
-	if c.connectFlat {
-		fso.DirectoryShards = []int{}
-	}
+	fso.DirectoryShards = initialDirectoryShards(c.connectFlat, formatVersion)
 
 	// nolint:wrapcheck
 	return filesystem.New(ctx, &fso, isCreate)
+}
+
+func initialDirectoryShards(flat bool, formatVersion int) []int {
+	if flat {
+		return []int{}
+	}
+
+	// when creating a repository for version 1, use fixed {3,3} sharding,
+	// otherwise old client can't read it.
+	if formatVersion == 1 {
+		return []int{3, 3}
+	}
+
+	return nil
 }
 
 func getIntPtrValue(value string, base int) *int {

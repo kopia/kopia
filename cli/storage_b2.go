@@ -22,7 +22,7 @@ func (c *storageB2Flags) setup(_ storageProviderServices, cmd *kingpin.CmdClause
 	cmd.Flag("max-upload-speed", "Limit the upload speed.").PlaceHolder("BYTES_PER_SEC").IntVar(&c.b2options.MaxUploadSpeedBytesPerSecond)
 }
 
-func (c *storageB2Flags) connect(ctx context.Context, isCreate bool) (blob.Storage, error) {
+func (c *storageB2Flags) connect(ctx context.Context, isCreate bool, formatVersion int) (blob.Storage, error) {
 	// nolint:wrapcheck
 	return b2.New(ctx, &c.b2options)
 }

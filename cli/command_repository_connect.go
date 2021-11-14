@@ -32,7 +32,7 @@ func (c *commandRepositoryConnect) setup(svc advancedAppServices, parent command
 		f.setup(svc, cc)
 		cc.Action(func(_ *kingpin.ParseContext) error {
 			ctx := svc.rootContext()
-			st, err := f.connect(ctx, false)
+			st, err := f.connect(ctx, false, 0)
 			if err != nil {
 				return errors.Wrap(err, "can't connect to storage")
 			}
