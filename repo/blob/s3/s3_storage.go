@@ -152,7 +152,7 @@ func (s *s3Storage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes, opt
 	if opts.RetentionPeriod != 0 {
 		retentionMode = minio.RetentionMode(opts.RetentionMode)
 		if !retentionMode.IsValid() {
-			return versionMetadata{}, errors.Wrapf(blob.ErrBlobRetentionInvalid, "invalid retention mode: %q", opts.RetentionMode)
+			return versionMetadata{}, errors.Errorf("invalid retention mode: %q", opts.RetentionMode)
 		}
 
 		retainUntilDate = clock.Now().Add(opts.RetentionPeriod).UTC()
@@ -170,21 +170,9 @@ func (s *s3Storage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes, opt
 	})
 
 	var er minio.ErrorResponse
-	if errors.As(err, &er) {
-		switch {
-		case er.Code == "InvalidRequest" && strings.Contains(strings.ToLower(er.Message), "content-md5"):
-			atomic.StoreInt32(&s.sendMD5, 1) // set sendMD5 on retry
-		case (er.Code == "InvalidRequest" &&
-			// this can happen when object-locking is not enabled on the target
-			// bucket
-			strings.Contains(er.Message, "Bucket is missing ObjectLockConfiguration")):
-			return versionMetadata{}, errors.Wrap(blob.ErrBlobRetentionDisabled, er.Error())
-		case (er.Code == "InvalidArgument" &&
-			// this can happen when the retention-period is too small (less
-			// than 1-day)
-			strings.Contains(er.Message, "The retain until date must be in the future")):
-			return versionMetadata{}, errors.Wrap(blob.ErrBlobRetentionInvalid, er.Error())
-		}
+
+	if errors.As(err, &er) && er.Code == "InvalidRequest" && strings.Contains(strings.ToLower(er.Message), "content-md5") {
+		atomic.StoreInt32(&s.sendMD5, 1) // set sendMD5 on retry
 
 		return versionMetadata{}, err // nolint:wrapcheck
 	}
