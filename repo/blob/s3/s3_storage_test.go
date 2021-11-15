@@ -194,7 +194,7 @@ func TestS3StorageAWSRetentionUnversionedBucket(t *testing.T) {
 	testPutBlobWithInvalidRetention(t, options, blob.PutOptions{
 		RetentionMode:   minio.Governance.String(),
 		RetentionPeriod: time.Hour * 24,
-	}, blob.ErrBlobRetentionDisabled)
+	})
 }
 
 func TestS3StorageAWSRetentionLockedBucket(t *testing.T) {
@@ -232,7 +232,7 @@ func TestS3StorageAWSRetentionInvalidPeriod(t *testing.T) {
 	testPutBlobWithInvalidRetention(t, options, blob.PutOptions{
 		RetentionMode:   minio.Governance.String(),
 		RetentionPeriod: time.Nanosecond,
-	}, blob.ErrBlobRetentionInvalid)
+	})
 }
 
 func TestS3StorageAWSRetentionInvalidPeriodLockedBucket(t *testing.T) {
@@ -251,7 +251,7 @@ func TestS3StorageAWSRetentionInvalidPeriodLockedBucket(t *testing.T) {
 	testPutBlobWithInvalidRetention(t, options, blob.PutOptions{
 		RetentionMode:   minio.Governance.String(),
 		RetentionPeriod: time.Nanosecond,
-	}, blob.ErrBlobRetentionInvalid)
+	})
 }
 
 func TestS3StorageMinio(t *testing.T) {
@@ -407,7 +407,7 @@ func testStorage(t *testing.T, options *Options, runValidationTest bool, opts bl
 }
 
 // nolint:thelper
-func testPutBlobWithInvalidRetention(t *testing.T, options *Options, opts blob.PutOptions, expectedError error) {
+func testPutBlobWithInvalidRetention(t *testing.T, options *Options, opts blob.PutOptions) {
 	ctx := testlogging.Context(t)
 
 	require.Equal(t, "", options.Prefix)
@@ -421,9 +421,8 @@ func testPutBlobWithInvalidRetention(t *testing.T, options *Options, opts blob.P
 	defer blobtesting.CleanupOldData(ctx, t, st, 0)
 
 	// Now attempt to add a block and expect to fail
-	require.ErrorAs(t,
-		st.PutBlob(ctx, blob.ID("abcdbbf4f0507d054ed5a80a5b65086f602b"), gather.FromSlice([]byte{}), opts),
-		&expectedError)
+	require.Error(t,
+		st.PutBlob(ctx, blob.ID("abcdbbf4f0507d054ed5a80a5b65086f602b"), gather.FromSlice([]byte{}), opts))
 
 	blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
 }
