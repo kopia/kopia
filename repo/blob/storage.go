@@ -17,18 +17,6 @@ var ErrSetTimeUnsupported = errors.Errorf("SetTime is not supported")
 // ErrInvalidRange is returned when the requested blob offset or length is invalid.
 var ErrInvalidRange = errors.Errorf("invalid blob offset or length")
 
-// ErrBlobRetentionUnsupported is returned by implementations of Storage that
-// don't support setting blob-retention times.
-var ErrBlobRetentionUnsupported = errors.Errorf("setting blob-retention is not supported")
-
-// ErrBlobRetentionDisabled is returned by storage where the retention policies
-// are disabled.
-var ErrBlobRetentionDisabled = errors.Errorf("setting blob-retention is disabled")
-
-// ErrBlobRetentionInvalid is returned by storage where the retention settings
-// are invalid.
-var ErrBlobRetentionInvalid = errors.Errorf("invalid blob-retention settings")
-
 // Bytes encapsulates a sequence of bytes, possibly stored in a non-contiguous buffers,
 // which can be written sequentially or treated as a io.Reader.
 type Bytes interface {
