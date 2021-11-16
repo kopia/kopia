@@ -79,11 +79,11 @@ func (s *throttlingStorage) SetTime(ctx context.Context, id blob.ID, t time.Time
 	return s.Storage.SetTime(ctx, id, t) // nolint:wrapcheck
 }
 
-func (s *throttlingStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes) error {
+func (s *throttlingStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes, opts blob.PutOptions) error {
 	s.throttler.BeforeOperation(ctx, "PutBlob")
 	s.throttler.BeforeUpload(ctx, int64(data.Length()))
 
-	return s.Storage.PutBlob(ctx, id, data) // nolint:wrapcheck
+	return s.Storage.PutBlob(ctx, id, data, opts) // nolint:wrapcheck
 }
 
 func (s *throttlingStorage) DeleteBlob(ctx context.Context, id blob.ID) error {
