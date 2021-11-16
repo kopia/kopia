@@ -95,7 +95,7 @@ func (m *indexBlobManagerV1) compactEpoch(ctx context.Context, blobIDs []blob.ID
 			return errors.Wrap(err, "error encrypting")
 		}
 
-		if err := m.st.PutBlob(ctx, blobID, data2.Bytes()); err != nil {
+		if err := m.st.PutBlob(ctx, blobID, data2.Bytes(), blob.PutOptions{}); err != nil {
 			return errors.Wrap(err, "error writing index blob")
 		}
 	}

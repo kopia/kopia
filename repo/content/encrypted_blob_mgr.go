@@ -37,7 +37,7 @@ func (m *encryptedBlobMgr) encryptAndWriteBlob(ctx context.Context, data gather.
 		return blob.Metadata{}, errors.Wrap(err, "error encrypting")
 	}
 
-	err = m.st.PutBlob(ctx, blobID, data2.Bytes())
+	err = m.st.PutBlob(ctx, blobID, data2.Bytes(), blob.PutOptions{})
 	if err != nil {
 		m.log.Debugf("write-index-blob %v failed %v", blobID, err)
 		return blob.Metadata{}, errors.Wrapf(err, "error writing blob %v", blobID)

@@ -28,14 +28,14 @@ func TestOwnWrites(t *testing.T) {
 	ctx := testlogging.Context(t)
 
 	// seed some blobs into storage and advance time so they are reliably settled.
-	require.NoError(t, ec.PutBlob(ctx, "npreexisting", gather.FromSlice([]byte("pre-existing"))))
+	require.NoError(t, ec.PutBlob(ctx, "npreexisting", gather.FromSlice([]byte("pre-existing")), blob.PutOptions{}))
 	realStorageTime.Advance(1 * time.Hour)
 
-	require.NoError(t, ow.PutBlob(ctx, "n123", gather.FromSlice([]byte("not-important"))))
+	require.NoError(t, ow.PutBlob(ctx, "n123", gather.FromSlice([]byte("not-important")), blob.PutOptions{}))
 	// verify we wrote the marker into cache.
 	blobtesting.AssertGetBlob(ctx, t, cachest, "addn123", []byte("marker"))
 
-	require.NoError(t, ow.PutBlob(ctx, "x123", gather.FromSlice([]byte("not-important"))))
+	require.NoError(t, ow.PutBlob(ctx, "x123", gather.FromSlice([]byte("not-important")), blob.PutOptions{}))
 	blobtesting.AssertGetBlobNotFound(ctx, t, cachest, "addx123")
 
 	// make sure eventual consistency wrapper won't return the item yet.

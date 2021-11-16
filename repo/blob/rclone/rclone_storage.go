@@ -46,8 +46,8 @@ type rcloneStorage struct {
 	changeCount          *int32 // set to 1 when we had any writes
 }
 
-func (r *rcloneStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes) error {
-	err := r.Storage.PutBlob(ctx, b, data)
+func (r *rcloneStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes, opts blob.PutOptions) error {
+	err := r.Storage.PutBlob(ctx, b, data, opts)
 	if err == nil {
 		atomic.StoreInt32(r.changeCount, 1)
 		return nil

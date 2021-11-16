@@ -61,7 +61,7 @@ func (m *internalLogManager) encryptAndWriteLogBlob(prefix blob.ID, data gather.
 		defer encrypted.Close()
 		defer closeFunc()
 
-		if err := m.st.PutBlob(m.ctx, blobID, b); err != nil {
+		if err := m.st.PutBlob(m.ctx, blobID, b, blob.PutOptions{}); err != nil {
 			// nothing can be done about this, we're not in a place where we can return error, log it.
 			return
 		}

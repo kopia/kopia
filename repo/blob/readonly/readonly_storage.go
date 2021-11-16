@@ -32,7 +32,7 @@ func (s readonlyStorage) SetTime(ctx context.Context, id blob.ID, t time.Time) e
 	return ErrReadonly
 }
 
-func (s readonlyStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes) error {
+func (s readonlyStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes, opts blob.PutOptions) error {
 	return ErrReadonly
 }
 

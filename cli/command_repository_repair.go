@@ -84,7 +84,7 @@ func (c *commandRepositoryRepair) recoverFormatBlob(ctx context.Context, st blob
 			log(ctx).Infof("looking for replica of format blob in %v...", bi.BlobID)
 			if b, err := repo.RecoverFormatBlob(ctx, st, bi.BlobID, bi.Length); err == nil {
 				if !c.repairDryRun {
-					if puterr := st.PutBlob(ctx, repo.FormatBlobID, gather.FromSlice(b)); puterr != nil {
+					if puterr := st.PutBlob(ctx, repo.FormatBlobID, gather.FromSlice(b), blob.PutOptions{}); puterr != nil {
 						return errors.Wrap(puterr, "error writing format blob")
 					}
 				}

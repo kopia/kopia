@@ -180,7 +180,7 @@ func verifyBlobNotFound(t *testing.T, st blob.Storage, blobID blob.ID) {
 func mustPutDummyBlob(t *testing.T, st blob.Storage, blobID blob.ID) {
 	t.Helper()
 
-	if err := st.PutBlob(testlogging.Context(t), blobID, gather.FromSlice([]byte{1, 2, 3})); err != nil {
+	if err := st.PutBlob(testlogging.Context(t), blobID, gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -212,7 +212,7 @@ func mustPutDummySessionBlob(t *testing.T, st blob.Storage, sessionIDSuffix blob
 	defer enc.Close()
 
 	require.NoError(t, e.Encrypt(gather.FromSlice(j), iv, &enc))
-	require.NoError(t, st.PutBlob(testlogging.Context(t), blobID, enc.Bytes()))
+	require.NoError(t, st.PutBlob(testlogging.Context(t), blobID, enc.Bytes(), blob.PutOptions{}))
 
 	return blobID
 }

@@ -18,9 +18,9 @@ func TestListAllBlobs(t *testing.T) {
 	data := blobtesting.DataMap{}
 	st := blobtesting.NewMapStorage(data, nil, nil)
 	ctx := context.Background()
-	st.PutBlob(ctx, "foo", gather.FromSlice([]byte{1, 2, 3}))
-	st.PutBlob(ctx, "boo", gather.FromSlice([]byte{2, 3, 4}))
-	st.PutBlob(ctx, "bar", gather.FromSlice([]byte{3, 4, 5}))
+	st.PutBlob(ctx, "foo", gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{})
+	st.PutBlob(ctx, "boo", gather.FromSlice([]byte{2, 3, 4}), blob.PutOptions{})
+	st.PutBlob(ctx, "bar", gather.FromSlice([]byte{3, 4, 5}), blob.PutOptions{})
 
 	result1, err := blob.ListAllBlobs(ctx, st, "")
 	require.NoError(t, err)
@@ -39,9 +39,9 @@ func TestIterateAllPrefixesInParallel(t *testing.T) {
 	data := blobtesting.DataMap{}
 	st := blobtesting.NewMapStorage(data, nil, nil)
 	ctx := context.Background()
-	st.PutBlob(ctx, "foo", gather.FromSlice([]byte{1, 2, 3}))
-	st.PutBlob(ctx, "boo", gather.FromSlice([]byte{2, 3, 4}))
-	st.PutBlob(ctx, "bar", gather.FromSlice([]byte{3, 4, 5}))
+	st.PutBlob(ctx, "foo", gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{})
+	st.PutBlob(ctx, "boo", gather.FromSlice([]byte{2, 3, 4}), blob.PutOptions{})
+	st.PutBlob(ctx, "bar", gather.FromSlice([]byte{3, 4, 5}), blob.PutOptions{})
 
 	var (
 		mu  sync.Mutex

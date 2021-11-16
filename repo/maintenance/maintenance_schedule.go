@@ -170,7 +170,7 @@ func SetSchedule(ctx context.Context, rep repo.DirectRepositoryWriter, s *Schedu
 	ciphertext := c.Seal(result, nonce, v, maintenanceScheduleAEADExtraData)
 
 	// nolint:wrapcheck
-	return rep.BlobStorage().PutBlob(ctx, maintenanceScheduleBlobID, gather.FromSlice(ciphertext))
+	return rep.BlobStorage().PutBlob(ctx, maintenanceScheduleBlobID, gather.FromSlice(ciphertext), blob.PutOptions{})
 }
 
 // ReportRun reports timing of a maintenance run and persists it in repository.

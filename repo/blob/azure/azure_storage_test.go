@@ -18,6 +18,7 @@ import (
 	"github.com/kopia/kopia/internal/providervalidation"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
+	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/azure"
 )
 
@@ -119,7 +120,7 @@ func TestAzureStorage(t *testing.T) {
 
 	defer st.Close(ctx)
 
-	blobtesting.VerifyStorage(ctx, t, st)
+	blobtesting.VerifyStorage(ctx, t, st, blob.PutOptions{})
 	blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
 	require.NoError(t, providervalidation.ValidateProvider(ctx, st, blobtesting.TestValidationOptions))
 }
@@ -148,7 +149,7 @@ func TestAzureStorageSASToken(t *testing.T) {
 	defer st.Close(ctx)
 	defer blobtesting.CleanupOldData(ctx, t, st, 0)
 
-	blobtesting.VerifyStorage(ctx, t, st)
+	blobtesting.VerifyStorage(ctx, t, st, blob.PutOptions{})
 	blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
 	require.NoError(t, providervalidation.ValidateProvider(ctx, st, blobtesting.TestValidationOptions))
 }

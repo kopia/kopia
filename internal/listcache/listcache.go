@@ -45,7 +45,7 @@ func (s *listCacheStorage) saveListToCache(ctx context.Context, prefix blob.ID, 
 
 	hmac.Append(gather.FromSlice(data), s.hmacSecret, &b)
 
-	if err := s.cacheStorage.PutBlob(ctx, prefix, b.Bytes()); err != nil {
+	if err := s.cacheStorage.PutBlob(ctx, prefix, b.Bytes(), blob.PutOptions{}); err != nil {
 		log(ctx).Debugf("unable to persist list cache entry: %v", err)
 	}
 }
@@ -114,8 +114,8 @@ func (s *listCacheStorage) ListBlobs(ctx context.Context, prefix blob.ID, cb fun
 }
 
 // PutBlob implements blob.Storage and writes markers into local cache for all successful writes.
-func (s *listCacheStorage) PutBlob(ctx context.Context, blobID blob.ID, data blob.Bytes) error {
-	err := s.Storage.PutBlob(ctx, blobID, data)
+func (s *listCacheStorage) PutBlob(ctx context.Context, blobID blob.ID, data blob.Bytes, opts blob.PutOptions) error {
+	err := s.Storage.PutBlob(ctx, blobID, data, opts)
 	s.invalidateAfterUpdate(ctx, blobID)
 
 	// nolint:wrapcheck

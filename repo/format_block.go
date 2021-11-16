@@ -170,7 +170,7 @@ func writeFormatBlob(ctx context.Context, st blob.Storage, f *formatBlob) error 
 		return errors.Wrap(err, "unable to marshal format blob")
 	}
 
-	if err := st.PutBlob(ctx, FormatBlobID, buf.Bytes()); err != nil {
+	if err := st.PutBlob(ctx, FormatBlobID, buf.Bytes(), blob.PutOptions{}); err != nil {
 		return errors.Wrap(err, "unable to write format blob")
 	}
 

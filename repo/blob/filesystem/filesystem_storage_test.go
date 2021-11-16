@@ -44,7 +44,7 @@ func TestFileStorage(t *testing.T) {
 			t.Errorf("unexpected result: %v %v", r, err)
 		}
 
-		blobtesting.VerifyStorage(ctx, t, r)
+		blobtesting.VerifyStorage(ctx, t, r, blob.PutOptions{})
 		blobtesting.AssertConnectionInfoRoundTrips(ctx, t, r)
 		require.NoError(t, providervalidation.ValidateProvider(ctx, r, blobtesting.TestValidationOptions))
 
@@ -77,11 +77,11 @@ func TestFileStorageTouch(t *testing.T) {
 	}
 
 	fs := r.(*fsStorage)
-	assertNoError(t, fs.PutBlob(ctx, t1, gather.FromSlice([]byte{1})))
+	assertNoError(t, fs.PutBlob(ctx, t1, gather.FromSlice([]byte{1}), blob.PutOptions{}))
 	time.Sleep(2 * time.Second) // sleep a bit to accommodate Apple filesystems with low timestamp resolution
-	assertNoError(t, fs.PutBlob(ctx, t2, gather.FromSlice([]byte{1})))
+	assertNoError(t, fs.PutBlob(ctx, t2, gather.FromSlice([]byte{1}), blob.PutOptions{}))
 	time.Sleep(2 * time.Second)
-	assertNoError(t, fs.PutBlob(ctx, t3, gather.FromSlice([]byte{1})))
+	assertNoError(t, fs.PutBlob(ctx, t3, gather.FromSlice([]byte{1}), blob.PutOptions{}))
 	time.Sleep(2 * time.Second) // sleep a bit to accommodate Apple filesystems with low timestamp resolution
 
 	verifyBlobTimestampOrder(t, fs, t1, t2, t3)
@@ -146,7 +146,7 @@ func TestFilesystemStorageDirectoryShards(t *testing.T) {
 
 	defer st.Close(ctx)
 
-	require.NoError(t, st.PutBlob(ctx, "someblob1234567812345678", gather.FromSlice([]byte{1, 2, 3})))
+	require.NoError(t, st.PutBlob(ctx, "someblob1234567812345678", gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{}))
 	require.FileExists(t, filepath.Join(dataDir, "someb", "lo", "b1234567812345678.f"))
 }
 

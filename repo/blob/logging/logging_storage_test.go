@@ -34,7 +34,7 @@ func TestLoggingStorage(t *testing.T) {
 	}
 
 	ctx := testlogging.Context(t)
-	blobtesting.VerifyStorage(ctx, t, st)
+	blobtesting.VerifyStorage(ctx, t, st, blob.PutOptions{})
 
 	if err := st.Close(ctx); err != nil {
 		t.Fatalf("err: %v", err)

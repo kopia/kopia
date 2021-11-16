@@ -122,11 +122,11 @@ func (s *CacheStorage) ListBlobs(ctx context.Context, prefix blob.ID, cb func(bl
 }
 
 // PutBlob implements blob.Storage and writes markers into local cache for all successful writes.
-func (s *CacheStorage) PutBlob(ctx context.Context, blobID blob.ID, data blob.Bytes) error {
-	err := s.Storage.PutBlob(ctx, blobID, data)
+func (s *CacheStorage) PutBlob(ctx context.Context, blobID blob.ID, data blob.Bytes, opts blob.PutOptions) error {
+	err := s.Storage.PutBlob(ctx, blobID, data, opts)
 	if err == nil && s.isCachedPrefix(blobID) {
 		// nolint:errcheck
-		s.cacheStorage.PutBlob(ctx, prefixAdd+blobID, markerData)
+		s.cacheStorage.PutBlob(ctx, prefixAdd+blobID, markerData, opts)
 	}
 
 	// nolint:wrapcheck
@@ -138,7 +138,7 @@ func (s *CacheStorage) DeleteBlob(ctx context.Context, blobID blob.ID) error {
 	err := s.Storage.DeleteBlob(ctx, blobID)
 	if err == nil && s.isCachedPrefix(blobID) {
 		// nolint:errcheck
-		s.cacheStorage.PutBlob(ctx, prefixDelete+blobID, markerData)
+		s.cacheStorage.PutBlob(ctx, prefixDelete+blobID, markerData, blob.PutOptions{})
 	}
 
 	// nolint:wrapcheck

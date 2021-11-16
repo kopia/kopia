@@ -92,7 +92,7 @@ func VerifyConcurrentAccess(t *testing.T, st blob.Storage, options ConcurrentAcc
 			for i := 0; i < options.Iterations; i++ {
 				blobID := randomBlobID()
 				data := fmt.Sprintf("%v-%v", blobID, rand.Int63())
-				err := st.PutBlob(ctx, blobID, gather.FromSlice([]byte(data)))
+				err := st.PutBlob(ctx, blobID, gather.FromSlice([]byte(data)), blob.PutOptions{})
 				if err != nil {
 					return errors.Wrapf(err, "PutBlob %v returned unexpected error", blobID)
 				}

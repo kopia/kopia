@@ -70,7 +70,7 @@ func TestThrottling(t *testing.T) {
 
 	// upload blob of 7 bytes
 	m.Reset()
-	require.NoError(t, wrapped.PutBlob(ctx, "blob1", gather.FromSlice([]byte{1, 2, 3, 4, 5, 6, 7})))
+	require.NoError(t, wrapped.PutBlob(ctx, "blob1", gather.FromSlice([]byte{1, 2, 3, 4, 5, 6, 7}), blob.PutOptions{}))
 	require.Equal(t, []string{
 		"BeforeOperation(PutBlob)",
 		"BeforeUpload(7)",
@@ -79,7 +79,7 @@ func TestThrottling(t *testing.T) {
 
 	// upload another blob of 30MB
 	m.Reset()
-	require.NoError(t, wrapped.PutBlob(ctx, "blob2", gather.FromSlice(bytes.Repeat([]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}, 3000000))))
+	require.NoError(t, wrapped.PutBlob(ctx, "blob2", gather.FromSlice(bytes.Repeat([]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}, 3000000)), blob.PutOptions{}))
 	require.Equal(t, []string{
 		"BeforeOperation(PutBlob)",
 		"BeforeUpload(30000000)",

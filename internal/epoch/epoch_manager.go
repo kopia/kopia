@@ -191,7 +191,7 @@ func (e *Manager) AdvanceDeletionWatermark(ctx context.Context, ts time.Time) er
 
 	blobID := blob.ID(fmt.Sprintf("%v%v", string(DeletionWatermarkBlobPrefix), ts.Unix()))
 
-	if err := e.st.PutBlob(ctx, blobID, gather.FromSlice([]byte("deletion-watermark"))); err != nil {
+	if err := e.st.PutBlob(ctx, blobID, gather.FromSlice([]byte("deletion-watermark")), blob.PutOptions{}); err != nil {
 		return errors.Wrap(err, "error writing deletion watermark")
 	}
 
@@ -620,7 +620,7 @@ func (e *Manager) refreshAttemptLocked(ctx context.Context) error {
 func (e *Manager) advanceEpoch(ctx context.Context, cs CurrentSnapshot) error {
 	blobID := blob.ID(fmt.Sprintf("%v%v", string(EpochMarkerIndexBlobPrefix), cs.WriteEpoch+1))
 
-	if err := e.st.PutBlob(ctx, blobID, gather.FromSlice([]byte("epoch-marker"))); err != nil {
+	if err := e.st.PutBlob(ctx, blobID, gather.FromSlice([]byte("epoch-marker")), blob.PutOptions{}); err != nil {
 		return errors.Wrap(err, "error writing epoch marker")
 	}
 
@@ -688,7 +688,7 @@ func (e *Manager) WriteIndex(ctx context.Context, dataShards map[blob.ID]blob.By
 		for unprefixedBlobID, data := range dataShards {
 			blobID := UncompactedEpochBlobPrefix(cs.WriteEpoch) + unprefixedBlobID
 
-			if err := e.st.PutBlob(ctx, blobID, data); err != nil {
+			if err := e.st.PutBlob(ctx, blobID, data, blob.PutOptions{}); err != nil {
 				return nil, errors.Wrap(err, "error writing index blob")
 			}
 

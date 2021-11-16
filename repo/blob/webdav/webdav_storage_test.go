@@ -164,7 +164,7 @@ func verifyWebDAVStorage(t *testing.T, url, username, password string, shardSpec
 		t.Fatalf("unable to clear webdav storage: %v", err)
 	}
 
-	blobtesting.VerifyStorage(ctx, t, st)
+	blobtesting.VerifyStorage(ctx, t, st, blob.PutOptions{})
 	blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
 	require.NoError(t, providervalidation.ValidateProvider(ctx, st, blobtesting.TestValidationOptions))
 

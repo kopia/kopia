@@ -89,7 +89,7 @@ func ValidateProvider(ctx context.Context, st blob.Storage, opt Options) error {
 	log(ctx).Infof("Writing blob (%v bytes)", len(blobData))
 
 	// write blob
-	if err := st.PutBlob(ctx, prefix1+"1", gather.FromSlice(blobData)); err != nil {
+	if err := st.PutBlob(ctx, prefix1+"1", gather.FromSlice(blobData), blob.PutOptions{}); err != nil {
 		return errors.Wrap(err, "error writing blob #1")
 	}
 
@@ -230,7 +230,7 @@ func (c *concurrencyTest) putBlobWorker(ctx context.Context, worker int) func() 
 
 			log(ctx).Debugf("PutBlob worker %v writing %v (%v bytes)", worker, id, len(data))
 
-			if err := c.st.PutBlob(ctx, id, gather.FromSlice(data)); err != nil {
+			if err := c.st.PutBlob(ctx, id, gather.FromSlice(data), blob.PutOptions{}); err != nil {
 				return errors.Wrap(err, "error writing blob")
 			}
 

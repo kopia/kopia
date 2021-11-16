@@ -46,9 +46,9 @@ func TestRetrying(t *testing.T) {
 	blobID := blob.ID("deadcafe")
 	blobID2 := blob.ID("deadcafe2")
 
-	require.NoError(t, rs.PutBlob(ctx, blobID, gather.FromSlice([]byte{1, 2, 3})))
+	require.NoError(t, rs.PutBlob(ctx, blobID, gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{}))
 
-	require.NoError(t, rs.PutBlob(ctx, blobID2, gather.FromSlice([]byte{1, 2, 3, 4})))
+	require.NoError(t, rs.PutBlob(ctx, blobID2, gather.FromSlice([]byte{1, 2, 3, 4}), blob.PutOptions{}))
 
 	require.NoError(t, rs.SetTime(ctx, blobID, clock.Now()))
 

@@ -719,7 +719,7 @@ func putBlobs(ctx context.Context, tb testing.TB, s *s3Storage, blobs []blobCont
 	vm := make([]versionMetadata, len(blobs))
 
 	for i, b := range blobs {
-		m, err := s.putBlobVersion(ctx, b.id, b.contents(tb))
+		m, err := s.putBlobVersion(ctx, b.id, b.contents(tb), blob.PutOptions{})
 		if err != nil {
 			tb.Fatalf("can't put blob: %v", err)
 			continue
@@ -732,11 +732,11 @@ func putBlobs(ctx context.Context, tb testing.TB, s *s3Storage, blobs []blobCont
 }
 
 // only available for tests.
-func (s *s3Storage) putBlobVersion(ctx context.Context, id blob.ID, data blob.Bytes) (versionMetadata, error) {
+func (s *s3Storage) putBlobVersion(ctx context.Context, id blob.ID, data blob.Bytes, opts blob.PutOptions) (versionMetadata, error) {
 	var vm versionMetadata
 
 	_, err := retry.WithExponentialBackoff(ctx, "putBlobVersion("+string(id)+")", func() (interface{}, error) {
-		v, err := s.putBlob(ctx, id, data)
+		v, err := s.putBlob(ctx, id, data, opts)
 		vm = v
 
 		return true, err // nolint:wrapcheck

@@ -126,7 +126,7 @@ func (c *PersistentCache) Put(ctx context.Context, key string, data gather.Bytes
 
 	c.storageProtection.Protect(key, data, &protected)
 
-	if err := c.cacheStorage.PutBlob(ctx, blob.ID(key), protected.Bytes()); err != nil {
+	if err := c.cacheStorage.PutBlob(ctx, blob.ID(key), protected.Bytes(), blob.PutOptions{}); err != nil {
 		stats.Record(ctx, MetricStoreErrors.M(1))
 
 		log(ctx).Errorf("unable to add %v to %v: %v", key, c.description, err)

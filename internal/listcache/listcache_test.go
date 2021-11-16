@@ -34,7 +34,7 @@ func TestListCache(t *testing.T) {
 	blobtesting.AssertListResultsIDs(ctx, t, lc, "n")
 
 	// modify underlying storage without going through cache layer
-	require.NoError(t, realStorage.PutBlob(ctx, "n1", gather.FromSlice([]byte{1, 2, 3})))
+	require.NoError(t, realStorage.PutBlob(ctx, "n1", gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{}))
 
 	// still getting empty cached results.
 	blobtesting.AssertListResultsIDs(ctx, t, lc, "n")
@@ -42,13 +42,13 @@ func TestListCache(t *testing.T) {
 	// cache expires, real data is read
 	cacheTime.Advance(1 * time.Hour)
 	blobtesting.AssertListResultsIDs(ctx, t, lc, "n", "n1")
-	require.NoError(t, realStorage.PutBlob(ctx, "n2", gather.FromSlice([]byte{1, 2, 3})))
+	require.NoError(t, realStorage.PutBlob(ctx, "n2", gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{}))
 
 	// n2 still invisible, "n" is cached.
 	blobtesting.AssertListResultsIDs(ctx, t, lc, "n", "n1")
 
 	// writing "n3" through the cache storage invalidates "n".
-	require.NoError(t, lc.PutBlob(ctx, "n3", gather.FromSlice([]byte{1, 2, 3})))
+	require.NoError(t, lc.PutBlob(ctx, "n3", gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{}))
 	blobtesting.AssertListResultsIDs(ctx, t, lc, "n", "n1", "n2", "n3")
 
 	// deleting "n2" through the cache storage invalidates "n".
@@ -56,10 +56,10 @@ func TestListCache(t *testing.T) {
 	blobtesting.AssertListResultsIDs(ctx, t, lc, "n", "n1", "n3")
 
 	// add one more blob.
-	require.NoError(t, realStorage.PutBlob(ctx, "n4", gather.FromSlice([]byte{1, 2, 3})))
+	require.NoError(t, realStorage.PutBlob(ctx, "n4", gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{}))
 
 	// replace "n" in cache storage with invalid data.
-	require.NoError(t, cachest.PutBlob(ctx, "n", gather.FromSlice([]byte{1, 2, 3})))
+	require.NoError(t, cachest.PutBlob(ctx, "n", gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{}))
 
 	// on next read, "n" will be discarded and "n4" will be immediately visible.
 	blobtesting.AssertListResultsIDs(ctx, t, lc, "n", "n1", "n3", "n4")
@@ -68,7 +68,7 @@ func TestListCache(t *testing.T) {
 
 	// add one more blob.
 	blobtesting.AssertListResultsIDs(ctx, t, lc, "n", "n1", "n3", "n4")
-	require.NoError(t, realStorage.PutBlob(ctx, "n5", gather.FromSlice([]byte{1, 2, 3})))
+	require.NoError(t, realStorage.PutBlob(ctx, "n5", gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{}))
 	blobtesting.AssertListResultsIDs(ctx, t, lc, "n", "n1", "n3", "n4")
 	cacheTime.Advance(lc.cacheDuration - 1)
 	blobtesting.AssertListResultsIDs(ctx, t, lc, "n", "n1", "n3", "n4")
@@ -76,14 +76,14 @@ func TestListCache(t *testing.T) {
 	blobtesting.AssertListResultsIDs(ctx, t, lc, "n", "n1", "n3", "n4", "n5")
 
 	// explicit flush
-	require.NoError(t, realStorage.PutBlob(ctx, "n6", gather.FromSlice([]byte{1, 2, 3})))
+	require.NoError(t, realStorage.PutBlob(ctx, "n6", gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{}))
 	blobtesting.AssertListResultsIDs(ctx, t, lc, "n", "n1", "n3", "n4", "n5")
 	require.NoError(t, lc.FlushCaches(ctx))
 	blobtesting.AssertListResultsIDs(ctx, t, lc, "n", "n1", "n3", "n4", "n5", "n6")
 
 	// non-cached results
 	blobtesting.AssertListResultsIDs(ctx, t, lc, "nc")
-	require.NoError(t, realStorage.PutBlob(ctx, "nc1", gather.FromSlice([]byte{1, 2, 3})))
+	require.NoError(t, realStorage.PutBlob(ctx, "nc1", gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{}))
 	blobtesting.AssertListResultsIDs(ctx, t, lc, "nc", "nc1")
 
 	require.ErrorIs(t, lc.ListBlobs(ctx, "n", func(m blob.Metadata) error {

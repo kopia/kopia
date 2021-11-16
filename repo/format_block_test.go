@@ -29,19 +29,19 @@ func TestFormatBlobRecovery(t *testing.T) {
 		t.Errorf("unexpected checksummed length: %v, want %v", got, want)
 	}
 
-	assertNoError(t, st.PutBlob(ctx, "some-blob-by-itself", gather.FromSlice(checksummed)))
-	assertNoError(t, st.PutBlob(ctx, "some-blob-suffix", gather.FromSlice(append(append([]byte(nil), 1, 2, 3), checksummed...))))
-	assertNoError(t, st.PutBlob(ctx, "some-blob-prefix", gather.FromSlice(append(append([]byte(nil), checksummed...), 1, 2, 3))))
+	assertNoError(t, st.PutBlob(ctx, "some-blob-by-itself", gather.FromSlice(checksummed), blob.PutOptions{}))
+	assertNoError(t, st.PutBlob(ctx, "some-blob-suffix", gather.FromSlice(append(append([]byte(nil), 1, 2, 3), checksummed...)), blob.PutOptions{}))
+	assertNoError(t, st.PutBlob(ctx, "some-blob-prefix", gather.FromSlice(append(append([]byte(nil), checksummed...), 1, 2, 3)), blob.PutOptions{}))
 
 	// mess up checksum
 	checksummed[len(checksummed)-3] ^= 1
-	assertNoError(t, st.PutBlob(ctx, "bad-checksum", gather.FromSlice(checksummed)))
-	assertNoError(t, st.PutBlob(ctx, "zero-len", gather.FromSlice([]byte{})))
-	assertNoError(t, st.PutBlob(ctx, "one-len", gather.FromSlice([]byte{1})))
-	assertNoError(t, st.PutBlob(ctx, "two-len", gather.FromSlice([]byte{1, 2})))
-	assertNoError(t, st.PutBlob(ctx, "three-len", gather.FromSlice([]byte{1, 2, 3})))
-	assertNoError(t, st.PutBlob(ctx, "four-len", gather.FromSlice([]byte{1, 2, 3, 4})))
-	assertNoError(t, st.PutBlob(ctx, "five-len", gather.FromSlice([]byte{1, 2, 3, 4, 5})))
+	assertNoError(t, st.PutBlob(ctx, "bad-checksum", gather.FromSlice(checksummed), blob.PutOptions{}))
+	assertNoError(t, st.PutBlob(ctx, "zero-len", gather.FromSlice([]byte{}), blob.PutOptions{}))
+	assertNoError(t, st.PutBlob(ctx, "one-len", gather.FromSlice([]byte{1}), blob.PutOptions{}))
+	assertNoError(t, st.PutBlob(ctx, "two-len", gather.FromSlice([]byte{1, 2}), blob.PutOptions{}))
+	assertNoError(t, st.PutBlob(ctx, "three-len", gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{}))
+	assertNoError(t, st.PutBlob(ctx, "four-len", gather.FromSlice([]byte{1, 2, 3, 4}), blob.PutOptions{}))
+	assertNoError(t, st.PutBlob(ctx, "five-len", gather.FromSlice([]byte{1, 2, 3, 4, 5}), blob.PutOptions{}))
 
 	cases := []struct {
 		blobID blob.ID

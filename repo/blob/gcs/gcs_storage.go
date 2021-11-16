@@ -96,7 +96,11 @@ func translateError(err error) error {
 	}
 }
 
-func (gcs *gcsStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes) error {
+func (gcs *gcsStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes, opts blob.PutOptions) error {
+	if opts.HasRetentionOptions() {
+		return errors.New("setting blob-retention is not supported")
+	}
+
 	ctx, cancel := context.WithCancel(ctx)
 
 	obj := gcs.bucket.Object(gcs.getObjectNameString(b))

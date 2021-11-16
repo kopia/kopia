@@ -66,7 +66,7 @@ func (te *epochManagerTestEnv) compact(ctx context.Context, blobs []blob.ID, pre
 	}
 
 	return errors.Wrap(
-		te.st.PutBlob(ctx, blob.ID(fmt.Sprintf("%v%016x-s0-c1", prefix, rand.Int63())), gather.FromSlice(merged.Bytes())),
+		te.st.PutBlob(ctx, blob.ID(fmt.Sprintf("%v%016x-s0-c1", prefix, rand.Int63())), gather.FromSlice(merged.Bytes()), blob.PutOptions{}),
 		"PutBlob error")
 }
 
@@ -74,8 +74,8 @@ func (te *epochManagerTestEnv) compact(ctx context.Context, blobs []blob.ID, pre
 func (te *epochManagerTestEnv) interruptedCompaction(ctx context.Context, _ []blob.ID, prefix blob.ID) error {
 	sess := rand.Int63()
 
-	te.st.PutBlob(ctx, blob.ID(fmt.Sprintf("%v%016x-s%v-c3", prefix, sess, rand.Int63())), gather.FromSlice([]byte("dummy")))
-	te.st.PutBlob(ctx, blob.ID(fmt.Sprintf("%v%016x-s%v-c3", prefix, sess, rand.Int63())), gather.FromSlice([]byte("dummy")))
+	te.st.PutBlob(ctx, blob.ID(fmt.Sprintf("%v%016x-s%v-c3", prefix, sess, rand.Int63())), gather.FromSlice([]byte("dummy")), blob.PutOptions{})
+	te.st.PutBlob(ctx, blob.ID(fmt.Sprintf("%v%016x-s%v-c3", prefix, sess, rand.Int63())), gather.FromSlice([]byte("dummy")), blob.PutOptions{})
 
 	return errors.Errorf("failed for some reason")
 }

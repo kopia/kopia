@@ -161,7 +161,7 @@ func (bm *WriteManager) writePackFileNotLocked(ctx context.Context, packFile blo
 	bm.Stats.wroteContent(data.Length())
 	bm.onUpload(int64(data.Length()))
 
-	return errors.Wrap(bm.st.PutBlob(ctx, packFile, data), "error writing pack file")
+	return errors.Wrap(bm.st.PutBlob(ctx, packFile, data, blob.PutOptions{}), "error writing pack file")
 }
 
 func (sm *SharedManager) hashData(output []byte, data gather.Bytes) []byte {

@@ -50,9 +50,9 @@ func (s *loggingStorage) GetMetadata(ctx context.Context, id blob.ID) (blob.Meta
 	return result, err
 }
 
-func (s *loggingStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes) error {
+func (s *loggingStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes, opts blob.PutOptions) error {
 	timer := timetrack.StartTimer()
-	err := s.base.PutBlob(ctx, id, data)
+	err := s.base.PutBlob(ctx, id, data, opts)
 	dt := timer.Elapsed()
 
 	s.logger.Debugw(s.prefix+"PutBlob",
