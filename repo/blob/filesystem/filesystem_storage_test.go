@@ -15,6 +15,7 @@ import (
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/blob/sharded"
 )
 
 func TestFileStorage(t *testing.T) {
@@ -36,9 +37,11 @@ func TestFileStorage(t *testing.T) {
 		path := testutil.TempDirectory(t)
 
 		r, err := New(ctx, &Options{
-			Path:            path,
-			DirectoryShards: shardSpec,
-		})
+			Path: path,
+			Options: sharded.Options{
+				DirectoryShards: shardSpec,
+			},
+		}, true)
 
 		if r == nil || err != nil {
 			t.Errorf("unexpected result: %v %v", r, err)
@@ -70,7 +73,7 @@ func TestFileStorageTouch(t *testing.T) {
 
 	r, err := New(ctx, &Options{
 		Path: path,
-	})
+	}, true)
 
 	if r == nil || err != nil {
 		t.Errorf("unexpected result: %v %v", r, err)
@@ -112,7 +115,7 @@ func TestFileStorageConcurrency(t *testing.T) {
 
 	st, err := New(ctx, &Options{
 		Path: path,
-	})
+	}, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,9 +140,11 @@ func TestFilesystemStorageDirectoryShards(t *testing.T) {
 	dataDir := testutil.TempDirectory(t)
 
 	st, err := New(ctx, &Options{
-		Path:            dataDir,
-		DirectoryShards: []int{5, 2},
-	})
+		Path: dataDir,
+		Options: sharded.Options{
+			DirectoryShards: []int{5, 2},
+		},
+	}, true)
 	if err != nil {
 		t.Fatalf("unable to connect to rclone backend: %v", err)
 	}

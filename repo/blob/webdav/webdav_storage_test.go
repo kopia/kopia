@@ -17,6 +17,7 @@ import (
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/blob/sharded"
 )
 
 func basicAuth(h http.Handler) http.HandlerFunc {
@@ -148,11 +149,13 @@ func verifyWebDAVStorage(t *testing.T, url, username, password string, shardSpec
 	ctx := testlogging.Context(t)
 
 	st, err := New(testlogging.Context(t), &Options{
-		URL:             url,
-		DirectoryShards: shardSpec,
-		Username:        username,
-		Password:        password,
-	})
+		URL: url,
+		Options: sharded.Options{
+			DirectoryShards: shardSpec,
+		},
+		Username: username,
+		Password: password,
+	}, false)
 
 	if st == nil || err != nil {
 		t.Errorf("unexpected result: %v %v", st, err)

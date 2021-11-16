@@ -18,8 +18,8 @@ func TestBlobShardsModify(t *testing.T) {
 
 	someQBlob := strings.Split(env.RunAndExpectSuccess(t, "blob", "list", "--prefix=q")[0], " ")[0]
 
-	// verify default sharding is 3,3
-	require.FileExists(t, filepath.Join(env.RepoDir, someQBlob[0:3], someQBlob[3:6], someQBlob[6:]+sharded.CompleteBlobSuffix))
+	// verify default sharding is 1,3
+	require.FileExists(t, filepath.Join(env.RepoDir, someQBlob[0:1], someQBlob[1:4], someQBlob[4:]+sharded.CompleteBlobSuffix))
 	require.FileExists(t, filepath.Join(env.RepoDir, "kopia.repository.f"))
 
 	env.RunAndExpectSuccess(t, "blob", "shards", "modify", "--path", env.RepoDir, "--default-shards=5,5", "--i-am-sure-kopia-is-not-running")

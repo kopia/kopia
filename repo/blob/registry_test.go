@@ -18,7 +18,8 @@ type myConfig struct {
 type myStorage struct {
 	blob.Storage
 
-	cfg *myConfig
+	cfg    *myConfig
+	create bool
 }
 
 func TestRegistry(t *testing.T) {
@@ -26,9 +27,9 @@ func TestRegistry(t *testing.T) {
 		return &myConfig{
 			Field: 3,
 		}
-	}, func(c context.Context, i interface{}) (blob.Storage, error) {
+	}, func(c context.Context, i interface{}, isCreate bool) (blob.Storage, error) {
 		mc := i.(*myConfig)
-		return &myStorage{cfg: mc}, nil
+		return &myStorage{cfg: mc, create: isCreate}, nil
 	})
 
 	st, err := blob.NewStorage(context.Background(), blob.ConnectionInfo{
@@ -36,18 +37,19 @@ func TestRegistry(t *testing.T) {
 		Config: &myConfig{
 			Field: 4,
 		},
-	})
+	}, true)
 
 	require.NoError(t, err)
 	require.IsType(t, (*myStorage)(nil), st)
 	require.Equal(t, 4, st.(*myStorage).cfg.Field)
+	require.True(t, st.(*myStorage).create)
 
 	_, err = blob.NewStorage(context.Background(), blob.ConnectionInfo{
 		Type: "unknownstorage",
 		Config: &myConfig{
 			Field: 3,
 		},
-	})
+	}, false)
 
 	require.Error(t, err)
 }
@@ -55,7 +57,7 @@ func TestRegistry(t *testing.T) {
 func TestConnectionInfo(t *testing.T) {
 	blob.AddSupportedStorage("mystorage2", func() interface{} {
 		return &myConfig{}
-	}, func(c context.Context, i interface{}) (blob.Storage, error) {
+	}, func(c context.Context, i interface{}, isCreate bool) (blob.Storage, error) {
 		mc := i.(*myConfig)
 		return &myStorage{cfg: mc}, nil
 	})

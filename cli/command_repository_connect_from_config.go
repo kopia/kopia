@@ -24,8 +24,8 @@ func (c *storageFromConfigFlags) setup(sps storageProviderServices, cmd *kingpin
 	c.sps = sps
 }
 
-func (c *storageFromConfigFlags) connect(ctx context.Context, isNew bool) (blob.Storage, error) {
-	if isNew {
+func (c *storageFromConfigFlags) connect(ctx context.Context, isCreate bool, formatVersion int) (blob.Storage, error) {
+	if isCreate {
 		return nil, errors.New("not supported")
 	}
 
@@ -51,7 +51,7 @@ func (c *storageFromConfigFlags) connectToStorageFromConfigFile(ctx context.Cont
 	}
 
 	// nolint:wrapcheck
-	return blob.NewStorage(ctx, *cfg.Storage)
+	return blob.NewStorage(ctx, *cfg.Storage, false)
 }
 
 func (c *storageFromConfigFlags) connectToStorageFromConfigToken(ctx context.Context) (blob.Storage, error) {
@@ -65,5 +65,5 @@ func (c *storageFromConfigFlags) connectToStorageFromConfigToken(ctx context.Con
 	}
 
 	// nolint:wrapcheck
-	return blob.NewStorage(ctx, ci)
+	return blob.NewStorage(ctx, ci, false)
 }

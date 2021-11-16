@@ -3,6 +3,8 @@ package sftp
 import (
 	"os"
 	"path/filepath"
+
+	"github.com/kopia/kopia/repo/blob/sharded"
 )
 
 // Options defines options for sftp-backed storage.
@@ -23,16 +25,7 @@ type Options struct {
 	SSHCommand   string `json:"sshCommand,omitempty"` // default "ssh"
 	SSHArguments string `json:"sshArguments,omitempty"`
 
-	DirectoryShards []int `json:"dirShards"`
-	ListParallelism int   `json:"listParallelism,omitempty"`
-}
-
-func (sftpo *Options) shards() []int {
-	if sftpo.DirectoryShards == nil {
-		return sftpDefaultShards
-	}
-
-	return sftpo.DirectoryShards
+	sharded.Options
 }
 
 func (sftpo *Options) knownHostsFile() string {

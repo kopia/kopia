@@ -210,11 +210,9 @@ func runStress(t *testing.T, opt *StressOptions) {
 
 	storagePath := filepath.Join(tmpPath, "storage")
 
-	assertNoError(t, os.MkdirAll(storagePath, 0o700))
-
 	st, err := filesystem.New(ctx, &filesystem.Options{
 		Path: storagePath,
-	})
+	}, true)
 	if err != nil {
 		t.Fatalf("unable to initialize storage: %v", err)
 	}
@@ -541,12 +539,4 @@ func writeRandomManifest(ctx context.Context, r repo.DirectRepositoryWriter, rs 
 	rs.WriteManifest(mid)
 
 	return err
-}
-
-func assertNoError(t *testing.T, err error) {
-	t.Helper()
-
-	if err != nil {
-		t.Errorf("err: %v", err)
-	}
 }

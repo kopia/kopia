@@ -185,7 +185,7 @@ func (r *rcloneStorage) runRCloneAndWaitForServerAddress(ctx context.Context, c 
 
 // New creates new RClone storage with specified options.
 // nolint:funlen
-func New(ctx context.Context, opt *Options) (blob.Storage, error) {
+func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error) {
 	// generate directory for all temp files.
 	td, err := os.MkdirTemp("", "kopia-rclone")
 	if err != nil {
@@ -291,10 +291,9 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 		Username:                            webdavUsername,
 		Password:                            webdavPassword,
 		TrustedServerCertificateFingerprint: hex.EncodeToString(fingerprintBytes[:]),
-		ListParallelism:                     opt.ListParallelism,
 		AtomicWrites:                        opt.AtomicWrites,
-		DirectoryShards:                     opt.DirectoryShards,
-	})
+		Options:                             opt.Options,
+	}, isCreate)
 	if err != nil {
 		return nil, errors.Wrap(err, "error connecting to webdav storage")
 	}
@@ -310,7 +309,7 @@ func init() {
 		func() interface{} {
 			return &Options{}
 		},
-		func(ctx context.Context, o interface{}) (blob.Storage, error) {
-			return New(ctx, o.(*Options))
+		func(ctx context.Context, o interface{}, isCreate bool) (blob.Storage, error) {
+			return New(ctx, o.(*Options), isCreate)
 		})
 }

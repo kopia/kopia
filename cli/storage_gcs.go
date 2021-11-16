@@ -28,7 +28,7 @@ func (c *storageGCSFlags) setup(_ storageProviderServices, cmd *kingpin.CmdClaus
 	cmd.Flag("embed-credentials", "Embed GCS credentials JSON in Kopia configuration").BoolVar(&c.embedCredentials)
 }
 
-func (c *storageGCSFlags) connect(ctx context.Context, isNew bool) (blob.Storage, error) {
+func (c *storageGCSFlags) connect(ctx context.Context, isCreate bool, formatVersion int) (blob.Storage, error) {
 	if c.embedCredentials {
 		data, err := os.ReadFile(c.options.ServiceAccountCredentialsFile)
 		if err != nil {

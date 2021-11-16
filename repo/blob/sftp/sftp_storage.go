@@ -36,8 +36,6 @@ const (
 	packetSize = 1 << 15
 )
 
-var sftpDefaultShards = []int{3, 3}
-
 // sftpStorage implements blob.Storage on top of sftp.
 type sftpStorage struct {
 	sharded.Storage
@@ -488,18 +486,13 @@ func getSFTPClient(ctx context.Context, opt *Options) (*sftpConnection, error) {
 }
 
 // New creates new ssh-backed storage in a specified host.
-func New(ctx context.Context, opts *Options) (blob.Storage, error) {
+func New(ctx context.Context, opts *Options, isCreate bool) (blob.Storage, error) {
 	impl := &sftpImpl{
 		Options: *opts,
 	}
 
 	r := &sftpStorage{
-		sharded.Storage{
-			Impl:            impl,
-			RootPath:        opts.Path,
-			Shards:          opts.shards(),
-			ListParallelism: opts.ListParallelism,
-		},
+		sharded.New(impl, opts.Path, opts.Options, isCreate),
 	}
 
 	impl.rec = connection.NewReconnector(impl)
@@ -530,7 +523,7 @@ func init() {
 	blob.AddSupportedStorage(
 		sftpStorageType,
 		func() interface{} { return &Options{} },
-		func(ctx context.Context, o interface{}) (blob.Storage, error) {
-			return New(ctx, o.(*Options))
+		func(ctx context.Context, o interface{}, isCreate bool) (blob.Storage, error) {
+			return New(ctx, o.(*Options), isCreate)
 		})
 }

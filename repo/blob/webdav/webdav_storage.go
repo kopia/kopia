@@ -31,8 +31,6 @@ const (
 	defaultDirPerm  = 0o700
 )
 
-var fsDefaultShards = []int{3, 3}
-
 // davStorage implements blob.Storage on top of remove WebDAV repository.
 // It is very similar to File storage, except uses HTTP URLs instead of local files.
 // Storage formats are compatible (both use sharded directory structure), so a repository
@@ -234,7 +232,7 @@ func isRetriable(err error) bool {
 }
 
 // New creates new WebDAV-backed storage in a specified URL.
-func New(ctx context.Context, opts *Options) (blob.Storage, error) {
+func New(ctx context.Context, opts *Options, isCreate bool) (blob.Storage, error) {
 	cli := gowebdav.NewClient(opts.URL, opts.Username, opts.Password)
 
 	// Since we're handling encrypted data, there's no point compressing it server-side.
@@ -245,15 +243,10 @@ func New(ctx context.Context, opts *Options) (blob.Storage, error) {
 	}
 
 	s := retrying.NewWrapper(&davStorage{
-		sharded.Storage{
-			Impl: &davStorageImpl{
-				Options: *opts,
-				cli:     cli,
-			},
-			RootPath:        "",
-			Shards:          opts.shards(),
-			ListParallelism: opts.ListParallelism,
-		},
+		sharded.New(&davStorageImpl{
+			Options: *opts,
+			cli:     cli,
+		}, "", opts.Options, isCreate),
 	})
 
 	return s, nil
@@ -263,7 +256,7 @@ func init() {
 	blob.AddSupportedStorage(
 		davStorageType,
 		func() interface{} { return &Options{} },
-		func(ctx context.Context, o interface{}) (blob.Storage, error) {
-			return New(ctx, o.(*Options))
+		func(ctx context.Context, o interface{}, isCreate bool) (blob.Storage, error) {
+			return New(ctx, o.(*Options), isCreate)
 		})
 }

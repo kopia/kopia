@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/repo/blob/sftp"
+	"github.com/kopia/kopia/repo/blob/sharded"
 )
 
 func TestSFTPOptions(t *testing.T) {
@@ -129,12 +130,14 @@ func TestSFTPOptions(t *testing.T) {
 				connectFlat: true,
 			},
 			want: &sftp.Options{
-				Host:            "some-host",
-				Port:            222,
-				Username:        "user",
-				KnownHostsFile:  mustFileAbs(t, "my-known-hosts"),
-				Keyfile:         mustFileAbs(t, "my-key"),
-				DirectoryShards: []int{},
+				Host:           "some-host",
+				Port:           222,
+				Username:       "user",
+				KnownHostsFile: mustFileAbs(t, "my-known-hosts"),
+				Keyfile:        mustFileAbs(t, "my-key"),
+				Options: sharded.Options{
+					DirectoryShards: []int{},
+				},
 			},
 		},
 		// 7
@@ -150,19 +153,21 @@ func TestSFTPOptions(t *testing.T) {
 				connectFlat: true,
 			},
 			want: &sftp.Options{
-				Host:            "some-host",
-				Port:            222,
-				Username:        "user",
-				KnownHostsFile:  mustFileAbs(t, "my-known-hosts"),
-				Password:        "my-password",
-				DirectoryShards: []int{},
+				Host:           "some-host",
+				Port:           222,
+				Username:       "user",
+				KnownHostsFile: mustFileAbs(t, "my-known-hosts"),
+				Password:       "my-password",
+				Options: sharded.Options{
+					DirectoryShards: []int{},
+				},
 			},
 		},
 	}
 
 	for i, tc := range cases {
 		t.Run(fmt.Sprintf("case-%v", i), func(t *testing.T) {
-			got, err := tc.input.getOptions()
+			got, err := tc.input.getOptions(2)
 			if tc.wantErr == "" {
 				require.NoError(t, err)
 				require.Equal(t, tc.want, got)

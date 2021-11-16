@@ -37,9 +37,8 @@ type Impl interface {
 type Storage struct {
 	Impl Impl
 
-	RootPath        string
-	Shards          []int
-	ListParallelism int
+	RootPath string
+	Options
 
 	parametersMutex sync.Mutex
 	parameters      *Parameters
@@ -236,7 +235,7 @@ func (s *Storage) getParameters(ctx context.Context) (*Parameters, error) {
 		}
 
 		// blob.ErrBlobNotFound is ok, initialize parameters from defaults.
-		s.parameters = DefaultParameters(s.Shards)
+		s.parameters = DefaultParameters(s.DirectoryShards)
 
 		tmp.Reset()
 
@@ -281,4 +280,21 @@ func (s *Storage) GetShardedPathAndFilePath(ctx context.Context, blobID blob.ID)
 	filePath = path.Join(shardPath, s.makeFileName(blobID))
 
 	return
+}
+
+// New returns new sharded.Storage helper.
+func New(impl Impl, rootPath string, opt Options, isCreate bool) Storage {
+	if opt.DirectoryShards == nil {
+		if isCreate {
+			opt.DirectoryShards = []int{1, 3}
+		} else {
+			opt.DirectoryShards = []int{3, 3}
+		}
+	}
+
+	return Storage{
+		Impl:     impl,
+		RootPath: rootPath,
+		Options:  opt,
+	}
 }

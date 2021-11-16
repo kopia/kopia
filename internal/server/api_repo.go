@@ -111,7 +111,7 @@ func (s *Server) handleRepoCreate(ctx context.Context, r *http.Request, body []b
 		return nil, err
 	}
 
-	st, err := blob.NewStorage(ctx, req.Storage)
+	st, err := blob.NewStorage(ctx, req.Storage, true)
 	if err != nil {
 		return nil, requestError(serverapi.ErrorStorageConnection, "unable to connect to storage: "+err.Error())
 	}
@@ -154,7 +154,7 @@ func (s *Server) handleRepoExists(ctx context.Context, r *http.Request, body []b
 		return nil, requestError(serverapi.ErrorMalformedRequest, "unable to decode request: "+err.Error())
 	}
 
-	st, err := blob.NewStorage(ctx, req.Storage)
+	st, err := blob.NewStorage(ctx, req.Storage, false)
 	if err != nil {
 		return nil, internalServerError(err)
 	}
@@ -261,7 +261,7 @@ func (s *Server) connectAPIServerAndOpen(ctx context.Context, si *repo.APIServer
 }
 
 func (s *Server) connectAndOpen(ctx context.Context, conn blob.ConnectionInfo, password string, cliOpts repo.ClientOptions) *apiError {
-	st, err := blob.NewStorage(ctx, conn)
+	st, err := blob.NewStorage(ctx, conn, false)
 	if err != nil {
 		return requestError(serverapi.ErrorStorageConnection, "can't open storage: "+err.Error())
 	}
