@@ -10,7 +10,6 @@ import (
 	"time"
 
 	gcsclient "cloud.google.com/go/storage"
-	"github.com/efarrer/iothrottler"
 	"github.com/pkg/errors"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -20,7 +19,6 @@ import (
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/iocopy"
-	"github.com/kopia/kopia/internal/throttle"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/retrying"
 )
@@ -35,9 +33,6 @@ type gcsStorage struct {
 
 	storageClient *gcsclient.Client
 	bucket        *gcsclient.BucketHandle
-
-	downloadThrottler *iothrottler.IOThrottlerPool
-	uploadThrottler   *iothrottler.IOThrottlerPool
 }
 
 func (gcs *gcsStorage) GetBlob(ctx context.Context, b blob.ID, offset, length int64, output blob.OutputBuffer) error {
@@ -185,14 +180,6 @@ func (gcs *gcsStorage) FlushCaches(ctx context.Context) error {
 	return nil
 }
 
-func toBandwidth(bytesPerSecond int) iothrottler.Bandwidth {
-	if bytesPerSecond <= 0 {
-		return iothrottler.Unlimited
-	}
-
-	return iothrottler.Bandwidth(bytesPerSecond) * iothrottler.BytesPerSecond
-}
-
 func tokenSourceFromCredentialsFile(ctx context.Context, fn string, scopes ...string) (oauth2.TokenSource, error) {
 	data, err := os.ReadFile(fn) //nolint:gosec
 	if err != nil {
@@ -244,11 +231,7 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 		return nil, errors.Wrap(err, "unable to initialize token source")
 	}
 
-	downloadThrottler := iothrottler.NewIOThrottlerPool(toBandwidth(opt.MaxDownloadSpeedBytesPerSecond))
-	uploadThrottler := iothrottler.NewIOThrottlerPool(toBandwidth(opt.MaxUploadSpeedBytesPerSecond))
-
 	hc := oauth2.NewClient(ctx, ts)
-	hc.Transport = throttle.NewRoundTripper(hc.Transport, downloadThrottler, uploadThrottler)
 
 	cli, err := gcsclient.NewClient(ctx, option.WithHTTPClient(hc))
 	if err != nil {
@@ -260,11 +243,9 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 	}
 
 	gcs := &gcsStorage{
-		Options:           *opt,
-		storageClient:     cli,
-		bucket:            cli.Bucket(opt.BucketName),
-		downloadThrottler: downloadThrottler,
-		uploadThrottler:   uploadThrottler,
+		Options:       *opt,
+		storageClient: cli,
+		bucket:        cli.Bucket(opt.BucketName),
 	}
 
 	// verify GCS connection is functional by listing blobs in a bucket, which will fail if the bucket

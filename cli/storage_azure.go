@@ -20,8 +20,8 @@ func (c *storageAzureFlags) setup(_ storageProviderServices, cmd *kingpin.CmdCla
 	cmd.Flag("storage-domain", "Azure storage domain").Envar("AZURE_STORAGE_DOMAIN").StringVar(&c.azOptions.StorageDomain)
 	cmd.Flag("sas-token", "Azure SAS Token").Envar("AZURE_STORAGE_SAS_TOKEN").StringVar(&c.azOptions.SASToken)
 	cmd.Flag("prefix", "Prefix to use for objects in the bucket").StringVar(&c.azOptions.Prefix)
-	cmd.Flag("max-download-speed", "Limit the download speed.").PlaceHolder("BYTES_PER_SEC").IntVar(&c.azOptions.MaxDownloadSpeedBytesPerSecond)
-	cmd.Flag("max-upload-speed", "Limit the upload speed.").PlaceHolder("BYTES_PER_SEC").IntVar(&c.azOptions.MaxUploadSpeedBytesPerSecond)
+
+	commonThrottlingFlags(cmd, &c.azOptions.Limits)
 }
 
 func (c *storageAzureFlags) connect(ctx context.Context, isCreate bool, formatVersion int) (blob.Storage, error) {

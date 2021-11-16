@@ -63,7 +63,7 @@ func TestServerStart(t *testing.T) {
 
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
-	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--override-hostname=fake-hostname", "--override-username=fake-username")
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--override-hostname=fake-hostname", "--override-username=fake-username", "--max-upload-speed=10000000001")
 
 	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
 	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
@@ -99,6 +99,20 @@ func TestServerStart(t *testing.T) {
 
 	st := verifyServerConnected(t, cli, true)
 	require.Equal(t, "filesystem", st.Storage)
+
+	limits, err := serverapi.GetThrottlingLimits(ctx, cli)
+	require.NoError(t, err)
+
+	// make sure limits are preserved
+	require.Equal(t, 10000000001.0, limits.UploadBytesPerSecond)
+
+	// change the limit via the API.
+	limits.UploadBytesPerSecond++
+	require.NoError(t, serverapi.SetThrottlingLimits(ctx, cli, limits))
+
+	limits, err = serverapi.GetThrottlingLimits(ctx, cli)
+	require.NoError(t, err)
+	require.Equal(t, 10000000002.0, limits.UploadBytesPerSecond)
 
 	sources := verifySourceCount(t, cli, nil, 1)
 	require.Equal(t, sharedTestDataDir1, sources[0].Source.Path)

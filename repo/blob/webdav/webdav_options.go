@@ -1,6 +1,9 @@
 package webdav
 
-import "github.com/kopia/kopia/repo/blob/sharded"
+import (
+	"github.com/kopia/kopia/repo/blob/sharded"
+	"github.com/kopia/kopia/repo/blob/throttling"
+)
 
 // Options defines options for Filesystem-backed storage.
 type Options struct {
@@ -11,4 +14,5 @@ type Options struct {
 	AtomicWrites                        bool   `json:"atomicWrites"`
 
 	sharded.Options
+	throttling.Limits
 }

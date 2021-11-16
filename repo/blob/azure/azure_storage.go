@@ -10,7 +10,6 @@ import (
 
 	"github.com/Azure/azure-pipeline-go/pipeline"
 	"github.com/Azure/azure-storage-blob-go/azblob"
-	"github.com/efarrer/iothrottler"
 	"github.com/pkg/errors"
 	gblob "gocloud.dev/blob"
 	"gocloud.dev/blob/azureblob"
@@ -32,9 +31,6 @@ type azStorage struct {
 	ctx context.Context
 
 	bucket *gblob.Bucket
-
-	downloadThrottler *iothrottler.IOThrottlerPool
-	uploadThrottler   *iothrottler.IOThrottlerPool
 }
 
 func (az *azStorage) GetBlob(ctx context.Context, b blob.ID, offset, length int64, output blob.OutputBuffer) error {
@@ -50,13 +46,8 @@ func (az *azStorage) GetBlob(ctx context.Context, b blob.ID, offset, length int6
 
 		defer reader.Close() //nolint:errcheck
 
-		throttled, err := az.downloadThrottler.AddReader(reader)
-		if err != nil {
-			return errors.Wrap(err, "AddReader")
-		}
-
 		// nolint:wrapcheck
-		return iocopy.JustCopy(output, throttled)
+		return iocopy.JustCopy(output, reader)
 	}
 
 	if err := attempt(); err != nil {
@@ -112,12 +103,6 @@ func (az *azStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes, op
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	throttled, err := az.uploadThrottler.AddReader(io.NopCloser(data.Reader()))
-	if err != nil {
-		// nolint:wrapcheck
-		return err
-	}
-
 	// create azure Bucket writer
 	writer, err := az.bucket.NewWriter(ctx, az.getObjectNameString(b), &gblob.WriterOptions{ContentType: "application/x-kopia"})
 	if err != nil {
@@ -125,7 +110,7 @@ func (az *azStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes, op
 		return err
 	}
 
-	if err := iocopy.JustCopy(writer, throttled); err != nil {
+	if err := iocopy.JustCopy(writer, data.Reader()); err != nil {
 		// cancel context before closing the writer causes it to abandon the upload.
 		cancel()
 
@@ -208,14 +193,6 @@ func (az *azStorage) FlushCaches(ctx context.Context) error {
 	return nil
 }
 
-func toBandwidth(bytesPerSecond int) iothrottler.Bandwidth {
-	if bytesPerSecond <= 0 {
-		return iothrottler.Unlimited
-	}
-
-	return iothrottler.Bandwidth(bytesPerSecond) * iothrottler.BytesPerSecond
-}
-
 // New creates new Azure Blob Storage-backed storage with specified options:
 //
 // - the 'Container', 'StorageAccount' and 'StorageKey' fields are required and all other parameters are optional.
@@ -258,15 +235,10 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 		return nil, errors.Wrap(err, "unable to open bucket")
 	}
 
-	downloadThrottler := iothrottler.NewIOThrottlerPool(toBandwidth(opt.MaxDownloadSpeedBytesPerSecond))
-	uploadThrottler := iothrottler.NewIOThrottlerPool(toBandwidth(opt.MaxUploadSpeedBytesPerSecond))
-
 	az := retrying.NewWrapper(&azStorage{
-		Options:           *opt,
-		ctx:               ctx,
-		bucket:            bucket,
-		downloadThrottler: downloadThrottler,
-		uploadThrottler:   uploadThrottler,
+		Options: *opt,
+		ctx:     ctx,
+		bucket:  bucket,
 	})
 
 	// verify Azure connection is functional by listing blobs in a bucket, which will fail if the container

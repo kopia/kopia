@@ -14,6 +14,7 @@ import (
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/blob/throttling"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/encryption"
 	"github.com/kopia/kopia/repo/hashing"
@@ -241,6 +242,33 @@ func (s *Server) handleRepoSupportedAlgorithms(ctx context.Context, r *http.Requ
 	sort.Strings(res.CompressionAlgorithms)
 
 	return res, nil
+}
+
+func (s *Server) handleRepoGetThrottle(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
+	dr, ok := s.rep.(repo.DirectRepository)
+	if !ok {
+		return nil, requestError(serverapi.ErrorStorageConnection, "no direct storage connection")
+	}
+
+	return dr.Throttler().Limits(), nil
+}
+
+func (s *Server) handleRepoSetThrottle(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
+	dr, ok := s.rep.(repo.DirectRepository)
+	if !ok {
+		return nil, requestError(serverapi.ErrorStorageConnection, "no direct storage connection")
+	}
+
+	var req throttling.Limits
+	if err := json.Unmarshal(body, &req); err != nil {
+		return nil, requestError(serverapi.ErrorMalformedRequest, "unable to decode request: "+err.Error())
+	}
+
+	if err := dr.Throttler().SetLimits(req); err != nil {
+		return nil, requestError(serverapi.ErrorMalformedRequest, "unable to set limits: "+err.Error())
+	}
+
+	return &serverapi.Empty{}, nil
 }
 
 func (s *Server) getConnectOptions(cliOpts repo.ClientOptions) *repo.ConnectOptions {

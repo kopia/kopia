@@ -1,6 +1,10 @@
 package s3
 
-import "time"
+import (
+	"time"
+
+	"github.com/kopia/kopia/repo/blob/throttling"
+)
 
 // Options defines options for S3-based storage.
 type Options struct {
@@ -21,9 +25,7 @@ type Options struct {
 	// Region is an optional region to pass in authorization header.
 	Region string `json:"region,omitempty"`
 
-	MaxUploadSpeedBytesPerSecond int `json:"maxUploadSpeedBytesPerSecond,omitempty"`
-
-	MaxDownloadSpeedBytesPerSecond int `json:"maxDownloadSpeedBytesPerSecond,omitempty"`
+	throttling.Limits
 
 	// PointInTime specifies a view of the (versioned) store at that time
 	PointInTime *time.Time `json:"pointInTime,omitempty"`

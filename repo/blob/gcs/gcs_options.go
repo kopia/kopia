@@ -1,6 +1,10 @@
 package gcs
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	"github.com/kopia/kopia/repo/blob/throttling"
+)
 
 // Options defines options Google Cloud Storage-backed storage.
 type Options struct {
@@ -19,7 +23,5 @@ type Options struct {
 	// ReadOnly causes GCS connection to be opened with read-only scope to prevent accidental mutations.
 	ReadOnly bool `json:"readOnly,omitempty"`
 
-	MaxUploadSpeedBytesPerSecond int `json:"maxUploadSpeedBytesPerSecond,omitempty"`
-
-	MaxDownloadSpeedBytesPerSecond int `json:"maxDownloadSpeedBytesPerSecond,omitempty"`
+	throttling.Limits
 }

@@ -8,6 +8,7 @@ import (
 
 	"github.com/kopia/kopia/internal/apiclient"
 	"github.com/kopia/kopia/internal/uitask"
+	"github.com/kopia/kopia/repo/blob/throttling"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
 )
@@ -94,6 +95,25 @@ func Status(ctx context.Context, c *apiclient.KopiaAPIClient) (*StatusResponse, 
 	}
 
 	return resp, nil
+}
+
+// GetThrottlingLimits gets the throttling limits.
+func GetThrottlingLimits(ctx context.Context, c *apiclient.KopiaAPIClient) (throttling.Limits, error) {
+	resp := throttling.Limits{}
+	if err := c.Get(ctx, "repo/throttle", nil, &resp); err != nil {
+		return throttling.Limits{}, errors.Wrap(err, "throttling")
+	}
+
+	return resp, nil
+}
+
+// SetThrottlingLimits sets the throttling limits.
+func SetThrottlingLimits(ctx context.Context, c *apiclient.KopiaAPIClient, l throttling.Limits) error {
+	if err := c.Put(ctx, "repo/throttle", &l, &Empty{}); err != nil {
+		return errors.Wrap(err, "throttling")
+	}
+
+	return nil
 }
 
 // ListSources lists the snapshot sources managed by the server.

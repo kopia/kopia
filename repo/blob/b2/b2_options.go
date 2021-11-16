@@ -1,5 +1,7 @@
 package b2
 
+import "github.com/kopia/kopia/repo/blob/throttling"
+
 // Options defines options for B2-based storage.
 type Options struct {
 	// BucketName is the name of the bucket where data is stored.
@@ -11,6 +13,5 @@ type Options struct {
 	KeyID string `json:"keyID"`
 	Key   string `json:"key" kopia:"sensitive"`
 
-	MaxUploadSpeedBytesPerSecond   int `json:"maxUploadSpeedBytesPerSecond,omitempty"`
-	MaxDownloadSpeedBytesPerSecond int `json:"maxDownloadSpeedBytesPerSecond,omitempty"`
+	throttling.Limits
 }

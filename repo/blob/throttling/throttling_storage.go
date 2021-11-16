@@ -13,6 +13,16 @@ import (
 // if we guess wrong or acquire more.
 const unknownBlobAcquireLength = 20000000
 
+// operations supported.
+const (
+	operationGetBlob     = "GetBlob"
+	operationGetMetadata = "GetMetadata"
+	operationListBlobs   = "ListBlobs"
+	operationSetTime     = "SetTime"
+	operationPutBlob     = "PutBlob"
+	operationDeleteBlob  = "DeleteBlob"
+)
+
 // Throttler implements throttling policy by blocking before certain operations are
 // attempted to ensure we don't exceed the desired rate of operations/bytes uploaded/downloaded.
 type Throttler interface {
@@ -42,7 +52,7 @@ func (s *throttlingStorage) GetBlob(ctx context.Context, id blob.ID, offset, len
 		acquired = unknownBlobAcquireLength
 	}
 
-	s.throttler.BeforeOperation(ctx, "GetBlob")
+	s.throttler.BeforeOperation(ctx, operationGetBlob)
 	s.throttler.BeforeDownload(ctx, acquired)
 
 	output.Reset()
@@ -64,30 +74,30 @@ func (s *throttlingStorage) GetBlob(ctx context.Context, id blob.ID, offset, len
 }
 
 func (s *throttlingStorage) GetMetadata(ctx context.Context, id blob.ID) (blob.Metadata, error) {
-	s.throttler.BeforeOperation(ctx, "GetMetadata")
+	s.throttler.BeforeOperation(ctx, operationGetMetadata)
 
 	return s.Storage.GetMetadata(ctx, id) // nolint:wrapcheck
 }
 
 func (s *throttlingStorage) ListBlobs(ctx context.Context, blobIDPrefix blob.ID, cb func(bm blob.Metadata) error) error {
-	s.throttler.BeforeOperation(ctx, "ListBlobs")
+	s.throttler.BeforeOperation(ctx, operationListBlobs)
 	return s.Storage.ListBlobs(ctx, blobIDPrefix, cb) // nolint:wrapcheck
 }
 
 func (s *throttlingStorage) SetTime(ctx context.Context, id blob.ID, t time.Time) error {
-	s.throttler.BeforeOperation(ctx, "SetTime")
+	s.throttler.BeforeOperation(ctx, operationSetTime)
 	return s.Storage.SetTime(ctx, id, t) // nolint:wrapcheck
 }
 
 func (s *throttlingStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes, opts blob.PutOptions) error {
-	s.throttler.BeforeOperation(ctx, "PutBlob")
+	s.throttler.BeforeOperation(ctx, operationPutBlob)
 	s.throttler.BeforeUpload(ctx, int64(data.Length()))
 
 	return s.Storage.PutBlob(ctx, id, data, opts) // nolint:wrapcheck
 }
 
 func (s *throttlingStorage) DeleteBlob(ctx context.Context, id blob.ID) error {
-	s.throttler.BeforeOperation(ctx, "DeleteBlob")
+	s.throttler.BeforeOperation(ctx, operationDeleteBlob)
 	return s.Storage.DeleteBlob(ctx, id) // nolint:wrapcheck
 }
 
