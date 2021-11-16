@@ -17,19 +17,18 @@ type tokenBucket struct {
 	now   func() time.Time
 	sleep func(ctx context.Context, d time.Duration)
 
-	mu                   sync.Mutex
-	lastTime             time.Time
-	numTokens            float64
-	maxTokens            float64
-	addTokensPerTimeUnit float64
-	addTokensTimeUnit    time.Duration
+	mu                sync.Mutex
+	lastTime          time.Time
+	numTokens         float64
+	maxTokens         float64
+	addTokensTimeUnit time.Duration
 }
 
 func (b *tokenBucket) replenishTokens(now time.Time) {
 	if !b.lastTime.IsZero() {
 		// add tokens based on passage of time, ensuring we don't exceed maxTokens
 		elapsed := now.Sub(b.lastTime)
-		addTokens := b.addTokensPerTimeUnit * elapsed.Seconds() / b.addTokensTimeUnit.Seconds()
+		addTokens := b.maxTokens * elapsed.Seconds() / b.addTokensTimeUnit.Seconds()
 
 		b.numTokens += addTokens
 		if b.numTokens > b.maxTokens {
@@ -58,7 +57,7 @@ func (b *tokenBucket) sleepDurationBeforeTokenAreAvailable(n float64, now time.T
 		return 0
 	}
 
-	return time.Duration(float64(b.addTokensTimeUnit.Nanoseconds()) * (-b.numTokens / b.addTokensPerTimeUnit))
+	return time.Duration(float64(b.addTokensTimeUnit.Nanoseconds()) * (-b.numTokens / b.maxTokens))
 }
 
 func (b *tokenBucket) Take(ctx context.Context, n float64) {
@@ -92,7 +91,7 @@ func (b *tokenBucket) SetLimit(maxTokens float64) error {
 	}
 
 	b.maxTokens = maxTokens
-	b.addTokensPerTimeUnit = maxTokens
+	b.maxTokens = maxTokens
 
 	if b.numTokens > b.maxTokens {
 		b.numTokens = b.maxTokens
@@ -113,12 +112,11 @@ func sleepWithContext(ctx context.Context, dur time.Duration) {
 
 func newTokenBucket(name string, initialTokens, maxTokens float64, addTimeUnit time.Duration) *tokenBucket {
 	return &tokenBucket{
-		name:                 name,
-		now:                  time.Now, // nolint:forbidigo
-		sleep:                sleepWithContext,
-		numTokens:            initialTokens,
-		maxTokens:            maxTokens,
-		addTokensPerTimeUnit: maxTokens,
-		addTokensTimeUnit:    addTimeUnit,
+		name:              name,
+		now:               time.Now, // nolint:forbidigo
+		sleep:             sleepWithContext,
+		numTokens:         initialTokens,
+		maxTokens:         maxTokens,
+		addTokensTimeUnit: addTimeUnit,
 	}
 }

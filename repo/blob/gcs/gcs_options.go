@@ -24,6 +24,4 @@ type Options struct {
 	ReadOnly bool `json:"readOnly,omitempty"`
 
 	throttling.Limits
-
-	MaxDownloadSpeedBytesPerSecond int `json:"maxDownloadSpeedBytesPerSecond,omitempty"`
 }
