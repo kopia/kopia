@@ -2,11 +2,13 @@ package s3
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -26,6 +28,7 @@ import (
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/internal/timetrack"
+	"github.com/kopia/kopia/internal/tlsutil"
 	"github.com/kopia/kopia/repo/blob"
 )
 
@@ -67,7 +70,7 @@ var providerCreds = map[string]string{
 }
 
 // startDockerMinioOrSkip starts ephemeral minio instance on a random port and returns the endpoint ("localhost:xxx").
-func startDockerMinioOrSkip(t *testing.T) string {
+func startDockerMinioOrSkip(t *testing.T, minioConfigDir string) string {
 	t.Helper()
 
 	testutil.TestSkipOnCIUnlessLinuxAMD64(t)
@@ -77,6 +80,7 @@ func startDockerMinioOrSkip(t *testing.T) string {
 		"-e", "MINIO_ROOT_USER="+minioRootAccessKeyID,
 		"-e", "MINIO_ROOT_PASSWORD="+minioRootSecretAccessKey,
 		"-e", "MINIO_REGION_NAME="+minioRegion,
+		"-v", minioConfigDir+":/root/.minio",
 		"-d", "minio/minio", "server", "/data")
 	endpoint := testutil.GetContainerMappedPortAddress(t, containerID, "9000")
 
@@ -258,7 +262,7 @@ func TestS3StorageMinio(t *testing.T) {
 	t.Parallel()
 	testutil.ProviderTest(t)
 
-	minioEndpoint := startDockerMinioOrSkip(t)
+	minioEndpoint := startDockerMinioOrSkip(t, testutil.TempDirectory(t))
 
 	options := &Options{
 		Endpoint:        minioEndpoint,
@@ -273,11 +277,46 @@ func TestS3StorageMinio(t *testing.T) {
 	testStorage(t, options, true, blob.PutOptions{})
 }
 
+func TestS3StorageMinioSelfSignedCert(t *testing.T) {
+	t.Parallel()
+	testutil.ProviderTest(t)
+
+	ctx := testlogging.Context(t)
+	minioConfigDir := testutil.TempDirectory(t)
+	certsDir := filepath.Join(minioConfigDir, "certs")
+	require.NoError(t, os.MkdirAll(certsDir, 0o755))
+
+	cert, key, err := tlsutil.GenerateServerCertificate(
+		ctx,
+		2048,
+		24*time.Hour,
+		[]string{"myhost"})
+
+	require.NoError(t, err)
+
+	require.NoError(t, tlsutil.WriteCertificateToFile(filepath.Join(certsDir, "public.crt"), cert))
+	require.NoError(t, tlsutil.WritePrivateKeyToFile(filepath.Join(certsDir, "private.key"), key))
+
+	minioEndpoint := startDockerMinioOrSkip(t, minioConfigDir)
+
+	options := &Options{
+		Endpoint:        minioEndpoint,
+		AccessKeyID:     minioRootAccessKeyID,
+		SecretAccessKey: minioRootSecretAccessKey,
+		BucketName:      minioBucketName,
+		Region:          minioRegion,
+		DoNotVerifyTLS:  true,
+	}
+
+	createBucket(t, options)
+	testStorage(t, options, true, blob.PutOptions{})
+}
+
 func TestInvalidCredsFailsFast(t *testing.T) {
 	t.Parallel()
 	testutil.ProviderTest(t)
 
-	minioEndpoint := startDockerMinioOrSkip(t)
+	minioEndpoint := startDockerMinioOrSkip(t, testutil.TempDirectory(t))
 
 	ctx := testlogging.Context(t)
 
@@ -304,7 +343,7 @@ func TestS3StorageMinioSTS(t *testing.T) {
 	t.Parallel()
 	testutil.ProviderTest(t)
 
-	minioEndpoint := startDockerMinioOrSkip(t)
+	minioEndpoint := startDockerMinioOrSkip(t, testutil.TempDirectory(t))
 
 	time.Sleep(2 * time.Second)
 
@@ -467,11 +506,18 @@ func testURL(t *testing.T, url string) {
 func createClient(tb testing.TB, opt *Options) *minio.Client {
 	tb.Helper()
 
+	var transport http.RoundTripper
+
+	if opt.DoNotVerifyTLS {
+		transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
+	}
+
 	minioClient, err := minio.New(opt.Endpoint,
 		&minio.Options{
-			Creds:  miniocreds.NewStaticV4(opt.AccessKeyID, opt.SecretAccessKey, ""),
-			Secure: !opt.DoNotUseTLS,
-			Region: opt.Region,
+			Creds:     miniocreds.NewStaticV4(opt.AccessKeyID, opt.SecretAccessKey, ""),
+			Secure:    !opt.DoNotUseTLS,
+			Region:    opt.Region,
+			Transport: transport,
 		})
 	if err != nil {
 		tb.Fatalf("can't initialize minio client: %v", err)
