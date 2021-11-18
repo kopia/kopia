@@ -39,10 +39,10 @@ func BytesStringBase2(b int64) string {
 	return toDecimalUnitString(float64(b), 1024.0, base2UnitPrefixes, "B")
 }
 
-// BitsPerSecondsString formats the given value bits per second with the appropriate suffix (Kbit/s, Mbit/s, Gbit/s, ...)
-func BitsPerSecondsString(bps float64) string {
+// BytesPerSecondsString formats the given value bytes per second with the appropriate base-10 suffix (KB/s, MB/s, GB/s, ...)
+func BytesPerSecondsString(bps float64) string {
 	// nolint:gomnd
-	return toDecimalUnitString(bps, 1000, base10UnitPrefixes, "bit/s")
+	return toDecimalUnitString(bps, 1000, base10UnitPrefixes, "B/s")
 }
 
 // Count returns the given number with the appropriate base-10 suffix (K, M, G, ...)
