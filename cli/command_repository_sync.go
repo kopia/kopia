@@ -246,7 +246,7 @@ func (c *commandRepositorySyncTo) runSyncBlobs(ctx context.Context, src blob.Rea
 
 				if est, ok := tt.Estimate(float64(bytesCopied), float64(totalBytes)); ok {
 					eta = fmt.Sprintf("%v (%v)", est.Remaining, formatTimestamp(est.EstimatedEndTime))
-					speed = units.BytesPerSecondsString(est.SpeedPerSecond) //nolint:gomnd
+					speed = units.BytesPerSecondsString(est.SpeedPerSecond)
 				}
 
 				c.outputSyncProgress(
