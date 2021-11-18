@@ -24,7 +24,7 @@ import (
 const (
 	restoreCommandHelp = `Restore a directory or a file.
 
-Restore can operate in two modes: 
+Restore can operate in two modes:
 
 * from a snapshot: restoring (possibly shallowly) a specified file or
 directory from a snapshot into a target path. By default, the target
@@ -33,7 +33,7 @@ path will be created by the restore command if it does not exist.
 * by expanding a shallow placeholder in situ where the placeholder was
 created by a previous restore.
 
-In the from-snapshot mode: 
+In the from-snapshot mode:
 
 The source to be restored is specified in the form of a directory or file ID and
 optionally a sub-directory path.
@@ -87,7 +87,6 @@ followed by the path of the directory for the contents to be restored.
 2. one or more placeholder files of the form path.kopia-entry
 `
 
-	bitsPerByte    = 8
 	unlimitedDepth = math.MaxInt32
 )
 
@@ -362,9 +361,8 @@ func (c *commandRestore) run(ctx context.Context, rep repo.Repository) error {
 				var maybeRemaining, maybeSkipped, maybeErrors string
 
 				if est, ok := eta.Estimate(float64(stats.RestoredTotalFileSize), float64(stats.EnqueuedTotalFileSize)); ok {
-					bitsPerSecond := est.SpeedPerSecond * float64(bitsPerByte)
 					maybeRemaining = fmt.Sprintf(" %v (%.1f%%) remaining %v",
-						units.BitsPerSecondsString(bitsPerSecond),
+						units.BytesPerSecondsString(est.SpeedPerSecond),
 						est.PercentComplete,
 						est.Remaining)
 				}
