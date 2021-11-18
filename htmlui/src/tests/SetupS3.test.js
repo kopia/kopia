@@ -16,7 +16,7 @@ it('can set fields', async () => {
   expect(ref.current.validate()).toBe(true);
   // optional
   toggleCheckbox(getByTestId("control-doNotUseTLS"));
-  toggleCheckbox(getByTestId("control-doNotValidateTLS"));
+  toggleCheckbox(getByTestId("control-doNotVerifyTLS"));
   changeControlValue(getByTestId("control-prefix"), "some-prefix");
   changeControlValue(getByTestId("control-sessionToken"), "some-sessionToken");
   changeControlValue(getByTestId("control-region"), "some-region");
@@ -29,13 +29,13 @@ it('can set fields', async () => {
     "prefix": "some-prefix",
     "region": "some-region",
     "doNotUseTLS": true,
-    "doNotValidateTLS": true,
+    "doNotVerifyTLS": true,
     "secretAccessKey": "some-secretAccessKey",
     "sessionToken": "some-sessionToken",
   });
   
   toggleCheckbox(getByTestId("control-doNotUseTLS"));
-  toggleCheckbox(getByTestId("control-doNotValidateTLS"));
+  toggleCheckbox(getByTestId("control-doNotVerifyTLS"));
   expect(ref.current.state.doNotUseTLS).toBe(false);
-  expect(ref.current.state.doNotValidateTLS).toBe(false);
+  expect(ref.current.state.doNotVerifyTLS).toBe(false);
 });
