@@ -236,26 +236,14 @@ func generateSubcommands(w io.Writer, dir, sectionTitle string, cmds []*kingpin.
 		}
 
 		if first {
-			sectionTitleCutoffIndex := len(sectionTitle)
-			if sectionTitle[sectionTitleCutoffIndex-1] == '.' {
-				sectionTitleCutoffIndex -= 1
-			}
-
-			fmt.Fprintf(w, "\n### %v\n\n", sectionTitle[:sectionTitleCutoffIndex])
+			fmt.Fprintf(w, "\n### %v\n\n", strings.TrimSuffix(sectionTitle, "."))
 
 			first = false
 		}
 
-		helpSummaryCutoffIndex := strings.Index(c.Help, "\n")
-		if helpSummaryCutoffIndex == -1 {
-			helpSummaryCutoffIndex = len(c.Help)
-		}
-		if c.Help[helpSummaryCutoffIndex-1] == '.' {
-			helpSummaryCutoffIndex -= 1
-		}
-
 		subcommandSlug := strings.Replace(c.FullCommand, " ", "-", -1)
-		helpSummary := c.Help[:helpSummaryCutoffIndex]
+		helpSummary := strings.SplitN(c.Help, "\n", 2)[0] // nolint:gomnd
+		helpSummary = strings.TrimSuffix(helpSummary, ".")
 		fmt.Fprintf(w, "* [`%v`](%v) - %v\n", c.FullCommand, subcommandSlug+"/", helpSummary)
 		generateSubcommandPage(filepath.Join(dir, subcommandSlug+".md"), c)
 	}
