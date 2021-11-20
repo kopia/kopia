@@ -41,8 +41,8 @@ const (
 )
 
 // nolint:thelper
-func startServer(ctx context.Context, t *testing.T) *repo.APIServerInfo {
-	_, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
+func startServer(t *testing.T, env *repotesting.Environment, tls bool) *repo.APIServerInfo {
+	ctx := testlogging.Context(t)
 
 	s, err := server.New(ctx, server.Options{
 		ConfigFile:      env.ConfigFile(),
@@ -67,18 +67,23 @@ func startServer(ctx context.Context, t *testing.T) *repo.APIServerInfo {
 		t.Fatal(err)
 	}
 
+	asi := &repo.APIServerInfo{}
+
 	hs := httptest.NewUnstartedServer(s.GRPCRouterHandler(s.APIHandlers(true)))
-	hs.EnableHTTP2 = true
-	hs.StartTLS()
+	if tls {
+		hs.EnableHTTP2 = true
+		hs.StartTLS()
+		serverHash := sha256.Sum256(hs.Certificate().Raw)
+		asi.BaseURL = hs.URL
+		asi.TrustedServerCertificateFingerprint = hex.EncodeToString(serverHash[:])
+	} else {
+		hs.Start()
+		asi.BaseURL = hs.URL
+	}
 
 	t.Cleanup(hs.Close)
 
-	serverHash := sha256.Sum256(hs.Certificate().Raw)
-
-	return &repo.APIServerInfo{
-		BaseURL:                             hs.URL,
-		TrustedServerCertificateFingerprint: hex.EncodeToString(serverHash[:]),
-	}
+	return asi
 }
 
 func TestServer_REST(t *testing.T) {
@@ -91,8 +96,8 @@ func TestServer_GRPC(t *testing.T) {
 
 // nolint:thelper
 func testServer(t *testing.T, disableGRPC bool) {
-	ctx := testlogging.ContextWithLevel(t, testlogging.LevelDebug)
-	apiServerInfo := startServer(ctx, t)
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
+	apiServerInfo := startServer(t, env, true)
 
 	apiServerInfo.DisableGRPC = disableGRPC
 
@@ -113,8 +118,8 @@ func testServer(t *testing.T, disableGRPC bool) {
 }
 
 func TestGPRServer_AuthenticationError(t *testing.T) {
-	ctx := testlogging.ContextWithLevel(t, testlogging.LevelDebug)
-	apiServerInfo := startServer(ctx, t)
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
+	apiServerInfo := startServer(t, env, true)
 
 	if _, err := repo.OpenGRPCAPIRepository(ctx, apiServerInfo, repo.ClientOptions{
 		Username: "bad-username",
@@ -125,8 +130,8 @@ func TestGPRServer_AuthenticationError(t *testing.T) {
 }
 
 func TestServerUIAccessDeniedToRemoteUser(t *testing.T) {
-	ctx := testlogging.ContextWithLevel(t, testlogging.LevelDebug)
-	si := startServer(ctx, t)
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
+	si := startServer(t, env, true)
 
 	remoteUserClient, err := apiclient.NewKopiaAPIClient(apiclient.Options{
 		BaseURL:                             si.BaseURL,

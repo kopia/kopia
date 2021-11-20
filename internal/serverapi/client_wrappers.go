@@ -2,6 +2,7 @@ package serverapi
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -11,6 +12,7 @@ import (
 	"github.com/kopia/kopia/repo/blob/throttling"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
+	"github.com/kopia/kopia/snapshot/policy"
 )
 
 // CreateSnapshotSource creates snapshot source with a given path.
@@ -141,6 +143,30 @@ func ListPolicies(ctx context.Context, c *apiclient.KopiaAPIClient, match *snaps
 	resp := &PoliciesResponse{}
 	if err := c.Get(ctx, "policies"+matchSourceParameters(match), nil, resp); err != nil {
 		return nil, errors.Wrap(err, "ListPolicies")
+	}
+
+	return resp, nil
+}
+
+func policyTargetURLParamters(si snapshot.SourceInfo) string {
+	return fmt.Sprintf("userName=%v&host=%v&path=%v", si.UserName, si.Host, si.Path)
+}
+
+// SetPolicy sets the policy.
+func SetPolicy(ctx context.Context, c *apiclient.KopiaAPIClient, si snapshot.SourceInfo, pol *policy.Policy) error {
+	resp := &Empty{}
+	if err := c.Put(ctx, "policy?"+policyTargetURLParamters(si), pol, resp); err != nil {
+		return errors.Wrap(err, "SetPolicy")
+	}
+
+	return nil
+}
+
+// ListTasks lists the tasks.
+func ListTasks(ctx context.Context, c *apiclient.KopiaAPIClient) (*TaskListResponse, error) {
+	resp := &TaskListResponse{}
+	if err := c.Get(ctx, "tasks", nil, resp); err != nil {
+		return nil, errors.Wrap(err, "ListTasks")
 	}
 
 	return resp, nil
