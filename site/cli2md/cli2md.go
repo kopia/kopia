@@ -236,13 +236,27 @@ func generateSubcommands(w io.Writer, dir, sectionTitle string, cmds []*kingpin.
 		}
 
 		if first {
-			fmt.Fprintf(w, "\n### %v\n\n", sectionTitle)
+			sectionTitleCutoffIndex := len(sectionTitle)
+			if sectionTitle[sectionTitleCutoffIndex-1] == '.' {
+				sectionTitleCutoffIndex -= 1
+			}
+
+			fmt.Fprintf(w, "\n### %v\n\n", sectionTitle[:sectionTitleCutoffIndex])
 
 			first = false
 		}
 
+		helpSummaryCutoffIndex := strings.Index(c.Help, "\n")
+		if helpSummaryCutoffIndex == -1 {
+			helpSummaryCutoffIndex = len(c.Help)
+		}
+		if c.Help[helpSummaryCutoffIndex-1] == '.' {
+			helpSummaryCutoffIndex -= 1
+		}
+
 		subcommandSlug := strings.Replace(c.FullCommand, " ", "-", -1)
-		fmt.Fprintf(w, "* [`%v`](%v) - %v\n", c.FullCommand, subcommandSlug+"/", c.Help)
+		helpSummary := c.Help[:helpSummaryCutoffIndex]
+		fmt.Fprintf(w, "* [`%v`](%v) - %v\n", c.FullCommand, subcommandSlug+"/", helpSummary)
 		generateSubcommandPage(filepath.Join(dir, subcommandSlug+".md"), c)
 	}
 }
@@ -259,6 +273,7 @@ func generateSubcommandPage(fname string, cmd *kingpin.CmdModel) {
 title: %q
 linkTitle: %q
 weight: 10
+toc_hide: true
 ---
 
 `, title, title)
