@@ -12,6 +12,7 @@ import (
 
 	"github.com/kylelemons/godebug/pretty"
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo"
@@ -47,39 +48,31 @@ func TestSnapshotCreate(t *testing.T) {
 	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir2, "--json"), &man1)
 	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir2, "--json"), &man2)
 
-	if man1.ID == "" {
-		t.Fatalf("missing root id")
-	}
-
-	if man2.ID == "" {
-		t.Fatalf("missing root id")
-	}
-
-	if man1.RootEntry.ObjectID == "" {
-		t.Fatalf("missing root id")
-	}
-
-	if man1.ID == man2.ID {
-		t.Fatalf("unexpectedly identical snapshot IDs: %v", man1.ID)
-	}
-
-	if man1.RootEntry.ObjectID != man2.RootEntry.ObjectID {
-		t.Fatalf("unexpected difference in root objects %v vs %v", man1.RootEntry.ObjectID, man2.RootEntry.ObjectID)
-	}
+	require.NotEmpty(t, man1.ID)
+	require.NotEmpty(t, man2.ID)
+	require.NotEmpty(t, man1.RootEntry.ObjectID)
+	require.NotEqual(t, man1.ID, man2.ID)
+	require.Equal(t, man1.RootEntry.ObjectID, man2.RootEntry.ObjectID)
 
 	var manifests []snapshot.Manifest
 
 	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "list", "-a", "--json"), &manifests)
+	require.Len(t, manifests, 6)
 
-	if got, want := len(manifests), 6; got != want {
-		t.Fatalf("unexpected number of snapshots %v want %v", got, want)
+	var manifests2 []snapshot.Manifest
+
+	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "list", "-a", "--json", "--max-results=1"), &manifests2)
+
+	uniqueSources := map[snapshot.SourceInfo]bool{}
+	for _, m := range manifests2 {
+		uniqueSources[m.Source] = true
 	}
+
+	// make sure we got one snapshot per source.
+	require.Len(t, manifests2, len(uniqueSources))
 
 	sources := clitestutil.ListSnapshotsAndExpectSuccess(t, e)
-	// will only list snapshots we created, not foo@foo
-	if got, want := len(sources), 3; got != want {
-		t.Errorf("unexpected number of sources: %v, want %v in %#v", got, want, sources)
-	}
+	require.Len(t, sources, 3)
 }
 
 func TestTagging(t *testing.T) {
