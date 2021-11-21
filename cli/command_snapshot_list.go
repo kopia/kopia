@@ -129,6 +129,12 @@ func (c *commandSnapshotList) run(ctx context.Context, rep repo.Repository) erro
 
 	if c.jo.jsonOutput {
 		for _, snapshotGroup := range snapshot.GroupBySource(manifests) {
+			snapshotGroup = snapshot.SortByTime(snapshotGroup, false)
+
+			if c.maxResultsPerPath > 0 && len(snapshotGroup) > c.maxResultsPerPath {
+				snapshotGroup = snapshotGroup[len(snapshotGroup)-c.maxResultsPerPath:]
+			}
+
 			for _, m := range snapshotGroup {
 				jl.emit(m)
 			}
