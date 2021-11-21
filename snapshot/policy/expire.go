@@ -61,11 +61,11 @@ func getExpiredSnapshotsForSource(ctx context.Context, rep repo.Repository, snap
 	var toDelete []*snapshot.Manifest
 
 	for _, s := range snapshots {
-		if len(s.RetentionReasons) == 0 {
+		if len(s.RetentionReasons) == 0 && len(s.Pins) == 0 {
 			log(ctx).Debugf("  deleting %v", s.StartTime)
 			toDelete = append(toDelete, s)
 		} else {
-			log(ctx).Debugf("  keeping %v reasons: [%v]", s.StartTime, strings.Join(s.RetentionReasons, ","))
+			log(ctx).Debugf("  keeping %v retention: [%v] pins: [%v]", s.StartTime, strings.Join(s.RetentionReasons, ","), strings.Join(s.Pins, ","))
 		}
 	}
 

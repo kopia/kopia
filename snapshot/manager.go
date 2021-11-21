@@ -228,6 +228,24 @@ func FindSnapshotsByRootObjectID(ctx context.Context, rep repo.Repository, rootI
 	return result, nil
 }
 
+// UpdateSnapshot updates the snapshot by saving the provided data and deleting old manifest ID.
+func UpdateSnapshot(ctx context.Context, rep repo.RepositoryWriter, m *Manifest) error {
+	oldID := m.ID
+
+	newID, err := SaveSnapshot(ctx, rep, m)
+	if err != nil {
+		return errors.Wrap(err, "error saving snapshot")
+	}
+
+	if oldID != newID {
+		if err := rep.DeleteManifest(ctx, oldID); err != nil {
+			return errors.Wrap(err, "error deleting old manifest")
+		}
+	}
+
+	return nil
+}
+
 func entryIDs(entries []*manifest.EntryMetadata) []manifest.ID {
 	var ids []manifest.ID
 	for _, e := range entries {
