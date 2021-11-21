@@ -312,6 +312,10 @@ func (c *commandSnapshotList) entryBits(ctx context.Context, m *snapshot.Manifes
 		}
 	}
 
+	if len(m.Pins) > 0 {
+		bits = append(bits, "pins:"+strings.Join(m.Pins, ","))
+	}
+
 	return bits, col
 }
 

@@ -38,6 +38,8 @@ type commandSnapshotCreate struct {
 	snapshotCreateCheckpointUploadLimitMB int64
 	snapshotCreateTags                    []string
 
+	pins []string
+
 	logDirDetail   int
 	logEntryDetail int
 
@@ -63,6 +65,7 @@ func (c *commandSnapshotCreate) setup(svc appServices, parent commandParent) {
 	cmd.Flag("force-disable-actions", "Disable snapshot actions even if globally enabled on this client").Hidden().BoolVar(&c.snapshotCreateForceDisableActions)
 	cmd.Flag("stdin-file", "File path to be used for stdin data snapshot.").StringVar(&c.snapshotCreateStdinFileName)
 	cmd.Flag("tags", "Tags applied on the snapshot. Must be provided in the <key>:<value> format.").StringsVar(&c.snapshotCreateTags)
+	cmd.Flag("pin", "Create a pinned snapshot that's will not expire automatically").StringsVar(&c.pins)
 
 	c.logDirDetail = -1
 	c.logEntryDetail = -1
@@ -287,6 +290,8 @@ func (c *commandSnapshotCreate) snapshotSingleSource(ctx context.Context, rep re
 
 	manifest.Description = c.snapshotCreateDescription
 	manifest.Tags = tags
+	manifest.UpdatePins(c.pins, nil)
+
 	startTimeOverride, _ := parseTimestamp(c.snapshotCreateStartTime)
 	endTimeOverride, _ := parseTimestamp(c.snapshotCreateEndTime)
 

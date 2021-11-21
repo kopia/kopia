@@ -31,6 +31,43 @@ type Manifest struct {
 	RetentionReasons []string `json:"-"`
 
 	Tags map[string]string `json:"tags,omitempty"`
+
+	// list of manually-defined pins which prevent the snapshot from being deleted.
+	Pins []string `json:"pins,omitempty"`
+}
+
+// UpdatePins updates pins in the provided manifest.
+func (m *Manifest) UpdatePins(add, remove []string) bool {
+	newPins := map[string]bool{}
+	changed := false
+
+	for _, r := range m.Pins {
+		newPins[r] = true
+	}
+
+	for _, r := range add {
+		if !newPins[r] {
+			newPins[r] = true
+			changed = true
+		}
+	}
+
+	for _, r := range remove {
+		if newPins[r] {
+			delete(newPins, r)
+
+			changed = true
+		}
+	}
+
+	m.Pins = nil
+	for r := range newPins {
+		m.Pins = append(m.Pins, r)
+	}
+
+	sort.Strings(m.Pins)
+
+	return changed
 }
 
 // EntryType is a type of a filesystem entry.

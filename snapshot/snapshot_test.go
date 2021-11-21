@@ -8,6 +8,8 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/kopia/kopia/internal/repotesting"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo"
@@ -76,6 +78,15 @@ func TestSnapshotsAPI(t *testing.T) {
 	verifySnapshotManifestIDs(t, env.RepositoryWriter, &src2, []manifest.ID{id3})
 	verifySources(t, env.RepositoryWriter, src1, src2)
 	verifyLoadSnapshots(t, env.RepositoryWriter, []manifest.ID{id1, id2, id3}, []*snapshot.Manifest{manifest1, manifest2, manifest3})
+
+	require.True(t, manifest3.UpdatePins([]string{"new-pin"}, nil))
+	require.NoError(t, snapshot.UpdateSnapshot(ctx, env.RepositoryWriter, manifest3))
+
+	require.NotEqual(t, manifest3.ID, id3)
+
+	updated3, err := snapshot.LoadSnapshot(ctx, env.RepositoryWriter, manifest3.ID)
+	require.NoError(t, err)
+	require.Equal(t, updated3, manifest3)
 }
 
 func verifySnapshotManifestIDs(t *testing.T, rep repo.Repository, src *snapshot.SourceInfo, expected []manifest.ID) {
@@ -248,4 +259,16 @@ func TestParseInvalidSourceInfo(t *testing.T) {
 			t.Errorf("unexpected success when parsing %v: %v", tc, si)
 		}
 	}
+}
+
+func TestUpdatePins(t *testing.T) {
+	m := snapshot.Manifest{}
+
+	require.True(t, m.UpdatePins([]string{"d", "c", "b"}, nil))
+	require.False(t, m.UpdatePins([]string{"d", "c", "b"}, nil))
+	require.Equal(t, []string{"b", "c", "d"}, m.Pins) // pins are sorted
+
+	require.True(t, m.UpdatePins([]string{"e", "a"}, []string{"c"}))
+	require.False(t, m.UpdatePins([]string{"e", "a"}, []string{"c"}))
+	require.Equal(t, []string{"a", "b", "d", "e"}, m.Pins)
 }
