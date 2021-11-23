@@ -18,12 +18,28 @@ body {
   font-weight: bold;
 }
 
-.form-label {
-  padding-top: 5px;
+.label-help {
+  padding-top: 4px;
+  padding-bottom: 8px;
+  color: #666;
+  font-size: 90%;
 }
 
 .required {
   font-weight: bold;
+}
+
+.policyFieldColumn {
+  margin-top: 4px;
+}
+
+.policyValue {
+  margin-bottom: 4px;
+}
+
+.policyField {
+  font-weight: bold;
+  color:#004;
 }
 
 .providerParams {
@@ -52,16 +68,8 @@ body {
   margin-bottom: 10px;
 }
 
-.padded {
-  padding: 10px;
-}
-
-.padded-top {
-  padding-top: 10px;
-}
-
 .debug-json {
-  font-size: 60%;
+  font-size: 80%;
 }
 
 .error {
@@ -74,6 +82,17 @@ body {
 
 .hidden {
   display: none;
+}
+
+.accordion-button {
+  padding: 10px;
+  font-weight: bold;
+}
+
+.accordion-button.collapsed {
+  padding: 10px;
+  font-weight: bold;
+  background-color: #f8f8ff;
 }
 
 div.tab-body {
