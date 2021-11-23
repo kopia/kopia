@@ -320,7 +320,7 @@ func write(targetPath string, r fs.Reader) error {
 	}
 
 	if err := f.Close(); err != nil {
-		return errors.Wrap(err, "can't close tempfile "+name)
+		return err
 	}
 
 	return nil
