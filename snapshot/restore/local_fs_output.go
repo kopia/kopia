@@ -91,11 +91,11 @@ func (o *FilesystemOutput) Close(ctx context.Context) error {
 }
 
 // WriteFile implements restore.Output interface.
-func (o *FilesystemOutput) WriteFile(ctx context.Context, relativePath string, f fs.File) error {
+func (o *FilesystemOutput) WriteFile(ctx context.Context, relativePath string, f fs.File, ensureFileIsWrittenAtomic bool) error {
 	log(ctx).Debugf("WriteFile %v (%v bytes) %v, %v", filepath.Join(o.TargetPath, relativePath), f.Size(), f.Mode(), f.ModTime())
 	path := filepath.Join(o.TargetPath, filepath.FromSlash(relativePath))
 
-	if err := o.copyFileContent(ctx, path, f); err != nil {
+	if err := o.copyFileContent(ctx, path, f, ensureFileIsWrittenAtomic); err != nil {
 		return errors.Wrap(err, "error creating file")
 	}
 
@@ -299,7 +299,30 @@ func (o *FilesystemOutput) createDirectory(ctx context.Context, path string) err
 	}
 }
 
-func (o *FilesystemOutput) copyFileContent(ctx context.Context, targetPath string, f fs.File) error {
+func write(targetPath string, r fs.Reader) error {
+	f, err := os.Create(targetPath)
+	if err != nil {
+		return errors.Errorf("unable to create file %q: %v", targetPath, err)
+	}
+
+	// ensure we always close f. Note that this does not conflict with  the
+	// close below, as close is idempotent.
+	defer f.Close()
+
+	name := f.Name()
+
+	if _, err := io.Copy(f, r); err != nil {
+		return errors.Errorf("cannot write data to file %q: %v", name, err)
+	}
+
+	if err := f.Close(); err != nil {
+		return errors.Errorf("can't close tempfile %q: %v", name, err)
+	}
+
+	return nil
+}
+
+func (o *FilesystemOutput) copyFileContent(ctx context.Context, targetPath string, f fs.File, ensureFileIsWrittenAtomic bool) error {
 	switch _, err := os.Stat(targetPath); {
 	case os.IsNotExist(err): // copy file below
 	case err == nil:
@@ -320,8 +343,12 @@ func (o *FilesystemOutput) copyFileContent(ctx context.Context, targetPath strin
 
 	log(ctx).Debugf("copying file contents to: %v", targetPath)
 
-	// nolint:wrapcheck
-	return atomicfile.Write(targetPath, r)
+	if ensureFileIsWrittenAtomic {
+		// nolint:wrapcheck
+		return atomicfile.Write(targetPath, r)
+	} else {
+		return write(targetPath, r)
+	}
 }
 
 func isEmptyDirectory(name string) (bool, error) {

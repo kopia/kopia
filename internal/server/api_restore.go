@@ -103,7 +103,7 @@ func (s *Server) handleRestore(ctx context.Context, r *http.Request, body []byte
 			close(opt.Cancel)
 		})
 
-		st, err := restore.Entry(ctx, rep, out, rootEntry, opt)
+		st, err := restore.Entry(ctx, rep, out, rootEntry, opt, false)
 		if err == nil {
 			ctrl.ReportCounters(restoreCounters(st))
 		}

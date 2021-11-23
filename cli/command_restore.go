@@ -382,7 +382,7 @@ func (c *commandRestore) run(ctx context.Context, rep repo.Repository) error {
 					maybeErrors,
 					maybeRemaining)
 			},
-		})
+		}, false)
 		if err != nil {
 			return errors.Wrap(err, "error restoring")
 		}

@@ -23,7 +23,7 @@ type Output interface {
 	BeginDirectory(ctx context.Context, relativePath string, e fs.Directory) error
 	WriteDirEntry(ctx context.Context, relativePath string, de *snapshot.DirEntry, e fs.Directory) error
 	FinishDirectory(ctx context.Context, relativePath string, e fs.Directory) error
-	WriteFile(ctx context.Context, relativePath string, e fs.File) error
+	WriteFile(ctx context.Context, relativePath string, e fs.File, ensureFileIsWrittenAtomic bool) error
 	FileExists(ctx context.Context, relativePath string, e fs.File) bool
 	CreateSymlink(ctx context.Context, relativePath string, e fs.Symlink) error
 	SymlinkExists(ctx context.Context, relativePath string, e fs.Symlink) bool
@@ -78,7 +78,7 @@ type Options struct {
 }
 
 // Entry walks a snapshot root with given root entry and restores it to the provided output.
-func Entry(ctx context.Context, rep repo.Repository, output Output, rootEntry fs.Entry, options Options) (Stats, error) {
+func Entry(ctx context.Context, rep repo.Repository, output Output, rootEntry fs.Entry, options Options, ensureFileIsWrittenAtomic bool) (Stats, error) {
 	c := copier{
 		output:        output,
 		shallowoutput: makeShallowFilesystemOutput(output, options),
@@ -98,7 +98,7 @@ func Entry(ctx context.Context, rep repo.Repository, output Output, rootEntry fs
 	currentdepth := int32(0)
 
 	c.q.EnqueueFront(ctx, func() error {
-		return errors.Wrap(c.copyEntry(ctx, rootEntry, "", currentdepth, options.RestoreDirEntryAtDepth, func() error { return nil }), "error copying")
+		return errors.Wrap(c.copyEntry(ctx, rootEntry, "", currentdepth, options.RestoreDirEntryAtDepth, func() error { return nil }, ensureFileIsWrittenAtomic), "error copying")
 	})
 
 	numWorkers := options.Parallel
@@ -131,7 +131,7 @@ type copier struct {
 	cancel        chan struct{}
 }
 
-func (c *copier) copyEntry(ctx context.Context, e fs.Entry, targetPath string, currentdepth, maxdepth int32, onCompletion func() error) error {
+func (c *copier) copyEntry(ctx context.Context, e fs.Entry, targetPath string, currentdepth, maxdepth int32, onCompletion func() error, ensureFileIsWrittenAtomic bool) error {
 	if c.cancel != nil {
 		select {
 		case <-c.cancel:
@@ -163,7 +163,7 @@ func (c *copier) copyEntry(ctx context.Context, e fs.Entry, targetPath string, c
 		}
 	}
 
-	err := c.copyEntryInternal(ctx, e, targetPath, currentdepth, maxdepth, onCompletion)
+	err := c.copyEntryInternal(ctx, e, targetPath, currentdepth, maxdepth, onCompletion, ensureFileIsWrittenAtomic)
 	if err == nil {
 		return nil
 	}
@@ -178,11 +178,11 @@ func (c *copier) copyEntry(ctx context.Context, e fs.Entry, targetPath string, c
 	return err
 }
 
-func (c *copier) copyEntryInternal(ctx context.Context, e fs.Entry, targetPath string, currentdepth, maxdepth int32, onCompletion func() error) error {
+func (c *copier) copyEntryInternal(ctx context.Context, e fs.Entry, targetPath string, currentdepth, maxdepth int32, onCompletion func() error, ensureFileIsWrittenAtomic bool) error {
 	switch e := e.(type) {
 	case fs.Directory:
 		log(ctx).Debugf("dir: '%v'", targetPath)
-		return c.copyDirectory(ctx, e, targetPath, currentdepth, maxdepth, onCompletion)
+		return c.copyDirectory(ctx, e, targetPath, currentdepth, maxdepth, onCompletion, ensureFileIsWrittenAtomic)
 	case fs.File:
 		log(ctx).Debugf("file: '%v'", targetPath)
 
@@ -190,11 +190,11 @@ func (c *copier) copyEntryInternal(ctx context.Context, e fs.Entry, targetPath s
 		atomic.AddInt64(&c.stats.RestoredTotalFileSize, e.Size())
 
 		if currentdepth > maxdepth {
-			if err := c.shallowoutput.WriteFile(ctx, targetPath, e); err != nil {
+			if err := c.shallowoutput.WriteFile(ctx, targetPath, e, ensureFileIsWrittenAtomic); err != nil {
 				return errors.Wrap(err, "copy file")
 			}
 		} else {
-			if err := c.output.WriteFile(ctx, targetPath, e); err != nil {
+			if err := c.output.WriteFile(ctx, targetPath, e, ensureFileIsWrittenAtomic); err != nil {
 				return errors.Wrap(err, "copy file")
 			}
 		}
@@ -216,7 +216,7 @@ func (c *copier) copyEntryInternal(ctx context.Context, e fs.Entry, targetPath s
 	}
 }
 
-func (c *copier) copyDirectory(ctx context.Context, d fs.Directory, targetPath string, currentdepth, maxdepth int32, onCompletion parallelwork.CallbackFunc) error {
+func (c *copier) copyDirectory(ctx context.Context, d fs.Directory, targetPath string, currentdepth, maxdepth int32, onCompletion parallelwork.CallbackFunc, ensureFileIsWrittenAtomic bool) error {
 	atomic.AddInt32(&c.stats.RestoredDirCount, 1)
 
 	if SafelySuffixablePath(targetPath) && currentdepth > maxdepth {
@@ -242,10 +242,10 @@ func (c *copier) copyDirectory(ctx context.Context, d fs.Directory, targetPath s
 		}
 
 		return onCompletion()
-	}), "copy directory contents")
+	}, ensureFileIsWrittenAtomic), "copy directory contents")
 }
 
-func (c *copier) copyDirectoryContent(ctx context.Context, d fs.Directory, targetPath string, currentdepth, maxdepth int32, onCompletion parallelwork.CallbackFunc) error {
+func (c *copier) copyDirectoryContent(ctx context.Context, d fs.Directory, targetPath string, currentdepth, maxdepth int32, onCompletion parallelwork.CallbackFunc, ensureFileIsWrittenAtomic bool) error {
 	entries, err := d.Readdir(ctx)
 	if err != nil {
 		return errors.Wrap(err, "error reading directory")
@@ -264,7 +264,7 @@ func (c *copier) copyDirectoryContent(ctx context.Context, d fs.Directory, targe
 			atomic.AddInt32(&c.stats.EnqueuedDirCount, 1)
 			// enqueue directories first, so that we quickly determine the total number and size of items.
 			c.q.EnqueueFront(ctx, func() error {
-				return c.copyEntry(ctx, e, path.Join(targetPath, e.Name()), currentdepth, maxdepth, onItemCompletion)
+				return c.copyEntry(ctx, e, path.Join(targetPath, e.Name()), currentdepth, maxdepth, onItemCompletion, ensureFileIsWrittenAtomic)
 			})
 		} else {
 			if isSymlink(e) {
@@ -276,7 +276,7 @@ func (c *copier) copyDirectoryContent(ctx context.Context, d fs.Directory, targe
 			atomic.AddInt64(&c.stats.EnqueuedTotalFileSize, e.Size())
 
 			c.q.EnqueueBack(ctx, func() error {
-				return c.copyEntry(ctx, e, path.Join(targetPath, e.Name()), currentdepth, maxdepth, onItemCompletion)
+				return c.copyEntry(ctx, e, path.Join(targetPath, e.Name()), currentdepth, maxdepth, onItemCompletion, ensureFileIsWrittenAtomic)
 			})
 		}
 	}
