@@ -14,6 +14,7 @@ import (
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/internal/atomicfile"
+	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/snapshot"
 )
 
@@ -43,6 +44,9 @@ type FilesystemOutput struct {
 
 	// IgnorePermissionErrors causes restore to ignore errors due to invalid permissions.
 	IgnorePermissionErrors bool `json:"ignorePermissionErrors"`
+
+	// When set to true, first write to a temp file and rename it, to ensure there are no partially written files in case of a crash.
+	WriteFilesAtomically bool `json:"writeFilesAtomically"`
 
 	// SkipOwners when set to true causes restore to skip restoring owner information.
 	SkipOwners bool `json:"skipOwners"`
@@ -91,11 +95,11 @@ func (o *FilesystemOutput) Close(ctx context.Context) error {
 }
 
 // WriteFile implements restore.Output interface.
-func (o *FilesystemOutput) WriteFile(ctx context.Context, relativePath string, f fs.File, ensureFileIsWrittenAtomic bool) error {
+func (o *FilesystemOutput) WriteFile(ctx context.Context, relativePath string, f fs.File) error {
 	log(ctx).Debugf("WriteFile %v (%v bytes) %v, %v", filepath.Join(o.TargetPath, relativePath), f.Size(), f.Mode(), f.ModTime())
 	path := filepath.Join(o.TargetPath, filepath.FromSlash(relativePath))
 
-	if err := o.copyFileContent(ctx, path, f, ensureFileIsWrittenAtomic); err != nil {
+	if err := o.copyFileContent(ctx, path, f); err != nil {
 		return errors.Wrap(err, "error creating file")
 	}
 
@@ -302,16 +306,16 @@ func (o *FilesystemOutput) createDirectory(ctx context.Context, path string) err
 func write(targetPath string, r fs.Reader) error {
 	f, err := os.Create(targetPath)
 	if err != nil {
-		return errors.Errorf("unable to create file %q: %v", targetPath, err)
+		return err
 	}
 
-	// ensure we always close f. Note that this does not conflict with  the
+	// ensure we always close f. Note that this does not conflict with the
 	// close below, as close is idempotent.
 	defer f.Close()
 
 	name := f.Name()
 
-	if _, err := io.Copy(f, r); err != nil {
+	if err := iocopy.JustCopy(f, r); err != nil {
 		return errors.Errorf("cannot write data to file %q: %v", name, err)
 	}
 
@@ -322,7 +326,7 @@ func write(targetPath string, r fs.Reader) error {
 	return nil
 }
 
-func (o *FilesystemOutput) copyFileContent(ctx context.Context, targetPath string, f fs.File, ensureFileIsWrittenAtomic bool) error {
+func (o *FilesystemOutput) copyFileContent(ctx context.Context, targetPath string, f fs.File) error {
 	switch _, err := os.Stat(targetPath); {
 	case os.IsNotExist(err): // copy file below
 	case err == nil:
@@ -343,12 +347,11 @@ func (o *FilesystemOutput) copyFileContent(ctx context.Context, targetPath strin
 
 	log(ctx).Debugf("copying file contents to: %v", targetPath)
 
-	if ensureFileIsWrittenAtomic {
+	if o.WriteFilesAtomically {
 		// nolint:wrapcheck
 		return atomicfile.Write(targetPath, r)
-	} else {
-		return write(atomicfile.MaybePrefixLongFilenameOnWindows(targetPath), r)
 	}
+	return write(atomicfile.MaybePrefixLongFilenameOnWindows(targetPath), r)
 }
 
 func isEmptyDirectory(name string) (bool, error) {
