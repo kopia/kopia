@@ -38,7 +38,7 @@ $ gcloud auth application-default login
 After these preparations we can create Kopia repository (assuming bucket named `kopia-test-123`):
 
 ```shell
-$ kopia repository create google --bucket kopia-test-123
+$ kopia repository create gcs --bucket kopia-test-123
 ```
 
 At this point we should be able to confirm that Kopia has created the skeleton of the repository with 3
@@ -56,7 +56,7 @@ gs://kopia-test-123/p78e034ac8b891168df97f9897d7ec316
 To connect to a repository that already exists, simply use `kopia repository connect` instead of `kopia repository create`. You can connect as many computers as you like to any repository, even simultaneously.
 
 ```shell
-$ kopia repository connect google --bucket kopia-test-123
+$ kopia repository connect gcs --bucket kopia-test-123
 ```
 
 [Detailed information and settings](/docs/reference/command-line/common/repository-connect-filesystem/)
