@@ -1,12 +1,12 @@
 import axios from 'axios';
 import React, { Component } from 'react';
-import Badge from 'react-bootstrap-v5/lib/Badge';
-import Button from 'react-bootstrap-v5/lib/Button';
-import Col from 'react-bootstrap-v5/lib/Col';
-import Row from 'react-bootstrap-v5/lib/Row';
-import Form from 'react-bootstrap-v5/lib/Form';
-import InputGroup from 'react-bootstrap-v5/lib/InputGroup';
-import Spinner from 'react-bootstrap-v5/lib/Spinner';
+import Badge from 'react-bootstrap/Badge';
+import Button from 'react-bootstrap/Button';
+import Col from 'react-bootstrap/Col';
+import Row from 'react-bootstrap/Row';
+import Form from 'react-bootstrap/Form';
+import InputGroup from 'react-bootstrap/InputGroup';
+import Spinner from 'react-bootstrap/Spinner';
 import { handleChange } from './forms';
 import { SetupRepository } from './SetupRepository';
 

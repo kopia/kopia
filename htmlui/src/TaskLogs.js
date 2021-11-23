@@ -1,7 +1,7 @@
 
 import axios from 'axios';
 import React, { Component } from 'react';
-import Table from 'react-bootstrap-v5/lib/Table';
+import Table from 'react-bootstrap/Table';
 import { handleChange } from './forms';
 import { redirectIfNotConnected } from './uiutil';
 
