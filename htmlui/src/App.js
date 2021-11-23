@@ -1,9 +1,9 @@
 import axios from 'axios';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import React, { useEffect, useRef, useState } from 'react';
-import Container from 'react-bootstrap-v5/lib/Container';
-import Nav from 'react-bootstrap-v5/lib/Nav';
-import Navbar from 'react-bootstrap-v5/lib/Navbar';
+import Container from 'react-bootstrap/Container';
+import Nav from 'react-bootstrap/Nav';
+import Navbar from 'react-bootstrap/Navbar';
 import { BrowserRouter as Router, NavLink, Redirect, Route, Switch } from 'react-router-dom';
 import './App.css';
 import { BeginRestore } from './BeginRestore';

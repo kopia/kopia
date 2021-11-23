@@ -2,12 +2,12 @@ import { faAngleDoubleDown, faAngleDoubleUp } from '@fortawesome/free-solid-svg-
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import axios from 'axios';
 import React, { Component } from 'react';
-import Button from 'react-bootstrap-v5/lib/Button';
-import Col from 'react-bootstrap-v5/lib/Col';
-import Collapse from 'react-bootstrap-v5/lib/Collapse';
-import Form from 'react-bootstrap-v5/lib/Form';
-import Row from 'react-bootstrap-v5/lib/Row';
-import Spinner from 'react-bootstrap-v5/lib/Spinner';
+import Button from 'react-bootstrap/Button';
+import Col from 'react-bootstrap/Col';
+import Collapse from 'react-bootstrap/Collapse';
+import Form from 'react-bootstrap/Form';
+import Row from 'react-bootstrap/Row';
+import Spinner from 'react-bootstrap/Spinner';
 import { handleChange, RequiredBoolean, RequiredField, validateRequiredFields } from './forms';
 import { SetupAzure } from './SetupAzure';
 import { SetupB2 } from "./SetupB2";

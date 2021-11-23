@@ -2,10 +2,10 @@ import { faCopy } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import axios from 'axios';
 import React, { Component } from 'react';
-import Button from 'react-bootstrap-v5/lib/Button';
-import Row from 'react-bootstrap-v5/lib/Row';
-import Col from 'react-bootstrap-v5/lib/Col';
-import Spinner from 'react-bootstrap-v5/lib/Spinner';
+import Button from 'react-bootstrap/Button';
+import Row from 'react-bootstrap/Row';
+import Col from 'react-bootstrap/Col';
+import Spinner from 'react-bootstrap/Spinner';
 import { DirectoryItems } from "./DirectoryItems";
 import { GoBackButton } from './uiutil';
 

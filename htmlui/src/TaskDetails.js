@@ -3,13 +3,13 @@ import { faChevronCircleDown, faChevronCircleUp, faStopCircle } from '@fortaweso
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import axios from 'axios';
 import React, { Component } from 'react';
-import Alert from 'react-bootstrap-v5/lib/Alert';
-import Badge from 'react-bootstrap-v5/lib/Badge';
-import Button from 'react-bootstrap-v5/lib/Button';
-import Col from 'react-bootstrap-v5/lib/Col';
-import Form from 'react-bootstrap-v5/lib/Form';
-import Row from 'react-bootstrap-v5/lib/Row';
-import Spinner from 'react-bootstrap-v5/lib/Spinner';
+import Alert from 'react-bootstrap/Alert';
+import Badge from 'react-bootstrap/Badge';
+import Button from 'react-bootstrap/Button';
+import Col from 'react-bootstrap/Col';
+import Form from 'react-bootstrap/Form';
+import Row from 'react-bootstrap/Row';
+import Spinner from 'react-bootstrap/Spinner';
 import { TaskLogs } from './TaskLogs';
 import { cancelTask, formatDuration, GoBackButton, redirectIfNotConnected, sizeDisplayName } from './uiutil';
 

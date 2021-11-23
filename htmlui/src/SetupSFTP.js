@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import Row from 'react-bootstrap-v5/lib/Row';
+import Row from 'react-bootstrap/Row';
 import { handleChange, hasExactlyOneOf, OptionalField, OptionalNumberField, RequiredBoolean, RequiredField, validateRequiredFields } from './forms';
 
 export class SetupSFTP extends Component {
