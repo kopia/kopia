@@ -1,9 +1,9 @@
 import axios from 'axios';
 import React, { Component } from 'react';
-import Button from 'react-bootstrap-v5/lib/Button';
-import Form from 'react-bootstrap-v5/lib/Form';
-import Row from 'react-bootstrap-v5/lib/Row';
-import Col from 'react-bootstrap-v5/lib/Col';
+import Button from 'react-bootstrap/Button';
+import Form from 'react-bootstrap/Form';
+import Row from 'react-bootstrap/Row';
+import Col from 'react-bootstrap/Col';
 import { Link } from "react-router-dom";
 import { handleChange, RequiredBoolean, RequiredField, RequiredNumberField, validateRequiredFields } from './forms';
 import { errorAlert, GoBackButton } from './uiutil';

@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import Row from 'react-bootstrap-v5/lib/Row';
+import Row from 'react-bootstrap/Row';
 import { handleChange, OptionalField, RequiredField, validateRequiredFields } from './forms';
 
 export class SetupAzure extends Component {
