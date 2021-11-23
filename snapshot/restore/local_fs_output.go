@@ -347,7 +347,7 @@ func (o *FilesystemOutput) copyFileContent(ctx context.Context, targetPath strin
 		// nolint:wrapcheck
 		return atomicfile.Write(targetPath, r)
 	} else {
-		return write(targetPath, r)
+		return write(atomicfile.MaybePrefixLongFilenameOnWindows(targetPath), r)
 	}
 }
 
