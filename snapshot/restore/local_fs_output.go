@@ -316,11 +316,11 @@ func write(targetPath string, r fs.Reader) error {
 	name := f.Name()
 
 	if err := iocopy.JustCopy(f, r); err != nil {
-		return errors.Errorf("cannot write data to file %q: %v", name, err)
+		return errors.Wrap(err, "cannot write data to file %q "+name)
 	}
 
 	if err := f.Close(); err != nil {
-		return errors.Errorf("can't close tempfile %q: %v", name, err)
+		return errors.Wrap(err, "can't close tempfile "+name)
 	}
 
 	return nil
