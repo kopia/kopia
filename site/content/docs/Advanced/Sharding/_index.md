@@ -48,7 +48,7 @@ For small repositories, sharding may not be necessary and can be turned off.
 The layout is controlled by a ".shards" file located in every repository. It is a JSON file with the following structure:
 ```json
 {
-    "default": [3, 3],
+    "default": [2, 3],
     "maxNonShardedLength": 20,
     "overrides": [
         { "prefix": "p", "shards": [2, 2] },
@@ -56,17 +56,17 @@ The layout is controlled by a ".shards" file located in every repository. It is 
     ]
 }
 ```
-`default` is an integer array, that applies the sharding config to all non-overridden blobs. Each element in the array represents one level of directory, and the integer value specifies the length of the directory name. `[3, 3]` means "Take the first 6 characters of each blob hash, split into 3 and 3 as directory names, and put the remaining hash as filename". `[2, 2, 4]` for blob hash `abcdefghijklmn` will become `<repo_root>/ab/cd/efgh/ijklmn.f`.
+`default` is an integer array, that applies the sharding config to all non-overridden blobs. Each element in the array represents one level of directory, and the integer value specifies the length of the directory name. `[2, 3]` means "Take the first 5 characters of each blob hash, split into 2 and 3 as directory names, and put the remaining hash as filename". `[2, 2, 4]` for blob hash `abcdefghijklmn` will become `<repo_root>/ab/cd/efgh/ijklmn.f`.
 
 `maxNonShardedLength` makes blob hashes with length less than its value always unsharded. With value 20, it means if a blob hash is less or equal to 20, such as `e213ff706a0d404e8320`, the file is ignored by the sharding process.
 
 `overrides` is an array that allows user to customize the sharding config for specific prefix. Each entry contains an optional `prefix` for specifying [target blobs](/docs/advanced/storage-tiers/), and a required `shards` for specifying config.
 
-When choosing the number, the rule of thumb is that larger value leads to more directories in that level, assuming the blob hash is evenly distributed (as they statistically should converge to, ignoring those pre-defined prefixes). Therefore if user notices too many files exist in directories given a `[3, 3]` config, it might be good idea to change it to `[4, 4]`.
+When choosing the number, the rule of thumb is that larger value leads to more directories in that level, assuming the blob hash is evenly distributed (as they statistically should converge to, ignoring those pre-defined prefixes). Therefore if user notices too many files exist in directories given a `[2, 2]` config, it might be good idea to change it to `[3, 3]`. On the other hand, if too many directories are created, one should consider reducing the value.
 
 #### Use
 
-By default, new repositories are created with `"default": [3, 3]`. If this is undesirable, user can change it with [`blob shards modify`](/docs/reference/command-line/advanced/blob-shards-modify/) command. For example,
+New repositories are created with some shard config, whose default value may change between Kopia version. If the default is undesirable, user can change it with [`blob shards modify`](/docs/reference/command-line/advanced/blob-shards-modify/) command. For example,
 ```shell
 kopia blob shards modify --default-shards=0 --i-am-sure-kopia-is-not-running --path=<repo_root>
 ```
