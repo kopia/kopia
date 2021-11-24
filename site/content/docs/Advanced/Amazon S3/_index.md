@@ -26,7 +26,7 @@ An example `.storageconfig` looks like this:
 }
 ```
 
-The `blobOptions` array could have arbitrary number of objects. Each object contains an optional `prefix` for specifying [target blobs](/docs/advanced/storage-tiers/), and a required `storageClass` for specifying which storage class to use for those blobs. The list of available storage classes can be found [here](https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutObject.html#AmazonS3-PutObject-request-header-StorageClass).
+The `blobOptions` array could have arbitrary number of objects. Each entry contains an optional `prefix` for specifying [target blobs](/docs/advanced/storage-tiers/), and a required `storageClass` for specifying which storage class to use for those blobs. The list of available storage classes can be found [here](https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutObject.html#AmazonS3-PutObject-request-header-StorageClass). This structure is similar to the [.shards](/docs/advanced/sharding/#shards) `overrides` array.
 
 In this example, blobs with ID starting with "p", which store bulks of data, are stored in Intelligent-Tiering. "s" blobs, which store session data, are put in Reduced Redundancy Storage (RRS). The last option without `prefix` defines the storage class for all other types of blobs. Note that the `prefix` does not have to be single character.
 
