@@ -311,7 +311,7 @@ func write(targetPath string, r fs.Reader) error {
 
 	// ensure we always close f. Note that this does not conflict with the
 	// close below, as close is idempotent.
-	defer f.Close() //nolint:errcheck
+	defer f.Close() //nolint:errcheck,gosec
 
 	name := f.Name()
 
