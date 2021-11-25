@@ -306,12 +306,12 @@ func (o *FilesystemOutput) createDirectory(ctx context.Context, path string) err
 func write(targetPath string, r fs.Reader) error {
 	f, err := os.Create(targetPath)
 	if err != nil {
-		return err
+		return err //nolint:wrapcheck
 	}
 
 	// ensure we always close f. Note that this does not conflict with the
 	// close below, as close is idempotent.
-	defer f.Close()
+	defer f.Close() //nolint:errcheck
 
 	name := f.Name()
 
@@ -320,7 +320,7 @@ func write(targetPath string, r fs.Reader) error {
 	}
 
 	if err := f.Close(); err != nil {
-		return err
+		return err //nolint:wrapcheck
 	}
 
 	return nil
@@ -351,6 +351,7 @@ func (o *FilesystemOutput) copyFileContent(ctx context.Context, targetPath strin
 		// nolint:wrapcheck
 		return atomicfile.Write(targetPath, r)
 	}
+
 	return write(atomicfile.MaybePrefixLongFilenameOnWindows(targetPath), r)
 }
 
