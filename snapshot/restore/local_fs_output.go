@@ -315,6 +315,13 @@ func write(targetPath string, r fs.Reader) error {
 
 	name := f.Name()
 
+	// note: atomic.WriteFile uses os.CreateTemp internally, which sets the mode to 0600.
+	// we use os.Create, which sets the mode to 0666 instead.
+	// so manually reset it to 0600 here.
+	if err := os.Chmod(name, 0600); err != nil {
+		return err //nolint:wrapcheck
+	}
+
 	if err := iocopy.JustCopy(f, r); err != nil {
 		return errors.Wrap(err, "cannot write data to file %q "+name)
 	}
