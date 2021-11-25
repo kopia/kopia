@@ -304,7 +304,7 @@ func (o *FilesystemOutput) createDirectory(ctx context.Context, path string) err
 }
 
 func write(targetPath string, r fs.Reader) error {
-	f, err := os.Create(targetPath)
+	f, err := os.OpenFile(targetPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
 		return err //nolint:wrapcheck
 	}
@@ -314,13 +314,6 @@ func write(targetPath string, r fs.Reader) error {
 	defer f.Close() //nolint:errcheck,gosec
 
 	name := f.Name()
-
-	// note: atomic.WriteFile uses os.CreateTemp internally, which sets the mode to 0600.
-	// we use os.Create, which sets the mode to 0666 instead.
-	// so manually reset it to 0600 here.
-	if err := os.Chmod(name, 0600); err != nil {
-		return err //nolint:wrapcheck
-	}
 
 	if err := iocopy.JustCopy(f, r); err != nil {
 		return errors.Wrap(err, "cannot write data to file %q "+name)
