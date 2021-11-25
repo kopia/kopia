@@ -3,6 +3,8 @@ package policy
 import (
 	"reflect"
 	"testing"
+
+	"github.com/kopia/kopia/snapshot"
 )
 
 func TestErrorHandlingPolicyMerge(t *testing.T) {
@@ -130,7 +132,8 @@ func TestErrorHandlingPolicyMerge(t *testing.T) {
 			IgnoreFileErrors:      tt.fields.IgnoreFileErrors,
 			IgnoreDirectoryErrors: tt.fields.IgnoreDirectoryErrors,
 		}
-		p.Merge(tt.args.src)
+
+		p.Merge(tt.args.src, &ErrorHandlingPolicyDefinition{}, snapshot.SourceInfo{})
 
 		if !reflect.DeepEqual(*p, tt.expResult) {
 			t.Errorf("Policy after merge was not what was expected\n%v != %v", p, tt.expResult)

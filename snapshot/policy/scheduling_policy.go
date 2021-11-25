@@ -55,9 +55,17 @@ func SortAndDedupeTimesOfDay(tod []TimeOfDay) []TimeOfDay {
 
 // SchedulingPolicy describes policy for scheduling snapshots.
 type SchedulingPolicy struct {
-	IntervalSeconds int64       `json:"intervalSeconds,omitempty"`
-	TimesOfDay      []TimeOfDay `json:"timeOfDay,omitempty"`
-	Manual          bool        `json:"manual,omitempty"`
+	IntervalSeconds    int64       `json:"intervalSeconds,omitempty"`
+	TimesOfDay         []TimeOfDay `json:"timeOfDay,omitempty"`
+	NoParentTimesOfDay bool        `json:"noParentTimeOfDay,omitempty"`
+	Manual             bool        `json:"manual,omitempty"`
+}
+
+// SchedulingPolicyDefinition specifies which policy definition provided the value of a particular field.
+type SchedulingPolicyDefinition struct {
+	IntervalSeconds snapshot.SourceInfo `json:"intervalSeconds,omitempty"`
+	TimesOfDay      snapshot.SourceInfo `json:"timeOfDay,omitempty"`
+	Manual          snapshot.SourceInfo `json:"manual,omitempty"`
 }
 
 // Interval returns the snapshot interval or zero if not specified.
@@ -111,17 +119,23 @@ func (p *SchedulingPolicy) NextSnapshotTime(previousSnapshotTime, now time.Time)
 }
 
 // Merge applies default values from the provided policy.
-func (p *SchedulingPolicy) Merge(src SchedulingPolicy) {
-	if p.IntervalSeconds == 0 {
-		p.IntervalSeconds = src.IntervalSeconds
+func (p *SchedulingPolicy) Merge(src SchedulingPolicy, def *SchedulingPolicyDefinition, si snapshot.SourceInfo) {
+	mergeInt64(&p.IntervalSeconds, src.IntervalSeconds, &def.IntervalSeconds, si)
+
+	if len(src.TimesOfDay) > 0 {
+		def.TimesOfDay = si
+
+		if !p.NoParentTimesOfDay {
+			p.TimesOfDay = SortAndDedupeTimesOfDay(append(append([]TimeOfDay(nil), src.TimesOfDay...), p.TimesOfDay...))
+		}
 	}
 
-	p.TimesOfDay = SortAndDedupeTimesOfDay(
-		append(append([]TimeOfDay(nil), src.TimesOfDay...), p.TimesOfDay...))
-
-	if !p.Manual {
-		p.Manual = src.Manual
+	if src.NoParentTimesOfDay {
+		// prevent future merges
+		p.NoParentTimesOfDay = src.NoParentTimesOfDay
 	}
+
+	mergeBool(&p.Manual, src.Manual, &def.Manual, si)
 }
 
 // IsManualSnapshot returns the SchedulingPolicy manual value from the given policy tree.

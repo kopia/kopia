@@ -177,7 +177,7 @@ func (c *commandSnapshotList) outputManifestGroups(ctx context.Context, rep repo
 		separator = "\n"
 		anyOutput = true
 
-		pol, _, err := policy.GetEffectivePolicy(ctx, rep, src)
+		pol, _, _, err := policy.GetEffectivePolicy(ctx, rep, src)
 		if err != nil {
 			log(ctx).Errorf("unable to determine effective policy for %v", src)
 		} else {

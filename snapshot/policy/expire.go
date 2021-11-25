@@ -51,7 +51,7 @@ func getExpiredSnapshots(ctx context.Context, rep repo.Repository, snapshots []*
 func getExpiredSnapshotsForSource(ctx context.Context, rep repo.Repository, snapshots []*snapshot.Manifest) ([]*snapshot.Manifest, error) {
 	src := snapshots[0].Source
 
-	pol, _, err := GetEffectivePolicy(ctx, rep, src)
+	pol, _, _, err := GetEffectivePolicy(ctx, rep, src)
 	if err != nil {
 		return nil, err
 	}

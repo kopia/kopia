@@ -15,11 +15,3 @@ func (b *OptionalBool) OrDefault(def bool) bool {
 func newOptionalBool(b OptionalBool) *OptionalBool {
 	return &b
 }
-
-func mergeOptionalBool(target **OptionalBool, src *OptionalBool) {
-	if *target == nil && src != nil {
-		v := *src
-
-		*target = &v
-	}
-}

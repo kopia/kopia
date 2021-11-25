@@ -36,7 +36,7 @@ func (c *commandPolicyShow) run(ctx context.Context, rep repo.Repository) error 
 	}
 
 	for _, target := range targets {
-		effective, policies, err := policy.GetEffectivePolicy(ctx, rep, target)
+		effective, definition, _, err := policy.GetEffectivePolicy(ctx, rep, target)
 		if err != nil {
 			return errors.Wrapf(err, "can't get effective policy for %q", target)
 		}
@@ -44,204 +44,144 @@ func (c *commandPolicyShow) run(ctx context.Context, rep repo.Repository) error 
 		if c.jo.jsonOutput {
 			c.out.printStdout("%s\n", c.jo.jsonBytes(effective))
 		} else {
-			printPolicy(&c.out, effective, policies)
+			printPolicy(&c.out, effective, definition)
 		}
 	}
 
 	return nil
 }
 
-func getDefinitionPoint(target snapshot.SourceInfo, parents []*policy.Policy, match func(p *policy.Policy) bool) string {
-	for _, p := range parents {
-		if match(p) {
-			if p.Target() == target {
-				return "(defined for this target)"
-			}
-
-			return "inherited from " + p.Target().String()
-		}
-
-		if p.NoParent {
-			break
-		}
+func definitionPointToString(target, src snapshot.SourceInfo) string {
+	if src == target {
+		return "(defined for this target)"
 	}
 
-	return "(default)"
+	return "inherited from " + src.String()
 }
 
-func containsString(s []string, v string) bool {
-	for _, item := range s {
-		if item == v {
-			return true
-		}
-	}
-
-	return false
-}
-
-func printPolicy(out *textOutput, p *policy.Policy, parents []*policy.Policy) {
+func printPolicy(out *textOutput, p *policy.Policy, def *policy.Definition) {
 	out.printStdout("Policy for %v:\n\n", p.Target())
 
-	printRetentionPolicy(out, p, parents)
+	printRetentionPolicy(out, p, def)
 	out.printStdout("\n")
-	printFilesPolicy(out, p, parents)
+	printFilesPolicy(out, p, def)
 	out.printStdout("\n")
-	printErrorHandlingPolicy(out, p, parents)
+	printErrorHandlingPolicy(out, p, def)
 	out.printStdout("\n")
-	printSchedulingPolicy(out, p, parents)
+	printSchedulingPolicy(out, p, def)
 	out.printStdout("\n")
-	printCompressionPolicy(out, p, parents)
+	printCompressionPolicy(out, p, def)
 	out.printStdout("\n")
-	printActions(out, p, parents)
+	printActions(out, p, def)
 	out.printStdout("\n")
-	printLoggingPolicy(out, p, parents)
+	printLoggingPolicy(out, p, def)
 }
 
-func printRetentionPolicy(out *textOutput, p *policy.Policy, parents []*policy.Policy) {
+func printRetentionPolicy(out *textOutput, p *policy.Policy, def *policy.Definition) {
 	out.printStdout("Retention:\n")
 	out.printStdout("  Annual snapshots:  %3v           %v\n",
 		valueOrNotSet(p.RetentionPolicy.KeepAnnual),
-		getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
-			return pol.RetentionPolicy.KeepAnnual != nil
-		}))
+		definitionPointToString(p.Target(), def.RetentionPolicy.KeepAnnual))
 	out.printStdout("  Monthly snapshots: %3v           %v\n",
 		valueOrNotSet(p.RetentionPolicy.KeepMonthly),
-		getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
-			return pol.RetentionPolicy.KeepMonthly != nil
-		}))
+		definitionPointToString(p.Target(), def.RetentionPolicy.KeepMonthly))
 	out.printStdout("  Weekly snapshots:  %3v           %v\n",
 		valueOrNotSet(p.RetentionPolicy.KeepWeekly),
-		getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
-			return pol.RetentionPolicy.KeepWeekly != nil
-		}))
+		definitionPointToString(p.Target(), def.RetentionPolicy.KeepWeekly))
 	out.printStdout("  Daily snapshots:   %3v           %v\n",
 		valueOrNotSet(p.RetentionPolicy.KeepDaily),
-		getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
-			return pol.RetentionPolicy.KeepDaily != nil
-		}))
+		definitionPointToString(p.Target(), def.RetentionPolicy.KeepDaily))
 	out.printStdout("  Hourly snapshots:  %3v           %v\n",
 		valueOrNotSet(p.RetentionPolicy.KeepHourly),
-		getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
-			return pol.RetentionPolicy.KeepHourly != nil
-		}))
+		definitionPointToString(p.Target(), def.RetentionPolicy.KeepHourly))
 	out.printStdout("  Latest snapshots:  %3v           %v\n",
 		valueOrNotSet(p.RetentionPolicy.KeepLatest),
-		getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
-			return pol.RetentionPolicy.KeepLatest != nil
-		}))
+		definitionPointToString(p.Target(), def.RetentionPolicy.KeepLatest))
 }
 
-func printFilesPolicy(out *textOutput, p *policy.Policy, parents []*policy.Policy) {
+func printFilesPolicy(out *textOutput, p *policy.Policy, def *policy.Definition) {
 	out.printStdout("Files policy:\n")
 
 	out.printStdout("  Ignore cache directories:       %5v       %v\n",
 		p.FilesPolicy.IgnoreCacheDirectories.OrDefault(true),
-		getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
-			return pol.FilesPolicy.IgnoreCacheDirectories != nil
-		}))
+		definitionPointToString(p.Target(), def.FilesPolicy.IgnoreCacheDirectories))
 
 	if len(p.FilesPolicy.IgnoreRules) > 0 {
-		out.printStdout("  Ignore rules:\n")
+		out.printStdout("  Ignore rules:                               %v\n",
+			definitionPointToString(p.Target(), def.FilesPolicy.IgnoreRules))
 	} else {
 		out.printStdout("  No ignore rules.\n")
 	}
 
 	for _, rule := range p.FilesPolicy.IgnoreRules {
-		rule := rule
-		out.printStdout("    %-30v %v\n", rule, getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
-			return containsString(pol.FilesPolicy.IgnoreRules, rule)
-		}))
+		out.printStdout("    %-30v\n", rule)
 	}
 
 	if len(p.FilesPolicy.DotIgnoreFiles) > 0 {
-		out.printStdout("  Read ignore rules from files:\n")
+		out.printStdout("  Read ignore rules from files:               %v\n",
+			definitionPointToString(p.Target(), def.FilesPolicy.DotIgnoreFiles))
 	}
 
 	for _, dotFile := range p.FilesPolicy.DotIgnoreFiles {
-		dotFile := dotFile
-		out.printStdout("    %-30v %v\n", dotFile, getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
-			return containsString(pol.FilesPolicy.DotIgnoreFiles, dotFile)
-		}))
+		out.printStdout("    %-30v\n", dotFile)
 	}
 
 	if maxSize := p.FilesPolicy.MaxFileSize; maxSize > 0 {
 		out.printStdout("  Ignore files above: %10v  %v\n",
 			units.BytesStringBase2(maxSize),
-			getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
-				return pol.FilesPolicy.MaxFileSize != 0
-			}))
+			definitionPointToString(p.Target(), def.FilesPolicy.MaxFileSize))
 	}
 
 	out.printStdout("  Scan one filesystem only:       %5v       %v\n",
 		p.FilesPolicy.OneFileSystem.OrDefault(false),
-		getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
-			return pol.FilesPolicy.OneFileSystem != nil
-		}))
+		definitionPointToString(p.Target(), def.FilesPolicy.OneFileSystem))
 }
 
-func printErrorHandlingPolicy(out *textOutput, p *policy.Policy, parents []*policy.Policy) {
+func printErrorHandlingPolicy(out *textOutput, p *policy.Policy, def *policy.Definition) {
 	out.printStdout("Error handling policy:\n")
 
 	out.printStdout("  Ignore file read errors:       %5v       %v\n",
 		p.ErrorHandlingPolicy.IgnoreFileErrors.OrDefault(false),
-		getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
-			return pol.ErrorHandlingPolicy.IgnoreFileErrors != nil
-		}))
+		definitionPointToString(p.Target(), def.ErrorHandlingPolicy.IgnoreFileErrors))
 
 	out.printStdout("  Ignore directory read errors:  %5v       %v\n",
 		p.ErrorHandlingPolicy.IgnoreDirectoryErrors.OrDefault(false),
-		getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
-			return pol.ErrorHandlingPolicy.IgnoreDirectoryErrors != nil
-		}))
+		definitionPointToString(p.Target(), def.ErrorHandlingPolicy.IgnoreDirectoryErrors))
 
 	out.printStdout("  Ignore unknown types:          %5v       %v\n",
 		p.ErrorHandlingPolicy.IgnoreUnknownTypes.OrDefault(true),
-		getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
-			return pol.ErrorHandlingPolicy.IgnoreUnknownTypes != nil
-		}))
+		definitionPointToString(p.Target(), def.ErrorHandlingPolicy.IgnoreUnknownTypes))
 }
 
-func printLoggingPolicy(out *textOutput, p *policy.Policy, parents []*policy.Policy) {
+func printLoggingPolicy(out *textOutput, p *policy.Policy, def *policy.Definition) {
 	out.printStdout("Logging details (%v-none, %v-maximum):\n", policy.LogDetailNone, policy.LogDetailMax)
 
 	out.printStdout("  Directory snapshotted:  %5v       %v\n",
 		p.LoggingPolicy.Directories.Snapshotted.OrDefault(policy.LogDetailNone),
-		getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
-			return pol.LoggingPolicy.Directories.Snapshotted != nil
-		}))
+		definitionPointToString(p.Target(), def.LoggingPolicy.Directories.Snapshotted))
 
 	out.printStdout("  Directory ignored:      %5v       %v\n",
 		p.LoggingPolicy.Directories.Ignored.OrDefault(policy.LogDetailNone),
-		getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
-			return pol.LoggingPolicy.Directories.Ignored != nil
-		}))
+		definitionPointToString(p.Target(), def.LoggingPolicy.Directories.Ignored))
 
 	out.printStdout("  Entry snapshotted:      %5v       %v\n",
 		p.LoggingPolicy.Entries.Snapshotted.OrDefault(policy.LogDetailNone),
-		getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
-			return pol.LoggingPolicy.Entries.Snapshotted != nil
-		}))
+		definitionPointToString(p.Target(), def.LoggingPolicy.Entries.Snapshotted))
 
 	out.printStdout("  Entry ignored:          %5v       %v\n",
 		p.LoggingPolicy.Entries.Ignored.OrDefault(policy.LogDetailNone),
-		getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
-			return pol.LoggingPolicy.Entries.Ignored != nil
-		}))
+		definitionPointToString(p.Target(), def.LoggingPolicy.Entries.Ignored))
 
 	out.printStdout("  Entry cache hit         %5v       %v\n",
 		p.LoggingPolicy.Entries.CacheHit.OrDefault(policy.LogDetailNone),
-		getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
-			return pol.LoggingPolicy.Entries.CacheHit != nil
-		}))
+		definitionPointToString(p.Target(), def.LoggingPolicy.Entries.CacheHit))
 
 	out.printStdout("  Entry cache miss        %5v       %v\n",
 		p.LoggingPolicy.Entries.CacheMiss.OrDefault(policy.LogDetailNone),
-		getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
-			return pol.LoggingPolicy.Entries.CacheMiss != nil
-		}))
+		definitionPointToString(p.Target(), def.LoggingPolicy.Entries.CacheMiss))
 }
 
-func printSchedulingPolicy(out *textOutput, p *policy.Policy, parents []*policy.Policy) {
+func printSchedulingPolicy(out *textOutput, p *policy.Policy, def *policy.Definition) {
 	out.printStdout("Scheduling policy:\n")
 
 	any := false
@@ -249,27 +189,17 @@ func printSchedulingPolicy(out *textOutput, p *policy.Policy, parents []*policy.
 	out.printStdout("  Scheduled snapshots:\n")
 
 	if p.SchedulingPolicy.Interval() != 0 {
-		out.printStdout("    Snapshot interval:   %10v  %v\n", p.SchedulingPolicy.Interval(), getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
-			return pol.SchedulingPolicy.Interval() != 0
-		}))
+		out.printStdout("    Snapshot interval:   %10v  %v\n", p.SchedulingPolicy.Interval(),
+			definitionPointToString(p.Target(), def.SchedulingPolicy.IntervalSeconds))
 
 		any = true
 	}
 
 	if len(p.SchedulingPolicy.TimesOfDay) > 0 {
-		out.printStdout("    Snapshot times:\n")
+		out.printStdout("    Snapshot times: %v\n", definitionPointToString(p.Target(), def.SchedulingPolicy.TimesOfDay))
 
 		for _, tod := range p.SchedulingPolicy.TimesOfDay {
-			tod := tod
-			out.printStdout("      %9v                      %v\n", tod, getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
-				for _, t := range pol.SchedulingPolicy.TimesOfDay {
-					if t == tod {
-						return true
-					}
-				}
-
-				return false
-			}))
+			out.printStdout("      %9v\n", tod)
 		}
 
 		any = true
@@ -281,17 +211,14 @@ func printSchedulingPolicy(out *textOutput, p *policy.Policy, parents []*policy.
 
 	out.printStdout("  Manual snapshot:           %5v   %v\n",
 		p.SchedulingPolicy.Manual,
-		getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
-			return pol.SchedulingPolicy.Manual
-		}))
+		definitionPointToString(p.Target(), def.SchedulingPolicy.Manual))
 }
 
-func printCompressionPolicy(out *textOutput, p *policy.Policy, parents []*policy.Policy) {
+func printCompressionPolicy(out *textOutput, p *policy.Policy, def *policy.Definition) {
 	if p.CompressionPolicy.CompressorName != "" && p.CompressionPolicy.CompressorName != "none" {
 		out.printStdout("Compression:\n")
-		out.printStdout("  Compressor: %q %v\n", p.CompressionPolicy.CompressorName, getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
-			return pol.CompressionPolicy.CompressorName != ""
-		}))
+		out.printStdout("  Compressor: %q %v\n", p.CompressionPolicy.CompressorName,
+			definitionPointToString(p.Target(), def.CompressionPolicy.CompressorName))
 	} else {
 		out.printStdout("Compression disabled.\n")
 		return
@@ -299,23 +226,19 @@ func printCompressionPolicy(out *textOutput, p *policy.Policy, parents []*policy
 
 	switch {
 	case len(p.CompressionPolicy.OnlyCompress) > 0:
-		out.printStdout("  Only compress files with the following extensions:\n")
+		out.printStdout("  Only compress files with the following extensions: %v\n",
+			definitionPointToString(p.Target(), def.CompressionPolicy.OnlyCompress))
 
 		for _, rule := range p.CompressionPolicy.OnlyCompress {
-			rule := rule
-			out.printStdout("    %-30v %v\n", rule, getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
-				return containsString(pol.CompressionPolicy.OnlyCompress, rule)
-			}))
+			out.printStdout("    %-30v\n", rule)
 		}
 
 	case len(p.CompressionPolicy.NeverCompress) > 0:
-		out.printStdout("  Compress all files except the following extensions:\n")
+		out.printStdout("  Compress all files except the following extensions: %v\n",
+			definitionPointToString(p.Target(), def.CompressionPolicy.NeverCompress))
 
 		for _, rule := range p.CompressionPolicy.NeverCompress {
-			rule := rule
-			out.printStdout("    %-30v %v\n", rule, getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
-				return containsString(pol.CompressionPolicy.NeverCompress, rule)
-			}))
+			out.printStdout("    %-30v\n", rule)
 		}
 
 	default:
@@ -334,13 +257,12 @@ func printCompressionPolicy(out *textOutput, p *policy.Policy, parents []*policy
 	}
 }
 
-func printActions(out *textOutput, p *policy.Policy, parents []*policy.Policy) {
+func printActions(out *textOutput, p *policy.Policy, def *policy.Definition) {
 	var anyActions bool
 
 	if h := p.Actions.BeforeSnapshotRoot; h != nil {
-		out.printStdout("Run command before snapshot root:  %v\n", getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
-			return pol.Actions.BeforeSnapshotRoot == h
-		}))
+		out.printStdout("Run command before snapshot root:  %v\n",
+			definitionPointToString(p.Target(), def.Actions.BeforeSnapshotRoot))
 
 		printActionCommand(out, h)
 
@@ -348,9 +270,8 @@ func printActions(out *textOutput, p *policy.Policy, parents []*policy.Policy) {
 	}
 
 	if h := p.Actions.AfterSnapshotRoot; h != nil {
-		out.printStdout("Run command after snapshot root:   %v\n", getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
-			return pol.Actions.AfterSnapshotRoot == h
-		}))
+		out.printStdout("Run command after snapshot root:   %v\n",
+			definitionPointToString(p.Target(), def.Actions.AfterSnapshotRoot))
 		printActionCommand(out, h)
 
 		anyActions = true

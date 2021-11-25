@@ -1,5 +1,7 @@
 package policy
 
+import "github.com/kopia/kopia/snapshot"
+
 // ActionsPolicy describes actions to be invoked when taking snapshots.
 type ActionsPolicy struct {
 	// command runs once before and after the folder it's attached to (not inherited).
@@ -9,6 +11,12 @@ type ActionsPolicy struct {
 	// commands run once before and after each snapshot root (can be inherited).
 	BeforeSnapshotRoot *ActionCommand `json:"beforeSnapshotRoot,omitempty"`
 	AfterSnapshotRoot  *ActionCommand `json:"afterSnapshotRoot,omitempty"`
+}
+
+// ActionsPolicyDefinition specifies which policy definition provided the value of a particular field.
+type ActionsPolicyDefinition struct {
+	BeforeSnapshotRoot snapshot.SourceInfo `json:"beforeSnapshotRoot,omitempty"`
+	AfterSnapshotRoot  snapshot.SourceInfo `json:"afterSnapshotRoot,omitempty"`
 }
 
 // ActionCommand configures a action command.
@@ -25,14 +33,9 @@ type ActionCommand struct {
 }
 
 // Merge applies default values from the provided policy.
-func (p *ActionsPolicy) Merge(src ActionsPolicy) {
-	if p.BeforeSnapshotRoot == nil {
-		p.BeforeSnapshotRoot = src.BeforeSnapshotRoot
-	}
-
-	if p.AfterSnapshotRoot == nil {
-		p.AfterSnapshotRoot = src.AfterSnapshotRoot
-	}
+func (p *ActionsPolicy) Merge(src ActionsPolicy, def *ActionsPolicyDefinition, si snapshot.SourceInfo) {
+	mergeActionCommand(&p.BeforeSnapshotRoot, src.BeforeSnapshotRoot, &def.BeforeSnapshotRoot, si)
+	mergeActionCommand(&p.AfterSnapshotRoot, src.AfterSnapshotRoot, &def.AfterSnapshotRoot, si)
 }
 
 // MergeNonInheritable copies non-inheritable properties from the provided actions policy.
