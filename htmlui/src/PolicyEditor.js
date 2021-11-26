@@ -1,4 +1,4 @@
-import { faCalendarTimes, faChevronLeft, faClock, faExclamationTriangle, faFolderOpen, faMagic, faPuzzlePiece } from '@fortawesome/free-solid-svg-icons';
+import { faCalendarTimes, faChevronLeft, faClock, faExclamationTriangle, faFileAlt, faFileArchive, faFolderOpen, faMagic } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import axios from 'axios';
 import React, { Component } from 'react';
@@ -8,7 +8,7 @@ import Form from 'react-bootstrap/Form';
 import Row from 'react-bootstrap/Row';
 import Spinner from 'react-bootstrap/Spinner';
 import Accordion from 'react-bootstrap/Accordion';
-import { handleChange, OptionalBoolean, OptionalNumberField, RequiredBoolean, stateProperty, StringList, valueToNumber } from './forms';
+import { handleChange, LogDetailSelector, OptionalBoolean, OptionalNumberField, RequiredBoolean, stateProperty, StringList, valueToNumber } from './forms';
 import { errorAlert, sourceQueryStringParams } from './uiutil';
 
 function PolicyTypeName(s) {
@@ -260,12 +260,12 @@ export class PolicyEditor extends Component {
                         </Accordion.Body>
                     </Accordion.Item>
                     <Accordion.Item eventKey="compression">
-                        <Accordion.Header><FontAwesomeIcon icon={faPuzzlePiece} />&nbsp;Compression</Accordion.Header>
+                        <Accordion.Header><FontAwesomeIcon icon={faFileArchive} />&nbsp;Compression</Accordion.Header>
                         <Accordion.Body>
                             <Row>
                                 <LabelColumn name="Compression Algorithm" help="Specify compression algorithm to use when snapshotting files in this directory and subdirectories." />
                                 <WideValueColumn>
-                                    <Form.Control as="select"
+                                    <Form.Control as="select" size="sm"
                                         name="policy.compression.compressorName"
                                         onChange={this.handleChange}
                                         value={stateProperty(this, "policy.compression.compressorName")}>
@@ -302,7 +302,7 @@ export class PolicyEditor extends Component {
                             <Row>
                                 <LabelColumn name="Snapshot Frequency" help="How frequently to create snapshots in KopiaUI or kopia server. This option has no effect outside of the server mode." />
                                 <WideValueColumn>
-                                    <Form.Control as="select"
+                                    <Form.Control as="select" size="sm"
                                         name="policy.scheduling.intervalSeconds"
                                         onChange={e => this.handleChange(e, valueToNumber)}
                                         value={stateProperty(this, "policy.scheduling.intervalSeconds")}>
@@ -323,6 +323,47 @@ export class PolicyEditor extends Component {
                                 <ValueColumn>
                                     {OptionalBoolean(this, "", "policy.scheduling.manual", "inherit from parent")}
                                 </ValueColumn>
+                            </Row>
+                        </Accordion.Body>
+                    </Accordion.Item>
+                    <Accordion.Item eventKey="logging">
+                        <Accordion.Header><FontAwesomeIcon icon={faFileAlt} />&nbsp;Logging</Accordion.Header>
+                        <Accordion.Body>
+                            <Row>
+                                <LabelColumn name="Directory Snapshotted" help="Log verbosity when a directory is snapshotted." />
+                                <WideValueColumn>
+                                    {LogDetailSelector(this, "policy.logging.directories.snapshotted")}
+                                </WideValueColumn>
+                            </Row>
+                            <Row>
+                                <LabelColumn name="Directory Ignored" help="Log verbosity when a directory is ignored." />
+                                <WideValueColumn>
+                                    {LogDetailSelector(this, "policy.logging.directories.ignored")}
+                                </WideValueColumn>
+                            </Row>
+                            <Row>
+                                <LabelColumn name="File Snapshotted" help="Log verbosity when a file, symbolic link, etc. is snapshotted." />
+                                <WideValueColumn>
+                                    {LogDetailSelector(this, "policy.logging.entries.snapshotted")}
+                                </WideValueColumn>
+                            </Row>
+                            <Row>
+                                <LabelColumn name="File Ignored" help="Log verbosity when a file, symbolic link, etc. is ignored." />
+                                <WideValueColumn>
+                                    {LogDetailSelector(this, "policy.logging.entries.ignored")}
+                                </WideValueColumn>
+                            </Row>
+                            <Row>
+                                <LabelColumn name="Cache Hit" help="Log verbosity when an cache is used instead of uploading the file." />
+                                <WideValueColumn>
+                                    {LogDetailSelector(this, "policy.logging.entries.cacheHit")}
+                                </WideValueColumn>
+                            </Row>
+                            <Row>
+                                <LabelColumn name="Cache Miss" help="Log verbosity when an cache cannot be used and a file must be hashed." />
+                                <WideValueColumn>
+                                    {LogDetailSelector(this, "policy.logging.entries.cacheHit")}
+                                </WideValueColumn>
                             </Row>
                         </Accordion.Body>
                     </Accordion.Item>
