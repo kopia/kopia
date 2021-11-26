@@ -1,6 +1,9 @@
 import React from 'react';
 import Form from 'react-bootstrap/Form';
 import Col from 'react-bootstrap/Col';
+import FormGroup from 'react-bootstrap/FormGroup';
+
+import { getDeepStateProperty, setDeepStateProperty } from './deepstate.js';
 
 export function validateRequiredFields(component, fields) {
     let updateState = {};
@@ -25,46 +28,11 @@ export function validateRequiredFields(component, fields) {
 }
 
 export function handleChange(event, valueGetter = x => x.value) {
-    let newState = { ...this.state };
-    let st = newState;
-
-    const parts = event.target.name.split(/\./);
-
-    for (let i = 0; i < parts.length - 1; i++) {
-        const part = parts[i];
-
-        if (st[part] === undefined) {
-            st[part] = {}
-        }
-
-        st = st[part]
-    }
-
-    const part = parts[parts.length - 1]
-    const v = valueGetter(event.target);
-    st[part] = v;
-
-    this.setState(newState);
+    setDeepStateProperty(this, event.target.name, valueGetter(event.target));
 }
 
 export function stateProperty(component, name, defaultValue = "") {
-    let st = component.state;
-    const parts = name.split(/\./);
-
-    for (let i = 0; i < parts.length; i++) {
-        const part = parts[i];
-        if (st === undefined) {
-            return undefined;
-        }
-
-        if (part in st) {
-            st = st[part];
-        } else {
-            return defaultValue;
-        }
-    }
-
-    return st;
+    return getDeepStateProperty(component, name);
 }
 
 export function RequiredField(component, label, name, props = {}, helpText = null) {
@@ -98,7 +66,7 @@ export function OptionalField(component, label, name, props = {}, helpText = nul
     </Form.Group>
 }
 
-function valueToNumber(t) {
+export function valueToNumber(t) {
     if (t.value === "") {
         return undefined;
     }
@@ -123,9 +91,10 @@ function isInvalidNumber(v) {
     return false;
 }
 
+
 export function OptionalNumberField(component, label, name, props = {}) {
     return <Form.Group as={Col}>
-        <Form.Label>{label}</Form.Label>
+        {label && <Form.Label>{label}</Form.Label>}
         <Form.Control
             size="sm"
             name={name}
@@ -201,7 +170,7 @@ function optionalBooleanValue(target) {
 
 export function OptionalBoolean(component, label, name, defaultLabel) {
     return <Form.Group as={Col}>
-        <Form.Label>{label}</Form.Label>
+        {label && <Form.Label>{label}</Form.Label>}
         <Form.Control
             size="sm"
             name={name}
@@ -232,9 +201,8 @@ function multilineStringToList(target) {
     return v.split(/\n/);
 }
 
-export function StringList(component, label, name, helpText) {
+export function StringList(component, name) {
     return <Form.Group as={Col}>
-        <Form.Label>{label}</Form.Label>
         <Form.Control
             size="sm"
             name={name}
@@ -243,6 +211,40 @@ export function StringList(component, label, name, helpText) {
             as="textarea"
             rows="5">
         </Form.Control>
-        <Form.Text className="text-muted">{helpText}</Form.Text>
     </Form.Group>
+}
+
+export function TimesOfDayList(component, name, tempName) {
+    return <FormGroup>
+        <Form.Control
+            size="sm"
+            name={name}
+            isInvalid={true}
+            value={listToMultilineString(stateProperty(component, name))}
+            onChange={e => component.handleChange(e, multilineStringToList)}
+            as="textarea"
+            rows="5">
+        </Form.Control>
+        <Form.Control.Feedback type="invalid">Invalid Times of Day</Form.Control.Feedback>
+   </FormGroup>;
+}
+
+export function LogDetailSelector(component, name) {
+    return <Form.Control as="select" size="sm"
+    name={name}
+    onChange={e => component.handleChange(e, valueToNumber)}
+    value={stateProperty(component, name)}>
+    <option value="">(inherit from parent)</option>
+    <option value="0">0 - no output</option>
+    <option value="1">1 - minimal details</option>
+    <option value="2">2</option>
+    <option value="3">3</option>
+    <option value="4">4</option>
+    <option value="5">5 - normal details</option>
+    <option value="6">6</option>
+    <option value="7">7</option>
+    <option value="8">8</option>
+    <option value="9">9</option>
+    <option value="10">10 - maximum details</option>
+</Form.Control>
 }

@@ -1,4 +1,4 @@
-import { faChevronLeft } from '@fortawesome/free-solid-svg-icons';
+import { faCalendarTimes, faChevronLeft, faClock, faExclamationTriangle, faFileAlt, faFileArchive, faFolderOpen, faMagic } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import axios from 'axios';
 import React, { Component } from 'react';
@@ -7,25 +7,39 @@ import Col from 'react-bootstrap/Col';
 import Form from 'react-bootstrap/Form';
 import Row from 'react-bootstrap/Row';
 import Spinner from 'react-bootstrap/Spinner';
-import Tab from 'react-bootstrap/Tab';
-import Tabs from 'react-bootstrap/Tabs';
-import { handleChange, OptionalBoolean, OptionalNumberField, RequiredBoolean, stateProperty, StringList } from './forms';
+import Accordion from 'react-bootstrap/Accordion';
+import { handleChange, LogDetailSelector, OptionalBoolean, OptionalNumberField, RequiredBoolean, stateProperty, StringList, valueToNumber } from './forms';
 import { errorAlert, sourceQueryStringParams } from './uiutil';
 
-function policyTypeName(s) {
+function PolicyTypeName(s) {
     if (!s.host && !s.userName) {
         return "Global Policy"
     }
 
     if (!s.userName) {
-        return "Per-Host Policy";
+        return "Host: " + s.host;
     }
 
     if (!s.path) {
-        return "Per-User Policy";
+        return "User: " + s.userName + "@" + s.host;
     }
 
-    return "Directory Policy";
+    return "Directory: " + s.userName + "@" + s.host + ":" + s.path;
+}
+
+function LabelColumn(props) {
+    return <Col xs={12} sm={4} className="policyFieldColumn">
+        <span class="policyField">{props.name}</span>
+        {props.help && <><p className="label-help">{props.help}</p></>}
+    </Col>
+}
+
+function ValueColumn(props) {
+    return <Col xs={12} sm={4} className="policyValue">{props.children}</Col>;
+}
+
+function WideValueColumn(props) {
+    return <Col xs={12} sm={4} className="policyValue">{props.children}</Col>;
 }
 
 export class PolicyEditor extends Component {
@@ -122,23 +136,23 @@ export class PolicyEditor extends Component {
             }
         }
 
-        this.setState({saving: true});
+        this.setState({ saving: true });
         axios.put(this.snapshotURL(this.props), policy).then(result => {
             this.props.close();
         }).catch(error => {
-            this.setState({saving: false});
+            this.setState({ saving: false });
             errorAlert(error, 'Error saving policy');
         });
     }
 
     deletePolicy() {
         if (window.confirm('Are you sure you want to delete this policy?')) {
-            this.setState({saving: true});
+            this.setState({ saving: true });
 
             axios.delete(this.snapshotURL(this.props)).then(result => {
                 this.props.close();
             }).catch(error => {
-                this.setState({saving: false});
+                this.setState({ saving: false });
                 errorAlert(error, 'Error deleting policy');
             });
         }
@@ -164,127 +178,224 @@ export class PolicyEditor extends Component {
 
         return <div className="padded">
             {!this.props.embedded && <h4><Button size="sm" variant="outline-secondary" onClick={this.props.close} ><FontAwesomeIcon icon={faChevronLeft} /> Return </Button>
-            &nbsp;&nbsp;{policyTypeName(this.props)}</h4>}
+                &nbsp;&nbsp;{PolicyTypeName(this.props)}</h4>}
             <Form onSubmit={this.saveChanges}>
-            {!this.props.embedded && <Row>
-                <Col xs="2">
-                    <Form.Group>
-                        <Form.Label className="required">Target User</Form.Label>
-                        <Form.Control size="sm" type="text" readOnly value={this.props.userName || "<any user>"} />
-                    </Form.Group>
-                </Col>
-                <Col xs="2">
-                    <Form.Group>
-                        <Form.Label className="required">Target Host</Form.Label>
-                        <Form.Control size="sm" type="text" readOnly value={this.props.host || "<any host>"} />
-                    </Form.Group>
-                </Col>
-                <Col xs="8">
-                    <Form.Group>
-                        <Form.Label className="required">Target Directory Path</Form.Label>
-                        <Form.Control size="sm" type="text" readOnly value={this.props.path || "<any path>"} />
-                    </Form.Group>
-                </Col>
-            </Row>}
-            <Tabs defaultActiveKey="retention">
-                <Tab eventKey="retention" title="Retention">
-                    <div className="tab-body">
-                        <p className="policy-help">Controls how many latest snapshots to keep per source directory</p>
-                        <Row>
-                            {OptionalNumberField(this, "Latest", "policy.retention.keepLatest", { placeholder: "# of latest snapshots" })}
-                            {OptionalNumberField(this, "Hourly", "policy.retention.keepHourly", { placeholder: "# of hourly snapshots" })}
-                            {OptionalNumberField(this, "Daily", "policy.retention.keepDaily", { placeholder: "# of daily snapshots" })}
-                        </Row>
-                        <Row>
-                            {OptionalNumberField(this, "Weekly", "policy.retention.keepWeekly", { placeholder: "# of weekly snapshots" })}
-                            {OptionalNumberField(this, "Monthly", "policy.retention.keepMonthly", { placeholder: "# of monthly snapshots" })}
-                            {OptionalNumberField(this, "Annual", "policy.retention.keepAnnual", { placeholder: "# of annual snapshots" })}
-                        </Row>
-                    </div>
-                </Tab>
-                <Tab eventKey="files" title="Files">
-                    <div className="tab-body">
-                        <p className="policy-help">Controls which files should be included and excluded when snapshotting. Use <a target="_blank" rel="noreferrer" href="https://git-scm.com/docs/gitignore">.gitignore</a> syntax.</p>
-                        <Row>
-                            {StringList(this, "Ignore Rules", "policy.files.ignore", "List of file name patterns to ignore.")}
-                            {StringList(this, "Ignore Rule Files", "policy.files.ignoreDotFiles", "List of additional files containing ignore rules. Each file configures ignore rules for the directory and its subdirectories.")}
-                        </Row>
-                        <Row>
-                            {RequiredBoolean(this, "Ignore Parent Rules", "policy.files.noParentIgnore")}
-                            {RequiredBoolean(this, "Ignore Parent Rule Files", "policy.files.noParentDotFiles")}
-                        </Row>
-                        <Row>
-                            {OptionalBoolean(this, "Ignore Well-Known Cache Directories", "policy.files.ignoreCacheDirs", "inherit from parent")}
-                        </Row>
-                        <Row>
-                            {OptionalBoolean(this, "Scan only one filesystem", "policy.files.oneFileSystem", "inherit from parent")}
-                        </Row>
-                    </div>
-                </Tab>
-                <Tab eventKey="errors" title="Errors">
-                    <div className="tab-body">
-                        <p className="policy-help">Controls how errors detected while snapshotting are handled.</p>
-                        <Row>
-                            {OptionalBoolean(this, "Ignore Directory Errors", "policy.errorHandling.ignoreDirectoryErrors", "inherit from parent")}
-                            {OptionalBoolean(this, "Ignore File Errors", "policy.errorHandling.ignoreFileErrors", "inherit from parent")}
-                            {OptionalBoolean(this, "Ignore Unknown Types", "policy.errorHandling.ignoreUnknownTypes", "inherit from parent")}
-                        </Row>
-                    </div>
-                </Tab>
-                <Tab eventKey="compression" title="Compression">
-                    <div className="tab-body">
-                        <p className="policy-help">Controls which files are compressed.</p>
-                        <Row>
-                            <Form.Group as={Col}>
-                                <Form.Label className="required">Compression</Form.Label>
-                                <Form.Control as="select"
-                                    name="policy.compression.compressorName"
-                                    onChange={this.handleChange}
-                                    value={stateProperty(this, "policy.compression.compressorName")}>
-                                    <option value="">(none)</option>
-                                    {this.state.algorithms && this.state.algorithms.compression.map(x => <option key={x} value={x}>{x}</option>)}
-                                </Form.Control>
-                            </Form.Group>
-                            {OptionalNumberField(this, "Min File Size", "policy.compression.minSize", { placeholder: "minimum file size to compress" })}
-                            {OptionalNumberField(this, "Max File Size", "policy.compression.maxSize", { placeholder: "maximum file size to compress" })}
-                        </Row>
-                        <Row>
-                            {StringList(this, "Only Compress Extensions", "policy.compression.onlyCompress", "Only compress files with the above file extensions (one extension per line)")}
-                            {StringList(this, "Never Compress Extensions", "policy.compression.neverCompress", "Never compress the above file extensions (one extension per line)")}
-                        </Row>
-                    </div>
-                </Tab>
-                <Tab eventKey="scheduling" title="Scheduling">
-                    <div className="tab-body">
-                        <p className="policy-help">Controls when snapshots are automatically created.</p>
-                        <Row>
-                            {OptionalNumberField(this, "Snapshot Interval", "policy.scheduling.intervalSeconds", { placeholder: "seconds" })}
-                        </Row>
-                        <Row>
-                            {OptionalBoolean(this, "Only create snapshots manually (disables scheduled snapshots)", "policy.scheduling.manual")}
-                        </Row>
-                    </div>
-                </Tab>
-            </Tabs>
-            <Row>
-                {RequiredBoolean(this, "Disable Parent Policy Evaluation (prevents any parent policies from affecting this directory and subdirectories)", "policy.noParent")}
-            </Row>
 
-            <Button size="sm" variant="success" type="submit" onClick={this.saveChanges} disabled={this.state.saving}>Save Policy</Button>
-            {!this.state.isNew && <>&nbsp;
-            <Button size="sm" variant="danger" disabled={this.isGlobal() || this.state.saving} onClick={this.deletePolicy}>Delete Policy</Button>
-            </>}
-            {this.state.saving && <>
-                &nbsp;
-                <Spinner animation="border" variant="primary" size="sm" />
+                <Accordion defaultActiveKey="scheduling">
+                    <Accordion.Item eventKey="retention">
+                        <Accordion.Header><FontAwesomeIcon icon={faCalendarTimes} />&nbsp;Snapshot Retention</Accordion.Header>
+                        <Accordion.Body>
+                            <Row>
+                                <LabelColumn name="Latest Snapshots" help="Number of the most recent snapshots to retain per source." />
+                                <ValueColumn>{OptionalNumberField(this, null, "policy.retention.keepLatest", { placeholder: "# of latest snapshots" })}</ValueColumn>
+                            </Row>
+                            <Row>
+                                <LabelColumn name="Hourly" help="How many hourly snapshots to retain per source. The latest snapshot from each hour will be retained." />
+                                <ValueColumn>{OptionalNumberField(this, null, "policy.retention.keepHourly", { placeholder: "# of hourly snapshots" })}</ValueColumn>
+                            </Row>
+                            <Row>
+                                <LabelColumn name="Daily" help="How many daily snapshots to retain per source. The latest snapshot from each day will be retained." />
+                                <ValueColumn>{OptionalNumberField(this, null, "policy.retention.keepDaily", { placeholder: "# of daily snapshots" })}</ValueColumn>
+                            </Row>
+                            <Row>
+                                <LabelColumn name="Weekly" help="How many weekly snapshots to retain per source. The latest snapshot from each week will be retained." />
+                                <ValueColumn>{OptionalNumberField(this, null, "policy.retention.keepWeekly", { placeholder: "# of weekly snapshots" })}</ValueColumn>
+                            </Row>
+                            <Row>
+                                <LabelColumn name="Monthly" help="How many monthly snapshots to retain per source. The latest snapshot from each calendar month will be retained." />
+                                <ValueColumn>{OptionalNumberField(this, null, "policy.retention.keepMonthly", { placeholder: "# of monthly snapshots" })}</ValueColumn>
+                            </Row>
+                            <Row>
+                                <LabelColumn name="Annual" help="How many annual snapshots to retain per source. The latest snapshot from each calendar year will be retained." />
+                                <ValueColumn>{OptionalNumberField(this, null, "policy.retention.keepAnnual", { placeholder: "# of annual snapshots" })}</ValueColumn>
+                            </Row>
+                        </Accordion.Body>
+                    </Accordion.Item>
+                    <Accordion.Item eventKey="files">
+                        <Accordion.Header><FontAwesomeIcon icon={faFolderOpen} />&nbsp;Files</Accordion.Header>
+                        <Accordion.Body>
+                            <Row>
+                                <LabelColumn name="Ignore Files" help="List of file and directory names to ignore. The patterns should be specified as relative to the directory they are defined in and not absolute. Wilcards are allowed." />
+                                <WideValueColumn>{StringList(this, "policy.files.ignore")}</WideValueColumn>
+                            </Row>
+                            <Row>
+                                <LabelColumn name="Ignore Rules From Parent Directories" help="When set, ignore rules from the parent directory are ignored." />
+                                <ValueColumn>
+                                    {RequiredBoolean(this, "", "policy.files.noParentIgnore")}
+                                </ValueColumn>
+                            </Row>
+                            <Row>
+                                <LabelColumn name="Ignore Rule Files" help="List of additional files containing ignore rules. Each file configures ignore rules for the directory and its subdirectories." />
+                                <ValueColumn>{StringList(this, "policy.files.ignoreDotFiles")}</ValueColumn>
+                            </Row>
+                            <Row>
+                                <LabelColumn name="Ignore Rule Files From Parent Directories" help="When set, the files specifying ignore rules (.kopiaignore, etc.) from the parent directory are ignored." />
+                                <ValueColumn>{RequiredBoolean(this, "", "policy.files.noParentDotFiles")}</ValueColumn>
+                            </Row>
+                            <Row>
+                                <LabelColumn name="Ignore Well-Known Cache Directories" help="Ignore directories containing CACHEDIR.TAG and similar." />
+                                <ValueColumn>{OptionalBoolean(this, null, "policy.files.ignoreCacheDirs", "inherit from parent")}</ValueColumn>
+                            </Row>
+                            <Row>
+                                <LabelColumn name="Scan only one filesystem" help="Do not cross filesystem boundaries when snapshotting." />
+                                <ValueColumn>{OptionalBoolean(this, null, "policy.files.oneFileSystem", "inherit from parent")}</ValueColumn>
+                            </Row>
+                        </Accordion.Body>
+                    </Accordion.Item>
+                    <Accordion.Item eventKey="errors">
+                        <Accordion.Header><FontAwesomeIcon icon={faExclamationTriangle} />&nbsp;Error Handling</Accordion.Header>
+                        <Accordion.Body>
+                            <Row>
+                                <LabelColumn name="Ignore Directory Errors" help="Treat directory read errors as non-fatal." />
+                                <ValueColumn>{OptionalBoolean(this, null, "policy.errorHandling.ignoreDirectoryErrors", "inherit from parent")}</ValueColumn>
+                            </Row>
+                            <Row>
+                                <LabelColumn name="Ignore File Errors" help="Treat file read errors as non-fatal." />
+                                <ValueColumn>{OptionalBoolean(this, null, "policy.errorHandling.ignoreFileErrors", "inherit from parent")}</ValueColumn>
+                            </Row>
+                            <Row>
+                                <LabelColumn name="Ignore Unknown Directory Entries" help="Treat unrecognized/unsupported directory entries as non-fatal errors." />
+                                <ValueColumn>{OptionalBoolean(this, null, "policy.errorHandling.ignoreUnknownTypes", "inherit from parent")}</ValueColumn>
+                            </Row>
+                        </Accordion.Body>
+                    </Accordion.Item>
+                    <Accordion.Item eventKey="compression">
+                        <Accordion.Header><FontAwesomeIcon icon={faFileArchive} />&nbsp;Compression</Accordion.Header>
+                        <Accordion.Body>
+                            <Row>
+                                <LabelColumn name="Compression Algorithm" help="Specify compression algorithm to use when snapshotting files in this directory and subdirectories." />
+                                <WideValueColumn>
+                                    <Form.Control as="select" size="sm"
+                                        name="policy.compression.compressorName"
+                                        onChange={this.handleChange}
+                                        value={stateProperty(this, "policy.compression.compressorName")}>
+                                        <option value="">(none)</option>
+                                        {this.state.algorithms && this.state.algorithms.compression.map(x => <option key={x} value={x}>{x}</option>)}
+                                    </Form.Control>
+                                </WideValueColumn>
+                            </Row>
+                            <Row>
+                                <LabelColumn name="Minimum File Size" help="Files whose size is below the provided value will not be compressed." />
+                                <ValueColumn>{OptionalNumberField(this, "", "policy.compression.minSize", { placeholder: "minimum file size in bytes" })}</ValueColumn>
+                            </Row>
+                            <Row>
+                                <LabelColumn name="Max File Size" help="Files whose size exceeds the provided value will not be compressed." />
+                                <ValueColumn>{OptionalNumberField(this, "", "policy.compression.maxSize", { placeholder: "maximum file size in bytes" })}</ValueColumn>
+                            </Row>
+                            <Row>
+                                <LabelColumn name="Only Compress Extensions" help="Only compress files with the following file extensions (one extension per line)" />
+                                <WideValueColumn>
+                                    {StringList(this, "policy.compression.onlyCompress")}
+                                </WideValueColumn>
+                            </Row>
+                            <Row>
+                                <LabelColumn name="Never Compress Extensions" help="Never compress the following file extensions (one extension per line)" />
+                                <WideValueColumn>
+                                    {StringList(this, "policy.compression.neverCompress")}
+                                </WideValueColumn>
+                            </Row>
+                        </Accordion.Body>
+                    </Accordion.Item>
+                    <Accordion.Item eventKey="scheduling">
+                        <Accordion.Header><FontAwesomeIcon icon={faClock} />&nbsp;Scheduling</Accordion.Header>
+                        <Accordion.Body>
+                            <Row>
+                                <LabelColumn name="Snapshot Frequency" help="How frequently to create snapshots in KopiaUI or kopia server. This option has no effect outside of the server mode." />
+                                <WideValueColumn>
+                                    <Form.Control as="select" size="sm"
+                                        name="policy.scheduling.intervalSeconds"
+                                        onChange={e => this.handleChange(e, valueToNumber)}
+                                        value={stateProperty(this, "policy.scheduling.intervalSeconds")}>
+                                        <option value="">(none)</option>
+                                        <option value="600">every 10 minutes</option>
+                                        <option value="900">every 15 minutes</option>
+                                        <option value="1200">every 20 minutes</option>
+                                        <option value="1800">every 30 minutes</option>
+                                        <option value="3600">every hour</option>
+                                        <option value="10800">every 3 hours</option>
+                                        <option value="21600">every 6 hours</option>
+                                        <option value="43200">every 12 hours</option>
+                                    </Form.Control>
+                                </WideValueColumn>
+                            </Row>
+                            <Row>
+                                <LabelColumn name="Manual Snapshots Only" help="Only create snapshots manually (disables scheduled snapshots)." />
+                                <ValueColumn>
+                                    {OptionalBoolean(this, "", "policy.scheduling.manual", "inherit from parent")}
+                                </ValueColumn>
+                            </Row>
+                        </Accordion.Body>
+                    </Accordion.Item>
+                    <Accordion.Item eventKey="logging">
+                        <Accordion.Header><FontAwesomeIcon icon={faFileAlt} />&nbsp;Logging</Accordion.Header>
+                        <Accordion.Body>
+                            <Row>
+                                <LabelColumn name="Directory Snapshotted" help="Log verbosity when a directory is snapshotted." />
+                                <WideValueColumn>
+                                    {LogDetailSelector(this, "policy.logging.directories.snapshotted")}
+                                </WideValueColumn>
+                            </Row>
+                            <Row>
+                                <LabelColumn name="Directory Ignored" help="Log verbosity when a directory is ignored." />
+                                <WideValueColumn>
+                                    {LogDetailSelector(this, "policy.logging.directories.ignored")}
+                                </WideValueColumn>
+                            </Row>
+                            <Row>
+                                <LabelColumn name="File Snapshotted" help="Log verbosity when a file, symbolic link, etc. is snapshotted." />
+                                <WideValueColumn>
+                                    {LogDetailSelector(this, "policy.logging.entries.snapshotted")}
+                                </WideValueColumn>
+                            </Row>
+                            <Row>
+                                <LabelColumn name="File Ignored" help="Log verbosity when a file, symbolic link, etc. is ignored." />
+                                <WideValueColumn>
+                                    {LogDetailSelector(this, "policy.logging.entries.ignored")}
+                                </WideValueColumn>
+                            </Row>
+                            <Row>
+                                <LabelColumn name="Cache Hit" help="Log verbosity when an cache is used instead of uploading the file." />
+                                <WideValueColumn>
+                                    {LogDetailSelector(this, "policy.logging.entries.cacheHit")}
+                                </WideValueColumn>
+                            </Row>
+                            <Row>
+                                <LabelColumn name="Cache Miss" help="Log verbosity when an cache cannot be used and a file must be hashed." />
+                                <WideValueColumn>
+                                    {LogDetailSelector(this, "policy.logging.entries.cacheHit")}
+                                </WideValueColumn>
+                            </Row>
+                        </Accordion.Body>
+                    </Accordion.Item>
+                    <Accordion.Item eventKey="other">
+                        <Accordion.Header><FontAwesomeIcon icon={faMagic} />&nbsp;Other</Accordion.Header>
+                        <Accordion.Body>
+                            <Row>
+                                <LabelColumn name="Disable Parent Policy Evaluation" help="prevents any parent policies from affecting this directory and subdirectories" />
+                                <ValueColumn>
+                                    {RequiredBoolean(this, "", "policy.noParent")}
+                                </ValueColumn>
+                            </Row>
+                            <Row>
+                                <LabelColumn name="JSON Representation" help="This is the internal representation of a policy." />
+                                <WideValueColumn>
+                                    <pre className="debug-json">{JSON.stringify(this.state.policy, null, 4)}
+                                    </pre>
+                                </WideValueColumn>
+                            </Row>
+                        </Accordion.Body>
+                    </Accordion.Item>
+                </Accordion>
+
+                <Button size="sm" variant="success" type="submit" onClick={this.saveChanges} disabled={this.state.saving}>Save Policy</Button>
+                {!this.state.isNew && <>&nbsp;
+                    <Button size="sm" variant="danger" disabled={this.isGlobal() || this.state.saving} onClick={this.deletePolicy}>Delete Policy</Button>
+                </>}
+                {this.state.saving && <>
+                    &nbsp;
+                    <Spinner animation="border" variant="primary" size="sm" />
                 </>}
 
-            {!this.props.embedded && <>
-            <hr />
-            <h5>JSON representation</h5>
-            <pre className="debug-json">{JSON.stringify(this.state.policy, null, 4)}
-            </pre>
-            </>}
             </Form>
         </div>;
     }
