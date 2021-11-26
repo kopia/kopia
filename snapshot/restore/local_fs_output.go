@@ -304,7 +304,7 @@ func (o *FilesystemOutput) createDirectory(ctx context.Context, path string) err
 }
 
 func write(targetPath string, r fs.Reader) error {
-	f, err := os.OpenFile(targetPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600)
+	f, err := os.OpenFile(targetPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600) //nolint:gosec
 	if err != nil {
 		return err //nolint:wrapcheck
 	}
