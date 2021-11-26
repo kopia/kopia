@@ -9,11 +9,13 @@ import (
 
 // MergePolicies computes the policy by applying the specified list of policies in order from most
 // specific to most general.
-func MergePolicies(policies []*Policy) (*Policy, *Definition) {
+func MergePolicies(policies []*Policy, si snapshot.SourceInfo) (*Policy, *Definition) {
 	var (
 		merged Policy
 		def    Definition
 	)
+
+	merged.Labels = LabelsForSource(si)
 
 	for _, p := range policies {
 		merged.RetentionPolicy.Merge(p.RetentionPolicy, &def.RetentionPolicy, p.Target())
