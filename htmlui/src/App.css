@@ -33,8 +33,19 @@ body {
   margin-top: 4px;
 }
 
+.policyEffectiveValue {
+  background-color: #fff;
+}
+
+.policyEditorHeader {
+  font-size: 110%;
+  font-weight: bold;
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
 .policyValue {
-  margin-bottom: 4px;
+  background-color: #f8f8f8;
 }
 
 .policyField {
