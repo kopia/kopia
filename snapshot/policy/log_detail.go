@@ -23,11 +23,3 @@ func (l *LogDetail) OrDefault(def LogDetail) LogDetail {
 func NewLogDetail(l LogDetail) *LogDetail {
 	return &l
 }
-
-func mergeLogLevel(target **LogDetail, src *LogDetail) {
-	if *target == nil && src != nil {
-		b := *src
-
-		*target = &b
-	}
-}

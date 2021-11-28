@@ -40,14 +40,14 @@ var log = logging.Module("kopia/snapshot/policy")
 // GetEffectivePolicy calculates effective snapshot policy for a given source by combining the source-specifc policy (if any)
 // with parent policies. The source must contain a path.
 // Returns the effective policies and all source policies that contributed to that (most specific first).
-func GetEffectivePolicy(ctx context.Context, rep repo.Repository, si snapshot.SourceInfo) (effective *Policy, sources []*Policy, e error) {
+func GetEffectivePolicy(ctx context.Context, rep repo.Repository, si snapshot.SourceInfo) (effective *Policy, definition *Definition, sources []*Policy, e error) {
 	var md []*manifest.EntryMetadata
 
 	// Find policies applying to paths all the way up to the root.
 	for tmp := si; len(si.Path) > 0; {
 		manifests, err := rep.FindManifests(ctx, labelsForSource(tmp))
 		if err != nil {
-			return nil, nil, errors.Wrapf(err, "unable to find manifest for source %v", tmp)
+			return nil, nil, nil, errors.Wrapf(err, "unable to find manifest for source %v", tmp)
 		}
 
 		md = append(md, manifests...)
@@ -63,7 +63,7 @@ func GetEffectivePolicy(ctx context.Context, rep repo.Repository, si snapshot.So
 	// Try user@host policy
 	userHostManifests, err := rep.FindManifests(ctx, labelsForSource(snapshot.SourceInfo{Host: si.Host, UserName: si.UserName}))
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "unable to find user@host manifest")
+		return nil, nil, nil, errors.Wrap(err, "unable to find user@host manifest")
 	}
 
 	md = append(md, userHostManifests...)
@@ -71,7 +71,7 @@ func GetEffectivePolicy(ctx context.Context, rep repo.Repository, si snapshot.So
 	// Try host-level policy.
 	hostManifests, err := rep.FindManifests(ctx, labelsForSource(snapshot.SourceInfo{Host: si.Host}))
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "unable to find host-level manifest")
+		return nil, nil, nil, errors.Wrap(err, "unable to find host-level manifest")
 	}
 
 	md = append(md, hostManifests...)
@@ -79,7 +79,7 @@ func GetEffectivePolicy(ctx context.Context, rep repo.Repository, si snapshot.So
 	// Global policy.
 	globalManifests, err := rep.FindManifests(ctx, labelsForSource(GlobalPolicySourceInfo))
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "unable to find global manifest")
+		return nil, nil, nil, errors.Wrap(err, "unable to find global manifest")
 	}
 
 	md = append(md, globalManifests...)
@@ -89,16 +89,16 @@ func GetEffectivePolicy(ctx context.Context, rep repo.Repository, si snapshot.So
 	for _, em := range md {
 		p := &Policy{}
 		if err := loadPolicyFromManifest(ctx, rep, em.ID, p); err != nil {
-			return nil, nil, errors.Wrapf(err, "got unexpected error when loading policy item %v", em.ID)
+			return nil, nil, nil, errors.Wrapf(err, "got unexpected error when loading policy item %v", em.ID)
 		}
 
 		policies = append(policies, p)
 	}
 
-	merged := MergePolicies(policies)
+	merged, def := MergePolicies(policies)
 	merged.Labels = labelsForSource(si)
 
-	return merged, policies, nil
+	return merged, def, policies, nil
 }
 
 // GetDefinedPolicy returns the policy defined on the provided snapshot.SourceInfo or ErrPolicyNotFound if not present.
@@ -229,7 +229,7 @@ func TreeForSource(ctx context.Context, rep repo.Repository, si snapshot.SourceI
 func applicablePoliciesForSource(ctx context.Context, rep repo.Repository, si snapshot.SourceInfo) (map[string]*Policy, error) {
 	result := map[string]*Policy{}
 
-	pol, _, err := GetEffectivePolicy(ctx, rep, si)
+	pol, _, _, err := GetEffectivePolicy(ctx, rep, si)
 	if err != nil {
 		return nil, err
 	}

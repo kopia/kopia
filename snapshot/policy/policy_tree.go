@@ -15,6 +15,9 @@ var DefaultPolicy = &Policy{
 	Actions:             defaultActionsPolicy,
 }
 
+// DefaultDefinition provides the Definition for the default policy.
+var DefaultDefinition = &Definition{}
+
 // Tree represents a node in the policy tree, where a policy can be
 // defined. A nil tree is a valid tree with default policy.
 type Tree struct {

@@ -32,7 +32,7 @@ func (s *Server) handleSnapshotList(ctx context.Context, r *http.Request, body [
 			continue
 		}
 
-		pol, _, err := policy.GetEffectivePolicy(ctx, s.rep, first.Source)
+		pol, _, _, err := policy.GetEffectivePolicy(ctx, s.rep, first.Source)
 		if err == nil {
 			pol.RetentionPolicy.ComputeRetentionReasons(grp)
 		}

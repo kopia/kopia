@@ -25,6 +25,16 @@ type RetentionPolicy struct {
 	KeepAnnual  *int `json:"keepAnnual,omitempty"`
 }
 
+// RetentionPolicyDefinition specifies which policy definition provided the value of a particular field.
+type RetentionPolicyDefinition struct {
+	KeepLatest  snapshot.SourceInfo `json:"keepLatest,omitempty"`
+	KeepHourly  snapshot.SourceInfo `json:"keepHourly,omitempty"`
+	KeepDaily   snapshot.SourceInfo `json:"keepDaily,omitempty"`
+	KeepWeekly  snapshot.SourceInfo `json:"keepWeekly,omitempty"`
+	KeepMonthly snapshot.SourceInfo `json:"keepMonthly,omitempty"`
+	KeepAnnual  snapshot.SourceInfo `json:"keepAnnual,omitempty"`
+}
+
 // ComputeRetentionReasons computes the reasons why each snapshot is retained, based on
 // the settings in retention policy and stores them in RetentionReason field.
 func (r *RetentionPolicy) ComputeRetentionReasons(manifests []*snapshot.Manifest) {
@@ -193,28 +203,11 @@ var defaultRetentionPolicy = RetentionPolicy{
 }
 
 // Merge applies default values from the provided policy.
-func (r *RetentionPolicy) Merge(src RetentionPolicy) {
-	if r.KeepLatest == nil {
-		r.KeepLatest = src.KeepLatest
-	}
-
-	if r.KeepHourly == nil {
-		r.KeepHourly = src.KeepHourly
-	}
-
-	if r.KeepDaily == nil {
-		r.KeepDaily = src.KeepDaily
-	}
-
-	if r.KeepWeekly == nil {
-		r.KeepWeekly = src.KeepWeekly
-	}
-
-	if r.KeepMonthly == nil {
-		r.KeepMonthly = src.KeepMonthly
-	}
-
-	if r.KeepAnnual == nil {
-		r.KeepAnnual = src.KeepAnnual
-	}
+func (r *RetentionPolicy) Merge(src RetentionPolicy, def *RetentionPolicyDefinition, si snapshot.SourceInfo) {
+	mergeOptionalInt(&r.KeepLatest, src.KeepLatest, &def.KeepLatest, si)
+	mergeOptionalInt(&r.KeepHourly, src.KeepHourly, &def.KeepHourly, si)
+	mergeOptionalInt(&r.KeepDaily, src.KeepDaily, &def.KeepDaily, si)
+	mergeOptionalInt(&r.KeepWeekly, src.KeepWeekly, &def.KeepWeekly, si)
+	mergeOptionalInt(&r.KeepMonthly, src.KeepMonthly, &def.KeepMonthly, si)
+	mergeOptionalInt(&r.KeepAnnual, src.KeepAnnual, &def.KeepAnnual, si)
 }

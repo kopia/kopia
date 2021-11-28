@@ -6,15 +6,27 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/repo/compression"
+	"github.com/kopia/kopia/snapshot"
 )
 
 // CompressionPolicy specifies compression policy.
 type CompressionPolicy struct {
-	CompressorName compression.Name `json:"compressorName,omitempty"`
-	OnlyCompress   []string         `json:"onlyCompress,omitempty"`
-	NeverCompress  []string         `json:"neverCompress,omitempty"`
-	MinSize        int64            `json:"minSize,omitempty"`
-	MaxSize        int64            `json:"maxSize,omitempty"`
+	CompressorName        compression.Name `json:"compressorName,omitempty"`
+	OnlyCompress          []string         `json:"onlyCompress,omitempty"`
+	NoParentOnlyCompress  bool             `json:"noParentOnlyCompress,omitempty"`
+	NeverCompress         []string         `json:"neverCompress,omitempty"`
+	NoParentNeverCompress bool             `json:"noParentNeverCompress,omitempty"`
+	MinSize               int64            `json:"minSize,omitempty"`
+	MaxSize               int64            `json:"maxSize,omitempty"`
+}
+
+// CompressionPolicyDefinition specifies which policy definition provided the value of a particular field.
+type CompressionPolicyDefinition struct {
+	CompressorName snapshot.SourceInfo `json:"compressorName,omitempty"`
+	OnlyCompress   snapshot.SourceInfo `json:"onlyCompress,omitempty"`
+	NeverCompress  snapshot.SourceInfo `json:"neverCompress,omitempty"`
+	MinSize        snapshot.SourceInfo `json:"minSize,omitempty"`
+	MaxSize        snapshot.SourceInfo `json:"maxSize,omitempty"`
 }
 
 // CompressorForFile returns compression name to be used for compressing a given file according to policy, using attributes such as name or size.
@@ -46,46 +58,17 @@ func (p *CompressionPolicy) CompressorForFile(e fs.File) compression.Name {
 }
 
 // Merge applies default values from the provided policy.
-func (p *CompressionPolicy) Merge(src CompressionPolicy) {
-	if p.CompressorName == "" {
-		p.CompressorName = src.CompressorName
-	}
+func (p *CompressionPolicy) Merge(src CompressionPolicy, def *CompressionPolicyDefinition, si snapshot.SourceInfo) {
+	mergeCompressionName(&p.CompressorName, src.CompressorName, &def.CompressorName, si)
+	mergeInt64(&p.MinSize, src.MinSize, &def.MinSize, si)
+	mergeInt64(&p.MaxSize, src.MaxSize, &def.MaxSize, si)
 
-	if p.MinSize == 0 {
-		p.MinSize = src.MinSize
-	}
-
-	if p.MaxSize == 0 {
-		p.MaxSize = src.MaxSize
-	}
-
-	p.OnlyCompress = mergeStrings(p.OnlyCompress, src.OnlyCompress)
-	p.NeverCompress = mergeStrings(p.NeverCompress, src.NeverCompress)
+	mergeStrings(&p.OnlyCompress, &p.NoParentOnlyCompress, src.OnlyCompress, src.NoParentOnlyCompress, &def.OnlyCompress, si)
+	mergeStrings(&p.NeverCompress, &p.NoParentNeverCompress, src.NeverCompress, src.NoParentNeverCompress, &def.NeverCompress, si)
 }
 
 var defaultCompressionPolicy = CompressionPolicy{
 	CompressorName: "none",
-}
-
-func mergeStrings(s1, s2 []string) []string {
-	merged := map[string]bool{}
-
-	for _, v := range s1 {
-		merged[v] = true
-	}
-
-	for _, v := range s2 {
-		merged[v] = true
-	}
-
-	var result []string
-	for v := range merged {
-		result = append(result, v)
-	}
-
-	sort.Strings(result)
-
-	return result
 }
 
 func isInSortedSlice(s string, slice []string) bool {

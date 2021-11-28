@@ -329,7 +329,7 @@ func (s *sourceManager) refreshStatus(ctx context.Context) {
 	ctx, cancel := context.WithTimeout(ctx, refreshTimeout)
 	defer cancel()
 
-	pol, _, err := policy.GetEffectivePolicy(ctx, s.server.rep, s.src)
+	pol, _, _, err := policy.GetEffectivePolicy(ctx, s.server.rep, s.src)
 	if err != nil {
 		s.setStatus("FAILED")
 		return

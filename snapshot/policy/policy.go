@@ -27,9 +27,21 @@ type Policy struct {
 	ErrorHandlingPolicy ErrorHandlingPolicy `json:"errorHandling,omitempty"`
 	SchedulingPolicy    SchedulingPolicy    `json:"scheduling,omitempty"`
 	CompressionPolicy   CompressionPolicy   `json:"compression,omitempty"`
-	Actions             ActionsPolicy       `json:"actions"`
-	LoggingPolicy       LoggingPolicy       `json:"logging"`
+	Actions             ActionsPolicy       `json:"actions,omitempty"`
+	LoggingPolicy       LoggingPolicy       `json:"logging,omitempty"`
 	NoParent            bool                `json:"noParent,omitempty"`
+}
+
+// Definition corresponds 1:1 to Policy and each field specifies the snapshot.SourceInfo
+// where a particular policy field was specified.
+type Definition struct {
+	RetentionPolicy     RetentionPolicyDefinition     `json:"retention,omitempty"`
+	FilesPolicy         FilesPolicyDefinition         `json:"files,omitempty"`
+	ErrorHandlingPolicy ErrorHandlingPolicyDefinition `json:"errorHandling,omitempty"`
+	SchedulingPolicy    SchedulingPolicyDefinition    `json:"scheduling,omitempty"`
+	CompressionPolicy   CompressionPolicyDefinition   `json:"compression,omitempty"`
+	Actions             ActionsPolicyDefinition       `json:"actions,omitempty"`
+	LoggingPolicy       LoggingPolicyDefinition       `json:"logging,omitempty"`
 }
 
 func (p *Policy) String() string {
@@ -57,40 +69,6 @@ func (p *Policy) Target() snapshot.SourceInfo {
 		UserName: p.Labels["username"],
 		Path:     p.Labels["path"],
 	}
-}
-
-// MergePolicies computes the policy by applying the specified list of policies in order.
-func MergePolicies(policies []*Policy) *Policy {
-	var merged Policy
-
-	for _, p := range policies {
-		if p.NoParent {
-			return &merged
-		}
-
-		merged.RetentionPolicy.Merge(p.RetentionPolicy)
-		merged.FilesPolicy.Merge(p.FilesPolicy)
-		merged.ErrorHandlingPolicy.Merge(p.ErrorHandlingPolicy)
-		merged.SchedulingPolicy.Merge(p.SchedulingPolicy)
-		merged.CompressionPolicy.Merge(p.CompressionPolicy)
-		merged.Actions.Merge(p.Actions)
-		merged.LoggingPolicy.Merge(p.LoggingPolicy)
-	}
-
-	// Merge default expiration policy.
-	merged.RetentionPolicy.Merge(defaultRetentionPolicy)
-	merged.FilesPolicy.Merge(defaultFilesPolicy)
-	merged.ErrorHandlingPolicy.Merge(defaultErrorHandlingPolicy)
-	merged.SchedulingPolicy.Merge(defaultSchedulingPolicy)
-	merged.CompressionPolicy.Merge(defaultCompressionPolicy)
-	merged.Actions.Merge(defaultActionsPolicy)
-	merged.LoggingPolicy.Merge(defaultLoggingPolicy)
-
-	if len(policies) > 0 {
-		merged.Actions.MergeNonInheritable(policies[0].Actions)
-	}
-
-	return &merged
 }
 
 // ValidatePolicy returns error if the given policy is invalid.
