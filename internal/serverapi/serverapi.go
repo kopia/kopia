@@ -220,3 +220,17 @@ type EstimateRequest struct {
 	Root                 string `json:"root"`
 	MaxExamplesPerBucket int    `json:"maxExamplesPerBucket"`
 }
+
+// ResolvePolicyRequest contains request structure to ResolvePolicy.
+type ResolvePolicyRequest struct {
+	Updates                  *policy.Policy `json:"updates"`
+	NumUpcomingSnapshotTimes int            `json:"numUpcomingSnapshotTimes"` // if > 0, return N UpcomingSnapshotTimes
+}
+
+// ResolvePolicyResponse returns the resolved details about a single policy.
+type ResolvePolicyResponse struct {
+	Effective             *policy.Policy     `json:"effective"`
+	Definition            *policy.Definition `json:"definition"`
+	Defined               *policy.Policy     `json:"defined"`
+	UpcomingSnapshotTimes []time.Time        `json:"upcomingSnapshotTimes"`
+}

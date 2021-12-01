@@ -162,6 +162,17 @@ func SetPolicy(ctx context.Context, c *apiclient.KopiaAPIClient, si snapshot.Sou
 	return nil
 }
 
+// ResolvePolicy resolves the policy.
+func ResolvePolicy(ctx context.Context, c *apiclient.KopiaAPIClient, si snapshot.SourceInfo, req *ResolvePolicyRequest) (*ResolvePolicyResponse, error) {
+	resp := &ResolvePolicyResponse{}
+
+	if err := c.Post(ctx, "policy/resolve?"+policyTargetURLParamters(si), req, resp); err != nil {
+		return nil, errors.Wrap(err, "ResolvePolicy")
+	}
+
+	return resp, nil
+}
+
 // ListTasks lists the tasks.
 func ListTasks(ctx context.Context, c *apiclient.KopiaAPIClient) (*TaskListResponse, error) {
 	resp := &TaskListResponse{}

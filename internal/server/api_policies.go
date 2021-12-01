@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
@@ -59,6 +61,48 @@ func (s *Server) handlePolicyGet(ctx context.Context, r *http.Request, body []by
 	}
 
 	return pol, nil
+}
+
+func (s *Server) handlePolicyResolve(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
+	var req serverapi.ResolvePolicyRequest
+
+	if err := json.Unmarshal(body, &req); err != nil {
+		return nil, requestError(serverapi.ErrorMalformedRequest, "unable to decode request: "+err.Error())
+	}
+
+	target := getPolicyTargetFromURL(r.URL)
+
+	// build a list of parents
+	policies, err := policy.GetPolicyHierarchy(ctx, s.rep, target)
+	if err != nil {
+		return nil, internalServerError(err)
+	}
+
+	resp := &serverapi.ResolvePolicyResponse{
+		Defined: policies[0],
+	}
+
+	if req.Updates != nil {
+		policies[0] = req.Updates
+		policies[0].Labels = policy.LabelsForSource(target)
+	}
+
+	resp.Effective, resp.Definition = policy.MergePolicies(policies, target)
+	resp.UpcomingSnapshotTimes = []time.Time{}
+
+	now := clock.Now().Local()
+
+	for i := 0; i < req.NumUpcomingSnapshotTimes; i++ {
+		st, ok := resp.Effective.SchedulingPolicy.NextSnapshotTime(now, now)
+		if !ok {
+			break
+		}
+
+		resp.UpcomingSnapshotTimes = append(resp.UpcomingSnapshotTimes, st)
+		now = st.Add(1 * time.Second)
+	}
+
+	return resp, nil
 }
 
 func (s *Server) handlePolicyDelete(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {

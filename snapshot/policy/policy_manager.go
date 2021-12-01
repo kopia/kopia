@@ -41,13 +41,25 @@ var log = logging.Module("kopia/snapshot/policy")
 // with parent policies. The source must contain a path.
 // Returns the effective policies and all source policies that contributed to that (most specific first).
 func GetEffectivePolicy(ctx context.Context, rep repo.Repository, si snapshot.SourceInfo) (effective *Policy, definition *Definition, sources []*Policy, e error) {
+	policies, err := GetPolicyHierarchy(ctx, rep, si)
+	if err != nil {
+		return nil, nil, nil, errors.Wrap(err, "unable to get parent policies")
+	}
+
+	merged, def := MergePolicies(policies, si)
+
+	return merged, def, policies, nil
+}
+
+// GetPolicyHierarchy returns the set of parent policies that apply to the path in most-specific-to-most-general order.
+func GetPolicyHierarchy(ctx context.Context, rep repo.Repository, si snapshot.SourceInfo) ([]*Policy, error) {
 	var md []*manifest.EntryMetadata
 
 	// Find policies applying to paths all the way up to the root.
 	for tmp := si; len(si.Path) > 0; {
-		manifests, err := rep.FindManifests(ctx, labelsForSource(tmp))
+		manifests, err := rep.FindManifests(ctx, LabelsForSource(tmp))
 		if err != nil {
-			return nil, nil, nil, errors.Wrapf(err, "unable to find manifest for source %v", tmp)
+			return nil, errors.Wrapf(err, "unable to find manifest for source %v", tmp)
 		}
 
 		md = append(md, manifests...)
@@ -61,25 +73,25 @@ func GetEffectivePolicy(ctx context.Context, rep repo.Repository, si snapshot.So
 	}
 
 	// Try user@host policy
-	userHostManifests, err := rep.FindManifests(ctx, labelsForSource(snapshot.SourceInfo{Host: si.Host, UserName: si.UserName}))
+	userHostManifests, err := rep.FindManifests(ctx, LabelsForSource(snapshot.SourceInfo{Host: si.Host, UserName: si.UserName}))
 	if err != nil {
-		return nil, nil, nil, errors.Wrap(err, "unable to find user@host manifest")
+		return nil, errors.Wrap(err, "unable to find user@host manifest")
 	}
 
 	md = append(md, userHostManifests...)
 
 	// Try host-level policy.
-	hostManifests, err := rep.FindManifests(ctx, labelsForSource(snapshot.SourceInfo{Host: si.Host}))
+	hostManifests, err := rep.FindManifests(ctx, LabelsForSource(snapshot.SourceInfo{Host: si.Host}))
 	if err != nil {
-		return nil, nil, nil, errors.Wrap(err, "unable to find host-level manifest")
+		return nil, errors.Wrap(err, "unable to find host-level manifest")
 	}
 
 	md = append(md, hostManifests...)
 
 	// Global policy.
-	globalManifests, err := rep.FindManifests(ctx, labelsForSource(GlobalPolicySourceInfo))
+	globalManifests, err := rep.FindManifests(ctx, LabelsForSource(GlobalPolicySourceInfo))
 	if err != nil {
-		return nil, nil, nil, errors.Wrap(err, "unable to find global manifest")
+		return nil, errors.Wrap(err, "unable to find global manifest")
 	}
 
 	md = append(md, globalManifests...)
@@ -89,21 +101,23 @@ func GetEffectivePolicy(ctx context.Context, rep repo.Repository, si snapshot.So
 	for _, em := range md {
 		p := &Policy{}
 		if err := loadPolicyFromManifest(ctx, rep, em.ID, p); err != nil {
-			return nil, nil, nil, errors.Wrapf(err, "got unexpected error when loading policy item %v", em.ID)
+			return nil, errors.Wrapf(err, "got unexpected error when loading policy item %v", em.ID)
 		}
 
 		policies = append(policies, p)
 	}
 
-	merged, def := MergePolicies(policies)
-	merged.Labels = labelsForSource(si)
+	// add artificial empty policy for the source.
+	if len(policies) == 0 || policies[0].Target() != si {
+		policies = append([]*Policy{{Labels: LabelsForSource(si)}}, policies...)
+	}
 
-	return merged, def, policies, nil
+	return policies, nil
 }
 
 // GetDefinedPolicy returns the policy defined on the provided snapshot.SourceInfo or ErrPolicyNotFound if not present.
 func GetDefinedPolicy(ctx context.Context, rep repo.Repository, si snapshot.SourceInfo) (*Policy, error) {
-	md, err := rep.FindManifests(ctx, labelsForSource(si))
+	md, err := rep.FindManifests(ctx, LabelsForSource(si))
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to find policy for source")
 	}
@@ -140,12 +154,12 @@ func SetPolicy(ctx context.Context, rep repo.RepositoryWriter, si snapshot.Sourc
 		}
 	}
 
-	md, err := rep.FindManifests(ctx, labelsForSource(si))
+	md, err := rep.FindManifests(ctx, LabelsForSource(si))
 	if err != nil {
 		return errors.Wrapf(err, "unable to load manifests for %v", si)
 	}
 
-	if _, err := rep.PutManifest(ctx, labelsForSource(si), pol); err != nil {
+	if _, err := rep.PutManifest(ctx, LabelsForSource(si), pol); err != nil {
 		return errors.Wrap(err, "error writing policy manifest")
 	}
 
@@ -160,7 +174,7 @@ func SetPolicy(ctx context.Context, rep repo.RepositoryWriter, si snapshot.Sourc
 
 // RemovePolicy removes the policy for a given source.
 func RemovePolicy(ctx context.Context, rep repo.RepositoryWriter, si snapshot.SourceInfo) error {
-	md, err := rep.FindManifests(ctx, labelsForSource(si))
+	md, err := rep.FindManifests(ctx, LabelsForSource(si))
 	if err != nil {
 		return errors.Wrapf(err, "unable to load manifests for %v", si)
 	}
@@ -290,7 +304,8 @@ func loadPolicyFromManifest(ctx context.Context, rep repo.Repository, id manifes
 	return nil
 }
 
-func labelsForSource(si snapshot.SourceInfo) map[string]string {
+// LabelsForSource returns the set of labels that a given source will have on a policy.
+func LabelsForSource(si snapshot.SourceInfo) map[string]string {
 	switch {
 	case si.Path != "":
 		return map[string]string{

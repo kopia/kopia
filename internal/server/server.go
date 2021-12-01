@@ -85,6 +85,7 @@ func (s *Server) APIHandlers(legacyAPI bool) http.Handler {
 	m.HandleFunc("/api/v1/policy", s.handleAPI(requireUIUser, s.handlePolicyGet)).Methods(http.MethodGet)
 	m.HandleFunc("/api/v1/policy", s.handleAPI(requireUIUser, s.handlePolicyPut)).Methods(http.MethodPut)
 	m.HandleFunc("/api/v1/policy", s.handleAPI(requireUIUser, s.handlePolicyDelete)).Methods(http.MethodDelete)
+	m.HandleFunc("/api/v1/policy/resolve", s.handleAPI(requireUIUser, s.handlePolicyResolve)).Methods(http.MethodPost)
 
 	m.HandleFunc("/api/v1/policies", s.handleAPI(requireUIUser, s.handlePolicyList)).Methods(http.MethodGet)
 

@@ -168,16 +168,16 @@ func testPolicyMergeSingleField(t *testing.T, fieldName string, typ reflect.Type
 	disableParentMerging(defaultPolicyMod)
 
 	// merging default policy with no-op policy results in default policy
-	result, _ := policy.MergePolicies([]*policy.Policy{pol0, defaultPolicyMod})
+	result, _ := policy.MergePolicies([]*policy.Policy{pol0, defaultPolicyMod}, pol0.Target())
 	require.Equal(t, defaultPolicyMod.String(), result.String())
 
-	result, _ = policy.MergePolicies([]*policy.Policy{pol1, pol0, defaultPolicyMod})
+	result, _ = policy.MergePolicies([]*policy.Policy{pol1, pol0, defaultPolicyMod}, pol1.Target())
 	require.Equal(t, pol1.String(), result.String())
 
-	result, _ = policy.MergePolicies([]*policy.Policy{pol2, pol1, pol0, defaultPolicyMod})
+	result, _ = policy.MergePolicies([]*policy.Policy{pol2, pol1, pol0, defaultPolicyMod}, pol2.Target())
 	require.Equal(t, pol2.String(), result.String())
 
-	result, _ = policy.MergePolicies([]*policy.Policy{pol2, pol0, defaultPolicyMod})
+	result, _ = policy.MergePolicies([]*policy.Policy{pol2, pol0, defaultPolicyMod}, pol2.Target())
 	require.Equal(t, pol2.String(), result.String())
 }
 
@@ -225,7 +225,7 @@ func TestPolicyMergeOnlyCompressIncludingParents(t *testing.T) {
 		},
 	}
 
-	result, _ := policy.MergePolicies([]*policy.Policy{p0, p1, p2})
+	result, _ := policy.MergePolicies([]*policy.Policy{p0, p1, p2}, p0.Target())
 
 	want := *policy.DefaultPolicy
 	want.CompressionPolicy.OnlyCompress = []string{"a", "b", "c", "d", "e", "f", "g"}
@@ -233,7 +233,7 @@ func TestPolicyMergeOnlyCompressIncludingParents(t *testing.T) {
 	require.Equal(t, want.String(), result.String())
 
 	p2.NoParent = true
-	result, _ = policy.MergePolicies([]*policy.Policy{p0, p1, p2})
+	result, _ = policy.MergePolicies([]*policy.Policy{p0, p1, p2}, p0.Target())
 
 	want = policy.Policy{}
 	want.CompressionPolicy.OnlyCompress = []string{"a", "b", "c", "d", "e", "f", "g"}
@@ -241,7 +241,7 @@ func TestPolicyMergeOnlyCompressIncludingParents(t *testing.T) {
 	require.Equal(t, want.String(), result.String())
 
 	p1.NoParent = true
-	result, _ = policy.MergePolicies([]*policy.Policy{p0, p1, p2})
+	result, _ = policy.MergePolicies([]*policy.Policy{p0, p1, p2}, p0.Target())
 
 	want = policy.Policy{}
 	want.CompressionPolicy.OnlyCompress = []string{"a", "b", "c", "d", "e"}
@@ -249,7 +249,7 @@ func TestPolicyMergeOnlyCompressIncludingParents(t *testing.T) {
 	require.Equal(t, want.String(), result.String())
 
 	p0.NoParent = true
-	result, _ = policy.MergePolicies([]*policy.Policy{p0, p1, p2})
+	result, _ = policy.MergePolicies([]*policy.Policy{p0, p1, p2}, p0.Target())
 
 	want = policy.Policy{}
 	want.CompressionPolicy.OnlyCompress = []string{"a", "c", "e"}
@@ -284,7 +284,7 @@ func TestPolicyMergeTimesOfDayIncludingParents(t *testing.T) {
 		},
 	}
 
-	result, _ := policy.MergePolicies([]*policy.Policy{p0, p1, p2})
+	result, _ := policy.MergePolicies([]*policy.Policy{p0, p1, p2}, p0.Target())
 
 	want := *policy.DefaultPolicy
 	want.SchedulingPolicy.TimesOfDay = []policy.TimeOfDay{tod0, tod1, tod2, tod3, tod4, tod5, tod6}
@@ -292,7 +292,7 @@ func TestPolicyMergeTimesOfDayIncludingParents(t *testing.T) {
 	require.Equal(t, want.String(), result.String())
 
 	p2.NoParent = true
-	result, _ = policy.MergePolicies([]*policy.Policy{p0, p1, p2})
+	result, _ = policy.MergePolicies([]*policy.Policy{p0, p1, p2}, p0.Target())
 
 	want = policy.Policy{}
 	want.SchedulingPolicy.TimesOfDay = []policy.TimeOfDay{tod0, tod1, tod2, tod3, tod4, tod5, tod6}
@@ -300,7 +300,7 @@ func TestPolicyMergeTimesOfDayIncludingParents(t *testing.T) {
 	require.Equal(t, want.String(), result.String())
 
 	p1.NoParent = true
-	result, _ = policy.MergePolicies([]*policy.Policy{p0, p1, p2})
+	result, _ = policy.MergePolicies([]*policy.Policy{p0, p1, p2}, p0.Target())
 
 	want = policy.Policy{}
 	want.SchedulingPolicy.TimesOfDay = []policy.TimeOfDay{tod0, tod1, tod2, tod3, tod4}
@@ -308,7 +308,7 @@ func TestPolicyMergeTimesOfDayIncludingParents(t *testing.T) {
 	require.Equal(t, want.String(), result.String())
 
 	p0.NoParent = true
-	result, _ = policy.MergePolicies([]*policy.Policy{p0, p1, p2})
+	result, _ = policy.MergePolicies([]*policy.Policy{p0, p1, p2}, p0.Target())
 
 	want = policy.Policy{}
 	want.SchedulingPolicy.TimesOfDay = []policy.TimeOfDay{tod0, tod2, tod4}

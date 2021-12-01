@@ -55,6 +55,9 @@ func TestPolicyManagerInheritanceTest(t *testing.T) {
 		{
 			sourceInfo:    GlobalPolicySourceInfo,
 			wantEffective: defaultPolicyWithLabels,
+			wantSources: []snapshot.SourceInfo{
+				GlobalPolicySourceInfo,
+			},
 		},
 		{
 			sourceInfo: snapshot.SourceInfo{
@@ -69,6 +72,13 @@ func TestPolicyManagerInheritanceTest(t *testing.T) {
 				"path":       "/some/path",
 				"username":   "myuser",
 			}),
+			wantSources: []snapshot.SourceInfo{
+				{
+					UserName: "myuser",
+					Host:     "host-c",
+					Path:     "/some/path",
+				},
+			},
 		},
 		{
 			sourceInfo: snapshot.SourceInfo{
@@ -84,6 +94,7 @@ func TestPolicyManagerInheritanceTest(t *testing.T) {
 				"username":   "myuser",
 			}),
 			wantSources: []snapshot.SourceInfo{
+				{UserName: "myuser", Host: "host-a", Path: "/some/path"},
 				{Host: "host-a"},
 			},
 			wantDef: Definition{
@@ -106,6 +117,7 @@ func TestPolicyManagerInheritanceTest(t *testing.T) {
 				"username":   "myuser",
 			}),
 			wantSources: []snapshot.SourceInfo{
+				{UserName: "myuser", Path: "/some/path2/nested", Host: "host-a"},
 				{UserName: "myuser", Path: "/some/path2", Host: "host-a"},
 				{Host: "host-a"},
 			},

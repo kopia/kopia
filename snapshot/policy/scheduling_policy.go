@@ -88,6 +88,9 @@ func (p *SchedulingPolicy) NextSnapshotTime(previousSnapshotTime, now time.Time)
 		ok               bool
 	)
 
+	now = now.Local()
+	previousSnapshotTime = previousSnapshotTime.Local()
+
 	// compute next snapshot time based on interval
 	if interval := p.IntervalSeconds; interval != 0 {
 		interval := time.Duration(interval) * time.Second
