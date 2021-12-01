@@ -304,6 +304,7 @@ func loadPolicyFromManifest(ctx context.Context, rep repo.Repository, id manifes
 	return nil
 }
 
+// LabelsForSource returns the set of labels that a given source will have on a policy.
 func LabelsForSource(si snapshot.SourceInfo) map[string]string {
 	switch {
 	case si.Path != "":
