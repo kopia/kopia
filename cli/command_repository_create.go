@@ -2,8 +2,10 @@ package cli
 
 import (
 	"context"
+	"time"
 
 	"github.com/alecthomas/kingpin"
+	"github.com/minio/minio-go/v7"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/repo"
@@ -28,6 +30,8 @@ type commandRepositoryCreate struct {
 	createSplitter              string
 	createOnly                  bool
 	createFormatVersion         int
+	retentionMode               string
+	retentionPeriod             time.Duration
 
 	co  connectOptions
 	svc advancedAppServices
@@ -42,6 +46,8 @@ func (c *commandRepositoryCreate) setup(svc advancedAppServices, parent commandP
 	cmd.Flag("object-splitter", "The splitter to use for new objects in the repository").Default(splitter.DefaultAlgorithm).EnumVar(&c.createSplitter, splitter.SupportedAlgorithms()...)
 	cmd.Flag("create-only", "Create repository, but don't connect to it.").Short('c').BoolVar(&c.createOnly)
 	cmd.Flag("format-version", "Force a particular repository format version (1 or 2, 0==default)").IntVar(&c.createFormatVersion)
+	cmd.Flag("retention-mode", "Set the blob retention-mode for supported storage backends.").EnumVar(&c.retentionMode, minio.Governance.String(), minio.Compliance.String())
+	cmd.Flag("retention-period", "Set the blob retention-period for supported storage backends.").DurationVar(&c.retentionPeriod)
 
 	c.co.setup(cmd)
 	c.svc = svc
@@ -81,6 +87,9 @@ func (c *commandRepositoryCreate) newRepositoryOptionsFromFlags() *repo.NewRepos
 		ObjectFormat: object.Format{
 			Splitter: c.createSplitter,
 		},
+
+		RetentionMode:   c.retentionMode,
+		RetentionPeriod: c.retentionPeriod,
 	}
 }
 
