@@ -52,6 +52,10 @@ func deserializeRetentionBytes(f *formatBlob, encryptedRetentionBytes, masterKey
 		err       error
 	)
 
+	if encryptedRetentionBytes == nil {
+		return r, nil
+	}
+
 	switch f.EncryptionAlgorithm {
 	case "NONE": // do nothing
 		plainText = encryptedRetentionBytes

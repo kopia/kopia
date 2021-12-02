@@ -453,7 +453,7 @@ func readAndCacheRepositoryBlobs(ctx context.Context, st blob.Storage, cacheDire
 
 	// Read retention blob, potentially from cache.
 	rb, err := readAndCacheRepositoryBlobBytes(ctx, st, cacheDirectory, RetentionBlobID, validDuration)
-	if err != nil {
+	if err != nil && !errors.Is(err, blob.ErrBlobNotFound) {
 		return nil, nil, errors.Wrap(err, "unable to read retention blob")
 	}
 
