@@ -114,7 +114,7 @@
     "asar": "^3.1.0",
     "concurrently": "^6.4.0",
     "electron": "^16.0.3",
-    "electron-builder": "^22.13.1",
+    "electron-builder": "^22.14.5",
     "electron-notarize": "^1.1.1",
     "react-scripts": "^4.0.3"
   },
