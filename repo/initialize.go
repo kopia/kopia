@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"io"
 	"os"
+	"time"
 
 	"github.com/pkg/errors"
 
@@ -34,10 +35,12 @@ const (
 // NewRepositoryOptions specifies options that apply to newly created repositories.
 // All fields are optional, when not provided, reasonable defaults will be used.
 type NewRepositoryOptions struct {
-	UniqueID     []byte                    `json:"uniqueID"` // force the use of particular unique ID
-	BlockFormat  content.FormattingOptions `json:"blockFormat"`
-	DisableHMAC  bool                      `json:"disableHMAC"`
-	ObjectFormat object.Format             `json:"objectFormat"` // object format
+	UniqueID        []byte                    `json:"uniqueID"` // force the use of particular unique ID
+	BlockFormat     content.FormattingOptions `json:"blockFormat"`
+	DisableHMAC     bool                      `json:"disableHMAC"`
+	ObjectFormat    object.Format             `json:"objectFormat"` // object format
+	RetentionMode   string                    `json:"retentionMode,omitempty"`
+	RetentionPeriod time.Duration             `json:"retentionPeriod,omitempty"`
 }
 
 // ErrAlreadyInitialized indicates that repository has already been initialized.
@@ -62,7 +65,17 @@ func Initialize(ctx context.Context, st blob.Storage, opt *NewRepositoryOptions,
 		return errors.Wrap(err, "unexpected error when checking for format blob")
 	}
 
+	err = st.GetBlob(ctx, RetentionBlobID, 0, -1, &tmp)
+	if err == nil {
+		return ErrAlreadyInitialized
+	}
+
+	if !errors.Is(err, blob.ErrBlobNotFound) {
+		return errors.Wrap(err, "unexpected error when checking for retention blob")
+	}
+
 	format := formatBlobFromOptions(opt)
+	retention := retentionBlobFromOptions(opt)
 
 	formatEncryptionKey, err := format.deriveFormatEncryptionKeyFromPassword(password)
 	if err != nil {
@@ -74,12 +87,25 @@ func Initialize(ctx context.Context, st blob.Storage, opt *NewRepositoryOptions,
 		return errors.Wrap(err, "invalid parameters")
 	}
 
-	if err := f.MutableParameters.Validate(); err != nil {
+	if err = f.MutableParameters.Validate(); err != nil {
 		return errors.Wrap(err, "invalid parameters")
 	}
 
-	if err := encryptFormatBytes(format, f, formatEncryptionKey, format.UniqueID); err != nil {
+	if err = encryptFormatBytes(format, f, formatEncryptionKey, format.UniqueID); err != nil {
 		return errors.Wrap(err, "unable to encrypt format bytes")
+	}
+
+	if !retention.IsNull() {
+		retentionBytes, err := serializeRetentionBytes(format, retention, formatEncryptionKey)
+		if err != nil {
+			return errors.Wrap(err, "unable to encrypt retention bytes")
+		}
+
+		// Write the retention blob first so that we'll consider the repository
+		// corrupted if writing the format blob fails later.
+		if err := st.PutBlob(ctx, RetentionBlobID, gather.FromSlice(retentionBytes), blob.PutOptions{}); err != nil {
+			return errors.Wrap(err, "unable to write retention blob")
+		}
 	}
 
 	if err := writeFormatBlob(ctx, st, format); err != nil {
