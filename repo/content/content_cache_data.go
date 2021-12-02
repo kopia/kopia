@@ -39,12 +39,12 @@ func (c *contentCacheForData) close(ctx context.Context) {
 	c.pc.Close(ctx)
 }
 
-func newContentCacheForData(ctx context.Context, st blob.Storage, cacheStorage cache.Storage, maxSizeBytes int64, hmacSecret []byte) (contentCache, error) {
+func newContentCacheForData(ctx context.Context, st blob.Storage, cacheStorage cache.Storage, sweep cache.SweepSettings, hmacSecret []byte) (contentCache, error) {
 	if cacheStorage == nil {
 		return passthroughContentCache{st}, nil
 	}
 
-	pc, err := cache.NewPersistentCache(ctx, "content cache", cacheStorage, cache.ChecksumProtection(hmacSecret), maxSizeBytes, cache.DefaultTouchThreshold, cache.DefaultSweepFrequency)
+	pc, err := cache.NewPersistentCache(ctx, "content cache", cacheStorage, cache.ChecksumProtection(hmacSecret), sweep)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create base cache")
 	}

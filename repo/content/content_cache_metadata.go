@@ -125,12 +125,12 @@ func (c *contentCacheForMetadata) close(ctx context.Context) {
 	c.pc.Close(ctx)
 }
 
-func newContentCacheForMetadata(ctx context.Context, st blob.Storage, cacheStorage cache.Storage, maxSizeBytes int64) (contentCache, error) {
+func newContentCacheForMetadata(ctx context.Context, st blob.Storage, cacheStorage cache.Storage, sweep cache.SweepSettings) (contentCache, error) {
 	if cacheStorage == nil {
 		return passthroughContentCache{st}, nil
 	}
 
-	pc, err := cache.NewPersistentCache(ctx, "metadata cache", cacheStorage, cache.NoProtection(), maxSizeBytes, cache.DefaultTouchThreshold, cache.DefaultSweepFrequency)
+	pc, err := cache.NewPersistentCache(ctx, "metadata cache", cacheStorage, cache.NoProtection(), sweep)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create base cache")
 	}

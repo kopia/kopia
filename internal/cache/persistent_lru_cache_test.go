@@ -27,7 +27,11 @@ func TestPersistentLRUCache(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	pc, err := cache.NewPersistentCache(ctx, "testing", cs, cache.ChecksumProtection([]byte{1, 2, 3}), maxSizeBytes, cache.DefaultTouchThreshold, cache.DefaultSweepFrequency)
+	pc, err := cache.NewPersistentCache(ctx, "testing", cs, cache.ChecksumProtection([]byte{1, 2, 3}), cache.SweepSettings{
+		MaxSizeBytes:   maxSizeBytes,
+		TouchThreshold: cache.DefaultTouchThreshold,
+		SweepFrequency: cache.DefaultSweepFrequency,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +74,11 @@ func TestPersistentLRUCache(t *testing.T) {
 	verifyBlobExists(ctx, t, cs, "key3")
 	verifyBlobExists(ctx, t, cs, "key4")
 
-	pc, err = cache.NewPersistentCache(ctx, "testing", cs, cache.ChecksumProtection([]byte{1, 2, 3}), maxSizeBytes, cache.DefaultTouchThreshold, cache.DefaultSweepFrequency)
+	pc, err = cache.NewPersistentCache(ctx, "testing", cs, cache.ChecksumProtection([]byte{1, 2, 3}), cache.SweepSettings{
+		MaxSizeBytes:   maxSizeBytes,
+		TouchThreshold: cache.DefaultTouchThreshold,
+		SweepFrequency: cache.DefaultSweepFrequency,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,7 +90,11 @@ func TestPersistentLRUCache(t *testing.T) {
 
 	// create another persistent cache based on the same storage but wrong protection key.
 	// all reads from cache will be invalid, which means GetOrLoad will fetch them from the source.
-	pc2, err := cache.NewPersistentCache(ctx, "testing", cs, cache.ChecksumProtection([]byte{3, 2, 1}), maxSizeBytes, cache.DefaultTouchThreshold, cache.DefaultSweepFrequency)
+	pc2, err := cache.NewPersistentCache(ctx, "testing", cs, cache.ChecksumProtection([]byte{3, 2, 1}), cache.SweepSettings{
+		MaxSizeBytes:   maxSizeBytes,
+		TouchThreshold: cache.DefaultTouchThreshold,
+		SweepFrequency: cache.DefaultSweepFrequency,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}

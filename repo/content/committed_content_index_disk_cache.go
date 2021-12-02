@@ -17,8 +17,7 @@ import (
 )
 
 const (
-	simpleIndexSuffix                      = ".sndx"
-	unusedCommittedContentIndexCleanupTime = 1 * time.Hour // delete unused committed index blobs after 1 hour
+	simpleIndexSuffix = ".sndx"
 )
 
 type diskCommittedContentIndexCache struct {
@@ -26,6 +25,7 @@ type diskCommittedContentIndexCache struct {
 	timeNow              func() time.Time
 	v1PerContentOverhead uint32
 	log                  logging.Logger
+	minSweepAge          time.Duration
 }
 
 func (c *diskCommittedContentIndexCache) indexBlobPath(indexBlobID blob.ID) string {
@@ -137,7 +137,9 @@ func writeTempFileAtomic(dirname string, data []byte) (string, error) {
 }
 
 func (c *diskCommittedContentIndexCache) expireUnused(ctx context.Context, used []blob.ID) error {
-	c.log.Debugf("expireUnused (except %v)", used)
+	c.log.Debugw("expireUnused",
+		"except", used,
+		"minSweepAge", c.minSweepAge)
 
 	entries, err := os.ReadDir(c.dirname)
 	if err != nil {
@@ -168,14 +170,19 @@ func (c *diskCommittedContentIndexCache) expireUnused(ctx context.Context, used 
 	}
 
 	for _, rem := range remaining {
-		if c.timeNow().Sub(rem.ModTime()) > unusedCommittedContentIndexCleanupTime {
-			c.log.Debugf("removing unused %v %v", rem.Name(), rem.ModTime())
+		if c.timeNow().Sub(rem.ModTime()) > c.minSweepAge {
+			c.log.Debugw("removing unused",
+				"name", rem.Name(),
+				"mtime", rem.ModTime())
 
 			if err := os.Remove(filepath.Join(c.dirname, rem.Name())); err != nil {
 				c.log.Errorf("unable to remove unused index file: %v", err)
 			}
 		} else {
-			c.log.Debugf("keeping unused %v because it's too new %v", rem.Name(), rem.ModTime())
+			c.log.Debugw("keeping unused index because it's too new",
+				"name", rem.Name(),
+				"mtime", rem.ModTime(),
+				"threshold", c.minSweepAge)
 		}
 	}
 

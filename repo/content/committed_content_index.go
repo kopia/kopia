@@ -325,12 +325,13 @@ func newCommittedContentIndex(caching *CachingOptions,
 	indexVersion int,
 	fetchOne func(ctx context.Context, blobID blob.ID, output *gather.WriteBuffer) error,
 	log logging.Logger,
+	minSweepAge time.Duration,
 ) *committedContentIndex {
 	var cache committedContentIndexCache
 
 	if caching.CacheDirectory != "" {
 		dirname := filepath.Join(caching.CacheDirectory, "indexes")
-		cache = &diskCommittedContentIndexCache{dirname, clock.Now, v1PerContentOverhead, log}
+		cache = &diskCommittedContentIndexCache{dirname, clock.Now, v1PerContentOverhead, log, minSweepAge}
 	} else {
 		cache = &memoryCommittedContentIndexCache{
 			contents:             map[blob.ID]packIndex{},
