@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"go.opencensus.io/stats"
 
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/repo/blob"
@@ -34,11 +35,9 @@ type PersistentCache struct {
 
 	cacheStorage      Storage
 	storageProtection StorageProtection
+	sweep             SweepSettings
 
-	maxSizeBytes   int64
-	sweepFrequency time.Duration
-	touchThreshold time.Duration
-	description    string
+	description string
 
 	periodicSweepRunning sync.WaitGroup
 	periodicSweepClosed  chan struct{}
@@ -94,7 +93,7 @@ func (c *PersistentCache) Get(ctx context.Context, key string, offset, length in
 			)
 
 			// cache hit
-			c.cacheStorage.TouchBlob(ctx, blob.ID(key), c.touchThreshold) //nolint:errcheck
+			c.cacheStorage.TouchBlob(ctx, blob.ID(key), c.sweep.TouchThreshold) //nolint:errcheck
 
 			return true
 		}
@@ -158,7 +157,7 @@ func (c *PersistentCache) sweepDirectoryPeriodically(ctx context.Context) {
 		case <-c.periodicSweepClosed:
 			return
 
-		case <-time.After(c.sweepFrequency):
+		case <-time.After(c.sweep.SweepFrequency):
 			if err := c.sweepDirectory(ctx); err != nil {
 				log(ctx).Errorf("error during periodic sweep of %v: %v", c.description, err)
 			}
@@ -197,13 +196,25 @@ func (c *PersistentCache) sweepDirectory(ctx context.Context) (err error) {
 
 	var h contentMetadataHeap
 
-	var totalRetainedSize int64
+	var (
+		totalRetainedSize int64
+		tooRecentBytes    int64
+		tooRecentCount    int
+	)
 
 	err = c.cacheStorage.ListBlobs(ctx, "", func(it blob.Metadata) error {
+		// ignore items below minimal age.
+		if age := clock.Now().Sub(it.Timestamp); age < c.sweep.MinSweepAge {
+			tooRecentCount++
+			tooRecentBytes += it.Length
+
+			return nil
+		}
+
 		heap.Push(&h, it)
 		totalRetainedSize += it.Length
 
-		if totalRetainedSize > c.maxSizeBytes {
+		if totalRetainedSize > c.sweep.MaxSizeBytes {
 			oldest := heap.Pop(&h).(blob.Metadata) //nolint:forcetypeassert
 			if delerr := c.cacheStorage.DeleteBlob(ctx, oldest.BlobID); delerr != nil {
 				log(ctx).Errorf("unable to remove %v: %v", oldest.BlobID, delerr)
@@ -211,6 +222,7 @@ func (c *PersistentCache) sweepDirectory(ctx context.Context) (err error) {
 				totalRetainedSize -= oldest.Length
 			}
 		}
+
 		return nil
 	})
 	if err != nil {
@@ -219,23 +231,52 @@ func (c *PersistentCache) sweepDirectory(ctx context.Context) (err error) {
 
 	dur := timer.Elapsed()
 
-	log(ctx).Debugf("finished sweeping %v in %v and retained %v/%v bytes (%v %%)", c.description, dur, totalRetainedSize, c.maxSizeBytes, 100*totalRetainedSize/c.maxSizeBytes)
+	log(ctx).Debugw(
+		"finished sweeping",
+		"cache", c.description,
+		"duration", dur,
+		"totalRetainedSize", totalRetainedSize,
+		"tooRecentBytes", tooRecentBytes,
+		"tooRecentCount", tooRecentCount,
+		"maxSizeBytes", c.sweep.MaxSizeBytes,
+		"inUsePercent", 100*totalRetainedSize/c.sweep.MaxSizeBytes,
+	)
 
 	return nil
 }
 
+// SweepSettings encapsulates settings that impact cache item sweep/expiration.
+type SweepSettings struct {
+	MaxSizeBytes   int64
+	SweepFrequency time.Duration
+	MinSweepAge    time.Duration
+	TouchThreshold time.Duration
+}
+
+func (s SweepSettings) applyDefaults() SweepSettings {
+	if s.TouchThreshold == 0 {
+		s.TouchThreshold = DefaultTouchThreshold
+	}
+
+	if s.SweepFrequency == 0 {
+		s.SweepFrequency = DefaultSweepFrequency
+	}
+
+	return s
+}
+
 // NewPersistentCache creates the persistent cache in the provided storage.
-func NewPersistentCache(ctx context.Context, description string, cacheStorage Storage, storageProtection StorageProtection, maxSizeBytes int64, touchThreshold, sweepFrequency time.Duration) (*PersistentCache, error) {
+func NewPersistentCache(ctx context.Context, description string, cacheStorage Storage, storageProtection StorageProtection, sweep SweepSettings) (*PersistentCache, error) {
+	sweep = sweep.applyDefaults()
+
 	if storageProtection == nil {
 		storageProtection = nullStorageProtection{}
 	}
 
 	c := &PersistentCache{
 		cacheStorage:        cacheStorage,
-		maxSizeBytes:        maxSizeBytes,
+		sweep:               sweep,
 		periodicSweepClosed: make(chan struct{}),
-		touchThreshold:      touchThreshold,
-		sweepFrequency:      sweepFrequency,
 		description:         description,
 		storageProtection:   storageProtection,
 	}

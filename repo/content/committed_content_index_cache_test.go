@@ -20,7 +20,7 @@ func TestCommittedContentIndexCache_Disk(t *testing.T) {
 
 	ta := faketime.NewClockTimeWithOffset(0)
 
-	testCache(t, &diskCommittedContentIndexCache{testutil.TempDirectory(t), ta.NowFunc(), 3, logging.Printf(t.Logf, "test")}, ta)
+	testCache(t, &diskCommittedContentIndexCache{testutil.TempDirectory(t), ta.NowFunc(), 3, logging.Printf(t.Logf, "test"), DefaultIndexCacheSweepAge}, ta)
 }
 
 func TestCommittedContentIndexCache_Memory(t *testing.T) {

@@ -90,7 +90,7 @@ func (c *connectOptions) toRepoConnectOptions() *repo.ConnectOptions {
 			CacheDirectory:            c.connectCacheDirectory,
 			MaxCacheSizeBytes:         c.connectMaxCacheSizeMB << 20,         //nolint:gomnd
 			MaxMetadataCacheSizeBytes: c.connectMaxMetadataCacheSizeMB << 20, //nolint:gomnd
-			MaxListCacheDurationSec:   int(c.connectMaxListCacheDuration.Seconds()),
+			MaxListCacheDuration:      content.DurationSeconds(c.connectMaxListCacheDuration.Seconds()),
 		},
 		ClientOptions: repo.ClientOptions{
 			Hostname:                c.connectHostname,

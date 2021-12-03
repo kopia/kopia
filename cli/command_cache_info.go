@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/content"
 )
 
 type commandCacheInfo struct {
@@ -50,6 +52,13 @@ func (c *commandCacheInfo) run(ctx context.Context, rep repo.Repository) error {
 		"server-contents": opts.MaxCacheSizeBytes,
 	}
 
+	path2SweepAgeSeconds := map[string]time.Duration{
+		"contents":        opts.MinContentSweepAge.DurationOrDefault(content.DefaultDataCacheSweepAge),
+		"metadata":        opts.MinMetadataSweepAge.DurationOrDefault(content.DefaultMetadataCacheSweepAge),
+		"indexes":         opts.MinIndexSweepAge.DurationOrDefault(content.DefaultIndexCacheSweepAge),
+		"server-contents": opts.MinContentSweepAge.DurationOrDefault(content.DefaultDataCacheSweepAge),
+	}
+
 	for _, ent := range entries {
 		if !ent.IsDir() {
 			continue
@@ -64,11 +73,11 @@ func (c *commandCacheInfo) run(ctx context.Context, rep repo.Repository) error {
 
 		maybeLimit := ""
 		if l, ok := path2Limit[ent.Name()]; ok {
-			maybeLimit = fmt.Sprintf(" (limit %v)", units.BytesStringBase10(l))
+			maybeLimit = fmt.Sprintf(" (limit %v, min sweep age %v)", units.BytesStringBase10(l), path2SweepAgeSeconds[ent.Name()])
 		}
 
 		if ent.Name() == "blob-list" {
-			maybeLimit = fmt.Sprintf(" (duration %vs)", opts.MaxListCacheDurationSec)
+			maybeLimit = fmt.Sprintf(" (duration %v)", opts.MaxListCacheDuration.DurationOrDefault(0))
 		}
 
 		c.out.printStdout("%v: %v files %v%v\n", subdir, fileCount, units.BytesStringBase10(totalFileSize), maybeLimit)

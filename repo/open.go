@@ -122,7 +122,10 @@ func getContentCacheOrNil(ctx context.Context, opt *content.CachingOptions, pass
 		return nil, errors.Wrap(err, "unable to initialize protection")
 	}
 
-	pc, err := cache.NewPersistentCache(ctx, "cache-storage", cs, prot, opt.MaxCacheSizeBytes, cache.DefaultTouchThreshold, cache.DefaultSweepFrequency)
+	pc, err := cache.NewPersistentCache(ctx, "cache-storage", cs, prot, cache.SweepSettings{
+		MaxSizeBytes: opt.MaxCacheSizeBytes,
+		MinSweepAge:  opt.MinContentSweepAge.DurationOrDefault(content.DefaultDataCacheSweepAge),
+	})
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to open persistent cache")
 	}
