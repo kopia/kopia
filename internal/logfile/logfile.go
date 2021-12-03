@@ -14,6 +14,7 @@ import (
 
 	"github.com/alecthomas/kingpin"
 	"github.com/fatih/color"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
@@ -37,6 +38,7 @@ type loggingFlags struct {
 	logDirMaxAge          time.Duration
 	contentLogDirMaxFiles int
 	contentLogDirMaxAge   time.Duration
+	logFileMaxSegmentSize int
 	logLevel              string
 	fileLogLevel          string
 	fileLogLocalTimezone  bool
@@ -45,6 +47,7 @@ type loggingFlags struct {
 	forceColor            bool
 	disableColor          bool
 	consoleLogTimestamps  bool
+	waitForLogSweep       bool
 
 	cliApp *cli.App
 }
@@ -56,6 +59,8 @@ func (c *loggingFlags) setup(cliApp *cli.App, app *kingpin.Application) {
 	app.Flag("log-dir", "Directory where log files should be written.").Envar("KOPIA_LOG_DIR").Default(ospath.LogsDir()).StringVar(&c.logDir)
 	app.Flag("log-dir-max-files", "Maximum number of log files to retain").Envar("KOPIA_LOG_DIR_MAX_FILES").Default("1000").Hidden().IntVar(&c.logDirMaxFiles)
 	app.Flag("log-dir-max-age", "Maximum age of log files to retain").Envar("KOPIA_LOG_DIR_MAX_AGE").Hidden().Default("720h").DurationVar(&c.logDirMaxAge)
+	app.Flag("max-log-file-segment-size", "Maximum size of log segment").Envar("KOPIA_LOG_FILE_MAX_SEGMENT_SIZE").Default("50000000").Hidden().IntVar(&c.logFileMaxSegmentSize)
+	app.Flag("wait-for-log-sweep", "Wait for log sweep before program exit").Default("true").Hidden().BoolVar(&c.waitForLogSweep)
 	app.Flag("content-log-dir-max-files", "Maximum number of content log files to retain").Envar("KOPIA_CONTENT_LOG_DIR_MAX_FILES").Default("5000").Hidden().IntVar(&c.contentLogDirMaxFiles)
 	app.Flag("content-log-dir-max-age", "Maximum age of content log files to retain").Envar("KOPIA_CONTENT_LOG_DIR_MAX_AGE").Default("720h").Hidden().DurationVar(&c.contentLogDirMaxAge)
 	app.Flag("log-level", "Console log level").Default("info").EnumVar(&c.logLevel, logLevels...)
@@ -202,16 +207,42 @@ func (c *loggingFlags) setupLogFileBasedLogger(now time.Time, subdir, suffix, lo
 		fmt.Fprintln(os.Stderr, "Unable to create logs directory:", err)
 	}
 
+	sweepLogWG := &sync.WaitGroup{}
+	doSweep := func() {}
+
 	// do not scrub directory if custom log file has been provided.
 	if logFileOverride == "" && shouldSweepLog(maxFiles, maxAge) {
-		go sweepLogDir(context.TODO(), logDir, maxFiles, maxAge)
+		doSweep = func() {
+			sweepLogDir(context.TODO(), logDir, maxFiles, maxAge)
+		}
 	}
 
-	return &onDemandFile{
+	odf := &onDemandFile{
 		logDir:          logDir,
 		logFileBaseName: logFileBaseName,
 		symlinkName:     symlinkName,
+		maxSegmentSize:  c.logFileMaxSegmentSize,
+		startSweep: func() {
+			sweepLogWG.Add(1)
+
+			go func() {
+				defer sweepLogWG.Done()
+
+				doSweep()
+			}()
+		},
 	}
+
+	if c.waitForLogSweep {
+		// wait for log sweep at the end
+		c.cliApp.RegisterOnExit(odf.closeSegmentAndSweep)
+		c.cliApp.RegisterOnExit(sweepLogWG.Wait)
+	} else {
+		// old behavior: start log sweep in parallel to program but don't wait at the end.
+		odf.startSweep()
+	}
+
+	return odf
 }
 
 func (c *loggingFlags) setupLogFileCore(now time.Time, suffix string) zapcore.Core {
@@ -332,13 +363,19 @@ func logLevelFromFlag(levelString string) zapcore.LevelEnabler {
 }
 
 type onDemandFile struct {
+	segmentCounter         int // number of segments written
+	currentSegmentSize     int // number of bytes written to current segment
+	maxSegmentSize         int
+	currentSegmentFilename string
+
 	logDir          string
 	logFileBaseName string
 	symlinkName     string
 
-	f *os.File
+	startSweep func()
 
-	once sync.Once
+	mu sync.Mutex
+	f  *os.File
 }
 
 func (w *onDemandFile) Sync() error {
@@ -350,28 +387,70 @@ func (w *onDemandFile) Sync() error {
 	return w.f.Sync()
 }
 
+func (w *onDemandFile) closeSegmentAndSweep() {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	w.closeSegmentAndSweepLocked()
+}
+
+func (w *onDemandFile) closeSegmentAndSweepLocked() {
+	if w.f != nil {
+		if err := w.f.Close(); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: unable to close log segment: %v", err)
+		}
+
+		w.f = nil
+	}
+
+	w.startSweep()
+}
+
 func (w *onDemandFile) Write(b []byte) (int, error) {
-	w.once.Do(func() {
-		lf := filepath.Join(w.logDir, w.logFileBaseName)
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	// close current file if we'd overflow on next write.
+	if w.f != nil && w.currentSegmentSize+len(b) > w.maxSegmentSize {
+		w.closeSegmentAndSweepLocked()
+	}
+
+	// open file if we don't have it yet
+	if w.f == nil {
+		var baseName, ext string
+
+		p := strings.LastIndex(w.logFileBaseName, ".")
+		if p < 0 {
+			ext = ""
+			baseName = w.logFileBaseName
+		} else {
+			ext = w.logFileBaseName[p:]
+			baseName = w.logFileBaseName[0:p]
+		}
+
+		w.currentSegmentFilename = fmt.Sprintf("%s.%d%s", baseName, w.segmentCounter, ext)
+		w.segmentCounter++
+		w.currentSegmentSize = 0
+
+		lf := filepath.Join(w.logDir, w.currentSegmentFilename)
+
 		f, err := os.Create(lf)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "unable to open log file: %v\n", err)
-			return
+			return 0, errors.Wrap(err, "unable to open log file")
 		}
 
 		w.f = f
 
 		if w.symlinkName != "" {
 			symlink := filepath.Join(w.logDir, w.symlinkName)
-			_ = os.Remove(symlink)                     // best-effort remove
-			_ = os.Symlink(w.logFileBaseName, symlink) // best-effort symlink
+			_ = os.Remove(symlink)                            // best-effort remove
+			_ = os.Symlink(w.currentSegmentFilename, symlink) // best-effort symlink
 		}
-	})
-
-	if w.f == nil {
-		return 0, nil
 	}
 
+	n, err := w.f.Write(b)
+	w.currentSegmentSize += n
+
 	// nolint:wrapcheck
-	return w.f.Write(b)
+	return n, err
 }

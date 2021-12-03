@@ -95,6 +95,54 @@ func TestLoggingFlags(t *testing.T) {
 	require.Empty(t, stderr)
 }
 
+func TestLogFileRotation(t *testing.T) {
+	runner := testenv.NewInProcRunner(t)
+	runner.CustomizeApp = logfile.Attach
+
+	env := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+	env.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", env.RepoDir)
+
+	dir1 := testutil.TempDirectory(t)
+
+	tmpLogDir := testutil.TempDirectory(t)
+
+	env.RunAndExpectSuccess(t, "snap", "create", dir1,
+		"--file-log-local-tz", "--log-level=error", "--file-log-level=debug",
+		"--max-log-file-segment-size=1000", "--log-dir", tmpLogDir, "--log-dir-max-files=3", "--content-log-dir-max-files=4")
+
+	// expected number of files per directory
+	subdirs := map[string]int{
+		"cli-logs":     3,
+		"content-logs": 4,
+	}
+
+	for subdir, wantEntryCount := range subdirs {
+		logSubdir := filepath.Join(tmpLogDir, subdir)
+		wantEntryCount := wantEntryCount
+
+		t.Run(subdir, func(t *testing.T) {
+			entries, err := os.ReadDir(logSubdir)
+			require.NoError(t, err)
+
+			var gotEntryCount int
+
+			for _, ent := range entries {
+				info, err := ent.Info()
+				require.NoError(t, err)
+
+				t.Logf("%v %v", info.Name(), info.Size())
+				if info.Mode().IsRegular() {
+					gotEntryCount++
+				}
+
+				require.LessOrEqual(t, info.Size(), int64(3000), info.Name())
+			}
+
+			require.Equal(t, wantEntryCount, gotEntryCount)
+		})
+	}
+}
+
 func verifyFileLogFormat(t *testing.T, fname string, re *regexp.Regexp) {
 	t.Helper()
 
