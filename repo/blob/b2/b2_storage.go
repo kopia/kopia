@@ -124,7 +124,7 @@ func translateError(err error) error {
 				return blob.ErrBlobNotFound
 			}
 
-			if b2err.Code == "bad_request" && strings.HasPrefix(b2err.Message, "Bad fileId") {
+			if b2err.Code == "bad_request" && strings.HasPrefix(b2err.Message, "Bad file") {
 				// returned in GetMetadata() when fileId is not found.
 				return blob.ErrBlobNotFound
 			}
