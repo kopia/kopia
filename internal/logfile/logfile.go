@@ -31,23 +31,25 @@ const logsDirMode = 0o700
 var logLevels = []string{"debug", "info", "warning", "error"}
 
 type loggingFlags struct {
-	logFile               string
-	contentLogFile        string
-	logDir                string
-	logDirMaxFiles        int
-	logDirMaxAge          time.Duration
-	contentLogDirMaxFiles int
-	contentLogDirMaxAge   time.Duration
-	logFileMaxSegmentSize int
-	logLevel              string
-	fileLogLevel          string
-	fileLogLocalTimezone  bool
-	jsonLogFile           bool
-	jsonLogConsole        bool
-	forceColor            bool
-	disableColor          bool
-	consoleLogTimestamps  bool
-	waitForLogSweep       bool
+	logFile                     string
+	contentLogFile              string
+	logDir                      string
+	logDirMaxFiles              int
+	logDirMaxAge                time.Duration
+	logDirMaxTotalSizeMB        float64
+	contentLogDirMaxFiles       int
+	contentLogDirMaxAge         time.Duration
+	contentLogDirMaxTotalSizeMB float64
+	logFileMaxSegmentSize       int
+	logLevel                    string
+	fileLogLevel                string
+	fileLogLocalTimezone        bool
+	jsonLogFile                 bool
+	jsonLogConsole              bool
+	forceColor                  bool
+	disableColor                bool
+	consoleLogTimestamps        bool
+	waitForLogSweep             bool
 
 	cliApp *cli.App
 }
@@ -59,10 +61,12 @@ func (c *loggingFlags) setup(cliApp *cli.App, app *kingpin.Application) {
 	app.Flag("log-dir", "Directory where log files should be written.").Envar("KOPIA_LOG_DIR").Default(ospath.LogsDir()).StringVar(&c.logDir)
 	app.Flag("log-dir-max-files", "Maximum number of log files to retain").Envar("KOPIA_LOG_DIR_MAX_FILES").Default("1000").Hidden().IntVar(&c.logDirMaxFiles)
 	app.Flag("log-dir-max-age", "Maximum age of log files to retain").Envar("KOPIA_LOG_DIR_MAX_AGE").Hidden().Default("720h").DurationVar(&c.logDirMaxAge)
-	app.Flag("max-log-file-segment-size", "Maximum size of log segment").Envar("KOPIA_LOG_FILE_MAX_SEGMENT_SIZE").Default("50000000").Hidden().IntVar(&c.logFileMaxSegmentSize)
+	app.Flag("log-dir-max-total-size-mb", "Maximum total size of log files to retain").Envar("KOPIA_LOG_DIR_MAX_SIZE_MB").Hidden().Default("1000").Float64Var(&c.logDirMaxTotalSizeMB)
+	app.Flag("max-log-file-segment-size", "Maximum size of a single log file segment").Envar("KOPIA_LOG_FILE_MAX_SEGMENT_SIZE").Default("50000000").Hidden().IntVar(&c.logFileMaxSegmentSize)
 	app.Flag("wait-for-log-sweep", "Wait for log sweep before program exit").Default("true").Hidden().BoolVar(&c.waitForLogSweep)
 	app.Flag("content-log-dir-max-files", "Maximum number of content log files to retain").Envar("KOPIA_CONTENT_LOG_DIR_MAX_FILES").Default("5000").Hidden().IntVar(&c.contentLogDirMaxFiles)
 	app.Flag("content-log-dir-max-age", "Maximum age of content log files to retain").Envar("KOPIA_CONTENT_LOG_DIR_MAX_AGE").Default("720h").Hidden().DurationVar(&c.contentLogDirMaxAge)
+	app.Flag("content-log-dir-max-total-size-mb", "Maximum total size of log files to retain").Envar("KOPIA_CONTENT_LOG_DIR_MAX_SIZE_MB").Hidden().Default("1000").Float64Var(&c.contentLogDirMaxTotalSizeMB)
 	app.Flag("log-level", "Console log level").Default("info").EnumVar(&c.logLevel, logLevels...)
 	app.Flag("json-log-console", "JSON log file").Hidden().BoolVar(&c.jsonLogConsole)
 	app.Flag("json-log-file", "JSON log file").Hidden().BoolVar(&c.jsonLogFile)
@@ -182,7 +186,7 @@ func (c *loggingFlags) setupConsoleCore() zapcore.Core {
 	)
 }
 
-func (c *loggingFlags) setupLogFileBasedLogger(now time.Time, subdir, suffix, logFileOverride string, maxFiles int, maxAge time.Duration) zapcore.WriteSyncer {
+func (c *loggingFlags) setupLogFileBasedLogger(now time.Time, subdir, suffix, logFileOverride string, maxFiles int, maxSizeMB float64, maxAge time.Duration) zapcore.WriteSyncer {
 	var logFileName, symlinkName string
 
 	if logFileOverride != "" {
@@ -213,7 +217,7 @@ func (c *loggingFlags) setupLogFileBasedLogger(now time.Time, subdir, suffix, lo
 	// do not scrub directory if custom log file has been provided.
 	if logFileOverride == "" && shouldSweepLog(maxFiles, maxAge) {
 		doSweep = func() {
-			sweepLogDir(context.TODO(), logDir, maxFiles, maxAge)
+			sweepLogDir(context.TODO(), logDir, maxFiles, maxSizeMB, maxAge)
 		}
 	}
 
@@ -258,7 +262,7 @@ func (c *loggingFlags) setupLogFileCore(now time.Time, suffix string) zapcore.Co
 			EncodeDuration:   zapcore.StringDurationEncoder,
 			ConsoleSeparator: " ",
 		}, c.jsonLogFile),
-		c.setupLogFileBasedLogger(now, "cli-logs", suffix, c.logFile, c.logDirMaxFiles, c.logDirMaxAge),
+		c.setupLogFileBasedLogger(now, "cli-logs", suffix, c.logFile, c.logDirMaxFiles, c.logDirMaxTotalSizeMB, c.logDirMaxAge),
 		logLevelFromFlag(c.fileLogLevel),
 	)
 }
@@ -281,7 +285,7 @@ func (c *loggingFlags) setupContentLogFileBackend(now time.Time, suffix string) 
 			EncodeDuration:   zapcore.StringDurationEncoder,
 			ConsoleSeparator: " ",
 		}),
-		c.setupLogFileBasedLogger(now, "content-logs", suffix, c.contentLogFile, c.contentLogDirMaxFiles, c.contentLogDirMaxAge),
+		c.setupLogFileBasedLogger(now, "content-logs", suffix, c.contentLogFile, c.contentLogDirMaxFiles, c.contentLogDirMaxTotalSizeMB, c.contentLogDirMaxAge),
 		zap.DebugLevel)
 }
 
@@ -289,7 +293,7 @@ func shouldSweepLog(maxFiles int, maxAge time.Duration) bool {
 	return maxFiles > 0 || maxAge > 0
 }
 
-func sweepLogDir(ctx context.Context, dirname string, maxCount int, maxAge time.Duration) {
+func sweepLogDir(ctx context.Context, dirname string, maxCount int, maxSizeMB float64, maxAge time.Duration) {
 	var timeCutoff time.Time
 	if maxAge > 0 {
 		timeCutoff = clock.Now().Add(-maxAge)
@@ -298,6 +302,8 @@ func sweepLogDir(ctx context.Context, dirname string, maxCount int, maxAge time.
 	if maxCount == 0 {
 		maxCount = math.MaxInt32
 	}
+
+	maxTotalSizeBytes := int64(maxSizeMB * 1e6)
 
 	entries, err := os.ReadDir(dirname)
 	if err != nil {
@@ -327,6 +333,7 @@ func sweepLogDir(ctx context.Context, dirname string, maxCount int, maxAge time.
 	})
 
 	cnt := 0
+	totalSize := int64(0)
 
 	for _, fi := range fileInfos {
 		if !strings.HasPrefix(fi.Name(), logFileNamePrefix) {
@@ -339,7 +346,9 @@ func sweepLogDir(ctx context.Context, dirname string, maxCount int, maxAge time.
 
 		cnt++
 
-		if cnt > maxCount || fi.ModTime().Before(timeCutoff) {
+		totalSize += fi.Size()
+
+		if cnt > maxCount || totalSize > maxTotalSizeBytes || fi.ModTime().Before(timeCutoff) {
 			if err = os.Remove(filepath.Join(dirname, fi.Name())); err != nil && !os.IsNotExist(err) {
 				log(ctx).Errorf("unable to remove log file: %v", err)
 			}

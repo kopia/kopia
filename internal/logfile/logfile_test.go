@@ -2,6 +2,7 @@ package logfile_test
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -14,6 +15,7 @@ import (
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/logfile"
 	"github.com/kopia/kopia/internal/testutil"
+	"github.com/kopia/kopia/tests/testdirtree"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
@@ -143,6 +145,50 @@ func TestLogFileRotation(t *testing.T) {
 	}
 }
 
+func TestLogFileMaxTotalSize(t *testing.T) {
+	runner := testenv.NewInProcRunner(t)
+	runner.CustomizeApp = logfile.Attach
+
+	env := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+	env.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", env.RepoDir)
+
+	srcDir := testutil.TempDirectory(t)
+	tmpLogDir := testutil.TempDirectory(t)
+
+	// 5-level directory with <=10 files and <=10 subdirectories at each level
+	testdirtree.CreateDirectoryTree(srcDir, testdirtree.MaybeSimplifyFilesystem(testdirtree.DirectoryTreeOptions{
+		Depth:                  3,
+		MaxSubdirsPerDirectory: 10,
+		MaxFilesPerDirectory:   100,
+		MaxFileSize:            10,
+	}), &testdirtree.DirectoryTreeCounters{})
+
+	env.RunAndExpectSuccess(t, "snap", "create", srcDir,
+		"--file-log-local-tz", "--log-level=error", "--file-log-level=debug",
+		"--max-log-file-segment-size=1000", "--log-dir", tmpLogDir)
+
+	subdirFlags := map[string]string{
+		"cli-logs":     "--log-dir-max-total-size-mb",
+		"content-logs": "--content-log-dir-max-total-size-mb",
+	}
+
+	for subdir, flag := range subdirFlags {
+		logSubdir := filepath.Join(tmpLogDir, subdir)
+		flag := flag
+
+		t.Run(subdir, func(t *testing.T) {
+			env.RunAndExpectSuccess(t, "snap", "ls", "--file-log-level=debug", "--log-dir", tmpLogDir, flag+"=40000")
+			size1 := getTotalDirSize(t, logSubdir)
+			size1MB := float64(size1) / 1e6
+
+			env.RunAndExpectSuccess(t, "snap", "ls", "--file-log-level=debug", "--log-dir", tmpLogDir, fmt.Sprintf("%s=%v", flag, size1MB/2))
+			size2 := getTotalDirSize(t, logSubdir)
+			require.Less(t, size2, size1/2)
+			require.Greater(t, size2, size1/4)
+		})
+	}
+}
+
 func verifyFileLogFormat(t *testing.T, fname string, re *regexp.Regexp) {
 	t.Helper()
 
@@ -162,4 +208,26 @@ func isUTC() bool {
 	_, offset := clock.Now().Zone()
 
 	return offset == 0
+}
+
+func getTotalDirSize(t *testing.T, dir string) int {
+	t.Helper()
+
+	entries, err := os.ReadDir(dir)
+	require.NoError(t, err)
+
+	var totalSize int
+
+	for _, ent := range entries {
+		info, err := ent.Info()
+		require.NoError(t, err)
+
+		t.Logf("%v %v", info.Name(), info.Size())
+
+		if info.Mode().IsRegular() {
+			totalSize += int(info.Size())
+		}
+	}
+
+	return totalSize
 }
