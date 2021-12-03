@@ -67,7 +67,7 @@ func Initialize(ctx context.Context, st blob.Storage, opt *NewRepositoryOptions,
 
 	err = st.GetBlob(ctx, RetentionBlobID, 0, -1, &tmp)
 	if err == nil {
-		return ErrAlreadyInitialized
+		return errors.Errorf("possible corruption: retention blob exists, but format blob is not found")
 	}
 
 	if !errors.Is(err, blob.ErrBlobNotFound) {

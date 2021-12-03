@@ -1,29 +1,30 @@
 package beforeop
 
 import (
-	"fmt"
 	"testing"
+
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo/blob"
-	"github.com/stretchr/testify/require"
 )
 
 func TestBeforeOpStorageNegative(t *testing.T) {
 	r := NewWrapper(blobtesting.NewMapStorage(nil, nil, clock.Now),
-		func() error {
-			return fmt.Errorf("GetBlob error")
+		func(id blob.ID) error {
+			return errors.Wrap(blob.ErrBlobNotFound, "GetBlob error")
 		},
 		func() error {
-			return fmt.Errorf("GetMetadata error")
+			return errors.Wrap(blob.ErrBlobNotFound, "GetMetadata error")
 		},
 		func() error {
-			return fmt.Errorf("DeleteBlob error")
+			return errors.Wrap(blob.ErrBlobNotFound, "DeleteBlob error")
 		},
 		func(id blob.ID, opts *blob.PutOptions) error {
-			return fmt.Errorf("PutBlob error")
+			return errors.Wrap(blob.ErrBlobNotFound, "PutBlob error")
 		},
 	)
 

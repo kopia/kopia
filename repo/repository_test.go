@@ -6,13 +6,23 @@ import (
 	"io"
 	"math/rand"
 	"runtime/debug"
+	"strings"
 	"testing"
+	"time"
 
+	"github.com/minio/minio-go/v7"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kopia/kopia/internal/blobtesting"
+	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/epoch"
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/repotesting"
+	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/blob/beforeop"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/object"
 )
@@ -381,6 +391,143 @@ func TestWriterScope(t *testing.T) {
 	verify(ctx, t, w3, o4, o4Data, "o4-w3")
 	verify(ctx, t, lw, o4, o4Data, "o4-lw")
 	verify(ctx, t, rep, o4, o4Data, "o3-rep")
+}
+
+func TestInitializeWithRetentionBlob(t *testing.T) {
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant, repotesting.Options{
+		NewRepositoryOptions: func(n *repo.NewRepositoryOptions) {
+			n.RetentionMode = minio.Governance.String()
+			n.RetentionPeriod = time.Hour * 24
+		},
+	})
+
+	var d gather.WriteBuffer
+
+	// verify that the retention blob is created
+	require.NoError(t, env.RepositoryWriter.BlobStorage().GetBlob(ctx, repo.RetentionBlobID, 0, -1, &d))
+	require.NoError(t, env.RepositoryWriter.ChangePassword(ctx, "new-password"))
+	// verify that the retention blob is created and is different after
+	// password-change
+	require.NoError(t, env.RepositoryWriter.BlobStorage().GetBlob(ctx, repo.RetentionBlobID, 0, -1, &d))
+
+	// verify that we cannot re-initialize the repo even if the format-blob was
+	// lost or deleted
+	require.Errorf(t, repo.Initialize(testlogging.Context(t), env.RootStorage(), nil, env.Password),
+		"possible corruption: retention blob exists, but format blob is not found")
+
+	// verify that we'd consider the repository corrupted if we were able to
+	// read the retention blob but failed to read the format blob
+	require.Errorf(t,
+		repo.Initialize(testlogging.Context(t),
+			beforeop.NewWrapper(
+				env.RootStorage(),
+				// GetBlob callback
+				func(id blob.ID) error {
+					if id == repo.RetentionBlobID {
+						return errors.New("unexpected error")
+					}
+					return nil
+				}, nil, nil, nil,
+			),
+			nil,
+			env.Password,
+		),
+		"possible corruption: retention blob exists, but format blob is not found")
+
+	// verify that we consider the repository corrupted if we were able to
+	// write the retention blob
+	require.Errorf(t,
+		repo.Initialize(testlogging.Context(t),
+			beforeop.NewWrapper(
+				env.RootStorage(),
+				nil, nil, nil,
+				// PutBlob callback
+				func(id blob.ID, _ *blob.PutOptions) error {
+					if id == repo.RetentionBlobID {
+						return errors.New("unexpected error")
+					}
+					return nil
+				},
+			),
+			nil,
+			env.Password,
+		),
+		"unable to write retention blob")
+
+	// verify that we always read/fail on the repository blob first before the
+	// retention blob
+	require.Errorf(t,
+		repo.Initialize(testlogging.Context(t),
+			beforeop.NewWrapper(
+				env.RootStorage(),
+				nil, nil, nil,
+				// PutBlob callback
+				func(id blob.ID, _ *blob.PutOptions) error {
+					if id == repo.RetentionBlobID || id == repo.FormatBlobID {
+						return errors.New("unexpected error")
+					}
+					return nil
+				},
+			),
+			nil,
+			env.Password,
+		),
+		"unable to read repository blobs")
+}
+
+func TestInitializeWithNoRetention(t *testing.T) {
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant, repotesting.Options{
+		NewRepositoryOptions: func(n *repo.NewRepositoryOptions) {
+			n.RetentionMode = minio.Governance.String()
+			n.RetentionPeriod = 0 // no-effect
+		},
+	})
+
+	// verify that the retention blob is NOT created because the retention period is not
+	// specified
+	blobtesting.AssertGetBlobNotFound(ctx, t, env.RepositoryWriter.BlobStorage(), repo.RetentionBlobID)
+}
+
+func TestObjectWritesWithRetention(t *testing.T) {
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant, repotesting.Options{
+		NewRepositoryOptions: func(n *repo.NewRepositoryOptions) {
+			n.RetentionMode = minio.Governance.String()
+			n.RetentionPeriod = time.Hour * 24
+		},
+	})
+
+	writer := env.RepositoryWriter.NewObjectWriter(ctx, object.WriterOptions{})
+	_, err := writer.Write([]byte("the quick brown fox jumps over the lazy dog"))
+	require.NoError(t, err)
+
+	_, err = writer.Result()
+	require.NoError(t, err)
+
+	env.RepositoryWriter.ContentManager().Flush(ctx)
+
+	var (
+		st                    = env.RepositoryWriter.BlobStorage()
+		prefixesWithRetention []string
+	)
+
+	for _, prefix := range content.PackBlobIDPrefixes {
+		prefixesWithRetention = append(prefixesWithRetention, string(prefix))
+	}
+
+	prefixesWithRetention = append(prefixesWithRetention, content.IndexBlobPrefix, epoch.EpochManagerIndexUberPrefix)
+
+	// make sure that we cannot set mtime on the kopia objects created due to the
+	// retention time constraint
+	require.NoError(t, st.ListBlobs(ctx, "", func(it blob.Metadata) error {
+		for _, prefix := range prefixesWithRetention {
+			if strings.HasPrefix(string(it.BlobID), prefix) {
+				require.Error(t, st.SetTime(ctx, it.BlobID, clock.Now()), "expected error while setting mtime %s", it.BlobID)
+				return nil
+			}
+		}
+		require.NoError(t, st.SetTime(ctx, it.BlobID, clock.Now()), "unexpected error while setting mtime %s", it.BlobID)
+		return nil
+	}))
 }
 
 func (s *formatSpecificTestSuite) TestWriteSessionFlushOnSuccess(t *testing.T) {

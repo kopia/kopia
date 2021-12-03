@@ -9,18 +9,20 @@ import (
 
 type (
 	callback          func() error
+	onGetBlobCallback func(id blob.ID) error
 	onPutBlobCallback func(id blob.ID, opts *blob.PutOptions) error // allows mutating the put-options
 )
 
 type beforeOp struct {
 	blob.Storage
-	onGetBlob, onGetMetadata, onDeleteBlob callback
-	onPutBlob                              onPutBlobCallback
+	onGetMetadata, onDeleteBlob callback
+	onGetBlob                   onGetBlobCallback
+	onPutBlob                   onPutBlobCallback
 }
 
 func (s beforeOp) GetBlob(ctx context.Context, id blob.ID, offset, length int64, output blob.OutputBuffer) error {
 	if s.onGetBlob != nil {
-		if err := s.onGetBlob(); err != nil {
+		if err := s.onGetBlob(id); err != nil {
 			return err
 		}
 	}
@@ -60,7 +62,7 @@ func (s beforeOp) DeleteBlob(ctx context.Context, id blob.ID) error {
 
 // NewWrapper creates a wrapped storage interface for data operations that need
 // to run a callback before the actual operation.
-func NewWrapper(wrapped blob.Storage, onGetBlob, onGetMetadata, onDeleteBlob callback, onPutBlob onPutBlobCallback) blob.Storage {
+func NewWrapper(wrapped blob.Storage, onGetBlob onGetBlobCallback, onGetMetadata, onDeleteBlob callback, onPutBlob onPutBlobCallback) blob.Storage {
 	return &beforeOp{
 		Storage:       wrapped,
 		onGetBlob:     onGetBlob,
