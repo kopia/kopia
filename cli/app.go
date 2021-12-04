@@ -122,7 +122,8 @@ type App struct {
 	disableInternalLog            bool
 	AdvancedCommands              string
 
-	currentAction string
+	currentAction   string
+	onExitCallbacks []func()
 
 	// subcommands
 	blob        commandBlob
@@ -168,6 +169,18 @@ func (c *App) Stderr() io.Writer {
 // SetLoggerFactory sets the logger factory to be used throughout the app.
 func (c *App) SetLoggerFactory(loggerForModule logging.LoggerFactory) {
 	c.loggerFactory = loggerForModule
+}
+
+// RegisterOnExit registers the provided function to run before app exits.
+func (c *App) RegisterOnExit(f func()) {
+	c.onExitCallbacks = append(c.onExitCallbacks, f)
+}
+
+// runOnExit runs all registered on-exit callbacks.
+func (c *App) runOnExit() {
+	for _, f := range c.onExitCallbacks {
+		f()
+	}
 }
 
 func (c *App) passwordPersistenceStrategy() passwordpersist.Strategy {
@@ -405,7 +418,7 @@ func (c *App) maybeRepositoryAction(act func(ctx context.Context, rep repo.Repos
 	return func(kpc *kingpin.ParseContext) error {
 		ctx0 := c.rootContext()
 
-		if err := c.pf.withProfiling(func() error {
+		err := c.pf.withProfiling(func() error {
 			ctx, finishMemoryTracking := c.mt.startMemoryTracking(ctx0)
 			defer finishMemoryTracking()
 
@@ -461,7 +474,11 @@ func (c *App) maybeRepositoryAction(act func(ctx context.Context, rep repo.Repos
 			}
 
 			return err
-		}); err != nil {
+		})
+
+		c.runOnExit()
+
+		if err != nil {
 			// print error in red
 			log(ctx0).Errorf("%v", err.Error())
 			c.osExit(1)
