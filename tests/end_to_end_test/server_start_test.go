@@ -127,11 +127,11 @@ func TestServerStart(t *testing.T) {
 	require.Equal(t, int64(0), et.Counters["Ignored Errors"].Value)
 
 	createResp, err := serverapi.CreateSnapshotSource(ctx, cli, &serverapi.CreateSnapshotSourceRequest{
-		Path: sharedTestDataDir2,
+		Path:   sharedTestDataDir2,
+		Policy: &policy.Policy{},
 	})
 	require.NoError(t, err)
 
-	require.True(t, createResp.Created)
 	require.False(t, createResp.SnapshotStarted)
 
 	verifySourceCount(t, cli, nil, 2)
@@ -162,13 +162,13 @@ func TestServerStart(t *testing.T) {
 	keepDaily := 77
 
 	createResp, err = serverapi.CreateSnapshotSource(ctx, cli, &serverapi.CreateSnapshotSourceRequest{
-		Path:           sharedTestDataDir3,
-		CreateSnapshot: true,
-		InitialPolicy: policy.Policy{
+		Path: sharedTestDataDir3,
+		Policy: &policy.Policy{
 			RetentionPolicy: policy.RetentionPolicy{
 				KeepDaily: &keepDaily,
 			},
 		},
+		CreateSnapshot: true,
 	})
 	require.NoError(t, err)
 

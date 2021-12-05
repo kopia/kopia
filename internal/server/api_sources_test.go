@@ -34,7 +34,7 @@ func TestSnapshotCounters(t *testing.T) {
 	dir := testutil.TempDirectory(t)
 	si := localSource(env, dir)
 
-	mustCreateSource(t, cli, dir)
+	mustCreateSource(t, cli, dir, &policy.Policy{})
 	require.Len(t, mustListSources(t, cli, &snapshot.SourceInfo{}), 1)
 
 	mustSetPolicy(t, cli, si, &policy.Policy{
@@ -95,15 +95,13 @@ func TestSourceRefreshesAfterPolicy(t *testing.T) {
 
 	currentHour := clock.Now().Hour()
 
-	mustSetPolicy(t, cli, si, &policy.Policy{
+	mustCreateSource(t, cli, dir, &policy.Policy{
 		SchedulingPolicy: policy.SchedulingPolicy{
 			TimesOfDay: []policy.TimeOfDay{
 				{Hour: (currentHour + 2) % 24, Minute: 33},
 			},
 		},
 	})
-
-	mustCreateSource(t, cli, dir)
 	sources := mustListSources(t, cli, &snapshot.SourceInfo{})
 	require.Len(t, sources, 1)
 	require.NotNil(t, sources[0].NextSnapshotTime)
