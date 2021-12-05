@@ -102,6 +102,7 @@ func TestSourceRefreshesAfterPolicy(t *testing.T) {
 			},
 		},
 	})
+
 	sources := mustListSources(t, cli, &snapshot.SourceInfo{})
 	require.Len(t, sources, 1)
 	require.NotNil(t, sources[0].NextSnapshotTime)
