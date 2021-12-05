@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	statusRefreshInterval       = 15 * time.Second // how frequently to refresh source status
+	statusRefreshInterval       = 30 * time.Minute
 	failedSnapshotRetryInterval = 5 * time.Minute
 	refreshTimeout              = 30 * time.Second // max amount of time to refresh a single source
 	oneDay                      = 24 * time.Hour
@@ -42,6 +42,7 @@ type sourceManager struct {
 	src              snapshot.SourceInfo
 	closed           chan struct{}
 	snapshotRequests chan struct{}
+	refreshRequested chan struct{} // tickled externally to trigger refresh
 	wg               sync.WaitGroup
 
 	mu                                 sync.RWMutex
@@ -140,6 +141,10 @@ func (s *sourceManager) runLocal(ctx context.Context) {
 			nt := clock.Now()
 			s.nextSnapshotTime = &nt
 
+			continue
+
+		case <-s.refreshRequested:
+			s.refreshStatus(ctx)
 			continue
 
 		case <-time.After(statusRefreshInterval):
@@ -360,12 +365,11 @@ func (s *sourceManager) refreshStatus(ctx context.Context) {
 				break
 			}
 		}
-
-		s.nextSnapshotTime = s.findClosestNextSnapshotTime()
 	} else {
-		s.nextSnapshotTime = nil
 		s.lastSnapshot = nil
 	}
+
+	s.nextSnapshotTime = s.findClosestNextSnapshotTime()
 }
 
 type uitaskProgress struct {
@@ -476,6 +480,7 @@ func newSourceManager(src snapshot.SourceInfo, server *Server) *sourceManager {
 		state:            "UNKNOWN",
 		closed:           make(chan struct{}),
 		snapshotRequests: make(chan struct{}, 1),
+		refreshRequested: make(chan struct{}, 1),
 		progress:         &snapshotfs.CountingUploadProgress{},
 	}
 

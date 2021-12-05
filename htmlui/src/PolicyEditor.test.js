@@ -121,8 +121,9 @@ it('e2e', async () => {
     if (false) {
         logDOM(getByTestId("definition-retention.keepHourly"));
     }
-    await waitFor(() => expect(getByTestId("definition-retention.keepLatest").innerHTML).toEqual("Defined by <b>Directory: some-user@h1:some-path</b>"));
-    await waitFor(() => expect(getByTestId("definition-retention.keepMonthly").innerHTML).toEqual("Defined by <b>Directory: u1@h1:p1</b>"));
+    
+    await waitFor(() => expect(getByTestId("definition-retention.keepLatest").innerHTML).toContain(`Directory: some-user@h1:some-path`));
+    await waitFor(() => expect(getByTestId("definition-retention.keepMonthly").innerHTML).toContain("Directory: u1@h1:p1"));
 
     const expectedUpcomingSnapshotTimes = [
         `<li>${moment(ust1).format('L LT')} (${moment(ust1).fromNow()})</li>`,

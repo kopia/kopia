@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/apiclient"
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/repotesting"
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/internal/testutil"
@@ -33,7 +34,7 @@ func TestSnapshotCounters(t *testing.T) {
 	dir := testutil.TempDirectory(t)
 	si := localSource(env, dir)
 
-	mustCreateSource(t, cli, dir)
+	mustCreateSource(t, cli, dir, &policy.Policy{})
 	require.Len(t, mustListSources(t, cli, &snapshot.SourceInfo{}), 1)
 
 	mustSetPolicy(t, cli, si, &policy.Policy{
@@ -72,4 +73,64 @@ func TestSnapshotCounters(t *testing.T) {
 	require.Equal(t, ut.Counters["Excluded Directories"], uitask.SimpleCounter(1))
 	require.Equal(t, ut.Counters["Excluded Files"], uitask.SimpleCounter(1))
 	require.Equal(t, ut.Counters["Processed Files"], uitask.SimpleCounter(3))
+}
+
+func TestSourceRefreshesAfterPolicy(t *testing.T) {
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
+	srvInfo := startServer(t, env, false)
+
+	_ = ctx
+
+	cli, err := apiclient.NewKopiaAPIClient(apiclient.Options{
+		BaseURL:                             srvInfo.BaseURL,
+		TrustedServerCertificateFingerprint: srvInfo.TrustedServerCertificateFingerprint,
+		Username:                            testUIUsername,
+		Password:                            testUIPassword,
+	})
+
+	require.NoError(t, err)
+
+	dir := testutil.TempDirectory(t)
+	si := localSource(env, dir)
+
+	currentHour := clock.Now().Hour()
+
+	mustCreateSource(t, cli, dir, &policy.Policy{
+		SchedulingPolicy: policy.SchedulingPolicy{
+			TimesOfDay: []policy.TimeOfDay{
+				{Hour: (currentHour + 2) % 24, Minute: 33},
+			},
+		},
+	})
+
+	sources := mustListSources(t, cli, &snapshot.SourceInfo{})
+	require.Len(t, sources, 1)
+	require.NotNil(t, sources[0].NextSnapshotTime)
+	require.Equal(t, 33, sources[0].NextSnapshotTime.Minute())
+
+	mustSetPolicy(t, cli, si, &policy.Policy{
+		SchedulingPolicy: policy.SchedulingPolicy{
+			TimesOfDay: []policy.TimeOfDay{
+				{Hour: (currentHour + 2) % 24, Minute: 55},
+			},
+		},
+	})
+
+	// make sure that soon after setting policy, the next snapshot time is up-to-date.
+	match := false
+
+	for attempt := 0; attempt < 3; attempt++ {
+		sources = mustListSources(t, cli, &snapshot.SourceInfo{})
+		require.Len(t, sources, 1)
+		require.NotNil(t, sources[0].NextSnapshotTime)
+
+		if sources[0].NextSnapshotTime.Minute() == 55 {
+			match = true
+			break
+		}
+
+		time.Sleep(time.Second)
+	}
+
+	require.True(t, match)
 }

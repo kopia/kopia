@@ -96,6 +96,9 @@ func (s *Server) APIHandlers(legacyAPI bool) http.Handler {
 	m.HandleFunc("/api/v1/restore", s.handleAPI(requireUIUser, s.handleRestore)).Methods(http.MethodPost)
 	m.HandleFunc("/api/v1/estimate", s.handleAPI(requireUIUser, s.handleEstimate)).Methods(http.MethodPost)
 
+	// path APIs
+	m.HandleFunc("/api/v1/paths/resolve", s.handleAPI(requireUIUser, s.handlePathResolve)).Methods(http.MethodPost)
+
 	// methods that can be called by any authenticated user (UI or remote user).
 	m.HandleFunc("/api/v1/flush", s.handleAPI(anyAuthenticatedUser, s.handleFlush)).Methods(http.MethodPost)
 	m.HandleFunc("/api/v1/repo/status", s.handleAPIPossiblyNotConnected(anyAuthenticatedUser, s.handleRepoStatus)).Methods(http.MethodGet)
@@ -430,6 +433,18 @@ func (s *Server) beginUpload(ctx context.Context, src snapshot.SourceInfo) {
 func (s *Server) endUpload(ctx context.Context, src snapshot.SourceInfo) {
 	log(ctx).Debugf("finished uploading %v", src)
 	<-s.uploadSemaphore
+}
+
+func (s *Server) triggerRefreshSource(sourceInfo snapshot.SourceInfo) {
+	sm := s.sourceManagers[sourceInfo]
+	if sm == nil {
+		return
+	}
+
+	select {
+	case sm.refreshRequested <- struct{}{}:
+	default:
+	}
 }
 
 // SetRepository sets the repository (nil is allowed and indicates server that is not

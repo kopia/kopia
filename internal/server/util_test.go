@@ -16,11 +16,12 @@ import (
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
-func mustCreateSource(t *testing.T, cli *apiclient.KopiaAPIClient, path string) {
+func mustCreateSource(t *testing.T, cli *apiclient.KopiaAPIClient, path string, pol *policy.Policy) {
 	t.Helper()
 
 	_, err := serverapi.CreateSnapshotSource(testlogging.Context(t), cli, &serverapi.CreateSnapshotSourceRequest{
-		Path: path,
+		Path:   path,
+		Policy: pol,
 	})
 	require.NoError(t, err)
 }

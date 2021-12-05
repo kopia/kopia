@@ -39,6 +39,7 @@ func (p estimateTaskProgress) Error(ctx context.Context, dirname string, err err
 func (p estimateTaskProgress) Stats(ctx context.Context, st *snapshot.Stats, included, excluded snapshotfs.SampleBuckets, excludedDirs []string, final bool) {
 	p.ctrl.ReportCounters(map[string]uitask.CounterValue{
 		"Bytes":                uitask.BytesCounter(st.TotalFileSize),
+		"Excluded Bytes":       uitask.BytesCounter(st.ExcludedTotalFileSize),
 		"Files":                uitask.SimpleCounter(int64(st.TotalFileCount)),
 		"Directories":          uitask.SimpleCounter(int64(st.TotalDirectoryCount)),
 		"Excluded Files":       uitask.SimpleCounter(int64(st.ExcludedFileCount)),
@@ -129,11 +130,11 @@ func (s *Server) handleEstimate(ctx context.Context, r *http.Request, body []byt
 
 		ctrl.OnCancel(cancel)
 
-		policyTree, err := policy.TreeForSource(ctx, s.rep, snapshot.SourceInfo{
+		policyTree, err := policy.TreeForSourceWithOverride(ctx, s.rep, snapshot.SourceInfo{
 			Host:     s.rep.ClientOptions().Hostname,
 			UserName: s.rep.ClientOptions().Username,
 			Path:     resolvedRoot,
-		})
+		}, req.PolicyOverride)
 		if err != nil {
 			return errors.Wrap(err, "unable to get policy tree")
 		}

@@ -14,9 +14,9 @@ import { RepoStatus } from "./RepoStatus";
 import { SnapshotsTable } from "./SnapshotsTable";
 import { SourcesTable } from "./SourcesTable";
 import { TaskDetails } from './TaskDetails';
-import { TasksTable } from './TasksTable';
+import { TasksTable } from './TasksTable'; 
 import { NewSnapshot } from './NewSnapshot';
-import { PolicyEditor } from './PolicyEditor';
+import { PolicyEditorPage } from './PolicyEditorPage';
 
 function useInterval(callback, delay) {
   const savedCallback = useRef();
@@ -72,9 +72,9 @@ function App() {
           <Route path="/snapshots/new" component={NewSnapshot} />
           <Route path="/snapshots/single-source/" component={SnapshotsTable} />
           <Route path="/snapshots/dir/:oid/restore" component={BeginRestore} />
-          <Route path="/snapshots/dir/:oid" component={DirectoryObject} />
+          <Route path="/snapshots/dir/:oid"  component={DirectoryObject} />
           <Route path="/snapshots" component={SourcesTable} />
-          <Route path="/policies/edit/" component={PolicyEditor} />
+          <Route path="/policies/edit/" component={PolicyEditorPage} />
           <Route path="/policies" component={PoliciesTable} />
           <Route path="/tasks/:tid" component={TaskDetails} />
           <Route path="/tasks" component={TasksTable} />

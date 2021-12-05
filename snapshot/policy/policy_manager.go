@@ -41,7 +41,14 @@ var log = logging.Module("kopia/snapshot/policy")
 // with parent policies. The source must contain a path.
 // Returns the effective policies and all source policies that contributed to that (most specific first).
 func GetEffectivePolicy(ctx context.Context, rep repo.Repository, si snapshot.SourceInfo) (effective *Policy, definition *Definition, sources []*Policy, e error) {
-	policies, err := GetPolicyHierarchy(ctx, rep, si)
+	return GetEffectivePolicyWithOverride(ctx, rep, si, nil)
+}
+
+// GetEffectivePolicyWithOverride calculates effective snapshot policy for a given source by combining the source-specifc policy (if any)
+// with parent policies. The source must contain a path.
+// Returns the effective policies and all source policies that contributed to that (most specific first).
+func GetEffectivePolicyWithOverride(ctx context.Context, rep repo.Repository, si snapshot.SourceInfo, optionalPolicyOverride *Policy) (effective *Policy, definition *Definition, sources []*Policy, e error) {
+	policies, err := GetPolicyHierarchy(ctx, rep, si, optionalPolicyOverride)
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, "unable to get parent policies")
 	}
@@ -52,7 +59,7 @@ func GetEffectivePolicy(ctx context.Context, rep repo.Repository, si snapshot.So
 }
 
 // GetPolicyHierarchy returns the set of parent policies that apply to the path in most-specific-to-most-general order.
-func GetPolicyHierarchy(ctx context.Context, rep repo.Repository, si snapshot.SourceInfo) ([]*Policy, error) {
+func GetPolicyHierarchy(ctx context.Context, rep repo.Repository, si snapshot.SourceInfo, optionalPolicyOverride *Policy) ([]*Policy, error) {
 	var md []*manifest.EntryMetadata
 
 	// Find policies applying to paths all the way up to the root.
@@ -62,7 +69,9 @@ func GetPolicyHierarchy(ctx context.Context, rep repo.Repository, si snapshot.So
 			return nil, errors.Wrapf(err, "unable to find manifest for source %v", tmp)
 		}
 
-		md = append(md, manifests...)
+		if si != tmp || optionalPolicyOverride == nil {
+			md = append(md, manifests...)
+		}
 
 		parentPath := getParentPathOSIndependent(tmp.Path)
 		if parentPath == tmp.Path {
@@ -97,6 +106,11 @@ func GetPolicyHierarchy(ctx context.Context, rep repo.Repository, si snapshot.So
 	md = append(md, globalManifests...)
 
 	var policies []*Policy
+
+	if optionalPolicyOverride != nil {
+		optionalPolicyOverride.Labels = LabelsForSource(si)
+		policies = append(policies, optionalPolicyOverride)
+	}
 
 	for _, em := range md {
 		p := &Policy{}
@@ -232,7 +246,12 @@ func (m SubdirectoryPolicyMap) GetPolicyForPath(relativePath string) (*Policy, e
 
 // TreeForSource returns policy Tree for a given source.
 func TreeForSource(ctx context.Context, rep repo.Repository, si snapshot.SourceInfo) (*Tree, error) {
-	pols, err := applicablePoliciesForSource(ctx, rep, si)
+	return TreeForSourceWithOverride(ctx, rep, si, nil)
+}
+
+// TreeForSourceWithOverride returns policy Tree for a given source with the root policy overridden.
+func TreeForSourceWithOverride(ctx context.Context, rep repo.Repository, si snapshot.SourceInfo, optionalPolicyOverride *Policy) (*Tree, error) {
+	pols, err := applicablePoliciesForSource(ctx, rep, si, optionalPolicyOverride)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to get policies")
 	}
@@ -240,10 +259,10 @@ func TreeForSource(ctx context.Context, rep repo.Repository, si snapshot.SourceI
 	return BuildTree(pols, DefaultPolicy), nil
 }
 
-func applicablePoliciesForSource(ctx context.Context, rep repo.Repository, si snapshot.SourceInfo) (map[string]*Policy, error) {
+func applicablePoliciesForSource(ctx context.Context, rep repo.Repository, si snapshot.SourceInfo, optionalPolicyOverride *Policy) (map[string]*Policy, error) {
 	result := map[string]*Policy{}
 
-	pol, _, _, err := GetEffectivePolicy(ctx, rep, si)
+	pol, _, _, err := GetEffectivePolicyWithOverride(ctx, rep, si, optionalPolicyOverride)
 	if err != nil {
 		return nil, err
 	}

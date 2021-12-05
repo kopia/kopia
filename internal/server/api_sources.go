@@ -52,6 +52,10 @@ func (s *Server) handleSourcesCreate(ctx context.Context, r *http.Request, body 
 		return nil, requestError(serverapi.ErrorMalformedRequest, "missing path")
 	}
 
+	if req.Policy == nil {
+		return nil, requestError(serverapi.ErrorMalformedRequest, "missing policy")
+	}
+
 	req.Path = ospath.ResolveUserFriendlyPath(req.Path, true)
 
 	_, err := os.Stat(req.Path)
@@ -71,33 +75,13 @@ func (s *Server) handleSourcesCreate(ctx context.Context, r *http.Request, body 
 
 	resp := &serverapi.CreateSnapshotSourceResponse{}
 
-	// ensure we have the policy for this source, otherwise it will not show up in the
-	// list of sources at all.
-	_, err = policy.GetDefinedPolicy(ctx, s.rep, sourceInfo)
-
-	switch {
-	case err == nil:
-		// already have policy, do nothing
-		log(ctx).Debugf("policy for %v already exists", sourceInfo)
-
-		resp.Created = false
-
-	case errors.Is(err, policy.ErrPolicyNotFound):
-		resp.Created = true
-		// don't have policy - create an empty one
-		log(ctx).Debugf("policy for %v not found, creating empty one", sourceInfo)
-
-		if err = repo.WriteSession(ctx, s.rep, repo.WriteSessionOptions{
-			Purpose: "handleSourcesCreate",
-		}, func(ctx context.Context, w repo.RepositoryWriter) error {
-			// nolint:wrapcheck
-			return policy.SetPolicy(ctx, w, sourceInfo, &req.InitialPolicy)
-		}); err != nil {
-			return nil, internalServerError(errors.Wrap(err, "unable to set initial policy"))
-		}
-
-	default:
-		return nil, internalServerError(err)
+	if err = repo.WriteSession(ctx, s.rep, repo.WriteSessionOptions{
+		Purpose: "handleSourcesCreate",
+	}, func(ctx context.Context, w repo.RepositoryWriter) error {
+		// nolint:wrapcheck
+		return policy.SetPolicy(ctx, w, sourceInfo, req.Policy)
+	}); err != nil {
+		return nil, internalServerError(errors.Wrap(err, "unable to set initial policy"))
 	}
 
 	// upgrade to exclusive lock to ensure we have source manager
@@ -107,6 +91,8 @@ func (s *Server) handleSourcesCreate(ctx context.Context, r *http.Request, body 
 		log(ctx).Debugf("creating source manager for %v", sourceInfo)
 		sm := newSourceManager(sourceInfo, s)
 		s.sourceManagers[sourceInfo] = sm
+
+		sm.refreshStatus(ctx)
 
 		go sm.run(ctx)
 	}
