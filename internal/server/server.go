@@ -435,6 +435,18 @@ func (s *Server) endUpload(ctx context.Context, src snapshot.SourceInfo) {
 	<-s.uploadSemaphore
 }
 
+func (s *Server) triggerRefreshSource(sourceInfo snapshot.SourceInfo) {
+	sm := s.sourceManagers[sourceInfo]
+	if sm == nil {
+		return
+	}
+
+	select {
+	case sm.refreshRequested <- struct{}{}:
+	default:
+	}
+}
+
 // SetRepository sets the repository (nil is allowed and indicates server that is not
 // connected to the repository).
 func (s *Server) SetRepository(ctx context.Context, rep repo.Repository) error {

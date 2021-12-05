@@ -108,6 +108,8 @@ func (s *Server) handleSourcesCreate(ctx context.Context, r *http.Request, body 
 		sm := newSourceManager(sourceInfo, s)
 		s.sourceManagers[sourceInfo] = sm
 
+		sm.refreshStatus(ctx)
+
 		go sm.run(ctx)
 	}
 	s.mu.Unlock()

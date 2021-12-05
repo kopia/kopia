@@ -106,18 +106,21 @@ func (s *Server) handlePolicyResolve(ctx context.Context, r *http.Request, body 
 }
 
 func (s *Server) handlePolicyDelete(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
-	w, ok := s.rep.(repo.RepositoryWriter)
-	if !ok {
+	if _, ok := s.rep.(repo.RepositoryWriter); !ok {
 		return nil, repositoryNotWritableError()
 	}
 
-	if err := policy.RemovePolicy(ctx, w, getPolicyTargetFromURL(r.URL)); err != nil {
+	sourceInfo := getPolicyTargetFromURL(r.URL)
+
+	if err := repo.WriteSession(ctx, s.rep, repo.WriteSessionOptions{
+		Purpose: "PolicyDelete",
+	}, func(ctx context.Context, w repo.RepositoryWriter) error {
+		return errors.Wrap(policy.RemovePolicy(ctx, w, sourceInfo), "unable to delete policy")
+	}); err != nil {
 		return nil, internalServerError(err)
 	}
 
-	if err := w.Flush(ctx); err != nil {
-		return nil, internalServerError(err)
-	}
+	s.triggerRefreshSource(sourceInfo)
 
 	return &serverapi.Empty{}, nil
 }
@@ -128,18 +131,21 @@ func (s *Server) handlePolicyPut(ctx context.Context, r *http.Request, body []by
 		return nil, requestError(serverapi.ErrorMalformedRequest, "malformed request body")
 	}
 
-	w, ok := s.rep.(repo.RepositoryWriter)
-	if !ok {
+	if _, ok := s.rep.(repo.RepositoryWriter); !ok {
 		return nil, repositoryNotWritableError()
 	}
 
-	if err := policy.SetPolicy(ctx, w, getPolicyTargetFromURL(r.URL), newPolicy); err != nil {
+	sourceInfo := getPolicyTargetFromURL(r.URL)
+
+	if err := repo.WriteSession(ctx, s.rep, repo.WriteSessionOptions{
+		Purpose: "PolicyPut",
+	}, func(ctx context.Context, w repo.RepositoryWriter) error {
+		return errors.Wrap(policy.SetPolicy(ctx, w, sourceInfo, newPolicy), "unable to set policy")
+	}); err != nil {
 		return nil, internalServerError(err)
 	}
 
-	if err := w.Flush(ctx); err != nil {
-		return nil, internalServerError(err)
-	}
+	s.triggerRefreshSource(sourceInfo)
 
 	return &serverapi.Empty{}, nil
 }
