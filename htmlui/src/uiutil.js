@@ -7,6 +7,7 @@ import Form from 'react-bootstrap/Form';
 import FormControl from 'react-bootstrap/FormControl';
 import InputGroup from 'react-bootstrap/InputGroup';
 import Spinner from 'react-bootstrap/Spinner';
+import { Link } from 'react-router-dom';
 
 const base10UnitPrefixes = ["", "K", "M", "G", "T"];
 
@@ -163,6 +164,30 @@ export function cancelTask(tid) {
 
 export function GoBackButton(props) {
     return <Button size="sm" variant="outline-secondary" {...props}><FontAwesomeIcon icon={faChevronLeft} /> Return </Button>;
+}
+
+export function PolicyTypeName(s) {
+    if (!s.host && !s.userName) {
+        return "Global Policy"
+    }
+
+    if (!s.userName) {
+        return "Host: " + s.host;
+    }
+
+    if (!s.path) {
+        return "User: " + s.userName + "@" + s.host;
+    }
+
+    return "Directory: " + s.userName + "@" + s.host + ":" + s.path;
+}
+
+export function policyEditorURL(s) {
+    return '/policies/edit?' + sourceQueryStringParams(s);
+}
+
+export function PolicyEditorLink(s) {
+    return <Link to={policyEditorURL(s)}>{PolicyTypeName(s)}</Link>;
 }
 
 export function sourceQueryStringParams(src) {

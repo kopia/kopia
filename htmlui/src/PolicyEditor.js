@@ -1,4 +1,4 @@
-import { faCalendarTimes, faChevronLeft, faClock, faExclamationTriangle, faFileAlt, faFileArchive, faFolderOpen, faMagic } from '@fortawesome/free-solid-svg-icons';
+import { faCalendarTimes, faClock, faExclamationTriangle, faFileAlt, faFileArchive, faFolderOpen, faMagic } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import axios from 'axios';
 import moment from 'moment';
@@ -10,24 +10,9 @@ import Row from 'react-bootstrap/Row';
 import Spinner from 'react-bootstrap/Spinner';
 import Accordion from 'react-bootstrap/Accordion';
 import { handleChange, LogDetailSelector, OptionalBoolean, OptionalNumberField, RequiredBoolean, stateProperty, StringList, valueToNumber } from './forms';
-import { errorAlert, sourceQueryStringParams } from './uiutil';
+import { errorAlert, PolicyEditorLink, sourceQueryStringParams } from './uiutil';
 import { getDeepStateProperty } from './deepstate';
 
-function PolicyTypeName(s) {
-    if (!s.host && !s.userName) {
-        return "Global Policy"
-    }
-
-    if (!s.userName) {
-        return "Host: " + s.host;
-    }
-
-    if (!s.path) {
-        return "User: " + s.userName + "@" + s.host;
-    }
-
-    return "Directory: " + s.userName + "@" + s.host + ":" + s.path;
-}
 
 function LabelColumn(props) {
     return <Col xs={12} sm={4} className="policyFieldColumn">
@@ -118,7 +103,7 @@ function UpcomingSnapshotTimes(times) {
 function SectionHeaderRow() {
     return <Row>
         <LabelColumn />
-        <ValueColumn><div className="policyEditorHeader">Values</div></ValueColumn>
+        <ValueColumn><div className="policyEditorHeader"></div></ValueColumn>
         <EffectiveValueColumn><div className="policyEditorHeader">Effective</div></EffectiveValueColumn>
     </Row>;
 }
@@ -152,7 +137,11 @@ export class PolicyEditor extends Component {
         });
     }
 
-    componentDidUpdate() {
+    componentDidUpdate(prevProps) {
+        if (this.props !== prevProps) {
+            this.fetchPolicy(this.props);
+        }
+
         const pjs = JSON.stringify(this.state.policy);
         if (pjs !== this.lastResolvedPolicy) {
             this.resolvePolicy(this.props);
@@ -203,7 +192,7 @@ export class PolicyEditor extends Component {
             return "(Defined by this policy)";
         }
 
-        return <>Defined by <b>{PolicyTypeName(p)}</b></>;
+        return <>Defined by {PolicyEditorLink(p)}</>;
     }
 
     saveChanges(e) {
@@ -288,10 +277,7 @@ export class PolicyEditor extends Component {
         }
 
         return <div className="padded">
-            {!this.props.embedded && <h4><Button size="sm" variant="outline-secondary" onClick={this.props.close} ><FontAwesomeIcon icon={faChevronLeft} /> Return </Button>
-                &nbsp;&nbsp;{PolicyTypeName(this.props)}</h4>}
             <Form onSubmit={this.saveChanges}>
-
                 <Accordion defaultActiveKey="scheduling">
                     <Accordion.Item eventKey="retention">
                         <Accordion.Header><FontAwesomeIcon icon={faCalendarTimes} />&nbsp;Snapshot Retention</Accordion.Header>
@@ -538,7 +524,7 @@ export class PolicyEditor extends Component {
                     </Accordion.Item>
                 </Accordion>
 
-                <Button size="sm" variant="success" type="submit" onClick={this.saveChanges} data-testid="button-save" disabled={this.state.saving}>Save Policy</Button>
+                {!this.props.embedded && <Button size="sm" variant="success" type="submit" onClick={this.saveChanges} data-testid="button-save" disabled={this.state.saving}>Save Policy</Button>}
                 {!this.state.isNew && <>&nbsp;
                     <Button size="sm" variant="danger" disabled={this.isGlobal() || this.state.saving} onClick={this.deletePolicy}>Delete Policy</Button>
                 </>}
