@@ -130,11 +130,11 @@ func (s *Server) handleEstimate(ctx context.Context, r *http.Request, body []byt
 
 		ctrl.OnCancel(cancel)
 
-		policyTree, err := policy.TreeForSource(ctx, s.rep, snapshot.SourceInfo{
+		policyTree, err := policy.TreeForSourceWithOverride(ctx, s.rep, snapshot.SourceInfo{
 			Host:     s.rep.ClientOptions().Hostname,
 			UserName: s.rep.ClientOptions().Username,
 			Path:     resolvedRoot,
-		})
+		}, req.PolicyOverride)
 		if err != nil {
 			return errors.Wrap(err, "unable to get policy tree")
 		}

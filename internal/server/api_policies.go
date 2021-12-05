@@ -73,7 +73,7 @@ func (s *Server) handlePolicyResolve(ctx context.Context, r *http.Request, body 
 	target := getPolicyTargetFromURL(r.URL)
 
 	// build a list of parents
-	policies, err := policy.GetPolicyHierarchy(ctx, s.rep, target)
+	policies, err := policy.GetPolicyHierarchy(ctx, s.rep, target, nil)
 	if err != nil {
 		return nil, internalServerError(err)
 	}

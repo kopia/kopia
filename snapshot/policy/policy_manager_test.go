@@ -432,7 +432,7 @@ func TestApplicablePoliciesForSource(t *testing.T) {
 	for _, tc := range cases {
 		tc := tc
 		t.Run(tc.si.String(), func(t *testing.T) {
-			res, err := applicablePoliciesForSource(ctx, env.RepositoryWriter, tc.si)
+			res, err := applicablePoliciesForSource(ctx, env.RepositoryWriter, tc.si, nil)
 			if err != nil {
 				t.Fatalf("error in applicablePoliciesForSource(%v): %v", tc.si, err)
 			}
