@@ -234,3 +234,13 @@ type ResolvePolicyResponse struct {
 	Defined               *policy.Policy     `json:"defined"`
 	UpcomingSnapshotTimes []time.Time        `json:"upcomingSnapshotTimes"`
 }
+
+// ResolvePathRequest contains request to resolve a particular path to ResolvePathResponse.
+type ResolvePathRequest struct {
+	Path string `json:"path"`
+}
+
+// ResolvePathResponse contains response to resolve a particular path.
+type ResolvePathResponse struct {
+	SourceInfo snapshot.SourceInfo `json:"source"`
+}
