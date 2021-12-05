@@ -138,7 +138,7 @@ export class PolicyEditor extends Component {
     }
 
     componentDidUpdate(prevProps) {
-        if (this.props !== prevProps) {
+        if (sourceQueryStringParams(this.props) !== sourceQueryStringParams(prevProps)) {
             this.fetchPolicy(this.props);
         }
 
@@ -525,7 +525,7 @@ export class PolicyEditor extends Component {
                 </Accordion>
 
                 {!this.props.embedded && <Button size="sm" variant="success" type="submit" onClick={this.saveChanges} data-testid="button-save" disabled={this.state.saving}>Save Policy</Button>}
-                {!this.state.isNew && <>&nbsp;
+                {!this.state.isNew && !this.props.embedded && <>&nbsp;
                     <Button size="sm" variant="danger" disabled={this.isGlobal() || this.state.saving} onClick={this.deletePolicy}>Delete Policy</Button>
                 </>}
                 {this.state.saving && <>

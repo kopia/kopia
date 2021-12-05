@@ -143,8 +143,7 @@ div.tab-body {
 }
 
 .logs-table {
-  border: 1px solid #ccd;
-  background-color: #f0f0ff;
+  background-color: #f8f8ff;
   font-family: monospace;
   font-size: 12px;
   font-weight: bold;
@@ -175,12 +174,9 @@ div.tab-body {
   padding-left: 40px;
 }
 
-.estimate-results {
-  margin: 10px;
-  margin-left: 15px;
-  padding: 15px;
-  border: 1px solid #ccc;
-  background-color: #f8f8ff;
+.estimateResults {
+  color: #008;
+  font-size: 95%;
 }
 
 .list-actions {
