@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/snapshot"
 )
@@ -108,7 +109,7 @@ func TestRetentionPolicyTest(t *testing.T) {
 				"2020-04-01T15:00:00Z":            {"daily-2"},
 				"2020-04-02T12:00:00Z":            {"latest-3", "hourly-3"},
 				"2020-04-02T13:00:00Z":            {"latest-2", "hourly-2"},
-				"2020-04-02T15:00:00Z":            {"latest-1", "monthly-1", "daily-1", "hourly-1"},
+				"2020-04-02T15:00:00Z":            {"latest-1", "hourly-1", "daily-1", "monthly-1"},
 				"incomplete-2020-04-02T15:01:00Z": {}, // incomplete, too old
 				"incomplete-2020-04-02T16:01:00Z": {}, // incomplete, too old
 				"incomplete-2020-04-02T17:01:00Z": {}, // incomplete, too old
@@ -204,5 +205,31 @@ func TestRetentionPolicyTest(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestCompactPins(t *testing.T) {
+	require.Equal(t,
+		[]string{"a", "b", "d", "x", "z"},
+		CompactPins([]string{
+			"z", "x", "a", "b", "d", "b", "z",
+		}))
+}
+
+func TestCompactRetentionrRasons(t *testing.T) {
+	cases := []struct {
+		input []string
+		want  []string
+	}{
+		{input: nil, want: []string{}},
+		{[]string{"latest-1", "latest-2"}, []string{"latest-1..2"}},
+		{[]string{"latest-1", "daily-3", "latest-2", "daily-2"}, []string{"latest-1..2", "daily-2..3"}},
+		{[]string{"latest-1", "weekly-7", "latest-2"}, []string{"latest-1..2", "weekly-7"}},
+		{[]string{"latest-1", "latest-2", "latest-5", "latest-6", "latest-7"}, []string{"latest-1..2", "latest-5..7"}},
+		{[]string{"latest-1", "zrogue", "arogue", "latest-2"}, []string{"arogue", "zrogue", "latest-1..2"}},
+	}
+
+	for _, tc := range cases {
+		require.Equal(t, tc.want, CompactRetentionReasons(tc.input))
 	}
 }

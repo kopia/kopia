@@ -280,9 +280,16 @@ func (c *commandSnapshotList) mergeIdenticalRows(rows []*snapshotListRow) []*sna
 		if r.oid == last.oid {
 			last.count++
 			last.lastStartTime = r.lastStartTime
+			last.retentionReasons = append(last.retentionReasons, r.retentionReasons...)
+			last.pins = append(last.pins, r.pins...)
 		} else {
 			result = append(result, r)
 		}
+	}
+
+	for _, r := range result {
+		r.retentionReasons = policy.CompactRetentionReasons(r.retentionReasons)
+		r.pins = policy.CompactPins(r.pins)
 	}
 
 	return result
