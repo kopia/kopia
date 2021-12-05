@@ -69,23 +69,27 @@ export class NewSnapshot extends Component {
             return;
         }
 
-        let req = {
-            root: this.state.resolvedSource.path,
-            maxExamplesPerBucket: 10,
-            policyOverride: pe.state.policy,
-        }
+        try {
+            let req = {
+                root: this.state.resolvedSource.path,
+                maxExamplesPerBucket: 10,
+                policyOverride: pe.getAndValidatePolicy(),
+            }
 
-        axios.post('/api/v1/estimate', req).then(result => {
-            this.setState({
-                lastEstimatedPath: this.state.resolvedSource.path,
-                estimateTaskID: result.data.id,
-                estimatingPath: result.data.description,
-                estimateTaskVisible: true,
-                didEstimate: false,
-            })
-        }).catch(error => {
-            errorAlert(error);
-        });
+            axios.post('/api/v1/estimate', req).then(result => {
+                this.setState({
+                    lastEstimatedPath: this.state.resolvedSource.path,
+                    estimateTaskID: result.data.id,
+                    estimatingPath: result.data.description,
+                    estimateTaskVisible: true,
+                    didEstimate: false,
+                })
+            }).catch(error => {
+                errorAlert(error);
+            });
+        } catch (e) {
+            errorAlert(e);
+        }
     }
 
     snapshotNow(e) {
@@ -101,20 +105,24 @@ export class NewSnapshot extends Component {
             return;
         }
 
-        axios.post('/api/v1/sources', {
-            path: this.state.resolvedSource.path,
-            createSnapshot: true,
-            policy: pe.state.policy,
-        }).then(result => {
-            this.props.history.goBack();
-        }).catch(error => {
-            errorAlert(error);
+        try {
+            axios.post('/api/v1/sources', {
+                path: this.state.resolvedSource.path,
+                createSnapshot: true,
+                policy: pe.getAndValidatePolicy(),
+            }).then(result => {
+                this.props.history.goBack();
+            }).catch(error => {
+                errorAlert(error);
 
-            this.setState({
-                error,
-                isLoading: false
+                this.setState({
+                    error,
+                    isLoading: false
+                });
             });
-        });
+        } catch (e) {
+            errorAlert(e);
+        }
     }
 
     render() {

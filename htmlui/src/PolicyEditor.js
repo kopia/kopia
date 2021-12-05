@@ -9,7 +9,7 @@ import Form from 'react-bootstrap/Form';
 import Row from 'react-bootstrap/Row';
 import Spinner from 'react-bootstrap/Spinner';
 import Accordion from 'react-bootstrap/Accordion';
-import { handleChange, LogDetailSelector, OptionalBoolean, OptionalNumberField, RequiredBoolean, stateProperty, StringList, valueToNumber } from './forms';
+import { handleChange, LogDetailSelector, OptionalBoolean, OptionalNumberField, RequiredBoolean, stateProperty, StringList, TimesOfDayList, valueToNumber } from './forms';
 import { errorAlert, PolicyEditorLink, sourceQueryStringParams } from './uiutil';
 import { getDeepStateProperty } from './deepstate';
 
@@ -95,7 +95,7 @@ function UpcomingSnapshotTimes(times) {
         <LabelColumn name-="Upcoming" />
 
         <ul data-testid="upcoming-snapshot-times">
-        {times.map(x => <li key={x}>{moment(x).format('L LT')} ({moment(x).fromNow()})</li>)}
+            {times.map(x => <li key={x}>{moment(x).format('L LT')} ({moment(x).fromNow()})</li>)}
         </ul>
     </>;
 }
@@ -125,6 +125,7 @@ export class PolicyEditor extends Component {
         this.policyURL = this.policyURL.bind(this);
         this.resolvePolicy = this.resolvePolicy.bind(this);
         this.PolicyDefinitionPoint = this.PolicyDefinitionPoint.bind(this);
+        this.getAndValidatePolicy = this.getAndValidatePolicy.bind(this);
     }
 
     componentDidMount() {
@@ -174,13 +175,17 @@ export class PolicyEditor extends Component {
     resolvePolicy(props) {
         const u = '/api/v1/policy/resolve?' + sourceQueryStringParams(props);
 
-        axios.post(u, { 
-            "updates": this.state.policy,
-             "numUpcomingSnapshotTimes": 5,
-         }).then(result => {
-            this.setState({ resolved: result.data });
-        }).catch(error => {
-        });
+        try {
+            axios.post(u, {
+                "updates": this.getAndValidatePolicy(),
+                "numUpcomingSnapshotTimes": 5,
+            }).then(result => {
+                this.setState({ resolved: result.data });
+            }).catch(error => {
+            });
+        }
+        catch (e) {
+        }
     }
 
     PolicyDefinitionPoint(p) {
@@ -195,9 +200,7 @@ export class PolicyEditor extends Component {
         return <>Defined by {PolicyEditorLink(p)}</>;
     }
 
-    saveChanges(e) {
-        e.preventDefault()
-
+    getAndValidatePolicy() {
         function removeEmpty(l) {
             if (!l) {
                 return l;
@@ -216,7 +219,18 @@ export class PolicyEditor extends Component {
             return result;
         }
 
-        // clean up policy before saving
+        function validateTimesOfDay(l) {
+            for (const tod of l) {
+                if (!tod.hour) {
+                    // unparsed
+                    throw Error("invalid time of day: '" + tod + "'")
+                }
+            }
+
+            return l;
+        }
+
+        // clone and clean up policy before saving
         let policy = JSON.parse(JSON.stringify(this.state.policy));
         if (policy.files) {
             if (policy.files.ignore) {
@@ -236,13 +250,32 @@ export class PolicyEditor extends Component {
             }
         }
 
-        this.setState({ saving: true });
-        axios.put(this.policyURL(this.props), policy).then(result => {
-            this.props.close();
-        }).catch(error => {
-            this.setState({ saving: false });
-            errorAlert(error, 'Error saving policy');
-        });
+        if (policy.scheduling) {
+            if (policy.scheduling.timeOfDay) {
+                policy.scheduling.timeOfDay = validateTimesOfDay(removeEmpty(policy.scheduling.timeOfDay));
+            }
+        }
+
+        return policy;
+    }
+
+    saveChanges(e) {
+        e.preventDefault()
+
+        try {
+            const policy = this.getAndValidatePolicy();
+
+            this.setState({ saving: true });
+            axios.put(this.policyURL(this.props), policy).then(result => {
+                this.props.close();
+            }).catch(error => {
+                this.setState({ saving: false });
+                errorAlert(error, 'Error saving policy');
+            });
+        } catch (e) {
+            errorAlert(e);
+            return
+        }
     }
 
     deletePolicy() {
@@ -438,6 +471,13 @@ export class PolicyEditor extends Component {
                                     </Form.Control>
                                 </WideValueColumn>
                                 {EffectiveValue(this, "scheduling.intervalSeconds")}
+                            </Row>
+                            <Row>
+                                <LabelColumn name="Times Of Day" help="Create snapshots at the provided times of day, one per line, 24h time (e.g. 17:00,18:00)" />
+                                <ValueColumn>
+                                    {TimesOfDayList(this, "policy.scheduling.timeOfDay")}
+                                </ValueColumn>
+                                {EffectiveBooleanValue(this, "scheduling.manual")}
                             </Row>
                             <Row>
                                 <LabelColumn name="Manual Snapshots Only" help="Only create snapshots manually (disables scheduled snapshots)." />

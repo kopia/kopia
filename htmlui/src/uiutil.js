@@ -224,6 +224,8 @@ export function errorAlert(err, prefix) {
     
     if (err.response && err.response.data && err.response.data.error) {
         alert(prefix + err.response.data.error);
+    } else if (err instanceof Error) {
+        alert(err);
     } else {
         alert(prefix + JSON.stringify(err));
     }
