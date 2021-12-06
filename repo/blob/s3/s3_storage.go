@@ -9,7 +9,6 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"github.com/minio/minio-go/v7"
@@ -29,7 +28,6 @@ const (
 )
 
 type s3Storage struct {
-	sendMD5 int32
 	Options
 
 	cli *minio.Client
@@ -147,10 +145,11 @@ func (s *s3Storage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes, opt
 
 	uploadInfo, err := s.cli.PutObject(ctx, s.BucketName, s.getObjectNameString(b), data.Reader(), int64(data.Length()), minio.PutObjectOptions{
 		ContentType: "application/x-kopia",
-		SendContentMd5: atomic.LoadInt32(&s.sendMD5) > 0 ||
-			// The Content-MD5 header is required for any request to upload an object
-			// with a retention period configured using Amazon S3 Object Lock
-			!retainUntilDate.IsZero(),
+		// The Content-MD5 header is required for any request to upload an object
+		// with a retention period configured using Amazon S3 Object Lock.
+		// Unconditionally computing the content MD5, potentially incurring
+		// a slightly higher CPU overhead.
+		SendContentMd5:  true,
 		StorageClass:    storageClass,
 		RetainUntilDate: retainUntilDate,
 		Mode:            retentionMode,
@@ -159,8 +158,6 @@ func (s *s3Storage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes, opt
 	var er minio.ErrorResponse
 
 	if errors.As(err, &er) && er.Code == "InvalidRequest" && strings.Contains(strings.ToLower(er.Message), "content-md5") {
-		atomic.StoreInt32(&s.sendMD5, 1) // set sendMD5 on retry
-
 		return versionMetadata{}, err // nolint:wrapcheck
 	}
 
@@ -314,7 +311,6 @@ func newStorage(ctx context.Context, opt *Options) (*s3Storage, error) {
 	s := s3Storage{
 		Options:       *opt,
 		cli:           cli,
-		sendMD5:       0,
 		storageConfig: &StorageConfig{},
 	}
 
