@@ -42,7 +42,7 @@ func (s *Server) handlePolicyList(ctx context.Context, r *http.Request, body []b
 	return resp, nil
 }
 
-func getPolicyTargetFromURL(u *url.URL) snapshot.SourceInfo {
+func getSnapshotSourceFromURL(u *url.URL) snapshot.SourceInfo {
 	host := u.Query().Get("host")
 	path := u.Query().Get("path")
 	username := u.Query().Get("userName")
@@ -55,7 +55,7 @@ func getPolicyTargetFromURL(u *url.URL) snapshot.SourceInfo {
 }
 
 func (s *Server) handlePolicyGet(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
-	pol, err := policy.GetDefinedPolicy(ctx, s.rep, getPolicyTargetFromURL(r.URL))
+	pol, err := policy.GetDefinedPolicy(ctx, s.rep, getSnapshotSourceFromURL(r.URL))
 	if errors.Is(err, policy.ErrPolicyNotFound) {
 		return nil, requestError(serverapi.ErrorNotFound, "policy not found")
 	}
@@ -70,7 +70,7 @@ func (s *Server) handlePolicyResolve(ctx context.Context, r *http.Request, body 
 		return nil, requestError(serverapi.ErrorMalformedRequest, "unable to decode request: "+err.Error())
 	}
 
-	target := getPolicyTargetFromURL(r.URL)
+	target := getSnapshotSourceFromURL(r.URL)
 
 	// build a list of parents
 	policies, err := policy.GetPolicyHierarchy(ctx, s.rep, target, nil)
@@ -110,7 +110,7 @@ func (s *Server) handlePolicyDelete(ctx context.Context, r *http.Request, body [
 		return nil, repositoryNotWritableError()
 	}
 
-	sourceInfo := getPolicyTargetFromURL(r.URL)
+	sourceInfo := getSnapshotSourceFromURL(r.URL)
 
 	if err := repo.WriteSession(ctx, s.rep, repo.WriteSessionOptions{
 		Purpose: "PolicyDelete",
@@ -135,7 +135,7 @@ func (s *Server) handlePolicyPut(ctx context.Context, r *http.Request, body []by
 		return nil, repositoryNotWritableError()
 	}
 
-	sourceInfo := getPolicyTargetFromURL(r.URL)
+	sourceInfo := getSnapshotSourceFromURL(r.URL)
 
 	if err := repo.WriteSession(ctx, s.rep, repo.WriteSessionOptions{
 		Purpose: "PolicyPut",

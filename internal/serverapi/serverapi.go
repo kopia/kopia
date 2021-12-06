@@ -149,7 +149,6 @@ type CreateSnapshotSourceResponse struct {
 // Snapshot describes single snapshot entry.
 type Snapshot struct {
 	ID               manifest.ID          `json:"id"`
-	Source           snapshot.SourceInfo  `json:"source"`
 	Description      string               `json:"description"`
 	StartTime        time.Time            `json:"startTime"`
 	EndTime          time.Time            `json:"endTime"`
@@ -157,11 +156,14 @@ type Snapshot struct {
 	Summary          *fs.DirectorySummary `json:"summary"`
 	RootEntry        string               `json:"rootID"`
 	RetentionReasons []string             `json:"retention"`
+	Pins             []string             `json:"pins"`
 }
 
 // SnapshotsResponse contains a list of snapshots.
 type SnapshotsResponse struct {
-	Snapshots []*Snapshot `json:"snapshots"`
+	Snapshots       []*Snapshot `json:"snapshots"`
+	UnfilteredCount int         `json:"unfilteredCount"`
+	UniqueCount     int         `json:"uniqueCount"`
 }
 
 // MountSnapshotRequest contains request to mount a snapshot.

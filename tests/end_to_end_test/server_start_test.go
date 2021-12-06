@@ -138,18 +138,18 @@ func TestServerStart(t *testing.T) {
 	verifySourceCount(t, cli, &snapshot.SourceInfo{Host: "no-such-host"}, 0)
 	verifySourceCount(t, cli, &snapshot.SourceInfo{Host: "fake-hostname", UserName: "fake-username", Path: sharedTestDataDir2}, 1)
 
-	verifySnapshotCount(t, cli, nil, 2)
-	verifySnapshotCount(t, cli, &snapshot.SourceInfo{Host: "fake-hostname", UserName: "fake-username", Path: sharedTestDataDir1}, 2)
-	verifySnapshotCount(t, cli, &snapshot.SourceInfo{Host: "fake-hostname", UserName: "fake-username", Path: sharedTestDataDir2}, 0)
-	verifySnapshotCount(t, cli, &snapshot.SourceInfo{Host: "no-such-host"}, 0)
+	verifySnapshotCount(t, cli, snapshot.SourceInfo{Host: "fake-hostname", UserName: "fake-username", Path: sharedTestDataDir1}, true, 2)
+	verifySnapshotCount(t, cli, snapshot.SourceInfo{Host: "fake-hostname", UserName: "fake-username", Path: sharedTestDataDir1}, false, 1)
+	verifySnapshotCount(t, cli, snapshot.SourceInfo{Host: "fake-hostname", UserName: "fake-username", Path: sharedTestDataDir2}, true, 0)
+	verifySnapshotCount(t, cli, snapshot.SourceInfo{Host: "no-such-host"}, true, 0)
 
 	uploadMatchingSnapshots(t, cli, &snapshot.SourceInfo{Host: "fake-hostname", UserName: "fake-username", Path: sharedTestDataDir2})
-	waitForSnapshotCount(ctx, t, cli, &snapshot.SourceInfo{Host: "fake-hostname", UserName: "fake-username", Path: sharedTestDataDir2}, 1)
+	waitForSnapshotCount(ctx, t, cli, snapshot.SourceInfo{Host: "fake-hostname", UserName: "fake-username", Path: sharedTestDataDir2}, 1)
 
 	_, err = serverapi.CancelUpload(ctx, cli, nil)
 	require.NoError(t, err)
 
-	snaps := verifySnapshotCount(t, cli, &snapshot.SourceInfo{Host: "fake-hostname", UserName: "fake-username", Path: sharedTestDataDir2}, 1)
+	snaps := verifySnapshotCount(t, cli, snapshot.SourceInfo{Host: "fake-hostname", UserName: "fake-username", Path: sharedTestDataDir2}, true, 1)
 
 	rootPayload, err := serverapi.GetObject(ctx, cli, snaps[0].RootEntry)
 	require.NoError(t, err)
@@ -180,7 +180,7 @@ func TestServerStart(t *testing.T) {
 	require.Len(t, policies.Policies, 1)
 	require.Equal(t, keepDaily, *policies.Policies[0].Policy.RetentionPolicy.KeepDaily)
 
-	waitForSnapshotCount(ctx, t, cli, &snapshot.SourceInfo{Host: "fake-hostname", UserName: "fake-username", Path: sharedTestDataDir3}, 1)
+	waitForSnapshotCount(ctx, t, cli, snapshot.SourceInfo{Host: "fake-hostname", UserName: "fake-username", Path: sharedTestDataDir3}, 1)
 }
 
 func TestServerCreateAndConnectViaAPI(t *testing.T) {
@@ -305,7 +305,7 @@ func TestConnectToExistingRepositoryViaAPI(t *testing.T) {
 
 	uploadMatchingSnapshots(t, cli, &si)
 
-	snaps := waitForSnapshotCount(ctx, t, cli, &si, 3)
+	snaps := waitForSnapshotCount(ctx, t, cli, si, 3)
 
 	// we're reproducing the bug described in, after connecting to repo via API, next snapshot size becomes zero.
 	// https://kopia.discourse.group/t/kopia-0-7-0-not-backing-up-any-files-repro-needed/136/6?u=jkowalski
@@ -383,13 +383,13 @@ func verifyServerConnected(t *testing.T, cli *apiclient.KopiaAPIClient, want boo
 	return st
 }
 
-func waitForSnapshotCount(ctx context.Context, t *testing.T, cli *apiclient.KopiaAPIClient, match *snapshot.SourceInfo, want int) []*serverapi.Snapshot {
+func waitForSnapshotCount(ctx context.Context, t *testing.T, cli *apiclient.KopiaAPIClient, src snapshot.SourceInfo, want int) []*serverapi.Snapshot {
 	t.Helper()
 
 	var result []*serverapi.Snapshot
 
 	err := retry.PeriodicallyNoValue(ctx, 1*time.Second, 180, "wait for snapshots", func() error {
-		snapshots, err := serverapi.ListSnapshots(testlogging.Context(t), cli, match)
+		snapshots, err := serverapi.ListSnapshots(testlogging.Context(t), cli, src, true)
 		if err != nil {
 			return errors.Wrap(err, "error listing sources")
 		}
@@ -437,10 +437,10 @@ func uploadMatchingSnapshots(t *testing.T, cli *apiclient.KopiaAPIClient, match 
 	}
 }
 
-func verifySnapshotCount(t *testing.T, cli *apiclient.KopiaAPIClient, match *snapshot.SourceInfo, want int) []*serverapi.Snapshot {
+func verifySnapshotCount(t *testing.T, cli *apiclient.KopiaAPIClient, src snapshot.SourceInfo, all bool, want int) []*serverapi.Snapshot {
 	t.Helper()
 
-	snapshots, err := serverapi.ListSnapshots(testlogging.Context(t), cli, match)
+	snapshots, err := serverapi.ListSnapshots(testlogging.Context(t), cli, src, all)
 	require.NoError(t, err)
 
 	if got := len(snapshots.Snapshots); got != want {
