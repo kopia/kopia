@@ -39,7 +39,18 @@ export class SnapshotsTable extends Component {
         };
         this.onChange = this.onChange.bind(this);
     }
+
+    componentDidUpdate(oldProps, oldState) {
+        if (this.state.showHidden !== oldState.showHidden) {
+            this.fetchSnapshots();
+        }
+    }
+
     componentDidMount() {
+        this.fetchSnapshots();
+    }
+
+    fetchSnapshots() {
         let q = parseQuery(this.props.location.search);
 
         this.setState({
@@ -50,39 +61,25 @@ export class SnapshotsTable extends Component {
             hiddenCount: 0,
             selectedSnapshot: null,
         });
-        const u = '/api/v1/snapshots?' + sourceQueryStringParams(q);
+
+        let u = '/api/v1/snapshots?' + sourceQueryStringParams(q);
+
+        if (this.state.showHidden) {
+            u += "&all=1";
+        }
+        
         axios.get(u).then(result => {
             console.log('got snapshots', result.data);
             this.setState({
                 snapshots: result.data.snapshots,
+                unfilteredCount: result.data.unfilteredCount,
+                uniqueCount: result.data.uniqueCount,
                 isLoading: false,
             });
         }).catch(error => this.setState({
             error,
             isLoading: false
         }));
-    }
-
-    coalesceSnapshots(s) {
-        let filteredSnapshots = [];
-
-        let lastRootID = "";
-        let hiddenCount = 0;
-
-        for (let i = 0; i < s.length; i++) {
-            if (s[i].rootID !== lastRootID) {
-                filteredSnapshots.push(s[i]);
-            } else {
-                hiddenCount++;
-            }
-            lastRootID = s[i].rootID;
-        }
-
-        if (this.state.showHidden) {
-            return { filteredSnapshots: s, hiddenCount: hiddenCount };
-        }
-
-        return { filteredSnapshots, hiddenCount };
     }
 
     selectSnapshot(x) {
@@ -98,7 +95,7 @@ export class SnapshotsTable extends Component {
     }
 
     render() {
-        let { snapshots, isLoading, error } = this.state;
+        let { snapshots, unfilteredCount, uniqueCount, isLoading, error } = this.state;
         if (error) {
             return <p>{error.message}</p>;
         }
@@ -108,8 +105,6 @@ export class SnapshotsTable extends Component {
         }
 
         snapshots.sort((a, b) => -compare(a.startTime, b.startTime));
-
-        let { filteredSnapshots, hiddenCount } = this.coalesceSnapshots(snapshots);
 
         const columns = [{
             id: 'startTime',
@@ -148,20 +143,20 @@ export class SnapshotsTable extends Component {
                 <Col>
             <GoBackButton onClick={this.props.history.goBack} />
             &nbsp;
-            Displaying {filteredSnapshots.length !== snapshots.length ? filteredSnapshots.length + ' out of ' + snapshots.length : snapshots.length} snapshots of&nbsp;<b>{this.state.userName}@{this.state.host}:{this.state.path}</b>
-                {hiddenCount > 0 &&
+            Displaying {snapshots.length !== unfilteredCount ? snapshots.length + ' out of ' + unfilteredCount : snapshots.length} snapshots of&nbsp;<b>{this.state.userName}@{this.state.host}:{this.state.path}</b>
+                {unfilteredCount !== uniqueCount &&
                     <>&nbsp;<Form.Group controlId="formBasicCheckbox">
                         <Form.Check
                             type="checkbox"
                             checked={this.state.showHidden}
-                            label={'Show ' + hiddenCount + ' identical snapshots'}
+                            label={'Show ' + unfilteredCount + ' individual snapshots'}
                             onChange={this.onChange} />
                     </Form.Group></>}
                     </Col>
             </Row>
             <hr />
             <Row>
-                <MyTable data={filteredSnapshots} columns={columns} />
+                <MyTable data={snapshots} columns={columns} />
             </Row>
         </div>;
     }

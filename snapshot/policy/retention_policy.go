@@ -2,6 +2,9 @@ package policy
 
 import (
 	"fmt"
+	"sort"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/kopia/kopia/snapshot"
@@ -153,6 +156,8 @@ func (r *RetentionPolicy) getRetentionReasons(i int, s *snapshot.Manifest, cutof
 		}
 	}
 
+	SortRetentionTags(keepReasons)
+
 	return keepReasons
 }
 
@@ -210,4 +215,119 @@ func (r *RetentionPolicy) Merge(src RetentionPolicy, def *RetentionPolicyDefinit
 	mergeOptionalInt(&r.KeepWeekly, src.KeepWeekly, &def.KeepWeekly, si)
 	mergeOptionalInt(&r.KeepMonthly, src.KeepMonthly, &def.KeepMonthly, si)
 	mergeOptionalInt(&r.KeepAnnual, src.KeepAnnual, &def.KeepAnnual, si)
+}
+
+// CompactRetentionReasons returns compressed retention reasons given a list of retention reasons.
+func CompactRetentionReasons(reasons []string) []string {
+	reasonsByPrefix := map[string][]int{}
+
+	result := []string{}
+
+	for _, r := range reasons {
+		prefix, suffix := prefixSuffix(r)
+
+		n, err := strconv.Atoi(suffix)
+		if err != nil {
+			result = append(result, r)
+			continue
+		}
+
+		reasonsByPrefix[prefix] = append(reasonsByPrefix[prefix], n)
+	}
+
+	for prefix, v := range reasonsByPrefix {
+		result = appendRLE(result, prefix, v)
+	}
+
+	SortRetentionTags(result)
+
+	return result
+}
+
+func prefixSuffix(s string) (prefix, suffix string) {
+	if p := strings.LastIndex(s, "-"); p < 0 {
+		prefix = s
+		suffix = ""
+	} else {
+		prefix = s[0:p]
+		suffix = s[p+1:]
+	}
+
+	return
+}
+
+func appendRLE(out []string, prefix string, numbers []int) []string {
+	sort.Ints(numbers)
+
+	runStart := numbers[0]
+	runEnd := numbers[0]
+
+	appendRun := func() {
+		if runStart == runEnd {
+			out = append(out, fmt.Sprintf("%v-%v", prefix, runStart))
+		} else {
+			out = append(out, fmt.Sprintf("%v-%v..%v", prefix, runStart, runEnd))
+		}
+	}
+
+	for _, num := range numbers[1:] {
+		if num == runEnd+1 {
+			runEnd = num
+		} else {
+			appendRun()
+
+			runStart = num
+			runEnd = runStart
+		}
+	}
+
+	appendRun()
+
+	return out
+}
+
+// CompactPins returns compressed pins reasons given a list of pins.
+func CompactPins(pins []string) []string {
+	cnt := map[string]int{}
+
+	for _, p := range pins {
+		cnt[p]++
+	}
+
+	result := []string{}
+
+	for k := range cnt {
+		result = append(result, k)
+	}
+
+	sort.Strings(result)
+
+	return result
+}
+
+var retentionPrefixSortValue = map[string]int{
+	"latest":  1,
+	"hourly":  2, // nolint:gomnd
+	"daily":   3, // nolint:gomnd
+	"weekly":  4, // nolint:gomnd
+	"monthly": 5, // nolint:gomnd
+	"annual":  6, // nolint:gomnd
+}
+
+// SortRetentionTags sorts the provided retention tags in canonical order.
+func SortRetentionTags(tags []string) {
+	sort.Slice(tags, func(i, j int) bool {
+		p1, s1 := prefixSuffix(tags[i])
+		p2, s2 := prefixSuffix(tags[j])
+
+		if l, r := retentionPrefixSortValue[p1], retentionPrefixSortValue[p2]; l != r {
+			return l < r
+		}
+
+		if l, r := p1, p2; l != r {
+			return p1 < p2
+		}
+
+		return s1 < s2
+	})
 }

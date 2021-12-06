@@ -128,10 +128,16 @@ func ListSources(ctx context.Context, c *apiclient.KopiaAPIClient, match *snapsh
 	return resp, nil
 }
 
-// ListSnapshots lists the snapshots managed by the server for a given source filter.
-func ListSnapshots(ctx context.Context, c *apiclient.KopiaAPIClient, match *snapshot.SourceInfo) (*SnapshotsResponse, error) {
+// ListSnapshots lists the snapshots managed by the server for a given source source.
+func ListSnapshots(ctx context.Context, c *apiclient.KopiaAPIClient, src snapshot.SourceInfo, all bool) (*SnapshotsResponse, error) {
 	resp := &SnapshotsResponse{}
-	if err := c.Get(ctx, "snapshots"+matchSourceParameters(match), nil, resp); err != nil {
+
+	u := "snapshots" + matchSourceParameters(&src)
+	if all {
+		u += "&all=1"
+	}
+
+	if err := c.Get(ctx, u, nil, resp); err != nil {
 		return nil, errors.Wrap(err, "ListSnapshots")
 	}
 

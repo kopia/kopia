@@ -196,29 +196,26 @@ func (c *commandSnapshotList) outputManifestGroups(ctx context.Context, rep repo
 	return nil
 }
 
+type snapshotListRow struct {
+	firstStartTime   time.Time
+	lastStartTime    time.Time
+	count            int
+	oid              object.ID
+	bits             []string
+	retentionReasons []string
+	pins             []string
+	color            *color.Color
+}
+
 func (c *commandSnapshotList) outputManifestFromSingleSource(ctx context.Context, rep repo.Repository, manifests []*snapshot.Manifest, parts []string) error {
-	var (
-		count             int
-		lastTotalFileSize int64
-		previousOID       object.ID
-		elidedCount       int
-		maxElidedTime     time.Time
-	)
+	var lastTotalFileSize int64
 
 	manifests = snapshot.SortByTime(manifests, false)
 	if c.maxResultsPerPath > 0 && len(manifests) > c.maxResultsPerPath {
 		manifests = manifests[len(manifests)-c.maxResultsPerPath:]
 	}
 
-	outputElided := func() {
-		if elidedCount > 0 {
-			c.out.printStdout(
-				"  + %v identical snapshots until %v\n",
-				elidedCount,
-				formatTimestamp(maxElidedTime),
-			)
-		}
-	}
+	var rows []*snapshotListRow
 
 	for _, m := range manifests {
 		root, err := snapshotfs.SnapshotRoot(rep, m)
@@ -244,32 +241,84 @@ func (c *commandSnapshotList) outputManifestFromSingleSource(ctx context.Context
 
 		bits, col := c.entryBits(ctx, m, ent, lastTotalFileSize)
 
-		oid := ent.(object.HasObjectID).ObjectID()
-		if !c.snapshotListShowIdentical && oid == previousOID {
-			elidedCount++
-
-			maxElidedTime = m.StartTime
-
-			continue
-		}
-
-		outputElided()
-
-		elidedCount = 0
-		previousOID = oid
-
-		col.Fprint(c.out.stdout(), fmt.Sprintf("  %v %v %v\n", formatTimestamp(m.StartTime), oid, strings.Join(bits, " "))) //nolint:errcheck
-
-		count++
+		rows = append(rows, &snapshotListRow{
+			firstStartTime:   m.StartTime,
+			lastStartTime:    m.StartTime,
+			count:            1,
+			oid:              ent.(object.HasObjectID).ObjectID(),
+			bits:             bits,
+			retentionReasons: m.RetentionReasons,
+			pins:             m.Pins,
+			color:            col,
+		})
 
 		if m.IncompleteReason == "" {
 			lastTotalFileSize = m.Stats.TotalFileSize
 		}
 	}
 
-	outputElided()
+	if !c.snapshotListShowIdentical {
+		rows = c.mergeIdenticalRows(rows)
+	}
+
+	c.outputSnapshotRows(rows)
 
 	return nil
+}
+
+func (c *commandSnapshotList) mergeIdenticalRows(rows []*snapshotListRow) []*snapshotListRow {
+	var result []*snapshotListRow
+
+	for _, r := range rows {
+		if len(result) == 0 {
+			result = append(result, r)
+			continue
+		}
+
+		last := result[len(result)-1]
+
+		if r.oid == last.oid {
+			last.count++
+			last.lastStartTime = r.lastStartTime
+			last.retentionReasons = append(last.retentionReasons, r.retentionReasons...)
+			last.pins = append(last.pins, r.pins...)
+		} else {
+			result = append(result, r)
+		}
+	}
+
+	for _, r := range result {
+		r.retentionReasons = policy.CompactRetentionReasons(r.retentionReasons)
+		r.pins = policy.CompactPins(r.pins)
+	}
+
+	return result
+}
+
+func (c *commandSnapshotList) outputSnapshotRows(rows []*snapshotListRow) {
+	for _, row := range rows {
+		bits := append([]string(nil), row.bits...)
+
+		if c.snapshotListShowRetentionReasons {
+			if len(row.retentionReasons) > 0 {
+				bits = append(bits, "("+strings.Join(row.retentionReasons, ",")+")")
+			}
+		}
+
+		if len(row.pins) > 0 {
+			bits = append(bits, "pins:"+strings.Join(row.pins, ","))
+		}
+
+		row.color.Fprint(c.out.stdout(), fmt.Sprintf("  %v %v %v\n", formatTimestamp(row.firstStartTime), row.oid, strings.Join(bits, " "))) //nolint:errcheck
+
+		if row.count > 1 {
+			c.out.printStdout(
+				"  + %v identical snapshots until %v\n",
+				row.count-1,
+				formatTimestamp(row.lastStartTime),
+			)
+		}
+	}
 }
 
 func (c *commandSnapshotList) entryBits(ctx context.Context, m *snapshot.Manifest, ent fs.Entry, lastTotalFileSize int64) (bits []string, col *color.Color) {
@@ -310,16 +359,6 @@ func (c *commandSnapshotList) entryBits(ctx context.Context, m *snapshot.Manifes
 				col = errorColor
 			}
 		}
-	}
-
-	if c.snapshotListShowRetentionReasons {
-		if len(m.RetentionReasons) > 0 {
-			bits = append(bits, "("+strings.Join(m.RetentionReasons, ",")+")")
-		}
-	}
-
-	if len(m.Pins) > 0 {
-		bits = append(bits, "pins:"+strings.Join(m.Pins, ","))
 	}
 
 	return bits, col

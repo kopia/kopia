@@ -11,7 +11,9 @@ import (
 )
 
 func (s *Server) handleSnapshotList(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
-	manifestIDs, err := snapshot.ListSnapshotManifests(ctx, s.rep, nil, nil)
+	si := getSnapshotSourceFromURL(r.URL)
+
+	manifestIDs, err := snapshot.ListSnapshotManifests(ctx, s.rep, &si, nil)
 	if err != nil {
 		return nil, internalServerError(err)
 	}
@@ -21,28 +23,58 @@ func (s *Server) handleSnapshotList(ctx context.Context, r *http.Request, body [
 		return nil, internalServerError(err)
 	}
 
+	manifests = snapshot.SortByTime(manifests, false)
+
 	resp := &serverapi.SnapshotsResponse{
 		Snapshots: []*serverapi.Snapshot{},
 	}
 
-	groups := snapshot.GroupBySource(manifests)
-	for _, grp := range groups {
-		first := grp[0]
-		if !sourceMatchesURLFilter(first.Source, r.URL.Query()) {
-			continue
-		}
+	pol, _, _, err := policy.GetEffectivePolicy(ctx, s.rep, si)
+	if err == nil {
+		pol.RetentionPolicy.ComputeRetentionReasons(manifests)
+	}
 
-		pol, _, _, err := policy.GetEffectivePolicy(ctx, s.rep, first.Source)
-		if err == nil {
-			pol.RetentionPolicy.ComputeRetentionReasons(grp)
-		}
+	for _, m := range manifests {
+		resp.Snapshots = append(resp.Snapshots, convertSnapshotManifest(m))
+	}
 
-		for _, m := range grp {
-			resp.Snapshots = append(resp.Snapshots, convertSnapshotManifest(m))
-		}
+	resp.UnfilteredCount = len(resp.Snapshots)
+
+	if r.URL.Query().Get("all") == "" {
+		resp.Snapshots = uniqueSnapshots(resp.Snapshots)
+		resp.UniqueCount = len(resp.Snapshots)
+	} else {
+		resp.UniqueCount = len(uniqueSnapshots(resp.Snapshots))
 	}
 
 	return resp, nil
+}
+
+func uniqueSnapshots(rows []*serverapi.Snapshot) []*serverapi.Snapshot {
+	var result []*serverapi.Snapshot
+
+	for _, r := range rows {
+		if len(result) == 0 {
+			result = append(result, r)
+			continue
+		}
+
+		last := result[len(result)-1]
+
+		if r.RootEntry == last.RootEntry {
+			last.RetentionReasons = append(last.RetentionReasons, r.RetentionReasons...)
+			last.Pins = append(last.Pins, r.Pins...)
+		} else {
+			result = append(result, r)
+		}
+	}
+
+	for _, r := range result {
+		r.RetentionReasons = policy.CompactRetentionReasons(r.RetentionReasons)
+		r.Pins = policy.CompactPins(r.Pins)
+	}
+
+	return result
 }
 
 func sourceMatchesURLFilter(src snapshot.SourceInfo, query url.Values) bool {
@@ -64,13 +96,13 @@ func sourceMatchesURLFilter(src snapshot.SourceInfo, query url.Values) bool {
 func convertSnapshotManifest(m *snapshot.Manifest) *serverapi.Snapshot {
 	e := &serverapi.Snapshot{
 		ID:               m.ID,
-		Source:           m.Source,
 		Description:      m.Description,
 		StartTime:        m.StartTime,
 		EndTime:          m.EndTime,
 		IncompleteReason: m.IncompleteReason,
 		RootEntry:        m.RootObjectID().String(),
-		RetentionReasons: m.RetentionReasons,
+		RetentionReasons: append([]string{}, m.RetentionReasons...),
+		Pins:             append([]string{}, m.Pins...),
 	}
 
 	if re := m.RootEntry; re != nil {
