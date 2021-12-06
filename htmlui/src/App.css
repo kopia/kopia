@@ -182,3 +182,7 @@ div.tab-body {
 .list-actions {
   min-height: 40px;
 }
+
+.cli-equivalent {
+  font-family: monospace;
+}

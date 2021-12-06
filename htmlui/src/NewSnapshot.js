@@ -7,7 +7,7 @@ import Row from 'react-bootstrap/Row';
 import { handleChange } from './forms';
 import { PolicyEditor } from './PolicyEditor';
 import { EstimateResults } from './EstimateResults';
-import { DirectorySelector, errorAlert, GoBackButton, redirectIfNotConnected } from './uiutil';
+import { CLIEquivalent, DirectorySelector, errorAlert, GoBackButton, redirectIfNotConnected } from './uiutil';
 
 export class NewSnapshot extends Component {
     constructor() {
@@ -160,7 +160,7 @@ export class NewSnapshot extends Component {
             }
             <br />
 
-            {this.state.resolvedSource && <Col xs={12}>
+            {this.state.resolvedSource && <Row><Col xs={12}>
                 <Form.Text>
                     {this.state.resolvedSource ? this.state.resolvedSource.path : this.state.path}
                 </Form.Text>
@@ -170,7 +170,11 @@ export class NewSnapshot extends Component {
                     host={this.state.resolvedSource.host}
                     userName={this.state.resolvedSource.userName}
                     path={this.state.resolvedSource.path} />
-            </Col>}
+            </Col></Row>}
+
+            <Row><Col>&nbsp;</Col></Row>
+
+            <CLIEquivalent command={`snapshot create ${this.state.resolvedSource ? this.state.resolvedSource.path : this.state.path}`} />
         </>;
     }
 }

@@ -11,7 +11,7 @@ import Row from 'react-bootstrap/Row';
 import { Link } from 'react-router-dom';
 import { handleChange } from './forms';
 import MyTable from './Table';
-import { compare, DirectorySelector, isAbsolutePath, ownerName, policyEditorURL, redirectIfNotConnected } from './uiutil';
+import { CLIEquivalent, compare, DirectorySelector, isAbsolutePath, ownerName, policyEditorURL, redirectIfNotConnected } from './uiutil';
 
 const localPolicies = "Local Policies"
 const allPolicies = "All Policies"
@@ -268,6 +268,7 @@ export class PoliciesTable extends Component {
             </div> : ((this.state.selectedOwner === localPolicies && this.state.policyPath) ? <p>
                 No policy found for directory <code>{this.state.policyPath}</code>. Click <b>Set Policy</b> to define it.
             </p> : <p>No policies found.</p>)}
+            <CLIEquivalent command="policy list" />
         </div>;
     }
 }

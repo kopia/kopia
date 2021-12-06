@@ -7,7 +7,7 @@ import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
 import Spinner from 'react-bootstrap/Spinner';
 import { DirectoryItems } from "./DirectoryItems";
-import { GoBackButton } from './uiutil';
+import { CLIEquivalent, GoBackButton } from './uiutil';
 
 
 export class DirectoryObject extends Component {
@@ -116,28 +116,30 @@ export class DirectoryObject extends Component {
 
         return <div className="padded">
             <Row>
-                <Col>
-            <GoBackButton onClick={this.props.history.goBack} />
-            &nbsp;
-            { this.state.mountInfo.path ? <>
-            <Button size="sm" variant="info" onClick={this.unmount} >Unmount</Button>
-            {window.kopiaUI && <>
-            &nbsp;
-            <Button size="sm" variant="info" onClick={this.browseMounted} >Browse</Button>
-            </>}
-            &nbsp;<input id="mountedPath" value={this.state.mountInfo.path } />
-            <Button size="sm" variant="primary" onClick={this.copyPath} ><FontAwesomeIcon icon={faCopy} /></Button>
-            </> : <>
-            <Button size="sm" variant="primary" onClick={this.mount} >Mount</Button>
-            </>}
-            &nbsp;
-            <Button size="sm" variant="info" href={"/snapshots/dir/" + this.props.match.params.oid +"/restore"}>Restore...</Button>
-            </Col>
+                <Col xs={12}>
+                    <GoBackButton onClick={this.props.history.goBack} />
+                    &nbsp;
+                    {this.state.mountInfo.path ? <>
+                        <Button size="sm" variant="info" onClick={this.unmount} >Unmount</Button>
+                        {window.kopiaUI && <>
+                            &nbsp;
+                            <Button size="sm" variant="info" onClick={this.browseMounted} >Browse</Button>
+                        </>}
+                        &nbsp;<input id="mountedPath" value={this.state.mountInfo.path} />
+                        <Button size="sm" variant="primary" onClick={this.copyPath} ><FontAwesomeIcon icon={faCopy} /></Button>
+                    </> : <>
+                        <Button size="sm" variant="primary" onClick={this.mount} >Mount</Button>
+                    </>}
+                    &nbsp;
+                    <Button size="sm" variant="info" href={"/snapshots/dir/" + this.props.match.params.oid + "/restore"}>Restore...</Button>
+                </Col>
             </Row>
-            <hr/>
+            <Row><Col>&nbsp;</Col>
+            </Row>
             <Row>
-            <DirectoryItems items={items} />
+                <Col xs={12}><DirectoryItems items={items} /></Col>
             </Row>
+            <CLIEquivalent command={`snapshot list ${this.state.oid}`} />
         </div>
     }
 }
