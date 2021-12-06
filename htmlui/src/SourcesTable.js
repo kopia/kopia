@@ -12,7 +12,7 @@ import Spinner from 'react-bootstrap/Spinner';
 import { Link } from 'react-router-dom';
 import { handleChange } from './forms';
 import MyTable from './Table';
-import { compare, errorAlert, ownerName, policyEditorURL, redirectIfNotConnected, sizeDisplayName, sizeWithFailures, sourceQueryStringParams } from './uiutil';
+import { CLIEquivalent, compare, errorAlert, ownerName, policyEditorURL, redirectIfNotConnected, sizeDisplayName, sizeWithFailures, sourceQueryStringParams } from './uiutil';
 
 const localSnapshots = "Local Snapshots"
 const allSnapshots = "All Snapshots"
@@ -271,6 +271,7 @@ export class SourcesTable extends Component {
             </div>
 
             <MyTable data={sources} columns={columns} />
+            <CLIEquivalent command={`snapshot list`} />
         </div>;
     }
 }

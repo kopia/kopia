@@ -7,7 +7,7 @@ import Col from 'react-bootstrap/Col';
 import Spinner from 'react-bootstrap/Spinner';
 import { Link } from "react-router-dom";
 import MyTable from './Table';
-import { compare, GoBackButton, objectLink, parseQuery, rfc3339TimestampForDisplay, sizeWithFailures, sourceQueryStringParams } from './uiutil';
+import { CLIEquivalent, compare, GoBackButton, objectLink, parseQuery, rfc3339TimestampForDisplay, sizeWithFailures, sourceQueryStringParams } from './uiutil';
 
 function pillVariant(tag) {
     if (tag.startsWith("latest-")) {
@@ -67,7 +67,7 @@ export class SnapshotsTable extends Component {
         if (this.state.showHidden) {
             u += "&all=1";
         }
-        
+
         axios.get(u).then(result => {
             console.log('got snapshots', result.data);
             this.setState({
@@ -141,23 +141,26 @@ export class SnapshotsTable extends Component {
         return <div className="padded">
             <Row>
                 <Col>
-            <GoBackButton onClick={this.props.history.goBack} />
-            &nbsp;
-            Displaying {snapshots.length !== unfilteredCount ? snapshots.length + ' out of ' + unfilteredCount : snapshots.length} snapshots of&nbsp;<b>{this.state.userName}@{this.state.host}:{this.state.path}</b>
-                {unfilteredCount !== uniqueCount &&
-                    <>&nbsp;<Form.Group controlId="formBasicCheckbox">
-                        <Form.Check
-                            type="checkbox"
-                            checked={this.state.showHidden}
-                            label={'Show ' + unfilteredCount + ' individual snapshots'}
-                            onChange={this.onChange} />
-                    </Form.Group></>}
-                    </Col>
+                    <GoBackButton onClick={this.props.history.goBack} />
+                    &nbsp;
+                    Displaying {snapshots.length !== unfilteredCount ? snapshots.length + ' out of ' + unfilteredCount : snapshots.length} snapshots of&nbsp;<b>{this.state.userName}@{this.state.host}:{this.state.path}</b>
+                    {unfilteredCount !== uniqueCount &&
+                        <>&nbsp;<Form.Group controlId="formBasicCheckbox">
+                            <Form.Check
+                                type="checkbox"
+                                checked={this.state.showHidden}
+                                label={'Show ' + unfilteredCount + ' individual snapshots'}
+                                onChange={this.onChange} />
+                        </Form.Group></>}
+                </Col>
             </Row>
-            <hr />
             <Row>
-                <MyTable data={snapshots} columns={columns} />
+                <Col xs={12}>
+                    <MyTable data={snapshots} columns={columns} />
+                </Col>
             </Row>
+
+            <CLIEquivalent command={`snapshot list "${this.state.userName}@${this.state.host}:${this.state.path}"${this.state.showHidden ? " --show-identical" : ""}`} />
         </div>;
     }
 }

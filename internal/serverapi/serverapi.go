@@ -246,3 +246,8 @@ type ResolvePathRequest struct {
 type ResolvePathResponse struct {
 	SourceInfo snapshot.SourceInfo `json:"source"`
 }
+
+// CLIInfo contains CLI information.
+type CLIInfo struct {
+	Executable string `json:"executable"`
+}

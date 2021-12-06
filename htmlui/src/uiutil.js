@@ -1,7 +1,7 @@
-import { faBan, faCheck, faChevronLeft, faExclamationCircle, faExclamationTriangle, faFolderOpen, faWindowClose } from '@fortawesome/free-solid-svg-icons';
+import { faBan, faCheck, faChevronLeft, faCopy, faExclamationCircle, faExclamationTriangle, faFolderOpen, faTerminal, faWindowClose } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import axios from 'axios';
-import React from 'react';
+import React, { useState } from 'react';
 import Button from 'react-bootstrap/Button';
 import Form from 'react-bootstrap/Form';
 import FormControl from 'react-bootstrap/FormControl';
@@ -138,7 +138,7 @@ export function taskStatusSymbol(task) {
         case "RUNNING":
             return <>
                 <Spinner animation="border" variant="primary" size="sm" /> Running for {dur}
-            &nbsp;
+                &nbsp;
                 <FontAwesomeIcon size="sm" color="red" icon={faWindowClose} title="Cancel task" onClick={() => cancelTask(task.id)} />
             </>;
 
@@ -201,7 +201,7 @@ export function isAbsolutePath(p) {
     }
 
     // Windows-style X:\... path.
-    if (p.length >= 3 && p.substring(1,3) === ":\\") {
+    if (p.length >= 3 && p.substring(1, 3) === ":\\") {
         const letter = p.substring(0, 1).toUpperCase();
 
         return letter >= "A" && letter <= "Z";
@@ -221,7 +221,7 @@ export function errorAlert(err, prefix) {
     }
 
     prefix += ": ";
-    
+
     if (err.response && err.response.data && err.response.data.error) {
         alert(prefix + err.response.data.error);
     } else if (err instanceof Error) {
@@ -245,3 +245,38 @@ export function DirectorySelector(props) {
         </Button>
     </InputGroup>;
 }
+
+export function CLIEquivalent(props) {
+    let [visible, setVisible] = useState(false);
+    let [cliInfo, setCLIInfo] = useState({});
+
+    if (visible && !cliInfo.executable) {
+        axios.get('/api/v1/cli').then(result => {
+            setCLIInfo(result.data);
+        }).catch(error => { });
+    }
+
+    const ref = React.createRef()
+
+    function copyToClibopard() {
+        const el = ref.current;
+        if (!el) {
+            return
+        }
+
+        el.select();
+        el.setSelectionRange(0, 99999);
+
+        document.execCommand("copy");
+    }
+
+
+    return <>
+        <InputGroup size="sm" >
+            <Button size="sm" title="Click to show CLI equivalent" variant="warning" onClick={() => setVisible(!visible)}><FontAwesomeIcon size="sm" icon={faTerminal} /></Button>
+            {visible && <Button class="sm" variant="outline-dark" title="Copy to clipboard" onClick={copyToClibopard} ><FontAwesomeIcon size="sm" icon={faCopy} /></Button>}
+            {visible && <FormControl size="sm" ref={ref} className="cli-equivalent" value={`${cliInfo.executable} ${props.command}`} />}
+        </InputGroup>
+    </>;
+}
+
