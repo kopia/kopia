@@ -514,7 +514,8 @@ func TestObjectWritesWithRetention(t *testing.T) {
 		prefixesWithRetention = append(prefixesWithRetention, string(prefix))
 	}
 
-	prefixesWithRetention = append(prefixesWithRetention, content.IndexBlobPrefix, epoch.EpochManagerIndexUberPrefix)
+	prefixesWithRetention = append(prefixesWithRetention, content.IndexBlobPrefix, epoch.EpochManagerIndexUberPrefix,
+		repo.FormatBlobID, repo.RetentionBlobID)
 
 	// make sure that we cannot set mtime on the kopia objects created due to the
 	// retention time constraint

@@ -103,12 +103,15 @@ func Initialize(ctx context.Context, st blob.Storage, opt *NewRepositoryOptions,
 
 		// Write the retention blob first so that we'll consider the repository
 		// corrupted if writing the format blob fails later.
-		if err := st.PutBlob(ctx, RetentionBlobID, gather.FromSlice(retentionBytes), blob.PutOptions{}); err != nil {
+		if err := st.PutBlob(ctx, RetentionBlobID, gather.FromSlice(retentionBytes), blob.PutOptions{
+			RetentionMode:   retention.Mode,
+			RetentionPeriod: retention.Period,
+		}); err != nil {
 			return errors.Wrap(err, "unable to write retention blob")
 		}
 	}
 
-	if err := writeFormatBlob(ctx, st, format); err != nil {
+	if err := writeFormatBlob(ctx, st, format, retention); err != nil {
 		return errors.Wrap(err, "unable to write format blob")
 	}
 

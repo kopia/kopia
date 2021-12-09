@@ -29,7 +29,7 @@ func (r *directRepository) SetParameters(ctx context.Context, m content.MutableP
 		return errors.Errorf("unable to encrypt format bytes")
 	}
 
-	if err := writeFormatBlob(ctx, r.blobs, f); err != nil {
+	if err := writeFormatBlob(ctx, r.blobs, f, r.retentionBlob); err != nil {
 		return errors.Wrap(err, "unable to write format blob")
 	}
 

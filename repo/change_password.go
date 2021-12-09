@@ -42,13 +42,15 @@ func (r *directRepository) ChangePassword(ctx context.Context, newPassword strin
 			return errors.Wrap(err, "unable to encrypt retention bytes")
 		}
 
-		// TODO: no need to put a blob when nil
-		if err := r.blobs.PutBlob(ctx, RetentionBlobID, gather.FromSlice(retentionBytes), blob.PutOptions{}); err != nil {
+		if err := r.blobs.PutBlob(ctx, RetentionBlobID, gather.FromSlice(retentionBytes), blob.PutOptions{
+			RetentionMode:   r.retentionBlob.Mode,
+			RetentionPeriod: r.retentionBlob.Period,
+		}); err != nil {
 			return errors.Wrap(err, "unable to write retention blob")
 		}
 	}
 
-	if err := writeFormatBlob(ctx, r.blobs, f); err != nil {
+	if err := writeFormatBlob(ctx, r.blobs, f, r.retentionBlob); err != nil {
 		return errors.Wrap(err, "unable to write format blob")
 	}
 
