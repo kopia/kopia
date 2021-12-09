@@ -34,9 +34,9 @@ const CacheDirMarkerFile = "CACHEDIR.TAG"
 // CacheDirMarkerHeader is the header signature for cache dir marker files.
 const CacheDirMarkerHeader = "Signature: 8a477f597d28d172789f06886806bc55"
 
-// defaultFormatBlobCacheDuration is the duration for which we treat cached kopia.repository
+// defaultRepositoryBlobCacheDuration is the duration for which we treat cached kopia.repository
 // as valid.
-const defaultFormatBlobCacheDuration = 15 * time.Minute
+const defaultRepositoryBlobCacheDuration = 15 * time.Minute
 
 // throttlingWindow is the duration window during which the throttling token bucket fully replenishes.
 // the maximum number of tokens in the bucket is multiplied by the number of seconds.
@@ -383,7 +383,7 @@ func formatBytesCachingEnabled(cacheDirectory string, validDuration time.Duratio
 	return validDuration > 0
 }
 
-func readFormatBlobBytesFromCache(ctx context.Context, cachedFile string, validDuration time.Duration) ([]byte, error) {
+func readRepositoryBlobBytesFromCache(ctx context.Context, cachedFile string, validDuration time.Duration) ([]byte, error) {
 	cst, err := os.Stat(cachedFile)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to open cache file")
@@ -405,7 +405,7 @@ func readAndCacheRepositoryBlobBytes(ctx context.Context, st blob.Storage, cache
 	cachedFile := filepath.Join(cacheDirectory, blobID)
 
 	if validDuration == 0 {
-		validDuration = defaultFormatBlobCacheDuration
+		validDuration = defaultRepositoryBlobCacheDuration
 	}
 
 	if cacheDirectory != "" {
@@ -416,7 +416,7 @@ func readAndCacheRepositoryBlobBytes(ctx context.Context, st blob.Storage, cache
 
 	cacheEnabled := formatBytesCachingEnabled(cacheDirectory, validDuration)
 	if cacheEnabled {
-		b, err := readFormatBlobBytesFromCache(ctx, cachedFile, validDuration)
+		b, err := readRepositoryBlobBytesFromCache(ctx, cachedFile, validDuration)
 		if err == nil {
 			log(ctx).Debugf("%s retrieved from cache", blobID)
 
