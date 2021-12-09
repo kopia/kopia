@@ -56,8 +56,12 @@ func (r *directRepository) ChangePassword(ctx context.Context, newPassword strin
 
 	// remove cached kopia.repository blob.
 	if cd := r.cachingOptions.CacheDirectory; cd != "" {
-		if err := os.Remove(filepath.Join(r.cachingOptions.CacheDirectory, "kopia.repository")); err != nil {
-			log(ctx).Errorf("unable to remove kopia.repository: %v", err)
+		if err := os.Remove(filepath.Join(cd, FormatBlobID)); err != nil {
+			log(ctx).Errorf("unable to remove %s: %v", FormatBlobID, err)
+		}
+
+		if err := os.Remove(filepath.Join(cd, RetentionBlobID)); err != nil && !os.IsNotExist(err) {
+			log(ctx).Errorf("unable to remove %s: %v", RetentionBlobID, err)
 		}
 	}
 
