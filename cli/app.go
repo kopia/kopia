@@ -121,6 +121,7 @@ type App struct {
 	persistCredentials            bool
 	disableInternalLog            bool
 	AdvancedCommands              string
+	cliStorageProviders           []StorageProvider
 
 	currentAction   string
 	onExitCallbacks []func()
@@ -274,6 +275,18 @@ type commandParent interface {
 func NewApp() *App {
 	return &App{
 		progress: &cliProgress{},
+		cliStorageProviders: []StorageProvider{
+			{"from-config", "the provided configuration file", func() StorageFlags { return &storageFromConfigFlags{} }},
+
+			{"azure", "an Azure blob storage", func() StorageFlags { return &storageAzureFlags{} }},
+			{"b2", "a B2 bucket", func() StorageFlags { return &storageB2Flags{} }},
+			{"filesystem", "a filesystem", func() StorageFlags { return &storageFilesystemFlags{} }},
+			{"gcs", "a Google Cloud Storage bucket", func() StorageFlags { return &storageGCSFlags{} }},
+			{"rclone", "a rclone-based provided", func() StorageFlags { return &storageRcloneFlags{} }},
+			{"s3", "an S3 bucket", func() StorageFlags { return &storageS3Flags{} }},
+			{"sftp", "an SFTP storage", func() StorageFlags { return &storageSFTPFlags{} }},
+			{"webdav", "a WebDAV storage", func() StorageFlags { return &storageWebDAVFlags{} }},
+		},
 
 		// testability hooks
 		osExit:       os.Exit,

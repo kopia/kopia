@@ -25,10 +25,10 @@ func (c *commandRepositoryConnect) setup(svc advancedAppServices, parent command
 	c.co.setup(cmd)
 	c.server.setup(svc, cmd, &c.co)
 
-	for _, prov := range cliStorageProviders() {
+	for _, prov := range svc.storageProviders() {
 		// Set up 'connect' subcommand
-		f := prov.newFlags()
-		cc := cmd.Command(prov.name, "Connect to repository in "+prov.description)
+		f := prov.NewFlags()
+		cc := cmd.Command(prov.Name, "Connect to repository in "+prov.Description)
 		f.setup(svc, cc)
 		cc.Action(func(_ *kingpin.ParseContext) error {
 			ctx := svc.rootContext()
