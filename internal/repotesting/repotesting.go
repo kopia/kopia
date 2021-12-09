@@ -70,7 +70,14 @@ func (e *Environment) setup(tb testing.TB, version content.FormatVersion, opts .
 		}
 	}
 
-	st := blobtesting.NewMapStorage(blobtesting.DataMap{}, nil, openOpt.TimeNowFunc)
+	var st blob.Storage
+	if opt.RetentionPeriod == 0 && opt.RetentionMode == "" {
+		st = blobtesting.NewMapStorage(blobtesting.DataMap{}, nil, openOpt.TimeNowFunc)
+	} else {
+		// use versioned mock storage when retention settings are specified
+		st = blobtesting.NewVersionedMapStorage(openOpt.TimeNowFunc)
+	}
+
 	st = newReconnectableStorage(tb, st)
 	e.st = st
 
