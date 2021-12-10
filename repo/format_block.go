@@ -48,10 +48,9 @@ type formatBlob struct {
 	UniqueID               []byte `json:"uniqueID"`
 	KeyDerivationAlgorithm string `json:"keyAlgo"`
 
-	Version              string                  `json:"version"`
-	EncryptionAlgorithm  string                  `json:"encryption"`
-	EncryptedFormatBytes []byte                  `json:"encryptedBlockFormat,omitempty"`
-	UnencryptedFormat    *repositoryObjectFormat `json:"blockFormat,omitempty"`
+	EncryptionAlgorithm string `json:"encryption"`
+	// encrypted, serialized JSON encryptedRepositoryConfig{}
+	EncryptedFormatBytes []byte `json:"encryptedBlockFormat,omitempty"`
 }
 
 // encryptedRepositoryConfig contains the configuration of repository that's persisted in encrypted format.
@@ -179,9 +178,6 @@ func writeFormatBlob(ctx context.Context, st blob.Storage, f *formatBlob) error 
 
 func (f *formatBlob) decryptFormatBytes(masterKey []byte) (*repositoryObjectFormat, error) {
 	switch f.EncryptionAlgorithm {
-	case "NONE": // do nothing
-		return f.UnencryptedFormat, nil
-
 	case "AES256_GCM":
 		aead, authData, err := initCrypto(masterKey, f.UniqueID)
 		if err != nil {
@@ -232,10 +228,6 @@ func initCrypto(masterKey, repositoryID []byte) (cipher.AEAD, []byte, error) {
 
 func encryptFormatBytes(f *formatBlob, format *repositoryObjectFormat, masterKey, repositoryID []byte) error {
 	switch f.EncryptionAlgorithm {
-	case "NONE":
-		f.UnencryptedFormat = format
-		return nil
-
 	case "AES256_GCM":
 		content, err := json.Marshal(&encryptedRepositoryConfig{Format: *format})
 		if err != nil {

@@ -95,7 +95,6 @@ func formatBlobFromOptions(opt *NewRepositoryOptions) *formatBlob {
 		BuildVersion:           BuildVersion,
 		KeyDerivationAlgorithm: defaultKeyDerivationAlgorithm,
 		UniqueID:               applyDefaultRandomBytes(opt.UniqueID, uniqueIDLength),
-		Version:                "1",
 		EncryptionAlgorithm:    defaultFormatEncryption,
 	}
 }
