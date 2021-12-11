@@ -668,3 +668,37 @@ func createFileStructure(baseDir string, files []testFileEntry) error {
 
 	return nil
 }
+
+func TestSnapshotCreateAllFlushPerSource(t *testing.T) {
+	t.Parallel()
+
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--override-hostname=foo", "--override-username=foo")
+	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
+	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir2)
+	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir3)
+	indexList1 := e.RunAndExpectSuccess(t, "index", "ls")
+	metadataBlobList1 := e.RunAndExpectSuccess(t, "blob", "ls", "--prefix=q")
+
+	// by default snapshot flushes once, at the end and creates one index.
+	e.RunAndExpectSuccess(t, "snapshot", "create", "--all")
+
+	indexList2 := e.RunAndExpectSuccess(t, "index", "ls")
+	metadataBlobList2 := e.RunAndExpectSuccess(t, "blob", "ls", "--prefix=q")
+
+	require.Len(t, indexList2, len(indexList1)+1)
+	require.Len(t, metadataBlobList2, len(metadataBlobList1)+1)
+
+	// snapshot with --flush-per-source, since there are 3 soufces, we'll have 3 index blobs
+	e.RunAndExpectSuccess(t, "snapshot", "create", "--all", "--flush-per-source")
+
+	indexList3 := e.RunAndExpectSuccess(t, "index", "ls")
+	metadataBlobList3 := e.RunAndExpectSuccess(t, "blob", "ls", "--prefix=q")
+
+	require.Len(t, indexList3, len(indexList2)+3)
+	require.Len(t, metadataBlobList3, len(metadataBlobList2)+3)
+}
