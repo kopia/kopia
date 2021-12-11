@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -37,6 +38,7 @@ type commandSnapshotCreate struct {
 	snapshotCreateStdinFileName           string
 	snapshotCreateCheckpointUploadLimitMB int64
 	snapshotCreateTags                    []string
+	flushPerSource                        bool
 
 	pins []string
 
@@ -66,6 +68,7 @@ func (c *commandSnapshotCreate) setup(svc appServices, parent commandParent) {
 	cmd.Flag("stdin-file", "File path to be used for stdin data snapshot.").StringVar(&c.snapshotCreateStdinFileName)
 	cmd.Flag("tags", "Tags applied on the snapshot. Must be provided in the <key>:<value> format.").StringsVar(&c.snapshotCreateTags)
 	cmd.Flag("pin", "Create a pinned snapshot that's will not expire automatically").StringsVar(&c.pins)
+	cmd.Flag("flush-per-source", "Flush writes at the end of each source").Hidden().BoolVar(&c.flushPerSource)
 
 	c.logDirDetail = -1
 	c.logEntryDetail = -1
@@ -80,6 +83,7 @@ func (c *commandSnapshotCreate) setup(svc appServices, parent commandParent) {
 	cmd.Action(svc.repositoryWriterAction(c.run))
 }
 
+// nolint:gocyclo
 func (c *commandSnapshotCreate) run(ctx context.Context, rep repo.RepositoryWriter) error {
 	sources := c.snapshotCreateSources
 
@@ -125,7 +129,8 @@ func (c *commandSnapshotCreate) run(ctx context.Context, rep repo.RepositoryWrit
 
 		dir, err := filepath.Abs(snapshotDir)
 		if err != nil {
-			return errors.Errorf("invalid source: '%s': %s", snapshotDir, err)
+			finalErrors = append(finalErrors, fmt.Sprintf("invalid source: '%s': %s", snapshotDir, err))
+			continue
 		}
 
 		sourceInfo := snapshot.SourceInfo{
@@ -136,6 +141,15 @@ func (c *commandSnapshotCreate) run(ctx context.Context, rep repo.RepositoryWrit
 
 		if err := c.snapshotSingleSource(ctx, rep, u, sourceInfo, tags); err != nil {
 			finalErrors = append(finalErrors, err.Error())
+		}
+	}
+
+	// ensure we flush at least once in the session to properly close all pending buffers,
+	// otherwise the session will be reported as memory leak.
+	// by default the wrapper function does not flush on errors, which is what we want to do always.
+	if !c.flushPerSource {
+		if ferr := rep.Flush(ctx); ferr != nil {
+			return errors.Wrap(ferr, "flush error")
 		}
 	}
 
@@ -246,6 +260,7 @@ func startTimeAfterEndTime(startTime, endTime time.Time) bool {
 		startTime.After(endTime)
 }
 
+// nolint:gocyclo
 func (c *commandSnapshotCreate) snapshotSingleSource(ctx context.Context, rep repo.RepositoryWriter, u *snapshotfs.Uploader, sourceInfo snapshot.SourceInfo, tags map[string]string) error {
 	log(ctx).Infof("Snapshotting %v ...", sourceInfo)
 
@@ -328,8 +343,10 @@ func (c *commandSnapshotCreate) snapshotSingleSource(ctx context.Context, rep re
 		}
 	}
 
-	if ferr := rep.Flush(ctx); ferr != nil {
-		return errors.Wrap(ferr, "flush error")
+	if c.flushPerSource {
+		if ferr := rep.Flush(ctx); ferr != nil {
+			return errors.Wrap(ferr, "flush error")
+		}
 	}
 
 	c.svc.getProgress().Finish()

@@ -35,7 +35,7 @@ func (s *formatSpecificTestSuite) TestIndexOptimize(t *testing.T) {
 	e.RunAndExpectSuccess(t, "index", "optimize")
 	e.RunAndVerifyOutputLineCount(t, 1, "index", "ls")
 
-	e.RunAndExpectSuccess(t, "snapshot", "create", ".", sharedTestDataDir1, sharedTestDataDir2)
+	e.RunAndExpectSuccess(t, "snapshot", "create", ".", sharedTestDataDir1, sharedTestDataDir2, "--flush-per-source")
 
 	// we flush individually after each snapshot source, so this adds 3 indexes
 	e.RunAndVerifyOutputLineCount(t, 4, "index", "ls")
