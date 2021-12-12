@@ -29,11 +29,14 @@ import (
 	"github.com/kopia/kopia/repo/splitter"
 )
 
+var errSomeError = errors.Errorf("some error")
+
 type fakeContentManager struct {
 	mu                         sync.Mutex
 	data                       map[content.ID][]byte
 	compresionIDs              map[content.ID]compression.HeaderID
 	supportsContentCompression bool
+	writeContentError          error
 }
 
 func (f *fakeContentManager) GetContent(ctx context.Context, contentID content.ID) ([]byte, error) {
@@ -48,6 +51,10 @@ func (f *fakeContentManager) GetContent(ctx context.Context, contentID content.I
 }
 
 func (f *fakeContentManager) WriteContent(ctx context.Context, data gather.Bytes, prefix content.ID, comp compression.HeaderID) (content.ID, error) {
+	if f.writeContentError != nil {
+		return "", f.writeContentError
+	}
+
 	h := sha256.New()
 	data.WriteTo(h)
 	contentID := prefix + content.ID(hex.EncodeToString(h.Sum(nil)))
@@ -82,23 +89,25 @@ func (f *fakeContentManager) Flush(ctx context.Context) error {
 	return nil
 }
 
-func setupTest(t *testing.T, compressionHeaderID map[content.ID]compression.HeaderID) (map[content.ID][]byte, *Manager) {
+func setupTest(t *testing.T, compressionHeaderID map[content.ID]compression.HeaderID) (map[content.ID][]byte, *fakeContentManager, *Manager) {
 	t.Helper()
 
 	data := map[content.ID][]byte{}
 
-	r, err := NewObjectManager(testlogging.Context(t), &fakeContentManager{
+	fcm := &fakeContentManager{
 		data:                       data,
 		supportsContentCompression: compressionHeaderID != nil,
 		compresionIDs:              compressionHeaderID,
-	}, Format{
+	}
+
+	r, err := NewObjectManager(testlogging.Context(t), fcm, Format{
 		Splitter: "FIXED-1M",
 	})
 	if err != nil {
 		t.Fatalf("can't create object manager: %v", err)
 	}
 
-	return data, r
+	return data, fcm, r
 }
 
 func TestWriters(t *testing.T) {
@@ -115,7 +124,7 @@ func TestWriters(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		data, om := setupTest(t, nil)
+		data, _, om := setupTest(t, nil)
 
 		writer := om.NewWriter(ctx, WriterOptions{})
 
@@ -154,7 +163,7 @@ func TestCompression_ContentCompressionEnabled(t *testing.T) {
 	ctx := testlogging.Context(t)
 
 	cmap := map[content.ID]compression.HeaderID{}
-	_, om := setupTest(t, cmap)
+	_, _, om := setupTest(t, cmap)
 
 	w := om.NewWriter(ctx, WriterOptions{
 		Compressor: "gzip",
@@ -173,7 +182,7 @@ func TestCompression_ContentCompressionDisabled(t *testing.T) {
 	ctx := testlogging.Context(t)
 
 	// this disables content compression
-	_, om := setupTest(t, nil)
+	_, _, om := setupTest(t, nil)
 
 	w := om.NewWriter(ctx, WriterOptions{
 		Compressor: "gzip",
@@ -189,7 +198,7 @@ func TestCompression_ContentCompressionDisabled(t *testing.T) {
 
 func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
 	ctx := testlogging.Context(t)
-	_, om := setupTest(t, nil)
+	_, _, om := setupTest(t, nil)
 
 	b := make([]byte, 100)
 	writer := om.NewWriter(ctx, WriterOptions{})
@@ -204,7 +213,7 @@ func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
 
 func TestCheckpointing(t *testing.T) {
 	ctx := testlogging.Context(t)
-	_, om := setupTest(t, nil)
+	_, _, om := setupTest(t, nil)
 
 	writer := om.NewWriter(ctx, WriterOptions{})
 
@@ -390,7 +399,7 @@ func TestIndirection(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		data, om := setupTest(t, nil)
+		data, _, om := setupTest(t, nil)
 
 		contentBytes := make([]byte, c.dataLength)
 
@@ -442,7 +451,7 @@ func TestHMAC(t *testing.T) {
 	ctx := testlogging.Context(t)
 	c := bytes.Repeat([]byte{0xcd}, 50)
 
-	_, om := setupTest(t, nil)
+	_, _, om := setupTest(t, nil)
 
 	w := om.NewWriter(ctx, WriterOptions{})
 	w.Write(c)
@@ -456,7 +465,7 @@ func TestHMAC(t *testing.T) {
 // nolint:gocyclo
 func TestConcatenate(t *testing.T) {
 	ctx := testlogging.Context(t)
-	_, om := setupTest(t, nil)
+	_, _, om := setupTest(t, nil)
 
 	phrase := []byte("hello world\n")
 	phraseLength := len(phrase)
@@ -591,7 +600,7 @@ func mustWriteObject(t *testing.T, om *Manager, data []byte, compressor compress
 
 func TestReader(t *testing.T) {
 	ctx := testlogging.Context(t)
-	data, om := setupTest(t, nil)
+	data, _, om := setupTest(t, nil)
 
 	storedPayload := []byte("foo\nbar")
 	data["a76999788386641a3ec798554f1fe7e6"] = storedPayload
@@ -631,7 +640,7 @@ func TestReader(t *testing.T) {
 
 func TestReaderStoredBlockNotFound(t *testing.T) {
 	ctx := testlogging.Context(t)
-	_, om := setupTest(t, nil)
+	_, _, om := setupTest(t, nil)
 
 	objectID, err := ParseID("deadbeef")
 	if err != nil {
@@ -652,7 +661,7 @@ func TestEndToEndReadAndSeek(t *testing.T) {
 			t.Parallel()
 
 			ctx := testlogging.Context(t)
-			_, om := setupTest(t, nil)
+			_, _, om := setupTest(t, nil)
 
 			for _, size := range []int{1, 199, 200, 201, 9999, 512434, 5012434} {
 				// Create some random data sample of the specified size.
@@ -705,7 +714,7 @@ func TestEndToEndReadAndSeekWithCompression(t *testing.T) {
 
 				totalBytesWritten := 0
 
-				data, om := setupTest(t, nil)
+				data, _, om := setupTest(t, nil)
 
 				for _, size := range sizes {
 					var inputData []byte
@@ -804,7 +813,7 @@ func verify(ctx context.Context, t *testing.T, cr contentReader, objectID ID, ex
 // nolint:gocyclo
 func TestSeek(t *testing.T) {
 	ctx := testlogging.Context(t)
-	_, om := setupTest(t, nil)
+	_, _, om := setupTest(t, nil)
 
 	for _, size := range []int{0, 1, 500000, 15000000} {
 		randomData := make([]byte, size)
@@ -850,4 +859,93 @@ func TestSeek(t *testing.T) {
 			t.Errorf("unexpected read result %v %v", n, err)
 		}
 	}
+}
+
+func TestWriterFlushFailure_OnWrite(t *testing.T) {
+	_, fcm, om := setupTest(t, nil)
+
+	ctx := testlogging.Context(t)
+	w := om.NewWriter(ctx, WriterOptions{})
+
+	fcm.writeContentError = errSomeError
+
+	n, err := w.Write(bytes.Repeat([]byte{1, 2, 3, 4}, 1e6))
+	require.ErrorIs(t, err, errSomeError)
+	require.Equal(t, n, 0)
+}
+
+func TestWriterFlushFailure_OnFlush(t *testing.T) {
+	_, fcm, om := setupTest(t, nil)
+
+	ctx := testlogging.Context(t)
+	w := om.NewWriter(ctx, WriterOptions{})
+
+	n, err := w.Write(bytes.Repeat([]byte{1, 2, 3, 4}, 1e6))
+	require.NoError(t, err, errSomeError)
+	require.Equal(t, n, 4000000)
+
+	fcm.writeContentError = errSomeError
+
+	_, err = w.Result()
+	require.ErrorIs(t, err, errSomeError)
+}
+
+func TestWriterFlushFailure_OnCheckpoint(t *testing.T) {
+	_, fcm, om := setupTest(t, nil)
+
+	ctx := testlogging.Context(t)
+	w := om.NewWriter(ctx, WriterOptions{})
+
+	w.Write(bytes.Repeat([]byte{1, 2, 3, 4}, 1e6))
+
+	fcm.writeContentError = errSomeError
+	_, err := w.Checkpoint()
+
+	require.ErrorIs(t, err, errSomeError)
+}
+
+func TestWriterFlushFailure_OnAsyncWrite(t *testing.T) {
+	_, fcm, om := setupTest(t, nil)
+
+	ctx := testlogging.Context(t)
+	w := om.NewWriter(ctx, WriterOptions{
+		AsyncWrites: 1,
+	})
+
+	fcm.writeContentError = errSomeError
+
+	n, err := w.Write(bytes.Repeat([]byte{1, 2, 3, 4}, 1e6))
+	require.NoError(t, err, errSomeError)
+	require.Equal(t, n, 4000000)
+
+	_, err = w.Result()
+	require.ErrorIs(t, err, errSomeError)
+}
+
+type faultyCompressor struct{}
+
+func (faultyCompressor) Compress(output io.Writer, input io.Reader) error {
+	return errSomeError
+}
+
+func (faultyCompressor) Decompress(output io.Writer, input io.Reader, withHeader bool) error {
+	return nil
+}
+
+func (faultyCompressor) HeaderID() compression.HeaderID {
+	return 0
+}
+
+func TestWriterFailure_OnCompression(t *testing.T) {
+	_, _, om := setupTest(t, nil)
+
+	compression.RegisterCompressor("faulty", &faultyCompressor{})
+
+	ctx := testlogging.Context(t)
+	w := om.NewWriter(ctx, WriterOptions{
+		Compressor: "faulty",
+	})
+
+	_, err := w.Write(bytes.Repeat([]byte{1, 2, 3, 4}, 1e6))
+	require.Error(t, err, errSomeError)
 }
