@@ -23,18 +23,14 @@ func TestPersistentLRUCache(t *testing.T) {
 	const maxSizeBytes = 1000
 
 	cs, err := cache.NewStorageOrNil(ctx, cacheDir, maxSizeBytes, "subdir")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	pc, err := cache.NewPersistentCache(ctx, "testing", cs, cache.ChecksumProtection([]byte{1, 2, 3}), cache.SweepSettings{
 		MaxSizeBytes:   maxSizeBytes,
 		TouchThreshold: cache.DefaultTouchThreshold,
 		SweepFrequency: cache.DefaultSweepFrequency,
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	var tmp gather.WriteBuffer
 	defer tmp.Close()
@@ -79,9 +75,7 @@ func TestPersistentLRUCache(t *testing.T) {
 		TouchThreshold: cache.DefaultTouchThreshold,
 		SweepFrequency: cache.DefaultSweepFrequency,
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	verifyCached(ctx, t, pc, "key1", nil)
 	verifyCached(ctx, t, pc, "key2", someData)
@@ -95,9 +89,7 @@ func TestPersistentLRUCache(t *testing.T) {
 		TouchThreshold: cache.DefaultTouchThreshold,
 		SweepFrequency: cache.DefaultSweepFrequency,
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	var tmp2 gather.WriteBuffer
 	defer tmp2.Close()
@@ -113,6 +105,54 @@ func TestPersistentLRUCache(t *testing.T) {
 	// at this point 'cs' was updated with a different checksum, so attempting to read it using
 	// 'pc' will return cache miss.
 	verifyCached(ctx, t, pc, "key2", nil)
+}
+
+func TestPersistentLRUCacheNil(t *testing.T) {
+	ctx := testlogging.Context(t)
+
+	var pc *cache.PersistentCache
+
+	// no-op
+	pc.Close(ctx)
+	pc.Put(ctx, "key", gather.FromSlice([]byte{1, 2, 3}))
+
+	var tmp gather.WriteBuffer
+
+	require.False(t, pc.Get(ctx, "key", 0, -1, &tmp))
+
+	called := false
+
+	dummyError := errors.Errorf("dummy error")
+
+	require.ErrorIs(t, pc.GetOrLoad(ctx, "key", func(output *gather.WriteBuffer) error {
+		called = true
+		return dummyError
+	}, &tmp), dummyError)
+
+	require.True(t, called)
+}
+
+func TestPersistentLRUCache_Defaults(t *testing.T) {
+	cacheDir := testutil.TempDirectory(t)
+	ctx := testlogging.Context(t)
+
+	const maxSizeBytes = 1000
+
+	cs, err := cache.NewStorageOrNil(ctx, cacheDir, maxSizeBytes, "subdir")
+	require.NoError(t, err)
+
+	pc, err := cache.NewPersistentCache(ctx, "testing", cs, nil, cache.SweepSettings{
+		MaxSizeBytes: maxSizeBytes,
+	})
+	require.NoError(t, err)
+
+	pc.Put(ctx, "key1", gather.FromSlice([]byte{1, 2, 3}))
+
+	var tmp gather.WriteBuffer
+	defer tmp.Close()
+
+	cs.GetBlob(ctx, "key1", 0, -1, &tmp)
+	require.Len(t, tmp.ToByteSlice(), 3)
 }
 
 func verifyCached(ctx context.Context, t *testing.T, pc *cache.PersistentCache, key string, want []byte) {
