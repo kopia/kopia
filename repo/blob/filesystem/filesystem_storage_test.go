@@ -20,7 +20,6 @@ import (
 
 func TestFileStorage(t *testing.T) {
 	t.Parallel()
-	testutil.ProviderTest(t)
 
 	ctx := testlogging.Context(t)
 
@@ -43,18 +42,38 @@ func TestFileStorage(t *testing.T) {
 			},
 		}, true)
 
-		if r == nil || err != nil {
-			t.Errorf("unexpected result: %v %v", r, err)
-		}
+		require.NoError(t, err)
+		require.NotNil(t, r)
 
 		blobtesting.VerifyStorage(ctx, t, r, blob.PutOptions{})
 		blobtesting.AssertConnectionInfoRoundTrips(ctx, t, r)
-		require.NoError(t, providervalidation.ValidateProvider(ctx, r, blobtesting.TestValidationOptions))
 
-		if err := r.Close(ctx); err != nil {
-			t.Fatalf("err: %v", err)
-		}
+		require.NoError(t, r.Close(ctx))
 	}
+}
+
+func TestFileStorageValidate(t *testing.T) {
+	t.Parallel()
+
+	testutil.ProviderTest(t)
+
+	ctx := testlogging.Context(t)
+
+	path := testutil.TempDirectory(t)
+
+	r, err := New(ctx, &Options{
+		Path:    path,
+		Options: sharded.Options{},
+	}, true)
+
+	require.NoError(t, err)
+	require.NotNil(t, r)
+
+	blobtesting.VerifyStorage(ctx, t, r, blob.PutOptions{})
+	blobtesting.AssertConnectionInfoRoundTrips(ctx, t, r)
+	require.NoError(t, providervalidation.ValidateProvider(ctx, r, blobtesting.TestValidationOptions))
+
+	require.NoError(t, r.Close(ctx))
 }
 
 const (
@@ -65,7 +84,6 @@ const (
 
 func TestFileStorageTouch(t *testing.T) {
 	t.Parallel()
-	testutil.ProviderTest(t)
 
 	ctx := testlogging.Context(t)
 
