@@ -125,20 +125,28 @@ func (fs *fsImpl) GetBlobFromPath(ctx context.Context, dirPath, path string, off
 }
 
 func (fs *fsImpl) GetMetadataFromPath(ctx context.Context, dirPath, path string) (blob.Metadata, error) {
-	fi, err := fs.osi.Stat(path)
-	if err != nil {
-		if fs.osi.IsNotExist(err) {
-			return blob.Metadata{}, blob.ErrBlobNotFound
+	v, err := retry.WithExponentialBackoff(ctx, "GetMetadataFromPath:"+path, func() (interface{}, error) {
+		fi, err := fs.osi.Stat(path)
+		if err != nil {
+			if fs.osi.IsNotExist(err) {
+				return blob.Metadata{}, blob.ErrBlobNotFound
+			}
+
+			// nolint:wrapcheck
+			return blob.Metadata{}, err
 		}
 
+		return blob.Metadata{
+			Length:    fi.Size(),
+			Timestamp: fi.ModTime(),
+		}, nil
+	}, fs.isRetriable)
+	if err != nil {
 		// nolint:wrapcheck
 		return blob.Metadata{}, err
 	}
 
-	return blob.Metadata{
-		Length:    fi.Size(),
-		Timestamp: fi.ModTime(),
-	}, nil
+	return v.(blob.Metadata), nil
 }
 
 func (fs *fsImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data blob.Bytes) error {
@@ -258,30 +266,33 @@ func (fs *fsImpl) SetTimeInPath(ctx context.Context, dirPath, filePath string, n
 
 // TouchBlob updates file modification time to current time if it's sufficiently old.
 func (fs *fsStorage) TouchBlob(ctx context.Context, blobID blob.ID, threshold time.Duration) error {
-	_, path, err := fs.Storage.GetShardedPathAndFilePath(ctx, blobID)
-	if err != nil {
-		return errors.Wrap(err, "error getting sharded path")
-	}
-
-	osi := fs.Impl.(*fsImpl).osi
-
-	st, err := osi.Stat(path)
-	if err != nil {
-		// nolint:wrapcheck
-		return err
-	}
-
-	n := clock.Now()
-
-	age := n.Sub(st.ModTime())
-	if age < threshold {
-		return nil
-	}
-
-	log(ctx).Debugf("updating timestamp on %v to %v", path, n)
-
 	// nolint:wrapcheck
-	return osi.Chtimes(path, n, n)
+	return retry.WithExponentialBackoffNoValue(ctx, "TouchBlob", func() error {
+		_, path, err := fs.Storage.GetShardedPathAndFilePath(ctx, blobID)
+		if err != nil {
+			return errors.Wrap(err, "error getting sharded path")
+		}
+
+		osi := fs.Impl.(*fsImpl).osi
+
+		st, err := osi.Stat(path)
+		if err != nil {
+			// nolint:wrapcheck
+			return err
+		}
+
+		n := clock.Now()
+
+		age := n.Sub(st.ModTime())
+		if age < threshold {
+			return nil
+		}
+
+		log(ctx).Debugf("updating timestamp on %v to %v", path, n)
+
+		// nolint:wrapcheck
+		return osi.Chtimes(path, n, n)
+	}, fs.Impl.(*fsImpl).isRetriable)
 }
 
 func (fs *fsStorage) ConnectionInfo() blob.ConnectionInfo {
