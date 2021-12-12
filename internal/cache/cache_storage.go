@@ -48,9 +48,6 @@ func NewStorageOrNil(ctx context.Context, cacheDir string, maxBytes int64, subdi
 			DirectoryShards: []int{2},
 		},
 	}, false)
-	if err != nil {
-		return nil, errors.Wrap(err, "error initializing filesystem cache")
-	}
 
-	return fs.(Storage), nil
+	return fs.(Storage), errors.Wrap(err, "error initializing filesystem cache")
 }
