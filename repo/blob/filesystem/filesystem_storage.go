@@ -37,34 +37,32 @@ type fsStorage struct {
 
 type fsImpl struct {
 	Options
+
+	osi osInterface
 }
 
 var errRetriableInvalidLength = errors.Errorf("invalid length (retriable)")
 
-func isRetriable(err error) bool {
+func (fs *fsImpl) isRetriable(err error) bool {
 	if err == nil {
 		return false
 	}
 
 	err = errors.Cause(err)
 
-	if os.IsNotExist(err) {
+	if fs.osi.IsNotExist(err) {
 		return false
 	}
 
-	if os.IsExist(err) {
+	if fs.osi.IsExist(err) {
 		return false
 	}
 
-	// retry errors during file operations
-	var pe *os.PathError
-	if errors.As(err, &pe) {
+	if fs.osi.IsPathError(err) {
 		return true
 	}
 
-	// retry errors during rename
-	var le *os.LinkError
-	if errors.As(err, &le) {
+	if fs.osi.IsLinkError(err) {
 		return true
 	}
 
@@ -75,13 +73,13 @@ func (fs *fsImpl) GetBlobFromPath(ctx context.Context, dirPath, path string, off
 	err := retry.WithExponentialBackoffNoValue(ctx, "GetBlobFromPath:"+path, func() error {
 		output.Reset()
 
-		f, err := os.Open(path) //nolint:gosec
+		f, err := fs.osi.Open(path)
 		if err != nil {
 			//nolint:wrapcheck
 			return err
 		}
 
-		defer f.Close() //nolint:errcheck,gosec
+		defer f.Close() //nolint:errcheck
 
 		if length < 0 {
 			// nolint:wrapcheck
@@ -112,9 +110,9 @@ func (fs *fsImpl) GetBlobFromPath(ctx context.Context, dirPath, path string, off
 		}
 
 		return nil
-	}, isRetriable)
+	}, fs.isRetriable)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if fs.osi.IsNotExist(err) {
 			return blob.ErrBlobNotFound
 		}
 
@@ -127,20 +125,28 @@ func (fs *fsImpl) GetBlobFromPath(ctx context.Context, dirPath, path string, off
 }
 
 func (fs *fsImpl) GetMetadataFromPath(ctx context.Context, dirPath, path string) (blob.Metadata, error) {
-	fi, err := os.Stat(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return blob.Metadata{}, blob.ErrBlobNotFound
+	v, err := retry.WithExponentialBackoff(ctx, "GetMetadataFromPath:"+path, func() (interface{}, error) {
+		fi, err := fs.osi.Stat(path)
+		if err != nil {
+			if fs.osi.IsNotExist(err) {
+				return blob.Metadata{}, blob.ErrBlobNotFound
+			}
+
+			// nolint:wrapcheck
+			return blob.Metadata{}, err
 		}
 
+		return blob.Metadata{
+			Length:    fi.Size(),
+			Timestamp: fi.ModTime(),
+		}, nil
+	}, fs.isRetriable)
+	if err != nil {
 		// nolint:wrapcheck
 		return blob.Metadata{}, err
 	}
 
-	return blob.Metadata{
-		Length:    fi.Size(),
-		Timestamp: fi.ModTime(),
-	}, nil
+	return v.(blob.Metadata), nil
 }
 
 func (fs *fsImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data blob.Bytes) error {
@@ -166,9 +172,9 @@ func (fs *fsImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data 
 			return errors.Wrap(err, "can't close temporary file")
 		}
 
-		err = os.Rename(tempFile, path)
+		err = fs.osi.Rename(tempFile, path)
 		if err != nil {
-			if removeErr := os.Remove(tempFile); removeErr != nil {
+			if removeErr := fs.osi.Remove(tempFile); removeErr != nil {
 				log(ctx).Errorf("can't remove temp file: %v", removeErr)
 			}
 
@@ -176,52 +182,54 @@ func (fs *fsImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data 
 			return err
 		}
 
-		if fs.FileUID != nil && fs.FileGID != nil && os.Geteuid() == 0 {
-			if chownErr := os.Chown(path, *fs.FileUID, *fs.FileGID); chownErr != nil {
+		if fs.FileUID != nil && fs.FileGID != nil && fs.osi.Geteuid() == 0 {
+			if chownErr := fs.osi.Chown(path, *fs.FileUID, *fs.FileGID); chownErr != nil {
 				log(ctx).Errorf("can't change file permissions: %v", chownErr)
 			}
 		}
 
 		return nil
-	}, isRetriable)
+	}, fs.isRetriable)
 }
 
-func (fs *fsImpl) createTempFileAndDir(tempFile string) (*os.File, error) {
-	flags := os.O_CREATE | os.O_WRONLY | os.O_EXCL
-
-	f, err := os.OpenFile(tempFile, flags, fs.fileMode()) //nolint:gosec
-	if os.IsNotExist(err) {
-		if err = os.MkdirAll(filepath.Dir(tempFile), fs.dirMode()); err != nil {
+func (fs *fsImpl) createTempFileAndDir(tempFile string) (osWriteFile, error) {
+	f, err := fs.osi.CreateNewFile(tempFile, fs.fileMode())
+	if fs.osi.IsNotExist(err) {
+		if err = fs.osi.MkdirAll(filepath.Dir(tempFile), fs.dirMode()); err != nil {
 			return nil, errors.Wrap(err, "cannot create directory")
 		}
 
 		// nolint:wrapcheck
-		return os.OpenFile(tempFile, flags, fs.fileMode()) //nolint:gosec
+		return fs.osi.CreateNewFile(tempFile, fs.fileMode())
 	}
 
-	// nolint:wrapcheck
-	return f, err
+	if err != nil {
+		// nolint:wrapcheck
+		return nil, err
+	}
+
+	return f, nil
 }
 
 func (fs *fsImpl) DeleteBlobInPath(ctx context.Context, dirPath, path string) error {
 	// nolint:wrapcheck
 	return retry.WithExponentialBackoffNoValue(ctx, "DeleteBlobInPath:"+path, func() error {
-		err := os.Remove(path)
-		if err == nil || os.IsNotExist(err) {
+		err := fs.osi.Remove(path)
+		if err == nil || fs.osi.IsNotExist(err) {
 			return nil
 		}
 
 		// nolint:wrapcheck
 		return err
-	}, isRetriable)
+	}, fs.isRetriable)
 }
 
 func (fs *fsImpl) ReadDir(ctx context.Context, dirname string) ([]os.FileInfo, error) {
 	v, err := retry.WithExponentialBackoff(ctx, "ReadDir:"+dirname, func() (interface{}, error) {
-		v, err := os.ReadDir(dirname)
+		v, err := fs.osi.ReadDir(dirname)
 		// nolint:wrapcheck
 		return v, err
-	}, isRetriable)
+	}, fs.isRetriable)
 	if err != nil {
 		// nolint:wrapcheck
 		return nil, err
@@ -232,7 +240,7 @@ func (fs *fsImpl) ReadDir(ctx context.Context, dirname string) ([]os.FileInfo, e
 	for _, e := range v.([]os.DirEntry) {
 		fi, err := e.Info()
 
-		if os.IsNotExist(err) {
+		if fs.osi.IsNotExist(err) {
 			// we lost the race, the file was deleted since it was listed.
 			continue
 		}
@@ -253,33 +261,38 @@ func (fs *fsImpl) SetTimeInPath(ctx context.Context, dirPath, filePath string, n
 	log(ctx).Debugf("updating timestamp on %v to %v", filePath, n)
 
 	// nolint:wrapcheck
-	return os.Chtimes(filePath, n, n)
+	return fs.osi.Chtimes(filePath, n, n)
 }
 
 // TouchBlob updates file modification time to current time if it's sufficiently old.
 func (fs *fsStorage) TouchBlob(ctx context.Context, blobID blob.ID, threshold time.Duration) error {
-	_, path, err := fs.Storage.GetShardedPathAndFilePath(ctx, blobID)
-	if err != nil {
-		return errors.Wrap(err, "error getting sharded path")
-	}
-
-	st, err := os.Stat(path)
-	if err != nil {
-		// nolint:wrapcheck
-		return err
-	}
-
-	n := clock.Now()
-
-	age := n.Sub(st.ModTime())
-	if age < threshold {
-		return nil
-	}
-
-	log(ctx).Debugf("updating timestamp on %v to %v", path, n)
-
 	// nolint:wrapcheck
-	return os.Chtimes(path, n, n)
+	return retry.WithExponentialBackoffNoValue(ctx, "TouchBlob", func() error {
+		_, path, err := fs.Storage.GetShardedPathAndFilePath(ctx, blobID)
+		if err != nil {
+			return errors.Wrap(err, "error getting sharded path")
+		}
+
+		osi := fs.Impl.(*fsImpl).osi
+
+		st, err := osi.Stat(path)
+		if err != nil {
+			// nolint:wrapcheck
+			return err
+		}
+
+		n := clock.Now()
+
+		age := n.Sub(st.ModTime())
+		if age < threshold {
+			return nil
+		}
+
+		log(ctx).Debugf("updating timestamp on %v to %v", path, n)
+
+		// nolint:wrapcheck
+		return osi.Chtimes(path, n, n)
+	}, fs.Impl.(*fsImpl).isRetriable)
 }
 
 func (fs *fsStorage) ConnectionInfo() blob.ConnectionInfo {
@@ -305,20 +318,25 @@ func (fs *fsStorage) FlushCaches(ctx context.Context) error {
 func New(ctx context.Context, opts *Options, isCreate bool) (blob.Storage, error) {
 	var err error
 
+	osi := opts.osInterfaceOverride
+	if osi == nil {
+		osi = realOS{}
+	}
+
 	if isCreate {
 		log(ctx).Debugf("creating directory: %v dir mode: %v", opts.Path, opts.dirMode())
 
-		if mkdirErr := os.MkdirAll(opts.Path, opts.dirMode()); mkdirErr != nil {
+		if mkdirErr := osi.MkdirAll(opts.Path, opts.dirMode()); mkdirErr != nil {
 			log(ctx).Errorf("unable to create directory: %v", mkdirErr)
 		}
 	}
 
-	if _, err = os.Stat(opts.Path); err != nil {
+	if _, err = osi.Stat(opts.Path); err != nil {
 		return nil, errors.Wrap(err, "cannot access storage path")
 	}
 
 	return &fsStorage{
-		sharded.New(&fsImpl{Options: *opts}, opts.Path, opts.Options, isCreate),
+		sharded.New(&fsImpl{*opts, osi}, opts.Path, opts.Options, isCreate),
 	}, nil
 }
 
