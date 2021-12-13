@@ -16,18 +16,23 @@ type Method int
 
 // Set encapsulates a set of faults.
 type Set struct {
-	mu     sync.Mutex
-	faults map[Method][]*Fault
+	mu          sync.Mutex
+	faults      map[Method][]*Fault
+	callCounter map[Method]int
 }
 
 func (s *Set) ensureInitialized() {
 	if s.faults == nil {
 		s.faults = map[Method][]*Fault{}
+		s.callCounter = map[Method]int{}
 	}
 }
 
 // AddFault adds a new fault for a given method.
 func (s *Set) AddFault(method Method) *Fault {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	s.ensureInitialized()
 
 	f := New()
@@ -38,14 +43,28 @@ func (s *Set) AddFault(method Method) *Fault {
 
 // AddFaults adds a new fault for a given method.
 func (s *Set) AddFaults(method Method, faults ...*Fault) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	s.ensureInitialized()
 
 	s.faults[method] = append(s.faults[method], faults...)
 }
 
+// NumCalls returns the number of calls for a particular method.
+func (s *Set) NumCalls(method Method) int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.callCounter[method]
+}
+
 // VerifyAllFaultsExercised fails the test if some faults have not been exercised.
 func (s *Set) VerifyAllFaultsExercised(t *testing.T) {
 	t.Helper()
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	if len(s.faults) != 0 {
 		t.Fatalf("not all defined faults have been hit: %#v", s.faults)
@@ -56,14 +75,16 @@ func (s *Set) VerifyAllFaultsExercised(t *testing.T) {
 func (s *Set) GetNextFault(ctx context.Context, method Method, args ...interface{}) (bool, error) {
 	s.mu.Lock()
 
+	s.ensureInitialized()
+
+	s.callCounter[method]++
+
 	faults := s.faults[method]
 	if len(faults) == 0 {
 		s.mu.Unlock()
 
 		return false, nil
 	}
-
-	log(ctx).Infof("got fault for %v %v", method, faults[0])
 
 	f := faults[0]
 	if f.repeatCount > 0 {

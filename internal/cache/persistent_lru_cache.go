@@ -77,10 +77,6 @@ func (c *PersistentCache) Get(ctx context.Context, key string, offset, length in
 		return false
 	}
 
-	if length >= 0 && !c.storageProtection.SupportsPartial() {
-		return false
-	}
-
 	var tmp gather.WriteBuffer
 	defer tmp.Close()
 
@@ -270,7 +266,7 @@ func NewPersistentCache(ctx context.Context, description string, cacheStorage St
 	sweep = sweep.applyDefaults()
 
 	if storageProtection == nil {
-		storageProtection = nullStorageProtection{}
+		storageProtection = NoProtection()
 	}
 
 	c := &PersistentCache{
@@ -281,14 +277,8 @@ func NewPersistentCache(ctx context.Context, description string, cacheStorage St
 		storageProtection:   storageProtection,
 	}
 
-	// errGood is a marker error to stop blob iteration quickly, does not
-	// indicate any problem.
-	errGood := errors.Errorf("good")
-
 	// verify that cache storage is functional by listing from it
-	if err := c.cacheStorage.ListBlobs(ctx, "", func(it blob.Metadata) error {
-		return errGood
-	}); err != nil && !errors.Is(err, errGood) {
+	if _, err := c.cacheStorage.GetMetadata(ctx, "test-blob"); err != nil && !errors.Is(err, blob.ErrBlobNotFound) {
 		return nil, errors.Wrapf(err, "unable to open %v", c.description)
 	}
 

@@ -9,7 +9,9 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/cache"
+	"github.com/kopia/kopia/internal/fault"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
@@ -17,13 +19,11 @@ import (
 )
 
 func TestPersistentLRUCache(t *testing.T) {
-	cacheDir := testutil.TempDirectory(t)
-	ctx := testlogging.Context(t)
+	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
 
 	const maxSizeBytes = 1000
 
-	cs, err := cache.NewStorageOrNil(ctx, cacheDir, maxSizeBytes, "subdir")
-	require.NoError(t, err)
+	cs := blobtesting.NewMapStorage(blobtesting.DataMap{}, nil, nil).(cache.Storage)
 
 	pc, err := cache.NewPersistentCache(ctx, "testing", cs, cache.ChecksumProtection([]byte{1, 2, 3}), cache.SweepSettings{
 		MaxSizeBytes:   maxSizeBytes,
@@ -44,9 +44,6 @@ func TestPersistentLRUCache(t *testing.T) {
 	pc.Put(ctx, "key1", gather.FromSlice(someData))
 	verifyBlobExists(ctx, t, cs, "key1")
 
-	// sleep between adding key1 and the rest to make it easily the oldest
-	// even if the filesystem is not very precise keeping time.
-	time.Sleep(2 * time.Second)
 	pc.Put(ctx, "key2", gather.FromSlice(someData))
 	verifyBlobExists(ctx, t, cs, "key2")
 	pc.Put(ctx, "key3", gather.FromSlice(someData))
@@ -91,6 +88,8 @@ func TestPersistentLRUCache(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	someError := errors.Errorf("some error")
+
 	var tmp2 gather.WriteBuffer
 	defer tmp2.Close()
 
@@ -99,16 +98,196 @@ func TestPersistentLRUCache(t *testing.T) {
 		return nil
 	}, &tmp2))
 
+	require.NoError(t, pc2.GetOrLoad(ctx, "key2", func(output *gather.WriteBuffer) error {
+		return someError
+	}, &tmp2))
+
 	// make sure we received data returned by the callback.
 	require.Equal(t, []byte{1, 2, 3}, tmp2.ToByteSlice())
 
 	// at this point 'cs' was updated with a different checksum, so attempting to read it using
 	// 'pc' will return cache miss.
 	verifyCached(ctx, t, pc, "key2", nil)
+
+	require.ErrorIs(t, pc2.GetOrLoad(ctx, "key9", func(output *gather.WriteBuffer) error {
+		return someError
+	}, &tmp2), someError)
+}
+
+type faultyCache struct {
+	*blobtesting.FaultyStorage
+}
+
+func (faultyCache) TouchBlob(ctx context.Context, blobID blob.ID, threshold time.Duration) error {
+	return nil
+}
+
+func TestPersistentLRUCache_Invalid(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
+
+	someError := errors.Errorf("some error")
+
+	st := blobtesting.NewMapStorage(blobtesting.DataMap{}, nil, nil)
+	fs := blobtesting.NewFaultyStorage(st)
+	fc := faultyCache{fs}
+
+	fs.AddFault(blobtesting.MethodGetMetadata).ErrorInstead(someError)
+
+	pc, err := cache.NewPersistentCache(ctx, "test", fc, nil, cache.SweepSettings{})
+	require.ErrorIs(t, err, someError)
+	require.Nil(t, pc)
+}
+
+func TestPersistentLRUCache_GetDeletesInvalidBlob(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
+
+	someError := errors.Errorf("some error")
+
+	data := blobtesting.DataMap{}
+
+	st := blobtesting.NewMapStorage(data, nil, nil)
+	fs := blobtesting.NewFaultyStorage(st)
+	fc := faultyCache{fs}
+
+	pc, err := cache.NewPersistentCache(ctx, "test", fc, cache.ChecksumProtection([]byte{1, 2, 3}), cache.SweepSettings{})
+	require.NoError(t, err)
+
+	pc.Put(ctx, "key", gather.FromSlice([]byte{1, 2, 3}))
+
+	// corrupt cached data
+	data["key"][0] ^= 1
+
+	var tmp gather.WriteBuffer
+	defer tmp.Close()
+
+	// simulate failure when trying to delete.
+	fs.AddFault(blobtesting.MethodDeleteBlob).ErrorInstead(someError)
+
+	pc.Get(ctx, "key", 0, -1, &tmp)
+}
+
+func TestPersistentLRUCache_PutIgnoresStorageFailure(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
+
+	someError := errors.Errorf("some error")
+
+	data := blobtesting.DataMap{}
+
+	st := blobtesting.NewMapStorage(data, nil, nil)
+	fs := blobtesting.NewFaultyStorage(st)
+	fc := faultyCache{fs}
+
+	pc, err := cache.NewPersistentCache(ctx, "test", fc, cache.ChecksumProtection([]byte{1, 2, 3}), cache.SweepSettings{})
+	require.NoError(t, err)
+
+	fs.AddFault(blobtesting.MethodPutBlob).ErrorInstead(someError)
+
+	pc.Put(ctx, "key", gather.FromSlice([]byte{1, 2, 3}))
+
+	var tmp gather.WriteBuffer
+	defer tmp.Close()
+
+	require.False(t, pc.Get(ctx, "key", 0, -1, &tmp))
+
+	require.Equal(t, fs.NumCalls(blobtesting.MethodPutBlob), 1)
+}
+
+func TestPersistentLRUCache_SweepMinSweepAge(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
+
+	data := blobtesting.DataMap{}
+
+	st := blobtesting.NewMapStorage(data, nil, nil)
+	fs := blobtesting.NewFaultyStorage(st)
+	fc := faultyCache{fs}
+
+	pc, err := cache.NewPersistentCache(ctx, "test", fc, cache.ChecksumProtection([]byte{1, 2, 3}), cache.SweepSettings{
+		SweepFrequency: 100 * time.Millisecond,
+		MaxSizeBytes:   1000,
+		MinSweepAge:    10 * time.Second,
+	})
+	require.NoError(t, err)
+	pc.Put(ctx, "key", gather.FromSlice([]byte{1, 2, 3}))
+	pc.Put(ctx, "key2", gather.FromSlice(bytes.Repeat([]byte{1, 2, 3}, 1e6)))
+	time.Sleep(1 * time.Second)
+
+	// simulate error during final sweep
+	fs.AddFault(blobtesting.MethodListBlobs).ErrorInstead(errors.Errorf("some error"))
+	pc.Close(ctx)
+
+	// both keys are retained since we're under min sweep age
+	require.Len(t, data, 2)
+}
+
+func TestPersistentLRUCache_SweepIgnoresErrors(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
+
+	data := blobtesting.DataMap{}
+
+	st := blobtesting.NewMapStorage(data, nil, nil)
+	fs := blobtesting.NewFaultyStorage(st)
+	fc := faultyCache{fs}
+
+	pc, err := cache.NewPersistentCache(ctx, "test", fc, cache.ChecksumProtection([]byte{1, 2, 3}), cache.SweepSettings{
+		SweepFrequency: 100 * time.Millisecond,
+		MaxSizeBytes:   1000,
+	})
+	require.NoError(t, err)
+
+	// ignore delete errors forever
+	fs.AddFault(blobtesting.MethodDeleteBlob).ErrorInstead(errors.Errorf("some delete error")).Repeat(1e6)
+
+	pc.Put(ctx, "key", gather.FromSlice([]byte{1, 2, 3}))
+	pc.Put(ctx, "key2", gather.FromSlice(bytes.Repeat([]byte{1, 2, 3}, 1e6)))
+	time.Sleep(500 * time.Millisecond)
+
+	// simulate error during sweep
+	fs.AddFaults(blobtesting.MethodListBlobs, fault.New().ErrorInstead(errors.Errorf("some error")))
+
+	time.Sleep(500 * time.Millisecond)
+
+	pc.Close(ctx)
+
+	// both keys are retained since we're under min sweep age
+	require.Len(t, data, 2)
+}
+
+func TestPersistentLRUCache_Sweep1(t *testing.T) {
+	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
+
+	data := blobtesting.DataMap{}
+
+	st := blobtesting.NewMapStorage(data, nil, nil)
+	fs := blobtesting.NewFaultyStorage(st)
+	fc := faultyCache{fs}
+
+	pc, err := cache.NewPersistentCache(ctx, "test", fc, cache.ChecksumProtection([]byte{1, 2, 3}), cache.SweepSettings{
+		SweepFrequency: 10 * time.Millisecond,
+		MaxSizeBytes:   1,
+		MinSweepAge:    0 * time.Second,
+	})
+	require.NoError(t, err)
+	pc.Put(ctx, "key", gather.FromSlice([]byte{1, 2, 3}))
+	pc.Put(ctx, "key", gather.FromSlice(bytes.Repeat([]byte{1, 2, 3}, 1e6)))
+	time.Sleep(1 * time.Second)
+
+	// simulate error during final sweep
+	fs.AddFault(blobtesting.MethodListBlobs).ErrorInstead(errors.Errorf("some error"))
+	pc.Close(ctx)
 }
 
 func TestPersistentLRUCacheNil(t *testing.T) {
-	ctx := testlogging.Context(t)
+	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
 
 	var pc *cache.PersistentCache
 
@@ -134,7 +313,7 @@ func TestPersistentLRUCacheNil(t *testing.T) {
 
 func TestPersistentLRUCache_Defaults(t *testing.T) {
 	cacheDir := testutil.TempDirectory(t)
-	ctx := testlogging.Context(t)
+	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
 
 	const maxSizeBytes = 1000
 
