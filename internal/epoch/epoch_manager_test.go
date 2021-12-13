@@ -87,9 +87,7 @@ func newTestEnv(t *testing.T) *epochManagerTestEnv {
 	ft := faketime.NewClockTimeWithOffset(0)
 	st := blobtesting.NewMapStorage(data, nil, ft.NowFunc())
 	unloggedst := st
-	fs := &blobtesting.FaultyStorage{
-		Base: st,
-	}
+	fs := blobtesting.NewFaultyStorage(st)
 	st = fs
 	st = logging.NewWrapper(st, testlogging.NewTestLogger(t), "[STORAGE] ")
 	te := &epochManagerTestEnv{unloggedst: unloggedst, st: st, ft: ft}
@@ -311,11 +309,11 @@ func TestIndexEpochManager_DeletionFailing(t *testing.T) {
 	t.Parallel()
 
 	te := newTestEnv(t)
-	te.faultyStorage.Faults = map[string][]*blobtesting.Fault{
-		"DeleteBlob": {
-			{Repeat: 200, Err: errors.Errorf("something bad happened")},
-		},
-	}
+
+	te.faultyStorage.
+		AddFault(blobtesting.MethodDeleteBlob).
+		ErrorInstead(errors.Errorf("something bad happened")).
+		Repeat(200)
 
 	// set up test environment in which compactions never succeed for whatever reason.
 	te.mgr.compact = func(ctx context.Context, blobIDs []blob.ID, outputPrefix blob.ID) error {
@@ -332,18 +330,9 @@ func TestIndexEpochManager_DeletionFailing(t *testing.T) {
 func TestRefreshRetriesIfTakingTooLong(t *testing.T) {
 	te := newTestEnv(t)
 
-	te.faultyStorage.Faults = map[string][]*blobtesting.Fault{
-		"ListBlobs": {
-			&blobtesting.Fault{
-				Repeat: 8, // refresh does 7 lists, so this will cause 2 unsuccessful retries
-				ErrCallback: func() error {
-					te.ft.Advance(24 * time.Hour)
-
-					return nil
-				},
-			},
-		},
-	}
+	te.faultyStorage.AddFault(blobtesting.MethodListBlobs).
+		Repeat(8). // refresh does 7 lists, so this will cause 2 unsuccessful retries
+		Before(func() { te.ft.Advance(24 * time.Hour) })
 
 	ctx := testlogging.Context(t)
 
@@ -374,20 +363,13 @@ func TestGetCompleteIndexSetRetriesIfTookTooLong(t *testing.T) {
 	// ensure we're not running any background goroutines before modifying 'Faults'
 	te.mgr.Flush()
 
-	te.faultyStorage.Faults = map[string][]*blobtesting.Fault{
-		"ListBlobs": {
-			&blobtesting.Fault{
-				Repeat: 1000,
-				ErrCallback: func() error {
-					if atomic.AddInt32(cnt, 1) == 1 {
-						te.ft.Advance(24 * time.Hour)
-					}
-
-					return nil
-				},
-			},
-		},
-	}
+	te.faultyStorage.AddFault(blobtesting.MethodListBlobs).
+		Repeat(1000).
+		Before(func() {
+			if atomic.AddInt32(cnt, 1) == 1 {
+				te.ft.Advance(24 * time.Hour)
+			}
+		})
 
 	_, _, err := te.mgr.GetCompleteIndexSet(ctx, 0)
 	require.NoError(t, err)
@@ -400,17 +382,11 @@ func TestSlowWrite(t *testing.T) {
 
 	ctx := testlogging.Context(t)
 
-	te.faultyStorage.Faults = map[string][]*blobtesting.Fault{
-		"PutBlob": {
-			{
-				Repeat: 10,
-				ErrCallback: func() error {
-					te.ft.Advance(24 * time.Hour)
-					return nil
-				},
-			},
-		},
-	}
+	te.faultyStorage.AddFault(blobtesting.MethodPutBlob).
+		Repeat(10).
+		Before(func() {
+			te.ft.Advance(24 * time.Hour)
+		})
 
 	te.mustWriteIndexFile(ctx, t, newFakeIndexWithEntries(1))
 	require.EqualValues(t, 11, *te.mgr.writeIndexTooSlow)
