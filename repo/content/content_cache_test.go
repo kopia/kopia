@@ -213,7 +213,7 @@ func TestCacheFailureToOpen(t *testing.T) {
 	cacheStorage := blobtesting.NewMapStorage(cacheData, nil, nil)
 	underlyingStorage := newUnderlyingStorageForContentCacheTesting(t)
 	faultyCache := blobtesting.NewFaultyStorage(cacheStorage)
-	faultyCache.AddFault(blobtesting.MethodListBlobs).ErrorInstead(someError)
+	faultyCache.AddFault(blobtesting.MethodGetMetadata).ErrorInstead(someError)
 
 	// Will fail because of ListBlobs failure.
 	_, err := newContentCacheForData(testlogging.Context(t), underlyingStorage, withoutTouchBlob{faultyCache}, cache.SweepSettings{MaxSizeBytes: 10000}, nil)

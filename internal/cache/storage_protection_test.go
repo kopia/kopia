@@ -10,8 +10,12 @@ import (
 	"github.com/kopia/kopia/internal/gather"
 )
 
+func TestNoStorageProection(t *testing.T) {
+	testStorageProtection(t, cache.NoProtection(), false)
+}
+
 func TestHMACStorageProtection(t *testing.T) {
-	testStorageProtection(t, cache.ChecksumProtection([]byte{1, 2, 3, 4}))
+	testStorageProtection(t, cache.ChecksumProtection([]byte{1, 2, 3, 4}), true)
 }
 
 func TestEncryptionStorageProtection(t *testing.T) {
@@ -20,11 +24,11 @@ func TestEncryptionStorageProtection(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	testStorageProtection(t, e)
+	testStorageProtection(t, e, true)
 }
 
 // nolint:thelper
-func testStorageProtection(t *testing.T, sp cache.StorageProtection) {
+func testStorageProtection(t *testing.T, sp cache.StorageProtection, protectsFromBitFlips bool) {
 	payload := []byte{0, 1, 2, 3, 4}
 
 	var protected gather.WriteBuffer
@@ -49,8 +53,12 @@ func testStorageProtection(t *testing.T, sp cache.StorageProtection) {
 
 	pb := protected.ToByteSlice()
 
-	// flip one bit
-	pb[0] ^= 1
+	if protectsFromBitFlips {
+		// flip one bit
+		pb[0] ^= 1
 
-	require.Error(t, sp.Verify("x", gather.FromSlice(pb), &unprotected))
+		require.Error(t, sp.Verify("x", gather.FromSlice(pb), &unprotected))
+	} else {
+		require.NoError(t, sp.Verify("x", gather.FromSlice(pb), &unprotected))
+	}
 }

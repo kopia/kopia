@@ -7,6 +7,7 @@ import (
 
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/hmac"
+	"github.com/kopia/kopia/internal/impossible"
 	"github.com/kopia/kopia/repo/encryption"
 )
 
@@ -15,7 +16,6 @@ var encryptionProtectionAlgorithm = "AES256-GCM-HMAC-SHA256"
 
 // StorageProtection encapsulates protection (HMAC and/or encryption) applied to local cache items.
 type StorageProtection interface {
-	SupportsPartial() bool
 	Protect(id string, input gather.Bytes, output *gather.WriteBuffer)
 	Verify(id string, input gather.Bytes, output *gather.WriteBuffer) error
 }
@@ -32,10 +32,6 @@ func (nullStorageProtection) Verify(id string, input gather.Bytes, output *gathe
 	input.WriteTo(output) // nolint:errcheck
 
 	return nil
-}
-
-func (nullStorageProtection) SupportsPartial() bool {
-	return true
 }
 
 // NoProtection returns implementation of StorageProtection that offers no protection.
@@ -58,10 +54,6 @@ func (p checksumProtection) Verify(id string, input gather.Bytes, output *gather
 	return hmac.VerifyAndStrip(input, p.Secret, output)
 }
 
-func (checksumProtection) SupportsPartial() bool {
-	return false
-}
-
 // ChecksumProtection returns StorageProtection that protects cached data using HMAC checksums without encryption.
 func ChecksumProtection(key []byte) StorageProtection {
 	return checksumProtection{key}
@@ -79,13 +71,7 @@ func (p authenticatedEncryptionProtection) deriveIV(id string) []byte {
 func (p authenticatedEncryptionProtection) Protect(id string, input gather.Bytes, output *gather.WriteBuffer) {
 	output.Reset()
 
-	if err := p.e.Encrypt(input, p.deriveIV(id), output); err != nil {
-		panic("encryption unexpectedly failed: " + err.Error())
-	}
-}
-
-func (authenticatedEncryptionProtection) SupportsPartial() bool {
-	return false
+	impossible.PanicOnError(p.e.Encrypt(input, p.deriveIV(id), output))
 }
 
 func (p authenticatedEncryptionProtection) Verify(id string, input gather.Bytes, output *gather.WriteBuffer) error {
@@ -111,9 +97,7 @@ func (k authenticatedEncryptionProtectionKey) GetMasterKey() []byte {
 // AuthenticatedEncryptionProtection returns StorageProtection that protects cached data using authenticated encryption.
 func AuthenticatedEncryptionProtection(key []byte) (StorageProtection, error) {
 	e, err := encryption.CreateEncryptor(authenticatedEncryptionProtectionKey(key))
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to create encryptor")
-	}
+	impossible.PanicOnError(err)
 
 	return authenticatedEncryptionProtection{e}, nil
 }

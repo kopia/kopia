@@ -15,6 +15,8 @@ import (
 	"github.com/kopia/kopia/repo/blob/sharded"
 )
 
+var mkdirAll = os.MkdirAll // for testability
+
 // DirMode is the directory mode for all caches.
 const DirMode = 0o700
 
@@ -37,7 +39,7 @@ func NewStorageOrNil(ctx context.Context, cacheDir string, maxBytes int64, subdi
 	contentCacheDir := filepath.Join(cacheDir, subdir)
 
 	if _, err := os.Stat(contentCacheDir); os.IsNotExist(err) {
-		if mkdirerr := os.MkdirAll(contentCacheDir, DirMode); mkdirerr != nil {
+		if mkdirerr := mkdirAll(contentCacheDir, DirMode); mkdirerr != nil {
 			return nil, errors.Wrap(mkdirerr, "error creating cache directory")
 		}
 	}
