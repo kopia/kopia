@@ -2,6 +2,7 @@ package content
 
 import (
 	"bytes"
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -37,14 +38,13 @@ func TestMerged(t *testing.T) {
 
 	m := mergedIndex{i1, i2, i3}
 
-	i, err := m.GetInfo("aabbcc")
-	if err != nil || i == nil {
-		t.Fatalf("unable to get info: %v", err)
-	}
+	require.Equal(t, m.ApproximateCount(), 11)
 
-	if got, want := i.GetPackOffset(), uint32(33); got != want {
-		t.Errorf("invalid pack offset %v, wanted %v", got, want)
-	}
+	i, err := m.GetInfo("aabbcc")
+	require.NoError(t, err)
+	require.NotNil(t, i)
+
+	require.Equal(t, uint32(33), i.GetPackOffset())
 
 	require.NoError(t, m.Iterate(AllIDs, func(i Info) error {
 		if i.GetContentID() == "de1e1e" {
@@ -55,11 +55,28 @@ func TestMerged(t *testing.T) {
 		return nil
 	}))
 
-	if i, err := m.GetInfo("de1e1e"); err != nil {
-		t.Errorf("error getting deleted content info: %v", err)
-	} else if i.GetDeleted() {
-		t.Errorf("GetInfo preferred deleted content over non-deleted")
-	}
+	fmt.Println("=========== START")
+
+	// error is propagated.
+	someErr := errors.Errorf("some error")
+	require.ErrorIs(t, m.Iterate(AllIDs, func(i Info) error {
+		if i.GetContentID() == "aabbcc" {
+			return someErr
+		}
+
+		return nil
+	}), someErr)
+
+	fmt.Println("=========== END")
+
+	// empty merged index does not invoke callback during iteration.
+	require.NoError(t, mergedIndex{}.Iterate(AllIDs, func(i Info) error {
+		return someErr
+	}))
+
+	i, err = m.GetInfo("de1e1e")
+	require.NoError(t, err)
+	require.False(t, i.GetDeleted())
 
 	cases := []struct {
 		r IDRange
@@ -128,6 +145,25 @@ func TestMerged(t *testing.T) {
 	if err := m.Close(); err != nil {
 		t.Errorf("unexpected error in Close(): %v", err)
 	}
+}
+
+type failingIndex struct {
+	packIndex
+	err error
+}
+
+func (i failingIndex) GetInfo(contentID ID) (Info, error) {
+	return nil, i.err
+}
+
+func TestMergedGetInfoError(t *testing.T) {
+	someError := errors.Errorf("some error")
+
+	m := mergedIndex{failingIndex{nil, someError}}
+
+	info, err := m.GetInfo("some-id")
+	require.ErrorIs(t, err, someError)
+	require.Nil(t, info)
 }
 
 func TestMergedIndexIsConsistent(t *testing.T) {
