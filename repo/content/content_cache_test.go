@@ -212,14 +212,8 @@ func TestCacheFailureToOpen(t *testing.T) {
 	cacheData := blobtesting.DataMap{}
 	cacheStorage := blobtesting.NewMapStorage(cacheData, nil, nil)
 	underlyingStorage := newUnderlyingStorageForContentCacheTesting(t)
-	faultyCache := &blobtesting.FaultyStorage{
-		Base: cacheStorage,
-		Faults: map[string][]*blobtesting.Fault{
-			"ListBlobs": {
-				{Err: someError},
-			},
-		},
-	}
+	faultyCache := blobtesting.NewFaultyStorage(cacheStorage)
+	faultyCache.AddFault(blobtesting.MethodListBlobs).ErrorInstead(someError)
 
 	// Will fail because of ListBlobs failure.
 	_, err := newContentCacheForData(testlogging.Context(t), underlyingStorage, withoutTouchBlob{faultyCache}, cache.SweepSettings{MaxSizeBytes: 10000}, nil)
@@ -244,9 +238,7 @@ func TestCacheFailureToWrite(t *testing.T) {
 	cacheData := blobtesting.DataMap{}
 	cacheStorage := blobtesting.NewMapStorage(cacheData, nil, nil)
 	underlyingStorage := newUnderlyingStorageForContentCacheTesting(t)
-	faultyCache := &blobtesting.FaultyStorage{
-		Base: cacheStorage,
-	}
+	faultyCache := blobtesting.NewFaultyStorage(cacheStorage)
 
 	cc, err := newContentCacheForData(testlogging.Context(t), underlyingStorage, withoutTouchBlob{faultyCache}, cache.SweepSettings{MaxSizeBytes: 10000}, nil)
 	if err != nil {
@@ -257,11 +249,7 @@ func TestCacheFailureToWrite(t *testing.T) {
 
 	defer cc.close(ctx)
 
-	faultyCache.Faults = map[string][]*blobtesting.Fault{
-		"PutBlob": {
-			{Err: someError},
-		},
-	}
+	faultyCache.AddFault(blobtesting.MethodPutBlob).ErrorInstead(someError)
 
 	var v gather.WriteBuffer
 	defer v.Close()
@@ -290,9 +278,7 @@ func TestCacheFailureToRead(t *testing.T) {
 	cacheData := blobtesting.DataMap{}
 	cacheStorage := blobtesting.NewMapStorage(cacheData, nil, nil)
 	underlyingStorage := newUnderlyingStorageForContentCacheTesting(t)
-	faultyCache := &blobtesting.FaultyStorage{
-		Base: cacheStorage,
-	}
+	faultyCache := blobtesting.NewFaultyStorage(cacheStorage)
 
 	cc, err := newContentCacheForData(testlogging.Context(t), underlyingStorage, withoutTouchBlob{faultyCache}, cache.SweepSettings{MaxSizeBytes: 10000}, nil)
 	if err != nil {
@@ -303,11 +289,7 @@ func TestCacheFailureToRead(t *testing.T) {
 
 	defer cc.close(ctx)
 
-	faultyCache.Faults = map[string][]*blobtesting.Fault{
-		"GetBlob": {
-			{Err: someError, Repeat: 100},
-		},
-	}
+	faultyCache.AddFault(blobtesting.MethodGetBlob).ErrorInstead(someError).Repeat(100)
 
 	var v gather.WriteBuffer
 	defer v.Close()

@@ -21,26 +21,12 @@ func TestRetrying(t *testing.T) {
 
 	someError := errors.New("some error")
 	ms := blobtesting.NewMapStorage(blobtesting.DataMap{}, nil, nil)
-	fs := &blobtesting.FaultyStorage{
-		Base: ms,
-		Faults: map[string][]*blobtesting.Fault{
-			"PutBlob": {
-				{Err: someError},
-			},
-			"GetBlob": {
-				{Err: someError},
-			},
-			"GetMetadata": {
-				{Err: someError},
-			},
-			"DeleteBlob": {
-				{Err: someError},
-			},
-			"SetTime": {
-				{Err: someError},
-			},
-		},
-	}
+	fs := blobtesting.NewFaultyStorage(ms)
+	fs.AddFault(blobtesting.MethodPutBlob).ErrorInstead(someError)
+	fs.AddFault(blobtesting.MethodGetBlob).ErrorInstead(someError)
+	fs.AddFault(blobtesting.MethodGetMetadata).ErrorInstead(someError)
+	fs.AddFault(blobtesting.MethodDeleteBlob).ErrorInstead(someError)
+	fs.AddFault(blobtesting.MethodSetTime).ErrorInstead(someError)
 
 	rs := retrying.NewWrapper(fs)
 	blobID := blob.ID("deadcafe")
@@ -77,9 +63,7 @@ func TestRetrying(t *testing.T) {
 
 	fs.VerifyAllFaultsExercised(t)
 
-	fs.Faults["SetTime"] = []*blobtesting.Fault{
-		{Err: blob.ErrSetTimeUnsupported},
-	}
+	fs.AddFault(blobtesting.MethodSetTime).ErrorInstead(blob.ErrSetTimeUnsupported)
 
 	if err := rs.SetTime(ctx, blobID, clock.Now()); !errors.Is(err, blob.ErrSetTimeUnsupported) {
 		t.Fatalf("unexpected error from SetTime: %v", err)
