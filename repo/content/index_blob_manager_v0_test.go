@@ -160,6 +160,11 @@ func pickRandomActionTestIndexBlobManagerStress() action {
 // nolint:gocyclo
 func TestIndexBlobManagerStress(t *testing.T) {
 	t.Parallel()
+
+	if testing.Short() {
+		return
+	}
+
 	rand.Seed(clock.Now().UnixNano())
 
 	for i := range actionsTestIndexBlobManagerStress {

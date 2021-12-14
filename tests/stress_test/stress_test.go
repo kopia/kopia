@@ -25,6 +25,10 @@ func TestStressBlockManager(t *testing.T) {
 		t.Skip("skipping stress test")
 	}
 
+	if testing.Short() {
+		return
+	}
+
 	data := blobtesting.DataMap{}
 	keyTimes := map[blob.ID]time.Time{}
 	memst := blobtesting.NewMapStorage(data, keyTimes, clock.Now)
