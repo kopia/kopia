@@ -12,6 +12,7 @@ import (
 
 	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/gather"
+	"github.com/kopia/kopia/internal/impossible"
 	"github.com/kopia/kopia/repo/blob"
 )
 
@@ -113,10 +114,7 @@ func (c *contentCacheForMetadata) getContent(ctx context.Context, cacheKey cache
 
 	output.Reset()
 
-	if err := blobData.AppendSectionTo(output, int(offset), int(length)); err != nil {
-		// should never happen
-		return errors.Wrap(err, "error appending to result")
-	}
+	impossible.PanicOnError(blobData.AppendSectionTo(output, int(offset), int(length)))
 
 	return nil
 }
