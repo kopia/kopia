@@ -966,6 +966,10 @@ func deleteContentAfterUndeleteAndCheck(ctx context.Context, t *testing.T, bm *W
 func (s *contentManagerSuite) TestParallelWrites(t *testing.T) {
 	t.Parallel()
 
+	if testing.Short() {
+		return
+	}
+
 	ctx := testlogging.Context(t)
 
 	data := blobtesting.DataMap{}

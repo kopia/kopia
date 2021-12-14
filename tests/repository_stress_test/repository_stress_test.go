@@ -187,6 +187,10 @@ func TestStressContentReadHeavy(t *testing.T) {
 
 // nolint:thelper
 func runStress(t *testing.T, opt *StressOptions) {
+	if testing.Short() {
+		return
+	}
+
 	if os.Getenv("KOPIA_STRESS_TEST") == "" {
 		t.Skip("skipping stress test")
 	}

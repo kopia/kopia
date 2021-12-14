@@ -136,6 +136,10 @@ func TestIndexEpochManager_Regular(t *testing.T) {
 func TestIndexEpochManager_Parallel(t *testing.T) {
 	t.Parallel()
 
+	if testing.Short() {
+		return
+	}
+
 	te := newTestEnv(t)
 	ctx := testlogging.Context(t)
 
