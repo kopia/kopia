@@ -57,6 +57,12 @@ func TestGatherWriteBuffer(t *testing.T) {
 		t.Errorf("invalid number of slices %v, want %v", got, want)
 	}
 
+	var tmp WriteBuffer
+	defer tmp.Close()
+
+	require.NoError(t, w.AppendSectionTo(&tmp, 1, 5))
+	require.Equal(t, []byte("ello "), tmp.ToByteSlice())
+
 	w.Reset()
 }
 
