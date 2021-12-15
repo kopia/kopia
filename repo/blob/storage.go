@@ -23,7 +23,7 @@ type Bytes interface {
 	io.WriterTo
 
 	Length() int
-	Reader() io.Reader
+	Reader() io.ReadSeekCloser
 }
 
 // OutputBuffer is implemented by *gather.WriteBuffer.
