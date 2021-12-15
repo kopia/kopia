@@ -53,20 +53,6 @@ func epochRangeFromBlobID(blobID blob.ID) (min, max int, ok bool) {
 	return n1, n2, err1 == nil && err2 == nil
 }
 
-func blobsWrittenBefore(bms []blob.Metadata, maxTime time.Time) []blob.Metadata {
-	var result []blob.Metadata
-
-	for _, bm := range bms {
-		if !maxTime.IsZero() && bm.Timestamp.After(maxTime) {
-			continue
-		}
-
-		result = append(result, bm)
-	}
-
-	return result
-}
-
 func groupByEpochNumber(bms []blob.Metadata) map[int][]blob.Metadata {
 	result := map[int][]blob.Metadata{}
 

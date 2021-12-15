@@ -1269,10 +1269,10 @@ func (s *contentManagerSuite) TestHandleWriteErrors(t *testing.T) {
 				cids = append(cids, cid)
 			}
 			if got, want := flushWithRetries(ctx, t, bm), tc.expectedFlushRetries; got != want {
-				t.Errorf("invalid # of flush retries %v, wanted %v", got, want)
+				t.Fatalf("invalid # of flush retries %v, wanted %v", got, want)
 			}
 			if diff := cmp.Diff(writeRetries, tc.expectedWriteRetries); diff != "" {
-				t.Errorf("invalid # of write retries (-got,+want): %v", diff)
+				t.Fatalf("invalid # of write retries (-got,+want): %v", diff)
 			}
 
 			bm2 := s.newTestContentManagerWithTweaks(t, st, nil)
@@ -2179,7 +2179,7 @@ func flushWithRetries(ctx context.Context, t *testing.T, bm *WriteManager) int {
 	}
 
 	if err != nil {
-		t.Errorf("err: %v", err)
+		t.Fatalf("err: %v", err)
 	}
 
 	return retryCount

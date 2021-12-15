@@ -2,7 +2,6 @@ package epoch
 
 import (
 	"context"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/rand"
@@ -18,6 +17,7 @@ import (
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/faketime"
+	"github.com/kopia/kopia/internal/fault"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo/blob"
@@ -180,6 +180,11 @@ func TestIndexEpochManager_Parallel(t *testing.T) {
 				if _, err := te2.mgr.WriteIndex(ctx, map[blob.ID]blob.Bytes{
 					blob.ID(fmt.Sprintf("w%vr%x", worker, rnd)): gather.FromSlice(ndx.Bytes()),
 				}); err != nil {
+					if errors.Is(err, ErrVerySlowIndexWrite) {
+						indexNum--
+						continue
+					}
+
 					return errors.Wrap(err, "error writing")
 				}
 
@@ -381,21 +386,75 @@ func TestGetCompleteIndexSetRetriesIfTookTooLong(t *testing.T) {
 	require.EqualValues(t, 1, *te.mgr.getCompleteIndexSetTooSlow)
 }
 
-func TestSlowWrite(t *testing.T) {
+func TestSlowWrite_RefreshesCurrentState(t *testing.T) {
 	te := newTestEnv(t)
 
 	ctx := testlogging.Context(t)
 
-	te.faultyStorage.AddFault(blobtesting.MethodPutBlob).
-		Repeat(10).
-		Before(func() {
-			te.ft.Advance(24 * time.Hour)
-		})
+	// on first write, advance time enough to lose current context, but not to go to the next epoch.
+	te.faultyStorage.AddFaults(blobtesting.MethodPutBlob,
+		fault.New().Before(func() { te.ft.Advance(1 * time.Hour) }))
 
-	te.mustWriteIndexFile(ctx, t, newFakeIndexWithEntries(1))
-	require.EqualValues(t, 11, *te.mgr.writeIndexTooSlow)
-	te.mustWriteIndexFile(ctx, t, newFakeIndexWithEntries(2))
-	te.verifyCompleteIndexSet(ctx, t, LatestEpoch, newFakeIndexWithEntries(1, 2), time.Time{})
+	te.mustWriteIndexFiles(ctx, t,
+		newFakeIndexWithEntries(1),
+		newFakeIndexWithEntries(2),
+		newFakeIndexWithEntries(3),
+	)
+	require.EqualValues(t, 1, *te.mgr.writeIndexTooSlow)
+	cs, err := te.mgr.Current(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 0, cs.WriteEpoch)
+	te.verifyCompleteIndexSet(ctx, t, LatestEpoch, newFakeIndexWithEntries(1, 2, 3), time.Time{})
+}
+
+func TestSlowWrite_MovesToNextEpoch(t *testing.T) {
+	te := newTestEnv(t)
+
+	ctx := testlogging.Context(t)
+
+	// on first write, advance time enough to lose current context and go to the next epoch.
+	te.faultyStorage.AddFaults(blobtesting.MethodPutBlob,
+		fault.New().Before(func() {
+			te.ft.Advance(1 * time.Hour)
+			te.mgr.ForceAdvanceEpoch(ctx)
+		}),
+		fault.New().Before(func() { te.ft.Advance(1 * time.Hour) }))
+
+	te.mustWriteIndexFiles(ctx, t,
+		newFakeIndexWithEntries(1),
+		newFakeIndexWithEntries(2),
+		newFakeIndexWithEntries(3),
+	)
+	require.EqualValues(t, 1, *te.mgr.writeIndexTooSlow)
+	cs, err := te.mgr.Current(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 1, cs.WriteEpoch)
+	te.verifyCompleteIndexSet(ctx, t, LatestEpoch, newFakeIndexWithEntries(1, 2, 3), time.Time{})
+}
+
+func TestSlowWrite_MovesToNextEpochTwice(t *testing.T) {
+	te := newTestEnv(t)
+
+	ctx := testlogging.Context(t)
+
+	// on first write, advance time enough to lose current context and go to the next epoch.
+	te.faultyStorage.AddFaults(blobtesting.MethodPutBlob,
+		fault.New().Before(func() {
+			te.ft.Advance(24 * time.Hour)
+		}),
+		fault.New().Before(func() {
+			te.mgr.ForceAdvanceEpoch(ctx)
+			te.mgr.ForceAdvanceEpoch(ctx)
+		}))
+
+	_, err := te.writeIndexFiles(ctx,
+		newFakeIndexWithEntries(1),
+		newFakeIndexWithEntries(2),
+		newFakeIndexWithEntries(3),
+	)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "slow index write")
 }
 
 func TestForceAdvanceEpoch(t *testing.T) {
@@ -419,6 +478,51 @@ func TestForceAdvanceEpoch(t *testing.T) {
 	require.Equal(t, 2, cs.WriteEpoch)
 }
 
+func TestInvalid_WriteIndex(t *testing.T) {
+	te := newTestEnv(t)
+
+	ctx, cancel := context.WithCancel(testlogging.Context(t))
+	defer cancel()
+
+	// on first write, advance time enough to lose current context and go to the next epoch.
+	te.faultyStorage.AddFault(blobtesting.MethodListBlobs).Repeat(100).Before(cancel).ErrorInstead(errors.Errorf("canceled"))
+
+	_, err := te.writeIndexFiles(ctx,
+		newFakeIndexWithEntries(1),
+		newFakeIndexWithEntries(2),
+		newFakeIndexWithEntries(3),
+	)
+
+	require.ErrorIs(t, err, ctx.Err())
+}
+
+func TestInvalid_ForceAdvanceEpoch(t *testing.T) {
+	te := newTestEnv(t)
+
+	ctx, cancel := context.WithCancel(testlogging.Context(t))
+	defer cancel()
+
+	err := te.mgr.ForceAdvanceEpoch(ctx)
+	require.ErrorIs(t, err, ctx.Err())
+
+	ctx = testlogging.Context(t)
+	someError := errors.Errorf("failed")
+	te.faultyStorage.AddFault(blobtesting.MethodPutBlob).ErrorInstead(someError)
+
+	err = te.mgr.ForceAdvanceEpoch(ctx)
+	require.ErrorIs(t, err, someError)
+}
+
+func TestInvalid_Cleanup(t *testing.T) {
+	te := newTestEnv(t)
+
+	ctx, cancel := context.WithCancel(testlogging.Context(t))
+	cancel()
+
+	err := te.mgr.Cleanup(ctx)
+	require.ErrorIs(t, err, ctx.Err())
+}
+
 // nolint:thelper
 func verifySequentialWrites(t *testing.T, te *epochManagerTestEnv) {
 	ctx := testlogging.Context(t)
@@ -432,7 +536,7 @@ func verifySequentialWrites(t *testing.T, te *epochManagerTestEnv) {
 	for te.ft.NowFunc()().Before(endTime) {
 		indexNum++
 
-		te.mustWriteIndexFile(ctx, t, newFakeIndexWithEntries(indexNum))
+		te.mustWriteIndexFiles(ctx, t, newFakeIndexWithEntries(indexNum))
 
 		expected.Entries = append(expected.Entries, indexNum)
 		te.verifyCompleteIndexSet(ctx, t, LatestEpoch, expected, lastDeletionWatermark)
@@ -605,15 +709,28 @@ func (te *epochManagerTestEnv) getMergedIndexContents(ctx context.Context, blobI
 	return result, nil
 }
 
-func (te *epochManagerTestEnv) mustWriteIndexFile(ctx context.Context, t *testing.T, ndx *fakeIndex) {
+func (te *epochManagerTestEnv) writeIndexFiles(ctx context.Context, ndx ...*fakeIndex) ([]blob.Metadata, error) {
+	shards := map[blob.ID]blob.Bytes{}
+
+	var sessionID [8]byte
+
+	rand.Read(sessionID[:])
+
+	for _, n := range ndx {
+		var rnd [8]byte
+
+		rand.Read(rnd[:])
+
+		shards[blob.ID(fmt.Sprintf("%x-c%v-s%x", rnd[:], len(ndx), sessionID))] = gather.FromSlice(n.Bytes())
+	}
+
+	return te.mgr.WriteIndex(ctx, shards)
+}
+
+func (te *epochManagerTestEnv) mustWriteIndexFiles(ctx context.Context, t *testing.T, ndx ...*fakeIndex) {
 	t.Helper()
 
-	var rnd [8]byte
+	_, err := te.writeIndexFiles(ctx, ndx...)
 
-	rand.Read(rnd[:])
-
-	_, err := te.mgr.WriteIndex(ctx, map[blob.ID]blob.Bytes{
-		blob.ID(hex.EncodeToString(rnd[:])): gather.FromSlice(ndx.Bytes()),
-	})
 	require.NoError(t, err)
 }
