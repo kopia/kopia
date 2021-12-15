@@ -29,6 +29,10 @@ const (
 	maxRefreshAttemptSleepExponent = 1.5
 )
 
+// ErrVerySlowIndexWrite is returned by WriteIndex if a write takes more than 2 epochs (usually >48h).
+// This is theoretically possible with laptops going to sleep, etc.
+var ErrVerySlowIndexWrite = errors.Errorf("extremely slow index write - index write took more than two epochs")
+
 // Parameters encapsulates all parameters that influence the behavior of epoch manager.
 type Parameters struct {
 	// whether epoch manager is enabled, must be true.
@@ -172,13 +176,13 @@ func (e *Manager) Flush() {
 
 // Current retrieves current snapshot.
 func (e *Manager) Current(ctx context.Context) (CurrentSnapshot, error) {
-	return e.committedState(ctx)
+	return e.committedState(ctx, 0)
 }
 
 // AdvanceDeletionWatermark moves the deletion watermark time to a given timestamp
 // this causes all deleted content entries before given time to be treated as non-existent.
 func (e *Manager) AdvanceDeletionWatermark(ctx context.Context, ts time.Time) error {
-	cs, err := e.committedState(ctx)
+	cs, err := e.committedState(ctx, 0)
 	if err != nil {
 		return err
 	}
@@ -202,7 +206,7 @@ func (e *Manager) AdvanceDeletionWatermark(ctx context.Context, ts time.Time) er
 
 // ForceAdvanceEpoch advances current epoch unconditionally.
 func (e *Manager) ForceAdvanceEpoch(ctx context.Context) error {
-	cs, err := e.committedState(ctx)
+	cs, err := e.committedState(ctx, 0)
 	if err != nil {
 		return err
 	}
@@ -226,7 +230,7 @@ func (e *Manager) Refresh(ctx context.Context) error {
 
 // Cleanup cleans up the old indexes for which there's a compacted replacement.
 func (e *Manager) Cleanup(ctx context.Context) error {
-	cs, err := e.committedState(ctx)
+	cs, err := e.committedState(ctx, 0)
 	if err != nil {
 		return err
 	}
@@ -583,10 +587,6 @@ func (e *Manager) refreshAttemptLocked(ctx context.Context) error {
 		return errors.Wrap(err, "error loading uncompacted epochs")
 	}
 
-	for epoch := range ues {
-		ues[epoch] = blobsWrittenBefore(ues[epoch], cs.EpochStartTime[epoch+numUnsettledEpochs])
-	}
-
 	cs.UncompactedEpochSets = ues
 
 	e.log.Debugf("current epoch %v, uncompacted epoch sets %v %v %v, valid until %v",
@@ -627,11 +627,11 @@ func (e *Manager) advanceEpoch(ctx context.Context, cs CurrentSnapshot) error {
 	return nil
 }
 
-func (e *Manager) committedState(ctx context.Context) (CurrentSnapshot, error) {
+func (e *Manager) committedState(ctx context.Context, ensureMinTime time.Duration) (CurrentSnapshot, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	if now := e.timeFunc(); now.After(e.lastKnownState.ValidUntil) {
+	if now := e.timeFunc().Add(ensureMinTime); now.After(e.lastKnownState.ValidUntil) {
 		e.log.Debugf("refreshing committed state because it's no longer valid (now %v, valid until %v)", now, e.lastKnownState.ValidUntil.Format(time.RFC3339Nano))
 
 		if err := e.refreshLocked(ctx); err != nil {
@@ -645,7 +645,7 @@ func (e *Manager) committedState(ctx context.Context) (CurrentSnapshot, error) {
 // GetCompleteIndexSet returns the set of blobs forming a complete index set up to the provided epoch number.
 func (e *Manager) GetCompleteIndexSet(ctx context.Context, maxEpoch int) ([]blob.Metadata, time.Time, error) {
 	for {
-		cs, err := e.committedState(ctx)
+		cs, err := e.committedState(ctx, 0)
 		if err != nil {
 			return nil, time.Time{}, err
 		}
@@ -673,48 +673,119 @@ func (e *Manager) GetCompleteIndexSet(ctx context.Context, maxEpoch int) ([]blob
 	}
 }
 
+var errWriteIndexTryAgain = errors.Errorf("try again")
+
 // WriteIndex writes new index blob by picking the appropriate prefix based on current epoch.
 func (e *Manager) WriteIndex(ctx context.Context, dataShards map[blob.ID]blob.Bytes) ([]blob.Metadata, error) {
+	written := map[blob.ID]blob.Metadata{}
+	writtenForEpoch := -1
+
 	for {
-		cs, err := e.committedState(ctx)
+		// make sure we have at least 75% of remaining time
+		// nolint:gomnd
+		cs, err := e.committedState(ctx, 3*e.Params.EpochRefreshFrequency/4)
 		if err != nil {
 			return nil, errors.Wrap(err, "error getting committed state")
 		}
 
-		e.log.Debugf("writing %v index shard(s) - valid until %v (%v remaining)", len(dataShards), cs.ValidUntil.Format(time.RFC3339Nano), cs.ValidUntil.Sub(e.timeFunc()))
-
-		var results []blob.Metadata
-
-		for unprefixedBlobID, data := range dataShards {
-			blobID := UncompactedEpochBlobPrefix(cs.WriteEpoch) + unprefixedBlobID
-
-			if err := e.st.PutBlob(ctx, blobID, data, blob.PutOptions{}); err != nil {
-				return nil, errors.Wrap(err, "error writing index blob")
+		if cs.WriteEpoch != writtenForEpoch {
+			if err = e.deletePartiallyWrittenShards(ctx, written); err != nil {
+				return nil, errors.Wrap(err, "unable to delete partially written shard")
 			}
 
-			bm, err := e.st.GetMetadata(ctx, blobID)
-			if err != nil {
-				return nil, errors.Wrap(err, "error getting index metadata")
-			}
-
-			e.log.Debugf("wrote-index %v", bm)
-
-			results = append(results, bm)
+			writtenForEpoch = cs.WriteEpoch
+			written = map[blob.ID]blob.Metadata{}
 		}
 
-		if now := e.timeFunc(); !now.Before(cs.ValidUntil) {
-			e.log.Debugf("write was too slow, retrying (now %v, valid until %v)", now, cs.ValidUntil.Format(time.RFC3339Nano))
-			atomic.AddInt32(e.writeIndexTooSlow, 1)
-
+		err = e.writeIndexShards(ctx, dataShards, written, cs)
+		if errors.Is(err, errWriteIndexTryAgain) {
 			continue
 		}
 
-		e.log.Debugf("index-write-success, valid until %v", cs.ValidUntil.Format(time.RFC3339Nano))
+		if err != nil {
+			e.log.Debugw("index-write-error", "error", err)
+			return nil, err
+		}
 
 		e.Invalidate()
 
-		return results, nil
+		break
 	}
+
+	cs, err := e.committedState(ctx, 0)
+	if err != nil {
+		return nil, errors.Wrap(err, "error getting committed state")
+	}
+
+	if cs.WriteEpoch >= writtenForEpoch+2 {
+		e.log.Debugw("index-write-extremely-slow")
+
+		if err = e.deletePartiallyWrittenShards(ctx, written); err != nil {
+			e.log.Debugw("index-write-extremely-slow-cleanup-failed", "error", err)
+		}
+
+		return nil, ErrVerySlowIndexWrite
+	}
+
+	var results []blob.Metadata
+
+	for _, v := range written {
+		results = append(results, v)
+	}
+
+	e.log.Debugw("index-write-success", "results", results)
+
+	return results, nil
+}
+
+func (e *Manager) deletePartiallyWrittenShards(ctx context.Context, blobs map[blob.ID]blob.Metadata) error {
+	for blobID := range blobs {
+		if err := e.st.DeleteBlob(ctx, blobID); err != nil {
+			return errors.Wrap(err, "error deleting partially written shard")
+		}
+	}
+
+	return nil
+}
+
+func (e *Manager) writeIndexShards(ctx context.Context, dataShards map[blob.ID]blob.Bytes, written map[blob.ID]blob.Metadata, cs CurrentSnapshot) error {
+	e.log.Debugw("writing index shards",
+		"shardCount", len(dataShards),
+		"validUntil", cs.ValidUntil,
+		"remaining", cs.ValidUntil.Sub(e.timeFunc()))
+
+	for unprefixedBlobID, data := range dataShards {
+		blobID := UncompactedEpochBlobPrefix(cs.WriteEpoch) + unprefixedBlobID
+		if _, ok := written[blobID]; ok {
+			e.log.Debugw("already written",
+				"blobID", blobID)
+			continue
+		}
+
+		if now := e.timeFunc(); !now.Before(cs.ValidUntil) {
+			e.log.Debugw("write was too slow, retrying",
+				"validUntil", cs.ValidUntil)
+			atomic.AddInt32(e.writeIndexTooSlow, 1)
+
+			return errWriteIndexTryAgain
+		}
+
+		if err := e.st.PutBlob(ctx, blobID, data, blob.PutOptions{}); err != nil {
+			return errors.Wrap(err, "error writing index blob")
+		}
+
+		bm, err := e.st.GetMetadata(ctx, blobID)
+		if err != nil {
+			return errors.Wrap(err, "error getting index metadata")
+		}
+
+		e.log.Debugw("wrote-index-shard",
+			"metadata", bm)
+
+		written[bm.BlobID] = bm
+	}
+
+	return nil
 }
 
 // Invalidate ensures that all cached index information is discarded.
@@ -788,21 +859,6 @@ func (e *Manager) getIndexesFromEpochInternal(ctx context.Context, cs CurrentSna
 
 		uncompactedBlobs = ue
 	}
-
-	// Ignore blobs written after the epoch has been settled.
-	//
-	// Epochs N is 'settled' after epoch N+2 has been started and that makes N subject to compaction,
-	// because at this point all clients will agree that we're in epoch N+1 or N+2.
-	//
-	// In a pathological case it's possible for client to write a blob for a 'settled' epoch if they:
-	//
-	// 1. determine current epoch number (N).
-	// 2. go to sleep for a very long time, enough for epoch >=N+2 to become current.
-	// 3. write blob for the epoch number N
-	uncompactedBlobs = blobsWrittenBefore(
-		uncompactedBlobs,
-		cs.EpochStartTime[epoch+numUnsettledEpochs],
-	)
 
 	if epochSettled {
 		// we're starting background work, ignore parent cancelation signal.
