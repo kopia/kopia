@@ -129,8 +129,8 @@ func (s *versionedMapStorage) DeleteBlob(ctx context.Context, id blob.ID) error 
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	// ths will prevent stacking (if latest is already a marker) or trailing
-	// (if entry does not exist) delete-markers
+	// prevent adding a delete marker when latest is already a marker or
+	// an entry for the blob does not exist
 	if _, err := s.getLatestByID(id, false); err != nil {
 		// no error if already deleted
 		if errors.Is(err, blob.ErrBlobNotFound) {
