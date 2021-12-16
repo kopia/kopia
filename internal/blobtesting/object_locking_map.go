@@ -23,13 +23,13 @@ type entry struct {
 
 type versionedEntries map[blob.ID][]*entry
 
-type versionedMapStorage struct {
+type objectLockingMap struct {
 	data    versionedEntries
 	timeNow func() time.Time
 	mutex   sync.RWMutex
 }
 
-func (s *versionedMapStorage) getLatestByID(id blob.ID, writeIntent bool) (*entry, error) {
+func (s *objectLockingMap) getLatestByID(id blob.ID, writeIntent bool) (*entry, error) {
 	versions, ok := s.data[id]
 	if !ok {
 		return nil, blob.ErrBlobNotFound
@@ -49,7 +49,7 @@ func (s *versionedMapStorage) getLatestByID(id blob.ID, writeIntent bool) (*entr
 	return e, nil
 }
 
-func (s *versionedMapStorage) GetBlob(ctx context.Context, id blob.ID, offset, length int64, output blob.OutputBuffer) error {
+func (s *objectLockingMap) GetBlob(ctx context.Context, id blob.ID, offset, length int64, output blob.OutputBuffer) error {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
@@ -86,7 +86,7 @@ func (s *versionedMapStorage) GetBlob(ctx context.Context, id blob.ID, offset, l
 	return nil
 }
 
-func (s *versionedMapStorage) GetMetadata(ctx context.Context, id blob.ID) (blob.Metadata, error) {
+func (s *objectLockingMap) GetMetadata(ctx context.Context, id blob.ID) (blob.Metadata, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
@@ -102,7 +102,7 @@ func (s *versionedMapStorage) GetMetadata(ctx context.Context, id blob.ID) (blob
 	}, nil
 }
 
-func (s *versionedMapStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes, opts blob.PutOptions) error {
+func (s *objectLockingMap) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes, opts blob.PutOptions) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -125,7 +125,7 @@ func (s *versionedMapStorage) PutBlob(ctx context.Context, id blob.ID, data blob
 	return nil
 }
 
-func (s *versionedMapStorage) DeleteBlob(ctx context.Context, id blob.ID) error {
+func (s *objectLockingMap) DeleteBlob(ctx context.Context, id blob.ID) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -148,7 +148,7 @@ func (s *versionedMapStorage) DeleteBlob(ctx context.Context, id blob.ID) error 
 	return nil
 }
 
-func (s *versionedMapStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback func(blob.Metadata) error) error {
+func (s *objectLockingMap) ListBlobs(ctx context.Context, prefix blob.ID, callback func(blob.Metadata) error) error {
 	s.mutex.RLock()
 
 	keys := []blob.ID{}
@@ -183,11 +183,11 @@ func (s *versionedMapStorage) ListBlobs(ctx context.Context, prefix blob.ID, cal
 	return nil
 }
 
-func (s *versionedMapStorage) Close(ctx context.Context) error {
+func (s *objectLockingMap) Close(ctx context.Context) error {
 	return nil
 }
 
-func (s *versionedMapStorage) SetTime(ctx context.Context, id blob.ID, t time.Time) error {
+func (s *objectLockingMap) SetTime(ctx context.Context, id blob.ID, t time.Time) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -201,7 +201,7 @@ func (s *versionedMapStorage) SetTime(ctx context.Context, id blob.ID, t time.Ti
 	return nil
 }
 
-func (s *versionedMapStorage) TouchBlob(ctx context.Context, id blob.ID, threshold time.Duration) error {
+func (s *objectLockingMap) TouchBlob(ctx context.Context, id blob.ID, threshold time.Duration) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -224,16 +224,16 @@ func (s *versionedMapStorage) TouchBlob(ctx context.Context, id blob.ID, thresho
 	return nil
 }
 
-func (s *versionedMapStorage) ConnectionInfo() blob.ConnectionInfo {
+func (s *objectLockingMap) ConnectionInfo() blob.ConnectionInfo {
 	// unsupported
 	return blob.ConnectionInfo{}
 }
 
-func (s *versionedMapStorage) DisplayName() string {
+func (s *objectLockingMap) DisplayName() string {
 	return "VersionedMap"
 }
 
-func (s *versionedMapStorage) FlushCaches(ctx context.Context) error {
+func (s *objectLockingMap) FlushCaches(ctx context.Context) error {
 	return nil
 }
 
@@ -244,5 +244,5 @@ func NewVersionedMapStorage(timeNow func() time.Time) blob.Storage {
 		timeNow = clock.Now
 	}
 
-	return &versionedMapStorage{data: make(versionedEntries), timeNow: timeNow}
+	return &objectLockingMap{data: make(versionedEntries), timeNow: timeNow}
 }

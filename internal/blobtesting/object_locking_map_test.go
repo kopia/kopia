@@ -10,7 +10,7 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 )
 
-func TestVersionedMapStorage(t *testing.T) {
+func TestObjectLockingStorage(t *testing.T) {
 	r := NewVersionedMapStorage(nil)
 	if r == nil {
 		t.Errorf("unexpected result: %v", r)
