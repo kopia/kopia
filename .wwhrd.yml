@@ -14,3 +14,6 @@ allowlist:
   - MPL-2.0
   - CC0-1.0
   - ISC
+
+exceptions:
+ - github.com/Azure/azure-sdk-for-go/sdk/internal/...
