@@ -4,6 +4,7 @@ package b2
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -139,7 +140,16 @@ func translateError(err error) error {
 
 func (s *b2Storage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes, opts blob.PutOptions) error {
 	fileName := s.getObjectNameString(id)
-	_, err := s.bucket.UploadFile(fileName, nil, data.Reader())
+
+	// Backblaze always expects Content-Length to be set, even in http.Request ContentLength==0
+	// can mean "unknown" or "zero". http.Request used by B2 client requires http.NoBody to
+	// reliably pass zero length to the server as opposed to not passing it at all.
+	var r io.Reader = data.Reader()
+	if data.Length() == 0 {
+		r = http.NoBody
+	}
+
+	_, err := s.bucket.UploadFile(fileName, nil, r)
 
 	return translateError(err)
 }
