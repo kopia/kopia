@@ -149,7 +149,7 @@ func (fs *fsImpl) GetMetadataFromPath(ctx context.Context, dirPath, path string)
 	return v.(blob.Metadata), nil
 }
 
-func (fs *fsImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data blob.Bytes) error {
+func (fs *fsImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data blob.Bytes, opts blob.PutOptions) error {
 	// nolint:wrapcheck
 	return retry.WithExponentialBackoffNoValue(ctx, "PutBlobInPath:"+path, func() error {
 		randSuffix := make([]byte, tempFileRandomSuffixLen)

@@ -134,7 +134,7 @@ func (d *davStorageImpl) ReadDir(ctx context.Context, dir string) ([]os.FileInfo
 	return nil, errors.Wrap(err, "error reading WebDAV dir")
 }
 
-func (d *davStorageImpl) PutBlobInPath(ctx context.Context, dirPath, filePath string, data blob.Bytes) error {
+func (d *davStorageImpl) PutBlobInPath(ctx context.Context, dirPath, filePath string, data blob.Bytes, opts blob.PutOptions) error {
 	var writePath string
 
 	if d.Options.AtomicWrites {

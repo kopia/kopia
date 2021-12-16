@@ -27,7 +27,7 @@ var log = logging.Module("sharded")
 type Impl interface {
 	GetBlobFromPath(ctx context.Context, dirPath, filePath string, offset, length int64, output blob.OutputBuffer) error
 	GetMetadataFromPath(ctx context.Context, dirPath, filePath string) (blob.Metadata, error)
-	PutBlobInPath(ctx context.Context, dirPath, filePath string, dataSlices blob.Bytes) error
+	PutBlobInPath(ctx context.Context, dirPath, filePath string, dataSlices blob.Bytes, opts blob.PutOptions) error
 	SetTimeInPath(ctx context.Context, dirPath, filePath string, t time.Time) error
 	DeleteBlobInPath(ctx context.Context, dirPath, filePath string) error
 	ReadDir(ctx context.Context, path string) ([]os.FileInfo, error)
@@ -190,7 +190,7 @@ func (s *Storage) PutBlob(ctx context.Context, blobID blob.ID, data blob.Bytes, 
 	}
 
 	// nolint:wrapcheck
-	return s.Impl.PutBlobInPath(ctx, dirPath, filePath, data)
+	return s.Impl.PutBlobInPath(ctx, dirPath, filePath, data, opts)
 }
 
 // SetTime implements blob.Storage.
@@ -243,7 +243,7 @@ func (s *Storage) getParameters(ctx context.Context) (*Parameters, error) {
 			return nil, errors.Wrap(err, "error serializing sharding parameters")
 		}
 
-		if err := s.Impl.PutBlobInPath(ctx, s.RootPath, dotShardsFile, tmp.Bytes()); err != nil {
+		if err := s.Impl.PutBlobInPath(ctx, s.RootPath, dotShardsFile, tmp.Bytes(), blob.PutOptions{}); err != nil {
 			log(ctx).Warnf("unable to persist sharding parameters: %v", err)
 		}
 	} else {

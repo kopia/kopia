@@ -170,7 +170,7 @@ func (s *sftpImpl) GetMetadataFromPath(ctx context.Context, dirPath, fullPath st
 	return v.(blob.Metadata), nil
 }
 
-func (s *sftpImpl) PutBlobInPath(ctx context.Context, dirPath, fullPath string, data blob.Bytes) error {
+func (s *sftpImpl) PutBlobInPath(ctx context.Context, dirPath, fullPath string, data blob.Bytes, opts blob.PutOptions) error {
 	// nolint:wrapcheck
 	return s.rec.UsingConnectionNoResult(ctx, "PutBlobInPath", func(conn connection.Connection) error {
 		randSuffix := make([]byte, tempFileRandomSuffixLen)
