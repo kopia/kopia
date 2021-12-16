@@ -1,7 +1,6 @@
 package s3
 
 import (
-	"bytes"
 	"context"
 	"encoding/hex"
 	"fmt"
@@ -10,7 +9,6 @@ import (
 	"math/rand"
 	"path"
 	"sort"
-	"strconv"
 	"testing"
 	"time"
 
@@ -620,36 +618,15 @@ func makeBlobVersion(tb testing.TB, name blob.ID, seq int, additionalContent str
 	}
 }
 
-type byteBuffer struct {
-	bytes.Buffer
-}
-
-func (b *byteBuffer) Length() int {
-	return b.Buffer.Len()
-}
-
-func (b *byteBuffer) Reader() io.Reader {
-	return bytes.NewReader(b.Bytes())
-}
-
 func genContentBytes(tb testing.TB, name blob.ID, seq int, additionalContent string) blob.Bytes {
 	tb.Helper()
 
-	var b byteBuffer
+	var b gather.WriteBuffer
 
-	_, err := b.WriteString(strconv.Itoa(seq))
+	_, err := fmt.Fprintf(&b, "%v %v %v", seq, name, additionalContent)
 	require.NoError(tb, err)
 
-	_, err = b.WriteRune(' ')
-	require.NoError(tb, err)
-
-	_, err = b.WriteString(string(name))
-	require.NoError(tb, err)
-
-	_, err = b.WriteString(additionalContent)
-	require.NoError(tb, err)
-
-	return &b
+	return b.Bytes()
 }
 
 func randBlobName() blob.ID {

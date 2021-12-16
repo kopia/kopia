@@ -9,8 +9,6 @@ import (
 	"strings"
 	"sync"
 	"unsafe"
-
-	"github.com/alecthomas/units"
 )
 
 const (
@@ -139,18 +137,22 @@ func (a *chunkAllocator) dumpStats(ctx context.Context, prefix string) {
 
 	alive := a.allocated - a.freed
 
-	log(ctx).Debugf("%v (%v) - allocated %v(%v) chunks freed %v alive %v max %v free list high water mark: %v",
-		prefix,
-		units.Base2Bytes(int64(a.chunkSize)),
-		a.allocated, a.slicesAllocated, a.freed, alive, a.allocHighWaterMark, a.freeListHighWaterMark)
+	log(ctx).Debugw("allocator stats",
+		"allocator", prefix,
+		"chunkSize", int64(a.chunkSize),
+
+		"chunksAlloc", a.allocated,
+		"chunksFreed", a.freed,
+		"chunksAlive", alive,
+
+		"allocHighWaterMark", a.allocHighWaterMark,
+		"freeListHighWaterMark", a.freeListHighWaterMark,
+
+		"slicesAlloc", a.slicesAllocated,
+	)
 
 	for _, v := range a.activeChunks {
 		log(ctx).Debugf("leaked chunk from %v", v)
-	}
-
-	if trackChunkAllocations && len(a.activeChunks) > 0 {
-		// nolint:gocritic
-		os.Exit(1)
 	}
 }
 

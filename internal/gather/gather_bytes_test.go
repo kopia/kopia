@@ -4,11 +4,21 @@ import (
 	"bytes"
 	"io"
 	"testing"
+	"testing/iotest"
 
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 )
 
 var sample1 = []byte("hello! how are you? nice to meet you.")
+
+type failingWriter struct {
+	err error
+}
+
+func (w failingWriter) Write(buf []byte) (int, error) {
+	return 0, w.err
+}
 
 func TestGatherBytes(t *testing.T) {
 	// split the 'whole' into equivalent Bytes slicings in some interesting ways
@@ -102,14 +112,72 @@ func TestGatherBytes(t *testing.T) {
 		var tmp WriteBuffer
 		defer tmp.Close()
 
+		n, err := b.WriteTo(&tmp)
+
+		require.NoError(t, err)
+		require.Equal(t, int64(b.Length()), n)
+
+		require.Equal(t, tmp.ToByteSlice(), b.ToByteSlice())
+
+		someError := errors.Errorf("some error")
+
+		// WriteTo propagates error
+		if b.Length() > 0 {
+			_, err = b.WriteTo(failingWriter{someError})
+
+			require.ErrorIs(t, err, someError)
+		}
+
+		require.Error(t, b.AppendSectionTo(&tmp, -3, 3))
+
 		for i := 0; i <= len(tc.whole); i++ {
 			for j := i; j <= len(tc.whole); j++ {
 				tmp.Reset()
 
-				b.AppendSectionTo(&tmp, i, j-i)
+				require.NoError(t, b.AppendSectionTo(&tmp, i, j-i))
+
+				if j > i {
+					require.ErrorIs(t, b.AppendSectionTo(failingWriter{someError}, i, j-i), someError)
+				}
 
 				require.Equal(t, tmp.ToByteSlice(), tc.whole[i:j])
 			}
 		}
 	}
+}
+
+func TestGatherBytesReadSeeker(t *testing.T) {
+	var tmp WriteBuffer
+	defer tmp.Close()
+
+	buf := make([]byte, 1234567)
+
+	tmp.Append(buf)
+
+	require.Equal(t, len(buf), tmp.Length())
+
+	reader := tmp.inner.Reader()
+	defer reader.Close() // nolint:errcheck
+
+	require.NoError(t, iotest.TestReader(reader, buf))
+
+	_, err := reader.Seek(-3, io.SeekStart)
+	require.Error(t, err)
+
+	_, err = reader.Seek(3, io.SeekEnd)
+	require.Error(t, err)
+
+	_, err = reader.Seek(10000000, io.SeekCurrent)
+	require.Error(t, err)
+}
+
+func TestGatherBytesPanicsOnClose(t *testing.T) {
+	var tmp WriteBuffer
+
+	tmp.Append([]byte{1, 2, 3})
+	tmp.Close()
+
+	require.Panics(t, func() {
+		tmp.Bytes().Reader()
+	})
 }

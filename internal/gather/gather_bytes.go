@@ -114,26 +114,57 @@ func (b Bytes) ReadAt(p []byte, off int64) (n int, err error) {
 	return len(p), b.AppendSectionTo(bytes.NewBuffer(p[:0]), int(off), len(p))
 }
 
+type bytesReadSeekCloser struct {
+	b      Bytes
+	offset int
+}
+
+func (b *bytesReadSeekCloser) Close() error {
+	return nil
+}
+
+func (b *bytesReadSeekCloser) Read(buf []byte) (int, error) {
+	l := len(buf)
+	if b.offset+l > b.b.Length() {
+		l = b.b.Length() - b.offset
+
+		if l == 0 {
+			return 0, io.EOF
+		}
+	}
+
+	n, err := b.b.ReadAt(buf[0:l], int64(b.offset))
+	b.offset += n
+
+	return n, err
+}
+
+func (b *bytesReadSeekCloser) Seek(offset int64, whence int) (int64, error) {
+	newOffset := b.offset
+
+	switch whence {
+	case io.SeekStart:
+		newOffset = int(offset)
+	case io.SeekCurrent:
+		newOffset += int(offset)
+	case io.SeekEnd:
+		newOffset = b.b.Length() + int(offset)
+	}
+
+	if newOffset < 0 || newOffset > b.b.Length() {
+		return 0, errors.Errorf("invalid seek")
+	}
+
+	b.offset = newOffset
+
+	return int64(newOffset), nil
+}
+
 // Reader returns a reader for the data.
-func (b Bytes) Reader() io.Reader {
+func (b Bytes) Reader() io.ReadSeekCloser {
 	b.assertValid()
 
-	switch len(b.Slices) {
-	case 0:
-		return bytes.NewReader(nil)
-
-	case 1:
-		return bytes.NewReader(b.Slices[0])
-
-	default:
-		readers := make([]io.Reader, 0, len(b.Slices))
-
-		for _, v := range b.Slices {
-			readers = append(readers, bytes.NewReader(v))
-		}
-
-		return io.MultiReader(readers...)
-	}
+	return &bytesReadSeekCloser{b: b}
 }
 
 // AppendToSlice appends the contents to the provided slice.
