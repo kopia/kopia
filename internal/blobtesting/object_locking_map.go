@@ -29,7 +29,7 @@ type objectLockingMap struct {
 	mutex   sync.RWMutex
 }
 
-func (s *objectLockingMap) getLatestByID(id blob.ID, writeIntent bool) (*entry, error) {
+func (s *objectLockingMap) getLatestByID(id blob.ID) (*entry, error) {
 	versions, ok := s.data[id]
 	if !ok {
 		return nil, blob.ErrBlobNotFound
@@ -42,7 +42,16 @@ func (s *objectLockingMap) getLatestByID(id blob.ID, writeIntent bool) (*entry, 
 		return nil, blob.ErrBlobNotFound
 	}
 
-	if writeIntent && !e.retentionTime.IsZero() && e.retentionTime.After(s.timeNow()) {
+	return e, nil
+}
+
+func (s *objectLockingMap) getLatestForMutationLocked(id blob.ID) (*entry, error) {
+	e, err := s.getLatestByID(id)
+	if err != nil {
+		return nil, blob.ErrBlobNotFound
+	}
+
+	if !e.retentionTime.IsZero() && e.retentionTime.After(s.timeNow()) {
 		return nil, errors.New("cannot alter object before retention period expires")
 	}
 
@@ -53,9 +62,9 @@ func (s *objectLockingMap) GetBlob(ctx context.Context, id blob.ID, offset, leng
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	e, err := s.getLatestByID(id, false)
+	e, err := s.getLatestByID(id)
 	if err != nil {
-		return blob.ErrBlobNotFound
+		return err
 	}
 
 	output.Reset()
@@ -90,7 +99,7 @@ func (s *objectLockingMap) GetMetadata(ctx context.Context, id blob.ID) (blob.Me
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	e, err := s.getLatestByID(id, false)
+	e, err := s.getLatestByID(id)
 	if err != nil {
 		return blob.Metadata{}, err
 	}
@@ -131,7 +140,7 @@ func (s *objectLockingMap) DeleteBlob(ctx context.Context, id blob.ID) error {
 
 	// prevent adding a delete marker when latest is already a marker or
 	// an entry for the blob does not exist
-	if _, err := s.getLatestByID(id, false); err != nil {
+	if _, err := s.getLatestByID(id); err != nil {
 		// no error if already deleted
 		if errors.Is(err, blob.ErrBlobNotFound) {
 			return nil
@@ -191,7 +200,7 @@ func (s *objectLockingMap) SetTime(ctx context.Context, id blob.ID, t time.Time)
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	e, err := s.getLatestByID(id, true)
+	e, err := s.getLatestForMutationLocked(id)
 	if err != nil {
 		return err
 	}
@@ -205,7 +214,7 @@ func (s *objectLockingMap) TouchBlob(ctx context.Context, id blob.ID, threshold 
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	e, err := s.getLatestByID(id, true)
+	e, err := s.getLatestForMutationLocked(id)
 	if err != nil {
 		// no error if delete-marker or not-exists, prevent changing mtime
 		// of delete-markers
