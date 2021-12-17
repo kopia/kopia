@@ -263,15 +263,16 @@ func DeleteMultiple(ctx context.Context, st Storage, ids []ID, parallelism int) 
 
 // PutBlobAndGetMetadata invokes PutBlob and returns the resulting Metadata.
 func PutBlobAndGetMetadata(ctx context.Context, st Storage, blobID ID, data Bytes, opts PutOptions) (Metadata, error) {
-	var mt time.Time
-
-	opts.GetModTime = &mt
+	// ensure GetModTime is set, or reuse existing one.
+	if opts.GetModTime == nil {
+		opts.GetModTime = new(time.Time)
+	}
 
 	err := st.PutBlob(ctx, blobID, data, opts)
 
 	return Metadata{
 		BlobID:    blobID,
 		Length:    int64(data.Length()),
-		Timestamp: mt,
+		Timestamp: *opts.GetModTime,
 	}, err // nolint:wrapcheck
 }

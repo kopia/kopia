@@ -78,11 +78,6 @@ func TestEncryptedBlobManager(t *testing.T) {
 	_, err = ebm.encryptAndWriteBlob(ctx, gather.FromSlice([]byte{1, 2, 3, 4}), "x", "session1")
 	require.ErrorIs(t, err, someError)
 
-	fs.AddFault(blobtesting.MethodGetMetadata).ErrorInstead(someError)
-
-	_, err = ebm.encryptAndWriteBlob(ctx, gather.FromSlice([]byte{1, 2, 3, 4}), "x", "session1")
-	require.ErrorIs(t, err, someError)
-
 	someError2 := errors.Errorf("some error 2")
 
 	cr.Encryptor = failingEncryptor{nil, someError2}
