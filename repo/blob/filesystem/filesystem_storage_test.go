@@ -251,6 +251,7 @@ func TestFileStorage_PutBlob_RetriesOnErrors(t *testing.T) {
 		renameRemainingErrors:          1,
 		removeRemainingRetriableErrors: 3,
 		chownRemainingErrors:           3,
+		chtimesRemainingErrors:         3,
 
 		effectiveUID: 0, // running as root
 	}
@@ -279,6 +280,16 @@ func TestFileStorage_PutBlob_RetriesOnErrors(t *testing.T) {
 
 	require.NoError(t, st.GetBlob(ctx, "someblob1234567812345678", 1, 2, &buf))
 	require.Equal(t, []byte{2, 3}, buf.ToByteSlice())
+
+	var mt time.Time
+
+	require.NoError(t, st.PutBlob(ctx, "someblob1234567812345678", gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{
+		GetModTime: &mt,
+	}))
+
+	require.NoError(t, st.PutBlob(ctx, "someblob1234567812345678", gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{
+		SetModTime: time.Date(2020, 1, 1, 12, 0, 0, 0, time.UTC),
+	}))
 }
 
 func TestFileStorage_DeleteBlob_ErrorHandling(t *testing.T) {
