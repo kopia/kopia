@@ -260,3 +260,18 @@ func DeleteMultiple(ctx context.Context, st Storage, ids []ID, parallelism int) 
 
 	return errors.Wrap(eg.Wait(), "error deleting blobs")
 }
+
+// PutBlobAndGetMetadata invokes PutBlob and returns the resulting Metadata.
+func PutBlobAndGetMetadata(ctx context.Context, st Storage, blobID ID, data Bytes, opts PutOptions) (Metadata, error) {
+	var mt time.Time
+
+	opts.GetModTime = &mt
+
+	err := st.PutBlob(ctx, blobID, data, opts)
+
+	return Metadata{
+		BlobID:    blobID,
+		Length:    int64(data.Length()),
+		Timestamp: mt,
+	}, err // nolint:wrapcheck
+}
