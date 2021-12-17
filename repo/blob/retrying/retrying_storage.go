@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/kopia/kopia/internal/retry"
 	"github.com/kopia/kopia/repo/blob"
@@ -36,15 +35,6 @@ func (s retryingStorage) GetMetadata(ctx context.Context, id blob.ID) (blob.Meta
 	}
 
 	return v.(blob.Metadata), nil
-}
-
-func (s retryingStorage) SetTime(ctx context.Context, id blob.ID, t time.Time) error {
-	_, err := retry.WithExponentialBackoff(ctx, "GetMetadata("+string(id)+")", func() (interface{}, error) {
-		// nolint:wrapcheck
-		return true, s.Storage.SetTime(ctx, id, t)
-	}, isRetriable)
-
-	return err // nolint:wrapcheck
 }
 
 func (s retryingStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes, opts blob.PutOptions) error {

@@ -3,7 +3,6 @@ package blobtesting
 
 import (
 	"context"
-	"time"
 
 	"github.com/kopia/kopia/internal/fault"
 	"github.com/kopia/kopia/repo/blob"
@@ -14,7 +13,6 @@ const (
 	MethodGetBlob fault.Method = iota
 	MethodGetMetadata
 	MethodPutBlob
-	MethodSetTime
 	MethodDeleteBlob
 	MethodListBlobs
 	MethodListBlobsItem
@@ -61,15 +59,6 @@ func (s *FaultyStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes
 	}
 
 	return s.base.PutBlob(ctx, id, data, opts)
-}
-
-// SetTime implements blob.Storage.
-func (s *FaultyStorage) SetTime(ctx context.Context, id blob.ID, t time.Time) error {
-	if ok, err := s.GetNextFault(ctx, MethodSetTime, id); ok {
-		return err
-	}
-
-	return s.base.SetTime(ctx, id, t)
 }
 
 // DeleteBlob implements blob.Storage.

@@ -188,6 +188,21 @@ func (fs *fsImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data 
 			}
 		}
 
+		if t := opts.SetModTime; !t.IsZero() {
+			if chtimesErr := fs.osi.Chtimes(path, t, t); err != nil {
+				return errors.Wrap(chtimesErr, "can't change file times")
+			}
+		}
+
+		if t := opts.GetModTime; t != nil {
+			fi, err := fs.osi.Stat(path)
+			if err != nil {
+				return errors.Wrap(err, "can't get mod time")
+			}
+
+			*t = fi.ModTime()
+		}
+
 		return nil
 	}, fs.isRetriable)
 }
@@ -254,14 +269,6 @@ func (fs *fsImpl) ReadDir(ctx context.Context, dirname string) ([]os.FileInfo, e
 	}
 
 	return fileInfos, nil
-}
-
-// SetTime updates file modification time to the provided time.
-func (fs *fsImpl) SetTimeInPath(ctx context.Context, dirPath, filePath string, n time.Time) error {
-	log(ctx).Debugf("updating timestamp on %v to %v", filePath, n)
-
-	// nolint:wrapcheck
-	return fs.osi.Chtimes(filePath, n, n)
 }
 
 // TouchBlob updates file modification time to current time if it's sufficiently old.

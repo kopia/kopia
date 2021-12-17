@@ -61,6 +61,11 @@ type Reader interface {
 type PutOptions struct {
 	RetentionMode   string
 	RetentionPeriod time.Duration
+
+	// if not empty, set the provided timestamp on the blob instead of server-assigned,
+	// if unsupported by the server return ErrSetTimeUnsupported
+	SetModTime time.Time
+	GetModTime *time.Time // if != nil, populate the value pointed at with the actual modification time
 }
 
 // HasRetentionOptions returns true when blob-retention settings have been
@@ -86,9 +91,6 @@ type Storage interface {
 	// PutBlob uploads the blob with given data to the repository or replaces existing blob with the provided
 	// id with contents gathered from the specified list of slices.
 	PutBlob(ctx context.Context, blobID ID, data Bytes, opts PutOptions) error
-
-	// SetTime changes last modification time of a given blob, if supported, returns ErrSetTimeUnsupported otherwise.
-	SetTime(ctx context.Context, blobID ID, t time.Time) error
 
 	// DeleteBlob removes the blob from storage. Future Get() operations will fail with ErrNotFound.
 	DeleteBlob(ctx context.Context, blobID ID) error

@@ -3,6 +3,7 @@ package azure
 
 import (
 	"context"
+	"encoding/xml"
 	"fmt"
 	"time"
 
@@ -11,12 +12,15 @@ import (
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/iocopy"
+	"github.com/kopia/kopia/internal/timestampmeta"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/retrying"
 )
 
 const (
 	azStorageType = "azureBlob"
+
+	timeMapKey = "Kopiamtime" // this must be capital letter followed by lowercase, don't ask
 )
 
 type azStorage struct {
@@ -70,16 +74,22 @@ func (az *azStorage) GetBlob(ctx context.Context, b blob.ID, offset, length int6
 func (az *azStorage) GetMetadata(ctx context.Context, b blob.ID) (blob.Metadata, error) {
 	bc := az.bucket.NewBlockBlobClient(az.getObjectNameString(b))
 
-	fi, err := bc.GetProperties(ctx, nil)
+	fi, err := bc.GetProperties(ctx, &azblob.GetBlobPropertiesOptions{})
 	if err != nil {
 		return blob.Metadata{}, errors.Wrap(translateError(err), "Attributes")
 	}
 
-	return blob.Metadata{
+	bm := blob.Metadata{
 		BlobID:    b,
 		Length:    *fi.ContentLength,
 		Timestamp: *fi.LastModified,
-	}, nil
+	}
+
+	if t, ok := timestampmeta.FromValue(fi.Metadata[timeMapKey]); ok {
+		bm.Timestamp = t
+	}
+
+	return bm, nil
 }
 
 func translateError(err error) error {
@@ -112,13 +122,24 @@ func (az *azStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes, op
 
 	bc := az.bucket.NewBlockBlobClient(az.getObjectNameString(b))
 
-	_, err := bc.Upload(ctx, data.Reader(), &azblob.UploadBlockBlobOptions{})
+	ubo := &azblob.UploadBlockBlobOptions{
+		Metadata: timestampmeta.ToMap(opts.SetModTime, timeMapKey),
+	}
 
-	return translateError(err)
-}
+	resp, err := bc.Upload(ctx, data.Reader(), ubo)
+	if err != nil {
+		return translateError(err)
+	}
 
-func (az *azStorage) SetTime(ctx context.Context, b blob.ID, t time.Time) error {
-	return blob.ErrSetTimeUnsupported
+	if opts.GetModTime != nil {
+		if opts.SetModTime.IsZero() {
+			*opts.GetModTime = *resp.LastModified
+		} else {
+			*opts.GetModTime = opts.SetModTime
+		}
+	}
+
+	return nil
 }
 
 // DeleteBlob deletes azure blob from container with given ID.
@@ -144,16 +165,53 @@ func (az *azStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback fun
 
 	pager := az.bucket.ListBlobsFlat(&azblob.ContainerListBlobFlatSegmentOptions{
 		Prefix: &prefixStr,
+		Include: []azblob.ListBlobsIncludeItem{
+			"[" + azblob.ListBlobsIncludeItemMetadata + "]",
+		},
 	})
 
 	for pager.NextPage(ctx) {
 		resp := pager.PageResponse()
 
-		for _, it := range resp.ContainerListBlobFlatSegmentResult.Segment.BlobItems {
+		// workaround for the XML parsing bug reported upstream
+		// https://github.com/Azure/azure-sdk-for-go/issues/16679
+		var enumerationResults struct {
+			Blobs struct {
+				Blob []struct {
+					Name       string
+					Properties struct {
+						ContentLength int64  `xml:"Content-Length"`
+						LastModified  string `xml:"Last-Modified"`
+					}
+					Metadata struct {
+						Kopiamtime string
+					}
+				}
+			}
+		}
+
+		dec := xml.NewDecoder(resp.RawResponse.Body)
+		if err := dec.Decode(&enumerationResults); err != nil {
+			return errors.Wrap(err, "unable to decode response")
+		}
+
+		for _, it := range enumerationResults.Blobs.Blob {
 			bm := blob.Metadata{
-				BlobID:    blob.ID((*it.Name)[len(az.Prefix):]),
-				Length:    *it.Properties.ContentLength,
-				Timestamp: *it.Properties.LastModified,
+				BlobID: blob.ID(it.Name[len(az.Prefix):]),
+				Length: it.Properties.ContentLength,
+			}
+
+			// see if we have 'Kopiamtime' metadata, if so - trust it.
+			if t, ok := timestampmeta.FromValue(it.Metadata.Kopiamtime); ok {
+				bm.Timestamp = t
+			} else {
+				// fall back to using last modified time.
+				t, err := time.Parse(time.RFC1123, it.Properties.LastModified)
+				if err != nil {
+					return errors.Wrap(err, "invalid timestamp")
+				}
+
+				bm.Timestamp = t
 			}
 
 			if err := callback(bm); err != nil {
