@@ -52,14 +52,13 @@ endif
 
 -include ./Makefile.local.mk
 
-install: html-ui
-	go install $(KOPIA_BUILD_FLAGS) -tags $(KOPIA_BUILD_TAGS)
+install:
+	go install $(KOPIA_BUILD_FLAGS) -tags "$(KOPIA_BUILD_TAGS)"
 
-install-noui:
-	go install $(KOPIA_BUILD_FLAGS)
+install-noui: install
 
 install-race:
-	go install -race $(KOPIA_BUILD_FLAGS) -tags $(KOPIA_BUILD_TAGS)
+	go install -race $(KOPIA_BUILD_FLAGS) -tags "$(KOPIA_BUILD_TAGS)"
 
 lint: $(linter)
 	$(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
@@ -88,22 +87,13 @@ ifeq ($(GOARCH),amd64)
 	$(MAKE) -C app deps
 endif
 
-htmlui-node-modules: $(npm)
-	$(MAKE) -C htmlui deps
-
-ci-setup: go-modules all-tools htmlui-node-modules app-node-modules
+ci-setup: go-modules all-tools app-node-modules
 ifeq ($(CI),true)
 	-git checkout go.mod go.sum
 endif
 
 website:
 	$(MAKE) -C site build
-
-html-ui: htmlui-node-modules
-	$(MAKE) -C htmlui build-html CI=true
-
-html-ui-tests: htmlui-node-modules
-	$(MAKE) -C htmlui test CI=true
 
 kopia-ui: $(kopia_ui_embedded_exe)
 	$(MAKE) -C app build-electron
@@ -114,13 +104,10 @@ kopia-ui: $(kopia_ui_embedded_exe)
 build-current-os-noui:
 	go build $(KOPIA_BUILD_FLAGS) -o $(kopia_ui_embedded_exe)
 
-# build HTML UI files to be embedded in Kopia binary.
-htmlui/build/index.html: html-ui
-
 # on macOS build and sign AMD64, ARM64 and Universal binary and *.tar.gz files for them
-dist/kopia_darwin_universal/kopia dist/kopia_darwin_amd64/kopia dist/kopia_darwin_arm6/kopia: htmlui/build/index.html $(all_go_sources)
-	GOARCH=arm64 go build $(KOPIA_BUILD_FLAGS) -o dist/kopia_darwin_arm64/kopia -tags $(KOPIA_BUILD_TAGS)
-	GOARCH=amd64 go build $(KOPIA_BUILD_FLAGS) -o dist/kopia_darwin_amd64/kopia -tags $(KOPIA_BUILD_TAGS)
+dist/kopia_darwin_universal/kopia dist/kopia_darwin_amd64/kopia dist/kopia_darwin_arm6/kopia: $(all_go_sources)
+	GOARCH=arm64 go build $(KOPIA_BUILD_FLAGS) -o dist/kopia_darwin_arm64/kopia -tags "$(KOPIA_BUILD_TAGS)"
+	GOARCH=amd64 go build $(KOPIA_BUILD_FLAGS) -o dist/kopia_darwin_amd64/kopia -tags "$(KOPIA_BUILD_TAGS)"
 	mkdir -p dist/kopia_darwin_universal
 	lipo -create -output dist/kopia_darwin_universal/kopia dist/kopia_darwin_arm64/kopia dist/kopia_darwin_amd64/kopia
 ifneq ($(MACOS_SIGNING_IDENTITY),)
@@ -133,8 +120,8 @@ endif
 	tools/make-tgz.sh dist kopia-$(KOPIA_VERSION_NO_PREFIX)-macOS-universal dist/kopia_darwin_universal/kopia
 
 # on Windows build and sign AMD64 and *.zip file
-dist/kopia_windows_amd64/kopia.exe: htmlui/build/index.html $(all_go_sources)
-	GOOS=windows GOARCH=amd64 go build $(KOPIA_BUILD_FLAGS) -o dist/kopia_windows_amd64/kopia.exe -tags $(KOPIA_BUILD_TAGS)
+dist/kopia_windows_amd64/kopia.exe: $(all_go_sources)
+	GOOS=windows GOARCH=amd64 go build $(KOPIA_BUILD_FLAGS) -o dist/kopia_windows_amd64/kopia.exe -tags "$(KOPIA_BUILD_TAGS)"
 ifneq ($(WINDOWS_SIGN_TOOL),)
 	tools/.tools/signtool.exe sign //sha1 $(WINDOWS_CERT_SHA1) //fd sha256 //tr "http://timestamp.digicert.com" //v dist/kopia_windows_amd64/kopia.exe
 endif
@@ -145,7 +132,7 @@ endif
 
 # On Linux use use goreleaser which will build Kopia for all supported Linux architectures
 # and creates .tar.gz, rpm and deb packages.
-dist/kopia_linux_x64/kopia dist/kopia_linux_arm64/kopia dist/kopia_linux_armv7l/kopia: htmlui/build/index.html $(all_go_sources)
+dist/kopia_linux_x64/kopia dist/kopia_linux_arm64/kopia dist/kopia_linux_armv7l/kopia: $(all_go_sources)
 ifeq ($(GOARCH),amd64)
 	$(MAKE) goreleaser
 	rm -f dist/kopia_linux_x64
@@ -153,14 +140,11 @@ ifeq ($(GOARCH),amd64)
 	rm -f dist/kopia_linux_armv7l
 	ln -sf kopia_linux_arm_6 dist/kopia_linux_armv7l
 else
-	go build $(KOPIA_BUILD_FLAGS) -o $(kopia_ui_embedded_exe) -tags $(KOPIA_BUILD_TAGS)
+	go build $(KOPIA_BUILD_FLAGS) -o $(kopia_ui_embedded_exe) -tags "$(KOPIA_BUILD_TAGS)"
 endif
 
 # builds kopia CLI binary that will be later used as a server for kopia-ui.
 kopia: $(kopia_ui_embedded_exe)
-
-kopia-ui-pr-test: app-node-modules htmlui-node-modules
-	$(MAKE) html-ui-tests kopia-ui
 
 ci-build:
 	$(MAKE) kopia
@@ -228,9 +212,8 @@ provider-tests: $(gotestsum) $(rclone) $(MINIO_MC_PATH)
 
 ALLOWED_LICENSES=Apache-2.0;MIT;BSD-2-Clause;BSD-3-Clause;CC0-1.0;ISC;MPL-2.0;CC-BY-3.0;CC-BY-4.0;ODC-By-1.0;WTFPL;0BSD;Python-2.0;BSD;Unlicense
 
-license-check: $(wwhrd) htmlui-node-modules app-node-modules
+license-check: $(wwhrd) app-node-modules
 	$(wwhrd) check
-	(cd htmlui && npx license-checker --summary --onlyAllow "$(ALLOWED_LICENSES)")
 	(cd app && npx license-checker --summary --onlyAllow "$(ALLOWED_LICENSES)")
 
 vtest: $(gotestsum)

@@ -36,42 +36,29 @@ THe HTML UI builds HTML-based user interface that is embedded in Kopia binary by
 
 The UI is build using [React](https://reactjs.org) and more specifically [Create React App](https://reactjs.org/docs/create-a-new-react-app.html#create-react-app) toolchain.
 
-When developing the UI, the most convenient way is to use two terminals. The first terminal runs `kopia server` without the UI. The second one runs development server of React with hot-reload, so changes are immediately reflected in the browser. 
+The source code for HTML UI is in https://github.com/kopia/htmlui and pre-built UI HTML is
+available as Golang module that can be imported from `github.com/kopia/htmluibuilds`
+
+When developing the UI, the most convenient way is to use two terminals. The first terminal runs `kopia server` which exposes the API that the UI needs. The second one runs development server of React with hot-reload, so changes are immediately reflected in the browser. 
 
 In the first terminal do:
 
 ```shell
-$ make install-noui && $HOME/go/bin/kopia server
+$ go run . server --insecure --without-password
 ```
 
-In the second terminal do:
+In the second terminal, in the `htmlui` repository run:
 
 ```shell
-$ make -C htmlui dev
+$ npm run start
 ```
 
-This will automatically open the browser with the UI page on http://localhost:3000. Changing any file under `htmlui/` will cause the browser to hot-reload the change. In most cases, the changes to the kopia server don't even require reloading the browser.
+This will automatically open the browser with the UI page on http://localhost:3000. Changing any file under `htmlui` will cause the browser to hot-reload the change. In most cases, the changes to the kopia server don't even require reloading the browser.
 
-To make sure HTML pages compile correctly use:
-
-```shell
-$ make -C htmlui build-html
-```
-
-To manually build the `kopia` binary with the embedded HTML that was just generated in the previous step:
+Changes to `htmlui` need to be individually submitted to their own repository and after they get built and tagged, you need to update the go.mod dependency:
 
 ```shell
-$ go install -tags embedhtml
-```
-or
-```shell
-$ make install
-```
-
-When compiling Go code without `embedhtml` build tag, the embedded UI will be just a placeholder. This is equivalent to:
-
-```shell
-$ make install-noui
+go get -u github.com/kopia/htmluibuild
 ```
 
 ## KopiaUI App

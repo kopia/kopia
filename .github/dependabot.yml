@@ -12,7 +12,3 @@ updates:
     directory: "/app"
     schedule:
       interval: monthly
-  - package-ecosystem: npm
-    directory: "/htmlui"
-    schedule:
-      interval: monthly
