@@ -190,7 +190,7 @@ func (fs *fsImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data 
 
 		if t := opts.SetModTime; !t.IsZero() {
 			if chtimesErr := fs.osi.Chtimes(path, t, t); err != nil {
-				return errors.Wrap(chtimesErr, "can't change file times")
+				return errors.Wrapf(chtimesErr, "can't change file %q times", path)
 			}
 		}
 
