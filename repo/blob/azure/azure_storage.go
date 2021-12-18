@@ -20,7 +20,7 @@ import (
 const (
 	azStorageType = "azureBlob"
 
-	timeMapKey = "Kopiamtime" // this must be capital letter followed by lowercase, don't ask
+	timeMapKey = "Kopiamtime" // this must be capital letter followed by lowercase, to comply with AZ tags naming convention.
 )
 
 type azStorage struct {
@@ -132,11 +132,7 @@ func (az *azStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes, op
 	}
 
 	if opts.GetModTime != nil {
-		if opts.SetModTime.IsZero() {
-			*opts.GetModTime = *resp.LastModified
-		} else {
-			*opts.GetModTime = opts.SetModTime
-		}
+		*opts.GetModTime = *resp.LastModified
 	}
 
 	return nil

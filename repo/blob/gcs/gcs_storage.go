@@ -130,11 +130,7 @@ func (gcs *gcsStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes, 
 	}
 
 	if opts.GetModTime != nil {
-		if opts.SetModTime.IsZero() {
-			*opts.GetModTime = writer.Attrs().Updated
-		} else {
-			*opts.GetModTime = opts.SetModTime
-		}
+		*opts.GetModTime = writer.Attrs().Updated
 	}
 
 	return nil

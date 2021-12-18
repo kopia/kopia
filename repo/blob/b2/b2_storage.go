@@ -164,11 +164,7 @@ func (s *b2Storage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes, op
 	}
 
 	if opts.GetModTime != nil {
-		if opts.SetModTime.IsZero() {
-			*opts.GetModTime = time.Unix(0, fi.UploadTimestamp*1e6)
-		} else {
-			*opts.GetModTime = opts.SetModTime
-		}
+		*opts.GetModTime = time.Unix(0, fi.UploadTimestamp*1e6)
 	}
 
 	return nil
