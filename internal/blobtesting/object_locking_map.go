@@ -205,20 +205,6 @@ func (s *objectLockingMap) Close(ctx context.Context) error {
 	return nil
 }
 
-func (s *objectLockingMap) SetTime(ctx context.Context, id blob.ID, t time.Time) error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	e, err := s.getLatestForMutationLocked(id)
-	if err != nil {
-		return err
-	}
-
-	e.mtime = t
-
-	return nil
-}
-
 func (s *objectLockingMap) TouchBlob(ctx context.Context, id blob.ID, threshold time.Duration) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
