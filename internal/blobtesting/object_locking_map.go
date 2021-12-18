@@ -122,7 +122,12 @@ func (s *objectLockingMap) PutBlob(ctx context.Context, id blob.ID, data blob.By
 
 	e := &entry{
 		value: b.Bytes(),
-		mtime: s.timeNow(),
+	}
+
+	if opts.SetModTime.IsZero() {
+		e.mtime = s.timeNow()
+	} else {
+		e.mtime = opts.SetModTime
 	}
 
 	if opts.HasRetentionOptions() {
@@ -130,6 +135,10 @@ func (s *objectLockingMap) PutBlob(ctx context.Context, id blob.ID, data blob.By
 	}
 
 	s.data[id] = append(s.data[id], e)
+
+	if opts.GetModTime != nil {
+		*opts.GetModTime = e.mtime
+	}
 
 	return nil
 }
@@ -193,20 +202,6 @@ func (s *objectLockingMap) ListBlobs(ctx context.Context, prefix blob.ID, callba
 }
 
 func (s *objectLockingMap) Close(ctx context.Context) error {
-	return nil
-}
-
-func (s *objectLockingMap) SetTime(ctx context.Context, id blob.ID, t time.Time) error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	e, err := s.getLatestForMutationLocked(id)
-	if err != nil {
-		return err
-	}
-
-	e.mtime = t
-
 	return nil
 }
 

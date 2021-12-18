@@ -125,6 +125,8 @@ func (s *CacheStorage) ListBlobs(ctx context.Context, prefix blob.ID, cb func(bl
 func (s *CacheStorage) PutBlob(ctx context.Context, blobID blob.ID, data blob.Bytes, opts blob.PutOptions) error {
 	err := s.Storage.PutBlob(ctx, blobID, data, opts)
 	if err == nil && s.isCachedPrefix(blobID) {
+		opts.GetModTime = nil
+
 		// nolint:errcheck
 		s.cacheStorage.PutBlob(ctx, prefixAdd+blobID, markerData, opts)
 	}

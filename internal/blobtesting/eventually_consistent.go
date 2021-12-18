@@ -176,10 +176,6 @@ func (s *eventuallyConsistentStorage) PutBlob(ctx context.Context, id blob.ID, d
 	return nil
 }
 
-func (s *eventuallyConsistentStorage) SetTime(ctx context.Context, id blob.ID, t time.Time) error {
-	return s.realStorage.SetTime(ctx, id, t)
-}
-
 func (s *eventuallyConsistentStorage) DeleteBlob(ctx context.Context, id blob.ID) error {
 	s.randomFrontendCache().put(id, nil)
 

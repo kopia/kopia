@@ -4,6 +4,7 @@ import (
 	"io/fs"
 	"os"
 	"sync/atomic"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
@@ -26,6 +27,7 @@ type mockOS struct {
 	readDirRemainingFileDeletedDirEntry int32
 	readDirRemainingFatalDirEntry       int32
 	statRemainingErrors                 int32
+	chtimesRemainingErrors              int32
 
 	effectiveUID int
 
@@ -96,6 +98,14 @@ func (osi *mockOS) Stat(fname string) (fs.FileInfo, error) {
 	}
 
 	return osi.osInterface.Stat(fname)
+}
+
+func (osi *mockOS) Chtimes(fname string, atime, mtime time.Time) error {
+	if atomic.AddInt32(&osi.chtimesRemainingErrors, -1) >= 0 {
+		return &os.PathError{Op: "chtimes", Err: errors.Errorf("underlying problem")}
+	}
+
+	return osi.osInterface.Chtimes(fname, atime, mtime)
 }
 
 func (osi *mockOS) Chown(fname string, uid, gid int) error {

@@ -149,7 +149,7 @@ func (fs *fsImpl) GetMetadataFromPath(ctx context.Context, dirPath, path string)
 	return v.(blob.Metadata), nil
 }
 
-func (fs *fsImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data blob.Bytes) error {
+func (fs *fsImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data blob.Bytes, opts blob.PutOptions) error {
 	// nolint:wrapcheck
 	return retry.WithExponentialBackoffNoValue(ctx, "PutBlobInPath:"+path, func() error {
 		randSuffix := make([]byte, tempFileRandomSuffixLen)
@@ -186,6 +186,21 @@ func (fs *fsImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data 
 			if chownErr := fs.osi.Chown(path, *fs.FileUID, *fs.FileGID); chownErr != nil {
 				log(ctx).Errorf("can't change file permissions: %v", chownErr)
 			}
+		}
+
+		if t := opts.SetModTime; !t.IsZero() {
+			if chtimesErr := fs.osi.Chtimes(path, t, t); err != nil {
+				return errors.Wrapf(chtimesErr, "can't change file %q times", path)
+			}
+		}
+
+		if t := opts.GetModTime; t != nil {
+			fi, err := fs.osi.Stat(path)
+			if err != nil {
+				return errors.Wrapf(err, "can't get mod time for file %q", path)
+			}
+
+			*t = fi.ModTime()
 		}
 
 		return nil
@@ -254,14 +269,6 @@ func (fs *fsImpl) ReadDir(ctx context.Context, dirname string) ([]os.FileInfo, e
 	}
 
 	return fileInfos, nil
-}
-
-// SetTime updates file modification time to the provided time.
-func (fs *fsImpl) SetTimeInPath(ctx context.Context, dirPath, filePath string, n time.Time) error {
-	log(ctx).Debugf("updating timestamp on %v to %v", filePath, n)
-
-	// nolint:wrapcheck
-	return fs.osi.Chtimes(filePath, n, n)
 }
 
 // TouchBlob updates file modification time to current time if it's sufficiently old.

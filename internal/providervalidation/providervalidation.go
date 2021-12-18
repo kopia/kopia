@@ -7,6 +7,7 @@ import (
 	cryptorand "crypto/rand"
 	"fmt"
 	"math/rand"
+	"os"
 	"sync"
 	"time"
 
@@ -52,6 +53,10 @@ var log = logging.Module("providervalidation")
 // it can be used with Kopia.
 // nolint:gomnd,funlen,gocyclo
 func ValidateProvider(ctx context.Context, st blob.Storage, opt Options) error {
+	if os.Getenv("KOPIA_SKIP_PROVIDER_VALIDATION") != "" {
+		return nil
+	}
+
 	uberPrefix := blob.ID("z" + uuid.NewString())
 	defer cleanupAllBlobs(ctx, st, uberPrefix)
 

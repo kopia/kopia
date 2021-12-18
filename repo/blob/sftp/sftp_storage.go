@@ -11,7 +11,6 @@ import (
 	"os/exec"
 	"path"
 	"strings"
-	"time"
 
 	"github.com/pkg/errors"
 	"github.com/pkg/sftp"
@@ -170,7 +169,7 @@ func (s *sftpImpl) GetMetadataFromPath(ctx context.Context, dirPath, fullPath st
 	return v.(blob.Metadata), nil
 }
 
-func (s *sftpImpl) PutBlobInPath(ctx context.Context, dirPath, fullPath string, data blob.Bytes) error {
+func (s *sftpImpl) PutBlobInPath(ctx context.Context, dirPath, fullPath string, data blob.Bytes, opts blob.PutOptions) error {
 	// nolint:wrapcheck
 	return s.rec.UsingConnectionNoResult(ctx, "PutBlobInPath", func(conn connection.Connection) error {
 		randSuffix := make([]byte, tempFileRandomSuffixLen)
@@ -202,15 +201,22 @@ func (s *sftpImpl) PutBlobInPath(ctx context.Context, dirPath, fullPath string, 
 			return errors.Wrap(err, "unexpected error renaming file on SFTP")
 		}
 
-		return nil
-	})
-}
+		if t := opts.SetModTime; !t.IsZero() {
+			if chtimesErr := sftpClientFromConnection(conn).Chtimes(fullPath, t, t); err != nil {
+				return errors.Wrap(chtimesErr, "can't change file times")
+			}
+		}
 
-func (s *sftpImpl) SetTimeInPath(ctx context.Context, dirPath, fullPath string, n time.Time) error {
-	// nolint:wrapcheck
-	return s.rec.UsingConnectionNoResult(ctx, "SetTimeInPath", func(conn connection.Connection) error {
-		// nolint:wrapcheck
-		return sftpClientFromConnection(conn).Chtimes(fullPath, n, n)
+		if t := opts.GetModTime; t != nil {
+			fi, err := sftpClientFromConnection(conn).Stat(fullPath)
+			if err != nil {
+				return errors.Wrap(err, "can't get mod time")
+			}
+
+			*t = fi.ModTime()
+		}
+
+		return nil
 	})
 }
 

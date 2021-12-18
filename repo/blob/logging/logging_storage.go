@@ -3,7 +3,6 @@ package logging
 
 import (
 	"context"
-	"time"
 
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/repo/blob"
@@ -58,22 +57,6 @@ func (s *loggingStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Byte
 	s.logger.Debugw(s.prefix+"PutBlob",
 		"blobID", id,
 		"length", data.Length(),
-		"error", err,
-		"duration", dt,
-	)
-
-	// nolint:wrapcheck
-	return err
-}
-
-func (s *loggingStorage) SetTime(ctx context.Context, id blob.ID, t time.Time) error {
-	timer := timetrack.StartTimer()
-	err := s.base.SetTime(ctx, id, t)
-	dt := timer.Elapsed()
-
-	s.logger.Debugw(s.prefix+"SetTime",
-		"blobID", id,
-		"time", t,
 		"error", err,
 		"duration", dt,
 	)

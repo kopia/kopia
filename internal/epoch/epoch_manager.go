@@ -770,17 +770,12 @@ func (e *Manager) writeIndexShards(ctx context.Context, dataShards map[blob.ID]b
 			return errWriteIndexTryAgain
 		}
 
-		if err := e.st.PutBlob(ctx, blobID, data, blob.PutOptions{}); err != nil {
+		bm, err := blob.PutBlobAndGetMetadata(ctx, e.st, blobID, data, blob.PutOptions{})
+		if err != nil {
 			return errors.Wrap(err, "error writing index blob")
 		}
 
-		bm, err := e.st.GetMetadata(ctx, blobID)
-		if err != nil {
-			return errors.Wrap(err, "error getting index metadata")
-		}
-
-		e.log.Debugw("wrote-index-shard",
-			"metadata", bm)
+		e.log.Debugw("wrote-index-shard", "metadata", bm)
 
 		written[bm.BlobID] = bm
 	}

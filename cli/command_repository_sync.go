@@ -30,9 +30,8 @@ type commandRepositorySyncTo struct {
 	repositorySyncDestinationMustExist bool
 	repositorySyncTimes                bool
 
-	lastSyncProgress       string
-	syncProgressMutex      sync.Mutex
-	setTimeUnsupportedOnce sync.Once
+	lastSyncProgress  string
+	syncProgressMutex sync.Mutex
 
 	out textOutput
 }
@@ -303,19 +302,25 @@ func (c *commandRepositorySyncTo) syncCopyBlob(ctx context.Context, m blob.Metad
 		return errors.Wrapf(err, "error reading blob '%v' from source", m.BlobID)
 	}
 
-	if err := dst.PutBlob(ctx, m.BlobID, data.Bytes(), blob.PutOptions{}); err != nil {
-		return errors.Wrapf(err, "error writing blob '%v' to destination", m.BlobID)
+	opt := blob.PutOptions{}
+	if c.repositorySyncTimes {
+		opt.SetModTime = m.Timestamp
 	}
 
-	if c.repositorySyncTimes {
-		if err := dst.SetTime(ctx, m.BlobID, m.Timestamp); err != nil {
-			if errors.Is(err, blob.ErrSetTimeUnsupported) {
-				c.setTimeUnsupportedOnce.Do(func() {
-					log(ctx).Infof("destination repository does not support setting time")
-				})
-			}
+	if err := dst.PutBlob(ctx, m.BlobID, data.Bytes(), opt); err != nil {
+		if errors.Is(err, blob.ErrSetTimeUnsupported) {
+			// run again without SetModTime, emit a warning
+			opt.SetModTime = time.Time{}
 
-			return errors.Wrapf(err, "error setting time on destination '%v'", m.BlobID)
+			log(ctx).Warnf("destination repository does not support preserving modification times")
+
+			c.repositorySyncTimes = false
+
+			err = dst.PutBlob(ctx, m.BlobID, data.Bytes(), opt)
+		}
+
+		if err != nil {
+			return errors.Wrapf(err, "error writing blob '%v' to destination", m.BlobID)
 		}
 	}
 

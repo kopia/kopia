@@ -11,7 +11,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/pkg/errors"
 	"github.com/studio-b12/gowebdav"
@@ -134,7 +133,11 @@ func (d *davStorageImpl) ReadDir(ctx context.Context, dir string) ([]os.FileInfo
 	return nil, errors.Wrap(err, "error reading WebDAV dir")
 }
 
-func (d *davStorageImpl) PutBlobInPath(ctx context.Context, dirPath, filePath string, data blob.Bytes) error {
+func (d *davStorageImpl) PutBlobInPath(ctx context.Context, dirPath, filePath string, data blob.Bytes, opts blob.PutOptions) error {
+	if !opts.SetModTime.IsZero() {
+		return blob.ErrSetTimeUnsupported
+	}
+
 	var writePath string
 
 	if d.Options.AtomicWrites {
@@ -150,7 +153,7 @@ func (d *davStorageImpl) PutBlobInPath(ctx context.Context, dirPath, filePath st
 	b := buf.Bytes()
 
 	// nolint:wrapcheck
-	return retry.WithExponentialBackoffNoValue(ctx, "WriteTemporaryFileAndCreateParentDirs", func() error {
+	if err := retry.WithExponentialBackoffNoValue(ctx, "WriteTemporaryFileAndCreateParentDirs", func() error {
 		mkdirAttempted := false
 
 		for {
@@ -181,11 +184,20 @@ func (d *davStorageImpl) PutBlobInPath(ctx context.Context, dirPath, filePath st
 
 			return err
 		}
-	}, isRetriable)
-}
+	}, isRetriable); err != nil {
+		return err
+	}
 
-func (d *davStorageImpl) SetTimeInPath(ctx context.Context, dirPath, filePath string, n time.Time) error {
-	return blob.ErrSetTimeUnsupported
+	if opts.GetModTime != nil {
+		bm, err := d.GetMetadataFromPath(ctx, dirPath, filePath)
+		if err != nil {
+			return err
+		}
+
+		*opts.GetModTime = bm.Timestamp
+	}
+
+	return nil
 }
 
 func (d *davStorageImpl) DeleteBlobInPath(ctx context.Context, dirPath, filePath string) error {

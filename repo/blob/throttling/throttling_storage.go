@@ -4,7 +4,6 @@ package throttling
 
 import (
 	"context"
-	"time"
 
 	"github.com/kopia/kopia/repo/blob"
 )
@@ -18,7 +17,6 @@ const (
 	operationGetBlob     = "GetBlob"
 	operationGetMetadata = "GetMetadata"
 	operationListBlobs   = "ListBlobs"
-	operationSetTime     = "SetTime"
 	operationPutBlob     = "PutBlob"
 	operationDeleteBlob  = "DeleteBlob"
 )
@@ -82,11 +80,6 @@ func (s *throttlingStorage) GetMetadata(ctx context.Context, id blob.ID) (blob.M
 func (s *throttlingStorage) ListBlobs(ctx context.Context, blobIDPrefix blob.ID, cb func(bm blob.Metadata) error) error {
 	s.throttler.BeforeOperation(ctx, operationListBlobs)
 	return s.Storage.ListBlobs(ctx, blobIDPrefix, cb) // nolint:wrapcheck
-}
-
-func (s *throttlingStorage) SetTime(ctx context.Context, id blob.ID, t time.Time) error {
-	s.throttler.BeforeOperation(ctx, operationSetTime)
-	return s.Storage.SetTime(ctx, id, t) // nolint:wrapcheck
 }
 
 func (s *throttlingStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes, opts blob.PutOptions) error {
