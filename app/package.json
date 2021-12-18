@@ -116,7 +116,7 @@
     "electron": "^16.0.3",
     "electron-builder": "^22.14.5",
     "electron-notarize": "^1.1.1",
-    "react-scripts": "^4.0.3"
+    "react-scripts": "^5.0.0"
   },
   "homepage": "./",
   "description": "Fast and secure open source backup.",
