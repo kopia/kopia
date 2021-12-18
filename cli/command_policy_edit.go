@@ -36,7 +36,7 @@ const policyEditRetentionHelpText = `  # Retention for snapshots of this directo
 const policyEditFilesHelpText = `
   # Which files to include in snapshots. Options include:
   #   "ignore": ["*.ext", "*.ext2"]
-  #   "dotIgnoreFiles": [".gitignore", ".kopiaignore"]
+  #   "ignoreDotFiles": [".gitignore", ".kopiaignore"]
   #   "maxFileSize": number
   #   "noParentDotFiles": true
   #   "noParentIgnore": true
