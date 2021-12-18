@@ -197,7 +197,7 @@ func (fs *fsImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data 
 		if t := opts.GetModTime; t != nil {
 			fi, err := fs.osi.Stat(path)
 			if err != nil {
-				return errors.Wrap(err, "can't get mod time")
+				return errors.Wrapf(err, "can't get mod time for file %q", path)
 			}
 
 			*t = fi.ModTime()
