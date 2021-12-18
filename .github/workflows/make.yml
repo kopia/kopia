@@ -61,10 +61,6 @@ jobs:
         fetch-depth: 0
     - name: Setup
       run: make -j4 ci-setup
-    - name: Build HTML
-      # build HTML separately without passing any sensitive credentials to the build
-      # since it involves a bunch of NPM scripts.
-      run: make html-ui
     - name: Install macOS certificates
       # install signing tools and credentials for macOS and Windows outside of main
       # build process.

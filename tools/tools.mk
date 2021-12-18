@@ -219,7 +219,7 @@ export KOPIA_VERSION_NO_PREFIX=$(KOPIA_VERSION:v%=%)
 export REACT_APP_SHORT_VERSION_INFO:=$(KOPIA_VERSION)
 export REACT_APP_FULL_VERSION_INFO:=$(KOPIA_VERSION) built on $(date_full) $(hostname)
 
-KOPIA_BUILD_TAGS=embedhtml
+KOPIA_BUILD_TAGS=
 KOPIA_BUILD_FLAGS=-ldflags "-s -w -X github.com/kopia/kopia/repo.BuildVersion=$(KOPIA_VERSION_NO_PREFIX) -X github.com/kopia/kopia/repo.BuildInfo=$(shell git rev-parse HEAD) -X github.com/kopia/kopia/repo.BuildGitHubRepo=$(GITHUB_REPOSITORY)"
 
 clean-tools:

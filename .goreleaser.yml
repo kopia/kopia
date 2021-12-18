@@ -1,8 +1,5 @@
 # This is an example goreleaser.yaml file with some sane defaults.
 # Make sure to check the documentation at http://goreleaser.com
-before:
-  hooks:
-    - make html-ui
 builds:
 - env:
   - CGO_ENABLED=0
@@ -14,8 +11,6 @@ builds:
     - amd64
     - arm
     - arm64
-  flags:
-    - -tags=embedhtml
   ldflags:
   - -s -w -X "github.com/kopia/kopia/repo.BuildVersion={{.Version}}" -X "github.com/kopia/kopia/repo.BuildInfo={{.Commit}}" -X "github.com/kopia/kopia/repo.BuildGitHubRepo={{.Env.GITHUB_REPOSITORY}}"
 release:

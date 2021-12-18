@@ -115,5 +115,6 @@ require github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v0.2.0
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v0.20.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v0.8.1 // indirect
+	github.com/kopia/htmluibuild v0.0.0-20211218192302-728c03d05e06 // indirect
 	github.com/stretchr/objx v0.2.0 // indirect
 )
