@@ -204,7 +204,7 @@ func (az *azStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback fun
 				// fall back to using last modified time.
 				t, err := time.Parse(time.RFC1123, it.Properties.LastModified)
 				if err != nil {
-					return errors.Wrap(err, "invalid timestamp")
+					return errors.Wrapf(err, "invalid timestamp for BLOB '%v': %q", bm.BlobID, it.Properties.LastModified)
 				}
 
 				bm.Timestamp = t
