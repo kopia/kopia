@@ -267,7 +267,7 @@ func repoOptions(openOpts []func(*repo.Options)) *repo.Options {
 }
 
 // FormatNotImportant chooses arbitrary format version where it's not important to the test.
-const FormatNotImportant = content.FormatVersion2
+const FormatNotImportant = content.FormatVersion3
 
 // NewEnvironment creates a new repository testing environment and ensures its cleanup at the end of the test.
 func NewEnvironment(tb testing.TB, version content.FormatVersion, opts ...Options) (context.Context, *Environment) {

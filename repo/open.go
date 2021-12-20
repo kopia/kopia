@@ -36,9 +36,9 @@ const CacheDirMarkerFile = "CACHEDIR.TAG"
 // CacheDirMarkerHeader is the header signature for cache dir marker files.
 const CacheDirMarkerHeader = "Signature: 8a477f597d28d172789f06886806bc55"
 
-// defaultRepositoryBlobCacheDuration is the duration for which we treat cached kopia.repository
+// DefaultRepositoryBlobCacheDuration is the duration for which we treat cached kopia.repository
 // as valid.
-const defaultRepositoryBlobCacheDuration = 15 * time.Minute
+const DefaultRepositoryBlobCacheDuration = 15 * time.Minute
 
 // throttlingWindow is the duration window during which the throttling token bucket fully replenishes.
 // the maximum number of tokens in the bucket is multiplied by the number of seconds.
@@ -68,10 +68,11 @@ var log = logging.Module("kopia/repo")
 
 // Options provides configuration parameters for connection to a repository.
 type Options struct {
-	TraceStorage       bool             // Logs all storage access using provided Printf-style function
-	TimeNowFunc        func() time.Time // Time provider
-	DisableInternalLog bool             // Disable internal log
-	UpgradeOwnerID     string           // Owner-ID of any upgrade in progress, when this is not set the access may be restricted
+	TraceStorage        bool             // Logs all storage access using provided Printf-style function
+	TimeNowFunc         func() time.Time // Time provider
+	DisableInternalLog  bool             // Disable internal log
+	UpgradeOwnerID      string           // Owner-ID of any upgrade in progress, when this is not set the access may be restricted
+	DoNotWaitForUpgrade bool             // Disable the exponential forever backoff on an upgrade lock.
 }
 
 // ErrInvalidPassword is returned when repository password is invalid.
@@ -233,6 +234,12 @@ func readAndCacheRepoConfig(ctx context.Context, st blob.Storage, password strin
 	return ufb, nil
 }
 
+// ReadAndCacheRepoUpgradeLock loads the lock config from cache and returns it.
+func ReadAndCacheRepoUpgradeLock(ctx context.Context, st blob.Storage, password string, cacheOpts *content.CachingOptions, validDuration time.Duration) (*content.UpgradeLock, error) {
+	ufb, err := readAndCacheRepoConfig(ctx, st, password, cacheOpts, validDuration)
+	return ufb.repoConfig.FormattingOptions.UpgradeLock, err
+}
+
 // openWithConfig opens the repository with a given configuration, avoiding the need for a config file.
 // nolint:funlen,gocyclo
 func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, password string, options *Options, cacheOpts *content.CachingOptions, configFile string) (DirectRepository, error) {
@@ -259,7 +266,7 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 
 		return nil, nil
 	}, func(internalErr error) bool {
-		return errors.Is(internalErr, ErrRepositoryUnavailableDueToUpgrageInProgress)
+		return !options.DoNotWaitForUpgrade && errors.Is(internalErr, ErrRepositoryUnavailableDueToUpgrageInProgress)
 	}); err != nil {
 		// nolint:wrapcheck
 		return nil, err
@@ -537,7 +544,7 @@ func readAndCacheRepositoryBlobBytes(ctx context.Context, st blob.Storage, cache
 	cachedFile := filepath.Join(cacheDirectory, blobID)
 
 	if validDuration == 0 {
-		validDuration = defaultRepositoryBlobCacheDuration
+		validDuration = DefaultRepositoryBlobCacheDuration
 	}
 
 	if cacheDirectory != "" {

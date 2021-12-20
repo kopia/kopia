@@ -33,7 +33,11 @@ func TestRepoCreatedWith08CanBeOpenedWithCurrent(t *testing.T) {
 	e2.RunAndExpectSuccess(t, "snap", "ls")
 
 	// upgrade
-	e2.RunAndExpectSuccess(t, "repo", "set-parameters", "--upgrade")
+	e2.RunAndExpectSuccess(t, "repository", "upgrade",
+		"--upgrade-owner-id", "owner",
+		"--io-drain-timeout", "1s",
+		"--status-poll-interval", "1s",
+		"--max-clock-drift", "1s")
 
 	// now 0.8 can't open it anymore
 	e3 := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner08)

@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/kopia/kopia/internal/retry"
+	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 )
 
@@ -78,6 +79,10 @@ func isRetriable(err error) bool {
 		return false
 
 	case errors.Is(err, blob.ErrBlobAlreadyExists):
+		return false
+
+	case errors.Is(err, repo.ErrRepositoryUnavailableDueToUpgrageInProgress):
+		// hard-fail when upgrade is in progress
 		return false
 
 	default:

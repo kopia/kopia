@@ -81,6 +81,40 @@ func (c *commandRepositoryStatus) outputJSON(ctx context.Context, r repo.Reposit
 	return nil
 }
 
+func (c *commandRepositoryStatus) dumpUpgradeStatus(dr repo.DirectRepository) {
+	cf := dr.ContentReader().ContentFormat()
+	if cf.UpgradeLock == nil {
+		return
+	}
+
+	locked, drainedClients := cf.UpgradeLock.IsLocked(dr.Time())
+	upgradeTime := cf.UpgradeLock.UpgradeTime()
+
+	c.out.printStdout("\n")
+	c.out.printStdout("Ongoing upgrade:     %s\n", cf.UpgradeLock.Message)
+	c.out.printStdout("Upgrade Time:        %s\n", upgradeTime.Local())
+
+	if locked {
+		c.out.printStdout("Upgrade lock:        Locked\n")
+	} else {
+		c.out.printStdout("Upgrade lock:        Unlocked\n")
+	}
+
+	if drainedClients {
+		c.out.printStdout("Lock status:         Fully Established\n")
+	} else {
+		c.out.printStdout("Lock status:         Draining\n")
+	}
+}
+
+func (c *commandRepositoryStatus) dumpRetentionStatus(dr repo.DirectRepository) {
+	if blobcfg := dr.BlobCfg(); blobcfg.IsRetentionEnabled() {
+		c.out.printStdout("\n")
+		c.out.printStdout("Blob retention mode:     %s\n", blobcfg.RetentionMode)
+		c.out.printStdout("Blob retention period:   %s\n", blobcfg.RetentionPeriod)
+	}
+}
+
 // nolint: funlen
 func (c *commandRepositoryStatus) run(ctx context.Context, rep repo.Repository) error {
 	if c.jo.jsonOutput {
@@ -94,14 +128,15 @@ func (c *commandRepositoryStatus) run(ctx context.Context, rep repo.Repository) 
 	c.out.printStdout("Username:            %v\n", rep.ClientOptions().Username)
 	c.out.printStdout("Read-only:           %v\n", rep.ClientOptions().ReadOnly)
 
-	if t := rep.ClientOptions().FormatBlobCacheDuration; t > 0 {
+	t := rep.ClientOptions().FormatBlobCacheDuration
+	if t > 0 {
 		c.out.printStdout("Format blob cache:   %v\n", t)
 	} else {
 		c.out.printStdout("Format blob cache:   disabled\n")
 	}
 
-	dr, ok := rep.(repo.DirectRepository)
-	if !ok {
+	dr, isDr := rep.(repo.DirectRepository)
+	if !isDr {
 		return nil
 	}
 
@@ -154,11 +189,8 @@ func (c *commandRepositoryStatus) run(ctx context.Context, rep repo.Repository) 
 		c.out.printStdout("Epoch Manager:       disabled\n")
 	}
 
-	if blobcfg := dr.BlobCfg(); blobcfg.IsRetentionEnabled() {
-		c.out.printStdout("\n")
-		c.out.printStdout("Blob retention mode:     %s\n", blobcfg.RetentionMode)
-		c.out.printStdout("Blob retention period:   %s\n", blobcfg.RetentionPeriod)
-	}
+	c.dumpRetentionStatus(dr)
+	c.dumpUpgradeStatus(dr)
 
 	if !c.statusReconnectToken {
 		return nil

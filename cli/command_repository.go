@@ -12,6 +12,7 @@ type commandRepository struct {
 	syncTo           commandRepositorySyncTo
 	throttle         commandRepositoryThrottle
 	validateProvider commandRepositoryValidateProvider
+	upgrade          commandRepositoryUpgrade
 }
 
 func (c *commandRepository) setup(svc advancedAppServices, parent commandParent) {
@@ -28,4 +29,5 @@ func (c *commandRepository) setup(svc advancedAppServices, parent commandParent)
 	c.throttle.setup(svc, cmd)
 	c.changePassword.setup(svc, cmd)
 	c.validateProvider.setup(svc, cmd)
+	c.upgrade.setup(svc, cmd)
 }

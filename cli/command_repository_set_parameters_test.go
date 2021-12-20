@@ -32,10 +32,13 @@ func (s *formatSpecificTestSuite) TestRepositorySetParameters(t *testing.T) {
 	// default values
 	require.Contains(t, out, "Max pack length:     20 MiB")
 
-	if s.formatVersion == content.FormatVersion1 {
+	switch s.formatVersion {
+	case content.FormatVersion1:
 		require.Contains(t, out, "Format version:      1")
-	} else {
+	case content.FormatVersion2:
 		require.Contains(t, out, "Format version:      2")
+	default:
+		require.Contains(t, out, "Format version:      3")
 	}
 
 	// failure cases
@@ -127,14 +130,33 @@ func (s *formatSpecificTestSuite) TestRepositorySetParametersUpgrade(t *testing.
 	// default values
 	require.Contains(t, out, "Max pack length:     20 MiB")
 
-	if s.formatVersion == content.FormatVersion1 {
+	switch s.formatVersion {
+	case content.FormatVersion1:
 		require.Contains(t, out, "Format version:      1")
 		require.Contains(t, out, "Epoch Manager:       disabled")
 		env.RunAndExpectFailure(t, "index", "epoch", "list")
-	} else {
+	case content.FormatVersion2:
 		require.Contains(t, out, "Format version:      2")
 		require.Contains(t, out, "Epoch Manager:       enabled")
 		env.RunAndExpectSuccess(t, "index", "epoch", "list")
+	default:
+		require.Contains(t, out, "Format version:      3")
+		require.Contains(t, out, "Epoch Manager:       enabled")
+		env.RunAndExpectSuccess(t, "index", "epoch", "list")
+	}
+
+	if s.formatVersion < content.FormatVersion3 {
+		env.RunAndExpectSuccess(t, "repository", "upgrade",
+			"--upgrade-owner-id", "owner",
+			"--io-drain-timeout", "1s",
+			"--status-poll-interval", "1s",
+			"--max-clock-drift", "1s")
+	} else {
+		env.RunAndExpectFailure(t, "repository", "upgrade",
+			"--upgrade-owner-id", "owner",
+			"--io-drain-timeout", "1s",
+			"--status-poll-interval", "1s",
+			"--max-clock-drift", "1s")
 	}
 
 	env.RunAndExpectSuccess(t, "repository", "set-parameters", "--upgrade")
@@ -153,7 +175,7 @@ func (s *formatSpecificTestSuite) TestRepositorySetParametersUpgrade(t *testing.
 	out = env.RunAndExpectSuccess(t, "repository", "status")
 	require.Contains(t, out, "Epoch Manager:       enabled")
 	require.Contains(t, out, "Index Format:        v2")
-	require.Contains(t, out, "Format version:      2")
+	require.Contains(t, out, "Format version:      3")
 	require.Contains(t, out, "Epoch cleanup margin:    23h0m0s")
 	require.Contains(t, out, "Epoch advance on:        22 blobs or 77 MiB, minimum 3h0m0s")
 	require.Contains(t, out, "Epoch checkpoint every:  9 epochs")
