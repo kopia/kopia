@@ -20,3 +20,7 @@ func TestFormatV1(t *testing.T) {
 func TestFormatV2(t *testing.T) {
 	testutil.RunAllTestsWithParam(t, &formatSpecificTestSuite{content.FormatVersion2})
 }
+
+func TestFormatV3(t *testing.T) {
+	testutil.RunAllTestsWithParam(t, &formatSpecificTestSuite{content.FormatVersion3})
+}

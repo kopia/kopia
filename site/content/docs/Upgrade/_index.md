@@ -40,13 +40,15 @@ $ kopia repository disconnect
 
 * make sure to stop any running `kopia server` instances and disable all background kopia tasks, such as periodic snapshots in `crontab`.
 
-3. Upgrade all kopia clients to the latest version >=v0.9.x
+3. Upgrade all kopia clients to the latest version >=v0.10.x
 
 4. Using the designated `kopia` client, run:
 
 ```
-$ kopia repository set-parameters --upgrade
+$ kopia repository upgrade --upgrade-owner-id <unique-id>
 ```
+
+- TODO: update this doc to set notice and various override options (extend notice and force rollback)
 
 5. Verify upgrade by:
 
@@ -54,7 +56,7 @@ $ kopia repository set-parameters --upgrade
 $ kopia repository status
 ```
 
-You should see `Format version:      2`
+You should see `Format version:      3`
 
 5. Reconnect kopia clients that were disconnected in step 2 and re-enable all disabled background jobs.
 

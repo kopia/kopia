@@ -122,6 +122,8 @@ type App struct {
 	disableInternalLog            bool
 	AdvancedCommands              string
 	cliStorageProviders           []StorageProvider
+	upgradeOwnerID                string
+	doNotWaitForUpgrade           bool
 
 	currentAction   string
 	onExitCallbacks []func()
@@ -231,6 +233,8 @@ func (c *App) setup(app *kingpin.Application) {
 	app.Flag("persist-credentials", "Persist credentials").Default("true").Envar("KOPIA_PERSIST_CREDENTIALS_ON_CONNECT").BoolVar(&c.persistCredentials)
 	app.Flag("disable-internal-log", "Disable internal log").Hidden().Envar("KOPIA_DISABLE_INTERNAL_LOG").BoolVar(&c.disableInternalLog)
 	app.Flag("advanced-commands", "Enable advanced (and potentially dangerous) commands.").Hidden().Envar("KOPIA_ADVANCED_COMMANDS").StringVar(&c.AdvancedCommands)
+	app.Flag("upgrade-owner-id", "Repository format upgrade owner-id.").Hidden().Envar("KOPIA_REPO_UPGRADE_OWNER_ID").StringVar(&c.upgradeOwnerID)
+	app.Flag("upgrade-no-block", "Do not block when repository format upgrade is in progress.").Default("false").Envar("KOPIA_REPO_UPGRADE_NO_BLOCK").BoolVar(&c.doNotWaitForUpgrade)
 
 	c.setupOSSpecificKeychainFlags(app)
 

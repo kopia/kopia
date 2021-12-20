@@ -11,6 +11,7 @@ type commandRepository struct {
 	status           commandRepositoryStatus
 	syncTo           commandRepositorySyncTo
 	validateProvider commandRepositoryValidateProvider
+	upgrade          commandRepositoryUpgrade
 }
 
 func (c *commandRepository) setup(svc advancedAppServices, parent commandParent) {
@@ -26,4 +27,5 @@ func (c *commandRepository) setup(svc advancedAppServices, parent commandParent)
 	c.syncTo.setup(svc, cmd) // nolint:contextcheck
 	c.changePassword.setup(svc, cmd)
 	c.validateProvider.setup(svc, cmd)
+	c.upgrade.setup(svc, cmd)
 }

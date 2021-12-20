@@ -35,7 +35,6 @@ type Repository interface {
 // RepositoryWriter provides methods to write to a repository.
 type RepositoryWriter interface {
 	Repository
-
 	NewObjectWriter(ctx context.Context, opt object.WriterOptions) object.Writer
 	PutManifest(ctx context.Context, labels map[string]string, payload interface{}) (manifest.ID, error)
 	DeleteManifest(ctx context.Context, id manifest.ID) error
@@ -45,7 +44,6 @@ type RepositoryWriter interface {
 // DirectRepository provides additional low-level repository functionality.
 type DirectRepository interface {
 	Repository
-
 	ObjectFormat() object.Format
 	BlobCfg() content.BlobCfgBlob
 	BlobReader() blob.Reader

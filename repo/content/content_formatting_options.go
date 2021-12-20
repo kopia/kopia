@@ -22,8 +22,9 @@ type FormatVersion int
 const (
 	FormatVersion1 FormatVersion = 1
 	FormatVersion2 FormatVersion = 2 // new in v0.9
+	FormatVersion3 FormatVersion = 3 // new in v0.11
 
-	MaxFormatVersion = FormatVersion2
+	MaxFormatVersion = FormatVersion3
 )
 
 // FormattingOptions describes the rules for formatting contents in repository.
@@ -42,7 +43,7 @@ type FormattingOptions struct {
 // ResolveFormatVersion applies format options parameters based on the format version.
 func (f *FormattingOptions) ResolveFormatVersion() error {
 	switch f.Version {
-	case FormatVersion2:
+	case FormatVersion2, FormatVersion3:
 		f.EnablePasswordChange = true
 		f.IndexVersion = v2IndexVersion
 		f.EpochParameters = epoch.DefaultParameters()
@@ -64,10 +65,11 @@ func (f *FormattingOptions) ResolveFormatVersion() error {
 // MutableParameters represents parameters of the content manager that can be mutated after the repository
 // is created.
 type MutableParameters struct {
-	Version         FormatVersion    `json:"version,omitempty"`         // version number, must be "1" or "2"
-	MaxPackSize     int              `json:"maxPackSize,omitempty"`     // maximum size of a pack object
-	IndexVersion    int              `json:"indexVersion,omitempty"`    // force particular index format version (1,2,..)
-	EpochParameters epoch.Parameters `json:"epochParameters,omitempty"` // epoch manager parameters
+	Version                 FormatVersion    `json:"version,omitempty"`                 // version number, must be "1" or "2"
+	MaxPackSize             int              `json:"maxPackSize,omitempty"`             // maximum size of a pack object
+	IndexVersion            int              `json:"indexVersion,omitempty"`            // force particular index format version (1,2,..)
+	EpochParameters         epoch.Parameters `json:"epochParameters,omitempty"`         // epoch manager parameters
+	FormatBlobCacheDuration time.Duration    `json:"formatBlobCacheDuration,omitempty"` // centralized cache refresh interval for long running processes
 }
 
 // Validate validates the parameters.

@@ -32,6 +32,40 @@ func (c *commandRepositoryStatus) setup(svc advancedAppServices, parent commandP
 	c.out.setup(svc)
 }
 
+func (c *commandRepositoryStatus) dumpUpgradeStatus(dr repo.DirectRepository) {
+	cf := dr.ContentReader().ContentFormat()
+	if cf.UpgradeLock == nil {
+		return
+	}
+
+	locked, drainedClients := cf.UpgradeLock.IsLocked(dr.Time())
+	upgradeTime := cf.UpgradeLock.UpgradeTime()
+
+	c.out.printStdout("\n")
+	c.out.printStdout("Ongoing upgrade:     %s\n", cf.UpgradeLock.Message)
+	c.out.printStdout("Upgrade Time:        %s\n", upgradeTime.Local())
+
+	if locked {
+		c.out.printStdout("Upgrade lock:        Locked\n")
+	} else {
+		c.out.printStdout("Upgrade lock:        Unlocked\n")
+	}
+
+	if drainedClients {
+		c.out.printStdout("Lock status:         Fully Established\n")
+	} else {
+		c.out.printStdout("Lock status:         Draining\n")
+	}
+}
+
+func (c *commandRepositoryStatus) dumpRetentionStatus(dr repo.DirectRepository) {
+	if blobcfg := dr.BlobCfg(); blobcfg.IsRetentionEnabled() {
+		c.out.printStdout("\n")
+		c.out.printStdout("Blob retention mode:     %s\n", blobcfg.RetentionMode)
+		c.out.printStdout("Blob retention period:   %s\n", blobcfg.RetentionPeriod)
+	}
+}
+
 func (c *commandRepositoryStatus) run(ctx context.Context, rep repo.Repository) error {
 	c.out.printStdout("Config file:         %v\n", c.svc.repositoryConfigFileName())
 	c.out.printStdout("\n")
@@ -40,14 +74,22 @@ func (c *commandRepositoryStatus) run(ctx context.Context, rep repo.Repository) 
 	c.out.printStdout("Username:            %v\n", rep.ClientOptions().Username)
 	c.out.printStdout("Read-only:           %v\n", rep.ClientOptions().ReadOnly)
 
-	if t := rep.ClientOptions().FormatBlobCacheDuration; t > 0 {
+	dr, isDr := rep.(repo.DirectRepository)
+	t := rep.ClientOptions().FormatBlobCacheDuration
+
+	if isDr {
+		if mpCacheInterval := dr.ContentReader().ContentFormat().MutableParameters.FormatBlobCacheDuration; mpCacheInterval != 0 {
+			t = mpCacheInterval
+		}
+	}
+
+	if t > 0 {
 		c.out.printStdout("Format blob cache:   %v\n", t)
 	} else {
 		c.out.printStdout("Format blob cache:   disabled\n")
 	}
 
-	dr, ok := rep.(repo.DirectRepository)
-	if !ok {
+	if !isDr {
 		return nil
 	}
 
@@ -90,11 +132,8 @@ func (c *commandRepositoryStatus) run(ctx context.Context, rep repo.Repository) 
 		c.out.printStdout("Epoch Manager:       disabled\n")
 	}
 
-	if blobcfg := dr.BlobCfg(); blobcfg.IsRetentionEnabled() {
-		c.out.printStdout("\n")
-		c.out.printStdout("Blob retention mode:     %s\n", blobcfg.RetentionMode)
-		c.out.printStdout("Blob retention period:   %s\n", blobcfg.RetentionPeriod)
-	}
+	c.dumpRetentionStatus(dr)
+	c.dumpUpgradeStatus(dr)
 
 	if !c.statusReconnectToken {
 		return nil

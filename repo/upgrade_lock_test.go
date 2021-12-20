@@ -190,7 +190,7 @@ func TestFormatUpgradeMultipleLocksRollback(t *testing.T) {
 	env.MustReopen(t, func(opts *repo.Options) {
 		opts.UpgradeOwnerID = "another-upgrade-owner"
 	})
-	require.Equal(t, content.FormatVersion2,
+	require.Equal(t, content.FormatVersion3,
 		env.RepositoryWriter.ContentManager().ContentFormat().MutableParameters.Version)
 
 	require.NoError(t, env.RepositoryWriter.RollbackUpgrade(ctx))

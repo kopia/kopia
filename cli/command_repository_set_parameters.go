@@ -6,18 +6,18 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/internal/epoch"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
-	"github.com/kopia/kopia/repo/content"
 )
 
 type commandRepositorySetParameters struct {
-	maxPackSizeMB      int
-	indexFormatVersion int
-	retentionMode      string
-	retentionPeriod    time.Duration
+	maxPackSizeMB           int
+	indexFormatVersion      int
+	disableFormatBlobCache  bool
+	formatBlobCacheDuration time.Duration
+	retentionMode           string
+	retentionPeriod         time.Duration
 
 	epochRefreshFrequency    time.Duration
 	epochMinDuration         time.Duration
@@ -26,8 +26,6 @@ type commandRepositorySetParameters struct {
 	epochAdvanceOnSizeMB     int64
 	epochDeleteParallelism   int
 	epochCheckpointFrequency int
-
-	upgradeRepositoryFormat bool
 
 	svc appServices
 }
@@ -40,7 +38,8 @@ func (c *commandRepositorySetParameters) setup(svc appServices, parent commandPa
 	cmd.Flag("retention-mode", "Set the blob retention-mode for supported storage backends.").EnumVar(&c.retentionMode, "none", blob.Governance.String(), blob.Compliance.String())
 	cmd.Flag("retention-period", "Set the blob retention-period for supported storage backends.").DurationVar(&c.retentionPeriod)
 
-	cmd.Flag("upgrade", "Upgrade repository to the latest stable format").BoolVar(&c.upgradeRepositoryFormat)
+	cmd.Flag("repository-format-cache-duration", "Duration of kopia.repository format blob cache").Hidden().DurationVar(&c.formatBlobCacheDuration)
+	cmd.Flag("disable-repository-format-cache", "Disable caching of kopia.repository format blob").Hidden().BoolVar(&c.disableFormatBlobCache)
 
 	cmd.Flag("epoch-refresh-frequency", "Epoch refresh frequency").DurationVar(&c.epochRefreshFrequency)
 	cmd.Flag("epoch-min-duration", "Minimal duration of a single epoch").DurationVar(&c.epochMinDuration)
@@ -116,24 +115,9 @@ func (c *commandRepositorySetParameters) run(ctx context.Context, rep repo.Direc
 	mp := rep.ContentReader().ContentFormat().MutableParameters
 	blobcfg := rep.BlobCfg()
 
-	upgradeToEpochManager := false
-
-	if c.upgradeRepositoryFormat {
-		anyChange = true
-
-		if !mp.EpochParameters.Enabled {
-			mp.EpochParameters = epoch.DefaultParameters()
-			upgradeToEpochManager = true
-			mp.IndexVersion = 2
-		}
-
-		if mp.Version < content.FormatVersion2 {
-			mp.Version = content.FormatVersion2
-		}
-	}
-
 	c.setSizeMBParameter(ctx, c.maxPackSizeMB, "maximum pack size", &mp.MaxPackSize, &anyChange)
 	c.setIntParameter(ctx, c.indexFormatVersion, "index format version", &mp.IndexVersion, &anyChange)
+	c.setDurationParameter(ctx, c.formatBlobCacheDuration, repo.FormatBlobID+" format blob cache", &mp.FormatBlobCacheDuration, &anyChange)
 
 	if c.retentionMode == "none" {
 		if blobcfg.IsRetentionEnabled() {
@@ -158,14 +142,6 @@ func (c *commandRepositorySetParameters) run(ctx context.Context, rep repo.Direc
 
 	if !anyChange {
 		return errors.Errorf("no changes")
-	}
-
-	if upgradeToEpochManager {
-		log(ctx).Infof("migrating current indexes to epoch format")
-
-		if err := rep.ContentManager().PrepareUpgradeToIndexBlobManagerV1(ctx, mp.EpochParameters); err != nil {
-			return errors.Wrap(err, "error upgrading indexes")
-		}
 	}
 
 	if err := rep.SetParameters(ctx, mp, blobcfg); err != nil {
