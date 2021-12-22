@@ -522,6 +522,9 @@ func getOrMakeBucket(tb testing.TB, cli *minio.Client, opt *Options, objectLocki
 
 	ctx := context.Background()
 
+	// check whether the bucket exists before attempting to create it to avoid
+	// and reduce the overall number of potentially expensive bucket creation
+	// calls.
 	if loc, err := cli.GetBucketLocation(ctx, opt.BucketName); err == nil {
 		tb.Log("found bucket", opt.BucketName, "in location", loc)
 
