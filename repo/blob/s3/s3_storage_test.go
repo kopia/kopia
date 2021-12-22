@@ -152,7 +152,7 @@ func TestS3StorageAWS(t *testing.T) {
 		Region:          getEnvOrSkip(t, testRegionEnv),
 	}
 
-	createBucket(t, options)
+	getOrCreateBucket(t, options)
 	testStorage(t, options, false, blob.PutOptions{})
 }
 
@@ -172,7 +172,7 @@ func TestS3StorageAWSSTS(t *testing.T) {
 
 	// STS token may no have permission to create bucket
 	// use accesskeyid and secretaccesskey to create the bucket
-	createBucket(t, &Options{
+	getOrCreateBucket(t, &Options{
 		Endpoint:        getEnv(testEndpointEnv, awsEndpoint),
 		AccessKeyID:     getEnv(testAccessKeyIDEnv, ""),
 		SecretAccessKey: getEnv(testSecretAccessKeyEnv, ""),
@@ -194,7 +194,7 @@ func TestS3StorageAWSRetentionUnlockedBucket(t *testing.T) {
 		Region:          getEnvOrSkip(t, testRegionEnv),
 	}
 
-	createBucket(t, options)
+	getOrCreateBucket(t, options)
 
 	t.Run("valid period", func(t *testing.T) {
 		// expected to fail on non-locked buckets
@@ -224,7 +224,7 @@ func TestS3StorageAWSRetentionLockedBucket(t *testing.T) {
 		Region:          getEnvOrSkip(t, testRegionEnv),
 	}
 
-	createBucket(t, options)
+	getOrCreateBucket(t, options)
 
 	t.Run("testStorage", func(t *testing.T) {
 		testStorage(t, options, false, blob.PutOptions{
@@ -256,7 +256,7 @@ func TestS3StorageMinio(t *testing.T) {
 		DoNotUseTLS:     true,
 	}
 
-	createBucket(t, options)
+	getOrCreateBucket(t, options)
 	testStorage(t, options, true, blob.PutOptions{})
 }
 
@@ -291,7 +291,7 @@ func TestS3StorageMinioSelfSignedCert(t *testing.T) {
 		DoNotVerifyTLS:  true,
 	}
 
-	createBucket(t, options)
+	getOrCreateBucket(t, options)
 	testStorage(t, options, true, blob.PutOptions{})
 }
 
@@ -332,7 +332,7 @@ func TestS3StorageMinioSTS(t *testing.T) {
 
 	kopiaAccessKeyID, kopiaSecretKey, kopiaSessionToken := createMinioSessionToken(t, minioEndpoint, minioRootAccessKeyID, minioRootSecretAccessKey, minioBucketName)
 
-	createBucket(t, &Options{
+	getOrCreateBucket(t, &Options{
 		Endpoint:        minioEndpoint,
 		AccessKeyID:     minioRootAccessKeyID,
 		SecretAccessKey: minioRootSecretAccessKey,
@@ -370,7 +370,7 @@ func TestNeedMD5AWS(t *testing.T) {
 
 	ctx := testlogging.Context(t)
 	cli := createClient(t, options)
-	makeBucket(t, cli, options, true)
+	getOrMakeBucket(t, cli, options, true)
 
 	// ensure it is a bucket with object locking enabled
 	want := "Enabled"
@@ -509,18 +509,26 @@ func createClient(tb testing.TB, opt *Options) *minio.Client {
 	return minioClient
 }
 
-func createBucket(tb testing.TB, opt *Options) {
+func getOrCreateBucket(tb testing.TB, opt *Options) {
 	tb.Helper()
 
 	minioClient := createClient(tb, opt)
 
-	makeBucket(tb, minioClient, opt, false)
+	getOrMakeBucket(tb, minioClient, opt, false)
 }
 
-func makeBucket(tb testing.TB, cli *minio.Client, opt *Options, objectLocking bool) {
+func getOrMakeBucket(tb testing.TB, cli *minio.Client, opt *Options, objectLocking bool) {
 	tb.Helper()
 
-	if err := cli.MakeBucket(context.Background(), opt.BucketName, minio.MakeBucketOptions{
+	ctx := context.Background()
+
+	if loc, err := cli.GetBucketLocation(ctx, opt.BucketName); err == nil {
+		tb.Log("found bucket", opt.BucketName, "in location", loc)
+
+		return
+	}
+
+	if err := cli.MakeBucket(ctx, opt.BucketName, minio.MakeBucketOptions{
 		Region:        opt.Region,
 		ObjectLocking: objectLocking,
 	}); err != nil {
