@@ -225,28 +225,19 @@ func TestS3StorageAWSRetentionLockedBucket(t *testing.T) {
 	}
 
 	createBucket(t, options)
-	testStorage(t, options, false, blob.PutOptions{
-		RetentionMode:   minio.Governance.String(),
-		RetentionPeriod: time.Hour * 24,
+
+	t.Run("testStorage", func(t *testing.T) {
+		testStorage(t, options, false, blob.PutOptions{
+			RetentionMode:   minio.Governance.String(),
+			RetentionPeriod: time.Hour * 24,
+		})
 	})
-}
 
-func TestS3StorageAWSRetentionInvalidPeriodLockedBucket(t *testing.T) {
-	t.Parallel()
-
-	// skip the test if AWS creds are not provided
-	options := &Options{
-		Endpoint:        getEnv(testEndpointEnv, awsEndpoint),
-		AccessKeyID:     getEnvOrSkip(t, testAccessKeyIDEnv),
-		SecretAccessKey: getEnvOrSkip(t, testSecretAccessKeyEnv),
-		BucketName:      getEnvOrSkip(t, testLockedBucketEnv),
-		Region:          getEnvOrSkip(t, testRegionEnv),
-	}
-
-	createBucket(t, options)
-	testPutBlobWithInvalidRetention(t, options, blob.PutOptions{
-		RetentionMode:   minio.Governance.String(),
-		RetentionPeriod: time.Nanosecond,
+	t.Run("invalid period", func(t *testing.T) {
+		testPutBlobWithInvalidRetention(t, options, blob.PutOptions{
+			RetentionMode:   minio.Governance.String(),
+			RetentionPeriod: time.Nanosecond,
+		})
 	})
 }
 
