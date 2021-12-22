@@ -55,6 +55,7 @@ endif
 install:
 	go install $(KOPIA_BUILD_FLAGS) -tags "$(KOPIA_BUILD_TAGS)"
 
+install-noui: KOPIA_BUILD_TAGS=nohtmlui
 install-noui: install
 
 install-race:
