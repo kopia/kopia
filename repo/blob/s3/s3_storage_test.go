@@ -182,7 +182,7 @@ func TestS3StorageAWSSTS(t *testing.T) {
 	testStorage(t, options, false, blob.PutOptions{})
 }
 
-func TestS3StorageAWSRetentionUnversionedBucket(t *testing.T) {
+func TestS3StorageAWSRetentionUnlockedBucket(t *testing.T) {
 	t.Parallel()
 
 	// skip the test if AWS creds are not provided
