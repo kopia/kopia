@@ -1,7 +1,6 @@
 package s3
 
 import (
-	"context"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
@@ -393,7 +392,7 @@ func TestNeedMD5AWS(t *testing.T) {
 	require.NoError(t, err, "could not create storage")
 
 	t.Cleanup(func() {
-		blobtesting.CleanupOldData(context.Background(), t, s, 0)
+		blobtesting.CleanupOldData(ctx, t, s, 0)
 	})
 
 	err = s.PutBlob(ctx, blob.ID("test-put-blob-0"), gather.FromSlice([]byte("xxyasdf243z")), blob.PutOptions{})
@@ -407,7 +406,7 @@ func testStorage(t *testing.T, options *Options, runValidationTest bool, opts bl
 
 	require.Equal(t, "", options.Prefix)
 
-	st0, err := New(testlogging.Context(t), options)
+	st0, err := New(ctx, options)
 	require.NoError(t, err)
 
 	defer st0.Close(ctx)
@@ -416,7 +415,7 @@ func testStorage(t *testing.T, options *Options, runValidationTest bool, opts bl
 
 	options.Prefix = uuid.NewString()
 
-	st, err := New(testlogging.Context(t), options)
+	st, err := New(ctx, options)
 	require.NoError(t, err)
 
 	defer st.Close(ctx)
@@ -438,7 +437,7 @@ func testPutBlobWithInvalidRetention(t *testing.T, options Options, opts blob.Pu
 	options.Prefix = uuid.NewString()
 
 	// non-retrying storage
-	st, err := newStorage(testlogging.Context(t), &options)
+	st, err := newStorage(ctx, &options)
 	require.NoError(t, err)
 
 	defer st.Close(ctx)
@@ -522,7 +521,7 @@ func getOrCreateBucket(tb testing.TB, opt *Options) {
 func getOrMakeBucket(tb testing.TB, cli *minio.Client, opt *Options, objectLocking bool) {
 	tb.Helper()
 
-	ctx := context.Background()
+	ctx := testlogging.Context(tb)
 
 	// check whether the bucket exists before attempting to create it to avoid
 	// and reduce the overall number of potentially expensive bucket creation
