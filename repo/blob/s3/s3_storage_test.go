@@ -186,7 +186,7 @@ func TestS3StorageRetentionUnlockedBucket(t *testing.T) {
 	t.Parallel()
 
 	// skip the test if AWS creds are not provided
-	options := &Options{
+	options := Options{
 		Endpoint:        getEnv(testEndpointEnv, awsEndpoint),
 		AccessKeyID:     getEnvOrSkip(t, testAccessKeyIDEnv),
 		SecretAccessKey: getEnvOrSkip(t, testSecretAccessKeyEnv),
@@ -194,7 +194,7 @@ func TestS3StorageRetentionUnlockedBucket(t *testing.T) {
 		Region:          getEnvOrSkip(t, testRegionEnv),
 	}
 
-	getOrCreateBucket(t, options)
+	getOrCreateBucket(t, &options)
 
 	t.Run("valid period", func(t *testing.T) {
 		// expected to fail on non-locked buckets
@@ -205,6 +205,7 @@ func TestS3StorageRetentionUnlockedBucket(t *testing.T) {
 	})
 
 	t.Run("invalid period", func(t *testing.T) {
+		options.Prefix = ""
 		testPutBlobWithInvalidRetention(t, options, blob.PutOptions{
 			RetentionMode:   minio.Governance.String(),
 			RetentionPeriod: time.Nanosecond,
@@ -216,7 +217,7 @@ func TestS3StorageRetentionLockedBucket(t *testing.T) {
 	t.Parallel()
 
 	// skip the test if AWS creds are not provided
-	options := &Options{
+	options := Options{
 		Endpoint:        getEnv(testEndpointEnv, awsEndpoint),
 		AccessKeyID:     getEnvOrSkip(t, testAccessKeyIDEnv),
 		SecretAccessKey: getEnvOrSkip(t, testSecretAccessKeyEnv),
@@ -224,16 +225,17 @@ func TestS3StorageRetentionLockedBucket(t *testing.T) {
 		Region:          getEnvOrSkip(t, testRegionEnv),
 	}
 
-	getOrCreateBucket(t, options)
+	getOrCreateBucket(t, &options)
 
 	t.Run("testStorage", func(t *testing.T) {
-		testStorage(t, options, false, blob.PutOptions{
+		testStorage(t, &options, false, blob.PutOptions{
 			RetentionMode:   minio.Governance.String(),
 			RetentionPeriod: time.Hour * 24,
 		})
 	})
 
 	t.Run("invalid period", func(t *testing.T) {
+		options.Prefix = ""
 		testPutBlobWithInvalidRetention(t, options, blob.PutOptions{
 			RetentionMode:   minio.Governance.String(),
 			RetentionPeriod: time.Nanosecond,
@@ -429,14 +431,14 @@ func testStorage(t *testing.T, options *Options, runValidationTest bool, opts bl
 }
 
 // nolint:thelper
-func testPutBlobWithInvalidRetention(t *testing.T, options *Options, opts blob.PutOptions) {
+func testPutBlobWithInvalidRetention(t *testing.T, options Options, opts blob.PutOptions) {
 	ctx := testlogging.Context(t)
 
 	require.Equal(t, "", options.Prefix)
 	options.Prefix = uuid.NewString()
 
 	// non-retrying storage
-	st, err := newStorage(testlogging.Context(t), options)
+	st, err := newStorage(testlogging.Context(t), &options)
 	require.NoError(t, err)
 
 	defer st.Close(ctx)
