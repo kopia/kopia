@@ -257,7 +257,7 @@ func TestS3StorageMinio(t *testing.T) {
 		DoNotUseTLS:     true,
 	}
 
-	getOrCreateBucket(t, options)
+	createBucket(t, options)
 	testStorage(t, options, true, blob.PutOptions{})
 }
 
@@ -292,7 +292,7 @@ func TestS3StorageMinioSelfSignedCert(t *testing.T) {
 		DoNotVerifyTLS:  true,
 	}
 
-	getOrCreateBucket(t, options)
+	createBucket(t, options)
 	testStorage(t, options, true, blob.PutOptions{})
 }
 
@@ -333,7 +333,7 @@ func TestS3StorageMinioSTS(t *testing.T) {
 
 	kopiaAccessKeyID, kopiaSecretKey, kopiaSessionToken := createMinioSessionToken(t, minioEndpoint, minioRootAccessKeyID, minioRootSecretAccessKey, minioBucketName)
 
-	getOrCreateBucket(t, &Options{
+	createBucket(t, &Options{
 		Endpoint:        minioEndpoint,
 		AccessKeyID:     minioRootAccessKeyID,
 		SecretAccessKey: minioRootSecretAccessKey,
@@ -516,6 +516,14 @@ func getOrCreateBucket(tb testing.TB, opt *Options) {
 	minioClient := createClient(tb, opt)
 
 	getOrMakeBucket(tb, minioClient, opt, false)
+}
+
+func createBucket(tb testing.TB, opt *Options) {
+	tb.Helper()
+
+	minioClient := createClient(tb, opt)
+
+	makeBucket(tb, minioClient, opt, false)
 }
 
 func getOrMakeBucket(tb testing.TB, cli *minio.Client, opt *Options, objectLocking bool) {
