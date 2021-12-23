@@ -429,7 +429,7 @@ func testStorage(t *testing.T, options *Options, runValidationTest bool, opts bl
 	}
 }
 
-// nolint:thelper
+// nolint:thelper,gocritic
 func testPutBlobWithInvalidRetention(t *testing.T, options Options, opts blob.PutOptions) {
 	ctx := testlogging.Context(t)
 
