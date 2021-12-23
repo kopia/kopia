@@ -838,15 +838,46 @@ func isRetriable(err error) bool {
 func getVersionedTestStore(tb testing.TB, envName string) *s3Storage {
 	tb.Helper()
 
+	ctx := testlogging.Context(tb)
 	o := getProviderOptions(tb, envName)
 	o.Prefix = path.Join(tb.Name(), uuid.NewString()) + "/"
 
-	s, err := newStorage(testlogging.Context(tb), o)
+	s, err := newStorage(ctx, o)
 	require.NoError(tb, err, "error creating versioned store client")
 
 	tb.Cleanup(func() {
-		blobtesting.CleanupOldData(context.Background(), tb, s, 0)
+		cleanupVersions(tb, s)
+		blobtesting.CleanupOldData(ctx, tb, s, 0)
 	})
 
 	return s
+}
+
+func cleanupVersions(tb testing.TB, s *s3Storage) {
+	tb.Helper()
+
+	ctx := testlogging.Context(tb)
+	ch := make(chan minio.ObjectInfo, 4)
+	errChan := s.cli.RemoveObjects(ctx, s.BucketName, ch, minio.RemoveObjectsOptions{})
+
+	err := s.listBlobVersions(ctx, "", func(m versionMetadata) error {
+		ch <- minio.ObjectInfo{
+			Key:       s.Prefix + string(m.BlobID),
+			VersionID: m.Version,
+		}
+
+		return nil
+	})
+
+	close(ch)
+
+	if err != nil {
+		tb.Log("error listing blob versions:", err)
+	}
+
+	for e := range errChan {
+		if e.Err != nil {
+			tb.Log("error cleaning up blob versions:", e.Err, e.ObjectName, e.VersionID)
+		}
+	}
 }
