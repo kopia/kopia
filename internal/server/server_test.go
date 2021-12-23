@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -52,8 +53,9 @@ func startServer(t *testing.T, env *repotesting.Environment, tls bool) *repo.API
 			auth.AuthenticateSingleUser(testUsername+"@"+testHostname, testPassword),
 			auth.AuthenticateSingleUser(testUIUsername, testUIPassword),
 		),
-		RefreshInterval: 1 * time.Minute,
-		UIUser:          testUIUsername,
+		RefreshInterval:   1 * time.Minute,
+		UIUser:            testUIUsername,
+		UIPreferencesFile: filepath.Join(testutil.TempDirectory(t), "ui-pref.json"),
 	})
 
 	require.NoError(t, err)

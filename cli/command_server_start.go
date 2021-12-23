@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -58,6 +59,7 @@ type commandServerStart struct {
 	serverStartTLSGenerateCertNames     []string
 	serverStartTLSPrintFullServerCert   bool
 	uiTitlePrefix                       string
+	uiPreferencesFile                   string
 
 	logServerRequests bool
 
@@ -95,6 +97,7 @@ func (c *commandServerStart) setup(svc advancedAppServices, parent commandParent
 	cmd.Flag("tls-print-server-cert", "Print server certificate").Hidden().BoolVar(&c.serverStartTLSPrintFullServerCert)
 
 	cmd.Flag("ui-title-prefix", "UI title prefix").Hidden().Envar("KOPIA_UI_TITLE_PREFIX").StringVar(&c.uiTitlePrefix)
+	cmd.Flag("ui-preferences-file", "Path to JSON file storing UI preferences").StringVar(&c.uiPreferencesFile)
 
 	cmd.Flag("log-server-requests", "Log server requests").Hidden().BoolVar(&c.logServerRequests)
 
@@ -115,6 +118,11 @@ func (c *commandServerStart) run(ctx context.Context, rep repo.Repository) error
 		return errors.Wrap(err, "unable to initialize authentication")
 	}
 
+	uiPreferencesFile := c.uiPreferencesFile
+	if uiPreferencesFile == "" {
+		uiPreferencesFile = filepath.Join(filepath.Dir(c.svc.repositoryConfigFileName()), "ui-preferences.json")
+	}
+
 	srv, err := server.New(ctx, server.Options{
 		ConfigFile:           c.svc.repositoryConfigFileName(),
 		ConnectOptions:       c.co.toRepoConnectOptions(),
@@ -126,6 +134,7 @@ func (c *commandServerStart) run(ctx context.Context, rep repo.Repository) error
 		UIUser:               c.sf.serverUsername,
 		LogRequests:          c.logServerRequests,
 		PasswordPersist:      c.svc.passwordPersistenceStrategy(),
+		UIPreferencesFile:    uiPreferencesFile,
 	})
 	if err != nil {
 		return errors.Wrap(err, "unable to initialize server")
