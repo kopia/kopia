@@ -136,6 +136,8 @@ func (s *Server) APIHandlers(legacyAPI bool) http.Handler {
 	m.HandleFunc("/api/v1/mounts", s.handleAPI(requireUIUser, s.handleMountList)).Methods(http.MethodGet)
 
 	m.HandleFunc("/api/v1/current-user", s.handleAPIPossiblyNotConnected(requireUIUser, s.handleCurrentUser)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/ui-preferences", s.handleAPIPossiblyNotConnected(requireUIUser, s.handleGetUIPreferences)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/ui-preferences", s.handleAPIPossiblyNotConnected(requireUIUser, s.handleSetUIPreferences)).Methods(http.MethodPut)
 
 	m.HandleFunc("/api/v1/tasks-summary", s.handleAPI(requireUIUser, s.handleTaskSummary)).Methods(http.MethodGet)
 	m.HandleFunc("/api/v1/tasks", s.handleAPI(requireUIUser, s.handleTaskList)).Methods(http.MethodGet)
@@ -669,6 +671,7 @@ type Options struct {
 	AuthCookieSigningKey string
 	LogRequests          bool
 	UIUser               string // name of the user allowed to access the UI
+	UIPreferencesFile    string // name of the JSON file storing UI preferences
 }
 
 // New creates a Server.
