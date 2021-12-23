@@ -268,7 +268,7 @@ func TestIndexEpochManager_RogueBlobs(t *testing.T) {
 	te.data[DeletionWatermarkBlobPrefix+"zzzz"] = []byte{1}
 
 	verifySequentialWrites(t, te)
-	te.mgr.Cleanup(testlogging.Context(t))
+	te.mgr.CleanupSupersededIndexes(testlogging.Context(t))
 }
 
 func TestIndexEpochManager_CompactionSilentlyDoesNothing(t *testing.T) {
@@ -519,7 +519,7 @@ func TestInvalid_Cleanup(t *testing.T) {
 	ctx, cancel := context.WithCancel(testlogging.Context(t))
 	cancel()
 
-	err := te.mgr.Cleanup(ctx)
+	err := te.mgr.CleanupSupersededIndexes(ctx)
 	require.ErrorIs(t, err, ctx.Err())
 }
 
@@ -551,7 +551,7 @@ func verifySequentialWrites(t *testing.T, te *epochManagerTestEnv) {
 
 		if indexNum%27 == 0 {
 			// do not require.NoError because we'll be sometimes inducing faults
-			te.mgr.Cleanup(ctx)
+			te.mgr.CleanupSupersededIndexes(ctx)
 		}
 
 		if indexNum%13 == 0 {

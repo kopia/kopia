@@ -228,19 +228,7 @@ func (e *Manager) Refresh(ctx context.Context) error {
 	return e.refreshLocked(ctx)
 }
 
-// Cleanup cleans up the old indexes for which there's a compacted replacement.
-func (e *Manager) Cleanup(ctx context.Context) error {
-	cs, err := e.committedState(ctx, 0)
-	if err != nil {
-		return err
-	}
-
-	return e.cleanupInternal(ctx, cs)
-}
-
-func (e *Manager) cleanupInternal(ctx context.Context, cs CurrentSnapshot) error {
-	eg, ctx := errgroup.WithContext(ctx)
-
+func (e *Manager) maxCleanupTime(cs CurrentSnapshot) time.Time {
 	// find max timestamp recently written to the repository to establish storage clock.
 	// we will be deleting blobs whose timestamps are sufficiently old enough relative
 	// to this max time. This assumes that storage clock moves forward somewhat reasonably.
@@ -254,6 +242,16 @@ func (e *Manager) cleanupInternal(ctx context.Context, cs CurrentSnapshot) error
 		}
 	}
 
+	return maxTime
+}
+
+func (e *Manager) cleanupInternal(ctx context.Context, cs CurrentSnapshot) error {
+	eg, ctx := errgroup.WithContext(ctx)
+
+	// find max timestamp recently written to the repository to establish storage clock.
+	// we will be deleting blobs whose timestamps are sufficiently old enough relative
+	// to this max time. This assumes that storage clock moves forward somewhat reasonably.
+	maxTime := e.maxCleanupTime(cs)
 	if maxTime.IsZero() {
 		return nil
 	}
@@ -265,10 +263,6 @@ func (e *Manager) cleanupInternal(ctx context.Context, cs CurrentSnapshot) error
 
 	eg.Go(func() error {
 		return e.cleanupEpochMarkers(ctx, cs)
-	})
-
-	eg.Go(func() error {
-		return e.cleanupUncompactedIndexes(ctx, cs, maxReplacementTime)
 	})
 
 	eg.Go(func() error {
@@ -314,7 +308,29 @@ func (e *Manager) cleanupWatermarks(ctx context.Context, cs CurrentSnapshot, max
 	return errors.Wrap(blob.DeleteMultiple(ctx, e.st, toDelete, e.Params.DeleteParallelism), "error deleting watermark blobs")
 }
 
-func (e *Manager) cleanupUncompactedIndexes(ctx context.Context, cs CurrentSnapshot, maxReplacementTime time.Time) error {
+// CleanupSupersededIndexes cleans up the indexes which have been superseded by compacted ones.
+func (e *Manager) CleanupSupersededIndexes(ctx context.Context) error {
+	cs, err := e.committedState(ctx, 0)
+	if err != nil {
+		return err
+	}
+
+	// find max timestamp recently written to the repository to establish storage clock.
+	// we will be deleting blobs whose timestamps are sufficiently old enough relative
+	// to this max time. This assumes that storage clock moves forward somewhat reasonably.
+	maxTime := e.maxCleanupTime(cs)
+	if maxTime.IsZero() {
+		return nil
+	}
+
+	// only delete blobs if a suitable replacement exists and has been written sufficiently
+	// long ago. we don't want to delete blobs that are created too recently, because other clients
+	// may have not observed them yet.
+	maxReplacementTime := maxTime.Add(-e.Params.CleanupSafetyMargin)
+
+	e.log.Debugw("Cleaning up superseded index blobs...",
+		"maxReplacementTime", maxReplacementTime)
+
 	// delete uncompacted indexes for epochs that already have single-epoch compaction
 	// that was written sufficiently long ago.
 	blobs, err := blob.ListAllBlobs(ctx, e.st, UncompactedIndexBlobPrefix)
