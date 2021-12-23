@@ -532,6 +532,14 @@ func getOrMakeBucket(tb testing.TB, cli *minio.Client, opt *Options, objectLocki
 		return
 	}
 
+	makeBucket(tb, cli, opt, objectLocking)
+}
+
+func makeBucket(tb testing.TB, cli *minio.Client, opt *Options, objectLocking bool) {
+	tb.Helper()
+
+	ctx := testlogging.Context(tb)
+
 	if err := cli.MakeBucket(ctx, opt.BucketName, minio.MakeBucketOptions{
 		Region:        opt.Region,
 		ObjectLocking: objectLocking,
