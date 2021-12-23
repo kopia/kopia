@@ -43,6 +43,7 @@ const (
 	TaskDropDeletedContentsFull   = "full-drop-deleted-content"
 	TaskIndexCompaction           = "index-compaction"
 	TaskCleanupLogs               = "cleanup-logs"
+	TaskCleanupEpochManager       = "cleanup-epoch-manager"
 )
 
 // shouldRun returns Mode if repository is due for periodic maintenance.
@@ -324,6 +325,18 @@ func runTaskCleanupLogs(ctx context.Context, runParams RunParameters, s *Schedul
 	})
 }
 
+func runTaskCleanupEpochManager(ctx context.Context, runParams RunParameters, s *Schedule) error {
+	em, ok := runParams.rep.ContentManager().EpochManager()
+	if !ok {
+		return nil
+	}
+
+	return ReportRun(ctx, runParams.rep, TaskCleanupEpochManager, s, func() error {
+		log(ctx).Infof("Cleaning up old index blobs which have already been compacted...")
+		return errors.Wrap(em.CleanupSupersededIndexes(ctx), "error cleaning up superseded index blobs")
+	})
+}
+
 func runTaskDropDeletedContentsFull(ctx context.Context, runParams RunParameters, s *Schedule, safety SafetyParameters) error {
 	var safeDropTime time.Time
 
@@ -416,6 +429,10 @@ func runFullMaintenance(ctx context.Context, runParams RunParameters, safety Saf
 
 	if err := runTaskCleanupLogs(ctx, runParams, s); err != nil {
 		return errors.Wrap(err, "error cleaning up logs")
+	}
+
+	if err := runTaskCleanupEpochManager(ctx, runParams, s); err != nil {
+		return errors.Wrap(err, "error cleaning up epoch manager")
 	}
 
 	return nil
