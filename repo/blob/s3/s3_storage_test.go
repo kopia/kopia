@@ -1,7 +1,6 @@
 package s3
 
 import (
-	"context"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
@@ -152,7 +151,7 @@ func TestS3StorageAWS(t *testing.T) {
 		Region:          getEnvOrSkip(t, testRegionEnv),
 	}
 
-	createBucket(t, options)
+	getOrCreateBucket(t, options)
 	testStorage(t, options, false, blob.PutOptions{})
 }
 
@@ -172,7 +171,7 @@ func TestS3StorageAWSSTS(t *testing.T) {
 
 	// STS token may no have permission to create bucket
 	// use accesskeyid and secretaccesskey to create the bucket
-	createBucket(t, &Options{
+	getOrCreateBucket(t, &Options{
 		Endpoint:        getEnv(testEndpointEnv, awsEndpoint),
 		AccessKeyID:     getEnv(testAccessKeyIDEnv, ""),
 		SecretAccessKey: getEnv(testSecretAccessKeyEnv, ""),
@@ -182,11 +181,11 @@ func TestS3StorageAWSSTS(t *testing.T) {
 	testStorage(t, options, false, blob.PutOptions{})
 }
 
-func TestS3StorageAWSRetentionUnversionedBucket(t *testing.T) {
+func TestS3StorageRetentionUnlockedBucket(t *testing.T) {
 	t.Parallel()
 
 	// skip the test if AWS creds are not provided
-	options := &Options{
+	options := Options{
 		Endpoint:        getEnv(testEndpointEnv, awsEndpoint),
 		AccessKeyID:     getEnvOrSkip(t, testAccessKeyIDEnv),
 		SecretAccessKey: getEnvOrSkip(t, testSecretAccessKeyEnv),
@@ -194,18 +193,30 @@ func TestS3StorageAWSRetentionUnversionedBucket(t *testing.T) {
 		Region:          getEnvOrSkip(t, testRegionEnv),
 	}
 
-	createBucket(t, options)
-	testPutBlobWithInvalidRetention(t, options, blob.PutOptions{
-		RetentionMode:   minio.Governance.String(),
-		RetentionPeriod: time.Hour * 24,
+	getOrCreateBucket(t, &options)
+
+	t.Run("valid period", func(t *testing.T) {
+		// expected to fail on non-locked buckets
+		testPutBlobWithInvalidRetention(t, options, blob.PutOptions{
+			RetentionMode:   minio.Governance.String(),
+			RetentionPeriod: time.Hour * 24,
+		})
+	})
+
+	t.Run("invalid period", func(t *testing.T) {
+		options.Prefix = ""
+		testPutBlobWithInvalidRetention(t, options, blob.PutOptions{
+			RetentionMode:   minio.Governance.String(),
+			RetentionPeriod: time.Nanosecond,
+		})
 	})
 }
 
-func TestS3StorageAWSRetentionLockedBucket(t *testing.T) {
+func TestS3StorageRetentionLockedBucket(t *testing.T) {
 	t.Parallel()
 
 	// skip the test if AWS creds are not provided
-	options := &Options{
+	options := Options{
 		Endpoint:        getEnv(testEndpointEnv, awsEndpoint),
 		AccessKeyID:     getEnvOrSkip(t, testAccessKeyIDEnv),
 		SecretAccessKey: getEnvOrSkip(t, testSecretAccessKeyEnv),
@@ -213,48 +224,21 @@ func TestS3StorageAWSRetentionLockedBucket(t *testing.T) {
 		Region:          getEnvOrSkip(t, testRegionEnv),
 	}
 
-	createBucket(t, options)
-	testStorage(t, options, false, blob.PutOptions{
-		RetentionMode:   minio.Governance.String(),
-		RetentionPeriod: time.Hour * 24,
+	getOrCreateBucket(t, &options)
+
+	t.Run("testStorage", func(t *testing.T) {
+		testStorage(t, &options, false, blob.PutOptions{
+			RetentionMode:   minio.Governance.String(),
+			RetentionPeriod: time.Hour * 24,
+		})
 	})
-}
 
-func TestS3StorageAWSRetentionInvalidPeriod(t *testing.T) {
-	t.Parallel()
-
-	// skip the test if AWS creds are not provided
-	options := &Options{
-		Endpoint:        getEnv(testEndpointEnv, awsEndpoint),
-		AccessKeyID:     getEnvOrSkip(t, testAccessKeyIDEnv),
-		SecretAccessKey: getEnvOrSkip(t, testSecretAccessKeyEnv),
-		BucketName:      getEnvOrSkip(t, testBucketEnv),
-		Region:          getEnvOrSkip(t, testRegionEnv),
-	}
-
-	createBucket(t, options)
-	testPutBlobWithInvalidRetention(t, options, blob.PutOptions{
-		RetentionMode:   minio.Governance.String(),
-		RetentionPeriod: time.Nanosecond,
-	})
-}
-
-func TestS3StorageAWSRetentionInvalidPeriodLockedBucket(t *testing.T) {
-	t.Parallel()
-
-	// skip the test if AWS creds are not provided
-	options := &Options{
-		Endpoint:        getEnv(testEndpointEnv, awsEndpoint),
-		AccessKeyID:     getEnvOrSkip(t, testAccessKeyIDEnv),
-		SecretAccessKey: getEnvOrSkip(t, testSecretAccessKeyEnv),
-		BucketName:      getEnvOrSkip(t, testLockedBucketEnv),
-		Region:          getEnvOrSkip(t, testRegionEnv),
-	}
-
-	createBucket(t, options)
-	testPutBlobWithInvalidRetention(t, options, blob.PutOptions{
-		RetentionMode:   minio.Governance.String(),
-		RetentionPeriod: time.Nanosecond,
+	t.Run("invalid period", func(t *testing.T) {
+		options.Prefix = ""
+		testPutBlobWithInvalidRetention(t, options, blob.PutOptions{
+			RetentionMode:   minio.Governance.String(),
+			RetentionPeriod: time.Nanosecond,
+		})
 	})
 }
 
@@ -273,7 +257,7 @@ func TestS3StorageMinio(t *testing.T) {
 		DoNotUseTLS:     true,
 	}
 
-	createBucket(t, options)
+	getOrCreateBucket(t, options)
 	testStorage(t, options, true, blob.PutOptions{})
 }
 
@@ -308,7 +292,7 @@ func TestS3StorageMinioSelfSignedCert(t *testing.T) {
 		DoNotVerifyTLS:  true,
 	}
 
-	createBucket(t, options)
+	getOrCreateBucket(t, options)
 	testStorage(t, options, true, blob.PutOptions{})
 }
 
@@ -349,7 +333,7 @@ func TestS3StorageMinioSTS(t *testing.T) {
 
 	kopiaAccessKeyID, kopiaSecretKey, kopiaSessionToken := createMinioSessionToken(t, minioEndpoint, minioRootAccessKeyID, minioRootSecretAccessKey, minioBucketName)
 
-	createBucket(t, &Options{
+	getOrCreateBucket(t, &Options{
 		Endpoint:        minioEndpoint,
 		AccessKeyID:     minioRootAccessKeyID,
 		SecretAccessKey: minioRootSecretAccessKey,
@@ -387,7 +371,7 @@ func TestNeedMD5AWS(t *testing.T) {
 
 	ctx := testlogging.Context(t)
 	cli := createClient(t, options)
-	makeBucket(t, cli, options, true)
+	getOrMakeBucket(t, cli, options, true)
 
 	// ensure it is a bucket with object locking enabled
 	want := "Enabled"
@@ -408,7 +392,7 @@ func TestNeedMD5AWS(t *testing.T) {
 	require.NoError(t, err, "could not create storage")
 
 	t.Cleanup(func() {
-		blobtesting.CleanupOldData(context.Background(), t, s, 0)
+		blobtesting.CleanupOldData(ctx, t, s, 0)
 	})
 
 	err = s.PutBlob(ctx, blob.ID("test-put-blob-0"), gather.FromSlice([]byte("xxyasdf243z")), blob.PutOptions{})
@@ -422,7 +406,7 @@ func testStorage(t *testing.T, options *Options, runValidationTest bool, opts bl
 
 	require.Equal(t, "", options.Prefix)
 
-	st0, err := New(testlogging.Context(t), options)
+	st0, err := New(ctx, options)
 	require.NoError(t, err)
 
 	defer st0.Close(ctx)
@@ -431,7 +415,7 @@ func testStorage(t *testing.T, options *Options, runValidationTest bool, opts bl
 
 	options.Prefix = uuid.NewString()
 
-	st, err := New(testlogging.Context(t), options)
+	st, err := New(ctx, options)
 	require.NoError(t, err)
 
 	defer st.Close(ctx)
@@ -445,15 +429,15 @@ func testStorage(t *testing.T, options *Options, runValidationTest bool, opts bl
 	}
 }
 
-// nolint:thelper
-func testPutBlobWithInvalidRetention(t *testing.T, options *Options, opts blob.PutOptions) {
+// nolint:thelper,gocritic
+func testPutBlobWithInvalidRetention(t *testing.T, options Options, opts blob.PutOptions) {
 	ctx := testlogging.Context(t)
 
 	require.Equal(t, "", options.Prefix)
 	options.Prefix = uuid.NewString()
 
 	// non-retrying storage
-	st, err := newStorage(testlogging.Context(t), options)
+	st, err := newStorage(ctx, &options)
 	require.NoError(t, err)
 
 	defer st.Close(ctx)
@@ -526,18 +510,29 @@ func createClient(tb testing.TB, opt *Options) *minio.Client {
 	return minioClient
 }
 
-func createBucket(tb testing.TB, opt *Options) {
+func getOrCreateBucket(tb testing.TB, opt *Options) {
 	tb.Helper()
 
 	minioClient := createClient(tb, opt)
 
-	makeBucket(tb, minioClient, opt, false)
+	getOrMakeBucket(tb, minioClient, opt, false)
 }
 
-func makeBucket(tb testing.TB, cli *minio.Client, opt *Options, objectLocking bool) {
+func getOrMakeBucket(tb testing.TB, cli *minio.Client, opt *Options, objectLocking bool) {
 	tb.Helper()
 
-	if err := cli.MakeBucket(context.Background(), opt.BucketName, minio.MakeBucketOptions{
+	ctx := testlogging.Context(tb)
+
+	// check whether the bucket exists before attempting to create it to avoid
+	// and reduce the overall number of potentially expensive bucket creation
+	// calls.
+	if loc, err := cli.GetBucketLocation(ctx, opt.BucketName); err == nil {
+		tb.Log("found bucket", opt.BucketName, "in location", loc)
+
+		return
+	}
+
+	if err := cli.MakeBucket(ctx, opt.BucketName, minio.MakeBucketOptions{
 		Region:        opt.Region,
 		ObjectLocking: objectLocking,
 	}); err != nil {
