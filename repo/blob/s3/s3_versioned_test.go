@@ -838,15 +838,16 @@ func isRetriable(err error) bool {
 func getVersionedTestStore(tb testing.TB, envName string) *s3Storage {
 	tb.Helper()
 
+	ctx := testlogging.Context(tb)
 	o := getProviderOptions(tb, envName)
 	o.Prefix = path.Join(tb.Name(), uuid.NewString()) + "/"
 
-	s, err := newStorage(testlogging.Context(tb), o)
+	s, err := newStorage(ctx, o)
 	require.NoError(tb, err, "error creating versioned store client")
 
 	tb.Cleanup(func() {
 		cleanupVersions(tb, s)
-		blobtesting.CleanupOldData(context.Background(), tb, s, 0)
+		blobtesting.CleanupOldData(ctx, tb, s, 0)
 	})
 
 	return s
