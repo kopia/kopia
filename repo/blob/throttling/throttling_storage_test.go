@@ -63,6 +63,7 @@ func TestThrottling(t *testing.T) {
 	require.Equal(t, []string{
 		"BeforeOperation(GetBlob)",
 		"BeforeDownload(20000000)",
+		"inner.concurrency level reached",
 		"inner.GetBlob",
 		"ReturnUnusedDownloadBytes(20000000)",
 	}, m.activity)
