@@ -3,6 +3,7 @@ package logging
 
 import (
 	"context"
+	"sync/atomic"
 
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/repo/blob"
@@ -10,12 +11,33 @@ import (
 )
 
 type loggingStorage struct {
+	concurrency    int32
+	maxConcurrency int32
+
 	base   blob.Storage
 	prefix string
 	logger logging.Logger
 }
 
+func (s *loggingStorage) beginConcurrency() {
+	v := atomic.AddInt32(&s.concurrency, 1)
+
+	if mv := atomic.LoadInt32(&s.maxConcurrency); v > mv {
+		if atomic.CompareAndSwapInt32(&s.maxConcurrency, mv, v) {
+			s.logger.Debugw(s.prefix+"concurrency level reached",
+				"maxConcurrency", mv)
+		}
+	}
+}
+
+func (s *loggingStorage) endConcurrency() {
+	atomic.AddInt32(&s.concurrency, -1)
+}
+
 func (s *loggingStorage) GetBlob(ctx context.Context, id blob.ID, offset, length int64, output blob.OutputBuffer) error {
+	s.beginConcurrency()
+	defer s.endConcurrency()
+
 	timer := timetrack.StartTimer()
 	err := s.base.GetBlob(ctx, id, offset, length, output)
 	dt := timer.Elapsed()
@@ -34,6 +56,9 @@ func (s *loggingStorage) GetBlob(ctx context.Context, id blob.ID, offset, length
 }
 
 func (s *loggingStorage) GetMetadata(ctx context.Context, id blob.ID) (blob.Metadata, error) {
+	s.beginConcurrency()
+	defer s.endConcurrency()
+
 	timer := timetrack.StartTimer()
 	result, err := s.base.GetMetadata(ctx, id)
 	dt := timer.Elapsed()
@@ -50,6 +75,9 @@ func (s *loggingStorage) GetMetadata(ctx context.Context, id blob.ID) (blob.Meta
 }
 
 func (s *loggingStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes, opts blob.PutOptions) error {
+	s.beginConcurrency()
+	defer s.endConcurrency()
+
 	timer := timetrack.StartTimer()
 	err := s.base.PutBlob(ctx, id, data, opts)
 	dt := timer.Elapsed()
@@ -66,6 +94,9 @@ func (s *loggingStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Byte
 }
 
 func (s *loggingStorage) DeleteBlob(ctx context.Context, id blob.ID) error {
+	s.beginConcurrency()
+	defer s.endConcurrency()
+
 	timer := timetrack.StartTimer()
 	err := s.base.DeleteBlob(ctx, id)
 	dt := timer.Elapsed()
@@ -80,6 +111,9 @@ func (s *loggingStorage) DeleteBlob(ctx context.Context, id blob.ID) error {
 }
 
 func (s *loggingStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback func(blob.Metadata) error) error {
+	s.beginConcurrency()
+	defer s.endConcurrency()
+
 	timer := timetrack.StartTimer()
 	cnt := 0
 	err := s.base.ListBlobs(ctx, prefix, func(bi blob.Metadata) error {
