@@ -70,6 +70,8 @@ type Server struct {
 	authCookieSigningKey []byte
 
 	grpcServerState
+
+	pendingUITokens sync.Map // string->time.Time (expiration time)
 }
 
 // APIHandlers handles API requests.
@@ -140,6 +142,9 @@ func (s *Server) APIHandlers(legacyAPI bool) http.Handler {
 	m.HandleFunc("/api/v1/ui-preferences", s.handleAPIPossiblyNotConnected(requireUIUser, s.handleGetUIPreferences)).Methods(http.MethodGet)
 	m.HandleFunc("/api/v1/ui-preferences", s.handleAPIPossiblyNotConnected(requireUIUser, s.handleSetUIPreferences)).Methods(http.MethodPut)
 
+	// allows UI user to get a single-use token
+	m.HandleFunc("/api/v1/ui-token", s.handleAPIPossiblyNotConnected(requireUIUser, s.handleGenerateUIToken)).Methods(http.MethodPost)
+
 	m.HandleFunc("/api/v1/tasks-summary", s.handleAPI(requireUIUser, s.handleTaskSummary)).Methods(http.MethodGet)
 	m.HandleFunc("/api/v1/tasks", s.handleAPI(requireUIUser, s.handleTaskList)).Methods(http.MethodGet)
 	m.HandleFunc("/api/v1/tasks/{taskID}", s.handleAPI(requireUIUser, s.handleTaskInfo)).Methods(http.MethodGet)
@@ -165,16 +170,33 @@ func (s *Server) isAuthenticated(w http.ResponseWriter, r *http.Request) bool {
 		return true
 	}
 
+	if c, err := r.Cookie(kopiaUISessionCookie); err == nil && c != nil {
+		if remaining := s.isAuthCookieValid(s.options.UIUser, c.Value); remaining > 0 {
+			// found a short-term JWT cookie for the UI user, trust it and refresh
+			s.setUIAuthorizedCookie(r.Context(), w)
+
+			return true
+		}
+	}
+
+	if s.authenticateUsingUIToken(r.Context(), w, r) {
+		// we did redirect, deny this request.
+		return false
+	}
+
 	username, password, ok := r.BasicAuth()
 	if !ok {
-		w.Header().Set("WWW-Authenticate", `Basic realm="Kopia"`)
+		if s.options.PromptForBasicAuth {
+			w.Header().Set("WWW-Authenticate", `Basic realm="Kopia"`)
+		}
+
 		http.Error(w, "Missing credentials.\n", http.StatusUnauthorized)
 
 		return false
 	}
 
 	if c, err := r.Cookie(kopiaAuthCookie); err == nil && c != nil {
-		if s.isAuthCookieValid(username, c.Value) {
+		if remaining := s.isAuthCookieValid(username, c.Value); remaining > 0 {
 			// found a short-term JWT cookie that matches given username, trust it.
 			// this avoids potentially expensive password hashing inside the authenticator.
 			return true
@@ -190,42 +212,53 @@ func (s *Server) isAuthenticated(w http.ResponseWriter, r *http.Request) bool {
 
 	now := clock.Now()
 
-	ac, err := s.generateShortTermAuthCookie(username, now)
+	ac, err := s.generateAuthCookie(username, now, kopiaAuthCookieTTL)
 	if err != nil {
 		log(r.Context()).Errorf("unable to generate short-term auth cookie: %v", err)
 	} else {
 		http.SetCookie(w, &http.Cookie{
-			Name:    kopiaAuthCookie,
-			Value:   ac,
-			Expires: now.Add(kopiaAuthCookieTTL),
+			Name:     kopiaAuthCookie,
+			Value:    ac,
+			Expires:  now.Add(kopiaAuthCookieTTL),
+			HttpOnly: true,
+			Secure:   true,
 		})
 	}
 
 	return true
 }
 
-func (s *Server) isAuthCookieValid(username, cookieValue string) bool {
+// isAuthCookieValid determines if the auth cookie is valid and returns the remaining time.
+func (s *Server) isAuthCookieValid(username, cookieValue string) time.Duration {
 	tok, err := jwt.ParseWithClaims(cookieValue, &jwt.RegisteredClaims{}, func(t *jwt.Token) (interface{}, error) {
 		return s.authCookieSigningKey, nil
 	})
 	if err != nil {
-		return false
+		return 0
 	}
 
 	sc, ok := tok.Claims.(*jwt.RegisteredClaims)
 	if !ok {
-		return false
+		return 0
 	}
 
-	return sc.Subject == username
+	if sc.Subject != username {
+		return 0
+	}
+
+	if sc.ExpiresAt == nil {
+		return 0
+	}
+
+	return sc.ExpiresAt.Sub(clock.Now())
 }
 
-func (s *Server) generateShortTermAuthCookie(username string, now time.Time) (string, error) {
+func (s *Server) generateAuthCookie(username string, now time.Time, ttl time.Duration) (string, error) {
 	// nolint:wrapcheck
 	return jwt.NewWithClaims(jwt.SigningMethodHS256, &jwt.RegisteredClaims{
 		Subject:   username,
 		NotBefore: jwt.NewNumericDate(now.Add(-time.Minute)),
-		ExpiresAt: jwt.NewNumericDate(now.Add(kopiaAuthCookieTTL)),
+		ExpiresAt: jwt.NewNumericDate(now.Add(ttl)),
 		IssuedAt:  jwt.NewNumericDate(now),
 		Audience:  jwt.ClaimStrings{kopiaAuthCookieAudience},
 		ID:        uuid.New().String(),
@@ -757,6 +790,10 @@ type Options struct {
 	ServerControlUser      string // name of the user allowed to access the server control API
 	DisableCSRFTokenChecks bool
 	UITitlePrefix          string
+
+	PromptForBasicAuth      bool
+	SingleUseUIAuthTokenTTL time.Duration // time-to-live for single-use authentication tokens
+	UISessionCookieTTL      time.Duration // time-to-live UI authentication session cookie
 }
 
 // New creates a Server.
@@ -788,4 +825,17 @@ func New(ctx context.Context, options *Options) (*Server, error) {
 	}
 
 	return s, nil
+}
+
+// IsLocalhost returns true if the provided hostname, possibly including ":port" suffix
+// represents a localhost.
+func IsLocalhost(host string) bool {
+	hostname := strings.Split(host, ":")[0]
+
+	switch hostname {
+	case "127.0.0.1", "localhost":
+		return true
+	default:
+		return false
+	}
 }

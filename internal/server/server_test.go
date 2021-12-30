@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"io"
 	"net/http"
+	"net/http/cookiejar"
 	"net/http/httptest"
 	"path/filepath"
 	"testing"
@@ -20,6 +21,7 @@ import (
 	"github.com/kopia/kopia/internal/passwordpersist"
 	"github.com/kopia/kopia/internal/repotesting"
 	"github.com/kopia/kopia/internal/server"
+	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo"
@@ -56,6 +58,9 @@ func startServer(t *testing.T, env *repotesting.Environment, tls bool) *repo.API
 		RefreshInterval:   1 * time.Minute,
 		UIUser:            testUIUsername,
 		UIPreferencesFile: filepath.Join(testutil.TempDirectory(t), "ui-pref.json"),
+
+		SingleUseUIAuthTokenTTL: 30 * time.Second,
+		UISessionCookieTTL:      10 * time.Minute,
 	})
 
 	require.NoError(t, err)
@@ -129,6 +134,61 @@ func TestGPRServer_AuthenticationError(t *testing.T) {
 	}, nil, "bad-password"); err == nil {
 		t.Fatal("unexpected success when connecting with invalid username")
 	}
+}
+
+func TestServerUILoginUsingToken(t *testing.T) {
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
+	si := startServer(t, env, false)
+
+	uiUserClient, err := apiclient.NewKopiaAPIClient(apiclient.Options{
+		BaseURL:  si.BaseURL,
+		Username: testUIUsername,
+		Password: testUIPassword,
+	})
+
+	require.NoError(t, err)
+
+	var tok serverapi.UIAuthToken
+
+	jar, err := cookiejar.New(nil)
+	require.NoError(t, err)
+
+	hc := http.Client{
+		Jar: jar,
+	}
+
+	require.NoError(t, uiUserClient.Post(ctx, "ui-token", nil, &tok))
+	require.NotEmpty(t, tok.Token)
+
+	u := si.BaseURL + "/api/v1/repo/algorithms?uiAuthToken=" + tok.Token + "&foo=bar"
+
+	req, err := http.NewRequestWithContext(ctx, "GET", u, http.NoBody)
+	require.NoError(t, err)
+
+	resp, err := hc.Do(req)
+	require.NoError(t, err)
+
+	defer resp.Body.Close()
+
+	require.Equal(t, 200, resp.StatusCode)
+
+	req2, err := http.NewRequestWithContext(ctx, "GET", u, http.NoBody)
+	require.NoError(t, err)
+
+	jar2, err := cookiejar.New(nil)
+	require.NoError(t, err)
+
+	hc2 := http.Client{
+		Jar: jar2,
+	}
+
+	resp2, err := hc2.Do(req2)
+	require.NoError(t, err)
+
+	defer resp2.Body.Close()
+
+	// attempt to reuse token produces 401
+	require.Equal(t, 401, resp2.StatusCode)
 }
 
 func TestServerUIAccessDeniedToRemoteUser(t *testing.T) {

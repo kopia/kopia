@@ -42,6 +42,7 @@ type commandServerStart struct {
 	serverStartWithoutPassword bool
 	serverStartRandomPassword  bool
 	serverStartHtpasswdFile    string
+	serverPromptBasicAuth      bool
 
 	randomServerControlPassword bool
 	serverControlUsername       string
@@ -60,6 +61,9 @@ type commandServerStart struct {
 	serverStartTLSPrintFullServerCert   bool
 	uiTitlePrefix                       string
 	uiPreferencesFile                   string
+
+	uiSingleUseAuthTokenTTL time.Duration
+	uiSessionCookieTTL      time.Duration
 
 	logServerRequests bool
 
@@ -88,10 +92,9 @@ func (c *commandServerStart) setup(svc advancedAppServices, parent commandParent
 	cmd.Flag("server-control-username", "Server control username").Default("server-control").Envar("KOPIA_SERVER_CONTROL_USER").StringVar(&c.serverControlUsername)
 	cmd.Flag("server-control-password", "Server control password").PlaceHolder("PASSWORD").Envar("KOPIA_SERVER_CONTROL_PASSWORD").StringVar(&c.serverControlPassword)
 
+	cmd.Flag("prompt-basic-auth", "Prompt for basic authentication if not provided").Default("true").Hidden().BoolVar(&c.serverPromptBasicAuth)
 	cmd.Flag("auth-cookie-signing-key", "Force particular auth cookie signing key").Envar("KOPIA_AUTH_COOKIE_SIGNING_KEY").Hidden().StringVar(&c.serverAuthCookieSingingKey)
-
 	cmd.Flag("shutdown-on-stdin", "Shut down the server when stdin handle has closed.").Hidden().BoolVar(&c.serverStartShutdownWhenStdinClosed)
-
 	cmd.Flag("tls-generate-cert", "Generate TLS certificate").Hidden().BoolVar(&c.serverStartTLSGenerateCert)
 	cmd.Flag("tls-cert-file", "TLS certificate PEM").StringVar(&c.serverStartTLSCertFile)
 	cmd.Flag("tls-key-file", "TLS key PEM file").StringVar(&c.serverStartTLSKeyFile)
@@ -99,6 +102,8 @@ func (c *commandServerStart) setup(svc advancedAppServices, parent commandParent
 	cmd.Flag("tls-generate-cert-valid-days", "How long should the TLS certificate be valid").Default("3650").Hidden().IntVar(&c.serverStartTLSGenerateCertValidDays)
 	cmd.Flag("tls-generate-cert-name", "Host names/IP addresses to generate TLS certificate for").Default("127.0.0.1").Hidden().StringsVar(&c.serverStartTLSGenerateCertNames)
 	cmd.Flag("tls-print-server-cert", "Print server certificate").Hidden().BoolVar(&c.serverStartTLSPrintFullServerCert)
+	cmd.Flag("ui-auth-token-ttl", "Time to live for single-use UI auth tokens").Hidden().DurationVar(&c.uiSingleUseAuthTokenTTL)
+	cmd.Flag("ui-session-cookie-ttl", "Time to live for UI session cookies (auto-extended on each request)").Default("600s").Hidden().DurationVar(&c.uiSessionCookieTTL)
 
 	cmd.Flag("ui-title-prefix", "UI title prefix").Hidden().Envar("KOPIA_UI_TITLE_PREFIX").StringVar(&c.uiTitlePrefix)
 	cmd.Flag("ui-preferences-file", "Path to JSON file storing UI preferences").StringVar(&c.uiPreferencesFile)
@@ -129,19 +134,22 @@ func (c *commandServerStart) run(ctx context.Context, rep repo.Repository) error
 	}
 
 	srv, err := server.New(ctx, &server.Options{
-		ConfigFile:           c.svc.repositoryConfigFileName(),
-		ConnectOptions:       c.co.toRepoConnectOptions(),
-		RefreshInterval:      c.serverStartRefreshInterval,
-		MaxConcurrency:       c.serverStartMaxConcurrency,
-		Authenticator:        authn,
-		Authorizer:           auth.DefaultAuthorizer(),
-		AuthCookieSigningKey: c.serverAuthCookieSingingKey,
-		UIUser:               c.sf.serverUsername,
-		ServerControlUser:    c.serverControlUsername,
-		LogRequests:          c.logServerRequests,
-		PasswordPersist:      c.svc.passwordPersistenceStrategy(),
-		UIPreferencesFile:    uiPreferencesFile,
-		UITitlePrefix:        c.uiTitlePrefix,
+		ConfigFile:              c.svc.repositoryConfigFileName(),
+		ConnectOptions:          c.co.toRepoConnectOptions(),
+		RefreshInterval:         c.serverStartRefreshInterval,
+		MaxConcurrency:          c.serverStartMaxConcurrency,
+		Authenticator:           authn,
+		Authorizer:              auth.DefaultAuthorizer(),
+		AuthCookieSigningKey:    c.serverAuthCookieSingingKey,
+		UIUser:                  c.sf.serverUsername,
+		ServerControlUser:       c.serverControlUsername,
+		LogRequests:             c.logServerRequests,
+		PasswordPersist:         c.svc.passwordPersistenceStrategy(),
+		UIPreferencesFile:       uiPreferencesFile,
+		UITitlePrefix:           c.uiTitlePrefix,
+		PromptForBasicAuth:      c.serverPromptBasicAuth,
+		SingleUseUIAuthTokenTTL: c.uiSingleUseAuthTokenTTL,
+		UISessionCookieTTL:      c.uiSessionCookieTTL,
 	})
 	if err != nil {
 		return errors.Wrap(err, "unable to initialize server")

@@ -12,6 +12,13 @@ func requireUIUser(s *Server, r *http.Request) bool {
 		return true
 	}
 
+	if c, err := r.Cookie(kopiaUISessionCookie); err == nil && c != nil {
+		if remaining := s.isAuthCookieValid(s.options.UIUser, c.Value); remaining > 0 {
+			// found a short-term JWT cookie that matches given username, trust it.
+			return true
+		}
+	}
+
 	user, _, _ := r.BasicAuth()
 
 	return user == s.options.UIUser

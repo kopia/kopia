@@ -256,3 +256,10 @@ type CLIInfo struct {
 type UIPreferences struct {
 	Theme string `json:"theme"` // 'dark', 'light' or ''
 }
+
+// UIAuthToken is a token for accessing the UI from localhost only.
+// The token expires immediately after use.
+type UIAuthToken struct {
+	Token   string    `json:"token"`
+	Expires time.Time `json:"expires"`
+}

@@ -18,6 +18,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/server"
 	"github.com/kopia/kopia/internal/tlsutil"
 )
 
@@ -131,7 +132,7 @@ func (c *commandServerStart) startServerWithOptionalTLSAndListener(ctx context.C
 		return errors.Wrap(httpServer.ServeTLS(listener, "", ""), "error starting TLS server")
 
 	default:
-		if !c.serverStartInsecure {
+		if !c.serverStartInsecure && !server.IsLocalhost(httpServer.Addr) {
 			return errors.Errorf("TLS not configured. To start server without encryption pass --insecure.")
 		}
 
