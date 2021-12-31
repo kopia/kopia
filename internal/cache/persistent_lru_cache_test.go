@@ -282,7 +282,7 @@ func TestPersistentLRUCache_Sweep1(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	// simulate error during final sweep
-	fs.AddFault(blobtesting.MethodListBlobs).ErrorInstead(errors.Errorf("some error"))
+	fs.AddFaults(blobtesting.MethodListBlobs, fault.New().ErrorInstead(errors.Errorf("some error")))
 	pc.Close(ctx)
 }
 
