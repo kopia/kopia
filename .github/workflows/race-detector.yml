@@ -4,23 +4,8 @@ on:
   push:
     branches: [ master ]
 jobs:
-  integration_tests:
-    name: Integration Tests
-    runs-on: ubuntu-latest
-    steps:
-    - name: Set up Go.
-      uses: actions/setup-go@v2
-      with:
-        go-version: ^1.17
-      id: go
-    - name: Check out code into the Go module directory
-      uses: actions/checkout@v2
-      with:
-        fetch-depth: 0
-    - name: Integration Tests
-      run: make -j2 ci-integration-tests INTEGRATION_TEST_RACE_FLAGS=-race
-  unit_tests:
-    name: Unit Tests
+  tests:
+    name: Tests
     runs-on: ubuntu-latest
     steps:
     - name: Set up Go.
@@ -34,3 +19,5 @@ jobs:
         fetch-depth: 0
     - name: Unit Tests
       run: make -j2 test UNIT_TEST_RACE_FLAGS=-race
+    - name: Integration Tests
+      run: make -j2 ci-integration-tests INTEGRATION_TEST_RACE_FLAGS=-race
