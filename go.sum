@@ -387,12 +387,6 @@ github.com/klauspost/pgzip v1.2.5 h1:qnWYvvKqedOF2ulHpMG72XQol4ILEJ8k2wwRl/Km8oE
 github.com/klauspost/pgzip v1.2.5/go.mod h1:Ch1tH69qFZu15pkjo5kYi6mth2Zzwzt50oCQKQE9RUs=
 github.com/konsorten/go-windows-terminal-sequences v1.0.1/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
 github.com/konsorten/go-windows-terminal-sequences v1.0.3/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
-github.com/kopia/htmluibuild v0.0.0-20211218222024-ddc4c4aa34ee h1:72jpX5y1qR8SHgKcDjo51U6LKv/zuAnDYX10JJQKlK4=
-github.com/kopia/htmluibuild v0.0.0-20211218222024-ddc4c4aa34ee/go.mod h1:eWer4rx9P8lJo2eKc+Q7AZ1dE1x1hJNdkbDFPzMu1Hw=
-github.com/kopia/htmluibuild v0.0.0-20211223073627-e6b6141bba94 h1:cetYBxizQNLfwF8MKxuwra/mOYwuBmC3Asy+hVAl9wA=
-github.com/kopia/htmluibuild v0.0.0-20211223073627-e6b6141bba94/go.mod h1:eWer4rx9P8lJo2eKc+Q7AZ1dE1x1hJNdkbDFPzMu1Hw=
-github.com/kopia/htmluibuild v0.0.0-20211223182507-6b6a50b2f0d1 h1:stwETPrkIzdLAyQ+yzD1pfl/YHVRoy1kFDJbcyCSfSE=
-github.com/kopia/htmluibuild v0.0.0-20211223182507-6b6a50b2f0d1/go.mod h1:eWer4rx9P8lJo2eKc+Q7AZ1dE1x1hJNdkbDFPzMu1Hw=
 github.com/kopia/htmluibuild v0.0.0-20211226001320-eed13dea3815 h1:tYyVCQw7MOqceTvuKIWQ2eCp/caJg5HRp1pO0Q68Z7Y=
 github.com/kopia/htmluibuild v0.0.0-20211226001320-eed13dea3815/go.mod h1:eWer4rx9P8lJo2eKc+Q7AZ1dE1x1hJNdkbDFPzMu1Hw=
 github.com/kr/fs v0.1.0 h1:Jskdu9ieNAYnjxsi0LbQp1ulIKZV1LAFgK1tWhpZgl8=
@@ -430,8 +424,8 @@ github.com/miekg/dns v1.0.14/go.mod h1:W1PPwlIAgtquWBMBEV9nkV9Cazfe8ScdGz/Lj7v3N
 github.com/minio/md5-simd v1.1.0/go.mod h1:XpBqgZULrMYD3R+M28PcmP0CkI7PEMzB3U77ZrKZ0Gw=
 github.com/minio/md5-simd v1.1.2 h1:Gdi1DZK69+ZVMoNHRXJyNcxrMA4dSxoYHZSQbirFg34=
 github.com/minio/md5-simd v1.1.2/go.mod h1:MzdKDxYpY2BT9XQFocsiZf/NKVtR7nkE4RoEpN+20RM=
-github.com/minio/minio-go/v7 v7.0.18 h1:fncn6iacnK+i2uYfNc5aVPG7bEqQH0nU4yAGMSunY0w=
-github.com/minio/minio-go/v7 v7.0.18/go.mod h1:SyQ1IFeJuaa+eV5yEDxW7hYE1s5VVq5sgImDe27R+zg=
+github.com/minio/minio-go/v7 v7.0.20 h1:0+Xt1SkCKDgcx5cmo3UxXcJ37u5Gy+/2i/+eQYqmYJw=
+github.com/minio/minio-go/v7 v7.0.20/go.mod h1:ei5JjmxwHaMrgsMrn4U/+Nmg+d8MKS1U2DAn1ou4+Do=
 github.com/minio/sha256-simd v0.1.1/go.mod h1:B5e1o+1/KgNmWrSQK08Y6Z1Vb5pwIktudl0J58iy0KM=
 github.com/minio/sha256-simd v1.0.0 h1:v1ta+49hkWZyvaKwrQB8elexRqm6Y0aMLjCNsrYxo6g=
 github.com/minio/sha256-simd v1.0.0/go.mod h1:OuYzVNI5vcoYIAmbIvHPl3N3jUzVedXbKy5RFepssQM=
