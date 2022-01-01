@@ -1,16 +1,13 @@
 package cli
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"html"
 	"io"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -23,7 +20,6 @@ import (
 	htpasswd "github.com/tg123/go-htpasswd"
 
 	"github.com/kopia/kopia/internal/auth"
-	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/server"
 	"github.com/kopia/kopia/repo"
 )
@@ -112,6 +108,7 @@ func (c *commandServerStart) setup(svc advancedAppServices, parent commandParent
 	}))
 }
 
+// nolint:funlen
 func (c *commandServerStart) run(ctx context.Context, rep repo.Repository) error {
 	authn, err := c.getAuthenticator(ctx)
 	if err != nil {
@@ -123,7 +120,7 @@ func (c *commandServerStart) run(ctx context.Context, rep repo.Repository) error
 		uiPreferencesFile = filepath.Join(filepath.Dir(c.svc.repositoryConfigFileName()), "ui-preferences.json")
 	}
 
-	srv, err := server.New(ctx, server.Options{
+	srv, err := server.New(ctx, &server.Options{
 		ConfigFile:           c.svc.repositoryConfigFileName(),
 		ConnectOptions:       c.co.toRepoConnectOptions(),
 		RefreshInterval:      c.serverStartRefreshInterval,
@@ -135,6 +132,7 @@ func (c *commandServerStart) run(ctx context.Context, rep repo.Repository) error
 		LogRequests:          c.logServerRequests,
 		PasswordPersist:      c.svc.passwordPersistenceStrategy(),
 		UIPreferencesFile:    uiPreferencesFile,
+		UITitlePrefix:        c.uiTitlePrefix,
 	})
 	if err != nil {
 		return errors.Wrap(err, "unable to initialize server")
@@ -153,10 +151,10 @@ func (c *commandServerStart) run(ctx context.Context, rep repo.Repository) error
 	mux.Handle("/api/", srv.APIHandlers(c.serverStartLegacyRepositoryAPI))
 
 	if c.serverStartHTMLPath != "" {
-		fileServer := srv.RequireUIUserAuth(c.serveIndexFileForKnownUIRoutes(http.Dir(c.serverStartHTMLPath)))
+		fileServer := srv.ServeStaticFiles(http.Dir(c.serverStartHTMLPath))
 		mux.Handle("/", fileServer)
 	} else if c.serverStartUI {
-		mux.Handle("/", srv.RequireUIUserAuth(c.serveIndexFileForKnownUIRoutes(server.AssetFile())))
+		mux.Handle("/", srv.ServeStaticFiles(server.AssetFile()))
 	}
 
 	httpServer := &http.Server{
@@ -239,62 +237,6 @@ func initPrometheus(mux *http.ServeMux) error {
 
 func stripProtocol(addr string) string {
 	return strings.TrimPrefix(strings.TrimPrefix(addr, "https://"), "http://")
-}
-
-func (c *commandServerStart) isKnownUIRoute(path string) bool {
-	return strings.HasPrefix(path, "/snapshots") ||
-		strings.HasPrefix(path, "/policies") ||
-		strings.HasPrefix(path, "/tasks") ||
-		strings.HasPrefix(path, "/repo")
-}
-
-func (c *commandServerStart) patchIndexBytes(b []byte) []byte {
-	if c.uiTitlePrefix != "" {
-		b = bytes.ReplaceAll(b, []byte("<title>"), []byte("<title>"+html.EscapeString(c.uiTitlePrefix)))
-	}
-
-	return b
-}
-
-func maybeReadIndexBytes(fs http.FileSystem) []byte {
-	rootFile, err := fs.Open("index.html")
-	if err != nil {
-		return nil
-	}
-
-	defer rootFile.Close() //nolint:errcheck
-
-	rd, err := io.ReadAll(rootFile)
-	if err != nil {
-		return nil
-	}
-
-	return rd
-}
-
-func (c *commandServerStart) serveIndexFileForKnownUIRoutes(fs http.FileSystem) http.Handler {
-	h := http.FileServer(fs)
-
-	// read bytes from 'index.html' and patch based on optional environment variables.
-	indexBytes := c.patchIndexBytes(maybeReadIndexBytes(fs))
-
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if c.isKnownUIRoute(r.URL.Path) {
-			r2 := new(http.Request)
-			*r2 = *r
-			r2.URL = new(url.URL)
-			*r2.URL = *r.URL
-			r2.URL.Path = "/"
-			r = r2
-		}
-
-		if r.URL.Path == "/" && indexBytes != nil {
-			http.ServeContent(w, r, "/", clock.Now(), bytes.NewReader(indexBytes))
-			return
-		}
-
-		h.ServeHTTP(w, r)
-	})
 }
 
 func (c *commandServerStart) getAuthenticator(ctx context.Context) (auth.Authenticator, error) {

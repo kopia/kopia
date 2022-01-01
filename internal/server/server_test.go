@@ -45,7 +45,7 @@ const (
 func startServer(t *testing.T, env *repotesting.Environment, tls bool) *repo.APIServerInfo {
 	ctx := testlogging.Context(t)
 
-	s, err := server.New(ctx, server.Options{
+	s, err := server.New(ctx, &server.Options{
 		ConfigFile:      env.ConfigFile(),
 		PasswordPersist: passwordpersist.File,
 		Authorizer:      auth.LegacyAuthorizer(),

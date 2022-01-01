@@ -2,11 +2,14 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"html"
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -81,7 +84,6 @@ func (s *Server) APIHandlers(legacyAPI bool) http.Handler {
 
 	// snapshots
 	m.HandleFunc("/api/v1/snapshots", s.handleAPI(requireUIUser, s.handleSnapshotList)).Methods(http.MethodGet)
-
 	m.HandleFunc("/api/v1/policy", s.handleAPI(requireUIUser, s.handlePolicyGet)).Methods(http.MethodGet)
 	m.HandleFunc("/api/v1/policy", s.handleAPI(requireUIUser, s.handlePolicyPut)).Methods(http.MethodPut)
 	m.HandleFunc("/api/v1/policy", s.handleAPI(requireUIUser, s.handlePolicyDelete)).Methods(http.MethodDelete)
@@ -252,18 +254,6 @@ func (s *Server) handleAPI(isAuthorized isAuthorizedFunc, f apiRequestFunc) http
 		}
 
 		return f(ctx, r, body)
-	})
-}
-
-// RequireUIUserAuth wraps the provided http.Handler to only allow UI user and return 403 otherwise.
-func (s *Server) RequireUIUserAuth(hf http.Handler) http.Handler {
-	return s.requireAuth(func(rw http.ResponseWriter, r *http.Request) {
-		if !requireUIUser(s, r) {
-			http.Error(rw, `UI Access denied. See https://github.com/kopia/kopia/issues/880#issuecomment-798421751 for more information.`, http.StatusForbidden)
-			return
-		}
-
-		hf.ServeHTTP(rw, r)
 	})
 }
 
@@ -659,24 +649,88 @@ func (s *Server) syncSourcesLocked(ctx context.Context) error {
 	return nil
 }
 
+func (s *Server) isKnownUIRoute(path string) bool {
+	return strings.HasPrefix(path, "/snapshots") ||
+		strings.HasPrefix(path, "/policies") ||
+		strings.HasPrefix(path, "/tasks") ||
+		strings.HasPrefix(path, "/repo")
+}
+
+func (s *Server) patchIndexBytes(b []byte) []byte {
+	if s.options.UITitlePrefix != "" {
+		b = bytes.ReplaceAll(b, []byte("<title>"), []byte("<title>"+html.EscapeString(s.options.UITitlePrefix)))
+	}
+
+	return b
+}
+
+func maybeReadIndexBytes(fs http.FileSystem) []byte {
+	rootFile, err := fs.Open("index.html")
+	if err != nil {
+		return nil
+	}
+
+	defer rootFile.Close() //nolint:errcheck
+
+	rd, err := io.ReadAll(rootFile)
+	if err != nil {
+		return nil
+	}
+
+	return rd
+}
+
+// ServeStaticFiles returns HTTP handler that serves static files and dynamically patches index.html to embed CSRF token, etc.
+func (s *Server) ServeStaticFiles(fs http.FileSystem) http.Handler {
+	h := http.FileServer(fs)
+
+	// read bytes from 'index.html'.
+	indexBytes := maybeReadIndexBytes(fs)
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if s.isKnownUIRoute(r.URL.Path) {
+			r2 := new(http.Request)
+			*r2 = *r
+			r2.URL = new(url.URL)
+			*r2.URL = *r.URL
+			r2.URL.Path = "/"
+			r = r2
+		}
+
+		if !requireUIUser(s, r) {
+			http.Error(w, `UI Access denied. See https://github.com/kopia/kopia/issues/880#issuecomment-798421751 for more information.`, http.StatusForbidden)
+			return
+		}
+
+		if r.URL.Path == "/" && indexBytes != nil {
+			http.ServeContent(w, r, "/", clock.Now(), bytes.NewReader(s.patchIndexBytes(indexBytes)))
+			return
+		}
+
+		h.ServeHTTP(w, r)
+	})
+}
+
 // Options encompasses all API server options.
 type Options struct {
-	ConfigFile           string
-	ConnectOptions       *repo.ConnectOptions
-	RefreshInterval      time.Duration
-	MaxConcurrency       int
-	Authenticator        auth.Authenticator
-	Authorizer           auth.Authorizer
-	PasswordPersist      passwordpersist.Strategy
-	AuthCookieSigningKey string
-	LogRequests          bool
-	UIUser               string // name of the user allowed to access the UI
-	UIPreferencesFile    string // name of the JSON file storing UI preferences
+	ConfigFile             string
+	ConnectOptions         *repo.ConnectOptions
+	RefreshInterval        time.Duration
+	MaxConcurrency         int
+	Authenticator          auth.Authenticator
+	Authorizer             auth.Authorizer
+	PasswordPersist        passwordpersist.Strategy
+	AuthCookieSigningKey   string
+	LogRequests            bool
+	UIUser                 string // name of the user allowed to access the UI
+	UIPreferencesFile      string // name of the JSON file storing UI preferences
+	DisableCSRFTokenChecks bool
+	UITitlePrefix          string
 }
 
 // New creates a Server.
 // The server will manage sources for a given username@hostname.
-func New(ctx context.Context, options Options) (*Server, error) {
+func New(ctx context.Context, options *Options) (*Server, error) {
 	if options.Authorizer == nil {
 		return nil, errors.Errorf("missing authorizer")
 	}
@@ -692,7 +746,7 @@ func New(ctx context.Context, options Options) (*Server, error) {
 	}
 
 	s := &Server{
-		options:              options,
+		options:              *options,
 		sourceManagers:       map[snapshot.SourceInfo]*sourceManager{},
 		uploadSemaphore:      make(chan struct{}, 1),
 		grpcServerState:      makeGRPCServerState(options.MaxConcurrency),
