@@ -27,15 +27,17 @@ import (
 
 // Pattern in stderr that `kopia server` uses to pass ephemeral data.
 const (
-	serverOutputAddress    = "SERVER ADDRESS: "
-	serverOutputCertSHA256 = "SERVER CERT SHA256: "
-	serverOutputPassword   = "SERVER PASSWORD: "
+	serverOutputAddress         = "SERVER ADDRESS: "
+	serverOutputCertSHA256      = "SERVER CERT SHA256: "
+	serverOutputPassword        = "SERVER PASSWORD: "
+	serverOutputControlPassword = "SERVER CONTROL PASSWORD: "
 )
 
 type serverParameters struct {
-	baseURL           string
-	sha256Fingerprint string
-	password          string
+	baseURL               string
+	sha256Fingerprint     string
+	password              string
+	serverControlPassword string
 }
 
 func (s *serverParameters) ProcessOutput(l string) bool {
@@ -50,6 +52,10 @@ func (s *serverParameters) ProcessOutput(l string) bool {
 
 	if strings.HasPrefix(l, serverOutputPassword) {
 		s.password = strings.TrimPrefix(l, serverOutputPassword)
+	}
+
+	if strings.HasPrefix(l, serverOutputControlPassword) {
+		s.serverControlPassword = strings.TrimPrefix(l, serverOutputControlPassword)
 	}
 
 	return true
@@ -75,6 +81,7 @@ func TestServerStart(t *testing.T) {
 		"--ui",
 		"--address=localhost:0",
 		"--random-password",
+		"--random-server-control-password",
 		"--tls-generate-cert",
 		"--tls-generate-rsa-key-size=2048", // use shorter key size to speed up generation
 		"--override-hostname=fake-hostname",
@@ -92,12 +99,21 @@ func TestServerStart(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	defer serverapi.Shutdown(ctx, cli)
+	controlClient, err := apiclient.NewKopiaAPIClient(apiclient.Options{
+		BaseURL:                             sp.baseURL,
+		Username:                            "server-control",
+		Password:                            sp.serverControlPassword,
+		TrustedServerCertificateFingerprint: sp.sha256Fingerprint,
+		LogRequests:                         true,
+	})
+	require.NoError(t, err)
 
-	waitUntilServerStarted(ctx, t, cli)
+	defer serverapi.Shutdown(ctx, controlClient)
+
+	waitUntilServerStarted(ctx, t, controlClient)
 	verifyUIServedWithCorrectTitle(t, cli, sp)
 
-	st := verifyServerConnected(t, cli, true)
+	st := verifyServerConnected(t, controlClient, true)
 	require.Equal(t, "filesystem", st.Storage)
 
 	limits, err := serverapi.GetThrottlingLimits(ctx, cli)
@@ -205,6 +221,7 @@ func TestServerCreateAndConnectViaAPI(t *testing.T) {
 	e.RunAndProcessStderr(t, sp.ProcessOutput,
 		"server", "start", "--ui",
 		"--address=localhost:0", "--random-password",
+		"--random-server-control-password",
 		"--tls-generate-cert",
 		"--tls-generate-rsa-key-size=2048", // use shorter key size to speed up generation,
 	)
@@ -218,10 +235,19 @@ func TestServerCreateAndConnectViaAPI(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	defer serverapi.Shutdown(ctx, cli)
+	controlClient, err := apiclient.NewKopiaAPIClient(apiclient.Options{
+		BaseURL:                             sp.baseURL,
+		Username:                            "server-control",
+		Password:                            sp.serverControlPassword,
+		TrustedServerCertificateFingerprint: sp.sha256Fingerprint,
+		LogRequests:                         true,
+	})
+	require.NoError(t, err)
 
-	waitUntilServerStarted(ctx, t, cli)
-	verifyServerConnected(t, cli, false)
+	defer serverapi.Shutdown(ctx, controlClient)
+
+	waitUntilServerStarted(ctx, t, controlClient)
+	verifyServerConnected(t, controlClient, false)
 
 	if err = serverapi.CreateRepository(ctx, cli, &serverapi.CreateRepositoryRequest{
 		ConnectRepositoryRequest: serverapi.ConnectRepositoryRequest{
@@ -232,13 +258,13 @@ func TestServerCreateAndConnectViaAPI(t *testing.T) {
 		t.Fatalf("create error: %v", err)
 	}
 
-	verifyServerConnected(t, cli, true)
+	verifyServerConnected(t, controlClient, true)
 
 	if err = serverapi.DisconnectFromRepository(ctx, cli); err != nil {
 		t.Fatalf("disconnect error: %v", err)
 	}
 
-	verifyServerConnected(t, cli, false)
+	verifyServerConnected(t, controlClient, false)
 
 	if err = serverapi.ConnectToRepository(ctx, cli, &serverapi.ConnectRepositoryRequest{
 		Password: "foofoo",
@@ -247,7 +273,7 @@ func TestServerCreateAndConnectViaAPI(t *testing.T) {
 		t.Fatalf("create error: %v", err)
 	}
 
-	verifyServerConnected(t, cli, true)
+	verifyServerConnected(t, controlClient, true)
 }
 
 func TestConnectToExistingRepositoryViaAPI(t *testing.T) {
@@ -274,6 +300,7 @@ func TestConnectToExistingRepositoryViaAPI(t *testing.T) {
 	// at this point repository is not connected, start the server
 	e.RunAndProcessStderr(t, sp.ProcessOutput, "server", "start",
 		"--ui", "--address=localhost:0", "--random-password",
+		"--random-server-control-password",
 		"--tls-generate-cert",
 		"--tls-generate-rsa-key-size=2048", // use shorter key size to speed up generation
 		"--override-hostname=fake-hostname", "--override-username=fake-username")
@@ -287,10 +314,19 @@ func TestConnectToExistingRepositoryViaAPI(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	defer serverapi.Shutdown(ctx, cli)
+	controlClient, err := apiclient.NewKopiaAPIClient(apiclient.Options{
+		BaseURL:                             sp.baseURL,
+		Username:                            "server-control",
+		Password:                            sp.serverControlPassword,
+		TrustedServerCertificateFingerprint: sp.sha256Fingerprint,
+		LogRequests:                         true,
+	})
+	require.NoError(t, err)
 
-	waitUntilServerStarted(ctx, t, cli)
-	verifyServerConnected(t, cli, false)
+	defer serverapi.Shutdown(ctx, controlClient)
+
+	waitUntilServerStarted(ctx, t, controlClient)
+	verifyServerConnected(t, controlClient, false)
 
 	if err = serverapi.ConnectToRepository(ctx, cli, &serverapi.ConnectRepositoryRequest{
 		Password: testenv.TestRepoPassword,
@@ -299,7 +335,7 @@ func TestConnectToExistingRepositoryViaAPI(t *testing.T) {
 		t.Fatalf("connect error: %v", err)
 	}
 
-	verifyServerConnected(t, cli, true)
+	verifyServerConnected(t, controlClient, true)
 
 	si := snapshot.SourceInfo{Host: "fake-hostname", UserName: "fake-username", Path: sharedTestDataDir1}
 

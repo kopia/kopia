@@ -92,7 +92,6 @@ func (s *Server) APIHandlers(legacyAPI bool) http.Handler {
 	m.HandleFunc("/api/v1/policies", s.handleAPI(requireUIUser, s.handlePolicyList)).Methods(http.MethodGet)
 
 	m.HandleFunc("/api/v1/refresh", s.handleAPI(anyAuthenticatedUser, s.handleRefresh)).Methods(http.MethodPost)
-	m.HandleFunc("/api/v1/shutdown", s.handleAPIPossiblyNotConnected(requireUIUser, s.handleShutdown)).Methods(http.MethodPost)
 
 	m.HandleFunc("/api/v1/objects/{objectID}", s.requireAuth(s.handleObjectGet)).Methods(http.MethodGet)
 	m.HandleFunc("/api/v1/restore", s.handleAPI(requireUIUser, s.handleRestore)).Methods(http.MethodPost)
@@ -106,7 +105,7 @@ func (s *Server) APIHandlers(legacyAPI bool) http.Handler {
 
 	// methods that can be called by any authenticated user (UI or remote user).
 	m.HandleFunc("/api/v1/flush", s.handleAPI(anyAuthenticatedUser, s.handleFlush)).Methods(http.MethodPost)
-	m.HandleFunc("/api/v1/repo/status", s.handleAPIPossiblyNotConnected(anyAuthenticatedUser, s.handleRepoStatus)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/repo/status", s.handleAPIPossiblyNotConnected(requireUIUser, s.handleRepoStatus)).Methods(http.MethodGet)
 	m.HandleFunc("/api/v1/repo/sync", s.handleAPI(anyAuthenticatedUser, s.handleRepoSync)).Methods(http.MethodPost)
 
 	m.HandleFunc("/api/v1/repo/connect", s.handleAPIPossiblyNotConnected(requireUIUser, s.handleRepoConnect)).Methods(http.MethodPost)
@@ -146,6 +145,17 @@ func (s *Server) APIHandlers(legacyAPI bool) http.Handler {
 	m.HandleFunc("/api/v1/tasks/{taskID}", s.handleAPI(requireUIUser, s.handleTaskInfo)).Methods(http.MethodGet)
 	m.HandleFunc("/api/v1/tasks/{taskID}/logs", s.handleAPI(requireUIUser, s.handleTaskLogs)).Methods(http.MethodGet)
 	m.HandleFunc("/api/v1/tasks/{taskID}/cancel", s.handleAPI(requireUIUser, s.handleTaskCancel)).Methods(http.MethodPost)
+
+	// server control API, requires authentication as `server-control`.
+	m.HandleFunc("/api/v1/control/status", s.handleAPIPossiblyNotConnected(requireServerControlUser, s.handleRepoStatus)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/control/sources", s.handleAPI(requireServerControlUser, s.handleSourcesList)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/control/flush", s.handleAPIPossiblyNotConnected(requireServerControlUser, s.handleFlush)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/control/refresh", s.handleAPIPossiblyNotConnected(requireServerControlUser, s.handleRefresh)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/control/shutdown", s.handleAPI(requireServerControlUser, s.handleShutdown)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/control/trigger-snapshot", s.handleAPI(requireServerControlUser, s.handleUpload)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/control/cancel-snapshot", s.handleAPI(requireServerControlUser, s.handleCancel)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/control/pause-source", s.handleAPI(requireServerControlUser, s.handlePause)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/control/resume-source", s.handleAPI(requireServerControlUser, s.handleResume)).Methods(http.MethodPost)
 
 	return m
 }
@@ -400,11 +410,19 @@ func (s *Server) forAllSourceManagersMatchingURLFilter(ctx context.Context, c fu
 	}
 
 	for src, mgr := range s.sourceManagers {
+		if mgr.isReadOnly {
+			continue
+		}
+
 		if !sourceMatchesURLFilter(src, values) {
 			continue
 		}
 
 		resp.Sources[src.String()] = c(mgr, ctx)
+	}
+
+	if len(resp.Sources) == 0 {
+		return nil, notFoundError("no source matching the provided filters")
 	}
 
 	return resp, nil
@@ -416,6 +434,14 @@ func (s *Server) handleUpload(ctx context.Context, r *http.Request, body []byte)
 
 func (s *Server) handleCancel(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
 	return s.forAllSourceManagersMatchingURLFilter(ctx, (*sourceManager).cancel, r.URL.Query())
+}
+
+func (s *Server) handlePause(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
+	return s.forAllSourceManagersMatchingURLFilter(ctx, (*sourceManager).pause, r.URL.Query())
+}
+
+func (s *Server) handleResume(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
+	return s.forAllSourceManagersMatchingURLFilter(ctx, (*sourceManager).resume, r.URL.Query())
 }
 
 func (s *Server) beginUpload(ctx context.Context, src snapshot.SourceInfo) {
@@ -697,6 +723,10 @@ func (s *Server) ServeStaticFiles(fs http.FileSystem) http.Handler {
 			r = r2
 		}
 
+		if !s.isAuthenticated(w, r) {
+			return
+		}
+
 		if !requireUIUser(s, r) {
 			http.Error(w, `UI Access denied. See https://github.com/kopia/kopia/issues/880#issuecomment-798421751 for more information.`, http.StatusForbidden)
 			return
@@ -724,6 +754,7 @@ type Options struct {
 	LogRequests            bool
 	UIUser                 string // name of the user allowed to access the UI
 	UIPreferencesFile      string // name of the JSON file storing UI preferences
+	ServerControlUser      string // name of the user allowed to access the server control API
 	DisableCSRFTokenChecks bool
 	UITitlePrefix          string
 }

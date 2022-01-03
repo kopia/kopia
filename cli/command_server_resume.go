@@ -4,20 +4,18 @@ import (
 	"context"
 
 	"github.com/kopia/kopia/internal/apiclient"
-	"github.com/kopia/kopia/internal/serverapi"
 )
 
 type commandServerResume struct {
-	sf serverClientFlags
+	commandServerSourceManagerAction
 }
 
 func (c *commandServerResume) setup(svc appServices, parent commandParent) {
-	cmd := parent.Command("resume", "Resume the scheduled snapshots for one or more sources")
-	c.sf.setup(cmd)
+	cmd := parent.Command("resume", "Resume the scheduled snapshots for one or more sources").Alias("unpause")
+	c.commandServerSourceManagerAction.setup(svc, cmd)
 	cmd.Action(svc.serverAction(&c.sf, c.run))
 }
 
 func (c *commandServerResume) run(ctx context.Context, cli *apiclient.KopiaAPIClient) error {
-	// nolint:wrapcheck
-	return cli.Post(ctx, "sources/resume", &serverapi.Empty{}, &serverapi.Empty{})
+	return c.triggerActionOnMatchingSources(ctx, cli, "control/resume-source")
 }
