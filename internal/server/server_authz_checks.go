@@ -17,6 +17,16 @@ func requireUIUser(s *Server, r *http.Request) bool {
 	return user == s.options.UIUser
 }
 
+func requireServerControlUser(s *Server, r *http.Request) bool {
+	if s.authenticator == nil {
+		return true
+	}
+
+	user, _, _ := r.BasicAuth()
+
+	return user == s.options.ServerControlUser
+}
+
 func anyAuthenticatedUser(s *Server, r *http.Request) bool {
 	return true
 }

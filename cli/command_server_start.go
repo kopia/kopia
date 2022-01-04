@@ -43,6 +43,10 @@ type commandServerStart struct {
 	serverStartRandomPassword  bool
 	serverStartHtpasswdFile    string
 
+	randomServerControlPassword bool
+	serverControlUsername       string
+	serverControlPassword       string
+
 	serverAuthCookieSingingKey string
 
 	serverStartShutdownWhenStdinClosed bool
@@ -79,6 +83,10 @@ func (c *commandServerStart) setup(svc advancedAppServices, parent commandParent
 	cmd.Flag("without-password", "Start the server without a password").Hidden().BoolVar(&c.serverStartWithoutPassword)
 	cmd.Flag("random-password", "Generate random password and print to stderr").Hidden().BoolVar(&c.serverStartRandomPassword)
 	cmd.Flag("htpasswd-file", "Path to htpasswd file that contains allowed user@hostname entries").Hidden().ExistingFileVar(&c.serverStartHtpasswdFile)
+
+	cmd.Flag("random-server-control-password", "Generate random server control password and print to stderr").Hidden().BoolVar(&c.randomServerControlPassword)
+	cmd.Flag("server-control-username", "Server control username").Default("server-control").Envar("KOPIA_SERVER_CONTROL_USER").StringVar(&c.serverControlUsername)
+	cmd.Flag("server-control-password", "Server control password").PlaceHolder("PASSWORD").Envar("KOPIA_SERVER_CONTROL_PASSWORD").StringVar(&c.serverControlPassword)
 
 	cmd.Flag("auth-cookie-signing-key", "Force particular auth cookie signing key").Envar("KOPIA_AUTH_COOKIE_SIGNING_KEY").Hidden().StringVar(&c.serverAuthCookieSingingKey)
 
@@ -129,6 +137,7 @@ func (c *commandServerStart) run(ctx context.Context, rep repo.Repository) error
 		Authorizer:           auth.DefaultAuthorizer(),
 		AuthCookieSigningKey: c.serverAuthCookieSingingKey,
 		UIUser:               c.sf.serverUsername,
+		ServerControlUser:    c.serverControlUsername,
 		LogRequests:          c.logServerRequests,
 		PasswordPersist:      c.svc.passwordPersistenceStrategy(),
 		UIPreferencesFile:    uiPreferencesFile,
@@ -275,6 +284,24 @@ func (c *commandServerStart) getAuthenticator(ctx context.Context) (auth.Authent
 		fmt.Fprintln(c.out.stderr(), "SERVER PASSWORD:", randomPassword)
 
 		authenticators = append(authenticators, auth.AuthenticateSingleUser(c.sf.serverUsername, randomPassword))
+	}
+
+	// handle server control password
+	switch {
+	case c.serverControlPassword != "":
+		authenticators = append(authenticators, auth.AuthenticateSingleUser(c.serverControlUsername, c.serverControlPassword))
+
+	case c.randomServerControlPassword:
+		// generate very long random one-time password
+		b := make([]byte, serverRandomPasswordLength)
+		io.ReadFull(rand.Reader, b) //nolint:errcheck
+
+		randomPassword := hex.EncodeToString(b)
+
+		// print it to the stderr bypassing any log file so that the user or calling process can connect
+		fmt.Fprintln(c.out.stderr(), "SERVER CONTROL PASSWORD:", randomPassword)
+
+		authenticators = append(authenticators, auth.AuthenticateSingleUser(c.serverControlUsername, randomPassword))
 	}
 
 	log(ctx).Infof(`

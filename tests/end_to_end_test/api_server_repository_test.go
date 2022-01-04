@@ -25,6 +25,9 @@ var htpasswdFileContents = []byte("foo@bar:$2y$05$JWrExvBe5Knh0.AMLk5WHu.EzfOP.L
 const (
 	uiUsername = "ui-user-password"
 	uiPassword = "ui-password"
+
+	controlUsername = "control-user-password"
+	controlPassword = "control-password"
 )
 
 func TestAPIServerRepository_GRPC_htpasswd(t *testing.T) {
@@ -101,13 +104,15 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 			"--tls-cert-file", tlsCert,
 			"--server-username", uiUsername,
 			"--server-password", uiPassword,
+			"--server-control-username", controlUsername,
+			"--server-control-password", controlPassword,
 		}, serverStartArgs...)...)
 	t.Logf("detected server parameters %#v", sp)
 
-	cli, err := apiclient.NewKopiaAPIClient(apiclient.Options{
+	controlClient, err := apiclient.NewKopiaAPIClient(apiclient.Options{
 		BaseURL:                             sp.baseURL,
-		Username:                            "foo@bar",
-		Password:                            "baz",
+		Username:                            controlUsername,
+		Password:                            controlPassword,
 		TrustedServerCertificateFingerprint: sp.sha256Fingerprint,
 		LogRequests:                         true,
 	})
@@ -115,18 +120,7 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 		t.Fatalf("unable to create API apiclient")
 	}
 
-	uiUserCLI, err := apiclient.NewKopiaAPIClient(apiclient.Options{
-		BaseURL:                             sp.baseURL,
-		Username:                            uiUsername,
-		Password:                            uiPassword,
-		TrustedServerCertificateFingerprint: sp.sha256Fingerprint,
-		LogRequests:                         true,
-	})
-	if err != nil {
-		t.Fatalf("unable to create API apiclient")
-	}
-
-	waitUntilServerStarted(ctx, t, cli)
+	waitUntilServerStarted(ctx, t, controlClient)
 
 	// open repository client.
 	rep, err := repo.OpenAPIServer(ctx, &repo.APIServerInfo{
@@ -148,7 +142,7 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 		t.Fatal(err)
 	}
 
-	logErrorAndIgnore(t, serverapi.Shutdown(ctx, uiUserCLI))
+	logErrorAndIgnore(t, serverapi.Shutdown(ctx, controlClient))
 
 	// give the server a moment to wind down.
 	time.Sleep(1 * time.Second)
@@ -165,23 +159,14 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 			"--tls-cert-file", tlsCert,
 			"--server-username", uiUsername,
 			"--server-password", uiPassword,
+			"--server-control-username", controlUsername,
+			"--server-control-password", controlPassword,
 		}, serverStartArgs...)...)
 	t.Logf("detected server parameters %#v", sp)
 
-	cli, err = apiclient.NewKopiaAPIClient(apiclient.Options{
-		BaseURL:                             sp.baseURL,
-		Username:                            "foo@bar",
-		Password:                            "baz",
-		TrustedServerCertificateFingerprint: sp.sha256Fingerprint,
-		LogRequests:                         true,
-	})
-	if err != nil {
-		t.Fatalf("unable to create API apiclient")
-	}
+	waitUntilServerStarted(ctx, t, controlClient)
 
-	waitUntilServerStarted(ctx, t, cli)
-
-	defer serverapi.Shutdown(ctx, uiUserCLI)
+	defer serverapi.Shutdown(ctx, controlClient)
 
 	someLabels := map[string]string{
 		"type":     "snapshot",
@@ -261,7 +246,7 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 	}
 
 	// shutdown the server
-	logErrorAndIgnore(t, serverapi.Shutdown(ctx, uiUserCLI))
+	logErrorAndIgnore(t, serverapi.Shutdown(ctx, controlClient))
 
 	// open repository client to a dead server, this should fail quickly instead of retrying forever.
 	timer := timetrack.StartTimer()

@@ -44,8 +44,8 @@ func TestACL(t *testing.T) {
 	kill := serverEnvironment.RunAndProcessStderr(t, sp.ProcessOutput,
 		"server", "start",
 		"--address=localhost:0",
-		"--server-username=admin-user",
-		"--server-password=admin-pwd",
+		"--server-control-username=admin-user",
+		"--server-control-password=admin-pwd",
 		"--tls-generate-cert",
 		"--tls-generate-rsa-key-size=2048", // use shorter key size to speed up generation
 	)
@@ -126,11 +126,8 @@ func TestACL(t *testing.T) {
 		"--server-cert-fingerprint", sp.sha256Fingerprint,
 	)
 
-	// we could use foo@bar's credentials as well (any valid user/password will do)
-	// since the password was and is valid, but using alice@wonderland with password 'baz'
-	// is not reliable since we don't know whether the server has already picked up the
-	// change or is still using the old password.
-	serverEnvironment.RunAndExpectSuccess(t, "server", "refresh",
+	// attempt to use foo@bar's credentials when refreshing, this will fail.
+	serverEnvironment.RunAndExpectFailure(t, "server", "refresh",
 		"--address", sp.baseURL,
 		"--server-username", "foo@bar",
 		"--server-password", "baz",
