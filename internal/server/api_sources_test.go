@@ -68,6 +68,14 @@ func TestSnapshotCounters(t *testing.T) {
 
 	ut := waitForTask(t, cli, mustGetLatestTask(t, cli).TaskID, 15*time.Second)
 
+	t.Logf("got latest task: %v", ut)
+
+	allTasks := mustListTasks(t, cli)
+
+	for tid, tsk := range allTasks {
+		t.Logf("allTasks[%v] =  %v", tid, tsk)
+	}
+
 	require.Equal(t, ut.Counters["Hashed Files"], uitask.SimpleCounter(3))
 	require.Equal(t, ut.Counters["Hashed Bytes"], uitask.BytesCounter(9))
 	require.Equal(t, ut.Counters["Excluded Directories"], uitask.SimpleCounter(1))
