@@ -1,3 +1,2 @@
-# testing
 PR_TITLE_REGEX: /^#\d* - .*/
 COMMIT_MESSAGE_REGEX: /(build|ci|chore|docs|feat|fix|perf|refactor|revert|style|test)(\(.*\))?:(.*)*/
