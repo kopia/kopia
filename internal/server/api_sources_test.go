@@ -30,6 +30,7 @@ func TestSnapshotCounters(t *testing.T) {
 	})
 
 	require.NoError(t, err)
+	require.NoError(t, cli.FetchCSRFTokenForTesting(ctx))
 
 	dir := testutil.TempDirectory(t)
 	si := localSource(env, dir)
@@ -103,6 +104,7 @@ func TestSourceRefreshesAfterPolicy(t *testing.T) {
 	})
 
 	require.NoError(t, err)
+	require.NoError(t, cli.FetchCSRFTokenForTesting(ctx))
 
 	dir := testutil.TempDirectory(t)
 	si := localSource(env, dir)

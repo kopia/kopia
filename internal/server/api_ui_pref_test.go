@@ -23,6 +23,8 @@ func TestUIPreferences(t *testing.T) {
 
 	require.NoError(t, err)
 
+	require.NoError(t, cli.FetchCSRFTokenForTesting(ctx))
+
 	var p, p2 serverapi.UIPreferences
 
 	require.NoError(t, cli.Get(ctx, "ui-preferences", nil, &p))

@@ -98,6 +98,7 @@ func TestServerStart(t *testing.T) {
 		LogRequests:                         true,
 	})
 	require.NoError(t, err)
+	require.NoError(t, cli.FetchCSRFTokenForTesting(ctx))
 
 	controlClient, err := apiclient.NewKopiaAPIClient(apiclient.Options{
 		BaseURL:                             sp.baseURL,
@@ -113,8 +114,7 @@ func TestServerStart(t *testing.T) {
 	waitUntilServerStarted(ctx, t, controlClient)
 	verifyUIServedWithCorrectTitle(t, cli, sp)
 
-	st := verifyServerConnected(t, controlClient, true)
-	require.Equal(t, "filesystem", st.Storage)
+	verifyServerConnected(t, controlClient, true)
 
 	limits, err := serverapi.GetThrottlingLimits(ctx, cli)
 	require.NoError(t, err)
@@ -234,6 +234,7 @@ func TestServerCreateAndConnectViaAPI(t *testing.T) {
 		TrustedServerCertificateFingerprint: sp.sha256Fingerprint,
 	})
 	require.NoError(t, err)
+	require.NoError(t, cli.FetchCSRFTokenForTesting(ctx))
 
 	controlClient, err := apiclient.NewKopiaAPIClient(apiclient.Options{
 		BaseURL:                             sp.baseURL,
@@ -306,20 +307,11 @@ func TestConnectToExistingRepositoryViaAPI(t *testing.T) {
 		"--override-hostname=fake-hostname", "--override-username=fake-username")
 	t.Logf("detected server parameters %#v", sp)
 
-	cli, err := apiclient.NewKopiaAPIClient(apiclient.Options{
-		BaseURL:                             sp.baseURL,
-		Username:                            "kopia",
-		Password:                            sp.password,
-		TrustedServerCertificateFingerprint: sp.sha256Fingerprint,
-	})
-	require.NoError(t, err)
-
 	controlClient, err := apiclient.NewKopiaAPIClient(apiclient.Options{
 		BaseURL:                             sp.baseURL,
 		Username:                            "server-control",
 		Password:                            sp.serverControlPassword,
 		TrustedServerCertificateFingerprint: sp.sha256Fingerprint,
-		LogRequests:                         true,
 	})
 	require.NoError(t, err)
 
@@ -327,6 +319,15 @@ func TestConnectToExistingRepositoryViaAPI(t *testing.T) {
 
 	waitUntilServerStarted(ctx, t, controlClient)
 	verifyServerConnected(t, controlClient, false)
+
+	cli, err := apiclient.NewKopiaAPIClient(apiclient.Options{
+		BaseURL:                             sp.baseURL,
+		Username:                            "kopia",
+		Password:                            sp.password,
+		TrustedServerCertificateFingerprint: sp.sha256Fingerprint,
+	})
+	require.NoError(t, err)
+	require.NoError(t, cli.FetchCSRFTokenForTesting(ctx))
 
 	if err = serverapi.ConnectToRepository(ctx, cli, &serverapi.ConnectRepositoryRequest{
 		Password: testenv.TestRepoPassword,
@@ -533,10 +534,21 @@ func verifyUIServedWithCorrectTitle(t *testing.T, cli *apiclient.KopiaAPIClient,
 func waitUntilServerStarted(ctx context.Context, t *testing.T, cli *apiclient.KopiaAPIClient) {
 	t.Helper()
 
-	if err := retry.PeriodicallyNoValue(ctx, 1*time.Second, 180, "wait for server start", func() error {
+	require.NoError(t, retry.PeriodicallyNoValue(ctx, 1*time.Second, 180, "wait for server start", func() error {
 		_, err := serverapi.Status(testlogging.Context(t), cli)
 		return err
-	}, retry.Always); err != nil {
-		t.Fatalf("server failed to start")
-	}
+	}, func(err error) bool {
+		var hs apiclient.HTTPStatusError
+
+		if errors.As(err, &hs) {
+			switch hs.HTTPStatusCode {
+			case http.StatusBadRequest:
+				return false
+			case http.StatusForbidden:
+				return false
+			}
+		}
+
+		return true
+	}))
 }

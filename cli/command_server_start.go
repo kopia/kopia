@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"contrib.go.opencensus.io/exporter/prometheus"
+	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 	prom "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
@@ -30,10 +31,11 @@ type commandServerStart struct {
 	co connectOptions
 
 	serverStartHTMLPath string
-	serverStartUI       bool
 
+	serverStartUI                  bool
 	serverStartLegacyRepositoryAPI bool
 	serverStartGRPC                bool
+	serverStartControlAPI          bool
 
 	serverStartRefreshInterval time.Duration
 	serverStartInsecure        bool
@@ -63,6 +65,8 @@ type commandServerStart struct {
 
 	logServerRequests bool
 
+	disableCSRFTokenChecks bool // disable CSRF token checks - used for development/debugging only
+
 	sf  serverFlags
 	svc advancedAppServices
 	out textOutput
@@ -75,6 +79,7 @@ func (c *commandServerStart) setup(svc advancedAppServices, parent commandParent
 
 	cmd.Flag("legacy-api", "Start the legacy server API").Default("true").BoolVar(&c.serverStartLegacyRepositoryAPI)
 	cmd.Flag("grpc", "Start the GRPC server").Default("true").BoolVar(&c.serverStartGRPC)
+	cmd.Flag("control-api", "Start the control API").Default("true").BoolVar(&c.serverStartControlAPI)
 
 	cmd.Flag("refresh-interval", "Frequency for refreshing repository status").Default("300s").DurationVar(&c.serverStartRefreshInterval)
 	cmd.Flag("insecure", "Allow insecure configurations (do not use in production)").Hidden().BoolVar(&c.serverStartInsecure)
@@ -104,6 +109,7 @@ func (c *commandServerStart) setup(svc advancedAppServices, parent commandParent
 	cmd.Flag("ui-preferences-file", "Path to JSON file storing UI preferences").StringVar(&c.uiPreferencesFile)
 
 	cmd.Flag("log-server-requests", "Log server requests").Hidden().BoolVar(&c.logServerRequests)
+	cmd.Flag("disable-csrf-token-checks", "Disable CSRF token").Hidden().BoolVar(&c.disableCSRFTokenChecks)
 
 	c.sf.setup(cmd)
 	c.co.setup(cmd)
@@ -116,7 +122,6 @@ func (c *commandServerStart) setup(svc advancedAppServices, parent commandParent
 	}))
 }
 
-// nolint:funlen
 func (c *commandServerStart) run(ctx context.Context, rep repo.Repository) error {
 	authn, err := c.getAuthenticator(ctx)
 	if err != nil {
@@ -142,6 +147,8 @@ func (c *commandServerStart) run(ctx context.Context, rep repo.Repository) error
 		PasswordPersist:      c.svc.passwordPersistenceStrategy(),
 		UIPreferencesFile:    uiPreferencesFile,
 		UITitlePrefix:        c.uiTitlePrefix,
+
+		DisableCSRFTokenChecks: c.disableCSRFTokenChecks,
 	})
 	if err != nil {
 		return errors.Wrap(err, "unable to initialize server")
@@ -155,16 +162,9 @@ func (c *commandServerStart) run(ctx context.Context, rep repo.Repository) error
 		return errors.Wrap(err, "error connecting to repository")
 	}
 
-	mux := http.NewServeMux()
+	m := mux.NewRouter()
 
-	mux.Handle("/api/", srv.APIHandlers(c.serverStartLegacyRepositoryAPI))
-
-	if c.serverStartHTMLPath != "" {
-		fileServer := srv.ServeStaticFiles(http.Dir(c.serverStartHTMLPath))
-		mux.Handle("/", fileServer)
-	} else if c.serverStartUI {
-		mux.Handle("/", srv.ServeStaticFiles(server.AssetFile()))
-	}
+	c.setupHandlers(srv, m)
 
 	httpServer := &http.Server{
 		Addr: stripProtocol(c.sf.serverAddress),
@@ -185,11 +185,11 @@ func (c *commandServerStart) run(ctx context.Context, rep repo.Repository) error
 
 	// init prometheus after adding interceptors that require credentials, so that this
 	// handler can be called without auth
-	if err = initPrometheus(mux); err != nil {
+	if err = initPrometheus(m); err != nil {
 		return errors.Wrap(err, "error initializing Prometheus")
 	}
 
-	var handler http.Handler = mux
+	var handler http.Handler = m
 
 	if c.serverStartGRPC {
 		handler = srv.GRPCRouterHandler(handler)
@@ -222,7 +222,29 @@ func (c *commandServerStart) run(ctx context.Context, rep repo.Repository) error
 	return errors.Wrap(srv.SetRepository(ctx, nil), "error setting active repository")
 }
 
-func initPrometheus(mux *http.ServeMux) error {
+func (c *commandServerStart) setupHandlers(srv *server.Server, m *mux.Router) {
+	if c.serverStartUI {
+		srv.SetupHTMLUIAPIHandlers(m)
+	}
+
+	if c.serverStartLegacyRepositoryAPI {
+		srv.SetupRepositoryAPIHandlers(m)
+	}
+
+	if c.serverStartControlAPI {
+		srv.SetupControlAPIHandlers(m)
+	}
+
+	if c.serverStartUI {
+		if c.serverStartHTMLPath != "" {
+			srv.ServeStaticFiles(m, http.Dir(c.serverStartHTMLPath))
+		} else {
+			srv.ServeStaticFiles(m, server.AssetFile())
+		}
+	}
+}
+
+func initPrometheus(m *mux.Router) error {
 	reg := prom.NewRegistry()
 	if err := reg.Register(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{})); err != nil {
 		return errors.Wrap(err, "error registering process collector")
@@ -239,7 +261,7 @@ func initPrometheus(mux *http.ServeMux) error {
 		return errors.Wrap(err, "unable to initialize prometheus exporter")
 	}
 
-	mux.Handle("/metrics", pe)
+	m.Handle("/metrics", pe)
 
 	return nil
 }

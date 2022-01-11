@@ -23,6 +23,7 @@ func TestPathsAPI(t *testing.T) {
 	})
 
 	require.NoError(t, err)
+	require.NoError(t, cli.FetchCSRFTokenForTesting(ctx))
 
 	dir0 := testutil.TempDirectory(t)
 
