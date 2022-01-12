@@ -37,6 +37,12 @@ type Options struct {
 	OpenOptions          func(*repo.Options)
 }
 
+// RootStorage returns the base storage map that implements the base in-memory
+// map at the base of all storage wrappers on top.
+func (e *Environment) RootStorage() blob.Storage {
+	return e.st.(reconnectableStorage).Storage
+}
+
 // setup sets up a test environment.
 func (e *Environment) setup(tb testing.TB, version content.FormatVersion, opts ...Options) *Environment {
 	tb.Helper()

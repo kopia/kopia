@@ -23,6 +23,11 @@ type entry struct {
 
 type versionedEntries map[blob.ID][]*entry
 
+// objectLockingMap is an in-memory versioned object store which maintains
+// historical versions of each blob on every put. Deletes use a delete-marker
+// overlay mechanism and lists will avoid entries if their latest object is a
+// marker. This struct manages the retention time of each blob throug hte
+// PutBlob options.
 type objectLockingMap struct {
 	data    versionedEntries
 	timeNow func() time.Time
@@ -58,6 +63,8 @@ func (s *objectLockingMap) getLatestForMutationLocked(id blob.ID) (*entry, error
 	return e, nil
 }
 
+// GetBlob works the same as map-storage GetBlob except that if the latest
+// version is a delete-marker then it will return ErrBlobNotFound.
 func (s *objectLockingMap) GetBlob(ctx context.Context, id blob.ID, offset, length int64, output blob.OutputBuffer) error {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
@@ -95,6 +102,8 @@ func (s *objectLockingMap) GetBlob(ctx context.Context, id blob.ID, offset, leng
 	return nil
 }
 
+// GetMetadata works the same as map-storage GetMetadata except that if the latest
+// version is a delete-marker then it will return ErrBlobNotFound.
 func (s *objectLockingMap) GetMetadata(ctx context.Context, id blob.ID) (blob.Metadata, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
@@ -111,6 +120,9 @@ func (s *objectLockingMap) GetMetadata(ctx context.Context, id blob.ID) (blob.Me
 	}, nil
 }
 
+// PutBlob works the same as map-storage PutBlob except that if the latest
+// version is a delete-marker then it will return ErrBlobNotFound. The
+// PutOptions retention parameters will be respected when storing the object.
 func (s *objectLockingMap) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes, opts blob.PutOptions) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -143,6 +155,8 @@ func (s *objectLockingMap) PutBlob(ctx context.Context, id blob.ID, data blob.By
 	return nil
 }
 
+// DeleteBlob will insert a delete marker after the last version of the object.
+// If the object does not exist then this becomes a no-op.
 func (s *objectLockingMap) DeleteBlob(ctx context.Context, id blob.ID) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -166,6 +180,8 @@ func (s *objectLockingMap) DeleteBlob(ctx context.Context, id blob.ID) error {
 	return nil
 }
 
+// ListBlobs will return the list of all the objects except the ones which have
+// a delete-marker as their latest version.
 func (s *objectLockingMap) ListBlobs(ctx context.Context, prefix blob.ID, callback func(blob.Metadata) error) error {
 	s.mutex.RLock()
 
@@ -201,10 +217,15 @@ func (s *objectLockingMap) ListBlobs(ctx context.Context, prefix blob.ID, callba
 	return nil
 }
 
+// Close is a no-op for this implementation.
 func (s *objectLockingMap) Close(ctx context.Context) error {
 	return nil
 }
 
+// TouchBlob updates the mtime of the latest version of the object. If it is a
+// delete-marker or if it does not exist then this becomes a no-op. If the
+// latest version has retention parameters set then they are respected.
+// Mutations are no allowed unless retention period expires.
 func (s *objectLockingMap) TouchBlob(ctx context.Context, id blob.ID, threshold time.Duration) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -228,15 +249,18 @@ func (s *objectLockingMap) TouchBlob(ctx context.Context, id blob.ID, threshold 
 	return nil
 }
 
+// ConnectionInfo is a no-op.
 func (s *objectLockingMap) ConnectionInfo() blob.ConnectionInfo {
 	// unsupported
 	return blob.ConnectionInfo{}
 }
 
+// DisplayName gets the identifier of this storage for display purposes.
 func (s *objectLockingMap) DisplayName() string {
 	return "VersionedMap"
 }
 
+// FlushCaches is a no-op for this implementation.
 func (s *objectLockingMap) FlushCaches(ctx context.Context) error {
 	return nil
 }

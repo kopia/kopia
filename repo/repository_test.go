@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/blobtesting"
-	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/epoch"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/repotesting"
@@ -505,10 +505,9 @@ func TestObjectWritesWithRetention(t *testing.T) {
 
 	env.RepositoryWriter.ContentManager().Flush(ctx)
 
-	var (
-		st                    = env.RepositoryWriter.BlobStorage()
-		prefixesWithRetention []string
-	)
+	var prefixesWithRetention []string
+
+	versionedMap := env.RootStorage().(cache.Storage)
 
 	for _, prefix := range content.PackBlobIDPrefixes {
 		prefixesWithRetention = append(prefixesWithRetention, string(prefix))
@@ -519,14 +518,14 @@ func TestObjectWritesWithRetention(t *testing.T) {
 
 	// make sure that we cannot set mtime on the kopia objects created due to the
 	// retention time constraint
-	require.NoError(t, st.ListBlobs(ctx, "", func(it blob.Metadata) error {
+	require.NoError(t, versionedMap.ListBlobs(ctx, "", func(it blob.Metadata) error {
 		for _, prefix := range prefixesWithRetention {
 			if strings.HasPrefix(string(it.BlobID), prefix) {
-				require.Error(t, st.SetTime(ctx, it.BlobID, clock.Now()), "expected error while setting mtime %s", it.BlobID)
+				require.Error(t, versionedMap.TouchBlob(ctx, it.BlobID, 0), "expected error while touching blob %s", it.BlobID)
 				return nil
 			}
 		}
-		require.NoError(t, st.SetTime(ctx, it.BlobID, clock.Now()), "unexpected error while setting mtime %s", it.BlobID)
+		require.NoError(t, versionedMap.TouchBlob(ctx, it.BlobID, 0), "unexpected error while touching blob %s", it.BlobID)
 		return nil
 	}))
 }
