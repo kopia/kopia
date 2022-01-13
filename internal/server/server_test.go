@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
@@ -71,7 +72,13 @@ func startServer(t *testing.T, env *repotesting.Environment, tls bool) *repo.API
 
 	asi := &repo.APIServerInfo{}
 
-	hs := httptest.NewUnstartedServer(s.GRPCRouterHandler(s.APIHandlers(true)))
+	m := mux.NewRouter()
+	s.SetupHTMLUIAPIHandlers(m)
+	s.SetupRepositoryAPIHandlers(m)
+	s.SetupControlAPIHandlers(m)
+	s.ServeStaticFiles(m, server.AssetFile())
+
+	hs := httptest.NewUnstartedServer(s.GRPCRouterHandler(m))
 	if tls {
 		hs.EnableHTTP2 = true
 		hs.StartTLS()
@@ -131,6 +138,7 @@ func TestGPRServer_AuthenticationError(t *testing.T) {
 	}
 }
 
+// nolint:gocyclo
 func TestServerUIAccessDeniedToRemoteUser(t *testing.T) {
 	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
 	si := startServer(t, env, true)
@@ -140,6 +148,14 @@ func TestServerUIAccessDeniedToRemoteUser(t *testing.T) {
 		TrustedServerCertificateFingerprint: si.TrustedServerCertificateFingerprint,
 		Username:                            testUsername + "@" + testHostname,
 		Password:                            testPassword,
+	})
+	require.NoError(t, err)
+
+	uiUserWithoutCSRFToken, err := apiclient.NewKopiaAPIClient(apiclient.Options{
+		BaseURL:                             si.BaseURL,
+		TrustedServerCertificateFingerprint: si.TrustedServerCertificateFingerprint,
+		Username:                            testUIUsername,
+		Password:                            testUIPassword,
 	})
 
 	require.NoError(t, err)
@@ -153,7 +169,10 @@ func TestServerUIAccessDeniedToRemoteUser(t *testing.T) {
 
 	require.NoError(t, err)
 
-	// examples of URLs and expected statuses returned when UI user calls them, but which must return 403 when
+	require.NoError(t, uiUserClient.FetchCSRFTokenForTesting(ctx))
+	// do not call uiUserWithoutCSRFToken.FetchCSRFTokenForTesting()
+
+	// examples of URLs and expected statuses returned when UI user calls them, but which must return 401 due to missing CSRF token
 	// remote user calls them.
 	getUrls := map[string]int{
 		"mounts":          http.StatusOK,
@@ -171,8 +190,34 @@ func TestServerUIAccessDeniedToRemoteUser(t *testing.T) {
 		t.Run(urlSuffix, func(t *testing.T) {
 			var hsr apiclient.HTTPStatusError
 
-			if err := remoteUserClient.Get(ctx, urlSuffix, nil, nil); !errors.As(err, &hsr) || hsr.HTTPStatusCode != http.StatusForbidden {
-				t.Fatalf("error returned expected to be HTTPStatusError %v, want %v", hsr.HTTPStatusCode, http.StatusForbidden)
+			wantFailure := http.StatusUnauthorized // 401
+
+			if urlSuffix == "objects/abcd" {
+				// this is a special one that does not require CSRF token but will still fail with 403
+				wantFailure = http.StatusForbidden
+			}
+
+			if err := remoteUserClient.Get(ctx, urlSuffix, nil, nil); !errors.As(err, &hsr) || (hsr.HTTPStatusCode != wantFailure) {
+				t.Fatalf("error returned expected to be HTTPStatusError %v, want %v", hsr.HTTPStatusCode, wantFailure)
+			}
+
+			if wantStatus == http.StatusOK {
+				if err := uiUserClient.Get(ctx, urlSuffix, nil, nil); err != nil {
+					t.Fatalf("expected success, got %v", err)
+				}
+			} else if err := uiUserClient.Get(ctx, urlSuffix, nil, nil); !errors.As(err, &hsr) || hsr.HTTPStatusCode != wantStatus {
+				t.Fatalf("error returned expected to be HTTPStatusError %v, want %v", hsr.HTTPStatusCode, wantStatus)
+			}
+
+			// objects/abcd does not require CSRF token so will fail with 404 instead of 403.
+			// This is fine since this is a side-effect-free GET method so same-origin policy
+			// will protect access to data.
+			if urlSuffix == "objects/abcd" {
+				wantFailure = http.StatusNotFound
+			}
+
+			if err := uiUserWithoutCSRFToken.Get(ctx, urlSuffix, nil, nil); !errors.As(err, &hsr) || (hsr.HTTPStatusCode != wantFailure) {
+				t.Fatalf("error returned expected to be HTTPStatusError %v, want %v", hsr.HTTPStatusCode, wantFailure)
 			}
 
 			if wantStatus == http.StatusOK {
@@ -213,7 +258,6 @@ func remoteRepositoryTest(ctx context.Context, t *testing.T, rep repo.Repository
 	}, func(ctx context.Context, w repo.RepositoryWriter) error {
 		mustGetObjectNotFound(ctx, t, w, "abcd")
 		mustGetManifestNotFound(ctx, t, w, "mnosuchmanifest")
-		mustManifestNotFound(t, w.DeleteManifest(ctx, manifestID2))
 		mustListSnapshotCount(ctx, t, w, 0)
 
 		result = mustWriteObject(ctx, t, w, written)

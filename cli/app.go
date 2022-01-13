@@ -12,6 +12,7 @@ import (
 
 	"github.com/alecthomas/kingpin"
 	"github.com/fatih/color"
+	"github.com/gorilla/mux"
 	"github.com/mattn/go-colorable"
 	"github.com/pkg/errors"
 
@@ -425,21 +426,21 @@ func (c *App) maybeRepositoryAction(act func(ctx context.Context, rep repo.Repos
 			defer gather.DumpStats(ctx)
 
 			if c.metricsListenAddr != "" {
-				mux := http.NewServeMux()
-				if err := initPrometheus(mux); err != nil {
+				m := mux.NewRouter()
+				if err := initPrometheus(m); err != nil {
 					return errors.Wrap(err, "unable to initialize prometheus.")
 				}
 
 				if c.enablePProf {
-					mux.HandleFunc("/debug/pprof/", pprof.Index)
-					mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
-					mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
-					mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
-					mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+					m.HandleFunc("/debug/pprof/", pprof.Index)
+					m.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+					m.HandleFunc("/debug/pprof/profile", pprof.Profile)
+					m.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+					m.HandleFunc("/debug/pprof/trace", pprof.Trace)
 				}
 
 				log(ctx).Infof("starting prometheus metrics on %v", c.metricsListenAddr)
-				go http.ListenAndServe(c.metricsListenAddr, mux) // nolint:errcheck
+				go http.ListenAndServe(c.metricsListenAddr, m) // nolint:errcheck
 			}
 
 			memtrack.Dump(ctx, "before openRepository")
