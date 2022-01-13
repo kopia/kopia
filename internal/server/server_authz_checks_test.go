@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/kopia/kopia/internal/apiclient"
 )
 
 func TestGenerateCSRFToken(t *testing.T) {
@@ -90,7 +92,7 @@ func TestValidateCSRFToken(t *testing.T) {
 			}
 
 			if tc.token != "" {
-				req.Header.Add("X-Kopia-Csrf-Token", tc.token)
+				req.Header.Add(apiclient.CSRFTokenHeader, tc.token)
 			}
 
 			require.Equal(t, tc.valid, tc.srv.validateCSRFToken(req))

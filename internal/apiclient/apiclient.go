@@ -20,6 +20,10 @@ import (
 
 var log = logging.Module("client")
 
+// CSRFTokenHeader is the name of CSRF token header that must be sent for most API calls.
+// nolint:gosec
+const CSRFTokenHeader = "X-Kopia-Csrf-Token"
+
 // KopiaAPIClient provides helper methods for communicating with Kopia API server.
 type KopiaAPIClient struct {
 	BaseURL    string
@@ -93,7 +97,7 @@ func (c *KopiaAPIClient) runRequest(ctx context.Context, method, url string, not
 	}
 
 	if c.CSRFToken != "" {
-		req.Header.Add("X-Kopia-Csrf-Token", c.CSRFToken)
+		req.Header.Add(CSRFTokenHeader, c.CSRFToken)
 	}
 
 	if contentType != "" {

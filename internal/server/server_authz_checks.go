@@ -9,14 +9,20 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/kopia/kopia/internal/apiclient"
 	"github.com/kopia/kopia/internal/auth"
 )
 
+// kopiaSessionCookie is the name of the session cookie that Kopia server will generate for all
+// UI sessions.
 const kopiaSessionCookie = "Kopia-Session-Cookie"
 
 func (s *Server) generateCSRFToken(sessionID string) string {
 	h := hmac.New(sha256.New, s.authCookieSigningKey)
-	io.WriteString(h, sessionID) //nolint:errcheck
+
+	if _, err := io.WriteString(h, sessionID); err != nil {
+		panic("io.WriteString() failed: " + err.Error())
+	}
 
 	return hex.EncodeToString(h.Sum(nil))
 }
@@ -31,14 +37,14 @@ func (s *Server) validateCSRFToken(r *http.Request) bool {
 
 	sessionCookie, err := r.Cookie(kopiaSessionCookie)
 	if err != nil {
-		log(ctx).Warnf("missing or invalid session cookie for %v", path)
+		log(ctx).Warnf("missing or invalid session cookie for %q: %v", path, err)
 
 		return false
 	}
 
 	validToken := s.generateCSRFToken(sessionCookie.Value)
 
-	token := r.Header.Get("X-Kopia-Csrf-Token")
+	token := r.Header.Get(apiclient.CSRFTokenHeader)
 	if token == "" {
 		log(ctx).Warnf("missing CSRF token for %v", path)
 		return false

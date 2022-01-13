@@ -223,10 +223,6 @@ func (c *commandServerStart) run(ctx context.Context, rep repo.Repository) error
 }
 
 func (c *commandServerStart) setupHandlers(srv *server.Server, m *mux.Router) {
-	if c.serverStartUI {
-		srv.SetupHTMLUIAPIHandlers(m)
-	}
-
 	if c.serverStartLegacyRepositoryAPI {
 		srv.SetupRepositoryAPIHandlers(m)
 	}
@@ -236,6 +232,8 @@ func (c *commandServerStart) setupHandlers(srv *server.Server, m *mux.Router) {
 	}
 
 	if c.serverStartUI {
+		srv.SetupHTMLUIAPIHandlers(m)
+
 		if c.serverStartHTMLPath != "" {
 			srv.ServeStaticFiles(m, http.Dir(c.serverStartHTMLPath))
 		} else {
