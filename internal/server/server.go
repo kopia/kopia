@@ -100,7 +100,7 @@ func (s *Server) SetupHTMLUIAPIHandlers(m *mux.Router) {
 	m.HandleFunc("/api/v1/estimate", s.handleUI(s.handleEstimate)).Methods(http.MethodPost)
 	m.HandleFunc("/api/v1/paths/resolve", s.handleUI(s.handlePathResolve)).Methods(http.MethodPost)
 	m.HandleFunc("/api/v1/cli", s.handleUI(s.handleCLIInfo)).Methods(http.MethodGet)
-	m.HandleFunc("/api/v1/repo/status", s.handleUI(s.handleRepoStatus)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/repo/status", s.handleUIPossiblyNotConnected(s.handleRepoStatus)).Methods(http.MethodGet)
 	m.HandleFunc("/api/v1/repo/sync", s.handleUI(s.handleRepoSync)).Methods(http.MethodPost)
 	m.HandleFunc("/api/v1/repo/connect", s.handleUIPossiblyNotConnected(s.handleRepoConnect)).Methods(http.MethodPost)
 	m.HandleFunc("/api/v1/repo/exists", s.handleUIPossiblyNotConnected(s.handleRepoExists)).Methods(http.MethodPost)

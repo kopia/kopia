@@ -89,6 +89,16 @@ func Shutdown(ctx context.Context, c *apiclient.KopiaAPIClient) error {
 	return c.Post(ctx, "control/shutdown", &Empty{}, &Empty{})
 }
 
+// RepoStatus invokes the 'repo/status' API.
+func RepoStatus(ctx context.Context, c *apiclient.KopiaAPIClient) (*StatusResponse, error) {
+	resp := &StatusResponse{}
+	if err := c.Get(ctx, "repo/status", nil, resp); err != nil {
+		return nil, errors.Wrap(err, "Status")
+	}
+
+	return resp, nil
+}
+
 // Status invokes the 'control/status' API.
 func Status(ctx context.Context, c *apiclient.KopiaAPIClient) (*StatusResponse, error) {
 	resp := &StatusResponse{}
