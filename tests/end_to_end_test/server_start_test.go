@@ -115,6 +115,7 @@ func TestServerStart(t *testing.T) {
 	verifyUIServedWithCorrectTitle(t, cli, sp)
 
 	verifyServerConnected(t, controlClient, true)
+	verifyUIServerConnected(t, cli, true)
 
 	limits, err := serverapi.GetThrottlingLimits(ctx, cli)
 	require.NoError(t, err)
@@ -249,6 +250,7 @@ func TestServerCreateAndConnectViaAPI(t *testing.T) {
 
 	waitUntilServerStarted(ctx, t, controlClient)
 	verifyServerConnected(t, controlClient, false)
+	verifyUIServerConnected(t, cli, false)
 
 	if err = serverapi.CreateRepository(ctx, cli, &serverapi.CreateRepositoryRequest{
 		ConnectRepositoryRequest: serverapi.ConnectRepositoryRequest{
@@ -411,6 +413,19 @@ func verifyServerConnected(t *testing.T, cli *apiclient.KopiaAPIClient, want boo
 	t.Helper()
 
 	st, err := serverapi.Status(testlogging.Context(t), cli)
+	require.NoError(t, err)
+
+	if got := st.Connected; got != want {
+		t.Errorf("invalid status connected %v, want %v", st.Connected, want)
+	}
+
+	return st
+}
+
+func verifyUIServerConnected(t *testing.T, cli *apiclient.KopiaAPIClient, want bool) *serverapi.StatusResponse {
+	t.Helper()
+
+	st, err := serverapi.RepoStatus(testlogging.Context(t), cli)
 	require.NoError(t, err)
 
 	if got := st.Connected; got != want {
