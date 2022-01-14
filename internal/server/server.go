@@ -721,6 +721,11 @@ func (s *Server) patchIndexBytes(sessionID string, b []byte) []byte {
 		b = bytes.ReplaceAll(b, []byte("<title>"), []byte("<title>"+html.EscapeString(s.options.UITitlePrefix)))
 	}
 
+	if v := repo.BuildVersion; v != "" {
+		b = bytes.ReplaceAll(b, []byte(`</title>`), []byte(" v"+html.EscapeString(repo.BuildVersion)+"</title>"))
+		b = bytes.ReplaceAll(b, []byte(`<p class="version-info">Version `), []byte(`<p class="version-info">Version v`+html.EscapeString(repo.BuildVersion+" "+repo.BuildInfo+" ")))
+	}
+
 	csrfToken := s.generateCSRFToken(sessionID)
 
 	// insert <meta name="kopia-csrf-token" content="..." /> just before closing head tag.
