@@ -141,6 +141,7 @@ ipcMain.on('launch-at-startup-updated', updateTrayContextMenu);
 
 let updateAvailableInfo = null;
 let updateDownloadStatusInfo = "";
+let updateFailed = false;
 
 // set this environment variable when developing
 // to allow offering downgrade to the latest released version.
@@ -176,6 +177,7 @@ autoUpdater.on('update-available', a => {
 autoUpdater.on('update-not-available', () => {
   updateAvailableInfo = null;
   updateDownloadStatusInfo = "";
+  updateFailed = false;
   updateTrayContextMenu();
 })
 
@@ -190,12 +192,24 @@ autoUpdater.on('update-downloaded', info => {
   updateDownloadStatusInfo = "Installing Update: v" + updateAvailableInfo.version + " ...";
   updateTrayContextMenu();
 
-  autoUpdater.quitAndInstall();
+  setTimeout(() => {
+    try {
+      autoUpdater.quitAndInstall();
+    } catch (e) {
+      log.info('update error', e);
+    }
+
+    updateDownloadStatusInfo = null;
+    updateFailed = true;
+    updateTrayContextMenu();
+  }, 500);
 });
 
 autoUpdater.on('error', a => {
   updateAvailableInfo = null;
+  updateError = true;
   updateDownloadStatusInfo = "Error checking for updates.";
+  log.info('error checking for updates', a);
   updateTrayContextMenu();
 });
 
@@ -365,10 +379,14 @@ function updateTrayContextMenu() {
   let autoUpdateMenuItems = [];
 
   if (updateDownloadStatusInfo) {
-    autoUpdateMenuItems.push({ label: updateDownloadStatusInfo, enabled: false });
+    autoUpdateMenuItems.push({ label: updateDownloadStatusInfo, enabled: false});
   } else if (updateAvailableInfo) {
-    autoUpdateMenuItems.push({ label: 'Update Available: v' + updateAvailableInfo.version, click: viewReleaseNotes });
-    autoUpdateMenuItems.push({ label: 'Download And Install...', click: installUpdate });
+    if (updateFailed) {
+      autoUpdateMenuItems.push({ label: 'Update Failed, click to manually download and install v' + updateAvailableInfo.version, click: viewReleaseNotes });
+    } else {
+      autoUpdateMenuItems.push({ label: 'Update Available: v' + updateAvailableInfo.version, click: viewReleaseNotes });
+      autoUpdateMenuItems.push({ label: 'Download And Install...', click: installUpdate });
+    }
   } else {
     autoUpdateMenuItems.push({ label: "KopiaUI is up-to-date: " + app.getVersion(), enabled: false });
   }
