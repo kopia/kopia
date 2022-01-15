@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 )
 
+// nolint:gochecknoglobals
 var invalidSliceBuf = []byte(uuid.NewString())
 
 // Bytes represents a sequence of bytes split into slices.

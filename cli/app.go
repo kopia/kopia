@@ -186,17 +186,17 @@ func (c *App) runOnExit() {
 
 func (c *App) passwordPersistenceStrategy() passwordpersist.Strategy {
 	if !c.persistCredentials {
-		return passwordpersist.None
+		return passwordpersist.None()
 	}
 
 	if c.keyRingEnabled {
 		return passwordpersist.Multiple{
-			passwordpersist.Keyring,
-			passwordpersist.File,
+			passwordpersist.Keyring(),
+			passwordpersist.File(),
 		}
 	}
 
-	return passwordpersist.File
+	return passwordpersist.File()
 }
 
 func (c *App) setup(app *kingpin.Application) {
@@ -289,16 +289,16 @@ func (c *App) Attach(app *kingpin.Application) {
 	c.setup(app) // nolint:contextcheck
 }
 
-var safetyByName = map[string]maintenance.SafetyParameters{
-	"none": maintenance.SafetyNone,
-	"full": maintenance.SafetyFull,
-}
-
 // safetyFlagVar defines c --safety=none|full flag that sets the SafetyParameters.
 func safetyFlagVar(cmd *kingpin.CmdClause, result *maintenance.SafetyParameters) {
 	var str string
 
 	*result = maintenance.SafetyFull
+
+	safetyByName := map[string]maintenance.SafetyParameters{
+		"none": maintenance.SafetyNone,
+		"full": maintenance.SafetyFull,
+	}
 
 	cmd.Flag("safety", "Safety level").Default("full").PreAction(func(pc *kingpin.ParseContext) error {
 		r, ok := safetyByName[str]

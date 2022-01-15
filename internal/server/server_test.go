@@ -48,7 +48,7 @@ func startServer(t *testing.T, env *repotesting.Environment, tls bool) *repo.API
 
 	s, err := server.New(ctx, &server.Options{
 		ConfigFile:      env.ConfigFile(),
-		PasswordPersist: passwordpersist.File,
+		PasswordPersist: passwordpersist.File(),
 		Authorizer:      auth.LegacyAuthorizer(),
 		Authenticator: auth.CombineAuthenticators(
 			auth.AuthenticateSingleUser(testUsername+"@"+testHostname, testPassword),

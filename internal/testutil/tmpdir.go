@@ -19,6 +19,7 @@ const (
 	logsDirPermissions  = 0o750
 )
 
+// nolint:gochecknoglobals
 var interestingLengths = []int{10, 50, 100, 240, 250, 260, 270}
 
 // GetInterestingTempDirectoryName returns interesting directory name used for testing.

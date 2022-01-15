@@ -64,7 +64,6 @@ linters:
     - interfacer
     - scopelint
     - prealloc
-    - gochecknoglobals
     - gochecknoinits
     - whitespace
     - nilnil
@@ -91,11 +90,15 @@ issues:
       - funlen
       - errcheck
       - gosec
+      - gochecknoglobals
       - nestif
       - wrapcheck
       - nolintlint
       - forcetypeassert
       - contextcheck
+    - text: "log is a global variable"
+      linters:
+      - gochecknoglobals
     - text: "Magic number: 1e"
       linters:
       - gomnd

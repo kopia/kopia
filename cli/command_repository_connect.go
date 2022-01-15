@@ -25,7 +25,7 @@ func (c *commandRepositoryConnect) setup(svc advancedAppServices, parent command
 	c.co.setup(cmd)
 	c.server.setup(svc, cmd, &c.co)
 
-	for _, prov := range storageProviders {
+	for _, prov := range cliStorageProviders() {
 		// Set up 'connect' subcommand
 		f := prov.newFlags()
 		cc := cmd.Command(prov.name, "Connect to repository in "+prov.description)

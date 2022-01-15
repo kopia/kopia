@@ -34,7 +34,7 @@ type Options struct {
 }
 
 // DefaultOptions is the default set of options.
-// nolint:gomnd
+// nolint:gomnd,gochecknoglobals
 var DefaultOptions = Options{
 	MaxClockDrift:           3 * time.Minute,
 	ConcurrencyTestDuration: 30 * time.Second,

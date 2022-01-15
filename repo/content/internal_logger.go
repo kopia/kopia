@@ -84,11 +84,11 @@ func (m *internalLogManager) NewLogger() *zap.SugaredLogger {
 			TimeKey:          "t",
 			MessageKey:       "m",
 			NameKey:          "n",
-			EncodeTime:       zaplogutil.TimezoneAdjust(zaplogutil.PreciseTimeEncoder, false),
+			EncodeTime:       zaplogutil.TimezoneAdjust(zaplogutil.PreciseTimeEncoder(), false),
 			EncodeDuration:   zapcore.StringDurationEncoder,
 			ConsoleSeparator: " ",
 		}),
-		w, zap.DebugLevel), zap.WithClock(zaplogutil.Clock)).Sugar()
+		w, zap.DebugLevel), zap.WithClock(zaplogutil.Clock())).Sugar()
 }
 
 // internalLogger represents a single log session that saves log files as blobs in the repository.

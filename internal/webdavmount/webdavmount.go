@@ -99,6 +99,7 @@ type webdavDir struct {
 	entry fs.Directory
 }
 
+// nolint:gochecknoglobals
 var symlinksAreUnsupportedLogged = new(int32)
 
 func (d *webdavDir) Readdir(n int) ([]os.FileInfo, error) {

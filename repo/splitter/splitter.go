@@ -43,6 +43,7 @@ func SupportedAlgorithms() []string {
 type Factory func() Splitter
 
 // splitterFactories is a map of registered splitter factories.
+// nolint:gochecknoglobals
 var splitterFactories = map[string]Factory{
 	"FIXED-1M": Fixed(splitterSize1MB),
 	"FIXED-2M": Fixed(splitterSize2MB),

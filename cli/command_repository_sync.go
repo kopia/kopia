@@ -50,7 +50,7 @@ func (c *commandRepositorySyncTo) setup(svc advancedAppServices, parent commandP
 	// needs to be 64-bit aligned on ARM
 	c.nextSyncOutputTime = new(timetrack.Throttle)
 
-	for _, prov := range storageProviders {
+	for _, prov := range cliStorageProviders() {
 		// Set up 'sync-to' subcommand
 		f := prov.newFlags()
 		cc := cmd.Command(prov.name, "Synchronize repository data to another repository in "+prov.description)

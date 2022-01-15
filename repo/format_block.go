@@ -25,17 +25,18 @@ const (
 	formatBlobChecksumSize          = sha256.Size
 )
 
-// formatBlobChecksumSecret is a HMAC secret used for checksumming the format content.
-// It's not really a secret, but will provide positive identification of blocks that
-// are repository format blocks.
-var formatBlobChecksumSecret = []byte("kopia-repository")
-
 // FormatBlobID is the identifier of a BLOB that describes repository format.
 const FormatBlobID = "kopia.repository"
 
+// nolint:gochecknoglobals
 var (
 	purposeAESKey   = []byte("AES")
 	purposeAuthData = []byte("CHECKSUM")
+
+	// formatBlobChecksumSecret is a HMAC secret used for checksumming the format content.
+	// It's not really a secret, but will provide positive identification of blocks that
+	// are repository format blocks.
+	formatBlobChecksumSecret = []byte("kopia-repository")
 
 	errFormatBlobNotFound = errors.New("format blob not found")
 )

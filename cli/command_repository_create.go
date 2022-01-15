@@ -47,7 +47,7 @@ func (c *commandRepositoryCreate) setup(svc advancedAppServices, parent commandP
 	c.svc = svc
 	c.out.setup(svc)
 
-	for _, prov := range storageProviders {
+	for _, prov := range cliStorageProviders() {
 		if prov.name == "from-config" {
 			continue
 		}

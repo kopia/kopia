@@ -16,6 +16,7 @@ const (
 	maxCallersToTrackAllocations = 3
 )
 
+// nolint:gochecknoglobals
 var (
 	trackChunkAllocations = os.Getenv("KOPIA_TRACK_CHUNK_ALLOC") != ""
 

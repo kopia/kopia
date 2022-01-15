@@ -175,5 +175,3 @@ func ValidateSchedulingPolicy(p SchedulingPolicy) error {
 
 	return nil
 }
-
-var defaultSchedulingPolicy = SchedulingPolicy{}

@@ -10,7 +10,9 @@ import (
 )
 
 // PreciseTimeEncoder encodes the time as RFC3389 with 6 digits of sub-second precision.
-var PreciseTimeEncoder = zapcore.TimeEncoderOfLayout("2006-01-02T15:04:05.000000Z07:00")
+func PreciseTimeEncoder() zapcore.TimeEncoder {
+	return zapcore.TimeEncoderOfLayout("2006-01-02T15:04:05.000000Z07:00")
+}
 
 type theClock struct{}
 
@@ -18,7 +20,9 @@ func (c theClock) Now() time.Time                         { return clock.Now() }
 func (c theClock) NewTicker(d time.Duration) *time.Ticker { return time.NewTicker(d) }
 
 // Clock is an implementation of zapcore.Clock that uses clock.Now().
-var Clock zapcore.Clock = theClock{}
+func Clock() zapcore.Clock {
+	return theClock{}
+}
 
 // TimezoneAdjust returns zapcore.TimeEncoder that adjusts the time to either UTC or local time before logging.
 func TimezoneAdjust(inner zapcore.TimeEncoder, isLocal bool) zapcore.TimeEncoder {

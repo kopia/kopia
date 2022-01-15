@@ -64,7 +64,7 @@ func TestFormatV2(t *testing.T) {
 			Version:         2,
 			MaxPackSize:     maxPackSize,
 			IndexVersion:    v2IndexVersion,
-			EpochParameters: epoch.DefaultParameters,
+			EpochParameters: epoch.DefaultParameters(),
 		},
 	})
 }

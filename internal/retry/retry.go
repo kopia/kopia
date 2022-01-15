@@ -12,6 +12,7 @@ import (
 
 var log = logging.Module("retry")
 
+// nolint:gochecknoglobals
 var (
 	maxAttempts             = 10
 	retryInitialSleepAmount = 100 * time.Millisecond

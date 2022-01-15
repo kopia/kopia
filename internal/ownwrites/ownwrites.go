@@ -26,6 +26,7 @@ const (
 	prefixDelete = "del"
 )
 
+// nolint:gochecknoglobals
 var markerData = gather.FromSlice([]byte("marker"))
 
 // CacheStorage implements a wrapper around blob.Storage that ensures recent local mutations

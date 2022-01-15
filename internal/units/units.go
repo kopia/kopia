@@ -6,6 +6,7 @@ import (
 	"strings"
 )
 
+// nolint:gochecknoglobals
 var (
 	base10UnitPrefixes = []string{"", "K", "M", "G", "T"}
 	base2UnitPrefixes  = []string{"", "Ki", "Mi", "Gi", "Ti"}

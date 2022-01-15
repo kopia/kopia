@@ -24,6 +24,6 @@ func Module(module string) func(ctx context.Context) Logger {
 			return l.(*loggerCache).getLogger(module)
 		}
 
-		return NullLogger
+		return nullLogger{}
 	}
 }
