@@ -67,10 +67,6 @@ func (p *CompressionPolicy) Merge(src CompressionPolicy, def *CompressionPolicyD
 	mergeStrings(&p.NeverCompress, &p.NoParentNeverCompress, src.NeverCompress, src.NoParentNeverCompress, &def.NeverCompress, si)
 }
 
-var defaultCompressionPolicy = CompressionPolicy{
-	CompressorName: "none",
-}
-
 func isInSortedSlice(s string, slice []string) bool {
 	x := sort.SearchStrings(slice, s)
 	return x < len(slice) && slice[x] == s

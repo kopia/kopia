@@ -96,15 +96,17 @@ func (p *Parameters) Validate() error {
 
 // DefaultParameters contains default epoch manager parameters.
 // nolint:gomnd
-var DefaultParameters = Parameters{
-	Enabled:                               true,
-	EpochRefreshFrequency:                 20 * time.Minute,
-	FullCheckpointFrequency:               7,
-	CleanupSafetyMargin:                   4 * time.Hour,
-	MinEpochDuration:                      24 * time.Hour,
-	EpochAdvanceOnCountThreshold:          20,
-	EpochAdvanceOnTotalSizeBytesThreshold: 10 << 20,
-	DeleteParallelism:                     4,
+func DefaultParameters() Parameters {
+	return Parameters{
+		Enabled:                               true,
+		EpochRefreshFrequency:                 20 * time.Minute,
+		FullCheckpointFrequency:               7,
+		CleanupSafetyMargin:                   4 * time.Hour,
+		MinEpochDuration:                      24 * time.Hour,
+		EpochAdvanceOnCountThreshold:          20,
+		EpochAdvanceOnTotalSizeBytesThreshold: 10 << 20,
+		DeleteParallelism:                     4,
+	}
 }
 
 // CurrentSnapshot captures a point-in time snapshot of a repository indexes, including current epoch

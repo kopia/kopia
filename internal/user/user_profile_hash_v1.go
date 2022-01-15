@@ -20,6 +20,7 @@ const (
 	v1KeyLength  = 32
 )
 
+// nolint:gochecknoglobals
 var dummyV1HashThatNeverMatchesAnyPassword = make([]byte, v1KeyLength+v1SaltLength)
 
 func (p *Profile) setPasswordV1(password string) error {

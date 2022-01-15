@@ -61,17 +61,3 @@ func (p *LoggingPolicy) Merge(src LoggingPolicy, def *LoggingPolicyDefinition, s
 	p.Directories.Merge(src.Directories, &def.Directories, si)
 	p.Entries.Merge(src.Entries, &def.Entries, si)
 }
-
-// defaultLoggingPolicy is the default logs policy.
-var defaultLoggingPolicy = LoggingPolicy{
-	Directories: DirLoggingPolicy{
-		Snapshotted: NewLogDetail(LogDetailNormal),
-		Ignored:     NewLogDetail(LogDetailNormal),
-	},
-	Entries: EntryLoggingPolicy{
-		Snapshotted: NewLogDetail(LogDetailNone),
-		Ignored:     NewLogDetail(LogDetailNormal),
-		CacheHit:    NewLogDetail(LogDetailNone),
-		CacheMiss:   NewLogDetail(LogDetailNone),
-	},
-}

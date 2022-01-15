@@ -105,7 +105,7 @@ func (c *commandRepositorySetParameters) run(ctx context.Context, rep repo.Direc
 		anyChange = true
 
 		if !mp.EpochParameters.Enabled {
-			mp.EpochParameters = epoch.DefaultParameters
+			mp.EpochParameters = epoch.DefaultParameters()
 			upgradeToEpochManager = true
 			mp.IndexVersion = 2
 		}

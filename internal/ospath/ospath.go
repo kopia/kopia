@@ -8,6 +8,7 @@ import (
 	"strings"
 )
 
+// nolint:gochecknoglobals
 var (
 	userSettingsDir string
 	userLogsDir     string

@@ -12,7 +12,7 @@ import (
 )
 
 // encryptionProtectionAlgorithm is the authenticated encryption algorithm used by authenticatedEncryptionProtection.
-var encryptionProtectionAlgorithm = "AES256-GCM-HMAC-SHA256"
+const encryptionProtectionAlgorithm = "AES256-GCM-HMAC-SHA256"
 
 // StorageProtection encapsulates protection (HMAC and/or encryption) applied to local cache items.
 type StorageProtection interface {

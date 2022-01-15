@@ -45,6 +45,7 @@ const throttleBucketInitialFill = 0.1
 // localCacheIntegrityHMACSecretLength length of HMAC secret protecting local cache items.
 const localCacheIntegrityHMACSecretLength = 16
 
+// nolint:gochecknoglobals
 var localCacheIntegrityPurpose = []byte("local-cache-integrity")
 
 const cacheDirMarkerContents = CacheDirMarkerHeader + `

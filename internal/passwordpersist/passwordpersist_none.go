@@ -3,7 +3,9 @@ package passwordpersist
 import "context"
 
 // None is a strategy that does not persist the password at all.
-var None Strategy = noneStrategy{}
+func None() Strategy {
+	return noneStrategy{}
+}
 
 type noneStrategy struct{}
 

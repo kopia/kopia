@@ -28,6 +28,7 @@ import (
 
 const logsDirMode = 0o700
 
+// nolint:gochecknoglobals
 var logLevels = []string{"debug", "info", "warning", "error"}
 
 type loggingFlags struct {
@@ -114,9 +115,9 @@ func (c *loggingFlags) initialize(ctx *kingpin.ParseContext) error {
 	rootLogger := zap.New(zapcore.NewTee(
 		c.setupConsoleCore(),
 		c.setupLogFileCore(now, suffix),
-	), zap.WithClock(zaplogutil.Clock))
+	), zap.WithClock(zaplogutil.Clock()))
 
-	contentLogger := zap.New(c.setupContentLogFileBackend(now, suffix), zap.WithClock(zaplogutil.Clock)).Sugar()
+	contentLogger := zap.New(c.setupContentLogFileBackend(now, suffix), zap.WithClock(zaplogutil.Clock())).Sugar()
 
 	c.cliApp.SetLoggerFactory(func(module string) logging.Logger {
 		if module == content.FormatLogModule {
@@ -258,7 +259,7 @@ func (c *loggingFlags) setupLogFileCore(now time.Time, suffix string) zapcore.Co
 			LevelKey:         "l",
 			EncodeName:       zapcore.FullNameEncoder,
 			EncodeLevel:      zapcore.CapitalLevelEncoder,
-			EncodeTime:       zaplogutil.TimezoneAdjust(zaplogutil.PreciseTimeEncoder, c.fileLogLocalTimezone),
+			EncodeTime:       zaplogutil.TimezoneAdjust(zaplogutil.PreciseTimeEncoder(), c.fileLogLocalTimezone),
 			EncodeDuration:   zapcore.StringDurationEncoder,
 			ConsoleSeparator: " ",
 		}, c.jsonLogFile),
@@ -281,7 +282,7 @@ func (c *loggingFlags) setupContentLogFileBackend(now time.Time, suffix string) 
 			TimeKey:          "t",
 			MessageKey:       "m",
 			NameKey:          "n",
-			EncodeTime:       zaplogutil.TimezoneAdjust(zaplogutil.PreciseTimeEncoder, false),
+			EncodeTime:       zaplogutil.TimezoneAdjust(zaplogutil.PreciseTimeEncoder(), false),
 			EncodeDuration:   zapcore.StringDurationEncoder,
 			ConsoleSeparator: " ",
 		}),

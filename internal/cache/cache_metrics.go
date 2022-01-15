@@ -6,6 +6,7 @@ import (
 )
 
 // cache metrics.
+// nolint:gochecknoglobals
 var (
 	MetricHitCount = stats.Int64(
 		"kopia/content/cache/hit_count",

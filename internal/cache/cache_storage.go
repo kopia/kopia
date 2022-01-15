@@ -15,6 +15,7 @@ import (
 	"github.com/kopia/kopia/repo/blob/sharded"
 )
 
+// nolint:gochecknoglobals
 var mkdirAll = os.MkdirAll // for testability
 
 // DirMode is the directory mode for all caches.

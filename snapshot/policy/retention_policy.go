@@ -198,15 +198,6 @@ const (
 	defaultKeepAnnual  = 3
 )
 
-var defaultRetentionPolicy = RetentionPolicy{
-	KeepLatest:  intPtr(defaultKeepLatest),
-	KeepHourly:  intPtr(defaultKeepHourly),
-	KeepDaily:   intPtr(defaultKeepDaily),
-	KeepWeekly:  intPtr(defaultKeepWeekly),
-	KeepMonthly: intPtr(defaultKeepMonthly),
-	KeepAnnual:  intPtr(defaultKeepAnnual),
-}
-
 // Merge applies default values from the provided policy.
 func (r *RetentionPolicy) Merge(src RetentionPolicy, def *RetentionPolicyDefinition, si snapshot.SourceInfo) {
 	mergeOptionalInt(&r.KeepLatest, src.KeepLatest, &def.KeepLatest, si)
@@ -305,17 +296,17 @@ func CompactPins(pins []string) []string {
 	return result
 }
 
-var retentionPrefixSortValue = map[string]int{
-	"latest":  1,
-	"hourly":  2, // nolint:gomnd
-	"daily":   3, // nolint:gomnd
-	"weekly":  4, // nolint:gomnd
-	"monthly": 5, // nolint:gomnd
-	"annual":  6, // nolint:gomnd
-}
-
 // SortRetentionTags sorts the provided retention tags in canonical order.
 func SortRetentionTags(tags []string) {
+	retentionPrefixSortValue := map[string]int{
+		"latest":  1,
+		"hourly":  2, // nolint:gomnd
+		"daily":   3, // nolint:gomnd
+		"weekly":  4, // nolint:gomnd
+		"monthly": 5, // nolint:gomnd
+		"annual":  6, // nolint:gomnd
+	}
+
 	sort.Slice(tags, func(i, j int) bool {
 		p1, s1 := prefixSuffix(tags[i])
 		p2, s2 := prefixSuffix(tags[j])

@@ -4,19 +4,66 @@ import (
 	"strings"
 )
 
-// DefaultPolicy is a default policy returned by policy tree in absence of other policies.
-var DefaultPolicy = &Policy{
-	FilesPolicy:         defaultFilesPolicy,
-	RetentionPolicy:     defaultRetentionPolicy,
-	CompressionPolicy:   defaultCompressionPolicy,
-	ErrorHandlingPolicy: defaultErrorHandlingPolicy,
-	SchedulingPolicy:    defaultSchedulingPolicy,
-	LoggingPolicy:       defaultLoggingPolicy,
-	Actions:             defaultActionsPolicy,
-}
+// nolint:gochecknoglobals
+var (
+	// defaultActionsPolicy is the default actions policy.
+	defaultActionsPolicy = ActionsPolicy{}
 
-// DefaultDefinition provides the Definition for the default policy.
-var DefaultDefinition = &Definition{}
+	defaultCompressionPolicy = CompressionPolicy{
+		CompressorName: "none",
+	}
+
+	// defaultErrorHandlingPolicy is the default error handling policy.
+	defaultErrorHandlingPolicy = ErrorHandlingPolicy{
+		IgnoreFileErrors:      newOptionalBool(false),
+		IgnoreDirectoryErrors: newOptionalBool(false),
+		IgnoreUnknownTypes:    newOptionalBool(true),
+	}
+
+	// defaultFilesPolicy is the default file ignore policy.
+	defaultFilesPolicy = FilesPolicy{
+		DotIgnoreFiles: []string{".kopiaignore"},
+	}
+
+	// defaultLoggingPolicy is the default logs policy.
+	defaultLoggingPolicy = LoggingPolicy{
+		Directories: DirLoggingPolicy{
+			Snapshotted: NewLogDetail(LogDetailNormal),
+			Ignored:     NewLogDetail(LogDetailNormal),
+		},
+		Entries: EntryLoggingPolicy{
+			Snapshotted: NewLogDetail(LogDetailNone),
+			Ignored:     NewLogDetail(LogDetailNormal),
+			CacheHit:    NewLogDetail(LogDetailNone),
+			CacheMiss:   NewLogDetail(LogDetailNone),
+		},
+	}
+
+	defaultRetentionPolicy = RetentionPolicy{
+		KeepLatest:  intPtr(defaultKeepLatest),
+		KeepHourly:  intPtr(defaultKeepHourly),
+		KeepDaily:   intPtr(defaultKeepDaily),
+		KeepWeekly:  intPtr(defaultKeepWeekly),
+		KeepMonthly: intPtr(defaultKeepMonthly),
+		KeepAnnual:  intPtr(defaultKeepAnnual),
+	}
+
+	defaultSchedulingPolicy = SchedulingPolicy{}
+
+	// DefaultPolicy is a default policy returned by policy tree in absence of other policies.
+	DefaultPolicy = &Policy{
+		FilesPolicy:         defaultFilesPolicy,
+		RetentionPolicy:     defaultRetentionPolicy,
+		CompressionPolicy:   defaultCompressionPolicy,
+		ErrorHandlingPolicy: defaultErrorHandlingPolicy,
+		SchedulingPolicy:    defaultSchedulingPolicy,
+		LoggingPolicy:       defaultLoggingPolicy,
+		Actions:             defaultActionsPolicy,
+	}
+
+	// DefaultDefinition provides the Definition for the default policy.
+	DefaultDefinition = &Definition{}
+)
 
 // Tree represents a node in the policy tree, where a policy can be
 // defined. A nil tree is a valid tree with default policy.

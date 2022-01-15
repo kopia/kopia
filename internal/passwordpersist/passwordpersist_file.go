@@ -9,7 +9,9 @@ import (
 )
 
 // File is a Strategy that persists the base64-encoded password in a file next to repository config file.
-var File Strategy = filePasswordStorage{}
+func File() Strategy {
+	return filePasswordStorage{}
+}
 
 const passwordFileMode = 0o600
 

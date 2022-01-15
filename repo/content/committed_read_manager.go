@@ -40,6 +40,7 @@ const (
 	DefaultIndexCacheSweepAge    = 1 * time.Hour
 )
 
+// nolint:gochecknoglobals
 var cachedIndexBlobPrefixes = []blob.ID{
 	IndexBlobPrefix,
 	compactionLogBlobPrefix,
@@ -51,6 +52,7 @@ var cachedIndexBlobPrefixes = []blob.ID{
 	epoch.RangeCheckpointIndexBlobPrefix,
 }
 
+// nolint:gochecknoglobals
 var allIndexBlobPrefixes = []blob.ID{
 	IndexBlobPrefix,
 	epoch.UncompactedIndexBlobPrefix,

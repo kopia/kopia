@@ -15,7 +15,9 @@ import (
 )
 
 // Keyring is a Strategy that persists the password in OS-specific keyring.
-var Keyring Strategy = keyringStrategy{}
+func Keyring() Strategy {
+	return keyringStrategy{}
+}
 
 type keyringStrategy struct{}
 

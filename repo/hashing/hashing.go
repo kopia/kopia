@@ -27,6 +27,7 @@ type HashFunc func(output []byte, data gather.Bytes) []byte
 // HashFuncFactory returns a hash function for given formatting options.
 type HashFuncFactory func(p Parameters) (HashFunc, error)
 
+// nolint:gochecknoglobals
 var hashFunctions = map[string]HashFuncFactory{}
 
 // Register registers a hash function with a given name.

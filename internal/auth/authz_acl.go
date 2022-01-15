@@ -18,6 +18,7 @@ import (
 const defaultACLRefreshFrequency = 10 * time.Second
 
 // ContentRule is a special target rule that targets contents instead of manifests.
+// nolint:gochecknoglobals
 var ContentRule = acl.TargetRule{
 	manifest.TypeLabelKey: acl.ContentManifestType,
 }
@@ -26,6 +27,7 @@ var ContentRule = acl.TargetRule{
 const anyUser = "*@*"
 
 // DefaultACLs specifies default ACLs.
+// nolint:gochecknoglobals
 var DefaultACLs = []*acl.Entry{
 	{
 		// everybody can write contents

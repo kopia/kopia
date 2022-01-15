@@ -44,12 +44,15 @@ func PrefixRange(prefix ID) IDRange {
 }
 
 // AllIDs is an IDRange that contains all valid IDs.
+// nolint:gochecknoglobals
 var AllIDs = IDRange{"", maxIDCharacterPlus1}
 
 // AllPrefixedIDs is an IDRange that contains all valid IDs prefixed IDs ('g' .. 'z').
+// nolint:gochecknoglobals
 var AllPrefixedIDs = IDRange{"g", maxIDCharacterPlus1}
 
 // AllNonPrefixedIDs is an IDRange that contains all valid IDs non-prefixed IDs ('0' .. 'f').
+// nolint:gochecknoglobals
 var AllNonPrefixedIDs = IDRange{"0", "g"}
 
 // openPackIndex reads an Index from a given reader. The caller must call Close() when the index is no longer used.

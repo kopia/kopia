@@ -91,6 +91,7 @@ func oneOf(allowed ...string) valueValidatorFunc {
 	}
 }
 
+// nolint:gochecknoglobals
 var allowedLabelsForType = map[string]map[string]valueValidatorFunc{
 	ContentManifestType: {},
 	policy.ManifestType: {

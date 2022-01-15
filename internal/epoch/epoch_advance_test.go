@@ -9,6 +9,8 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 )
 
+var def = DefaultParameters()
+
 func TestShouldAdvanceEpoch(t *testing.T) {
 	t0 := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 
@@ -18,9 +20,9 @@ func TestShouldAdvanceEpoch(t *testing.T) {
 		Timestamp: t0, Length: 1,
 	})
 
-	for i := 0; i < DefaultParameters.EpochAdvanceOnCountThreshold; i++ {
+	for i := 0; i < def.EpochAdvanceOnCountThreshold; i++ {
 		lotsOfMetadata = append(lotsOfMetadata, blob.Metadata{
-			Timestamp: t0.Add(DefaultParameters.MinEpochDuration),
+			Timestamp: t0.Add(def.MinEpochDuration),
 			Length:    1,
 		})
 	}
@@ -45,7 +47,7 @@ func TestShouldAdvanceEpoch(t *testing.T) {
 		{
 			desc: "two blobs, not enough time passed, size enough to advance",
 			bms: []blob.Metadata{
-				{Timestamp: t0.Add(DefaultParameters.MinEpochDuration - 1), Length: DefaultParameters.EpochAdvanceOnTotalSizeBytesThreshold},
+				{Timestamp: t0.Add(def.MinEpochDuration - 1), Length: def.EpochAdvanceOnTotalSizeBytesThreshold},
 				{Timestamp: t0, Length: 1},
 			},
 			want: false,
@@ -54,7 +56,7 @@ func TestShouldAdvanceEpoch(t *testing.T) {
 			desc: "two blobs, enough time passed, total size enough to advance",
 			bms: []blob.Metadata{
 				{Timestamp: t0, Length: 1},
-				{Timestamp: t0.Add(DefaultParameters.MinEpochDuration), Length: DefaultParameters.EpochAdvanceOnTotalSizeBytesThreshold},
+				{Timestamp: t0.Add(def.MinEpochDuration), Length: def.EpochAdvanceOnTotalSizeBytesThreshold},
 			},
 			want: true,
 		},
@@ -62,7 +64,7 @@ func TestShouldAdvanceEpoch(t *testing.T) {
 			desc: "two blobs, enough time passed, total size not enough to advance",
 			bms: []blob.Metadata{
 				{Timestamp: t0, Length: 1},
-				{Timestamp: t0.Add(DefaultParameters.MinEpochDuration), Length: DefaultParameters.EpochAdvanceOnTotalSizeBytesThreshold - 2},
+				{Timestamp: t0.Add(def.MinEpochDuration), Length: def.EpochAdvanceOnTotalSizeBytesThreshold - 2},
 			},
 			want: false,
 		},
@@ -70,7 +72,7 @@ func TestShouldAdvanceEpoch(t *testing.T) {
 			desc: "enough time passed, count not enough to advance",
 			bms: []blob.Metadata{
 				{Timestamp: t0, Length: 1},
-				{Timestamp: t0.Add(DefaultParameters.MinEpochDuration), Length: 1},
+				{Timestamp: t0.Add(def.MinEpochDuration), Length: 1},
 			},
 			want: false,
 		},
@@ -83,7 +85,7 @@ func TestShouldAdvanceEpoch(t *testing.T) {
 
 	for _, tc := range cases {
 		require.Equal(t, tc.want,
-			shouldAdvance(tc.bms, DefaultParameters.MinEpochDuration, DefaultParameters.EpochAdvanceOnCountThreshold, DefaultParameters.EpochAdvanceOnTotalSizeBytesThreshold),
+			shouldAdvance(tc.bms, def.MinEpochDuration, def.EpochAdvanceOnCountThreshold, def.EpochAdvanceOnTotalSizeBytesThreshold),
 			tc.desc)
 	}
 }

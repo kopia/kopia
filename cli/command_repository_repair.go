@@ -25,7 +25,7 @@ func (c *commandRepositoryRepair) setup(svc advancedAppServices, parent commandP
 	cmd.Flag("recover-format-block-prefixes", "Prefixes of file names").StringsVar(&c.repairCommandRecoverFormatBlobPrefixes)
 	cmd.Flag("dry-run", "Do not modify repository").Short('n').BoolVar(&c.repairDryRun)
 
-	for _, prov := range storageProviders {
+	for _, prov := range cliStorageProviders() {
 		f := prov.newFlags()
 		cc := cmd.Command(prov.name, "Repair repository in "+prov.description)
 		f.setup(svc, cc)

@@ -41,6 +41,7 @@ const (
 )
 
 // PackBlobIDPrefixes contains all possible prefixes for pack blobs.
+// nolint:gochecknoglobals
 var PackBlobIDPrefixes = []blob.ID{
 	PackBlobIDPrefixRegular,
 	PackBlobIDPrefixSpecial,

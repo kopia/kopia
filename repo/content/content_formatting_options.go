@@ -38,7 +38,7 @@ func (f *FormattingOptions) ResolveFormatVersion() error {
 	case FormatVersion2:
 		f.EnablePasswordChange = true
 		f.IndexVersion = v2IndexVersion
-		f.EpochParameters = epoch.DefaultParameters
+		f.EpochParameters = epoch.DefaultParameters()
 
 		return nil
 

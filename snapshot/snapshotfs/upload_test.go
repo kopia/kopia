@@ -994,7 +994,7 @@ func TestUploadLogging(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.desc, func(t *testing.T) {
 			ml := &mockLogger{
-				Logger: logging.NullLogger,
+				Logger: logging.NullLogger(),
 			}
 
 			ctx := testlogging.Context(t)
@@ -1004,7 +1004,7 @@ func TestUploadLogging(t *testing.T) {
 					return ml
 				}
 
-				return logging.NullLogger
+				return logging.NullLogger()
 			})
 			th := newUploadTestHarness(ctx, t)
 

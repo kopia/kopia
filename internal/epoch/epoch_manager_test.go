@@ -598,7 +598,7 @@ func TestValidateParameters(t *testing.T) {
 		p       Parameters
 		wantErr string
 	}{
-		{DefaultParameters, ""},
+		{DefaultParameters(), ""},
 		{
 			Parameters{
 				Enabled: false,
