@@ -23,10 +23,6 @@ env:
   NON_TAG_RELEASE_REPO: ${{ secrets.NON_TAG_RELEASE_REPO }}
   # RPM and APT packages GCS bucket/hostname.
   PACKAGES_HOST: ${{ secrets.PACKAGES_HOST }}
-  # set (to any value other than false) to trigger random unicode filenames testing (logs may be difficult to read)
-  ENABLE_UNICODE_FILENAMES: ${{ secrets.ENABLE_UNICODE_FILENAMES }}
-  # set (to any value other than false) to trigger very long filenames testing
-  ENABLE_LONG_FILENAMES: ${{ secrets.ENABLE_LONG_FILENAMES }}
 jobs:
   build:
     strategy:
@@ -97,19 +93,6 @@ jobs:
 
         # macOS signing certificate (base64-encoded), used by Electron Builder
         MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
-    - name: Tests
-      run: make ci-tests
-      continue-on-error: ${{ github.event_name != 'pull_request' }}
-    - name: Integration Tests
-      run: make -j2 ci-integration-tests
-      continue-on-error: ${{ github.event_name != 'pull_request' }}
-    - name: Upload Logs
-      uses: actions/upload-artifact@v2
-      with:
-        name: logs
-        path: .logs/**/*.log
-        if-no-files-found: ignore
-      if: ${{ always() }}
     - name: Upload Kopia Artifacts
       uses: actions/upload-artifact@v2
       with:

@@ -1,0 +1,70 @@
+name: Tests
+on:
+  pull_request:
+    branches: [ master ]
+  push:
+    # ci-sandbox is a branch dedicated to testing post-submit code.
+    branches: [ master, artifacts-pr ]
+    tags:
+      - v*
+  schedule:
+    # run on Mondays at 8AM
+    - cron:  '0 8 * * 1'
+env:
+  # environment variables shared between build steps
+  # do not include sensitive credentials and tokens here, instead pass them
+  # directly to tools that need them to limit the blast radius in case one of them
+  # becomes compromised and leaks credentials to external sites.
+  # required by Makefile
+  UNIX_SHELL_ON_WINDOWS: true
+  # set (to any value other than false) to trigger random unicode filenames testing (logs may be difficult to read)
+  ENABLE_UNICODE_FILENAMES: ${{ secrets.ENABLE_UNICODE_FILENAMES }}
+  # set (to any value other than false) to trigger very long filenames testing
+  ENABLE_LONG_FILENAMES: ${{ secrets.ENABLE_LONG_FILENAMES }}
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+        include:
+          - os: [self-hosted, ARM64]
+          - os: [self-hosted, ARMHF]
+    name: Tests
+    runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ contains(matrix.os, 'self-hosted') }}
+    steps:
+    - name: Set up Go.
+      uses: actions/setup-go@v2
+      with:
+        go-version: ^1.17
+      id: go
+      if: ${{ !contains(matrix.os, 'ARMHF') }}
+    - name: Install GoLang for ARMHF
+      run: "echo /usr/local/go/bin >> $GITHUB_PATH; rm -rf /usr/local/go && mkdir -p /usr/local/go && curl -s -L https://golang.org/dl/go1.17.linux-armv6l.tar.gz | tar -C /usr/local -xz"
+      if: ${{ contains(matrix.os, 'ARMHF') }}
+    - name: Install Windows-specific packages
+      run: "choco install --no-progress -y make zip unzip curl"
+      if: ${{ contains(matrix.os, 'windows') }}
+    - name: Install macOS-specific packages
+      run: "sudo xcode-select -r"
+      if: ${{ contains(matrix.os, 'macos') }}
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+    - name: Setup
+      run: make -j4 ci-setup
+    - name: Tests
+      run: make ci-tests
+      continue-on-error: ${{ github.event_name != 'pull_request' }}
+    - name: Integration Tests
+      run: make -j2 ci-integration-tests
+      continue-on-error: ${{ github.event_name != 'pull_request' }}
+    - name: Upload Logs
+      uses: actions/upload-artifact@v2
+      with:
+        name: logs
+        path: .logs/**/*.log
+        if-no-files-found: ignore
+      if: ${{ always() }}
