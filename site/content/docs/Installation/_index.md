@@ -100,7 +100,7 @@ Kopia offers APT repository compatible with Debian, Ubuntu and other similar dis
 To begin, install the GPG signing key to verify authenticity of the releases.
 
 ```shell
-curl -s https://kopia.io/signing-key | sudo apt-key add -
+curl -s https://kopia.io/signing-key | sudo gpg --dearmor -o /usr/share/keyrings/kopia-keyring.gpg
 ```
 
 Register APT source:
