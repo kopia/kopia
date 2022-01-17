@@ -159,6 +159,17 @@ func openDirect(ctx context.Context, configFile string, lc *LocalConfig, passwor
 		return nil, errors.Wrap(err, "cannot open storage")
 	}
 
+	var tmp gather.WriteBuffer
+	defer tmp.Close()
+
+	if err = st.GetBlob(ctx, FormatBlobID, 0, -1, &tmp); err != nil {
+		if errors.Is(err, blob.ErrBlobNotFound) {
+			return nil, errors.Errorf("repository not initialized")
+		}
+
+		return nil, errors.Wrap(err, "unable to read format blob")
+	}
+
 	if options.TraceStorage {
 		st = loggingwrapper.NewWrapper(st, log(ctx), "[STORAGE] ")
 	}
