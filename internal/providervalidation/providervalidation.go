@@ -190,8 +190,8 @@ func ValidateProvider(ctx context.Context, st blob.Storage, opt Options) error {
 
 	if !opt.SupportIdempotentCreates {
 		err := st.PutBlob(ctx, "dummy_id", gather.FromSlice([]byte{99}), blob.PutOptions{DoNotRecreate: true})
-		if err == nil {
-			return errors.New("store should not support put-blob-no-overwrite, expected error")
+		if !errors.As(err, &blob.ErrUnsupportedPutBlobOption) {
+			return errors.Errorf("expected error 'unsupported put-blob option', but got %v", err)
 		}
 	}
 

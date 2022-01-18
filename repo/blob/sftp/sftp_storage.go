@@ -173,9 +173,9 @@ func (s *sftpImpl) GetMetadataFromPath(ctx context.Context, dirPath, fullPath st
 func (s *sftpImpl) PutBlobInPath(ctx context.Context, dirPath, fullPath string, data blob.Bytes, opts blob.PutOptions) error {
 	switch {
 	case opts.HasRetentionOptions():
-		return errors.New("setting blob-retention is not supported")
+		return errors.Wrap(blob.ErrUnsupportedPutBlobOption, "blob-retention")
 	case opts.DoNotRecreate:
-		return errors.New("setting blob do-not-recreate is not supported")
+		return errors.Wrap(blob.ErrUnsupportedPutBlobOption, "do-not-recreate")
 	}
 
 	// nolint:wrapcheck

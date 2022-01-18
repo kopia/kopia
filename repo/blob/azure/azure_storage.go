@@ -113,9 +113,9 @@ func translateError(err error) error {
 func (az *azStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes, opts blob.PutOptions) error {
 	switch {
 	case opts.HasRetentionOptions():
-		return errors.New("setting blob-retention is not supported")
+		return errors.Wrap(blob.ErrUnsupportedPutBlobOption, "blob-retention")
 	case opts.DoNotRecreate:
-		return errors.New("setting blob do-not-recreate is not supported")
+		return errors.Wrap(blob.ErrUnsupportedPutBlobOption, "do-not-recreate")
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
