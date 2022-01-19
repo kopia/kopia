@@ -31,18 +31,21 @@ type Options struct {
 	NumGetMetadataWorkers int
 	NumListBlobsWorkers   int
 	MaxBlobLength         int
+
+	SupportIdempotentCreates bool
 }
 
 // DefaultOptions is the default set of options.
 // nolint:gomnd,gochecknoglobals
 var DefaultOptions = Options{
-	MaxClockDrift:           3 * time.Minute,
-	ConcurrencyTestDuration: 30 * time.Second,
-	NumPutBlobWorkers:       3,
-	NumGetBlobWorkers:       3,
-	NumGetMetadataWorkers:   3,
-	NumListBlobsWorkers:     3,
-	MaxBlobLength:           10e6,
+	MaxClockDrift:            3 * time.Minute,
+	ConcurrencyTestDuration:  30 * time.Second,
+	NumPutBlobWorkers:        3,
+	NumGetBlobWorkers:        3,
+	NumGetMetadataWorkers:    3,
+	NumListBlobsWorkers:      3,
+	MaxBlobLength:            10e6,
+	SupportIdempotentCreates: false,
 }
 
 const blobIDLength = 16
@@ -51,7 +54,7 @@ var log = logging.Module("providervalidation")
 
 // ValidateProvider runs a series of tests against provided storage to validate that
 // it can be used with Kopia.
-// nolint:gomnd,funlen,gocyclo
+// nolint:gomnd,funlen,gocyclo,cyclop
 func ValidateProvider(ctx context.Context, st blob.Storage, opt Options) error {
 	if os.Getenv("KOPIA_SKIP_PROVIDER_VALIDATION") != "" {
 		return nil
@@ -181,6 +184,15 @@ func ValidateProvider(ctx context.Context, st blob.Storage, opt Options) error {
 
 	if err := ct.run(ctx); err != nil {
 		return errors.Wrap(err, "error validating concurrency")
+	}
+
+	log(ctx).Infof("Validating blob idempontent creates...")
+
+	if !opt.SupportIdempotentCreates {
+		err := st.PutBlob(ctx, "dummy_id", gather.FromSlice([]byte{99}), blob.PutOptions{DoNotRecreate: true})
+		if err == nil {
+			return errors.New("store should not support put-blob-no-overwrite, expected error")
+		}
 	}
 
 	log(ctx).Infof("All good.")

@@ -108,14 +108,21 @@ func VerifyStorage(ctx context.Context, t *testing.T, r blob.Storage, opts blob.
 	})
 
 	t.Run("OverwriteBlobs", func(t *testing.T) {
+		newContents := []byte{99}
+
 		for _, b := range blocks {
 			b := b
 
 			t.Run(string(b.blk), func(t *testing.T) {
 				t.Parallel()
-
-				require.NoErrorf(t, r.PutBlob(ctx, b.blk, gather.FromSlice(b.contents), blob.PutOptions{}), "can't put blob: %v", b)
-				AssertGetBlob(ctx, t, r, b.blk, b.contents)
+				err := r.PutBlob(ctx, b.blk, gather.FromSlice(newContents), opts)
+				if opts.DoNotRecreate {
+					require.ErrorIsf(t, err, blob.ErrBlobAlreadyExists, "overwrote blob: %v", b)
+					AssertGetBlob(ctx, t, r, b.blk, b.contents)
+				} else {
+					require.NoErrorf(t, err, "can't put blob: %v", b)
+					AssertGetBlob(ctx, t, r, b.blk, newContents)
+				}
 			})
 		}
 	})
@@ -209,11 +216,12 @@ func AssertConnectionInfoRoundTrips(ctx context.Context, t *testing.T, s blob.St
 // TestValidationOptions is the set of options used when running providing validation from tests.
 // nolint:gomnd
 var TestValidationOptions = providervalidation.Options{
-	MaxClockDrift:           3 * time.Minute,
-	ConcurrencyTestDuration: 15 * time.Second,
-	NumPutBlobWorkers:       3,
-	NumGetBlobWorkers:       3,
-	NumGetMetadataWorkers:   3,
-	NumListBlobsWorkers:     3,
-	MaxBlobLength:           10e6,
+	MaxClockDrift:            3 * time.Minute,
+	ConcurrencyTestDuration:  15 * time.Second,
+	NumPutBlobWorkers:        3,
+	NumGetBlobWorkers:        3,
+	NumGetMetadataWorkers:    3,
+	NumListBlobsWorkers:      3,
+	MaxBlobLength:            10e6,
+	SupportIdempotentCreates: false,
 }
