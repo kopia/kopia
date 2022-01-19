@@ -150,8 +150,15 @@ func (fs *fsImpl) GetMetadataFromPath(ctx context.Context, dirPath, path string)
 	return v.(blob.Metadata), nil //nolint:forcetypeassert
 }
 
+//nolint:wrapcheck,gocyclo
 func (fs *fsImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data blob.Bytes, opts blob.PutOptions) error {
-	// nolint:wrapcheck
+	switch {
+	case opts.HasRetentionOptions():
+		return errors.New("setting blob-retention is not supported")
+	case opts.DoNotRecreate:
+		return errors.New("setting blob do-not-recreate is not supported")
+	}
+
 	return retry.WithExponentialBackoffNoValue(ctx, "PutBlobInPath:"+path, func() error {
 		randSuffix := make([]byte, tempFileRandomSuffixLen)
 		if _, err := rand.Read(randSuffix); err != nil {

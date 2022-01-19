@@ -134,6 +134,13 @@ func (d *davStorageImpl) ReadDir(ctx context.Context, dir string) ([]os.FileInfo
 }
 
 func (d *davStorageImpl) PutBlobInPath(ctx context.Context, dirPath, filePath string, data blob.Bytes, opts blob.PutOptions) error {
+	switch {
+	case opts.HasRetentionOptions():
+		return errors.New("setting blob-retention is not supported")
+	case opts.DoNotRecreate:
+		return errors.New("setting blob do-not-recreate is not supported")
+	}
+
 	if !opts.SetModTime.IsZero() {
 		return blob.ErrSetTimeUnsupported
 	}
