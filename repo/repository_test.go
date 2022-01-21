@@ -434,7 +434,7 @@ func TestInitializeWithRetentionBlob(t *testing.T) {
 		),
 		"possible corruption: retention blob exists, but format blob is not found")
 
-	// verify that we consider the repository corrupted if we were able to
+	// verify that we consider the repository corrupted if we were unable to
 	// write the retention blob
 	require.Errorf(t,
 		repo.Initialize(testlogging.Context(t),
