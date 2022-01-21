@@ -410,14 +410,30 @@ func TestInitializeWithRetentionBlob(t *testing.T) {
 	// password-change
 	require.NoError(t, env.RepositoryWriter.BlobStorage().GetBlob(ctx, repo.RetentionBlobID, 0, -1, &d))
 
-	// verify that we cannot re-initialize the repo even if the format-blob was
-	// lost or deleted
-	require.Errorf(t, repo.Initialize(testlogging.Context(t), env.RootStorage(), nil, env.Password),
-		"possible corruption: retention blob exists, but format blob is not found")
+	// verify that we cannot re-initialize the repo even after password change
+	require.EqualError(t, repo.Initialize(testlogging.Context(t), env.RootStorage(), nil, env.Password),
+		"repository already initialized")
 
-	// verify that we'd consider the repository corrupted if we were able to
-	// read the retention blob but failed to read the format blob
-	require.Errorf(t,
+	// backup retention blob
+	{
+		// backup & corrupt the retention blob
+		d.Reset()
+		require.NoError(t, env.RepositoryWriter.BlobStorage().GetBlob(ctx, repo.RetentionBlobID, 0, -1, &d))
+		corruptedData := d.Dup()
+		corruptedData.Append([]byte("bad bits"))
+		require.NoError(t, env.RepositoryWriter.BlobStorage().PutBlob(ctx, repo.RetentionBlobID, corruptedData.Bytes(), blob.PutOptions{}))
+
+		// verify that we error out on corrupted retention blob
+		_, err := repo.Open(ctx, env.ConfigFile(), env.Password, &repo.Options{})
+		require.EqualError(t, err, "invalid repository password")
+
+		// restore the original blob
+		require.NoError(t, env.RepositoryWriter.BlobStorage().PutBlob(ctx, repo.RetentionBlobID, d.Bytes(), blob.PutOptions{}))
+	}
+
+	// verify that we'd hard-fail on unexpected errors on retention blob-puts
+	// when creating a new repository
+	require.EqualError(t,
 		repo.Initialize(testlogging.Context(t),
 			beforeop.NewWrapper(
 				env.RootStorage(),
@@ -425,6 +441,34 @@ func TestInitializeWithRetentionBlob(t *testing.T) {
 				func(id blob.ID) error {
 					if id == repo.RetentionBlobID {
 						return errors.New("unexpected error")
+					}
+					// simulate not-found for format-blob
+					if id == repo.FormatBlobID {
+						return blob.ErrBlobNotFound
+					}
+					return nil
+				}, nil, nil, nil,
+			),
+			nil,
+			env.Password,
+		),
+		"unexpected error when checking for retention blob: unexpected error")
+
+	// verify that we'd consider the repository corrupted if we were able to
+	// read the retention blob but failed to read the format blob
+	require.EqualError(t,
+		repo.Initialize(testlogging.Context(t),
+			beforeop.NewWrapper(
+				env.RootStorage(),
+				// GetBlob callback
+				func(id blob.ID) error {
+					// simulate not-found for format-blob but let retention
+					// blob appear as pre-existing
+					if id == repo.RetentionBlobID {
+						return nil
+					}
+					if id == repo.FormatBlobID {
+						return blob.ErrBlobNotFound
 					}
 					return nil
 				}, nil, nil, nil,
@@ -436,11 +480,19 @@ func TestInitializeWithRetentionBlob(t *testing.T) {
 
 	// verify that we consider the repository corrupted if we were unable to
 	// write the retention blob
-	require.Errorf(t,
+	require.EqualError(t,
 		repo.Initialize(testlogging.Context(t),
 			beforeop.NewWrapper(
 				env.RootStorage(),
-				nil, nil, nil,
+				// GetBlob callback
+				func(id blob.ID) error {
+					// simulate not-found for format-blob and retention blob
+					if id == repo.RetentionBlobID || id == repo.FormatBlobID {
+						return blob.ErrBlobNotFound
+					}
+					return nil
+				},
+				nil, nil,
 				// PutBlob callback
 				func(id blob.ID, _ *blob.PutOptions) error {
 					if id == repo.RetentionBlobID {
@@ -449,39 +501,38 @@ func TestInitializeWithRetentionBlob(t *testing.T) {
 					return nil
 				},
 			),
-			nil,
+			&repo.NewRepositoryOptions{
+				RetentionMode:   minio.Governance.String(),
+				RetentionPeriod: 24 * time.Hour,
+			},
 			env.Password,
 		),
-		"unable to write retention blob")
+		"unable to write retention blob: unexpected error")
 
 	// verify that we always read/fail on the repository blob first before the
 	// retention blob
-	require.Errorf(t,
+	require.EqualError(t,
 		repo.Initialize(testlogging.Context(t),
 			beforeop.NewWrapper(
 				env.RootStorage(),
-				nil, nil, nil,
-				// PutBlob callback
-				func(id blob.ID, _ *blob.PutOptions) error {
-					if id == repo.RetentionBlobID || id == repo.FormatBlobID {
+				// GetBlob callback
+				func(id blob.ID) error {
+					// simulate not-found for format-blob and retention blob
+					if id == repo.FormatBlobID {
 						return errors.New("unexpected error")
 					}
 					return nil
 				},
+				nil, nil, nil,
 			),
 			nil,
 			env.Password,
 		),
-		"unable to read repository blobs")
+		"unexpected error when checking for format blob: unexpected error")
 }
 
 func TestInitializeWithNoRetention(t *testing.T) {
-	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant, repotesting.Options{
-		NewRepositoryOptions: func(n *repo.NewRepositoryOptions) {
-			n.RetentionMode = minio.Governance.String()
-			n.RetentionPeriod = 0 // no-effect
-		},
-	})
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant, repotesting.Options{})
 
 	// verify that the retention blob is NOT created because the retention period is not
 	// specified

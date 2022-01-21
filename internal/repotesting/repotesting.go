@@ -77,7 +77,7 @@ func (e *Environment) setup(tb testing.TB, version content.FormatVersion, opts .
 	}
 
 	var st blob.Storage
-	if opt.RetentionPeriod == 0 && opt.RetentionMode == "" {
+	if opt.RetentionPeriod == 0 || opt.RetentionMode == "" {
 		st = blobtesting.NewMapStorage(blobtesting.DataMap{}, nil, openOpt.TimeNowFunc)
 	} else {
 		// use versioned mock storage when retention settings are specified

@@ -158,6 +158,18 @@ func (b *WriteBuffer) allocChunk() []byte {
 	return b.alloc.allocChunk()
 }
 
+// Dup creates a clone of the WriteBuffer.
+func (b *WriteBuffer) Dup() *WriteBuffer {
+	dup := &WriteBuffer{}
+
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	dup.alloc = b.alloc
+	dup.inner = FromSlice(b.inner.ToByteSlice())
+
+	return dup
+}
+
 // NewWriteBuffer creates new write buffer.
 func NewWriteBuffer() *WriteBuffer {
 	return &WriteBuffer{}
