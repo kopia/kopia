@@ -20,13 +20,13 @@ const (
 )
 
 type progressFlags struct {
-	enableProgress         bool
+	disableProgress        bool
 	progressUpdateInterval time.Duration
 	out                    textOutput
 }
 
 func (p *progressFlags) setup(svc appServices, app *kingpin.Application) {
-	app.Flag("progress", "Enable progress bar").Hidden().Default("true").BoolVar(&p.enableProgress)
+	app.Flag("disable-progress", "Disable progress bar").BoolVar(&p.disableProgress)
 	app.Flag("progress-update-interval", "How often to update progress information").Hidden().Default("300ms").DurationVar(&p.progressUpdateInterval)
 	p.out.setup(svc)
 }
@@ -151,14 +151,14 @@ func (p *cliProgress) output(col *color.Color, msg string) {
 
 	if msg != "" {
 		prefix := "\n ! "
-		if !p.enableProgress {
+		if p.disableProgress {
 			prefix = ""
 		}
 
 		col.Fprintf(p.out.stderr(), "%v%v", prefix, msg) // nolint:errcheck
 	}
 
-	if !p.enableProgress {
+	if p.disableProgress {
 		return
 	}
 
@@ -248,7 +248,7 @@ func (p *cliProgress) Finish() {
 
 	p.output(defaultColor, "")
 
-	if p.enableProgress {
+	if !p.disableProgress {
 		p.out.printStderr("\n")
 	}
 }
