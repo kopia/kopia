@@ -4,8 +4,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/minio/minio-go/v7"
-
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo/blob"
 )
@@ -17,7 +15,7 @@ func TestObjectLockingStorage(t *testing.T) {
 	}
 
 	VerifyStorage(testlogging.Context(t), t, r, blob.PutOptions{
-		RetentionMode:   minio.Governance.String(),
+		RetentionMode:   blob.Governance,
 		RetentionPeriod: 24 * time.Hour,
 	})
 }

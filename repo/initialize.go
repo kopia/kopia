@@ -39,7 +39,7 @@ type NewRepositoryOptions struct {
 	BlockFormat     content.FormattingOptions `json:"blockFormat"`
 	DisableHMAC     bool                      `json:"disableHMAC"`
 	ObjectFormat    object.Format             `json:"objectFormat"` // object format
-	RetentionMode   string                    `json:"retentionMode,omitempty"`
+	RetentionMode   blob.RetentionMode        `json:"retentionMode,omitempty"`
 	RetentionPeriod time.Duration             `json:"retentionPeriod,omitempty"`
 }
 

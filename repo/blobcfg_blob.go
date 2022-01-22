@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+
+	"github.com/kopia/kopia/repo/blob"
 )
 
 // BlobCfgBlobID is the identifier of a BLOB that describes BLOB retention
@@ -12,8 +14,8 @@ import (
 const BlobCfgBlobID = "kopia.blobcfg"
 
 type blobCfgBlob struct {
-	RetentionMode   string        `json:"retentionMode,omitempty"`
-	RetentionPeriod time.Duration `json:"retentionPeriod,omitempty"`
+	RetentionMode   blob.RetentionMode `json:"retentionMode,omitempty"`
+	RetentionPeriod time.Duration      `json:"retentionPeriod,omitempty"`
 }
 
 func (r *blobCfgBlob) IsRetentionEnabled() bool {

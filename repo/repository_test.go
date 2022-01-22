@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/minio/minio-go/v7"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
@@ -396,7 +395,7 @@ func TestWriterScope(t *testing.T) {
 func TestInitializeWithBlobCfgRetentionBlob(t *testing.T) {
 	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant, repotesting.Options{
 		NewRepositoryOptions: func(n *repo.NewRepositoryOptions) {
-			n.RetentionMode = minio.Governance.String()
+			n.RetentionMode = blob.Governance
 			n.RetentionPeriod = time.Hour * 24
 		},
 	})
@@ -502,7 +501,7 @@ func TestInitializeWithBlobCfgRetentionBlob(t *testing.T) {
 				},
 			),
 			&repo.NewRepositoryOptions{
-				RetentionMode:   minio.Governance.String(),
+				RetentionMode:   blob.Governance,
 				RetentionPeriod: 24 * time.Hour,
 			},
 			env.Password,
@@ -542,7 +541,7 @@ func TestInitializeWithNoRetention(t *testing.T) {
 func TestObjectWritesWithRetention(t *testing.T) {
 	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant, repotesting.Options{
 		NewRepositoryOptions: func(n *repo.NewRepositoryOptions) {
-			n.RetentionMode = minio.Governance.String()
+			n.RetentionMode = blob.Governance
 			n.RetentionPeriod = time.Hour * 24
 		},
 	})
