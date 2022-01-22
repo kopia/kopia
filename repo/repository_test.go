@@ -393,7 +393,7 @@ func TestWriterScope(t *testing.T) {
 	verify(ctx, t, rep, o4, o4Data, "o3-rep")
 }
 
-func TestInitializeWithRetentionBlob(t *testing.T) {
+func TestInitializeWithBlobCfgRetentionBlob(t *testing.T) {
 	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant, repotesting.Options{
 		NewRepositoryOptions: func(n *repo.NewRepositoryOptions) {
 			n.RetentionMode = minio.Governance.String()
@@ -403,35 +403,35 @@ func TestInitializeWithRetentionBlob(t *testing.T) {
 
 	var d gather.WriteBuffer
 
-	// verify that the retention blob is created
-	require.NoError(t, env.RepositoryWriter.BlobStorage().GetBlob(ctx, repo.RetentionBlobID, 0, -1, &d))
+	// verify that the blobcfg retention blob is created
+	require.NoError(t, env.RepositoryWriter.BlobStorage().GetBlob(ctx, repo.BlobCfgBlobID, 0, -1, &d))
 	require.NoError(t, env.RepositoryWriter.ChangePassword(ctx, "new-password"))
-	// verify that the retention blob is created and is different after
+	// verify that the blobcfg retention blob is created and is different after
 	// password-change
-	require.NoError(t, env.RepositoryWriter.BlobStorage().GetBlob(ctx, repo.RetentionBlobID, 0, -1, &d))
+	require.NoError(t, env.RepositoryWriter.BlobStorage().GetBlob(ctx, repo.BlobCfgBlobID, 0, -1, &d))
 
 	// verify that we cannot re-initialize the repo even after password change
 	require.EqualError(t, repo.Initialize(testlogging.Context(t), env.RootStorage(), nil, env.Password),
 		"repository already initialized")
 
-	// backup retention blob
+	// backup blobcfg blob
 	{
-		// backup & corrupt the retention blob
+		// backup & corrupt the blobcfg blob
 		d.Reset()
-		require.NoError(t, env.RepositoryWriter.BlobStorage().GetBlob(ctx, repo.RetentionBlobID, 0, -1, &d))
+		require.NoError(t, env.RepositoryWriter.BlobStorage().GetBlob(ctx, repo.BlobCfgBlobID, 0, -1, &d))
 		corruptedData := d.Dup()
 		corruptedData.Append([]byte("bad bits"))
-		require.NoError(t, env.RepositoryWriter.BlobStorage().PutBlob(ctx, repo.RetentionBlobID, corruptedData.Bytes(), blob.PutOptions{}))
+		require.NoError(t, env.RepositoryWriter.BlobStorage().PutBlob(ctx, repo.BlobCfgBlobID, corruptedData.Bytes(), blob.PutOptions{}))
 
-		// verify that we error out on corrupted retention blob
+		// verify that we error out on corrupted blobcfg blob
 		_, err := repo.Open(ctx, env.ConfigFile(), env.Password, &repo.Options{})
 		require.EqualError(t, err, "invalid repository password")
 
 		// restore the original blob
-		require.NoError(t, env.RepositoryWriter.BlobStorage().PutBlob(ctx, repo.RetentionBlobID, d.Bytes(), blob.PutOptions{}))
+		require.NoError(t, env.RepositoryWriter.BlobStorage().PutBlob(ctx, repo.BlobCfgBlobID, d.Bytes(), blob.PutOptions{}))
 	}
 
-	// verify that we'd hard-fail on unexpected errors on retention blob-puts
+	// verify that we'd hard-fail on unexpected errors on blobcfg blob-puts
 	// when creating a new repository
 	require.EqualError(t,
 		repo.Initialize(testlogging.Context(t),
@@ -439,7 +439,7 @@ func TestInitializeWithRetentionBlob(t *testing.T) {
 				env.RootStorage(),
 				// GetBlob callback
 				func(id blob.ID) error {
-					if id == repo.RetentionBlobID {
+					if id == repo.BlobCfgBlobID {
 						return errors.New("unexpected error")
 					}
 					// simulate not-found for format-blob
@@ -452,19 +452,19 @@ func TestInitializeWithRetentionBlob(t *testing.T) {
 			nil,
 			env.Password,
 		),
-		"unexpected error when checking for retention blob: unexpected error")
+		"unexpected error when checking for blobcfg blob: unexpected error")
 
 	// verify that we'd consider the repository corrupted if we were able to
-	// read the retention blob but failed to read the format blob
+	// read the blobcfg blob but failed to read the format blob
 	require.EqualError(t,
 		repo.Initialize(testlogging.Context(t),
 			beforeop.NewWrapper(
 				env.RootStorage(),
 				// GetBlob callback
 				func(id blob.ID) error {
-					// simulate not-found for format-blob but let retention
+					// simulate not-found for format-blob but let blobcfg
 					// blob appear as pre-existing
-					if id == repo.RetentionBlobID {
+					if id == repo.BlobCfgBlobID {
 						return nil
 					}
 					if id == repo.FormatBlobID {
@@ -476,18 +476,18 @@ func TestInitializeWithRetentionBlob(t *testing.T) {
 			nil,
 			env.Password,
 		),
-		"possible corruption: retention blob exists, but format blob is not found")
+		"possible corruption: blobcfg blob exists, but format blob is not found")
 
 	// verify that we consider the repository corrupted if we were unable to
-	// write the retention blob
+	// write the blobcfg blob
 	require.EqualError(t,
 		repo.Initialize(testlogging.Context(t),
 			beforeop.NewWrapper(
 				env.RootStorage(),
 				// GetBlob callback
 				func(id blob.ID) error {
-					// simulate not-found for format-blob and retention blob
-					if id == repo.RetentionBlobID || id == repo.FormatBlobID {
+					// simulate not-found for format-blob and blobcfg blob
+					if id == repo.BlobCfgBlobID || id == repo.FormatBlobID {
 						return blob.ErrBlobNotFound
 					}
 					return nil
@@ -495,7 +495,7 @@ func TestInitializeWithRetentionBlob(t *testing.T) {
 				nil, nil,
 				// PutBlob callback
 				func(id blob.ID, _ *blob.PutOptions) error {
-					if id == repo.RetentionBlobID {
+					if id == repo.BlobCfgBlobID {
 						return errors.New("unexpected error")
 					}
 					return nil
@@ -507,17 +507,17 @@ func TestInitializeWithRetentionBlob(t *testing.T) {
 			},
 			env.Password,
 		),
-		"unable to write retention blob: unexpected error")
+		"unable to write blobcfg blob: unexpected error")
 
 	// verify that we always read/fail on the repository blob first before the
-	// retention blob
+	// blobcfg blob
 	require.EqualError(t,
 		repo.Initialize(testlogging.Context(t),
 			beforeop.NewWrapper(
 				env.RootStorage(),
 				// GetBlob callback
 				func(id blob.ID) error {
-					// simulate not-found for format-blob and retention blob
+					// simulate not-found for format-blob and blobcfg blob
 					if id == repo.FormatBlobID {
 						return errors.New("unexpected error")
 					}
@@ -534,9 +534,9 @@ func TestInitializeWithRetentionBlob(t *testing.T) {
 func TestInitializeWithNoRetention(t *testing.T) {
 	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant, repotesting.Options{})
 
-	// verify that the retention blob is NOT created because the retention period is not
+	// verify that the blobcfg blob is NOT created because the blobcfg period is not
 	// specified
-	blobtesting.AssertGetBlobNotFound(ctx, t, env.RepositoryWriter.BlobStorage(), repo.RetentionBlobID)
+	blobtesting.AssertGetBlobNotFound(ctx, t, env.RepositoryWriter.BlobStorage(), repo.BlobCfgBlobID)
 }
 
 func TestObjectWritesWithRetention(t *testing.T) {
@@ -565,7 +565,7 @@ func TestObjectWritesWithRetention(t *testing.T) {
 	}
 
 	prefixesWithRetention = append(prefixesWithRetention, content.IndexBlobPrefix, epoch.EpochManagerIndexUberPrefix,
-		repo.FormatBlobID, repo.RetentionBlobID)
+		repo.FormatBlobID, repo.BlobCfgBlobID)
 
 	// make sure that we cannot set mtime on the kopia objects created due to the
 	// retention time constraint

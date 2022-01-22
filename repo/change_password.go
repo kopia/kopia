@@ -12,7 +12,7 @@ import (
 )
 
 // ChangePassword changes the repository password and rewrites
-// `kopia.repository` & `kopia.retention`.
+// `kopia.repository` & `kopia.blobcfg`.
 func (r *directRepository) ChangePassword(ctx context.Context, newPassword string) error {
 	f := r.formatBlob
 
@@ -36,21 +36,21 @@ func (r *directRepository) ChangePassword(ctx context.Context, newPassword strin
 		return errors.Wrap(err, "unable to encrypt format bytes")
 	}
 
-	if !r.retentionBlob.IsNull() {
-		retentionBytes, err := serializeRetentionBytes(f, r.retentionBlob, newFormatEncryptionKey)
+	if r.blobCfgBlob.IsRetentionEnabled() {
+		blobCfgBytes, err := serializeBlobCfgBytes(f, r.blobCfgBlob, newFormatEncryptionKey)
 		if err != nil {
-			return errors.Wrap(err, "unable to encrypt retention bytes")
+			return errors.Wrap(err, "unable to encrypt blobcfg bytes")
 		}
 
-		if err := r.blobs.PutBlob(ctx, RetentionBlobID, gather.FromSlice(retentionBytes), blob.PutOptions{
-			RetentionMode:   r.retentionBlob.Mode,
-			RetentionPeriod: r.retentionBlob.Period,
+		if err := r.blobs.PutBlob(ctx, BlobCfgBlobID, gather.FromSlice(blobCfgBytes), blob.PutOptions{
+			RetentionMode:   r.blobCfgBlob.RetentionMode,
+			RetentionPeriod: r.blobCfgBlob.RetentionPeriod,
 		}); err != nil {
-			return errors.Wrap(err, "unable to write retention blob")
+			return errors.Wrap(err, "unable to write blobcfg blob")
 		}
 	}
 
-	if err := writeFormatBlob(ctx, r.blobs, f, r.retentionBlob); err != nil {
+	if err := writeFormatBlob(ctx, r.blobs, f, r.blobCfgBlob); err != nil {
 		return errors.Wrap(err, "unable to write format blob")
 	}
 
@@ -60,8 +60,8 @@ func (r *directRepository) ChangePassword(ctx context.Context, newPassword strin
 			log(ctx).Errorf("unable to remove %s: %v", FormatBlobID, err)
 		}
 
-		if err := os.Remove(filepath.Join(cd, RetentionBlobID)); err != nil && !os.IsNotExist(err) {
-			log(ctx).Errorf("unable to remove %s: %v", RetentionBlobID, err)
+		if err := os.Remove(filepath.Join(cd, BlobCfgBlobID)); err != nil && !os.IsNotExist(err) {
+			log(ctx).Errorf("unable to remove %s: %v", BlobCfgBlobID, err)
 		}
 	}
 

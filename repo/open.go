@@ -214,7 +214,7 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 		return nil, ErrInvalidPassword
 	}
 
-	retentionConfig, err := deserializeRetentionBytes(f, rb, formatEncryptionKey)
+	retentionConfig, err := deserializeBlobCfgBytes(f, rb, formatEncryptionKey)
 	if err != nil {
 		return nil, ErrInvalidPassword
 	}
@@ -249,7 +249,7 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 		return nil, errors.Wrap(err, "unable to add throttler")
 	}
 
-	if !retentionConfig.IsNull() {
+	if retentionConfig.IsRetentionEnabled() {
 		st = wrapLockingStorage(st, retentionConfig)
 	}
 
@@ -284,7 +284,7 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 			uniqueID:            f.UniqueID,
 			cachingOptions:      *caching,
 			formatBlob:          f,
-			retentionBlob:       &retentionConfig,
+			blobCfgBlob:         &retentionConfig,
 			formatEncryptionKey: formatEncryptionKey,
 			timeNow:             cmOpts.TimeNow,
 			cliOpts:             lc.ClientOptions.ApplyDefaults(ctx, "Repository in "+st.DisplayName()),
@@ -297,7 +297,7 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 	return dr, nil
 }
 
-func wrapLockingStorage(st blob.Storage, r retentionBlob) blob.Storage {
+func wrapLockingStorage(st blob.Storage, r blobCfgBlob) blob.Storage {
 	// collect prefixes that need to be locked on put
 	var prefixes []string
 	for _, prefix := range content.PackBlobIDPrefixes {
@@ -305,13 +305,13 @@ func wrapLockingStorage(st blob.Storage, r retentionBlob) blob.Storage {
 	}
 
 	prefixes = append(prefixes, content.IndexBlobPrefix, epoch.EpochManagerIndexUberPrefix, FormatBlobID,
-		RetentionBlobID)
+		BlobCfgBlobID)
 
 	return beforeop.NewWrapper(st, nil, nil, nil, func(id blob.ID, opts *blob.PutOptions) error {
 		for _, prefix := range prefixes {
 			if strings.HasPrefix(string(id), prefix) {
-				opts.RetentionMode = r.Mode
-				opts.RetentionPeriod = r.Period
+				opts.RetentionMode = r.RetentionMode
+				opts.RetentionPeriod = r.RetentionPeriod
 				break
 			}
 		}
@@ -444,17 +444,17 @@ func readAndCacheRepositoryBlobBytes(ctx context.Context, st blob.Storage, cache
 	return b.ToByteSlice(), nil
 }
 
-func readAndCacheRepositoryBlobs(ctx context.Context, st blob.Storage, cacheDirectory string, validDuration time.Duration) (format, retention []byte, err error) {
+func readAndCacheRepositoryBlobs(ctx context.Context, st blob.Storage, cacheDirectory string, validDuration time.Duration) (format, blobcfg []byte, err error) {
 	// Read format blob, potentially from cache.
 	fb, err := readAndCacheRepositoryBlobBytes(ctx, st, cacheDirectory, FormatBlobID, validDuration)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "unable to read format blob")
 	}
 
-	// Read retention blob, potentially from cache.
-	rb, err := readAndCacheRepositoryBlobBytes(ctx, st, cacheDirectory, RetentionBlobID, validDuration)
+	// Read blobcfg blob, potentially from cache.
+	rb, err := readAndCacheRepositoryBlobBytes(ctx, st, cacheDirectory, BlobCfgBlobID, validDuration)
 	if err != nil && !errors.Is(err, blob.ErrBlobNotFound) {
-		return nil, nil, errors.Wrap(err, "unable to read retention blob")
+		return nil, nil, errors.Wrap(err, "unable to read blobcfg blob")
 	}
 
 	return fb, rb, nil

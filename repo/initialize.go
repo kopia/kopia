@@ -65,17 +65,17 @@ func Initialize(ctx context.Context, st blob.Storage, opt *NewRepositoryOptions,
 		return errors.Wrap(err, "unexpected error when checking for format blob")
 	}
 
-	err = st.GetBlob(ctx, RetentionBlobID, 0, -1, &tmp)
+	err = st.GetBlob(ctx, BlobCfgBlobID, 0, -1, &tmp)
 	if err == nil {
-		return errors.Errorf("possible corruption: retention blob exists, but format blob is not found")
+		return errors.Errorf("possible corruption: blobcfg blob exists, but format blob is not found")
 	}
 
 	if !errors.Is(err, blob.ErrBlobNotFound) {
-		return errors.Wrap(err, "unexpected error when checking for retention blob")
+		return errors.Wrap(err, "unexpected error when checking for blobcfg blob")
 	}
 
 	format := formatBlobFromOptions(opt)
-	retention := retentionBlobFromOptions(opt)
+	blobcfg := blobCfgBlobFromOptions(opt)
 
 	formatEncryptionKey, err := format.deriveFormatEncryptionKeyFromPassword(password)
 	if err != nil {
@@ -95,23 +95,23 @@ func Initialize(ctx context.Context, st blob.Storage, opt *NewRepositoryOptions,
 		return errors.Wrap(err, "unable to encrypt format bytes")
 	}
 
-	if !retention.IsNull() {
-		retentionBytes, err := serializeRetentionBytes(format, retention, formatEncryptionKey)
+	if blobcfg.IsRetentionEnabled() {
+		retentionBytes, err := serializeBlobCfgBytes(format, blobcfg, formatEncryptionKey)
 		if err != nil {
-			return errors.Wrap(err, "unable to encrypt retention bytes")
+			return errors.Wrap(err, "unable to encrypt blobcfg bytes")
 		}
 
-		// Write the retention blob first so that we'll consider the repository
+		// Write the blobcfg blob first so that we'll consider the repository
 		// corrupted if writing the format blob fails later.
-		if err := st.PutBlob(ctx, RetentionBlobID, gather.FromSlice(retentionBytes), blob.PutOptions{
-			RetentionMode:   retention.Mode,
-			RetentionPeriod: retention.Period,
+		if err := st.PutBlob(ctx, BlobCfgBlobID, gather.FromSlice(retentionBytes), blob.PutOptions{
+			RetentionMode:   blobcfg.RetentionMode,
+			RetentionPeriod: blobcfg.RetentionPeriod,
 		}); err != nil {
-			return errors.Wrap(err, "unable to write retention blob")
+			return errors.Wrap(err, "unable to write blobcfg blob")
 		}
 	}
 
-	if err := writeFormatBlob(ctx, st, format, retention); err != nil {
+	if err := writeFormatBlob(ctx, st, format, blobcfg); err != nil {
 		return errors.Wrap(err, "unable to write format blob")
 	}
 
