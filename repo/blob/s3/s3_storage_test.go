@@ -198,7 +198,7 @@ func TestS3StorageRetentionUnlockedBucket(t *testing.T) {
 	t.Run("valid period", func(t *testing.T) {
 		// expected to fail on non-locked buckets
 		testPutBlobWithInvalidRetention(t, options, blob.PutOptions{
-			RetentionMode:   minio.Governance.String(),
+			RetentionMode:   blob.Governance,
 			RetentionPeriod: time.Hour * 24,
 		})
 	})
@@ -206,7 +206,7 @@ func TestS3StorageRetentionUnlockedBucket(t *testing.T) {
 	t.Run("invalid period", func(t *testing.T) {
 		options.Prefix = ""
 		testPutBlobWithInvalidRetention(t, options, blob.PutOptions{
-			RetentionMode:   minio.Governance.String(),
+			RetentionMode:   blob.Governance,
 			RetentionPeriod: time.Nanosecond,
 		})
 	})
@@ -228,7 +228,7 @@ func TestS3StorageRetentionLockedBucket(t *testing.T) {
 
 	t.Run("testStorage", func(t *testing.T) {
 		testStorage(t, &options, false, blob.PutOptions{
-			RetentionMode:   minio.Governance.String(),
+			RetentionMode:   blob.Governance,
 			RetentionPeriod: time.Hour * 24,
 		})
 	})
@@ -236,7 +236,7 @@ func TestS3StorageRetentionLockedBucket(t *testing.T) {
 	t.Run("invalid period", func(t *testing.T) {
 		options.Prefix = ""
 		testPutBlobWithInvalidRetention(t, options, blob.PutOptions{
-			RetentionMode:   minio.Governance.String(),
+			RetentionMode:   blob.Governance,
 			RetentionPeriod: time.Nanosecond,
 		})
 	})

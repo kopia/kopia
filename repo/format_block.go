@@ -17,6 +17,7 @@ import (
 )
 
 const (
+	aes256GcmEncryption             = "AES256_GCM"
 	defaultFormatEncryption         = "AES256_GCM"
 	lengthOfRecoverBlockLength      = 2 // number of bytes used to store recover block length
 	maxChecksummedFormatBytesLength = 65000
@@ -161,7 +162,7 @@ func verifyFormatBlobChecksum(b []byte) ([]byte, bool) {
 	return data, true
 }
 
-func writeFormatBlob(ctx context.Context, st blob.Storage, f *formatBlob) error {
+func writeFormatBlob(ctx context.Context, st blob.Storage, f *formatBlob, r *blobCfgBlob) error {
 	buf := gather.NewWriteBuffer()
 	e := json.NewEncoder(buf)
 	e.SetIndent("", "  ")
@@ -170,7 +171,10 @@ func writeFormatBlob(ctx context.Context, st blob.Storage, f *formatBlob) error 
 		return errors.Wrap(err, "unable to marshal format blob")
 	}
 
-	if err := st.PutBlob(ctx, FormatBlobID, buf.Bytes(), blob.PutOptions{}); err != nil {
+	if err := st.PutBlob(ctx, FormatBlobID, buf.Bytes(), blob.PutOptions{
+		RetentionMode:   r.RetentionMode,
+		RetentionPeriod: r.RetentionPeriod,
+	}); err != nil {
 		return errors.Wrap(err, "unable to write format blob")
 	}
 
@@ -179,23 +183,10 @@ func writeFormatBlob(ctx context.Context, st blob.Storage, f *formatBlob) error 
 
 func (f *formatBlob) decryptFormatBytes(masterKey []byte) (*repositoryObjectFormat, error) {
 	switch f.EncryptionAlgorithm {
-	case "AES256_GCM":
-		aead, authData, err := initCrypto(masterKey, f.UniqueID)
+	case aes256GcmEncryption:
+		plainText, err := decryptRepositoryBlobBytesAes256Gcm(f.EncryptedFormatBytes, masterKey, f.UniqueID)
 		if err != nil {
-			return nil, errors.Wrap(err, "cannot initialize cipher")
-		}
-
-		content := append([]byte(nil), f.EncryptedFormatBytes...)
-		if len(content) < aead.NonceSize() {
-			return nil, errors.Errorf("invalid encrypted payload, too short")
-		}
-
-		nonce := content[0:aead.NonceSize()]
-		payload := content[aead.NonceSize():]
-
-		plainText, err := aead.Open(payload[:0], nonce, payload, authData)
-		if err != nil {
-			return nil, errors.Errorf("unable to decrypt repository format, invalid credentials?")
+			return nil, errors.Errorf("unable to decrypt repository format")
 		}
 
 		var erc encryptedRepositoryConfig
@@ -227,31 +218,63 @@ func initCrypto(masterKey, repositoryID []byte) (cipher.AEAD, []byte, error) {
 	return aead, authData, nil
 }
 
+func encryptRepositoryBlobBytesAes256Gcm(content, masterKey, repositoryID []byte) ([]byte, error) {
+	aead, authData, err := initCrypto(masterKey, repositoryID)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to initialize crypto")
+	}
+
+	nonceLength := aead.NonceSize()
+	noncePlusContentLength := nonceLength + len(content)
+	cipherText := make([]byte, noncePlusContentLength+aead.Overhead())
+
+	// Store nonce at the beginning of ciphertext.
+	nonce := cipherText[0:nonceLength]
+	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+		return nil, errors.Wrap(err, "error reading random bytes for nonce")
+	}
+
+	b := aead.Seal(cipherText[nonceLength:nonceLength], nonce, content, authData)
+	content = nonce[0 : nonceLength+len(b)]
+
+	return content, nil
+}
+
+func decryptRepositoryBlobBytesAes256Gcm(content, masterKey, repositoryID []byte) ([]byte, error) {
+	aead, authData, err := initCrypto(masterKey, repositoryID)
+	if err != nil {
+		return nil, errors.Wrap(err, "cannot initialize cipher")
+	}
+
+	content = append([]byte(nil), content...)
+	if len(content) < aead.NonceSize() {
+		return nil, errors.Errorf("invalid encrypted payload, too short")
+	}
+
+	nonce := content[0:aead.NonceSize()]
+	payload := content[aead.NonceSize():]
+
+	plainText, err := aead.Open(payload[:0], nonce, payload, authData)
+	if err != nil {
+		return nil, errors.Errorf("unable to decrypt repository blob, invalid credentials?")
+	}
+
+	return plainText, nil
+}
+
 func encryptFormatBytes(f *formatBlob, format *repositoryObjectFormat, masterKey, repositoryID []byte) error {
 	switch f.EncryptionAlgorithm {
-	case "AES256_GCM":
+	case aes256GcmEncryption:
 		content, err := json.Marshal(&encryptedRepositoryConfig{Format: *format})
 		if err != nil {
 			return errors.Wrap(err, "can't marshal format to JSON")
 		}
 
-		aead, authData, err := initCrypto(masterKey, repositoryID)
+		content, err = encryptRepositoryBlobBytesAes256Gcm(content, masterKey, repositoryID)
 		if err != nil {
-			return errors.Wrap(err, "unable to initialize crypto")
+			return errors.Wrap(err, "failed to encrypt format JSON")
 		}
 
-		nonceLength := aead.NonceSize()
-		noncePlusContentLength := nonceLength + len(content)
-		cipherText := make([]byte, noncePlusContentLength+aead.Overhead())
-
-		// Store nonce at the beginning of ciphertext.
-		nonce := cipherText[0:nonceLength]
-		if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
-			return errors.Wrap(err, "error reading random bytes for nonce")
-		}
-
-		b := aead.Seal(cipherText[nonceLength:nonceLength], nonce, content, authData)
-		content = nonce[0 : nonceLength+len(b)]
 		f.EncryptedFormatBytes = content
 
 		return nil

@@ -6,13 +6,22 @@ import (
 	"io"
 	"math/rand"
 	"runtime/debug"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kopia/kopia/internal/blobtesting"
+	"github.com/kopia/kopia/internal/cache"
+	"github.com/kopia/kopia/internal/epoch"
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/repotesting"
+	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/blob/beforeop"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/object"
 )
@@ -381,6 +390,194 @@ func TestWriterScope(t *testing.T) {
 	verify(ctx, t, w3, o4, o4Data, "o4-w3")
 	verify(ctx, t, lw, o4, o4Data, "o4-lw")
 	verify(ctx, t, rep, o4, o4Data, "o3-rep")
+}
+
+func TestInitializeWithBlobCfgRetentionBlob(t *testing.T) {
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant, repotesting.Options{
+		NewRepositoryOptions: func(n *repo.NewRepositoryOptions) {
+			n.RetentionMode = blob.Governance
+			n.RetentionPeriod = time.Hour * 24
+		},
+	})
+
+	var d gather.WriteBuffer
+
+	// verify that the blobcfg retention blob is created
+	require.NoError(t, env.RepositoryWriter.BlobStorage().GetBlob(ctx, repo.BlobCfgBlobID, 0, -1, &d))
+	require.NoError(t, env.RepositoryWriter.ChangePassword(ctx, "new-password"))
+	// verify that the blobcfg retention blob is created and is different after
+	// password-change
+	require.NoError(t, env.RepositoryWriter.BlobStorage().GetBlob(ctx, repo.BlobCfgBlobID, 0, -1, &d))
+
+	// verify that we cannot re-initialize the repo even after password change
+	require.EqualError(t, repo.Initialize(testlogging.Context(t), env.RootStorage(), nil, env.Password),
+		"repository already initialized")
+
+	// backup blobcfg blob
+	{
+		// backup & corrupt the blobcfg blob
+		d.Reset()
+		require.NoError(t, env.RepositoryWriter.BlobStorage().GetBlob(ctx, repo.BlobCfgBlobID, 0, -1, &d))
+		corruptedData := d.Dup()
+		corruptedData.Append([]byte("bad bits"))
+		require.NoError(t, env.RepositoryWriter.BlobStorage().PutBlob(ctx, repo.BlobCfgBlobID, corruptedData.Bytes(), blob.PutOptions{}))
+
+		// verify that we error out on corrupted blobcfg blob
+		_, err := repo.Open(ctx, env.ConfigFile(), env.Password, &repo.Options{})
+		require.EqualError(t, err, "invalid repository password")
+
+		// restore the original blob
+		require.NoError(t, env.RepositoryWriter.BlobStorage().PutBlob(ctx, repo.BlobCfgBlobID, d.Bytes(), blob.PutOptions{}))
+	}
+
+	// verify that we'd hard-fail on unexpected errors on blobcfg blob-puts
+	// when creating a new repository
+	require.EqualError(t,
+		repo.Initialize(testlogging.Context(t),
+			beforeop.NewWrapper(
+				env.RootStorage(),
+				// GetBlob callback
+				func(id blob.ID) error {
+					if id == repo.BlobCfgBlobID {
+						return errors.New("unexpected error")
+					}
+					// simulate not-found for format-blob
+					if id == repo.FormatBlobID {
+						return blob.ErrBlobNotFound
+					}
+					return nil
+				}, nil, nil, nil,
+			),
+			nil,
+			env.Password,
+		),
+		"unexpected error when checking for blobcfg blob: unexpected error")
+
+	// verify that we'd consider the repository corrupted if we were able to
+	// read the blobcfg blob but failed to read the format blob
+	require.EqualError(t,
+		repo.Initialize(testlogging.Context(t),
+			beforeop.NewWrapper(
+				env.RootStorage(),
+				// GetBlob callback
+				func(id blob.ID) error {
+					// simulate not-found for format-blob but let blobcfg
+					// blob appear as pre-existing
+					if id == repo.BlobCfgBlobID {
+						return nil
+					}
+					if id == repo.FormatBlobID {
+						return blob.ErrBlobNotFound
+					}
+					return nil
+				}, nil, nil, nil,
+			),
+			nil,
+			env.Password,
+		),
+		"possible corruption: blobcfg blob exists, but format blob is not found")
+
+	// verify that we consider the repository corrupted if we were unable to
+	// write the blobcfg blob
+	require.EqualError(t,
+		repo.Initialize(testlogging.Context(t),
+			beforeop.NewWrapper(
+				env.RootStorage(),
+				// GetBlob callback
+				func(id blob.ID) error {
+					// simulate not-found for format-blob and blobcfg blob
+					if id == repo.BlobCfgBlobID || id == repo.FormatBlobID {
+						return blob.ErrBlobNotFound
+					}
+					return nil
+				},
+				nil, nil,
+				// PutBlob callback
+				func(id blob.ID, _ *blob.PutOptions) error {
+					if id == repo.BlobCfgBlobID {
+						return errors.New("unexpected error")
+					}
+					return nil
+				},
+			),
+			&repo.NewRepositoryOptions{
+				RetentionMode:   blob.Governance,
+				RetentionPeriod: 24 * time.Hour,
+			},
+			env.Password,
+		),
+		"unable to write blobcfg blob: unexpected error")
+
+	// verify that we always read/fail on the repository blob first before the
+	// blobcfg blob
+	require.EqualError(t,
+		repo.Initialize(testlogging.Context(t),
+			beforeop.NewWrapper(
+				env.RootStorage(),
+				// GetBlob callback
+				func(id blob.ID) error {
+					// simulate not-found for format-blob and blobcfg blob
+					if id == repo.FormatBlobID {
+						return errors.New("unexpected error")
+					}
+					return nil
+				},
+				nil, nil, nil,
+			),
+			nil,
+			env.Password,
+		),
+		"unexpected error when checking for format blob: unexpected error")
+}
+
+func TestInitializeWithNoRetention(t *testing.T) {
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant, repotesting.Options{})
+
+	// verify that the blobcfg blob is NOT created because the blobcfg period is not
+	// specified
+	blobtesting.AssertGetBlobNotFound(ctx, t, env.RepositoryWriter.BlobStorage(), repo.BlobCfgBlobID)
+}
+
+func TestObjectWritesWithRetention(t *testing.T) {
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant, repotesting.Options{
+		NewRepositoryOptions: func(n *repo.NewRepositoryOptions) {
+			n.RetentionMode = blob.Governance
+			n.RetentionPeriod = time.Hour * 24
+		},
+	})
+
+	writer := env.RepositoryWriter.NewObjectWriter(ctx, object.WriterOptions{})
+	_, err := writer.Write([]byte("the quick brown fox jumps over the lazy dog"))
+	require.NoError(t, err)
+
+	_, err = writer.Result()
+	require.NoError(t, err)
+
+	env.RepositoryWriter.ContentManager().Flush(ctx)
+
+	var prefixesWithRetention []string
+
+	versionedMap := env.RootStorage().(cache.Storage)
+
+	for _, prefix := range content.PackBlobIDPrefixes {
+		prefixesWithRetention = append(prefixesWithRetention, string(prefix))
+	}
+
+	prefixesWithRetention = append(prefixesWithRetention, content.IndexBlobPrefix, epoch.EpochManagerIndexUberPrefix,
+		repo.FormatBlobID, repo.BlobCfgBlobID)
+
+	// make sure that we cannot set mtime on the kopia objects created due to the
+	// retention time constraint
+	require.NoError(t, versionedMap.ListBlobs(ctx, "", func(it blob.Metadata) error {
+		for _, prefix := range prefixesWithRetention {
+			if strings.HasPrefix(string(it.BlobID), prefix) {
+				require.Error(t, versionedMap.TouchBlob(ctx, it.BlobID, 0), "expected error while touching blob %s", it.BlobID)
+				return nil
+			}
+		}
+		require.NoError(t, versionedMap.TouchBlob(ctx, it.BlobID, 0), "unexpected error while touching blob %s", it.BlobID)
+		return nil
+	}))
 }
 
 func (s *formatSpecificTestSuite) TestWriteSessionFlushOnSuccess(t *testing.T) {

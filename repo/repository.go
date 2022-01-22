@@ -88,6 +88,7 @@ type directRepositoryParameters struct {
 	cliOpts             ClientOptions
 	timeNow             func() time.Time
 	formatBlob          *formatBlob
+	blobCfgBlob         *blobCfgBlob
 	formatEncryptionKey []byte
 	nextWriterID        *int32
 }

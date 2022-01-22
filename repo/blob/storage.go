@@ -57,9 +57,29 @@ type Reader interface {
 	DisplayName() string
 }
 
+// RetentionMode - object retention mode.
+type RetentionMode string
+
+const (
+	// Governance - governance mode.
+	Governance RetentionMode = "GOVERNANCE"
+
+	// Compliance - compliance mode.
+	Compliance RetentionMode = "COMPLIANCE"
+)
+
+func (r RetentionMode) String() string {
+	return string(r)
+}
+
+// IsValid - check whether this retention mode is valid or not.
+func (r RetentionMode) IsValid() bool {
+	return r == Governance || r == Compliance
+}
+
 // PutOptions represents put-options for a single BLOB in a storage.
 type PutOptions struct {
-	RetentionMode   string
+	RetentionMode   RetentionMode
 	RetentionPeriod time.Duration
 
 	// if not empty, set the provided timestamp on the blob instead of server-assigned,
