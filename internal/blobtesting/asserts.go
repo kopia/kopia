@@ -98,6 +98,19 @@ func AssertGetBlobNotFound(ctx context.Context, t *testing.T, s blob.Storage, bl
 	}
 }
 
+// AssertTokenExpired asserts that GetBlob() for specified blobID returns ErrTokenExpired.
+func AssertTokenExpired(ctx context.Context, t *testing.T, s blob.Storage, blobID blob.ID) {
+	t.Helper()
+
+	var b gather.WriteBuffer
+	defer b.Close()
+
+	err := s.GetBlob(ctx, blobID, 0, -1, &b)
+	if !errors.Is(err, blob.ErrTokenExpired) {
+		t.Fatalf("GetBlob(%v) returned %v but expected ErrTokenExpired", blobID, err)
+	}
+}
+
 // AssertGetMetadataNotFound asserts that GetMetadata() for specified blobID returns ErrNotFound.
 func AssertGetMetadataNotFound(ctx context.Context, t *testing.T, s blob.Storage, blobID blob.ID) {
 	t.Helper()
