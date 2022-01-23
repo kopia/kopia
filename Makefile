@@ -62,7 +62,11 @@ install-race:
 	go install -race $(KOPIA_BUILD_FLAGS) -tags "$(KOPIA_BUILD_TAGS)"
 
 lint: $(linter)
+ifneq ($(GOOS)/$(GOARCH),linux/arm64)
+ifneq ($(GOOS)/$(GOARCH),linux/arm)
 	$(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
+endif
+endif
 
 lint-and-log: $(linter)
 	$(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags) | tee .linterr.txt
