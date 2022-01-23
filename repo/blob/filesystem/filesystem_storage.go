@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/dirutil"
 	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/internal/retry"
 	"github.com/kopia/kopia/repo/blob"
@@ -210,7 +211,7 @@ func (fs *fsImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data 
 func (fs *fsImpl) createTempFileAndDir(tempFile string) (osWriteFile, error) {
 	f, err := fs.osi.CreateNewFile(tempFile, fs.fileMode())
 	if fs.osi.IsNotExist(err) {
-		if err = fs.osi.MkdirAll(filepath.Dir(tempFile), fs.dirMode()); err != nil {
+		if err = dirutil.MkSubdirAll(fs.osi, fs.Path, filepath.Dir(tempFile), fs.dirMode()); err != nil {
 			return nil, errors.Wrap(err, "cannot create directory")
 		}
 

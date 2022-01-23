@@ -24,6 +24,8 @@ func (realOS) IsNotExist(err error) bool { return os.IsNotExist(err) }
 
 func (realOS) IsExist(err error) bool { return os.IsExist(err) }
 
+func (realOS) IsPathSeparator(c byte) bool { return os.IsPathSeparator(c) }
+
 func (realOS) Rename(oldname, newname string) error {
 	// nolint:wrapcheck
 	return os.Rename(oldname, newname)
@@ -59,6 +61,11 @@ func (realOS) Stat(fname string) (os.FileInfo, error) {
 func (realOS) CreateNewFile(fname string, perm os.FileMode) (osWriteFile, error) {
 	// nolint:wrapcheck,gosec
 	return os.OpenFile(fname, os.O_CREATE|os.O_EXCL|os.O_WRONLY, perm)
+}
+
+func (realOS) Mkdir(fname string, mode os.FileMode) error {
+	// nolint:wrapcheck
+	return os.Mkdir(fname, mode)
 }
 
 func (realOS) MkdirAll(fname string, mode os.FileMode) error {

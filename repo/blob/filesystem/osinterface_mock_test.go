@@ -55,6 +55,8 @@ func (osi *mockOS) Rename(oldname, newname string) error {
 	return osi.osInterface.Rename(oldname, newname)
 }
 
+func (osi *mockOS) IsPathSeparator(c byte) bool { return os.IsPathSeparator(c) }
+
 func (osi *mockOS) ReadDir(dirname string) ([]fs.DirEntry, error) {
 	if atomic.AddInt32(&osi.readDirRemainingErrors, -1) >= 0 {
 		return nil, &os.PathError{Op: "readdir", Err: errors.Errorf("underlying problem")}
@@ -137,12 +139,12 @@ func (osi *mockOS) CreateNewFile(fname string, perm os.FileMode) (osWriteFile, e
 	return wf, nil
 }
 
-func (osi *mockOS) MkdirAll(fname string, mode os.FileMode) error {
+func (osi *mockOS) Mkdir(fname string, mode os.FileMode) error {
 	if atomic.AddInt32(&osi.mkdirAllRemainingErrors, -1) >= 0 {
 		return &os.PathError{Op: "mkdir", Err: errors.Errorf("underlying problem")}
 	}
 
-	return osi.osInterface.MkdirAll(fname, mode)
+	return osi.osInterface.Mkdir(fname, mode)
 }
 
 func (osi *mockOS) Geteuid() int {

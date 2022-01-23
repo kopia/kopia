@@ -14,11 +14,13 @@ type osInterface interface {
 	IsExist(err error) bool
 	IsPathError(err error) bool
 	IsLinkError(err error) bool
+	IsPathSeparator(c byte) bool
 	Remove(fname string) error
 	Rename(oldname, newname string) error
 	ReadDir(dirname string) ([]fs.DirEntry, error)
 	Stat(fname string) (os.FileInfo, error)
 	CreateNewFile(fname string, mode os.FileMode) (osWriteFile, error)
+	Mkdir(fname string, mode os.FileMode) error
 	MkdirAll(fname string, mode os.FileMode) error
 	Chtimes(fname string, atime, mtime time.Time) error
 	Geteuid() int

@@ -18,6 +18,7 @@ import (
 	"golang.org/x/crypto/ssh/knownhosts"
 
 	"github.com/kopia/kopia/internal/connection"
+	"github.com/kopia/kopia/internal/dirutil"
 	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/internal/ospath"
 	"github.com/kopia/kopia/repo/blob"
@@ -220,13 +221,34 @@ func (s *sftpImpl) PutBlobInPath(ctx context.Context, dirPath, fullPath string, 
 	})
 }
 
+type osInterface struct {
+	cli *sftp.Client
+}
+
+func (osInterface) IsExist(err error) bool {
+	return errors.Is(err, os.ErrExist)
+}
+
+func (osInterface) IsNotExist(err error) bool {
+	return errors.Is(err, os.ErrNotExist)
+}
+
+func (osInterface) IsPathSeparator(c byte) bool {
+	return c == '/'
+}
+
+func (osi osInterface) Mkdir(name string, perm os.FileMode) error {
+	// nolint:wrapcheck
+	return osi.cli.Mkdir(name)
+}
+
 func (s *sftpImpl) createTempFileAndDir(cli *sftp.Client, tempFile string) (*sftp.File, error) {
 	flags := os.O_CREATE | os.O_WRONLY | os.O_EXCL
 
 	f, err := cli.OpenFile(tempFile, flags)
 	if isNotExist(err) {
 		parentDir := path.Dir(tempFile)
-		if err = cli.MkdirAll(parentDir); err != nil {
+		if err = dirutil.MkSubdirAll(osInterface{cli}, s.Path, parentDir, 0); err != nil {
 			return nil, errors.Wrap(err, "cannot create directory")
 		}
 
