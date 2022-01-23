@@ -108,6 +108,12 @@ var tools = map[string]ToolInfo{
 			"windows": "Windows",
 		},
 	},
+	"gitchglog": {
+		urlTemplate: "https://github.com/git-chglog/git-chglog/releases/download/vVERSION/git-chglog_VERSION_GOOS_GOARCH.EXT",
+		archMap: map[string]string{
+			"arm": "armv6",
+		},
+	},
 	"node": {
 		urlTemplate:         "https://nodejs.org/dist/vVERSION/node-vVERSION-GOOS-GOARCH.EXT",
 		osMap:               map[string]string{"windows": "win"},
