@@ -1,0 +1,12 @@
+name: Check PR Title
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+jobs:
+  check:
+    name: Check PR Title
+    runs-on: ubuntu-latest
+    steps:
+    - uses: deepakputhraya/action-pr-title@master
+      with:
+        regex: '^(feat|fix|breaking|build|chore|docs|style|refactor|test)\((app|cli|ui|repository|server|providers|deps|site|ci|infra|general)\)!{0,1}: .*$'
