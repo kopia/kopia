@@ -1,3 +1,9 @@
+https://github.com/git-chglog/git-chglog/releases/download/v0.15.1/git-chglog_0.15.1_darwin_amd64.tar.gz: 87aac20345931e9839a8bb3c3f8dfcf071bc038af90249398e3d0b7a1ef5da06
+https://github.com/git-chglog/git-chglog/releases/download/v0.15.1/git-chglog_0.15.1_darwin_arm64.tar.gz: cf0d75dffe49d4c161ba2d0e93f704f218b0790642e4b05091b2ba54e74b1e7a
+https://github.com/git-chglog/git-chglog/releases/download/v0.15.1/git-chglog_0.15.1_linux_amd64.tar.gz: 5247e4602bac520e92fca317322fe716968a27aab1d91706f316627e3a3ee8e6
+https://github.com/git-chglog/git-chglog/releases/download/v0.15.1/git-chglog_0.15.1_linux_arm64.tar.gz: d34e7006c547d33eadabae09a43b252345c9c3e56285206a73898e73ab8ab2b1
+https://github.com/git-chglog/git-chglog/releases/download/v0.15.1/git-chglog_0.15.1_linux_armv6.tar.gz: 3f6a4bec6fe98ae409a181bfaed5d416542f4782c640e5e940af425f6e9bbf89
+https://github.com/git-chglog/git-chglog/releases/download/v0.15.1/git-chglog_0.15.1_windows_amd64.zip: 4ea2684d4eaf8b59cf04ffe1af17075f7988d2b6053da8ab51b2baea5108afbc
 https://github.com/gohugoio/hugo/releases/download/v0.89.2/hugo_extended_0.89.2_Linux-64bit.tar.gz: 8efea63ab960a91918a4c6131d10c244635cd983e4d083afdba6c6b99edb55b6
 https://github.com/gohugoio/hugo/releases/download/v0.89.2/hugo_extended_0.89.2_macOS-64bit.tar.gz: f9185f6d14eb84d9029d59cdd8a977f2f0be334c4f9d38f2099e56a0c0734731
 https://github.com/gohugoio/hugo/releases/download/v0.89.2/hugo_extended_0.89.2_macOS-ARM64.tar.gz: 99a5b4738528d4858a0237199eabc7aee77674c8c7edcfe269efb4b515566cec

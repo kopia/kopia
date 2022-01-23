@@ -351,10 +351,17 @@ endif
 endif
 endif
 
-push-github-release:
+generate-change-log: $(gitchglog)
+ifeq ($(CI_TAG),)
+	$(gitchglog) --next-tag latest latest > dist/change_log.md
+else
+	$(gitchglog) $(CI_TAG) > dist/change_log.md
+endif
+
+push-github-release: generate-change-log
 ifneq ($(GH_RELEASE_REPO),)
 	@echo Creating Github Release $(GH_RELEASE_NAME) in $(GH_RELEASE_REPO) with flags $(GH_RELEASE_FLAGS)
-	gh --repo $(GH_RELEASE_REPO) release view $(GH_RELEASE_NAME) || gh --repo $(GH_RELEASE_REPO) release create $(GH_RELEASE_FLAGS) $(GH_RELEASE_NAME)
+	gh --repo $(GH_RELEASE_REPO) release view $(GH_RELEASE_NAME) || gh --repo $(GH_RELEASE_REPO) release create -F dist/change_log.md $(GH_RELEASE_FLAGS) $(GH_RELEASE_NAME)
 	gh --repo $(GH_RELEASE_REPO) release upload $(GH_RELEASE_NAME) $(RELEASE_STAGING_DIR)/*
 else
 	@echo Not creating Github Release
