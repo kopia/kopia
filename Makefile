@@ -156,6 +156,9 @@ ci-build:
 ifeq ($(GOARCH),amd64)
 	$(retry) $(MAKE) kopia-ui
 endif
+ifeq ($(GOOS)/$(GOARCH),linux/amd64)
+	$(MAKE) generate-change-log
+endif
 
 ci-tests: lint vet test
 
@@ -358,7 +361,7 @@ else
 	$(gitchglog) $(CI_TAG) > dist/change_log.md
 endif
 
-push-github-release: generate-change-log
+push-github-release:
 ifneq ($(GH_RELEASE_REPO),)
 	@echo Creating Github Release $(GH_RELEASE_NAME) in $(GH_RELEASE_REPO) with flags $(GH_RELEASE_FLAGS)
 	gh --repo $(GH_RELEASE_REPO) release view $(GH_RELEASE_NAME) || gh --repo $(GH_RELEASE_REPO) release create -F dist/change_log.md $(GH_RELEASE_FLAGS) $(GH_RELEASE_NAME)

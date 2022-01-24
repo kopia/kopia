@@ -6,7 +6,7 @@
 ### {{ .Title }}
 
 {{ range .Commits -}}
-* {{ if eq .Type "fix" }}**Fix** {{ end }}{{ if eq .Type "feat" }}**Feature** {{ end }}{{ .Subject }} by {{ .Author.Name}}
+* {{ if eq .Type "feat" }}**New Feature** {{ end }}{{ .Subject }} by {{ .Author.Name}}
 {{ end }}
 {{ end -}}
 
