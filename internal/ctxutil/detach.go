@@ -6,9 +6,9 @@ import (
 )
 
 type detachedContext struct {
-	context.Context // inherit most methods from context.Background()
-
-	wrapped context.Context
+	// inherit most methods from context.Background()
+	context.Context                 // nolint:containedctx
+	wrapped         context.Context // nolint:containedctx
 }
 
 // Detach returns a context that inheris provided context's values but not deadline or cancellation.

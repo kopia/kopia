@@ -363,7 +363,7 @@ func writeCacheMarker(cacheDir string) error {
 		return errors.Wrap(err, "unexpected cache marker error")
 	}
 
-	f, err := os.Create(markerFile)
+	f, err := os.Create(markerFile) //nolint:gosec
 	if err != nil {
 		return errors.Wrap(err, "error creating cache marker")
 	}

@@ -133,7 +133,11 @@ type Metadata struct {
 }
 
 func (m *Metadata) String() string {
-	b, _ := json.Marshal(m)
+	b, err := json.Marshal(m)
+	if err != nil {
+		return "<invalid>"
+	}
+
 	return string(b)
 }
 

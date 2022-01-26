@@ -174,7 +174,7 @@ func (c *commandBlobShardsModify) run(ctx context.Context) error {
 	log(ctx).Infof("Removed %v empty directories...", numRemoved)
 	log(ctx).Infof("Writing new .shards file.")
 
-	of, err := os.Create(dotShardsFile)
+	of, err := os.Create(dotShardsFile) //nolint:gosec
 	if err != nil {
 		return errors.Wrap(err, "error creating .shards file")
 	}

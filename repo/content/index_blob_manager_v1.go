@@ -110,8 +110,9 @@ func (m *indexBlobManagerV1) writeIndexBlobs(ctx context.Context, dataShards []g
 
 	for _, data := range dataShards {
 		// important - we're intentionally using data2 in the inner loop scheduling multiple Close()
+		// we want all Close() to be called at the end of the function after WriteIndex()
 		data2 := gather.NewWriteBuffer()
-		defer data2.Close()
+		defer data2.Close() //nolint:gocritic
 
 		unprefixedBlobID, err := m.enc.crypter.EncryptBLOB(data, "", sessionID, data2)
 		if err != nil {

@@ -17,7 +17,7 @@ import (
 const oneHundredPercent = 100.0
 
 // TODO - remove this global.
-var timeZone = "local"
+var timeZone = "local" //nolint:gochecknoglobals
 
 func showContentWithFlags(w io.Writer, rd io.Reader, unzip, indentJSON bool) error {
 	if unzip {

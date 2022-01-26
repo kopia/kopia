@@ -20,7 +20,7 @@ func (s *loggerCache) getLogger(module string) Logger {
 		v, _ = s.loggers.LoadOrStore(module, s.createLoggerForModule(module))
 	}
 
-	return v.(Logger)
+	return v.(Logger) //nolint:forcetypeassert
 }
 
 // WithLogger returns a derived context with associated logger.
@@ -41,7 +41,7 @@ func loggerFactoryFromContext(ctx context.Context) LoggerFactory {
 		return getNullLogger
 	}
 
-	return v.(*loggerCache).getLogger
+	return v.(*loggerCache).getLogger //nolint:forcetypeassert
 }
 
 // AlsoLogTo returns a context where all logging is emitted the the original output plus the provided loggers.

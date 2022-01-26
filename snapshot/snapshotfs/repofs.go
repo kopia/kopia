@@ -227,7 +227,7 @@ func DirectoryEntry(rep repo.Repository, objectID object.ID, dirSummary *fs.Dire
 		DirSummary:  dirSummary,
 	})
 
-	return d.(fs.Directory)
+	return d.(fs.Directory) // nolint:forcetypeassert
 }
 
 // SnapshotRoot returns fs.Entry representing the root of a snapshot.

@@ -138,7 +138,12 @@ func (v *verifier) doVerifyDirectory(ctx context.Context, oid object.ID, path st
 			break
 		}
 
-		objectID := e.(object.HasObjectID).ObjectID()
+		hoid, ok := e.(object.HasObjectID)
+		if !ok {
+			continue
+		}
+
+		objectID := hoid.ObjectID()
 		childPath := path + "/" + e.Name()
 
 		if e.IsDir() {

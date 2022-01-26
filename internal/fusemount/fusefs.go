@@ -62,7 +62,7 @@ func (f *fuseFileNode) Open(ctx context.Context, flags uint32) (gofusefs.FileHan
 		return nil, 0, syscall.EIO
 	}
 
-	return &fuseFileHandle{reader: reader, file: f.entry.(fs.File)}, 0, gofusefs.OK
+	return &fuseFileHandle{reader: reader, file: f.entry.(fs.File)}, 0, gofusefs.OK //nolint:forcetypeassert
 }
 
 type fuseFileHandle struct {
@@ -103,7 +103,7 @@ type fuseDirectoryNode struct {
 }
 
 func (dir *fuseDirectoryNode) directory() fs.Directory {
-	return dir.entry.(fs.Directory)
+	return dir.entry.(fs.Directory) //nolint:forcetypeassert
 }
 
 func (dir *fuseDirectoryNode) Lookup(ctx context.Context, fileName string, out *fuse.EntryOut) (*gofusefs.Inode, syscall.Errno) {

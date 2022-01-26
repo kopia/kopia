@@ -77,7 +77,7 @@ type trackerKey struct{}
 func Attach(ctx context.Context, name string) context.Context {
 	v := ctx.Value(trackerKey{})
 	if v != nil {
-		name = v.(*tracker).name + "::" + name
+		name = v.(*tracker).name + "::" + name // nolint:forcetypeassert
 	}
 
 	t := &tracker{name: name}
@@ -105,5 +105,5 @@ func Dump(ctx context.Context, desc string) {
 		return
 	}
 
-	v.(*tracker).dump(ctx, desc)
+	v.(*tracker).dump(ctx, desc) // nolint:forcetypeassert
 }

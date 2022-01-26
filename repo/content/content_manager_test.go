@@ -327,7 +327,7 @@ func (s *contentManagerSuite) TestContentManagerWriteMultiple(t *testing.T) {
 			}
 
 			bm = s.newTestContentManagerWithCustomTime(t, st, timeFunc)
-			defer bm.Close(ctx)
+			defer bm.Close(ctx) // nolint:gocritic
 		}
 
 		pos := rand.Intn(len(contentIDs))

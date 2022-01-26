@@ -198,6 +198,7 @@ func TestSnapshottingCacheDirectory(t *testing.T) {
 	}
 }
 
+// nolint:maintidx
 func TestSnapshotCreateWithIgnore(t *testing.T) {
 	cases := []struct {
 		desc     string
@@ -653,8 +654,6 @@ func createFileStructure(baseDir string, files []testFileEntry) error {
 				return errors.Errorf("failed to create file %v: %v", fullPath, err)
 			}
 
-			defer f.Close()
-
 			if ent.Content != nil {
 				for _, line := range ent.Content {
 					f.WriteString(line)
@@ -663,6 +662,8 @@ func createFileStructure(baseDir string, files []testFileEntry) error {
 			} else {
 				f.WriteString("Test data\n")
 			}
+
+			f.Close()
 		}
 	}
 

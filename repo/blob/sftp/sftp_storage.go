@@ -167,7 +167,7 @@ func (s *sftpImpl) GetMetadataFromPath(ctx context.Context, dirPath, fullPath st
 		return blob.Metadata{}, err
 	}
 
-	return v.(blob.Metadata), nil
+	return v.(blob.Metadata), nil //nolint:forcetypeassert
 }
 
 func (s *sftpImpl) PutBlobInPath(ctx context.Context, dirPath, fullPath string, data blob.Bytes, opts blob.PutOptions) error {
@@ -293,23 +293,23 @@ func (s *sftpImpl) ReadDir(ctx context.Context, dirname string) ([]os.FileInfo, 
 		return nil, err
 	}
 
-	return v.([]os.FileInfo), nil
+	return v.([]os.FileInfo), nil //nolint:forcetypeassert
 }
 
 func (s *sftpStorage) ConnectionInfo() blob.ConnectionInfo {
 	return blob.ConnectionInfo{
 		Type:   sftpStorageType,
-		Config: &s.Impl.(*sftpImpl).Options,
+		Config: &s.Impl.(*sftpImpl).Options, //nolint:forcetypeassert
 	}
 }
 
 func (s *sftpStorage) DisplayName() string {
-	o := s.Impl.(*sftpImpl).Options
+	o := s.Impl.(*sftpImpl).Options //nolint:forcetypeassert
 	return fmt.Sprintf("SFTP %v@%v", o.Username, o.Host)
 }
 
 func (s *sftpStorage) Close(ctx context.Context) error {
-	s.Impl.(*sftpImpl).rec.CloseActiveConnection(ctx)
+	s.Impl.(*sftpImpl).rec.CloseActiveConnection(ctx) //nolint:forcetypeassert
 	return nil
 }
 
@@ -544,7 +544,7 @@ func New(ctx context.Context, opts *Options, isCreate bool) (blob.Storage, error
 }
 
 func sftpClientFromConnection(conn connection.Connection) *sftp.Client {
-	return conn.(*sftpConnection).currentClient
+	return conn.(*sftpConnection).currentClient //nolint:forcetypeassert
 }
 
 func init() {
@@ -552,6 +552,6 @@ func init() {
 		sftpStorageType,
 		func() interface{} { return &Options{} },
 		func(ctx context.Context, o interface{}, isCreate bool) (blob.Storage, error) {
-			return New(ctx, o.(*Options), isCreate)
+			return New(ctx, o.(*Options), isCreate) //nolint:forcetypeassert
 		})
 }

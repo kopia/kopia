@@ -119,16 +119,16 @@ func (c *commandPolicyEdit) run(ctx context.Context, rep repo.RepositoryWriter) 
 	return nil
 }
 
-func prettyJSON(v interface{}) string {
+func prettyJSON(v *policy.Policy) string {
 	var b bytes.Buffer
 	e := json.NewEncoder(&b)
 	e.SetIndent("", "  ")
-	e.Encode(v) //nolint:errcheck
+	e.Encode(v) //nolint:errcheck,errchkjson
 
 	return b.String()
 }
 
-func jsonEqual(v1, v2 interface{}) bool {
+func jsonEqual(v1, v2 *policy.Policy) bool {
 	return prettyJSON(v1) == prettyJSON(v2)
 }
 

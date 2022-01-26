@@ -30,8 +30,10 @@ func VerifyObject(ctx context.Context, cr contentReader, oid ID) ([]content.ID, 
 }
 
 type objectReader struct {
-	ctx context.Context
-	cr  contentReader
+	// objectReader implements io.Reader, but needs context to read from repository
+	ctx context.Context // nolint:containedctx
+
+	cr contentReader
 
 	seekTable []indirectObjectEntry
 

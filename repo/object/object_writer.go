@@ -62,8 +62,10 @@ func (t *contentIDTracker) contentIDs() []content.ID {
 }
 
 type objectWriter struct {
-	ctx context.Context
-	om  *Manager
+	// objectWriter implements io.Writer but needs context to talk to repository
+	ctx context.Context //nolint:containedctx
+
+	om *Manager
 
 	compressor compression.Compressor
 

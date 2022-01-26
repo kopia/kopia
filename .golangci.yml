@@ -94,6 +94,7 @@ issues:
       - nestif
       - wrapcheck
       - nolintlint
+      - errchkjson
       - forcetypeassert
       - contextcheck
     - text: "log is a global variable"
@@ -123,6 +124,3 @@ issues:
     - text: "Errors unhandled"
       linters:
         - gosec
-    - path: cli
-      linters:
-      - gochecknoglobals

@@ -183,54 +183,54 @@ func TestWalkChecker_GatherCompare(t *testing.T) {
 			wantErr: false,
 		},
 	} {
-		t.Log(tt.name)
+		t.Run(tt.name, func(t *testing.T) {
+			matchers := tt.fields.GlobalFilterMatchers
 
-		matchers := tt.fields.GlobalFilterMatchers
-
-		chk := &WalkCompare{
-			GlobalFilterFuncs: []func(string, fswalker.ActionData) bool{
-				func(inputStr string, _ fswalker.ActionData) bool {
-					for _, filterStr := range matchers {
-						if strings.Contains(inputStr, filterStr) {
-							return true
+			chk := &WalkCompare{
+				GlobalFilterFuncs: []func(string, fswalker.ActionData) bool{
+					func(inputStr string, _ fswalker.ActionData) bool {
+						for _, filterStr := range matchers {
+							if strings.Contains(inputStr, filterStr) {
+								return true
+							}
 						}
-					}
-					return false
+						return false
+					},
 				},
-			},
-		}
+			}
 
-		tmpDir, err := os.MkdirTemp("", "")
-		if err != nil {
-			t.Fatal(err)
-		}
+			tmpDir, err := os.MkdirTemp("", "")
+			if err != nil {
+				t.Fatal(err)
+			}
 
-		defer os.RemoveAll(tmpDir)
+			defer os.RemoveAll(tmpDir)
 
-		err = tt.fileTreeMaker(tmpDir)
-		if err != nil {
-			t.Fatal(err)
-		}
+			err = tt.fileTreeMaker(tmpDir)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-		ctx := testlogging.Context(t)
+			ctx := testlogging.Context(t)
 
-		walk, err := chk.Gather(ctx, tmpDir, nil)
-		if err != nil {
-			t.Fatal(err)
-		}
+			walk, err := chk.Gather(ctx, tmpDir, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-		tt.fileTreeModifier(tmpDir)
+			tt.fileTreeModifier(tmpDir)
 
-		reportOut := &bytes.Buffer{}
-		if err := chk.Compare(ctx, tmpDir, walk, reportOut, nil); (err != nil) != tt.wantErr {
-			t.Errorf("Compare error = %v, wantErr %v", err, tt.wantErr)
-			return
-		}
+			reportOut := &bytes.Buffer{}
+			if err := chk.Compare(ctx, tmpDir, walk, reportOut, nil); (err != nil) != tt.wantErr {
+				t.Errorf("Compare error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
 
-		// If an error was thrown, expect a report to be written to the provided writer
-		if (reportOut.Len() > 0) != tt.wantErr {
-			t.Errorf("report length unexpected len = %v, expReport %v", reportOut.Len(), tt.wantErr)
-		}
+			// If an error was thrown, expect a report to be written to the provided writer
+			if (reportOut.Len() > 0) != tt.wantErr {
+				t.Errorf("report length unexpected len = %v, expReport %v", reportOut.Len(), tt.wantErr)
+			}
+		})
 	}
 }
 

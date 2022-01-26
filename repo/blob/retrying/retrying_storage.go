@@ -34,7 +34,7 @@ func (s retryingStorage) GetMetadata(ctx context.Context, id blob.ID) (blob.Meta
 		return blob.Metadata{}, err // nolint:wrapcheck
 	}
 
-	return v.(blob.Metadata), nil
+	return v.(blob.Metadata), nil // nolint:forcetypeassert
 }
 
 func (s retryingStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes, opts blob.PutOptions) error {

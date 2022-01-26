@@ -142,11 +142,13 @@ func verifyCiphertextSamples(t *testing.T, masterKey, contentID, payload []byte,
 
 		ct := samples[encryptionAlgo]
 		if ct == "" {
-			var v gather.WriteBuffer
-			defer v.Close()
-			require.NoError(t, enc.Encrypt(gather.FromSlice(payload), contentID, &v))
+			func() {
+				var v gather.WriteBuffer
+				defer v.Close()
+				require.NoError(t, enc.Encrypt(gather.FromSlice(payload), contentID, &v))
 
-			t.Errorf("missing ciphertext sample for %q: %q,", encryptionAlgo, hex.EncodeToString(payload))
+				t.Errorf("missing ciphertext sample for %q: %q,", encryptionAlgo, hex.EncodeToString(payload))
+			}()
 		} else {
 			b, err := hex.DecodeString(ct)
 			if err != nil {
@@ -154,14 +156,16 @@ func verifyCiphertextSamples(t *testing.T, masterKey, contentID, payload []byte,
 				continue
 			}
 
-			var plainText gather.WriteBuffer
-			defer plainText.Close()
+			func() {
+				var plainText gather.WriteBuffer
+				defer plainText.Close()
 
-			require.NoError(t, enc.Decrypt(gather.FromSlice(b), contentID, &plainText))
+				require.NoError(t, enc.Decrypt(gather.FromSlice(b), contentID, &plainText))
 
-			if v := plainText.ToByteSlice(); !bytes.Equal(v, payload) {
-				t.Errorf("invalid plaintext after decryption %x, want %x", v, payload)
-			}
+				if v := plainText.ToByteSlice(); !bytes.Equal(v, payload) {
+					t.Errorf("invalid plaintext after decryption %x, want %x", v, payload)
+				}
+			}()
 		}
 	}
 }

@@ -147,7 +147,7 @@ func (fs *fsImpl) GetMetadataFromPath(ctx context.Context, dirPath, path string)
 		return blob.Metadata{}, err
 	}
 
-	return v.(blob.Metadata), nil
+	return v.(blob.Metadata), nil //nolint:forcetypeassert
 }
 
 func (fs *fsImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data blob.Bytes, opts blob.PutOptions) error {
@@ -251,9 +251,11 @@ func (fs *fsImpl) ReadDir(ctx context.Context, dirname string) ([]os.FileInfo, e
 		return nil, err
 	}
 
-	fileInfos := make([]os.FileInfo, 0, len(v.([]os.DirEntry)))
+	entries := v.([]os.DirEntry) //nolint:forcetypeassert
 
-	for _, e := range v.([]os.DirEntry) {
+	fileInfos := make([]os.FileInfo, 0, len(entries))
+
+	for _, e := range entries {
 		fi, err := e.Info()
 
 		if fs.osi.IsNotExist(err) {
@@ -281,7 +283,7 @@ func (fs *fsStorage) TouchBlob(ctx context.Context, blobID blob.ID, threshold ti
 			return errors.Wrap(err, "error getting sharded path")
 		}
 
-		osi := fs.Impl.(*fsImpl).osi
+		osi := fs.Impl.(*fsImpl).osi //nolint:forcetypeassert
 
 		st, err := osi.Stat(path)
 		if err != nil {
@@ -300,13 +302,13 @@ func (fs *fsStorage) TouchBlob(ctx context.Context, blobID blob.ID, threshold ti
 
 		// nolint:wrapcheck
 		return osi.Chtimes(path, n, n)
-	}, fs.Impl.(*fsImpl).isRetriable)
+	}, fs.Impl.(*fsImpl).isRetriable) //nolint:forcetypeassert
 }
 
 func (fs *fsStorage) ConnectionInfo() blob.ConnectionInfo {
 	return blob.ConnectionInfo{
 		Type:   fsStorageType,
-		Config: &fs.Impl.(*fsImpl).Options,
+		Config: &fs.Impl.(*fsImpl).Options, //nolint:forcetypeassert
 	}
 }
 
@@ -353,6 +355,6 @@ func init() {
 		fsStorageType,
 		func() interface{} { return &Options{} },
 		func(ctx context.Context, o interface{}, isCreate bool) (blob.Storage, error) {
-			return New(ctx, o.(*Options), isCreate)
+			return New(ctx, o.(*Options), isCreate) //nolint:forcetypeassert
 		})
 }
