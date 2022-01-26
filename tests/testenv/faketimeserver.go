@@ -20,7 +20,7 @@ func (s *FakeTimeServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(fakeTimeInfoStruct{
 		Time:     s.Now(),
 		ValidFor: 2 * time.Second,
-	}) //nolint:errcheck
+	}) //nolint:errcheck,errchkjson
 }
 
 // NewFakeTimeServer creates new time server that serves time over HTTP and locally.

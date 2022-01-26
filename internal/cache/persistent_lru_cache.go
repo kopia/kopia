@@ -175,7 +175,7 @@ func (h contentMetadataHeap) Swap(i, j int) {
 }
 
 func (h *contentMetadataHeap) Push(x interface{}) {
-	*h = append(*h, x.(blob.Metadata))
+	*h = append(*h, x.(blob.Metadata)) // nolint:forcetypeassert
 }
 
 func (h *contentMetadataHeap) Pop() interface{} {

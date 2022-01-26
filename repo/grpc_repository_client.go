@@ -234,7 +234,7 @@ func (r *grpcRepositoryClient) GetManifest(ctx context.Context, id manifest.ID, 
 		return nil, err
 	}
 
-	return v.(*manifest.EntryMetadata), nil
+	return v.(*manifest.EntryMetadata), nil //nolint:forcetypeassert
 }
 
 func (r *grpcInnerSession) GetManifest(ctx context.Context, id manifest.ID, data interface{}) (*manifest.EntryMetadata, error) {
@@ -284,7 +284,7 @@ func (r *grpcRepositoryClient) PutManifest(ctx context.Context, labels map[strin
 		return "", err
 	}
 
-	return v.(manifest.ID), nil
+	return v.(manifest.ID), nil // nolint:forcetypeassert
 }
 
 func (r *grpcInnerSession) PutManifest(ctx context.Context, labels map[string]string, payload interface{}) (manifest.ID, error) {
@@ -321,7 +321,7 @@ func (r *grpcRepositoryClient) FindManifests(ctx context.Context, labels map[str
 		return nil, err
 	}
 
-	return v.([]*manifest.EntryMetadata), nil
+	return v.([]*manifest.EntryMetadata), nil // nolint:forcetypeassert
 }
 
 func (r *grpcInnerSession) FindManifests(ctx context.Context, labels map[string]string) ([]*manifest.EntryMetadata, error) {
@@ -467,7 +467,7 @@ func (r *grpcRepositoryClient) ContentInfo(ctx context.Context, contentID conten
 		return nil, err
 	}
 
-	return v.(content.Info), nil
+	return v.(content.Info), nil // nolint:forcetypeassert
 }
 
 func (r *grpcInnerSession) contentInfo(ctx context.Context, contentID content.ID) (content.Info, error) {
@@ -592,8 +592,8 @@ func (r *grpcRepositoryClient) doWrite(ctx context.Context, contentID content.ID
 		r.contentCache.Put(ctx, string(contentID), gather.FromSlice(data))
 	}
 
-	if v.(content.ID) != contentID {
-		return errors.Errorf("server returned different content ID: %v vs %v", v.(content.ID), contentID)
+	if got, want := v.(content.ID), contentID; got != want { // nolint:forcetypeassert
+		return errors.Errorf("server returned different content ID: %v vs %v", got, want)
 	}
 
 	return nil
@@ -856,5 +856,5 @@ func newGRPCAPIRepositoryForConnection(ctx context.Context, conn *grpc.ClientCon
 		return nil, err
 	}
 
-	return v.(*grpcRepositoryClient), nil
+	return v.(*grpcRepositoryClient), nil // nolint:forcetypeassert
 }

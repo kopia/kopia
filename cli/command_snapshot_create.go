@@ -377,7 +377,7 @@ func (c *commandSnapshotCreate) reportSnapshotStatus(ctx context.Context, manife
 		}
 
 		if ds.FatalErrorCount > 0 {
-			return errors.Errorf("Found %v fatal error(s) while snapshotting %v.", ds.FatalErrorCount, sourceInfo)
+			return errors.Errorf("Found %v fatal error(s) while snapshotting %v.", ds.FatalErrorCount, sourceInfo) //nolint:revive
 		}
 	}
 

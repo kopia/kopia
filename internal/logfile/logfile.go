@@ -444,7 +444,7 @@ func (w *onDemandFile) Write(b []byte) (int, error) {
 
 		lf := filepath.Join(w.logDir, w.currentSegmentFilename)
 
-		f, err := os.Create(lf)
+		f, err := os.Create(lf) //nolint:gosec
 		if err != nil {
 			return 0, errors.Wrap(err, "unable to open log file")
 		}

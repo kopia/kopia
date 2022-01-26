@@ -18,7 +18,6 @@ type packIndex interface {
 	io.Closer
 
 	ApproximateCount() int
-
 	GetInfo(contentID ID) (Info, error)
 
 	// invoked the provided callback for all entries such that entry.ID >= startID and entry.ID < endID

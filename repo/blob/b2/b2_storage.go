@@ -27,8 +27,6 @@ const (
 type b2Storage struct {
 	Options
 
-	ctx context.Context
-
 	cli    *backblaze.B2
 	bucket *backblaze.Bucket
 }
@@ -271,7 +269,6 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 
 	return retrying.NewWrapper(&b2Storage{
 		Options: *opt,
-		ctx:     ctx,
 		cli:     cli,
 		bucket:  bucket,
 	}), nil
@@ -284,6 +281,6 @@ func init() {
 			return &Options{}
 		},
 		func(ctx context.Context, o interface{}, isCreate bool) (blob.Storage, error) {
-			return New(ctx, o.(*Options))
+			return New(ctx, o.(*Options)) // nolint:forcetypeassert
 		})
 }

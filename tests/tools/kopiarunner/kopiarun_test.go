@@ -54,27 +54,27 @@ func TestKopiaRunner(t *testing.T) {
 			expRunErr:       false,
 		},
 	} {
-		t.Log(tt.name)
+		t.Run(tt.name, func(t *testing.T) {
+			err := os.Setenv("KOPIA_EXE", tt.exe)
+			if err != nil {
+				t.Fatal("Unable to set environment variable KOPIA_EXE")
+			}
 
-		err := os.Setenv("KOPIA_EXE", tt.exe)
-		if err != nil {
-			t.Fatal("Unable to set environment variable KOPIA_EXE")
-		}
+			runner, err := NewRunner("")
+			if (err != nil) != tt.expNewRunnerErr {
+				t.Fatalf("Expected NewRunner error: %v, got %v", tt.expNewRunnerErr, err)
+			}
 
-		runner, err := NewRunner("")
-		if (err != nil) != tt.expNewRunnerErr {
-			t.Fatalf("Expected NewRunner error: %v, got %v", tt.expNewRunnerErr, err)
-		}
+			if err != nil {
+				return
+			}
 
-		if err != nil {
-			continue
-		}
+			defer runner.Cleanup()
 
-		defer runner.Cleanup()
-
-		_, _, err = runner.Run(tt.args...)
-		if (err != nil) != tt.expRunErr {
-			t.Fatalf("Expected Run error: %v, got %v", tt.expRunErr, err)
-		}
+			_, _, err = runner.Run(tt.args...)
+			if (err != nil) != tt.expRunErr {
+				t.Fatalf("Expected Run error: %v, got %v", tt.expRunErr, err)
+			}
+		})
 	}
 }

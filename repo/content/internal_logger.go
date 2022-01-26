@@ -27,7 +27,10 @@ const TextLogBlobPrefix = "_log_"
 type internalLogManager struct {
 	enabled int32 // set by enable(), logger is ineffective until called
 
-	ctx            context.Context
+	// internalLogManager implements io.Writer and we must be able to write to the
+	// repository asynchronously when the context is not provided.
+	ctx context.Context // nolint:containedctx
+
 	st             blob.Storage
 	bc             *Crypter
 	wg             sync.WaitGroup

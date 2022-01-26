@@ -93,7 +93,7 @@ func (h nextInfoHeap) Less(i, j int) bool {
 
 func (h nextInfoHeap) Swap(i, j int) { h[i], h[j] = h[j], h[i] }
 func (h *nextInfoHeap) Push(x interface{}) {
-	*h = append(*h, x.(*nextInfo))
+	*h = append(*h, x.(*nextInfo)) // nolint:forcetypeassert
 }
 
 func (h *nextInfoHeap) Pop() interface{} {

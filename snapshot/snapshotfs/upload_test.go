@@ -738,6 +738,7 @@ type loggedAction struct {
 	keysAndValues map[string]interface{}
 }
 
+// nolint:maintidx
 func TestUploadLogging(t *testing.T) {
 	sourceDir := mockfs.NewDirectory()
 	sourceDir.AddFile("f1", []byte{1, 2, 3}, defaultPermissions)

@@ -358,23 +358,25 @@ func verifyIndirectBlock(ctx context.Context, t *testing.T, om *Manager, oid ID)
 	t.Helper()
 
 	for indexContentID, isIndirect := oid.IndexObjectID(); isIndirect; indexContentID, isIndirect = indexContentID.IndexObjectID() {
-		if c, _, ok := indexContentID.ContentID(); ok {
-			if !c.HasPrefix() {
-				t.Errorf("expected base content ID to be prefixed, was %v", c)
+		func() {
+			if c, _, ok := indexContentID.ContentID(); ok {
+				if !c.HasPrefix() {
+					t.Errorf("expected base content ID to be prefixed, was %v", c)
+				}
 			}
-		}
 
-		rd, err := Open(ctx, om.contentMgr, indexContentID)
-		if err != nil {
-			t.Errorf("unable to open %v: %v", oid.String(), err)
-			return
-		}
-		defer rd.Close()
+			rd, err := Open(ctx, om.contentMgr, indexContentID)
+			if err != nil {
+				t.Errorf("unable to open %v: %v", oid.String(), err)
+				return
+			}
+			defer rd.Close()
 
-		var ind indirectObject
-		if err := json.NewDecoder(rd).Decode(&ind); err != nil {
-			t.Errorf("cannot parse indirect stream: %v", err)
-		}
+			var ind indirectObject
+			if err := json.NewDecoder(rd).Decode(&ind); err != nil {
+				t.Errorf("cannot parse indirect stream: %v", err)
+			}
+		}()
 	}
 }
 

@@ -132,7 +132,7 @@ func TLSConfigTrustingSingleCertificate(sha256Fingerprint string) *tls.Config {
 // TransportTrustingSingleCertificate return http.RoundTripper which trusts exactly one TLS certificate with
 // provided SHA256 fingerprint.
 func TransportTrustingSingleCertificate(sha256Fingerprint string) http.RoundTripper {
-	t2 := http.DefaultTransport.(*http.Transport).Clone()
+	t2 := http.DefaultTransport.(*http.Transport).Clone() //nolint:forcetypeassert
 	t2.TLSClientConfig = TLSConfigTrustingSingleCertificate(sha256Fingerprint)
 
 	return t2

@@ -210,12 +210,12 @@ func (d *davStorageImpl) DeleteBlobInPath(ctx context.Context, dirPath, filePath
 func (d *davStorage) ConnectionInfo() blob.ConnectionInfo {
 	return blob.ConnectionInfo{
 		Type:   davStorageType,
-		Config: &d.Storage.Impl.(*davStorageImpl).Options,
+		Config: &d.Storage.Impl.(*davStorageImpl).Options, //nolint:forcetypeassert
 	}
 }
 
 func (d *davStorage) DisplayName() string {
-	o := d.Storage.Impl.(*davStorageImpl).Options
+	o := d.Storage.Impl.(*davStorageImpl).Options //nolint:forcetypeassert
 	return fmt.Sprintf("WebDAV: %v", o.URL)
 }
 
@@ -269,6 +269,6 @@ func init() {
 		davStorageType,
 		func() interface{} { return &Options{} },
 		func(ctx context.Context, o interface{}, isCreate bool) (blob.Storage, error) {
-			return New(ctx, o.(*Options), isCreate)
+			return New(ctx, o.(*Options), isCreate) //nolint:forcetypeassert
 		})
 }

@@ -85,64 +85,66 @@ func TestGatherBytes(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		b := tc.sliced
+		func() {
+			b := tc.sliced
 
-		// length
-		if got, want := b.Length(), len(tc.whole); got != want {
-			t.Errorf("unexpected length: %v, want %v", got, want)
-		}
-
-		// reader
-		all, err := io.ReadAll(b.Reader())
-		if err != nil {
-			t.Errorf("unable to read: %v", err)
-		}
-
-		if !bytes.Equal(all, tc.whole) {
-			t.Errorf("unexpected data read %v, want %v", string(all), string(tc.whole))
-		}
-
-		// GetBytes
-		all = b.ToByteSlice()
-		if !bytes.Equal(all, tc.whole) {
-			t.Errorf("unexpected data from GetBytes() %v, want %v", string(all), string(tc.whole))
-		}
-
-		// AppendSectionTo - test exhaustively all combinationf os start, length
-		var tmp WriteBuffer
-		defer tmp.Close()
-
-		n, err := b.WriteTo(&tmp)
-
-		require.NoError(t, err)
-		require.Equal(t, int64(b.Length()), n)
-
-		require.Equal(t, tmp.ToByteSlice(), b.ToByteSlice())
-
-		someError := errors.Errorf("some error")
-
-		// WriteTo propagates error
-		if b.Length() > 0 {
-			_, err = b.WriteTo(failingWriter{someError})
-
-			require.ErrorIs(t, err, someError)
-		}
-
-		require.Error(t, b.AppendSectionTo(&tmp, -3, 3))
-
-		for i := 0; i <= len(tc.whole); i++ {
-			for j := i; j <= len(tc.whole); j++ {
-				tmp.Reset()
-
-				require.NoError(t, b.AppendSectionTo(&tmp, i, j-i))
-
-				if j > i {
-					require.ErrorIs(t, b.AppendSectionTo(failingWriter{someError}, i, j-i), someError)
-				}
-
-				require.Equal(t, tmp.ToByteSlice(), tc.whole[i:j])
+			// length
+			if got, want := b.Length(), len(tc.whole); got != want {
+				t.Errorf("unexpected length: %v, want %v", got, want)
 			}
-		}
+
+			// reader
+			all, err := io.ReadAll(b.Reader())
+			if err != nil {
+				t.Errorf("unable to read: %v", err)
+			}
+
+			if !bytes.Equal(all, tc.whole) {
+				t.Errorf("unexpected data read %v, want %v", string(all), string(tc.whole))
+			}
+
+			// GetBytes
+			all = b.ToByteSlice()
+			if !bytes.Equal(all, tc.whole) {
+				t.Errorf("unexpected data from GetBytes() %v, want %v", string(all), string(tc.whole))
+			}
+
+			// AppendSectionTo - test exhaustively all combinationf os start, length
+			var tmp WriteBuffer
+			defer tmp.Close()
+
+			n, err := b.WriteTo(&tmp)
+
+			require.NoError(t, err)
+			require.Equal(t, int64(b.Length()), n)
+
+			require.Equal(t, tmp.ToByteSlice(), b.ToByteSlice())
+
+			someError := errors.Errorf("some error")
+
+			// WriteTo propagates error
+			if b.Length() > 0 {
+				_, err = b.WriteTo(failingWriter{someError})
+
+				require.ErrorIs(t, err, someError)
+			}
+
+			require.Error(t, b.AppendSectionTo(&tmp, -3, 3))
+
+			for i := 0; i <= len(tc.whole); i++ {
+				for j := i; j <= len(tc.whole); j++ {
+					tmp.Reset()
+
+					require.NoError(t, b.AppendSectionTo(&tmp, i, j-i))
+
+					if j > i {
+						require.ErrorIs(t, b.AppendSectionTo(failingWriter{someError}, i, j-i), someError)
+					}
+
+					require.Equal(t, tmp.ToByteSlice(), tc.whole[i:j])
+				}
+			}
+		}()
 	}
 }
 

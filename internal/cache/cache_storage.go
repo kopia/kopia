@@ -52,5 +52,5 @@ func NewStorageOrNil(ctx context.Context, cacheDir string, maxBytes int64, subdi
 		},
 	}, false)
 
-	return fs.(Storage), errors.Wrap(err, "error initializing filesystem cache")
+	return fs.(Storage), errors.Wrap(err, "error initializing filesystem cache") // nolint:forcetypeassert
 }

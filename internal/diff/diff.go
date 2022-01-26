@@ -279,7 +279,7 @@ func downloadFile(ctx context.Context, f fs.File, fname string) error {
 	}
 	defer src.Close() //nolint:errcheck
 
-	dst, err := os.Create(fname)
+	dst, err := os.Create(fname) //nolint:gosec
 	if err != nil {
 		return errors.Wrap(err, "error creating file to edit")
 	}

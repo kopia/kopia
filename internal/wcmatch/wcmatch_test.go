@@ -65,7 +65,6 @@ func TestMatchWithBaseDir(t *testing.T) {
 
 func TestMatch(t *testing.T) {
 	cases := []wcCase{
-
 		// Basic
 		{"", "", true, true},
 		{"*", "", true, true},

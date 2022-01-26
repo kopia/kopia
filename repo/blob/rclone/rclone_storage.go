@@ -310,6 +310,6 @@ func init() {
 			return &Options{}
 		},
 		func(ctx context.Context, o interface{}, isCreate bool) (blob.Storage, error) {
-			return New(ctx, o.(*Options), isCreate)
+			return New(ctx, o.(*Options), isCreate) //nolint:forcetypeassert
 		})
 }

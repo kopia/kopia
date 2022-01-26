@@ -223,7 +223,7 @@ func (c *commandRestore) restoreOutput(ctx context.Context) (restore.Output, err
 		}, nil
 
 	case restoreModeZip, restoreModeZipNoCompress:
-		f, err := os.Create(targetpath)
+		f, err := os.Create(targetpath) //nolint:gosec
 		if err != nil {
 			return nil, errors.Wrap(err, "unable to create output file")
 		}
@@ -236,7 +236,7 @@ func (c *commandRestore) restoreOutput(ctx context.Context) (restore.Output, err
 		return restore.NewZipOutput(f, method), nil
 
 	case restoreModeTar:
-		f, err := os.Create(targetpath)
+		f, err := os.Create(targetpath) //nolint:gosec
 		if err != nil {
 			return nil, errors.Wrap(err, "unable to create output file")
 		}
@@ -244,7 +244,7 @@ func (c *commandRestore) restoreOutput(ctx context.Context) (restore.Output, err
 		return restore.NewTarOutput(f), nil
 
 	case restoreModeTgz:
-		f, err := os.Create(targetpath)
+		f, err := os.Create(targetpath) //nolint:gosec
 		if err != nil {
 			return nil, errors.Wrap(err, "unable to create output file")
 		}

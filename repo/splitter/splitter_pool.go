@@ -25,6 +25,6 @@ func Pooled(f Factory) Factory {
 			return recyclableSplitter{f(), pool}
 		}
 
-		return recyclableSplitter{s.(Splitter), pool}
+		return recyclableSplitter{s.(Splitter), pool} //nolint:forcetypeassert
 	}
 }

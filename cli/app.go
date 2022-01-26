@@ -29,6 +29,7 @@ import (
 
 var log = logging.Module("kopia/cli")
 
+// nolint:gochecknoglobals
 var (
 	defaultColor = color.New()
 	warningColor = color.New(color.FgYellow)
@@ -77,11 +78,9 @@ type appServices interface {
 	repositoryReaderAction(act func(ctx context.Context, rep repo.Repository) error) func(ctx *kingpin.ParseContext) error
 	repositoryWriterAction(act func(ctx context.Context, rep repo.RepositoryWriter) error) func(ctx *kingpin.ParseContext) error
 	maybeRepositoryAction(act func(ctx context.Context, rep repo.Repository) error, mode repositoryAccessMode) func(ctx *kingpin.ParseContext) error
-
 	advancedCommand(ctx context.Context)
 	repositoryConfigFileName() string
 	getProgress() *cliProgress
-
 	stdout() io.Writer
 	Stderr() io.Writer
 }
@@ -93,13 +92,11 @@ type advancedAppServices interface {
 	runConnectCommandWithStorage(ctx context.Context, co *connectOptions, st blob.Storage) error
 	runConnectCommandWithStorageAndPassword(ctx context.Context, co *connectOptions, st blob.Storage, password string) error
 	openRepository(ctx context.Context, required bool) (repo.Repository, error)
-
 	maybeInitializeUpdateCheck(ctx context.Context, co *connectOptions)
 	removeUpdateState()
 	passwordPersistenceStrategy() passwordpersist.Strategy
 	getPasswordFromFlags(ctx context.Context, isCreate, allowPersistent bool) (string, error)
 	optionsFromFlags(ctx context.Context) *repo.Options
-
 	rootContext() context.Context
 }
 
@@ -150,7 +147,7 @@ type App struct {
 	osExit        func(int) // allows replacing os.Exit() with custom code
 	stdoutWriter  io.Writer
 	stderrWriter  io.Writer
-	rootctx       context.Context
+	rootctx       context.Context // nolint:containedctx
 	loggerFactory logging.LoggerFactory
 }
 
@@ -428,7 +425,7 @@ func (c *App) maybeRepositoryAction(act func(ctx context.Context, rep repo.Repos
 			if c.metricsListenAddr != "" {
 				m := mux.NewRouter()
 				if err := initPrometheus(m); err != nil {
-					return errors.Wrap(err, "unable to initialize prometheus.")
+					return errors.Wrap(err, "unable to initialize prometheus")
 				}
 
 				if c.enablePProf {

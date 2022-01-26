@@ -26,8 +26,6 @@ const (
 type azStorage struct {
 	Options
 
-	ctx context.Context
-
 	service azblob.ServiceClient
 	bucket  azblob.ContainerClient
 }
@@ -286,7 +284,6 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 
 	raw := &azStorage{
 		Options: *opt,
-		ctx:     ctx,
 		bucket:  bucket,
 		service: service,
 	}
@@ -312,6 +309,6 @@ func init() {
 			return &Options{}
 		},
 		func(ctx context.Context, o interface{}, isCreate bool) (blob.Storage, error) {
-			return New(ctx, o.(*Options))
+			return New(ctx, o.(*Options)) // nolint:forcetypeassert
 		})
 }
