@@ -17,6 +17,13 @@ var ErrSetTimeUnsupported = errors.Errorf("SetTime is not supported")
 // ErrInvalidRange is returned when the requested blob offset or length is invalid.
 var ErrInvalidRange = errors.Errorf("invalid blob offset or length")
 
+// ErrBlobAlreadyExists is returned when attempting to put a blob that already exists.
+var ErrBlobAlreadyExists = errors.New("blob already exists")
+
+// ErrUnsupportedPutBlobOption is returned when a PutBlob option that is not supported
+// by an implementation of Storage is specified in a PutBlob call.
+var ErrUnsupportedPutBlobOption = errors.New("unsupported put-blob option")
+
 // Bytes encapsulates a sequence of bytes, possibly stored in a non-contiguous buffers,
 // which can be written sequentially or treated as a io.Reader.
 type Bytes interface {
@@ -81,6 +88,9 @@ func (r RetentionMode) IsValid() bool {
 type PutOptions struct {
 	RetentionMode   RetentionMode
 	RetentionPeriod time.Duration
+
+	// if true, PutBlob will fail with ErrBlobAlreadyExists if a blob with the same ID exists.
+	DoNotRecreate bool
 
 	// if not empty, set the provided timestamp on the blob instead of server-assigned,
 	// if unsupported by the server return ErrSetTimeUnsupported

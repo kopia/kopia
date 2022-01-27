@@ -84,8 +84,11 @@ func translateError(err error) error {
 	var ae *googleapi.Error
 
 	if errors.As(err, &ae) {
-		if ae.Code == http.StatusRequestedRangeNotSatisfiable {
+		switch ae.Code {
+		case http.StatusRequestedRangeNotSatisfiable:
 			return blob.ErrInvalidRange
+		case http.StatusPreconditionFailed:
+			return blob.ErrBlobAlreadyExists
 		}
 	}
 
@@ -100,13 +103,17 @@ func translateError(err error) error {
 }
 
 func (gcs *gcsStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes, opts blob.PutOptions) error {
-	if opts.HasRetentionOptions() {
-		return errors.New("setting blob-retention is not supported")
+	switch {
+	case opts.HasRetentionOptions():
+		return errors.Wrap(blob.ErrUnsupportedPutBlobOption, "blob-retention")
+	case opts.DoNotRecreate:
+		return errors.Wrap(blob.ErrUnsupportedPutBlobOption, "do-not-recreate")
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
 
-	obj := gcs.bucket.Object(gcs.getObjectNameString(b))
+	conds := gcsclient.Conditions{DoesNotExist: opts.DoNotRecreate}
+	obj := gcs.bucket.Object(gcs.getObjectNameString(b)).If(conds)
 	writer := obj.NewWriter(ctx)
 	writer.ChunkSize = writerChunkSize
 	writer.ContentType = "application/x-kopia"
