@@ -106,7 +106,7 @@ curl -s https://kopia.io/signing-key | sudo gpg --dearmor -o /usr/share/keyrings
 Register APT source:
 
 ```shell
-echo "deb http://packages.kopia.io/apt/ stable main" | sudo tee /etc/apt/sources.list.d/kopia.list
+echo "deb [signed-by=/usr/share/keyrings/kopia-keyring.gpg] http://packages.kopia.io/apt/ stable main" | sudo tee /etc/apt/sources.list.d/kopia.list
 sudo apt update
 ```
 
