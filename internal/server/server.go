@@ -582,7 +582,10 @@ func (s *Server) periodicMaintenance(ctx context.Context, rep repo.DirectReposit
 		nextMaintenanceTime, err := maintenance.TimeToAttemptNextMaintenance(ctx, rep, now.Add(maxMaintenanceAttemptFrequency))
 		if err != nil {
 			log(ctx).Debugw("unable to determine time till next maintenance", "error", err)
-			time.Sleep(sleepOnMaintenanceError)
+
+			if !clock.SleepInterruptibly(ctx, sleepOnMaintenanceError) {
+				return
+			}
 
 			continue
 		}
@@ -591,18 +594,23 @@ func (s *Server) periodicMaintenance(ctx context.Context, rep repo.DirectReposit
 		if nextMaintenanceTime.After(now) {
 			log(ctx).Debugw("sleeping until next maintenance attempt", "time", nextMaintenanceTime)
 
-			select {
-			case <-ctx.Done():
+			if !clock.SleepInterruptibly(ctx, nextMaintenanceTime.Sub(now)) {
 				return
-
-				// we woke up after sleeping, do not run maintenance immediately, but re-check first,
-				// we may have lost ownership or parameters may have changed.
-			case <-time.After(nextMaintenanceTime.Sub(now)):
 			}
-		} else if err := s.taskmgr.Run(ctx, "Maintenance", "Periodic maintenance", func(ctx context.Context, _ uitask.Controller) error {
+
+			// we woke up after sleeping, do not run maintenance immediately, but re-check first,
+			// we may have lost ownership or parameters may have changed.
+			continue
+		}
+
+		if err := s.taskmgr.Run(ctx, "Maintenance", "Periodic maintenance", func(ctx context.Context, _ uitask.Controller) error {
 			return periodicMaintenanceOnce(ctx, rep)
 		}); err != nil {
 			log(ctx).Errorf("unable to run maintenance: %v", err)
+
+			if !clock.SleepInterruptibly(ctx, sleepOnMaintenanceError) {
+				return
+			}
 		}
 	}
 }
