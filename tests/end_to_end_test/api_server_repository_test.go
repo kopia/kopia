@@ -93,7 +93,7 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 		serverStartArgs = append(serverStartArgs, "--htpasswd-file", htpasswordFile)
 	}
 
-	var sp serverParameters
+	var sp testutil.ServerParameters
 
 	e.RunAndProcessStderr(t, sp.ProcessOutput,
 		append([]string{
@@ -110,10 +110,10 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 	t.Logf("detected server parameters %#v", sp)
 
 	controlClient, err := apiclient.NewKopiaAPIClient(apiclient.Options{
-		BaseURL:                             sp.baseURL,
+		BaseURL:                             sp.BaseURL,
 		Username:                            controlUsername,
 		Password:                            controlPassword,
-		TrustedServerCertificateFingerprint: sp.sha256Fingerprint,
+		TrustedServerCertificateFingerprint: sp.SHA256Fingerprint,
 		LogRequests:                         true,
 	})
 	if err != nil {
@@ -124,8 +124,8 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 
 	// open repository client.
 	rep, err := repo.OpenAPIServer(ctx, &repo.APIServerInfo{
-		BaseURL:                             sp.baseURL,
-		TrustedServerCertificateFingerprint: sp.sha256Fingerprint,
+		BaseURL:                             sp.BaseURL,
+		TrustedServerCertificateFingerprint: sp.SHA256Fingerprint,
 		DisableGRPC:                         !useGRPC,
 	}, repo.ClientOptions{
 		Username: "foo",
@@ -154,7 +154,7 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 	e.RunAndProcessStderr(t, sp.ProcessOutput,
 		append([]string{
 			"server", "start",
-			"--address=" + sp.baseURL,
+			"--address=" + sp.BaseURL,
 			"--tls-key-file", tlsKey,
 			"--tls-cert-file", tlsCert,
 			"--server-username", uiUsername,
@@ -195,8 +195,8 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 
 	e2.RunAndExpectSuccess(t, append([]string{
 		"repo", "connect", "server",
-		"--url", sp.baseURL + "/",
-		"--server-cert-fingerprint", sp.sha256Fingerprint,
+		"--url", sp.BaseURL + "/",
+		"--server-cert-fingerprint", sp.SHA256Fingerprint,
 		"--override-username", "foo",
 		"--override-hostname", "bar",
 		"--password", "baz",
@@ -252,8 +252,8 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 	timer := timetrack.StartTimer()
 
 	repo.OpenAPIServer(ctx, &repo.APIServerInfo{
-		BaseURL:                             sp.baseURL,
-		TrustedServerCertificateFingerprint: sp.sha256Fingerprint,
+		BaseURL:                             sp.BaseURL,
+		TrustedServerCertificateFingerprint: sp.SHA256Fingerprint,
 		DisableGRPC:                         !useGRPC,
 	}, repo.ClientOptions{
 		Username: "foo",
