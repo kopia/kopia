@@ -1,7 +1,6 @@
 package cli_test
 
 import (
-	"strings"
 	"testing"
 	"time"
 
@@ -29,30 +28,14 @@ func TestServerControl(t *testing.T) {
 	serverStarted := make(chan struct{})
 	serverStopped := make(chan struct{})
 
-	// detected from running server
-	var (
-		serverAddress         string
-		serverControlPassword string
-	)
+	var sp testutil.ServerParameters
 
 	go func() {
-		prefix := "SERVER ADDRESS: "
-		passwordPrefix := "SERVER CONTROL PASSWORD: "
+		kill := env.RunAndProcessStderr(t, sp.ProcessOutput,
+			"server", "start", "--insecure", "--random-server-control-password", "--address=127.0.0.1:0")
 
-		kill := env.RunAndProcessStderr(t, func(line string) bool {
-			if strings.HasPrefix(line, passwordPrefix) {
-				serverControlPassword = strings.TrimPrefix(line, passwordPrefix)
-				return true
-			}
+		close(serverStarted)
 
-			if strings.HasPrefix(line, prefix) {
-				serverAddress = strings.TrimPrefix(line, prefix)
-				close(serverStarted)
-				return false
-			}
-
-			return true
-		}, "server", "start", "--insecure", "--random-server-control-password", "--address=127.0.0.1:0")
 		defer kill()
 
 		close(serverStopped)
@@ -60,7 +43,7 @@ func TestServerControl(t *testing.T) {
 
 	select {
 	case <-serverStarted:
-		t.Logf("server started on %v", serverAddress)
+		t.Logf("server started on %v", sp.BaseURL)
 
 	case <-time.After(5 * time.Second):
 		t.Fatalf("server did not start in time")
@@ -68,12 +51,12 @@ func TestServerControl(t *testing.T) {
 
 	time.Sleep(time.Second)
 
-	lines := env.RunAndExpectSuccess(t, "server", "status", "--address", serverAddress, "--server-control-password", serverControlPassword)
+	lines := env.RunAndExpectSuccess(t, "server", "status", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword)
 	require.Len(t, lines, 2)
 	require.Contains(t, lines, "IDLE: test-user@test-host:"+dir1)
 	require.Contains(t, lines, "IDLE: test-user@test-host:"+dir2)
 
-	lines = env.RunAndExpectSuccess(t, "server", "status", "--address", serverAddress, "--server-control-password", serverControlPassword, "--remote")
+	lines = env.RunAndExpectSuccess(t, "server", "status", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword, "--remote")
 	require.Len(t, lines, 3)
 	require.Contains(t, lines, "IDLE: test-user@test-host:"+dir1)
 	require.Contains(t, lines, "IDLE: test-user@test-host:"+dir2)
@@ -81,29 +64,29 @@ func TestServerControl(t *testing.T) {
 
 	// create snapshot outside of the server
 	env.RunAndExpectSuccess(t, "snap", "create", dir3)
-	env.RunAndExpectSuccess(t, "server", "refresh", "--address", serverAddress, "--server-control-password", serverControlPassword)
+	env.RunAndExpectSuccess(t, "server", "refresh", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword)
 
-	lines = env.RunAndExpectSuccess(t, "server", "status", "--address", serverAddress, "--server-control-password", serverControlPassword, "--remote")
+	lines = env.RunAndExpectSuccess(t, "server", "status", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword, "--remote")
 	require.Len(t, lines, 4)
 	require.Contains(t, lines, "IDLE: test-user@test-host:"+dir3)
 
-	env.RunAndExpectSuccess(t, "server", "flush", "--address", serverAddress, "--server-control-password", serverControlPassword)
+	env.RunAndExpectSuccess(t, "server", "flush", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword)
 
 	// trigger server snapshot
-	env.RunAndExpectSuccess(t, "server", "snapshot", "--address", serverAddress, "--server-control-password", serverControlPassword, "--all")
-	env.RunAndExpectSuccess(t, "server", "snapshot", "--address", serverAddress, "--server-control-password", serverControlPassword, dir1)
-	env.RunAndExpectFailure(t, "server", "snapshot", "--address", serverAddress, "--server-control-password", serverControlPassword, "no-such-dir")
+	env.RunAndExpectSuccess(t, "server", "snapshot", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword, "--all")
+	env.RunAndExpectSuccess(t, "server", "snapshot", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword, dir1)
+	env.RunAndExpectFailure(t, "server", "snapshot", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword, "no-such-dir")
 
 	// neither dir nor --all specified
-	env.RunAndExpectFailure(t, "server", "snapshot", "--address", serverAddress, "--server-control-password", serverControlPassword)
+	env.RunAndExpectFailure(t, "server", "snapshot", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword)
 
 	// cancel snapshot
-	env.RunAndExpectSuccess(t, "server", "cancel", "--address", serverAddress, "--server-control-password", serverControlPassword, "--all")
+	env.RunAndExpectSuccess(t, "server", "cancel", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword, "--all")
 
-	env.RunAndExpectSuccess(t, "server", "pause", "--address", serverAddress, "--server-control-password", serverControlPassword, dir1)
-	env.RunAndExpectSuccess(t, "server", "resume", "--address", serverAddress, "--server-control-password", serverControlPassword, dir1)
+	env.RunAndExpectSuccess(t, "server", "pause", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword, dir1)
+	env.RunAndExpectSuccess(t, "server", "resume", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword, dir1)
 
-	env.RunAndExpectSuccess(t, "server", "shutdown", "--address", serverAddress, "--server-control-password", serverControlPassword)
+	env.RunAndExpectSuccess(t, "server", "shutdown", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword)
 
 	select {
 	case <-serverStopped:
@@ -114,8 +97,8 @@ func TestServerControl(t *testing.T) {
 	}
 
 	// this will fail since the server is down
-	env.RunAndExpectFailure(t, "server", "status", "--address", serverAddress, "--server-control-password", serverControlPassword)
-	env.RunAndExpectFailure(t, "server", "flush", "--address", serverAddress, "--server-control-password", serverControlPassword)
-	env.RunAndExpectFailure(t, "server", "refresh", "--address", serverAddress, "--server-control-password", serverControlPassword)
-	env.RunAndExpectFailure(t, "server", "shutdown", "--address", serverAddress, "--server-control-password", serverControlPassword)
+	env.RunAndExpectFailure(t, "server", "status", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword)
+	env.RunAndExpectFailure(t, "server", "flush", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword)
+	env.RunAndExpectFailure(t, "server", "refresh", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword)
+	env.RunAndExpectFailure(t, "server", "shutdown", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword)
 }

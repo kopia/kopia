@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/kopia/kopia/internal/auth"
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/tests/clitestutil"
 	"github.com/kopia/kopia/tests/testenv"
 )
@@ -39,7 +40,7 @@ func TestACL(t *testing.T) {
 	serverEnvironment.RunAndExpectSuccess(t, "server", "users", "add", "foo@bar", "--user-password", "baz")
 	serverEnvironment.RunAndExpectSuccess(t, "server", "users", "add", "alice@wonderland", "--user-password", "baz")
 
-	var sp serverParameters
+	var sp testutil.ServerParameters
 
 	kill := serverEnvironment.RunAndProcessStderr(t, sp.ProcessOutput,
 		"server", "start",
@@ -63,8 +64,8 @@ func TestACL(t *testing.T) {
 
 	// connect as foo@bar with password baz
 	foobarClientEnvironment.RunAndExpectSuccess(t, "repo", "connect", "server",
-		"--url", sp.baseURL+"/",
-		"--server-cert-fingerprint", sp.sha256Fingerprint,
+		"--url", sp.BaseURL+"/",
+		"--server-cert-fingerprint", sp.SHA256Fingerprint,
 		"--override-username", "foo",
 		"--override-hostname", "bar",
 		"--password", "baz",
@@ -79,8 +80,8 @@ func TestACL(t *testing.T) {
 
 	// connect as alice@wonderland with password baz
 	aliceInWonderlandClientEnvironment.RunAndExpectSuccess(t, "repo", "connect", "server",
-		"--url", sp.baseURL+"/",
-		"--server-cert-fingerprint", sp.sha256Fingerprint,
+		"--url", sp.BaseURL+"/",
+		"--server-cert-fingerprint", sp.SHA256Fingerprint,
 		"--override-username", "alice",
 		"--override-hostname", "wonderland",
 		"--password", "baz",
@@ -120,24 +121,24 @@ func TestACL(t *testing.T) {
 
 	// refresh the auth cache using admin username/password.
 	serverEnvironment.RunAndExpectSuccess(t, "server", "refresh",
-		"--address", sp.baseURL,
+		"--address", sp.BaseURL,
 		"--server-username", "admin-user",
 		"--server-password", "admin-pwd",
-		"--server-cert-fingerprint", sp.sha256Fingerprint,
+		"--server-cert-fingerprint", sp.SHA256Fingerprint,
 	)
 
 	// attempt to use foo@bar's credentials when refreshing, this will fail.
 	serverEnvironment.RunAndExpectFailure(t, "server", "refresh",
-		"--address", sp.baseURL,
+		"--address", sp.BaseURL,
 		"--server-username", "foo@bar",
 		"--server-password", "baz",
-		"--server-cert-fingerprint", sp.sha256Fingerprint,
+		"--server-cert-fingerprint", sp.SHA256Fingerprint,
 	)
 
 	aliceInWonderlandClientEnvironment.RunAndExpectSuccess(t, "repo", "disconnect")
 	aliceInWonderlandClientEnvironment.RunAndExpectSuccess(t, "repo", "connect", "server",
-		"--url", sp.baseURL+"/",
-		"--server-cert-fingerprint", sp.sha256Fingerprint,
+		"--url", sp.BaseURL+"/",
+		"--server-cert-fingerprint", sp.SHA256Fingerprint,
 		"--override-username", "alice",
 		"--override-hostname", "wonderland",
 		"--password", "new-password",
