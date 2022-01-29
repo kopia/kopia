@@ -26,3 +26,4 @@ node_modules/
 .creds*
 coverage.txt
 /vendor/
+.screenshots/
