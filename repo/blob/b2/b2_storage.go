@@ -146,6 +146,13 @@ func translateError(err error) error {
 }
 
 func (s *b2Storage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes, opts blob.PutOptions) error {
+	switch {
+	case opts.HasRetentionOptions():
+		return errors.Wrap(blob.ErrUnsupportedPutBlobOption, "blob-retention")
+	case opts.DoNotRecreate:
+		return errors.Wrap(blob.ErrUnsupportedPutBlobOption, "do-not-recreate")
+	}
+
 	fileName := s.getObjectNameString(id)
 
 	// Backblaze always expects Content-Length to be set, even in http.Request ContentLength==0
