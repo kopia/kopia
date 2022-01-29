@@ -24,7 +24,7 @@ require (
 	github.com/google/readahead v0.0.0-20161222183148-eaceba169032 // indirect
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
-	github.com/hanwen/go-fuse/v2 v2.1.0
+	github.com/hanwen/go-fuse/v2 v2.1.1-0.20220112183258-f57e95bda82d
 	github.com/klauspost/compress v1.13.6
 	github.com/klauspost/cpuid/v2 v2.0.9 // indirect
 	github.com/klauspost/pgzip v1.2.5
@@ -116,8 +116,11 @@ require (
 )
 
 require (
-	github.com/chromedp/cdproto v0.0.0-20211126220118-81fa0469ad77 // indirect
-	github.com/chromedp/chromedp v0.7.6 // indirect
+	github.com/chromedp/cdproto v0.0.0-20211126220118-81fa0469ad77
+	github.com/chromedp/chromedp v0.7.6
+)
+
+require (
 	github.com/chromedp/sysutil v1.0.0 // indirect
 	github.com/gobwas/httphead v0.1.0 // indirect
 	github.com/gobwas/pool v0.2.1 // indirect
