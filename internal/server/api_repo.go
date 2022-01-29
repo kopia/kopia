@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"sort"
+	"time"
 
 	"github.com/pkg/errors"
 
@@ -22,6 +23,8 @@ import (
 	"github.com/kopia/kopia/repo/splitter"
 	"github.com/kopia/kopia/snapshot/policy"
 )
+
+const syncConnectWaitTime = 5 * time.Second
 
 func (s *Server) handleRepoParameters(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
 	dr, ok := s.rep.(repo.DirectRepository)
@@ -44,7 +47,8 @@ func (s *Server) handleRepoParameters(ctx context.Context, r *http.Request, body
 func (s *Server) handleRepoStatus(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
 	if s.rep == nil {
 		return &serverapi.StatusResponse{
-			Connected: false,
+			Connected:      false,
+			InitRepoTaskID: s.initRepositoryTaskID,
 		}, nil
 	}
 
@@ -122,8 +126,18 @@ func (s *Server) handleRepoCreate(ctx context.Context, r *http.Request, body []b
 		return nil, repoErrorToAPIError(err)
 	}
 
-	if err := s.connectAndOpen(ctx, req.Storage, req.Password, req.ClientOptions); err != nil {
-		return nil, err
+	newRepo, err := s.connectAndOpen(ctx, req.Storage, req.Password, req.ClientOptions)
+	if err != nil {
+		return nil, repoErrorToAPIError(err)
+	}
+
+	// release shared lock so that SetRepository can acquire exclusive lock
+	s.mu.RUnlock()
+	err = s.SetRepository(ctx, newRepo)
+	s.mu.RLock()
+
+	if err != nil {
+		return nil, repoErrorToAPIError(err)
 	}
 
 	if err := repo.WriteSession(ctx, s.rep, repo.WriteSessionOptions{
@@ -187,17 +201,30 @@ func (s *Server) handleRepoConnect(ctx context.Context, r *http.Request, body []
 		return nil, requestError(serverapi.ErrorMalformedRequest, "unable to decode request: "+err.Error())
 	}
 
-	if req.APIServer != nil {
-		if err := s.connectAPIServerAndOpen(ctx, req.APIServer, req.Password, req.ClientOptions); err != nil {
-			return nil, err
-		}
-	} else {
-		if err := maybeDecodeToken(&req); err != nil {
-			return nil, err
+	if err := maybeDecodeToken(&req); err != nil {
+		return nil, err
+	}
+
+	asyncTaskID, err := s.InitRepositoryAsync(ctx, "Connect", func(ctx context.Context) (repo.Repository, error) {
+		if req.APIServer != nil {
+			return s.connectAPIServerAndOpen(ctx, req.APIServer, req.Password, req.ClientOptions)
 		}
 
-		if err := s.connectAndOpen(ctx, req.Storage, req.Password, req.ClientOptions); err != nil {
-			return nil, err
+		return s.connectAndOpen(ctx, req.Storage, req.Password, req.ClientOptions)
+	}, false)
+	if err != nil {
+		return nil, repoErrorToAPIError(err)
+	}
+
+	wt := syncConnectWaitTime
+	if sec := req.SyncWaitTimeSeconds; sec != 0 {
+		wt = time.Second * time.Duration(sec)
+	}
+
+	if ti, ok := s.taskmgr.WaitForTask(ctx, asyncTaskID, wt); ok {
+		if ti.Error != nil {
+			// task has already finished synchronously and failed.
+			return nil, repoErrorToAPIError(ti.Error)
 		}
 	}
 
@@ -278,49 +305,35 @@ func (s *Server) getConnectOptions(cliOpts repo.ClientOptions) *repo.ConnectOpti
 	return &o
 }
 
-func (s *Server) connectAPIServerAndOpen(ctx context.Context, si *repo.APIServerInfo, password string, cliOpts repo.ClientOptions) *apiError {
+func (s *Server) connectAPIServerAndOpen(ctx context.Context, si *repo.APIServerInfo, password string, cliOpts repo.ClientOptions) (repo.Repository, error) {
 	if err := passwordpersist.OnSuccess(
 		ctx, repo.ConnectAPIServer(ctx, s.options.ConfigFile, si, password, s.getConnectOptions(cliOpts)),
 		s.options.PasswordPersist, s.options.ConfigFile, password); err != nil {
-		return repoErrorToAPIError(err)
+		return nil, errors.Wrap(err, "error connecting to API server")
 	}
 
 	return s.open(ctx, password)
 }
 
-func (s *Server) connectAndOpen(ctx context.Context, conn blob.ConnectionInfo, password string, cliOpts repo.ClientOptions) *apiError {
+func (s *Server) connectAndOpen(ctx context.Context, conn blob.ConnectionInfo, password string, cliOpts repo.ClientOptions) (repo.Repository, error) {
 	st, err := blob.NewStorage(ctx, conn, false)
 	if err != nil {
-		return requestError(serverapi.ErrorStorageConnection, "can't open storage: "+err.Error())
+		return nil, errors.Wrap(err, "can't open storage")
 	}
 	defer st.Close(ctx) //nolint:errcheck
 
 	if err = passwordpersist.OnSuccess(
 		ctx, repo.Connect(ctx, s.options.ConfigFile, st, password, s.getConnectOptions(cliOpts)),
 		s.options.PasswordPersist, s.options.ConfigFile, password); err != nil {
-		return repoErrorToAPIError(err)
+		return nil, errors.Wrap(err, "error connecting")
 	}
 
 	return s.open(ctx, password)
 }
 
-func (s *Server) open(ctx context.Context, password string) *apiError {
-	rep, err := repo.Open(ctx, s.options.ConfigFile, password, nil)
-	if err != nil {
-		return repoErrorToAPIError(err)
-	}
-
-	// release shared lock so that SetRepository can acquire exclusive lock
-	s.mu.RUnlock()
-	err = s.SetRepository(ctx, rep)
-	s.mu.RLock()
-
-	if err != nil {
-		defer rep.Close(ctx) // nolint:errcheck
-		return internalServerError(err)
-	}
-
-	return nil
+func (s *Server) open(ctx context.Context, password string) (repo.Repository, error) {
+	// nolint:wrapcheck
+	return repo.Open(ctx, s.options.ConfigFile, password, nil)
 }
 
 func (s *Server) handleRepoDisconnect(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {

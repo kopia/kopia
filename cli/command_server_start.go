@@ -62,6 +62,7 @@ type commandServerStart struct {
 	serverStartTLSPrintFullServerCert   bool
 	uiTitlePrefix                       string
 	uiPreferencesFile                   string
+	asyncRepoConnect                    bool
 
 	logServerRequests bool
 
@@ -105,6 +106,7 @@ func (c *commandServerStart) setup(svc advancedAppServices, parent commandParent
 	cmd.Flag("tls-generate-cert-name", "Host names/IP addresses to generate TLS certificate for").Default("127.0.0.1").Hidden().StringsVar(&c.serverStartTLSGenerateCertNames)
 	cmd.Flag("tls-print-server-cert", "Print server certificate").Hidden().BoolVar(&c.serverStartTLSPrintFullServerCert)
 
+	cmd.Flag("async-repo-connect", "Connect to repository asynchronously").Hidden().BoolVar(&c.asyncRepoConnect)
 	cmd.Flag("ui-title-prefix", "UI title prefix").Hidden().Envar("KOPIA_UI_TITLE_PREFIX").StringVar(&c.uiTitlePrefix)
 	cmd.Flag("ui-preferences-file", "Path to JSON file storing UI preferences").StringVar(&c.uiPreferencesFile)
 
@@ -116,16 +118,13 @@ func (c *commandServerStart) setup(svc advancedAppServices, parent commandParent
 	c.svc = svc
 	c.out.setup(svc)
 
-	cmd.Action(svc.maybeRepositoryAction(c.run, repositoryAccessMode{
-		mustBeConnected:    false,
-		disableMaintenance: true, // server closes the repository so maintenance can't run.
-	}))
+	cmd.Action(svc.baseActionWithContext(c.run))
 }
 
-func (c *commandServerStart) run(ctx context.Context, rep repo.Repository) error {
+func (c *commandServerStart) serverStartOptions(ctx context.Context) (*server.Options, error) {
 	authn, err := c.getAuthenticator(ctx)
 	if err != nil {
-		return errors.Wrap(err, "unable to initialize authentication")
+		return nil, errors.Wrap(err, "unable to initialize authentication")
 	}
 
 	uiPreferencesFile := c.uiPreferencesFile
@@ -133,7 +132,7 @@ func (c *commandServerStart) run(ctx context.Context, rep repo.Repository) error
 		uiPreferencesFile = filepath.Join(filepath.Dir(c.svc.repositoryConfigFileName()), "ui-preferences.json")
 	}
 
-	srv, err := server.New(ctx, &server.Options{
+	return &server.Options{
 		ConfigFile:           c.svc.repositoryConfigFileName(),
 		ConnectOptions:       c.co.toRepoConnectOptions(),
 		RefreshInterval:      c.serverStartRefreshInterval,
@@ -149,22 +148,41 @@ func (c *commandServerStart) run(ctx context.Context, rep repo.Repository) error
 		UITitlePrefix:        c.uiTitlePrefix,
 
 		DisableCSRFTokenChecks: c.disableCSRFTokenChecks,
-	})
+	}, nil
+}
+
+func (c *commandServerStart) initRepositoryPossiblyAsync(ctx context.Context, srv *server.Server) error {
+	initialize := func(ctx context.Context) (repo.Repository, error) {
+		// nolint:wrapcheck
+		return c.svc.openRepository(ctx, false)
+	}
+
+	if c.asyncRepoConnect {
+		// retry initialization indefinitely
+		initialize = server.RetryInitRepository(initialize)
+	}
+
+	if _, err := srv.InitRepositoryAsync(ctx, "Open", initialize, !c.asyncRepoConnect); err != nil {
+		return errors.Wrap(err, "unable to initialize repository")
+	}
+
+	return nil
+}
+
+func (c *commandServerStart) run(ctx context.Context) error {
+	opts, err := c.serverStartOptions(ctx)
+	if err != nil {
+		return err
+	}
+
+	srv, err := server.New(ctx, opts)
 	if err != nil {
 		return errors.Wrap(err, "unable to initialize server")
 	}
 
-	if err = maybeAutoUpgradeRepository(ctx, rep); err != nil {
-		return errors.Wrap(err, "error upgrading repository")
+	if err = c.initRepositoryPossiblyAsync(ctx, srv); err != nil {
+		return errors.Wrap(err, "unable to initialize repository")
 	}
-
-	if err = srv.SetRepository(ctx, rep); err != nil {
-		return errors.Wrap(err, "error connecting to repository")
-	}
-
-	m := mux.NewRouter()
-
-	c.setupHandlers(srv, m)
 
 	httpServer := &http.Server{
 		Addr: stripProtocol(c.sf.serverAddress),
@@ -182,6 +200,10 @@ func (c *commandServerStart) run(ctx context.Context, rep repo.Repository) error
 			log(ctx).Debugf("unable to shut down: %v", err)
 		}
 	})
+
+	m := mux.NewRouter()
+
+	c.setupHandlers(srv, m)
 
 	// init prometheus after adding interceptors that require credentials, so that this
 	// handler can be called without auth

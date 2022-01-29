@@ -64,6 +64,7 @@ type Info struct {
 	ErrorMessage string                  `json:"errorMessage,omitempty"`
 	Counters     map[string]CounterValue `json:"counters"`
 	LogLines     []LogEntry              `json:"-"`
+	Error        error                   `json:"-"`
 
 	sequenceNumber int
 }
@@ -149,6 +150,10 @@ func (t *runningTaskInfo) addLogEntry(module string, level LogLevel, msg string,
 
 	t.mu.Lock()
 	defer t.mu.Unlock()
+
+	if t.Status.IsFinished() {
+		return
+	}
 
 	t.LogLines = append(t.LogLines, LogEntry{
 		Timestamp: float64(clock.Now().UnixNano()) / 1e9,

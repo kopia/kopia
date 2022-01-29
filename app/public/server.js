@@ -17,7 +17,7 @@ function newServerForRepo(repoID) {
     let runningServerAddress = "";
     let runningServerCertificate = "";
     let runningServerStatusDetails = {
-        connecting: true,
+        startingUp: true,
     };
     let serverLog = [];
 
@@ -40,6 +40,7 @@ function newServerForRepo(repoID) {
                 '--random-password',
                 '--random-server-control-password',
                 '--tls-generate-cert',
+                '--async-repo-connect',
                 '--shutdown-on-stdin', // shutdown the server when parent dies
                 '--address=localhost:0');
     

@@ -39,6 +39,11 @@ const (
 	maxMaintenanceAttemptFrequency = 4 * time.Hour
 	sleepOnMaintenanceError        = 30 * time.Minute
 
+	// retry initialization of repository starting at 1s doubling delay each time up to max 5 minutes
+	// (1s, 2s, 4s, 8s, 16s, 32s, 64s, 128s, 256s, 300s, 300s, 300s, ...)
+	retryInitRepositorySleepOnError    = 1 * time.Second
+	maxRetryInitRepositorySleepOnError = 5 * time.Minute
+
 	kopiaAuthCookie         = "Kopia-Auth"
 	kopiaAuthCookieTTL      = 1 * time.Minute
 	kopiaAuthCookieAudience = "kopia"
@@ -58,9 +63,10 @@ type apiRequestFunc func(ctx context.Context, r *http.Request, body []byte) (int
 type Server struct {
 	OnShutdown func(ctx context.Context) error
 
-	options   Options
-	rep       repo.Repository
-	cancelRep context.CancelFunc
+	options              Options
+	initRepositoryTaskID string // non-empty - repository is currently being opened.
+	rep                  repo.Repository
+	cancelRep            context.CancelFunc
 
 	authenticator auth.Authenticator
 	authorizer    auth.Authorizer
@@ -120,11 +126,11 @@ func (s *Server) SetupHTMLUIAPIHandlers(m *mux.Router) {
 	m.HandleFunc("/api/v1/ui-preferences", s.handleUIPossiblyNotConnected(s.handleGetUIPreferences)).Methods(http.MethodGet)
 	m.HandleFunc("/api/v1/ui-preferences", s.handleUIPossiblyNotConnected(s.handleSetUIPreferences)).Methods(http.MethodPut)
 
-	m.HandleFunc("/api/v1/tasks-summary", s.handleUI(s.handleTaskSummary)).Methods(http.MethodGet)
-	m.HandleFunc("/api/v1/tasks", s.handleUI(s.handleTaskList)).Methods(http.MethodGet)
-	m.HandleFunc("/api/v1/tasks/{taskID}", s.handleUI(s.handleTaskInfo)).Methods(http.MethodGet)
-	m.HandleFunc("/api/v1/tasks/{taskID}/logs", s.handleUI(s.handleTaskLogs)).Methods(http.MethodGet)
-	m.HandleFunc("/api/v1/tasks/{taskID}/cancel", s.handleUI(s.handleTaskCancel)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/tasks-summary", s.handleUIPossiblyNotConnected(s.handleTaskSummary)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/tasks", s.handleUIPossiblyNotConnected(s.handleTaskList)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/tasks/{taskID}", s.handleUIPossiblyNotConnected(s.handleTaskInfo)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/tasks/{taskID}/logs", s.handleUIPossiblyNotConnected(s.handleTaskLogs)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/tasks/{taskID}/cancel", s.handleUIPossiblyNotConnected(s.handleTaskCancel)).Methods(http.MethodPost)
 }
 
 // SetupRepositoryAPIHandlers registers HTTP repository API handlers.
@@ -826,6 +832,106 @@ type Options struct {
 	ServerControlUser      string // name of the user allowed to access the server control API
 	DisableCSRFTokenChecks bool
 	UITitlePrefix          string
+}
+
+// InitRepositoryFunc is a function that attempts to connect to/open repository.
+type InitRepositoryFunc func(ctx context.Context) (repo.Repository, error)
+
+// InitRepositoryAsync starts a task that initializes the repository by invoking the provided callback
+// and initializes the repository when done. The initializer may return nil to indicate there
+// is no repository configured.
+func (s *Server) InitRepositoryAsync(ctx context.Context, mode string, initializer InitRepositoryFunc, wait bool) (string, error) {
+	var wg sync.WaitGroup
+
+	var taskID string
+
+	wg.Add(1)
+
+	// nolint:errcheck
+	go s.taskmgr.Run(ctx, "Repository", mode, func(ctx context.Context, ctrl uitask.Controller) error {
+		// we're still holding a lock, until wg.Done(), so no lock around this is needed.
+		taskID = ctrl.CurrentTaskID()
+		s.initRepositoryTaskID = taskID
+		wg.Done()
+
+		defer func() {
+			s.mu.Lock()
+			s.initRepositoryTaskID = ""
+			s.mu.Unlock()
+		}()
+
+		cctx, cancel := context.WithCancel(ctx)
+		defer cancel()
+
+		ctrl.OnCancel(func() {
+			cancel()
+		})
+
+		// run initializer in cancelable context.
+		rep, err := initializer(cctx)
+
+		if cctx.Err() != nil {
+			// context canceled
+			return errors.Errorf("operation has been canceled")
+		}
+
+		if err != nil {
+			return errors.Wrap(err, "error opening repository")
+		}
+
+		if rep == nil {
+			log(ctx).Infof("Repository not configured.")
+		}
+
+		if err = s.SetRepository(ctx, rep); err != nil {
+			return errors.Wrap(err, "error connecting to repository")
+		}
+
+		return nil
+	})
+
+	wg.Wait()
+
+	if wait {
+		if ti, ok := s.taskmgr.WaitForTask(ctx, taskID, -1); ok {
+			return taskID, ti.Error
+		}
+	}
+
+	return taskID, nil
+}
+
+// RetryInitRepository wraps provided initialization function with retries until the context gets canceled.
+func RetryInitRepository(initialize InitRepositoryFunc) InitRepositoryFunc {
+	return func(ctx context.Context) (repo.Repository, error) {
+		nextSleepTime := retryInitRepositorySleepOnError
+
+		// async connection - keep trying to open repository until context gets canceled.
+		for {
+			if cerr := ctx.Err(); cerr != nil {
+				// context canceled, bail
+				// nolint:wrapcheck
+				return nil, cerr
+			}
+
+			rep, rerr := initialize(ctx)
+			if rerr == nil {
+				return rep, nil
+			}
+
+			log(ctx).Warnf("unable to open repository: %v, will keep trying until canceled. Sleeping for %v", rerr, nextSleepTime)
+
+			if !clock.SleepInterruptibly(ctx, nextSleepTime) {
+				// nolint:wrapcheck
+				return nil, ctx.Err()
+			}
+
+			nextSleepTime *= 2
+			if nextSleepTime > maxRetryInitRepositorySleepOnError {
+				nextSleepTime = maxRetryInitRepositorySleepOnError
+			}
+		}
+	}
 }
 
 // New creates a Server.
