@@ -54,7 +54,7 @@ func runInBrowser(t *testing.T, run func(ctx context.Context, sp *testutil.Serve
 		"--without-password",
 		"--override-hostname=the-hostname",
 		"--override-username=the-username",
-		//"--html="+os.Getenv("HTMLUI_BUILD_DIR"),
+		// "--html="+os.Getenv("HTMLUI_BUILD_DIR"),
 	)
 	defer kill()
 
