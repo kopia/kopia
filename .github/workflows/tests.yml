@@ -57,10 +57,8 @@ jobs:
       run: make -j4 ci-setup
     - name: Tests
       run: make ci-tests
-      continue-on-error: ${{ github.event_name != 'pull_request' }}
     - name: Integration Tests
       run: make -j2 ci-integration-tests
-      continue-on-error: ${{ github.event_name != 'pull_request' }}
     - name: Upload Logs
       uses: actions/upload-artifact@v2
       with:
