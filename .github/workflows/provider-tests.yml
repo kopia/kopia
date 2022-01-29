@@ -5,8 +5,8 @@ on:
     tags:
       - v*
   schedule:
-    # run every 2 hours
-    - cron:  '19 */2 * * *'
+    # run once per day
+    - cron:  '19 7 * * *'
 jobs:
   endurance-test:
     name: Provider Test
