@@ -344,7 +344,7 @@ stage-release:
 ifeq ($(IS_PULL_REQUEST),false)
 ifneq ($(CI_TAG),)
 GH_RELEASE_REPO=$(GITHUB_REPOSITORY)
-GH_RELEASE_FLAGS=--draft
+GH_RELEASE_FLAGS=
 GH_RELEASE_NAME=v$(KOPIA_VERSION_NO_PREFIX)
 else
 ifeq ($(GITHUB_REF),refs/heads/master)
