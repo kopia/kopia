@@ -29,6 +29,9 @@ type StatusResponse struct {
 	SupportsContentCompression bool   `json:"supportsContentCompression"`
 
 	repo.ClientOptions
+
+	// non-empty while the repository is being initialized (opened, created or connected).
+	InitRepoTaskID string `json:"initTaskID,omitempty"`
 }
 
 // SourcesResponse is the response of 'sources' HTTP API command.
@@ -116,11 +119,12 @@ type CheckRepositoryExistsRequest struct {
 
 // ConnectRepositoryRequest contains request to connect to a repository.
 type ConnectRepositoryRequest struct {
-	Storage       blob.ConnectionInfo `json:"storage"`
-	Password      string              `json:"password"`
-	Token         string              `json:"token"` // when set, overrides Storage and Password
-	APIServer     *repo.APIServerInfo `json:"apiServer"`
-	ClientOptions repo.ClientOptions  `json:"clientOptions"`
+	Storage             blob.ConnectionInfo `json:"storage"`
+	Password            string              `json:"password"`
+	Token               string              `json:"token"` // when set, overrides Storage and Password
+	APIServer           *repo.APIServerInfo `json:"apiServer"`
+	ClientOptions       repo.ClientOptions  `json:"clientOptions"`
+	SyncWaitTimeSeconds int                 `json:"syncWaitTime"` // if non-zero, force particular wait time, negative == forever
 }
 
 // SupportedAlgorithmsResponse returns the list of supported algorithms for repository creation.

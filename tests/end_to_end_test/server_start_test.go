@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"os"
 	"testing"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/apiclient"
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/retry"
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/internal/testlogging"
@@ -162,6 +164,84 @@ func TestServerStart(t *testing.T) {
 	require.Equal(t, keepDaily, *policies.Policies[0].Policy.RetentionPolicy.KeepDaily)
 
 	waitForSnapshotCount(ctx, t, cli, snapshot.SourceInfo{Host: "fake-hostname", UserName: "fake-username", Path: sharedTestDataDir3}, 1)
+}
+
+func TestServerStartAsyncRepoConnect(t *testing.T) {
+	ctx := testlogging.Context(t)
+
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--override-hostname=fake-hostname", "--override-username=fake-username", "--max-upload-speed=10000000001")
+
+	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
+	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
+
+	// now rename the repository directory to simulate unmounting operation
+	renamedPath := e.RepoDir + ".renamed"
+	require.NoError(t, os.Rename(e.RepoDir, renamedPath))
+
+	var sp testutil.ServerParameters
+
+	e.RunAndExpectFailure(t,
+		"server", "start",
+		"--ui",
+		"--address=localhost:0",
+		"--random-password",
+		"--random-server-control-password",
+		"--tls-generate-cert",
+		"--tls-generate-rsa-key-size=2048", // use shorter key size to speed up generation
+	)
+
+	// run again - passing --async-repo-connect
+	e.RunAndProcessStderr(t, sp.ProcessOutput,
+		"server", "start",
+		"--ui",
+		"--address=localhost:0",
+		"--random-password",
+		"--async-repo-connect",
+		"--random-server-control-password",
+		"--tls-generate-cert",
+		"--tls-generate-rsa-key-size=2048", // use shorter key size to speed up generation
+	)
+	t.Logf("detected server parameters %#v", sp)
+
+	controlClient, err := apiclient.NewKopiaAPIClient(apiclient.Options{
+		BaseURL:                             sp.BaseURL,
+		Username:                            "server-control",
+		Password:                            sp.ServerControlPassword,
+		TrustedServerCertificateFingerprint: sp.SHA256Fingerprint,
+		LogRequests:                         true,
+	})
+	require.NoError(t, err)
+
+	defer serverapi.Shutdown(ctx, controlClient)
+
+	waitUntilServerStarted(ctx, t, controlClient)
+
+	// server is not connected at this point but initialization task is still running.
+	sr := verifyServerConnected(t, controlClient, false)
+	require.NotEmpty(t, sr.InitRepoTaskID)
+
+	// rename repo dir back
+	require.NoError(t, os.Rename(renamedPath, e.RepoDir))
+
+	deadline := clock.Now().Add(30 * time.Second)
+	for clock.Now().Before(deadline) {
+		time.Sleep(100 * time.Millisecond)
+
+		st, err := serverapi.Status(ctx, controlClient)
+		require.NoError(t, err)
+
+		if st.Connected {
+			t.Logf("server connected!")
+			break
+		}
+	}
+
+	require.True(t, clock.Now().Before(deadline), "async connection took too long")
 }
 
 func TestServerCreateAndConnectViaAPI(t *testing.T) {

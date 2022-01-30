@@ -78,6 +78,8 @@ type appServices interface {
 	repositoryReaderAction(act func(ctx context.Context, rep repo.Repository) error) func(ctx *kingpin.ParseContext) error
 	repositoryWriterAction(act func(ctx context.Context, rep repo.RepositoryWriter) error) func(ctx *kingpin.ParseContext) error
 	maybeRepositoryAction(act func(ctx context.Context, rep repo.Repository) error, mode repositoryAccessMode) func(ctx *kingpin.ParseContext) error
+	baseActionWithContext(act func(ctx context.Context) error) func(ctx *kingpin.ParseContext) error
+	openRepository(ctx context.Context, mustBeConnected bool) (repo.Repository, error)
 	advancedCommand(ctx context.Context)
 	repositoryConfigFileName() string
 	getProgress() *cliProgress
@@ -412,7 +414,7 @@ type repositoryAccessMode struct {
 	disableMaintenance bool
 }
 
-func (c *App) maybeRepositoryAction(act func(ctx context.Context, rep repo.Repository) error, mode repositoryAccessMode) func(ctx *kingpin.ParseContext) error {
+func (c *App) baseActionWithContext(act func(ctx context.Context) error) func(ctx *kingpin.ParseContext) error {
 	return func(kpc *kingpin.ParseContext) error {
 		ctx0 := c.rootContext()
 
@@ -440,38 +442,7 @@ func (c *App) maybeRepositoryAction(act func(ctx context.Context, rep repo.Repos
 				go http.ListenAndServe(c.metricsListenAddr, m) // nolint:errcheck
 			}
 
-			memtrack.Dump(ctx, "before openRepository")
-
-			rep, err := c.openRepository(ctx, mode.mustBeConnected)
-
-			memtrack.Dump(ctx, "after openRepository")
-			if err != nil && mode.mustBeConnected {
-				return errors.Wrap(err, "open repository")
-			}
-
-			err = act(ctx, rep)
-
-			if rep != nil && !mode.disableMaintenance {
-				memtrack.Dump(ctx, "before auto maintenance")
-
-				if merr := c.maybeRunMaintenance(ctx, rep); merr != nil {
-					log(ctx).Errorf("error running maintenance: %v", merr)
-				}
-
-				memtrack.Dump(ctx, "after auto maintenance")
-			}
-
-			if rep != nil && mode.mustBeConnected {
-				memtrack.Dump(ctx, "before close repository")
-
-				if cerr := rep.Close(ctx); cerr != nil {
-					return errors.Wrap(cerr, "unable to close repository")
-				}
-
-				memtrack.Dump(ctx, "after close repository")
-			}
-
-			return err
+			return act(ctx)
 		})
 
 		c.runOnExit()
@@ -484,6 +455,43 @@ func (c *App) maybeRepositoryAction(act func(ctx context.Context, rep repo.Repos
 
 		return nil
 	}
+}
+
+func (c *App) maybeRepositoryAction(act func(ctx context.Context, rep repo.Repository) error, mode repositoryAccessMode) func(ctx *kingpin.ParseContext) error {
+	return c.baseActionWithContext(func(ctx context.Context) error {
+		memtrack.Dump(ctx, "before openRepository")
+
+		rep, err := c.openRepository(ctx, mode.mustBeConnected)
+
+		memtrack.Dump(ctx, "after openRepository")
+		if err != nil && mode.mustBeConnected {
+			return errors.Wrap(err, "open repository")
+		}
+
+		err = act(ctx, rep)
+
+		if rep != nil && !mode.disableMaintenance {
+			memtrack.Dump(ctx, "before auto maintenance")
+
+			if merr := c.maybeRunMaintenance(ctx, rep); merr != nil {
+				log(ctx).Errorf("error running maintenance: %v", merr)
+			}
+
+			memtrack.Dump(ctx, "after auto maintenance")
+		}
+
+		if rep != nil && mode.mustBeConnected {
+			memtrack.Dump(ctx, "before close repository")
+
+			if cerr := rep.Close(ctx); cerr != nil {
+				return errors.Wrap(cerr, "unable to close repository")
+			}
+
+			memtrack.Dump(ctx, "after close repository")
+		}
+
+		return err
+	})
 }
 
 func (c *App) maybeRunMaintenance(ctx context.Context, rep repo.Repository) error {

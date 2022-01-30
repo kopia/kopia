@@ -352,10 +352,14 @@ function updateTrayContextMenu() {
     const sd = serverForRepo(repoID).getServerStatusDetails();
     let desc = "";
 
-    if (sd.connecting) {
+    if (sd.startingUp) {
       desc = "<starting up>";
     } else if (!sd.connected) {
-      desc = "<not connected>";
+      if (sd.initTaskID) {
+        desc = "<initializing>";
+      } else {
+        desc = "<not connected>";
+      }
     } else {
       desc = sd.description;
     }
