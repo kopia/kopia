@@ -282,6 +282,8 @@ func NewApp() *App {
 			{"b2", "a B2 bucket", func() StorageFlags { return &storageB2Flags{} }},
 			{"filesystem", "a filesystem", func() StorageFlags { return &storageFilesystemFlags{} }},
 			{"gcs", "a Google Cloud Storage bucket", func() StorageFlags { return &storageGCSFlags{} }},
+			{"gdrive", "a Google Drive folder", func() StorageFlags { return &storageGDriveFlags{} }},
+
 			{"rclone", "a rclone-based provided", func() StorageFlags { return &storageRcloneFlags{} }},
 			{"s3", "an S3 bucket", func() StorageFlags { return &storageS3Flags{} }},
 			{"sftp", "an SFTP storage", func() StorageFlags { return &storageSFTPFlags{} }},
