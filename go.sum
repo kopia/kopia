@@ -401,6 +401,8 @@ github.com/konsorten/go-windows-terminal-sequences v1.0.1/go.mod h1:T0+1ngSBFLxv
 github.com/konsorten/go-windows-terminal-sequences v1.0.3/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
 github.com/kopia/htmluibuild v0.0.0-20220129092742-eb509f9584dd h1:FLZhx3aqZF9cWB1G0f3K18uuNDhu7KFytdSN+5jeGwc=
 github.com/kopia/htmluibuild v0.0.0-20220129092742-eb509f9584dd/go.mod h1:eWer4rx9P8lJo2eKc+Q7AZ1dE1x1hJNdkbDFPzMu1Hw=
+github.com/kopia/htmluibuild v0.0.0-20220131042136-3e252f22c951 h1:5Ax9T6D+EFzIP0uTabNDTVQQPCOk4QlD/VnL+6cN8E4=
+github.com/kopia/htmluibuild v0.0.0-20220131042136-3e252f22c951/go.mod h1:eWer4rx9P8lJo2eKc+Q7AZ1dE1x1hJNdkbDFPzMu1Hw=
 github.com/kr/fs v0.1.0 h1:Jskdu9ieNAYnjxsi0LbQp1ulIKZV1LAFgK1tWhpZgl8=
 github.com/kr/fs v0.1.0/go.mod h1:FFnZGqtBN9Gxj7eW1uZ42v5BccTP0vu6NEaFoC2HwRg=
 github.com/kr/logfmt v0.0.0-20140226030751-b84e30acd515/go.mod h1:+0opPa2QZZtGFBFZlji/RkVcI2GknAs/DXo4wKdlNEc=
