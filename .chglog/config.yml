@@ -25,6 +25,7 @@ options:
       - deps-dev
       - infra
       - ci
+      - ui
   commit_groups:
     sort_by: Custom
     group_by: "Scope"
