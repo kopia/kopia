@@ -89,7 +89,7 @@ type appServices interface {
 
 type advancedAppServices interface {
 	appServices
-	storageProviderServices
+	StorageProviderServices
 
 	runConnectCommandWithStorage(ctx context.Context, co *connectOptions, st blob.Storage) error
 	runConnectCommandWithStorageAndPassword(ctx context.Context, co *connectOptions, st blob.Storage, password string) error

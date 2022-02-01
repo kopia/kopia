@@ -9,9 +9,12 @@ import (
 	"github.com/kopia/kopia/repo/blob/throttling"
 )
 
-type storageProviderServices interface {
-	setPasswordFromToken(pwd string)
+// StorageProviderServices is implemented by the cli App that allows the cli
+// and tests to mutate the default storage providers.
+type StorageProviderServices interface {
 	AddStorageProvider(p StorageProvider)
+
+	setPasswordFromToken(pwd string)
 	storageProviders() []StorageProvider
 }
 
@@ -19,8 +22,8 @@ type storageProviderServices interface {
 // particular backend. This requires the common setup and connection methods
 // implemented by all the cli storage providers.
 type StorageFlags interface {
-	setup(sps storageProviderServices, cmd *kingpin.CmdClause)
-	connect(ctx context.Context, isCreate bool, formatVersion int) (blob.Storage, error)
+	Setup(sps StorageProviderServices, cmd *kingpin.CmdClause)
+	Connect(ctx context.Context, isCreate bool, formatVersion int) (blob.Storage, error)
 }
 
 // StorageProvider is a CLI provider for storage options and allows the CLI to

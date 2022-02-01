@@ -28,10 +28,10 @@ func (c *commandRepositoryRepair) setup(svc advancedAppServices, parent commandP
 	for _, prov := range svc.storageProviders() {
 		f := prov.NewFlags()
 		cc := cmd.Command(prov.Name, "Repair repository in "+prov.Description)
-		f.setup(svc, cc)
+		f.Setup(svc, cc)
 		cc.Action(func(_ *kingpin.ParseContext) error {
 			ctx := svc.rootContext()
-			st, err := f.connect(ctx, false, 0)
+			st, err := f.Connect(ctx, false, 0)
 			if err != nil {
 				return errors.Wrap(err, "can't connect to storage")
 			}

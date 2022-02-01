@@ -15,7 +15,7 @@ type storageWebDAVFlags struct {
 	connectFlat bool
 }
 
-func (c *storageWebDAVFlags) setup(_ storageProviderServices, cmd *kingpin.CmdClause) {
+func (c *storageWebDAVFlags) Setup(_ StorageProviderServices, cmd *kingpin.CmdClause) {
 	cmd.Flag("url", "URL of WebDAV server").Required().StringVar(&c.options.URL)
 	cmd.Flag("flat", "Use flat directory structure").BoolVar(&c.connectFlat)
 	cmd.Flag("webdav-username", "WebDAV username").Envar("KOPIA_WEBDAV_USERNAME").StringVar(&c.options.Username)
@@ -26,7 +26,7 @@ func (c *storageWebDAVFlags) setup(_ storageProviderServices, cmd *kingpin.CmdCl
 	commonThrottlingFlags(cmd, &c.options.Limits)
 }
 
-func (c *storageWebDAVFlags) connect(ctx context.Context, isCreate bool, formatVersion int) (blob.Storage, error) {
+func (c *storageWebDAVFlags) Connect(ctx context.Context, isCreate bool, formatVersion int) (blob.Storage, error) {
 	wo := c.options
 
 	if wo.Username != "" && wo.Password == "" {

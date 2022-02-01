@@ -21,7 +21,7 @@ func (s *formatSpecificTestSuite) setupInMemoryRepo(t *testing.T) *testenv.CLITe
 		a.AddStorageProvider(cli.StorageProvider{
 			Name:        "in-memory",
 			Description: "in-memory storage backend",
-			NewFlags:    func() cli.StorageFlags { return &cli.StorageInMemoryFlags{} },
+			NewFlags:    func() cli.StorageFlags { return &storageInMemoryFlags{} },
 		})
 	}
 

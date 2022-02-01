@@ -28,7 +28,7 @@ type storageFilesystemFlags struct {
 	connectFlat     bool
 }
 
-func (c *storageFilesystemFlags) setup(_ storageProviderServices, cmd *kingpin.CmdClause) {
+func (c *storageFilesystemFlags) Setup(_ StorageProviderServices, cmd *kingpin.CmdClause) {
 	cmd.Flag("path", "Path to the repository").Required().StringVar(&c.options.Path)
 	cmd.Flag("owner-uid", "User ID owning newly created files").PlaceHolder("USER").StringVar(&c.connectOwnerUID)
 	cmd.Flag("owner-gid", "Group ID owning newly created files").PlaceHolder("GROUP").StringVar(&c.connectOwnerGID)
@@ -40,7 +40,7 @@ func (c *storageFilesystemFlags) setup(_ storageProviderServices, cmd *kingpin.C
 	commonThrottlingFlags(cmd, &c.options.Limits)
 }
 
-func (c *storageFilesystemFlags) connect(ctx context.Context, isCreate bool, formatVersion int) (blob.Storage, error) {
+func (c *storageFilesystemFlags) Connect(ctx context.Context, isCreate bool, formatVersion int) (blob.Storage, error) {
 	fso := c.options
 
 	fso.Path = ospath.ResolveUserFriendlyPath(fso.Path, false)
