@@ -1,10 +1,13 @@
 package content
 
 import (
+	"time"
+
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/epoch"
 	"github.com/kopia/kopia/internal/units"
+	"github.com/kopia/kopia/repo/blob"
 )
 
 const (
@@ -102,4 +105,30 @@ func (f *FormattingOptions) GetHashFunction() string {
 // GetHmacSecret implements hashing.Parameters.
 func (f *FormattingOptions) GetHmacSecret() []byte {
 	return f.HMACSecret
+}
+
+// BlobCfgBlob is the content for `kopia.blobcfg` blob which contains the blob
+// management configuration options.
+type BlobCfgBlob struct {
+	RetentionMode   blob.RetentionMode `json:"retentionMode,omitempty"`
+	RetentionPeriod time.Duration      `json:"retentionPeriod,omitempty"`
+}
+
+// IsRetentionEnabled returns true if retention is enabled on the blob-config
+// object.
+func (r *BlobCfgBlob) IsRetentionEnabled() bool {
+	return r.RetentionMode != "" && r.RetentionPeriod != 0
+}
+
+// Validate validates the blob config parameters.
+func (r *BlobCfgBlob) Validate() error {
+	if (r.RetentionMode == "") != (r.RetentionPeriod == 0) {
+		return errors.Errorf("both retention mode and period must be provided when setting blob retention properties")
+	}
+
+	if r.RetentionPeriod != 0 && r.RetentionPeriod < 24*time.Hour {
+		return errors.Errorf("invalid retention-period, the minimum required is 1-day and there is no maximum limit")
+	}
+
+	return nil
 }

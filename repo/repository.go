@@ -45,6 +45,7 @@ type DirectRepository interface {
 	Repository
 
 	ObjectFormat() object.Format
+	BlobCfg() content.BlobCfgBlob
 	BlobReader() blob.Reader
 	ContentReader() content.Reader
 	IndexBlobs(ctx context.Context, includeInactive bool) ([]content.IndexBlobInfo, error)
@@ -66,7 +67,7 @@ type DirectRepositoryWriter interface {
 
 	BlobStorage() blob.Storage
 	ContentManager() *content.WriteManager
-	SetParameters(ctx context.Context, m content.MutableParameters) error
+	SetParameters(ctx context.Context, m content.MutableParameters, blobcfg content.BlobCfgBlob) error
 	ChangePassword(ctx context.Context, newPassword string) error
 }
 
@@ -77,7 +78,7 @@ type directRepositoryParameters struct {
 	cliOpts             ClientOptions
 	timeNow             func() time.Time
 	formatBlob          *formatBlob
-	blobCfgBlob         *blobCfgBlob
+	blobCfgBlob         content.BlobCfgBlob
 	formatEncryptionKey []byte
 	nextWriterID        *int32
 }
@@ -304,6 +305,10 @@ func (r *directRepository) Refresh(ctx context.Context) error {
 // Time returns the current local time for the repo.
 func (r *directRepository) Time() time.Time {
 	return defaultTime(r.timeNow)()
+}
+
+func (r *directRepository) BlobCfg() content.BlobCfgBlob {
+	return r.directRepositoryParameters.blobCfgBlob
 }
 
 // WriteSessionOptions describes options for a write session.

@@ -9,12 +9,15 @@ import (
 	"github.com/kopia/kopia/internal/epoch"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
 )
 
 type commandRepositorySetParameters struct {
 	maxPackSizeMB      int
 	indexFormatVersion int
+	retentionMode      string
+	retentionPeriod    time.Duration
 
 	epochRefreshFrequency    time.Duration
 	epochMinDuration         time.Duration
@@ -34,6 +37,8 @@ func (c *commandRepositorySetParameters) setup(svc appServices, parent commandPa
 
 	cmd.Flag("max-pack-size-mb", "Set max pack file size").PlaceHolder("MB").IntVar(&c.maxPackSizeMB)
 	cmd.Flag("index-version", "Set version of index format used for writing").IntVar(&c.indexFormatVersion)
+	cmd.Flag("retention-mode", "Set the blob retention-mode for supported storage backends.").EnumVar(&c.retentionMode, "none", blob.Governance.String(), blob.Compliance.String())
+	cmd.Flag("retention-period", "Set the blob retention-period for supported storage backends.").DurationVar(&c.retentionPeriod)
 
 	cmd.Flag("upgrade", "Upgrade repository to the latest stable format").BoolVar(&c.upgradeRepositoryFormat)
 
@@ -94,10 +99,22 @@ func (c *commandRepositorySetParameters) setDurationParameter(ctx context.Contex
 	log(ctx).Infof(" - setting %v to %v.\n", desc, v)
 }
 
+func (c *commandRepositorySetParameters) setRetentionModeParameter(ctx context.Context, v blob.RetentionMode, desc string, dst *blob.RetentionMode, anyChange *bool) {
+	if !v.IsValid() {
+		return
+	}
+
+	*dst = v
+	*anyChange = true
+
+	log(ctx).Infof(" - setting %v to %s.\n", desc, v)
+}
+
 func (c *commandRepositorySetParameters) run(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	var anyChange bool
 
 	mp := rep.ContentReader().ContentFormat().MutableParameters
+	blobcfg := rep.BlobCfg()
 
 	upgradeToEpochManager := false
 
@@ -117,6 +134,19 @@ func (c *commandRepositorySetParameters) run(ctx context.Context, rep repo.Direc
 
 	c.setSizeMBParameter(ctx, c.maxPackSizeMB, "maximum pack size", &mp.MaxPackSize, &anyChange)
 	c.setIntParameter(ctx, c.indexFormatVersion, "index format version", &mp.IndexVersion, &anyChange)
+
+	if c.retentionMode == "none" {
+		if blobcfg.IsRetentionEnabled() {
+			log(ctx).Infof("disabling blob retention")
+
+			blobcfg.RetentionMode = ""
+			blobcfg.RetentionPeriod = 0
+			anyChange = true
+		}
+	} else {
+		c.setRetentionModeParameter(ctx, blob.RetentionMode(c.retentionMode), "storage backend blob retention mode", &blobcfg.RetentionMode, &anyChange)
+		c.setDurationParameter(ctx, c.retentionPeriod, "storage backend blob retention period", &blobcfg.RetentionPeriod, &anyChange)
+	}
 
 	c.setDurationParameter(ctx, c.epochMinDuration, "minimum epoch duration", &mp.EpochParameters.MinEpochDuration, &anyChange)
 	c.setDurationParameter(ctx, c.epochRefreshFrequency, "epoch refresh frequency", &mp.EpochParameters.EpochRefreshFrequency, &anyChange)
@@ -138,7 +168,7 @@ func (c *commandRepositorySetParameters) run(ctx context.Context, rep repo.Direc
 		}
 	}
 
-	if err := rep.SetParameters(ctx, mp); err != nil {
+	if err := rep.SetParameters(ctx, mp, blobcfg); err != nil {
 		return errors.Wrap(err, "error setting parameters")
 	}
 

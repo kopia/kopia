@@ -11,7 +11,7 @@ import (
 )
 
 // SetParameters changes mutable repository parameters.
-func (r *directRepository) SetParameters(ctx context.Context, m content.MutableParameters) error {
+func (r *directRepository) SetParameters(ctx context.Context, m content.MutableParameters, blobcfg content.BlobCfgBlob) error {
 	f := r.formatBlob
 
 	repoConfig, err := f.decryptFormatBytes(r.formatEncryptionKey)
@@ -23,10 +23,18 @@ func (r *directRepository) SetParameters(ctx context.Context, m content.MutableP
 		return errors.Wrap(err, "invalid parameters")
 	}
 
+	if err := blobcfg.Validate(); err != nil {
+		return errors.Wrap(err, "invalid blob-config options")
+	}
+
 	repoConfig.FormattingOptions.MutableParameters = m
 
 	if err := encryptFormatBytes(f, repoConfig, r.formatEncryptionKey, f.UniqueID); err != nil {
 		return errors.Errorf("unable to encrypt format bytes")
+	}
+
+	if err := writeBlobCfgBlob(ctx, r.blobs, f, blobcfg, r.formatEncryptionKey); err != nil {
+		return errors.Wrap(err, "unable to write blobcfg blob")
 	}
 
 	if err := writeFormatBlob(ctx, r.blobs, f, r.blobCfgBlob); err != nil {
@@ -34,8 +42,12 @@ func (r *directRepository) SetParameters(ctx context.Context, m content.MutableP
 	}
 
 	if cd := r.cachingOptions.CacheDirectory; cd != "" {
-		if err := os.Remove(filepath.Join(cd, "kopia.repository")); err != nil && !os.IsNotExist(err) {
-			return errors.Errorf("unable to remove cached repository format blob: %v", err)
+		if err := os.Remove(filepath.Join(cd, FormatBlobID)); err != nil {
+			log(ctx).Errorf("unable to remove %s: %v", FormatBlobID, err)
+		}
+
+		if err := os.Remove(filepath.Join(cd, BlobCfgBlobID)); err != nil && !os.IsNotExist(err) {
+			log(ctx).Errorf("unable to remove %s: %v", BlobCfgBlobID, err)
 		}
 	}
 

@@ -58,7 +58,7 @@ func (s *formatSpecificTestSuite) TestDeleteUnreferencedBlobs(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if got, want := len(blobsBefore), 3; got != want {
+	if got, want := len(blobsBefore), 4; got != want {
 		t.Fatalf("unexpected number of blobs after writing: %v", blobsBefore)
 	}
 

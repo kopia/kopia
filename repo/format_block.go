@@ -14,6 +14,7 @@ import (
 
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/content"
 )
 
 const (
@@ -162,7 +163,7 @@ func verifyFormatBlobChecksum(b []byte) ([]byte, bool) {
 	return data, true
 }
 
-func writeFormatBlob(ctx context.Context, st blob.Storage, f *formatBlob, r *blobCfgBlob) error {
+func writeFormatBlob(ctx context.Context, st blob.Storage, f *formatBlob, blobCfg content.BlobCfgBlob) error {
 	buf := gather.NewWriteBuffer()
 	e := json.NewEncoder(buf)
 	e.SetIndent("", "  ")
@@ -172,8 +173,8 @@ func writeFormatBlob(ctx context.Context, st blob.Storage, f *formatBlob, r *blo
 	}
 
 	if err := st.PutBlob(ctx, FormatBlobID, buf.Bytes(), blob.PutOptions{
-		RetentionMode:   r.RetentionMode,
-		RetentionPeriod: r.RetentionPeriod,
+		RetentionMode:   blobCfg.RetentionMode,
+		RetentionPeriod: blobCfg.RetentionPeriod,
 	}); err != nil {
 		return errors.Wrap(err, "unable to write format blob")
 	}
@@ -218,14 +219,14 @@ func initCrypto(masterKey, repositoryID []byte) (cipher.AEAD, []byte, error) {
 	return aead, authData, nil
 }
 
-func encryptRepositoryBlobBytesAes256Gcm(content, masterKey, repositoryID []byte) ([]byte, error) {
+func encryptRepositoryBlobBytesAes256Gcm(data, masterKey, repositoryID []byte) ([]byte, error) {
 	aead, authData, err := initCrypto(masterKey, repositoryID)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to initialize crypto")
 	}
 
 	nonceLength := aead.NonceSize()
-	noncePlusContentLength := nonceLength + len(content)
+	noncePlusContentLength := nonceLength + len(data)
 	cipherText := make([]byte, noncePlusContentLength+aead.Overhead())
 
 	// Store nonce at the beginning of ciphertext.
@@ -234,25 +235,25 @@ func encryptRepositoryBlobBytesAes256Gcm(content, masterKey, repositoryID []byte
 		return nil, errors.Wrap(err, "error reading random bytes for nonce")
 	}
 
-	b := aead.Seal(cipherText[nonceLength:nonceLength], nonce, content, authData)
-	content = nonce[0 : nonceLength+len(b)]
+	b := aead.Seal(cipherText[nonceLength:nonceLength], nonce, data, authData)
+	data = nonce[0 : nonceLength+len(b)]
 
-	return content, nil
+	return data, nil
 }
 
-func decryptRepositoryBlobBytesAes256Gcm(content, masterKey, repositoryID []byte) ([]byte, error) {
+func decryptRepositoryBlobBytesAes256Gcm(data, masterKey, repositoryID []byte) ([]byte, error) {
 	aead, authData, err := initCrypto(masterKey, repositoryID)
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot initialize cipher")
 	}
 
-	content = append([]byte(nil), content...)
-	if len(content) < aead.NonceSize() {
+	data = append([]byte(nil), data...)
+	if len(data) < aead.NonceSize() {
 		return nil, errors.Errorf("invalid encrypted payload, too short")
 	}
 
-	nonce := content[0:aead.NonceSize()]
-	payload := content[aead.NonceSize():]
+	nonce := data[0:aead.NonceSize()]
+	payload := data[aead.NonceSize():]
 
 	plainText, err := aead.Open(payload[:0], nonce, payload, authData)
 	if err != nil {
@@ -265,17 +266,17 @@ func decryptRepositoryBlobBytesAes256Gcm(content, masterKey, repositoryID []byte
 func encryptFormatBytes(f *formatBlob, format *repositoryObjectFormat, masterKey, repositoryID []byte) error {
 	switch f.EncryptionAlgorithm {
 	case aes256GcmEncryption:
-		content, err := json.Marshal(&encryptedRepositoryConfig{Format: *format})
+		data, err := json.Marshal(&encryptedRepositoryConfig{Format: *format})
 		if err != nil {
 			return errors.Wrap(err, "can't marshal format to JSON")
 		}
 
-		content, err = encryptRepositoryBlobBytesAes256Gcm(content, masterKey, repositoryID)
+		data, err = encryptRepositoryBlobBytesAes256Gcm(data, masterKey, repositoryID)
 		if err != nil {
 			return errors.Wrap(err, "failed to encrypt format JSON")
 		}
 
-		f.EncryptedFormatBytes = content
+		f.EncryptedFormatBytes = data
 
 		return nil
 
