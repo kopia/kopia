@@ -52,18 +52,18 @@ func (c *commandRepositoryCreate) setup(svc advancedAppServices, parent commandP
 	c.svc = svc
 	c.out.setup(svc)
 
-	for _, prov := range cliStorageProviders() {
-		if prov.name == "from-config" {
+	for _, prov := range svc.storageProviders() {
+		if prov.Name == "from-config" {
 			continue
 		}
 
 		// Set up 'create' subcommand
-		f := prov.newFlags()
-		cc := cmd.Command(prov.name, "Create repository in "+prov.description)
-		f.setup(svc, cc)
+		f := prov.NewFlags()
+		cc := cmd.Command(prov.Name, "Create repository in "+prov.Description)
+		f.Setup(svc, cc)
 		cc.Action(func(_ *kingpin.ParseContext) error {
 			ctx := svc.rootContext()
-			st, err := f.connect(ctx, true, c.createFormatVersion)
+			st, err := f.Connect(ctx, true, c.createFormatVersion)
 			if err != nil {
 				return errors.Wrap(err, "can't connect to storage")
 			}

@@ -18,7 +18,7 @@ type storageGCSFlags struct {
 	embedCredentials bool
 }
 
-func (c *storageGCSFlags) setup(_ storageProviderServices, cmd *kingpin.CmdClause) {
+func (c *storageGCSFlags) Setup(_ StorageProviderServices, cmd *kingpin.CmdClause) {
 	cmd.Flag("bucket", "Name of the Google Cloud Storage bucket").Required().StringVar(&c.options.BucketName)
 	cmd.Flag("prefix", "Prefix to use for objects in the bucket").StringVar(&c.options.Prefix)
 	cmd.Flag("read-only", "Use read-only GCS scope to prevent write access").BoolVar(&c.options.ReadOnly)
@@ -28,7 +28,7 @@ func (c *storageGCSFlags) setup(_ storageProviderServices, cmd *kingpin.CmdClaus
 	commonThrottlingFlags(cmd, &c.options.Limits)
 }
 
-func (c *storageGCSFlags) connect(ctx context.Context, isCreate bool, formatVersion int) (blob.Storage, error) {
+func (c *storageGCSFlags) Connect(ctx context.Context, isCreate bool, formatVersion int) (blob.Storage, error) {
 	if c.embedCredentials {
 		data, err := os.ReadFile(c.options.ServiceAccountCredentialsFile)
 		if err != nil {

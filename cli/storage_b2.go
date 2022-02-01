@@ -13,7 +13,7 @@ type storageB2Flags struct {
 	b2options b2.Options
 }
 
-func (c *storageB2Flags) setup(_ storageProviderServices, cmd *kingpin.CmdClause) {
+func (c *storageB2Flags) Setup(_ StorageProviderServices, cmd *kingpin.CmdClause) {
 	cmd.Flag("bucket", "Name of the B2 bucket").Required().StringVar(&c.b2options.BucketName)
 	cmd.Flag("key-id", "Key ID (overrides B2_KEY_ID environment variable)").Required().Envar("B2_KEY_ID").StringVar(&c.b2options.KeyID)
 	cmd.Flag("key", "Secret key (overrides B2_KEY environment variable)").Required().Envar("B2_KEY").StringVar(&c.b2options.Key)
@@ -21,7 +21,7 @@ func (c *storageB2Flags) setup(_ storageProviderServices, cmd *kingpin.CmdClause
 	commonThrottlingFlags(cmd, &c.b2options.Limits)
 }
 
-func (c *storageB2Flags) connect(ctx context.Context, isCreate bool, formatVersion int) (blob.Storage, error) {
+func (c *storageB2Flags) Connect(ctx context.Context, isCreate bool, formatVersion int) (blob.Storage, error) {
 	// nolint:wrapcheck
 	return b2.New(ctx, &c.b2options)
 }

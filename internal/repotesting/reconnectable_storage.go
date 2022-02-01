@@ -18,23 +18,25 @@ import (
 type reconnectableStorage struct {
 	blob.Storage
 
-	opt *reconnectableStorageOptions
+	opt *ReconnectableStorageOptions
 }
 
-const reconnectableStorageType = "reconnectable"
+// ReconnectableStorageType is the unique storage type identifier for
+// reconnectable storage backend.
+const ReconnectableStorageType = "reconnectable"
 
-// reconnectableStorageOptions provides options to reconnectable storage.
-type reconnectableStorageOptions struct {
+// ReconnectableStorageOptions provides options to reconnectable storage.
+type ReconnectableStorageOptions struct {
 	UUID string
 }
 
-// newReconnectableStorage wraps the provided storage that may or may not be round-trippable
+// NewReconnectableStorage wraps the provided storage that may or may not be round-trippable
 // in a wrapper that globally caches storage instance and ensures its connection info is
 // round-trippable.
-func newReconnectableStorage(tb testing.TB, st blob.Storage) blob.Storage {
+func NewReconnectableStorage(tb testing.TB, st blob.Storage) blob.Storage {
 	tb.Helper()
 
-	st2 := reconnectableStorage{st, &reconnectableStorageOptions{UUID: uuid.NewString()}}
+	st2 := reconnectableStorage{st, &ReconnectableStorageOptions{UUID: uuid.NewString()}}
 
 	reconnectableStorageByUUID.Store(st2.opt.UUID, st2)
 	tb.Cleanup(func() {
@@ -49,17 +51,17 @@ var reconnectableStorageByUUID sync.Map
 
 func (s reconnectableStorage) ConnectionInfo() blob.ConnectionInfo {
 	return blob.ConnectionInfo{
-		Type:   reconnectableStorageType,
+		Type:   ReconnectableStorageType,
 		Config: s.opt,
 	}
 }
 
 func init() {
 	blob.AddSupportedStorage(
-		reconnectableStorageType,
-		func() interface{} { return &reconnectableStorageOptions{} },
+		ReconnectableStorageType,
+		func() interface{} { return &ReconnectableStorageOptions{} },
 		func(ctx context.Context, o interface{}, isCreate bool) (blob.Storage, error) {
-			opt, ok := o.(*reconnectableStorageOptions)
+			opt, ok := o.(*ReconnectableStorageOptions)
 			if !ok {
 				return nil, errors.Errorf("invalid options %T", o)
 			}

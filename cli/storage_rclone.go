@@ -17,7 +17,7 @@ type storageRcloneFlags struct {
 	embedRCloneConfigFile string
 }
 
-func (c *storageRcloneFlags) setup(_ storageProviderServices, cmd *kingpin.CmdClause) {
+func (c *storageRcloneFlags) Setup(_ StorageProviderServices, cmd *kingpin.CmdClause) {
 	cmd.Flag("remote-path", "Rclone remote:path").Required().StringVar(&c.opt.RemotePath)
 	cmd.Flag("flat", "Use flat directory structure").BoolVar(&c.connectFlat)
 	cmd.Flag("rclone-exe", "Path to rclone binary").StringVar(&c.opt.RCloneExe)
@@ -32,7 +32,7 @@ func (c *storageRcloneFlags) setup(_ storageProviderServices, cmd *kingpin.CmdCl
 	commonThrottlingFlags(cmd, &c.opt.Limits)
 }
 
-func (c *storageRcloneFlags) connect(ctx context.Context, isCreate bool, formatVersion int) (blob.Storage, error) {
+func (c *storageRcloneFlags) Connect(ctx context.Context, isCreate bool, formatVersion int) (blob.Storage, error) {
 	c.opt.DirectoryShards = initialDirectoryShards(c.connectFlat, formatVersion)
 
 	if c.embedRCloneConfigFile != "" {

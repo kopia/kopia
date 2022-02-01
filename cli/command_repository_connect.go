@@ -25,14 +25,14 @@ func (c *commandRepositoryConnect) setup(svc advancedAppServices, parent command
 	c.co.setup(cmd)
 	c.server.setup(svc, cmd, &c.co)
 
-	for _, prov := range cliStorageProviders() {
+	for _, prov := range svc.storageProviders() {
 		// Set up 'connect' subcommand
-		f := prov.newFlags()
-		cc := cmd.Command(prov.name, "Connect to repository in "+prov.description)
-		f.setup(svc, cc)
+		f := prov.NewFlags()
+		cc := cmd.Command(prov.Name, "Connect to repository in "+prov.Description)
+		f.Setup(svc, cc)
 		cc.Action(func(_ *kingpin.ParseContext) error {
 			ctx := svc.rootContext()
-			st, err := f.connect(ctx, false, 0)
+			st, err := f.Connect(ctx, false, 0)
 			if err != nil {
 				return errors.Wrap(err, "can't connect to storage")
 			}

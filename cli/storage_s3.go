@@ -15,7 +15,7 @@ type storageS3Flags struct {
 	s3options s3.Options
 }
 
-func (c *storageS3Flags) setup(_ storageProviderServices, cmd *kingpin.CmdClause) {
+func (c *storageS3Flags) Setup(_ StorageProviderServices, cmd *kingpin.CmdClause) {
 	cmd.Flag("bucket", "Name of the S3 bucket").Required().StringVar(&c.s3options.BucketName)
 	cmd.Flag("endpoint", "Endpoint to use").Default("s3.amazonaws.com").StringVar(&c.s3options.Endpoint)
 	cmd.Flag("region", "S3 Region").Default("").StringVar(&c.s3options.Region)
@@ -46,7 +46,7 @@ func (c *storageS3Flags) setup(_ storageProviderServices, cmd *kingpin.CmdClause
 	cmd.Flag("point-in-time", "Use a point-in-time view of the storage repository when supported").PlaceHolder(time.RFC3339).PreAction(pitPreAction).StringVar(&pointInTimeStr)
 }
 
-func (c *storageS3Flags) connect(ctx context.Context, isCreate bool, formatVersion int) (blob.Storage, error) {
+func (c *storageS3Flags) Connect(ctx context.Context, isCreate bool, formatVersion int) (blob.Storage, error) {
 	if isCreate && c.s3options.PointInTime != nil && !c.s3options.PointInTime.IsZero() {
 		return nil, errors.New("Cannot specify a 'point-in-time' option when creating a repository")
 	}
