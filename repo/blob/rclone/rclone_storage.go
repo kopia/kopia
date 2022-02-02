@@ -269,7 +269,7 @@ func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error)
 		arguments = append(arguments, "--config", tmpConfigFile)
 	}
 
-	r.cmd = exec.CommandContext(ctx, rcloneExe, arguments...) //nolint:gosec
+	r.cmd = exec.Command(rcloneExe, arguments...) //nolint:gosec
 	r.cmd.Env = append(r.cmd.Env, opt.RCloneEnv...)
 
 	startupTimeout := rcloneStartupTimeout

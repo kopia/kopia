@@ -2,6 +2,7 @@ package webdav
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -148,7 +149,9 @@ func transformMissingPUTs(next http.Handler) http.HandlerFunc {
 func verifyWebDAVStorage(t *testing.T, url, username, password string, shardSpec []int) {
 	ctx := testlogging.Context(t)
 
-	st, err := New(testlogging.Context(t), &Options{
+	// use context that gets canceled after opening storage to ensure it's not used beyond New().
+	newctx, cancel := context.WithCancel(ctx)
+	st, err := New(newctx, &Options{
 		URL: url,
 		Options: sharded.Options{
 			DirectoryShards: shardSpec,
@@ -156,6 +159,8 @@ func verifyWebDAVStorage(t *testing.T, url, username, password string, shardSpec
 		Username: username,
 		Password: password,
 	}, false)
+
+	cancel()
 
 	if st == nil || err != nil {
 		t.Errorf("unexpected result: %v %v", st, err)

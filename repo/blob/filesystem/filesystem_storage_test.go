@@ -1,6 +1,7 @@
 package filesystem
 
 import (
+	"context"
 	"path/filepath"
 	"reflect"
 	"sort"
@@ -35,13 +36,17 @@ func TestFileStorage(t *testing.T) {
 	} {
 		path := testutil.TempDirectory(t)
 
-		r, err := New(ctx, &Options{
+		newctx, cancel := context.WithCancel(ctx)
+
+		// use context that gets canceled after opening storage to ensure it's not used beyond New().
+		r, err := New(newctx, &Options{
 			Path: path,
 			Options: sharded.Options{
 				DirectoryShards: shardSpec,
 			},
 		}, true)
 
+		cancel()
 		require.NoError(t, err)
 		require.NotNil(t, r)
 
