@@ -74,6 +74,9 @@ func isRetriable(err error) bool {
 	case errors.Is(err, blob.ErrInvalidCredentials):
 		return false
 
+	case errors.Is(err, blob.ErrUnsupportedPutBlobOption):
+		return false
+
 	case errors.Is(err, blob.ErrBlobAlreadyExists):
 		return false
 
