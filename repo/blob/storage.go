@@ -19,11 +19,11 @@ var ErrInvalidRange = errors.Errorf("invalid blob offset or length")
 
 // TokenExpiredErrStr is the error string returned by the provider
 // when a token has expired.
-const TokenExpiredErrStr = "The provided token has expired"
+const InvalidCredentialsErrStr = "The provided token has expired"
 
-// ErrTokenExpired is returned when the token used for
+// ErrInvalidCredentials is returned when the token used for
 // authenticating with a storage provider has expired.
-var ErrTokenExpired = errors.Errorf(TokenExpiredErrStr)
+var ErrInvalidCredentials = errors.Errorf(InvalidCredentialsErrStr)
 
 // ErrBlobAlreadyExists is returned when attempting to put a blob that already exists.
 var ErrBlobAlreadyExists = errors.New("blob already exists")

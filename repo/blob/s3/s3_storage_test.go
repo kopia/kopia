@@ -143,7 +143,7 @@ func verifyTokenExpirationForGetBlob(ctx context.Context, t *testing.T, r blob.S
 	}
 
 	for _, b := range blocks {
-		blobtesting.AssertTokenExpired(ctx, t, r, b.blk)
+		blobtesting.AssertInvalidCredentials(ctx, t, r, b.blk)
 	}
 }
 

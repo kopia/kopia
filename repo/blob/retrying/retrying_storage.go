@@ -71,7 +71,7 @@ func isRetriable(err error) bool {
 	case errors.Is(err, blob.ErrSetTimeUnsupported):
 		return false
 
-	case errors.Is(err, blob.ErrTokenExpired):
+	case errors.Is(err, blob.ErrInvalidCredentials):
 		return false
 
 	case errors.Is(err, blob.ErrBlobAlreadyExists):
