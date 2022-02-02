@@ -13,6 +13,7 @@ function newServerForRepo(repoID) {
     let runningServerProcess = null;
     let runningServerCertSHA256 = "";
     let runningServerPassword = "";
+    let runningServerControlPassword = "";
     let runningServerAddress = "";
     let runningServerCertificate = "";
     let runningServerStatusDetails = {
@@ -37,6 +38,7 @@ function newServerForRepo(repoID) {
                 '--tls-print-server-cert',
                 '--tls-generate-cert-name=localhost',
                 '--random-password',
+                '--random-server-control-password',
                 '--tls-generate-cert',
                 '--shutdown-on-stdin', // shutdown the server when parent dies
                 '--address=localhost:0');
@@ -65,7 +67,7 @@ function newServerForRepo(repoID) {
             const statusUpdated = this.raiseStatusUpdatedEvent.bind(this);
 
             function pollOnce() {
-                if (!runningServerAddress || !runningServerCertificate || !runningServerPassword) {
+                if (!runningServerAddress || !runningServerCertificate || !runningServerPassword || !runningServerControlPassword) {
                     return;
                 }
 
@@ -74,9 +76,9 @@ function newServerForRepo(repoID) {
                     host: "localhost",
                     port: parseInt(new URL(runningServerAddress).port),
                     method: "GET",
-                    path: "/api/v1/repo/status",
+                    path: "/api/v1/control/status",
                     headers: {
-                        'Authorization': 'Basic ' + Buffer.from("kopia" + ':' + runningServerPassword).toString('base64')
+                        'Authorization': 'Basic ' + Buffer.from("server-control" + ':' + runningServerControlPassword).toString('base64')
                      }  
                 }, (resp) => {
                     if (resp.statusCode === 200) {
@@ -110,6 +112,7 @@ function newServerForRepo(repoID) {
 
                     runningServerAddress = "";
                     runningServerPassword = "";
+                    runningServerControlPassword = "";
                     runningServerCertSHA256 = "";
                     runningServerProcess = null;
                     this.raiseStatusUpdatedEvent();
@@ -130,6 +133,11 @@ function newServerForRepo(repoID) {
                 switch (key) {
                     case "SERVER PASSWORD":
                         runningServerPassword = value;
+                        this.raiseStatusUpdatedEvent();
+                        break;
+
+                    case "SERVER CONTROL PASSWORD":
+                        runningServerControlPassword = value;
                         this.raiseStatusUpdatedEvent();
                         break;
 

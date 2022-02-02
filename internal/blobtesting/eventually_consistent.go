@@ -15,7 +15,10 @@ import (
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/logging"
 )
+
+var eventuallyConsistentLog = logging.Module("eventually-consistent")
 
 const ecCacheDuration = 5 * time.Second
 
@@ -173,10 +176,6 @@ func (s *eventuallyConsistentStorage) PutBlob(ctx context.Context, id blob.ID, d
 	return nil
 }
 
-func (s *eventuallyConsistentStorage) SetTime(ctx context.Context, id blob.ID, t time.Time) error {
-	return s.realStorage.SetTime(ctx, id, t)
-}
-
 func (s *eventuallyConsistentStorage) DeleteBlob(ctx context.Context, id blob.ID) error {
 	s.randomFrontendCache().put(id, nil)
 
@@ -223,7 +222,7 @@ func (s *eventuallyConsistentStorage) shouldApplyInconsistency(ctx context.Conte
 	prob := 1 - math.Pow(x, power)
 
 	if rand.Float64() < prob {
-		log(ctx).Debugf("applying inconsistency %v (probability %v)", desc, prob)
+		eventuallyConsistentLog(ctx).Debugf("applying inconsistency %v (probability %v)", desc, prob)
 		return true
 	}
 

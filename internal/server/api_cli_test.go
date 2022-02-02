@@ -23,6 +23,7 @@ func TestCLIAPI(t *testing.T) {
 	})
 
 	require.NoError(t, err)
+	require.NoError(t, cli.FetchCSRFTokenForTesting(ctx))
 
 	resp := &serverapi.CLIInfo{}
 	require.NoError(t, cli.Get(ctx, "cli", nil, resp))

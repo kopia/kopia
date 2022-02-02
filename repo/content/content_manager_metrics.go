@@ -6,6 +6,7 @@ import (
 )
 
 // content cache metrics.
+// nolint:gochecknoglobals
 var (
 	metricContentGetCount = stats.Int64(
 		"kopia/content/get_count",

@@ -27,10 +27,3 @@ func (p *ErrorHandlingPolicy) Merge(src ErrorHandlingPolicy, def *ErrorHandlingP
 	mergeOptionalBool(&p.IgnoreDirectoryErrors, src.IgnoreDirectoryErrors, &def.IgnoreDirectoryErrors, si)
 	mergeOptionalBool(&p.IgnoreUnknownTypes, src.IgnoreUnknownTypes, &def.IgnoreUnknownTypes, si)
 }
-
-// defaultErrorHandlingPolicy is the default error handling policy.
-var defaultErrorHandlingPolicy = ErrorHandlingPolicy{
-	IgnoreFileErrors:      newOptionalBool(false),
-	IgnoreDirectoryErrors: newOptionalBool(false),
-	IgnoreUnknownTypes:    newOptionalBool(true),
-}

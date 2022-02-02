@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"time"
 
 	gcsclient "cloud.google.com/go/storage"
 	"github.com/pkg/errors"
@@ -19,6 +18,7 @@ import (
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/iocopy"
+	"github.com/kopia/kopia/internal/timestampmeta"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/retrying"
 )
@@ -26,6 +26,8 @@ import (
 const (
 	gcsStorageType  = "gcs"
 	writerChunkSize = 1 << 20
+
+	timeMapKey = "Kopia-Mtime" // case is important, first letter must be capitalized.
 )
 
 type gcsStorage struct {
@@ -65,19 +67,28 @@ func (gcs *gcsStorage) GetMetadata(ctx context.Context, b blob.ID) (blob.Metadat
 		return blob.Metadata{}, errors.Wrap(translateError(err), "Attrs")
 	}
 
-	return blob.Metadata{
+	bm := blob.Metadata{
 		BlobID:    b,
 		Length:    attrs.Size,
 		Timestamp: attrs.Created,
-	}, nil
+	}
+
+	if t, ok := timestampmeta.FromValue(attrs.Metadata[timeMapKey]); ok {
+		bm.Timestamp = t
+	}
+
+	return bm, nil
 }
 
 func translateError(err error) error {
 	var ae *googleapi.Error
 
 	if errors.As(err, &ae) {
-		if ae.Code == http.StatusRequestedRangeNotSatisfiable {
+		switch ae.Code {
+		case http.StatusRequestedRangeNotSatisfiable:
 			return blob.ErrInvalidRange
+		case http.StatusPreconditionFailed:
+			return blob.ErrBlobAlreadyExists
 		}
 	}
 
@@ -92,16 +103,21 @@ func translateError(err error) error {
 }
 
 func (gcs *gcsStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes, opts blob.PutOptions) error {
-	if opts.HasRetentionOptions() {
-		return errors.New("setting blob-retention is not supported")
+	switch {
+	case opts.HasRetentionOptions():
+		return errors.Wrap(blob.ErrUnsupportedPutBlobOption, "blob-retention")
+	case opts.DoNotRecreate:
+		return errors.Wrap(blob.ErrUnsupportedPutBlobOption, "do-not-recreate")
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
 
-	obj := gcs.bucket.Object(gcs.getObjectNameString(b))
+	conds := gcsclient.Conditions{DoesNotExist: opts.DoNotRecreate}
+	obj := gcs.bucket.Object(gcs.getObjectNameString(b)).If(conds)
 	writer := obj.NewWriter(ctx)
 	writer.ChunkSize = writerChunkSize
 	writer.ContentType = "application/x-kopia"
+	writer.ObjectAttrs.Metadata = timestampmeta.ToMap(opts.SetModTime, timeMapKey)
 
 	err := iocopy.JustCopy(writer, data.Reader())
 	if err != nil {
@@ -116,11 +132,15 @@ func (gcs *gcsStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes, 
 	defer cancel()
 
 	// calling close before cancel() causes it to commit the upload.
-	return translateError(writer.Close())
-}
+	if err := writer.Close(); err != nil {
+		return translateError(err)
+	}
 
-func (gcs *gcsStorage) SetTime(ctx context.Context, b blob.ID, t time.Time) error {
-	return blob.ErrSetTimeUnsupported
+	if opts.GetModTime != nil {
+		*opts.GetModTime = writer.Attrs().Updated
+	}
+
+	return nil
 }
 
 func (gcs *gcsStorage) DeleteBlob(ctx context.Context, b blob.ID) error {
@@ -143,11 +163,17 @@ func (gcs *gcsStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback f
 
 	oa, err := lst.Next()
 	for err == nil {
-		if cberr := callback(blob.Metadata{
+		bm := blob.Metadata{
 			BlobID:    blob.ID(oa.Name[len(gcs.Prefix):]),
 			Length:    oa.Size,
 			Timestamp: oa.Created,
-		}); cberr != nil {
+		}
+
+		if t, ok := timestampmeta.FromValue(oa.Metadata[timeMapKey]); ok {
+			bm.Timestamp = t
+		}
+
+		if cberr := callback(bm); cberr != nil {
 			return cberr
 		}
 
@@ -269,6 +295,6 @@ func init() {
 			return &Options{}
 		},
 		func(ctx context.Context, o interface{}, isCreate bool) (blob.Storage, error) {
-			return New(ctx, o.(*Options))
+			return New(ctx, o.(*Options)) //nolint:forcetypeassert
 		})
 }

@@ -76,20 +76,31 @@ func (s *mapStorage) GetMetadata(ctx context.Context, id blob.ID) (blob.Metadata
 }
 
 func (s *mapStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes, opts blob.PutOptions) error {
-	if opts.HasRetentionOptions() {
-		return errors.New("setting blob-retention is not supported")
+	switch {
+	case opts.HasRetentionOptions():
+		return errors.Wrap(blob.ErrUnsupportedPutBlobOption, "blob-retention")
+	case opts.DoNotRecreate:
+		return errors.Wrap(blob.ErrUnsupportedPutBlobOption, "do-not-recreate")
 	}
 
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	s.keyTime[id] = s.timeNow()
+	if !opts.SetModTime.IsZero() {
+		s.keyTime[id] = opts.SetModTime
+	} else {
+		s.keyTime[id] = s.timeNow()
+	}
 
 	var b bytes.Buffer
 
 	data.WriteTo(&b)
 
 	s.data[id] = b.Bytes()
+
+	if opts.GetModTime != nil {
+		*opts.GetModTime = s.keyTime[id]
+	}
 
 	return nil
 }
@@ -144,15 +155,6 @@ func (s *mapStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback fun
 }
 
 func (s *mapStorage) Close(ctx context.Context) error {
-	return nil
-}
-
-func (s *mapStorage) SetTime(ctx context.Context, blobID blob.ID, t time.Time) error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	s.keyTime[blobID] = t
-
 	return nil
 }
 

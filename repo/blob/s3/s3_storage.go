@@ -130,7 +130,23 @@ func (s *s3Storage) getVersionMetadata(ctx context.Context, b blob.ID, version s
 }
 
 func (s *s3Storage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes, opts blob.PutOptions) error {
+	switch {
+	case opts.DoNotRecreate:
+		return errors.Wrap(blob.ErrUnsupportedPutBlobOption, "do-not-recreate")
+	case !opts.SetModTime.IsZero():
+		return blob.ErrSetTimeUnsupported
+	}
+
 	_, err := s.putBlob(ctx, b, data, opts)
+
+	if opts.GetModTime != nil {
+		bm, err2 := s.GetMetadata(ctx, b)
+		if err2 != nil {
+			return err2
+		}
+
+		*opts.GetModTime = bm.Timestamp
+	}
 
 	return err
 }
@@ -195,10 +211,6 @@ func (s *s3Storage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes, opt
 		},
 		Version: uploadInfo.VersionID,
 	}, nil
-}
-
-func (s *s3Storage) SetTime(ctx context.Context, b blob.ID, t time.Time) error {
-	return blob.ErrSetTimeUnsupported
 }
 
 func (s *s3Storage) DeleteBlob(ctx context.Context, b blob.ID) error {
@@ -354,6 +366,6 @@ func init() {
 			return &Options{}
 		},
 		func(ctx context.Context, o interface{}, isCreate bool) (blob.Storage, error) {
-			return New(ctx, o.(*Options))
+			return New(ctx, o.(*Options)) // nolint:forcetypeassert
 		})
 }

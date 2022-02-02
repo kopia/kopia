@@ -1053,8 +1053,11 @@ func uniqueDirectories(dirs []fs.Directory) []fs.Directory {
 	}
 
 	unique := map[object.ID]fs.Directory{}
+
 	for _, dir := range dirs {
-		unique[dir.(object.HasObjectID).ObjectID()] = dir
+		if hoid, ok := dir.(object.HasObjectID); ok {
+			unique[hoid.ObjectID()] = dir
+		}
 	}
 
 	if len(unique) == len(dirs) {

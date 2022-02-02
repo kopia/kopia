@@ -34,8 +34,3 @@ func (p *FilesPolicy) Merge(src FilesPolicy, def *FilesPolicyDefinition, si snap
 	mergeInt64(&p.MaxFileSize, src.MaxFileSize, &def.MaxFileSize, si)
 	mergeOptionalBool(&p.OneFileSystem, src.OneFileSystem, &def.OneFileSystem, si)
 }
-
-// defaultFilesPolicy is the default file ignore policy.
-var defaultFilesPolicy = FilesPolicy{
-	DotIgnoreFiles: []string{".kopiaignore"},
-}

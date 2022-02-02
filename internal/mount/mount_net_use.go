@@ -69,7 +69,7 @@ func netUseMount(ctx context.Context, driveLetter, webdavURL string) (string, er
 		}
 	}
 
-	return "", errors.Errorf("unable to find windows drive letter name in successful 'net use' output (%v), this is a bug.", out)
+	return "", errors.Errorf("unable to find windows drive letter name in successful 'net use' output (%v), this is a bug", out)
 }
 
 func netUseUnmount(ctx context.Context, driveLetter string) error {

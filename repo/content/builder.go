@@ -44,6 +44,7 @@ func (b packIndexBuilder) Add(i Info) {
 
 // base36Value stores a base-36 reverse lookup such that ASCII character corresponds to its
 // base-36 value ('0'=0..'9'=9, 'a'=10, 'b'=11, .., 'z'=35).
+// nolint:gochecknoglobals
 var base36Value [256]byte
 
 func init() {

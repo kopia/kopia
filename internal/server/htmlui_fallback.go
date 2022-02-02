@@ -1,5 +1,5 @@
-//go:build !embedhtml
-// +build !embedhtml
+//go:build nohtmlui
+// +build nohtmlui
 
 package server
 

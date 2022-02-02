@@ -102,12 +102,13 @@ retry:=
 endif
 
 # tool versions
-GOLANGCI_LINT_VERSION=1.43.0
+GOLANGCI_LINT_VERSION=1.44.0
 NODE_VERSION=16.13.0
 HUGO_VERSION=0.89.2
 GOTESTSUM_VERSION=1.7.0
 GORELEASER_VERSION=v0.176.0
 RCLONE_VERSION=1.56.0
+GITCHGLOG_VERSION=0.15.1
 
 # nodejs / npm
 node_base_dir=$(TOOLS_DIR)$(slash)node-$(NODE_VERSION)
@@ -154,6 +155,13 @@ hugo=$(hugo_dir)/hugo$(exe_suffix)
 
 $(hugo):
 	go run github.com/kopia/kopia/tools/gettool --tool hugo:$(HUGO_VERSION) --output-dir $(hugo_dir)
+
+# gitchglog
+gitchglog_dir=$(TOOLS_DIR)$(slash)gitchglog-$(GITCHGLOG_VERSION)
+gitchglog=$(gitchglog_dir)/git-chglog$(exe_suffix)
+
+$(gitchglog):
+	go run github.com/kopia/kopia/tools/gettool --tool gitchglog:$(GITCHGLOG_VERSION) --output-dir $(gitchglog_dir)
 
 # rclone
 rclone_dir=$(TOOLS_DIR)$(slash)rclone-$(RCLONE_VERSION)
@@ -219,7 +227,7 @@ export KOPIA_VERSION_NO_PREFIX=$(KOPIA_VERSION:v%=%)
 export REACT_APP_SHORT_VERSION_INFO:=$(KOPIA_VERSION)
 export REACT_APP_FULL_VERSION_INFO:=$(KOPIA_VERSION) built on $(date_full) $(hostname)
 
-KOPIA_BUILD_TAGS=embedhtml
+KOPIA_BUILD_TAGS=
 KOPIA_BUILD_FLAGS=-ldflags "-s -w -X github.com/kopia/kopia/repo.BuildVersion=$(KOPIA_VERSION_NO_PREFIX) -X github.com/kopia/kopia/repo.BuildInfo=$(shell git rev-parse HEAD) -X github.com/kopia/kopia/repo.BuildGitHubRepo=$(GITHUB_REPOSITORY)"
 
 clean-tools:
@@ -271,7 +279,7 @@ else
 maybehugo=
 endif
 
-ALL_TOOL_VERSIONS=node:$(NODE_VERSION),linter:$(GOLANGCI_LINT_VERSION),hugo:$(HUGO_VERSION),rclone:$(RCLONE_VERSION),gotestsum:$(GOTESTSUM_VERSION),goreleaser:$(GORELEASER_VERSION),kopia:0.8.4
+ALL_TOOL_VERSIONS=node:$(NODE_VERSION),linter:$(GOLANGCI_LINT_VERSION),hugo:$(HUGO_VERSION),rclone:$(RCLONE_VERSION),gotestsum:$(GOTESTSUM_VERSION),goreleaser:$(GORELEASER_VERSION),kopia:0.8.4,gitchglog:$(GITCHGLOG_VERSION)
 
 verify-all-tool-checksums:
 	go run github.com/kopia/kopia/tools/gettool --test-all \

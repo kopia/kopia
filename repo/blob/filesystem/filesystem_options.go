@@ -19,6 +19,8 @@ type Options struct {
 
 	sharded.Options
 	throttling.Limits
+
+	osInterfaceOverride osInterface
 }
 
 func (fso *Options) fileMode() os.FileMode {

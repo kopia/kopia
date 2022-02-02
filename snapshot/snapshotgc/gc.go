@@ -23,7 +23,7 @@ import (
 var log = logging.Module("snapshotgc")
 
 func oidOf(entry fs.Entry) object.ID {
-	return entry.(object.HasObjectID).ObjectID()
+	return entry.(object.HasObjectID).ObjectID() //nolint:forcetypeassert
 }
 
 func findInUseContentIDs(ctx context.Context, rep repo.Repository, used *sync.Map) error {

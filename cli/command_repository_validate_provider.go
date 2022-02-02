@@ -23,6 +23,7 @@ func (c *commandRepositoryValidateProvider) setup(svc advancedAppServices, paren
 	cmd.Flag("put-blob-workers", "Number of PutBlob workers").IntVar(&c.opt.NumPutBlobWorkers)
 	cmd.Flag("get-blob-workers", "Number of GetBlob workers").IntVar(&c.opt.NumGetBlobWorkers)
 	cmd.Flag("get-metadata-workers", "Number of GetMetadata workers").IntVar(&c.opt.NumGetMetadataWorkers)
+	cmd.Flag("support-idempotent-creates", "Whether store supports idempotent blob creates").BoolVar(&c.opt.SupportIdempotentCreates)
 	c.out.setup(svc)
 
 	cmd.Action(c.out.svc.directRepositoryWriteAction(c.run))

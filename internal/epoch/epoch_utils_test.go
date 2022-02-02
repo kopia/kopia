@@ -2,7 +2,6 @@ package epoch
 
 import (
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -40,35 +39,6 @@ func TestEpochNumberFromBlobID_Invalid(t *testing.T) {
 	for _, tc := range cases {
 		_, ok := epochNumberFromBlobID(tc)
 		require.False(t, ok, "epochNumberFromBlobID(%v)", tc)
-	}
-}
-
-func TestBlobsWrittenBefore(t *testing.T) {
-	t0 := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
-	bm0 := blob.Metadata{BlobID: "a", Timestamp: t0}
-
-	t1 := time.Date(2000, 1, 2, 0, 0, 0, 0, time.UTC)
-	bm1 := blob.Metadata{BlobID: "b", Timestamp: t1}
-
-	t2 := time.Date(2000, 1, 3, 0, 0, 0, 0, time.UTC)
-	bm2 := blob.Metadata{BlobID: "c", Timestamp: t2}
-
-	cases := []struct {
-		bms    []blob.Metadata
-		cutoff time.Time
-		want   []blob.Metadata
-	}{
-		{[]blob.Metadata{bm0, bm1, bm2}, time.Time{}, []blob.Metadata{bm0, bm1, bm2}},
-		{[]blob.Metadata{bm0, bm1, bm2}, t0.Add(-1), nil},
-		{[]blob.Metadata{bm0, bm1, bm2}, t0, []blob.Metadata{bm0}},
-		{[]blob.Metadata{bm0, bm1, bm2}, t1.Add(-1), []blob.Metadata{bm0}},
-		{[]blob.Metadata{bm0, bm1, bm2}, t1, []blob.Metadata{bm0, bm1}},
-		{[]blob.Metadata{bm0, bm1, bm2}, t2.Add(-1), []blob.Metadata{bm0, bm1}},
-		{[]blob.Metadata{bm0, bm1, bm2}, t2, []blob.Metadata{bm0, bm1, bm2}},
-	}
-
-	for i, tc := range cases {
-		require.Equal(t, tc.want, blobsWrittenBefore(tc.bms, tc.cutoff), "#%v blobsWrittenBefore(%v,%v)", i, tc.bms, tc.cutoff)
 	}
 }
 

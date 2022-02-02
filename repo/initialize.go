@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"io"
 	"os"
+	"time"
 
 	"github.com/pkg/errors"
 
@@ -18,6 +19,7 @@ import (
 )
 
 // BuildInfo is the build information of Kopia.
+// nolint:gochecknoglobals
 var (
 	BuildInfo       = "unknown"
 	BuildVersion    = "v0-unofficial"
@@ -33,10 +35,12 @@ const (
 // NewRepositoryOptions specifies options that apply to newly created repositories.
 // All fields are optional, when not provided, reasonable defaults will be used.
 type NewRepositoryOptions struct {
-	UniqueID     []byte                    `json:"uniqueID"` // force the use of particular unique ID
-	BlockFormat  content.FormattingOptions `json:"blockFormat"`
-	DisableHMAC  bool                      `json:"disableHMAC"`
-	ObjectFormat object.Format             `json:"objectFormat"` // object format
+	UniqueID        []byte                    `json:"uniqueID"` // force the use of particular unique ID
+	BlockFormat     content.FormattingOptions `json:"blockFormat"`
+	DisableHMAC     bool                      `json:"disableHMAC"`
+	ObjectFormat    object.Format             `json:"objectFormat"` // object format
+	RetentionMode   blob.RetentionMode        `json:"retentionMode,omitempty"`
+	RetentionPeriod time.Duration             `json:"retentionPeriod,omitempty"`
 }
 
 // ErrAlreadyInitialized indicates that repository has already been initialized.
@@ -61,7 +65,17 @@ func Initialize(ctx context.Context, st blob.Storage, opt *NewRepositoryOptions,
 		return errors.Wrap(err, "unexpected error when checking for format blob")
 	}
 
+	err = st.GetBlob(ctx, BlobCfgBlobID, 0, -1, &tmp)
+	if err == nil {
+		return errors.Errorf("possible corruption: blobcfg blob exists, but format blob is not found")
+	}
+
+	if !errors.Is(err, blob.ErrBlobNotFound) {
+		return errors.Wrap(err, "unexpected error when checking for blobcfg blob")
+	}
+
 	format := formatBlobFromOptions(opt)
+	blobcfg := blobCfgBlobFromOptions(opt)
 
 	formatEncryptionKey, err := format.deriveFormatEncryptionKeyFromPassword(password)
 	if err != nil {
@@ -73,15 +87,31 @@ func Initialize(ctx context.Context, st blob.Storage, opt *NewRepositoryOptions,
 		return errors.Wrap(err, "invalid parameters")
 	}
 
-	if err := f.MutableParameters.Validate(); err != nil {
+	if err = f.MutableParameters.Validate(); err != nil {
 		return errors.Wrap(err, "invalid parameters")
 	}
 
-	if err := encryptFormatBytes(format, f, formatEncryptionKey, format.UniqueID); err != nil {
+	if err = encryptFormatBytes(format, f, formatEncryptionKey, format.UniqueID); err != nil {
 		return errors.Wrap(err, "unable to encrypt format bytes")
 	}
 
-	if err := writeFormatBlob(ctx, st, format); err != nil {
+	if blobcfg.IsRetentionEnabled() {
+		retentionBytes, err := serializeBlobCfgBytes(format, blobcfg, formatEncryptionKey)
+		if err != nil {
+			return errors.Wrap(err, "unable to encrypt blobcfg bytes")
+		}
+
+		// Write the blobcfg blob first so that we'll consider the repository
+		// corrupted if writing the format blob fails later.
+		if err := st.PutBlob(ctx, BlobCfgBlobID, gather.FromSlice(retentionBytes), blob.PutOptions{
+			RetentionMode:   blobcfg.RetentionMode,
+			RetentionPeriod: blobcfg.RetentionPeriod,
+		}); err != nil {
+			return errors.Wrap(err, "unable to write blobcfg blob")
+		}
+	}
+
+	if err := writeFormatBlob(ctx, st, format, blobcfg); err != nil {
 		return errors.Wrap(err, "unable to write format blob")
 	}
 
@@ -95,7 +125,6 @@ func formatBlobFromOptions(opt *NewRepositoryOptions) *formatBlob {
 		BuildVersion:           BuildVersion,
 		KeyDerivationAlgorithm: defaultKeyDerivationAlgorithm,
 		UniqueID:               applyDefaultRandomBytes(opt.UniqueID, uniqueIDLength),
-		Version:                "1",
 		EncryptionAlgorithm:    defaultFormatEncryption,
 	}
 }

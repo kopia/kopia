@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/blobtesting"
-	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo/blob"
@@ -64,6 +63,7 @@ func TestThrottling(t *testing.T) {
 	require.Equal(t, []string{
 		"BeforeOperation(GetBlob)",
 		"BeforeDownload(20000000)",
+		"inner.concurrency level reached",
 		"inner.GetBlob",
 		"ReturnUnusedDownloadBytes(20000000)",
 	}, m.activity)
@@ -119,13 +119,6 @@ func TestThrottling(t *testing.T) {
 	require.Equal(t, []string{
 		"BeforeOperation(GetMetadata)",
 		"inner.GetMetadata",
-	}, m.activity)
-
-	m.Reset()
-	require.NoError(t, wrapped.SetTime(ctx, "blob1", clock.Now()))
-	require.Equal(t, []string{
-		"BeforeOperation(SetTime)",
-		"inner.SetTime",
 	}, m.activity)
 
 	m.Reset()

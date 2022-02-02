@@ -19,5 +19,5 @@ func (c *commandServerFlush) setup(svc appServices, parent commandParent) {
 
 func (c *commandServerFlush) run(ctx context.Context, cli *apiclient.KopiaAPIClient) error {
 	// nolint:wrapcheck
-	return cli.Post(ctx, "flush", &serverapi.Empty{}, &serverapi.Empty{})
+	return cli.Post(ctx, "control/flush", &serverapi.Empty{}, &serverapi.Empty{})
 }

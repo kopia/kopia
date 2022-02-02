@@ -49,7 +49,7 @@ func (o ClientOptions) ApplyDefaults(ctx context.Context, defaultDesc string) Cl
 	}
 
 	if o.FormatBlobCacheDuration == 0 {
-		o.FormatBlobCacheDuration = defaultFormatBlobCacheDuration
+		o.FormatBlobCacheDuration = defaultRepositoryBlobCacheDuration
 	}
 
 	return o

@@ -17,6 +17,21 @@ import (
 
 const maxTimeDiffBetweenGetAndList = time.Minute
 
+// AssertTimestampsCloseEnough asserts that two provided times are close enough - some providers
+// don't store timestamps exactly but round them up/down by several seconds.
+func AssertTimestampsCloseEnough(t *testing.T, blobID blob.ID, got, want time.Time) {
+	t.Helper()
+
+	timeDiff := got.Sub(want)
+	if timeDiff < 0 {
+		timeDiff = -timeDiff
+	}
+
+	if timeDiff > maxTimeDiffBetweenGetAndList {
+		t.Fatalf("invalid timestamp on %v: got %v, want %v", blobID, got, want)
+	}
+}
+
 // AssertGetBlob asserts that the specified BLOB has correct content.
 func AssertGetBlob(ctx context.Context, t *testing.T, s blob.Storage, blobID blob.ID, expected []byte) {
 	t.Helper()

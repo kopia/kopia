@@ -24,7 +24,9 @@ var (
 )
 
 type webdavFile struct {
-	ctx   context.Context
+	// webdavFile implements webdav.File but needs context
+	ctx context.Context //nolint:containedctx
+
 	entry fs.File
 
 	mu sync.Mutex
@@ -94,11 +96,14 @@ func (f *webdavFile) Close() error {
 }
 
 type webdavDir struct {
-	ctx   context.Context
+	// webdavDir implements webdav.File but needs context
+	ctx context.Context // nolint:containedctx
+
 	w     *webdavFS
 	entry fs.Directory
 }
 
+// nolint:gochecknoglobals
 var symlinksAreUnsupportedLogged = new(int32)
 
 func (d *webdavDir) Readdir(n int) ([]os.FileInfo, error) {

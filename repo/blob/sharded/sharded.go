@@ -7,7 +7,6 @@ import (
 	"path"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
@@ -27,8 +26,7 @@ var log = logging.Module("sharded")
 type Impl interface {
 	GetBlobFromPath(ctx context.Context, dirPath, filePath string, offset, length int64, output blob.OutputBuffer) error
 	GetMetadataFromPath(ctx context.Context, dirPath, filePath string) (blob.Metadata, error)
-	PutBlobInPath(ctx context.Context, dirPath, filePath string, dataSlices blob.Bytes) error
-	SetTimeInPath(ctx context.Context, dirPath, filePath string, t time.Time) error
+	PutBlobInPath(ctx context.Context, dirPath, filePath string, dataSlices blob.Bytes, opts blob.PutOptions) error
 	DeleteBlobInPath(ctx context.Context, dirPath, filePath string) error
 	ReadDir(ctx context.Context, path string) ([]os.FileInfo, error)
 }
@@ -180,28 +178,13 @@ func (s *Storage) GetMetadata(ctx context.Context, blobID blob.ID) (blob.Metadat
 
 // PutBlob implements blob.Storage.
 func (s *Storage) PutBlob(ctx context.Context, blobID blob.ID, data blob.Bytes, opts blob.PutOptions) error {
-	if opts.HasRetentionOptions() {
-		return errors.New("setting blob-retention is not supported")
-	}
-
 	dirPath, filePath, err := s.GetShardedPathAndFilePath(ctx, blobID)
 	if err != nil {
 		return errors.Wrap(err, "error determining sharded path")
 	}
 
 	// nolint:wrapcheck
-	return s.Impl.PutBlobInPath(ctx, dirPath, filePath, data)
-}
-
-// SetTime implements blob.Storage.
-func (s *Storage) SetTime(ctx context.Context, blobID blob.ID, n time.Time) error {
-	dirPath, filePath, err := s.GetShardedPathAndFilePath(ctx, blobID)
-	if err != nil {
-		return errors.Wrap(err, "error determining sharded path")
-	}
-
-	// nolint:wrapcheck
-	return s.Impl.SetTimeInPath(ctx, dirPath, filePath, n)
+	return s.Impl.PutBlobInPath(ctx, dirPath, filePath, data, opts)
 }
 
 // DeleteBlob implements blob.Storage.
@@ -243,7 +226,7 @@ func (s *Storage) getParameters(ctx context.Context) (*Parameters, error) {
 			return nil, errors.Wrap(err, "error serializing sharding parameters")
 		}
 
-		if err := s.Impl.PutBlobInPath(ctx, s.RootPath, dotShardsFile, tmp.Bytes()); err != nil {
+		if err := s.Impl.PutBlobInPath(ctx, s.RootPath, dotShardsFile, tmp.Bytes(), blob.PutOptions{}); err != nil {
 			log(ctx).Warnf("unable to persist sharding parameters: %v", err)
 		}
 	} else {

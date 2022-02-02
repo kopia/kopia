@@ -20,17 +20,12 @@ import (
 type Repository interface {
 	OpenObject(ctx context.Context, id object.ID) (object.Reader, error)
 	VerifyObject(ctx context.Context, id object.ID) ([]content.ID, error)
-
 	GetManifest(ctx context.Context, id manifest.ID, data interface{}) (*manifest.EntryMetadata, error)
 	FindManifests(ctx context.Context, labels map[string]string) ([]*manifest.EntryMetadata, error)
-
 	Time() time.Time
 	ClientOptions() ClientOptions
-
 	NewWriter(ctx context.Context, opt WriteSessionOptions) (context.Context, RepositoryWriter, error)
-
 	UpdateDescription(d string)
-
 	Refresh(ctx context.Context) error
 	Close(ctx context.Context) error
 }
@@ -42,7 +37,6 @@ type RepositoryWriter interface {
 	NewObjectWriter(ctx context.Context, opt object.WriterOptions) object.Writer
 	PutManifest(ctx context.Context, labels map[string]string, payload interface{}) (manifest.ID, error)
 	DeleteManifest(ctx context.Context, id manifest.ID) error
-
 	Flush(ctx context.Context) error
 }
 
@@ -55,18 +49,13 @@ type DirectRepository interface {
 	ContentReader() content.Reader
 	IndexBlobs(ctx context.Context, includeInactive bool) ([]content.IndexBlobInfo, error)
 	Crypter() *content.Crypter
-
 	NewDirectWriter(ctx context.Context, opt WriteSessionOptions) (context.Context, DirectRepositoryWriter, error)
 	AlsoLogToContentLog(ctx context.Context) context.Context
-
-	// misc
 	UniqueID() []byte
 	ConfigFilename() string
 	DeriveKey(purpose []byte, keyLength int) []byte
 	Token(password string) (string, error)
-
 	Throttler() throttling.SettableThrottler
-
 	DisableIndexRefresh()
 }
 
@@ -88,6 +77,7 @@ type directRepositoryParameters struct {
 	cliOpts             ClientOptions
 	timeNow             func() time.Time
 	formatBlob          *formatBlob
+	blobCfgBlob         *blobCfgBlob
 	formatEncryptionKey []byte
 	nextWriterID        *int32
 }

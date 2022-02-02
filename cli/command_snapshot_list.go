@@ -230,7 +230,8 @@ func (c *commandSnapshotList) outputManifestFromSingleSource(ctx context.Context
 			continue
 		}
 
-		if _, ok := ent.(object.HasObjectID); !ok {
+		ohid, ok := ent.(object.HasObjectID)
+		if !ok {
 			log(ctx).Errorf("entry does not have object ID: %v", ent, err)
 			continue
 		}
@@ -245,7 +246,7 @@ func (c *commandSnapshotList) outputManifestFromSingleSource(ctx context.Context
 			firstStartTime:   m.StartTime,
 			lastStartTime:    m.StartTime,
 			count:            1,
-			oid:              ent.(object.HasObjectID).ObjectID(),
+			oid:              ohid.ObjectID(),
 			bits:             bits,
 			retentionReasons: m.RetentionReasons,
 			pins:             m.Pins,

@@ -2,8 +2,12 @@ package gather
 
 import (
 	"bytes"
+	"context"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
+	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/repo/splitter"
 )
 
@@ -74,4 +78,36 @@ func TestContigAllocatorChunkSize(t *testing.T) {
 			t.Errorf("contiguous allocator chunk size too small: %v, want %v ", got, want)
 		}
 	}
+}
+
+func TestTrackAllocation(t *testing.T) {
+	old := trackChunkAllocations
+
+	trackChunkAllocations = true
+	defer func() {
+		trackChunkAllocations = old
+	}()
+
+	var tmp WriteBuffer
+	defer tmp.Close()
+
+	var log bytes.Buffer
+
+	ctx := logging.WithLogger(context.Background(), logging.Writer(&log))
+	DumpStats(ctx)
+	require.Contains(t, log.String(), "chunksAlive:0")
+	require.NotContains(t, log.String(), "leaked chunk")
+
+	tmp.Append([]byte{1, 2, 3})
+
+	log.Reset()
+	DumpStats(ctx)
+	require.Contains(t, log.String(), "chunksAlive:1")
+	require.Contains(t, log.String(), "leaked chunk")
+
+	log.Reset()
+	tmp.Close()
+	DumpStats(ctx)
+	require.Contains(t, log.String(), "chunksAlive:0")
+	require.NotContains(t, log.String(), "leaked chunk")
 }

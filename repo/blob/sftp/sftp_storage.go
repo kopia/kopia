@@ -11,7 +11,6 @@ import (
 	"os/exec"
 	"path"
 	"strings"
-	"time"
 
 	"github.com/pkg/errors"
 	"github.com/pkg/sftp"
@@ -19,6 +18,7 @@ import (
 	"golang.org/x/crypto/ssh/knownhosts"
 
 	"github.com/kopia/kopia/internal/connection"
+	"github.com/kopia/kopia/internal/dirutil"
 	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/internal/ospath"
 	"github.com/kopia/kopia/repo/blob"
@@ -167,10 +167,17 @@ func (s *sftpImpl) GetMetadataFromPath(ctx context.Context, dirPath, fullPath st
 		return blob.Metadata{}, err
 	}
 
-	return v.(blob.Metadata), nil
+	return v.(blob.Metadata), nil //nolint:forcetypeassert
 }
 
-func (s *sftpImpl) PutBlobInPath(ctx context.Context, dirPath, fullPath string, data blob.Bytes) error {
+func (s *sftpImpl) PutBlobInPath(ctx context.Context, dirPath, fullPath string, data blob.Bytes, opts blob.PutOptions) error {
+	switch {
+	case opts.HasRetentionOptions():
+		return errors.Wrap(blob.ErrUnsupportedPutBlobOption, "blob-retention")
+	case opts.DoNotRecreate:
+		return errors.Wrap(blob.ErrUnsupportedPutBlobOption, "do-not-recreate")
+	}
+
 	// nolint:wrapcheck
 	return s.rec.UsingConnectionNoResult(ctx, "PutBlobInPath", func(conn connection.Connection) error {
 		randSuffix := make([]byte, tempFileRandomSuffixLen)
@@ -202,16 +209,44 @@ func (s *sftpImpl) PutBlobInPath(ctx context.Context, dirPath, fullPath string, 
 			return errors.Wrap(err, "unexpected error renaming file on SFTP")
 		}
 
+		if t := opts.SetModTime; !t.IsZero() {
+			if chtimesErr := sftpClientFromConnection(conn).Chtimes(fullPath, t, t); err != nil {
+				return errors.Wrap(chtimesErr, "can't change file times")
+			}
+		}
+
+		if t := opts.GetModTime; t != nil {
+			fi, err := sftpClientFromConnection(conn).Stat(fullPath)
+			if err != nil {
+				return errors.Wrap(err, "can't get mod time")
+			}
+
+			*t = fi.ModTime()
+		}
+
 		return nil
 	})
 }
 
-func (s *sftpImpl) SetTimeInPath(ctx context.Context, dirPath, fullPath string, n time.Time) error {
+type osInterface struct {
+	cli *sftp.Client
+}
+
+func (osInterface) IsExist(err error) bool {
+	return errors.Is(err, os.ErrExist)
+}
+
+func (osInterface) IsNotExist(err error) bool {
+	return errors.Is(err, os.ErrNotExist)
+}
+
+func (osInterface) IsPathSeparator(c byte) bool {
+	return c == '/'
+}
+
+func (osi osInterface) Mkdir(name string, perm os.FileMode) error {
 	// nolint:wrapcheck
-	return s.rec.UsingConnectionNoResult(ctx, "SetTimeInPath", func(conn connection.Connection) error {
-		// nolint:wrapcheck
-		return sftpClientFromConnection(conn).Chtimes(fullPath, n, n)
-	})
+	return osi.cli.Mkdir(name)
 }
 
 func (s *sftpImpl) createTempFileAndDir(cli *sftp.Client, tempFile string) (*sftp.File, error) {
@@ -220,7 +255,7 @@ func (s *sftpImpl) createTempFileAndDir(cli *sftp.Client, tempFile string) (*sft
 	f, err := cli.OpenFile(tempFile, flags)
 	if isNotExist(err) {
 		parentDir := path.Dir(tempFile)
-		if err = cli.MkdirAll(parentDir); err != nil {
+		if err = dirutil.MkSubdirAll(osInterface{cli}, s.Path, parentDir, 0); err != nil {
 			return nil, errors.Wrap(err, "cannot create directory")
 		}
 
@@ -265,23 +300,23 @@ func (s *sftpImpl) ReadDir(ctx context.Context, dirname string) ([]os.FileInfo, 
 		return nil, err
 	}
 
-	return v.([]os.FileInfo), nil
+	return v.([]os.FileInfo), nil //nolint:forcetypeassert
 }
 
 func (s *sftpStorage) ConnectionInfo() blob.ConnectionInfo {
 	return blob.ConnectionInfo{
 		Type:   sftpStorageType,
-		Config: &s.Impl.(*sftpImpl).Options,
+		Config: &s.Impl.(*sftpImpl).Options, //nolint:forcetypeassert
 	}
 }
 
 func (s *sftpStorage) DisplayName() string {
-	o := s.Impl.(*sftpImpl).Options
+	o := s.Impl.(*sftpImpl).Options //nolint:forcetypeassert
 	return fmt.Sprintf("SFTP %v@%v", o.Username, o.Host)
 }
 
 func (s *sftpStorage) Close(ctx context.Context) error {
-	s.Impl.(*sftpImpl).rec.CloseActiveConnection(ctx)
+	s.Impl.(*sftpImpl).rec.CloseActiveConnection(ctx) //nolint:forcetypeassert
 	return nil
 }
 
@@ -516,7 +551,7 @@ func New(ctx context.Context, opts *Options, isCreate bool) (blob.Storage, error
 }
 
 func sftpClientFromConnection(conn connection.Connection) *sftp.Client {
-	return conn.(*sftpConnection).currentClient
+	return conn.(*sftpConnection).currentClient //nolint:forcetypeassert
 }
 
 func init() {
@@ -524,6 +559,6 @@ func init() {
 		sftpStorageType,
 		func() interface{} { return &Options{} },
 		func(ctx context.Context, o interface{}, isCreate bool) (blob.Storage, error) {
-			return New(ctx, o.(*Options), isCreate)
+			return New(ctx, o.(*Options), isCreate) //nolint:forcetypeassert
 		})
 }

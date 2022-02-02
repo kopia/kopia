@@ -1,7 +1,6 @@
 package s3
 
 import (
-	"bytes"
 	"context"
 	"encoding/hex"
 	"fmt"
@@ -10,7 +9,6 @@ import (
 	"math/rand"
 	"path"
 	"sort"
-	"strconv"
 	"testing"
 	"time"
 
@@ -620,36 +618,15 @@ func makeBlobVersion(tb testing.TB, name blob.ID, seq int, additionalContent str
 	}
 }
 
-type byteBuffer struct {
-	bytes.Buffer
-}
-
-func (b *byteBuffer) Length() int {
-	return b.Buffer.Len()
-}
-
-func (b *byteBuffer) Reader() io.Reader {
-	return bytes.NewReader(b.Bytes())
-}
-
 func genContentBytes(tb testing.TB, name blob.ID, seq int, additionalContent string) blob.Bytes {
 	tb.Helper()
 
-	var b byteBuffer
+	var b gather.WriteBuffer
 
-	_, err := b.WriteString(strconv.Itoa(seq))
+	_, err := fmt.Fprintf(&b, "%v %v %v", seq, name, additionalContent)
 	require.NoError(tb, err)
 
-	_, err = b.WriteRune(' ')
-	require.NoError(tb, err)
-
-	_, err = b.WriteString(string(name))
-	require.NoError(tb, err)
-
-	_, err = b.WriteString(additionalContent)
-	require.NoError(tb, err)
-
-	return &b
+	return b.Bytes()
 }
 
 func randBlobName() blob.ID {
@@ -861,15 +838,46 @@ func isRetriable(err error) bool {
 func getVersionedTestStore(tb testing.TB, envName string) *s3Storage {
 	tb.Helper()
 
+	ctx := testlogging.Context(tb)
 	o := getProviderOptions(tb, envName)
 	o.Prefix = path.Join(tb.Name(), uuid.NewString()) + "/"
 
-	s, err := newStorage(testlogging.Context(tb), o)
+	s, err := newStorage(ctx, o)
 	require.NoError(tb, err, "error creating versioned store client")
 
 	tb.Cleanup(func() {
-		blobtesting.CleanupOldData(context.Background(), tb, s, 0)
+		cleanupVersions(tb, s)
+		blobtesting.CleanupOldData(ctx, tb, s, 0)
 	})
 
 	return s
+}
+
+func cleanupVersions(tb testing.TB, s *s3Storage) {
+	tb.Helper()
+
+	ctx := testlogging.Context(tb)
+	ch := make(chan minio.ObjectInfo, 4)
+	errChan := s.cli.RemoveObjects(ctx, s.BucketName, ch, minio.RemoveObjectsOptions{})
+
+	err := s.listBlobVersions(ctx, "", func(m versionMetadata) error {
+		ch <- minio.ObjectInfo{
+			Key:       s.Prefix + string(m.BlobID),
+			VersionID: m.Version,
+		}
+
+		return nil
+	})
+
+	close(ch)
+
+	if err != nil {
+		tb.Log("error listing blob versions:", err)
+	}
+
+	for e := range errChan {
+		if e.Err != nil {
+			tb.Log("error cleaning up blob versions:", e.Err, e.ObjectName, e.VersionID)
+		}
+	}
 }

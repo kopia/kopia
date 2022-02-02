@@ -4,9 +4,8 @@ import (
 	"container/heap"
 
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 )
-
-const iterateParallelism = 16
 
 // mergedIndex is an implementation of Index that transparently merges returns from underlying Indexes.
 type mergedIndex []packIndex
@@ -23,13 +22,13 @@ func (m mergedIndex) ApproximateCount() int {
 
 // Close closes all underlying indexes.
 func (m mergedIndex) Close() error {
+	var err error
+
 	for _, ndx := range m {
-		if err := ndx.Close(); err != nil {
-			return errors.Wrap(err, "error closing index shard")
-		}
+		err = multierr.Append(err, ndx.Close())
 	}
 
-	return nil
+	return errors.Wrap(err, "closing index shards")
 }
 
 func contentInfoGreaterThan(a, b Info) bool {
@@ -94,7 +93,7 @@ func (h nextInfoHeap) Less(i, j int) bool {
 
 func (h nextInfoHeap) Swap(i, j int) { h[i], h[j] = h[j], h[i] }
 func (h *nextInfoHeap) Push(x interface{}) {
-	*h = append(*h, x.(*nextInfo))
+	*h = append(*h, x.(*nextInfo)) // nolint:forcetypeassert
 }
 
 func (h *nextInfoHeap) Pop() interface{} {
@@ -107,7 +106,7 @@ func (h *nextInfoHeap) Pop() interface{} {
 }
 
 func iterateChan(r IDRange, ndx packIndex, done chan bool) <-chan Info {
-	ch := make(chan Info, iterateParallelism)
+	ch := make(chan Info, 1)
 
 	go func() {
 		defer close(ch)

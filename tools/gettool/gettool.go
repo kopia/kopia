@@ -51,6 +51,7 @@ func (ti ToolInfo) actualURL(version, goos, goarch string) string {
 	return u
 }
 
+// nolint:gochecknoglobals
 var tools = map[string]ToolInfo{
 	"linter": {
 		urlTemplate: "https://github.com/golangci/golangci-lint/releases/download/vVERSION/golangci-lint-VERSION-GOOS-GOARCH.EXT",
@@ -107,6 +108,12 @@ var tools = map[string]ToolInfo{
 			"windows": "Windows",
 		},
 	},
+	"gitchglog": {
+		urlTemplate: "https://github.com/git-chglog/git-chglog/releases/download/vVERSION/git-chglog_VERSION_GOOS_GOARCH.EXT",
+		archMap: map[string]string{
+			"arm": "armv6",
+		},
+	},
 	"node": {
 		urlTemplate:         "https://nodejs.org/dist/vVERSION/node-vVERSION-GOOS-GOARCH.EXT",
 		osMap:               map[string]string{"windows": "win"},
@@ -115,6 +122,7 @@ var tools = map[string]ToolInfo{
 	},
 }
 
+// nolint:gochecknoglobals
 var (
 	tool      = flag.String("tool", "", "Name of the tool:version")
 	outputDir = flag.String("output-dir", "", "Output directory")
@@ -123,6 +131,7 @@ var (
 	regenerateChecksums = flag.Bool("regenerate-checksums", false, "Regenerate checksums")
 )
 
+// nolint:gochecknoglobals
 var buildArchitectures = []struct {
 	goos   string
 	goarch string

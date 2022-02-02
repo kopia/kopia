@@ -20,6 +20,7 @@ const (
 	maintenanceScheduleBlobID  = "kopia.maintenance"
 )
 
+// nolint:gochecknoglobals
 var (
 	maintenanceScheduleKeyPurpose    = []byte("maintenance schedule")
 	maintenanceScheduleAEADExtraData = []byte("maintenance")

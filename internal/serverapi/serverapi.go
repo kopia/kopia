@@ -251,3 +251,8 @@ type ResolvePathResponse struct {
 type CLIInfo struct {
 	Executable string `json:"executable"`
 }
+
+// UIPreferences represents JSON object storing UI preferences.
+type UIPreferences struct {
+	Theme string `json:"theme"` // 'dark', 'light' or ''
+}

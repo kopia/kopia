@@ -29,8 +29,7 @@ const (
 	retryCount              = 180
 	retryInterval           = 1 * time.Second
 	waitingForServerString  = "waiting for server to start"
-	serverUser              = "server-user@host"
-	serverPassword          = "abcdef"
+	serverControlPassword   = "abcdef"
 
 	// Flag value settings.
 	contentCacheSizeSettingMB  = 500
@@ -212,8 +211,7 @@ func (ks *KopiaSnapshotter) CreateServer(addr string, args ...string) (*exec.Cmd
 	args = append([]string{
 		"server", "start",
 		"--address", addr,
-		"--server-username", serverUser,
-		"--server-password", serverPassword,
+		"--server-control-password", serverControlPassword,
 	}, args...)
 
 	return ks.Runner.RunAsync(args...)
@@ -257,8 +255,7 @@ func (ks *KopiaSnapshotter) RefreshServer(addr, fingerprint string, args ...stri
 		"server", "refresh",
 		"--address", addr,
 		"--server-cert-fingerprint", fingerprint,
-		"--server-username", serverUser,
-		"--server-password", serverPassword,
+		"--server-control-password", serverControlPassword,
 	}, args...)
 	_, _, err := ks.Runner.Run(args...)
 
@@ -344,8 +341,7 @@ func (ks *KopiaSnapshotter) waitUntilServerStarted(ctx context.Context, addr, fi
 		"server", "status",
 		"--address", addr,
 		"--server-cert-fingerprint", fingerprint,
-		"--server-username", serverUser,
-		"--server-password", serverPassword,
+		"--server-control-password", serverControlPassword,
 	}, serverStatusArgs...)
 
 	if err := retry.PeriodicallyNoValue(ctx, retryInterval, retryCount, waitingForServerString, func() error {

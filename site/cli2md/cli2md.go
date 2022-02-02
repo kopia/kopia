@@ -17,7 +17,7 @@ import (
 	_ "github.com/kopia/kopia/internal/logfile"
 )
 
-var baseDir = "content/docs/Reference/Command-Line"
+const baseDir = "content/docs/Reference/Command-Line"
 
 const (
 	advancedSection        = "Advanced"
@@ -29,6 +29,7 @@ const (
 	dirMode = 0o750
 )
 
+// nolint:gochecknoglobals
 var overrideDefault = map[string]string{
 	"config-file": "repository.config",
 	"log-dir":     "kopia",
@@ -150,7 +151,7 @@ func generateCommands(app *kingpin.ApplicationModel, section string, weight int,
 		return errors.Wrapf(err, "error creating section directory for %v", section)
 	}
 
-	f, err := os.Create(filepath.Join(dir, "_index.md"))
+	f, err := os.Create(filepath.Join(dir, "_index.md")) //nolint:gosec
 	if err != nil {
 		return errors.Wrap(err, "unable to create common flags file")
 	}
@@ -250,7 +251,7 @@ func generateSubcommands(w io.Writer, dir, sectionTitle string, cmds []*kingpin.
 }
 
 func generateSubcommandPage(fname string, cmd *kingpin.CmdModel) {
-	f, err := os.Create(fname)
+	f, err := os.Create(fname) //nolint:gosec
 	if err != nil {
 		log.Fatalf("unable to create page: %v", err)
 	}

@@ -25,7 +25,7 @@ func ScrubSensitiveData(v reflect.Value) reflect.Value {
 				if sf.Type.Kind() == reflect.String {
 					res.Field(i).SetString(strings.Repeat("*", fv.Len()))
 				}
-			} else {
+			} else if sf.IsExported() {
 				res.Field(i).Set(fv)
 			}
 		}

@@ -21,9 +21,9 @@ type Logger interface {
 func Module(module string) func(ctx context.Context) Logger {
 	return func(ctx context.Context) Logger {
 		if l := ctx.Value(loggerCacheKey); l != nil {
-			return l.(*loggerCache).getLogger(module)
+			return l.(*loggerCache).getLogger(module) //nolint:forcetypeassert
 		}
 
-		return NullLogger
+		return nullLogger{}
 	}
 }

@@ -2,11 +2,14 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"html"
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -42,6 +45,13 @@ const (
 	kopiaAuthCookieIssuer   = "kopia-server"
 )
 
+type csrfTokenOption int
+
+const (
+	csrfTokenRequired csrfTokenOption = 1 + iota
+	csrfTokenNotRequired
+)
+
 type apiRequestFunc func(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError)
 
 // Server exposes simple HTTP API for programmatically accessing Kopia features.
@@ -69,81 +79,81 @@ type Server struct {
 	grpcServerState
 }
 
-// APIHandlers handles API requests.
-func (s *Server) APIHandlers(legacyAPI bool) http.Handler {
-	m := mux.NewRouter()
-
+// SetupHTMLUIAPIHandlers registers API requests required by the HTMLUI.
+func (s *Server) SetupHTMLUIAPIHandlers(m *mux.Router) {
 	// sources
-	m.HandleFunc("/api/v1/sources", s.handleAPI(requireUIUser, s.handleSourcesList)).Methods(http.MethodGet)
-	m.HandleFunc("/api/v1/sources", s.handleAPI(requireUIUser, s.handleSourcesCreate)).Methods(http.MethodPost)
-	m.HandleFunc("/api/v1/sources/upload", s.handleAPI(requireUIUser, s.handleUpload)).Methods(http.MethodPost)
-	m.HandleFunc("/api/v1/sources/cancel", s.handleAPI(requireUIUser, s.handleCancel)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/sources", s.handleUI(s.handleSourcesList)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/sources", s.handleUI(s.handleSourcesCreate)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/sources/upload", s.handleUI(s.handleUpload)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/sources/cancel", s.handleUI(s.handleCancel)).Methods(http.MethodPost)
 
 	// snapshots
-	m.HandleFunc("/api/v1/snapshots", s.handleAPI(requireUIUser, s.handleSnapshotList)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/snapshots", s.handleUI(s.handleSnapshotList)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/policy", s.handleUI(s.handlePolicyGet)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/policy", s.handleUI(s.handlePolicyPut)).Methods(http.MethodPut)
+	m.HandleFunc("/api/v1/policy", s.handleUI(s.handlePolicyDelete)).Methods(http.MethodDelete)
+	m.HandleFunc("/api/v1/policy/resolve", s.handleUI(s.handlePolicyResolve)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/policies", s.handleUI(s.handlePolicyList)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/refresh", s.handleUI(s.handleRefresh)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/objects/{objectID}", s.requireAuth(csrfTokenNotRequired, s.handleObjectGet)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/restore", s.handleUI(s.handleRestore)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/estimate", s.handleUI(s.handleEstimate)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/paths/resolve", s.handleUI(s.handlePathResolve)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/cli", s.handleUI(s.handleCLIInfo)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/repo/status", s.handleUIPossiblyNotConnected(s.handleRepoStatus)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/repo/sync", s.handleUI(s.handleRepoSync)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/repo/connect", s.handleUIPossiblyNotConnected(s.handleRepoConnect)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/repo/exists", s.handleUIPossiblyNotConnected(s.handleRepoExists)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/repo/create", s.handleUIPossiblyNotConnected(s.handleRepoCreate)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/repo/description", s.handleUI(s.handleRepoSetDescription)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/repo/disconnect", s.handleUI(s.handleRepoDisconnect)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/repo/algorithms", s.handleUIPossiblyNotConnected(s.handleRepoSupportedAlgorithms)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/repo/throttle", s.handleUI(s.handleRepoGetThrottle)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/repo/throttle", s.handleUI(s.handleRepoSetThrottle)).Methods(http.MethodPut)
 
-	m.HandleFunc("/api/v1/policy", s.handleAPI(requireUIUser, s.handlePolicyGet)).Methods(http.MethodGet)
-	m.HandleFunc("/api/v1/policy", s.handleAPI(requireUIUser, s.handlePolicyPut)).Methods(http.MethodPut)
-	m.HandleFunc("/api/v1/policy", s.handleAPI(requireUIUser, s.handlePolicyDelete)).Methods(http.MethodDelete)
-	m.HandleFunc("/api/v1/policy/resolve", s.handleAPI(requireUIUser, s.handlePolicyResolve)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/mounts", s.handleUI(s.handleMountCreate)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/mounts/{rootObjectID}", s.handleUI(s.handleMountDelete)).Methods(http.MethodDelete)
+	m.HandleFunc("/api/v1/mounts/{rootObjectID}", s.handleUI(s.handleMountGet)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/mounts", s.handleUI(s.handleMountList)).Methods(http.MethodGet)
 
-	m.HandleFunc("/api/v1/policies", s.handleAPI(requireUIUser, s.handlePolicyList)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/current-user", s.handleUIPossiblyNotConnected(s.handleCurrentUser)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/ui-preferences", s.handleUIPossiblyNotConnected(s.handleGetUIPreferences)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/ui-preferences", s.handleUIPossiblyNotConnected(s.handleSetUIPreferences)).Methods(http.MethodPut)
 
-	m.HandleFunc("/api/v1/refresh", s.handleAPI(anyAuthenticatedUser, s.handleRefresh)).Methods(http.MethodPost)
-	m.HandleFunc("/api/v1/shutdown", s.handleAPIPossiblyNotConnected(requireUIUser, s.handleShutdown)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/tasks-summary", s.handleUI(s.handleTaskSummary)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/tasks", s.handleUI(s.handleTaskList)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/tasks/{taskID}", s.handleUI(s.handleTaskInfo)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/tasks/{taskID}/logs", s.handleUI(s.handleTaskLogs)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/tasks/{taskID}/cancel", s.handleUI(s.handleTaskCancel)).Methods(http.MethodPost)
+}
 
-	m.HandleFunc("/api/v1/objects/{objectID}", s.requireAuth(s.handleObjectGet)).Methods(http.MethodGet)
-	m.HandleFunc("/api/v1/restore", s.handleAPI(requireUIUser, s.handleRestore)).Methods(http.MethodPost)
-	m.HandleFunc("/api/v1/estimate", s.handleAPI(requireUIUser, s.handleEstimate)).Methods(http.MethodPost)
+// SetupRepositoryAPIHandlers registers HTTP repository API handlers.
+func (s *Server) SetupRepositoryAPIHandlers(m *mux.Router) {
+	m.HandleFunc("/api/v1/flush", s.handleRepositoryAPI(anyAuthenticatedUser, s.handleFlush)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/repo/parameters", s.handleRepositoryAPI(anyAuthenticatedUser, s.handleRepoParameters)).Methods(http.MethodGet)
 
-	// path APIs
-	m.HandleFunc("/api/v1/paths/resolve", s.handleAPI(requireUIUser, s.handlePathResolve)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/contents/{contentID}", s.handleRepositoryAPI(requireContentAccess(auth.AccessLevelRead), s.handleContentInfo)).Methods(http.MethodGet).Queries("info", "1")
+	m.HandleFunc("/api/v1/contents/{contentID}", s.handleRepositoryAPI(requireContentAccess(auth.AccessLevelRead), s.handleContentGet)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/contents/{contentID}", s.handleRepositoryAPI(requireContentAccess(auth.AccessLevelAppend), s.handleContentPut)).Methods(http.MethodPut)
 
-	// path APIs
-	m.HandleFunc("/api/v1/cli", s.handleAPI(requireUIUser, s.handleCLIInfo)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/manifests/{manifestID}", s.handleRepositoryAPI(handlerWillCheckAuthorization, s.handleManifestGet)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/manifests/{manifestID}", s.handleRepositoryAPI(handlerWillCheckAuthorization, s.handleManifestDelete)).Methods(http.MethodDelete)
+	m.HandleFunc("/api/v1/manifests", s.handleRepositoryAPI(handlerWillCheckAuthorization, s.handleManifestCreate)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/manifests", s.handleRepositoryAPI(handlerWillCheckAuthorization, s.handleManifestList)).Methods(http.MethodGet)
+}
 
-	// methods that can be called by any authenticated user (UI or remote user).
-	m.HandleFunc("/api/v1/flush", s.handleAPI(anyAuthenticatedUser, s.handleFlush)).Methods(http.MethodPost)
-	m.HandleFunc("/api/v1/repo/status", s.handleAPIPossiblyNotConnected(anyAuthenticatedUser, s.handleRepoStatus)).Methods(http.MethodGet)
-	m.HandleFunc("/api/v1/repo/sync", s.handleAPI(anyAuthenticatedUser, s.handleRepoSync)).Methods(http.MethodPost)
-
-	m.HandleFunc("/api/v1/repo/connect", s.handleAPIPossiblyNotConnected(requireUIUser, s.handleRepoConnect)).Methods(http.MethodPost)
-	m.HandleFunc("/api/v1/repo/exists", s.handleAPIPossiblyNotConnected(requireUIUser, s.handleRepoExists)).Methods(http.MethodPost)
-	m.HandleFunc("/api/v1/repo/create", s.handleAPIPossiblyNotConnected(requireUIUser, s.handleRepoCreate)).Methods(http.MethodPost)
-	m.HandleFunc("/api/v1/repo/description", s.handleAPI(requireUIUser, s.handleRepoSetDescription)).Methods(http.MethodPost)
-
-	m.HandleFunc("/api/v1/repo/disconnect", s.handleAPI(requireUIUser, s.handleRepoDisconnect)).Methods(http.MethodPost)
-	m.HandleFunc("/api/v1/repo/algorithms", s.handleAPIPossiblyNotConnected(requireUIUser, s.handleRepoSupportedAlgorithms)).Methods(http.MethodGet)
-	m.HandleFunc("/api/v1/repo/throttle", s.handleAPI(requireUIUser, s.handleRepoGetThrottle)).Methods(http.MethodGet)
-	m.HandleFunc("/api/v1/repo/throttle", s.handleAPI(requireUIUser, s.handleRepoSetThrottle)).Methods(http.MethodPut)
-
-	if legacyAPI {
-		m.HandleFunc("/api/v1/repo/parameters", s.handleAPI(anyAuthenticatedUser, s.handleRepoParameters)).Methods(http.MethodGet)
-
-		m.HandleFunc("/api/v1/contents/{contentID}", s.handleAPI(requireContentAccess(auth.AccessLevelRead), s.handleContentInfo)).Methods(http.MethodGet).Queries("info", "1")
-		m.HandleFunc("/api/v1/contents/{contentID}", s.handleAPI(requireContentAccess(auth.AccessLevelRead), s.handleContentGet)).Methods(http.MethodGet)
-		m.HandleFunc("/api/v1/contents/{contentID}", s.handleAPI(requireContentAccess(auth.AccessLevelAppend), s.handleContentPut)).Methods(http.MethodPut)
-
-		m.HandleFunc("/api/v1/manifests/{manifestID}", s.handleAPI(handlerWillCheckAuthorization, s.handleManifestGet)).Methods(http.MethodGet)
-		m.HandleFunc("/api/v1/manifests/{manifestID}", s.handleAPI(handlerWillCheckAuthorization, s.handleManifestDelete)).Methods(http.MethodDelete)
-		m.HandleFunc("/api/v1/manifests", s.handleAPI(handlerWillCheckAuthorization, s.handleManifestCreate)).Methods(http.MethodPost)
-		m.HandleFunc("/api/v1/manifests", s.handleAPI(handlerWillCheckAuthorization, s.handleManifestList)).Methods(http.MethodGet)
-	}
-
-	m.HandleFunc("/api/v1/mounts", s.handleAPI(requireUIUser, s.handleMountCreate)).Methods(http.MethodPost)
-	m.HandleFunc("/api/v1/mounts/{rootObjectID}", s.handleAPI(requireUIUser, s.handleMountDelete)).Methods(http.MethodDelete)
-	m.HandleFunc("/api/v1/mounts/{rootObjectID}", s.handleAPI(requireUIUser, s.handleMountGet)).Methods(http.MethodGet)
-	m.HandleFunc("/api/v1/mounts", s.handleAPI(requireUIUser, s.handleMountList)).Methods(http.MethodGet)
-
-	m.HandleFunc("/api/v1/current-user", s.handleAPIPossiblyNotConnected(requireUIUser, s.handleCurrentUser)).Methods(http.MethodGet)
-
-	m.HandleFunc("/api/v1/tasks-summary", s.handleAPI(requireUIUser, s.handleTaskSummary)).Methods(http.MethodGet)
-	m.HandleFunc("/api/v1/tasks", s.handleAPI(requireUIUser, s.handleTaskList)).Methods(http.MethodGet)
-	m.HandleFunc("/api/v1/tasks/{taskID}", s.handleAPI(requireUIUser, s.handleTaskInfo)).Methods(http.MethodGet)
-	m.HandleFunc("/api/v1/tasks/{taskID}/logs", s.handleAPI(requireUIUser, s.handleTaskLogs)).Methods(http.MethodGet)
-	m.HandleFunc("/api/v1/tasks/{taskID}/cancel", s.handleAPI(requireUIUser, s.handleTaskCancel)).Methods(http.MethodPost)
-
-	return m
+// SetupControlAPIHandlers registers control API handlers.
+func (s *Server) SetupControlAPIHandlers(m *mux.Router) {
+	// server control API, requires authentication as `server-control` and no CSRF token.
+	m.HandleFunc("/api/v1/control/sources", s.handleServerControlAPI(s.handleSourcesList)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/control/status", s.handleServerControlAPIPossiblyNotConnected(s.handleRepoStatus)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/control/flush", s.handleServerControlAPI(s.handleFlush)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/control/refresh", s.handleServerControlAPI(s.handleRefresh)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/control/shutdown", s.handleServerControlAPIPossiblyNotConnected(s.handleShutdown)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/control/trigger-snapshot", s.handleServerControlAPI(s.handleUpload)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/control/cancel-snapshot", s.handleServerControlAPI(s.handleCancel)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/control/pause-source", s.handleServerControlAPI(s.handlePause)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/control/resume-source", s.handleServerControlAPI(s.handleResume)).Methods(http.MethodPost)
 }
 
 func (s *Server) isAuthenticated(w http.ResponseWriter, r *http.Request) bool {
@@ -184,6 +194,7 @@ func (s *Server) isAuthenticated(w http.ResponseWriter, r *http.Request) bool {
 			Name:    kopiaAuthCookie,
 			Value:   ac,
 			Expires: now.Add(kopiaAuthCookieTTL),
+			Path:    "/",
 		})
 	}
 
@@ -219,10 +230,17 @@ func (s *Server) generateShortTermAuthCookie(username string, now time.Time) (st
 	}).SignedString(s.authCookieSigningKey)
 }
 
-func (s *Server) requireAuth(f http.HandlerFunc) http.HandlerFunc {
+func (s *Server) requireAuth(checkCSRFToken csrfTokenOption, f http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !s.isAuthenticated(w, r) {
 			return
+		}
+
+		if checkCSRFToken == csrfTokenRequired {
+			if !s.validateCSRFToken(r) {
+				http.Error(w, "Invalid or missing CSRF token.\n", http.StatusUnauthorized)
+				return
+			}
 		}
 
 		f(w, r)
@@ -243,8 +261,8 @@ func (s *Server) httpAuthorizationInfo(ctx context.Context, r *http.Request) aut
 
 type isAuthorizedFunc func(s *Server, r *http.Request) bool
 
-func (s *Server) handleAPI(isAuthorized isAuthorizedFunc, f apiRequestFunc) http.HandlerFunc {
-	return s.handleAPIPossiblyNotConnected(isAuthorized, func(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
+func (s *Server) handleServerControlAPI(f apiRequestFunc) http.HandlerFunc {
+	return s.handleServerControlAPIPossiblyNotConnected(func(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
 		if s.rep == nil {
 			return nil, requestError(serverapi.ErrorNotConnected, "not connected")
 		}
@@ -253,20 +271,38 @@ func (s *Server) handleAPI(isAuthorized isAuthorizedFunc, f apiRequestFunc) http
 	})
 }
 
-// RequireUIUserAuth wraps the provided http.Handler to only allow UI user and return 403 otherwise.
-func (s *Server) RequireUIUserAuth(hf http.Handler) http.Handler {
-	return s.requireAuth(func(rw http.ResponseWriter, r *http.Request) {
-		if !requireUIUser(s, r) {
-			http.Error(rw, `UI Access denied. See https://github.com/kopia/kopia/issues/880#issuecomment-798421751 for more information.`, http.StatusForbidden)
-			return
-		}
-
-		hf.ServeHTTP(rw, r)
+func (s *Server) handleServerControlAPIPossiblyNotConnected(f apiRequestFunc) http.HandlerFunc {
+	return s.handleRequestPossiblyNotConnected(requireServerControlUser, csrfTokenNotRequired, func(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
+		return f(ctx, r, body)
 	})
 }
 
-func (s *Server) handleAPIPossiblyNotConnected(isAuthorized isAuthorizedFunc, f apiRequestFunc) http.HandlerFunc {
-	return s.requireAuth(func(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleRepositoryAPI(isAuthorized isAuthorizedFunc, f apiRequestFunc) http.HandlerFunc {
+	return s.handleRequestPossiblyNotConnected(isAuthorized, csrfTokenNotRequired, func(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
+		if s.rep == nil {
+			return nil, requestError(serverapi.ErrorNotConnected, "not connected")
+		}
+
+		return f(ctx, r, body)
+	})
+}
+
+func (s *Server) handleUI(f apiRequestFunc) http.HandlerFunc {
+	return s.handleRequestPossiblyNotConnected(requireUIUser, csrfTokenRequired, func(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
+		if s.rep == nil {
+			return nil, requestError(serverapi.ErrorNotConnected, "not connected")
+		}
+
+		return f(ctx, r, body)
+	})
+}
+
+func (s *Server) handleUIPossiblyNotConnected(f apiRequestFunc) http.HandlerFunc {
+	return s.handleRequestPossiblyNotConnected(requireUIUser, csrfTokenRequired, f)
+}
+
+func (s *Server) handleRequestPossiblyNotConnected(isAuthorized isAuthorizedFunc, checkCSRFToken csrfTokenOption, f apiRequestFunc) http.HandlerFunc {
+	return s.requireAuth(checkCSRFToken, func(w http.ResponseWriter, r *http.Request) {
 		// we must pre-read request body before acquiring the lock as it sometimes leads to deadlock
 		// in HTTP/2 server.
 		// See https://github.com/golang/go/issues/40816
@@ -408,11 +444,19 @@ func (s *Server) forAllSourceManagersMatchingURLFilter(ctx context.Context, c fu
 	}
 
 	for src, mgr := range s.sourceManagers {
+		if mgr.isReadOnly {
+			continue
+		}
+
 		if !sourceMatchesURLFilter(src, values) {
 			continue
 		}
 
 		resp.Sources[src.String()] = c(mgr, ctx)
+	}
+
+	if len(resp.Sources) == 0 {
+		return nil, notFoundError("no source matching the provided filters")
 	}
 
 	return resp, nil
@@ -424,6 +468,14 @@ func (s *Server) handleUpload(ctx context.Context, r *http.Request, body []byte)
 
 func (s *Server) handleCancel(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
 	return s.forAllSourceManagersMatchingURLFilter(ctx, (*sourceManager).cancel, r.URL.Query())
+}
+
+func (s *Server) handlePause(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
+	return s.forAllSourceManagersMatchingURLFilter(ctx, (*sourceManager).pause, r.URL.Query())
+}
+
+func (s *Server) handleResume(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
+	return s.forAllSourceManagersMatchingURLFilter(ctx, (*sourceManager).resume, r.URL.Query())
 }
 
 func (s *Server) beginUpload(ctx context.Context, src snapshot.SourceInfo) {
@@ -530,7 +582,10 @@ func (s *Server) periodicMaintenance(ctx context.Context, rep repo.DirectReposit
 		nextMaintenanceTime, err := maintenance.TimeToAttemptNextMaintenance(ctx, rep, now.Add(maxMaintenanceAttemptFrequency))
 		if err != nil {
 			log(ctx).Debugw("unable to determine time till next maintenance", "error", err)
-			time.Sleep(sleepOnMaintenanceError)
+
+			if !clock.SleepInterruptibly(ctx, sleepOnMaintenanceError) {
+				return
+			}
 
 			continue
 		}
@@ -539,18 +594,23 @@ func (s *Server) periodicMaintenance(ctx context.Context, rep repo.DirectReposit
 		if nextMaintenanceTime.After(now) {
 			log(ctx).Debugw("sleeping until next maintenance attempt", "time", nextMaintenanceTime)
 
-			select {
-			case <-ctx.Done():
+			if !clock.SleepInterruptibly(ctx, nextMaintenanceTime.Sub(now)) {
 				return
-
-				// we woke up after sleeping, do not run maintenance immediately, but re-check first,
-				// we may have lost ownership or parameters may have changed.
-			case <-time.After(nextMaintenanceTime.Sub(now)):
 			}
-		} else if err := s.taskmgr.Run(ctx, "Maintenance", "Periodic maintenance", func(ctx context.Context, _ uitask.Controller) error {
+
+			// we woke up after sleeping, do not run maintenance immediately, but re-check first,
+			// we may have lost ownership or parameters may have changed.
+			continue
+		}
+
+		if err := s.taskmgr.Run(ctx, "Maintenance", "Periodic maintenance", func(ctx context.Context, _ uitask.Controller) error {
 			return periodicMaintenanceOnce(ctx, rep)
 		}); err != nil {
 			log(ctx).Errorf("unable to run maintenance: %v", err)
+
+			if !clock.SleepInterruptibly(ctx, sleepOnMaintenanceError) {
+				return
+			}
 		}
 	}
 }
@@ -657,23 +717,120 @@ func (s *Server) syncSourcesLocked(ctx context.Context) error {
 	return nil
 }
 
+func (s *Server) isKnownUIRoute(path string) bool {
+	return strings.HasPrefix(path, "/snapshots") ||
+		strings.HasPrefix(path, "/policies") ||
+		strings.HasPrefix(path, "/tasks") ||
+		strings.HasPrefix(path, "/repo")
+}
+
+func (s *Server) patchIndexBytes(sessionID string, b []byte) []byte {
+	if s.options.UITitlePrefix != "" {
+		b = bytes.ReplaceAll(b, []byte("<title>"), []byte("<title>"+html.EscapeString(s.options.UITitlePrefix)))
+	}
+
+	if v := repo.BuildVersion; v != "" {
+		b = bytes.ReplaceAll(b, []byte(`</title>`), []byte(" v"+html.EscapeString(repo.BuildVersion)+"</title>"))
+		b = bytes.ReplaceAll(b, []byte(`<p class="version-info">Version `), []byte(`<p class="version-info">Version v`+html.EscapeString(repo.BuildVersion+" "+repo.BuildInfo+" ")))
+	}
+
+	csrfToken := s.generateCSRFToken(sessionID)
+
+	// insert <meta name="kopia-csrf-token" content="..." /> just before closing head tag.
+	b = bytes.ReplaceAll(b,
+		[]byte(`</head>`),
+		[]byte(`<meta name="kopia-csrf-token" content="`+csrfToken+`" /></head>`))
+
+	return b
+}
+
+func maybeReadIndexBytes(fs http.FileSystem) []byte {
+	rootFile, err := fs.Open("index.html")
+	if err != nil {
+		return nil
+	}
+
+	defer rootFile.Close() //nolint:errcheck
+
+	rd, err := io.ReadAll(rootFile)
+	if err != nil {
+		return nil
+	}
+
+	return rd
+}
+
+// ServeStaticFiles configures HTTP handler that serves static files and dynamically patches index.html to embed CSRF token, etc.
+func (s *Server) ServeStaticFiles(m *mux.Router, fs http.FileSystem) {
+	h := http.FileServer(fs)
+
+	// read bytes from 'index.html'.
+	indexBytes := maybeReadIndexBytes(fs)
+
+	m.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if s.isKnownUIRoute(r.URL.Path) {
+			r2 := new(http.Request)
+			*r2 = *r
+			r2.URL = new(url.URL)
+			*r2.URL = *r.URL
+			r2.URL.Path = "/"
+			r = r2
+		}
+
+		if !s.isAuthenticated(w, r) {
+			return
+		}
+
+		if !requireUIUser(s, r) {
+			http.Error(w, `UI Access denied. See https://github.com/kopia/kopia/issues/880#issuecomment-798421751 for more information.`, http.StatusForbidden)
+			return
+		}
+
+		if r.URL.Path == "/" && indexBytes != nil {
+			var sessionID string
+
+			if cookie, err := r.Cookie(kopiaSessionCookie); err == nil {
+				// already in a session, likely a new tab was opened
+				sessionID = cookie.Value
+			} else {
+				sessionID = uuid.NewString()
+
+				http.SetCookie(w, &http.Cookie{
+					Name:  kopiaSessionCookie,
+					Value: sessionID,
+					Path:  "/",
+				})
+			}
+
+			http.ServeContent(w, r, "/", clock.Now(), bytes.NewReader(s.patchIndexBytes(sessionID, indexBytes)))
+			return
+		}
+
+		h.ServeHTTP(w, r)
+	})
+}
+
 // Options encompasses all API server options.
 type Options struct {
-	ConfigFile           string
-	ConnectOptions       *repo.ConnectOptions
-	RefreshInterval      time.Duration
-	MaxConcurrency       int
-	Authenticator        auth.Authenticator
-	Authorizer           auth.Authorizer
-	PasswordPersist      passwordpersist.Strategy
-	AuthCookieSigningKey string
-	LogRequests          bool
-	UIUser               string // name of the user allowed to access the UI
+	ConfigFile             string
+	ConnectOptions         *repo.ConnectOptions
+	RefreshInterval        time.Duration
+	MaxConcurrency         int
+	Authenticator          auth.Authenticator
+	Authorizer             auth.Authorizer
+	PasswordPersist        passwordpersist.Strategy
+	AuthCookieSigningKey   string
+	LogRequests            bool
+	UIUser                 string // name of the user allowed to access the UI API
+	UIPreferencesFile      string // name of the JSON file storing UI preferences
+	ServerControlUser      string // name of the user allowed to access the server control API
+	DisableCSRFTokenChecks bool
+	UITitlePrefix          string
 }
 
 // New creates a Server.
 // The server will manage sources for a given username@hostname.
-func New(ctx context.Context, options Options) (*Server, error) {
+func New(ctx context.Context, options *Options) (*Server, error) {
 	if options.Authorizer == nil {
 		return nil, errors.Errorf("missing authorizer")
 	}
@@ -689,7 +846,7 @@ func New(ctx context.Context, options Options) (*Server, error) {
 	}
 
 	s := &Server{
-		options:              options,
+		options:              *options,
 		sourceManagers:       map[snapshot.SourceInfo]*sourceManager{},
 		uploadSemaphore:      make(chan struct{}, 1),
 		grpcServerState:      makeGRPCServerState(options.MaxConcurrency),

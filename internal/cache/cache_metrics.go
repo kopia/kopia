@@ -6,6 +6,7 @@ import (
 )
 
 // cache metrics.
+// nolint:gochecknoglobals
 var (
 	MetricHitCount = stats.Int64(
 		"kopia/content/cache/hit_count",
@@ -60,14 +61,13 @@ func simpleAggregation(m stats.Measure, agg *view.Aggregation) *view.View {
 }
 
 func init() {
-	if err := view.Register(
+	// nolint:errcheck
+	view.Register(
 		simpleAggregation(MetricHitCount, view.Count()),
 		simpleAggregation(MetricHitBytes, view.Sum()),
 		simpleAggregation(MetricMissCount, view.Count()),
 		simpleAggregation(MetricMissBytes, view.Sum()),
 		simpleAggregation(MetricMissErrors, view.Count()),
 		simpleAggregation(MetricStoreErrors, view.Count()),
-	); err != nil {
-		panic("unable to register opencensus views: " + err.Error())
-	}
+	)
 }

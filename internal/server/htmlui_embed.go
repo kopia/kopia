@@ -1,13 +1,15 @@
-// +build embedhtml
+//go:build !nohtmlui
+// +build !nohtmlui
 
 package server
 
 import (
 	"net/http"
 
-	"github.com/kopia/kopia/htmlui"
+	"github.com/kopia/htmluibuild"
 )
 
+// AssetFile exposes HTML UI files.
 func AssetFile() http.FileSystem {
-	return htmlui.AssetFile()
+	return htmluibuild.AssetFile()
 }

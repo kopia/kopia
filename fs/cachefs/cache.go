@@ -181,6 +181,7 @@ type Options struct {
 	MaxCachedEntries     int
 }
 
+// nolint:gochecknoglobals
 var defaultOptions = &Options{
 	MaxCachedDirectories: 1000,   //nolint:gomnd
 	MaxCachedEntries:     100000, //nolint:gomnd

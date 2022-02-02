@@ -64,7 +64,6 @@ linters:
     - interfacer
     - scopelint
     - prealloc
-    - gochecknoglobals
     - gochecknoinits
     - whitespace
     - nilnil
@@ -84,18 +83,23 @@ run:
 issues:
   exclude-use-default: false
   exclude-rules:
-    - path: _test\.go|testing|tests|test_env|fshasher
+    - path: _test\.go|testing|tests|test_env|fshasher|fault
       linters:
       - gomnd
       - gocognit
       - funlen
       - errcheck
       - gosec
+      - gochecknoglobals
       - nestif
       - wrapcheck
       - nolintlint
+      - errchkjson
       - forcetypeassert
       - contextcheck
+    - text: "log is a global variable"
+      linters:
+      - gochecknoglobals
     - text: "Magic number: 1e"
       linters:
       - gomnd
@@ -120,6 +124,3 @@ issues:
     - text: "Errors unhandled"
       linters:
         - gosec
-    - path: cli
-      linters:
-      - gochecknoglobals

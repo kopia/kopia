@@ -96,12 +96,14 @@ func toBlobID(blobName, prefix string) blob.ID {
 }
 
 func infoToVersionMetadata(prefix string, oi *minio.ObjectInfo) versionMetadata {
+	bm := blob.Metadata{
+		BlobID:    toBlobID(oi.Key, prefix),
+		Length:    oi.Size,
+		Timestamp: oi.LastModified,
+	}
+
 	return versionMetadata{
-		Metadata: blob.Metadata{
-			BlobID:    toBlobID(oi.Key, prefix),
-			Length:    oi.Size,
-			Timestamp: oi.LastModified,
-		},
+		Metadata:       bm,
 		IsLatest:       oi.IsLatest,
 		IsDeleteMarker: oi.IsDeleteMarker,
 		Version:        oi.VersionID,

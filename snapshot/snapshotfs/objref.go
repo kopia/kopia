@@ -67,7 +67,12 @@ func parseNestedObjectID(ctx context.Context, startingDir fs.Entry, parts []stri
 		return "", err
 	}
 
-	return e.(object.HasObjectID).ObjectID(), nil
+	hoid, ok := e.(object.HasObjectID)
+	if !ok {
+		return "", errors.Errorf("entry without ObjectID")
+	}
+
+	return hoid.ObjectID(), nil
 }
 
 // findSnapshotByRootObjectIDOrManifestID returns the list of matching snapshots for a given rootID.
@@ -99,7 +104,7 @@ func findSnapshotByRootObjectIDOrManifestID(ctx context.Context, rep repo.Reposi
 	// at this point we found multiple snapshots with the same root ID which don't agree on other
 	// metadata (the attributes, ACLs, ownership, etc. of the root)
 	if consistentAttributes {
-		return nil, errors.Errorf("found multiple snapshots matching %v with inconsistent root attributes.", rootID)
+		return nil, errors.Errorf("found multiple snapshots matching %v with inconsistent root attributes", rootID)
 	}
 
 	repoFSLog(ctx).Debugf("Found multiple snapshots matching %v with inconsistent root attributes. Picking latest one.", rootID)
@@ -190,8 +195,12 @@ func consistentSnapshotMetadata(m1, m2 *snapshot.Manifest) bool {
 	return toJSON(m1.RootEntry) == toJSON(m2.RootEntry)
 }
 
-func toJSON(v interface{}) string {
-	b, _ := json.Marshal(v)
+func toJSON(v *snapshot.DirEntry) string {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return "<invalid>"
+	}
+
 	return string(b)
 }
 

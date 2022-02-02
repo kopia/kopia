@@ -8,6 +8,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/cookiejar"
+	"regexp"
+	"strings"
 
 	"github.com/pkg/errors"
 
@@ -18,34 +20,69 @@ import (
 
 var log = logging.Module("client")
 
+// CSRFTokenHeader is the name of CSRF token header that must be sent for most API calls.
+// nolint:gosec
+const CSRFTokenHeader = "X-Kopia-Csrf-Token"
+
 // KopiaAPIClient provides helper methods for communicating with Kopia API server.
 type KopiaAPIClient struct {
 	BaseURL    string
 	HTTPClient *http.Client
+
+	CSRFToken string
 }
 
 // Get is a helper that performs HTTP GET on a URL with the specified suffix and decodes the response
 // onto respPayload which must be a pointer to byte slice or JSON-serializable structure.
 func (c *KopiaAPIClient) Get(ctx context.Context, urlSuffix string, onNotFound error, respPayload interface{}) error {
-	return c.runRequest(ctx, http.MethodGet, c.BaseURL+urlSuffix, onNotFound, nil, respPayload)
+	return c.runRequest(ctx, http.MethodGet, c.actualURL(urlSuffix), onNotFound, nil, respPayload)
 }
 
 // Post is a helper that performs HTTP POST on a URL with the specified body from reqPayload and decodes the response
 // onto respPayload which must be a pointer to byte slice or JSON-serializable structure.
 func (c *KopiaAPIClient) Post(ctx context.Context, urlSuffix string, reqPayload, respPayload interface{}) error {
-	return c.runRequest(ctx, http.MethodPost, c.BaseURL+urlSuffix, nil, reqPayload, respPayload)
+	return c.runRequest(ctx, http.MethodPost, c.actualURL(urlSuffix), nil, reqPayload, respPayload)
 }
 
 // Put is a helper that performs HTTP PUT on a URL with the specified body from reqPayload and decodes the response
 // onto respPayload which must be a pointer to byte slice or JSON-serializable structure.
 func (c *KopiaAPIClient) Put(ctx context.Context, urlSuffix string, reqPayload, respPayload interface{}) error {
-	return c.runRequest(ctx, http.MethodPut, c.BaseURL+urlSuffix, nil, reqPayload, respPayload)
+	return c.runRequest(ctx, http.MethodPut, c.actualURL(urlSuffix), nil, reqPayload, respPayload)
 }
 
 // Delete is a helper that performs HTTP DELETE on a URL with the specified body from reqPayload and decodes the response
 // onto respPayload which must be a pointer to byte slice or JSON-serializable structure.
 func (c *KopiaAPIClient) Delete(ctx context.Context, urlSuffix string, onNotFound error, reqPayload, respPayload interface{}) error {
-	return c.runRequest(ctx, http.MethodDelete, c.BaseURL+urlSuffix, onNotFound, reqPayload, respPayload)
+	return c.runRequest(ctx, http.MethodDelete, c.actualURL(urlSuffix), onNotFound, reqPayload, respPayload)
+}
+
+// FetchCSRFTokenForTesting fetches the CSRF token and session cookie for use when making subsequent calls to the API.
+// This simulates the browser behavior of downloading the "/" and is required to call the UI-only methods.
+func (c *KopiaAPIClient) FetchCSRFTokenForTesting(ctx context.Context) error {
+	var b []byte
+
+	if err := c.Get(ctx, "/", nil, &b); err != nil {
+		return err
+	}
+
+	re := regexp.MustCompile(`<meta name="kopia-csrf-token" content="(.*)" />`)
+
+	match := re.FindSubmatch(b)
+	if match == nil {
+		return errors.Errorf("CSRF token not found")
+	}
+
+	c.CSRFToken = string(match[1])
+
+	return nil
+}
+
+func (c *KopiaAPIClient) actualURL(suffix string) string {
+	if strings.HasPrefix(suffix, "/") {
+		return c.BaseURL + suffix
+	}
+
+	return c.BaseURL + "/api/v1/" + suffix
 }
 
 func (c *KopiaAPIClient) runRequest(ctx context.Context, method, url string, notFoundError error, reqPayload, respPayload interface{}) error {
@@ -57,6 +94,10 @@ func (c *KopiaAPIClient) runRequest(ctx context.Context, method, url string, not
 	req, err := http.NewRequestWithContext(ctx, method, url, payload)
 	if err != nil {
 		return errors.Wrap(err, "error creating request")
+	}
+
+	if c.CSRFToken != "" {
+		req.Header.Add(CSRFTokenHeader, c.CSRFToken)
 	}
 
 	if contentType != "" {
@@ -165,11 +206,12 @@ func NewKopiaAPIClient(options Options) (*KopiaAPIClient, error) {
 	}
 
 	return &KopiaAPIClient{
-		options.BaseURL + "/api/v1/",
+		options.BaseURL,
 		&http.Client{
 			Jar:       cj,
 			Transport: transport,
 		},
+		"",
 	}, nil
 }
 

@@ -738,6 +738,7 @@ type loggedAction struct {
 	keysAndValues map[string]interface{}
 }
 
+// nolint:maintidx
 func TestUploadLogging(t *testing.T) {
 	sourceDir := mockfs.NewDirectory()
 	sourceDir.AddFile("f1", []byte{1, 2, 3}, defaultPermissions)
@@ -994,7 +995,7 @@ func TestUploadLogging(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.desc, func(t *testing.T) {
 			ml := &mockLogger{
-				Logger: logging.NullLogger,
+				Logger: logging.NullLogger(),
 			}
 
 			ctx := testlogging.Context(t)
@@ -1004,7 +1005,7 @@ func TestUploadLogging(t *testing.T) {
 					return ml
 				}
 
-				return logging.NullLogger
+				return logging.NullLogger()
 			})
 			th := newUploadTestHarness(ctx, t)
 

@@ -43,6 +43,7 @@ func (c *commandPolicySet) setup(svc appServices, parent commandParent) {
 	cmd.Action(svc.repositoryWriterAction(c.run))
 }
 
+// nolint:gochecknoglobals
 var booleanEnumValues = []string{"true", "false", "inherit"}
 
 const (

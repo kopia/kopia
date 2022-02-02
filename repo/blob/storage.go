@@ -25,13 +25,20 @@ const TokenExpiredErrStr = "The provided token has expired"
 // authenticating with a storage provider has expired.
 var ErrTokenExpired = errors.Errorf(TokenExpiredErrStr)
 
+// ErrBlobAlreadyExists is returned when attempting to put a blob that already exists.
+var ErrBlobAlreadyExists = errors.New("blob already exists")
+
+// ErrUnsupportedPutBlobOption is returned when a PutBlob option that is not supported
+// by an implementation of Storage is specified in a PutBlob call.
+var ErrUnsupportedPutBlobOption = errors.New("unsupported put-blob option")
+
 // Bytes encapsulates a sequence of bytes, possibly stored in a non-contiguous buffers,
 // which can be written sequentially or treated as a io.Reader.
 type Bytes interface {
 	io.WriterTo
 
 	Length() int
-	Reader() io.Reader
+	Reader() io.ReadSeekCloser
 }
 
 // OutputBuffer is implemented by *gather.WriteBuffer.
@@ -65,10 +72,38 @@ type Reader interface {
 	DisplayName() string
 }
 
+// RetentionMode - object retention mode.
+type RetentionMode string
+
+const (
+	// Governance - governance mode.
+	Governance RetentionMode = "GOVERNANCE"
+
+	// Compliance - compliance mode.
+	Compliance RetentionMode = "COMPLIANCE"
+)
+
+func (r RetentionMode) String() string {
+	return string(r)
+}
+
+// IsValid - check whether this retention mode is valid or not.
+func (r RetentionMode) IsValid() bool {
+	return r == Governance || r == Compliance
+}
+
 // PutOptions represents put-options for a single BLOB in a storage.
 type PutOptions struct {
-	RetentionMode   string
+	RetentionMode   RetentionMode
 	RetentionPeriod time.Duration
+
+	// if true, PutBlob will fail with ErrBlobAlreadyExists if a blob with the same ID exists.
+	DoNotRecreate bool
+
+	// if not empty, set the provided timestamp on the blob instead of server-assigned,
+	// if unsupported by the server return ErrSetTimeUnsupported
+	SetModTime time.Time
+	GetModTime *time.Time // if != nil, populate the value pointed at with the actual modification time
 }
 
 // HasRetentionOptions returns true when blob-retention settings have been
@@ -95,9 +130,6 @@ type Storage interface {
 	// id with contents gathered from the specified list of slices.
 	PutBlob(ctx context.Context, blobID ID, data Bytes, opts PutOptions) error
 
-	// SetTime changes last modification time of a given blob, if supported, returns ErrSetTimeUnsupported otherwise.
-	SetTime(ctx context.Context, blobID ID, t time.Time) error
-
 	// DeleteBlob removes the blob from storage. Future Get() operations will fail with ErrNotFound.
 	DeleteBlob(ctx context.Context, blobID ID) error
 
@@ -119,7 +151,11 @@ type Metadata struct {
 }
 
 func (m *Metadata) String() string {
-	b, _ := json.Marshal(m)
+	b, err := json.Marshal(m)
+	if err != nil {
+		return "<invalid>"
+	}
+
 	return string(b)
 }
 
@@ -265,4 +301,20 @@ func DeleteMultiple(ctx context.Context, st Storage, ids []ID, parallelism int) 
 	}
 
 	return errors.Wrap(eg.Wait(), "error deleting blobs")
+}
+
+// PutBlobAndGetMetadata invokes PutBlob and returns the resulting Metadata.
+func PutBlobAndGetMetadata(ctx context.Context, st Storage, blobID ID, data Bytes, opts PutOptions) (Metadata, error) {
+	// ensure GetModTime is set, or reuse existing one.
+	if opts.GetModTime == nil {
+		opts.GetModTime = new(time.Time)
+	}
+
+	err := st.PutBlob(ctx, blobID, data, opts)
+
+	return Metadata{
+		BlobID:    blobID,
+		Length:    int64(data.Length()),
+		Timestamp: *opts.GetModTime,
+	}, err // nolint:wrapcheck
 }

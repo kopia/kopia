@@ -3,34 +3,31 @@ package azure
 
 import (
 	"context"
+	"encoding/xml"
 	"fmt"
-	"io"
-	"net/http"
 	"time"
 
-	"github.com/Azure/azure-pipeline-go/pipeline"
-	"github.com/Azure/azure-storage-blob-go/azblob"
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
 	"github.com/pkg/errors"
-	gblob "gocloud.dev/blob"
-	"gocloud.dev/blob/azureblob"
-	"gocloud.dev/gcerrors"
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/iocopy"
+	"github.com/kopia/kopia/internal/timestampmeta"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/retrying"
 )
 
 const (
 	azStorageType = "azureBlob"
+
+	timeMapKey = "Kopiamtime" // this must be capital letter followed by lowercase, to comply with AZ tags naming convention.
 )
 
 type azStorage struct {
 	Options
 
-	ctx context.Context
-
-	bucket *gblob.Bucket
+	service azblob.ServiceClient
+	bucket  azblob.ContainerClient
 }
 
 func (az *azStorage) GetBlob(ctx context.Context, b blob.ID, offset, length int64, output blob.OutputBuffer) error {
@@ -38,19 +35,33 @@ func (az *azStorage) GetBlob(ctx context.Context, b blob.ID, offset, length int6
 		return errors.Wrap(blob.ErrInvalidRange, "invalid offset")
 	}
 
-	attempt := func() error {
-		reader, err := az.bucket.NewRangeReader(ctx, az.getObjectNameString(b), offset, length, nil)
-		if err != nil {
-			return errors.Wrap(err, "NewRangeReader")
-		}
+	bc := az.bucket.NewBlockBlobClient(az.getObjectNameString(b))
+	opt := &azblob.DownloadBlobOptions{}
 
-		defer reader.Close() //nolint:errcheck
-
-		// nolint:wrapcheck
-		return iocopy.JustCopy(output, reader)
+	if length > 0 {
+		opt.Offset = &offset
+		opt.Count = &length
 	}
 
-	if err := attempt(); err != nil {
+	if length == 0 {
+		l1 := int64(1)
+		opt.Offset = &offset
+		opt.Count = &l1
+	}
+
+	resp, err := bc.Download(ctx, opt)
+	if err != nil {
+		return translateError(err)
+	}
+
+	body := resp.Body(azblob.RetryReaderOptions{})
+	defer body.Close() // nolint:errcheck
+
+	if length == 0 {
+		return nil
+	}
+
+	if err := iocopy.JustCopy(output, body); err != nil {
 		return translateError(err)
 	}
 
@@ -59,16 +70,24 @@ func (az *azStorage) GetBlob(ctx context.Context, b blob.ID, offset, length int6
 }
 
 func (az *azStorage) GetMetadata(ctx context.Context, b blob.ID) (blob.Metadata, error) {
-	fi, err := az.bucket.Attributes(ctx, az.getObjectNameString(b))
+	bc := az.bucket.NewBlockBlobClient(az.getObjectNameString(b))
+
+	fi, err := bc.GetProperties(ctx, &azblob.GetBlobPropertiesOptions{})
 	if err != nil {
 		return blob.Metadata{}, errors.Wrap(translateError(err), "Attributes")
 	}
 
-	return blob.Metadata{
+	bm := blob.Metadata{
 		BlobID:    b,
-		Length:    fi.Size,
-		Timestamp: fi.ModTime,
-	}, nil
+		Length:    *fi.ContentLength,
+		Timestamp: *fi.LastModified,
+	}
+
+	if t, ok := timestampmeta.FromValue(fi.Metadata[timeMapKey]); ok {
+		bm.Timestamp = t
+	}
+
+	return bm, nil
 }
 
 func translateError(err error) error {
@@ -76,60 +95,54 @@ func translateError(err error) error {
 		return nil
 	}
 
-	var re azblob.ResponseError
+	var re *azblob.StorageError
+
 	if errors.As(err, &re) {
-		if re.Response().StatusCode == http.StatusRequestedRangeNotSatisfiable { //nolint:bodyclose
+		// nolint:exhaustive
+		switch re.ErrorCode {
+		case azblob.StorageErrorCodeBlobNotFound:
+			return blob.ErrBlobNotFound
+		case azblob.StorageErrorCodeInvalidRange:
 			return blob.ErrInvalidRange
 		}
 	}
 
-	switch gcerrors.Code(err) {
-	case gcerrors.OK:
-		return nil
-	case gcerrors.NotFound:
-		return blob.ErrBlobNotFound
-	case gcerrors.InvalidArgument:
-		return blob.ErrInvalidRange
-	default:
-		return err
-	}
+	return err
 }
 
 func (az *azStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes, opts blob.PutOptions) error {
-	if opts.HasRetentionOptions() {
-		return errors.New("setting blob-retention is not supported")
+	switch {
+	case opts.HasRetentionOptions():
+		return errors.Wrap(blob.ErrUnsupportedPutBlobOption, "blob-retention")
+	case opts.DoNotRecreate:
+		return errors.Wrap(blob.ErrUnsupportedPutBlobOption, "do-not-recreate")
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	// create azure Bucket writer
-	writer, err := az.bucket.NewWriter(ctx, az.getObjectNameString(b), &gblob.WriterOptions{ContentType: "application/x-kopia"})
-	if err != nil {
-		// nolint:wrapcheck
-		return err
+	bc := az.bucket.NewBlockBlobClient(az.getObjectNameString(b))
+
+	ubo := &azblob.UploadBlockBlobOptions{
+		Metadata: timestampmeta.ToMap(opts.SetModTime, timeMapKey),
 	}
 
-	if err := iocopy.JustCopy(writer, data.Reader()); err != nil {
-		// cancel context before closing the writer causes it to abandon the upload.
-		cancel()
-
-		_ = writer.Close() // failing already, ignore the error
-
+	resp, err := bc.Upload(ctx, data.Reader(), ubo)
+	if err != nil {
 		return translateError(err)
 	}
 
-	// calling close before cancel() causes it to commit the upload.
-	return translateError(writer.Close())
-}
+	if opts.GetModTime != nil {
+		*opts.GetModTime = *resp.LastModified
+	}
 
-func (az *azStorage) SetTime(ctx context.Context, b blob.ID, t time.Time) error {
-	return blob.ErrSetTimeUnsupported
+	return nil
 }
 
 // DeleteBlob deletes azure blob from container with given ID.
 func (az *azStorage) DeleteBlob(ctx context.Context, b blob.ID) error {
-	err := translateError(az.bucket.Delete(ctx, az.getObjectNameString(b)))
+	_, err := az.bucket.NewBlockBlobClient(az.getObjectNameString(b)).Delete(ctx, nil)
+	err = translateError(err)
 
 	// don't return error if blob is already deleted
 	if errors.Is(err, blob.ErrBlobNotFound) {
@@ -145,33 +158,66 @@ func (az *azStorage) getObjectNameString(b blob.ID) string {
 
 // ListBlobs list azure blobs with given prefix.
 func (az *azStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback func(blob.Metadata) error) error {
-	// create list iterator
-	li := az.bucket.List(&gblob.ListOptions{Prefix: az.getObjectNameString(prefix)})
+	prefixStr := az.Prefix + string(prefix)
 
-	// iterate over list iterator
-	for {
-		lo, err := li.Next(ctx)
-		if errors.Is(err, io.EOF) {
-			break
+	pager := az.bucket.ListBlobsFlat(&azblob.ContainerListBlobFlatSegmentOptions{
+		Prefix: &prefixStr,
+		Include: []azblob.ListBlobsIncludeItem{
+			"[" + azblob.ListBlobsIncludeItemMetadata + "]",
+		},
+	})
+
+	for pager.NextPage(ctx) {
+		resp := pager.PageResponse()
+
+		// workaround for the XML parsing bug reported upstream
+		// https://github.com/Azure/azure-sdk-for-go/issues/16679
+		var enumerationResults struct {
+			Blobs struct {
+				Blob []struct {
+					Name       string
+					Properties struct {
+						ContentLength int64  `xml:"Content-Length"`
+						LastModified  string `xml:"Last-Modified"`
+					}
+					Metadata struct {
+						Kopiamtime string
+					}
+				}
+			}
 		}
 
-		if err != nil {
-			// nolint:wrapcheck
-			return err
+		dec := xml.NewDecoder(resp.RawResponse.Body)
+		if err := dec.Decode(&enumerationResults); err != nil {
+			return errors.Wrap(err, "unable to decode response")
 		}
 
-		bm := blob.Metadata{
-			BlobID:    blob.ID(lo.Key[len(az.Prefix):]),
-			Length:    lo.Size,
-			Timestamp: lo.ModTime,
-		}
+		for _, it := range enumerationResults.Blobs.Blob {
+			bm := blob.Metadata{
+				BlobID: blob.ID(it.Name[len(az.Prefix):]),
+				Length: it.Properties.ContentLength,
+			}
 
-		if err := callback(bm); err != nil {
-			return err
+			// see if we have 'Kopiamtime' metadata, if so - trust it.
+			if t, ok := timestampmeta.FromValue(it.Metadata.Kopiamtime); ok {
+				bm.Timestamp = t
+			} else {
+				// fall back to using last modified time.
+				t, err := time.Parse(time.RFC1123, it.Properties.LastModified)
+				if err != nil {
+					return errors.Wrapf(err, "invalid timestamp for BLOB '%v': %q", bm.BlobID, it.Properties.LastModified)
+				}
+
+				bm.Timestamp = t
+			}
+
+			if err := callback(bm); err != nil {
+				return err
+			}
 		}
 	}
 
-	return nil
+	return translateError(pager.Err())
 }
 
 func (az *azStorage) ConnectionInfo() blob.ConnectionInfo {
@@ -186,7 +232,7 @@ func (az *azStorage) DisplayName() string {
 }
 
 func (az *azStorage) Close(ctx context.Context) error {
-	return errors.Wrap(az.bucket.Close(), "error closing bucket")
+	return nil
 }
 
 func (az *azStorage) FlushCaches(ctx context.Context) error {
@@ -202,53 +248,57 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 	}
 
 	var (
-		abo          azureblob.Options
-		pl           pipeline.Pipeline
-		pipelineOpts azblob.PipelineOptions
-		account      = azureblob.AccountName(opt.StorageAccount)
+		service    azblob.ServiceClient
+		serviceErr error
 	)
 
-	if opt.SASToken != "" {
-		abo.SASToken = azureblob.SASToken(opt.SASToken)
-		// don't set abo.Credential
-		pl = azureblob.NewPipeline(azblob.NewAnonymousCredential(), pipelineOpts)
-	} else {
-		if opt.StorageKey == "" {
-			return nil, errors.Errorf("either storage key or SAS token must be provided")
-		}
+	storageDomain := opt.StorageDomain
+	if storageDomain == "" {
+		storageDomain = "blob.core.windows.net"
+	}
 
+	storageHostname := fmt.Sprintf("%v.%v", opt.StorageAccount, storageDomain)
+
+	switch {
+	case opt.SASToken != "":
+		service, serviceErr = azblob.NewServiceClientWithNoCredential(
+			fmt.Sprintf("https://%s?%s", storageHostname, opt.SASToken), nil)
+
+	case opt.StorageKey != "":
 		// create a credentials object.
-		cred, err := azureblob.NewCredential(account, azureblob.AccountKey(opt.StorageKey))
+		cred, err := azblob.NewSharedKeyCredential(opt.StorageAccount, opt.StorageKey)
 		if err != nil {
 			return nil, errors.Wrap(err, "unable to initialize credentials")
 		}
 
-		abo.Credential = cred
-		pl = azureblob.NewPipeline(cred, pipelineOpts)
+		service, serviceErr = azblob.NewServiceClientWithSharedKey(
+			fmt.Sprintf("https://%s/", storageHostname), cred, nil,
+		)
+
+	default:
+		return nil, errors.Errorf("either storage key or SAS token must be provided")
 	}
 
-	abo.StorageDomain = azureblob.StorageDomain(opt.StorageDomain)
-
-	// create a *blob.Bucket.
-	bucket, err := azureblob.OpenBucket(ctx, pl, account, opt.Container, &abo)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to open bucket")
+	if serviceErr != nil {
+		return nil, errors.Wrap(serviceErr, "opening azure service")
 	}
 
-	az := retrying.NewWrapper(&azStorage{
+	bucket := service.NewContainerClient(opt.Container)
+
+	raw := &azStorage{
 		Options: *opt,
-		ctx:     ctx,
 		bucket:  bucket,
-	})
+		service: service,
+	}
+
+	az := retrying.NewWrapper(raw)
 
 	// verify Azure connection is functional by listing blobs in a bucket, which will fail if the container
 	// does not exist. We list with a prefix that will not exist, to avoid iterating through any objects.
 	nonExistentPrefix := fmt.Sprintf("kopia-azure-storage-initializing-%v", clock.Now().UnixNano())
-	err = az.ListBlobs(ctx, blob.ID(nonExistentPrefix), func(md blob.Metadata) error {
+	if err := raw.ListBlobs(ctx, blob.ID(nonExistentPrefix), func(md blob.Metadata) error {
 		return nil
-	})
-
-	if err != nil {
+	}); err != nil {
 		return nil, errors.Wrap(err, "unable to list from the bucket")
 	}
 
@@ -262,6 +312,6 @@ func init() {
 			return &Options{}
 		},
 		func(ctx context.Context, o interface{}, isCreate bool) (blob.Storage, error) {
-			return New(ctx, o.(*Options))
+			return New(ctx, o.(*Options)) // nolint:forcetypeassert
 		})
 }

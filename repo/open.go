@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -13,8 +14,10 @@ import (
 	"github.com/kopia/kopia/internal/atomicfile"
 	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/epoch"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/blob/beforeop"
 	loggingwrapper "github.com/kopia/kopia/repo/blob/logging"
 	"github.com/kopia/kopia/repo/blob/readonly"
 	"github.com/kopia/kopia/repo/blob/throttling"
@@ -31,9 +34,9 @@ const CacheDirMarkerFile = "CACHEDIR.TAG"
 // CacheDirMarkerHeader is the header signature for cache dir marker files.
 const CacheDirMarkerHeader = "Signature: 8a477f597d28d172789f06886806bc55"
 
-// defaultFormatBlobCacheDuration is the duration for which we treat cached kopia.repository
+// defaultRepositoryBlobCacheDuration is the duration for which we treat cached kopia.repository
 // as valid.
-const defaultFormatBlobCacheDuration = 15 * time.Minute
+const defaultRepositoryBlobCacheDuration = 15 * time.Minute
 
 // throttlingWindow is the duration window during which the throttling token bucket fully replenishes.
 // the maximum number of tokens in the bucket is multiplied by the number of seconds.
@@ -45,6 +48,7 @@ const throttleBucketInitialFill = 0.1
 // localCacheIntegrityHMACSecretLength length of HMAC secret protecting local cache items.
 const localCacheIntegrityHMACSecretLength = 16
 
+// nolint:gochecknoglobals
 var localCacheIntegrityPurpose = []byte("local-cache-integrity")
 
 const cacheDirMarkerContents = CacheDirMarkerHeader + `
@@ -176,14 +180,14 @@ func openDirect(ctx context.Context, configFile string, lc *LocalConfig, passwor
 }
 
 // openWithConfig opens the repository with a given configuration, avoiding the need for a config file.
-// nolint:funlen
+// nolint:funlen,gocyclo
 func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, password string, options *Options, caching *content.CachingOptions, configFile string) (DirectRepository, error) {
 	caching = caching.CloneOrDefault()
 
-	// Read format blob, potentially from cache.
-	fb, err := readAndCacheFormatBlobBytes(ctx, st, caching.CacheDirectory, lc.FormatBlobCacheDuration)
+	// Read repo blobs, potentially from cache.
+	fb, rb, err := readAndCacheRepositoryBlobs(ctx, st, caching.CacheDirectory, lc.FormatBlobCacheDuration)
 	if err != nil {
-		return nil, errors.Wrap(err, "unable to read format blob")
+		return nil, errors.Wrap(err, "unable to read repository blobs")
 	}
 
 	if err = writeCacheMarker(caching.CacheDirectory); err != nil {
@@ -206,6 +210,11 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 	}
 
 	repoConfig, err := f.decryptFormatBytes(formatEncryptionKey)
+	if err != nil {
+		return nil, ErrInvalidPassword
+	}
+
+	retentionConfig, err := deserializeBlobCfgBytes(f, rb, formatEncryptionKey)
 	if err != nil {
 		return nil, ErrInvalidPassword
 	}
@@ -240,6 +249,10 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 		return nil, errors.Wrap(err, "unable to add throttler")
 	}
 
+	if retentionConfig.IsRetentionEnabled() {
+		st = wrapLockingStorage(st, retentionConfig)
+	}
+
 	scm, err := content.NewSharedManager(ctx, st, fo, caching, cmOpts)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create shared content manager")
@@ -271,6 +284,7 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 			uniqueID:            f.UniqueID,
 			cachingOptions:      *caching,
 			formatBlob:          f,
+			blobCfgBlob:         &retentionConfig,
 			formatEncryptionKey: formatEncryptionKey,
 			timeNow:             cmOpts.TimeNow,
 			cliOpts:             lc.ClientOptions.ApplyDefaults(ctx, "Repository in "+st.DisplayName()),
@@ -281,6 +295,28 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 	}
 
 	return dr, nil
+}
+
+func wrapLockingStorage(st blob.Storage, r blobCfgBlob) blob.Storage {
+	// collect prefixes that need to be locked on put
+	var prefixes []string
+	for _, prefix := range content.PackBlobIDPrefixes {
+		prefixes = append(prefixes, string(prefix))
+	}
+
+	prefixes = append(prefixes, content.IndexBlobPrefix, epoch.EpochManagerIndexUberPrefix, FormatBlobID,
+		BlobCfgBlobID)
+
+	return beforeop.NewWrapper(st, nil, nil, nil, func(id blob.ID, opts *blob.PutOptions) error {
+		for _, prefix := range prefixes {
+			if strings.HasPrefix(string(id), prefix) {
+				opts.RetentionMode = r.RetentionMode
+				opts.RetentionPeriod = r.RetentionPeriod
+				break
+			}
+		}
+		return nil
+	})
 }
 
 func addThrottler(ctx context.Context, st blob.Storage) (blob.Storage, throttling.SettableThrottler, error) {
@@ -327,7 +363,7 @@ func writeCacheMarker(cacheDir string) error {
 		return errors.Wrap(err, "unexpected cache marker error")
 	}
 
-	f, err := os.Create(markerFile)
+	f, err := os.Create(markerFile) //nolint:gosec
 	if err != nil {
 		return errors.Wrap(err, "error creating cache marker")
 	}
@@ -347,7 +383,7 @@ func formatBytesCachingEnabled(cacheDirectory string, validDuration time.Duratio
 	return validDuration > 0
 }
 
-func readFormatBlobBytesFromCache(ctx context.Context, cachedFile string, validDuration time.Duration) ([]byte, error) {
+func readRepositoryBlobBytesFromCache(ctx context.Context, cachedFile string, validDuration time.Duration) ([]byte, error) {
 	cst, err := os.Stat(cachedFile)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to open cache file")
@@ -365,11 +401,11 @@ func readFormatBlobBytesFromCache(ctx context.Context, cachedFile string, validD
 	return os.ReadFile(cachedFile) //nolint:wrapcheck,gosec
 }
 
-func readAndCacheFormatBlobBytes(ctx context.Context, st blob.Storage, cacheDirectory string, validDuration time.Duration) ([]byte, error) {
-	cachedFile := filepath.Join(cacheDirectory, "kopia.repository")
+func readAndCacheRepositoryBlobBytes(ctx context.Context, st blob.Storage, cacheDirectory, blobID string, validDuration time.Duration) ([]byte, error) {
+	cachedFile := filepath.Join(cacheDirectory, blobID)
 
 	if validDuration == 0 {
-		validDuration = defaultFormatBlobCacheDuration
+		validDuration = defaultRepositoryBlobCacheDuration
 	}
 
 	if cacheDirectory != "" {
@@ -380,23 +416,23 @@ func readAndCacheFormatBlobBytes(ctx context.Context, st blob.Storage, cacheDire
 
 	cacheEnabled := formatBytesCachingEnabled(cacheDirectory, validDuration)
 	if cacheEnabled {
-		b, err := readFormatBlobBytesFromCache(ctx, cachedFile, validDuration)
+		b, err := readRepositoryBlobBytesFromCache(ctx, cachedFile, validDuration)
 		if err == nil {
-			log(ctx).Debugf("kopia.repository retrieved from cache")
+			log(ctx).Debugf("%s retrieved from cache", blobID)
 
 			return b, nil
 		}
 
-		log(ctx).Debugf("kopia.repository could not be fetched from cache: %v", err)
+		log(ctx).Debugf("%s could not be fetched from cache: %v", blobID, err)
 	} else {
-		log(ctx).Debugf("kopia.repository cache not enabled")
+		log(ctx).Debugf("%s cache not enabled", blobID)
 	}
 
 	var b gather.WriteBuffer
 	defer b.Close()
 
-	if err := st.GetBlob(ctx, FormatBlobID, 0, -1, &b); err != nil {
-		return nil, errors.Wrap(err, "error getting format blob")
+	if err := st.GetBlob(ctx, blob.ID(blobID), 0, -1, &b); err != nil {
+		return nil, errors.Wrapf(err, "error getting %s blob", blobID)
 	}
 
 	if cacheEnabled {
@@ -406,4 +442,20 @@ func readAndCacheFormatBlobBytes(ctx context.Context, st blob.Storage, cacheDire
 	}
 
 	return b.ToByteSlice(), nil
+}
+
+func readAndCacheRepositoryBlobs(ctx context.Context, st blob.Storage, cacheDirectory string, validDuration time.Duration) (format, blobcfg []byte, err error) {
+	// Read format blob, potentially from cache.
+	fb, err := readAndCacheRepositoryBlobBytes(ctx, st, cacheDirectory, FormatBlobID, validDuration)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "unable to read format blob")
+	}
+
+	// Read blobcfg blob, potentially from cache.
+	rb, err := readAndCacheRepositoryBlobBytes(ctx, st, cacheDirectory, BlobCfgBlobID, validDuration)
+	if err != nil && !errors.Is(err, blob.ErrBlobNotFound) {
+		return nil, nil, errors.Wrap(err, "unable to read blobcfg blob")
+	}
+
+	return fb, rb, nil
 }

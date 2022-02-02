@@ -83,16 +83,26 @@ func DisconnectFromRepository(ctx context.Context, c *apiclient.KopiaAPIClient) 
 	return c.Post(ctx, "repo/disconnect", &Empty{}, &Empty{})
 }
 
-// Shutdown invokes the 'repo/shutdown' API.
+// Shutdown invokes the 'control/shutdown' API.
 func Shutdown(ctx context.Context, c *apiclient.KopiaAPIClient) error {
 	// nolint:wrapcheck
-	return c.Post(ctx, "shutdown", &Empty{}, &Empty{})
+	return c.Post(ctx, "control/shutdown", &Empty{}, &Empty{})
 }
 
-// Status invokes the 'repo/status' API.
-func Status(ctx context.Context, c *apiclient.KopiaAPIClient) (*StatusResponse, error) {
+// RepoStatus invokes the 'repo/status' API.
+func RepoStatus(ctx context.Context, c *apiclient.KopiaAPIClient) (*StatusResponse, error) {
 	resp := &StatusResponse{}
 	if err := c.Get(ctx, "repo/status", nil, resp); err != nil {
+		return nil, errors.Wrap(err, "Status")
+	}
+
+	return resp, nil
+}
+
+// Status invokes the 'control/status' API.
+func Status(ctx context.Context, c *apiclient.KopiaAPIClient) (*StatusResponse, error) {
+	resp := &StatusResponse{}
+	if err := c.Get(ctx, "control/status", nil, resp); err != nil {
 		return nil, errors.Wrap(err, "Status")
 	}
 

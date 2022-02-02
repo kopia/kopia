@@ -27,7 +27,10 @@ const TextLogBlobPrefix = "_log_"
 type internalLogManager struct {
 	enabled int32 // set by enable(), logger is ineffective until called
 
-	ctx            context.Context
+	// internalLogManager implements io.Writer and we must be able to write to the
+	// repository asynchronously when the context is not provided.
+	ctx context.Context // nolint:containedctx
+
 	st             blob.Storage
 	bc             *Crypter
 	wg             sync.WaitGroup
@@ -84,11 +87,11 @@ func (m *internalLogManager) NewLogger() *zap.SugaredLogger {
 			TimeKey:          "t",
 			MessageKey:       "m",
 			NameKey:          "n",
-			EncodeTime:       zaplogutil.TimezoneAdjust(zaplogutil.PreciseTimeEncoder, false),
+			EncodeTime:       zaplogutil.TimezoneAdjust(zaplogutil.PreciseTimeEncoder(), false),
 			EncodeDuration:   zapcore.StringDurationEncoder,
 			ConsoleSeparator: " ",
 		}),
-		w, zap.DebugLevel), zap.WithClock(zaplogutil.Clock)).Sugar()
+		w, zap.DebugLevel), zap.WithClock(zaplogutil.Clock())).Sugar()
 }
 
 // internalLogger represents a single log session that saves log files as blobs in the repository.

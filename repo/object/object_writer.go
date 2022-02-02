@@ -62,8 +62,10 @@ func (t *contentIDTracker) contentIDs() []content.ID {
 }
 
 type objectWriter struct {
-	ctx context.Context
-	om  *Manager
+	// objectWriter implements io.Writer but needs context to talk to repository
+	ctx context.Context //nolint:containedctx
+
+	om *Manager
 
 	compressor compression.Compressor
 
@@ -117,17 +119,12 @@ func (w *objectWriter) Write(data []byte) (n int, err error) {
 		n := w.splitter.NextSplitPoint(data)
 		if n < 0 {
 			// no split points in the buffer
-			if _, err := w.buffer.Write(data); err != nil {
-				return 0, errors.Wrap(err, "error writing to buffer")
-			}
-
+			w.buffer.Append(data)
 			break
 		}
 
 		// found a split point after `n` bytes, write first n bytes then flush and repeat with the remainder.
-		if _, err := w.buffer.Write(data[0:n]); err != nil {
-			return 0, errors.Wrap(err, "error writing to buffer")
-		}
+		w.buffer.Append(data[0:n])
 
 		if err := w.flushBuffer(); err != nil {
 			return 0, err
@@ -162,9 +159,7 @@ func (w *objectWriter) flushBuffer() error {
 	w.asyncWritesWG.Add(1)
 
 	asyncBuf := gather.NewWriteBuffer()
-	if _, err := w.buffer.Bytes().WriteTo(asyncBuf); err != nil {
-		return errors.Wrap(err, "error copying buffer for async copy")
-	}
+	w.buffer.Bytes().WriteTo(asyncBuf) // nolint:errcheck
 
 	go func() {
 		defer func() {

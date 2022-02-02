@@ -108,49 +108,92 @@ func VerifyStorage(ctx context.Context, t *testing.T, r blob.Storage, opts blob.
 	})
 
 	t.Run("OverwriteBlobs", func(t *testing.T) {
+		newContents := []byte{99}
+
 		for _, b := range blocks {
 			b := b
 
 			t.Run(string(b.blk), func(t *testing.T) {
 				t.Parallel()
-
-				require.NoErrorf(t, r.PutBlob(ctx, b.blk, gather.FromSlice(b.contents), blob.PutOptions{}), "can't put blob: %v", b)
-				AssertGetBlob(ctx, t, r, b.blk, b.contents)
+				err := r.PutBlob(ctx, b.blk, gather.FromSlice(newContents), opts)
+				if opts.DoNotRecreate {
+					require.ErrorIsf(t, err, blob.ErrBlobAlreadyExists, "overwrote blob: %v", b)
+					AssertGetBlob(ctx, t, r, b.blk, b.contents)
+				} else {
+					require.NoErrorf(t, err, "can't put blob: %v", b)
+					AssertGetBlob(ctx, t, r, b.blk, newContents)
+				}
 			})
 		}
 	})
 
-	ts := time.Date(2020, 1, 1, 15, 30, 45, 0, time.UTC)
+	t.Run("DeleteBlobsAndList", func(t *testing.T) {
+		require.NoError(t, r.DeleteBlob(ctx, blocks[0].blk))
+		require.NoError(t, r.DeleteBlob(ctx, blocks[0].blk))
 
-	t.Run("SetTime", func(t *testing.T) {
+		AssertListResults(ctx, t, r, "ab", blocks[2].blk, blocks[3].blk)
+		AssertListResults(ctx, t, r, "", blocks[1].blk, blocks[2].blk, blocks[3].blk, blocks[4].blk)
+	})
+
+	t.Run("PutBlobsWithSetTime", func(t *testing.T) {
 		for _, b := range blocks {
 			b := b
 
 			t.Run(string(b.blk), func(t *testing.T) {
 				t.Parallel()
 
-				err := r.SetTime(ctx, b.blk, ts)
+				inTime := time.Date(2020, 1, 2, 12, 30, 40, 0, time.UTC)
+
+				err := r.PutBlob(ctx, b.blk, gather.FromSlice(b.contents), blob.PutOptions{
+					SetModTime: inTime,
+				})
+
 				if errors.Is(err, blob.ErrSetTimeUnsupported) {
-					return
+					t.Skip("setting time unsupported")
 				}
 
+				bm, err := r.GetMetadata(ctx, b.blk)
 				require.NoError(t, err)
 
-				md, err := r.GetMetadata(ctx, b.blk)
-				if err != nil {
-					t.Errorf("unable to get blob metadata")
-				}
+				AssertTimestampsCloseEnough(t, bm.BlobID, bm.Timestamp, inTime)
 
-				require.True(t, md.Timestamp.Equal(ts), "invalid time after SetTme(): %vm want %v", md.Timestamp, ts)
+				all, err := blob.ListAllBlobs(ctx, r, b.blk)
+				require.NoError(t, err)
+				require.Len(t, all, 1)
+
+				AssertTimestampsCloseEnough(t, all[0].BlobID, all[0].Timestamp, inTime)
 			})
 		}
 	})
 
-	require.NoError(t, r.DeleteBlob(ctx, blocks[0].blk))
-	require.NoError(t, r.DeleteBlob(ctx, blocks[0].blk))
+	t.Run("PutBlobsWithGetTime", func(t *testing.T) {
+		for _, b := range blocks {
+			b := b
 
-	AssertListResults(ctx, t, r, "ab", blocks[2].blk, blocks[3].blk)
-	AssertListResults(ctx, t, r, "", blocks[1].blk, blocks[2].blk, blocks[3].blk, blocks[4].blk)
+			t.Run(string(b.blk), func(t *testing.T) {
+				t.Parallel()
+
+				var outTime time.Time
+
+				require.NoError(t, r.PutBlob(ctx, b.blk, gather.FromSlice(b.contents), blob.PutOptions{
+					GetModTime: &outTime,
+				}))
+
+				require.False(t, outTime.IsZero(), "modification time was not returned")
+
+				bm, err := r.GetMetadata(ctx, b.blk)
+				require.NoError(t, err)
+
+				AssertTimestampsCloseEnough(t, bm.BlobID, bm.Timestamp, outTime)
+
+				all, err := blob.ListAllBlobs(ctx, r, b.blk)
+				require.NoError(t, err)
+				require.Len(t, all, 1)
+
+				AssertTimestampsCloseEnough(t, all[0].BlobID, all[0].Timestamp, outTime)
+			})
+		}
+	})
 }
 
 // AssertConnectionInfoRoundTrips verifies that the ConnectionInfo returned by a given storage can be used to create
@@ -173,11 +216,12 @@ func AssertConnectionInfoRoundTrips(ctx context.Context, t *testing.T, s blob.St
 // TestValidationOptions is the set of options used when running providing validation from tests.
 // nolint:gomnd
 var TestValidationOptions = providervalidation.Options{
-	MaxClockDrift:           3 * time.Minute,
-	ConcurrencyTestDuration: 15 * time.Second,
-	NumPutBlobWorkers:       3,
-	NumGetBlobWorkers:       3,
-	NumGetMetadataWorkers:   3,
-	NumListBlobsWorkers:     3,
-	MaxBlobLength:           10e6,
+	MaxClockDrift:            3 * time.Minute,
+	ConcurrencyTestDuration:  15 * time.Second,
+	NumPutBlobWorkers:        3,
+	NumGetBlobWorkers:        3,
+	NumGetMetadataWorkers:    3,
+	NumListBlobsWorkers:      3,
+	MaxBlobLength:            10e6,
+	SupportIdempotentCreates: false,
 }

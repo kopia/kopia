@@ -14,6 +14,7 @@ import (
 )
 
 // DefaultModTime is the default modification time for mock filesystem entries.
+// nolint:gochecknoglobals
 var DefaultModTime = time.Date(2021, 1, 2, 3, 4, 5, 0, time.UTC)
 
 // ReaderSeekerCloser implements io.Reader, io.Seeker and io.Closer.

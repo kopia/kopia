@@ -23,6 +23,7 @@ type Compressor interface {
 }
 
 // maps of registered compressors by header ID and name.
+// nolint:gochecknoglobals
 var (
 	ByHeaderID     = map[HeaderID]Compressor{}
 	ByName         = map[Name]Compressor{}

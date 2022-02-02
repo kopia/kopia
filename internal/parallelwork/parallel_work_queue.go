@@ -113,7 +113,7 @@ func (v *Queue) dequeue(ctx context.Context) CallbackFunc {
 	front := v.queueItems.Front()
 	v.queueItems.Remove(front)
 
-	return front.Value.(CallbackFunc)
+	return front.Value.(CallbackFunc) // nolint:forcetypeassert
 }
 
 func (v *Queue) completed(ctx context.Context) {

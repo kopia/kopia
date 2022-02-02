@@ -81,6 +81,12 @@ for f in $deb_files; do
       dists="unstable"
     fi
 
+
+    if [[ "$architectures" != *"$arch"* ]]; then
+      echo "ignoring unsupported architecture: $f arch: $arch dists: $dists"
+      continue
+    fi
+
     echo "$f $arch $dists"
 
     bn=$(basename $f)

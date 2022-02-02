@@ -43,6 +43,3 @@ func (p *ActionsPolicy) MergeNonInheritable(src ActionsPolicy) {
 	p.BeforeFolder = src.BeforeFolder
 	p.AfterFolder = src.AfterFolder
 }
-
-// defaultActionsPolicy is the default actions policy.
-var defaultActionsPolicy = ActionsPolicy{}

@@ -53,6 +53,8 @@ type sourceManager struct {
 	lastSnapshot                       *snapshot.Manifest
 	lastCompleteSnapshot               *snapshot.Manifest
 	manifestsSinceLastCompleteSnapshot []*snapshot.Manifest
+	paused                             bool
+	isReadOnly                         bool
 
 	progress    *snapshotfs.CountingUploadProgress
 	currentTask string
@@ -132,7 +134,12 @@ func (s *sourceManager) runLocal(ctx context.Context) {
 			waitTime = oneDay
 		}
 
-		s.setStatus("IDLE")
+		if s.paused {
+			s.setStatus("PAUSED")
+		} else {
+			s.setStatus("IDLE")
+		}
+
 		select {
 		case <-s.closed:
 			return
@@ -174,6 +181,7 @@ func (s *sourceManager) backoffBeforeNextSnapshot() {
 }
 
 func (s *sourceManager) runReadOnly(ctx context.Context) {
+	s.isReadOnly = true
 	s.refreshStatus(ctx)
 	s.setStatus("REMOTE")
 
@@ -202,11 +210,46 @@ func (s *sourceManager) upload(ctx context.Context) serverapi.SourceActionRespon
 }
 
 func (s *sourceManager) cancel(ctx context.Context) serverapi.SourceActionResponse {
-	log(ctx).Infof("cancel triggered via API: %v", s.src)
+	log(ctx).Debugw("cancel triggered via API", "source", s.src)
 
 	if u := s.currentUploader(); u != nil {
 		log(ctx).Infof("canceling current upload")
 		u.Cancel()
+	}
+
+	return serverapi.SourceActionResponse{Success: true}
+}
+
+func (s *sourceManager) pause(ctx context.Context) serverapi.SourceActionResponse {
+	log(ctx).Debugw("pause triggered via API", "source", s.src)
+
+	s.mu.Lock()
+	s.paused = true
+	s.mu.Unlock()
+
+	if u := s.currentUploader(); u != nil {
+		log(ctx).Infof("canceling current upload")
+		u.Cancel()
+	} else {
+		select {
+		case s.refreshRequested <- struct{}{}:
+		default:
+		}
+	}
+
+	return serverapi.SourceActionResponse{Success: true}
+}
+
+func (s *sourceManager) resume(ctx context.Context) serverapi.SourceActionResponse {
+	log(ctx).Debugw("resume triggered via API", "source", s.src)
+
+	s.mu.Lock()
+	s.paused = false
+	s.mu.Unlock()
+
+	select {
+	case s.refreshRequested <- struct{}{}:
+	default:
 	}
 
 	return serverapi.SourceActionResponse{Success: true}
@@ -369,7 +412,11 @@ func (s *sourceManager) refreshStatus(ctx context.Context) {
 		s.lastSnapshot = nil
 	}
 
-	s.nextSnapshotTime = s.findClosestNextSnapshotTime()
+	if s.paused {
+		s.nextSnapshotTime = nil
+	} else {
+		s.nextSnapshotTime = s.findClosestNextSnapshotTime()
+	}
 }
 
 type uitaskProgress struct {

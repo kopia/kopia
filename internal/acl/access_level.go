@@ -11,6 +11,7 @@ import (
 type AccessLevel int
 
 // accessLevelToString maps supported access levels to strings.
+// nolint:gochecknoglobals
 var accessLevelToString = map[AccessLevel]string{
 	AccessLevelNone:   "NONE",
 	AccessLevelRead:   "READ",
@@ -19,6 +20,7 @@ var accessLevelToString = map[AccessLevel]string{
 }
 
 // stringToAccessLevel maps strings to supported access levels.
+// nolint:gochecknoglobals
 var stringToAccessLevel = map[string]AccessLevel{}
 
 func init() {

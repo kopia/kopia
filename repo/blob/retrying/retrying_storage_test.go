@@ -7,7 +7,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/blobtesting"
-	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo/blob"
@@ -21,26 +20,11 @@ func TestRetrying(t *testing.T) {
 
 	someError := errors.New("some error")
 	ms := blobtesting.NewMapStorage(blobtesting.DataMap{}, nil, nil)
-	fs := &blobtesting.FaultyStorage{
-		Base: ms,
-		Faults: map[string][]*blobtesting.Fault{
-			"PutBlob": {
-				{Err: someError},
-			},
-			"GetBlob": {
-				{Err: someError},
-			},
-			"GetMetadata": {
-				{Err: someError},
-			},
-			"DeleteBlob": {
-				{Err: someError},
-			},
-			"SetTime": {
-				{Err: someError},
-			},
-		},
-	}
+	fs := blobtesting.NewFaultyStorage(ms)
+	fs.AddFault(blobtesting.MethodPutBlob).ErrorInstead(someError)
+	fs.AddFault(blobtesting.MethodGetBlob).ErrorInstead(someError)
+	fs.AddFault(blobtesting.MethodGetMetadata).ErrorInstead(someError)
+	fs.AddFault(blobtesting.MethodDeleteBlob).ErrorInstead(someError)
 
 	rs := retrying.NewWrapper(fs)
 	blobID := blob.ID("deadcafe")
@@ -49,8 +33,6 @@ func TestRetrying(t *testing.T) {
 	require.NoError(t, rs.PutBlob(ctx, blobID, gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{}))
 
 	require.NoError(t, rs.PutBlob(ctx, blobID2, gather.FromSlice([]byte{1, 2, 3, 4}), blob.PutOptions{}))
-
-	require.NoError(t, rs.SetTime(ctx, blobID, clock.Now()))
 
 	var tmp gather.WriteBuffer
 	defer tmp.Close()
@@ -73,16 +55,6 @@ func TestRetrying(t *testing.T) {
 
 	if _, err = rs.GetMetadata(ctx, blobID); !errors.Is(err, blob.ErrBlobNotFound) {
 		t.Fatalf("unexpected error: %v", err)
-	}
-
-	fs.VerifyAllFaultsExercised(t)
-
-	fs.Faults["SetTime"] = []*blobtesting.Fault{
-		{Err: blob.ErrSetTimeUnsupported},
-	}
-
-	if err := rs.SetTime(ctx, blobID, clock.Now()); !errors.Is(err, blob.ErrSetTimeUnsupported) {
-		t.Fatalf("unexpected error from SetTime: %v", err)
 	}
 
 	fs.VerifyAllFaultsExercised(t)

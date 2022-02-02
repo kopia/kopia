@@ -323,4 +323,4 @@ Make sure you use a recent nginx version (>=1.16) and you start your kopia serve
 kopia server start --address 0.0.0.0:51515 --tls-cert-file ~/my.cert --tls-key-file ~/my.key
 ```
 
-You can now connect to your kopia server via reverse proxy with your domain: `mydomain:com:443`.
+You can now connect to your kopia server via reverse proxy with your domain: `mydomain.com:443`.

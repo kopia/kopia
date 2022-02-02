@@ -23,6 +23,7 @@ import (
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/epoch"
 	"github.com/kopia/kopia/internal/faketime"
+	"github.com/kopia/kopia/internal/fault"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/ownwrites"
 	"github.com/kopia/kopia/internal/testlogging"
@@ -63,7 +64,7 @@ func TestFormatV2(t *testing.T) {
 			Version:         2,
 			MaxPackSize:     maxPackSize,
 			IndexVersion:    v2IndexVersion,
-			EpochParameters: epoch.DefaultParameters,
+			EpochParameters: epoch.DefaultParameters(),
 		},
 	})
 }
@@ -326,7 +327,7 @@ func (s *contentManagerSuite) TestContentManagerWriteMultiple(t *testing.T) {
 			}
 
 			bm = s.newTestContentManagerWithCustomTime(t, st, timeFunc)
-			defer bm.Close(ctx)
+			defer bm.Close(ctx) // nolint:gocritic
 		}
 
 		pos := rand.Intn(len(contentIDs))
@@ -346,9 +347,7 @@ func (s *contentManagerSuite) TestContentManagerFailedToWritePack(t *testing.T) 
 	data := blobtesting.DataMap{}
 	keyTime := map[blob.ID]time.Time{}
 	st := blobtesting.NewMapStorage(data, keyTime, nil)
-	faulty := &blobtesting.FaultyStorage{
-		Base: st,
-	}
+	faulty := blobtesting.NewFaultyStorage(st)
 	st = faulty
 
 	ta := faketime.NewTimeAdvance(fakeTime, 0)
@@ -369,13 +368,10 @@ func (s *contentManagerSuite) TestContentManagerFailedToWritePack(t *testing.T) 
 	sessionPutErr := errors.New("booboo0")
 	firstPutErr := errors.New("booboo1")
 	secondPutErr := errors.New("booboo2")
-	faulty.Faults = map[string][]*blobtesting.Fault{
-		"PutBlob": {
-			{Err: sessionPutErr},
-			{Err: firstPutErr},
-			{Err: secondPutErr},
-		},
-	}
+
+	faulty.AddFault(blobtesting.MethodPutBlob).ErrorInstead(sessionPutErr)
+	faulty.AddFault(blobtesting.MethodPutBlob).ErrorInstead(firstPutErr)
+	faulty.AddFault(blobtesting.MethodPutBlob).ErrorInstead(secondPutErr)
 
 	_, err = bm.WriteContent(ctx, gather.FromSlice(seededRandomData(1, 10)), "", NoCompression)
 	if !errors.Is(err, sessionPutErr) {
@@ -970,6 +966,10 @@ func deleteContentAfterUndeleteAndCheck(ctx context.Context, t *testing.T, bm *W
 func (s *contentManagerSuite) TestParallelWrites(t *testing.T) {
 	t.Parallel()
 
+	if testing.Short() {
+		return
+	}
+
 	ctx := testlogging.Context(t)
 
 	data := blobtesting.DataMap{}
@@ -977,17 +977,8 @@ func (s *contentManagerSuite) TestParallelWrites(t *testing.T) {
 	st := blobtesting.NewMapStorage(data, keyTime, nil)
 
 	// set up fake storage that is slow at PutBlob causing writes to be piling up
-	fs := &blobtesting.FaultyStorage{
-		Base: st,
-		Faults: map[string][]*blobtesting.Fault{
-			"PutBlob": {
-				{
-					Repeat: 1000000000,
-					Sleep:  1 * time.Second,
-				},
-			},
-		},
-	}
+	fs := blobtesting.NewFaultyStorage(st)
+	fs.AddFault(blobtesting.MethodPutBlob).Repeat(1000000000).SleepFor(1 * time.Second)
 
 	var workersWG sync.WaitGroup
 
@@ -1092,19 +1083,11 @@ func (s *contentManagerSuite) TestFlushResumesWriters(t *testing.T) {
 	resumeWrites := make(chan struct{})
 
 	// set up fake storage that is slow at PutBlob causing writes to be piling up
-	fs := &blobtesting.FaultyStorage{
-		Base: st,
-		Faults: map[string][]*blobtesting.Fault{
-			"PutBlob": {
-				{
-					ErrCallback: func() error {
-						close(resumeWrites)
-						return nil
-					},
-				},
-			},
-		},
-	}
+	fs := blobtesting.NewFaultyStorage(st)
+	fs.AddFault(blobtesting.MethodPutBlob).ErrorCallbackInstead(func() error {
+		close(resumeWrites)
+		return nil
+	})
 
 	bm := s.newTestContentManagerWithTweaks(t, fs, nil)
 	defer bm.Close(ctx)
@@ -1156,17 +1139,12 @@ func (s *contentManagerSuite) TestFlushWaitsForAllPendingWriters(t *testing.T) {
 	keyTime := map[blob.ID]time.Time{}
 	st := blobtesting.NewMapStorage(data, keyTime, nil)
 
-	fs := &blobtesting.FaultyStorage{
-		Base: st,
-		Faults: map[string][]*blobtesting.Fault{
-			"PutBlob": {
-				// first write is fast (session ID blobs)
-				{},
-				// second write is slow
-				{Sleep: 2 * time.Second},
-			},
-		},
-	}
+	fs := blobtesting.NewFaultyStorage(st)
+
+	// first write is fast (session ID blobs)
+	fs.AddFault(blobtesting.MethodPutBlob)
+	// second write is slow
+	fs.AddFault(blobtesting.MethodPutBlob).SleepFor(2 * time.Second)
 
 	bm := s.newTestContentManagerWithTweaks(t, fs, nil)
 	defer bm.Close(ctx)
@@ -1222,22 +1200,17 @@ func (s *contentManagerSuite) verifyAllDataPresent(ctx context.Context, t *testi
 func (s *contentManagerSuite) TestHandleWriteErrors(t *testing.T) {
 	// genFaults(S0,F0,S1,F1,...,) generates a list of faults
 	// where success is returned Sn times followed by failure returned Fn times
-	genFaults := func(counts ...int) []*blobtesting.Fault {
-		var result []*blobtesting.Fault
+	genFaults := func(counts ...int) []*fault.Fault {
+		var result []*fault.Fault
 
 		for i, cnt := range counts {
 			if i%2 == 0 {
 				if cnt > 0 {
-					result = append(result, &blobtesting.Fault{
-						Repeat: cnt - 1,
-					})
+					result = append(result, fault.New().Repeat(cnt-1))
 				}
 			} else {
 				if cnt > 0 {
-					result = append(result, &blobtesting.Fault{
-						Repeat: cnt - 1,
-						Err:    errors.Errorf("some write error"),
-					})
+					result = append(result, fault.New().Repeat(cnt-1).ErrorInstead(errors.Errorf("some write error")))
 				}
 			}
 		}
@@ -1249,8 +1222,8 @@ func (s *contentManagerSuite) TestHandleWriteErrors(t *testing.T) {
 	// count how many times we retried writes/flushes
 	// also, verify that all the data is durable
 	cases := []struct {
-		faults               []*blobtesting.Fault // failures to similuate
-		contentSizes         []int                // sizes of contents to write
+		faults               []*fault.Fault // failures to similuate
+		contentSizes         []int          // sizes of contents to write
 		expectedWriteRetries []int
 		expectedFlushRetries int
 	}{
@@ -1281,12 +1254,8 @@ func (s *contentManagerSuite) TestHandleWriteErrors(t *testing.T) {
 			st := blobtesting.NewMapStorage(data, keyTime, nil)
 
 			// set up fake storage that is slow at PutBlob causing writes to be piling up
-			fs := &blobtesting.FaultyStorage{
-				Base: st,
-				Faults: map[string][]*blobtesting.Fault{
-					"PutBlob": tc.faults,
-				},
-			}
+			fs := blobtesting.NewFaultyStorage(st)
+			fs.AddFaults(blobtesting.MethodPutBlob, tc.faults...)
 
 			bm := s.newTestContentManagerWithTweaks(t, fs, nil)
 			defer bm.Close(ctx)
@@ -1300,10 +1269,10 @@ func (s *contentManagerSuite) TestHandleWriteErrors(t *testing.T) {
 				cids = append(cids, cid)
 			}
 			if got, want := flushWithRetries(ctx, t, bm), tc.expectedFlushRetries; got != want {
-				t.Errorf("invalid # of flush retries %v, wanted %v", got, want)
+				t.Fatalf("invalid # of flush retries %v, wanted %v", got, want)
 			}
 			if diff := cmp.Diff(writeRetries, tc.expectedWriteRetries); diff != "" {
-				t.Errorf("invalid # of write retries (-got,+want): %v", diff)
+				t.Fatalf("invalid # of write retries (-got,+want): %v", diff)
 			}
 
 			bm2 := s.newTestContentManagerWithTweaks(t, st, nil)
@@ -2210,7 +2179,7 @@ func flushWithRetries(ctx context.Context, t *testing.T, bm *WriteManager) int {
 	}
 
 	if err != nil {
-		t.Errorf("err: %v", err)
+		t.Fatalf("err: %v", err)
 	}
 
 	return retryCount
