@@ -110,12 +110,16 @@ func TestAzureStorage(t *testing.T) {
 
 	ctx := testlogging.Context(t)
 
-	st, err := azure.New(ctx, &azure.Options{
+	// use context that gets canceled after opening storage to ensure it's not used beyond New().
+	newctx, cancel := context.WithCancel(ctx)
+	st, err := azure.New(newctx, &azure.Options{
 		Container:      container,
 		StorageAccount: storageAccount,
 		StorageKey:     storageKey,
 		Prefix:         fmt.Sprintf("test-%v-%x-", clock.Now().Unix(), data),
 	})
+
+	cancel()
 	require.NoError(t, err)
 
 	defer st.Close(ctx)
@@ -138,13 +142,18 @@ func TestAzureStorageSASToken(t *testing.T) {
 
 	ctx := testlogging.Context(t)
 
-	st, err := azure.New(ctx, &azure.Options{
+	// use context that gets canceled after storage is initialize,
+	// to verify we do not depend on the original context past initialization.
+	newctx, cancel := context.WithCancel(ctx)
+	st, err := azure.New(newctx, &azure.Options{
 		Container:      container,
 		StorageAccount: storageAccount,
 		SASToken:       sasToken,
 		Prefix:         fmt.Sprintf("sastest-%v-%x-", clock.Now().Unix(), data),
 	})
+
 	require.NoError(t, err)
+	cancel()
 
 	defer st.Close(ctx)
 	defer blobtesting.CleanupOldData(ctx, t, st, 0)

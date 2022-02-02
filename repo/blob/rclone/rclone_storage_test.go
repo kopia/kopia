@@ -1,6 +1,7 @@
 package rclone_test
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"os"
@@ -64,11 +65,16 @@ func TestRCloneStorage(t *testing.T) {
 	rcloneExe := mustGetRcloneExeOrSkip(t)
 	dataDir := testutil.TempDirectory(t)
 
-	st, err := rclone.New(ctx, &rclone.Options{
+	// use context that gets canceled after opening storage to ensure it's not used beyond New().
+	newctx, cancel := context.WithCancel(ctx)
+	st, err := rclone.New(newctx, &rclone.Options{
 		// pass local file as remote path.
 		RemotePath: dataDir,
 		RCloneExe:  rcloneExe,
 	}, true)
+
+	cancel()
+
 	if err != nil {
 		t.Fatalf("unable to connect to rclone backend: %v", err)
 	}
