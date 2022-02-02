@@ -130,7 +130,7 @@ func getProviderOptions(tb testing.TB, envName string) *Options {
 	return &o
 }
 
-// verifyInvalidCredentialsForGetBlob verifies that the token expiration
+// verifyInvalidCredentialsForGetBlob verifies that the invalid credentials
 // error is returned by GetBlob.
 // nolint:thelper
 func verifyInvalidCredentialsForGetBlob(ctx context.Context, t *testing.T, r blob.Storage) {
