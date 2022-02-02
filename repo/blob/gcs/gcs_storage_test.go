@@ -3,6 +3,7 @@ package gcs_test
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"encoding/base64"
 	"io"
 	"os"
@@ -38,7 +39,11 @@ func TestGCSStorage(t *testing.T) {
 
 	ctx := testlogging.Context(t)
 
-	st, err := gcs.New(ctx, mustGetOptionsOrSkip(t, uuid.NewString()))
+	// use context that gets canceled after opening storage to ensure it's not used beyond New().
+	newctx, cancel := context.WithCancel(ctx)
+	st, err := gcs.New(newctx, mustGetOptionsOrSkip(t, uuid.NewString()))
+
+	cancel()
 	require.NoError(t, err)
 
 	defer st.Close(ctx)

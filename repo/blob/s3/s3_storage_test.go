@@ -1,6 +1,7 @@
 package s3
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
@@ -407,6 +408,7 @@ func testStorage(t *testing.T, options *Options, runValidationTest bool, opts bl
 	require.Equal(t, "", options.Prefix)
 
 	st0, err := New(ctx, options)
+
 	require.NoError(t, err)
 
 	defer st0.Close(ctx)
@@ -415,7 +417,11 @@ func testStorage(t *testing.T, options *Options, runValidationTest bool, opts bl
 
 	options.Prefix = uuid.NewString()
 
-	st, err := New(ctx, options)
+	// use context that gets canceled after opening storage to ensure it's not used beyond New().
+	newctx, cancel := context.WithCancel(ctx)
+	st, err := New(newctx, options)
+
+	cancel()
 	require.NoError(t, err)
 
 	defer st.Close(ctx)

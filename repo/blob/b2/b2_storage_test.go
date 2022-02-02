@@ -73,7 +73,12 @@ func TestB2Storage(t *testing.T) {
 	}
 
 	ctx := testlogging.Context(t)
-	st, err := b2.New(ctx, opt)
+
+	// use context that gets canceled after opening storage to ensure it's not used beyond New().
+	newctx, cancel := context.WithCancel(ctx)
+	st, err := b2.New(newctx, opt)
+
+	cancel()
 	require.NoError(t, err)
 
 	defer st.Close(ctx)
