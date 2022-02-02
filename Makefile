@@ -292,6 +292,9 @@ ifneq ($(GOOS),windows)
 	             -e github.com/kopia/kopia/issues && exit 1 || echo repo/ layering ok
 endif
 
+htmlui-e2e-test:
+	HTMLUI_E2E_TEST=1 go test -timeout 600s github.com/kopia/kopia/tests/htmlui_e2e_test -v $(TEST_FLAGS)
+
 godoc:
 	godoc -http=:33333
 
@@ -341,7 +344,7 @@ stage-release:
 ifeq ($(IS_PULL_REQUEST),false)
 ifneq ($(CI_TAG),)
 GH_RELEASE_REPO=$(GITHUB_REPOSITORY)
-GH_RELEASE_FLAGS=--draft
+GH_RELEASE_FLAGS=
 GH_RELEASE_NAME=v$(KOPIA_VERSION_NO_PREFIX)
 else
 ifeq ($(GITHUB_REF),refs/heads/master)

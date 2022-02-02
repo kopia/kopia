@@ -31,21 +31,18 @@ type Options struct {
 	NumGetMetadataWorkers int
 	NumListBlobsWorkers   int
 	MaxBlobLength         int
-
-	SupportIdempotentCreates bool
 }
 
 // DefaultOptions is the default set of options.
 // nolint:gomnd,gochecknoglobals
 var DefaultOptions = Options{
-	MaxClockDrift:            3 * time.Minute,
-	ConcurrencyTestDuration:  30 * time.Second,
-	NumPutBlobWorkers:        3,
-	NumGetBlobWorkers:        3,
-	NumGetMetadataWorkers:    3,
-	NumListBlobsWorkers:      3,
-	MaxBlobLength:            10e6,
-	SupportIdempotentCreates: false,
+	MaxClockDrift:           3 * time.Minute,
+	ConcurrencyTestDuration: 30 * time.Second,
+	NumPutBlobWorkers:       3,
+	NumGetBlobWorkers:       3,
+	NumGetMetadataWorkers:   3,
+	NumListBlobsWorkers:     3,
+	MaxBlobLength:           10e6,
 }
 
 const blobIDLength = 16
@@ -101,6 +98,20 @@ func ValidateProvider(ctx context.Context, st blob.Storage, opt Options) error {
 		return errors.Wrap(err, "error writing blob #1")
 	}
 
+	log(ctx).Infof("Validating conditional creates...")
+
+	err2 := st.PutBlob(ctx, prefix1+"1", gather.FromSlice([]byte{99}), blob.PutOptions{DoNotRecreate: true})
+
+	switch {
+	case errors.Is(err2, blob.ErrUnsupportedPutBlobOption):
+		// this is fine, server does not support DoNotRecreate
+	case errors.Is(err2, blob.ErrBlobAlreadyExists):
+		// this is fine, server honored DoNotRecreate, we will validate in a moment that they did not
+		// in fact overwrite
+	default:
+		return errors.Errorf("unexpected error returned from PutBlob with DoNotRecreate: %v", err2)
+	}
+
 	log(ctx).Infof("Validating list responses...")
 
 	if err := verifyBlobCount(ctx, st, uberPrefix, 1); err != nil {
@@ -142,9 +153,9 @@ func ValidateProvider(ctx context.Context, st blob.Storage, opt Options) error {
 	log(ctx).Infof("Validating full reads...")
 
 	// read full blob
-	err := st.GetBlob(ctx, prefix1+"1", 0, -1, &out)
-	if err != nil {
-		return errors.Wrap(err, "got unexpected error when reading partial blob")
+	err2 = st.GetBlob(ctx, prefix1+"1", 0, -1, &out)
+	if err2 != nil {
+		return errors.Wrap(err2, "got unexpected error when reading partial blob")
 	}
 
 	if got, want := out.ToByteSlice(), blobData; !bytes.Equal(got, want) {
@@ -154,9 +165,9 @@ func ValidateProvider(ctx context.Context, st blob.Storage, opt Options) error {
 	log(ctx).Infof("Validating metadata...")
 
 	// get metadata for non-existent blob
-	bm, err := st.GetMetadata(ctx, prefix1+"1")
-	if err != nil {
-		return errors.Wrap(err, "got unexpected error when getting metadata for blob")
+	bm, err2 := st.GetMetadata(ctx, prefix1+"1")
+	if err2 != nil {
+		return errors.Wrap(err2, "got unexpected error when getting metadata for blob")
 	}
 
 	if got, want := bm.Length, int64(len(blobData)); got != want {
@@ -184,15 +195,6 @@ func ValidateProvider(ctx context.Context, st blob.Storage, opt Options) error {
 
 	if err := ct.run(ctx); err != nil {
 		return errors.Wrap(err, "error validating concurrency")
-	}
-
-	log(ctx).Infof("Validating blob idempontent creates...")
-
-	if !opt.SupportIdempotentCreates {
-		err := st.PutBlob(ctx, "dummy_id", gather.FromSlice([]byte{99}), blob.PutOptions{DoNotRecreate: true})
-		if !errors.As(err, &blob.ErrUnsupportedPutBlobOption) {
-			return errors.Errorf("expected error 'unsupported put-blob option', but got %v", err)
-		}
 	}
 
 	log(ctx).Infof("All good.")

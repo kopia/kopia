@@ -103,17 +103,19 @@ func translateError(err error) error {
 }
 
 func (gcs *gcsStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes, opts blob.PutOptions) error {
-	switch {
-	case opts.HasRetentionOptions():
+	if opts.HasRetentionOptions() {
 		return errors.Wrap(blob.ErrUnsupportedPutBlobOption, "blob-retention")
-	case opts.DoNotRecreate:
-		return errors.Wrap(blob.ErrUnsupportedPutBlobOption, "do-not-recreate")
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
 
+	obj := gcs.bucket.Object(gcs.getObjectNameString(b))
+
 	conds := gcsclient.Conditions{DoesNotExist: opts.DoNotRecreate}
-	obj := gcs.bucket.Object(gcs.getObjectNameString(b)).If(conds)
+	if conds != (gcsclient.Conditions{}) {
+		obj = obj.If(conds)
+	}
+
 	writer := obj.NewWriter(ctx)
 	writer.ChunkSize = writerChunkSize
 	writer.ContentType = "application/x-kopia"

@@ -44,19 +44,10 @@ func TestGCSStorage(t *testing.T) {
 	defer st.Close(ctx)
 	defer blobtesting.CleanupOldData(ctx, t, st, 0)
 
-	options := []blob.PutOptions{
-		{},
-		{DoNotRecreate: true},
-	}
-
-	for _, opt := range options {
-		blobtesting.VerifyStorage(ctx, t, st, opt)
-	}
+	blobtesting.VerifyStorage(ctx, t, st, blob.PutOptions{})
 
 	blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
-	validateOpts := blobtesting.TestValidationOptions
-	validateOpts.SupportIdempotentCreates = true
-	require.NoError(t, providervalidation.ValidateProvider(ctx, st, validateOpts))
+	require.NoError(t, providervalidation.ValidateProvider(ctx, st, blobtesting.TestValidationOptions))
 }
 
 func TestGCSStorageInvalid(t *testing.T) {

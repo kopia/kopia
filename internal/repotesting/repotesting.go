@@ -84,7 +84,7 @@ func (e *Environment) setup(tb testing.TB, version content.FormatVersion, opts .
 		st = blobtesting.NewVersionedMapStorage(openOpt.TimeNowFunc)
 	}
 
-	st = newReconnectableStorage(tb, st)
+	st = NewReconnectableStorage(tb, st)
 	e.st = st
 
 	if e.Password == "" {

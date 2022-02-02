@@ -25,13 +25,13 @@ func (c *commandRepositoryRepair) setup(svc advancedAppServices, parent commandP
 	cmd.Flag("recover-format-block-prefixes", "Prefixes of file names").StringsVar(&c.repairCommandRecoverFormatBlobPrefixes)
 	cmd.Flag("dry-run", "Do not modify repository").Short('n').BoolVar(&c.repairDryRun)
 
-	for _, prov := range cliStorageProviders() {
-		f := prov.newFlags()
-		cc := cmd.Command(prov.name, "Repair repository in "+prov.description)
-		f.setup(svc, cc)
+	for _, prov := range svc.storageProviders() {
+		f := prov.NewFlags()
+		cc := cmd.Command(prov.Name, "Repair repository in "+prov.Description)
+		f.Setup(svc, cc)
 		cc.Action(func(_ *kingpin.ParseContext) error {
 			ctx := svc.rootContext()
-			st, err := f.connect(ctx, false, 0)
+			st, err := f.Connect(ctx, false, 0)
 			if err != nil {
 				return errors.Wrap(err, "can't connect to storage")
 			}

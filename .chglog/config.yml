@@ -12,22 +12,7 @@ options:
         - perf
         - refactor
         - build
-  commit_groups:
-    sort_by: Custom
-    group_by: "Scope"
-    title_maps:
-      # must match .github/workflows/check-pr-title.yml
-      # app|cli|ui|repository|server|providers|deps|deps-dev|site|ci|infra|general
-      kopiaui: KopiaUI Desktop App
-      cli: Command-Line Interface
-      ui: Graphical User Interface
-      ci: Continuous Integration
-      lint: Linter
-      deps: Runtime Dependencies
-      deps-dev: Development Dependencies
-      infra: Infrastructure
-      general: General Improvements
-    title_order:
+      Scope:
       - cli
       - kopiaui
       - general
@@ -39,6 +24,37 @@ options:
       - deps
       - deps-dev
       - infra
+      - ci
+      - ui
+  commit_groups:
+    sort_by: Custom
+    group_by: "Scope"
+    title_maps:
+      # must match .github/workflows/check-pr-title.yml
+      # app|cli|ui|repository|server|providers|deps|deps-dev|site|ci|infra|general
+      kopiaui: KopiaUI App
+      cli: Command-Line Interface
+      ui: Graphical User Interface
+      lint: Linter
+      deps: Dependencies
+      deps-dev: Development Dependencies
+      infra: Infrastructure
+      general: General Improvements
+      providers: Storage Providers
+      ci: CI/CD
+    title_order:
+      - cli
+      - kopiaui
+      - general
+      - repository
+      - server
+      - providers
+      - deps
+      - testing
+      - lint
+      - deps-dev
+      - infra
+      - ci
   header:
     pattern: "^(\\w*)(?:\\(([\\w\\$\\.\\-\\*\\s]*)\\))?\\:\\s(.*)$"
     pattern_maps:

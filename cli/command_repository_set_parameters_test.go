@@ -3,16 +3,39 @@ package cli_test
 import (
 	"testing"
 
+	"github.com/alecthomas/kingpin"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kopia/kopia/cli"
+	"github.com/kopia/kopia/internal/blobtesting"
+	"github.com/kopia/kopia/internal/repotesting"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
-func (s *formatSpecificTestSuite) TestRepositorySetParameters(t *testing.T) {
-	env := testenv.NewCLITest(t, s.formatFlags, testenv.NewInProcRunner(t))
+func (s *formatSpecificTestSuite) setupInMemoryRepo(t *testing.T) *testenv.CLITest {
+	t.Helper()
 
-	env.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", env.RepoDir)
+	runner := testenv.NewInProcRunner(t)
+	runner.CustomizeApp = func(a *cli.App, kp *kingpin.Application) {
+		a.AddStorageProvider(cli.StorageProvider{
+			Name:        "in-memory",
+			Description: "in-memory storage backend",
+			NewFlags:    func() cli.StorageFlags { return &storageInMemoryFlags{} },
+		})
+	}
+
+	env := testenv.NewCLITest(t, s.formatFlags, runner)
+	st := repotesting.NewReconnectableStorage(t, blobtesting.NewVersionedMapStorage(nil))
+
+	env.RunAndExpectSuccess(t, "repo", "create", "in-memory", "--uuid",
+		st.ConnectionInfo().Config.(*repotesting.ReconnectableStorageOptions).UUID)
+
+	return env
+}
+
+func (s *formatSpecificTestSuite) TestRepositorySetParameters(t *testing.T) {
+	env := s.setupInMemoryRepo(t)
 	out := env.RunAndExpectSuccess(t, "repository", "status")
 
 	// default values
@@ -40,9 +63,7 @@ func (s *formatSpecificTestSuite) TestRepositorySetParameters(t *testing.T) {
 }
 
 func (s *formatSpecificTestSuite) TestRepositorySetParametersUpgrade(t *testing.T) {
-	env := testenv.NewCLITest(t, s.formatFlags, testenv.NewInProcRunner(t))
-
-	env.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", env.RepoDir)
+	env := s.setupInMemoryRepo(t)
 	out := env.RunAndExpectSuccess(t, "repository", "status")
 
 	// default values

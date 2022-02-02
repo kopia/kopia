@@ -14,17 +14,17 @@ type storageFromConfigFlags struct {
 	connectFromConfigFile  string
 	connectFromConfigToken string
 
-	sps storageProviderServices
+	sps StorageProviderServices
 }
 
-func (c *storageFromConfigFlags) setup(sps storageProviderServices, cmd *kingpin.CmdClause) {
+func (c *storageFromConfigFlags) Setup(sps StorageProviderServices, cmd *kingpin.CmdClause) {
 	cmd.Flag("file", "Path to the configuration file").StringVar(&c.connectFromConfigFile)
 	cmd.Flag("token", "Configuration token").StringVar(&c.connectFromConfigToken)
 
 	c.sps = sps
 }
 
-func (c *storageFromConfigFlags) connect(ctx context.Context, isCreate bool, formatVersion int) (blob.Storage, error) {
+func (c *storageFromConfigFlags) Connect(ctx context.Context, isCreate bool, formatVersion int) (blob.Storage, error) {
 	if isCreate {
 		return nil, errors.New("not supported")
 	}

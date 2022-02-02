@@ -18,7 +18,7 @@ type storageSFTPFlags struct {
 	embedCredentials bool
 }
 
-func (c *storageSFTPFlags) setup(_ storageProviderServices, cmd *kingpin.CmdClause) {
+func (c *storageSFTPFlags) Setup(_ StorageProviderServices, cmd *kingpin.CmdClause) {
 	cmd.Flag("path", "Path to the repository in the SFTP/SSH server").Required().StringVar(&c.options.Path)
 	cmd.Flag("host", "SFTP/SSH server hostname").Required().StringVar(&c.options.Host)
 	cmd.Flag("port", "SFTP/SSH server port").Default("22").IntVar(&c.options.Port)
@@ -109,7 +109,7 @@ func (c *storageSFTPFlags) getOptions(formatVersion int) (*sftp.Options, error) 
 	return &sftpo, nil
 }
 
-func (c *storageSFTPFlags) connect(ctx context.Context, isCreate bool, formatVersion int) (blob.Storage, error) {
+func (c *storageSFTPFlags) Connect(ctx context.Context, isCreate bool, formatVersion int) (blob.Storage, error) {
 	opt, err := c.getOptions(formatVersion)
 	if err != nil {
 		return nil, err

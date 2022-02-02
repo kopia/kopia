@@ -44,7 +44,7 @@ When developing the UI, the most convenient way is to use two terminals. The fir
 In the first terminal do:
 
 ```shell
-$ go run . server --insecure --without-password
+$ go run . server --insecure --without-password --disable-csrf-token-checks
 ```
 
 In the second terminal, in the `htmlui` repository run:
@@ -59,6 +59,20 @@ Changes to `htmlui` need to be individually submitted to their own repository an
 
 ```shell
 go get -u github.com/kopia/htmluibuild
+```
+
+It is also possible to test Kopia HTML UI with pre-built HTML. To do this:
+
+1. In `htmlui` repository run:
+
+```shell
+$ npm run build
+```
+
+2. In the `kopia` repository run:
+
+```shell
+go run . server --insecure --without-password --html=../htmlui/build
 ```
 
 ## KopiaUI App

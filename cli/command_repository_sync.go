@@ -50,14 +50,14 @@ func (c *commandRepositorySyncTo) setup(svc advancedAppServices, parent commandP
 	// needs to be 64-bit aligned on ARM
 	c.nextSyncOutputTime = new(timetrack.Throttle)
 
-	for _, prov := range cliStorageProviders() {
+	for _, prov := range svc.storageProviders() {
 		// Set up 'sync-to' subcommand
-		f := prov.newFlags()
-		cc := cmd.Command(prov.name, "Synchronize repository data to another repository in "+prov.description)
-		f.setup(svc, cc)
+		f := prov.NewFlags()
+		cc := cmd.Command(prov.Name, "Synchronize repository data to another repository in "+prov.Description)
+		f.Setup(svc, cc)
 		cc.Action(func(_ *kingpin.ParseContext) error {
 			ctx := svc.rootContext()
-			st, err := f.connect(ctx, false, 0)
+			st, err := f.Connect(ctx, false, 0)
 			if err != nil {
 				return errors.Wrap(err, "can't connect to storage")
 			}

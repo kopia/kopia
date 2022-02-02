@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/repo/logging"
@@ -14,6 +15,8 @@ import (
 const (
 	maxFinishedTasks      = 50
 	maxLogMessagesPerTask = 1000
+	minWaitInterval       = 500 * time.Millisecond
+	maxWaitInterval       = time.Second
 )
 
 // Manager manages UI tasks.
@@ -80,6 +83,42 @@ func (m *Manager) ListTasks() []Info {
 	})
 
 	return res
+}
+
+// WaitForTask waits for the given task to finish running or until given amount of time elapses.
+// If the task has not completed yet, (Info{}, false) is returned.
+func (m *Manager) WaitForTask(ctx context.Context, taskID string, maxWaitTime time.Duration) (Info, bool) {
+	if _, ok := m.GetTask(taskID); !ok {
+		return Info{}, false
+	}
+
+	deadline := clock.Now().Add(maxWaitTime)
+
+	sleepInterval := maxWaitTime / 10 //nolint:gomnd
+	if sleepInterval > maxWaitInterval {
+		sleepInterval = maxWaitInterval
+	}
+
+	if sleepInterval < minWaitInterval {
+		sleepInterval = minWaitInterval
+	}
+
+	for maxWaitTime < 0 || clock.Now().Before(deadline) {
+		if !clock.SleepInterruptibly(ctx, sleepInterval) {
+			return Info{}, false
+		}
+
+		i, ok := m.GetTask(taskID)
+		if !ok {
+			return Info{}, false
+		}
+
+		if i.Status.IsFinished() {
+			return i, true
+		}
+	}
+
+	return Info{}, false
 }
 
 // TaskSummary returns the summary (number of tasks by status).
@@ -168,6 +207,8 @@ func (m *Manager) completeTask(r *runningTaskInfo, err error) {
 	if err != nil {
 		r.ErrorMessage = err.Error()
 	}
+
+	r.Error = err
 
 	if r.Status != StatusCanceling {
 		if err != nil {

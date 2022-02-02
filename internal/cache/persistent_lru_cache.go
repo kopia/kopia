@@ -12,6 +12,7 @@ import (
 	"go.opencensus.io/stats"
 
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/ctxutil"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/repo/blob"
@@ -284,7 +285,7 @@ func NewPersistentCache(ctx context.Context, description string, cacheStorage St
 
 	c.periodicSweepRunning.Add(1)
 
-	go c.sweepDirectoryPeriodically(ctx)
+	go c.sweepDirectoryPeriodically(ctxutil.Detach(ctx))
 
 	return c, nil
 }

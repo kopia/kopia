@@ -9,37 +9,43 @@ import (
 	"github.com/kopia/kopia/repo/blob/throttling"
 )
 
-type storageProviderServices interface {
+// StorageProviderServices is implemented by the cli App that allows the cli
+// and tests to mutate the default storage providers.
+type StorageProviderServices interface {
+	AddStorageProvider(p StorageProvider)
+
 	setPasswordFromToken(pwd string)
+	storageProviders() []StorageProvider
 }
 
-type storageFlags interface {
-	setup(sps storageProviderServices, cmd *kingpin.CmdClause)
-	connect(ctx context.Context, isCreate bool, formatVersion int) (blob.Storage, error)
+// StorageFlags is implemented by cli storage providers which need to support a
+// particular backend. This requires the common setup and connection methods
+// implemented by all the cli storage providers.
+type StorageFlags interface {
+	Setup(sps StorageProviderServices, cmd *kingpin.CmdClause)
+	Connect(ctx context.Context, isCreate bool, formatVersion int) (blob.Storage, error)
 }
 
-type storageProvider struct {
-	name        string
-	description string
-	newFlags    func() storageFlags
-}
-
-func cliStorageProviders() []storageProvider {
-	return []storageProvider{
-		{"from-config", "the provided configuration file", func() storageFlags { return &storageFromConfigFlags{} }},
-
-		{"azure", "an Azure blob storage", func() storageFlags { return &storageAzureFlags{} }},
-		{"b2", "a B2 bucket", func() storageFlags { return &storageB2Flags{} }},
-		{"filesystem", "a filesystem", func() storageFlags { return &storageFilesystemFlags{} }},
-		{"gcs", "a Google Cloud Storage bucket", func() storageFlags { return &storageGCSFlags{} }},
-		{"rclone", "a rclone-based provided", func() storageFlags { return &storageRcloneFlags{} }},
-		{"s3", "an S3 bucket", func() storageFlags { return &storageS3Flags{} }},
-		{"sftp", "an SFTP storage", func() storageFlags { return &storageSFTPFlags{} }},
-		{"webdav", "a WebDAV storage", func() storageFlags { return &storageWebDAVFlags{} }},
-	}
+// StorageProvider is a CLI provider for storage options and allows the CLI to
+// multiplex between various provider CLI flag constructors.
+type StorageProvider struct {
+	Name        string
+	Description string
+	NewFlags    func() StorageFlags
 }
 
 func commonThrottlingFlags(cmd *kingpin.CmdClause, limits *throttling.Limits) {
 	cmd.Flag("max-download-speed", "Limit the download speed.").PlaceHolder("BYTES_PER_SEC").FloatVar(&limits.DownloadBytesPerSecond)
 	cmd.Flag("max-upload-speed", "Limit the upload speed.").PlaceHolder("BYTES_PER_SEC").FloatVar(&limits.UploadBytesPerSecond)
+}
+
+// AddStorageProvider adds a new StorageProvider at runtime after the App has
+// been initialized with the default providers. This is used in tests which
+// require custom storage providers to simulate various edge cases.
+func (c *App) AddStorageProvider(p StorageProvider) {
+	c.cliStorageProviders = append(c.cliStorageProviders, p)
+}
+
+func (c *App) storageProviders() []StorageProvider {
+	return c.cliStorageProviders
 }
