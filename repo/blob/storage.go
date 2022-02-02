@@ -17,7 +17,7 @@ var ErrSetTimeUnsupported = errors.Errorf("SetTime is not supported")
 // ErrInvalidRange is returned when the requested blob offset or length is invalid.
 var ErrInvalidRange = errors.Errorf("invalid blob offset or length")
 
-// TokenExpiredErrStr is the error string returned by the provider
+// InvalidCredentialsErrStr is the error string returned by the provider
 // when a token has expired.
 const InvalidCredentialsErrStr = "The provided token has expired"
 

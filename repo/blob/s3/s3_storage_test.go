@@ -130,10 +130,10 @@ func getProviderOptions(tb testing.TB, envName string) *Options {
 	return &o
 }
 
-// verifyTokenExpirationForGetBlob verifies that the token expiration
+// verifyInvalidCredentialsForGetBlob verifies that the token expiration
 // error is returned by GetBlob.
 // nolint:thelper
-func verifyTokenExpirationForGetBlob(ctx context.Context, t *testing.T, r blob.Storage) {
+func verifyInvalidCredentialsForGetBlob(ctx context.Context, t *testing.T, r blob.Storage) {
 	blocks := []struct {
 		blk      blob.ID
 		contents []byte
@@ -336,7 +336,7 @@ func TestTokenExpiration(t *testing.T) {
 	// Atomic set the expired flag to true here to force token expiration.
 	// After this we expect to get token expiration errors.
 	customProvider.forceExpired.Store(true)
-	verifyTokenExpirationForGetBlob(ctx, t, rst)
+	verifyInvalidCredentialsForGetBlob(ctx, t, rst)
 
 	// Reset the expired flag and expire the credentials, so that a new valid token
 	// is obtained by the client.
