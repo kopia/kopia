@@ -49,14 +49,17 @@ func TestServerControl(t *testing.T) {
 		t.Fatalf("server did not start in time")
 	}
 
-	time.Sleep(time.Second)
+	const (
+		pollFrequency = 100 * time.Millisecond
+		waitTimeout   = 5 * time.Second
+	)
 
-	lines := env.RunAndExpectSuccess(t, "server", "status", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword)
-	require.Len(t, lines, 2)
-	require.Contains(t, lines, "IDLE: test-user@test-host:"+dir1)
-	require.Contains(t, lines, "IDLE: test-user@test-host:"+dir2)
+	require.Eventually(t, func() bool {
+		lines := env.RunAndExpectSuccess(t, "server", "status", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword)
+		return hasLine(lines, "IDLE: test-user@test-host:"+dir1) && hasLine(lines, "IDLE: test-user@test-host:"+dir2)
+	}, waitTimeout, pollFrequency)
 
-	lines = env.RunAndExpectSuccess(t, "server", "status", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword, "--remote")
+	lines := env.RunAndExpectSuccess(t, "server", "status", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword, "--remote")
 	require.Len(t, lines, 3)
 	require.Contains(t, lines, "IDLE: test-user@test-host:"+dir1)
 	require.Contains(t, lines, "IDLE: test-user@test-host:"+dir2)
@@ -66,9 +69,11 @@ func TestServerControl(t *testing.T) {
 	env.RunAndExpectSuccess(t, "snap", "create", dir3)
 	env.RunAndExpectSuccess(t, "server", "refresh", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword)
 
-	lines = env.RunAndExpectSuccess(t, "server", "status", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword, "--remote")
-	require.Len(t, lines, 4)
-	require.Contains(t, lines, "IDLE: test-user@test-host:"+dir3)
+	require.Eventually(t, func() bool {
+		return hasLine(
+			env.RunAndExpectSuccess(t, "server", "status", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword, "--remote"),
+			"IDLE: test-user@test-host:"+dir3)
+	}, waitTimeout, pollFrequency)
 
 	env.RunAndExpectSuccess(t, "server", "flush", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword)
 
@@ -101,4 +106,14 @@ func TestServerControl(t *testing.T) {
 	env.RunAndExpectFailure(t, "server", "flush", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword)
 	env.RunAndExpectFailure(t, "server", "refresh", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword)
 	env.RunAndExpectFailure(t, "server", "shutdown", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword)
+}
+
+func hasLine(lines []string, lookFor string) bool {
+	for _, l := range lines {
+		if l == lookFor {
+			return true
+		}
+	}
+
+	return false
 }
