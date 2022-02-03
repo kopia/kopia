@@ -90,6 +90,12 @@ func (c *commandRepositoryStatus) run(ctx context.Context, rep repo.Repository) 
 		c.out.printStdout("Epoch Manager:       disabled\n")
 	}
 
+	if blobcfg := dr.BlobCfg(); blobcfg.IsRetentionEnabled() {
+		c.out.printStdout("\n")
+		c.out.printStdout("Blob retention mode:     %s\n", blobcfg.RetentionMode)
+		c.out.printStdout("Blob retention period:   %s\n", blobcfg.RetentionPeriod)
+	}
+
 	if !c.statusReconnectToken {
 		return nil
 	}

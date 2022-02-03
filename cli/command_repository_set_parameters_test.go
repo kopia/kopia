@@ -3,12 +3,11 @@ package cli_test
 import (
 	"testing"
 
-	"github.com/alecthomas/kingpin"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kopia/kopia/cli"
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/repotesting"
+	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/tests/testenv"
 )
@@ -17,14 +16,6 @@ func (s *formatSpecificTestSuite) setupInMemoryRepo(t *testing.T) *testenv.CLITe
 	t.Helper()
 
 	runner := testenv.NewInProcRunner(t)
-	runner.CustomizeApp = func(a *cli.App, kp *kingpin.Application) {
-		a.AddStorageProvider(cli.StorageProvider{
-			Name:        "in-memory",
-			Description: "in-memory storage backend",
-			NewFlags:    func() cli.StorageFlags { return &storageInMemoryFlags{} },
-		})
-	}
-
 	env := testenv.NewCLITest(t, s.formatFlags, runner)
 	st := repotesting.NewReconnectableStorage(t, blobtesting.NewVersionedMapStorage(nil))
 
@@ -60,6 +51,57 @@ func (s *formatSpecificTestSuite) TestRepositorySetParameters(t *testing.T) {
 	env.RunAndExpectSuccess(t, "repository", "set-parameters", "--max-pack-size-mb=44")
 	out = env.RunAndExpectSuccess(t, "repository", "status")
 	require.Contains(t, out, "Max pack length:     44 MiB")
+}
+
+func (s *formatSpecificTestSuite) TestRepositorySetParametersRetention(t *testing.T) {
+	env := s.setupInMemoryRepo(t)
+
+	// set retention
+	env.RunAndExpectSuccess(t, "repository", "set-parameters", "--retention-mode", blob.Compliance.String(),
+		"--retention-period", "24h")
+
+	out := env.RunAndExpectSuccess(t, "repository", "status")
+	require.Contains(t, out, "Blob retention mode:     COMPLIANCE")
+	require.Contains(t, out, "Blob retention period:   24h0m0s")
+
+	// update retention
+	env.RunAndExpectSuccess(t, "repository", "set-parameters", "--retention-mode", blob.Governance.String(),
+		"--retention-period", "24h1m")
+
+	out = env.RunAndExpectSuccess(t, "repository", "status")
+	require.Contains(t, out, "Blob retention mode:     GOVERNANCE")
+	require.Contains(t, out, "Blob retention period:   24h1m0s")
+
+	// clear retention settings
+	_, out = env.RunAndExpectSuccessWithErrOut(t, "repository", "set-parameters", "--retention-mode", "none")
+	require.Contains(t, out, "disabling blob retention")
+
+	out = env.RunAndExpectSuccess(t, "repository", "status")
+	require.NotContains(t, out, "Blob retention mode")
+	require.NotContains(t, out, "Blob retention period")
+
+	// invalid retention settings
+	env.RunAndExpectFailure(t, "repository", "set-parameters", "--retention-mode", "invalid-mode")
+	env.RunAndExpectFailure(t, "repository", "set-parameters", "--retention-mode", "COMPLIANCE", "--retention-period", "0h")
+	env.RunAndExpectFailure(t, "repository", "set-parameters", "--retention-mode", "COMPLIANCE", "--retention-period", "6h") // less than 24hr
+
+	// set retention again after clear
+	env.RunAndExpectSuccess(t, "repository", "set-parameters", "--retention-mode", "COMPLIANCE", "--retention-period", "24h")
+	out = env.RunAndExpectSuccess(t, "repository", "status")
+	require.Contains(t, out, "Blob retention mode:     COMPLIANCE")
+	require.Contains(t, out, "Blob retention period:   24h0m0s")
+
+	// update without period
+	env.RunAndExpectSuccess(t, "repository", "set-parameters", "--retention-period", "25h")
+	out = env.RunAndExpectSuccess(t, "repository", "status")
+	require.Contains(t, out, "Blob retention mode:     COMPLIANCE")
+	require.Contains(t, out, "Blob retention period:   25h0m0s")
+
+	// update without mode
+	env.RunAndExpectSuccess(t, "repository", "set-parameters", "--retention-mode", "GOVERNANCE")
+	out = env.RunAndExpectSuccess(t, "repository", "status")
+	require.Contains(t, out, "Blob retention mode:     GOVERNANCE")
+	require.Contains(t, out, "Blob retention period:   25h0m0s")
 }
 
 func (s *formatSpecificTestSuite) TestRepositorySetParametersUpgrade(t *testing.T) {

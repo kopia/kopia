@@ -48,6 +48,13 @@ func NewInProcRunner(t *testing.T) *CLIInProcRunner {
 
 	return &CLIInProcRunner{
 		RepoPassword: TestRepoPassword,
+		CustomizeApp: func(a *cli.App, kp *kingpin.Application) {
+			a.AddStorageProvider(cli.StorageProvider{
+				Name:        "in-memory",
+				Description: "in-memory storage backend",
+				NewFlags:    func() cli.StorageFlags { return &storageInMemoryFlags{} },
+			})
+		},
 	}
 }
 

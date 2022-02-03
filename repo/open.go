@@ -214,7 +214,7 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 		return nil, ErrInvalidPassword
 	}
 
-	retentionConfig, err := deserializeBlobCfgBytes(f, rb, formatEncryptionKey)
+	blobcfg, err := deserializeBlobCfgBytes(f, rb, formatEncryptionKey)
 	if err != nil {
 		return nil, ErrInvalidPassword
 	}
@@ -249,8 +249,8 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 		return nil, errors.Wrap(err, "unable to add throttler")
 	}
 
-	if retentionConfig.IsRetentionEnabled() {
-		st = wrapLockingStorage(st, retentionConfig)
+	if blobcfg.IsRetentionEnabled() {
+		st = wrapLockingStorage(st, blobcfg)
 	}
 
 	scm, err := content.NewSharedManager(ctx, st, fo, caching, cmOpts)
@@ -284,7 +284,7 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 			uniqueID:            f.UniqueID,
 			cachingOptions:      *caching,
 			formatBlob:          f,
-			blobCfgBlob:         &retentionConfig,
+			blobCfgBlob:         blobcfg,
 			formatEncryptionKey: formatEncryptionKey,
 			timeNow:             cmOpts.TimeNow,
 			cliOpts:             lc.ClientOptions.ApplyDefaults(ctx, "Repository in "+st.DisplayName()),
@@ -297,7 +297,7 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 	return dr, nil
 }
 
-func wrapLockingStorage(st blob.Storage, r blobCfgBlob) blob.Storage {
+func wrapLockingStorage(st blob.Storage, r content.BlobCfgBlob) blob.Storage {
 	// collect prefixes that need to be locked on put
 	var prefixes []string
 	for _, prefix := range content.PackBlobIDPrefixes {

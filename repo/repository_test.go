@@ -13,7 +13,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/epoch"
 	"github.com/kopia/kopia/internal/gather"
@@ -119,7 +118,7 @@ func (s *formatSpecificTestSuite) TestPackingSimple(t *testing.T) {
 		t.Errorf("oid3a(%q) != oid3b(%q)", got, want)
 	}
 
-	env.VerifyBlobCount(t, 3)
+	env.VerifyBlobCount(t, 4)
 
 	env.MustReopen(t)
 
@@ -401,6 +400,7 @@ func TestInitializeWithBlobCfgRetentionBlob(t *testing.T) {
 	})
 
 	var d gather.WriteBuffer
+	defer d.Close()
 
 	// verify that the blobcfg retention blob is created
 	require.NoError(t, env.RepositoryWriter.BlobStorage().GetBlob(ctx, repo.BlobCfgBlobID, 0, -1, &d))
@@ -506,7 +506,7 @@ func TestInitializeWithBlobCfgRetentionBlob(t *testing.T) {
 			},
 			env.Password,
 		),
-		"unable to write blobcfg blob: unexpected error")
+		"unable to write blobcfg blob: PutBlob() failed for \"kopia.blobcfg\": unexpected error")
 
 	// verify that we always read/fail on the repository blob first before the
 	// blobcfg blob
@@ -533,9 +533,11 @@ func TestInitializeWithBlobCfgRetentionBlob(t *testing.T) {
 func TestInitializeWithNoRetention(t *testing.T) {
 	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant, repotesting.Options{})
 
-	// verify that the blobcfg blob is NOT created because the blobcfg period is not
-	// specified
-	blobtesting.AssertGetBlobNotFound(ctx, t, env.RepositoryWriter.BlobStorage(), repo.BlobCfgBlobID)
+	// Verify that the blobcfg blob is created even if the retention settings
+	// are not supplied.
+	var b gather.WriteBuffer
+	defer b.Close()
+	require.NoError(t, env.RepositoryWriter.BlobStorage().GetBlob(ctx, repo.BlobCfgBlobID, 0, -1, &b))
 }
 
 func TestObjectWritesWithRetention(t *testing.T) {

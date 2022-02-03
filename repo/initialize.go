@@ -95,20 +95,8 @@ func Initialize(ctx context.Context, st blob.Storage, opt *NewRepositoryOptions,
 		return errors.Wrap(err, "unable to encrypt format bytes")
 	}
 
-	if blobcfg.IsRetentionEnabled() {
-		retentionBytes, err := serializeBlobCfgBytes(format, blobcfg, formatEncryptionKey)
-		if err != nil {
-			return errors.Wrap(err, "unable to encrypt blobcfg bytes")
-		}
-
-		// Write the blobcfg blob first so that we'll consider the repository
-		// corrupted if writing the format blob fails later.
-		if err := st.PutBlob(ctx, BlobCfgBlobID, gather.FromSlice(retentionBytes), blob.PutOptions{
-			RetentionMode:   blobcfg.RetentionMode,
-			RetentionPeriod: blobcfg.RetentionPeriod,
-		}); err != nil {
-			return errors.Wrap(err, "unable to write blobcfg blob")
-		}
+	if err := writeBlobCfgBlob(ctx, st, format, blobcfg, formatEncryptionKey); err != nil {
+		return errors.Wrap(err, "unable to write blobcfg blob")
 	}
 
 	if err := writeFormatBlob(ctx, st, format, blobcfg); err != nil {
