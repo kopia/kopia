@@ -122,6 +122,8 @@ jobs:
         path: |
           dist/*/kopia
           dist/*/kopia.exe
+          dist/*/rclone
+          dist/*/rclone.exe
         if-no-files-found: ignore
       if: ${{ !contains(matrix.os, 'self-hosted') }}
   publish:
