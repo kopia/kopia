@@ -83,8 +83,16 @@ func (s *s3Storage) getBlobWithVersion(ctx context.Context, b blob.ID, version s
 	return blob.EnsureLengthExactly(output.Length(), length)
 }
 
+func isInvalidCredentials(err error) bool {
+	return err != nil && strings.Contains(err.Error(), blob.InvalidCredentialsErrStr)
+}
+
 func translateError(err error) error {
 	var me minio.ErrorResponse
+
+	if isInvalidCredentials(err) {
+		return blob.ErrInvalidCredentials
+	}
 
 	if errors.As(err, &me) {
 		switch me.StatusCode {
@@ -171,6 +179,10 @@ func (s *s3Storage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes, opt
 		Mode:            retentionMode,
 	})
 
+	if isInvalidCredentials(err) {
+		return versionMetadata{}, blob.ErrInvalidCredentials
+	}
+
 	var er minio.ErrorResponse
 
 	if errors.As(err, &er) && er.Code == "InvalidRequest" && strings.Contains(strings.ToLower(er.Message), "content-md5") {
@@ -224,6 +236,10 @@ func (s *s3Storage) ListBlobs(ctx context.Context, prefix blob.ID, callback func
 	})
 	for o := range oi {
 		if err := o.Err; err != nil {
+			if isInvalidCredentials(err) {
+				return blob.ErrInvalidCredentials
+			}
+
 			return err
 		}
 
@@ -292,12 +308,16 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 }
 
 func newStorage(ctx context.Context, opt *Options) (*s3Storage, error) {
+	return newStorageWithCredentials(ctx, credentials.NewStaticV4(opt.AccessKeyID, opt.SecretAccessKey, opt.SessionToken), opt)
+}
+
+func newStorageWithCredentials(ctx context.Context, creds *credentials.Credentials, opt *Options) (*s3Storage, error) {
 	if opt.BucketName == "" {
 		return nil, errors.New("bucket name must be specified")
 	}
 
 	minioOpts := &minio.Options{
-		Creds:  credentials.NewStaticV4(opt.AccessKeyID, opt.SecretAccessKey, opt.SessionToken),
+		Creds:  creds,
 		Secure: !opt.DoNotUseTLS,
 		Region: opt.Region,
 	}

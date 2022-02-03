@@ -17,6 +17,14 @@ var ErrSetTimeUnsupported = errors.Errorf("SetTime is not supported")
 // ErrInvalidRange is returned when the requested blob offset or length is invalid.
 var ErrInvalidRange = errors.Errorf("invalid blob offset or length")
 
+// InvalidCredentialsErrStr is the error string returned by the provider
+// when a token has expired.
+const InvalidCredentialsErrStr = "The provided token has expired"
+
+// ErrInvalidCredentials is returned when the token used for
+// authenticating with a storage provider has expired.
+var ErrInvalidCredentials = errors.Errorf(InvalidCredentialsErrStr)
+
 // ErrBlobAlreadyExists is returned when attempting to put a blob that already exists.
 var ErrBlobAlreadyExists = errors.New("blob already exists")
 

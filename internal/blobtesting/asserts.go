@@ -113,6 +113,19 @@ func AssertGetBlobNotFound(ctx context.Context, t *testing.T, s blob.Storage, bl
 	}
 }
 
+// AssertInvalidCredentials asserts that GetBlob() for specified blobID returns ErrInvalidCredentials.
+func AssertInvalidCredentials(ctx context.Context, t *testing.T, s blob.Storage, blobID blob.ID) {
+	t.Helper()
+
+	var b gather.WriteBuffer
+	defer b.Close()
+
+	err := s.GetBlob(ctx, blobID, 0, -1, &b)
+	if !errors.Is(err, blob.ErrInvalidCredentials) {
+		t.Fatalf("GetBlob(%v) returned %v but expected ErrInvalidCredentials", blobID, err)
+	}
+}
+
 // AssertGetMetadataNotFound asserts that GetMetadata() for specified blobID returns ErrNotFound.
 func AssertGetMetadataNotFound(ctx context.Context, t *testing.T, s blob.Storage, blobID blob.ID) {
 	t.Helper()
