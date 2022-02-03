@@ -126,6 +126,8 @@ var tools = map[string]ToolInfo{
 var (
 	tool      = flag.String("tool", "", "Name of the tool:version")
 	outputDir = flag.String("output-dir", "", "Output directory")
+	goos      = flag.String("goos", runtime.GOOS, "Override GOOS")
+	goarch    = flag.String("goarch", runtime.GOARCH, "Override GOARCH")
 
 	testAll             = flag.Bool("test-all", false, "Unpacks the package for all GOOS/ARCH combinations")
 	regenerateChecksums = flag.Bool("regenerate-checksums", false, "Regenerate checksums")
@@ -266,9 +268,9 @@ func downloadTool(toolName, toolVersion string, checksums map[string]string, err
 		return nil
 	}
 
-	u := t.actualURL(toolVersion, runtime.GOOS, runtime.GOARCH)
+	u := t.actualURL(toolVersion, *goos, *goarch)
 	if u == "" {
-		log.Fatalf("Tool '%v' is not supported on %v/%v", toolName, runtime.GOOS, runtime.GOARCH)
+		log.Fatalf("Tool '%v' is not supported on %v/%v", toolName, *goos, *goarch)
 	}
 
 	fmt.Printf("Downloading %v version %v from %v...\n", toolName, toolVersion, u)

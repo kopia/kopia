@@ -8,10 +8,13 @@ fi
 
 cp -r "$DIST_DIR/kopia_linux_amd64/" "$DOCKER_BUILD_DIR/bin-amd64/"
 chmod 0755 "$DOCKER_BUILD_DIR/bin-amd64/kopia"
+chmod 0755 "$DOCKER_BUILD_DIR/bin-amd64/rclone"
 cp -r "$DIST_DIR/kopia_linux_arm64/" "$DOCKER_BUILD_DIR/bin-arm64/"
 chmod 0755 "$DOCKER_BUILD_DIR/bin-arm64/kopia"
+chmod 0755 "$DOCKER_BUILD_DIR/bin-arm64/rclone"
 cp -r "$DIST_DIR/kopia_linux_arm_6/" "$DOCKER_BUILD_DIR/bin-arm/"
 chmod 0755 "$DOCKER_BUILD_DIR/bin-arm/kopia"
+chmod 0755 "$DOCKER_BUILD_DIR/bin-arm/rclone"
 
 if [ "$KOPIA_VERSION_NO_PREFIX" == "" ]; then
     echo KOPIA_VERSION_NO_PREFIX not set, not publishing.

@@ -10,6 +10,7 @@ kopia-*.zip
 .vscode/
 dist/
 .tools/
+tools/docker/bin-*
 kopia
 kopia.exe
 Makefile.local.mk

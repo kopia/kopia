@@ -144,6 +144,7 @@ ifeq ($(GOARCH),amd64)
 	ln -sf kopia_linux_amd64 dist/kopia_linux_x64
 	rm -f dist/kopia_linux_armv7l
 	ln -sf kopia_linux_arm_6 dist/kopia_linux_armv7l
+
 else
 	go build $(KOPIA_BUILD_FLAGS) -o $(kopia_ui_embedded_exe) -tags "$(KOPIA_BUILD_TAGS)"
 endif
@@ -158,7 +159,14 @@ ifeq ($(GOARCH),amd64)
 endif
 ifeq ($(GOOS)/$(GOARCH),linux/amd64)
 	$(MAKE) generate-change-log
+	$(MAKE) download-rclone
 endif
+
+download-rclone:
+	go run ./tools/gettool --tool rclone:$(RCLONE_VERSION) --output-dir dist/kopia_linux_amd64/ --goos=linux --goarch=amd64
+	go run ./tools/gettool --tool rclone:$(RCLONE_VERSION) --output-dir dist/kopia_linux_arm64/ --goos=linux --goarch=arm64
+	go run ./tools/gettool --tool rclone:$(RCLONE_VERSION) --output-dir dist/kopia_linux_arm_6/ --goos=linux --goarch=arm
+
 
 ci-tests: lint vet test
 
