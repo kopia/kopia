@@ -244,7 +244,7 @@ In order to run Kopia in a container, you must:
 * (recommended) mount `/app/cache` directory in which Kopia will be keeping a cache of downloaded data
 * (optional) mount `/app/logs` directory in which Kopia will be writing logs
 * mount any data directory used for locally-attached repository
-* mount `/app/rclone` directory in which RClone will look for `rclone.conf` file
+* (optional, only when using `rclone` provider) mount `/app/rclone` directory in which RClone will look for `rclone.conf` file
 
 Invocation of `kopia/kopia` in a container will be similar to the following example: 
 
