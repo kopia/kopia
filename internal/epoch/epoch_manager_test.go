@@ -615,7 +615,7 @@ func TestValidateParameters(t *testing.T) {
 				Enabled:               true,
 				MinEpochDuration:      1 * time.Hour,
 				EpochRefreshFrequency: 30 * time.Minute,
-			}, "epoch refresh frequency too high, must be 1/3 or minimal epoch duration or less",
+			}, "epoch refresh period is too long, must be 1/3 of minimal epoch duration or shorter",
 		},
 		{
 			Parameters{

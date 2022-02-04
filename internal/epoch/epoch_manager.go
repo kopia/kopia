@@ -72,7 +72,7 @@ func (p *Parameters) Validate() error {
 	}
 
 	if p.EpochRefreshFrequency*3 > p.MinEpochDuration {
-		return errors.Errorf("epoch refresh frequency too high, must be 1/3 or minimal epoch duration or less")
+		return errors.Errorf("epoch refresh period is too long, must be 1/3 of minimal epoch duration or shorter")
 	}
 
 	if p.FullCheckpointFrequency <= 0 {
