@@ -72,23 +72,23 @@ func (p *Parameters) Validate() error {
 	}
 
 	if p.EpochRefreshFrequency*3 > p.MinEpochDuration {
-		return errors.Errorf("epoch refresh period is too long, must be 1/3 of minimal epoch duration or shorter")
+		return errors.New("epoch refresh period is too long, must be 1/3 of minimal epoch duration or shorter")
 	}
 
 	if p.FullCheckpointFrequency <= 0 {
-		return errors.Errorf("invalid epoch checkpoint frequency")
+		return errors.New("invalid epoch checkpoint frequency")
 	}
 
 	if p.CleanupSafetyMargin < p.EpochRefreshFrequency*3 {
-		return errors.Errorf("invalid cleanup safety margin, must be at least 3x epoch refresh frequency")
+		return errors.New("invalid cleanup safety margin, must be at least 3x epoch refresh frequency")
 	}
 
 	if p.EpochAdvanceOnCountThreshold < 10 {
-		return errors.Errorf("epoch advance on count too low")
+		return errors.New("epoch advance on count too low")
 	}
 
 	if p.EpochAdvanceOnTotalSizeBytesThreshold < 1<<20 {
-		return errors.Errorf("epoch advance on size too low")
+		return errors.New("epoch advance on size too low")
 	}
 
 	return nil
