@@ -230,10 +230,13 @@ func (e *Manager) Refresh(ctx context.Context) error {
 	return e.refreshLocked(ctx)
 }
 
+// Derive a storage clock from the most recent timestamp among uncompacted index
+// blobs, which are expected to have been recently written to the repository.
+// When cleaning up blobs, only unreferenced blobs that are old enough relative to
+// this max time will be removed. Blobs that are created relatively recently are
+// preserved because other clients may have not observed them yet.
+// Note: This assumes that storage clock moves forward somewhat reasonably.
 func (e *Manager) maxCleanupTime(cs CurrentSnapshot) time.Time {
-	// find max timestamp recently written to the repository to establish storage clock.
-	// we will be deleting blobs whose timestamps are sufficiently old enough relative
-	// to this max time. This assumes that storage clock moves forward somewhat reasonably.
 	var maxTime time.Time
 
 	for _, v := range cs.UncompactedEpochSets {
