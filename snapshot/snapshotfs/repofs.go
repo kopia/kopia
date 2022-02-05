@@ -234,7 +234,7 @@ func DirectoryEntry(rep repo.Repository, objectID object.ID, dirSummary *fs.Dire
 func SnapshotRoot(rep repo.Repository, man *snapshot.Manifest) (fs.Entry, error) {
 	oid := man.RootObjectID()
 	if oid == "" {
-		return nil, errors.New("manifest root object ID")
+		return nil, errors.Errorf("found snapshot manifest without a root object ID, manifest id: %s", man.ID)
 	}
 
 	return EntryFromDirEntry(rep, man.RootEntry), nil

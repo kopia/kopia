@@ -288,7 +288,7 @@ func runQuickMaintenance(ctx context.Context, runParams RunParameters, safety Sa
 	}
 
 	// consolidate many smaller indexes into fewer larger ones.
-	if err := runTaskIndexCompaction(ctx, runParams, s, safety); err != nil {
+	if err := runTaskIndexCompactionQuick(ctx, runParams, s, safety); err != nil {
 		return errors.Wrap(err, "error performing index compaction")
 	}
 
@@ -307,12 +307,6 @@ func notDeletingOrphanedBlobs(ctx context.Context, s *Schedule, safety SafetyPar
 	left := nextBlobDeleteTime(s, safety).Sub(clock.Now()).Truncate(time.Second)
 
 	log(ctx).Infof("Skipping blob deletion because not enough time has passed yet (%v left).", left)
-}
-
-func runTaskIndexCompaction(ctx context.Context, runParams RunParameters, s *Schedule, safety SafetyParameters) error {
-	return ReportRun(ctx, runParams.rep, TaskIndexCompaction, s, func() error {
-		return IndexCompaction(ctx, runParams.rep, safety)
-	})
 }
 
 func runTaskCleanupLogs(ctx context.Context, runParams RunParameters, s *Schedule) error {

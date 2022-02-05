@@ -72,23 +72,23 @@ func (p *Parameters) Validate() error {
 	}
 
 	if p.EpochRefreshFrequency*3 > p.MinEpochDuration {
-		return errors.Errorf("epoch refresh frequency too high, must be 1/3 or minimal epoch duration or less")
+		return errors.New("epoch refresh period is too long, must be 1/3 of minimal epoch duration or shorter")
 	}
 
 	if p.FullCheckpointFrequency <= 0 {
-		return errors.Errorf("invalid epoch checkpoint frequency")
+		return errors.New("invalid epoch checkpoint frequency")
 	}
 
 	if p.CleanupSafetyMargin < p.EpochRefreshFrequency*3 {
-		return errors.Errorf("invalid cleanup safety margin, must be at least 3x epoch refresh frequency")
+		return errors.New("invalid cleanup safety margin, must be at least 3x epoch refresh frequency")
 	}
 
 	if p.EpochAdvanceOnCountThreshold < 10 {
-		return errors.Errorf("epoch advance on count too low")
+		return errors.New("epoch advance on count too low")
 	}
 
 	if p.EpochAdvanceOnTotalSizeBytesThreshold < 1<<20 {
-		return errors.Errorf("epoch advance on size too low")
+		return errors.New("epoch advance on size too low")
 	}
 
 	return nil
@@ -230,10 +230,13 @@ func (e *Manager) Refresh(ctx context.Context) error {
 	return e.refreshLocked(ctx)
 }
 
+// Derive a storage clock from the most recent timestamp among uncompacted index
+// blobs, which are expected to have been recently written to the repository.
+// When cleaning up blobs, only unreferenced blobs that are old enough relative to
+// this max time will be removed. Blobs that are created relatively recently are
+// preserved because other clients may have not observed them yet.
+// Note: This assumes that storage clock moves forward somewhat reasonably.
 func (e *Manager) maxCleanupTime(cs CurrentSnapshot) time.Time {
-	// find max timestamp recently written to the repository to establish storage clock.
-	// we will be deleting blobs whose timestamps are sufficiently old enough relative
-	// to this max time. This assumes that storage clock moves forward somewhat reasonably.
 	var maxTime time.Time
 
 	for _, v := range cs.UncompactedEpochSets {

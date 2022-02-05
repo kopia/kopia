@@ -3,19 +3,20 @@ package maintenance
 import (
 	"context"
 
-	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/content"
 )
 
-const maxSmallBlobsForIndexCompaction = 8
+// runTaskIndexCompactionQuick rewrites index blobs to reduce their count but does not drop any contents.
+func runTaskIndexCompactionQuick(ctx context.Context, runParams RunParameters, s *Schedule, safety SafetyParameters) error {
+	return ReportRun(ctx, runParams.rep, TaskIndexCompaction, s, func() error {
+		log(ctx).Infof("Compacting indexes...")
 
-// IndexCompaction rewrites index blobs to reduce their count but does not drop any contents.
-func IndexCompaction(ctx context.Context, rep repo.DirectRepositoryWriter, safety SafetyParameters) error {
-	log(ctx).Infof("Compacting indexes...")
+		const maxSmallBlobsForIndexCompaction = 8
 
-	// nolint:wrapcheck
-	return rep.ContentManager().CompactIndexes(ctx, content.CompactOptions{
-		MaxSmallBlobs:                    maxSmallBlobsForIndexCompaction,
-		DisableEventualConsistencySafety: safety.DisableEventualConsistencySafety,
+		// nolint:wrapcheck
+		return runParams.rep.ContentManager().CompactIndexes(ctx, content.CompactOptions{
+			MaxSmallBlobs:                    maxSmallBlobsForIndexCompaction,
+			DisableEventualConsistencySafety: safety.DisableEventualConsistencySafety,
+		})
 	})
 }

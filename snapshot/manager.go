@@ -199,7 +199,7 @@ func ListSnapshotManifests(ctx context.Context, rep repo.Repository, src *Source
 
 	entries, err := rep.FindManifests(ctx, labels)
 	if err != nil {
-		return nil, errors.Wrap(err, "unable to find manifest entries")
+		return nil, errors.Wrap(err, "unable to find snapshot manifests")
 	}
 
 	return entryIDs(entries), nil
