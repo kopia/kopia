@@ -80,6 +80,8 @@ func waitForTask(t *testing.T, cli *apiclient.KopiaAPIClient, taskID string, tim
 		if lastInfo.Status.IsFinished() {
 			return lastInfo
 		}
+
+		time.Sleep(100 * time.Millisecond)
 	}
 
 	t.Fatalf("task %v did not complete in %v, last: %v", taskID, timeout, lastInfo)
