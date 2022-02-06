@@ -130,20 +130,16 @@ func (s *Server) handleDeleteSnapshots(ctx context.Context, r *http.Request, bod
 
 func uniqueSnapshots(rows []*serverapi.Snapshot) []*serverapi.Snapshot {
 	result := []*serverapi.Snapshot{}
+	resultByRootEntry := map[string]*serverapi.Snapshot{}
 
 	for _, r := range rows {
-		if len(result) == 0 {
+		last := resultByRootEntry[r.RootEntry]
+		if last == nil {
 			result = append(result, r)
-			continue
-		}
-
-		last := result[len(result)-1]
-
-		if r.RootEntry == last.RootEntry {
+			resultByRootEntry[r.RootEntry] = r
+		} else {
 			last.RetentionReasons = append(last.RetentionReasons, r.RetentionReasons...)
 			last.Pins = append(last.Pins, r.Pins...)
-		} else {
-			result = append(result, r)
 		}
 	}
 

@@ -3,7 +3,6 @@ package server_test
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -37,8 +36,6 @@ func TestListAndDeleteSnapshots(t *testing.T) {
 		require.NoError(t, err)
 		id11, err = snapshot.SaveSnapshot(ctx, w, man11)
 		require.NoError(t, err)
-
-		time.Sleep(100 * time.Millisecond)
 
 		man12, err := u.Upload(ctx, dir1, nil, si1)
 		require.NoError(t, err)
@@ -98,16 +95,16 @@ func TestListAndDeleteSnapshots(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Len(t, resp.Snapshots, 4)
-	require.Equal(t, resp.UniqueCount, 3)
-	require.Equal(t, resp.UnfilteredCount, 4)
+	require.Equal(t, 3, resp.UniqueCount)
+	require.Equal(t, 4, resp.UnfilteredCount)
 
 	// list unique snapshots - first and second were the same, so we get 3
 	resp, err = serverapi.ListSnapshots(ctx, cli, si1, false)
 	require.NoError(t, err)
 
 	require.Len(t, resp.Snapshots, 3)
-	require.Equal(t, resp.UniqueCount, 3)
-	require.Equal(t, resp.UnfilteredCount, 4)
+	require.Equal(t, 3, resp.UniqueCount)
+	require.Equal(t, 4, resp.UnfilteredCount)
 
 	// now delete id11 and id14 via the API
 	require.NoError(t, cli.Post(ctx, "snapshots/delete", &serverapi.DeleteSnapshotsRequest{
@@ -131,8 +128,8 @@ func TestListAndDeleteSnapshots(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Len(t, resp.Snapshots, 2)
-	require.Equal(t, resp.UniqueCount, 2)
-	require.Equal(t, resp.UnfilteredCount, 2)
+	require.Equal(t, 2, resp.UniqueCount)
+	require.Equal(t, 2, resp.UnfilteredCount)
 
 	// now delete the entire source
 	require.NoError(t, cli.Post(ctx, "snapshots/delete", &serverapi.DeleteSnapshotsRequest{
