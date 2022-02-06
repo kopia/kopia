@@ -170,6 +170,14 @@ type SnapshotsResponse struct {
 	UniqueCount     int         `json:"uniqueCount"`
 }
 
+// DeleteSnapshotsRequest contains request to delete a number of snapshots and optionally the
+// entire snapshot source.
+type DeleteSnapshotsRequest struct {
+	SourceInfo            snapshot.SourceInfo `json:"source"`
+	SnapshotManifestIDs   []manifest.ID       `json:"snapshotManifestIds"`
+	DeleteSourceAndPolicy bool                `json:"deleteSourceAndPolicy"`
+}
+
 // MountSnapshotRequest contains request to mount a snapshot.
 type MountSnapshotRequest struct {
 	Root string `json:"root"`
