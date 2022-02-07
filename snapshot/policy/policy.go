@@ -85,7 +85,3 @@ func validatePolicyPath(p string) error {
 
 	return nil
 }
-
-func intPtr(n int) *int {
-	return &n
-}

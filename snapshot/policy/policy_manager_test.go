@@ -24,7 +24,7 @@ func TestPolicyManagerInheritanceTest(t *testing.T) {
 		Host: "host-a",
 	}, &Policy{
 		RetentionPolicy: RetentionPolicy{
-			KeepDaily: intPtr(44),
+			KeepDaily: newOptionalInt(44),
 		},
 	}))
 
@@ -34,7 +34,7 @@ func TestPolicyManagerInheritanceTest(t *testing.T) {
 		Path:     "/some/path2",
 	}, &Policy{
 		RetentionPolicy: RetentionPolicy{
-			KeepMonthly: intPtr(66),
+			KeepMonthly: newOptionalInt(66),
 		},
 	}))
 
@@ -42,7 +42,7 @@ func TestPolicyManagerInheritanceTest(t *testing.T) {
 		Host: "host-b",
 	}, &Policy{
 		RetentionPolicy: RetentionPolicy{
-			KeepDaily: intPtr(55),
+			KeepDaily: newOptionalInt(55),
 		},
 	}))
 
@@ -185,7 +185,7 @@ func policyWithLabels(p *Policy, l map[string]string) *Policy {
 	return &p2
 }
 
-func policyWithKeepDaily(t *testing.T, base *Policy, keepDaily int) *Policy {
+func policyWithKeepDaily(t *testing.T, base *Policy, keepDaily OptionalInt) *Policy {
 	t.Helper()
 
 	p := clonePolicy(t, base)
@@ -194,7 +194,7 @@ func policyWithKeepDaily(t *testing.T, base *Policy, keepDaily int) *Policy {
 	return p
 }
 
-func policyWithKeepMonthly(t *testing.T, base *Policy, keepMonthly int) *Policy {
+func policyWithKeepMonthly(t *testing.T, base *Policy, keepMonthly OptionalInt) *Policy {
 	t.Helper()
 
 	p := clonePolicy(t, base)
@@ -212,13 +212,13 @@ func TestPolicyManagerResolvesConflicts(t *testing.T) {
 
 	require.NoError(t, SetPolicy(ctx, r1, sourceInfo, &Policy{
 		RetentionPolicy: RetentionPolicy{
-			KeepDaily: intPtr(44),
+			KeepDaily: newOptionalInt(44),
 		},
 	}))
 
 	require.NoError(t, SetPolicy(ctx, r2, sourceInfo, &Policy{
 		RetentionPolicy: RetentionPolicy{
-			KeepDaily: intPtr(33),
+			KeepDaily: newOptionalInt(33),
 		},
 	}))
 
@@ -275,87 +275,87 @@ func TestApplicablePoliciesForSource(t *testing.T) {
 	setPols := map[snapshot.SourceInfo]*Policy{
 		// unix-style path names
 		{Host: "host-a"}: {
-			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(0)},
+			RetentionPolicy: RetentionPolicy{KeepDaily: newOptionalInt(0)},
 		},
 		{Host: "host-a", UserName: "myuser", Path: "/home"}: {
-			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(1)},
+			RetentionPolicy: RetentionPolicy{KeepDaily: newOptionalInt(1)},
 		},
 		{Host: "host-a", UserName: "myuser", Path: "/home/users"}: {
-			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(2)},
+			RetentionPolicy: RetentionPolicy{KeepDaily: newOptionalInt(2)},
 		},
 		// on Unix \ a regular character so the directory name is 'user-with\\backslash'
 		{Host: "host-a", UserName: "myuser", Path: "/home/users/user-with\\backslash"}: {
-			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(2)},
+			RetentionPolicy: RetentionPolicy{KeepDaily: newOptionalInt(2)},
 		},
 		{Host: "host-a", UserName: "myuser", Path: "/home/users/user-with\\backslash/x"}: {
-			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(2)},
+			RetentionPolicy: RetentionPolicy{KeepDaily: newOptionalInt(2)},
 		},
 		{Host: "host-a", UserName: "myuser", Path: "/home/users/myuser"}: {
-			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(3)},
+			RetentionPolicy: RetentionPolicy{KeepDaily: newOptionalInt(3)},
 		},
 		{Host: "host-a", UserName: "myuser", Path: "/home/users/myuser/dir1"}: {
-			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(4)},
+			RetentionPolicy: RetentionPolicy{KeepDaily: newOptionalInt(4)},
 		},
 		{Host: "host-a", UserName: "myuser", Path: "/home/users/myuser/dir2"}: {
-			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(5)},
+			RetentionPolicy: RetentionPolicy{KeepDaily: newOptionalInt(5)},
 		},
 		{Host: "host-a", UserName: "myuser", Path: "/home/users/myuser/dir2/a"}: {
-			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(6)},
+			RetentionPolicy: RetentionPolicy{KeepDaily: newOptionalInt(6)},
 		},
 		{Host: "host-a", UserName: "myuser", Path: "/home/users/myuser2"}: {
-			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(7)},
+			RetentionPolicy: RetentionPolicy{KeepDaily: newOptionalInt(7)},
 		},
 
 		// windows-style path names with backslash
 		{Host: "host-b"}: {
-			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(0)},
+			RetentionPolicy: RetentionPolicy{KeepDaily: newOptionalInt(0)},
 		},
 		{Host: "host-b", UserName: "myuser", Path: "C:\\"}: {
-			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(1)},
+			RetentionPolicy: RetentionPolicy{KeepDaily: newOptionalInt(1)},
 		},
 		{Host: "host-b", UserName: "myuser", Path: "C:\\Users"}: {
-			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(2)},
+			RetentionPolicy: RetentionPolicy{KeepDaily: newOptionalInt(2)},
 		},
 		{Host: "host-b", UserName: "myuser", Path: "C:\\Users\\myuser"}: {
-			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(3)},
+			RetentionPolicy: RetentionPolicy{KeepDaily: newOptionalInt(3)},
 		},
 		{Host: "host-b", UserName: "myuser", Path: "C:\\Users\\myuser\\dir1"}: {
-			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(4)},
+			RetentionPolicy: RetentionPolicy{KeepDaily: newOptionalInt(4)},
 		},
 		{Host: "host-b", UserName: "myuser", Path: "C:\\Users\\myuser\\dir2"}: {
-			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(5)},
+			RetentionPolicy: RetentionPolicy{KeepDaily: newOptionalInt(5)},
 		},
 		{Host: "host-b", UserName: "myuser", Path: "C:\\Users\\myuser\\dir2\\a"}: {
-			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(6)},
+			RetentionPolicy: RetentionPolicy{KeepDaily: newOptionalInt(6)},
 		},
 		{Host: "host-b", UserName: "myuser", Path: "C:\\Users\\myuser2"}: {
-			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(7)},
+			RetentionPolicy: RetentionPolicy{KeepDaily: newOptionalInt(7)},
 		},
 
 		// windows-style path names with slashes
 		{Host: "host-c"}: {
-			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(0)},
+			RetentionPolicy: RetentionPolicy{KeepDaily: newOptionalInt(0)},
 		},
 		{Host: "host-c", UserName: "myuser", Path: "C:/Users"}: {
-			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(1)},
+			RetentionPolicy: RetentionPolicy{KeepDaily: newOptionalInt(1)},
 		},
 		{Host: "host-c", UserName: "myuser", Path: "C:/Users"}: {
-			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(2)},
+			RetentionPolicy: RetentionPolicy{KeepDaily: newOptionalInt(2)},
 		},
 		{Host: "host-c", UserName: "myuser", Path: "C:/Users/myuser"}: {
-			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(3)},
+			RetentionPolicy: RetentionPolicy{KeepDaily: newOptionalInt(3)},
 		},
 		{Host: "host-c", UserName: "myuser", Path: "C:/Users/myuser/dir1"}: {
-			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(4)},
+			RetentionPolicy: RetentionPolicy{KeepDaily: newOptionalInt(4)},
 		},
 		{Host: "host-c", UserName: "myuser", Path: "C:/Users/myuser/dir2"}: {
-			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(5)},
+			RetentionPolicy: RetentionPolicy{KeepDaily: newOptionalInt(5)},
 		},
 		{Host: "host-c", UserName: "myuser", Path: "C:/Users/myuser/dir2/a"}: {
-			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(6)},
+			RetentionPolicy: RetentionPolicy{KeepDaily: newOptionalInt(6)},
 		},
 		{Host: "host-c", UserName: "myuser", Path: "C:/Users/myuser2"}: {
-			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(7)},
+			RetentionPolicy: RetentionPolicy{KeepDaily: newOptionalInt(7)},
 		},
 	}
 

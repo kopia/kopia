@@ -29,7 +29,7 @@ func (c *policyRetentionFlags) setup(cmd *kingpin.CmdClause) {
 func (c *policyRetentionFlags) setRetentionPolicyFromFlags(ctx context.Context, rp *policy.RetentionPolicy, changeCount *int) error {
 	cases := []struct {
 		desc      string
-		max       **int
+		max       **policy.OptionalInt
 		flagValue string
 	}{
 		{"number of annual backups to keep", &rp.KeepAnnual, c.policySetKeepAnnual},
@@ -41,7 +41,7 @@ func (c *policyRetentionFlags) setRetentionPolicyFromFlags(ctx context.Context, 
 	}
 
 	for _, c := range cases {
-		if err := applyPolicyNumber(ctx, c.desc, c.max, c.flagValue, changeCount); err != nil {
+		if err := applyOptionalInt(ctx, c.desc, c.max, c.flagValue, changeCount); err != nil {
 			return err
 		}
 	}

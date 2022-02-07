@@ -2,6 +2,7 @@ package policy
 
 import (
 	"fmt"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -20,12 +21,12 @@ const (
 
 // RetentionPolicy describes snapshot retention policy.
 type RetentionPolicy struct {
-	KeepLatest  *int `json:"keepLatest,omitempty"`
-	KeepHourly  *int `json:"keepHourly,omitempty"`
-	KeepDaily   *int `json:"keepDaily,omitempty"`
-	KeepWeekly  *int `json:"keepWeekly,omitempty"`
-	KeepMonthly *int `json:"keepMonthly,omitempty"`
-	KeepAnnual  *int `json:"keepAnnual,omitempty"`
+	KeepLatest  *OptionalInt `json:"keepLatest,omitempty"`
+	KeepHourly  *OptionalInt `json:"keepHourly,omitempty"`
+	KeepDaily   *OptionalInt `json:"keepDaily,omitempty"`
+	KeepWeekly  *OptionalInt `json:"keepWeekly,omitempty"`
+	KeepMonthly *OptionalInt `json:"keepMonthly,omitempty"`
+	KeepAnnual  *OptionalInt `json:"keepAnnual,omitempty"`
 }
 
 // RetentionPolicyDefinition specifies which policy definition provided the value of a particular field.
@@ -63,9 +64,9 @@ func (r *RetentionPolicy) ComputeRetentionReasons(manifests []*snapshot.Manifest
 
 	maxTime := maxCompleteStartTime.Add(365 * 24 * time.Hour)
 
-	cutoffTime := func(setting *int, add func(time.Time, int) time.Time) time.Time {
+	cutoffTime := func(setting *OptionalInt, add func(time.Time, int) time.Time) time.Time {
 		if setting != nil {
-			return add(maxCompleteStartTime, *setting)
+			return add(maxCompleteStartTime, int(*setting))
 		}
 
 		return maxTime
@@ -111,6 +112,14 @@ func (r *RetentionPolicy) ComputeRetentionReasons(manifests []*snapshot.Manifest
 	}
 }
 
+func (r *RetentionPolicy) effectiveKeepLatest() *OptionalInt {
+	if r.KeepLatest.OrDefault(0)+r.KeepHourly.OrDefault(0)+r.KeepDaily.OrDefault(0)+r.KeepWeekly.OrDefault(0)+r.KeepMonthly.OrDefault(0)+r.KeepAnnual.OrDefault(0) == 0 {
+		return newOptionalInt(math.MaxInt)
+	}
+
+	return r.KeepLatest
+}
+
 func (r *RetentionPolicy) getRetentionReasons(i int, s *snapshot.Manifest, cutoff *cutoffTimes, ids map[string]bool, idCounters map[string]int) []string {
 	if s.IncompleteReason != "" {
 		return nil
@@ -122,13 +131,15 @@ func (r *RetentionPolicy) getRetentionReasons(i int, s *snapshot.Manifest, cutof
 
 	yyyy, wk := s.StartTime.ISOWeek()
 
+	effectiveKeepLatest := r.effectiveKeepLatest()
+
 	cases := []struct {
 		cutoffTime     time.Time
 		timePeriodID   string
 		timePeriodType string
-		max            *int
+		max            *OptionalInt
 	}{
-		{zeroTime, fmt.Sprintf("%v", i), "latest", r.KeepLatest},
+		{zeroTime, fmt.Sprintf("%v", i), "latest", effectiveKeepLatest},
 		{cutoff.annual, s.StartTime.Format("2006"), "annual", r.KeepAnnual},
 		{cutoff.monthly, s.StartTime.Format("2006-01"), "monthly", r.KeepMonthly},
 		{cutoff.weekly, fmt.Sprintf("%04v-%02v", yyyy, wk), "weekly", r.KeepWeekly},
@@ -149,7 +160,7 @@ func (r *RetentionPolicy) getRetentionReasons(i int, s *snapshot.Manifest, cutof
 			continue
 		}
 
-		if idCounters[c.timePeriodType] < *c.max {
+		if idCounters[c.timePeriodType] < int(*c.max) {
 			ids[c.timePeriodID] = true
 			idCounters[c.timePeriodType]++
 			keepReasons = append(keepReasons, fmt.Sprintf("%v-%v", c.timePeriodType, idCounters[c.timePeriodType]))

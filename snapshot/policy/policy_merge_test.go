@@ -108,6 +108,15 @@ func testPolicyMergeSingleField(t *testing.T, fieldName string, typ reflect.Type
 		v0 = reflect.ValueOf((*policy.OptionalBool)(nil))
 		v1 = reflect.ValueOf(&ob1)
 		v2 = reflect.ValueOf(&ob2)
+
+	case "*policy.OptionalInt":
+		ob1 := policy.OptionalInt(1)
+		ob2 := policy.OptionalInt(7)
+
+		v0 = reflect.ValueOf((*policy.OptionalInt)(nil))
+		v1 = reflect.ValueOf(&ob1)
+		v2 = reflect.ValueOf(&ob2)
+
 	case "bool":
 		v0 = reflect.ValueOf(false)
 		v1 = reflect.ValueOf(false)

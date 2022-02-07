@@ -18,8 +18,17 @@ func TestRetentionPolicyTest(t *testing.T) {
 		timeToExpectedTags map[string][]string
 	}{
 		{
+			&RetentionPolicy{}, // empty policy is treated as {"keepLatest": maxInt}
+			map[string][]string{
+				"2020-01-01T12:00:00Z": {"latest-4"},
+				"2020-01-01T12:01:00Z": {"latest-3"},
+				"2020-01-01T12:02:00Z": {"latest-2"},
+				"2020-01-01T12:03:00Z": {"latest-1"},
+			},
+		},
+		{
 			&RetentionPolicy{
-				KeepLatest: intPtr(3),
+				KeepLatest: newOptionalInt(3),
 			},
 			map[string][]string{
 				"2020-01-01T12:00:00Z": {}, // not retained, only keep 3 latest
@@ -30,7 +39,7 @@ func TestRetentionPolicyTest(t *testing.T) {
 		},
 		{
 			&RetentionPolicy{
-				KeepDaily: intPtr(3),
+				KeepDaily: newOptionalInt(3),
 			},
 			map[string][]string{
 				"2020-01-01T12:00:00Z": {},
@@ -45,7 +54,7 @@ func TestRetentionPolicyTest(t *testing.T) {
 		},
 		{
 			&RetentionPolicy{
-				KeepMonthly: intPtr(3),
+				KeepMonthly: newOptionalInt(3),
 			},
 			map[string][]string{
 				"2020-01-01T12:00:00Z": {},
@@ -60,7 +69,7 @@ func TestRetentionPolicyTest(t *testing.T) {
 		},
 		{
 			&RetentionPolicy{
-				KeepMonthly: intPtr(3),
+				KeepMonthly: newOptionalInt(3),
 			},
 			map[string][]string{
 				"2020-01-01T12:00:00Z": {},
@@ -73,10 +82,10 @@ func TestRetentionPolicyTest(t *testing.T) {
 		},
 		{
 			&RetentionPolicy{
-				KeepLatest:  intPtr(3),
-				KeepHourly:  intPtr(7),
-				KeepDaily:   intPtr(5),
-				KeepMonthly: intPtr(2),
+				KeepLatest:  newOptionalInt(3),
+				KeepHourly:  newOptionalInt(7),
+				KeepDaily:   newOptionalInt(5),
+				KeepMonthly: newOptionalInt(2),
 			},
 			map[string][]string{
 				"2020-01-01T12:00:00Z": {},
@@ -124,7 +133,7 @@ func TestRetentionPolicyTest(t *testing.T) {
 		},
 		{
 			&RetentionPolicy{
-				KeepLatest: intPtr(3),
+				KeepLatest: newOptionalInt(3),
 			},
 			map[string][]string{
 				"2020-04-02T15:00:00Z":            {"latest-1"},
@@ -138,7 +147,7 @@ func TestRetentionPolicyTest(t *testing.T) {
 		},
 		{
 			&RetentionPolicy{
-				KeepWeekly: intPtr(3),
+				KeepWeekly: newOptionalInt(3),
 			},
 			map[string][]string{
 				"2020-01-01T12:00:00Z": {},

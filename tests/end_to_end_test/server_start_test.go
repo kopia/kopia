@@ -142,7 +142,7 @@ func TestServerStart(t *testing.T) {
 	err = json.Unmarshal(rootPayload, &dummy)
 	require.NoError(t, err)
 
-	keepDaily := 77
+	keepDaily := policy.OptionalInt(77)
 
 	createResp, err = serverapi.CreateSnapshotSource(ctx, cli, &serverapi.CreateSnapshotSourceRequest{
 		Path: sharedTestDataDir3,

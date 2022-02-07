@@ -40,12 +40,12 @@ var (
 	}
 
 	defaultRetentionPolicy = RetentionPolicy{
-		KeepLatest:  intPtr(defaultKeepLatest),
-		KeepHourly:  intPtr(defaultKeepHourly),
-		KeepDaily:   intPtr(defaultKeepDaily),
-		KeepWeekly:  intPtr(defaultKeepWeekly),
-		KeepMonthly: intPtr(defaultKeepMonthly),
-		KeepAnnual:  intPtr(defaultKeepAnnual),
+		KeepLatest:  newOptionalInt(defaultKeepLatest),
+		KeepHourly:  newOptionalInt(defaultKeepHourly),
+		KeepDaily:   newOptionalInt(defaultKeepDaily),
+		KeepWeekly:  newOptionalInt(defaultKeepWeekly),
+		KeepMonthly: newOptionalInt(defaultKeepMonthly),
+		KeepAnnual:  newOptionalInt(defaultKeepAnnual),
 	}
 
 	defaultSchedulingPolicy = SchedulingPolicy{}
