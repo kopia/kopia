@@ -56,7 +56,7 @@ func mergeOptionalBool(target **OptionalBool, src *OptionalBool, def *snapshot.S
 	}
 }
 
-func mergeOptionalInt(target **int, src *int, def *snapshot.SourceInfo, si snapshot.SourceInfo) {
+func mergeOptionalInt(target **OptionalInt, src *OptionalInt, def *snapshot.SourceInfo, si snapshot.SourceInfo) {
 	if *target == nil && src != nil {
 		v := *src
 

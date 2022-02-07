@@ -19,6 +19,7 @@ options:
       - repository
       - server
       - providers
+      - snapshots
       - testing
       - lint
       - deps
@@ -37,6 +38,7 @@ options:
       ui: Graphical User Interface
       lint: Linter
       deps: Dependencies
+      snapshots: Snapshots
       deps-dev: Development Dependencies
       infra: Infrastructure
       general: General Improvements
@@ -48,6 +50,7 @@ options:
       - general
       - repository
       - server
+      - snapshots
       - providers
       - deps
       - testing

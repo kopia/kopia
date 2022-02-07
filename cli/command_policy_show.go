@@ -309,7 +309,7 @@ func printActionCommand(out *textOutput, h *policy.ActionCommand) {
 	out.printStdout("\n")
 }
 
-func valueOrNotSet(p *int) string {
+func valueOrNotSet(p *policy.OptionalInt) string {
 	if p == nil {
 		return "-"
 	}

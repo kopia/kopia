@@ -166,7 +166,7 @@ func applyPolicyStringList(ctx context.Context, desc string, val *[]string, add,
 	*val = s
 }
 
-func applyPolicyNumber(ctx context.Context, desc string, val **int, str string, changeCount *int) error {
+func applyOptionalInt(ctx context.Context, desc string, val **policy.OptionalInt, str string, changeCount *int) error {
 	if str == "" {
 		// not changed
 		return nil
@@ -188,7 +188,7 @@ func applyPolicyNumber(ctx context.Context, desc string, val **int, str string, 
 		return errors.Wrapf(err, "can't parse the %v %q", desc, str)
 	}
 
-	i := int(v)
+	i := policy.OptionalInt(v)
 	*changeCount++
 
 	log(ctx).Infof(" - setting %q to %v.", desc, i)
