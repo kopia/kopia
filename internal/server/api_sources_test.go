@@ -68,10 +68,16 @@ func TestSnapshotCounters(t *testing.T) {
 	require.NoError(t, err)
 
 	// wait until new task for the upload is created
-	deadline := clock.Now().Add(10 * time.Second)
-	for mustGetLatestTask(t, cli).TaskID == et.TaskID && clock.Now().Before(deadline) {
+	deadline := clock.Now().Add(30 * time.Second)
+
+	latest := mustGetLatestTask(t, cli)
+	for latest.TaskID == et.TaskID && clock.Now().Before(deadline) {
 		time.Sleep(100 * time.Microsecond)
+
+		latest = mustGetLatestTask(t, cli)
 	}
+
+	require.NotEqual(t, latest.TaskID, et.TaskID)
 
 	ut := waitForTask(t, cli, mustGetLatestTask(t, cli).TaskID, 15*time.Second)
 
