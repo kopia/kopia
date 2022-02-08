@@ -17,7 +17,7 @@ type UpgradeLock struct {
 	AdvanceNoticeDuration  time.Duration `json:"advanceNoticeDuration,omitempty"`
 	IODrainTimeout         time.Duration `json:"ioDrainTimeout,omitempty"`
 	StatusPollInterval     time.Duration `json:"statusPollInterval,omitempty"`
-	OldFormatVersion       FormatVersion `json:"oldFormatVersion,omitempty"`
+	Message                string        `json:"message,omitempty"`
 	MaxPermittedClockDrift time.Duration `json:"maxPermittedClockDrift,omitempty"`
 }
 
@@ -73,8 +73,8 @@ func (l *UpgradeLock) Validate() error {
 		return errors.New("status-poll-interval must be less than or equal to the io-drain-timeout")
 	}
 
-	if l.OldFormatVersion <= 0 {
-		return errors.New("old-format-version is not set")
+	if l.Message == "" {
+		return errors.New("please set an upgrade message for visibility")
 	}
 
 	if l.MaxPermittedClockDrift <= 0 {

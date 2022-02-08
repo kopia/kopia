@@ -18,7 +18,7 @@ func TestUpgradeLockIntentUpdatesWithAdvanceNotice(t *testing.T) {
 		AdvanceNoticeDuration:  time.Hour,
 		IODrainTimeout:         15 * time.Minute,
 		StatusPollInterval:     60 * time.Second,
-		OldFormatVersion:       content.FormatVersion2,
+		Message:                "upgrading from format version 2 -> 3",
 		MaxPermittedClockDrift: 5 * time.Second,
 	}
 
@@ -63,7 +63,7 @@ func TestUpgradeLockIntentUpdatesWithoutAdvanceNotice(t *testing.T) {
 		AdvanceNoticeDuration:  0, /* no advance notice */
 		IODrainTimeout:         15 * time.Minute,
 		StatusPollInterval:     60 * time.Second,
-		OldFormatVersion:       content.FormatVersion2,
+		Message:                "upgrading from format version 2 -> 3",
 		MaxPermittedClockDrift: 5 * time.Second,
 	}
 
@@ -92,8 +92,8 @@ func TestUpgradeLockIntentValidation(t *testing.T) {
 	require.EqualError(t, l.Validate(), "status-poll-interval must be less than or equal to the io-drain-timeout")
 	l.StatusPollInterval = l.IODrainTimeout
 
-	require.EqualError(t, l.Validate(), "old-format-version is not set")
-	l.OldFormatVersion = content.FormatVersion2
+	require.EqualError(t, l.Validate(), "please set an upgrade message for visibility")
+	l.Message = "upgrading from format version 2 -> 3"
 
 	require.EqualError(t, l.Validate(), "max-permitted-clock-drift is not set")
 	l.MaxPermittedClockDrift = 5 * time.Second
@@ -132,7 +132,7 @@ func TestUpgradeLockIntentImmediateLock(t *testing.T) {
 				AdvanceNoticeDuration:  1 * time.Hour,
 				IODrainTimeout:         -1 * time.Hour,
 				StatusPollInterval:     0,
-				OldFormatVersion:       content.FormatVersion2,
+				Message:                "upgrading from format version 2 -> 3",
 				MaxPermittedClockDrift: 0,
 			}
 			tmp.IsLocked(now.Add(2 * time.Hour))
@@ -144,7 +144,7 @@ func TestUpgradeLockIntentImmediateLock(t *testing.T) {
 		AdvanceNoticeDuration:  0, /* no advance notice */
 		IODrainTimeout:         15 * time.Minute,
 		StatusPollInterval:     60 * time.Second,
-		OldFormatVersion:       content.FormatVersion2,
+		Message:                "upgrading from format version 2 -> 3",
 		MaxPermittedClockDrift: 5 * time.Second,
 	}
 
@@ -187,7 +187,7 @@ func TestUpgradeLockIntentSufficientAdvanceLock(t *testing.T) {
 		AdvanceNoticeDuration:  6 * time.Hour,
 		IODrainTimeout:         15 * time.Minute,
 		StatusPollInterval:     60 * time.Second,
-		OldFormatVersion:       content.FormatVersion2,
+		Message:                "upgrading from format version 2 -> 3",
 		MaxPermittedClockDrift: 5 * time.Second,
 	}
 
@@ -254,7 +254,7 @@ func TestUpgradeLockIntentInSufficientAdvanceLock(t *testing.T) {
 		AdvanceNoticeDuration:  20 * time.Minute, /* insufficient time to drain the writers */
 		IODrainTimeout:         15 * time.Minute,
 		StatusPollInterval:     60 * time.Second,
-		OldFormatVersion:       content.FormatVersion2,
+		Message:                "upgrading from format version 2 -> 3",
 		MaxPermittedClockDrift: 5 * time.Second,
 	}
 
@@ -298,7 +298,7 @@ func TestUpgradeLockIntentUpgradeTime(t *testing.T) {
 		AdvanceNoticeDuration:  20 * time.Minute, /* insufficient time to drain the writers */
 		IODrainTimeout:         15 * time.Minute,
 		StatusPollInterval:     60 * time.Second,
-		OldFormatVersion:       content.FormatVersion2,
+		Message:                "upgrading from format version 2 -> 3",
 		MaxPermittedClockDrift: 5 * time.Second,
 	}
 	require.Equal(t, now.Add(l.MaxPermittedClockDrift+2*l.IODrainTimeout), l.UpgradeTime())
@@ -309,7 +309,7 @@ func TestUpgradeLockIntentUpgradeTime(t *testing.T) {
 		AdvanceNoticeDuration:  20 * time.Hour, /* sufficient time to drain the writers */
 		IODrainTimeout:         15 * time.Minute,
 		StatusPollInterval:     60 * time.Second,
-		OldFormatVersion:       content.FormatVersion2,
+		Message:                "upgrading from format version 2 -> 3",
 		MaxPermittedClockDrift: 5 * time.Second,
 	}
 	require.Equal(t, now.Add(l.AdvanceNoticeDuration), l.UpgradeTime())
@@ -320,7 +320,7 @@ func TestUpgradeLockIntentUpgradeTime(t *testing.T) {
 		AdvanceNoticeDuration:  0, /* immediate lock */
 		IODrainTimeout:         15 * time.Minute,
 		StatusPollInterval:     60 * time.Second,
-		OldFormatVersion:       content.FormatVersion2,
+		Message:                "upgrading from format version 2 -> 3",
 		MaxPermittedClockDrift: 5 * time.Second,
 	}
 	require.Equal(t, now.Add(l.MaxPermittedClockDrift+2*l.IODrainTimeout), l.UpgradeTime())
@@ -329,11 +329,11 @@ func TestUpgradeLockIntentUpgradeTime(t *testing.T) {
 func TestUpgradeLockIntentClone(t *testing.T) {
 	l := &content.UpgradeLock{
 		OwnerID:                "upgrade-owner",
-		CreationTime:           time.Now(),
+		CreationTime:           clock.Now(),
 		AdvanceNoticeDuration:  20 * time.Minute,
 		IODrainTimeout:         15 * time.Minute,
 		StatusPollInterval:     60 * time.Second,
-		OldFormatVersion:       content.FormatVersion2,
+		Message:                "upgrading from format version 2 -> 3",
 		MaxPermittedClockDrift: 5 * time.Second,
 	}
 	require.EqualValues(t, l, l.Clone())
