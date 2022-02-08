@@ -177,3 +177,81 @@ func TestListAndDeleteSnapshots(t *testing.T) {
 
 	require.Empty(t, sourceList.Sources)
 }
+
+func TestEditSnapshots(t *testing.T) {
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
+
+	si1 := localSource(env, "/dummy/path")
+
+	var id11 manifest.ID
+
+	require.NoError(t, repo.WriteSession(ctx, env.Repository, repo.WriteSessionOptions{Purpose: "Test"}, func(ctx context.Context, w repo.RepositoryWriter) error {
+		u := snapshotfs.NewUploader(w)
+
+		dir1 := mockfs.NewDirectory()
+
+		dir1.AddFile("file1", []byte{1, 2, 3}, 0o644)
+		dir1.AddFile("file2", []byte{1, 2, 4}, 0o644)
+
+		man11, err := u.Upload(ctx, dir1, nil, si1)
+		require.NoError(t, err)
+		id11, err = snapshot.SaveSnapshot(ctx, w, man11)
+		require.NoError(t, err)
+
+		return nil
+	}))
+
+	srvInfo := startServer(t, env, false)
+
+	cli, err := apiclient.NewKopiaAPIClient(apiclient.Options{
+		BaseURL:                             srvInfo.BaseURL,
+		TrustedServerCertificateFingerprint: srvInfo.TrustedServerCertificateFingerprint,
+		Username:                            testUIUsername,
+		Password:                            testUIPassword,
+	})
+
+	require.NoError(t, err)
+	require.NoError(t, cli.FetchCSRFTokenForTesting(ctx))
+
+	resp, err := serverapi.ListSnapshots(ctx, cli, si1, true)
+	require.NoError(t, err)
+
+	require.Len(t, resp.Snapshots, 1)
+
+	var (
+		updated []*serverapi.Snapshot
+
+		newDesc1 = "desc1"
+		newDesc2 = "desc2"
+	)
+
+	require.NoError(t, cli.Post(ctx, "snapshots/edit", &serverapi.EditSnapshotsRequest{
+		Snapshots:      []manifest.ID{id11},
+		AddPins:        []string{"pin1", "pin2"},
+		NewDescription: &newDesc1,
+	}, &updated))
+
+	require.Len(t, updated, 1)
+	require.EqualValues(t, []string{"pin1", "pin2"}, updated[0].Pins)
+	require.EqualValues(t, newDesc1, updated[0].Description)
+
+	require.NoError(t, cli.Post(ctx, "snapshots/edit", &serverapi.EditSnapshotsRequest{
+		Snapshots:      []manifest.ID{updated[0].ID},
+		AddPins:        []string{"pin3"},
+		RemovePins:     []string{"pin1"},
+		NewDescription: &newDesc2,
+	}, &updated))
+
+	require.Len(t, updated, 1)
+	require.EqualValues(t, []string{"pin2", "pin3"}, updated[0].Pins)
+	require.EqualValues(t, newDesc2, updated[0].Description)
+
+	require.NoError(t, cli.Post(ctx, "snapshots/edit", &serverapi.EditSnapshotsRequest{
+		Snapshots:  []manifest.ID{updated[0].ID},
+		RemovePins: []string{"pin3"},
+	}, &updated))
+
+	require.Len(t, updated, 1)
+	require.EqualValues(t, []string{"pin2"}, updated[0].Pins)
+	require.EqualValues(t, newDesc2, updated[0].Description)
+}
