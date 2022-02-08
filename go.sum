@@ -404,6 +404,8 @@ github.com/kopia/htmluibuild v0.0.0-20220131042136-3e252f22c951 h1:5Ax9T6D+EFzIP
 github.com/kopia/htmluibuild v0.0.0-20220131042136-3e252f22c951/go.mod h1:eWer4rx9P8lJo2eKc+Q7AZ1dE1x1hJNdkbDFPzMu1Hw=
 github.com/kopia/htmluibuild v0.0.0-20220206023946-bd8fce6ec20d h1:bE9j+g8iiICIJjYr6K56OrnxRFKSfrnLCpOhD1vOBTc=
 github.com/kopia/htmluibuild v0.0.0-20220206023946-bd8fce6ec20d/go.mod h1:eWer4rx9P8lJo2eKc+Q7AZ1dE1x1hJNdkbDFPzMu1Hw=
+github.com/kopia/htmluibuild v0.0.0-20220208062920-a1d47d1e3096 h1:rbrPWsO4OTT2ce4q2rSsh/LlApYu+Sr8EDZEa5jV3zg=
+github.com/kopia/htmluibuild v0.0.0-20220208062920-a1d47d1e3096/go.mod h1:eWer4rx9P8lJo2eKc+Q7AZ1dE1x1hJNdkbDFPzMu1Hw=
 github.com/kr/fs v0.1.0 h1:Jskdu9ieNAYnjxsi0LbQp1ulIKZV1LAFgK1tWhpZgl8=
 github.com/kr/fs v0.1.0/go.mod h1:FFnZGqtBN9Gxj7eW1uZ42v5BccTP0vu6NEaFoC2HwRg=
 github.com/kr/logfmt v0.0.0-20140226030751-b84e30acd515/go.mod h1:+0opPa2QZZtGFBFZlji/RkVcI2GknAs/DXo4wKdlNEc=
