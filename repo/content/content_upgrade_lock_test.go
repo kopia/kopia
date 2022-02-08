@@ -12,12 +12,15 @@ import (
 )
 
 func TestUpgradeLockIntentUpdatesWithAdvanceNotice(t *testing.T) {
-	oldLock := content.NewUpgradeLock(
-		clock.Now(),
-		"upgrade-owner",
-		time.Hour, 15*time.Minute, 60*time.Second, 5*time.Second,
-		content.FormatVersion2,
-	)
+	oldLock := content.UpgradeLock{
+		OwnerID:                "upgrade-owner",
+		CreationTime:           clock.Now(),
+		AdvanceNoticeDuration:  time.Hour,
+		IODrainTimeout:         15 * time.Minute,
+		StatusPollInterval:     60 * time.Second,
+		OldFormatVersion:       content.FormatVersion2,
+		MaxPermittedClockDrift: 5 * time.Second,
+	}
 
 	// verify that we can increment the lock's advance notice
 	newLock := oldLock.Clone()
@@ -54,12 +57,15 @@ func TestUpgradeLockIntentUpdatesWithAdvanceNotice(t *testing.T) {
 }
 
 func TestUpgradeLockIntentUpdatesWithoutAdvanceNotice(t *testing.T) {
-	oldLock := content.NewUpgradeLock(
-		clock.Now(),
-		"upgrade-owner",
-		0 /* no advance notice */, 15*time.Minute, 60*time.Second, 5*time.Second,
-		content.FormatVersion2,
-	)
+	oldLock := content.UpgradeLock{
+		OwnerID:                "upgrade-owner",
+		CreationTime:           clock.Now(),
+		AdvanceNoticeDuration:  0, /* no advance notice */
+		IODrainTimeout:         15 * time.Minute,
+		StatusPollInterval:     60 * time.Second,
+		OldFormatVersion:       content.FormatVersion2,
+		MaxPermittedClockDrift: 5 * time.Second,
+	}
 
 	// verify that we cannot set an advance notice on an existing lock which does
 	// not have it set
@@ -71,7 +77,7 @@ func TestUpgradeLockIntentUpdatesWithoutAdvanceNotice(t *testing.T) {
 }
 
 func TestUpgradeLockIntentValidation(t *testing.T) {
-	l := content.NewUpgradeLock(time.Time{}, "", 0, 0, 0, 0, 0)
+	var l content.UpgradeLock
 
 	require.EqualError(t, l.Validate(), "no owner-id set, it is required to set a unique owner-id")
 	l.OwnerID = "new-owner"
@@ -120,15 +126,27 @@ func TestUpgradeLockIntentImmediateLock(t *testing.T) {
 	require.PanicsWithValue(t,
 		"writers have drained but we are not locked, this is not possible until the upgrade-lock intent is invalid",
 		func() {
-			content.NewUpgradeLock(now, "", 1*time.Hour, -1*time.Hour, 0, 0, content.FormatVersion2).IsLocked(now.Add(2 * time.Hour))
+			tmp := content.UpgradeLock{
+				OwnerID:                "",
+				CreationTime:           now,
+				AdvanceNoticeDuration:  1 * time.Hour,
+				IODrainTimeout:         -1 * time.Hour,
+				StatusPollInterval:     0,
+				OldFormatVersion:       content.FormatVersion2,
+				MaxPermittedClockDrift: 0,
+			}
+			tmp.IsLocked(now.Add(2 * time.Hour))
 		})
 
-	l = content.NewUpgradeLock(
-		now,
-		"upgrade-owner",
-		0 /* no advance notice */, 15*time.Minute, 60*time.Second, 5*time.Second,
-		content.FormatVersion2,
-	)
+	l = &content.UpgradeLock{
+		OwnerID:                "upgrade-owner",
+		CreationTime:           now,
+		AdvanceNoticeDuration:  0, /* no advance notice */
+		IODrainTimeout:         15 * time.Minute,
+		StatusPollInterval:     60 * time.Second,
+		OldFormatVersion:       content.FormatVersion2,
+		MaxPermittedClockDrift: 5 * time.Second,
+	}
 
 	// Verify that the lock intent has been placed but is not fully established
 	// (writers drained) at the time of taking the lock
@@ -163,12 +181,15 @@ func TestUpgradeLockIntentImmediateLock(t *testing.T) {
 
 func TestUpgradeLockIntentSufficientAdvanceLock(t *testing.T) {
 	now := clock.Now()
-	l := content.NewUpgradeLock(
-		now,
-		"upgrade-owner",
-		6*time.Hour /* sufficient time to drain the writers */, 15*time.Minute, 60*time.Second, 5*time.Second,
-		content.FormatVersion2,
-	)
+	l := content.UpgradeLock{
+		OwnerID:                "upgrade-owner",
+		CreationTime:           now,
+		AdvanceNoticeDuration:  6 * time.Hour,
+		IODrainTimeout:         15 * time.Minute,
+		StatusPollInterval:     60 * time.Second,
+		OldFormatVersion:       content.FormatVersion2,
+		MaxPermittedClockDrift: 5 * time.Second,
+	}
 
 	// Verify that the lock intent has been placed but is not locked at all
 	// at the time of taking the lock with advance notice
@@ -227,12 +248,15 @@ func TestUpgradeLockIntentSufficientAdvanceLock(t *testing.T) {
 
 func TestUpgradeLockIntentInSufficientAdvanceLock(t *testing.T) {
 	now := clock.Now()
-	l := content.NewUpgradeLock(
-		now,
-		"upgrade-owner",
-		20*time.Minute /* insufficient time to drain the writers */, 15*time.Minute, 60*time.Second, 5*time.Second,
-		content.FormatVersion2,
-	)
+	l := content.UpgradeLock{
+		OwnerID:                "upgrade-owner",
+		CreationTime:           now,
+		AdvanceNoticeDuration:  20 * time.Minute, /* insufficient time to drain the writers */
+		IODrainTimeout:         15 * time.Minute,
+		StatusPollInterval:     60 * time.Second,
+		OldFormatVersion:       content.FormatVersion2,
+		MaxPermittedClockDrift: 5 * time.Second,
+	}
 
 	// Verify that the lock intent has been placed and is held right at the
 	// creation time because there si insufficient time to drain fro mthe
@@ -263,42 +287,54 @@ func TestUpgradeLockIntentInSufficientAdvanceLock(t *testing.T) {
 func TestUpgradeLockIntentUpgradeTime(t *testing.T) {
 	now := clock.Now()
 
-	var l *content.UpgradeLock
+	var l content.UpgradeLock
 
 	// checking time on nil lock
 	require.Equal(t, time.Time{}, l.UpgradeTime())
 
-	l = content.NewUpgradeLock(
-		now,
-		"upgrade-owner",
-		20*time.Minute /* insufficient time to drain the writers */, 15*time.Minute, 60*time.Second, 5*time.Second,
-		content.FormatVersion2,
-	)
+	l = content.UpgradeLock{
+		OwnerID:                "upgrade-owner",
+		CreationTime:           now,
+		AdvanceNoticeDuration:  20 * time.Minute, /* insufficient time to drain the writers */
+		IODrainTimeout:         15 * time.Minute,
+		StatusPollInterval:     60 * time.Second,
+		OldFormatVersion:       content.FormatVersion2,
+		MaxPermittedClockDrift: 5 * time.Second,
+	}
 	require.Equal(t, now.Add(l.MaxPermittedClockDrift+2*l.IODrainTimeout), l.UpgradeTime())
 
-	l = content.NewUpgradeLock(
-		now,
-		"upgrade-owner",
-		20*time.Hour /* sufficient time to drain the writers */, 15*time.Minute, 60*time.Second, 5*time.Second,
-		content.FormatVersion2,
-	)
+	l = content.UpgradeLock{
+		OwnerID:                "upgrade-owner",
+		CreationTime:           now,
+		AdvanceNoticeDuration:  20 * time.Hour, /* sufficient time to drain the writers */
+		IODrainTimeout:         15 * time.Minute,
+		StatusPollInterval:     60 * time.Second,
+		OldFormatVersion:       content.FormatVersion2,
+		MaxPermittedClockDrift: 5 * time.Second,
+	}
 	require.Equal(t, now.Add(l.AdvanceNoticeDuration), l.UpgradeTime())
 
-	l = content.NewUpgradeLock(
-		now,
-		"upgrade-owner",
-		0 /* immediate lock */, 15*time.Minute, 60*time.Second, 5*time.Second,
-		content.FormatVersion2,
-	)
+	l = content.UpgradeLock{
+		OwnerID:                "upgrade-owner",
+		CreationTime:           now,
+		AdvanceNoticeDuration:  0, /* immediate lock */
+		IODrainTimeout:         15 * time.Minute,
+		StatusPollInterval:     60 * time.Second,
+		OldFormatVersion:       content.FormatVersion2,
+		MaxPermittedClockDrift: 5 * time.Second,
+	}
 	require.Equal(t, now.Add(l.MaxPermittedClockDrift+2*l.IODrainTimeout), l.UpgradeTime())
 }
 
 func TestUpgradeLockIntentClone(t *testing.T) {
-	l := content.NewUpgradeLock(
-		clock.Now(),
-		"upgrade-owner",
-		20*time.Minute, 15*time.Minute, 60*time.Second, 5*time.Second,
-		content.FormatVersion2,
-	)
+	l := &content.UpgradeLock{
+		OwnerID:                "upgrade-owner",
+		CreationTime:           time.Now(),
+		AdvanceNoticeDuration:  20 * time.Minute,
+		IODrainTimeout:         15 * time.Minute,
+		StatusPollInterval:     60 * time.Second,
+		OldFormatVersion:       content.FormatVersion2,
+		MaxPermittedClockDrift: 5 * time.Second,
+	}
 	require.EqualValues(t, l, l.Clone())
 }

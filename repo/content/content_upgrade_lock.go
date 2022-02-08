@@ -21,24 +21,6 @@ type UpgradeLock struct {
 	MaxPermittedClockDrift time.Duration `json:"maxPermittedClockDrift,omitempty"`
 }
 
-// NewUpgradeLock constructs a new lock object for repository format upgrades.
-func NewUpgradeLock(
-	now time.Time,
-	ownerID string,
-	advanceNotice, ioDrainTimeout, statusPollInterval, maxPermittedClockDrift time.Duration,
-	oldFormatVersion FormatVersion,
-) *UpgradeLock {
-	return &UpgradeLock{
-		OwnerID:                ownerID,
-		CreationTime:           now,
-		AdvanceNoticeDuration:  advanceNotice,
-		IODrainTimeout:         ioDrainTimeout,
-		StatusPollInterval:     statusPollInterval,
-		MaxPermittedClockDrift: maxPermittedClockDrift,
-		OldFormatVersion:       oldFormatVersion,
-	}
-}
-
 // Update upgrades an existing lock intent. This method controls what mutations
 // are allowed on an upgrade lock once it has been placed on the repository.
 func (l *UpgradeLock) Update(other *UpgradeLock) (*UpgradeLock, error) {
