@@ -19,6 +19,10 @@ type UpgradeLock struct {
 	StatusPollInterval     time.Duration `json:"statusPollInterval,omitempty"`
 	Message                string        `json:"message,omitempty"`
 	MaxPermittedClockDrift time.Duration `json:"maxPermittedClockDrift,omitempty"`
+
+	// Old format version is needed to restore the original version during
+	// upgrade rollback.
+	OldFormatVersion FormatVersion `json:"oldFormatVersion,omitempty"`
 }
 
 // Update upgrades an existing lock intent. This method controls what mutations
@@ -91,6 +95,10 @@ func (l *UpgradeLock) Validate() error {
 			return errors.Errorf("the advanced notice duration %s must be more than the total drain interval %s",
 				l.AdvanceNoticeDuration, totalDrainInterval)
 		}
+	}
+
+	if l.OldFormatVersion == 0 {
+		return errors.New("old-format-version is not set")
 	}
 
 	return nil

@@ -20,6 +20,7 @@ func TestUpgradeLockIntentUpdatesWithAdvanceNotice(t *testing.T) {
 		StatusPollInterval:     60 * time.Second,
 		Message:                "upgrading from format version 2 -> 3",
 		MaxPermittedClockDrift: 5 * time.Second,
+		OldFormatVersion:       content.FormatVersion2,
 	}
 
 	// verify that we can increment the lock's advance notice
@@ -65,6 +66,7 @@ func TestUpgradeLockIntentUpdatesWithoutAdvanceNotice(t *testing.T) {
 		StatusPollInterval:     60 * time.Second,
 		Message:                "upgrading from format version 2 -> 3",
 		MaxPermittedClockDrift: 5 * time.Second,
+		OldFormatVersion:       content.FormatVersion2,
 	}
 
 	// verify that we cannot set an advance notice on an existing lock which does
@@ -98,6 +100,9 @@ func TestUpgradeLockIntentValidation(t *testing.T) {
 	require.EqualError(t, l.Validate(), "max-permitted-clock-drift is not set")
 	l.MaxPermittedClockDrift = 5 * time.Second
 
+	require.EqualError(t, l.Validate(), "old-format-version is not set")
+	l.OldFormatVersion = content.FormatVersion2
+
 	require.NoError(t, l.Validate())
 
 	l.AdvanceNoticeDuration = -1 * time.Hour
@@ -109,6 +114,7 @@ func TestUpgradeLockIntentValidation(t *testing.T) {
 		l.AdvanceNoticeDuration, l.MaxPermittedClockDrift+2*l.IODrainTimeout))
 
 	l.AdvanceNoticeDuration = 1 * time.Hour
+
 	require.NoError(t, l.Validate())
 }
 
@@ -134,6 +140,7 @@ func TestUpgradeLockIntentImmediateLock(t *testing.T) {
 				StatusPollInterval:     0,
 				Message:                "upgrading from format version 2 -> 3",
 				MaxPermittedClockDrift: 0,
+				OldFormatVersion:       content.FormatVersion2,
 			}
 			tmp.IsLocked(now.Add(2 * time.Hour))
 		})
@@ -146,6 +153,7 @@ func TestUpgradeLockIntentImmediateLock(t *testing.T) {
 		StatusPollInterval:     60 * time.Second,
 		Message:                "upgrading from format version 2 -> 3",
 		MaxPermittedClockDrift: 5 * time.Second,
+		OldFormatVersion:       content.FormatVersion2,
 	}
 
 	// Verify that the lock intent has been placed but is not fully established
@@ -189,6 +197,7 @@ func TestUpgradeLockIntentSufficientAdvanceLock(t *testing.T) {
 		StatusPollInterval:     60 * time.Second,
 		Message:                "upgrading from format version 2 -> 3",
 		MaxPermittedClockDrift: 5 * time.Second,
+		OldFormatVersion:       content.FormatVersion2,
 	}
 
 	// Verify that the lock intent has been placed but is not locked at all
@@ -256,6 +265,7 @@ func TestUpgradeLockIntentInSufficientAdvanceLock(t *testing.T) {
 		StatusPollInterval:     60 * time.Second,
 		Message:                "upgrading from format version 2 -> 3",
 		MaxPermittedClockDrift: 5 * time.Second,
+		OldFormatVersion:       content.FormatVersion2,
 	}
 
 	// Verify that the lock intent has been placed and is held right at the
@@ -300,6 +310,7 @@ func TestUpgradeLockIntentUpgradeTime(t *testing.T) {
 		StatusPollInterval:     60 * time.Second,
 		Message:                "upgrading from format version 2 -> 3",
 		MaxPermittedClockDrift: 5 * time.Second,
+		OldFormatVersion:       content.FormatVersion2,
 	}
 	require.Equal(t, now.Add(l.MaxPermittedClockDrift+2*l.IODrainTimeout), l.UpgradeTime())
 
@@ -311,6 +322,7 @@ func TestUpgradeLockIntentUpgradeTime(t *testing.T) {
 		StatusPollInterval:     60 * time.Second,
 		Message:                "upgrading from format version 2 -> 3",
 		MaxPermittedClockDrift: 5 * time.Second,
+		OldFormatVersion:       content.FormatVersion2,
 	}
 	require.Equal(t, now.Add(l.AdvanceNoticeDuration), l.UpgradeTime())
 
@@ -322,6 +334,7 @@ func TestUpgradeLockIntentUpgradeTime(t *testing.T) {
 		StatusPollInterval:     60 * time.Second,
 		Message:                "upgrading from format version 2 -> 3",
 		MaxPermittedClockDrift: 5 * time.Second,
+		OldFormatVersion:       content.FormatVersion2,
 	}
 	require.Equal(t, now.Add(l.MaxPermittedClockDrift+2*l.IODrainTimeout), l.UpgradeTime())
 }
@@ -335,6 +348,7 @@ func TestUpgradeLockIntentClone(t *testing.T) {
 		StatusPollInterval:     60 * time.Second,
 		Message:                "upgrading from format version 2 -> 3",
 		MaxPermittedClockDrift: 5 * time.Second,
+		OldFormatVersion:       content.FormatVersion2,
 	}
 	require.EqualValues(t, l, l.Clone())
 }

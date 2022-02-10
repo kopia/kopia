@@ -34,9 +34,9 @@ const CacheDirMarkerFile = "CACHEDIR.TAG"
 // CacheDirMarkerHeader is the header signature for cache dir marker files.
 const CacheDirMarkerHeader = "Signature: 8a477f597d28d172789f06886806bc55"
 
-// defaultRepositoryBlobCacheDuration is the duration for which we treat cached kopia.repository
+// DefaultRepositoryBlobCacheDuration is the duration for which we treat cached kopia.repository
 // as valid.
-const defaultRepositoryBlobCacheDuration = 15 * time.Minute
+const DefaultRepositoryBlobCacheDuration = 15 * time.Minute
 
 // throttlingWindow is the duration window during which the throttling token bucket fully replenishes.
 // the maximum number of tokens in the bucket is multiplied by the number of seconds.
@@ -73,6 +73,10 @@ type Options struct {
 
 // ErrInvalidPassword is returned when repository password is invalid.
 var ErrInvalidPassword = errors.Errorf("invalid repository password")
+
+// ErrRepositoryUnavailableDueToUpgrageInProgress is returned when repository
+// is undergoing upgrade that requires exclusive access.
+var ErrRepositoryUnavailableDueToUpgrageInProgress = errors.Errorf("repository upgrade in progress")
 
 // Open opens a Repository specified in the configuration file.
 func Open(ctx context.Context, configFile, password string, options *Options) (rep Repository, err error) {
@@ -405,7 +409,7 @@ func readAndCacheRepositoryBlobBytes(ctx context.Context, st blob.Storage, cache
 	cachedFile := filepath.Join(cacheDirectory, blobID)
 
 	if validDuration == 0 {
-		validDuration = defaultRepositoryBlobCacheDuration
+		validDuration = DefaultRepositoryBlobCacheDuration
 	}
 
 	if cacheDirectory != "" {

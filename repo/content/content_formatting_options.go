@@ -22,6 +22,8 @@ type FormatVersion int
 const (
 	FormatVersion1 FormatVersion = 1
 	FormatVersion2 FormatVersion = 2 // new in v0.9
+
+	MaxFormatVersion = FormatVersion2
 )
 
 // FormattingOptions describes the rules for formatting contents in repository.
@@ -31,6 +33,8 @@ type FormattingOptions struct {
 	HMACSecret []byte `json:"secret,omitempty"`     // HMAC secret used to generate encryption keys
 	MasterKey  []byte `json:"masterKey,omitempty"`  // master encryption key (SIV-mode encryption only)
 	MutableParameters
+
+	UpgradeLock *UpgradeLock `json:"upgradeLock,omitempty"` // declares the intent to lock the repository for exclusive access during upgrade
 
 	EnablePasswordChange bool `json:"enablePasswordChange"` // disables replication of kopia.repository blob in packs
 }
