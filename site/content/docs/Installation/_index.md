@@ -266,10 +266,10 @@ to a repository. The names will be persisted in a configuration file and used af
 
 ### Compilation From Source
 
-If you have [Go 1.16](https://golang.org/) or newer, you may download and build Kopia yourself. No special setup is necessary, other than the Go compiler. You can simply run:
+If you have [Go 1.16](https://golang.org/) or newer, you may download and build Kopia yourself. No special setup is necessary, other than the Go compiler and [git](https://git-scm.com/). You can simply run:
 
 ```shell
-$ go get github.com/kopia/kopia
+$ go install github.com/kopia/kopia@latest
 ```
 
 The resulting binary will be available in `$HOME/go/bin`. Note that this will produce basic binary that has all the features except support for HTML-based UI. To build full binary, download the source from GitHub and run:
