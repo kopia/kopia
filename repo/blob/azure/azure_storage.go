@@ -3,9 +3,7 @@ package azure
 
 import (
 	"context"
-	"encoding/xml"
 	"fmt"
-	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
 	"github.com/pkg/errors"
@@ -54,7 +52,7 @@ func (az *azStorage) GetBlob(ctx context.Context, b blob.ID, offset, length int6
 		return translateError(err)
 	}
 
-	body := resp.Body(azblob.RetryReaderOptions{})
+	body := resp.Body(nil)
 	defer body.Close() // nolint:errcheck
 
 	if length == 0 {
@@ -170,45 +168,19 @@ func (az *azStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback fun
 	for pager.NextPage(ctx) {
 		resp := pager.PageResponse()
 
-		// workaround for the XML parsing bug reported upstream
-		// https://github.com/Azure/azure-sdk-for-go/issues/16679
-		var enumerationResults struct {
-			Blobs struct {
-				Blob []struct {
-					Name       string
-					Properties struct {
-						ContentLength int64  `xml:"Content-Length"`
-						LastModified  string `xml:"Last-Modified"`
-					}
-					Metadata struct {
-						Kopiamtime string
-					}
-				}
-			}
-		}
+		for _, it := range resp.Segment.BlobItems {
+			n := *it.Name
 
-		dec := xml.NewDecoder(resp.RawResponse.Body)
-		if err := dec.Decode(&enumerationResults); err != nil {
-			return errors.Wrap(err, "unable to decode response")
-		}
-
-		for _, it := range enumerationResults.Blobs.Blob {
 			bm := blob.Metadata{
-				BlobID: blob.ID(it.Name[len(az.Prefix):]),
-				Length: it.Properties.ContentLength,
+				BlobID: blob.ID(n[len(az.Prefix):]),
+				Length: *it.Properties.ContentLength,
 			}
 
 			// see if we have 'Kopiamtime' metadata, if so - trust it.
-			if t, ok := timestampmeta.FromValue(it.Metadata.Kopiamtime); ok {
+			if t, ok := timestampmeta.FromValue(stringDefault(it.Metadata["kopiamtime"], "")); ok {
 				bm.Timestamp = t
 			} else {
-				// fall back to using last modified time.
-				t, err := time.Parse(time.RFC1123, it.Properties.LastModified)
-				if err != nil {
-					return errors.Wrapf(err, "invalid timestamp for BLOB '%v': %q", bm.BlobID, it.Properties.LastModified)
-				}
-
-				bm.Timestamp = t
+				bm.Timestamp = *it.Properties.LastModified
 			}
 
 			if err := callback(bm); err != nil {
@@ -218,6 +190,14 @@ func (az *azStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback fun
 	}
 
 	return translateError(pager.Err())
+}
+
+func stringDefault(s *string, def string) string {
+	if s == nil {
+		return def
+	}
+
+	return *s
 }
 
 func (az *azStorage) ConnectionInfo() blob.ConnectionInfo {
