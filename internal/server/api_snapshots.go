@@ -128,6 +128,52 @@ func (s *Server) handleDeleteSnapshots(ctx context.Context, r *http.Request, bod
 	return &serverapi.Empty{}, nil
 }
 
+func (s *Server) handleEditSnapshots(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
+	var req serverapi.EditSnapshotsRequest
+
+	if err := json.Unmarshal(body, &req); err != nil {
+		return nil, requestError(serverapi.ErrorMalformedRequest, "malformed request")
+	}
+
+	var snaps []*serverapi.Snapshot
+
+	if err := repo.WriteSession(ctx, s.rep, repo.WriteSessionOptions{
+		Purpose: "EditSnapshots",
+	}, func(ctx context.Context, w repo.RepositoryWriter) error {
+		for _, id := range req.Snapshots {
+			snap, err := snapshot.LoadSnapshot(ctx, w, id)
+			if err != nil {
+				return errors.Wrap(err, "unable to load snapshot")
+			}
+
+			changed := false
+
+			if snap.UpdatePins(req.AddPins, req.RemovePins) {
+				changed = true
+			}
+
+			if req.NewDescription != nil {
+				changed = true
+				snap.Description = *req.NewDescription
+			}
+
+			if changed {
+				if err := snapshot.UpdateSnapshot(ctx, w, snap); err != nil {
+					return errors.Wrap(err, "error updating snapshot")
+				}
+			}
+
+			snaps = append(snaps, convertSnapshotManifest(snap))
+		}
+
+		return nil
+	}); err != nil {
+		return nil, internalServerError(err)
+	}
+
+	return snaps, nil
+}
+
 func uniqueSnapshots(rows []*serverapi.Snapshot) []*serverapi.Snapshot {
 	result := []*serverapi.Snapshot{}
 	resultByRootEntry := map[string]*serverapi.Snapshot{}

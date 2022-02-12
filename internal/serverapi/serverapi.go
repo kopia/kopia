@@ -178,6 +178,14 @@ type DeleteSnapshotsRequest struct {
 	DeleteSourceAndPolicy bool                `json:"deleteSourceAndPolicy"`
 }
 
+// EditSnapshotsRequest contains request to edit one or more snapshots.
+type EditSnapshotsRequest struct {
+	Snapshots      []manifest.ID `json:"snapshots"`
+	NewDescription *string       `json:"description"`
+	AddPins        []string      `json:"addPins"`
+	RemovePins     []string      `json:"removePins"`
+}
+
 // MountSnapshotRequest contains request to mount a snapshot.
 type MountSnapshotRequest struct {
 	Root string `json:"root"`
