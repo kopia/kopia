@@ -74,7 +74,7 @@ On macOS, you can use [Homebrew](https://brew.sh) to install and keep Kopia up-t
 To install:
 
 ```shell
-$ brew install kopia/kopia/kopia
+$ brew install kopia
 ```
 
 To upgrade Kopia:
