@@ -7,6 +7,9 @@ on:
   schedule:
     # run once per day
     - cron:  '19 7 * * *'
+concurrency: 
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   endurance-test:
     name: Provider Test
