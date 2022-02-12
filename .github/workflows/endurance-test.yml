@@ -7,6 +7,9 @@ on:
   schedule:
     # run every 2 hours
     - cron:  '12 */2 * * *'
+concurrency: 
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   endurance-test:
     env:

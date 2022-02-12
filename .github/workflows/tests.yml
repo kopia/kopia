@@ -10,6 +10,9 @@ on:
   schedule:
     # run on Mondays at 8AM
     - cron:  '0 8 * * 1'
+concurrency: 
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 env:
   # environment variables shared between build steps
   # do not include sensitive credentials and tokens here, instead pass them
