@@ -19,7 +19,7 @@ type storageGDriveFlags struct {
 }
 
 func (c *storageGDriveFlags) Setup(_ StorageProviderServices, cmd *kingpin.CmdClause) {
-	cmd.Flag("folder-id", "FolderId to use for objects in the bucket").Required().StringVar(&c.options.FolderId)
+	cmd.Flag("folder-id", "FolderID to use for objects in the bucket").Required().StringVar(&c.options.FolderID)
 	cmd.Flag("read-only", "Use read-only scope to prevent write access").BoolVar(&c.options.ReadOnly)
 	cmd.Flag("credentials-file", "Use the provided JSON file with credentials").ExistingFileVar(&c.options.ServiceAccountCredentialsFile)
 	cmd.Flag("embed-credentials", "Embed GCS credentials JSON in Kopia configuration").BoolVar(&c.embedCredentials)

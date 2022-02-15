@@ -9,7 +9,7 @@ import (
 // Options defines options Google Cloud Storage-backed storage.
 type Options struct {
 	// FolderId is Google Drive's ID of a folder where data is stored.
-	FolderId string `json:"folderId"`
+	FolderID string `json:"folderID"`
 
 	// ServiceAccountCredentialsFile specifies the name of the file with Drive credentials.
 	ServiceAccountCredentialsFile string `json:"credentialsFile,omitempty"`
