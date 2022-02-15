@@ -64,6 +64,7 @@ func (gdrive *gdriveStorage) GetBlob(ctx context.Context, b blob.ID, offset, len
 	req := gdrive.client.Get(fileID)
 	req.Header().Set("Range", toRange(offset, length))
 	res, err := req.Context(ctx).Download()
+	
 	if err != nil {
 		return errors.Wrapf(translateError(err), "Get in GetBlob(%s)", b)
 	}
