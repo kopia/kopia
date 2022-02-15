@@ -57,7 +57,7 @@ func (r *directRepository) SetUpgradeLockIntent(ctx context.Context, l content.U
 			// when we are putting a new lock then ensure that we can upgrade
 			// to that version
 			if repoConfig.FormattingOptions.Version >= content.MaxFormatVersion {
-				return errors.Errorf("repository is already upgraded to %d, we can only upgrade till %d",
+				return errors.Errorf("repository is using version %d, and version %d is the maximum",
 					repoConfig.FormattingOptions.Version, content.MaxFormatVersion)
 			}
 			// backup the old format version
