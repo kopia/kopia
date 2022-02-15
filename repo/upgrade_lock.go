@@ -7,8 +7,20 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/gather"
+	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
 )
+
+// FormatBlobBackupIDPrefix is the prefix for all identifiers of the BLOBs that
+// keep a backup copy of the FormatBlobID BLOB for the purposes of rollback
+// during upgrade.
+const FormatBlobBackupIDPrefix = "kopia.repository.backup."
+
+// FormatBlobBackupID gets the upgrade backu pblob-id fro mthe lock.
+func FormatBlobBackupID(l content.UpgradeLock) blob.ID {
+	return blob.ID(FormatBlobBackupIDPrefix + l.OwnerID)
+}
 
 func (r *directRepository) updateRepoConfig(ctx context.Context, cb func(repoConfig *repositoryObjectFormat) error) (*repositoryObjectFormat, error) {
 	f := r.formatBlob
@@ -60,8 +72,13 @@ func (r *directRepository) SetUpgradeLockIntent(ctx context.Context, l content.U
 				return errors.Errorf("repository is using version %d, and version %d is the maximum",
 					repoConfig.FormattingOptions.Version, content.MaxFormatVersion)
 			}
-			// backup the old format version
-			l.OldFormatVersion = repoConfig.FormattingOptions.Version
+
+			// backup the current repository config from local cache to the
+			// repository when we place the lock for the first time
+			if err := writeFormatBlobWithID(ctx, r.blobs, r.formatBlob, r.blobCfgBlob, FormatBlobBackupID(l)); err != nil {
+				return errors.Wrap(err, "failed to backup the repo format blob")
+			}
+
 			// set a new lock or revoke an existing lock
 			repoConfig.FormattingOptions.UpgradeLock = &l
 			// mark the upgrade to the new format version, this will ensure that older
@@ -106,18 +123,69 @@ func (r *directRepository) CommitUpgrade(ctx context.Context) error {
 // changes. Rolling back the repository format is currently not supported and
 // hence using this API could render the repository corrupted and unreadable by
 // clients.
+//
+// nolint:gocyclo
 func (r *directRepository) RollbackUpgrade(ctx context.Context) error {
-	_, err := r.updateRepoConfig(ctx, func(repoConfig *repositoryObjectFormat) error {
-		if repoConfig.FormattingOptions.UpgradeLock == nil {
-			return errors.New("no upgrade in progress")
+	f := r.formatBlob
+
+	repoConfig, err := f.decryptFormatBytes(r.formatEncryptionKey)
+	if err != nil {
+		return errors.Wrap(err, "unable to decrypt repository config")
+	}
+
+	if repoConfig.FormattingOptions.UpgradeLock == nil {
+		return errors.New("no upgrade in progress")
+	}
+
+	// restore the oldest backup and delete the rest
+	var oldestBackup *blob.Metadata
+
+	if err = r.blobs.ListBlobs(ctx, FormatBlobBackupIDPrefix, func(bm blob.Metadata) error {
+		var delID blob.ID
+		if oldestBackup == nil || bm.Timestamp.Before(oldestBackup.Timestamp) {
+			if oldestBackup != nil {
+				// delete the current candidate because we have found an even older one
+				delID = oldestBackup.BlobID
+			}
+			oldestBackup = &bm
+		} else {
+			delID = bm.BlobID
 		}
 
-		// restore the old format version
-		repoConfig.FormattingOptions.Version = repoConfig.UpgradeLock.OldFormatVersion
-		repoConfig.FormattingOptions.UpgradeLock = nil
+		if delID != "" {
+			// delete the backup that we are not going to need for rollback
+			if err = r.blobs.DeleteBlob(ctx, delID); err != nil {
+				return errors.Wrapf(err, "failed to delete the format blob backup %q", delID)
+			}
+		}
 
 		return nil
-	})
+	}); err != nil {
+		return errors.Wrap(err, "failed to list backup blobs")
+	}
 
-	return err
+	// restore only when we find a backup, otherwise simply cleanup the local cache
+	if oldestBackup != nil {
+		var d gather.WriteBuffer
+		if err = r.blobs.GetBlob(ctx, oldestBackup.BlobID, 0, -1, &d); err != nil {
+			return errors.Wrapf(err, "failed to read from backup %q", FormatBlobBackupIDPrefix)
+		}
+
+		if err = r.blobs.PutBlob(ctx, FormatBlobID, d.Bytes(), blob.PutOptions{}); err != nil {
+			return errors.Wrapf(err, "failed to restore format blob from backup %q", oldestBackup.BlobID)
+		}
+
+		// delete the backup after we have restored the format-blob
+		if err = r.blobs.DeleteBlob(ctx, oldestBackup.BlobID); err != nil {
+			return errors.Wrapf(err, "failed to delete the format blob backup %q", oldestBackup.BlobID)
+		}
+	}
+
+	if cd := r.cachingOptions.CacheDirectory; cd != "" {
+		if err = os.Remove(filepath.Join(cd, FormatBlobID)); err != nil && !os.IsNotExist(err) {
+			return errors.Errorf("unable to remove cached repository format blob: %v", err)
+		}
+	}
+
+	return nil
 }

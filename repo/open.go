@@ -34,9 +34,9 @@ const CacheDirMarkerFile = "CACHEDIR.TAG"
 // CacheDirMarkerHeader is the header signature for cache dir marker files.
 const CacheDirMarkerHeader = "Signature: 8a477f597d28d172789f06886806bc55"
 
-// DefaultRepositoryBlobCacheDuration is the duration for which we treat cached kopia.repository
+// defaultRepositoryBlobCacheDuration is the duration for which we treat cached kopia.repository
 // as valid.
-const DefaultRepositoryBlobCacheDuration = 15 * time.Minute
+const defaultRepositoryBlobCacheDuration = 15 * time.Minute
 
 // throttlingWindow is the duration window during which the throttling token bucket fully replenishes.
 // the maximum number of tokens in the bucket is multiplied by the number of seconds.
@@ -409,7 +409,7 @@ func readAndCacheRepositoryBlobBytes(ctx context.Context, st blob.Storage, cache
 	cachedFile := filepath.Join(cacheDirectory, blobID)
 
 	if validDuration == 0 {
-		validDuration = DefaultRepositoryBlobCacheDuration
+		validDuration = defaultRepositoryBlobCacheDuration
 	}
 
 	if cacheDirectory != "" {
