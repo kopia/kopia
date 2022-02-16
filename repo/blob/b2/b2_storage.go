@@ -31,6 +31,10 @@ type b2Storage struct {
 	bucket *backblaze.Bucket
 }
 
+func (s *b2Storage) GetCapacity(ctx context.Context) (blob.Capacity, error) {
+	return blob.Capacity{}, blob.ErrNotAVolume
+}
+
 func (s *b2Storage) GetBlob(ctx context.Context, id blob.ID, offset, length int64, output blob.OutputBuffer) error {
 	fileName := s.getObjectNameString(id)
 
