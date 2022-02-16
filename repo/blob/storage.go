@@ -49,6 +49,20 @@ type OutputBuffer interface {
 	Length() int
 }
 
+// Capacity describes the storage capacity and usage of a Volume.
+type Capacity struct {
+	// Size of volume in bytes.
+	SizeB uint64
+	// Available (writeable) space in bytes.
+	FreeB uint64
+}
+
+// Volume defines disk/volume access API to blob storage.
+type Volume interface {
+	// Capacity returns the capacity of a given volume.
+	GetCapacity(ctx context.Context) (Capacity, error)
+}
+
 // Reader defines read access API to blob storage.
 type Reader interface {
 	// GetBlob returns full or partial contents of a blob with given ID.
@@ -124,6 +138,7 @@ func (o PutOptions) HasRetentionOptions() bool {
 //
 // The required semantics are provided by existing commercial cloud storage products (Google Cloud, AWS, Azure).
 type Storage interface {
+	Volume
 	Reader
 
 	// PutBlob uploads the blob with given data to the repository or replaces existing blob with the provided
