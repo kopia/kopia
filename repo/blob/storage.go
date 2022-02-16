@@ -32,6 +32,10 @@ var ErrBlobAlreadyExists = errors.New("blob already exists")
 // by an implementation of Storage is specified in a PutBlob call.
 var ErrUnsupportedPutBlobOption = errors.New("unsupported put-blob option")
 
+// ErrNotAVolume is returned when attempting to use a Volume method against a storage
+// implementation that does not support the intended functionality.
+var ErrNotAVolume = errors.New("unsupported method, storage is not a volume")
+
 // Bytes encapsulates a sequence of bytes, possibly stored in a non-contiguous buffers,
 // which can be written sequentially or treated as a io.Reader.
 type Bytes interface {
