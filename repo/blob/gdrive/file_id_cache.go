@@ -10,13 +10,13 @@ const (
 	changeLogCacheSize = 1 << 8
 )
 
-// FileIDCache is a cache for managing the association of blobID -> fileID.
-type FileIDCache struct {
-	// Map of blobID -> *CacheEntry.
+// fileIDCache is a cache for managing the association of blobID -> fileID.
+type fileIDCache struct {
+	// Map of blobID -> *cacheEntry.
 	Blobs sync.Map
 	// Record of recent cache changes.
 	// It's stored as a synchronized circular buffer.
-	ChangeLog [changeLogCacheSize]ChangeEntry
+	ChangeLog [changeLogCacheSize]changeEntry
 	// ChangeLogIdx indicates the next location to write to.
 	// The log entry range is [ChangeLogIdx+1, ChangeLogIdx-1].
 	ChangeLogIdx int
@@ -24,8 +24,8 @@ type FileIDCache struct {
 	ChangeLogMut sync.RWMutex
 }
 
-// CacheEntry is a blob cache entry.
-type CacheEntry struct {
+// cacheEntry is a blob cache entry.
+type cacheEntry struct {
 	// Guards access to the entry. Must be taken before accessing fields.
 	Mut sync.Mutex
 	// blobID. Is always populated.
@@ -34,8 +34,8 @@ type CacheEntry struct {
 	FileID string
 }
 
-// ChangeEntry is a blob change entry.
-type ChangeEntry struct {
+// changeEntry is a blob change entry.
+type changeEntry struct {
 	// blobID. If empty, the entry has not been written to yet.
 	BlobID blob.ID
 	// Associated fileID. If empty, the blob is deleted.
@@ -45,7 +45,7 @@ type ChangeEntry struct {
 // Lookup finds the cache entry for blobID.
 // The entry may be read or mutated.
 // The callback is guaranteed to have exclusive access to the entry.
-func (cache *FileIDCache) Lookup(blobID blob.ID, callback func(entry *CacheEntry) (interface{}, error)) (interface{}, error) {
+func (cache *fileIDCache) Lookup(blobID blob.ID, callback func(entry *cacheEntry) (interface{}, error)) (interface{}, error) {
 	entry := cache.getEntry(blobID)
 
 	entry.Mut.Lock()
@@ -58,19 +58,19 @@ func (cache *FileIDCache) Lookup(blobID blob.ID, callback func(entry *CacheEntry
 }
 
 // Internal method for retrieving an entry.
-func (cache *FileIDCache) getEntry(blobID blob.ID) *CacheEntry {
-	loaded, _ := cache.Blobs.LoadOrStore(blobID, &CacheEntry{
+func (cache *fileIDCache) getEntry(blobID blob.ID) *cacheEntry {
+	loaded, _ := cache.Blobs.LoadOrStore(blobID, &cacheEntry{
 		Mut:    sync.Mutex{},
 		BlobID: blobID,
 		FileID: "",
 	})
 
-	return loaded.(*CacheEntry) //nolint:forcetypeassert
+	return loaded.(*cacheEntry) //nolint:forcetypeassert
 }
 
 // BlindPut blindly mutates the association for a blobID.
-func (cache *FileIDCache) BlindPut(blobID blob.ID, fileID string) {
-	_, _ = cache.Lookup(blobID, func(entry *CacheEntry) (interface{}, error) {
+func (cache *fileIDCache) BlindPut(blobID blob.ID, fileID string) {
+	_, _ = cache.Lookup(blobID, func(entry *cacheEntry) (interface{}, error) {
 		entry.FileID = fileID
 		return nil, nil
 	})
@@ -78,11 +78,11 @@ func (cache *FileIDCache) BlindPut(blobID blob.ID, fileID string) {
 
 // RecordBlobChange records a newly created or deleted blob.
 // An empty fileID signals that the blob is deleted.
-func (cache *FileIDCache) RecordBlobChange(blobID blob.ID, fileID string) {
+func (cache *fileIDCache) RecordBlobChange(blobID blob.ID, fileID string) {
 	cache.ChangeLogMut.Lock()
 
 	i := cache.ChangeLogIdx
-	cache.ChangeLog[i] = ChangeEntry{
+	cache.ChangeLog[i] = changeEntry{
 		BlobID: blobID,
 		FileID: fileID,
 	}
@@ -92,7 +92,7 @@ func (cache *FileIDCache) RecordBlobChange(blobID blob.ID, fileID string) {
 }
 
 // VisitBlobChanges iterates through newly created or deleted blobs.
-func (cache *FileIDCache) VisitBlobChanges(callback func(blobID blob.ID, fileID string)) {
+func (cache *fileIDCache) VisitBlobChanges(callback func(blobID blob.ID, fileID string)) {
 	cache.ChangeLogMut.RLock()
 
 	for i := circularBufferNext(cache.ChangeLogIdx); i != cache.ChangeLogIdx; i = circularBufferNext(i) {
@@ -106,9 +106,9 @@ func (cache *FileIDCache) VisitBlobChanges(callback func(blobID blob.ID, fileID 
 }
 
 // Clear resets the file ID cache.
-func (cache *FileIDCache) Clear() {
+func (cache *fileIDCache) Clear() {
 	cache.Blobs = sync.Map{}
-	cache.ChangeLog = [changeLogCacheSize]ChangeEntry{}
+	cache.ChangeLog = [changeLogCacheSize]changeEntry{}
 }
 
 func circularBufferNext(curr int) int {
@@ -119,12 +119,12 @@ func circularBufferNext(curr int) int {
 	return curr + 1
 }
 
-// NewFileIDCache creates a new FileIDCache.
-func NewFileIDCache() (*FileIDCache, error) {
-	return &FileIDCache{
+// newFileIDCache creates a new fileIDCache.
+func newFileIDCache() *fileIDCache {
+	return &fileIDCache{
 		Blobs:        sync.Map{},
-		ChangeLog:    [changeLogCacheSize]ChangeEntry{},
+		ChangeLog:    [changeLogCacheSize]changeEntry{},
 		ChangeLogIdx: 0,
 		ChangeLogMut: sync.RWMutex{},
-	}, nil
+	}
 }

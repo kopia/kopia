@@ -9,7 +9,9 @@ import (
 	"os"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	drive "google.golang.org/api/drive/v3"
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/providervalidation"
@@ -40,13 +42,15 @@ func TestGDriveStorage(t *testing.T) {
 
 	// use context that gets canceled after opening storage to ensure it's not used beyond New().
 	newctx, cancel := context.WithCancel(ctx)
-	st, err := gdrive.New(newctx, mustGetOptionsOrSkip(t))
+	opt := mustGetOptionsOrSkip(t)
+	testOpt := createTestFolderOrSkip(newctx, t, opt, uuid.NewString())
+	st, err := gdrive.New(newctx, testOpt)
 
 	cancel()
 	require.NoError(t, err)
 
 	defer st.Close(ctx)
-	defer blobtesting.CleanupOldData(ctx, t, st, 0)
+	defer deleteTestFolder(ctx, t, testOpt)
 
 	blobtesting.VerifyStorage(ctx, t, st, blob.PutOptions{})
 
@@ -106,4 +110,40 @@ func mustGetOptionsOrSkip(t *testing.T) *gdrive.Options {
 		FolderID:                     folderID,
 		ServiceAccountCredentialJSON: credData,
 	}
+}
+
+func createTestFolderOrSkip(ctx context.Context, t *testing.T, opt *gdrive.Options, folderName string) *gdrive.Options {
+	t.Helper()
+
+	client, err := gdrive.CreateDriveClient(ctx, opt)
+
+	require.NoError(t, err)
+
+	folder, err := client.Create(&drive.File{
+		Name:     folderName,
+		Parents:  []string{opt.FolderID},
+		MimeType: "application/vnd.google-apps.folder",
+	}).
+		Context(ctx).
+		Do()
+	if err != nil {
+		t.Skip("skipping test because test folder failed to be created")
+	}
+
+	newOpt := *opt
+	newOpt.FolderID = folder.Id
+
+	return &newOpt
+}
+
+func deleteTestFolder(ctx context.Context, t *testing.T, opt *gdrive.Options) {
+	t.Helper()
+
+	client, err := gdrive.CreateDriveClient(ctx, opt)
+
+	require.NoError(t, err)
+
+	err = client.Delete(opt.FolderID).Context(ctx).Do()
+
+	require.NoError(t, err)
 }
