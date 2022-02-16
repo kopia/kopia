@@ -16,13 +16,13 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"golang.org/x/sync/errgroup"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/ignorefs"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/internal/timetrack"
+	"github.com/kopia/kopia/internal/workshare"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/repo/object"
@@ -104,6 +104,8 @@ type Uploader struct {
 
 	// disable snapshot size estimation
 	disableEstimation bool
+
+	workerPool *workshare.Pool
 }
 
 // IsCanceled returns true if the upload is canceled.
@@ -497,68 +499,33 @@ func (u *Uploader) uploadDirWithCheckpointing(ctx context.Context, rootDir fs.Di
 	return uploadDirInternal(ctx, u, rootDir, policyTree, previousDirs, localDirPathOrEmpty, ".", &dmb, &cp)
 }
 
-func (u *Uploader) foreachEntryUnlessCanceled(ctx context.Context, parallel int, relativePath string, entries fs.Entries, cb func(ctx context.Context, entry fs.Entry, entryRelativePath string) error) error {
-	if parallel > len(entries) {
-		// don't launch more goroutines than needed
-		parallel = len(entries)
-	}
+type uploadWorkItem struct {
+	err error
+}
 
-	if parallel == 0 {
-		return nil
-	}
+func (u *Uploader) foreachEntryUnlessCanceled(ctx context.Context, wg *workshare.AsyncGroup, relativePath string, entries fs.Entries, cb func(ctx context.Context, entry fs.Entry, entryRelativePath string) error) error {
+	for _, entry := range entries {
+		entry := entry
 
-	if parallel == 1 {
-		for _, entry := range entries {
-			if u.IsCanceled() {
-				return errCanceled
-			}
+		if u.IsCanceled() {
+			return errCanceled
+		}
 
-			entryRelativePath := path.Join(relativePath, entry.Name())
+		entryRelativePath := path.Join(relativePath, entry.Name())
+
+		if wg.CanShareWork(u.workerPool) {
+			wg.RunAsync(u.workerPool, func(c *workshare.Pool, input interface{}) {
+				wi, _ := input.(*uploadWorkItem)
+				wi.err = cb(ctx, entry, entryRelativePath)
+			}, &uploadWorkItem{})
+		} else {
 			if err := cb(ctx, entry, entryRelativePath); err != nil {
 				return err
 			}
 		}
-
-		return nil
 	}
 
-	ch := make(chan fs.Entry)
-	eg, ctx := errgroup.WithContext(ctx)
-
-	// one goroutine to pump entries into channel until ctx is closed.
-	eg.Go(func() error {
-		defer close(ch)
-
-		for _, e := range entries {
-			select {
-			case ch <- e: // sent to channel
-			case <-ctx.Done(): // context closed
-				return nil
-			}
-		}
-		return nil
-	})
-
-	// launch N workers in parallel
-	for i := 0; i < parallel; i++ {
-		eg.Go(func() error {
-			for entry := range ch {
-				if u.IsCanceled() {
-					return errCanceled
-				}
-
-				entryRelativePath := path.Join(relativePath, entry.Name())
-				if err := cb(ctx, entry, entryRelativePath); err != nil {
-					return err
-				}
-			}
-
-			return nil
-		})
-	}
-
-	// nolint:wrapcheck
-	return eg.Wait()
+	return nil
 }
 
 func rootCauseError(err error) error {
@@ -698,12 +665,25 @@ func (u *Uploader) processChildren(
 	policyTree *policy.Tree,
 	previousEntries []fs.Entries,
 ) error {
-	if err := u.processSubdirectories(ctx, parentDirCheckpointRegistry, parentDirBuilder, localDirPathOrEmpty, relativePath, entries, policyTree, previousEntries); err != nil {
+	var wg workshare.AsyncGroup
+
+	if err := u.processSubdirectories(ctx, parentDirCheckpointRegistry, parentDirBuilder, localDirPathOrEmpty, relativePath, entries, policyTree, previousEntries, &wg); err != nil {
 		return errors.Wrap(err, "processing subdirectories")
 	}
 
-	if err := u.processNonDirectories(ctx, parentDirCheckpointRegistry, parentDirBuilder, relativePath, entries, policyTree, previousEntries); err != nil {
+	if err := u.processNonDirectories(ctx, parentDirCheckpointRegistry, parentDirBuilder, relativePath, entries, policyTree, previousEntries, &wg); err != nil {
 		return errors.Wrap(err, "processing non-directories")
+	}
+
+	for _, wi := range wg.Wait() {
+		wi, ok := wi.(*uploadWorkItem)
+		if !ok {
+			return errors.Errorf("unexpected work item type %T", wi)
+		}
+
+		if wi.err != nil {
+			return wi.err
+		}
 	}
 
 	return nil
@@ -717,12 +697,9 @@ func (u *Uploader) processSubdirectories(
 	entries fs.Entries,
 	policyTree *policy.Tree,
 	previousEntries []fs.Entries,
+	wg *workshare.AsyncGroup,
 ) error {
-	// for now don't process subdirectories in parallel, we need a mechanism to
-	// prevent explosion of parallelism
-	const parallelism = 1
-
-	return u.foreachEntryUnlessCanceled(ctx, parallelism, relativePath, entries, func(ctx context.Context, entry fs.Entry, entryRelativePath string) error {
+	return u.foreachEntryUnlessCanceled(ctx, wg, relativePath, entries, func(ctx context.Context, entry fs.Entry, entryRelativePath string) error {
 		dir, ok := entry.(fs.Directory)
 		if !ok {
 			// skip non-directories
@@ -844,7 +821,16 @@ func (u *Uploader) effectiveParallelUploads() int {
 }
 
 // nolint:funlen
-func (u *Uploader) processNonDirectories(ctx context.Context, parentCheckpointRegistry *checkpointRegistry, parentDirBuilder *dirManifestBuilder, dirRelativePath string, entries fs.Entries, policyTree *policy.Tree, prevEntries []fs.Entries) error {
+func (u *Uploader) processNonDirectories(
+	ctx context.Context,
+	parentCheckpointRegistry *checkpointRegistry,
+	parentDirBuilder *dirManifestBuilder,
+	dirRelativePath string,
+	entries fs.Entries,
+	policyTree *policy.Tree,
+	prevEntries []fs.Entries,
+	wg *workshare.AsyncGroup,
+) error {
 	workerCount := u.effectiveParallelUploads()
 
 	var asyncWritesPerFile int
@@ -856,11 +842,9 @@ func (u *Uploader) processNonDirectories(ctx context.Context, parentCheckpointRe
 				asyncWritesPerFile = 0
 			}
 		}
-
-		workerCount = len(entries)
 	}
 
-	return u.foreachEntryUnlessCanceled(ctx, workerCount, dirRelativePath, entries, func(ctx context.Context, entry fs.Entry, entryRelativePath string) error {
+	return u.foreachEntryUnlessCanceled(ctx, wg, dirRelativePath, entries, func(ctx context.Context, entry fs.Entry, entryRelativePath string) error {
 		// note this function runs in parallel and updates 'u.stats', which must be done using atomic operations.
 		if _, ok := entry.(fs.Directory); ok {
 			// skip directories
@@ -1279,6 +1263,9 @@ func (u *Uploader) Upload(
 	u.Progress.UploadStarted()
 
 	defer u.Progress.UploadFinished()
+
+	u.workerPool = workshare.NewPool(u.effectiveParallelUploads() - 1)
+	defer u.workerPool.Close()
 
 	u.stats = &snapshot.Stats{}
 	u.totalWrittenBytes = 0
