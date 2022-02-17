@@ -46,6 +46,12 @@ jobs:
         KOPIA_GCS_CREDENTIALS_JSON_GZIP: ${{ secrets.KOPIA_GCS_CREDENTIALS_JSON_GZIP }}
         KOPIA_GCS_TEST_BUCKET: ${{ secrets.KOPIA_GCS_TEST_BUCKET }}
       if: ${{ success() || failure() }}
+    - name: GDrive
+      run: make provider-tests PROVIDER_TEST_TARGET=gdrive
+      env:
+        KOPIA_GDRIVE_CREDENTIALS_JSON_GZIP: ${{ secrets.KOPIA_GDRIVE_CREDENTIALS_JSON_GZIP }}
+        KOPIA_GDRIVE_TEST_FOLDER_ID: ${{ secrets.KOPIA_GDRIVE_TEST_FOLDER_ID }}
+      if: ${{ success() || failure() }}
     - name: S3
       run: make provider-tests PROVIDER_TEST_TARGET=s3
       env:

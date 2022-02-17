@@ -82,7 +82,7 @@ func internalRetry(ctx context.Context, desc string, attempt AttemptFunc, isRetr
 		}
 	}
 
-	return nil, errors.Errorf("unable to complete %v despite %v retries, last error: %v", desc, count, lastError)
+	return nil, errors.Wrapf(lastError, "unable to complete %v despite %v retries", desc, count)
 }
 
 // WithExponentialBackoffNoValue is a shorthand for WithExponentialBackoff except the
