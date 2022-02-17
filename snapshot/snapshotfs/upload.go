@@ -1197,6 +1197,12 @@ func (u *Uploader) writeDirManifest(ctx context.Context, dirRelativePath string,
 }
 
 func (u *Uploader) reportErrorAndMaybeCancel(err error, isIgnored bool, dmb *dirManifestBuilder, entryRelativePath string) {
+	if u.IsCanceled() && atomic.LoadInt32(&u.stats.ErrorCount) > 0 {
+		// alrady canceled and we have reported a fatal error,
+		// do not report another.
+		return
+	}
+
 	if isIgnored {
 		atomic.AddInt32(&u.stats.IgnoredErrorCount, 1)
 	} else {
