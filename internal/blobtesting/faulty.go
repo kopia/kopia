@@ -18,6 +18,7 @@ const (
 	MethodListBlobsItem
 	MethodClose
 	MethodFlushCaches
+	MethodGetCapacity
 )
 
 // FaultyStorage implements fault injection for FaultyStorage.
@@ -32,6 +33,15 @@ func NewFaultyStorage(base blob.Storage) *FaultyStorage {
 	return &FaultyStorage{
 		base: base,
 	}
+}
+
+// GetCapacity implements blob.Volume.
+func (s *FaultyStorage) GetCapacity(ctx context.Context) (blob.Capacity, error) {
+	if ok, err := s.GetNextFault(ctx, MethodGetCapacity); ok {
+		return blob.Capacity{}, err
+	}
+
+	return s.base.GetCapacity(ctx)
 }
 
 // GetBlob implements blob.Storage.
