@@ -35,7 +35,6 @@ func TestFormatUpgradeSetLock(t *testing.T) {
 		StatusPollInterval:     formatBlockCacheDuration,
 		Message:                "upgrading from format version 2 -> 3",
 		MaxPermittedClockDrift: formatBlockCacheDuration / 3,
-		OldFormatVersion:       env.RepositoryWriter.ContentManager().ContentFormat().MutableParameters.Version,
 	}
 
 	// set invalid lock
@@ -77,7 +76,6 @@ func TestFormatUpgradeAlreadyUpgraded(t *testing.T) {
 		StatusPollInterval:     formatBlockCacheDuration,
 		Message:                "upgrading from format version 2 -> 3",
 		MaxPermittedClockDrift: formatBlockCacheDuration / 3,
-		OldFormatVersion:       env.RepositoryWriter.ContentManager().ContentFormat().MutableParameters.Version,
 	}
 
 	_, err := env.RepositoryWriter.SetUpgradeLockIntent(ctx, *l)
@@ -97,7 +95,6 @@ func TestFormatUpgradeCommit(t *testing.T) {
 		StatusPollInterval:     formatBlockCacheDuration,
 		Message:                "upgrading from format version 2 -> 3",
 		MaxPermittedClockDrift: formatBlockCacheDuration / 3,
-		OldFormatVersion:       env.RepositoryWriter.ContentManager().ContentFormat().MutableParameters.Version,
 	}
 
 	require.EqualError(t, env.RepositoryWriter.CommitUpgrade(ctx), "no upgrade in progress")
@@ -123,7 +120,6 @@ func TestFormatUpgradeRollback(t *testing.T) {
 		StatusPollInterval:     formatBlockCacheDuration,
 		Message:                "upgrading from format version 2 -> 3",
 		MaxPermittedClockDrift: formatBlockCacheDuration / 3,
-		OldFormatVersion:       env.RepositoryWriter.ContentManager().ContentFormat().MutableParameters.Version,
 	}
 
 	_, err := env.RepositoryWriter.SetUpgradeLockIntent(ctx, *l)
@@ -150,7 +146,6 @@ func TestFormatMultipleLocksRollback(t *testing.T) {
 		StatusPollInterval:     formatBlockCacheDuration,
 		Message:                "upgrading from format version 2 -> 3",
 		MaxPermittedClockDrift: formatBlockCacheDuration / 3,
-		OldFormatVersion:       env.RepositoryWriter.ContentManager().ContentFormat().MutableParameters.Version,
 	}
 
 	secondWriter := env.MustOpenAnother(t)
@@ -214,7 +209,6 @@ func TestFormatUpgradeFailureToBackupFormatBlobOnLock(t *testing.T) {
 		StatusPollInterval:     15,
 		Message:                "upgrading from format version 2 -> 3",
 		MaxPermittedClockDrift: 5,
-		OldFormatVersion:       content.FormatVersion1,
 	}
 	// this lock will not be allowed by the backend to create backups
 	faultyLock := allowedLock.Clone()
