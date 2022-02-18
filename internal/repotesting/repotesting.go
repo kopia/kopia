@@ -168,12 +168,12 @@ func (e *Environment) MustReopen(tb testing.TB, openOpts ...func(*repo.Options))
 }
 
 // MustOpenAnother opens another repository backend by the same storage.
-func (e *Environment) MustOpenAnother(tb testing.TB) repo.RepositoryWriter {
+func (e *Environment) MustOpenAnother(tb testing.TB, openOpts ...func(*repo.Options)) repo.RepositoryWriter {
 	tb.Helper()
 
 	ctx := testlogging.Context(tb)
 
-	rep2, err := repo.Open(ctx, e.ConfigFile(), e.Password, &repo.Options{})
+	rep2, err := repo.Open(ctx, e.ConfigFile(), e.Password, repoOptions(openOpts))
 	if err != nil {
 		tb.Fatalf("err: %v", err)
 	}

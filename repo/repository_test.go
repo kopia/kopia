@@ -405,9 +405,20 @@ func TestInitializeWithBlobCfgRetentionBlob(t *testing.T) {
 	// verify that the blobcfg retention blob is created
 	require.NoError(t, env.RepositoryWriter.BlobStorage().GetBlob(ctx, repo.BlobCfgBlobID, 0, -1, &d))
 	require.NoError(t, env.RepositoryWriter.ChangePassword(ctx, "new-password"))
+
+	// due to the upgrade lock monitor before-op hook, the next operation on
+	// the storage backend will fail with invalid password
+	require.EqualError(t, env.RepositoryWriter.BlobStorage().GetBlob(ctx, repo.BlobCfgBlobID, 0, -1, &d),
+		"invalid repository password")
+
+	// verify that the blobcfg retention blob is created and is different after
+	// password-change, this should work because we are bypassing the upgrade
+	// monitor by working with the root storage directly
+	require.NoError(t, env.RootStorage().GetBlob(ctx, repo.BlobCfgBlobID, 0, -1, &d))
+
 	// verify that the blobcfg retention blob is created and is different after
 	// password-change
-	require.NoError(t, env.RepositoryWriter.BlobStorage().GetBlob(ctx, repo.BlobCfgBlobID, 0, -1, &d))
+	require.NoError(t, env.RootStorage().GetBlob(ctx, repo.BlobCfgBlobID, 0, -1, &d))
 
 	// verify that we cannot re-initialize the repo even after password change
 	require.EqualError(t, repo.Initialize(testlogging.Context(t), env.RootStorage(), nil, env.Password),
@@ -417,17 +428,17 @@ func TestInitializeWithBlobCfgRetentionBlob(t *testing.T) {
 	{
 		// backup & corrupt the blobcfg blob
 		d.Reset()
-		require.NoError(t, env.RepositoryWriter.BlobStorage().GetBlob(ctx, repo.BlobCfgBlobID, 0, -1, &d))
+		require.NoError(t, env.RootStorage().GetBlob(ctx, repo.BlobCfgBlobID, 0, -1, &d))
 		corruptedData := d.Dup()
 		corruptedData.Append([]byte("bad bits"))
-		require.NoError(t, env.RepositoryWriter.BlobStorage().PutBlob(ctx, repo.BlobCfgBlobID, corruptedData.Bytes(), blob.PutOptions{}))
+		require.NoError(t, env.RootStorage().PutBlob(ctx, repo.BlobCfgBlobID, corruptedData.Bytes(), blob.PutOptions{}))
 
 		// verify that we error out on corrupted blobcfg blob
 		_, err := repo.Open(ctx, env.ConfigFile(), env.Password, &repo.Options{})
 		require.EqualError(t, err, "invalid repository password")
 
 		// restore the original blob
-		require.NoError(t, env.RepositoryWriter.BlobStorage().PutBlob(ctx, repo.BlobCfgBlobID, d.Bytes(), blob.PutOptions{}))
+		require.NoError(t, env.RootStorage().PutBlob(ctx, repo.BlobCfgBlobID, d.Bytes(), blob.PutOptions{}))
 	}
 
 	// verify that we'd hard-fail on unexpected errors on blobcfg blob-puts
