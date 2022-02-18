@@ -1,4 +1,44 @@
 // Package workshare implements work sharing worker pool.
+//
+// It is commonly used to traverse tree-like structures:
+//
+// type processWorkRequest struct {
+//   node *someNode
+//   err error
+// }
+//
+// func processWork(p *workshare.Pool, req interface{}) {
+//   req := req.(*processWorkRequest)
+//   req.err = visitNode(p, req.node)
+// }
+//
+// func visitNode(p *workshare.Pool, n *someNode) error {
+//   var wg workshare.AsyncGroup
+//
+//   for _, child := range n.children {
+//     if wg.CanShareWork(p) {
+//       // run asynchronously, collect result using wg.Wait() below.
+//       RunAsync(p, processWork, processWorkRequest{child})
+//     } else {
+// 	      if err := visitNode(p, n); err != nil {
+//          return err
+//        }
+//     }
+//   }
+//
+//   // wait for results from all shared work and handle them.
+//   for _, req := range wg.Wait() {
+//     if err := req.(*processWorkRequest).err; err != nil {
+//       return err
+//     }
+//   }
+//
+//   return nil
+// }
+//
+// wp = workshare.NewPool(10)
+// defer wp.Close()
+// visitNode(wp, root)
 package workshare
 
 import (
@@ -7,6 +47,8 @@ import (
 
 // AsyncGroup launches and awaits asynchronous work through a WorkerPool.
 // It provides API designed to minimize allocations while being reasonably easy to use.
+// AsyncGroup is very lightweight and NOT safe for concurrent use, all interactions must
+// be from the same goroutine.
 type AsyncGroup struct {
 	wg       *sync.WaitGroup
 	requests []interface{}
@@ -23,19 +65,20 @@ func (g *AsyncGroup) Wait() []interface{} {
 	return g.requests
 }
 
-// RunAsync starts the asynchronous work to process the provided input, the user must call Wait().
-func (g *AsyncGroup) RunAsync(w *Pool, process ProcessFunc, input interface{}) {
+// RunAsync starts the asynchronous work to process the provided request,
+// the user must call Wait() after all RunAsync() have been scheduled.
+func (g *AsyncGroup) RunAsync(w *Pool, process ProcessFunc, request interface{}) {
 	if g.wg == nil {
 		g.wg = &sync.WaitGroup{}
 	}
 
 	g.wg.Add(1)
 
-	g.requests = append(g.requests, input)
+	g.requests = append(g.requests, request)
 
 	w.work <- workItem{
 		process: process,
-		input:   input,
+		request: request,
 		wg:      g.wg,
 	}
 }
@@ -46,9 +89,13 @@ func (g *AsyncGroup) RunAsync(w *Pool, process ProcessFunc, input interface{}) {
 func (g *AsyncGroup) CanShareWork(w *Pool) bool {
 	select {
 	case w.semaphore <- struct{}{}:
+		// we successfully added token to the channel, because we have exactly the same number
+		// of workers as the capacity of the channel, one worker will wake up to process
+		// item from w.work, which will be added by RunAsync().
 		return true
 
 	default:
+		// all workers are busy.
 		return false
 	}
 }

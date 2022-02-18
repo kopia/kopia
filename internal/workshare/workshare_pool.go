@@ -6,14 +6,14 @@ import (
 	"sync/atomic"
 )
 
-// ProcessFunc processes the provided input, the result must be written within the input itself.
-// To avoid allocations, the function should not be a local closure but a named function (either global or
-// a method).
-type ProcessFunc func(c *Pool, input interface{})
+// ProcessFunc processes the provided request, which is typically a pointer to a structure.
+// The result will typically be written within the request structure. To avoid allocations,
+// the function should not be a local closure but a named function (either global or a method).
+type ProcessFunc func(c *Pool, request interface{})
 
 type workItem struct {
 	process ProcessFunc     // function to call
-	input   interface{}     // parameter to the function
+	request interface{}     // parameter to the function
 	wg      *sync.WaitGroup // signal the provided WaitGroup after work is done
 }
 
@@ -41,7 +41,9 @@ func NewPool(numWorkers int) *Pool {
 	}
 
 	w := &Pool{
-		work:      make(chan workItem), // channel must be unbuffered
+		// channel must be unbuffered so that it has exactly as many slots as there are goroutines capable of reading from it
+		// this way by pushing to the channel we can be sure that a pre-spun goroutine will pick it up soon.
+		work:      make(chan workItem),
 		closed:    make(chan struct{}),
 		semaphore: make(chan struct{}, numWorkers),
 	}
@@ -56,7 +58,7 @@ func NewPool(numWorkers int) *Pool {
 				select {
 				case it := <-w.work:
 					atomic.AddInt32(&w.activeWorkers, 1)
-					it.process(w, it.input)
+					it.process(w, it.request)
 					atomic.AddInt32(&w.activeWorkers, -1)
 					<-w.semaphore
 					it.wg.Done()
@@ -74,4 +76,5 @@ func NewPool(numWorkers int) *Pool {
 // Close closes the worker pool.
 func (w *Pool) Close() {
 	close(w.closed)
+	w.wg.Wait()
 }
