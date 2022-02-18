@@ -667,11 +667,14 @@ func (u *Uploader) processChildren(
 ) error {
 	var wg workshare.AsyncGroup
 
-	if err := u.processSubdirectories(ctx, parentDirCheckpointRegistry, parentDirBuilder, localDirPathOrEmpty, relativePath, entries, policyTree, previousEntries, &wg); err != nil {
+	// ignore errCancel because a more serious error may be reported in wg.Wait()
+	// we'll check for cancelation later.
+
+	if err := u.processSubdirectories(ctx, parentDirCheckpointRegistry, parentDirBuilder, localDirPathOrEmpty, relativePath, entries, policyTree, previousEntries, &wg); err != nil && !errors.Is(err, errCanceled) {
 		return errors.Wrap(err, "processing subdirectories")
 	}
 
-	if err := u.processNonDirectories(ctx, parentDirCheckpointRegistry, parentDirBuilder, relativePath, entries, policyTree, previousEntries, &wg); err != nil {
+	if err := u.processNonDirectories(ctx, parentDirCheckpointRegistry, parentDirBuilder, relativePath, entries, policyTree, previousEntries, &wg); err != nil && !errors.Is(err, errCanceled) {
 		return errors.Wrap(err, "processing non-directories")
 	}
 
@@ -684,6 +687,10 @@ func (u *Uploader) processChildren(
 		if wi.err != nil {
 			return wi.err
 		}
+	}
+
+	if u.IsCanceled() {
+		return errCanceled
 	}
 
 	return nil
