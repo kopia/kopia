@@ -164,6 +164,10 @@ func verifyFormatBlobChecksum(b []byte) ([]byte, bool) {
 }
 
 func writeFormatBlob(ctx context.Context, st blob.Storage, f *formatBlob, blobCfg content.BlobCfgBlob) error {
+	return writeFormatBlobWithID(ctx, st, f, blobCfg, FormatBlobID)
+}
+
+func writeFormatBlobWithID(ctx context.Context, st blob.Storage, f *formatBlob, blobCfg content.BlobCfgBlob, id blob.ID) error {
 	buf := gather.NewWriteBuffer()
 	e := json.NewEncoder(buf)
 	e.SetIndent("", "  ")
@@ -172,11 +176,11 @@ func writeFormatBlob(ctx context.Context, st blob.Storage, f *formatBlob, blobCf
 		return errors.Wrap(err, "unable to marshal format blob")
 	}
 
-	if err := st.PutBlob(ctx, FormatBlobID, buf.Bytes(), blob.PutOptions{
+	if err := st.PutBlob(ctx, id, buf.Bytes(), blob.PutOptions{
 		RetentionMode:   blobCfg.RetentionMode,
 		RetentionPeriod: blobCfg.RetentionPeriod,
 	}); err != nil {
-		return errors.Wrap(err, "unable to write format blob")
+		return errors.Wrapf(err, "unable to write format blob %q", id)
 	}
 
 	return nil

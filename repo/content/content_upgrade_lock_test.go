@@ -109,6 +109,7 @@ func TestUpgradeLockIntentValidation(t *testing.T) {
 		l.AdvanceNoticeDuration, l.MaxPermittedClockDrift+2*l.IODrainTimeout))
 
 	l.AdvanceNoticeDuration = 1 * time.Hour
+
 	require.NoError(t, l.Validate())
 }
 

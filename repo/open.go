@@ -74,6 +74,10 @@ type Options struct {
 // ErrInvalidPassword is returned when repository password is invalid.
 var ErrInvalidPassword = errors.Errorf("invalid repository password")
 
+// ErrRepositoryUnavailableDueToUpgrageInProgress is returned when repository
+// is undergoing upgrade that requires exclusive access.
+var ErrRepositoryUnavailableDueToUpgrageInProgress = errors.Errorf("repository upgrade in progress")
+
 // Open opens a Repository specified in the configuration file.
 func Open(ctx context.Context, configFile, password string, options *Options) (rep Repository, err error) {
 	defer func() {
