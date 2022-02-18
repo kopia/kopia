@@ -168,7 +168,7 @@ func (r *directRepository) RollbackUpgrade(ctx context.Context) error {
 	if oldestBackup != nil {
 		var d gather.WriteBuffer
 		if err = r.blobs.GetBlob(ctx, oldestBackup.BlobID, 0, -1, &d); err != nil {
-			return errors.Wrapf(err, "failed to read from backup %q", FormatBlobBackupIDPrefix)
+			return errors.Wrapf(err, "failed to read from backup %q", oldestBackup.BlobID)
 		}
 
 		if err = r.blobs.PutBlob(ctx, FormatBlobID, d.Bytes(), blob.PutOptions{}); err != nil {
