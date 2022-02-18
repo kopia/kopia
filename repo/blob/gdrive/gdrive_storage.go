@@ -47,8 +47,29 @@ type gdriveStorage struct {
 	Options
 
 	client      *drive.FilesService
+	about       *drive.AboutService
 	folderID    string
 	fileIDCache *fileIDCache
+}
+
+func (gdrive *gdriveStorage) GetCapacity(ctx context.Context) (blob.Capacity, error) {
+	req := gdrive.about.Get().Fields("storageQuota")
+
+	res, err := req.Context(ctx).Do()
+	if err != nil {
+		return blob.Capacity{}, errors.Wrap(err, "get about in GetCapacity()")
+	}
+
+	q := res.StorageQuota
+	if q.Limit == 0 {
+		// If Limit is unset then the drive has no size limit.
+		return blob.Capacity{}, blob.ErrNotAVolume
+	}
+
+	return blob.Capacity{
+		SizeB: uint64(q.Limit),
+		FreeB: uint64(q.Limit) - uint64(q.Usage),
+	}, nil
 }
 
 func (gdrive *gdriveStorage) GetBlob(ctx context.Context, b blob.ID, offset, length int64, output blob.OutputBuffer) error {
@@ -479,9 +500,10 @@ func tokenSourceFromCredentialsJSON(ctx context.Context, data json.RawMessage, s
 	return cfg.TokenSource(ctx), nil
 }
 
-// CreateDriveClient creates a new Google Drive client.
+// CreateDriveService creates a new Google Drive service, which encapsulates multiple clients
+// used to access different Google Drive functionality.
 // Exported for tests only.
-func CreateDriveClient(ctx context.Context, opt *Options) (*drive.FilesService, error) {
+func CreateDriveService(ctx context.Context, opt *Options) (*drive.Service, error) {
 	var err error
 
 	var ts oauth2.TokenSource
@@ -510,7 +532,7 @@ func CreateDriveClient(ctx context.Context, opt *Options) (*drive.FilesService, 
 		return nil, errors.Wrap(err, "unable to create Drive client")
 	}
 
-	return service.Files, nil
+	return service, nil
 }
 
 // New creates new Google Drive-backed storage with specified options:
@@ -524,14 +546,15 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 		return nil, errors.New("folder-id must be specified")
 	}
 
-	client, err := CreateDriveClient(ctx, opt)
+	service, err := CreateDriveService(ctx, opt)
 	if err != nil {
 		return nil, err
 	}
 
 	gdrive := &gdriveStorage{
 		Options:     *opt,
-		client:      client,
+		client:      service.Files,
+		about:       service.About,
 		folderID:    opt.FolderID,
 		fileIDCache: newFileIDCache(),
 	}
