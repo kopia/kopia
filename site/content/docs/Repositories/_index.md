@@ -10,6 +10,7 @@ A repository is a place where Kopia stores its snapshot data. Kopia currently su
 * [Azure Blob Storage](#azure)
 * [Amazon S3](#amazon-s3) (and compatible)
 * [Backblaze B2](#b2)
+* [Google Drive](#google-drive)
 * [SFTP](#sftp)
 * [WebDAV](#webdav)
 * [Rclone](#rclone)
@@ -113,6 +114,71 @@ $ kopia repository connect b2
 
 ---
 
+## Google Drive
+
+Google Drive is a file storage and synchronization service developed by Google, which you can set up as a storage backend for Kopia.
+
+> WARNING: Google Drive support is experimental, use at your own risk.
+
+Kopia uses a Google Drive folder that you provide to store all the files in a repository. Kopia will only access files in this folder, and using Kopia does not impact your other Drive files. We recommend that you let Kopia manage this folder and do not upload any other content to this folder.
+
+### Creating a repository
+
+Here's a high-level rundown of what we will do:
+
+1. Create or use an existing Google Drive folder for the new repository.
+
+2. Create a [Service Account](https://cloud.google.com/iam/docs/understanding-service-accounts) for Kopia. A service account is a Google account for a robot user, and can be created and managed more easily than a real Gmail account.
+
+3. Share the Google Drive folder with your new service account so that it can access the folder.
+
+Ready? Here are the step-by-step instructions:
+
+1. [Create a Google Cloud project](https://console.cloud.google.com/projectcreate), or use an existing one.
+   
+   ![Create a Cloud Project](drive-create-project.png)
+
+2. [Enable the Google Drive API](https://console.cloud.google.com/apis/library/drive.googleapis.com) using your project.
+   
+   ![Enable the Drive API](drive-enable-api.png)
+
+3. Create a service account. After enabling the API, you should be now prompted to [create credentials](https://console.cloud.google.com/apis/api/drive.googleapis.com/credentials). Choose "Service account" from the options, and give it a name. Note down the service account email.
+   
+   ![Create a service account](drive-create-credentials.png)
+
+4. Create a key for the service account. You can do this by viewing the service account, navigating to the "Keys" tab, and clicking "Add Key" -> "Create new key". You should choose "JSON" for the key type. Save the file on your computer.
+   
+   ![Create key](drive-create-key.png)
+
+5. Create or pick an existing Google Drive folder. The browser URL should look something like `https://drive.google.com/drive/u/0/folders/z63ZZ1Npv3OFvDPwU3dX0w`. Note down the last part of the URL. That's your folder ID.
+
+6. Share the folder with the service account. Open the share dialog for the folder, and put in the service account email. You should choose the "Editor" as the access role.
+
+After these preparations we can create a Kopia repository (assuming the folder ID is `z63ZZ1Npv3OFvDPwU3dX0w`):
+
+```shell
+$ kopia repository create gdrive \
+        --folder-id z63ZZ1Npv3OFvDPwU3dX0w \
+        --credentials-file=<where-you-have-stored-the-json-key-file>
+```
+
+If you view your folder on Google Drive, you should see that Kopia has created the skeleton of the repository with a `kopia.repository` file and a couple of others.
+
+### Connecting To Repository
+
+To connect to a repository that already exists, simply use `kopia repository connect` instead of `kopia repository create`.
+
+You can connect as many computers as you like to any repository, even simultaneously. If you have multiple computers, we recommend that you create a new service account key for each computer for good security.
+
+```shell
+$ kopia repository connect gdrive \
+        --folder-id z63ZZ1Npv3OFvDPwU3dX0w \
+        --credentials-file=<where-you-have-stored-the-json-key-file>
+```
+
+[Detailed information and settings](/docs/reference/command-line/common/repository-connect-gdrive/)
+
+---
 
 ## SFTP
 
@@ -174,7 +240,7 @@ If the connection to SFTP server does not work, try adding `--external` which wi
 ## Rclone
 
 Kopia can connect to certain backends supported by [Rclone](https://rclone.org) as long as they support
-server-side timestamps. 
+server-side timestamps.
 
 >WARNING: Rclone support is experimental, use at your own risk.
 
