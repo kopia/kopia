@@ -6,12 +6,6 @@ info:
 options:
   commits:
     filters:
-      Type:
-        - feat
-        - fix
-        - perf
-        - refactor
-        - build
       Scope:
       - cli
       - kopiaui
