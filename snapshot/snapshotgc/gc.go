@@ -22,10 +22,6 @@ import (
 
 var log = logging.Module("snapshotgc")
 
-func oidOf(entry fs.Entry) object.ID {
-	return entry.(object.HasObjectID).ObjectID() //nolint:forcetypeassert
-}
-
 func findInUseContentIDs(ctx context.Context, rep repo.Repository, used *sync.Map) error {
 	ids, err := snapshot.ListSnapshotManifests(ctx, rep, nil, nil)
 	if err != nil {
@@ -37,8 +33,27 @@ func findInUseContentIDs(ctx context.Context, rep repo.Repository, used *sync.Ma
 		return errors.Wrap(err, "unable to load manifest IDs")
 	}
 
-	w := snapshotfs.NewTreeWalker()
-	w.EntryID = func(e fs.Entry) interface{} { return oidOf(e) }
+	w, twerr := snapshotfs.NewTreeWalker(snapshotfs.TreeWalkerOptions{
+		EntryCallback: func(ctx context.Context, entry fs.Entry, oid object.ID, entryPath string) error {
+			contentIDs, err := rep.VerifyObject(ctx, oid)
+			if err != nil {
+				return errors.Wrapf(err, "error verifying %v", oid)
+			}
+
+			for _, cid := range contentIDs {
+				used.Store(cid, nil)
+			}
+
+			return nil
+		},
+	})
+	if twerr != nil {
+		return errors.Wrap(twerr, "unable to initialize tree walker")
+	}
+
+	defer w.Close()
+
+	log(ctx).Infof("Looking for active contents...")
 
 	for _, m := range manifests {
 		root, err := snapshotfs.SnapshotRoot(rep, m)
@@ -46,28 +61,9 @@ func findInUseContentIDs(ctx context.Context, rep repo.Repository, used *sync.Ma
 			return errors.Wrap(err, "unable to get snapshot root")
 		}
 
-		w.RootEntries = append(w.RootEntries, root)
-	}
-
-	w.ObjectCallback = func(entry fs.Entry) error {
-		oid := oidOf(entry)
-
-		contentIDs, err := rep.VerifyObject(ctx, oid)
-		if err != nil {
-			return errors.Wrapf(err, "error verifying %v", oid)
+		if err := w.Process(ctx, root, ""); err != nil {
+			return errors.Wrap(err, "error processing snapshot root")
 		}
-
-		for _, cid := range contentIDs {
-			used.Store(cid, nil)
-		}
-
-		return nil
-	}
-
-	log(ctx).Infof("Looking for active contents...")
-
-	if err := w.Run(ctx); err != nil {
-		return errors.Wrap(err, "error walking snapshot tree")
 	}
 
 	return nil

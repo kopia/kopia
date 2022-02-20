@@ -2,78 +2,177 @@ package snapshotfs
 
 import (
 	"context"
+	"path"
 	"runtime"
 	"sync"
 
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/fs"
-	"github.com/kopia/kopia/internal/parallelwork"
+	"github.com/kopia/kopia/internal/workshare"
+	"github.com/kopia/kopia/repo/object"
 )
 
 const walkersPerCPU = 4
 
-// TreeWalker holds information for concurrently walking down FS trees specified
-// by their roots.
+// EntryCallback is invoked when walking the tree of snapshots.
+type EntryCallback func(ctx context.Context, entry fs.Entry, oid object.ID, entryPath string) error
+
+// TreeWalker processes snapshot filesystem trees by invoking the provided callback
+// once for each object found in the tree.
 type TreeWalker struct {
-	Parallelism    int
-	RootEntries    []fs.Entry
-	ObjectCallback func(entry fs.Entry) error
-	// EntryID extracts or generates an id from an fs.Entry.
-	// It can be used to eliminate duplicate entries when in a FS
-	EntryID func(entry fs.Entry) interface{}
+	options TreeWalkerOptions
 
 	enqueued sync.Map
-	queue    *parallelwork.Queue
+	wp       *workshare.Pool
+
+	mu        sync.Mutex
+	numErrors int
+	errors    []error
 }
 
-func (w *TreeWalker) enqueueEntry(ctx context.Context, entry fs.Entry) {
-	eid := w.EntryID(entry)
-	if _, existing := w.enqueued.LoadOrStore(eid, w); existing {
+func oidOf(e fs.Entry) object.ID {
+	if h, ok := e.(object.HasObjectID); ok {
+		return h.ObjectID()
+	}
+
+	return ""
+}
+
+// ReportError reports the error.
+func (w *TreeWalker) ReportError(ctx context.Context, entryPath string, err error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	repoFSLog(ctx).Errorf("error processing %v: %v", entryPath, err)
+
+	if len(w.errors) < w.options.MaxErrors {
+		w.errors = append(w.errors, err)
+	}
+
+	w.numErrors++
+}
+
+// Err returns the error encountered when walking the tree.
+func (w *TreeWalker) Err() error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	switch w.numErrors {
+	case 0:
+		return nil
+	case 1:
+		return w.errors[0]
+	default:
+		return errors.Errorf("encountered %v errors", w.numErrors)
+	}
+}
+
+// TooManyErrors reports true if there are too many errors already reported.
+func (w *TreeWalker) TooManyErrors() bool {
+	if w.options.MaxErrors <= 0 {
+		// unlimited
+		return false
+	}
+
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	return w.numErrors >= w.options.MaxErrors
+}
+
+func (w *TreeWalker) alreadyProcessed(e fs.Entry) bool {
+	_, existing := w.enqueued.LoadOrStore(oidOf(e), struct{}{})
+	return existing
+}
+
+func (w *TreeWalker) processEntry(ctx context.Context, e fs.Entry, entryPath string) {
+	if ec := w.options.EntryCallback; ec != nil {
+		err := ec(ctx, e, oidOf(e), entryPath)
+		if err != nil {
+			w.ReportError(ctx, entryPath, err)
+			return
+		}
+	}
+
+	if dir, ok := e.(fs.Directory); ok {
+		w.processDirEntry(ctx, dir, entryPath)
+	}
+}
+
+func (w *TreeWalker) processDirEntry(ctx context.Context, dir fs.Directory, entryPath string) {
+	var ag workshare.AsyncGroup
+	defer ag.Wait()
+
+	entries, err := dir.Readdir(ctx)
+	if err != nil {
+		w.ReportError(ctx, entryPath, errors.Wrap(err, "error reading directory"))
 		return
 	}
 
-	w.queue.EnqueueBack(ctx, func() error { return w.processEntry(ctx, entry) })
-}
+	for _, ent := range entries {
+		ent := ent
 
-func (w *TreeWalker) processEntry(ctx context.Context, entry fs.Entry) error {
-	err := w.ObjectCallback(entry)
-	if err != nil {
-		return err
-	}
-
-	if dir, ok := entry.(fs.Directory); ok {
-		entries, err := dir.Readdir(ctx)
-		if err != nil {
-			return errors.Wrap(err, "error reading directory")
+		if w.TooManyErrors() {
+			break
 		}
 
-		for _, ent := range entries {
-			w.enqueueEntry(ctx, ent)
+		if w.alreadyProcessed(ent) {
+			continue
+		}
+
+		childPath := path.Join(entryPath, ent.Name())
+
+		if ag.CanShareWork(w.wp) {
+			ag.RunAsync(w.wp, func(c *workshare.Pool, request interface{}) {
+				w.processEntry(ctx, ent, childPath)
+			}, nil)
+		} else {
+			w.processEntry(ctx, ent, childPath)
 		}
 	}
-
-	return nil
 }
 
-// Run walks the given tree roots.
-func (w *TreeWalker) Run(ctx context.Context) error {
-	for _, root := range w.RootEntries {
-		w.enqueueEntry(ctx, root)
+// Process processes the snapshot tree entry.
+func (w *TreeWalker) Process(ctx context.Context, e fs.Entry, entryPath string) error {
+	if oidOf(e) == "" {
+		return errors.Errorf("entry does not have ObjectID")
 	}
 
-	w.queue.ProgressCallback = func(ctx context.Context, enqueued, active, completed int64) {
-		repoFSLog(ctx).Infof("  Processed %v contents, discovered %v...", completed, enqueued)
+	if w.alreadyProcessed(e) {
+		return nil
 	}
 
-	// nolint:wrapcheck
-	return w.queue.Process(ctx, w.Parallelism)
+	w.processEntry(ctx, e, entryPath)
+
+	return w.Err()
+}
+
+// Close closes the tree walker.
+func (w *TreeWalker) Close() {
+	w.wp.Close()
+}
+
+// TreeWalkerOptions provides optional fields for TreeWalker.
+type TreeWalkerOptions struct {
+	EntryCallback EntryCallback
+
+	Parallelism int
+	MaxErrors   int
 }
 
 // NewTreeWalker creates new tree walker.
-func NewTreeWalker() *TreeWalker {
-	return &TreeWalker{
-		Parallelism: walkersPerCPU * runtime.NumCPU(),
-		queue:       parallelwork.NewQueue(),
+func NewTreeWalker(options TreeWalkerOptions) (*TreeWalker, error) {
+	if options.Parallelism <= 0 {
+		options.Parallelism = runtime.NumCPU() * walkersPerCPU
 	}
+
+	if options.MaxErrors == 0 {
+		options.MaxErrors = 1
+	}
+
+	return &TreeWalker{
+		options: options,
+		wp:      workshare.NewPool(options.Parallelism - 1),
+	}, nil
 }
