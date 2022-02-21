@@ -34,14 +34,9 @@ func (s *Server) handleContentGet(ctx context.Context, r *http.Request, body []b
 }
 
 func (s *Server) handleContentInfo(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
-	dr, ok := s.rep.(repo.DirectRepository)
-	if !ok {
-		return nil, notFoundError("content not found")
-	}
-
 	cid := content.ID(mux.Vars(r)["contentID"])
 
-	ci, err := dr.ContentReader().ContentInfo(ctx, cid)
+	ci, err := s.rep.ContentInfo(ctx, cid)
 
 	switch {
 	case err == nil:

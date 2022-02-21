@@ -49,7 +49,7 @@ func TestTimeFuncWiring(t *testing.T) {
 		t.Fatal("failed to write content:", err)
 	}
 
-	info, err := env.RepositoryWriter.ContentReader().ContentInfo(ctx, cid)
+	info, err := env.RepositoryWriter.ContentInfo(ctx, cid)
 	if err != nil {
 		t.Fatal("failed to get content info for", cid, err)
 	}

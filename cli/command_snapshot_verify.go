@@ -87,9 +87,9 @@ func (v *verifier) verifyFile(ctx context.Context, oid object.ID, entryPath stri
 		return errors.Wrap(err, "verify object")
 	}
 
-	if dr, ok := v.rep.(repo.DirectRepository); v.blobMap != nil && ok {
+	if v.blobMap != nil {
 		for _, cid := range contentIDs {
-			ci, err := dr.ContentReader().ContentInfo(ctx, cid)
+			ci, err := v.rep.ContentInfo(ctx, cid)
 			if err != nil {
 				return errors.Wrapf(err, "error verifying content %v", cid)
 			}

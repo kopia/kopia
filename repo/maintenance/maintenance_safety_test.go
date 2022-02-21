@@ -103,12 +103,9 @@ func verifyContentDeletedState(ctx context.Context, t *testing.T, rep repo.Repos
 
 	cid, _, _ := objectID.ContentID()
 
-	require.NoError(t, repo.DirectWriteSession(ctx, rep.(repo.DirectRepository), repo.WriteSessionOptions{}, func(ctx context.Context, dw repo.DirectRepositoryWriter) error {
-		info, err := dw.ContentReader().ContentInfo(ctx, cid)
-		require.NoError(t, err)
-		require.Equal(t, want, info.GetDeleted())
-		return nil
-	}))
+	info, err := rep.ContentInfo(ctx, cid)
+	require.NoError(t, err)
+	require.Equal(t, want, info.GetDeleted())
 }
 
 func verifyObjectReadable(ctx context.Context, t *testing.T, rep repo.Repository, objectID object.ID) {
