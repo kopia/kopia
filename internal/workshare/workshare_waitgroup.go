@@ -74,7 +74,9 @@ func (g *AsyncGroup) RunAsync(w *Pool, process ProcessFunc, request interface{})
 
 	g.wg.Add(1)
 
-	g.requests = append(g.requests, request)
+	if request != nil {
+		g.requests = append(g.requests, request)
+	}
 
 	w.work <- workItem{
 		process: process,
