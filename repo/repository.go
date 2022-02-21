@@ -22,6 +22,7 @@ type Repository interface {
 	VerifyObject(ctx context.Context, id object.ID) ([]content.ID, error)
 	GetManifest(ctx context.Context, id manifest.ID, data interface{}) (*manifest.EntryMetadata, error)
 	FindManifests(ctx context.Context, labels map[string]string) ([]*manifest.EntryMetadata, error)
+	ContentInfo(ctx context.Context, contentID content.ID) (content.Info, error)
 	Time() time.Time
 	ClientOptions() ClientOptions
 	NewWriter(ctx context.Context, opt WriteSessionOptions) (context.Context, RepositoryWriter, error)
@@ -192,6 +193,12 @@ func (r *directRepository) DeleteManifest(ctx context.Context, id manifest.ID) e
 func (r *directRepository) ListActiveSessions(ctx context.Context) (map[content.SessionID]*content.SessionInfo, error) {
 	// nolint:wrapcheck
 	return r.cmgr.ListActiveSessions(ctx)
+}
+
+// ContentInfo gets the information about particular content.
+func (r *directRepository) ContentInfo(ctx context.Context, contentID content.ID) (content.Info, error) {
+	// nolint:wrapcheck
+	return r.cmgr.ContentInfo(ctx, contentID)
 }
 
 // UpdateDescription updates the description of a connected repository.

@@ -144,7 +144,7 @@ func getContentToRewrite(ctx context.Context, rep repo.DirectRepository, opt *Re
 
 func findContentInfos(ctx context.Context, rep repo.DirectRepository, ch chan contentInfoOrError, contentIDs []content.ID) {
 	for _, contentID := range contentIDs {
-		i, err := rep.ContentReader().ContentInfo(ctx, contentID)
+		i, err := rep.ContentInfo(ctx, contentID)
 		if err != nil {
 			ch <- contentInfoOrError{err: errors.Wrapf(err, "unable to get info for content %q", contentID)}
 		} else {
