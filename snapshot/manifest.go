@@ -32,6 +32,9 @@ type Manifest struct {
 
 	Tags map[string]string `json:"tags,omitempty"`
 
+	// usage, not persisted, values depend on walking snapshot list in a particular order
+	StorageStats *StorageStats `json:"storageStats,omitempty"`
+
 	// list of manually-defined pins which prevent the snapshot from being deleted.
 	Pins []string `json:"pins,omitempty"`
 }
@@ -156,6 +159,35 @@ func (m *Manifest) RootObjectID() object.ID {
 	}
 
 	return ""
+}
+
+// StorageStats encapsulates snapshot storage usage information and running totals.
+type StorageStats struct {
+	// amount of new unique data in this snapshot that wasn't there before.
+	// note that this depends on ordering of snapshots.
+	NewData      StorageUsageDetails `json:"newData,omitempty"`
+	RunningTotal StorageUsageDetails `json:"runningTotal,omitempty"`
+}
+
+// StorageUsageDetails provides details about snapshot storage usage.
+type StorageUsageDetails struct {
+	// number of bytes in all objects (ignoring content-level deduplication).
+	ObjectBytes int64 `json:"objectBytes"`
+
+	// number of bytes in all unique contents (original).
+	OriginalContentBytes int64 `json:"originalContentBytes"`
+
+	// number of bytes in all unique contents as stored in the repository.
+	PackedContentBytes int64 `json:"packedContentBytes"`
+
+	// number of unique file objects.
+	FileObjectCount int32 `json:"fileObjects"`
+
+	// number of unique objects.
+	DirObjectCount int32 `json:"dirObjects"`
+
+	// number of unique contents.
+	ContentCount int32 `json:"contents"`
 }
 
 // GroupBySource returns a slice of slices, such that each result item contains manifests from a single source.

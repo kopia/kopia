@@ -33,6 +33,8 @@ type commandSnapshotList struct {
 	snapshotListShowAll              bool
 	maxResultsPerPath                int
 	snapshotListTags                 []string
+	storageStats                     bool
+	reverseSort                      bool
 
 	jo  jsonOutput
 	out textOutput
@@ -49,6 +51,8 @@ func (c *commandSnapshotList) setup(svc appServices, parent commandParent) {
 	cmd.Flag("mtime", "Include file mod time").BoolVar(&c.snapshotListShowModTime)
 	cmd.Flag("owner", "Include owner").BoolVar(&c.shapshotListShowOwner)
 	cmd.Flag("show-identical", "Show identical snapshots").Short('l').BoolVar(&c.snapshotListShowIdentical)
+	cmd.Flag("storage-stats", "Compute and show storage statistics").BoolVar(&c.storageStats)
+	cmd.Flag("reverse", "Reverse sort order").BoolVar(&c.reverseSort)
 	cmd.Flag("all", "Show all snapshots (not just current username/host)").Short('a').BoolVar(&c.snapshotListShowAll)
 	cmd.Flag("max-results", "Maximum number of entries per source.").Short('n').IntVar(&c.maxResultsPerPath)
 	cmd.Flag("tags", "Tag filters to apply on the list items. Must be provided in the <key>:<value> format.").StringsVar(&c.snapshotListTags)
@@ -129,14 +133,17 @@ func (c *commandSnapshotList) run(ctx context.Context, rep repo.Repository) erro
 
 	if c.jo.jsonOutput {
 		for _, snapshotGroup := range snapshot.GroupBySource(manifests) {
-			snapshotGroup = snapshot.SortByTime(snapshotGroup, false)
+			snapshotGroup = snapshot.SortByTime(snapshotGroup, c.reverseSort)
 
 			if c.maxResultsPerPath > 0 && len(snapshotGroup) > c.maxResultsPerPath {
 				snapshotGroup = snapshotGroup[len(snapshotGroup)-c.maxResultsPerPath:]
 			}
 
-			for _, m := range snapshotGroup {
+			if err := c.iterateSnapshotsMaybeWithStorageStats(ctx, rep, snapshotGroup, func(m *snapshot.Manifest) error {
 				jl.emit(m)
+				return nil
+			}); err != nil {
+				return errors.Wrap(err, "unable to iterate snapshots")
 			}
 		}
 
@@ -207,37 +214,52 @@ type snapshotListRow struct {
 	color            *color.Color
 }
 
+func (c *commandSnapshotList) iterateSnapshotsMaybeWithStorageStats(ctx context.Context, rep repo.Repository, manifests []*snapshot.Manifest, callback func(m *snapshot.Manifest) error) error {
+	if c.storageStats {
+		// nolint:wrapcheck
+		return snapshotfs.CalculateStorageStats(ctx, rep, manifests, callback)
+	}
+
+	for _, m := range manifests {
+		if err := callback(m); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (c *commandSnapshotList) outputManifestFromSingleSource(ctx context.Context, rep repo.Repository, manifests []*snapshot.Manifest, parts []string) error {
 	var lastTotalFileSize int64
 
-	manifests = snapshot.SortByTime(manifests, false)
+	manifests = snapshot.SortByTime(manifests, c.reverseSort)
 	if c.maxResultsPerPath > 0 && len(manifests) > c.maxResultsPerPath {
 		manifests = manifests[len(manifests)-c.maxResultsPerPath:]
 	}
 
 	var rows []*snapshotListRow
 
-	for _, m := range manifests {
+	if err := c.iterateSnapshotsMaybeWithStorageStats(ctx, rep, manifests, func(m *snapshot.Manifest) error {
 		root, err := snapshotfs.SnapshotRoot(rep, m)
 		if err != nil {
 			c.out.printStdout("  %v <ERROR> %v\n", formatTimestamp(m.StartTime), err)
-			continue
+			return nil
 		}
 
 		ent, err := snapshotfs.GetNestedEntry(ctx, root, parts)
 		if err != nil {
 			c.out.printStdout("  %v <ERROR> %v\n", formatTimestamp(m.StartTime), err)
-			continue
+			return nil
 		}
 
 		ohid, ok := ent.(object.HasObjectID)
 		if !ok {
 			log(ctx).Errorf("entry does not have object ID: %v", ent, err)
-			continue
+			return nil
 		}
 
 		if m.IncompleteReason != "" && !c.snapshotListIncludeIncomplete {
-			continue
+			return nil
 		}
 
 		bits, col := c.entryBits(ctx, m, ent, lastTotalFileSize)
@@ -256,6 +278,10 @@ func (c *commandSnapshotList) outputManifestFromSingleSource(ctx context.Context
 		if m.IncompleteReason == "" {
 			lastTotalFileSize = m.Stats.TotalFileSize
 		}
+
+		return nil
+	}); err != nil {
+		return err
 	}
 
 	if !c.snapshotListShowIdentical {
@@ -360,6 +386,15 @@ func (c *commandSnapshotList) entryBits(ctx context.Context, m *snapshot.Manifes
 				col = errorColor
 			}
 		}
+	}
+
+	if u := m.StorageStats; u != nil {
+		bits = append(bits,
+			fmt.Sprintf("new-data:%v", units.BytesStringBase10(u.NewData.PackedContentBytes)),
+			fmt.Sprintf("new-files:%v", int64(u.NewData.FileObjectCount)),
+			fmt.Sprintf("new-dirs:%v", int64(u.NewData.DirObjectCount)),
+			fmt.Sprintf("compression:%v", formatCompressionPercentage(u.NewData.OriginalContentBytes, u.NewData.PackedContentBytes)),
+		)
 	}
 
 	return bits, col
