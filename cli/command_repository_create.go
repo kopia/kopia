@@ -165,8 +165,12 @@ func (c *commandRepositoryCreate) populateRepository(ctx context.Context, passwo
 			return errors.Wrap(err, "unable to set global policy")
 		}
 
-		printRetentionPolicy(&c.out, policy.DefaultPolicy, &policy.Definition{})
-		printCompressionPolicy(&c.out, policy.DefaultPolicy, &policy.Definition{})
+		var rows []policyTableRow
+
+		rows = appendRetentionPolicyRows(rows, policy.DefaultPolicy, &policy.Definition{})
+		rows = appendCompressionPolicyRows(rows, policy.DefaultPolicy, &policy.Definition{})
+
+		c.out.printStdout("%v\n", alignedPolicyTableRows(rows))
 
 		c.out.printStderr("\nTo find more information about default policy run 'kopia policy get'.\nTo change the policy use 'kopia policy set' command.\n")
 

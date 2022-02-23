@@ -1,11 +1,13 @@
 package cli
 
 import (
+	"bufio"
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -102,4 +104,15 @@ func formatCompressionPercentage(original, compressed int64) string {
 	}
 
 	return fmt.Sprintf("%.1f%%", oneHundredPercent*(1-float64(compressed)/float64(original)))
+}
+
+func indentMultilineString(l, prefix string) string {
+	var lines []string
+
+	s := bufio.NewScanner(strings.NewReader(l))
+	for s.Scan() {
+		lines = append(lines, prefix+s.Text())
+	}
+
+	return strings.Join(lines, "\n")
 }
