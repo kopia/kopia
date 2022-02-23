@@ -20,6 +20,11 @@ linters-settings:
     - filepath.IsAbs # use ospath.IsAbs which supports windows UNC paths
   gocognit:
     min-complexity: 40
+  gci:
+    sections:
+    - standard
+    - default
+    - prefix(github.com/kopia/kopia)
   gocyclo:
     min-complexity: 15
   cyclop:
