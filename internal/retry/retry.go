@@ -34,6 +34,13 @@ func WithExponentialBackoff(ctx context.Context, desc string, attempt AttemptFun
 	return internalRetry(ctx, desc, attempt, isRetriableError, retryInitialSleepAmount, retryMaxSleepAmount, maxAttempts, retryExponent)
 }
 
+// WithExponentialBackoffMaxRetries is the same as WithExponentialBackoff,
+// additionally it allows customizing the max number of retries before giving
+// up (count parameter). A negative value for count would run this forever.
+func WithExponentialBackoffMaxRetries(ctx context.Context, count int, desc string, attempt AttemptFunc, isRetriableError IsRetriableFunc) (interface{}, error) {
+	return internalRetry(ctx, desc, attempt, isRetriableError, retryInitialSleepAmount, retryMaxSleepAmount, count, retryExponent)
+}
+
 // Periodically runs the provided attempt until it succeeds, waiting given fixed amount between attempts.
 func Periodically(ctx context.Context, interval time.Duration, count int, desc string, attempt AttemptFunc, isRetriableError IsRetriableFunc) (interface{}, error) {
 	return internalRetry(ctx, desc, attempt, isRetriableError, interval, interval, count, 1)
@@ -54,9 +61,12 @@ func PeriodicallyNoValue(ctx context.Context, interval time.Duration, count int,
 func internalRetry(ctx context.Context, desc string, attempt AttemptFunc, isRetriableError IsRetriableFunc, initial, max time.Duration, count int, factor float64) (interface{}, error) {
 	sleepAmount := initial
 
-	var lastError error
+	var (
+		lastError error
+		i         = 0
+	)
 
-	for i := 0; i < count; i++ {
+	for ; i < count || count < 0; i++ {
 		if cerr := ctx.Err(); cerr != nil {
 			// nolint:wrapcheck
 			return nil, cerr
@@ -82,7 +92,7 @@ func internalRetry(ctx context.Context, desc string, attempt AttemptFunc, isRetr
 		}
 	}
 
-	return nil, errors.Wrapf(lastError, "unable to complete %v despite %v retries", desc, count)
+	return nil, errors.Wrapf(lastError, "unable to complete %v despite %v retries", desc, i)
 }
 
 // WithExponentialBackoffNoValue is a shorthand for WithExponentialBackoff except the
