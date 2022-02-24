@@ -268,20 +268,20 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 		formatEncryptionKey []byte
 	)
 
-	if err := retry.WithExponentialBackoffNoValue(ctx, "read repo config and wait for upgrade", func() error {
+	if _, err := retry.WithExponentialBackoffMaxRetries(ctx, -1, "read repo config and wait for upgrade", func() (interface{}, error) {
 		var internalErr error
 		cmOpts.RepositoryFormatBytes, cacheTime, f, repoConfig, formatEncryptionKey, internalErr = readAndCacheRepoConfig(ctx, st, password, cacheOpts,
 			lc.FormatBlobCacheDuration)
 		if internalErr != nil {
-			return internalErr
+			return nil, internalErr
 		}
 
 		// retry if upgrade lock has been taken
 		if locked, _ := repoConfig.UpgradeLock.IsLocked(cmOpts.TimeNow()); locked && options.UpgradeOwnerID != repoConfig.UpgradeLock.OwnerID {
-			return ErrRepositoryUnavailableDueToUpgrageInProgress
+			return nil, ErrRepositoryUnavailableDueToUpgrageInProgress
 		}
 
-		return nil
+		return nil, nil
 	}, func(internalErr error) bool {
 		return errors.Is(internalErr, ErrRepositoryUnavailableDueToUpgrageInProgress)
 	}); err != nil {
