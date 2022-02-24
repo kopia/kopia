@@ -51,6 +51,7 @@ FIO_EXE=${FIO_EXE-}
 HOST_FIO_DATA_PATH:${HOST_FIO_DATA_PATH-}
 LOCAL_FIO_DATA_PATH=${LOCAL_FIO_DATA_PATH-}
 S3_BUCKET_NAME=${S3_BUCKET_NAME-}
+TEST_RC=${TEST_RC-}
 
 --- Other Env Vars ---
 GOBIN=${GOBIN-}
@@ -108,6 +109,11 @@ ENGINE_MODE="${ENGINE_MODE:-}"
 make_target="robustness-tests"
 if [[ "${ENGINE_MODE}" = SERVER ]]; then
     make_target="robustness-server-tests"
+fi
+
+# Source any pre-test rc files if provided
+if [[ -f ${TEST_RC} ]]; then
+    source ${TEST_RC}
 fi
 
 # Run the robustness tests
