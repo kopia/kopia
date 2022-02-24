@@ -406,16 +406,6 @@ func TestInitializeWithBlobCfgRetentionBlob(t *testing.T) {
 	require.NoError(t, env.RepositoryWriter.BlobStorage().GetBlob(ctx, repo.BlobCfgBlobID, 0, -1, &d))
 	require.NoError(t, env.RepositoryWriter.ChangePassword(ctx, "new-password"))
 
-	// due to the upgrade lock monitor before-op hook, the next operation on
-	// the storage backend will fail with invalid password
-	require.EqualError(t, env.RepositoryWriter.BlobStorage().GetBlob(ctx, repo.BlobCfgBlobID, 0, -1, &d),
-		"invalid repository password")
-
-	// verify that the blobcfg retention blob is created and is different after
-	// password-change, this should work because we are bypassing the upgrade
-	// monitor by working with the root storage directly
-	require.NoError(t, env.RootStorage().GetBlob(ctx, repo.BlobCfgBlobID, 0, -1, &d))
-
 	// verify that the blobcfg retention blob is created and is different after
 	// password-change
 	require.NoError(t, env.RootStorage().GetBlob(ctx, repo.BlobCfgBlobID, 0, -1, &d))

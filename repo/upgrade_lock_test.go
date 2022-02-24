@@ -309,7 +309,15 @@ func TestFormatUpgradeFailureToBackupFormatBlobOnLock(t *testing.T) {
 }
 
 func TestFormatUpgradeDuringOngoingWriteSessions(t *testing.T) {
-	ctx, env := repotesting.NewEnvironment(t, content.FormatVersion1)
+	curTime := clock.Now()
+	ctx, env := repotesting.NewEnvironment(t, content.FormatVersion1, repotesting.Options{
+		// new environment with controlled time
+		OpenOptions: func(opts *repo.Options) {
+			opts.TimeNowFunc = func() time.Time {
+				return curTime
+			}
+		},
+	})
 
 	rep := env.Repository // read-only
 
@@ -355,7 +363,27 @@ func TestFormatUpgradeDuringOngoingWriteSessions(t *testing.T) {
 	_, err = env.RepositoryWriter.SetUpgradeLockIntent(ctx, l)
 	require.NoError(t, err)
 
-	// ongoing writes should get interrupted
+	// ongoing writes should NOT get interrupted because the upgrade lock
+	// monitor could not have noticed the lock yet
+	require.NoError(t, w1.Flush(ctx))
+	require.NoError(t, w2.Flush(ctx))
+	require.NoError(t, w3.Flush(ctx))
+	require.NoError(t, lw.Flush(ctx))
+
+	o5Data := []byte{7, 8, 9}
+	o6Data := []byte{10, 11, 12}
+	o7Data := []byte{13, 14, 15}
+	o8Data := []byte{16, 17, 18}
+
+	writeObject(ctx, t, w1, o5Data, "o5")
+	writeObject(ctx, t, w2, o6Data, "o6")
+	writeObject(ctx, t, w3, o7Data, "o7")
+	writeObject(ctx, t, lw, o8Data, "o8")
+
+	// move time forward by the lock refresh interval
+	curTime = curTime.Add(formatBlockCacheDuration + time.Second)
+
+	// ongoing writes should get interrupted this time
 	require.ErrorIs(t, w1.Flush(ctx), repo.ErrRepositoryUnavailableDueToUpgrageInProgress)
 	require.ErrorIs(t, w2.Flush(ctx), repo.ErrRepositoryUnavailableDueToUpgrageInProgress)
 	require.ErrorIs(t, w3.Flush(ctx), repo.ErrRepositoryUnavailableDueToUpgrageInProgress)
