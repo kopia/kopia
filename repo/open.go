@@ -393,13 +393,16 @@ func upgradeLockMonitor(
 	lastSync time.Time,
 	now func() time.Time,
 ) blob.Storage {
-	var m sync.RWMutex
+	var (
+		m        sync.RWMutex
+		nextSync = lastSync.Add(lockRefreshInterval)
+	)
 
 	cb := func() error {
-		// protected read for lastSync because it will be shared between
+		// protected read for nextSync because it will be shared between
 		// parallel storage operations
 		m.RLock()
-		if lastSync.Add(lockRefreshInterval).Before(now()) {
+		if nextSync.After(now()) {
 			m.RUnlock()
 			return nil
 		}
@@ -409,7 +412,7 @@ func upgradeLockMonitor(
 		m.Lock()
 		defer m.Unlock()
 
-		if lastSync.Add(lockRefreshInterval).Before(now()) {
+		if nextSync.After(now()) {
 			return nil
 		}
 
@@ -423,9 +426,10 @@ func upgradeLockMonitor(
 			return ErrRepositoryUnavailableDueToUpgrageInProgress
 		}
 
-		// prevent backward jumps on lastSync
-		if ufb.cacheMTime.After(lastSync) {
-			lastSync = ufb.cacheMTime
+		// prevent backward jumps on nextSync
+		newNextSync := ufb.cacheMTime.Add(lockRefreshInterval)
+		if newNextSync.After(nextSync) {
+			nextSync = newNextSync
 		}
 
 		return nil
