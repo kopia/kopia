@@ -186,70 +186,48 @@ func openDirect(ctx context.Context, configFile string, lc *LocalConfig, passwor
 	return r, nil
 }
 
-// nolint:gocritic
-func readAndCacheRepoConfig(
-	ctx context.Context,
-	st blob.Storage,
-	password string,
-	cacheOpts *content.CachingOptions,
-	validDuration time.Duration,
-) (
-	fb []byte,
-	cacheTime time.Time,
-	f *formatBlob,
-	repoConfig *repositoryObjectFormat,
-	formatEncryptionKey []byte,
-	err error,
-) {
+type unpackedFormatBlob struct {
+	f                   *formatBlob
+	fb                  []byte                  // serialized format blob
+	cacheMTime          time.Time               // mod time of the format blob cache file
+	repoConfig          *repositoryObjectFormat // unencrypted format blob structure
+	formatEncryptionKey []byte                  // key derived from the password
+}
+
+func readAndCacheRepoConfig(ctx context.Context, st blob.Storage, password string, cacheOpts *content.CachingOptions, validDuration time.Duration) (ufb *unpackedFormatBlob, err error) {
+	ufb = &unpackedFormatBlob{}
+
 	// Read format blob, potentially from cache.
-	fb, cacheTime, err = readAndCacheRepositoryBlobBytes(ctx, st, cacheOpts.CacheDirectory, FormatBlobID, validDuration)
+	ufb.fb, ufb.cacheMTime, err = readAndCacheRepositoryBlobBytes(ctx, st, cacheOpts.CacheDirectory, FormatBlobID, validDuration)
 	if err != nil {
-		return nil, time.Time{}, nil, nil, nil, errors.Wrap(err, "unable to read format blob")
+		return nil, errors.Wrap(err, "unable to read format blob")
 	}
 
 	if err = writeCacheMarker(cacheOpts.CacheDirectory); err != nil {
-		return nil, time.Time{}, nil, nil, nil, errors.Wrap(err, "unable to write cache directory marker")
+		return nil, errors.Wrap(err, "unable to write cache directory marker")
 	}
 
-	f, err = parseFormatBlob(fb)
+	ufb.f, err = parseFormatBlob(ufb.fb)
 	if err != nil {
-		return nil, time.Time{}, nil, nil, nil, errors.Wrap(err, "can't parse format blob")
+		return nil, errors.Wrap(err, "can't parse format blob")
 	}
 
-	fb, err = addFormatBlobChecksumAndLength(fb)
+	ufb.fb, err = addFormatBlobChecksumAndLength(ufb.fb)
 	if err != nil {
-		return nil, time.Time{}, nil, nil, nil, errors.Errorf("unable to add checksum")
+		return nil, errors.Errorf("unable to add checksum")
 	}
 
-	formatEncryptionKey, err = f.deriveFormatEncryptionKeyFromPassword(password)
+	ufb.formatEncryptionKey, err = ufb.f.deriveFormatEncryptionKeyFromPassword(password)
 	if err != nil {
-		return nil, time.Time{}, nil, nil, nil, err
+		return nil, err
 	}
 
-	repoConfig, err = f.decryptFormatBytes(formatEncryptionKey)
+	ufb.repoConfig, err = ufb.f.decryptFormatBytes(ufb.formatEncryptionKey)
 	if err != nil {
-		return nil, time.Time{}, nil, nil, nil, ErrInvalidPassword
+		return nil, ErrInvalidPassword
 	}
 
-	return fb, cacheTime, f, repoConfig, formatEncryptionKey, nil
-}
-
-// ReadAndCacheRepoConfig loads the config from cache and returns the cache
-// time and the repo-config object.
-func ReadAndCacheRepoConfig(
-	ctx context.Context,
-	st blob.Storage,
-	password string,
-	cacheOpts *content.CachingOptions,
-	validDuration time.Duration,
-) (
-	cacheTime time.Time,
-	repoConfig *repositoryObjectFormat,
-	err error,
-) {
-	// nolint:dogsled
-	_, cacheTime, _, repoConfig, _, err = readAndCacheRepoConfig(ctx, st, password, cacheOpts, validDuration)
-	return cacheTime, repoConfig, err
+	return ufb, nil
 }
 
 // openWithConfig opens the repository with a given configuration, avoiding the need for a config file.
@@ -261,23 +239,18 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 		DisableInternalLog: options.DisableInternalLog,
 	}
 
-	var (
-		cacheTime           time.Time
-		f                   *formatBlob
-		repoConfig          *repositoryObjectFormat
-		formatEncryptionKey []byte
-	)
+	var ufb *unpackedFormatBlob
 
 	if _, err := retry.WithExponentialBackoffMaxRetries(ctx, -1, "read repo config and wait for upgrade", func() (interface{}, error) {
 		var internalErr error
-		cmOpts.RepositoryFormatBytes, cacheTime, f, repoConfig, formatEncryptionKey, internalErr = readAndCacheRepoConfig(ctx, st, password, cacheOpts,
+		ufb, internalErr = readAndCacheRepoConfig(ctx, st, password, cacheOpts,
 			lc.FormatBlobCacheDuration)
 		if internalErr != nil {
 			return nil, internalErr
 		}
 
 		// retry if upgrade lock has been taken
-		if locked, _ := repoConfig.UpgradeLock.IsLocked(cmOpts.TimeNow()); locked && options.UpgradeOwnerID != repoConfig.UpgradeLock.OwnerID {
+		if locked, _ := ufb.repoConfig.UpgradeLock.IsLocked(cmOpts.TimeNow()); locked && options.UpgradeOwnerID != ufb.repoConfig.UpgradeLock.OwnerID {
 			return nil, ErrRepositoryUnavailableDueToUpgrageInProgress
 		}
 
@@ -289,25 +262,27 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 		return nil, err
 	}
 
+	cmOpts.RepositoryFormatBytes = ufb.fb
+
 	// Read blobcfg blob, potentially from cache.
 	bb, _, err := readAndCacheRepositoryBlobBytes(ctx, st, cacheOpts.CacheDirectory, BlobCfgBlobID, lc.FormatBlobCacheDuration)
 	if err != nil && !errors.Is(err, blob.ErrBlobNotFound) {
 		return nil, errors.Wrap(err, "unable to read blobcfg blob")
 	}
 
-	blobcfg, err := deserializeBlobCfgBytes(f, bb, formatEncryptionKey)
+	blobcfg, err := deserializeBlobCfgBytes(ufb.f, bb, ufb.formatEncryptionKey)
 	if err != nil {
 		return nil, ErrInvalidPassword
 	}
 
-	if repoConfig.FormattingOptions.EnablePasswordChange {
-		cacheOpts.HMACSecret = deriveKeyFromMasterKey(repoConfig.HMACSecret, f.UniqueID, localCacheIntegrityPurpose, localCacheIntegrityHMACSecretLength)
+	if ufb.repoConfig.FormattingOptions.EnablePasswordChange {
+		cacheOpts.HMACSecret = deriveKeyFromMasterKey(ufb.repoConfig.HMACSecret, ufb.f.UniqueID, localCacheIntegrityPurpose, localCacheIntegrityHMACSecretLength)
 	} else {
-		// deriving from formatEncryptionKey was actually a bug, that only matters will change when we change the password
-		cacheOpts.HMACSecret = deriveKeyFromMasterKey(formatEncryptionKey, f.UniqueID, localCacheIntegrityPurpose, localCacheIntegrityHMACSecretLength)
+		// deriving from ufb.formatEncryptionKey was actually a bug, that only matters will change when we change the password
+		cacheOpts.HMACSecret = deriveKeyFromMasterKey(ufb.formatEncryptionKey, ufb.f.UniqueID, localCacheIntegrityPurpose, localCacheIntegrityHMACSecretLength)
 	}
 
-	fo := &repoConfig.FormattingOptions
+	fo := &ufb.repoConfig.FormattingOptions
 
 	if fo.MaxPackSize == 0 {
 		// legacy only, apply default
@@ -330,7 +305,7 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 
 	// background/interleaving upgrade lock storage monitor
 	st = upgradeLockMonitor(ctx, options.UpgradeOwnerID, st, password, cacheOpts, lc.FormatBlobCacheDuration,
-		cacheTime, cmOpts.TimeNow)
+		ufb.cacheMTime, cmOpts.TimeNow)
 
 	scm, err := content.NewSharedManager(ctx, st, fo, cacheOpts, cmOpts)
 	if err != nil {
@@ -342,7 +317,7 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 		SessionHost: lc.Hostname,
 	}, "")
 
-	om, err := object.NewObjectManager(ctx, cm, repoConfig.Format)
+	om, err := object.NewObjectManager(ctx, cm, ufb.repoConfig.Format)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to open object manager")
 	}
@@ -360,11 +335,11 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 		sm:        scm,
 		throttler: throttler,
 		directRepositoryParameters: directRepositoryParameters{
-			uniqueID:            f.UniqueID,
+			uniqueID:            ufb.f.UniqueID,
 			cachingOptions:      *cacheOpts,
-			formatBlob:          f,
+			formatBlob:          ufb.f,
 			blobCfgBlob:         blobcfg,
-			formatEncryptionKey: formatEncryptionKey,
+			formatEncryptionKey: ufb.formatEncryptionKey,
 			timeNow:             cmOpts.TimeNow,
 			cliOpts:             lc.ClientOptions.ApplyDefaults(ctx, "Repository in "+st.DisplayName()),
 			configFile:          configFile,
@@ -430,30 +405,33 @@ func upgradeLockMonitor(
 		}
 		m.RUnlock()
 
-		cacheTime, repoConfig, err := ReadAndCacheRepoConfig(ctx, st, password, cacheOpts, lockRefreshInterval)
+		// upgrade the lock and verify again in-case someone else won the race to refresh
+		m.Lock()
+		defer m.Unlock()
+
+		if lastSync.Add(lockRefreshInterval).Before(now()) {
+			return nil
+		}
+
+		ufb, err := readAndCacheRepoConfig(ctx, st, password, cacheOpts, lockRefreshInterval)
 		if err != nil {
 			return err
 		}
 
 		// only allow the upgrade owner to perform storage operations
-		if locked, _ := repoConfig.UpgradeLock.IsLocked(now()); locked && upgradeOwnerID != repoConfig.UpgradeLock.OwnerID {
+		if locked, _ := ufb.repoConfig.UpgradeLock.IsLocked(now()); locked && upgradeOwnerID != ufb.repoConfig.UpgradeLock.OwnerID {
 			return ErrRepositoryUnavailableDueToUpgrageInProgress
 		}
 
-		m.Lock()
 		// prevent backward jumps on lastSync
-		if lastSync.Before(cacheTime) {
-			lastSync = cacheTime
+		if ufb.cacheMTime.After(lastSync) {
+			lastSync = ufb.cacheMTime
 		}
-		m.Unlock()
 
 		return nil
 	}
 
-	return beforeop.NewWrapper(st,
-		func(_ blob.ID) error { return cb() }, cb, cb,
-		func(_ blob.ID, _ *blob.PutOptions) error { return cb() },
-	)
+	return beforeop.NewUniformWrapper(st, cb)
 }
 
 func throttlingLimitsFromConnectionInfo(ctx context.Context, ci blob.ConnectionInfo) throttling.Limits {
@@ -510,14 +488,14 @@ func formatBytesCachingEnabled(cacheDirectory string, validDuration time.Duratio
 	return validDuration > 0
 }
 
-func readRepositoryBlobBytesFromCache(ctx context.Context, cachedFile string, validDuration time.Duration) ([]byte, time.Time, error) {
+func readRepositoryBlobBytesFromCache(ctx context.Context, cachedFile string, validDuration time.Duration) (data []byte, cacheMTime time.Time, err error) {
 	cst, err := os.Stat(cachedFile)
 	if err != nil {
 		return nil, time.Time{}, errors.Wrap(err, "unable to open cache file")
 	}
 
-	cacheTime := cst.ModTime()
-	if clock.Now().Sub(cacheTime) > validDuration {
+	cacheMTime = cst.ModTime()
+	if clock.Now().Sub(cacheMTime) > validDuration {
 		// got cached file, but it's too old, remove it
 		if err = os.Remove(cachedFile); err != nil {
 			log(ctx).Debugf("unable to remove cache file: %v", err)
@@ -526,12 +504,12 @@ func readRepositoryBlobBytesFromCache(ctx context.Context, cachedFile string, va
 		return nil, time.Time{}, errors.Errorf("cached file too old")
 	}
 
-	data, err := os.ReadFile(cachedFile) // nolint:gosec
+	data, err = os.ReadFile(cachedFile) // nolint:gosec
 	if err != nil {
 		return nil, time.Time{}, errors.Wrapf(err, "failed to read the cache file %q", cachedFile)
 	}
 
-	return data, cacheTime, nil
+	return data, cacheMTime, nil
 }
 
 func readAndCacheRepositoryBlobBytes(ctx context.Context, st blob.Storage, cacheDirectory, blobID string, validDuration time.Duration) ([]byte, time.Time, error) {
@@ -549,11 +527,11 @@ func readAndCacheRepositoryBlobBytes(ctx context.Context, st blob.Storage, cache
 
 	cacheEnabled := formatBytesCachingEnabled(cacheDirectory, validDuration)
 	if cacheEnabled {
-		b, cacheTime, err := readRepositoryBlobBytesFromCache(ctx, cachedFile, validDuration)
+		data, cacheMTime, err := readRepositoryBlobBytesFromCache(ctx, cachedFile, validDuration)
 		if err == nil {
 			log(ctx).Debugf("%s retrieved from cache", blobID)
 
-			return b, cacheTime, nil
+			return data, cacheMTime, nil
 		}
 
 		log(ctx).Debugf("%s could not be fetched from cache: %v", blobID, err)

@@ -71,3 +71,15 @@ func NewWrapper(wrapped blob.Storage, onGetBlob onGetBlobCallback, onGetMetadata
 		onPutBlob:     onPutBlob,
 	}
 }
+
+// NewUniformWrapper is same as NewWrapper except that it only accepts a single
+// uniform callback for all the operations for simpler use-cases.
+func NewUniformWrapper(wrapped blob.Storage, cb callback) blob.Storage {
+	return &beforeOp{
+		Storage:       wrapped,
+		onGetBlob:     func(_ blob.ID) error { return cb() },
+		onGetMetadata: cb,
+		onDeleteBlob:  cb,
+		onPutBlob:     func(_ blob.ID, _ *blob.PutOptions) error { return cb() },
+	}
+}
