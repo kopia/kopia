@@ -309,13 +309,15 @@ func write(targetPath string, r fs.Reader) error {
 		return err //nolint:wrapcheck
 	}
 
+	sw := sparseWriter{f: f}
+
 	// ensure we always close f. Note that this does not conflict with the
 	// close below, as close is idempotent.
 	defer f.Close() //nolint:errcheck,gosec
 
 	name := f.Name()
 
-	if err := iocopy.JustCopy(f, r); err != nil {
+	if err := iocopy.JustCopy(&sw, r); err != nil {
 		return errors.Wrap(err, "cannot write data to file %q "+name)
 	}
 
@@ -324,6 +326,43 @@ func write(targetPath string, r fs.Reader) error {
 	}
 
 	return nil
+}
+
+type sparseWriter struct {
+	f *os.File
+}
+
+func (sw *sparseWriter) Write(b []byte) (n int, err error) {
+	isZeros := true
+	for _, cb := range b {
+		if cb != 0 {
+			isZeros = false
+			break
+		}
+	}
+	if isZeros {
+		fi, err := sw.f.Stat()
+		if err != nil {
+			return 0, err
+		}
+		offset, err := sw.f.Seek(0, 1) // Figure out where we will write at
+		if err != nil {
+			return 0, err
+		}
+		if fi.Size() == offset { // Our offset is at the end of the file, so we will truncate rather than writing zeros
+			offset += int64(len(b))
+			if err != nil {
+				return 0, err
+			}
+			err = sw.f.Truncate(offset)
+			if err != nil {
+				return 0, err
+			}
+			_, err = sw.f.Seek(int64(len(b)), 1) // Advance the offset
+			return len(b), err
+		}
+	}
+	return sw.f.Write(b)
 }
 
 func (o *FilesystemOutput) copyFileContent(ctx context.Context, targetPath string, f fs.File) error {
