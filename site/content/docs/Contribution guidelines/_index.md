@@ -24,3 +24,7 @@ weight: 100
 * For large bodies of work, we recommend creating an issue and labelling it `design` outlining the feature that you wish to build, and describing how it will be implemented. This gives a chance for review to happen early, and ensures no wasted effort occurs.
 * For new features, documentation must be included.
 * Once review has occurred, please rebase your PR down to a single commit. This will ensure a nice clean Git history.
+* Pull Requests must go through a number of CI checks before being approved. Before submitting a PR, it's a good idea to run some of these checks locally:
+  - `make ci-tests`
+  - `make lint-all` (if developing cross-platform code)
+  - `make goreleaser`
