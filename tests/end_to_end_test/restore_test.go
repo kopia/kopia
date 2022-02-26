@@ -3,6 +3,7 @@ package endtoend_test
 import (
 	"archive/tar"
 	"archive/zip"
+	"bytes"
 	"compress/gzip"
 	"errors"
 	"fmt"
@@ -21,6 +22,8 @@ import (
 	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/internal/diff"
 	"github.com/kopia/kopia/internal/fshasher"
+	"github.com/kopia/kopia/internal/iocopy"
+	"github.com/kopia/kopia/internal/stat"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/tests/clitestutil"
@@ -30,6 +33,8 @@ import (
 
 const (
 	windowsOSName                 = "windows"
+	linuxOSName                   = "linux"
+	amdArchName                   = "amd64"
 	defaultRestoredFilePermission = 0o600
 
 	overriddenFilePermissions = 0o651
@@ -486,6 +491,266 @@ func TestRestoreSnapshotOfSingleFile(t *testing.T) {
 	e.RunAndExpectSuccess(t, "snapshot", "restore", rootID, "--skip-permissions", filepath.Join(restoreDir, "restored-5"))
 
 	verifyFileMode(t, filepath.Join(restoreDir, "restored-5"), defaultRestoredFilePermission)
+}
+
+func TestSnapshotSparseRestore(t *testing.T) {
+	t.Parallel()
+
+	if !(runtime.GOOS == linuxOSName && runtime.GOARCH == amdArchName) {
+		t.Skip("Sparse file behavior not guaranteed for this OS/Arch pair")
+	}
+
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
+
+	sourceDir := testutil.TempDirectory(t)
+	restoreDir := testutil.TempDirectory(t)
+
+	bufSize := uint64(iocopy.BufSize)
+
+	blkSize, err := stat.GetBlockSize(sourceDir)
+	if err != nil {
+		t.Fatalf("error getting disk block size: %v", err)
+	}
+
+	type chunk struct {
+		slice []byte
+		off   uint64
+		rep   uint64
+	}
+
+	cases := []struct {
+		name  string
+		data  []chunk
+		trunc uint64 // Truncate source file to this size
+		sLog  uint64 // Expected logical size of source file
+		sPhys uint64 // Expected physical size of source file
+		rLog  uint64 // Expected logical size of restored file
+		rPhys uint64 // Expected physical size of restored file
+	}{
+		{
+			name:  "null_file",
+			trunc: 0,
+			sLog:  0,
+			sPhys: 0,
+			rLog:  0,
+			rPhys: 0,
+		},
+		{
+			name:  "empty_file",
+			trunc: 3 * bufSize,
+			sLog:  3 * bufSize,
+			sPhys: 0,
+			rLog:  3 * bufSize,
+			rPhys: 0,
+		},
+		{
+			name: "blk",
+			data: []chunk{
+				{slice: []byte("1"), off: 0, rep: blkSize},
+			},
+			sLog:  blkSize,
+			sPhys: blkSize,
+			rLog:  blkSize,
+			rPhys: blkSize,
+		},
+		{
+			name: "blk_real_zeros",
+			data: []chunk{
+				{slice: []byte{0}, off: 0, rep: blkSize},
+			},
+			sLog:  blkSize,
+			sPhys: blkSize,
+			rLog:  blkSize,
+			rPhys: 0,
+		},
+		{
+			name: "buf_real_zeros",
+			data: []chunk{
+				{slice: []byte{0}, off: 0, rep: bufSize},
+			},
+			sLog:  bufSize,
+			sPhys: bufSize,
+			rLog:  bufSize,
+			rPhys: 0,
+		},
+		{
+			name: "buf_full",
+			data: []chunk{
+				{slice: []byte("1"), off: 0, rep: bufSize},
+			},
+			sLog:  bufSize,
+			sPhys: bufSize,
+			rLog:  bufSize,
+			rPhys: bufSize,
+		},
+		{
+			name: "buf_trailing_bytes",
+			data: []chunk{
+				{slice: []byte("1"), off: bufSize - blkSize - 1, rep: 1},
+				{slice: []byte("1"), off: bufSize - 1, rep: 1},
+			},
+			trunc: bufSize,
+			sLog:  bufSize,
+			sPhys: 2 * blkSize,
+			rLog:  bufSize,
+			rPhys: 2 * blkSize,
+		},
+		{
+			name: "buf_trailing_hole",
+			data: []chunk{
+				{slice: []byte("1"), off: 0, rep: 1},
+			},
+			trunc: bufSize,
+			sLog:  bufSize,
+			sPhys: blkSize,
+			rLog:  bufSize,
+			rPhys: blkSize,
+		},
+		{
+			name: "buf_hole_aligned",
+			data: []chunk{
+				{slice: []byte("1"), off: bufSize, rep: blkSize},
+			},
+			trunc: bufSize + blkSize,
+			sLog:  bufSize + blkSize,
+			sPhys: blkSize,
+			rLog:  bufSize + blkSize,
+			rPhys: blkSize,
+		},
+		{
+			name: "buf_hole_on_buf_boundary",
+			data: []chunk{
+				{slice: []byte("1"), off: bufSize / 2, rep: bufSize},
+			},
+			sLog:  bufSize * 3 / 2,
+			sPhys: bufSize,
+			rLog:  bufSize * 3 / 2,
+			rPhys: bufSize,
+		},
+		{
+			name: "blk_hole_on_blk_boundary",
+			data: []chunk{
+				{slice: []byte("1"), off: blkSize / 2, rep: blkSize},
+			},
+			sLog:  blkSize * 3 / 2,
+			sPhys: blkSize * 2,
+			rLog:  blkSize * 3 / 2,
+			rPhys: blkSize * 2,
+		},
+		{
+			name: "blk_hole_on_buf_boundary",
+			data: []chunk{
+				{slice: []byte("1"), off: 0, rep: bufSize - (blkSize / 2)},
+				{slice: []byte("1"), off: bufSize + (blkSize / 2), rep: blkSize / 2},
+			},
+			sLog:  bufSize + blkSize,
+			sPhys: bufSize + blkSize,
+			rLog:  bufSize + blkSize,
+			rPhys: bufSize + blkSize,
+		},
+		{
+			name: "blk_hole_aligned",
+			data: []chunk{
+				{slice: []byte("1"), off: 0, rep: bufSize},
+				{slice: []byte("1"), off: bufSize + blkSize, rep: bufSize - blkSize},
+			},
+			trunc: 2 * bufSize,
+			sLog:  2 * bufSize,
+			sPhys: 2*bufSize - blkSize,
+			rLog:  2 * bufSize,
+			rPhys: 2*bufSize - blkSize,
+		},
+		{
+			name: "blk_alternating_empty",
+			data: []chunk{
+				{slice: []byte("1"), off: 0, rep: blkSize},
+				{slice: []byte("1"), off: 1 * blkSize, rep: blkSize},
+				{slice: []byte("1"), off: 4 * blkSize, rep: blkSize},
+				{slice: []byte("1"), off: 6 * blkSize, rep: blkSize},
+				{slice: []byte("1"), off: 8 * blkSize, rep: blkSize},
+			},
+			sLog:  9 * blkSize,
+			sPhys: 5 * blkSize,
+			rLog:  9 * blkSize,
+			rPhys: 5 * blkSize,
+		},
+		{
+			name: "blk_alternating_zero",
+			data: []chunk{
+				{slice: []byte("1"), off: 0, rep: blkSize},
+				{slice: []byte{0}, off: blkSize, rep: blkSize},
+				{slice: []byte("1"), off: 2 * blkSize, rep: blkSize},
+				{slice: []byte{0}, off: 3 * blkSize, rep: blkSize},
+			},
+			sLog:  4 * blkSize,
+			sPhys: 4 * blkSize,
+			rLog:  4 * blkSize,
+			rPhys: 2 * blkSize,
+		},
+	}
+
+	for _, c := range cases {
+		sourceFile := filepath.Join(sourceDir, c.name+"_source")
+
+		fd, err := os.Create(sourceFile)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = fd.Truncate(int64(c.trunc))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		for _, d := range c.data {
+			fd.WriteAt(bytes.Repeat(d.slice, int(d.rep)), int64(d.off))
+		}
+
+		verifyFileSize(t, sourceFile, c.sLog, c.sPhys)
+		e.RunAndExpectSuccess(t, "snapshot", "create", sourceFile)
+
+		si := clitestutil.ListSnapshotsAndExpectSuccess(t, e, sourceFile)
+		if got, want := len(si), 1; got != want {
+			t.Fatalf("got %v sources, wanted %v", got, want)
+		}
+
+		if got, want := len(si[0].Snapshots), 1; got != want {
+			t.Fatalf("got %v snapshots, wanted %v", got, want)
+		}
+
+		snapID := si[0].Snapshots[0].SnapshotID
+		restoreFile := filepath.Join(restoreDir, c.name+"_restore")
+
+		e.RunAndExpectSuccess(t, "snapshot", "restore", snapID, "--mode=sparse", restoreFile)
+		verifyFileSize(t, restoreFile, c.rLog, c.rPhys)
+	}
+}
+
+func verifyFileSize(t *testing.T, fname string, logical, physical uint64) {
+	t.Helper()
+
+	st, err := os.Stat(fname)
+	if err != nil {
+		t.Fatalf("error verifying file size: %v", err)
+	}
+
+	realLogical := uint64(st.Size())
+
+	realPhysical, err := stat.GetFileAllocSize(fname)
+	if err != nil {
+		t.Fatalf("error verifying file size: %v", err)
+	}
+
+	if realLogical != logical {
+		t.Fatalf("%s logical file size incorrect: expected %d, got %d", fname, logical, realLogical)
+	}
+
+	if realPhysical != physical {
+		t.Fatalf("%s physical file size incorrect: expected %d, got %d", fname, physical, realPhysical)
+	}
 }
 
 func verifyFileMode(t *testing.T, filename string, want os.FileMode) {

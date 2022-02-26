@@ -15,6 +15,7 @@ import (
 	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/internal/atomicfile"
 	"github.com/kopia/kopia/internal/iocopy"
+	"github.com/kopia/kopia/internal/stat"
 	"github.com/kopia/kopia/snapshot"
 )
 
@@ -56,6 +57,9 @@ type FilesystemOutput struct {
 
 	// SkipTimes when set to true causes restore to skip restoring modification times.
 	SkipTimes bool `json:"skipTimes"`
+
+	// Sparse when set to true causes restore to allocate the minimum amount of disk space to write the file.
+	Sparse bool `json:"sparse"`
 }
 
 // Parallelizable implements restore.Output interface.
@@ -146,11 +150,11 @@ func (o *FilesystemOutput) CreateSymlink(ctx context.Context, relativePath strin
 
 	path := filepath.Join(o.TargetPath, filepath.FromSlash(relativePath))
 
-	switch stat, err := os.Lstat(path); {
+	switch st, err := os.Lstat(path); {
 	case os.IsNotExist(err): // Proceed to symlink creation
 	case err != nil:
 		return errors.Wrap(err, "lstat error at symlink path")
-	case fileIsSymlink(stat):
+	case fileIsSymlink(st):
 		// Throw error if we are not overwriting symlinks
 		if !o.OverwriteSymlinks {
 			return errors.Errorf("will not overwrite existing symlink")
@@ -175,8 +179,8 @@ func (o *FilesystemOutput) CreateSymlink(ctx context.Context, relativePath strin
 	return nil
 }
 
-func fileIsSymlink(stat os.FileInfo) bool {
-	return stat.Mode()&os.ModeSymlink != 0
+func fileIsSymlink(st os.FileInfo) bool {
+	return st.Mode()&os.ModeSymlink != 0
 }
 
 // SymlinkExists implements restore.Output interface.
@@ -282,13 +286,13 @@ func isWindows() bool {
 }
 
 func (o *FilesystemOutput) createDirectory(ctx context.Context, path string) error {
-	switch stat, err := os.Stat(path); {
+	switch st, err := os.Stat(path); {
 	case os.IsNotExist(err):
 		// nolint:wrapcheck
 		return os.MkdirAll(path, outputDirMode)
 	case err != nil:
 		return errors.Wrap(err, "failed to stat path "+path)
-	case stat.Mode().IsDir():
+	case st.Mode().IsDir():
 		if !o.OverwriteDirectories {
 			if empty, _ := isEmptyDirectory(path); !empty {
 				return errors.Errorf("non-empty directory already exists, not overwriting it: %q", path)
@@ -303,7 +307,7 @@ func (o *FilesystemOutput) createDirectory(ctx context.Context, path string) err
 	}
 }
 
-func write(targetPath string, r fs.Reader) error {
+func write(targetPath string, r fs.Reader, sparse bool) error {
 	f, err := os.OpenFile(targetPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600) //nolint:gosec,gomnd
 	if err != nil {
 		return err //nolint:wrapcheck
@@ -315,7 +319,13 @@ func write(targetPath string, r fs.Reader) error {
 
 	name := f.Name()
 
-	if err := iocopy.JustCopy(f, r); err != nil {
+	if sparse {
+		err = iocopy.JustCopy(&sparseWriter{f: f}, r)
+	} else {
+		err = iocopy.JustCopy(f, r)
+	}
+
+	if err != nil {
 		return errors.Wrap(err, "cannot write data to file %q "+name)
 	}
 
@@ -324,6 +334,81 @@ func write(targetPath string, r fs.Reader) error {
 	}
 
 	return nil
+}
+
+type sparseWriter struct {
+	f *os.File
+}
+
+// nolint:wrapcheck
+func (sw *sparseWriter) Write(b []byte) (int, error) {
+	w := 0
+
+	bSize, err := stat.GetFileAllocSize(sw.f.Name())
+	if err != nil {
+		return w, err // nolint:wrapcheck
+	}
+
+	for i, j := 0, bSize; i < len(b); i, j = int(j), j+bSize {
+		if j > uint64(len(b)) {
+			j = uint64(len(b))
+		}
+
+		isZeros := true
+		block := b[i:j]
+
+		for _, cb := range block {
+			if cb != 0 {
+				isZeros = false
+				break
+			}
+		}
+
+		if isZeros { // nolint:nestif
+			head, err := sw.f.Seek(0, 1)
+			if err != nil {
+				return w, err
+			}
+
+			fi, err := sw.f.Stat()
+			if err != nil {
+				return w, err
+			}
+
+			// If at the end of file, extend it
+			if head == fi.Size() {
+				head += int64(len(block))
+
+				err = sw.f.Truncate(head)
+				if err != nil {
+					return w, err
+				}
+
+				// Move write head forward without writing zeros
+				_, err = sw.f.Seek(int64(len(block)), 1)
+				if err != nil {
+					return w, err
+				}
+
+				w += len(block)
+
+				continue
+			}
+		}
+
+		n, err := sw.f.Write(block)
+		if err != nil {
+			return w, err
+		}
+
+		w += n
+	}
+
+	if w != len(b) {
+		return w, errors.Errorf("Written fewer bytes %d than given %d", w, len(b))
+	}
+
+	return w, nil
 }
 
 func (o *FilesystemOutput) copyFileContent(ctx context.Context, targetPath string, f fs.File) error {
@@ -352,7 +437,7 @@ func (o *FilesystemOutput) copyFileContent(ctx context.Context, targetPath strin
 		return atomicfile.Write(targetPath, r)
 	}
 
-	return write(atomicfile.MaybePrefixLongFilenameOnWindows(targetPath), r)
+	return write(atomicfile.MaybePrefixLongFilenameOnWindows(targetPath), r, o.Sparse)
 }
 
 func isEmptyDirectory(name string) (bool, error) {

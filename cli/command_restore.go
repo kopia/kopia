@@ -126,7 +126,7 @@ func (c *commandRestore) setup(svc appServices, parent commandParent) {
 	cmd.Flag("overwrite-files", "Specifies whether or not to overwrite already existing files").Default("true").BoolVar(&c.restoreOverwriteFiles)
 	cmd.Flag("overwrite-symlinks", "Specifies whether or not to overwrite already existing symlinks").Default("true").BoolVar(&c.restoreOverwriteSymlinks)
 	cmd.Flag("consistent-attributes", "When multiple snapshots match, fail if they have inconsistent attributes").Envar("KOPIA_RESTORE_CONSISTENT_ATTRIBUTES").BoolVar(&c.restoreConsistentAttributes)
-	cmd.Flag("mode", "Override restore mode").Default(restoreModeAuto).EnumVar(&c.restoreMode, restoreModeAuto, restoreModeLocal, restoreModeZip, restoreModeZipNoCompress, restoreModeTar, restoreModeTgz)
+	cmd.Flag("mode", "Override restore mode").Default(restoreModeAuto).EnumVar(&c.restoreMode, restoreModeAuto, restoreModeLocal, restoreModeSparse, restoreModeZip, restoreModeZipNoCompress, restoreModeTar, restoreModeTgz)
 	cmd.Flag("parallel", "Restore parallelism (1=disable)").Default("8").IntVar(&c.restoreParallel)
 	cmd.Flag("skip-owners", "Skip owners during restore").BoolVar(&c.restoreSkipOwners)
 	cmd.Flag("skip-permissions", "Skip permissions during restore").BoolVar(&c.restoreSkipPermissions)
@@ -142,6 +142,7 @@ func (c *commandRestore) setup(svc appServices, parent commandParent) {
 
 const (
 	restoreModeLocal         = "local"
+	restoreModeSparse        = "sparse"
 	restoreModeAuto          = "auto"
 	restoreModeZip           = "zip"
 	restoreModeZipNoCompress = "zip-nocompress"
@@ -209,7 +210,7 @@ func (c *commandRestore) restoreOutput(ctx context.Context) (restore.Output, err
 
 	m := c.detectRestoreMode(ctx, c.restoreMode, targetpath)
 	switch m {
-	case restoreModeLocal:
+	case restoreModeLocal, restoreModeSparse:
 		return &restore.FilesystemOutput{
 			TargetPath:             targetpath,
 			OverwriteDirectories:   c.restoreOverwriteDirectories,
@@ -220,6 +221,7 @@ func (c *commandRestore) restoreOutput(ctx context.Context) (restore.Output, err
 			SkipOwners:             c.restoreSkipOwners,
 			SkipPermissions:        c.restoreSkipPermissions,
 			SkipTimes:              c.restoreSkipTimes,
+			Sparse:                 m == restoreModeSparse,
 		}, nil
 
 	case restoreModeZip, restoreModeZipNoCompress:
