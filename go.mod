@@ -3,7 +3,7 @@ module github.com/kopia/kopia
 go 1.17
 
 require (
-	cloud.google.com/go/storage v1.19.0
+	cloud.google.com/go/storage v1.21.0
 	contrib.go.opencensus.io/exporter/prometheus v0.4.0
 	github.com/Azure/azure-pipeline-go v0.2.3 // indirect
 	github.com/Azure/azure-storage-blob-go v0.14.0
@@ -53,13 +53,13 @@ require (
 	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
 	golang.org/x/exp v0.0.0-20210916165020-5cb4fee858ee
 	golang.org/x/mod v0.5.1
-	golang.org/x/net v0.0.0-20211216030914-fe4d6282115f
+	golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	golang.org/x/sys v0.0.0-20220114195835-da31bd327af9
+	golang.org/x/sys v0.0.0-20220209214540-3681064d5158
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
 	golang.org/x/text v0.3.7
-	google.golang.org/api v0.66.0
+	google.golang.org/api v0.69.0
 	google.golang.org/grpc v1.44.0
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/ini.v1 v1.63.2 // indirect
@@ -107,7 +107,7 @@ require (
 	go.uber.org/multierr v1.7.0
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20220118154757-00ab72f36ad5 // indirect
+	google.golang.org/genproto v0.0.0-20220216160803-4663080d8bc8 // indirect
 )
 
 require (
@@ -116,7 +116,7 @@ require (
 )
 
 require (
-	cloud.google.com/go/compute v0.1.0 // indirect
+	cloud.google.com/go/compute v1.2.0 // indirect
 	cloud.google.com/go/iam v0.1.1 // indirect
 	github.com/chromedp/sysutil v1.0.0 // indirect
 	github.com/gobwas/httphead v0.1.0 // indirect
