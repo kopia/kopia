@@ -112,6 +112,7 @@ if [[ "${ENGINE_MODE}" = SERVER ]]; then
 fi
 
 # Source any pre-test rc files if provided
+TEST_RC="${TEST_RC:-}"
 if [[ -f ${TEST_RC} ]]; then
     source ${TEST_RC}
 fi
