@@ -111,8 +111,8 @@ require (
 )
 
 require (
-	github.com/chromedp/cdproto v0.0.0-20211126220118-81fa0469ad77
-	github.com/chromedp/chromedp v0.7.6
+	github.com/chromedp/cdproto v0.0.0-20220217222649-d8c14a5c6edf
+	github.com/chromedp/chromedp v0.7.8
 )
 
 require (
