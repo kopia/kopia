@@ -49,7 +49,7 @@ require (
 	github.com/zalando/go-keyring v0.1.1
 	github.com/zeebo/blake3 v0.2.2
 	go.opencensus.io v0.23.0
-	go.uber.org/zap v1.20.0
+	go.uber.org/zap v1.21.0
 	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
 	golang.org/x/exp v0.0.0-20210916165020-5cb4fee858ee
 	golang.org/x/mod v0.5.1
@@ -111,8 +111,8 @@ require (
 )
 
 require (
-	github.com/chromedp/cdproto v0.0.0-20211126220118-81fa0469ad77
-	github.com/chromedp/chromedp v0.7.6
+	github.com/chromedp/cdproto v0.0.0-20220217222649-d8c14a5c6edf
+	github.com/chromedp/chromedp v0.7.8
 )
 
 require (
