@@ -17,7 +17,7 @@ require (
 	github.com/foomo/htpasswd v0.0.0-20200116085101-e3a90e78da9c
 	github.com/frankban/quicktest v1.13.1 // indirect
 	github.com/gofrs/flock v0.8.1
-	github.com/golang-jwt/jwt/v4 v4.2.0
+	github.com/golang-jwt/jwt/v4 v4.3.0
 	github.com/golang/protobuf v1.5.2
 	github.com/google/fswalker v0.2.1-0.20200214223026-f0e929ba4126
 	github.com/google/go-cmp v0.5.7
@@ -104,15 +104,15 @@ require (
 	github.com/rs/xid v1.3.0 // indirect
 	github.com/stretchr/objx v0.2.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
-	go.uber.org/multierr v1.7.0
+	go.uber.org/multierr v1.8.0
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20220216160803-4663080d8bc8 // indirect
 )
 
 require (
-	github.com/chromedp/cdproto v0.0.0-20211126220118-81fa0469ad77
-	github.com/chromedp/chromedp v0.7.6
+	github.com/chromedp/cdproto v0.0.0-20220217222649-d8c14a5c6edf
+	github.com/chromedp/chromedp v0.7.8
 )
 
 require (
