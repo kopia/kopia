@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/rand"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -46,6 +47,12 @@ var PackBlobIDPrefixes = []blob.ID{
 	PackBlobIDPrefixRegular,
 	PackBlobIDPrefixSpecial,
 }
+
+// prefetch full blob if we use at least 2 contents in it and at least 5MB.
+const (
+	fullBlobPrefetchCountThreshold = 2
+	fullBlobPrefetchBytesThreshold = 5e6
+)
 
 // IndexBlobPrefix is the prefix for all index blobs.
 const IndexBlobPrefix = "n"
@@ -735,6 +742,19 @@ func (bm *WriteManager) GetContent(ctx context.Context, contentID ID) (v []byte,
 	return tmp.ToByteSlice(), nil
 }
 
+func shouldPrefetchEntireBlob(infos []Info) bool {
+	if len(infos) < fullBlobPrefetchCountThreshold {
+		return false
+	}
+
+	var total int64
+	for _, i := range infos {
+		total += int64(i.GetPackedLength())
+	}
+
+	return total >= fullBlobPrefetchBytesThreshold
+}
+
 // PrefetchContents fetches the provided content IDs into the cache.
 // Note that due to cache configuration, it's not guaranteed that all contents will
 // actually be added to the cache.
@@ -745,9 +765,8 @@ func (bm *WriteManager) PrefetchContents(ctx context.Context, contentIDs []ID) [
 	var (
 		prefetched []ID
 
-		// keep track of how many contents we'll be fetching from each blob
-		dataBlobs     = map[blob.ID]int{}
-		metadataBlobs = map[blob.ID]int{}
+		// keep track of how contents we'll be fetching from each blob
+		contentsByBlob = map[blob.ID][]Info{}
 	)
 
 	for _, ci := range contentIDs {
@@ -760,30 +779,66 @@ func (bm *WriteManager) PrefetchContents(ctx context.Context, contentIDs []ID) [
 			continue
 		}
 
-		if ci.HasPrefix() {
-			metadataBlobs[bi.GetPackBlobID()]++
-		} else {
-			dataBlobs[bi.GetPackBlobID()]++
-		}
-
+		contentsByBlob[bi.GetPackBlobID()] = append(contentsByBlob[bi.GetPackBlobID()], bi)
 		prefetched = append(prefetched, ci)
 	}
 
-	for b, cnt := range metadataBlobs {
-		if cnt > 1 {
-			if err := bm.metadataCache.prefetchBlob(ctx, b); err != nil {
-				bm.log.Debugw("unable to prefetch metadata blob", "blobID", b, "err", err)
-			}
-		}
+	type work struct {
+		blobID    blob.ID
+		contentID ID
 	}
 
-	for b, cnt := range dataBlobs {
-		if cnt > 1 {
-			if err := bm.contentCache.prefetchBlob(ctx, b); err != nil {
-				bm.log.Debugw("unable to prefetch data blob", "blobID", b, "err", err)
+	workCh := make(chan work)
+
+	var wg sync.WaitGroup
+
+	go func() {
+		defer close(workCh)
+
+		for b, infos := range contentsByBlob {
+			if shouldPrefetchEntireBlob(infos) {
+				fmt.Println("will prefetch entire blob", b)
+				workCh <- work{blobID: b}
+			} else {
+				for _, bi := range infos {
+					workCh <- work{contentID: bi.GetContentID()}
+					fmt.Println("will prefetch content", bi.GetContentID())
+				}
 			}
 		}
+	}()
+
+	for i := 0; i < parallelFetches; i++ {
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+
+			var tmp gather.WriteBuffer
+			defer tmp.Close()
+
+			for w := range workCh {
+				switch {
+				case strings.HasPrefix(string(w.blobID), string(PackBlobIDPrefixRegular)):
+					if err := bm.contentCache.prefetchBlob(ctx, w.blobID); err != nil {
+						bm.log.Debugw("error prefetching data blob", "blobID", w.blobID, "err", err)
+					}
+				case strings.HasPrefix(string(w.blobID), string(PackBlobIDPrefixSpecial)):
+					if err := bm.metadataCache.prefetchBlob(ctx, w.blobID); err != nil {
+						bm.log.Debugw("error prefetching metadata blob", "blobID", w.blobID, "err", err)
+					}
+				case w.contentID != "":
+					tmp.Reset()
+
+					if _, err := bm.getContentDataAndInfo(ctx, w.contentID, &tmp); err != nil {
+						bm.log.Debugw("error prefetching content", "contentID", w.contentID, "err", err)
+					}
+				}
+			}
+		}()
 	}
+
+	wg.Wait()
 
 	return prefetched
 }
