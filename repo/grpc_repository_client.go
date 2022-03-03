@@ -372,6 +372,38 @@ func (r *grpcInnerSession) DeleteManifest(ctx context.Context, id manifest.ID) e
 	return errNoSessionResponse()
 }
 
+func (r *grpcRepositoryClient) PrefetchObjects(ctx context.Context, objectIDs []object.ID) ([]content.ID, error) {
+	ids, err := r.inSessionWithoutRetry(ctx, func(ctx context.Context, sess *grpcInnerSession) (interface{}, error) {
+		return sess.PrefetchObjects(ctx, objectIDs)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// nolint:forcetypeassert
+	return ids.([]content.ID), nil
+}
+
+func (r *grpcInnerSession) PrefetchObjects(ctx context.Context, objectIDs []object.ID) ([]content.ID, error) {
+	for resp := range r.sendRequest(ctx, &apipb.SessionRequest{
+		Request: &apipb.SessionRequest_PrefetchObjects{
+			PrefetchObjects: &apipb.PrefetchObjectsRequest{
+				ObjectIds: object.IDsToStrings(objectIDs),
+			},
+		},
+	}) {
+		switch rr := resp.Response.(type) {
+		case *apipb.SessionResponse_PrefetchObjects:
+			return content.IDsFromStrings(rr.PrefetchObjects.ContentIds), nil
+
+		default:
+			return nil, unhandledSessionResponse(resp)
+		}
+	}
+
+	return nil, errNoSessionResponse()
+}
+
 func (r *grpcRepositoryClient) Time() time.Time {
 	return clock.Now()
 }

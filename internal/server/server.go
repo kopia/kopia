@@ -148,6 +148,7 @@ func (s *Server) SetupRepositoryAPIHandlers(m *mux.Router) {
 	m.HandleFunc("/api/v1/manifests/{manifestID}", s.handleRepositoryAPI(handlerWillCheckAuthorization, s.handleManifestDelete)).Methods(http.MethodDelete)
 	m.HandleFunc("/api/v1/manifests", s.handleRepositoryAPI(handlerWillCheckAuthorization, s.handleManifestCreate)).Methods(http.MethodPost)
 	m.HandleFunc("/api/v1/manifests", s.handleRepositoryAPI(handlerWillCheckAuthorization, s.handleManifestList)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/objects/prefetch", s.handleRepositoryAPI(requireContentAccess(auth.AccessLevelRead), s.handleObjectsPrefetch)).Methods(http.MethodPost)
 }
 
 // SetupControlAPIHandlers registers control API handlers.

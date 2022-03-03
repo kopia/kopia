@@ -124,6 +124,14 @@ message FindManifestsResponse {
   repeated ManifestEntryMetadata metadata = 1;
 }
 
+message PrefetchObjectsRequest {
+  repeated string object_ids = 1;
+}
+
+message PrefetchObjectsResponse {
+  repeated string content_ids = 1;
+}
+
 message SessionRequest {
   int64 request_id = 1;
 
@@ -140,6 +148,7 @@ message SessionRequest {
     PutManifestRequest put_manifest = 16;
     FindManifestsRequest find_manifests = 17;
     DeleteManifestRequest delete_manifest = 18;
+    PrefetchObjectsRequest prefetch_objects = 19;
   }
 }
 
@@ -158,6 +167,7 @@ message SessionResponse {
     PutManifestResponse put_manifest = 16;
     FindManifestsResponse find_manifests = 17;
     DeleteManifestResponse delete_manifest = 18;
+    PrefetchObjectsResponse prefetch_objects = 19;
   }
 }
 

@@ -242,6 +242,18 @@ func (r *apiServerRepository) Close(ctx context.Context) error {
 	return nil
 }
 
+func (r *apiServerRepository) PrefetchObjects(ctx context.Context, objectIDs []object.ID) ([]content.ID, error) {
+	resp := &remoterepoapi.PrefetchObjectsResponse{}
+
+	if err := r.cli.Post(ctx, "objects/prefetch", remoterepoapi.PrefetchObjectsRequest{
+		ObjectIDs: objectIDs,
+	}, resp); err != nil {
+		return nil, errors.Wrap(err, "PrefetchObjects")
+	}
+
+	return resp.ContentIDs, nil
+}
+
 var _ Repository = (*apiServerRepository)(nil)
 
 // openRestAPIRepository connects remote repository over Kopia API.
