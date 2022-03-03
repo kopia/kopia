@@ -22,7 +22,13 @@ func Open(ctx context.Context, r contentReader, objectID ID) (Reader, error) {
 func VerifyObject(ctx context.Context, cr contentReader, oid ID) ([]content.ID, error) {
 	tracker := &contentIDTracker{}
 
-	if err := verifyObjectInternal(ctx, cr, oid, tracker); err != nil {
+	if err := iterateBackingContents(ctx, cr, oid, tracker, func(contentID content.ID) error {
+		if _, err := cr.ContentInfo(ctx, contentID); err != nil {
+			return errors.Wrapf(err, "error getting content info for %v", contentID)
+		}
+
+		return nil
+	}); err != nil {
 		return nil, err
 	}
 
@@ -214,8 +220,8 @@ func openAndAssertLength(ctx context.Context, cr contentReader, objectID ID, ass
 	return newRawReader(ctx, cr, objectID, assertLength)
 }
 
-func verifyIndirectObjectInternal(ctx context.Context, cr contentReader, indexObjectID ID, tracker *contentIDTracker) error {
-	if err := verifyObjectInternal(ctx, cr, indexObjectID, tracker); err != nil {
+func iterateIndirectObjectContents(ctx context.Context, cr contentReader, indexObjectID ID, tracker *contentIDTracker, callbackFunc func(contentID content.ID) error) error {
+	if err := iterateBackingContents(ctx, cr, indexObjectID, tracker, callbackFunc); err != nil {
 		return errors.Wrap(err, "unable to read index")
 	}
 
@@ -225,7 +231,7 @@ func verifyIndirectObjectInternal(ctx context.Context, cr contentReader, indexOb
 	}
 
 	for _, m := range seekTable {
-		err := verifyObjectInternal(ctx, cr, m.Object, tracker)
+		err := iterateBackingContents(ctx, cr, m.Object, tracker, callbackFunc)
 		if err != nil {
 			return err
 		}
@@ -234,14 +240,14 @@ func verifyIndirectObjectInternal(ctx context.Context, cr contentReader, indexOb
 	return nil
 }
 
-func verifyObjectInternal(ctx context.Context, r contentReader, oid ID, tracker *contentIDTracker) error {
+func iterateBackingContents(ctx context.Context, r contentReader, oid ID, tracker *contentIDTracker, callbackFunc func(contentID content.ID) error) error {
 	if indexObjectID, ok := oid.IndexObjectID(); ok {
-		return verifyIndirectObjectInternal(ctx, r, indexObjectID, tracker)
+		return iterateIndirectObjectContents(ctx, r, indexObjectID, tracker, callbackFunc)
 	}
 
 	if contentID, _, ok := oid.ContentID(); ok {
-		if _, err := r.ContentInfo(ctx, contentID); err != nil {
-			return errors.Wrapf(err, "error getting content info for %v", contentID)
+		if err := callbackFunc(contentID); err != nil {
+			return err
 		}
 
 		tracker.addContentID(contentID)

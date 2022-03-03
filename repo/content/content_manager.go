@@ -735,6 +735,59 @@ func (bm *WriteManager) GetContent(ctx context.Context, contentID ID) (v []byte,
 	return tmp.ToByteSlice(), nil
 }
 
+// PrefetchContents fetches the provided content IDs into the cache.
+// Note that due to cache configuration, it's not guaranteed that all contents will
+// actually be added to the cache.
+func (bm *WriteManager) PrefetchContents(ctx context.Context, contentIDs []ID) []ID {
+	bm.mu.RLock()
+	defer bm.mu.RUnlock()
+
+	var (
+		prefetched []ID
+
+		// keep track of how many contents we'll be fetching from each blob
+		dataBlobs     = map[blob.ID]int{}
+		metadataBlobs = map[blob.ID]int{}
+	)
+
+	for _, ci := range contentIDs {
+		pp, bi, err := bm.getContentInfoReadLocked(ctx, ci)
+		if pp != nil {
+			continue
+		}
+
+		if errors.Is(err, ErrContentNotFound) {
+			continue
+		}
+
+		if ci.HasPrefix() {
+			metadataBlobs[bi.GetPackBlobID()]++
+		} else {
+			dataBlobs[bi.GetPackBlobID()]++
+		}
+
+		prefetched = append(prefetched, ci)
+	}
+
+	for b, cnt := range metadataBlobs {
+		if cnt > 1 {
+			if err := bm.metadataCache.prefetchBlob(ctx, b); err != nil {
+				bm.log.Debugw("unable to prefetch metadata blob", "blobID", b, "err", err)
+			}
+		}
+	}
+
+	for b, cnt := range dataBlobs {
+		if cnt > 1 {
+			if err := bm.contentCache.prefetchBlob(ctx, b); err != nil {
+				bm.log.Debugw("unable to prefetch data blob", "blobID", b, "err", err)
+			}
+		}
+	}
+
+	return prefetched
+}
+
 func (bm *WriteManager) getOverlayContentInfoReadLocked(contentID ID) (*pendingPackInfo, Info, bool) {
 	// check added contents, not written to any packs yet.
 	for _, pp := range bm.pendingPacks {
