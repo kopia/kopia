@@ -87,6 +87,33 @@ func (i ID) Validate() error {
 	return nil
 }
 
+// IDsFromStrings converts strings to IDs.
+func IDsFromStrings(str []string) ([]ID, error) {
+	var result []ID
+
+	for _, v := range str {
+		id, err := ParseID(v)
+		if err != nil {
+			return nil, err
+		}
+
+		result = append(result, id)
+	}
+
+	return result, nil
+}
+
+// IDsToStrings converts the IDs to strings.
+func IDsToStrings(input []ID) []string {
+	var result []string
+
+	for _, v := range input {
+		result = append(result, string(v))
+	}
+
+	return result
+}
+
 // DirectObjectID returns direct object ID based on the provided block ID.
 func DirectObjectID(contentID content.ID) ID {
 	return ID(contentID)
