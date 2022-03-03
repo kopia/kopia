@@ -57,6 +57,15 @@ func TestContentCacheForData(t *testing.T) {
 	// even-length content IDs are not mangled
 	require.Len(t, cacheData, 3)
 	require.Contains(t, cacheData, blob.ID("aaa1"))
+
+	require.NoError(t, underlying.PutBlob(ctx, "pblob3", gather.FromSlice([]byte{1, 2, 3, 4, 5, 6}), blob.PutOptions{}))
+	dataCache.prefetchBlob(ctx, "pblob3")
+	require.NoError(t, underlying.DeleteBlob(ctx, "pblob3"))
+
+	// make sure blob ID is properly mangled
+	require.Contains(t, cacheData, blob.ID("blob3p"))
+	require.NoError(t, dataCache.getContent(ctx, "aaa3", "pblob3", 2, 4, &tmp))
+	require.Equal(t, []byte{3, 4, 5, 6}, tmp.ToByteSlice())
 }
 
 func TestContentCacheForData_Passthrough(t *testing.T) {

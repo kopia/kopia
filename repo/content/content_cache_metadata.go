@@ -68,39 +68,26 @@ func (c *contentCacheForMetadata) mutexForBlob(blobID blob.ID) *sync.Mutex {
 
 func (c *contentCacheForMetadata) getContent(ctx context.Context, cacheKey cacheKey, blobID blob.ID, offset, length int64, output *gather.WriteBuffer) error {
 	// try getting from cache first
-	if c.pc.Get(ctx, string(blobID), offset, length, output) {
+	if c.pc.GetPartial(ctx, string(blobID), offset, length, output) {
 		return nil
 	}
 
+	// lock the mutex
 	m := c.mutexForBlob(blobID)
 	m.Lock()
 	defer m.Unlock()
 
+	// check again to see if we perhaps lost the race and the data is now in cache.
+	if c.pc.GetPartial(ctx, string(blobID), offset, length, output) {
+		return nil
+	}
+
 	var blobData gather.WriteBuffer
 	defer blobData.Close()
 
-	// read the entire blob
-	err := c.st.GetBlob(ctx, blobID, 0, -1, &blobData)
-
-	if err != nil {
-		stats.Record(ctx, cache.MetricMissErrors.M(1))
-	} else {
-		stats.Record(ctx, cache.MetricMissBytes.M(int64(blobData.Length())))
-	}
-
-	if errors.Is(err, blob.ErrBlobNotFound) {
-		// not found in underlying storage
-		// nolint:wrapcheck
+	if err := c.fetchBlobInternal(ctx, blobID, &blobData); err != nil {
 		return err
 	}
-
-	if err != nil {
-		// nolint:wrapcheck
-		return err
-	}
-
-	// store the whole blob in the cache.
-	c.pc.Put(ctx, string(blobID), blobData.Bytes())
 
 	if offset == 0 && length == -1 {
 		_, err := blobData.Bytes().WriteTo(output)
@@ -115,6 +102,40 @@ func (c *contentCacheForMetadata) getContent(ctx context.Context, cacheKey cache
 	output.Reset()
 
 	impossible.PanicOnError(blobData.AppendSectionTo(output, int(offset), int(length)))
+
+	return nil
+}
+
+func (c *contentCacheForMetadata) prefetchBlob(ctx context.Context, blobID blob.ID) error {
+	var blobData gather.WriteBuffer
+	defer blobData.Close()
+
+	// lock the mutex
+	m := c.mutexForBlob(blobID)
+	m.Lock()
+	defer m.Unlock()
+
+	// check to see if the data is now in cache.
+	if c.pc.GetPartial(ctx, string(blobID), 0, 1, &blobData) {
+		return nil
+	}
+
+	return c.fetchBlobInternal(ctx, blobID, &blobData)
+}
+
+func (c *contentCacheForMetadata) fetchBlobInternal(ctx context.Context, blobID blob.ID, blobData *gather.WriteBuffer) error {
+	// read the entire blob
+	if err := c.st.GetBlob(ctx, blobID, 0, -1, blobData); err != nil {
+		stats.Record(ctx, cache.MetricMissErrors.M(1))
+
+		// nolint:wrapcheck
+		return err
+	}
+
+	stats.Record(ctx, cache.MetricMissBytes.M(int64(blobData.Length())))
+
+	// store the whole blob in the cache.
+	c.pc.Put(ctx, string(blobID), blobData.Bytes())
 
 	return nil
 }

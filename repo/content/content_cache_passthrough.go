@@ -18,3 +18,7 @@ func (c passthroughContentCache) getContent(ctx context.Context, cacheKey cacheK
 	// nolint:wrapcheck
 	return c.st.GetBlob(ctx, blobID, offset, length, output)
 }
+
+func (c passthroughContentCache) prefetchBlob(ctx context.Context, blobID blob.ID) error {
+	return nil
+}
