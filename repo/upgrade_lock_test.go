@@ -1,6 +1,7 @@
 package repo_test
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -232,13 +233,13 @@ func TestFormatUpgradeFailureToBackupFormatBlobOnLock(t *testing.T) {
 	st := repotesting.NewReconnectableStorage(t, beforeop.NewWrapper(
 		blobtesting.NewVersionedMapStorage(nil),
 		// GetBlob filter
-		func(id blob.ID) error {
+		func(ctx context.Context, id blob.ID) error {
 			if !allowGets && id == repo.FormatBlobBackupID(allowedLock) {
 				return errors.New("unexpected error on get")
 			}
 			return nil
 		}, nil,
-		func() error {
+		func(ctx context.Context) error {
 			if allowDeletes {
 				return nil
 			}
@@ -246,7 +247,7 @@ func TestFormatUpgradeFailureToBackupFormatBlobOnLock(t *testing.T) {
 			return errors.New("unexpected error")
 		},
 		// PutBlob callback
-		func(id blob.ID, _ *blob.PutOptions) error {
+		func(ctx context.Context, id blob.ID, _ *blob.PutOptions) error {
 			if !allowPuts || (strings.HasPrefix(string(id), repo.FormatBlobBackupIDPrefix) && id != repo.FormatBlobBackupID(allowedLock)) {
 				return errors.New("unexpected error")
 			}

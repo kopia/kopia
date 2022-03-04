@@ -437,7 +437,7 @@ func TestInitializeWithBlobCfgRetentionBlob(t *testing.T) {
 			beforeop.NewWrapper(
 				env.RootStorage(),
 				// GetBlob callback
-				func(id blob.ID) error {
+				func(ctx context.Context, id blob.ID) error {
 					if id == repo.BlobCfgBlobID {
 						return errors.New("unexpected error")
 					}
@@ -460,7 +460,7 @@ func TestInitializeWithBlobCfgRetentionBlob(t *testing.T) {
 			beforeop.NewWrapper(
 				env.RootStorage(),
 				// GetBlob callback
-				func(id blob.ID) error {
+				func(ctx context.Context, id blob.ID) error {
 					// simulate not-found for format-blob but let blobcfg
 					// blob appear as pre-existing
 					if id == repo.BlobCfgBlobID {
@@ -484,7 +484,7 @@ func TestInitializeWithBlobCfgRetentionBlob(t *testing.T) {
 			beforeop.NewWrapper(
 				env.RootStorage(),
 				// GetBlob callback
-				func(id blob.ID) error {
+				func(ctx context.Context, id blob.ID) error {
 					// simulate not-found for format-blob and blobcfg blob
 					if id == repo.BlobCfgBlobID || id == repo.FormatBlobID {
 						return blob.ErrBlobNotFound
@@ -493,7 +493,7 @@ func TestInitializeWithBlobCfgRetentionBlob(t *testing.T) {
 				},
 				nil, nil,
 				// PutBlob callback
-				func(id blob.ID, _ *blob.PutOptions) error {
+				func(ctx context.Context, id blob.ID, _ *blob.PutOptions) error {
 					if id == repo.BlobCfgBlobID {
 						return errors.New("unexpected error")
 					}
@@ -515,7 +515,7 @@ func TestInitializeWithBlobCfgRetentionBlob(t *testing.T) {
 			beforeop.NewWrapper(
 				env.RootStorage(),
 				// GetBlob callback
-				func(id blob.ID) error {
+				func(ctx context.Context, id blob.ID) error {
 					// simulate not-found for format-blob and blobcfg blob
 					if id == repo.FormatBlobID {
 						return errors.New("unexpected error")

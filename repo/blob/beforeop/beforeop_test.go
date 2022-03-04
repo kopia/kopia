@@ -1,6 +1,7 @@
 package beforeop
 
 import (
+	"context"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -15,16 +16,16 @@ import (
 
 func TestBeforeOpStorageNegative(t *testing.T) {
 	r := NewWrapper(blobtesting.NewMapStorage(blobtesting.DataMap{}, nil, clock.Now),
-		func(id blob.ID) error {
+		func(ctx context.Context, id blob.ID) error {
 			return errors.Wrap(blob.ErrBlobNotFound, "GetBlob error")
 		},
-		func() error {
+		func(ctx context.Context) error {
 			return errors.Wrap(blob.ErrBlobNotFound, "GetMetadata error")
 		},
-		func() error {
+		func(ctx context.Context) error {
 			return errors.Wrap(blob.ErrBlobNotFound, "DeleteBlob error")
 		},
-		func(id blob.ID, opts *blob.PutOptions) error {
+		func(ctx context.Context, id blob.ID, opts *blob.PutOptions) error {
 			return errors.Wrap(blob.ErrBlobNotFound, "PutBlob error")
 		},
 	)
@@ -49,19 +50,19 @@ func TestBeforeOpStoragePositive(t *testing.T) {
 	var getBlobCbInvoked, getBlobMetadataCbInvoked, putBlobCbInvoked, deleteBlobCbInvoked bool
 
 	r := NewWrapper(blobtesting.NewMapStorage(blobtesting.DataMap{}, nil, clock.Now),
-		func(id blob.ID) error {
+		func(ctx context.Context, id blob.ID) error {
 			getBlobCbInvoked = true
 			return nil
 		},
-		func() error {
+		func(ctx context.Context) error {
 			getBlobMetadataCbInvoked = true
 			return nil
 		},
-		func() error {
+		func(ctx context.Context) error {
 			deleteBlobCbInvoked = true
 			return nil
 		},
-		func(id blob.ID, opts *blob.PutOptions) error {
+		func(ctx context.Context, id blob.ID, opts *blob.PutOptions) error {
 			putBlobCbInvoked = true
 			return nil
 		},

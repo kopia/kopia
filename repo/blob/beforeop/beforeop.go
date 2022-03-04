@@ -8,9 +8,9 @@ import (
 )
 
 type (
-	callback          func() error
-	onGetBlobCallback func(id blob.ID) error
-	onPutBlobCallback func(id blob.ID, opts *blob.PutOptions) error // allows mutating the put-options
+	callback          func(ctx context.Context) error
+	onGetBlobCallback func(ctx context.Context, id blob.ID) error
+	onPutBlobCallback func(ctx context.Context, id blob.ID, opts *blob.PutOptions) error // allows mutating the put-options
 )
 
 type beforeOp struct {
@@ -22,7 +22,7 @@ type beforeOp struct {
 
 func (s beforeOp) GetBlob(ctx context.Context, id blob.ID, offset, length int64, output blob.OutputBuffer) error {
 	if s.onGetBlob != nil {
-		if err := s.onGetBlob(id); err != nil {
+		if err := s.onGetBlob(ctx, id); err != nil {
 			return err
 		}
 	}
@@ -32,7 +32,7 @@ func (s beforeOp) GetBlob(ctx context.Context, id blob.ID, offset, length int64,
 
 func (s beforeOp) GetMetadata(ctx context.Context, id blob.ID) (blob.Metadata, error) {
 	if s.onGetMetadata != nil {
-		if err := s.onGetMetadata(); err != nil {
+		if err := s.onGetMetadata(ctx); err != nil {
 			return blob.Metadata{}, err
 		}
 	}
@@ -42,7 +42,7 @@ func (s beforeOp) GetMetadata(ctx context.Context, id blob.ID) (blob.Metadata, e
 
 func (s beforeOp) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes, opts blob.PutOptions) error {
 	if s.onPutBlob != nil {
-		if err := s.onPutBlob(id, &opts); err != nil {
+		if err := s.onPutBlob(ctx, id, &opts); err != nil {
 			return err
 		}
 	}
@@ -52,7 +52,7 @@ func (s beforeOp) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes, opts
 
 func (s beforeOp) DeleteBlob(ctx context.Context, id blob.ID) error {
 	if s.onDeleteBlob != nil {
-		if err := s.onDeleteBlob(); err != nil {
+		if err := s.onDeleteBlob(ctx); err != nil {
 			return err
 		}
 	}
@@ -77,9 +77,9 @@ func NewWrapper(wrapped blob.Storage, onGetBlob onGetBlobCallback, onGetMetadata
 func NewUniformWrapper(wrapped blob.Storage, cb callback) blob.Storage {
 	return &beforeOp{
 		Storage:       wrapped,
-		onGetBlob:     func(_ blob.ID) error { return cb() },
+		onGetBlob:     func(ctx context.Context, _ blob.ID) error { return cb(ctx) },
 		onGetMetadata: cb,
 		onDeleteBlob:  cb,
-		onPutBlob:     func(_ blob.ID, _ *blob.PutOptions) error { return cb() },
+		onPutBlob:     func(ctx context.Context, _ blob.ID, _ *blob.PutOptions) error { return cb(ctx) },
 	}
 }

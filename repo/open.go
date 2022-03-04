@@ -309,7 +309,7 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 	}
 
 	// background/interleaving upgrade lock storage monitor
-	st = upgradeLockMonitor(ctx, options.UpgradeOwnerID, st, password, cacheOpts, lc.FormatBlobCacheDuration,
+	st = upgradeLockMonitor(options.UpgradeOwnerID, st, password, cacheOpts, lc.FormatBlobCacheDuration,
 		ufb.cacheMTime, cmOpts.TimeNow)
 
 	scm, err := content.NewSharedManager(ctx, st, fo, cacheOpts, cmOpts)
@@ -366,7 +366,7 @@ func wrapLockingStorage(st blob.Storage, r content.BlobCfgBlob) blob.Storage {
 	prefixes = append(prefixes, content.IndexBlobPrefix, epoch.EpochManagerIndexUberPrefix, FormatBlobID,
 		BlobCfgBlobID)
 
-	return beforeop.NewWrapper(st, nil, nil, nil, func(id blob.ID, opts *blob.PutOptions) error {
+	return beforeop.NewWrapper(st, nil, nil, nil, func(ctx context.Context, id blob.ID, opts *blob.PutOptions) error {
 		for _, prefix := range prefixes {
 			if strings.HasPrefix(string(id), prefix) {
 				opts.RetentionMode = r.RetentionMode
@@ -389,7 +389,6 @@ func addThrottler(ctx context.Context, st blob.Storage) (blob.Storage, throttlin
 }
 
 func upgradeLockMonitor(
-	ctx context.Context,
 	upgradeOwnerID string,
 	st blob.Storage,
 	password string,
@@ -403,7 +402,7 @@ func upgradeLockMonitor(
 		nextSync = lastSync.Add(lockRefreshInterval)
 	)
 
-	cb := func() error {
+	cb := func(ctx context.Context) error {
 		// protected read for nextSync because it will be shared between
 		// parallel storage operations
 		m.RLock()
