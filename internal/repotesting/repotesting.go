@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
@@ -101,10 +103,13 @@ func (e *Environment) setup(tb testing.TB, version content.FormatVersion, opts .
 
 	e.connected = true
 
-	rep, err := repo.Open(ctx, e.ConfigFile(), e.Password, openOpt)
-	if err != nil {
-		tb.Fatalf("can't open: %v", err)
-	}
+	// ensure context passed to Open() is not used beyond its scope.
+	ctx2, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	rep, err := repo.Open(ctx2, e.ConfigFile(), e.Password, openOpt)
+
+	require.NoError(tb, err)
 
 	e.Repository = rep
 
@@ -154,7 +159,11 @@ func (e *Environment) MustReopen(tb testing.TB, openOpts ...func(*repo.Options))
 		tb.Fatalf("close error: %v", err)
 	}
 
-	rep, err := repo.Open(ctx, e.ConfigFile(), e.Password, repoOptions(openOpts))
+	// ensure context passed to Open() is not used for cancelation signal.
+	ctx2, cancel := context.WithCancel(ctx)
+	cancel()
+
+	rep, err := repo.Open(ctx2, e.ConfigFile(), e.Password, repoOptions(openOpts))
 	if err != nil {
 		tb.Fatalf("err: %v", err)
 	}
