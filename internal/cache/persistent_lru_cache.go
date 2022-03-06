@@ -44,6 +44,11 @@ type PersistentCache struct {
 	periodicSweepClosed  chan struct{}
 }
 
+// CacheStorage returns cache storage.
+func (c *PersistentCache) CacheStorage() Storage {
+	return c.cacheStorage
+}
+
 // GetOrLoad is utility function gets the provided item from the cache or invokes the provided fetch function.
 // The function also appends and verifies HMAC checksums using provided secret on all cached items to ensure data integrity.
 func (c *PersistentCache) GetOrLoad(ctx context.Context, key string, fetch func(output *gather.WriteBuffer) error, output *gather.WriteBuffer) error {
@@ -52,7 +57,7 @@ func (c *PersistentCache) GetOrLoad(ctx context.Context, key string, fetch func(
 		return fetch(output)
 	}
 
-	if c.Get(ctx, key, 0, -1, output) {
+	if c.GetFull(ctx, key, output) {
 		return nil
 	}
 
@@ -71,9 +76,14 @@ func (c *PersistentCache) GetOrLoad(ctx context.Context, key string, fetch func(
 	return nil
 }
 
-// Get fetches the contents of a cached blob when (length < 0) or a subset of it (when length >= 0).
-// returns nil if not found.
-func (c *PersistentCache) Get(ctx context.Context, key string, offset, length int64, output *gather.WriteBuffer) bool {
+// GetFull fetches the contents of a full blob. Returns false if not found.
+func (c *PersistentCache) GetFull(ctx context.Context, key string, output *gather.WriteBuffer) bool {
+	return c.GetPartial(ctx, key, 0, -1, output)
+}
+
+// GetPartial fetches the contents of a cached blob when (length < 0) or a subset of it (when length >= 0).
+// returns false if not found.
+func (c *PersistentCache) GetPartial(ctx context.Context, key string, offset, length int64, output *gather.WriteBuffer) bool {
 	if c == nil {
 		return false
 	}
@@ -82,7 +92,13 @@ func (c *PersistentCache) Get(ctx context.Context, key string, offset, length in
 	defer tmp.Close()
 
 	if err := c.cacheStorage.GetBlob(ctx, blob.ID(key), offset, length, &tmp); err == nil {
-		if err := c.storageProtection.Verify(key, tmp.Bytes(), output); err == nil {
+		prot := c.storageProtection
+		if length >= 0 {
+			// only full items have protection.
+			prot = nullStorageProtection{}
+		}
+
+		if err := prot.Verify(key, tmp.Bytes(), output); err == nil {
 			// cache hit
 			stats.Record(ctx,
 				MetricHitCount.M(1),

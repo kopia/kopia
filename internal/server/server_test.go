@@ -236,6 +236,7 @@ func remoteRepositoryTest(ctx context.Context, t *testing.T, rep repo.Repository
 	mustListSnapshotCount(ctx, t, rep, 0)
 	mustGetObjectNotFound(ctx, t, rep, "abcd")
 	mustGetManifestNotFound(ctx, t, rep, "mnosuchmanifest")
+	mustPrefetchObjectsNotFound(ctx, t, rep, "abcd")
 
 	var (
 		result                  object.ID
@@ -259,6 +260,7 @@ func remoteRepositoryTest(ctx context.Context, t *testing.T, rep repo.Repository
 		mustGetObjectNotFound(ctx, t, w, "abcd")
 		mustGetManifestNotFound(ctx, t, w, "mnosuchmanifest")
 		mustListSnapshotCount(ctx, t, w, 0)
+		mustPrefetchObjectsNotFound(ctx, t, rep, "abcd")
 
 		result = mustWriteObject(ctx, t, w, written)
 
@@ -281,6 +283,7 @@ func remoteRepositoryTest(ctx context.Context, t *testing.T, rep repo.Repository
 		}
 
 		// verify data is read back the same.
+		mustPrefetchObjects(ctx, t, w, result)
 		mustReadObject(ctx, t, w, result, written)
 
 		ow := w.NewObjectWriter(ctx, object.WriterOptions{
@@ -326,6 +329,7 @@ func remoteRepositoryTest(ctx context.Context, t *testing.T, rep repo.Repository
 	mustReadManifest(ctx, t, rep, manifestID, "written")
 	mustGetManifestNotFound(ctx, t, rep, manifestID2)
 	mustListSnapshotCount(ctx, t, rep, 1)
+	mustPrefetchObjects(ctx, t, rep, result)
 }
 
 func mustWriteObject(ctx context.Context, t *testing.T, w repo.RepositoryWriter, data []byte) object.ID {
@@ -375,6 +379,22 @@ func mustGetObjectNotFound(ctx context.Context, t *testing.T, r repo.Repository,
 	if _, err := r.OpenObject(ctx, oid); !errors.Is(err, object.ErrObjectNotFound) {
 		t.Fatalf("unexpected non-existent object error: %v", err)
 	}
+}
+
+func mustPrefetchObjects(ctx context.Context, t *testing.T, r repo.Repository, oid ...object.ID) {
+	t.Helper()
+
+	contents, err := r.PrefetchObjects(ctx, oid)
+	require.NoError(t, err)
+	require.NotEmpty(t, contents)
+}
+
+func mustPrefetchObjectsNotFound(ctx context.Context, t *testing.T, r repo.Repository, oid ...object.ID) {
+	t.Helper()
+
+	contents, err := r.PrefetchObjects(ctx, oid)
+	require.NoError(t, err)
+	require.Empty(t, contents)
 }
 
 func mustGetManifestNotFound(ctx context.Context, t *testing.T, r repo.Repository, manID manifest.ID) {

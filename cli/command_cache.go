@@ -1,10 +1,11 @@
 package cli
 
 type commandCache struct {
-	clear commandCacheClear
-	info  commandCacheInfo
-	set   commandCacheSetParams
-	sync  commandCacheSync
+	clear    commandCacheClear
+	info     commandCacheInfo
+	prefetch commandCachePrefetch
+	set      commandCacheSetParams
+	sync     commandCacheSync
 }
 
 func (c *commandCache) setup(svc appServices, parent commandParent) {
@@ -12,6 +13,7 @@ func (c *commandCache) setup(svc appServices, parent commandParent) {
 
 	c.clear.setup(svc, cmd)
 	c.info.setup(svc, cmd)
+	c.prefetch.setup(svc, cmd)
 	c.set.setup(svc, cmd)
 	c.sync.setup(svc, cmd)
 }

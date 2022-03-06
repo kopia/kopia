@@ -3,6 +3,8 @@ package object
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/kopia/kopia/internal/testutil"
 )
 
@@ -47,4 +49,19 @@ func TestParseObjectID(t *testing.T) {
 			t.Errorf("unexpected success parsing %v", tc.text)
 		}
 	}
+}
+
+func TestFromStrings(t *testing.T) {
+	ids, err := IDsFromStrings([]string{"f0f0", "f1f1"})
+	require.NoError(t, err)
+
+	require.Equal(t, ids, []ID{"f0f0", "f1f1"})
+
+	_, err = IDsFromStrings([]string{"invalidf0f0", "f1f1"})
+	require.Error(t, err)
+}
+
+func TestToStrings(t *testing.T) {
+	strs := IDsToStrings([]ID{"f0f0", "f1f1"})
+	require.Equal(t, []string{"f0f0", "f1f1"}, strs)
 }

@@ -167,6 +167,9 @@ func handleSessionRequest(ctx context.Context, dw repo.DirectRepositoryWriter, a
 	case *grpcapi.SessionRequest_DeleteManifest:
 		return handleDeleteManifestRequest(ctx, dw, authz, inner.DeleteManifest)
 
+	case *grpcapi.SessionRequest_PrefetchObjects:
+		return handlePrefetchObjectsRequest(ctx, dw, authz, inner.PrefetchObjects)
+
 	case *grpcapi.SessionRequest_InitializeSession:
 		return errorResponse(errors.Errorf("InitializeSession must be the first request in a session"))
 
@@ -349,6 +352,30 @@ func handleDeleteManifestRequest(ctx context.Context, dw repo.DirectRepositoryWr
 	return &grpcapi.SessionResponse{
 		Response: &grpcapi.SessionResponse_DeleteManifest{
 			DeleteManifest: &grpcapi.DeleteManifestResponse{},
+		},
+	}
+}
+
+func handlePrefetchObjectsRequest(ctx context.Context, rep repo.Repository, authz auth.AuthorizationInfo, req *grpcapi.PrefetchObjectsRequest) *grpcapi.SessionResponse {
+	if authz.ContentAccessLevel() < auth.AccessLevelRead {
+		return accessDeniedResponse()
+	}
+
+	objectIDs, err := object.IDsFromStrings(req.ObjectIds)
+	if err != nil {
+		return errorResponse(err)
+	}
+
+	cids, err := rep.PrefetchObjects(ctx, objectIDs)
+	if err != nil {
+		return errorResponse(err)
+	}
+
+	return &grpcapi.SessionResponse{
+		Response: &grpcapi.SessionResponse_PrefetchObjects{
+			PrefetchObjects: &grpcapi.PrefetchObjectsResponse{
+				ContentIds: content.IDsToStrings(cids),
+			},
 		},
 	}
 }

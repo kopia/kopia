@@ -4,6 +4,7 @@ package remoterepoapi
 import (
 	"encoding/json"
 
+	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/repo/object"
 )
@@ -28,4 +29,14 @@ func (p *Parameters) GetHmacSecret() []byte { return p.HMACSecret }
 type ManifestWithMetadata struct {
 	Payload  json.RawMessage         `json:"payload"`
 	Metadata *manifest.EntryMetadata `json:"metadata"`
+}
+
+// PrefetchObjectsRequest represents a request to prefetch objects.
+type PrefetchObjectsRequest struct {
+	ObjectIDs []object.ID `json:"objects"`
+}
+
+// PrefetchObjectsResponse represents a request from request prefetch objects.
+type PrefetchObjectsResponse struct {
+	ContentIDs []content.ID `json:"contents"`
 }

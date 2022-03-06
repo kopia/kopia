@@ -24,6 +24,28 @@ func (i ID) HasPrefix() bool {
 	return len(i)%2 == 1
 }
 
+// IDsFromStrings converts strings to IDs.
+func IDsFromStrings(str []string) []ID {
+	var result []ID
+
+	for _, v := range str {
+		result = append(result, ID(v))
+	}
+
+	return result
+}
+
+// IDsToStrings converts the IDs to strings.
+func IDsToStrings(input []ID) []string {
+	var result []string
+
+	for _, v := range input {
+		result = append(result, string(v))
+	}
+
+	return result
+}
+
 // Info is an information about a single piece of content managed by Manager.
 type Info interface {
 	GetContentID() ID
