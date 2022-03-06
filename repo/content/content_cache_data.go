@@ -26,12 +26,12 @@ func contentIDCacheKey(cacheKey cacheKey) string {
 	return string(cacheKey)
 }
 
-func blobIDCacheKey(id blob.ID) string {
-	return string(id[1:] + id[0:1])
+func blobIDCacheKey(id blob.ID) cacheKey {
+	return cacheKey(id[1:] + id[0:1])
 }
 
 func (c *contentCacheForData) getContent(ctx context.Context, cacheKey cacheKey, blobID blob.ID, offset, length int64, output *gather.WriteBuffer) error {
-	if c.pc.GetPartial(ctx, blobIDCacheKey(blobID), offset, length, output) {
+	if c.pc.GetPartial(ctx, string(blobIDCacheKey(blobID)), offset, length, output) {
 		return nil
 	}
 
@@ -52,7 +52,7 @@ func (c contentCacheForData) prefetchBlob(ctx context.Context, blobID blob.ID) e
 	var blobData gather.WriteBuffer
 	defer blobData.Close()
 
-	if c.pc.GetPartial(ctx, blobIDCacheKey(blobID), 0, 1, &blobData) {
+	if c.pc.GetPartial(ctx, string(blobIDCacheKey(blobID)), 0, 1, &blobData) {
 		return nil
 	}
 
@@ -66,7 +66,7 @@ func (c contentCacheForData) prefetchBlob(ctx context.Context, blobID blob.ID) e
 	stats.Record(ctx, cache.MetricMissBytes.M(int64(blobData.Length())))
 
 	// store the whole blob in the cache.
-	c.pc.Put(ctx, blobIDCacheKey(blobID), blobData.Bytes())
+	c.pc.Put(ctx, string(blobIDCacheKey(blobID)), blobData.Bytes())
 
 	return nil
 }

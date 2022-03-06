@@ -21,6 +21,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/blobtesting"
+	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/epoch"
 	"github.com/kopia/kopia/internal/faketime"
 	"github.com/kopia/kopia/internal/fault"
@@ -2049,6 +2050,122 @@ func (s *contentManagerSuite) TestCompression_NonCompressibleData(t *testing.T) 
 	verifyContent(ctx, t, bm2, cid, nonCompressibleData)
 }
 
+func (s *contentManagerSuite) TestPrefetchContent(t *testing.T) {
+	ctx := testlogging.Context(t)
+	data := blobtesting.DataMap{}
+	st := blobtesting.NewMapStorage(data, nil, nil)
+	cd := testutil.TempDirectory(t)
+	bm := s.newTestContentManagerWithTweaks(t, st, &contentManagerTestTweaks{
+		CachingOptions: CachingOptions{
+			CacheDirectory:            cd,
+			MaxCacheSizeBytes:         100e6,
+			MaxMetadataCacheSizeBytes: 100e6,
+		},
+		maxPackSize: 20e6,
+	})
+
+	defer bm.Close(ctx)
+	bm.Flush(ctx)
+
+	// write 6 x 6 MB content in 2 blobs.
+	id1 := writeContentAndVerify(ctx, t, bm, bytes.Repeat([]byte{1, 2, 3, 4, 5, 6}, 1e6))
+	id2 := writeContentAndVerify(ctx, t, bm, bytes.Repeat([]byte{2, 3, 4, 5, 6, 7}, 1e6))
+	id3 := writeContentAndVerify(ctx, t, bm, bytes.Repeat([]byte{3, 4, 5, 6, 7, 8}, 1e6))
+	require.NoError(t, bm.Flush(ctx))
+	id4 := writeContentAndVerify(ctx, t, bm, bytes.Repeat([]byte{4, 5, 6, 7, 8, 9}, 1e6))
+	id5 := writeContentAndVerify(ctx, t, bm, bytes.Repeat([]byte{5, 6, 7, 8, 9, 10}, 1e6))
+	id6 := writeContentAndVerify(ctx, t, bm, bytes.Repeat([]byte{6, 7, 8, 9, 10, 11}, 1e6))
+	require.NoError(t, bm.Flush(ctx))
+
+	blob1 := getContentInfo(t, bm, id1).GetPackBlobID()
+	require.Equal(t, blob1, getContentInfo(t, bm, id2).GetPackBlobID())
+	require.Equal(t, blob1, getContentInfo(t, bm, id3).GetPackBlobID())
+	blob2 := getContentInfo(t, bm, id4).GetPackBlobID()
+	require.Equal(t, blob2, getContentInfo(t, bm, id5).GetPackBlobID())
+	require.Equal(t, blob2, getContentInfo(t, bm, id6).GetPackBlobID())
+
+	ccd := bm.contentCache.(*contentCacheForData)
+	ccm := bm.metadataCache.(*contentCacheForMetadata)
+
+	cases := []struct {
+		name                  string
+		input                 []ID
+		wantResult            []ID
+		wantDataCacheKeys     []cacheKey
+		wantMetadataCacheKeys []cacheKey
+	}{
+		{
+			name:              "MultipleBlobs",
+			input:             []ID{id1, id2, id3, id4, id5, id6, "no-such-content"},
+			wantResult:        []ID{id1, id2, id3, id4, id5, id6},
+			wantDataCacheKeys: []cacheKey{blobIDCacheKey(blob1), blobIDCacheKey(blob2)},
+		},
+		{
+			name:              "SingleContent",
+			input:             []ID{id1},
+			wantResult:        []ID{id1},
+			wantDataCacheKeys: []cacheKey{cacheKey(id1)},
+		},
+		{
+			name:              "TwoContentsFromSeparateBlobs",
+			input:             []ID{id1, id4},
+			wantResult:        []ID{id1, id4},
+			wantDataCacheKeys: []cacheKey{cacheKey(id1), cacheKey(id4)},
+		},
+		{
+			name:              "MixedContentsAndBlobs",
+			input:             []ID{id1, id4, id5},
+			wantResult:        []ID{id1, id4, id5},
+			wantDataCacheKeys: []cacheKey{cacheKey(id1), blobIDCacheKey(blob2)},
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			wipeCache(t, ccd.pc.CacheStorage())
+			wipeCache(t, ccm.pc.CacheStorage())
+			require.Empty(t, allCacheKeys(t, ccd.pc.CacheStorage()))
+			require.Empty(t, allCacheKeys(t, ccm.pc.CacheStorage()))
+
+			require.Equal(t, tc.wantResult,
+				bm.PrefetchContents(ctx, tc.input))
+
+			require.ElementsMatch(t, tc.wantDataCacheKeys, allCacheKeys(t, ccd.pc.CacheStorage()))
+
+			for _, cid := range tc.wantResult {
+				_, err := bm.GetContent(ctx, cid)
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func wipeCache(t *testing.T, st cache.Storage) {
+	t.Helper()
+
+	ctx := testlogging.Context(t)
+
+	require.NoError(t, st.ListBlobs(ctx, "", func(bm blob.Metadata) error {
+		return st.DeleteBlob(ctx, bm.BlobID)
+	}))
+}
+
+func allCacheKeys(t *testing.T, st cache.Storage) []cacheKey {
+	t.Helper()
+
+	ctx := testlogging.Context(t)
+
+	var entries []cacheKey
+
+	require.NoError(t, st.ListBlobs(ctx, "", func(bm blob.Metadata) error {
+		entries = append(entries, cacheKey(bm.BlobID))
+		return nil
+	}))
+
+	return entries
+}
+
 func (s *contentManagerSuite) newTestContentManager(t *testing.T, st blob.Storage) *WriteManager {
 	t.Helper()
 
@@ -2070,6 +2187,7 @@ type contentManagerTestTweaks struct {
 	ManagerOptions
 
 	indexVersion int
+	maxPackSize  int
 }
 
 func (s *contentManagerSuite) newTestContentManagerWithTweaks(t *testing.T, st blob.Storage, tweaks *contentManagerTestTweaks) *WriteManager {
@@ -2086,6 +2204,10 @@ func (s *contentManagerSuite) newTestContentManagerWithTweaks(t *testing.T, st b
 	mp := s.mutableParameters
 	mp.IndexVersion = tweaks.indexVersion
 	mp.Version = 1
+
+	if mps := tweaks.maxPackSize; mps != 0 {
+		mp.MaxPackSize = mps
+	}
 
 	ctx := testlogging.Context(t)
 	fo := &FormattingOptions{

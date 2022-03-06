@@ -770,12 +770,8 @@ func (bm *WriteManager) PrefetchContents(ctx context.Context, contentIDs []ID) [
 	)
 
 	for _, ci := range contentIDs {
-		pp, bi, err := bm.getContentInfoReadLocked(ctx, ci)
-		if pp != nil {
-			continue
-		}
-
-		if errors.Is(err, ErrContentNotFound) {
+		_, bi, _ := bm.getContentInfoReadLocked(ctx, ci)
+		if bi == nil {
 			continue
 		}
 
@@ -797,12 +793,10 @@ func (bm *WriteManager) PrefetchContents(ctx context.Context, contentIDs []ID) [
 
 		for b, infos := range contentsByBlob {
 			if shouldPrefetchEntireBlob(infos) {
-				fmt.Println("will prefetch entire blob", b)
 				workCh <- work{blobID: b}
 			} else {
 				for _, bi := range infos {
 					workCh <- work{contentID: bi.GetContentID()}
-					fmt.Println("will prefetch content", bi.GetContentID())
 				}
 			}
 		}

@@ -44,6 +44,11 @@ type PersistentCache struct {
 	periodicSweepClosed  chan struct{}
 }
 
+// CacheStorage returns cache storage.
+func (c *PersistentCache) CacheStorage() Storage {
+	return c.cacheStorage
+}
+
 // GetOrLoad is utility function gets the provided item from the cache or invokes the provided fetch function.
 // The function also appends and verifies HMAC checksums using provided secret on all cached items to ensure data integrity.
 func (c *PersistentCache) GetOrLoad(ctx context.Context, key string, fetch func(output *gather.WriteBuffer) error, output *gather.WriteBuffer) error {
