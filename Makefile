@@ -1,5 +1,6 @@
 COVERAGE_PACKAGES=./repo/...,./fs/...,./snapshot/...,./cli/...,./internal/...
 TEST_FLAGS?=
+GO=go
 
 KOPIA_INTEGRATION_EXE=$(CURDIR)/dist/testing_$(GOOS)_$(GOARCH)/kopia.exe
 TESTING_ACTION_EXE=$(CURDIR)/dist/testing_$(GOOS)_$(GOARCH)/testingaction.exe
@@ -56,13 +57,13 @@ endif
 -include ./Makefile.local.mk
 
 install:
-	go install $(KOPIA_BUILD_FLAGS) -tags "$(KOPIA_BUILD_TAGS)"
+	$(GO) install $(KOPIA_BUILD_FLAGS) -tags "$(KOPIA_BUILD_TAGS)"
 
 install-noui: KOPIA_BUILD_TAGS=nohtmlui
 install-noui: install
 
 install-race:
-	go install -race $(KOPIA_BUILD_FLAGS) -tags "$(KOPIA_BUILD_TAGS)"
+	$(GO) install -race $(KOPIA_BUILD_FLAGS) -tags "$(KOPIA_BUILD_TAGS)"
 
 lint: $(linter)
 ifneq ($(GOOS)/$(GOARCH),linux/arm64)
@@ -85,10 +86,10 @@ lint-all: $(linter)
 	GOOS=freebsd GOARCH=amd64 $(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
 
 vet:
-	go vet -all .
+	$(GO) vet -all .
 
 go-modules:
-	go mod download
+	$(GO) mod download
 
 app-node-modules: $(npm)
 ifeq ($(GOARCH),amd64)
@@ -110,7 +111,7 @@ kopia-ui: $(kopia_ui_embedded_exe)
 # kopia-ui build needs this particular location to embed the correct server binary.
 # note we're not building or embedding HTML UI to speed up PR testing process.
 build-current-os-noui:
-	go build $(KOPIA_BUILD_FLAGS) -o $(kopia_ui_embedded_exe)
+	$(GO) build $(KOPIA_BUILD_FLAGS) -o $(kopia_ui_embedded_exe)
 
 # on macOS build and sign AMD64, ARM64 and Universal binary and *.tar.gz files for them
 dist/kopia_darwin_universal/kopia dist/kopia_darwin_amd64/kopia dist/kopia_darwin_arm6/kopia: $(all_go_sources)
@@ -149,7 +150,7 @@ ifeq ($(GOARCH),amd64)
 	ln -sf kopia_linux_arm_6 dist/kopia_linux_armv7l
 
 else
-	go build $(KOPIA_BUILD_FLAGS) -o $(kopia_ui_embedded_exe) -tags "$(KOPIA_BUILD_TAGS)"
+	$(GO) build $(KOPIA_BUILD_FLAGS) -o $(kopia_ui_embedded_exe) -tags "$(KOPIA_BUILD_TAGS)"
 endif
 
 # builds kopia CLI binary that will be later used as a server for kopia-ui.
@@ -166,9 +167,9 @@ ifeq ($(GOOS)/$(GOARCH),linux/amd64)
 endif
 
 download-rclone:
-	go run ./tools/gettool --tool rclone:$(RCLONE_VERSION) --output-dir dist/kopia_linux_amd64/ --goos=linux --goarch=amd64
-	go run ./tools/gettool --tool rclone:$(RCLONE_VERSION) --output-dir dist/kopia_linux_arm64/ --goos=linux --goarch=arm64
-	go run ./tools/gettool --tool rclone:$(RCLONE_VERSION) --output-dir dist/kopia_linux_arm_6/ --goos=linux --goarch=arm
+	$(GO) run ./tools/gettool --tool rclone:$(RCLONE_VERSION) --output-dir dist/kopia_linux_amd64/ --goos=linux --goarch=amd64
+	$(GO) run ./tools/gettool --tool rclone:$(RCLONE_VERSION) --output-dir dist/kopia_linux_arm64/ --goos=linux --goarch=arm64
+	$(GO) run ./tools/gettool --tool rclone:$(RCLONE_VERSION) --output-dir dist/kopia_linux_arm_6/ --goos=linux --goarch=arm
 
 
 ci-tests: lint vet test
@@ -239,10 +240,10 @@ vtest: $(gotestsum)
 	$(GO_TEST) -count=$(REPEAT_TEST) -short -v -timeout $(UNIT_TESTS_TIMEOUT) ./...
 
 build-integration-test-binary:
-	go build $(KOPIA_BUILD_FLAGS) $(INTEGRATION_TEST_RACE_FLAGS) -o $(KOPIA_INTEGRATION_EXE) -tags testing github.com/kopia/kopia
+	$(GO) build $(KOPIA_BUILD_FLAGS) $(INTEGRATION_TEST_RACE_FLAGS) -o $(KOPIA_INTEGRATION_EXE) -tags testing github.com/kopia/kopia
 
 $(TESTING_ACTION_EXE): tests/testingaction/main.go
-	go build -o $(TESTING_ACTION_EXE) -tags testing github.com/kopia/kopia/tests/testingaction
+	$(GO) build -o $(TESTING_ACTION_EXE) -tags testing github.com/kopia/kopia/tests/testingaction
 
 integration-tests: export KOPIA_EXE ?= $(KOPIA_INTEGRATION_EXE)
 integration-tests: export KOPIA_08_EXE=$(kopia08)
@@ -264,7 +265,7 @@ endurance-tests: export KOPIA_EXE ?= $(KOPIA_INTEGRATION_EXE)
 endurance-tests: export KOPIA_LOGS_DIR=$(CURDIR)/.logs
 endurance-tests: export KOPIA_TRACK_CHUNK_ALLOC=1
 endurance-tests: build-integration-test-binary $(gotestsum)
-	go test $(TEST_FLAGS) -count=$(REPEAT_TEST) -parallel $(PARALLEL) -timeout 3600s github.com/kopia/kopia/tests/endurance_test
+	$(GO) test $(TEST_FLAGS) -count=$(REPEAT_TEST) -parallel $(PARALLEL) -timeout 3600s github.com/kopia/kopia/tests/endurance_test
 
 robustness-tests: export KOPIA_EXE ?= $(KOPIA_INTEGRATION_EXE)
 robustness-tests: GOTESTSUM_FORMAT=testname
@@ -312,7 +313,7 @@ godoc:
 coverage: test-with-coverage coverage-html
 
 coverage-html:
-	go tool cover -html=coverage.txt
+	$(GO) tool cover -html=coverage.txt
 
 official-release:
 	git tag $(RELEASE_VERSION) -m $(RELEASE_VERSION)
