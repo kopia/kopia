@@ -305,6 +305,12 @@ app.on('ready', () => {
       selectByOS({ mac: 'kopia-tray.png', win: 'kopia-tray.ico', linux: 'kopia-tray.png' })));
 
   tray.setToolTip('Kopia');
+
+  if (tray.popUpContextMenu) {
+    tray.on("click", () => {tray.popUpContextMenu()});
+    tray.on("right-click", () => {tray.popUpContextMenu()});
+  }
+
   updateTrayContextMenu();
   refreshWillLaunchAtStartup();
   updateDockIcon();
