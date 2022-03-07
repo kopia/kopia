@@ -712,11 +712,11 @@ func putBlobs(ctx context.Context, tb testing.TB, s *s3Storage, blobs []blobCont
 func (s *s3Storage) putBlobVersion(ctx context.Context, id blob.ID, data blob.Bytes, opts blob.PutOptions) (versionMetadata, error) {
 	var vm versionMetadata
 
-	_, err := retry.WithExponentialBackoff(ctx, "putBlobVersion("+string(id)+")", func() (interface{}, error) {
+	err := retry.WithExponentialBackoffNoValue(ctx, "putBlobVersion("+string(id)+")", func() error {
 		v, err := s.putBlob(ctx, id, data, opts)
 		vm = v
 
-		return true, err // nolint:wrapcheck
+		return err // nolint:wrapcheck
 	}, isRetriable)
 
 	return vm, err // nolint:wrapcheck

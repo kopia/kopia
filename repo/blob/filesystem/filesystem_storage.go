@@ -126,7 +126,7 @@ func (fs *fsImpl) GetBlobFromPath(ctx context.Context, dirPath, path string, off
 }
 
 func (fs *fsImpl) GetMetadataFromPath(ctx context.Context, dirPath, path string) (blob.Metadata, error) {
-	v, err := retry.WithExponentialBackoff(ctx, "GetMetadataFromPath:"+path, func() (interface{}, error) {
+	return retry.WithExponentialBackoff(ctx, "GetMetadataFromPath:"+path, func() (blob.Metadata, error) {
 		fi, err := fs.osi.Stat(path)
 		if err != nil {
 			if fs.osi.IsNotExist(err) {
@@ -142,12 +142,6 @@ func (fs *fsImpl) GetMetadataFromPath(ctx context.Context, dirPath, path string)
 			Timestamp: fi.ModTime(),
 		}, nil
 	}, fs.isRetriable)
-	if err != nil {
-		// nolint:wrapcheck
-		return blob.Metadata{}, err
-	}
-
-	return v.(blob.Metadata), nil //nolint:forcetypeassert
 }
 
 //nolint:wrapcheck,gocyclo
@@ -248,7 +242,7 @@ func (fs *fsImpl) DeleteBlobInPath(ctx context.Context, dirPath, path string) er
 }
 
 func (fs *fsImpl) ReadDir(ctx context.Context, dirname string) ([]os.FileInfo, error) {
-	v, err := retry.WithExponentialBackoff(ctx, "ReadDir:"+dirname, func() (interface{}, error) {
+	entries, err := retry.WithExponentialBackoff(ctx, "ReadDir:"+dirname, func() ([]os.DirEntry, error) {
 		v, err := fs.osi.ReadDir(dirname)
 		// nolint:wrapcheck
 		return v, err
@@ -257,8 +251,6 @@ func (fs *fsImpl) ReadDir(ctx context.Context, dirname string) ([]os.FileInfo, e
 		// nolint:wrapcheck
 		return nil, err
 	}
-
-	entries := v.([]os.DirEntry) //nolint:forcetypeassert
 
 	fileInfos := make([]os.FileInfo, 0, len(entries))
 

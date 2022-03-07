@@ -26,20 +26,20 @@ func TestRetry(t *testing.T) {
 
 	cases := []struct {
 		desc      string
-		f         func() (interface{}, error)
-		want      interface{}
+		f         func() (int, error)
+		want      int
 		wantError error
 	}{
-		{"success-nil", func() (interface{}, error) { return nil, nil }, nil, nil},
-		{"success", func() (interface{}, error) { return 3, nil }, 3, nil},
-		{"retriable-succeeds", func() (interface{}, error) {
+		{"success-nil", func() (int, error) { return 0, nil }, 0, nil},
+		{"success", func() (int, error) { return 3, nil }, 3, nil},
+		{"retriable-succeeds", func() (int, error) {
 			cnt++
 			if cnt < 2 {
-				return nil, errRetriable
+				return 0, errRetriable
 			}
 			return 4, nil
 		}, 4, nil},
-		{"retriable-never-succeeds", func() (interface{}, error) { return nil, errRetriable }, nil, errors.Errorf("unable to complete retriable-never-succeeds despite 3 retries")},
+		{"retriable-never-succeeds", func() (int, error) { return 0, errRetriable }, 0, errors.Errorf("unable to complete retriable-never-succeeds despite 3 retries")},
 	}
 
 	ctx := testlogging.Context(t)

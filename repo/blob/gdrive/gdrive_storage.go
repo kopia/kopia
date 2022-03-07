@@ -339,14 +339,9 @@ func (gdrive *gdriveStorage) getFileIDWithCache(ctx context.Context, entry *cach
 
 // Try getFileByBlobID with periodic backoff.
 func (gdrive *gdriveStorage) tryGetFileByBlobID(ctx context.Context, blobID blob.ID, fields googleapi.Field) (*drive.File, error) {
-	f, err := retry.Periodically(ctx, queryRetryDelay, queryRetryMax, fmt.Sprintf("getFileIDByblobID(%v)", blobID), func() (interface{}, error) {
+	return retry.Periodically(ctx, queryRetryDelay, queryRetryMax, fmt.Sprintf("getFileIDByblobID(%v)", blobID), func() (*drive.File, error) {
 		return gdrive.getFileByBlobID(ctx, blobID, fields)
 	}, retryNotFound)
-	if err != nil {
-		return nil, err // nolint:wrapcheck
-	}
-
-	return f.(*drive.File), nil // nolint:forcetypeassert
 }
 
 func (gdrive *gdriveStorage) getFileByFileID(ctx context.Context, fileID string, fields googleapi.Field) (*drive.File, error) {

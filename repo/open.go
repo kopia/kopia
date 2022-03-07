@@ -241,20 +241,20 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 
 	var ufb *unpackedFormatBlob
 
-	if _, err := retry.WithExponentialBackoffMaxRetries(ctx, -1, "read repo config and wait for upgrade", func() (interface{}, error) {
+	if _, err := retry.WithExponentialBackoffMaxRetries(ctx, -1, "read repo config and wait for upgrade", func() (bool, error) {
 		var internalErr error
 		ufb, internalErr = readAndCacheRepoConfig(ctx, st, password, cacheOpts,
 			lc.FormatBlobCacheDuration)
 		if internalErr != nil {
-			return nil, internalErr
+			return false, internalErr
 		}
 
 		// retry if upgrade lock has been taken
 		if locked, _ := ufb.repoConfig.UpgradeLock.IsLocked(cmOpts.TimeNow()); locked && options.UpgradeOwnerID != ufb.repoConfig.UpgradeLock.OwnerID {
-			return nil, ErrRepositoryUnavailableDueToUpgrageInProgress
+			return false, ErrRepositoryUnavailableDueToUpgrageInProgress
 		}
 
-		return nil, nil
+		return false, nil
 	}, func(internalErr error) bool {
 		return errors.Is(internalErr, ErrRepositoryUnavailableDueToUpgrageInProgress)
 	}); err != nil {

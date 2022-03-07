@@ -227,14 +227,9 @@ func (r *grpcInnerSession) initializeSession(ctx context.Context, purpose string
 }
 
 func (r *grpcRepositoryClient) GetManifest(ctx context.Context, id manifest.ID, data interface{}) (*manifest.EntryMetadata, error) {
-	v, err := r.maybeRetry(ctx, func(ctx context.Context, sess *grpcInnerSession) (interface{}, error) {
+	return maybeRetry(ctx, r, func(ctx context.Context, sess *grpcInnerSession) (*manifest.EntryMetadata, error) {
 		return sess.GetManifest(ctx, id, data)
 	})
-	if err != nil {
-		return nil, err
-	}
-
-	return v.(*manifest.EntryMetadata), nil //nolint:forcetypeassert
 }
 
 func (r *grpcInnerSession) GetManifest(ctx context.Context, id manifest.ID, data interface{}) (*manifest.EntryMetadata, error) {
@@ -277,14 +272,9 @@ func decodeManifestEntryMetadata(md *apipb.ManifestEntryMetadata) *manifest.Entr
 }
 
 func (r *grpcRepositoryClient) PutManifest(ctx context.Context, labels map[string]string, payload interface{}) (manifest.ID, error) {
-	v, err := r.inSessionWithoutRetry(ctx, func(ctx context.Context, sess *grpcInnerSession) (interface{}, error) {
+	return inSessionWithoutRetry(ctx, r, func(ctx context.Context, sess *grpcInnerSession) (manifest.ID, error) {
 		return sess.PutManifest(ctx, labels, payload)
 	})
-	if err != nil {
-		return "", err
-	}
-
-	return v.(manifest.ID), nil // nolint:forcetypeassert
 }
 
 func (r *grpcInnerSession) PutManifest(ctx context.Context, labels map[string]string, payload interface{}) (manifest.ID, error) {
@@ -314,14 +304,9 @@ func (r *grpcInnerSession) PutManifest(ctx context.Context, labels map[string]st
 }
 
 func (r *grpcRepositoryClient) FindManifests(ctx context.Context, labels map[string]string) ([]*manifest.EntryMetadata, error) {
-	v, err := r.maybeRetry(ctx, func(ctx context.Context, sess *grpcInnerSession) (interface{}, error) {
+	return maybeRetry(ctx, r, func(ctx context.Context, sess *grpcInnerSession) ([]*manifest.EntryMetadata, error) {
 		return sess.FindManifests(ctx, labels)
 	})
-	if err != nil {
-		return nil, err
-	}
-
-	return v.([]*manifest.EntryMetadata), nil // nolint:forcetypeassert
 }
 
 func (r *grpcInnerSession) FindManifests(ctx context.Context, labels map[string]string) ([]*manifest.EntryMetadata, error) {
@@ -345,7 +330,7 @@ func (r *grpcInnerSession) FindManifests(ctx context.Context, labels map[string]
 }
 
 func (r *grpcRepositoryClient) DeleteManifest(ctx context.Context, id manifest.ID) error {
-	_, err := r.inSessionWithoutRetry(ctx, func(ctx context.Context, sess *grpcInnerSession) (interface{}, error) {
+	_, err := inSessionWithoutRetry(ctx, r, func(ctx context.Context, sess *grpcInnerSession) (bool, error) {
 		return false, sess.DeleteManifest(ctx, id)
 	})
 
@@ -373,15 +358,9 @@ func (r *grpcInnerSession) DeleteManifest(ctx context.Context, id manifest.ID) e
 }
 
 func (r *grpcRepositoryClient) PrefetchObjects(ctx context.Context, objectIDs []object.ID) ([]content.ID, error) {
-	ids, err := r.inSessionWithoutRetry(ctx, func(ctx context.Context, sess *grpcInnerSession) (interface{}, error) {
+	return inSessionWithoutRetry(ctx, r, func(ctx context.Context, sess *grpcInnerSession) ([]content.ID, error) {
 		return sess.PrefetchObjects(ctx, objectIDs)
 	})
-	if err != nil {
-		return nil, err
-	}
-
-	// nolint:forcetypeassert
-	return ids.([]content.ID), nil
 }
 
 func (r *grpcInnerSession) PrefetchObjects(ctx context.Context, objectIDs []object.ID) ([]content.ID, error) {
@@ -417,7 +396,7 @@ func (r *grpcRepositoryClient) Flush(ctx context.Context) error {
 		return errors.Wrap(err, "error waiting for async writes")
 	}
 
-	_, err := r.inSessionWithoutRetry(ctx, func(ctx context.Context, sess *grpcInnerSession) (interface{}, error) {
+	_, err := inSessionWithoutRetry(ctx, r, func(ctx context.Context, sess *grpcInnerSession) (bool, error) {
 		return false, sess.Flush(ctx)
 	})
 
@@ -451,29 +430,29 @@ func (r *grpcRepositoryClient) NewWriter(ctx context.Context, opt WriteSessionOp
 	return ctx, w, nil
 }
 
-type sessionAttemptFunc func(ctx context.Context, sess *grpcInnerSession) (interface{}, error)
-
 // maybeRetry executes the provided callback with or without automatic retries depending on how
 // the grpcRepositoryClient is configured.
-func (r *grpcRepositoryClient) maybeRetry(ctx context.Context, attempt sessionAttemptFunc) (interface{}, error) {
+func maybeRetry[T any](ctx context.Context, r *grpcRepositoryClient, attempt func(ctx context.Context, sess *grpcInnerSession) (T, error)) (T, error) {
 	if !r.transparentRetries {
-		return r.inSessionWithoutRetry(ctx, attempt)
+		return inSessionWithoutRetry(ctx, r, attempt)
 	}
 
-	return r.retry(ctx, attempt)
+	return doRetry(ctx, r, attempt)
 }
 
 // retry executes the provided callback and provides it with *grpcInnerSession.
 // If the grpcRepositoryClient set to automatically retry and the provided callback returns io.EOF,
 // the inner session will be killed and re-established as necessary.
-func (r *grpcRepositoryClient) retry(ctx context.Context, attempt sessionAttemptFunc) (interface{}, error) {
+func doRetry[T any](ctx context.Context, r *grpcRepositoryClient, attempt func(ctx context.Context, sess *grpcInnerSession) (T, error)) (T, error) {
+	var defaultT T
+
 	// nolint:wrapcheck
-	return retry.WithExponentialBackoff(ctx, "invoking GRPC API", func() (interface{}, error) {
-		v, err := r.inSessionWithoutRetry(ctx, attempt)
+	return retry.WithExponentialBackoff(ctx, "invoking GRPC API", func() (T, error) {
+		v, err := inSessionWithoutRetry(ctx, r, attempt)
 		if errors.Is(err, io.EOF) {
 			r.killInnerSession()
 
-			return nil, errShouldRetry
+			return defaultT, errShouldRetry
 		}
 
 		return v, err
@@ -482,24 +461,21 @@ func (r *grpcRepositoryClient) retry(ctx context.Context, attempt sessionAttempt
 	})
 }
 
-func (r *grpcRepositoryClient) inSessionWithoutRetry(ctx context.Context, attempt sessionAttemptFunc) (interface{}, error) {
+func inSessionWithoutRetry[T any](ctx context.Context, r *grpcRepositoryClient, attempt func(ctx context.Context, sess *grpcInnerSession) (T, error)) (T, error) {
+	var defaultT T
+
 	sess, err := r.getOrEstablishInnerSession(ctx)
 	if err != nil {
-		return nil, errors.Wrapf(err, "unable to establish session for purpose=%v", r.opt.Purpose)
+		return defaultT, errors.Wrapf(err, "unable to establish session for purpose=%v", r.opt.Purpose)
 	}
 
 	return attempt(ctx, sess)
 }
 
 func (r *grpcRepositoryClient) ContentInfo(ctx context.Context, contentID content.ID) (content.Info, error) {
-	v, err := r.maybeRetry(ctx, func(ctx context.Context, sess *grpcInnerSession) (interface{}, error) {
+	return maybeRetry(ctx, r, func(ctx context.Context, sess *grpcInnerSession) (content.Info, error) {
 		return sess.contentInfo(ctx, contentID)
 	})
-	if err != nil {
-		return nil, err
-	}
-
-	return v.(content.Info), nil // nolint:forcetypeassert
 }
 
 func (r *grpcInnerSession) contentInfo(ctx context.Context, contentID content.ID) (content.Info, error) {
@@ -559,14 +535,14 @@ func (r *grpcRepositoryClient) GetContent(ctx context.Context, contentID content
 	defer b.Close()
 
 	err := r.contentCache.GetOrLoad(ctx, string(contentID), func(output *gather.WriteBuffer) error {
-		v, err := r.maybeRetry(ctx, func(ctx context.Context, sess *grpcInnerSession) (interface{}, error) {
+		v, err := maybeRetry(ctx, r, func(ctx context.Context, sess *grpcInnerSession) ([]byte, error) {
 			return sess.GetContent(ctx, contentID)
 		})
 		if err != nil {
 			return err
 		}
 
-		_, err = output.Write(v.([]byte))
+		_, err = output.Write(v)
 
 		// nolint:wrapcheck
 		return err
@@ -612,7 +588,7 @@ func (r *grpcRepositoryClient) doWrite(ctx context.Context, contentID content.ID
 
 	r.opt.OnUpload(int64(len(data)))
 
-	v, err := r.inSessionWithoutRetry(ctx, func(ctx context.Context, sess *grpcInnerSession) (interface{}, error) {
+	v, err := inSessionWithoutRetry(ctx, r, func(ctx context.Context, sess *grpcInnerSession) (content.ID, error) {
 		return sess.WriteContent(ctx, data, prefix, comp)
 	})
 	if err != nil {
@@ -624,7 +600,7 @@ func (r *grpcRepositoryClient) doWrite(ctx context.Context, contentID content.ID
 		r.contentCache.Put(ctx, string(contentID), gather.FromSlice(data))
 	}
 
-	if got, want := v.(content.ID), contentID; got != want { // nolint:forcetypeassert
+	if got, want := v, contentID; got != want { // nolint:forcetypeassert
 		return errors.Errorf("server returned different content ID: %v vs %v", got, want)
 	}
 
@@ -801,7 +777,7 @@ func (r *grpcRepositoryClient) getOrEstablishInnerSession(ctx context.Context) (
 
 		r.innerSessionAttemptCount++
 
-		v, err := retry.WithExponentialBackoff(ctx, "establishing session", func() (interface{}, error) {
+		v, err := retry.WithExponentialBackoff(ctx, "establishing session", func() (*grpcInnerSession, error) {
 			sess, err := cli.Session(ctxutil.Detach(ctx))
 			if err != nil {
 				return nil, errors.Wrap(err, "Session()")
@@ -826,8 +802,7 @@ func (r *grpcRepositoryClient) getOrEstablishInnerSession(ctx context.Context) (
 			return nil, errors.Wrap(err, "error establishing session")
 		}
 
-		// nolint:forcetypeassert
-		r.innerSession = v.(*grpcInnerSession)
+		r.innerSession = v
 	}
 
 	return r.innerSession, nil
@@ -860,7 +835,7 @@ func newGRPCAPIRepositoryForConnection(ctx context.Context, conn *grpc.ClientCon
 		asyncWritesSemaphore: make(chan struct{}, grpcAsyncWritesPerSession),
 	}
 
-	v, err := rr.inSessionWithoutRetry(ctx, func(ctx context.Context, sess *grpcInnerSession) (interface{}, error) {
+	return inSessionWithoutRetry(ctx, rr, func(ctx context.Context, sess *grpcInnerSession) (*grpcRepositoryClient, error) {
 		p := sess.repoParams
 		hf, err := hashing.CreateHashFunc(p)
 		if err != nil {
@@ -884,9 +859,4 @@ func newGRPCAPIRepositoryForConnection(ctx context.Context, conn *grpc.ClientCon
 
 		return rr, nil
 	})
-	if err != nil {
-		return nil, err
-	}
-
-	return v.(*grpcRepositoryClient), nil // nolint:forcetypeassert
 }
