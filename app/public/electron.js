@@ -142,6 +142,7 @@ ipcMain.on('launch-at-startup-updated', updateTrayContextMenu);
 let updateAvailableInfo = null;
 let updateDownloadStatusInfo = "";
 let updateFailed = false;
+let checkForUpdatesTriggeredFromUI = false;
 
 // set this environment variable when developing
 // to allow offering downgrade to the latest released version.
@@ -161,6 +162,15 @@ autoUpdater.on('update-available', a => {
   updateTrayContextMenu();
 
   // do not notify more than once for a particular version.
+  if (checkForUpdatesTriggeredFromUI) {
+    dialog.showMessageBox({buttons:["Yes", "No"], message: "An updated KopiaUI v" + a.version + " is available.\n\nDo you want to install it now?"}).then(r => {
+      if (r.response == 0) {
+        installUpdate();
+      }
+    });
+    checkForUpdatesTriggeredFromUI = false;
+  }
+
   if (lastNotifiedVersion != a.version) {
     lastNotifiedVersion = a.version;
 
@@ -179,6 +189,10 @@ autoUpdater.on('update-not-available', () => {
   updateDownloadStatusInfo = "";
   updateFailed = false;
   updateTrayContextMenu();
+  if (checkForUpdatesTriggeredFromUI) {
+    dialog.showMessageBox({buttons:["OK"], message: "No updates available."});
+    checkForUpdatesTriggeredFromUI = false;
+  }
 })
 
 autoUpdater.on('download-progress', progress => {
@@ -211,15 +225,23 @@ autoUpdater.on('error', a => {
   updateDownloadStatusInfo = "Error checking for updates.";
   log.info('error checking for updates', a);
   updateTrayContextMenu();
+  if (checkForUpdatesTriggeredFromUI) {
+    dialog.showErrorBox("Error checking for updates.", "There was an error checking for updates, try again later.");
+    checkForUpdatesTriggeredFromUI = false;
+  }
 });
 
 function checkForUpdates() {
-  updateReadyToInstall = false;
   updateDownloadStatusInfo = "Checking for update...";
   updateAvailableInfo = null;
   updateTrayContextMenu();
 
   autoUpdater.checkForUpdates();
+}
+
+function checkForUpdatesNow() {
+  checkForUpdatesTriggeredFromUI = true;
+  checkForUpdates();
 }
 
 function installUpdate() {
@@ -399,7 +421,7 @@ function updateTrayContextMenu() {
     { type: 'separator' },
     { label: 'Connect To Another Repository...', click: addAnotherRepository },
     { type: 'separator' },
-    { label: 'Check For Updates Now', click: checkForUpdates },
+    { label: 'Check For Updates Now', click: checkForUpdatesNow },
   ]).concat(autoUpdateMenuItems).concat([
     { type: 'separator' },
     { label: 'Launch At Startup', type: 'checkbox', click: toggleLaunchAtStartup, checked: willLaunchAtStartup() },
