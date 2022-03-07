@@ -110,13 +110,20 @@ func testServer(t *testing.T, disableGRPC bool) {
 
 	apiServerInfo.DisableGRPC = disableGRPC
 
-	rep, err := repo.OpenAPIServer(ctx, apiServerInfo, repo.ClientOptions{
+	ctx2, cancel := context.WithCancel(ctx)
+
+	rep, err := repo.OpenAPIServer(ctx2, apiServerInfo, repo.ClientOptions{
 		Username: testUsername,
 		Hostname: testHostname,
 	}, &content.CachingOptions{
 		CacheDirectory:    testutil.TempDirectory(t),
 		MaxCacheSizeBytes: maxCacheSizeBytes,
 	}, testPassword)
+
+	// cancel immediately to ensure we did not spawn goroutines that depend on ctx inside
+	// repo.OpenAPIServer()
+	cancel()
+
 	if err != nil {
 		t.Fatal(err)
 	}

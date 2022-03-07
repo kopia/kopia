@@ -161,7 +161,7 @@ func (e *Environment) MustReopen(tb testing.TB, openOpts ...func(*repo.Options))
 
 	// ensure context passed to Open() is not used for cancelation signal.
 	ctx2, cancel := context.WithCancel(ctx)
-	cancel()
+	defer cancel()
 
 	rep, err := repo.Open(ctx2, e.ConfigFile(), e.Password, repoOptions(openOpts))
 	if err != nil {

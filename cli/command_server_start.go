@@ -21,6 +21,7 @@ import (
 	htpasswd "github.com/tg123/go-htpasswd"
 
 	"github.com/kopia/kopia/internal/auth"
+	"github.com/kopia/kopia/internal/ctxutil"
 	"github.com/kopia/kopia/internal/server"
 	"github.com/kopia/kopia/repo"
 )
@@ -222,12 +223,12 @@ func (c *commandServerStart) run(ctx context.Context) error {
 	if c.serverStartShutdownWhenStdinClosed {
 		log(ctx).Infof("Server will close when stdin is closed...")
 
-		go func() {
+		ctxutil.GoDetached(ctx, func(ctx context.Context) {
 			// consume all stdin and close the server when it closes
 			io.ReadAll(os.Stdin) //nolint:errcheck
 			log(ctx).Infof("Shutting down server...")
 			httpServer.Shutdown(ctx) //nolint:errcheck
-		}()
+		})
 	}
 
 	onExternalConfigReloadRequest(func() {

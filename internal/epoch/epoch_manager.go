@@ -505,36 +505,32 @@ func (e *Manager) maybeGenerateNextRangeCheckpointAsync(ctx context.Context, cs 
 
 	e.log.Debugf("generating range checkpoint")
 
-	// we're starting background work, ignore parent cancelation signal.
-	ctx = ctxutil.Detach(ctx)
-
 	e.backgroundWork.Add(1)
 
-	go func() {
+	// we're starting background work, ignore parent cancelation signal.
+	ctxutil.GoDetached(ctx, func(ctx context.Context) {
 		defer e.backgroundWork.Done()
 
 		if err := e.generateRangeCheckpointFromCommittedState(ctx, cs, firstNonRangeCompacted, latestSettled); err != nil {
 			e.log.Errorf("unable to generate full checkpoint: %v, performance will be affected", err)
 		}
-	}()
+	})
 }
 
 func (e *Manager) maybeOptimizeRangeCheckpointsAsync(ctx context.Context, cs CurrentSnapshot) {
 }
 
 func (e *Manager) maybeStartCleanupAsync(ctx context.Context, cs CurrentSnapshot) {
-	// we're starting background work, ignore parent cancelation signal.
-	ctx = ctxutil.Detach(ctx)
-
 	e.backgroundWork.Add(1)
 
-	go func() {
+	// we're starting background work, ignore parent cancelation signal.
+	ctxutil.GoDetached(ctx, func(ctx context.Context) {
 		defer e.backgroundWork.Done()
 
 		if err := e.cleanupInternal(ctx, cs); err != nil {
 			e.log.Errorf("error cleaning up index blobs: %v, performance may be affected", err)
 		}
-	}()
+	})
 }
 
 func (e *Manager) loadUncompactedEpochs(ctx context.Context, min, max int) (map[int][]blob.Metadata, error) {
@@ -877,12 +873,10 @@ func (e *Manager) getIndexesFromEpochInternal(ctx context.Context, cs CurrentSna
 	}
 
 	if epochSettled {
-		// we're starting background work, ignore parent cancelation signal.
-		ctx = ctxutil.Detach(ctx)
-
 		e.backgroundWork.Add(1)
 
-		go func() {
+		// we're starting background work, ignore parent cancelation signal.
+		ctxutil.GoDetached(ctx, func(ctx context.Context) {
 			defer e.backgroundWork.Done()
 
 			e.log.Debugf("starting single-epoch compaction of %v", epoch)
@@ -890,7 +884,7 @@ func (e *Manager) getIndexesFromEpochInternal(ctx context.Context, cs CurrentSna
 			if err := e.compact(ctx, blob.IDsFromMetadata(uncompactedBlobs), compactedEpochBlobPrefix(epoch)); err != nil {
 				e.log.Errorf("unable to compact blobs for epoch %v: %v, performance will be affected", epoch, err)
 			}
-		}()
+		})
 	}
 
 	// return uncompacted blobs to the caller while we're compacting them in background

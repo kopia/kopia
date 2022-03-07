@@ -123,7 +123,8 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 	waitUntilServerStarted(ctx, t, controlClient)
 
 	// open repository client.
-	rep, err := repo.OpenAPIServer(ctx, &repo.APIServerInfo{
+	ctx2, cancel := context.WithCancel(ctx)
+	rep, err := repo.OpenAPIServer(ctx2, &repo.APIServerInfo{
 		BaseURL:                             sp.BaseURL,
 		TrustedServerCertificateFingerprint: sp.SHA256Fingerprint,
 		DisableGRPC:                         !useGRPC,
@@ -131,6 +132,11 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 		Username: "foo",
 		Hostname: "bar",
 	}, nil, "baz")
+
+	// cancel immediately to ensure we did not spawn goroutines that depend on ctx inside
+	// repo.OpenAPIServer()
+	cancel()
+
 	if err != nil {
 		t.Fatal(err)
 	}

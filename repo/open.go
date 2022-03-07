@@ -15,7 +15,6 @@ import (
 	"github.com/kopia/kopia/internal/atomicfile"
 	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/clock"
-	"github.com/kopia/kopia/internal/ctxutil"
 	"github.com/kopia/kopia/internal/epoch"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/retry"
@@ -89,10 +88,6 @@ func Open(ctx context.Context, configFile, password string, options *Options) (r
 			log(ctx).Errorf("failed to open repository: %v", err)
 		}
 	}()
-
-	// ignore cancellation/timeout from the provided context, since we may be spawning
-	// goroutines that should survive when the provided context is done.
-	ctx = ctxutil.Detach(ctx)
 
 	if options == nil {
 		options = &Options{}
