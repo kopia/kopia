@@ -703,7 +703,6 @@ func (bm *WriteManager) WriteContent(ctx context.Context, data gather.Bytes, pre
 	// content already tracked
 	if err == nil {
 		if !bi.GetDeleted() {
-			bm.log.Debugf("write-content %v already-exists", contentID)
 			return contentID, nil
 		}
 
