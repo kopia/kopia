@@ -283,6 +283,15 @@ function showAllRepoWindows() {
   allConfigs().forEach(showRepoWindow);
 }
 
+function safeTrayHandler(ev, h) {
+  tray.on(ev, () => {
+    try {
+      h();
+    } catch (e) {
+    }
+  })
+}
+
 app.on('ready', () => {
   loadConfigs();
 
@@ -306,10 +315,9 @@ app.on('ready', () => {
 
   tray.setToolTip('Kopia');
 
-  if (tray.popUpContextMenu) {
-    tray.on("click", () => {tray.popUpContextMenu()});
-    tray.on("right-click", () => {tray.popUpContextMenu()});
-  }
+  safeTrayHandler("click", () => tray.popUpContextMenu());
+  safeTrayHandler("right-click", () => tray.popUpContextMenu());
+  safeTrayHandler("double-click", () => showAllRepoWindows());
 
   updateTrayContextMenu();
   refreshWillLaunchAtStartup();
