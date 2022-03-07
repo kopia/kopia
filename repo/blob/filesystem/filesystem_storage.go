@@ -350,10 +350,5 @@ func New(ctx context.Context, opts *Options, isCreate bool) (blob.Storage, error
 }
 
 func init() {
-	blob.AddSupportedStorage(
-		fsStorageType,
-		func() interface{} { return &Options{} },
-		func(ctx context.Context, o interface{}, isCreate bool) (blob.Storage, error) {
-			return New(ctx, o.(*Options), isCreate) //nolint:forcetypeassert
-		})
+	blob.AddSupportedStorage(fsStorageType, Options{}, New)
 }

@@ -26,7 +26,7 @@ func TestCleanupOldData(t *testing.T) {
 	testutil.ProviderTest(t)
 	ctx := testlogging.Context(t)
 
-	st, err := gdrive.New(ctx, mustGetOptionsOrSkip(t))
+	st, err := gdrive.New(ctx, mustGetOptionsOrSkip(t), false)
 	require.NoError(t, err)
 
 	defer st.Close(ctx)
@@ -44,7 +44,7 @@ func TestGDriveStorage(t *testing.T) {
 	newctx, cancel := context.WithCancel(ctx)
 	opt := mustGetOptionsOrSkip(t)
 	testOpt := createTestFolderOrSkip(newctx, t, opt, uuid.NewString())
-	st, err := gdrive.New(newctx, testOpt)
+	st, err := gdrive.New(newctx, testOpt, false)
 
 	cancel()
 	require.NoError(t, err)
@@ -72,7 +72,7 @@ func TestGdriveStorageInvalid(t *testing.T) {
 	if _, err := gdrive.New(ctx, &gdrive.Options{
 		FolderID:                      folderID + "-no-such-folder",
 		ServiceAccountCredentialsFile: os.Getenv("KOPIA_GDRIVE_CREDENTIALS_FILE"),
-	}); err == nil {
+	}, false); err == nil {
 		t.Fatalf("unexpected success connecting to Drive, wanted error")
 	}
 }

@@ -26,5 +26,5 @@ func (c *storageAzureFlags) Setup(_ StorageProviderServices, cmd *kingpin.CmdCla
 
 func (c *storageAzureFlags) Connect(ctx context.Context, isCreate bool, formatVersion int) (blob.Storage, error) {
 	// nolint:wrapcheck
-	return azure.New(ctx, &c.azOptions)
+	return azure.New(ctx, &c.azOptions, false)
 }

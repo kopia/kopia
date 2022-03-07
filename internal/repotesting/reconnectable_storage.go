@@ -56,25 +56,20 @@ func (s reconnectableStorage) ConnectionInfo() blob.ConnectionInfo {
 	}
 }
 
+// New creates new reconnectable storage.
+func New(ctx context.Context, opt *ReconnectableStorageOptions, isCreate bool) (blob.Storage, error) {
+	if opt.UUID == "" {
+		return nil, errors.Errorf("missing UUID")
+	}
+
+	v, ok := reconnectableStorageByUUID.Load(opt.UUID)
+	if !ok {
+		return nil, errors.Errorf("reconnectable storage not found: %v", opt.UUID)
+	}
+
+	return v.(blob.Storage), nil
+}
+
 func init() {
-	blob.AddSupportedStorage(
-		ReconnectableStorageType,
-		func() interface{} { return &ReconnectableStorageOptions{} },
-		func(ctx context.Context, o interface{}, isCreate bool) (blob.Storage, error) {
-			opt, ok := o.(*ReconnectableStorageOptions)
-			if !ok {
-				return nil, errors.Errorf("invalid options %T", o)
-			}
-
-			if opt.UUID == "" {
-				return nil, errors.Errorf("missing UUID")
-			}
-
-			v, ok := reconnectableStorageByUUID.Load(opt.UUID)
-			if !ok {
-				return nil, errors.Errorf("reconnectable storage not found: %v", opt.UUID)
-			}
-
-			return v.(blob.Storage), nil
-		})
+	blob.AddSupportedStorage(ReconnectableStorageType, ReconnectableStorageOptions{}, New)
 }

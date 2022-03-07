@@ -543,10 +543,5 @@ func sftpClientFromConnection(conn connection.Connection) *sftp.Client {
 }
 
 func init() {
-	blob.AddSupportedStorage(
-		sftpStorageType,
-		func() interface{} { return &Options{} },
-		func(ctx context.Context, o interface{}, isCreate bool) (blob.Storage, error) {
-			return New(ctx, o.(*Options), isCreate) //nolint:forcetypeassert
-		})
+	blob.AddSupportedStorage(sftpStorageType, Options{}, New)
 }

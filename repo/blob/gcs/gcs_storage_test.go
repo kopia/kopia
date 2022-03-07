@@ -25,7 +25,7 @@ func TestCleanupOldData(t *testing.T) {
 	testutil.ProviderTest(t)
 	ctx := testlogging.Context(t)
 
-	st, err := gcs.New(ctx, mustGetOptionsOrSkip(t, ""))
+	st, err := gcs.New(ctx, mustGetOptionsOrSkip(t, ""), false)
 	require.NoError(t, err)
 
 	defer st.Close(ctx)
@@ -41,7 +41,7 @@ func TestGCSStorage(t *testing.T) {
 
 	// use context that gets canceled after opening storage to ensure it's not used beyond New().
 	newctx, cancel := context.WithCancel(ctx)
-	st, err := gcs.New(newctx, mustGetOptionsOrSkip(t, uuid.NewString()))
+	st, err := gcs.New(newctx, mustGetOptionsOrSkip(t, uuid.NewString()), false)
 
 	cancel()
 	require.NoError(t, err)
@@ -69,7 +69,7 @@ func TestGCSStorageInvalid(t *testing.T) {
 	if _, err := gcs.New(ctx, &gcs.Options{
 		BucketName:                    bucket + "-no-such-bucket",
 		ServiceAccountCredentialsFile: os.Getenv("KOPIA_GCS_CREDENTIALS_FILE"),
-	}); err == nil {
+	}, false); err == nil {
 		t.Fatalf("unexpected success connecting to GCS, wanted error")
 	}
 }

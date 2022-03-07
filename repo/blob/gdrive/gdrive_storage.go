@@ -514,7 +514,7 @@ func CreateDriveClient(ctx context.Context, opt *Options) (*drive.FilesService, 
 //
 // By default the connection reuses credentials managed by (https://cloud.google.com/sdk/),
 // but this can be disabled by setting IgnoreDefaultCredentials to true.
-func New(ctx context.Context, opt *Options) (blob.Storage, error) {
+func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error) {
 	if opt.FolderID == "" {
 		return nil, errors.New("folder-id must be specified")
 	}
@@ -546,12 +546,5 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 }
 
 func init() {
-	blob.AddSupportedStorage(
-		gdriveStorageType,
-		func() interface{} {
-			return &Options{}
-		},
-		func(ctx context.Context, o interface{}, isCreate bool) (blob.Storage, error) {
-			return New(ctx, o.(*Options)) //nolint:forcetypeassert
-		})
+	blob.AddSupportedStorage(gdriveStorageType, Options{}, New)
 }

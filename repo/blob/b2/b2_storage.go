@@ -255,7 +255,7 @@ func (s *b2Storage) String() string {
 }
 
 // New creates new B2-backed storage with specified options.
-func New(ctx context.Context, opt *Options) (blob.Storage, error) {
+func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error) {
 	if opt.BucketName == "" {
 		return nil, errors.New("bucket name must be specified")
 	}
@@ -282,12 +282,5 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 }
 
 func init() {
-	blob.AddSupportedStorage(
-		b2storageType,
-		func() interface{} {
-			return &Options{}
-		},
-		func(ctx context.Context, o interface{}, isCreate bool) (blob.Storage, error) {
-			return New(ctx, o.(*Options)) // nolint:forcetypeassert
-		})
+	blob.AddSupportedStorage(b2storageType, Options{}, New)
 }
