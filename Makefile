@@ -210,6 +210,7 @@ dev-deps:
 	GO111MODULE=off go get -u github.com/newhook/go-symbols
 	GO111MODULE=off go get -u github.com/sqs/goreturns
 
+test-with-coverage: export KOPIA_COVERAGE_TEST=1
 test-with-coverage: $(gotestsum)
 	$(GO_TEST) $(UNIT_TEST_RACE_FLAGS) -tags testing -count=$(REPEAT_TEST) -short -covermode=atomic -coverprofile=coverage.txt --coverpkg $(COVERAGE_PACKAGES) -timeout 300s ./...
 

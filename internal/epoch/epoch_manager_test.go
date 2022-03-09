@@ -20,6 +20,7 @@ import (
 	"github.com/kopia/kopia/internal/fault"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/testlogging"
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/logging"
 )
@@ -135,6 +136,7 @@ func TestIndexEpochManager_Regular(t *testing.T) {
 
 func TestIndexEpochManager_Parallel(t *testing.T) {
 	t.Parallel()
+	testutil.SkipNonDeterministicTestUnderCodeCoverage(t)
 
 	if testing.Short() {
 		return
