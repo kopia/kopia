@@ -43,7 +43,7 @@ func (s *formatSpecificTestSuite) TestSnapshotMigrate(t *testing.T) {
 
 	e.RunAndExpectSuccess(t, "snapshot", "create", compressibleDir)
 
-	dirSize1 := mustGetTotalDirSize(t, e.RepoDir)
+	dirSize1 := testutil.MustGetTotalDirSize(t, e.RepoDir)
 
 	sourceSnapshotCount := len(e.RunAndExpectSuccess(t, "snapshot", "list", ".", "-a"))
 	sourcePolicyCount := len(e.RunAndExpectSuccess(t, "policy", "list"))
@@ -62,7 +62,7 @@ func (s *formatSpecificTestSuite) TestSnapshotMigrate(t *testing.T) {
 	dstenv.RunAndVerifyOutputLineCount(t, sourcePolicyCount, "policy", "list")
 
 	// make sure compression was applied during migration
-	dirSize2 := mustGetTotalDirSize(t, dstenv.RepoDir)
+	dirSize2 := testutil.MustGetTotalDirSize(t, dstenv.RepoDir)
 
 	require.Less(t, dirSize2, dirSize1*110/100)
 }
@@ -103,29 +103,6 @@ func (s *formatSpecificTestSuite) TestSnapshotMigrateWithIgnores(t *testing.T) {
 	// make sure file2.txt was not migrated.
 	require.Contains(t, lines, "file1.txt")
 	require.NotContains(t, lines, "file2.txt")
-}
-
-func mustGetTotalDirSize(t *testing.T, dirpath string) int64 {
-	t.Helper()
-
-	ent, err := os.ReadDir(dirpath)
-	require.NoError(t, err)
-
-	var total int64
-
-	for _, e := range ent {
-		fi, err := e.Info()
-
-		require.NoError(t, err)
-
-		if !fi.IsDir() {
-			total += fi.Size()
-		} else {
-			total += mustGetTotalDirSize(t, filepath.Join(dirpath, e.Name()))
-		}
-	}
-
-	return total
 }
 
 func writeCompressibleFile(fname string) error {

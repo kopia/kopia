@@ -238,7 +238,7 @@ func (bm *WriteManager) maybeRetryWritingFailedPacksUnlocked(ctx context.Context
 	return nil
 }
 
-func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, data gather.Bytes, isDeleted bool, comp compression.HeaderID) error {
+func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, data gather.Bytes, isDeleted bool, comp compression.HeaderID, isRewrite bool) error {
 	// see if the current index is old enough to cause automatic flush.
 	if err := bm.maybeFlushBasedOnTimeUnlocked(ctx); err != nil {
 		return errors.Wrap(err, "unable to flush old pending writes")
@@ -256,6 +256,14 @@ func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, dat
 	}
 
 	bm.lock()
+
+	if !isRewrite {
+		if _, _, err = bm.getContentInfoReadLocked(ctx, contentID); err == nil {
+			// we lost the race while compressing the content, the content now exists.
+			bm.unlock()
+			return nil
+		}
+	}
 
 	atomic.AddInt64(&bm.revision, 1)
 
@@ -588,7 +596,7 @@ func (bm *WriteManager) RewriteContent(ctx context.Context, contentID ID) error 
 		return errors.Wrap(err, "unable to get content data and info")
 	}
 
-	return bm.addToPackUnlocked(ctx, contentID, data.Bytes(), bi.GetDeleted(), bi.GetCompressionHeaderID())
+	return bm.addToPackUnlocked(ctx, contentID, data.Bytes(), bi.GetDeleted(), bi.GetCompressionHeaderID(), true)
 }
 
 func (bm *WriteManager) getContentDataAndInfo(ctx context.Context, contentID ID, output *gather.WriteBuffer) (Info, error) {
@@ -626,7 +634,7 @@ func (bm *WriteManager) UndeleteContent(ctx context.Context, contentID ID) error
 		return nil
 	}
 
-	return bm.addToPackUnlocked(ctx, contentID, data.Bytes(), false, bi.GetCompressionHeaderID())
+	return bm.addToPackUnlocked(ctx, contentID, data.Bytes(), false, bi.GetCompressionHeaderID(), true)
 }
 
 func packPrefixForContentID(contentID ID) blob.ID {
@@ -711,7 +719,7 @@ func (bm *WriteManager) WriteContent(ctx context.Context, data gather.Bytes, pre
 		bm.log.Debugf("write-content %v new", contentID)
 	}
 
-	return contentID, bm.addToPackUnlocked(ctx, contentID, data, false, comp)
+	return contentID, bm.addToPackUnlocked(ctx, contentID, data, false, comp, false)
 }
 
 // GetContent gets the contents of a given content. If the content is not found returns ErrContentNotFound.

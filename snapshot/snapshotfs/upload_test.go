@@ -2,6 +2,7 @@ package snapshotfs
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/fs/virtualfs"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/faketime"
@@ -731,6 +733,59 @@ func (l *mockLogger) Debugw(msg string, keysAndValues ...interface{}) {
 	}
 
 	l.logged = append(l.logged, loggedAction{msg, m})
+}
+
+func TestParallelUploadDedup(t *testing.T) {
+	ctx := testlogging.Context(t)
+	th := newUploadTestHarness(ctx, t)
+
+	defer th.cleanup()
+
+	t.Logf("Uploading static directory with streaming file")
+
+	u := NewUploader(th.repo)
+	u.ParallelUploads = 10
+
+	pol := *policy.DefaultPolicy
+	pol.CompressionPolicy.CompressorName = "pgzip"
+
+	policyTree := policy.BuildTree(nil, &pol)
+
+	testutil.TestSkipOnCIUnlessLinuxAMD64(t)
+	td := testutil.TempDirectory(t)
+
+	// 10 identical non-compressible files, 50MB each
+	var files []*os.File
+
+	for i := 0; i < 10; i++ {
+		f, cerr := os.Create(filepath.Join(td, fmt.Sprintf("file-%v", i)))
+		require.NoError(t, cerr)
+
+		files = append(files, f)
+	}
+
+	for j := 0; j < 1000; j++ {
+		buf := make([]byte, 50000)
+		rand.Read(buf)
+
+		for _, f := range files {
+			_, werr := f.Write(buf)
+			require.NoError(t, werr)
+		}
+	}
+
+	for _, f := range files {
+		f.Close()
+	}
+
+	srcdir, err := localfs.Directory(td)
+	require.NoError(t, err)
+
+	_, err = u.Upload(ctx, srcdir, policyTree, snapshot.SourceInfo{})
+	require.NoError(t, err)
+
+	// we wrote 500 MB, which can be deduped to 50MB, repo size must be less than 51MB
+	require.Less(t, testutil.MustGetTotalDirSize(t, th.repoDir), int64(51000000))
 }
 
 type loggedAction struct {

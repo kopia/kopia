@@ -5,10 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 // ProviderTest marks the test method so that it only runs in provider-tests suite.
@@ -114,4 +117,28 @@ func RunAllTestsWithParam(t *testing.T, v interface{}) {
 			})
 		}
 	}
+}
+
+// MustGetTotalDirSize computes the total size of a directory.
+func MustGetTotalDirSize(t *testing.T, dirpath string) int64 {
+	t.Helper()
+
+	ent, err := os.ReadDir(dirpath)
+	require.NoError(t, err)
+
+	var total int64
+
+	for _, e := range ent {
+		fi, err := e.Info()
+
+		require.NoError(t, err)
+
+		if !fi.IsDir() {
+			total += fi.Size()
+		} else {
+			total += MustGetTotalDirSize(t, filepath.Join(dirpath, e.Name()))
+		}
+	}
+
+	return total
 }
