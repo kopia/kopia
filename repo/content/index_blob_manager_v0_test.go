@@ -160,6 +160,7 @@ func pickRandomActionTestIndexBlobManagerStress() action {
 // nolint:gocyclo
 func TestIndexBlobManagerStress(t *testing.T) {
 	t.Parallel()
+	testutil.SkipNonDeterministicTestUnderCodeCoverage(t)
 
 	if testing.Short() {
 		return

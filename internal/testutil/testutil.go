@@ -23,6 +23,15 @@ func ProviderTest(t *testing.T) {
 	}
 }
 
+// SkipNonDeterministicTestUnderCodeCoverage skips the non-deterministic test for a code coverage run.
+func SkipNonDeterministicTestUnderCodeCoverage(t *testing.T) {
+	t.Helper()
+
+	if os.Getenv("KOPIA_COVERAGE_TEST") != "" {
+		t.Skip("Skipping non-deterministic test in code coverage run")
+	}
+}
+
 // TestSkipUnlessCI skips the current test with a provided message, except when running
 // in CI environment, in which case it causes hard failure.
 func TestSkipUnlessCI(tb testing.TB, msg string, args ...interface{}) {
