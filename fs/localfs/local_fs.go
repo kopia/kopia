@@ -355,11 +355,18 @@ func Directory(path string) (fs.Directory, error) {
 		return nil, err
 	}
 
-	if d, ok := e.(fs.Directory); ok {
-		return d, nil
-	}
+	switch e := e.(type) {
+	case *filesystemDirectory:
+		return e, nil
 
-	return nil, errors.Errorf("not a directory: %v", path)
+	case *filesystemSymlink:
+		// it's a symbolic link, possibly to a directory, it may work or we may get a ReadDir() error.
+		// this is apparently how VSS mounted snapshots appear on Windows and attempts to os.Readlink() fail on them.
+		return &filesystemDirectory{e.filesystemEntry}, nil
+
+	default:
+		return nil, errors.Errorf("not a directory: %v (was %T)", path, e)
+	}
 }
 
 func entryFromDirEntry(fi os.FileInfo, prefix string) fs.Entry {
