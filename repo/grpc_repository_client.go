@@ -373,35 +373,43 @@ func (r *grpcInnerSession) DeleteManifest(ctx context.Context, id manifest.ID) e
 }
 
 func (r *grpcRepositoryClient) PrefetchObjects(ctx context.Context, objectIDs []object.ID) ([]content.ID, error) {
+	// nolint:wrapcheck
+	return object.PrefetchBackingContents(ctx, r, objectIDs)
+}
+
+func (r *grpcRepositoryClient) PrefetchContents(ctx context.Context, contentIDs []content.ID) []content.ID {
 	ids, err := r.inSessionWithoutRetry(ctx, func(ctx context.Context, sess *grpcInnerSession) (interface{}, error) {
-		return sess.PrefetchObjects(ctx, objectIDs)
+		return sess.PrefetchContents(ctx, contentIDs), nil
 	})
 	if err != nil {
-		return nil, err
+		return nil
 	}
 
 	// nolint:forcetypeassert
-	return ids.([]content.ID), nil
+	return ids.([]content.ID)
 }
 
-func (r *grpcInnerSession) PrefetchObjects(ctx context.Context, objectIDs []object.ID) ([]content.ID, error) {
+func (r *grpcInnerSession) PrefetchContents(ctx context.Context, contentIDs []content.ID) []content.ID {
 	for resp := range r.sendRequest(ctx, &apipb.SessionRequest{
-		Request: &apipb.SessionRequest_PrefetchObjects{
-			PrefetchObjects: &apipb.PrefetchObjectsRequest{
-				ObjectIds: object.IDsToStrings(objectIDs),
+		Request: &apipb.SessionRequest_PrefetchContents{
+			PrefetchContents: &apipb.PrefetchContentsRequest{
+				ContentIds: content.IDsToStrings(contentIDs),
 			},
 		},
 	}) {
 		switch rr := resp.Response.(type) {
-		case *apipb.SessionResponse_PrefetchObjects:
-			return content.IDsFromStrings(rr.PrefetchObjects.ContentIds), nil
+		case *apipb.SessionResponse_PrefetchContents:
+			return content.IDsFromStrings(rr.PrefetchContents.ContentIds)
 
 		default:
-			return nil, unhandledSessionResponse(resp)
+			log(ctx).Warnf("unexpected response to PrefetchContents: %v", resp)
+			return nil
 		}
 	}
 
-	return nil, errNoSessionResponse()
+	log(ctx).Warnf("missing response to PrefetchContents")
+
+	return nil
 }
 
 func (r *grpcRepositoryClient) Time() time.Time {

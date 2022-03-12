@@ -28,6 +28,7 @@ type Reader interface {
 type contentReader interface {
 	ContentInfo(ctx context.Context, contentID content.ID) (content.Info, error)
 	GetContent(ctx context.Context, contentID content.ID) ([]byte, error)
+	PrefetchContents(ctx context.Context, contentIDs []content.ID) []content.ID
 }
 
 type contentManager interface {
@@ -187,7 +188,7 @@ func noop(contentID content.ID) error { return nil }
 // PrefetchBackingContents attempts to brings contents backing the provided object IDs into the cache.
 // This may succeed only partially due to cache size limits and other.
 // Returns the list of content IDs prefetched.
-func PrefetchBackingContents(ctx context.Context, contentMgr *content.WriteManager, objectIDs []ID) ([]content.ID, error) {
+func PrefetchBackingContents(ctx context.Context, contentMgr contentManager, objectIDs []ID) ([]content.ID, error) {
 	tracker := &contentIDTracker{}
 
 	for _, oid := range objectIDs {

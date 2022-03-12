@@ -31,12 +31,12 @@ type ManifestWithMetadata struct {
 	Metadata *manifest.EntryMetadata `json:"metadata"`
 }
 
-// PrefetchObjectsRequest represents a request to prefetch objects.
-type PrefetchObjectsRequest struct {
-	ObjectIDs []object.ID `json:"objects"`
+// PrefetchContentsRequest represents a request to prefetch contents.
+type PrefetchContentsRequest struct {
+	ContentIDs []content.ID `json:"contents"`
 }
 
-// PrefetchObjectsResponse represents a request from request prefetch objects.
-type PrefetchObjectsResponse struct {
+// PrefetchContentsResponse represents a request from request to prefetch contents.
+type PrefetchContentsResponse struct {
 	ContentIDs []content.ID `json:"contents"`
 }

@@ -1,8 +1,6 @@
 package server
 
 import (
-	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"time"
@@ -10,8 +8,6 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/kopia/kopia/internal/clock"
-	"github.com/kopia/kopia/internal/remoterepoapi"
-	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
@@ -55,25 +51,4 @@ func (s *Server) handleObjectGet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.ServeContent(w, r, fname, mtime, obj)
-}
-
-func (s *Server) handleObjectsPrefetch(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
-	var req remoterepoapi.PrefetchObjectsRequest
-
-	if err := json.Unmarshal(body, &req); err != nil {
-		return nil, requestError(serverapi.ErrorMalformedRequest, "malformed request")
-	}
-
-	contentIDs, err := s.rep.PrefetchObjects(ctx, req.ObjectIDs)
-	if err != nil {
-		if errors.Is(err, object.ErrObjectNotFound) {
-			return nil, notFoundError("object not found")
-		}
-
-		return nil, internalServerError(err)
-	}
-
-	return &remoterepoapi.PrefetchObjectsResponse{
-		ContentIDs: contentIDs,
-	}, nil
 }

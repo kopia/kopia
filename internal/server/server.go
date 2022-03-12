@@ -143,12 +143,12 @@ func (s *Server) SetupRepositoryAPIHandlers(m *mux.Router) {
 	m.HandleFunc("/api/v1/contents/{contentID}", s.handleRepositoryAPI(requireContentAccess(auth.AccessLevelRead), s.handleContentInfo)).Methods(http.MethodGet).Queries("info", "1")
 	m.HandleFunc("/api/v1/contents/{contentID}", s.handleRepositoryAPI(requireContentAccess(auth.AccessLevelRead), s.handleContentGet)).Methods(http.MethodGet)
 	m.HandleFunc("/api/v1/contents/{contentID}", s.handleRepositoryAPI(requireContentAccess(auth.AccessLevelAppend), s.handleContentPut)).Methods(http.MethodPut)
+	m.HandleFunc("/api/v1/contents/prefetch", s.handleRepositoryAPI(requireContentAccess(auth.AccessLevelRead), s.handleContentPrefetch)).Methods(http.MethodPost)
 
 	m.HandleFunc("/api/v1/manifests/{manifestID}", s.handleRepositoryAPI(handlerWillCheckAuthorization, s.handleManifestGet)).Methods(http.MethodGet)
 	m.HandleFunc("/api/v1/manifests/{manifestID}", s.handleRepositoryAPI(handlerWillCheckAuthorization, s.handleManifestDelete)).Methods(http.MethodDelete)
 	m.HandleFunc("/api/v1/manifests", s.handleRepositoryAPI(handlerWillCheckAuthorization, s.handleManifestCreate)).Methods(http.MethodPost)
 	m.HandleFunc("/api/v1/manifests", s.handleRepositoryAPI(handlerWillCheckAuthorization, s.handleManifestList)).Methods(http.MethodGet)
-	m.HandleFunc("/api/v1/objects/prefetch", s.handleRepositoryAPI(requireContentAccess(auth.AccessLevelRead), s.handleObjectsPrefetch)).Methods(http.MethodPost)
 }
 
 // SetupControlAPIHandlers registers control API handlers.

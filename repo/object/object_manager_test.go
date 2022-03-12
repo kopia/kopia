@@ -39,6 +39,10 @@ type fakeContentManager struct {
 	writeContentError          error
 }
 
+func (f *fakeContentManager) PrefetchContents(ctx context.Context, contentIDs []content.ID) []content.ID {
+	return contentIDs
+}
+
 func (f *fakeContentManager) GetContent(ctx context.Context, contentID content.ID) ([]byte, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
