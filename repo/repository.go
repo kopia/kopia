@@ -23,6 +23,7 @@ type Repository interface {
 	GetManifest(ctx context.Context, id manifest.ID, data interface{}) (*manifest.EntryMetadata, error)
 	FindManifests(ctx context.Context, labels map[string]string) ([]*manifest.EntryMetadata, error)
 	ContentInfo(ctx context.Context, contentID content.ID) (content.Info, error)
+	PrefetchContents(ctx context.Context, contentIDs []content.ID) []content.ID
 	PrefetchObjects(ctx context.Context, objectIDs []object.ID) ([]content.ID, error)
 	Time() time.Time
 	ClientOptions() ClientOptions
@@ -188,6 +189,11 @@ func (r *directRepository) FindManifests(ctx context.Context, labels map[string]
 func (r *directRepository) DeleteManifest(ctx context.Context, id manifest.ID) error {
 	// nolint:wrapcheck
 	return r.mmgr.Delete(ctx, id)
+}
+
+// PrefetchContents brings the requested objects into the cache.
+func (r *directRepository) PrefetchContents(ctx context.Context, contentIDs []content.ID) []content.ID {
+	return r.cmgr.PrefetchContents(ctx, contentIDs)
 }
 
 // PrefetchObjects brings the requested objects into the cache.

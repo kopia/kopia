@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -10,6 +11,7 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/kopia/kopia/internal/gather"
+	"github.com/kopia/kopia/internal/remoterepoapi"
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/compression"
@@ -89,4 +91,16 @@ func (s *Server) handleContentPut(ctx context.Context, r *http.Request, data []b
 	}
 
 	return &serverapi.Empty{}, nil
+}
+
+func (s *Server) handleContentPrefetch(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
+	var req remoterepoapi.PrefetchContentsRequest
+
+	if err := json.Unmarshal(body, &req); err != nil {
+		return nil, requestError(serverapi.ErrorMalformedRequest, "malformed request")
+	}
+
+	return &remoterepoapi.PrefetchContentsResponse{
+		ContentIDs: s.rep.PrefetchContents(ctx, req.ContentIDs),
+	}, nil
 }
