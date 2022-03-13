@@ -361,7 +361,7 @@ func handlePrefetchContentsRequest(ctx context.Context, rep repo.Repository, aut
 		return accessDeniedResponse()
 	}
 
-	cids := rep.PrefetchContents(ctx, content.IDsFromStrings(req.ContentIds))
+	cids := rep.PrefetchContents(ctx, content.IDsFromStrings(req.ContentIds), req.Hint)
 
 	return &grpcapi.SessionResponse{
 		Response: &grpcapi.SessionResponse_PrefetchContents{

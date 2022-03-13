@@ -101,6 +101,6 @@ func (s *Server) handleContentPrefetch(ctx context.Context, r *http.Request, bod
 	}
 
 	return &remoterepoapi.PrefetchContentsResponse{
-		ContentIDs: s.rep.PrefetchContents(ctx, req.ContentIDs),
+		ContentIDs: s.rep.PrefetchContents(ctx, req.ContentIDs, req.Hint),
 	}, nil
 }

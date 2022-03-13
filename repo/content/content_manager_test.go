@@ -2087,55 +2087,90 @@ func (s *contentManagerSuite) TestPrefetchContent(t *testing.T) {
 	ccd := bm.contentCache.(*contentCacheForData)
 	ccm := bm.metadataCache.(*contentCacheForMetadata)
 
+	hints := []string{
+		"", "default", "contents", "blobs", "none",
+	}
+
 	cases := []struct {
-		name                  string
-		input                 []ID
-		wantResult            []ID
-		wantDataCacheKeys     []cacheKey
-		wantMetadataCacheKeys []cacheKey
+		name              string
+		input             []ID
+		wantResult        []ID
+		wantDataCacheKeys map[string][]cacheKey
 	}{
 		{
-			name:              "MultipleBlobs",
-			input:             []ID{id1, id2, id3, id4, id5, id6, "no-such-content"},
-			wantResult:        []ID{id1, id2, id3, id4, id5, id6},
-			wantDataCacheKeys: []cacheKey{blobIDCacheKey(blob1), blobIDCacheKey(blob2)},
+			name:       "MultipleBlobs",
+			input:      []ID{id1, id2, id3, id4, id5, id6, "no-such-content"},
+			wantResult: []ID{id1, id2, id3, id4, id5, id6},
+			wantDataCacheKeys: map[string][]cacheKey{
+				"":         {blobIDCacheKey(blob1), blobIDCacheKey(blob2)},
+				"default":  {blobIDCacheKey(blob1), blobIDCacheKey(blob2)},
+				"contents": {cacheKey(id1), cacheKey(id2), cacheKey(id3), cacheKey(id4), cacheKey(id5), cacheKey(id6)},
+				"blobs":    {blobIDCacheKey(blob1), blobIDCacheKey(blob2)},
+				"none":     {},
+			},
 		},
 		{
-			name:              "SingleContent",
-			input:             []ID{id1},
-			wantResult:        []ID{id1},
-			wantDataCacheKeys: []cacheKey{cacheKey(id1)},
+			name:       "SingleContent",
+			input:      []ID{id1},
+			wantResult: []ID{id1},
+			wantDataCacheKeys: map[string][]cacheKey{
+				"":         {cacheKey(id1)},
+				"default":  {cacheKey(id1)},
+				"contents": {cacheKey(id1)},
+				"blobs":    {blobIDCacheKey(blob1)},
+				"none":     {},
+			},
 		},
 		{
-			name:              "TwoContentsFromSeparateBlobs",
-			input:             []ID{id1, id4},
-			wantResult:        []ID{id1, id4},
-			wantDataCacheKeys: []cacheKey{cacheKey(id1), cacheKey(id4)},
+			name:       "TwoContentsFromSeparateBlobs",
+			input:      []ID{id1, id4},
+			wantResult: []ID{id1, id4},
+			wantDataCacheKeys: map[string][]cacheKey{
+				"":         {cacheKey(id1), cacheKey(id4)},
+				"default":  {cacheKey(id1), cacheKey(id4)},
+				"contents": {cacheKey(id1), cacheKey(id4)},
+				"blobs":    {blobIDCacheKey(blob1), blobIDCacheKey(blob2)},
+				"none":     {},
+			},
 		},
 		{
-			name:              "MixedContentsAndBlobs",
-			input:             []ID{id1, id4, id5},
-			wantResult:        []ID{id1, id4, id5},
-			wantDataCacheKeys: []cacheKey{cacheKey(id1), blobIDCacheKey(blob2)},
+			name:       "MixedContentsAndBlobs",
+			input:      []ID{id1, id4, id5},
+			wantResult: []ID{id1, id4, id5},
+			wantDataCacheKeys: map[string][]cacheKey{
+				"":         {cacheKey(id1), blobIDCacheKey(blob2)},
+				"default":  {cacheKey(id1), blobIDCacheKey(blob2)},
+				"contents": {cacheKey(id1), cacheKey(id4), cacheKey(id5)},
+				"blobs":    {blobIDCacheKey(blob1), blobIDCacheKey(blob2)},
+				"none":     {},
+			},
 		},
 	}
 
-	for _, tc := range cases {
-		tc := tc
-		t.Run(tc.name, func(t *testing.T) {
-			wipeCache(t, ccd.pc.CacheStorage())
-			wipeCache(t, ccm.pc.CacheStorage())
-			require.Empty(t, allCacheKeys(t, ccd.pc.CacheStorage()))
-			require.Empty(t, allCacheKeys(t, ccm.pc.CacheStorage()))
+	for _, hint := range hints {
+		hint := hint
 
-			require.Equal(t, tc.wantResult,
-				bm.PrefetchContents(ctx, tc.input))
+		t.Run("hint:"+hint, func(t *testing.T) {
+			for _, tc := range cases {
+				tc := tc
 
-			require.ElementsMatch(t, tc.wantDataCacheKeys, allCacheKeys(t, ccd.pc.CacheStorage()))
+				t.Run(tc.name, func(t *testing.T) {
+					wipeCache(t, ccd.pc.CacheStorage())
+					wipeCache(t, ccm.pc.CacheStorage())
 
-			for _, cid := range tc.wantResult {
-				_, err := bm.GetContent(ctx, cid)
-				require.NoError(t, err)
+					require.Empty(t, allCacheKeys(t, ccd.pc.CacheStorage()))
+					require.Empty(t, allCacheKeys(t, ccm.pc.CacheStorage()))
+
+					require.Equal(t, tc.wantResult,
+						bm.PrefetchContents(ctx, tc.input, hint))
+
+					require.ElementsMatch(t, tc.wantDataCacheKeys[hint], allCacheKeys(t, ccd.pc.CacheStorage()))
+
+					for _, cid := range tc.wantResult {
+						_, err := bm.GetContent(ctx, cid)
+						require.NoError(t, err)
+					}
+				})
 			}
 		})
 	}

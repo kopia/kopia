@@ -12,10 +12,12 @@ import (
 
 type commandCachePrefetch struct {
 	objectIDs []string
+	hint      string
 }
 
 func (c *commandCachePrefetch) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("prefetch", "Prefetches the provided objects into cache")
+	cmd.Flag("hint", "Prefetch hint").StringVar(&c.hint)
 	cmd.Action(svc.directRepositoryWriteAction(c.run))
 
 	cmd.Arg("object", "Object ID to prefetch").Required().StringsVar(&c.objectIDs)
@@ -33,7 +35,7 @@ func (c *commandCachePrefetch) run(ctx context.Context, rep repo.DirectRepositor
 		oids = append(oids, oid)
 	}
 
-	cids, err := rep.PrefetchObjects(ctx, oids)
+	cids, err := rep.PrefetchObjects(ctx, oids, c.hint)
 
 	log(ctx).Infof("prefetched %v contents", len(cids))
 

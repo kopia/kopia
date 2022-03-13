@@ -23,8 +23,8 @@ type Repository interface {
 	GetManifest(ctx context.Context, id manifest.ID, data interface{}) (*manifest.EntryMetadata, error)
 	FindManifests(ctx context.Context, labels map[string]string) ([]*manifest.EntryMetadata, error)
 	ContentInfo(ctx context.Context, contentID content.ID) (content.Info, error)
-	PrefetchContents(ctx context.Context, contentIDs []content.ID) []content.ID
-	PrefetchObjects(ctx context.Context, objectIDs []object.ID) ([]content.ID, error)
+	PrefetchContents(ctx context.Context, contentIDs []content.ID, hint string) []content.ID
+	PrefetchObjects(ctx context.Context, objectIDs []object.ID, hint string) ([]content.ID, error)
 	Time() time.Time
 	ClientOptions() ClientOptions
 	NewWriter(ctx context.Context, opt WriteSessionOptions) (context.Context, RepositoryWriter, error)
@@ -192,14 +192,14 @@ func (r *directRepository) DeleteManifest(ctx context.Context, id manifest.ID) e
 }
 
 // PrefetchContents brings the requested objects into the cache.
-func (r *directRepository) PrefetchContents(ctx context.Context, contentIDs []content.ID) []content.ID {
-	return r.cmgr.PrefetchContents(ctx, contentIDs)
+func (r *directRepository) PrefetchContents(ctx context.Context, contentIDs []content.ID, hint string) []content.ID {
+	return r.cmgr.PrefetchContents(ctx, contentIDs, hint)
 }
 
 // PrefetchObjects brings the requested objects into the cache.
-func (r *directRepository) PrefetchObjects(ctx context.Context, objectIDs []object.ID) ([]content.ID, error) {
+func (r *directRepository) PrefetchObjects(ctx context.Context, objectIDs []object.ID, hint string) ([]content.ID, error) {
 	// nolint:wrapcheck
-	return object.PrefetchBackingContents(ctx, r.cmgr, objectIDs)
+	return object.PrefetchBackingContents(ctx, r.cmgr, objectIDs, hint)
 }
 
 // ListActiveSessions returns the map of active sessions.
