@@ -242,16 +242,17 @@ func (r *apiServerRepository) Close(ctx context.Context) error {
 	return nil
 }
 
-func (r *apiServerRepository) PrefetchObjects(ctx context.Context, objectIDs []object.ID) ([]content.ID, error) {
+func (r *apiServerRepository) PrefetchObjects(ctx context.Context, objectIDs []object.ID, hint string) ([]content.ID, error) {
 	// nolint:wrapcheck
-	return object.PrefetchBackingContents(ctx, r, objectIDs)
+	return object.PrefetchBackingContents(ctx, r, objectIDs, hint)
 }
 
-func (r *apiServerRepository) PrefetchContents(ctx context.Context, contentIDs []content.ID) []content.ID {
+func (r *apiServerRepository) PrefetchContents(ctx context.Context, contentIDs []content.ID, hint string) []content.ID {
 	resp := &remoterepoapi.PrefetchContentsResponse{}
 
 	if err := r.cli.Post(ctx, "contents/prefetch", remoterepoapi.PrefetchContentsRequest{
 		ContentIDs: contentIDs,
+		Hint:       hint,
 	}, resp); err != nil {
 		log(ctx).Warnf("unable to prefetch contents: %v", err)
 		return nil

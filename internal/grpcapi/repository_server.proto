@@ -126,6 +126,7 @@ message FindManifestsResponse {
 
 message PrefetchContentsRequest {
   repeated string content_ids = 1;
+  string hint = 2;
 }
 
 message PrefetchContentsResponse {

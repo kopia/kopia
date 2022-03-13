@@ -391,7 +391,7 @@ func mustGetObjectNotFound(ctx context.Context, t *testing.T, r repo.Repository,
 func mustPrefetchObjects(ctx context.Context, t *testing.T, r repo.Repository, oid ...object.ID) {
 	t.Helper()
 
-	contents, err := r.PrefetchObjects(ctx, oid)
+	contents, err := r.PrefetchObjects(ctx, oid, "")
 	require.NoError(t, err)
 	require.NotEmpty(t, contents)
 }
@@ -399,7 +399,7 @@ func mustPrefetchObjects(ctx context.Context, t *testing.T, r repo.Repository, o
 func mustPrefetchObjectsNotFound(ctx context.Context, t *testing.T, r repo.Repository, oid ...object.ID) {
 	t.Helper()
 
-	contents, err := r.PrefetchObjects(ctx, oid)
+	contents, err := r.PrefetchObjects(ctx, oid, "")
 	require.NoError(t, err)
 	require.Empty(t, contents)
 }

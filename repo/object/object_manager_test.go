@@ -39,7 +39,7 @@ type fakeContentManager struct {
 	writeContentError          error
 }
 
-func (f *fakeContentManager) PrefetchContents(ctx context.Context, contentIDs []content.ID) []content.ID {
+func (f *fakeContentManager) PrefetchContents(ctx context.Context, contentIDs []content.ID, hint string) []content.ID {
 	return contentIDs
 }
 

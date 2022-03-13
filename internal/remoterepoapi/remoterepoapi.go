@@ -34,6 +34,7 @@ type ManifestWithMetadata struct {
 // PrefetchContentsRequest represents a request to prefetch contents.
 type PrefetchContentsRequest struct {
 	ContentIDs []content.ID `json:"contents"`
+	Hint       string       `json:"hint"`
 }
 
 // PrefetchContentsResponse represents a request from request to prefetch contents.
