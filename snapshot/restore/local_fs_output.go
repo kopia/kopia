@@ -15,7 +15,7 @@ import (
 	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/internal/atomicfile"
 	"github.com/kopia/kopia/internal/iocopy"
-	"github.com/kopia/kopia/internal/stat"
+	"github.com/kopia/kopia/internal/sparsefile"
 	"github.com/kopia/kopia/snapshot"
 )
 
@@ -58,7 +58,7 @@ type FilesystemOutput struct {
 	// SkipTimes when set to true causes restore to skip restoring modification times.
 	SkipTimes bool `json:"skipTimes"`
 
-	// Sparse when set to true causes restore to allocate the minimum amount of disk space to write the file.
+	// Sparse when set to true causes restore files sparsely-not writing any holes (zero regions) to disk.
 	Sparse bool `json:"sparse"`
 }
 
@@ -307,7 +307,7 @@ func (o *FilesystemOutput) createDirectory(ctx context.Context, path string) err
 	}
 }
 
-func write(targetPath string, r fs.Reader, sparse bool) error {
+func write(targetPath string, r fs.Reader) error {
 	f, err := os.OpenFile(targetPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600) //nolint:gosec,gomnd
 	if err != nil {
 		return err //nolint:wrapcheck
@@ -319,12 +319,7 @@ func write(targetPath string, r fs.Reader, sparse bool) error {
 
 	name := f.Name()
 
-	if sparse {
-		err = iocopy.JustCopy(&sparseWriter{f: f}, r)
-	} else {
-		err = iocopy.JustCopy(f, r)
-	}
-
+	err = iocopy.JustCopy(f, r)
 	if err != nil {
 		return errors.Wrap(err, "cannot write data to file %q "+name)
 	}
@@ -334,81 +329,6 @@ func write(targetPath string, r fs.Reader, sparse bool) error {
 	}
 
 	return nil
-}
-
-type sparseWriter struct {
-	f *os.File
-}
-
-// nolint:wrapcheck
-func (sw *sparseWriter) Write(b []byte) (int, error) {
-	w := 0
-
-	bSize, err := stat.GetFileAllocSize(sw.f.Name())
-	if err != nil {
-		return w, err // nolint:wrapcheck
-	}
-
-	for i, j := 0, bSize; i < len(b); i, j = int(j), j+bSize {
-		if j > uint64(len(b)) {
-			j = uint64(len(b))
-		}
-
-		isZeros := true
-		block := b[i:j]
-
-		for _, cb := range block {
-			if cb != 0 {
-				isZeros = false
-				break
-			}
-		}
-
-		if isZeros { // nolint:nestif
-			head, err := sw.f.Seek(0, 1)
-			if err != nil {
-				return w, err
-			}
-
-			fi, err := sw.f.Stat()
-			if err != nil {
-				return w, err
-			}
-
-			// If at the end of file, extend it
-			if head == fi.Size() {
-				head += int64(len(block))
-
-				err = sw.f.Truncate(head)
-				if err != nil {
-					return w, err
-				}
-
-				// Move write head forward without writing zeros
-				_, err = sw.f.Seek(int64(len(block)), 1)
-				if err != nil {
-					return w, err
-				}
-
-				w += len(block)
-
-				continue
-			}
-		}
-
-		n, err := sw.f.Write(block)
-		if err != nil {
-			return w, err
-		}
-
-		w += n
-	}
-
-	if w != len(b) {
-		return w, errors.Errorf("Written fewer bytes %d than given %d", w, len(b))
-	}
-
-	return w, nil
 }
 
 func (o *FilesystemOutput) copyFileContent(ctx context.Context, targetPath string, f fs.File) error {
@@ -431,13 +351,23 @@ func (o *FilesystemOutput) copyFileContent(ctx context.Context, targetPath strin
 	defer r.Close() //nolint:errcheck
 
 	log(ctx).Debugf("copying file contents to: %v", targetPath)
+	targetPath = atomicfile.MaybePrefixLongFilenameOnWindows(targetPath)
 
 	if o.WriteFilesAtomically {
 		// nolint:wrapcheck
 		return atomicfile.Write(targetPath, r)
 	}
 
-	return write(atomicfile.MaybePrefixLongFilenameOnWindows(targetPath), r, o.Sparse)
+	if o.Sparse {
+		if isWindows() {
+			log(ctx).Infof("sparse files are not supported on Windows, restoring normally")
+		} else {
+			// nolint:wrapcheck
+			return sparsefile.Write(targetPath, r, f.Size())
+		}
+	}
+
+	return write(targetPath, r)
 }
 
 func isEmptyDirectory(name string) (bool, error) {
