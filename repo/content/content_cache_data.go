@@ -16,29 +16,29 @@ type contentCacheForData struct {
 	st blob.Storage
 }
 
-func contentIDCacheKey(cacheKey cacheKey) string {
+func contentIDCacheKey(contentID ID) string {
 	// content IDs with odd length have a single-byte prefix.
 	// move the prefix to the end of cache key to make sure the top level shard is spread 256 ways.
-	if len(cacheKey)%2 == 1 {
-		return string(cacheKey[1:] + cacheKey[0:1])
+	if len(contentID)%2 == 1 {
+		return string(contentID[1:] + contentID[0:1])
 	}
 
-	return string(cacheKey)
+	return string(contentID)
 }
 
-func blobIDCacheKey(id blob.ID) cacheKey {
-	return cacheKey(id[1:] + id[0:1])
+func blobIDCacheKey(id blob.ID) string {
+	return string(id[1:] + id[0:1])
 }
 
-func (c *contentCacheForData) getContent(ctx context.Context, cacheKey cacheKey, blobID blob.ID, offset, length int64, output *gather.WriteBuffer) error {
-	if c.pc.GetPartial(ctx, string(blobIDCacheKey(blobID)), offset, length, output) {
+func (c *contentCacheForData) getContent(ctx context.Context, contentID ID, blobID blob.ID, offset, length int64, output *gather.WriteBuffer) error {
+	if c.pc.GetPartial(ctx, blobIDCacheKey(blobID), offset, length, output) {
 		return nil
 	}
 
 	output.Reset()
 
 	// nolint:wrapcheck
-	return c.pc.GetOrLoad(ctx, contentIDCacheKey(cacheKey), func(output *gather.WriteBuffer) error {
+	return c.pc.GetOrLoad(ctx, contentIDCacheKey(contentID), func(output *gather.WriteBuffer) error {
 		// nolint:wrapcheck
 		return c.st.GetBlob(ctx, blobID, offset, length, output)
 	}, output)
@@ -52,7 +52,7 @@ func (c contentCacheForData) prefetchBlob(ctx context.Context, blobID blob.ID) e
 	var blobData gather.WriteBuffer
 	defer blobData.Close()
 
-	if c.pc.GetPartial(ctx, string(blobIDCacheKey(blobID)), 0, 1, &blobData) {
+	if c.pc.GetPartial(ctx, blobIDCacheKey(blobID), 0, 1, &blobData) {
 		return nil
 	}
 
@@ -66,7 +66,7 @@ func (c contentCacheForData) prefetchBlob(ctx context.Context, blobID blob.ID) e
 	stats.Record(ctx, cache.MetricMissBytes.M(int64(blobData.Length())))
 
 	// store the whole blob in the cache.
-	c.pc.Put(ctx, string(blobIDCacheKey(blobID)), blobData.Bytes())
+	c.pc.Put(ctx, blobIDCacheKey(blobID), blobData.Bytes())
 
 	return nil
 }

@@ -399,6 +399,19 @@ func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *Ca
 		return errors.Wrap(err, "unable to initialize metadata cache")
 	}
 
+	indexBlobStorage, err := cache.NewStorageOrNil(ctx, caching.CacheDirectory, metadataCacheSize, "index-blobs")
+	if err != nil {
+		return errors.Wrap(err, "unable to initialize index blob cache storage")
+	}
+
+	indexBlobCache, err := cache.NewPersistentCache(ctx, "index blob cache", indexBlobStorage, cache.ChecksumProtection(caching.HMACSecret), cache.SweepSettings{
+		MaxSizeBytes: metadataCacheSize,
+		MinSweepAge:  caching.MinMetadataSweepAge.DurationOrDefault(DefaultMetadataCacheSweepAge),
+	})
+	if err != nil {
+		return errors.Wrap(err, "unable to create index blob cache")
+	}
+
 	ownWritesCachingSt, err := newOwnWritesCache(ctx, sm.st, caching)
 	if err != nil {
 		return errors.Wrap(err, "unable to initialize own writes cache")
@@ -412,7 +425,7 @@ func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *Ca
 	sm.enc = &encryptedBlobMgr{
 		st:             cachedSt,
 		crypter:        sm.crypter,
-		indexBlobCache: metadataCache,
+		indexBlobCache: indexBlobCache,
 		log:            sm.namedLogger("encrypted-blob-manager"),
 	}
 

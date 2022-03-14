@@ -94,7 +94,7 @@ func TestCacheExpiration(t *testing.T) {
 	require.NoError(t, underlyingStorage.DeleteBlob(ctx, "content-4k"))
 
 	cases := []struct {
-		blobID        blob.ID
+		contentID     ID
 		expectedError error
 	}{
 		{"00000a", blob.ErrBlobNotFound},
@@ -104,11 +104,11 @@ func TestCacheExpiration(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		got := cc.getContent(ctx, cacheKey(tc.blobID), "content-4k", 0, -1, &tmp)
+		got := cc.getContent(ctx, tc.contentID, "content-4k", 0, -1, &tmp)
 		if want := tc.expectedError; !errors.Is(got, want) {
-			t.Errorf("unexpected error when getting content %v: %v wanted %v", tc.blobID, got, want)
+			t.Errorf("unexpected error when getting content %v: %v wanted %v", tc.contentID, got, want)
 		} else {
-			t.Logf("got correct error %v when reading content %v", tc.expectedError, tc.blobID)
+			t.Logf("got correct error %v when reading content %v", tc.expectedError, tc.contentID)
 		}
 	}
 }
@@ -144,10 +144,10 @@ func verifyContentCache(t *testing.T, cc contentCache, cacheStorage blob.Storage
 
 	t.Run("GetContentContent", func(t *testing.T) {
 		cases := []struct {
-			cacheKey cacheKey
-			blobID   blob.ID
-			offset   int64
-			length   int64
+			contentID ID
+			blobID    blob.ID
+			offset    int64
+			length    int64
 
 			expected []byte
 			err      error
@@ -167,14 +167,14 @@ func verifyContentCache(t *testing.T, cc contentCache, cacheStorage blob.Storage
 		defer v.Close()
 
 		for _, tc := range cases {
-			err := cc.getContent(ctx, tc.cacheKey, tc.blobID, tc.offset, tc.length, &v)
+			err := cc.getContent(ctx, tc.contentID, tc.blobID, tc.offset, tc.length, &v)
 			if (err != nil) != (tc.err != nil) {
-				t.Errorf("unexpected error for %v: %+v, wanted %+v", tc.cacheKey, err, tc.err)
+				t.Errorf("unexpected error for %v: %+v, wanted %+v", tc.contentID, err, tc.err)
 			} else if err != nil && err.Error() != tc.err.Error() {
-				t.Errorf("unexpected error for %v: %q, wanted %q", tc.cacheKey, err.Error(), tc.err.Error())
+				t.Errorf("unexpected error for %v: %q, wanted %q", tc.contentID, err.Error(), tc.err.Error())
 			}
 			if got := v.ToByteSlice(); !bytes.Equal(got, tc.expected) {
-				t.Errorf("unexpected data for %v: %x, wanted %x", tc.cacheKey, got, tc.expected)
+				t.Errorf("unexpected data for %v: %x, wanted %x", tc.contentID, got, tc.expected)
 			}
 		}
 

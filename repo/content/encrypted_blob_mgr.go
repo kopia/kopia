@@ -5,6 +5,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/logging"
@@ -13,7 +14,7 @@ import (
 type encryptedBlobMgr struct {
 	st             blob.Storage
 	crypter        *Crypter
-	indexBlobCache contentCache
+	indexBlobCache *cache.PersistentCache
 	log            logging.Logger
 }
 
@@ -21,7 +22,10 @@ func (m *encryptedBlobMgr) getEncryptedBlob(ctx context.Context, blobID blob.ID,
 	var payload gather.WriteBuffer
 	defer payload.Close()
 
-	if err := m.indexBlobCache.getContent(ctx, cacheKey(blobID), blobID, 0, -1, &payload); err != nil {
+	if err := m.indexBlobCache.GetOrLoad(ctx, string(blobID), func(output *gather.WriteBuffer) error {
+		// nolint:wrapcheck
+		return m.st.GetBlob(ctx, blobID, 0, -1, output)
+	}, &payload); err != nil {
 		return errors.Wrap(err, "getContent")
 	}
 
