@@ -280,6 +280,10 @@ func (s SweepSettings) applyDefaults() SweepSettings {
 
 // NewPersistentCache creates the persistent cache in the provided storage.
 func NewPersistentCache(ctx context.Context, description string, cacheStorage Storage, storageProtection StorageProtection, sweep SweepSettings) (*PersistentCache, error) {
+	if cacheStorage == nil {
+		return nil, nil
+	}
+
 	sweep = sweep.applyDefaults()
 
 	if storageProtection == nil {

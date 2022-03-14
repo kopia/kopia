@@ -66,7 +66,7 @@ func (c *contentCacheForMetadata) mutexForBlob(blobID blob.ID) *sync.Mutex {
 	return &c.shardedMutexes[mutexID]
 }
 
-func (c *contentCacheForMetadata) getContent(ctx context.Context, cacheKey cacheKey, blobID blob.ID, offset, length int64, output *gather.WriteBuffer) error {
+func (c *contentCacheForMetadata) getContent(ctx context.Context, contentID ID, blobID blob.ID, offset, length int64, output *gather.WriteBuffer) error {
 	// try getting from cache first
 	if c.pc.GetPartial(ctx, string(blobID), offset, length, output) {
 		return nil

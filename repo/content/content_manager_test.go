@@ -2095,16 +2095,16 @@ func (s *contentManagerSuite) TestPrefetchContent(t *testing.T) {
 		name              string
 		input             []ID
 		wantResult        []ID
-		wantDataCacheKeys map[string][]cacheKey
+		wantDataCacheKeys map[string][]string
 	}{
 		{
 			name:       "MultipleBlobs",
 			input:      []ID{id1, id2, id3, id4, id5, id6, "no-such-content"},
 			wantResult: []ID{id1, id2, id3, id4, id5, id6},
-			wantDataCacheKeys: map[string][]cacheKey{
+			wantDataCacheKeys: map[string][]string{
 				"":         {blobIDCacheKey(blob1), blobIDCacheKey(blob2)},
 				"default":  {blobIDCacheKey(blob1), blobIDCacheKey(blob2)},
-				"contents": {cacheKey(id1), cacheKey(id2), cacheKey(id3), cacheKey(id4), cacheKey(id5), cacheKey(id6)},
+				"contents": {contentIDCacheKey(id1), contentIDCacheKey(id2), contentIDCacheKey(id3), contentIDCacheKey(id4), contentIDCacheKey(id5), contentIDCacheKey(id6)},
 				"blobs":    {blobIDCacheKey(blob1), blobIDCacheKey(blob2)},
 				"none":     {},
 			},
@@ -2113,10 +2113,10 @@ func (s *contentManagerSuite) TestPrefetchContent(t *testing.T) {
 			name:       "SingleContent",
 			input:      []ID{id1},
 			wantResult: []ID{id1},
-			wantDataCacheKeys: map[string][]cacheKey{
-				"":         {cacheKey(id1)},
-				"default":  {cacheKey(id1)},
-				"contents": {cacheKey(id1)},
+			wantDataCacheKeys: map[string][]string{
+				"":         {contentIDCacheKey(id1)},
+				"default":  {contentIDCacheKey(id1)},
+				"contents": {contentIDCacheKey(id1)},
 				"blobs":    {blobIDCacheKey(blob1)},
 				"none":     {},
 			},
@@ -2125,10 +2125,10 @@ func (s *contentManagerSuite) TestPrefetchContent(t *testing.T) {
 			name:       "TwoContentsFromSeparateBlobs",
 			input:      []ID{id1, id4},
 			wantResult: []ID{id1, id4},
-			wantDataCacheKeys: map[string][]cacheKey{
-				"":         {cacheKey(id1), cacheKey(id4)},
-				"default":  {cacheKey(id1), cacheKey(id4)},
-				"contents": {cacheKey(id1), cacheKey(id4)},
+			wantDataCacheKeys: map[string][]string{
+				"":         {contentIDCacheKey(id1), contentIDCacheKey(id4)},
+				"default":  {contentIDCacheKey(id1), contentIDCacheKey(id4)},
+				"contents": {contentIDCacheKey(id1), contentIDCacheKey(id4)},
 				"blobs":    {blobIDCacheKey(blob1), blobIDCacheKey(blob2)},
 				"none":     {},
 			},
@@ -2137,10 +2137,10 @@ func (s *contentManagerSuite) TestPrefetchContent(t *testing.T) {
 			name:       "MixedContentsAndBlobs",
 			input:      []ID{id1, id4, id5},
 			wantResult: []ID{id1, id4, id5},
-			wantDataCacheKeys: map[string][]cacheKey{
-				"":         {cacheKey(id1), blobIDCacheKey(blob2)},
-				"default":  {cacheKey(id1), blobIDCacheKey(blob2)},
-				"contents": {cacheKey(id1), cacheKey(id4), cacheKey(id5)},
+			wantDataCacheKeys: map[string][]string{
+				"":         {contentIDCacheKey(id1), blobIDCacheKey(blob2)},
+				"default":  {contentIDCacheKey(id1), blobIDCacheKey(blob2)},
+				"contents": {contentIDCacheKey(id1), contentIDCacheKey(id4), contentIDCacheKey(id5)},
 				"blobs":    {blobIDCacheKey(blob1), blobIDCacheKey(blob2)},
 				"none":     {},
 			},
@@ -2186,15 +2186,15 @@ func wipeCache(t *testing.T, st cache.Storage) {
 	}))
 }
 
-func allCacheKeys(t *testing.T, st cache.Storage) []cacheKey {
+func allCacheKeys(t *testing.T, st cache.Storage) []string {
 	t.Helper()
 
 	ctx := testlogging.Context(t)
 
-	var entries []cacheKey
+	var entries []string
 
 	require.NoError(t, st.ListBlobs(ctx, "", func(bm blob.Metadata) error {
-		entries = append(entries, cacheKey(bm.BlobID))
+		entries = append(entries, string(bm.BlobID))
 		return nil
 	}))
 

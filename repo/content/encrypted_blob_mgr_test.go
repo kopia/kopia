@@ -45,7 +45,7 @@ func TestEncryptedBlobManager(t *testing.T) {
 	ebm := encryptedBlobMgr{
 		st:             fs,
 		crypter:        cr,
-		indexBlobCache: passthroughContentCache{fs},
+		indexBlobCache: nil,
 		log:            logging.NullLogger(),
 	}
 
