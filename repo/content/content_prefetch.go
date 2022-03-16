@@ -114,11 +114,11 @@ func (bm *WriteManager) PrefetchContents(ctx context.Context, contentIDs []ID, h
 			for w := range workCh {
 				switch {
 				case strings.HasPrefix(string(w.blobID), string(PackBlobIDPrefixRegular)):
-					if err := bm.contentCache.prefetchBlob(ctx, w.blobID); err != nil {
+					if err := bm.contentCache.PrefetchBlob(ctx, w.blobID); err != nil {
 						bm.log.Debugw("error prefetching data blob", "blobID", w.blobID, "err", err)
 					}
 				case strings.HasPrefix(string(w.blobID), string(PackBlobIDPrefixSpecial)):
-					if err := bm.metadataCache.prefetchBlob(ctx, w.blobID); err != nil {
+					if err := bm.metadataCache.PrefetchBlob(ctx, w.blobID); err != nil {
 						bm.log.Debugw("error prefetching metadata blob", "blobID", w.blobID, "err", err)
 					}
 				case w.contentID != "":

@@ -81,8 +81,8 @@ type SharedManager struct {
 	indexBlobManagerV0 *indexBlobManagerV0
 	indexBlobManagerV1 *indexBlobManagerV1
 
-	contentCache      contentCache
-	metadataCache     contentCache
+	contentCache      cache.ContentCache
+	metadataCache     cache.ContentCache
 	committedContents *committedContentIndex
 	crypter           *Crypter
 	enc               *encryptedBlobMgr
@@ -232,7 +232,7 @@ func (sm *SharedManager) loadPackIndexesLocked(ctx context.Context) error {
 	return errors.Errorf("unable to load pack indexes despite %v retries", indexLoadAttempts)
 }
 
-func (sm *SharedManager) getCacheForContentID(id ID) contentCache {
+func (sm *SharedManager) getCacheForContentID(id ID) cache.ContentCache {
 	if id.HasPrefix() {
 		return sm.metadataCache
 	}
@@ -373,7 +373,7 @@ func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *Ca
 		return errors.Wrap(err, "unable to initialize data cache storage")
 	}
 
-	dataCache, err := newContentCacheForData(ctx, sm.st, dataCacheStorage, cache.SweepSettings{
+	dataCache, err := cache.NewContentCacheForData(ctx, sm.st, dataCacheStorage, cache.SweepSettings{
 		MaxSizeBytes: caching.MaxCacheSizeBytes,
 		MinSweepAge:  caching.MinContentSweepAge.DurationOrDefault(DefaultDataCacheSweepAge),
 	}, caching.HMACSecret)
@@ -391,7 +391,7 @@ func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *Ca
 		return errors.Wrap(err, "unable to initialize data cache storage")
 	}
 
-	metadataCache, err := newContentCacheForMetadata(ctx, sm.st, metadataCacheStorage, cache.SweepSettings{
+	metadataCache, err := cache.NewContentCacheForMetadata(ctx, sm.st, metadataCacheStorage, cache.SweepSettings{
 		MaxSizeBytes: metadataCacheSize,
 		MinSweepAge:  caching.MinMetadataSweepAge.DurationOrDefault(DefaultMetadataCacheSweepAge),
 	})
@@ -508,8 +508,8 @@ func (sm *SharedManager) release(ctx context.Context) error {
 		return errors.Wrap(err, "error closing committed content index")
 	}
 
-	sm.contentCache.close(ctx)
-	sm.metadataCache.close(ctx)
+	sm.contentCache.Close(ctx)
+	sm.metadataCache.Close(ctx)
 
 	if sm.internalLogger != nil {
 		sm.internalLogger.Sync() // nolint:errcheck

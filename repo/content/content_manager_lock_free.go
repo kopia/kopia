@@ -98,7 +98,7 @@ func (bm *WriteManager) getContentDataReadLocked(ctx context.Context, pp *pendin
 			// should never happen
 			return errors.Wrap(err, "error appending pending content data to buffer")
 		}
-	} else if err := bm.getCacheForContentID(bi.GetContentID()).getContent(ctx, bi.GetContentID(), bi.GetPackBlobID(), int64(bi.GetPackOffset()), int64(bi.GetPackedLength()), &payload); err != nil {
+	} else if err := bm.getCacheForContentID(bi.GetContentID()).GetContent(ctx, string(bi.GetContentID()), bi.GetPackBlobID(), int64(bi.GetPackOffset()), int64(bi.GetPackedLength()), &payload); err != nil {
 		return errors.Wrap(err, "error getting cached content")
 	}
 

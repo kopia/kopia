@@ -2050,6 +2050,10 @@ func (s *contentManagerSuite) TestCompression_NonCompressibleData(t *testing.T) 
 	verifyContent(ctx, t, bm2, cid, nonCompressibleData)
 }
 
+func contentIDCacheKey(id ID) string {
+	return cache.ContentIDCacheKey(string(id))
+}
+
 func (s *contentManagerSuite) TestPrefetchContent(t *testing.T) {
 	ctx := testlogging.Context(t)
 	data := blobtesting.DataMap{}
@@ -2084,8 +2088,8 @@ func (s *contentManagerSuite) TestPrefetchContent(t *testing.T) {
 	require.Equal(t, blob2, getContentInfo(t, bm, id5).GetPackBlobID())
 	require.Equal(t, blob2, getContentInfo(t, bm, id6).GetPackBlobID())
 
-	ccd := bm.contentCache.(*contentCacheForData)
-	ccm := bm.metadataCache.(*contentCacheForMetadata)
+	ccd := bm.contentCache
+	ccm := bm.metadataCache
 
 	hints := []string{
 		"", "default", "contents", "blobs", "none",
@@ -2102,10 +2106,10 @@ func (s *contentManagerSuite) TestPrefetchContent(t *testing.T) {
 			input:      []ID{id1, id2, id3, id4, id5, id6, "no-such-content"},
 			wantResult: []ID{id1, id2, id3, id4, id5, id6},
 			wantDataCacheKeys: map[string][]string{
-				"":         {blobIDCacheKey(blob1), blobIDCacheKey(blob2)},
-				"default":  {blobIDCacheKey(blob1), blobIDCacheKey(blob2)},
+				"":         {cache.BlobIDCacheKey(blob1), cache.BlobIDCacheKey(blob2)},
+				"default":  {cache.BlobIDCacheKey(blob1), cache.BlobIDCacheKey(blob2)},
 				"contents": {contentIDCacheKey(id1), contentIDCacheKey(id2), contentIDCacheKey(id3), contentIDCacheKey(id4), contentIDCacheKey(id5), contentIDCacheKey(id6)},
-				"blobs":    {blobIDCacheKey(blob1), blobIDCacheKey(blob2)},
+				"blobs":    {cache.BlobIDCacheKey(blob1), cache.BlobIDCacheKey(blob2)},
 				"none":     {},
 			},
 		},
@@ -2117,7 +2121,7 @@ func (s *contentManagerSuite) TestPrefetchContent(t *testing.T) {
 				"":         {contentIDCacheKey(id1)},
 				"default":  {contentIDCacheKey(id1)},
 				"contents": {contentIDCacheKey(id1)},
-				"blobs":    {blobIDCacheKey(blob1)},
+				"blobs":    {cache.BlobIDCacheKey(blob1)},
 				"none":     {},
 			},
 		},
@@ -2129,7 +2133,7 @@ func (s *contentManagerSuite) TestPrefetchContent(t *testing.T) {
 				"":         {contentIDCacheKey(id1), contentIDCacheKey(id4)},
 				"default":  {contentIDCacheKey(id1), contentIDCacheKey(id4)},
 				"contents": {contentIDCacheKey(id1), contentIDCacheKey(id4)},
-				"blobs":    {blobIDCacheKey(blob1), blobIDCacheKey(blob2)},
+				"blobs":    {cache.BlobIDCacheKey(blob1), cache.BlobIDCacheKey(blob2)},
 				"none":     {},
 			},
 		},
@@ -2138,10 +2142,10 @@ func (s *contentManagerSuite) TestPrefetchContent(t *testing.T) {
 			input:      []ID{id1, id4, id5},
 			wantResult: []ID{id1, id4, id5},
 			wantDataCacheKeys: map[string][]string{
-				"":         {contentIDCacheKey(id1), blobIDCacheKey(blob2)},
-				"default":  {contentIDCacheKey(id1), blobIDCacheKey(blob2)},
+				"":         {contentIDCacheKey(id1), cache.BlobIDCacheKey(blob2)},
+				"default":  {contentIDCacheKey(id1), cache.BlobIDCacheKey(blob2)},
 				"contents": {contentIDCacheKey(id1), contentIDCacheKey(id4), contentIDCacheKey(id5)},
-				"blobs":    {blobIDCacheKey(blob1), blobIDCacheKey(blob2)},
+				"blobs":    {cache.BlobIDCacheKey(blob1), cache.BlobIDCacheKey(blob2)},
 				"none":     {},
 			},
 		},
@@ -2155,16 +2159,16 @@ func (s *contentManagerSuite) TestPrefetchContent(t *testing.T) {
 				tc := tc
 
 				t.Run(tc.name, func(t *testing.T) {
-					wipeCache(t, ccd.pc.CacheStorage())
-					wipeCache(t, ccm.pc.CacheStorage())
+					wipeCache(t, ccd.CacheStorage())
+					wipeCache(t, ccm.CacheStorage())
 
-					require.Empty(t, allCacheKeys(t, ccd.pc.CacheStorage()))
-					require.Empty(t, allCacheKeys(t, ccm.pc.CacheStorage()))
+					require.Empty(t, allCacheKeys(t, ccd.CacheStorage()))
+					require.Empty(t, allCacheKeys(t, ccm.CacheStorage()))
 
 					require.Equal(t, tc.wantResult,
 						bm.PrefetchContents(ctx, tc.input, hint))
 
-					require.ElementsMatch(t, tc.wantDataCacheKeys[hint], allCacheKeys(t, ccd.pc.CacheStorage()))
+					require.ElementsMatch(t, tc.wantDataCacheKeys[hint], allCacheKeys(t, ccd.CacheStorage()))
 
 					for _, cid := range tc.wantResult {
 						_, err := bm.GetContent(ctx, cid)

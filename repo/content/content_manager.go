@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	"go.opencensus.io/stats"
 
+	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
@@ -811,15 +812,9 @@ func (bm *WriteManager) unlock() {
 	bm.mu.Unlock()
 }
 
-// SyncMetadataCache synchronizes metadata cache with metadata blobs in storage.
-func (bm *WriteManager) SyncMetadataCache(ctx context.Context) error {
-	if cm, ok := bm.metadataCache.(*contentCacheForMetadata); ok {
-		return cm.sync(ctx)
-	}
-
-	bm.log.Debugf("metadata cache not enabled")
-
-	return nil
+// MetadataCache returns an instance of metadata cache.
+func (bm *WriteManager) MetadataCache() cache.ContentCache {
+	return bm.metadataCache
 }
 
 // ManagerOptions are the optional parameters for manager creation.
