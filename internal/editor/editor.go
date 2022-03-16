@@ -75,7 +75,9 @@ func readAndStripComments(fname string) (string, error) {
 	s := bufio.NewScanner(f)
 	for s.Scan() {
 		l := s.Text()
-		l = strings.TrimSpace(strings.Split(l, "#")[0])
+		if strings.HasPrefix(strings.TrimSpace(l), "#") {
+			continue
+		}
 
 		if l != "" {
 			result = append(result, l)
