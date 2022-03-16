@@ -12,7 +12,6 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 )
 
-// nolint:gosec
 func (fs *fsStorage) GetCapacity(ctx context.Context) (blob.Capacity, error) {
 	var c blob.Capacity
 
