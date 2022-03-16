@@ -15,23 +15,21 @@ import (
 )
 
 type commandPolicyShow struct {
-	global  bool
-	targets []string
-	jo      jsonOutput
-	out     textOutput
+	policyTargetFlags
+	jo  jsonOutput
+	out textOutput
 }
 
 func (c *commandPolicyShow) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("show", "Show snapshot policy.").Alias("get")
-	cmd.Flag("global", "Get global policy").BoolVar(&c.global)
-	cmd.Arg("target", "Target to show the policy for").StringsVar(&c.targets)
+	c.policyTargetFlags.setup(cmd)
 	c.jo.setup(svc, cmd)
 	c.out.setup(svc)
 	cmd.Action(svc.repositoryReaderAction(c.run))
 }
 
 func (c *commandPolicyShow) run(ctx context.Context, rep repo.Repository) error {
-	targets, err := policyTargets(ctx, rep, c.global, c.targets)
+	targets, err := c.policyTargets(ctx, rep)
 	if err != nil {
 		return err
 	}

@@ -51,22 +51,20 @@ const policyEditSchedulingHelpText = `
 `
 
 type commandPolicyEdit struct {
-	targets []string
-	global  bool
+	policyTargetFlags
 
 	out textOutput
 }
 
 func (c *commandPolicyEdit) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("edit", "Set snapshot policy for a single directory, user@host or a global policy.")
-	cmd.Arg("target", "Target of a policy ('global','user@host','@host') or a path").StringsVar(&c.targets)
-	cmd.Flag("global", "Set global policy").BoolVar(&c.global)
+	c.policyTargetFlags.setup(cmd)
 	cmd.Action(svc.repositoryWriterAction(c.run))
 	c.out.setup(svc)
 }
 
 func (c *commandPolicyEdit) run(ctx context.Context, rep repo.RepositoryWriter) error {
-	targets, err := policyTargets(ctx, rep, c.global, c.targets)
+	targets, err := c.policyTargets(ctx, rep)
 	if err != nil {
 		return err
 	}

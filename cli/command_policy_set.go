@@ -13,8 +13,7 @@ import (
 )
 
 type commandPolicySet struct {
-	targets []string
-	global  bool
+	policyTargetFlags
 	inherit []bool // not really a list, just an optional boolean
 
 	policyActionFlags
@@ -28,8 +27,7 @@ type commandPolicySet struct {
 
 func (c *commandPolicySet) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("set", "Set snapshot policy for a single directory, user@host or a global policy.")
-	cmd.Arg("target", "Target of a policy ('global','user@host','@host') or a path").StringsVar(&c.targets)
-	cmd.Flag("global", "Set global policy").BoolVar(&c.global)
+	c.policyTargetFlags.setup(cmd)
 	cmd.Flag(inheritPolicyString, "Enable or disable inheriting policies from the parent").BoolListVar(&c.inherit)
 
 	c.policyActionFlags.setup(cmd)
@@ -52,7 +50,7 @@ const (
 )
 
 func (c *commandPolicySet) run(ctx context.Context, rep repo.RepositoryWriter) error {
-	targets, err := policyTargets(ctx, rep, c.global, c.targets)
+	targets, err := c.policyTargets(ctx, rep)
 	if err != nil {
 		return err
 	}
