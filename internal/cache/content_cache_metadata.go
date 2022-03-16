@@ -1,4 +1,4 @@
-package content
+package cache
 
 import (
 	"context"
@@ -8,53 +8,21 @@ import (
 
 	"github.com/pkg/errors"
 	"go.opencensus.io/stats"
-	"golang.org/x/sync/errgroup"
 
-	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/impossible"
 	"github.com/kopia/kopia/repo/blob"
 )
 
 const (
-	metadataCacheSyncParallelism = 16
-	metadataCacheMutexShards     = 256
+	metadataCacheMutexShards = 256
 )
 
 type contentCacheForMetadata struct {
-	pc *cache.PersistentCache
+	pc *PersistentCache
 
 	st             blob.Storage
 	shardedMutexes [metadataCacheMutexShards]sync.Mutex
-}
-
-// sync synchronizes metadata cache with all blobs found in the storage.
-func (c *contentCacheForMetadata) sync(ctx context.Context) error {
-	sem := make(chan struct{}, metadataCacheSyncParallelism)
-
-	var eg errgroup.Group
-
-	// list all blobs and fetch contents into cache in parallel.
-	if err := c.st.ListBlobs(ctx, PackBlobIDPrefixSpecial, func(bm blob.Metadata) error {
-		// acquire semaphore
-		sem <- struct{}{}
-		eg.Go(func() error {
-			defer func() {
-				<-sem
-			}()
-
-			var tmp gather.WriteBuffer
-			defer tmp.Close()
-
-			return c.getContent(ctx, "dummy", bm.BlobID, 0, 1, &tmp)
-		})
-
-		return nil
-	}); err != nil {
-		return errors.Wrap(err, "error listing blobs")
-	}
-
-	return errors.Wrap(eg.Wait(), "error synchronizing metadata cache")
 }
 
 func (c *contentCacheForMetadata) mutexForBlob(blobID blob.ID) *sync.Mutex {
@@ -66,7 +34,7 @@ func (c *contentCacheForMetadata) mutexForBlob(blobID blob.ID) *sync.Mutex {
 	return &c.shardedMutexes[mutexID]
 }
 
-func (c *contentCacheForMetadata) getContent(ctx context.Context, contentID ID, blobID blob.ID, offset, length int64, output *gather.WriteBuffer) error {
+func (c *contentCacheForMetadata) GetContent(ctx context.Context, contentID string, blobID blob.ID, offset, length int64, output *gather.WriteBuffer) error {
 	// try getting from cache first
 	if c.pc.GetPartial(ctx, string(blobID), offset, length, output) {
 		return nil
@@ -106,7 +74,7 @@ func (c *contentCacheForMetadata) getContent(ctx context.Context, contentID ID, 
 	return nil
 }
 
-func (c *contentCacheForMetadata) prefetchBlob(ctx context.Context, blobID blob.ID) error {
+func (c *contentCacheForMetadata) PrefetchBlob(ctx context.Context, blobID blob.ID) error {
 	var blobData gather.WriteBuffer
 	defer blobData.Close()
 
@@ -126,13 +94,13 @@ func (c *contentCacheForMetadata) prefetchBlob(ctx context.Context, blobID blob.
 func (c *contentCacheForMetadata) fetchBlobInternal(ctx context.Context, blobID blob.ID, blobData *gather.WriteBuffer) error {
 	// read the entire blob
 	if err := c.st.GetBlob(ctx, blobID, 0, -1, blobData); err != nil {
-		stats.Record(ctx, cache.MetricMissErrors.M(1))
+		stats.Record(ctx, MetricMissErrors.M(1))
 
 		// nolint:wrapcheck
 		return err
 	}
 
-	stats.Record(ctx, cache.MetricMissBytes.M(int64(blobData.Length())))
+	stats.Record(ctx, MetricMissBytes.M(int64(blobData.Length())))
 
 	// store the whole blob in the cache.
 	c.pc.Put(ctx, string(blobID), blobData.Bytes())
@@ -140,16 +108,21 @@ func (c *contentCacheForMetadata) fetchBlobInternal(ctx context.Context, blobID 
 	return nil
 }
 
-func (c *contentCacheForMetadata) close(ctx context.Context) {
+func (c *contentCacheForMetadata) Close(ctx context.Context) {
 	c.pc.Close(ctx)
 }
 
-func newContentCacheForMetadata(ctx context.Context, st blob.Storage, cacheStorage cache.Storage, sweep cache.SweepSettings) (contentCache, error) {
+func (c *contentCacheForMetadata) CacheStorage() Storage {
+	return c.pc.cacheStorage
+}
+
+// NewContentCacheForMetadata creates new content cache for metadata contents.
+func NewContentCacheForMetadata(ctx context.Context, st blob.Storage, cacheStorage Storage, sweep SweepSettings) (ContentCache, error) {
 	if cacheStorage == nil {
 		return passthroughContentCache{st}, nil
 	}
 
-	pc, err := cache.NewPersistentCache(ctx, "metadata cache", cacheStorage, cache.NoProtection(), sweep)
+	pc, err := NewPersistentCache(ctx, "metadata cache", cacheStorage, NoProtection(), sweep)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create base cache")
 	}

@@ -1,4 +1,4 @@
-package content
+package cache_test
 
 import (
 	"bytes"
@@ -55,34 +55,27 @@ func TestCacheExpiration(t *testing.T) {
 
 	underlyingStorage := newUnderlyingStorageForContentCacheTesting(t)
 
-	pc, err := cache.NewPersistentCache(testlogging.Context(t), "test cache", cacheStorage.(cache.Storage), cache.NoProtection(), cache.SweepSettings{
+	ctx := testlogging.Context(t)
+	cc, err := cache.NewContentCacheForData(ctx, underlyingStorage, cacheStorage.(cache.Storage), cache.SweepSettings{
 		MaxSizeBytes:   10000,
 		SweepFrequency: 500 * time.Millisecond,
 		TouchThreshold: -1,
-	})
-	if err != nil {
-		t.Fatalf("unable to create base cache: %v", err)
-	}
+	}, nil)
 
-	cc := &contentCacheForData{
-		st: underlyingStorage,
-		pc: pc,
-	}
+	require.NoError(t, err)
 
-	ctx := testlogging.Context(t)
-
-	defer cc.close(ctx)
+	defer cc.Close(ctx)
 
 	var tmp gather.WriteBuffer
 	defer tmp.Close()
 
-	err = cc.getContent(ctx, "00000a", "content-4k", 0, -1, &tmp) // 4k
+	err = cc.GetContent(ctx, "00000a", "content-4k", 0, -1, &tmp) // 4k
 	require.NoError(t, err)
-	err = cc.getContent(ctx, "00000b", "content-4k", 0, -1, &tmp) // 4k
+	err = cc.GetContent(ctx, "00000b", "content-4k", 0, -1, &tmp) // 4k
 	require.NoError(t, err)
-	err = cc.getContent(ctx, "00000c", "content-4k", 0, -1, &tmp) // 4k
+	err = cc.GetContent(ctx, "00000c", "content-4k", 0, -1, &tmp) // 4k
 	require.NoError(t, err)
-	err = cc.getContent(ctx, "00000d", "content-4k", 0, -1, &tmp) // 4k
+	err = cc.GetContent(ctx, "00000d", "content-4k", 0, -1, &tmp) // 4k
 	require.NoError(t, err)
 
 	// wait for a sweep
@@ -94,7 +87,7 @@ func TestCacheExpiration(t *testing.T) {
 	require.NoError(t, underlyingStorage.DeleteBlob(ctx, "content-4k"))
 
 	cases := []struct {
-		contentID     ID
+		contentID     string
 		expectedError error
 	}{
 		{"00000a", blob.ErrBlobNotFound},
@@ -104,7 +97,7 @@ func TestCacheExpiration(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		got := cc.getContent(ctx, tc.contentID, "content-4k", 0, -1, &tmp)
+		got := cc.GetContent(ctx, tc.contentID, "content-4k", 0, -1, &tmp)
 		if want := tc.expectedError; !errors.Is(got, want) {
 			t.Errorf("unexpected error when getting content %v: %v wanted %v", tc.contentID, got, want)
 		} else {
@@ -125,26 +118,26 @@ func TestDiskContentCache(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cc, err := newContentCacheForData(ctx, newUnderlyingStorageForContentCacheTesting(t), cacheStorage, cache.SweepSettings{
+	cc, err := cache.NewContentCacheForData(ctx, newUnderlyingStorageForContentCacheTesting(t), cacheStorage, cache.SweepSettings{
 		MaxSizeBytes: maxBytes,
 	}, nil)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
 
-	defer cc.close(ctx)
+	defer cc.Close(ctx)
 
 	verifyContentCache(t, cc, cacheStorage)
 }
 
-func verifyContentCache(t *testing.T, cc contentCache, cacheStorage blob.Storage) {
+func verifyContentCache(t *testing.T, cc cache.ContentCache, cacheStorage blob.Storage) {
 	t.Helper()
 
 	ctx := testlogging.Context(t)
 
 	t.Run("GetContentContent", func(t *testing.T) {
 		cases := []struct {
-			contentID ID
+			contentID string
 			blobID    blob.ID
 			offset    int64
 			length    int64
@@ -167,7 +160,7 @@ func verifyContentCache(t *testing.T, cc contentCache, cacheStorage blob.Storage
 		defer v.Close()
 
 		for _, tc := range cases {
-			err := cc.getContent(ctx, tc.contentID, tc.blobID, tc.offset, tc.length, &v)
+			err := cc.GetContent(ctx, tc.contentID, tc.blobID, tc.offset, tc.length, &v)
 			if (err != nil) != (tc.err != nil) {
 				t.Errorf("unexpected error for %v: %+v, wanted %+v", tc.contentID, err, tc.err)
 			} else if err != nil && err.Error() != tc.err.Error() {
@@ -195,7 +188,7 @@ func verifyContentCache(t *testing.T, cc contentCache, cacheStorage blob.Storage
 
 		require.NoError(t, cacheStorage.PutBlob(ctx, cacheKey, b, blob.PutOptions{}))
 
-		err := cc.getContent(ctx, "xf0f0f1", "content-1", 1, 5, &tmp)
+		err := cc.GetContent(ctx, "xf0f0f1", "content-1", 1, 5, &tmp)
 		if err != nil {
 			t.Fatalf("error in getContent: %v", err)
 		}
@@ -216,7 +209,7 @@ func TestCacheFailureToOpen(t *testing.T) {
 	faultyCache.AddFault(blobtesting.MethodGetMetadata).ErrorInstead(someError)
 
 	// Will fail because of ListBlobs failure.
-	_, err := newContentCacheForData(testlogging.Context(t), underlyingStorage, withoutTouchBlob{faultyCache}, cache.SweepSettings{MaxSizeBytes: 10000}, nil)
+	_, err := cache.NewContentCacheForData(testlogging.Context(t), underlyingStorage, withoutTouchBlob{faultyCache}, cache.SweepSettings{MaxSizeBytes: 10000}, nil)
 	if err == nil || !strings.Contains(err.Error(), someError.Error()) {
 		t.Errorf("invalid error %v, wanted: %v", err, someError)
 	}
@@ -224,12 +217,12 @@ func TestCacheFailureToOpen(t *testing.T) {
 	// ListBlobs fails only once, next time it succeeds.
 	ctx := testlogging.Context(t)
 
-	cc, err := newContentCacheForData(ctx, underlyingStorage, withoutTouchBlob{faultyCache}, cache.SweepSettings{MaxSizeBytes: 10000}, nil)
+	cc, err := cache.NewContentCacheForData(ctx, underlyingStorage, withoutTouchBlob{faultyCache}, cache.SweepSettings{MaxSizeBytes: 10000}, nil)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
 
-	cc.close(ctx)
+	cc.Close(ctx)
 }
 
 func TestCacheFailureToWrite(t *testing.T) {
@@ -240,21 +233,21 @@ func TestCacheFailureToWrite(t *testing.T) {
 	underlyingStorage := newUnderlyingStorageForContentCacheTesting(t)
 	faultyCache := blobtesting.NewFaultyStorage(cacheStorage)
 
-	cc, err := newContentCacheForData(testlogging.Context(t), underlyingStorage, withoutTouchBlob{faultyCache}, cache.SweepSettings{MaxSizeBytes: 10000}, nil)
+	cc, err := cache.NewContentCacheForData(testlogging.Context(t), underlyingStorage, withoutTouchBlob{faultyCache}, cache.SweepSettings{MaxSizeBytes: 10000}, nil)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
 
 	ctx := testlogging.Context(t)
 
-	defer cc.close(ctx)
+	defer cc.Close(ctx)
 
 	faultyCache.AddFault(blobtesting.MethodPutBlob).ErrorInstead(someError)
 
 	var v gather.WriteBuffer
 	defer v.Close()
 
-	if err = cc.getContent(ctx, "aa", "content-1", 0, 3, &v); err != nil {
+	if err = cc.GetContent(ctx, "aa", "content-1", 0, 3, &v); err != nil {
 		t.Errorf("write failure wasn't ignored: %v", err)
 	}
 
@@ -280,14 +273,14 @@ func TestCacheFailureToRead(t *testing.T) {
 	underlyingStorage := newUnderlyingStorageForContentCacheTesting(t)
 	faultyCache := blobtesting.NewFaultyStorage(cacheStorage)
 
-	cc, err := newContentCacheForData(testlogging.Context(t), underlyingStorage, withoutTouchBlob{faultyCache}, cache.SweepSettings{MaxSizeBytes: 10000}, nil)
+	cc, err := cache.NewContentCacheForData(testlogging.Context(t), underlyingStorage, withoutTouchBlob{faultyCache}, cache.SweepSettings{MaxSizeBytes: 10000}, nil)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
 
 	ctx := testlogging.Context(t)
 
-	defer cc.close(ctx)
+	defer cc.Close(ctx)
 
 	faultyCache.AddFault(blobtesting.MethodGetBlob).ErrorInstead(someError).Repeat(100)
 
@@ -295,7 +288,7 @@ func TestCacheFailureToRead(t *testing.T) {
 	defer v.Close()
 
 	for i := 0; i < 2; i++ {
-		require.NoError(t, cc.getContent(ctx, "aa", "content-1", 0, 3, &v))
+		require.NoError(t, cc.GetContent(ctx, "aa", "content-1", 0, 3, &v))
 
 		if got, want := v.ToByteSlice(), []byte{1, 2, 3}; !reflect.DeepEqual(got, want) {
 			t.Errorf("unexpected value retrieved from cache: %v, want: %v", got, want)

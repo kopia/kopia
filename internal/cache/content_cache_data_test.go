@@ -1,4 +1,4 @@
-package content
+package cache_test
 
 import (
 	"testing"
@@ -21,7 +21,7 @@ func TestContentCacheForData(t *testing.T) {
 	cacheData := blobtesting.DataMap{}
 	metadataCacheStorage := blobtesting.NewMapStorage(cacheData, nil, nil).(cache.Storage)
 
-	dataCache, err := newContentCacheForData(ctx, underlying, metadataCacheStorage, cache.SweepSettings{
+	dataCache, err := cache.NewContentCacheForData(ctx, underlying, metadataCacheStorage, cache.SweepSettings{
 		MaxSizeBytes: 100,
 	}, []byte{1, 2, 3, 4})
 	require.NoError(t, err)
@@ -30,14 +30,14 @@ func TestContentCacheForData(t *testing.T) {
 	defer tmp.Close()
 
 	// get something we don't have in the underlying storage
-	require.ErrorIs(t, dataCache.getContent(ctx, "key1", "blob1", 0, 3, &tmp), blob.ErrBlobNotFound)
+	require.ErrorIs(t, dataCache.GetContent(ctx, "key1", "blob1", 0, 3, &tmp), blob.ErrBlobNotFound)
 
 	require.NoError(t, underlying.PutBlob(ctx, "blob1", gather.FromSlice([]byte{1, 2, 3, 4, 5, 6}), blob.PutOptions{}))
 
-	require.NoError(t, dataCache.getContent(ctx, "xkey1", "blob1", 0, 3, &tmp))
+	require.NoError(t, dataCache.GetContent(ctx, "xkey1", "blob1", 0, 3, &tmp))
 	require.Equal(t, []byte{1, 2, 3}, tmp.ToByteSlice())
 
-	require.NoError(t, dataCache.getContent(ctx, "xkey2", "blob1", 3, 3, &tmp))
+	require.NoError(t, dataCache.GetContent(ctx, "xkey2", "blob1", 3, 3, &tmp))
 	require.Equal(t, []byte{4, 5, 6}, tmp.ToByteSlice())
 
 	// cache has 2 entries, one for each section of the blob.
@@ -47,11 +47,11 @@ func TestContentCacheForData(t *testing.T) {
 	require.Contains(t, cacheData, blob.ID("key1x"))
 	require.Contains(t, cacheData, blob.ID("key2x"))
 
-	dataCache.close(ctx)
+	dataCache.Close(ctx)
 
 	// get slice with cache miss
 	require.NoError(t, underlying.PutBlob(ctx, "blob2", gather.FromSlice([]byte{1, 2, 3, 4, 5, 6}), blob.PutOptions{}))
-	require.NoError(t, dataCache.getContent(ctx, "aaa1", "blob2", 3, 3, &tmp))
+	require.NoError(t, dataCache.GetContent(ctx, "aaa1", "blob2", 3, 3, &tmp))
 	require.Equal(t, []byte{4, 5, 6}, tmp.ToByteSlice())
 
 	// even-length content IDs are not mangled
@@ -59,12 +59,12 @@ func TestContentCacheForData(t *testing.T) {
 	require.Contains(t, cacheData, blob.ID("aaa1"))
 
 	require.NoError(t, underlying.PutBlob(ctx, "pblob3", gather.FromSlice([]byte{1, 2, 3, 4, 5, 6}), blob.PutOptions{}))
-	dataCache.prefetchBlob(ctx, "pblob3")
+	dataCache.PrefetchBlob(ctx, "pblob3")
 	require.NoError(t, underlying.DeleteBlob(ctx, "pblob3"))
 
 	// make sure blob ID is properly mangled
 	require.Contains(t, cacheData, blob.ID("blob3p"))
-	require.NoError(t, dataCache.getContent(ctx, "aaa3", "pblob3", 2, 4, &tmp))
+	require.NoError(t, dataCache.GetContent(ctx, "aaa3", "pblob3", 2, 4, &tmp))
 	require.Equal(t, []byte{3, 4, 5, 6}, tmp.ToByteSlice())
 }
 
@@ -74,7 +74,7 @@ func TestContentCacheForData_Passthrough(t *testing.T) {
 
 	ctx := testlogging.Context(t)
 
-	dataCache, err := newContentCacheForData(ctx, underlying, nil, cache.SweepSettings{
+	dataCache, err := cache.NewContentCacheForData(ctx, underlying, nil, cache.SweepSettings{
 		MaxSizeBytes: 100,
 	}, []byte{1, 2, 3, 4})
 
@@ -84,6 +84,6 @@ func TestContentCacheForData_Passthrough(t *testing.T) {
 	var tmp gather.WriteBuffer
 	defer tmp.Close()
 
-	require.NoError(t, dataCache.getContent(ctx, "key1", "blob1", 0, 5, &tmp))
+	require.NoError(t, dataCache.GetContent(ctx, "key1", "blob1", 0, 5, &tmp))
 	require.Equal(t, []byte{1, 2, 3, 4, 5}, tmp.ToByteSlice())
 }
