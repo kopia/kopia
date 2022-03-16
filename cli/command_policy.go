@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 
+	"github.com/alecthomas/kingpin"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/repo"
@@ -29,12 +30,22 @@ func (c *commandPolicy) setup(svc appServices, parent commandParent) {
 	c.show.setup(svc, cmd)
 }
 
-func policyTargets(ctx context.Context, rep repo.Repository, globalFlag bool, targetsFlag []string) ([]snapshot.SourceInfo, error) {
-	if globalFlag == (len(targetsFlag) > 0) {
+type policyTargetFlags struct {
+	targets []string
+	global  bool
+}
+
+func (c *policyTargetFlags) setup(cmd *kingpin.CmdClause) {
+	cmd.Arg("target", "Select a particular policy ('user@host','@host','user@host:path' or a local path). Use --global to target the global policy.").StringsVar(&c.targets)
+	cmd.Flag("global", "Select the global policy.").BoolVar(&c.global)
+}
+
+func (c *policyTargetFlags) policyTargets(ctx context.Context, rep repo.Repository) ([]snapshot.SourceInfo, error) {
+	if c.global == (len(c.targets) > 0) {
 		return nil, errors.New("must pass either '--global' or a list of path targets")
 	}
 
-	if globalFlag {
+	if c.global {
 		return []snapshot.SourceInfo{
 			policy.GlobalPolicySourceInfo,
 		}, nil
@@ -42,7 +53,7 @@ func policyTargets(ctx context.Context, rep repo.Repository, globalFlag bool, ta
 
 	var res []snapshot.SourceInfo
 
-	for _, ts := range targetsFlag {
+	for _, ts := range c.targets {
 		// try loading policy by its manifest ID
 		if t, err := policy.GetPolicyByID(ctx, rep, manifest.ID(ts)); err == nil {
 			res = append(res, t.Target())

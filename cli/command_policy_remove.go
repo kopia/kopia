@@ -10,21 +10,19 @@ import (
 )
 
 type commandPolicyDelete struct {
-	targets []string
-	global  bool
-	dryRun  bool
+	policyTargetFlags
+	dryRun bool
 }
 
 func (c *commandPolicyDelete) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("delete", "Remove snapshot policy for a single directory, user@host or a global policy.").Alias("remove").Alias("rm")
-	cmd.Arg("target", "Target of a policy ('global','user@host','@host') or a path").StringsVar(&c.targets)
-	cmd.Flag("global", "Set global policy").BoolVar(&c.global)
+	c.policyTargetFlags.setup(cmd)
 	cmd.Flag("dry-run", "Do not remove").Short('n').BoolVar(&c.dryRun)
 	cmd.Action(svc.repositoryWriterAction(c.run))
 }
 
 func (c *commandPolicyDelete) run(ctx context.Context, rep repo.RepositoryWriter) error {
-	targets, err := policyTargets(ctx, rep, c.global, c.targets)
+	targets, err := c.policyTargets(ctx, rep)
 	if err != nil {
 		return err
 	}
