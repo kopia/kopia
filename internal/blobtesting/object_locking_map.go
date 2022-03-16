@@ -63,6 +63,10 @@ func (s *objectLockingMap) getLatestForMutationLocked(id blob.ID) (*entry, error
 	return e, nil
 }
 
+func (s *objectLockingMap) GetCapacity(ctx context.Context) (blob.Capacity, error) {
+	return blob.Capacity{}, blob.ErrNotAVolume
+}
+
 // GetBlob works the same as map-storage GetBlob except that if the latest
 // version is a delete-marker then it will return ErrBlobNotFound.
 func (s *objectLockingMap) GetBlob(ctx context.Context, id blob.ID, offset, length int64, output blob.OutputBuffer) error {

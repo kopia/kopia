@@ -44,6 +44,10 @@ type davStorageImpl struct {
 	cli *gowebdav.Client
 }
 
+func (d *davStorage) GetCapacity(ctx context.Context) (blob.Capacity, error) {
+	return blob.Capacity{}, blob.ErrNotAVolume
+}
+
 func (d *davStorageImpl) GetBlobFromPath(ctx context.Context, dirPath, path string, offset, length int64, output blob.OutputBuffer) error {
 	output.Reset()
 

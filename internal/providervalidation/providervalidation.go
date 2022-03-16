@@ -63,6 +63,19 @@ func ValidateProvider(ctx context.Context, st blob.Storage, opt Options) error {
 	prefix1 := uberPrefix + "a"
 	prefix2 := uberPrefix + "b"
 
+	log(ctx).Infof("Validating storage capacity and usage")
+
+	c, err := st.GetCapacity(ctx)
+
+	switch {
+	case errors.Is(err, blob.ErrNotAVolume):
+		// This is okay. We expect some implementations to not support this method.
+	case c.FreeB > c.SizeB:
+		return errors.Errorf("expected volume's free space (%dB) to be at most volume size (%dB)", c.FreeB, c.SizeB)
+	case err != nil:
+		return errors.Wrapf(err, "unexpected error")
+	}
+
 	log(ctx).Infof("Validating blob list responses")
 
 	if err := verifyBlobCount(ctx, st, uberPrefix, 0); err != nil {

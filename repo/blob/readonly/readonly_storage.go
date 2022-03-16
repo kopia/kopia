@@ -17,6 +17,11 @@ type readonlyStorage struct {
 	base blob.Storage
 }
 
+func (s readonlyStorage) GetCapacity(ctx context.Context) (blob.Capacity, error) {
+	// nolint:wrapcheck
+	return s.base.GetCapacity(ctx)
+}
+
 func (s readonlyStorage) GetBlob(ctx context.Context, id blob.ID, offset, length int64, output blob.OutputBuffer) error {
 	// nolint:wrapcheck
 	return s.base.GetBlob(ctx, id, offset, length, output)

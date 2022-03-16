@@ -101,6 +101,22 @@ func (s *sftpImpl) IsConnectionClosedError(err error) bool {
 	return false
 }
 
+func (s *sftpStorage) GetCapacity(ctx context.Context) (blob.Capacity, error) {
+	i, err := s.Impl.(*sftpImpl).rec.UsingConnection(ctx, "GetCapacity", func(conn connection.Connection) (interface{}, error) {
+		stat, err := sftpClientFromConnection(conn).StatVFS(s.RootPath)
+		if err != nil {
+			return blob.Capacity{}, errors.Wrap(err, "GetCapacity")
+		}
+
+		return blob.Capacity{
+			SizeB: stat.Blocks * stat.Bsize,
+			FreeB: stat.Bfree * stat.Bsize,
+		}, err // nolint:wrapcheck
+	})
+
+	return i.(blob.Capacity), err // nolint:forcetypeassert,wrapcheck
+}
+
 func (s *sftpImpl) GetBlobFromPath(ctx context.Context, dirPath, fullPath string, offset, length int64, output blob.OutputBuffer) error {
 	// nolint:wrapcheck
 	return s.rec.UsingConnectionNoResult(ctx, "GetBlobFromPath", func(conn connection.Connection) error {

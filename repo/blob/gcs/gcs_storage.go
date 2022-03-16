@@ -37,6 +37,10 @@ type gcsStorage struct {
 	bucket        *gcsclient.BucketHandle
 }
 
+func (gcs *gcsStorage) GetCapacity(ctx context.Context) (blob.Capacity, error) {
+	return blob.Capacity{}, blob.ErrNotAVolume
+}
+
 func (gcs *gcsStorage) GetBlob(ctx context.Context, b blob.ID, offset, length int64, output blob.OutputBuffer) error {
 	if offset < 0 {
 		return blob.ErrInvalidRange

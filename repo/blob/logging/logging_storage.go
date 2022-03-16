@@ -55,6 +55,22 @@ func (s *loggingStorage) GetBlob(ctx context.Context, id blob.ID, offset, length
 	return err
 }
 
+func (s *loggingStorage) GetCapacity(ctx context.Context) (blob.Capacity, error) {
+	timer := timetrack.StartTimer()
+	c, err := s.base.GetCapacity(ctx)
+	dt := timer.Elapsed()
+
+	s.logger.Debugw(s.prefix+"GetCapacity",
+		"sizeBytes", c.SizeB,
+		"freeBytes", c.FreeB,
+		"error", err,
+		"duration", dt,
+	)
+
+	// nolint:wrapcheck
+	return c, err
+}
+
 func (s *loggingStorage) GetMetadata(ctx context.Context, id blob.ID) (blob.Metadata, error) {
 	s.beginConcurrency()
 	defer s.endConcurrency()

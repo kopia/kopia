@@ -106,6 +106,10 @@ func (s *eventuallyConsistentStorage) randomFrontendCache() *ecFrontendCache {
 	return s.caches[n]
 }
 
+func (s *eventuallyConsistentStorage) GetCapacity(ctx context.Context) (blob.Capacity, error) {
+	return s.realStorage.GetCapacity(ctx)
+}
+
 func (s *eventuallyConsistentStorage) GetBlob(ctx context.Context, id blob.ID, offset, length int64, output blob.OutputBuffer) error {
 	// don't bother caching partial reads
 	if length >= 0 {

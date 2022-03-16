@@ -115,9 +115,11 @@ func mustGetOptionsOrSkip(t *testing.T) *gdrive.Options {
 func createTestFolderOrSkip(ctx context.Context, t *testing.T, opt *gdrive.Options, folderName string) *gdrive.Options {
 	t.Helper()
 
-	client, err := gdrive.CreateDriveClient(ctx, opt)
+	service, err := gdrive.CreateDriveService(ctx, opt)
 
 	require.NoError(t, err)
+
+	client := service.Files
 
 	folder, err := client.Create(&drive.File{
 		Name:     folderName,
@@ -139,10 +141,11 @@ func createTestFolderOrSkip(ctx context.Context, t *testing.T, opt *gdrive.Optio
 func deleteTestFolder(ctx context.Context, t *testing.T, opt *gdrive.Options) {
 	t.Helper()
 
-	client, err := gdrive.CreateDriveClient(ctx, opt)
+	service, err := gdrive.CreateDriveService(ctx, opt)
 
 	require.NoError(t, err)
 
+	client := service.Files
 	err = client.Delete(opt.FolderID).Context(ctx).Do()
 
 	require.NoError(t, err)
