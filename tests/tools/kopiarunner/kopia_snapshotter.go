@@ -488,7 +488,6 @@ func (ks *KopiaSnapshotter) GetRepositoryStatus() cli.RepositoryStatus {
 	// Get repository status
 	a1, _, _ := ks.Runner.Run("repository", "status", "--json")
 
-	//var dat map[string]interface{}
 	var rs cli.RepositoryStatus
 	if err := json.Unmarshal([]byte(a1), &rs); err != nil {
 		panic(err)
