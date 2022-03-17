@@ -69,7 +69,6 @@ func TestParseSnapListAllExeTest(t *testing.T) {
 		if !snapIDIsLastInList2(snapID, snapIDListSnap) {
 			t.Errorf("Snapshot ID that was just created %s was not in the manifest list", snapID)
 		}
-
 	}
 }
 
