@@ -39,7 +39,7 @@ func TestParseSnapListAllExeTest(t *testing.T) {
 		t.Errorf("Snapshot list (len %d) should be empty", got)
 	}
 
-	fmt.Println(snapIDIsLastInList("asdf", snapIDListSnap))
+	fmt.Println(snapIDIsLastInList2("asdf", snapIDListSnap))
 
 	const numSnapsToTest = 5
 	for snapCount := 0; snapCount < numSnapsToTest; snapCount++ {
@@ -54,7 +54,7 @@ func TestParseSnapListAllExeTest(t *testing.T) {
 			t.Errorf("Snapshot list len (%d) does not match expected number of snapshots (%d)", got, want)
 		}
 
-		if !snapIDIsLastInList(snapID, snapIDListSnap) {
+		if !snapIDIsLastInList2(snapID, snapIDListSnap) {
 			t.Errorf("Snapshot ID that was just created %s was not in the snapshot list", snapID)
 		}
 
@@ -66,12 +66,13 @@ func TestParseSnapListAllExeTest(t *testing.T) {
 			t.Errorf("Snapshot list len (%d) does not match expected number of snapshots (%d)", got, want)
 		}
 
-		if !snapIDIsLastInList(snapID, snapIDListSnap) {
+		if !snapIDIsLastInList2(snapID, snapIDListSnap) {
 			t.Errorf("Snapshot ID that was just created %s was not in the manifest list", snapID)
 		}
+
 	}
 }
 
-func snapIDIsLastInList(snapID string, snapIDList []string) bool {
+func snapIDIsLastInList2(snapID string, snapIDList []string) bool {
 	return len(snapIDList) > 0 && snapIDList[len(snapIDList)-1] == snapID
 }
