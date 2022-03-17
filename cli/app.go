@@ -441,9 +441,7 @@ func (c *App) baseActionWithContext(act func(ctx context.Context) error) func(ct
 
 			if c.metricsListenAddr != "" {
 				m := mux.NewRouter()
-				if err := initPrometheus(m); err != nil {
-					return errors.Wrap(err, "unable to initialize prometheus")
-				}
+				initPrometheus(m)
 
 				if c.enablePProf {
 					m.HandleFunc("/debug/pprof/", pprof.Index)

@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"go.opencensus.io/stats"
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/ctxutil"
@@ -64,12 +63,12 @@ func (c *PersistentCache) GetOrLoad(ctx context.Context, key string, fetch func(
 	output.Reset()
 
 	if err := fetch(output); err != nil {
-		stats.Record(ctx, MetricMissErrors.M(1))
+		reportMissError()
 
 		return err
 	}
 
-	stats.Record(ctx, MetricMissBytes.M(int64(output.Length())))
+	reportMissBytes(int64(output.Length()))
 
 	c.Put(ctx, key, output.Bytes())
 
@@ -100,10 +99,7 @@ func (c *PersistentCache) GetPartial(ctx context.Context, key string, offset, le
 
 		if err := prot.Verify(key, tmp.Bytes(), output); err == nil {
 			// cache hit
-			stats.Record(ctx,
-				MetricHitCount.M(1),
-				MetricHitBytes.M(int64(output.Length())),
-			)
+			reportHitBytes(int64(output.Length()))
 
 			// cache hit
 			c.cacheStorage.TouchBlob(ctx, blob.ID(key), c.sweep.TouchThreshold) //nolint:errcheck
@@ -112,7 +108,7 @@ func (c *PersistentCache) GetPartial(ctx context.Context, key string, offset, le
 		}
 
 		// delete invalid blob
-		stats.Record(ctx, MetricMalformedCacheDataCount.M(1))
+		reportMalformedData()
 
 		if err := c.cacheStorage.DeleteBlob(ctx, blob.ID(key)); err != nil && !errors.Is(err, blob.ErrBlobNotFound) {
 			log(ctx).Errorf("unable to delete %v entry %v: %v", c.description, key, err)
@@ -120,7 +116,12 @@ func (c *PersistentCache) GetPartial(ctx context.Context, key string, offset, le
 	}
 
 	// cache miss
-	stats.Record(ctx, MetricMissCount.M(1))
+	l := length
+	if l < 0 {
+		l = 0
+	}
+
+	reportMissBytes(l)
 
 	return false
 }
@@ -139,7 +140,7 @@ func (c *PersistentCache) Put(ctx context.Context, key string, data gather.Bytes
 	c.storageProtection.Protect(key, data, &protected)
 
 	if err := c.cacheStorage.PutBlob(ctx, blob.ID(key), protected.Bytes(), blob.PutOptions{}); err != nil {
-		stats.Record(ctx, MetricStoreErrors.M(1))
+		reportStoreError()
 
 		log(ctx).Errorf("unable to add %v to %v: %v", key, c.description, err)
 	}

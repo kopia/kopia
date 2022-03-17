@@ -7,7 +7,6 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
-	"go.opencensus.io/stats"
 
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/impossible"
@@ -94,13 +93,13 @@ func (c *contentCacheForMetadata) PrefetchBlob(ctx context.Context, blobID blob.
 func (c *contentCacheForMetadata) fetchBlobInternal(ctx context.Context, blobID blob.ID, blobData *gather.WriteBuffer) error {
 	// read the entire blob
 	if err := c.st.GetBlob(ctx, blobID, 0, -1, blobData); err != nil {
-		stats.Record(ctx, MetricMissErrors.M(1))
+		reportMissError()
 
 		// nolint:wrapcheck
 		return err
 	}
 
-	stats.Record(ctx, MetricMissBytes.M(int64(blobData.Length())))
+	reportMissBytes(int64(blobData.Length()))
 
 	// store the whole blob in the cache.
 	c.pc.Put(ctx, string(blobID), blobData.Bytes())
