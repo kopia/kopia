@@ -1,30 +1,15 @@
 package kopiarunner
 
 import (
-	"errors"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
 func TestUpgradeFormatVersion(t *testing.T) {
-	baseDir, err := os.MkdirTemp("", t.Name())
-	require.NoError(t, err)
-
-	defer os.RemoveAll(baseDir)
-
-	repoDir, err := os.MkdirTemp(baseDir, "repo")
-	require.NoError(t, err)
-
-	_, err = os.MkdirTemp(baseDir, "source")
-	require.NoError(t, err)
+	repoDir := t.TempDir()
 
 	ks, err := NewKopiaSnapshotter(repoDir)
-	if errors.Is(err, ErrExeVariableNotSet) {
-		t.Skip("KOPIA_EXE not set, skipping test")
-	}
-
 	require.NoError(t, err)
 
 	// Create repo in an old version
