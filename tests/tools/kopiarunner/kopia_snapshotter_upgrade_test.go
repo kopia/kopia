@@ -4,8 +4,9 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/kopia/kopia/repo/content"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kopia/kopia/repo/content"
 )
 
 func TestUpgradeFormatVersion(t *testing.T) {

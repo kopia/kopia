@@ -16,11 +16,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kopia/kopia/cli"
-
-	"github.com/kopia/kopia/internal/retry"
-
 	"github.com/pkg/errors"
+
+	"github.com/kopia/kopia/cli"
+	"github.com/kopia/kopia/internal/retry"
 )
 
 const (
@@ -483,9 +482,8 @@ func errIsACLEnabled(stdErr string) bool {
 	return strings.Contains(stdErr, aclEnabledMatchStr)
 }
 
-// GetRepositoryStatus returns the repository status in JSON format
+// GetRepositoryStatus returns the repository status in JSON format.
 func (ks *KopiaSnapshotter) GetRepositoryStatus() cli.RepositoryStatus {
-	// Get repository status
 	a1, _, _ := ks.Runner.Run("repository", "status", "--json")
 
 	var rs cli.RepositoryStatus
@@ -499,7 +497,7 @@ func (ks *KopiaSnapshotter) GetRepositoryStatus() cli.RepositoryStatus {
 // UpgradeRepository upgrades the given kopia repository
 // from current format version to latest stable format version.
 func (ks *KopiaSnapshotter) UpgradeRepository(repoPath string) error {
-	_, _, err3 := ks.Runner.Run("repository", "set-parameters", "--upgrade")
+	_, _, err := ks.Runner.Run("repository", "set-parameters", "--upgrade")
 
-	return err3
+	return err
 }
