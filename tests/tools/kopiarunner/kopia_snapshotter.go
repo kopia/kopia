@@ -480,8 +480,8 @@ func errIsACLEnabled(stdErr string) bool {
 	return strings.Contains(stdErr, aclEnabledMatchStr)
 }
 
+// GetRepositoryStatus returns the repository status.
 func (ks *KopiaSnapshotter) GetRepositoryStatus(field string) string {
-
 	// Get repository status
 	a1, _, _ := ks.Runner.Run("repository", "status")
 
@@ -490,25 +490,21 @@ func (ks *KopiaSnapshotter) GetRepositoryStatus(field string) string {
 	// if not found, return the entire status string
 	s := strings.Split(a1, "\n")
 	op2 := a1
+
 	for _, v := range s {
 		if strings.Contains(v, field) {
-			//op := strings.Split(v, ":")
 			op2 = strings.TrimSpace(strings.Split(v, ":")[1])
 			break
 		}
 	}
 
 	return op2
-
 }
 
-// upgradeRepository upgrades the given kopia repository
-// from current format version to latest stable format version
+// UpgradeRepository upgrades the given kopia repository
+// from current format version to latest stable format version.
 func (ks *KopiaSnapshotter) UpgradeRepository(repoPath string) error {
-
-	// upgrade repo
-	u1, u2, err3 := ks.Runner.Run("repository", "set-parameters", "--upgrade")
-	fmt.Println(u1, u2, err3)
+	_, _, err3 := ks.Runner.Run("repository", "set-parameters", "--upgrade")
 
 	return err3
 }

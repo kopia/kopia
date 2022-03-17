@@ -27,23 +27,18 @@ func TestUpgradeFormatVersion(t *testing.T) {
 
 	require.NoError(t, err)
 
-	// Create repo in sourceVersion
-	local_path := "--path=" + repoDir
-	sourceFormatVersion := "1"
-	err = ks.CreateRepo("filesystem", local_path, "--format-version", sourceFormatVersion)
+	// Create repo in an old version
+	err = ks.CreateRepo("filesystem", "--path="+repoDir, "--format-version", "1")
 	require.NoError(t, err)
 
 	prev := ks.GetRepositoryStatus("Format version")
+	require.Equal(t, prev, "1", "The format version should be 1.")
 
 	ks.UpgradeRepository(repoDir)
 
 	got := ks.GetRepositoryStatus("Format version")
-	want := "2"
 
-	if got != want {
-		t.Errorf("Repository format version (%s) does not match expected format version (%s)", got, want)
-	}
-	if got == prev {
-		t.Errorf("Repository format upgrade did not happen. Format version is still (%s)", prev)
-	}
+	require.Equal(t, got, "2", "The format version should be upgraded to 2.")
+
+	require.NotEqual(t, got, prev, "The format versions should be different.")
 }
