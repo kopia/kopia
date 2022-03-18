@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"go.opencensus.io/stats"
 
 	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/clock"
@@ -693,8 +692,7 @@ func (bm *WriteManager) WriteContent(ctx context.Context, data gather.Bytes, pre
 		return "", err
 	}
 
-	stats.Record(ctx, metricContentWriteContentCount.M(1))
-	stats.Record(ctx, metricContentWriteContentBytes.M(int64(data.Length())))
+	reportContentWriteBytes(int64(data.Length()))
 
 	if err := ValidatePrefix(prefix); err != nil {
 		return "", err
@@ -727,13 +725,11 @@ func (bm *WriteManager) GetContent(ctx context.Context, contentID ID) (v []byte,
 	defer func() {
 		switch {
 		case err == nil:
-			stats.Record(ctx,
-				metricContentGetCount.M(1),
-				metricContentGetBytes.M(int64(len(v))))
+			reportContentGetBytes(int64(len(v)))
 		case errors.Is(err, ErrContentNotFound):
-			stats.Record(ctx, metricContentGetNotFoundCount.M(1))
+			reportContentGetNotFound()
 		default:
-			stats.Record(ctx, metricContentGetErrorCount.M(1))
+			reportContentGetError()
 		}
 	}()
 

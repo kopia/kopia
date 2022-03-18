@@ -13,11 +13,9 @@ import (
 	"strings"
 	"time"
 
-	"contrib.go.opencensus.io/exporter/prometheus"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
-	prom "github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/collectors"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	htpasswd "github.com/tg123/go-htpasswd"
 
 	"github.com/kopia/kopia/internal/auth"
@@ -208,9 +206,7 @@ func (c *commandServerStart) run(ctx context.Context) error {
 
 	// init prometheus after adding interceptors that require credentials, so that this
 	// handler can be called without auth
-	if err = initPrometheus(m); err != nil {
-		return errors.Wrap(err, "error initializing Prometheus")
-	}
+	initPrometheus(m)
 
 	var handler http.Handler = m
 
@@ -265,26 +261,8 @@ func (c *commandServerStart) setupHandlers(srv *server.Server, m *mux.Router) {
 	}
 }
 
-func initPrometheus(m *mux.Router) error {
-	reg := prom.NewRegistry()
-	if err := reg.Register(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{})); err != nil {
-		return errors.Wrap(err, "error registering process collector")
-	}
-
-	if err := reg.Register(collectors.NewGoCollector()); err != nil {
-		return errors.Wrap(err, "error registering go collector")
-	}
-
-	pe, err := prometheus.NewExporter(prometheus.Options{
-		Registry: reg,
-	})
-	if err != nil {
-		return errors.Wrap(err, "unable to initialize prometheus exporter")
-	}
-
-	m.Handle("/metrics", pe)
-
-	return nil
+func initPrometheus(m *mux.Router) {
+	m.Handle("/metrics", promhttp.Handler())
 }
 
 func stripProtocol(addr string) string {

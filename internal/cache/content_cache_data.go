@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
-	"go.opencensus.io/stats"
 
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
@@ -59,12 +58,12 @@ func (c contentCacheForData) PrefetchBlob(ctx context.Context, blobID blob.ID) e
 
 	// read the entire blob
 	if err := c.st.GetBlob(ctx, blobID, 0, -1, &blobData); err != nil {
-		stats.Record(ctx, MetricMissErrors.M(1))
+		reportMissError()
 		// nolint:wrapcheck
 		return err
 	}
 
-	stats.Record(ctx, MetricMissBytes.M(int64(blobData.Length())))
+	reportMissBytes(int64(blobData.Length()))
 
 	// store the whole blob in the
 	c.pc.Put(ctx, BlobIDCacheKey(blobID), blobData.Bytes())

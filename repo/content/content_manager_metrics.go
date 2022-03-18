@@ -1,67 +1,53 @@
 package content
 
 import (
-	"go.opencensus.io/stats"
-	"go.opencensus.io/stats/view"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 // content cache metrics.
-// nolint:gochecknoglobals
+// nolint:gochecknoglobals,promlinter
 var (
-	metricContentGetCount = stats.Int64(
-		"kopia/content/get_count",
-		"Number of time GetContent() was called",
-		stats.UnitDimensionless,
-	)
-
-	metricContentGetNotFoundCount = stats.Int64(
-		"kopia/content/get_not_found_count",
-		"Number of time GetContent() was called and the result was not found",
-		stats.UnitDimensionless,
-	)
-
-	metricContentGetErrorCount = stats.Int64(
-		"kopia/content/get_error_count",
-		"Number of time GetContent() was called and the result was an error",
-		stats.UnitDimensionless,
-	)
-
-	metricContentGetBytes = stats.Int64(
-		"kopia/content/get_bytes",
-		"Number of bytes retrieved using GetContent",
-		stats.UnitBytes,
-	)
-
-	metricContentWriteContentCount = stats.Int64(
-		"kopia/content/write_count",
-		"Number of time WriteContent() was called",
-		stats.UnitDimensionless,
-	)
-
-	metricContentWriteContentBytes = stats.Int64(
-		"kopia/content/write_bytes",
-		"Number of bytes passed to WriteContent()",
-		stats.UnitBytes,
-	)
+	metricContentGetCount = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "kopia_content_get_count",
+		Help: "Number of time GetContent() was called",
+	})
+	metricContentGetNotFoundCount = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "kopia_content_get_not_found_count",
+		Help: "Number of time GetContent() was called and the result was not found",
+	})
+	metricContentGetErrorCount = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "kopia_content_get_error_count",
+		Help: "Number of time GetContent() was called and the result was an error",
+	})
+	metricContentGetBytes = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "kopia_content_get_bytes",
+		Help: "Number of bytes retrieved using GetContent",
+	})
+	metricContentWriteContentCount = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "kopia_content_write_count",
+		Help: "Number of time WriteContent() was called",
+	})
+	metricContentWriteContentBytes = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "kopia_content_write_bytes",
+		Help: "Number of bytes passed to WriteContent()",
+	})
 )
 
-func simpleAggregation(m stats.Measure, agg *view.Aggregation) *view.View {
-	return &view.View{
-		Name:        m.Name(),
-		Aggregation: agg,
-		Description: m.Description(),
-		Measure:     m,
-	}
+func reportContentWriteBytes(length int64) {
+	metricContentWriteContentCount.Inc()
+	metricContentWriteContentBytes.Add(float64(length))
 }
 
-func init() {
-	if err := view.Register(
-		simpleAggregation(metricContentGetCount, view.Count()),
-		simpleAggregation(metricContentGetNotFoundCount, view.Count()),
-		simpleAggregation(metricContentGetErrorCount, view.Count()),
-		simpleAggregation(metricContentGetBytes, view.Sum()),
-		simpleAggregation(metricContentWriteContentCount, view.Count()),
-	); err != nil {
-		panic("unable to register opencensus views: " + err.Error())
-	}
+func reportContentGetBytes(length int64) {
+	metricContentGetCount.Inc()
+	metricContentGetBytes.Add(float64(length))
+}
+
+func reportContentGetError() {
+	metricContentGetErrorCount.Inc()
+}
+
+func reportContentGetNotFound() {
+	metricContentGetNotFoundCount.Inc()
 }
