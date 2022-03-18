@@ -582,15 +582,7 @@ func (bm *WriteManager) Flush(ctx context.Context) error {
 func (bm *WriteManager) RewriteContent(ctx context.Context, contentID ID) error {
 	bm.log.Debugf("rewrite-content %v", contentID)
 
-	var data gather.WriteBuffer
-	defer data.Close()
-
-	bi, err := bm.getContentDataAndInfo(ctx, contentID, &data)
-	if err != nil {
-		return errors.Wrap(err, "unable to get content data and info")
-	}
-
-	return bm.addToPackUnlocked(ctx, contentID, data.Bytes(), bi.GetDeleted(), bi.GetCompressionHeaderID(), true)
+	return bm.rewriteContent(ctx, contentID, false)
 }
 
 func (bm *WriteManager) getContentDataAndInfo(ctx context.Context, contentID ID, output *gather.WriteBuffer) (Info, error) {
@@ -616,6 +608,14 @@ func (bm *WriteManager) getContentDataAndInfo(ctx context.Context, contentID ID,
 func (bm *WriteManager) UndeleteContent(ctx context.Context, contentID ID) error {
 	bm.log.Debugf("UndeleteContent(%q)", contentID)
 
+	return bm.rewriteContent(ctx, contentID, true)
+}
+
+// When onlyRewriteDelete is true, the content is only rewritten if the existing
+// content is marked as deleted. The new content is NOT marked deleted.
+//  When onlyRewriteDelete is false, the content is unconditionally rewritten
+// and the content's deleted status is preserved.
+func (bm *WriteManager) rewriteContent(ctx context.Context, contentID ID, onlyRewriteDeleted bool) error {
 	var data gather.WriteBuffer
 	defer data.Close()
 
@@ -624,11 +624,17 @@ func (bm *WriteManager) UndeleteContent(ctx context.Context, contentID ID) error
 		return errors.Wrap(err, "unable to get content data and info")
 	}
 
-	if !bi.GetDeleted() {
-		return nil
+	isDeleted := bi.GetDeleted()
+
+	if onlyRewriteDeleted {
+		if !isDeleted {
+			return nil
+		}
+
+		isDeleted = false
 	}
 
-	return bm.addToPackUnlocked(ctx, contentID, data.Bytes(), false, bi.GetCompressionHeaderID(), true)
+	return bm.addToPackUnlocked(ctx, contentID, data.Bytes(), isDeleted, bi.GetCompressionHeaderID(), true)
 }
 
 func packPrefixForContentID(contentID ID) blob.ID {
