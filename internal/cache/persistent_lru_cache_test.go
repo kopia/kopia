@@ -325,6 +325,8 @@ func TestPersistentLRUCache_Defaults(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	defer pc.Close(ctx)
+
 	pc.Put(ctx, "key1", gather.FromSlice([]byte{1, 2, 3}))
 
 	var tmp gather.WriteBuffer

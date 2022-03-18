@@ -41,11 +41,46 @@ type PersistentCache struct {
 
 	periodicSweepRunning sync.WaitGroup
 	periodicSweepClosed  chan struct{}
+
+	blobFetchMutexes sync.Map
 }
 
 // CacheStorage returns cache storage.
 func (c *PersistentCache) CacheStorage() Storage {
 	return c.cacheStorage
+}
+
+func (c *PersistentCache) getFetchingMutex(key interface{}) *sync.RWMutex {
+	v, ok := c.blobFetchMutexes.Load(key)
+	if ok {
+		// nolint:forcetypeassert
+		return v.(*sync.RWMutex)
+	}
+
+	v, _ = c.blobFetchMutexes.LoadOrStore(key, &sync.RWMutex{})
+
+	// nolint:forcetypeassert
+	return v.(*sync.RWMutex)
+}
+
+// LockBeforeFullBlobFetch acquires an exclusive lock before fetching full blob.
+func (c *PersistentCache) LockBeforeFullBlobFetch(blobID blob.ID) {
+	c.getFetchingMutex(blobID).Lock()
+}
+
+// UnlockAfterFullBlobFetch releases an exclusive lock after fetching full blob.
+func (c *PersistentCache) UnlockAfterFullBlobFetch(blobID blob.ID) {
+	c.getFetchingMutex(blobID).Unlock()
+}
+
+// LockBeforePartialBlobFetch acquires a shared lock before fetching part of a blob.
+func (c *PersistentCache) LockBeforePartialBlobFetch(blobID blob.ID) {
+	c.getFetchingMutex(blobID).RLock()
+}
+
+// UnlockAfterPartialBlobFetch releases an shared lock after fetching part of a blob.
+func (c *PersistentCache) UnlockAfterPartialBlobFetch(blobID blob.ID) {
+	c.getFetchingMutex(blobID).RUnlock()
 }
 
 // GetOrLoad is utility function gets the provided item from the cache or invokes the provided fetch function.
@@ -61,6 +96,15 @@ func (c *PersistentCache) GetOrLoad(ctx context.Context, key string, fetch func(
 	}
 
 	output.Reset()
+
+	mut := c.getFetchingMutex(key)
+	mut.Lock()
+	defer mut.Unlock()
+
+	// check again while holding the mutex
+	if c.GetFull(ctx, key, output) {
+		return nil
+	}
 
 	if err := fetch(output); err != nil {
 		reportMissError()
@@ -245,6 +289,14 @@ func (c *PersistentCache) sweepDirectory(ctx context.Context) (err error) {
 
 	dur := timer.Elapsed()
 
+	const hundredPercent = 100
+
+	inUsePercent := int64(hundredPercent)
+
+	if c.sweep.MaxSizeBytes != 0 {
+		inUsePercent = hundredPercent * totalRetainedSize / c.sweep.MaxSizeBytes
+	}
+
 	log(ctx).Debugw(
 		"finished sweeping",
 		"cache", c.description,
@@ -253,7 +305,7 @@ func (c *PersistentCache) sweepDirectory(ctx context.Context) (err error) {
 		"tooRecentBytes", tooRecentBytes,
 		"tooRecentCount", tooRecentCount,
 		"maxSizeBytes", c.sweep.MaxSizeBytes,
-		"inUsePercent", 100*totalRetainedSize/c.sweep.MaxSizeBytes,
+		"inUsePercent", inUsePercent,
 	)
 
 	return nil

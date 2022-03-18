@@ -2,9 +2,6 @@ package cache
 
 import (
 	"context"
-	"hash/fnv"
-	"io"
-	"sync"
 
 	"github.com/pkg/errors"
 
@@ -13,24 +10,10 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 )
 
-const (
-	metadataCacheMutexShards = 256
-)
-
 type contentCacheForMetadata struct {
 	pc *PersistentCache
 
-	st             blob.Storage
-	shardedMutexes [metadataCacheMutexShards]sync.Mutex
-}
-
-func (c *contentCacheForMetadata) mutexForBlob(blobID blob.ID) *sync.Mutex {
-	// hash the blob ID to pick one of the sharded mutexes.
-	h := fnv.New32()
-	io.WriteString(h, string(blobID)) //nolint:errcheck
-	mutexID := h.Sum32() % metadataCacheMutexShards
-
-	return &c.shardedMutexes[mutexID]
+	st blob.Storage
 }
 
 func (c *contentCacheForMetadata) GetContent(ctx context.Context, contentID string, blobID blob.ID, offset, length int64, output *gather.WriteBuffer) error {
@@ -39,10 +22,8 @@ func (c *contentCacheForMetadata) GetContent(ctx context.Context, contentID stri
 		return nil
 	}
 
-	// lock the mutex
-	m := c.mutexForBlob(blobID)
-	m.Lock()
-	defer m.Unlock()
+	c.pc.LockBeforeFullBlobFetch(blobID)
+	defer c.pc.UnlockAfterFullBlobFetch(blobID)
 
 	// check again to see if we perhaps lost the race and the data is now in cache.
 	if c.pc.GetPartial(ctx, string(blobID), offset, length, output) {
@@ -77,10 +58,8 @@ func (c *contentCacheForMetadata) PrefetchBlob(ctx context.Context, blobID blob.
 	var blobData gather.WriteBuffer
 	defer blobData.Close()
 
-	// lock the mutex
-	m := c.mutexForBlob(blobID)
-	m.Lock()
-	defer m.Unlock()
+	c.pc.LockBeforeFullBlobFetch(blobID)
+	defer c.pc.UnlockAfterFullBlobFetch(blobID)
 
 	// check to see if the data is now in cache.
 	if c.pc.GetPartial(ctx, string(blobID), 0, 1, &blobData) {

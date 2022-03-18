@@ -31,6 +31,9 @@ func BlobIDCacheKey(id blob.ID) string {
 }
 
 func (c *contentCacheForData) GetContent(ctx context.Context, contentID string, blobID blob.ID, offset, length int64, output *gather.WriteBuffer) error {
+	c.pc.LockBeforePartialBlobFetch(blobID)
+	defer c.pc.UnlockAfterPartialBlobFetch(blobID)
+
 	if c.pc.GetPartial(ctx, BlobIDCacheKey(blobID), offset, length, output) {
 		return nil
 	}
@@ -48,9 +51,16 @@ func (c *contentCacheForData) Close(ctx context.Context) {
 	c.pc.Close(ctx)
 }
 
-func (c contentCacheForData) PrefetchBlob(ctx context.Context, blobID blob.ID) error {
+func (c *contentCacheForData) PrefetchBlob(ctx context.Context, blobID blob.ID) error {
 	var blobData gather.WriteBuffer
 	defer blobData.Close()
+
+	if c.pc.GetPartial(ctx, BlobIDCacheKey(blobID), 0, 1, &blobData) {
+		return nil
+	}
+
+	c.pc.LockBeforeFullBlobFetch(blobID)
+	defer c.pc.UnlockAfterFullBlobFetch(blobID)
 
 	if c.pc.GetPartial(ctx, BlobIDCacheKey(blobID), 0, 1, &blobData) {
 		return nil
@@ -71,7 +81,7 @@ func (c contentCacheForData) PrefetchBlob(ctx context.Context, blobID blob.ID) e
 	return nil
 }
 
-func (c contentCacheForData) CacheStorage() Storage {
+func (c *contentCacheForData) CacheStorage() Storage {
 	return c.pc.cacheStorage
 }
 
