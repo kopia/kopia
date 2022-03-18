@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -12,6 +13,9 @@ import (
 	"github.com/kopia/kopia/internal/scrubber"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/object"
 )
 
 type commandRepositoryStatus struct {
@@ -19,7 +23,20 @@ type commandRepositoryStatus struct {
 	statusReconnectTokenIncludePassword bool
 
 	svc advancedAppServices
+	jo  jsonOutput
 	out textOutput
+}
+
+// RepositoryStatus is used to display the repository info in JSON format.
+type RepositoryStatus struct {
+	ConfigFile  string `json:"configFile"`
+	UniqueIDHex string `json:"uniqueIDHex"`
+
+	ClientOptions repo.ClientOptions        `json:"clientOptions"`
+	Storage       blob.ConnectionInfo       `json:"storage"`
+	ContentFormat content.FormattingOptions `json:"contentFormat"`
+	ObjectFormat  object.Format             `json:"objectFormat"`
+	BlobRetention content.BlobCfgBlob       `json:"blobRetention"`
 }
 
 func (c *commandRepositoryStatus) setup(svc advancedAppServices, parent commandParent) {
@@ -30,9 +47,35 @@ func (c *commandRepositoryStatus) setup(svc advancedAppServices, parent commandP
 
 	c.svc = svc
 	c.out.setup(svc)
+	c.jo.setup(svc, cmd)
+}
+
+func (c *commandRepositoryStatus) outputJSON(r repo.Repository) error {
+	s := RepositoryStatus{
+		ConfigFile:    c.svc.repositoryConfigFileName(),
+		ClientOptions: r.ClientOptions(),
+	}
+
+	dr, ok := r.(repo.DirectRepository)
+	if ok {
+		ci := dr.BlobReader().ConnectionInfo()
+		s.UniqueIDHex = hex.EncodeToString(dr.UniqueID())
+		s.ObjectFormat = dr.ObjectFormat()
+		s.BlobRetention = dr.BlobCfg()
+		s.Storage = scrubber.ScrubSensitiveData(reflect.ValueOf(ci)).Interface().(blob.ConnectionInfo)                                             // nolint:forcetypeassert
+		s.ContentFormat = scrubber.ScrubSensitiveData(reflect.ValueOf(dr.ContentReader().ContentFormat())).Interface().(content.FormattingOptions) // nolint:forcetypeassert
+	}
+
+	c.out.printStdout("%s\n", c.jo.jsonBytes(s))
+
+	return nil
 }
 
 func (c *commandRepositoryStatus) run(ctx context.Context, rep repo.Repository) error {
+	if c.jo.jsonOutput {
+		return c.outputJSON(rep)
+	}
+
 	c.out.printStdout("Config file:         %v\n", c.svc.repositoryConfigFileName())
 	c.out.printStdout("\n")
 	c.out.printStdout("Description:         %v\n", rep.ClientOptions().Description)

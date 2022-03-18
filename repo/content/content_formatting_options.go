@@ -28,10 +28,10 @@ const (
 
 // FormattingOptions describes the rules for formatting contents in repository.
 type FormattingOptions struct {
-	Hash       string `json:"hash,omitempty"`       // identifier of the hash algorithm used
-	Encryption string `json:"encryption,omitempty"` // identifier of the encryption algorithm used
-	HMACSecret []byte `json:"secret,omitempty"`     // HMAC secret used to generate encryption keys
-	MasterKey  []byte `json:"masterKey,omitempty"`  // master encryption key (SIV-mode encryption only)
+	Hash       string `json:"hash,omitempty"`                        // identifier of the hash algorithm used
+	Encryption string `json:"encryption,omitempty"`                  // identifier of the encryption algorithm used
+	HMACSecret []byte `json:"secret,omitempty" kopia:"sensitive"`    // HMAC secret used to generate encryption keys
+	MasterKey  []byte `json:"masterKey,omitempty" kopia:"sensitive"` // master encryption key (SIV-mode encryption only)
 	MutableParameters
 
 	UpgradeLock *UpgradeLock `json:"upgradeLock,omitempty"` // declares the intent to lock the repository for exclusive access during upgrade
