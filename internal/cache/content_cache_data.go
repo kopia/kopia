@@ -31,8 +31,10 @@ func BlobIDCacheKey(id blob.ID) string {
 }
 
 func (c *contentCacheForData) GetContent(ctx context.Context, contentID string, blobID blob.ID, offset, length int64, output *gather.WriteBuffer) error {
-	c.pc.LockBeforePartialBlobFetch(blobID)
-	defer c.pc.UnlockAfterPartialBlobFetch(blobID)
+	// acquire shared lock
+	mut := c.pc.GetFetchingMutex(string(blobID))
+	mut.RLock()
+	defer mut.RUnlock()
 
 	if c.pc.GetPartial(ctx, BlobIDCacheKey(blobID), offset, length, output) {
 		return nil
@@ -59,8 +61,10 @@ func (c *contentCacheForData) PrefetchBlob(ctx context.Context, blobID blob.ID) 
 		return nil
 	}
 
-	c.pc.LockBeforeFullBlobFetch(blobID)
-	defer c.pc.UnlockAfterFullBlobFetch(blobID)
+	// acquire exclusive lock
+	mut := c.pc.GetFetchingMutex(string(blobID))
+	mut.Lock()
+	defer mut.Unlock()
 
 	if c.pc.GetPartial(ctx, BlobIDCacheKey(blobID), 0, 1, &blobData) {
 		return nil

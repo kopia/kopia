@@ -148,9 +148,6 @@ func testGetContentForDifferentContentIDsExecutesInParallel(t *testing.T, newCac
 
 	defer dataCache.Close(ctx)
 
-	var tmp gather.WriteBuffer
-	defer tmp.Close()
-
 	require.NoError(t, underlying.PutBlob(ctx, "blob1", gather.FromSlice([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}), blob.PutOptions{}))
 
 	var ct concurrencyTester
@@ -170,6 +167,9 @@ func testGetContentForDifferentContentIDsExecutesInParallel(t *testing.T, newCac
 
 		go func() {
 			defer wg.Done()
+
+			var tmp gather.WriteBuffer
+			defer tmp.Close()
 
 			dataCache.GetContent(ctx, fmt.Sprintf("c%v", i), "blob1", int64(i), 1, &tmp)
 		}()
@@ -196,9 +196,6 @@ func testGetContentForDifferentBlobsExecutesInParallel(t *testing.T, newCache ne
 
 	defer dataCache.Close(ctx)
 
-	var tmp gather.WriteBuffer
-	defer tmp.Close()
-
 	for i := 0; i < 100; i++ {
 		require.NoError(t, underlying.PutBlob(ctx, blob.ID(fmt.Sprintf("blob%v", i)), gather.FromSlice([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}), blob.PutOptions{}))
 	}
@@ -220,6 +217,9 @@ func testGetContentForDifferentBlobsExecutesInParallel(t *testing.T, newCache ne
 
 		go func() {
 			defer wg.Done()
+
+			var tmp gather.WriteBuffer
+			defer tmp.Close()
 
 			dataCache.GetContent(ctx, fmt.Sprintf("c%v", i), blob.ID(fmt.Sprintf("blob%v", i)), int64(i), 1, &tmp)
 		}()
@@ -246,9 +246,6 @@ func testGetContentRaceFetchesOnce(t *testing.T, newCache newContentCacheFunc) {
 
 	defer dataCache.Close(ctx)
 
-	var tmp gather.WriteBuffer
-	defer tmp.Close()
-
 	require.NoError(t, underlying.PutBlob(ctx, "blob1", gather.FromSlice([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}), blob.PutOptions{}))
 
 	faulty.AddFault(blobtesting.MethodGetBlob).Before(func() {
@@ -268,6 +265,9 @@ func testGetContentRaceFetchesOnce(t *testing.T, newCache newContentCacheFunc) {
 
 		go func() {
 			defer wg.Done()
+
+			var tmp gather.WriteBuffer
+			defer tmp.Close()
 
 			dataCache.GetContent(ctx, "c1", "blob1", 0, 1, &tmp)
 		}()

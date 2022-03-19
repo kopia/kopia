@@ -22,8 +22,10 @@ func (c *contentCacheForMetadata) GetContent(ctx context.Context, contentID stri
 		return nil
 	}
 
-	c.pc.LockBeforeFullBlobFetch(blobID)
-	defer c.pc.UnlockAfterFullBlobFetch(blobID)
+	// acquire exclusive lock
+	mut := c.pc.GetFetchingMutex(string(blobID))
+	mut.Lock()
+	defer mut.Unlock()
 
 	// check again to see if we perhaps lost the race and the data is now in cache.
 	if c.pc.GetPartial(ctx, string(blobID), offset, length, output) {
@@ -58,8 +60,10 @@ func (c *contentCacheForMetadata) PrefetchBlob(ctx context.Context, blobID blob.
 	var blobData gather.WriteBuffer
 	defer blobData.Close()
 
-	c.pc.LockBeforeFullBlobFetch(blobID)
-	defer c.pc.UnlockAfterFullBlobFetch(blobID)
+	// acquire exclusive lock
+	mut := c.pc.GetFetchingMutex(string(blobID))
+	mut.Lock()
+	defer mut.Unlock()
 
 	// check to see if the data is now in cache.
 	if c.pc.GetPartial(ctx, string(blobID), 0, 1, &blobData) {

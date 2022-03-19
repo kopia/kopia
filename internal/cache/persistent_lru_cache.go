@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/clock"
@@ -27,6 +28,11 @@ const (
 	// DefaultTouchThreshold specifies the resolution of timestamps used to determine which cache items
 	// to expire. This helps cache storage writes on frequently accessed items.
 	DefaultTouchThreshold = 10 * time.Minute
+
+	// Size of the mutex cache LRU.
+	// In case a mutex is evicted of the cache, the impact will be some redundant read,
+	// which given the size should be extremely rare.
+	mutexCacheSize = 10000
 )
 
 // PersistentCache provides persistent on-disk cache.
@@ -42,7 +48,7 @@ type PersistentCache struct {
 	periodicSweepRunning sync.WaitGroup
 	periodicSweepClosed  chan struct{}
 
-	blobFetchMutexes sync.Map
+	mutexCache *lru.Cache
 }
 
 // CacheStorage returns cache storage.
@@ -50,37 +56,21 @@ func (c *PersistentCache) CacheStorage() Storage {
 	return c.cacheStorage
 }
 
-func (c *PersistentCache) getFetchingMutex(key interface{}) *sync.RWMutex {
-	v, ok := c.blobFetchMutexes.Load(key)
-	if ok {
+// GetFetchingMutex returns a RWMutex used to lock a blob or content during loading.
+func (c *PersistentCache) GetFetchingMutex(key string) *sync.RWMutex {
+	if v, ok := c.mutexCache.Get(key); ok {
 		// nolint:forcetypeassert
 		return v.(*sync.RWMutex)
 	}
 
-	v, _ = c.blobFetchMutexes.LoadOrStore(key, &sync.RWMutex{})
+	newVal := &sync.RWMutex{}
 
-	// nolint:forcetypeassert
-	return v.(*sync.RWMutex)
-}
+	if prevVal, ok, _ := c.mutexCache.PeekOrAdd(key, newVal); ok {
+		// nolint:forcetypeassert
+		return prevVal.(*sync.RWMutex)
+	}
 
-// LockBeforeFullBlobFetch acquires an exclusive lock before fetching full blob.
-func (c *PersistentCache) LockBeforeFullBlobFetch(blobID blob.ID) {
-	c.getFetchingMutex(blobID).Lock()
-}
-
-// UnlockAfterFullBlobFetch releases an exclusive lock after fetching full blob.
-func (c *PersistentCache) UnlockAfterFullBlobFetch(blobID blob.ID) {
-	c.getFetchingMutex(blobID).Unlock()
-}
-
-// LockBeforePartialBlobFetch acquires a shared lock before fetching part of a blob.
-func (c *PersistentCache) LockBeforePartialBlobFetch(blobID blob.ID) {
-	c.getFetchingMutex(blobID).RLock()
-}
-
-// UnlockAfterPartialBlobFetch releases an shared lock after fetching part of a blob.
-func (c *PersistentCache) UnlockAfterPartialBlobFetch(blobID blob.ID) {
-	c.getFetchingMutex(blobID).RUnlock()
+	return newVal
 }
 
 // GetOrLoad is utility function gets the provided item from the cache or invokes the provided fetch function.
@@ -97,7 +87,7 @@ func (c *PersistentCache) GetOrLoad(ctx context.Context, key string, fetch func(
 
 	output.Reset()
 
-	mut := c.getFetchingMutex(key)
+	mut := c.GetFetchingMutex(key)
 	mut.Lock()
 	defer mut.Unlock()
 
@@ -350,6 +340,8 @@ func NewPersistentCache(ctx context.Context, description string, cacheStorage St
 		description:         description,
 		storageProtection:   storageProtection,
 	}
+
+	c.mutexCache, _ = lru.New(mutexCacheSize)
 
 	// verify that cache storage is functional by listing from it
 	if _, err := c.cacheStorage.GetMetadata(ctx, "test-blob"); err != nil && !errors.Is(err, blob.ErrBlobNotFound) {
