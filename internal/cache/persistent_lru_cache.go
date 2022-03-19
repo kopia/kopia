@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/clock"
@@ -27,6 +28,11 @@ const (
 	// DefaultTouchThreshold specifies the resolution of timestamps used to determine which cache items
 	// to expire. This helps cache storage writes on frequently accessed items.
 	DefaultTouchThreshold = 10 * time.Minute
+
+	// Size of the mutex cache LRU.
+	// In case a mutex is evicted of the cache, the impact will be some redundant read,
+	// which given the size should be extremely rare.
+	mutexCacheSize = 10000
 )
 
 // PersistentCache provides persistent on-disk cache.
@@ -41,11 +47,30 @@ type PersistentCache struct {
 
 	periodicSweepRunning sync.WaitGroup
 	periodicSweepClosed  chan struct{}
+
+	mutexCache *lru.Cache
 }
 
 // CacheStorage returns cache storage.
 func (c *PersistentCache) CacheStorage() Storage {
 	return c.cacheStorage
+}
+
+// GetFetchingMutex returns a RWMutex used to lock a blob or content during loading.
+func (c *PersistentCache) GetFetchingMutex(key string) *sync.RWMutex {
+	if v, ok := c.mutexCache.Get(key); ok {
+		// nolint:forcetypeassert
+		return v.(*sync.RWMutex)
+	}
+
+	newVal := &sync.RWMutex{}
+
+	if prevVal, ok, _ := c.mutexCache.PeekOrAdd(key, newVal); ok {
+		// nolint:forcetypeassert
+		return prevVal.(*sync.RWMutex)
+	}
+
+	return newVal
 }
 
 // GetOrLoad is utility function gets the provided item from the cache or invokes the provided fetch function.
@@ -61,6 +86,15 @@ func (c *PersistentCache) GetOrLoad(ctx context.Context, key string, fetch func(
 	}
 
 	output.Reset()
+
+	mut := c.GetFetchingMutex(key)
+	mut.Lock()
+	defer mut.Unlock()
+
+	// check again while holding the mutex
+	if c.GetFull(ctx, key, output) {
+		return nil
+	}
 
 	if err := fetch(output); err != nil {
 		reportMissError()
@@ -245,6 +279,14 @@ func (c *PersistentCache) sweepDirectory(ctx context.Context) (err error) {
 
 	dur := timer.Elapsed()
 
+	const hundredPercent = 100
+
+	inUsePercent := int64(hundredPercent)
+
+	if c.sweep.MaxSizeBytes != 0 {
+		inUsePercent = hundredPercent * totalRetainedSize / c.sweep.MaxSizeBytes
+	}
+
 	log(ctx).Debugw(
 		"finished sweeping",
 		"cache", c.description,
@@ -253,7 +295,7 @@ func (c *PersistentCache) sweepDirectory(ctx context.Context) (err error) {
 		"tooRecentBytes", tooRecentBytes,
 		"tooRecentCount", tooRecentCount,
 		"maxSizeBytes", c.sweep.MaxSizeBytes,
-		"inUsePercent", 100*totalRetainedSize/c.sweep.MaxSizeBytes,
+		"inUsePercent", inUsePercent,
 	)
 
 	return nil
@@ -298,6 +340,8 @@ func NewPersistentCache(ctx context.Context, description string, cacheStorage St
 		description:         description,
 		storageProtection:   storageProtection,
 	}
+
+	c.mutexCache, _ = lru.New(mutexCacheSize)
 
 	// verify that cache storage is functional by listing from it
 	if _, err := c.cacheStorage.GetMetadata(ctx, "test-blob"); err != nil && !errors.Is(err, blob.ErrBlobNotFound) {
