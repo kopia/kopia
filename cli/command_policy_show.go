@@ -265,7 +265,7 @@ func appendLoggingPolicyRows(rows []policyTableRow, p *policy.Policy, def *polic
 func appendSchedulingPolicyRows(rows []policyTableRow, p *policy.Policy, def *policy.Definition) []policyTableRow {
 	rows = append(rows, policyTableRow{"Scheduling policy:", "", ""})
 
-	any := false
+	hasAny := false
 
 	rows = append(rows, policyTableRow{"  Scheduled snapshots:", "", ""})
 
@@ -276,7 +276,7 @@ func appendSchedulingPolicyRows(rows []policyTableRow, p *policy.Policy, def *po
 			definitionPointToString(p.Target(), def.SchedulingPolicy.IntervalSeconds),
 		})
 
-		any = true
+		hasAny = true
 	}
 
 	if len(p.SchedulingPolicy.TimesOfDay) > 0 {
@@ -286,10 +286,10 @@ func appendSchedulingPolicyRows(rows []policyTableRow, p *policy.Policy, def *po
 			rows = append(rows, policyTableRow{"    " + tod.String(), "", ""})
 		}
 
-		any = true
+		hasAny = true
 	}
 
-	if !any {
+	if !hasAny {
 		rows = append(rows, policyTableRow{"    None.", "", ""})
 	}
 

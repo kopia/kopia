@@ -111,7 +111,7 @@ func disambiguateSafeNames(m map[string]string) map[string]string {
 	}
 
 	result := map[string]string{}
-	any := false
+	hasAny := false
 
 	for _, originals := range safe2original {
 		if len(originals) == 1 {
@@ -128,11 +128,11 @@ func disambiguateSafeNames(m map[string]string) map[string]string {
 				}
 			}
 
-			any = true
+			hasAny = true
 		}
 	}
 
-	if !any {
+	if !hasAny {
 		return result
 	}
 

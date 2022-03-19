@@ -55,7 +55,7 @@ func (p estimateTaskProgress) Stats(ctx context.Context, st *snapshot.Stats, inc
 }
 
 func logBucketSamples(ctx context.Context, buckets snapshotfs.SampleBuckets, prefix string, showExamples bool) {
-	any := false
+	hasAny := false
 
 	for i, bucket := range buckets {
 		if bucket.Count == 0 {
@@ -78,7 +78,7 @@ func logBucketSamples(ctx context.Context, buckets snapshotfs.SampleBuckets, pre
 			sizeRange,
 			bucket.Count, units.BytesStringBase10(bucket.TotalSize))
 
-		any = true
+		hasAny = true
 
 		if showExamples && len(bucket.Examples) > 0 {
 			log(ctx).Infof("Examples:")
@@ -89,7 +89,7 @@ func logBucketSamples(ctx context.Context, buckets snapshotfs.SampleBuckets, pre
 		}
 	}
 
-	if !any {
+	if !hasAny {
 		log(ctx).Infof("%v files: None", prefix)
 	}
 }
