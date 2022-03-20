@@ -3,19 +3,14 @@ package server
 import (
 	"context"
 	"encoding/json"
-	"net/http"
 
-	"github.com/gorilla/mux"
-
-	"github.com/kopia/kopia/internal/mount"
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/repo/object"
-	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
 
-func (s *Server) handleMountCreate(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
+func handleMountCreate(ctx context.Context, rc requestContext) (interface{}, *apiError) {
 	req := &serverapi.MountSnapshotRequest{}
-	if err := json.Unmarshal(body, req); err != nil {
+	if err := json.Unmarshal(rc.body, req); err != nil {
 		return nil, requestError(serverapi.ErrorMalformedRequest, "malformed request body")
 	}
 
@@ -24,25 +19,9 @@ func (s *Server) handleMountCreate(ctx context.Context, r *http.Request, body []
 		return nil, requestError(serverapi.ErrorMalformedRequest, "unable to parse OID")
 	}
 
-	var c mount.Controller
-
-	v, ok := s.mounts.Load(oid)
-	if !ok {
-		log(ctx).Debugf("mount controller for %v not found, starting", oid)
-
-		var err error
-		c, err = mount.Directory(ctx, snapshotfs.DirectoryEntry(s.rep, oid, nil), "*", mount.Options{})
-
-		if err != nil {
-			return nil, internalServerError(err)
-		}
-
-		if actual, loaded := s.mounts.LoadOrStore(oid, c); loaded {
-			c.Unmount(ctx)                // nolint:errcheck
-			c = actual.(mount.Controller) // nolint:forcetypeassert
-		}
-	} else {
-		c = v.(mount.Controller) // nolint:forcetypeassert
+	c, err := rc.srv.getMountController(ctx, rc.rep, oid, true)
+	if err != nil {
+		return nil, internalServerError(err)
 	}
 
 	log(ctx).Debugf("mount for %v => %v", oid, c.MountPath())
@@ -53,15 +32,17 @@ func (s *Server) handleMountCreate(ctx context.Context, r *http.Request, body []
 	}, nil
 }
 
-func (s *Server) handleMountGet(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
-	oid := object.ID(mux.Vars(r)["rootObjectID"])
+func handleMountGet(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+	oid := object.ID(rc.muxVar("rootObjectID"))
 
-	v, ok := s.mounts.Load(oid)
-	if !ok {
-		return nil, notFoundError("mount point not found")
+	c, err := rc.srv.getMountController(ctx, rc.rep, oid, false)
+	if err != nil {
+		return nil, internalServerError(err)
 	}
 
-	c := v.(mount.Controller) // nolint:forcetypeassert
+	if c == nil {
+		return nil, notFoundError("mount point not found")
+	}
 
 	return &serverapi.MountedSnapshot{
 		Path: c.MountPath(),
@@ -69,55 +50,38 @@ func (s *Server) handleMountGet(ctx context.Context, r *http.Request, body []byt
 	}, nil
 }
 
-func (s *Server) handleMountDelete(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
-	oid := object.ID(mux.Vars(r)["rootObjectID"])
+func handleMountDelete(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+	oid := object.ID(rc.muxVar("rootObjectID"))
 
-	v, ok := s.mounts.Load(oid)
-	if !ok {
-		return nil, notFoundError("mount point not found")
+	c, err := rc.srv.getMountController(ctx, rc.rep, oid, false)
+	if err != nil {
+		return nil, internalServerError(err)
 	}
 
-	c := v.(mount.Controller) // nolint:forcetypeassert
+	if c == nil {
+		return nil, notFoundError("mount point not found")
+	}
 
 	if err := c.Unmount(ctx); err != nil {
 		return nil, internalServerError(err)
 	}
 
-	s.mounts.Delete(oid)
+	rc.srv.deleteMount(oid)
 
 	return &serverapi.Empty{}, nil
 }
 
-func (s *Server) handleMountList(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
+func handleMountList(ctx context.Context, rc requestContext) (interface{}, *apiError) {
 	res := &serverapi.MountedSnapshots{
 		Items: []*serverapi.MountedSnapshot{},
 	}
 
-	s.mounts.Range(func(key, val interface{}) bool {
-		oid := key.(object.ID)      // nolint:forcetypeassert
-		c := val.(mount.Controller) // nolint:forcetypeassert
-
+	for oid, c := range rc.srv.listMounts() {
 		res.Items = append(res.Items, &serverapi.MountedSnapshot{
 			Path: c.MountPath(),
 			Root: oid,
 		})
-		return true
-	})
+	}
 
 	return res, nil
-}
-
-func (s *Server) unmountAll(ctx context.Context) {
-	s.mounts.Range(func(key, val interface{}) bool {
-		c := val.(mount.Controller) // nolint:forcetypeassert
-
-		log(ctx).Debugf("unmounting %v from %v", key, c.MountPath())
-
-		if err := c.Unmount(ctx); err != nil {
-			log(ctx).Errorf("unable to unmount %v", key)
-		}
-
-		s.mounts.Delete(key)
-		return true
-	})
 }

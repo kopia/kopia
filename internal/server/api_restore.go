@@ -4,7 +4,6 @@ import (
 	"archive/zip"
 	"context"
 	"encoding/json"
-	"net/http"
 	"os"
 
 	"github.com/pkg/errors"
@@ -27,14 +26,14 @@ func restoreCounters(s restore.Stats) map[string]uitask.CounterValue {
 	}
 }
 
-func (s *Server) handleRestore(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
+func handleRestore(ctx context.Context, rc requestContext) (interface{}, *apiError) {
 	var req serverapi.RestoreRequest
 
-	if err := json.Unmarshal(body, &req); err != nil {
+	if err := json.Unmarshal(rc.body, &req); err != nil {
 		return nil, requestError(serverapi.ErrorMalformedRequest, "malformed request body")
 	}
 
-	rep := s.rep
+	rep := rc.rep
 
 	if req.Root == "" {
 		return nil, requestError(serverapi.ErrorMalformedRequest, "root not specified")
@@ -87,7 +86,7 @@ func (s *Server) handleRestore(ctx context.Context, r *http.Request, body []byte
 	// launch a goroutine that will continue the restore and can be observed in the Tasks UI.
 
 	// nolint:errcheck
-	go s.taskmgr.Run(ctx, "Restore", description, func(ctx context.Context, ctrl uitask.Controller) error {
+	go rc.srv.taskManager().Run(ctx, "Restore", description, func(ctx context.Context, ctrl uitask.Controller) error {
 		taskIDChan <- ctrl.CurrentTaskID()
 
 		opt := req.Options
@@ -113,7 +112,7 @@ func (s *Server) handleRestore(ctx context.Context, r *http.Request, body []byte
 
 	taskID := <-taskIDChan
 
-	task, ok := s.taskmgr.GetTask(taskID)
+	task, ok := rc.srv.taskManager().GetTask(taskID)
 	if !ok {
 		return nil, internalServerError(errors.Errorf("task not found"))
 	}

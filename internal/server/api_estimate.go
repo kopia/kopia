@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"path/filepath"
+	"sync/atomic"
 
 	"github.com/pkg/errors"
 
@@ -38,14 +38,14 @@ func (p estimateTaskProgress) Error(ctx context.Context, dirname string, err err
 
 func (p estimateTaskProgress) Stats(ctx context.Context, st *snapshot.Stats, included, excluded snapshotfs.SampleBuckets, excludedDirs []string, final bool) {
 	p.ctrl.ReportCounters(map[string]uitask.CounterValue{
-		"Bytes":                uitask.BytesCounter(st.TotalFileSize),
-		"Excluded Bytes":       uitask.BytesCounter(st.ExcludedTotalFileSize),
-		"Files":                uitask.SimpleCounter(int64(st.TotalFileCount)),
-		"Directories":          uitask.SimpleCounter(int64(st.TotalDirectoryCount)),
-		"Excluded Files":       uitask.SimpleCounter(int64(st.ExcludedFileCount)),
-		"Excluded Directories": uitask.SimpleCounter(int64(st.ExcludedDirCount)),
-		"Errors":               uitask.ErrorCounter(int64(st.ErrorCount)),
-		"Ignored Errors":       uitask.ErrorCounter(int64(st.IgnoredErrorCount)),
+		"Bytes":                uitask.BytesCounter(atomic.LoadInt64(&st.TotalFileSize)),
+		"Excluded Bytes":       uitask.BytesCounter(atomic.LoadInt64(&st.ExcludedTotalFileSize)),
+		"Files":                uitask.SimpleCounter(int64(atomic.LoadInt32(&st.TotalFileCount))),
+		"Directories":          uitask.SimpleCounter(int64(atomic.LoadInt32(&st.TotalDirectoryCount))),
+		"Excluded Files":       uitask.SimpleCounter(int64(atomic.LoadInt32(&st.ExcludedFileCount))),
+		"Excluded Directories": uitask.SimpleCounter(int64(atomic.LoadInt32(&st.ExcludedDirCount))),
+		"Errors":               uitask.ErrorCounter(int64(atomic.LoadInt32(&st.ErrorCount))),
+		"Ignored Errors":       uitask.ErrorCounter(int64(atomic.LoadInt32(&st.IgnoredErrorCount))),
 	})
 
 	if final {
@@ -96,14 +96,14 @@ func logBucketSamples(ctx context.Context, buckets snapshotfs.SampleBuckets, pre
 
 var _ snapshotfs.EstimateProgress = estimateTaskProgress{}
 
-func (s *Server) handleEstimate(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
+func handleEstimate(ctx context.Context, rc requestContext) (interface{}, *apiError) {
 	var req serverapi.EstimateRequest
 
-	if err := json.Unmarshal(body, &req); err != nil {
+	if err := json.Unmarshal(rc.body, &req); err != nil {
 		return nil, requestError(serverapi.ErrorMalformedRequest, "malformed request body")
 	}
 
-	rep := s.rep
+	rep := rc.rep
 
 	resolvedRoot := filepath.Clean(ospath.ResolveUserFriendlyPath(req.Root, true))
 
@@ -119,10 +119,19 @@ func (s *Server) handleEstimate(ctx context.Context, r *http.Request, body []byt
 
 	taskIDChan := make(chan string)
 
+	policyTree, err := policy.TreeForSourceWithOverride(ctx, rc.rep, snapshot.SourceInfo{
+		Host:     rc.rep.ClientOptions().Hostname,
+		UserName: rc.rep.ClientOptions().Username,
+		Path:     resolvedRoot,
+	}, req.PolicyOverride)
+	if err != nil {
+		return nil, internalServerError(errors.Wrap(err, "unable to get policy tree"))
+	}
+
 	// launch a goroutine that will continue the estimate and can be observed in the Tasks UI.
 
 	// nolint:errcheck
-	go s.taskmgr.Run(ctx, "Estimate", resolvedRoot, func(ctx context.Context, ctrl uitask.Controller) error {
+	go rc.srv.taskManager().Run(ctx, "Estimate", resolvedRoot, func(ctx context.Context, ctrl uitask.Controller) error {
 		taskIDChan <- ctrl.CurrentTaskID()
 
 		estimatectx, cancel := context.WithCancel(ctx)
@@ -130,22 +139,13 @@ func (s *Server) handleEstimate(ctx context.Context, r *http.Request, body []byt
 
 		ctrl.OnCancel(cancel)
 
-		policyTree, err := policy.TreeForSourceWithOverride(ctx, s.rep, snapshot.SourceInfo{
-			Host:     s.rep.ClientOptions().Hostname,
-			UserName: s.rep.ClientOptions().Username,
-			Path:     resolvedRoot,
-		}, req.PolicyOverride)
-		if err != nil {
-			return errors.Wrap(err, "unable to get policy tree")
-		}
-
 		// nolint:wrapcheck
 		return snapshotfs.Estimate(estimatectx, rep, dir, policyTree, estimateTaskProgress{ctrl}, req.MaxExamplesPerBucket)
 	})
 
 	taskID := <-taskIDChan
 
-	task, ok := s.taskmgr.GetTask(taskID)
+	task, ok := rc.srv.taskManager().GetTask(taskID)
 	if !ok {
 		return nil, internalServerError(errors.Errorf("task not found"))
 	}

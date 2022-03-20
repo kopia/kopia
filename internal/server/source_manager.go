@@ -38,31 +38,42 @@ const (
 type sourceManager struct {
 	snapshotfs.NullUploadProgress
 
-	server           *Server
+	server *Server
+
 	src              snapshot.SourceInfo
+	rep              repo.Repository
 	closed           chan struct{}
 	snapshotRequests chan struct{}
 	refreshRequested chan struct{} // tickled externally to trigger refresh
 	wg               sync.WaitGroup
 
-	mu                                 sync.RWMutex
-	uploader                           *snapshotfs.Uploader
-	pol                                policy.SchedulingPolicy
-	state                              string
-	nextSnapshotTime                   *time.Time
-	lastSnapshot                       *snapshot.Manifest
-	lastCompleteSnapshot               *snapshot.Manifest
+	sourceMutex sync.RWMutex
+	// +checklocks:sourceMutex
+	uploader *snapshotfs.Uploader
+	// +checklocks:sourceMutex
+	pol policy.SchedulingPolicy
+	// +checklocks:sourceMutex
+	state string
+	// +checklocks:sourceMutex
+	nextSnapshotTime *time.Time
+	// +checklocks:sourceMutex
+	lastSnapshot *snapshot.Manifest
+	// +checklocks:sourceMutex
+	lastCompleteSnapshot *snapshot.Manifest
+	// +checklocks:sourceMutex
 	manifestsSinceLastCompleteSnapshot []*snapshot.Manifest
-	paused                             bool
-	isReadOnly                         bool
-
-	progress    *snapshotfs.CountingUploadProgress
+	// +checklocks:sourceMutex
+	paused bool
+	// +checklocks:sourceMutex
 	currentTask string
+
+	isReadOnly bool
+	progress   *snapshotfs.CountingUploadProgress
 }
 
 func (s *sourceManager) Status() *serverapi.SourceStatus {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+	s.sourceMutex.RLock()
+	defer s.sourceMutex.RUnlock()
 
 	st := &serverapi.SourceStatus{
 		Source:           s.src,
@@ -84,26 +95,59 @@ func (s *sourceManager) Status() *serverapi.SourceStatus {
 }
 
 func (s *sourceManager) setStatus(stat string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.sourceMutex.Lock()
+	defer s.sourceMutex.Unlock()
+
 	s.state = stat
 }
 
+func (s *sourceManager) isPaused() bool {
+	s.sourceMutex.RLock()
+	defer s.sourceMutex.RUnlock()
+
+	return s.paused
+}
+
+func (s *sourceManager) getNextSnapshotTime() (time.Time, bool) {
+	s.sourceMutex.RLock()
+	defer s.sourceMutex.RUnlock()
+
+	if s.nextSnapshotTime == nil {
+		return time.Time{}, false
+	}
+
+	return *s.nextSnapshotTime, true
+}
+
+func (s *sourceManager) setCurrentTaskID(taskID string) {
+	s.sourceMutex.Lock()
+	defer s.sourceMutex.Unlock()
+
+	s.currentTask = taskID
+}
+
+func (s *sourceManager) setNextSnapshotTime(t time.Time) {
+	s.sourceMutex.Lock()
+	defer s.sourceMutex.Unlock()
+
+	s.nextSnapshotTime = &t
+}
+
 func (s *sourceManager) currentUploader() *snapshotfs.Uploader {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.sourceMutex.RLock()
+	defer s.sourceMutex.RUnlock()
 
 	return s.uploader
 }
 
 func (s *sourceManager) setUploader(u *snapshotfs.Uploader) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.sourceMutex.Lock()
+	defer s.sourceMutex.Unlock()
 
 	s.uploader = u
 }
 
-func (s *sourceManager) run(ctx context.Context) {
+func (s *sourceManager) start(ctx context.Context, rep repo.Repository) {
 	// make sure we run in a detached context, which ignores outside cancelation and deadline.
 	ctx = ctxutil.Detach(ctx)
 
@@ -113,12 +157,14 @@ func (s *sourceManager) run(ctx context.Context) {
 	s.wg.Add(1)
 	defer s.wg.Done()
 
-	if s.server.rep.ClientOptions().Hostname == s.src.Host && !s.server.rep.ClientOptions().ReadOnly {
+	if rep.ClientOptions().Hostname == s.src.Host && !rep.ClientOptions().ReadOnly {
 		log(ctx).Debugf("starting local source manager for %v", s.src)
-		s.runLocal(ctx)
+
+		go s.runLocal(ctx)
 	} else {
 		log(ctx).Debugf("starting read-only source manager for %v", s.src)
-		s.runReadOnly(ctx)
+
+		go s.runReadOnly(ctx)
 	}
 }
 
@@ -128,13 +174,14 @@ func (s *sourceManager) runLocal(ctx context.Context) {
 	for {
 		var waitTime time.Duration
 
-		if s.nextSnapshotTime != nil {
-			waitTime = s.nextSnapshotTime.Sub(clock.Now())
+		nst, ok := s.getNextSnapshotTime()
+		if ok {
+			waitTime = nst.Sub(clock.Now())
 		} else {
 			waitTime = oneDay
 		}
 
-		if s.paused {
+		if s.isPaused() {
 			s.setStatus("PAUSED")
 		} else {
 			s.setStatus("IDLE")
@@ -145,8 +192,7 @@ func (s *sourceManager) runLocal(ctx context.Context) {
 			return
 
 		case <-s.snapshotRequests:
-			nt := clock.Now()
-			s.nextSnapshotTime = &nt
+			s.setNextSnapshotTime(clock.Now())
 
 			continue
 
@@ -172,12 +218,11 @@ func (s *sourceManager) runLocal(ctx context.Context) {
 }
 
 func (s *sourceManager) backoffBeforeNextSnapshot() {
-	if s.nextSnapshotTime == nil {
+	if _, ok := s.getNextSnapshotTime(); !ok {
 		return
 	}
 
-	t := clock.Now().Add(failedSnapshotRetryInterval)
-	s.nextSnapshotTime = &t
+	s.setNextSnapshotTime(clock.Now().Add(failedSnapshotRetryInterval))
 }
 
 func (s *sourceManager) runReadOnly(ctx context.Context) {
@@ -223,9 +268,9 @@ func (s *sourceManager) cancel(ctx context.Context) serverapi.SourceActionRespon
 func (s *sourceManager) pause(ctx context.Context) serverapi.SourceActionResponse {
 	log(ctx).Debugw("pause triggered via API", "source", s.src)
 
-	s.mu.Lock()
+	s.sourceMutex.Lock()
 	s.paused = true
-	s.mu.Unlock()
+	s.sourceMutex.Unlock()
 
 	if u := s.currentUploader(); u != nil {
 		log(ctx).Infof("canceling current upload")
@@ -243,9 +288,9 @@ func (s *sourceManager) pause(ctx context.Context) serverapi.SourceActionRespons
 func (s *sourceManager) resume(ctx context.Context) serverapi.SourceActionResponse {
 	log(ctx).Debugw("resume triggered via API", "source", s.src)
 
-	s.mu.Lock()
+	s.sourceMutex.Lock()
 	s.paused = false
-	s.mu.Unlock()
+	s.sourceMutex.Unlock()
 
 	select {
 	case s.refreshRequested <- struct{}{}:
@@ -274,7 +319,10 @@ func (s *sourceManager) waitUntilStopped(ctx context.Context) {
 func (s *sourceManager) snapshot(ctx context.Context) error {
 	s.setStatus("PENDING")
 
-	s.server.beginUpload(ctx, s.src)
+	if !s.server.beginUpload(ctx, s.src) {
+		return nil
+	}
+
 	defer s.server.endUpload(ctx, s.src)
 
 	// nolint:wrapcheck
@@ -287,9 +335,8 @@ func (s *sourceManager) snapshot(ctx context.Context) error {
 func (s *sourceManager) snapshotInternal(ctx context.Context, ctrl uitask.Controller) error {
 	s.setStatus("UPLOADING")
 
-	s.currentTask = ctrl.CurrentTaskID()
-
-	defer func() { s.currentTask = "" }()
+	s.setCurrentTaskID(ctrl.CurrentTaskID())
+	defer s.setCurrentTaskID("")
 
 	// check if we got closed while waiting on semaphore
 	select {
@@ -307,8 +354,12 @@ func (s *sourceManager) snapshotInternal(ctx context.Context, ctrl uitask.Contro
 
 	onUpload := func(int64) {}
 
+	s.sourceMutex.RLock()
+	manifestsSinceLastCompleteSnapshot := append([]*snapshot.Manifest(nil), s.manifestsSinceLastCompleteSnapshot...)
+	s.sourceMutex.RUnlock()
+
 	// nolint:wrapcheck
-	return repo.WriteSession(ctx, s.server.rep, repo.WriteSessionOptions{
+	return repo.WriteSession(ctx, s.rep, repo.WriteSessionOptions{
 		Purpose: "Source Manager Uploader",
 		OnUpload: func(numBytes int64) {
 			// extra indirection to allow changing onUpload function later
@@ -336,7 +387,7 @@ func (s *sourceManager) snapshotInternal(ctx context.Context, ctrl uitask.Contro
 		log(ctx).Debugf("starting upload of %v", s.src)
 		s.setUploader(u)
 
-		manifest, err := u.Upload(ctx, localEntry, policyTree, s.src, s.manifestsSinceLastCompleteSnapshot...)
+		manifest, err := u.Upload(ctx, localEntry, policyTree, s.src, manifestsSinceLastCompleteSnapshot...)
 		prog.report(true)
 
 		s.setUploader(nil)
@@ -359,7 +410,8 @@ func (s *sourceManager) snapshotInternal(ctx context.Context, ctrl uitask.Contro
 	})
 }
 
-func (s *sourceManager) findClosestNextSnapshotTime() *time.Time {
+// +checklocksread:s.sourceMutex
+func (s *sourceManager) findClosestNextSnapshotTimeReadLocked() *time.Time {
 	var lastCompleteSnapshotTime time.Time
 	if lcs := s.lastCompleteSnapshot; lcs != nil {
 		lastCompleteSnapshotTime = lcs.StartTime
@@ -377,20 +429,20 @@ func (s *sourceManager) refreshStatus(ctx context.Context) {
 	ctx, cancel := context.WithTimeout(ctx, refreshTimeout)
 	defer cancel()
 
-	pol, _, _, err := policy.GetEffectivePolicy(ctx, s.server.rep, s.src)
+	pol, _, _, err := policy.GetEffectivePolicy(ctx, s.rep, s.src)
 	if err != nil {
 		s.setStatus("FAILED")
 		return
 	}
 
-	snapshots, err := snapshot.ListSnapshots(ctx, s.server.rep, s.src)
+	snapshots, err := snapshot.ListSnapshots(ctx, s.rep, s.src)
 	if err != nil {
 		s.setStatus("FAILED")
 		return
 	}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.sourceMutex.Lock()
+	defer s.sourceMutex.Unlock()
 
 	s.pol = pol.SchedulingPolicy
 	s.manifestsSinceLastCompleteSnapshot = nil
@@ -415,11 +467,12 @@ func (s *sourceManager) refreshStatus(ctx context.Context) {
 	if s.paused {
 		s.nextSnapshotTime = nil
 	} else {
-		s.nextSnapshotTime = s.findClosestNextSnapshotTime()
+		s.nextSnapshotTime = s.findClosestNextSnapshotTimeReadLocked()
 	}
 }
 
 type uitaskProgress struct {
+	// +checkatomic
 	nextReportTimeNanos int64 // must be aligned due to atomic access
 	p                   *snapshotfs.CountingUploadProgress
 	ctrl                uitask.Controller
@@ -520,9 +573,10 @@ func (t *uitaskProgress) EstimatedDataSize(fileCount int, totalBytes int64) {
 	t.maybeReport()
 }
 
-func newSourceManager(src snapshot.SourceInfo, server *Server) *sourceManager {
+func newSourceManager(src snapshot.SourceInfo, server *Server, rep repo.Repository) *sourceManager {
 	m := &sourceManager{
 		src:              src,
+		rep:              rep,
 		server:           server,
 		state:            "UNKNOWN",
 		closed:           make(chan struct{}),
