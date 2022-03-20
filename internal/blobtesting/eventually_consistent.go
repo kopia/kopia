@@ -88,6 +88,7 @@ type eventuallyConsistentStorage struct {
 	recentlyDeleted sync.Map
 	listSettleTime  time.Duration
 
+	// +checklocks:mu
 	caches      []*ecFrontendCache
 	realStorage blob.Storage
 	timeNow     func() time.Time

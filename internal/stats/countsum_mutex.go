@@ -11,8 +11,10 @@ import (
 
 // CountSum holds sum and count values.
 type CountSum struct {
-	mu    sync.Mutex
-	sum   int64
+	mu sync.Mutex
+	// +checklocks:mu
+	sum int64
+	// +checklocks:mu
 	count uint32
 }
 

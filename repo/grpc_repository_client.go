@@ -59,13 +59,16 @@ type grpcRepositoryClient struct {
 	conn         *grpc.ClientConn
 
 	innerSessionMutex sync.Mutex
-	innerSession      *grpcInnerSession
+
+	// +checklocks:innerSessionMutex
+	innerSession *grpcInnerSession
 
 	opt                WriteSessionOptions
 	isReadOnly         bool
 	transparentRetries bool
 
 	// how many times we tried to establish inner session
+	// +checklocks:innerSessionMutex
 	innerSessionAttemptCount int
 
 	asyncWritesSemaphore chan struct{}
@@ -86,10 +89,15 @@ type grpcInnerSession struct {
 	sendMutex sync.Mutex
 
 	activeRequestsMutex sync.Mutex
-	nextRequestID       int64
-	activeRequests      map[int64]chan *apipb.SessionResponse
-	cli                 apipb.KopiaRepository_SessionClient
-	repoParams          *apipb.RepositoryParameters
+
+	// +checklocks:activeRequestsMutex
+	nextRequestID int64
+
+	// +checklocks:activeRequestsMutex
+	activeRequests map[int64]chan *apipb.SessionResponse
+
+	cli        apipb.KopiaRepository_SessionClient
+	repoParams *apipb.RepositoryParameters
 }
 
 // readLoop runs in a goroutine and consumes all messages in session and forwards them to appropriate channels.
@@ -152,6 +160,7 @@ func (r *grpcInnerSession) sendRequest(ctx context.Context, req *apipb.SessionRe
 	return ch
 }
 
+// +checklocks:r.activeRequestsMutex
 func (r *grpcInnerSession) getAndDeleteResponseChannelLocked(rid int64) chan *apipb.SessionResponse {
 	ch := r.activeRequests[rid]
 	delete(r.activeRequests, rid)

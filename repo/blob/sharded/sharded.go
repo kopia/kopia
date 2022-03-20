@@ -20,7 +20,7 @@ import (
 // CompleteBlobSuffix is the extension for sharded blobs that have completed writing.
 const CompleteBlobSuffix = ".f"
 
-var log = logging.Module("sharded")
+var log = logging.Module("sharded") // +checklocksignore
 
 // Impl must be implemented by underlying provided.
 type Impl interface {
@@ -39,7 +39,9 @@ type Storage struct {
 	Options
 
 	parametersMutex sync.Mutex
-	parameters      *Parameters
+
+	// +checklocks:parametersMutex
+	parameters *Parameters
 }
 
 // GetBlob implements blob.Storage.

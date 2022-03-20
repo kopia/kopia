@@ -38,7 +38,7 @@ type Checker struct {
 	DeleteLimit           int
 
 	mu          sync.RWMutex
-	SnapIDIndex snapmeta.Index
+	SnapIDIndex snapmeta.Index // +checklocksignore
 }
 
 // NewChecker instantiates a new Checker, returning its pointer. A temporary

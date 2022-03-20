@@ -736,6 +736,7 @@ func createMinioSessionToken(t *testing.T, minioEndpoint, kopiaUserName, kopiaUs
 // provider to force expiration of the credentials. This causes
 // the next call to Retrieve to return expired credentials.
 type customProvider struct {
+	// +checkatomic
 	forceExpired atomic.Value
 	stsProvider  miniocreds.STSAssumeRole
 }

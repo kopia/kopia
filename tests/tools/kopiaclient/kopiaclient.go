@@ -11,6 +11,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 
 	"github.com/pkg/errors"
 
@@ -99,7 +100,7 @@ func (kc *KopiaClient) SnapshotCreate(ctx context.Context, key string, val []byt
 		return errors.Wrap(err, "cannot get manifest")
 	}
 
-	log.Printf("snapshotting %v", units.BytesStringBase10(man.Stats.TotalFileSize))
+	log.Printf("snapshotting %v", units.BytesStringBase10(atomic.LoadInt64(&man.Stats.TotalFileSize)))
 
 	if _, err := snapshot.SaveSnapshot(ctx, rw, man); err != nil {
 		return errors.Wrap(err, "cannot save snapshot")

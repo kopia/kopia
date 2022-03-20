@@ -29,19 +29,25 @@ func (bm *WriteManager) RecoverIndexFromPackBlob(ctx context.Context, packFile b
 
 	var recovered []Info
 
-	bm.lock()
-	defer bm.unlock()
-
 	err = ndx.Iterate(AllIDs, func(i Info) error {
-		recovered = append(recovered, i)
-		if commit {
-			// 'i' is ephemeral and will depend on temporary buffers which
-			// won't be available when this function returns, we need to
-			// convert it to durable struct.
-			bm.packIndexBuilder.Add(ToInfoStruct(i))
-		}
+		// 'i' is ephemeral and will depend on temporary buffers which
+		// won't be available when this function returns, we need to
+		// convert it to durable struct.
+		is := ToInfoStruct(i)
+
+		recovered = append(recovered, is)
+
 		return nil
 	})
+
+	if commit {
+		bm.lock()
+		defer bm.unlock()
+
+		for _, is := range recovered {
+			bm.packIndexBuilder.Add(is)
+		}
+	}
 
 	return recovered, errors.Wrap(err, "error iterating index entries")
 }

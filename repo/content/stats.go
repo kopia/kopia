@@ -8,17 +8,27 @@ import (
 type Stats struct {
 	// Keep int64 fields first to ensure they get aligned to at least 64-bit
 	// boundaries, which is required for atomic access on ARM and x86-32.
-	readBytes      int64
-	writtenBytes   int64
+	// +checkatomic
+	readBytes int64
+	// +checkatomic
+	writtenBytes int64
+	// +checkatomic
 	decryptedBytes int64
+	// +checkatomic
 	encryptedBytes int64
-	hashedBytes    int64
+	// +checkatomic
+	hashedBytes int64
 
-	readContents    uint32
+	// +checkatomic
+	readContents uint32
+	// +checkatomic
 	writtenContents uint32
-	hashedContents  uint32
+	// +checkatomic
+	hashedContents uint32
+	// +checkatomic
 	invalidContents uint32
-	validContents   uint32
+	// +checkatomic
+	validContents uint32
 }
 
 // Reset clears all content statistics.
@@ -38,17 +48,17 @@ func (s *Stats) Reset() {
 
 // ReadContent returns the approximate read content count and their total size in bytes.
 func (s *Stats) ReadContent() (count uint32, bytes int64) {
-	return readCountSum(&s.readContents, &s.readBytes)
+	return atomic.LoadUint32(&s.readContents), atomic.LoadInt64(&s.readBytes)
 }
 
 // WrittenContent returns the approximate written content count and their total size in bytes.
 func (s *Stats) WrittenContent() (count uint32, bytes int64) {
-	return readCountSum(&s.writtenContents, &s.writtenBytes)
+	return atomic.LoadUint32(&s.writtenContents), atomic.LoadInt64(&s.writtenBytes)
 }
 
 // HashedContent returns the approximate hashed content count and their total size in bytes.
 func (s *Stats) HashedContent() (count uint32, bytes int64) {
-	return readCountSum(&s.hashedContents, &s.hashedBytes)
+	return atomic.LoadUint32(&s.hashedContents), atomic.LoadInt64(&s.hashedBytes)
 }
 
 // DecryptedBytes returns the approximate total number of decrypted bytes.
@@ -80,15 +90,15 @@ func (s *Stats) encrypted(size int) int64 {
 }
 
 func (s *Stats) readContent(size int) (count uint32, sum int64) {
-	return updateCountSum(&s.readContents, &s.readBytes, size)
+	return atomic.AddUint32(&s.readContents, 1), atomic.AddInt64(&s.readBytes, int64(size))
 }
 
 func (s *Stats) wroteContent(size int) (count uint32, sum int64) {
-	return updateCountSum(&s.writtenContents, &s.writtenBytes, size)
+	return atomic.AddUint32(&s.writtenContents, 1), atomic.AddInt64(&s.writtenBytes, int64(size))
 }
 
 func (s *Stats) hashedContent(size int) (count uint32, sum int64) {
-	return updateCountSum(&s.hashedContents, &s.hashedBytes, size)
+	return atomic.AddUint32(&s.hashedContents, 1), atomic.AddInt64(&s.hashedBytes, int64(size))
 }
 
 func (s *Stats) foundValidContent() uint32 {
@@ -97,12 +107,4 @@ func (s *Stats) foundValidContent() uint32 {
 
 func (s *Stats) foundInvalidContent() uint32 {
 	return atomic.AddUint32(&s.invalidContents, 1)
-}
-
-func updateCountSum(count *uint32, sum *int64, delta int) (updatedCount uint32, updatedSum int64) {
-	return atomic.AddUint32(count, 1), atomic.AddInt64(sum, int64(delta))
-}
-
-func readCountSum(count *uint32, sum *int64) (c uint32, s int64) {
-	return atomic.LoadUint32(count), atomic.LoadInt64(sum)
 }

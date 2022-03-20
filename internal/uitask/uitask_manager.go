@@ -21,13 +21,16 @@ const (
 
 // Manager manages UI tasks.
 type Manager struct {
-	mu         sync.Mutex
+	mu sync.Mutex
+	// +checklocks:mu
 	nextTaskID int
-	running    map[string]*runningTaskInfo
-	finished   map[string]*Info
+	// +checklocks:mu
+	running map[string]*runningTaskInfo
+	// +checklocks:mu
+	finished map[string]*Info
 
-	MaxFinishedTasks      int
-	MaxLogMessagesPerTask int
+	MaxFinishedTasks      int // +checklocksignore
+	MaxLogMessagesPerTask int // +checklocksignore
 }
 
 // Controller allows the task to communicate with task manager and receive signals.

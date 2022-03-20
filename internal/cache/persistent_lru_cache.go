@@ -37,6 +37,7 @@ const (
 
 // PersistentCache provides persistent on-disk cache.
 type PersistentCache struct {
+	// +checkatomic
 	anyChange int32
 
 	cacheStorage      Storage

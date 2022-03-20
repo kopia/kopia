@@ -32,18 +32,29 @@ type Output interface {
 
 // Stats represents restore statistics.
 type Stats struct {
+	// +checkatomic
 	RestoredTotalFileSize int64
+	// +checkatomic
 	EnqueuedTotalFileSize int64
-	SkippedTotalFileSize  int64
+	// +checkatomic
+	SkippedTotalFileSize int64
 
-	RestoredFileCount    int32
-	RestoredDirCount     int32
+	// +checkatomic
+	RestoredFileCount int32
+	// +checkatomic
+	RestoredDirCount int32
+	// +checkatomic
 	RestoredSymlinkCount int32
-	EnqueuedFileCount    int32
-	EnqueuedDirCount     int32
+	// +checkatomic
+	EnqueuedFileCount int32
+	// +checkatomic
+	EnqueuedDirCount int32
+	// +checkatomic
 	EnqueuedSymlinkCount int32
-	SkippedCount         int32
-	IgnoredErrorCount    int32
+	// +checkatomic
+	SkippedCount int32
+	// +checkatomic
+	IgnoredErrorCount int32
 }
 
 func (s *Stats) clone() Stats {

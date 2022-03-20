@@ -12,9 +12,12 @@ import (
 )
 
 type memoryCommittedContentIndexCache struct {
-	mu                   sync.Mutex
-	contents             map[blob.ID]packIndex
-	v1PerContentOverhead uint32
+	mu sync.Mutex
+
+	// +checklocks:mu
+	contents map[blob.ID]packIndex
+
+	v1PerContentOverhead uint32 // +checklocksignore
 }
 
 func (m *memoryCommittedContentIndexCache) hasIndexBlobID(ctx context.Context, indexBlobID blob.ID) (bool, error) {

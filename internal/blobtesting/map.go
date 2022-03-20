@@ -18,8 +18,11 @@ import (
 type DataMap map[blob.ID][]byte
 
 type mapStorage struct {
-	data    DataMap
+	// +checklocks:mutex
+	data DataMap
+	// +checklocks:mutex
 	keyTime map[blob.ID]time.Time
+	// +checklocks:mutex
 	timeNow func() time.Time
 	mutex   sync.RWMutex
 }

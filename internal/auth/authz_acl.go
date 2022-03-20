@@ -86,12 +86,15 @@ var DefaultACLs = []*acl.Entry{
 }
 
 type aclCache struct {
-	aclRefreshFrequency time.Duration
+	aclRefreshFrequency time.Duration // +checklocksignore
 
-	mu              sync.Mutex
-	lastRep         repo.Repository
+	mu sync.Mutex
+	// +checklocks:mu
+	lastRep repo.Repository
+	// +checklocks:mu
 	nextRefreshTime time.Time
-	aclEntries      []*acl.Entry
+	// +checklocks:mu
+	aclEntries []*acl.Entry
 }
 
 // Authorize returns authorization info based on ACLs stored in the repository falling back to legacy authorizer

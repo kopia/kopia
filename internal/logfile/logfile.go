@@ -373,14 +373,26 @@ func logLevelFromFlag(levelString string) zapcore.LevelEnabler {
 }
 
 type onDemandFile struct {
-	segmentCounter         int // number of segments written
-	currentSegmentSize     int // number of bytes written to current segment
-	maxSegmentSize         int
+	// +checklocks:mu
+	segmentCounter int // number of segments written
+
+	// +checklocks:mu
+	currentSegmentSize int // number of bytes written to current segment
+
+	// +checklocks:mu
+	maxSegmentSize int
+
+	// +checklocks:mu
 	currentSegmentFilename string
 
-	logDir          string
+	// +checklocks:mu
+	logDir string
+
+	// +checklocks:mu
 	logFileBaseName string
-	symlinkName     string
+
+	// +checklocks:mu
+	symlinkName string
 
 	startSweep func()
 

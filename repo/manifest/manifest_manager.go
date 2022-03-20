@@ -24,7 +24,7 @@ const (
 	manifestIDLength        = 16
 )
 
-var log = logging.Module("kopia/manifest")
+var log = logging.Module("kopia/manifest") // +checklocksignore
 
 // ErrNotFound is returned when the metadata item is not found.
 var ErrNotFound = errors.New("not found")
@@ -57,6 +57,7 @@ type Manager struct {
 	mu sync.Mutex
 	b  contentManager
 
+	// +checklocks:mu
 	pendingEntries map[ID]*manifestEntry
 
 	committed *committedManifestManager

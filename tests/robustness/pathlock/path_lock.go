@@ -36,7 +36,9 @@ var _ Locker = (*pathLock)(nil)
 // that has already been Locked. The thread will be blocked until the holder
 // of the lock calls Unlock.
 type pathLock struct {
-	mu          sync.Mutex
+	mu sync.Mutex
+
+	// +checklocks:mu
 	lockedPaths map[string]chan struct{}
 }
 

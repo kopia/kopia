@@ -19,6 +19,7 @@ type workItem struct {
 
 // Pool manages a pool of generic workers that can process workItem.
 type Pool struct {
+	// +checkatomic
 	activeWorkers int32
 
 	semaphore chan struct{}

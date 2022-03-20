@@ -172,21 +172,27 @@ type StorageStats struct {
 // StorageUsageDetails provides details about snapshot storage usage.
 type StorageUsageDetails struct {
 	// number of bytes in all objects (ignoring content-level deduplication).
+	// +checkatomic
 	ObjectBytes int64 `json:"objectBytes"`
 
 	// number of bytes in all unique contents (original).
+	// +checkatomic
 	OriginalContentBytes int64 `json:"originalContentBytes"`
 
 	// number of bytes in all unique contents as stored in the repository.
+	// +checkatomic
 	PackedContentBytes int64 `json:"packedContentBytes"`
 
 	// number of unique file objects.
+	// +checkatomic
 	FileObjectCount int32 `json:"fileObjects"`
 
 	// number of unique objects.
+	// +checkatomic
 	DirObjectCount int32 `json:"dirObjects"`
 
 	// number of unique contents.
+	// +checkatomic
 	ContentCount int32 `json:"contents"`
 }
 

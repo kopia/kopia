@@ -27,7 +27,9 @@ func (c *commandContentStats) setup(svc appServices, parent commandParent) {
 }
 
 type contentStatsTotals struct {
-	originalSize, packedSize, count int64
+	originalSize int64
+	packedSize   int64
+	count        int64
 }
 
 func (c *commandContentStats) run(ctx context.Context, rep repo.DirectRepository) error {

@@ -35,32 +35,46 @@ type cliProgress struct {
 	snapshotfs.NullUploadProgress
 
 	// all int64 must precede all int32 due to alignment requirements on ARM
-	uploadedBytes  int64
-	cachedBytes    int64
+	// +checkatomic
+	uploadedBytes int64
+	// +checkatomic
+	cachedBytes int64
+	// +checkatomic
 	hashedBytes    int64
 	outputThrottle timetrack.Throttle // is int64
 
-	cachedFiles       int32
+	// +checkatomic
+	cachedFiles int32
+	// +checkatomic
 	inProgressHashing int32
-	hashedFiles       int32
-	uploadedFiles     int32
+	// +checkatomic
+	hashedFiles int32
+	// +checkatomic
+	uploadedFiles int32
+	// +checkatomic
 	ignoredErrorCount int32
-	fatalErrorCount   int32
+	// +checkatomic
+	fatalErrorCount int32
 
-	uploading      int32
+	// +checkatomic
+	uploading int32
+	// +checkatomic
 	uploadFinished int32
 
-	lastLineLength  int
-	spinPhase       int
-	uploadStartTime timetrack.Estimator
+	outputMutex sync.Mutex
 
-	estimatedFileCount  int
-	estimatedTotalBytes int64
+	// +checklocks:outputMutex
+	lastLineLength int
+	// +checklocks:outputMutex
+	spinPhase int
+
+	uploadStartTime timetrack.Estimator // +checklocksignore
+
+	estimatedFileCount  int   // +checklocksignore
+	estimatedTotalBytes int64 // +checklocksignore
 
 	// indicates shared instance that does not reset counters at the beginning of upload.
 	shared bool
-
-	outputMutex sync.Mutex
 
 	progressFlags
 }
@@ -181,6 +195,7 @@ func (p *cliProgress) output(col *color.Color, msg string) {
 	p.out.printStderr("\r%v%v", line, extraSpaces)
 }
 
+// +checklocks:p.outputMutex
 func (p *cliProgress) spinnerCharacter() string {
 	if atomic.LoadInt32(&p.uploadFinished) == 1 {
 		return "*"
@@ -193,6 +208,7 @@ func (p *cliProgress) spinnerCharacter() string {
 	return s
 }
 
+// +checklocksignore.
 func (p *cliProgress) StartShared() {
 	*p = cliProgress{
 		uploading:       1,
@@ -207,6 +223,7 @@ func (p *cliProgress) FinishShared() {
 	p.output(defaultColor, "")
 }
 
+// +checklocksignore.
 func (p *cliProgress) UploadStarted() {
 	if p.shared {
 		// do nothing

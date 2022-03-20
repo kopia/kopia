@@ -79,11 +79,15 @@ type IndexBlobInfo struct {
 
 // WriteManager builds content-addressable storage with encryption, deduplication and packaging on top of BLOB store.
 type WriteManager struct {
-	revision            int64 // changes on each local write
+	// +checkatomic
+	revision int64 // changes on each local write
+	// +checkatomic
 	disableIndexRefresh int32
 
-	mu       *sync.RWMutex
-	cond     *sync.Cond
+	mu sync.RWMutex
+	// +checklocks:mu
+	cond *sync.Cond
+	// +checklocks:mu
 	flushing bool
 
 	sessionUser string // user@host to report as session owners
@@ -92,13 +96,19 @@ type WriteManager struct {
 	currentSessionInfo   SessionInfo
 	sessionMarkerBlobIDs []blob.ID // session marker blobs written so far
 
-	pendingPacks     map[blob.ID]*pendingPackInfo
-	writingPacks     []*pendingPackInfo // list of packs that are being written
-	failedPacks      []*pendingPackInfo // list of packs that failed to write, will be retried
-	packIndexBuilder packIndexBuilder   // contents that are in index currently being built (all packs saved but not committed)
+	// +checklocks:mu
+	pendingPacks map[blob.ID]*pendingPackInfo
+	// +checklocks:mu
+	writingPacks []*pendingPackInfo // list of packs that are being written
+	// +checklocks:mu
+	failedPacks []*pendingPackInfo // list of packs that failed to write, will be retried
+	// +checklocks:mu
+	packIndexBuilder packIndexBuilder // contents that are in index currently being built (all packs saved but not committed)
 
+	// +checklocks:mu
 	disableIndexFlushCount int
-	flushPackIndexesAfter  time.Time // time when those indexes should be flushed
+	// +checklocks:mu
+	flushPackIndexesAfter time.Time // time when those indexes should be flushed
 
 	onUpload func(int64)
 
@@ -177,6 +187,7 @@ func (bm *WriteManager) maybeRefreshIndexes(ctx context.Context) error {
 }
 
 // Intentionally passing bi by value.
+// +checklocks:bm.mu
 func (bm *WriteManager) deletePreexistingContent(ctx context.Context, ci Info) error {
 	if ci.GetDeleted() {
 		return nil
@@ -223,7 +234,7 @@ func (bm *WriteManager) maybeRetryWritingFailedPacksUnlocked(ctx context.Context
 	for _, pp := range fp {
 		bm.log.Debugf("retry-write %v", pp.packBlobID)
 
-		if err := bm.writePackAndAddToIndexLocked(ctx, pp, true); err != nil {
+		if err := bm.writePackAndAddToIndexLocked(ctx, pp); err != nil {
 			return errors.Wrap(err, "error writing previously failed pack")
 		}
 	}
@@ -275,7 +286,7 @@ func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, dat
 	for _, pp := range fp {
 		bm.log.Debugf("retry-write %v", pp.packBlobID)
 
-		if err = bm.writePackAndAddToIndexLocked(ctx, pp, true); err != nil {
+		if err = bm.writePackAndAddToIndexLocked(ctx, pp); err != nil {
 			bm.unlock()
 			return errors.Wrap(err, "error writing previously failed pack")
 		}
@@ -298,6 +309,7 @@ func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, dat
 	}
 
 	if _, err := compressedAndEncrypted.Bytes().WriteTo(pp.currentPackData); err != nil {
+		bm.unlock()
 		return errors.Wrapf(err, "unable to append %q to pack data", contentID)
 	}
 
@@ -319,7 +331,7 @@ func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, dat
 	// at this point we're unlocked so different goroutines can encrypt and
 	// save to storage in parallel.
 	if shouldWrite {
-		if err := bm.writePackAndAddToIndexLocked(ctx, pp, false); err != nil {
+		if err := bm.acquireLockAndWritePackAndAddToIndex(ctx, pp); err != nil {
 			return errors.Wrap(err, "unable to write pack")
 		}
 	}
@@ -344,11 +356,13 @@ func (bm *WriteManager) EnableIndexFlush(ctx context.Context) {
 	bm.disableIndexFlushCount--
 }
 
+// +checklocks:bm.mu
 func (bm *WriteManager) verifyInvariantsLocked() {
 	bm.verifyCurrentPackItemsLocked()
 	bm.verifyPackIndexBuilderLocked()
 }
 
+// +checklocks:bm.mu
 func (bm *WriteManager) verifyCurrentPackItemsLocked() {
 	for _, pp := range bm.pendingPacks {
 		for k, cpi := range pp.currentPackItems {
@@ -363,6 +377,7 @@ func (bm *WriteManager) verifyCurrentPackItemsLocked() {
 	}
 }
 
+// +checklocks:bm.mu
 func (bm *WriteManager) verifyPackIndexBuilderLocked() {
 	for k, cpi := range bm.packIndexBuilder {
 		bm.assertInvariant(cpi.GetContentID() == k, "content ID entry has invalid key: %v %v", cpi.GetContentID(), k)
@@ -390,6 +405,18 @@ func (bm *WriteManager) assertInvariant(ok bool, errorMsg string, arg ...interfa
 	panic(errorMsg)
 }
 
+// +checklocksread:bm.indexesLock
+func (bm *WriteManager) writeIndexBlobs(ctx context.Context, dataShards []gather.Bytes, sessionID SessionID) ([]blob.Metadata, error) {
+	// nolint:wrapcheck
+	return bm.indexBlobManager.writeIndexBlobs(ctx, dataShards, sessionID)
+}
+
+// +checklocksread:bm.indexesLock
+func (bm *WriteManager) addIndexBlob(ctx context.Context, indexBlobID blob.ID, data gather.Bytes, use bool) error {
+	return bm.committedContents.addIndexBlob(ctx, indexBlobID, data, use)
+}
+
+// +checklocks:bm.mu
 func (bm *WriteManager) flushPackIndexesLocked(ctx context.Context) error {
 	if bm.disableIndexFlushCount > 0 {
 		bm.log.Debugf("not flushing index because flushes are currently disabled")
@@ -410,7 +437,7 @@ func (bm *WriteManager) flushPackIndexesLocked(ctx context.Context) error {
 		bm.indexesLock.RLock()
 		defer bm.indexesLock.RUnlock()
 
-		indexBlobMDs, err := bm.indexBlobManager.writeIndexBlobs(ctx, dataShards, bm.currentSessionInfo.ID)
+		indexBlobMDs, err := bm.writeIndexBlobs(ctx, dataShards, bm.currentSessionInfo.ID)
 		if err != nil {
 			return errors.Wrap(err, "error writing index blob")
 		}
@@ -425,7 +452,7 @@ func (bm *WriteManager) flushPackIndexesLocked(ctx context.Context) error {
 		for i, indexBlobMD := range indexBlobMDs {
 			bm.onUpload(int64(dataShards[i].Length()))
 
-			if err := bm.committedContents.addIndexBlob(ctx, indexBlobMD.BlobID, dataShards[i], true); err != nil {
+			if err := bm.addIndexBlob(ctx, indexBlobMD.BlobID, dataShards[i], true); err != nil {
 				return errors.Wrap(err, "unable to add committed content")
 			}
 		}
@@ -438,12 +465,13 @@ func (bm *WriteManager) flushPackIndexesLocked(ctx context.Context) error {
 	return nil
 }
 
+// +checklocks:bm.mu
 func (bm *WriteManager) finishAllPacksLocked(ctx context.Context) error {
 	for prefix, pp := range bm.pendingPacks {
 		delete(bm.pendingPacks, prefix)
 		bm.writingPacks = append(bm.writingPacks, pp)
 
-		if err := bm.writePackAndAddToIndexLocked(ctx, pp, true); err != nil {
+		if err := bm.writePackAndAddToIndexLocked(ctx, pp); err != nil {
 			return errors.Wrap(err, "error writing pack content")
 		}
 	}
@@ -451,17 +479,18 @@ func (bm *WriteManager) finishAllPacksLocked(ctx context.Context) error {
 	return nil
 }
 
-func (bm *WriteManager) writePackAndAddToIndexLocked(ctx context.Context, pp *pendingPackInfo, holdingLock bool) error {
+func (bm *WriteManager) acquireLockAndWritePackAndAddToIndex(ctx context.Context, pp *pendingPackInfo) error {
+	bm.lock()
+	defer bm.unlock()
+
+	defer bm.cond.Broadcast()
+
+	return bm.writePackAndAddToIndexLocked(ctx, pp)
+}
+
+// +checklocks:bm.mu
+func (bm *WriteManager) writePackAndAddToIndexLocked(ctx context.Context, pp *pendingPackInfo) error {
 	packFileIndex, err := bm.prepareAndWritePackInternal(ctx, pp)
-
-	if !holdingLock {
-		bm.lock()
-
-		defer func() {
-			bm.cond.Broadcast()
-			bm.unlock()
-		}()
-	}
 
 	// after finishing writing, remove from both writingPacks and failedPacks
 	bm.writingPacks = removePendingPack(bm.writingPacks, pp)
@@ -524,6 +553,11 @@ func (bm *WriteManager) Close(ctx context.Context) error {
 	return bm.SharedManager.release(ctx)
 }
 
+// +checklocks:bm.mu
+func (bm *WriteManager) setFlushingLocked(v bool) {
+	bm.flushing = v
+}
+
 // Flush completes writing any pending packs and writes pack indexes to the underlying storage.
 // Any pending writes completed before Flush() has started are guaranteed to be committed to the
 // repository before Flush() returns.
@@ -533,14 +567,11 @@ func (bm *WriteManager) Flush(ctx context.Context) error {
 
 	bm.log.Debugf("flush")
 
-	bm.flushing = true
+	// when finished flushing, notify goroutines that were waiting for it.
+	defer bm.cond.Broadcast()
 
-	defer func() {
-		bm.flushing = false
-
-		// we finished flushing, notify goroutines that were waiting for it.
-		bm.cond.Broadcast()
-	}()
+	bm.setFlushingLocked(true)
+	defer bm.setFlushingLocked(false)
 
 	// see if we have any packs that have failed previously
 	// retry writing them now.
@@ -551,7 +582,7 @@ func (bm *WriteManager) Flush(ctx context.Context) error {
 	for _, pp := range fp {
 		bm.log.Debugf("retry-write %v", pp.packBlobID)
 
-		if err := bm.writePackAndAddToIndexLocked(ctx, pp, true); err != nil {
+		if err := bm.writePackAndAddToIndexLocked(ctx, pp); err != nil {
 			return errors.Wrap(err, "error writing previously failed pack")
 		}
 	}
@@ -644,6 +675,7 @@ func packPrefixForContentID(contentID ID) blob.ID {
 	return PackBlobIDPrefixRegular
 }
 
+// +checklocks:bm.mu
 func (bm *WriteManager) getOrCreatePendingPackInfoLocked(ctx context.Context, prefix blob.ID) (*pendingPackInfo, error) {
 	if pp := bm.pendingPacks[prefix]; pp != nil {
 		return pp, nil
@@ -745,6 +777,7 @@ func (bm *WriteManager) GetContent(ctx context.Context, contentID ID) (v []byte,
 	return tmp.ToByteSlice(), nil
 }
 
+// +checklocksread:bm.mu
 func (bm *WriteManager) getOverlayContentInfoReadLocked(contentID ID) (*pendingPackInfo, Info, bool) {
 	// check added contents, not written to any packs yet.
 	for _, pp := range bm.pendingPacks {
@@ -768,6 +801,7 @@ func (bm *WriteManager) getOverlayContentInfoReadLocked(contentID ID) (*pendingP
 	return nil, nil, false
 }
 
+// +checklocksread:bm.mu
 func (bm *WriteManager) getContentInfoReadLocked(ctx context.Context, contentID ID) (*pendingPackInfo, Info, error) {
 	if pp, ci, ok := bm.getOverlayContentInfoReadLocked(contentID); ok {
 		return pp, ci, nil
@@ -802,10 +836,12 @@ func (bm *WriteManager) DisableIndexRefresh() {
 	atomic.StoreInt32(&bm.disableIndexRefresh, 1)
 }
 
+// +checklocksacquire:bm.mu
 func (bm *WriteManager) lock() {
 	bm.mu.Lock()
 }
 
+// +checklocksrelease:bm.mu
 func (bm *WriteManager) unlock() {
 	if bm.checkInvariantsOnUnlock {
 		bm.verifyInvariantsLocked()
@@ -863,19 +899,14 @@ type SessionOptions struct {
 
 // NewWriteManager returns a session write manager.
 func NewWriteManager(ctx context.Context, sm *SharedManager, options SessionOptions, writeManagerID string) *WriteManager {
-	mu := &sync.RWMutex{}
-
 	sm.addRef()
 
 	if options.OnUpload == nil {
 		options.OnUpload = func(int64) {}
 	}
 
-	return &WriteManager{
+	wm := &WriteManager{
 		SharedManager: sm,
-
-		mu:   mu,
-		cond: sync.NewCond(mu),
 
 		flushPackIndexesAfter: sm.timeNow().Add(flushPackIndexTimeout),
 		pendingPacks:          map[blob.ID]*pendingPackInfo{},
@@ -886,4 +917,8 @@ func NewWriteManager(ctx context.Context, sm *SharedManager, options SessionOpti
 
 		log: sm.namedLogger(writeManagerID),
 	}
+
+	wm.cond = sync.NewCond(&wm.mu)
+
+	return wm
 }

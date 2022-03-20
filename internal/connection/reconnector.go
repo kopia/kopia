@@ -31,7 +31,8 @@ type ConnectorImpl interface {
 type Reconnector struct {
 	connector ConnectorImpl
 
-	mu               sync.Mutex
+	mu sync.Mutex
+	// +checklocks:mu
 	activeConnection Connection
 }
 

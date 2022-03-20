@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"sort"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -147,16 +148,16 @@ func TestUpload(t *testing.T) {
 		t.Errorf("expected s1.RootObjectID==s2.RootObjectID, got %v and %v", s1.RootObjectID().String(), s2.RootObjectID().String())
 	}
 
-	if got, want := s1.Stats.CachedFiles, int32(0); got != want {
+	if got, want := atomic.LoadInt32(&s1.Stats.CachedFiles), int32(0); got != want {
 		t.Errorf("unexpected s1 cached files: %v, want %v", got, want)
 	}
 
 	// All non-cached files from s1 are now cached and there are no non-cached files since nothing changed.
-	if got, want := s2.Stats.CachedFiles, s1.Stats.NonCachedFiles; got != want {
+	if got, want := atomic.LoadInt32(&s2.Stats.CachedFiles), atomic.LoadInt32(&s1.Stats.NonCachedFiles); got != want {
 		t.Errorf("unexpected s2 cached files: %v, want %v", got, want)
 	}
 
-	if got, want := s2.Stats.NonCachedFiles, int32(0); got != want {
+	if got, want := atomic.LoadInt32(&s2.Stats.NonCachedFiles), int32(0); got != want {
 		t.Errorf("unexpected non-cached files: %v", got)
 	}
 
@@ -172,7 +173,7 @@ func TestUpload(t *testing.T) {
 		t.Errorf("expected s3.RootObjectID!=s2.RootObjectID, got %v", s3.RootObjectID().String())
 	}
 
-	if s3.Stats.NonCachedFiles != 1 {
+	if atomic.LoadInt32(&s3.Stats.NonCachedFiles) != 1 {
 		// one file is not cached, which causes "./d2/d1/", "./d2/" and "./" to be changed.
 		t.Errorf("unexpected s3 stats: %+v", s3.Stats)
 	}
@@ -190,7 +191,7 @@ func TestUpload(t *testing.T) {
 	}
 
 	// Everything is still cached.
-	if s4.Stats.CachedFiles != s1.Stats.NonCachedFiles || s4.Stats.NonCachedFiles != 0 {
+	if atomic.LoadInt32(&s4.Stats.CachedFiles) != atomic.LoadInt32(&s1.Stats.NonCachedFiles) || atomic.LoadInt32(&s4.Stats.NonCachedFiles) != 0 {
 		t.Errorf("unexpected s4 stats: %+v", s4.Stats)
 	}
 
@@ -203,7 +204,7 @@ func TestUpload(t *testing.T) {
 		t.Errorf("expected s4.RootObjectID==s5.RootObjectID, got %v and %v", s4.RootObjectID(), s5.RootObjectID())
 	}
 
-	if s5.Stats.NonCachedFiles != 0 {
+	if atomic.LoadInt32(&s5.Stats.NonCachedFiles) != 0 {
 		// no files are changed, but one file disappeared which caused "./d2/d1/", "./d2/" and "./" to be changed.
 		t.Errorf("unexpected s5 stats: %+v", s5.Stats)
 	}
@@ -694,21 +695,21 @@ func TestUpload_VirtualDirectoryWithStreamingFile(t *testing.T) {
 		t.Fatalf("Upload error: %v", err)
 	}
 
-	if got, want := man.Stats.CachedFiles, int32(0); got != want {
+	if got, want := atomic.LoadInt32(&man.Stats.CachedFiles), int32(0); got != want {
 		t.Fatalf("unexpected manifest cached files: %v, want %v", got, want)
 	}
 
-	if got, want := man.Stats.NonCachedFiles, int32(1); got != want {
+	if got, want := atomic.LoadInt32(&man.Stats.NonCachedFiles), int32(1); got != want {
 		// one file is not cached
 		t.Fatalf("unexpected manifest non-cached files: %v, want %v", got, want)
 	}
 
-	if got, want := man.Stats.TotalDirectoryCount, int32(1); got != want {
+	if got, want := atomic.LoadInt32(&man.Stats.TotalDirectoryCount), int32(1); got != want {
 		// must have one directory
 		t.Fatalf("unexpected manifest directory count: %v, want %v", got, want)
 	}
 
-	if got, want := man.Stats.TotalFileCount, int32(1); got != want {
+	if got, want := atomic.LoadInt32(&man.Stats.TotalFileCount), int32(1); got != want {
 		// must have one file
 		t.Fatalf("unexpected manifest file count: %v, want %v", got, want)
 	}

@@ -73,9 +73,11 @@ type Info struct {
 type runningTaskInfo struct {
 	Info
 
-	mu             sync.Mutex
-	maxLogMessages int
-	taskCancel     []context.CancelFunc
+	maxLogMessages int // +checklocksignore
+
+	mu sync.Mutex
+	// +checklocks:mu
+	taskCancel []context.CancelFunc
 }
 
 // CurrentTaskID implements the Controller interface.

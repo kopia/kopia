@@ -32,9 +32,13 @@ import (
 var errSomeError = errors.Errorf("some error")
 
 type fakeContentManager struct {
-	mu                         sync.Mutex
-	data                       map[content.ID][]byte
-	compresionIDs              map[content.ID]compression.HeaderID
+	mu sync.Mutex
+
+	// +checklocks:mu
+	data map[content.ID][]byte
+	// +checklocks:mu
+	compresionIDs map[content.ID]compression.HeaderID
+
 	supportsContentCompression bool
 	writeContentError          error
 }

@@ -279,8 +279,10 @@ func testGetContentRaceFetchesOnce(t *testing.T, newCache newContentCacheFunc) {
 type concurrencyTester struct {
 	mu sync.Mutex
 
-	concurrencyLevel    int
-	maxConcurrencyLevel int
+	// +checklocks:mu
+	concurrencyLevel int
+
+	maxConcurrencyLevel int // +checklocksignore
 }
 
 func (c *concurrencyTester) enter() {

@@ -7,7 +7,7 @@ import (
 	"github.com/kopia/kopia/repo/logging"
 )
 
-var log = logging.Module("gather")
+var log = logging.Module("gather") // +checklocksignore
 
 // WriteBuffer is a write buffer for content of unknown size that manages
 // data in a series of byte slices of uniform size.

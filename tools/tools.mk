@@ -103,6 +103,7 @@ endif
 
 # tool versions
 GOLANGCI_LINT_VERSION=1.45.0
+CHECKLOCKS_VERSION=release-20220314.0
 NODE_VERSION=16.13.0
 HUGO_VERSION=0.89.2
 GOTESTSUM_VERSION=1.7.0
@@ -148,6 +149,14 @@ endif
 
 $(linter):
 	go run github.com/kopia/kopia/tools/gettool --tool linter:$(GOLANGCI_LINT_VERSION) --output-dir $(linter_dir)
+
+# checklocks
+checklocks_dir=$(TOOLS_DIR)$(slash)checklocks-$(CHECKLOCKS_VERSION)
+checklocks=$(checklocks_dir)$(slash)bin$(slash)checklocks$(exe_suffix)
+
+$(checklocks): export GOPATH=$(checklocks_dir)
+$(checklocks):
+	go install gvisor.dev/gvisor/tools/checklocks/cmd/checklocks@$(CHECKLOCKS_VERSION)
 
 # hugo
 hugo_dir=$(TOOLS_DIR)$(slash)hugo-$(HUGO_VERSION)

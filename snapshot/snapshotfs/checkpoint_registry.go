@@ -17,6 +17,7 @@ type checkpointFunc func() (*snapshot.DirEntry, error)
 type checkpointRegistry struct {
 	mu sync.Mutex
 
+	// +checklocks:mu
 	checkpoints map[string]checkpointFunc
 }
 

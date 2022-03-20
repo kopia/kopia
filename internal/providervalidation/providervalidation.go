@@ -221,9 +221,12 @@ type concurrencyTest struct {
 	prefix   blob.ID
 	deadline time.Time
 
-	mu          sync.Mutex
-	blobData    map[blob.ID][]byte
-	blobIDs     []blob.ID
+	mu sync.Mutex
+	// +checklocks:mu
+	blobData map[blob.ID][]byte
+	// +checklocks:mu
+	blobIDs []blob.ID
+	// +checklocks:mu
 	blobWritten map[blob.ID]bool
 }
 

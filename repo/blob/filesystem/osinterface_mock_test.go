@@ -13,21 +13,36 @@ import (
 var errNonRetriable = errors.Errorf("some non-retriable error")
 
 type mockOS struct {
-	readFileRemainingErrors             int32
-	writeFileRemainingErrors            int32
-	writeFileCloseRemainingErrors       int32
-	createNewFileRemainingErrors        int32
-	mkdirAllRemainingErrors             int32
-	renameRemainingErrors               int32
-	removeRemainingRetriableErrors      int32
-	removeRemainingNonRetriableErrors   int32
-	chownRemainingErrors                int32
-	readDirRemainingErrors              int32
-	readDirRemainingNonRetriableErrors  int32
+	// +checkatomic
+	readFileRemainingErrors int32
+	// +checkatomic
+	writeFileRemainingErrors int32
+	// +checkatomic
+	writeFileCloseRemainingErrors int32
+	// +checkatomic
+	createNewFileRemainingErrors int32
+	// +checkatomic
+	mkdirAllRemainingErrors int32
+	// +checkatomic
+	renameRemainingErrors int32
+	// +checkatomic
+	removeRemainingRetriableErrors int32
+	// +checkatomic
+	removeRemainingNonRetriableErrors int32
+	// +checkatomic
+	chownRemainingErrors int32
+	// +checkatomic
+	readDirRemainingErrors int32
+	// +checkatomic
+	readDirRemainingNonRetriableErrors int32
+	// +checkatomic
 	readDirRemainingFileDeletedDirEntry int32
-	readDirRemainingFatalDirEntry       int32
-	statRemainingErrors                 int32
-	chtimesRemainingErrors              int32
+	// +checkatomic
+	readDirRemainingFatalDirEntry int32
+	// +checkatomic
+	statRemainingErrors int32
+	// +checkatomic
+	chtimesRemainingErrors int32
 
 	effectiveUID int
 

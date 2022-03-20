@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/fatih/color"
@@ -276,7 +277,7 @@ func (c *commandSnapshotList) outputManifestFromSingleSource(ctx context.Context
 		})
 
 		if m.IncompleteReason == "" {
-			lastTotalFileSize = m.Stats.TotalFileSize
+			lastTotalFileSize = atomic.LoadInt64(&m.Stats.TotalFileSize)
 		}
 
 		return nil
@@ -390,10 +391,10 @@ func (c *commandSnapshotList) entryBits(ctx context.Context, m *snapshot.Manifes
 
 	if u := m.StorageStats; u != nil {
 		bits = append(bits,
-			fmt.Sprintf("new-data:%v", units.BytesStringBase10(u.NewData.PackedContentBytes)),
-			fmt.Sprintf("new-files:%v", int64(u.NewData.FileObjectCount)),
-			fmt.Sprintf("new-dirs:%v", int64(u.NewData.DirObjectCount)),
-			fmt.Sprintf("compression:%v", formatCompressionPercentage(u.NewData.OriginalContentBytes, u.NewData.PackedContentBytes)),
+			fmt.Sprintf("new-data:%v", units.BytesStringBase10(atomic.LoadInt64(&u.NewData.PackedContentBytes))),
+			fmt.Sprintf("new-files:%v", atomic.LoadInt32(&u.NewData.FileObjectCount)),
+			fmt.Sprintf("new-dirs:%v", atomic.LoadInt32(&u.NewData.DirObjectCount)),
+			fmt.Sprintf("compression:%v", formatCompressionPercentage(atomic.LoadInt64(&u.NewData.OriginalContentBytes), atomic.LoadInt64(&u.NewData.PackedContentBytes))),
 		)
 	}
 

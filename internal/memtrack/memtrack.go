@@ -10,14 +10,27 @@ import (
 	"github.com/kopia/kopia/repo/logging"
 )
 
-var log = logging.Module("memtrack")
+var log = logging.Module("memtrack") // +checklocksignore
 
 type tracker struct {
-	name                                  string
-	memoryTrackerMutex                    sync.Mutex
-	initialMemStats                       runtime.MemStats
-	previousMemStats                      runtime.MemStats
-	maxAlloc, maxHeapUsage, maxStackInUse uint64
+	name string
+
+	memoryTrackerMutex sync.Mutex
+
+	// +checklocks:memoryTrackerMutex
+	initialMemStats runtime.MemStats
+
+	// +checklocks:memoryTrackerMutex
+	previousMemStats runtime.MemStats
+
+	// +checklocks:memoryTrackerMutex
+	maxAlloc uint64
+
+	// +checklocks:memoryTrackerMutex
+	maxHeapUsage uint64
+
+	// +checklocks:memoryTrackerMutex
+	maxStackInUse uint64
 }
 
 func (c *tracker) dump(ctx context.Context, desc string) {
