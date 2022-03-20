@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"encoding/json"
-	"net/http"
 	"net/url"
 	"time"
 
@@ -16,8 +15,8 @@ import (
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
-func (s *Server) handlePolicyList(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
-	policies, err := policy.ListPolicies(ctx, s.rep)
+func handlePolicyList(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+	policies, err := policy.ListPolicies(ctx, rc.rep)
 	if err != nil {
 		return nil, internalServerError(err)
 	}
@@ -28,7 +27,7 @@ func (s *Server) handlePolicyList(ctx context.Context, r *http.Request, body []b
 
 	for _, pol := range policies {
 		target := pol.Target()
-		if !sourceMatchesURLFilter(target, r.URL.Query()) {
+		if !sourceMatchesURLFilter(target, rc.req.URL.Query()) {
 			continue
 		}
 
@@ -54,8 +53,8 @@ func getSnapshotSourceFromURL(u *url.URL) snapshot.SourceInfo {
 	}
 }
 
-func (s *Server) handlePolicyGet(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
-	pol, err := policy.GetDefinedPolicy(ctx, s.rep, getSnapshotSourceFromURL(r.URL))
+func handlePolicyGet(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+	pol, err := policy.GetDefinedPolicy(ctx, rc.rep, getSnapshotSourceFromURL(rc.req.URL))
 	if errors.Is(err, policy.ErrPolicyNotFound) {
 		return nil, requestError(serverapi.ErrorNotFound, "policy not found")
 	}
@@ -63,17 +62,17 @@ func (s *Server) handlePolicyGet(ctx context.Context, r *http.Request, body []by
 	return pol, nil
 }
 
-func (s *Server) handlePolicyResolve(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
+func handlePolicyResolve(ctx context.Context, rc requestContext) (interface{}, *apiError) {
 	var req serverapi.ResolvePolicyRequest
 
-	if err := json.Unmarshal(body, &req); err != nil {
+	if err := json.Unmarshal(rc.body, &req); err != nil {
 		return nil, requestError(serverapi.ErrorMalformedRequest, "unable to decode request: "+err.Error())
 	}
 
-	target := getSnapshotSourceFromURL(r.URL)
+	target := getSnapshotSourceFromURL(rc.req.URL)
 
 	// build a list of parents
-	policies, err := policy.GetPolicyHierarchy(ctx, s.rep, target, nil)
+	policies, err := policy.GetPolicyHierarchy(ctx, rc.rep, target, nil)
 	if err != nil {
 		return nil, internalServerError(err)
 	}
@@ -105,14 +104,14 @@ func (s *Server) handlePolicyResolve(ctx context.Context, r *http.Request, body 
 	return resp, nil
 }
 
-func (s *Server) handlePolicyDelete(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
-	if _, ok := s.rep.(repo.RepositoryWriter); !ok {
+func handlePolicyDelete(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+	if _, ok := rc.rep.(repo.RepositoryWriter); !ok {
 		return nil, repositoryNotWritableError()
 	}
 
-	sourceInfo := getSnapshotSourceFromURL(r.URL)
+	sourceInfo := getSnapshotSourceFromURL(rc.req.URL)
 
-	if err := repo.WriteSession(ctx, s.rep, repo.WriteSessionOptions{
+	if err := repo.WriteSession(ctx, rc.rep, repo.WriteSessionOptions{
 		Purpose: "PolicyDelete",
 	}, func(ctx context.Context, w repo.RepositoryWriter) error {
 		return errors.Wrap(policy.RemovePolicy(ctx, w, sourceInfo), "unable to delete policy")
@@ -120,24 +119,24 @@ func (s *Server) handlePolicyDelete(ctx context.Context, r *http.Request, body [
 		return nil, internalServerError(err)
 	}
 
-	s.triggerRefreshSource(sourceInfo)
+	rc.srv.triggerRefreshSource(sourceInfo)
 
 	return &serverapi.Empty{}, nil
 }
 
-func (s *Server) handlePolicyPut(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
+func handlePolicyPut(ctx context.Context, rc requestContext) (interface{}, *apiError) {
 	newPolicy := &policy.Policy{}
-	if err := json.Unmarshal(body, newPolicy); err != nil {
+	if err := json.Unmarshal(rc.body, newPolicy); err != nil {
 		return nil, requestError(serverapi.ErrorMalformedRequest, "malformed request body")
 	}
 
-	if _, ok := s.rep.(repo.RepositoryWriter); !ok {
+	if _, ok := rc.rep.(repo.RepositoryWriter); !ok {
 		return nil, repositoryNotWritableError()
 	}
 
-	sourceInfo := getSnapshotSourceFromURL(r.URL)
+	sourceInfo := getSnapshotSourceFromURL(rc.req.URL)
 
-	if err := repo.WriteSession(ctx, s.rep, repo.WriteSessionOptions{
+	if err := repo.WriteSession(ctx, rc.rep, repo.WriteSessionOptions{
 		Purpose: "PolicyPut",
 	}, func(ctx context.Context, w repo.RepositoryWriter) error {
 		return errors.Wrap(policy.SetPolicy(ctx, w, sourceInfo, newPolicy), "unable to set policy")
@@ -145,7 +144,7 @@ func (s *Server) handlePolicyPut(ctx context.Context, r *http.Request, body []by
 		return nil, internalServerError(err)
 	}
 
-	s.triggerRefreshSource(sourceInfo)
+	rc.srv.triggerRefreshSource(sourceInfo)
 
 	return &serverapi.Empty{}, nil
 }

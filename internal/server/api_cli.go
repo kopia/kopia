@@ -2,21 +2,20 @@ package server
 
 import (
 	"context"
-	"net/http"
 	"os"
 	"strings"
 
 	"github.com/kopia/kopia/internal/serverapi"
 )
 
-func (s *Server) handleCLIInfo(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
+func handleCLIInfo(ctx context.Context, rc requestContext) (interface{}, *apiError) {
 	executable, err := os.Executable()
 	if err != nil {
 		executable = "kopia"
 	}
 
 	return &serverapi.CLIInfo{
-		Executable: maybeQuote(executable) + " --config-file=" + maybeQuote(s.options.ConfigFile) + "",
+		Executable: maybeQuote(executable) + " --config-file=" + maybeQuote(rc.srv.getOptions().ConfigFile) + "",
 	}, nil
 }
 

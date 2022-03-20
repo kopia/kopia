@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"encoding/json"
-	"net/http"
 	"os"
 	"sort"
 
@@ -16,22 +15,20 @@ import (
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
-func (s *Server) handleSourcesList(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
-	_, multiUser := s.rep.(repo.DirectRepository)
+func handleSourcesList(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+	_, multiUser := rc.rep.(repo.DirectRepository)
 
 	resp := &serverapi.SourcesResponse{
 		Sources:       []*serverapi.SourceStatus{},
-		LocalHost:     s.rep.ClientOptions().Hostname,
-		LocalUsername: s.rep.ClientOptions().Username,
+		LocalHost:     rc.rep.ClientOptions().Hostname,
+		LocalUsername: rc.rep.ClientOptions().Username,
 		MultiUser:     multiUser,
 	}
 
-	for _, v := range s.sourceManagers {
-		if !sourceMatchesURLFilter(v.src, r.URL.Query()) {
-			continue
+	for src, v := range rc.srv.allSourceManagers() {
+		if sourceMatchesURLFilter(src, rc.req.URL.Query()) {
+			resp.Sources = append(resp.Sources, v.Status())
 		}
-
-		resp.Sources = append(resp.Sources, v.Status())
 	}
 
 	sort.Slice(resp.Sources, func(i, j int) bool {
@@ -41,10 +38,10 @@ func (s *Server) handleSourcesList(ctx context.Context, r *http.Request, body []
 	return resp, nil
 }
 
-func (s *Server) handleSourcesCreate(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
+func handleSourcesCreate(ctx context.Context, rc requestContext) (interface{}, *apiError) {
 	var req serverapi.CreateSnapshotSourceRequest
 
-	if err := json.Unmarshal(body, &req); err != nil {
+	if err := json.Unmarshal(rc.body, &req); err != nil {
 		return nil, requestError(serverapi.ErrorMalformedRequest, "malformed request body")
 	}
 
@@ -68,14 +65,14 @@ func (s *Server) handleSourcesCreate(ctx context.Context, r *http.Request, body 
 	}
 
 	sourceInfo := snapshot.SourceInfo{
-		UserName: s.rep.ClientOptions().Username,
-		Host:     s.rep.ClientOptions().Hostname,
+		UserName: rc.rep.ClientOptions().Username,
+		Host:     rc.rep.ClientOptions().Hostname,
 		Path:     req.Path,
 	}
 
 	resp := &serverapi.CreateSnapshotSourceResponse{}
 
-	if err = repo.WriteSession(ctx, s.rep, repo.WriteSessionOptions{
+	if err = repo.WriteSession(ctx, rc.rep, repo.WriteSessionOptions{
 		Purpose: "handleSourcesCreate",
 	}, func(ctx context.Context, w repo.RepositoryWriter) error {
 		// nolint:wrapcheck
@@ -84,25 +81,7 @@ func (s *Server) handleSourcesCreate(ctx context.Context, r *http.Request, body 
 		return nil, internalServerError(errors.Wrap(err, "unable to set initial policy"))
 	}
 
-	// upgrade to exclusive lock to ensure we have source manager
-	s.mu.RUnlock()
-	s.mu.Lock()
-	if s.sourceManagers[sourceInfo] == nil {
-		log(ctx).Debugf("creating source manager for %v", sourceInfo)
-		sm := newSourceManager(sourceInfo, s)
-		s.sourceManagers[sourceInfo] = sm
-
-		sm.refreshStatus(ctx)
-
-		go sm.run(ctx)
-	}
-	s.mu.Unlock()
-	s.mu.RLock()
-
-	manager := s.sourceManagers[sourceInfo]
-	if manager == nil {
-		return nil, internalServerError(errors.Errorf("could not find source manager that was just created"))
-	}
+	manager := rc.srv.getOrCreateSourceManager(ctx, sourceInfo)
 
 	if req.CreateSnapshot {
 		resp.SnapshotStarted = true

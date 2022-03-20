@@ -4,11 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"net/http"
 	"strconv"
 	"strings"
-
-	"github.com/gorilla/mux"
 
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/remoterepoapi"
@@ -19,13 +16,13 @@ import (
 	"github.com/kopia/kopia/repo/manifest"
 )
 
-func (s *Server) handleContentGet(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
-	dr, ok := s.rep.(repo.DirectRepository)
+func handleContentGet(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+	dr, ok := rc.rep.(repo.DirectRepository)
 	if !ok {
 		return nil, notFoundError("content not found")
 	}
 
-	cid := content.ID(mux.Vars(r)["contentID"])
+	cid := content.ID(rc.muxVar("contentID"))
 
 	data, err := dr.ContentReader().GetContent(ctx, cid)
 	if errors.Is(err, content.ErrContentNotFound) {
@@ -35,10 +32,10 @@ func (s *Server) handleContentGet(ctx context.Context, r *http.Request, body []b
 	return data, nil
 }
 
-func (s *Server) handleContentInfo(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
-	cid := content.ID(mux.Vars(r)["contentID"])
+func handleContentInfo(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+	cid := content.ID(rc.muxVar("contentID"))
 
-	ci, err := s.rep.ContentInfo(ctx, cid)
+	ci, err := rc.rep.ContentInfo(ctx, cid)
 
 	switch {
 	case err == nil:
@@ -52,13 +49,13 @@ func (s *Server) handleContentInfo(ctx context.Context, r *http.Request, body []
 	}
 }
 
-func (s *Server) handleContentPut(ctx context.Context, r *http.Request, data []byte) (interface{}, *apiError) {
-	dr, ok := s.rep.(repo.DirectRepositoryWriter)
+func handleContentPut(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+	dr, ok := rc.rep.(repo.DirectRepositoryWriter)
 	if !ok {
 		return nil, repositoryNotWritableError()
 	}
 
-	cid := content.ID(mux.Vars(r)["contentID"])
+	cid := content.ID(rc.muxVar("contentID"))
 	prefix := cid.Prefix()
 
 	if strings.HasPrefix(string(prefix), manifest.ContentPrefix) {
@@ -68,7 +65,7 @@ func (s *Server) handleContentPut(ctx context.Context, r *http.Request, data []b
 
 	var comp compression.HeaderID
 
-	if c := r.URL.Query().Get("compression"); c != "" {
+	if c := rc.queryParam("compression"); c != "" {
 		// nolint:gomnd
 		v, err := strconv.ParseInt(c, 16, 32)
 		if err != nil {
@@ -81,7 +78,7 @@ func (s *Server) handleContentPut(ctx context.Context, r *http.Request, data []b
 		}
 	}
 
-	actualCID, err := dr.ContentManager().WriteContent(ctx, gather.FromSlice(data), prefix, comp)
+	actualCID, err := dr.ContentManager().WriteContent(ctx, gather.FromSlice(rc.body), prefix, comp)
 	if err != nil {
 		return nil, internalServerError(err)
 	}
@@ -93,14 +90,14 @@ func (s *Server) handleContentPut(ctx context.Context, r *http.Request, data []b
 	return &serverapi.Empty{}, nil
 }
 
-func (s *Server) handleContentPrefetch(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
+func handleContentPrefetch(ctx context.Context, rc requestContext) (interface{}, *apiError) {
 	var req remoterepoapi.PrefetchContentsRequest
 
-	if err := json.Unmarshal(body, &req); err != nil {
+	if err := json.Unmarshal(rc.body, &req); err != nil {
 		return nil, requestError(serverapi.ErrorMalformedRequest, "malformed request")
 	}
 
 	return &remoterepoapi.PrefetchContentsResponse{
-		ContentIDs: s.rep.PrefetchContents(ctx, req.ContentIDs, req.Hint),
+		ContentIDs: rc.rep.PrefetchContents(ctx, req.ContentIDs, req.Hint),
 	}, nil
 }

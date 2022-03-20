@@ -2,16 +2,13 @@ package server
 
 import (
 	"context"
-	"net/http"
-
-	"github.com/gorilla/mux"
 
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/internal/uitask"
 )
 
-func (s *Server) handleTaskList(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
-	tasks := s.taskmgr.ListTasks()
+func handleTaskList(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+	tasks := rc.srv.taskManager().ListTasks()
 	if tasks == nil {
 		tasks = []uitask.Info{}
 	}
@@ -21,10 +18,10 @@ func (s *Server) handleTaskList(ctx context.Context, r *http.Request, body []byt
 	}, nil
 }
 
-func (s *Server) handleTaskInfo(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
-	taskID := mux.Vars(r)["taskID"]
+func handleTaskInfo(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+	taskID := rc.muxVar("taskID")
 
-	t, ok := s.taskmgr.GetTask(taskID)
+	t, ok := rc.srv.taskManager().GetTask(taskID)
 	if !ok {
 		return nil, notFoundError("task not found")
 	}
@@ -32,20 +29,20 @@ func (s *Server) handleTaskInfo(ctx context.Context, r *http.Request, body []byt
 	return t, nil
 }
 
-func (s *Server) handleTaskSummary(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
-	return s.taskmgr.TaskSummary(), nil
+func handleTaskSummary(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+	return rc.srv.taskManager().TaskSummary(), nil
 }
 
-func (s *Server) handleTaskLogs(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
-	taskID := mux.Vars(r)["taskID"]
+func handleTaskLogs(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+	taskID := rc.muxVar("taskID")
 
 	return serverapi.TaskLogResponse{
-		Logs: s.taskmgr.TaskLog(taskID),
+		Logs: rc.srv.taskManager().TaskLog(taskID),
 	}, nil
 }
 
-func (s *Server) handleTaskCancel(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
-	s.taskmgr.CancelTask(mux.Vars(r)["taskID"])
+func handleTaskCancel(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+	rc.srv.taskManager().CancelTask(rc.muxVar("taskID"))
 
 	return &serverapi.Empty{}, nil
 }

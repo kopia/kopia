@@ -3,9 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
-	"net/http"
 
-	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/auth"
@@ -15,12 +13,12 @@ import (
 	"github.com/kopia/kopia/repo/manifest"
 )
 
-func (s *Server) handleManifestGet(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
-	mid := manifest.ID(mux.Vars(r)["manifestID"])
+func handleManifestGet(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+	mid := manifest.ID(rc.muxVar("manifestID"))
 
 	var data json.RawMessage
 
-	md, err := s.rep.GetManifest(ctx, mid, &data)
+	md, err := rc.rep.GetManifest(ctx, mid, &data)
 	if errors.Is(err, manifest.ErrNotFound) {
 		return nil, notFoundError("manifest not found")
 	}
@@ -29,7 +27,7 @@ func (s *Server) handleManifestGet(ctx context.Context, r *http.Request, body []
 		return nil, internalServerError(err)
 	}
 
-	if !hasManifestAccess(ctx, s, r, md.Labels, auth.AccessLevelRead) {
+	if !hasManifestAccess(ctx, rc, md.Labels, auth.AccessLevelRead) {
 		return nil, accessDeniedError()
 	}
 
@@ -39,17 +37,17 @@ func (s *Server) handleManifestGet(ctx context.Context, r *http.Request, body []
 	}, nil
 }
 
-func (s *Server) handleManifestDelete(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
-	rw, ok := s.rep.(repo.RepositoryWriter)
+func handleManifestDelete(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+	rw, ok := rc.rep.(repo.RepositoryWriter)
 	if !ok {
 		return nil, repositoryNotWritableError()
 	}
 
-	mid := manifest.ID(mux.Vars(r)["manifestID"])
+	mid := manifest.ID(rc.muxVar("manifestID"))
 
 	var data json.RawMessage
 
-	em, err := s.rep.GetManifest(ctx, mid, &data)
+	em, err := rc.rep.GetManifest(ctx, mid, &data)
 	if errors.Is(err, manifest.ErrNotFound) {
 		return nil, notFoundError("manifest not found")
 	}
@@ -58,7 +56,7 @@ func (s *Server) handleManifestDelete(ctx context.Context, r *http.Request, body
 		return nil, internalServerError(err)
 	}
 
-	if !hasManifestAccess(ctx, s, r, em.Labels, auth.AccessLevelFull) {
+	if !hasManifestAccess(ctx, rc, em.Labels, auth.AccessLevelFull) {
 		return nil, accessDeniedError()
 	}
 
@@ -74,20 +72,20 @@ func (s *Server) handleManifestDelete(ctx context.Context, r *http.Request, body
 	return &serverapi.Empty{}, nil
 }
 
-func (s *Server) handleManifestList(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
+func handleManifestList(ctx context.Context, rc requestContext) (interface{}, *apiError) {
 	// password already validated by a wrapper, no need to check here.
 	labels := map[string]string{}
 
-	for k, v := range r.URL.Query() {
+	for k, v := range rc.req.URL.Query() {
 		labels[k] = v[0]
 	}
 
-	m, err := s.rep.FindManifests(ctx, labels)
+	m, err := rc.rep.FindManifests(ctx, labels)
 	if err != nil {
 		return nil, internalServerError(err)
 	}
 
-	return filterManifests(m, s.httpAuthorizationInfo(ctx, r)), nil
+	return filterManifests(m, httpAuthorizationInfo(ctx, rc)), nil
 }
 
 func filterManifests(manifests []*manifest.EntryMetadata, authz auth.AuthorizationInfo) []*manifest.EntryMetadata {
@@ -102,19 +100,19 @@ func filterManifests(manifests []*manifest.EntryMetadata, authz auth.Authorizati
 	return result
 }
 
-func (s *Server) handleManifestCreate(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
-	rw, ok := s.rep.(repo.RepositoryWriter)
+func handleManifestCreate(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+	rw, ok := rc.rep.(repo.RepositoryWriter)
 	if !ok {
 		return nil, repositoryNotWritableError()
 	}
 
 	var req remoterepoapi.ManifestWithMetadata
 
-	if err := json.Unmarshal(body, &req); err != nil {
+	if err := json.Unmarshal(rc.body, &req); err != nil {
 		return nil, requestError(serverapi.ErrorMalformedRequest, "malformed request")
 	}
 
-	if !hasManifestAccess(ctx, s, r, req.Metadata.Labels, auth.AccessLevelAppend) {
+	if !hasManifestAccess(ctx, rc, req.Metadata.Labels, auth.AccessLevelAppend) {
 		return nil, accessDeniedError()
 	}
 

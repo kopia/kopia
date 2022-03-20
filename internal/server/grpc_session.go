@@ -48,7 +48,7 @@ func (s *Server) send(srv grpcapi.KopiaRepository_SessionServer, requestID int64
 	return nil
 }
 
-func (s *Server) authenticateGRPCSession(ctx context.Context) (string, error) {
+func (s *Server) authenticateGRPCSession(ctx context.Context, rep repo.Repository) (string, error) {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		return "", status.Errorf(codes.PermissionDenied, "metadata not found in context")
@@ -58,7 +58,7 @@ func (s *Server) authenticateGRPCSession(ctx context.Context) (string, error) {
 		username := u[0] + "@" + h[0]
 		password := p[0]
 
-		if s.authenticator.IsValid(ctx, s.rep, username, password) {
+		if s.authenticator.IsValid(ctx, rep, username, password) {
 			return username, nil
 		}
 
@@ -72,12 +72,15 @@ func (s *Server) authenticateGRPCSession(ctx context.Context) (string, error) {
 func (s *Server) Session(srv grpcapi.KopiaRepository_SessionServer) error {
 	ctx := srv.Context()
 
+	s.serverMutex.RLock()
 	dr, ok := s.rep.(repo.DirectRepository)
+	s.serverMutex.RUnlock()
+
 	if !ok {
 		return status.Errorf(codes.Unavailable, "not connected to a direct repository")
 	}
 
-	username, err := s.authenticateGRPCSession(ctx)
+	username, err := s.authenticateGRPCSession(ctx, dr)
 	if err != nil {
 		return err
 	}

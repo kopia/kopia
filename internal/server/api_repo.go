@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"encoding/json"
-	"net/http"
 	"sort"
 	"time"
 
@@ -26,8 +25,8 @@ import (
 
 const syncConnectWaitTime = 5 * time.Second
 
-func (s *Server) handleRepoParameters(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
-	dr, ok := s.rep.(repo.DirectRepository)
+func handleRepoParameters(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+	dr, ok := rc.rep.(repo.DirectRepository)
 	if !ok {
 		return &serverapi.StatusResponse{
 			Connected: false,
@@ -44,15 +43,15 @@ func (s *Server) handleRepoParameters(ctx context.Context, r *http.Request, body
 	return rp, nil
 }
 
-func (s *Server) handleRepoStatus(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
-	if s.rep == nil {
+func handleRepoStatus(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+	if rc.rep == nil {
 		return &serverapi.StatusResponse{
 			Connected:      false,
-			InitRepoTaskID: s.initRepositoryTaskID,
+			InitRepoTaskID: rc.srv.getInitRepositoryTaskID(),
 		}, nil
 	}
 
-	dr, ok := s.rep.(repo.DirectRepository)
+	dr, ok := rc.rep.(repo.DirectRepository)
 	if ok {
 		return &serverapi.StatusResponse{
 			Connected:                  true,
@@ -74,10 +73,10 @@ func (s *Server) handleRepoStatus(ctx context.Context, r *http.Request, body []b
 
 	result := &serverapi.StatusResponse{
 		Connected:     true,
-		ClientOptions: s.rep.ClientOptions(),
+		ClientOptions: rc.rep.ClientOptions(),
 	}
 
-	if rr, ok := s.rep.(remoteRepository); ok {
+	if rr, ok := rc.rep.(remoteRepository); ok {
 		result.APIServerURL = rr.APIServerURL()
 		result.SupportsContentCompression = rr.SupportsContentCompression()
 	}
@@ -101,14 +100,14 @@ func maybeDecodeToken(req *serverapi.ConnectRepositoryRequest) *apiError {
 	return nil
 }
 
-func (s *Server) handleRepoCreate(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
-	if s.rep != nil {
+func handleRepoCreate(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+	if rc.rep != nil {
 		return nil, requestError(serverapi.ErrorAlreadyConnected, "already connected")
 	}
 
 	var req serverapi.CreateRepositoryRequest
 
-	if err := json.Unmarshal(body, &req); err != nil {
+	if err := json.Unmarshal(rc.body, &req); err != nil {
 		return nil, requestError(serverapi.ErrorMalformedRequest, "unable to decode request: "+err.Error())
 	}
 
@@ -126,21 +125,17 @@ func (s *Server) handleRepoCreate(ctx context.Context, r *http.Request, body []b
 		return nil, repoErrorToAPIError(err)
 	}
 
-	newRepo, err := s.connectAndOpen(ctx, req.Storage, req.Password, req.ClientOptions)
+	newRepo, err := connectAndOpen(ctx, req.Storage, req.Password, rc.srv.getConnectOptions(req.ClientOptions), rc.srv.getOptions())
 	if err != nil {
 		return nil, repoErrorToAPIError(err)
 	}
 
-	// release shared lock so that SetRepository can acquire exclusive lock
-	s.mu.RUnlock()
-	err = s.SetRepository(ctx, newRepo)
-	s.mu.RLock()
-
+	err = rc.srv.SetRepository(ctx, newRepo)
 	if err != nil {
 		return nil, repoErrorToAPIError(err)
 	}
 
-	if err := repo.WriteSession(ctx, s.rep, repo.WriteSessionOptions{
+	if err := repo.WriteSession(ctx, newRepo, repo.WriteSessionOptions{
 		Purpose: "handleRepoCreate",
 	}, func(ctx context.Context, w repo.RepositoryWriter) error {
 		if err := policy.SetPolicy(ctx, w, policy.GlobalPolicySourceInfo, policy.DefaultPolicy); err != nil {
@@ -159,13 +154,13 @@ func (s *Server) handleRepoCreate(ctx context.Context, r *http.Request, body []b
 		return nil, internalServerError(err)
 	}
 
-	return s.handleRepoStatus(ctx, r, nil)
+	return handleRepoStatus(ctx, rc)
 }
 
-func (s *Server) handleRepoExists(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
+func handleRepoExists(ctx context.Context, rc requestContext) (interface{}, *apiError) {
 	var req serverapi.CheckRepositoryExistsRequest
 
-	if err := json.Unmarshal(body, &req); err != nil {
+	if err := json.Unmarshal(rc.body, &req); err != nil {
 		return nil, requestError(serverapi.ErrorMalformedRequest, "unable to decode request: "+err.Error())
 	}
 
@@ -190,14 +185,14 @@ func (s *Server) handleRepoExists(ctx context.Context, r *http.Request, body []b
 	return serverapi.Empty{}, nil
 }
 
-func (s *Server) handleRepoConnect(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
-	if s.rep != nil {
+func handleRepoConnect(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+	if rc.rep != nil {
 		return nil, requestError(serverapi.ErrorAlreadyConnected, "already connected")
 	}
 
 	var req serverapi.ConnectRepositoryRequest
 
-	if err := json.Unmarshal(body, &req); err != nil {
+	if err := json.Unmarshal(rc.body, &req); err != nil {
 		return nil, requestError(serverapi.ErrorMalformedRequest, "unable to decode request: "+err.Error())
 	}
 
@@ -205,13 +200,17 @@ func (s *Server) handleRepoConnect(ctx context.Context, r *http.Request, body []
 		return nil, err
 	}
 
-	asyncTaskID, err := s.InitRepositoryAsync(ctx, "Connect", func(ctx context.Context) (repo.Repository, error) {
-		if req.APIServer != nil {
-			return s.connectAPIServerAndOpen(ctx, req.APIServer, req.Password, req.ClientOptions)
-		}
+	connOpts := rc.srv.getConnectOptions(req.ClientOptions)
+	opts := rc.srv.getOptions()
 
-		return s.connectAndOpen(ctx, req.Storage, req.Password, req.ClientOptions)
-	}, false)
+	asyncTaskID, err := rc.srv.InitRepositoryAsync(ctx, "Connect",
+		func(ctx context.Context) (repo.Repository, error) {
+			if req.APIServer != nil {
+				return connectAPIServerAndOpen(ctx, req.APIServer, req.Password, connOpts, opts)
+			}
+
+			return connectAndOpen(ctx, req.Storage, req.Password, connOpts, opts)
+		}, false)
 	if err != nil {
 		return nil, repoErrorToAPIError(err)
 	}
@@ -221,36 +220,36 @@ func (s *Server) handleRepoConnect(ctx context.Context, r *http.Request, body []
 		wt = time.Second * time.Duration(sec)
 	}
 
-	if ti, ok := s.taskmgr.WaitForTask(ctx, asyncTaskID, wt); ok {
+	if ti, ok := rc.srv.taskManager().WaitForTask(ctx, asyncTaskID, wt); ok {
 		if ti.Error != nil {
 			// task has already finished synchronously and failed.
 			return nil, repoErrorToAPIError(ti.Error)
 		}
 	}
 
-	return s.handleRepoStatus(ctx, r, nil)
+	return handleRepoStatus(ctx, rc)
 }
 
-func (s *Server) handleRepoSetDescription(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
+func handleRepoSetDescription(ctx context.Context, rc requestContext) (interface{}, *apiError) {
 	var req repo.ClientOptions
 
-	if err := json.Unmarshal(body, &req); err != nil {
+	if err := json.Unmarshal(rc.body, &req); err != nil {
 		return nil, requestError(serverapi.ErrorMalformedRequest, "unable to decode request: "+err.Error())
 	}
 
-	cliOpt := s.rep.ClientOptions()
+	cliOpt := rc.rep.ClientOptions()
 	cliOpt.Description = req.Description
 
-	if err := repo.SetClientOptions(ctx, s.options.ConfigFile, cliOpt); err != nil {
+	if err := repo.SetClientOptions(ctx, rc.srv.getOptions().ConfigFile, cliOpt); err != nil {
 		return nil, internalServerError(err)
 	}
 
-	s.rep.UpdateDescription(req.Description)
+	rc.rep.UpdateDescription(req.Description)
 
-	return s.handleRepoStatus(ctx, r, nil)
+	return handleRepoStatus(ctx, rc)
 }
 
-func (s *Server) handleRepoSupportedAlgorithms(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
+func handleRepoSupportedAlgorithms(ctx context.Context, rc requestContext) (interface{}, *apiError) {
 	res := &serverapi.SupportedAlgorithmsResponse{
 		DefaultHashAlgorithm: hashing.DefaultAlgorithm,
 		HashAlgorithms:       hashing.SupportedAlgorithms(),
@@ -271,8 +270,8 @@ func (s *Server) handleRepoSupportedAlgorithms(ctx context.Context, r *http.Requ
 	return res, nil
 }
 
-func (s *Server) handleRepoGetThrottle(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
-	dr, ok := s.rep.(repo.DirectRepository)
+func handleRepoGetThrottle(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+	dr, ok := rc.rep.(repo.DirectRepository)
 	if !ok {
 		return nil, requestError(serverapi.ErrorStorageConnection, "no direct storage connection")
 	}
@@ -280,14 +279,14 @@ func (s *Server) handleRepoGetThrottle(ctx context.Context, r *http.Request, bod
 	return dr.Throttler().Limits(), nil
 }
 
-func (s *Server) handleRepoSetThrottle(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
-	dr, ok := s.rep.(repo.DirectRepository)
+func handleRepoSetThrottle(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+	dr, ok := rc.rep.(repo.DirectRepository)
 	if !ok {
 		return nil, requestError(serverapi.ErrorStorageConnection, "no direct storage connection")
 	}
 
 	var req throttling.Limits
-	if err := json.Unmarshal(body, &req); err != nil {
+	if err := json.Unmarshal(rc.body, &req); err != nil {
 		return nil, requestError(serverapi.ErrorMalformedRequest, "unable to decode request: "+err.Error())
 	}
 
@@ -305,17 +304,18 @@ func (s *Server) getConnectOptions(cliOpts repo.ClientOptions) *repo.ConnectOpti
 	return &o
 }
 
-func (s *Server) connectAPIServerAndOpen(ctx context.Context, si *repo.APIServerInfo, password string, cliOpts repo.ClientOptions) (repo.Repository, error) {
+func connectAPIServerAndOpen(ctx context.Context, si *repo.APIServerInfo, password string, connectOpts *repo.ConnectOptions, opts *Options) (repo.Repository, error) {
 	if err := passwordpersist.OnSuccess(
-		ctx, repo.ConnectAPIServer(ctx, s.options.ConfigFile, si, password, s.getConnectOptions(cliOpts)),
-		s.options.PasswordPersist, s.options.ConfigFile, password); err != nil {
+		ctx, repo.ConnectAPIServer(ctx, opts.ConfigFile, si, password, connectOpts),
+		opts.PasswordPersist, opts.ConfigFile, password); err != nil {
 		return nil, errors.Wrap(err, "error connecting to API server")
 	}
 
-	return s.open(ctx, password)
+	// nolint:wrapcheck
+	return repo.Open(ctx, opts.ConfigFile, password, nil)
 }
 
-func (s *Server) connectAndOpen(ctx context.Context, conn blob.ConnectionInfo, password string, cliOpts repo.ClientOptions) (repo.Repository, error) {
+func connectAndOpen(ctx context.Context, conn blob.ConnectionInfo, password string, connectOpts *repo.ConnectOptions, opts *Options) (repo.Repository, error) {
 	st, err := blob.NewStorage(ctx, conn, false)
 	if err != nil {
 		return nil, errors.Wrap(err, "can't open storage")
@@ -323,42 +323,44 @@ func (s *Server) connectAndOpen(ctx context.Context, conn blob.ConnectionInfo, p
 	defer st.Close(ctx) //nolint:errcheck
 
 	if err = passwordpersist.OnSuccess(
-		ctx, repo.Connect(ctx, s.options.ConfigFile, st, password, s.getConnectOptions(cliOpts)),
-		s.options.PasswordPersist, s.options.ConfigFile, password); err != nil {
+		ctx, repo.Connect(ctx, opts.ConfigFile, st, password, connectOpts),
+		opts.PasswordPersist, opts.ConfigFile, password); err != nil {
 		return nil, errors.Wrap(err, "error connecting")
 	}
 
-	return s.open(ctx, password)
-}
-
-func (s *Server) open(ctx context.Context, password string) (repo.Repository, error) {
 	// nolint:wrapcheck
-	return repo.Open(ctx, s.options.ConfigFile, password, nil)
+	return repo.Open(ctx, opts.ConfigFile, password, nil)
 }
 
-func (s *Server) handleRepoDisconnect(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
-	// release shared lock so that SetRepository can acquire exclusive lock
-	s.mu.RUnlock()
-	err := s.SetRepository(ctx, nil)
-	s.mu.RLock()
-
-	if err != nil {
-		return nil, internalServerError(err)
-	}
-
-	if err := repo.Disconnect(ctx, s.options.ConfigFile); err != nil {
-		return nil, internalServerError(err)
-	}
-
-	if err := s.options.PasswordPersist.DeletePassword(ctx, s.options.ConfigFile); err != nil {
+func handleRepoDisconnect(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+	if err := rc.srv.disconnect(ctx); err != nil {
 		return nil, internalServerError(err)
 	}
 
 	return &serverapi.Empty{}, nil
 }
 
-func (s *Server) handleRepoSync(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
-	if err := s.internalRefreshRLocked(ctx); err != nil {
+func (s *Server) disconnect(ctx context.Context) error {
+	// release shared lock so that SetRepository can acquire exclusive lock
+	if err := s.SetRepository(ctx, nil); err != nil {
+		return err
+	}
+
+	if err := repo.Disconnect(ctx, s.options.ConfigFile); err != nil {
+		// nolint:wrapcheck
+		return err
+	}
+
+	if err := s.options.PasswordPersist.DeletePassword(ctx, s.options.ConfigFile); err != nil {
+		// nolint:wrapcheck
+		return err
+	}
+
+	return nil
+}
+
+func handleRepoSync(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+	if err := rc.srv.Refresh(ctx); err != nil {
 		return nil, internalServerError(errors.Wrap(err, "unable to refresh repository"))
 	}
 

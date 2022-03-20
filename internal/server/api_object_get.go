@@ -1,54 +1,53 @@
 package server
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"time"
-
-	"github.com/gorilla/mux"
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
 
-func (s *Server) handleObjectGet(w http.ResponseWriter, r *http.Request) {
-	oidstr := mux.Vars(r)["objectID"]
+func handleObjectGet(ctx context.Context, rc requestContext) {
+	oidstr := rc.muxVar("objectID")
 
-	if !requireUIUser(s, r) {
-		http.Error(w, "access denied", http.StatusForbidden)
+	if !requireUIUser(ctx, rc) {
+		http.Error(rc.w, "access denied", http.StatusForbidden)
 		return
 	}
 
 	oid, err := object.ParseID(oidstr)
 	if err != nil {
-		http.Error(w, "invalid object id", http.StatusBadRequest)
+		http.Error(rc.w, "invalid object id", http.StatusBadRequest)
 		return
 	}
 
-	obj, err := s.rep.OpenObject(r.Context(), oid)
+	obj, err := rc.rep.OpenObject(ctx, oid)
 	if errors.Is(err, object.ErrObjectNotFound) {
-		http.Error(w, "object not found", http.StatusNotFound)
+		http.Error(rc.w, "object not found", http.StatusNotFound)
 		return
 	}
 
 	if snapshotfs.IsDirectoryID(oid) {
-		w.Header().Set("Content-Type", "application/json")
+		rc.w.Header().Set("Content-Type", "application/json")
 	}
 
 	fname := oid.String()
-	if p := r.URL.Query().Get("fname"); p != "" {
+	if p := rc.queryParam("fname"); p != "" {
 		fname = p
-		w.Header().Set("Content-Disposition", "attachment; filename=\""+p+"\"")
+		rc.w.Header().Set("Content-Disposition", "attachment; filename=\""+p+"\"")
 	}
 
 	mtime := clock.Now()
 
-	if p := r.URL.Query().Get("mtime"); p != "" {
+	if p := rc.queryParam("mtime"); p != "" {
 		if m, err := time.Parse(time.RFC3339Nano, p); err == nil {
 			mtime = m
 		}
 	}
 
-	http.ServeContent(w, r, fname, mtime, obj)
+	http.ServeContent(rc.w, rc.req, fname, mtime, obj)
 }

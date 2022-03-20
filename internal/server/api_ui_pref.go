@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"net/http"
 	"os"
 
 	"github.com/natefinch/atomic"
@@ -13,14 +12,14 @@ import (
 	"github.com/kopia/kopia/internal/serverapi"
 )
 
-func (s *Server) getUIPreferencesOrEmpty() (serverapi.UIPreferences, error) {
+func getUIPreferencesOrEmpty(s serverInterface) (serverapi.UIPreferences, error) {
 	p := serverapi.UIPreferences{}
 
-	if s.options.UIPreferencesFile == "" {
+	if s.getOptions().UIPreferencesFile == "" {
 		return p, nil
 	}
 
-	f, err := os.Open(s.options.UIPreferencesFile)
+	f, err := os.Open(s.getOptions().UIPreferencesFile)
 	if os.IsNotExist(err) {
 		return p, nil
 	}
@@ -38,8 +37,8 @@ func (s *Server) getUIPreferencesOrEmpty() (serverapi.UIPreferences, error) {
 	return p, nil
 }
 
-func (s *Server) handleGetUIPreferences(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
-	p, err := s.getUIPreferencesOrEmpty()
+func handleGetUIPreferences(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+	p, err := getUIPreferencesOrEmpty(rc.srv)
 	if err != nil {
 		return nil, internalServerError(err)
 	}
@@ -47,15 +46,15 @@ func (s *Server) handleGetUIPreferences(ctx context.Context, r *http.Request, bo
 	return &p, nil
 }
 
-func (s *Server) handleSetUIPreferences(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
+func handleSetUIPreferences(ctx context.Context, rc requestContext) (interface{}, *apiError) {
 	var p serverapi.UIPreferences
 
 	// verify the JSON is valid by unmarshaling it
-	if err := json.Unmarshal(body, &p); err != nil {
+	if err := json.Unmarshal(rc.body, &p); err != nil {
 		return nil, requestError(serverapi.ErrorMalformedRequest, "malformed request")
 	}
 
-	if err := atomic.WriteFile(s.options.UIPreferencesFile, bytes.NewReader(body)); err != nil {
+	if err := atomic.WriteFile(rc.srv.getOptions().UIPreferencesFile, bytes.NewReader(rc.body)); err != nil {
 		return nil, internalServerError(err)
 	}
 
