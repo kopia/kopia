@@ -95,21 +95,32 @@ var _ UploadProgress = (*NullUploadProgress)(nil)
 
 // UploadCounters represents a snapshot of upload counters.
 type UploadCounters struct {
-	TotalCachedBytes   int64 `json:"cachedBytes"`
-	TotalHashedBytes   int64 `json:"hashedBytes"`
+	// +checkatomic
+	TotalCachedBytes int64 `json:"cachedBytes"`
+	// +checkatomic
+	TotalHashedBytes int64 `json:"hashedBytes"`
+	// +checkatomic
 	TotalUploadedBytes int64 `json:"uploadedBytes"`
 
+	// +checkatomic
 	EstimatedBytes int64 `json:"estimatedBytes"`
 
+	// +checkatomic
 	TotalCachedFiles int32 `json:"cachedFiles"`
+	// +checkatomic
 	TotalHashedFiles int32 `json:"hashedFiles"`
 
+	// +checkatomic
 	TotalExcludedFiles int32 `json:"excludedFiles"`
-	TotalExcludedDirs  int32 `json:"excludedDirs"`
+	// +checkatomic
+	TotalExcludedDirs int32 `json:"excludedDirs"`
 
-	FatalErrorCount   int32 `json:"errors"`
+	// +checkatomic
+	FatalErrorCount int32 `json:"errors"`
+	// +checkatomic
 	IgnoredErrorCount int32 `json:"ignoredErrors"`
-	EstimatedFiles    int32 `json:"estimatedFiles"`
+	// +checkatomic
+	EstimatedFiles int32 `json:"estimatedFiles"`
 
 	CurrentDirectory string `json:"directory"`
 
@@ -175,9 +186,9 @@ func (p *CountingUploadProgress) Error(path string, err error, isIgnored bool) {
 	defer p.mu.Unlock()
 
 	if isIgnored {
-		p.counters.IgnoredErrorCount++
+		atomic.AddInt32(&p.counters.IgnoredErrorCount, 1)
 	} else {
-		p.counters.FatalErrorCount++
+		atomic.AddInt32(&p.counters.FatalErrorCount, 1)
 	}
 
 	p.counters.LastErrorPath = path

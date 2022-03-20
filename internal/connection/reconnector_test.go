@@ -21,7 +21,9 @@ var (
 )
 
 type fakeConnector struct {
-	nextConnectionID      int32
+	// +checkatomic
+	nextConnectionID int32
+
 	maxConnections        int
 	connectionConcurrency int
 	nextError             error

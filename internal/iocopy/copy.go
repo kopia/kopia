@@ -9,8 +9,10 @@ import (
 const bufSize = 65536
 
 var (
-	mu      sync.Mutex //nolint:gochecknoglobals
-	buffers [][]byte   //nolint:gochecknoglobals
+	mu sync.Mutex //nolint:gochecknoglobals
+
+	// +checklocks:mu
+	buffers [][]byte //nolint:gochecknoglobals
 )
 
 // GetBuffer allocates new temporary buffer suitable for copying data.

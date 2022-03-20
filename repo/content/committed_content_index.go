@@ -24,13 +24,17 @@ import (
 const smallIndexEntryCountThreshold = 100
 
 type committedContentIndex struct {
+	// +checkatomic
 	rev   int64
 	cache committedContentIndexCache
 
-	mu                sync.Mutex
+	mu sync.Mutex
+	// +checklocks:mu
 	deletionWatermark time.Time
-	inUse             map[blob.ID]packIndex
-	merged            mergedIndex
+	// +checklocks:mu
+	inUse map[blob.ID]packIndex
+	// +checklocks:mu
+	merged mergedIndex
 
 	v1PerContentOverhead uint32
 	indexVersion         int
@@ -58,7 +62,7 @@ func (c *committedContentIndex) getContent(contentID ID) (Info, error) {
 
 	info, err := c.merged.GetInfo(contentID)
 	if info != nil {
-		if c.shouldIgnore(info) {
+		if shouldIgnore(info, c.deletionWatermark) {
 			return nil, ErrContentNotFound
 		}
 
@@ -72,12 +76,12 @@ func (c *committedContentIndex) getContent(contentID ID) (Info, error) {
 	return nil, err
 }
 
-func (c *committedContentIndex) shouldIgnore(id Info) bool {
+func shouldIgnore(id Info, deletionWatermark time.Time) bool {
 	if !id.GetDeleted() {
 		return false
 	}
 
-	return !id.Timestamp().After(c.deletionWatermark)
+	return !id.Timestamp().After(deletionWatermark)
 }
 
 func (c *committedContentIndex) addIndexBlob(ctx context.Context, indexBlobID blob.ID, data gather.Bytes, use bool) error {
@@ -85,7 +89,9 @@ func (c *committedContentIndex) addIndexBlob(ctx context.Context, indexBlobID bl
 	// doing it prematurely might confuse callers of revision() who may cache
 	// a set of old contents and associate it with new revision, before new contents
 	// are actually available.
-	defer atomic.AddInt64(&c.rev, 1)
+	defer func() {
+		atomic.AddInt64(&c.rev, 1)
+	}()
 
 	if err := c.cache.addContentToCache(ctx, indexBlobID, data); err != nil {
 		return errors.Wrap(err, "error adding content to cache")
@@ -118,10 +124,11 @@ func (c *committedContentIndex) addIndexBlob(ctx context.Context, indexBlobID bl
 func (c *committedContentIndex) listContents(r IDRange, cb func(i Info) error) error {
 	c.mu.Lock()
 	m := append(mergedIndex(nil), c.merged...)
+	deletionWatermark := c.deletionWatermark
 	c.mu.Unlock()
 
 	return m.Iterate(r, func(i Info) error {
-		if c.shouldIgnore(i) {
+		if shouldIgnore(i, deletionWatermark) {
 			return nil
 		}
 
@@ -129,6 +136,7 @@ func (c *committedContentIndex) listContents(r IDRange, cb func(i Info) error) e
 	})
 }
 
+// +checklocks:c.mu
 func (c *committedContentIndex) indexFilesChanged(indexFiles []blob.ID) bool {
 	if len(indexFiles) != len(c.inUse) {
 		return true

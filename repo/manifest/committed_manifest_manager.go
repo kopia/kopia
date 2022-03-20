@@ -21,12 +21,16 @@ import (
 type committedManifestManager struct {
 	b contentManager
 
-	debugID string
+	debugID string // +checklocksignore
 
-	cmmu                sync.Mutex
-	lastRevision        int64
-	locked              bool
-	committedEntries    map[ID]*manifestEntry
+	cmmu sync.Mutex
+	// +checklocks:cmmu
+	lastRevision int64
+	// +checklocks:cmmu
+	locked bool
+	// +checklocks:cmmu
+	committedEntries map[ID]*manifestEntry
+	// +checklocks:cmmu
 	committedContentIDs map[content.ID]bool
 }
 
@@ -41,6 +45,7 @@ func (m *committedManifestManager) getCommittedEntryOrNil(ctx context.Context, i
 	return m.committedEntries[id], nil
 }
 
+// +checklocks:m.cmmu
 func (m *committedManifestManager) dump(ctx context.Context, prefix string) {
 	if m.debugID == "" {
 		return
@@ -86,6 +91,7 @@ func (m *committedManifestManager) commitEntries(ctx context.Context, entries ma
 // NOTE: this function is used in two cases - to write pending entries (where the caller acquires
 // the lock via commitEntries()) and to compact existing committed entries during compaction
 // where the lock is already being held.
+// +checklocks:m.cmmu
 func (m *committedManifestManager) writeEntriesLocked(ctx context.Context, entries map[ID]*manifestEntry) (map[content.ID]bool, error) {
 	if len(entries) == 0 {
 		return nil, nil
@@ -120,6 +126,7 @@ func (m *committedManifestManager) writeEntriesLocked(ctx context.Context, entri
 	return map[content.ID]bool{contentID: true}, nil
 }
 
+// +checklocks:m.cmmu
 func (m *committedManifestManager) loadCommittedContentsLocked(ctx context.Context) error {
 	m.verifyLocked()
 
@@ -168,6 +175,7 @@ func (m *committedManifestManager) loadCommittedContentsLocked(ctx context.Conte
 	return nil
 }
 
+// +checklocks:m.cmmu
 func (m *committedManifestManager) loadManifestContentsLocked(manifests map[content.ID]manifest) {
 	m.committedEntries = map[ID]*manifestEntry{}
 	m.committedContentIDs = map[content.ID]bool{}
@@ -197,6 +205,7 @@ func (m *committedManifestManager) compact(ctx context.Context) error {
 	return m.compactLocked(ctx)
 }
 
+// +checklocks:m.cmmu
 func (m *committedManifestManager) maybeCompactLocked(ctx context.Context) error {
 	m.verifyLocked()
 
@@ -217,6 +226,7 @@ func (m *committedManifestManager) maybeCompactLocked(ctx context.Context) error
 	return nil
 }
 
+// +checklocks:m.cmmu
 func (m *committedManifestManager) compactLocked(ctx context.Context) error {
 	m.verifyLocked()
 
@@ -258,6 +268,7 @@ func (m *committedManifestManager) compactLocked(ctx context.Context) error {
 	return nil
 }
 
+// +checklocks:m.cmmu
 func (m *committedManifestManager) mergeEntryLocked(e *manifestEntry) {
 	m.verifyLocked()
 
@@ -272,6 +283,7 @@ func (m *committedManifestManager) mergeEntryLocked(e *manifestEntry) {
 	}
 }
 
+// +checklocks:m.cmmu
 func (m *committedManifestManager) ensureInitializedLocked(ctx context.Context) error {
 	rev := m.b.Revision()
 	if m.lastRevision == rev {
@@ -297,16 +309,19 @@ func (m *committedManifestManager) ensureInitializedLocked(ctx context.Context) 
 	return nil
 }
 
+// +checklocksacquire:m.cmmu
 func (m *committedManifestManager) lock() {
 	m.cmmu.Lock()
 	m.locked = true
 }
 
+// +checklocksrelease:m.cmmu
 func (m *committedManifestManager) unlock() {
 	m.locked = false
 	m.cmmu.Unlock()
 }
 
+// +checklocks:m.cmmu
 func (m *committedManifestManager) verifyLocked() {
 	if !m.locked {
 		panic("not locked")

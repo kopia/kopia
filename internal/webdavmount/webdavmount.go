@@ -25,12 +25,15 @@ var (
 
 type webdavFile struct {
 	// webdavFile implements webdav.File but needs context
-	ctx context.Context //nolint:containedctx
+	// +checklocks:mu
+	ctx context.Context // nolint:containedctx
 
 	entry fs.File
 
 	mu sync.Mutex
-	r  fs.Reader
+
+	// +checklocks:mu
+	r fs.Reader
 }
 
 func (f *webdavFile) Readdir(n int) ([]os.FileInfo, error) {

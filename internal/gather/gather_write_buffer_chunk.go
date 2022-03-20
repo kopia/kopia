@@ -45,17 +45,28 @@ type chunkAllocator struct {
 	name      string
 	chunkSize int
 
-	mu                    sync.Mutex
-	freeList              [][]byte
-	maxFreeListSize       int
+	mu sync.Mutex
+	// +checklocks:mu
+	freeList [][]byte
+	// +checklocks:mu
+	maxFreeListSize int
+	// +checklocks:mu
 	freeListHighWaterMark int
-	allocHighWaterMark    int
-	allocated             int
-	slicesAllocated       int
-	freed                 int
-	activeChunks          map[uintptr]string
+	// +checklocks:mu
+	allocHighWaterMark int
+	// +checklocks:mu
+	allocated int
+	// +checklocks:mu
+	slicesAllocated int
+
+	// +checklocks:mu
+	freed int
+
+	// +checklocks:mu
+	activeChunks map[uintptr]string
 }
 
+// +checklocks:a.mu
 func (a *chunkAllocator) trackAlloc(v []byte) []byte {
 	if trackChunkAllocations {
 		var (

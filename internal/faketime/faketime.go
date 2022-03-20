@@ -27,6 +27,7 @@ func AutoAdvance(t time.Time, dt time.Duration) func() time.Time {
 // TimeAdvance allows controlling the passage of time. Intended to be used in
 // tests.
 type TimeAdvance struct {
+	// +checkatomic
 	delta  int64
 	autoDt int64
 	base   time.Time
@@ -60,7 +61,8 @@ func (t *TimeAdvance) Advance(dt time.Duration) time.Time {
 // ClockTimeWithOffset allows controlling the passage of time. Intended to be used in
 // tests.
 type ClockTimeWithOffset struct {
-	mu     sync.Mutex
+	mu sync.Mutex
+	// +checklocks:mu
 	offset time.Duration
 }
 

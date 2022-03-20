@@ -9,7 +9,9 @@ import "sync/atomic"
 
 // CountSum holds sum and count values.
 type CountSum struct {
-	sum   int64
+	// +checkatomic
+	sum int64
+	// +checkatomic
 	count uint32
 }
 

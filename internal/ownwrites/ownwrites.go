@@ -39,7 +39,9 @@ type CacheStorage struct {
 	prefixes      []blob.ID
 	cacheDuration time.Duration
 
-	mu            sync.Mutex
+	mu sync.Mutex
+
+	// +checklocks:mu
 	nextSweepTime time.Time
 }
 

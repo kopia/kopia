@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"sync/atomic"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/ignorefs"
@@ -88,13 +89,13 @@ func Estimate(ctx context.Context, rep repo.Repository, entry fs.Directory, poli
 				ed = append(ed, relativePath)
 			}
 
-			stats.ExcludedDirCount++
+			atomic.AddInt32(&stats.ExcludedDirCount, 1)
 
 			estimateLog(ctx).Debugf("excluded dir %v", relativePath)
 		} else {
 			estimateLog(ctx).Debugf("excluded file %v (%v)", relativePath, units.BytesStringBase10(e.Size()))
-			stats.ExcludedFileCount++
-			stats.ExcludedTotalFileSize += e.Size()
+			atomic.AddInt32(&stats.ExcludedFileCount, 1)
+			atomic.AddInt64(&stats.ExcludedTotalFileSize, e.Size())
 			eb.add(relativePath, e.Size(), maxExamplesPerBucket)
 		}
 	}
@@ -116,7 +117,7 @@ func estimate(ctx context.Context, relativePath string, entry fs.Entry, policyTr
 
 	switch entry := entry.(type) {
 	case fs.Directory:
-		stats.TotalDirectoryCount++
+		atomic.AddInt32(&stats.TotalDirectoryCount, 1)
 
 		progress.Processing(ctx, relativePath)
 
@@ -125,9 +126,9 @@ func estimate(ctx context.Context, relativePath string, entry fs.Entry, policyTr
 			isIgnored := policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreDirectoryErrors.OrDefault(false)
 
 			if isIgnored {
-				stats.IgnoredErrorCount++
+				atomic.AddInt32(&stats.IgnoredErrorCount, 1)
 			} else {
-				stats.ErrorCount++
+				atomic.AddInt32(&stats.ErrorCount, 1)
 			}
 
 			progress.Error(ctx, relativePath, err, isIgnored)
@@ -143,8 +144,8 @@ func estimate(ctx context.Context, relativePath string, entry fs.Entry, policyTr
 
 	case fs.File:
 		ib.add(relativePath, entry.Size(), maxExamplesPerBucket)
-		stats.TotalFileCount++
-		stats.TotalFileSize += entry.Size()
+		atomic.AddInt32(&stats.TotalFileCount, 1)
+		atomic.AddInt64(&stats.TotalFileSize, entry.Size())
 	}
 
 	return nil

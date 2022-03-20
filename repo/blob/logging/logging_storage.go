@@ -11,7 +11,9 @@ import (
 )
 
 type loggingStorage struct {
-	concurrency    int32
+	// +checkatomic
+	concurrency int32
+	// +checkatomic
 	maxConcurrency int32
 
 	base   blob.Storage

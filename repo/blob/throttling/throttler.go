@@ -17,7 +17,8 @@ type SettableThrottler interface {
 }
 
 type tokenBucketBasedThrottler struct {
-	mu     sync.Mutex
+	mu sync.Mutex
+	// +checklocks:mu
 	limits Limits
 
 	readOps  *tokenBucket
@@ -25,7 +26,7 @@ type tokenBucketBasedThrottler struct {
 	listOps  *tokenBucket
 	upload   *tokenBucket
 	download *tokenBucket
-	window   time.Duration
+	window   time.Duration // +checklocksignore
 }
 
 func (t *tokenBucketBasedThrottler) BeforeOperation(ctx context.Context, op string) {

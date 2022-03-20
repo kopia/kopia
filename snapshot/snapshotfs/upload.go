@@ -60,6 +60,7 @@ const (
 // Uploader supports efficient uploading files and directories to repository.
 type Uploader struct {
 	// values aligned to 8-bytes due to atomic access
+	// +checkatomic
 	totalWrittenBytes int64
 
 	Progress UploadProgress
@@ -94,7 +95,9 @@ type Uploader struct {
 	repo repo.RepositoryWriter
 
 	// stats must be allocated on heap to enforce 64-bit alignment due to atomic access on ARM.
-	stats    *snapshot.Stats
+	stats *snapshot.Stats
+
+	// +checkatomic
 	canceled int32
 
 	getTicker func(time.Duration) <-chan time.Time
@@ -542,7 +545,9 @@ func rootCauseError(err error) error {
 type dirManifestBuilder struct {
 	mu sync.Mutex
 
+	// +checklocks:mu
 	summary fs.DirectorySummary
+	// +checklocks:mu
 	entries []*snapshot.DirEntry
 }
 
@@ -615,7 +620,9 @@ func (b *dirManifestBuilder) Build(dirModTime time.Time, incompleteReason string
 	s := b.summary
 	s.TotalDirCount++
 
-	if len(b.entries) == 0 {
+	entries := b.entries
+
+	if len(entries) == 0 {
 		s.MaxModTime = dirModTime
 	}
 
@@ -625,18 +632,18 @@ func (b *dirManifestBuilder) Build(dirModTime time.Time, incompleteReason string
 
 	// sort the result, directories first, then non-directories, ordered by name
 	sort.Slice(b.entries, func(i, j int) bool {
-		if leftDir, rightDir := isDir(b.entries[i]), isDir(b.entries[j]); leftDir != rightDir {
+		if leftDir, rightDir := isDir(entries[i]), isDir(entries[j]); leftDir != rightDir {
 			// directories get sorted before non-directories
 			return leftDir
 		}
 
-		return b.entries[i].Name < b.entries[j].Name
+		return entries[i].Name < entries[j].Name
 	})
 
 	return &snapshot.DirManifest{
 		StreamType: directoryStreamType,
 		Summary:    &s,
-		Entries:    b.entries,
+		Entries:    entries,
 	}
 }
 
@@ -1280,7 +1287,7 @@ func (u *Uploader) Upload(
 	defer u.workerPool.Close()
 
 	u.stats = &snapshot.Stats{}
-	u.totalWrittenBytes = 0
+	atomic.StoreInt64(&u.totalWrittenBytes, 0)
 
 	var err error
 

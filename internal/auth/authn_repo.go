@@ -13,11 +13,14 @@ import (
 const defaultProfileRefreshFrequency = 10 * time.Second
 
 type repositoryUserAuthenticator struct {
+	mu sync.Mutex
+	// +checklocks:mu
 	lastRep repo.Repository
-
-	mu                          sync.Mutex
-	nextRefreshTime             time.Time
-	userProfiles                map[string]*user.Profile
+	// +checklocks:mu
+	nextRefreshTime time.Time
+	// +checklocks:mu
+	userProfiles map[string]*user.Profile
+	// +checklocks:mu
 	userProfileRefreshFrequency time.Duration
 }
 

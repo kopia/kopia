@@ -64,7 +64,14 @@ install-noui: install
 install-race:
 	go install -race $(KOPIA_BUILD_FLAGS) -tags "$(KOPIA_BUILD_TAGS)"
 
-lint: $(linter)
+check-locks: $(checklocks)
+ifneq ($(GOOS)/$(GOARCH),linux/arm64)
+ifneq ($(GOOS)/$(GOARCH),linux/arm)
+	go vet -vettool=$(checklocks) ./...
+endif
+endif
+
+lint: $(linter) check-locks
 ifneq ($(GOOS)/$(GOARCH),linux/arm64)
 ifneq ($(GOOS)/$(GOARCH),linux/arm)
 	$(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
@@ -171,7 +178,7 @@ download-rclone:
 	go run ./tools/gettool --tool rclone:$(RCLONE_VERSION) --output-dir dist/kopia_linux_arm_6/ --goos=linux --goarch=arm
 
 
-ci-tests: lint vet test
+ci-tests: lint vet test 
 
 ci-integration-tests:
 	$(MAKE) integration-tests

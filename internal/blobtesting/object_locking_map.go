@@ -29,11 +29,13 @@ type versionedEntries map[blob.ID][]*entry
 // marker. This struct manages the retention time of each blob throug hte
 // PutBlob options.
 type objectLockingMap struct {
+	// +checklocks:mutex
 	data    versionedEntries
-	timeNow func() time.Time
+	timeNow func() time.Time // +checklocksignore
 	mutex   sync.RWMutex
 }
 
+// +checklocksread:s.mutex
 func (s *objectLockingMap) getLatestByID(id blob.ID) (*entry, error) {
 	versions, ok := s.data[id]
 	if !ok {
@@ -50,6 +52,7 @@ func (s *objectLockingMap) getLatestByID(id blob.ID) (*entry, error) {
 	return e, nil
 }
 
+// +checklocksread:s.mutex
 func (s *objectLockingMap) getLatestForMutationLocked(id blob.ID) (*entry, error) {
 	e, err := s.getLatestByID(id)
 	if err != nil {

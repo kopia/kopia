@@ -26,9 +26,11 @@ type TreeWalker struct {
 	enqueued sync.Map
 	wp       *workshare.Pool
 
-	mu        sync.Mutex
+	mu sync.Mutex
+	// +checklocks:mu
 	numErrors int
-	errors    []error
+	// +checklocks:mu
+	errors []error
 }
 
 func oidOf(e fs.Entry) object.ID {

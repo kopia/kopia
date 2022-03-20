@@ -34,7 +34,8 @@ type Writer interface {
 }
 
 type contentIDTracker struct {
-	mu       sync.Mutex
+	mu sync.Mutex
+	// +checklocks:mu
 	contents map[content.ID]bool
 }
 

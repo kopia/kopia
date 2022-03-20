@@ -66,9 +66,13 @@ func (f *fuseFileNode) Open(ctx context.Context, flags uint32) (gofusefs.FileHan
 }
 
 type fuseFileHandle struct {
-	mu     sync.Mutex
+	mu sync.Mutex
+
+	// +checklocks:mu
 	reader fs.Reader
-	file   fs.File
+
+	// +checklocks:mu
+	file fs.File
 }
 
 func (f *fuseFileHandle) Read(ctx context.Context, dest []byte, off int64) (fuse.ReadResult, syscall.Errno) {
@@ -93,6 +97,9 @@ func (f *fuseFileHandle) Read(ctx context.Context, dest []byte, off int64) (fuse
 }
 
 func (f *fuseFileHandle) Release(ctx context.Context) syscall.Errno {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
 	f.reader.Close() //nolint:errcheck
 
 	return gofusefs.OK

@@ -25,6 +25,7 @@ const blobLoggerFlushThreshold = 4 << 20
 const TextLogBlobPrefix = "_log_"
 
 type internalLogManager struct {
+	// +checkatomic
 	enabled int32 // set by enable(), logger is ineffective until called
 
 	// internalLogManager implements io.Writer and we must be able to write to the
@@ -97,14 +98,20 @@ func (m *internalLogManager) NewLogger() *zap.SugaredLogger {
 // internalLogger represents a single log session that saves log files as blobs in the repository.
 // The logger starts disabled and to actually persist logs enable() must be called.
 type internalLogger struct {
+	// +checkatomic
 	nextChunkNumber int32 // chunk number incremented using atomic.AddInt32()
 
-	m         *internalLogManager
-	mu        sync.Mutex
-	buf       *gather.WriteBuffer
-	gzw       *gzip.Writer
+	m  *internalLogManager
+	mu sync.Mutex
+
+	// +checklocks:mu
+	buf *gather.WriteBuffer
+	// +checklocks:mu
+	gzw *gzip.Writer
+
 	startTime int64 // unix timestamp of the first log
-	prefix    blob.ID
+
+	prefix blob.ID // +checklocksignore
 }
 
 func (m *internalLogManager) enable() {
@@ -133,9 +140,7 @@ func (l *internalLogger) maybeEncryptAndWriteChunkUnlocked(data gather.Bytes, cl
 
 	endTime := l.m.timeFunc().Unix()
 
-	l.mu.Lock()
 	prefix := blob.ID(fmt.Sprintf("%v_%v_%v_%v_", l.prefix, l.startTime, endTime, atomic.AddInt32(&l.nextChunkNumber, 1)))
-	l.mu.Unlock()
 
 	l.m.encryptAndWriteLogBlob(prefix, data, closeFunc)
 }
@@ -156,6 +161,7 @@ func (l *internalLogger) addAndMaybeFlush(b []byte) (payload gather.Bytes, close
 	return l.flushAndResetLocked()
 }
 
+// +checklocks:l.mu
 func (l *internalLogger) ensureWriterInitializedLocked() io.Writer {
 	if l.gzw == nil {
 		l.buf = gather.NewWriteBuffer()
@@ -166,6 +172,7 @@ func (l *internalLogger) ensureWriterInitializedLocked() io.Writer {
 	return l.gzw
 }
 
+// +checklocks:l.mu
 func (l *internalLogger) flushAndResetLocked() (payload gather.Bytes, closeFunc func()) {
 	if l.gzw == nil {
 		return gather.Bytes{}, func() {}

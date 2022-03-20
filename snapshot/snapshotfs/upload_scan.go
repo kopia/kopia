@@ -2,6 +2,7 @@ package snapshotfs
 
 import (
 	"context"
+	"sync/atomic"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/snapshot"
@@ -19,8 +20,8 @@ func (e *scanResults) Processing(ctx context.Context, pathname string) {}
 
 func (e *scanResults) Stats(ctx context.Context, s *snapshot.Stats, includedFiles, excludedFiles SampleBuckets, excludedDirs []string, final bool) {
 	if final {
-		e.numFiles = int(s.TotalFileCount)
-		e.totalFileSize = s.TotalFileSize
+		e.numFiles = int(atomic.LoadInt32(&s.TotalFileCount))
+		e.totalFileSize = atomic.LoadInt64(&s.TotalFileSize)
 	}
 }
 

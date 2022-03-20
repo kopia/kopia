@@ -17,8 +17,10 @@ import (
 // delegate to a specific client FileWriter.
 type MultiClientFileWriter struct {
 	// Map of client ID to FileWriter and associated mutex
+	mu sync.RWMutex
+
+	// +checklocks:mu
 	fileWriters map[string]FileWriter
-	mu          sync.RWMutex
 
 	// Function used to generate new FileWriters
 	newFileWriter newFileWriterFn

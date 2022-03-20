@@ -7,10 +7,13 @@ import (
 )
 
 type recentlyRead struct {
-	mu          sync.Mutex
+	mu sync.Mutex
+	// +checklocks:mu
 	contentList []content.ID
-	next        int
-	contentSet  map[content.ID]struct{}
+	// +checklocks:mu
+	next int
+	// +checklocks:mu
+	contentSet map[content.ID]struct{}
 }
 
 func (r *recentlyRead) add(contentID content.ID) {

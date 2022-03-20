@@ -71,8 +71,10 @@ type indexBlobManager interface {
 
 // SharedManager is responsible for read-only access to committed data.
 type SharedManager struct {
+	// +checkatomic
 	refCount int32 // number of Manager objects that refer to this SharedManager
-	closed   int32 // set to 1 if shared manager has been closed
+	// +checkatomic
+	closed int32 // set to 1 if shared manager has been closed
 
 	Stats *Stats
 	st    blob.Storage
@@ -94,6 +96,7 @@ type SharedManager struct {
 	indexesLock sync.RWMutex
 
 	// maybeRefreshIndexes() will call Refresh() after this point in ime.
+	// +checklocks:indexesLock
 	refreshIndexesAfter time.Time
 
 	format                  FormattingOptions
@@ -182,6 +185,7 @@ func (sm *SharedManager) attemptReadPackFileLocalIndex(ctx context.Context, pack
 		"unable to decrypt local index")
 }
 
+// +checklocks:sm.indexesLock
 func (sm *SharedManager) loadPackIndexesLocked(ctx context.Context) error {
 	nextSleepTime := 100 * time.Millisecond //nolint:gomnd
 
@@ -606,6 +610,9 @@ func NewSharedManager(ctx context.Context, st blob.Storage, f *FormattingOptions
 	if err := sm.setupReadManagerCaches(ctx, caching); err != nil {
 		return nil, errors.Wrap(err, "error setting up read manager caches")
 	}
+
+	sm.indexesLock.Lock()
+	defer sm.indexesLock.Unlock()
 
 	if err := sm.loadPackIndexesLocked(ctx); err != nil {
 		return nil, errors.Wrap(err, "error loading indexes")

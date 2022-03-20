@@ -141,15 +141,18 @@ func (cv *cacheVerifier) reset() {
 }
 
 type lockState struct {
-	l      sync.Locker
+	l sync.Locker
+	// +checkatomic
 	locked int32
 }
 
+// +checklocksacquire:ls.l
 func (ls *lockState) Lock() {
 	ls.l.Lock()
 	atomic.AddInt32(&ls.locked, 1)
 }
 
+// +checklocksrelease:ls.l
 func (ls *lockState) Unlock() {
 	atomic.AddInt32(&ls.locked, -1)
 	ls.l.Unlock()

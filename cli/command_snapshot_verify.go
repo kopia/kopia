@@ -58,8 +58,10 @@ func (c *commandSnapshotVerify) setup(svc appServices, parent commandParent) {
 }
 
 type verifier struct {
-	throttle  timetrack.Throttle
-	queued    int32
+	throttle timetrack.Throttle
+	// +checkatomic
+	queued int32
+	// +checkatomic
 	processed int32
 
 	fileWorkItems chan verifyFileWorkItem
@@ -80,7 +82,9 @@ func (v *verifier) showStats(ctx context.Context) {
 func (v *verifier) verifyFile(ctx context.Context, oid object.ID, entryPath string) error {
 	log(ctx).Debugf("verifying object %v", oid)
 
-	defer atomic.AddInt32(&v.processed, 1)
+	defer func() {
+		atomic.AddInt32(&v.processed, 1)
+	}()
 
 	contentIDs, err := v.rep.VerifyObject(ctx, oid)
 	if err != nil {
