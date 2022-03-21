@@ -148,6 +148,12 @@ func (s *sourceManager) setUploader(u *snapshotfs.Uploader) {
 }
 
 func (s *sourceManager) start(ctx context.Context, rep repo.Repository) {
+	isLocal := rep.ClientOptions().Hostname == s.src.Host && !rep.ClientOptions().ReadOnly
+
+	go s.run(ctx, isLocal)
+}
+
+func (s *sourceManager) run(ctx context.Context, isLocal bool) {
 	// make sure we run in a detached context, which ignores outside cancelation and deadline.
 	ctx = ctxutil.Detach(ctx)
 
@@ -157,14 +163,12 @@ func (s *sourceManager) start(ctx context.Context, rep repo.Repository) {
 	s.wg.Add(1)
 	defer s.wg.Done()
 
-	if rep.ClientOptions().Hostname == s.src.Host && !rep.ClientOptions().ReadOnly {
+	if isLocal {
 		log(ctx).Debugf("starting local source manager for %v", s.src)
-
-		go s.runLocal(ctx)
+		s.runLocal(ctx)
 	} else {
 		log(ctx).Debugf("starting read-only source manager for %v", s.src)
-
-		go s.runReadOnly(ctx)
+		s.runReadOnly(ctx)
 	}
 }
 
