@@ -52,7 +52,7 @@ func (s *formatSpecificTestSuite) TestSnapshotMigrate(t *testing.T) {
 
 	dstenv.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", dstenv.RepoDir)
 
-	dstenv.RunAndExpectSuccess(t, "snapshot", "migrate", "--source-config", filepath.Join(e.ConfigDir, ".kopia.config"), "--all", "--parallel=5", "--overwrite-policies")
+	dstenv.RunAndExpectSuccess(t, "snapshot", "migrate", "--read-ahead-mb=30", "--source-config", filepath.Join(e.ConfigDir, ".kopia.config"), "--all", "--parallel=5", "--overwrite-policies")
 	dstenv.RunAndVerifyOutputLineCount(t, sourceSnapshotCount, "snapshot", "list", ".", "-a")
 	dstenv.RunAndVerifyOutputLineCount(t, sourcePolicyCount, "policy", "list")
 

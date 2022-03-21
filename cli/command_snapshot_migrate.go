@@ -24,6 +24,8 @@ type commandSnapshotMigrate struct {
 	migrateParallel          int
 	applyIgnoreRules         bool
 
+	objectReaderOptionsFlags
+
 	svc advancedAppServices
 	out textOutput
 }
@@ -38,6 +40,9 @@ func (c *commandSnapshotMigrate) setup(svc advancedAppServices, parent commandPa
 	cmd.Flag("latest-only", "Only migrate the latest snapshot").BoolVar(&c.migrateLatestOnly)
 	cmd.Flag("parallel", "Number of sources to migrate in parallel").Default("1").IntVar(&c.migrateParallel)
 	cmd.Flag("apply-ignore-rules", "When migrating also apply current ignore rules").BoolVar(&c.applyIgnoreRules)
+
+	c.objectReaderOptionsFlags.setup(cmd)
+
 	cmd.Action(svc.repositoryWriterAction(c.run))
 
 	c.svc = svc
@@ -45,6 +50,8 @@ func (c *commandSnapshotMigrate) setup(svc advancedAppServices, parent commandPa
 }
 
 func (c *commandSnapshotMigrate) run(ctx context.Context, destRepo repo.RepositoryWriter) error {
+	ctx = c.applyObjectReaderOptions(ctx)
+
 	sourceRepo, err := c.openSourceRepo(ctx)
 	if err != nil {
 		return errors.Wrap(err, "can't open source repository")
