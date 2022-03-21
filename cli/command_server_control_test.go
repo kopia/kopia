@@ -51,11 +51,12 @@ func TestServerControl(t *testing.T) {
 
 	const (
 		pollFrequency = 100 * time.Millisecond
-		waitTimeout   = 5 * time.Second
+		waitTimeout   = 15 * time.Second
 	)
 
 	require.Eventually(t, func() bool {
 		lines := env.RunAndExpectSuccess(t, "server", "status", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword)
+		t.Logf("lines: %v", lines)
 		return hasLine(lines, "IDLE: test-user@test-host:"+dir1) && hasLine(lines, "IDLE: test-user@test-host:"+dir2)
 	}, waitTimeout, pollFrequency)
 
@@ -70,9 +71,9 @@ func TestServerControl(t *testing.T) {
 	env.RunAndExpectSuccess(t, "server", "refresh", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword)
 
 	require.Eventually(t, func() bool {
-		return hasLine(
-			env.RunAndExpectSuccess(t, "server", "status", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword, "--remote"),
-			"IDLE: test-user@test-host:"+dir3)
+		lines := env.RunAndExpectSuccess(t, "server", "status", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword, "--remote")
+		t.Logf("lines: %v", lines)
+		return hasLine(lines, "IDLE: test-user@test-host:"+dir3)
 	}, waitTimeout, pollFrequency)
 
 	env.RunAndExpectSuccess(t, "server", "flush", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword)
@@ -97,7 +98,7 @@ func TestServerControl(t *testing.T) {
 	case <-serverStopped:
 		t.Logf("server shut down")
 
-	case <-time.After(5 * time.Second):
+	case <-time.After(15 * time.Second):
 		t.Fatalf("server did not shutdown in time")
 	}
 
