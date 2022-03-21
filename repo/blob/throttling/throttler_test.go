@@ -129,7 +129,7 @@ func testRateLimiting(t *testing.T, name string, wantRate float64, worker func(t
 		actualRate := float64(*total) / numSeconds
 
 		// make sure the rate is less than target with some tiny margin of error
-		require.Less(t, actualRate, wantRate*1.05)
-		require.Greater(t, actualRate, wantRate*0.9)
+		require.Less(t, actualRate, wantRate*1.15)
+		require.Greater(t, actualRate, wantRate*0.85)
 	})
 }
