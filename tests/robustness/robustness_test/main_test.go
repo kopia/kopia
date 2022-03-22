@@ -55,6 +55,7 @@ func TestMain(m *testing.M) {
 	}
 
 	// Upgrade the repository format version if the env var is set
+<<<<<<< HEAD
 	if os.Getenv("UPGRADE_REPOSITORY_FORMAT_VERSION") == "ON" {
 		log.Printf("Upgrading the repository.")
 		th.upgrader.ConnectRepo("filesystem", "--path="+dataRepoPath)
@@ -66,6 +67,15 @@ func TestMain(m *testing.M) {
 		curr := rs.ContentFormat.MutableParameters.Version
 		log.Printf("Upgraded repository format: %d\n", curr)
 	}
+=======
+	//if os.Getenv("UPGRADE_REPOSITORY_FORMAT_VERSION") == "1" {
+	log.Printf("Upgrading the repository.")
+	th.upgrader.UpgradeRepository(dataRepoPath)
+	//} else {
+	msg := os.Getenv("UPGRADE_REPOSITORY_FORMAT_VERSION")
+	log.Printf("Env variable UPGRADE_REPOSITORY_FORMAT_VERSION: %s\n", msg)
+	//}
+>>>>>>> 1662d76f (Adding temporary debug steps to main_test)
 
 	// run the tests
 	result := m.Run()
@@ -251,11 +261,7 @@ func (th *kopiaRobustnessTestHarness) getUpgrader() bool {
 
 			th.skipTest = true
 		} else {
-<<<<<<< HEAD
 			log.Println("Error creating kopia Upgrader:", err)
-=======
-			log.Println("Error creating kopia Snapshotter:", err)
->>>>>>> 9b60470b (Adding temporary debug steps to main_test)
 		}
 
 		return false
@@ -263,13 +269,5 @@ func (th *kopiaRobustnessTestHarness) getUpgrader() bool {
 
 	th.upgrader = ks
 
-<<<<<<< HEAD
-=======
-	if err = ks.ConnectOrCreateRepo(th.dataRepoPath); err != nil {
-		log.Println("Error initializing kopia Snapshotter:", err)
-		return false
-	}
-
->>>>>>> 9b60470b (Adding temporary debug steps to main_test)
 	return true
 }
