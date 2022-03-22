@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/hex"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"os"
@@ -15,9 +16,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
+	"github.com/kopia/kopia/cli"
 
 	"github.com/kopia/kopia/internal/retry"
+
+	"github.com/pkg/errors"
 )
 
 const (
@@ -480,25 +483,18 @@ func errIsACLEnabled(stdErr string) bool {
 	return strings.Contains(stdErr, aclEnabledMatchStr)
 }
 
-// GetRepositoryStatus returns the repository status.
-func (ks *KopiaSnapshotter) GetRepositoryStatus(field string) string {
+// GetRepositoryStatus returns the repository status in JSON format
+func (ks *KopiaSnapshotter) GetRepositoryStatus() cli.RepositoryStatus {
 	// Get repository status
-	a1, _, _ := ks.Runner.Run("repository", "status")
+	a1, _, _ := ks.Runner.Run("repository", "status", "--json")
 
-	// Try to find the expected field in the status message
-	// and return the corresponding value
-	// if not found, return the entire status string
-	s := strings.Split(a1, "\n")
-	op2 := a1
-
-	for _, v := range s {
-		if strings.Contains(v, field) {
-			op2 = strings.TrimSpace(strings.Split(v, ":")[1])
-			break
-		}
+	//var dat map[string]interface{}
+	var rs cli.RepositoryStatus
+	if err := json.Unmarshal([]byte(a1), &rs); err != nil {
+		panic(err)
 	}
 
-	return op2
+	return rs
 }
 
 // UpgradeRepository upgrades the given kopia repository
