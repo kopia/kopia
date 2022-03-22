@@ -70,6 +70,7 @@ func TestMain(m *testing.M) {
 =======
 	//if os.Getenv("UPGRADE_REPOSITORY_FORMAT_VERSION") == "1" {
 	log.Printf("Upgrading the repository.")
+	th.upgrader.ConnectRepo(dataRepoPath)
 	th.upgrader.UpgradeRepository(dataRepoPath)
 	//} else {
 	msg := os.Getenv("UPGRADE_REPOSITORY_FORMAT_VERSION")
