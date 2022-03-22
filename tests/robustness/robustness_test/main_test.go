@@ -54,6 +54,12 @@ func TestMain(m *testing.M) {
 		log.Fatalln("Error restoring into the data directory:", err)
 	}
 
+	// Upgrade the repository format version if the env var is set
+	if os.Getenv("UPGRADE_REPOSITORY_FORMAT_VERSION") != "" {
+		log.Println("Upgrading the repository.")
+		th.upgrader.UpgradeRepository(dataRepoPath)
+	}
+
 	// run the tests
 	result := m.Run()
 
@@ -74,6 +80,7 @@ type kopiaRobustnessTestHarness struct {
 	fileWriter  *fiofilewriter.FileWriter
 	snapshotter *snapmeta.KopiaSnapshotter
 	persister   *snapmeta.KopiaPersisterLight
+	upgrader    *kopiarunner.KopiaSnapshotter
 	engine      *engine.Engine
 
 	skipTest bool
