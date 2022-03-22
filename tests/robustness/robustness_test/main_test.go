@@ -55,10 +55,13 @@ func TestMain(m *testing.M) {
 	}
 
 	// Upgrade the repository format version if the env var is set
-	if os.Getenv("UPGRADE_REPOSITORY_FORMAT_VERSION") != "" {
-		log.Println("Upgrading the repository.")
-		th.upgrader.UpgradeRepository(dataRepoPath)
-	}
+	//if os.Getenv("UPGRADE_REPOSITORY_FORMAT_VERSION") == "1" {
+	log.Printf("Upgrading the repository.")
+	th.upgrader.UpgradeRepository(dataRepoPath)
+	/*} else {
+		msg := os.Getenv("UPGRADE_REPOSITORY_FORMAT_VERSION")
+		log.Printf("Env variable UPGRADE_REPOSITORY_FORMAT_VERSION: %s\n", msg)
+	}*/
 
 	// run the tests
 	result := m.Run()
@@ -92,7 +95,7 @@ func (th *kopiaRobustnessTestHarness) init(ctx context.Context, dataRepoPath, me
 
 	// the initialization state machine is linear and bails out on first failure
 	if th.makeBaseDir() && th.getFileWriter() && th.getSnapshotter() &&
-		th.getPersister() && th.getEngine() {
+		th.getPersister() && th.getEngine() && th.getUpgrader() {
 		return // success!
 	}
 
@@ -234,4 +237,28 @@ func (th *kopiaRobustnessTestHarness) cleanup(ctx context.Context) (retErr error
 	}
 
 	return
+}
+
+func (th *kopiaRobustnessTestHarness) getUpgrader() bool {
+	ks, err := kopiarunner.NewKopiaSnapshotter(th.baseDirPath)
+	if err != nil {
+		if errors.Is(err, kopiarunner.ErrExeVariableNotSet) {
+			log.Println("Skipping robustness tests because KOPIA_EXE is not set")
+
+			th.skipTest = true
+		} else {
+			log.Println("Error creating kopia Snapshotter:", err)
+		}
+
+		return false
+	}
+
+	th.upgrader = ks
+
+	if err = ks.ConnectOrCreateRepo(th.dataRepoPath); err != nil {
+		log.Println("Error initializing kopia Snapshotter:", err)
+		return false
+	}
+
+	return true
 }
