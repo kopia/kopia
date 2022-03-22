@@ -247,18 +247,13 @@ func (th *kopiaRobustnessTestHarness) getUpgrader() bool {
 
 			th.skipTest = true
 		} else {
-			log.Println("Error creating kopia Snapshotter:", err)
+			log.Println("Error creating kopia Upgrader:", err)
 		}
 
 		return false
 	}
 
 	th.upgrader = ks
-
-	if err = ks.ConnectOrCreateRepo(th.dataRepoPath); err != nil {
-		log.Println("Error initializing kopia Snapshotter:", err)
-		return false
-	}
 
 	return true
 }
