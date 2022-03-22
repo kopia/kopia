@@ -57,6 +57,7 @@ func TestMain(m *testing.M) {
 	// Upgrade the repository format version if the env var is set
 	//if os.Getenv("UPGRADE_REPOSITORY_FORMAT_VERSION") == "1" {
 	log.Printf("Upgrading the repository.")
+	th.upgrader.ConnectRepo(dataRepoPath)
 	th.upgrader.UpgradeRepository(dataRepoPath)
 	//} else {
 	msg := os.Getenv("UPGRADE_REPOSITORY_FORMAT_VERSION")
