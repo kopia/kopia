@@ -58,10 +58,10 @@ func TestMain(m *testing.M) {
 	//if os.Getenv("UPGRADE_REPOSITORY_FORMAT_VERSION") == "1" {
 	log.Printf("Upgrading the repository.")
 	th.upgrader.UpgradeRepository(dataRepoPath)
-	/*} else {
-		msg := os.Getenv("UPGRADE_REPOSITORY_FORMAT_VERSION")
-		log.Printf("Env variable UPGRADE_REPOSITORY_FORMAT_VERSION: %s\n", msg)
-	}*/
+	//} else {
+	msg := os.Getenv("UPGRADE_REPOSITORY_FORMAT_VERSION")
+	log.Printf("Env variable UPGRADE_REPOSITORY_FORMAT_VERSION: %s\n", msg)
+	//}
 
 	// run the tests
 	result := m.Run()
