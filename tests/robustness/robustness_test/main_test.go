@@ -55,7 +55,6 @@ func TestMain(m *testing.M) {
 	}
 
 	// Upgrade the repository format version if the env var is set
-<<<<<<< HEAD
 	if os.Getenv("UPGRADE_REPOSITORY_FORMAT_VERSION") == "ON" {
 		log.Printf("Upgrading the repository.")
 		th.upgrader.ConnectRepo("filesystem", "--path="+dataRepoPath)
@@ -67,24 +66,6 @@ func TestMain(m *testing.M) {
 		curr := rs.ContentFormat.MutableParameters.Version
 		log.Printf("Upgraded repository format: %d\n", curr)
 	}
-=======
-	//if os.Getenv("UPGRADE_REPOSITORY_FORMAT_VERSION") == "1" {
-	msg := os.Getenv("UPGRADE_REPOSITORY_FORMAT_VERSION")
-	log.Printf("Env variable UPGRADE_REPOSITORY_FORMAT_VERSION: %s\n", msg)
-
-	log.Printf("Upgrading the repository.")
-	th.upgrader.ConnectRepo("filesystem", "--path="+dataRepoPath)
-	rs := th.upgrader.GetRepositoryStatus()
-	prev := rs.ContentFormat.MutableParameters.Version
-	log.Printf("Old repository format: %d\n", prev)
-	th.upgrader.UpgradeRepository(dataRepoPath)
-	rs = th.upgrader.GetRepositoryStatus()
-	curr := rs.ContentFormat.MutableParameters.Version
-	log.Printf("Upgraded repository format: %d\n", curr)
-
-	//} else {
-	//}
->>>>>>> 1662d76f (Adding temporary debug steps to main_test)
 
 	// run the tests
 	result := m.Run()
