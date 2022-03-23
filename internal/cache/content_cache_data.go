@@ -16,9 +16,8 @@ type contentCacheForData struct {
 
 // ContentIDCacheKey computes the cache key for the provided content ID.
 func ContentIDCacheKey(contentID string) string {
-	// content IDs with odd length have a single-byte prefix.
 	// move the prefix to the end of cache key to make sure the top level shard is spread 256 ways.
-	if len(contentID)%2 == 1 {
+	if contentID[0] >= 'g' && contentID[0] <= 'z' {
 		return contentID[1:] + contentID[0:1]
 	}
 

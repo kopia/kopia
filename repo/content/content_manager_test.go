@@ -2050,8 +2050,54 @@ func (s *contentManagerSuite) TestCompression_NonCompressibleData(t *testing.T) 
 	verifyContent(ctx, t, bm2, cid, nonCompressibleData)
 }
 
+func (s *contentManagerSuite) TestContentCachingByFormat(t *testing.T) {
+	data := blobtesting.DataMap{}
+	st := blobtesting.NewMapStorage(data, nil, nil)
+	cd := testutil.TempDirectory(t)
+
+	// create two managers sharing cache directory
+	co := CachingOptions{
+		CacheDirectory:            cd,
+		MaxCacheSizeBytes:         100e6,
+		MaxMetadataCacheSizeBytes: 100e6,
+	}
+
+	compressibleData := gather.FromSlice(bytes.Repeat([]byte{1, 2, 3, 4}, 10000))
+
+	bm1 := s.newTestContentManagerWithTweaks(t, st, &contentManagerTestTweaks{
+		indexVersion:   v2IndexVersion,
+		CachingOptions: co,
+	})
+
+	bm2 := s.newTestContentManagerWithTweaks(t, st, &contentManagerTestTweaks{
+		indexVersion:   v2IndexVersion,
+		CachingOptions: co,
+	})
+
+	ctx := testlogging.Context(t)
+
+	id1, err := bm1.WriteContent(ctx, compressibleData, "", compression.ByName["pgzip"].HeaderID())
+	require.NoError(t, err)
+
+	id2, err := bm2.WriteContent(ctx, compressibleData, "", NoCompression)
+	require.NoError(t, err)
+
+	require.Equal(t, id1, id2)
+
+	require.NoError(t, bm1.Flush(ctx))
+	require.NoError(t, bm2.Flush(ctx))
+
+	v1, err := bm1.GetContent(ctx, id1)
+	require.NoError(t, err)
+
+	v2, err := bm2.GetContent(ctx, id1)
+	require.NoError(t, err)
+
+	require.Equal(t, v1, v2)
+}
+
 func contentIDCacheKey(id ID) string {
-	return cache.ContentIDCacheKey(string(id))
+	return cache.ContentIDCacheKey(string(id)) + ".0.1.0"
 }
 
 func (s *contentManagerSuite) TestPrefetchContent(t *testing.T) {
