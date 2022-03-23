@@ -6,7 +6,8 @@ import (
 	"sync"
 )
 
-const bufSize = 65536
+// BufSize is the size (in bytes) of the shared copy buffers Kopia uses to copy data.
+const BufSize = 65536
 
 var (
 	mu sync.Mutex //nolint:gochecknoglobals
@@ -21,7 +22,7 @@ func GetBuffer() []byte {
 	defer mu.Unlock()
 
 	if len(buffers) == 0 {
-		return make([]byte, bufSize)
+		return make([]byte, BufSize)
 	}
 
 	var b []byte
