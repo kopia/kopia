@@ -1,6 +1,7 @@
 package cli_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -31,15 +32,7 @@ func (s *formatSpecificTestSuite) TestRepositorySetParameters(t *testing.T) {
 
 	// default values
 	require.Contains(t, out, "Max pack length:     20 MiB")
-
-	switch s.formatVersion {
-	case content.FormatVersion1:
-		require.Contains(t, out, "Format version:      1")
-	case content.FormatVersion2:
-		require.Contains(t, out, "Format version:      2")
-	default:
-		require.Contains(t, out, "Format version:      3")
-	}
+	require.Contains(t, out, fmt.Sprintf("Format version:      %d", s.formatVersion))
 
 	// failure cases
 	env.RunAndExpectFailure(t, "repository", "set-parameters")

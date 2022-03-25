@@ -19,7 +19,7 @@ type commandRepositoryUpgrade struct {
 	blockUntilDrain bool
 
 	// lock settings
-	advanceNoticeInterval  time.Duration
+	advanceNoticeDuration  time.Duration
 	ioDrainTimeout         time.Duration
 	statusPollInterval     time.Duration
 	maxPermittedClockDrift time.Duration
@@ -30,7 +30,7 @@ type commandRepositoryUpgrade struct {
 func (c *commandRepositoryUpgrade) setup(svc advancedAppServices, parent commandParent) {
 	cmd := parent.Command("upgrade", "Upgrade repository format.")
 
-	cmd.Flag("advance-notice", "Advance notice for upgrade to allow enough time for other Kopia clients to notice the lock").DurationVar(&c.advanceNoticeInterval)
+	cmd.Flag("advance-notice", "Advance notice for upgrade to allow enough time for other Kopia clients to notice the lock").DurationVar(&c.advanceNoticeDuration)
 	cmd.Flag("io-drain-timeout", "Max time it should take all other Kopia clients to drop repository connections").Default(repo.DefaultRepositoryBlobCacheDuration.String()).DurationVar(&c.ioDrainTimeout)
 	cmd.Flag("status-poll-interval", "An advisory polling interval to check for the status of upgrade").Default("60s").DurationVar(&c.statusPollInterval)
 	cmd.Flag("max-clock-drift", "Maximum tolerated drift on clocks between all Kopia clients").Default("5m").DurationVar(&c.maxPermittedClockDrift)
@@ -81,7 +81,7 @@ func (c *commandRepositoryUpgrade) setLockIntent(ctx context.Context, rep repo.D
 	l := &content.UpgradeLock{
 		OwnerID:                openOpts.UpgradeOwnerID,
 		CreationTime:           now,
-		AdvanceNoticeDuration:  c.advanceNoticeInterval,
+		AdvanceNoticeDuration:  c.advanceNoticeDuration,
 		IODrainTimeout:         c.ioDrainTimeout,
 		StatusPollInterval:     c.statusPollInterval,
 		Message:                fmt.Sprintf("Upgrading from format version %d -> %d", mp.Version, content.MaxFormatVersion),
