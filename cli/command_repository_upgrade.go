@@ -89,7 +89,7 @@ func (c *commandRepositoryUpgrade) setLockIntent(ctx context.Context, rep repo.D
 	}
 
 	// Update format-blob and clear the cache.
-	// This will fail if we have alread upgraded.
+	// This will fail if we have already upgraded.
 	l, err := rep.SetUpgradeLockIntent(ctx, *l)
 	if err != nil {
 		return errors.Wrap(err, "error setting the upgrade lock intent")
