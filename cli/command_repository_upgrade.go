@@ -84,7 +84,7 @@ func (c *commandRepositoryUpgrade) setLockIntent(ctx context.Context, rep repo.D
 		AdvanceNoticeDuration:  c.advanceNoticeInterval,
 		IODrainTimeout:         c.ioDrainTimeout,
 		StatusPollInterval:     c.statusPollInterval,
-		Message:                fmt.Sprintf("Upgrading from format version %d -> %d", mp.Version, content.FormatVersion3),
+		Message:                fmt.Sprintf("Upgrading from format version %d -> %d", mp.Version, content.MaxFormatVersion),
 		MaxPermittedClockDrift: c.maxPermittedClockDrift,
 	}
 
