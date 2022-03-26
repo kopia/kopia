@@ -116,7 +116,7 @@
     "concurrently": "^7.0.0",
     "electron": "^17.2.0",
     "electron-builder": "^22.14.13",
-    "electron-notarize": "^1.1.1",
+    "electron-notarize": "^1.2.1",
     "react-scripts": "^5.0.0"
   },
   "homepage": "./",
