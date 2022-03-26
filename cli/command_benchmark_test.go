@@ -19,6 +19,24 @@ func TestCommandBenchmarkCrypto(t *testing.T) {
 	e.RunAndExpectSuccess(t, "benchmark", "crypto", "--repeat=1", "--block-size=1KB", "--print-options")
 }
 
+func TestCommandBenchmarkEncryption(t *testing.T) {
+	t.Parallel()
+
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+
+	e.RunAndExpectSuccess(t, "benchmark", "encryption", "--parallel=3", "--repeat=1", "--block-size=1KB", "--print-options")
+}
+
+func TestCommandBenchmarkHashing(t *testing.T) {
+	t.Parallel()
+
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+
+	e.RunAndExpectSuccess(t, "benchmark", "hashing", "--repeat=1", "--block-size=1KB", "--print-options")
+}
+
 func TestCommandBenchmarkSpliter(t *testing.T) {
 	t.Parallel()
 

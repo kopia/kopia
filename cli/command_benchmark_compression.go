@@ -25,6 +25,7 @@ type commandBenchmarkCompression struct {
 	byAllocated  bool
 	verifyStable bool
 	optionPrint  bool
+	parallel     int
 
 	out textOutput
 }
@@ -35,6 +36,7 @@ func (c *commandBenchmarkCompression) setup(svc appServices, parent commandParen
 	cmd.Flag("data-file", "Use data from the given file").Required().ExistingFileVar(&c.dataFile)
 	cmd.Flag("by-size", "Sort results by size").BoolVar(&c.bySize)
 	cmd.Flag("by-alloc", "Sort results by allocated bytes").BoolVar(&c.byAllocated)
+	cmd.Flag("parallel", "Number of parallel goroutines").Default("1").IntVar(&c.parallel)
 	cmd.Flag("verify-stable", "Verify that compression is stable").BoolVar(&c.verifyStable)
 	cmd.Flag("print-options", "Print out options usable for repository creation").BoolVar(&c.optionPrint)
 	cmd.Action(svc.noRepositoryAction(c.run))
@@ -107,47 +109,55 @@ func (c *commandBenchmarkCompression) run(ctx context.Context) error {
 	for name, comp := range compression.ByName {
 		log(ctx).Infof("Benchmarking compressor '%v'...", name)
 
-		tt := timetrack.Start()
 		cnt := repeatCount
 
-		var (
-			compressedSize int64
-			lastHash       uint64
-			compressed     bytes.Buffer
-		)
-
-		input := bytes.NewReader(nil)
+		runtime.GC()
 
 		var startMS, endMS runtime.MemStats
 
-		runtime.ReadMemStats(&startMS)
+		run := func() interface{} {
+			var (
+				compressedSize int64
+				lastHash       uint64
+				compressed     bytes.Buffer
+				input          = bytes.NewReader(nil)
+			)
 
-		for i := 0; i < cnt; i++ {
-			compressed.Reset()
-			input.Reset(data)
+			for i := 0; i < cnt; i++ {
+				compressed.Reset()
+				input.Reset(data)
 
-			if err := comp.Compress(&compressed, input); err != nil {
-				log(ctx).Errorf("compression %q failed: %v", name, err)
-				continue
-			}
-
-			compressedSize = int64(compressed.Len())
-
-			if c.verifyStable {
-				h := hashOf(compressed.Bytes())
-
-				if i == 0 {
-					lastHash = h
-				} else if h != lastHash {
-					log(ctx).Errorf("compression %q is not stable", name)
+				if err := comp.Compress(&compressed, input); err != nil {
+					log(ctx).Errorf("compression %q failed: %v", name, err)
 					continue
 				}
+
+				compressedSize = int64(compressed.Len())
+
+				if c.verifyStable {
+					h := hashOf(compressed.Bytes())
+
+					if i == 0 {
+						lastHash = h
+					} else if h != lastHash {
+						log(ctx).Errorf("compression %q is not stable", name)
+						continue
+					}
+				}
 			}
+
+			return compressedSize
 		}
+
+		tt := timetrack.Start()
+
+		runtime.ReadMemStats(&startMS)
+
+		compressedSize, _ := runInParallel(c.parallel, run).(int64)
 
 		runtime.ReadMemStats(&endMS)
 
-		_, perSecond := tt.Completed(float64(len(data)) * float64(cnt))
+		_, perSecond := tt.Completed(float64(c.parallel) * float64(len(data)) * float64(cnt))
 
 		results = append(results,
 			compressionBechmarkResult{
@@ -183,11 +193,11 @@ func (c *commandBenchmarkCompression) sortResults(results []compressionBechmarkR
 }
 
 func (c *commandBenchmarkCompression) printResults(results []compressionBechmarkResult) {
-	c.out.printStdout("     %-26v %-12v %-12v %v\n", "Compression", "Compressed", "Throughput", "Memory Usage")
+	c.out.printStdout("     %-26v %-12v %-12v %v\n", "Compression", "Compressed", "Throughput", "Allocs   Usage")
 	c.out.printStdout("------------------------------------------------------------------------------------------------\n")
 
 	for ndx, r := range results {
-		c.out.printStdout("%3d. %-26v %-12v %-12v %-6v %v",
+		c.out.printStdout("%3d. %-26v %-12v %-12v %-8v %v",
 			ndx,
 			r.compression,
 			units.BytesStringBase2(r.compressedSize),
