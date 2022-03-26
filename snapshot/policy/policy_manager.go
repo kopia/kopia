@@ -158,7 +158,7 @@ func GetDefinedPolicy(ctx context.Context, rep repo.Repository, si snapshot.Sour
 
 // SetPolicy sets the policy on a given source.
 func SetPolicy(ctx context.Context, rep repo.RepositoryWriter, si snapshot.SourceInfo, pol *Policy) error {
-	if err := ValidatePolicy(pol); err != nil {
+	if err := ValidatePolicy(si, pol); err != nil {
 		return errors.Wrap(err, "failed to validate policy")
 	}
 

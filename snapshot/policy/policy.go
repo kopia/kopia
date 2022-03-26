@@ -29,6 +29,7 @@ type Policy struct {
 	CompressionPolicy   CompressionPolicy   `json:"compression,omitempty"`
 	Actions             ActionsPolicy       `json:"actions,omitempty"`
 	LoggingPolicy       LoggingPolicy       `json:"logging,omitempty"`
+	UploadPolicy        UploadPolicy        `json:"upload,omitempty"`
 	NoParent            bool                `json:"noParent,omitempty"`
 }
 
@@ -42,6 +43,7 @@ type Definition struct {
 	CompressionPolicy   CompressionPolicyDefinition   `json:"compression,omitempty"`
 	Actions             ActionsPolicyDefinition       `json:"actions,omitempty"`
 	LoggingPolicy       LoggingPolicyDefinition       `json:"logging,omitempty"`
+	UploadPolicy        UploadPolicyDefinition        `json:"upload,omitempty"`
 }
 
 func (p *Policy) String() string {
@@ -73,8 +75,16 @@ func (p *Policy) Target() snapshot.SourceInfo {
 
 // ValidatePolicy returns error if the given policy is invalid.
 // Currently, only SchedulingPolicy is validated.
-func ValidatePolicy(pol *Policy) error {
-	return ValidateSchedulingPolicy(pol.SchedulingPolicy)
+func ValidatePolicy(si snapshot.SourceInfo, pol *Policy) error {
+	if err := ValidateSchedulingPolicy(pol.SchedulingPolicy); err != nil {
+		return errors.Wrap(err, "invalid scheduling policy")
+	}
+
+	if err := ValidateUploadPolicy(si, pol.UploadPolicy); err != nil {
+		return errors.Wrap(err, "invalid upload policy")
+	}
+
+	return nil
 }
 
 // validatePolicyPath validates that the provided policy path is valid and the path exists.

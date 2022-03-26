@@ -144,7 +144,7 @@ func handlePolicyPut(ctx context.Context, rc requestContext) (interface{}, *apiE
 		return nil, internalServerError(err)
 	}
 
-	rc.srv.triggerRefreshSource(sourceInfo)
+	_ = rc.srv.Refresh(ctx)
 
 	return &serverapi.Empty{}, nil
 }

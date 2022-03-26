@@ -50,6 +50,11 @@ var (
 
 	defaultSchedulingPolicy = SchedulingPolicy{}
 
+	defaultUploadPolicy = UploadPolicy{
+		MaxParallelSnapshots: newOptionalInt(1),
+		MaxParallelFileReads: nil, // defaults to runtime.NumCPUs()
+	}
+
 	// DefaultPolicy is a default policy returned by policy tree in absence of other policies.
 	DefaultPolicy = &Policy{
 		FilesPolicy:         defaultFilesPolicy,
@@ -59,6 +64,7 @@ var (
 		SchedulingPolicy:    defaultSchedulingPolicy,
 		LoggingPolicy:       defaultLoggingPolicy,
 		Actions:             defaultActionsPolicy,
+		UploadPolicy:        defaultUploadPolicy,
 	}
 
 	// DefaultDefinition provides the Definition for the default policy.
