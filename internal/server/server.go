@@ -17,7 +17,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
-	"golang.org/x/sync/semaphore"
 
 	"github.com/kopia/kopia/internal/auth"
 	"github.com/kopia/kopia/internal/clock"
@@ -64,17 +63,27 @@ type apiRequestFunc func(ctx context.Context, rc requestContext) (interface{}, *
 
 // Server exposes simple HTTP API for programmatically accessing Kopia features.
 type Server struct {
-	OnShutdown      func(ctx context.Context) error
-	options         Options
-	authenticator   auth.Authenticator
-	authorizer      auth.Authorizer
-	uploadSemaphore *semaphore.Weighted
+	OnShutdown    func(ctx context.Context) error
+	options       Options
+	authenticator auth.Authenticator
+	authorizer    auth.Authorizer
 
 	initTaskMutex sync.Mutex
 	// +checklocks:initTaskMutex
 	initRepositoryTaskID string // non-empty - repository is currently being opened.
 
 	serverMutex sync.RWMutex
+
+	parallelSnapshotsMutex sync.Mutex
+
+	// +checklocks:parallelSnapshotsMutex
+	parallelSnapshotsChanged *sync.Cond // condition triggered on change to currentParallelSnapshots or maxParallelSnapshots
+
+	// +checklocks:parallelSnapshotsMutex
+	currentParallelSnapshots int
+	// +checklocks:parallelSnapshotsMutex
+	maxParallelSnapshots int
+
 	// +checklocks:serverMutex
 	rep repo.Repository
 	// +checklocks:serverMutex
@@ -476,23 +485,44 @@ func (s *Server) requestShutdown(ctx context.Context) {
 	}
 }
 
+func (s *Server) setMaxParallelSnapshotsLocked(max int) {
+	s.parallelSnapshotsMutex.Lock()
+	defer s.parallelSnapshotsMutex.Unlock()
+
+	s.maxParallelSnapshots = max
+	s.parallelSnapshotsChanged.Broadcast()
+}
+
 func (s *Server) beginUpload(ctx context.Context, src snapshot.SourceInfo) bool {
-	log(ctx).Debugf("waiting on semaphore to upload %v", src)
+	s.parallelSnapshotsMutex.Lock()
+	defer s.parallelSnapshotsMutex.Unlock()
 
-	if err := s.uploadSemaphore.Acquire(ctx, 1); err != nil {
-		log(ctx).Debugf("error acquiring semaphore to upload %v: %v", src, err)
+	for s.currentParallelSnapshots >= s.maxParallelSnapshots && ctx.Err() == nil {
+		log(ctx).Debugf("waiting on for parallel snapshot upload slot to be available %v", src)
+		s.parallelSnapshotsChanged.Wait()
+	}
 
+	if ctx.Err() != nil {
+		// context closed
 		return false
 	}
 
-	log(ctx).Debugf("entered semaphore to upload %v", src)
+	// at this point s.currentParallelSnapshots < s.maxParallelSnapshots and we are locked
+	s.currentParallelSnapshots++
 
 	return true
 }
 
 func (s *Server) endUpload(ctx context.Context, src snapshot.SourceInfo) {
+	s.parallelSnapshotsMutex.Lock()
+	defer s.parallelSnapshotsMutex.Unlock()
+
 	log(ctx).Debugf("finished uploading %v", src)
-	s.uploadSemaphore.Release(1)
+
+	s.currentParallelSnapshots--
+
+	// notify one of the waiters
+	s.parallelSnapshotsChanged.Signal()
 }
 
 func (s *Server) triggerRefreshSource(sourceInfo snapshot.SourceInfo) {
@@ -660,6 +690,18 @@ func (s *Server) syncSourcesLocked(ctx context.Context) error {
 		policies, err := policy.ListPolicies(ctx, s.rep)
 		if err != nil {
 			return errors.Wrap(err, "unable to list sources")
+		}
+
+		// user@host policy
+		userhostPol, _, _, err := policy.GetEffectivePolicy(ctx, s.rep, snapshot.SourceInfo{
+			UserName: s.rep.ClientOptions().Username,
+			Host:     s.rep.ClientOptions().Hostname,
+		})
+
+		s.setMaxParallelSnapshotsLocked(userhostPol.UploadPolicy.MaxParallelSnapshots.OrDefault(1))
+
+		if err != nil {
+			return errors.Wrap(err, "unable to get user policy")
 		}
 
 		for _, ss := range snapshotSources {
@@ -995,7 +1037,7 @@ func New(ctx context.Context, options *Options) (*Server, error) {
 	s := &Server{
 		options:              *options,
 		sourceManagers:       map[snapshot.SourceInfo]*sourceManager{},
-		uploadSemaphore:      semaphore.NewWeighted(1),
+		maxParallelSnapshots: 1,
 		grpcServerState:      makeGRPCServerState(options.MaxConcurrency),
 		authenticator:        options.Authenticator,
 		authorizer:           options.Authorizer,
@@ -1003,6 +1045,8 @@ func New(ctx context.Context, options *Options) (*Server, error) {
 		mounts:               map[object.ID]mount.Controller{},
 		authCookieSigningKey: []byte(options.AuthCookieSigningKey),
 	}
+
+	s.parallelSnapshotsChanged = sync.NewCond(&s.parallelSnapshotsMutex)
 
 	return s, nil
 }

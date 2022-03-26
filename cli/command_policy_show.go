@@ -122,6 +122,8 @@ func printPolicy(out *textOutput, p *policy.Policy, def *policy.Definition) {
 	rows = append(rows, policyTableRow{})
 	rows = appendSchedulingPolicyRows(rows, p, def)
 	rows = append(rows, policyTableRow{})
+	rows = appendUploadPolicyRows(rows, p, def)
+	rows = append(rows, policyTableRow{})
 	rows = appendCompressionPolicyRows(rows, p, def)
 	rows = append(rows, policyTableRow{})
 	rows = appendActionsPolicyRows(rows, p, def)
@@ -259,6 +261,14 @@ func appendLoggingPolicyRows(rows []policyTableRow, p *policy.Policy, def *polic
 			logDetailToString(p.LoggingPolicy.Entries.CacheMiss.OrDefault(policy.LogDetailNone)),
 			definitionPointToString(p.Target(), def.LoggingPolicy.Entries.CacheMiss),
 		},
+	)
+}
+
+func appendUploadPolicyRows(rows []policyTableRow, p *policy.Policy, def *policy.Definition) []policyTableRow {
+	return append(rows,
+		policyTableRow{"Uploads:", "", ""},
+		policyTableRow{"  Max parallel snapshots (server/UI):", valueOrNotSet(p.UploadPolicy.MaxParallelSnapshots), definitionPointToString(p.Target(), def.UploadPolicy.MaxParallelSnapshots)},
+		policyTableRow{"  Max parallel file reads:", valueOrNotSet(p.UploadPolicy.MaxParallelFileReads), definitionPointToString(p.Target(), def.UploadPolicy.MaxParallelFileReads)},
 	)
 }
 

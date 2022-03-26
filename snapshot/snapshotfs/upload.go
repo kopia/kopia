@@ -376,7 +376,7 @@ func newDirEntry(md fs.Entry, oid object.ID) (*snapshot.DirEntry, error) {
 
 // uploadFileWithCheckpointing uploads the specified File to the repository.
 func (u *Uploader) uploadFileWithCheckpointing(ctx context.Context, relativePath string, file fs.File, pol *policy.Policy, sourceInfo snapshot.SourceInfo) (*snapshot.DirEntry, error) {
-	par := u.effectiveParallelUploads()
+	par := u.effectiveParallelFileReads(pol)
 	if par == 1 {
 		par = 0
 	}
@@ -825,10 +825,12 @@ func (u *Uploader) maybeIgnoreCachedEntry(ctx context.Context, ent fs.Entry) fs.
 	return nil
 }
 
-func (u *Uploader) effectiveParallelUploads() int {
+func (u *Uploader) effectiveParallelFileReads(pol *policy.Policy) int {
 	p := u.ParallelUploads
-	if p == 0 {
-		p = runtime.NumCPU()
+	max := pol.UploadPolicy.MaxParallelFileReads.OrDefault(runtime.NumCPU())
+
+	if p < 1 || p > max {
+		return max
 	}
 
 	return p
@@ -845,7 +847,7 @@ func (u *Uploader) processNonDirectories(
 	prevEntries []fs.Entries,
 	wg *workshare.AsyncGroup,
 ) error {
-	workerCount := u.effectiveParallelUploads()
+	workerCount := u.effectiveParallelFileReads(policyTree.EffectivePolicy())
 
 	var asyncWritesPerFile int
 
@@ -1236,7 +1238,6 @@ func NewUploader(r repo.RepositoryWriter) *Uploader {
 	return &Uploader{
 		repo:               r,
 		Progress:           &NullUploadProgress{},
-		ParallelUploads:    1,
 		EnableActions:      r.ClientOptions().EnableActions,
 		CheckpointInterval: DefaultCheckpointInterval,
 		getTicker:          time.Tick,
@@ -1273,17 +1274,18 @@ func (u *Uploader) Upload(
 	sourceInfo snapshot.SourceInfo,
 	previousManifests ...*snapshot.Manifest,
 ) (*snapshot.Manifest, error) {
-	uploadLog(ctx).Debugf("Uploading %v", sourceInfo)
+	u.Progress.UploadStarted()
+	defer u.Progress.UploadFinished()
+
+	parallel := u.effectiveParallelFileReads(policyTree.EffectivePolicy())
+
+	uploadLog(ctx).Debugf("Uploading %v with parallelism %v", sourceInfo, parallel)
 
 	s := &snapshot.Manifest{
 		Source: sourceInfo,
 	}
 
-	u.Progress.UploadStarted()
-
-	defer u.Progress.UploadFinished()
-
-	u.workerPool = workshare.NewPool(u.effectiveParallelUploads() - 1)
+	u.workerPool = workshare.NewPool(parallel - 1)
 	defer u.workerPool.Close()
 
 	u.stats = &snapshot.Stats{}
