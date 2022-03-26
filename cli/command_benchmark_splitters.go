@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/timetrack"
+	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo/splitter"
 )
 
@@ -20,6 +21,7 @@ type commandBenchmarkSplitters struct {
 	blockSize   atunits.Base2Bytes
 	blockCount  int
 	printOption bool
+	parallel    int
 
 	out textOutput
 }
@@ -31,6 +33,7 @@ func (c *commandBenchmarkSplitters) setup(svc appServices, parent commandParent)
 	cmd.Flag("data-size", "Size of a data to split").Default("32MB").BytesVar(&c.blockSize)
 	cmd.Flag("block-count", "Number of data blocks to split").Default("16").IntVar(&c.blockCount)
 	cmd.Flag("print-options", "Print out the fastest dynamic splitter option").BoolVar(&c.printOption)
+	cmd.Flag("parallel", "Number of parallel goroutines").Default("1").IntVar(&c.parallel)
 
 	cmd.Action(svc.noRepositoryAction(c.run))
 
@@ -39,16 +42,17 @@ func (c *commandBenchmarkSplitters) setup(svc appServices, parent commandParent)
 
 func (c *commandBenchmarkSplitters) run(ctx context.Context) error { //nolint:funlen
 	type benchResult struct {
-		splitter     string
-		duration     time.Duration
-		segmentCount int
-		min          int
-		p10          int
-		p25          int
-		p50          int
-		p75          int
-		p90          int
-		max          int
+		splitter       string
+		duration       time.Duration
+		segmentCount   int
+		min            int
+		p10            int
+		p25            int
+		p50            int
+		p75            int
+		p90            int
+		max            int
+		bytesPerSecond int64
 	}
 
 	var results []benchResult
@@ -71,30 +75,36 @@ func (c *commandBenchmarkSplitters) run(ctx context.Context) error { //nolint:fu
 		dataBlocks = append(dataBlocks, b)
 	}
 
-	log(ctx).Infof("splitting %v blocks of %v each", c.blockCount, c.blockSize)
+	log(ctx).Infof("splitting %v blocks of %v each, parallelism %v", c.blockCount, c.blockSize, c.parallel)
 
 	for _, sp := range splitter.SupportedAlgorithms() {
-		fact := splitter.GetFactory(sp)
-
-		var segmentLengths []int
-
 		tt := timetrack.Start()
 
-		for _, data := range dataBlocks {
-			s := fact()
+		segmentLengths, _ := runInParallel(c.parallel, func() interface{} {
+			fact := splitter.GetFactory(sp)
 
-			d := data
-			for len(d) > 0 {
-				n := s.NextSplitPoint(d)
-				if n < 0 {
-					segmentLengths = append(segmentLengths, len(d))
-					break
+			var segmentLengths []int
+
+			for _, data := range dataBlocks {
+				s := fact()
+
+				d := data
+				for len(d) > 0 {
+					n := s.NextSplitPoint(d)
+					if n < 0 {
+						segmentLengths = append(segmentLengths, len(d))
+						break
+					}
+
+					segmentLengths = append(segmentLengths, n)
+					d = d[n:]
 				}
-
-				segmentLengths = append(segmentLengths, n)
-				d = d[n:]
 			}
-		}
+
+			return segmentLengths
+		}).([]int)
+
+		_, bytesPerSecond := tt.Completed(float64(c.parallel) * float64(c.blockCount) * float64(c.blockSize))
 
 		dur, _ := tt.Completed(0)
 
@@ -111,13 +121,15 @@ func (c *commandBenchmarkSplitters) run(ctx context.Context) error { //nolint:fu
 			segmentLengths[len(segmentLengths)*75/100],
 			segmentLengths[len(segmentLengths)*90/100],
 			segmentLengths[len(segmentLengths)-1],
+			int64(bytesPerSecond),
 		}
 
-		c.out.printStdout("%-25v %6v ms count:%v min:%v 10th:%v 25th:%v 50th:%v 75th:%v 90th:%v max:%v\n",
+		c.out.printStdout("%-25v %12v count:%v min:%v 10th:%v 25th:%v 50th:%v 75th:%v 90th:%v max:%v\n",
 			r.splitter,
-			r.duration.Nanoseconds()/1e6,
+			units.BytesStringBase10(r.bytesPerSecond)+"/s",
 			r.segmentCount,
-			r.min, r.p10, r.p25, r.p50, r.p75, r.p90, r.max)
+			r.min, r.p10, r.p25, r.p50, r.p75, r.p90, r.max,
+		)
 
 		results = append(results, r)
 	}
@@ -128,10 +140,10 @@ func (c *commandBenchmarkSplitters) run(ctx context.Context) error { //nolint:fu
 	c.out.printStdout("-----------------------------------------------------------------\n")
 
 	for ndx, r := range results {
-		c.out.printStdout("%3v. %-25v %6v ms count:%v min:%v 10th:%v 25th:%v 50th:%v 75th:%v 90th:%v max:%v\n",
+		c.out.printStdout("%3v. %-25v %-12v count:%v min:%v 10th:%v 25th:%v 50th:%v 75th:%v 90th:%v max:%v\n",
 			ndx,
 			r.splitter,
-			r.duration.Nanoseconds()/1e6,
+			units.BytesStringBase10(r.bytesPerSecond)+"/s",
 			r.segmentCount,
 			r.min, r.p10, r.p25, r.p50, r.p75, r.p90, r.max)
 
