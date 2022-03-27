@@ -2,7 +2,6 @@ package cache
 
 import (
 	"context"
-	"path/filepath"
 
 	"github.com/pkg/errors"
 
@@ -185,7 +184,7 @@ func NewContentCache(ctx context.Context, st blob.Storage, opt Options) (Content
 
 		var err error
 
-		cacheStorage, err = NewStorageOrNil(ctx, filepath.Join(opt.BaseCacheDirectory, opt.CacheSubDir), opt.Sweep.MaxSizeBytes, opt.CacheSubDir)
+		cacheStorage, err = NewStorageOrNil(ctx, opt.BaseCacheDirectory, opt.Sweep.MaxSizeBytes, opt.CacheSubDir)
 		if err != nil {
 			return nil, errors.Wrap(err, "error initializing cache storage")
 		}
