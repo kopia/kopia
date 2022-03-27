@@ -372,15 +372,15 @@ func (sm *SharedManager) namedLogger(n string) logging.Logger {
 }
 
 func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *CachingOptions) error {
-	dataCacheStorage, err := cache.NewStorageOrNil(ctx, caching.CacheDirectory, caching.MaxCacheSizeBytes, "contents")
-	if err != nil {
-		return errors.Wrap(err, "unable to initialize data cache storage")
-	}
-
-	dataCache, err := cache.NewContentCacheForData(ctx, sm.st, dataCacheStorage, cache.SweepSettings{
-		MaxSizeBytes: caching.MaxCacheSizeBytes,
-		MinSweepAge:  caching.MinContentSweepAge.DurationOrDefault(DefaultDataCacheSweepAge),
-	}, caching.HMACSecret)
+	dataCache, err := cache.NewContentCache(ctx, sm.st, cache.Options{
+		BaseCacheDirectory: caching.CacheDirectory,
+		CacheSubDir:        "contents",
+		HMACSecret:         caching.HMACSecret,
+		Sweep: cache.SweepSettings{
+			MaxSizeBytes: caching.MaxCacheSizeBytes,
+			MinSweepAge:  caching.MinContentSweepAge.DurationOrDefault(DefaultDataCacheSweepAge),
+		},
+	})
 	if err != nil {
 		return errors.Wrap(err, "unable to initialize content cache")
 	}
@@ -390,14 +390,14 @@ func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *Ca
 		metadataCacheSize = caching.MaxCacheSizeBytes
 	}
 
-	metadataCacheStorage, err := cache.NewStorageOrNil(ctx, caching.CacheDirectory, metadataCacheSize, "metadata")
-	if err != nil {
-		return errors.Wrap(err, "unable to initialize data cache storage")
-	}
-
-	metadataCache, err := cache.NewContentCacheForMetadata(ctx, sm.st, metadataCacheStorage, cache.SweepSettings{
-		MaxSizeBytes: metadataCacheSize,
-		MinSweepAge:  caching.MinMetadataSweepAge.DurationOrDefault(DefaultMetadataCacheSweepAge),
+	metadataCache, err := cache.NewContentCache(ctx, sm.st, cache.Options{
+		BaseCacheDirectory: caching.CacheDirectory,
+		CacheSubDir:        "metadata",
+		HMACSecret:         caching.HMACSecret,
+		Sweep: cache.SweepSettings{
+			MaxSizeBytes: metadataCacheSize,
+			MinSweepAge:  caching.MinMetadataSweepAge.DurationOrDefault(DefaultMetadataCacheSweepAge),
+		},
 	})
 	if err != nil {
 		return errors.Wrap(err, "unable to initialize metadata cache")

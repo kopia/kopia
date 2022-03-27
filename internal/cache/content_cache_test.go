@@ -56,11 +56,14 @@ func TestCacheExpiration(t *testing.T) {
 	underlyingStorage := newUnderlyingStorageForContentCacheTesting(t)
 
 	ctx := testlogging.Context(t)
-	cc, err := cache.NewContentCacheForData(ctx, underlyingStorage, cacheStorage.(cache.Storage), cache.SweepSettings{
-		MaxSizeBytes:   10000,
-		SweepFrequency: 500 * time.Millisecond,
-		TouchThreshold: -1,
-	}, nil)
+	cc, err := cache.NewContentCache(ctx, underlyingStorage, cache.Options{
+		Storage: cacheStorage.(cache.Storage),
+		Sweep: cache.SweepSettings{
+			MaxSizeBytes:   10000,
+			SweepFrequency: 500 * time.Millisecond,
+			TouchThreshold: -1,
+		},
+	})
 
 	require.NoError(t, err)
 
@@ -118,9 +121,12 @@ func TestDiskContentCache(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cc, err := cache.NewContentCacheForData(ctx, newUnderlyingStorageForContentCacheTesting(t), cacheStorage, cache.SweepSettings{
-		MaxSizeBytes: maxBytes,
-	}, nil)
+	cc, err := cache.NewContentCache(ctx, newUnderlyingStorageForContentCacheTesting(t), cache.Options{
+		Storage: cacheStorage,
+		Sweep: cache.SweepSettings{
+			MaxSizeBytes: maxBytes,
+		},
+	})
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -209,7 +215,10 @@ func TestCacheFailureToOpen(t *testing.T) {
 	faultyCache.AddFault(blobtesting.MethodGetMetadata).ErrorInstead(someError)
 
 	// Will fail because of ListBlobs failure.
-	_, err := cache.NewContentCacheForData(testlogging.Context(t), underlyingStorage, withoutTouchBlob{faultyCache}, cache.SweepSettings{MaxSizeBytes: 10000}, nil)
+	_, err := cache.NewContentCache(testlogging.Context(t), underlyingStorage, cache.Options{
+		Storage: withoutTouchBlob{faultyCache},
+		Sweep:   cache.SweepSettings{MaxSizeBytes: 10000},
+	})
 	if err == nil || !strings.Contains(err.Error(), someError.Error()) {
 		t.Errorf("invalid error %v, wanted: %v", err, someError)
 	}
@@ -217,7 +226,10 @@ func TestCacheFailureToOpen(t *testing.T) {
 	// ListBlobs fails only once, next time it succeeds.
 	ctx := testlogging.Context(t)
 
-	cc, err := cache.NewContentCacheForData(ctx, underlyingStorage, withoutTouchBlob{faultyCache}, cache.SweepSettings{MaxSizeBytes: 10000}, nil)
+	cc, err := cache.NewContentCache(ctx, underlyingStorage, cache.Options{
+		Storage: withoutTouchBlob{faultyCache},
+		Sweep:   cache.SweepSettings{MaxSizeBytes: 10000},
+	})
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -233,7 +245,10 @@ func TestCacheFailureToWrite(t *testing.T) {
 	underlyingStorage := newUnderlyingStorageForContentCacheTesting(t)
 	faultyCache := blobtesting.NewFaultyStorage(cacheStorage)
 
-	cc, err := cache.NewContentCacheForData(testlogging.Context(t), underlyingStorage, withoutTouchBlob{faultyCache}, cache.SweepSettings{MaxSizeBytes: 10000}, nil)
+	cc, err := cache.NewContentCache(testlogging.Context(t), underlyingStorage, cache.Options{
+		Storage: withoutTouchBlob{faultyCache},
+		Sweep:   cache.SweepSettings{MaxSizeBytes: 10000},
+	})
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -273,7 +288,10 @@ func TestCacheFailureToRead(t *testing.T) {
 	underlyingStorage := newUnderlyingStorageForContentCacheTesting(t)
 	faultyCache := blobtesting.NewFaultyStorage(cacheStorage)
 
-	cc, err := cache.NewContentCacheForData(testlogging.Context(t), underlyingStorage, withoutTouchBlob{faultyCache}, cache.SweepSettings{MaxSizeBytes: 10000}, nil)
+	cc, err := cache.NewContentCache(testlogging.Context(t), underlyingStorage, cache.Options{
+		Storage: withoutTouchBlob{faultyCache},
+		Sweep:   cache.SweepSettings{MaxSizeBytes: 10000},
+	})
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}

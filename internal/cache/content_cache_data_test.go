@@ -19,11 +19,15 @@ func TestContentCacheForData(t *testing.T) {
 	underlying := blobtesting.NewMapStorage(underlyingData, nil, nil)
 
 	cacheData := blobtesting.DataMap{}
-	metadataCacheStorage := blobtesting.NewMapStorage(cacheData, nil, nil).(cache.Storage)
+	cacheStorage := blobtesting.NewMapStorage(cacheData, nil, nil).(cache.Storage)
 
-	dataCache, err := cache.NewContentCacheForData(ctx, underlying, metadataCacheStorage, cache.SweepSettings{
-		MaxSizeBytes: 100,
-	}, []byte{1, 2, 3, 4})
+	dataCache, err := cache.NewContentCache(ctx, underlying, cache.Options{
+		Storage:    cacheStorage,
+		HMACSecret: []byte{1, 2, 3, 4},
+		Sweep: cache.SweepSettings{
+			MaxSizeBytes: 100,
+		},
+	})
 	require.NoError(t, err)
 
 	var tmp gather.WriteBuffer
@@ -74,9 +78,7 @@ func TestContentCacheForData_Passthrough(t *testing.T) {
 
 	ctx := testlogging.Context(t)
 
-	dataCache, err := cache.NewContentCacheForData(ctx, underlying, nil, cache.SweepSettings{
-		MaxSizeBytes: 100,
-	}, []byte{1, 2, 3, 4})
+	dataCache, err := cache.NewContentCache(ctx, underlying, cache.Options{})
 
 	require.NoError(t, err)
 	require.NoError(t, underlying.PutBlob(ctx, "blob1", gather.FromSlice([]byte{1, 2, 3, 4, 5, 6}), blob.PutOptions{}))

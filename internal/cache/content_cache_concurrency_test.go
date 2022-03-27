@@ -21,42 +21,58 @@ import (
 type newContentCacheFunc func(ctx context.Context, st blob.Storage, cacheStorage cache.Storage) (cache.ContentCache, error)
 
 func newContentDataCache(ctx context.Context, st blob.Storage, cacheStorage cache.Storage) (cache.ContentCache, error) {
-	return cache.NewContentCacheForData(ctx, st, cacheStorage, cache.SweepSettings{
-		MaxSizeBytes: 100,
-	}, []byte{1, 2, 3, 4})
+	return cache.NewContentCache(ctx, st, cache.Options{
+		Storage:    cacheStorage,
+		HMACSecret: []byte{1, 2, 3, 4},
+		Sweep: cache.SweepSettings{
+			MaxSizeBytes: 100,
+		},
+	})
 }
 
 func newContentMetadataCache(ctx context.Context, st blob.Storage, cacheStorage cache.Storage) (cache.ContentCache, error) {
-	return cache.NewContentCacheForMetadata(ctx, st, cacheStorage, cache.SweepSettings{
-		MaxSizeBytes: 100,
+	return cache.NewContentCache(ctx, st, cache.Options{
+		Storage:        cacheStorage,
+		HMACSecret:     []byte{1, 2, 3, 4},
+		FetchFullBlobs: true,
+		Sweep: cache.SweepSettings{
+			MaxSizeBytes: 100,
+		},
 	})
 }
 
 func TestPrefetchBlocksGetContent_DataCache(t *testing.T) {
+	t.Parallel()
 	testContentCachePrefetchBlocksGetContent(t, newContentDataCache)
 }
 
 func TestPrefetchBlocksGetContent_MetadataCache(t *testing.T) {
+	t.Parallel()
 	testContentCachePrefetchBlocksGetContent(t, newContentMetadataCache)
 }
 
 func TestGetContentForDifferentContentIDsExecutesInParallel_DataCache(t *testing.T) {
+	t.Parallel()
 	testGetContentForDifferentContentIDsExecutesInParallel(t, newContentDataCache, 2)
 }
 
 func TestGetContentForDifferentContentIDsExecutesInParallel_MetadataCache(t *testing.T) {
+	t.Parallel()
 	testGetContentForDifferentContentIDsExecutesInParallel(t, newContentMetadataCache, 1)
 }
 
 func TestGetContentForDifferentBlobsExecutesInParallel_DataCache(t *testing.T) {
+	t.Parallel()
 	testGetContentForDifferentBlobsExecutesInParallel(t, newContentDataCache)
 }
 
 func TestGetContentForDifferentBlobsExecutesInParallel_MetadataCache(t *testing.T) {
+	t.Parallel()
 	testGetContentForDifferentBlobsExecutesInParallel(t, newContentMetadataCache)
 }
 
 func TestGetContentRaceFetchesOnce_DataCache(t *testing.T) {
+	t.Parallel()
 	testGetContentRaceFetchesOnce(t, newContentDataCache)
 }
 
@@ -249,7 +265,6 @@ func testGetContentRaceFetchesOnce(t *testing.T, newCache newContentCacheFunc) {
 	require.NoError(t, underlying.PutBlob(ctx, "blob1", gather.FromSlice([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}), blob.PutOptions{}))
 
 	faulty.AddFault(blobtesting.MethodGetBlob).Before(func() {
-		t.Logf("stack1: %s", debug.Stack())
 		time.Sleep(time.Second)
 	})
 
