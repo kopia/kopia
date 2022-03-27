@@ -394,6 +394,7 @@ func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *Ca
 		BaseCacheDirectory: caching.CacheDirectory,
 		CacheSubDir:        "metadata",
 		HMACSecret:         caching.HMACSecret,
+		FetchFullBlobs:     true,
 		Sweep: cache.SweepSettings{
 			MaxSizeBytes: metadataCacheSize,
 			MinSweepAge:  caching.MinMetadataSweepAge.DurationOrDefault(DefaultMetadataCacheSweepAge),
