@@ -9,6 +9,7 @@ import (
 	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/testlogging"
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
 )
 
@@ -18,13 +19,20 @@ func TestContentCacheForMetadata(t *testing.T) {
 	underlyingData := blobtesting.DataMap{}
 	underlying := blobtesting.NewMapStorage(underlyingData, nil, nil)
 
-	cacheData := blobtesting.DataMap{}
-	metadataCacheStorage := blobtesting.NewMapStorage(cacheData, nil, nil).(cache.Storage)
+	td := testutil.TempDirectory(t)
 
-	metadataCache, err := cache.NewContentCacheForMetadata(ctx, underlying, metadataCacheStorage, cache.SweepSettings{
-		MaxSizeBytes: 100,
+	metadataCache, err := cache.NewContentCache(ctx, underlying, cache.Options{
+		BaseCacheDirectory: td,
+		CacheSubDir:        "subdir",
+		HMACSecret:         []byte{1, 2, 3},
+		FetchFullBlobs:     true,
+		Sweep: cache.SweepSettings{
+			MaxSizeBytes: 100,
+		},
 	})
 	require.NoError(t, err)
+
+	cacheStorage := metadataCache.CacheStorage()
 
 	var tmp gather.WriteBuffer
 	defer tmp.Close()
@@ -40,17 +48,18 @@ func TestContentCacheForMetadata(t *testing.T) {
 	require.NoError(t, metadataCache.GetContent(ctx, "key1", "blob1", 0, 3, &tmp))
 	require.Equal(t, []byte{1, 2, 3}, tmp.ToByteSlice())
 
+	cacheEntries, err := blob.ListAllBlobs(ctx, cacheStorage, "")
+	require.NoError(t, err)
 	// cache has the entire blob
-	require.Len(t, cacheData, 1)
+	require.Len(t, cacheEntries, 1)
 
 	require.NoError(t, metadataCache.GetContent(ctx, "key1", "blob1", 3, 3, &tmp))
 	require.Equal(t, []byte{4, 5, 6}, tmp.ToByteSlice())
 
-	// out of bounds
-	require.Error(t, metadataCache.GetContent(ctx, "key1", "blob1", 3, 9, &tmp))
-
+	cacheEntries, err = blob.ListAllBlobs(ctx, cacheStorage, "")
+	require.NoError(t, err)
 	// cache has the entire blob
-	require.Len(t, cacheData, 1)
+	require.Len(t, cacheEntries, 1)
 
 	metadataCache.Close(ctx)
 
@@ -66,8 +75,11 @@ func TestContentCacheForMetadata_Passthrough(t *testing.T) {
 
 	ctx := testlogging.Context(t)
 
-	metadataCache, err := cache.NewContentCacheForMetadata(ctx, underlying, nil, cache.SweepSettings{
-		MaxSizeBytes: 100,
+	metadataCache, err := cache.NewContentCache(ctx, underlying, cache.Options{
+		BaseCacheDirectory: "",
+		Sweep: cache.SweepSettings{
+			MaxSizeBytes: 100,
+		},
 	})
 
 	require.NoError(t, err)
