@@ -34,6 +34,7 @@ type RepositoryStatus struct {
 
 	ClientOptions repo.ClientOptions        `json:"clientOptions"`
 	Storage       blob.ConnectionInfo       `json:"storage"`
+	Capacity      blob.Capacity             `json:"volume"`
 	ContentFormat content.FormattingOptions `json:"contentFormat"`
 	ObjectFormat  object.Format             `json:"objectFormat"`
 	BlobRetention content.BlobCfgBlob       `json:"blobRetention"`
@@ -50,7 +51,7 @@ func (c *commandRepositoryStatus) setup(svc advancedAppServices, parent commandP
 	c.jo.setup(svc, cmd)
 }
 
-func (c *commandRepositoryStatus) outputJSON(r repo.Repository) error {
+func (c *commandRepositoryStatus) outputJSON(ctx context.Context, r repo.Repository) error {
 	s := RepositoryStatus{
 		ConfigFile:    c.svc.repositoryConfigFileName(),
 		ClientOptions: r.ClientOptions(),
@@ -64,6 +65,15 @@ func (c *commandRepositoryStatus) outputJSON(r repo.Repository) error {
 		s.BlobRetention = dr.BlobCfg()
 		s.Storage = scrubber.ScrubSensitiveData(reflect.ValueOf(ci)).Interface().(blob.ConnectionInfo)                                             // nolint:forcetypeassert
 		s.ContentFormat = scrubber.ScrubSensitiveData(reflect.ValueOf(dr.ContentReader().ContentFormat())).Interface().(content.FormattingOptions) // nolint:forcetypeassert
+
+		switch cp, err := dr.BlobVolume().GetCapacity(ctx); {
+		case err == nil:
+			s.Capacity = cp
+		case errors.Is(err, blob.ErrNotAVolume):
+			// This is okay, we will just not populate the result.
+		default:
+			return errors.Wrap(err, "unable to get storage volume capacity")
+		}
 	}
 
 	c.out.printStdout("%s\n", c.jo.jsonBytes(s))
@@ -71,9 +81,10 @@ func (c *commandRepositoryStatus) outputJSON(r repo.Repository) error {
 	return nil
 }
 
+// nolint: funlen
 func (c *commandRepositoryStatus) run(ctx context.Context, rep repo.Repository) error {
 	if c.jo.jsonOutput {
-		return c.outputJSON(rep)
+		return c.outputJSON(ctx, rep)
 	}
 
 	c.out.printStdout("Config file:         %v\n", c.svc.repositoryConfigFileName())
@@ -98,6 +109,16 @@ func (c *commandRepositoryStatus) run(ctx context.Context, rep repo.Repository) 
 
 	ci := dr.BlobReader().ConnectionInfo()
 	c.out.printStdout("Storage type:        %v\n", ci.Type)
+
+	switch cp, err := dr.BlobVolume().GetCapacity(ctx); {
+	case err == nil:
+		c.out.printStdout("Storage capacity:    %v\n", units.BytesStringBase2(int64(cp.SizeB)))
+		c.out.printStdout("Storage available:   %v\n", units.BytesStringBase2(int64(cp.FreeB)))
+	case errors.Is(err, blob.ErrNotAVolume):
+		c.out.printStdout("Storage capacity:    unbounded\n")
+	default:
+		return errors.Wrap(err, "unable to get storage volume capacity")
+	}
 
 	if cjson, err := json.MarshalIndent(scrubber.ScrubSensitiveData(reflect.ValueOf(ci.Config)).Interface(), "                     ", "  "); err == nil {
 		c.out.printStdout("Storage config:      %v\n", string(cjson))
