@@ -483,15 +483,15 @@ func errIsACLEnabled(stdErr string) bool {
 }
 
 // GetRepositoryStatus returns the repository status in JSON format.
-func (ks *KopiaSnapshotter) GetRepositoryStatus() cli.RepositoryStatus {
+func (ks *KopiaSnapshotter) GetRepositoryStatus() (cli.RepositoryStatus, error) {
 	a1, _, _ := ks.Runner.Run("repository", "status", "--json")
 
 	var rs cli.RepositoryStatus
 	if err := json.Unmarshal([]byte(a1), &rs); err != nil {
-		panic(err)
+		return rs, err
 	}
 
-	return rs
+	return rs, nil
 }
 
 // UpgradeRepository upgrades the given kopia repository

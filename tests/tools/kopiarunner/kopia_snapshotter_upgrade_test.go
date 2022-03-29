@@ -20,13 +20,15 @@ func TestUpgradeFormatVersion(t *testing.T) {
 	err = ks.CreateRepo("filesystem", "--path="+repoDir, "--format-version", "1")
 	require.NoError(t, err)
 
-	rs := ks.GetRepositoryStatus()
+	rs, err := ks.GetRepositoryStatus()
+	require.NoError(t, err)
 	prev := rs.ContentFormat.MutableParameters.Version
 	require.Equal(t, prev, content.FormatVersion(1), "The format version should be 1.")
 
 	ks.UpgradeRepository(repoDir)
 
-	rs = ks.GetRepositoryStatus()
+	rs, err = ks.GetRepositoryStatus()
+	require.NoError(t, err)
 	got := rs.ContentFormat.MutableParameters.Version
 	require.Equal(t, got, content.FormatVersion(2), "The format version should be upgraded to 2.")
 
