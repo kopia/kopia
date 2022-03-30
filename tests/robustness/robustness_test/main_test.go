@@ -48,20 +48,38 @@ func TestMain(m *testing.M) {
 	eng = th.engine
 
 	// Restore a random snapshot into the data directory
-	_, err := eng.ExecAction(ctx, engine.RestoreIntoDataDirectoryActionKey, nil)
-	if err != nil && !errors.Is(err, robustness.ErrNoOp) {
+	if _, err := eng.ExecAction(ctx, engine.RestoreIntoDataDirectoryActionKey, nil); err != nil && !errors.Is(err, robustness.ErrNoOp) {
 		th.cleanup(ctx)
 		log.Fatalln("Error restoring into the data directory:", err)
+	}
+
+	// Upgrade the repository format version if the env var is set
+	if os.Getenv("UPGRADE_REPOSITORY_FORMAT_VERSION") == "ON" {
+		log.Print("Upgrading the repository.")
+
+		err := th.upgrader.ConnectRepo("filesystem", "--path="+dataRepoPath)
+		exitOnError("failed to connect to repository", err)
+
+		rs, err := th.upgrader.GetRepositoryStatus()
+		exitOnError("failed to get repository status before upgrade", err)
+
+		prev := rs.ContentFormat.MutableParameters.Version
+
+		log.Println("Old repository format:", prev)
+		th.upgrader.UpgradeRepository(dataRepoPath)
+
+		rs, err = th.upgrader.GetRepositoryStatus()
+		exitOnError("failed to get repository status after upgrade", err)
+
+		curr := rs.ContentFormat.MutableParameters.Version
+		log.Println("Upgraded repository format:", curr)
 	}
 
 	// run the tests
 	result := m.Run()
 
-	err = th.cleanup(ctx)
-	if err != nil {
-		log.Printf("Error cleaning up the engine: %s\n", err.Error())
-		os.Exit(2)
-	}
+	err := th.cleanup(ctx)
+	exitOnError("Could not clean up after engine execution", err)
 
 	os.Exit(result)
 }
@@ -74,6 +92,7 @@ type kopiaRobustnessTestHarness struct {
 	fileWriter  *fiofilewriter.FileWriter
 	snapshotter *snapmeta.KopiaSnapshotter
 	persister   *snapmeta.KopiaPersisterLight
+	upgrader    *kopiarunner.KopiaSnapshotter
 	engine      *engine.Engine
 
 	skipTest bool
@@ -85,7 +104,7 @@ func (th *kopiaRobustnessTestHarness) init(ctx context.Context, dataRepoPath, me
 
 	// the initialization state machine is linear and bails out on first failure
 	if th.makeBaseDir() && th.getFileWriter() && th.getSnapshotter() &&
-		th.getPersister() && th.getEngine() {
+		th.getPersister() && th.getEngine() && th.getUpgrader() {
 		return // success!
 	}
 
@@ -227,4 +246,29 @@ func (th *kopiaRobustnessTestHarness) cleanup(ctx context.Context) (retErr error
 	}
 
 	return
+}
+
+func (th *kopiaRobustnessTestHarness) getUpgrader() bool {
+	ks, err := kopiarunner.NewKopiaSnapshotter(th.baseDirPath)
+	if err != nil {
+		if errors.Is(err, kopiarunner.ErrExeVariableNotSet) {
+			log.Println("Skipping robustness tests because KOPIA_EXE is not set")
+
+			th.skipTest = true
+		} else {
+			log.Println("Error creating kopia Upgrader:", err)
+		}
+
+		return false
+	}
+
+	th.upgrader = ks
+
+	return true
+}
+
+func exitOnError(msg string, err error) {
+	if err != nil {
+		log.Fatal(msg, ": ", err.Error())
+	}
 }

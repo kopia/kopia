@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/hex"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"os"
@@ -17,6 +18,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/cli"
 	"github.com/kopia/kopia/internal/retry"
 )
 
@@ -478,4 +480,24 @@ func certKeyExist(ctx context.Context, tlsCertFile, tlsKeyFile string) error {
 
 func errIsACLEnabled(stdErr string) bool {
 	return strings.Contains(stdErr, aclEnabledMatchStr)
+}
+
+// GetRepositoryStatus returns the repository status in JSON format.
+func (ks *KopiaSnapshotter) GetRepositoryStatus() (cli.RepositoryStatus, error) {
+	a1, _, _ := ks.Runner.Run("repository", "status", "--json")
+
+	var rs cli.RepositoryStatus
+	if err := json.Unmarshal([]byte(a1), &rs); err != nil {
+		return rs, err
+	}
+
+	return rs, nil
+}
+
+// UpgradeRepository upgrades the given kopia repository
+// from current format version to latest stable format version.
+func (ks *KopiaSnapshotter) UpgradeRepository(repoPath string) error {
+	_, _, err := ks.Runner.Run("repository", "set-parameters", "--upgrade")
+
+	return err
 }
