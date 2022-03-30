@@ -22,6 +22,7 @@ func TestUpgradeFormatVersion(t *testing.T) {
 
 	rs, err := ks.GetRepositoryStatus()
 	require.NoError(t, err)
+
 	prev := rs.ContentFormat.MutableParameters.Version
 	require.Equal(t, prev, content.FormatVersion(1), "The format version should be 1.")
 
@@ -29,6 +30,7 @@ func TestUpgradeFormatVersion(t *testing.T) {
 
 	rs, err = ks.GetRepositoryStatus()
 	require.NoError(t, err)
+
 	got := rs.ContentFormat.MutableParameters.Version
 	require.Equal(t, got, content.FormatVersion(2), "The format version should be upgraded to 2.")
 
