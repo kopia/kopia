@@ -48,8 +48,7 @@ func TestMain(m *testing.M) {
 	eng = th.engine
 
 	// Restore a random snapshot into the data directory
-	_, err := eng.ExecAction(ctx, engine.RestoreIntoDataDirectoryActionKey, nil)
-	if err != nil && !errors.Is(err, robustness.ErrNoOp) {
+	if _, err := eng.ExecAction(ctx, engine.RestoreIntoDataDirectoryActionKey, nil); err != nil && !errors.Is(err, robustness.ErrNoOp) {
 		th.cleanup(ctx)
 		log.Fatalln("Error restoring into the data directory:", err)
 	}
@@ -57,12 +56,21 @@ func TestMain(m *testing.M) {
 	// Upgrade the repository format version if the env var is set
 	if os.Getenv("UPGRADE_REPOSITORY_FORMAT_VERSION") == "ON" {
 		log.Printf("Upgrading the repository.")
-		th.upgrader.ConnectRepo("filesystem", "--path="+dataRepoPath)
-		rs := th.upgrader.GetRepositoryStatus()
+
+		err := th.upgrader.ConnectRepo("filesystem", "--path="+dataRepoPath)
+		exitOnError("failed to connect to repository", err)
+
+		rs, err := th.upgrader.GetRepositoryStatus()
+		exitOnError("failed to get repository status before upgrade", err)
+
 		prev := rs.ContentFormat.MutableParameters.Version
+
 		log.Printf("Old repository format: %d\n", prev)
 		th.upgrader.UpgradeRepository(dataRepoPath)
-		rs = th.upgrader.GetRepositoryStatus()
+
+		rs, err = th.upgrader.GetRepositoryStatus()
+		exitOnError("failed to get repository status after upgrade", err)
+
 		curr := rs.ContentFormat.MutableParameters.Version
 		log.Printf("Upgraded repository format: %d\n", curr)
 	}
@@ -70,11 +78,8 @@ func TestMain(m *testing.M) {
 	// run the tests
 	result := m.Run()
 
-	err = th.cleanup(ctx)
-	if err != nil {
-		log.Printf("Error cleaning up the engine: %s\n", err.Error())
-		os.Exit(2)
-	}
+	err := th.cleanup(ctx)
+	exitOnError("Could not clean up after engine execution", err)
 
 	os.Exit(result)
 }
@@ -260,4 +265,10 @@ func (th *kopiaRobustnessTestHarness) getUpgrader() bool {
 	th.upgrader = ks
 
 	return true
+}
+
+func exitOnError(msg string, err error) {
+	if err != nil {
+		log.Fatal(msg, ": ", err.Error())
+	}
 }
