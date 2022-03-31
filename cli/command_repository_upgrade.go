@@ -17,6 +17,7 @@ type commandRepositoryUpgrade struct {
 	forceRollback   bool
 	skip            bool
 	blockUntilDrain bool
+	force           bool
 
 	// lock settings
 	advanceNoticeDuration  time.Duration
@@ -32,6 +33,7 @@ func (c *commandRepositoryUpgrade) setup(svc advancedAppServices, parent command
 
 	cmd.Flag("advance-notice", "Advance notice for upgrade to allow enough time for other Kopia clients to notice the lock").DurationVar(&c.advanceNoticeDuration)
 	cmd.Flag("io-drain-timeout", "Max time it should take all other Kopia clients to drop repository connections").Default(repo.DefaultRepositoryBlobCacheDuration.String()).DurationVar(&c.ioDrainTimeout)
+	cmd.Flag("force", "Force using an unsafe io-drain-timeout").Default("false").Hidden().BoolVar(&c.force)
 	cmd.Flag("status-poll-interval", "An advisory polling interval to check for the status of upgrade").Default("60s").DurationVar(&c.statusPollInterval)
 	cmd.Flag("max-clock-drift", "Maximum tolerated drift on clocks between all Kopia clients").Default("5m").DurationVar(&c.maxPermittedClockDrift)
 	cmd.Flag("block-until-drain", "Drain all the clients but do not perform the upgrade").BoolVar(&c.blockUntilDrain)
@@ -73,6 +75,10 @@ func (c *commandRepositoryUpgrade) setLockIntent(ctx context.Context, rep repo.D
 		c.skip = true
 
 		return nil
+	}
+
+	if c.ioDrainTimeout < repo.DefaultRepositoryBlobCacheDuration && !c.force {
+		return errors.Errorf("minimum required io-drain-timeout is %s", repo.DefaultRepositoryBlobCacheDuration)
 	}
 
 	now := rep.Time()

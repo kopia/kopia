@@ -21,7 +21,7 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgrade(t *testing.T) {
 		require.Contains(t, out, "Format version:      1")
 		_, stderr := env.RunAndExpectSuccessWithErrOut(t, "repository", "upgrade",
 			"--upgrade-owner-id", "owner",
-			"--io-drain-timeout", "1s",
+			"--io-drain-timeout", "1s", "--force",
 			"--status-poll-interval", "1s",
 			"--max-clock-drift", "1s")
 		require.Contains(t, stderr, "Repository indices have been upgraded.")
@@ -30,7 +30,7 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgrade(t *testing.T) {
 		require.Contains(t, out, "Format version:      2")
 		_, stderr := env.RunAndExpectSuccessWithErrOut(t, "repository", "upgrade",
 			"--upgrade-owner-id", "owner",
-			"--io-drain-timeout", "1s",
+			"--io-drain-timeout", "1s", "--force",
 			"--status-poll-interval", "1s",
 			"--max-clock-drift", "1s")
 		require.Contains(t, stderr, "Repository indices have already been migrated to the epoch format, no need to drain other clients")
@@ -39,7 +39,7 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgrade(t *testing.T) {
 		require.Contains(t, out, "Format version:      3")
 		env.RunAndExpectFailure(t, "repository", "upgrade",
 			"--upgrade-owner-id", "owner",
-			"--io-drain-timeout", "1s",
+			"--io-drain-timeout", "1s", "--force",
 			"--status-poll-interval", "1s",
 			"--max-clock-drift", "1s")
 	}
@@ -61,7 +61,7 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgradeAdvanceNotice(t *testing.
 		require.Contains(t, out, "Format version:      1")
 		_, stderr := env.RunAndExpectSuccessWithErrOut(t, "repository", "upgrade",
 			"--upgrade-owner-id", "owner",
-			"--io-drain-timeout", "1s",
+			"--io-drain-timeout", "1s", "--force",
 			"--status-poll-interval", "1s",
 			"--max-clock-drift", "1s",
 			"--advance-notice", "30s")
@@ -71,7 +71,7 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgradeAdvanceNotice(t *testing.
 		// verify that non-owner clients will fail to connect/upgrade
 		env.RunAndExpectFailure(t, "repository", "upgrade",
 			"--upgrade-owner-id", "non-owner",
-			"--io-drain-timeout", "1s",
+			"--io-drain-timeout", "1s", "--force",
 			"--status-poll-interval", "1s",
 			"--max-clock-drift", "1s")
 
@@ -85,7 +85,7 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgradeAdvanceNotice(t *testing.
 		env.RunAndExpectSuccess(t, "repository", "upgrade", "--force-rollback")
 		env.RunAndExpectSuccess(t, "repository", "upgrade",
 			"--upgrade-owner-id", "owner",
-			"--io-drain-timeout", "1s",
+			"--io-drain-timeout", "1s", "--force",
 			"--status-poll-interval", "1s",
 			"--max-clock-drift", "1s",
 			"--advance-notice", "30s")
@@ -94,7 +94,7 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgradeAdvanceNotice(t *testing.
 		_, stderr = env.RunAndExpectSuccessWithErrOut(t, "repository", "upgrade",
 			"--block-until-drain",
 			"--upgrade-owner-id", "owner",
-			"--io-drain-timeout", "1s",
+			"--io-drain-timeout", "1s", "--force",
 			"--status-poll-interval", "1s",
 			"--max-clock-drift", "1s",
 			"--advance-notice", "30s")
@@ -112,7 +112,7 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgradeAdvanceNotice(t *testing.
 		// finalize the upgrade
 		_, stderr = env.RunAndExpectSuccessWithErrOut(t, "repository", "upgrade",
 			"--upgrade-owner-id", "owner",
-			"--io-drain-timeout", "1s",
+			"--io-drain-timeout", "1s", "--force",
 			"--status-poll-interval", "1s",
 			"--max-clock-drift", "1s",
 			"--advance-notice", "30s")
@@ -124,7 +124,7 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgradeAdvanceNotice(t *testing.
 		require.Contains(t, out, "Format version:      2")
 		_, stderr := env.RunAndExpectSuccessWithErrOut(t, "repository", "upgrade",
 			"--upgrade-owner-id", "owner",
-			"--io-drain-timeout", "1s",
+			"--io-drain-timeout", "1s", "--force",
 			"--status-poll-interval", "1s",
 			"--max-clock-drift", "1s",
 			"--advance-notice", "30s")
@@ -134,7 +134,7 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgradeAdvanceNotice(t *testing.
 		// verify that non-owner clients will fail to connect/upgrade
 		env.RunAndExpectFailure(t, "repository", "upgrade",
 			"--upgrade-owner-id", "non-owner",
-			"--io-drain-timeout", "1s",
+			"--io-drain-timeout", "1s", "--force",
 			"--status-poll-interval", "1s",
 			"--max-clock-drift", "1s")
 
@@ -148,7 +148,7 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgradeAdvanceNotice(t *testing.
 		env.RunAndExpectSuccess(t, "repository", "upgrade", "--force-rollback")
 		env.RunAndExpectSuccess(t, "repository", "upgrade",
 			"--upgrade-owner-id", "owner",
-			"--io-drain-timeout", "1s",
+			"--io-drain-timeout", "1s", "--force",
 			"--status-poll-interval", "1s",
 			"--max-clock-drift", "1s",
 			"--advance-notice", "30s")
@@ -157,7 +157,7 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgradeAdvanceNotice(t *testing.
 		_, stderr = env.RunAndExpectSuccessWithErrOut(t, "repository", "upgrade",
 			"--block-until-drain",
 			"--upgrade-owner-id", "owner",
-			"--io-drain-timeout", "1s",
+			"--io-drain-timeout", "1s", "--force",
 			"--status-poll-interval", "1s",
 			"--max-clock-drift", "1s",
 			"--advance-notice", "30s")
@@ -177,7 +177,7 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgradeAdvanceNotice(t *testing.
 		// finalize the upgrade
 		_, stderr = env.RunAndExpectSuccessWithErrOut(t, "repository", "upgrade",
 			"--upgrade-owner-id", "owner",
-			"--io-drain-timeout", "1s",
+			"--io-drain-timeout", "1s", "--force",
 			"--status-poll-interval", "1s",
 			"--max-clock-drift", "1s",
 			"--advance-notice", "30s")
@@ -189,7 +189,7 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgradeAdvanceNotice(t *testing.
 		require.Contains(t, out, "Format version:      3")
 		env.RunAndExpectFailure(t, "repository", "upgrade",
 			"--upgrade-owner-id", "owner",
-			"--io-drain-timeout", "1s",
+			"--io-drain-timeout", "1s", "--force",
 			"--status-poll-interval", "1s",
 			"--max-clock-drift", "1s",
 			"--advance-notice", "30s")

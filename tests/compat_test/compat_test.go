@@ -35,7 +35,7 @@ func TestRepoCreatedWith08CanBeOpenedWithCurrent(t *testing.T) {
 	// upgrade
 	e2.RunAndExpectSuccess(t, "repository", "upgrade",
 		"--upgrade-owner-id", "owner",
-		"--io-drain-timeout", "1s",
+		"--io-drain-timeout", "1s", "--force",
 		"--status-poll-interval", "1s",
 		"--max-clock-drift", "1s")
 

@@ -141,13 +141,13 @@ func (s *formatSpecificTestSuite) TestRepositorySetParametersUpgrade(t *testing.
 	if s.formatVersion < content.MaxFormatVersion {
 		env.RunAndExpectSuccess(t, "repository", "upgrade",
 			"--upgrade-owner-id", "owner",
-			"--io-drain-timeout", "1s",
+			"--io-drain-timeout", "1s", "--force",
 			"--status-poll-interval", "1s",
 			"--max-clock-drift", "1s")
 	} else {
 		env.RunAndExpectFailure(t, "repository", "upgrade",
 			"--upgrade-owner-id", "owner",
-			"--io-drain-timeout", "1s",
+			"--io-drain-timeout", "1s", "--force",
 			"--status-poll-interval", "1s",
 			"--max-clock-drift", "1s")
 	}
