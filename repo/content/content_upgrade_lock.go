@@ -1,6 +1,8 @@
 package content
 
 import (
+	"context"
+	"net/http"
 	"time"
 
 	"github.com/pkg/errors"
@@ -19,6 +21,9 @@ type UpgradeLock struct {
 	StatusPollInterval     time.Duration `json:"statusPollInterval,omitempty"`
 	Message                string        `json:"message,omitempty"`
 	MaxPermittedClockDrift time.Duration `json:"maxPermittedClockDrift,omitempty"`
+
+	// when a coordinator is available then we can reduce the drain time on the lock
+	CoordinatorURL string `json:"coordinatorURL,omitempty"`
 }
 
 // Update upgrades an existing lock intent. This method controls what mutations
@@ -122,11 +127,42 @@ func (l *UpgradeLock) totalDrainInterval() time.Duration {
 	return l.MaxPermittedClockDrift + 2*l.IODrainTimeout
 }
 
+func (l *UpgradeLock) checkCoordinatorLock(ctx context.Context) (bool, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", l.CoordinatorURL, http.NoBody)
+	if err != nil {
+		return false, errors.Wrapf(err, "failed to check for coordinator lock with %q", l.CoordinatorURL)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return false, errors.Wrapf(err, "failed to check for coordinator lock with %q", l.CoordinatorURL)
+	}
+	defer resp.Body.Close() //nolint:errcheck
+
+	switch resp.StatusCode {
+	case http.StatusOK:
+		return true, nil
+	case http.StatusLocked:
+		return false, nil
+	default:
+		return false, errors.Errorf("invalid status code from coordinator: %d", resp.StatusCode)
+	}
+}
+
 // IsLocked indicates whether a lock intent has been placed and whether all
 // other repository accessors have been drained.
-func (l *UpgradeLock) IsLocked(now time.Time) (locked, writersDrained bool) {
+func (l *UpgradeLock) IsLocked(ctx context.Context, now time.Time) (locked, writersDrained bool, err error) {
 	if l == nil {
-		return false, false
+		return false, false, nil
+	}
+
+	if l.CoordinatorURL != "" {
+		ok, err := l.checkCoordinatorLock(ctx)
+		if err != nil {
+			return false, false, err
+		}
+
+		return ok, ok, nil
 	}
 
 	totalDrainInterval := l.totalDrainInterval()
@@ -138,5 +174,5 @@ func (l *UpgradeLock) IsLocked(now time.Time) (locked, writersDrained bool) {
 		panic("writers have drained but we are not locked, this is not possible until the upgrade-lock intent is invalid")
 	}
 
-	return locked, writersDrained
+	return locked, writersDrained, nil
 }

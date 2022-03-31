@@ -253,7 +253,9 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 		}
 
 		// retry if upgrade lock has been taken
-		if locked, _ := ufb.repoConfig.UpgradeLock.IsLocked(cmOpts.TimeNow()); locked && options.UpgradeOwnerID != ufb.repoConfig.UpgradeLock.OwnerID {
+		if locked, _, err := ufb.repoConfig.UpgradeLock.IsLocked(ctx, cmOpts.TimeNow()); err != nil {
+			return nil, errors.Wrap(err, "unable to get upgrade lock status")
+		} else if locked && options.UpgradeOwnerID != ufb.repoConfig.UpgradeLock.OwnerID {
 			return nil, ErrRepositoryUnavailableDueToUpgrageInProgress
 		}
 
@@ -439,7 +441,9 @@ func upgradeLockMonitor(
 		}
 
 		// only allow the upgrade owner to perform storage operations
-		if locked, _ := ufb.repoConfig.UpgradeLock.IsLocked(now()); locked && upgradeOwnerID != ufb.repoConfig.UpgradeLock.OwnerID {
+		if locked, _, err := ufb.repoConfig.UpgradeLock.IsLocked(ctx, now()); err != nil {
+			return errors.Wrap(err, "failed to get upgrade lock status")
+		} else if locked && upgradeOwnerID != ufb.repoConfig.UpgradeLock.OwnerID {
 			return ErrRepositoryUnavailableDueToUpgrageInProgress
 		}
 
