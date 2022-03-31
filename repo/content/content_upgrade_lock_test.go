@@ -2,12 +2,15 @@ package content_test
 
 import (
 	"fmt"
+	"net"
+	"net/http"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo/content"
 )
 
@@ -119,7 +122,8 @@ func TestUpgradeLockIntentImmediateLock(t *testing.T) {
 	var l *content.UpgradeLock
 
 	// checking lock status on nil lock
-	locked, writersDrained := l.IsLocked(now)
+	locked, writersDrained, err := l.IsLocked(testlogging.Context(t), now)
+	require.NoError(t, err)
 	require.False(t, locked)
 	require.False(t, writersDrained)
 
@@ -136,7 +140,7 @@ func TestUpgradeLockIntentImmediateLock(t *testing.T) {
 				Message:                "upgrading from format version 2 -> 3",
 				MaxPermittedClockDrift: 0,
 			}
-			tmp.IsLocked(now.Add(2 * time.Hour))
+			tmp.IsLocked(testlogging.Context(t), now.Add(2*time.Hour))
 		})
 
 	l = &content.UpgradeLock{
@@ -151,31 +155,36 @@ func TestUpgradeLockIntentImmediateLock(t *testing.T) {
 
 	// Verify that the lock intent has been placed but is not fully established
 	// (writers drained) at the time of taking the lock
-	locked, writersDrained = l.IsLocked(now)
+	locked, writersDrained, err = l.IsLocked(testlogging.Context(t), now)
+	require.NoError(t, err)
 	require.True(t, locked)
 	require.False(t, writersDrained)
 
 	// Verify that the lock intent is not fully established
 	// (writers drained) after the drain timeout has expired
-	locked, writersDrained = l.IsLocked(now.Add(l.IODrainTimeout))
+	locked, writersDrained, err = l.IsLocked(testlogging.Context(t), now.Add(l.IODrainTimeout))
+	require.NoError(t, err)
 	require.True(t, locked)
 	require.False(t, writersDrained)
 
 	// Verify that the lock intent is not fully established
 	// (writers drained) after twice the drain timeout has expired
-	locked, writersDrained = l.IsLocked(now.Add(2 * l.IODrainTimeout))
+	locked, writersDrained, err = l.IsLocked(testlogging.Context(t), now.Add(2*l.IODrainTimeout))
+	require.NoError(t, err)
 	require.True(t, locked)
 	require.False(t, writersDrained)
 
 	// Verify that the lock intent is fully established
 	// (writers drained) after twice the drain timeout + clock drift has expired
-	locked, writersDrained = l.IsLocked(now.Add(l.MaxPermittedClockDrift + 2*l.IODrainTimeout))
+	locked, writersDrained, err = l.IsLocked(testlogging.Context(t), now.Add(l.MaxPermittedClockDrift+2*l.IODrainTimeout))
+	require.NoError(t, err)
 	require.True(t, locked)
 	require.True(t, writersDrained)
 
 	// Verify that the lock intent is fully established
 	// (writers drained) at the time of upgrade
-	locked, writersDrained = l.IsLocked(l.UpgradeTime())
+	locked, writersDrained, err = l.IsLocked(testlogging.Context(t), l.UpgradeTime())
+	require.NoError(t, err)
 	require.True(t, locked)
 	require.True(t, writersDrained)
 }
@@ -194,37 +203,43 @@ func TestUpgradeLockIntentSufficientAdvanceLock(t *testing.T) {
 
 	// Verify that the lock intent has been placed but is not locked at all
 	// at the time of taking the lock with advance notice
-	locked, writersDrained := l.IsLocked(now)
+	locked, writersDrained, err := l.IsLocked(testlogging.Context(t), now)
+	require.NoError(t, err)
 	require.False(t, locked)
 	require.False(t, writersDrained)
 
 	// Verify that the lock intent has been placed but is not locked at all
 	// even at the next drain timeout mark
-	locked, writersDrained = l.IsLocked(now.Add(l.IODrainTimeout))
+	locked, writersDrained, err = l.IsLocked(testlogging.Context(t), now.Add(l.IODrainTimeout))
+	require.NoError(t, err)
 	require.False(t, locked)
 	require.False(t, writersDrained)
 
 	// Verify that the lock intent has been placed but is not locked at all
 	// even at the twice the drain timeout mark
-	locked, writersDrained = l.IsLocked(now.Add(2 * l.IODrainTimeout))
+	locked, writersDrained, err = l.IsLocked(testlogging.Context(t), now.Add(2*l.IODrainTimeout))
+	require.NoError(t, err)
 	require.False(t, locked)
 	require.False(t, writersDrained)
 
 	// Verify that the lock intent has been placed but is not locked at all
 	// even at the twice the drain timeout mark + clock drift
-	locked, writersDrained = l.IsLocked(now.Add(l.MaxPermittedClockDrift + 2*l.IODrainTimeout))
+	locked, writersDrained, err = l.IsLocked(testlogging.Context(t), now.Add(l.MaxPermittedClockDrift+2*l.IODrainTimeout))
+	require.NoError(t, err)
 	require.False(t, locked)
 	require.False(t, writersDrained)
 
 	// Verify that the lock intent is held (but is not fully established) at
 	// (advance notice - drain timeout).
-	locked, writersDrained = l.IsLocked(now.Add(l.AdvanceNoticeDuration - l.MaxPermittedClockDrift - 2*l.IODrainTimeout))
+	locked, writersDrained, err = l.IsLocked(testlogging.Context(t), now.Add(l.AdvanceNoticeDuration-l.MaxPermittedClockDrift-2*l.IODrainTimeout))
+	require.NoError(t, err)
 	require.True(t, locked)
 	require.False(t, writersDrained)
 
 	// Verify that the intent is held and is fully established
 	// (writers drained) at the advance notice time
-	locked, writersDrained = l.IsLocked(now.Add(l.AdvanceNoticeDuration))
+	locked, writersDrained, err = l.IsLocked(testlogging.Context(t), now.Add(l.AdvanceNoticeDuration))
+	require.NoError(t, err)
 	require.True(t, locked)
 	require.True(t, writersDrained)
 
@@ -236,13 +251,15 @@ func TestUpgradeLockIntentSufficientAdvanceLock(t *testing.T) {
 	require.NoError(t, err)
 
 	// According to the old lock timings we'd now get unlocked again
-	locked, writersDrained = mergedLock.IsLocked(now.Add(l.AdvanceNoticeDuration))
+	locked, writersDrained, err = mergedLock.IsLocked(testlogging.Context(t), now.Add(l.AdvanceNoticeDuration))
+	require.NoError(t, err)
 	require.False(t, locked)
 	require.False(t, writersDrained)
 
 	// According to the new lock timings we'd get fully-locked again at the new
 	// advance notice
-	locked, writersDrained = mergedLock.IsLocked(now.Add(mergedLock.AdvanceNoticeDuration))
+	locked, writersDrained, err = mergedLock.IsLocked(testlogging.Context(t), now.Add(mergedLock.AdvanceNoticeDuration))
+	require.NoError(t, err)
 	require.True(t, locked)
 	require.True(t, writersDrained)
 }
@@ -262,25 +279,29 @@ func TestUpgradeLockIntentInSufficientAdvanceLock(t *testing.T) {
 	// Verify that the lock intent has been placed and is held right at the
 	// creation time because there si insufficient time to drain fro mthe
 	// advance notice.
-	locked, writersDrained := l.IsLocked(now)
+	locked, writersDrained, err := l.IsLocked(testlogging.Context(t), now)
+	require.NoError(t, err)
 	require.True(t, locked)
 	require.False(t, writersDrained)
 
 	// Verify that the lock intent has been placed but is not fully locked at
 	// the next drain timeout mark
-	locked, writersDrained = l.IsLocked(now.Add(l.IODrainTimeout))
+	locked, writersDrained, err = l.IsLocked(testlogging.Context(t), now.Add(l.IODrainTimeout))
+	require.NoError(t, err)
 	require.True(t, locked)
 	require.False(t, writersDrained)
 
 	// Verify that the lock intent has been placed but is not fully locked at
 	// double the drain timeout mark
-	locked, writersDrained = l.IsLocked(now.Add(2 * l.IODrainTimeout))
+	locked, writersDrained, err = l.IsLocked(testlogging.Context(t), now.Add(2*l.IODrainTimeout))
+	require.NoError(t, err)
 	require.True(t, locked)
 	require.False(t, writersDrained)
 
 	// Verify that the lock intent has been placed and is fully established at
 	// double the drain timeout + clock drift mark [full drain time]
-	locked, writersDrained = l.IsLocked(now.Add(l.MaxPermittedClockDrift + 2*l.IODrainTimeout))
+	locked, writersDrained, err = l.IsLocked(testlogging.Context(t), now.Add(l.MaxPermittedClockDrift+2*l.IODrainTimeout))
+	require.NoError(t, err)
 	require.True(t, locked)
 	require.True(t, writersDrained)
 }
@@ -338,4 +359,63 @@ func TestUpgradeLockIntentClone(t *testing.T) {
 		MaxPermittedClockDrift: 5 * time.Second,
 	}
 	require.EqualValues(t, l, l.Clone())
+}
+
+func TestUpgradeLockCoordinator(t *testing.T) {
+	l := &content.UpgradeLock{
+		OwnerID:                "upgrade-owner",
+		CreationTime:           clock.Now(),
+		AdvanceNoticeDuration:  20 * time.Minute,
+		IODrainTimeout:         15 * time.Minute,
+		StatusPollInterval:     60 * time.Second,
+		Message:                "upgrading from format version 2 -> 3",
+		MaxPermittedClockDrift: 5 * time.Second,
+		CoordinatorURL:         "http://localhost:8080/good-lock",
+	}
+
+	{
+		mux := http.NewServeMux()
+		mux.HandleFunc("/good-lock", func(w http.ResponseWriter, r *http.Request) {})
+		mux.HandleFunc("/existing-lock", func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusLocked)
+		})
+		mux.HandleFunc("/bad-lock", func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusBadRequest)
+		})
+
+		srv := &http.Server{Addr: ":8080", Handler: mux}
+
+		ln, err := net.Listen("tcp", srv.Addr)
+		require.NoError(t, err)
+
+		go func() {
+			require.ErrorIs(t, srv.Serve(ln), http.ErrServerClosed)
+		}()
+		defer func() {
+			require.NoError(t, srv.Close())
+		}()
+	}
+
+	locked, writersDrained, err := l.IsLocked(testlogging.Context(t), clock.Now())
+	require.NoError(t, err)
+	require.EqualValues(t, true, locked)
+	require.EqualValues(t, true, writersDrained)
+
+	l.CoordinatorURL = "http://localhost:8080/existing-lock"
+	locked, writersDrained, err = l.IsLocked(testlogging.Context(t), clock.Now())
+	require.NoError(t, err)
+	require.EqualValues(t, false, locked)
+	require.EqualValues(t, false, writersDrained)
+
+	l.CoordinatorURL = "http://localhost:8080/bad-lock"
+	locked, writersDrained, err = l.IsLocked(testlogging.Context(t), clock.Now())
+	require.Error(t, err)
+	require.EqualValues(t, false, locked)
+	require.EqualValues(t, false, writersDrained)
+
+	l.CoordinatorURL = "http://localhost:8080/bad-url"
+	locked, writersDrained, err = l.IsLocked(testlogging.Context(t), clock.Now())
+	require.Error(t, err)
+	require.EqualValues(t, false, locked)
+	require.EqualValues(t, false, writersDrained)
 }
