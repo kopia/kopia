@@ -56,9 +56,9 @@ type OutputBuffer interface {
 // Capacity describes the storage capacity and usage of a Volume.
 type Capacity struct {
 	// Size of volume in bytes.
-	SizeB uint64 `json:"capacity"`
+	SizeB uint64 `json:"capacity,omitempty"`
 	// Available (writeable) space in bytes.
-	FreeB uint64 `json:"available"`
+	FreeB uint64 `json:"available,omitempty"`
 }
 
 // Volume defines disk/volume access API to blob storage.

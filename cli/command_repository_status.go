@@ -34,7 +34,7 @@ type RepositoryStatus struct {
 
 	ClientOptions repo.ClientOptions        `json:"clientOptions"`
 	Storage       blob.ConnectionInfo       `json:"storage"`
-	Capacity      blob.Capacity             `json:"volume"`
+	Capacity      *blob.Capacity            `json:"volume,omitempty"`
 	ContentFormat content.FormattingOptions `json:"contentFormat"`
 	ObjectFormat  object.Format             `json:"objectFormat"`
 	BlobRetention content.BlobCfgBlob       `json:"blobRetention"`
@@ -68,7 +68,7 @@ func (c *commandRepositoryStatus) outputJSON(ctx context.Context, r repo.Reposit
 
 		switch cp, err := dr.BlobVolume().GetCapacity(ctx); {
 		case err == nil:
-			s.Capacity = cp
+			s.Capacity = &cp
 		case errors.Is(err, blob.ErrNotAVolume):
 			// This is okay, we will just not populate the result.
 		default:
