@@ -58,7 +58,7 @@ type Capacity struct {
 	// Size of volume in bytes.
 	SizeB uint64 `json:"capacity,omitempty"`
 	// Available (writeable) space in bytes.
-	FreeB uint64 `json:"available,omitempty"`
+	FreeB uint64 `json:"available"`
 }
 
 // Volume defines disk/volume access API to blob storage.
