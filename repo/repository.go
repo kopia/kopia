@@ -50,6 +50,7 @@ type DirectRepository interface {
 	ObjectFormat() object.Format
 	BlobCfg() content.BlobCfgBlob
 	BlobReader() blob.Reader
+	BlobVolume() blob.Volume
 	ContentReader() content.Reader
 	IndexBlobs(ctx context.Context, includeInactive bool) ([]content.IndexBlobInfo, error)
 	Crypter() *content.Crypter
@@ -305,6 +306,11 @@ func (r *directRepository) UniqueID() []byte {
 
 // BlobReader returns the blob reader.
 func (r *directRepository) BlobReader() blob.Reader {
+	return r.blobs
+}
+
+// BlobVolume returns the blob volume interface.
+func (r *directRepository) BlobVolume() blob.Volume {
 	return r.blobs
 }
 
