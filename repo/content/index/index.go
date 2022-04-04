@@ -1,4 +1,5 @@
-package content
+// Package index manages content indices.
+package index
 
 import (
 	"io"
@@ -13,8 +14,8 @@ const (
 	unknownKeySize   = 255
 )
 
-// packIndex is a read-only index of packed contents.
-type packIndex interface {
+// Index is a read-only index of packed contents.
+type Index interface {
 	io.Closer
 
 	ApproximateCount() int
@@ -54,18 +55,18 @@ var AllPrefixedIDs = IDRange{"g", maxIDCharacterPlus1}
 // nolint:gochecknoglobals
 var AllNonPrefixedIDs = IDRange{"0", "g"}
 
-// openPackIndex reads an Index from a given reader. The caller must call Close() when the index is no longer used.
-func openPackIndex(readerAt io.ReaderAt, v1PerContentOverhead uint32) (packIndex, error) {
+// Open reads an Index from a given reader. The caller must call Close() when the index is no longer used.
+func Open(readerAt io.ReaderAt, v1PerContentOverhead uint32) (Index, error) {
 	h, err := v1ReadHeader(readerAt)
 	if err != nil {
 		return nil, errors.Wrap(err, "invalid header")
 	}
 
 	switch h.version {
-	case v1IndexVersion:
+	case Version1:
 		return openV1PackIndex(h, readerAt, v1PerContentOverhead)
 
-	case v2IndexVersion:
+	case Version2:
 		return openV2PackIndex(readerAt)
 
 	default:

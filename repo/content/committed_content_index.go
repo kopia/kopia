@@ -14,6 +14,7 @@ import (
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/content/index"
 	"github.com/kopia/kopia/repo/logging"
 )
 
@@ -32,9 +33,9 @@ type committedContentIndex struct {
 	// +checklocks:mu
 	deletionWatermark time.Time
 	// +checklocks:mu
-	inUse map[blob.ID]packIndex
+	inUse map[blob.ID]index.Index
 	// +checklocks:mu
-	merged mergedIndex
+	merged index.Merged
 
 	v1PerContentOverhead uint32
 	indexVersion         int
@@ -48,7 +49,7 @@ type committedContentIndex struct {
 type committedContentIndexCache interface {
 	hasIndexBlobID(ctx context.Context, indexBlob blob.ID) (bool, error)
 	addContentToCache(ctx context.Context, indexBlob blob.ID, data gather.Bytes) error
-	openIndex(ctx context.Context, indexBlob blob.ID) (packIndex, error)
+	openIndex(ctx context.Context, indexBlob blob.ID) (index.Index, error)
 	expireUnused(ctx context.Context, used []blob.ID) error
 }
 
@@ -73,7 +74,7 @@ func (c *committedContentIndex) getContent(contentID ID) (Info, error) {
 		return nil, ErrContentNotFound
 	}
 
-	return nil, err
+	return nil, errors.Wrap(err, "error getting content info from index")
 }
 
 func shouldIgnore(id Info, deletionWatermark time.Time) bool {
@@ -123,10 +124,11 @@ func (c *committedContentIndex) addIndexBlob(ctx context.Context, indexBlobID bl
 
 func (c *committedContentIndex) listContents(r IDRange, cb func(i Info) error) error {
 	c.mu.Lock()
-	m := append(mergedIndex(nil), c.merged...)
+	m := append(index.Merged(nil), c.merged...)
 	deletionWatermark := c.deletionWatermark
 	c.mu.Unlock()
 
+	// nolint:wrapcheck
 	return m.Iterate(r, func(i Info) error {
 		if shouldIgnore(i, deletionWatermark) {
 			return nil
@@ -151,8 +153,8 @@ func (c *committedContentIndex) indexFilesChanged(indexFiles []blob.ID) bool {
 	return false
 }
 
-func (c *committedContentIndex) merge(ctx context.Context, indexFiles []blob.ID) (merged mergedIndex, used map[blob.ID]packIndex, finalErr error) {
-	used = map[blob.ID]packIndex{}
+func (c *committedContentIndex) merge(ctx context.Context, indexFiles []blob.ID) (merged index.Merged, used map[blob.ID]index.Index, finalErr error) {
+	used = map[blob.ID]index.Index{}
 
 	defer func() {
 		// we failed along the way, close the merged index.
@@ -214,8 +216,8 @@ func (c *committedContentIndex) use(ctx context.Context, indexFiles []blob.ID, i
 	return nil
 }
 
-func (c *committedContentIndex) combineSmallIndexes(m mergedIndex) (mergedIndex, error) {
-	var toKeep, toMerge mergedIndex
+func (c *committedContentIndex) combineSmallIndexes(m index.Merged) (index.Merged, error) {
+	var toKeep, toMerge index.Merged
 
 	for _, ndx := range m {
 		if ndx.ApproximateCount() < smallIndexEntryCountThreshold {
@@ -229,10 +231,10 @@ func (c *committedContentIndex) combineSmallIndexes(m mergedIndex) (mergedIndex,
 		return m, nil
 	}
 
-	b := packIndexBuilder{}
+	b := index.Builder{}
 
 	for _, ndx := range toMerge {
-		if err := ndx.Iterate(AllIDs, func(i Info) error {
+		if err := ndx.Iterate(index.AllIDs, func(i Info) error {
 			b.Add(i)
 			return nil
 		}); err != nil {
@@ -246,7 +248,7 @@ func (c *committedContentIndex) combineSmallIndexes(m mergedIndex) (mergedIndex,
 		return nil, errors.Wrap(err, "error building combined in-memory index")
 	}
 
-	combined, err := openPackIndex(bytes.NewReader(buf.Bytes()), c.v1PerContentOverhead)
+	combined, err := index.Open(bytes.NewReader(buf.Bytes()), c.v1PerContentOverhead)
 	if err != nil {
 		return nil, errors.Wrap(err, "error opening combined in-memory index")
 	}
@@ -342,14 +344,14 @@ func newCommittedContentIndex(caching *CachingOptions,
 		cache = &diskCommittedContentIndexCache{dirname, clock.Now, v1PerContentOverhead, log, minSweepAge}
 	} else {
 		cache = &memoryCommittedContentIndexCache{
-			contents:             map[blob.ID]packIndex{},
+			contents:             map[blob.ID]index.Index{},
 			v1PerContentOverhead: v1PerContentOverhead,
 		}
 	}
 
 	return &committedContentIndex{
 		cache:                cache,
-		inUse:                map[blob.ID]packIndex{},
+		inUse:                map[blob.ID]index.Index{},
 		v1PerContentOverhead: v1PerContentOverhead,
 		indexVersion:         indexVersion,
 		fetchOne:             fetchOne,

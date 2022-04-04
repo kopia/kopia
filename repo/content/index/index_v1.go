@@ -1,4 +1,4 @@
-package content
+package index
 
 import (
 	"bufio"
@@ -15,7 +15,9 @@ import (
 )
 
 const (
-	v1IndexVersion  = 1
+	// Version1 identifies version 1 of the index, without content-level compression.
+	Version1 = 1
+
 	v1HeaderSize    = 8
 	v1DeletedMarker = 0x80000000
 	v1MaxEntrySize  = 256 // maximum length of content ID + per-entry data combined
@@ -297,7 +299,7 @@ type indexBuilderV1 struct {
 }
 
 // buildV1 writes the pack index to the provided output.
-func (b packIndexBuilder) buildV1(output io.Writer) error {
+func (b Builder) buildV1(output io.Writer) error {
 	allContents := b.sortedContents()
 	b1 := &indexBuilderV1{
 		packBlobIDOffsets: map[blob.ID]uint32{},
@@ -449,6 +451,6 @@ func v1ReadHeader(readerAt io.ReaderAt) (v1HeaderInfo, error) {
 	return hi, nil
 }
 
-func openV1PackIndex(hdr v1HeaderInfo, readerAt io.ReaderAt, overhead uint32) (packIndex, error) {
+func openV1PackIndex(hdr v1HeaderInfo, readerAt io.ReaderAt, overhead uint32) (Index, error) {
 	return &indexV1{hdr, readerAt, overhead}, nil
 }

@@ -1,4 +1,4 @@
-package content
+package index
 
 import (
 	"bytes"
@@ -36,7 +36,7 @@ func TestMerged(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	m := mergedIndex{i1, i2, i3}
+	m := Merged{i1, i2, i3}
 
 	require.Equal(t, m.ApproximateCount(), 11)
 
@@ -70,7 +70,7 @@ func TestMerged(t *testing.T) {
 	fmt.Println("=========== END")
 
 	// empty merged index does not invoke callback during iteration.
-	require.NoError(t, mergedIndex{}.Iterate(AllIDs, func(i Info) error {
+	require.NoError(t, Merged{}.Iterate(AllIDs, func(i Info) error {
 		return someErr
 	}))
 
@@ -148,7 +148,7 @@ func TestMerged(t *testing.T) {
 }
 
 type failingIndex struct {
-	packIndex
+	Index
 	err error
 }
 
@@ -159,7 +159,7 @@ func (i failingIndex) GetInfo(contentID ID) (Info, error) {
 func TestMergedGetInfoError(t *testing.T) {
 	someError := errors.Errorf("some error")
 
-	m := mergedIndex{failingIndex{nil, someError}}
+	m := Merged{failingIndex{nil, someError}}
 
 	info, err := m.GetInfo("some-id")
 	require.ErrorIs(t, err, someError)
@@ -188,7 +188,7 @@ func TestMergedIndexIsConsistent(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	cases := []mergedIndex{
+	cases := []Merged{
 		{i1, i2, i3},
 		{i1, i3, i2},
 		{i2, i1, i3},
@@ -224,7 +224,7 @@ func TestMergedIndexIsConsistent(t *testing.T) {
 	}
 }
 
-func iterateIDRange(t *testing.T, m packIndex, r IDRange) []ID {
+func iterateIDRange(t *testing.T, m Index, r IDRange) []ID {
 	t.Helper()
 
 	var inOrder []ID
@@ -237,17 +237,17 @@ func iterateIDRange(t *testing.T, m packIndex, r IDRange) []ID {
 	return inOrder
 }
 
-func indexWithItems(items ...Info) (packIndex, error) {
-	b := make(packIndexBuilder)
+func indexWithItems(items ...Info) (Index, error) {
+	b := make(Builder)
 
 	for _, it := range items {
 		b.Add(it)
 	}
 
 	var buf bytes.Buffer
-	if err := b.Build(&buf, v2IndexVersion); err != nil {
+	if err := b.Build(&buf, Version2); err != nil {
 		return nil, errors.Wrap(err, "build error")
 	}
 
-	return openPackIndex(bytes.NewReader(buf.Bytes()), fakeEncryptionOverhead)
+	return Open(bytes.NewReader(buf.Bytes()), fakeEncryptionOverhead)
 }

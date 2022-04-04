@@ -1,4 +1,4 @@
-package content
+package index
 
 import (
 	"bufio"
@@ -23,7 +23,9 @@ const (
 )
 
 const (
-	v2IndexVersion          = 2
+	// Version2 identifies version 2 of the index, supporting content-level compression.
+	Version2 = 2
+
 	v2IndexHeaderSize       = 17 // size of fixed header at the beginning of index
 	v2PackInfoSize          = 5  // size of each pack information blob
 	v2MaxFormatCount        = invalidFormatVersion
@@ -558,7 +560,7 @@ func newIndexBuilderV2(sortedInfos []Info) (*indexBuilderV2, error) {
 }
 
 // buildV2 writes the pack index to the provided output.
-func (b packIndexBuilder) buildV2(output io.Writer) error {
+func (b Builder) buildV2(output io.Writer) error {
 	sortedInfos := b.sortedContents()
 
 	b2, err := newIndexBuilderV2(sortedInfos)
@@ -577,7 +579,7 @@ func (b packIndexBuilder) buildV2(output io.Writer) error {
 
 	// write header
 	header := make([]byte, v2IndexHeaderSize)
-	header[0] = v2IndexVersion // version
+	header[0] = Version2 // version
 	header[1] = byte(b2.keyLength)
 	binary.BigEndian.PutUint16(header[2:4], uint16(b2.entrySize))
 	binary.BigEndian.PutUint32(header[4:8], uint32(b2.entryCount))
@@ -748,7 +750,7 @@ func (b *indexBuilderV2) writeIndexValueEntry(w io.Writer, it Info) error {
 	return errors.Wrap(err, "error writing index value entry")
 }
 
-func openV2PackIndex(readerAt io.ReaderAt) (packIndex, error) {
+func openV2PackIndex(readerAt io.ReaderAt) (Index, error) {
 	var header [v2IndexHeaderSize]byte
 
 	if err := readAtAll(readerAt, header[:], 0); err != nil {

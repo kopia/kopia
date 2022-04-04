@@ -12,6 +12,7 @@ import (
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/content/index"
 	"github.com/kopia/kopia/repo/logging"
 )
 
@@ -355,7 +356,7 @@ func runTaskDropDeletedContentsFull(ctx context.Context, runParams RunParameters
 func runTaskRewriteContentsQuick(ctx context.Context, runParams RunParameters, s *Schedule, safety SafetyParameters) error {
 	return ReportRun(ctx, runParams.rep, TaskRewriteContentsQuick, s, func() error {
 		return RewriteContents(ctx, runParams.rep, &RewriteContentsOptions{
-			ContentIDRange: content.AllPrefixedIDs,
+			ContentIDRange: index.AllPrefixedIDs,
 			PackPrefix:     content.PackBlobIDPrefixSpecial,
 			ShortPacks:     true,
 		}, safety)
@@ -365,7 +366,7 @@ func runTaskRewriteContentsQuick(ctx context.Context, runParams RunParameters, s
 func runTaskRewriteContentsFull(ctx context.Context, runParams RunParameters, s *Schedule, safety SafetyParameters) error {
 	return ReportRun(ctx, runParams.rep, TaskRewriteContentsFull, s, func() error {
 		return RewriteContents(ctx, runParams.rep, &RewriteContentsOptions{
-			ContentIDRange: content.AllIDs,
+			ContentIDRange: index.AllIDs,
 			ShortPacks:     true,
 		}, safety)
 	})

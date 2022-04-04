@@ -1,4 +1,4 @@
-package content
+package index
 
 import (
 	"crypto/rand"
@@ -15,16 +15,16 @@ import (
 
 const randomSuffixSize = 32 // number of random bytes to append at the end to make the index blob unique
 
-// packIndexBuilder prepares and writes content index.
-type packIndexBuilder map[ID]Info
+// Builder prepares and writes content index.
+type Builder map[ID]Info
 
-// clone returns a deep clone of packIndexBuilder.
-func (b packIndexBuilder) clone() packIndexBuilder {
+// Clone returns a deep Clone of the Builder.
+func (b Builder) Clone() Builder {
 	if b == nil {
 		return nil
 	}
 
-	r := packIndexBuilder{}
+	r := Builder{}
 
 	for k, v := range b {
 		r[k] = v
@@ -34,7 +34,7 @@ func (b packIndexBuilder) clone() packIndexBuilder {
 }
 
 // Add adds a new entry to the builder or conditionally replaces it if the timestamp is greater.
-func (b packIndexBuilder) Add(i Info) {
+func (b Builder) Add(i Info) {
 	cid := i.GetContentID()
 
 	if contentInfoGreaterThan(i, b[cid]) {
@@ -61,7 +61,7 @@ func init() {
 // sortedContents returns the list of []Info sorted lexicographically using bucket sort
 // sorting is optimized based on the format of content IDs (optional single-character
 // alphanumeric prefix (0-9a-z), followed by hexadecimal digits (0-9a-f).
-func (b packIndexBuilder) sortedContents() []Info {
+func (b Builder) sortedContents() []Info {
 	var buckets [36 * 16][]Info
 
 	// phase 1 - bucketize into 576 (36 *16) separate lists
@@ -113,7 +113,7 @@ func (b packIndexBuilder) sortedContents() []Info {
 }
 
 // Build writes the pack index to the provided output.
-func (b packIndexBuilder) Build(output io.Writer, version int) error {
+func (b Builder) Build(output io.Writer, version int) error {
 	if err := b.BuildStable(output, version); err != nil {
 		return err
 	}
@@ -132,12 +132,12 @@ func (b packIndexBuilder) Build(output io.Writer, version int) error {
 }
 
 // BuildStable writes the pack index to the provided output.
-func (b packIndexBuilder) BuildStable(output io.Writer, version int) error {
+func (b Builder) BuildStable(output io.Writer, version int) error {
 	switch version {
-	case v1IndexVersion:
+	case Version1:
 		return b.buildV1(output)
 
-	case v2IndexVersion:
+	case Version2:
 		return b.buildV2(output)
 
 	default:
@@ -145,19 +145,19 @@ func (b packIndexBuilder) BuildStable(output io.Writer, version int) error {
 	}
 }
 
-func (b packIndexBuilder) shard(maxShardSize int) []packIndexBuilder {
+func (b Builder) shard(maxShardSize int) []Builder {
 	numShards := (len(b) + maxShardSize - 1) / maxShardSize
 	if numShards <= 1 {
 		if len(b) == 0 {
-			return []packIndexBuilder{}
+			return []Builder{}
 		}
 
-		return []packIndexBuilder{b}
+		return []Builder{b}
 	}
 
-	result := make([]packIndexBuilder, numShards)
+	result := make([]Builder, numShards)
 	for i := range result {
-		result[i] = make(packIndexBuilder)
+		result[i] = make(Builder)
 	}
 
 	for k, v := range b {
@@ -169,7 +169,7 @@ func (b packIndexBuilder) shard(maxShardSize int) []packIndexBuilder {
 		result[shard][k] = v
 	}
 
-	var nonEmpty []packIndexBuilder
+	var nonEmpty []Builder
 
 	for _, r := range result {
 		if len(r) > 0 {
@@ -180,7 +180,9 @@ func (b packIndexBuilder) shard(maxShardSize int) []packIndexBuilder {
 	return nonEmpty
 }
 
-func (b packIndexBuilder) buildShards(indexVersion int, stable bool, shardSize int) ([]gather.Bytes, func(), error) {
+// BuildShards builds the set of index shards ensuring no more than the provided number of contents are in each index.
+// Returns shard bytes and function to clean up after the shards have been written.
+func (b Builder) BuildShards(indexVersion int, stable bool, shardSize int) ([]gather.Bytes, func(), error) {
 	if shardSize == 0 {
 		return nil, nil, errors.Errorf("invalid shard size")
 	}

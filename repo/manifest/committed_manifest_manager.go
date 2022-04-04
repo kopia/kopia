@@ -15,6 +15,7 @@ import (
 
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/content/index"
 )
 
 // committedManifestManager manages committed manifest entries stored in 'm' contents.
@@ -141,7 +142,7 @@ func (m *committedManifestManager) loadCommittedContentsLocked(ctx context.Conte
 		manifests = map[content.ID]manifest{}
 
 		err := m.b.IterateContents(ctx, content.IterateOptions{
-			Range:    content.PrefixRange(ContentPrefix),
+			Range:    index.PrefixRange(ContentPrefix),
 			Parallel: manifestLoadParallelism,
 		}, func(ci content.Info) error {
 			man, err := loadManifestContent(ctx, m.b, ci.GetContentID())
