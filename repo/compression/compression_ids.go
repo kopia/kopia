@@ -9,10 +9,10 @@ const (
 	headerGzipBestSpeed       HeaderID = 0x1001
 	headerGzipBestCompression HeaderID = 0x1002
 
-	headerZstdDefault           HeaderID = 0x1100
-	headerZstdFastest           HeaderID = 0x1101
-	headerZstdBetterCompression HeaderID = 0x1102
-	headerZstdBestCompression   HeaderID = 0x1103
+	HeaderZstdDefault           HeaderID = 0x1100
+	HeaderZstdFastest           HeaderID = 0x1101
+	HeaderZstdBetterCompression HeaderID = 0x1102
+	HeaderZstdBestCompression   HeaderID = 0x1103
 
 	headerS2Default   HeaderID = 0x1200
 	headerS2Better    HeaderID = 0x1201

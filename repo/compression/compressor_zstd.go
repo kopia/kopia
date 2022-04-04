@@ -11,10 +11,10 @@ import (
 )
 
 func init() {
-	RegisterCompressor("zstd", newZstdCompressor(headerZstdDefault, zstd.SpeedDefault))
-	RegisterCompressor("zstd-fastest", newZstdCompressor(headerZstdFastest, zstd.SpeedFastest))
-	RegisterCompressor("zstd-better-compression", newZstdCompressor(headerZstdBetterCompression, zstd.SpeedBetterCompression))
-	RegisterCompressor("zstd-best-compression", newZstdCompressor(headerZstdBestCompression, zstd.SpeedBestCompression))
+	RegisterCompressor("zstd", newZstdCompressor(HeaderZstdDefault, zstd.SpeedDefault))
+	RegisterCompressor("zstd-fastest", newZstdCompressor(HeaderZstdFastest, zstd.SpeedFastest))
+	RegisterCompressor("zstd-better-compression", newZstdCompressor(HeaderZstdBetterCompression, zstd.SpeedBetterCompression))
+	RegisterCompressor("zstd-best-compression", newZstdCompressor(HeaderZstdBestCompression, zstd.SpeedBestCompression))
 }
 
 func newZstdCompressor(id HeaderID, level zstd.EncoderLevel) Compressor {
