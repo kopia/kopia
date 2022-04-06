@@ -11,6 +11,7 @@ import (
 	"github.com/kopia/kopia/internal/epoch"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/content/index"
 	"github.com/kopia/kopia/repo/logging"
 )
 
@@ -61,7 +62,7 @@ func (m *indexBlobManagerV1) compact(ctx context.Context, opt CompactOptions) er
 }
 
 func (m *indexBlobManagerV1) compactEpoch(ctx context.Context, blobIDs []blob.ID, outputPrefix blob.ID) error {
-	tmpbld := make(packIndexBuilder)
+	tmpbld := make(index.Builder)
 
 	for _, indexBlob := range blobIDs {
 		if err := addIndexBlobsToBuilder(ctx, m.enc, tmpbld, indexBlob); err != nil {
@@ -69,7 +70,7 @@ func (m *indexBlobManagerV1) compactEpoch(ctx context.Context, blobIDs []blob.ID
 		}
 	}
 
-	dataShards, cleanupShards, err := tmpbld.buildShards(m.indexVersion, true, m.indexShardSize)
+	dataShards, cleanupShards, err := tmpbld.BuildShards(m.indexVersion, true, m.indexShardSize)
 	if err != nil {
 		return errors.Wrap(err, "unable to build index dataShards")
 	}

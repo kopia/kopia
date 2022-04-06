@@ -4,6 +4,7 @@ import (
 	"github.com/alecthomas/kingpin"
 
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/content/index"
 )
 
 type contentRangeFlags struct {
@@ -20,12 +21,12 @@ func (c *contentRangeFlags) setup(cmd *kingpin.CmdClause) {
 
 func (c *contentRangeFlags) contentIDRange() content.IDRange {
 	if c.contentIDPrefixed {
-		return content.AllPrefixedIDs
+		return index.AllPrefixedIDs
 	}
 
 	if c.contentIDNonPrefixed {
-		return content.AllNonPrefixedIDs
+		return index.AllNonPrefixedIDs
 	}
 
-	return content.PrefixRange(content.ID(c.contentIDPrefix))
+	return index.PrefixRange(content.ID(c.contentIDPrefix))
 }

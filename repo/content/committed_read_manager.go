@@ -21,6 +21,7 @@ import (
 	"github.com/kopia/kopia/repo/blob/filesystem"
 	"github.com/kopia/kopia/repo/blob/sharded"
 	"github.com/kopia/kopia/repo/compression"
+	"github.com/kopia/kopia/repo/content/index"
 	"github.com/kopia/kopia/repo/hashing"
 	"github.com/kopia/kopia/repo/logging"
 )
@@ -567,7 +568,7 @@ func NewSharedManager(ctx context.Context, st blob.Storage, f *FormattingOptions
 		actualIndexVersion = legacyIndexVersion
 	}
 
-	if actualIndexVersion < v1IndexVersion || actualIndexVersion > v2IndexVersion {
+	if actualIndexVersion < index.Version1 || actualIndexVersion > index.Version2 {
 		return nil, errors.Errorf("index version %v is not supported", actualIndexVersion)
 	}
 

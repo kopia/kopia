@@ -18,6 +18,7 @@ import (
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/compression"
+	"github.com/kopia/kopia/repo/content/index"
 	"github.com/kopia/kopia/repo/hashing"
 	"github.com/kopia/kopia/repo/logging"
 )
@@ -37,7 +38,7 @@ const (
 
 	DefaultIndexVersion = 2
 
-	legacyIndexVersion = v1IndexVersion
+	legacyIndexVersion = index.Version1
 )
 
 // PackBlobIDPrefixes contains all possible prefixes for pack blobs.
@@ -103,7 +104,7 @@ type WriteManager struct {
 	// +checklocks:mu
 	failedPacks []*pendingPackInfo // list of packs that failed to write, will be retried
 	// +checklocks:mu
-	packIndexBuilder packIndexBuilder // contents that are in index currently being built (all packs saved but not committed)
+	packIndexBuilder index.Builder // contents that are in index currently being built (all packs saved but not committed)
 
 	// +checklocks:mu
 	disableIndexFlushCount int
@@ -201,6 +202,19 @@ func (bm *WriteManager) deletePreexistingContent(ctx context.Context, ci Info) e
 	pp.currentPackItems[ci.GetContentID()] = &deletedInfo{ci, bm.timeNow().Unix()}
 
 	return nil
+}
+
+type deletedInfo struct {
+	Info
+	deletedTime int64
+}
+
+func (d *deletedInfo) GetDeleted() bool {
+	return true
+}
+
+func (d *deletedInfo) GetTimestampSeconds() int64 {
+	return d.deletedTime
 }
 
 func (bm *WriteManager) maybeFlushBasedOnTimeUnlocked(ctx context.Context) error {
@@ -424,7 +438,7 @@ func (bm *WriteManager) flushPackIndexesLocked(ctx context.Context) error {
 	}
 
 	if len(bm.packIndexBuilder) > 0 {
-		dataShards, closeShards, err := bm.packIndexBuilder.buildShards(bm.indexVersion, true, bm.indexShardSize)
+		dataShards, closeShards, err := bm.packIndexBuilder.BuildShards(bm.indexVersion, true, bm.indexShardSize)
 		if err != nil {
 			return errors.Wrap(err, "unable to build pack index")
 		}
@@ -457,7 +471,7 @@ func (bm *WriteManager) flushPackIndexesLocked(ctx context.Context) error {
 			}
 		}
 
-		bm.packIndexBuilder = make(packIndexBuilder)
+		bm.packIndexBuilder = make(index.Builder)
 	}
 
 	bm.flushPackIndexesAfter = bm.timeNow().Add(flushPackIndexTimeout)
@@ -513,7 +527,7 @@ func (bm *WriteManager) writePackAndAddToIndexLocked(ctx context.Context, pp *pe
 	return errors.Wrap(err, "error writing pack")
 }
 
-func (bm *WriteManager) prepareAndWritePackInternal(ctx context.Context, pp *pendingPackInfo) (packIndexBuilder, error) {
+func (bm *WriteManager) prepareAndWritePackInternal(ctx context.Context, pp *pendingPackInfo) (index.Builder, error) {
 	packFileIndex, err := bm.preparePackDataContent(pp)
 	if err != nil {
 		return nil, errors.Wrap(err, "error preparing data content")
@@ -714,7 +728,7 @@ func (bm *WriteManager) getOrCreatePendingPackInfoLocked(ctx context.Context, pr
 
 // SupportsContentCompression returns true if content manager supports content-compression.
 func (bm *WriteManager) SupportsContentCompression() bool {
-	return bm.format.IndexVersion >= v2IndexVersion
+	return bm.format.IndexVersion >= index.Version2
 }
 
 // WriteContent saves a given content of data to a pack group with a provided name and returns a contentID
@@ -910,7 +924,7 @@ func NewWriteManager(ctx context.Context, sm *SharedManager, options SessionOpti
 
 		flushPackIndexesAfter: sm.timeNow().Add(flushPackIndexTimeout),
 		pendingPacks:          map[blob.ID]*pendingPackInfo{},
-		packIndexBuilder:      make(packIndexBuilder),
+		packIndexBuilder:      make(index.Builder),
 		sessionUser:           options.SessionUser,
 		sessionHost:           options.SessionHost,
 		onUpload:              options.OnUpload,

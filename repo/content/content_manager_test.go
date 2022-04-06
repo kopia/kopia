@@ -26,12 +26,14 @@ import (
 	"github.com/kopia/kopia/internal/faketime"
 	"github.com/kopia/kopia/internal/fault"
 	"github.com/kopia/kopia/internal/gather"
+	"github.com/kopia/kopia/internal/indextest"
 	"github.com/kopia/kopia/internal/ownwrites"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/logging"
 	"github.com/kopia/kopia/repo/compression"
+	"github.com/kopia/kopia/repo/content/index"
 )
 
 const (
@@ -64,7 +66,7 @@ func TestFormatV2(t *testing.T) {
 		mutableParameters: MutableParameters{
 			Version:         2,
 			MaxPackSize:     maxPackSize,
-			IndexVersion:    v2IndexVersion,
+			IndexVersion:    index.Version2,
 			EpochParameters: epoch.DefaultParameters(),
 		},
 	})
@@ -712,7 +714,7 @@ func (s *contentManagerSuite) TestUndeleteContentSimple(t *testing.T) {
 			t.Error("0 offset for undeleted content:", tc.cid)
 		}
 
-		if diff := infoDiff(want, got, "GetTimestampSeconds", "GetPackBlobID", "GetPackOffset", "Timestamp"); len(diff) > 0 {
+		if diff := indextest.InfoDiff(want, got, "GetTimestampSeconds", "GetPackBlobID", "GetPackOffset", "Timestamp"); len(diff) > 0 {
 			t.Fatalf("diff: %v", diff)
 		}
 	}
@@ -761,7 +763,7 @@ func (s *contentManagerSuite) TestUndeleteContentSimple(t *testing.T) {
 		}
 
 		// ignore different timestamps, pack id and pack offset
-		if diff := infoDiff(tc.want, got, "GetPackBlobID", "GetTimestampSeconds", "Timestamp"); len(diff) > 0 {
+		if diff := indextest.InfoDiff(tc.want, got, "GetPackBlobID", "GetTimestampSeconds", "Timestamp"); len(diff) > 0 {
 			t.Errorf("content info does not match. diff: %v", diff)
 		}
 	}
@@ -944,7 +946,7 @@ func deleteContentAfterUndeleteAndCheck(ctx context.Context, t *testing.T, bm *W
 		t.Fatalf("Expected content %q to be deleted, got: %#v", id, got)
 	}
 
-	if diff := infoDiff(want, got, "GetTimestampSeconds"); len(diff) != 0 {
+	if diff := indextest.InfoDiff(want, got, "GetTimestampSeconds"); len(diff) != 0 {
 		t.Fatalf("Content %q info does not match\ndiff: %v", id, diff)
 	}
 
@@ -959,7 +961,7 @@ func deleteContentAfterUndeleteAndCheck(ctx context.Context, t *testing.T, bm *W
 	}
 
 	// ignore timestamp
-	if diff := infoDiff(want, got, "GetTimestampSeconds", "Timestamp"); len(diff) != 0 {
+	if diff := indextest.InfoDiff(want, got, "GetTimestampSeconds", "Timestamp"); len(diff) != 0 {
 		t.Fatalf("Content info does not match\ndiff: %v", diff)
 	}
 }
@@ -1577,14 +1579,14 @@ func (s *contentManagerSuite) TestIterateContents(t *testing.T) {
 		{
 			desc: "prefix match",
 			options: IterateOptions{
-				Range: PrefixRange(contentID1),
+				Range: index.PrefixRange(contentID1),
 			},
 			want: map[ID]bool{contentID1: true},
 		},
 		{
 			desc: "prefix, include deleted",
 			options: IterateOptions{
-				Range:          PrefixRange(contentID2),
+				Range:          index.PrefixRange(contentID2),
 				IncludeDeleted: true,
 			},
 			want: map[ID]bool{
@@ -1989,7 +1991,7 @@ func (s *contentManagerSuite) TestCompression_Disabled(t *testing.T) {
 	data := blobtesting.DataMap{}
 	st := blobtesting.NewMapStorage(data, nil, nil)
 	bm := s.newTestContentManagerWithTweaks(t, st, &contentManagerTestTweaks{
-		indexVersion: v1IndexVersion,
+		indexVersion: index.Version1,
 	})
 
 	require.False(t, bm.SupportsContentCompression())
@@ -2005,7 +2007,7 @@ func (s *contentManagerSuite) TestCompression_CompressibleData(t *testing.T) {
 	data := blobtesting.DataMap{}
 	st := blobtesting.NewMapStorage(data, nil, nil)
 	bm := s.newTestContentManagerWithTweaks(t, st, &contentManagerTestTweaks{
-		indexVersion: v2IndexVersion,
+		indexVersion: index.Version2,
 	})
 
 	require.True(t, bm.SupportsContentCompression())
@@ -2031,7 +2033,7 @@ func (s *contentManagerSuite) TestCompression_CompressibleData(t *testing.T) {
 	verifyContent(ctx, t, bm, cid, compressibleData)
 
 	bm2 := s.newTestContentManagerWithTweaks(t, st, &contentManagerTestTweaks{
-		indexVersion: v2IndexVersion,
+		indexVersion: index.Version2,
 	})
 	verifyContent(ctx, t, bm2, cid, compressibleData)
 }
@@ -2040,7 +2042,7 @@ func (s *contentManagerSuite) TestCompression_NonCompressibleData(t *testing.T) 
 	data := blobtesting.DataMap{}
 	st := blobtesting.NewMapStorage(data, nil, nil)
 	bm := s.newTestContentManagerWithTweaks(t, st, &contentManagerTestTweaks{
-		indexVersion: v2IndexVersion,
+		indexVersion: index.Version2,
 	})
 
 	require.True(t, bm.SupportsContentCompression())
@@ -2068,7 +2070,7 @@ func (s *contentManagerSuite) TestCompression_NonCompressibleData(t *testing.T) 
 	verifyContent(ctx, t, bm, cid, nonCompressibleData)
 
 	bm2 := s.newTestContentManagerWithTweaks(t, st, &contentManagerTestTweaks{
-		indexVersion: v2IndexVersion,
+		indexVersion: index.Version2,
 	})
 	verifyContent(ctx, t, bm2, cid, nonCompressibleData)
 }
@@ -2088,12 +2090,12 @@ func (s *contentManagerSuite) TestContentCachingByFormat(t *testing.T) {
 	compressibleData := gather.FromSlice(bytes.Repeat([]byte{1, 2, 3, 4}, 10000))
 
 	bm1 := s.newTestContentManagerWithTweaks(t, st, &contentManagerTestTweaks{
-		indexVersion:   v2IndexVersion,
+		indexVersion:   index.Version2,
 		CachingOptions: co,
 	})
 
 	bm2 := s.newTestContentManagerWithTweaks(t, st, &contentManagerTestTweaks{
-		indexVersion:   v2IndexVersion,
+		indexVersion:   index.Version2,
 		CachingOptions: co,
 	})
 
@@ -2518,4 +2520,13 @@ func verifyBlobCount(t *testing.T, data blobtesting.DataMap, want map[blob.ID]in
 	if !cmp.Equal(got, want) {
 		t.Fatalf("unexpected blob count %v, want %v", got, want)
 	}
+}
+
+type withDeleted struct {
+	index.Info
+	deleted bool
+}
+
+func (o withDeleted) GetDeleted() bool {
+	return o.deleted
 }

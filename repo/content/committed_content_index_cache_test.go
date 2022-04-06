@@ -12,6 +12,7 @@ import (
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/content/index"
 	"github.com/kopia/kopia/repo/logging"
 )
 
@@ -27,7 +28,7 @@ func TestCommittedContentIndexCache_Memory(t *testing.T) {
 	t.Parallel()
 
 	testCache(t, &memoryCommittedContentIndexCache{
-		contents:             map[blob.ID]packIndex{},
+		contents:             map[blob.ID]index.Index{},
 		v1PerContentOverhead: 3,
 	}, nil)
 }
@@ -47,7 +48,7 @@ func testCache(t *testing.T, cache committedContentIndexCache, fakeTime *faketim
 		t.Fatal("openIndex unexpectedly succeeded")
 	}
 
-	require.NoError(t, cache.addContentToCache(ctx, "ndx1", mustBuildPackIndex(t, packIndexBuilder{
+	require.NoError(t, cache.addContentToCache(ctx, "ndx1", mustBuildIndex(t, index.Builder{
 		"c1": &InfoStruct{PackBlobID: "p1234", ContentID: "c1"},
 		"c2": &InfoStruct{PackBlobID: "p1234", ContentID: "c2"},
 	})))
@@ -59,12 +60,12 @@ func testCache(t *testing.T, cache committedContentIndexCache, fakeTime *faketim
 		t.Fatal("hasIndexBlobID invalid response, expected true")
 	}
 
-	require.NoError(t, cache.addContentToCache(ctx, "ndx2", mustBuildPackIndex(t, packIndexBuilder{
+	require.NoError(t, cache.addContentToCache(ctx, "ndx2", mustBuildIndex(t, index.Builder{
 		"c3": &InfoStruct{PackBlobID: "p2345", ContentID: "c3"},
 		"c4": &InfoStruct{PackBlobID: "p2345", ContentID: "c4"},
 	})))
 
-	require.NoError(t, cache.addContentToCache(ctx, "ndx2", mustBuildPackIndex(t, packIndexBuilder{
+	require.NoError(t, cache.addContentToCache(ctx, "ndx2", mustBuildIndex(t, index.Builder{
 		"c3": &InfoStruct{PackBlobID: "p2345", ContentID: "c3"},
 		"c4": &InfoStruct{PackBlobID: "p2345", ContentID: "c4"},
 	})))
@@ -114,11 +115,11 @@ func testCache(t *testing.T, cache committedContentIndexCache, fakeTime *faketim
 	}
 }
 
-func mustBuildPackIndex(t *testing.T, b packIndexBuilder) gather.Bytes {
+func mustBuildIndex(t *testing.T, b index.Builder) gather.Bytes {
 	t.Helper()
 
 	var buf bytes.Buffer
-	if err := b.Build(&buf, v2IndexVersion); err != nil {
+	if err := b.Build(&buf, index.Version2); err != nil {
 		t.Fatal(err)
 	}
 

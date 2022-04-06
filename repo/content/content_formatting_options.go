@@ -8,6 +8,7 @@ import (
 	"github.com/kopia/kopia/internal/epoch"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/content/index"
 )
 
 const (
@@ -44,14 +45,14 @@ func (f *FormattingOptions) ResolveFormatVersion() error {
 	switch f.Version {
 	case FormatVersion2:
 		f.EnablePasswordChange = true
-		f.IndexVersion = v2IndexVersion
+		f.IndexVersion = index.Version2
 		f.EpochParameters = epoch.DefaultParameters()
 
 		return nil
 
 	case FormatVersion1:
 		f.EnablePasswordChange = false
-		f.IndexVersion = v1IndexVersion
+		f.IndexVersion = index.Version1
 		f.EpochParameters = epoch.Parameters{}
 
 		return nil
@@ -80,7 +81,7 @@ func (v *MutableParameters) Validate() error {
 		return errors.Errorf("max pack size too big, must be <= %v", units.BytesStringBase2(maxValidPackSize))
 	}
 
-	if v.IndexVersion < 0 || v.IndexVersion > v2IndexVersion {
+	if v.IndexVersion < 0 || v.IndexVersion > index.Version2 {
 		return errors.Errorf("invalid index version, supported versions are 1 & 2")
 	}
 

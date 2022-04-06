@@ -1,4 +1,4 @@
-package content
+package index
 
 func decodeBigEndianUint48(d string) int64 {
 	_ = d[5] // early bounds check

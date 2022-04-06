@@ -9,6 +9,7 @@ import (
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/content/index"
 )
 
 const verySmallContentFraction = 20 // blobs less than 1/verySmallContentFraction of maxPackSize are considered 'very small'
@@ -77,15 +78,15 @@ func ParseIndexBlob(ctx context.Context, blobID blob.ID, encrypted gather.Bytes,
 		return nil, errors.Wrap(err, "unable to decrypt index blob")
 	}
 
-	index, err := openPackIndex(data.Bytes(), uint32(crypter.Encryptor.Overhead()))
+	ndx, err := index.Open(data.Bytes(), uint32(crypter.Encryptor.Overhead()))
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to open index blob")
 	}
 
 	var results []Info
 
-	err = index.Iterate(AllIDs, func(i Info) error {
-		results = append(results, ToInfoStruct(i))
+	err = ndx.Iterate(index.AllIDs, func(i Info) error {
+		results = append(results, index.ToInfoStruct(i))
 		return nil
 	})
 

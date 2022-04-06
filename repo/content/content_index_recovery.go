@@ -9,6 +9,7 @@ import (
 
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/content/index"
 )
 
 // RecoverIndexFromPackBlob attempts to recover index blob entries from a given pack file.
@@ -21,7 +22,7 @@ func (bm *WriteManager) RecoverIndexFromPackBlob(ctx context.Context, packFile b
 		return nil, err
 	}
 
-	ndx, err := openPackIndex(localIndexBytes.Bytes(), uint32(bm.crypter.Encryptor.Overhead()))
+	ndx, err := index.Open(localIndexBytes.Bytes(), uint32(bm.crypter.Encryptor.Overhead()))
 	if err != nil {
 		return nil, errors.Errorf("unable to open index in file %v", packFile)
 	}
@@ -29,11 +30,11 @@ func (bm *WriteManager) RecoverIndexFromPackBlob(ctx context.Context, packFile b
 
 	var recovered []Info
 
-	err = ndx.Iterate(AllIDs, func(i Info) error {
+	err = ndx.Iterate(index.AllIDs, func(i Info) error {
 		// 'i' is ephemeral and will depend on temporary buffers which
 		// won't be available when this function returns, we need to
 		// convert it to durable struct.
-		is := ToInfoStruct(i)
+		is := index.ToInfoStruct(i)
 
 		recovered = append(recovered, is)
 
@@ -170,7 +171,7 @@ func decodePostamble(payload []byte) *packContentPostamble {
 	}
 }
 
-func (sm *SharedManager) buildLocalIndex(pending packIndexBuilder, output *gather.WriteBuffer) error {
+func (sm *SharedManager) buildLocalIndex(pending index.Builder, output *gather.WriteBuffer) error {
 	if err := pending.Build(output, sm.indexVersion); err != nil {
 		return errors.Wrap(err, "unable to build local index")
 	}
@@ -179,7 +180,7 @@ func (sm *SharedManager) buildLocalIndex(pending packIndexBuilder, output *gathe
 }
 
 // appendPackFileIndexRecoveryData appends data designed to help with recovery of pack index in case it gets damaged or lost.
-func (sm *SharedManager) appendPackFileIndexRecoveryData(pending packIndexBuilder, output *gather.WriteBuffer) error {
+func (sm *SharedManager) appendPackFileIndexRecoveryData(pending index.Builder, output *gather.WriteBuffer) error {
 	// build, encrypt and append local index
 	localIndexOffset := output.Length()
 

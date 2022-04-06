@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/content/index"
 )
 
 // IterateOptions contains the options used for iterating over content.
@@ -82,11 +83,11 @@ func maybeParallelExecutor(parallel int, originalCallback IterateCallback) (Iter
 	return callback, cleanup
 }
 
-func (bm *WriteManager) snapshotUncommittedItems() packIndexBuilder {
+func (bm *WriteManager) snapshotUncommittedItems() index.Builder {
 	bm.lock()
 	defer bm.unlock()
 
-	overlay := bm.packIndexBuilder.clone()
+	overlay := bm.packIndexBuilder.Clone()
 
 	for _, pp := range bm.pendingPacks {
 		for _, pi := range pp.currentPackItems {
@@ -108,7 +109,7 @@ func (bm *WriteManager) snapshotUncommittedItems() packIndexBuilder {
 func (bm *WriteManager) IterateContents(ctx context.Context, opts IterateOptions, callback IterateCallback) error {
 	if opts.Range == (IDRange{}) {
 		// range not specified - default to AllIDs
-		opts.Range = AllIDs
+		opts.Range = index.AllIDs
 	}
 
 	callback, cleanup := maybeParallelExecutor(opts.Parallel, callback)
@@ -134,7 +135,7 @@ func (bm *WriteManager) IterateContents(ctx context.Context, opts IterateOptions
 		return callback(i)
 	}
 
-	if len(uncommitted) == 0 && opts.IncludeDeleted && opts.Range == AllIDs && opts.Parallel <= 1 {
+	if len(uncommitted) == 0 && opts.IncludeDeleted && opts.Range == index.AllIDs && opts.Parallel <= 1 {
 		// fast path, invoke callback directly
 		invokeCallback = callback
 	}

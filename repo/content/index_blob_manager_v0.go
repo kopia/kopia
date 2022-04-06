@@ -11,6 +11,7 @@ import (
 
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/content/index"
 	"github.com/kopia/kopia/repo/logging"
 )
 
@@ -450,7 +451,7 @@ func (m *indexBlobManagerV0) compactIndexBlobs(ctx context.Context, indexBlobs [
 		return nil
 	}
 
-	bld := make(packIndexBuilder)
+	bld := make(index.Builder)
 
 	var inputs, outputs []blob.Metadata
 
@@ -468,7 +469,7 @@ func (m *indexBlobManagerV0) compactIndexBlobs(ctx context.Context, indexBlobs [
 	// we must do it after all input blobs have been merged, otherwise we may resurrect contents.
 	m.dropContentsFromBuilder(bld, opt)
 
-	dataShards, cleanupShards, err := bld.buildShards(m.indexVersion, false, m.indexShardSize)
+	dataShards, cleanupShards, err := bld.BuildShards(m.indexVersion, false, m.indexShardSize)
 	if err != nil {
 		return errors.Wrap(err, "unable to build an index")
 	}
@@ -489,7 +490,7 @@ func (m *indexBlobManagerV0) compactIndexBlobs(ctx context.Context, indexBlobs [
 	return nil
 }
 
-func (m *indexBlobManagerV0) dropContentsFromBuilder(bld packIndexBuilder, opt CompactOptions) {
+func (m *indexBlobManagerV0) dropContentsFromBuilder(bld index.Builder, opt CompactOptions) {
 	for _, dc := range opt.DropContents {
 		if _, ok := bld[dc]; ok {
 			m.log.Debugf("manual-drop-from-index %v", dc)
@@ -511,7 +512,7 @@ func (m *indexBlobManagerV0) dropContentsFromBuilder(bld packIndexBuilder, opt C
 	}
 }
 
-func addIndexBlobsToBuilder(ctx context.Context, enc *encryptedBlobMgr, bld packIndexBuilder, indexBlobID blob.ID) error {
+func addIndexBlobsToBuilder(ctx context.Context, enc *encryptedBlobMgr, bld index.Builder, indexBlobID blob.ID) error {
 	var data gather.WriteBuffer
 	defer data.Close()
 
@@ -520,12 +521,12 @@ func addIndexBlobsToBuilder(ctx context.Context, enc *encryptedBlobMgr, bld pack
 		return errors.Wrapf(err, "error getting index %q", indexBlobID)
 	}
 
-	index, err := openPackIndex(bytes.NewReader(data.ToByteSlice()), uint32(enc.crypter.Encryptor.Overhead()))
+	ndx, err := index.Open(bytes.NewReader(data.ToByteSlice()), uint32(enc.crypter.Encryptor.Overhead()))
 	if err != nil {
 		return errors.Wrapf(err, "unable to open index blob %q", indexBlobID)
 	}
 
-	_ = index.Iterate(AllIDs, func(i Info) error {
+	_ = ndx.Iterate(index.AllIDs, func(i Info) error {
 		bld.Add(i)
 		return nil
 	})

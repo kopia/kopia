@@ -1,4 +1,4 @@
-package content
+package index
 
 import (
 	"bytes"
@@ -95,11 +95,11 @@ func randomUnixTime() int64 {
 }
 
 func TestPackIndex_V1(t *testing.T) {
-	testPackIndex(t, v1IndexVersion)
+	testPackIndex(t, Version1)
 }
 
 func TestPackIndex_V2(t *testing.T) {
-	testPackIndex(t, v2IndexVersion)
+	testPackIndex(t, Version2)
 }
 
 // nolint:thelper,gocyclo,cyclop
@@ -142,9 +142,9 @@ func testPackIndex(t *testing.T, version int) {
 	}
 
 	infoMap := map[ID]Info{}
-	b1 := make(packIndexBuilder)
-	b2 := make(packIndexBuilder)
-	b3 := make(packIndexBuilder)
+	b1 := make(Builder)
+	b2 := make(Builder)
+	b3 := make(Builder)
 
 	for _, info := range infos {
 		infoMap[info.GetContentID()] = info
@@ -183,7 +183,7 @@ func testPackIndex(t *testing.T, version int) {
 		fuzzTestIndexOpen(data1)
 	})
 
-	ndx, err := openPackIndex(bytes.NewReader(data1), fakeEncryptionOverhead)
+	ndx, err := Open(bytes.NewReader(data1), fakeEncryptionOverhead)
 	if err != nil {
 		t.Fatalf("can't open index: %v", err)
 	}
@@ -201,9 +201,7 @@ func testPackIndex(t *testing.T, version int) {
 			want = withOriginalLength{want, want.GetPackedLength() - fakeEncryptionOverhead}
 		}
 
-		if diff := infoDiff(want, info2); len(diff) != 0 {
-			t.Errorf("invalid value retrieved: diff: %v", diff)
-		}
+		require.Equal(t, ToInfoStruct(want), ToInfoStruct(info2))
 	}
 
 	cnt := 0
@@ -215,9 +213,7 @@ func testPackIndex(t *testing.T, version int) {
 			want = withOriginalLength{want, want.GetPackedLength() - fakeEncryptionOverhead}
 		}
 
-		if diff := infoDiff(want, info2); len(diff) != 0 {
-			t.Errorf("invalid value retrieved: %v", diff)
-		}
+		require.Equal(t, ToInfoStruct(want), ToInfoStruct(info2))
 		cnt++
 		return nil
 	}))
@@ -272,7 +268,7 @@ func TestPackIndexPerContentLimits(t *testing.T) {
 		cid := deterministicContentID("hello-world", 1)
 		tc.info.ContentID = cid
 
-		b := packIndexBuilder{
+		b := Builder{
 			cid: tc.info,
 		}
 
@@ -281,13 +277,13 @@ func TestPackIndexPerContentLimits(t *testing.T) {
 		if tc.errMsg == "" {
 			require.NoError(t, b.buildV2(&result))
 
-			pi, err := openPackIndex(bytes.NewReader(result.Bytes()), fakeEncryptionOverhead)
+			pi, err := Open(bytes.NewReader(result.Bytes()), fakeEncryptionOverhead)
 			require.NoError(t, err)
 
 			got, err := pi.GetInfo(cid)
 			require.NoError(t, err)
 
-			require.Empty(t, infoDiff(got, tc.info))
+			require.Equal(t, ToInfoStruct(got), ToInfoStruct(tc.info))
 		} else {
 			err := b.buildV2(&result)
 			require.Error(t, err)
@@ -297,7 +293,7 @@ func TestPackIndexPerContentLimits(t *testing.T) {
 }
 
 func TestSortedContents(t *testing.T) {
-	b := packIndexBuilder{}
+	b := Builder{}
 
 	for i := 0; i < 100; i++ {
 		v := deterministicContentID("", i)
@@ -320,7 +316,7 @@ func TestSortedContents(t *testing.T) {
 }
 
 func TestPackIndexV2TooManyUniqueFormats(t *testing.T) {
-	b := packIndexBuilder{}
+	b := Builder{}
 
 	for i := 0; i < v2MaxFormatCount; i++ {
 		v := deterministicContentID("", i)
@@ -352,7 +348,7 @@ func fuzzTestIndexOpen(originalData []byte) {
 	rnd := rand.New(rand.NewSource(12345))
 
 	fuzzTest(rnd, originalData, 50000, func(d []byte) {
-		ndx, err := openPackIndex(bytes.NewReader(d), 0)
+		ndx, err := Open(bytes.NewReader(d), 0)
 		if err != nil {
 			return
 		}
@@ -405,99 +401,8 @@ func fuzzTest(rnd *rand.Rand, originalData []byte, rounds int, callback func(d [
 	}
 }
 
-type withOriginalLength struct {
-	Info
-	originalLength uint32
-}
-
-func (o withOriginalLength) GetOriginalLength() uint32 {
-	return o.originalLength
-}
-
-type withDeleted struct {
-	Info
-	deleted bool
-}
-
-func (o withDeleted) GetDeleted() bool {
-	return o.deleted
-}
-
-// nolint:gocyclo
-func infoDiff(i1, i2 Info, ignore ...string) []string {
-	var diffs []string
-
-	if l, r := i1.GetContentID(), i2.GetContentID(); l != r {
-		diffs = append(diffs, fmt.Sprintf("GetContentID %v != %v", l, r))
-	}
-
-	if l, r := i1.GetPackBlobID(), i2.GetPackBlobID(); l != r {
-		diffs = append(diffs, fmt.Sprintf("GetPackBlobID %v != %v", l, r))
-	}
-
-	if l, r := i1.GetDeleted(), i2.GetDeleted(); l != r {
-		diffs = append(diffs, fmt.Sprintf("GetDeleted %v != %v", l, r))
-	}
-
-	if l, r := i1.GetFormatVersion(), i2.GetFormatVersion(); l != r {
-		diffs = append(diffs, fmt.Sprintf("GetFormatVersion %v != %v", l, r))
-	}
-
-	if l, r := i1.GetOriginalLength(), i2.GetOriginalLength(); l != r {
-		diffs = append(diffs, fmt.Sprintf("GetOriginalLength %v != %v", l, r))
-	}
-
-	if l, r := i1.GetPackOffset(), i2.GetPackOffset(); l != r {
-		diffs = append(diffs, fmt.Sprintf("GetPackOffset %v != %v", l, r))
-	}
-
-	if l, r := i1.GetPackedLength(), i2.GetPackedLength(); l != r {
-		diffs = append(diffs, fmt.Sprintf("GetPackedLength %v != %v", l, r))
-	}
-
-	if l, r := i1.GetTimestampSeconds(), i2.GetTimestampSeconds(); l != r {
-		diffs = append(diffs, fmt.Sprintf("GetTimestampSeconds %v != %v", l, r))
-	}
-
-	if l, r := i1.Timestamp(), i2.Timestamp(); !l.Equal(r) {
-		diffs = append(diffs, fmt.Sprintf("Timestamp %v != %v", l, r))
-	}
-
-	if l, r := i1.GetCompressionHeaderID(), i2.GetCompressionHeaderID(); l != r {
-		diffs = append(diffs, fmt.Sprintf("GetCompressionHeaderID %v != %v", l, r))
-	}
-
-	if l, r := i1.GetEncryptionKeyID(), i2.GetEncryptionKeyID(); l != r {
-		diffs = append(diffs, fmt.Sprintf("GetEncryptionKeyID %v != %v", l, r))
-	}
-
-	// dear future reader, if this fails because the number of methods has changed,
-	// you need to add additional verification above.
-	if cnt := reflect.TypeOf((*Info)(nil)).Elem().NumMethod(); cnt != 11 {
-		diffs = append(diffs, fmt.Sprintf("unexpected number of methods on content.Info: %v, must update the test", cnt))
-	}
-
-	var result []string
-
-	for _, v := range diffs {
-		ignored := false
-
-		for _, ign := range ignore {
-			if strings.HasPrefix(v, ign) {
-				ignored = true
-			}
-		}
-
-		if !ignored {
-			result = append(result, v)
-		}
-	}
-
-	return result
-}
-
 func TestShard(t *testing.T) {
-	b := packIndexBuilder{}
+	b := Builder{}
 
 	// generate 10000 IDs in random order
 	ids := make([]int, 10000)
@@ -532,7 +437,7 @@ func TestShard(t *testing.T) {
 		verifyAllShardedIDs(t, b.shard(2000), len(b), 5))
 }
 
-func verifyAllShardedIDs(t *testing.T, sharded []packIndexBuilder, numTotal, numShards int) []int {
+func verifyAllShardedIDs(t *testing.T, sharded []Builder, numTotal, numShards int) []int {
 	t.Helper()
 
 	require.Len(t, sharded, numShards)
@@ -559,4 +464,13 @@ func verifyAllShardedIDs(t *testing.T, sharded []packIndexBuilder, numTotal, num
 	require.Empty(t, m)
 
 	return lens
+}
+
+type withOriginalLength struct {
+	Info
+	originalLength uint32
+}
+
+func (o withOriginalLength) GetOriginalLength() uint32 {
+	return o.originalLength
 }

@@ -1,4 +1,4 @@
-package content
+package index
 
 import (
 	"container/heap"
@@ -7,10 +7,11 @@ import (
 	"go.uber.org/multierr"
 )
 
-// mergedIndex is an implementation of Index that transparently merges returns from underlying Indexes.
-type mergedIndex []packIndex
+// Merged is an implementation of Index that transparently merges returns from underlying Indexes.
+type Merged []Index
 
-func (m mergedIndex) ApproximateCount() int {
+// ApproximateCount implements Index interface.
+func (m Merged) ApproximateCount() int {
 	c := 0
 
 	for _, ndx := range m {
@@ -21,7 +22,7 @@ func (m mergedIndex) ApproximateCount() int {
 }
 
 // Close closes all underlying indexes.
-func (m mergedIndex) Close() error {
+func (m Merged) Close() error {
 	var err error
 
 	for _, ndx := range m {
@@ -58,7 +59,7 @@ func contentInfoGreaterThan(a, b Info) bool {
 }
 
 // GetInfo returns information about a single content. If a content is not found, returns (nil,nil).
-func (m mergedIndex) GetInfo(id ID) (Info, error) {
+func (m Merged) GetInfo(id ID) (Info, error) {
 	var best Info
 
 	for _, ndx := range m {
@@ -105,7 +106,7 @@ func (h *nextInfoHeap) Pop() interface{} {
 	return x
 }
 
-func iterateChan(r IDRange, ndx packIndex, done chan bool) <-chan Info {
+func iterateChan(r IDRange, ndx Index, done chan bool) <-chan Info {
 	ch := make(chan Info, 1)
 
 	go func() {
@@ -126,7 +127,7 @@ func iterateChan(r IDRange, ndx packIndex, done chan bool) <-chan Info {
 
 // Iterate invokes the provided callback for all unique content IDs in the underlying sources until either
 // all contents have been visited or until an error is returned by the callback.
-func (m mergedIndex) Iterate(r IDRange, cb func(i Info) error) error {
+func (m Merged) Iterate(r IDRange, cb func(i Info) error) error {
 	var minHeap nextInfoHeap
 
 	done := make(chan bool)
@@ -172,4 +173,4 @@ func (m mergedIndex) Iterate(r IDRange, cb func(i Info) error) error {
 	return nil
 }
 
-var _ packIndex = (*mergedIndex)(nil)
+var _ Index = (*Merged)(nil)

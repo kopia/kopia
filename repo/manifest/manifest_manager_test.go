@@ -16,6 +16,7 @@ import (
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/content/index"
 	"github.com/kopia/kopia/repo/encryption"
 	"github.com/kopia/kopia/repo/hashing"
 )
@@ -115,7 +116,7 @@ func TestManifest(t *testing.T) {
 
 	if err := mgr.b.IterateContents(
 		ctx,
-		content.IterateOptions{Range: content.PrefixRange(ContentPrefix)},
+		content.IterateOptions{Range: index.PrefixRange(ContentPrefix)},
 		func(ci content.Info) error {
 			foundContents++
 			return nil

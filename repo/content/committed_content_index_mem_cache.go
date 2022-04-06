@@ -9,13 +9,14 @@ import (
 
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/content/index"
 )
 
 type memoryCommittedContentIndexCache struct {
 	mu sync.Mutex
 
 	// +checklocks:mu
-	contents map[blob.ID]packIndex
+	contents map[blob.ID]index.Index
 
 	v1PerContentOverhead uint32 // +checklocksignore
 }
@@ -31,9 +32,9 @@ func (m *memoryCommittedContentIndexCache) addContentToCache(ctx context.Context
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	ndx, err := openPackIndex(bytes.NewReader(data.ToByteSlice()), m.v1PerContentOverhead)
+	ndx, err := index.Open(bytes.NewReader(data.ToByteSlice()), m.v1PerContentOverhead)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "error opening index blob %v", indexBlobID)
 	}
 
 	m.contents[indexBlobID] = ndx
@@ -41,7 +42,7 @@ func (m *memoryCommittedContentIndexCache) addContentToCache(ctx context.Context
 	return nil
 }
 
-func (m *memoryCommittedContentIndexCache) openIndex(ctx context.Context, indexBlobID blob.ID) (packIndex, error) {
+func (m *memoryCommittedContentIndexCache) openIndex(ctx context.Context, indexBlobID blob.ID) (index.Index, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -57,7 +58,7 @@ func (m *memoryCommittedContentIndexCache) expireUnused(ctx context.Context, use
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	n := map[blob.ID]packIndex{}
+	n := map[blob.ID]index.Index{}
 
 	for _, u := range used {
 		if v, ok := m.contents[u]; ok {

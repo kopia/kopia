@@ -13,6 +13,7 @@ import (
 	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/content/index"
 	"github.com/kopia/kopia/repo/logging"
 )
 
@@ -32,7 +33,7 @@ func (c *diskCommittedContentIndexCache) indexBlobPath(indexBlobID blob.ID) stri
 	return filepath.Join(c.dirname, string(indexBlobID)+simpleIndexSuffix)
 }
 
-func (c *diskCommittedContentIndexCache) openIndex(ctx context.Context, indexBlobID blob.ID) (packIndex, error) {
+func (c *diskCommittedContentIndexCache) openIndex(ctx context.Context, indexBlobID blob.ID) (index.Index, error) {
 	fullpath := c.indexBlobPath(indexBlobID)
 
 	f, err := c.mmapOpenWithRetry(fullpath)
@@ -40,7 +41,13 @@ func (c *diskCommittedContentIndexCache) openIndex(ctx context.Context, indexBlo
 		return nil, err
 	}
 
-	return openPackIndex(f, c.v1PerContentOverhead)
+	ndx, err := index.Open(f, c.v1PerContentOverhead)
+	if err != nil {
+		f.Close() // nolint:errcheck
+		return nil, errors.Wrapf(err, "error openind index from %v", indexBlobID)
+	}
+
+	return ndx, nil
 }
 
 // mmapOpenWithRetry attempts mmap.Open() with exponential back-off to work around rare issue specific to Windows where
