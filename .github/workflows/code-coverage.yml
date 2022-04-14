@@ -23,7 +23,7 @@ jobs:
     - name: Run Tests
       run: make test-with-coverage
     - name: Upload Coverage
-      uses: codecov/codecov-action@v2
+      uses: codecov/codecov-action@v3
       with:
         files: coverage.txt
     - name: Upload Logs
