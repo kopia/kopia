@@ -147,6 +147,14 @@ func (m *committedManifestManager) loadCommittedContentsLocked(ctx context.Conte
 		}, func(ci content.Info) error {
 			man, err := loadManifestContent(ctx, m.b, ci.GetContentID())
 			if err != nil {
+				// this can be used to allow corrupterd repositories to still open and see the
+				// (incomplete) list of manifests.
+				if os.Getenv("KOPIA_IGNORE_MALFORMED_MANIFEST_CONTENTS") != "" {
+					log(ctx).Warnf("ignoring malformed manifest content %v: %v", ci.GetContentID(), err)
+
+					return nil
+				}
+
 				return err
 			}
 			mu.Lock()
