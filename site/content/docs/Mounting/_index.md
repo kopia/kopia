@@ -88,7 +88,7 @@ PS> net use Z: /delete
 Z: was deleted successfully.
 ```
 
-If you encounter an error with status "2", one possible cause is the "WebClient" service being unable to start. It could be disabled, or its dependencies have problem to start, etc. You can check the service status in the "Services" administrative tool.
+If you encounter an error with status "2", one possible cause is the "WebClient" service being unable to start. It could be disabled, or its dependencies have problem to start, etc. You can check the service status in the "Services" administrative tool. Windows 2012 not install WebClient Service by default.
 
 ```shell
 PS> kopia mount all Z:  # unable to mount
