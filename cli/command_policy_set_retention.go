@@ -15,6 +15,7 @@ type policyRetentionFlags struct {
 	policySetKeepWeekly  string
 	policySetKeepMonthly string
 	policySetKeepAnnual  string
+	policySetKeepWithin  string
 }
 
 func (c *policyRetentionFlags) setup(cmd *kingpin.CmdClause) {
@@ -24,6 +25,7 @@ func (c *policyRetentionFlags) setup(cmd *kingpin.CmdClause) {
 	cmd.Flag("keep-weekly", "Number of most-recent weekly backups to keep per source (or 'inherit')").PlaceHolder("N").StringVar(&c.policySetKeepWeekly)
 	cmd.Flag("keep-monthly", "Number of most-recent monthly backups to keep per source (or 'inherit')").PlaceHolder("N").StringVar(&c.policySetKeepMonthly)
 	cmd.Flag("keep-annual", "Number of most-recent annual backups to keep per source (or 'inherit')").PlaceHolder("N").StringVar(&c.policySetKeepAnnual)
+	cmd.Flag("keep-within", "Keep Backup upto time").PlaceHolder("N").StringVar(&c.policySetKeepWithin)
 }
 
 func (c *policyRetentionFlags) setRetentionPolicyFromFlags(ctx context.Context, rp *policy.RetentionPolicy, changeCount *int) error {
@@ -38,6 +40,7 @@ func (c *policyRetentionFlags) setRetentionPolicyFromFlags(ctx context.Context, 
 		{"number of daily backups to keep", &rp.KeepDaily, c.policySetKeepDaily},
 		{"number of hourly backups to keep", &rp.KeepHourly, c.policySetKeepHourly},
 		{"number of latest backups to keep", &rp.KeepLatest, c.policySetKeepLatest},
+		{"Keep backup upto", &rp.KeepWithin, c.policySetKeepWithin},
 	}
 
 	for _, c := range cases {

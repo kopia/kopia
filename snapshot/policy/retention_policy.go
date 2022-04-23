@@ -27,6 +27,7 @@ type RetentionPolicy struct {
 	KeepWeekly  *OptionalInt `json:"keepWeekly,omitempty"`
 	KeepMonthly *OptionalInt `json:"keepMonthly,omitempty"`
 	KeepAnnual  *OptionalInt `json:"keepAnnual,omitempty"`
+	KeepWithin  *OptionalInt `json:"keepWithin,omitempty"`
 }
 
 // RetentionPolicyDefinition specifies which policy definition provided the value of a particular field.
@@ -37,6 +38,7 @@ type RetentionPolicyDefinition struct {
 	KeepWeekly  snapshot.SourceInfo `json:"keepWeekly,omitempty"`
 	KeepMonthly snapshot.SourceInfo `json:"keepMonthly,omitempty"`
 	KeepAnnual  snapshot.SourceInfo `json:"keepAnnual,omitempty"`
+	KeepWithin  snapshot.SourceInfo `json:"keepWithin,Omitempty"`
 }
 
 // ComputeRetentionReasons computes the reasons why each snapshot is retained, based on
@@ -78,6 +80,7 @@ func (r *RetentionPolicy) ComputeRetentionReasons(manifests []*snapshot.Manifest
 		daily:   cutoffTime(r.KeepDaily, daysAgo),
 		hourly:  cutoffTime(r.KeepHourly, hoursAgo),
 		weekly:  cutoffTime(r.KeepWeekly, weeksAgo),
+		within:  cutoffTime(r.KeepWithin, withinTime),
 	}
 
 	ids := make(map[string]bool)
@@ -145,25 +148,35 @@ func (r *RetentionPolicy) getRetentionReasons(i int, s *snapshot.Manifest, cutof
 		{cutoff.weekly, fmt.Sprintf("%04v-%02v", yyyy, wk), "weekly", r.KeepWeekly},
 		{cutoff.daily, s.StartTime.Format("2006-01-02"), "daily", r.KeepDaily},
 		{cutoff.hourly, s.StartTime.Format("2006-01-02 15"), "hourly", r.KeepHourly},
+		{cutoff.within, s.StartTime.Format("2006-01-02 15"), "within", r.KeepWithin},
 	}
 
-	for _, c := range cases {
-		if c.max == nil {
-			continue
-		}
+	if r.KeepWithin == newOptionalInt(0) {
 
-		if s.StartTime.Before(c.cutoffTime) {
-			continue
-		}
+		for _, c := range cases {
+			if c.max == nil {
+				continue
+			}
 
-		if _, exists := ids[c.timePeriodID]; exists {
-			continue
-		}
+			if s.StartTime.Before(c.cutoffTime) {
+				continue
 
-		if idCounters[c.timePeriodType] < int(*c.max) {
-			ids[c.timePeriodID] = true
-			idCounters[c.timePeriodType]++
-			keepReasons = append(keepReasons, fmt.Sprintf("%v-%v", c.timePeriodType, idCounters[c.timePeriodType]))
+			}
+
+			if _, exists := ids[c.timePeriodID]; exists {
+				continue
+			}
+
+			if idCounters[c.timePeriodType] < int(*c.max) {
+				ids[c.timePeriodID] = true
+				idCounters[c.timePeriodType]++
+				keepReasons = append(keepReasons, fmt.Sprintf("%v-%v", c.timePeriodType, idCounters[c.timePeriodType]))
+			}
+		}
+	} else {
+
+		if !s.StartTime.Before(cases[6].cutoffTime) {
+			keepReasons = []string{"Keepwithin"}
 		}
 	}
 
@@ -178,6 +191,7 @@ type cutoffTimes struct {
 	daily   time.Time
 	hourly  time.Time
 	weekly  time.Time
+	within  time.Time
 }
 
 func yearsAgo(base time.Time, n int) time.Time {
@@ -200,6 +214,10 @@ func hoursAgo(base time.Time, n int) time.Time {
 	return base.Add(time.Duration(-n) * time.Hour)
 }
 
+func withinTime(base time.Time, n int) time.Time {
+	return base.AddDate(0, 0, -n)
+}
+
 const (
 	defaultKeepLatest  = 10
 	defaultKeepHourly  = 48
@@ -207,6 +225,7 @@ const (
 	defaultKeepWeekly  = 4
 	defaultKeepMonthly = 24
 	defaultKeepAnnual  = 3
+	defaultKeepWithin  = 0
 )
 
 // Merge applies default values from the provided policy.
@@ -217,6 +236,7 @@ func (r *RetentionPolicy) Merge(src RetentionPolicy, def *RetentionPolicyDefinit
 	mergeOptionalInt(&r.KeepWeekly, src.KeepWeekly, &def.KeepWeekly, si)
 	mergeOptionalInt(&r.KeepMonthly, src.KeepMonthly, &def.KeepMonthly, si)
 	mergeOptionalInt(&r.KeepAnnual, src.KeepAnnual, &def.KeepAnnual, si)
+	mergeOptionalInt(&r.KeepWithin, src.KeepWithin, &def.KeepWithin, si)
 }
 
 // CompactRetentionReasons returns compressed retention reasons given a list of retention reasons.
@@ -316,6 +336,7 @@ func SortRetentionTags(tags []string) {
 		"weekly":  4, // nolint:gomnd
 		"monthly": 5, // nolint:gomnd
 		"annual":  6, // nolint:gomnd
+		"within":  7,
 	}
 
 	sort.Slice(tags, func(i, j int) bool {
