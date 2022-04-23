@@ -38,7 +38,7 @@ type RetentionPolicyDefinition struct {
 	KeepWeekly  snapshot.SourceInfo `json:"keepWeekly,omitempty"`
 	KeepMonthly snapshot.SourceInfo `json:"keepMonthly,omitempty"`
 	KeepAnnual  snapshot.SourceInfo `json:"keepAnnual,omitempty"`
-	KeepWithin  snapshot.SourceInfo `json:"keepWithin,Omitempty"`
+	KeepWithin  snapshot.SourceInfo `json:"keepWithin,omitempty"`
 }
 
 // ComputeRetentionReasons computes the reasons why each snapshot is retained, based on
