@@ -150,9 +150,11 @@ func (r *RetentionPolicy) getRetentionReasons(i int, s *snapshot.Manifest, cutof
 		{cutoff.hourly, s.StartTime.Format("2006-01-02 15"), "hourly", r.KeepHourly},
 		{cutoff.within, s.StartTime.Format("2006-01-02 15"), "within", r.KeepMinDays},
 	}
+
 	if r.KeepMinDays == nil {
 		r.KeepMinDays = newOptionalInt(0)
 	}
+
 	for _, c := range cases {
 		if c.max == nil {
 			continue
@@ -165,10 +167,12 @@ func (r *RetentionPolicy) getRetentionReasons(i int, s *snapshot.Manifest, cutof
 		if _, exists := ids[c.timePeriodID]; exists {
 			continue
 		}
+
 		if *r.KeepMinDays != *newOptionalInt(0) {
 			if !s.StartTime.Before(cases[6].cutoffTime) {
 				keepReasons = []string{"Inside max retention days"}
 			}
+
 			continue
 		}
 
