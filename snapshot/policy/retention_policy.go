@@ -150,9 +150,6 @@ func (r *RetentionPolicy) getRetentionReasons(i int, s *snapshot.Manifest, cutof
 		{cutoff.hourly, s.StartTime.Format("2006-01-02 15"), "hourly", r.KeepHourly},
 		{cutoff.within, s.StartTime.Format("2006-01-02 15"), "within", r.KeepMinDays},
 	}
-	//test
-	//test
-	//test
 
 	if r.KeepMinDays == nil {
 		r.KeepMinDays = newOptionalInt(0)
@@ -165,7 +162,6 @@ func (r *RetentionPolicy) getRetentionReasons(i int, s *snapshot.Manifest, cutof
 
 			if s.StartTime.Before(c.cutoffTime) {
 				continue
-
 			}
 
 			if _, exists := ids[c.timePeriodID]; exists {
@@ -342,7 +338,7 @@ func SortRetentionTags(tags []string) {
 		"weekly":  4, // nolint:gomnd
 		"monthly": 5, // nolint:gomnd
 		"annual":  6, // nolint:gomnd
-		"within":  7,
+		"within":  7, // nolint:gomnd
 	}
 
 	sort.Slice(tags, func(i, j int) bool {
