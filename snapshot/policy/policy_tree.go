@@ -46,7 +46,7 @@ var (
 		KeepWeekly:  newOptionalInt(defaultKeepWeekly),
 		KeepMonthly: newOptionalInt(defaultKeepMonthly),
 		KeepAnnual:  newOptionalInt(defaultKeepAnnual),
-		KeepWithin:  newOptionalInt(defaultKeepWithin),
+		KeepMinDays: newOptionalInt(defaultKeepMinDays),
 	}
 
 	defaultSchedulingPolicy = SchedulingPolicy{}
