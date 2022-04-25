@@ -27,7 +27,7 @@ type RetentionPolicy struct {
 	KeepWeekly  *OptionalInt `json:"keepWeekly,omitempty"`
 	KeepMonthly *OptionalInt `json:"keepMonthly,omitempty"`
 	KeepAnnual  *OptionalInt `json:"keepAnnual,omitempty"`
-	KeepMinDays *OptionalInt `json:"keepWithin,omitempty"`
+	KeepMinDays *OptionalInt `json:"keepMinDays,omitempty"`
 }
 
 // RetentionPolicyDefinition specifies which policy definition provided the value of a particular field.
