@@ -170,7 +170,7 @@ func (r *RetentionPolicy) getRetentionReasons(i int, s *snapshot.Manifest, cutof
 
 		if *r.KeepMinDays != *newOptionalInt(0) {
 			if !s.StartTime.Before(cases[6].cutoffTime) {
-				keepReasons = []string{"Inside max retention days"}
+				keepReasons = []string{"Inside min retention days"}
 			}
 
 			continue
