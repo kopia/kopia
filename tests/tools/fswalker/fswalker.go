@@ -35,7 +35,7 @@ func NewWalkCompare() *WalkCompare {
 		GlobalFilterFuncs: []func(string, fswalker.ActionData) bool{
 			filterFileTimeDiffs,
 			isRootDirectoryRename,
-			dirSizeMightBeOffByBlockSizeMultiple,
+			filterDirSizeCheck,
 			ignoreGIDIfZero,
 			ignoreUIDIfZero,
 		},
@@ -186,18 +186,8 @@ func isRootDirectoryRename(diffItem string, mod fswalker.ActionData) bool {
 	return mod.Before.Info.IsDir && filepath.Clean(mod.Before.Path) == "."
 }
 
-func dirSizeMightBeOffByBlockSizeMultiple(str string, mod fswalker.ActionData) bool {
-	if !mod.Before.Info.IsDir {
-		return false
-	}
-
-	if !strings.Contains(str, "size: ") {
-		return false
-	}
-
-	const blockSize = 4096
-
-	return (mod.Before.Stat.Size-mod.After.Stat.Size)%blockSize == 0
+func filterDirSizeCheck(str string, mod fswalker.ActionData) bool {
+	return mod.Before.Info.IsDir && strings.Contains(str, "size: ")
 }
 
 func filterFileTimeDiffs(str string, mod fswalker.ActionData) bool {
