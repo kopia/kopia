@@ -148,7 +148,7 @@ func (r *RetentionPolicy) getRetentionReasons(i int, s *snapshot.Manifest, cutof
 		{cutoff.weekly, fmt.Sprintf("%04v-%02v", yyyy, wk), "weekly", r.KeepWeekly},
 		{cutoff.daily, s.StartTime.Format("2006-01-02"), "daily", r.KeepDaily},
 		{cutoff.hourly, s.StartTime.Format("2006-01-02 15"), "hourly", r.KeepHourly},
-		{cutoff.within, s.StartTime.Format("2006-01-02 15"), "within", r.KeepMinDays},
+		{cutoff.within, s.StartTime.Format("2006-01-02"), "within", r.KeepMinDays},
 	}
 
 	if r.KeepMinDays == nil {
