@@ -217,7 +217,7 @@ func hoursAgo(base time.Time, n int) time.Time {
 	return base.Add(time.Duration(-n) * time.Hour)
 }
 
-func withinTime(base time.Time, n int) time.Time {
+func withinDays(base time.Time, n int) time.Time {
 	return base.AddDate(0, 0, -n)
 }
 
