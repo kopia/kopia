@@ -148,7 +148,7 @@ func (r *RetentionPolicy) getRetentionReasons(i int, s *snapshot.Manifest, cutof
 		{cutoff.weekly, fmt.Sprintf("%04v-%02v", yyyy, wk), "weekly", r.KeepWeekly},
 		{cutoff.daily, s.StartTime.Format("2006-01-02"), "daily", r.KeepDaily},
 		{cutoff.hourly, s.StartTime.Format("2006-01-02 15"), "hourly", r.KeepHourly},
-		{cutoff.within, s.StartTime.Format("2006-01-02 15"), "within", r.KeepMinDays},
+		{cutoff.within, s.StartTime.Format("2006-01-02"), "within", r.KeepMinDays},
 	}
 
 	if r.KeepMinDays == nil {
@@ -170,7 +170,7 @@ func (r *RetentionPolicy) getRetentionReasons(i int, s *snapshot.Manifest, cutof
 
 		if *r.KeepMinDays != *newOptionalInt(0) {
 			if !s.StartTime.Before(cases[6].cutoffTime) {
-				keepReasons = []string{"Inside max retention days"}
+				keepReasons = []string{"Inside min retention days"}
 			}
 
 			continue
@@ -217,7 +217,7 @@ func hoursAgo(base time.Time, n int) time.Time {
 	return base.Add(time.Duration(-n) * time.Hour)
 }
 
-func withinTime(base time.Time, n int) time.Time {
+func withinDays(base time.Time, n int) time.Time {
 	return base.AddDate(0, 0, -n)
 }
 

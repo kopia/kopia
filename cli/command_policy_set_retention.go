@@ -25,7 +25,7 @@ func (c *policyRetentionFlags) setup(cmd *kingpin.CmdClause) {
 	cmd.Flag("keep-weekly", "Number of most-recent weekly backups to keep per source (or 'inherit')").PlaceHolder("N").StringVar(&c.policySetKeepWeekly)
 	cmd.Flag("keep-monthly", "Number of most-recent monthly backups to keep per source (or 'inherit')").PlaceHolder("N").StringVar(&c.policySetKeepMonthly)
 	cmd.Flag("keep-annual", "Number of most-recent annual backups to keep per source (or 'inherit')").PlaceHolder("N").StringVar(&c.policySetKeepAnnual)
-	cmd.Flag("min-retention-days", "Minimun number of days to keep per source(or 'inherit)").PlaceHolder("N").StringVar(&c.policySetKeepMinDays)
+	cmd.Flag("min-retention-days", "Minimum number of days to keep per source (or 'inherit)").PlaceHolder("N").StringVar(&c.policySetKeepMinDays)
 }
 
 func (c *policyRetentionFlags) setRetentionPolicyFromFlags(ctx context.Context, rp *policy.RetentionPolicy, changeCount *int) error {
