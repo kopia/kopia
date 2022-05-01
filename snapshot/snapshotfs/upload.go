@@ -3,7 +3,6 @@ package snapshotfs
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"io"
 	"math/rand"
 	"os"
@@ -1051,7 +1050,7 @@ func uploadDirInternal(
 		}
 
 		checkpointManifest := thisCheckpointBuilder.Build(directory.ModTime(), IncompleteReasonCheckpoint)
-		oid, err := u.writeDirManifest(ctx, dirRelativePath, checkpointManifest)
+		oid, err := writeDirManifest(ctx, u.repo, dirRelativePath, checkpointManifest)
 		if err != nil {
 			return nil, errors.Wrap(err, "error writing dir manifest")
 		}
@@ -1066,32 +1065,12 @@ func uploadDirInternal(
 
 	dirManifest := thisDirBuilder.Build(directory.ModTime(), u.incompleteReason())
 
-	oid, err := u.writeDirManifest(ctx, dirRelativePath, dirManifest)
+	oid, err := writeDirManifest(ctx, u.repo, dirRelativePath, dirManifest)
 	if err != nil {
 		return nil, errors.Wrapf(err, "error writing dir manifest: %v", directory.Name())
 	}
 
 	return newDirEntryWithSummary(directory, oid, dirManifest.Summary)
-}
-
-func (u *Uploader) writeDirManifest(ctx context.Context, dirRelativePath string, dirManifest *snapshot.DirManifest) (object.ID, error) {
-	writer := u.repo.NewObjectWriter(ctx, object.WriterOptions{
-		Description: "DIR:" + dirRelativePath,
-		Prefix:      objectIDPrefixDirectory,
-	})
-
-	defer writer.Close() //nolint:errcheck
-
-	if err := json.NewEncoder(writer).Encode(dirManifest); err != nil {
-		return "", errors.Wrap(err, "unable to encode directory JSON")
-	}
-
-	oid, err := writer.Result()
-	if err != nil {
-		return "", errors.Wrap(err, "unable to write directory")
-	}
-
-	return oid, nil
 }
 
 func (u *Uploader) reportErrorAndMaybeCancel(err error, isIgnored bool, dmb *DirManifestBuilder, entryRelativePath string) {
