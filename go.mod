@@ -3,7 +3,7 @@ module github.com/kopia/kopia
 go 1.17
 
 require (
-	cloud.google.com/go/storage v1.21.0
+	cloud.google.com/go/storage v1.22.0
 	github.com/Azure/azure-pipeline-go v0.2.3 // indirect
 	github.com/Azure/azure-storage-blob-go v0.14.0
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962 // indirect
@@ -102,7 +102,7 @@ require (
 	go.uber.org/multierr v1.8.0
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20220324131243-acbaeb5b85eb // indirect
+	google.golang.org/genproto v0.0.0-20220405205423-9d709892a2bf // indirect
 )
 
 require (
@@ -113,12 +113,13 @@ require (
 
 require (
 	cloud.google.com/go/compute v1.5.0 // indirect
-	cloud.google.com/go/iam v0.1.1 // indirect
+	cloud.google.com/go/iam v0.3.0 // indirect
 	github.com/alessio/shellescape v1.4.1 // indirect
 	github.com/chromedp/sysutil v1.0.0 // indirect
 	github.com/gobwas/httphead v0.1.0 // indirect
 	github.com/gobwas/pool v0.2.1 // indirect
 	github.com/gobwas/ws v1.1.0 // indirect
+	github.com/googleapis/go-type-adapters v1.0.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 )
