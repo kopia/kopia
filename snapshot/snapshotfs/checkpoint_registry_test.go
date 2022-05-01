@@ -53,9 +53,9 @@ func TestCheckpointRegistry(t *testing.T) {
 	cp.removeCheckpointCallback(f3)
 	cp.removeCheckpointCallback(f3)
 
-	var dmb dirManifestBuilder
+	var dmb DirManifestBuilder
 
-	dmb.addEntry(&snapshot.DirEntry{
+	dmb.AddEntry(&snapshot.DirEntry{
 		Name: "pre-existing",
 	})
 
