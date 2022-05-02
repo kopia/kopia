@@ -164,7 +164,7 @@ type TreeWalkerOptions struct {
 }
 
 // NewTreeWalker creates new tree walker.
-func NewTreeWalker(options TreeWalkerOptions) (*TreeWalker, error) {
+func NewTreeWalker(options TreeWalkerOptions) *TreeWalker {
 	if options.Parallelism <= 0 {
 		options.Parallelism = runtime.NumCPU() * walkersPerCPU
 	}
@@ -176,5 +176,5 @@ func NewTreeWalker(options TreeWalkerOptions) (*TreeWalker, error) {
 	return &TreeWalker{
 		options: options,
 		wp:      workshare.NewPool(options.Parallelism - 1),
-	}, nil
+	}
 }

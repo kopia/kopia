@@ -33,5 +33,5 @@ func TestPathsAPI(t *testing.T) {
 	resp := &serverapi.ResolvePathResponse{}
 	require.NoError(t, cli.Post(ctx, "paths/resolve", req, resp))
 
-	require.Equal(t, localSource(env, dir0), resp.SourceInfo)
+	require.Equal(t, env.LocalPathSourceInfo(dir0), resp.SourceInfo)
 }

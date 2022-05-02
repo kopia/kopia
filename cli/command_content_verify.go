@@ -37,26 +37,6 @@ func (c *commandContentVerify) setup(svc appServices, parent commandParent) {
 	cmd.Action(svc.directRepositoryReadAction(c.run))
 }
 
-func readBlobMap(ctx context.Context, br blob.Reader) (map[blob.ID]blob.Metadata, error) {
-	blobMap := map[blob.ID]blob.Metadata{}
-
-	log(ctx).Infof("Listing blobs...")
-
-	if err := br.ListBlobs(ctx, "", func(bm blob.Metadata) error {
-		blobMap[bm.BlobID] = bm
-		if len(blobMap)%10000 == 0 {
-			log(ctx).Infof("  %v blobs...", len(blobMap))
-		}
-		return nil
-	}); err != nil {
-		return nil, errors.Wrap(err, "unable to list blobs")
-	}
-
-	log(ctx).Infof("Listed %v blobs.", len(blobMap))
-
-	return blobMap, nil
-}
-
 func (c *commandContentVerify) run(ctx context.Context, rep repo.DirectRepository) error {
 	blobMap := map[blob.ID]blob.Metadata{}
 	downloadPercent := c.contentVerifyPercent
@@ -65,9 +45,9 @@ func (c *commandContentVerify) run(ctx context.Context, rep repo.DirectRepositor
 		downloadPercent = 100.0
 	}
 
-	blobMap, err := readBlobMap(ctx, rep.BlobReader())
+	blobMap, err := blob.ReadBlobMap(ctx, rep.BlobReader())
 	if err != nil {
-		return err
+		return errors.Wrap(err, "unable to read blob map")
 	}
 
 	verifiedCount := new(int32)

@@ -19,15 +19,13 @@ import (
 func TestSnapshotTreeWalker(t *testing.T) {
 	callbackCounter := new(int32)
 
-	w, err := snapshotfs.NewTreeWalker(
+	w := snapshotfs.NewTreeWalker(
 		snapshotfs.TreeWalkerOptions{
 			EntryCallback: func(ctx context.Context, entry fs.Entry, oid object.ID, entryPath string) error {
 				atomic.AddInt32(callbackCounter, 1)
 				return nil
 			},
 		})
-	require.NoError(t, err)
-
 	defer w.Close()
 
 	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
@@ -81,7 +79,7 @@ func TestSnapshotTreeWalker(t *testing.T) {
 func TestSnapshotTreeWalker_Errors(t *testing.T) {
 	someErr1 := errors.Errorf("some error")
 
-	w, err := snapshotfs.NewTreeWalker(
+	w := snapshotfs.NewTreeWalker(
 		snapshotfs.TreeWalkerOptions{
 			Parallelism: 1,
 			EntryCallback: func(ctx context.Context, entry fs.Entry, oid object.ID, entryPath string) error {
@@ -92,8 +90,6 @@ func TestSnapshotTreeWalker_Errors(t *testing.T) {
 				return nil
 			},
 		})
-	require.NoError(t, err)
-
 	defer w.Close()
 
 	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
@@ -122,7 +118,7 @@ func TestSnapshotTreeWalker_Errors(t *testing.T) {
 func TestSnapshotTreeWalker_MultipleErrors(t *testing.T) {
 	someErr1 := errors.Errorf("some error")
 
-	w, err := snapshotfs.NewTreeWalker(
+	w := snapshotfs.NewTreeWalker(
 		snapshotfs.TreeWalkerOptions{
 			Parallelism: 1,
 			MaxErrors:   -1,
@@ -138,8 +134,6 @@ func TestSnapshotTreeWalker_MultipleErrors(t *testing.T) {
 				return nil
 			},
 		})
-	require.NoError(t, err)
-
 	defer w.Close()
 
 	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)

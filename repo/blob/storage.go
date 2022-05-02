@@ -9,7 +9,11 @@ import (
 
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/kopia/kopia/repo/logging"
 )
+
+var log = logging.Module("blob")
 
 // ErrSetTimeUnsupported is returned by implementations of Storage that don't support SetTime.
 var ErrSetTimeUnsupported = errors.Errorf("SetTime is not supported")
@@ -182,7 +186,7 @@ func (m *Metadata) String() string {
 var ErrBlobNotFound = errors.New("BLOB not found")
 
 // ListAllBlobs returns Metadata for all blobs in a given storage that have the provided name prefix.
-func ListAllBlobs(ctx context.Context, st Storage, prefix ID) ([]Metadata, error) {
+func ListAllBlobs(ctx context.Context, st Reader, prefix ID) ([]Metadata, error) {
 	var result []Metadata
 
 	err := st.ListBlobs(ctx, prefix, func(bm Metadata) error {
@@ -336,4 +340,25 @@ func PutBlobAndGetMetadata(ctx context.Context, st Storage, blobID ID, data Byte
 		Length:    int64(data.Length()),
 		Timestamp: *opts.GetModTime,
 	}, err // nolint:wrapcheck
+}
+
+// ReadBlobMap reads the map of all the blobs indexed by ID.
+func ReadBlobMap(ctx context.Context, br Reader) (map[ID]Metadata, error) {
+	blobMap := map[ID]Metadata{}
+
+	log(ctx).Infof("Listing blobs...")
+
+	if err := br.ListBlobs(ctx, "", func(bm Metadata) error {
+		blobMap[bm.BlobID] = bm
+		if len(blobMap)%10000 == 0 {
+			log(ctx).Infof("  %v blobs...", len(blobMap))
+		}
+		return nil
+	}); err != nil {
+		return nil, errors.Wrap(err, "unable to list blobs")
+	}
+
+	log(ctx).Infof("Listed %v blobs.", len(blobMap))
+
+	return blobMap, nil
 }

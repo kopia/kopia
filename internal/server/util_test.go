@@ -8,7 +8,6 @@ import (
 
 	"github.com/kopia/kopia/internal/apiclient"
 	"github.com/kopia/kopia/internal/clock"
-	"github.com/kopia/kopia/internal/repotesting"
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/uitask"
@@ -87,12 +86,4 @@ func waitForTask(t *testing.T, cli *apiclient.KopiaAPIClient, taskID string, tim
 	t.Fatalf("task %v did not complete in %v, last: %v", taskID, timeout, lastInfo)
 
 	return lastInfo
-}
-
-func localSource(env *repotesting.Environment, path string) snapshot.SourceInfo {
-	return snapshot.SourceInfo{
-		UserName: env.Repository.ClientOptions().Username,
-		Host:     env.Repository.ClientOptions().Hostname,
-		Path:     path,
-	}
 }

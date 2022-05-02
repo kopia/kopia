@@ -33,7 +33,7 @@ func findInUseContentIDs(ctx context.Context, rep repo.Repository, used *sync.Ma
 		return errors.Wrap(err, "unable to load manifest IDs")
 	}
 
-	w, twerr := snapshotfs.NewTreeWalker(snapshotfs.TreeWalkerOptions{
+	w := snapshotfs.NewTreeWalker(snapshotfs.TreeWalkerOptions{
 		EntryCallback: func(ctx context.Context, entry fs.Entry, oid object.ID, entryPath string) error {
 			contentIDs, err := rep.VerifyObject(ctx, oid)
 			if err != nil {
@@ -47,10 +47,6 @@ func findInUseContentIDs(ctx context.Context, rep repo.Repository, used *sync.Ma
 			return nil
 		},
 	})
-	if twerr != nil {
-		return errors.Wrap(twerr, "unable to initialize tree walker")
-	}
-
 	defer w.Close()
 
 	log(ctx).Infof("Looking for active contents...")

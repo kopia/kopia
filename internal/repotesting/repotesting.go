@@ -17,6 +17,7 @@ import (
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/encryption"
 	"github.com/kopia/kopia/repo/object"
+	"github.com/kopia/kopia/snapshot"
 )
 
 const defaultPassword = "foobarbazfoobarbaz"
@@ -238,6 +239,15 @@ func (e *Environment) VerifyBlobCount(tb testing.TB, want int) {
 
 	if got != want {
 		tb.Errorf("got unexpected number of BLOBs: %v, wanted %v", got, want)
+	}
+}
+
+// LocalPathSourceInfo is a convenience method that returns SourceInfo for the local user and path.
+func (e *Environment) LocalPathSourceInfo(path string) snapshot.SourceInfo {
+	return snapshot.SourceInfo{
+		UserName: e.Repository.ClientOptions().Username,
+		Host:     e.Repository.ClientOptions().Hostname,
+		Path:     path,
 	}
 }
 
