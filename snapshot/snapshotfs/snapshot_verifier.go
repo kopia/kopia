@@ -29,10 +29,8 @@ type verifyFileWorkItem struct {
 
 // Verifier allows efficient verification of large amounts of filesystem entries in parallel.
 type Verifier struct {
-	opts      VerifierOptions
-	workersWG sync.WaitGroup
-
 	throttle timetrack.Throttle
+
 	// +checkatomic
 	queued int32
 	// +checkatomic
@@ -40,6 +38,8 @@ type Verifier struct {
 
 	fileWorkQueue chan verifyFileWorkItem
 	rep           repo.Repository
+	opts          VerifierOptions
+	workersWG     sync.WaitGroup
 
 	blobMap map[blob.ID]blob.Metadata // when !- nil, will check that each backing blob exists
 }
