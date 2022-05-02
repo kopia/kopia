@@ -181,6 +181,7 @@ func (s *s3Storage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes, opt
 		StorageClass:    storageClass,
 		RetainUntilDate: retainUntilDate,
 		Mode:            retentionMode,
+		PartSize:        s.Options.UploadPartSize,
 	})
 
 	if isInvalidCredentials(err) {

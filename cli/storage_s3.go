@@ -25,6 +25,7 @@ func (c *storageS3Flags) Setup(_ StorageProviderServices, cmd *kingpin.CmdClause
 	cmd.Flag("prefix", "Prefix to use for objects in the bucket").StringVar(&c.s3options.Prefix)
 	cmd.Flag("disable-tls", "Disable TLS security (HTTPS)").BoolVar(&c.s3options.DoNotUseTLS)
 	cmd.Flag("disable-tls-verification", "Disable TLS (HTTPS) certificate verification").BoolVar(&c.s3options.DoNotVerifyTLS)
+	cmd.Flag("upload-part-size-bytes", "Custom part size used for uploading the object").Default("0").Uint64Var(&c.s3options.UploadPartSize)
 
 	commonThrottlingFlags(cmd, &c.s3options.Limits)
 

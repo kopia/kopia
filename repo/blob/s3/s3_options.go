@@ -29,4 +29,7 @@ type Options struct {
 
 	// PointInTime specifies a view of the (versioned) store at that time
 	PointInTime *time.Time `json:"pointInTime,omitempty"`
+
+	// UploadPartSize specifies a custom part size used for uploading the object
+	UploadPartSize uint64 `json:"uploadPartSize,omitempty"`
 }
