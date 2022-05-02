@@ -156,12 +156,15 @@ func (v *Verifier) InParallel(ctx context.Context, enqueue func(tw *TreeWalker) 
 		}()
 	}
 
-	if err := enqueue(tw); err != nil {
-		return err
-	}
+	err := enqueue(tw)
 
 	close(v.fileWorkQueue)
 	v.workersWG.Wait()
+	v.fileWorkQueue = nil
+
+	if err != nil {
+		return err
+	}
 
 	return tw.Err()
 }
