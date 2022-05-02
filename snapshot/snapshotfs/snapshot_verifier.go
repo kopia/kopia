@@ -41,7 +41,7 @@ type Verifier struct {
 	opts          VerifierOptions
 	workersWG     sync.WaitGroup
 
-	blobMap map[blob.ID]blob.Metadata // when !- nil, will check that each backing blob exists
+	blobMap map[blob.ID]blob.Metadata // when != nil, will check that each backing blob exists
 }
 
 // ShowStats logs verification statistics.
