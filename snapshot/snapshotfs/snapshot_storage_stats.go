@@ -26,7 +26,7 @@ func CalculateStorageStats(ctx context.Context, rep repo.Repository, manifests [
 
 	var uniqueContents sync.Map
 
-	tw, err := NewTreeWalker(TreeWalkerOptions{
+	tw := NewTreeWalker(TreeWalkerOptions{
 		EntryCallback: func(ctx context.Context, entry fs.Entry, oid object.ID, entryPath string) error {
 			if !entry.IsDir() {
 				atomic.AddInt32(&unique.FileObjectCount, 1)
@@ -71,9 +71,6 @@ func CalculateStorageStats(ctx context.Context, rep repo.Repository, manifests [
 			return nil
 		},
 	})
-	if err != nil {
-		return errors.Wrap(err, "unable to create tree walker")
-	}
 	defer tw.Close()
 
 	src := manifests[0].Source

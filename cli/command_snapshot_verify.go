@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
@@ -59,9 +60,9 @@ func (c *commandSnapshotVerify) run(ctx context.Context, rep repo.Repository) er
 	}
 
 	if dr, ok := rep.(repo.DirectRepository); ok {
-		blobMap, err := readBlobMap(ctx, dr.BlobReader())
+		blobMap, err := blob.ReadBlobMap(ctx, dr.BlobReader())
 		if err != nil {
-			return err
+			return errors.Wrap(err, "unable to read blob map")
 		}
 
 		opts.BlobMap = blobMap
