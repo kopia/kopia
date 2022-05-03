@@ -82,7 +82,7 @@ func (gdrive *gdriveStorage) GetBlob(ctx context.Context, b blob.ID, offset, len
 		return errors.Wrapf(err, "get file id in GetBlob(%s)", b)
 	}
 
-	req := gdrive.client.Get(fileID)
+	req := gdrive.client.Get(fileID).SupportsAllDrives(true)
 	req.Header().Set("Range", toRange(offset, length))
 
 	res, err := req.Context(ctx).Download()
@@ -170,6 +170,7 @@ func (gdrive *gdriveStorage) PutBlob(ctx context.Context, blobID blob.ID, data b
 				MimeType:     blobMimeType,
 				ModifiedTime: mtime,
 			}).
+				SupportsAllDrives(true).
 				Fields(metadataFields).
 				Media(data.Reader(),
 					googleapi.ChunkSize(uploadChunkSize),
@@ -187,6 +188,7 @@ func (gdrive *gdriveStorage) PutBlob(ctx context.Context, blobID blob.ID, data b
 			file, err = gdrive.client.Update(fileID, &drive.File{
 				ModifiedTime: mtime,
 			}).
+				SupportsAllDrives(true).
 				Fields(metadataFields).
 				Media(
 					data.Reader(),
@@ -231,7 +233,7 @@ func (gdrive *gdriveStorage) DeleteBlob(ctx context.Context, blobID blob.ID) err
 			return nil, handleError(err)
 		}
 
-		err = gdrive.client.Delete(fileID).Context(ctx).Do()
+		err = gdrive.client.Delete(fileID).SupportsAllDrives(true).Context(ctx).Do()
 		if err != nil {
 			return nil, handleError(translateError(err))
 		}
@@ -290,7 +292,7 @@ func (gdrive *gdriveStorage) ListBlobs(ctx context.Context, prefix blob.ID, call
 		})
 	}
 
-	err := gdrive.client.List().Q(query).Fields("nextPageToken", listMetadataFields).Pages(ctx, consumer)
+	err := gdrive.client.List().SupportsAllDrives(true).IncludeItemsFromAllDrives(true).Q(query).Fields("nextPageToken", listMetadataFields).Pages(ctx, consumer)
 	if err != nil {
 		return errors.Wrapf(translateError(err), "List in ListBlobs(%s)", prefix)
 	}
@@ -371,13 +373,15 @@ func (gdrive *gdriveStorage) tryGetFileByBlobID(ctx context.Context, blobID blob
 }
 
 func (gdrive *gdriveStorage) getFileByFileID(ctx context.Context, fileID string, fields googleapi.Field) (*drive.File, error) {
-	file, err := gdrive.client.Get(fileID).Fields(fields).Context(ctx).Do()
+	file, err := gdrive.client.Get(fileID).SupportsAllDrives(true).Fields(fields).Context(ctx).Do()
 
 	return file, translateError(err)
 }
 
 func (gdrive *gdriveStorage) getFileByBlobID(ctx context.Context, blobID blob.ID, fields googleapi.Field) (*drive.File, error) {
 	files, err := gdrive.client.List().
+		SupportsAllDrives(true).
+		IncludeItemsFromAllDrives(true).
 		Q(fmt.Sprintf("'%s' in parents and name = '%s' and mimeType = '%s'", gdrive.folderID, toFileName(blobID), blobMimeType)).
 		Fields(fields).
 		PageSize(2). // nolint:gomnd
