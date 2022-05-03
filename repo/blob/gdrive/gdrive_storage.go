@@ -275,7 +275,7 @@ func (gdrive *gdriveStorage) ListBlobs(ctx context.Context, prefix blob.ID, call
 		return nil
 	}
 
-	query := fmt.Sprintf("'%s' in parents and mimeType = '%s'", gdrive.folderID, blobMimeType)
+	query := fmt.Sprintf("'%s' in parents and mimeType = '%s' and trashed = false", gdrive.folderID, blobMimeType)
 	if prefix != "" {
 		// Drive API uses `contains` operator for prefix matches: https://developers.google.com/drive/api/v3/reference/query-ref
 		query = fmt.Sprintf("'%s' in parents and name contains '%s' and mimeType = '%s'", gdrive.folderID, capPrefix(prefix), blobMimeType)
@@ -382,7 +382,7 @@ func (gdrive *gdriveStorage) getFileByBlobID(ctx context.Context, blobID blob.ID
 	files, err := gdrive.client.List().
 		SupportsAllDrives(true).
 		IncludeItemsFromAllDrives(true).
-		Q(fmt.Sprintf("'%s' in parents and name = '%s' and mimeType = '%s'", gdrive.folderID, toFileName(blobID), blobMimeType)).
+		Q(fmt.Sprintf("'%s' in parents and name = '%s' and mimeType = '%s' and trashed = false", gdrive.folderID, toFileName(blobID), blobMimeType)).
 		Fields(fields).
 		PageSize(2). // nolint:gomnd
 		Context(ctx).
