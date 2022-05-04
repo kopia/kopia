@@ -80,7 +80,6 @@ func (r *RetentionPolicy) ComputeRetentionReasons(manifests []*snapshot.Manifest
 		daily:   cutoffTime(r.KeepDaily, daysAgo),
 		hourly:  cutoffTime(r.KeepHourly, hoursAgo),
 		weekly:  cutoffTime(r.KeepWeekly, weeksAgo),
-		minDays: cutoffTime(r.KeepMinDays, withinDays),
 	}
 
 	ids := make(map[string]bool)
@@ -148,10 +147,19 @@ func (r *RetentionPolicy) getRetentionReasons(i int, s *snapshot.Manifest, cutof
 		{cutoff.weekly, fmt.Sprintf("%04v-%02v", yyyy, wk), "weekly", r.KeepWeekly},
 		{cutoff.daily, s.StartTime.Format("2006-01-02"), "daily", r.KeepDaily},
 		{cutoff.hourly, s.StartTime.Format("2006-01-02 15"), "hourly", r.KeepHourly},
-		{cutoff.minDays, "mindays", "minDays", r.KeepMinDays},
+	}
+
+	if r.KeepMinDays != nil {
+		if !s.StartTime.Before(daysAgo(cutoff.daily, int(*r.KeepMinDays))) && *r.KeepMinDays > *newOptionalInt(0) {
+			keepReasons = []string{"Inside min retention days"}
+		}
 	}
 
 	for _, c := range cases {
+
+		if r.KeepMinDays != nil && *r.KeepMinDays > 0 {
+			break
+		}
 
 		if c.max == nil {
 			continue
@@ -163,14 +171,6 @@ func (r *RetentionPolicy) getRetentionReasons(i int, s *snapshot.Manifest, cutof
 
 		if _, exists := ids[c.timePeriodID]; exists {
 			continue
-		}
-
-		if r.KeepMinDays != nil {
-			if c.timePeriodType == "minDays" && !s.StartTime.Before(c.cutoffTime) && *r.KeepMinDays > *newOptionalInt(0) {
-				keepReasons = []string{"Inside min retention days"}
-
-				break
-			}
 		}
 
 		if idCounters[c.timePeriodType] < int(*c.max) {
@@ -191,7 +191,6 @@ type cutoffTimes struct {
 	daily   time.Time
 	hourly  time.Time
 	weekly  time.Time
-	minDays time.Time
 }
 
 func yearsAgo(base time.Time, n int) time.Time {
@@ -212,10 +211,6 @@ func weeksAgo(base time.Time, n int) time.Time {
 
 func hoursAgo(base time.Time, n int) time.Time {
 	return base.Add(time.Duration(-n) * time.Hour)
-}
-
-func withinDays(base time.Time, n int) time.Time {
-	return base.AddDate(0, 0, -n)
 }
 
 const (
@@ -336,7 +331,6 @@ func SortRetentionTags(tags []string) {
 		"weekly":  4, // nolint:gomnd
 		"monthly": 5, // nolint:gomnd
 		"annual":  6, // nolint:gomnd
-		"within":  7, // nolint:gomnd
 	}
 
 	sort.Slice(tags, func(i, j int) bool {
