@@ -80,7 +80,7 @@ func (r *RetentionPolicy) ComputeRetentionReasons(manifests []*snapshot.Manifest
 		daily:   cutoffTime(r.KeepDaily, daysAgo),
 		hourly:  cutoffTime(r.KeepHourly, hoursAgo),
 		weekly:  cutoffTime(r.KeepWeekly, weeksAgo),
-		within:  cutoffTime(r.KeepMinDays, withinDays),
+		minDays: cutoffTime(r.KeepMinDays, withinDays),
 	}
 
 	ids := make(map[string]bool)
@@ -148,14 +148,11 @@ func (r *RetentionPolicy) getRetentionReasons(i int, s *snapshot.Manifest, cutof
 		{cutoff.weekly, fmt.Sprintf("%04v-%02v", yyyy, wk), "weekly", r.KeepWeekly},
 		{cutoff.daily, s.StartTime.Format("2006-01-02"), "daily", r.KeepDaily},
 		{cutoff.hourly, s.StartTime.Format("2006-01-02 15"), "hourly", r.KeepHourly},
-		{cutoff.within, s.StartTime.Format("2006-01-02"), "within", r.KeepMinDays},
+		{cutoff.minDays, "mindays", "minDays", r.KeepMinDays},
 	}
 
-	// if r.KeepMinDays == nil {
-	// 	r.KeepMinDays = newOptionalInt(0)
-	// }
-
 	for _, c := range cases {
+
 		if c.max == nil {
 			continue
 		}
@@ -169,11 +166,11 @@ func (r *RetentionPolicy) getRetentionReasons(i int, s *snapshot.Manifest, cutof
 		}
 
 		if r.KeepMinDays != nil {
-			if !s.StartTime.Before(cases[6].cutoffTime) {
+			if c.timePeriodType == "minDays" && !s.StartTime.Before(c.cutoffTime) && *r.KeepMinDays > *newOptionalInt(0) {
 				keepReasons = []string{"Inside min retention days"}
-			}
 
-			continue
+				break
+			}
 		}
 
 		if idCounters[c.timePeriodType] < int(*c.max) {
@@ -194,7 +191,7 @@ type cutoffTimes struct {
 	daily   time.Time
 	hourly  time.Time
 	weekly  time.Time
-	within  time.Time
+	minDays time.Time
 }
 
 func yearsAgo(base time.Time, n int) time.Time {
