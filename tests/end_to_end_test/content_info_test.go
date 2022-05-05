@@ -55,4 +55,18 @@ func (s *formatSpecificTestSuite) TestContentListAndStats(t *testing.T) {
 	require.True(t, containsLineStartingWith(e.RunAndExpectSuccess(t, "content", "list", "--deleted"), contentID))
 	require.True(t, containsLineStartingWith(e.RunAndExpectSuccess(t, "content", "list", "--deleted", "-l"), contentID))
 	require.True(t, containsLineStartingWith(e.RunAndExpectSuccess(t, "content", "list", "--deleted", "-c"), contentID))
+
+	// sleep a bit to ensure at least one second passes, otherwise forget may end up happen on the same second.
+	time.Sleep(2 * time.Second)
+	e.RunAndExpectSuccess(t, "content", "delete", "--forget", contentID)
+	time.Sleep(2 * time.Second)
+
+	require.False(t, containsLineStartingWith(e.RunAndExpectSuccess(t, "content", "list"), contentID))
+	require.False(t, containsLineStartingWith(e.RunAndExpectSuccess(t, "content", "list", "-l"), contentID))
+	require.False(t, containsLineStartingWith(e.RunAndExpectSuccess(t, "content", "list", "-c"), contentID))
+
+	lines := e.RunAndExpectSuccess(t, "content", "list", "-l", "--deleted")
+	require.False(t, containsLineStartingWith(lines, contentID), lines)
+	require.False(t, containsLineStartingWith(e.RunAndExpectSuccess(t, "content", "list", "--deleted", "-l"), contentID))
+	require.False(t, containsLineStartingWith(e.RunAndExpectSuccess(t, "content", "list", "--deleted", "-c"), contentID))
 }

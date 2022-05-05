@@ -28,6 +28,8 @@ const (
 	PackBlobIDPrefixRegular blob.ID = "p"
 	PackBlobIDPrefixSpecial blob.ID = "q"
 
+	PackBlobIDForgotten = "-forgottten-"
+
 	NoCompression compression.HeaderID = 0
 
 	FormatLogModule = "kopia/format"
@@ -155,13 +157,13 @@ func (bm *WriteManager) DeleteContent(ctx context.Context, contentID ID) error {
 	// remove from all packs that are being written, since they will be committed to index soon
 	for _, pp := range bm.writingPacks {
 		if bi, ok := pp.currentPackItems[contentID]; ok && !bi.GetDeleted() {
-			return bm.deletePreexistingContent(ctx, bi)
+			return bm.deletePreexistingContent(ctx, bi, false)
 		}
 	}
 
 	// if found in committed index, add another entry that's marked for deletion
 	if bi, ok := bm.packIndexBuilder[contentID]; ok {
-		return bm.deletePreexistingContent(ctx, bi)
+		return bm.deletePreexistingContent(ctx, bi, false)
 	}
 
 	// see if the content existed before
@@ -174,7 +176,33 @@ func (bm *WriteManager) DeleteContent(ctx context.Context, contentID ID) error {
 		return err
 	}
 
-	return bm.deletePreexistingContent(ctx, bi)
+	return bm.deletePreexistingContent(ctx, bi, false)
+}
+
+// ForgetContent removes the given contentID from index. Because indices are append-only
+// and entries cannot really be removed until compaction, this changes backing blob ID
+// to PackBlobIDForgotten.
+//
+// Forget is only designed to be used for data repairs to bring back consistency in case of repository
+// corruption.
+func (bm *WriteManager) ForgetContent(ctx context.Context, contentID ID) error {
+	bm.lock()
+	defer bm.unlock()
+
+	atomic.AddInt64(&bm.revision, 1)
+
+	bm.log.Debugf("forget-content %v", contentID)
+
+	if err := bm.maybeRefreshIndexes(ctx); err != nil {
+		return err
+	}
+
+	bi, err := bm.committedContents.getContent(contentID)
+	if err != nil {
+		return err
+	}
+
+	return bm.deletePreexistingContent(ctx, bi, true)
 }
 
 func (bm *WriteManager) maybeRefreshIndexes(ctx context.Context) error {
@@ -187,11 +215,17 @@ func (bm *WriteManager) maybeRefreshIndexes(ctx context.Context) error {
 	return nil
 }
 
-// Intentionally passing bi by value.
+// Intentionally passing ci by value.
 // +checklocks:bm.mu
-func (bm *WriteManager) deletePreexistingContent(ctx context.Context, ci Info) error {
-	if ci.GetDeleted() {
-		return nil
+func (bm *WriteManager) deletePreexistingContent(ctx context.Context, ci Info, isForget bool) error {
+	if isForget {
+		if isForgotten(ci) {
+			return nil
+		}
+	} else {
+		if ci.GetDeleted() {
+			return nil
+		}
 	}
 
 	pp, err := bm.getOrCreatePendingPackInfoLocked(ctx, packPrefixForContentID(ci.GetContentID()))
@@ -199,7 +233,11 @@ func (bm *WriteManager) deletePreexistingContent(ctx context.Context, ci Info) e
 		return errors.Wrap(err, "unable to create pack")
 	}
 
-	pp.currentPackItems[ci.GetContentID()] = &deletedInfo{ci, bm.timeNow().Unix()}
+	if isForget {
+		pp.currentPackItems[ci.GetContentID()] = &forgottenInfo{deletedInfo{ci, bm.timeNow().Unix()}}
+	} else {
+		pp.currentPackItems[ci.GetContentID()] = &deletedInfo{ci, bm.timeNow().Unix()}
+	}
 
 	return nil
 }
@@ -215,6 +253,14 @@ func (d *deletedInfo) GetDeleted() bool {
 
 func (d *deletedInfo) GetTimestampSeconds() int64 {
 	return d.deletedTime
+}
+
+type forgottenInfo struct {
+	deletedInfo
+}
+
+func (d *forgottenInfo) GetPackBlobID() blob.ID {
+	return PackBlobIDForgotten
 }
 
 func (bm *WriteManager) maybeFlushBasedOnTimeUnlocked(ctx context.Context) error {
@@ -818,6 +864,10 @@ func (bm *WriteManager) getOverlayContentInfoReadLocked(contentID ID) (*pendingP
 // +checklocksread:bm.mu
 func (bm *WriteManager) getContentInfoReadLocked(ctx context.Context, contentID ID) (*pendingPackInfo, Info, error) {
 	if pp, ci, ok := bm.getOverlayContentInfoReadLocked(contentID); ok {
+		if isForgotten(ci) {
+			return nil, nil, ErrContentNotFound
+		}
+
 		return pp, ci, nil
 	}
 
