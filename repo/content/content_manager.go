@@ -193,10 +193,6 @@ func (bm *WriteManager) ForgetContent(ctx context.Context, contentID ID) error {
 
 	bm.log.Debugf("forget-content %v", contentID)
 
-	if err := bm.maybeRefreshIndexes(ctx); err != nil {
-		return err
-	}
-
 	bi, err := bm.committedContents.getContent(contentID)
 	if err != nil {
 		return err
