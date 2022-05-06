@@ -580,9 +580,12 @@ func (s *contentManagerSuite) TestDeleteContent(t *testing.T) {
 	c1Bytes := seededRandomData(10, 100)
 	content1 := writeContentAndVerify(ctx, t, bm, c1Bytes)
 
-	if err := bm.Flush(ctx); err != nil {
-		t.Fatalf("error flushing: %v", err)
-	}
+	c3Bytes := seededRandomData(13, 100)
+	content3 := writeContentAndVerify(ctx, t, bm, c3Bytes)
+
+	require.NoError(t, bm.Flush(ctx))
+	require.NoError(t, bm.DeleteContent(ctx, content3))
+	require.NoError(t, bm.Flush(ctx))
 
 	dumpContents(ctx, t, bm, "after first flush")
 
@@ -591,9 +594,8 @@ func (s *contentManagerSuite) TestDeleteContent(t *testing.T) {
 
 	t.Logf("deleting previously flushed content (c1)")
 
-	if err := bm.DeleteContent(ctx, content1); err != nil {
-		t.Fatalf("unable to delete content %v: %v", content1, err)
-	}
+	require.NoError(t, bm.DeleteContent(ctx, content1))
+	require.NoError(t, bm.DeleteContent(ctx, content3))
 
 	t.Logf("deleting not flushed content (c2)")
 
@@ -626,9 +628,13 @@ func (s *contentManagerSuite) TestForgetContent(t *testing.T) {
 	c1Bytes := seededRandomData(10, 100)
 	content1 := writeContentAndVerify(ctx, t, bm, c1Bytes)
 
-	if err := bm.Flush(ctx); err != nil {
-		t.Fatalf("error flushing: %v", err)
-	}
+	c3Bytes := seededRandomData(12, 100)
+	content3 := writeContentAndVerify(ctx, t, bm, c3Bytes)
+
+	require.NoError(t, bm.Flush(ctx))
+
+	require.NoError(t, bm.DeleteContent(ctx, content3))
+	require.NoError(t, bm.Flush(ctx))
 
 	dumpContents(ctx, t, bm, "after first flush")
 
@@ -661,7 +667,10 @@ func (s *contentManagerSuite) TestForgetContent(t *testing.T) {
 	bm = s.newTestContentManager(t, st)
 	defer bm.Close(ctx)
 
+	require.NoError(t, bm.ForgetContent(ctx, content3))
+
 	verifyContentNotFound(ctx, t, bm, content1)
+	verifyContentNotFound(ctx, t, bm, content3)
 	// forget had no effect
 	verifyContent(ctx, t, bm, content2, c2Bytes)
 

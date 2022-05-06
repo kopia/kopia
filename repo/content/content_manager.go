@@ -218,14 +218,8 @@ func (bm *WriteManager) maybeRefreshIndexes(ctx context.Context) error {
 // Intentionally passing ci by value.
 // +checklocks:bm.mu
 func (bm *WriteManager) deletePreexistingContent(ctx context.Context, ci Info, isForget bool) error {
-	if isForget {
-		if isForgotten(ci) {
-			return nil
-		}
-	} else {
-		if ci.GetDeleted() {
-			return nil
-		}
+	if !isForget && ci.GetDeleted() {
+		return nil
 	}
 
 	pp, err := bm.getOrCreatePendingPackInfoLocked(ctx, packPrefixForContentID(ci.GetContentID()))
