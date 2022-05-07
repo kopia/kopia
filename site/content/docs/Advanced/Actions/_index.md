@@ -200,6 +200,9 @@ if (([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::
     Get-CimInstance -ClassName Win32_ShadowCopy | Where-Object { "$($_.DeviceObject)\" -eq "\\?\${mountedVolume}" } | Remove-CimInstance
 } else {
     Start-Process 'powershell' '-f', $MyInvocation.MyCommand.Path, $kopiaSnapshotId -Verb RunAs -WindowStyle Hidden -Wait
+    if ($proc.ExitCode) {
+        exit $proc.ExitCode
+    }
 }
 ```
 
