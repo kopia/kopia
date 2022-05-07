@@ -196,7 +196,7 @@ if (([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::
     $mountPoint = Get-Item "${PSScriptRoot}\${kopiaSnapshotId}"
     $mountedVolume = $mountPoint.Target
 
-    Remove-Item $mountPoint
+    cmd /c rmdir $mountPoint
     Get-CimInstance -ClassName Win32_ShadowCopy | Where-Object { "$($_.DeviceObject)\" -eq "\\?\${mountedVolume}" } | Remove-CimInstance
 } else {
     Start-Process 'powershell' '-f', $MyInvocation.MyCommand.Path, $kopiaSnapshotId -Verb RunAs -WindowStyle Hidden -Wait
