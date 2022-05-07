@@ -77,12 +77,20 @@ func (c *committedContentIndex) getContent(contentID ID) (Info, error) {
 	return nil, errors.Wrap(err, "error getting content info from index")
 }
 
-func shouldIgnore(id Info, deletionWatermark time.Time) bool {
-	if !id.GetDeleted() {
+func shouldIgnore(ci Info, deletionWatermark time.Time) bool {
+	if !ci.GetDeleted() {
 		return false
 	}
 
-	return !id.Timestamp().After(deletionWatermark)
+	if isForgotten(ci) {
+		return true
+	}
+
+	return !ci.Timestamp().After(deletionWatermark)
+}
+
+func isForgotten(ci Info) bool {
+	return ci.GetPackBlobID() == PackBlobIDForgotten
 }
 
 func (c *committedContentIndex) addIndexBlob(ctx context.Context, indexBlobID blob.ID, data gather.Bytes, use bool) error {
