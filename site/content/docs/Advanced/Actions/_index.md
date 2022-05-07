@@ -146,7 +146,7 @@ One of the popular solutions is taking a [shadow copy](https://en.wikipedia.org/
 In this example, we will use [PowerShell](https://github.com/PowerShell/PowerShell/) to take a shadow copy in the "before" action of the target directory and clean everything up in the "after" action.
 The script also self-elevates as administrator (required to take shadow copy) if Kopia is ran with an unprivileged account.
 
-Make sure `pwsh` is reachable in the PATH environment variable.
+Make sure `powershell` is reachable in the PATH environment variable.
 
 before.ps1:
 
@@ -174,7 +174,7 @@ if (([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::
 
     cmd /c mklink /d $mountPoint "${shadowDevice}\"
 } else {
-    $proc = Start-Process 'pwsh' '-f', $MyInvocation.MyCommand.Path, $kopiaSnapshotId, $kopiaSourcePath -PassThru -Verb RunAs -WindowStyle Hidden -Wait
+    $proc = Start-Process 'powershell' '-f', $MyInvocation.MyCommand.Path, $kopiaSnapshotId, $kopiaSourcePath -PassThru -Verb RunAs -WindowStyle Hidden -Wait
     if ($proc.ExitCode) {
         exit $proc.ExitCode
     }
@@ -199,15 +199,15 @@ if (([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::
     Remove-Item $mountPoint
     Get-CimInstance -ClassName Win32_ShadowCopy | Where-Object { "$($_.DeviceObject)\" -eq "\\?\${mountedVolume}" } | Remove-CimInstance
 } else {
-    Start-Process 'pwsh' '-f', $MyInvocation.MyCommand.Path, $kopiaSnapshotId -Verb RunAs -WindowStyle Hidden -Wait
+    Start-Process 'powershell' '-f', $MyInvocation.MyCommand.Path, $kopiaSnapshotId -Verb RunAs -WindowStyle Hidden -Wait
 }
 ```
 
 To install the actions:
 
 ```shell
-kopia policy set <target_dir> --before-folder-action "pwsh -WindowStyle Hidden <path_to_script>\before.ps1"
-kopia policy set <target_dir> --after-folder-action  "pwsh -WindowStyle Hidden <path_to_script>\after.ps1"
+kopia policy set <target_dir> --before-folder-action "powershell -WindowStyle Hidden <path_to_script>\before.ps1"
+kopia policy set <target_dir> --after-folder-action  "powershell -WindowStyle Hidden <path_to_script>\after.ps1"
 ```
 
 #### Contributions Welcome
