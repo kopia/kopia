@@ -615,6 +615,42 @@ func (s *contentManagerSuite) TestDeleteContent(t *testing.T) {
 	verifyContentNotFound(ctx, t, bm, content2)
 }
 
+func (s *contentManagerSuite) TestDeletionAfterCreationWithFrozenTime(t *testing.T) {
+	ctx := testlogging.Context(t)
+	data := blobtesting.DataMap{}
+	st := blobtesting.NewMapStorage(data, nil, nil)
+
+	// first - write new content
+	bm := s.newTestContentManagerWithCustomTime(t, st, faketime.Frozen(fakeTime))
+	content1 := writeContentAndVerify(ctx, t, bm, seededRandomData(40, 16))
+	require.NoError(t, bm.Flush(ctx))
+
+	// second - delete content previously deleted
+	bm = s.newTestContentManagerWithCustomTime(t, st, faketime.Frozen(fakeTime))
+	ci, err := bm.ContentInfo(ctx, content1)
+	require.NoError(t, err)
+	require.Equal(t, fakeTime, ci.Timestamp().UTC())
+
+	require.NoError(t, bm.DeleteContent(ctx, content1))
+	require.NoError(t, bm.Flush(ctx))
+	ci, err = bm.ContentInfo(ctx, content1)
+	require.NoError(t, err)
+
+	// time did not move, but we ensured that the time is greater than in the previous index.
+	require.Equal(t, fakeTime.Add(1*time.Second), ci.Timestamp().UTC())
+
+	// third - recreate content previously deleted
+	bm = s.newTestContentManagerWithCustomTime(t, st, faketime.Frozen(fakeTime))
+	require.Equal(t, content1, writeContentAndVerify(ctx, t, bm, seededRandomData(40, 16)))
+	require.NoError(t, bm.Flush(ctx))
+
+	ci, err = bm.ContentInfo(ctx, content1)
+	require.NoError(t, err)
+
+	// rewrite moves the time by another second
+	require.Equal(t, fakeTime.Add(2*time.Second), ci.Timestamp().UTC())
+}
+
 // nolint:gocyclo
 func (s *contentManagerSuite) TestUndeleteContentSimple(t *testing.T) {
 	ctx := testlogging.Context(t)
