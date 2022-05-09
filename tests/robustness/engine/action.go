@@ -155,113 +155,113 @@ type Action struct {
 type ActionKey string
 
 var actions = map[ActionKey]Action{
-	SnapshotDirActionKey: {
-		f: func(ctx context.Context, e *Engine, opts map[string]string, l *LogEntry) (out map[string]string, err error) {
-			snapPath := e.FileWriter.DataDirectory(ctx)
-			if opts != nil && opts[SubPathOptionName] != "" {
-				snapPath = filepath.Join(snapPath, opts[SubPathOptionName])
-			}
+	SnapshotDirActionKey:              {f: snapshotDirAction},
+	RestoreSnapshotActionKey:          {f: restoreSnapshotAction},
+	DeleteRandomSnapshotActionKey:     {f: deleteRandomSnapshotAction},
+	GCActionKey:                       {f: gcAction},
+	WriteRandomFilesActionKey:         {f: writeRandomFilesAction},
+	DeleteRandomSubdirectoryActionKey: {f: deleteRandomSubdirectoryAction},
+	DeleteDirectoryContentsActionKey:  {f: deleteDirectoryContentsAction},
+	RestoreIntoDataDirectoryActionKey: {f: restoreIntoDataDirectoryAction},
+}
 
-			log.Printf("Creating snapshot of directory %s", snapPath)
+func snapshotDirAction(ctx context.Context, e *Engine, opts map[string]string, l *LogEntry) (out map[string]string, err error) {
+	snapPath := e.FileWriter.DataDirectory(ctx)
+	if opts != nil && opts[SubPathOptionName] != "" {
+		snapPath = filepath.Join(snapPath, opts[SubPathOptionName])
+	}
 
-			snapID, err := e.Checker.TakeSnapshot(ctx, snapPath, opts)
+	log.Printf("Creating snapshot of directory %s", snapPath)
 
-			setLogEntryCmdOpts(l, map[string]string{
-				"snap-dir": snapPath,
-				"snapID":   snapID,
-			})
+	snapID, err := e.Checker.TakeSnapshot(ctx, snapPath, opts)
 
-			return map[string]string{
-				SnapshotIDField: snapID,
-			}, err
-		},
-	},
-	RestoreSnapshotActionKey: {
-		f: func(ctx context.Context, e *Engine, opts map[string]string, l *LogEntry) (out map[string]string, err error) {
-			snapID, err := e.getSnapIDOptOrRandLive(opts)
-			if err != nil {
-				return nil, err
-			}
+	setLogEntryCmdOpts(l, map[string]string{
+		"snap-dir": snapPath,
+		"snapID":   snapID,
+	})
 
-			setLogEntryCmdOpts(l, map[string]string{"snapID": snapID})
+	return map[string]string{
+		SnapshotIDField: snapID,
+	}, err
+}
 
-			log.Printf("Restoring snapshot %s", snapID)
+func restoreSnapshotAction(ctx context.Context, e *Engine, opts map[string]string, l *LogEntry) (out map[string]string, err error) {
+	snapID, err := e.getSnapIDOptOrRandLive(opts)
+	if err != nil {
+		return nil, err
+	}
 
-			b := &bytes.Buffer{}
+	setLogEntryCmdOpts(l, map[string]string{"snapID": snapID})
 
-			err = e.Checker.RestoreSnapshot(ctx, snapID, b, opts)
-			if err != nil {
-				log.Print(b.String())
-			}
+	log.Printf("Restoring snapshot %s", snapID)
 
-			return nil, err
-		},
-	},
-	DeleteRandomSnapshotActionKey: {
-		f: func(ctx context.Context, e *Engine, opts map[string]string, l *LogEntry) (out map[string]string, err error) {
-			snapID, err := e.getSnapIDOptOrRandLive(opts)
-			if err != nil {
-				return nil, err
-			}
+	b := &bytes.Buffer{}
 
-			log.Printf("Deleting snapshot %s", snapID)
+	err = e.Checker.RestoreSnapshot(ctx, snapID, b, opts)
+	if err != nil {
+		log.Print(b.String())
+	}
 
-			setLogEntryCmdOpts(l, map[string]string{"snapID": snapID})
+	return nil, err
+}
 
-			err = e.Checker.DeleteSnapshot(ctx, snapID, opts)
-			return nil, err
-		},
-	},
-	GCActionKey: {
-		f: func(ctx context.Context, e *Engine, opts map[string]string, l *LogEntry) (out map[string]string, err error) {
-			return nil, e.TestRepo.RunGC(ctx, opts)
-		},
-	},
-	WriteRandomFilesActionKey: {
-		f: func(ctx context.Context, e *Engine, opts map[string]string, l *LogEntry) (out map[string]string, err error) {
-			out, err = e.FileWriter.WriteRandomFiles(ctx, opts)
-			setLogEntryCmdOpts(l, out)
+func deleteRandomSnapshotAction(ctx context.Context, e *Engine, opts map[string]string, l *LogEntry) (out map[string]string, err error) {
+	snapID, err := e.getSnapIDOptOrRandLive(opts)
+	if err != nil {
+		return nil, err
+	}
 
-			return
-		},
-	},
-	DeleteRandomSubdirectoryActionKey: {
-		f: func(ctx context.Context, e *Engine, opts map[string]string, l *LogEntry) (out map[string]string, err error) {
-			out, err = e.FileWriter.DeleteRandomSubdirectory(ctx, opts)
-			setLogEntryCmdOpts(l, out)
+	log.Printf("Deleting snapshot %s", snapID)
 
-			return
-		},
-	},
-	DeleteDirectoryContentsActionKey: {
-		f: func(ctx context.Context, e *Engine, opts map[string]string, l *LogEntry) (out map[string]string, err error) {
-			out, err = e.FileWriter.DeleteDirectoryContents(ctx, opts)
-			setLogEntryCmdOpts(l, out)
+	setLogEntryCmdOpts(l, map[string]string{"snapID": snapID})
 
-			return
-		},
-	},
-	RestoreIntoDataDirectoryActionKey: {
-		f: func(ctx context.Context, e *Engine, opts map[string]string, l *LogEntry) (out map[string]string, err error) {
-			snapID, err := e.getSnapIDOptOrRandLive(opts)
-			if err != nil {
-				return nil, err
-			}
+	err = e.Checker.DeleteSnapshot(ctx, snapID, opts)
+	return nil, err
+}
 
-			log.Printf("Restoring snap ID %v into data directory\n", snapID)
+func gcAction(ctx context.Context, e *Engine, opts map[string]string, l *LogEntry) (out map[string]string, err error) {
+	return nil, e.TestRepo.RunGC(ctx, opts)
+}
 
-			setLogEntryCmdOpts(l, map[string]string{"snapID": snapID})
+func writeRandomFilesAction(ctx context.Context, e *Engine, opts map[string]string, l *LogEntry) (out map[string]string, err error) {
+	out, err = e.FileWriter.WriteRandomFiles(ctx, opts)
+	setLogEntryCmdOpts(l, out)
 
-			b := &bytes.Buffer{}
-			err = e.Checker.RestoreSnapshotToPath(ctx, snapID, e.FileWriter.DataDirectory(ctx), b, opts)
-			if err != nil {
-				log.Print(b.String())
-				return nil, err
-			}
+	return
+}
 
-			return nil, nil
-		},
-	},
+func deleteRandomSubdirectoryAction(ctx context.Context, e *Engine, opts map[string]string, l *LogEntry) (out map[string]string, err error) {
+	out, err = e.FileWriter.DeleteRandomSubdirectory(ctx, opts)
+	setLogEntryCmdOpts(l, out)
+
+	return
+}
+
+func deleteDirectoryContentsAction(ctx context.Context, e *Engine, opts map[string]string, l *LogEntry) (out map[string]string, err error) {
+	out, err = e.FileWriter.DeleteDirectoryContents(ctx, opts)
+	setLogEntryCmdOpts(l, out)
+
+	return
+}
+
+func restoreIntoDataDirectoryAction(ctx context.Context, e *Engine, opts map[string]string, l *LogEntry) (out map[string]string, err error) {
+	snapID, err := e.getSnapIDOptOrRandLive(opts)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Printf("Restoring snap ID %v into data directory\n", snapID)
+
+	setLogEntryCmdOpts(l, map[string]string{"snapID": snapID})
+
+	b := &bytes.Buffer{}
+	err = e.Checker.RestoreSnapshotToPath(ctx, snapID, e.FileWriter.DataDirectory(ctx), b, opts)
+	if err != nil {
+		log.Print(b.String())
+		return nil, err
+	}
+
+	return nil, nil
 }
 
 // Action constants.
