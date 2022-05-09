@@ -102,7 +102,7 @@ func (e *Engine) checkErrRecovery(ctx context.Context, incomingErr error, action
 
 		e.statsUpdateCounters(statsIncrDataPurge)
 
-		// Restore a previoius snapshot to the data directory
+		// Restore a previous snapshot to the data directory
 		restoreActionKey := RestoreIntoDataDirectoryActionKey
 		_, outgoingErr = e.ExecAction(ctx, restoreActionKey, actionOpts[restoreActionKey])
 
