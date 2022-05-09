@@ -138,12 +138,11 @@ const (
 type ActionOpts map[ActionKey]map[string]string
 
 func (actionOpts ActionOpts) getActionControlOpts() map[string]string {
-	actionControlOpts := defaultActionControls()
 	if actionOpts != nil && actionOpts[ActionControlActionKey] != nil {
-		actionControlOpts = actionOpts[ActionControlActionKey]
+		return actionOpts[ActionControlActionKey]
 	}
 
-	return actionControlOpts
+	return defaultActionControls()
 }
 
 // Action is a unit of functionality that can be executed by
