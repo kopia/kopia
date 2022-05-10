@@ -580,12 +580,9 @@ func (s *contentManagerSuite) TestDeleteContent(t *testing.T) {
 	c1Bytes := seededRandomData(10, 100)
 	content1 := writeContentAndVerify(ctx, t, bm, c1Bytes)
 
-	c3Bytes := seededRandomData(13, 100)
-	content3 := writeContentAndVerify(ctx, t, bm, c3Bytes)
-
-	require.NoError(t, bm.Flush(ctx))
-	require.NoError(t, bm.DeleteContent(ctx, content3))
-	require.NoError(t, bm.Flush(ctx))
+	if err := bm.Flush(ctx); err != nil {
+		t.Fatalf("error flushing: %v", err)
+	}
 
 	dumpContents(ctx, t, bm, "after first flush")
 
@@ -594,8 +591,9 @@ func (s *contentManagerSuite) TestDeleteContent(t *testing.T) {
 
 	t.Logf("deleting previously flushed content (c1)")
 
-	require.NoError(t, bm.DeleteContent(ctx, content1))
-	require.NoError(t, bm.DeleteContent(ctx, content3))
+	if err := bm.DeleteContent(ctx, content1); err != nil {
+		t.Fatalf("unable to delete content %v: %v", content1, err)
+	}
 
 	t.Logf("deleting not flushed content (c2)")
 
@@ -615,71 +613,6 @@ func (s *contentManagerSuite) TestDeleteContent(t *testing.T) {
 
 	verifyDeletedContentRead(ctx, t, bm, content1, c1Bytes)
 	verifyContentNotFound(ctx, t, bm, content2)
-}
-
-func (s *contentManagerSuite) TestForgetContent(t *testing.T) {
-	ctx := testlogging.Context(t)
-	data := blobtesting.DataMap{}
-	st := blobtesting.NewMapStorage(data, nil, nil)
-	bm := s.newTestContentManager(t, st)
-
-	defer bm.Close(ctx)
-
-	c1Bytes := seededRandomData(10, 100)
-	content1 := writeContentAndVerify(ctx, t, bm, c1Bytes)
-
-	c3Bytes := seededRandomData(12, 100)
-	content3 := writeContentAndVerify(ctx, t, bm, c3Bytes)
-
-	require.NoError(t, bm.Flush(ctx))
-
-	require.NoError(t, bm.DeleteContent(ctx, content3))
-	require.NoError(t, bm.Flush(ctx))
-
-	dumpContents(ctx, t, bm, "after first flush")
-
-	c2Bytes := seededRandomData(11, 100)
-	content2 := writeContentAndVerify(ctx, t, bm, c2Bytes)
-
-	t.Logf("forgetting previously flushed content (c1)")
-
-	require.NoError(t, bm.ForgetContent(ctx, content1))
-	t.Logf("forgetting not flushed content (c2)")
-
-	require.ErrorIs(t, bm.ForgetContent(ctx, content2), ErrContentNotFound)
-
-	// forget had no effect
-	verifyContent(ctx, t, bm, content2, c2Bytes)
-
-	verifyContentNotFound(ctx, t, bm, content1)
-
-	require.NoError(t, bm.IterateContents(ctx, IterateOptions{
-		Range: index.AllIDs,
-	}, func(ci Info) error {
-		require.NotEqual(t, ci.GetContentID(), content1)
-		return nil
-	}))
-
-	t.Logf("flushing")
-	bm.Flush(ctx)
-	t.Logf("flushed")
-
-	bm = s.newTestContentManager(t, st)
-	defer bm.Close(ctx)
-
-	require.NoError(t, bm.ForgetContent(ctx, content3))
-
-	verifyContentNotFound(ctx, t, bm, content1)
-	verifyContentNotFound(ctx, t, bm, content3)
-	// forget had no effect
-	verifyContent(ctx, t, bm, content2, c2Bytes)
-
-	require.NoError(t, bm.IterateContents(ctx, IterateOptions{
-		Range: index.AllIDs,
-	}, func(ci Info) error {
-		require.NotEqual(t, ci.GetContentID(), content1)
-		return nil
-	}))
 }
 
 // nolint:gocyclo
