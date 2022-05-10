@@ -199,9 +199,20 @@ func (bm *WriteManager) deletePreexistingContent(ctx context.Context, ci Info) e
 		return errors.Wrap(err, "unable to create pack")
 	}
 
-	pp.currentPackItems[ci.GetContentID()] = &deletedInfo{ci, bm.timeNow().Unix()}
+	pp.currentPackItems[ci.GetContentID()] = &deletedInfo{ci, bm.contentWriteTime(ci.GetTimestampSeconds())}
 
 	return nil
+}
+
+// contentWriteTime returns content write time for new content
+// by computing max(timeNow().Unix(), previousUnixTimeSeconds + 1).
+func (bm *WriteManager) contentWriteTime(previousUnixTimeSeconds int64) int64 {
+	t := bm.timeNow().Unix()
+	if t > previousUnixTimeSeconds {
+		return t
+	}
+
+	return previousUnixTimeSeconds + 1
 }
 
 type deletedInfo struct {
@@ -256,7 +267,7 @@ func (bm *WriteManager) maybeRetryWritingFailedPacksUnlocked(ctx context.Context
 	return nil
 }
 
-func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, data gather.Bytes, isDeleted bool, comp compression.HeaderID, isRewrite bool) error {
+func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, data gather.Bytes, isDeleted bool, comp compression.HeaderID, previousWriteTime int64) error {
 	// see if the current index is old enough to cause automatic flush.
 	if err := bm.maybeFlushBasedOnTimeUnlocked(ctx); err != nil {
 		return errors.Wrap(err, "unable to flush old pending writes")
@@ -275,7 +286,7 @@ func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, dat
 
 	bm.lock()
 
-	if !isRewrite {
+	if previousWriteTime < 0 {
 		if _, _, err = bm.getContentInfoReadLocked(ctx, contentID); err == nil {
 			// we lost the race while compressing the content, the content now exists.
 			bm.unlock()
@@ -317,7 +328,7 @@ func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, dat
 		ContentID:        contentID,
 		PackBlobID:       pp.packBlobID,
 		PackOffset:       uint32(pp.currentPackData.Length()),
-		TimestampSeconds: bm.timeNow().Unix(),
+		TimestampSeconds: bm.contentWriteTime(previousWriteTime),
 		FormatVersion:    byte(bm.writeFormatVersion),
 		OriginalLength:   uint32(data.Length()),
 	}
@@ -678,7 +689,7 @@ func (bm *WriteManager) rewriteContent(ctx context.Context, contentID ID, onlyRe
 		isDeleted = false
 	}
 
-	return bm.addToPackUnlocked(ctx, contentID, data.Bytes(), isDeleted, bi.GetCompressionHeaderID(), true)
+	return bm.addToPackUnlocked(ctx, contentID, data.Bytes(), isDeleted, bi.GetCompressionHeaderID(), bi.GetTimestampSeconds())
 }
 
 func packPrefixForContentID(contentID ID) blob.ID {
@@ -748,6 +759,8 @@ func (bm *WriteManager) WriteContent(ctx context.Context, data gather.Bytes, pre
 
 	contentID := prefix + ID(hex.EncodeToString(bm.hashData(hashOutput[:0], data)))
 
+	previousWriteTime := int64(-1)
+
 	bm.mu.RLock()
 	_, bi, err := bm.getContentInfoReadLocked(ctx, contentID)
 	bm.mu.RUnlock()
@@ -758,12 +771,14 @@ func (bm *WriteManager) WriteContent(ctx context.Context, data gather.Bytes, pre
 			return contentID, nil
 		}
 
+		previousWriteTime = bi.GetTimestampSeconds()
+
 		bm.log.Debugf("write-content %v previously-deleted", contentID)
 	} else {
 		bm.log.Debugf("write-content %v new", contentID)
 	}
 
-	return contentID, bm.addToPackUnlocked(ctx, contentID, data, false, comp, false)
+	return contentID, bm.addToPackUnlocked(ctx, contentID, data, false, comp, previousWriteTime)
 }
 
 // GetContent gets the contents of a given content. If the content is not found returns ErrContentNotFound.
