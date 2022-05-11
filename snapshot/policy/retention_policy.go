@@ -21,24 +21,24 @@ const (
 
 // RetentionPolicy describes snapshot retention policy.
 type RetentionPolicy struct {
-	KeepLatest  *OptionalInt `json:"keepLatest,omitempty"`
-	KeepHourly  *OptionalInt `json:"keepHourly,omitempty"`
-	KeepDaily   *OptionalInt `json:"keepDaily,omitempty"`
-	KeepWeekly  *OptionalInt `json:"keepWeekly,omitempty"`
-	KeepMonthly *OptionalInt `json:"keepMonthly,omitempty"`
-	KeepAnnual  *OptionalInt `json:"keepAnnual,omitempty"`
-	KeepMinDays *OptionalInt `json:"keepMinDays,omitempty"`
+	KeepLatest       *OptionalInt `json:"keepLatest,omitempty"`
+	KeepHourly       *OptionalInt `json:"keepHourly,omitempty"`
+	KeepDaily        *OptionalInt `json:"keepDaily,omitempty"`
+	KeepWeekly       *OptionalInt `json:"keepWeekly,omitempty"`
+	KeepMonthly      *OptionalInt `json:"keepMonthly,omitempty"`
+	KeepAnnual       *OptionalInt `json:"keepAnnual,omitempty"`
+	MinRetentionDays *OptionalInt `json:"MinRetentionDays,omitempty"`
 }
 
 // RetentionPolicyDefinition specifies which policy definition provided the value of a particular field.
 type RetentionPolicyDefinition struct {
-	KeepLatest  snapshot.SourceInfo `json:"keepLatest,omitempty"`
-	KeepHourly  snapshot.SourceInfo `json:"keepHourly,omitempty"`
-	KeepDaily   snapshot.SourceInfo `json:"keepDaily,omitempty"`
-	KeepWeekly  snapshot.SourceInfo `json:"keepWeekly,omitempty"`
-	KeepMonthly snapshot.SourceInfo `json:"keepMonthly,omitempty"`
-	KeepAnnual  snapshot.SourceInfo `json:"keepAnnual,omitempty"`
-	KeepMinDays snapshot.SourceInfo `json:"keepMinDays,omitempty"`
+	KeepLatest       snapshot.SourceInfo `json:"keepLatest,omitempty"`
+	KeepHourly       snapshot.SourceInfo `json:"keepHourly,omitempty"`
+	KeepDaily        snapshot.SourceInfo `json:"keepDaily,omitempty"`
+	KeepWeekly       snapshot.SourceInfo `json:"keepWeekly,omitempty"`
+	KeepMonthly      snapshot.SourceInfo `json:"keepMonthly,omitempty"`
+	KeepAnnual       snapshot.SourceInfo `json:"keepAnnual,omitempty"`
+	MinRetentionDays snapshot.SourceInfo `json:"MinRetentionDays,omitempty"`
 }
 
 // ComputeRetentionReasons computes the reasons why each snapshot is retained, based on
@@ -80,7 +80,7 @@ func (r *RetentionPolicy) ComputeRetentionReasons(manifests []*snapshot.Manifest
 		daily:   cutoffTime(r.KeepDaily, daysAgo),
 		hourly:  cutoffTime(r.KeepHourly, hoursAgo),
 		weekly:  cutoffTime(r.KeepWeekly, weeksAgo),
-		minDays: cutoffTime(r.KeepMinDays, daysAgo),
+		minDays: cutoffTime(r.MinRetentionDays, daysAgo),
 	}
 
 	ids := make(map[string]bool)
@@ -150,17 +150,13 @@ func (r *RetentionPolicy) getRetentionReasons(i int, s *snapshot.Manifest, cutof
 		{cutoff.hourly, s.StartTime.Format("2006-01-02 15"), "hourly", r.KeepHourly},
 	}
 
-	if r.KeepMinDays != nil {
-		if !s.StartTime.Before(cutoff.minDays) && *r.KeepMinDays > *newOptionalInt(0) {
+	if r.MinRetentionDays != nil {
+		if !s.StartTime.Before(cutoff.minDays) && *r.MinRetentionDays > *newOptionalInt(0) {
 			keepReasons = []string{"Inside min retention days"}
 		}
 	}
 
 	for _, c := range cases {
-		if r.KeepMinDays != nil && *r.KeepMinDays > 0 {
-			break
-		}
-
 		if c.max == nil {
 			continue
 		}
@@ -221,7 +217,6 @@ const (
 	defaultKeepWeekly  = 4
 	defaultKeepMonthly = 24
 	defaultKeepAnnual  = 3
-	defaultKeepMinDays = 0
 )
 
 // Merge applies default values from the provided policy.
@@ -232,7 +227,7 @@ func (r *RetentionPolicy) Merge(src RetentionPolicy, def *RetentionPolicyDefinit
 	mergeOptionalInt(&r.KeepWeekly, src.KeepWeekly, &def.KeepWeekly, si)
 	mergeOptionalInt(&r.KeepMonthly, src.KeepMonthly, &def.KeepMonthly, si)
 	mergeOptionalInt(&r.KeepAnnual, src.KeepAnnual, &def.KeepAnnual, si)
-	mergeOptionalInt(&r.KeepMinDays, src.KeepMinDays, &def.KeepMinDays, si)
+	mergeOptionalInt(&r.MinRetentionDays, src.MinRetentionDays, &def.MinRetentionDays, si)
 }
 
 // CompactRetentionReasons returns compressed retention reasons given a list of retention reasons.
