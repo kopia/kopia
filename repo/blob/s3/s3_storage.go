@@ -172,7 +172,8 @@ func (s *s3Storage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes, opt
 	}
 
 	uploadInfo, err := s.cli.PutObject(ctx, s.BucketName, s.getObjectNameString(b), data.Reader(), int64(data.Length()), minio.PutObjectOptions{
-		ContentType: "application/x-kopia",
+		ContentType:      "application/x-kopia",
+		DisableMultipart: true,
 		// The Content-MD5 header is required for any request to upload an object
 		// with a retention period configured using Amazon S3 Object Lock.
 		// Unconditionally computing the content MD5, potentially incurring
