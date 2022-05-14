@@ -32,7 +32,7 @@ func (c *commandSnapshotFixInvalidFiles) setup(svc appServices, parent commandPa
 	cmd.Action(svc.repositoryWriterAction(c.run))
 }
 
-func (c *commandSnapshotFixInvalidFiles) rewriteEntries(ctx context.Context, dirRelativePath string, ent *snapshot.DirEntry) (*snapshot.DirEntry, error) {
+func (c *commandSnapshotFixInvalidFiles) rewriteEntry(ctx context.Context, dirRelativePath string, ent *snapshot.DirEntry) (*snapshot.DirEntry, error) {
 	fname := dirRelativePath + "/" + ent.Name
 
 	if ent.Type != snapshot.EntryTypeDirectory {
@@ -64,5 +64,5 @@ func (c *commandSnapshotFixInvalidFiles) run(ctx context.Context, rep repo.Repos
 
 	c.verifier = snapshotfs.NewVerifier(ctx, rep, opts)
 
-	return c.common.rewriteMatchingSnapshots(ctx, rep, c.rewriteEntries)
+	return c.common.rewriteMatchingSnapshots(ctx, rep, c.rewriteEntry)
 }

@@ -27,7 +27,7 @@ func (c *commandSnapshotFixRemoveFiles) setup(svc appServices, parent commandPar
 	cmd.Action(svc.repositoryWriterAction(c.run))
 }
 
-func (c *commandSnapshotFixRemoveFiles) rewriteEntries(ctx context.Context, dirRelativePath string, ent *snapshot.DirEntry) (*snapshot.DirEntry, error) {
+func (c *commandSnapshotFixRemoveFiles) rewriteEntry(ctx context.Context, dirRelativePath string, ent *snapshot.DirEntry) (*snapshot.DirEntry, error) {
 	for _, id := range c.removeObjectIDs {
 		if string(ent.ObjectID) == id {
 			return nil, nil
@@ -53,5 +53,5 @@ func (c *commandSnapshotFixRemoveFiles) run(ctx context.Context, rep repo.Reposi
 		return errors.Errorf("must specify files to remove")
 	}
 
-	return c.common.rewriteMatchingSnapshots(ctx, rep, c.rewriteEntries)
+	return c.common.rewriteMatchingSnapshots(ctx, rep, c.rewriteEntry)
 }
