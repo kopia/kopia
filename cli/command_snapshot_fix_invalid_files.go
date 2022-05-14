@@ -23,7 +23,7 @@ type commandSnapshotFixInvalidFiles struct {
 }
 
 func (c *commandSnapshotFixInvalidFiles) setup(svc appServices, parent commandParent) {
-	cmd := parent.Command("invalid-files", "Remove references to invalid (unreadable) files in snapshots.")
+	cmd := parent.Command("invalid-files", "Remove references to any invalid (unreadable) files from snapshots.")
 	c.common.setup(svc, cmd)
 
 	cmd.Flag("invalid-file-handling", "How to handle invalid files").Default(invalidEntryStub).EnumVar(&c.invalidFileHandling, invalidEntryFail, invalidEntryStub, invalidEntryKeep, invalidEntryRemove)

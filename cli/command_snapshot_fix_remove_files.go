@@ -18,7 +18,7 @@ type commandSnapshotFixRemoveFiles struct {
 }
 
 func (c *commandSnapshotFixRemoveFiles) setup(svc appServices, parent commandParent) {
-	cmd := parent.Command("remove-files", "Remove references to files from snapshots.")
+	cmd := parent.Command("remove-files", "Remove references to the specified files from snapshots.")
 	c.common.setup(svc, cmd)
 
 	cmd.Flag("object-id", "Remove files by their object ID").StringsVar(&c.removeObjectIDs)
