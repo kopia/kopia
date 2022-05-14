@@ -6,6 +6,7 @@ import (
 	"github.com/alecthomas/kingpin"
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/snapshot"
@@ -25,10 +26,19 @@ func (c *commandSnapshotFix) setup(svc appServices, parent commandParent) {
 }
 
 type commonRewriteSnapshots struct {
-	manifestIDs []string
-	sources     []string
-	commit      bool
+	manifestIDs        []string
+	sources            []string
+	commit             bool
+	parallel           int
+	invalidDirHandling string
 }
+
+const (
+	invalidEntryKeep   = "keep"   // keep unreadable file/directory
+	invalidEntryStub   = "stub"   // replaces unreadable file/directory with a stub file
+	invalidEntryFail   = "fail"   // fail the command
+	invalidEntryRemove = "remove" // removes unreadable file/directory
+)
 
 func (c *commonRewriteSnapshots) setup(svc appServices, cmd *kingpin.CmdClause) {
 	_ = svc
@@ -36,63 +46,112 @@ func (c *commonRewriteSnapshots) setup(svc appServices, cmd *kingpin.CmdClause) 
 	cmd.Flag("manifest-id", "Manifest IDs").StringsVar(&c.manifestIDs)
 	cmd.Flag("source", "Source to target (username@hostname:/path)").StringsVar(&c.sources)
 	cmd.Flag("commit", "Update snapshot manifests").BoolVar(&c.commit)
+	cmd.Flag("parallel", "Parallelism").IntVar(&c.parallel)
+	cmd.Flag("invalid-directory-handling", "Handling of invalid directories").Default(invalidEntryStub).EnumVar(&c.invalidDirHandling, invalidEntryFail, invalidEntryStub, invalidEntryKeep)
 }
 
-func (c *commonRewriteSnapshots) rewriteMatchingSnapshots(ctx context.Context, rep repo.RepositoryWriter, rewrite snapshotfs.DirRewriterCallback) error {
-	rw := snapshotfs.NewDirRewriter(rep, rewrite)
+func failedEntryCallback(rep repo.RepositoryWriter, enumVal string) snapshotfs.RewriteFailedEntryCallback {
+	switch enumVal {
+	default:
+		return snapshotfs.RewriteFail
+	case invalidEntryStub:
+		return snapshotfs.RewriteAsStub(rep)
+	case invalidEntryRemove:
+		return snapshotfs.RewriteRemove
+	case invalidEntryKeep:
+		return snapshotfs.RewriteKeep
+	}
+}
+
+func (c *commonRewriteSnapshots) rewriteMatchingSnapshots(ctx context.Context, rep repo.RepositoryWriter, rewrite snapshotfs.RewriteDirEntryCallback) error {
+	rw := snapshotfs.NewDirRewriter(rep, snapshotfs.DirRewriterOptions{
+		Parallel:               c.parallel,
+		RewriteEntry:           rewrite,
+		OnDirectoryReadFailure: failedEntryCallback(rep, c.invalidDirHandling),
+	})
+	defer rw.Close()
 
 	var fixed bool
 
-	manifests, err := c.listManifestIDs(ctx, rep)
+	manifestIDs, err := c.listManifestIDs(ctx, rep)
 	if err != nil {
 		return err
 	}
 
-	for _, manID := range manifests {
-		man, err := snapshot.LoadSnapshot(ctx, rep, manID)
-		if err != nil {
-			return errors.Wrapf(err, "error loading manifest %v", manID)
-		}
+	manifests, err := snapshot.LoadSnapshots(ctx, rep, manifestIDs)
+	if err != nil {
+		return errors.Wrap(err, "error loading snapshots")
+	}
 
-		old := *man
+	for _, mg := range snapshot.GroupBySource(manifests) {
+		log(ctx).Infof("Processing snapshot %v", mg[0].Source)
 
-		changed, err := rw.RewriteSnapshotManifest(ctx, man)
-		if err != nil {
-			return errors.Wrap(err, "error rewriting manifest")
-		}
+		for _, man := range snapshot.SortByTime(mg, false) {
+			log(ctx).Infof("  %v (%v)", formatTimestamp(man.StartTime), man.ID)
 
-		if !changed {
-			log(ctx).Infof("No change to snapshot %v at %v",
-				man.Source,
-				formatTimestamp(man.StartTime))
+			old := man.Clone()
 
-			continue
-		}
-
-		if changed {
-			oldManifestID := man.ID
-
-			if err := snapshot.UpdateSnapshot(ctx, rep, man); err != nil {
-				return errors.Wrap(err, "error updating snapshot")
+			changed, err := rw.RewriteSnapshotManifest(ctx, man)
+			if err != nil {
+				return errors.Wrap(err, "error rewriting manifest")
 			}
 
-			log(ctx).Infof("Fixing snapshot %v at %v.\n  Manifest ID: %v => %v\n  Root: %v => %v",
-				man.Source,
-				formatTimestamp(man.StartTime),
-				oldManifestID,
-				man.ID,
-				old.RootEntry.ObjectID,
-				man.RootEntry.ObjectID)
+			if !changed {
+				log(ctx).Debugf("No change to snapshot %v at %v",
+					man.Source,
+					formatTimestamp(man.StartTime))
 
-			fixed = true
+				continue
+			}
+
+			if changed {
+				if c.commit {
+					if err := snapshot.UpdateSnapshot(ctx, rep, man); err != nil {
+						return errors.Wrap(err, "error updating snapshot")
+					}
+				}
+
+				log(ctx).Infof("    diff %v %v", old.RootEntry.ObjectID, man.RootEntry.ObjectID)
+
+				if d := snapshotSizeDelta(old, man); d != "" {
+					log(ctx).Infof("    delta:%v", d)
+				}
+
+				fixed = true
+			}
 		}
 	}
 
 	if fixed && !c.commit {
-		return errors.Errorf("fixes made, but not committed, pass --commit to update snapshots")
+		log(ctx).Infof("fixes made, but not committed, pass --commit to update snapshots")
+	}
+
+	if !fixed {
+		log(ctx).Infof("No changes.")
 	}
 
 	return nil
+}
+
+func snapshotSizeDelta(m1, m2 *snapshot.Manifest) string {
+	if m1.RootEntry == nil || m2.RootEntry == nil {
+		return ""
+	}
+
+	if m1.RootEntry.DirSummary == nil || m2.RootEntry.DirSummary == nil {
+		return ""
+	}
+
+	deltaBytes := m2.RootEntry.DirSummary.TotalFileSize - m1.RootEntry.DirSummary.TotalFileSize
+	if deltaBytes < 0 {
+		return "-" + units.BytesStringBase10(-deltaBytes)
+	}
+
+	if deltaBytes > 0 {
+		return "+" + units.BytesStringBase10(deltaBytes)
+	}
+
+	return ""
 }
 
 func (c *commonRewriteSnapshots) listManifestIDs(ctx context.Context, rep repo.Repository) ([]manifest.ID, error) {
