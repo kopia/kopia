@@ -71,7 +71,7 @@ func (c *commonRewriteSnapshots) rewriteMatchingSnapshots(ctx context.Context, r
 	})
 	defer rw.Close()
 
-	var fixed bool
+	var updatedSnapshots int
 
 	manifestIDs, err := c.listManifestIDs(ctx, rep)
 	if err != nil {
@@ -87,7 +87,7 @@ func (c *commonRewriteSnapshots) rewriteMatchingSnapshots(ctx context.Context, r
 		log(ctx).Infof("Processing snapshot %v", mg[0].Source)
 
 		for _, man := range snapshot.SortByTime(mg, false) {
-			log(ctx).Infof("  %v (%v)", formatTimestamp(man.StartTime), man.ID)
+			log(ctx).Debugf("  %v (%v)", formatTimestamp(man.StartTime), man.ID)
 
 			old := man.Clone()
 
@@ -97,36 +97,37 @@ func (c *commonRewriteSnapshots) rewriteMatchingSnapshots(ctx context.Context, r
 			}
 
 			if !changed {
-				log(ctx).Debugf("No change to snapshot %v at %v",
-					man.Source,
-					formatTimestamp(man.StartTime))
+				log(ctx).Infof("  %v unchanged (%v)", formatTimestamp(man.StartTime), man.ID)
 
 				continue
 			}
 
-			if changed {
-				if c.commit {
-					if err := snapshot.UpdateSnapshot(ctx, rep, man); err != nil {
-						return errors.Wrap(err, "error updating snapshot")
-					}
+			if c.commit {
+				if err := snapshot.UpdateSnapshot(ctx, rep, man); err != nil {
+					return errors.Wrap(err, "error updating snapshot")
 				}
-
-				log(ctx).Infof("    diff %v %v", old.RootEntry.ObjectID, man.RootEntry.ObjectID)
-
-				if d := snapshotSizeDelta(old, man); d != "" {
-					log(ctx).Infof("    delta:%v", d)
-				}
-
-				fixed = true
 			}
+
+			log(ctx).Infof("  %v replaced manifest from %v to %v", formatTimestamp(man.StartTime), old.ID, man.ID)
+			log(ctx).Infof("    diff %v %v", old.RootEntry.ObjectID, man.RootEntry.ObjectID)
+
+			if d := snapshotSizeDelta(old, man); d != "" {
+				log(ctx).Infof("    delta:%v", d)
+			}
+
+			updatedSnapshots++
 		}
 	}
 
-	if fixed && !c.commit {
-		log(ctx).Infof("fixes made, but not committed, pass --commit to update snapshots")
+	if updatedSnapshots > 0 {
+		if !c.commit {
+			log(ctx).Infof("Fixed %v snapshots, but snapshot manifests were not updated. Pass --commit to update snapshots.", updatedSnapshots)
+		} else {
+			log(ctx).Infof("Fixed and committed %v snapshots.", updatedSnapshots)
+		}
 	}
 
-	if !fixed {
+	if updatedSnapshots == 0 {
 		log(ctx).Infof("No changes.")
 	}
 

@@ -41,6 +41,8 @@ func (c *commandSnapshotFixRemoveFiles) rewriteEntry(ctx context.Context, dirRel
 		}
 
 		if matched {
+			log(ctx).Infof("will remove file %v", path.Join(dirRelativePath, ent.Name))
+
 			return nil, nil
 		}
 	}
