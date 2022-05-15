@@ -119,7 +119,10 @@ func (e *Environment) setup(tb testing.TB, version content.FormatVersion, opts .
 		tb.Fatal(err)
 	}
 
-	tb.Cleanup(func() { rep.Close(ctx) })
+	tb.Cleanup(func() {
+		e.RepositoryWriter.Close(ctx)
+		rep.Close(ctx)
+	})
 
 	return e
 }

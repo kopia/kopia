@@ -4,6 +4,7 @@ package testutil
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -12,6 +13,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/kopia/kopia/internal/cache"
 )
 
 // ProviderTest marks the test method so that it only runs in provider-tests suite.
@@ -102,6 +105,17 @@ func ShouldSkipLongFilenames() bool {
 // MyTestMain runs tests and verifies some post-run invariants.
 func MyTestMain(m *testing.M) {
 	v := m.Run()
+
+	activeCaches := cache.Active()
+
+	if len(activeCaches) > 0 {
+		log.Println("leaked active caches:")
+		for _, stack := range activeCaches {
+			log.Println("  - " + stack)
+		}
+
+		os.Exit(1)
+	}
 
 	os.Exit(v)
 }

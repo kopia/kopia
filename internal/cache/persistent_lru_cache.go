@@ -4,6 +4,7 @@ package cache
 import (
 	"container/heap"
 	"context"
+	"runtime/debug"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -20,6 +21,12 @@ import (
 )
 
 var log = logging.Module("cache")
+
+// nolint:gochecknoglobals
+var (
+	activePersistentCachesMutex sync.Mutex
+	activePersistentCaches      = map[*PersistentCache]string{}
+)
 
 const (
 	// DefaultSweepFrequency is how frequently the contents of cache are sweeped to remove excess data.
@@ -196,6 +203,10 @@ func (c *PersistentCache) Close(ctx context.Context) {
 			log(ctx).Errorf("error during final sweep of the %v: %v", c.description, err)
 		}
 	}
+
+	activePersistentCachesMutex.Lock()
+	delete(activePersistentCaches, c)
+	activePersistentCachesMutex.Unlock()
 }
 
 func (c *PersistentCache) sweepDirectoryPeriodically(ctx context.Context) {
@@ -322,6 +333,19 @@ func (s SweepSettings) applyDefaults() SweepSettings {
 	return s
 }
 
+// Active returns the map of active caches to stack traces that have created them.
+func Active() map[*PersistentCache]string {
+	activePersistentCachesMutex.Lock()
+	defer activePersistentCachesMutex.Unlock()
+
+	res := map[*PersistentCache]string{}
+	for k, v := range activePersistentCaches {
+		res[k] = v
+	}
+
+	return res
+}
+
 // NewPersistentCache creates the persistent cache in the provided storage.
 func NewPersistentCache(ctx context.Context, description string, cacheStorage Storage, storageProtection StorageProtection, sweep SweepSettings) (*PersistentCache, error) {
 	if cacheStorage == nil {
@@ -348,6 +372,10 @@ func NewPersistentCache(ctx context.Context, description string, cacheStorage St
 	if _, err := c.cacheStorage.GetMetadata(ctx, "test-blob"); err != nil && !errors.Is(err, blob.ErrBlobNotFound) {
 		return nil, errors.Wrapf(err, "unable to open %v", c.description)
 	}
+
+	activePersistentCachesMutex.Lock()
+	activePersistentCaches[c] = string(debug.Stack())
+	activePersistentCachesMutex.Unlock()
 
 	c.periodicSweepRunning.Add(1)
 

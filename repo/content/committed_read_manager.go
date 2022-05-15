@@ -86,6 +86,7 @@ type SharedManager struct {
 
 	contentCache      cache.ContentCache
 	metadataCache     cache.ContentCache
+	indexBlobCache    *cache.PersistentCache
 	committedContents *committedContentIndex
 	crypter           *Crypter
 	enc               *encryptedBlobMgr
@@ -468,6 +469,7 @@ func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *Ca
 	// once everything is ready, set it up
 	sm.contentCache = dataCache
 	sm.metadataCache = metadataCache
+	sm.indexBlobCache = indexBlobCache
 	sm.committedContents = newCommittedContentIndex(caching, uint32(sm.crypter.Encryptor.Overhead()), sm.indexVersion, sm.enc.getEncryptedBlob, sm.namedLogger("committed-content-index"), caching.MinIndexSweepAge.DurationOrDefault(DefaultIndexCacheSweepAge))
 
 	return nil
@@ -516,6 +518,7 @@ func (sm *SharedManager) release(ctx context.Context) error {
 
 	sm.contentCache.Close(ctx)
 	sm.metadataCache.Close(ctx)
+	sm.indexBlobCache.Close(ctx)
 
 	if sm.internalLogger != nil {
 		sm.internalLogger.Sync() // nolint:errcheck
