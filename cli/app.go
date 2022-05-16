@@ -20,6 +20,7 @@ import (
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/memtrack"
 	"github.com/kopia/kopia/internal/passwordpersist"
+	"github.com/kopia/kopia/internal/releasable"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/logging"
@@ -122,6 +123,7 @@ type App struct {
 	disableInternalLog            bool
 	AdvancedCommands              string
 	cliStorageProviders           []StorageProvider
+	trackReleasable               []string
 
 	currentAction   string
 	onExitCallbacks []func()
@@ -231,6 +233,7 @@ func (c *App) setup(app *kingpin.Application) {
 	app.Flag("persist-credentials", "Persist credentials").Default("true").Envar("KOPIA_PERSIST_CREDENTIALS_ON_CONNECT").BoolVar(&c.persistCredentials)
 	app.Flag("disable-internal-log", "Disable internal log").Hidden().Envar("KOPIA_DISABLE_INTERNAL_LOG").BoolVar(&c.disableInternalLog)
 	app.Flag("advanced-commands", "Enable advanced (and potentially dangerous) commands.").Hidden().Envar("KOPIA_ADVANCED_COMMANDS").StringVar(&c.AdvancedCommands)
+	app.Flag("track-releasable", "Enable tracking of releasable resources.").Hidden().Envar("KOPIA_TRACK_RELEASABLE").StringsVar(&c.trackReleasable)
 
 	c.setupOSSpecificKeychainFlags(app)
 
@@ -421,6 +424,10 @@ func (c *App) rootContext() context.Context {
 		ctx = logging.WithLogger(ctx, c.loggerFactory)
 	}
 
+	for _, r := range c.trackReleasable {
+		releasable.EnableTracking(releasable.ItemKind(r))
+	}
+
 	return ctx
 }
 
@@ -464,6 +471,13 @@ func (c *App) baseActionWithContext(act func(ctx context.Context) error) func(ct
 			// print error in red
 			log(ctx0).Errorf("%v", err.Error())
 			c.osExit(1)
+		}
+
+		if len(c.trackReleasable) > 0 {
+			if err := releasable.Verify(); err != nil {
+				log(ctx0).Warnf("%v", err.Error())
+				c.osExit(1)
+			}
 		}
 
 		return nil

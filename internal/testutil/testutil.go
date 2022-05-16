@@ -14,7 +14,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/kopia/kopia/internal/cache"
+	"github.com/kopia/kopia/internal/releasable"
 )
 
 // ProviderTest marks the test method so that it only runs in provider-tests suite.
@@ -104,17 +104,26 @@ func ShouldSkipLongFilenames() bool {
 
 // MyTestMain runs tests and verifies some post-run invariants.
 func MyTestMain(m *testing.M) {
+	releasable.EnableTracking("persistent-cache")
+
 	v := m.Run()
 
-	activeCaches := cache.Active()
+	totalLeaked := 0
 
-	if len(activeCaches) > 0 {
-		log.Println("leaked active caches:")
-		for _, stack := range activeCaches {
-			log.Println("  - " + stack)
+	for itemKind, active := range releasable.Active() {
+		if len(active) > 0 {
+			log.Printf("found %v leaked %v:", len(active), itemKind)
+
+			for _, stack := range active {
+				log.Println("  - " + stack)
+			}
+
+			totalLeaked++
 		}
 
-		os.Exit(1)
+		if totalLeaked > 0 {
+			os.Exit(1)
+		}
 	}
 
 	os.Exit(v)
