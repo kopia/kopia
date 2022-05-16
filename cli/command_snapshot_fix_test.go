@@ -23,6 +23,10 @@ import (
 func TestSnapshotFix(t *testing.T) {
 	srcDir1 := testutil.TempDirectory(t)
 
+	if testutil.ShouldReduceTestComplexity() {
+		return
+	}
+
 	// 300 bytes
 	mustWriteFileWithRepeatedData(t, filepath.Join(srcDir1, "small-file1"), 1, bytes.Repeat([]byte{1, 2, 3}, 100))
 	mustWriteFileWithRepeatedData(t, filepath.Join(srcDir1, "small-file1-dup"), 1, bytes.Repeat([]byte{1, 2, 3}, 100))
@@ -31,24 +35,24 @@ func TestSnapshotFix(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Join(srcDir1, "dir1"), 0o700))
 	require.NoError(t, os.MkdirAll(filepath.Join(srcDir1, "dir2"), 0o700))
 
-	// 20 x 3 x 1_000_000 bytes = 60 MB
-	mustWriteFileWithRepeatedData(t, filepath.Join(srcDir1, "large-file1"), 20, bytes.Repeat([]byte{1, 2, 3}, 1000000))
-	mustWriteFileWithRepeatedData(t, filepath.Join(srcDir1, "large-file1-dup"), 20, bytes.Repeat([]byte{1, 2, 3}, 1000000))
-	mustWriteFileWithRepeatedData(t, filepath.Join(srcDir1, "large-file2"), 20, bytes.Repeat([]byte{1, 2, 4}, 1000000))
+	// 3 x 3 x 1_000_000 bytes = 9 MB
+	mustWriteFileWithRepeatedData(t, filepath.Join(srcDir1, "large-file1"), 3, bytes.Repeat([]byte{1, 2, 3}, 1000000))
+	mustWriteFileWithRepeatedData(t, filepath.Join(srcDir1, "large-file1-dup"), 3, bytes.Repeat([]byte{1, 2, 3}, 1000000))
+	mustWriteFileWithRepeatedData(t, filepath.Join(srcDir1, "large-file2"), 3, bytes.Repeat([]byte{1, 2, 4}, 1000000))
 
 	mustWriteFileWithRepeatedData(t, filepath.Join(srcDir1, "dir1", "small-file1"), 1, bytes.Repeat([]byte{1, 1, 2, 3}, 100))
 	mustWriteFileWithRepeatedData(t, filepath.Join(srcDir1, "dir1", "small-file1-dup"), 1, bytes.Repeat([]byte{1, 1, 2, 3}, 100))
 	mustWriteFileWithRepeatedData(t, filepath.Join(srcDir1, "dir1", "small-file2"), 1, bytes.Repeat([]byte{1, 1, 2, 4}, 100))
-	mustWriteFileWithRepeatedData(t, filepath.Join(srcDir1, "dir1", "large-file1"), 20, bytes.Repeat([]byte{1, 1, 2, 3}, 1000000))
-	mustWriteFileWithRepeatedData(t, filepath.Join(srcDir1, "dir1", "large-file1-dup"), 20, bytes.Repeat([]byte{1, 1, 2, 3}, 1000000))
-	mustWriteFileWithRepeatedData(t, filepath.Join(srcDir1, "dir1", "large-file2"), 20, bytes.Repeat([]byte{1, 1, 2, 4}, 1000000))
+	mustWriteFileWithRepeatedData(t, filepath.Join(srcDir1, "dir1", "large-file1"), 3, bytes.Repeat([]byte{1, 1, 2, 3}, 1000000))
+	mustWriteFileWithRepeatedData(t, filepath.Join(srcDir1, "dir1", "large-file1-dup"), 3, bytes.Repeat([]byte{1, 1, 2, 3}, 1000000))
+	mustWriteFileWithRepeatedData(t, filepath.Join(srcDir1, "dir1", "large-file2"), 3, bytes.Repeat([]byte{1, 1, 2, 4}, 1000000))
 
 	mustWriteFileWithRepeatedData(t, filepath.Join(srcDir1, "dir2", "small-file1"), 1, bytes.Repeat([]byte{2, 1, 2, 3}, 100))
 	mustWriteFileWithRepeatedData(t, filepath.Join(srcDir1, "dir2", "small-file1-dup"), 1, bytes.Repeat([]byte{2, 1, 2, 3}, 100))
 	mustWriteFileWithRepeatedData(t, filepath.Join(srcDir1, "dir2", "small-file2"), 1, bytes.Repeat([]byte{2, 1, 2, 4}, 100))
-	mustWriteFileWithRepeatedData(t, filepath.Join(srcDir1, "dir2", "large-file1"), 20, bytes.Repeat([]byte{2, 1, 2, 3}, 1000000))
-	mustWriteFileWithRepeatedData(t, filepath.Join(srcDir1, "dir2", "large-file1-dup"), 20, bytes.Repeat([]byte{2, 1, 2, 3}, 1000000))
-	mustWriteFileWithRepeatedData(t, filepath.Join(srcDir1, "dir2", "large-file2"), 20, bytes.Repeat([]byte{2, 1, 2, 4}, 1000000))
+	mustWriteFileWithRepeatedData(t, filepath.Join(srcDir1, "dir2", "large-file1"), 3, bytes.Repeat([]byte{2, 1, 2, 3}, 1000000))
+	mustWriteFileWithRepeatedData(t, filepath.Join(srcDir1, "dir2", "large-file1-dup"), 3, bytes.Repeat([]byte{2, 1, 2, 3}, 1000000))
+	mustWriteFileWithRepeatedData(t, filepath.Join(srcDir1, "dir2", "large-file2"), 3, bytes.Repeat([]byte{2, 1, 2, 4}, 1000000))
 
 	cases := []struct {
 		name                    string
@@ -285,8 +289,6 @@ func TestSnapshotFix(t *testing.T) {
 		tc := tc
 
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
 			runner := testenv.NewInProcRunner(t)
 			env := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
 
