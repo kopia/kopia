@@ -42,7 +42,7 @@ func TestACL(t *testing.T) {
 
 	var sp testutil.ServerParameters
 
-	kill := serverEnvironment.RunAndProcessStderr(t, sp.ProcessOutput,
+	_, kill := serverEnvironment.RunAndProcessStderr(t, sp.ProcessOutput,
 		"server", "start",
 		"--address=localhost:0",
 		"--server-control-username=admin-user",

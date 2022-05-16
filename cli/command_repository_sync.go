@@ -67,6 +67,8 @@ func (c *commandRepositorySyncTo) setup(svc advancedAppServices, parent commandP
 				return errors.Wrap(err, "open repository")
 			}
 
+			defer rep.Close(ctx) // nolint:errcheck
+
 			dr, ok := rep.(repo.DirectRepository)
 			if !ok {
 				return errors.Errorf("sync only supports directly-connected repositories")

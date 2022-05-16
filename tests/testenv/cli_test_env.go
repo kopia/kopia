@@ -100,10 +100,10 @@ func (e *CLITest) RunAndExpectSuccess(t *testing.T, args ...string) []string {
 }
 
 // RunAndProcessStderr runs the given command, and streams its output line-by-line to a given function until it returns false.
-func (e *CLITest) RunAndProcessStderr(t *testing.T, callback func(line string) bool, args ...string) (kill func()) {
+func (e *CLITest) RunAndProcessStderr(t *testing.T, callback func(line string) bool, args ...string) (wait func() error, kill func()) {
 	t.Helper()
 
-	stdout, stderr, _, kill := e.Runner.Start(t, e.cmdArgs(args))
+	stdout, stderr, wait, kill := e.Runner.Start(t, e.cmdArgs(args))
 	go io.Copy(io.Discard, stdout)
 
 	scanner := bufio.NewScanner(stderr)
@@ -120,7 +120,7 @@ func (e *CLITest) RunAndProcessStderr(t *testing.T, callback func(line string) b
 		}
 	}()
 
-	return kill
+	return wait, kill
 }
 
 // RunAndExpectSuccessWithErrOut runs the given command, expects it to succeed and returns its stdout and stderr lines.
