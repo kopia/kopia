@@ -4,6 +4,7 @@ package testutil
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -12,6 +13,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/kopia/kopia/internal/releasable"
 )
 
 // ProviderTest marks the test method so that it only runs in provider-tests suite.
@@ -101,7 +104,27 @@ func ShouldSkipLongFilenames() bool {
 
 // MyTestMain runs tests and verifies some post-run invariants.
 func MyTestMain(m *testing.M) {
+	releasable.EnableTracking("persistent-cache")
+
 	v := m.Run()
+
+	totalLeaked := 0
+
+	for itemKind, active := range releasable.Active() {
+		if len(active) > 0 {
+			log.Printf("found %v leaked %v:", len(active), itemKind)
+
+			for _, stack := range active {
+				log.Println("  - " + stack)
+			}
+
+			totalLeaked++
+		}
+
+		if totalLeaked > 0 {
+			os.Exit(1)
+		}
+	}
 
 	os.Exit(v)
 }

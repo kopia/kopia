@@ -2371,7 +2371,9 @@ func (s *contentManagerSuite) newTestContentManagerWithTweaks(t *testing.T, st b
 		panic("can't create content manager: " + err.Error())
 	}
 
-	t.Cleanup(func() { bm.Close(ctx) })
+	t.Cleanup(func() {
+		bm.Close(ctx)
+	})
 
 	bm.checkInvariantsOnUnlock = true
 
