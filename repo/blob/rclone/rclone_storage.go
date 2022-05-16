@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/osexec"
 	"github.com/kopia/kopia/internal/tlsutil"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/webdav"
@@ -271,6 +272,9 @@ func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error)
 
 	r.cmd = exec.Command(rcloneExe, arguments...) //nolint:gosec
 	r.cmd.Env = append(r.cmd.Env, opt.RCloneEnv...)
+
+	// https://github.com/kopia/kopia/issues/1934
+	osexec.DisableInterruptSignal(r.cmd)
 
 	startupTimeout := rcloneStartupTimeout
 	if opt.StartupTimeout != 0 {
