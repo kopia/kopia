@@ -103,27 +103,19 @@ func ShouldSkipLongFilenames() bool {
 }
 
 // MyTestMain runs tests and verifies some post-run invariants.
-func MyTestMain(m *testing.M) {
+func MyTestMain(m *testing.M, cleanups ...func()) {
 	releasable.EnableTracking("persistent-cache")
 
 	v := m.Run()
 
-	totalLeaked := 0
+	if err := releasable.Verify(); err != nil {
+		log.Printf("found leaks: %v", err)
 
-	for itemKind, active := range releasable.Active() {
-		if len(active) > 0 {
-			log.Printf("found %v leaked %v:", len(active), itemKind)
+		v = 1
+	}
 
-			for _, stack := range active {
-				log.Println("  - " + stack)
-			}
-
-			totalLeaked++
-		}
-
-		if totalLeaked > 0 {
-			os.Exit(1)
-		}
+	for _, c := range cleanups {
+		c()
 	}
 
 	os.Exit(v)

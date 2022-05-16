@@ -31,12 +31,12 @@ func TestServerControl(t *testing.T) {
 	var sp testutil.ServerParameters
 
 	go func() {
-		kill := env.RunAndProcessStderr(t, sp.ProcessOutput,
+		wait, _ := env.RunAndProcessStderr(t, sp.ProcessOutput,
 			"server", "start", "--insecure", "--random-server-control-password", "--address=127.0.0.1:0")
 
 		close(serverStarted)
 
-		defer kill()
+		wait()
 
 		close(serverStopped)
 	}()

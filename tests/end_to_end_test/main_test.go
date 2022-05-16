@@ -79,8 +79,5 @@ func TestMain(m *testing.M) {
 		log.Fatalf("error setting up test: %v", err)
 	}
 
-	result := m.Run()
-
-	oneTimeCleanup()
-	os.Exit(result)
+	testutil.MyTestMain(m, oneTimeCleanup)
 }

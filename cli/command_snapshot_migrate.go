@@ -50,6 +50,8 @@ func (c *commandSnapshotMigrate) run(ctx context.Context, destRepo repo.Reposito
 		return errors.Wrap(err, "can't open source repository")
 	}
 
+	defer sourceRepo.Close(ctx) // nolint:errcheck
+
 	sources, err := c.getSourcesToMigrate(ctx, sourceRepo)
 	if err != nil {
 		return errors.Wrap(err, "can't retrieve sources")
