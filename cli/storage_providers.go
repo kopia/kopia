@@ -12,8 +12,6 @@ import (
 // StorageProviderServices is implemented by the cli App that allows the cli
 // and tests to mutate the default storage providers.
 type StorageProviderServices interface {
-	AddStorageProvider(p StorageProvider)
-
 	setPasswordFromToken(pwd string)
 	storageProviders() []StorageProvider
 }
