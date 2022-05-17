@@ -17,6 +17,7 @@ type commandServer struct {
 	resume   commandServerResume
 	start    commandServerStart
 	status   commandServerStatus
+	throttle commandServerThrottle
 	upload   commandServerUpload
 	shutdown commandServerShutdown
 }
@@ -70,6 +71,7 @@ func (c *commandServer) setup(svc advancedAppServices, parent commandParent) {
 	c.cancel.setup(svc, cmd)
 	c.pause.setup(svc, cmd)
 	c.resume.setup(svc, cmd)
+	c.throttle.setup(svc, cmd)
 }
 
 func (c *serverClientFlags) serverAPIClientOptions() (apiclient.Options, error) {
