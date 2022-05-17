@@ -6,8 +6,6 @@ TESTING_ACTION_EXE=$(CURDIR)/dist/testing_$(GOOS)_$(GOARCH)/testingaction.exe
 FIO_DOCKER_TAG=ljishen/fio
 REPEAT_TEST=1
 
-export BOTO_PATH=$(CURDIR)/tools/.boto
-
 # get a list all go files
 rwildcard=$(foreach d,$(wildcard $1*),$(call rwildcard,$d/,$2) $(filter $(subst *,%,$2),$d))
 go_source_dirs=cli fs internal repo snapshot
