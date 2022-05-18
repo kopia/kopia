@@ -61,6 +61,7 @@ type Directory interface {
 	Entry
 	Child(ctx context.Context, name string) (Entry, error)
 	Readdir(ctx context.Context) (Entries, error)
+	IterateEntries(ctx context.Context, cb func(context.Context, Entry) error) error
 }
 
 // DirectoryWithSummary is optionally implemented by Directory that provide summary.
