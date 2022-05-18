@@ -123,6 +123,10 @@ func (fsd *shallowFilesystemDirectory) Readdir(ctx context.Context) (fs.Entries,
 	return nil, errors.New("shallowFilesystemDirectory.Readdir not supported")
 }
 
+func (fsd *shallowFilesystemDirectory) IterateEntries(ctx context.Context, cb func(context.Context, fs.Entry) error) error {
+	return errors.New("shallowFilesystemDirectory.IterateEntries not supported")
+}
+
 var (
 	_ snapshot.HasDirEntryOrNil = &shallowFilesystemFile{}
 	_ snapshot.HasDirEntryOrNil = &shallowFilesystemDirectory{}

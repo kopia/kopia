@@ -141,6 +141,20 @@ func toDirEntryOrNil(dirEntry os.DirEntry, prefix string) (fs.Entry, error) {
 	return entryFromDirEntry(fi, prefix), nil
 }
 
+func (fsd *filesystemDirectory) IterateEntries(ctx context.Context, cb func(context.Context, fs.Entry) error) error {
+	entries, err := fsd.Readdir(ctx)
+	if err != nil {
+		return err
+	}
+
+	for _, e := range entries {
+		if err := cb(ctx, e); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (fsd *filesystemDirectory) Readdir(ctx context.Context) (fs.Entries, error) {
 	fullPath := fsd.fullPath()
 
