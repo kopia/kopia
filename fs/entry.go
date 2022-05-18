@@ -79,6 +79,21 @@ type ErrorEntry interface {
 // ErrEntryNotFound is returned when an entry is not found.
 var ErrEntryNotFound = errors.New("entry not found")
 
+// Adapter for a naive Readdir -> IterateEntries implementation.
+func ReaddirToIterate(ctx context.Context, d Directory, cb func(context.Context, Entry) error) error {
+	entries, err := d.Readdir(ctx)
+	if err != nil {
+		return err
+	}
+
+	for _, e := range entries {
+		if err := cb(ctx, e); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // ReadDirAndFindChild reads all entries from a directory and returns one by name.
 // This is a convenience function that may be helpful in implementations of Directory.Child().
 func ReadDirAndFindChild(ctx context.Context, d Directory, name string) (Entry, error) {

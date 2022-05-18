@@ -63,17 +63,7 @@ func (s *sourceDirectories) Child(ctx context.Context, name string) (fs.Entry, e
 }
 
 func (s *sourceDirectories) IterateEntries(ctx context.Context, cb func(context.Context, fs.Entry) error) error {
-	entries, err := s.Readdir(ctx)
-	if err != nil {
-		return err
-	}
-
-	for _, e := range entries {
-		if err := cb(ctx, e); err != nil {
-			return err
-		}
-	}
-	return nil
+	return fs.ReaddirToIterate(ctx, s, cb)
 }
 
 func (s *sourceDirectories) Readdir(ctx context.Context) (fs.Entries, error) {
