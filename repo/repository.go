@@ -87,6 +87,7 @@ type directRepositoryParameters struct {
 	blobCfgBlob         content.BlobCfgBlob
 	formatEncryptionKey []byte
 	nextWriterID        *int32
+	throttler           throttling.SettableThrottler
 }
 
 // directRepository is an implementation of repository that directly manipulates underlying storage.
@@ -98,8 +99,6 @@ type directRepository struct {
 	omgr  *object.Manager
 	mmgr  *manifest.Manager
 	sm    *content.SharedManager
-
-	throttler throttling.SettableThrottler
 
 	closed chan struct{}
 }

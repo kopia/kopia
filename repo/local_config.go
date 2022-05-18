@@ -13,6 +13,7 @@ import (
 	"github.com/kopia/kopia/internal/atomicfile"
 	"github.com/kopia/kopia/internal/ospath"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/blob/throttling"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/object"
 )
@@ -32,6 +33,8 @@ type ClientOptions struct {
 	EnableActions bool `json:"enableActions"`
 
 	FormatBlobCacheDuration time.Duration `json:"formatBlobCacheDuration,omitempty"`
+
+	Throttling *throttling.Limits `json:"throttlingLimits,omitempty"`
 }
 
 // ApplyDefaults returns a copy of ClientOptions with defaults filled out.

@@ -108,10 +108,12 @@ func MyTestMain(m *testing.M, cleanups ...func()) {
 
 	v := m.Run()
 
-	if err := releasable.Verify(); err != nil {
-		log.Printf("found leaks: %v", err)
+	if v == 0 {
+		if err := releasable.Verify(); err != nil {
+			log.Printf("found leaks: %v", err)
 
-		v = 1
+			v = 1
+		}
 	}
 
 	for _, c := range cleanups {

@@ -28,6 +28,10 @@ func (m *mockThrottler) BeforeOperation(ctx context.Context, op string) {
 	m.activity = append(m.activity, fmt.Sprintf("BeforeOperation(%v)", op))
 }
 
+func (m *mockThrottler) AfterOperation(ctx context.Context, op string) {
+	m.activity = append(m.activity, fmt.Sprintf("AfterOperation(%v)", op))
+}
+
 func (m *mockThrottler) BeforeDownload(ctx context.Context, numBytes int64) {
 	m.activity = append(m.activity, fmt.Sprintf("BeforeDownload(%v)", numBytes))
 }
@@ -66,6 +70,7 @@ func TestThrottling(t *testing.T) {
 		"inner.concurrency level reached",
 		"inner.GetBlob",
 		"ReturnUnusedDownloadBytes(20000000)",
+		"AfterOperation(GetBlob)",
 	}, m.activity)
 
 	// upload blob of 7 bytes
@@ -75,6 +80,7 @@ func TestThrottling(t *testing.T) {
 		"BeforeOperation(PutBlob)",
 		"BeforeUpload(7)",
 		"inner.PutBlob",
+		"AfterOperation(PutBlob)",
 	}, m.activity)
 
 	// upload another blob of 30MB
@@ -84,6 +90,7 @@ func TestThrottling(t *testing.T) {
 		"BeforeOperation(PutBlob)",
 		"BeforeUpload(30000000)",
 		"inner.PutBlob",
+		"AfterOperation(PutBlob)",
 	}, m.activity)
 
 	m.Reset()
@@ -93,6 +100,7 @@ func TestThrottling(t *testing.T) {
 		"BeforeDownload(20000000)", // length is unknown, we assume 20MB
 		"inner.GetBlob",
 		"ReturnUnusedDownloadBytes(19999993)", // refund all but 7 bytes
+		"AfterOperation(GetBlob)",
 	}, m.activity)
 
 	m.Reset()
@@ -102,6 +110,7 @@ func TestThrottling(t *testing.T) {
 		"BeforeDownload(20000000)", // length is unknown, we assume 20MB
 		"inner.GetBlob",
 		"BeforeDownload(10000000)", // we downloaded more than expected, acquire more
+		"AfterOperation(GetBlob)",
 	}, m.activity)
 
 	m.Reset()
@@ -110,6 +119,7 @@ func TestThrottling(t *testing.T) {
 		"BeforeOperation(GetBlob)",
 		"BeforeDownload(4)",
 		"inner.GetBlob",
+		"AfterOperation(GetBlob)",
 	}, m.activity)
 
 	m.Reset()
@@ -119,6 +129,7 @@ func TestThrottling(t *testing.T) {
 	require.Equal(t, []string{
 		"BeforeOperation(GetMetadata)",
 		"inner.GetMetadata",
+		"AfterOperation(GetMetadata)",
 	}, m.activity)
 
 	m.Reset()
@@ -126,6 +137,7 @@ func TestThrottling(t *testing.T) {
 	require.Equal(t, []string{
 		"BeforeOperation(DeleteBlob)",
 		"inner.DeleteBlob",
+		"AfterOperation(DeleteBlob)",
 	}, m.activity)
 
 	m.Reset()
@@ -135,5 +147,6 @@ func TestThrottling(t *testing.T) {
 	require.Equal(t, []string{
 		"BeforeOperation(ListBlobs)",
 		"inner.ListBlobs",
+		"AfterOperation(ListBlobs)",
 	}, m.activity)
 }

@@ -10,6 +10,7 @@ type commandRepository struct {
 	changePassword   commandRepositoryChangePassword
 	status           commandRepositoryStatus
 	syncTo           commandRepositorySyncTo
+	throttle         commandRepositoryThrottle
 	validateProvider commandRepositoryValidateProvider
 }
 
@@ -24,6 +25,7 @@ func (c *commandRepository) setup(svc advancedAppServices, parent commandParent)
 	c.setParameters.setup(svc, cmd)
 	c.status.setup(svc, cmd)
 	c.syncTo.setup(svc, cmd) // nolint:contextcheck
+	c.throttle.setup(svc, cmd)
 	c.changePassword.setup(svc, cmd)
 	c.validateProvider.setup(svc, cmd)
 }
