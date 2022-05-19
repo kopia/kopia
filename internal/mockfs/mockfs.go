@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/fs"
 )
 
@@ -273,7 +275,11 @@ func (imd *Directory) Child(ctx context.Context, name string) (fs.Entry, error) 
 
 // IterateEntries calls the given callback on each entry in the directory.
 func (imd *Directory) IterateEntries(ctx context.Context, cb func(context.Context, fs.Entry) error) error {
-	return fs.ReaddirToIterate(ctx, imd, cb)
+	if err := fs.ReaddirToIterate(ctx, imd, cb); err != nil {
+		return errors.Wrap(err, "error iterating through directory entries")
+	}
+
+	return nil
 }
 
 // Readdir gets the contents of a directory.

@@ -86,6 +86,7 @@ func (sd *staticDirectory) IterateEntries(ctx context.Context, cb func(context.C
 			return err
 		}
 	}
+
 	return nil
 }
 

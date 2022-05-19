@@ -79,11 +79,11 @@ type ErrorEntry interface {
 // ErrEntryNotFound is returned when an entry is not found.
 var ErrEntryNotFound = errors.New("entry not found")
 
-// Adapter for a naive Readdir -> IterateEntries implementation.
+// ReaddirToIterate is an adapter for a naive Readdir -> IterateEntries implementation.
 func ReaddirToIterate(ctx context.Context, d Directory, cb func(context.Context, Entry) error) error {
 	entries, err := d.Readdir(ctx)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error reading directory")
 	}
 
 	for _, e := range entries {
@@ -91,6 +91,7 @@ func ReaddirToIterate(ctx context.Context, d Directory, cb func(context.Context,
 			return err
 		}
 	}
+
 	return nil
 }
 
