@@ -61,11 +61,7 @@ func (s *sourceSnapshots) Child(ctx context.Context, name string) (fs.Entry, err
 }
 
 func (s *sourceSnapshots) IterateEntries(ctx context.Context, cb func(context.Context, fs.Entry) error) error {
-	if err := fs.ReaddirToIterate(ctx, s, cb); err != nil {
-		return errors.Wrap(err, "error iterating through directory entries")
-	}
-
-	return nil
+	return fs.ReaddirToIterate(ctx, s, cb)
 }
 
 func (s *sourceSnapshots) Readdir(ctx context.Context) (fs.Entries, error) {

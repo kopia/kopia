@@ -126,11 +126,7 @@ func (rd *repositoryDirectory) Child(ctx context.Context, name string) (fs.Entry
 }
 
 func (rd *repositoryDirectory) IterateEntries(ctx context.Context, cb func(context.Context, fs.Entry) error) error {
-	if err := fs.ReaddirToIterate(ctx, rd, cb); err != nil {
-		return errors.Wrap(err, "error iterating through directory entries")
-	}
-
-	return nil
+	return fs.ReaddirToIterate(ctx, rd, cb)
 }
 
 func (rd *repositoryDirectory) Readdir(ctx context.Context) (fs.Entries, error) {

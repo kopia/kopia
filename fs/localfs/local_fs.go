@@ -142,11 +142,7 @@ func toDirEntryOrNil(dirEntry os.DirEntry, prefix string) (fs.Entry, error) {
 }
 
 func (fsd *filesystemDirectory) IterateEntries(ctx context.Context, cb func(context.Context, fs.Entry) error) error {
-	if err := fs.ReaddirToIterate(ctx, fsd, cb); err != nil {
-		return errors.Wrap(err, "error iterating through directory entries")
-	}
-
-	return nil
+	return fs.ReaddirToIterate(ctx, fsd, cb)
 }
 
 func (fsd *filesystemDirectory) Readdir(ctx context.Context) (fs.Entries, error) {
