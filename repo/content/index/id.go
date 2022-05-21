@@ -14,8 +14,8 @@ import (
 // IDPrefix represents a content ID prefix (empty string or single character between 'g' and 'z').
 type IDPrefix string
 
-// Validate returns an error if a given prefix is invalid.
-func (p IDPrefix) Validate() error {
+// ValidateSingle returns an error if a given prefix is invalid.
+func (p IDPrefix) ValidateSingle() error {
 	switch len(p) {
 	case 0:
 		return nil
@@ -50,12 +50,12 @@ func (i *ID) UnmarshalJSON(v []byte) error {
 	var s string
 
 	if err := json.Unmarshal(v, &s); err != nil {
-		return errors.Wrap(err, "unable to unmarshal object ID")
+		return errors.Wrap(err, "unable to unmarshal ID")
 	}
 
 	tmp, err := ParseID(s)
 	if err != nil {
-		return errors.Wrap(err, "invalid object ID")
+		return errors.Wrap(err, "invalid ID")
 	}
 
 	*i = tmp
@@ -70,6 +70,16 @@ func (i ID) Hash() []byte {
 
 // EmptyID represents empty content ID.
 var EmptyID = ID{} // nolint:gochecknoglobals
+
+// prefixStrings contains precomputed single-character strings for all valid prefixes 'g'..'z'
+// nolint:gochecknoglobals
+var prefixStrings [256]IDPrefix
+
+func init() {
+	for i := 'g'; i <= 'z'; i++ {
+		prefixStrings[i] = IDPrefix([]byte{byte(i)})
+	}
+}
 
 func (i ID) less(other ID) bool {
 	if i.prefix != other.prefix {
@@ -91,11 +101,7 @@ func (i ID) String() string {
 
 // Prefix returns a one-character prefix of a content ID or an empty string.
 func (i ID) Prefix() IDPrefix {
-	if i.prefix == 0 {
-		return ""
-	}
-
-	return IDPrefix([]byte{i.prefix})
+	return prefixStrings[i.prefix]
 }
 
 // comparePrefix returns the value of strings.Compare(i.String(), p) in an optimized manner.
@@ -125,7 +131,15 @@ func IDFromHash(prefix IDPrefix, hash []byte) (ID, error) {
 	var id ID
 
 	if len(hash) > len(id.data) {
-		return EmptyID, errors.Errorf("id too long")
+		return EmptyID, errors.Errorf("hash too long")
+	}
+
+	if len(hash) == 0 {
+		return EmptyID, errors.Errorf("hash too short")
+	}
+
+	if len(prefix) > 1 {
+		return EmptyID, errors.Errorf("prefix too long")
 	}
 
 	if len(prefix) > 0 {
@@ -158,6 +172,10 @@ func ParseID(s string) (ID, error) {
 		s = s[1:]
 	}
 
+	if len(s) > 2*len(id.data) {
+		return id, errors.Errorf("hash too long")
+	}
+
 	n, err := hex.Decode(id.data[:], []byte(s))
 	if err != nil {
 		return id, errors.Wrap(err, "invalid content hash")
@@ -165,10 +183,6 @@ func ParseID(s string) (ID, error) {
 
 	if n == 0 {
 		return id, errors.Errorf("id too short: %q", s0)
-	}
-
-	if n > len(id.data) {
-		return id, errors.Errorf("id too long: %q", s0)
 	}
 
 	id.idLen = byte(n)

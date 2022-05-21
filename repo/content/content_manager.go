@@ -750,7 +750,7 @@ func (bm *WriteManager) WriteContent(ctx context.Context, data gather.Bytes, pre
 
 	reportContentWriteBytes(int64(data.Length()))
 
-	if err := prefix.Validate(); err != nil {
+	if err := prefix.ValidateSingle(); err != nil {
 		return EmptyID, errors.Wrap(err, "invalid prefix")
 	}
 

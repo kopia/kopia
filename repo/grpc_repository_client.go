@@ -659,7 +659,7 @@ func (r *grpcRepositoryClient) doWrite(ctx context.Context, contentID content.ID
 }
 
 func (r *grpcRepositoryClient) WriteContent(ctx context.Context, data gather.Bytes, prefix content.IDPrefix, comp compression.HeaderID) (content.ID, error) {
-	if err := prefix.Validate(); err != nil {
+	if err := prefix.ValidateSingle(); err != nil {
 		return content.EmptyID, errors.Wrap(err, "invalid prefix")
 	}
 
@@ -698,7 +698,7 @@ func (r *grpcRepositoryClient) WriteContent(ctx context.Context, data gather.Byt
 }
 
 func (r *grpcInnerSession) WriteContent(ctx context.Context, data []byte, prefix content.IDPrefix, comp compression.HeaderID) (content.ID, error) {
-	if err := prefix.Validate(); err != nil {
+	if err := prefix.ValidateSingle(); err != nil {
 		return content.EmptyID, errors.Wrap(err, "invalid prefix")
 	}
 

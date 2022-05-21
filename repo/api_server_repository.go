@@ -194,7 +194,7 @@ func (r *apiServerRepository) GetContent(ctx context.Context, contentID content.
 }
 
 func (r *apiServerRepository) WriteContent(ctx context.Context, data gather.Bytes, prefix content.IDPrefix, comp compression.HeaderID) (content.ID, error) {
-	if err := prefix.Validate(); err != nil {
+	if err := prefix.ValidateSingle(); err != nil {
 		return content.EmptyID, errors.Wrap(err, "invalid prefix")
 	}
 
