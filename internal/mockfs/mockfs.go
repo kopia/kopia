@@ -267,8 +267,12 @@ func (imd *Directory) OnReaddir(cb func()) {
 
 // Child gets the named child of a directory.
 func (imd *Directory) Child(ctx context.Context, name string) (fs.Entry, error) {
-	// nolint:wrapcheck
-	return fs.ReadDirAndFindChild(ctx, imd, name)
+	e := imd.children.FindByName(name)
+	if e != nil {
+		return e, nil
+	}
+
+	return nil, fs.ErrEntryNotFound
 }
 
 // IterateEntries calls the given callback on each entry in the directory.
