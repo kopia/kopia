@@ -32,6 +32,12 @@ func ToInfoStruct(i Info) *InfoStruct {
 	return index.ToInfoStruct(i)
 }
 
+// IDFromHash creates and validates content ID from a prefix and hash.
+func IDFromHash(prefix IDPrefix, hash []byte) (ID, error) {
+	// nolint:wrapcheck
+	return index.IDFromHash(prefix, hash)
+}
+
 // ParseID parses the provided string as content ID.
 func ParseID(s string) (ID, error) {
 	return index.ParseID(s) // nolint:wrapcheck

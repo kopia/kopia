@@ -756,7 +756,7 @@ func (bm *WriteManager) WriteContent(ctx context.Context, data gather.Bytes, pre
 
 	var hashOutput [hashing.MaxHashSize]byte
 
-	contentID, err := index.IDFromHash(prefix, bm.hashData(hashOutput[:0], data))
+	contentID, err := IDFromHash(prefix, bm.hashData(hashOutput[:0], data))
 	if err != nil {
 		return EmptyID, errors.Wrap(err, "invalid hash")
 	}

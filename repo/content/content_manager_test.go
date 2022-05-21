@@ -2497,7 +2497,7 @@ func hashValue(b []byte) ID {
 	h := hmac.New(sha256.New, hmacSecret)
 	h.Write(b)
 
-	id, err := index.IDFromHash("", h.Sum(nil))
+	id, err := IDFromHash("", h.Sum(nil))
 	if err != nil {
 		panic("invalid ID")
 	}
@@ -2528,7 +2528,7 @@ func makeRandomHexID(t *testing.T, length int) index.ID {
 		t.Fatal("Could not read random bytes", err)
 	}
 
-	id, err := index.IDFromHash("", b)
+	id, err := IDFromHash("", b)
 	require.NoError(t, err)
 
 	return id

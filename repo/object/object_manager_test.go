@@ -26,7 +26,6 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content"
-	"github.com/kopia/kopia/repo/content/index"
 	"github.com/kopia/kopia/repo/splitter"
 )
 
@@ -66,7 +65,7 @@ func (f *fakeContentManager) WriteContent(ctx context.Context, data gather.Bytes
 
 	h := sha256.New()
 	data.WriteTo(h)
-	contentID, err := index.IDFromHash(prefix, h.Sum(nil))
+	contentID, err := content.IDFromHash(prefix, h.Sum(nil))
 	impossible.PanicOnError(err)
 
 	f.mu.Lock()

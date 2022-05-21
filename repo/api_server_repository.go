@@ -16,7 +16,6 @@ import (
 	"github.com/kopia/kopia/internal/remoterepoapi"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content"
-	"github.com/kopia/kopia/repo/content/index"
 	"github.com/kopia/kopia/repo/hashing"
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/repo/object"
@@ -201,7 +200,7 @@ func (r *apiServerRepository) WriteContent(ctx context.Context, data gather.Byte
 
 	var hashOutput [128]byte
 
-	contentID, err := index.IDFromHash(prefix, r.h(hashOutput[:0], data))
+	contentID, err := content.IDFromHash(prefix, r.h(hashOutput[:0], data))
 	if err != nil {
 		return content.EmptyID, errors.Wrap(err, "invalid content ID")
 	}

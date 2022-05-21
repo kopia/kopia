@@ -25,7 +25,6 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content"
-	"github.com/kopia/kopia/repo/content/index"
 	"github.com/kopia/kopia/repo/hashing"
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/repo/object"
@@ -671,7 +670,7 @@ func (r *grpcRepositoryClient) WriteContent(ctx context.Context, data gather.Byt
 
 	var hashOutput [128]byte
 
-	contentID, err := index.IDFromHash(prefix, r.h(hashOutput[:0], data))
+	contentID, err := content.IDFromHash(prefix, r.h(hashOutput[:0], data))
 	if err != nil {
 		return content.EmptyID, errors.Errorf("invalid content ID: %v", err)
 	}
