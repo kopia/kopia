@@ -60,6 +60,10 @@ func (s *sourceSnapshots) Child(ctx context.Context, name string) (fs.Entry, err
 	return fs.ReadDirAndFindChild(ctx, s, name)
 }
 
+func (s *sourceSnapshots) IterateEntries(ctx context.Context, cb func(context.Context, fs.Entry) error) error {
+	return fs.ReaddirToIterate(ctx, s, cb)
+}
+
 func (s *sourceSnapshots) Readdir(ctx context.Context) (fs.Entries, error) {
 	manifests, err := snapshot.ListSnapshots(ctx, s.rep, s.src)
 	if err != nil {

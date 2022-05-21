@@ -61,6 +61,7 @@ type Directory interface {
 	Entry
 	Child(ctx context.Context, name string) (Entry, error)
 	Readdir(ctx context.Context) (Entries, error)
+	IterateEntries(ctx context.Context, cb func(context.Context, Entry) error) error
 }
 
 // DirectoryWithSummary is optionally implemented by Directory that provide summary.
@@ -77,6 +78,22 @@ type ErrorEntry interface {
 
 // ErrEntryNotFound is returned when an entry is not found.
 var ErrEntryNotFound = errors.New("entry not found")
+
+// ReaddirToIterate is an adapter for a naive Readdir -> IterateEntries implementation.
+func ReaddirToIterate(ctx context.Context, d Directory, cb func(context.Context, Entry) error) error {
+	entries, err := d.Readdir(ctx)
+	if err != nil {
+		return errors.Wrap(err, "error reading directory")
+	}
+
+	for _, e := range entries {
+		if err := cb(ctx, e); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
 
 // ReadDirAndFindChild reads all entries from a directory and returns one by name.
 // This is a convenience function that may be helpful in implementations of Directory.Child().

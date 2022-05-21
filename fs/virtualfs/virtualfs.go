@@ -78,6 +78,10 @@ func (sd *staticDirectory) Readdir(ctx context.Context) (fs.Entries, error) {
 	return append(fs.Entries(nil), sd.entries...), nil
 }
 
+func (sd *staticDirectory) IterateEntries(ctx context.Context, cb func(context.Context, fs.Entry) error) error {
+	return fs.ReaddirToIterate(ctx, sd, cb)
+}
+
 // NewStaticDirectory returns a virtual static directory.
 func NewStaticDirectory(name string, entries fs.Entries) fs.Directory {
 	return &staticDirectory{

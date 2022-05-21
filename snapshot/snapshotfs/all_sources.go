@@ -58,6 +58,10 @@ func (s *repositoryAllSources) Child(ctx context.Context, name string) (fs.Entry
 	return fs.ReadDirAndFindChild(ctx, s, name)
 }
 
+func (s *repositoryAllSources) IterateEntries(ctx context.Context, cb func(context.Context, fs.Entry) error) error {
+	return fs.ReaddirToIterate(ctx, s, cb)
+}
+
 func (s *repositoryAllSources) Readdir(ctx context.Context) (fs.Entries, error) {
 	srcs, err := snapshot.ListSources(ctx, s.rep)
 	if err != nil {

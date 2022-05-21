@@ -271,6 +271,11 @@ func (imd *Directory) Child(ctx context.Context, name string) (fs.Entry, error) 
 	return fs.ReadDirAndFindChild(ctx, imd, name)
 }
 
+// IterateEntries calls the given callback on each entry in the directory.
+func (imd *Directory) IterateEntries(ctx context.Context, cb func(context.Context, fs.Entry) error) error {
+	return fs.ReaddirToIterate(ctx, imd, cb)
+}
+
 // Readdir gets the contents of a directory.
 func (imd *Directory) Readdir(ctx context.Context) (fs.Entries, error) {
 	if imd.readdirError != nil {

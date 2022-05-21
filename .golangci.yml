@@ -131,3 +131,6 @@ issues:
     - text: "Errors unhandled"
       linters:
         - gosec
+    - text: "unwrapped: sig: func github.com/kopia/kopia/fs.ReaddirToIterate"
+      linters:
+        - wrapcheck

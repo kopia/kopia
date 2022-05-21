@@ -62,6 +62,10 @@ func (s *sourceDirectories) Child(ctx context.Context, name string) (fs.Entry, e
 	return fs.ReadDirAndFindChild(ctx, s, name)
 }
 
+func (s *sourceDirectories) IterateEntries(ctx context.Context, cb func(context.Context, fs.Entry) error) error {
+	return fs.ReaddirToIterate(ctx, s, cb)
+}
+
 func (s *sourceDirectories) Readdir(ctx context.Context) (fs.Entries, error) {
 	sources0, err := snapshot.ListSources(ctx, s.rep)
 	if err != nil {

@@ -125,6 +125,10 @@ func (rd *repositoryDirectory) Child(ctx context.Context, name string) (fs.Entry
 	return fs.ReadDirAndFindChild(ctx, rd, name)
 }
 
+func (rd *repositoryDirectory) IterateEntries(ctx context.Context, cb func(context.Context, fs.Entry) error) error {
+	return fs.ReaddirToIterate(ctx, rd, cb)
+}
+
 func (rd *repositoryDirectory) Readdir(ctx context.Context) (fs.Entries, error) {
 	r, err := rd.repo.OpenObject(ctx, rd.metadata.ObjectID)
 	if err != nil {
