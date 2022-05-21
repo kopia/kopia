@@ -4,12 +4,9 @@ import "testing"
 
 func TestRoundTrip(t *testing.T) {
 	cases := []ID{
-		"",
-		"x",
-		"aa",
-		"xaa",
-		"xaaa",
-		"a1x",
+		mustParseID(t, ""),
+		mustParseID(t, "aa"),
+		mustParseID(t, "xaa"),
 	}
 
 	for _, tc := range cases {
@@ -20,7 +17,7 @@ func TestRoundTrip(t *testing.T) {
 		}
 	}
 
-	if got, want := bytesToContentID(nil), ID(""); got != want {
+	if got, want := bytesToContentID(nil), EmptyID; got != want {
 		t.Errorf("unexpected content id %v, want %v", got, want)
 	}
 }

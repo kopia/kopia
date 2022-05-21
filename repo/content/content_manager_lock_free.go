@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/aes"
 	cryptorand "crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"io"
 
@@ -23,10 +22,7 @@ const indexBlobCompactionWarningThreshold = 1000
 func (sm *SharedManager) maybeCompressAndEncryptDataForPacking(data gather.Bytes, contentID ID, comp compression.HeaderID, output *gather.WriteBuffer) (compression.HeaderID, error) {
 	var hashOutput [hashing.MaxHashSize]byte
 
-	iv, err := getPackedContentIV(hashOutput[:], contentID)
-	if err != nil {
-		return NoCompression, errors.Wrapf(err, "unable to get packed content IV for %q", contentID)
-	}
+	iv := getPackedContentIV(hashOutput[:0], contentID)
 
 	// If the content is prefixed (which represents Kopia's own metadata as opposed to user data),
 	// and we're on V2 format or greater, enable internal compression even when not requested.
@@ -50,7 +46,7 @@ func (sm *SharedManager) maybeCompressAndEncryptDataForPacking(data gather.Bytes
 			return NoCompression, errors.Errorf("unsupported compressor %x", comp)
 		}
 
-		if err = c.Compress(&tmp, data.Reader()); err != nil {
+		if err := c.Compress(&tmp, data.Reader()); err != nil {
 			return NoCompression, errors.Wrap(err, "compression error")
 		}
 
@@ -81,20 +77,6 @@ func writeRandomBytesToBuffer(b *gather.WriteBuffer, count int) error {
 	b.Append(rnd[0:count])
 
 	return nil
-}
-
-// ValidatePrefix returns an error if a given prefix is invalid.
-func ValidatePrefix(prefix ID) error {
-	switch len(prefix) {
-	case 0:
-		return nil
-	case 1:
-		if prefix[0] >= 'g' && prefix[0] <= 'z' {
-			return nil
-		}
-	}
-
-	return errors.Errorf("invalid prefix, must be empty or a single letter between 'g' and 'z'")
 }
 
 func contentCacheKeyForInfo(bi Info) string {
@@ -163,13 +145,10 @@ func (bm *WriteManager) preparePackDataContent(pp *pendingPackInfo) (index.Build
 	return packFileIndex, err
 }
 
-func getPackedContentIV(output []byte, contentID ID) ([]byte, error) {
-	n, err := hex.Decode(output, []byte(contentID[len(contentID)-(aes.BlockSize*2):])) //nolint:gomnd
-	if err != nil {
-		return nil, errors.Wrapf(err, "error decoding content IV from %v", contentID)
-	}
+func getPackedContentIV(output []byte, contentID ID) []byte {
+	h := contentID.Hash()
 
-	return output[0:n], nil
+	return append(output, h[len(h)-aes.BlockSize:]...)
 }
 
 func (bm *WriteManager) writePackFileNotLocked(ctx context.Context, packFile blob.ID, data gather.Bytes) error {

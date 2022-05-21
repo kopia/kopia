@@ -98,7 +98,7 @@ func (s *formatSpecificTestSuite) TestSnapshotMigrateWithIgnores(t *testing.T) {
 		t.Fatalf("unexpected number of snapshots %v want %v", got, want)
 	}
 
-	lines := dstenv.RunAndExpectSuccess(t, "ls", string(manifests[0].RootObjectID()))
+	lines := dstenv.RunAndExpectSuccess(t, "ls", manifests[0].RootObjectID().String())
 
 	// make sure file2.txt was not migrated.
 	require.Contains(t, lines, "file1.txt")

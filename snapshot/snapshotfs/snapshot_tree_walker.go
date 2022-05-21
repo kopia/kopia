@@ -38,7 +38,7 @@ func oidOf(e fs.Entry) object.ID {
 		return h.ObjectID()
 	}
 
-	return ""
+	return object.EmptyID
 }
 
 // ReportError reports the error.
@@ -137,7 +137,7 @@ func (w *TreeWalker) processDirEntry(ctx context.Context, dir fs.Directory, entr
 
 // Process processes the snapshot tree entry.
 func (w *TreeWalker) Process(ctx context.Context, e fs.Entry, entryPath string) error {
-	if oidOf(e) == "" {
+	if oidOf(e) == object.EmptyID {
 		return errors.Errorf("entry does not have ObjectID")
 	}
 

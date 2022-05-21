@@ -5,7 +5,6 @@ import (
 	"context"
 	cryptorand "crypto/rand"
 	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -21,11 +20,13 @@ import (
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/gather"
+	"github.com/kopia/kopia/internal/impossible"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/content/index"
 	"github.com/kopia/kopia/repo/splitter"
 )
 
@@ -58,14 +59,15 @@ func (f *fakeContentManager) GetContent(ctx context.Context, contentID content.I
 	return nil, content.ErrContentNotFound
 }
 
-func (f *fakeContentManager) WriteContent(ctx context.Context, data gather.Bytes, prefix content.ID, comp compression.HeaderID) (content.ID, error) {
+func (f *fakeContentManager) WriteContent(ctx context.Context, data gather.Bytes, prefix content.IDPrefix, comp compression.HeaderID) (content.ID, error) {
 	if f.writeContentError != nil {
-		return "", f.writeContentError
+		return content.EmptyID, f.writeContentError
 	}
 
 	h := sha256.New()
 	data.WriteTo(h)
-	contentID := prefix + content.ID(hex.EncodeToString(h.Sum(nil)))
+	contentID, err := index.IDFromHash(prefix, h.Sum(nil))
+	impossible.PanicOnError(err)
 
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -126,9 +128,9 @@ func TestWriters(t *testing.T) {
 	}{
 		{
 			[]byte("the quick brown fox jumps over the lazy dog"),
-			"05c6e08f1d9fdafa03147fcb8f82f124c76d2f70e3d989dc8aadb5e7d7450bec",
+			mustParseID(t, "05c6e08f1d9fdafa03147fcb8f82f124c76d2f70e3d989dc8aadb5e7d7450bec"),
 		},
-		{make([]byte, 100), "cd00e292c5970d3c5e2f0ffa5171e555bc46bfc4faddfb4a418b6840b86e79a3"}, // 100 zero bytes
+		{make([]byte, 100), mustParseID(t, "cd00e292c5970d3c5e2f0ffa5171e555bc46bfc4faddfb4a418b6840b86e79a3")}, // 100 zero bytes
 	}
 
 	for _, c := range cases {
@@ -214,7 +216,7 @@ func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
 	writer.Write(b[0:50])
 	result, err := writer.Result()
 
-	if !objectIDsEqual(result, "cd00e292c5970d3c5e2f0ffa5171e555bc46bfc4faddfb4a418b6840b86e79a3") {
+	if !objectIDsEqual(result, mustParseID(t, "cd00e292c5970d3c5e2f0ffa5171e555bc46bfc4faddfb4a418b6840b86e79a3")) {
 		t.Errorf("unexpected result: %v err: %v", result, err)
 	}
 }
@@ -250,11 +252,11 @@ func TestCheckpointing(t *testing.T) {
 	result, err := writer.Result()
 	verifyNoError(t, err)
 
-	if !objectIDsEqual(checkpoint1, "") {
+	if !objectIDsEqual(checkpoint1, EmptyID) {
 		t.Errorf("unexpected checkpoint1: %v err: %v", checkpoint1, err)
 	}
 
-	if !objectIDsEqual(checkpoint2, "") {
+	if !objectIDsEqual(checkpoint2, EmptyID) {
 		t.Errorf("unexpected checkpoint2: %v err: %v", checkpoint2, err)
 	}
 
@@ -312,14 +314,14 @@ func TestObjectWriterRaceBetweenCheckpointAndResult(t *testing.T) {
 
 		eg.Go(func() error {
 			cpID, cperr := w.Checkpoint()
-			if cperr == nil && cpID != "" {
+			if cperr == nil && cpID != EmptyID {
 				ids, verr := VerifyObject(ctx, om.contentMgr, cpID)
 				if verr != nil {
 					return errors.Wrapf(err, "Checkpoint() returned invalid object %v", cpID)
 				}
 
 				for _, id := range ids {
-					if id == "" {
+					if id == content.EmptyID {
 						return errors.Errorf("checkpoint returned empty id")
 					}
 				}
@@ -613,7 +615,11 @@ func TestReader(t *testing.T) {
 	data, _, om := setupTest(t, nil)
 
 	storedPayload := []byte("foo\nbar")
-	data["a76999788386641a3ec798554f1fe7e6"] = storedPayload
+
+	cid, err := content.ParseID("a76999788386641a3ec798554f1fe7e6")
+	require.NoError(t, err)
+
+	data[cid] = storedPayload
 
 	cases := []struct {
 		text    string

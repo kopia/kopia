@@ -34,7 +34,7 @@ type contentReader interface {
 type contentManager interface {
 	contentReader
 	SupportsContentCompression() bool
-	WriteContent(ctx context.Context, data gather.Bytes, prefix content.ID, comp compression.HeaderID) (content.ID, error)
+	WriteContent(ctx context.Context, data gather.Bytes, prefix content.IDPrefix, comp compression.HeaderID) (content.ID, error)
 }
 
 // Format describes the format of objects in a repository.
@@ -98,7 +98,7 @@ func (om *Manager) closedWriter(ow *objectWriter) {
 // so this method should only be used for very large files where this overhead is relatively small.
 func (om *Manager) Concatenate(ctx context.Context, objectIDs []ID) (ID, error) {
 	if len(objectIDs) == 0 {
-		return "", errors.Errorf("empty list of objects")
+		return EmptyID, errors.Errorf("empty list of objects")
 	}
 
 	if len(objectIDs) == 1 {
@@ -114,7 +114,7 @@ func (om *Manager) Concatenate(ctx context.Context, objectIDs []ID) (ID, error) 
 	for _, objectID := range objectIDs {
 		concatenatedEntries, totalLength, err = appendIndexEntriesForObject(ctx, om.contentMgr, concatenatedEntries, totalLength, objectID)
 		if err != nil {
-			return "", errors.Wrapf(err, "error appending %v", objectID)
+			return EmptyID, errors.Wrapf(err, "error appending %v", objectID)
 		}
 	}
 
@@ -127,12 +127,12 @@ func (om *Manager) Concatenate(ctx context.Context, objectIDs []ID) (ID, error) 
 	defer w.Close() // nolint:errcheck
 
 	if werr := writeIndirectObject(w, concatenatedEntries); werr != nil {
-		return "", werr
+		return EmptyID, werr
 	}
 
 	concatID, err := w.Result()
 	if err != nil {
-		return "", errors.Wrap(err, "error writing concatenated index")
+		return EmptyID, errors.Wrap(err, "error writing concatenated index")
 	}
 
 	return IndirectObjectID(concatID), nil

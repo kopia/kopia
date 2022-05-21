@@ -6,7 +6,6 @@ import (
 	"crypto/hmac"
 	cryptorand "crypto/rand"
 	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"math/rand"
 	"reflect"
@@ -224,7 +223,7 @@ func (s *contentManagerSuite) TestContentManagerEmpty(t *testing.T) {
 
 	defer bm.Close(ctx)
 
-	noSuchContentID := ID(hashValue([]byte("foo")))
+	noSuchContentID := hashValue([]byte("foo"))
 
 	b, err := bm.GetContent(ctx, noSuchContentID)
 	if !errors.Is(err, ErrContentNotFound) {
@@ -718,7 +717,7 @@ func (s *contentManagerSuite) TestUndeleteContentSimple(t *testing.T) {
 		},
 		{
 			name:    "non-existing content",
-			cid:     ID(makeRandomHexString(t, len(content3))), // non-existing
+			cid:     makeRandomHexID(t, len(content3.String())), // non-existing
 			wantErr: true,
 		},
 	}
@@ -1615,14 +1614,14 @@ func (s *contentManagerSuite) TestIterateContents(t *testing.T) {
 		{
 			desc: "prefix match",
 			options: IterateOptions{
-				Range: index.PrefixRange(contentID1),
+				Range: index.PrefixRange(index.IDPrefix(contentID1.String())),
 			},
 			want: map[ID]bool{contentID1: true},
 		},
 		{
 			desc: "prefix, include deleted",
 			options: IterateOptions{
-				Range:          index.PrefixRange(contentID2),
+				Range:          index.PrefixRange(index.IDPrefix(contentID2.String())),
 				IncludeDeleted: true,
 			},
 			want: map[ID]bool{
@@ -2158,7 +2157,7 @@ func (s *contentManagerSuite) TestContentCachingByFormat(t *testing.T) {
 }
 
 func contentIDCacheKey(id ID) string {
-	return cache.ContentIDCacheKey(string(id)) + ".0.1.0"
+	return cache.ContentIDCacheKey(id.String()) + ".0.1.0"
 }
 
 func (s *contentManagerSuite) TestPrefetchContent(t *testing.T) {
@@ -2210,7 +2209,7 @@ func (s *contentManagerSuite) TestPrefetchContent(t *testing.T) {
 	}{
 		{
 			name:       "MultipleBlobs",
-			input:      []ID{id1, id2, id3, id4, id5, id6, "no-such-content"},
+			input:      []ID{id1, id2, id3, id4, id5, id6},
 			wantResult: []ID{id1, id2, id3, id4, id5, id6},
 			wantDataCacheKeys: map[string][]string{
 				"":         {cache.BlobIDCacheKey(blob1), cache.BlobIDCacheKey(blob2)},
@@ -2430,7 +2429,7 @@ func writeContentAndVerify(ctx context.Context, t *testing.T, bm *WriteManager, 
 		t.Errorf("err: %v", err)
 	}
 
-	if got, want := contentID, ID(hashValue(b)); got != want {
+	if got, want := contentID, hashValue(b); got != want {
 		t.Errorf("invalid content ID for %x, got %v, want %v", b, got, want)
 	}
 
@@ -2476,7 +2475,7 @@ func writeContentWithRetriesAndVerify(ctx context.Context, t *testing.T, bm *Wri
 		t.Errorf("err: %v", err)
 	}
 
-	if got, want := contentID, ID(hashValue(b)); got != want {
+	if got, want := contentID, hashValue(b); got != want {
 		t.Errorf("invalid content ID for %x, got %v, want %v", b, got, want)
 	}
 
@@ -2494,11 +2493,16 @@ func seededRandomData(seed, length int) []byte {
 	return b
 }
 
-func hashValue(b []byte) string {
+func hashValue(b []byte) ID {
 	h := hmac.New(sha256.New, hmacSecret)
 	h.Write(b)
 
-	return hex.EncodeToString(h.Sum(nil))
+	id, err := index.IDFromHash("", h.Sum(nil))
+	if err != nil {
+		panic("invalid ID")
+	}
+
+	return id
 }
 
 func dumpContentManagerData(t *testing.T, data blobtesting.DataMap) {
@@ -2516,15 +2520,18 @@ func dumpContentManagerData(t *testing.T, data blobtesting.DataMap) {
 	t.Logf("*** end of data")
 }
 
-func makeRandomHexString(t *testing.T, length int) string {
+func makeRandomHexID(t *testing.T, length int) index.ID {
 	t.Helper()
 
-	b := make([]byte, (length-1)/2+1)
+	b := make([]byte, length/2)
 	if _, err := rand.Read(b); err != nil {
 		t.Fatal("Could not read random bytes", err)
 	}
 
-	return hex.EncodeToString(b)
+	id, err := index.IDFromHash("", b)
+	require.NoError(t, err)
+
+	return id
 }
 
 func deleteContent(ctx context.Context, t *testing.T, bm *WriteManager, c ID) {

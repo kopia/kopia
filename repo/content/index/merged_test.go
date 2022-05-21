@@ -14,25 +14,25 @@ import (
 
 func TestMerged(t *testing.T) {
 	i1, err := indexWithItems(
-		&InfoStruct{ContentID: "aabbcc", TimestampSeconds: 1, PackBlobID: "xx", PackOffset: 11},
-		&InfoStruct{ContentID: "ddeeff", TimestampSeconds: 1, PackBlobID: "xx", PackOffset: 111},
-		&InfoStruct{ContentID: "z010203", TimestampSeconds: 1, PackBlobID: "xx", PackOffset: 111},
-		&InfoStruct{ContentID: "de1e1e", TimestampSeconds: 4, PackBlobID: "xx", PackOffset: 111},
+		&InfoStruct{ContentID: mustParseID(t, "aabbcc"), TimestampSeconds: 1, PackBlobID: "xx", PackOffset: 11},
+		&InfoStruct{ContentID: mustParseID(t, "ddeeff"), TimestampSeconds: 1, PackBlobID: "xx", PackOffset: 111},
+		&InfoStruct{ContentID: mustParseID(t, "z010203"), TimestampSeconds: 1, PackBlobID: "xx", PackOffset: 111},
+		&InfoStruct{ContentID: mustParseID(t, "de1e1e"), TimestampSeconds: 4, PackBlobID: "xx", PackOffset: 111},
 	)
 	require.NoError(t, err)
 
 	i2, err := indexWithItems(
-		&InfoStruct{ContentID: "aabbcc", TimestampSeconds: 3, PackBlobID: "yy", PackOffset: 33},
-		&InfoStruct{ContentID: "xaabbcc", TimestampSeconds: 1, PackBlobID: "xx", PackOffset: 111},
-		&InfoStruct{ContentID: "de1e1e", TimestampSeconds: 4, PackBlobID: "xx", PackOffset: 222, Deleted: true},
+		&InfoStruct{ContentID: mustParseID(t, "aabbcc"), TimestampSeconds: 3, PackBlobID: "yy", PackOffset: 33},
+		&InfoStruct{ContentID: mustParseID(t, "xaabbcc"), TimestampSeconds: 1, PackBlobID: "xx", PackOffset: 111},
+		&InfoStruct{ContentID: mustParseID(t, "de1e1e"), TimestampSeconds: 4, PackBlobID: "xx", PackOffset: 222, Deleted: true},
 	)
 	require.NoError(t, err)
 
 	i3, err := indexWithItems(
-		&InfoStruct{ContentID: "aabbcc", TimestampSeconds: 2, PackBlobID: "zz", PackOffset: 22},
-		&InfoStruct{ContentID: "ddeeff", TimestampSeconds: 1, PackBlobID: "zz", PackOffset: 222},
-		&InfoStruct{ContentID: "k010203", TimestampSeconds: 1, PackBlobID: "xx", PackOffset: 111},
-		&InfoStruct{ContentID: "k020304", TimestampSeconds: 1, PackBlobID: "xx", PackOffset: 111},
+		&InfoStruct{ContentID: mustParseID(t, "aabbcc"), TimestampSeconds: 2, PackBlobID: "zz", PackOffset: 22},
+		&InfoStruct{ContentID: mustParseID(t, "ddeeff"), TimestampSeconds: 1, PackBlobID: "zz", PackOffset: 222},
+		&InfoStruct{ContentID: mustParseID(t, "k010203"), TimestampSeconds: 1, PackBlobID: "xx", PackOffset: 111},
+		&InfoStruct{ContentID: mustParseID(t, "k020304"), TimestampSeconds: 1, PackBlobID: "xx", PackOffset: 111},
 	)
 	require.NoError(t, err)
 
@@ -40,14 +40,14 @@ func TestMerged(t *testing.T) {
 
 	require.Equal(t, m.ApproximateCount(), 11)
 
-	i, err := m.GetInfo("aabbcc")
+	i, err := m.GetInfo(mustParseID(t, "aabbcc"))
 	require.NoError(t, err)
 	require.NotNil(t, i)
 
 	require.Equal(t, uint32(33), i.GetPackOffset())
 
 	require.NoError(t, m.Iterate(AllIDs, func(i Info) error {
-		if i.GetContentID() == "de1e1e" {
+		if i.GetContentID() == mustParseID(t, "de1e1e") {
 			if i.GetDeleted() {
 				t.Errorf("iteration preferred deleted content over non-deleted")
 			}
@@ -60,7 +60,7 @@ func TestMerged(t *testing.T) {
 	// error is propagated.
 	someErr := errors.Errorf("some error")
 	require.ErrorIs(t, m.Iterate(AllIDs, func(i Info) error {
-		if i.GetContentID() == "aabbcc" {
+		if i.GetContentID() == mustParseID(t, "aabbcc") {
 			return someErr
 		}
 
@@ -74,7 +74,7 @@ func TestMerged(t *testing.T) {
 		return someErr
 	}))
 
-	i, err = m.GetInfo("de1e1e")
+	i, err = m.GetInfo(mustParseID(t, "de1e1e"))
 	require.NoError(t, err)
 	require.False(t, i.GetDeleted())
 
@@ -86,51 +86,51 @@ func TestMerged(t *testing.T) {
 		{
 			r: AllIDs,
 			wantIDs: []ID{
-				"aabbcc",
-				"ddeeff",
-				"de1e1e",
-				"k010203",
-				"k020304",
-				"xaabbcc",
-				"z010203",
+				mustParseID(t, "aabbcc"),
+				mustParseID(t, "ddeeff"),
+				mustParseID(t, "de1e1e"),
+				mustParseID(t, "k010203"),
+				mustParseID(t, "k020304"),
+				mustParseID(t, "xaabbcc"),
+				mustParseID(t, "z010203"),
 			},
 		},
 		{
 			r: AllNonPrefixedIDs,
 			wantIDs: []ID{
-				"aabbcc",
-				"ddeeff",
-				"de1e1e",
+				mustParseID(t, "aabbcc"),
+				mustParseID(t, "ddeeff"),
+				mustParseID(t, "de1e1e"),
 			},
 		},
 		{
 			r: AllPrefixedIDs,
 			wantIDs: []ID{
-				"k010203",
-				"k020304",
-				"xaabbcc",
-				"z010203",
+				mustParseID(t, "k010203"),
+				mustParseID(t, "k020304"),
+				mustParseID(t, "xaabbcc"),
+				mustParseID(t, "z010203"),
 			},
 		},
 		{
 			r: IDRange{"a", "e"},
 			wantIDs: []ID{
-				"aabbcc",
-				"ddeeff",
-				"de1e1e",
+				mustParseID(t, "aabbcc"),
+				mustParseID(t, "ddeeff"),
+				mustParseID(t, "de1e1e"),
 			},
 		},
 		{
 			r: PrefixRange("dd"),
 			wantIDs: []ID{
-				"ddeeff",
+				mustParseID(t, "ddeeff"),
 			},
 		},
 		{
 			r: IDRange{"dd", "df"},
 			wantIDs: []ID{
-				"ddeeff",
-				"de1e1e",
+				mustParseID(t, "ddeeff"),
+				mustParseID(t, "de1e1e"),
 			},
 		},
 	}
@@ -161,30 +161,30 @@ func TestMergedGetInfoError(t *testing.T) {
 
 	m := Merged{failingIndex{nil, someError}}
 
-	info, err := m.GetInfo("some-id")
+	info, err := m.GetInfo(mustParseID(t, "xabcdef"))
 	require.ErrorIs(t, err, someError)
 	require.Nil(t, info)
 }
 
 func TestMergedIndexIsConsistent(t *testing.T) {
 	i1, err := indexWithItems(
-		&InfoStruct{ContentID: "aabbcc", TimestampSeconds: 1, PackBlobID: "xx", PackOffset: 11},
-		&InfoStruct{ContentID: "bbccdd", TimestampSeconds: 1, PackBlobID: "xx", PackOffset: 11},
-		&InfoStruct{ContentID: "ccddee", TimestampSeconds: 1, PackBlobID: "ff", PackOffset: 11, Deleted: true},
+		&InfoStruct{ContentID: mustParseID(t, "aabbcc"), TimestampSeconds: 1, PackBlobID: "xx", PackOffset: 11},
+		&InfoStruct{ContentID: mustParseID(t, "bbccdd"), TimestampSeconds: 1, PackBlobID: "xx", PackOffset: 11},
+		&InfoStruct{ContentID: mustParseID(t, "ccddee"), TimestampSeconds: 1, PackBlobID: "ff", PackOffset: 11, Deleted: true},
 	)
 	require.NoError(t, err)
 
 	i2, err := indexWithItems(
-		&InfoStruct{ContentID: "aabbcc", TimestampSeconds: 1, PackBlobID: "yy", PackOffset: 33},
-		&InfoStruct{ContentID: "bbccdd", TimestampSeconds: 1, PackBlobID: "yy", PackOffset: 11, Deleted: true},
-		&InfoStruct{ContentID: "ccddee", TimestampSeconds: 1, PackBlobID: "gg", PackOffset: 11, Deleted: true},
+		&InfoStruct{ContentID: mustParseID(t, "aabbcc"), TimestampSeconds: 1, PackBlobID: "yy", PackOffset: 33},
+		&InfoStruct{ContentID: mustParseID(t, "bbccdd"), TimestampSeconds: 1, PackBlobID: "yy", PackOffset: 11, Deleted: true},
+		&InfoStruct{ContentID: mustParseID(t, "ccddee"), TimestampSeconds: 1, PackBlobID: "gg", PackOffset: 11, Deleted: true},
 	)
 	require.NoError(t, err)
 
 	i3, err := indexWithItems(
-		&InfoStruct{ContentID: "aabbcc", TimestampSeconds: 1, PackBlobID: "zz", PackOffset: 22},
-		&InfoStruct{ContentID: "bbccdd", TimestampSeconds: 1, PackBlobID: "zz", PackOffset: 11, Deleted: true},
-		&InfoStruct{ContentID: "ccddee", TimestampSeconds: 1, PackBlobID: "hh", PackOffset: 11, Deleted: true},
+		&InfoStruct{ContentID: mustParseID(t, "aabbcc"), TimestampSeconds: 1, PackBlobID: "zz", PackOffset: 22},
+		&InfoStruct{ContentID: mustParseID(t, "bbccdd"), TimestampSeconds: 1, PackBlobID: "zz", PackOffset: 11, Deleted: true},
+		&InfoStruct{ContentID: mustParseID(t, "ccddee"), TimestampSeconds: 1, PackBlobID: "hh", PackOffset: 11, Deleted: true},
 	)
 	require.NoError(t, err)
 
@@ -198,7 +198,7 @@ func TestMergedIndexIsConsistent(t *testing.T) {
 	}
 
 	for _, m := range cases {
-		i, err := m.GetInfo("aabbcc")
+		i, err := m.GetInfo(mustParseID(t, "aabbcc"))
 		if err != nil || i == nil {
 			t.Fatalf("unable to get info: %v", err)
 		}
@@ -206,7 +206,7 @@ func TestMergedIndexIsConsistent(t *testing.T) {
 		// all things being equal, highest pack blob ID wins
 		require.Equal(t, blob.ID("zz"), i.GetPackBlobID())
 
-		i, err = m.GetInfo("bbccdd")
+		i, err = m.GetInfo(mustParseID(t, "bbccdd"))
 		if err != nil || i == nil {
 			t.Fatalf("unable to get info: %v", err)
 		}
@@ -214,7 +214,7 @@ func TestMergedIndexIsConsistent(t *testing.T) {
 		// given identical timestamps, non-deleted wins.
 		require.Equal(t, blob.ID("xx"), i.GetPackBlobID())
 
-		i, err = m.GetInfo("ccddee")
+		i, err = m.GetInfo(mustParseID(t, "ccddee"))
 		if err != nil || i == nil {
 			t.Fatalf("unable to get info: %v", err)
 		}

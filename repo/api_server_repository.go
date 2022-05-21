@@ -2,7 +2,6 @@ package repo
 
 import (
 	"context"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -17,6 +16,7 @@ import (
 	"github.com/kopia/kopia/internal/remoterepoapi"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/content/index"
 	"github.com/kopia/kopia/repo/hashing"
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/repo/object"
@@ -164,7 +164,7 @@ func (r *apiServerRepository) NewWriter(ctx context.Context, opt WriteSessionOpt
 func (r *apiServerRepository) ContentInfo(ctx context.Context, contentID content.ID) (content.Info, error) {
 	var bi content.InfoStruct
 
-	if err := r.cli.Get(ctx, "contents/"+string(contentID)+"?info=1", content.ErrContentNotFound, &bi); err != nil {
+	if err := r.cli.Get(ctx, "contents/"+contentID.String()+"?info=1", content.ErrContentNotFound, &bi); err != nil {
 		return nil, errors.Wrap(err, "ContentInfo")
 	}
 
@@ -175,10 +175,10 @@ func (r *apiServerRepository) GetContent(ctx context.Context, contentID content.
 	var tmp gather.WriteBuffer
 	defer tmp.Close()
 
-	err := r.contentCache.GetOrLoad(ctx, string(contentID), func(output *gather.WriteBuffer) error {
+	err := r.contentCache.GetOrLoad(ctx, contentID.String(), func(output *gather.WriteBuffer) error {
 		var result []byte
 
-		if err := r.cli.Get(ctx, "contents/"+string(contentID), content.ErrContentNotFound, &result); err != nil {
+		if err := r.cli.Get(ctx, "contents/"+contentID.String(), content.ErrContentNotFound, &result); err != nil {
 			return errors.Wrap(err, "GetContent")
 		}
 
@@ -194,14 +194,17 @@ func (r *apiServerRepository) GetContent(ctx context.Context, contentID content.
 	return tmp.ToByteSlice(), nil
 }
 
-func (r *apiServerRepository) WriteContent(ctx context.Context, data gather.Bytes, prefix content.ID, comp compression.HeaderID) (content.ID, error) {
-	if err := content.ValidatePrefix(prefix); err != nil {
-		return "", errors.Wrap(err, "invalid prefix")
+func (r *apiServerRepository) WriteContent(ctx context.Context, data gather.Bytes, prefix content.IDPrefix, comp compression.HeaderID) (content.ID, error) {
+	if err := prefix.Validate(); err != nil {
+		return content.EmptyID, errors.Wrap(err, "invalid prefix")
 	}
 
 	var hashOutput [128]byte
 
-	contentID := prefix + content.ID(hex.EncodeToString(r.h(hashOutput[:0], data)))
+	contentID, err := index.IDFromHash(prefix, r.h(hashOutput[:0], data))
+	if err != nil {
+		return content.EmptyID, errors.Wrap(err, "invalid content ID")
+	}
 
 	// avoid uploading the content body if it already exists.
 	if _, err := r.ContentInfo(ctx, contentID); err == nil {
@@ -216,13 +219,13 @@ func (r *apiServerRepository) WriteContent(ctx context.Context, data gather.Byte
 		maybeCompression = fmt.Sprintf("?compression=%x", comp)
 	}
 
-	if err := r.cli.Put(ctx, "contents/"+string(contentID)+maybeCompression, data.ToByteSlice(), nil); err != nil {
-		return "", errors.Wrapf(err, "error writing content %v", contentID)
+	if err := r.cli.Put(ctx, "contents/"+contentID.String()+maybeCompression, data.ToByteSlice(), nil); err != nil {
+		return content.EmptyID, errors.Wrapf(err, "error writing content %v", contentID)
 	}
 
 	if prefix != "" {
 		// add all prefixed contents to the cache.
-		r.contentCache.Put(ctx, string(contentID), data)
+		r.contentCache.Put(ctx, contentID.String(), data)
 	}
 
 	return contentID, nil

@@ -25,7 +25,12 @@ func (c *commandContentDelete) setup(svc appServices, parent commandParent) {
 func (c *commandContentDelete) run(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	c.svc.advancedCommand(ctx)
 
-	for _, contentID := range toContentIDs(c.ids) {
+	contentIDs, err := toContentIDs(c.ids)
+	if err != nil {
+		return err
+	}
+
+	for _, contentID := range contentIDs {
 		if err := rep.ContentManager().DeleteContent(ctx, contentID); err != nil {
 			return errors.Wrapf(err, "error deleting content %v", contentID)
 		}

@@ -38,7 +38,7 @@ func (c *commandSnapshotPin) run(ctx context.Context, rep repo.RepositoryWriter)
 			}
 		} else if !errors.Is(err, snapshot.ErrSnapshotNotFound) {
 			return errors.Wrapf(err, "error loading snapshot %v", id)
-		} else if err := c.pinSnapshotsByRootObjectID(ctx, rep, object.ID(id)); err != nil {
+		} else if err := c.pinSnapshotsByRootObjectID(ctx, rep, id); err != nil {
 			return errors.Wrapf(err, "error pinning snapshots by root ID %v", id)
 		}
 	}
@@ -46,8 +46,13 @@ func (c *commandSnapshotPin) run(ctx context.Context, rep repo.RepositoryWriter)
 	return nil
 }
 
-func (c *commandSnapshotPin) pinSnapshotsByRootObjectID(ctx context.Context, rep repo.RepositoryWriter, rootID object.ID) error {
-	manifests, err := snapshot.FindSnapshotsByRootObjectID(ctx, rep, rootID)
+func (c *commandSnapshotPin) pinSnapshotsByRootObjectID(ctx context.Context, rep repo.RepositoryWriter, rootID string) error {
+	rootOID, err := object.ParseID(rootID)
+	if err != nil {
+		return errors.Wrap(err, "unable to parse object ID")
+	}
+
+	manifests, err := snapshot.FindSnapshotsByRootObjectID(ctx, rep, rootOID)
 	if err != nil {
 		return errors.Wrapf(err, "unable to find snapshots by root %v", rootID)
 	}

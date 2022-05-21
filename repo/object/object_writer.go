@@ -70,7 +70,7 @@ type objectWriter struct {
 
 	compressor compression.Compressor
 
-	prefix      content.ID
+	prefix      content.IDPrefix
 	buffer      gather.WriteBuffer
 	totalLength int64
 
@@ -256,7 +256,7 @@ func (w *objectWriter) Result() (ID, error) {
 	// and never in parallel with calling Result()
 	if w.buffer.Length() > 0 || len(w.indirectIndex) == 0 {
 		if err := w.flushBuffer(); err != nil {
-			return "", err
+			return EmptyID, err
 		}
 	}
 
@@ -277,11 +277,11 @@ func (w *objectWriter) checkpointLocked() (ID, error) {
 	w.asyncWritesWG.Wait()
 
 	if w.contentWriteError != nil {
-		return "", w.contentWriteError
+		return EmptyID, w.contentWriteError
 	}
 
 	if len(w.indirectIndex) == 0 {
-		return "", nil
+		return EmptyID, nil
 	}
 
 	if len(w.indirectIndex) == 1 {
@@ -305,12 +305,12 @@ func (w *objectWriter) checkpointLocked() (ID, error) {
 	defer iw.Close() //nolint:errcheck
 
 	if err := writeIndirectObject(iw, w.indirectIndex); err != nil {
-		return "", err
+		return EmptyID, err
 	}
 
 	oid, err := iw.Result()
 	if err != nil {
-		return "", err
+		return EmptyID, err
 	}
 
 	return IndirectObjectID(oid), nil
@@ -332,7 +332,7 @@ func writeIndirectObject(w io.Writer, entries []indirectObjectEntry) error {
 // WriterOptions can be passed to Repository.NewWriter().
 type WriterOptions struct {
 	Description string
-	Prefix      content.ID // empty string or a single-character ('g'..'z')
+	Prefix      content.IDPrefix // empty string or a single-character ('g'..'z')
 	Compressor  compression.Name
 	AsyncWrites int // allow up to N content writes to be asynchronous
 }

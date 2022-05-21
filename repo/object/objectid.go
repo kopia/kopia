@@ -1,12 +1,13 @@
 package object
 
 import (
-	"encoding/hex"
+	"encoding/json"
 	"strings"
 
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/content/index"
 )
 
 // ID is an identifier of a repository object. Repository objects can be stored.
@@ -14,7 +15,41 @@ import (
 // 1. In a single content block, this is the most common case for small objects.
 // 2. In a series of content blocks with an indirect block pointing at them (multiple indirections are allowed).
 //    This is used for larger files. Object IDs using indirect blocks start with "I"
-type ID string
+type ID struct {
+	cid         content.ID
+	indirection byte
+	compression bool
+}
+
+// MarshalJSON implements JSON serialization of IDs.
+func (i ID) MarshalJSON() ([]byte, error) {
+	s := i.String()
+
+	// nolint:wrapcheck
+	return json.Marshal(s)
+}
+
+// UnmarshalJSON implements JSON deserialization of IDs.
+func (i *ID) UnmarshalJSON(v []byte) error {
+	var s string
+
+	if err := json.Unmarshal(v, &s); err != nil {
+		return errors.Wrap(err, "unable to unmarshal object ID")
+	}
+
+	tmp, err := ParseID(s)
+	if err != nil {
+		return errors.Wrap(err, "invalid object ID")
+	}
+
+	*i = tmp
+
+	return nil
+}
+
+// EmptyID is an empty object ID equivalent to an empty string.
+// nolint:gochecknoglobals
+var EmptyID = ID{}
 
 // HasObjectID exposes the identifier of an object.
 type HasObjectID interface {
@@ -23,68 +58,41 @@ type HasObjectID interface {
 
 // String returns string representation of ObjectID that is suitable for displaying in the UI.
 func (i ID) String() string {
-	return strings.Replace(string(i), "D", "", -1)
+	var (
+		indirectPrefix    string
+		compressionPrefix string
+	)
+
+	if i.indirection > 0 {
+		indirectPrefix = strings.Repeat("I", int(i.indirection))
+	}
+
+	if i.compression {
+		compressionPrefix = "Z"
+	}
+
+	return indirectPrefix + compressionPrefix + i.cid.String()
 }
 
 // IndexObjectID returns the object ID of the underlying index object.
 func (i ID) IndexObjectID() (ID, bool) {
-	if strings.HasPrefix(string(i), "I") {
-		return i[1:], true
+	if i.indirection > 0 {
+		i2 := i
+		i2.indirection--
+
+		return i2, true
 	}
 
-	return "", false
+	return i, false
 }
 
 // ContentID returns the ID of the underlying content.
 func (i ID) ContentID() (id content.ID, compressed, ok bool) {
-	if strings.HasPrefix(string(i), "D") {
-		return content.ID(i[1:]), false, true
+	if i.indirection > 0 {
+		return content.EmptyID, false, false
 	}
 
-	if strings.HasPrefix(string(i), "I") {
-		return "", false, false
-	}
-
-	if strings.HasPrefix(string(i), "Z") {
-		return content.ID(i[1:]), true, true
-	}
-
-	return content.ID(i), false, true
-}
-
-// Validate checks the ID format for validity and reports any errors.
-func (i ID) Validate() error {
-	if indexObjectID, ok := i.IndexObjectID(); ok {
-		if err := indexObjectID.Validate(); err != nil {
-			return errors.Wrapf(err, "invalid indirect object ID %v", i)
-		}
-
-		return nil
-	}
-
-	contentID, _, ok := i.ContentID()
-	if !ok {
-		return errors.Errorf("invalid object ID: %v", i)
-	}
-
-	if len(contentID) <= 1 {
-		return errors.Errorf("missing content ID")
-	}
-
-	// odd length - firstcharacter must be a single character between 'g' and 'z'
-	if len(contentID)%2 == 1 {
-		if contentID[0] < 'g' || contentID[0] > 'z' {
-			return errors.Errorf("invalid content ID prefix: %v", contentID)
-		}
-
-		contentID = contentID[1:]
-	}
-
-	if _, err := hex.DecodeString(string(contentID)); err != nil {
-		return errors.Errorf("invalid contentID suffix, must be base-16 encoded: %v", contentID)
-	}
-
-	return nil
+	return i.cid, i.compression, true
 }
 
 // IDsFromStrings converts strings to IDs.
@@ -108,7 +116,7 @@ func IDsToStrings(input []ID) []string {
 	var result []string
 
 	for _, v := range input {
-		result = append(result, string(v))
+		result = append(result, v.String())
 	}
 
 	return result
@@ -116,21 +124,48 @@ func IDsToStrings(input []ID) []string {
 
 // DirectObjectID returns direct object ID based on the provided block ID.
 func DirectObjectID(contentID content.ID) ID {
-	return ID(contentID)
+	return ID{cid: contentID}
 }
 
 // Compressed returns object ID with 'Z' prefix indicating it's compressed.
 func Compressed(objectID ID) ID {
-	return "Z" + objectID
+	objectID.compression = true
+	return objectID
 }
 
 // IndirectObjectID returns indirect object ID based on the underlying index object ID.
 func IndirectObjectID(indexObjectID ID) ID {
-	return "I" + indexObjectID
+	indexObjectID.indirection++
+	return indexObjectID
 }
 
 // ParseID converts the specified string into object ID.
 func ParseID(s string) (ID, error) {
-	i := ID(s)
-	return i, i.Validate()
+	var id ID
+
+	for len(s) > 0 && s[0] == 'I' {
+		id.indirection++
+
+		s = s[1:]
+	}
+
+	if len(s) > 0 && s[0] == 'Z' {
+		id.compression = true
+
+		s = s[1:]
+	}
+
+	if len(s) > 0 && s[0] == 'D' {
+		// no-op, legacy case
+		s = s[1:]
+	}
+
+	cid, err := index.ParseID(s)
+	if err != nil {
+		return id, errors.Wrap(err, "malformed content ID")
+	}
+
+	id.cid = cid
+
+	return id, nil
 }

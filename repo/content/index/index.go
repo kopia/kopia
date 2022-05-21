@@ -27,19 +27,19 @@ type Index interface {
 
 // IDRange represents a range of IDs.
 type IDRange struct {
-	StartID ID // inclusive
-	EndID   ID // exclusive
+	StartID IDPrefix // inclusive
+	EndID   IDPrefix // exclusive
 }
 
 // Contains determines whether given ID is in the range.
 func (r IDRange) Contains(id ID) bool {
-	return id >= r.StartID && id < r.EndID
+	return id.comparePrefix(r.StartID) >= 0 && id.comparePrefix(r.EndID) < 0
 }
 
 const maxIDCharacterPlus1 = "\x7B"
 
 // PrefixRange returns ID range that contains all IDs with a given prefix.
-func PrefixRange(prefix ID) IDRange {
+func PrefixRange(prefix IDPrefix) IDRange {
 	return IDRange{prefix, prefix + maxIDCharacterPlus1}
 }
 

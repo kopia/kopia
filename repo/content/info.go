@@ -1,10 +1,17 @@
 package content
 
-import "github.com/kopia/kopia/repo/content/index"
+import (
+	"github.com/pkg/errors"
+
+	"github.com/kopia/kopia/repo/content/index"
+)
 
 type (
 	// ID is an identifier of content in content-addressable storage.
 	ID = index.ID
+
+	// IDPrefix represents a content ID prefix (empty string or single character between 'g' and 'z').
+	IDPrefix = index.IDPrefix
 
 	// Info is an information about a single piece of content managed by Manager.
 	Info = index.Info
@@ -16,20 +23,34 @@ type (
 	IDRange = index.IDRange
 )
 
+// EmptyID is an empty content ID.
+// nolint:gochecknoglobals
+var EmptyID = index.EmptyID
+
 // ToInfoStruct converts the provided Info to *InfoStruct.
 func ToInfoStruct(i Info) *InfoStruct {
 	return index.ToInfoStruct(i)
 }
 
+// ParseID parses the provided string as content ID.
+func ParseID(s string) (ID, error) {
+	return index.ParseID(s) // nolint:wrapcheck
+}
+
 // IDsFromStrings converts strings to IDs.
-func IDsFromStrings(str []string) []ID {
+func IDsFromStrings(str []string) ([]ID, error) {
 	var result []ID
 
 	for _, v := range str {
-		result = append(result, ID(v))
+		cid, err := ParseID(v)
+		if err != nil {
+			return nil, errors.Wrapf(err, "invalid content ID: %q", v)
+		}
+
+		result = append(result, cid)
 	}
 
-	return result
+	return result, nil
 }
 
 // IDsToStrings converts the IDs to strings.
@@ -37,7 +58,7 @@ func IDsToStrings(input []ID) []string {
 	var result []string
 
 	for _, v := range input {
-		result = append(result, string(v))
+		result = append(result, v.String())
 	}
 
 	return result

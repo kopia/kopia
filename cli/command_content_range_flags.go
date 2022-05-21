@@ -28,5 +28,5 @@ func (c *contentRangeFlags) contentIDRange() content.IDRange {
 		return index.AllNonPrefixedIDs
 	}
 
-	return index.PrefixRange(content.ID(c.contentIDPrefix))
+	return index.PrefixRange(content.IDPrefix(c.contentIDPrefix))
 }

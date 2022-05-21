@@ -158,7 +158,7 @@ func (m *Manifest) RootObjectID() object.ID {
 		return m.RootEntry.ObjectID
 	}
 
-	return ""
+	return object.EmptyID
 }
 
 // StorageStats encapsulates snapshot storage usage information and running totals.
