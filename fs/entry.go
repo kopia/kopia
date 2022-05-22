@@ -95,6 +95,20 @@ func ReaddirToIterate(ctx context.Context, d Directory, cb func(context.Context,
 	return nil
 }
 
+// IterateEntriesToReaddir is an adapter for a naive IterateEntries -> Readdir implementation.
+func IterateEntriesToReaddir(ctx context.Context, d Directory) (Entries, error) {
+	var entries Entries
+
+	err := d.IterateEntries(ctx, func(ctx context.Context, e Entry) error {
+		entries = append(entries, e)
+		return nil
+	})
+
+	entries.Sort()
+
+	return entries, err // nolint:wrapcheck
+}
+
 // ReadDirAndFindChild reads all entries from a directory and returns one by name.
 // This is a convenience function that may be helpful in implementations of Directory.Child().
 func ReadDirAndFindChild(ctx context.Context, d Directory, name string) (Entry, error) {
