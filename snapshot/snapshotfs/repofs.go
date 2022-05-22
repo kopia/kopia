@@ -178,6 +178,13 @@ func (rd *repositoryDirectory) loadLocked(ctx context.Context) error {
 		return errors.Wrapf(err, "unable to read dir entries for: %v", rd.metadata.ObjectID)
 	}
 
+	for _, md := range ent {
+		if md.Type == snapshot.EntryTypeDirectory && md.DirSummary != nil {
+			md.FileSize = md.DirSummary.TotalFileSize
+			md.ModTime = md.DirSummary.MaxModTime
+		}
+	}
+
 	rd.summary = summ
 	rd.dirEntries = map[string]*snapshot.DirEntry{}
 
@@ -226,11 +233,6 @@ func EntryFromDirEntry(r repo.Repository, md *snapshot.DirEntry) fs.Entry {
 
 	switch md.Type {
 	case snapshot.EntryTypeDirectory:
-		if md.DirSummary != nil {
-			md.FileSize = md.DirSummary.TotalFileSize
-			md.ModTime = md.DirSummary.MaxModTime
-		}
-
 		return fs.Directory(&repositoryDirectory{repositoryEntry: re, summary: md.DirSummary})
 
 	case snapshot.EntryTypeSymlink:
