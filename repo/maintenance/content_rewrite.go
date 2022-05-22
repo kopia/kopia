@@ -2,6 +2,7 @@ package maintenance
 
 import (
 	"context"
+	"os"
 	"runtime"
 	"strings"
 	"sync"
@@ -97,10 +98,16 @@ func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *
 				}
 
 				if err := rep.ContentManager().RewriteContent(ctx, c.GetContentID()); err != nil {
-					log(ctx).Infof("unable to rewrite content %q: %v", c.GetContentID(), err)
-					mu.Lock()
-					failedCount++
-					mu.Unlock()
+					// provide option to ignore failures when rewriting deleted contents during maintenance
+					// this is for advanced use only
+					if os.Getenv("KOPIA_IGNORE_MAINTENANCE_REWRITE_ERROR") != "" && c.GetDeleted() {
+						log(ctx).Infof("IGNORED: unable to rewrite deleted content %q: %v", c.GetContentID(), err)
+					} else {
+						log(ctx).Infof("unable to rewrite content %q: %v", c.GetContentID(), err)
+						mu.Lock()
+						failedCount++
+						mu.Unlock()
+					}
 				}
 			}
 		}()
