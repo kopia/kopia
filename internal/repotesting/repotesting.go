@@ -180,7 +180,7 @@ func (e *Environment) MustReopen(tb testing.TB, openOpts ...func(*repo.Options))
 	}
 }
 
-// MustOpenAnother opens another repository backend by the same storage.
+// MustOpenAnother opens another repository backed by the same storage location.
 func (e *Environment) MustOpenAnother(tb testing.TB, openOpts ...func(*repo.Options)) repo.RepositoryWriter {
 	tb.Helper()
 
@@ -203,7 +203,7 @@ func (e *Environment) MustOpenAnother(tb testing.TB, openOpts ...func(*repo.Opti
 	return w
 }
 
-// MustConnectOpenAnother opens another repository backend by the same storage,
+// MustConnectOpenAnother opens another repository backed by the same storage,
 // with independent config and cache options.
 func (e *Environment) MustConnectOpenAnother(tb testing.TB, openOpts ...func(*repo.Options)) repo.Repository {
 	tb.Helper()

@@ -97,8 +97,7 @@ func (c *contentCacheImpl) fetchBlobInternal(ctx context.Context, blobID blob.ID
 	if err := c.st.GetBlob(ctx, blobID, 0, -1, blobData); err != nil {
 		reportMissError()
 
-		// nolint:wrapcheck
-		return err
+		return errors.Wrapf(err, "failed to get blob with ID %s", blobID)
 	}
 
 	reportMissBytes(int64(blobData.Length()))
@@ -134,8 +133,7 @@ func (c *contentCacheImpl) getContentFromFullOrPartialBlob(ctx context.Context, 
 	if err := c.st.GetBlob(ctx, blobID, offset, length, output); err != nil {
 		reportMissError()
 
-		// nolint:wrapcheck
-		return err
+		return errors.Wrapf(err, "failed to get blob with ID %s", blobID)
 	}
 
 	reportMissBytes(int64(output.Length()))
