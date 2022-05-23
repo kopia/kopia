@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/blobtesting"
@@ -168,9 +169,9 @@ func verifyContentCache(t *testing.T, cc cache.ContentCache, cacheStorage blob.S
 		for _, tc := range cases {
 			err := cc.GetContent(ctx, tc.contentID, tc.blobID, tc.offset, tc.length, &v)
 			if tc.err == nil {
-				require.NoErrorf(t, err, "tc.contentID=%v", tc.contentID)
+				assert.NoErrorf(t, err, "tc.contentID=%v", tc.contentID)
 			} else {
-				require.ErrorContainsf(t, err, tc.err.Error(), "tc.contentID=%v", tc.contentID)
+				assert.ErrorContainsf(t, err, tc.err.Error(), "tc.contentID=%v", tc.contentID)
 			}
 			if got := v.ToByteSlice(); !bytes.Equal(got, tc.expected) {
 				t.Errorf("unexpected data for %v: %x, wanted %x", tc.contentID, got, tc.expected)
