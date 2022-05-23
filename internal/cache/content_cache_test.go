@@ -167,10 +167,10 @@ func verifyContentCache(t *testing.T, cc cache.ContentCache, cacheStorage blob.S
 
 		for _, tc := range cases {
 			err := cc.GetContent(ctx, tc.contentID, tc.blobID, tc.offset, tc.length, &v)
-			if (err != nil) != (tc.err != nil) {
-				t.Errorf("unexpected error for %v: %+v, wanted %+v", tc.contentID, err, tc.err)
-			} else if err != nil && err.Error() != tc.err.Error() {
-				t.Errorf("unexpected error for %v: %q, wanted %q", tc.contentID, err.Error(), tc.err.Error())
+			if tc.err == nil {
+				require.NoErrorf(t, err, "tc.contentID=%v", tc.contentID)
+			} else {
+				require.ErrorContainsf(t, err, tc.err.Error(), "tc.contentID=%v", tc.contentID)
 			}
 			if got := v.ToByteSlice(); !bytes.Equal(got, tc.expected) {
 				t.Errorf("unexpected data for %v: %x, wanted %x", tc.contentID, got, tc.expected)
