@@ -208,6 +208,11 @@ func (r *grpcRepositoryClient) NewObjectWriter(ctx context.Context, opt object.W
 	return r.omgr.NewWriter(ctx, opt)
 }
 
+func (r *grpcRepositoryClient) SetObjectManagerOptions(ctx context.Context, opt ...object.ManagerOption) error {
+	// nolint:wrapcheck
+	return r.omgr.SetOptions(opt...)
+}
+
 func (r *grpcRepositoryClient) VerifyObject(ctx context.Context, id object.ID) ([]content.ID, error) {
 	// nolint:wrapcheck
 	return object.VerifyObject(ctx, r, id)
@@ -734,6 +739,8 @@ func (r *grpcRepositoryClient) Close(ctx context.Context) error {
 		// already closed
 		return nil
 	}
+
+	r.omgr.Close()
 
 	r.omgr = nil
 

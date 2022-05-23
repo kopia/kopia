@@ -68,6 +68,11 @@ func (r *apiServerRepository) NewObjectWriter(ctx context.Context, opt object.Wr
 	return r.omgr.NewWriter(ctx, opt)
 }
 
+func (r *apiServerRepository) SetObjectManagerOptions(ctx context.Context, opt ...object.ManagerOption) error {
+	// nolint:wrapcheck
+	return r.omgr.SetOptions(opt...)
+}
+
 func (r *apiServerRepository) VerifyObject(ctx context.Context, id object.ID) ([]content.ID, error) {
 	// nolint:wrapcheck
 	return object.VerifyObject(ctx, r, id)
@@ -236,6 +241,11 @@ func (r *apiServerRepository) UpdateDescription(d string) {
 }
 
 func (r *apiServerRepository) Close(ctx context.Context) error {
+	if r.omgr != nil {
+		r.omgr.Close()
+		r.omgr = nil
+	}
+
 	if r.isSharedReadOnlySession && r.contentCache != nil {
 		r.contentCache.Close(ctx)
 		r.contentCache = nil

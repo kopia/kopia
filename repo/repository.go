@@ -41,6 +41,7 @@ type RepositoryWriter interface {
 	Repository
 
 	NewObjectWriter(ctx context.Context, opt object.WriterOptions) object.Writer
+	SetObjectManagerOptions(ctx context.Context, opt ...object.ManagerOption) error
 	PutManifest(ctx context.Context, labels map[string]string, payload interface{}) (manifest.ID, error)
 	DeleteManifest(ctx context.Context, id manifest.ID) error
 	Flush(ctx context.Context) error
@@ -151,6 +152,11 @@ func (r *directRepository) Crypter() *content.Crypter {
 // NewObjectWriter creates an object writer.
 func (r *directRepository) NewObjectWriter(ctx context.Context, opt object.WriterOptions) object.Writer {
 	return r.omgr.NewWriter(ctx, opt)
+}
+
+func (r *directRepository) SetObjectManagerOptions(ctx context.Context, opt ...object.ManagerOption) error {
+	// nolint:wrapcheck
+	return r.omgr.SetOptions(opt...)
 }
 
 // DisableIndexRefresh disables index refresh for the duration of the write session.
@@ -281,6 +287,8 @@ func (r *directRepository) Close(ctx context.Context) error {
 	if err := r.cmgr.Close(ctx); err != nil {
 		return errors.Wrap(err, "error closing content-addressable storage manager")
 	}
+
+	r.omgr.Close()
 
 	close(r.closed)
 

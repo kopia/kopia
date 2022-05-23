@@ -49,6 +49,51 @@ type Manager struct {
 	contentMgr  contentManager
 	newSplitter splitter.Factory
 	writerPool  sync.Pool
+
+	asyncWritersWorkQueueLock sync.Mutex
+
+	// +checklocks:asyncWritersWorkQueueLock
+	asyncWritersWorkQueue chan asyncWriteRequest
+}
+
+type asyncWriteRequest struct {
+	w       *objectWriter
+	chunkID int
+	buf     *gather.WriteBuffer
+}
+
+// ManagerOption specifies options for the object manager.
+type ManagerOption func(om *Manager) error
+
+// AsyncWrites returns a ManagerOption that uses n asynchronous writer workers.
+func AsyncWrites(n int) ManagerOption {
+	return func(om *Manager) error {
+		switch {
+		case n == 0:
+			om.closeAsyncWorkQueue()
+			return nil
+
+		case n > 0:
+			om.closeAsyncWorkQueue()
+			om.startAsyncWorkQueue(n)
+
+			return nil
+
+		default:
+			return errors.Errorf("invalid async writes: %v", n)
+		}
+	}
+}
+
+// SetOptions sets the options that apply to all writers created using this object manager.
+func (om *Manager) SetOptions(opts ...ManagerOption) error {
+	for _, o := range opts {
+		if err := o(om); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // NewWriter creates an ObjectWriter for writing to the repository.
@@ -62,19 +107,10 @@ func (om *Manager) NewWriter(ctx context.Context, opt WriterOptions) Writer {
 	w.compressor = compression.ByName[opt.Compressor]
 	w.totalLength = 0
 	w.currentPosition = 0
+	w.buffer = gather.NewWriteBuffer()
 
 	// point the slice at the embedded array, so that we avoid allocations most of the time
 	w.indirectIndex = w.indirectIndexBuf[:0]
-
-	if opt.AsyncWrites > 0 {
-		if len(w.asyncWritesSemaphore) != 0 || cap(w.asyncWritesSemaphore) != opt.AsyncWrites {
-			w.asyncWritesSemaphore = make(chan struct{}, opt.AsyncWrites)
-		}
-	} else {
-		w.asyncWritesSemaphore = nil
-	}
-
-	w.buffer.Reset()
 	w.contentWriteError = nil
 
 	return w
@@ -82,6 +118,42 @@ func (om *Manager) NewWriter(ctx context.Context, opt WriterOptions) Writer {
 
 func (om *Manager) closedWriter(ow *objectWriter) {
 	om.writerPool.Put(ow)
+}
+
+func (om *Manager) closeAsyncWorkQueue() {
+	om.asyncWritersWorkQueueLock.Lock()
+	defer om.asyncWritersWorkQueueLock.Unlock()
+
+	if om.asyncWritersWorkQueue != nil {
+		close(om.asyncWritersWorkQueue)
+
+		om.asyncWritersWorkQueue = nil
+	}
+}
+
+func (om *Manager) workQueue() chan asyncWriteRequest {
+	om.asyncWritersWorkQueueLock.Lock()
+	defer om.asyncWritersWorkQueueLock.Unlock()
+
+	return om.asyncWritersWorkQueue
+}
+
+func (om *Manager) startAsyncWorkQueue(n int) {
+	om.closeAsyncWorkQueue()
+
+	om.asyncWritersWorkQueueLock.Lock()
+	defer om.asyncWritersWorkQueueLock.Unlock()
+
+	om.asyncWritersWorkQueue = make(chan asyncWriteRequest, n)
+
+	for i := 0; i < n; i++ {
+		go handleWorkQueue(om.asyncWritersWorkQueue)
+	}
+}
+
+// Close closes the object manager.
+func (om *Manager) Close() {
+	om.closeAsyncWorkQueue()
 }
 
 // Concatenate creates an object that's a result of concatenation of other objects. This is more efficient than reading

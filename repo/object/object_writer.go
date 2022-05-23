@@ -71,7 +71,7 @@ type objectWriter struct {
 	compressor compression.Compressor
 
 	prefix      content.IDPrefix
-	buffer      gather.WriteBuffer
+	buffer      *gather.WriteBuffer
 	totalLength int64
 
 	currentPosition int64
@@ -87,8 +87,7 @@ type objectWriter struct {
 	// provides mutual exclusion of all public APIs (Write, Result, Checkpoint)
 	mu sync.Mutex
 
-	asyncWritesSemaphore chan struct{} // async writes semaphore or  nil
-	asyncWritesWG        sync.WaitGroup
+	asyncWritesWG sync.WaitGroup
 
 	contentWriteErrorMutex sync.Mutex
 	contentWriteError      error // stores async write error, propagated in Result()
@@ -149,35 +148,39 @@ func (w *objectWriter) flushBuffer() error {
 	w.currentPosition += int64(length)
 	w.indirectIndexGrowMutex.Unlock()
 
-	defer w.buffer.Reset()
+	q := w.om.workQueue()
 
-	if w.asyncWritesSemaphore == nil {
+	// no async work queue, do the work in the current goroutine
+	if q == nil {
+		defer w.buffer.Reset()
+
 		return w.saveError(w.prepareAndWriteContentChunk(chunkID, w.buffer.Bytes()))
 	}
 
-	// acquire write semaphore
-	w.asyncWritesSemaphore <- struct{}{}
 	w.asyncWritesWG.Add(1)
 
-	asyncBuf := gather.NewWriteBuffer()
-	w.buffer.Bytes().WriteTo(asyncBuf) // nolint:errcheck
+	q <- asyncWriteRequest{
+		w:       w,
+		chunkID: chunkID,
+		buf:     w.buffer,
+	}
 
-	go func() {
-		defer func() {
-			// release write semaphore and buffer
-			<-w.asyncWritesSemaphore
-			asyncBuf.Close()
-			w.asyncWritesWG.Done()
-		}()
-
-		if err := w.prepareAndWriteContentChunk(chunkID, asyncBuf.Bytes()); err != nil {
-			log(w.ctx).Errorf("async write error: %v", err)
-
-			_ = w.saveError(err)
-		}
-	}()
+	// w.buffer will be released by the async worker, allocate new one
+	w.buffer = gather.NewWriteBuffer()
 
 	return nil
+}
+
+func handleWorkQueue(ch chan asyncWriteRequest) {
+	for req := range ch {
+		if err := req.w.prepareAndWriteContentChunk(req.chunkID, req.buf.Bytes()); err != nil {
+			log(req.w.ctx).Errorf("async write error: %v", err)
+			_ = req.w.saveError(err)
+		}
+
+		req.w.asyncWritesWG.Done()
+		req.buf.Close()
+	}
 }
 
 func (w *objectWriter) prepareAndWriteContentChunk(chunkID int, data gather.Bytes) error {
@@ -294,6 +297,7 @@ func (w *objectWriter) checkpointLocked() (ID, error) {
 		compressor:  nil,
 		description: "LIST(" + w.description + ")",
 		splitter:    w.om.newSplitter(),
+		buffer:      gather.NewWriteBuffer(),
 		prefix:      w.prefix,
 	}
 
@@ -334,5 +338,4 @@ type WriterOptions struct {
 	Description string
 	Prefix      content.IDPrefix // empty string or a single-character ('g'..'z')
 	Compressor  compression.Name
-	AsyncWrites int // allow up to N content writes to be asynchronous
 }

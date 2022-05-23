@@ -162,7 +162,6 @@ func (u *Uploader) uploadFileInternal(ctx context.Context, parentCheckpointRegis
 	writer := u.repo.NewObjectWriter(ctx, object.WriterOptions{
 		Description: "FILE:" + f.Name(),
 		Compressor:  pol.CompressionPolicy.CompressorForFile(f),
-		AsyncWrites: 1, // upload chunk in parallel to writing another chunk
 	})
 	defer writer.Close() //nolint:errcheck
 
@@ -1095,6 +1094,10 @@ func (u *Uploader) Upload(
 	defer u.Progress.UploadFinished()
 
 	parallel := u.effectiveParallelFileReads(policyTree.EffectivePolicy())
+
+	if err := u.repo.SetObjectManagerOptions(ctx, object.AsyncWrites(parallel)); err != nil {
+		return nil, errors.Wrap(err, "unable to set object manager options")
+	}
 
 	uploadLog(ctx).Debugf("Uploading %v with parallelism %v", sourceInfo, parallel)
 

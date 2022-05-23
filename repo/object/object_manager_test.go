@@ -12,7 +12,9 @@ import (
 	"runtime"
 	"runtime/debug"
 	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
@@ -32,15 +34,21 @@ import (
 var errSomeError = errors.Errorf("some error")
 
 type fakeContentManager struct {
+	// +checkatomic
+	writeConcurrency int32
+
 	mu sync.Mutex
 
 	// +checklocks:mu
 	data map[content.ID][]byte
 	// +checklocks:mu
 	compresionIDs map[content.ID]compression.HeaderID
+	// +checklocks:mu
+	maxWriteConcurrency int32
 
 	supportsContentCompression bool
 	writeContentError          error
+	writeContentSleep          time.Duration
 }
 
 func (f *fakeContentManager) PrefetchContents(ctx context.Context, contentIDs []content.ID, hint string) []content.ID {
@@ -63,6 +71,12 @@ func (f *fakeContentManager) WriteContent(ctx context.Context, data gather.Bytes
 		return content.EmptyID, f.writeContentError
 	}
 
+	concur := atomic.AddInt32(&f.writeConcurrency, 1)
+
+	if f.writeContentSleep > 0 {
+		time.Sleep(f.writeContentSleep)
+	}
+
 	h := sha256.New()
 	data.WriteTo(h)
 	contentID, err := content.IDFromHash(prefix, h.Sum(nil))
@@ -71,10 +85,16 @@ func (f *fakeContentManager) WriteContent(ctx context.Context, data gather.Bytes
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
+	if concur > f.maxWriteConcurrency {
+		f.maxWriteConcurrency = concur
+	}
+
 	f.data[contentID] = data.ToByteSlice()
 	if f.compresionIDs != nil {
 		f.compresionIDs[contentID] = comp
 	}
+
+	atomic.AddInt32(&f.writeConcurrency, -1)
 
 	return contentID, nil
 }
@@ -162,6 +182,39 @@ func TestWriters(t *testing.T) {
 			}
 		}
 	}
+}
+
+// start 10 writers, limit concurrency to 3, sleep inside fake writer and ensure
+// we never exceeded the concurrency limit.
+func TestAsyncWriteConcurrency(t *testing.T) {
+	ctx := testlogging.Context(t)
+	_, fcm, om := setupTest(t, nil)
+
+	fcm.writeContentSleep = 10 * time.Millisecond
+
+	om.SetOptions(AsyncWrites(3))
+
+	var wg sync.WaitGroup
+
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+
+			writer := om.NewWriter(ctx, WriterOptions{})
+			io.CopyN(writer, cryptorand.Reader, 1100000)
+			writer.Result()
+		}()
+	}
+
+	wg.Wait()
+
+	fcm.mu.Lock()
+	mc := fcm.maxWriteConcurrency
+	fcm.mu.Unlock()
+
+	require.LessOrEqual(t, mc, int32(3))
 }
 
 func objectIDsEqual(o1, o2 ID) bool {
@@ -295,9 +348,7 @@ func TestObjectWriterRaceBetweenCheckpointAndResult(t *testing.T) {
 	}
 
 	for i := 0; i < repeat; i++ {
-		w := om.NewWriter(ctx, WriterOptions{
-			AsyncWrites: 1,
-		})
+		w := om.NewWriter(ctx, WriterOptions{})
 
 		w.Write(allZeroes)
 		w.Write(allZeroes)
@@ -669,38 +720,30 @@ func TestReaderStoredBlockNotFound(t *testing.T) {
 }
 
 func TestEndToEndReadAndSeek(t *testing.T) {
-	for _, asyncWrites := range []int{0, 4, 8} {
-		asyncWrites := asyncWrites
+	ctx := testlogging.Context(t)
+	_, _, om := setupTest(t, nil)
 
-		t.Run(fmt.Sprintf("async-%v", asyncWrites), func(t *testing.T) {
-			t.Parallel()
+	for _, size := range []int{1, 199, 200, 201, 9999, 512434, 5012434} {
+		// Create some random data sample of the specified size.
+		randomData := make([]byte, size)
+		cryptorand.Read(randomData)
 
-			ctx := testlogging.Context(t)
-			_, _, om := setupTest(t, nil)
+		writer := om.NewWriter(ctx, WriterOptions{})
+		if _, err := writer.Write(randomData); err != nil {
+			t.Errorf("write error: %v", err)
+		}
 
-			for _, size := range []int{1, 199, 200, 201, 9999, 512434, 5012434} {
-				// Create some random data sample of the specified size.
-				randomData := make([]byte, size)
-				cryptorand.Read(randomData)
+		objectID, err := writer.Result()
+		t.Logf("oid: %v", objectID)
 
-				writer := om.NewWriter(ctx, WriterOptions{AsyncWrites: asyncWrites})
-				if _, err := writer.Write(randomData); err != nil {
-					t.Errorf("write error: %v", err)
-				}
+		writer.Close()
 
-				objectID, err := writer.Result()
-				t.Logf("oid: %v", objectID)
+		if err != nil {
+			t.Errorf("cannot get writer result for %v: %v", size, err)
+			continue
+		}
 
-				writer.Close()
-
-				if err != nil {
-					t.Errorf("cannot get writer result for %v: %v", size, err)
-					continue
-				}
-
-				verify(ctx, t, om.contentMgr, objectID, randomData, fmt.Sprintf("%v %v", objectID, size))
-			}
-		})
+		verify(ctx, t, om.contentMgr, objectID, randomData, fmt.Sprintf("%v %v", objectID, size))
 	}
 }
 
@@ -923,9 +966,10 @@ func TestWriterFlushFailure_OnAsyncWrite(t *testing.T) {
 	_, fcm, om := setupTest(t, nil)
 
 	ctx := testlogging.Context(t)
-	w := om.NewWriter(ctx, WriterOptions{
-		AsyncWrites: 1,
-	})
+
+	om.SetOptions(AsyncWrites(1))
+
+	w := om.NewWriter(ctx, WriterOptions{})
 
 	fcm.writeContentError = errSomeError
 
