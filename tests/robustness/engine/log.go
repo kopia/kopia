@@ -55,10 +55,8 @@ func formatTime(tm time.Time) string {
 func (elog *Log) StringThisRun() string {
 	b := &strings.Builder{}
 
-	for i, l := range elog.Log {
-		if i >= elog.runOffset {
-			fmt.Fprint(b, l.String())
-		}
+	for _, l := range elog.Log[elog.runOffset:] {
+		fmt.Fprint(b, l.String())
 	}
 
 	return b.String()

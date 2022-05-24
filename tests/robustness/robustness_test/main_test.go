@@ -87,8 +87,8 @@ func TestMain(m *testing.M) {
 type kopiaRobustnessTestHarness struct {
 	dataRepoPath string
 	metaRepoPath string
+	baseDirPath  string
 
-	baseDirPath string
 	fileWriter  *fiofilewriter.FileWriter
 	snapshotter *snapmeta.KopiaSnapshotter
 	persister   *snapmeta.KopiaPersisterLight
