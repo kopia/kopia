@@ -25,6 +25,10 @@ const (
 	maxTimeDeltaToConsiderFileTheSame = 2 * time.Second
 )
 
+// Copier is a generic function type to perform the actual copying of data bits
+// from a source stream to a destination stream.
+type Copier func(io.WriteSeeker, io.Reader) (int64, error)
+
 // FilesystemOutput contains the options for outputting a file system tree.
 type FilesystemOutput struct {
 	// TargetPath for restore.
@@ -307,9 +311,13 @@ func (o *FilesystemOutput) createDirectory(ctx context.Context, path string) err
 	}
 }
 
-func write(targetPath string, r fs.Reader) error {
+func write(targetPath string, r fs.Reader, size int64, c Copier) error {
 	f, err := os.OpenFile(targetPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600) //nolint:gosec,gomnd
 	if err != nil {
+		return err //nolint:wrapcheck
+	}
+
+	if err := f.Truncate(size); err != nil {
 		return err //nolint:wrapcheck
 	}
 
@@ -319,8 +327,7 @@ func write(targetPath string, r fs.Reader) error {
 
 	name := f.Name()
 
-	err = iocopy.JustCopy(f, r)
-	if err != nil {
+	if _, err := c(f, r); err != nil {
 		return errors.Wrap(err, "cannot write data to file %q "+name)
 	}
 
@@ -359,15 +366,19 @@ func (o *FilesystemOutput) copyFileContent(ctx context.Context, targetPath strin
 	}
 
 	if o.Sparse {
-		if isWindows() {
-			log(ctx).Infof("sparse files are not supported on Windows, restoring normally")
-		} else {
-			// nolint:wrapcheck
-			return sparsefile.Write(targetPath, r, f.Size())
+		if !isWindows() {
+			return write(targetPath, r, f.Size(), sparsefile.Copy)
 		}
+
+		log(ctx).Debugf("Sparse file support is not available on Windows, writing file normally")
 	}
 
-	return write(targetPath, r)
+	// Wrap io.Copy to conform with the required interface
+	copier := func(w io.WriteSeeker, r io.Reader) (int64, error) {
+		return iocopy.Copy(w, r) // nolint:wrapcheck
+	}
+
+	return write(targetPath, r, f.Size(), copier)
 }
 
 func isEmptyDirectory(name string) (bool, error) {
