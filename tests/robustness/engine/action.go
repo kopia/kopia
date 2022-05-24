@@ -215,8 +215,7 @@ func deleteRandomSnapshotAction(ctx context.Context, e *Engine, opts map[string]
 
 	setLogEntryCmdOpts(l, map[string]string{"snapID": snapID})
 
-	err = e.Checker.DeleteSnapshot(ctx, snapID, opts)
-	return nil, err
+	return nil, e.Checker.DeleteSnapshot(ctx, snapID, opts)
 }
 
 func gcAction(ctx context.Context, e *Engine, opts map[string]string, l *LogEntry) (out map[string]string, err error) {
@@ -255,10 +254,11 @@ func restoreIntoDataDirectoryAction(ctx context.Context, e *Engine, opts map[str
 	setLogEntryCmdOpts(l, map[string]string{"snapID": snapID})
 
 	b := &bytes.Buffer{}
-	err = e.Checker.RestoreSnapshotToPath(ctx, snapID, e.FileWriter.DataDirectory(ctx), b, opts)
-	if err != nil {
+
+	if err := e.Checker.RestoreSnapshotToPath(ctx, snapID, e.FileWriter.DataDirectory(ctx), b, opts); err != nil {
 		log.Print(b.String())
-		return nil, err
+
+		return nil, err // nolint:wrapcheck
 	}
 
 	return nil, nil
