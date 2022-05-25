@@ -138,8 +138,8 @@ func IDFromHash(prefix IDPrefix, hash []byte) (ID, error) {
 		return EmptyID, errors.Errorf("hash too short")
 	}
 
-	if len(prefix) > 1 {
-		return EmptyID, errors.Errorf("prefix too long")
+	if err := prefix.ValidateSingle(); err != nil {
+		return EmptyID, errors.Wrap(err, "invalid prefix")
 	}
 
 	if len(prefix) > 0 {

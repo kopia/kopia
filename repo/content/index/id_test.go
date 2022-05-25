@@ -67,7 +67,7 @@ func TestIDFromHash(t *testing.T) {
 	require.Equal(t, "x1234", cid.String())
 
 	_, err = IDFromHash("xx", []byte{0x12, 0x34})
-	require.ErrorContains(t, err, "prefix too long")
+	require.ErrorContains(t, err, "invalid prefix, must be empty or a single letter between 'g' and 'z'")
 
 	cid, err = IDFromHash("x", []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15})
 	require.NoError(t, err)

@@ -39,6 +39,7 @@ func TestParseObjectID(t *testing.T) {
 		{"I1,", false},
 		{"I-1,X", false},
 		{"Xsomething", false},
+		{"IZabcd", false},
 	}
 
 	for _, tc := range cases {

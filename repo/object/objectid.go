@@ -63,7 +63,12 @@ func (i ID) String() string {
 		compressionPrefix string
 	)
 
-	if i.indirection > 0 {
+	switch i.indirection {
+	case 0:
+		// no prefix
+	case 1:
+		indirectPrefix = "I"
+	default:
 		indirectPrefix = strings.Repeat("I", int(i.indirection))
 	}
 
@@ -160,9 +165,13 @@ func ParseID(s string) (ID, error) {
 		s = s[1:]
 	}
 
+	if id.indirection > 0 && id.compression {
+		return id, errors.Errorf("malformed object ID - compression and indirection are mutually exclusive")
+	}
+
 	cid, err := index.ParseID(s)
 	if err != nil {
-		return id, errors.Wrap(err, "malformed content ID")
+		return id, errors.Wrapf(err, "malformed content ID: %q", s)
 	}
 
 	id.cid = cid
