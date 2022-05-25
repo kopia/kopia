@@ -17,7 +17,7 @@ type commandSnapshotGC struct {
 }
 
 func (c *commandSnapshotGC) setup(svc appServices, parent commandParent) {
-	cmd := parent.Command("gc", "Mark contents as deleted which are not used by any snapshot").Hidden()
+	cmd := parent.Command("gc", "DEPRECATED: This command will be removed. Snapshot GC is now automatically done as part of repository maintence. Snapshot GC marks as deleted all the contents that are not used by any snapshot").Hidden()
 	cmd.Flag("delete", "Delete unreferenced contents").BoolVar(&c.snapshotGCDelete)
 	safetyFlagVar(cmd, &c.snapshotGCSafety)
 	cmd.Action(svc.directRepositoryWriteAction(c.run))
