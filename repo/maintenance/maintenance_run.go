@@ -168,6 +168,24 @@ func RunExclusive(ctx context.Context, rep repo.DirectRepositoryWriter, mode Mod
 		return nil
 	}
 
+	lockFile := rep.ConfigFilename() + ".mlock"
+	log(ctx).Debugf("Acquiring maintenance lock in file %v", lockFile)
+
+	// acquire local lock on a config file
+	l := flock.New(lockFile)
+
+	ok, err := l.TryLock()
+	if err != nil {
+		return errors.Wrap(err, "error acquiring maintenance lock")
+	}
+
+	if !ok {
+		log(ctx).Debugf("maintenance is already in progress locally")
+		return nil
+	}
+
+	defer l.Unlock() //nolint:errcheck
+
 	runParams := RunParameters{rep, mode, p, time.Time{}}
 
 	// update schedule so that we don't run the maintenance again immediately if
@@ -186,24 +204,6 @@ func RunExclusive(ctx context.Context, rep repo.DirectRepositoryWriter, mode Mod
 	if err = ensureNoClockSkew(runParams); err != nil {
 		return errors.Wrap(err, "error checking for clock skew")
 	}
-
-	lockFile := rep.ConfigFilename() + ".mlock"
-	log(ctx).Debugf("Acquiring maintenance lock in file %v", lockFile)
-
-	// acquire local lock on a config file
-	l := flock.New(lockFile)
-
-	ok, err := l.TryLock()
-	if err != nil {
-		return errors.Wrap(err, "error acquiring maintenance lock")
-	}
-
-	if !ok {
-		log(ctx).Debugf("maintenance is already in progress locally")
-		return nil
-	}
-
-	defer l.Unlock() //nolint:errcheck
 
 	log(ctx).Infof("Running %v maintenance...", runParams.Mode)
 	defer log(ctx).Infof("Finished %v maintenance.", runParams.Mode)
