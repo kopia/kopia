@@ -24,6 +24,12 @@ func (c *commandSnapshotGC) setup(svc appServices, parent commandParent) {
 }
 
 func (c *commandSnapshotGC) run(ctx context.Context, rep repo.DirectRepositoryWriter) error {
+	rep.DisableIndexRefresh()
+
+	if err := rep.Refresh(ctx); err != nil {
+		return errors.Wrap(err, "error refreshing indexes before snapshot gc")
+	}
+
 	st, err := snapshotgc.Run(ctx, rep, c.snapshotGCDelete, c.snapshotGCSafety)
 
 	log(ctx).Infof("GC found %v unused contents (%v bytes)", st.UnusedCount, units.BytesStringBase2(st.UnusedBytes))
