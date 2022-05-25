@@ -45,7 +45,7 @@ func TestIDValid(t *testing.T) {
 			switch {
 			case i < j:
 				require.True(t, v1.less(v2))
-				require.True(t, v1.comparePrefix(IDPrefix(v2.String())) < 0)
+				require.Negative(t, v1.comparePrefix(IDPrefix(v2.String())))
 			case i == j:
 				require.Equal(t, v1, v2)
 				require.Equal(t, 0, v1.comparePrefix(IDPrefix(v2.String())))
