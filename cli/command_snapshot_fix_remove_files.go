@@ -30,6 +30,8 @@ func (c *commandSnapshotFixRemoveFiles) setup(svc appServices, parent commandPar
 func (c *commandSnapshotFixRemoveFiles) rewriteEntry(ctx context.Context, dirRelativePath string, ent *snapshot.DirEntry) (*snapshot.DirEntry, error) {
 	for _, id := range c.removeObjectIDs {
 		if string(ent.ObjectID) == id {
+			log(ctx).Infof("will remove file %v", path.Join(dirRelativePath, ent.Name))
+
 			return nil, nil
 		}
 	}
