@@ -68,8 +68,9 @@ func (b Builder) sortedContents() []Info {
 	// by first [0-9a-z] and second character [0-9a-f].
 	for cid, v := range b {
 		first := int(base36Value[cid.prefix])
-		second := int(base36Value[cid.data[0]&0x0F])
+		second := int(cid.data[0] >> 4) // nolint:gomnd
 
+		// first: 0..35, second: 0..15
 		buck := first<<4 + second //nolint:gomnd
 
 		buckets[buck] = append(buckets[buck], v)

@@ -320,6 +320,53 @@ func TestSortedContents(t *testing.T) {
 	}
 }
 
+func TestSortedContents2(t *testing.T) {
+	b := Builder{}
+
+	b.Add(&InfoStruct{
+		ContentID: mustParseID(t, "0123"),
+	})
+	b.Add(&InfoStruct{
+		ContentID: mustParseID(t, "1023"),
+	})
+	b.Add(&InfoStruct{
+		ContentID: mustParseID(t, "0f23"),
+	})
+	b.Add(&InfoStruct{
+		ContentID: mustParseID(t, "f023"),
+	})
+	b.Add(&InfoStruct{
+		ContentID: mustParseID(t, "g0123"),
+	})
+	b.Add(&InfoStruct{
+		ContentID: mustParseID(t, "g1023"),
+	})
+	b.Add(&InfoStruct{
+		ContentID: mustParseID(t, "i0123"),
+	})
+	b.Add(&InfoStruct{
+		ContentID: mustParseID(t, "i1023"),
+	})
+	b.Add(&InfoStruct{
+		ContentID: mustParseID(t, "h0123"),
+	})
+	b.Add(&InfoStruct{
+		ContentID: mustParseID(t, "h1023"),
+	})
+
+	got := b.sortedContents()
+
+	var last ID
+
+	for _, info := range got {
+		if info.GetContentID().less(last) {
+			t.Fatalf("not sorted %v (was %v)!", info.GetContentID(), last)
+		}
+
+		last = info.GetContentID()
+	}
+}
+
 func TestPackIndexV2TooManyUniqueFormats(t *testing.T) {
 	b := Builder{}
 
