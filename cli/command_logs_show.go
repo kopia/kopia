@@ -17,7 +17,7 @@ type commandLogsShow struct {
 }
 
 func (c *commandLogsShow) setup(svc appServices, parent commandParent) {
-	cmd := parent.Command("show", "Show contents of the log.").Alias("cat")
+	cmd := parent.Command("show", "Show contents of the log. When no flags or arguments are specified, only the last log is shown.").Alias("cat")
 
 	cmd.Arg("session-id", "Log Session ID to show").StringsVar(&c.logSessionIDs)
 

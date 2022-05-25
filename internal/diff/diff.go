@@ -41,8 +41,16 @@ func (c *Comparer) Close() error {
 	return os.RemoveAll(c.tmpDir)
 }
 
+func maybeOID(e fs.Entry) string {
+	if h, ok := e.(object.HasObjectID); ok {
+		return h.ObjectID().String()
+	}
+
+	return ""
+}
+
 func (c *Comparer) compareDirectories(ctx context.Context, dir1, dir2 fs.Directory, parent string) error {
-	log(ctx).Debugf("comparing directories %v", parent)
+	log(ctx).Debugf("comparing directories %v (%v and %v)", parent, maybeOID(dir1), maybeOID(dir2))
 
 	var entries1, entries2 fs.Entries
 

@@ -5,16 +5,15 @@ package robustness
 
 import (
 	"errors"
-	"fmt"
 )
 
 var (
 	// ErrNoOp is thrown when an action could not do anything useful.
-	ErrNoOp = fmt.Errorf("no-op")
+	ErrNoOp = errors.New("no-op")
 
 	// ErrCannotPerformIO is returned if the engine determines there is not enough space
 	// to write files.
-	ErrCannotPerformIO = fmt.Errorf("cannot perform i/o")
+	ErrCannotPerformIO = errors.New("cannot perform i/o")
 
 	// ErrNoActionPicked is returned if a random action could not be selected.
 	ErrNoActionPicked = errors.New("unable to pick an action with the action control options provided")

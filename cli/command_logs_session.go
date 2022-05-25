@@ -32,7 +32,7 @@ type logSelectionCriteria struct {
 
 func (c *logSelectionCriteria) setup(cmd *kingpin.CmdClause) {
 	cmd.Flag("all", "Show all logs").BoolVar(&c.all)
-	cmd.Flag("latest", "Include last N logs").Short('n').IntVar(&c.latest)
+	cmd.Flag("latest", "Include last N logs, by default the last one is shown").Short('n').IntVar(&c.latest)
 	cmd.Flag("younger-than", "Include logs younger than X (e.g. '1h')").DurationVar(&c.youngerThan)
 	cmd.Flag("older-than", "Include logs older than X (e.g. '1h')").DurationVar(&c.olderThan)
 }
