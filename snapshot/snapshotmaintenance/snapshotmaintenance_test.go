@@ -17,6 +17,7 @@ import (
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/maintenance"
+	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/snapshotmaintenance"
 )
@@ -71,7 +72,7 @@ func (s *formatSpecificTestSuite) TestSnapshotGCSimple(t *testing.T) {
 	t.Log("snap 2:", pretty.Sprint(s2))
 	mustFlush(t, th.RepositoryWriter)
 
-	info, err := th.RepositoryWriter.ContentInfo(ctx, content.ID(s2.RootObjectID()))
+	info, err := th.RepositoryWriter.ContentInfo(ctx, mustGetContentID(t, s2.RootObjectID()))
 	require.NoError(t, err)
 
 	t.Log("root info:", pretty.Sprint(info))
@@ -129,7 +130,7 @@ func (s *formatSpecificTestSuite) TestMaintenanceReuseDirManifest(t *testing.T) 
 	err = snapshotmaintenance.Run(ctx, th.RepositoryWriter, maintenance.ModeFull, true, maintenance.SafetyFull)
 	require.NoError(t, err)
 
-	info, err := r2.(repo.DirectRepository).ContentInfo(ctx, content.ID(s2.RootObjectID()))
+	info, err := r2.(repo.DirectRepository).ContentInfo(ctx, mustGetContentID(t, s2.RootObjectID()))
 	require.NoError(t, err)
 	require.False(t, info.GetDeleted(), "content must not be deleted")
 
@@ -143,7 +144,7 @@ func (s *formatSpecificTestSuite) TestMaintenanceReuseDirManifest(t *testing.T) 
 
 	th.MustReopen(t, th.fakeTimeOpenRepoOption)
 
-	info, err = th.RepositoryWriter.ContentInfo(ctx, content.ID(s2.RootObjectID()))
+	info, err = th.RepositoryWriter.ContentInfo(ctx, mustGetContentID(t, s2.RootObjectID()))
 	require.NoError(t, err)
 	require.True(t, info.GetDeleted(), "content must be deleted")
 
@@ -157,7 +158,7 @@ func (s *formatSpecificTestSuite) TestMaintenanceReuseDirManifest(t *testing.T) 
 	mustFlush(t, th.RepositoryWriter)
 
 	// Was the previous root undeleted
-	info, err = th.RepositoryWriter.ContentInfo(ctx, content.ID(s2.RootObjectID()))
+	info, err = th.RepositoryWriter.ContentInfo(ctx, mustGetContentID(t, s2.RootObjectID()))
 	require.NoError(t, err)
 	require.False(t, info.GetDeleted(), "content must not be deleted")
 
@@ -294,4 +295,13 @@ func mustSnapshot(t *testing.T, r repo.RepositoryWriter, source fs.Entry, si sna
 	require.NotNil(t, s1)
 
 	return s1
+}
+
+func mustGetContentID(t *testing.T, oid object.ID) content.ID {
+	t.Helper()
+
+	c, _, ok := oid.ContentID()
+	require.True(t, ok)
+
+	return c
 }

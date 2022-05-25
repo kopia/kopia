@@ -168,7 +168,7 @@ func (u *Uploader) uploadFileInternal(ctx context.Context, parentCheckpointRegis
 			return nil, errors.Wrap(err, "checkpoint error")
 		}
 
-		if checkpointID == "" {
+		if checkpointID == object.EmptyID {
 			return nil, nil
 		}
 

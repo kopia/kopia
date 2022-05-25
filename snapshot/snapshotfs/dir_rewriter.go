@@ -182,7 +182,7 @@ func (rw *DirRewriter) processDirectoryEntries(ctx context.Context, parentPath s
 
 	dm := builder.Build(entry.ModTime, entry.DirSummary.IncompleteReason)
 
-	oid, err := writeDirManifest(ctx, rw.rep, string(entry.ObjectID), dm)
+	oid, err := writeDirManifest(ctx, rw.rep, entry.ObjectID.String(), dm)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to write directory manifest")
 	}

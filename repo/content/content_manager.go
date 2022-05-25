@@ -4,7 +4,6 @@ package content
 import (
 	"context"
 	cryptorand "crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"math/rand"
 	"sync"
@@ -744,20 +743,23 @@ func (bm *WriteManager) SupportsContentCompression() bool {
 
 // WriteContent saves a given content of data to a pack group with a provided name and returns a contentID
 // that's based on the contents of data written.
-func (bm *WriteManager) WriteContent(ctx context.Context, data gather.Bytes, prefix ID, comp compression.HeaderID) (ID, error) {
+func (bm *WriteManager) WriteContent(ctx context.Context, data gather.Bytes, prefix index.IDPrefix, comp compression.HeaderID) (ID, error) {
 	if err := bm.maybeRetryWritingFailedPacksUnlocked(ctx); err != nil {
-		return "", err
+		return EmptyID, err
 	}
 
 	reportContentWriteBytes(int64(data.Length()))
 
-	if err := ValidatePrefix(prefix); err != nil {
-		return "", err
+	if err := prefix.ValidateSingle(); err != nil {
+		return EmptyID, errors.Wrap(err, "invalid prefix")
 	}
 
 	var hashOutput [hashing.MaxHashSize]byte
 
-	contentID := prefix + ID(hex.EncodeToString(bm.hashData(hashOutput[:0], data)))
+	contentID, err := IDFromHash(prefix, bm.hashData(hashOutput[:0], data))
+	if err != nil {
+		return EmptyID, errors.Wrap(err, "invalid hash")
+	}
 
 	previousWriteTime := int64(-1)
 

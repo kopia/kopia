@@ -27,7 +27,7 @@ func TestParseObjectID(t *testing.T) {
 		{"IDxf0f", false},
 		{"Da", false},
 		{"Daf0f0", false},
-		{"", false},
+		{"", true},
 		{"B!$@#$!@#$", false},
 		{"X", false},
 		{"I.", false},
@@ -39,6 +39,7 @@ func TestParseObjectID(t *testing.T) {
 		{"I1,", false},
 		{"I-1,X", false},
 		{"Xsomething", false},
+		{"IZabcd", false},
 	}
 
 	for _, tc := range cases {
@@ -55,13 +56,22 @@ func TestFromStrings(t *testing.T) {
 	ids, err := IDsFromStrings([]string{"f0f0", "f1f1"})
 	require.NoError(t, err)
 
-	require.Equal(t, ids, []ID{"f0f0", "f1f1"})
+	require.Equal(t, ids, []ID{mustParseID(t, "f0f0"), mustParseID(t, "f1f1")})
 
 	_, err = IDsFromStrings([]string{"invalidf0f0", "f1f1"})
 	require.Error(t, err)
 }
 
 func TestToStrings(t *testing.T) {
-	strs := IDsToStrings([]ID{"f0f0", "f1f1"})
+	strs := IDsToStrings([]ID{mustParseID(t, "f0f0"), mustParseID(t, "f1f1")})
 	require.Equal(t, []string{"f0f0", "f1f1"}, strs)
+}
+
+func mustParseID(t *testing.T, s string) ID {
+	t.Helper()
+
+	id, err := ParseID(s)
+	require.NoError(t, err)
+
+	return id
 }

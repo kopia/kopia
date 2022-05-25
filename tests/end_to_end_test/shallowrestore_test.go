@@ -17,6 +17,7 @@ import (
 
 	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/internal/atomicfile"
+	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/restore"
 	"github.com/kopia/kopia/tests/clitestutil"
@@ -531,14 +532,14 @@ func TestForeignReposCauseErrors(t *testing.T) {
 			de: &snapshot.DirEntry{
 				Name:     "badplaceholder",
 				Type:     "d",
-				ObjectID: "Df0f0",
+				ObjectID: mustParseID(t, "Df0f0"),
 			},
 		},
 		{
 			de: &snapshot.DirEntry{
 				Name:     "badplaceholder",
 				Type:     "f",
-				ObjectID: "IDf0f0",
+				ObjectID: mustParseID(t, "IDf0f0"),
 			},
 		},
 	} {
@@ -949,4 +950,13 @@ func makeLongName(c rune) string {
 	}
 
 	return string(buffy)
+}
+
+func mustParseID(t *testing.T, s string) object.ID {
+	t.Helper()
+
+	id, err := object.ParseID(s)
+	require.NoError(t, err)
+
+	return id
 }

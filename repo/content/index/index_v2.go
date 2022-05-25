@@ -294,7 +294,7 @@ func (b *indexV2) Iterate(r IDRange, cb func(Info) error) error {
 		key := entry[0:b.hdr.keySize]
 
 		contentID := bytesToContentID(key)
-		if contentID >= r.EndID {
+		if contentID.comparePrefix(r.EndID) >= 0 {
 			break
 		}
 
@@ -315,7 +315,7 @@ func (b *indexV2) entryOffset(p int) int64 {
 	return b.hdr.entriesOffset + b.hdr.entryStride*int64(p)
 }
 
-func (b *indexV2) findEntryPosition(contentID ID) (int, error) {
+func (b *indexV2) findEntryPosition(contentID IDPrefix) (int, error) {
 	var entryArr [v2MaxEntrySize]byte
 	entryBuf := entryArr[0:b.hdr.entryStride]
 
@@ -331,7 +331,7 @@ func (b *indexV2) findEntryPosition(contentID ID) (int, error) {
 			return false
 		}
 
-		return bytesToContentID(entryBuf[0:b.hdr.keySize]) >= contentID
+		return bytesToContentID(entryBuf[0:b.hdr.keySize]).comparePrefix(contentID) >= 0
 	})
 
 	return pos, readErr

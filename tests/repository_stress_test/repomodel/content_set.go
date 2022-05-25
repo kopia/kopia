@@ -19,7 +19,7 @@ func (s *ContentSet) PickRandom() content.ID {
 	defer s.mu.Unlock()
 
 	if len(s.ids) == 0 {
-		return ""
+		return content.EmptyID
 	}
 
 	// nolint:gosec

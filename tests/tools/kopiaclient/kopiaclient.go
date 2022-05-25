@@ -126,7 +126,7 @@ func (kc *KopiaClient) SnapshotRestore(ctx context.Context, key string) ([]byte,
 	}
 
 	man := kc.latestManifest(mans)
-	rootOIDWithPath := string(man.RootObjectID()) + "/" + dataFileName
+	rootOIDWithPath := man.RootObjectID().String() + "/" + dataFileName
 
 	oid, err := snapshotfs.ParseObjectIDWithPath(ctx, r, rootOIDWithPath)
 	if err != nil {
@@ -135,7 +135,7 @@ func (kc *KopiaClient) SnapshotRestore(ctx context.Context, key string) ([]byte,
 
 	or, err := r.OpenObject(ctx, oid)
 	if err != nil {
-		return nil, errors.Wrapf(err, "cannot open object %s", string(oid))
+		return nil, errors.Wrapf(err, "cannot open object %s", oid)
 	}
 
 	val, err := io.ReadAll(or)

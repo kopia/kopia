@@ -86,7 +86,7 @@ type nextInfoHeap []*nextInfo
 func (h nextInfoHeap) Len() int { return len(h) }
 func (h nextInfoHeap) Less(i, j int) bool {
 	if a, b := h[i].it.GetContentID(), h[j].it.GetContentID(); a != b {
-		return a < b
+		return a.less(b)
 	}
 
 	return !contentInfoGreaterThan(h[i].it, h[j].it)

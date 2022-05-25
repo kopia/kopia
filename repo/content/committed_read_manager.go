@@ -251,10 +251,7 @@ func (sm *SharedManager) decryptContentAndVerify(payload gather.Bytes, bi Info, 
 
 	var hashBuf [hashing.MaxHashSize]byte
 
-	iv, err := getPackedContentIV(hashBuf[:], bi.GetContentID())
-	if err != nil {
-		return err
-	}
+	iv := getPackedContentIV(hashBuf[:0], bi.GetContentID())
 
 	// reserved for future use
 	if k := bi.GetEncryptionKeyID(); k != 0 {

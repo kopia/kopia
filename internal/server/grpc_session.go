@@ -186,7 +186,12 @@ func handleGetContentInfoRequest(ctx context.Context, dw repo.DirectRepositoryWr
 		return accessDeniedResponse()
 	}
 
-	ci, err := dw.ContentManager().ContentInfo(ctx, content.ID(req.GetContentId()))
+	contentID, err := content.ParseID(req.GetContentId())
+	if err != nil {
+		return errorResponse(err)
+	}
+
+	ci, err := dw.ContentManager().ContentInfo(ctx, contentID)
 	if err != nil {
 		return errorResponse(err)
 	}
@@ -195,7 +200,7 @@ func handleGetContentInfoRequest(ctx context.Context, dw repo.DirectRepositoryWr
 		Response: &grpcapi.SessionResponse_GetContentInfo{
 			GetContentInfo: &grpcapi.GetContentInfoResponse{
 				Info: &grpcapi.ContentInfo{
-					Id:               string(ci.GetContentID()),
+					Id:               ci.GetContentID().String(),
 					PackedLength:     ci.GetPackedLength(),
 					TimestampSeconds: ci.GetTimestampSeconds(),
 					PackBlobId:       string(ci.GetPackBlobID()),
@@ -214,7 +219,12 @@ func handleGetContentRequest(ctx context.Context, dw repo.DirectRepositoryWriter
 		return accessDeniedResponse()
 	}
 
-	data, err := dw.ContentManager().GetContent(ctx, content.ID(req.GetContentId()))
+	contentID, err := content.ParseID(req.GetContentId())
+	if err != nil {
+		return errorResponse(err)
+	}
+
+	data, err := dw.ContentManager().GetContent(ctx, contentID)
 	if err != nil {
 		return errorResponse(err)
 	}
@@ -238,7 +248,7 @@ func handleWriteContentRequest(ctx context.Context, dw repo.DirectRepositoryWrit
 		return accessDeniedResponse()
 	}
 
-	contentID, err := dw.ContentManager().WriteContent(ctx, gather.FromSlice(req.GetData()), content.ID(req.GetPrefix()), compression.HeaderID(req.GetCompression()))
+	contentID, err := dw.ContentManager().WriteContent(ctx, gather.FromSlice(req.GetData()), content.IDPrefix(req.GetPrefix()), compression.HeaderID(req.GetCompression()))
 	if err != nil {
 		return errorResponse(err)
 	}
@@ -246,7 +256,7 @@ func handleWriteContentRequest(ctx context.Context, dw repo.DirectRepositoryWrit
 	return &grpcapi.SessionResponse{
 		Response: &grpcapi.SessionResponse_WriteContent{
 			WriteContent: &grpcapi.WriteContentResponse{
-				ContentId: string(contentID),
+				ContentId: contentID.String(),
 			},
 		},
 	}
@@ -364,7 +374,12 @@ func handlePrefetchContentsRequest(ctx context.Context, rep repo.Repository, aut
 		return accessDeniedResponse()
 	}
 
-	cids := rep.PrefetchContents(ctx, content.IDsFromStrings(req.ContentIds), req.Hint)
+	contentIDs, err := content.IDsFromStrings(req.ContentIds)
+	if err != nil {
+		return errorResponse(err)
+	}
+
+	cids := rep.PrefetchContents(ctx, contentIDs, req.Hint)
 
 	return &grpcapi.SessionResponse{
 		Response: &grpcapi.SessionResponse_PrefetchContents{

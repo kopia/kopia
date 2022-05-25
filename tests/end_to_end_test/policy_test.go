@@ -32,7 +32,7 @@ func TestDefaultGlobalPolicy(t *testing.T) {
 	}
 
 	globalPolicyContentID := contents[0].GetContentID()
-	e.RunAndExpectSuccess(t, "content", "show", "-jz", string(globalPolicyContentID))
+	e.RunAndExpectSuccess(t, "content", "show", "-jz", globalPolicyContentID.String())
 
 	// make sure the policy is visible in the manifest list
 	var manifests []manifest.EntryMetadata

@@ -171,7 +171,7 @@ func (m *Manifest) RootObjectID() object.ID {
 		return m.RootEntry.ObjectID
 	}
 
-	return ""
+	return object.EmptyID
 }
 
 // Clone returns a clone of the manifest.

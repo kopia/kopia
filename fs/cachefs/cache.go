@@ -87,7 +87,7 @@ type EntryWrapper func(entry fs.Entry) fs.Entry
 // the results.
 func (c *Cache) Readdir(ctx context.Context, d fs.Directory, w EntryWrapper) (fs.Entries, error) {
 	if h, ok := d.(object.HasObjectID); ok {
-		cacheID := string(h.ObjectID())
+		cacheID := h.ObjectID().String()
 
 		return c.getEntries(ctx, cacheID, dirCacheExpiration, d.Readdir, w)
 	}

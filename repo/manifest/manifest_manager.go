@@ -41,7 +41,7 @@ const TypeLabelKey = "type"
 type contentManager interface {
 	Revision() int64
 	GetContent(ctx context.Context, contentID content.ID) ([]byte, error)
-	WriteContent(ctx context.Context, data gather.Bytes, prefix content.ID, comp compression.HeaderID) (content.ID, error)
+	WriteContent(ctx context.Context, data gather.Bytes, prefix content.IDPrefix, comp compression.HeaderID) (content.ID, error)
 	DeleteContent(ctx context.Context, contentID content.ID) error
 	IterateContents(ctx context.Context, options content.IterateOptions, callback content.IterateCallback) error
 	DisableIndexFlush(ctx context.Context)

@@ -12,7 +12,6 @@ import (
 
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/content"
-	"github.com/kopia/kopia/repo/content/index"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
@@ -95,7 +94,7 @@ func TestSnapshotFix(t *testing.T) {
 			name: "FixInvalidFiles_MissingRootDirStub",
 			modifyRepoAfterSnapshot: func(env *testenv.CLITest, man *snapshot.Manifest, fileMap map[string]*snapshot.DirEntry) {
 				forgetContents(t, env,
-					string(man.RootObjectID()))
+					man.RootObjectID().String())
 			},
 			initiallyCorrupted: true,
 			flags:              []string{"invalid-files"},
@@ -105,7 +104,7 @@ func TestSnapshotFix(t *testing.T) {
 			name: "FixInvalidFiles_MissingRootDirFail",
 			modifyRepoAfterSnapshot: func(env *testenv.CLITest, man *snapshot.Manifest, fileMap map[string]*snapshot.DirEntry) {
 				forgetContents(t, env,
-					string(man.RootObjectID()))
+					man.RootObjectID().String())
 			},
 			initiallyCorrupted: true,
 			flags:              []string{"invalid-files", "--invalid-directory-handling=fail"},
@@ -115,7 +114,7 @@ func TestSnapshotFix(t *testing.T) {
 			name: "FixInvalidFiles_MissingRootDirKeep",
 			modifyRepoAfterSnapshot: func(env *testenv.CLITest, man *snapshot.Manifest, fileMap map[string]*snapshot.DirEntry) {
 				forgetContents(t, env,
-					string(man.RootObjectID()))
+					man.RootObjectID().String())
 			},
 			initiallyCorrupted: true,
 			flags:              []string{"invalid-files", "--invalid-directory-handling=keep"},
@@ -125,8 +124,8 @@ func TestSnapshotFix(t *testing.T) {
 			name: "FixInvalidFiles_MissingShortContentFileRemove",
 			modifyRepoAfterSnapshot: func(env *testenv.CLITest, man *snapshot.Manifest, fileMap map[string]*snapshot.DirEntry) {
 				forgetContents(t, env,
-					string(fileMap["small-file1"].ObjectID),
-					string(fileMap["dir1/small-file1"].ObjectID))
+					fileMap["small-file1"].ObjectID.String(),
+					fileMap["dir1/small-file1"].ObjectID.String())
 			},
 			initiallyCorrupted: true,
 			// recovered files
@@ -154,8 +153,8 @@ func TestSnapshotFix(t *testing.T) {
 			name: "FixInvalidFiles_MissingShortContentFileStub",
 			modifyRepoAfterSnapshot: func(env *testenv.CLITest, man *snapshot.Manifest, fileMap map[string]*snapshot.DirEntry) {
 				forgetContents(t, env,
-					string(fileMap["small-file1"].ObjectID),
-					string(fileMap["dir1/small-file1"].ObjectID))
+					fileMap["small-file1"].ObjectID.String(),
+					fileMap["dir1/small-file1"].ObjectID.String())
 			},
 			initiallyCorrupted: true,
 			flags:              []string{"invalid-files"},
@@ -187,8 +186,8 @@ func TestSnapshotFix(t *testing.T) {
 			name: "FixInvalidFiles_MissingShortContentFileKeep",
 			modifyRepoAfterSnapshot: func(env *testenv.CLITest, man *snapshot.Manifest, fileMap map[string]*snapshot.DirEntry) {
 				forgetContents(t, env,
-					string(fileMap["small-file1"].ObjectID),
-					string(fileMap["dir1/small-file1"].ObjectID))
+					fileMap["small-file1"].ObjectID.String(),
+					fileMap["dir1/small-file1"].ObjectID.String())
 			},
 			initiallyCorrupted: true,
 			flags:              []string{"invalid-files", "--invalid-file-handling=keep"},
@@ -198,7 +197,7 @@ func TestSnapshotFix(t *testing.T) {
 			name: "FixInvalidFiles_MissingShortContentDir",
 			modifyRepoAfterSnapshot: func(env *testenv.CLITest, man *snapshot.Manifest, fileMap map[string]*snapshot.DirEntry) {
 				forgetContents(t, env,
-					string(fileMap["dir1"].ObjectID))
+					fileMap["dir1"].ObjectID.String())
 			},
 			initiallyCorrupted: true,
 			flags:              []string{"invalid-files", "--invalid-directory-handling=stub"},
@@ -223,8 +222,8 @@ func TestSnapshotFix(t *testing.T) {
 			name: "FixInvalidFiles_MissingLargeFileIndex",
 			modifyRepoAfterSnapshot: func(env *testenv.CLITest, man *snapshot.Manifest, fileMap map[string]*snapshot.DirEntry) {
 				forgetContents(t, env,
-					strings.TrimPrefix(string(fileMap["large-file1"].ObjectID), "I"),
-					strings.TrimPrefix(string(fileMap["dir1/large-file1"].ObjectID), "I"))
+					strings.TrimPrefix(fileMap["large-file1"].ObjectID.String(), "I"),
+					strings.TrimPrefix(fileMap["dir1/large-file1"].ObjectID.String(), "I"))
 			},
 			initiallyCorrupted: true,
 			flags:              []string{"invalid-files", "--invalid-file-handling=remove"},
@@ -357,7 +356,7 @@ func TestSnapshotFix(t *testing.T) {
 			case tc.wantRootStub:
 				var stub snapshotfs.UnreadableDirEntryReplacement
 
-				testutil.MustParseJSONLines(t, env.RunAndExpectSuccess(t, "show", string(manifests[0].RootObjectID())), &stub)
+				testutil.MustParseJSONLines(t, env.RunAndExpectSuccess(t, "show", manifests[0].RootObjectID().String()), &stub)
 			}
 		})
 	}
@@ -376,9 +375,11 @@ func forgetContents(t *testing.T, env *testenv.CLITest, contentIDs ...string) {
 
 	var blobIDs []string
 
-	for _, cid := range contentIDs {
-		require.NotEqual(t, before[content.ID(cid)].PackBlobID, after[content.ID(cid)].PackBlobID)
-		blobIDs = append(blobIDs, string(after[index.ID(cid)].PackBlobID))
+	for _, cidStr := range contentIDs {
+		cid, err := content.ParseID(cidStr)
+		require.NoError(t, err)
+		require.NotEqual(t, before[cid].PackBlobID, after[cid].PackBlobID)
+		blobIDs = append(blobIDs, string(after[cid].PackBlobID))
 	}
 
 	env.RunAndExpectSuccess(t, append([]string{"blob", "rm"}, blobIDs...)...)
@@ -413,7 +414,7 @@ func mustListDirEntries(t *testing.T, env *testenv.CLITest, out map[string]*snap
 
 	var dir1 snapshot.DirManifest
 
-	testutil.MustParseJSONLines(t, env.RunAndExpectSuccess(t, "show", string(root)), &dir1)
+	testutil.MustParseJSONLines(t, env.RunAndExpectSuccess(t, "show", root.String()), &dir1)
 
 	for _, v := range dir1.Entries {
 		out[prefix+v.Name] = v

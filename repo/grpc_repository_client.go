@@ -2,7 +2,6 @@ package repo
 
 import (
 	"context"
-	"encoding/hex"
 	"encoding/json"
 	"io"
 	"net/url"
@@ -409,7 +408,12 @@ func (r *grpcInnerSession) PrefetchContents(ctx context.Context, contentIDs []co
 	}) {
 		switch rr := resp.Response.(type) {
 		case *apipb.SessionResponse_PrefetchContents:
-			return content.IDsFromStrings(rr.PrefetchContents.ContentIds)
+			ids, err := content.IDsFromStrings(rr.PrefetchContents.ContentIds)
+			if err != nil {
+				log(ctx).Warnf("invalid response to PrefetchContents: %v", err)
+			}
+
+			return ids
 
 		default:
 			log(ctx).Warnf("unexpected response to PrefetchContents: %v", resp)
@@ -524,14 +528,19 @@ func (r *grpcInnerSession) contentInfo(ctx context.Context, contentID content.ID
 	for resp := range r.sendRequest(ctx, &apipb.SessionRequest{
 		Request: &apipb.SessionRequest_GetContentInfo{
 			GetContentInfo: &apipb.GetContentInfoRequest{
-				ContentId: string(contentID),
+				ContentId: contentID.String(),
 			},
 		},
 	}) {
 		switch rr := resp.Response.(type) {
 		case *apipb.SessionResponse_GetContentInfo:
+			contentID, err := content.ParseID(rr.GetContentInfo.GetInfo().GetId())
+			if err != nil {
+				return nil, errors.Wrap(err, "invalid content ID")
+			}
+
 			return &content.InfoStruct{
-				ContentID:        content.ID(rr.GetContentInfo.GetInfo().GetId()),
+				ContentID:        contentID,
 				PackedLength:     rr.GetContentInfo.GetInfo().GetPackedLength(),
 				TimestampSeconds: rr.GetContentInfo.GetInfo().GetTimestampSeconds(),
 				PackBlobID:       blob.ID(rr.GetContentInfo.GetInfo().GetPackBlobId()),
@@ -576,7 +585,7 @@ func (r *grpcRepositoryClient) GetContent(ctx context.Context, contentID content
 	var b gather.WriteBuffer
 	defer b.Close()
 
-	err := r.contentCache.GetOrLoad(ctx, string(contentID), func(output *gather.WriteBuffer) error {
+	err := r.contentCache.GetOrLoad(ctx, contentID.String(), func(output *gather.WriteBuffer) error {
 		v, err := r.maybeRetry(ctx, func(ctx context.Context, sess *grpcInnerSession) (interface{}, error) {
 			return sess.GetContent(ctx, contentID)
 		})
@@ -601,7 +610,7 @@ func (r *grpcInnerSession) GetContent(ctx context.Context, contentID content.ID)
 	for resp := range r.sendRequest(ctx, &apipb.SessionRequest{
 		Request: &apipb.SessionRequest_GetContent{
 			GetContent: &apipb.GetContentRequest{
-				ContentId: string(contentID),
+				ContentId: contentID.String(),
 			},
 		},
 	}) {
@@ -621,7 +630,7 @@ func (r *grpcRepositoryClient) SupportsContentCompression() bool {
 	return r.serverSupportsContentCompression
 }
 
-func (r *grpcRepositoryClient) doWrite(ctx context.Context, contentID content.ID, data []byte, prefix content.ID, comp compression.HeaderID) error {
+func (r *grpcRepositoryClient) doWrite(ctx context.Context, contentID content.ID, data []byte, prefix content.IDPrefix, comp compression.HeaderID) error {
 	// avoid uploading the content body if it already exists.
 	if _, err := r.ContentInfo(ctx, contentID); err == nil {
 		// content already exists
@@ -639,7 +648,7 @@ func (r *grpcRepositoryClient) doWrite(ctx context.Context, contentID content.ID
 
 	if prefix != "" {
 		// add all prefixed contents to the cache.
-		r.contentCache.Put(ctx, string(contentID), gather.FromSlice(data))
+		r.contentCache.Put(ctx, contentID.String(), gather.FromSlice(data))
 	}
 
 	if got, want := v.(content.ID), contentID; got != want { // nolint:forcetypeassert
@@ -649,19 +658,22 @@ func (r *grpcRepositoryClient) doWrite(ctx context.Context, contentID content.ID
 	return nil
 }
 
-func (r *grpcRepositoryClient) WriteContent(ctx context.Context, data gather.Bytes, prefix content.ID, comp compression.HeaderID) (content.ID, error) {
-	if err := content.ValidatePrefix(prefix); err != nil {
-		return "", errors.Wrap(err, "invalid prefix")
+func (r *grpcRepositoryClient) WriteContent(ctx context.Context, data gather.Bytes, prefix content.IDPrefix, comp compression.HeaderID) (content.ID, error) {
+	if err := prefix.ValidateSingle(); err != nil {
+		return content.EmptyID, errors.Wrap(err, "invalid prefix")
 	}
 
 	// we will be writing asynchronously and server will reject this write, fail early.
 	if prefix == manifest.ContentPrefix {
-		return "", errors.Errorf("writing manifest contents not allowed")
+		return content.EmptyID, errors.Errorf("writing manifest contents not allowed")
 	}
 
 	var hashOutput [128]byte
 
-	contentID := prefix + content.ID(hex.EncodeToString(r.h(hashOutput[:0], data)))
+	contentID, err := content.IDFromHash(prefix, r.h(hashOutput[:0], data))
+	if err != nil {
+		return content.EmptyID, errors.Errorf("invalid content ID: %v", err)
+	}
 
 	if r.recent.exists(contentID) {
 		return contentID, nil
@@ -685,9 +697,9 @@ func (r *grpcRepositoryClient) WriteContent(ctx context.Context, data gather.Byt
 	return contentID, nil
 }
 
-func (r *grpcInnerSession) WriteContent(ctx context.Context, data []byte, prefix content.ID, comp compression.HeaderID) (content.ID, error) {
-	if err := content.ValidatePrefix(prefix); err != nil {
-		return "", errors.Wrap(err, "invalid prefix")
+func (r *grpcInnerSession) WriteContent(ctx context.Context, data []byte, prefix content.IDPrefix, comp compression.HeaderID) (content.ID, error) {
+	if err := prefix.ValidateSingle(); err != nil {
+		return content.EmptyID, errors.Wrap(err, "invalid prefix")
 	}
 
 	for resp := range r.sendRequest(ctx, &apipb.SessionRequest{
@@ -701,14 +713,15 @@ func (r *grpcInnerSession) WriteContent(ctx context.Context, data []byte, prefix
 	}) {
 		switch rr := resp.Response.(type) {
 		case *apipb.SessionResponse_WriteContent:
-			return content.ID(rr.WriteContent.GetContentId()), nil
+			// nolint:wrapcheck
+			return content.ParseID(rr.WriteContent.GetContentId())
 
 		default:
-			return "", unhandledSessionResponse(resp)
+			return content.EmptyID, unhandledSessionResponse(resp)
 		}
 	}
 
-	return "", errNoSessionResponse()
+	return content.EmptyID, errNoSessionResponse()
 }
 
 // UpdateDescription updates the description of a connected repository.
