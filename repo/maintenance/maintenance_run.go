@@ -201,7 +201,7 @@ func RunExclusive(ctx context.Context, rep repo.DirectRepositoryWriter, mode Mod
 
 	runParams.MaintenanceStartTime = bm.Timestamp
 
-	if err = ensureNoClockSkew(runParams); err != nil {
+	if err = checkClockSkewBounds(runParams); err != nil {
 		return errors.Wrap(err, "error checking for clock skew")
 	}
 
@@ -215,7 +215,7 @@ func RunExclusive(ctx context.Context, rep repo.DirectRepositoryWriter, mode Mod
 	return cb(ctx, runParams)
 }
 
-func ensureNoClockSkew(rp RunParameters) error {
+func checkClockSkewBounds(rp RunParameters) error {
 	localTime := rp.rep.Time()
 	repoTime := rp.MaintenanceStartTime
 
