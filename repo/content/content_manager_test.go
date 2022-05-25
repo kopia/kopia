@@ -223,7 +223,7 @@ func (s *contentManagerSuite) TestContentManagerEmpty(t *testing.T) {
 
 	defer bm.Close(ctx)
 
-	noSuchContentID := hashValue([]byte("foo"))
+	noSuchContentID := hashValue(t, []byte("foo"))
 
 	b, err := bm.GetContent(ctx, noSuchContentID)
 	if !errors.Is(err, ErrContentNotFound) {
@@ -2429,7 +2429,7 @@ func writeContentAndVerify(ctx context.Context, t *testing.T, bm *WriteManager, 
 		t.Errorf("err: %v", err)
 	}
 
-	if got, want := contentID, hashValue(b); got != want {
+	if got, want := contentID, hashValue(t, b); got != want {
 		t.Errorf("invalid content ID for %x, got %v, want %v", b, got, want)
 	}
 
@@ -2475,7 +2475,7 @@ func writeContentWithRetriesAndVerify(ctx context.Context, t *testing.T, bm *Wri
 		t.Errorf("err: %v", err)
 	}
 
-	if got, want := contentID, hashValue(b); got != want {
+	if got, want := contentID, hashValue(t, b); got != want {
 		t.Errorf("invalid content ID for %x, got %v, want %v", b, got, want)
 	}
 
@@ -2493,14 +2493,14 @@ func seededRandomData(seed, length int) []byte {
 	return b
 }
 
-func hashValue(b []byte) ID {
+func hashValue(t *testing.T, b []byte) ID {
+	t.Helper()
+
 	h := hmac.New(sha256.New, hmacSecret)
 	h.Write(b)
 
 	id, err := IDFromHash("", h.Sum(nil))
-	if err != nil {
-		panic("invalid ID")
-	}
+	require.NoError(t, err)
 
 	return id
 }
