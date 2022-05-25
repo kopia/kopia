@@ -35,7 +35,7 @@ func (ld *loggingDirectory) Child(ctx context.Context, name string) (fs.Entry, e
 
 func (ld *loggingDirectory) Readdir(ctx context.Context) (fs.Entries, error) {
 	timer := timetrack.StartTimer()
-	entries, err := ld.Directory.Readdir(ctx)
+	entries, err := fs.IterateEntriesToReaddir(ctx, ld.Directory)
 	dt := timer.Elapsed()
 	ld.options.printf(ld.options.prefix+"Readdir(%v) took %v and returned %v items", ld.relativePath, dt, len(entries))
 
@@ -44,7 +44,6 @@ func (ld *loggingDirectory) Readdir(ctx context.Context) (fs.Entries, error) {
 		loggingEntries[i] = wrapWithOptions(entry, ld.options, ld.relativePath+"/"+entry.Name())
 	}
 
-	// nolint:wrapcheck
 	return loggingEntries, err
 }
 

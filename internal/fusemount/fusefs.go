@@ -114,7 +114,7 @@ func (dir *fuseDirectoryNode) directory() fs.Directory {
 }
 
 func (dir *fuseDirectoryNode) Lookup(ctx context.Context, fileName string, out *fuse.EntryOut) (*gofusefs.Inode, syscall.Errno) {
-	entries, err := dir.directory().Readdir(ctx)
+	e, err := fs.IterateEntriesAndFindChild(ctx, dir.directory(), fileName)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, syscall.ENOENT
@@ -125,7 +125,6 @@ func (dir *fuseDirectoryNode) Lookup(ctx context.Context, fileName string, out *
 		return nil, syscall.EIO
 	}
 
-	e := entries.FindByName(fileName)
 	if e == nil {
 		return nil, syscall.ENOENT
 	}
@@ -147,18 +146,18 @@ func (dir *fuseDirectoryNode) Lookup(ctx context.Context, fileName string, out *
 }
 
 func (dir *fuseDirectoryNode) Readdir(ctx context.Context) (gofusefs.DirStream, syscall.Errno) {
-	entries, err := dir.directory().Readdir(ctx)
-	if err != nil {
-		log(ctx).Errorf("error reading directory %v: %v", dir.entry.Name(), err)
-		return nil, syscall.EIO
-	}
-
 	result := []fuse.DirEntry{}
-	for _, e := range entries {
+
+	err := dir.directory().IterateEntries(ctx, func(innerCtx context.Context, e fs.Entry) error {
 		result = append(result, fuse.DirEntry{
 			Name: e.Name(),
 			Mode: entryToFuseMode(e),
 		})
+		return nil
+	})
+	if err != nil {
+		log(ctx).Errorf("error reading directory %v: %v", dir.entry.Name(), err)
+		return nil, syscall.EIO
 	}
 
 	return gofusefs.NewListDirStream(result), gofusefs.OK

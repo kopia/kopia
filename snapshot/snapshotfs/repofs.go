@@ -288,7 +288,7 @@ func SnapshotRoot(rep repo.Repository, man *snapshot.Manifest) (fs.Entry, error)
 func AutoDetectEntryFromObjectID(ctx context.Context, rep repo.Repository, oid object.ID, maybeName string) fs.Entry {
 	if IsDirectoryID(oid) {
 		dirEntry := DirectoryEntry(rep, oid, nil)
-		if _, err := dirEntry.Readdir(ctx); err == nil {
+		if _, err := fs.IterateEntriesToReaddir(ctx, dirEntry); err == nil {
 			repoFSLog(ctx).Debugf("%v auto-detected as directory", oid)
 			return dirEntry
 		}

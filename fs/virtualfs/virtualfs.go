@@ -75,11 +75,17 @@ func (sd *staticDirectory) Child(ctx context.Context, name string) (fs.Entry, er
 
 // Readdir gets the contents of a directory.
 func (sd *staticDirectory) Readdir(ctx context.Context) (fs.Entries, error) {
-	return append(fs.Entries(nil), sd.entries...), nil
+	return fs.IterateEntriesToReaddir(ctx, sd)
 }
 
 func (sd *staticDirectory) IterateEntries(ctx context.Context, cb func(context.Context, fs.Entry) error) error {
-	return fs.ReaddirToIterate(ctx, sd, cb)
+	for _, e := range append(fs.Entries(nil), sd.entries...) {
+		if err := cb(ctx, e); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // NewStaticDirectory returns a virtual static directory.

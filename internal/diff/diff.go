@@ -57,14 +57,14 @@ func (c *Comparer) compareDirectories(ctx context.Context, dir1, dir2 fs.Directo
 	var err error
 
 	if dir1 != nil {
-		entries1, err = dir1.Readdir(ctx)
+		entries1, err = fs.IterateEntriesToReaddir(ctx, dir1)
 		if err != nil {
 			return errors.Wrapf(err, "unable to read first directory %v", parent)
 		}
 	}
 
 	if dir2 != nil {
-		entries2, err = dir2.Readdir(ctx)
+		entries2, err = fs.IterateEntriesToReaddir(ctx, dir2)
 		if err != nil {
 			return errors.Wrapf(err, "unable to read second directory %v", parent)
 		}

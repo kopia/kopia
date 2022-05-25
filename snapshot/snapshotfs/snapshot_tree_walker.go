@@ -106,21 +106,9 @@ func (w *TreeWalker) processDirEntry(ctx context.Context, dir fs.Directory, entr
 	var ag workshare.AsyncGroup
 	defer ag.Wait()
 
-	entries, err := dir.Readdir(ctx)
-	if err != nil {
-		w.ReportError(ctx, entryPath, errors.Wrap(err, "error reading directory"))
-		return
-	}
-
-	for _, ent := range entries {
-		ent := ent
-
-		if w.TooManyErrors() {
-			break
-		}
-
-		if w.alreadyProcessed(ent) {
-			continue
+	err := dir.IterateEntries(ctx, func(c context.Context, ent fs.Entry) error {
+		if w.TooManyErrors() || w.alreadyProcessed(ent) {
+			return nil
 		}
 
 		childPath := path.Join(entryPath, ent.Name())
@@ -132,6 +120,11 @@ func (w *TreeWalker) processDirEntry(ctx context.Context, dir fs.Directory, entr
 		} else {
 			w.processEntry(ctx, ent, childPath)
 		}
+
+		return nil
+	})
+	if err != nil {
+		w.ReportError(ctx, entryPath, errors.Wrap(err, "error reading directory"))
 	}
 }
 

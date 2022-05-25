@@ -110,27 +110,30 @@ type webdavDir struct {
 var symlinksAreUnsupportedLogged = new(int32)
 
 func (d *webdavDir) Readdir(n int) ([]os.FileInfo, error) {
-	entries, err := d.entry.Readdir(d.ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "error reading directory")
-	}
-
-	if n > 0 && n < len(entries) {
-		entries = entries[0:n]
-	}
-
 	var fis []os.FileInfo
 
-	for _, e := range entries {
+	foundEntries := 0
+
+	err := d.entry.IterateEntries(d.ctx, func(innerCtx context.Context, e fs.Entry) error {
+		if n > 0 && n <= foundEntries {
+			return nil
+		}
+
+		foundEntries++
+
 		if _, isSymlink := e.(fs.Symlink); isSymlink {
 			if atomic.AddInt32(symlinksAreUnsupportedLogged, 1) == 1 {
 				log(d.ctx).Errorf("Mounting directories containing symbolic links using WebDAV is not supported. The link entries will be skipped.")
 			}
 
-			continue
+			return nil
 		}
 
 		fis = append(fis, &webdavFileInfo{e})
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "error reading directory")
 	}
 
 	return fis, nil
@@ -213,12 +216,13 @@ func (w *webdavFS) findEntry(ctx context.Context, path string) (fs.Entry, error)
 			return nil, errors.Errorf("%q not found in %q (not a directory)", p, strings.Join(parts[0:i], "/"))
 		}
 
-		entries, err := d.Readdir(ctx)
+		var err error
+
+		e, err = fs.IterateEntriesAndFindChild(ctx, d, p)
 		if err != nil {
 			return nil, errors.Wrap(err, "error reading directory")
 		}
 
-		e = entries.FindByName(p)
 		if e == nil {
 			return nil, errors.Errorf("%q not found in %q (not found)", p, strings.Join(parts[0:i], "/"))
 		}

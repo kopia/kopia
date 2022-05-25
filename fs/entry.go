@@ -109,6 +109,23 @@ func IterateEntriesToReaddir(ctx context.Context, d Directory) (Entries, error) 
 	return entries, err // nolint:wrapcheck
 }
 
+// IterateEntriesAndFindChild iterates through entries from a directory and returns one by name.
+// This is a convenience function that may be helpful in implementations of Directory.Child().
+func IterateEntriesAndFindChild(ctx context.Context, d Directory, name string) (Entry, error) {
+	var result Entry
+
+	if err := d.IterateEntries(ctx, func(c context.Context, e Entry) error {
+		if result == nil && e.Name() == name {
+			result = e
+		}
+		return nil
+	}); err != nil {
+		return nil, errors.Wrap(err, "error reading directory")
+	}
+
+	return result, nil
+}
+
 // ReadDirAndFindChild reads all entries from a directory and returns one by name.
 // This is a convenience function that may be helpful in implementations of Directory.Child().
 func ReadDirAndFindChild(ctx context.Context, d Directory, name string) (Entry, error) {

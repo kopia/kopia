@@ -81,19 +81,19 @@ func TestAllSources(t *testing.T) {
 func iterateAllNames(ctx context.Context, t *testing.T, dir fs.Directory, prefix string) []string {
 	t.Helper()
 
-	entries, err := dir.Readdir(ctx)
-	require.NoError(t, err)
-
 	result := []string{}
 
-	for _, ent := range entries {
+	err := dir.IterateEntries(ctx, func(innerCtx context.Context, ent fs.Entry) error {
 		if ent.IsDir() {
 			result = append(result, prefix+ent.Name()+"/")
 			result = append(result, iterateAllNames(ctx, t, ent.(fs.Directory), prefix+ent.Name()+"/")...)
 		} else {
 			result = append(result, prefix+ent.Name())
 		}
-	}
+
+		return nil
+	})
+	require.NoError(t, err)
 
 	return result
 }

@@ -45,12 +45,11 @@ func GetNestedEntry(ctx context.Context, startingDir fs.Entry, pathElements []st
 			return nil, errors.Errorf("entry not found %q: parent is not a directory", part)
 		}
 
-		entries, err := dir.Readdir(ctx)
+		e, err := fs.IterateEntriesAndFindChild(ctx, dir, part)
 		if err != nil {
 			return nil, errors.Wrap(err, "error reading directory")
 		}
 
-		e := entries.FindByName(part)
 		if e == nil {
 			return nil, errors.Errorf("entry not found: %q", part)
 		}
