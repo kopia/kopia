@@ -353,6 +353,21 @@ func NewDirectory() *Directory {
 	}
 }
 
+// NewFile returns a new mock file with the given name, contents, and mode.
+func NewFile(name string, content []byte, permissions os.FileMode) *File {
+	return &File{
+		entry: entry{
+			name:    name,
+			mode:    permissions,
+			size:    int64(len(content)),
+			modTime: DefaultModTime,
+		},
+		source: func() (ReaderSeekerCloser, error) {
+			return readerSeekerCloser{bytes.NewReader(content)}, nil
+		},
+	}
+}
+
 // ErrorEntry is mock in-memory implementation of fs.ErrorEntry.
 type ErrorEntry struct {
 	entry
