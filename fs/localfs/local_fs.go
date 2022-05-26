@@ -15,7 +15,6 @@ import (
 )
 
 const (
-	numEntriesToReadFirst    = 100 // number of directory entries to read in the first batch before parallelism kicks in.
 	numEntriesToRead         = 100 // number of directory entries to read in one shot
 	dirListingPrefetch       = 200 // number of directory items to os.Lstat() in advance
 	paralellelStatGoroutines = 4   // how many goroutines to use when Lstat() on large directory
@@ -141,155 +140,136 @@ func toDirEntryOrNil(dirEntry os.DirEntry, prefix string) (fs.Entry, error) {
 	return entryFromDirEntry(fi, prefix), nil
 }
 
-func (fsd *filesystemDirectory) IterateEntries(ctx context.Context, cb func(context.Context, fs.Entry) error) error {
-	return fs.ReaddirToIterate(ctx, fsd, cb)
+func (fsd *filesystemDirectory) Readdir(ctx context.Context) (fs.Entries, error) {
+	return fs.IterateEntriesToReaddir(ctx, fsd)
 }
 
-func (fsd *filesystemDirectory) Readdir(ctx context.Context) (fs.Entries, error) {
+func (fsd *filesystemDirectory) IterateEntries(ctx context.Context, cb func(context.Context, fs.Entry) error) error {
 	fullPath := fsd.fullPath()
 
 	f, direrr := os.Open(fullPath) //nolint:gosec
 	if direrr != nil {
-		return nil, errors.Wrap(direrr, "unable to read directory")
+		return errors.Wrap(direrr, "unable to read directory")
 	}
 	defer f.Close() //nolint:errcheck,gosec
 
-	var entries fs.Entries
-
-	// read first batch of directory entries using Readdir() before parallelization.
-	firstBatch, firstBatchErr := f.ReadDir(numEntriesToReadFirst)
-	if firstBatchErr != nil && !errors.Is(firstBatchErr, io.EOF) {
-		return nil, errors.Wrap(firstBatchErr, "unable to read directory entries")
-	}
-
 	childPrefix := fullPath + string(filepath.Separator)
 
-	for _, de := range firstBatch {
-		e, err := toDirEntryOrNil(de, childPrefix)
-		if err != nil {
-			return nil, errors.Wrap(err, "error reading entry")
-		}
-
-		if e != nil {
-			entries = append(entries, e)
-		}
+	batch, err := f.ReadDir(numEntriesToRead)
+	if len(batch) == numEntriesToRead {
+		return fsd.iterateEntriesInParallel(ctx, f, childPrefix, batch, cb)
 	}
 
-	// first batch was complete with EOF, we're done here.
-	if errors.Is(firstBatchErr, io.EOF) {
-		entries.Sort()
-
-		return entries, nil
-	}
-
-	// first batch was shorter than expected, perform another read to make sure we get EOF.
-	if len(firstBatch) < numEntriesToRead {
-		secondBatch, secondBatchErr := f.ReadDir(numEntriesToRead)
-		if secondBatchErr != nil && !errors.Is(secondBatchErr, io.EOF) {
-			return nil, errors.Wrap(secondBatchErr, "unable to read directory entries")
-		}
-
-		// process results in case it's not EOF.
-		for _, de := range secondBatch {
-			e, err := toDirEntryOrNil(de, childPrefix)
-			if err != nil {
-				return nil, errors.Wrap(err, "error reading entry")
+	for len(batch) > 0 {
+		for _, de := range batch {
+			e, err2 := toDirEntryOrNil(de, childPrefix)
+			if err2 != nil {
+				return err2
 			}
 
-			if e != nil {
-				entries = append(entries, e)
-			}
-		}
-
-		// if we got EOF at this point, return.
-		if errors.Is(secondBatchErr, io.EOF) {
-			entries.Sort()
-
-			return entries, nil
-		}
-	}
-
-	return fsd.readRemainingDirEntriesInParallel(childPrefix, entries, f)
-}
-
-func (fsd *filesystemDirectory) readRemainingDirEntriesInParallel(childPrefix string, entries fs.Entries, f *os.File) (fs.Entries, error) {
-	// start feeding directory entries to dirEntryCh
-	dirEntryCh := make(chan os.DirEntry, dirListingPrefetch)
-
-	var readDirErr error
-
-	go func() {
-		defer close(dirEntryCh)
-
-		for {
-			des, err := f.ReadDir(numEntriesToRead)
-			for _, de := range des {
-				dirEntryCh <- de
-			}
-
-			if err == nil {
+			if e == nil {
 				continue
 			}
 
-			if errors.Is(err, io.EOF) {
-				break
+			if err3 := cb(ctx, e); err3 != nil {
+				return err3
 			}
-
-			readDirErr = err
-
-			break
 		}
-	}()
 
-	entriesCh := make(chan entryWithError, dirListingPrefetch)
+		batch, err = f.ReadDir(numEntriesToRead)
+	}
+
+	if errors.Is(err, io.EOF) {
+		return nil
+	}
+
+	return errors.Wrap(err, "error listing directory")
+}
+
+// nolint:gocognit,gocyclo
+func (fsd *filesystemDirectory) iterateEntriesInParallel(ctx context.Context, f *os.File, childPrefix string, batch []os.DirEntry, cb func(context.Context, fs.Entry) error) error {
+	inputCh := make(chan os.DirEntry, dirListingPrefetch)
+	outputCh := make(chan entryWithError, dirListingPrefetch)
+
+	closed := make(chan struct{})
+	defer close(closed)
 
 	var workersWG sync.WaitGroup
 
+	// start goroutines that will convert 'os.DirEntry' to 'entryWithError'
 	for i := 0; i < paralellelStatGoroutines; i++ {
 		workersWG.Add(1)
 
 		go func() {
 			defer workersWG.Done()
 
-			for de := range dirEntryCh {
-				e, err := toDirEntryOrNil(de, childPrefix)
-				if err != nil {
-					entriesCh <- entryWithError{err: errors.Errorf("unable to stat directory entry %q: %v", de, err)}
-					continue
-				}
+			for {
+				select {
+				case <-closed:
+					return
 
-				if e != nil {
-					entriesCh <- entryWithError{entry: e}
+				case de := <-inputCh:
+					e, err := toDirEntryOrNil(de, childPrefix)
+					outputCh <- entryWithError{entry: e, err: err}
 				}
 			}
 		}()
 	}
 
-	// close entriesCh channel when all goroutines terminate
-	go func() {
-		workersWG.Wait()
-		close(entriesCh)
-	}()
+	var pending int
 
-	// drain the entriesCh into a slice and sort it
+	for len(batch) > 0 {
+		for _, de := range batch {
+			// before pushing fetch from outputCh and invoke callbacks for all entries in it
+		invokeCallbacks:
+			for {
+				select {
+				case dwe := <-outputCh:
+					pending--
 
-	for e := range entriesCh {
-		if e.err != nil {
-			// only return the first error
-			if readDirErr == nil {
-				readDirErr = e.err
+					if dwe.err != nil {
+						return dwe.err
+					}
+
+					if dwe.entry != nil {
+						if err := cb(ctx, dwe.entry); err != nil {
+							return err
+						}
+					}
+
+				default:
+					break invokeCallbacks
+				}
 			}
 
-			continue
+			inputCh <- de
+			pending++
 		}
 
-		entries = append(entries, e.entry)
+		nextBatch, err := f.ReadDir(numEntriesToRead)
+		if err != nil && !errors.Is(err, io.EOF) {
+			// nolint:wrapcheck
+			return err
+		}
+
+		batch = nextBatch
 	}
 
-	entries.Sort()
+	for i := 0; i < pending; i++ {
+		dwe := <-outputCh
 
-	// return any error encountered when listing or reading the directory
-	return entries, readDirErr
+		if dwe.err != nil {
+			return dwe.err
+		}
+
+		if dwe.entry != nil {
+			if err := cb(ctx, dwe.entry); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 type fileWithMetadata struct {

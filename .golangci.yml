@@ -134,3 +134,6 @@ issues:
     - text: "unwrapped: sig: func github.com/kopia/kopia/fs.ReaddirToIterate"
       linters:
         - wrapcheck
+    - text: "unwrapped: sig: func github.com/kopia/kopia/fs.IterateEntriesToReaddir"
+      linters:
+        - wrapcheck
