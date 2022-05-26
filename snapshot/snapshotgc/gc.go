@@ -114,12 +114,14 @@ func runInternal(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete 
 			}
 
 			inUse.Add(int64(ci.GetPackedLength()))
+
 			return nil
 		}
 
 		if rep.Time().Sub(ci.Timestamp()) < safety.MinContentAgeSubjectToGC {
 			log(ctx).Debugf("recent unreferenced content %v (%v bytes, modified %v)", ci.GetContentID(), ci.GetPackedLength(), ci.Timestamp())
 			tooRecent.Add(int64(ci.GetPackedLength()))
+
 			return nil
 		}
 
