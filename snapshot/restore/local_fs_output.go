@@ -27,7 +27,7 @@ const (
 
 // Copier is a generic function type to perform the actual copying of data bits
 // from a source stream to a destination stream.
-type Copier func(io.WriteSeeker, io.Reader) (int64, error)
+type streamCopier func(io.WriteSeeker, io.Reader) (int64, error)
 
 // FilesystemOutput contains the options for outputting a file system tree.
 type FilesystemOutput struct {
@@ -311,7 +311,7 @@ func (o *FilesystemOutput) createDirectory(ctx context.Context, path string) err
 	}
 }
 
-func write(targetPath string, r fs.Reader, size int64, c Copier) error {
+func write(targetPath string, r fs.Reader, size int64, c streamCopier) error {
 	f, err := os.OpenFile(targetPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600) //nolint:gosec,gomnd
 	if err != nil {
 		return err //nolint:wrapcheck
