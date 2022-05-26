@@ -43,35 +43,22 @@ func Open(data []byte, closer func() error, v1PerContentOverhead uint32) (Index,
 	}
 }
 
-func safeSlice(data []byte, offset int64, length int) ([]byte, error) {
-	if offset < 0 {
-		return nil,
-			errors.Errorf("invalid offset")
-	}
-
-	if length < 0 {
-		return nil, errors.Errorf("invalid length")
-	}
-
-	if offset+int64(length) > int64(len(data)) {
-		return nil, errors.Errorf("invalid length")
-	}
+func safeSlice(data []byte, offset int64, length int) (v []byte, err error) {
+	defer func() {
+		if recover() != nil {
+			err = errors.Errorf("invalid slice offset=%v, length=%v, data=%v bytes", offset, length, len(data))
+		}
+	}()
 
 	return data[offset : offset+int64(length)], nil
 }
 
-func safeSliceString(data []byte, offset int64, length int) (string, error) {
-	if offset < 0 {
-		return "", errors.Errorf("invalid offset")
-	}
-
-	if length < 0 {
-		return "", errors.Errorf("invalid length")
-	}
-
-	if offset+int64(length) > int64(len(data)) {
-		return "", errors.Errorf("invalid length")
-	}
+func safeSliceString(data []byte, offset int64, length int) (s string, err error) {
+	defer func() {
+		if recover() != nil {
+			err = errors.Errorf("invalid slice offset=%v, length=%v, data=%v bytes", offset, length, len(data))
+		}
+	}()
 
 	return string(data[offset : offset+int64(length)]), nil
 }
