@@ -55,7 +55,7 @@ var (
 	// SafetyFull has default safety parameters which allow safe GC concurrent with snapshotting
 	// by other Kopia clients.
 	SafetyFull = SafetyParameters{
-		BlobDeleteMinAge:                2 * time.Hour, //nolint:gomnd
+		BlobDeleteMinAge:                24 * time.Hour, //nolint:gomnd
 		DropContentFromIndexExtraMargin: time.Hour,
 		MarginBetweenSnapshotGC:         4 * time.Hour,  //nolint:gomnd
 		MinContentAgeSubjectToGC:        24 * time.Hour, //nolint:gomnd
