@@ -168,25 +168,6 @@ func RunExclusive(ctx context.Context, rep repo.DirectRepositoryWriter, mode Mod
 		return nil
 	}
 
-	runParams := RunParameters{rep, mode, p, time.Time{}}
-
-	// update schedule so that we don't run the maintenance again immediately if
-	// this process crashes.
-	if err = updateSchedule(ctx, runParams); err != nil {
-		return errors.Wrap(err, "error updating maintenance schedule")
-	}
-
-	bm, err := runParams.rep.BlobReader().GetMetadata(ctx, maintenanceScheduleBlobID)
-	if err != nil {
-		return errors.Wrap(err, "error getting maintenance blob time")
-	}
-
-	runParams.MaintenanceStartTime = bm.Timestamp
-
-	if err = ensureNoClockSkew(runParams); err != nil {
-		return errors.Wrap(err, "error checking for clock skew")
-	}
-
 	lockFile := rep.ConfigFilename() + ".mlock"
 	log(ctx).Debugf("Acquiring maintenance lock in file %v", lockFile)
 
@@ -205,6 +186,25 @@ func RunExclusive(ctx context.Context, rep repo.DirectRepositoryWriter, mode Mod
 
 	defer l.Unlock() //nolint:errcheck
 
+	runParams := RunParameters{rep, mode, p, time.Time{}}
+
+	// update schedule so that we don't run the maintenance again immediately if
+	// this process crashes.
+	if err = updateSchedule(ctx, runParams); err != nil {
+		return errors.Wrap(err, "error updating maintenance schedule")
+	}
+
+	bm, err := runParams.rep.BlobReader().GetMetadata(ctx, maintenanceScheduleBlobID)
+	if err != nil {
+		return errors.Wrap(err, "error getting maintenance blob time")
+	}
+
+	runParams.MaintenanceStartTime = bm.Timestamp
+
+	if err = checkClockSkewBounds(runParams); err != nil {
+		return errors.Wrap(err, "error checking for clock skew")
+	}
+
 	log(ctx).Infof("Running %v maintenance...", runParams.Mode)
 	defer log(ctx).Infof("Finished %v maintenance.", runParams.Mode)
 
@@ -215,7 +215,7 @@ func RunExclusive(ctx context.Context, rep repo.DirectRepositoryWriter, mode Mod
 	return cb(ctx, runParams)
 }
 
-func ensureNoClockSkew(rp RunParameters) error {
+func checkClockSkewBounds(rp RunParameters) error {
 	localTime := rp.rep.Time()
 	repoTime := rp.MaintenanceStartTime
 
