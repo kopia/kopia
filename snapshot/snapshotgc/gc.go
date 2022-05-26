@@ -4,6 +4,7 @@ package snapshotgc
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 
@@ -66,11 +67,11 @@ func findInUseContentIDs(ctx context.Context, rep repo.Repository, used *sync.Ma
 }
 
 // Run performs garbage collection on all the snapshots in the repository.
-func Run(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete bool, safety maintenance.SafetyParameters) (Stats, error) {
+func Run(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete bool, safety maintenance.SafetyParameters, maintenanceStartTime time.Time) (Stats, error) {
 	var st Stats
 
 	err := maintenance.ReportRun(ctx, rep, maintenance.TaskSnapshotGarbageCollection, nil, func() error {
-		if err := runInternal(ctx, rep, gcDelete, safety, &st); err != nil {
+		if err := runInternal(ctx, rep, gcDelete, safety, maintenanceStartTime, &st); err != nil {
 			return err
 		}
 
@@ -91,7 +92,7 @@ func Run(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete bool, sa
 	return st, errors.Wrap(err, "error running snapshot gc")
 }
 
-func runInternal(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete bool, safety maintenance.SafetyParameters, st *Stats) error {
+func runInternal(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete bool, safety maintenance.SafetyParameters, maintenanceStartTime time.Time, st *Stats) error {
 	var (
 		used sync.Map
 
@@ -125,7 +126,7 @@ func runInternal(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete 
 			return nil
 		}
 
-		if rep.Time().Sub(ci.Timestamp()) < safety.MinContentAgeSubjectToGC {
+		if maintenanceStartTime.Sub(ci.Timestamp()) < safety.MinContentAgeSubjectToGC {
 			log(ctx).Debugf("recent unreferenced content %v (%v bytes, modified %v)", ci.GetContentID(), ci.GetPackedLength(), ci.Timestamp())
 			tooRecent.Add(int64(ci.GetPackedLength()))
 
