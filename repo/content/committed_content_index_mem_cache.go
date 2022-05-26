@@ -1,7 +1,6 @@
 package content
 
 import (
-	"bytes"
 	"context"
 	"sync"
 
@@ -32,7 +31,7 @@ func (m *memoryCommittedContentIndexCache) addContentToCache(ctx context.Context
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	ndx, err := index.Open(bytes.NewReader(data.ToByteSlice()), m.v1PerContentOverhead)
+	ndx, err := index.Open(data.ToByteSlice(), nil, m.v1PerContentOverhead)
 	if err != nil {
 		return errors.Wrapf(err, "error opening index blob %v", indexBlobID)
 	}

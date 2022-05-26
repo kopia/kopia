@@ -17,7 +17,6 @@ const (
 // Index is a read-only index of packed contents.
 type Index interface {
 	io.Closer
-
 	ApproximateCount() int
 	GetInfo(contentID ID) (Info, error)
 
@@ -26,33 +25,53 @@ type Index interface {
 }
 
 // Open reads an Index from a given reader. The caller must call Close() when the index is no longer used.
-func Open(readerAt io.ReaderAt, v1PerContentOverhead uint32) (Index, error) {
-	h, err := v1ReadHeader(readerAt)
+func Open(data []byte, closer func() error, v1PerContentOverhead uint32) (Index, error) {
+	h, err := v1ReadHeader(data)
 	if err != nil {
 		return nil, errors.Wrap(err, "invalid header")
 	}
 
 	switch h.version {
 	case Version1:
-		return openV1PackIndex(h, readerAt, v1PerContentOverhead)
+		return openV1PackIndex(h, data, closer, v1PerContentOverhead)
 
 	case Version2:
-		return openV2PackIndex(readerAt)
+		return openV2PackIndex(data, closer)
 
 	default:
 		return nil, errors.Errorf("invalid header format: %v", h.version)
 	}
 }
 
-func readAtAll(ra io.ReaderAt, p []byte, offset int64) error {
-	n, err := ra.ReadAt(p, offset)
-	if n != len(p) {
-		return errors.Errorf("incomplete read at offset %v, got %v bytes, expected %v", offset, n, len(p))
+func safeSlice(data []byte, offset int64, length int) ([]byte, error) {
+	if offset < 0 {
+		return nil,
+			errors.Errorf("invalid offset")
 	}
 
-	if err == nil || errors.Is(err, io.EOF) {
-		return nil
+	if length < 0 {
+		return nil, errors.Errorf("invalid length")
 	}
 
-	return errors.Wrapf(err, "invalid read at offset %v (%v bytes)", offset, len(p))
+	if offset+int64(length) > int64(len(data)) {
+		return nil, errors.Errorf("invalid length")
+	}
+
+	return data[offset : offset+int64(length)], nil
+}
+
+func safeSliceString(data []byte, offset int64, length int) (string, error) {
+	if offset < 0 {
+		return "", errors.Errorf("invalid offset")
+	}
+
+	if length < 0 {
+		return "", errors.Errorf("invalid length")
+	}
+
+	if offset+int64(length) > int64(len(data)) {
+		return "", errors.Errorf("invalid length")
+	}
+
+	return string(data[offset : offset+int64(length)]), nil
 }

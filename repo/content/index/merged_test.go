@@ -249,5 +249,5 @@ func indexWithItems(items ...Info) (Index, error) {
 		return nil, errors.Wrap(err, "build error")
 	}
 
-	return Open(bytes.NewReader(buf.Bytes()), fakeEncryptionOverhead)
+	return Open(buf.Bytes(), nil, fakeEncryptionOverhead)
 }

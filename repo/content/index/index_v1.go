@@ -42,7 +42,7 @@ type FormatV1 struct {
 }
 
 type indexEntryInfoV1 struct {
-	data      string // basically a byte array, but immutable
+	data      []byte
 	contentID ID
 	b         *indexV1
 }
@@ -67,9 +67,8 @@ func (e indexEntryInfoV1) GetPackBlobID() blob.ID {
 	nameLength := int(e.data[7])
 	nameOffset := decodeBigEndianUint32(e.data[8:])
 
-	var nameBuf [256]byte
-
-	if err := readAtAll(e.b.readerAt, nameBuf[0:nameLength], int64(nameOffset)); err != nil {
+	nameBuf, err := safeSlice(e.b.data, int64(nameOffset), nameLength)
+	if err != nil {
 		return invalidBlobID
 	}
 
@@ -110,8 +109,10 @@ func (e indexEntryInfoV1) GetEncryptionKeyID() byte {
 var _ Info = indexEntryInfoV1{}
 
 type indexV1 struct {
-	hdr      v1HeaderInfo
-	readerAt io.ReaderAt
+	hdr    v1HeaderInfo
+	data   []byte
+	closer func() error
+
 	// v1 index does not explicitly store per-content length so we compute it from packed length and fixed overhead
 	// provided by the encryptor.
 	v1PerContentOverhead uint32
@@ -131,10 +132,10 @@ func (b *indexV1) Iterate(r IDRange, cb func(Info) error) error {
 	}
 
 	stride := b.hdr.keySize + b.hdr.valueSize
-	entry := make([]byte, stride)
 
 	for i := startPos; i < b.hdr.entryCount; i++ {
-		if err := readAtAll(b.readerAt, entry, int64(v1HeaderSize+stride*i)); err != nil {
+		entry, err := safeSlice(b.data, int64(v1HeaderSize+stride*i), stride)
+		if err != nil {
 			return errors.Wrap(err, "unable to read from index")
 		}
 
@@ -161,16 +162,6 @@ func (b *indexV1) Iterate(r IDRange, cb func(Info) error) error {
 func (b *indexV1) findEntryPosition(contentID IDPrefix) (int, error) {
 	stride := b.hdr.keySize + b.hdr.valueSize
 
-	var entryArr [v1MaxEntrySize]byte
-
-	var entryBuf []byte
-
-	if stride <= len(entryArr) {
-		entryBuf = entryArr[0:stride]
-	} else {
-		entryBuf = make([]byte, stride)
-	}
-
 	var readErr error
 
 	pos := sort.Search(b.hdr.entryCount, func(p int) bool {
@@ -178,18 +169,19 @@ func (b *indexV1) findEntryPosition(contentID IDPrefix) (int, error) {
 			return false
 		}
 
-		if err := readAtAll(b.readerAt, entryBuf, int64(v1HeaderSize+stride*p)); err != nil {
+		key, err := safeSlice(b.data, int64(v1HeaderSize+stride*p), b.hdr.keySize)
+		if err != nil {
 			readErr = err
 			return false
 		}
 
-		return bytesToContentID(entryBuf[0:b.hdr.keySize]).comparePrefix(contentID) >= 0
+		return bytesToContentID(key).comparePrefix(contentID) >= 0
 	})
 
 	return pos, readErr
 }
 
-func (b *indexV1) findEntryPositionExact(idBytes, entryBuf []byte) (int, error) {
+func (b *indexV1) findEntryPositionExact(idBytes []byte) (int, error) {
 	stride := b.hdr.keySize + b.hdr.valueSize
 
 	var readErr error
@@ -199,12 +191,13 @@ func (b *indexV1) findEntryPositionExact(idBytes, entryBuf []byte) (int, error) 
 			return false
 		}
 
-		if err := readAtAll(b.readerAt, entryBuf, int64(v1HeaderSize+stride*p)); err != nil {
+		key, err := safeSlice(b.data, int64(v1HeaderSize+stride*p), b.hdr.keySize)
+		if err != nil {
 			readErr = err
 			return false
 		}
 
-		return contentIDBytesGreaterOrEqual(entryBuf[0:b.hdr.keySize], idBytes)
+		return contentIDBytesGreaterOrEqual(key, idBytes)
 	})
 
 	return pos, readErr
@@ -226,17 +219,7 @@ func (b *indexV1) findEntry(output []byte, contentID ID) ([]byte, error) {
 
 	stride := b.hdr.keySize + b.hdr.valueSize
 
-	var entryArr [v1MaxEntrySize]byte
-
-	var entryBuf []byte
-
-	if stride <= len(entryArr) {
-		entryBuf = entryArr[0:stride]
-	} else {
-		entryBuf = make([]byte, stride)
-	}
-
-	position, err := b.findEntryPositionExact(key, entryBuf)
+	position, err := b.findEntryPositionExact(key)
 	if err != nil {
 		return nil, err
 	}
@@ -245,7 +228,8 @@ func (b *indexV1) findEntry(output []byte, contentID ID) ([]byte, error) {
 		return nil, nil
 	}
 
-	if err := readAtAll(b.readerAt, entryBuf, int64(v1HeaderSize+stride*position)); err != nil {
+	entryBuf, err := safeSlice(b.data, int64(v1HeaderSize+stride*position), stride)
+	if err != nil {
 		return nil, errors.Wrap(err, "error reading header")
 	}
 
@@ -277,14 +261,13 @@ func (b *indexV1) entryToInfo(contentID ID, entryData []byte) (Info, error) {
 		return nil, errors.Errorf("invalid entry length: %v", len(entryData))
 	}
 
-	// convert to 'entryData' string to make it read-only
-	return indexEntryInfoV1{string(entryData), contentID, b}, nil
+	return indexEntryInfoV1{entryData, contentID, b}, nil
 }
 
-// Close closes the index and the underlying reader.
+// Close closes the index.
 func (b *indexV1) Close() error {
-	if closer, ok := b.readerAt.(io.Closer); ok {
-		return errors.Wrap(closer.Close(), "error closing index file")
+	if closer := b.closer; closer != nil {
+		return errors.Wrap(closer(), "error closing index file")
 	}
 
 	return nil
@@ -430,10 +413,9 @@ type v1HeaderInfo struct {
 	entryCount int
 }
 
-func v1ReadHeader(readerAt io.ReaderAt) (v1HeaderInfo, error) {
-	var header [8]byte
-
-	if err := readAtAll(readerAt, header[:], 0); err != nil {
+func v1ReadHeader(data []byte) (v1HeaderInfo, error) {
+	header, err := safeSlice(data, 0, v1HeaderSize)
+	if err != nil {
 		return v1HeaderInfo{}, errors.Wrap(err, "invalid header")
 	}
 
@@ -451,6 +433,6 @@ func v1ReadHeader(readerAt io.ReaderAt) (v1HeaderInfo, error) {
 	return hi, nil
 }
 
-func openV1PackIndex(hdr v1HeaderInfo, readerAt io.ReaderAt, overhead uint32) (Index, error) {
-	return &indexV1{hdr, readerAt, overhead}, nil
+func openV1PackIndex(hdr v1HeaderInfo, data []byte, closer func() error, overhead uint32) (Index, error) {
+	return &indexV1{hdr, data, closer, overhead}, nil
 }
