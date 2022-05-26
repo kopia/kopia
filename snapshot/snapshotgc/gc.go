@@ -74,6 +74,13 @@ func Run(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete bool, sa
 			return err
 		}
 
+		l := log(ctx)
+
+		l.Infof("GC found %v unused contents (%v bytes)", st.UnusedCount, units.BytesStringBase2(st.UnusedBytes))
+		l.Infof("GC found %v unused contents that are too recent to delete (%v bytes)", st.TooRecentCount, units.BytesStringBase2(st.TooRecentBytes))
+		l.Infof("GC found %v in-use contents (%v bytes)", st.InUseCount, units.BytesStringBase2(st.InUseBytes))
+		l.Infof("GC found %v in-use system-contents (%v bytes)", st.SystemCount, units.BytesStringBase2(st.SystemBytes))
+
 		if st.UnusedCount > 0 && !gcDelete {
 			return errors.Errorf("Not deleting because 'gcDelete' was not set")
 		}
