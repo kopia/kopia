@@ -70,7 +70,15 @@ func Run(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete bool, sa
 	var st Stats
 
 	err := maintenance.ReportRun(ctx, rep, maintenance.TaskSnapshotGarbageCollection, nil, func() error {
-		return runInternal(ctx, rep, gcDelete, safety, &st)
+		if err := runInternal(ctx, rep, gcDelete, safety, &st); err != nil {
+			return err
+		}
+
+		if st.UnusedCount > 0 && !gcDelete {
+			return errors.Errorf("Not deleting because 'gcDelete' was not set")
+		}
+
+		return nil
 	})
 
 	return st, errors.Wrap(err, "error running snapshot gc")
@@ -144,10 +152,6 @@ func runInternal(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete 
 
 	if err != nil {
 		return errors.Wrap(err, "error iterating contents")
-	}
-
-	if st.UnusedCount > 0 && !gcDelete {
-		return errors.Errorf("Not deleting because '--delete' flag was not set")
 	}
 
 	return errors.Wrap(rep.Flush(ctx), "flush error")
