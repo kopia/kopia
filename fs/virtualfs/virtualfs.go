@@ -94,6 +94,44 @@ func NewStaticDirectory(name string, entries []fs.Entry) fs.Directory {
 	}
 }
 
+type streamingDirectory struct {
+	virtualEntry
+	// Used to generate the next entry and execute the callback on it.
+	callback func(context.Context, func(context.Context, fs.Entry) error) error
+}
+
+var errChildNotSupported = errors.New("streamingDirectory.Child not supported")
+
+func (sd *streamingDirectory) Child(ctx context.Context, name string) (fs.Entry, error) {
+	return nil, errChildNotSupported
+}
+
+func (sd *streamingDirectory) Readdir(ctx context.Context) (fs.Entries, error) {
+	return fs.IterateEntriesToReaddir(ctx, sd)
+}
+
+func (sd *streamingDirectory) IterateEntries(
+	ctx context.Context,
+	callback func(context.Context, fs.Entry) error,
+) error {
+	return sd.callback(ctx, callback)
+}
+
+// NewStreamingDirectory returns a directory that will call the given function
+// when IterateEntries is executed.
+func NewStreamingDirectory(
+	name string,
+	callback func(context.Context, func(context.Context, fs.Entry) error) error,
+) fs.Directory {
+	return &streamingDirectory{
+		virtualEntry: virtualEntry{
+			name: name,
+			mode: defaultPermissions | os.ModeDir,
+		},
+		callback: callback,
+	}
+}
+
 // virtualFile is an implementation of fs.StreamingFile with an io.Reader.
 type virtualFile struct {
 	virtualEntry
@@ -130,6 +168,7 @@ func StreamingFileFromReader(name string, reader io.Reader) fs.StreamingFile {
 
 var (
 	_ fs.Directory     = &staticDirectory{}
+	_ fs.Directory     = &streamingDirectory{}
 	_ fs.StreamingFile = &virtualFile{}
 	_ fs.Entry         = &virtualEntry{}
 )
