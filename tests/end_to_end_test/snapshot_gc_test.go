@@ -54,13 +54,9 @@ how are you
 	// run verification
 	e.RunAndExpectSuccess(t, "snapshot", "verify")
 
-	// garbage-collect in dry run mode - this will not fail because of default safety level
-	// which only looks at contents above certain age.
-	e.RunAndExpectSuccess(t, "snapshot", "gc")
-
-	// garbage-collect in dry run mode - this will fail because of --safety=none
-	// makes contents subject to GC immediately but we're not specifying --delete flag.
-	e.RunAndExpectFailure(t, "snapshot", "gc", "--safety=none")
+	// run garbage collection through maintenance - this will not delete contents
+	// because of default safety level which only looks at contents above certain age.
+	e.RunAndExpectSuccess(t, "maintenance", "run", "--full", "--safety=full")
 
 	// data block + directory block + manifest block + manifest block from manifest deletion
 	var contentInfo []content.InfoStruct
@@ -71,17 +67,11 @@ how are you
 		t.Fatalf("unexpected number of contents: %v, want %v", got, want)
 	}
 
-	// garbage-collect for real, but contents are too recent so won't be deleted
-	e.RunAndExpectSuccess(t, "snapshot", "gc", "--delete")
-
-	// data block + directory block + manifest block + manifest block from manifest deletion
-	e.RunAndVerifyOutputLineCount(t, expectedContentCount, "content", "list")
-
 	// make sure we are not too quick
 	time.Sleep(2 * time.Second)
 
 	// garbage-collect for real, this time without age limit
-	e.RunAndExpectSuccess(t, "snapshot", "gc", "--delete", "--safety=none")
+	e.RunAndExpectSuccess(t, "maintenance", "run", "--full", "--safety=none")
 
 	// two contents are deleted
 	expectedContentCount -= 2
