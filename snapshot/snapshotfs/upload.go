@@ -499,49 +499,6 @@ type uploadWorkItem struct {
 	err error
 }
 
-func (u *Uploader) foreachEntryUnlessCanceled(ctx context.Context, wg *workshare.AsyncGroup, relativePath string, dir fs.Directory, cb func(ctx context.Context, entry fs.Entry, entryRelativePath string) error) error {
-	// processEntryError distinguishes an error thrown when attempting to read a directory.
-	type processEntryError struct {
-		error
-	}
-
-	err := dir.IterateEntries(ctx, func(ctx context.Context, entry fs.Entry) error {
-		if u.IsCanceled() {
-			return errCanceled
-		}
-
-		entryRelativePath := path.Join(relativePath, entry.Name())
-
-		if wg.CanShareWork(u.workerPool) {
-			wg.RunAsync(u.workerPool, func(c *workshare.Pool, input interface{}) {
-				wi, _ := input.(*uploadWorkItem)
-				wi.err = cb(ctx, entry, entryRelativePath)
-			}, &uploadWorkItem{})
-		} else {
-			if err := cb(ctx, entry, entryRelativePath); err != nil {
-				return processEntryError{err}
-			}
-		}
-
-		return nil
-	})
-
-	if err == nil {
-		return nil
-	}
-
-	var peError processEntryError
-	if errors.As(err, &peError) {
-		return peError.error
-	}
-
-	if errors.Is(err, errCanceled) {
-		return errCanceled
-	}
-
-	return dirReadError{err}
-}
-
 func rootCauseError(err error) error {
 	var dre dirReadError
 
@@ -670,7 +627,6 @@ func (u *Uploader) effectiveParallelFileReads(pol *policy.Policy) int {
 	return p
 }
 
-// nolint:funlen
 func (u *Uploader) processDirectoryEntries(
 	ctx context.Context,
 	parentCheckpointRegistry *checkpointRegistry,
@@ -682,115 +638,166 @@ func (u *Uploader) processDirectoryEntries(
 	prevDirs []fs.Directory,
 	wg *workshare.AsyncGroup,
 ) error {
-	return u.foreachEntryUnlessCanceled(ctx, wg, dirRelativePath, dir, func(ctx context.Context, entry fs.Entry, entryRelativePath string) error {
-		// note this function runs in parallel and updates 'u.stats', which must be done using atomic operations.
-		t0 := timetrack.StartTimer()
+	// processEntryError distinguishes an error thrown when attempting to read a directory.
+	type processEntryError struct {
+		error
+	}
 
-		if _, ok := entry.(fs.Directory); !ok {
-			// See if we had this name during either of previous passes.
-			if cachedEntry := u.maybeIgnoreCachedEntry(ctx, findCachedEntry(ctx, entryRelativePath, entry, prevDirs, policyTree)); cachedEntry != nil {
-				atomic.AddInt32(&u.stats.CachedFiles, 1)
-				atomic.AddInt64(&u.stats.TotalFileSize, entry.Size())
-				u.Progress.CachedFile(filepath.Join(dirRelativePath, entry.Name()), entry.Size())
+	err := dir.IterateEntries(ctx, func(ctx context.Context, entry fs.Entry) error {
+		if u.IsCanceled() {
+			return errCanceled
+		}
 
-				// compute entryResult now, cachedEntry is short-lived
-				cachedDirEntry, err := newDirEntry(entry, cachedEntry.(object.HasObjectID).ObjectID())
-				if err != nil {
-					return errors.Wrap(err, "unable to create dir entry")
-				}
+		entryRelativePath := path.Join(dirRelativePath, entry.Name())
 
-				return u.processEntryUploadResult(ctx, cachedDirEntry, nil, entryRelativePath, parentDirBuilder,
-					false,
-					u.OverrideEntryLogDetail.OrDefault(policyTree.EffectivePolicy().LoggingPolicy.Entries.CacheHit.OrDefault(policy.LogDetailNone)),
-					"cached", t0)
+		if wg.CanShareWork(u.workerPool) {
+			wg.RunAsync(u.workerPool, func(c *workshare.Pool, input interface{}) {
+				wi, _ := input.(*uploadWorkItem)
+				wi.err = u.processSingle(ctx, entry, entryRelativePath, parentDirBuilder, policyTree, prevDirs, localDirPathOrEmpty, parentCheckpointRegistry)
+			}, &uploadWorkItem{})
+		} else {
+			if err := u.processSingle(ctx, entry, entryRelativePath, parentDirBuilder, policyTree, prevDirs, localDirPathOrEmpty, parentCheckpointRegistry); err != nil {
+				return processEntryError{err}
 			}
 		}
 
-		switch entry := entry.(type) {
-		case fs.Directory:
-			childDirBuilder := &DirManifestBuilder{}
-
-			childLocalDirPathOrEmpty := ""
-			if localDirPathOrEmpty != "" {
-				childLocalDirPathOrEmpty = filepath.Join(localDirPathOrEmpty, entry.Name())
-			}
-
-			childTree := policyTree.Child(entry.Name())
-
-			de, err := uploadDirInternal(ctx, u, entry, childTree, uniqueChildDirectories(ctx, prevDirs, entry.Name()), childLocalDirPathOrEmpty, entryRelativePath, childDirBuilder, parentCheckpointRegistry)
-			if errors.Is(err, errCanceled) {
-				return err
-			}
-
-			if err != nil {
-				// Note: This only catches errors in subdirectories of the snapshot root, not on the snapshot
-				// root itself. The intention is to always fail if the top level directory can't be read,
-				// otherwise a meaningless, empty snapshot is created that can't be restored.
-
-				var dre dirReadError
-				if errors.As(err, &dre) {
-					isIgnoredError := childTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreDirectoryErrors.OrDefault(false)
-					u.reportErrorAndMaybeCancel(dre.error, isIgnoredError, parentDirBuilder, entryRelativePath)
-				} else {
-					return errors.Wrapf(err, "unable to process directory %q", entry.Name())
-				}
-			} else {
-				parentDirBuilder.AddEntry(de)
-			}
-
-			return nil
-
-		case fs.Symlink:
-			de, err := u.uploadSymlinkInternal(ctx, entryRelativePath, entry)
-
-			return u.processEntryUploadResult(ctx, de, err, entryRelativePath, parentDirBuilder,
-				policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreFileErrors.OrDefault(false),
-				u.OverrideEntryLogDetail.OrDefault(policyTree.EffectivePolicy().LoggingPolicy.Entries.Snapshotted.OrDefault(policy.LogDetailNone)),
-				"snapshotted symlink", t0)
-
-		case fs.File:
-			atomic.AddInt32(&u.stats.NonCachedFiles, 1)
-
-			de, err := u.uploadFileInternal(ctx, parentCheckpointRegistry, entryRelativePath, entry, policyTree.Child(entry.Name()).EffectivePolicy())
-
-			return u.processEntryUploadResult(ctx, de, err, entryRelativePath, parentDirBuilder,
-				policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreFileErrors.OrDefault(false),
-				u.OverrideEntryLogDetail.OrDefault(policyTree.EffectivePolicy().LoggingPolicy.Entries.Snapshotted.OrDefault(policy.LogDetailNone)),
-				"snapshotted file", t0)
-
-		case fs.ErrorEntry:
-			var (
-				isIgnoredError bool
-				prefix         string
-			)
-
-			if errors.Is(entry.ErrorInfo(), fs.ErrUnknown) {
-				isIgnoredError = policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreUnknownTypes.OrDefault(true)
-				prefix = "unknown entry"
-			} else {
-				isIgnoredError = policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreFileErrors.OrDefault(false)
-				prefix = "error"
-			}
-
-			return u.processEntryUploadResult(ctx, nil, entry.ErrorInfo(), entryRelativePath, parentDirBuilder,
-				isIgnoredError,
-				u.OverrideEntryLogDetail.OrDefault(policyTree.EffectivePolicy().LoggingPolicy.Entries.Snapshotted.OrDefault(policy.LogDetailNone)),
-				prefix, t0)
-
-		case fs.StreamingFile:
-			atomic.AddInt32(&u.stats.NonCachedFiles, 1)
-
-			de, err := u.uploadStreamingFileInternal(ctx, entryRelativePath, entry)
-
-			return u.processEntryUploadResult(ctx, de, err, entryRelativePath, parentDirBuilder,
-				policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreFileErrors.OrDefault(false),
-				u.OverrideEntryLogDetail.OrDefault(policyTree.EffectivePolicy().LoggingPolicy.Entries.Snapshotted.OrDefault(policy.LogDetailNone)),
-				"snapshotted streaming file", t0)
-
-		default:
-			return errors.Errorf("unexpected entry type: %T %v", entry, entry.Mode())
-		}
+		return nil
 	})
+
+	if err == nil {
+		return nil
+	}
+
+	var peError processEntryError
+	if errors.As(err, &peError) {
+		return peError.error
+	}
+
+	if errors.Is(err, errCanceled) {
+		return errCanceled
+	}
+
+	return dirReadError{err}
+}
+
+// nolint:funlen
+func (u *Uploader) processSingle(
+	ctx context.Context,
+	entry fs.Entry,
+	entryRelativePath string,
+	parentDirBuilder *DirManifestBuilder,
+	policyTree *policy.Tree,
+	prevDirs []fs.Directory,
+	localDirPathOrEmpty string,
+	parentCheckpointRegistry *checkpointRegistry,
+) error {
+	// note this function runs in parallel and updates 'u.stats', which must be done using atomic operations.
+	t0 := timetrack.StartTimer()
+
+	if _, ok := entry.(fs.Directory); !ok {
+		// See if we had this name during either of previous passes.
+		if cachedEntry := u.maybeIgnoreCachedEntry(ctx, findCachedEntry(ctx, entryRelativePath, entry, prevDirs, policyTree)); cachedEntry != nil {
+			atomic.AddInt32(&u.stats.CachedFiles, 1)
+			atomic.AddInt64(&u.stats.TotalFileSize, entry.Size())
+			u.Progress.CachedFile(entryRelativePath, entry.Size())
+
+			// compute entryResult now, cachedEntry is short-lived
+			cachedDirEntry, err := newDirEntry(entry, cachedEntry.(object.HasObjectID).ObjectID())
+			if err != nil {
+				return errors.Wrap(err, "unable to create dir entry")
+			}
+
+			return u.processEntryUploadResult(ctx, cachedDirEntry, nil, entryRelativePath, parentDirBuilder,
+				false,
+				u.OverrideEntryLogDetail.OrDefault(policyTree.EffectivePolicy().LoggingPolicy.Entries.CacheHit.OrDefault(policy.LogDetailNone)),
+				"cached", t0)
+		}
+	}
+
+	switch entry := entry.(type) {
+	case fs.Directory:
+		childDirBuilder := &DirManifestBuilder{}
+
+		childLocalDirPathOrEmpty := ""
+		if localDirPathOrEmpty != "" {
+			childLocalDirPathOrEmpty = filepath.Join(localDirPathOrEmpty, entry.Name())
+		}
+
+		childTree := policyTree.Child(entry.Name())
+		childPrevDirs := uniqueChildDirectories(ctx, prevDirs, entry.Name())
+
+		de, err := uploadDirInternal(ctx, u, entry, childTree, childPrevDirs, childLocalDirPathOrEmpty, entryRelativePath, childDirBuilder, parentCheckpointRegistry)
+		if errors.Is(err, errCanceled) {
+			return err
+		}
+
+		if err != nil {
+			// Note: This only catches errors in subdirectories of the snapshot root, not on the snapshot
+			// root itself. The intention is to always fail if the top level directory can't be read,
+			// otherwise a meaningless, empty snapshot is created that can't be restored.
+			var dre dirReadError
+			if errors.As(err, &dre) {
+				isIgnoredError := childTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreDirectoryErrors.OrDefault(false)
+				u.reportErrorAndMaybeCancel(dre.error, isIgnoredError, parentDirBuilder, entryRelativePath)
+			} else {
+				return errors.Wrapf(err, "unable to process directory %q", entry.Name())
+			}
+		} else {
+			parentDirBuilder.AddEntry(de)
+		}
+
+		return nil
+
+	case fs.Symlink:
+		de, err := u.uploadSymlinkInternal(ctx, entryRelativePath, entry)
+
+		return u.processEntryUploadResult(ctx, de, err, entryRelativePath, parentDirBuilder,
+			policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreFileErrors.OrDefault(false),
+			u.OverrideEntryLogDetail.OrDefault(policyTree.EffectivePolicy().LoggingPolicy.Entries.Snapshotted.OrDefault(policy.LogDetailNone)),
+			"snapshotted symlink", t0)
+
+	case fs.File:
+		atomic.AddInt32(&u.stats.NonCachedFiles, 1)
+
+		de, err := u.uploadFileInternal(ctx, parentCheckpointRegistry, entryRelativePath, entry, policyTree.Child(entry.Name()).EffectivePolicy())
+
+		return u.processEntryUploadResult(ctx, de, err, entryRelativePath, parentDirBuilder,
+			policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreFileErrors.OrDefault(false),
+			u.OverrideEntryLogDetail.OrDefault(policyTree.EffectivePolicy().LoggingPolicy.Entries.Snapshotted.OrDefault(policy.LogDetailNone)),
+			"snapshotted file", t0)
+
+	case fs.ErrorEntry:
+		var (
+			isIgnoredError bool
+			prefix         string
+		)
+
+		if errors.Is(entry.ErrorInfo(), fs.ErrUnknown) {
+			isIgnoredError = policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreUnknownTypes.OrDefault(true)
+			prefix = "unknown entry"
+		} else {
+			isIgnoredError = policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreFileErrors.OrDefault(false)
+			prefix = "error"
+		}
+
+		return u.processEntryUploadResult(ctx, nil, entry.ErrorInfo(), entryRelativePath, parentDirBuilder,
+			isIgnoredError,
+			u.OverrideEntryLogDetail.OrDefault(policyTree.EffectivePolicy().LoggingPolicy.Entries.Snapshotted.OrDefault(policy.LogDetailNone)),
+			prefix, t0)
+
+	case fs.StreamingFile:
+		atomic.AddInt32(&u.stats.NonCachedFiles, 1)
+
+		de, err := u.uploadStreamingFileInternal(ctx, entryRelativePath, entry)
+
+		return u.processEntryUploadResult(ctx, de, err, entryRelativePath, parentDirBuilder,
+			policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreFileErrors.OrDefault(false),
+			u.OverrideEntryLogDetail.OrDefault(policyTree.EffectivePolicy().LoggingPolicy.Entries.Snapshotted.OrDefault(policy.LogDetailNone)),
+			"snapshotted streaming file", t0)
+
+	default:
+		return errors.Errorf("unexpected entry type: %T %v", entry, entry.Mode())
+	}
 }
 
 func (u *Uploader) processEntryUploadResult(ctx context.Context, de *snapshot.DirEntry, err error, entryRelativePath string, parentDirBuilder *DirManifestBuilder, isIgnored bool, logDetail policy.LogDetail, logMessage string, t0 timetrack.Timer) error {
