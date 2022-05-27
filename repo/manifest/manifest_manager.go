@@ -65,15 +65,25 @@ type Manager struct {
 	timeNow func() time.Time // Time provider
 }
 
+// GenManifestID generates a new random manifest ID
+func GenManifestID() (ID, error) {
+	random := make([]byte, manifestIDLength)
+	if _, err := rand.Read(random); err != nil {
+		return "", errors.Wrap(err, "can't initialize randomness")
+	}
+
+	return ID(hex.EncodeToString(random)), nil
+}
+
 // Put serializes the provided payload to JSON and persists it. Returns unique identifier that represents the manifest.
 func (m *Manager) Put(ctx context.Context, labels map[string]string, payload interface{}) (ID, error) {
 	if labels[TypeLabelKey] == "" {
 		return "", errors.Errorf("'type' label is required")
 	}
 
-	random := make([]byte, manifestIDLength)
-	if _, err := rand.Read(random); err != nil {
-		return "", errors.Wrap(err, "can't initialize randomness")
+	id, err := GenManifestID()
+	if err != nil {
+		return "", errors.Wrap(err, "failed to generate a new manifest ID")
 	}
 
 	b, err := json.Marshal(payload)
@@ -82,7 +92,7 @@ func (m *Manager) Put(ctx context.Context, labels map[string]string, payload int
 	}
 
 	e := &manifestEntry{
-		ID:      ID(hex.EncodeToString(random)),
+		ID:      id,
 		ModTime: m.timeNow().UTC(),
 		Labels:  copyLabels(labels),
 		Content: b,

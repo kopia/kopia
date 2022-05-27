@@ -120,6 +120,7 @@ type App struct {
 	password                      string
 	configPath                    string
 	traceStorage                  bool
+	overlayStorage                bool
 	keyRingEnabled                bool
 	persistCredentials            bool
 	disableInternalLog            bool
@@ -248,6 +249,7 @@ func (c *App) setup(app *kingpin.Application) {
 	app.Flag("update-available-notify-interval", "Interval between update notifications").Default("1h").Hidden().Envar(c.EnvName("KOPIA_UPDATE_NOTIFY_INTERVAL")).DurationVar(&c.updateAvailableNotifyInterval)
 	app.Flag("config-file", "Specify the config file to use").Default("repository.config").Envar(c.EnvName("KOPIA_CONFIG_PATH")).StringVar(&c.configPath)
 	app.Flag("trace-storage", "Enables tracing of storage operations.").Default("true").Hidden().BoolVar(&c.traceStorage)
+	app.Flag("overlay-storage", "Redirect all writes to an overlay storage.").Default("false").Hidden().BoolVar(&c.overlayStorage)
 	app.Flag("timezone", "Format time according to specified time zone (local, utc, original or time zone name)").Hidden().StringVar(&timeZone)
 	app.Flag("password", "Repository password.").Envar(c.EnvName("KOPIA_PASSWORD")).Short('p').StringVar(&c.password)
 	app.Flag("persist-credentials", "Persist credentials").Default("true").Envar(c.EnvName("KOPIA_PERSIST_CREDENTIALS_ON_CONNECT")).BoolVar(&c.persistCredentials)

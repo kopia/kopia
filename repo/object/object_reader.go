@@ -309,7 +309,7 @@ func newRawReader(ctx context.Context, cr contentReader, objectID ID, assertLeng
 		return nil, errors.Errorf("unexpected chunk length %v, expected %v", len(payload), assertLength)
 	}
 
-	return newObjectReaderWithData(payload), nil
+	return NewObjectReaderWithData(payload), nil
 }
 
 type readerWithData struct {
@@ -325,7 +325,7 @@ func (rwd *readerWithData) Length() int64 {
 	return rwd.length
 }
 
-func newObjectReaderWithData(data []byte) Reader {
+func NewObjectReaderWithData(data []byte) Reader {
 	return &readerWithData{
 		ReadSeeker: bytes.NewReader(data),
 		length:     int64(len(data)),

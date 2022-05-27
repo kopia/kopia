@@ -19,6 +19,7 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/beforeop"
 	loggingwrapper "github.com/kopia/kopia/repo/blob/logging"
+	"github.com/kopia/kopia/repo/blob/overlay"
 	"github.com/kopia/kopia/repo/blob/readonly"
 	"github.com/kopia/kopia/repo/blob/throttling"
 	"github.com/kopia/kopia/repo/content"
@@ -63,6 +64,7 @@ var log = logging.Module("kopia/repo")
 // Options provides configuration parameters for connection to a repository.
 type Options struct {
 	TraceStorage        bool             // Logs all storage access using provided Printf-style function
+	OverlayStorage      bool             // TODO(small)
 	TimeNowFunc         func() time.Time // Time provider
 	DisableInternalLog  bool             // Disable internal log
 	UpgradeOwnerID      string           // Owner-ID of any upgrade in progress, when this is not set the access may be restricted
@@ -117,7 +119,16 @@ func Open(ctx context.Context, configFile, password string, options *Options) (r
 	}
 
 	if lc.APIServer != nil {
-		return OpenAPIServer(ctx, lc.APIServer, lc.ClientOptions, lc.Caching, password)
+		rep, err := OpenAPIServer(ctx, lc.APIServer, lc.ClientOptions, lc.Caching, password)
+		if err != nil {
+			return nil, err
+		}
+
+		if options.OverlayStorage {
+			return NewOverlayRepositoryClientWrapper(rep), nil
+		}
+
+		return rep, nil
 	}
 
 	return openDirect(ctx, configFile, lc, password, options)
@@ -158,7 +169,7 @@ func getContentCacheOrNil(ctx context.Context, opt *content.CachingOptions, pass
 }
 
 // OpenAPIServer connects remote repository over Kopia API.
-func OpenAPIServer(ctx context.Context, si *APIServerInfo, cliOpts ClientOptions, cachingOptions *content.CachingOptions, password string) (Repository, error) {
+func OpenAPIServer(ctx context.Context, si *APIServerInfo, cliOpts ClientOptions, cachingOptions *content.CachingOptions, password string) (RepositoryWriter, error) {
 	contentCache, err := getContentCacheOrNil(ctx, cachingOptions, password)
 	if err != nil {
 		return nil, errors.Wrap(err, "error opening content cache")
@@ -184,6 +195,14 @@ func openDirect(ctx context.Context, configFile string, lc *LocalConfig, passwor
 
 	if options.TraceStorage {
 		st = loggingwrapper.NewWrapper(st, log(ctx), "[STORAGE] ")
+	}
+
+	if options.OverlayStorage {
+		st = overlay.NewOverlayObjLockingStorage(st, options.TimeNowFunc)
+
+		if options.TraceStorage {
+			st = loggingwrapper.NewWrapper(st, log(ctx), "[OVERLAY] ")
+		}
 	}
 
 	if lc.ReadOnly {
