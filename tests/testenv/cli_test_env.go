@@ -52,6 +52,9 @@ func NewCLITest(t *testing.T, repoCreateFlags []string, runner CLIRunner) *CLITe
 	t.Helper()
 	configDir := testutil.TempDirectory(t)
 
+	// unset global environment variable that may interfere with the test
+	os.Unsetenv("KOPIA_METRICS_PUSH_ADDR")
+
 	fixedArgs := []string{
 		// use per-test config file, to avoid clobbering current user's setup.
 		"--config-file", filepath.Join(configDir, ".kopia.config"),

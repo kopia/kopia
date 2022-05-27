@@ -62,13 +62,15 @@ func (c *commandRepositoryCreate) setup(svc advancedAppServices, parent commandP
 		cc := cmd.Command(prov.Name, "Create repository in "+prov.Description)
 		f.Setup(svc, cc)
 		cc.Action(func(_ *kingpin.ParseContext) error {
-			ctx := svc.rootContext()
-			st, err := f.Connect(ctx, true, c.createFormatVersion)
-			if err != nil {
-				return errors.Wrap(err, "can't connect to storage")
-			}
+			// nolint:wrapcheck
+			return svc.runAppWithContext(func(ctx context.Context) error {
+				st, err := f.Connect(ctx, true, c.createFormatVersion)
+				if err != nil {
+					return errors.Wrap(err, "can't connect to storage")
+				}
 
-			return c.runCreateCommandWithStorage(ctx, st)
+				return c.runCreateCommandWithStorage(ctx, st)
+			})
 		})
 	}
 }

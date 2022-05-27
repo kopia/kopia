@@ -5,14 +5,11 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net/http"
-	"net/http/pprof"
 	"os"
 	"time"
 
 	"github.com/alecthomas/kingpin"
 	"github.com/fatih/color"
-	"github.com/gorilla/mux"
 	"github.com/mattn/go-colorable"
 	"github.com/pkg/errors"
 
@@ -100,7 +97,7 @@ type advancedAppServices interface {
 	passwordPersistenceStrategy() passwordpersist.Strategy
 	getPasswordFromFlags(ctx context.Context, isCreate, allowPersistent bool) (string, error)
 	optionsFromFlags(ctx context.Context) *repo.Options
-	rootContext() context.Context
+	runAppWithContext(func(ctx context.Context) error) error
 }
 
 // App contains per-invocation flags and state of Kopia CLI.
@@ -116,14 +113,14 @@ type App struct {
 	password                      string
 	configPath                    string
 	traceStorage                  bool
-	metricsListenAddr             string
-	enablePProf                   bool
 	keyRingEnabled                bool
 	persistCredentials            bool
 	disableInternalLog            bool
 	AdvancedCommands              string
 	cliStorageProviders           []StorageProvider
 	trackReleasable               []string
+
+	observability observabilityFlags
 
 	currentAction   string
 	onExitCallbacks []func()
@@ -226,14 +223,14 @@ func (c *App) setup(app *kingpin.Application) {
 	app.Flag("update-available-notify-interval", "Interval between update notifications").Default("1h").Hidden().Envar("KOPIA_UPDATE_NOTIFY_INTERVAL").DurationVar(&c.updateAvailableNotifyInterval)
 	app.Flag("config-file", "Specify the config file to use").Default("repository.config").Envar("KOPIA_CONFIG_PATH").StringVar(&c.configPath)
 	app.Flag("trace-storage", "Enables tracing of storage operations.").Default("true").Hidden().BoolVar(&c.traceStorage)
-	app.Flag("metrics-listen-addr", "Expose Prometheus metrics on a given host:port").Hidden().StringVar(&c.metricsListenAddr)
-	app.Flag("enable-pprof", "Expose pprof handlers").Hidden().BoolVar(&c.enablePProf)
 	app.Flag("timezone", "Format time according to specified time zone (local, utc, original or time zone name)").Hidden().StringVar(&timeZone)
 	app.Flag("password", "Repository password.").Envar("KOPIA_PASSWORD").Short('p').StringVar(&c.password)
 	app.Flag("persist-credentials", "Persist credentials").Default("true").Envar("KOPIA_PERSIST_CREDENTIALS_ON_CONNECT").BoolVar(&c.persistCredentials)
 	app.Flag("disable-internal-log", "Disable internal log").Hidden().Envar("KOPIA_DISABLE_INTERNAL_LOG").BoolVar(&c.disableInternalLog)
 	app.Flag("advanced-commands", "Enable advanced (and potentially dangerous) commands.").Hidden().Envar("KOPIA_ADVANCED_COMMANDS").StringVar(&c.AdvancedCommands)
 	app.Flag("track-releasable", "Enable tracking of releasable resources.").Hidden().Envar("KOPIA_TRACK_RELEASABLE").StringsVar(&c.trackReleasable)
+
+	c.observability.setup(app)
 
 	c.setupOSSpecificKeychainFlags(app)
 
@@ -266,7 +263,7 @@ func (c *App) setup(app *kingpin.Application) {
 	c.policy.setup(c, app)
 	c.mount.setup(c, app)
 	c.maintenance.setup(c, app)
-	c.repository.setup(c, app) // nolint:contextcheck
+	c.repository.setup(c, app)
 }
 
 // commandParent is implemented by app and commands that can have sub-commands.
@@ -303,7 +300,7 @@ func NewApp() *App {
 
 // Attach attaches the CLI parser to the application.
 func (c *App) Attach(app *kingpin.Application) {
-	c.setup(app) // nolint:contextcheck
+	c.setup(app)
 }
 
 // safetyFlagVar defines c --safety=none|full flag that sets the SafetyParameters.
@@ -335,7 +332,9 @@ func (c *App) currentActionName() string {
 
 func (c *App) noRepositoryAction(act func(ctx context.Context) error) func(ctx *kingpin.ParseContext) error {
 	return func(_ *kingpin.ParseContext) error {
-		return act(c.rootContext())
+		return c.runAppWithContext(func(ctx context.Context) error {
+			return act(ctx)
+		})
 	}
 }
 
@@ -351,7 +350,9 @@ func (c *App) serverAction(sf *serverClientFlags, act func(ctx context.Context, 
 			return errors.Wrap(err, "unable to create API client")
 		}
 
-		return act(c.rootContext(), apiClient)
+		return c.runAppWithContext(func(ctx context.Context) error {
+			return act(ctx, apiClient)
+		})
 	}
 }
 
@@ -417,7 +418,7 @@ func (c *App) repositoryWriterAction(act func(ctx context.Context, rep repo.Repo
 	})
 }
 
-func (c *App) rootContext() context.Context {
+func (c *App) runAppWithContext(cb func(ctx context.Context) error) error {
 	ctx := c.rootctx
 
 	if c.loggerFactory != nil {
@@ -428,7 +429,29 @@ func (c *App) rootContext() context.Context {
 		releasable.EnableTracking(releasable.ItemKind(r))
 	}
 
-	return ctx
+	if err := c.observability.startMetrics(ctx); err != nil {
+		return errors.Wrap(err, "unable to start metrics")
+	}
+
+	err := cb(ctx)
+
+	c.runOnExit()
+	c.observability.stopMetrics()
+
+	if err != nil {
+		// print error in red
+		log(ctx).Errorf("%v", err.Error())
+		c.osExit(1)
+	}
+
+	if len(c.trackReleasable) > 0 {
+		if err := releasable.Verify(); err != nil {
+			log(ctx).Warnf("%v", err.Error())
+			c.osExit(1)
+		}
+	}
+
+	return nil
 }
 
 type repositoryAccessMode struct {
@@ -438,49 +461,16 @@ type repositoryAccessMode struct {
 
 func (c *App) baseActionWithContext(act func(ctx context.Context) error) func(ctx *kingpin.ParseContext) error {
 	return func(kpc *kingpin.ParseContext) error {
-		ctx0 := c.rootContext()
+		return c.runAppWithContext(func(ctx0 context.Context) error {
+			return c.pf.withProfiling(func() error {
+				ctx, finishMemoryTracking := c.mt.startMemoryTracking(ctx0)
+				defer finishMemoryTracking()
 
-		err := c.pf.withProfiling(func() error {
-			ctx, finishMemoryTracking := c.mt.startMemoryTracking(ctx0)
-			defer finishMemoryTracking()
+				defer gather.DumpStats(ctx)
 
-			defer gather.DumpStats(ctx)
-
-			if c.metricsListenAddr != "" {
-				m := mux.NewRouter()
-				initPrometheus(m)
-
-				if c.enablePProf {
-					m.HandleFunc("/debug/pprof/", pprof.Index)
-					m.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
-					m.HandleFunc("/debug/pprof/profile", pprof.Profile)
-					m.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
-					m.HandleFunc("/debug/pprof/trace", pprof.Trace)
-				}
-
-				log(ctx).Infof("starting prometheus metrics on %v", c.metricsListenAddr)
-				go http.ListenAndServe(c.metricsListenAddr, m) // nolint:errcheck
-			}
-
-			return act(ctx)
+				return act(ctx)
+			})
 		})
-
-		c.runOnExit()
-
-		if err != nil {
-			// print error in red
-			log(ctx0).Errorf("%v", err.Error())
-			c.osExit(1)
-		}
-
-		if len(c.trackReleasable) > 0 {
-			if err := releasable.Verify(); err != nil {
-				log(ctx0).Warnf("%v", err.Error())
-				c.osExit(1)
-			}
-		}
-
-		return nil
 	}
 }
 
