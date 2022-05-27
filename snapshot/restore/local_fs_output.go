@@ -294,12 +294,13 @@ func (o *FilesystemOutput) getStreamCopier(ctx context.Context) streamCopier {
 		log(ctx).Debugf("Sparse copying is not supported on Windows, falling back to regular copying")
 	}
 
-	return ioCopy
-}
+		log(ctx).Debugf("Sparse copying is not supported on Windows, falling back to regular copying")
+	}
 
-// ioCopy wraps io.Copy to conform to streamCopier type.
-func ioCopy(w io.WriteSeeker, r io.Reader) (int64, error) {
-	return iocopy.Copy(w, r) //nolint:wrapcheck
+	// Wrap iocopy.Copy to conform to streamCopier type.
+	return func(w io.WriteSeeker, r io.Reader) (int64, error) {
+		return iocopy.Copy(w, r) //nolint:wrapcheck
+	}
 }
 
 func isWindows() bool {
