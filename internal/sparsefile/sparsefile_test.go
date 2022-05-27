@@ -85,7 +85,12 @@ func TestSparseCopy(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		_, err = Copy(df, sf)
+		blk, err := stat.GetBlockSize(dst)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		_, err = Copy(df, sf, blk)
 		if err != nil {
 			t.Fatalf("error writing %s: %v", dst, err)
 		}

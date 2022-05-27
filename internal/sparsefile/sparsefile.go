@@ -12,11 +12,11 @@ import (
 
 // Copy copies a file sparsely (omitting holes) from src to dst, while recycling
 // shared buffers.
-func Copy(dst io.WriteSeeker, src io.Reader) (int64, error) {
+func Copy(dst io.WriteSeeker, src io.Reader, bufSize uint64) (int64, error) {
 	buf := iocopy.GetBuffer()
 	defer iocopy.ReleaseBuffer(buf)
 
-	return copyBuffer(dst, src, buf)
+	return copyBuffer(dst, src, buf[0:bufSize])
 }
 
 // Copy copies bits from src to dst, seeking past blocks of zero bits in src. These

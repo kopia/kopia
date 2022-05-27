@@ -16,6 +16,7 @@ import (
 	"github.com/kopia/kopia/internal/atomicfile"
 	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/internal/sparsefile"
+	"github.com/kopia/kopia/internal/stat"
 	"github.com/kopia/kopia/snapshot"
 )
 
@@ -288,11 +289,15 @@ func (o *FilesystemOutput) shouldUpdateTimes(local, remote fs.Entry) bool {
 func (o *FilesystemOutput) getStreamCopier(ctx context.Context) streamCopier {
 	if o.Sparse {
 		if !isWindows() {
-			return sparsefile.Copy
-		}
+			return func(w io.WriteSeeker, r io.Reader) (int64, error) {
+				s, err := stat.GetBlockSize(o.TargetPath)
+				if err != nil {
+					return 0, errors.Wrap(err, "error getting block size")
+				}
 
-		log(ctx).Debugf("Sparse copying is not supported on Windows, falling back to regular copying")
-	}
+				return sparsefile.Copy(w, r, s) //nolint:wrapcheck
+			}
+		}
 
 		log(ctx).Debugf("Sparse copying is not supported on Windows, falling back to regular copying")
 	}
