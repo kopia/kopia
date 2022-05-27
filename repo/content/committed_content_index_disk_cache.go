@@ -74,6 +74,8 @@ func (c *diskCommittedContentIndexCache) mmapOpenWithRetry(path string) (mmap.MM
 
 	mm, err := mmap.Map(f, mmap.RDONLY, 0)
 	if err != nil {
+		f.Close() // nolint:errcheck
+
 		return nil, nil, errors.Wrap(err, "mmap error")
 	}
 

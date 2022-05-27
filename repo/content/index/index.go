@@ -46,6 +46,7 @@ func Open(data []byte, closer func() error, v1PerContentOverhead uint32) (Index,
 func safeSlice(data []byte, offset int64, length int) (v []byte, err error) {
 	defer func() {
 		if recover() != nil {
+			v = nil
 			err = errors.Errorf("invalid slice offset=%v, length=%v, data=%v bytes", offset, length, len(data))
 		}
 	}()
@@ -56,6 +57,7 @@ func safeSlice(data []byte, offset int64, length int) (v []byte, err error) {
 func safeSliceString(data []byte, offset int64, length int) (s string, err error) {
 	defer func() {
 		if recover() != nil {
+			s = ""
 			err = errors.Errorf("invalid slice offset=%v, length=%v, data=%v bytes", offset, length, len(data))
 		}
 	}()
