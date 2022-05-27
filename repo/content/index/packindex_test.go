@@ -188,11 +188,10 @@ func testPackIndex(t *testing.T, version int) {
 		fuzzTestIndexOpen(data1)
 	})
 
-	ndx, err := Open(bytes.NewReader(data1), fakeEncryptionOverhead)
+	ndx, err := Open(data1, nil, fakeEncryptionOverhead)
 	if err != nil {
 		t.Fatalf("can't open index: %v", err)
 	}
-	defer ndx.Close()
 
 	for _, want := range infos {
 		info2, err := ndx.GetInfo(want.GetContentID())
@@ -282,7 +281,7 @@ func TestPackIndexPerContentLimits(t *testing.T) {
 		if tc.errMsg == "" {
 			require.NoError(t, b.buildV2(&result))
 
-			pi, err := Open(bytes.NewReader(result.Bytes()), fakeEncryptionOverhead)
+			pi, err := Open(result.Bytes(), nil, fakeEncryptionOverhead)
 			require.NoError(t, err)
 
 			got, err := pi.GetInfo(cid)
@@ -400,11 +399,10 @@ func fuzzTestIndexOpen(originalData []byte) {
 	rnd := rand.New(rand.NewSource(12345))
 
 	fuzzTest(rnd, originalData, 50000, func(d []byte) {
-		ndx, err := Open(bytes.NewReader(d), 0)
+		ndx, err := Open(d, nil, 0)
 		if err != nil {
 			return
 		}
-		defer ndx.Close()
 		cnt := 0
 		_ = ndx.Iterate(AllIDs, func(cb Info) error {
 			if cnt < 10 {
