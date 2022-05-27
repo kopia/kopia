@@ -352,7 +352,7 @@ func (b *indexV2) findEntryPositionExact(idBytes []byte) (int, error) {
 	return pos, readErr
 }
 
-func (b *indexV2) findEntry(output []byte, contentID ID) ([]byte, error) {
+func (b *indexV2) findEntry(contentID ID) ([]byte, error) {
 	var hashBuf [maxContentIDSize]byte
 
 	key := contentIDToBytes(hashBuf[:0], contentID)
@@ -381,7 +381,7 @@ func (b *indexV2) findEntry(output []byte, contentID ID) ([]byte, error) {
 	}
 
 	if bytes.Equal(entryBuf[0:len(key)], key) {
-		return append(output, entryBuf[len(key):]...), nil
+		return entryBuf[len(key):], nil
 	}
 
 	return nil, nil
@@ -389,9 +389,7 @@ func (b *indexV2) findEntry(output []byte, contentID ID) ([]byte, error) {
 
 // GetInfo returns information about a given content. If a content is not found, nil is returned.
 func (b *indexV2) GetInfo(contentID ID) (Info, error) {
-	var entryBuf [v2MaxEntrySize]byte
-
-	e, err := b.findEntry(entryBuf[:0], contentID)
+	e, err := b.findEntry(contentID)
 	if err != nil {
 		return nil, err
 	}
