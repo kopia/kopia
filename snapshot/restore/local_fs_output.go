@@ -285,6 +285,23 @@ func (o *FilesystemOutput) shouldUpdateTimes(local, remote fs.Entry) bool {
 	return !local.ModTime().Equal(remote.ModTime())
 }
 
+func (o *FilesystemOutput) getStreamCopier(ctx context.Context) streamCopier {
+	if o.Sparse {
+		if !isWindows() {
+			return sparsefile.Copy
+		}
+
+		log(ctx).Debugf("Sparse copying is not supported on Windows, falling back to regular copying")
+	}
+
+	return ioCopy
+}
+
+// ioCopy wraps io.Copy to conform to streamCopier type.
+func ioCopy(w io.WriteSeeker, r io.Reader) (int64, error) {
+	return iocopy.Copy(w, r) //nolint:wrapcheck
+}
+
 func isWindows() bool {
 	return runtime.GOOS == "windows"
 }
@@ -365,20 +382,9 @@ func (o *FilesystemOutput) copyFileContent(ctx context.Context, targetPath strin
 		return atomicfile.Write(targetPath, r)
 	}
 
-	if o.Sparse {
-		if !isWindows() {
-			return write(targetPath, r, f.Size(), sparsefile.Copy)
-		}
+	c := o.getStreamCopier(ctx)
 
-		log(ctx).Debugf("Sparse file support is not available on Windows, writing file normally")
-	}
-
-	// Wrap io.Copy to conform with the required interface
-	copier := func(w io.WriteSeeker, r io.Reader) (int64, error) {
-		return iocopy.Copy(w, r) // nolint:wrapcheck
-	}
-
-	return write(targetPath, r, f.Size(), copier)
+	return write(targetPath, r, f.Size(), c)
 }
 
 func isEmptyDirectory(name string) (bool, error) {
