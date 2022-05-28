@@ -31,14 +31,16 @@ func (c *commandRepositoryConnect) setup(svc advancedAppServices, parent command
 		cc := cmd.Command(prov.Name, "Connect to repository in "+prov.Description)
 		f.Setup(svc, cc)
 		cc.Action(func(_ *kingpin.ParseContext) error {
-			ctx := svc.rootContext()
-			st, err := f.Connect(ctx, false, 0)
-			if err != nil {
-				return errors.Wrap(err, "can't connect to storage")
-			}
-
 			// nolint:wrapcheck
-			return svc.runConnectCommandWithStorage(ctx, &c.co, st)
+			return svc.runAppWithContext(func(ctx context.Context) error {
+				st, err := f.Connect(ctx, false, 0)
+				if err != nil {
+					return errors.Wrap(err, "can't connect to storage")
+				}
+
+				// nolint:wrapcheck
+				return svc.runConnectCommandWithStorage(ctx, &c.co, st)
+			})
 		})
 	}
 }
