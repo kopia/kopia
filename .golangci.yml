@@ -107,6 +107,9 @@ issues:
     - text: "log is a global variable"
       linters:
       - gochecknoglobals
+    - text: "tracer is a global variable"
+      linters:
+      - gochecknoglobals
     - text: "Magic number: 1e"
       linters:
       - gomnd

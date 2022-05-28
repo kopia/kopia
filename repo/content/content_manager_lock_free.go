@@ -6,8 +6,11 @@ import (
 	cryptorand "crypto/rand"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
@@ -152,6 +155,9 @@ func getPackedContentIV(output []byte, contentID ID) []byte {
 }
 
 func (bm *WriteManager) writePackFileNotLocked(ctx context.Context, packFile blob.ID, data gather.Bytes) error {
+	ctx, span := tracer.Start(ctx, "WritePackFile_"+strings.ToUpper(string(packFile[0:1])), trace.WithAttributes(attribute.String("packFile", string(packFile))))
+	defer span.End()
+
 	bm.Stats.wroteContent(data.Length())
 	bm.onUpload(int64(data.Length()))
 

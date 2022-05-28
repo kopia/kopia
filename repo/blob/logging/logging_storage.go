@@ -5,10 +5,14 @@ import (
 	"context"
 	"sync/atomic"
 
+	"go.opentelemetry.io/otel"
+
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/logging"
 )
+
+var tracer = otel.Tracer("BlobStorage")
 
 type loggingStorage struct {
 	// +checkatomic
@@ -37,6 +41,9 @@ func (s *loggingStorage) endConcurrency() {
 }
 
 func (s *loggingStorage) GetBlob(ctx context.Context, id blob.ID, offset, length int64, output blob.OutputBuffer) error {
+	ctx, span := tracer.Start(ctx, "GetBlob")
+	defer span.End()
+
 	s.beginConcurrency()
 	defer s.endConcurrency()
 
@@ -58,6 +65,9 @@ func (s *loggingStorage) GetBlob(ctx context.Context, id blob.ID, offset, length
 }
 
 func (s *loggingStorage) GetCapacity(ctx context.Context) (blob.Capacity, error) {
+	ctx, span := tracer.Start(ctx, "GetCapacity")
+	defer span.End()
+
 	timer := timetrack.StartTimer()
 	c, err := s.base.GetCapacity(ctx)
 	dt := timer.Elapsed()
@@ -74,6 +84,9 @@ func (s *loggingStorage) GetCapacity(ctx context.Context) (blob.Capacity, error)
 }
 
 func (s *loggingStorage) GetMetadata(ctx context.Context, id blob.ID) (blob.Metadata, error) {
+	ctx, span := tracer.Start(ctx, "GetMetadata")
+	defer span.End()
+
 	s.beginConcurrency()
 	defer s.endConcurrency()
 
@@ -93,6 +106,9 @@ func (s *loggingStorage) GetMetadata(ctx context.Context, id blob.ID) (blob.Meta
 }
 
 func (s *loggingStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes, opts blob.PutOptions) error {
+	ctx, span := tracer.Start(ctx, "PutBlob")
+	defer span.End()
+
 	s.beginConcurrency()
 	defer s.endConcurrency()
 
@@ -112,6 +128,9 @@ func (s *loggingStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Byte
 }
 
 func (s *loggingStorage) DeleteBlob(ctx context.Context, id blob.ID) error {
+	ctx, span := tracer.Start(ctx, "DeleteBlob")
+	defer span.End()
+
 	s.beginConcurrency()
 	defer s.endConcurrency()
 
@@ -129,6 +148,9 @@ func (s *loggingStorage) DeleteBlob(ctx context.Context, id blob.ID) error {
 }
 
 func (s *loggingStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback func(blob.Metadata) error) error {
+	ctx, span := tracer.Start(ctx, "ListBlobs")
+	defer span.End()
+
 	s.beginConcurrency()
 	defer s.endConcurrency()
 
@@ -152,6 +174,9 @@ func (s *loggingStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback
 }
 
 func (s *loggingStorage) Close(ctx context.Context) error {
+	ctx, span := tracer.Start(ctx, "Close")
+	defer span.End()
+
 	timer := timetrack.StartTimer()
 	err := s.base.Close(ctx)
 	dt := timer.Elapsed()

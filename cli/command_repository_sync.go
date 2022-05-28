@@ -55,9 +55,9 @@ func (c *commandRepositorySyncTo) setup(svc advancedAppServices, parent commandP
 		f := prov.NewFlags()
 		cc := cmd.Command(prov.Name, "Synchronize repository data to another repository in "+prov.Description)
 		f.Setup(svc, cc)
-		cc.Action(func(_ *kingpin.ParseContext) error {
+		cc.Action(func(kpc *kingpin.ParseContext) error {
 			// nolint:wrapcheck
-			return svc.runAppWithContext(func(ctx context.Context) error {
+			return svc.runAppWithContext(kpc.SelectedCommand, func(ctx context.Context) error {
 				st, err := f.Connect(ctx, false, 0)
 				if err != nil {
 					return errors.Wrap(err, "can't connect to storage")
