@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel"
 
 	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/clock"
@@ -39,6 +40,8 @@ const (
 
 	legacyIndexVersion = index.Version1
 )
+
+var tracer = otel.Tracer("kopia/content")
 
 // PackBlobIDPrefixes contains all possible prefixes for pack blobs.
 // nolint:gochecknoglobals
@@ -431,24 +434,37 @@ func (bm *WriteManager) assertInvariant(ok bool, errorMsg string, arg ...interfa
 
 // +checklocksread:bm.indexesLock
 func (bm *WriteManager) writeIndexBlobs(ctx context.Context, dataShards []gather.Bytes, sessionID SessionID) ([]blob.Metadata, error) {
+	ctx, span := tracer.Start(ctx, "WriteIndexBlobs")
+	defer span.End()
+
 	// nolint:wrapcheck
 	return bm.indexBlobManager.writeIndexBlobs(ctx, dataShards, sessionID)
 }
 
 // +checklocksread:bm.indexesLock
 func (bm *WriteManager) addIndexBlob(ctx context.Context, indexBlobID blob.ID, data gather.Bytes, use bool) error {
+	ctx, span := tracer.Start(ctx, "AddIndexBlob")
+	defer span.End()
+
 	return bm.committedContents.addIndexBlob(ctx, indexBlobID, data, use)
 }
 
 // +checklocks:bm.mu
 func (bm *WriteManager) flushPackIndexesLocked(ctx context.Context) error {
+	ctx, span := tracer.Start(ctx, "FlushPackIndexes")
+	defer span.End()
+
 	if bm.disableIndexFlushCount > 0 {
 		bm.log.Debugf("not flushing index because flushes are currently disabled")
 		return nil
 	}
 
 	if len(bm.packIndexBuilder) > 0 {
+		_, span2 := tracer.Start(ctx, "BuildShards")
 		dataShards, closeShards, err := bm.packIndexBuilder.BuildShards(bm.indexVersion, true, bm.indexShardSize)
+
+		span2.End()
+
 		if err != nil {
 			return errors.Wrap(err, "unable to build pack index")
 		}

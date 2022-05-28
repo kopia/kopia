@@ -12,6 +12,8 @@ import (
 	"github.com/fatih/color"
 	"github.com/mattn/go-colorable"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/kopia/kopia/internal/apiclient"
 	"github.com/kopia/kopia/internal/gather"
@@ -26,6 +28,8 @@ import (
 )
 
 var log = logging.Module("kopia/cli")
+
+var tracer = otel.Tracer("cli")
 
 // nolint:gochecknoglobals
 var (
@@ -97,7 +101,7 @@ type advancedAppServices interface {
 	passwordPersistenceStrategy() passwordpersist.Strategy
 	getPasswordFromFlags(ctx context.Context, isCreate, allowPersistent bool) (string, error)
 	optionsFromFlags(ctx context.Context) *repo.Options
-	runAppWithContext(func(ctx context.Context) error) error
+	runAppWithContext(command *kingpin.CmdClause, callback func(ctx context.Context) error) error
 }
 
 // App contains per-invocation flags and state of Kopia CLI.
@@ -331,15 +335,15 @@ func (c *App) currentActionName() string {
 }
 
 func (c *App) noRepositoryAction(act func(ctx context.Context) error) func(ctx *kingpin.ParseContext) error {
-	return func(_ *kingpin.ParseContext) error {
-		return c.runAppWithContext(func(ctx context.Context) error {
+	return func(kpc *kingpin.ParseContext) error {
+		return c.runAppWithContext(kpc.SelectedCommand, func(ctx context.Context) error {
 			return act(ctx)
 		})
 	}
 }
 
 func (c *App) serverAction(sf *serverClientFlags, act func(ctx context.Context, cli *apiclient.KopiaAPIClient) error) func(ctx *kingpin.ParseContext) error {
-	return func(_ *kingpin.ParseContext) error {
+	return func(kpc *kingpin.ParseContext) error {
 		opts, err := sf.serverAPIClientOptions()
 		if err != nil {
 			return errors.Wrap(err, "unable to create API client options")
@@ -350,7 +354,7 @@ func (c *App) serverAction(sf *serverClientFlags, act func(ctx context.Context, 
 			return errors.Wrap(err, "unable to create API client")
 		}
 
-		return c.runAppWithContext(func(ctx context.Context) error {
+		return c.runAppWithContext(kpc.SelectedCommand, func(ctx context.Context) error {
 			return act(ctx, apiClient)
 		})
 	}
@@ -418,7 +422,7 @@ func (c *App) repositoryWriterAction(act func(ctx context.Context, rep repo.Repo
 	})
 }
 
-func (c *App) runAppWithContext(cb func(ctx context.Context) error) error {
+func (c *App) runAppWithContext(command *kingpin.CmdClause, cb func(ctx context.Context) error) error {
 	ctx := c.rootctx
 
 	if c.loggerFactory != nil {
@@ -433,10 +437,15 @@ func (c *App) runAppWithContext(cb func(ctx context.Context) error) error {
 		return errors.Wrap(err, "unable to start metrics")
 	}
 
-	err := cb(ctx)
+	err := func() error {
+		tctx, span := tracer.Start(ctx, command.FullCommand(), trace.WithSpanKind(trace.SpanKindClient))
+		defer span.End()
+		defer c.runOnExit()
 
-	c.runOnExit()
-	c.observability.stopMetrics()
+		return cb(tctx)
+	}()
+
+	c.observability.stopMetrics(ctx)
 
 	if err != nil {
 		// print error in red
@@ -461,7 +470,7 @@ type repositoryAccessMode struct {
 
 func (c *App) baseActionWithContext(act func(ctx context.Context) error) func(ctx *kingpin.ParseContext) error {
 	return func(kpc *kingpin.ParseContext) error {
-		return c.runAppWithContext(func(ctx0 context.Context) error {
+		return c.runAppWithContext(kpc.SelectedCommand, func(ctx0 context.Context) error {
 			return c.pf.withProfiling(func() error {
 				ctx, finishMemoryTracking := c.mt.startMemoryTracking(ctx0)
 				defer finishMemoryTracking()

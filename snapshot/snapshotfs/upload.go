@@ -14,6 +14,9 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/ignorefs"
@@ -35,6 +38,8 @@ var (
 	uploadLog   = logging.Module("uploader")
 	estimateLog = logging.Module("estimate")
 	repoFSLog   = logging.Module("repofs")
+
+	uploadTracer = otel.Tracer("upload")
 )
 
 // minimal detail levels to emit particular pieces of log information.
@@ -987,6 +992,9 @@ func uploadDirInternal(
 ) (resultDE *snapshot.DirEntry, resultErr error) {
 	atomic.AddInt32(&u.stats.TotalDirectoryCount, 1)
 
+	ctx, span := uploadTracer.Start(ctx, "UploadDir", trace.WithAttributes(attribute.String("dir", dirRelativePath)))
+	defer span.End()
+
 	t0 := timetrack.StartTimer()
 
 	defer func() {
@@ -1135,6 +1143,9 @@ func (u *Uploader) Upload(
 	sourceInfo snapshot.SourceInfo,
 	previousManifests ...*snapshot.Manifest,
 ) (*snapshot.Manifest, error) {
+	ctx, span := uploadTracer.Start(ctx, "Upload")
+	defer span.End()
+
 	u.Progress.UploadStarted()
 	defer u.Progress.UploadFinished()
 

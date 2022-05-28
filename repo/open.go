@@ -83,6 +83,9 @@ var ErrRepositoryUnavailableDueToUpgrageInProgress = errors.Errorf("repository u
 
 // Open opens a Repository specified in the configuration file.
 func Open(ctx context.Context, configFile, password string, options *Options) (rep Repository, err error) {
+	ctx, span := tracer.Start(ctx, "OpenRepository")
+	defer span.End()
+
 	defer func() {
 		if err != nil {
 			log(ctx).Errorf("failed to open repository: %v", err)

@@ -46,6 +46,7 @@ func TestMetricsPushFlags(t *testing.T) {
 		"--metrics-push-addr="+server.URL,
 		"--metrics-push-interval=30s",
 		"--metrics-push-format=text",
+		"--enable-jaeger-collector", // this has no observable effects whether Jaeger is running or not
 	)
 
 	env.RunAndExpectSuccess(t, "repo", "status",
