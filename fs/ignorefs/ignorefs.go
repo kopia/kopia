@@ -77,19 +77,19 @@ type ignoreDirectory struct {
 	fs.Directory
 }
 
-func isCorrectCacheDirSignature(ctx context.Context, f fs.File) (bool, error) {
+func isCorrectCacheDirSignature(ctx context.Context, f fs.File) error {
 	const (
 		validSignature    = repo.CacheDirMarkerHeader
 		validSignatureLen = len(validSignature)
 	)
 
 	if f.Size() < int64(validSignatureLen) {
-		return false, nil
+		return errors.Errorf("cache dir marker file too short")
 	}
 
 	r, err := f.Open(ctx)
 	if err != nil {
-		return false, errors.Wrap(err, "unable to open cache dir marker file")
+		return errors.Wrap(err, "unable to open cache dir marker file")
 	}
 
 	defer r.Close() //nolint:errcheck
@@ -97,40 +97,46 @@ func isCorrectCacheDirSignature(ctx context.Context, f fs.File) (bool, error) {
 	sig := make([]byte, validSignatureLen)
 
 	if _, err := r.Read(sig); err != nil {
-		return false, errors.Wrap(err, "unable to read cache dir marker file")
+		return errors.Wrap(err, "unable to read cache dir marker file")
 	}
 
-	return string(sig) == validSignature, nil
+	if string(sig) != validSignature {
+		return errors.Errorf("invalid cache dir marker file signature")
+	}
+
+	return nil
 }
 
-func (d *ignoreDirectory) skipCacheDirectory(ctx context.Context, entries fs.Entries, relativePath string, policyTree *policy.Tree) fs.Entries {
+func (d *ignoreDirectory) skipCacheDirectory(ctx context.Context, relativePath string, policyTree *policy.Tree) bool {
 	if !policyTree.EffectivePolicy().FilesPolicy.IgnoreCacheDirectories.OrDefault(true) {
-		return entries
+		return false
 	}
 
-	f, ok := entries.FindByName(repo.CacheDirMarkerFile).(fs.File)
-	if ok {
-		correct, err := isCorrectCacheDirSignature(ctx, f)
-		if err != nil {
-			log(ctx).Debugf("unable to check cache dir signature, assuming not a cache directory: %v", err)
-			return entries
-		}
-
-		if correct {
-			// if the given directory contains a marker file used for kopia cache, pretend the directory was empty.
-			for _, oi := range d.parentContext.onIgnore {
-				oi(ctx, strings.TrimPrefix(relativePath, "./"), d, policyTree)
-			}
-
-			return nil
-		}
+	e, err := d.Directory.Child(ctx, repo.CacheDirMarkerFile)
+	if err != nil {
+		return false
 	}
 
-	return entries
+	f, ok := e.(fs.File)
+	if !ok {
+		return false
+	}
+
+	if err := isCorrectCacheDirSignature(ctx, f); err != nil {
+		log(ctx).Debugf("unable to check cache dir signature, assuming not a cache directory: %v", err)
+		return false
+	}
+
+	// if the given directory contains a marker file used for kopia cache, pretend the directory was empty.
+	for _, oi := range d.parentContext.onIgnore {
+		oi(ctx, strings.TrimPrefix(relativePath, "./"), d, policyTree)
+	}
+
+	return true
 }
 
 // Make sure that ignoreDirectory implements HasDirEntryFromPlaceholder.
-var _ snapshot.HasDirEntryOrNil = &ignoreDirectory{}
+var _ snapshot.HasDirEntryOrNil = (*ignoreDirectory)(nil)
 
 func (d *ignoreDirectory) DirEntryOrNil(ctx context.Context) (*snapshot.DirEntry, error) {
 	if defp, ok := d.Directory.(snapshot.HasDirEntryOrNil); ok {
@@ -141,46 +147,74 @@ func (d *ignoreDirectory) DirEntryOrNil(ctx context.Context) (*snapshot.DirEntry
 	return nil, nil
 }
 
-func (d *ignoreDirectory) Readdir(ctx context.Context) (fs.Entries, error) {
-	entries, err := d.Directory.Readdir(ctx)
+func (d *ignoreDirectory) IterateEntries(ctx context.Context, callback func(ctx context.Context, entry fs.Entry) error) error {
+	if d.skipCacheDirectory(ctx, d.relativePath, d.policyTree) {
+		return nil
+	}
+
+	thisContext, err := d.buildContext(ctx)
+	if err != nil {
+		return err
+	}
+
+	// nolint:wrapcheck
+	return d.Directory.IterateEntries(ctx, func(ctx context.Context, e fs.Entry) error {
+		if wrapped, ok := d.maybeWrappedChildEntry(ctx, thisContext, e); ok {
+			return callback(ctx, wrapped)
+		}
+
+		return nil
+	})
+}
+
+func (d *ignoreDirectory) maybeWrappedChildEntry(ctx context.Context, ic *ignoreContext, e fs.Entry) (fs.Entry, bool) {
+	if !ic.shouldIncludeByName(ctx, d.relativePath+"/"+e.Name(), e, d.policyTree) {
+		return nil, false
+	}
+
+	if maxSize := ic.maxFileSize; maxSize > 0 && e.Size() > maxSize {
+		return nil, false
+	}
+
+	if !ic.shouldIncludeByDevice(e, d) {
+		return nil, false
+	}
+
+	if dir, ok := e.(fs.Directory); ok {
+		return &ignoreDirectory{d.relativePath + "/" + e.Name(), ic, d.policyTree.Child(e.Name()), dir}, true
+	}
+
+	return e, true
+}
+
+func (d *ignoreDirectory) Child(ctx context.Context, name string) (fs.Entry, error) {
+	if d.skipCacheDirectory(ctx, d.relativePath, d.policyTree) {
+		return nil, fs.ErrEntryNotFound
+	}
+
+	e, err := d.Directory.Child(ctx, name)
 	if err != nil {
 		// nolint:wrapcheck
 		return nil, err
 	}
 
-	entries = d.skipCacheDirectory(ctx, entries, d.relativePath, d.policyTree)
-
-	thisContext, err := d.buildContext(ctx, entries)
+	thisContext, err := d.buildContext(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	result := make(fs.Entries, 0, len(entries))
-
-	for _, e := range entries {
-		if !thisContext.shouldIncludeByName(ctx, d.relativePath+"/"+e.Name(), e, d.policyTree) {
-			continue
-		}
-
-		if maxSize := thisContext.maxFileSize; maxSize > 0 && e.Size() > maxSize {
-			continue
-		}
-
-		if !thisContext.shouldIncludeByDevice(e, d) {
-			continue
-		}
-
-		if dir, ok := e.(fs.Directory); ok {
-			e = &ignoreDirectory{d.relativePath + "/" + e.Name(), thisContext, d.policyTree.Child(e.Name()), dir}
-		}
-
-		result = append(result, e)
+	if wrapped, ok := d.maybeWrappedChildEntry(ctx, thisContext, e); ok {
+		return wrapped, nil
 	}
 
-	return result, nil
+	return nil, fs.ErrEntryNotFound
 }
 
-func (d *ignoreDirectory) buildContext(ctx context.Context, entries fs.Entries) (*ignoreContext, error) {
+func (d *ignoreDirectory) Readdir(ctx context.Context) (fs.Entries, error) {
+	return fs.IterateEntriesToReaddir(ctx, d)
+}
+
+func (d *ignoreDirectory) buildContext(ctx context.Context) (*ignoreContext, error) {
 	effectiveDotIgnoreFiles := d.parentContext.dotIgnoreFiles
 
 	pol := d.policyTree.DefinedPolicy()
@@ -188,15 +222,17 @@ func (d *ignoreDirectory) buildContext(ctx context.Context, entries fs.Entries) 
 		effectiveDotIgnoreFiles = pol.FilesPolicy.DotIgnoreFiles
 	}
 
-	var foundDotIgnoreFiles bool
+	var dotIgnoreFiles []fs.File
 
 	for _, dotfile := range effectiveDotIgnoreFiles {
-		if e := entries.FindByName(dotfile); e != nil {
-			foundDotIgnoreFiles = true
+		if e, err := d.Directory.Child(ctx, dotfile); err == nil {
+			if f, ok := e.(fs.File); ok {
+				dotIgnoreFiles = append(dotIgnoreFiles, f)
+			}
 		}
 	}
 
-	if !foundDotIgnoreFiles && pol == nil {
+	if len(dotIgnoreFiles) == 0 && pol == nil {
 		// no dotfiles and no policy at this level, reuse parent ignore rules
 		return d.parentContext, nil
 	}
@@ -215,7 +251,7 @@ func (d *ignoreDirectory) buildContext(ctx context.Context, entries fs.Entries) 
 		}
 	}
 
-	if err := newic.loadDotIgnoreFiles(ctx, d.relativePath, entries, effectiveDotIgnoreFiles); err != nil {
+	if err := newic.loadDotIgnoreFiles(ctx, d.relativePath, dotIgnoreFiles); err != nil {
 		return nil, err
 	}
 
@@ -251,20 +287,8 @@ func (c *ignoreContext) overrideFromPolicy(fp *policy.FilesPolicy, dirPath strin
 	return nil
 }
 
-func (c *ignoreContext) loadDotIgnoreFiles(ctx context.Context, dirPath string, entries fs.Entries, dotIgnoreFiles []string) error {
-	for _, dotIgnoreFile := range dotIgnoreFiles {
-		e := entries.FindByName(dotIgnoreFile)
-		if e == nil {
-			// no dotfile
-			continue
-		}
-
-		f, ok := e.(fs.File)
-		if !ok {
-			// not a file
-			continue
-		}
-
+func (c *ignoreContext) loadDotIgnoreFiles(ctx context.Context, dirPath string, dotIgnoreFiles []fs.File) error {
+	for _, f := range dotIgnoreFiles {
 		matchers, err := parseIgnoreFile(ctx, dirPath, f)
 		if err != nil {
 			return errors.Wrapf(err, "unable to parse ignore file %v", f.Name())

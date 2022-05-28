@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -85,7 +86,10 @@ func (e *repositoryEntry) LocalFilesystemPath() string {
 
 type repositoryDirectory struct {
 	repositoryEntry
-	summary *fs.DirectorySummary
+
+	mu         sync.Mutex
+	summary    *fs.DirectorySummary
+	dirEntries map[string]*snapshot.DirEntry
 }
 
 type repositoryFile struct {
@@ -102,53 +106,93 @@ type repositoryEntryError struct {
 }
 
 func (rd *repositoryDirectory) Summary(ctx context.Context) (*fs.DirectorySummary, error) {
-	if rd.summary != nil {
-		return rd.summary, nil
-	}
-
-	r, err := rd.repo.OpenObject(ctx, rd.metadata.ObjectID)
-	if err != nil {
-		return nil, errors.Wrapf(err, "unable to open object: %v", rd.metadata.ObjectID)
-	}
-	defer r.Close() //nolint:errcheck
-
-	_, summ, err := readDirEntries(r)
-	if err != nil {
+	if err := rd.ensureSummary(ctx); err != nil {
 		return nil, err
 	}
 
-	return summ, nil
+	return rd.summary, nil
 }
 
 func (rd *repositoryDirectory) Child(ctx context.Context, name string) (fs.Entry, error) {
-	// nolint:wrapcheck
-	return fs.ReadDirAndFindChild(ctx, rd, name)
-}
-
-func (rd *repositoryDirectory) IterateEntries(ctx context.Context, cb func(context.Context, fs.Entry) error) error {
-	return fs.ReaddirToIterate(ctx, rd, cb)
-}
-
-func (rd *repositoryDirectory) Readdir(ctx context.Context) (fs.Entries, error) {
-	r, err := rd.repo.OpenObject(ctx, rd.metadata.ObjectID)
-	if err != nil {
-		return nil, errors.Wrapf(err, "unable to open object: %v", rd.metadata.ObjectID)
-	}
-	defer r.Close() //nolint:errcheck
-
-	metadata, _, err := readDirEntries(r)
-	if err != nil {
+	if err := rd.ensureDirEntriesLoaded(ctx); err != nil {
 		return nil, err
 	}
 
-	entries := make(fs.Entries, len(metadata))
-	for i, m := range metadata {
-		entries[i] = EntryFromDirEntry(rd.repo, m)
+	de := rd.dirEntries[name]
+	if de == nil {
+		return nil, fs.ErrEntryNotFound
 	}
 
-	entries.Sort()
+	return EntryFromDirEntry(rd.repo, de), nil
+}
 
-	return entries, nil
+func (rd *repositoryDirectory) IterateEntries(ctx context.Context, cb func(context.Context, fs.Entry) error) error {
+	if err := rd.ensureDirEntriesLoaded(ctx); err != nil {
+		return err
+	}
+
+	for _, de := range rd.dirEntries {
+		if err := cb(ctx, EntryFromDirEntry(rd.repo, de)); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (rd *repositoryDirectory) Readdir(ctx context.Context) (fs.Entries, error) {
+	return fs.IterateEntriesToReaddir(ctx, rd)
+}
+
+func (rd *repositoryDirectory) ensureDirEntriesLoaded(ctx context.Context) error {
+	rd.mu.Lock()
+	defer rd.mu.Unlock()
+
+	if rd.dirEntries != nil {
+		return nil
+	}
+
+	return rd.loadLocked(ctx)
+}
+
+func (rd *repositoryDirectory) ensureSummary(ctx context.Context) error {
+	rd.mu.Lock()
+	defer rd.mu.Unlock()
+
+	if rd.summary != nil {
+		return nil
+	}
+
+	return rd.loadLocked(ctx)
+}
+
+func (rd *repositoryDirectory) loadLocked(ctx context.Context) error {
+	r, err := rd.repo.OpenObject(ctx, rd.metadata.ObjectID)
+	if err != nil {
+		return errors.Wrapf(err, "unable to open object: %v", rd.metadata.ObjectID)
+	}
+	defer r.Close() //nolint:errcheck
+
+	ent, summ, err := readDirEntries(r)
+	if err != nil {
+		return errors.Wrapf(err, "unable to read dir entries for: %v", rd.metadata.ObjectID)
+	}
+
+	for _, md := range ent {
+		if md.Type == snapshot.EntryTypeDirectory && md.DirSummary != nil {
+			md.FileSize = md.DirSummary.TotalFileSize
+			md.ModTime = md.DirSummary.MaxModTime
+		}
+	}
+
+	rd.summary = summ
+	rd.dirEntries = map[string]*snapshot.DirEntry{}
+
+	for _, e := range ent {
+		rd.dirEntries[e.Name] = e
+	}
+
+	return nil
 }
 
 func (rf *repositoryFile) Open(ctx context.Context) (fs.Reader, error) {
@@ -189,12 +233,7 @@ func EntryFromDirEntry(r repo.Repository, md *snapshot.DirEntry) fs.Entry {
 
 	switch md.Type {
 	case snapshot.EntryTypeDirectory:
-		if md.DirSummary != nil {
-			md.FileSize = md.DirSummary.TotalFileSize
-			md.ModTime = md.DirSummary.MaxModTime
-		}
-
-		return fs.Directory(&repositoryDirectory{re, md.DirSummary})
+		return fs.Directory(&repositoryDirectory{repositoryEntry: re, summary: md.DirSummary})
 
 	case snapshot.EntryTypeSymlink:
 		return fs.Symlink(&repositorySymlink{re})

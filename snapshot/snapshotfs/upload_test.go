@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime/debug"
 	"sort"
 	"sync/atomic"
 	"testing"
@@ -223,13 +224,8 @@ func TestUpload_TopLevelDirectoryReadFailure(t *testing.T) {
 	policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
 
 	s, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{})
-	if err.Error() != errTest.Error() {
-		t.Errorf("expected error: %v", err)
-	}
-
-	if s != nil {
-		t.Errorf("result not nil: %v", s)
-	}
+	require.ErrorIs(t, err, errTest)
+	require.Nil(t, s)
 }
 
 func TestUploadDoesNotReportProgressForIgnoredFilesTwice(t *testing.T) {
@@ -289,13 +285,9 @@ func TestUpload_SubDirectoryReadFailureFailFast(t *testing.T) {
 	policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
 
 	man, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{})
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
-	if man.IncompleteReason == "" {
-		t.Fatalf("snapshot not marked as incomplete")
-	}
+	require.NotEqual(t, "", man.IncompleteReason, "snapshot not marked as incomplete")
 
 	// will have one error because we're canceling early.
 	verifyErrors(t, man, 1, 0,
@@ -330,9 +322,7 @@ func TestUpload_SubDirectoryReadFailureIgnoredNoFailFast(t *testing.T) {
 	})
 
 	man, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{})
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
 	// 0 failed, 2 ignored
 	verifyErrors(t, man, 0, 2,
@@ -453,14 +443,10 @@ func TestUpload_SubDirectoryReadFailureNoFailFast(t *testing.T) {
 	policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
 
 	man, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{})
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
 	// make sure we have 2 errors
-	if got, want := man.RootEntry.DirSummary.FatalErrorCount, 2; got != want {
-		t.Errorf("invalid number of failed entries: %v, want %v", got, want)
-	}
+	require.Equal(t, 2, man.RootEntry.DirSummary.FatalErrorCount)
 
 	verifyErrors(t, man,
 		2, 0,
@@ -474,17 +460,9 @@ func TestUpload_SubDirectoryReadFailureNoFailFast(t *testing.T) {
 func verifyErrors(t *testing.T, man *snapshot.Manifest, wantFatalErrors, wantIgnoredErrors int, wantErrors []*fs.EntryWithError) {
 	t.Helper()
 
-	if got, want := man.RootEntry.DirSummary.FatalErrorCount, wantFatalErrors; got != want {
-		t.Fatalf("invalid number of fatal errors: %v, want %v", got, want)
-	}
-
-	if got, want := man.RootEntry.DirSummary.IgnoredErrorCount, wantIgnoredErrors; got != want {
-		t.Fatalf("invalid number of ignored errors: %v, want %v", got, want)
-	}
-
-	if diff := pretty.Compare(man.RootEntry.DirSummary.FailedEntries, wantErrors); diff != "" {
-		t.Errorf("unexpected errors, diff(-got,+want): %v\n", diff)
-	}
+	require.Equal(t, wantFatalErrors, man.RootEntry.DirSummary.FatalErrorCount, "invalid number of fatal errors")
+	require.Equal(t, wantIgnoredErrors, man.RootEntry.DirSummary.IgnoredErrorCount, "invalid number of ignored errors")
+	require.Empty(t, pretty.Compare(man.RootEntry.DirSummary.FailedEntries, wantErrors), "unexpected errors, diff(-got,+want)")
 }
 
 func TestUpload_SubDirectoryReadFailureSomeIgnoredNoFailFast(t *testing.T) {
@@ -517,9 +495,7 @@ func TestUpload_SubDirectoryReadFailureSomeIgnoredNoFailFast(t *testing.T) {
 	}
 
 	man, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{})
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
 	verifyErrors(t, man,
 		2, 1,
@@ -567,7 +543,10 @@ func TestUploadWithCheckpointing(t *testing.T) {
 	}
 
 	for _, d := range dirsToCheckpointAt {
+		d := d
+
 		d.OnReaddir(func() {
+			t.Logf("onReadDir %v %s", d.Name(), debug.Stack())
 			// trigger checkpoint
 			fakeTicker <- clock.Now()
 			// wait for checkpoint
@@ -584,9 +563,7 @@ func TestUploadWithCheckpointing(t *testing.T) {
 		t.Fatalf("error listing snapshots: %v", err)
 	}
 
-	if got, want := len(snapshots), len(dirsToCheckpointAt); got != want {
-		t.Fatalf("unexpected number of snapshots: %v, want %v", got, want)
-	}
+	require.Len(t, snapshots, len(dirsToCheckpointAt))
 
 	for _, sn := range snapshots {
 		if got, want := sn.IncompleteReason, IncompleteReasonCheckpoint; got != want {
@@ -1020,9 +997,9 @@ func TestUploadLogging(t *testing.T) {
 				"ignored":               {"dur", "path"},
 			},
 			wantEntries: []string{
-				"ignored f1",
 				"ignored directory d1/d3",
 				"snapshotted directory d1",
+				"ignored f1",
 				"snapshotted file f2",
 				"snapshotted file f3",
 				"snapshotted symlink f4",
@@ -1030,9 +1007,9 @@ func TestUploadLogging(t *testing.T) {
 				"snapshotted directory .",
 			},
 			wantEntriesSecond: []string{
-				"ignored f1",
 				"ignored directory d1/d3",
 				"snapshotted directory d1",
+				"ignored f1",
 				"cached f2",
 				"cached f3",
 				"cached f4",
