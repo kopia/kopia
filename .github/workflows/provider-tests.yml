@@ -11,8 +11,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 jobs:
-  endurance-test:
+  provider-test:
     name: Provider Test
+    if: ${{ github.repository == 'kopia/kopia' }}
     runs-on: ubuntu-latest
     steps:
     - name: Set up Go.
