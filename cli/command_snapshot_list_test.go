@@ -43,4 +43,8 @@ func TestSnapshotList(t *testing.T) {
 		"--json"), &snapshots)
 
 	require.Len(t, snapshots, 4)
+
+	for _, s := range snapshots {
+		require.NotEmpty(t, s.RetentionReasons, "expecting retention reason to be set")
+	}
 }
