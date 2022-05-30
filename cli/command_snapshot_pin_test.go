@@ -81,6 +81,8 @@ func TestSnapshotPin(t *testing.T) {
 }
 
 func mustListSnapshots(t *testing.T, e *testenv.CLITest) []*snapshot.Manifest {
+	t.Helper()
+
 	var cliSnapshots []cli.SnapshotManifest
 
 	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "list", "--json"), &cliSnapshots)
