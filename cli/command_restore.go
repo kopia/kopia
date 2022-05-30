@@ -222,7 +222,7 @@ func (c *commandRestore) restoreOutput(ctx context.Context) (restore.Output, err
 			SkipOwners:             c.restoreSkipOwners,
 			SkipPermissions:        c.restoreSkipPermissions,
 			SkipTimes:              c.restoreSkipTimes,
-			Sparse:                 c.restoreSparse,
+			Copier:                 restore.GetStreamCopier(ctx, targetpath, c.restoreSparse),
 		}, nil
 
 	case restoreModeZip, restoreModeZipNoCompress:

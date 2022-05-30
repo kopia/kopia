@@ -26,9 +26,32 @@ const (
 	maxTimeDeltaToConsiderFileTheSame = 2 * time.Second
 )
 
-// Copier is a generic function type to perform the actual copying of data bits
+// StreamCopier is a generic function type to perform the actual copying of data bits
 // from a source stream to a destination stream.
-type streamCopier func(io.WriteSeeker, io.Reader) (int64, error)
+type StreamCopier func(io.WriteSeeker, io.Reader) (int64, error)
+
+// GetStreamCopier returns a function that can copy data from a source stream to a destination stream.
+func GetStreamCopier(ctx context.Context, targetpath string, sparse bool) StreamCopier {
+	if sparse {
+		if !isWindows() {
+			return func(w io.WriteSeeker, r io.Reader) (int64, error) {
+				s, err := stat.GetBlockSize(targetpath)
+				if err != nil {
+					return 0, errors.Wrap(err, "error getting block size")
+				}
+
+				return sparsefile.Copy(w, r, s) //nolint:wrapcheck
+			}
+		}
+
+		log(ctx).Debugf("Sparse copying is not supported on Windows, falling back to regular copying")
+	}
+
+	// Wrap iocopy.Copy to conform to StreamCopier type.
+	return func(w io.WriteSeeker, r io.Reader) (int64, error) {
+		return iocopy.Copy(w, r) //nolint:wrapcheck
+	}
+}
 
 // FilesystemOutput contains the options for outputting a file system tree.
 type FilesystemOutput struct {
@@ -63,8 +86,8 @@ type FilesystemOutput struct {
 	// SkipTimes when set to true causes restore to skip restoring modification times.
 	SkipTimes bool `json:"skipTimes"`
 
-	// Sparse when set to true causes restore files sparsely-not writing any holes (zero regions) to disk.
-	Sparse bool `json:"sparse"`
+	// Copier is the StreamCopier to use for copying the actual bit stream to output.
+	Copier StreamCopier `json:"copier"`
 }
 
 // Parallelizable implements restore.Output interface.
@@ -286,28 +309,6 @@ func (o *FilesystemOutput) shouldUpdateTimes(local, remote fs.Entry) bool {
 	return !local.ModTime().Equal(remote.ModTime())
 }
 
-func (o *FilesystemOutput) getStreamCopier(ctx context.Context) streamCopier {
-	if o.Sparse {
-		if !isWindows() {
-			return func(w io.WriteSeeker, r io.Reader) (int64, error) {
-				s, err := stat.GetBlockSize(o.TargetPath)
-				if err != nil {
-					return 0, errors.Wrap(err, "error getting block size")
-				}
-
-				return sparsefile.Copy(w, r, s) //nolint:wrapcheck
-			}
-		}
-
-		log(ctx).Debugf("Sparse copying is not supported on Windows, falling back to regular copying")
-	}
-
-	// Wrap iocopy.Copy to conform to streamCopier type.
-	return func(w io.WriteSeeker, r io.Reader) (int64, error) {
-		return iocopy.Copy(w, r) //nolint:wrapcheck
-	}
-}
-
 func isWindows() bool {
 	return runtime.GOOS == "windows"
 }
@@ -334,7 +335,7 @@ func (o *FilesystemOutput) createDirectory(ctx context.Context, path string) err
 	}
 }
 
-func write(targetPath string, r fs.Reader, size int64, c streamCopier) error {
+func write(targetPath string, r fs.Reader, size int64, c StreamCopier) error {
 	f, err := os.OpenFile(targetPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600) //nolint:gosec,gomnd
 	if err != nil {
 		return err //nolint:wrapcheck
@@ -388,9 +389,7 @@ func (o *FilesystemOutput) copyFileContent(ctx context.Context, targetPath strin
 		return atomicfile.Write(targetPath, r)
 	}
 
-	c := o.getStreamCopier(ctx)
-
-	return write(targetPath, r, f.Size(), c)
+	return write(targetPath, r, f.Size(), o.Copier)
 }
 
 func isEmptyDirectory(name string) (bool, error) {
