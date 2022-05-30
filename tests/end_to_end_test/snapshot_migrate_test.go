@@ -8,8 +8,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kopia/kopia/cli"
 	"github.com/kopia/kopia/internal/testutil"
-	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
@@ -90,7 +90,7 @@ func (s *formatSpecificTestSuite) TestSnapshotMigrateWithIgnores(t *testing.T) {
 	dstenv.RunAndExpectSuccess(t, "policy", "set", sd, "--add-ignore", "file2.txt")
 	dstenv.RunAndExpectSuccess(t, "snapshot", "migrate", "--source-config", filepath.Join(e.ConfigDir, ".kopia.config"), "--all", "--apply-ignore-rules")
 
-	var manifests []snapshot.Manifest
+	var manifests []cli.SnapshotManifest
 
 	testutil.MustParseJSONLines(t, dstenv.RunAndExpectSuccess(t, "snapshot", "list", "-a", sd, "--json"), &manifests)
 

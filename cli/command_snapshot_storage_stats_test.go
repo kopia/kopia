@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/kopia/kopia/cli"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/tests/testenv"
@@ -31,7 +32,7 @@ func TestSnapshotStorageStats(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(dir1, "subdir", "file4.txt"), []byte{1, 2, 3, 4, 5, 6, 7, 8}, 0o600))
 	env.RunAndExpectSuccess(t, "snapshot", "create", dir1)
 
-	var manifests []*snapshot.Manifest
+	var manifests []cli.SnapshotManifest
 
 	testutil.MustParseJSONLines(t, env.RunAndExpectSuccess(t, "snapshot", "ls", "--storage-stats", dir1, "--json"), &manifests)
 	require.Len(t, manifests, 2)

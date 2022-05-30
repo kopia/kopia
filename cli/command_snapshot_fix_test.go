@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/kopia/kopia/cli"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/object"
@@ -334,7 +335,7 @@ func TestSnapshotFix(t *testing.T) {
 
 			env.RunAndExpectSuccess(t, "snapshot", "verify")
 
-			var manifests []snapshot.Manifest
+			var manifests []cli.SnapshotManifest
 
 			testutil.MustParseJSONLines(t, env.RunAndExpectSuccess(t, "snapshot", "list", "--json"), &manifests)
 			require.Len(t, manifests, 2)
