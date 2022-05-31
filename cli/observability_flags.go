@@ -195,7 +195,9 @@ func (c *observabilityFlags) pushPeriodically(ctx context.Context, p *push.Pushe
 			c.pushOnce(ctx, "periodic", p)
 
 		case <-c.stopPusher:
+			ticker.Stop()
 			c.pushOnce(ctx, "final", p)
+
 			return
 		}
 	}
