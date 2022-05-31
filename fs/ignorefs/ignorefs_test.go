@@ -2,6 +2,7 @@ package ignorefs_test
 
 import (
 	"bytes"
+	"context"
 	"sort"
 	"testing"
 
@@ -548,12 +549,7 @@ func walkTree(t *testing.T, dir fs.Directory) []string {
 	walk = func(path string, d fs.Directory) error {
 		output = append(output, path+"/")
 
-		entries, err := d.Readdir(testlogging.Context(t))
-		if err != nil {
-			return err
-		}
-
-		for _, e := range entries {
+		return d.IterateEntries(testlogging.Context(t), func(innerCtx context.Context, e fs.Entry) error {
 			relPath := path + "/" + e.Name()
 
 			if subdir, ok := e.(fs.Directory); ok {
@@ -563,9 +559,9 @@ func walkTree(t *testing.T, dir fs.Directory) []string {
 			} else {
 				output = append(output, relPath)
 			}
-		}
 
-		return nil
+			return nil
+		})
 	}
 
 	if err := walk(".", dir); err != nil {
