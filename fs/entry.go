@@ -60,7 +60,6 @@ type StreamingFile interface {
 type Directory interface {
 	Entry
 	Child(ctx context.Context, name string) (Entry, error)
-	Readdir(ctx context.Context) (Entries, error)
 	IterateEntries(ctx context.Context, cb func(context.Context, Entry) error) error
 }
 
@@ -79,36 +78,6 @@ type ErrorEntry interface {
 // ErrEntryNotFound is returned when an entry is not found.
 var ErrEntryNotFound = errors.New("entry not found")
 
-// ReaddirToIterate is an adapter for a naive Readdir -> IterateEntries implementation.
-func ReaddirToIterate(ctx context.Context, d Directory, cb func(context.Context, Entry) error) error {
-	entries, err := d.Readdir(ctx)
-	if err != nil {
-		return errors.Wrap(err, "error reading directory")
-	}
-
-	for _, e := range entries {
-		if err := cb(ctx, e); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// IterateEntriesToReaddir is an adapter for a naive IterateEntries -> Readdir implementation.
-func IterateEntriesToReaddir(ctx context.Context, d Directory) (Entries, error) {
-	var entries Entries
-
-	err := d.IterateEntries(ctx, func(ctx context.Context, e Entry) error {
-		entries = append(entries, e)
-		return nil
-	})
-
-	entries.Sort()
-
-	return entries, err // nolint:wrapcheck
-}
-
 // IterateEntriesAndFindChild iterates through entries from a directory and returns one by name.
 // This is a convenience function that may be helpful in implementations of Directory.Child().
 func IterateEntriesAndFindChild(ctx context.Context, d Directory, name string) (Entry, error) {
@@ -123,23 +92,11 @@ func IterateEntriesAndFindChild(ctx context.Context, d Directory, name string) (
 		return nil, errors.Wrap(err, "error reading directory")
 	}
 
-	return result, nil
-}
-
-// ReadDirAndFindChild reads all entries from a directory and returns one by name.
-// This is a convenience function that may be helpful in implementations of Directory.Child().
-func ReadDirAndFindChild(ctx context.Context, d Directory, name string) (Entry, error) {
-	children, err := d.Readdir(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "error reading directory")
-	}
-
-	e := children.FindByName(name)
-	if e == nil {
+	if result == nil {
 		return nil, ErrEntryNotFound
 	}
 
-	return e, nil
+	return result, nil
 }
 
 // MaxFailedEntriesPerDirectorySummary is the maximum number of failed entries per directory summary.

@@ -255,7 +255,7 @@ func (imd *Directory) Remove(name string) {
 	imd.children = newChildren
 }
 
-// FailReaddir causes the subsequent Readdir() calls to fail with the specified error.
+// FailReaddir causes the subsequent IterateEntries() calls to fail with the specified error.
 func (imd *Directory) FailReaddir(err error) {
 	imd.readdirError = err
 }
@@ -277,20 +277,21 @@ func (imd *Directory) Child(ctx context.Context, name string) (fs.Entry, error) 
 
 // IterateEntries calls the given callback on each entry in the directory.
 func (imd *Directory) IterateEntries(ctx context.Context, cb func(context.Context, fs.Entry) error) error {
-	return fs.ReaddirToIterate(ctx, imd, cb)
-}
-
-// Readdir gets the contents of a directory.
-func (imd *Directory) Readdir(ctx context.Context) (fs.Entries, error) {
 	if imd.readdirError != nil {
-		return nil, imd.readdirError
+		return imd.readdirError
 	}
 
 	if imd.onReaddir != nil {
 		imd.onReaddir()
 	}
 
-	return append(fs.Entries(nil), imd.children...), nil
+	for _, e := range append(fs.Entries(nil), imd.children...) {
+		if err := cb(ctx, e); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // File is an in-memory fs.File capable of simulating failures.

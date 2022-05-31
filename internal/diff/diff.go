@@ -57,14 +57,14 @@ func (c *Comparer) compareDirectories(ctx context.Context, dir1, dir2 fs.Directo
 	var err error
 
 	if dir1 != nil {
-		entries1, err = fs.IterateEntriesToReaddir(ctx, dir1)
+		entries1, err = iterateEntriesToReaddir(ctx, dir1)
 		if err != nil {
 			return errors.Wrapf(err, "unable to read first directory %v", parent)
 		}
 	}
 
 	if dir2 != nil {
-		entries2, err = fs.IterateEntriesToReaddir(ctx, dir2)
+		entries2, err = iterateEntriesToReaddir(ctx, dir2)
 		if err != nil {
 			return errors.Wrapf(err, "unable to read second directory %v", parent)
 		}
@@ -309,4 +309,20 @@ func NewComparer(out io.Writer) (*Comparer, error) {
 	}
 
 	return &Comparer{out: out, tmpDir: tmp}, nil
+}
+
+func iterateEntriesToReaddir(ctx context.Context, dir fs.Directory) (fs.Entries, error) {
+	entries := fs.Entries(nil)
+
+	err := dir.IterateEntries(ctx, func(innerCtx context.Context, e fs.Entry) error {
+		entries = append(entries, e)
+		return nil
+	})
+	if err != nil {
+		return nil, err // nolint:wrapcheck
+	}
+
+	entries.Sort()
+
+	return entries, nil
 }

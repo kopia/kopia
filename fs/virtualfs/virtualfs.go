@@ -70,12 +70,7 @@ type staticDirectory struct {
 // Child gets the named child of a directory.
 func (sd *staticDirectory) Child(ctx context.Context, name string) (fs.Entry, error) {
 	// nolint:wrapcheck
-	return fs.ReadDirAndFindChild(ctx, sd, name)
-}
-
-// Readdir gets the contents of a directory.
-func (sd *staticDirectory) Readdir(ctx context.Context) (fs.Entries, error) {
-	return fs.IterateEntriesToReaddir(ctx, sd)
+	return fs.IterateEntriesAndFindChild(ctx, sd, name)
 }
 
 func (sd *staticDirectory) IterateEntries(ctx context.Context, cb func(context.Context, fs.Entry) error) error {

@@ -140,10 +140,6 @@ func toDirEntryOrNil(dirEntry os.DirEntry, prefix string) (fs.Entry, error) {
 	return entryFromDirEntry(fi, prefix), nil
 }
 
-func (fsd *filesystemDirectory) Readdir(ctx context.Context) (fs.Entries, error) {
-	return fs.IterateEntriesToReaddir(ctx, fsd)
-}
-
 func (fsd *filesystemDirectory) IterateEntries(ctx context.Context, cb func(context.Context, fs.Entry) error) error {
 	fullPath := fsd.fullPath()
 

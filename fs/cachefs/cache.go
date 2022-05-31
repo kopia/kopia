@@ -86,14 +86,34 @@ type EntryWrapper func(entry fs.Entry) fs.Entry
 // IterateEntries reads the contents of a provided directory using ObjectID of a directory (if any) to cache
 // the results. The given callback is invoked on each item in the directory.
 func (c *Cache) IterateEntries(ctx context.Context, d fs.Directory, w EntryWrapper, callback func(context.Context, fs.Entry) error) error {
-	if _, ok := d.(object.HasObjectID); ok {
-		entries, err := c.Readdir(ctx, d, w)
+	if h, ok := d.(object.HasObjectID); ok {
+		cacheID := h.ObjectID().String()
+
+		entries, err := c.getEntries(
+			ctx,
+			cacheID,
+			dirCacheExpiration,
+			func(innerCtx context.Context) (fs.Entries, error) {
+				result := fs.Entries(nil)
+				err2 := d.IterateEntries(innerCtx, func(callbackCtx context.Context, e fs.Entry) error {
+					result = append(result, e)
+					return nil
+				})
+
+				if err2 != nil {
+					return nil, err2 // nolint:wrapcheck
+				}
+
+				return result, nil
+			},
+			w,
+		)
 		if err != nil {
 			return err
 		}
 
 		for _, e := range entries {
-			err := callback(ctx, e)
+			err = callback(ctx, e)
 			if err != nil {
 				return err
 			}
@@ -103,26 +123,6 @@ func (c *Cache) IterateEntries(ctx context.Context, d fs.Directory, w EntryWrapp
 	}
 
 	return d.IterateEntries(ctx, callback) // nolint:wrapcheck
-}
-
-// Readdir reads the contents of a provided directory using ObjectID of a directory (if any) to cache
-// the results.
-func (c *Cache) Readdir(ctx context.Context, d fs.Directory, w EntryWrapper) (fs.Entries, error) {
-	if h, ok := d.(object.HasObjectID); ok {
-		cacheID := h.ObjectID().String()
-
-		return c.getEntries(
-			ctx,
-			cacheID,
-			dirCacheExpiration,
-			func(innerCtx context.Context) (fs.Entries, error) {
-				return fs.IterateEntriesToReaddir(innerCtx, d)
-			},
-			w,
-		)
-	}
-
-	return fs.IterateEntriesToReaddir(ctx, d)
 }
 
 func (c *Cache) getEntriesFromCacheLocked(ctx context.Context, id string) fs.Entries {

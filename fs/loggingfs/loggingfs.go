@@ -33,18 +33,27 @@ func (ld *loggingDirectory) Child(ctx context.Context, name string) (fs.Entry, e
 	return wrapWithOptions(entry, ld.options, ld.relativePath+"/"+entry.Name()), nil
 }
 
-func (ld *loggingDirectory) Readdir(ctx context.Context) (fs.Entries, error) {
+func (ld *loggingDirectory) IterateEntries(ctx context.Context, callback func(context.Context, fs.Entry) error) error {
 	timer := timetrack.StartTimer()
-	entries, err := fs.IterateEntriesToReaddir(ctx, ld.Directory)
+	entries := fs.Entries(nil)
+	err := ld.Directory.IterateEntries(ctx, func(innerCtx context.Context, e fs.Entry) error {
+		entries = append(entries, wrapWithOptions(e, ld.options, ld.relativePath+"/"+e.Name()))
+		return nil
+	})
 	dt := timer.Elapsed()
 	ld.options.printf(ld.options.prefix+"Readdir(%v) took %v and returned %v items", ld.relativePath, dt, len(entries))
 
-	loggingEntries := make(fs.Entries, len(entries))
-	for i, entry := range entries {
-		loggingEntries[i] = wrapWithOptions(entry, ld.options, ld.relativePath+"/"+entry.Name())
+	if err != nil {
+		return err // nolint:wrapcheck
 	}
 
-	return loggingEntries, err
+	for _, e := range entries {
+		if err2 := callback(ctx, e); err2 != nil {
+			return err2
+		}
+	}
+
+	return nil
 }
 
 type loggingFile struct {

@@ -210,10 +210,6 @@ func (d *ignoreDirectory) Child(ctx context.Context, name string) (fs.Entry, err
 	return nil, fs.ErrEntryNotFound
 }
 
-func (d *ignoreDirectory) Readdir(ctx context.Context) (fs.Entries, error) {
-	return fs.IterateEntriesToReaddir(ctx, d)
-}
-
 func (d *ignoreDirectory) buildContext(ctx context.Context) (*ignoreContext, error) {
 	effectiveDotIgnoreFiles := d.parentContext.dotIgnoreFiles
 
