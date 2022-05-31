@@ -169,12 +169,6 @@ func (s *formatSpecificTestSuite) TestMaintenanceReuseDirManifest(t *testing.T) 
 	t.Log("root info:", pretty.Sprint(info))
 }
 
-func TestSnapshotGCMinContentAgeSafety(t *testing.T) {
-	s := formatSpecificTestSuite{formatVersion: content.FormatVersion2}
-
-	s.TestSnapshotGCMinContentAgeSafety(t)
-}
-
 func (s *formatSpecificTestSuite) TestSnapshotGCMinContentAgeSafety(t *testing.T) {
 	ctx := testlogging.Context(t)
 	th := newTestHarness(t, s.formatVersion)
