@@ -128,6 +128,7 @@ func TestStreamingDirectory(t *testing.T) {
 		) error {
 			return callback(ctx, f)
 		},
+		true,
 	)
 
 	entries, err := rootDir.Readdir(context.TODO())
@@ -161,6 +162,58 @@ func TestStreamingDirectory(t *testing.T) {
 	}
 }
 
+func TestStreamingDirectory_MultipleIterations(t *testing.T) {
+	cases := map[string]bool{
+		"MultipleIterations": true,
+		"SingleIteration":    false,
+	}
+
+	for desc, iterations := range cases {
+		t.Run(desc, func(t *testing.T) {
+			// Create a temporary file with test data
+			content := []byte("Temporary file content")
+			r := bytes.NewReader(content)
+
+			f := StreamingFileFromReader(testFileName, r)
+
+			rootDir := NewStreamingDirectory(
+				"root",
+				func(
+					ctx context.Context,
+					callback func(context.Context, fs.Entry) error,
+				) error {
+					return callback(ctx, f)
+				},
+				iterations,
+			)
+
+			entries := fs.Entries(nil)
+			iterFunc := func(innerCtx context.Context, e fs.Entry) error {
+				entries = append(entries, e)
+				return nil
+			}
+
+			err := rootDir.IterateEntries(context.TODO(), iterFunc)
+			if err != nil {
+				t.Fatalf("error getting directory entries once")
+			}
+
+			if len(entries) != 1 {
+				t.Fatalf("unexpected number of entries: (got) %v, (expected) %v", len(entries), 1)
+			}
+
+			entries = nil
+
+			err = rootDir.IterateEntries(context.TODO(), iterFunc)
+			if iterations && err != nil {
+				t.Fatalf("unexpected error on second directory iteration: %v", err)
+			} else if !iterations && err == nil {
+				t.Fatalf("did not get expected error on second directory iteration")
+			}
+		})
+	}
+}
+
 var errCallback = errors.New("callback error")
 
 func TestStreamingDirectory_ReturnsCallbackError(t *testing.T) {
@@ -178,6 +231,7 @@ func TestStreamingDirectory_ReturnsCallbackError(t *testing.T) {
 		) error {
 			return callback(ctx, f)
 		},
+		true,
 	)
 
 	err := rootDir.IterateEntries(context.TODO(), func(context.Context, fs.Entry) error {
@@ -199,6 +253,7 @@ func TestStreamingDirectory_ReturnsReadDirError(t *testing.T) {
 		) error {
 			return errIteration
 		},
+		true,
 	)
 
 	err := rootDir.IterateEntries(context.TODO(), func(context.Context, fs.Entry) error {

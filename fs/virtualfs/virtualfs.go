@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/kopia/kopia/fs"
@@ -97,7 +98,10 @@ func NewStaticDirectory(name string, entries []fs.Entry) fs.Directory {
 type streamingDirectory struct {
 	virtualEntry
 	// Used to generate the next entry and execute the callback on it.
-	callback func(context.Context, func(context.Context, fs.Entry) error) error
+	// +checklocks:mu
+	callback           func(context.Context, func(context.Context, fs.Entry) error) error
+	multipleIterations bool
+	mu                 sync.Mutex
 }
 
 var errChildNotSupported = errors.New("streamingDirectory.Child not supported")
@@ -110,11 +114,39 @@ func (sd *streamingDirectory) Readdir(ctx context.Context) (fs.Entries, error) {
 	return fs.IterateEntriesToReaddir(ctx, sd)
 }
 
+var errIteratorAlreadyUsed = errors.New("cannot use streaming directory iterator more than once if not MultipleIterations")
+
+func (sd *streamingDirectory) getIterator() (func(context.Context, func(context.Context, fs.Entry) error) error, error) {
+	sd.mu.Lock()
+	defer sd.mu.Unlock()
+
+	if sd.callback == nil {
+		return nil, errIteratorAlreadyUsed
+	}
+
+	cb := sd.callback
+
+	if !sd.MultipleIterations() {
+		sd.callback = nil
+	}
+
+	return cb, nil
+}
+
 func (sd *streamingDirectory) IterateEntries(
 	ctx context.Context,
 	callback func(context.Context, fs.Entry) error,
 ) error {
-	return sd.callback(ctx, callback)
+	cb, err := sd.getIterator()
+	if err != nil {
+		return err
+	}
+
+	return cb(ctx, callback)
+}
+
+func (sd *streamingDirectory) MultipleIterations() bool {
+	return sd.multipleIterations
 }
 
 // NewStreamingDirectory returns a directory that will call the given function
@@ -122,13 +154,15 @@ func (sd *streamingDirectory) IterateEntries(
 func NewStreamingDirectory(
 	name string,
 	callback func(context.Context, func(context.Context, fs.Entry) error) error,
+	multipleIterations bool,
 ) fs.Directory {
 	return &streamingDirectory{
 		virtualEntry: virtualEntry{
 			name: name,
 			mode: defaultPermissions | os.ModeDir,
 		},
-		callback: callback,
+		callback:           callback,
+		multipleIterations: multipleIterations,
 	}
 }
 
@@ -167,8 +201,9 @@ func StreamingFileFromReader(name string, reader io.Reader) fs.StreamingFile {
 }
 
 var (
-	_ fs.Directory     = &staticDirectory{}
-	_ fs.Directory     = &streamingDirectory{}
-	_ fs.StreamingFile = &virtualFile{}
-	_ fs.Entry         = &virtualEntry{}
+	_ fs.Directory                          = &staticDirectory{}
+	_ fs.Directory                          = &streamingDirectory{}
+	_ fs.DirectoryWithIterationRestrictions = &streamingDirectory{}
+	_ fs.StreamingFile                      = &virtualFile{}
+	_ fs.Entry                              = &virtualEntry{}
 )
