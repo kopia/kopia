@@ -34,14 +34,16 @@ type StreamCopier func(io.WriteSeeker, io.Reader) (int64, error)
 func GetStreamCopier(ctx context.Context, targetpath string, sparse bool) StreamCopier {
 	if sparse {
 		if !isWindows() {
-			s, err := stat.GetBlockSize(targetpath)
+			dirpath := filepath.Dir(targetpath)
+
+			s, err := stat.GetBlockSize(dirpath)
 			if err == nil {
 				return func(w io.WriteSeeker, r io.Reader) (int64, error) {
 					return sparsefile.Copy(w, r, s) //nolint:wrapcheck
 				}
 			}
 
-			log(ctx).Warnf("could not get disk block size for sparse copier, proceeding with normal copy")
+			log(ctx).Errorf("error creating sparse copier: error getting disk block size for %s: %v. falling back to regular copying", dirpath, err)
 		}
 
 		log(ctx).Debugf("sparse copying is not supported on Windows, falling back to regular copying")
