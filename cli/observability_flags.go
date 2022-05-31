@@ -25,7 +25,7 @@ import (
 )
 
 // nolint:gochecknoglobals
-var matricsPushFormats = map[string]expfmt.Format{
+var metricsPushFormats = map[string]expfmt.Format{
 	"text":          expfmt.FmtText,
 	"proto-text":    expfmt.FmtProtoText,
 	"proto-delim":   expfmt.FmtProtoDelim,
@@ -68,7 +68,7 @@ func (c *observabilityFlags) setup(app *kingpin.Application) {
 
 	var formats []string
 
-	for k := range matricsPushFormats {
+	for k := range metricsPushFormats {
 		formats = append(formats, k)
 	}
 
@@ -122,7 +122,7 @@ func (c *observabilityFlags) startMetrics(ctx context.Context) error {
 		}
 
 		if c.metricsPushFormat != "" {
-			pusher.Format(matricsPushFormats[c.metricsPushFormat])
+			pusher.Format(metricsPushFormats[c.metricsPushFormat])
 		}
 
 		log(ctx).Infof("starting prometheus pusher on %v every %v", c.metricsPushAddr, c.metricsPushInterval)
