@@ -212,18 +212,17 @@ func (c *commandRestore) restoreOutput(ctx context.Context) (restore.Output, err
 	m := c.detectRestoreMode(ctx, c.restoreMode, targetpath)
 	switch m {
 	case restoreModeLocal:
-		return &restore.FilesystemOutput{
-			TargetPath:             targetpath,
-			OverwriteDirectories:   c.restoreOverwriteDirectories,
-			OverwriteFiles:         c.restoreOverwriteFiles,
-			OverwriteSymlinks:      c.restoreOverwriteSymlinks,
-			IgnorePermissionErrors: c.restoreIgnorePermissionErrors,
-			WriteFilesAtomically:   c.restoreWriteFilesAtomically,
-			SkipOwners:             c.restoreSkipOwners,
-			SkipPermissions:        c.restoreSkipPermissions,
-			SkipTimes:              c.restoreSkipTimes,
-			Copier:                 restore.GetStreamCopier(ctx, targetpath, c.restoreSparse),
-		}, nil
+		return restore.NewFilesystemOutput(
+			targetpath,
+			c.restoreOverwriteDirectories,
+			c.restoreOverwriteFiles,
+			c.restoreOverwriteSymlinks,
+			c.restoreIgnorePermissionErrors,
+			c.restoreWriteFilesAtomically,
+			c.restoreSkipOwners,
+			c.restoreSkipPermissions,
+			c.restoreSkipTimes,
+			c.restoreSparse) //nolint:wrapcheck
 
 	case restoreModeZip, restoreModeZipNoCompress:
 		f, err := os.Create(targetpath) //nolint:gosec

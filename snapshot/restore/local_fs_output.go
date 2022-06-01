@@ -26,24 +26,24 @@ const (
 	maxTimeDeltaToConsiderFileTheSame = 2 * time.Second
 )
 
-// StreamCopier is a generic function type to perform the actual copying of data bits
+// streamCopier is a generic function type to perform the actual copying of data bits
 // from a source stream to a destination stream.
-type StreamCopier func(io.WriteSeeker, io.Reader) (int64, error)
+type streamCopier func(io.WriteSeeker, io.Reader) (int64, error)
 
-// GetStreamCopier returns a function that can copy data from a source stream to a destination stream.
-func GetStreamCopier(ctx context.Context, targetpath string, sparse bool) StreamCopier {
+// getStreamCopier returns a function that can copy data from a source stream to a destination stream.
+func getStreamCopier(ctx context.Context, targetpath string, sparse bool) (streamCopier, error) {
 	if sparse {
 		if !isWindows() {
 			dirpath := filepath.Dir(targetpath)
 
 			s, err := stat.GetBlockSize(dirpath)
-			if err == nil {
-				return func(w io.WriteSeeker, r io.Reader) (int64, error) {
-					return sparsefile.Copy(w, r, s) //nolint:wrapcheck
-				}
+			if err != nil {
+				return nil, errors.Wrapf(err, "error getting disk block size for target %v", dirpath)
 			}
 
-			log(ctx).Errorf("error creating sparse copier: error getting disk block size for %s: %v. falling back to regular copying", dirpath, err)
+			return func(w io.WriteSeeker, r io.Reader) (int64, error) {
+				return sparsefile.Copy(w, r, s) //nolint:wrapcheck
+			}, nil
 		}
 
 		log(ctx).Debugf("sparse copying is not supported on Windows, falling back to regular copying")
@@ -52,7 +52,7 @@ func GetStreamCopier(ctx context.Context, targetpath string, sparse bool) Stream
 	// Wrap iocopy.Copy to conform to StreamCopier type.
 	return func(w io.WriteSeeker, r io.Reader) (int64, error) {
 		return iocopy.Copy(w, r) //nolint:wrapcheck
-	}
+	}, nil
 }
 
 // FilesystemOutput contains the options for outputting a file system tree.
@@ -88,8 +88,12 @@ type FilesystemOutput struct {
 	// SkipTimes when set to true causes restore to skip restoring modification times.
 	SkipTimes bool `json:"skipTimes"`
 
-	// Copier is the StreamCopier to use for copying the actual bit stream to output.
-	Copier StreamCopier `json:"copier"`
+	// Sparse when set to true causes the restored files to be sparse.
+	Sparse bool `json:"sparse"`
+
+	// copier is the StreamCopier to use for copying the actual bit stream to output.
+	// It is assigned at runtime based on the target filesystem and restore options.
+	copier streamCopier
 }
 
 // Parallelizable implements restore.Output interface.
@@ -337,7 +341,7 @@ func (o *FilesystemOutput) createDirectory(ctx context.Context, path string) err
 	}
 }
 
-func write(targetPath string, r fs.Reader, size int64, c StreamCopier) error {
+func write(targetPath string, r fs.Reader, size int64, c streamCopier) error {
 	f, err := os.OpenFile(targetPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600) //nolint:gosec,gomnd
 	if err != nil {
 		return err //nolint:wrapcheck
@@ -391,7 +395,7 @@ func (o *FilesystemOutput) copyFileContent(ctx context.Context, targetPath strin
 		return atomicfile.Write(targetPath, r)
 	}
 
-	return write(targetPath, r, f.Size(), o.Copier)
+	return write(targetPath, r, f.Size(), o.copier)
 }
 
 func isEmptyDirectory(name string) (bool, error) {
@@ -407,6 +411,30 @@ func isEmptyDirectory(name string) (bool, error) {
 	}
 
 	return false, errors.Wrap(err, "error reading directory") // Either not empty or error
+}
+
+// NewFilesystemOutput creates a new filesystem writer output.
+func NewFilesystemOutput(targetpath string, overwriteDirectories, overwriteFiles,
+	overwriteSymlinks, ignorePermissionErrors, writeFilesAtomically, skipOwners,
+	skipPermissions, skipTimes, sparse bool) (*FilesystemOutput, error) {
+	copier, err := getStreamCopier(context.TODO(), targetpath, sparse)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to get stream copier")
+	}
+
+	return &FilesystemOutput{
+		TargetPath:             targetpath,
+		OverwriteDirectories:   overwriteDirectories,
+		OverwriteFiles:         overwriteFiles,
+		OverwriteSymlinks:      overwriteSymlinks,
+		IgnorePermissionErrors: ignorePermissionErrors,
+		WriteFilesAtomically:   writeFilesAtomically,
+		SkipOwners:             skipOwners,
+		SkipPermissions:        skipPermissions,
+		SkipTimes:              skipTimes,
+		Sparse:                 sparse,
+		copier:                 copier,
+	}, nil
 }
 
 var _ Output = (*FilesystemOutput)(nil)
