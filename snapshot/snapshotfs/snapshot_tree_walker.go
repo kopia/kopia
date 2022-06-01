@@ -48,7 +48,9 @@ func (w *TreeWalker) ReportError(ctx context.Context, entryPath string, err erro
 
 	repoFSLog(ctx).Errorf("error processing %v: %v", entryPath, err)
 
-	if len(w.errors) < w.options.MaxErrors {
+	// Record one error if we can't get too many errors so that at least that one
+	// can be returned if it's the only one.
+	if len(w.errors) < w.options.MaxErrors || (w.options.MaxErrors <= 0 && len(w.errors) == 0) {
 		w.errors = append(w.errors, err)
 	}
 
