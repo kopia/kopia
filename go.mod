@@ -24,13 +24,13 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
 	github.com/hanwen/go-fuse/v2 v2.1.1-0.20220112183258-f57e95bda82d
-	github.com/klauspost/compress v1.15.2
+	github.com/klauspost/compress v1.15.5
 	github.com/klauspost/cpuid/v2 v2.0.12 // indirect
 	github.com/klauspost/pgzip v1.2.5
 	github.com/kylelemons/godebug v1.1.0
 	github.com/mattn/go-colorable v0.1.12
 	github.com/minio/md5-simd v1.1.2 // indirect
-	github.com/minio/minio-go/v7 v7.0.24
+	github.com/minio/minio-go/v7 v7.0.27
 	github.com/minio/sha256-simd v1.0.0 // indirect
 	github.com/natefinch/atomic v1.0.1
 	github.com/pierrec/lz4 v2.6.1+incompatible
@@ -93,7 +93,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
-	github.com/prometheus/common v0.32.1
+	github.com/prometheus/common v0.34.0
 	github.com/prometheus/procfs v0.7.3 // indirect
 	github.com/rs/xid v1.3.0 // indirect
 	github.com/stretchr/objx v0.2.0 // indirect
