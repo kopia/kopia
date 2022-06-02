@@ -57,6 +57,10 @@ func (s *sourceDirectories) LocalFilesystemPath() string {
 	return ""
 }
 
+func (s *sourceDirectories) MultipleIterations() bool {
+	return true
+}
+
 func (s *sourceDirectories) Child(ctx context.Context, name string) (fs.Entry, error) {
 	// nolint:wrapcheck
 	return fs.IterateEntriesAndFindChild(ctx, s, name)

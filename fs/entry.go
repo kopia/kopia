@@ -58,10 +58,6 @@ type Directory interface {
 	Entry
 	Child(ctx context.Context, name string) (Entry, error)
 	IterateEntries(ctx context.Context, cb func(context.Context, Entry) error) error
-}
-
-// DirectoryWithIterationRestrictions allows callers to check if IterateEntries is safe to call multiple times.
-type DirectoryWithIterationRestrictions interface {
 	MultipleIterations() bool
 }
 

@@ -84,6 +84,10 @@ func (sd *staticDirectory) IterateEntries(ctx context.Context, cb func(context.C
 	return nil
 }
 
+func (sd *staticDirectory) MultipleIterations() bool {
+	return true
+}
+
 // NewStaticDirectory returns a virtual static directory.
 func NewStaticDirectory(name string, entries []fs.Entry) fs.Directory {
 	return &staticDirectory{
@@ -114,7 +118,7 @@ func (sd *streamingDirectory) Readdir(ctx context.Context) (fs.Entries, error) {
 	return fs.IterateEntriesToReaddir(ctx, sd)
 }
 
-var errIteratorAlreadyUsed = errors.New("cannot use streaming directory iterator more than once if not MultipleIterations")
+var errIteratorAlreadyUsed = errors.New("cannot use streaming directory iterator more than once if not MultipleIterations") // +checklocksignore: mu
 
 func (sd *streamingDirectory) getIterator() (func(context.Context, func(context.Context, fs.Entry) error) error, error) {
 	sd.mu.Lock()
@@ -201,9 +205,8 @@ func StreamingFileFromReader(name string, reader io.Reader) fs.StreamingFile {
 }
 
 var (
-	_ fs.Directory                          = &staticDirectory{}
-	_ fs.Directory                          = &streamingDirectory{}
-	_ fs.DirectoryWithIterationRestrictions = &streamingDirectory{}
-	_ fs.StreamingFile                      = &virtualFile{}
-	_ fs.Entry                              = &virtualEntry{}
+	_ fs.Directory     = &staticDirectory{}
+	_ fs.Directory     = &streamingDirectory{}
+	_ fs.StreamingFile = &virtualFile{}
+	_ fs.Entry         = &virtualEntry{}
 )

@@ -265,6 +265,11 @@ func (imd *Directory) OnReaddir(cb func()) {
 	imd.onReaddir = cb
 }
 
+// MultipleIterations returns whether this directory can be iterated through multiple times.
+func (imd *Directory) MultipleIterations() bool {
+	return true
+}
+
 // Child gets the named child of a directory.
 func (imd *Directory) Child(ctx context.Context, name string) (fs.Entry, error) {
 	e := fs.FindByName(imd.children, name)

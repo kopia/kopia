@@ -125,7 +125,7 @@ func estimate(ctx context.Context, relativePath string, entry fs.Entry, policyTr
 	case fs.Directory:
 		atomic.AddInt32(&stats.TotalDirectoryCount, 1)
 
-		if r, ok := entry.(fs.DirectoryWithIterationRestrictions); ok && !r.MultipleIterations() {
+		if !entry.MultipleIterations() {
 			return nil
 		}
 

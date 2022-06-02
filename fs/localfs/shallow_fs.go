@@ -115,6 +115,10 @@ func (fsf *shallowFilesystemFile) Open(ctx context.Context) (fs.Reader, error) {
 	return nil, errors.New("shallowFilesystemFile.Open not supported")
 }
 
+func (fsd *shallowFilesystemDirectory) MultipleIterations() bool {
+	return false
+}
+
 func (fsd *shallowFilesystemDirectory) Child(ctx context.Context, name string) (fs.Entry, error) {
 	return nil, errors.New("shallowFilesystemDirectory.Child not supported")
 }
