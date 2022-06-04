@@ -59,17 +59,13 @@ func (s *sourceDirectories) LocalFilesystemPath() string {
 
 func (s *sourceDirectories) Child(ctx context.Context, name string) (fs.Entry, error) {
 	// nolint:wrapcheck
-	return fs.ReadDirAndFindChild(ctx, s, name)
+	return fs.IterateEntriesAndFindChild(ctx, s, name)
 }
 
 func (s *sourceDirectories) IterateEntries(ctx context.Context, cb func(context.Context, fs.Entry) error) error {
-	return fs.ReaddirToIterate(ctx, s, cb)
-}
-
-func (s *sourceDirectories) Readdir(ctx context.Context) (fs.Entries, error) {
 	sources0, err := snapshot.ListSources(ctx, s.rep)
 	if err != nil {
-		return nil, errors.Wrap(err, "unable to list sources")
+		return errors.Wrap(err, "unable to list sources")
 	}
 
 	// step 1 - filter sources.
@@ -92,15 +88,15 @@ func (s *sourceDirectories) Readdir(ctx context.Context) (fs.Entries, error) {
 
 	name2safe = disambiguateSafeNames(name2safe)
 
-	var result fs.Entries
-
 	for _, src := range sources {
-		result = append(result, &sourceSnapshots{s.rep, src, name2safe[src.Path]})
+		e := &sourceSnapshots{s.rep, src, name2safe[src.Path]}
+
+		if err2 := cb(ctx, e); err2 != nil {
+			return err2
+		}
 	}
 
-	result.Sort()
-
-	return result, nil
+	return nil
 }
 
 func disambiguateSafeNames(m map[string]string) map[string]string {

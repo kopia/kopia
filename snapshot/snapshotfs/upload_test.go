@@ -663,7 +663,7 @@ func TestUpload_VirtualDirectoryWithStreamingFile(t *testing.T) {
 
 	w.Close()
 
-	staticRoot := virtualfs.NewStaticDirectory("rootdir", fs.Entries{
+	staticRoot := virtualfs.NewStaticDirectory("rootdir", []fs.Entry{
 		virtualfs.StreamingFileFromReader("stream-file", r),
 	})
 

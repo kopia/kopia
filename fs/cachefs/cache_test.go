@@ -20,7 +20,7 @@ import (
 const expirationTime = 10 * time.Hour
 
 type cacheSource struct {
-	data        map[string]fs.Entries
+	data        map[string][]fs.Entry
 	callCounter map[string]int
 }
 
@@ -28,8 +28,8 @@ func identityWrapper(e fs.Entry) fs.Entry {
 	return e
 }
 
-func (cs *cacheSource) get(id string) func(ctx context.Context) (fs.Entries, error) {
-	return func(context.Context) (fs.Entries, error) {
+func (cs *cacheSource) get(id string) func(ctx context.Context) ([]fs.Entry, error) {
+	return func(context.Context) ([]fs.Entry, error) {
 		cs.callCounter[id]++
 
 		d, ok := cs.data[id]
@@ -42,7 +42,7 @@ func (cs *cacheSource) get(id string) func(ctx context.Context) (fs.Entries, err
 }
 
 func (cs *cacheSource) setEntryCount(id string, cnt int) {
-	var fakeEntries fs.Entries
+	var fakeEntries []fs.Entry
 
 	var fakeEntry fs.Entry
 
@@ -56,7 +56,7 @@ func (cs *cacheSource) setEntryCount(id string, cnt int) {
 
 func newCacheSource() *cacheSource {
 	return &cacheSource{
-		data:        make(map[string]fs.Entries),
+		data:        make(map[string][]fs.Entry),
 		callCounter: make(map[string]int),
 	}
 }

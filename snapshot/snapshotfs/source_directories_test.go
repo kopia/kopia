@@ -50,50 +50,54 @@ func TestAllSources(t *testing.T) {
 
 	as := AllSourcesEntry(env.RepositoryWriter)
 	gotNames := iterateAllNames(ctx, t, as, "")
-	wantNames := []string{
-		"another-user@some-host/",
-		"another-user@some-host/__root/",
-		"another-user@some-host/__root/20200101-120103/",
-		"another-user@some-host/tmp/",
-		"another-user@some-host/tmp/20200101-120103/",
-		"another-user@some-host/var/",
-		"another-user@some-host/var/20200101-120103/",
-		"some-user@some-host/",
-		"some-user@some-host/c_some_Path/",
-		"some-user@some-host/c_some_Path/20200101-120103/",
-		"some-user@some-host/c_some_path (2)/",
-		"some-user@some-host/c_some_path (2)/20200101-120103/",
-		"some-user@some-host/c_some_path (2)/20200101-120104/",
-		"some-user@some-host/c_some_path (2)/20200101-120105/",
-		"some_user@some-host/",
-		"some_user@some-host/c_some_path/",
-		"some_user@some-host/c_some_path/20200101-130103/",
-		"some_user@some-host/c_some_path/20200101-130104/",
-		"some_user@some-host (2)/",
-		"some_user@some-host (2)/c_some_path/",
-		"some_user@some-host (2)/c_some_path/20200101-140103/",
-		"some_user@some-host (2)/c_some_path/20200101-140104/",
+	wantNames := map[string]struct{}{
+		"another-user@some-host/":                              {},
+		"another-user@some-host/__root/":                       {},
+		"another-user@some-host/__root/20200101-120103/":       {},
+		"another-user@some-host/tmp/":                          {},
+		"another-user@some-host/tmp/20200101-120103/":          {},
+		"another-user@some-host/var/":                          {},
+		"another-user@some-host/var/20200101-120103/":          {},
+		"some-user@some-host/":                                 {},
+		"some-user@some-host/c_some_Path/":                     {},
+		"some-user@some-host/c_some_Path/20200101-120103/":     {},
+		"some-user@some-host/c_some_path (2)/":                 {},
+		"some-user@some-host/c_some_path (2)/20200101-120103/": {},
+		"some-user@some-host/c_some_path (2)/20200101-120104/": {},
+		"some-user@some-host/c_some_path (2)/20200101-120105/": {},
+		"some_user@some-host/":                                 {},
+		"some_user@some-host/c_some_path/":                     {},
+		"some_user@some-host/c_some_path/20200101-130103/":     {},
+		"some_user@some-host/c_some_path/20200101-130104/":     {},
+		"some_user@some-host (2)/":                             {},
+		"some_user@some-host (2)/c_some_path/":                 {},
+		"some_user@some-host (2)/c_some_path/20200101-140103/": {},
+		"some_user@some-host (2)/c_some_path/20200101-140104/": {},
 	}
 
 	require.Equal(t, wantNames, gotNames)
 }
 
-func iterateAllNames(ctx context.Context, t *testing.T, dir fs.Directory, prefix string) []string {
+func iterateAllNames(ctx context.Context, t *testing.T, dir fs.Directory, prefix string) map[string]struct{} {
 	t.Helper()
 
-	entries, err := dir.Readdir(ctx)
-	require.NoError(t, err)
+	result := map[string]struct{}{}
 
-	result := []string{}
-
-	for _, ent := range entries {
+	err := dir.IterateEntries(ctx, func(innerCtx context.Context, ent fs.Entry) error {
 		if ent.IsDir() {
-			result = append(result, prefix+ent.Name()+"/")
-			result = append(result, iterateAllNames(ctx, t, ent.(fs.Directory), prefix+ent.Name()+"/")...)
+			result[prefix+ent.Name()+"/"] = struct{}{}
+			childEntries := iterateAllNames(ctx, t, ent.(fs.Directory), prefix+ent.Name()+"/")
+
+			for k, v := range childEntries {
+				result[k] = v
+			}
 		} else {
-			result = append(result, prefix+ent.Name())
+			result[prefix+ent.Name()] = struct{}{}
 		}
-	}
+
+		return nil
+	})
+	require.NoError(t, err)
 
 	return result
 }

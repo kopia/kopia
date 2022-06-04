@@ -57,20 +57,14 @@ func (s *sourceSnapshots) LocalFilesystemPath() string {
 
 func (s *sourceSnapshots) Child(ctx context.Context, name string) (fs.Entry, error) {
 	// nolint:wrapcheck
-	return fs.ReadDirAndFindChild(ctx, s, name)
+	return fs.IterateEntriesAndFindChild(ctx, s, name)
 }
 
 func (s *sourceSnapshots) IterateEntries(ctx context.Context, cb func(context.Context, fs.Entry) error) error {
-	return fs.ReaddirToIterate(ctx, s, cb)
-}
-
-func (s *sourceSnapshots) Readdir(ctx context.Context) (fs.Entries, error) {
 	manifests, err := snapshot.ListSnapshots(ctx, s.rep, s.src)
 	if err != nil {
-		return nil, errors.Wrap(err, "unable to list snapshots")
+		return errors.Wrap(err, "unable to list snapshots")
 	}
-
-	var result fs.Entries
 
 	for _, m := range manifests {
 		name := m.StartTime.Format("20060102-150405")
@@ -90,12 +84,14 @@ func (s *sourceSnapshots) Readdir(ctx context.Context) (fs.Entries, error) {
 			de.DirSummary = m.RootEntry.DirSummary
 		}
 
-		result = append(result, EntryFromDirEntry(s.rep, de))
+		e := EntryFromDirEntry(s.rep, de)
+
+		if err2 := cb(ctx, e); err2 != nil {
+			return err2
+		}
 	}
 
-	result.Sort()
-
-	return result, nil
+	return nil
 }
 
 var _ fs.Directory = (*sourceSnapshots)(nil)

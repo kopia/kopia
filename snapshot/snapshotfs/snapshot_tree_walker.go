@@ -48,7 +48,9 @@ func (w *TreeWalker) ReportError(ctx context.Context, entryPath string, err erro
 
 	repoFSLog(ctx).Errorf("error processing %v: %v", entryPath, err)
 
-	if len(w.errors) < w.options.MaxErrors {
+	// Record one error if we can't get too many errors so that at least that one
+	// can be returned if it's the only one.
+	if len(w.errors) < w.options.MaxErrors || (w.options.MaxErrors <= 0 && len(w.errors) == 0) {
 		w.errors = append(w.errors, err)
 	}
 
@@ -103,24 +105,20 @@ func (w *TreeWalker) processEntry(ctx context.Context, e fs.Entry, entryPath str
 }
 
 func (w *TreeWalker) processDirEntry(ctx context.Context, dir fs.Directory, entryPath string) {
+	type errStop struct {
+		error
+	}
+
 	var ag workshare.AsyncGroup
 	defer ag.Wait()
 
-	entries, err := dir.Readdir(ctx)
-	if err != nil {
-		w.ReportError(ctx, entryPath, errors.Wrap(err, "error reading directory"))
-		return
-	}
-
-	for _, ent := range entries {
-		ent := ent
-
+	err := dir.IterateEntries(ctx, func(c context.Context, ent fs.Entry) error {
 		if w.TooManyErrors() {
-			break
+			return errStop{errors.New("")}
 		}
 
 		if w.alreadyProcessed(ent) {
-			continue
+			return nil
 		}
 
 		childPath := path.Join(entryPath, ent.Name())
@@ -132,6 +130,13 @@ func (w *TreeWalker) processDirEntry(ctx context.Context, dir fs.Directory, entr
 		} else {
 			w.processEntry(ctx, ent, childPath)
 		}
+
+		return nil
+	})
+
+	var stopped errStop
+	if err != nil && !errors.As(err, &stopped) {
+		w.ReportError(ctx, entryPath, errors.Wrap(err, "error reading directory"))
 	}
 }
 

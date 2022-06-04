@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/localfs"
 )
 
@@ -56,6 +57,8 @@ func benchmarkReadDirWithCount(b *testing.B, fileCount int) {
 
 	for i := 0; i < b.N; i++ {
 		dir, _ := localfs.Directory(td)
-		dir.Readdir(ctx)
+		dir.IterateEntries(ctx, func(context.Context, fs.Entry) error {
+			return nil
+		})
 	}
 }
