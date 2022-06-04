@@ -112,6 +112,8 @@ type Uploader struct {
 	disableEstimation bool
 
 	workerPool *workshare.Pool
+
+	traceEnabled bool
 }
 
 // IsCanceled returns true if the upload is canceled.
@@ -951,8 +953,12 @@ func uploadDirInternal(
 ) (resultDE *snapshot.DirEntry, resultErr error) {
 	atomic.AddInt32(&u.stats.TotalDirectoryCount, 1)
 
-	ctx, span := uploadTracer.Start(ctx, "UploadDir", trace.WithAttributes(attribute.String("dir", dirRelativePath)))
-	defer span.End()
+	if u.traceEnabled {
+		var span trace.Span
+
+		ctx, span = uploadTracer.Start(ctx, "UploadDir", trace.WithAttributes(attribute.String("dir", dirRelativePath)))
+		defer span.End()
+	}
 
 	t0 := timetrack.StartTimer()
 
@@ -1090,6 +1096,8 @@ func (u *Uploader) Upload(
 ) (*snapshot.Manifest, error) {
 	ctx, span := uploadTracer.Start(ctx, "Upload")
 	defer span.End()
+
+	u.traceEnabled = span.IsRecording()
 
 	u.Progress.UploadStarted()
 	defer u.Progress.UploadFinished()
