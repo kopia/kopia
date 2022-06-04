@@ -39,12 +39,7 @@ func TestStreamingFile(t *testing.T) {
 		t.Fatalf("did not get expected filename: (actual) %v != %v (expected)", e.Name(), filename)
 	}
 
-	entries := fs.Entries(nil)
-
-	err = rootDir.IterateEntries(context.TODO(), func(innerCtx context.Context, e fs.Entry) error {
-		entries = append(entries, e)
-		return nil
-	})
+	entries, err := fs.GetAllEntries(context.TODO(), rootDir)
 	if err != nil {
 		t.Fatalf("error getting dir entries %v", err)
 	}

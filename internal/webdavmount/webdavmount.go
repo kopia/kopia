@@ -109,6 +109,7 @@ type webdavDir struct {
 // nolint:gochecknoglobals
 var symlinksAreUnsupportedLogged = new(int32)
 
+// TODO: (bug) This incorrectly truncates the entries in the directory and does not allow pagination.
 func (d *webdavDir) Readdir(n int) ([]os.FileInfo, error) {
 	var fis []os.FileInfo
 
@@ -218,7 +219,7 @@ func (w *webdavFS) findEntry(ctx context.Context, path string) (fs.Entry, error)
 
 		var err error
 
-		e, err = fs.IterateEntriesAndFindChild(ctx, d, p)
+		e, err = d.Child(ctx, p)
 		if err != nil {
 			return nil, errors.Wrap(err, "error reading directory")
 		}

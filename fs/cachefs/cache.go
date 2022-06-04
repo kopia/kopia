@@ -94,17 +94,7 @@ func (c *Cache) IterateEntries(ctx context.Context, d fs.Directory, w EntryWrapp
 			cacheID,
 			dirCacheExpiration,
 			func(innerCtx context.Context) (fs.Entries, error) {
-				result := fs.Entries(nil)
-				err2 := d.IterateEntries(innerCtx, func(callbackCtx context.Context, e fs.Entry) error {
-					result = append(result, e)
-					return nil
-				})
-
-				if err2 != nil {
-					return nil, err2 // nolint:wrapcheck
-				}
-
-				return result, nil
+				return fs.GetAllEntries(innerCtx, d)
 			},
 			w,
 		)

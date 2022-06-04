@@ -75,20 +75,40 @@ type ErrorEntry interface {
 	ErrorInfo() error
 }
 
+// GetAllEntries uses IterateEntries to return all entries in a Directory.
+func GetAllEntries(ctx context.Context, d Directory) (fs.Entries, error) {
+  var entries fs.Entries(nil)
+
+	err := d.IterateEntries(ctx, func(ctx context.Context, e Entry) error {
+		entries = append(entries, e)
+		return nil
+	})
+
+	return entries, err // nolint:wrapcheck
+}
+
 // ErrEntryNotFound is returned when an entry is not found.
 var ErrEntryNotFound = errors.New("entry not found")
 
 // IterateEntriesAndFindChild iterates through entries from a directory and returns one by name.
 // This is a convenience function that may be helpful in implementations of Directory.Child().
 func IterateEntriesAndFindChild(ctx context.Context, d Directory, name string) (Entry, error) {
+	type errStop struct {
+		error
+	}
+
 	var result Entry
 
-	if err := d.IterateEntries(ctx, func(c context.Context, e Entry) error {
+	err := d.IterateEntries(ctx, func(c context.Context, e Entry) error {
 		if result == nil && e.Name() == name {
 			result = e
+			return errStop{errors.New("")}
 		}
 		return nil
-	}); err != nil {
+	})
+
+	var stopped errStop
+	if err != nil && !errors.As(err, &stopped) {
 		return nil, errors.Wrap(err, "error reading directory")
 	}
 

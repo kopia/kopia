@@ -105,11 +105,19 @@ func (w *TreeWalker) processEntry(ctx context.Context, e fs.Entry, entryPath str
 }
 
 func (w *TreeWalker) processDirEntry(ctx context.Context, dir fs.Directory, entryPath string) {
+	type errStop struct {
+		error
+	}
+
 	var ag workshare.AsyncGroup
 	defer ag.Wait()
 
 	err := dir.IterateEntries(ctx, func(c context.Context, ent fs.Entry) error {
-		if w.TooManyErrors() || w.alreadyProcessed(ent) {
+		if w.TooManyErrors() {
+			return errStop{errors.New("")}
+		}
+
+		if w.alreadyProcessed(ent) {
 			return nil
 		}
 
@@ -125,7 +133,9 @@ func (w *TreeWalker) processDirEntry(ctx context.Context, dir fs.Directory, entr
 
 		return nil
 	})
-	if err != nil {
+
+	var stopped errStop
+	if err != nil && !errors.As(err, &stopped) {
 		w.ReportError(ctx, entryPath, errors.Wrap(err, "error reading directory"))
 	}
 }

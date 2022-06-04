@@ -17,20 +17,6 @@ import (
 	"github.com/kopia/kopia/internal/testutil"
 )
 
-func iterateEntriesToReaddir(ctx context.Context, dir fs.Directory) (fs.Entries, error) {
-	entries := fs.Entries(nil)
-
-	err := dir.IterateEntries(ctx, func(innerCtx context.Context, e fs.Entry) error {
-		entries = append(entries, e)
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return entries, nil
-}
-
 type fileEnt struct {
 	size   int64
 	isFile bool
@@ -58,7 +44,7 @@ func TestFiles(t *testing.T) {
 		t.Errorf("error when dir empty directory: %v", err)
 	}
 
-	entries, err := iterateEntriesToReaddir(ctx, dir)
+	entries, err := fs.GetAllEntries(ctx, dir)
 	if err != nil {
 		t.Errorf("error gettind dir Entries: %v", err)
 	}
@@ -103,7 +89,7 @@ func TestFiles(t *testing.T) {
 		t.Errorf("error when dir directory with files: %v", err)
 	}
 
-	entries, err = iterateEntriesToReaddir(ctx, dir)
+	entries, err = fs.GetAllEntries(ctx, dir)
 	if err != nil {
 		t.Errorf("error gettind dir Entries: %v", err)
 	}
