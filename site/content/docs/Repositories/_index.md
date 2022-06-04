@@ -26,7 +26,9 @@ Google Cloud Storage is a globally unified, scalable, and highly durable object 
 
 ### Creating a repository
 
-To create a repository in Google Cloud Storage you need to provision a storage bucket and install local credentials that can access that bucket. To do so:
+To create a repository in Google Cloud Storage you need to provision a storage bucket and install local credentials that can access that bucket. To do so, there are two methods (one that requires you to install Google Cloud SDK and the other method that does not):
+
+***Method #1: Installing Google Cloud SDK
 
 1. Create a storage bucket in [Google Cloud Console](https://console.cloud.google.com/storage/)
 2. Install [Google Cloud SDK](https://cloud.google.com/sdk/)
@@ -52,12 +54,29 @@ gs://kopia-test-123/n417ffc2adc8dbe93f1814eda3ba8a07c
 gs://kopia-test-123/p78e034ac8b891168df97f9897d7ec316
 ```
 
+***Method #2: Creating a Service Account and Using the JSON File
+
+1. Create a storage bucket in [Google Cloud Console](https://console.cloud.google.com/storage/)
+2. Create a Google Cloud Service Account that allows you to access your storage bucket. Directions are available on [Google Cloud's website](https://cloud.google.com/docs/authentication/getting-started#create-service-account-console). Make sure to download the JSON file for your service account and keep it safe.
+
+After these preparations we can create Kopia repository (assuming bucket named `kopia-test-123`):
+
+```shell
+$ kopia repository create gcs --credentials-file="/path/to/your/credentials/file.json" --bucket kopia-test-123
+```
+
 ### Connecting To Repository
 
 To connect to a repository that already exists, simply use `kopia repository connect` instead of `kopia repository create`. You can connect as many computers as you like to any repository, even simultaneously.
 
 ```shell
 $ kopia repository connect gcs --bucket kopia-test-123
+```
+
+or 
+
+```shell
+$ kopia repository connect gcs --credentials-file="/path/to/your/credentials/file.json" --bucket kopia-test-123
 ```
 
 [Detailed information and settings](/docs/reference/command-line/common/repository-connect-filesystem/)
