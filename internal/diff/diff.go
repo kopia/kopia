@@ -52,7 +52,7 @@ func maybeOID(e fs.Entry) string {
 func (c *Comparer) compareDirectories(ctx context.Context, dir1, dir2 fs.Directory, parent string) error {
 	log(ctx).Debugf("comparing directories %v (%v and %v)", parent, maybeOID(dir1), maybeOID(dir2))
 
-	var entries1, entries2 fs.Entries
+	var entries1, entries2 []fs.Entry
 
 	var err error
 
@@ -206,7 +206,7 @@ func compareEntry(e1, e2 fs.Entry, fullpath string, out io.Writer) bool {
 	return equal
 }
 
-func (c *Comparer) compareDirectoryEntries(ctx context.Context, entries1, entries2 fs.Entries, dirPath string) error {
+func (c *Comparer) compareDirectoryEntries(ctx context.Context, entries1, entries2 []fs.Entry, dirPath string) error {
 	e1byname := map[string]fs.Entry{}
 	for _, e1 := range entries1 {
 		e1byname[e1.Name()] = e1

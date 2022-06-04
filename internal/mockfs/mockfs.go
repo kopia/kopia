@@ -81,7 +81,7 @@ func (e *entry) LocalFilesystemPath() string {
 type Directory struct {
 	entry
 
-	children     fs.Entries
+	children     []fs.Entry
 	readdirError error
 	onReaddir    func()
 }
@@ -209,7 +209,7 @@ func (imd *Directory) addChild(e fs.Entry) {
 	}
 
 	imd.children = append(imd.children, e)
-	imd.children.Sort()
+	fs.Sort(imd.children)
 }
 
 func (imd *Directory) resolveSubdir(name string) (parent *Directory, leaf string) {
@@ -226,7 +226,7 @@ func (imd *Directory) Subdir(name ...string) *Directory {
 	i := imd
 
 	for _, n := range name {
-		i2 := i.children.FindByName(n)
+		i2 := fs.FindByName(i.children, n)
 		if i2 == nil {
 			panic(fmt.Sprintf("'%s' not found in '%s'", n, i.Name()))
 		}
@@ -267,7 +267,7 @@ func (imd *Directory) OnReaddir(cb func()) {
 
 // Child gets the named child of a directory.
 func (imd *Directory) Child(ctx context.Context, name string) (fs.Entry, error) {
-	e := imd.children.FindByName(name)
+	e := fs.FindByName(imd.children, name)
 	if e != nil {
 		return e, nil
 	}
@@ -285,7 +285,7 @@ func (imd *Directory) IterateEntries(ctx context.Context, cb func(context.Contex
 		imd.onReaddir()
 	}
 
-	for _, e := range append(fs.Entries(nil), imd.children...) {
+	for _, e := range append([]fs.Entry{}, imd.children...) {
 		if err := cb(ctx, e); err != nil {
 			return err
 		}

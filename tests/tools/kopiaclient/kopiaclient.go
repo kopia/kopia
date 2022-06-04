@@ -209,7 +209,7 @@ func (kc *KopiaClient) getStorage(ctx context.Context, repoDir, bucketName strin
 // getSourceForKeyVal creates a virtual directory for `key` that contains a single virtual file that
 // reads its contents from `val`.
 func (kc *KopiaClient) getSourceForKeyVal(key string, val []byte) fs.Entry {
-	return virtualfs.NewStaticDirectory(key, fs.Entries{
+	return virtualfs.NewStaticDirectory(key, []fs.Entry{
 		virtualfs.StreamingFileFromReader(dataFileName, bytes.NewReader(val)),
 	})
 }

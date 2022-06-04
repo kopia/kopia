@@ -28,7 +28,7 @@ func TestStreamingFile(t *testing.T) {
 	filename := "stream-file"
 	f := StreamingFileFromReader(filename, r)
 
-	rootDir := NewStaticDirectory("root", fs.Entries{f})
+	rootDir := NewStaticDirectory("root", []fs.Entry{f})
 
 	e, err := rootDir.Child(context.TODO(), filename)
 	if err != nil {
