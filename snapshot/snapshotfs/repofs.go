@@ -140,10 +140,6 @@ func (rd *repositoryDirectory) IterateEntries(ctx context.Context, cb func(conte
 	return nil
 }
 
-func (rd *repositoryDirectory) Readdir(ctx context.Context) (fs.Entries, error) {
-	return fs.IterateEntriesToReaddir(ctx, rd)
-}
-
 func (rd *repositoryDirectory) ensureDirEntriesLoaded(ctx context.Context) error {
 	rd.mu.Lock()
 	defer rd.mu.Unlock()
@@ -288,7 +284,9 @@ func SnapshotRoot(rep repo.Repository, man *snapshot.Manifest) (fs.Entry, error)
 func AutoDetectEntryFromObjectID(ctx context.Context, rep repo.Repository, oid object.ID, maybeName string) fs.Entry {
 	if IsDirectoryID(oid) {
 		dirEntry := DirectoryEntry(rep, oid, nil)
-		if _, err := dirEntry.Readdir(ctx); err == nil {
+		if err := dirEntry.IterateEntries(ctx, func(context.Context, fs.Entry) error {
+			return nil
+		}); err == nil {
 			repoFSLog(ctx).Debugf("%v auto-detected as directory", oid)
 			return dirEntry
 		}

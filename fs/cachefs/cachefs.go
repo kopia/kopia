@@ -9,7 +9,7 @@ import (
 
 // DirectoryCacher reads and potentially caches directory entries for a given directory.
 type DirectoryCacher interface {
-	Readdir(ctx context.Context, d fs.Directory, w EntryWrapper) (fs.Entries, error)
+	IterateEntries(ctx context.Context, d fs.Directory, w EntryWrapper, callback func(context.Context, fs.Entry) error) error
 }
 
 type cacheContext struct {
@@ -31,17 +31,17 @@ func (d *directory) Child(ctx context.Context, name string) (fs.Entry, error) {
 	return wrapWithContext(e, d.ctx), nil
 }
 
-func (d *directory) Readdir(ctx context.Context) (fs.Entries, error) {
-	entries, err := d.ctx.cacher.Readdir(ctx, d.Directory, func(e fs.Entry) fs.Entry {
-		return wrapWithContext(e, d.ctx)
-	})
-	if err != nil {
-		// nolint:wrapcheck
-		return entries, err
-	}
+func (d *directory) IterateEntries(ctx context.Context, callback func(context.Context, fs.Entry) error) error {
+	err := d.ctx.cacher.IterateEntries(
+		ctx,
+		d.Directory,
+		func(e fs.Entry) fs.Entry {
+			return wrapWithContext(e, d.ctx)
+		},
+		callback,
+	)
 
-	// nolint:wrapcheck
-	return entries, err
+	return err // nolint:wrapcheck
 }
 
 type file struct {

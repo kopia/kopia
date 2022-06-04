@@ -28,7 +28,7 @@ func TestStreamingFile(t *testing.T) {
 	filename := "stream-file"
 	f := StreamingFileFromReader(filename, r)
 
-	rootDir := NewStaticDirectory("root", fs.Entries{f})
+	rootDir := NewStaticDirectory("root", []fs.Entry{f})
 
 	e, err := rootDir.Child(context.TODO(), filename)
 	if err != nil {
@@ -39,7 +39,7 @@ func TestStreamingFile(t *testing.T) {
 		t.Fatalf("did not get expected filename: (actual) %v != %v (expected)", e.Name(), filename)
 	}
 
-	entries, err := rootDir.Readdir(context.TODO())
+	entries, err := fs.GetAllEntries(context.TODO(), rootDir)
 	if err != nil {
 		t.Fatalf("error getting dir entries %v", err)
 	}

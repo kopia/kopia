@@ -17,6 +17,11 @@ import (
 	"github.com/kopia/kopia/internal/testutil"
 )
 
+type fileEnt struct {
+	size   int64
+	isFile bool
+}
+
 //nolint:gocyclo
 func TestFiles(t *testing.T) {
 	ctx := testlogging.Context(t)
@@ -39,7 +44,7 @@ func TestFiles(t *testing.T) {
 		t.Errorf("error when dir empty directory: %v", err)
 	}
 
-	entries, err := dir.Readdir(ctx)
+	entries, err := fs.GetAllEntries(ctx, dir)
 	if err != nil {
 		t.Errorf("error gettind dir Entries: %v", err)
 	}
@@ -56,35 +61,61 @@ func TestFiles(t *testing.T) {
 	assertNoError(t, os.Mkdir(filepath.Join(tmp, "z"), 0o777))
 	assertNoError(t, os.Mkdir(filepath.Join(tmp, "y"), 0o777))
 
+	expected := map[string]fileEnt{
+		"f1": {
+			size:   5,
+			isFile: true,
+		},
+		"f2": {
+			size:   4,
+			isFile: true,
+		},
+		"f3": {
+			size:   3,
+			isFile: true,
+		},
+		"y": {
+			size:   0,
+			isFile: false,
+		},
+		"z": {
+			size:   0,
+			isFile: false,
+		},
+	}
+
 	dir, err = Directory(tmp)
 	if err != nil {
 		t.Errorf("error when dir directory with files: %v", err)
 	}
 
-	entries, err = dir.Readdir(ctx)
+	entries, err = fs.GetAllEntries(ctx, dir)
 	if err != nil {
 		t.Errorf("error gettind dir Entries: %v", err)
 	}
 
 	goodCount := 0
 
-	if entries[0].Name() == "f1" && entries[0].Size() == 5 && entries[0].Mode().IsRegular() {
-		goodCount++
-	}
+	for _, found := range entries {
+		wanted, ok := expected[found.Name()]
+		if !ok {
+			continue
+		}
 
-	if entries[1].Name() == "f2" && entries[1].Size() == 4 && entries[1].Mode().IsRegular() {
-		goodCount++
-	}
+		if found.Size() != wanted.size {
+			continue
+		}
 
-	if entries[2].Name() == "f3" && entries[2].Size() == 3 && entries[2].Mode().IsRegular() {
-		goodCount++
-	}
+		if wanted.isFile {
+			if !found.Mode().IsRegular() {
+				continue
+			}
+		} else {
+			if !found.Mode().IsDir() {
+				continue
+			}
+		}
 
-	if entries[3].Name() == "y" && entries[3].Size() == 0 && entries[3].Mode().IsDir() {
-		goodCount++
-	}
-
-	if entries[4].Name() == "z" && entries[4].Size() == 0 && entries[4].Mode().IsDir() {
 		goodCount++
 	}
 
@@ -193,12 +224,12 @@ func verifyChild(t *testing.T, dir fs.Directory) {
 		t.Errorf("unexpected child size: %v, want %v", got, want)
 	}
 
-	if _, err = fs.ReadDirAndFindChild(ctx, dir, "f4"); !errors.Is(err, fs.ErrEntryNotFound) {
+	if _, err = fs.IterateEntriesAndFindChild(ctx, dir, "f4"); !errors.Is(err, fs.ErrEntryNotFound) {
 		t.Errorf("unexpected child error: %v", err)
 	}
 
-	// read child again, this time using ReadAndFindChild
-	child2, err := fs.ReadDirAndFindChild(ctx, dir, "f3")
+	// read child again, this time using IterateEntriesAndFindChild
+	child2, err := fs.IterateEntriesAndFindChild(ctx, dir, "f3")
 	if err != nil {
 		t.Errorf("child2 error: %v", err)
 	}
