@@ -131,7 +131,7 @@ func TestStreamingDirectory(t *testing.T) {
 		true,
 	)
 
-	entries, err := rootDir.Readdir(context.TODO())
+	entries, err := fs.GetAllEntries(context.TODO(), rootDir)
 	if err != nil {
 		t.Fatalf("error getting dir entries %v", err)
 	}
@@ -187,13 +187,7 @@ func TestStreamingDirectory_MultipleIterations(t *testing.T) {
 				iterations,
 			)
 
-			entries := fs.Entries(nil)
-			iterFunc := func(innerCtx context.Context, e fs.Entry) error {
-				entries = append(entries, e)
-				return nil
-			}
-
-			err := rootDir.IterateEntries(context.TODO(), iterFunc)
+			entries, err := fs.GetAllEntries(context.TODO(), rootDir)
 			if err != nil {
 				t.Fatalf("error getting directory entries once")
 			}
@@ -202,9 +196,7 @@ func TestStreamingDirectory_MultipleIterations(t *testing.T) {
 				t.Fatalf("unexpected number of entries: (got) %v, (expected) %v", len(entries), 1)
 			}
 
-			entries = nil
-
-			err = rootDir.IterateEntries(context.TODO(), iterFunc)
+			_, err = fs.GetAllEntries(context.TODO(), rootDir)
 			if iterations && err != nil {
 				t.Fatalf("unexpected error on second directory iteration: %v", err)
 			} else if !iterations && err == nil {

@@ -711,11 +711,11 @@ func TestUpload_StreamingDirectory(t *testing.T) {
 
 			policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
 
-			files := fs.Entries{
+			files := []fs.Entry{
 				mockfs.NewFile("f1", []byte{1, 2, 3}, defaultPermissions),
 			}
 
-			staticRoot := virtualfs.NewStaticDirectory("rootdir", fs.Entries{
+			staticRoot := virtualfs.NewStaticDirectory("rootdir", []fs.Entry{
 				virtualfs.NewStreamingDirectory(
 					"stream-directory",
 					func(innerCtx context.Context, callback func(context.Context, fs.Entry) error) error {
@@ -776,12 +776,12 @@ func TestUpload_StreamingDirectoryWithIgnoredFile(t *testing.T) {
 		},
 	}, policy.DefaultPolicy)
 
-	files := fs.Entries{
+	files := []fs.Entry{
 		mockfs.NewFile("f1", []byte{1, 2, 3}, defaultPermissions),
 		mockfs.NewFile("f2", []byte{1, 2, 3, 4}, defaultPermissions),
 	}
 
-	staticRoot := virtualfs.NewStaticDirectory("rootdir", fs.Entries{
+	staticRoot := virtualfs.NewStaticDirectory("rootdir", []fs.Entry{
 		virtualfs.NewStreamingDirectory(
 			"stream-directory",
 			func(innerCtx context.Context, callback func(context.Context, fs.Entry) error) error {
