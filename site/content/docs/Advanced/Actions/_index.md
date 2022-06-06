@@ -16,12 +16,14 @@ Actions can optionally modify the directory to be snapshotted or redirect upload
 
 To reduce the security risk, actions are an opt-in feature and are not enabled by default.
 
-Actions can be enabled globally at connection time or individually per snapshot:
+When using Kopia CLI, actions can be enabled globally at connection time or individually per snapshot:
 
 1. When connecting to repository you can pass `--enable-actions` which will enable actions globally
    for the client.
 2. You can override that decision when taking snapshot by passing `--force-enable-actions` or
    `--force-disable-actions` to enable or disable actions for the single snapshot session.
+
+When using KopiaUI, actions can be enabled globally by editing your repository.config (it is located in the `Config File` location in KopiaUI under `Repository`) and change `"enableActions": false` to `"enableActions": true`. Save the file and restart KopiaUI.
 
 ### Configuring actions
 
