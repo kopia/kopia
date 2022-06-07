@@ -108,7 +108,14 @@ func (g *AsyncGroup) CanShareWork(w *Pool) bool {
 		// we successfully added token to the channel, because we have exactly the same number
 		// of workers as the capacity of the channel, one worker will wake up to process
 		// item from w.work, which will be added by RunAsync().
-		return true
+
+		// double check we're not closed
+		select {
+		case <-w.closed:
+			panic("invalid usage - CanShareWork() after workshare.AsyncGroup has been closed")
+		default:
+			return true
+		}
 
 	case <-w.closed:
 		panic("invalid usage - CanShareWork() after workshare.AsyncGroup has been closed")
