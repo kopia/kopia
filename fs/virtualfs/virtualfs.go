@@ -113,7 +113,7 @@ func (sd *streamingDirectory) Child(ctx context.Context, name string) (fs.Entry,
 	return nil, errChildNotSupported
 }
 
-var errIteratorAlreadyUsed = errors.New("cannot use streaming directory iterator more than once if not MultipleIterations") // +checklocksignore: mu
+var errIteratorAlreadyUsed = errors.New("cannot use streaming directory iterator more than once") // +checklocksignore: mu
 
 func (sd *streamingDirectory) getIterator() (func(context.Context, func(context.Context, fs.Entry) error) error, error) {
 	sd.mu.Lock()

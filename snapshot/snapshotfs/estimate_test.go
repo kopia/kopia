@@ -1,4 +1,4 @@
-package snapshotfs
+package snapshotfs_test
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	"github.com/kopia/kopia/internal/mockfs"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
+	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
 
 type fakeProgress struct {
@@ -22,10 +23,11 @@ func (p *fakeProgress) Processing(context.Context, string) {}
 
 func (p *fakeProgress) Error(context.Context, string, error, bool) {}
 
+// +checklocksignore.
 func (p *fakeProgress) Stats(
 	ctx context.Context,
 	s *snapshot.Stats,
-	includedFiles, excludedFiles SampleBuckets,
+	includedFiles, excludedFiles snapshotfs.SampleBuckets,
 	excludedDirs []string,
 	final bool,
 ) {
@@ -66,7 +68,7 @@ func TestEstimate_SkipsStreamingDirectory(t *testing.T) {
 		expectedErrors:      0,
 	}
 
-	err := Estimate(context.TODO(), nil, rootDir, policyTree, p, 1)
+	err := snapshotfs.Estimate(context.TODO(), nil, rootDir, policyTree, p, 1)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
