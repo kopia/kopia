@@ -103,9 +103,8 @@ type streamingDirectory struct {
 	virtualEntry
 	// Used to generate the next entry and execute the callback on it.
 	// +checklocks:mu
-	callback           func(context.Context, func(context.Context, fs.Entry) error) error
-	multipleIterations bool
-	mu                 sync.Mutex
+	callback func(context.Context, func(context.Context, fs.Entry) error) error
+	mu       sync.Mutex
 }
 
 var errChildNotSupported = errors.New("streamingDirectory.Child not supported")
@@ -125,10 +124,7 @@ func (sd *streamingDirectory) getIterator() (func(context.Context, func(context.
 	}
 
 	cb := sd.callback
-
-	if !sd.MultipleIterations() {
-		sd.callback = nil
-	}
+	sd.callback = nil
 
 	return cb, nil
 }
@@ -146,7 +142,7 @@ func (sd *streamingDirectory) IterateEntries(
 }
 
 func (sd *streamingDirectory) MultipleIterations() bool {
-	return sd.multipleIterations
+	return false
 }
 
 // NewStreamingDirectory returns a directory that will call the given function
@@ -154,15 +150,13 @@ func (sd *streamingDirectory) MultipleIterations() bool {
 func NewStreamingDirectory(
 	name string,
 	callback func(context.Context, func(context.Context, fs.Entry) error) error,
-	multipleIterations bool,
 ) fs.Directory {
 	return &streamingDirectory{
 		virtualEntry: virtualEntry{
 			name: name,
 			mode: defaultPermissions | os.ModeDir,
 		},
-		callback:           callback,
-		multipleIterations: multipleIterations,
+		callback: callback,
 	}
 }
 

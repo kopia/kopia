@@ -128,7 +128,6 @@ func TestStreamingDirectory(t *testing.T) {
 		) error {
 			return callback(ctx, f)
 		},
-		true,
 	)
 
 	entries, err := fs.GetAllEntries(context.TODO(), rootDir)
@@ -162,47 +161,35 @@ func TestStreamingDirectory(t *testing.T) {
 	}
 }
 
-func TestStreamingDirectory_MultipleIterations(t *testing.T) {
-	cases := map[string]bool{
-		"MultipleIterations": true,
-		"SingleIteration":    false,
+func TestStreamingDirectory_MultipleIterationsFails(t *testing.T) {
+	// Create a temporary file with test data
+	content := []byte("Temporary file content")
+	r := bytes.NewReader(content)
+
+	f := StreamingFileFromReader(testFileName, r)
+
+	rootDir := NewStreamingDirectory(
+		"root",
+		func(
+			ctx context.Context,
+			callback func(context.Context, fs.Entry) error,
+		) error {
+			return callback(ctx, f)
+		},
+	)
+
+	entries, err := fs.GetAllEntries(context.TODO(), rootDir)
+	if err != nil {
+		t.Fatalf("error getting directory entries once")
 	}
 
-	for desc, iterations := range cases {
-		t.Run(desc, func(t *testing.T) {
-			// Create a temporary file with test data
-			content := []byte("Temporary file content")
-			r := bytes.NewReader(content)
+	if len(entries) != 1 {
+		t.Errorf("unexpected number of entries: (got) %v, (expected) %v", len(entries), 1)
+	}
 
-			f := StreamingFileFromReader(testFileName, r)
-
-			rootDir := NewStreamingDirectory(
-				"root",
-				func(
-					ctx context.Context,
-					callback func(context.Context, fs.Entry) error,
-				) error {
-					return callback(ctx, f)
-				},
-				iterations,
-			)
-
-			entries, err := fs.GetAllEntries(context.TODO(), rootDir)
-			if err != nil {
-				t.Fatalf("error getting directory entries once")
-			}
-
-			if len(entries) != 1 {
-				t.Fatalf("unexpected number of entries: (got) %v, (expected) %v", len(entries), 1)
-			}
-
-			_, err = fs.GetAllEntries(context.TODO(), rootDir)
-			if iterations && err != nil {
-				t.Fatalf("unexpected error on second directory iteration: %v", err)
-			} else if !iterations && err == nil {
-				t.Fatalf("did not get expected error on second directory iteration")
-			}
-		})
+	_, err = fs.GetAllEntries(context.TODO(), rootDir)
+	if err == nil {
+		t.Errorf("did not get expected error on second directory iteration")
 	}
 }
 
@@ -223,14 +210,13 @@ func TestStreamingDirectory_ReturnsCallbackError(t *testing.T) {
 		) error {
 			return callback(ctx, f)
 		},
-		true,
 	)
 
 	err := rootDir.IterateEntries(context.TODO(), func(context.Context, fs.Entry) error {
 		return errCallback
 	})
 	if !errors.Is(err, errCallback) {
-		t.Fatalf("expected error getting dir entries: (got) %v, (expected) %v", err, errCallback)
+		t.Errorf("expected error getting dir entries: (got) %v, (expected) %v", err, errCallback)
 	}
 }
 
@@ -245,13 +231,12 @@ func TestStreamingDirectory_ReturnsReadDirError(t *testing.T) {
 		) error {
 			return errIteration
 		},
-		true,
 	)
 
 	err := rootDir.IterateEntries(context.TODO(), func(context.Context, fs.Entry) error {
 		return nil
 	})
 	if !errors.Is(err, errIteration) {
-		t.Fatalf("expected error getting dir entries: (got) %v, (expected) %v", err, errIteration)
+		t.Errorf("expected error getting dir entries: (got) %v, (expected) %v", err, errIteration)
 	}
 }

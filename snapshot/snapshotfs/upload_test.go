@@ -693,68 +693,58 @@ func TestUpload_VirtualDirectoryWithStreamingFile(t *testing.T) {
 }
 
 func TestUpload_StreamingDirectory(t *testing.T) {
-	cases := map[string]bool{
-		"MultipleIterations": true,
-		"SingleIteration":    false,
+	ctx := testlogging.Context(t)
+	th := newUploadTestHarness(ctx, t)
+
+	defer th.cleanup()
+
+	t.Logf("Uploading streaming directory with mock file")
+
+	u := NewUploader(th.repo)
+
+	policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
+
+	files := []fs.Entry{
+		mockfs.NewFile("f1", []byte{1, 2, 3}, defaultPermissions),
 	}
 
-	for desc, iterations := range cases {
-		t.Run(desc, func(t *testing.T) {
-			ctx := testlogging.Context(t)
-			th := newUploadTestHarness(ctx, t)
+	staticRoot := virtualfs.NewStaticDirectory("rootdir", []fs.Entry{
+		virtualfs.NewStreamingDirectory(
+			"stream-directory",
+			func(innerCtx context.Context, callback func(context.Context, fs.Entry) error) error {
+				for _, f := range files {
+					if err := callback(innerCtx, f); err != nil {
+						return err
+					}
+				}
 
-			defer th.cleanup()
+				return nil
+			},
+		),
+	})
 
-			t.Logf("Uploading streaming directory with mock file")
+	man, err := u.Upload(ctx, staticRoot, policyTree, snapshot.SourceInfo{})
+	if err != nil {
+		t.Fatalf("Upload error: %v", err)
+	}
 
-			u := NewUploader(th.repo)
+	if got, want := atomic.LoadInt32(&man.Stats.CachedFiles), int32(0); got != want {
+		t.Errorf("unexpected manifest cached files: %v, want %v", got, want)
+	}
 
-			policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
+	if got, want := atomic.LoadInt32(&man.Stats.NonCachedFiles), int32(1); got != want {
+		// one file is not cached
+		t.Errorf("unexpected manifest non-cached files: %v, want %v", got, want)
+	}
 
-			files := []fs.Entry{
-				mockfs.NewFile("f1", []byte{1, 2, 3}, defaultPermissions),
-			}
+	if got, want := atomic.LoadInt32(&man.Stats.TotalDirectoryCount), int32(2); got != want {
+		// must have one directory
+		t.Errorf("unexpected manifest directory count: %v, want %v", got, want)
+	}
 
-			staticRoot := virtualfs.NewStaticDirectory("rootdir", []fs.Entry{
-				virtualfs.NewStreamingDirectory(
-					"stream-directory",
-					func(innerCtx context.Context, callback func(context.Context, fs.Entry) error) error {
-						for _, f := range files {
-							if err := callback(innerCtx, f); err != nil {
-								return err
-							}
-						}
-
-						return nil
-					},
-					iterations,
-				),
-			})
-
-			man, err := u.Upload(ctx, staticRoot, policyTree, snapshot.SourceInfo{})
-			if err != nil {
-				t.Fatalf("Upload error: %v", err)
-			}
-
-			if got, want := atomic.LoadInt32(&man.Stats.CachedFiles), int32(0); got != want {
-				t.Fatalf("unexpected manifest cached files: %v, want %v", got, want)
-			}
-
-			if got, want := atomic.LoadInt32(&man.Stats.NonCachedFiles), int32(1); got != want {
-				// one file is not cached
-				t.Fatalf("unexpected manifest non-cached files: %v, want %v", got, want)
-			}
-
-			if got, want := atomic.LoadInt32(&man.Stats.TotalDirectoryCount), int32(2); got != want {
-				// must have one directory
-				t.Fatalf("unexpected manifest directory count: %v, want %v", got, want)
-			}
-
-			if got, want := atomic.LoadInt32(&man.Stats.TotalFileCount), int32(1); got != want {
-				// must have one file
-				t.Fatalf("unexpected manifest file count: %v, want %v", got, want)
-			}
-		})
+	if got, want := atomic.LoadInt32(&man.Stats.TotalFileCount), int32(1); got != want {
+		// must have one file
+		t.Errorf("unexpected manifest file count: %v, want %v", got, want)
 	}
 }
 
@@ -793,7 +783,6 @@ func TestUpload_StreamingDirectoryWithIgnoredFile(t *testing.T) {
 
 				return nil
 			},
-			true,
 		),
 	})
 
@@ -803,22 +792,22 @@ func TestUpload_StreamingDirectoryWithIgnoredFile(t *testing.T) {
 	}
 
 	if got, want := atomic.LoadInt32(&man.Stats.CachedFiles), int32(0); got != want {
-		t.Fatalf("unexpected manifest cached files: %v, want %v", got, want)
+		t.Errorf("unexpected manifest cached files: %v, want %v", got, want)
 	}
 
 	if got, want := atomic.LoadInt32(&man.Stats.NonCachedFiles), int32(1); got != want {
 		// one file is not cached
-		t.Fatalf("unexpected manifest non-cached files: %v, want %v", got, want)
+		t.Errorf("unexpected manifest non-cached files: %v, want %v", got, want)
 	}
 
 	if got, want := atomic.LoadInt32(&man.Stats.TotalDirectoryCount), int32(2); got != want {
 		// must have one directory
-		t.Fatalf("unexpected manifest directory count: %v, want %v", got, want)
+		t.Errorf("unexpected manifest directory count: %v, want %v", got, want)
 	}
 
 	if got, want := atomic.LoadInt32(&man.Stats.TotalFileCount), int32(1); got != want {
 		// must have one file
-		t.Fatalf("unexpected manifest file count: %v, want %v", got, want)
+		t.Errorf("unexpected manifest file count: %v, want %v", got, want)
 	}
 }
 
