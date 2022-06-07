@@ -14,6 +14,7 @@
 //
 // func visitNode(p *workshare.Pool, n *someNode) error {
 //   var wg workshare.AsyncGroup
+//   defer wg.Close()
 //
 //   for _, child := range n.children {
 //     if wg.CanShareWork(p) {
@@ -52,17 +53,25 @@ import (
 type AsyncGroup struct {
 	wg       *sync.WaitGroup
 	requests []interface{}
+	waited   bool
 }
 
 // Wait waits for scheduled asynchronous work to complete and returns all asynchronously processed inputs.
 func (g *AsyncGroup) Wait() []interface{} {
-	if g.wg == nil {
+	if g.wg == nil || g.waited {
 		return nil
 	}
 
 	g.wg.Wait()
 
+	g.waited = true
+
 	return g.requests
+}
+
+// Close ensures all asynchronous work has been awaited for.
+func (g *AsyncGroup) Close() {
+	g.Wait()
 }
 
 // RunAsync starts the asynchronous work to process the provided request,
@@ -78,10 +87,15 @@ func (g *AsyncGroup) RunAsync(w *Pool, process ProcessFunc, request interface{})
 		g.requests = append(g.requests, request)
 	}
 
-	w.work <- workItem{
+	select {
+	case w.work <- workItem{
 		process: process,
 		request: request,
 		wg:      g.wg,
+	}:
+
+	case <-w.closed:
+		panic("invalid usage - RunAsync() after workshare.AsyncGroup has been closed")
 	}
 }
 
@@ -95,6 +109,9 @@ func (g *AsyncGroup) CanShareWork(w *Pool) bool {
 		// of workers as the capacity of the channel, one worker will wake up to process
 		// item from w.work, which will be added by RunAsync().
 		return true
+
+	case <-w.closed:
+		panic("invalid usage - CanShareWork() after workshare.AsyncGroup has been closed")
 
 	default:
 		// all workers are busy.

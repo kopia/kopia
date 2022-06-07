@@ -102,6 +102,24 @@ func TestComputeTreeSumNegative(t *testing.T) {
 	testComputeTreeSum(t, -1)
 }
 
+func TestDisallowedUse(t *testing.T) {
+	w := workshare.NewPool(1)
+
+	var ag workshare.AsyncGroup
+
+	w.Close()
+
+	require.Panics(t, func() {
+		ag.CanShareWork(w)
+	})
+
+	require.Panics(t, func() {
+		ag.RunAsync(w, func(c *workshare.Pool, request interface{}) {
+			t.Fatal("should not be called")
+		}, nil)
+	})
+}
+
 // nolint:thelper
 func testComputeTreeSum(t *testing.T, numWorkers int) {
 	w := workshare.NewPool(numWorkers)
