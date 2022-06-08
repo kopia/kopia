@@ -96,6 +96,19 @@ type FilesystemOutput struct {
 	copier streamCopier
 }
 
+// Init initializes the internal members of the filesystem writer output.
+// This method must be called before FilesystemOutput can be used.
+func (o *FilesystemOutput) Init() error {
+	c, err := getStreamCopier(context.TODO(), o.TargetPath, o.Sparse)
+	if err != nil {
+		return errors.Wrap(err, "unable to get stream copier")
+	}
+
+	o.copier = c
+
+	return nil
+}
+
 // Parallelizable implements restore.Output interface.
 func (o *FilesystemOutput) Parallelizable() bool {
 	return true
@@ -411,30 +424,6 @@ func isEmptyDirectory(name string) (bool, error) {
 	}
 
 	return false, errors.Wrap(err, "error reading directory") // Either not empty or error
-}
-
-// NewFilesystemOutput creates a new filesystem writer output.
-func NewFilesystemOutput(targetpath string, overwriteDirectories, overwriteFiles,
-	overwriteSymlinks, ignorePermissionErrors, writeFilesAtomically, skipOwners,
-	skipPermissions, skipTimes, sparse bool) (*FilesystemOutput, error) {
-	copier, err := getStreamCopier(context.TODO(), targetpath, sparse)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to get stream copier")
-	}
-
-	return &FilesystemOutput{
-		TargetPath:             targetpath,
-		OverwriteDirectories:   overwriteDirectories,
-		OverwriteFiles:         overwriteFiles,
-		OverwriteSymlinks:      overwriteSymlinks,
-		IgnorePermissionErrors: ignorePermissionErrors,
-		WriteFilesAtomically:   writeFilesAtomically,
-		SkipOwners:             skipOwners,
-		SkipPermissions:        skipPermissions,
-		SkipTimes:              skipTimes,
-		Sparse:                 sparse,
-		copier:                 copier,
-	}, nil
 }
 
 var _ Output = (*FilesystemOutput)(nil)
