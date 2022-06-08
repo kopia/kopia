@@ -110,7 +110,7 @@ func (w *TreeWalker) processDirEntry(ctx context.Context, dir fs.Directory, entr
 	}
 
 	var ag workshare.AsyncGroup
-	defer ag.Wait()
+	defer ag.Close()
 
 	err := dir.IterateEntries(ctx, func(c context.Context, ent fs.Entry) error {
 		if w.TooManyErrors() {
