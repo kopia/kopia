@@ -538,6 +538,9 @@ func (u *Uploader) processChildren(
 ) error {
 	var wg workshare.AsyncGroup
 
+	// ensure we wait for all work items before returning
+	defer wg.Close()
+
 	// ignore errCancel because a more serious error may be reported in wg.Wait()
 	// we'll check for cancelation later.
 
