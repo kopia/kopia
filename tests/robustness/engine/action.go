@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"math/rand"
 	"path/filepath"
@@ -131,6 +132,7 @@ const (
 	DeleteDirectoryContentsActionKey  ActionKey = "delete-files"
 	RestoreIntoDataDirectoryActionKey ActionKey = "restore-into-data-dir"
 	GCActionKey                       ActionKey = "run-gc"
+	DeleteRandomBlobActionKey         ActionKey = "delete-random-blob"
 )
 
 // ActionOpts is a structure that designates the options for
@@ -163,6 +165,7 @@ var actions = map[ActionKey]Action{
 	DeleteRandomSubdirectoryActionKey: {f: deleteRandomSubdirectoryAction},
 	DeleteDirectoryContentsActionKey:  {f: deleteDirectoryContentsAction},
 	RestoreIntoDataDirectoryActionKey: {f: restoreIntoDataDirectoryAction},
+	DeleteRandomBlobActionKey:         {f: deleteRandomBlobAction},
 }
 
 func snapshotDirAction(ctx context.Context, e *Engine, opts map[string]string, l *LogEntry) (out map[string]string, err error) {
@@ -264,6 +267,26 @@ func restoreIntoDataDirectoryAction(ctx context.Context, e *Engine, opts map[str
 	return nil, nil
 }
 
+func deleteRandomBlobAction(ctx context.Context, e *Engine, opts map[string]string, l *LogEntry) (out map[string]string, err error) {
+	blobID, err := e.getBlobIDOptOrRandLive(opts)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Printf("Deleting BLOB %s", blobID)
+
+	setLogEntryCmdOpts(l, map[string]string{"blobID": blobID})
+
+	a1, _, _ := e.KopiaCommandRunner.Run("blob", "delete", blobID, "--advanced-commands=enabled")
+
+	// remove this, debug only
+	fmt.Println(a1)
+
+	return map[string]string{
+		BlobIDField: blobID,
+	}, err
+}
+
 // Action constants.
 const (
 	defaultActionRepeats = 1
@@ -275,6 +298,7 @@ const (
 	ThrowNoSpaceOnDeviceErrField = "throw-no-space-error"
 	SnapshotIDField              = "snapshot-ID"
 	SubPathOptionName            = "sub-path"
+	BlobIDField                  = "blob-ID"
 )
 
 func defaultActionControls() map[string]string {
@@ -329,4 +353,20 @@ func (e *Engine) getSnapIDOptOrRandLive(opts map[string]string) (snapID string, 
 	}
 
 	return snapIDList[rand.Intn(len(snapIDList))], nil //nolint:gosec
+}
+
+func (e *Engine) getBlobIDOptOrRandLive(opts map[string]string) (blobID string, err error) {
+	blobID = opts[BlobIDField]
+
+	err = e.KopiaCommandRunner.ConnectRepo("filesystem", "--path="+e.DataRepoPath)
+	if err != nil {
+		return "", err
+	}
+	blobIDList, _, _ := e.KopiaCommandRunner.Run("blob", "list", "--json")
+
+	if len(blobIDList) == 0 {
+		return "", robustness.ErrNoOp
+	}
+
+	return blobID, nil //nolint:gosec
 }

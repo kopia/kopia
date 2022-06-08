@@ -4,24 +4,57 @@
 package robustness
 
 import (
+	"strconv"
 	"testing"
 
+	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/tests/robustness/engine"
+	"github.com/kopia/kopia/tests/robustness/fiofilewriter"
+	"github.com/stretchr/testify/require"
 )
 
-var eng *engine.Engine // for use in the test functions
+func TestSnapshotFix(t *testing.T) {
+	const (
+		fileSize = 409
+		numFiles = 100
+	)
 
-func TestMain(m *testing.M) {
+	fileWriteOpts := map[string]string{
+		fiofilewriter.MaxDirDepthField:         strconv.Itoa(1),
+		fiofilewriter.MaxFileSizeField:         strconv.Itoa(fileSize),
+		fiofilewriter.MinFileSizeField:         strconv.Itoa(fileSize),
+		fiofilewriter.MaxNumFilesPerWriteField: strconv.Itoa(numFiles),
+		fiofilewriter.MinNumFilesPerWriteField: strconv.Itoa(numFiles),
+	}
 
-	// assumptions: k10, kopia source code is available
-	// connect to existing v1 kopia repo in S3
-	// restore a snapshot to CF volume
-	// connect/create another kopia repo in S3 - system under test
-	// take snapshot of CF volume
-	// perform changes to CF volume data, snapshot again - repeat multiple times
+	opts := map[string]string{
+		string(engine.DeleteRandomBlobActionKey): strconv.Itoa(1),
+	}
+
+	// current state: a test repo is available in /test-repo/robustness-data
+	// test main connects to test-repo on filesystem, test -repo = SUT
+	// restores a snapshot from test-repo into /tmp/
+
+	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
+
+	// perform changes to CF volume data, snapshot
+	_, err := eng.ExecAction(ctx, engine.WriteRandomFilesActionKey, fileWriteOpts)
+	require.NoError(t, err)
+
+	snapOut, err := eng.ExecAction(ctx, engine.SnapshotDirActionKey, nil)
+	require.NoError(t, err)
+
 	// list blobs in SUT,
-	// create a copy of v1 repo - can use the existing one, where to create the copy?
-	//
+	// kopia blob list
+	// no way to do ^ as of now
 	// delete random blobs - decide the number, start with 2
+	// kopia blob delete <blob ID> --advanced-commands=enabled
+	_, err = eng.ExecAction(ctx, engine.DeleteRandomBlobActionKey, opts)
+	require.NoError(t, err)
+
+	// try to restore the latest snapshot
+	// this should error out
+	_, err = eng.ExecAction(ctx, engine.RestoreSnapshotActionKey, snapOut)
+	require.Error(t, err)
 
 }
