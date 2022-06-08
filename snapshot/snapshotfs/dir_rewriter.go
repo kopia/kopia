@@ -143,6 +143,9 @@ func (rw *DirRewriter) processDirectoryEntries(ctx context.Context, parentPath s
 		wg      workshare.AsyncGroup
 	)
 
+	// ensure we wait for all work items before returning
+	defer wg.Close()
+
 	for _, child := range entries {
 		if wg.CanShareWork(rw.ws) {
 			// see if we can run this child in a goroutine

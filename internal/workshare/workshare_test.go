@@ -102,6 +102,44 @@ func TestComputeTreeSumNegative(t *testing.T) {
 	testComputeTreeSum(t, -1)
 }
 
+func TestDisallowed_DoubleWait(t *testing.T) {
+	var ag workshare.AsyncGroup
+
+	ag.Wait()
+	require.Panics(t, func() {
+		ag.Wait()
+	})
+}
+
+func TestDisallowed_WaitAfterClose(t *testing.T) {
+	var ag workshare.AsyncGroup
+
+	ag.Close()
+	require.Panics(t, func() {
+		ag.Wait()
+	})
+
+	ag.Close() // no-op
+}
+
+func TestDisallowed_UseAfterPoolClose(t *testing.T) {
+	w := workshare.NewPool(1)
+
+	var ag workshare.AsyncGroup
+
+	w.Close()
+
+	require.Panics(t, func() {
+		ag.CanShareWork(w)
+	})
+
+	require.Panics(t, func() {
+		ag.RunAsync(w, func(c *workshare.Pool, request interface{}) {
+			t.Fatal("should not be called")
+		}, nil)
+	})
+}
+
 // nolint:thelper
 func testComputeTreeSum(t *testing.T, numWorkers int) {
 	w := workshare.NewPool(numWorkers)
