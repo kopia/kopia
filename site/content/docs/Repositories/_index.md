@@ -74,7 +74,7 @@ $ kopia repository create gcs --credentials-file="/path/to/your/credentials/file
 After these preparations we can create Kopia repository using the s3 function (assuming bucket named `kopia-test-123`):
 
 ```shell
-$ kopia repository create s3 --bucket="kopia-test-123" --access-key="access/key/here" --secret-access-key="secret/key/here"
+$ kopia repository create s3 --endpoint="storage.googleapis.com" --bucket="kopia-test-123" --access-key="access/key/here" --secret-access-key="secret/key/here"
 ```
 
 ### Connecting To Repository
@@ -94,7 +94,7 @@ $ kopia repository connect gcs --credentials-file="/path/to/your/credentials/fil
 or 
 
 ```shell
-$ kopia repository connect s3 --bucket="kopia-test-123" --access-key="access/key/here" --secret-access-key="secret/key/here"
+$ kopia repository connect s3 --endpoint="storage.googleapis.com" --bucket="kopia-test-123" --access-key="access/key/here" --secret-access-key="secret/key/here"
 ```
 
 [Detailed information and settings](/docs/reference/command-line/common/repository-connect-filesystem/)
