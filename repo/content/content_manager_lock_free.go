@@ -18,6 +18,7 @@ import (
 	"github.com/kopia/kopia/repo/content/index"
 	"github.com/kopia/kopia/repo/encryption"
 	"github.com/kopia/kopia/repo/hashing"
+	"github.com/kopia/kopia/repo/logging"
 )
 
 const indexBlobCompactionWarningThreshold = 1000
@@ -109,12 +110,26 @@ func (bm *WriteManager) preparePackDataContent(pp *pendingPackInfo) (index.Build
 	packFileIndex := index.Builder{}
 	haveContent := false
 
+	sb := logging.GetBuffer()
+	defer sb.Release()
+
 	for _, info := range pp.currentPackItems {
 		if info.GetPackBlobID() == pp.packBlobID {
 			haveContent = true
 		}
 
-		bm.log.Debugf("add-to-pack %v %v p:%v %v d:%v", pp.packBlobID, info.GetContentID(), info.GetPackBlobID(), info.GetPackedLength(), info.GetDeleted())
+		sb.Reset()
+		sb.AppendString("add-to-pack ")
+		sb.AppendString(string(pp.packBlobID))
+		sb.AppendString(" ")
+		info.GetContentID().AppendToLogBuffer(sb)
+		sb.AppendString(" p:")
+		sb.AppendString(string(info.GetPackBlobID()))
+		sb.AppendString(" ")
+		sb.AppendUint32(info.GetPackedLength())
+		sb.AppendString(" d:")
+		sb.AppendBoolean(info.GetDeleted())
+		bm.log.Debugf(sb.String())
 
 		packFileIndex.Add(info)
 	}

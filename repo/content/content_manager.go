@@ -783,6 +783,12 @@ func (bm *WriteManager) WriteContent(ctx context.Context, data gather.Bytes, pre
 	_, bi, err := bm.getContentInfoReadLocked(ctx, contentID)
 	bm.mu.RUnlock()
 
+	logbuf := logging.GetBuffer()
+	defer logbuf.Release()
+
+	logbuf.AppendString("write-content ")
+	contentID.AppendToLogBuffer(logbuf)
+
 	// content already tracked
 	if err == nil {
 		if !bi.GetDeleted() {
@@ -791,10 +797,11 @@ func (bm *WriteManager) WriteContent(ctx context.Context, data gather.Bytes, pre
 
 		previousWriteTime = bi.GetTimestampSeconds()
 
-		bm.log.Debugf("write-content %v previously-deleted", contentID)
-	} else {
-		bm.log.Debugf("write-content %v new", contentID)
+		logbuf.AppendString(" previously-deleted:")
+		logbuf.AppendInt64(previousWriteTime)
 	}
+
+	bm.log.Debugf(logbuf.String())
 
 	return contentID, bm.addToPackUnlocked(ctx, contentID, data, false, comp, previousWriteTime)
 }
