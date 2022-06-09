@@ -109,6 +109,7 @@ type internalLogger struct {
 	// +checklocks:mu
 	gzw *gzip.Writer
 
+	// +checklocks:mu
 	startTime int64 // unix timestamp of the first log
 
 	prefix blob.ID // +checklocksignore
@@ -140,7 +141,11 @@ func (l *internalLogger) maybeEncryptAndWriteChunkUnlocked(data gather.Bytes, cl
 
 	endTime := l.m.timeFunc().Unix()
 
-	prefix := blob.ID(fmt.Sprintf("%v_%v_%v_%v_", l.prefix, l.startTime, endTime, atomic.AddInt32(&l.nextChunkNumber, 1)))
+	l.mu.Lock()
+	st := l.startTime
+	l.mu.Unlock()
+
+	prefix := blob.ID(fmt.Sprintf("%v_%v_%v_%v_", l.prefix, st, endTime, atomic.AddInt32(&l.nextChunkNumber, 1)))
 
 	l.m.encryptAndWriteLogBlob(prefix, data, closeFunc)
 }
