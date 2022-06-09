@@ -72,6 +72,10 @@ func (c *diskCommittedContentIndexCache) mmapOpenWithRetry(path string) (mmap.MM
 		f, err = os.Open(path) // nolint:gosec
 	}
 
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "unable to open file despite retries")
+	}
+
 	mm, err := mmap.Map(f, mmap.RDONLY, 0)
 	if err != nil {
 		f.Close() // nolint:errcheck
