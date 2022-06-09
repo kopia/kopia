@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/repo/hashing"
+	"github.com/kopia/kopia/repo/logging"
 )
 
 // IDPrefix represents a content ID prefix (empty string or single character between 'g' and 'z').
@@ -92,6 +93,18 @@ func (i ID) less(other ID) bool {
 	}
 
 	return bytes.Compare(i.data[:i.idLen], other.data[:other.idLen]) < 0
+}
+
+// AppendToLogBuffer appends content ID to log buffer.
+func (i ID) AppendToLogBuffer(sb *logging.Buffer) {
+	var buf [128]byte
+
+	if i.prefix != 0 {
+		sb.AppendByte(i.prefix)
+	}
+
+	hex.Encode(buf[0:i.idLen*2], i.data[0:i.idLen])
+	sb.AppendBytes(buf[0 : i.idLen*2])
 }
 
 // String returns a string representation of ID.
