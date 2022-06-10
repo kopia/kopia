@@ -73,6 +73,8 @@ linters:
     - prealloc
     - gochecknoinits
     - whitespace
+    - exhaustruct
+    - nonamedreturns
     - nilnil
     - ireturn # this one may be interesting to control allocations
     - varnamelen # this one may be interesting, but too much churn
