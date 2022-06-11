@@ -67,18 +67,18 @@ func newUploadTestHarness(ctx context.Context, t *testing.T) *uploadTestHarness 
 		panic("cannot create storage directory: " + err.Error())
 	}
 
-	fs := blobtesting.NewFaultyStorage(storage)
-	ls := bloblogging.NewWrapper(fs, logging.Printf(t.Logf, "{STORAGE} "), "")
-	rs := repotesting.NewReconnectableStorage(t, ls)
+	faulty := blobtesting.NewFaultyStorage(storage)
+	logged := bloblogging.NewWrapper(faulty, logging.Printf(t.Logf, "{STORAGE} "), "")
+	rec := repotesting.NewReconnectableStorage(t, logged)
 
-	if initerr := repo.Initialize(ctx, rs, &repo.NewRepositoryOptions{}, masterPassword); initerr != nil {
+	if initerr := repo.Initialize(ctx, rec, &repo.NewRepositoryOptions{}, masterPassword); initerr != nil {
 		panic("unable to create repository: " + initerr.Error())
 	}
 
 	t.Logf("repo dir: %v", repoDir)
 
 	configFile := filepath.Join(repoDir, ".kopia.config")
-	if conerr := repo.Connect(ctx, configFile, rs, masterPassword, nil); conerr != nil {
+	if conerr := repo.Connect(ctx, configFile, rec, masterPassword, nil); conerr != nil {
 		panic("unable to connect to repository: " + conerr.Error())
 	}
 
@@ -121,7 +121,7 @@ func newUploadTestHarness(ctx context.Context, t *testing.T) *uploadTestHarness 
 		repoDir:   repoDir,
 		repo:      w,
 		ft:        ft,
-		faulty:    fs,
+		faulty:    faulty,
 	}
 
 	return th
@@ -622,15 +622,15 @@ func TestParallelUploadUploadsBlobsInParallel(t *testing.T) {
 
 	// add a bunch of very large files which can be hashed in parallel and will trigger parallel
 	// uploads
-	th.sourceDir.AddFile("d1/large1", randomBytes(1, 1e7), defaultPermissions)
-	th.sourceDir.AddFile("d1/large2", randomBytes(2, 2e7), defaultPermissions)
-	th.sourceDir.AddFile("d1/large3", randomBytes(3, 2e7), defaultPermissions)
-	th.sourceDir.AddFile("d1/large4", randomBytes(4, 1e7), defaultPermissions)
+	th.sourceDir.AddFile("d1/large1", randomBytes(1e7), defaultPermissions)
+	th.sourceDir.AddFile("d1/large2", randomBytes(2e7), defaultPermissions)
+	th.sourceDir.AddFile("d1/large3", randomBytes(2e7), defaultPermissions)
+	th.sourceDir.AddFile("d1/large4", randomBytes(1e7), defaultPermissions)
 
-	th.sourceDir.AddFile("d2/large1", randomBytes(5, 1e7), defaultPermissions)
-	th.sourceDir.AddFile("d2/large2", randomBytes(6, 1e7), defaultPermissions)
-	th.sourceDir.AddFile("d2/large3", randomBytes(7, 1e7), defaultPermissions)
-	th.sourceDir.AddFile("d2/large4", randomBytes(8, 1e7), defaultPermissions)
+	th.sourceDir.AddFile("d2/large1", randomBytes(1e7), defaultPermissions)
+	th.sourceDir.AddFile("d2/large2", randomBytes(1e7), defaultPermissions)
+	th.sourceDir.AddFile("d2/large3", randomBytes(1e7), defaultPermissions)
+	th.sourceDir.AddFile("d2/large4", randomBytes(1e7), defaultPermissions)
 
 	_, err := u.Upload(ctx, th.sourceDir, policyTree, si)
 	require.NoError(t, err)
@@ -640,9 +640,10 @@ func TestParallelUploadUploadsBlobsInParallel(t *testing.T) {
 	require.True(t, gotParallelCalls)
 }
 
-func randomBytes(seed byte, n int64) []byte {
+func randomBytes(n int64) []byte {
 	b := make([]byte, n)
 	rand.Read(b)
+
 	return b
 }
 
