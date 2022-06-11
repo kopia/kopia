@@ -89,7 +89,7 @@ func contentCacheKeyForInfo(bi Info) string {
 	return fmt.Sprintf("%v.%x.%x.%x", bi.GetContentID(), bi.GetCompressionHeaderID(), bi.GetFormatVersion(), bi.GetEncryptionKeyID())
 }
 
-func (bm *WriteManager) getContentDataReadLocked(ctx context.Context, pp *pendingPackInfo, bi Info, output *gather.WriteBuffer) error {
+func (sm *SharedManager) getContentDataReadLocked(ctx context.Context, pp *pendingPackInfo, bi Info, output *gather.WriteBuffer) error {
 	var payload gather.WriteBuffer
 	defer payload.Close()
 
@@ -99,14 +99,14 @@ func (bm *WriteManager) getContentDataReadLocked(ctx context.Context, pp *pendin
 			// should never happen
 			return errors.Wrap(err, "error appending pending content data to buffer")
 		}
-	} else if err := bm.getCacheForContentID(bi.GetContentID()).GetContent(ctx, contentCacheKeyForInfo(bi), bi.GetPackBlobID(), int64(bi.GetPackOffset()), int64(bi.GetPackedLength()), &payload); err != nil {
+	} else if err := sm.getCacheForContentID(bi.GetContentID()).GetContent(ctx, contentCacheKeyForInfo(bi), bi.GetPackBlobID(), int64(bi.GetPackOffset()), int64(bi.GetPackedLength()), &payload); err != nil {
 		return errors.Wrap(err, "error getting cached content")
 	}
 
-	return bm.decryptContentAndVerify(payload.Bytes(), bi, output)
+	return sm.decryptContentAndVerify(payload.Bytes(), bi, output)
 }
 
-func (bm *WriteManager) preparePackDataContent(pp *pendingPackInfo) (index.Builder, error) {
+func (sm *SharedManager) preparePackDataContent(pp *pendingPackInfo) (index.Builder, error) {
 	packFileIndex := index.Builder{}
 	haveContent := false
 
@@ -129,7 +129,7 @@ func (bm *WriteManager) preparePackDataContent(pp *pendingPackInfo) (index.Build
 		sb.AppendUint32(info.GetPackedLength())
 		sb.AppendString(" d:")
 		sb.AppendBoolean(info.GetDeleted())
-		bm.log.Debugf(sb.String())
+		sm.log.Debugf(sb.String())
 
 		packFileIndex.Add(info)
 	}
@@ -150,15 +150,15 @@ func (bm *WriteManager) preparePackDataContent(pp *pendingPackInfo) (index.Build
 
 	pp.finalized = true
 
-	if bm.paddingUnit > 0 {
-		if missing := bm.paddingUnit - (pp.currentPackData.Length() % bm.paddingUnit); missing > 0 {
+	if sm.paddingUnit > 0 {
+		if missing := sm.paddingUnit - (pp.currentPackData.Length() % sm.paddingUnit); missing > 0 {
 			if err := writeRandomBytesToBuffer(pp.currentPackData, missing); err != nil {
 				return nil, errors.Wrap(err, "unable to prepare content postamble")
 			}
 		}
 	}
 
-	err := bm.appendPackFileIndexRecoveryData(packFileIndex, pp.currentPackData)
+	err := sm.appendPackFileIndexRecoveryData(packFileIndex, pp.currentPackData)
 
 	return packFileIndex, err
 }
@@ -169,14 +169,14 @@ func getPackedContentIV(output []byte, contentID ID) []byte {
 	return append(output, h[len(h)-aes.BlockSize:]...)
 }
 
-func (bm *WriteManager) writePackFileNotLocked(ctx context.Context, packFile blob.ID, data gather.Bytes) error {
+func (sm *SharedManager) writePackFileNotLocked(ctx context.Context, packFile blob.ID, data gather.Bytes, onUpload func(int64)) error {
 	ctx, span := tracer.Start(ctx, "WritePackFile_"+strings.ToUpper(string(packFile[0:1])), trace.WithAttributes(attribute.String("packFile", string(packFile))))
 	defer span.End()
 
-	bm.Stats.wroteContent(data.Length())
-	bm.onUpload(int64(data.Length()))
+	sm.Stats.wroteContent(data.Length())
+	onUpload(int64(data.Length()))
 
-	return errors.Wrap(bm.st.PutBlob(ctx, packFile, data, blob.PutOptions{}), "error writing pack file")
+	return errors.Wrap(sm.st.PutBlob(ctx, packFile, data, blob.PutOptions{}), "error writing pack file")
 }
 
 func (sm *SharedManager) hashData(output []byte, data gather.Bytes) []byte {

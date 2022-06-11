@@ -358,7 +358,7 @@ func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, dat
 	// at this point we're unlocked so different goroutines can encrypt and
 	// save to storage in parallel.
 	if shouldWrite {
-		if err := bm.acquireLockAndWritePackAndAddToIndex(ctx, pp); err != nil {
+		if err := bm.writePackAndAddToIndexUnlocked(ctx, pp); err != nil {
 			return errors.Wrap(err, "unable to write pack")
 		}
 	}
@@ -519,24 +519,32 @@ func (bm *WriteManager) finishAllPacksLocked(ctx context.Context) error {
 	return nil
 }
 
-func (bm *WriteManager) acquireLockAndWritePackAndAddToIndex(ctx context.Context, pp *pendingPackInfo) error {
+func (bm *WriteManager) writePackAndAddToIndexUnlocked(ctx context.Context, pp *pendingPackInfo) error {
+	// upload without lock
+	packFileIndex, writeErr := bm.prepareAndWritePackInternal(ctx, pp, bm.onUpload)
+
 	bm.lock()
 	defer bm.unlock()
 
-	defer bm.cond.Broadcast()
-
-	return bm.writePackAndAddToIndexLocked(ctx, pp)
+	return bm.processWritePackResultLocked(pp, packFileIndex, writeErr)
 }
 
 // +checklocks:bm.mu
 func (bm *WriteManager) writePackAndAddToIndexLocked(ctx context.Context, pp *pendingPackInfo) error {
-	packFileIndex, err := bm.prepareAndWritePackInternal(ctx, pp)
+	packFileIndex, writeErr := bm.prepareAndWritePackInternal(ctx, pp, bm.onUpload)
+
+	return bm.processWritePackResultLocked(pp, packFileIndex, writeErr)
+}
+
+// +checklocks:bm.mu
+func (bm *WriteManager) processWritePackResultLocked(pp *pendingPackInfo, packFileIndex index.Builder, writeErr error) error {
+	defer bm.cond.Broadcast()
 
 	// after finishing writing, remove from both writingPacks and failedPacks
 	bm.writingPacks = removePendingPack(bm.writingPacks, pp)
 	bm.failedPacks = removePendingPack(bm.failedPacks, pp)
 
-	if err == nil {
+	if writeErr == nil {
 		// success, add pack index builder entries to index.
 		for _, info := range packFileIndex {
 			bm.packIndexBuilder.Add(info)
@@ -550,22 +558,22 @@ func (bm *WriteManager) writePackAndAddToIndexLocked(ctx context.Context, pp *pe
 	// failure - add to failedPacks slice again
 	bm.failedPacks = append(bm.failedPacks, pp)
 
-	return errors.Wrap(err, "error writing pack")
+	return errors.Wrap(writeErr, "error writing pack")
 }
 
-func (bm *WriteManager) prepareAndWritePackInternal(ctx context.Context, pp *pendingPackInfo) (index.Builder, error) {
-	packFileIndex, err := bm.preparePackDataContent(pp)
+func (sm *SharedManager) prepareAndWritePackInternal(ctx context.Context, pp *pendingPackInfo, onUpload func(int64)) (index.Builder, error) {
+	packFileIndex, err := sm.preparePackDataContent(pp)
 	if err != nil {
 		return nil, errors.Wrap(err, "error preparing data content")
 	}
 
 	if pp.currentPackData.Length() > 0 {
-		if err := bm.writePackFileNotLocked(ctx, pp.packBlobID, pp.currentPackData.Bytes()); err != nil {
-			bm.log.Debugf("failed-pack %v %v", pp.packBlobID, err)
+		if err := sm.writePackFileNotLocked(ctx, pp.packBlobID, pp.currentPackData.Bytes(), onUpload); err != nil {
+			sm.log.Debugf("failed-pack %v %v", pp.packBlobID, err)
 			return nil, errors.Wrapf(err, "can't save pack data blob %v", pp.packBlobID)
 		}
 
-		bm.log.Debugf("wrote-pack %v %v", pp.packBlobID, pp.currentPackData.Length())
+		sm.log.Debugf("wrote-pack %v %v", pp.packBlobID, pp.currentPackData.Length())
 	}
 
 	return packFileIndex, nil

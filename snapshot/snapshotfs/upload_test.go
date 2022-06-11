@@ -20,13 +20,16 @@ import (
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/fs/virtualfs"
+	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/faketime"
 	"github.com/kopia/kopia/internal/mockfs"
+	"github.com/kopia/kopia/internal/repotesting"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob/filesystem"
+	bloblogging "github.com/kopia/kopia/repo/blob/logging"
 	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
@@ -43,6 +46,7 @@ type uploadTestHarness struct {
 	repoDir   string
 	repo      repo.RepositoryWriter
 	ft        *faketime.TimeAdvance
+	faulty    *blobtesting.FaultyStorage
 }
 
 var errTest = errors.New("test error")
@@ -63,14 +67,18 @@ func newUploadTestHarness(ctx context.Context, t *testing.T) *uploadTestHarness 
 		panic("cannot create storage directory: " + err.Error())
 	}
 
-	if initerr := repo.Initialize(ctx, storage, &repo.NewRepositoryOptions{}, masterPassword); initerr != nil {
+	faulty := blobtesting.NewFaultyStorage(storage)
+	logged := bloblogging.NewWrapper(faulty, logging.Printf(t.Logf, "{STORAGE} "), "")
+	rec := repotesting.NewReconnectableStorage(t, logged)
+
+	if initerr := repo.Initialize(ctx, rec, &repo.NewRepositoryOptions{}, masterPassword); initerr != nil {
 		panic("unable to create repository: " + initerr.Error())
 	}
 
 	t.Logf("repo dir: %v", repoDir)
 
 	configFile := filepath.Join(repoDir, ".kopia.config")
-	if conerr := repo.Connect(ctx, configFile, storage, masterPassword, nil); conerr != nil {
+	if conerr := repo.Connect(ctx, configFile, rec, masterPassword, nil); conerr != nil {
 		panic("unable to connect to repository: " + conerr.Error())
 	}
 
@@ -113,6 +121,7 @@ func newUploadTestHarness(ctx context.Context, t *testing.T) *uploadTestHarness 
 		repoDir:   repoDir,
 		repo:      w,
 		ft:        ft,
+		faulty:    faulty,
 	}
 
 	return th
@@ -570,6 +579,72 @@ func TestUploadWithCheckpointing(t *testing.T) {
 			t.Errorf("unexpected incompleteReason %q, want %q", got, want)
 		}
 	}
+}
+
+func TestParallelUploadUploadsBlobsInParallel(t *testing.T) {
+	ctx := testlogging.Context(t)
+	th := newUploadTestHarness(ctx, t)
+
+	u := NewUploader(th.repo)
+	u.ParallelUploads = 10
+
+	// no faults for first blob write - session marker.
+	th.faulty.AddFault(blobtesting.MethodPutBlob)
+
+	// data blobs follow - use channels to enforce parallelism
+	first := make(chan struct{})
+	gotParallelCalls := false
+
+	th.faulty.AddFault(blobtesting.MethodPutBlob).Before(func() {
+		t.Logf(">>>>>>>>>>> FIRST")
+		// wait until channel is closed by concurrent PutBlob
+		<-first
+		t.Logf("<<<<<<<<<<< FIRST")
+	})
+	th.faulty.AddFault(blobtesting.MethodPutBlob).Before(func() {
+		t.Logf(">>>>>>>>>>> SECOND")
+		gotParallelCalls = true
+		close(first)
+		t.Logf("<<<<<<<<<<< SECOND")
+	})
+
+	// create a channel that will be sent to whenever checkpoint completes.
+	u.checkpointFinished = make(chan struct{})
+	u.disableEstimation = true
+
+	policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
+
+	si := snapshot.SourceInfo{
+		UserName: "user",
+		Host:     "host",
+		Path:     "path",
+	}
+
+	// add a bunch of very large files which can be hashed in parallel and will trigger parallel
+	// uploads
+	th.sourceDir.AddFile("d1/large1", randomBytes(1e7), defaultPermissions)
+	th.sourceDir.AddFile("d1/large2", randomBytes(2e7), defaultPermissions)
+	th.sourceDir.AddFile("d1/large3", randomBytes(2e7), defaultPermissions)
+	th.sourceDir.AddFile("d1/large4", randomBytes(1e7), defaultPermissions)
+
+	th.sourceDir.AddFile("d2/large1", randomBytes(1e7), defaultPermissions)
+	th.sourceDir.AddFile("d2/large2", randomBytes(1e7), defaultPermissions)
+	th.sourceDir.AddFile("d2/large3", randomBytes(1e7), defaultPermissions)
+	th.sourceDir.AddFile("d2/large4", randomBytes(1e7), defaultPermissions)
+
+	_, err := u.Upload(ctx, th.sourceDir, policyTree, si)
+	require.NoError(t, err)
+
+	require.NoError(t, th.repo.Flush(ctx))
+
+	require.True(t, gotParallelCalls)
+}
+
+func randomBytes(n int64) []byte {
+	b := make([]byte, n)
+	rand.Read(b)
+
+	return b
 }
 
 func TestUploadScanStopsOnContextCancel(t *testing.T) {
