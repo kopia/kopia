@@ -329,6 +329,16 @@ func (c *commandSnapshotCreate) snapshotSingleSource(ctx context.Context, rep re
 		manifest.EndTime = endTimeOverride
 	}
 
+	ignoreIdenticalSnapshot := policyTree.EffectivePolicy().RetentionPolicy.IgnoreIdenticalSnapshots.OrDefault(false)
+	if ignoreIdenticalSnapshot {
+		for _, prev := range previous {
+			if prev.RootObjectID().String() == manifest.RootObjectID().String() {
+				log(ctx).Errorf("\n Ignoring empty snapshot")
+				return errors.Wrap(err, "Ignoring empty snapshot")
+			}
+		}
+	}
+
 	if _, err = snapshot.SaveSnapshot(ctx, rep, manifest); err != nil {
 		return errors.Wrap(err, "cannot save manifest")
 	}

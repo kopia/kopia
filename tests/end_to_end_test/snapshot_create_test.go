@@ -74,6 +74,18 @@ func TestSnapshotCreate(t *testing.T) {
 
 	sources := clitestutil.ListSnapshotsAndExpectSuccess(t, e)
 	require.Len(t, sources, 3)
+
+	// test ignore-identical-snapshot
+	e.RunAndExpectSuccess(t, "policy", "set", "--global", "--ignore-identical-snapshot", "true")
+	_, outErr := e.RunAndExpectSuccessWithErrOut(t, "snapshot", "create", sharedTestDataDir2)
+	errFound := false
+	for _, err := range outErr {
+		if strings.Contains(err, "Ignoring empty snapshot") {
+			errFound = true
+			break
+		}
+	}
+	require.Equal(t, true, errFound)
 }
 
 func TestTagging(t *testing.T) {
