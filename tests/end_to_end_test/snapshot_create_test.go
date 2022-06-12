@@ -77,15 +77,10 @@ func TestSnapshotCreate(t *testing.T) {
 
 	// test ignore-identical-snapshot
 	e.RunAndExpectSuccess(t, "policy", "set", "--global", "--ignore-identical-snapshot", "true")
-	_, outErr := e.RunAndExpectSuccessWithErrOut(t, "snapshot", "create", sharedTestDataDir2)
-	errFound := false
-	for _, err := range outErr {
-		if strings.Contains(err, "Ignoring empty snapshot") {
-			errFound = true
-			break
-		}
-	}
-	require.Equal(t, true, errFound)
+	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir2)
+
+	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "list", "-a", "--json"), &manifests)
+	require.Len(t, manifests, 6)
 }
 
 func TestTagging(t *testing.T) {

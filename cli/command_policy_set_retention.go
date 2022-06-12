@@ -25,7 +25,7 @@ func (c *policyRetentionFlags) setup(cmd *kingpin.CmdClause) {
 	cmd.Flag("keep-weekly", "Number of most-recent weekly backups to keep per source (or 'inherit')").PlaceHolder("N").StringVar(&c.policySetKeepWeekly)
 	cmd.Flag("keep-monthly", "Number of most-recent monthly backups to keep per source (or 'inherit')").PlaceHolder("N").StringVar(&c.policySetKeepMonthly)
 	cmd.Flag("keep-annual", "Number of most-recent annual backups to keep per source (or 'inherit')").PlaceHolder("N").StringVar(&c.policySetKeepAnnual)
-	cmd.Flag("ignore-identical-snapshot", "Ignore identical snapshot with the last (or 'inherit')").PlaceHolder("N").StringVar(&c.policySetIgnoreIdenticalSnapshots)
+	cmd.Flag("ignore-identical-snapshot", "Ignore identical snapshot with the last (or 'inherit')").StringVar(&c.policySetIgnoreIdenticalSnapshots)
 }
 
 func (c *policyRetentionFlags) setRetentionPolicyFromFlags(ctx context.Context, rp *policy.RetentionPolicy, changeCount *int) error {
@@ -48,18 +48,8 @@ func (c *policyRetentionFlags) setRetentionPolicyFromFlags(ctx context.Context, 
 		}
 	}
 
-	boolCases := []struct {
-		desc      string
-		max       **policy.OptionalBool
-		flagValue string
-	}{
-		{"ignore identical backups", &rp.IgnoreIdenticalSnapshots, c.policySetIgnoreIdenticalSnapshots},
-	}
-
-	for _, c := range boolCases {
-		if err := applyPolicyBoolPtr(ctx, c.desc, c.max, c.flagValue, changeCount); err != nil {
-			return err
-		}
+	if err := applyPolicyBoolPtr(ctx, "ignore identical backups", &rp.IgnoreIdenticalSnapshots, c.policySetIgnoreIdenticalSnapshots, changeCount); err != nil {
+		return err
 	}
 
 	return nil

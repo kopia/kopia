@@ -401,11 +401,10 @@ func (s *sourceManager) snapshotInternal(ctx context.Context, ctrl uitask.Contro
 		}
 
 		ignoreIdenticalSnapshot := policyTree.EffectivePolicy().RetentionPolicy.IgnoreIdenticalSnapshots.OrDefault(false)
-		if ignoreIdenticalSnapshot {
-			for _, prev := range manifestsSinceLastCompleteSnapshot {
-				if prev.RootObjectID().String() == manifest.RootObjectID().String() {
-					return errors.Wrap(err, "Not saving snapshot because no files have been changed")
-				}
+		if ignoreIdenticalSnapshot && len(manifestsSinceLastCompleteSnapshot) > 0 {
+			if manifestsSinceLastCompleteSnapshot[0].RootObjectID() == manifest.RootObjectID() {
+				log(ctx).Debugf("Ignoring empty snapshot")
+				return nil
 			}
 		}
 
