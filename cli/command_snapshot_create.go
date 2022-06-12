@@ -330,20 +330,17 @@ func (c *commandSnapshotCreate) snapshotSingleSource(ctx context.Context, rep re
 	}
 
 	ignoreIdenticalSnapshot := policyTree.EffectivePolicy().RetentionPolicy.IgnoreIdenticalSnapshots.OrDefault(false)
-	ignoreIdenticalSnapshotCounter := 0
 	if ignoreIdenticalSnapshot {
 		for _, prev := range previous {
 			if prev.RootObjectID().String() == manifest.RootObjectID().String() {
-				log(ctx).Errorf("\n Ignoring empty snapshot")
-				ignoreIdenticalSnapshotCounter++
+				log(ctx).Errorf("\n Not saving snapshot because no files have been changed")
+				return errors.Wrap(err, "Not saving snapshot because no files have been changed")
 			}
 		}
 	} 
 	
-	if ignoreIdenticalSnapshotCounter == 0 {
-		if _, err = snapshot.SaveSnapshot(ctx, rep, manifest); err != nil {
-			return errors.Wrap(err, "cannot save manifest")
-		}
+	if _, err = snapshot.SaveSnapshot(ctx, rep, manifest); err != nil {
+		return errors.Wrap(err, "cannot save manifest")
 	}
 
 	if _, err = policy.ApplyRetentionPolicy(ctx, rep, sourceInfo, true); err != nil {
