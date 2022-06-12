@@ -61,6 +61,9 @@ func (s *sourceDirectories) SupportsMultipleIterations() bool {
 	return true
 }
 
+func (s *sourceDirectories) Close() {
+}
+
 func (s *sourceDirectories) Child(ctx context.Context, name string) (fs.Entry, error) {
 	// nolint:wrapcheck
 	return fs.IterateEntriesAndFindChild(ctx, s, name)

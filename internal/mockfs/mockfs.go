@@ -77,6 +77,9 @@ func (e *entry) LocalFilesystemPath() string {
 	return ""
 }
 
+func (e *entry) Close() {
+}
+
 // Directory is mock in-memory implementation of fs.Directory.
 type Directory struct {
 	entry

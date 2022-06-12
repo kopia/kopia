@@ -84,6 +84,9 @@ func (e *repositoryEntry) LocalFilesystemPath() string {
 	return ""
 }
 
+func (e *repositoryEntry) Close() {
+}
+
 type repositoryDirectory struct {
 	repositoryEntry
 
@@ -193,6 +196,13 @@ func (rd *repositoryDirectory) loadLocked(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (rd *repositoryDirectory) Close() {
+	rd.mu.Lock()
+	defer rd.mu.Unlock()
+
+	rd.dirEntries = nil
 }
 
 func (rf *repositoryFile) Open(ctx context.Context) (fs.Reader, error) {

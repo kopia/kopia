@@ -62,6 +62,9 @@ func (e *virtualEntry) LocalFilesystemPath() string {
 	return ""
 }
 
+func (e *virtualEntry) Close() {
+}
+
 // staticDirectory is an in-memory implementation of fs.Directory.
 type staticDirectory struct {
 	virtualEntry
