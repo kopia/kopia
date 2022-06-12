@@ -401,17 +401,20 @@ func (s *sourceManager) snapshotInternal(ctx context.Context, ctrl uitask.Contro
 		}
 
 		ignoreIdenticalSnapshot := policyTree.EffectivePolicy().RetentionPolicy.IgnoreIdenticalSnapshots.OrDefault(false)
+		ignoreIdenticalSnapshotCounter := 0
 		if ignoreIdenticalSnapshot {
 			for _, prev := range manifestsSinceLastCompleteSnapshot {
 				if prev.RootObjectID().String() == manifest.RootObjectID().String() {
-					return errors.Wrap(err, "Ignoring empty snapshot")
+					ignoreIdenticalSnapshotCounter++
 				}
 			}
 		}
 
-		snapshotID, err := snapshot.SaveSnapshot(ctx, w, manifest)
-		if err != nil {
-			return errors.Wrap(err, "unable to save snapshot")
+		if ignoreIdenticalSnapshotCounter == 0 {
+			snapshotID, err := snapshot.SaveSnapshot(ctx, w, manifest)
+			if err != nil {
+				return errors.Wrap(err, "unable to save snapshot")
+			}
 		}
 
 		if _, err := policy.ApplyRetentionPolicy(ctx, w, s.src, true); err != nil {
