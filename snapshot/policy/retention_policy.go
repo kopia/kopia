@@ -116,7 +116,7 @@ func (r *RetentionPolicy) ComputeRetentionReasons(manifests []*snapshot.Manifest
 }
 
 func (r *RetentionPolicy) effectiveKeepLatest() *OptionalInt {
-	if r.KeepLatest.OrDefault(0)+r.KeepHourly.OrDefault(0)+r.KeepDaily.OrDefault(0)+r.KeepWeekly.OrDefault(0)+r.KeepMonthly.OrDefault(0)+r.KeepAnnual.OrDefault(0) == 0 {
+	if r.KeepLatest.OrDefault(0)+r.KeepHourly.OrDefault(0)+r.KeepDaily.OrDefault(0)+r.KeepWeekly.OrDefault(0)+r.KeepMonthly.OrDefault(0)+r.KeepAnnual.OrDefault(0)+r.MinRetentionDays.OrDefault(0) == 0 {
 		return newOptionalInt(math.MaxInt)
 	}
 
@@ -135,6 +135,7 @@ func (r *RetentionPolicy) getRetentionReasons(i int, s *snapshot.Manifest, cutof
 	yyyy, wk := s.StartTime.ISOWeek()
 
 	effectiveKeepLatest := r.effectiveKeepLatest()
+	fmt.Printf("log: %d\n", effectiveKeepLatest)
 
 	cases := []struct {
 		cutoffTime     time.Time

@@ -157,6 +157,44 @@ func TestRetentionPolicyTest(t *testing.T) {
 				"2020-01-15T12:00:00Z": {"weekly-1"},
 			},
 		},
+		{
+			&RetentionPolicy{
+				MinRetentionDays: newOptionalInt(2),
+			},
+			map[string][]string{
+
+				"2020-01-07T12:00:00Z": {},
+				"2020-01-08T12:00:00Z": {},
+				"2020-01-09T12:00:00Z": {"Inside min retention days"},
+				"2020-01-10T12:10:00Z": {"Inside min retention days"},
+			},
+		},
+		{
+			&RetentionPolicy{
+				KeepLatest:       newOptionalInt(3),
+				KeepHourly:       newOptionalInt(7),
+				KeepDaily:        newOptionalInt(4),
+				MinRetentionDays: newOptionalInt(3),
+			},
+			map[string][]string{
+				"2020-01-01T12:00:00Z": {},
+				"2020-01-01T13:00:00Z": {},
+				"2020-01-01T14:00:00Z": {},
+				"2020-01-01T15:00:00Z": {"Inside min retention days", "daily-4"},
+
+				"2020-01-02T12:00:00Z": {"Inside min retention days"},
+				"2020-01-02T13:00:00Z": {"Inside min retention days"},
+				"2020-01-02T15:00:00Z": {"Inside min retention days", "daily-3"},
+
+				"2020-01-03T12:00:00Z": {"Inside min retention days"},
+				"2020-01-03T13:00:00Z": {"Inside min retention days"},
+				"2020-01-03T15:00:00Z": {"Inside min retention days", "daily-2"},
+
+				"2020-01-04T12:00:00Z": {"Inside min retention days", "latest-3", "hourly-3"},
+				"2020-01-04T13:00:00Z": {"Inside min retention days", "latest-2", "hourly-2"},
+				"2020-01-04T15:00:00Z": {"Inside min retention days", "latest-1", "hourly-1", "daily-1"},
+			},
+		},
 	}
 
 	for _, tc := range cases {
