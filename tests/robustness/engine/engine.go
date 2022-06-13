@@ -17,7 +17,6 @@ import (
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/tests/robustness"
 	"github.com/kopia/kopia/tests/robustness/checker"
-	"github.com/kopia/kopia/tests/tools/kopiarunner"
 )
 
 var (
@@ -30,11 +29,9 @@ var (
 // Args contain the parameters for the engine constructor.
 type Args struct {
 	// Interfaces used by the engine.
-	MetaStore          robustness.Persister
-	TestRepo           robustness.Snapshotter
-	FileWriter         robustness.FileWriter
-	KopiaCommandRunner *kopiarunner.KopiaSnapshotter
-	DataRepoPath       string
+	MetaStore  robustness.Persister
+	TestRepo   robustness.Snapshotter
+	FileWriter robustness.FileWriter
 
 	// WorkingDir is a directory to use for temporary data.
 	WorkingDir string
@@ -60,12 +57,10 @@ func New(args *Args) (*Engine, error) {
 
 	var (
 		e = &Engine{
-			MetaStore:          args.MetaStore,
-			TestRepo:           args.TestRepo,
-			FileWriter:         args.FileWriter,
-			KopiaCommandRunner: args.KopiaCommandRunner,
-			DataRepoPath:       args.DataRepoPath,
-			baseDirPath:        args.WorkingDir,
+			MetaStore:   args.MetaStore,
+			TestRepo:    args.TestRepo,
+			FileWriter:  args.FileWriter,
+			baseDirPath: args.WorkingDir,
 			RunStats: Stats{
 				RunCounter:     1,
 				CreationTime:   clock.Now(),
@@ -101,11 +96,9 @@ func New(args *Args) (*Engine, error) {
 
 // Engine is the outer level testing framework for robustness testing.
 type Engine struct {
-	FileWriter         robustness.FileWriter
-	TestRepo           robustness.Snapshotter
-	MetaStore          robustness.Persister
-	KopiaCommandRunner *kopiarunner.KopiaSnapshotter
-	DataRepoPath       string
+	FileWriter robustness.FileWriter
+	TestRepo   robustness.Snapshotter
+	MetaStore  robustness.Persister
 
 	Checker         *checker.Checker
 	cleanupRoutines []func()
