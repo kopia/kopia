@@ -76,7 +76,7 @@ func TestSnapshotCreate(t *testing.T) {
 	require.Len(t, sources, 3)
 
 	// test ignore-identical-snapshot
-	e.RunAndExpectSuccess(t, "policy", "set", "--global", "--ignore-identical-snapshot", "true")
+	e.RunAndExpectSuccess(t, "policy", "set", "--global", "--ignore-identical-snapshots", "true")
 	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir2)
 
 	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "list", "-a", "--json"), &manifests)
