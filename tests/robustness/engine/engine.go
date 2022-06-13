@@ -84,13 +84,6 @@ func New(args *Args) (*Engine, error) {
 	e.Checker.RecoveryMode = args.SyncRepositories
 	e.cleanupRoutines = append(e.cleanupRoutines, e.Checker.Cleanup)
 
-	// // Create a kopia runner in order to run delete commands directly
-	// e.KopiaCommandRunner, err = kopiarunner.NewKopiaSnapshotter(e.baseDirPath)
-	// if err != nil {
-	// 	e.cleanComponents()
-	// 	return nil, err
-	// }
-
 	return e, nil
 }
 
