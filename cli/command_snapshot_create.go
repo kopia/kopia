@@ -329,6 +329,14 @@ func (c *commandSnapshotCreate) snapshotSingleSource(ctx context.Context, rep re
 		manifest.EndTime = endTimeOverride
 	}
 
+	ignoreIdenticalSnapshot := policyTree.EffectivePolicy().RetentionPolicy.IgnoreIdenticalSnapshots.OrDefault(false)
+	if ignoreIdenticalSnapshot && len(previous) > 0 {
+		if previous[0].RootObjectID() == manifest.RootObjectID() {
+			log(ctx).Infof("\n Not saving snapshot because no files have been changed since previous snapshot")
+			return nil
+		}
+	}
+
 	if _, err = snapshot.SaveSnapshot(ctx, rep, manifest); err != nil {
 		return errors.Wrap(err, "cannot save manifest")
 	}

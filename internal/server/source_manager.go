@@ -400,6 +400,14 @@ func (s *sourceManager) snapshotInternal(ctx context.Context, ctrl uitask.Contro
 			return errors.Wrap(err, "upload error")
 		}
 
+		ignoreIdenticalSnapshot := policyTree.EffectivePolicy().RetentionPolicy.IgnoreIdenticalSnapshots.OrDefault(false)
+		if ignoreIdenticalSnapshot && len(manifestsSinceLastCompleteSnapshot) > 0 {
+			if manifestsSinceLastCompleteSnapshot[0].RootObjectID() == manifest.RootObjectID() {
+				log(ctx).Debugf("Not saving snapshot because no files have been changed since previous snapshot")
+				return nil
+			}
+		}
+
 		snapshotID, err := snapshot.SaveSnapshot(ctx, w, manifest)
 		if err != nil {
 			return errors.Wrap(err, "unable to save snapshot")
