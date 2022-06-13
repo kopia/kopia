@@ -33,7 +33,10 @@ func handleMountCreate(ctx context.Context, rc requestContext) (interface{}, *ap
 }
 
 func handleMountGet(ctx context.Context, rc requestContext) (interface{}, *apiError) {
-	oid := object.ID(rc.muxVar("rootObjectID"))
+	oid, err := object.ParseID(rc.muxVar("rootObjectID"))
+	if err != nil {
+		return nil, requestError(serverapi.ErrorMalformedRequest, "invalid root object ID")
+	}
 
 	c, err := rc.srv.getMountController(ctx, rc.rep, oid, false)
 	if err != nil {
@@ -51,7 +54,10 @@ func handleMountGet(ctx context.Context, rc requestContext) (interface{}, *apiEr
 }
 
 func handleMountDelete(ctx context.Context, rc requestContext) (interface{}, *apiError) {
-	oid := object.ID(rc.muxVar("rootObjectID"))
+	oid, err := object.ParseID(rc.muxVar("rootObjectID"))
+	if err != nil {
+		return nil, requestError(serverapi.ErrorMalformedRequest, "invalid root object ID")
+	}
 
 	c, err := rc.srv.getMountController(ctx, rc.rep, oid, false)
 	if err != nil {

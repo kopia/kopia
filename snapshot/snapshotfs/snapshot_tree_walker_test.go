@@ -19,15 +19,13 @@ import (
 func TestSnapshotTreeWalker(t *testing.T) {
 	callbackCounter := new(int32)
 
-	w, err := snapshotfs.NewTreeWalker(
+	w := snapshotfs.NewTreeWalker(
 		snapshotfs.TreeWalkerOptions{
 			EntryCallback: func(ctx context.Context, entry fs.Entry, oid object.ID, entryPath string) error {
 				atomic.AddInt32(callbackCounter, 1)
 				return nil
 			},
 		})
-	require.NoError(t, err)
-
 	defer w.Close()
 
 	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
@@ -81,7 +79,7 @@ func TestSnapshotTreeWalker(t *testing.T) {
 func TestSnapshotTreeWalker_Errors(t *testing.T) {
 	someErr1 := errors.Errorf("some error")
 
-	w, err := snapshotfs.NewTreeWalker(
+	w := snapshotfs.NewTreeWalker(
 		snapshotfs.TreeWalkerOptions{
 			Parallelism: 1,
 			EntryCallback: func(ctx context.Context, entry fs.Entry, oid object.ID, entryPath string) error {
@@ -92,8 +90,6 @@ func TestSnapshotTreeWalker_Errors(t *testing.T) {
 				return nil
 			},
 		})
-	require.NoError(t, err)
-
 	defer w.Close()
 
 	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
@@ -122,7 +118,7 @@ func TestSnapshotTreeWalker_Errors(t *testing.T) {
 func TestSnapshotTreeWalker_MultipleErrors(t *testing.T) {
 	someErr1 := errors.Errorf("some error")
 
-	w, err := snapshotfs.NewTreeWalker(
+	w := snapshotfs.NewTreeWalker(
 		snapshotfs.TreeWalkerOptions{
 			Parallelism: 1,
 			MaxErrors:   -1,
@@ -138,8 +134,53 @@ func TestSnapshotTreeWalker_MultipleErrors(t *testing.T) {
 				return nil
 			},
 		})
+	defer w.Close()
+
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
+
+	sourceRoot := mockfs.NewDirectory()
+	require.Error(t, w.Process(ctx, sourceRoot, "root-dir"))
+
+	dir1 := sourceRoot.AddDir("dir1", 0o755)
+	dir2 := sourceRoot.AddDir("dir2", 0o755)
+
+	dir1.AddFile("file11", []byte{1, 2, 3}, 0o644)
+	dir2.AddFile("file21", []byte{1, 2, 3, 4}, 0o644)
+	dir2.AddFile("file22", []byte{1, 2, 3, 4, 5}, 0o644)
+
+	u := snapshotfs.NewUploader(env.RepositoryWriter)
+	man, err := u.Upload(ctx, sourceRoot, nil, snapshot.SourceInfo{})
 	require.NoError(t, err)
 
+	uploadedRoot, err := snapshotfs.SnapshotRoot(env.Repository, man)
+	require.NoError(t, err)
+
+	require.NoError(t, env.RepositoryWriter.Flush(ctx))
+
+	err = w.Process(ctx, uploadedRoot, "root-dir")
+	require.Error(t, err)
+	require.Equal(t, "encountered 2 errors", err.Error())
+}
+
+func TestSnapshotTreeWalker_MultipleErrorsSameOID(t *testing.T) {
+	someErr1 := errors.Errorf("some error")
+
+	w := snapshotfs.NewTreeWalker(
+		snapshotfs.TreeWalkerOptions{
+			Parallelism: 1,
+			MaxErrors:   -1,
+			EntryCallback: func(ctx context.Context, entry fs.Entry, oid object.ID, entryPath string) error {
+				if entryPath == "root-dir/dir1/file11" {
+					return someErr1
+				}
+
+				if entryPath == "root-dir/dir2/file22" {
+					return someErr1
+				}
+
+				return nil
+			},
+		})
 	defer w.Close()
 
 	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
@@ -165,5 +206,5 @@ func TestSnapshotTreeWalker_MultipleErrors(t *testing.T) {
 
 	err = w.Process(ctx, uploadedRoot, "root-dir")
 	require.Error(t, err)
-	require.Equal(t, "encountered 2 errors", err.Error())
+	require.True(t, errors.Is(err, someErr1))
 }

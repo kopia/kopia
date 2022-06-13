@@ -18,7 +18,7 @@ func Run(ctx context.Context, dr repo.DirectRepositoryWriter, mode maintenance.M
 		func(ctx context.Context, runParams maintenance.RunParameters) error {
 			// run snapshot GC before full maintenance
 			if runParams.Mode == maintenance.ModeFull {
-				if _, err := snapshotgc.Run(ctx, dr, true, safety); err != nil {
+				if _, err := snapshotgc.Run(ctx, dr, true, safety, runParams.MaintenanceStartTime); err != nil {
 					return errors.Wrap(err, "snapshot GC failure")
 				}
 			}

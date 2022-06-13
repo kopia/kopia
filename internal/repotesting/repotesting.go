@@ -17,6 +17,7 @@ import (
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/encryption"
 	"github.com/kopia/kopia/repo/object"
+	"github.com/kopia/kopia/snapshot"
 )
 
 const defaultPassword = "foobarbazfoobarbaz"
@@ -118,7 +119,10 @@ func (e *Environment) setup(tb testing.TB, version content.FormatVersion, opts .
 		tb.Fatal(err)
 	}
 
-	tb.Cleanup(func() { rep.Close(ctx) })
+	tb.Cleanup(func() {
+		e.RepositoryWriter.Close(ctx)
+		rep.Close(ctx)
+	})
 
 	return e
 }
@@ -176,7 +180,7 @@ func (e *Environment) MustReopen(tb testing.TB, openOpts ...func(*repo.Options))
 	}
 }
 
-// MustOpenAnother opens another repository backend by the same storage.
+// MustOpenAnother opens another repository backed by the same storage location.
 func (e *Environment) MustOpenAnother(tb testing.TB, openOpts ...func(*repo.Options)) repo.RepositoryWriter {
 	tb.Helper()
 
@@ -199,7 +203,7 @@ func (e *Environment) MustOpenAnother(tb testing.TB, openOpts ...func(*repo.Opti
 	return w
 }
 
-// MustConnectOpenAnother opens another repository backend by the same storage,
+// MustConnectOpenAnother opens another repository backed by the same storage,
 // with independent config and cache options.
 func (e *Environment) MustConnectOpenAnother(tb testing.TB, openOpts ...func(*repo.Options)) repo.Repository {
 	tb.Helper()
@@ -238,6 +242,15 @@ func (e *Environment) VerifyBlobCount(tb testing.TB, want int) {
 
 	if got != want {
 		tb.Errorf("got unexpected number of BLOBs: %v, wanted %v", got, want)
+	}
+}
+
+// LocalPathSourceInfo is a convenience method that returns SourceInfo for the local user and path.
+func (e *Environment) LocalPathSourceInfo(path string) snapshot.SourceInfo {
+	return snapshot.SourceInfo{
+		UserName: e.Repository.ClientOptions().Username,
+		Host:     e.Repository.ClientOptions().Hostname,
+		Path:     path,
 	}
 }
 

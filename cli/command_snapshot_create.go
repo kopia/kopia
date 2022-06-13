@@ -273,7 +273,7 @@ func (c *commandSnapshotCreate) snapshotSingleSource(ctx context.Context, rep re
 	if c.snapshotCreateStdinFileName != "" {
 		// stdin source will be snapshotted using a virtual static root directory with a single streaming file entry
 		// Create a new static directory with the given name and add a streaming file entry with os.Stdin reader
-		fsEntry = virtualfs.NewStaticDirectory(sourceInfo.Path, fs.Entries{
+		fsEntry = virtualfs.NewStaticDirectory(sourceInfo.Path, []fs.Entry{
 			virtualfs.StreamingFileFromReader(c.snapshotCreateStdinFileName, os.Stdin),
 		})
 		setManual = true
@@ -327,6 +327,14 @@ func (c *commandSnapshotCreate) snapshotSingleSource(ctx context.Context, rep re
 		}
 
 		manifest.EndTime = endTimeOverride
+	}
+
+	ignoreIdenticalSnapshot := policyTree.EffectivePolicy().RetentionPolicy.IgnoreIdenticalSnapshots.OrDefault(false)
+	if ignoreIdenticalSnapshot && len(previous) > 0 {
+		if previous[0].RootObjectID() == manifest.RootObjectID() {
+			log(ctx).Infof("\n Not saving snapshot because no files have been changed since previous snapshot")
+			return nil
+		}
 	}
 
 	if _, err = snapshot.SaveSnapshot(ctx, rep, manifest); err != nil {

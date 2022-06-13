@@ -4,11 +4,13 @@ import (
 	"context"
 	"crypto/aes"
 	cryptorand "crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
@@ -16,6 +18,7 @@ import (
 	"github.com/kopia/kopia/repo/content/index"
 	"github.com/kopia/kopia/repo/encryption"
 	"github.com/kopia/kopia/repo/hashing"
+	"github.com/kopia/kopia/repo/logging"
 )
 
 const indexBlobCompactionWarningThreshold = 1000
@@ -23,10 +26,7 @@ const indexBlobCompactionWarningThreshold = 1000
 func (sm *SharedManager) maybeCompressAndEncryptDataForPacking(data gather.Bytes, contentID ID, comp compression.HeaderID, output *gather.WriteBuffer) (compression.HeaderID, error) {
 	var hashOutput [hashing.MaxHashSize]byte
 
-	iv, err := getPackedContentIV(hashOutput[:], contentID)
-	if err != nil {
-		return NoCompression, errors.Wrapf(err, "unable to get packed content IV for %q", contentID)
-	}
+	iv := getPackedContentIV(hashOutput[:0], contentID)
 
 	// If the content is prefixed (which represents Kopia's own metadata as opposed to user data),
 	// and we're on V2 format or greater, enable internal compression even when not requested.
@@ -50,7 +50,7 @@ func (sm *SharedManager) maybeCompressAndEncryptDataForPacking(data gather.Bytes
 			return NoCompression, errors.Errorf("unsupported compressor %x", comp)
 		}
 
-		if err = c.Compress(&tmp, data.Reader()); err != nil {
+		if err := c.Compress(&tmp, data.Reader()); err != nil {
 			return NoCompression, errors.Wrap(err, "compression error")
 		}
 
@@ -83,27 +83,13 @@ func writeRandomBytesToBuffer(b *gather.WriteBuffer, count int) error {
 	return nil
 }
 
-// ValidatePrefix returns an error if a given prefix is invalid.
-func ValidatePrefix(prefix ID) error {
-	switch len(prefix) {
-	case 0:
-		return nil
-	case 1:
-		if prefix[0] >= 'g' && prefix[0] <= 'z' {
-			return nil
-		}
-	}
-
-	return errors.Errorf("invalid prefix, must be empty or a single letter between 'g' and 'z'")
-}
-
 func contentCacheKeyForInfo(bi Info) string {
 	// append format-specific information
 	// see https://github.com/kopia/kopia/issues/1843 for an explanation
 	return fmt.Sprintf("%v.%x.%x.%x", bi.GetContentID(), bi.GetCompressionHeaderID(), bi.GetFormatVersion(), bi.GetEncryptionKeyID())
 }
 
-func (bm *WriteManager) getContentDataReadLocked(ctx context.Context, pp *pendingPackInfo, bi Info, output *gather.WriteBuffer) error {
+func (sm *SharedManager) getContentDataReadLocked(ctx context.Context, pp *pendingPackInfo, bi Info, output *gather.WriteBuffer) error {
 	var payload gather.WriteBuffer
 	defer payload.Close()
 
@@ -113,23 +99,37 @@ func (bm *WriteManager) getContentDataReadLocked(ctx context.Context, pp *pendin
 			// should never happen
 			return errors.Wrap(err, "error appending pending content data to buffer")
 		}
-	} else if err := bm.getCacheForContentID(bi.GetContentID()).GetContent(ctx, contentCacheKeyForInfo(bi), bi.GetPackBlobID(), int64(bi.GetPackOffset()), int64(bi.GetPackedLength()), &payload); err != nil {
+	} else if err := sm.getCacheForContentID(bi.GetContentID()).GetContent(ctx, contentCacheKeyForInfo(bi), bi.GetPackBlobID(), int64(bi.GetPackOffset()), int64(bi.GetPackedLength()), &payload); err != nil {
 		return errors.Wrap(err, "error getting cached content")
 	}
 
-	return bm.decryptContentAndVerify(payload.Bytes(), bi, output)
+	return sm.decryptContentAndVerify(payload.Bytes(), bi, output)
 }
 
-func (bm *WriteManager) preparePackDataContent(pp *pendingPackInfo) (index.Builder, error) {
+func (sm *SharedManager) preparePackDataContent(pp *pendingPackInfo) (index.Builder, error) {
 	packFileIndex := index.Builder{}
 	haveContent := false
+
+	sb := logging.GetBuffer()
+	defer sb.Release()
 
 	for _, info := range pp.currentPackItems {
 		if info.GetPackBlobID() == pp.packBlobID {
 			haveContent = true
 		}
 
-		bm.log.Debugf("add-to-pack %v %v p:%v %v d:%v", pp.packBlobID, info.GetContentID(), info.GetPackBlobID(), info.GetPackedLength(), info.GetDeleted())
+		sb.Reset()
+		sb.AppendString("add-to-pack ")
+		sb.AppendString(string(pp.packBlobID))
+		sb.AppendString(" ")
+		info.GetContentID().AppendToLogBuffer(sb)
+		sb.AppendString(" p:")
+		sb.AppendString(string(info.GetPackBlobID()))
+		sb.AppendString(" ")
+		sb.AppendUint32(info.GetPackedLength())
+		sb.AppendString(" d:")
+		sb.AppendBoolean(info.GetDeleted())
+		sm.log.Debugf(sb.String())
 
 		packFileIndex.Add(info)
 	}
@@ -150,33 +150,33 @@ func (bm *WriteManager) preparePackDataContent(pp *pendingPackInfo) (index.Build
 
 	pp.finalized = true
 
-	if bm.paddingUnit > 0 {
-		if missing := bm.paddingUnit - (pp.currentPackData.Length() % bm.paddingUnit); missing > 0 {
+	if sm.paddingUnit > 0 {
+		if missing := sm.paddingUnit - (pp.currentPackData.Length() % sm.paddingUnit); missing > 0 {
 			if err := writeRandomBytesToBuffer(pp.currentPackData, missing); err != nil {
 				return nil, errors.Wrap(err, "unable to prepare content postamble")
 			}
 		}
 	}
 
-	err := bm.appendPackFileIndexRecoveryData(packFileIndex, pp.currentPackData)
+	err := sm.appendPackFileIndexRecoveryData(packFileIndex, pp.currentPackData)
 
 	return packFileIndex, err
 }
 
-func getPackedContentIV(output []byte, contentID ID) ([]byte, error) {
-	n, err := hex.Decode(output, []byte(contentID[len(contentID)-(aes.BlockSize*2):])) //nolint:gomnd
-	if err != nil {
-		return nil, errors.Wrapf(err, "error decoding content IV from %v", contentID)
-	}
+func getPackedContentIV(output []byte, contentID ID) []byte {
+	h := contentID.Hash()
 
-	return output[0:n], nil
+	return append(output, h[len(h)-aes.BlockSize:]...)
 }
 
-func (bm *WriteManager) writePackFileNotLocked(ctx context.Context, packFile blob.ID, data gather.Bytes) error {
-	bm.Stats.wroteContent(data.Length())
-	bm.onUpload(int64(data.Length()))
+func (sm *SharedManager) writePackFileNotLocked(ctx context.Context, packFile blob.ID, data gather.Bytes, onUpload func(int64)) error {
+	ctx, span := tracer.Start(ctx, "WritePackFile_"+strings.ToUpper(string(packFile[0:1])), trace.WithAttributes(attribute.String("packFile", string(packFile))))
+	defer span.End()
 
-	return errors.Wrap(bm.st.PutBlob(ctx, packFile, data, blob.PutOptions{}), "error writing pack file")
+	sm.Stats.wroteContent(data.Length())
+	onUpload(int64(data.Length()))
+
+	return errors.Wrap(sm.st.PutBlob(ctx, packFile, data, blob.PutOptions{}), "error writing pack file")
 }
 
 func (sm *SharedManager) hashData(output []byte, data gather.Bytes) []byte {

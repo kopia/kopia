@@ -214,12 +214,13 @@ func hoursAgo(base time.Time, n int) time.Time {
 }
 
 const (
-	defaultKeepLatest  = 10
-	defaultKeepHourly  = 48
-	defaultKeepDaily   = 7
-	defaultKeepWeekly  = 4
-	defaultKeepMonthly = 24
-	defaultKeepAnnual  = 3
+	defaultKeepLatest               = 10
+	defaultKeepHourly               = 48
+	defaultKeepDaily                = 7
+	defaultKeepWeekly               = 4
+	defaultKeepMonthly              = 24
+	defaultKeepAnnual               = 3
+	defaultIgnoreIdenticalSnapshots = false
 )
 
 // Merge applies default values from the provided policy.

@@ -7,23 +7,6 @@ import (
 	"github.com/kopia/kopia/repo/compression"
 )
 
-// ID is an identifier of content in content-addressable storage.
-type ID string
-
-// Prefix returns a one-character prefix of a content ID or an empty string.
-func (i ID) Prefix() ID {
-	if i.HasPrefix() {
-		return i[0:1]
-	}
-
-	return ""
-}
-
-// HasPrefix determines if the given ID has a non-empty prefix.
-func (i ID) HasPrefix() bool {
-	return len(i)%2 == 1
-}
-
 // Info is an information about a single piece of content managed by Manager.
 type Info interface {
 	GetContentID() ID

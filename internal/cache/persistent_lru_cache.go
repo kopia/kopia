@@ -14,6 +14,7 @@ import (
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/ctxutil"
 	"github.com/kopia/kopia/internal/gather"
+	"github.com/kopia/kopia/internal/releasable"
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/logging"
@@ -196,6 +197,8 @@ func (c *PersistentCache) Close(ctx context.Context) {
 			log(ctx).Errorf("error during final sweep of the %v: %v", c.description, err)
 		}
 	}
+
+	releasable.Released("persistent-cache", c)
 }
 
 func (c *PersistentCache) sweepDirectoryPeriodically(ctx context.Context) {
@@ -348,6 +351,8 @@ func NewPersistentCache(ctx context.Context, description string, cacheStorage St
 	if _, err := c.cacheStorage.GetMetadata(ctx, "test-blob"); err != nil && !errors.Is(err, blob.ErrBlobNotFound) {
 		return nil, errors.Wrapf(err, "unable to open %v", c.description)
 	}
+
+	releasable.Created("persistent-cache", c)
 
 	c.periodicSweepRunning.Add(1)
 

@@ -86,6 +86,7 @@ type SharedManager struct {
 
 	contentCache      cache.ContentCache
 	metadataCache     cache.ContentCache
+	indexBlobCache    *cache.PersistentCache
 	committedContents *committedContentIndex
 	crypter           *Crypter
 	enc               *encryptedBlobMgr
@@ -250,10 +251,7 @@ func (sm *SharedManager) decryptContentAndVerify(payload gather.Bytes, bi Info, 
 
 	var hashBuf [hashing.MaxHashSize]byte
 
-	iv, err := getPackedContentIV(hashBuf[:], bi.GetContentID())
-	if err != nil {
-		return err
-	}
+	iv := getPackedContentIV(hashBuf[:0], bi.GetContentID())
 
 	// reserved for future use
 	if k := bi.GetEncryptionKeyID(); k != 0 {
@@ -468,6 +466,7 @@ func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *Ca
 	// once everything is ready, set it up
 	sm.contentCache = dataCache
 	sm.metadataCache = metadataCache
+	sm.indexBlobCache = indexBlobCache
 	sm.committedContents = newCommittedContentIndex(caching, uint32(sm.crypter.Encryptor.Overhead()), sm.indexVersion, sm.enc.getEncryptedBlob, sm.namedLogger("committed-content-index"), caching.MinIndexSweepAge.DurationOrDefault(DefaultIndexCacheSweepAge))
 
 	return nil
@@ -516,6 +515,7 @@ func (sm *SharedManager) release(ctx context.Context) error {
 
 	sm.contentCache.Close(ctx)
 	sm.metadataCache.Close(ctx)
+	sm.indexBlobCache.Close(ctx)
 
 	if sm.internalLogger != nil {
 		sm.internalLogger.Sync() // nolint:errcheck

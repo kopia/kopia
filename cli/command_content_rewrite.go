@@ -3,6 +3,8 @@ package cli
 import (
 	"context"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
@@ -41,10 +43,15 @@ func (c *commandContentRewrite) setup(svc appServices, parent commandParent) {
 func (c *commandContentRewrite) runContentRewriteCommand(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	c.svc.advancedCommand(ctx)
 
+	contentIDs, err := toContentIDs(c.contentRewriteIDs)
+	if err != nil {
+		return err
+	}
+
 	// nolint:wrapcheck
 	return maintenance.RewriteContents(ctx, rep, &maintenance.RewriteContentsOptions{
 		ContentIDRange: c.contentRange.contentIDRange(),
-		ContentIDs:     toContentIDs(c.contentRewriteIDs),
+		ContentIDs:     contentIDs,
 		FormatVersion:  c.contentRewriteFormatVersion,
 		PackPrefix:     blob.ID(c.contentRewritePackPrefix),
 		Parallel:       c.contentRewriteParallelism,
@@ -53,11 +60,17 @@ func (c *commandContentRewrite) runContentRewriteCommand(ctx context.Context, re
 	}, c.contentRewriteSafety)
 }
 
-func toContentIDs(s []string) []content.ID {
+func toContentIDs(s []string) ([]content.ID, error) {
 	var result []content.ID
-	for _, cid := range s {
-		result = append(result, content.ID(cid))
+
+	for _, cidStr := range s {
+		cid, err := content.ParseID(cidStr)
+		if err != nil {
+			return nil, errors.Wrap(err, "error parsing content ID")
+		}
+
+		result = append(result, cid)
 	}
 
-	return result
+	return result, nil
 }

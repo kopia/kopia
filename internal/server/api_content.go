@@ -22,7 +22,10 @@ func handleContentGet(ctx context.Context, rc requestContext) (interface{}, *api
 		return nil, notFoundError("content not found")
 	}
 
-	cid := content.ID(rc.muxVar("contentID"))
+	cid, err := content.ParseID(rc.muxVar("contentID"))
+	if err != nil {
+		return nil, notFoundError("content not found")
+	}
 
 	data, err := dr.ContentReader().GetContent(ctx, cid)
 	if errors.Is(err, content.ErrContentNotFound) {
@@ -33,7 +36,10 @@ func handleContentGet(ctx context.Context, rc requestContext) (interface{}, *api
 }
 
 func handleContentInfo(ctx context.Context, rc requestContext) (interface{}, *apiError) {
-	cid := content.ID(rc.muxVar("contentID"))
+	cid, err := content.ParseID(rc.muxVar("contentID"))
+	if err != nil {
+		return nil, notFoundError("content not found")
+	}
 
 	ci, err := rc.rep.ContentInfo(ctx, cid)
 
@@ -55,7 +61,11 @@ func handleContentPut(ctx context.Context, rc requestContext) (interface{}, *api
 		return nil, repositoryNotWritableError()
 	}
 
-	cid := content.ID(rc.muxVar("contentID"))
+	cid, cerr := content.ParseID(rc.muxVar("contentID"))
+	if cerr != nil {
+		return nil, requestError(serverapi.ErrorMalformedRequest, "malformed content ID")
+	}
+
 	prefix := cid.Prefix()
 
 	if strings.HasPrefix(string(prefix), manifest.ContentPrefix) {

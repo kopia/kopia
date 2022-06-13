@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel"
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/repo/blob"
@@ -15,6 +16,8 @@ import (
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/repo/object"
 )
+
+var tracer = otel.Tracer("kopia/repository")
 
 // Repository exposes public API of Kopia repository, including objects and manifests.
 type Repository interface {
@@ -87,6 +90,7 @@ type directRepositoryParameters struct {
 	blobCfgBlob         content.BlobCfgBlob
 	formatEncryptionKey []byte
 	nextWriterID        *int32
+	throttler           throttling.SettableThrottler
 }
 
 // directRepository is an implementation of repository that directly manipulates underlying storage.
@@ -98,8 +102,6 @@ type directRepository struct {
 	omgr  *object.Manager
 	mmgr  *manifest.Manager
 	sm    *content.SharedManager
-
-	throttler throttling.SettableThrottler
 
 	closed chan struct{}
 }
@@ -348,6 +350,9 @@ type WriteSessionOptions struct {
 
 // WriteSession executes the provided callback in a repository writer created for the purpose and flushes writes.
 func WriteSession(ctx context.Context, r Repository, opt WriteSessionOptions, cb func(ctx context.Context, w RepositoryWriter) error) error {
+	ctx, span := tracer.Start(ctx, "WriteSession:"+opt.Purpose)
+	defer span.End()
+
 	ctx, w, err := r.NewWriter(ctx, opt)
 	if err != nil {
 		return errors.Wrap(err, "unable to create writer")
@@ -358,6 +363,9 @@ func WriteSession(ctx context.Context, r Repository, opt WriteSessionOptions, cb
 
 // DirectWriteSession executes the provided callback in a DirectRepositoryWriter created for the purpose and flushes writes.
 func DirectWriteSession(ctx context.Context, r DirectRepository, opt WriteSessionOptions, cb func(ctx context.Context, dw DirectRepositoryWriter) error) error {
+	ctx, span := tracer.Start(ctx, "DirectWriteSession:"+opt.Purpose)
+	defer span.End()
+
 	ctx, w, err := r.NewDirectWriter(ctx, opt)
 	if err != nil {
 		return errors.Wrap(err, "unable to create direct writer")

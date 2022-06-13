@@ -19,8 +19,10 @@ import (
 )
 
 func TestManySmallFiles(t *testing.T) {
-	fileSize := 4096
-	numFiles := 10000
+	const (
+		fileSize = 4096
+		numFiles = 10000
+	)
 
 	fileWriteOpts := map[string]string{
 		fiofilewriter.MaxDirDepthField:         strconv.Itoa(1),
@@ -43,8 +45,10 @@ func TestManySmallFiles(t *testing.T) {
 }
 
 func TestOneLargeFile(t *testing.T) {
-	fileSize := 40 * 1024 * 1024
-	numFiles := 1
+	const (
+		fileSize = 40 * 1024 * 1024
+		numFiles = 1
+	)
 
 	fileWriteOpts := map[string]string{
 		fiofilewriter.MaxDirDepthField:         strconv.Itoa(1),
@@ -68,10 +72,12 @@ func TestOneLargeFile(t *testing.T) {
 
 func TestManySmallFilesAcrossDirecoryTree(t *testing.T) {
 	// TODO: Test takes too long - need to address performance issues with fio writes
-	fileSize := 4096
-	numFiles := 1000
-	filesPerWrite := 10
-	actionRepeats := numFiles / filesPerWrite
+	const (
+		fileSize      = 4096
+		numFiles      = 1000
+		filesPerWrite = 10
+		actionRepeats = numFiles / filesPerWrite
+	)
 
 	fileWriteOpts := map[string]string{
 		fiofilewriter.MaxDirDepthField:         strconv.Itoa(15),

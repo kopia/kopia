@@ -42,11 +42,11 @@ jobs:
     - name: Set up Go.
       uses: actions/setup-go@v3
       with:
-        go-version: ^1.17
+        go-version: '1.18'
       id: go
       if: ${{ !contains(matrix.os, 'ARMHF') }}
     - name: Install GoLang for ARMHF
-      run: "echo /usr/local/go/bin >> $GITHUB_PATH; rm -rf /usr/local/go && mkdir -p /usr/local/go && curl -s -L https://golang.org/dl/go1.17.linux-armv6l.tar.gz | tar -C /usr/local -xz"
+      run: "echo /usr/local/go/bin >> $GITHUB_PATH; rm -rf /usr/local/go && mkdir -p /usr/local/go && curl -s -L https://go.dev/dl/go1.18.2.linux-armv6l.tar.gz | tar -C /usr/local -xz"
       if: ${{ contains(matrix.os, 'ARMHF') }}
     - name: Install Windows-specific packages
       run: "choco install --no-progress -y make zip unzip curl"
@@ -137,9 +137,9 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Set up QEMU
-      uses: docker/setup-qemu-action@v1
+      uses: docker/setup-qemu-action@v2
     - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v1
+      uses: docker/setup-buildx-action@v2
     - name: Download Artifacts
       uses: actions/download-artifact@v3
       with:

@@ -14,7 +14,11 @@ type SettableThrottler interface {
 
 	Limits() Limits
 	SetLimits(limits Limits) error
+	OnUpdate(handler UpdatedHandler)
 }
+
+// UpdatedHandler is invoked as part of SetLimits() after limits are updated.
+type UpdatedHandler func(l Limits) error
 
 type tokenBucketBasedThrottler struct {
 	mu sync.Mutex
@@ -26,7 +30,13 @@ type tokenBucketBasedThrottler struct {
 	listOps  *tokenBucket
 	upload   *tokenBucket
 	download *tokenBucket
-	window   time.Duration // +checklocksignore
+
+	concurrentReads  *semaphore
+	concurrentWrites *semaphore
+
+	window time.Duration // +checklocksignore
+
+	onUpdate []UpdatedHandler
 }
 
 func (t *tokenBucketBasedThrottler) BeforeOperation(ctx context.Context, op string) {
@@ -35,8 +45,20 @@ func (t *tokenBucketBasedThrottler) BeforeOperation(ctx context.Context, op stri
 		t.listOps.Take(ctx, 1)
 	case operationGetBlob, operationGetMetadata:
 		t.readOps.Take(ctx, 1)
+		t.concurrentReads.Acquire()
 	case operationPutBlob, operationDeleteBlob:
 		t.writeOps.Take(ctx, 1)
+		t.concurrentWrites.Acquire()
+	}
+}
+
+func (t *tokenBucketBasedThrottler) AfterOperation(ctx context.Context, op string) {
+	switch op {
+	case operationListBlobs:
+	case operationGetBlob, operationGetMetadata:
+		t.concurrentReads.Release()
+	case operationPutBlob, operationDeleteBlob:
+		t.concurrentWrites.Release()
 	}
 }
 
@@ -64,8 +86,23 @@ func (t *tokenBucketBasedThrottler) SetLimits(limits Limits) error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
+	if err := t.setLimits(limits); err != nil {
+		_ = t.setLimits(t.limits)
+		return err
+	}
+
 	t.limits = limits
 
+	for _, h := range t.onUpdate {
+		if err := h(limits); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (t *tokenBucketBasedThrottler) setLimits(limits Limits) error {
 	if err := t.readOps.SetLimit(limits.ReadsPerSecond * t.window.Seconds()); err != nil {
 		return errors.Wrap(err, "ReadsPerSecond")
 	}
@@ -86,7 +123,19 @@ func (t *tokenBucketBasedThrottler) SetLimits(limits Limits) error {
 		return errors.Wrap(err, "DownloadBytesPerSecond")
 	}
 
+	if err := t.concurrentReads.SetLimit(limits.ConcurrentReads); err != nil {
+		return errors.Wrap(err, "ConcurrentReads")
+	}
+
+	if err := t.concurrentWrites.SetLimit(limits.ConcurrentWrites); err != nil {
+		return errors.Wrap(err, "ConcurrentWrites")
+	}
+
 	return nil
+}
+
+func (t *tokenBucketBasedThrottler) OnUpdate(handler UpdatedHandler) {
+	t.onUpdate = append(t.onUpdate, handler)
 }
 
 // Limits encapsulates all limits for a Throttler.
@@ -96,6 +145,8 @@ type Limits struct {
 	ListsPerSecond         float64 `json:"listsPerSecond,omitempty"`
 	UploadBytesPerSecond   float64 `json:"maxUploadSpeedBytesPerSecond,omitempty"`
 	DownloadBytesPerSecond float64 `json:"maxDownloadSpeedBytesPerSecond,omitempty"`
+	ConcurrentReads        int     `json:"concurrentReads,omitempty"`
+	ConcurrentWrites       int     `json:"concurrentWrites,omitempty"`
 }
 
 var _ Throttler = (*tokenBucketBasedThrottler)(nil)
@@ -103,12 +154,14 @@ var _ Throttler = (*tokenBucketBasedThrottler)(nil)
 // NewThrottler returns a Throttler with provided limits.
 func NewThrottler(limits Limits, window time.Duration, initialFillRatio float64) (SettableThrottler, error) {
 	t := &tokenBucketBasedThrottler{
-		readOps:  newTokenBucket("read-ops", initialFillRatio*limits.ReadsPerSecond*window.Seconds(), 0, window),
-		writeOps: newTokenBucket("write-ops", initialFillRatio*limits.WritesPerSecond*window.Seconds(), 0, window),
-		listOps:  newTokenBucket("list-ops", initialFillRatio*limits.ListsPerSecond*window.Seconds(), 0, window),
-		upload:   newTokenBucket("upload-bytes", initialFillRatio*limits.UploadBytesPerSecond*window.Seconds(), 0, window),
-		download: newTokenBucket("download-bytes", initialFillRatio*limits.DownloadBytesPerSecond*window.Seconds(), 0, window),
-		window:   window,
+		readOps:          newTokenBucket("read-ops", initialFillRatio*limits.ReadsPerSecond*window.Seconds(), 0, window),
+		writeOps:         newTokenBucket("write-ops", initialFillRatio*limits.WritesPerSecond*window.Seconds(), 0, window),
+		listOps:          newTokenBucket("list-ops", initialFillRatio*limits.ListsPerSecond*window.Seconds(), 0, window),
+		upload:           newTokenBucket("upload-bytes", initialFillRatio*limits.UploadBytesPerSecond*window.Seconds(), 0, window),
+		download:         newTokenBucket("download-bytes", initialFillRatio*limits.DownloadBytesPerSecond*window.Seconds(), 0, window),
+		concurrentReads:  newSemaphore(),
+		concurrentWrites: newSemaphore(),
+		window:           window,
 	}
 
 	if err := t.SetLimits(limits); err != nil {

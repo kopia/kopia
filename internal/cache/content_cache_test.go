@@ -3,14 +3,13 @@ package cache_test
 import (
 	"bytes"
 	"context"
-	"reflect"
 	"sort"
-	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/blobtesting"
@@ -101,9 +100,7 @@ func TestCacheExpiration(t *testing.T) {
 
 	for _, tc := range cases {
 		got := cc.GetContent(ctx, tc.contentID, "content-4k", 0, -1, &tmp)
-		if want := tc.expectedError; !errors.Is(got, want) {
-			t.Errorf("unexpected error when getting content %v: %v wanted %v", tc.contentID, got, want)
-		} else {
+		if assert.ErrorIs(t, got, tc.expectedError, "tc.contentID:", tc.contentID) {
 			t.Logf("got correct error %v when reading content %v", tc.expectedError, tc.contentID)
 		}
 	}
@@ -117,9 +114,7 @@ func TestDiskContentCache(t *testing.T) {
 	const maxBytes = 10000
 
 	cacheStorage, err := cache.NewStorageOrNil(ctx, tmpDir, maxBytes, "contents")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	cc, err := cache.NewContentCache(ctx, newUnderlyingStorageForContentCacheTesting(t), cache.Options{
 		Storage: cacheStorage,
@@ -127,9 +122,7 @@ func TestDiskContentCache(t *testing.T) {
 			MaxSizeBytes: maxBytes,
 		},
 	})
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
+	require.NoError(t, err)
 
 	defer cc.Close(ctx)
 
@@ -167,10 +160,10 @@ func verifyContentCache(t *testing.T, cc cache.ContentCache, cacheStorage blob.S
 
 		for _, tc := range cases {
 			err := cc.GetContent(ctx, tc.contentID, tc.blobID, tc.offset, tc.length, &v)
-			if (err != nil) != (tc.err != nil) {
-				t.Errorf("unexpected error for %v: %+v, wanted %+v", tc.contentID, err, tc.err)
-			} else if err != nil && err.Error() != tc.err.Error() {
-				t.Errorf("unexpected error for %v: %q, wanted %q", tc.contentID, err.Error(), tc.err.Error())
+			if tc.err == nil {
+				assert.NoErrorf(t, err, "tc.contentID: %v", tc.contentID)
+			} else {
+				assert.ErrorContainsf(t, err, tc.err.Error(), "tc.contentID: %v", tc.contentID)
 			}
 			if got := v.ToByteSlice(); !bytes.Equal(got, tc.expected) {
 				t.Errorf("unexpected data for %v: %x, wanted %x", tc.contentID, got, tc.expected)
@@ -195,13 +188,10 @@ func verifyContentCache(t *testing.T, cc cache.ContentCache, cacheStorage blob.S
 		require.NoError(t, cacheStorage.PutBlob(ctx, cacheKey, b, blob.PutOptions{}))
 
 		err := cc.GetContent(ctx, "xf0f0f1", "content-1", 1, 5, &tmp)
-		if err != nil {
-			t.Fatalf("error in getContent: %v", err)
-		}
+		require.NoError(t, err, "error in getContent")
 
-		if got, want := tmp.ToByteSlice(), []byte{2, 3, 4, 5, 6}; !reflect.DeepEqual(got, want) {
-			t.Errorf("invalid result when reading corrupted data: %v, wanted %v", got, want)
-		}
+		got, want := tmp.ToByteSlice(), []byte{2, 3, 4, 5, 6}
+		require.Equal(t, want, got, "invalid result when reading corrupted data")
 	})
 }
 
@@ -219,9 +209,8 @@ func TestCacheFailureToOpen(t *testing.T) {
 		Storage: withoutTouchBlob{faultyCache},
 		Sweep:   cache.SweepSettings{MaxSizeBytes: 10000},
 	})
-	if err == nil || !strings.Contains(err.Error(), someError.Error()) {
-		t.Errorf("invalid error %v, wanted: %v", err, someError)
-	}
+	require.Error(t, err)
+	require.ErrorContains(t, err, someError.Error())
 
 	// ListBlobs fails only once, next time it succeeds.
 	ctx := testlogging.Context(t)
@@ -230,9 +219,7 @@ func TestCacheFailureToOpen(t *testing.T) {
 		Storage: withoutTouchBlob{faultyCache},
 		Sweep:   cache.SweepSettings{MaxSizeBytes: 10000},
 	})
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
+	require.NoError(t, err)
 
 	cc.Close(ctx)
 }
@@ -249,9 +236,7 @@ func TestCacheFailureToWrite(t *testing.T) {
 		Storage: withoutTouchBlob{faultyCache},
 		Sweep:   cache.SweepSettings{MaxSizeBytes: 10000},
 	})
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
+	require.NoError(t, err)
 
 	ctx := testlogging.Context(t)
 
@@ -262,22 +247,16 @@ func TestCacheFailureToWrite(t *testing.T) {
 	var v gather.WriteBuffer
 	defer v.Close()
 
-	if err = cc.GetContent(ctx, "aa", "content-1", 0, 3, &v); err != nil {
-		t.Errorf("write failure wasn't ignored: %v", err)
-	}
+	err = cc.GetContent(ctx, "aa", "content-1", 0, 3, &v)
+	assert.NoError(t, err, "write failure wasn't ignored")
 
-	if got, want := v.ToByteSlice(), []byte{1, 2, 3}; !reflect.DeepEqual(got, want) {
-		t.Errorf("unexpected value retrieved from cache: %v, want: %v", got, want)
-	}
+	got, want := v.ToByteSlice(), []byte{1, 2, 3}
+	assert.Equal(t, want, got, "unexpected value retrieved from cache")
 
 	all, err := blob.ListAllBlobs(ctx, cacheStorage, "")
-	if err != nil {
-		t.Errorf("error listing cache: %v", err)
-	}
+	assert.NoError(t, err, "error listing cache")
 
-	if len(all) != 0 {
-		t.Errorf("invalid test - cache was written")
-	}
+	require.Empty(t, all, "invalid test - cache was written")
 }
 
 func TestCacheFailureToRead(t *testing.T) {
@@ -292,9 +271,7 @@ func TestCacheFailureToRead(t *testing.T) {
 		Storage: withoutTouchBlob{faultyCache},
 		Sweep:   cache.SweepSettings{MaxSizeBytes: 10000},
 	})
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
+	require.NoError(t, err)
 
 	ctx := testlogging.Context(t)
 
@@ -308,9 +285,8 @@ func TestCacheFailureToRead(t *testing.T) {
 	for i := 0; i < 2; i++ {
 		require.NoError(t, cc.GetContent(ctx, "aa", "content-1", 0, 3, &v))
 
-		if got, want := v.ToByteSlice(), []byte{1, 2, 3}; !reflect.DeepEqual(got, want) {
-			t.Errorf("unexpected value retrieved from cache: %v, want: %v", got, want)
-		}
+		got, want := v.ToByteSlice(), []byte{1, 2, 3}
+		assert.Equal(t, want, got, "unexpected value retrieved from cache")
 	}
 }
 
@@ -328,9 +304,7 @@ func verifyStorageContentList(t *testing.T, st blob.Storage, expectedContents ..
 		return foundContents[i] < foundContents[j]
 	})
 
-	if !reflect.DeepEqual(foundContents, expectedContents) {
-		t.Errorf("unexpected content list: %v, wanted %v", foundContents, expectedContents)
-	}
+	assert.Equal(t, expectedContents, foundContents, "unexpected content list")
 }
 
 type withoutTouchBlob struct {

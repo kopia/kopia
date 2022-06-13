@@ -11,14 +11,15 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 jobs:
-  endurance-test:
+  provider-test:
     name: Provider Test
+    if: ${{ github.repository == 'kopia/kopia' }}
     runs-on: ubuntu-latest
     steps:
     - name: Set up Go.
       uses: actions/setup-go@v3
       with:
-        go-version: ^1.17
+        go-version: '1.18'
       id: go
     - name: Check out code into the Go module directory
       uses: actions/checkout@v3

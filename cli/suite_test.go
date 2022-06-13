@@ -7,6 +7,8 @@ import (
 	"github.com/kopia/kopia/repo/content"
 )
 
+func TestMain(m *testing.M) { testutil.MyTestMain(m) }
+
 type formatSpecificTestSuite struct {
 	formatFlags   []string
 	formatVersion content.FormatVersion

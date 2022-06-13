@@ -33,9 +33,6 @@ type DeviceInfo struct {
 	Rdev uint64 `json:"rdev"`
 }
 
-// Entries is a list of entries sorted by name.
-type Entries []Entry
-
 // Reader allows reading from a file and retrieving its up-to-date file info.
 type Reader interface {
 	io.ReadCloser
@@ -60,7 +57,7 @@ type StreamingFile interface {
 type Directory interface {
 	Entry
 	Child(ctx context.Context, name string) (Entry, error)
-	Readdir(ctx context.Context) (Entries, error)
+	IterateEntries(ctx context.Context, cb func(context.Context, Entry) error) error
 }
 
 // DirectoryWithSummary is optionally implemented by Directory that provide summary.
@@ -75,23 +72,48 @@ type ErrorEntry interface {
 	ErrorInfo() error
 }
 
+// GetAllEntries uses IterateEntries to return all entries in a Directory.
+func GetAllEntries(ctx context.Context, d Directory) ([]Entry, error) {
+	entries := []Entry{}
+
+	err := d.IterateEntries(ctx, func(ctx context.Context, e Entry) error {
+		entries = append(entries, e)
+		return nil
+	})
+
+	return entries, err // nolint:wrapcheck
+}
+
 // ErrEntryNotFound is returned when an entry is not found.
 var ErrEntryNotFound = errors.New("entry not found")
 
-// ReadDirAndFindChild reads all entries from a directory and returns one by name.
+// IterateEntriesAndFindChild iterates through entries from a directory and returns one by name.
 // This is a convenience function that may be helpful in implementations of Directory.Child().
-func ReadDirAndFindChild(ctx context.Context, d Directory, name string) (Entry, error) {
-	children, err := d.Readdir(ctx)
-	if err != nil {
+func IterateEntriesAndFindChild(ctx context.Context, d Directory, name string) (Entry, error) {
+	type errStop struct {
+		error
+	}
+
+	var result Entry
+
+	err := d.IterateEntries(ctx, func(c context.Context, e Entry) error {
+		if result == nil && e.Name() == name {
+			result = e
+			return errStop{errors.New("")}
+		}
+		return nil
+	})
+
+	var stopped errStop
+	if err != nil && !errors.As(err, &stopped) {
 		return nil, errors.Wrap(err, "error reading directory")
 	}
 
-	e := children.FindByName(name)
-	if e == nil {
+	if result == nil {
 		return nil, ErrEntryNotFound
 	}
 
-	return e, nil
+	return result, nil
 }
 
 // MaxFailedEntriesPerDirectorySummary is the maximum number of failed entries per directory summary.
@@ -135,74 +157,25 @@ type Symlink interface {
 	Readlink(ctx context.Context) (string, error)
 }
 
-// FindByName returns an entry with a given name, or nil if not found.
-func (e Entries) FindByName(n string) Entry {
+// FindByName returns an entry with a given name, or nil if not found. Assumes
+// the given slice of fs.Entry is sorted.
+func FindByName(entries []Entry, n string) Entry {
 	i := sort.Search(
-		len(e),
+		len(entries),
 		func(i int) bool {
-			return e[i].Name() >= n
+			return entries[i].Name() >= n
 		},
 	)
-	if i < len(e) && e[i].Name() == n {
-		return e[i]
+	if i < len(entries) && entries[i].Name() == n {
+		return entries[i]
 	}
 
 	return nil
 }
 
-// Update returns a copy of Entries with the provided entry included, by either replacing
-// existing entry with the same name or inserted in the appropriate place to maintain sorted order.
-func (e Entries) Update(newEntry Entry) Entries {
-	name := newEntry.Name()
-	pos := sort.Search(len(e), func(i int) bool {
-		return e[i].Name() >= name
-	})
-
-	// append at the end
-	if pos >= len(e) {
-		return append(append(Entries(nil), e...), newEntry)
-	}
-
-	if e[pos].Name() == name {
-		if pos > 0 {
-			return append(append(append(Entries(nil), e[0:pos]...), newEntry), e[pos+1:]...)
-		}
-
-		return append(append(Entries(nil), newEntry), e[pos+1:]...)
-	}
-
-	if pos > 0 {
-		return append(append(append(Entries(nil), e[0:pos]...), newEntry), e[pos:]...)
-	}
-
-	return append(append(Entries(nil), newEntry), e[pos:]...)
-}
-
-// Remove returns a copy of Entries with the provided entry removed, while maintaining sorted order.
-func (e Entries) Remove(name string) Entries {
-	pos := sort.Search(len(e), func(i int) bool {
-		return e[i].Name() >= name
-	})
-
-	// not found
-	if pos >= len(e) {
-		return e
-	}
-
-	if e[pos].Name() != name {
-		return e
-	}
-
-	if pos > 0 {
-		return append(append(Entries(nil), e[0:pos]...), e[pos+1:]...)
-	}
-
-	return append(Entries(nil), e[pos+1:]...)
-}
-
 // Sort sorts the entries by name.
-func (e Entries) Sort() {
-	sort.Slice(e, func(i, j int) bool {
-		return e[i].Name() < e[j].Name()
+func Sort(entries []Entry) {
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Name() < entries[j].Name()
 	})
 }

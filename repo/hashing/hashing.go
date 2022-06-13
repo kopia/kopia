@@ -13,7 +13,7 @@ import (
 )
 
 // MaxHashSize is the maximum hash size supported in the system.
-const MaxHashSize = 64
+const MaxHashSize = 32
 
 // Parameters encapsulates all hashing-relevant parameters.
 type Parameters interface {

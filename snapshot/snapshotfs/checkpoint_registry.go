@@ -42,7 +42,7 @@ func (r *checkpointRegistry) removeCheckpointCallback(e fs.Entry) {
 // runCheckpoints invokes all registered checkpointers and adds results to the provided builder, while
 // randomizing file names for non-directory entries. this is to prevent the use of checkpointed objects
 // as authoritative on subsequent runs.
-func (r *checkpointRegistry) runCheckpoints(checkpointBuilder *dirManifestBuilder) error {
+func (r *checkpointRegistry) runCheckpoints(checkpointBuilder *DirManifestBuilder) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -61,7 +61,7 @@ func (r *checkpointRegistry) runCheckpoints(checkpointBuilder *dirManifestBuilde
 			de.Name = ".checkpointed." + de.Name + "." + uuid.New().String()
 		}
 
-		checkpointBuilder.addEntry(de)
+		checkpointBuilder.AddEntry(de)
 	}
 
 	return nil

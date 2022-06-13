@@ -442,7 +442,7 @@ some-ignored-file
 	var man snapshot.Manifest
 
 	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "create", sourceDir, "--json"), &man)
-	entries := e.RunAndExpectSuccess(t, "ls", string(man.RootObjectID()))
+	entries := e.RunAndExpectSuccess(t, "ls", man.RootObjectID().String())
 
 	require.Contains(t, entries, ".kopiaignore")
 	require.Contains(t, entries, "some-file")

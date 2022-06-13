@@ -108,7 +108,7 @@ func (m *committedManifestManager) writeEntriesLocked(ctx context.Context, entri
 	defer buf.Close()
 
 	gz := gzip.NewWriter(&buf)
-	mustSucceed(json.NewEncoder(gz).Encode(man)) // nolint:errchkjson
+	mustSucceed(json.NewEncoder(gz).Encode(man))
 	mustSucceed(gz.Flush())
 	mustSucceed(gz.Close())
 

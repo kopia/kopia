@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/testutil"
+	"github.com/kopia/kopia/repo/blob/throttling"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
@@ -31,12 +32,12 @@ func TestServerControl(t *testing.T) {
 	var sp testutil.ServerParameters
 
 	go func() {
-		kill := env.RunAndProcessStderr(t, sp.ProcessOutput,
+		wait, _ := env.RunAndProcessStderr(t, sp.ProcessOutput,
 			"server", "start", "--insecure", "--random-server-control-password", "--address=127.0.0.1:0")
 
 		close(serverStarted)
 
-		defer kill()
+		wait()
 
 		close(serverStopped)
 	}()
@@ -91,6 +92,58 @@ func TestServerControl(t *testing.T) {
 
 	env.RunAndExpectSuccess(t, "server", "pause", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword, dir1)
 	env.RunAndExpectSuccess(t, "server", "resume", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword, dir1)
+
+	env.RunAndExpectSuccess(t, "server", "throttle", "set", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword,
+		"--download-bytes-per-second=1000000000",
+		"--upload-bytes-per-second=2000000000",
+		"--read-requests-per-second=300",
+		"--write-requests-per-second=400",
+		"--list-requests-per-second=500",
+		"--concurrent-reads=300",
+		"--concurrent-writes=400",
+	)
+
+	require.Equal(t, []string{
+		"Max Download Speed:            1 GB/s",
+		"Max Upload Speed:              2 GB/s",
+		"Max Read Requests Per Second:  300",
+		"Max Write Requests Per Second: 400",
+		"Max List Requests Per Second:  500",
+		"Max Concurrent Reads:          300",
+		"Max Concurrent Writes:         400",
+	}, env.RunAndExpectSuccess(t, "server", "throttle", "get", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword))
+
+	env.RunAndExpectSuccess(t, "server", "throttle", "set", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword,
+		"--upload-bytes-per-second=unlimited",
+		"--write-requests-per-second=unlimited",
+	)
+
+	env.RunAndExpectFailure(t, "server", "throttle", "set", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword,
+		"--upload-bytes-per-second=-10",
+	)
+
+	require.Equal(t, []string{
+		"Max Download Speed:            1 GB/s",
+		"Max Upload Speed:              (unlimited)",
+		"Max Read Requests Per Second:  300",
+		"Max Write Requests Per Second: (unlimited)",
+		"Max List Requests Per Second:  500",
+		"Max Concurrent Reads:          300",
+		"Max Concurrent Writes:         400",
+	}, env.RunAndExpectSuccess(t, "server", "throttle", "get", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword))
+
+	var limits throttling.Limits
+
+	testutil.MustParseJSONLines(t, env.RunAndExpectSuccess(t, "server", "throttle", "get", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword, "--json"), &limits)
+	require.Equal(t, throttling.Limits{
+		ReadsPerSecond:         300,
+		WritesPerSecond:        0,
+		ListsPerSecond:         500,
+		UploadBytesPerSecond:   0,
+		DownloadBytesPerSecond: 1e+09,
+		ConcurrentReads:        300,
+		ConcurrentWrites:       400,
+	}, limits)
 
 	env.RunAndExpectSuccess(t, "server", "shutdown", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword)
 

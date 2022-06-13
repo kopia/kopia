@@ -38,7 +38,7 @@ func oidOf(e fs.Entry) object.ID {
 		return h.ObjectID()
 	}
 
-	return ""
+	return object.EmptyID
 }
 
 // ReportError reports the error.
@@ -48,7 +48,9 @@ func (w *TreeWalker) ReportError(ctx context.Context, entryPath string, err erro
 
 	repoFSLog(ctx).Errorf("error processing %v: %v", entryPath, err)
 
-	if len(w.errors) < w.options.MaxErrors {
+	// Record one error if we can't get too many errors so that at least that one
+	// can be returned if it's the only one.
+	if len(w.errors) < w.options.MaxErrors || (w.options.MaxErrors <= 0 && len(w.errors) == 0) {
 		w.errors = append(w.errors, err)
 	}
 
@@ -103,24 +105,20 @@ func (w *TreeWalker) processEntry(ctx context.Context, e fs.Entry, entryPath str
 }
 
 func (w *TreeWalker) processDirEntry(ctx context.Context, dir fs.Directory, entryPath string) {
-	var ag workshare.AsyncGroup
-	defer ag.Wait()
-
-	entries, err := dir.Readdir(ctx)
-	if err != nil {
-		w.ReportError(ctx, entryPath, errors.Wrap(err, "error reading directory"))
-		return
+	type errStop struct {
+		error
 	}
 
-	for _, ent := range entries {
-		ent := ent
+	var ag workshare.AsyncGroup
+	defer ag.Close()
 
+	err := dir.IterateEntries(ctx, func(c context.Context, ent fs.Entry) error {
 		if w.TooManyErrors() {
-			break
+			return errStop{errors.New("")}
 		}
 
 		if w.alreadyProcessed(ent) {
-			continue
+			return nil
 		}
 
 		childPath := path.Join(entryPath, ent.Name())
@@ -132,12 +130,19 @@ func (w *TreeWalker) processDirEntry(ctx context.Context, dir fs.Directory, entr
 		} else {
 			w.processEntry(ctx, ent, childPath)
 		}
+
+		return nil
+	})
+
+	var stopped errStop
+	if err != nil && !errors.As(err, &stopped) {
+		w.ReportError(ctx, entryPath, errors.Wrap(err, "error reading directory"))
 	}
 }
 
 // Process processes the snapshot tree entry.
 func (w *TreeWalker) Process(ctx context.Context, e fs.Entry, entryPath string) error {
-	if oidOf(e) == "" {
+	if oidOf(e) == object.EmptyID {
 		return errors.Errorf("entry does not have ObjectID")
 	}
 
@@ -164,7 +169,7 @@ type TreeWalkerOptions struct {
 }
 
 // NewTreeWalker creates new tree walker.
-func NewTreeWalker(options TreeWalkerOptions) (*TreeWalker, error) {
+func NewTreeWalker(options TreeWalkerOptions) *TreeWalker {
 	if options.Parallelism <= 0 {
 		options.Parallelism = runtime.NumCPU() * walkersPerCPU
 	}
@@ -176,5 +181,5 @@ func NewTreeWalker(options TreeWalkerOptions) (*TreeWalker, error) {
 	return &TreeWalker{
 		options: options,
 		wp:      workshare.NewPool(options.Parallelism - 1),
-	}, nil
+	}
 }

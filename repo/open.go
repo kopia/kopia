@@ -83,6 +83,9 @@ var ErrRepositoryUnavailableDueToUpgrageInProgress = errors.Errorf("repository u
 
 // Open opens a Repository specified in the configuration file.
 func Open(ctx context.Context, configFile, password string, options *Options) (rep Repository, err error) {
+	ctx, span := tracer.Start(ctx, "OpenRepository")
+	defer span.End()
+
 	defer func() {
 		if err != nil {
 			log(ctx).Errorf("failed to open repository: %v", err)
@@ -294,10 +297,26 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 		cmOpts.RepositoryFormatBytes = nil
 	}
 
-	st, throttler, err := addThrottler(ctx, st)
+	limits := throttlingLimitsFromConnectionInfo(ctx, st.ConnectionInfo())
+	if lc.Throttling != nil {
+		limits = *lc.Throttling
+	}
+
+	st, throttler, err := addThrottler(st, limits)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to add throttler")
 	}
+
+	throttler.OnUpdate(func(l throttling.Limits) error {
+		lc2, err2 := LoadConfigFromFile(configFile)
+		if err2 != nil {
+			return err2
+		}
+
+		lc2.Throttling = &l
+
+		return lc2.writeToFile(configFile)
+	})
 
 	if blobcfg.IsRetentionEnabled() {
 		st = wrapLockingStorage(st, blobcfg)
@@ -328,12 +347,11 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 	}
 
 	dr := &directRepository{
-		cmgr:      cm,
-		omgr:      om,
-		blobs:     st,
-		mmgr:      manifests,
-		sm:        scm,
-		throttler: throttler,
+		cmgr:  cm,
+		omgr:  om,
+		blobs: st,
+		mmgr:  manifests,
+		sm:    scm,
 		directRepositoryParameters: directRepositoryParameters{
 			uniqueID:            ufb.f.UniqueID,
 			cachingOptions:      *cacheOpts,
@@ -344,6 +362,7 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 			cliOpts:             lc.ClientOptions.ApplyDefaults(ctx, "Repository in "+st.DisplayName()),
 			configFile:          configFile,
 			nextWriterID:        new(int32),
+			throttler:           throttler,
 		},
 		closed: make(chan struct{}),
 	}
@@ -373,9 +392,8 @@ func wrapLockingStorage(st blob.Storage, r content.BlobCfgBlob) blob.Storage {
 	})
 }
 
-func addThrottler(ctx context.Context, st blob.Storage) (blob.Storage, throttling.SettableThrottler, error) {
-	throttler, err := throttling.NewThrottler(
-		throttlingLimitsFromConnectionInfo(ctx, st.ConnectionInfo()), throttlingWindow, throttleBucketInitialFill)
+func addThrottler(st blob.Storage, limits throttling.Limits) (blob.Storage, throttling.SettableThrottler, error) {
+	throttler, err := throttling.NewThrottler(limits, throttlingWindow, throttleBucketInitialFill)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "unable to create throttler")
 	}

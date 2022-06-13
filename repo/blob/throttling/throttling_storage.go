@@ -25,6 +25,7 @@ const (
 // attempted to ensure we don't exceed the desired rate of operations/bytes uploaded/downloaded.
 type Throttler interface {
 	BeforeOperation(ctx context.Context, op string)
+	AfterOperation(ctx context.Context, op string)
 
 	// BeforeDownload acquires the specified number of downloaded bytes
 	// possibly blocking until enough are available.
@@ -51,6 +52,8 @@ func (s *throttlingStorage) GetBlob(ctx context.Context, id blob.ID, offset, len
 	}
 
 	s.throttler.BeforeOperation(ctx, operationGetBlob)
+	defer s.throttler.AfterOperation(ctx, operationGetBlob)
+
 	s.throttler.BeforeDownload(ctx, acquired)
 
 	output.Reset()
@@ -73,17 +76,22 @@ func (s *throttlingStorage) GetBlob(ctx context.Context, id blob.ID, offset, len
 
 func (s *throttlingStorage) GetMetadata(ctx context.Context, id blob.ID) (blob.Metadata, error) {
 	s.throttler.BeforeOperation(ctx, operationGetMetadata)
+	defer s.throttler.AfterOperation(ctx, operationGetMetadata)
 
 	return s.Storage.GetMetadata(ctx, id) // nolint:wrapcheck
 }
 
 func (s *throttlingStorage) ListBlobs(ctx context.Context, blobIDPrefix blob.ID, cb func(bm blob.Metadata) error) error {
 	s.throttler.BeforeOperation(ctx, operationListBlobs)
+	defer s.throttler.AfterOperation(ctx, operationListBlobs)
+
 	return s.Storage.ListBlobs(ctx, blobIDPrefix, cb) // nolint:wrapcheck
 }
 
 func (s *throttlingStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes, opts blob.PutOptions) error {
 	s.throttler.BeforeOperation(ctx, operationPutBlob)
+	defer s.throttler.AfterOperation(ctx, operationPutBlob)
+
 	s.throttler.BeforeUpload(ctx, int64(data.Length()))
 
 	return s.Storage.PutBlob(ctx, id, data, opts) // nolint:wrapcheck
@@ -91,6 +99,8 @@ func (s *throttlingStorage) PutBlob(ctx context.Context, id blob.ID, data blob.B
 
 func (s *throttlingStorage) DeleteBlob(ctx context.Context, id blob.ID) error {
 	s.throttler.BeforeOperation(ctx, operationDeleteBlob)
+	defer s.throttler.AfterOperation(ctx, operationDeleteBlob)
+
 	return s.Storage.DeleteBlob(ctx, id) // nolint:wrapcheck
 }
 

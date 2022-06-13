@@ -2,6 +2,7 @@ package snapshotmaintenance_test
 
 import (
 	"context"
+	"encoding/binary"
 	"testing"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/maintenance"
+	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/snapshotmaintenance"
 )
@@ -71,7 +73,7 @@ func (s *formatSpecificTestSuite) TestSnapshotGCSimple(t *testing.T) {
 	t.Log("snap 2:", pretty.Sprint(s2))
 	mustFlush(t, th.RepositoryWriter)
 
-	info, err := th.RepositoryWriter.ContentInfo(ctx, content.ID(s2.RootObjectID()))
+	info, err := th.RepositoryWriter.ContentInfo(ctx, mustGetContentID(t, s2.RootObjectID()))
 	require.NoError(t, err)
 
 	t.Log("root info:", pretty.Sprint(info))
@@ -129,7 +131,7 @@ func (s *formatSpecificTestSuite) TestMaintenanceReuseDirManifest(t *testing.T) 
 	err = snapshotmaintenance.Run(ctx, th.RepositoryWriter, maintenance.ModeFull, true, maintenance.SafetyFull)
 	require.NoError(t, err)
 
-	info, err := r2.(repo.DirectRepository).ContentInfo(ctx, content.ID(s2.RootObjectID()))
+	info, err := r2.(repo.DirectRepository).ContentInfo(ctx, mustGetContentID(t, s2.RootObjectID()))
 	require.NoError(t, err)
 	require.False(t, info.GetDeleted(), "content must not be deleted")
 
@@ -143,7 +145,7 @@ func (s *formatSpecificTestSuite) TestMaintenanceReuseDirManifest(t *testing.T) 
 
 	th.MustReopen(t, th.fakeTimeOpenRepoOption)
 
-	info, err = th.RepositoryWriter.ContentInfo(ctx, content.ID(s2.RootObjectID()))
+	info, err = th.RepositoryWriter.ContentInfo(ctx, mustGetContentID(t, s2.RootObjectID()))
 	require.NoError(t, err)
 	require.True(t, info.GetDeleted(), "content must be deleted")
 
@@ -157,7 +159,7 @@ func (s *formatSpecificTestSuite) TestMaintenanceReuseDirManifest(t *testing.T) 
 	mustFlush(t, th.RepositoryWriter)
 
 	// Was the previous root undeleted
-	info, err = th.RepositoryWriter.ContentInfo(ctx, content.ID(s2.RootObjectID()))
+	info, err = th.RepositoryWriter.ContentInfo(ctx, mustGetContentID(t, s2.RootObjectID()))
 	require.NoError(t, err)
 	require.False(t, info.GetDeleted(), "content must not be deleted")
 
@@ -165,6 +167,67 @@ func (s *formatSpecificTestSuite) TestMaintenanceReuseDirManifest(t *testing.T) 
 	require.NoError(t, err)
 
 	t.Log("root info:", pretty.Sprint(info))
+}
+
+func (s *formatSpecificTestSuite) TestSnapshotGCMinContentAgeSafety(t *testing.T) {
+	ctx := testlogging.Context(t)
+	th := newTestHarness(t, s.formatVersion)
+
+	require.NotNil(t, th)
+	require.NotNil(t, th.sourceDir)
+	th.sourceDir.AddFile("f2", []byte{1, 2, 3, 4}, defaultPermissions)
+
+	// Create and delete a snapshot of th.sourceDir dir, which contains 'd1'
+	si := snapshot.SourceInfo{
+		Host:     "host",
+		UserName: "user",
+		Path:     "/foo",
+	}
+
+	mustSnapshot(t, th.RepositoryWriter, th.sourceDir, si)
+	mustFlush(t, th.RepositoryWriter)
+
+	const contentCount = 10000
+
+	require.NoError(t, th.Repository.Refresh(ctx))
+
+	// create 10000 unreferenced contents
+	oids := create4ByteObjects(t, th.Repository, 0, contentCount)
+
+	require.NoError(t, th.Repository.Refresh(ctx))
+
+	cids := objectIDsToContentIDs(t, oids)
+
+	// check contents are not marked as deleted
+	checkContentDeletion(t, th.Repository, cids, false)
+
+	mustFlush(t, th.RepositoryWriter)
+
+	safety := maintenance.SafetyFull
+
+	// Advance time so the first content created above is close fall of the
+	// SafetyFull.MinContentAgeSubjectToGC window. Leave a small buffer
+	// of 10 seconds below for "passage of time" between now an when snapshot
+	// GC actually starts.
+	// Note: The duration of this buffer is a "magical number" that depends on
+	// the number of times time is advanced between "now" and when snapshot
+	// gc start
+	ci, err := th.Repository.ContentInfo(ctx, cids[0])
+	require.NoError(t, err)
+	require.NotEmpty(t, ci)
+
+	timeAdvance := safety.MinContentAgeSubjectToGC - th.fakeTime.NowFunc()().Sub(ci.Timestamp()) - 10*time.Second
+
+	require.Positive(t, timeAdvance)
+	th.fakeTime.Advance(timeAdvance)
+
+	err = snapshotmaintenance.Run(ctx, th.RepositoryWriter, maintenance.ModeFull, true, maintenance.SafetyFull)
+	require.NoError(t, err)
+
+	mustFlush(t, th.RepositoryWriter)
+
+	// check contents have not been marked as deleted.
+	checkContentDeletion(t, th.Repository, cids, false)
 }
 
 func newTestHarness(t *testing.T, formatVersion content.FormatVersion) *testHarness {
@@ -294,4 +357,76 @@ func mustSnapshot(t *testing.T, r repo.RepositoryWriter, source fs.Entry, si sna
 	require.NotNil(t, s1)
 
 	return s1
+}
+
+func mustGetContentID(t *testing.T, oid object.ID) content.ID {
+	t.Helper()
+
+	c, _, ok := oid.ContentID()
+	require.True(t, ok)
+
+	return c
+}
+
+func create4ByteObjects(t *testing.T, r repo.Repository, base, count int) []object.ID {
+	t.Helper()
+
+	oids := make([]object.ID, 0, count)
+	ctx := testlogging.Context(t)
+
+	ctx, rw, err := r.NewWriter(ctx, repo.WriteSessionOptions{})
+	require.NoError(t, err)
+
+	defer rw.Close(ctx)
+
+	var b [4]byte
+
+	for i := base; i < base+count; i++ {
+		w := rw.NewObjectWriter(ctx, object.WriterOptions{Description: "create-test-contents"})
+
+		binary.BigEndian.PutUint32(b[:], uint32(i))
+
+		_, err := w.Write(b[:])
+		require.NoError(t, err)
+
+		oid, err := w.Result()
+		require.NoError(t, err)
+
+		require.NoError(t, w.Close())
+
+		oids = append(oids, oid)
+	}
+
+	require.NoError(t, rw.Flush(ctx))
+
+	return oids
+}
+
+func objectIDsToContentIDs(t *testing.T, oids []object.ID) []content.ID {
+	t.Helper()
+
+	cids := make([]content.ID, 0, len(oids))
+
+	for _, oid := range oids {
+		cid, _, ok := oid.ContentID()
+
+		require.True(t, ok)
+
+		cids = append(cids, cid)
+	}
+
+	return cids
+}
+
+func checkContentDeletion(t *testing.T, r repo.Repository, cids []content.ID, deleted bool) {
+	t.Helper()
+
+	ctx := testlogging.Context(t)
+
+	for i, cid := range cids {
+		ci, err := r.ContentInfo(ctx, cid)
+
+		require.NoErrorf(t, err, "i:%d cid:%s", i, cid)
+		require.Equalf(t, deleted, ci.GetDeleted(), "i:%d cid:%s", i, cid)
+	}
 }

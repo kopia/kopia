@@ -112,11 +112,6 @@ func findManifestIDs(ctx context.Context, rep repo.Repository, source string, ta
 }
 
 func (c *commandSnapshotList) run(ctx context.Context, rep repo.Repository) error {
-	var jl jsonList
-
-	jl.begin(&c.jo)
-	defer jl.end()
-
 	tags, err := getTags(c.snapshotListTags)
 	if err != nil {
 		return err
@@ -133,25 +128,52 @@ func (c *commandSnapshotList) run(ctx context.Context, rep repo.Repository) erro
 	}
 
 	if c.jo.jsonOutput {
-		for _, snapshotGroup := range snapshot.GroupBySource(manifests) {
-			snapshotGroup = snapshot.SortByTime(snapshotGroup, c.reverseSort)
-
-			if c.maxResultsPerPath > 0 && len(snapshotGroup) > c.maxResultsPerPath {
-				snapshotGroup = snapshotGroup[len(snapshotGroup)-c.maxResultsPerPath:]
-			}
-
-			if err := c.iterateSnapshotsMaybeWithStorageStats(ctx, rep, snapshotGroup, func(m *snapshot.Manifest) error {
-				jl.emit(m)
-				return nil
-			}); err != nil {
-				return errors.Wrap(err, "unable to iterate snapshots")
-			}
-		}
-
-		return nil
+		return c.outputJSON(ctx, rep, manifests)
 	}
 
 	return c.outputManifestGroups(ctx, rep, manifests, strings.Split(relPath, "/"))
+}
+
+// SnapshotManifest defines the JSON output for the CLI snapshot commands.
+type SnapshotManifest struct {
+	*snapshot.Manifest
+	RetentionReasons []string `json:"retentionReason,omitempty"`
+}
+
+func (c *commandSnapshotList) outputJSON(ctx context.Context, rep repo.Repository, manifests []*snapshot.Manifest) error {
+	var jl jsonList
+
+	jl.begin(&c.jo)
+	defer jl.end()
+
+	for _, snapshotGroup := range snapshot.GroupBySource(manifests) {
+		snapshotGroup = snapshot.SortByTime(snapshotGroup, c.reverseSort)
+
+		if c.maxResultsPerPath > 0 && len(snapshotGroup) > c.maxResultsPerPath {
+			snapshotGroup = snapshotGroup[len(snapshotGroup)-c.maxResultsPerPath:]
+		}
+
+		if c.snapshotListShowRetentionReasons {
+			src := snapshotGroup[0].Source
+			// compute retention reason
+			pol, _, _, err := policy.GetEffectivePolicy(ctx, rep, src)
+			if err != nil {
+				log(ctx).Errorf("unable to determine effective policy for %v", src)
+			} else {
+				pol.RetentionPolicy.ComputeRetentionReasons(snapshotGroup)
+			}
+		}
+
+		if err := c.iterateSnapshotsMaybeWithStorageStats(ctx, rep, snapshotGroup, func(m *snapshot.Manifest) error {
+			wm := SnapshotManifest{Manifest: m, RetentionReasons: m.RetentionReasons}
+			jl.emit(wm)
+			return nil
+		}); err != nil {
+			return errors.Wrap(err, "unable to iterate snapshots")
+		}
+	}
+
+	return nil
 }
 
 func (c *commandSnapshotList) shouldOutputSnapshotSource(rep repo.Repository, src snapshot.SourceInfo) bool {

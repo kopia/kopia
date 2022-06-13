@@ -33,7 +33,7 @@ func TestSnapshotCounters(t *testing.T) {
 	require.NoError(t, cli.FetchCSRFTokenForTesting(ctx))
 
 	dir := testutil.TempDirectory(t)
-	si := localSource(env, dir)
+	si := env.LocalPathSourceInfo(dir)
 
 	mustCreateSource(t, cli, dir, &policy.Policy{})
 	require.Len(t, mustListSources(t, cli, &snapshot.SourceInfo{}), 1)
@@ -113,7 +113,7 @@ func TestSourceRefreshesAfterPolicy(t *testing.T) {
 	require.NoError(t, cli.FetchCSRFTokenForTesting(ctx))
 
 	dir := testutil.TempDirectory(t)
-	si := localSource(env, dir)
+	si := env.LocalPathSourceInfo(dir)
 
 	currentHour := clock.Now().Hour()
 

@@ -4,6 +4,7 @@ package snapshotgc
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 
@@ -33,7 +34,7 @@ func findInUseContentIDs(ctx context.Context, rep repo.Repository, used *sync.Ma
 		return errors.Wrap(err, "unable to load manifest IDs")
 	}
 
-	w, twerr := snapshotfs.NewTreeWalker(snapshotfs.TreeWalkerOptions{
+	w := snapshotfs.NewTreeWalker(snapshotfs.TreeWalkerOptions{
 		EntryCallback: func(ctx context.Context, entry fs.Entry, oid object.ID, entryPath string) error {
 			contentIDs, err := rep.VerifyObject(ctx, oid)
 			if err != nil {
@@ -47,10 +48,6 @@ func findInUseContentIDs(ctx context.Context, rep repo.Repository, used *sync.Ma
 			return nil
 		},
 	})
-	if twerr != nil {
-		return errors.Wrap(twerr, "unable to initialize tree walker")
-	}
-
 	defer w.Close()
 
 	log(ctx).Infof("Looking for active contents...")
@@ -70,17 +67,32 @@ func findInUseContentIDs(ctx context.Context, rep repo.Repository, used *sync.Ma
 }
 
 // Run performs garbage collection on all the snapshots in the repository.
-func Run(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete bool, safety maintenance.SafetyParameters) (Stats, error) {
+func Run(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete bool, safety maintenance.SafetyParameters, maintenanceStartTime time.Time) (Stats, error) {
 	var st Stats
 
 	err := maintenance.ReportRun(ctx, rep, maintenance.TaskSnapshotGarbageCollection, nil, func() error {
-		return runInternal(ctx, rep, gcDelete, safety, &st)
+		if err := runInternal(ctx, rep, gcDelete, safety, maintenanceStartTime, &st); err != nil {
+			return err
+		}
+
+		l := log(ctx)
+
+		l.Infof("GC found %v unused contents (%v bytes)", st.UnusedCount, units.BytesStringBase2(st.UnusedBytes))
+		l.Infof("GC found %v unused contents that are too recent to delete (%v bytes)", st.TooRecentCount, units.BytesStringBase2(st.TooRecentBytes))
+		l.Infof("GC found %v in-use contents (%v bytes)", st.InUseCount, units.BytesStringBase2(st.InUseBytes))
+		l.Infof("GC found %v in-use system-contents (%v bytes)", st.SystemCount, units.BytesStringBase2(st.SystemBytes))
+
+		if st.UnusedCount > 0 && !gcDelete {
+			return errors.Errorf("Not deleting because 'gcDelete' was not set")
+		}
+
+		return nil
 	})
 
 	return st, errors.Wrap(err, "error running snapshot gc")
 }
 
-func runInternal(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete bool, safety maintenance.SafetyParameters, st *Stats) error {
+func runInternal(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete bool, safety maintenance.SafetyParameters, maintenanceStartTime time.Time, st *Stats) error {
 	var (
 		used sync.Map
 
@@ -110,12 +122,14 @@ func runInternal(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete 
 			}
 
 			inUse.Add(int64(ci.GetPackedLength()))
+
 			return nil
 		}
 
-		if rep.Time().Sub(ci.Timestamp()) < safety.MinContentAgeSubjectToGC {
+		if maintenanceStartTime.Sub(ci.Timestamp()) < safety.MinContentAgeSubjectToGC {
 			log(ctx).Debugf("recent unreferenced content %v (%v bytes, modified %v)", ci.GetContentID(), ci.GetPackedLength(), ci.Timestamp())
 			tooRecent.Add(int64(ci.GetPackedLength()))
+
 			return nil
 		}
 
@@ -148,10 +162,6 @@ func runInternal(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete 
 
 	if err != nil {
 		return errors.Wrap(err, "error iterating contents")
-	}
-
-	if st.UnusedCount > 0 && !gcDelete {
-		return errors.Errorf("Not deleting because '--delete' flag was not set")
 	}
 
 	return errors.Wrap(rep.Flush(ctx), "flush error")

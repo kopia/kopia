@@ -42,7 +42,7 @@ func runInBrowser(t *testing.T, run func(ctx context.Context, sp *testutil.Serve
 
 	var sp testutil.ServerParameters
 
-	kill := e.RunAndProcessStderr(t, sp.ProcessOutput,
+	_, kill := e.RunAndProcessStderr(t, sp.ProcessOutput,
 		"server", "start",
 		"--ui",
 		"--address=localhost:0",

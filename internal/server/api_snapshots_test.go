@@ -19,8 +19,8 @@ import (
 func TestListAndDeleteSnapshots(t *testing.T) {
 	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
 
-	si1 := localSource(env, "/dummy/path")
-	si2 := localSource(env, "/another/path")
+	si1 := env.LocalPathSourceInfo("/dummy/path")
+	si2 := env.LocalPathSourceInfo("/another/path")
 
 	var id11, id12, id13, id14, id21 manifest.ID
 
@@ -181,7 +181,7 @@ func TestListAndDeleteSnapshots(t *testing.T) {
 func TestEditSnapshots(t *testing.T) {
 	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
 
-	si1 := localSource(env, "/dummy/path")
+	si1 := env.LocalPathSourceInfo("/dummy/path")
 
 	var id11 manifest.ID
 

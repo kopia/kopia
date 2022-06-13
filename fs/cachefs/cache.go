@@ -21,7 +21,7 @@ type cacheEntry struct {
 	next *cacheEntry
 
 	expireAfter time.Time
-	entries     fs.Entries
+	entries     []fs.Entry
 }
 
 // Cache maintains in-memory cache of recently-read data to speed up filesystem operations.
@@ -78,25 +78,44 @@ func (c *Cache) remove(e *cacheEntry) {
 }
 
 // Loader provides data to be stored in the cache.
-type Loader func(ctx context.Context) (fs.Entries, error)
+type Loader func(ctx context.Context) ([]fs.Entry, error)
 
 // EntryWrapper allows an fs.Entry to be modified before inserting into the cache.
 type EntryWrapper func(entry fs.Entry) fs.Entry
 
-// Readdir reads the contents of a provided directory using ObjectID of a directory (if any) to cache
-// the results.
-func (c *Cache) Readdir(ctx context.Context, d fs.Directory, w EntryWrapper) (fs.Entries, error) {
+// IterateEntries reads the contents of a provided directory using ObjectID of a directory (if any) to cache
+// the results. The given callback is invoked on each item in the directory.
+func (c *Cache) IterateEntries(ctx context.Context, d fs.Directory, w EntryWrapper, callback func(context.Context, fs.Entry) error) error {
 	if h, ok := d.(object.HasObjectID); ok {
-		cacheID := string(h.ObjectID())
+		cacheID := h.ObjectID().String()
 
-		return c.getEntries(ctx, cacheID, dirCacheExpiration, d.Readdir, w)
+		entries, err := c.getEntries(
+			ctx,
+			cacheID,
+			dirCacheExpiration,
+			func(innerCtx context.Context) ([]fs.Entry, error) {
+				return fs.GetAllEntries(innerCtx, d)
+			},
+			w,
+		)
+		if err != nil {
+			return err
+		}
+
+		for _, e := range entries {
+			err = callback(ctx, e)
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
 	}
 
-	// nolint:wrapcheck
-	return d.Readdir(ctx)
+	return d.IterateEntries(ctx, callback) // nolint:wrapcheck
 }
 
-func (c *Cache) getEntriesFromCacheLocked(ctx context.Context, id string) fs.Entries {
+func (c *Cache) getEntriesFromCacheLocked(ctx context.Context, id string) []fs.Entry {
 	if v, ok := c.data[id]; id != "" && ok {
 		if clock.Now().Before(v.expireAfter) {
 			c.moveToHead(v)
@@ -121,7 +140,7 @@ func (c *Cache) getEntriesFromCacheLocked(ctx context.Context, id string) fs.Ent
 
 // getEntries consults the cache and either retrieves the contents of directory listing from the cache
 // or invokes the provides callback and adds the results to cache.
-func (c *Cache) getEntries(ctx context.Context, id string, expirationTime time.Duration, cb Loader, w EntryWrapper) (fs.Entries, error) {
+func (c *Cache) getEntries(ctx context.Context, id string, expirationTime time.Duration, cb Loader, w EntryWrapper) ([]fs.Entry, error) {
 	if c == nil {
 		return cb(ctx)
 	}
@@ -142,7 +161,7 @@ func (c *Cache) getEntries(ctx context.Context, id string, expirationTime time.D
 		return nil, err
 	}
 
-	wrapped := make(fs.Entries, len(raw))
+	wrapped := make([]fs.Entry, len(raw))
 	for i, entry := range raw {
 		wrapped[i] = w(entry)
 	}

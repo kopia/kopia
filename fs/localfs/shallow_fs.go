@@ -119,8 +119,8 @@ func (fsd *shallowFilesystemDirectory) Child(ctx context.Context, name string) (
 	return nil, errors.New("shallowFilesystemDirectory.Child not supported")
 }
 
-func (fsd *shallowFilesystemDirectory) Readdir(ctx context.Context) (fs.Entries, error) {
-	return nil, errors.New("shallowFilesystemDirectory.Readdir not supported")
+func (fsd *shallowFilesystemDirectory) IterateEntries(ctx context.Context, cb func(context.Context, fs.Entry) error) error {
+	return errors.New("shallowFilesystemDirectory.IterateEntries not supported")
 }
 
 var (

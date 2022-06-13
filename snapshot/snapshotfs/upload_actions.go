@@ -112,7 +112,7 @@ func prepareCommandForAction(ctx context.Context, actionType string, h *policy.A
 
 		switch {
 		case runtime.GOOS == "windows":
-			c = exec.CommandContext(ctx, "cmd.exe", "/c", scriptFile) // nolint:gosec
+			c = exec.CommandContext(ctx, os.Getenv("COMSPEC"), "/c", scriptFile) // nolint:gosec
 		case strings.HasPrefix(h.Script, "#!"):
 			// on unix if a script starts with #!, it will run under designated interpreter
 			c = exec.CommandContext(ctx, scriptFile) // nolint:gosec

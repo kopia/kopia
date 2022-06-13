@@ -31,7 +31,7 @@ func (c *policyRetentionFlags) setup(cmd *kingpin.CmdClause) {
 }
 
 func (c *policyRetentionFlags) setRetentionPolicyFromFlags(ctx context.Context, rp *policy.RetentionPolicy, changeCount *int) error {
-	cases := []struct {
+	intCases := []struct {
 		desc      string
 		max       **policy.OptionalInt
 		flagValue string
@@ -45,10 +45,14 @@ func (c *policyRetentionFlags) setRetentionPolicyFromFlags(ctx context.Context, 
 		{"minimum number of days to retain the snapshot after creation", &rp.MinRetentionDays, c.policySetMinRetentionDays},
 	}
 
-	for _, c := range cases {
+	for _, c := range intCases {
 		if err := applyOptionalInt(ctx, c.desc, c.max, c.flagValue, changeCount); err != nil {
 			return err
 		}
+	}
+
+	if err := applyPolicyBoolPtr(ctx, "do not save identical snapshots", &rp.IgnoreIdenticalSnapshots, c.policySetIgnoreIdenticalSnapshots, changeCount); err != nil {
+		return err
 	}
 
 	return nil

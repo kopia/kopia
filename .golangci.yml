@@ -73,6 +73,8 @@ linters:
     - prealloc
     - gochecknoinits
     - whitespace
+    - exhaustruct
+    - nonamedreturns
     - nilnil
     - ireturn # this one may be interesting to control allocations
     - varnamelen # this one may be interesting, but too much churn
@@ -107,6 +109,9 @@ issues:
     - text: "log is a global variable"
       linters:
       - gochecknoglobals
+    - text: "tracer is a global variable"
+      linters:
+      - gochecknoglobals
     - text: "Magic number: 1e"
       linters:
       - gomnd
@@ -131,3 +136,6 @@ issues:
     - text: "Errors unhandled"
       linters:
         - gosec
+    - text: "unwrapped: sig: func github.com/kopia/kopia/fs.GetAllEntries"
+      linters:
+        - wrapcheck

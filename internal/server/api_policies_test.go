@@ -32,19 +32,19 @@ func TestPolicies(t *testing.T) {
 	require.NoError(t, cli.FetchCSRFTokenForTesting(ctx))
 
 	dir0 := testutil.TempDirectory(t)
-	si0 := localSource(env, dir0)
+	si0 := env.LocalPathSourceInfo(dir0)
 
 	dir1 := testutil.TempDirectory(t)
-	si1 := localSource(env, dir1)
+	si1 := env.LocalPathSourceInfo(dir1)
 
 	dir2 := filepath.Join(dir1, "subdir1")
-	si2 := localSource(env, dir2)
+	si2 := env.LocalPathSourceInfo(dir2)
 
 	dir3 := filepath.Join(dir2, "subdir2")
-	si3 := localSource(env, dir3)
+	si3 := env.LocalPathSourceInfo(dir3)
 
 	dir4 := filepath.Join(dir3, "subdir3")
-	si4 := localSource(env, dir4)
+	si4 := env.LocalPathSourceInfo(dir4)
 
 	mustSetPolicy(t, cli, si1, &policy.Policy{
 		CompressionPolicy: policy.CompressionPolicy{
