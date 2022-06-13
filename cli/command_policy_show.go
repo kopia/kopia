@@ -142,6 +142,7 @@ func appendRetentionPolicyRows(rows []policyTableRow, p *policy.Policy, def *pol
 		policyTableRow{"  Daily snapshots:", valueOrNotSet(p.RetentionPolicy.KeepDaily), definitionPointToString(p.Target(), def.RetentionPolicy.KeepDaily)},
 		policyTableRow{"  Hourly snapshots:", valueOrNotSet(p.RetentionPolicy.KeepHourly), definitionPointToString(p.Target(), def.RetentionPolicy.KeepHourly)},
 		policyTableRow{"  Latest snapshots:", valueOrNotSet(p.RetentionPolicy.KeepLatest), definitionPointToString(p.Target(), def.RetentionPolicy.KeepLatest)},
+		policyTableRow{"  Ignore identical snapshots:", boolToString(p.RetentionPolicy.IgnoreIdenticalSnapshots.OrDefault(false)), definitionPointToString(p.Target(), def.RetentionPolicy.IgnoreIdenticalSnapshots)},
 		policyTableRow{" Minimun Retention Days:", valueOrNotSet(p.RetentionPolicy.MinRetentionDays), definitionPointToString(p.Target(), def.RetentionPolicy.MinRetentionDays)},
 	)
 }
