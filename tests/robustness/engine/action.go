@@ -275,7 +275,6 @@ const (
 	ThrowNoSpaceOnDeviceErrField = "throw-no-space-error"
 	SnapshotIDField              = "snapshot-ID"
 	SubPathOptionName            = "sub-path"
-	BlobIDField                  = "blob-ID"
 )
 
 func defaultActionControls() map[string]string {
