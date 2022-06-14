@@ -508,7 +508,7 @@ func TestSnapshotSparseRestore(t *testing.T) {
 
 	bufSize := uint64(iocopy.BufSize)
 
-	blkSize, err := stat.GetBlockSize(sourceDir)
+	blkSize, err := stat.GetBlockSize(restoreDir)
 	if err != nil {
 		t.Fatalf("error getting disk block size: %v", err)
 	}

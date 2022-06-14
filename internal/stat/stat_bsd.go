@@ -5,11 +5,17 @@
 // common stat commands.
 package stat
 
-import "syscall"
+import (
+	"syscall"
+
+	"github.com/pkg/errors"
+)
 
 const (
 	diskBlockSize uint64 = 512
 )
+
+var errInvalidBlockSize = errors.New("invalid disk block size")
 
 // GetFileAllocSize gets the space allocated on disk for the file.
 // 'fname' in bytes.
@@ -31,6 +37,10 @@ func GetBlockSize(path string) (uint64, error) {
 	err := syscall.Statfs(path, &st)
 	if err != nil {
 		return 0, err // nolint:wrapcheck
+	}
+
+	if st.F_bsize <= 0 {
+		return 0, errors.Wrapf(errInvalidBlockSize, "%d", st.F_bsize)
 	}
 
 	return uint64(st.F_bsize), nil

@@ -212,7 +212,7 @@ func (c *commandRestore) restoreOutput(ctx context.Context) (restore.Output, err
 	m := c.detectRestoreMode(ctx, c.restoreMode, targetpath)
 	switch m {
 	case restoreModeLocal:
-		return &restore.FilesystemOutput{
+		o := &restore.FilesystemOutput{
 			TargetPath:             targetpath,
 			OverwriteDirectories:   c.restoreOverwriteDirectories,
 			OverwriteFiles:         c.restoreOverwriteFiles,
@@ -223,7 +223,13 @@ func (c *commandRestore) restoreOutput(ctx context.Context) (restore.Output, err
 			SkipPermissions:        c.restoreSkipPermissions,
 			SkipTimes:              c.restoreSkipTimes,
 			Sparse:                 c.restoreSparse,
-		}, nil
+		}
+
+		if err := o.Init(); err != nil {
+			return nil, errors.Wrap(err, "unable to create output file")
+		}
+
+		return o, nil
 
 	case restoreModeZip, restoreModeZipNoCompress:
 		f, err := os.Create(targetpath) //nolint:gosec

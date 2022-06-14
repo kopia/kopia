@@ -51,7 +51,11 @@ func handleRestore(ctx context.Context, rc requestContext) (interface{}, *apiErr
 
 	switch {
 	case req.Filesystem != nil:
-		out = req.Filesystem
+		out := req.Filesystem
+		if err := out.Init(); err != nil {
+			return nil, internalServerError(err)
+		}
+
 		description = "Destination: " + req.Filesystem.TargetPath
 
 	case req.ZipFile != "":

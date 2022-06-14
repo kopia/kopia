@@ -10,7 +10,7 @@ import (
 	"github.com/kopia/kopia/internal/stat"
 )
 
-func TestSparseWrite(t *testing.T) {
+func TestSparseCopy(t *testing.T) {
 	t.Parallel()
 
 	if runtime.GOOS == "windows" {
@@ -67,16 +67,30 @@ func TestSparseWrite(t *testing.T) {
 		src := filepath.Join(dir, "src"+c.name)
 		dst := filepath.Join(dir, "dst"+c.name)
 
-		fd, err := os.Create(src)
+		sf, err := os.Create(src)
 		if err != nil {
 			t.Fatal(err)
 		}
 
 		for _, d := range c.data {
-			fd.WriteAt(bytes.Repeat(d.slice, int(d.rep)), int64(d.off))
+			sf.WriteAt(bytes.Repeat(d.slice, int(d.rep)), int64(d.off))
 		}
 
-		err = Write(dst, fd, int64(c.size))
+		df, err := os.Create(dst)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if err = df.Truncate(int64(c.size)); err != nil {
+			t.Fatal(err)
+		}
+
+		blk, err := stat.GetBlockSize(dst)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		_, err = Copy(df, sf, blk)
 		if err != nil {
 			t.Fatalf("error writing %s: %v", dst, err)
 		}
