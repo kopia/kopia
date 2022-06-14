@@ -36,7 +36,7 @@ func (u *Uploader) scanDirectory(ctx context.Context, dir fs.Directory, policyTr
 		return res, nil
 	}
 
-	err := Estimate(ctx, u.repo, dir, policyTree, &res, 1)
+	err := Estimate(ctx, dir, policyTree, &res, 1)
 
 	return res, err
 }

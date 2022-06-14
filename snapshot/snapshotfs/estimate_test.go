@@ -64,6 +64,6 @@ func TestEstimate_SkipsStreamingDirectory(t *testing.T) {
 		expectedErrors:      0,
 	}
 
-	err := snapshotfs.Estimate(testlogging.Context(t), nil, rootDir, policyTree, p, 1)
+	err := snapshotfs.Estimate(testlogging.Context(t), rootDir, policyTree, p, 1)
 	require.NoError(t, err)
 }

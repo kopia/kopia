@@ -97,7 +97,7 @@ func (c *commandSnapshotEstimate) run(ctx context.Context, rep repo.Repository) 
 		return errors.Wrapf(err, "error creating policy tree for %v", sourceInfo)
 	}
 
-	if err := snapshotfs.Estimate(ctx, rep, dir, policyTree, &ep, c.maxExamplesPerBucket); err != nil {
+	if err := snapshotfs.Estimate(ctx, dir, policyTree, &ep, c.maxExamplesPerBucket); err != nil {
 		return errors.Wrap(err, "error estimating")
 	}
 

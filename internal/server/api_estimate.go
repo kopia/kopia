@@ -103,8 +103,6 @@ func handleEstimate(ctx context.Context, rc requestContext) (interface{}, *apiEr
 		return nil, requestError(serverapi.ErrorMalformedRequest, "malformed request body")
 	}
 
-	rep := rc.rep
-
 	resolvedRoot := filepath.Clean(ospath.ResolveUserFriendlyPath(req.Root, true))
 
 	e, err := localfs.NewEntry(resolvedRoot)
@@ -140,7 +138,7 @@ func handleEstimate(ctx context.Context, rc requestContext) (interface{}, *apiEr
 		ctrl.OnCancel(cancel)
 
 		// nolint:wrapcheck
-		return snapshotfs.Estimate(estimatectx, rep, dir, policyTree, estimateTaskProgress{ctrl}, req.MaxExamplesPerBucket)
+		return snapshotfs.Estimate(estimatectx, dir, policyTree, estimateTaskProgress{ctrl}, req.MaxExamplesPerBucket)
 	})
 
 	taskID := <-taskIDChan
