@@ -17,18 +17,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// var bm *BlobManipulator
-
-// const (
-// 	dataSubPath     = "robustness-data"
-// 	metadataSubPath = "robustness-metadata"
-// 	defaultTestDur  = 5 * time.Minute
-// )
-
-// var (
-// 	repoPathPrefix = flag.String("repo-path-prefix", "/Users/chaitali.gondhalekar/Work/Kasten/kopia_dummy_repo/", "Point the robustness tests at this path prefix")
-// )
-
 func TestSnapshotFix(t *testing.T) {
 
 	// assumption: the test is run on filesystem and not directly on S3

@@ -13,13 +13,13 @@ import (
 )
 
 const (
-	dataSubPath     = "robustness-data"
-	metadataSubPath = "robustness-metadata"
+	dataSubPath     = "recovery-data"
+	metadataSubPath = "recovery-metadata"
 	defaultTestDur  = 5 * time.Minute
 )
 
 var (
-	repoPathPrefix = flag.String("repo-path-prefix", "/Users/chaitali.gondhalekar/Work/Kasten/kopia_dummy_repo/", "Point the robustness tests at this path prefix")
+	repoPathPrefix = flag.String("repo-path-prefix", "", "Point the recovery tests at this path prefix")
 )
 
 func TestMain(m *testing.M) {
