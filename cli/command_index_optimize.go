@@ -31,10 +31,15 @@ func (c *commandIndexOptimize) setup(svc appServices, parent commandParent) {
 func (c *commandIndexOptimize) runOptimizeCommand(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	c.svc.advancedCommand(ctx)
 
+	contentIDs, err := toContentIDs(c.optimizeDropContents)
+	if err != nil {
+		return err
+	}
+
 	opt := content.CompactOptions{
 		MaxSmallBlobs: c.optimizeMaxSmallBlobs,
 		AllIndexes:    c.optimizeAllIndexes,
-		DropContents:  toContentIDs(c.optimizeDropContents),
+		DropContents:  contentIDs,
 	}
 
 	if age := c.optimizeDropDeletedOlderThan; age > 0 {

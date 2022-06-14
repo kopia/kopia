@@ -131,7 +131,7 @@ func (c *commandIndexInspect) shouldInclude(ci content.Info) bool {
 		return true
 	}
 
-	contentID := string(ci.GetContentID())
+	contentID := ci.GetContentID().String()
 
 	for _, cid := range c.contentIDs {
 		if cid == contentID {

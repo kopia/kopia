@@ -54,15 +54,10 @@ func (c *commandList) run(ctx context.Context, rep repo.Repository) error {
 }
 
 func (c *commandList) listDirectory(ctx context.Context, d fs.Directory, prefix, indent string) error {
-	entries, err := d.Readdir(ctx)
-	if err != nil {
-		return errors.Wrap(err, "error reading directory")
-	}
-
-	for _, e := range entries {
-		if err := c.printDirectoryEntry(ctx, e, prefix, indent); err != nil {
-			return errors.Wrap(err, "unable to print directory entry")
-		}
+	if err := d.IterateEntries(ctx, func(innerCtx context.Context, e fs.Entry) error {
+		return c.printDirectoryEntry(innerCtx, e, prefix, indent)
+	}); err != nil {
+		return err // nolint:wrapcheck
 	}
 
 	if dws, ok := d.(fs.DirectoryWithSummary); ok && c.errorSummary {

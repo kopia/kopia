@@ -381,7 +381,7 @@ func writeRandomContent(ctx context.Context, r repo.DirectRepositoryWriter, rs *
 
 func readPendingContent(ctx context.Context, r repo.DirectRepositoryWriter, rs *repomodel.RepositorySession, log logging.Logger) error {
 	contentID := rs.WrittenContents.PickRandom()
-	if contentID == "" {
+	if contentID == content.EmptyID {
 		return errSkipped
 	}
 
@@ -397,7 +397,7 @@ func readPendingContent(ctx context.Context, r repo.DirectRepositoryWriter, rs *
 
 func readFlushedContent(ctx context.Context, r repo.DirectRepositoryWriter, rs *repomodel.RepositorySession, log logging.Logger) error {
 	contentID := rs.OpenRepo.Contents.PickRandom()
-	if contentID == "" {
+	if contentID == content.EmptyID {
 		return errSkipped
 	}
 

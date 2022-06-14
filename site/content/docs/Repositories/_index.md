@@ -26,7 +26,9 @@ Google Cloud Storage is a globally unified, scalable, and highly durable object 
 
 ### Creating a repository
 
-To create a repository in Google Cloud Storage you need to provision a storage bucket and install local credentials that can access that bucket. To do so:
+To create a repository in Google Cloud Storage you need to provision a storage bucket and install local credentials that can access that bucket. To do so, there are three methods (one that requires you to install Google Cloud SDK; the other method allows you to generate crendtials without Google Cloud SDK; the third method allows you to use Google Cloud Storage like it is AWS S3):
+
+***Method #1: Installing Google Cloud SDK
 
 1. Create a storage bucket in [Google Cloud Console](https://console.cloud.google.com/storage/)
 2. Install [Google Cloud SDK](https://cloud.google.com/sdk/)
@@ -52,12 +54,47 @@ gs://kopia-test-123/n417ffc2adc8dbe93f1814eda3ba8a07c
 gs://kopia-test-123/p78e034ac8b891168df97f9897d7ec316
 ```
 
+***Method #2: Creating a Service Account and Using the JSON File
+
+1. Create a storage bucket in [Google Cloud Console](https://console.cloud.google.com/storage/)
+2. Create a Google Cloud Service Account that allows you to access your storage bucket. Directions are available on [Google Cloud's website](https://cloud.google.com/docs/authentication/getting-started#create-service-account-console). Make sure to download the JSON file for your service account and keep it safe.
+
+After these preparations we can create Kopia repository (assuming bucket named `kopia-test-123`):
+
+```shell
+$ kopia repository create gcs --credentials-file="/path/to/your/credentials/file.json" --bucket kopia-test-123
+```
+
+***Method #3: Enabling AWS S3 Interoperability in Google Cloud Storage
+
+1. Create a storage bucket in [Google Cloud Console](https://console.cloud.google.com/storage/)
+2. Go to [Settings and then Interoperability](https://console.cloud.google.com/storage/settings;tab=interoperability) in your Google Cloud Storage account
+3. Enable your project under "Default project for interoperable access" and generate access keys for this project -- you will generate both access key and secret key, just like if you were using AWS S3
+
+After these preparations we can create Kopia repository using the s3 function (assuming bucket named `kopia-test-123`):
+
+```shell
+$ kopia repository create s3 --endpoint="storage.googleapis.com" --bucket="kopia-test-123" --access-key="access/key/here" --secret-access-key="secret/key/here"
+```
+
 ### Connecting To Repository
 
 To connect to a repository that already exists, simply use `kopia repository connect` instead of `kopia repository create`. You can connect as many computers as you like to any repository, even simultaneously.
 
 ```shell
 $ kopia repository connect gcs --bucket kopia-test-123
+```
+
+or 
+
+```shell
+$ kopia repository connect gcs --credentials-file="/path/to/your/credentials/file.json" --bucket kopia-test-123
+```
+
+or 
+
+```shell
+$ kopia repository connect s3 --endpoint="storage.googleapis.com" --bucket="kopia-test-123" --access-key="access/key/here" --secret-access-key="secret/key/here"
 ```
 
 [Detailed information and settings](/docs/reference/command-line/common/repository-connect-filesystem/)

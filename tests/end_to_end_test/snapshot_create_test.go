@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kopia/kopia/cli"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
@@ -54,12 +55,12 @@ func TestSnapshotCreate(t *testing.T) {
 	require.NotEqual(t, man1.ID, man2.ID)
 	require.Equal(t, man1.RootEntry.ObjectID, man2.RootEntry.ObjectID)
 
-	var manifests []snapshot.Manifest
+	var manifests []cli.SnapshotManifest
 
 	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "list", "-a", "--json"), &manifests)
 	require.Len(t, manifests, 6)
 
-	var manifests2 []snapshot.Manifest
+	var manifests2 []cli.SnapshotManifest
 
 	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "list", "-a", "--json", "--max-results=1"), &manifests2)
 
@@ -73,6 +74,13 @@ func TestSnapshotCreate(t *testing.T) {
 
 	sources := clitestutil.ListSnapshotsAndExpectSuccess(t, e)
 	require.Len(t, sources, 3)
+
+	// test ignore-identical-snapshot
+	e.RunAndExpectSuccess(t, "policy", "set", "--global", "--ignore-identical-snapshots", "true")
+	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir2)
+
+	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "list", "-a", "--json"), &manifests)
+	require.Len(t, manifests, 6)
 }
 
 func TestTagging(t *testing.T) {
@@ -87,7 +95,7 @@ func TestTagging(t *testing.T) {
 	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1, "--tags", "testkey1:testkey2")
 	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
 
-	var manifests []snapshot.Manifest
+	var manifests []cli.SnapshotManifest
 
 	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "list", "-a", "--json"), &manifests)
 

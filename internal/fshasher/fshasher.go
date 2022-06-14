@@ -110,18 +110,15 @@ func header(ctx context.Context, fullpath string, e os.FileInfo) (*tar.Header, e
 }
 
 func writeDirectory(ctx context.Context, tw *tar.Writer, fullpath string, d fs.Directory) error {
-	entries, err := d.Readdir(ctx)
-	if err != nil {
-		return err
-	}
-
-	for _, e := range entries {
-		if err := write(ctx, tw, path.Join(fullpath, e.Name()), e); err != nil {
-			return err
+	err := d.IterateEntries(ctx, func(c context.Context, e fs.Entry) error {
+		if err2 := write(c, tw, path.Join(fullpath, e.Name()), e); err2 != nil {
+			return err2
 		}
-	}
 
-	return nil
+		return nil
+	})
+
+	return err
 }
 
 func writeFile(ctx context.Context, w io.Writer, f fs.File) error {

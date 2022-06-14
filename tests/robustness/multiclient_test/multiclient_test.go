@@ -26,9 +26,11 @@ const defaultTestDur = 5 * time.Minute
 var randomizedTestDur = flag.Duration("rand-test-duration", defaultTestDur, "Set the duration for the randomized test")
 
 func TestManySmallFiles(t *testing.T) {
-	fileSize := 4096
-	numFiles := 10000
-	numClients := 4
+	const (
+		fileSize   = 4096
+		numFiles   = 10000
+		numClients = 4
+	)
 
 	fileWriteOpts := map[string]string{
 		fiofilewriter.MaxDirDepthField:         strconv.Itoa(1),
@@ -57,9 +59,11 @@ func TestManySmallFiles(t *testing.T) {
 }
 
 func TestOneLargeFile(t *testing.T) {
-	fileSize := 40 * 1024 * 1024
-	numFiles := 1
-	numClients := 4
+	const (
+		fileSize   = 40 * 1024 * 1024
+		numFiles   = 1
+		numClients = 4
+	)
 
 	fileWriteOpts := map[string]string{
 		fiofilewriter.MaxDirDepthField:         strconv.Itoa(1),
@@ -89,11 +93,13 @@ func TestOneLargeFile(t *testing.T) {
 
 func TestManySmallFilesAcrossDirecoryTree(t *testing.T) {
 	// TODO: Test takes too long - need to address performance issues with fio writes
-	fileSize := 4096
-	numFiles := 1000
-	filesPerWrite := 10
-	actionRepeats := numFiles / filesPerWrite
-	numClients := 4
+	const (
+		fileSize      = 4096
+		numFiles      = 1000
+		filesPerWrite = 10
+		actionRepeats = numFiles / filesPerWrite
+		numClients    = 4
+	)
 
 	fileWriteOpts := map[string]string{
 		fiofilewriter.MaxDirDepthField:         strconv.Itoa(15),
@@ -123,7 +129,8 @@ func TestManySmallFilesAcrossDirecoryTree(t *testing.T) {
 }
 
 func TestRandomizedSmall(t *testing.T) {
-	numClients := 4
+	const numClients = 4
+
 	st := timetrack.StartTimer()
 
 	opts := engine.ActionOpts{

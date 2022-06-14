@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/kopia/kopia/cli"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/tests/testenv"
@@ -40,10 +41,7 @@ func TestSnapshotPin(t *testing.T) {
 	e.RunAndExpectSuccess(t, "snapshot", "create", srcdir)
 	e.RunAndExpectSuccess(t, "snapshot", "create", srcdir)
 
-	var snapshots []*snapshot.Manifest
-
-	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "list", "--json"), &snapshots)
-	snapshots = snapshot.SortByTime(snapshots, false)
+	snapshots := mustListSnapshots(t, e)
 
 	// make sure the pinned one is on top.
 	require.Len(t, snapshots, 4)
@@ -57,12 +55,9 @@ func TestSnapshotPin(t *testing.T) {
 	e.RunAndExpectSuccess(t, "snapshot", "pin", string(snapshots[0].ID), "--add=c", "--remove=b")
 	e.RunAndExpectSuccess(t, "snapshot", "pin", string(snapshots[3].ID), "--add=d")
 
-	var snapshots2 []*snapshot.Manifest
+	snapshots2 := mustListSnapshots(t, e)
 
-	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "list", "--json"), &snapshots2)
-	snapshots2 = snapshot.SortByTime(snapshots2, false)
 	require.Len(t, snapshots2, 4)
-
 	require.Equal(t, []string{"a", "c"}, snapshots2[0].Pins)
 	require.Empty(t, snapshots2[1].Pins)
 	require.Empty(t, snapshots2[2].Pins)
@@ -75,15 +70,28 @@ func TestSnapshotPin(t *testing.T) {
 	e.RunAndExpectSuccess(t, "snapshot", "create", srcdir)
 	e.RunAndExpectSuccess(t, "snapshot", "create", srcdir)
 
-	var snapshots3 []*snapshot.Manifest
+	snapshots3 := mustListSnapshots(t, e)
 
-	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "list", "--json"), &snapshots3)
-	snapshots3 = snapshot.SortByTime(snapshots3, false)
 	require.Len(t, snapshots3, 5)
-
 	require.Equal(t, []string{"a", "c"}, snapshots3[0].Pins)
 	require.Equal(t, []string{"d"}, snapshots3[1].Pins)
 	require.Empty(t, snapshots3[2].Pins)
 	require.Empty(t, snapshots3[3].Pins)
 	require.Empty(t, snapshots3[4].Pins)
+}
+
+func mustListSnapshots(t *testing.T, e *testenv.CLITest) []*snapshot.Manifest {
+	t.Helper()
+
+	var cliSnapshots []cli.SnapshotManifest
+
+	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "list", "--json"), &cliSnapshots)
+
+	snapshots := make([]*snapshot.Manifest, 0, len(cliSnapshots))
+
+	for _, s := range cliSnapshots {
+		snapshots = append(snapshots, s.Manifest)
+	}
+
+	return snapshot.SortByTime(snapshots, false)
 }

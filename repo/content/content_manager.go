@@ -4,7 +4,6 @@ package content
 import (
 	"context"
 	cryptorand "crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"math/rand"
 	"sync"
@@ -12,6 +11,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel"
 
 	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/clock"
@@ -40,6 +40,8 @@ const (
 
 	legacyIndexVersion = index.Version1
 )
+
+var tracer = otel.Tracer("kopia/content")
 
 // PackBlobIDPrefixes contains all possible prefixes for pack blobs.
 // nolint:gochecknoglobals
@@ -356,7 +358,7 @@ func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, dat
 	// at this point we're unlocked so different goroutines can encrypt and
 	// save to storage in parallel.
 	if shouldWrite {
-		if err := bm.acquireLockAndWritePackAndAddToIndex(ctx, pp); err != nil {
+		if err := bm.writePackAndAddToIndexUnlocked(ctx, pp); err != nil {
 			return errors.Wrap(err, "unable to write pack")
 		}
 	}
@@ -432,24 +434,37 @@ func (bm *WriteManager) assertInvariant(ok bool, errorMsg string, arg ...interfa
 
 // +checklocksread:bm.indexesLock
 func (bm *WriteManager) writeIndexBlobs(ctx context.Context, dataShards []gather.Bytes, sessionID SessionID) ([]blob.Metadata, error) {
+	ctx, span := tracer.Start(ctx, "WriteIndexBlobs")
+	defer span.End()
+
 	// nolint:wrapcheck
 	return bm.indexBlobManager.writeIndexBlobs(ctx, dataShards, sessionID)
 }
 
 // +checklocksread:bm.indexesLock
 func (bm *WriteManager) addIndexBlob(ctx context.Context, indexBlobID blob.ID, data gather.Bytes, use bool) error {
+	ctx, span := tracer.Start(ctx, "AddIndexBlob")
+	defer span.End()
+
 	return bm.committedContents.addIndexBlob(ctx, indexBlobID, data, use)
 }
 
 // +checklocks:bm.mu
 func (bm *WriteManager) flushPackIndexesLocked(ctx context.Context) error {
+	ctx, span := tracer.Start(ctx, "FlushPackIndexes")
+	defer span.End()
+
 	if bm.disableIndexFlushCount > 0 {
 		bm.log.Debugf("not flushing index because flushes are currently disabled")
 		return nil
 	}
 
 	if len(bm.packIndexBuilder) > 0 {
+		_, span2 := tracer.Start(ctx, "BuildShards")
 		dataShards, closeShards, err := bm.packIndexBuilder.BuildShards(bm.indexVersion, true, bm.indexShardSize)
+
+		span2.End()
+
 		if err != nil {
 			return errors.Wrap(err, "unable to build pack index")
 		}
@@ -504,24 +519,32 @@ func (bm *WriteManager) finishAllPacksLocked(ctx context.Context) error {
 	return nil
 }
 
-func (bm *WriteManager) acquireLockAndWritePackAndAddToIndex(ctx context.Context, pp *pendingPackInfo) error {
+func (bm *WriteManager) writePackAndAddToIndexUnlocked(ctx context.Context, pp *pendingPackInfo) error {
+	// upload without lock
+	packFileIndex, writeErr := bm.prepareAndWritePackInternal(ctx, pp, bm.onUpload)
+
 	bm.lock()
 	defer bm.unlock()
 
-	defer bm.cond.Broadcast()
-
-	return bm.writePackAndAddToIndexLocked(ctx, pp)
+	return bm.processWritePackResultLocked(pp, packFileIndex, writeErr)
 }
 
 // +checklocks:bm.mu
 func (bm *WriteManager) writePackAndAddToIndexLocked(ctx context.Context, pp *pendingPackInfo) error {
-	packFileIndex, err := bm.prepareAndWritePackInternal(ctx, pp)
+	packFileIndex, writeErr := bm.prepareAndWritePackInternal(ctx, pp, bm.onUpload)
+
+	return bm.processWritePackResultLocked(pp, packFileIndex, writeErr)
+}
+
+// +checklocks:bm.mu
+func (bm *WriteManager) processWritePackResultLocked(pp *pendingPackInfo, packFileIndex index.Builder, writeErr error) error {
+	defer bm.cond.Broadcast()
 
 	// after finishing writing, remove from both writingPacks and failedPacks
 	bm.writingPacks = removePendingPack(bm.writingPacks, pp)
 	bm.failedPacks = removePendingPack(bm.failedPacks, pp)
 
-	if err == nil {
+	if writeErr == nil {
 		// success, add pack index builder entries to index.
 		for _, info := range packFileIndex {
 			bm.packIndexBuilder.Add(info)
@@ -535,22 +558,22 @@ func (bm *WriteManager) writePackAndAddToIndexLocked(ctx context.Context, pp *pe
 	// failure - add to failedPacks slice again
 	bm.failedPacks = append(bm.failedPacks, pp)
 
-	return errors.Wrap(err, "error writing pack")
+	return errors.Wrap(writeErr, "error writing pack")
 }
 
-func (bm *WriteManager) prepareAndWritePackInternal(ctx context.Context, pp *pendingPackInfo) (index.Builder, error) {
-	packFileIndex, err := bm.preparePackDataContent(pp)
+func (sm *SharedManager) prepareAndWritePackInternal(ctx context.Context, pp *pendingPackInfo, onUpload func(int64)) (index.Builder, error) {
+	packFileIndex, err := sm.preparePackDataContent(pp)
 	if err != nil {
 		return nil, errors.Wrap(err, "error preparing data content")
 	}
 
 	if pp.currentPackData.Length() > 0 {
-		if err := bm.writePackFileNotLocked(ctx, pp.packBlobID, pp.currentPackData.Bytes()); err != nil {
-			bm.log.Debugf("failed-pack %v %v", pp.packBlobID, err)
+		if err := sm.writePackFileNotLocked(ctx, pp.packBlobID, pp.currentPackData.Bytes(), onUpload); err != nil {
+			sm.log.Debugf("failed-pack %v %v", pp.packBlobID, err)
 			return nil, errors.Wrapf(err, "can't save pack data blob %v", pp.packBlobID)
 		}
 
-		bm.log.Debugf("wrote-pack %v %v", pp.packBlobID, pp.currentPackData.Length())
+		sm.log.Debugf("wrote-pack %v %v", pp.packBlobID, pp.currentPackData.Length())
 	}
 
 	return packFileIndex, nil
@@ -744,26 +767,35 @@ func (bm *WriteManager) SupportsContentCompression() bool {
 
 // WriteContent saves a given content of data to a pack group with a provided name and returns a contentID
 // that's based on the contents of data written.
-func (bm *WriteManager) WriteContent(ctx context.Context, data gather.Bytes, prefix ID, comp compression.HeaderID) (ID, error) {
+func (bm *WriteManager) WriteContent(ctx context.Context, data gather.Bytes, prefix index.IDPrefix, comp compression.HeaderID) (ID, error) {
 	if err := bm.maybeRetryWritingFailedPacksUnlocked(ctx); err != nil {
-		return "", err
+		return EmptyID, err
 	}
 
 	reportContentWriteBytes(int64(data.Length()))
 
-	if err := ValidatePrefix(prefix); err != nil {
-		return "", err
+	if err := prefix.ValidateSingle(); err != nil {
+		return EmptyID, errors.Wrap(err, "invalid prefix")
 	}
 
 	var hashOutput [hashing.MaxHashSize]byte
 
-	contentID := prefix + ID(hex.EncodeToString(bm.hashData(hashOutput[:0], data)))
+	contentID, err := IDFromHash(prefix, bm.hashData(hashOutput[:0], data))
+	if err != nil {
+		return EmptyID, errors.Wrap(err, "invalid hash")
+	}
 
 	previousWriteTime := int64(-1)
 
 	bm.mu.RLock()
 	_, bi, err := bm.getContentInfoReadLocked(ctx, contentID)
 	bm.mu.RUnlock()
+
+	logbuf := logging.GetBuffer()
+	defer logbuf.Release()
+
+	logbuf.AppendString("write-content ")
+	contentID.AppendToLogBuffer(logbuf)
 
 	// content already tracked
 	if err == nil {
@@ -773,10 +805,11 @@ func (bm *WriteManager) WriteContent(ctx context.Context, data gather.Bytes, pre
 
 		previousWriteTime = bi.GetTimestampSeconds()
 
-		bm.log.Debugf("write-content %v previously-deleted", contentID)
-	} else {
-		bm.log.Debugf("write-content %v new", contentID)
+		logbuf.AppendString(" previously-deleted:")
+		logbuf.AppendInt64(previousWriteTime)
 	}
+
+	bm.log.Debugf(logbuf.String())
 
 	return contentID, bm.addToPackUnlocked(ctx, contentID, data, false, comp, previousWriteTime)
 }

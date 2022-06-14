@@ -41,22 +41,30 @@ func (c *Comparer) Close() error {
 	return os.RemoveAll(c.tmpDir)
 }
 
-func (c *Comparer) compareDirectories(ctx context.Context, dir1, dir2 fs.Directory, parent string) error {
-	log(ctx).Debugf("comparing directories %v", parent)
+func maybeOID(e fs.Entry) string {
+	if h, ok := e.(object.HasObjectID); ok {
+		return h.ObjectID().String()
+	}
 
-	var entries1, entries2 fs.Entries
+	return ""
+}
+
+func (c *Comparer) compareDirectories(ctx context.Context, dir1, dir2 fs.Directory, parent string) error {
+	log(ctx).Debugf("comparing directories %v (%v and %v)", parent, maybeOID(dir1), maybeOID(dir2))
+
+	var entries1, entries2 []fs.Entry
 
 	var err error
 
 	if dir1 != nil {
-		entries1, err = dir1.Readdir(ctx)
+		entries1, err = fs.GetAllEntries(ctx, dir1)
 		if err != nil {
 			return errors.Wrapf(err, "unable to read first directory %v", parent)
 		}
 	}
 
 	if dir2 != nil {
-		entries2, err = dir2.Readdir(ctx)
+		entries2, err = fs.GetAllEntries(ctx, dir2)
 		if err != nil {
 			return errors.Wrapf(err, "unable to read second directory %v", parent)
 		}
@@ -198,7 +206,7 @@ func compareEntry(e1, e2 fs.Entry, fullpath string, out io.Writer) bool {
 	return equal
 }
 
-func (c *Comparer) compareDirectoryEntries(ctx context.Context, entries1, entries2 fs.Entries, dirPath string) error {
+func (c *Comparer) compareDirectoryEntries(ctx context.Context, entries1, entries2 []fs.Entry, dirPath string) error {
 	e1byname := map[string]fs.Entry{}
 	for _, e1 := range entries1 {
 		e1byname[e1.Name()] = e1

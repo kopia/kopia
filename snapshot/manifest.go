@@ -132,6 +132,19 @@ type DirEntry struct {
 	DirSummary  *fs.DirectorySummary `json:"summ,omitempty"`
 }
 
+// Clone returns a clone of the entry.
+func (e *DirEntry) Clone() *DirEntry {
+	e2 := *e
+
+	if s := e2.DirSummary; s != nil {
+		s2 := s.Clone()
+
+		e2.DirSummary = &s2
+	}
+
+	return &e2
+}
+
 // HasDirEntry is implemented by objects that have a DirEntry associated with them.
 type HasDirEntry interface {
 	DirEntry() *DirEntry
@@ -158,7 +171,18 @@ func (m *Manifest) RootObjectID() object.ID {
 		return m.RootEntry.ObjectID
 	}
 
-	return ""
+	return object.EmptyID
+}
+
+// Clone returns a clone of the manifest.
+func (m *Manifest) Clone() *Manifest {
+	m2 := *m
+
+	if m2.RootEntry != nil {
+		m2.RootEntry = m2.RootEntry.Clone()
+	}
+
+	return &m2
 }
 
 // StorageStats encapsulates snapshot storage usage information and running totals.

@@ -55,26 +55,28 @@ func (c *commandRepositorySyncTo) setup(svc advancedAppServices, parent commandP
 		f := prov.NewFlags()
 		cc := cmd.Command(prov.Name, "Synchronize repository data to another repository in "+prov.Description)
 		f.Setup(svc, cc)
-		cc.Action(func(_ *kingpin.ParseContext) error {
-			ctx := svc.rootContext()
-			st, err := f.Connect(ctx, false, 0)
-			if err != nil {
-				return errors.Wrap(err, "can't connect to storage")
-			}
+		cc.Action(func(kpc *kingpin.ParseContext) error {
+			// nolint:wrapcheck
+			return svc.runAppWithContext(kpc.SelectedCommand, func(ctx context.Context) error {
+				st, err := f.Connect(ctx, false, 0)
+				if err != nil {
+					return errors.Wrap(err, "can't connect to storage")
+				}
 
-			rep, err := svc.openRepository(ctx, true)
-			if err != nil {
-				return errors.Wrap(err, "open repository")
-			}
+				rep, err := svc.openRepository(ctx, true)
+				if err != nil {
+					return errors.Wrap(err, "open repository")
+				}
 
-			defer rep.Close(ctx) // nolint:errcheck
+				defer rep.Close(ctx) // nolint:errcheck
 
-			dr, ok := rep.(repo.DirectRepository)
-			if !ok {
-				return errors.Errorf("sync only supports directly-connected repositories")
-			}
+				dr, ok := rep.(repo.DirectRepository)
+				if !ok {
+					return errors.Errorf("sync only supports directly-connected repositories")
+				}
 
-			return c.runSyncWithStorage(ctx, dr.BlobReader(), st)
+				return c.runSyncWithStorage(ctx, dr.BlobReader(), st)
+			})
 		})
 	}
 }

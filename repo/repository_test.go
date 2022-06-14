@@ -32,9 +32,9 @@ func (s *formatSpecificTestSuite) TestWriters(t *testing.T) {
 	}{
 		{
 			[]byte("the quick brown fox jumps over the lazy dog"),
-			"345acef0bcf82f1daf8e49fab7b7fac7ec296c518501eabea3645b99345a4e08",
+			mustParseObjectID(t, "345acef0bcf82f1daf8e49fab7b7fac7ec296c518501eabea3645b99345a4e08"),
 		},
-		{make([]byte, 100), "1d804f1f69df08f3f59070bf962de69433e3d61ac18522a805a84d8c92741340"}, // 100 zero bytes
+		{make([]byte, 100), mustParseObjectID(t, "1d804f1f69df08f3f59070bf962de69433e3d61ac18522a805a84d8c92741340")}, // 100 zero bytes
 	}
 
 	for _, c := range cases {
@@ -72,7 +72,7 @@ func (s *formatSpecificTestSuite) TestWriterCompleteChunkInTwoWrites(t *testing.
 	writer.Write(b[0:50])
 	result, err := writer.Result()
 
-	if result != "1d804f1f69df08f3f59070bf962de69433e3d61ac18522a805a84d8c92741340" {
+	if result != mustParseObjectID(t, "1d804f1f69df08f3f59070bf962de69433e3d61ac18522a805a84d8c92741340") {
 		t.Errorf("unexpected result: %v err: %v", result, err)
 	}
 }
@@ -245,20 +245,20 @@ func TestFormats(t *testing.T) {
 			format: func(n *repo.NewRepositoryOptions) {
 			},
 			oids: map[string]object.ID{
-				"": "b613679a0814d9ec772f95d778c35fc5ff1697c493715653c6c712144292c5ad",
-				"The quick brown fox jumps over the lazy dog": "fb011e6154a19b9a4c767373c305275a5a69e8b68b0b4c9200c383dced19a416",
+				"": mustParseObjectID(t, "b613679a0814d9ec772f95d778c35fc5ff1697c493715653c6c712144292c5ad"),
+				"The quick brown fox jumps over the lazy dog": mustParseObjectID(t, "fb011e6154a19b9a4c767373c305275a5a69e8b68b0b4c9200c383dced19a416"),
 			},
 		},
 		{
 			format: makeFormat("HMAC-SHA256"),
 			oids: map[string]object.ID{
-				"The quick brown fox jumps over the lazy dog": "f7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8",
+				"The quick brown fox jumps over the lazy dog": mustParseObjectID(t, "f7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8"),
 			},
 		},
 		{
 			format: makeFormat("HMAC-SHA256-128"),
 			oids: map[string]object.ID{
-				"The quick brown fox jumps over the lazy dog": "f7bc83f430538424b13298e6aa6fb143",
+				"The quick brown fox jumps over the lazy dog": mustParseObjectID(t, "f7bc83f430538424b13298e6aa6fb143"),
 			},
 		},
 	}
@@ -654,4 +654,13 @@ func verifyNotFound(ctx context.Context, t *testing.T, rep repo.Repository, obje
 		t.Fatalf("expected not found for %v, got %v", testCaseID, err)
 		return
 	}
+}
+
+func mustParseObjectID(t *testing.T, s string) object.ID {
+	t.Helper()
+
+	id, err := object.ParseID(s)
+	require.NoError(t, err)
+
+	return id
 }

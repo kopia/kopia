@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime/debug"
 	"sort"
 	"sync/atomic"
 	"testing"
@@ -19,13 +20,16 @@ import (
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/fs/virtualfs"
+	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/faketime"
 	"github.com/kopia/kopia/internal/mockfs"
+	"github.com/kopia/kopia/internal/repotesting"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob/filesystem"
+	bloblogging "github.com/kopia/kopia/repo/blob/logging"
 	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
@@ -42,6 +46,7 @@ type uploadTestHarness struct {
 	repoDir   string
 	repo      repo.RepositoryWriter
 	ft        *faketime.TimeAdvance
+	faulty    *blobtesting.FaultyStorage
 }
 
 var errTest = errors.New("test error")
@@ -62,14 +67,18 @@ func newUploadTestHarness(ctx context.Context, t *testing.T) *uploadTestHarness 
 		panic("cannot create storage directory: " + err.Error())
 	}
 
-	if initerr := repo.Initialize(ctx, storage, &repo.NewRepositoryOptions{}, masterPassword); initerr != nil {
+	faulty := blobtesting.NewFaultyStorage(storage)
+	logged := bloblogging.NewWrapper(faulty, logging.Printf(t.Logf, "{STORAGE} "), "")
+	rec := repotesting.NewReconnectableStorage(t, logged)
+
+	if initerr := repo.Initialize(ctx, rec, &repo.NewRepositoryOptions{}, masterPassword); initerr != nil {
 		panic("unable to create repository: " + initerr.Error())
 	}
 
 	t.Logf("repo dir: %v", repoDir)
 
 	configFile := filepath.Join(repoDir, ".kopia.config")
-	if conerr := repo.Connect(ctx, configFile, storage, masterPassword, nil); conerr != nil {
+	if conerr := repo.Connect(ctx, configFile, rec, masterPassword, nil); conerr != nil {
 		panic("unable to connect to repository: " + conerr.Error())
 	}
 
@@ -112,6 +121,7 @@ func newUploadTestHarness(ctx context.Context, t *testing.T) *uploadTestHarness 
 		repoDir:   repoDir,
 		repo:      w,
 		ft:        ft,
+		faulty:    faulty,
 	}
 
 	return th
@@ -223,13 +233,8 @@ func TestUpload_TopLevelDirectoryReadFailure(t *testing.T) {
 	policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
 
 	s, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{})
-	if err.Error() != errTest.Error() {
-		t.Errorf("expected error: %v", err)
-	}
-
-	if s != nil {
-		t.Errorf("result not nil: %v", s)
-	}
+	require.ErrorIs(t, err, errTest)
+	require.Nil(t, s)
 }
 
 func TestUploadDoesNotReportProgressForIgnoredFilesTwice(t *testing.T) {
@@ -289,13 +294,9 @@ func TestUpload_SubDirectoryReadFailureFailFast(t *testing.T) {
 	policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
 
 	man, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{})
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
-	if man.IncompleteReason == "" {
-		t.Fatalf("snapshot not marked as incomplete")
-	}
+	require.NotEqual(t, "", man.IncompleteReason, "snapshot not marked as incomplete")
 
 	// will have one error because we're canceling early.
 	verifyErrors(t, man, 1, 0,
@@ -330,9 +331,7 @@ func TestUpload_SubDirectoryReadFailureIgnoredNoFailFast(t *testing.T) {
 	})
 
 	man, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{})
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
 	// 0 failed, 2 ignored
 	verifyErrors(t, man, 0, 2,
@@ -453,14 +452,10 @@ func TestUpload_SubDirectoryReadFailureNoFailFast(t *testing.T) {
 	policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
 
 	man, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{})
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
 	// make sure we have 2 errors
-	if got, want := man.RootEntry.DirSummary.FatalErrorCount, 2; got != want {
-		t.Errorf("invalid number of failed entries: %v, want %v", got, want)
-	}
+	require.Equal(t, 2, man.RootEntry.DirSummary.FatalErrorCount)
 
 	verifyErrors(t, man,
 		2, 0,
@@ -474,17 +469,9 @@ func TestUpload_SubDirectoryReadFailureNoFailFast(t *testing.T) {
 func verifyErrors(t *testing.T, man *snapshot.Manifest, wantFatalErrors, wantIgnoredErrors int, wantErrors []*fs.EntryWithError) {
 	t.Helper()
 
-	if got, want := man.RootEntry.DirSummary.FatalErrorCount, wantFatalErrors; got != want {
-		t.Fatalf("invalid number of fatal errors: %v, want %v", got, want)
-	}
-
-	if got, want := man.RootEntry.DirSummary.IgnoredErrorCount, wantIgnoredErrors; got != want {
-		t.Fatalf("invalid number of ignored errors: %v, want %v", got, want)
-	}
-
-	if diff := pretty.Compare(man.RootEntry.DirSummary.FailedEntries, wantErrors); diff != "" {
-		t.Errorf("unexpected errors, diff(-got,+want): %v\n", diff)
-	}
+	require.Equal(t, wantFatalErrors, man.RootEntry.DirSummary.FatalErrorCount, "invalid number of fatal errors")
+	require.Equal(t, wantIgnoredErrors, man.RootEntry.DirSummary.IgnoredErrorCount, "invalid number of ignored errors")
+	require.Empty(t, pretty.Compare(man.RootEntry.DirSummary.FailedEntries, wantErrors), "unexpected errors, diff(-got,+want)")
 }
 
 func TestUpload_SubDirectoryReadFailureSomeIgnoredNoFailFast(t *testing.T) {
@@ -517,9 +504,7 @@ func TestUpload_SubDirectoryReadFailureSomeIgnoredNoFailFast(t *testing.T) {
 	}
 
 	man, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{})
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
 	verifyErrors(t, man,
 		2, 1,
@@ -567,7 +552,10 @@ func TestUploadWithCheckpointing(t *testing.T) {
 	}
 
 	for _, d := range dirsToCheckpointAt {
+		d := d
+
 		d.OnReaddir(func() {
+			t.Logf("onReadDir %v %s", d.Name(), debug.Stack())
 			// trigger checkpoint
 			fakeTicker <- clock.Now()
 			// wait for checkpoint
@@ -584,15 +572,79 @@ func TestUploadWithCheckpointing(t *testing.T) {
 		t.Fatalf("error listing snapshots: %v", err)
 	}
 
-	if got, want := len(snapshots), len(dirsToCheckpointAt); got != want {
-		t.Fatalf("unexpected number of snapshots: %v, want %v", got, want)
-	}
+	require.Len(t, snapshots, len(dirsToCheckpointAt))
 
 	for _, sn := range snapshots {
 		if got, want := sn.IncompleteReason, IncompleteReasonCheckpoint; got != want {
 			t.Errorf("unexpected incompleteReason %q, want %q", got, want)
 		}
 	}
+}
+
+func TestParallelUploadUploadsBlobsInParallel(t *testing.T) {
+	ctx := testlogging.Context(t)
+	th := newUploadTestHarness(ctx, t)
+
+	u := NewUploader(th.repo)
+	u.ParallelUploads = 10
+
+	// no faults for first blob write - session marker.
+	th.faulty.AddFault(blobtesting.MethodPutBlob)
+
+	// data blobs follow - use channels to enforce parallelism
+	first := make(chan struct{})
+	gotParallelCalls := false
+
+	th.faulty.AddFault(blobtesting.MethodPutBlob).Before(func() {
+		t.Logf(">>>>>>>>>>> FIRST")
+		// wait until channel is closed by concurrent PutBlob
+		<-first
+		t.Logf("<<<<<<<<<<< FIRST")
+	})
+	th.faulty.AddFault(blobtesting.MethodPutBlob).Before(func() {
+		t.Logf(">>>>>>>>>>> SECOND")
+		gotParallelCalls = true
+		close(first)
+		t.Logf("<<<<<<<<<<< SECOND")
+	})
+
+	// create a channel that will be sent to whenever checkpoint completes.
+	u.checkpointFinished = make(chan struct{})
+	u.disableEstimation = true
+
+	policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
+
+	si := snapshot.SourceInfo{
+		UserName: "user",
+		Host:     "host",
+		Path:     "path",
+	}
+
+	// add a bunch of very large files which can be hashed in parallel and will trigger parallel
+	// uploads
+	th.sourceDir.AddFile("d1/large1", randomBytes(1e7), defaultPermissions)
+	th.sourceDir.AddFile("d1/large2", randomBytes(2e7), defaultPermissions)
+	th.sourceDir.AddFile("d1/large3", randomBytes(2e7), defaultPermissions)
+	th.sourceDir.AddFile("d1/large4", randomBytes(1e7), defaultPermissions)
+
+	th.sourceDir.AddFile("d2/large1", randomBytes(1e7), defaultPermissions)
+	th.sourceDir.AddFile("d2/large2", randomBytes(1e7), defaultPermissions)
+	th.sourceDir.AddFile("d2/large3", randomBytes(1e7), defaultPermissions)
+	th.sourceDir.AddFile("d2/large4", randomBytes(1e7), defaultPermissions)
+
+	_, err := u.Upload(ctx, th.sourceDir, policyTree, si)
+	require.NoError(t, err)
+
+	require.NoError(t, th.repo.Flush(ctx))
+
+	require.True(t, gotParallelCalls)
+}
+
+func randomBytes(n int64) []byte {
+	b := make([]byte, n)
+	rand.Read(b)
+
+	return b
 }
 
 func TestUploadScanStopsOnContextCancel(t *testing.T) {
@@ -686,7 +738,7 @@ func TestUpload_VirtualDirectoryWithStreamingFile(t *testing.T) {
 
 	w.Close()
 
-	staticRoot := virtualfs.NewStaticDirectory("rootdir", fs.Entries{
+	staticRoot := virtualfs.NewStaticDirectory("rootdir", []fs.Entry{
 		virtualfs.StreamingFileFromReader("stream-file", r),
 	})
 
@@ -1020,9 +1072,9 @@ func TestUploadLogging(t *testing.T) {
 				"ignored":               {"dur", "path"},
 			},
 			wantEntries: []string{
-				"ignored f1",
 				"ignored directory d1/d3",
 				"snapshotted directory d1",
+				"ignored f1",
 				"snapshotted file f2",
 				"snapshotted file f3",
 				"snapshotted symlink f4",
@@ -1030,9 +1082,9 @@ func TestUploadLogging(t *testing.T) {
 				"snapshotted directory .",
 			},
 			wantEntriesSecond: []string{
-				"ignored f1",
 				"ignored directory d1/d3",
 				"snapshotted directory d1",
+				"ignored f1",
 				"cached f2",
 				"cached f3",
 				"cached f4",

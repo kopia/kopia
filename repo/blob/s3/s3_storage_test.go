@@ -98,7 +98,7 @@ func getEnvOrSkip(tb testing.TB, name string) string {
 
 	value := os.Getenv(name)
 	if value == "" {
-		tb.Skip(fmt.Sprintf("Environment variable '%s' not provided", name))
+		tb.Skipf("Environment variable '%s' not provided", name)
 	}
 
 	return value

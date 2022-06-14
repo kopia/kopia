@@ -257,7 +257,7 @@ func (c *copier) copyDirectory(ctx context.Context, d fs.Directory, targetPath s
 }
 
 func (c *copier) copyDirectoryContent(ctx context.Context, d fs.Directory, targetPath string, currentdepth, maxdepth int32, onCompletion parallelwork.CallbackFunc) error {
-	entries, err := d.Readdir(ctx)
+	entries, err := fs.GetAllEntries(ctx, d)
 	if err != nil {
 		return errors.Wrap(err, "error reading directory")
 	}

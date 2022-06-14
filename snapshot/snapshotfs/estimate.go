@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"sync/atomic"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/ignorefs"
 	"github.com/kopia/kopia/internal/units"
@@ -106,6 +108,10 @@ func Estimate(ctx context.Context, rep repo.Repository, entry fs.Directory, poli
 }
 
 func estimate(ctx context.Context, relativePath string, entry fs.Entry, policyTree *policy.Tree, stats *snapshot.Stats, ib, eb SampleBuckets, ed *[]string, progress EstimateProgress, maxExamplesPerBucket int) error {
+	type processEntryError struct {
+		error
+	}
+
 	// see if the context got canceled
 	select {
 	case <-ctx.Done():
@@ -121,8 +127,20 @@ func estimate(ctx context.Context, relativePath string, entry fs.Entry, policyTr
 
 		progress.Processing(ctx, relativePath)
 
-		children, err := entry.Readdir(ctx)
+		err := entry.IterateEntries(ctx, func(c context.Context, child fs.Entry) error {
+			if err2 := estimate(ctx, filepath.Join(relativePath, child.Name()), child, policyTree.Child(child.Name()), stats, ib, eb, ed, progress, maxExamplesPerBucket); err2 != nil {
+				return processEntryError{err2}
+			}
+
+			return nil
+		})
+
+		var funcErr processEntryError
 		if err != nil {
+			if errors.As(err, &funcErr) {
+				return funcErr.error
+			}
+
 			isIgnored := policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreDirectoryErrors.OrDefault(false)
 
 			if isIgnored {
@@ -132,12 +150,6 @@ func estimate(ctx context.Context, relativePath string, entry fs.Entry, policyTr
 			}
 
 			progress.Error(ctx, relativePath, err, isIgnored)
-		} else {
-			for _, child := range children {
-				if err := estimate(ctx, filepath.Join(relativePath, child.Name()), child, policyTree.Child(child.Name()), stats, ib, eb, ed, progress, maxExamplesPerBucket); err != nil {
-					return err
-				}
-			}
 		}
 
 		progress.Stats(ctx, stats, ib, eb, *ed, false)

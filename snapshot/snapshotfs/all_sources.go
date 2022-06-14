@@ -55,17 +55,13 @@ func (s *repositoryAllSources) LocalFilesystemPath() string {
 
 func (s *repositoryAllSources) Child(ctx context.Context, name string) (fs.Entry, error) {
 	// nolint:wrapcheck
-	return fs.ReadDirAndFindChild(ctx, s, name)
+	return fs.IterateEntriesAndFindChild(ctx, s, name)
 }
 
 func (s *repositoryAllSources) IterateEntries(ctx context.Context, cb func(context.Context, fs.Entry) error) error {
-	return fs.ReaddirToIterate(ctx, s, cb)
-}
-
-func (s *repositoryAllSources) Readdir(ctx context.Context) (fs.Entries, error) {
 	srcs, err := snapshot.ListSources(ctx, s.rep)
 	if err != nil {
-		return nil, errors.Wrap(err, "error listing sources")
+		return errors.Wrap(err, "error listing sources")
 	}
 
 	users := map[string]bool{}
@@ -82,18 +78,19 @@ func (s *repositoryAllSources) Readdir(ctx context.Context) (fs.Entries, error) 
 
 	name2safe = disambiguateSafeNames(name2safe)
 
-	var result fs.Entries
 	for u := range users {
-		result = append(result, &sourceDirectories{
+		e := &sourceDirectories{
 			rep:      s.rep,
 			userHost: u,
 			name:     name2safe[u],
-		})
+		}
+
+		if err2 := cb(ctx, e); err2 != nil {
+			return err2
+		}
 	}
 
-	result.Sort()
-
-	return result, nil
+	return nil
 }
 
 // AllSourcesEntry returns fs.Directory that contains the list of all snapshot sources found in the repository.

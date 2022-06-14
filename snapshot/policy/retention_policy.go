@@ -21,22 +21,24 @@ const (
 
 // RetentionPolicy describes snapshot retention policy.
 type RetentionPolicy struct {
-	KeepLatest  *OptionalInt `json:"keepLatest,omitempty"`
-	KeepHourly  *OptionalInt `json:"keepHourly,omitempty"`
-	KeepDaily   *OptionalInt `json:"keepDaily,omitempty"`
-	KeepWeekly  *OptionalInt `json:"keepWeekly,omitempty"`
-	KeepMonthly *OptionalInt `json:"keepMonthly,omitempty"`
-	KeepAnnual  *OptionalInt `json:"keepAnnual,omitempty"`
+	KeepLatest               *OptionalInt  `json:"keepLatest,omitempty"`
+	KeepHourly               *OptionalInt  `json:"keepHourly,omitempty"`
+	KeepDaily                *OptionalInt  `json:"keepDaily,omitempty"`
+	KeepWeekly               *OptionalInt  `json:"keepWeekly,omitempty"`
+	KeepMonthly              *OptionalInt  `json:"keepMonthly,omitempty"`
+	KeepAnnual               *OptionalInt  `json:"keepAnnual,omitempty"`
+	IgnoreIdenticalSnapshots *OptionalBool `json:"ignoreIdenticalSnapshots,omitempty"`
 }
 
 // RetentionPolicyDefinition specifies which policy definition provided the value of a particular field.
 type RetentionPolicyDefinition struct {
-	KeepLatest  snapshot.SourceInfo `json:"keepLatest,omitempty"`
-	KeepHourly  snapshot.SourceInfo `json:"keepHourly,omitempty"`
-	KeepDaily   snapshot.SourceInfo `json:"keepDaily,omitempty"`
-	KeepWeekly  snapshot.SourceInfo `json:"keepWeekly,omitempty"`
-	KeepMonthly snapshot.SourceInfo `json:"keepMonthly,omitempty"`
-	KeepAnnual  snapshot.SourceInfo `json:"keepAnnual,omitempty"`
+	KeepLatest               snapshot.SourceInfo `json:"keepLatest,omitempty"`
+	KeepHourly               snapshot.SourceInfo `json:"keepHourly,omitempty"`
+	KeepDaily                snapshot.SourceInfo `json:"keepDaily,omitempty"`
+	KeepWeekly               snapshot.SourceInfo `json:"keepWeekly,omitempty"`
+	KeepMonthly              snapshot.SourceInfo `json:"keepMonthly,omitempty"`
+	KeepAnnual               snapshot.SourceInfo `json:"keepAnnual,omitempty"`
+	IgnoreIdenticalSnapshots snapshot.SourceInfo `json:"ignoreIdenticalSnapshots,omitempty"`
 }
 
 // ComputeRetentionReasons computes the reasons why each snapshot is retained, based on
@@ -201,12 +203,13 @@ func hoursAgo(base time.Time, n int) time.Time {
 }
 
 const (
-	defaultKeepLatest  = 10
-	defaultKeepHourly  = 48
-	defaultKeepDaily   = 7
-	defaultKeepWeekly  = 4
-	defaultKeepMonthly = 24
-	defaultKeepAnnual  = 3
+	defaultKeepLatest               = 10
+	defaultKeepHourly               = 48
+	defaultKeepDaily                = 7
+	defaultKeepWeekly               = 4
+	defaultKeepMonthly              = 24
+	defaultKeepAnnual               = 3
+	defaultIgnoreIdenticalSnapshots = false
 )
 
 // Merge applies default values from the provided policy.
@@ -217,6 +220,7 @@ func (r *RetentionPolicy) Merge(src RetentionPolicy, def *RetentionPolicyDefinit
 	mergeOptionalInt(&r.KeepWeekly, src.KeepWeekly, &def.KeepWeekly, si)
 	mergeOptionalInt(&r.KeepMonthly, src.KeepMonthly, &def.KeepMonthly, si)
 	mergeOptionalInt(&r.KeepAnnual, src.KeepAnnual, &def.KeepAnnual, si)
+	mergeOptionalBool(&r.IgnoreIdenticalSnapshots, src.IgnoreIdenticalSnapshots, &def.IgnoreIdenticalSnapshots, si)
 }
 
 // CompactRetentionReasons returns compressed retention reasons given a list of retention reasons.

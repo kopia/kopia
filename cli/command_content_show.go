@@ -30,7 +30,12 @@ func (c *commandContentShow) setup(svc appServices, parent commandParent) {
 }
 
 func (c *commandContentShow) run(ctx context.Context, rep repo.DirectRepository) error {
-	for _, contentID := range toContentIDs(c.ids) {
+	contentIDs, err := toContentIDs(c.ids)
+	if err != nil {
+		return err
+	}
+
+	for _, contentID := range contentIDs {
 		if err := c.contentShow(ctx, rep, contentID); err != nil {
 			return err
 		}

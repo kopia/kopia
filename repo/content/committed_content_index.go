@@ -153,36 +153,43 @@ func (c *committedContentIndex) indexFilesChanged(indexFiles []blob.ID) bool {
 	return false
 }
 
-func (c *committedContentIndex) merge(ctx context.Context, indexFiles []blob.ID) (merged index.Merged, used map[blob.ID]index.Index, finalErr error) {
-	used = map[blob.ID]index.Index{}
-
-	defer func() {
-		// we failed along the way, close the merged index.
-		if finalErr != nil {
-			merged.Close() //nolint:errcheck
-		}
-	}()
+// +checklocks:c.mu
+func (c *committedContentIndex) merge(ctx context.Context, indexFiles []blob.ID) (index.Merged, map[blob.ID]index.Index, error) {
+	var (
+		newMerged   index.Merged
+		newlyOpened index.Merged // new indexes that were not in c.inUse before
+		newUsedMap  = map[blob.ID]index.Index{}
+	)
 
 	for _, e := range indexFiles {
-		ndx, err := c.cache.openIndex(ctx, e)
-		if err != nil {
-			return nil, nil, errors.Wrapf(err, "unable to open pack index %q", e)
+		ndx := c.inUse[e]
+		if ndx == nil {
+			var err error
+
+			ndx, err = c.cache.openIndex(ctx, e)
+			if err != nil {
+				newlyOpened.Close() // nolint:errcheck
+
+				return nil, nil, errors.Wrapf(err, "unable to open pack index %q", e)
+			}
+
+			newlyOpened = append(newlyOpened, ndx)
 		}
 
-		merged = append(merged, ndx)
-		used[e] = ndx
+		newMerged = append(newMerged, ndx)
+		newUsedMap[e] = ndx
 	}
 
-	mergedAndCombined, err := c.combineSmallIndexes(merged)
+	mergedAndCombined, err := c.combineSmallIndexes(newMerged)
 	if err != nil {
+		newlyOpened.Close() // nolint:errcheck
+
 		return nil, nil, errors.Wrap(err, "unable to combine small indexes")
 	}
 
-	c.log.Debugf("combined %v into %v index segments", len(merged), len(mergedAndCombined))
+	c.log.Debugf("combined %v into %v index segments", len(newMerged), len(mergedAndCombined))
 
-	merged = mergedAndCombined
-
-	return
+	return mergedAndCombined, newUsedMap, nil
 }
 
 // Uses indexFiles for indexing. An error is returned if the
@@ -205,9 +212,19 @@ func (c *committedContentIndex) use(ctx context.Context, indexFiles []blob.ID, i
 	}
 
 	atomic.AddInt64(&c.rev, 1)
-
 	c.merged = mergedAndCombined
+
+	oldInUse := c.inUse
 	c.inUse = newInUse
+
+	// close indices that were previously in use but are no longer.
+	for k, old := range oldInUse {
+		if newInUse[k] == nil {
+			if err := old.Close(); err != nil {
+				c.log.Errorf("unable to close unused index file: %v", err)
+			}
+		}
+	}
 
 	if err := c.cache.expireUnused(ctx, indexFiles); err != nil {
 		c.log.Errorf("unable to expire unused index files: %v", err)
@@ -248,7 +265,7 @@ func (c *committedContentIndex) combineSmallIndexes(m index.Merged) (index.Merge
 		return nil, errors.Wrap(err, "error building combined in-memory index")
 	}
 
-	combined, err := index.Open(bytes.NewReader(buf.Bytes()), c.v1PerContentOverhead)
+	combined, err := index.Open(buf.Bytes(), nil, c.v1PerContentOverhead)
 	if err != nil {
 		return nil, errors.Wrap(err, "error opening combined in-memory index")
 	}

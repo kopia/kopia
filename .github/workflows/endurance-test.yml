@@ -15,6 +15,7 @@ jobs:
     env:
       KOPIA_KEEP_LOGS: true
     name: Endurance Test
+    if: ${{ github.repository == 'kopia/kopia' }}
     runs-on: ubuntu-latest
     steps:
     - name: Set up Go.

@@ -64,26 +64,27 @@ func (e *virtualEntry) LocalFilesystemPath() string {
 // staticDirectory is an in-memory implementation of fs.Directory.
 type staticDirectory struct {
 	virtualEntry
-	entries fs.Entries
+	entries []fs.Entry
 }
 
 // Child gets the named child of a directory.
 func (sd *staticDirectory) Child(ctx context.Context, name string) (fs.Entry, error) {
 	// nolint:wrapcheck
-	return fs.ReadDirAndFindChild(ctx, sd, name)
-}
-
-// Readdir gets the contents of a directory.
-func (sd *staticDirectory) Readdir(ctx context.Context) (fs.Entries, error) {
-	return append(fs.Entries(nil), sd.entries...), nil
+	return fs.IterateEntriesAndFindChild(ctx, sd, name)
 }
 
 func (sd *staticDirectory) IterateEntries(ctx context.Context, cb func(context.Context, fs.Entry) error) error {
-	return fs.ReaddirToIterate(ctx, sd, cb)
+	for _, e := range append([]fs.Entry{}, sd.entries...) {
+		if err := cb(ctx, e); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // NewStaticDirectory returns a virtual static directory.
-func NewStaticDirectory(name string, entries fs.Entries) fs.Directory {
+func NewStaticDirectory(name string, entries []fs.Entry) fs.Directory {
 	return &staticDirectory{
 		virtualEntry: virtualEntry{
 			name: name,

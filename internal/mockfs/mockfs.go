@@ -81,7 +81,7 @@ func (e *entry) LocalFilesystemPath() string {
 type Directory struct {
 	entry
 
-	children     fs.Entries
+	children     []fs.Entry
 	readdirError error
 	onReaddir    func()
 }
@@ -209,7 +209,7 @@ func (imd *Directory) addChild(e fs.Entry) {
 	}
 
 	imd.children = append(imd.children, e)
-	imd.children.Sort()
+	fs.Sort(imd.children)
 }
 
 func (imd *Directory) resolveSubdir(name string) (parent *Directory, leaf string) {
@@ -226,7 +226,7 @@ func (imd *Directory) Subdir(name ...string) *Directory {
 	i := imd
 
 	for _, n := range name {
-		i2 := i.children.FindByName(n)
+		i2 := fs.FindByName(i.children, n)
 		if i2 == nil {
 			panic(fmt.Sprintf("'%s' not found in '%s'", n, i.Name()))
 		}
@@ -255,7 +255,7 @@ func (imd *Directory) Remove(name string) {
 	imd.children = newChildren
 }
 
-// FailReaddir causes the subsequent Readdir() calls to fail with the specified error.
+// FailReaddir causes the subsequent IterateEntries() calls to fail with the specified error.
 func (imd *Directory) FailReaddir(err error) {
 	imd.readdirError = err
 }
@@ -267,26 +267,31 @@ func (imd *Directory) OnReaddir(cb func()) {
 
 // Child gets the named child of a directory.
 func (imd *Directory) Child(ctx context.Context, name string) (fs.Entry, error) {
-	// nolint:wrapcheck
-	return fs.ReadDirAndFindChild(ctx, imd, name)
+	e := fs.FindByName(imd.children, name)
+	if e != nil {
+		return e, nil
+	}
+
+	return nil, fs.ErrEntryNotFound
 }
 
 // IterateEntries calls the given callback on each entry in the directory.
 func (imd *Directory) IterateEntries(ctx context.Context, cb func(context.Context, fs.Entry) error) error {
-	return fs.ReaddirToIterate(ctx, imd, cb)
-}
-
-// Readdir gets the contents of a directory.
-func (imd *Directory) Readdir(ctx context.Context) (fs.Entries, error) {
 	if imd.readdirError != nil {
-		return nil, imd.readdirError
+		return imd.readdirError
 	}
 
 	if imd.onReaddir != nil {
 		imd.onReaddir()
 	}
 
-	return append(fs.Entries(nil), imd.children...), nil
+	for _, e := range append([]fs.Entry{}, imd.children...) {
+		if err := cb(ctx, e); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // File is an in-memory fs.File capable of simulating failures.

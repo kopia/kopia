@@ -29,14 +29,16 @@ func (c *commandRepositoryRepair) setup(svc advancedAppServices, parent commandP
 		f := prov.NewFlags()
 		cc := cmd.Command(prov.Name, "Repair repository in "+prov.Description)
 		f.Setup(svc, cc)
-		cc.Action(func(_ *kingpin.ParseContext) error {
-			ctx := svc.rootContext()
-			st, err := f.Connect(ctx, false, 0)
-			if err != nil {
-				return errors.Wrap(err, "can't connect to storage")
-			}
+		cc.Action(func(kpc *kingpin.ParseContext) error {
+			// nolint:wrapcheck
+			return svc.runAppWithContext(kpc.SelectedCommand, func(ctx context.Context) error {
+				st, err := f.Connect(ctx, false, 0)
+				if err != nil {
+					return errors.Wrap(err, "can't connect to storage")
+				}
 
-			return c.runRepairCommandWithStorage(ctx, st)
+				return c.runRepairCommandWithStorage(ctx, st)
+			})
 		})
 	}
 }

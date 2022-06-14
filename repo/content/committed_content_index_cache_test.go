@@ -49,8 +49,8 @@ func testCache(t *testing.T, cache committedContentIndexCache, fakeTime *faketim
 	}
 
 	require.NoError(t, cache.addContentToCache(ctx, "ndx1", mustBuildIndex(t, index.Builder{
-		"c1": &InfoStruct{PackBlobID: "p1234", ContentID: "c1"},
-		"c2": &InfoStruct{PackBlobID: "p1234", ContentID: "c2"},
+		mustParseID(t, "c1"): &InfoStruct{PackBlobID: "p1234", ContentID: mustParseID(t, "c1")},
+		mustParseID(t, "c2"): &InfoStruct{PackBlobID: "p1234", ContentID: mustParseID(t, "c2")},
 	})))
 
 	has, err = cache.hasIndexBlobID(ctx, "ndx1")
@@ -61,13 +61,13 @@ func testCache(t *testing.T, cache committedContentIndexCache, fakeTime *faketim
 	}
 
 	require.NoError(t, cache.addContentToCache(ctx, "ndx2", mustBuildIndex(t, index.Builder{
-		"c3": &InfoStruct{PackBlobID: "p2345", ContentID: "c3"},
-		"c4": &InfoStruct{PackBlobID: "p2345", ContentID: "c4"},
+		mustParseID(t, "c3"): &InfoStruct{PackBlobID: "p2345", ContentID: mustParseID(t, "c3")},
+		mustParseID(t, "c4"): &InfoStruct{PackBlobID: "p2345", ContentID: mustParseID(t, "c4")},
 	})))
 
 	require.NoError(t, cache.addContentToCache(ctx, "ndx2", mustBuildIndex(t, index.Builder{
-		"c3": &InfoStruct{PackBlobID: "p2345", ContentID: "c3"},
-		"c4": &InfoStruct{PackBlobID: "p2345", ContentID: "c4"},
+		mustParseID(t, "c3"): &InfoStruct{PackBlobID: "p2345", ContentID: mustParseID(t, "c3")},
+		mustParseID(t, "c4"): &InfoStruct{PackBlobID: "p2345", ContentID: mustParseID(t, "c4")},
 	})))
 
 	ndx1, err := cache.openIndex(ctx, "ndx1")
@@ -76,7 +76,7 @@ func testCache(t *testing.T, cache committedContentIndexCache, fakeTime *faketim
 	ndx2, err := cache.openIndex(ctx, "ndx2")
 	require.NoError(t, err)
 
-	i, err := ndx1.GetInfo("c1")
+	i, err := ndx1.GetInfo(mustParseID(t, "c1"))
 	require.NoError(t, err)
 
 	if got, want := i.GetPackBlobID(), blob.ID("p1234"); got != want {
@@ -85,7 +85,7 @@ func testCache(t *testing.T, cache committedContentIndexCache, fakeTime *faketim
 
 	require.NoError(t, ndx1.Close())
 
-	i, err = ndx2.GetInfo("c3")
+	i, err = ndx2.GetInfo(mustParseID(t, "c3"))
 	require.NoError(t, err)
 
 	if got, want := i.GetPackBlobID(), blob.ID("p2345"); got != want {
@@ -124,4 +124,13 @@ func mustBuildIndex(t *testing.T, b index.Builder) gather.Bytes {
 	}
 
 	return gather.FromSlice(buf.Bytes())
+}
+
+func mustParseID(t *testing.T, s string) ID {
+	t.Helper()
+
+	id, err := index.ParseID(s)
+	require.NoError(t, err)
+
+	return id
 }

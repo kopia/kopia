@@ -33,11 +33,11 @@ func (s *formatSpecificTestSuite) TestContentListAndStats(t *testing.T) {
 	var man snapshot.Manifest
 
 	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "create", srcDir, "--json"), &man)
-	contentID := string(man.RootObjectID())
+	contentID, _, _ := man.RootObjectID().ContentID()
 
-	require.True(t, containsLineStartingWith(e.RunAndExpectSuccess(t, "content", "list"), contentID))
-	require.True(t, containsLineStartingWith(e.RunAndExpectSuccess(t, "content", "list", "-l"), contentID))
-	require.True(t, containsLineStartingWith(e.RunAndExpectSuccess(t, "content", "list", "-c"), contentID))
+	require.True(t, containsLineStartingWith(e.RunAndExpectSuccess(t, "content", "list"), contentID.String()))
+	require.True(t, containsLineStartingWith(e.RunAndExpectSuccess(t, "content", "list", "-l"), contentID.String()))
+	require.True(t, containsLineStartingWith(e.RunAndExpectSuccess(t, "content", "list", "-c"), contentID.String()))
 	require.True(t, containsLineStartingWith(e.RunAndExpectSuccess(t, "content", "list", "--summary"), "Total: "))
 
 	e.RunAndExpectSuccess(t, "content", "stats")
@@ -46,13 +46,13 @@ func (s *formatSpecificTestSuite) TestContentListAndStats(t *testing.T) {
 	// second as create, in which case creation will prevail.
 	time.Sleep(time.Second)
 
-	e.RunAndExpectSuccess(t, "content", "delete", contentID)
+	e.RunAndExpectSuccess(t, "content", "delete", contentID.String())
 
-	require.False(t, containsLineStartingWith(e.RunAndExpectSuccess(t, "content", "list"), contentID))
-	require.False(t, containsLineStartingWith(e.RunAndExpectSuccess(t, "content", "list", "-l"), contentID))
-	require.False(t, containsLineStartingWith(e.RunAndExpectSuccess(t, "content", "list", "-c"), contentID))
+	require.False(t, containsLineStartingWith(e.RunAndExpectSuccess(t, "content", "list"), contentID.String()))
+	require.False(t, containsLineStartingWith(e.RunAndExpectSuccess(t, "content", "list", "-l"), contentID.String()))
+	require.False(t, containsLineStartingWith(e.RunAndExpectSuccess(t, "content", "list", "-c"), contentID.String()))
 
-	require.True(t, containsLineStartingWith(e.RunAndExpectSuccess(t, "content", "list", "--deleted"), contentID))
-	require.True(t, containsLineStartingWith(e.RunAndExpectSuccess(t, "content", "list", "--deleted", "-l"), contentID))
-	require.True(t, containsLineStartingWith(e.RunAndExpectSuccess(t, "content", "list", "--deleted", "-c"), contentID))
+	require.True(t, containsLineStartingWith(e.RunAndExpectSuccess(t, "content", "list", "--deleted"), contentID.String()))
+	require.True(t, containsLineStartingWith(e.RunAndExpectSuccess(t, "content", "list", "--deleted", "-l"), contentID.String()))
+	require.True(t, containsLineStartingWith(e.RunAndExpectSuccess(t, "content", "list", "--deleted", "-c"), contentID.String()))
 }

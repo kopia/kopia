@@ -67,9 +67,10 @@ func (b Builder) sortedContents() []Info {
 	// phase 1 - bucketize into 576 (36 *16) separate lists
 	// by first [0-9a-z] and second character [0-9a-f].
 	for cid, v := range b {
-		first := int(base36Value[cid[0]])
-		second := int(base36Value[cid[1]])
+		first := int(base36Value[cid.prefix])
+		second := int(cid.data[0] >> 4) // nolint:gomnd
 
+		// first: 0..35, second: 0..15
 		buck := first<<4 + second //nolint:gomnd
 
 		buckets[buck] = append(buckets[buck], v)
@@ -93,7 +94,7 @@ func (b Builder) sortedContents() []Info {
 					buck := buckets[i]
 
 					sort.Slice(buck, func(i, j int) bool {
-						return buck[i].GetContentID() < buck[j].GetContentID()
+						return buck[i].GetContentID().less(buck[j].GetContentID())
 					})
 				}
 			}
@@ -162,7 +163,7 @@ func (b Builder) shard(maxShardSize int) []Builder {
 
 	for k, v := range b {
 		h := fnv.New32a()
-		io.WriteString(h, string(k)) // nolint:errcheck
+		io.WriteString(h, k.String()) // nolint:errcheck
 
 		shard := h.Sum32() % uint32(numShards)
 

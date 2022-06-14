@@ -241,9 +241,9 @@ func TestServerUIAccessDeniedToRemoteUser(t *testing.T) {
 // nolint:thelper
 func remoteRepositoryTest(ctx context.Context, t *testing.T, rep repo.Repository) {
 	mustListSnapshotCount(ctx, t, rep, 0)
-	mustGetObjectNotFound(ctx, t, rep, "abcd")
+	mustGetObjectNotFound(ctx, t, rep, mustParseObjectID(t, "abcd"))
 	mustGetManifestNotFound(ctx, t, rep, "mnosuchmanifest")
-	mustPrefetchObjectsNotFound(ctx, t, rep, "abcd")
+	mustPrefetchObjectsNotFound(ctx, t, rep, mustParseObjectID(t, "abcd"))
 
 	var (
 		result                  object.ID
@@ -264,10 +264,10 @@ func remoteRepositoryTest(ctx context.Context, t *testing.T, rep repo.Repository
 			uploaded += i
 		},
 	}, func(ctx context.Context, w repo.RepositoryWriter) error {
-		mustGetObjectNotFound(ctx, t, w, "abcd")
+		mustGetObjectNotFound(ctx, t, w, mustParseObjectID(t, "abcd"))
 		mustGetManifestNotFound(ctx, t, w, "mnosuchmanifest")
 		mustListSnapshotCount(ctx, t, w, 0)
-		mustPrefetchObjectsNotFound(ctx, t, rep, "abcd")
+		mustPrefetchObjectsNotFound(ctx, t, rep, mustParseObjectID(t, "abcd"))
 
 		result = mustWriteObject(ctx, t, w, written)
 
@@ -294,7 +294,7 @@ func remoteRepositoryTest(ctx context.Context, t *testing.T, rep repo.Repository
 		mustReadObject(ctx, t, w, result, written)
 
 		ow := w.NewObjectWriter(ctx, object.WriterOptions{
-			Prefix: content.ID(manifest.ContentPrefix),
+			Prefix: manifest.ContentPrefix,
 		})
 
 		_, err := ow.Write([]byte{2, 3, 4})
@@ -434,4 +434,14 @@ func mustManifestNotFound(t *testing.T, err error) {
 	if !errors.Is(err, manifest.ErrNotFound) {
 		t.Fatalf("invalid error %v, wanted manifest not found", err)
 	}
+}
+
+// nolint:unparam
+func mustParseObjectID(t *testing.T, s string) object.ID {
+	t.Helper()
+
+	id, err := object.ParseID(s)
+	require.NoError(t, err)
+
+	return id
 }

@@ -1,7 +1,6 @@
 package content
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"time"
@@ -521,7 +520,7 @@ func addIndexBlobsToBuilder(ctx context.Context, enc *encryptedBlobMgr, bld inde
 		return errors.Wrapf(err, "error getting index %q", indexBlobID)
 	}
 
-	ndx, err := index.Open(bytes.NewReader(data.ToByteSlice()), uint32(enc.crypter.Encryptor.Overhead()))
+	ndx, err := index.Open(data.ToByteSlice(), nil, uint32(enc.crypter.Encryptor.Overhead()))
 	if err != nil {
 		return errors.Wrapf(err, "unable to open index blob %q", indexBlobID)
 	}

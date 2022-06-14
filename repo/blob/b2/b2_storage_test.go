@@ -30,7 +30,7 @@ func getEnvOrSkip(t *testing.T, name string) string {
 
 	value := os.Getenv(name)
 	if value == "" {
-		t.Skip(fmt.Sprintf("%s not provided", name))
+		t.Skipf("%s not provided", name)
 	}
 
 	return value

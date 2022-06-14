@@ -121,7 +121,7 @@ func (bm *WriteManager) PrefetchContents(ctx context.Context, contentIDs []ID, h
 					if err := bm.metadataCache.PrefetchBlob(ctx, w.blobID); err != nil {
 						bm.log.Debugw("error prefetching metadata blob", "blobID", w.blobID, "err", err)
 					}
-				case w.contentID != "":
+				case w.contentID != EmptyID:
 					tmp.Reset()
 
 					if _, err := bm.getContentDataAndInfo(ctx, w.contentID, &tmp); err != nil {

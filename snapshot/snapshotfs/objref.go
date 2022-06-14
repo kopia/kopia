@@ -21,7 +21,7 @@ func ParseObjectIDWithPath(ctx context.Context, rep repo.Repository, objectIDWit
 
 	oid, err := object.ParseID(parts[0])
 	if err != nil {
-		return "", errors.Wrapf(err, "can't parse object ID %v", objectIDWithPath)
+		return object.EmptyID, errors.Wrapf(err, "can't parse object ID %v", objectIDWithPath)
 	}
 
 	if len(parts) == 1 {
@@ -45,12 +45,11 @@ func GetNestedEntry(ctx context.Context, startingDir fs.Entry, pathElements []st
 			return nil, errors.Errorf("entry not found %q: parent is not a directory", part)
 		}
 
-		entries, err := dir.Readdir(ctx)
+		e, err := dir.Child(ctx, part)
 		if err != nil {
 			return nil, errors.Wrap(err, "error reading directory")
 		}
 
-		e := entries.FindByName(part)
 		if e == nil {
 			return nil, errors.Errorf("entry not found: %q", part)
 		}
@@ -64,12 +63,12 @@ func GetNestedEntry(ctx context.Context, startingDir fs.Entry, pathElements []st
 func parseNestedObjectID(ctx context.Context, startingDir fs.Entry, parts []string) (object.ID, error) {
 	e, err := GetNestedEntry(ctx, startingDir, parts)
 	if err != nil {
-		return "", err
+		return object.EmptyID, err
 	}
 
 	hoid, ok := e.(object.HasObjectID)
 	if !ok {
-		return "", errors.Errorf("entry without ObjectID")
+		return object.EmptyID, errors.Errorf("entry without ObjectID")
 	}
 
 	return hoid.ObjectID(), nil
@@ -86,7 +85,12 @@ func findSnapshotByRootObjectIDOrManifestID(ctx context.Context, rep repo.Reposi
 		return m, nil
 	}
 
-	mans, err := snapshot.FindSnapshotsByRootObjectID(ctx, rep, object.ID(rootID))
+	rootOID, err := object.ParseID(rootID)
+	if err != nil {
+		return nil, errors.Wrap(err, "error parsing root object ID")
+	}
+
+	mans, err := snapshot.FindSnapshotsByRootObjectID(ctx, rep, rootOID)
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to find shapshots by ID %v", rootID)
 	}
