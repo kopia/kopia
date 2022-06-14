@@ -84,7 +84,7 @@ func (sd *staticDirectory) IterateEntries(ctx context.Context, cb func(context.C
 	return nil
 }
 
-func (sd *staticDirectory) MultipleIterations() bool {
+func (sd *staticDirectory) SupportsMultipleIterations() bool {
 	return true
 }
 
@@ -141,7 +141,7 @@ func (sd *streamingDirectory) IterateEntries(
 	return cb(ctx, callback)
 }
 
-func (sd *streamingDirectory) MultipleIterations() bool {
+func (sd *streamingDirectory) SupportsMultipleIterations() bool {
 	return false
 }
 

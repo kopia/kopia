@@ -115,7 +115,7 @@ func (fsf *shallowFilesystemFile) Open(ctx context.Context) (fs.Reader, error) {
 	return nil, errors.New("shallowFilesystemFile.Open not supported")
 }
 
-func (fsd *shallowFilesystemDirectory) MultipleIterations() bool {
+func (fsd *shallowFilesystemDirectory) SupportsMultipleIterations() bool {
 	return false
 }
 

@@ -57,7 +57,7 @@ func (s *sourceDirectories) LocalFilesystemPath() string {
 	return ""
 }
 
-func (s *sourceDirectories) MultipleIterations() bool {
+func (s *sourceDirectories) SupportsMultipleIterations() bool {
 	return true
 }
 

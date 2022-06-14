@@ -15,6 +15,7 @@ import (
 
 	"github.com/kylelemons/godebug/pretty"
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/fs"
@@ -724,28 +725,12 @@ func TestUpload_StreamingDirectory(t *testing.T) {
 	})
 
 	man, err := u.Upload(ctx, staticRoot, policyTree, snapshot.SourceInfo{})
-	if err != nil {
-		t.Fatalf("Upload error: %v", err)
-	}
+	require.NoError(t, err)
 
-	if got, want := atomic.LoadInt32(&man.Stats.CachedFiles), int32(0); got != want {
-		t.Errorf("unexpected manifest cached files: %v, want %v", got, want)
-	}
-
-	if got, want := atomic.LoadInt32(&man.Stats.NonCachedFiles), int32(1); got != want {
-		// one file is not cached
-		t.Errorf("unexpected manifest non-cached files: %v, want %v", got, want)
-	}
-
-	if got, want := atomic.LoadInt32(&man.Stats.TotalDirectoryCount), int32(2); got != want {
-		// must have one directory
-		t.Errorf("unexpected manifest directory count: %v, want %v", got, want)
-	}
-
-	if got, want := atomic.LoadInt32(&man.Stats.TotalFileCount), int32(1); got != want {
-		// must have one file
-		t.Errorf("unexpected manifest file count: %v, want %v", got, want)
-	}
+	assert.Equal(t, atomic.LoadInt32(&man.Stats.CachedFiles), int32(0))
+	assert.Equal(t, atomic.LoadInt32(&man.Stats.NonCachedFiles), int32(1))
+	assert.Equal(t, atomic.LoadInt32(&man.Stats.TotalDirectoryCount), int32(2))
+	assert.Equal(t, atomic.LoadInt32(&man.Stats.TotalFileCount), int32(1))
 }
 
 func TestUpload_StreamingDirectoryWithIgnoredFile(t *testing.T) {
@@ -787,28 +772,12 @@ func TestUpload_StreamingDirectoryWithIgnoredFile(t *testing.T) {
 	})
 
 	man, err := u.Upload(ctx, staticRoot, policyTree, snapshot.SourceInfo{})
-	if err != nil {
-		t.Fatalf("Upload error: %v", err)
-	}
+	require.NoError(t, err)
 
-	if got, want := atomic.LoadInt32(&man.Stats.CachedFiles), int32(0); got != want {
-		t.Errorf("unexpected manifest cached files: %v, want %v", got, want)
-	}
-
-	if got, want := atomic.LoadInt32(&man.Stats.NonCachedFiles), int32(1); got != want {
-		// one file is not cached
-		t.Errorf("unexpected manifest non-cached files: %v, want %v", got, want)
-	}
-
-	if got, want := atomic.LoadInt32(&man.Stats.TotalDirectoryCount), int32(2); got != want {
-		// must have one directory
-		t.Errorf("unexpected manifest directory count: %v, want %v", got, want)
-	}
-
-	if got, want := atomic.LoadInt32(&man.Stats.TotalFileCount), int32(1); got != want {
-		// must have one file
-		t.Errorf("unexpected manifest file count: %v, want %v", got, want)
-	}
+	assert.Equal(t, atomic.LoadInt32(&man.Stats.CachedFiles), int32(0))
+	assert.Equal(t, atomic.LoadInt32(&man.Stats.NonCachedFiles), int32(1))
+	assert.Equal(t, atomic.LoadInt32(&man.Stats.TotalDirectoryCount), int32(2))
+	assert.Equal(t, atomic.LoadInt32(&man.Stats.TotalFileCount), int32(1))
 }
 
 type mockLogger struct {

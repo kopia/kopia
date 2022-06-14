@@ -8,7 +8,11 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/internal/testlogging"
 )
 
 const (
@@ -34,7 +38,7 @@ func TestStreamingFile(t *testing.T) {
 
 	rootDir := NewStaticDirectory("root", []fs.Entry{f})
 
-	e, err := rootDir.Child(context.TODO(), testFileName)
+	e, err := rootDir.Child(testlogging.Context(t), testFileName)
 	if err != nil {
 		t.Fatalf("error getting child entry: %v", err)
 	}
@@ -43,7 +47,7 @@ func TestStreamingFile(t *testing.T) {
 		t.Fatalf("did not get expected filename: (actual) %v != %v (expected)", e.Name(), testFileName)
 	}
 
-	entries, err := fs.GetAllEntries(context.TODO(), rootDir)
+	entries, err := fs.GetAllEntries(testlogging.Context(t), rootDir)
 	if err != nil {
 		t.Fatalf("error getting dir entries %v", err)
 	}
@@ -53,7 +57,7 @@ func TestStreamingFile(t *testing.T) {
 	}
 
 	// Read and compare data
-	reader, err := f.GetReader(context.TODO())
+	reader, err := f.GetReader(testlogging.Context(t))
 	if err != nil {
 		t.Fatalf("error getting streaming file reader: %v", err)
 	}
@@ -87,7 +91,7 @@ func TestStreamingFileGetReader(t *testing.T) {
 	f := StreamingFileFromReader(testFileName, r)
 
 	// Read and compare data
-	reader, err := f.GetReader(context.TODO())
+	reader, err := f.GetReader(testlogging.Context(t))
 	if err != nil {
 		t.Fatalf("error getting streaming file reader: %v", err)
 	}
@@ -103,7 +107,7 @@ func TestStreamingFileGetReader(t *testing.T) {
 	}
 
 	// Second call to GetReader must fail
-	_, err = f.GetReader(context.TODO())
+	_, err = f.GetReader(testlogging.Context(t))
 	if err == nil {
 		t.Fatal("expected error, got none")
 	}
@@ -130,35 +134,24 @@ func TestStreamingDirectory(t *testing.T) {
 		},
 	)
 
-	entries, err := fs.GetAllEntries(context.TODO(), rootDir)
-	if err != nil {
-		t.Fatalf("error getting dir entries %v", err)
-	}
+	entries, err := fs.GetAllEntries(testlogging.Context(t), rootDir)
+	require.NoError(t, err)
 
-	if len(entries) != 1 {
-		t.Errorf("expected directory with 1 entry, got %v", entries)
-	}
+	assert.Len(t, entries, 1)
 
 	e := entries[0]
-	if e.Name() != testFileName {
-		t.Fatalf("did not get expected filename: (actual) %v != %v (expected)", e.Name(), testFileName)
-	}
+	require.Equal(t, e.Name(), testFileName)
 
 	// Read and compare data
-	reader, err := f.GetReader(context.TODO())
-	if err != nil {
-		t.Fatalf("error getting streaming file reader: %v", err)
-	}
+	reader, err := f.GetReader(testlogging.Context(t))
+	require.NoError(t, err)
 
 	result := make([]byte, len(content))
 
-	if _, err = reader.Read(result); err != nil {
-		t.Fatalf("error reading streaming file: %v", err)
-	}
+	_, err = reader.Read(result)
+	require.NoError(t, err)
 
-	if !reflect.DeepEqual(result, content) {
-		t.Fatalf("did not get expected file content: (actual) %v != %v (expected)", result, content)
-	}
+	assert.True(t, reflect.DeepEqual(result, content))
 }
 
 func TestStreamingDirectory_MultipleIterationsFails(t *testing.T) {
@@ -178,19 +171,13 @@ func TestStreamingDirectory_MultipleIterationsFails(t *testing.T) {
 		},
 	)
 
-	entries, err := fs.GetAllEntries(context.TODO(), rootDir)
-	if err != nil {
-		t.Fatalf("error getting directory entries once")
-	}
+	entries, err := fs.GetAllEntries(testlogging.Context(t), rootDir)
+	require.NoError(t, err)
 
-	if len(entries) != 1 {
-		t.Errorf("unexpected number of entries: (got) %v, (expected) %v", len(entries), 1)
-	}
+	assert.Len(t, entries, 1)
 
-	_, err = fs.GetAllEntries(context.TODO(), rootDir)
-	if err == nil {
-		t.Errorf("did not get expected error on second directory iteration")
-	}
+	_, err = fs.GetAllEntries(testlogging.Context(t), rootDir)
+	assert.Error(t, err)
 }
 
 var errCallback = errors.New("callback error")
@@ -212,12 +199,10 @@ func TestStreamingDirectory_ReturnsCallbackError(t *testing.T) {
 		},
 	)
 
-	err := rootDir.IterateEntries(context.TODO(), func(context.Context, fs.Entry) error {
+	err := rootDir.IterateEntries(testlogging.Context(t), func(context.Context, fs.Entry) error {
 		return errCallback
 	})
-	if !errors.Is(err, errCallback) {
-		t.Errorf("expected error getting dir entries: (got) %v, (expected) %v", err, errCallback)
-	}
+	assert.ErrorIs(t, err, errCallback)
 }
 
 var errIteration = errors.New("iteration error")
@@ -233,10 +218,8 @@ func TestStreamingDirectory_ReturnsReadDirError(t *testing.T) {
 		},
 	)
 
-	err := rootDir.IterateEntries(context.TODO(), func(context.Context, fs.Entry) error {
+	err := rootDir.IterateEntries(testlogging.Context(t), func(context.Context, fs.Entry) error {
 		return nil
 	})
-	if !errors.Is(err, errIteration) {
-		t.Errorf("expected error getting dir entries: (got) %v, (expected) %v", err, errIteration)
-	}
+	assert.ErrorIs(t, err, errIteration)
 }

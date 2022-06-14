@@ -265,8 +265,8 @@ func (imd *Directory) OnReaddir(cb func()) {
 	imd.onReaddir = cb
 }
 
-// MultipleIterations returns whether this directory can be iterated through multiple times.
-func (imd *Directory) MultipleIterations() bool {
+// SupportsMultipleIterations returns whether this directory can be iterated through multiple times.
+func (imd *Directory) SupportsMultipleIterations() bool {
 	return true
 }
 

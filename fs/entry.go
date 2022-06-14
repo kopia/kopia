@@ -58,9 +58,9 @@ type Directory interface {
 	Entry
 	Child(ctx context.Context, name string) (Entry, error)
 	IterateEntries(ctx context.Context, cb func(context.Context, Entry) error) error
-	// MultipleIterations returns true if the Directory supports iterating through
-	// the entries multiple times. Otherwise it returns false.
-	MultipleIterations() bool
+	// SupportsMultipleIterations returns true if the Directory supports iterating
+	// through the entries multiple times. Otherwise it returns false.
+	SupportsMultipleIterations() bool
 }
 
 // DirectoryWithSummary is optionally implemented by Directory that provide summary.

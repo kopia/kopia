@@ -55,7 +55,7 @@ func (s *sourceSnapshots) LocalFilesystemPath() string {
 	return ""
 }
 
-func (s *sourceSnapshots) MultipleIterations() bool {
+func (s *sourceSnapshots) SupportsMultipleIterations() bool {
 	return true
 }
 

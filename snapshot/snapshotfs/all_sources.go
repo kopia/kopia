@@ -53,7 +53,7 @@ func (s *repositoryAllSources) LocalFilesystemPath() string {
 	return ""
 }
 
-func (s *repositoryAllSources) MultipleIterations() bool {
+func (s *repositoryAllSources) SupportsMultipleIterations() bool {
 	return true
 }
 

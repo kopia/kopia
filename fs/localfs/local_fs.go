@@ -102,7 +102,7 @@ type filesystemErrorEntry struct {
 	err error
 }
 
-func (fsd *filesystemDirectory) MultipleIterations() bool {
+func (fsd *filesystemDirectory) SupportsMultipleIterations() bool {
 	return true
 }
 

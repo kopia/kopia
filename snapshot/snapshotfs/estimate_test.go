@@ -4,9 +4,13 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/virtualfs"
 	"github.com/kopia/kopia/internal/mockfs"
+	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
@@ -35,17 +39,9 @@ func (p *fakeProgress) Stats(
 		return
 	}
 
-	if got := s.ErrorCount; got != p.expectedErrors {
-		p.t.Errorf("unexpected errors encountered: (actual) %v != %v (expected)", got, p.expectedErrors)
-	}
-
-	if got := s.TotalFileCount; got != p.expectedFiles {
-		p.t.Errorf("unexpected files counted: (actual) %v != %v (expected)", got, p.expectedFiles)
-	}
-
-	if got := s.TotalDirectoryCount; got != p.expectedDirectories {
-		p.t.Errorf("unexpected directory count: (actual) %v != %v (expected)", got, p.expectedDirectories)
-	}
+	assert.Equal(p.t, s.ErrorCount, p.expectedErrors)
+	assert.Equal(p.t, s.TotalFileCount, p.expectedFiles)
+	assert.Equal(p.t, s.TotalDirectoryCount, p.expectedDirectories)
 }
 
 func TestEstimate_SkipsStreamingDirectory(t *testing.T) {
@@ -68,8 +64,6 @@ func TestEstimate_SkipsStreamingDirectory(t *testing.T) {
 		expectedErrors:      0,
 	}
 
-	err := snapshotfs.Estimate(context.TODO(), nil, rootDir, policyTree, p, 1)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	err := snapshotfs.Estimate(testlogging.Context(t), nil, rootDir, policyTree, p, 1)
+	require.NoError(t, err)
 }

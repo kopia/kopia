@@ -113,7 +113,7 @@ func (rd *repositoryDirectory) Summary(ctx context.Context) (*fs.DirectorySummar
 	return rd.summary, nil
 }
 
-func (rd *repositoryDirectory) MultipleIterations() bool {
+func (rd *repositoryDirectory) SupportsMultipleIterations() bool {
 	return true
 }
 
