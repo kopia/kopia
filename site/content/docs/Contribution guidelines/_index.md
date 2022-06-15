@@ -12,7 +12,8 @@ weight: 100
 
 ## Submitting issues
 
-* If you find a bug or have a feature request, please submit an issue at https://github.com/kopia/kopia/issues
+* If you find a bug or have a feature request, please submit an issue in the main Kopia project at https://github.com/kopia/kopia/issues.
+* To keep all issues in one central location, please do not create issues directly in the `kopia/htmlui` (or other auxiliary) project.
 
 ## Security issues
 
