@@ -1,7 +1,7 @@
 //go:build darwin || (linux && amd64)
 // +build darwin linux,amd64
 
-package recovery_test
+package recovery
 
 import (
 	"errors"
@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kopia/kopia/tests/recovery/blobmanipulator"
 	"github.com/kopia/kopia/tests/robustness/snapmeta"
 	"github.com/kopia/kopia/tests/tools/kopiarunner"
 	"github.com/stretchr/testify/require"
@@ -24,7 +25,6 @@ func TestSnapshotFix(t *testing.T) {
 	fmt.Printf("Inside the test")
 
 	dataRepoPath := path.Join(*repoPathPrefix, dataSubPath)
-	// metadataRepoPath := path.Join(*repoPathPrefix, metadataSubPath)
 
 	// current state: a test repo is available in /test-repo/robustness-data
 	// test main connects to test-repo on filesystem, test -repo = SUT
@@ -33,7 +33,7 @@ func TestSnapshotFix(t *testing.T) {
 	// create a base dir
 	baseDir := makeBaseDir()
 
-	bm, err := NewBlobManipulator(baseDir)
+	bm, err := blobmanipulator.NewBlobManipulator(baseDir)
 	if err != nil {
 		if errors.Is(err, kopiarunner.ErrExeVariableNotSet) {
 			log.Println("Skipping robustness tests because KOPIA_EXE is not set")
@@ -45,7 +45,7 @@ func TestSnapshotFix(t *testing.T) {
 	// connect to or create date repo path
 	bm.DirCreater = getSnapshotter(baseDir)
 	bm.ConnectOrCreateRepo(dataRepoPath)
-	bm.dataRepoPath = dataRepoPath
+	bm.DataRepoPath = dataRepoPath
 
 	// populate the kopia repo under test with random snapshots
 	bm.SetUpSystemUnderTest()

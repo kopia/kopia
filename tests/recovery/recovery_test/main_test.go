@@ -1,7 +1,7 @@
 //go:build darwin || (linux && amd64)
 // +build darwin linux,amd64
 
-package recovery_test
+package recovery
 
 import (
 	"flag"
@@ -20,7 +20,7 @@ const (
 
 var (
 	randomizedTestDur = flag.Duration("rand-test-duration", defaultTestDur, "Set the duration for the randomized test")
-	repoPathPrefix    = flag.String("repo-path-prefix", "", "Point the recovery tests at this path prefix")
+	repoPathPrefix    = flag.String("repo-path-prefix", "/Users/chaitali.gondhalekar/Work/Kasten/kopia_dummy_repo/", "Point the recovery tests at this path prefix")
 )
 
 func TestMain(m *testing.M) {

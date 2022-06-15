@@ -1,5 +1,6 @@
-package recovery_test
+package blobmanipulator
 
+// Package blobmanipulator provides the framework for snapshot fix testing
 import (
 	"context"
 	"encoding/json"
@@ -23,7 +24,7 @@ type BlobManipulator struct {
 	DirCreater         *snapmeta.KopiaSnapshotter
 	fileWriter         *fiofilewriter.FileWriter
 
-	dataRepoPath string
+	DataRepoPath string
 }
 
 // NewBlobManipulator instantiates a new BlobManipulator and returns its pointer.
@@ -64,7 +65,7 @@ func (bm *BlobManipulator) DeleteBlob(blobID string) (err error) {
 func (bm *BlobManipulator) getBlobIDRand() (blobToBeDeleted string, err error) {
 	var b []blob.Metadata
 	// can this assumption break?
-	err = bm.KopiaCommandRunner.ConnectRepo("filesystem", "--path="+bm.dataRepoPath)
+	err = bm.KopiaCommandRunner.ConnectRepo("filesystem", "--path="+bm.DataRepoPath)
 	if err != nil {
 		return "", err
 	}
@@ -108,7 +109,7 @@ func (bm *BlobManipulator) getFileWriter() bool {
 }
 
 func (bm *BlobManipulator) RestoreGivenOrRandomSnapshot(snapID string, restoreDir string) (stdout string, err error) {
-	err = bm.KopiaCommandRunner.ConnectRepo("filesystem", "--path="+bm.dataRepoPath)
+	err = bm.KopiaCommandRunner.ConnectRepo("filesystem", "--path="+bm.DataRepoPath)
 	if err != nil {
 		return "", err
 	}
@@ -138,7 +139,7 @@ func (bm *BlobManipulator) RestoreGivenOrRandomSnapshot(snapID string, restoreDi
 }
 
 func (bm *BlobManipulator) SetUpSystemUnderTest() {
-	err := bm.ConnectOrCreateRepo(bm.dataRepoPath)
+	err := bm.ConnectOrCreateRepo(bm.DataRepoPath)
 	if err != nil {
 		return
 	}
@@ -211,7 +212,7 @@ func (bm *BlobManipulator) SetUpSystemUnderTest() {
 }
 
 func (bm *BlobManipulator) TakeSnapshot(dir string) (stdout string, err error) {
-	err = bm.KopiaCommandRunner.ConnectRepo("filesystem", "--path="+bm.dataRepoPath)
+	err = bm.KopiaCommandRunner.ConnectRepo("filesystem", "--path="+bm.DataRepoPath)
 	if err != nil {
 		return "", err
 	}
