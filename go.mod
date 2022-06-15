@@ -83,7 +83,7 @@ require (
 	github.com/googleapis/gax-go/v2 v2.4.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/kopia/htmluibuild v0.0.0-20220326183613-bbc499ed4dad
+	github.com/kopia/htmluibuild v0.0.0-20220615030923-6d8a298b70a0
 	github.com/kr/fs v0.1.0 // indirect
 	github.com/mattn/go-ieproxy v0.0.1 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
