@@ -11,7 +11,6 @@ import (
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/ignorefs"
 	"github.com/kopia/kopia/internal/units"
-	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
 )
@@ -74,7 +73,7 @@ type EstimateProgress interface {
 
 // Estimate walks the provided directory tree and invokes provided progress callback as it discovers
 // items to be snapshotted.
-func Estimate(ctx context.Context, rep repo.Repository, entry fs.Directory, policyTree *policy.Tree, progress EstimateProgress, maxExamplesPerBucket int) error {
+func Estimate(ctx context.Context, entry fs.Directory, policyTree *policy.Tree, progress EstimateProgress, maxExamplesPerBucket int) error {
 	stats := &snapshot.Stats{}
 	ed := []string{}
 	ib := makeBuckets()
@@ -124,6 +123,10 @@ func estimate(ctx context.Context, relativePath string, entry fs.Entry, policyTr
 	switch entry := entry.(type) {
 	case fs.Directory:
 		atomic.AddInt32(&stats.TotalDirectoryCount, 1)
+
+		if !entry.SupportsMultipleIterations() {
+			return nil
+		}
 
 		progress.Processing(ctx, relativePath)
 

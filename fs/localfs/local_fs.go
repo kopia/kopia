@@ -102,6 +102,10 @@ type filesystemErrorEntry struct {
 	err error
 }
 
+func (fsd *filesystemDirectory) SupportsMultipleIterations() bool {
+	return true
+}
+
 func (fsd *filesystemDirectory) Size() int64 {
 	// force directory size to always be zero
 	return 0

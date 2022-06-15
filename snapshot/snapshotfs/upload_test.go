@@ -15,6 +15,7 @@ import (
 
 	"github.com/kylelemons/godebug/pretty"
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/fs"
@@ -765,6 +766,93 @@ func TestUpload_VirtualDirectoryWithStreamingFile(t *testing.T) {
 		// must have one file
 		t.Fatalf("unexpected manifest file count: %v, want %v", got, want)
 	}
+}
+
+func TestUpload_StreamingDirectory(t *testing.T) {
+	ctx := testlogging.Context(t)
+	th := newUploadTestHarness(ctx, t)
+
+	defer th.cleanup()
+
+	t.Logf("Uploading streaming directory with mock file")
+
+	u := NewUploader(th.repo)
+
+	policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
+
+	files := []fs.Entry{
+		mockfs.NewFile("f1", []byte{1, 2, 3}, defaultPermissions),
+	}
+
+	staticRoot := virtualfs.NewStaticDirectory("rootdir", []fs.Entry{
+		virtualfs.NewStreamingDirectory(
+			"stream-directory",
+			func(innerCtx context.Context, callback func(context.Context, fs.Entry) error) error {
+				for _, f := range files {
+					if err := callback(innerCtx, f); err != nil {
+						return err
+					}
+				}
+
+				return nil
+			},
+		),
+	})
+
+	man, err := u.Upload(ctx, staticRoot, policyTree, snapshot.SourceInfo{})
+	require.NoError(t, err)
+
+	assert.Equal(t, atomic.LoadInt32(&man.Stats.CachedFiles), int32(0))
+	assert.Equal(t, atomic.LoadInt32(&man.Stats.NonCachedFiles), int32(1))
+	assert.Equal(t, atomic.LoadInt32(&man.Stats.TotalDirectoryCount), int32(2))
+	assert.Equal(t, atomic.LoadInt32(&man.Stats.TotalFileCount), int32(1))
+}
+
+func TestUpload_StreamingDirectoryWithIgnoredFile(t *testing.T) {
+	ctx := testlogging.Context(t)
+	th := newUploadTestHarness(ctx, t)
+
+	defer th.cleanup()
+
+	t.Logf("Uploading streaming directory with some ignored mock files")
+
+	u := NewUploader(th.repo)
+
+	policyTree := policy.BuildTree(map[string]*policy.Policy{
+		".": {
+			FilesPolicy: policy.FilesPolicy{
+				IgnoreRules: []string{"f2"},
+			},
+		},
+	}, policy.DefaultPolicy)
+
+	files := []fs.Entry{
+		mockfs.NewFile("f1", []byte{1, 2, 3}, defaultPermissions),
+		mockfs.NewFile("f2", []byte{1, 2, 3, 4}, defaultPermissions),
+	}
+
+	staticRoot := virtualfs.NewStaticDirectory("rootdir", []fs.Entry{
+		virtualfs.NewStreamingDirectory(
+			"stream-directory",
+			func(innerCtx context.Context, callback func(context.Context, fs.Entry) error) error {
+				for _, f := range files {
+					if err := callback(innerCtx, f); err != nil {
+						return err
+					}
+				}
+
+				return nil
+			},
+		),
+	})
+
+	man, err := u.Upload(ctx, staticRoot, policyTree, snapshot.SourceInfo{})
+	require.NoError(t, err)
+
+	assert.Equal(t, atomic.LoadInt32(&man.Stats.CachedFiles), int32(0))
+	assert.Equal(t, atomic.LoadInt32(&man.Stats.NonCachedFiles), int32(1))
+	assert.Equal(t, atomic.LoadInt32(&man.Stats.TotalDirectoryCount), int32(2))
+	assert.Equal(t, atomic.LoadInt32(&man.Stats.TotalFileCount), int32(1))
 }
 
 type mockLogger struct {

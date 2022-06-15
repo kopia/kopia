@@ -113,6 +113,10 @@ func (rd *repositoryDirectory) Summary(ctx context.Context) (*fs.DirectorySummar
 	return rd.summary, nil
 }
 
+func (rd *repositoryDirectory) SupportsMultipleIterations() bool {
+	return true
+}
+
 func (rd *repositoryDirectory) Child(ctx context.Context, name string) (fs.Entry, error) {
 	if err := rd.ensureDirEntriesLoaded(ctx); err != nil {
 		return nil, err

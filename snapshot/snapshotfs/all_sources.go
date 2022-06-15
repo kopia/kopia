@@ -53,6 +53,10 @@ func (s *repositoryAllSources) LocalFilesystemPath() string {
 	return ""
 }
 
+func (s *repositoryAllSources) SupportsMultipleIterations() bool {
+	return true
+}
+
 func (s *repositoryAllSources) Child(ctx context.Context, name string) (fs.Entry, error) {
 	// nolint:wrapcheck
 	return fs.IterateEntriesAndFindChild(ctx, s, name)

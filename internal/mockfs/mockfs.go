@@ -265,6 +265,11 @@ func (imd *Directory) OnReaddir(cb func()) {
 	imd.onReaddir = cb
 }
 
+// SupportsMultipleIterations returns whether this directory can be iterated through multiple times.
+func (imd *Directory) SupportsMultipleIterations() bool {
+	return true
+}
+
 // Child gets the named child of a directory.
 func (imd *Directory) Child(ctx context.Context, name string) (fs.Entry, error) {
 	e := fs.FindByName(imd.children, name)
@@ -349,6 +354,21 @@ func NewDirectory() *Directory {
 			name:    "<root>",
 			mode:    0o777 | os.ModeDir, // nolint:gomnd
 			modTime: DefaultModTime,
+		},
+	}
+}
+
+// NewFile returns a new mock file with the given name, contents, and mode.
+func NewFile(name string, content []byte, permissions os.FileMode) *File {
+	return &File{
+		entry: entry{
+			name:    name,
+			mode:    permissions,
+			size:    int64(len(content)),
+			modTime: DefaultModTime,
+		},
+		source: func() (ReaderSeekerCloser, error) {
+			return readerSeekerCloser{bytes.NewReader(content)}, nil
 		},
 	}
 }
