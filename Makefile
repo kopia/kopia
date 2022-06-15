@@ -276,7 +276,7 @@ recovery-tests: export KOPIA_EXE ?= $(KOPIA_INTEGRATION_EXE)
 recovery-tests: GOTESTSUM_FORMAT=testname
 recovery-tests: build-integration-test-binary $(gotestsum)
 	FIO_DOCKER_IMAGE=$(FIO_DOCKER_TAG) \
-	$(GO_TEST) -count=$(REPEAT_TEST) github.com/kopia/kopia/tests/recovery_test/recovery_test $(TEST_FLAGS)
+	$(GO_TEST) -count=$(REPEAT_TEST) github.com/kopia/kopia/tests/recovery_test $(TEST_FLAGS)
 
 robustness-tests: export KOPIA_EXE ?= $(KOPIA_INTEGRATION_EXE)
 robustness-tests: GOTESTSUM_FORMAT=testname
