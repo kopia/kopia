@@ -19,7 +19,8 @@ const (
 )
 
 var (
-	repoPathPrefix = flag.String("repo-path-prefix", "", "Point the recovery tests at this path prefix")
+	randomizedTestDur = flag.Duration("rand-test-duration", defaultTestDur, "Set the duration for the randomized test")
+	repoPathPrefix    = flag.String("repo-path-prefix", "", "Point the recovery tests at this path prefix")
 )
 
 func TestMain(m *testing.M) {
