@@ -225,9 +225,7 @@ func (bm *BlobManipulator) TakeSnapshot(dir string) (stdout string, err error) {
 }
 
 func (bm *BlobManipulator) SnapshotFixRemoveFilesByBlobID(blobID string) (stdout string, err error) {
-	// Get hold of object ID, manifest ID or filename that can be used to in the snapshot fix command
-	// e.g. kopia snapshot fix remove-files --object-id=df6ce5e784c1936dc4f4d36a08ffd438 --commit
-	// kopia snapshot fix remove-files --object-id=<id from error message> --commit
+	// Get hold of object ID that can be used in the snapshot fix command
 	stdout, msg, err := bm.KopiaCommandRunner.Run("snapshot", "fix", "remove-files", "--object-id="+blobID, "--commit")
 	if err != nil {
 		log.Println(stdout, msg)
@@ -238,9 +236,7 @@ func (bm *BlobManipulator) SnapshotFixRemoveFilesByBlobID(blobID string) (stdout
 }
 
 func (bm *BlobManipulator) SnapshotFixRemoveFilesByFilename(filename string) (stdout string, err error) {
-	// Get hold of object ID, manifest ID or filename that can be used to in the snapshot fix command
-	// e.g. kopia snapshot fix remove-files --filename=<filename> --commit
-	// kopia snapshot fix remove-files --filename=<filename from error message> --commit
+	// Get hold of the filename that can be used to in the snapshot fix command
 	stdout, msg, err := bm.KopiaCommandRunner.Run("snapshot", "fix", "remove-files", "--filename="+filename, "--commit")
 	if err != nil {
 		log.Println(stdout, msg)
