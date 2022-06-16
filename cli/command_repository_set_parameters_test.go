@@ -110,6 +110,14 @@ func (s *formatSpecificTestSuite) TestRepositorySetParametersRetention(t *testin
 	out = env.RunAndExpectSuccess(t, "repository", "status")
 	require.Contains(t, out, "Blob retention mode:     COMPLIANCE")
 	require.Contains(t, out, "Blob retention period:   222h0m0.000000003s")
+
+	// update retention (use days)
+	env.RunAndExpectSuccess(t, "repository", "set-parameters", "--retention-mode", blob.Compliance.String(),
+		"--retention-period", "7d")
+
+	out = env.RunAndExpectSuccess(t, "repository", "status")
+	require.Contains(t, out, "Blob retention mode:     COMPLIANCE")
+	require.Contains(t, out, "Blob retention period:   168h0m0s")
 }
 
 func (s *formatSpecificTestSuite) TestRepositorySetParametersUpgrade(t *testing.T) {
