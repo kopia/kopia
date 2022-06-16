@@ -106,11 +106,7 @@ readonly test_flags="-v -timeout=${test_timeout}\
 
 # Set the make target based on ENGINE_MODE
 ENGINE_MODE="${ENGINE_MODE:-}"
-if [[ "${ENGINE_MODE}" == "" ]]; then
-    make_target="recovery-tests"
-else
-    make_target="robustness-tests"
-fi
+make_target="robustness-tests"
 if [[ "${ENGINE_MODE}" = SERVER ]]; then
     make_target="robustness-server-tests"
 fi
