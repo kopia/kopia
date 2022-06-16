@@ -5,34 +5,26 @@ package recovery
 
 import (
 	"flag"
-	"fmt"
 	"os"
 	"path"
 	"testing"
-	"time"
 )
 
 const (
 	dataSubPath     = "recovery-data"
 	metadataSubPath = "recovery-metadata"
-	defaultTestDur  = 5 * time.Minute
 )
 
 var (
-	repoPathPrefix = flag.String("repo-path-prefix", "", "Point the recovery tests at this path prefix")
+	repoPathPrefix = flag.String("repo-path-prefix", "", "Point the robustness tests at this path prefix")
 )
 
 func TestMain(m *testing.M) {
-
-	fmt.Printf("Inside the test")
-
 	dataRepoPath := path.Join(*repoPathPrefix, dataSubPath)
 	metadataRepoPath := path.Join(*repoPathPrefix, metadataSubPath)
 
 	th := &kopiaRecoveryTestHarness{}
 	th.init(dataRepoPath, metadataRepoPath)
-
-	// Restore a random snapshot into the data directory
 
 	// run the tests
 	result := m.Run()
@@ -43,8 +35,6 @@ func TestMain(m *testing.M) {
 type kopiaRecoveryTestHarness struct {
 	dataRepoPath string
 	metaRepoPath string
-
-	skipTest bool
 }
 
 func (th *kopiaRecoveryTestHarness) init(dataRepoPath, metaRepoPath string) {

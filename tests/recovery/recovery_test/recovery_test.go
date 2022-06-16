@@ -5,7 +5,6 @@ package recovery
 
 import (
 	"errors"
-	"fmt"
 	"log"
 	"os"
 	"path"
@@ -19,19 +18,10 @@ import (
 )
 
 func TestSnapshotFix(t *testing.T) {
-
-	// assumption: the test is run on filesystem and not directly on S3
-
-	fmt.Printf("Inside the test")
-
+	// assumption: the test is run on filesystem and not directly on object store
 	dataRepoPath := path.Join(*repoPathPrefix, dataSubPath)
 
-	// current state: a test repo is available in /test-repo/robustness-data
-	// test main connects to test-repo on filesystem, test -repo = SUT
-	// restores a snapshot from test-repo into /tmp/
-
-	// create a base dir
-	baseDir := makeBaseDir()
+	baseDir := makeDir("base-dir-")
 
 	bm, err := blobmanipulator.NewBlobManipulator(baseDir)
 	if err != nil {
@@ -42,7 +32,6 @@ func TestSnapshotFix(t *testing.T) {
 		}
 	}
 
-	// connect to or create date repo path
 	bm.DirCreater = getSnapshotter(baseDir)
 	bm.ConnectOrCreateRepo(dataRepoPath)
 	bm.DataRepoPath = dataRepoPath
@@ -54,13 +43,8 @@ func TestSnapshotFix(t *testing.T) {
 	// assumption: the repo contains "p" blobs to delete, else the test is a no-op
 	bm.DeleteBlob("")
 
-	// try to restore the latest snapshot
-	// this should error out
-	// how to create a temporary dir to restore a snapshot?
-	restoreDir, err := os.MkdirTemp("", "restore-data-")
-	if err != nil {
-		log.Println("Error creating temp dir:", err)
-	}
+	// Create a temporary dir to restore a snapshot
+	restoreDir := makeDir("restore-data-")
 
 	// try to restore a snapshot, this should error out
 	stdout, err := bm.RestoreGivenOrRandomSnapshot("", restoreDir)
@@ -73,20 +57,14 @@ func TestSnapshotFix(t *testing.T) {
 		log.Println("Error repairing the kopia repository:", stdout, err)
 	}
 
-	// filename := getFilenameToBeDeleted(stdout)
-	// stdout, err = bm.SnapshotFixRemoveFilesByFilename(filename)
-	// if err != nil {
-	// 	log.Println("Error repairing the kopia repository:", stdout, err)
-	// }
-
 	// restore a random snapshot
 	_, err = bm.RestoreGivenOrRandomSnapshot("", restoreDir)
 	require.NoError(t, err)
 
 }
 
-func makeBaseDir() (baseDir string) {
-	baseDir, err := os.MkdirTemp("", "base-dir-")
+func makeDir(dirName string) (baseDir string) {
+	baseDir, err := os.MkdirTemp("", dirName)
 	if err != nil {
 		log.Println("Error creating temp dir:", err)
 		return ""
@@ -108,23 +86,6 @@ func getBlobIDToBeDeleted(stdout string) string {
 		return ""
 	}
 	return s1[wanted_index]
-
-}
-
-func getFilenameToBeDeleted(stdout string) string {
-	s1 := strings.Split(stdout, ":")
-	wanted_index := -1
-	for i, s := range s1 {
-		if strings.Contains(s, "unable to open snapshot file for") {
-			wanted_index = i
-			break
-		}
-	}
-	if wanted_index == -1 {
-		return ""
-	}
-	s2 := strings.Split(s1[wanted_index], " ")
-	return s2[len(s2)-1]
 
 }
 

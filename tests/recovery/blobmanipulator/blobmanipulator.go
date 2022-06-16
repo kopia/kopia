@@ -64,7 +64,7 @@ func (bm *BlobManipulator) DeleteBlob(blobID string) (err error) {
 
 func (bm *BlobManipulator) getBlobIDRand() (blobToBeDeleted string, err error) {
 	var b []blob.Metadata
-	// can this assumption break?
+	// assumption: the repo under test is in filesystem
 	err = bm.KopiaCommandRunner.ConnectRepo("filesystem", "--path="+bm.DataRepoPath)
 	if err != nil {
 		return "", err
@@ -126,7 +126,7 @@ func (bm *BlobManipulator) RestoreGivenOrRandomSnapshot(snapID string, restoreDi
 			return "", err
 		}
 
-		// Select one snapshot to restore
+		// Select a random snapshot to restore
 		snapID = string(s[rand.Intn(len(s))].ID)
 	}
 
