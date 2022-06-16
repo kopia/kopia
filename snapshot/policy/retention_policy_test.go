@@ -162,7 +162,6 @@ func TestRetentionPolicyTest(t *testing.T) {
 				MinRetentionDays: newOptionalInt(2),
 			},
 			map[string][]string{
-
 				"2020-01-07T12:00:00Z": {},
 				"2020-01-08T12:00:00Z": {},
 				"2020-01-09T12:00:00Z": {"Inside min retention days"},
