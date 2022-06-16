@@ -137,7 +137,6 @@ func (r *RetentionPolicy) getRetentionReasons(i int, s *snapshot.Manifest, cutof
 	yyyy, wk := s.StartTime.ISOWeek()
 
 	effectiveKeepLatest := r.effectiveKeepLatest()
-	fmt.Printf("log: %d\n", effectiveKeepLatest)
 
 	cases := []struct {
 		cutoffTime     time.Time
