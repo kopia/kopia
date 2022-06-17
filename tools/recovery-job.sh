@@ -19,7 +19,7 @@ set -o nounset
 #       used to run fio.
 # - HOST_FIO_DATA_PATH:
 # - LOCAL_FIO_DATA_PATH: Path to the local directory where snapshots should be
-#       restored to and fio data should be written to.
+#       restored to and fio data should be written to
 # - S3_BUCKET_NAME: Name of the S3 bucket for the repo
 
 readonly kopia_recovery_dir="${1?Specify directory with kopia robustness git repo}"
