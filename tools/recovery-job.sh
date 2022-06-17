@@ -25,8 +25,8 @@ set -o nounset
 readonly kopia_recovery_dir="${1?Specify directory with kopia robustness git repo}"
 readonly kopia_exe_dir="${2?Specify the directory of the kopia git repo to be tested}"
 
-readonly test_timeout=${4:?"Provide a timeout for the test run, e.g., '55m'"}
-readonly test_repo_path_prefix=${5:?"Provide the path that contains the data and metadata repos"}
+readonly test_timeout=${3:?"Provide a timeout for the test run, e.g., '55m'"}
+readonly test_repo_path_prefix=${4:?"Provide the path that contains the data and metadata repos"}
 
 # Remaining arguments are additional optional test flags
 shift 5
