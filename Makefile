@@ -54,7 +54,7 @@ endif
 -include ./Makefile.local.mk
 
 install:
-	go install $(KOPIA_BUILD_FLAGS) -tags "$(KOPIA_BUILD_TAGS)"
+	go install $(KOPIA_BUILD_FLAGS) -tags "$(KOPIA_BUILD_TAGS)" github.com/kopia/kopia
 
 install-noui: KOPIA_BUILD_TAGS=nohtmlui
 install-noui: install
@@ -111,16 +111,30 @@ website:
 kopia-ui: $(kopia_ui_embedded_exe)
 	$(MAKE) -C app build-electron
 
+# use this to test htmlui changes in full build of KopiaUI, this is rarely needed
+# except when testing htmlui specific features that only light up when running under Electron.
+#
+# You need to have 3 repositories checked out in parallel:
+#
+#   https://github.com/kopia/kopia
+#   https://github.com/kopia/htmlui
+#   https://github.com/kopia/htmluibuild
+
+kopia-ui-with-local-htmlui-changes:
+	(cd ../htmlui && npm run build && ./push_local.sh)
+	rm -f $(kopia_ui_embedded_exe)
+	GOWORK=$(CURDIR)/tools/localhtmlui.work $(MAKE) kopia-ui
+
 # build-current-os-noui compiles a binary for the current os/arch in the same location as goreleaser
 # kopia-ui build needs this particular location to embed the correct server binary.
 # note we're not building or embedding HTML UI to speed up PR testing process.
 build-current-os-noui:
-	go build $(KOPIA_BUILD_FLAGS) -o $(kopia_ui_embedded_exe)
+	go build $(KOPIA_BUILD_FLAGS) -o $(kopia_ui_embedded_exe) github.com/kopia/kopia
 
 # on macOS build and sign AMD64, ARM64 and Universal binary and *.tar.gz files for them
 dist/kopia_darwin_universal/kopia dist/kopia_darwin_amd64/kopia dist/kopia_darwin_arm6/kopia: $(all_go_sources)
-	GOARCH=arm64 go build $(KOPIA_BUILD_FLAGS) -o dist/kopia_darwin_arm64/kopia -tags "$(KOPIA_BUILD_TAGS)"
-	GOARCH=amd64 go build $(KOPIA_BUILD_FLAGS) -o dist/kopia_darwin_amd64/kopia -tags "$(KOPIA_BUILD_TAGS)"
+	GOARCH=arm64 go build $(KOPIA_BUILD_FLAGS) -o dist/kopia_darwin_arm64/kopia -tags "$(KOPIA_BUILD_TAGS)" github.com/kopia/kopia
+	GOARCH=amd64 go build $(KOPIA_BUILD_FLAGS) -o dist/kopia_darwin_amd64/kopia -tags "$(KOPIA_BUILD_TAGS)" github.com/kopia/kopia
 	mkdir -p dist/kopia_darwin_universal
 	lipo -create -output dist/kopia_darwin_universal/kopia dist/kopia_darwin_arm64/kopia dist/kopia_darwin_amd64/kopia
 ifneq ($(MACOS_SIGNING_IDENTITY),)
@@ -134,7 +148,7 @@ endif
 
 # on Windows build and sign AMD64 and *.zip file
 dist/kopia_windows_amd64/kopia.exe: $(all_go_sources)
-	GOOS=windows GOARCH=amd64 go build $(KOPIA_BUILD_FLAGS) -o dist/kopia_windows_amd64/kopia.exe -tags "$(KOPIA_BUILD_TAGS)"
+	GOOS=windows GOARCH=amd64 go build $(KOPIA_BUILD_FLAGS) -o dist/kopia_windows_amd64/kopia.exe -tags "$(KOPIA_BUILD_TAGS)" github.com/kopia/kopia
 ifneq ($(WINDOWS_SIGN_TOOL),)
 	tools/.tools/signtool.exe sign //sha1 $(WINDOWS_CERT_SHA1) //fd sha256 //tr "http://timestamp.digicert.com" //v dist/kopia_windows_amd64/kopia.exe
 endif
@@ -152,9 +166,8 @@ ifeq ($(GOARCH),amd64)
 	ln -sf kopia_linux_amd64 dist/kopia_linux_x64
 	rm -f dist/kopia_linux_armv7l
 	ln -sf kopia_linux_arm_6 dist/kopia_linux_armv7l
-
 else
-	go build $(KOPIA_BUILD_FLAGS) -o $(kopia_ui_embedded_exe) -tags "$(KOPIA_BUILD_TAGS)"
+	go build $(KOPIA_BUILD_FLAGS) -o $(kopia_ui_embedded_exe) -tags "$(KOPIA_BUILD_TAGS)" github.com/kopia/kopia
 endif
 
 # builds kopia CLI binary that will be later used as a server for kopia-ui.
