@@ -99,6 +99,20 @@ $ make -C app dev
 
 >NOTE: this also opens the browser window due to CRA development server, but it can be safely disregarded. Because KopiaUI configuration pages are built using CRA, they also benefit from hot-reload while developing this way.
 
+To build KopiaUI with uncommitted changes to `htmlui`, you need to have three repositories checked out side-by-side:
+
+```
+$ git clone https://github.com/kopia/kopia
+$ git clone https://github.com/kopia/htmlui
+$ git clone https://github.com/kopia/htmluibuild
+```
+
+Then in `kopia` repository run:
+
+```
+$ make kopia-ui-with-local-htmlui-changes
+```
+
 ## Website
 
 The [kopia.io](https://kopia.io) website is built using [Hugo](https://gohugo.io).
