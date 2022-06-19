@@ -20,38 +20,38 @@ func TestCheckpointRegistry(t *testing.T) {
 	f3 := d.AddFile("f3", []byte{2, 3, 4}, os.FileMode(0o755))
 	f4 := d.AddFile("f3", []byte{2, 3, 4}, os.FileMode(0o755))
 
-	cp.addCheckpointCallback(dir1, func() (*snapshot.DirEntry, error) {
+	cp.addCheckpointCallback(dir1.Name(), func() (*snapshot.DirEntry, error) {
 		return &snapshot.DirEntry{
 			Name: "dir1",
 			Type: snapshot.EntryTypeDirectory,
 		}, nil
 	})
 
-	cp.addCheckpointCallback(f1, func() (*snapshot.DirEntry, error) {
+	cp.addCheckpointCallback(f1.Name(), func() (*snapshot.DirEntry, error) {
 		return &snapshot.DirEntry{
 			Name: "f1",
 		}, nil
 	})
 
-	cp.addCheckpointCallback(f2, func() (*snapshot.DirEntry, error) {
+	cp.addCheckpointCallback(f2.Name(), func() (*snapshot.DirEntry, error) {
 		return &snapshot.DirEntry{
 			Name: "f2",
 		}, nil
 	})
 
-	cp.addCheckpointCallback(f3, func() (*snapshot.DirEntry, error) {
+	cp.addCheckpointCallback(f3.Name(), func() (*snapshot.DirEntry, error) {
 		return &snapshot.DirEntry{
 			Name: "other",
 		}, nil
 	})
 
-	cp.addCheckpointCallback(f4, func() (*snapshot.DirEntry, error) {
+	cp.addCheckpointCallback(f4.Name(), func() (*snapshot.DirEntry, error) {
 		return nil, nil
 	})
 
 	// remove callback before it has a chance of firing
-	cp.removeCheckpointCallback(f3)
-	cp.removeCheckpointCallback(f3)
+	cp.removeCheckpointCallback(f3.Name())
+	cp.removeCheckpointCallback(f3.Name())
 
 	var dmb DirManifestBuilder
 
