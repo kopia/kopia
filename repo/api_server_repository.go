@@ -68,6 +68,12 @@ func (r *apiServerRepository) NewObjectWriter(ctx context.Context, opt object.Wr
 	return r.omgr.NewWriter(ctx, opt)
 }
 
+// ConcatenateObjects creates a concatenated objects from the provided object IDs.
+func (r *apiServerRepository) ConcatenateObjects(ctx context.Context, objectIDs []object.ID) (object.ID, error) {
+	// nolint:wrapcheck
+	return r.omgr.Concatenate(ctx, objectIDs)
+}
+
 func (r *apiServerRepository) VerifyObject(ctx context.Context, id object.ID) ([]content.ID, error) {
 	// nolint:wrapcheck
 	return object.VerifyObject(ctx, r, id)

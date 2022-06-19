@@ -106,7 +106,7 @@ func (om *Manager) Concatenate(ctx context.Context, objectIDs []ID) (ID, error) 
 	}
 
 	var (
-		concatenatedEntries []indirectObjectEntry
+		concatenatedEntries []IndirectObjectEntry
 		totalLength         int64
 		err                 error
 	)
@@ -138,9 +138,9 @@ func (om *Manager) Concatenate(ctx context.Context, objectIDs []ID) (ID, error) 
 	return IndirectObjectID(concatID), nil
 }
 
-func appendIndexEntriesForObject(ctx context.Context, cr contentReader, indexEntries []indirectObjectEntry, startingLength int64, objectID ID) (result []indirectObjectEntry, totalLength int64, _ error) {
+func appendIndexEntriesForObject(ctx context.Context, cr contentReader, indexEntries []IndirectObjectEntry, startingLength int64, objectID ID) (result []IndirectObjectEntry, totalLength int64, _ error) {
 	if indexObjectID, ok := objectID.IndexObjectID(); ok {
-		ndx, err := loadSeekTable(ctx, cr, indexObjectID)
+		ndx, err := LoadIndexObject(ctx, cr, indexObjectID)
 		if err != nil {
 			return nil, 0, errors.Wrapf(err, "error reading index of %v", objectID)
 		}
@@ -158,7 +158,7 @@ func appendIndexEntriesForObject(ctx context.Context, cr contentReader, indexEnt
 	}
 	defer r.Close() //nolint:errcheck
 
-	indexEntries, totalLength = appendIndexEntries(indexEntries, startingLength, indirectObjectEntry{
+	indexEntries, totalLength = appendIndexEntries(indexEntries, startingLength, IndirectObjectEntry{
 		Start:  0,
 		Length: r.Length(),
 		Object: objectID,
@@ -167,11 +167,11 @@ func appendIndexEntriesForObject(ctx context.Context, cr contentReader, indexEnt
 	return indexEntries, totalLength, nil
 }
 
-func appendIndexEntries(indexEntries []indirectObjectEntry, startingLength int64, incoming ...indirectObjectEntry) (result []indirectObjectEntry, totalLength int64) {
+func appendIndexEntries(indexEntries []IndirectObjectEntry, startingLength int64, incoming ...IndirectObjectEntry) (result []IndirectObjectEntry, totalLength int64) {
 	totalLength = startingLength
 
 	for _, inc := range incoming {
-		indexEntries = append(indexEntries, indirectObjectEntry{
+		indexEntries = append(indexEntries, IndirectObjectEntry{
 			Start:  inc.Start + startingLength,
 			Length: inc.Length,
 			Object: inc.Object,

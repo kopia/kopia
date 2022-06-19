@@ -7,6 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/snapshot/policy"
@@ -196,6 +197,41 @@ func applyOptionalInt(ctx context.Context, desc string, val **policy.OptionalInt
 	*changeCount++
 
 	log(ctx).Infof(" - setting %q to %v.", desc, i)
+	*val = &i
+
+	return nil
+}
+
+func applyOptionalInt64MiB(ctx context.Context, desc string, val **policy.OptionalInt64, str string, changeCount *int) error {
+	if str == "" {
+		// not changed
+		return nil
+	}
+
+	if str == inheritPolicyString || str == defaultPolicyString {
+		*changeCount++
+
+		log(ctx).Infof(" - resetting %q to a default value inherited from parent.", desc)
+
+		*val = nil
+
+		return nil
+	}
+
+	// nolint:gomnd
+	v, err := strconv.ParseInt(str, 10, 32)
+	if err != nil {
+		return errors.Wrapf(err, "can't parse the %v %q", desc, str)
+	}
+
+	// convert MiB to bytes
+	v *= 1 << 20 // nolint:gomnd
+
+	i := policy.OptionalInt64(v)
+	*changeCount++
+
+	log(ctx).Infof(" - setting %q to %v.", desc, units.BytesStringBase2(v))
+
 	*val = &i
 
 	return nil

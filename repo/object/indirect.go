@@ -1,13 +1,13 @@
 package object
 
-// indirectObjectEntry represents an entry in indirect object stream.
-type indirectObjectEntry struct {
+// IndirectObjectEntry represents an entry in indirect object stream.
+type IndirectObjectEntry struct {
 	Start  int64 `json:"s,omitempty"`
 	Length int64 `json:"l,omitempty"`
 	Object ID    `json:"o,omitempty"`
 }
 
-func (i *indirectObjectEntry) endOffset() int64 {
+func (i *IndirectObjectEntry) endOffset() int64 {
 	return i.Start + i.Length
 }
 

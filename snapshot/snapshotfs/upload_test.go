@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"runtime/debug"
 	"sort"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -927,6 +928,106 @@ func TestParallelUploadDedup(t *testing.T) {
 
 	// we wrote 500 MB, which can be deduped to 50MB, repo size must be less than 51MB
 	require.Less(t, testutil.MustGetTotalDirSize(t, th.repoDir), int64(51000000))
+}
+
+func TestParallelUploadOfLargeFiles(t *testing.T) {
+	ctx := testlogging.Context(t)
+	th := newUploadTestHarness(ctx, t)
+
+	defer th.cleanup()
+
+	u := NewUploader(th.repo)
+	u.ParallelUploads = 10
+
+	pol := *policy.DefaultPolicy
+
+	// change policies so that all files above this size are uploaded in parallel
+	// use an unusual number so that it's easy to spot.
+	const chunkSize = 10203040
+
+	// future reader, the chunk size must be greater than 4 MiB to make sure splitters are
+	// not used in degenerate form.
+	require.Greater(t, chunkSize, 4<<20)
+
+	n := policy.OptionalInt64(chunkSize)
+	pol.UploadPolicy.ParallelUploadAboveSize = &n
+
+	policyTree := policy.BuildTree(nil, &pol)
+
+	testutil.TestSkipOnCIUnlessLinuxAMD64(t)
+	td := testutil.TempDirectory(t)
+
+	// Write 2 x 50MB files
+	var files []*os.File
+
+	for i := 0; i < 2; i++ {
+		f, cerr := os.Create(filepath.Join(td, fmt.Sprintf("file-%v", i)))
+		require.NoError(t, cerr)
+
+		files = append(files, f)
+	}
+
+	for j := 0; j < 1000; j++ {
+		buf := make([]byte, 50000)
+
+		for _, f := range files {
+			rand.Read(buf)
+
+			_, werr := f.Write(buf)
+			require.NoError(t, werr)
+		}
+	}
+
+	for _, f := range files {
+		f.Close()
+	}
+
+	srcdir, err := localfs.Directory(td)
+	require.NoError(t, err)
+
+	man, err := u.Upload(ctx, srcdir, policyTree, snapshot.SourceInfo{})
+	require.NoError(t, err)
+
+	t.Logf("man: %v", man.RootObjectID())
+
+	dir := EntryFromDirEntry(th.repo, man.RootEntry).(fs.Directory)
+
+	successCount := 0
+
+	dir.IterateEntries(ctx, func(ctx context.Context, e fs.Entry) error {
+		if f, ok := e.(fs.File); ok {
+			oid, err := object.ParseID(strings.TrimPrefix(f.(object.HasObjectID).ObjectID().String(), "I"))
+			require.NoError(t, err)
+
+			entries, err := object.LoadIndexObject(ctx, th.repo.(repo.DirectRepositoryWriter).ContentManager(), oid)
+			require.NoError(t, err)
+
+			// ensure that index object contains breakpoints at all multiples of 'chunkSize'.
+			// Because we picked unusual chunkSize, this proves that uploads happened individually
+			// and were concatenated
+			for offset := int64(0); offset < f.Size(); offset += chunkSize {
+				verifyContainsOffset(t, entries, chunkSize)
+				successCount++
+			}
+		}
+
+		return nil
+	})
+
+	// make sure we actually tested something
+	require.Greater(t, successCount, 0)
+}
+
+func verifyContainsOffset(t *testing.T, entries []object.IndirectObjectEntry, want int64) {
+	t.Helper()
+
+	for _, e := range entries {
+		if e.Start == want {
+			return
+		}
+	}
+
+	t.Fatalf("entry set %v does not contain offset %v", entries, want)
 }
 
 type loggedAction struct {

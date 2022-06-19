@@ -77,8 +77,8 @@ type objectWriter struct {
 	currentPosition int64
 
 	indirectIndexGrowMutex sync.Mutex
-	indirectIndex          []indirectObjectEntry
-	indirectIndexBuf       [4]indirectObjectEntry // small buffer so that we avoid allocations most of the time
+	indirectIndex          []IndirectObjectEntry
+	indirectIndexBuf       [4]IndirectObjectEntry // small buffer so that we avoid allocations most of the time
 
 	description string
 
@@ -143,7 +143,7 @@ func (w *objectWriter) flushBuffer() error {
 	// hold a lock as we may grow the index
 	w.indirectIndexGrowMutex.Lock()
 	chunkID := len(w.indirectIndex)
-	w.indirectIndex = append(w.indirectIndex, indirectObjectEntry{})
+	w.indirectIndex = append(w.indirectIndex, IndirectObjectEntry{})
 	w.indirectIndex[chunkID].Start = w.currentPosition
 	w.indirectIndex[chunkID].Length = int64(length)
 	w.currentPosition += int64(length)
@@ -316,7 +316,7 @@ func (w *objectWriter) checkpointLocked() (ID, error) {
 	return IndirectObjectID(oid), nil
 }
 
-func writeIndirectObject(w io.Writer, entries []indirectObjectEntry) error {
+func writeIndirectObject(w io.Writer, entries []IndirectObjectEntry) error {
 	ind := indirectObject{
 		StreamID: "kopia:indirect",
 		Entries:  entries,
