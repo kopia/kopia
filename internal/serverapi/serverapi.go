@@ -275,4 +275,5 @@ type CLIInfo struct {
 // UIPreferences represents JSON object storing UI preferences.
 type UIPreferences struct {
 	Theme string `json:"theme"` // 'dark', 'light' or ''
+	PageSize string `json:"pageSize"` // 'dark', 'light' or ''
 }
