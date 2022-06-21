@@ -8,13 +8,15 @@ set -o nounset
 #
 # 1. kopia_recovery_dir
 # 2. kopia_exe_dir
-# 3. test_timeout
-# 4. test_repo_path_prefix
+# 3. test_duration
+# 4. test_timeout
+# 5. test_repo_path_prefix
 
 # Environment variables that modify the behavior of the robustness job execution
 #
 # - AWS_ACCESS_KEY_ID: To access the repo bucket
 # - AWS_SECRET_ACCESS_KEY: To access the repo bucket
+# - ENGINE_MODE:
 # - FIO_EXE: Path to the fio executable, if unset a Docker container will be
 #       used to run fio.
 # - HOST_FIO_DATA_PATH:
@@ -25,6 +27,7 @@ set -o nounset
 readonly kopia_recovery_dir="${1?Specify directory with kopia robustness git repo}"
 readonly kopia_exe_dir="${2?Specify the directory of the kopia git repo to be tested}"
 
+readonly test_duration=${3:?"Provide a minimum duration for the testing, e.g., '15m'"}
 readonly test_timeout=${4:?"Provide a timeout for the test run, e.g., '55m'"}
 readonly test_repo_path_prefix=${5:?"Provide the path that contains the data and metadata repos"}
 
@@ -35,6 +38,7 @@ cat <<EOF
 --- Job parameters ----
 kopia_recovery_dir: '${kopia_recovery_dir}'
 kopia_exe_dir: '${kopia_exe_dir}'
+test_duration: '${test_duration}'
 test_timeout: '${test_timeout}'
 test_repo_path_prefix: '${test_repo_path_prefix}'
 additional_args: '${@}'
@@ -42,6 +46,7 @@ additional_args: '${@}'
 --- Optional Job Parameters via Environment Variables ---
 AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID-}
 AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:+<xxxx>}
+ENGINE_MODE=${ENGINE_MODE-}
 FIO_EXE=${FIO_EXE-}
 HOST_FIO_DATA_PATH:${HOST_FIO_DATA_PATH-}
 LOCAL_FIO_DATA_PATH=${LOCAL_FIO_DATA_PATH-}
@@ -94,12 +99,14 @@ readonly ld_flags="\
 -X github.com/kopia/kopia/tests/robustness/engine.testGitBranch=${robustness_git_branch}"
 
 readonly test_flags="-v -timeout=${test_timeout}\
+ --rand-test-duration=${test_duration}\
  --repo-path-prefix=${test_repo_path_prefix}\
  -ldflags '${ld_flags}'"
 
+# Set the make target based on ENGINE_MODE
 make_target="recovery-tests"
 
-# Run the recovery tests
+# Run the robustness tests
 set -o verbose
 
 make -C "${kopia_recovery_dir}" \
