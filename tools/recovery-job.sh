@@ -6,7 +6,7 @@ set -o nounset
 
 # Positional arguments:
 #
-# 1. kopia_recovery_dir
+# 1. kopia_robustness_dir
 # 2. kopia_exe_dir
 # 3. test_duration
 # 4. test_timeout
@@ -51,6 +51,7 @@ FIO_EXE=${FIO_EXE-}
 HOST_FIO_DATA_PATH:${HOST_FIO_DATA_PATH-}
 LOCAL_FIO_DATA_PATH=${LOCAL_FIO_DATA_PATH-}
 S3_BUCKET_NAME=${S3_BUCKET_NAME-}
+TEST_RC=${TEST_RC-}
 
 --- Other Env Vars ---
 GOBIN=${GOBIN-}
@@ -83,7 +84,7 @@ go build -o "${kopia_exe}" github.com/kopia/kopia
 popd
 
 # Extract git metadata on the robustness repo and perform a robustness run
-pushd "${kopia_recovery_dir}"
+pushd "${kopia_robustness_dir}"
 
 readonly robustness_git_revision=$(git rev-parse --short HEAD)
 readonly robustness_git_branch="$(git describe --tags --always --dirty)"
@@ -104,7 +105,21 @@ readonly test_flags="-v -timeout=${test_timeout}\
  -ldflags '${ld_flags}'"
 
 # Set the make target based on ENGINE_MODE
-make_target="recovery-tests"
+ENGINE_MODE="${ENGINE_MODE:-}"
+if [[ "${ENGINE_MODE}" == "" ]]; then
+    make_target="recovery-tests"
+else
+    make_target="robustness-tests"
+fi
+if [[ "${ENGINE_MODE}" = SERVER ]]; then
+    make_target="robustness-server-tests"
+fi
+
+# Source any pre-test rc files if provided
+TEST_RC="${TEST_RC:-}"
+if [[ -f ${TEST_RC} ]]; then
+    source ${TEST_RC}
+fi
 
 # Run the robustness tests
 set -o verbose
