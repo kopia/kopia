@@ -27,8 +27,9 @@ set -o nounset
 readonly kopia_robustness_dir="${1?Specify directory with kopia robustness git repo}"
 readonly kopia_exe_dir="${2?Specify the directory of the kopia git repo to be tested}"
 
-readonly test_timeout=${3:?"Provide a timeout for the test run, e.g., '55m'"}
-readonly test_repo_path_prefix=${4:?"Provide the path that contains the data and metadata repos"}
+readonly test_duration=${3:?"Provide a minimum duration for the testing, e.g., '15m'"}
+readonly test_timeout=${4:?"Provide a timeout for the test run, e.g., '55m'"}
+readonly test_repo_path_prefix=${5:?"Provide the path that contains the data and metadata repos"}
 
 # Remaining arguments are additional optional test flags
 shift 5
@@ -37,6 +38,7 @@ cat <<EOF
 --- Job parameters ----
 kopia_robustness_dir: '${kopia_robustness_dir}'
 kopia_exe_dir: '${kopia_exe_dir}'
+test_duration: '${test_duration}'
 test_timeout: '${test_timeout}'
 test_repo_path_prefix: '${test_repo_path_prefix}'
 additional_args: '${@}'
@@ -98,13 +100,14 @@ readonly ld_flags="\
 -X github.com/kopia/kopia/tests/robustness/engine.testGitBranch=${robustness_git_branch}"
 
 readonly test_flags="-v -timeout=${test_timeout}\
+ --rand-test-duration=${test_duration}\
  --repo-path-prefix=${test_repo_path_prefix}\
  -ldflags '${ld_flags}'"
 
 # Set the make target based on ENGINE_MODE
 ENGINE_MODE="${ENGINE_MODE:-}"
 if [[ "${ENGINE_MODE}" == "" ]]; then
-    make_target="recovery-tests"
+    make_target="fault-tolerance-tests"
 else
     make_target="robustness-tests"
 fi
