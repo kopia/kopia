@@ -83,7 +83,7 @@ go build -o "${kopia_exe}" github.com/kopia/kopia
 
 popd
 
-# Extract git metadata on the robustness repo and perform a robustness run
+# Extract git metadata on the recovery repo, perform a robustness run
 pushd "${kopia_recovery_dir}"
 
 readonly robustness_git_revision=$(git rev-parse --short HEAD)
