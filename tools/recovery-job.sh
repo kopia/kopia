@@ -105,21 +105,7 @@ readonly test_flags="-v -timeout=${test_timeout}\
  -ldflags '${ld_flags}'"
 
 # Set the make target based on ENGINE_MODE
-ENGINE_MODE="${ENGINE_MODE:-}"
-if [[ "${ENGINE_MODE}" == "" ]]; then
-    make_target="recovery-tests"
-else
-    make_target="robustness-tests"
-fi
-if [[ "${ENGINE_MODE}" = SERVER ]]; then
-    make_target="robustness-server-tests"
-fi
-
-# Source any pre-test rc files if provided
-TEST_RC="${TEST_RC:-}"
-if [[ -f ${TEST_RC} ]]; then
-    source ${TEST_RC}
-fi
+make_target="recovery-tests"
 
 # Run the robustness tests
 set -o verbose
