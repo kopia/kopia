@@ -1,13 +1,20 @@
 run:
-    go: 1.17
+  go: '1.17'
+  skip-dirs:
+    - test/testdata_etc
+
 linters-settings:
-  govet:
-    check-shadowing: true
-  funlen:
-    lines: 100
-    statements: 60
+  cyclop:
+    max-complexity: 20
+    skip-tests: true
+  exhaustive:
+    # indicates that switch statements are to be considered exhaustive if a
+    # 'default' case is present, even if all enum members aren't listed in the
+    # switch
+    default-signifies-exhaustive: true
   forbidigo:
     forbid:
+    - filepath.IsAbs # use ospath.IsAbs which supports windows UNC paths
     - ioutil.Discard # use io.Discard
     - ioutil.NopCloser # use io.NopCloser
     - ioutil.ReadAll # use io.ReadAll
@@ -19,35 +26,19 @@ linters-settings:
     - time.Now # do not use outside of 'clock' and 'timetrack' packages use clock.Now or timetrack.StartTimer
     - time.Since # use timetrack.Timer.Elapsed()
     - time.Until # never use this
-    - filepath.IsAbs # use ospath.IsAbs which supports windows UNC paths
-  gocognit:
-    min-complexity: 40
+  funlen:
+    lines: 100
+    statements: 60
   gci:
     sections:
     - standard
     - default
     - prefix(github.com/kopia/kopia)
-  gocyclo:
-    min-complexity: 15
-  cyclop:
-    max-complexity: 20
-    skip-tests: true
-  maligned:
-    suggest-new: true
+  gocognit:
+    min-complexity: 40
   goconst:
     min-len: 5
     min-occurrences: 3
-  exhaustive:
-    # indicates that switch statements are to be considered exhaustive if a
-    # 'default' case is present, even if all enum members aren't listed in the
-    # switch
-    default-signifies-exhaustive: true
-  misspell:
-    locale: US
-  lll:
-    line-length: 256
-  goimports:
-    local-prefixes: github.com/kopia/kopia
   gocritic:
     settings:
       hugeParam:
@@ -55,57 +46,66 @@ linters-settings:
         sizeThreshold: 160
     enabled-tags:
       - diagnostic
+      - experimental
+      - opinionated
       - performance
       - style
-      - opinionated
-      - experimental
     disabled-checks:
-      - wrapperFunc
       - whyNoLint
+      - wrapperFunc
+  gocyclo:
+    min-complexity: 15
+  goimports:
+    local-prefixes: github.com/kopia/kopia
+  govet:
+    check-shadowing: true
+  lll:
+    line-length: 256
+  maligned:
+    suggest-new: true
+  misspell:
+    locale: US
+
 linters:
   enable-all: true
   disable:
-    - maligned
-    - tagliatelle
-    - golint
-    - interfacer
-    - scopelint
-    - prealloc
-    - gochecknoinits
-    - whitespace
-    - exhaustruct
-    - nonamedreturns
-    - nilnil
-    - ireturn # this one may be interesting to control allocations
-    - varnamelen # this one may be interesting, but too much churn
-    - nlreturn
-    - testpackage
-    - ifshort
     - exhaustivestruct
+    - exhaustruct
+    - gochecknoinits
+    - golint
+    - ifshort
+    - interfacer
+    - ireturn # this one may be interesting to control allocations
+    - maligned
+    - nilnil
+    - nlreturn
+    - nonamedreturns
     - paralleltest
+    - prealloc
+    - scopelint
+    - tagliatelle
+    - testpackage
     - tparallel
-
-run:
-  skip-dirs:
-    - test/testdata_etc
+    - varnamelen # this one may be interesting, but too much churn
+    - whitespace
 
 issues:
   exclude-use-default: false
   exclude-rules:
     - path: _test\.go|testing|tests|test_env|fshasher|fault
       linters:
-      - gomnd
-      - gocognit
-      - funlen
+      - contextcheck
       - errcheck
-      - gosec
-      - gochecknoglobals
-      - nestif
-      - wrapcheck
-      - nolintlint
       - errchkjson
       - forcetypeassert
-      - contextcheck
+      - funlen
+      - gochecknoglobals
+      - gocognit
+      - gomnd
+      - gosec
+      - nestif
+      - nolintlint
+      - wrapcheck
     - text: "log is a global variable"
       linters:
       - gochecknoglobals
