@@ -30,7 +30,7 @@ require (
 	github.com/kylelemons/godebug v1.1.0
 	github.com/mattn/go-colorable v0.1.12
 	github.com/minio/md5-simd v1.1.2 // indirect
-	github.com/minio/minio-go/v7 v7.0.28
+	github.com/minio/minio-go/v7 v7.0.29
 	github.com/minio/sha256-simd v1.0.0 // indirect
 	github.com/natefinch/atomic v1.0.1
 	github.com/pierrec/lz4 v2.6.1+incompatible
@@ -42,7 +42,7 @@ require (
 	github.com/sanity-io/litter v1.5.5
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
-	github.com/stretchr/testify v1.7.2
+	github.com/stretchr/testify v1.7.4
 	github.com/studio-b12/gowebdav v0.0.0-20211106090535-29e74efa701f
 	github.com/tg123/go-htpasswd v1.2.0
 	github.com/zalando/go-keyring v0.2.1
@@ -96,7 +96,6 @@ require (
 	github.com/prometheus/common v0.34.0
 	github.com/prometheus/procfs v0.7.3 // indirect
 	github.com/rs/xid v1.3.0 // indirect
-	github.com/stretchr/objx v0.2.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.8.0
 	golang.org/x/xerrors v0.0.0-20220609144429-65e65417b02f // indirect
