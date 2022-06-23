@@ -11,6 +11,7 @@ linters-settings:
     statements: 60
   forbidigo:
     forbid:
+    - filepath.IsAbs # use ospath.IsAbs which supports windows UNC paths
     - ioutil.Discard # use io.Discard
     - ioutil.NopCloser # use io.NopCloser
     - ioutil.ReadAll # use io.ReadAll
@@ -22,7 +23,6 @@ linters-settings:
     - time.Now # do not use outside of 'clock' and 'timetrack' packages use clock.Now or timetrack.StartTimer
     - time.Since # use timetrack.Timer.Elapsed()
     - time.Until # never use this
-    - filepath.IsAbs # use ospath.IsAbs which supports windows UNC paths
   gocognit:
     min-complexity: 40
   gci:
@@ -58,54 +58,54 @@ linters-settings:
         sizeThreshold: 160
     enabled-tags:
       - diagnostic
+      - experimental
+      - opinionated
       - performance
       - style
-      - opinionated
-      - experimental
     disabled-checks:
-      - wrapperFunc
       - whyNoLint
+      - wrapperFunc
+
 linters:
   enable-all: true
   disable:
-    - maligned
-    - tagliatelle
-    - golint
-    - interfacer
-    - scopelint
-    - prealloc
-    - gochecknoinits
-    - whitespace
-    - exhaustruct
-    - nonamedreturns
-    - nilnil
-    - ireturn # this one may be interesting to control allocations
-    - varnamelen # this one may be interesting, but too much churn
-    - nlreturn
-    - testpackage
-    - ifshort
     - exhaustivestruct
+    - exhaustruct
+    - gochecknoinits
+    - golint
+    - ifshort
+    - interfacer
+    - ireturn # this one may be interesting to control allocations
+    - maligned
+    - nilnil
+    - nlreturn
+    - nonamedreturns
     - paralleltest
+    - prealloc
+    - scopelint
+    - tagliatelle
+    - testpackage
     - tparallel
-
+    - varnamelen # this one may be interesting, but too much churn
+    - whitespace
 
 issues:
   exclude-use-default: false
   exclude-rules:
     - path: _test\.go|testing|tests|test_env|fshasher|fault
       linters:
-      - gomnd
-      - gocognit
-      - funlen
+      - contextcheck
       - errcheck
-      - gosec
-      - gochecknoglobals
-      - nestif
-      - wrapcheck
-      - nolintlint
       - errchkjson
       - forcetypeassert
-      - contextcheck
+      - funlen
+      - gochecknoglobals
+      - gocognit
+      - gomnd
+      - gosec
+      - nestif
+      - nolintlint
+      - wrapcheck
     - text: "log is a global variable"
       linters:
       - gochecknoglobals
