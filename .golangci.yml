@@ -1,5 +1,8 @@
 run:
-    go: 1.17
+  go: '1.17'
+  skip-dirs:
+    - test/testdata_etc
+
 linters-settings:
   govet:
     check-shadowing: true
@@ -85,9 +88,6 @@ linters:
     - paralleltest
     - tparallel
 
-run:
-  skip-dirs:
-    - test/testdata_etc
 
 issues:
   exclude-use-default: false
