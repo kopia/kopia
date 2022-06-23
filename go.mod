@@ -9,7 +9,7 @@ require (
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962 // indirect
 	github.com/alecthomas/kingpin v1.3.8-0.20220615105907-eae6867f4166 // this is pulling master, which is newer than v2
 	github.com/alecthomas/units v0.0.0-20210927113745-59d0afb8317a
-	github.com/aws/aws-sdk-go v1.44.37
+	github.com/aws/aws-sdk-go v1.44.40
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
 	github.com/dustinkirkland/golang-petname v0.0.0-20191129215211-8e5a1ed0cff0
 	github.com/fatih/color v1.13.0
@@ -93,7 +93,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
-	github.com/prometheus/common v0.34.0
+	github.com/prometheus/common v0.35.0
 	github.com/prometheus/procfs v0.7.3 // indirect
 	github.com/rs/xid v1.3.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
