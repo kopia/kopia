@@ -4,11 +4,14 @@ run:
     - test/testdata_etc
 
 linters-settings:
-  govet:
-    check-shadowing: true
-  funlen:
-    lines: 100
-    statements: 60
+  cyclop:
+    max-complexity: 20
+    skip-tests: true
+  exhaustive:
+    # indicates that switch statements are to be considered exhaustive if a
+    # 'default' case is present, even if all enum members aren't listed in the
+    # switch
+    default-signifies-exhaustive: true
   forbidigo:
     forbid:
     - filepath.IsAbs # use ospath.IsAbs which supports windows UNC paths
@@ -23,34 +26,19 @@ linters-settings:
     - time.Now # do not use outside of 'clock' and 'timetrack' packages use clock.Now or timetrack.StartTimer
     - time.Since # use timetrack.Timer.Elapsed()
     - time.Until # never use this
-  gocognit:
-    min-complexity: 40
+  funlen:
+    lines: 100
+    statements: 60
   gci:
     sections:
     - standard
     - default
     - prefix(github.com/kopia/kopia)
-  gocyclo:
-    min-complexity: 15
-  cyclop:
-    max-complexity: 20
-    skip-tests: true
-  maligned:
-    suggest-new: true
+  gocognit:
+    min-complexity: 40
   goconst:
     min-len: 5
     min-occurrences: 3
-  exhaustive:
-    # indicates that switch statements are to be considered exhaustive if a
-    # 'default' case is present, even if all enum members aren't listed in the
-    # switch
-    default-signifies-exhaustive: true
-  misspell:
-    locale: US
-  lll:
-    line-length: 256
-  goimports:
-    local-prefixes: github.com/kopia/kopia
   gocritic:
     settings:
       hugeParam:
@@ -65,6 +53,18 @@ linters-settings:
     disabled-checks:
       - whyNoLint
       - wrapperFunc
+  gocyclo:
+    min-complexity: 15
+  goimports:
+    local-prefixes: github.com/kopia/kopia
+  govet:
+    check-shadowing: true
+  lll:
+    line-length: 256
+  maligned:
+    suggest-new: true
+  misspell:
+    locale: US
 
 linters:
   enable-all: true
