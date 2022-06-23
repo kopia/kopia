@@ -172,31 +172,13 @@ func (bm *BlobManipulator) SetUpSystemUnderTest() {
 		return
 	}
 
-	numFiles = 50
-
-	fileWriteOpts = map[string]string{
-		fiofilewriter.MaxDirDepthField:         strconv.Itoa(1),
-		fiofilewriter.MaxFileSizeField:         strconv.Itoa(fileSize),
-		fiofilewriter.MinFileSizeField:         strconv.Itoa(fileSize),
-		fiofilewriter.MaxNumFilesPerWriteField: strconv.Itoa(numFiles),
-		fiofilewriter.MinNumFilesPerWriteField: strconv.Itoa(numFiles),
-	}
+	// delete this, error case only
 	_, err = bm.fileWriter.WriteRandomFiles(ctx, fileWriteOpts)
 	if err != nil {
 		return
 	}
-
-	fileSize = 40 * 1024 * 1024
-	numFiles = 1
-
-	fileWriteOpts = map[string]string{
-		fiofilewriter.MaxDirDepthField:         strconv.Itoa(1),
-		fiofilewriter.MaxFileSizeField:         strconv.Itoa(fileSize),
-		fiofilewriter.MinFileSizeField:         strconv.Itoa(fileSize),
-		fiofilewriter.MaxNumFilesPerWriteField: strconv.Itoa(numFiles),
-		fiofilewriter.MinNumFilesPerWriteField: strconv.Itoa(numFiles),
-	}
-	_, err = bm.fileWriter.WriteRandomFiles(ctx, fileWriteOpts)
+	log.Printf("Creating snapshot of directory %s", snapPath)
+	_, err = bm.TakeSnapshot(snapPath)
 	if err != nil {
 		return
 	}
