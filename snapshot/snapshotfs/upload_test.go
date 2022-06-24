@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -1009,6 +1010,8 @@ func TestParallelUploadOfLargeFiles(t *testing.T) {
 				verifyContainsOffset(t, entries, chunkSize)
 				successCount++
 			}
+
+			verifyFileContent(t, f, filepath.Join(td, f.Name()))
 		}
 
 		return nil
@@ -1016,6 +1019,38 @@ func TestParallelUploadOfLargeFiles(t *testing.T) {
 
 	// make sure we actually tested something
 	require.Greater(t, successCount, 0)
+}
+
+func verifyFileContent(t *testing.T, f1Entry fs.File, f2Name string) {
+	t.Helper()
+
+	f1, err := f1Entry.Open(testlogging.Context(t))
+	require.NoError(t, err)
+
+	defer f1.Close()
+
+	f2, err := os.Open(f2Name)
+	require.NoError(t, err)
+
+	defer f2.Close()
+
+	buf1 := make([]byte, 1e6)
+	buf2 := make([]byte, 1e6)
+
+	for {
+		n1, err1 := f1.Read(buf1)
+		n2, err2 := f2.Read(buf2)
+
+		if errors.Is(err1, io.EOF) {
+			require.ErrorIs(t, err2, io.EOF)
+			return
+		}
+
+		require.NoError(t, err1)
+		require.NoError(t, err2)
+
+		require.Equal(t, buf1[0:n1], buf2[0:n2])
+	}
 }
 
 func verifyContainsOffset(t *testing.T, entries []object.IndirectObjectEntry, want int64) {
