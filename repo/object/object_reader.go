@@ -41,7 +41,7 @@ type objectReader struct {
 
 	cr contentReader
 
-	seekTable []indirectObjectEntry
+	seekTable []IndirectObjectEntry
 
 	currentPosition int64 // Overall position in the objectReader
 	totalLength     int64 // Overall length
@@ -202,7 +202,7 @@ func (r *objectReader) Length() int64 {
 func openAndAssertLength(ctx context.Context, cr contentReader, objectID ID, assertLength int64) (Reader, error) {
 	if indexObjectID, ok := objectID.IndexObjectID(); ok {
 		// recursively calls openAndAssertLength
-		seekTable, err := loadSeekTable(ctx, cr, indexObjectID)
+		seekTable, err := LoadIndexObject(ctx, cr, indexObjectID)
 		if err != nil {
 			return nil, err
 		}
@@ -225,7 +225,7 @@ func iterateIndirectObjectContents(ctx context.Context, cr contentReader, indexO
 		return errors.Wrap(err, "unable to read index")
 	}
 
-	seekTable, err := loadSeekTable(ctx, cr, indexObjectID)
+	seekTable, err := LoadIndexObject(ctx, cr, indexObjectID)
 	if err != nil {
 		return err
 	}
@@ -260,10 +260,11 @@ func iterateBackingContents(ctx context.Context, r contentReader, oid ID, tracke
 
 type indirectObject struct {
 	StreamID string                `json:"stream"`
-	Entries  []indirectObjectEntry `json:"entries"`
+	Entries  []IndirectObjectEntry `json:"entries"`
 }
 
-func loadSeekTable(ctx context.Context, cr contentReader, indexObjectID ID) ([]indirectObjectEntry, error) {
+// LoadIndexObject returns entries comprising index object.
+func LoadIndexObject(ctx context.Context, cr contentReader, indexObjectID ID) ([]IndirectObjectEntry, error) {
 	r, err := openAndAssertLength(ctx, cr, indexObjectID, -1)
 	if err != nil {
 		return nil, err

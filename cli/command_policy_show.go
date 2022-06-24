@@ -270,6 +270,7 @@ func appendUploadPolicyRows(rows []policyTableRow, p *policy.Policy, def *policy
 		policyTableRow{"Uploads:", "", ""},
 		policyTableRow{"  Max parallel snapshots (server/UI):", valueOrNotSet(p.UploadPolicy.MaxParallelSnapshots), definitionPointToString(p.Target(), def.UploadPolicy.MaxParallelSnapshots)},
 		policyTableRow{"  Max parallel file reads:", valueOrNotSet(p.UploadPolicy.MaxParallelFileReads), definitionPointToString(p.Target(), def.UploadPolicy.MaxParallelFileReads)},
+		policyTableRow{"  Parallel upload above size:", valueOrNotSetOptionalInt64Bytes(p.UploadPolicy.ParallelUploadAboveSize), definitionPointToString(p.Target(), def.UploadPolicy.ParallelUploadAboveSize)},
 	)
 }
 
@@ -434,4 +435,12 @@ func valueOrNotSet(p *policy.OptionalInt) string {
 	}
 
 	return fmt.Sprintf("%v", *p)
+}
+
+func valueOrNotSetOptionalInt64Bytes(p *policy.OptionalInt64) string {
+	if p == nil {
+		return "-"
+	}
+
+	return units.BytesStringBase2(int64(*p))
 }

@@ -13,10 +13,12 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
+	"go.uber.org/multierr"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/ignorefs"
@@ -158,7 +160,78 @@ func (u *Uploader) uploadFileInternal(ctx context.Context, parentCheckpointRegis
 
 	comp := pol.CompressionPolicy.CompressorForFile(f)
 
-	return u.uploadFileData(ctx, parentCheckpointRegistry, f, f.Name(), 0, -1, comp)
+	chunkSize := pol.UploadPolicy.ParallelUploadAboveSize.OrDefault(-1)
+	if chunkSize < 0 || f.Size() <= chunkSize {
+		// all data fits in 1 full chunks, upload directly
+		return u.uploadFileData(ctx, parentCheckpointRegistry, f, f.Name(), 0, -1, comp)
+	}
+
+	// we always have N+1 parts, first N are exactly chunkSize, last one has undetermined length
+	fullParts := f.Size() / chunkSize
+
+	// directory entries and errors for partial upload results
+	parts := make([]*snapshot.DirEntry, fullParts+1)
+	partErrors := make([]error, fullParts+1)
+
+	uploadLog(ctx).Debugf("performing chunked upload for %v (%v parts)", relativePath, len(parts))
+
+	var wg workshare.AsyncGroup
+	defer wg.Close()
+
+	for i := 0; i < len(parts); i++ {
+		i := i
+		offset := int64(i) * chunkSize
+
+		length := chunkSize
+		if i == len(parts)-1 {
+			// last part has unknown length to accommodate the file that may be growing as we're snapshotting it
+			length = -1
+		}
+
+		if wg.CanShareWork(u.workerPool) {
+			// another goroutine is available, delegate to them
+			wg.RunAsync(u.workerPool, func(c *workshare.Pool, request interface{}) {
+				parts[i], partErrors[i] = u.uploadFileData(ctx, parentCheckpointRegistry, f, uuid.NewString(), offset, length, comp)
+			}, nil)
+		} else {
+			// just do the work in the current goroutine
+			parts[i], partErrors[i] = u.uploadFileData(ctx, parentCheckpointRegistry, f, uuid.NewString(), offset, length, comp)
+		}
+	}
+
+	wg.Wait()
+
+	// see if we got any errors
+	if err := multierr.Combine(partErrors...); err != nil {
+		return nil, errors.Wrap(err, "error uploading parts")
+	}
+
+	return concatenateParts(ctx, u.repo, f.Name(), parts)
+}
+
+func concatenateParts(ctx context.Context, rep repo.RepositoryWriter, name string, parts []*snapshot.DirEntry) (*snapshot.DirEntry, error) {
+	var (
+		objectIDs []object.ID
+		totalSize int64
+	)
+
+	// resulting size is the sum of all parts and resulting object ID is concatenation of individual object IDs.
+	for _, part := range parts {
+		totalSize += part.FileSize
+		objectIDs = append(objectIDs, part.ObjectID)
+	}
+
+	resultObject, err := rep.ConcatenateObjects(ctx, objectIDs)
+	if err != nil {
+		return nil, errors.Wrap(err, "concatenate")
+	}
+
+	de := parts[0]
+	de.Name = name
+	de.FileSize = totalSize
+	de.ObjectID = resultObject
+
+	return de, nil
 }
 
 func (u *Uploader) uploadFileData(ctx context.Context, parentCheckpointRegistry *checkpointRegistry, f fs.File, fname string, offset, length int64, compressor compression.Name) (*snapshot.DirEntry, error) {

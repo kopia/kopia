@@ -41,6 +41,7 @@ type RepositoryWriter interface {
 	Repository
 
 	NewObjectWriter(ctx context.Context, opt object.WriterOptions) object.Writer
+	ConcatenateObjects(ctx context.Context, objectIDs []object.ID) (object.ID, error)
 	PutManifest(ctx context.Context, labels map[string]string, payload interface{}) (manifest.ID, error)
 	DeleteManifest(ctx context.Context, id manifest.ID) error
 	Flush(ctx context.Context) error
@@ -151,6 +152,12 @@ func (r *directRepository) Crypter() *content.Crypter {
 // NewObjectWriter creates an object writer.
 func (r *directRepository) NewObjectWriter(ctx context.Context, opt object.WriterOptions) object.Writer {
 	return r.omgr.NewWriter(ctx, opt)
+}
+
+// ConcatenateObjects creates a concatenated objects from the provided object IDs.
+func (r *directRepository) ConcatenateObjects(ctx context.Context, objectIDs []object.ID) (object.ID, error) {
+	// nolint:wrapcheck
+	return r.omgr.Concatenate(ctx, objectIDs)
 }
 
 // DisableIndexRefresh disables index refresh for the duration of the write session.

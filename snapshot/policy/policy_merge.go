@@ -67,6 +67,15 @@ func mergeOptionalInt(target **OptionalInt, src *OptionalInt, def *snapshot.Sour
 	}
 }
 
+func mergeOptionalInt64(target **OptionalInt64, src *OptionalInt64, def *snapshot.SourceInfo, si snapshot.SourceInfo) {
+	if *target == nil && src != nil {
+		v := *src
+
+		*target = &v
+		*def = si
+	}
+}
+
 func mergeStringsReplace(target *[]string, src []string, def *snapshot.SourceInfo, si snapshot.SourceInfo) {
 	if len(*target) == 0 && len(src) > 0 {
 		*target = src
