@@ -32,7 +32,7 @@ jobs:
         os: [windows-latest, ubuntu-latest, macos-latest]
         include:
           - os: [self-hosted, ARM64]
-          - os: [self-hosted, ARMHF]
+          #- os: [self-hosted, ARMHF]
     name: Tests
     runs-on: ${{ matrix.os }}
     continue-on-error: ${{ contains(matrix.os, 'self-hosted') }}
