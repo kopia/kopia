@@ -25,7 +25,6 @@ import (
 	"github.com/kopia/kopia/repo/blob/logging"
 	"github.com/kopia/kopia/repo/encryption"
 	"github.com/kopia/kopia/repo/hashing"
-	repologging "github.com/kopia/kopia/repo/logging"
 )
 
 // we use two fake time sources - one for local client and one for the remote store
@@ -198,7 +197,7 @@ func TestIndexBlobManagerStress(t *testing.T) {
 
 	for actorID := 0; actorID < numActors; actorID++ {
 		actorID := actorID
-		loggedSt := logging.NewWrapper(st, repologging.Printf(func(m string, args ...interface{}) {
+		loggedSt := logging.NewWrapper(st, testlogging.Printf(func(m string, args ...interface{}) {
 			t.Logf(fmt.Sprintf("@%v actor[%v]:", fakeTimeFunc().Format("150405.000"), actorID)+m, args...)
 		}, ""), "")
 		contentPrefix := fmt.Sprintf("a%v", actorID)
@@ -290,7 +289,7 @@ func TestCompactionCreatesPreviousIndex(t *testing.T) {
 
 	st := blobtesting.NewMapStorage(storageData, nil, fakeTimeFunc)
 	st = blobtesting.NewEventuallyConsistentStorage(st, testEventualConsistencySettleTime, fakeTimeFunc)
-	st = logging.NewWrapper(st, repologging.Printf(func(msg string, args ...interface{}) {
+	st = logging.NewWrapper(st, testlogging.Printf(func(msg string, args ...interface{}) {
 		t.Logf("[store] "+fakeTimeFunc().Format("150405.000")+" "+msg, args...)
 	}, ""), "")
 	m := newIndexBlobManagerForTesting(t, st, fakeTimeFunc)
@@ -370,7 +369,7 @@ func verifyIndexBlobManagerPreventsResurrectOfDeletedContents(t *testing.T, dela
 
 	st := blobtesting.NewMapStorage(storageData, nil, fakeTimeFunc)
 	st = blobtesting.NewEventuallyConsistentStorage(st, testEventualConsistencySettleTime, fakeTimeFunc)
-	st = logging.NewWrapper(st, repologging.Printf(func(msg string, args ...interface{}) {
+	st = logging.NewWrapper(st, testlogging.Printf(func(msg string, args ...interface{}) {
 		t.Logf(fakeTimeFunc().Format("150405.000")+" "+msg, args...)
 	}, ""), "")
 	m := newIndexBlobManagerForTesting(t, st, fakeTimeFunc)
@@ -788,7 +787,7 @@ func newIndexBlobManagerForTesting(t *testing.T, st blob.Storage, localTimeNow f
 		15*time.Minute,
 	)
 
-	log := repologging.Printf(t.Logf, "test")
+	log := testlogging.Printf(t.Logf, "")
 
 	m := &indexBlobManagerV0{
 		st: st,

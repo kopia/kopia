@@ -46,7 +46,7 @@ func TestEncryptedBlobManager(t *testing.T) {
 		st:             fs,
 		crypter:        cr,
 		indexBlobCache: nil,
-		log:            logging.NullLogger(),
+		log:            logging.NullLogger,
 	}
 
 	ctx := testlogging.Context(t)

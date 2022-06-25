@@ -2,6 +2,7 @@
 package serverapi
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/kopia/kopia/fs"
@@ -220,7 +221,7 @@ type TaskListResponse struct {
 
 // TaskLogResponse contains a task log.
 type TaskLogResponse struct {
-	Logs []uitask.LogEntry `json:"logs"`
+	Logs []json.RawMessage `json:"logs"` // formatted as uitask.LogEntry
 }
 
 // RestoreRequest contains request to restore an object (file or directory) to a given destination.

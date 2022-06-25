@@ -265,11 +265,9 @@ func runStress(t *testing.T, opt *StressOptions) {
 			i := i
 
 			eg.Go(func() error {
-				log := logging.WithPrefix(fmt.Sprintf("%v::o%v", filepath.Base(configFile), i), logging.Broadcast{
-					logging.Printf(func(msg string, args ...interface{}) {
-						fmt.Fprintf(logFile, clock.Now().Format("2006-01-02T15:04:05.000000Z07:00")+" "+msg+"\n", args...)
-					}, ""),
-				})
+				log := testlogging.Printf(func(msg string, args ...interface{}) {
+					fmt.Fprintf(logFile, clock.Now().Format("2006-01-02T15:04:05.000000Z07:00")+" "+msg+"\n", args...)
+				}, "").With("worker", fmt.Sprintf("%v::o%v", filepath.Base(configFile), i))
 
 				ctx2 := logging.WithLogger(ctx, func(module string) logging.Logger {
 					return log
@@ -318,7 +316,7 @@ func longLivedRepositoryTest(ctx context.Context, t *testing.T, configFile strin
 		}
 
 		for j := 0; j < opt.WorkersPerSession; j++ {
-			log2 := logging.WithPrefix(fmt.Sprintf("s%vw%v::", i, j), log)
+			log2 := log.With("worker", fmt.Sprintf("s%vw%v::", i, j))
 
 			eg.Go(func() error {
 				return repositoryTest(ctx, t, stop, w, ors, log2, opt)

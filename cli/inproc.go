@@ -18,7 +18,7 @@ func (c *App) RunSubcommand(ctx context.Context, kpapp *kingpin.Application, arg
 
 	c.stdoutWriter = stdoutWriter
 	c.stderrWriter = stderrWriter
-	c.rootctx = logging.WithLogger(ctx, logging.Writer(stderrWriter))
+	c.rootctx = logging.WithLogger(ctx, logging.ToWriter(stderrWriter))
 
 	c.Attach(kpapp)
 

@@ -3,6 +3,7 @@ package uitask
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sort"
 	"sync"
@@ -141,7 +142,7 @@ func (m *Manager) TaskSummary() map[Status]int {
 }
 
 // TaskLog retrieves the log from the task.
-func (m *Manager) TaskLog(taskID string) []LogEntry {
+func (m *Manager) TaskLog(taskID string) []json.RawMessage {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -150,7 +151,7 @@ func (m *Manager) TaskLog(taskID string) []LogEntry {
 	}
 
 	if f, ok := m.finished[taskID]; ok {
-		return append([]LogEntry(nil), f.LogLines...)
+		return append([]json.RawMessage(nil), f.LogLines...)
 	}
 
 	return nil

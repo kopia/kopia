@@ -93,21 +93,21 @@ func TestTrackAllocation(t *testing.T) {
 
 	var log bytes.Buffer
 
-	ctx := logging.WithLogger(context.Background(), logging.Writer(&log))
+	ctx := logging.WithLogger(context.Background(), logging.ToWriter(&log))
 	DumpStats(ctx)
-	require.Contains(t, log.String(), "chunksAlive:0")
+	require.Contains(t, log.String(), `"chunksAlive": 0`)
 	require.NotContains(t, log.String(), "leaked chunk")
 
 	tmp.Append([]byte{1, 2, 3})
 
 	log.Reset()
 	DumpStats(ctx)
-	require.Contains(t, log.String(), "chunksAlive:1")
+	require.Contains(t, log.String(), `"chunksAlive": 1`)
 	require.Contains(t, log.String(), "leaked chunk")
 
 	log.Reset()
 	tmp.Close()
 	DumpStats(ctx)
-	require.Contains(t, log.String(), "chunksAlive:0")
+	require.Contains(t, log.String(), `"chunksAlive": 0`)
 	require.NotContains(t, log.String(), "leaked chunk")
 }
