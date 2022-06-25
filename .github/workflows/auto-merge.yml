@@ -10,5 +10,5 @@ jobs:
       - uses: actions/checkout@v2
       - uses: ahmadnassri/action-dependabot-auto-merge@v2
         with:
-          target: minor
+          # auto-merge rules are in /.github/auto-merge.yml
           github-token: ${{ secrets.AUTO_MERGE_TOKEN }}

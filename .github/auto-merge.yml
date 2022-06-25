@@ -1,3 +1,45 @@
+# This file contains rules for auto-approving Dependabot PRs.
+#
+# We should only have entries for regularly-delivered updates from reputable vendors
+# that have been proven to be stable.
+
+# AWS-provided libraries
 - match:
-    dependency_type: all
+    dependency_name: "github.com/aws/aws-sdk-go"
+    update_type: "semver:minor"
+
+# Google-provided libraries
+- match:
+    dependency_name: "google.golang.org/grpc"
+    update_type: "semver:minor"
+- match:
+    dependency_name: "google.golang.org/api"
+    update_type: "semver:minor"
+- match:
+    dependency_name: "google.golang.org/protobuf"
+    update_type: "semver:minor"
+- match:
+    dependency_name: "cloud.google.com/go/storage"
+    update_type: "semver:minor"
+- match:
+    dependency_name: "github.com/minio/minio-go/v7"
+    update_type: "semver:minor"
+
+# ReactJS
+- match:
+    dependency_name: "react-scripts"
     update_type: "semver:patch"
+
+# test-only dependencies where we have good coverage to auto approve minor updates
+- match:
+    dependency_name: "github.com/chromedp/chromedp"
+    update_type: "semver:minor"
+
+# DO NOT ADD large electron dependencies here:
+#
+# electron
+# electron-builder
+# electron-updater
+#
+# Those have been known to break in the past and we don't have adequate 
+# coverage to detect regressions in all cases (desktop app installation and upgrade).
