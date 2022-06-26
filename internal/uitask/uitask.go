@@ -1,12 +1,15 @@
 package uitask
 
 import (
+	"bytes"
 	"context"
-	"fmt"
+	"encoding/json"
 	"sync"
 	"time"
 
-	"github.com/kopia/kopia/internal/clock"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/logging"
 )
@@ -44,14 +47,6 @@ const (
 	LogLevelError
 )
 
-// LogEntry contains one output from a single log statement.
-type LogEntry struct {
-	Timestamp float64  `json:"ts"` // unix timestamp possibly with fractional seconds.
-	Module    string   `json:"mod"`
-	Level     LogLevel `json:"level"`
-	Text      string   `json:"msg"`
-}
-
 // Info represents information about a task (running or finished).
 type Info struct {
 	TaskID       string                  `json:"id"`
@@ -63,7 +58,7 @@ type Info struct {
 	ProgressInfo string                  `json:"progressInfo"`
 	ErrorMessage string                  `json:"errorMessage,omitempty"`
 	Counters     map[string]CounterValue `json:"counters"`
-	LogLines     []LogEntry              `json:"-"`
+	LogLines     []json.RawMessage       `json:"-"`
 	Error        error                   `json:"-"`
 
 	sequenceNumber int
@@ -140,13 +135,56 @@ func (t *runningTaskInfo) info() Info {
 	return i
 }
 
+// those are JSON keys expected by the UI log viewer.
+const (
+	uiLogTimeKey    = "ts"
+	uiLogModuleKey  = "mod"
+	uiLogMessageKey = "msg"
+	uiLogLevelKey   = "level"
+)
+
 func (t *runningTaskInfo) loggerForModule(module string) logging.Logger {
-	return runningTaskLogger{t, module}
+	return zap.New(
+		zapcore.NewCore(
+			zapcore.NewJSONEncoder(zapcore.EncoderConfig{
+				TimeKey:        uiLogTimeKey,
+				LevelKey:       uiLogLevelKey,
+				NameKey:        uiLogModuleKey,
+				MessageKey:     uiLogMessageKey,
+				LineEnding:     zapcore.DefaultLineEnding,
+				EncodeName:     zapcore.FullNameEncoder,
+				EncodeLevel:    uiLevelEncoder,
+				EncodeTime:     zapcore.EpochTimeEncoder,
+				EncodeDuration: zapcore.StringDurationEncoder,
+				EncodeCaller:   zapcore.ShortCallerEncoder,
+				SkipLineEnding: true,
+			}),
+			t,
+			zapcore.DebugLevel,
+		),
+	).Sugar().Named(module)
 }
 
-func (t *runningTaskInfo) addLogEntry(module string, level LogLevel, msg string, args []interface{}) {
+func uiLevelEncoder(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
+	switch l {
+	case zapcore.InfoLevel:
+		enc.AppendInt(int(LogLevelInfo))
+	case zapcore.WarnLevel:
+		enc.AppendInt(int(LogLevelWarning))
+	case zapcore.ErrorLevel:
+		enc.AppendInt(int(LogLevelError))
+	default:
+		enc.AppendInt(int(LogLevelDebug))
+	}
+}
+
+// nolint:gochecknoglobals
+var containsFormatLogModule = []byte(`"` + uiLogModuleKey + `":"` + content.FormatLogModule + `"`)
+
+func (t *runningTaskInfo) addLogEntry(le json.RawMessage) {
 	// do not store noisy output from format log.
-	if module == content.FormatLogModule {
+	// compare JSON bytes to avoid having to parse.
+	if bytes.Contains(le, containsFormatLogModule) {
 		return
 	}
 
@@ -157,47 +195,29 @@ func (t *runningTaskInfo) addLogEntry(module string, level LogLevel, msg string,
 		return
 	}
 
-	t.LogLines = append(t.LogLines, LogEntry{
-		Timestamp: float64(clock.Now().UnixNano()) / 1e9,
-		Level:     level,
-		Module:    module,
-		Text:      fmt.Sprintf(msg, args...),
-	})
+	t.LogLines = append(t.LogLines, le)
 	if len(t.LogLines) > t.maxLogMessages {
 		t.LogLines = t.LogLines[1:]
 	}
 }
 
-func (t *runningTaskInfo) log() []LogEntry {
+func (t *runningTaskInfo) log() []json.RawMessage {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	return append([]LogEntry(nil), t.LogLines...)
+	return append([]json.RawMessage(nil), t.LogLines...)
 }
 
-type runningTaskLogger struct {
-	r      *runningTaskInfo
-	module string
+func (t *runningTaskInfo) Write(p []byte) (int, error) {
+	n := len(p)
+
+	p = append([]byte(nil), p...)
+
+	t.addLogEntry(json.RawMessage(p))
+
+	return n, nil
 }
 
-func (l runningTaskLogger) Debugf(msg string, args ...interface{}) {
-	l.r.addLogEntry(l.module, LogLevelDebug, msg, args)
+func (t *runningTaskInfo) Sync() error {
+	return nil
 }
-
-func (l runningTaskLogger) Debugw(msg string, keyValuePairs ...interface{}) {
-	l.r.addLogEntry(l.module, LogLevelDebug, logging.DebugMessageWithKeyValuePairs(msg, keyValuePairs), nil)
-}
-
-func (l runningTaskLogger) Infof(msg string, args ...interface{}) {
-	l.r.addLogEntry(l.module, LogLevelInfo, msg, args)
-}
-
-func (l runningTaskLogger) Warnf(msg string, args ...interface{}) {
-	l.r.addLogEntry(l.module, LogLevelWarning, msg, args)
-}
-
-func (l runningTaskLogger) Errorf(msg string, args ...interface{}) {
-	l.r.addLogEntry(l.module, LogLevelError, msg, args)
-}
-
-var _ logging.Logger = runningTaskLogger{}

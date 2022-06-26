@@ -364,7 +364,9 @@ func newCacheBackingStorage(ctx context.Context, caching *CachingOptions, subdir
 
 func (sm *SharedManager) namedLogger(n string) logging.Logger {
 	if sm.internalLogger != nil {
-		return logging.Broadcast{sm.contextLogger, sm.internalLogger.Named("[" + n + "]")}
+		return logging.Broadcast(
+			sm.contextLogger,
+			sm.internalLogger.Named("["+n+"]"))
 	}
 
 	return sm.contextLogger

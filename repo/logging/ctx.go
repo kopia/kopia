@@ -49,6 +49,6 @@ func AlsoLogTo(ctx context.Context, loggers ...Logger) context.Context {
 	originalLogFactory := loggerFactoryFromContext(ctx)
 
 	return WithLogger(ctx, func(module string) Logger {
-		return append(Broadcast{originalLogFactory(module)}, loggers...)
+		return Broadcast(append([]Logger{originalLogFactory(module)}, loggers...)...)
 	})
 }

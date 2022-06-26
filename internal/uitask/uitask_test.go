@@ -2,6 +2,7 @@ package uitask_test
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
 	"time"
@@ -334,11 +335,17 @@ func verifyTaskLog(t *testing.T, m *uitask.Manager, taskID string, want []string
 	}
 }
 
-func logText(items []uitask.LogEntry) string {
+func logText(items []json.RawMessage) string {
 	var result []string
 
 	for _, it := range items {
-		result = append(result, it.Text)
+		var ent struct {
+			M string `json:"msg"`
+		}
+
+		json.Unmarshal(it, &ent)
+
+		result = append(result, ent.M)
 	}
 
 	return strings.Join(result, "\n")

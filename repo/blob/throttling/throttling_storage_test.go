@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -12,7 +13,7 @@ import (
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo/blob"
-	"github.com/kopia/kopia/repo/blob/logging"
+	bloblogging "github.com/kopia/kopia/repo/blob/logging"
 	"github.com/kopia/kopia/repo/blob/throttling"
 )
 
@@ -44,20 +45,17 @@ func (m *mockThrottler) ReturnUnusedDownloadBytes(ctx context.Context, numBytes 
 	m.activity = append(m.activity, fmt.Sprintf("ReturnUnusedDownloadBytes(%v)", numBytes))
 }
 
-func (m *mockThrottler) Debugw(msg string, args ...interface{}) {
+func (m *mockThrottler) Printf(msg string, args ...interface{}) {
+	msg = fmt.Sprintf(msg, args...)
+	msg = strings.Split(msg, "\t")[0] // ignore parameters
 	m.activity = append(m.activity, msg)
 }
-
-func (m *mockThrottler) Debugf(msg string, args ...interface{}) {}
-func (m *mockThrottler) Infof(msg string, args ...interface{})  {}
-func (m *mockThrottler) Warnf(msg string, args ...interface{})  {}
-func (m *mockThrottler) Errorf(msg string, args ...interface{}) {}
 
 func TestThrottling(t *testing.T) {
 	ctx := testlogging.Context(t)
 	m := &mockThrottler{}
 	st := blobtesting.NewMapStorage(blobtesting.DataMap{}, nil, nil)
-	l := logging.NewWrapper(st, m, "inner.")
+	l := bloblogging.NewWrapper(st, testlogging.Printf(m.Printf, ""), "inner.")
 	wrapped := throttling.NewWrapper(l, m)
 
 	var tmp gather.WriteBuffer

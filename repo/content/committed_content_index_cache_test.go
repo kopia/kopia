@@ -13,7 +13,6 @@ import (
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content/index"
-	"github.com/kopia/kopia/repo/logging"
 )
 
 func TestCommittedContentIndexCache_Disk(t *testing.T) {
@@ -21,7 +20,7 @@ func TestCommittedContentIndexCache_Disk(t *testing.T) {
 
 	ta := faketime.NewClockTimeWithOffset(0)
 
-	testCache(t, &diskCommittedContentIndexCache{testutil.TempDirectory(t), ta.NowFunc(), 3, logging.Printf(t.Logf, "test"), DefaultIndexCacheSweepAge}, ta)
+	testCache(t, &diskCommittedContentIndexCache{testutil.TempDirectory(t), ta.NowFunc(), 3, testlogging.Printf(t.Logf, ""), DefaultIndexCacheSweepAge}, ta)
 }
 
 func TestCommittedContentIndexCache_Memory(t *testing.T) {

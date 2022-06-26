@@ -3,6 +3,7 @@ package snapshotfs
 import (
 	"context"
 	"crypto/rand"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -19,6 +20,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/localfs"
@@ -71,7 +74,7 @@ func newUploadTestHarness(ctx context.Context, t *testing.T) *uploadTestHarness 
 	}
 
 	faulty := blobtesting.NewFaultyStorage(storage)
-	logged := bloblogging.NewWrapper(faulty, logging.Printf(t.Logf, "{STORAGE} "), "")
+	logged := bloblogging.NewWrapper(faulty, testlogging.Printf(t.Logf, "{STORAGE} "), "")
 	rec := repotesting.NewReconnectableStorage(t, logged)
 
 	if initerr := repo.Initialize(ctx, rec, &repo.NewRepositoryOptions{}, masterPassword); initerr != nil {
@@ -858,24 +861,41 @@ func TestUpload_StreamingDirectoryWithIgnoredFile(t *testing.T) {
 }
 
 type mockLogger struct {
-	logging.Logger
-
 	logged []loggedAction
 }
 
-func (l *mockLogger) Debugw(msg string, keysAndValues ...interface{}) {
-	m := map[string]interface{}{}
+func (w *mockLogger) Write(p []byte) (int, error) {
+	n := len(p)
 
-	for i := 0; i+1 < len(keysAndValues); i += 2 {
-		s, ok := keysAndValues[i].(string)
-		if !ok {
-			panic("not a string key")
+	parts := strings.SplitN(strings.TrimSpace(string(p)), "\t", 2)
+
+	var la loggedAction
+	la.msg = parts[0]
+
+	if len(parts) == 2 {
+		if err := json.Unmarshal([]byte(parts[1]), &la.keysAndValues); err != nil {
+			return 0, err
 		}
-
-		m[s] = keysAndValues[i+1]
 	}
 
-	l.logged = append(l.logged, loggedAction{msg, m})
+	if !w.ignore(la) {
+		w.logged = append(w.logged, la)
+	}
+
+	return n, nil
+}
+
+func (w *mockLogger) ignore(la loggedAction) bool {
+	switch {
+	case strings.HasPrefix(la.msg, "Uploading ") && strings.Contains(la.msg, " with parallelism"):
+		return true
+	default:
+		return false
+	}
+}
+
+func (w *mockLogger) Sync() error {
+	return nil
 }
 
 func TestParallelUploadDedup(t *testing.T) {
@@ -1326,18 +1346,38 @@ func TestUploadLogging(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ml := &mockLogger{
-				Logger: logging.NullLogger(),
-			}
+			ml := &mockLogger{}
+
+			logUploader := zap.New(
+				zapcore.NewCore(
+					zapcore.NewConsoleEncoder(zapcore.EncoderConfig{
+						// Keys can be anything except the empty string.
+						TimeKey:        zapcore.OmitKey,
+						LevelKey:       zapcore.OmitKey,
+						NameKey:        zapcore.OmitKey,
+						CallerKey:      zapcore.OmitKey,
+						FunctionKey:    zapcore.OmitKey,
+						MessageKey:     "M",
+						StacktraceKey:  "S",
+						LineEnding:     zapcore.DefaultLineEnding,
+						EncodeLevel:    zapcore.CapitalLevelEncoder,
+						EncodeTime:     zapcore.ISO8601TimeEncoder,
+						EncodeDuration: zapcore.StringDurationEncoder,
+						EncodeCaller:   zapcore.ShortCallerEncoder,
+					}),
+					ml,
+					zapcore.DebugLevel,
+				),
+			).Sugar()
 
 			ctx := testlogging.Context(t)
 			ctx = logging.WithLogger(ctx, func(module string) logging.Logger {
 				if module == "uploader" {
 					// only capture logs from the uploader, not the estimator.
-					return ml
+					return logUploader
 				}
 
-				return logging.NullLogger()
+				return logging.NullLogger
 			})
 			th := newUploadTestHarness(ctx, t)
 
@@ -1375,7 +1415,7 @@ func TestUploadLogging(t *testing.T) {
 			for _, l := range ml.logged {
 				gotEntries = append(gotEntries, fmt.Sprintf("%v %v", l.msg, l.keysAndValues["path"]))
 
-				require.Contains(t, tc.wantDetailKeys, l.msg)
+				assert.Contains(t, tc.wantDetailKeys, l.msg)
 				verifyLogDetails(t, l.msg, tc.wantDetailKeys[l.msg], l.keysAndValues)
 			}
 

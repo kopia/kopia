@@ -3,19 +3,19 @@ package logging
 
 import (
 	"context"
+	"io"
+
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+
+	"github.com/kopia/kopia/internal/zaplogutil"
 )
 
-// LoggerFactory retrieves logger for a given module.
-type LoggerFactory func(module string) Logger
+// Logger is used by Kopia to emit various logs.
+type Logger = *zap.SugaredLogger
 
-// Logger is an interface used by Kopia to output logs.
-type Logger interface {
-	Debugf(msg string, args ...interface{})
-	Debugw(msg string, keyValuePairs ...interface{})
-	Infof(msg string, args ...interface{})
-	Warnf(msg string, args ...interface{})
-	Errorf(msg string, args ...interface{})
-}
+// LoggerFactory retrieves a named logger for a given module.
+type LoggerFactory func(module string) Logger
 
 // Module returns an function that returns a logger for a given module when provided with a context.
 func Module(module string) func(ctx context.Context) Logger {
@@ -24,6 +24,17 @@ func Module(module string) func(ctx context.Context) Logger {
 			return l.(*loggerCache).getLogger(module) //nolint:forcetypeassert
 		}
 
-		return nullLogger{}
+		return NullLogger
 	}
+}
+
+// ToWriter returns LoggerFactory that uses given writer for log output (unadorned).
+func ToWriter(w io.Writer) LoggerFactory {
+	return zap.New(zapcore.NewCore(
+		zapcore.NewConsoleEncoder(zapcore.EncoderConfig{
+			MessageKey:     "m",
+			EncodeTime:     zaplogutil.TimezoneAdjust(zaplogutil.PreciseTimeEncoder(), false),
+			EncodeDuration: zapcore.StringDurationEncoder,
+		}),
+		zapcore.AddSync(w), zap.DebugLevel), zap.WithClock(zaplogutil.Clock())).Sugar().Named
 }
