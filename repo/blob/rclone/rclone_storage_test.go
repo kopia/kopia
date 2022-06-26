@@ -32,6 +32,7 @@ const cleanupAge = 4 * time.Hour
 var rcloneExternalProviders = map[string]string{
 	"GoogleDrive": "gdrive:/kopia",
 	"OneDrive":    "onedrive:/kopia",
+	"DropBox":     "dropbox:/kopia",
 }
 
 func mustGetRcloneExeOrSkip(t *testing.T) string {
