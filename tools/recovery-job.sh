@@ -12,7 +12,7 @@ set -o nounset
 # 4. test_timeout
 # 5. test_repo_path_prefix
 
-# Environment variables that modify the behavior of the robustness job execution
+# Environment variables that modify the behavior of the recovery job execution
 #
 # - AWS_ACCESS_KEY_ID: To access the repo bucket
 # - AWS_SECRET_ACCESS_KEY: To access the repo bucket
@@ -23,7 +23,7 @@ set -o nounset
 #       restored to and fio data should be written to
 # - S3_BUCKET_NAME: Name of the S3 bucket for the repo
 
-readonly kopia_recovery_dir="${1?Specify directory with kopia robustness git repo}"
+readonly kopia_recovery_dir="${1?Specify directory with kopia recovery git repo}"
 readonly kopia_exe_dir="${2?Specify the directory of the kopia git repo to be tested}"
 
 readonly test_duration=${3:?"Provide a minimum duration for the testing, e.g., '15m'"}
@@ -80,7 +80,7 @@ go build -o "${kopia_exe}" github.com/kopia/kopia
 
 popd
 
-# Extract git metadata on the robustness repo and perform a robustness run
+# Extract git metadata on the recovery repo, perform a recovery run
 pushd "${kopia_recovery_dir}"
 
 readonly robustness_git_revision=$(git rev-parse --short HEAD)

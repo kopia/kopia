@@ -52,6 +52,7 @@ func TestSnapshotFix(t *testing.T) {
 
 	// extract out object ID needed to be used in snapshot fix command
 	blobID := getBlobIDToBeDeleted(stdout)
+
 	stdout, err = bm.SnapshotFixRemoveFilesByBlobID(blobID)
 	if err != nil {
 		log.Println("Error repairing the kopia repository:", stdout, err)
@@ -60,10 +61,9 @@ func TestSnapshotFix(t *testing.T) {
 	// restore a random snapshot
 	_, err = bm.RestoreGivenOrRandomSnapshot("", restoreDir)
 	require.NoError(t, err)
-
 }
 
-func makeDir(dirName string) (baseDir string) {
+func makeDir(dirName string) string {
 	baseDir, err := os.MkdirTemp("", dirName)
 	if err != nil {
 		log.Println("Error creating temp dir:", err)
@@ -75,26 +75,28 @@ func makeDir(dirName string) (baseDir string) {
 
 func getBlobIDToBeDeleted(stdout string) string {
 	s1 := strings.Split(stdout, ":")
-	wanted_index := -1
+
+	wantedIndex := -1
+
 	for i, s := range s1 {
 		if strings.Contains(s, "unable to open object") {
-			wanted_index = i + 1
+			wantedIndex = i + 1
 			break
 		}
 	}
-	if wanted_index == -1 {
+
+	if wantedIndex == -1 {
 		return ""
 	}
-	return s1[wanted_index]
 
+	return s1[wantedIndex]
 }
 
-func getSnapshotter(baseDirPath string) (ks *snapmeta.KopiaSnapshotter) {
+func getSnapshotter(baseDirPath string) *snapmeta.KopiaSnapshotter {
 	ks, err := snapmeta.NewSnapshotter(baseDirPath)
 	if err != nil {
 		if errors.Is(err, kopiarunner.ErrExeVariableNotSet) {
 			log.Println("Skipping robustness tests because KOPIA_EXE is not set")
-
 		} else {
 			log.Println("Error creating kopia Snapshotter:", err)
 		}

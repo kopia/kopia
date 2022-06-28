@@ -1,6 +1,9 @@
+//go:build darwin || (linux && amd64)
+// +build darwin linux,amd64
+
+// Package blobmanipulator provides the framework for snapshot fix testing.
 package blobmanipulator
 
-// Package blobmanipulator provides the framework for snapshot fix testing
 import (
 	"context"
 	"encoding/json"
@@ -19,6 +22,7 @@ import (
 	"github.com/kopia/kopia/tests/tools/kopiarunner"
 )
 
+// BlobManipulator provides a way to run a kopia command.
 type BlobManipulator struct {
 	KopiaCommandRunner *kopiarunner.KopiaSnapshotter
 	DirCreater         *snapmeta.KopiaSnapshotter
@@ -39,22 +43,25 @@ func NewBlobManipulator(baseDirPath string) (*BlobManipulator, error) {
 	}, nil
 }
 
+// ConnectOrCreateRepo connects to an existing repository if possible or creates a new one.
 func (bm *BlobManipulator) ConnectOrCreateRepo(dataRepoPath string) error {
 	return bm.DirCreater.ConnectOrCreateRepo(dataRepoPath)
 }
 
-// Delete provided or a random blob in kopia repo
-func (bm *BlobManipulator) DeleteBlob(blobID string) (err error) {
-
+// DeleteBlob deletes the provided blob or a random blob, in kopia repo.
+func (bm *BlobManipulator) DeleteBlob(blobID string) error {
 	if blobID == "" {
-		blobID, err = bm.getBlobIDRand()
+		randomBlobID, err := bm.getBlobIDRand()
+		blobID = randomBlobID
+
 		if err != nil {
 			return err
 		}
 	}
+
 	log.Printf("Deleting BLOB %s", blobID)
 
-	_, _, err = bm.KopiaCommandRunner.Run("blob", "delete", blobID, "--advanced-commands=enabled")
+	_, _, err := bm.KopiaCommandRunner.Run("blob", "delete", blobID, "--advanced-commands=enabled")
 	if err != nil {
 		return err
 	}
@@ -62,23 +69,26 @@ func (bm *BlobManipulator) DeleteBlob(blobID string) (err error) {
 	return nil
 }
 
-func (bm *BlobManipulator) getBlobIDRand() (blobToBeDeleted string, err error) {
+func (bm *BlobManipulator) getBlobIDRand() (string, error) {
 	var b []blob.Metadata
+
 	// assumption: the repo under test is in filesystem
-	err = bm.KopiaCommandRunner.ConnectRepo("filesystem", "--path="+bm.DataRepoPath)
+	err := bm.KopiaCommandRunner.ConnectRepo("filesystem", "--path="+bm.DataRepoPath)
 	if err != nil {
 		return "", err
 	}
 
 	blobIDList, _, _ := bm.KopiaCommandRunner.Run("blob", "list", "--json")
-	if len(blobIDList) == 0 {
+	if blobIDList == "" {
 		return "", robustness.ErrNoOp
 	}
+
 	err = json.Unmarshal([]byte(blobIDList), &b)
 	if err != nil {
 		return "", err
 	}
 
+	blobToBeDeleted := ""
 	// Select the first pack blob in the list
 	for _, s := range b {
 		temp := string(s.BlobID)
@@ -87,6 +97,7 @@ func (bm *BlobManipulator) getBlobIDRand() (blobToBeDeleted string, err error) {
 			break
 		}
 	}
+
 	return blobToBeDeleted, nil
 }
 
@@ -94,8 +105,7 @@ func (bm *BlobManipulator) getFileWriter() bool {
 	fw, err := fiofilewriter.New()
 	if err != nil {
 		if errors.Is(err, fio.ErrEnvNotSet) {
-			log.Println("Skipping robustness tests because FIO environment is not set")
-
+			log.Println("Skipping recovery tests because FIO environment is not set")
 		} else {
 			log.Println("Error creating fio FileWriter:", err)
 		}
@@ -108,19 +118,22 @@ func (bm *BlobManipulator) getFileWriter() bool {
 	return true
 }
 
-func (bm *BlobManipulator) RestoreGivenOrRandomSnapshot(snapID string, restoreDir string) (stdout string, err error) {
-	err = bm.KopiaCommandRunner.ConnectRepo("filesystem", "--path="+bm.DataRepoPath)
+// RestoreGivenOrRandomSnapshot restores a given or a random snapshot from kopia repository into the provided target directory.
+func (bm *BlobManipulator) RestoreGivenOrRandomSnapshot(snapID string, restoreDir string) (string, error) {
+	err := bm.KopiaCommandRunner.ConnectRepo("filesystem", "--path="+bm.DataRepoPath)
 	if err != nil {
 		return "", err
 	}
 
 	if snapID == "" {
 		// list available snaphsots
-		stdout, _, err = bm.KopiaCommandRunner.Run("snapshot", "list", "--json")
+		stdout, _, err := bm.KopiaCommandRunner.Run("snapshot", "list", "--json")
 		if err != nil {
 			return stdout, err
 		}
+
 		var s []snapshot.Manifest
+
 		err = json.Unmarshal([]byte(stdout), &s)
 		if err != nil {
 			return "", err
@@ -138,6 +151,8 @@ func (bm *BlobManipulator) RestoreGivenOrRandomSnapshot(snapID string, restoreDi
 	return "", nil
 }
 
+// SetUpSystemUnderTest connects or creates a kopia repo, writes random data in source directory,
+// creates snapshots of the source directory.
 func (bm *BlobManipulator) SetUpSystemUnderTest() {
 	err := bm.ConnectOrCreateRepo(bm.DataRepoPath)
 	if err != nil {
@@ -146,6 +161,7 @@ func (bm *BlobManipulator) SetUpSystemUnderTest() {
 
 	// create random data
 	bm.getFileWriter()
+
 	fileSize := 100
 	numFiles := 100
 
@@ -158,6 +174,7 @@ func (bm *BlobManipulator) SetUpSystemUnderTest() {
 	}
 
 	ctx := context.Background()
+
 	_, err = bm.fileWriter.WriteRandomFiles(ctx, fileWriteOpts)
 	if err != nil {
 		return
@@ -181,6 +198,7 @@ func (bm *BlobManipulator) SetUpSystemUnderTest() {
 		fiofilewriter.MaxNumFilesPerWriteField: strconv.Itoa(numFiles),
 		fiofilewriter.MinNumFilesPerWriteField: strconv.Itoa(numFiles),
 	}
+
 	_, err = bm.fileWriter.WriteRandomFiles(ctx, fileWriteOpts)
 	if err != nil {
 		return
@@ -196,6 +214,7 @@ func (bm *BlobManipulator) SetUpSystemUnderTest() {
 		fiofilewriter.MaxNumFilesPerWriteField: strconv.Itoa(numFiles),
 		fiofilewriter.MinNumFilesPerWriteField: strconv.Itoa(numFiles),
 	}
+
 	_, err = bm.fileWriter.WriteRandomFiles(ctx, fileWriteOpts)
 	if err != nil {
 		return
@@ -208,15 +227,16 @@ func (bm *BlobManipulator) SetUpSystemUnderTest() {
 	if err != nil {
 		return
 	}
-
 }
 
-func (bm *BlobManipulator) TakeSnapshot(dir string) (stdout string, err error) {
-	err = bm.KopiaCommandRunner.ConnectRepo("filesystem", "--path="+bm.DataRepoPath)
+// TakeSnapshot creates snapshot of the provided directory.
+func (bm *BlobManipulator) TakeSnapshot(dir string) (string, error) {
+	err := bm.KopiaCommandRunner.ConnectRepo("filesystem", "--path="+bm.DataRepoPath)
 	if err != nil {
 		return "", err
 	}
-	stdout, _, err = bm.KopiaCommandRunner.Run("snapshot", "create", dir)
+
+	stdout, _, err := bm.KopiaCommandRunner.Run("snapshot", "create", dir)
 	if err != nil {
 		return stdout, err
 	}
@@ -224,18 +244,20 @@ func (bm *BlobManipulator) TakeSnapshot(dir string) (stdout string, err error) {
 	return "", nil
 }
 
-func (bm *BlobManipulator) SnapshotFixRemoveFilesByBlobID(blobID string) (stdout string, err error) {
+// SnapshotFixRemoveFilesByBlobID runs snapshot fix remove-files command with a provided blob id.
+func (bm *BlobManipulator) SnapshotFixRemoveFilesByBlobID(blobID string) (string, error) {
 	// Get hold of object ID that can be used in the snapshot fix command
-	stdout, msg, err := bm.KopiaCommandRunner.Run("snapshot", "fix", "remove-files", "--object-id="+blobID, "--commit")
+	output, msg, err := bm.KopiaCommandRunner.Run("snapshot", "fix", "remove-files", "--object-id="+blobID, "--commit")
 	if err != nil {
-		log.Println(stdout, msg)
-		return stdout, err
+		log.Println(output, msg)
+		return output, err
 	}
 
 	return "", nil
 }
 
-func (bm *BlobManipulator) SnapshotFixRemoveFilesByFilename(filename string) (stdout string, err error) {
+// SnapshotFixRemoveFilesByFilename runs snapshot fix remove-files command with a provided file name.
+func (bm *BlobManipulator) SnapshotFixRemoveFilesByFilename(filename string) (string, error) {
 	// Get hold of the filename that can be used to in the snapshot fix command
 	stdout, msg, err := bm.KopiaCommandRunner.Run("snapshot", "fix", "remove-files", "--filename="+filename, "--commit")
 	if err != nil {
