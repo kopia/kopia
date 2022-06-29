@@ -187,7 +187,7 @@ func (c *committedContentIndex) merge(ctx context.Context, indexFiles []blob.ID)
 		return nil, nil, errors.Wrap(err, "unable to combine small indexes")
 	}
 
-	c.log.Debugf("combined %v into %v index segments", len(newMerged), len(mergedAndCombined))
+	c.log.Debugw("combined index segments", "original", len(newMerged), "merged", len(mergedAndCombined))
 
 	return mergedAndCombined, newUsedMap, nil
 }

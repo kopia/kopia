@@ -6,6 +6,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/kopia/kopia/internal/zaplogutil"
 	"github.com/kopia/kopia/repo/logging"
 )
 
@@ -20,21 +21,7 @@ func PrintfLevel(printf func(msg string, args ...interface{}), prefix string, le
 
 	return zap.New(
 		zapcore.NewCore(
-			zapcore.NewConsoleEncoder(zapcore.EncoderConfig{
-				// Keys can be anything except the empty string.
-				TimeKey:        zapcore.OmitKey,
-				LevelKey:       zapcore.OmitKey,
-				NameKey:        zapcore.OmitKey,
-				CallerKey:      zapcore.OmitKey,
-				FunctionKey:    zapcore.OmitKey,
-				MessageKey:     "M",
-				StacktraceKey:  "S",
-				LineEnding:     zapcore.DefaultLineEnding,
-				EncodeLevel:    zapcore.CapitalLevelEncoder,
-				EncodeTime:     zapcore.ISO8601TimeEncoder,
-				EncodeDuration: zapcore.StringDurationEncoder,
-				EncodeCaller:   zapcore.ShortCallerEncoder,
-			}),
+			zaplogutil.NewStdConsoleEncoder(zaplogutil.StdConsoleEncoderConfig{}),
 			writer,
 			level,
 		),

@@ -84,13 +84,9 @@ func (m *internalLogManager) NewLogger() *zap.SugaredLogger {
 	}
 
 	return zap.New(zapcore.NewCore(
-		zapcore.NewConsoleEncoder(zapcore.EncoderConfig{
-			TimeKey:          "t",
-			MessageKey:       "m",
-			NameKey:          "n",
-			EncodeTime:       zaplogutil.TimezoneAdjust(zaplogutil.PreciseTimeEncoder(), false),
-			EncodeDuration:   zapcore.StringDurationEncoder,
-			ConsoleSeparator: " ",
+		zaplogutil.NewStdConsoleEncoder(zaplogutil.StdConsoleEncoderConfig{
+			TimeLayout: zaplogutil.PreciseLayout,
+			LocalTime:  false,
 		}),
 		w, zap.DebugLevel), zap.WithClock(zaplogutil.Clock())).Sugar()
 }
