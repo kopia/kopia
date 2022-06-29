@@ -8,18 +8,15 @@ import (
 	"os"
 	"path"
 	"testing"
-	"time"
 )
 
 const (
 	dataSubPath     = "recovery-data"
 	metadataSubPath = "recovery-metadata"
-	defaultTestDur  = 5 * time.Minute
 )
 
 var (
-	randomizedTestDur = flag.Duration("rand-test-duration", defaultTestDur, "Set the duration for the randomized test")
-	repoPathPrefix    = flag.String("repo-path-prefix", "", "Point the robustness tests at this path prefix")
+	repoPathPrefix = flag.String("repo-path-prefix", "", "Point the robustness tests at this path prefix")
 )
 
 func TestMain(m *testing.M) {

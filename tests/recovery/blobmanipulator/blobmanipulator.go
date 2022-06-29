@@ -119,7 +119,7 @@ func (bm *BlobManipulator) getFileWriter() bool {
 }
 
 // RestoreGivenOrRandomSnapshot restores a given or a random snapshot from kopia repository into the provided target directory.
-func (bm *BlobManipulator) RestoreGivenOrRandomSnapshot(snapID string, restoreDir string) (string, error) {
+func (bm *BlobManipulator) RestoreGivenOrRandomSnapshot(snapID, restoreDir string) (string, error) {
 	err := bm.KopiaCommandRunner.ConnectRepo("filesystem", "--path="+bm.DataRepoPath)
 	if err != nil {
 		return "", err
@@ -127,9 +127,9 @@ func (bm *BlobManipulator) RestoreGivenOrRandomSnapshot(snapID string, restoreDi
 
 	if snapID == "" {
 		// list available snaphsots
-		stdout, _, err := bm.KopiaCommandRunner.Run("snapshot", "list", "--json")
-		if err != nil {
-			return stdout, err
+		stdout, _, snapshotListErr := bm.KopiaCommandRunner.Run("snapshot", "list", "--json")
+		if snapshotListErr != nil {
+			return stdout, snapshotListErr
 		}
 
 		var s []snapshot.Manifest
