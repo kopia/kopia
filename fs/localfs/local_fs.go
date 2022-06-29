@@ -71,6 +71,9 @@ func (e *filesystemEntry) LocalFilesystemPath() string {
 	return e.fullPath()
 }
 
+func (e *filesystemEntry) Close() {
+}
+
 var _ os.FileInfo = (*filesystemEntry)(nil)
 
 func newEntry(fi os.FileInfo, prefix string) filesystemEntry {

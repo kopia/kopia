@@ -59,6 +59,9 @@ func (s *sourceSnapshots) SupportsMultipleIterations() bool {
 	return true
 }
 
+func (s *sourceSnapshots) Close() {
+}
+
 func (s *sourceSnapshots) Child(ctx context.Context, name string) (fs.Entry, error) {
 	// nolint:wrapcheck
 	return fs.IterateEntriesAndFindChild(ctx, s, name)

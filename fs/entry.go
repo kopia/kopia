@@ -19,6 +19,7 @@ type Entry interface {
 	Owner() OwnerInfo
 	Device() DeviceInfo
 	LocalFilesystemPath() string // returns full local filesystem path or "" if not a local filesystem
+	Close()                      // closes or recycles any resources associated with the entry, must be idempotent
 }
 
 // OwnerInfo describes owner of a filesystem entry.
