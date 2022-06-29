@@ -97,7 +97,6 @@ readonly ld_flags="\
 -X github.com/kopia/kopia/tests/robustness/engine.testGitBranch=${robustness_git_branch}"
 
 readonly test_flags="-v -timeout=${test_timeout}\
- --rand-test-duration=${test_duration}\
  --repo-path-prefix=${test_repo_path_prefix}\
  -ldflags '${ld_flags}'"
 
