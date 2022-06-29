@@ -131,6 +131,8 @@ func estimate(ctx context.Context, relativePath string, entry fs.Entry, policyTr
 		progress.Processing(ctx, relativePath)
 
 		err := entry.IterateEntries(ctx, func(c context.Context, child fs.Entry) error {
+			defer child.Close()
+
 			if err2 := estimate(ctx, filepath.Join(relativePath, child.Name()), child, policyTree.Child(child.Name()), stats, ib, eb, ed, progress, maxExamplesPerBucket); err2 != nil {
 				return processEntryError{err2}
 			}

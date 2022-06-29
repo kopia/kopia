@@ -71,9 +71,6 @@ func (e *filesystemEntry) LocalFilesystemPath() string {
 	return e.fullPath()
 }
 
-func (e *filesystemEntry) Close() {
-}
-
 var _ os.FileInfo = (*filesystemEntry)(nil)
 
 func newEntry(fi os.FileInfo, prefix string) filesystemEntry {
@@ -285,7 +282,7 @@ func (f *fileWithMetadata) Entry() (fs.Entry, error) {
 		return nil, errors.Wrap(err, "unable to stat() local file")
 	}
 
-	return &filesystemFile{newEntry(fi, dirPrefix(f.Name()))}, nil
+	return newFilesystemFile(newEntry(fi, dirPrefix(f.Name()))), nil
 }
 
 func (fsf *filesystemFile) Open(ctx context.Context) (fs.Reader, error) {
@@ -349,7 +346,7 @@ func Directory(path string) (fs.Directory, error) {
 	case *filesystemSymlink:
 		// it's a symbolic link, possibly to a directory, it may work or we may get a ReadDir() error.
 		// this is apparently how VSS mounted snapshots appear on Windows and attempts to os.Readlink() fail on them.
-		return &filesystemDirectory{e.filesystemEntry}, nil
+		return newFilesystemDirectory(e.filesystemEntry), nil
 
 	default:
 		return nil, errors.Errorf("not a directory: %v (was %T)", path, e)
@@ -362,28 +359,28 @@ func entryFromDirEntry(fi os.FileInfo, prefix string) fs.Entry {
 
 	switch {
 	case maskedmode == os.ModeDir && !isplaceholder:
-		return &filesystemDirectory{newEntry(fi, prefix)}
+		return newFilesystemDirectory(newEntry(fi, prefix))
 
 	case maskedmode == os.ModeDir && isplaceholder:
-		return &shallowFilesystemDirectory{newEntry(fi, prefix)}
+		return newShallowFilesystemDirectory(newEntry(fi, prefix))
 
 	case maskedmode == os.ModeSymlink && !isplaceholder:
-		return &filesystemSymlink{newEntry(fi, prefix)}
+		return newFilesystemSymlink(newEntry(fi, prefix))
 
 	case maskedmode == 0 && !isplaceholder:
-		return &filesystemFile{newEntry(fi, prefix)}
+		return newFilesystemFile(newEntry(fi, prefix))
 
 	case maskedmode == 0 && isplaceholder:
-		return &shallowFilesystemFile{newEntry(fi, prefix)}
+		return newShallowFilesystemFile(newEntry(fi, prefix))
 
 	default:
-		return &filesystemErrorEntry{newEntry(fi, prefix), fs.ErrUnknown}
+		return newFilesystemErrorEntry(newEntry(fi, prefix), fs.ErrUnknown)
 	}
 }
 
 var (
-	_ fs.Directory  = &filesystemDirectory{}
-	_ fs.File       = &filesystemFile{}
-	_ fs.Symlink    = &filesystemSymlink{}
-	_ fs.ErrorEntry = &filesystemErrorEntry{}
+	_ fs.Directory  = (*filesystemDirectory)(nil)
+	_ fs.File       = (*filesystemFile)(nil)
+	_ fs.Symlink    = (*filesystemSymlink)(nil)
+	_ fs.ErrorEntry = (*filesystemErrorEntry)(nil)
 )

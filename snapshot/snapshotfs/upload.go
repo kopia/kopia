@@ -280,17 +280,12 @@ func (u *Uploader) uploadFileData(ctx context.Context, parentCheckpointRegistry 
 		return nil, err
 	}
 
-	fi2, err := file.Entry()
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to get file entry after copying")
-	}
-
 	r, err := writer.Result()
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to get result")
 	}
 
-	de, err := newDirEntry(fi2, fname, r)
+	de, err := newDirEntry(f, fname, r)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create dir entry")
 	}
@@ -786,6 +781,8 @@ func (u *Uploader) processSingle(
 	localDirPathOrEmpty string,
 	parentCheckpointRegistry *checkpointRegistry,
 ) error {
+	defer entry.Close()
+
 	// note this function runs in parallel and updates 'u.stats', which must be done using atomic operations.
 	t0 := timetrack.StartTimer()
 
