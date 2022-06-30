@@ -19,7 +19,7 @@ import (
 )
 
 func TestSnapshotFix(t *testing.T) {
-	// assumption: the test is run on filesystem and not directly on object store
+	// assumption: the test is run on filesystem & not directly on object store
 	dataRepoPath := path.Join(*repoPathPrefix, dataSubPath)
 
 	baseDir := makeDir("base-dir-")
