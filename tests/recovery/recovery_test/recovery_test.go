@@ -11,10 +11,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/kopia/kopia/tests/recovery/blobmanipulator"
 	"github.com/kopia/kopia/tests/robustness/snapmeta"
 	"github.com/kopia/kopia/tests/tools/kopiarunner"
-	"github.com/stretchr/testify/require"
 )
 
 func TestSnapshotFix(t *testing.T) {
