@@ -21,6 +21,8 @@
 - match:
     dependency_name: "cloud.google.com/go/storage"
     update_type: "semver:minor"
+
+# minio
 - match:
     dependency_name: "github.com/minio/minio-go/v7"
     update_type: "semver:minor"
@@ -33,6 +35,9 @@
 # test-only dependencies where we have good coverage to auto approve minor updates
 - match:
     dependency_name: "github.com/chromedp/chromedp"
+    update_type: "semver:minor"
+- match:
+    dependency_name: "github.com/stretchr/testify"
     update_type: "semver:minor"
 
 # DO NOT ADD large electron dependencies here:
