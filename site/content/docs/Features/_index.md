@@ -92,7 +92,7 @@ Kopia has a rich command-line interface that allows you to create/connect to rep
 
 Do not want to use command-line? No problem. Kopia also comes with an official graphical user interface that allows you to easily create/connect to repositories, manage snapshots and policies, and restore data as needed.
 
-### Server Mode with API Support when Backing Up Multiple Machines
+### Optional Server Mode with API Support to Centrally Manage Backups of Multiple Machines
 
 Kopia is designed to backup individual machines and you absolutely do not need a server to run Kopia. If you have a handful of machines, you can install and use Kopia on each of them individually, no problem. At the same time, Kopia can also be run in server mode for those that are looking to centrally manage backups of multiple machines, in which case the Kopia server exposes an API that can be used to build client tools to do things like trigger snapshots, get client status, and access snapshotted data. Kopia's server mode makes it incredibly easy to centrally manage backups of multiple computers.
 
