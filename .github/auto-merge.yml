@@ -40,6 +40,14 @@
     dependency_name: "github.com/stretchr/testify"
     update_type: "semver:minor"
 
+- match:
+    dependency_name: "electron-log"
+    update_type: "semver:minor"
+
+- match:
+    dependency_name: "concurrently"
+    update_type: "semver:minor"
+
 # DO NOT ADD large electron dependencies here:
 #
 # electron
