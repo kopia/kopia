@@ -9,8 +9,6 @@
     "electron-log": "^4.4.8",
     "electron-updater": "^5.0.5",
     "minimist": "^1.2.6",
-    "react": "^17.0.2",
-    "react-dom": "^17.0.2",
     "uuid": "^8.3.2"
   },
   "author": {
@@ -28,7 +26,7 @@
       }
     ],
     "files": [
-      "build/**/*",
+      "public/**/*",
       "node_modules/**/*"
     ],
     "extraResources": [
@@ -114,10 +112,10 @@
   "devDependencies": {
     "asar": "^3.1.0",
     "concurrently": "^7.2.2",
+    "dotenv": "^16.0.1",
     "electron": "^19.0.7",
     "electron-builder": "^23.1.0",
-    "electron-notarize": "^1.2.1",
-    "react-scripts": "^5.0.1"
+    "electron-notarize": "^1.2.1"
   },
   "homepage": "./",
   "description": "Fast and secure open source backup.",
