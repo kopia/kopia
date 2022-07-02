@@ -8,11 +8,8 @@ menu:
     weight: 20
 ---
 
-Kopia is a fast and secure open-source backup/restore tool that manages filesystem snapshots in a remote storage.
+Kopia is a fast and secure open-source backup/restore tool that allows you to save snapshots of your data in remote (cloud) storage, to a connected NAS or server, or locally on your machine. Kopia does not 'image' your whole machine. Rather, Kopia allows you to backup/restore any and all files that you deem are important or critical.
 
-* Read the [Getting Started Guide](getting-started/) for a step-by-step walkthrough of using Kopia
-* Go to the [Installation](installation/) page to get latest kopia release
-* Have a look at the [repositories](Repositories/) page to repositories usage examples
-* Check out some of Kopia's unique [Features](features/) including deduplication and encryption
-* Learn about the [Architecture](advanced/architecture/) of Kopia
-* Find more details about command line and APIs in the [Reference](reference/) section.
+Kopia has both CLI (command line interface) and GUI (graphical user interface) versions, making it the perfect tool for both advanced and regular users. You can read more about Kopia's unique [features](features/) -- which include deduplication and end-to-end 'zero knowledge' encryption -- and learn more about Kopia's [architecture](advanced/architecture/) to get a better understanding of how Kopia works.
+
+When ready, head to the [installation](installation/) page to download and install Kopia and make sure read the [Getting Started Guide](getting-started/) for a step-by-step walkthrough of how to use Kopia.
