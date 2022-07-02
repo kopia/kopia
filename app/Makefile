@@ -65,17 +65,12 @@ endif
 dev: node_modules/.up-to-date
 	$(npm) $(npm_flags) run dev
 
-run: build-html
+run:
 	$(npm) $(npm_flags) run start-electron-prebuilt
-
-build-html: build/index.html
-
-build/index.html: node_modules/.up-to-date src/* public/* resources/*/*/*
-	$(npm) $(npm_flags) run build-html
 
 build-electron: ../dist/kopia-ui/.up-to-date
 
 # rebuild packages if HTML, embedded EXE or build config changed.
-../dist/kopia-ui/.up-to-date: build/index.html package.json ../dist/kopia_*/kopia*
+../dist/kopia-ui/.up-to-date: package.json ../dist/kopia_*/kopia* node_modules/.up-to-date public/* resources/*/*/*
 	$(retry) $(npm) $(npm_flags) run build-electron -- $(electron_builder_flags) -p $(electron_publish_flag)
 	echo updated > ../dist/kopia-ui/.up-to-date
