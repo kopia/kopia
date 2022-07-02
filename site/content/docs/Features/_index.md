@@ -46,7 +46,13 @@ With Kopia you're in full control of where to store your snapshots. Kopia plays 
 
 ### Restore Snapshots Using Multiple Methods
 
-To restore data, Kopia gives you three options: mount the contents of a snapshot as a local disk so that you can browse and copy files/directories from the snapshot as if the snapshot is a local directory on your machine; restore all files/directories contained in a snapshot to any local or network location that you designate; or selectively restore individual files from a snapshot.
+To restore data, Kopia gives you three options: 
+
+* mount the contents of a snapshot as a local disk so that you can browse and copy files/directories from the snapshot as if the snapshot is a local directory on your machine
+
+* restore all files/directories contained in a snapshot to any local or network location that you designate
+
+* selectively restore individual files from a snapshot
 
 ### End-to-End 'Zero Knowledge' Encryption
 
