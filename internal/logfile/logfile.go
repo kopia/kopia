@@ -139,7 +139,7 @@ func (c *loggingFlags) initialize(ctx *kingpin.ParseContext) error {
 }
 
 func (c *loggingFlags) setupConsoleCore() zapcore.Core {
-	ec := &zapcore.EncoderConfig{
+	ec := zapcore.EncoderConfig{
 		LevelKey:         "l",
 		MessageKey:       "m",
 		LineEnding:       zapcore.DefaultLineEnding,
@@ -149,6 +149,8 @@ func (c *loggingFlags) setupConsoleCore() zapcore.Core {
 		ConsoleSeparator: " ",
 	}
 
+	timeFormat := zaplogutil.PreciseLayout
+
 	if c.consoleLogTimestamps {
 		ec.TimeKey = "t"
 
@@ -156,8 +158,14 @@ func (c *loggingFlags) setupConsoleCore() zapcore.Core {
 			ec.EncodeTime = zapcore.RFC3339NanoTimeEncoder
 		} else {
 			// always log local timestamps to the console, not UTC
-			ec.EncodeTime = zaplogutil.TimezoneAdjust(zapcore.TimeEncoderOfLayout("15:04:05.000"), true)
+			timeFormat = "15:04:05.000"
+			ec.EncodeTime = zaplogutil.TimezoneAdjust(zapcore.TimeEncoderOfLayout(timeFormat), true)
 		}
+	}
+
+	stec := zaplogutil.StdConsoleEncoderConfig{
+		TimeLayout: timeFormat,
+		LocalTime:  true,
 	}
 
 	if c.jsonLogConsole {
@@ -166,22 +174,13 @@ func (c *loggingFlags) setupConsoleCore() zapcore.Core {
 		ec.NameKey = "n"
 		ec.EncodeName = zapcore.FullNameEncoder
 	} else {
-		ec.EncodeLevel = func(l zapcore.Level, pae zapcore.PrimitiveArrayEncoder) {
-			if l == zap.InfoLevel {
-				// info log does not have a prefix.
-				return
-			}
-
-			if c.disableColor {
-				zapcore.CapitalLevelEncoder(l, pae)
-			} else {
-				zapcore.CapitalColorLevelEncoder(l, pae)
-			}
-		}
+		stec.EmitLogLevel = true
+		stec.DoNotEmitInfoLevel = true
+		stec.ColoredLogLevel = !c.disableColor
 	}
 
 	return zapcore.NewCore(
-		c.jsonOrConsoleEncoder(ec, c.jsonLogConsole),
+		c.jsonOrConsoleEncoder(stec, ec, c.jsonLogConsole),
 		zapcore.AddSync(c.cliApp.Stderr()),
 		logLevelFromFlag(c.logLevel),
 	)
@@ -252,40 +251,46 @@ func (c *loggingFlags) setupLogFileBasedLogger(now time.Time, subdir, suffix, lo
 
 func (c *loggingFlags) setupLogFileCore(now time.Time, suffix string) zapcore.Core {
 	return zapcore.NewCore(
-		c.jsonOrConsoleEncoder(&zapcore.EncoderConfig{
-			TimeKey:          "t",
-			MessageKey:       "m",
-			NameKey:          "n",
-			LevelKey:         "l",
-			EncodeName:       zapcore.FullNameEncoder,
-			EncodeLevel:      zapcore.CapitalLevelEncoder,
-			EncodeTime:       zaplogutil.TimezoneAdjust(zaplogutil.PreciseTimeEncoder(), c.fileLogLocalTimezone),
-			EncodeDuration:   zapcore.StringDurationEncoder,
-			ConsoleSeparator: " ",
-		}, c.jsonLogFile),
+		c.jsonOrConsoleEncoder(
+			zaplogutil.StdConsoleEncoderConfig{
+				TimeLayout:     zaplogutil.PreciseLayout,
+				LocalTime:      c.fileLogLocalTimezone,
+				EmitLogLevel:   true,
+				EmitLoggerName: true,
+			},
+			zapcore.EncoderConfig{
+				TimeKey:          "t",
+				MessageKey:       "m",
+				NameKey:          "n",
+				LevelKey:         "l",
+				EncodeName:       zapcore.FullNameEncoder,
+				EncodeLevel:      zapcore.CapitalLevelEncoder,
+				EncodeTime:       zaplogutil.TimezoneAdjust(zaplogutil.PreciseTimeEncoder(), c.fileLogLocalTimezone),
+				EncodeDuration:   zapcore.StringDurationEncoder,
+				ConsoleSeparator: " ",
+			},
+			c.jsonLogFile),
 		c.setupLogFileBasedLogger(now, "cli-logs", suffix, c.logFile, c.logDirMaxFiles, c.logDirMaxTotalSizeMB, c.logDirMaxAge),
 		logLevelFromFlag(c.fileLogLevel),
 	)
 }
 
-func (c *loggingFlags) jsonOrConsoleEncoder(ec *zapcore.EncoderConfig, isJSON bool) zapcore.Encoder {
+// nolint:gocritic
+func (c *loggingFlags) jsonOrConsoleEncoder(ec zaplogutil.StdConsoleEncoderConfig, jc zapcore.EncoderConfig, isJSON bool) zapcore.Encoder {
 	if isJSON {
-		return zapcore.NewJSONEncoder(*ec)
+		return zapcore.NewJSONEncoder(jc)
 	}
 
-	return zapcore.NewConsoleEncoder(*ec)
+	return zaplogutil.NewStdConsoleEncoder(ec)
 }
 
 func (c *loggingFlags) setupContentLogFileBackend(now time.Time, suffix string) zapcore.Core {
 	return zapcore.NewCore(
-		zapcore.NewConsoleEncoder(zapcore.EncoderConfig{
-			TimeKey:          "t",
-			MessageKey:       "m",
-			NameKey:          "n",
-			EncodeTime:       zaplogutil.TimezoneAdjust(zaplogutil.PreciseTimeEncoder(), false),
-			EncodeDuration:   zapcore.StringDurationEncoder,
-			ConsoleSeparator: " ",
-		}),
+		zaplogutil.NewStdConsoleEncoder(zaplogutil.StdConsoleEncoderConfig{
+			TimeLayout: zaplogutil.PreciseLayout,
+			LocalTime:  false,
+		},
+		),
 		c.setupLogFileBasedLogger(now, "content-logs", suffix, c.contentLogFile, c.contentLogDirMaxFiles, c.contentLogDirMaxTotalSizeMB, c.contentLogDirMaxAge),
 		zap.DebugLevel)
 }

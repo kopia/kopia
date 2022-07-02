@@ -31,10 +31,6 @@ func Module(module string) func(ctx context.Context) Logger {
 // ToWriter returns LoggerFactory that uses given writer for log output (unadorned).
 func ToWriter(w io.Writer) LoggerFactory {
 	return zap.New(zapcore.NewCore(
-		zapcore.NewConsoleEncoder(zapcore.EncoderConfig{
-			MessageKey:     "m",
-			EncodeTime:     zaplogutil.TimezoneAdjust(zaplogutil.PreciseTimeEncoder(), false),
-			EncodeDuration: zapcore.StringDurationEncoder,
-		}),
+		zaplogutil.NewStdConsoleEncoder(zaplogutil.StdConsoleEncoderConfig{}),
 		zapcore.AddSync(w), zap.DebugLevel), zap.WithClock(zaplogutil.Clock())).Sugar().Named
 }

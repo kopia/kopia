@@ -33,8 +33,8 @@ func TestBroadcast(t *testing.T) {
 	require.Equal(t, []string{
 		"[first] A",
 		"[second] A",
-		"[first] S\t{\"b\": 123}",
-		"[second] S\t{\"b\": 123}",
+		"[first] S\t{\"b\":123}",
+		"[second] S\t{\"b\":123}",
 		"[first] B",
 		"[second] B",
 		"[first] C",
@@ -54,7 +54,7 @@ func TestWriter(t *testing.T) {
 	l.Errorf("C")
 	l.Warnf("W")
 
-	require.Equal(t, "A\nS\t{\"b\": 123}\nB\nC\nW\n", buf.String())
+	require.Equal(t, "A\nS\t{\"b\":123}\nB\nC\nW\n", buf.String())
 }
 
 func TestNullWriterModule(t *testing.T) {
@@ -79,7 +79,7 @@ func TestNonNullWriterModule(t *testing.T) {
 	l.Errorf("C")
 	l.Warnf("W")
 
-	require.Equal(t, "A\nS\t{\"b\": 123}\nB\nC\nW\n", buf.String())
+	require.Equal(t, "A\nS\t{\"b\":123}\nB\nC\nW\n", buf.String())
 }
 
 func BenchmarkLogger(b *testing.B) {
