@@ -88,8 +88,8 @@ type FilesystemOutput struct {
 	// SkipTimes when set to true causes restore to skip restoring modification times.
 	SkipTimes bool `json:"skipTimes"`
 
-	// Sparse when set to true causes the restored files to be sparse.
-	Sparse bool `json:"sparse"`
+	// WriteSparseFiles when set to true, write contents as sparse files, minimizing allocated disk space.
+	WriteSparseFiles bool `json:"writeSparseFiles"`
 
 	// copier is the StreamCopier to use for copying the actual bit stream to output.
 	// It is assigned at runtime based on the target filesystem and restore options.
@@ -99,7 +99,7 @@ type FilesystemOutput struct {
 // Init initializes the internal members of the filesystem writer output.
 // This method must be called before FilesystemOutput can be used.
 func (o *FilesystemOutput) Init() error {
-	c, err := getStreamCopier(context.TODO(), o.TargetPath, o.Sparse)
+	c, err := getStreamCopier(context.TODO(), o.TargetPath, o.WriteSparseFiles)
 	if err != nil {
 		return errors.Wrap(err, "unable to get stream copier")
 	}

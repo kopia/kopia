@@ -722,7 +722,7 @@ func TestSnapshotSparseRestore(t *testing.T) {
 		snapID := si[0].Snapshots[0].SnapshotID
 		restoreFile := filepath.Join(restoreDir, c.name+"_restore")
 
-		e.RunAndExpectSuccess(t, "snapshot", "restore", snapID, "--sparse", restoreFile)
+		e.RunAndExpectSuccess(t, "snapshot", "restore", snapID, "--write-sparse-files", restoreFile)
 		verifyFileSize(t, restoreFile, c.rLog, c.rPhys)
 	}
 }
