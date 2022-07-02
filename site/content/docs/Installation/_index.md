@@ -6,11 +6,15 @@ weight: 20
 
 ### Installing Kopia
 
-Kopia is an open source software (OSS) developed by a community on GitHub. It is available in two variants:
+Kopia is a standalone binary and can be used through a command-line interface (CLI) or a graphical user inferace (GUI). 
 
-* `Command Line Interface (CLI)` which is a stand-alone binary called `kopia` and which can be used a terminal window or scripts. This is typically the preferred option for power users, system administrators, etc.
+* If you want to use Kopia via CLI, you will install the `kopia` binary; when you want to use Kopia, you will call the `kopia` binary (along with [Kopia commands](https://kopia.io/docs/reference/command-line/)) in a terminal/command prompt window or within a script. 
 
-* `Graphical User Interface (GUI)`: It is a desktop application, called `KopiaUI`, that offers a friendly user interface.
+* If you want to use Kopia via GUI, you will install `KopiaUI`, which is the name of the Kopia GUI. The installer for KopiaUI comes with the `kopia` binary and a graphical user interface called `KopiaUI` that is a wrapper for the `kopia` binary. `KopiaUI` runs the `kopia` binary and associated commands as necessary, so you do not need to use the command-line interface.
+
+Both the CLI and GUI versions of Kopia use the same `kopia` binary, so you are getting the same features regardless of which variant you decide to go with (since the `kopia` binary in the workhorse). However, there are some advanced features that are available through CLI but which have not yet been added to `KopiaUI`. Right now, `KopiaUI` allows you to access all the essential features of Kopia that are required to backup/restore data: connect to repositories (including encryption), set policies (including compression, scheduling, and snapshot retention), create snapshots, restore snapshots, automatically run maintenance, and install Kopia updates. If you use `KopiaUI` and you want access to advanced features that are not yet available in `KopiaUI`, you can easily run the commands for those features via CLI by calling the `kopia` binary that comes with `KopiaUI`. In other words, using Kopia GUI does not restrict you from using Kopia CLI as well.
+
+Kopia CLI is recommended only if you are comfortable with command-line interfaces (e.g., power users, system administrators, etc.). If you are not comfortable with command-line, you should use Kopia GUI. Although more limited than Kopia CLI, Kopia GUI is still very powerful and allows you to easily use Kopia to backup/restore your data.
 
 The following installation options are available:
 
@@ -38,9 +42,9 @@ If you like to test the latest unreleased version of Kopia:
 
 CLI and GUI packages are available for:
 
-* Windows 7 or later, 64-bit (CLI binary, UI installer and Scoop package)
-* macOS 10.11 or later, 64-bit (CLI binary, UI installer,  Homebrew package)
-* Linux - `amd64`, `armhf` or `arm64` (CLI binary, RPM and DEB repositories)
+* Windows 7 or later, 64-bit (CLI binary, GUI installer, and Scoop package)
+* macOS 10.11 or later, 64-bit (CLI binary, GUI installer, and Homebrew package)
+* Linux - `amd64`, `armhf` or `arm64` (CLI binary, RPM repositories, and DEB repositories)
 
 ### Windows CLI installation using Scoop
 
