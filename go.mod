@@ -106,6 +106,7 @@ require (
 	github.com/chromedp/cdproto v0.0.0-20220515234810-83d799542a04
 	github.com/chromedp/chromedp v0.8.2
 	github.com/edsrzf/mmap-go v1.1.0
+	github.com/golang-design/lockfree v0.0.1
 	github.com/hashicorp/golang-lru v0.5.4
 	go.opentelemetry.io/otel v1.7.0
 	go.opentelemetry.io/otel/exporters/jaeger v1.7.0
@@ -117,6 +118,7 @@ require (
 	cloud.google.com/go/compute v1.7.0 // indirect
 	cloud.google.com/go/iam v0.3.0 // indirect
 	github.com/alessio/shellescape v1.4.1 // indirect
+	github.com/changkun/lockfree v0.0.1 // indirect
 	github.com/chromedp/sysutil v1.0.0 // indirect
 	github.com/go-logr/logr v1.2.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
