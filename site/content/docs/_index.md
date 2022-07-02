@@ -12,4 +12,4 @@ Kopia is a fast and secure open-source backup/restore tool that allows you to sa
 
 Kopia has both CLI (command line interface) and GUI (graphical user interface) versions, making it the perfect tool for both advanced and regular users. You can read more about Kopia's unique [features](features/) -- which include deduplication and end-to-end 'zero knowledge' encryption -- and learn more about Kopia's [architecture](advanced/architecture/) to get a better understanding of how Kopia works.
 
-When ready, head to the [installation](installation/) page to download and install Kopia and make sure read the [Getting Started Guide](getting-started/) for a step-by-step walkthrough of how to use Kopia.
+When ready, head to the [installation](installation/) page to download and install Kopia and make sure to read the [Getting Started Guide](getting-started/) for a step-by-step walkthrough of how to use Kopia.
