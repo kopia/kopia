@@ -98,4 +98,4 @@ While Kopia is designed to backup individual machines and you absolutely do not 
 
 ### Speed
 
-Kopia. Is. [Fast] (https://www.kasten.io/kubernetes/resources/blog/benchmarking-kopia-architecture-scale-and-performance).
+Kopia. Is. [Fast](https://www.kasten.io/kubernetes/resources/blog/benchmarking-kopia-architecture-scale-and-performance).
