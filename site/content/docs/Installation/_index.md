@@ -8,7 +8,7 @@ weight: 20
 
 Kopia is a standalone binary and can be used through a command-line interface (CLI) or a graphical user inferace (GUI). 
 
-* If you want to use Kopia via CLI, you will install the `kopia` binary; when you want to use Kopia, you will call the `kopia` binary (along with [Kopia commands](https://kopia.io/docs/reference/command-line/)) in a terminal/command prompt window or within a script. 
+* If you want to use Kopia via CLI, you will install the `kopia` binary; when you want to use Kopia, you will call the `kopia` binary (along with [Kopia commands](reference/command-line/)) in a terminal/command prompt window or within a script. 
 
 * If you want to use Kopia via GUI, you will install `KopiaUI`, which is the name of the Kopia GUI. The installer for KopiaUI comes with the `kopia` binary and a graphical user interface called `KopiaUI` that is a wrapper for the `kopia` binary. `KopiaUI` runs the `kopia` binary and associated commands as necessary, so you do not need to use the command-line interface. `KopiaUI` is available both as a web-based application and a desktop application.
 
@@ -16,7 +16,7 @@ Both the CLI and GUI versions of Kopia use the same `kopia` binary, so you are g
 
 Kopia CLI is recommended only if you are comfortable with command-line interfaces (e.g., power users, system administrators, etc.). If you are not comfortable with command-line, you should use Kopia GUI. Although more limited than Kopia CLI, Kopia GUI is still very powerful and allows you to easily use Kopia to backup/restore your data.
 
-### Installing Kopia
+### Kopia Download Links
 
 The following installation options are available:
 
@@ -40,7 +40,9 @@ If you like to test the latest unreleased version of Kopia:
 * [RedHat/CentOS/Fedora Linux (Linux YUM Repository)](#linux-installation-using-rpm-redhat-centos-fedora) offers `unstable` channel
 * [Source Code](https://github.com/kopia/kopia/) - see [compilation instructions](#compilation-from-source)
 
-### Operating System Support
+### Installing Kopia
+
+#### Operating System Support
 
 CLI and GUI packages are available for:
 
@@ -48,7 +50,7 @@ CLI and GUI packages are available for:
 * macOS 10.11 or later, 64-bit (CLI binary, GUI installer, and Homebrew package)
 * Linux - `amd64`, `armhf` or `arm64` (CLI binary, RPM repositories, and DEB repositories)
 
-### Windows CLI installation using Scoop
+#### Windows CLI installation using Scoop
 
 On Windows, Kopia CLI is available as a [Scoop](https://scoop.sh) package, which automates installation and upgrades.
 
@@ -67,13 +69,13 @@ Alternatively, to install the latest unreleased version of Kopia use the followi
 > scoop bucket add kopia https://github.com/kopia/scoop-test-builds.git
 ```
 
-### Windows GUI installation
+#### Windows GUI installation
 
 Graphical installer of KopiaUI is available on the [Releases](https://github.com/kopia/kopia/releases/latest) page.
   
 Simply download file named `KopiaUI-Setup-X.Y.Z.exe`, double click and follow on-screen prompts.
 
-### macOS CLI using Homebrew
+#### macOS CLI using Homebrew
 
 On macOS, you can use [Homebrew](https://brew.sh) to install and keep Kopia up-to-date.
 
@@ -95,11 +97,11 @@ Alternatively, to install the latest unreleased version of Kopia use the followi
 $ brew install kopia/test-builds/kopia
 ```
 
-### macOS GUI installer
+#### macOS GUI installer
 
 MacOS package with KopiaUI is available in DMG and ZIP formats on the [Releases](https://github.com/kopia/kopia/releases/latest) page.
 
-### Linux installation using APT (Debian, Ubuntu)
+#### Linux installation using APT (Debian, Ubuntu)
 
 Kopia offers APT repository compatible with Debian, Ubuntu and other similar distributions.
 
@@ -125,7 +127,7 @@ sudo apt install kopia
 sudo apt install kopia-ui
 ```
 
-### Linux installation using RPM (RedHat, CentOS, Fedora)
+#### Linux installation using RPM (RedHat, CentOS, Fedora)
 
 Kopia offers RPM repository compatible with RedHat, CentOS, Fedora and other similar distributions.
 
@@ -157,7 +159,7 @@ sudo yum install kopia
 sudo yum install kopia-ui
 ```
 
-### Linux installation using AUR (Arch, Manjaro)
+#### Linux installation using AUR (Arch, Manjaro)
 
 Those using Arch-based distributions have the option of building Kopia from source or installing pre-complied binaries:
 
@@ -189,7 +191,7 @@ or if you use an AUR helper such as yay:
 yay -S kopia-bin
 ```
 
-### OpenBSD installation via ports
+#### OpenBSD installation via ports
 
 OpenBSD now has kopia in -current ports, which means it gets built as packages in snapshots for several platforms (amd64, arm64, mips64 and i386) and will appear as a package for OpenBSD 7.1 and later releases.
 
@@ -202,7 +204,7 @@ To install the kopia package, run:
 To build Kopia from ports yourself, cd /usr/ports/sysutils/kopia and follow the [Ports](https://www.openbsd.org/faq/ports/ports.html) guide on building ports as usual.
 
 
-### Verifying package integrity
+#### Verifying package integrity
 
 When downloading from GitHub it's recommended to verify SHA256 checksum of the binary and comparing that to `checksums.txt`. For extra security you may want to verify that the checksums have been signed by official Kopia builder, by running GPG:
 
@@ -231,7 +233,7 @@ $ chmod u+x path/to/kopia
 $ sudo mv path/to/kopia /usr/local/bin/kopia
 ```
 
-### Docker Images
+#### Docker Images
 
 Kopia provides pre-built Docker container images for `amd64`, `arm64` and `arm` on [DockerHub](https://hub.docker.com/r/kopia/kopia).
 
@@ -270,7 +272,7 @@ $ docker run -e KOPIA_PASSWORD \
 Because Docker environment uses random hostnames it is recommended to explicitly set them using `--override-hostname` and `--override-username` parameters to Kopia when connecting
 to a repository. The names will be persisted in a configuration file and used afterwards.
 
-### Compilation From Source
+#### Compilation From Source
 
 If you have [Go 1.16](https://golang.org/) or newer, you may download and build Kopia yourself. No special setup is necessary, other than the Go compiler and [git](https://git-scm.com/). You can simply run:
 
