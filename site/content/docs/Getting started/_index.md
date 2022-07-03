@@ -337,13 +337,15 @@ $ kopia policy list
 2339ab4739bb29688bf26a3a841cf68f jarek@jareks-mbp:/Users/jarek/Projects/Kopia/site/node_modules
 ```
 
-## Examining Repository Structure
+#### Examining Repository Structure
 
-Kopia provides low-level commands to examine the contents of repository, perform maintenance actions and get deeper insight into how data is laid out.
+Kopia CLI provides low-level commands to examine the contents of repository, perform maintenance actions, and get deeper insight into how the data is laid out.
 
-### BLOBs
+> REMINDER: This guide does not cover all of the commands available via Kopia CLI. Refer to the [command-line reference](../reference/command-line/) page to learn about all the available commands.
 
-We can list the files in the repository using `kopia blob ls`, which shows how kopia manages snapshots. We can see that repository contents are grouped into Pack files (starting with `p`) and indexed using Index files (starting with `n`). Both index and pack files are encrypted, which makes it impossible to get data and metadata about snapshotted files without knowing the password.
+##### BLOBs
+
+We can list the files in a repository using `kopia blob ls`, which shows how Kopia manages snapshots. We can see that repository contents are grouped into pack files (starting with `p`) and indexed using index files (starting with `n`). Both index and pack files are [encrypted](../features/#end-to-end-zero-knowledge-encryption):
 
 ```
 $ kopia blob ls
@@ -368,9 +370,9 @@ pf1d1f00141f830ee34c89797e56011c2     23663212 2019-06-22 20:04:09 PDT
 pfbaba06c70b6aed2c0ed3aa9c709dc47     22823458 2019-06-22 20:04:50 PDT
 ```
 
-### Content-Addressable Block Storage
+##### Content-Addressable Block Storage
 
-To list individual contents stored in the Repository, use `kopia content list`:
+To list individual contents stored in a repository, use [`kopia content list`](../reference/command-line/advanced/content-list/):
 
 ```shell
 $ kopia content list
@@ -402,9 +404,9 @@ m8401800f69795ed0137365c3e6f627bc
 ...
 ```
 
-### Manifest Storage
+##### Manifest Storage
 
-To list manifests (snapshot manifests and policies) stored in repository, use `kopia manifest list`:
+To list manifests (snapshot manifests and policies) stored in a repository, use [`kopia manifest list`](../reference/command-line/advanced/manifest-list/):
 
 ```
 $ kopia manifest list
@@ -420,7 +422,7 @@ a1646120c7a2450cd9e77fd98369d260        761 2019-06-22 20:21:43 PDT type:snapsho
 63fc854c283ad63cafbca54eaa4509e9        102 2019-06-22 21:22:20 PDT type:policy hostname:jareks-mbp path:/Users/jarek/Projects/Kopia/site policyType:path username:jarek
 ```
 
-To examine individual manifests, use `kopia manifest show`:
+To examine individual manifests, use [`kopia manifest show`](../reference/command-line/advanced/manifest-show/):
 
 ```shell
 $ kopia manifest show 2d73b31af65d4ac7196641eeea9c475c
@@ -478,10 +480,9 @@ $ kopia manifest show 2d73b31af65d4ac7196641eeea9c475c
 }
 ```
 
-### Cache
+##### Cache
 
-For better performance, Kopia maintains local cache directory where most-recently used blocks are stored.
-You can examine the cache by using:
+For better performance, Kopia maintains local cache directory where most-recently used blocks are stored. You can examine the cache by using [`kopia cache info`](../reference/command-line/advanced/cache-info/):
 
 ```
 $ kopia cache info
@@ -490,15 +491,16 @@ $ kopia cache info
 /Users/jarek/Library/Caches/kopia/e470f963ef9528a1/metadata: 2006 files 3.9 MB (limit 0 B)
 ```
 
-To clear the cache:
+To clear the cache, use [`kopia cache clear`](../reference/command-line/advanced/cache-clear/):
 
 ```
 $ kopia cache clear
 ```
 
-Finally, to set caching parameters, such as maximum size of each cache, use `kopia cache set`:
+To set caching parameters, such as maximum size of each cache, use [`kopia cache set`](../reference/command-line/advanced/cache-set/):
 
 ```
 $ kopia cache set --metadata-cache-size-mb=500
 21:38:25.024 [kopia/cli] changing metadata cache size to 500 MB
 ```
+More information on `cache` commands is available in the [help docs](../reference/command-line/advanced/#commands-to-manipulate-local-cache).
