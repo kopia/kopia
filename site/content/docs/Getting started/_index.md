@@ -5,22 +5,39 @@ linkTitle: "Getting Started"
 weight: 10
 ---
 
-This guide will walk you through installing Kopia, creating, managing and restoring snapshots and defining snapshot policies.
+This guide will walk you through installing Kopia and setting up Kopia to backup your data, including connecting to a repository, creating/managing/restoring snapshots, and defining snapshot policies.
 
-Make sure to familiarize yourself with Kopia [features](../features/) before following along.
+Make sure to familiarize yourself with Kopia [features](../features/) before following this guide, so that you understand the appropriate terminology. As a reminder:
+
+* A `snapshot` is a [point-in-time backup](https://kopia.io/docs/features#backup-files-and-directories-using-snapshots) of your files/directories; each snapshot contains the files/directories that you can [restore when you need to](https://kopia.io/docs/features#restore-snapshots-using-multiple-methods)
+* A `repository` is the storage location where your snapshots are saved; Kopia supports [cloud/remote, network, and local storage locations](https://kopia.io/docs/features#save-snapshots-to-cloud-network-or-local-storage)
+* A `policy` is a set of rules that tells Kopia how to create/manage snapshots; this includes features such as [compression, snapshot retention, and scheduling when to take snapshots](https://kopia.io/docs/features#policies-control-what-and-how-filesdirectories-are-saved-in-snapshots)
 
 ## Installation
 
-Kopia is distributed as a single command-line (CLI) binary called `kopia`.
+Read the the [installation guide](../installation/) to learn how to install Kopia. As a reminder, Kopia comes in two variants: [command-line interface (CLI)](../installation/#two-variants-of-kopia) and [graphical user interface (GUI)](../installation/#two-variants-of-kopia). Pick the one you like the most.
 
-To install it follow the [Installation Guide](../installation/).
+## Setting Up Kopia
 
-## Kopia UI
+Once you have installed Kopia, setting up Kopia is quite easy but varies depending on if you are using Kopia CLI or Kopia GUI (also known as `KopiaUI`).
 
-If you prefer a graphical user interface,
-Kopia comes with a user-friendly desktop app for Windows, macOS, and Linux called `KopiaUI`, which runs in the background and allows you to create snapshots, define policies and restore files quickly. More advanced features require the use of the CLI tool.
+### Kopia GUI (`KopiaUI`)
 
-The Kopia UI is new and experimental. See the tutorial on YouTube:
+Setting up Kopia via the GUI is very easy. 
+
+When you run `KopiaUI` for the first time, you will need to connect to a `repository`. You will see all supported [repository types](https://kopia.io/docs/repositories/) on screen within the program interface. Pick the one you want and follow on-screen directions to get it setup; you will need to enter various different details about the storage location you selected and also pick a passphrase that will be used to encrypt all the snapshots that you store in the repository. You can also name the repository whatever you want. Remember, before you use Kopia, you need to provision and pay for whatever storage location you want to use. After you have done that, you can setup the repository in Kopia. For sample, if you want to use `Backblaze B2`, you need to create a Backblaze account, create a B2 bucket, and get the access keys for the bucket; then you can setup the `Backblaze B2` repository in Kopia.
+
+**There is absolutely no way to restore snapshots (i.e., your backed up files/directories) from a repository if you forget your passphrase, so do not forget it and keep it secure!** 
+
+Once you have connected to a repository, you can start backing up your files by creating a new `policy` in `KopiaUI`. You can do this from the `Policies` tab and the process, again, is quite straightforward: enter the `directory` which contains the files you want to backup (you can either manually type in the directory path or browse for the `directory`), hit the `Set Policy` button, choose your policy settings, and hit the `Save Policy` button. Kopia will then automatically begin taking the snapshot following the settings you set for the policy. Note that you can set policies at two levels here -- at the `global` level, where the settings are applied to all policies, or at the individual `policy` level, where the settings are applied only to that particular policy. By default, all new policies are set to inherit settings from the `global` policy. The `global` policy is the one that says `*` for `Username`, `Host`, and `Path`.
+
+When you want to restore your files/directories from a snapshot, you can do so from the `Snapshots` tab in `KopiaUI`. Just click the `Path` for the files/directories you want to restore and then find the specific `snapshot` you want to restore from. You will then be given the option to either 
+
+* `mount` the snapshot as a local drive so that you want browse and copy any files/directories from the snapshot to your local machine;
+* `restore` all the contents of the snapshot to a local or network location;
+* or download individual files from the snapshot (which can be done by browsing the snapshot contents from inside `KopiaUI` and clicking on the file you want to download)
+
+Here is a video tutorial on how to use `KopiaUI`:
 
 {{< youtube sHJjSpasWIo >}}
 
