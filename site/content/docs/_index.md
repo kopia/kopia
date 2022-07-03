@@ -16,7 +16,7 @@ When ready, head to the [installation](installation/) page to download and insta
 
 ### Pick the Cloud Storage Provider You Want
 
-Kopia supports saving your [encrypted](features/#end-to-end-zero-knowledge-encryption) and [compressed](features/#compression) snapshots to all of the following [cloud storage](features/#save-snapshots-to-cloud-network-or-local-storage) while using [data deduplication](features/#backup-files-and-directories-using-snapshots) to save you money:
+Kopia supports saving your [encrypted](features/#end-to-end-zero-knowledge-encryption) and [compressed](features/#compression) snapshots to all of the following [cloud storage](features/#save-snapshots-to-cloud-network-or-local-storage), and Kopia uses [data deduplication](features/#backup-files-and-directories-using-snapshots) to save you money:
 
 * Amazon S3 and any cloud storage that is compatible with S3 (e.g., Wasabi, IDrive E2, DigitalOcean Spaces, and more)
 * Azure Blob Storage
