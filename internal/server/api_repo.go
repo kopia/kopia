@@ -251,23 +251,57 @@ func handleRepoSetDescription(ctx context.Context, rc requestContext) (interface
 
 func handleRepoSupportedAlgorithms(ctx context.Context, rc requestContext) (interface{}, *apiError) {
 	res := &serverapi.SupportedAlgorithmsResponse{
-		DefaultHashAlgorithm: hashing.DefaultAlgorithm,
-		HashAlgorithms:       hashing.SupportedAlgorithms(),
+		DefaultHashAlgorithm:    hashing.DefaultAlgorithm,
+		SupportedHashAlgorithms: toAlgorithmInfo(hashing.SupportedAlgorithms(), neverDeprecated),
 
-		DefaultEncryptionAlgorithm: encryption.DefaultAlgorithm,
-		EncryptionAlgorithms:       encryption.SupportedAlgorithms(false),
+		DefaultEncryptionAlgorithm:    encryption.DefaultAlgorithm,
+		SupportedEncryptionAlgorithms: toAlgorithmInfo(encryption.SupportedAlgorithms(false), neverDeprecated),
 
-		DefaultSplitterAlgorithm: splitter.DefaultAlgorithm,
-		SplitterAlgorithms:       splitter.SupportedAlgorithms(),
+		DefaultSplitterAlgorithm:    splitter.DefaultAlgorithm,
+		SupportedSplitterAlgorithms: toAlgorithmInfo(splitter.SupportedAlgorithms(), neverDeprecated),
 	}
 
 	for k := range compression.ByName {
-		res.CompressionAlgorithms = append(res.CompressionAlgorithms, string(k))
+		res.SupportedCompressionAlgorithms = append(res.SupportedCompressionAlgorithms, serverapi.AlgorithmInfo{
+			ID:         string(k),
+			Deprecated: compression.IsDeprecated[k],
+		})
 	}
 
-	sort.Strings(res.CompressionAlgorithms)
+	sortAlgorithms(res.SupportedHashAlgorithms)
+	sortAlgorithms(res.SupportedEncryptionAlgorithms)
+	sortAlgorithms(res.SupportedCompressionAlgorithms)
+	sortAlgorithms(res.SupportedSplitterAlgorithms)
 
 	return res, nil
+}
+
+func neverDeprecated(n string) bool {
+	return false
+}
+
+func toAlgorithmInfo(names []string, isDeprecated func(id string) bool) []serverapi.AlgorithmInfo {
+	var result []serverapi.AlgorithmInfo
+
+	for _, n := range names {
+		result = append(result, serverapi.AlgorithmInfo{
+			ID:         n,
+			Deprecated: isDeprecated(n),
+		})
+	}
+
+	return result
+}
+
+func sortAlgorithms(a []serverapi.AlgorithmInfo) {
+	sort.Slice(a, func(i, j int) bool {
+		if l, r := a[i].Deprecated, a[j].Deprecated; l != r {
+			// non-deprecated first
+			return !l
+		}
+
+		return a[i].ID < a[j].ID
+	})
 }
 
 func handleRepoGetThrottle(ctx context.Context, rc requestContext) (interface{}, *apiError) {
