@@ -15,24 +15,45 @@ Kopia
 > 3. _[fast and secure backup tool](https://kopia.io)_
 
 
-Kopia is a simple, cross-platform tool for managing encrypted backups in the cloud. It provides fast, incremental backups, secure, client-side end-to-end encryption, compression and data deduplication.
+Kopia is a fast and secure open-source backup/restore tool that allows you to create [encrypted](https://kopia.io/docs/features/#end-to-end-zero-knowledge-encryption) snapshots of your data and save the snapshots to [remote or cloud storage](https://kopia.io/docs/features/#save-snapshots-to-cloud-network-or-local-storage) of your choice, [to network-attached storage or server](https://kopia.io/docs/features/#save-snapshots-to-cloud-network-or-local-storage), or [locally on your machine](https://kopia.io/docs/features/#save-snapshots-to-cloud-network-or-local-storage). Kopia does not 'image' your whole machine. Rather, Kopia allows you to backup/restore any and all files/directories that you deem are important or critical.
 
-Unlike other cloud backup solutions, the user is in full control of the backup storage and responsible for purchasing one of the cloud storage products (such as [Google Cloud Storage](https://cloud.google.com/storage/)), which offer great durability and availability for the data.
+Kopia has both [CLI (command-line interface)](https://kopia.io/docs/features/#both-command-line-and-graphical-user-interfaces) and [GUI (graphical user interface)](https://kopia.io/docs/features/#both-command-line-and-graphical-user-interfaces) versions, making it the perfect tool for both advanced and regular users. You can read more about Kopia's unique [features](https://kopia.io/docs/features/) -- which include [compression](https://kopia.io/docs/features/#compression), [deduplication](https://kopia.io/docs/features/#backup-files-and-directories-using-snapshots), and [end-to-end 'zero knowledge' encryption](https://kopia.io/docs/features/#end-to-end-zero-knowledge-encryption) -- to get a better understanding of how Kopia works.
 
-Kopia in action
+When ready, head to the [installation](https://kopia.io/docs/installation/) page to download and install Kopia, and make sure to read the [Getting Started Guide](https://kopia.io/docs/getting-started/) for a step-by-step walkthrough of how to use Kopia.
+
+Pick the Cloud Storage Provider You Want
 ---
 
-Using `kopia` command line tool:
+Kopia supports saving your [encrypted](https://kopia.io/docs/features/#end-to-end-zero-knowledge-encryption) and [compressed](https://kopia.io/docs/features/#compression) snapshots to all of the following [cloud storage](https://kopia.io/docs/features/#save-snapshots-to-cloud-network-or-local-storage):
+
+* Amazon S3 and any cloud storage that is compatible with S3 (e.g., Wasabi, IDrive E2, DigitalOcean Spaces, and more)
+* Azure Blob Storage
+* Backblaze B2
+* Google Cloud Storage
+* Any remote server or cloud storage that supports WebDAV
+* Any remote server or cloud storage that supports SFTP
+* All cloud storage supported by Rclone (requires you to download and setup Rclone in addition to Kopia)
+  * Rclone support is experimental and all the cloud storage supported by Rclone has not been tested to work with Kopia; Kopia has been tested to work with Dropbox, OneDrive, and Google Drive through Rclone
+* Your own server by setting up a [Kopia Repository Server](https://kopia.io/docs/repository-server/)
+
+And Kopia uses [data deduplication](https://kopia.io/docs/features/#backup-files-and-directories-using-snapshots) to save you money!
+
+With Kopia you’re in full control of where to store your snapshots; you pick the cloud storage you want to use. Kopia plays no role in selecting your storage locations. You must provision and pay (the storage provider) for whatever storage locations you want to use, and then tell Kopia what those storage locations are. The advantage of decoupling the software (i.e., Kopia) from storage is that you can use whatever storage locations you desire -– it makes no difference to Kopia what storage you use. You can even use multiple storage locations if you want to, and Kopia also supports backing up multiple machines to the same storage location.
+
+Kopia in Action
+---
+
+Using Kopia via command-line interface:
 
 [![asciicast](https://asciinema.org/a/ykx6uzEhKY3451fWEnX9nm9uo.svg)](https://asciinema.org/a/ykx6uzEhKY3451fWEnX9nm9uo)
 
-Kopia UI - experimental user interface
+Using Kopia via graphical user interface (note: the video is of an older version of Kopia and the interface is different in the current version of Kopia, but the main principles of the interface are the same):
 
 [![Kopia UI Tutorial](https://img.youtube.com/vi/sHJjSpasWIo/0.jpg)](https://www.youtube.com/watch?v=sHJjSpasWIo)
 
 Getting Started
 ---
-See [Documentation](https://kopia.io/docs/) for more information.
+See [Kopia Documentation](https://kopia.io/docs/) for more information.
 
 Building Kopia
 ---
@@ -44,7 +65,6 @@ Kopia is licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) 
 
 Contribution Guidelines
 ---
-
 Kopia is open source and contributions are welcome. For more information on how to contribute see the [Contribution Guidelines](https://kopia.io/docs/contribution-guidelines/).
 
 Reporting Security Issues
