@@ -88,9 +88,9 @@ Kopia maintains a local cache of recently accessed objects making it possible to
 
 ### Both Command Line and Graphical User Interfaces
 
-Kopia has a rich [command-line interface](../installation/#installing-kopia) that gives you full access to all Kopia features, including allowing you to create/connect to repositories, manage snapshots and policies, and provides low-level access to the underlying repository, including low-level data recovery. 
+Kopia has a rich [command-line interface](../installation/#two-variants-of-kopia) that gives you full access to all Kopia features, including allowing you to create/connect to repositories, manage snapshots and policies, and provides low-level access to the underlying repository, including low-level data recovery. 
 
-Do not want to use command-line? No problem. Kopia also comes with a [powerful official graphical user interface](../installation/#installing-kopia) that allows you to easily create/connect to repositories, manage snapshots and policies, and restore data as needed.
+Do not want to use command-line? No problem. Kopia also comes with a [powerful official graphical user interface](../installation/#two-variants-of-kopia) that allows you to easily create/connect to repositories, manage snapshots and policies, and restore data as needed.
 
 ### Optional Server Mode with API Support to Centrally Manage Backups of Multiple Machines
 
