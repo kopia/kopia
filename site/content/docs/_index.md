@@ -14,7 +14,7 @@ Kopia has both [CLI (command-line interface)](features/#both-command-line-and-gr
 
 When ready, head to the [installation](installation/) page to download and install Kopia, and make sure to read the [Getting Started Guide](getting-started/) for a step-by-step walkthrough of how to use Kopia.
 
-## Pick the Cloud Storage Provider You Want
+### Pick the Cloud Storage Provider You Want
 
 Kopia supports saving your [encrypted](features/#end-to-end-zero-knowledge-encryption) and [compressed](features/#compression) snapshots to all of the following [cloud storage](features/#save-snapshots-to-cloud-network-or-local-storage) while using [data deduplication](features/#backup-files-and-directories-using-snapshots) to save you money:
 
