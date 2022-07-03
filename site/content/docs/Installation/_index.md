@@ -4,7 +4,7 @@ linkTitle: "Installation"
 weight: 20
 ---
 
-### Installing Kopia
+### Two Variants of Kopia
 
 Kopia is a standalone binary and can be used through a command-line interface (CLI) or a graphical user inferace (GUI). 
 
@@ -15,6 +15,8 @@ Kopia is a standalone binary and can be used through a command-line interface (C
 Both the CLI and GUI versions of Kopia use the same `kopia` binary, so you are getting the same features regardless of which variant you decide to go with (since the `kopia` binary in the workhorse). However, there are some advanced features that are available through CLI but which have not yet been added to `KopiaUI`. Right now, `KopiaUI` allows you to access all the essential features of Kopia that are required to backup/restore data: connect to repositories (including encryption), set policies (including compression, scheduling, and snapshot retention), create snapshots, restore snapshots, automatically run maintenance, and install Kopia updates. If you use `KopiaUI` and you want access to advanced features that are not yet available in `KopiaUI`, you can easily run the commands for those features via CLI by calling the `kopia` binary that comes with `KopiaUI`. In other words, using Kopia GUI does not restrict you from using Kopia CLI as well.
 
 Kopia CLI is recommended only if you are comfortable with command-line interfaces (e.g., power users, system administrators, etc.). If you are not comfortable with command-line, you should use Kopia GUI. Although more limited than Kopia CLI, Kopia GUI is still very powerful and allows you to easily use Kopia to backup/restore your data.
+
+### Installing Kopia
 
 The following installation options are available:
 
