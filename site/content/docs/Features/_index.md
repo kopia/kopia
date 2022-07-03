@@ -12,7 +12,7 @@ Kopia uses [content-addressable storage](https://en.wikipedia.org/wiki/Content-a
 
 * Each snapshot is always [incremental](https://www.techtarget.com/searchdatabackup/feature/Full-incremental-or-differential-How-to-choose-the-correct-backup-type). This means that all data is uploaded once to the repository based on file content, and a file is only re-uploaded to the repository if the file is modified. Kopia uses file splitting based on [rolling hash](https://en.wikipedia.org/wiki/Rolling_hash), which allows efficient handling of changes to very large files: any file that gets modified is efficiently snapshotted by only uploading the changed parts and not the entire file.
 
-* Multiple copies of the same file will be stored once. This is known as [deduplication](https://en.wikipedia.org/wiki/Data_deduplication) and saves you a lot of storage space.
+* Multiple copies of the same file will be stored once. This is known as [deduplication](https://en.wikipedia.org/wiki/Data_deduplication) and saves you a lot of storage space (i.e., saves you money).
 
 * After moving or renaming even large files, Kopia can recognize that they have the same content and won't need to upload them again.
 
@@ -38,9 +38,21 @@ Policies can be applied at multiple different levels:
 
 ### Save Snapshots to Cloud, Network, or Local Storage
 
-Kopia performs all its operations locally on your machine, meaning that you do not need to have any dedicated server to run your backups and you can save your snapshots to a variety of storage locations. Kopia supports network and local storage locations, of course, but also many cloud or remote storage locations, including but not limited to [Google Cloud Storage](https://cloud.google.com/storage); [Amazon S3](https://aws.amazon.com/s3) and all S3-compatible cloud storage such as [Wasabi](https://wasabi.com); [Backblaze B2](https://www.backblaze.com/b2/cloud-storage.html); [Microsoft Azure Blob Storage](https://azure.microsoft.com/fr-fr/services/storage/); [WebDAV](https://en.wikipedia.org/wiki/WebDAV)-compatible storage; any storage locations that allow you to connect via SFTP; and all storage locations supported by [Rclone](https://rclone.org/). Read the [repositories help page](../repositories/) for more information. 
+Kopia performs all its operations locally on your machine, meaning that you do not need to have any dedicated server to run your backups and you can save your snapshots to a variety of storage locations. Kopia supports network and local storage locations, of course, but also many cloud or remote storage locations:
 
-With Kopia you're in full control of where to store your snapshots. Kopia plays no role in setting up your storage locations. You must provision and pay for whatever storage locations you want to use, and then tell Kopia what those storage locations are. The advantage of decoupling the software (i.e., Kopia) from storage is that you can use whatever storage locations you desire -- it makes no difference to Kopia what storage you use. You can even use multiple storage locations if you want to. 
+* Amazon S3 and any cloud storage that is compatible with S3 (e.g., Wasabi, IDrive E2, DigitalOcean Spaces, and more)
+* Azure Blob Storage
+* Backblaze B2
+* Google Cloud Storage
+* Any remote server or cloud storage that supports WebDAV
+* Any remote server or cloud storage that supports SFTP
+* All cloud storage supported by Rclone (requires you to download and setup Rclone in addition to Kopia)
+  * Rclone support is experimental and all the cloud storage supported by Rclone has not been tested to work with Kopia; Kopia has been tested to work with Dropbox, OneDrive, and Google Drive through Rclone
+* Your own server by setting up a [Kopia Repository Server](repository-server/)
+
+Read the [repositories help page](../repositories/) for more information on supported storage locations. 
+
+With Kopia you’re in full control of where to store your snapshots; you pick the cloud storage you want to use. Kopia plays no role in selecting your storage locations. You must provision and pay (the storage provider) for whatever storage locations you want to use, and then tell Kopia what those storage locations are. The advantage of decoupling the software (i.e., Kopia) from storage is that you can use whatever storage locations you desire -– it makes no difference to Kopia what storage you use. You can even use multiple storage locations if you want to, and Kopia also supports backing up multiple machines to the same storage location. 
 
 > NOTE: Different storage providers may operate slightly differently, so you need to make sure whatever storage location you use has enough capacity to store your backups and enough availability to be able to recover the data when needed. 
 
