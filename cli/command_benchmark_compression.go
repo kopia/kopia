@@ -26,6 +26,7 @@ type commandBenchmarkCompression struct {
 	verifyStable bool
 	optionPrint  bool
 	parallel     int
+	deprecated   bool
 
 	out textOutput
 }
@@ -39,6 +40,7 @@ func (c *commandBenchmarkCompression) setup(svc appServices, parent commandParen
 	cmd.Flag("parallel", "Number of parallel goroutines").Default("1").IntVar(&c.parallel)
 	cmd.Flag("verify-stable", "Verify that compression is stable").BoolVar(&c.verifyStable)
 	cmd.Flag("print-options", "Print out options usable for repository creation").BoolVar(&c.optionPrint)
+	cmd.Flag("deprecated", "Included deprecated compression algorithms").BoolVar(&c.deprecated)
 	cmd.Action(svc.noRepositoryAction(c.run))
 	c.out.setup(svc)
 }
@@ -107,6 +109,10 @@ func (c *commandBenchmarkCompression) run(ctx context.Context) error {
 	log(ctx).Infof("Repeating %v times per compression method (total %v). Override with --repeat=N.", repeatCount, units.BytesStringBase2(int64(repeatCount*len(data))))
 
 	for name, comp := range compression.ByName {
+		if compression.IsDeprecated[name] && !c.deprecated {
+			continue
+		}
+
 		log(ctx).Infof("Benchmarking compressor '%v'...", name)
 
 		cnt := repeatCount
@@ -197,13 +203,19 @@ func (c *commandBenchmarkCompression) printResults(results []compressionBechmark
 	c.out.printStdout("------------------------------------------------------------------------------------------------\n")
 
 	for ndx, r := range results {
-		c.out.printStdout("%3d. %-26v %-12v %-12v %-8v %v",
+		maybeDeprecated := ""
+		if compression.IsDeprecated[r.compression] {
+			maybeDeprecated = " (deprecated)"
+		}
+
+		c.out.printStdout("%3d. %-26v %-12v %-12v %-8v %v%v",
 			ndx,
 			r.compression,
 			units.BytesStringBase2(r.compressedSize),
 			units.BytesStringBase2(int64(r.throughput))+"/s",
 			r.allocations,
 			units.BytesStringBase2(r.allocBytes),
+			maybeDeprecated,
 		)
 
 		if c.optionPrint {

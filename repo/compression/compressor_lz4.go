@@ -11,7 +11,7 @@ import (
 )
 
 func init() {
-	RegisterCompressor("lz4", newLZ4Compressor(headerLZ4Default))
+	RegisterDeprecatedCompressor("lz4", newLZ4Compressor(headerLZ4Default))
 }
 
 func newLZ4Compressor(id HeaderID) Compressor {

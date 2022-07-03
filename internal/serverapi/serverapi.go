@@ -128,15 +128,22 @@ type ConnectRepositoryRequest struct {
 	SyncWaitTimeSeconds int                 `json:"syncWaitTime"` // if non-zero, force particular wait time, negative == forever
 }
 
+// AlgorithmInfo is an information about a single algorithm.
+type AlgorithmInfo struct {
+	ID         string `json:"id"`
+	Deprecated bool   `json:"deprecated"`
+}
+
 // SupportedAlgorithmsResponse returns the list of supported algorithms for repository creation.
 type SupportedAlgorithmsResponse struct {
-	DefaultHashAlgorithm       string   `json:"defaultHash"`
-	DefaultEncryptionAlgorithm string   `json:"defaultEncryption"`
-	DefaultSplitterAlgorithm   string   `json:"defaultSplitter"`
-	HashAlgorithms             []string `json:"hash"`
-	EncryptionAlgorithms       []string `json:"encryption"`
-	SplitterAlgorithms         []string `json:"splitter"`
-	CompressionAlgorithms      []string `json:"compression"`
+	DefaultHashAlgorithm       string `json:"defaultHash"`
+	DefaultEncryptionAlgorithm string `json:"defaultEncryption"`
+	DefaultSplitterAlgorithm   string `json:"defaultSplitter"`
+
+	SupportedHashAlgorithms        []AlgorithmInfo `json:"hash"`
+	SupportedEncryptionAlgorithms  []AlgorithmInfo `json:"encryption"`
+	SupportedSplitterAlgorithms    []AlgorithmInfo `json:"splitter"`
+	SupportedCompressionAlgorithms []AlgorithmInfo `json:"compression"`
 }
 
 // CreateSnapshotSourceRequest contains request to create snapshot source and optionally create first snapshot.

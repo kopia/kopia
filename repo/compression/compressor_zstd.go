@@ -14,7 +14,7 @@ func init() {
 	RegisterCompressor("zstd", newZstdCompressor(HeaderZstdDefault, zstd.SpeedDefault))
 	RegisterCompressor("zstd-fastest", newZstdCompressor(HeaderZstdFastest, zstd.SpeedFastest))
 	RegisterCompressor("zstd-better-compression", newZstdCompressor(HeaderZstdBetterCompression, zstd.SpeedBetterCompression))
-	RegisterCompressor("zstd-best-compression", newZstdCompressor(HeaderZstdBestCompression, zstd.SpeedBestCompression))
+	RegisterDeprecatedCompressor("zstd-best-compression", newZstdCompressor(HeaderZstdBestCompression, zstd.SpeedBestCompression))
 }
 
 func newZstdCompressor(id HeaderID, level zstd.EncoderLevel) Compressor {
