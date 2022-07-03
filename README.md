@@ -21,6 +21,9 @@ Kopia has both [CLI (command-line interface)](https://kopia.io/docs/features/#bo
 
 When ready, head to the [installation](installation/) page to download and install Kopia, and make sure to read the [Getting Started Guide](getting-started/) for a step-by-step walkthrough of how to use Kopia.
 
+Pick the Cloud Storage Provider You Want
+---
+
 Kopia supports saving your [encrypted](https://kopia.io/docs/features/#end-to-end-zero-knowledge-encryption) and [compressed] (https://kopia.io/docs/features/#compression) snapshots to all of the following [cloud storage](https://kopia.io/docs/features/#save-snapshots-to-cloud-network-or-local-storage):
 
 * Amazon S3 and all other cloud storage that is compatible with S3 (e.g., Wasabi, IDrive E2, DigitalOcean Spaces, and more)
@@ -30,10 +33,12 @@ Kopia supports saving your [encrypted](https://kopia.io/docs/features/#end-to-en
 * Any remote server or cloud storage that supports WebDAV
 * Any remote server or cloud storage that supports SFTP
 * All cloud storage supported by Rclone (requires you to download and setup Rclone in addition to Kopia)
-** Rclone support is experimental and Kopia has been tested to work with Dropbox, OneDrive, and Google Drive through Rclone
+  * Rclone support is experimental and all cloud storage supported by Rclone has not been tested to work with Kopia; Kopia has been tested to work with Dropbox, OneDrive, and Google Drive through Rclone
 * Your own server by setting up a [Kopia Repository Server](https://kopia.io/docs/repository-server/)
 
-Kopia in action
+With Kopia you’re in full control of where to store your snapshots; you pick the cloud storage you want to use. Kopia plays no role in selecting your storage locations. You must provision and pay (the storage provider) for whatever storage locations you want to use, and then tell Kopia what those storage locations are. The advantage of decoupling the software (i.e., Kopia) from storage is that you can use whatever storage locations you desire -– it makes no difference to Kopia what storage you use. You can even use multiple storage locations if you want to, and Kopia also supports backing up multiple machines to the same storage location.
+
+Kopia in Action
 ---
 
 Using Kopia via command-line interface:
