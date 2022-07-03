@@ -15,24 +15,26 @@ Kopia
 > 3. _[fast and secure backup tool](https://kopia.io)_
 
 
-Kopia is a simple, cross-platform tool for managing encrypted backups in the cloud. It provides fast, incremental backups, secure, client-side end-to-end encryption, compression and data deduplication.
+Kopia is a fast and secure open-source backup/restore tool that allows you to create [encrypted](features/#end-to-end-zero-knowledge-encryption) snapshots of your data and save the snapshots to [remote or cloud storage](features/#save-snapshots-to-cloud-network-or-local-storage), [to network-attached storage or server](features/#save-snapshots-to-cloud-network-or-local-storage), or [locally on your machine](features/#save-snapshots-to-cloud-network-or-local-storage). Kopia does not 'image' your whole machine. Rather, Kopia allows you to backup/restore any and all files/directories that you deem are important or critical.
 
-Unlike other cloud backup solutions, the user is in full control of the backup storage and responsible for purchasing one of the cloud storage products (such as [Google Cloud Storage](https://cloud.google.com/storage/)), which offer great durability and availability for the data.
+Kopia has both [CLI (command-line interface)](features/#both-command-line-and-graphical-user-interfaces) and [GUI (graphical user interface)](features/#both-command-line-and-graphical-user-interfaces) versions, making it the perfect tool for both advanced and regular users. You can read more about Kopia's unique [features](features/) -- which include [compression](features/#compression), [deduplication](features/#backup-files-and-directories-using-snapshots), and [end-to-end 'zero knowledge' encryption](features/#end-to-end-zero-knowledge-encryption) -- and learn more about Kopia's [architecture](advanced/architecture/) to get a better understanding of how Kopia works.
+
+When ready, head to the [installation](installation/) page to download and install Kopia, and make sure to read the [Getting Started Guide](getting-started/) for a step-by-step walkthrough of how to use Kopia.
 
 Kopia in action
 ---
 
-Using `kopia` command line tool:
+Using Kopia via command-line interface:
 
 [![asciicast](https://asciinema.org/a/ykx6uzEhKY3451fWEnX9nm9uo.svg)](https://asciinema.org/a/ykx6uzEhKY3451fWEnX9nm9uo)
 
-Kopia UI - experimental user interface
+Using Kopia via graphical user interface (note: the video is of an older version of Kopia and the interface is different in the current version of Kopia, but the main principles of the interface are the same):
 
 [![Kopia UI Tutorial](https://img.youtube.com/vi/sHJjSpasWIo/0.jpg)](https://www.youtube.com/watch?v=sHJjSpasWIo)
 
 Getting Started
 ---
-See [Documentation](https://kopia.io/docs/) for more information.
+See [Kopia Documentation](https://kopia.io/docs/) for more information.
 
 Building Kopia
 ---
@@ -44,7 +46,6 @@ Kopia is licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) 
 
 Contribution Guidelines
 ---
-
 Kopia is open source and contributions are welcome. For more information on how to contribute see the [Contribution Guidelines](https://kopia.io/docs/contribution-guidelines/).
 
 Reporting Security Issues
