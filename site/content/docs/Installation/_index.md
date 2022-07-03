@@ -1,6 +1,6 @@
 ---
-title: "Installation"
-linkTitle: "Installation"
+title: "Download & Installation"
+linkTitle: "Download & Installation"
 weight: 20
 ---
 
