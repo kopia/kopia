@@ -38,7 +38,7 @@ Policies can be applied at multiple different levels:
 
 ### Save Snapshots to Cloud, Network, or Local Storage
 
-Kopia performs all its operations locally on your machine, meaning that you do not need to have any dedicated server to run your backups and you can save your snapshots to a variety of storage locations. Kopia supports network and local storage locations, of course, but also many cloud or remote storage locations, including but not limited to [Google Cloud Storage](https://cloud.google.com/storage); [Amazon S3](https://aws.amazon.com/s3) and all S3-compatible cloud storage such as [Wasabi](https://wasabi.com); [Backblaze B2](https://www.backblaze.com/b2/cloud-storage.html); [Microsoft Azure Blob Storage](https://azure.microsoft.com/fr-fr/services/storage/); [WebDAV](https://en.wikipedia.org/wiki/WebDAV)-compatible storage; any storage locations that allow you to connect via SFTP; and all storage locations supported by [Rclone](https://rclone.org/). Read the [repositories help page](https://kopia.io/docs/repositories/) for more information. 
+Kopia performs all its operations locally on your machine, meaning that you do not need to have any dedicated server to run your backups and you can save your snapshots to a variety of storage locations. Kopia supports network and local storage locations, of course, but also many cloud or remote storage locations, including but not limited to [Google Cloud Storage](https://cloud.google.com/storage); [Amazon S3](https://aws.amazon.com/s3) and all S3-compatible cloud storage such as [Wasabi](https://wasabi.com); [Backblaze B2](https://www.backblaze.com/b2/cloud-storage.html); [Microsoft Azure Blob Storage](https://azure.microsoft.com/fr-fr/services/storage/); [WebDAV](https://en.wikipedia.org/wiki/WebDAV)-compatible storage; any storage locations that allow you to connect via SFTP; and all storage locations supported by [Rclone](https://rclone.org/). Read the [repositories help page](../repositories/) for more information. 
 
 With Kopia you're in full control of where to store your snapshots. Kopia plays no role in setting up your storage locations. You must provision and pay for whatever storage locations you want to use, and then tell Kopia what those storage locations are. The advantage of decoupling the software (i.e., Kopia) from storage is that you can use whatever storage locations you desire -- it makes no difference to Kopia what storage you use. You can even use multiple storage locations if you want to. 
 
@@ -58,11 +58,11 @@ To restore data, Kopia gives you three options:
 
 All data is encrypted before it leaves your machine. Encryption is baked into the DNA of Kopia, and you cannot create a backup without using encryption. Kopia allows you to pick from two state-of-the-art encryption algorithms, [AES-256](https://en.wikipedia.org/wiki/AES256) and [ChaCha20](https://en.wikipedia.org/wiki/ChaCha20).
 
-The data is encrypted using per-content keys which are derived from the 256-bit master key that is stored in the repository. The master key is encrypted with a passphrase you provide. This means that anyone that does not know the passphrase cannot access your backed up files and will not know what files/directories are contained in the snapshots that are saved in the repository. Importantly, the passphrase you provide is never sent to any server or anywhere outside your machine, and only you know your passphrase. In other words, Kopia provides your backups with end-to-end zero knowledge encryption. However, this also means that you cannot restore your files if you forget your passphrase: there is no way to recover a forgotten passphrase because only you know it. (But you can [change your passphrase](https://kopia.io/docs/reference/command-line/common/repository-change-password/) if you are still connected to the repository that stores your snapshots.)
+The data is encrypted using per-content keys which are derived from the 256-bit master key that is stored in the repository. The master key is encrypted with a passphrase you provide. This means that anyone that does not know the passphrase cannot access your backed up files and will not know what files/directories are contained in the snapshots that are saved in the repository. Importantly, the passphrase you provide is never sent to any server or anywhere outside your machine, and only you know your passphrase. In other words, Kopia provides your backups with end-to-end zero knowledge encryption. However, this also means that you cannot restore your files if you forget your passphrase: there is no way to recover a forgotten passphrase because only you know it. (But you can [change your passphrase](../reference/command-line/common/repository-change-password/) if you are still connected to the repository that stores your snapshots.)
 
 ### Compression
 
-Kopia can [compress your data](https://kopia.io/docs/advanced/compression/) to save storage and bandwidth. Several compression methods are supported, including:
+Kopia can [compress your data](../advanced/compression/) to save storage and bandwidth. Several compression methods are supported, including:
 
 * [pgzip](https://github.com/klauspost/pgzip)
 
@@ -72,7 +72,7 @@ Kopia can [compress your data](https://kopia.io/docs/advanced/compression/) to s
 
 ### Verifying Backup Validity and Consistency
 
-Backing up data is great, but you also need to be able to restore that data when (if) the time arises. Kopia has built-in functions that enable you to verify the consistency/validity of your backed up files. You can run these consistency checks are frequently as you like (e.g., once a month, once a year, etc.). Read the [repository consistency](https://kopia.io/docs/advanced/consistency/) help docs for more information.
+Backing up data is great, but you also need to be able to restore that data when (if) the time arises. Kopia has built-in functions that enable you to verify the consistency/validity of your backed up files. You can run these consistency checks are frequently as you like (e.g., once a month, once a year, etc.). Read the [repository consistency](../advanced/consistency/) help docs for more information.
 
 ### Recovering Backed Up Data When There is Data Loss
 
@@ -80,7 +80,7 @@ Although never guaranteed, Kopia can often recover your files even if there is s
 
 ### Regular Automatic Maintence of Repositories
 
-Over time, repositories can get bloated to the point of decreased performance and waste of storage space. Kopia runs automatic maintence that ensures optimal performance and space usage. Read the [maintenance](https://kopia.io/docs/advanced/maintenance/) help docs for more information.
+Over time, repositories can get bloated to the point of decreased performance and waste of storage space. Kopia runs automatic maintence that ensures optimal performance and space usage. Read the [maintenance](../advanced/maintenance/) help docs for more information.
 
 ### Caching
 
@@ -88,9 +88,9 @@ Kopia maintains a local cache of recently accessed objects making it possible to
 
 ### Both Command Line and Graphical User Interfaces
 
-Kopia has a rich [command-line interface](https://kopia.io/docs/installation/#installing-kopia) that gives you full access to all Kopia features, including allowing you to create/connect to repositories, manage snapshots and policies, and provides low-level access to the underlying repository, including low-level data recovery. 
+Kopia has a rich [command-line interface](../installation/#installing-kopia) that gives you full access to all Kopia features, including allowing you to create/connect to repositories, manage snapshots and policies, and provides low-level access to the underlying repository, including low-level data recovery. 
 
-Do not want to use command-line? No problem. Kopia also comes with a [powerful official graphical user interface](https://kopia.io/docs/installation/#installing-kopia) that allows you to easily create/connect to repositories, manage snapshots and policies, and restore data as needed.
+Do not want to use command-line? No problem. Kopia also comes with a [powerful official graphical user interface](../installation/#installing-kopia) that allows you to easily create/connect to repositories, manage snapshots and policies, and restore data as needed.
 
 ### Optional Server Mode with API Support to Centrally Manage Backups of Multiple Machines
 
