@@ -19,7 +19,7 @@ Kopia is a fast and secure open-source backup/restore tool that allows you to cr
 
 Kopia has both [CLI (command-line interface)](https://kopia.io/docs/features/#both-command-line-and-graphical-user-interfaces) and [GUI (graphical user interface)](https://kopia.io/docs/features/#both-command-line-and-graphical-user-interfaces) versions, making it the perfect tool for both advanced and regular users. You can read more about Kopia's unique [features](https://kopia.io/docs/features/) -- which include [compression](https://kopia.io/docs/features/#compression), [deduplication](https://kopia.io/docs/features/#backup-files-and-directories-using-snapshots), and [end-to-end 'zero knowledge' encryption](https://kopia.io/docs/features/#end-to-end-zero-knowledge-encryption) -- to get a better understanding of how Kopia works.
 
-When ready, head to the [installation](installation/) page to download and install Kopia, and make sure to read the [Getting Started Guide](getting-started/) for a step-by-step walkthrough of how to use Kopia.
+When ready, head to the [installation](https://kopia.io/docs/installation/) page to download and install Kopia, and make sure to read the [Getting Started Guide](https://kopia.io/docs/getting-started/) for a step-by-step walkthrough of how to use Kopia.
 
 Pick the Cloud Storage Provider You Want
 ---
