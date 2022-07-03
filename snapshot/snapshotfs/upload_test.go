@@ -597,21 +597,19 @@ func TestParallelUploadUploadsBlobsInParallel(t *testing.T) {
 	// no faults for first blob write - session marker.
 	th.faulty.AddFault(blobtesting.MethodPutBlob)
 
-	// data blobs follow - use channels to enforce parallelism
-	first := make(chan struct{})
-	gotParallelCalls := false
+	currentParallelCalls := new(int32)
+	maxParallelCalls := new(int32)
 
-	th.faulty.AddFault(blobtesting.MethodPutBlob).Before(func() {
-		t.Logf(">>>>>>>>>>> FIRST")
-		// wait until channel is closed by concurrent PutBlob
-		<-first
-		t.Logf("<<<<<<<<<<< FIRST")
-	})
-	th.faulty.AddFault(blobtesting.MethodPutBlob).Before(func() {
-		t.Logf(">>>>>>>>>>> SECOND")
-		gotParallelCalls = true
-		close(first)
-		t.Logf("<<<<<<<<<<< SECOND")
+	// measure concurrency of PutBlob calls
+	th.faulty.AddFault(blobtesting.MethodPutBlob).Repeat(10).Before(func() {
+		v := atomic.AddInt32(currentParallelCalls, 1)
+		max := atomic.LoadInt32(maxParallelCalls)
+		if v > max {
+			atomic.CompareAndSwapInt32(maxParallelCalls, max, v)
+		}
+
+		time.Sleep(100 * time.Millisecond)
+		atomic.AddInt32(currentParallelCalls, -1)
 	})
 
 	// create a channel that will be sent to whenever checkpoint completes.
@@ -643,7 +641,7 @@ func TestParallelUploadUploadsBlobsInParallel(t *testing.T) {
 
 	require.NoError(t, th.repo.Flush(ctx))
 
-	require.True(t, gotParallelCalls)
+	require.Greater(t, atomic.LoadInt32(maxParallelCalls), int32(0))
 }
 
 func randomBytes(n int64) []byte {
