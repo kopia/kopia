@@ -8,7 +8,7 @@ weight: 20
 
 Kopia is a standalone binary and can be used through a command-line interface (CLI) or a graphical user inferace (GUI). 
 
-* If you want to use Kopia via CLI, you will install the `kopia` binary; when you want to use Kopia, you will call the `kopia` binary (along with [Kopia commands](reference/command-line/)) in a terminal/command prompt window or within a script. 
+* If you want to use Kopia via CLI, you will install the `kopia` binary; when you want to use Kopia, you will call the `kopia` binary (along with [Kopia commands](../reference/command-line/)) in a terminal/command prompt window or within a script. 
 
 * If you want to use Kopia via GUI, you will install `KopiaUI`, which is the name of the Kopia GUI. The installer for KopiaUI comes with the `kopia` binary and a graphical user interface called `KopiaUI` that is a wrapper for the `kopia` binary. `KopiaUI` runs the `kopia` binary and associated commands as necessary, so you do not need to use the command-line interface. `KopiaUI` is available both as a web-based application and a desktop application.
 
