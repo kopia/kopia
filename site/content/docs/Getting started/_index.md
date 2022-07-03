@@ -5,97 +5,96 @@ linkTitle: "Getting Started"
 weight: 10
 ---
 
-This guide will walk you through installing Kopia, creating, managing and restoring snapshots and defining snapshot policies.
+This guide will walk you through installing Kopia and setting up Kopia to backup/restore your data. Make sure to familiarize yourself with Kopia [features](../features/) before following this guide, so that you understand the appropriate terminology. As a reminder:
 
-Make sure to familiarize yourself with Kopia [features](../features/) before following along.
+* A `snapshot` is a [point-in-time backup](../features#backup-files-and-directories-using-snapshots) of your files/directories; each snapshot contains the files/directories that you can [restore when you need to](../features#restore-snapshots-using-multiple-methods).
+* A `repository` is the storage location where your snapshots are saved; Kopia supports [cloud/remote, network, and local storage locations](../features#save-snapshots-to-cloud-network-or-local-storage) and all repositories are [encrypted](../features/#end-to-end-zero-knowledge-encryption) with a passphrase that you designate.
+* A `policy` is a set of rules that tells Kopia how to create/manage snapshots; this includes features such as [compression, snapshot retention, and scheduling when to take automatically snapshots](../features#policies-control-what-and-how-filesdirectories-are-saved-in-snapshots).
 
 ## Installation
 
-Kopia is distributed as a single command-line (CLI) binary called `kopia`.
+Read the the [installation guide](../installation/) to learn how to install Kopia. As a reminder, Kopia comes in two variants: [command-line interface (CLI)](../installation/#two-variants-of-kopia) and [graphical user interface (GUI)](../installation/#two-variants-of-kopia). Pick the one you like the most.
 
-To install it follow the [Installation Guide](../installation/).
+## Setting Up Kopia
 
-## Kopia UI
+Once you have installed Kopia, setting up Kopia is quite easy but varies depending on if you are using Kopia CLI or Kopia GUI (also known as `KopiaUI`).
 
-If you prefer a graphical user interface,
-Kopia comes with a user-friendly desktop app for Windows, macOS, and Linux called `KopiaUI`, which runs in the background and allows you to create snapshots, define policies and restore files quickly. More advanced features require the use of the CLI tool.
+### Kopia GUI (`KopiaUI`)
 
-The Kopia UI is new and experimental. See the tutorial on YouTube:
+Setting up Kopia via the GUI is very easy. 
+
+#### Creating and Connecting to a Repository
+
+When you run `KopiaUI` for the first time, you will need to create a `repository`. You will see all supported [repository types](../repositories/) on-screen within the program interface. Pick the one you want and follow the on-screen directions to get it setup; you will need to enter various different details about the storage location that you selected, and you will pick a passphrase that will be used to encrypt all the snapshots that you store in the repository. (As a reminder, Kopia uses [end-to-end zero knowledge encryption](../features#end-to-end-zero-knowledge-encryption), so your passphrase is never sent anywhere and it never leaves your machine!) You can also name the repository whatever you want. 
+
+**There is absolutely no way to restore snapshots (i.e., your backed up files/directories) from a repository if you forget your passphrase, so do not forget it and keep it secure!** 
+
+> NOTE: Remember, before you use Kopia, you need to provision and pay for whatever storage location you want to use; Kopia will not do that for you. After you have done that, you can create a `repository` for that storage location in Kopia. For example, if you want to use `Backblaze B2`, you need to create a Backblaze account, create a B2 bucket, and get the access keys for the bucket; then you can use the `Backblaze B2` repository option in `KopiaUI` to create a repository.
+
+#### Defining Snapshot Policy and Creating New Snapshot
+
+Once you have created a repository, you can start backing up your files/directories by creating a new `policy` in `KopiaUI`. You can do this from the `Policies` tab and the process, again, is quite straightforward: enter the `directory` which contains the files you want to backup (you can either manually type in the `directory path` or browse for the `directory`), hit the `Set Policy` button, choose your policy settings from the on-screen options (all policy options are fairly self-explanatory), and hit the `Save Policy` button. Kopia will then automatically begin taking the snapshot following the settings you set for the policy. 
+
+After the initial snapshot, for every snapshot afterwards Kopia will rescan the file/directories and [only upload file content that has changed](../features/#backup-files-and-directories-using-snapshots). All snapshots in Kopia are [always incremental](../features/#backup-files-and-directories-using-snapshots); a snapshot will only upload files/file contents that are not in the repository yet, which saves storage space and upload time. This even applies to files that were moved or renamed. In fact, if two computers have exactly the same file and both computers are backing up to the same `repository`, the file will still be stored only once.
+
+> PRO TIP: If you pick a value for `Snapshot Frequency` when creating a `policy`, then Kopia will automatically take snapshots at that frequency (e.g., every one hour or whatever value you pick), and you do not need to remember to manually run the snapshot. If you do not pick a `Snapshot Frequency`, then Kopia will not automatically take snapshots, and you need to manually run snapshots from the `Snapshots` tab (just click the `Snapshot Now` button as needed).
+
+Note that you can set policies at two levels in `KopiaUI` -- at the `global` level, where the settings are applied by default to all policies that do not define their own settings, or at the individual `policy` level, where the settings are applied only to that particular policy. By default, all new policies are set to inherit settings from the `global` policy. The `global` policy is the one that says `*` for `Username`, `Host`, and `Path`.
+
+> PRO TIP: Kopia does not currently support the ability to save one snapshot to multiple different repositories. However, you can use `KopiaUI` to connect to multiple different repositories simultaneously and create identical policies for each repository, which essentially achieves the same outcome of saving one snapshot to multiple different repositories. Connecting to more than one repository in `KopiaUI` is easy: just right-click the icon of the desktop application and select `Connect To Another Repository...`. Currently, this is only available in the desktop version of `KopiaUI` and not the web-based `KopiaUI`. However, if you are using the web-based `KopiaUI`, you can manually run multiple instances of `KopiaUI` to achieve the same outcome.
+
+#### Restoring Files/Directories from Snapshots
+
+When you want to restore your files/directories from a snapshot, you can do so from the `Snapshots` tab in `KopiaUI`. Just click the `Path` for the files/directories you want to restore and then find the specific `snapshot` you want to restore from. You will then be given the option to either 
+
+* `Mount` the snapshot as a local drive so that you can browse, open, and copy any files/directories from the snapshot to your local machine;
+* `Restore` all the contents of the snapshot to a local or network location;
+* or download individual files from the snapshot (which can be done by browsing the snapshot contents from inside `KopiaUI` and clicking on the file you want to download).
+
+You can restore files/directories using either of these options.
+
+#### Video Tutorial
+
+Here is a video tutorial on how to use `KopiaUI` (note that the video is of an older version of `KopiaUI` and the interface is different in the current version of `KopiaUI`, but the main principles of how to use `KopiaUI` are the same):
 
 {{< youtube sHJjSpasWIo >}}
 
-## Setting Up Repository
+### Kopia CLI
 
-Repository is a place where Kopia stores all its snapshot data. It's typically remote storage, such as [Google Cloud Storage](https://cloud.google.com/storage/), [Amazon S3](https://aws.amazon.com/s3/) (or compatible such as Minio.io, Wasabi, B2), [Azure](https://azure.microsoft.com/services/storage/), sftp, http/s, webdav or similar. You can also use any locally-mounted storage (using SMB, NFS or similar). For more details about repository see [Architecture](../advanced/architecture/) and [Repositories](../repositories).
+Setting up Kopia via the CLI follows similar steps as the GUI, but obviously requires using command-line rather than a graphical user interface.
 
-To create a repository use one of the subcommands of `kopia repository create`.
+> NOTE: This guide focuses on simple scenarios. You can learn more about all the command-line features in the [command-line reference page](../reference/command-line/).
 
-> NOTE: This guide focuses on simple scenarios, more command-line features are described in the [Command-Line Reference](../reference/command-line/).
+#### Creating a Repository
 
-When creating the repository, you must provide a password that will be used to encrypt all files. The password never leaves your machine and is never sent to the server.
+The first thing you need to do is create a `repository`. For a full list of supported types of repositories that you can create, see the [repositories page](../repositories).
 
-**There's absolutely no way to recover contents of the repository if you forget the password. Remember to keep it secure!**
+To create a repository, use one of the [subcommands](../reference/command-line/common/#commands-to-manipulate-repository) of `kopia repository create` and follow the on-screen instructions. When creating the repository, you must provide a passphrase that will be used to encrypt all the snapshots and their contents in the repository. (As a reminder, Kopia uses [end-to-end zero knowledge encryption](../features#end-to-end-zero-knowledge-encryption), so your passphrase is never sent anywhere and it never leaves your machine!)
 
-### Filesystem
+**There is absolutely no way to restore snapshots (i.e., your backed up files/directories) from a repository if you forget your passphrase, so do not forget it and keep it secure!** 
 
-To create a repository in a locally-mounted filesystem, simply use:
+As an example, if you want to create a repository in a locally-mounted or network-attached filesystem, you would run the following command:
 
 ```shell
 $ kopia repository create filesystem --path /tmp/my-repository
 ```
+You can read more about all the supported `kopia repository create` commands for different repositories from the [repositories page](../repositories).
 
-We can examine the directory to see which files were created. As you can see Kopia uses sharded directory structure to optimize performance.
+> NOTE: Remember, before you use Kopia, you need to provision and pay for whatever storage location you want to use; Kopia will not do that for you. After you have done that, you can create a `repository` for that storage location in Kopia. For example, if you want to use `Backblaze B2`, you need to create a Backblaze account, create a B2 bucket, and get the access keys for the bucket; then you can use the [`kopia repository create b2` command](../reference/command-line/common/repository-create-b2/) to create a repository. 
 
-```shell
-$ find /tmp/my-repository -type f
-/tmp/my-repository/n1b/d00/aa56a13c1140142b39befb654a2.f
-/tmp/my-repository/pea/8b5/e01d92618653ffbf2bb9961448d.f
-/tmp/my-repository/kopia.repository.f
-```
+#### Connecting to Repository
 
-### Google Cloud Storage
-
-To create a repository in Google Cloud Storage, you need to provision a storage bucket and install local credentials that can access that bucket. To do so:
-
-1. Create a storage bucket in [Google Cloud Console](https://console.cloud.google.com/storage/)
-2. Install [Google Cloud SDK](https://cloud.google.com/sdk/)
-3. Log in with credentials that have permissions to the bucket.
-
-```shell
-$ gcloud auth application-default login
-```
-
-After these preparations, we can create Kopia repository (assuming bucket named `kopia-test-123`):
-
-```shell
-$ kopia repository create google --bucket kopia-test-123
-```
-
-At this point, we should be able to confirm that Kopia has created the skeleton of the repository with 3
-files in it:
-
-```shell
-$ gsutil ls gs://kopia-test-123
-gs://kopia-test-123/kopia.repository
-gs://kopia-test-123/n417ffc2adc8dbe93f1814eda3ba8a07c
-gs://kopia-test-123/p78e034ac8b891168df97f9897d7ec316
-```
-
-## Connecting To Repository
-
-To connect to an existing repository, simply use `kopia repository connect` instead of `kopia repository create`. You can connect as many computers as you like to any repository, even simultaneously.
+To connect to a repository after you have created it or to connect to an existing repository, simply use one of the [subcommands](../reference/command-line/common/#commands-to-manipulate-repository) of `kopia repository connect` instead of `kopia repository create`. You can connect as many computers as you like to the same repository, even simultaneously.
 
 For example:
 
 ```shell
 $ kopia repository connect filesystem --path /tmp/my-repository
-$ kopia repository connect google --bucket kopia-test-123
 ```
 
-## Creating Initial Snapshot
+#### Creating Initial Snapshot
 
-Let's create our first snapshot. That's as simple as `kopia snapshot create`.
-We will create the snapshot of the source code of Kopia itself:
+Let's create our first snapshot. That's as simple as pointing `kopia snapshot create` to the directory that contains the files/directories you want to backup, but note you need to make sure to be connected to a repository first (see above). We will create the snapshot of the source code of Kopia itself:
 
 ```shell
 $ kopia snapshot create $HOME/Projects/github.com/kopia/kopia
@@ -108,22 +107,25 @@ uploaded snapshot 9a622e33ab134ef440f76ed755f79c2f
   (root kfe997567fb1cf8a13341e4ca11652f70) in 1m42.044883302s
 ```
 
-## Incremental Snapshots
+#### Incremental Snapshots
 
-Let's take the snapshot again. Assuming we did not make any changes to the source code, the snapshot root
-will be identical, because all object identifiers in Kopia are derived from contents of data.
+Let's take the snapshot of the same files/directories again. To do so, just rerun the same `kopia snapshot create` command...
+
+```shell
+$ kopia snapshot create $HOME/Projects/github.com/kopia/kopia
+```
+...and Kopia will rescan the file/directories and [only upload the file content that has changed](../features/#backup-files-and-directories-using-snapshots). Assuming we did not make any changes to the files/directories, the snapshot root will be identical, because all object identifiers in Kopia are derived from contents of the underlying data:
 
 ```
 uploaded snapshot 8a45c3b079cf5e7b99fb855a3701607a
   (root kfe997567fb1cf8a13341e4ca11652f70) in 563.670362ms
 ```
 
-Notice that snapshot creation was nearly instantaneous - Kopia did not have to upload
-almost any files to the repository, except tiny piece of metadata about the snapshot itself.
+Notice that snapshot creation was nearly instantaneous. This is because Kopia did not have to upload almost any files to the repository, except tiny piece of metadata about the snapshot itself.
 
-All snapshots in Kopia are always incremental - they will only upload files that are not in the repository yet, which saves storage space and upload time. This even applies to files that were moved or renamed. In fact if two computers have exactly the same file, it will still be stored only once.
+All snapshots in Kopia are [always incremental](../features/#backup-files-and-directories-using-snapshots); a snapshot will only upload files/file contents that are not in the repository yet, which saves storage space and upload time. This even applies to files that were moved or renamed. In fact, if two computers have exactly the same file and both computers are backing up to the same `repository`, the file will still be stored only once.
 
-## Managing Snapshots
+#### Managing Snapshots
 
 We can see the history of snapshots of a directory using `kopia snapshot list`:
 
@@ -168,21 +170,21 @@ drwxr-xr-x       904965 2019-06-22 20:13:56 PDT k7bf88a7ca076b03f0dafc93ab5fa226
 drwxr-xr-x     38701570 2019-06-01 20:11:32 PDT kdb9f41fc8db5c45b1aec06df001be995  themes/
 ```
 
-For each directory entry, Kopia stores its name, size, attributes and object ID which has the contents of a file or directory.
+For each file/directory in a directory, Kopia stores its name, size, attributes and object ID which has the contents of the file or directory.
 
-To examine contents of files use `kopia show` passing the object identifier of either file or directory:
+To examine contents of files, use `kopia show` while passing the object identifier of the file or directory you want to examine:
 
 ```shell
 $ kopia show 8c9e27bed2f577b31b07b07da4bdfffb
 ```
 
-Directories are stored as JSON objects, so it's possible to see their contents as if they were regular files (`-j` displays pretty-printed JSON):
+Directories are stored as JSON objects, so it's possible to see their contents as if they were regular files using `kopia content show` along with the the directory's object identifier (the `-j` option displays pretty-printed JSON):
 
 ```shell
 $ kopia content show -j kb9a8420bf6b8ea280d6637ad1adbd4c5
 ```
 
-Which returns:
+This command returns:
 
 ```json
 {
@@ -224,10 +226,9 @@ Which returns:
 }
 ```
 
-## Mounting Snapshots
+#### Mounting Snapshots and Restoring Files/Directories from Snapshots
 
-We can [mount](../mounting/) the directory in a local filesystem and examine it using regular file commands to examine the contents.
-This is currently the recommended way of restoring files from snapshots.
+We can [mount](../mounting/) the contents of a snapshot as a local filesystem and examine it using regular file commands to examine the contents using the `kopia mount` command:
 
 ```shell
 $ mkdir /tmp/mnt
@@ -252,19 +253,20 @@ drwxr-xr-x  1 jarek  staff    904965 Jun 22 20:13 resources
 drwxr-xr-x  1 jarek  staff  38701570 Jun  1 20:11 themes
 $ umount /tmp/mnt
 ```
+Mounting is currently the recommended way of restoring files/directories from snapshots. However, you can also use the [`kopia snapshot restore` command](../reference/command-line/common/snapshot-restore/) to restore files/directories from snapshots.
 
-## Policies
+#### Policies
 
-Policies can be used to specify how the snapshots are taken and retained.
-
-We can define:
+Policies can be used to specify how Kopia snapshots are taken and retained. We can define various different `policy` options, including:
 
 - which files to ignore
 - how many hourly, daily, weekly, monthly and yearly snapshots to maintain
 - how frequently snapshots should be made
+- whether to compress files or not
 
-Each repository has a `global` policy, which contains defaults used when more specific policies are not defined.
-We can examine it by using:
+To learn read more about what `policy` options are available, see the [Kopia `policy` command help docs](../reference/command-line/common/#commands-to-manipulate-snapshotting-policies).
+
+Each `repository` has a `global` policy, which contains the defaults used for all policies if a specific policy does not define its own settings. We can examine the `global` policy by using `kopia policy show --global`:
 
 ```
 $ kopia policy show --global
@@ -283,7 +285,7 @@ Files policy:
     .kopiaignore                   (defined for this target)
 ```
 
-We can define the policy for a particular directory, by using `kopia policy set` command. For example, to ignore two directories, we can use:
+We can change policy settings using the [`kopia policy set` command](../reference/command-line/common/policy-set/). This command allows you to change the `global` policy or change specific policies for a 'user@host', a '@host', a 'user@host:path', or a particular directory. For example, here we tell Kopia to set the policy to ignore two directories from being included in the snapshot of `jarek@jareks-mbp:/Users/jarek/Projects/Kopia/site`:
 
 ```
 $ kopia policy set --add-ignore public/ --add-ignore node_modules/ .
@@ -292,9 +294,9 @@ Setting policy for jarek@jareks-mbp:/Users/jarek/Projects/Kopia/site
  - adding node_modules/ to ignored files
 ```
 
-Now when taking snapshot, the directories will be skipped.
+Now when taking snapshot of `jarek@jareks-mbp:/Users/jarek/Projects/Kopia/site`, the directories `public/` and `node_modules/` will be skipped.
 
-To set maximum number of weekly snapshots, we might do:
+The [`kopia policy set` command help docs](../reference/command-line/common/policy-set/) provide more information about all the policy options you have. As another example, we can set a maximum number of weekly snapshots:
 
 ```
 $ kopia policy set --keep-weekly 30 .
@@ -302,7 +304,7 @@ Setting policy for jarek@jareks-mbp:/Users/jarek/Projects/Kopia/site
  - setting number of weekly backups to keep to 30.
 ```
 
-To examine a policy for a particular directory, use `kopia policy show`:
+If you want to examine the policy for a particular directory, use [`kopia policy show`](../reference/command-line/common/policy-show/):
 
 ```
 $ kopia policy show .
@@ -324,7 +326,7 @@ Files policy:
     .kopiaignore                   inherited from (global)
 ```
 
-Finally, to list all policies, we can use `kopia policy list`:
+Finally, to list all policies for a `repository`, we can use [`kopia policy list`](../reference/command-line/common/policy-list/):
 
 ```
 $ kopia policy list
@@ -333,13 +335,15 @@ $ kopia policy list
 2339ab4739bb29688bf26a3a841cf68f jarek@jareks-mbp:/Users/jarek/Projects/Kopia/site/node_modules
 ```
 
-## Examining Repository Structure
+#### Examining Repository Structure
 
-Kopia provides low-level commands to examine the contents of repository, perform maintenance actions and get deeper insight into how data is laid out.
+Kopia CLI provides low-level commands to examine the contents of repository, perform maintenance actions, and get deeper insight into how the data is laid out.
 
-### BLOBs
+> REMINDER: This guide does not cover all of the commands available via Kopia CLI. Refer to the [command-line reference](../reference/command-line/) page to learn about all the available commands.
 
-We can list the files in the repository using `kopia blob ls`, which shows how kopia manages snapshots. We can see that repository contents are grouped into Pack files (starting with `p`) and indexed using Index files (starting with `n`). Both index and pack files are encrypted, which makes it impossible to get data and metadata about snapshotted files without knowing the password.
+##### BLOBs
+
+We can list the files in a repository using `kopia blob ls`, which shows how Kopia manages snapshots. We can see that repository contents are grouped into pack files (starting with `p`) and indexed using index files (starting with `n`). Both index and pack files are [encrypted](../features/#end-to-end-zero-knowledge-encryption):
 
 ```
 $ kopia blob ls
@@ -364,9 +368,9 @@ pf1d1f00141f830ee34c89797e56011c2     23663212 2019-06-22 20:04:09 PDT
 pfbaba06c70b6aed2c0ed3aa9c709dc47     22823458 2019-06-22 20:04:50 PDT
 ```
 
-### Content-Addressable Block Storage
+##### Content-Addressable Block Storage
 
-To list individual contents stored in the Repository, use `kopia content list`:
+To list individual contents stored in a repository, use [`kopia content list`](../reference/command-line/advanced/content-list/):
 
 ```shell
 $ kopia content list
@@ -398,9 +402,9 @@ m8401800f69795ed0137365c3e6f627bc
 ...
 ```
 
-### Manifest Storage
+##### Manifest Storage
 
-To list manifests (snapshot manifests and policies) stored in repository, use `kopia manifest list`:
+To list manifests (snapshot manifests and policies) stored in a repository, use [`kopia manifest list`](../reference/command-line/advanced/manifest-list/):
 
 ```
 $ kopia manifest list
@@ -416,7 +420,7 @@ a1646120c7a2450cd9e77fd98369d260        761 2019-06-22 20:21:43 PDT type:snapsho
 63fc854c283ad63cafbca54eaa4509e9        102 2019-06-22 21:22:20 PDT type:policy hostname:jareks-mbp path:/Users/jarek/Projects/Kopia/site policyType:path username:jarek
 ```
 
-To examine individual manifests, use `kopia manifest show`:
+To examine individual manifests, use [`kopia manifest show`](../reference/command-line/advanced/manifest-show/):
 
 ```shell
 $ kopia manifest show 2d73b31af65d4ac7196641eeea9c475c
@@ -474,10 +478,9 @@ $ kopia manifest show 2d73b31af65d4ac7196641eeea9c475c
 }
 ```
 
-### Cache
+##### Cache
 
-For better performance, Kopia maintains local cache directory where most-recently used blocks are stored.
-You can examine the cache by using:
+For better performance, Kopia maintains local cache directory where most-recently used blocks are stored. You can examine the cache by using [`kopia cache info`](../reference/command-line/advanced/cache-info/):
 
 ```
 $ kopia cache info
@@ -486,15 +489,16 @@ $ kopia cache info
 /Users/jarek/Library/Caches/kopia/e470f963ef9528a1/metadata: 2006 files 3.9 MB (limit 0 B)
 ```
 
-To clear the cache:
+To clear the cache, use [`kopia cache clear`](../reference/command-line/advanced/cache-clear/):
 
 ```
 $ kopia cache clear
 ```
 
-Finally, to set caching parameters, such as maximum size of each cache, use `kopia cache set`:
+To set caching parameters, such as maximum size of each cache, use [`kopia cache set`](../reference/command-line/advanced/cache-set/):
 
 ```
 $ kopia cache set --metadata-cache-size-mb=500
 21:38:25.024 [kopia/cli] changing metadata cache size to 500 MB
 ```
+More information on `cache` commands is available in the [help docs](../reference/command-line/advanced/#commands-to-manipulate-local-cache).
