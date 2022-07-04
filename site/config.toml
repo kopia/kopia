@@ -34,7 +34,7 @@ pygmentsStyle = "tango"
 [[menu.main]]
     name = "Download Kopia Now!"
     weight = 1
-    url = "https://kopia.io/docs/installation/"
+    url = "docs/installation/"
 
 # Configure how URLs look like per section.
 [permalinks]
