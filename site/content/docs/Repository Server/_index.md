@@ -1,7 +1,7 @@
 ---
 title: "What is a Repository Server?"
 linkTitle: "What is a Repository Server?"
-weight: 7
+weight: 8
 ---
 
 By default, every user of Kopia repository directly connects to an underlying storage using read-write access. If the users who share repository don't completely trust each other, some malicious actors can delete repository data structures causing data loss for others.
