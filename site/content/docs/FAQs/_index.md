@@ -20,9 +20,9 @@ See the [repository help docs](../repository) for more information.
 
 A `policy` is a set of rules that tells Kopia how to create/manage snapshots; this includes features such as [compression, snapshot retention, and scheduling when to take automatically snapshots](../features#policies-control-what-and-how-filesdirectories-are-saved-in-snapshots).
 
-##### How to Restore Files/Directions?
+##### How to Restore Files/Directories?
 
-Files/directories are restored from the snapshots you create. To restore data, Kopia gives you three options: 
+Files/directories are restored from the snapshots you create. To restore the data you backed up in a snapshot, Kopia gives you three options: 
 
 * mount the contents of a snapshot as a local disk so that you can browse and copy files/directories from the snapshot as if the snapshot is a local directory on your machine;
 
