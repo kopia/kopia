@@ -1,7 +1,7 @@
 ---
 title: "Frequently Asked Questions"
 linkTitle: "Frequently Asked Questions"
-weight: 6
+weight: 5
 ---
 
 > NOTE: This page is under development. Feel free to contribute as you see fit.
