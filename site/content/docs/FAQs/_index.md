@@ -4,8 +4,6 @@ linkTitle: "Frequently Asked Questions"
 weight: 4
 ---
 
-> NOTE: This page is under development. Feel free to contribute as you see fit.
-
 ### Questions
 
 * [What is a Snapshot?](#what-is-a-snapshot)
