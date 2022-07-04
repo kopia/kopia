@@ -1,6 +1,6 @@
 ---
-title: "Upgrade Notes"
-linkTitle: "Upgrade Notes"
+title: "Upgrading to New Version"
+linkTitle: "Upgrading to New Version"
 weight: 7
 ---
 
