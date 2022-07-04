@@ -63,7 +63,7 @@ If you enable or disable compression or change the compression algorithm, the ne
 
 [Data deduplication](../features/#backup-files-and-directories-using-snapshots) is enabled automatically by Kopia for all repositories, regardless of whether you use the GUI or CLI. You do not need to do anything.
 
-#### How Do I Change My Repository Password?
+##### How Do I Change My Repository Password?
 
 You must use Kopia CLI if you want to change your `repository` password; changing password is not currently supported via Kopia GUI. The [`kopia repository change-password` command](../reference/command-line/common/repository-change-password/) is used to change your password. 
 
