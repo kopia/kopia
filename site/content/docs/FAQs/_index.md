@@ -6,6 +6,16 @@ weight: 4
 
 > NOTE: This page is under development. Feel free to contribute as you see fit.
 
+* [What is a Snapshot?](#what-is-a-snapshot)
+* [What is a Repository?](#what-is-a-repository)
+* [What is a Policy?](#what-is-a-policy)
+* [How to Restore My Backed Up Files/Directories?](#how-to-restore-my-backed-up-filesdirectories)
+* [How Do I Enable Encryption?](#how-do-i-enable-encryption)
+* [How Do I Enable Compression?](#how-do-i-enable-compression)
+* [How Do I Enable Data Deduplication?](#how-do-i-enable-data-deduplication)
+* [How Do I Change My Repository Password?](#how-do-i-change-my-repository-password)
+* [What is a Kopia Repository Server?](#what-is-a-kopia-repository-server)
+
 **Is your question not answered here? Please ask in the [Kopia discussion forums](https://kopia.discourse.group/) for help!**
 
 ##### What is a Snapshot?
@@ -22,7 +32,7 @@ See the [repository help docs](../repository) for more information.
 
 A `policy` is a set of rules that tells Kopia how to create/manage snapshots; this includes features such as [compression, snapshot retention, and scheduling when to take automatically snapshots](../features#policies-control-what-and-how-filesdirectories-are-saved-in-snapshots).
 
-##### How to Restore Files/Directories?
+##### How to Restore My Backed Up Files/Directories?
 
 Files/directories are restored from the snapshots you create. To restore the data you backed up in a snapshot, Kopia gives you three options: 
 
