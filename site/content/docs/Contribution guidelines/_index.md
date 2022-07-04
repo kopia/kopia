@@ -1,7 +1,7 @@
 ---
 title: "Contribution Guidelines"
 linkTitle: "Contribution Guidelines"
-weight: 100
+toc_hide: true
 ---
 
 > NOTE: Those guidelines are preliminary and will change as the project grows and expands in scope.
