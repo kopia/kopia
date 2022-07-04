@@ -1,7 +1,7 @@
 ---
 title: "Privacy Policy"
 linkTitle: "Privacy Policy"
-weight: 999
+toc_hide: true
 ---
 
 Kopia respects the respect the privacy of our visitors. 

@@ -1,7 +1,7 @@
 ---
 title: "Features"
 linkTitle: "Features"
-weight: 30
+weight: 1
 ---
 
 ### Backup Files and Directories using Snapshots
