@@ -1,7 +1,7 @@
 ---
-title: "Upgrade"
-linkTitle: "Upgrade"
-weight: 21
+title: "Upgrade to New Version"
+linkTitle: "Upgrade to New Version"
+weight: 6
 ---
 
 ### Upgrading Kopia to v0.9
