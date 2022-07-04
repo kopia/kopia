@@ -1,6 +1,6 @@
 ---
-title: "How to Restore Snapshots?"
-linkTitle: "How to Restore Snapshots?"
+title: "Mounting"
+linkTitle: "Mounting"
 weight: 5
 ---
 
