@@ -1,6 +1,6 @@
 ---
-title: "What is a Repository Server?"
-linkTitle: "What is a Repository Server?"
+title: "Repository Server"
+linkTitle: "Repository Server"
 toc_hide: true
 ---
 
