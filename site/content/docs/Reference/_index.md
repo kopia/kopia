@@ -1,7 +1,7 @@
 ---
-title: "Reference"
-linkTitle: "Reference"
-weight: 90
+title: "Command-Line References"
+linkTitle: "Command-Line References"
+weight: 5
 ---
 
 * [Go API Reference](go-api/)

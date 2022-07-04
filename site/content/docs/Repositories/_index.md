@@ -1,7 +1,7 @@
 ---
 title: "Repositories"
 linkTitle: "Repositories"
-weight: 40
+toc_hide: true
 ---
 
 A repository is a place where Kopia stores its snapshot data. Kopia currently supports the following storage backends:

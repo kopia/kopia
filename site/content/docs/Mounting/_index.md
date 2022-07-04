@@ -1,7 +1,7 @@
 ---
 title: "Mounting"
 linkTitle: "Mounting"
-weight: 50
+toc_hide: true
 ---
 
 Mounting allows you to map a content in Kopia repository into a directory in local filesystem and examine it using regular file commands or browser. This is currently the recommended way of restoring files from snapshots.

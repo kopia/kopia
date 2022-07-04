@@ -1,11 +1,8 @@
 
 ---
-title: "Kopia"
+title: "What is Kopia?"
 linkTitle: "Documentation"
 weight: 20
-menu:
-  main:
-    weight: 20
 ---
 
 Kopia is a fast and secure open-source backup/restore tool that allows you to create [encrypted](features/#end-to-end-zero-knowledge-encryption) snapshots of your data and save the snapshots to [remote or cloud storage](features/#save-snapshots-to-cloud-network-or-local-storage) of your choice, [to network-attached storage or server](features/#save-snapshots-to-cloud-network-or-local-storage), or [locally on your machine](features/#save-snapshots-to-cloud-network-or-local-storage). Kopia does not 'image' your whole machine. Rather, Kopia allows you to backup/restore any and all files/directories that you deem are important or critical.
