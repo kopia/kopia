@@ -1,6 +1,6 @@
 ---
 title: "Repositories"
-linkTitle: "What are Repositories?"
+linkTitle: "Repositories"
 toc_hide: true
 ---
 
