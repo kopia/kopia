@@ -6,6 +6,8 @@ weight: 4
 
 > NOTE: This page is under development. Feel free to contribute as you see fit.
 
+### Questions
+
 * [What is a Snapshot?](#what-is-a-snapshot)
 * [What is a Repository?](#what-is-a-repository)
 * [What is a Policy?](#what-is-a-policy)
@@ -17,6 +19,8 @@ weight: 4
 * [What is a Kopia Repository Server?](#what-is-a-kopia-repository-server)
 
 **Is your question not answered here? Please ask in the [Kopia discussion forums](https://kopia.discourse.group/) for help!**
+
+### Answers
 
 ##### What is a Snapshot?
 
