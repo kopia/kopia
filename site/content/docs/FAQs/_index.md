@@ -1,10 +1,12 @@
 ---
 title: "Frequently Asked Questions"
 linkTitle: "Frequently Asked Questions"
-weight: 5
+weight: 4
 ---
 
 > NOTE: This page is under development. Feel free to contribute as you see fit.
+
+**Is your question not answered here? Please ask in the [Kopia discussion forums](https://kopia.discourse.group/) for help!**
 
 ##### What is a Snapshot?
 
