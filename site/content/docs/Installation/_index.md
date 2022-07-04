@@ -25,8 +25,8 @@ The following installation options are available for the latest stable verison o
 * [Official Releases](https://github.com/kopia/kopia/releases/latest)
 * [Windows CLI (Scoop)](#windows-cli-installation-using-scoop)
 * [Windows GUI (`KopiaUI`)](#windows-gui-installation)
-* [Debian/Ubuntu Linux (APT Repository)](#linux-installation-using-apt-debian-ubuntu)
-* [RedHat/CentOS/Fedora Linux (Linux YUM Repository)](#linux-installation-using-rpm-redhat-centos-fedora)
+* [Debian/Ubuntu Linux (APT Repository, both CLI and `KopiaUI`)](#linux-installation-using-apt-debian-ubuntu)
+* [RedHat/CentOS/Fedora Linux (Linux YUM Repository, both CLI and `KopiaUI`)](#linux-installation-using-rpm-redhat-centos-fedora)
 * [Arch Linux/Manjaro (AUR)](#linux-installation-using-aur-arch-manjaro)
 * [macOS CLI Homebrew](#macos-cli-using-homebrew)
 * [macOS GUI (`KopiaUI`)](#macos-gui-installer)
@@ -50,7 +50,7 @@ CLI and GUI packages are available for:
 
 * Windows 7 or later, 64-bit (CLI binary, GUI installer {`KopiaUI`}, and Scoop package)
 * macOS 10.11 or later, 64-bit (CLI binary, GUI installer {`KopiaUI`}, and Homebrew package)
-* Linux - `amd64`, `armhf` or `arm64` (CLI binary, RPM repositories, and DEB repositories)
+* Linux - `amd64`, `armhf` or `arm64` (CLI binary and `KopiaUI` available via RPM and DEB repositories)
 
 #### Windows CLI installation using Scoop
 
