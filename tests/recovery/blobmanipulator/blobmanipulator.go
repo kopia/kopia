@@ -45,6 +45,11 @@ func NewBlobManipulator(baseDirPath string) (*BlobManipulator, error) {
 
 // ConnectOrCreateRepo connects to an existing repository if possible or creates a new one.
 func (bm *BlobManipulator) ConnectOrCreateRepo(dataRepoPath string) error {
+	if bm == nil || bm.DirCreater == nil {
+		err := errors.New("kopia " + dataRepoPath + "repository does not exist")
+		return err
+	}
+
 	return bm.DirCreater.ConnectOrCreateRepo(dataRepoPath)
 }
 
@@ -78,9 +83,13 @@ func (bm *BlobManipulator) getBlobIDRand() (string, error) {
 		return "", err
 	}
 
-	blobIDList, _, _ := bm.KopiaCommandRunner.Run("blob", "list", "--json")
+	blobIDList, _, err := bm.KopiaCommandRunner.Run("blob", "list", "--json")
 	if blobIDList == "" {
 		return "", robustness.ErrNoOp
+	}
+
+	if err != nil {
+		return "", err
 	}
 
 	err = json.Unmarshal([]byte(blobIDList), &b)
@@ -93,7 +102,7 @@ func (bm *BlobManipulator) getBlobIDRand() (string, error) {
 	for _, s := range b {
 		temp := string(s.BlobID)
 		if strings.HasPrefix(temp, "p") {
-			blobToBeDeleted = string(s.BlobID)
+			blobToBeDeleted = temp
 			break
 		}
 	}
@@ -153,14 +162,18 @@ func (bm *BlobManipulator) RestoreGivenOrRandomSnapshot(snapID, restoreDir strin
 
 // SetUpSystemUnderTest connects or creates a kopia repo, writes random data in source directory,
 // creates snapshots of the source directory.
-func (bm *BlobManipulator) SetUpSystemUnderTest() {
+func (bm *BlobManipulator) SetUpSystemUnderTest() error {
 	err := bm.ConnectOrCreateRepo(bm.DataRepoPath)
 	if err != nil {
-		return
+		return err
 	}
 
 	// create random data
-	bm.getFileWriter()
+	gotFileWriter := bm.getFileWriter()
+	if !gotFileWriter {
+		err = errors.New("Error creating file writer")
+		return err
+	}
 
 	fileSize := 100
 	numFiles := 100
@@ -177,7 +190,7 @@ func (bm *BlobManipulator) SetUpSystemUnderTest() {
 
 	_, err = bm.fileWriter.WriteRandomFiles(ctx, fileWriteOpts)
 	if err != nil {
-		return
+		return err
 	}
 
 	// create snapshot of the data
@@ -186,7 +199,7 @@ func (bm *BlobManipulator) SetUpSystemUnderTest() {
 
 	_, err = bm.TakeSnapshot(snapPath)
 	if err != nil {
-		return
+		return err
 	}
 
 	numFiles = 50
@@ -201,7 +214,7 @@ func (bm *BlobManipulator) SetUpSystemUnderTest() {
 
 	_, err = bm.fileWriter.WriteRandomFiles(ctx, fileWriteOpts)
 	if err != nil {
-		return
+		return err
 	}
 
 	fileSize = 40 * 1024 * 1024
@@ -217,7 +230,7 @@ func (bm *BlobManipulator) SetUpSystemUnderTest() {
 
 	_, err = bm.fileWriter.WriteRandomFiles(ctx, fileWriteOpts)
 	if err != nil {
-		return
+		return err
 	}
 
 	// create snapshot of the data
@@ -225,8 +238,10 @@ func (bm *BlobManipulator) SetUpSystemUnderTest() {
 
 	_, err = bm.TakeSnapshot(snapPath)
 	if err != nil {
-		return
+		return err
 	}
+
+	return nil
 }
 
 // TakeSnapshot creates snapshot of the provided directory.

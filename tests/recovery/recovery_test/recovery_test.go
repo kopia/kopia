@@ -23,6 +23,9 @@ func TestSnapshotFix(t *testing.T) {
 	dataRepoPath := path.Join(*repoPathPrefix, dataSubPath)
 
 	baseDir := makeDir("base-dir-")
+	if baseDir == "" {
+		t.FailNow()
+	}
 
 	bm, err := blobmanipulator.NewBlobManipulator(baseDir)
 	if err != nil {
@@ -31,21 +34,41 @@ func TestSnapshotFix(t *testing.T) {
 		} else {
 			log.Println("Error creating Blob Manipulator:", err)
 		}
+
+		t.FailNow()
 	}
 
 	bm.DirCreater = getSnapshotter(baseDir)
-	bm.ConnectOrCreateRepo(dataRepoPath)
+	if bm.DirCreater == nil {
+		t.FailNow()
+	}
+
+	err = bm.ConnectOrCreateRepo(dataRepoPath)
+	if err != nil {
+		t.FailNow()
+	}
+
 	bm.DataRepoPath = dataRepoPath
 
 	// populate the kopia repo under test with random snapshots
-	bm.SetUpSystemUnderTest()
+	err = bm.SetUpSystemUnderTest()
+	if err != nil {
+		t.FailNow()
+	}
 
 	// delete random blob
-	// assumption: the repo contains "p" blobs to delete, else the test is a no-op
-	bm.DeleteBlob("")
+	// assumption: the repo contains "p" blobs to delete, else the test will fail
+	err = bm.DeleteBlob("")
+	if err != nil {
+		log.Println("Error deleting kopia blob: ", err)
+		t.FailNow()
+	}
 
 	// Create a temporary dir to restore a snapshot
 	restoreDir := makeDir("restore-data-")
+	if restoreDir == "" {
+		t.FailNow()
+	}
 
 	// try to restore a snapshot, this should error out
 	stdout, err := bm.RestoreGivenOrRandomSnapshot("", restoreDir)
@@ -57,6 +80,7 @@ func TestSnapshotFix(t *testing.T) {
 	stdout, err = bm.SnapshotFixRemoveFilesByBlobID(blobID)
 	if err != nil {
 		log.Println("Error repairing the kopia repository:", stdout, err)
+		t.FailNow()
 	}
 
 	// restore a random snapshot
