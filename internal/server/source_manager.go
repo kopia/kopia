@@ -66,6 +66,8 @@ type sourceManager struct {
 	paused bool
 	// +checklocks:sourceMutex
 	currentTask string
+	// +checklocks:sourceMutex
+	lastAttemptedSnapshotTime time.Time
 
 	isReadOnly bool
 	progress   *snapshotfs.CountingUploadProgress
@@ -358,9 +360,10 @@ func (s *sourceManager) snapshotInternal(ctx context.Context, ctrl uitask.Contro
 
 	onUpload := func(int64) {}
 
-	s.sourceMutex.RLock()
+	s.sourceMutex.Lock()
 	manifestsSinceLastCompleteSnapshot := append([]*snapshot.Manifest(nil), s.manifestsSinceLastCompleteSnapshot...)
-	s.sourceMutex.RUnlock()
+	s.lastAttemptedSnapshotTime = clock.Now()
+	s.sourceMutex.Unlock()
 
 	// nolint:wrapcheck
 	return repo.WriteSession(ctx, s.rep, repo.WriteSessionOptions{
@@ -424,12 +427,17 @@ func (s *sourceManager) snapshotInternal(ctx context.Context, ctrl uitask.Contro
 
 // +checklocksread:s.sourceMutex
 func (s *sourceManager) findClosestNextSnapshotTimeReadLocked() *time.Time {
-	var lastCompleteSnapshotTime time.Time
+	var previousSnapshotTime time.Time
 	if lcs := s.lastCompleteSnapshot; lcs != nil {
-		lastCompleteSnapshotTime = lcs.StartTime
+		previousSnapshotTime = lcs.StartTime
 	}
 
-	t, ok := s.pol.NextSnapshotTime(lastCompleteSnapshotTime, clock.Now())
+	// consider attempted snapshots even if they did not end up writing snapshot manifests.
+	if s.lastAttemptedSnapshotTime.After(previousSnapshotTime) {
+		previousSnapshotTime = s.lastAttemptedSnapshotTime
+	}
+
+	t, ok := s.pol.NextSnapshotTime(previousSnapshotTime, clock.Now())
 	if !ok {
 		return nil
 	}
