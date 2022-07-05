@@ -32,8 +32,31 @@ weight: 10
 | Restore Individual Files from Backups           | Yes         | Yes      |
 | Restore Complete Backups                        | Yes         | Yes      |
 | Mount Backups as Local Directory                | **Yes**         | No      |
-| Backup & Restore Speed                          | **Faster**         | Slower      |
+| Backup & Restore Speed                          | **Fast**         | Slower      |
 | Easy to Download, Install, and Use              | **Easy**         | More Complicated      |
+| Works on Windows, Mac, and Linux                | Yes         | Yes      |
+| Open Source                                     | Yes         | Yes      |
+| Price                                           | FREE         | FREE      |
+
+### Kopia vs Duplicati
+
+|                                                 |  Kopia  |  Duplicati  |
+|-------------------------------------------------|-------------|----------|
+| End-to-End Encryption                           | Yes         | Yes      |
+| Compression                                     | Yes         | Yes       |
+| Data Deduplication                              | Yes         | Yes      |
+| Store Backups on Cloud Storage                  | Yes         | Yes      |
+| Store Backups on Local Storage                  | Yes         | Yes      |
+| Store Backups on Network Storage                | Yes         | Yes      |
+| Official Desktop App (Graphical User Interface) | **Yes**         | No       |
+| Official Web App (Graphical User Interface)     | Yes         | Yes      |
+| Command-Line Interface                          | Yes         | Yes      |
+| Incremental Backups                             | Yes         | Yes      |
+| Restore Individual Files from Backups           | Yes         | Yes      |
+| Restore Complete Backups                        | Yes         | Yes      |
+| Mount Backups as Local Directory                | **Yes**         | No      |
+| Backup & Restore Speed                          | **Fast**         | Slower      |
+| Easy to Download, Install, and Use              | Easy         | Easy      |
 | Works on Windows, Mac, and Linux                | Yes         | Yes      |
 | Open Source                                     | Yes         | Yes      |
 | Price                                           | FREE         | FREE      |
