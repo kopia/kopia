@@ -28,7 +28,7 @@ function showRepoWindow(repoID) {
   let rw = new BrowserWindow({
     width: 1000,
     height: 700,
-    title: 'Kopia UI Loading...',
+    title: 'KopiaUI is Loading...',
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
