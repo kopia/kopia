@@ -23,11 +23,16 @@
     </div>
     <div class="row">
       <div class="col-12 col-sm-12 text-center py-2 order-sm-2">
-        <small class="text-white">Hosted on <a href="https://netlify.com">Netlify</a>
+        <small class="text-white">Hosted on <a href="https://netlify.com" target="_blank">Netlify</a>
           |
-        Project Infrastructure Supported by <a href="https://www.kasten.io">Kasten by Veeam</a>
+        Project Infrastructure Supported by <a href="https://www.kasten.io" target="_blank">Kasten by Veeam</a>
         |
-        <a href="/docs/privacy-policy">Privacy Policy</a></small>
+        <a href="/docs/privacy-policy">Privacy Policy</a>
+        {{ if .IsHome }}
+        |
+        Header Background by <a href="https://unsplash.com/@choys_" target="_blank">Conny Schneider</a></small>
+        {{ end }}
+        </small>
       </div>
     </div>
   </div>
