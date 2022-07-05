@@ -4,7 +4,16 @@ linkTitle: "Kopia vs Other Backup Software"
 weight: 10
 ---
 
-## Kopia vs Restic vs Duplicati vs Borg Backup vs Duplicacy vs Arq Backup vs Acronis vs Macrium Reflect vs Veeam vs Duplicity
+## How Does Kopia Compare to Other Backup Software?
+
+* [Kopia vs Restic](#kopia-vs-restic)
+* [Kopia vs Duplicati](#kopia-vs-restic)
+* [Kopia vs Borg Backup](#kopia-vs-borg-backup)
+* [Kopia vs Arq Backup](#kopia-vs-arq-backup)
+* [Kopia vs Acronis](#kopia-vs-acronis)
+* [Kopia vs Macrium Reflect](#kopia-vs-macrium-reflect)
+* [Kopia vs Veeam](#kopia-vs-veeam)
+* [Kopia vs Duplicity](#kopia-vs-duplicity)
 
 ### Kopia vs Restic
 
@@ -23,6 +32,8 @@ weight: 10
 | Restore Individual Files from Backups           | Yes         | Yes      |
 | Restore Complete Backups                        | Yes         | Yes      |
 | Mount Backups as Local Directory                | **Yes**         | No      |
+| Backup & Restore Speed                          | **Faster**         | Slower      |
+| Easier to Download, Install, and Use              | **Easy**         | More Complicated      |
 | Works on Windows, Mac, and Linux                | Yes         | Yes      |
 | Open Source                                     | Yes         | Yes      |
 | Price                                           | FREE         | FREE      |
