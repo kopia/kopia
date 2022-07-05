@@ -8,13 +8,13 @@ weight: 2
 
 Kopia is a standalone binary and can be used through a command-line interface (CLI) or a graphical user inferace (GUI). 
 
-* If you want to use Kopia via CLI, you will install the `kopia` binary; when you want to use Kopia, you will call the `kopia` binary (along with [Kopia commands](../reference/command-line/) in a terminal/command prompt window or within a script. 
+* If you want to use Kopia via CLI, you will install the `kopia` binary; when you want to use Kopia, you will call the `kopia` binary (along with [Kopia commands](../reference/command-line/)) in a terminal/command prompt window or within a script. 
 
 * If you want to use Kopia via GUI, you will install `KopiaUI`, which is the name of the Kopia GUI. The installer for KopiaUI comes with the `kopia` binary and a graphical user interface called `KopiaUI` that is a wrapper for the `kopia` binary. `KopiaUI` runs the `kopia` binary and associated commands as necessary, so you do not need to use the command-line interface. 
 
 > NOTE: `KopiaUI` is available both as a web-based application and a desktop application. The web-based application is available when you run Kopia in [server mode](../features/#optional-server-mode-with-api-support-to-centrally-manage-backups-of-multiple-machines). For users who will be using Kopia to backup their individual machines and not running Kopia in server mode, you will use the desktop application. If you do not understand what Kopia server mode is, then do not worry about it -- just download `KopiaUI` from the [links below](#kopia-download-links) and you will get the desktop application by default.
 
-Both the CLI and GUI versions of Kopia use the same `kopia` binary, so you are getting the same features regardless of which variant you decide to go with (since the `kopia` binary is the workhorse). However, there are some advanced features that are available through CLI but which have not yet been added to `KopiaUI`. Right now, `KopiaUI` allows you to access all the essential features of Kopia that are required to backup/restore data: connect to repositories (including encryption), set policies (including compression, scheduling automatic snapshots, and snapshot retention), create snapshots, restore snapshots, automatically run maintenance, and install Kopia updates. If you use `KopiaUI` and you want access to advanced features that are not yet available in `KopiaUI`, you can easily run the commands for those features via CLI by calling the `kopia` binary that comes with `KopiaUI`. In other words, using Kopia GUI does not restrict you from using Kopia CLI as well.
+Both the CLI and GUI versions of Kopia use the same `kopia` binary, so you are getting the same features regardless of which variant you decide to go with (since the `kopia` binary is the workhorse). However, there are some advanced features that are available through CLI but which have not yet been added to `KopiaUI`. Right now, `KopiaUI` allows you to access all the essential features of Kopia that are required to backup/restore data: create and connect to repositories (including encryption), set policies (including compression, scheduling automatic snapshots, and snapshot retention), create snapshots, restore snapshots, automatically run maintenance, and install Kopia updates. If you use `KopiaUI` and you want access to advanced features that are not yet available in `KopiaUI`, you can easily run the commands for those features via CLI by calling the `kopia` binary that comes with `KopiaUI`. In other words, using Kopia GUI does not restrict you from using Kopia CLI as well.
 
 Kopia CLI is recommended only if you are comfortable with command-line interfaces (e.g., power users, system administrators, etc.). If you are not comfortable with command-line, you should use Kopia GUI. Although more limited than Kopia CLI, Kopia GUI is still very powerful and allows you to easily use Kopia to backup/restore your data.
 
@@ -73,7 +73,7 @@ Alternatively, to install the latest unreleased version of Kopia use the followi
 
 #### Windows GUI installation
 
-Installer of `KopiaUI` is available on the [releases page](https://github.com/kopia/kopia/releases/latest). Simply download file named `KopiaUI-Setup-X.Y.Z.exe`, double click, and follow on-screen prompts.
+Installer of `KopiaUI` is available on the [releases page](https://github.com/kopia/kopia/releases/latest). Simply download the file named `KopiaUI-Setup-X.Y.Z.exe` (where `X.Y.Z` is the version number), double click the file, and follow on-screen prompts.
 
 #### macOS CLI using Homebrew
 
