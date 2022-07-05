@@ -33,7 +33,7 @@ weight: 10
 | Restore Complete Backups                        | Yes         | Yes      |
 | Mount Backups as Local Directory                | **Yes**         | No      |
 | Backup & Restore Speed                          | **Faster**         | Slower      |
-| Easier to Download, Install, and Use              | **Easy**         | More Complicated      |
+| Easy to Download, Install, and Use              | **Easy**         | More Complicated      |
 | Works on Windows, Mac, and Linux                | Yes         | Yes      |
 | Open Source                                     | Yes         | Yes      |
 | Price                                           | FREE         | FREE      |
