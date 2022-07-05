@@ -8,20 +8,20 @@ weight: 10
 
 ### Kopia vs Restic
 
-|                                                 |  **Kopia**  |  Restic  |
+|                                                 |  Kopia  |  Restic  |
 |-------------------------------------------------|-------------|----------|
-| End-to-End Encryption                           | **Yes**         | Yes      |
+| End-to-End Encryption                           | Yes         | Yes      |
 | Compression                                     | **Yes**         | No       |
-| Data Deduplication                              | **Yes**         | Yes      |
-| Store Backups on Cloud Storage                  | **Yes**         | Yes      |
-| Store Backups on Local Storage                  | **Yes**         | Yes      |
-| Store Backups on Network Storage                | **Yes**         | Yes      |
+| Data Deduplication                              | Yes         | Yes      |
+| Store Backups on Cloud Storage                  | Yes         | Yes      |
+| Store Backups on Local Storage                  | Yes         | Yes      |
+| Store Backups on Network Storage                | Yes         | Yes      |
 | Official Desktop App (Graphical User Interface) | **Yes**         | No       |
-| Command-Line Interface                          | **Yes**         | Yes      |
-| Incremental Backups                             | **Yes**         | Yes      |
-| Restore Individual Files from Backups           | **Yes**         | Yes      |
-| Restore Complete Backups                        | **Yes**         | Yes      |
-| Mount Backups as Local Directory                | **Yes**         | Yes      |
-| Works on Windows, Mac, and Linux                | **Yes**         | Yes      |
-| Open Source                                     | **Yes**         | Yes      |
-| Price                                           | **FREE**         | Yes      |
+| Command-Line Interface                          | Yes         | Yes      |
+| Incremental Backups                             | Yes         | Yes      |
+| Restore Individual Files from Backups           | Yes         | Yes      |
+| Restore Complete Backups                        | Yes         | Yes      |
+| Mount Backups as Local Directory                | **Yes**         | No      |
+| Works on Windows, Mac, and Linux                | Yes         | Yes      |
+| Open Source                                     | Yes         | Yes      |
+| Price                                           | FREE         | FREE      |
