@@ -17,6 +17,7 @@ weight: 10
 | Store Backups on Local Storage                  | Yes         | Yes      |
 | Store Backups on Network Storage                | Yes         | Yes      |
 | Official Desktop App (Graphical User Interface) | **Yes**         | No       |
+| Official Web App (Graphical User Interface)     | **Yes**         | No       |
 | Command-Line Interface                          | Yes         | Yes      |
 | Incremental Backups                             | Yes         | Yes      |
 | Restore Individual Files from Backups           | Yes         | Yes      |
