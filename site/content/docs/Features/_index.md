@@ -6,7 +6,7 @@ weight: 1
 
 ### Backup Files and Directories using Snapshots
 
-Kopia creates snapshots of the files and directories you designate and uploads theses snapshots to cloud/network/local storage called a [repository](../repositories/). Snapshots are maintained as a set of historical point-in-time records based on policies that you define.
+Kopia creates snapshots of the files and directories you designate and uploads these [encrypted](#end-to-end-zero-knowledge-encryption) snapshots to cloud/network/local storage called a [repository](../repositories/). Snapshots are maintained as a set of historical point-in-time records based on policies that you define.
 
 Kopia uses [content-addressable storage](https://en.wikipedia.org/wiki/Content-addressable%20storage) for snapshots, which has many benefits:
 
@@ -16,9 +16,9 @@ Kopia uses [content-addressable storage](https://en.wikipedia.org/wiki/Content-a
 
 * After moving or renaming even large files, Kopia can recognize that they have the same content and won't need to upload them again.
 
-* Multiple users or computers can share the same repository: if users share the same files, they are also uploaded only once.
+* Multiple users or computers can share the same repository: if different users have the same files, the files are uploaded only once to the repository thanks to deduplication.
 
-> NOTE: There is currently no access control mechanism within repository: everybody with access to the repository can see everyone's data, so be sure you trust the other users if you share a repository with someone else.
+> NOTE: There is currently no access control mechanism when users/computers share the same repository -- each user/computer can see the backed up data of all the other users/computers, so be sure you trust the other users/computers if you share a repository with someone else. Note that this only applies when multiple users/computers know the repository password and are backing up to the same repository. People who do not know the password are not able to see your backed up data because Kopia uses [end-to-end 'zero knowledge' encryption](#end-to-end-zero-knowledge-encryption).
 
 ### Policies Control What and How Files/Directories are Saved in Snapshots
 
@@ -70,7 +70,9 @@ To restore data, Kopia gives you three options:
 
 All data is encrypted before it leaves your machine. Encryption is baked into the DNA of Kopia, and you cannot create a backup without using encryption. Kopia allows you to pick from two state-of-the-art encryption algorithms, [AES-256](https://en.wikipedia.org/wiki/AES256) and [ChaCha20](https://en.wikipedia.org/wiki/ChaCha20).
 
-The data is encrypted using per-content keys which are derived from the 256-bit master key that is stored in the repository. The master key is encrypted with a passphrase you provide. This means that anyone that does not know the passphrase cannot access your backed up files and will not know what files/directories are contained in the snapshots that are saved in the repository. Importantly, the passphrase you provide is never sent to any server or anywhere outside your machine, and only you know your passphrase. In other words, Kopia provides your backups with end-to-end zero knowledge encryption. However, this also means that you cannot restore your files if you forget your passphrase: there is no way to recover a forgotten passphrase because only you know it. (But you can [change your passphrase](../reference/command-line/common/repository-change-password/) if you are still connected to the repository that stores your snapshots.)
+Kopia encrypts both the content and the names of your backed up files/directories.
+
+The data is encrypted using per-content keys which are derived from the 256-bit master key that is stored in the repository. The master key is encrypted with a password you provide. This means that anyone that does not know the password cannot access your backed up files and will not know what files/directories are contained in the snapshots that are saved in the repository. Importantly, the password you provide is never sent to any server or anywhere outside your machine, and only you know your password. In other words, Kopia provides your backups with end-to-end 'zero knowledge' encryption. However, this also means that you cannot restore your files if you forget your password: there is no way to recover a forgotten password because only you know it. (But you can [change your password](../faqs/#how-do-i-change-my-repository-password) if you are still connected to the repository that stores your snapshots.)
 
 ### Compression
 
@@ -106,7 +108,7 @@ Do not want to use command-line? No problem. Kopia also comes with a [powerful o
 
 ### Optional Server Mode with API Support to Centrally Manage Backups of Multiple Machines
 
-Kopia is designed to backup individual machines and you absolutely do not need a server to run Kopia. If you have a handful of machines, you can install and use Kopia on each of them individually, no problem. At the same time, Kopia can also be run in server mode for those that are looking to centrally manage backups of multiple machines, in which case the Kopia server exposes an API that can be used to build client tools to do things like trigger snapshots, get client status, and access snapshotted data. Kopia's server mode makes it incredibly easy to centrally manage backups of multiple computers.
+Kopia is designed to backup individual machines and you absolutely do not need a server to run Kopia. If you have a handful of machines, you can install and use Kopia on each of them individually, no problem. At the same time, Kopia can also be run in [server mode](../docs/faqs/#what-is-a-kopia-repository-server) for those that are looking to centrally manage backups of multiple machines, in which case the Kopia server exposes an API that can be used to build client tools to do things like trigger snapshots, get client status, and access snapshotted data. Kopia's server mode makes it incredibly easy to centrally manage backups of multiple computers.
 
 ### Speed
 
