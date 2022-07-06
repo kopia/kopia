@@ -198,7 +198,7 @@ _All of the features comparisons below are based on the official released versio
 |-------------------------------------------------|-------------|----------|
 | End-to-End Encryption                           | Yes         | Yes      |
 | Compression                                     | Yes         | Yes      |
-| Data Deduplication                              | Yes         | Yes      |
+| Data Deduplication                              | **YES**         | No      |
 | Store Backups on Cloud Storage                  | Yes         | Yes      |
 | Store Backups on Local Storage                  | Yes         | Yes      |
 | Store Backups on Network Storage                | Yes         | Yes      |
