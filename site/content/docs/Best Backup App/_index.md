@@ -20,7 +20,6 @@ _All of the features comparisons below are based on the official released versio
 * [Kopia vs Duplicity](#kopia-vs-duplicity)
 * [Kopia vs Acronis](#kopia-vs-acronis)
 * [Kopia vs Macrium Reflect](#kopia-vs-macrium-reflect)
-* [Kopia vs Veeam](#kopia-vs-veeam)
 
 ### Kopia vs Rclone
 
