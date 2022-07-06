@@ -47,4 +47,34 @@ func TestSnapshotList(t *testing.T) {
 	for _, s := range snapshots {
 		require.NotEmpty(t, s.RetentionReasons, "expecting retention reason to be set")
 	}
+
+	lines := e.RunAndExpectSuccess(t, "snapshot", "list")
+	require.Len(t, lines, 5)
+
+	require.Contains(t, lines[1], " 3 B ")
+	require.Contains(t, lines[1], " files:1 dirs:1 ")
+
+	require.Contains(t, lines[2], " 7 B ")
+	require.Contains(t, lines[2], " files:2 dirs:1 ")
+
+	require.Contains(t, lines[3], " 8 B ")
+	require.Contains(t, lines[3], " files:3 dirs:1 ")
+
+	require.Contains(t, lines[4], "+ 1 identical snapshots until")
+
+	lines = e.RunAndExpectSuccess(t, "snapshot", "list", "-l")
+	require.Len(t, lines, 5)
+
+	require.Contains(t, lines[1], " 3 B ")
+	require.Contains(t, lines[1], " files:1 dirs:1 ")
+
+	require.Contains(t, lines[2], " 7 B ")
+	require.Contains(t, lines[2], " files:2 dirs:1 ")
+
+	require.Contains(t, lines[3], " 8 B ")
+	require.Contains(t, lines[3], " files:3 dirs:1 ")
+
+	// identical snapshot is not coalesced
+	require.Contains(t, lines[4], " 8 B ")
+	require.Contains(t, lines[4], " files:3 dirs:1 ")
 }
