@@ -42,9 +42,9 @@ _All of the features comparisons below are based on the official released versio
 | Restore Individual Files from Backups           | Yes         | Yes      |
 | Restore Complete Backups                        | Yes         | Yes      |
 | Mount Backups as Local Directory or Filesystem                                       | **YES**         | No      |
-| Backup & Restore Speed                                                  | **FAST**         | Slower      |
+| Backup & Restore Speed                                                  | Fast         | Fast      |
 | Easy to Download, Install, and Use for Home & Business Users            | **EASY**         | More Complicated      |
-| Works on Windows, Mac, and Linux                | Yes         | Yes      |
+| Windows, Mac, and Linux Support                | Yes         | Yes      |
 | Open Source                                     | Yes         | Yes      |
 | Price                                           | FREE         | FREE      |
 
@@ -68,7 +68,7 @@ _All of the features comparisons below are based on the official released versio
 | Mount Backups as Local Directory or Filesystem                                       | Yes         | Yes      |
 | Backup & Restore Speed                                                  | **FAST**         | Slower      |
 | Easy to Download, Install, and Use for Home & Business Users            | **EASY**         | More Complicated      |
-| Works on Windows, Mac, and Linux                | Yes         | Yes      |
+| Windows, Mac, and Linux Support                | Yes         | Yes      |
 | Open Source                                     | Yes         | Yes      |
 | Price                                           | FREE         | FREE      |
 
@@ -92,7 +92,7 @@ _All of the features comparisons below are based on the official released versio
 | Mount Backups as Local Directory or Filesystem              | **YES**         | No      |
 | Backup & Restore Speed                          | **FAST**         | Slower      |
 | Easy to Download, Install, and Use for Home & Business Users              | Easy         | Easy      |
-| Works on Windows, Mac, and Linux                | Yes         | Yes      |
+| Windows, Mac, and Linux Support                | Yes         | Yes      |
 | Open Source                                     | Yes         | Yes      |
 | Price                                           | FREE         | FREE      |
 
@@ -116,7 +116,7 @@ _All of the features comparisons below are based on the official released versio
 | Mount Backups as Local Directory or Filesystem             | Yes         | Yes      |
 | Backup & Restore Speed                          | **FAST**         | Slower      |
 | Easy to Download, Install, and Use for Home & Business Users              | **EASY**         | More Complicated      |
-| Works on Windows, Mac, and Linux                | **YES**         | No      |
+| Windows, Mac, and Linux Support                | **YES**         | No      |
 | Open Source                                     | Yes         | Yes      |
 | Price                                           | FREE         | FREE      |
 
@@ -140,7 +140,7 @@ _All of the features comparisons below are based on the official released versio
 | Mount Backups as Local Directory or Filesystem                                       | **YES**         | No      |
 | Backup & Restore Speed                                                  | **FAST**         | Slower      |
 | Easy to Download, Install, and Use for Home & Business Users            | Easy         | Easy      |
-| Works on Windows, Mac, and Linux                | **YES**         | No      |
+| Windows, Mac, and Linux Support                | **YES**         | No      |
 | Open Source                                     | **YES**         | No      |
 | Price                                           | **FREE**         | $49.99 Per Computer      |
 
@@ -164,7 +164,7 @@ _All of the features comparisons below are based on the official released versio
 | Mount Backups as Local Directory or Filesystem                                        | **YES**         | No      |
 | Backup & Restore Speed                                                  | **FAST**         | Slower      |
 | Easy to Download, Install, and Use for Home & Business Users            | Easy         | Easy     |
-| Works on Windows, Mac, and Linux                | Yes         | Yes      |
+| Windows, Mac, and Linux Support                | Yes         | Yes      |
 | Open Source                                     | **YES**         | Partially (Command-Line Version Only)      |
 | Price                                           | **FREE**         | FREE for Command-Line Version and Home Use Only      |
 
@@ -188,7 +188,7 @@ _All of the features comparisons below are based on the official released versio
 | Mount Backups as Local Directory or Filesystem                                        | Yes         | Yes      |
 | Backup & Restore Speed                                                  | Fast         | Fast      |
 | Easy to Download, Install, and Use for Home & Business Users            | **EASY**         | More Complicated     |
-| Works on Windows, Mac, and Linux                | **YES**         | No      |
+| Windows, Mac, and Linux Support                | **YES**         | No      |
 | Open Source                                     | Yes         | Yes      |
 | Price                                           | FREE         | FREE      |
 
@@ -212,7 +212,7 @@ _All of the features comparisons below are based on the official released versio
 | Mount Backups as Local Directory or Filesystem                                        | **YES**         | No      |
 | Backup & Restore Speed                                                  | **FAST**         | Slower      |
 | Easy to Download, Install, and Use for Home & Business Users            | **EASY**         | More Complicated     |
-| Works on Windows, Mac, and Linux                | **YES**         | No      |
+| Windows, Mac, and Linux Support                | **YES**         | No      |
 | Open Source                                     | Yes         | Yes      |
 | Price                                           | FREE         | FREE      |
 
@@ -239,7 +239,7 @@ _All of the features comparisons below are based on the official released versio
 | Mount Backups as Local Directory or Filesystem                                       | Yes         | Yes      |
 | Backup & Restore Speed                                                  | Fast         | Fast      |
 | Easy to Download, Install, and Use for Home & Business Users            | Easy         | Easy      |
-| Works on Windows, Mac, and Linux                | **YES**         | No      |
+| Windows, Mac, and Linux Support                | **YES**         | No      |
 | Open Source                                     | **YES**         | No      |
 | Price                                           | **FREE**         | $49.99 Per Year for One Computer      |
 
@@ -266,7 +266,7 @@ _All of the features comparisons below are based on the official released versio
 | Mount Backups as Local Directory or Filesystem                                        | Yes         | Yes      |
 | Backup & Restore Speed                                                  | Fast         | Fast      |
 | Easy to Download, Install, and Use for Home & Business Users            | Easy         | Easy      |
-| Works on Windows, Mac, and Linux                | **YES**         | No      |
+| Windows, Mac, and Linux Support                | **YES**         | No      |
 | Open Source                                     | **YES**         | No      |
 | Price                                           | **FREE**         | $69.99 for One Computer      |
 
@@ -293,6 +293,6 @@ _All of the features comparisons below are based on the official released versio
 | Mount Backups as Local Directory or Filesystem                                        | Yes         | Yes      |
 | Backup & Restore Speed                                                  | Fast         | Fast      |
 | Easy to Download, Install, and Use for Home & Business Users            | **EASY**         | Easy if Using the Agents      |
-| Works on Windows, Mac, and Linux                | Yes         | Yes      |
+| Windows, Mac, and Linux Support                | Yes         | Yes      |
 | Open Source                                     | **YES**         | No      |
 | Price                                           | FREE         | FREE      |
