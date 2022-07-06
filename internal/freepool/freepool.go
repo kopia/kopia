@@ -2,38 +2,33 @@
 package freepool
 
 import (
-	"github.com/golang-design/lockfree"
+	"sync"
 )
 
 // Pool is a small pool of recently returned objects.
 // Unlike sync.Pool, the pool is not subject to gargbage collection under memory pressure.
 type Pool struct {
-	makeNew func() interface{}
-	clean   func(v interface{})
-	stack   lockfree.Stack
+	clean func(v interface{})
+	pool  sync.Pool
 }
 
 // Take returns an item from the pool, and if not available makes a new one.
 func (p *Pool) Take() interface{} {
-	v := p.stack.Pop()
-	if v == nil {
-		return p.makeNew()
-	}
-
-	return v
+	return p.pool.Get()
 }
 
 // Return returns an item to the pool after cleaning it.
 func (p *Pool) Return(v interface{}) {
 	p.clean(v)
-
-	p.stack.Push(v)
+	p.pool.Put(v)
 }
 
 // New returns a new free pool.
 func New(makeNew func() interface{}, clean func(v interface{})) *Pool {
 	return &Pool{
-		makeNew: makeNew,
-		clean:   clean,
+		clean: clean,
+		pool: sync.Pool{
+			New: makeNew,
+		},
 	}
 }
