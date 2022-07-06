@@ -31,9 +31,9 @@ weight: 10
 | Incremental Backups                             | Yes         | Yes      |
 | Restore Individual Files from Backups           | Yes         | Yes      |
 | Restore Complete Backups                        | Yes         | Yes      |
-| Mount Backups as Local Directory                | **Yes**         | No      |
-| Backup & Restore Speed                          | **Fast**         | Slower      |
-| Easy to Download, Install, and Use              | **Easy**         | More Complicated      |
+| Mount Backups as Local Directory                                        | Yes         | Yes      |
+| Backup & Restore Speed                                                  | **Fast**         | Slower      |
+| Easy to Download, Install, and Use for Home & Business Users            | **Easy**         | More Complicated      |
 | Works on Windows, Mac, and Linux                | Yes         | Yes      |
 | Open Source                                     | Yes         | Yes      |
 | Price                                           | FREE         | FREE      |
@@ -56,7 +56,7 @@ weight: 10
 | Restore Complete Backups                        | Yes         | Yes      |
 | Mount Backups as Local Directory                | **Yes**         | No      |
 | Backup & Restore Speed                          | **Fast**         | Slower      |
-| Easy to Download, Install, and Use              | Easy         | Easy      |
+| Easy to Download, Install, and Use for Home & Business Users              | Easy         | Easy      |
 | Works on Windows, Mac, and Linux                | Yes         | Yes      |
 | Open Source                                     | Yes         | Yes      |
 | Price                                           | FREE         | FREE      |
