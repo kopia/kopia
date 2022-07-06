@@ -32,8 +32,11 @@ pygmentsStyle = "tango"
 
 # Top Menu
 [[menu.main]]
-    name = "Download Kopia Now!"
+    name = "Kopia vs Other Software"
     weight = 1
+    url = "docs/best-backup-app/"
+    name = "Download Kopia Now!"
+    weight = 2
     url = "docs/installation/"
 
 # Configure how URLs look like per section.
