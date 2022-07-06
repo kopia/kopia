@@ -1,10 +1,12 @@
 ---
 title: "Kopia vs Other Backup Software"
 linkTitle: "Kopia vs Other Backup Software"
-weight: 10
+toc_hide: true
 ---
 
 ## How Does Kopia Compare to Other Backup Software?
+
+Make sure to learn about [all of Kopia's features](../features) before you read this comparison to other software!
 
 _All of the features comparisons below are based on the official released versions of each software as of July 1, 2022. If you see any errors, please correct them._
 
