@@ -60,3 +60,26 @@ weight: 10
 | Works on Windows, Mac, and Linux                | Yes         | Yes      |
 | Open Source                                     | Yes         | Yes      |
 | Price                                           | FREE         | FREE      |
+
+### Kopia vs Borg Backup
+
+|                                                 |  Kopia  |  Borg Backup  |
+|-------------------------------------------------|-------------|----------|
+| End-to-End Encryption                           | Yes         | Yes      |
+| Compression                                     | Yes         | Yes       |
+| Data Deduplication                              | Yes         | Yes      |
+| Store Backups on Cloud Storage                  | **Yes**         | No (Only SSH Support)      |
+| Store Backups on Local Storage                  | Yes         | Yes      |
+| Store Backups on Network Storage                | Yes         | Yes      |
+| Official Desktop App (Graphical User Interface) | **Yes**         | No       |
+| Official Web App (Graphical User Interface)     | **Yes**         | No      |
+| Command-Line Interface                          | Yes         | Yes      |
+| Incremental Backups                             | Yes         | Yes      |
+| Restore Individual Files from Backups           | Yes         | Yes      |
+| Restore Complete Backups                        | Yes         | Yes      |
+| Mount Backups as Local Directory                | Yes         | Yes      |
+| Backup & Restore Speed                          | **Fast**         | Slower      |
+| Easy to Download, Install, and Use for Home & Business Users              | Easy         | More Complicated      |
+| Works on Windows, Mac, and Linux                | **Yes**         | No      |
+| Open Source                                     | Yes         | Yes      |
+| Price                                           | FREE         | FREE      |
