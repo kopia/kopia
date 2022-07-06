@@ -79,7 +79,30 @@ weight: 10
 | Restore Complete Backups                        | Yes         | Yes      |
 | Mount Backups as Local Directory                | Yes         | Yes      |
 | Backup & Restore Speed                          | **Fast**         | Slower      |
-| Easy to Download, Install, and Use for Home & Business Users              | Easy         | More Complicated      |
+| Easy to Download, Install, and Use for Home & Business Users              | **Easy**         | More Complicated      |
 | Works on Windows, Mac, and Linux                | **Yes**         | No      |
 | Open Source                                     | Yes         | Yes      |
 | Price                                           | FREE         | FREE      |
+
+### Kopia vs Arq Backup
+
+|                                                 |  Kopia  |  Arq Backup  |
+|-------------------------------------------------|-------------|----------|
+| End-to-End Encryption                           | Yes         | Yes      |
+| Compression                                     | Yes         | Yes       |
+| Data Deduplication                              | **Yes**         | No      |
+| Store Backups on Cloud Storage                  | Yes         | Yes      |
+| Store Backups on Local Storage                  | Yes         | Yes      |
+| Store Backups on Network Storage                | Yes         | Yes      |
+| Official Desktop App (Graphical User Interface) | Yes         | Yes       |
+| Official Web App (Graphical User Interface)     | **Yes**         | No       |
+| Command-Line Interface                          | **Yes**         | No      |
+| Incremental Backups                             | Yes         | Yes      |
+| Restore Individual Files from Backups           | Yes         | Yes      |
+| Restore Complete Backups                        | Yes         | Yes      |
+| Mount Backups as Local Directory                                        | **Yes**         | No      |
+| Backup & Restore Speed                                                  | **Fast**         | Slower      |
+| Easy to Download, Install, and Use for Home & Business Users            | Easy         | Easy      |
+| Works on Windows, Mac, and Linux                | **Yes**         | No      |
+| Open Source                                     | **Yes**         | No      |
+| Price                                           | **FREE**         | $49.99 Per Computer      |
