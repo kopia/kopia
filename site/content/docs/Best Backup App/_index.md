@@ -15,6 +15,7 @@ _All of the features comparisons below are based on the official released versio
 * [Kopia vs Borg Backup](#kopia-vs-borg-backup)
 * [Kopia vs Arq Backup](#kopia-vs-arq-backup)
 * [Kopia vs Duplicacy](#kopia-vs-duplicacy)
+* [Kopia vs Bup](#kopia-vs-bup)
 * [Kopia vs Duplicity](#kopia-vs-duplicity)
 * [Kopia vs Acronis](#kopia-vs-acronis)
 * [Kopia vs Macrium Reflect](#kopia-vs-macrium-reflect)
@@ -139,6 +140,30 @@ _All of the features comparisons below are based on the official released versio
 | Works on Windows, Mac, and Linux                | Yes         | Yes      |
 | Open Source                                     | **Yes**         | Partially (Command-Line Version Only)      |
 | Price                                           | **FREE**         | FREE for Command-Line Version and Home Use Only      |
+
+### Kopia vs Bup
+
+|                                                 |  Kopia  |  Bup  |
+|-------------------------------------------------|-------------|----------|
+| End-to-End Encryption                           | **Yes**         | No      |
+| Compression                                     | Yes         | Yes      |
+| Data Deduplication                              | Yes         | Yes      |
+| Store Backups on Cloud Storage                  | **Yes**         | No (Only Supports Bup Servers)      |
+| Store Backups on Local Storage                  | Yes         | Yes      |
+| Store Backups on Network Storage                | Yes         | Yes      |
+| Official Desktop App (Graphical User Interface) | **Yes**         | No       |
+| Official Web App (Graphical User Interface)     | **Yes**         | No       |
+| Command-Line Interface                          | Yes         | Yes      |
+| Incremental Backups of Files/Directories                             | Yes         | Yes      |
+| Image Backups of Whole Machines                             | No         | No      |
+| Restore Individual Files from Backups           | Yes         | Yes      |
+| Restore Complete Backups                        | Yes         | Yes      |
+| Mount Backups as Local Directory or Filesystem                                        | Yes         | Yes      |
+| Backup & Restore Speed                                                  | Fast         | Fast      |
+| Easy to Download, Install, and Use for Home & Business Users            | **Easy**         | More Complicated     |
+| Works on Windows, Mac, and Linux                | **Yes**         | No      |
+| Open Source                                     | Yes         | Yes      |
+| Price                                           | FREE         | FREE      |
 
 ### Kopia vs Duplicity
 
