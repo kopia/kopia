@@ -24,7 +24,7 @@ _All of the features comparisons below are based on the official released versio
 
 ### Kopia vs Rclone
 
-> Kopia and Rclone are not necessarily "competitors." Kopia focuses on allowing you to backup/restore important files/directories. Rclone is a tool that allows you to move, copy, and sync your files/directories between different cloud storage. Rclone can be used to backup your files, but Kopia is designed to be a backup/restore tool and Rclone is designed to be a syncing tool. Kopia [supports Rclone as a `repository`](../repositories/), so you can use Kopia to store your backups in [all the cloud storage supported by Rclone](../features/#save-snapshots-to-cloud-network-or-local-storage).
+> Kopia and Rclone are not necessarily "competitors." Kopia focuses on allowing you to backup important files/directories to cloud storage. Rclone is a tool that allows you to move, copy, and sync your files/directories between different cloud storage. Rclone can be used to backup your files, but Kopia is designed to be a backup/restore tool and Rclone is designed to be a syncing tool. Kopia [supports Rclone as a `repository`](../repositories/), so you can use Kopia to store your backups in [all the cloud storage supported by Rclone](../features/#save-snapshots-to-cloud-network-or-local-storage).
 
 |                                                 |  Kopia  |  Rclone  |
 |-------------------------------------------------|-------------|----------|
