@@ -26,21 +26,21 @@ _All of the features comparisons below are based on the official released versio
 |                                                 |  Kopia  |  Restic  |
 |-------------------------------------------------|-------------|----------|
 | End-to-End Encryption                           | Yes         | Yes      |
-| Compression                                     | **Yes**         | No       |
+| Compression                                     | **YES**         | No       |
 | Data Deduplication                              | Yes         | Yes      |
 | Store Backups on Cloud Storage                  | Yes         | Yes      |
 | Store Backups on Local Storage                  | Yes         | Yes      |
 | Store Backups on Network Storage                | Yes         | Yes      |
-| Official Desktop App (Graphical User Interface) | **Yes**         | No       |
-| Official Web App (Graphical User Interface)     | **Yes**         | No       |
+| Official Desktop App (Graphical User Interface) | **YES**         | No       |
+| Official Web App (Graphical User Interface)     | **YES**         | No       |
 | Command-Line Interface                          | Yes         | Yes      |
 | Incremental Backups of Files/Directories                             | Yes         | Yes      |
 | Image Backups of Whole Machines                             | No         | No      |
 | Restore Individual Files from Backups           | Yes         | Yes      |
 | Restore Complete Backups                        | Yes         | Yes      |
 | Mount Backups as Local Directory or Filesystem                                       | Yes         | Yes      |
-| Backup & Restore Speed                                                  | **Fast**         | Slower      |
-| Easy to Download, Install, and Use for Home & Business Users            | **Easy**         | More Complicated      |
+| Backup & Restore Speed                                                  | **FAST**         | Slower      |
+| Easy to Download, Install, and Use for Home & Business Users            | **EASY**         | More Complicated      |
 | Works on Windows, Mac, and Linux                | Yes         | Yes      |
 | Open Source                                     | Yes         | Yes      |
 | Price                                           | FREE         | FREE      |
@@ -55,15 +55,15 @@ _All of the features comparisons below are based on the official released versio
 | Store Backups on Cloud Storage                  | Yes         | Yes      |
 | Store Backups on Local Storage                  | Yes         | Yes      |
 | Store Backups on Network Storage                | Yes         | Yes      |
-| Official Desktop App (Graphical User Interface) | **Yes**         | No       |
+| Official Desktop App (Graphical User Interface) | **YES**         | No       |
 | Official Web App (Graphical User Interface)     | Yes         | Yes      |
 | Command-Line Interface                          | Yes         | Yes      |
 | Incremental Backups of Files/Directories                             | Yes         | Yes      |
 | Image Backups of Whole Machines                             | No         | No      |
 | Restore Individual Files from Backups           | Yes         | Yes      |
 | Restore Complete Backups                        | Yes         | Yes      |
-| Mount Backups as Local Directory or Filesystem              | **Yes**         | No      |
-| Backup & Restore Speed                          | **Fast**         | Slower      |
+| Mount Backups as Local Directory or Filesystem              | **YES**         | No      |
+| Backup & Restore Speed                          | **FAST**         | Slower      |
 | Easy to Download, Install, and Use for Home & Business Users              | Easy         | Easy      |
 | Works on Windows, Mac, and Linux                | Yes         | Yes      |
 | Open Source                                     | Yes         | Yes      |
@@ -76,20 +76,20 @@ _All of the features comparisons below are based on the official released versio
 | End-to-End Encryption                           | Yes         | Yes      |
 | Compression                                     | Yes         | Yes       |
 | Data Deduplication                              | Yes         | Yes      |
-| Store Backups on Cloud Storage                  | **Yes**         | No (Only SSH Support)      |
+| Store Backups on Cloud Storage                  | **YES**         | No (Only SSH Support)      |
 | Store Backups on Local Storage                  | Yes         | Yes      |
 | Store Backups on Network Storage                | Yes         | Yes      |
-| Official Desktop App (Graphical User Interface) | **Yes**         | No       |
-| Official Web App (Graphical User Interface)     | **Yes**         | No      |
+| Official Desktop App (Graphical User Interface) | **YES**         | No       |
+| Official Web App (Graphical User Interface)     | **YES**         | No      |
 | Command-Line Interface                          | Yes         | Yes      |
 | Incremental Backups of Files/Directories                             | Yes         | Yes      |
 | Image Backups of Whole Machines                             | No         | No      |
 | Restore Individual Files from Backups           | Yes         | Yes      |
 | Restore Complete Backups                        | Yes         | Yes      |
 | Mount Backups as Local Directory or Filesystem             | Yes         | Yes      |
-| Backup & Restore Speed                          | **Fast**         | Slower      |
-| Easy to Download, Install, and Use for Home & Business Users              | **Easy**         | More Complicated      |
-| Works on Windows, Mac, and Linux                | **Yes**         | No      |
+| Backup & Restore Speed                          | **FAST**         | Slower      |
+| Easy to Download, Install, and Use for Home & Business Users              | **EASY**         | More Complicated      |
+| Works on Windows, Mac, and Linux                | **YES**         | No      |
 | Open Source                                     | Yes         | Yes      |
 | Price                                           | FREE         | FREE      |
 
@@ -99,22 +99,22 @@ _All of the features comparisons below are based on the official released versio
 |-------------------------------------------------|-------------|----------|
 | End-to-End Encryption                           | Yes         | Yes      |
 | Compression                                     | Yes         | Yes       |
-| Data Deduplication                              | **Yes**         | No      |
+| Data Deduplication                              | **YES**         | No      |
 | Store Backups on Cloud Storage                  | Yes         | Yes      |
 | Store Backups on Local Storage                  | Yes         | Yes      |
 | Store Backups on Network Storage                | Yes         | Yes      |
 | Official Desktop App (Graphical User Interface) | Yes         | Yes       |
-| Official Web App (Graphical User Interface)     | **Yes**         | No       |
-| Command-Line Interface                          | **Yes**         | No      |
+| Official Web App (Graphical User Interface)     | **YES**         | No       |
+| Command-Line Interface                          | **YES**         | No      |
 | Incremental Backups of Files/Directories                             | Yes         | Yes      |
 | Image Backups of Whole Machines                             | No         | No      |
 | Restore Individual Files from Backups           | Yes         | Yes      |
 | Restore Complete Backups                        | Yes         | Yes      |
-| Mount Backups as Local Directory or Filesystem                                       | **Yes**         | No      |
-| Backup & Restore Speed                                                  | **Fast**         | Slower      |
+| Mount Backups as Local Directory or Filesystem                                       | **YES**         | No      |
+| Backup & Restore Speed                                                  | **FAST**         | Slower      |
 | Easy to Download, Install, and Use for Home & Business Users            | Easy         | Easy      |
-| Works on Windows, Mac, and Linux                | **Yes**         | No      |
-| Open Source                                     | **Yes**         | No      |
+| Works on Windows, Mac, and Linux                | **YES**         | No      |
+| Open Source                                     | **YES**         | No      |
 | Price                                           | **FREE**         | $49.99 Per Computer      |
 
 ### Kopia vs Duplicacy
@@ -127,32 +127,32 @@ _All of the features comparisons below are based on the official released versio
 | Store Backups on Cloud Storage                  | Yes         | Yes      |
 | Store Backups on Local Storage                  | Yes         | Yes      |
 | Store Backups on Network Storage                | Yes         | Yes      |
-| Official Desktop App (Graphical User Interface) | **Yes**         | No       |
-| Official Web App (Graphical User Interface)     | **Yes**         | Yes but Not in Free Version       |
+| Official Desktop App (Graphical User Interface) | **YES**         | No       |
+| Official Web App (Graphical User Interface)     | **YES**         | Yes but Not in Free Version       |
 | Command-Line Interface                          | Yes         | Yes      |
 | Incremental Backups of Files/Directories                             | Yes         | Yes      |
 | Image Backups of Whole Machines                             | No         | No      |
 | Restore Individual Files from Backups           | Yes         | Yes      |
 | Restore Complete Backups                        | Yes         | Yes      |
-| Mount Backups as Local Directory or Filesystem                                        | **Yes**         | No      |
-| Backup & Restore Speed                                                  | **Fast**         | Slower      |
+| Mount Backups as Local Directory or Filesystem                                        | **YES**         | No      |
+| Backup & Restore Speed                                                  | **FAST**         | Slower      |
 | Easy to Download, Install, and Use for Home & Business Users            | Easy         | Easy     |
 | Works on Windows, Mac, and Linux                | Yes         | Yes      |
-| Open Source                                     | **Yes**         | Partially (Command-Line Version Only)      |
+| Open Source                                     | **YES**         | Partially (Command-Line Version Only)      |
 | Price                                           | **FREE**         | FREE for Command-Line Version and Home Use Only      |
 
 ### Kopia vs Bup
 
 |                                                 |  Kopia  |  Bup  |
 |-------------------------------------------------|-------------|----------|
-| End-to-End Encryption                           | **Yes**         | No      |
+| End-to-End Encryption                           | **YES**         | No      |
 | Compression                                     | Yes         | Yes      |
 | Data Deduplication                              | Yes         | Yes      |
-| Store Backups on Cloud Storage                  | **Yes**         | No (Only Supports Bup Servers)      |
+| Store Backups on Cloud Storage                  | **YES**         | No (Only Supports Bup Servers)      |
 | Store Backups on Local Storage                  | Yes         | Yes      |
 | Store Backups on Network Storage                | Yes         | Yes      |
-| Official Desktop App (Graphical User Interface) | **Yes**         | No       |
-| Official Web App (Graphical User Interface)     | **Yes**         | No       |
+| Official Desktop App (Graphical User Interface) | **YES**         | No       |
+| Official Web App (Graphical User Interface)     | **YES**         | No       |
 | Command-Line Interface                          | Yes         | Yes      |
 | Incremental Backups of Files/Directories                             | Yes         | Yes      |
 | Image Backups of Whole Machines                             | No         | No      |
@@ -160,8 +160,8 @@ _All of the features comparisons below are based on the official released versio
 | Restore Complete Backups                        | Yes         | Yes      |
 | Mount Backups as Local Directory or Filesystem                                        | Yes         | Yes      |
 | Backup & Restore Speed                                                  | Fast         | Fast      |
-| Easy to Download, Install, and Use for Home & Business Users            | **Easy**         | More Complicated     |
-| Works on Windows, Mac, and Linux                | **Yes**         | No      |
+| Easy to Download, Install, and Use for Home & Business Users            | **EASY**         | More Complicated     |
+| Works on Windows, Mac, and Linux                | **YES**         | No      |
 | Open Source                                     | Yes         | Yes      |
 | Price                                           | FREE         | FREE      |
 
@@ -175,17 +175,17 @@ _All of the features comparisons below are based on the official released versio
 | Store Backups on Cloud Storage                  | Yes         | Yes      |
 | Store Backups on Local Storage                  | Yes         | Yes      |
 | Store Backups on Network Storage                | Yes         | Yes      |
-| Official Desktop App (Graphical User Interface) | **Yes**         | No       |
-| Official Web App (Graphical User Interface)     | **Yes**         | No       |
+| Official Desktop App (Graphical User Interface) | **YES**         | No       |
+| Official Web App (Graphical User Interface)     | **YES**         | No       |
 | Command-Line Interface                          | Yes         | Yes      |
 | Incremental Backups of Files/Directories                             | Yes         | Yes      |
 | Image Backups of Whole Machines                             | No         | No      |
 | Restore Individual Files from Backups           | Yes         | Yes      |
 | Restore Complete Backups                        | Yes         | Yes      |
-| Mount Backups as Local Directory or Filesystem                                        | **Yes**         | No      |
-| Backup & Restore Speed                                                  | **Fast**         | Slower      |
-| Easy to Download, Install, and Use for Home & Business Users            | **Easy**         | More Complicated     |
-| Works on Windows, Mac, and Linux                | **Yes**         | No      |
+| Mount Backups as Local Directory or Filesystem                                        | **YES**         | No      |
+| Backup & Restore Speed                                                  | **FAST**         | Slower      |
+| Easy to Download, Install, and Use for Home & Business Users            | **EASY**         | More Complicated     |
+| Works on Windows, Mac, and Linux                | **YES**         | No      |
 | Open Source                                     | Yes         | Yes      |
 | Price                                           | FREE         | FREE      |
 
@@ -198,22 +198,22 @@ _All of the features comparisons below are based on the official released versio
 |-------------------------------------------------|-------------|----------|
 | End-to-End Encryption                           | Yes         | Yes       |
 | Compression                                     | Yes         | Yes       |
-| Data Deduplication                              | **Yes**         | No      |
-| Store Backups on Cloud Storage                  | **Yes**         | No (Acronis Cloud Only)      |
+| Data Deduplication                              | **YES**         | No      |
+| Store Backups on Cloud Storage                  | **YES**         | No (Acronis Cloud Only)      |
 | Store Backups on Local Storage                  | Yes         | Yes      |
 | Store Backups on Network Storage                | Yes         | Yes      |
 | Official Desktop App (Graphical User Interface) | Yes         | Yes       |
-| Official Web App (Graphical User Interface)     | **Yes**         | No       |
-| Command-Line Interface                          | **Yes**         | No      |
+| Official Web App (Graphical User Interface)     | **YES**         | No       |
+| Command-Line Interface                          | **YES**         | No      |
 | Incremental Backups of Files/Directories                             | Yes         | Yes      |
-| Image Backups of Whole Machines                             | No         | **Yes**      |
+| Image Backups of Whole Machines                             | No         | **YES**      |
 | Restore Individual Files from Backups           | Yes         | Yes      |
 | Restore Complete Backups                        | Yes         | Yes      |
 | Mount Backups as Local Directory or Filesystem                                       | Yes         | Yes      |
 | Backup & Restore Speed                                                  | Fast         | Fast      |
 | Easy to Download, Install, and Use for Home & Business Users            | Easy         | Easy      |
-| Works on Windows, Mac, and Linux                | **Yes**         | No      |
-| Open Source                                     | **Yes**         | No      |
+| Works on Windows, Mac, and Linux                | **YES**         | No      |
+| Open Source                                     | **YES**         | No      |
 | Price                                           | **FREE**         | $49.99 Per Year for One Computer      |
 
 ### Kopia vs Macrium Reflect
@@ -223,24 +223,24 @@ _All of the features comparisons below are based on the official released versio
 
 |                                                 |  Kopia  |  Macrium Reflect  |
 |-------------------------------------------------|-------------|----------|
-| End-to-End Encryption                           | **Yes**         | Not in Free Version       |
+| End-to-End Encryption                           | **YES**         | Not in Free Version       |
 | Compression                                     | Yes         | Yes       |
-| Data Deduplication                              | **Yes**         | No      |
-| Store Backups on Cloud Storage                  | **Yes**         | No (Azure Files Share Only)      |
+| Data Deduplication                              | **YES**         | No      |
+| Store Backups on Cloud Storage                  | **YES**         | No (Azure Files Share Only)      |
 | Store Backups on Local Storage                  | Yes         | Yes      |
 | Store Backups on Network Storage                | Yes         | Yes      |
 | Official Desktop App (Graphical User Interface) | Yes         | Yes       |
-| Official Web App (Graphical User Interface)     | **Yes**         | No       |
+| Official Web App (Graphical User Interface)     | **YES**         | No       |
 | Command-Line Interface                          | Yes         | Yes      |
-| Incremental Backups of Files/Directories                             | **Yes**         | Not in Free Version      |
-| Image Backups of Whole Machines                             | No         | **Yes**      |
+| Incremental Backups of Files/Directories                             | **YES**         | Not in Free Version      |
+| Image Backups of Whole Machines                             | No         | **YES**      |
 | Restore Individual Files from Backups           | Yes         | Yes      |
 | Restore Complete Backups                        | Yes         | Yes      |
 | Mount Backups as Local Directory or Filesystem                                        | Yes         | Yes      |
 | Backup & Restore Speed                                                  | Fast         | Fast      |
 | Easy to Download, Install, and Use for Home & Business Users            | Easy         | Easy      |
-| Works on Windows, Mac, and Linux                | **Yes**         | No      |
-| Open Source                                     | **Yes**         | No      |
+| Works on Windows, Mac, and Linux                | **YES**         | No      |
+| Open Source                                     | **YES**         | No      |
 | Price                                           | **FREE**         | $69.99 for One Computer      |
 
 ### Kopia vs Veeam
@@ -253,19 +253,19 @@ _All of the features comparisons below are based on the official released versio
 | End-to-End Encryption                           | Yes         | Yes       |
 | Compression                                     | Yes         | Yes       |
 | Data Deduplication                              | Yes         | Yes      |
-| Store Backups on Cloud Storage                  | **Yes**         | No (Veeam Cloud Connect Partners and OneDrive Only)      |
+| Store Backups on Cloud Storage                  | **YES**         | No (Veeam Cloud Connect Partners and OneDrive Only)      |
 | Store Backups on Local Storage                  | Yes         | Yes      |
 | Store Backups on Network Storage                | Yes         | Yes      |
 | Official Desktop App (Graphical User Interface) | Yes         | Yes       |
-| Official Web App (Graphical User Interface)     | **Yes**         | No       |
+| Official Web App (Graphical User Interface)     | **YES**         | No       |
 | Command-Line Interface                          | Yes         | Yes      |
 | Incremental Backups of Files/Directories                             | Yes         | Yes      |
-| Image Backups of Whole Machines                             | No         | **Yes**      |
+| Image Backups of Whole Machines                             | No         | **YES**      |
 | Restore Individual Files from Backups           | Yes         | Yes      |
 | Restore Complete Backups                        | Yes         | Yes      |
 | Mount Backups as Local Directory or Filesystem                                        | Yes         | Yes      |
 | Backup & Restore Speed                                                  | Fast         | Fast      |
-| Easy to Download, Install, and Use for Home & Business Users            | **Easy**         | Easy if Using the Agents      |
+| Easy to Download, Install, and Use for Home & Business Users            | **EASY**         | Easy if Using the Agents      |
 | Works on Windows, Mac, and Linux                | Yes         | Yes      |
-| Open Source                                     | **Yes**         | No      |
+| Open Source                                     | **YES**         | No      |
 | Price                                           | FREE         | FREE      |
