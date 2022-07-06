@@ -6,7 +6,7 @@ toc_hide: true
 
 Make sure to learn about [all of Kopia's features](../features) before you read this comparison to other software!
 
-## How Does Kopia Compare to Other Backup Software?
+## How Do Kopia Features Compare to Other Backup Software?
 
 _All of the features comparisons below are based on the official released versions of each software as of July 1, 2022. If you see any errors, please correct them._
 
@@ -42,8 +42,6 @@ _All of the features comparisons below are based on the official released versio
 | Restore Individual Files from Backups           | Yes         | Yes      |
 | Restore Complete Backups                        | Yes         | Yes      |
 | Mount Backups as Local Directory or Filesystem                                       | **YES**         | No      |
-| Backup & Restore Speed                                                  | Fast         | Fast      |
-| Easy to Download, Install, and Use for Home & Business Users            | **EASY**         | More Complicated      |
 | Windows, Mac, and Linux Support                | Yes         | Yes      |
 | Open Source                                     | Yes         | Yes      |
 | Price                                           | FREE         | FREE      |
@@ -66,8 +64,6 @@ _All of the features comparisons below are based on the official released versio
 | Restore Individual Files from Backups           | Yes         | Yes      |
 | Restore Complete Backups                        | Yes         | Yes      |
 | Mount Backups as Local Directory or Filesystem                                       | Yes         | Yes      |
-| Backup & Restore Speed                                                  | **FAST**         | Slower      |
-| Easy to Download, Install, and Use for Home & Business Users            | **EASY**         | More Complicated      |
 | Windows, Mac, and Linux Support                | Yes         | Yes      |
 | Open Source                                     | Yes         | Yes      |
 | Price                                           | FREE         | FREE      |
@@ -90,8 +86,6 @@ _All of the features comparisons below are based on the official released versio
 | Restore Individual Files from Backups           | Yes         | Yes      |
 | Restore Complete Backups                        | Yes         | Yes      |
 | Mount Backups as Local Directory or Filesystem              | **YES**         | No      |
-| Backup & Restore Speed                          | **FAST**         | Slower      |
-| Easy to Download, Install, and Use for Home & Business Users              | Easy         | Easy      |
 | Windows, Mac, and Linux Support                | Yes         | Yes      |
 | Open Source                                     | Yes         | Yes      |
 | Price                                           | FREE         | FREE      |
@@ -114,8 +108,6 @@ _All of the features comparisons below are based on the official released versio
 | Restore Individual Files from Backups           | Yes         | Yes      |
 | Restore Complete Backups                        | Yes         | Yes      |
 | Mount Backups as Local Directory or Filesystem             | Yes         | Yes      |
-| Backup & Restore Speed                          | **FAST**         | Slower      |
-| Easy to Download, Install, and Use for Home & Business Users              | **EASY**         | More Complicated      |
 | Windows, Mac, and Linux Support                | **YES**         | No      |
 | Open Source                                     | Yes         | Yes      |
 | Price                                           | FREE         | FREE      |
@@ -138,8 +130,6 @@ _All of the features comparisons below are based on the official released versio
 | Restore Individual Files from Backups           | Yes         | Yes      |
 | Restore Complete Backups                        | Yes         | Yes      |
 | Mount Backups as Local Directory or Filesystem                                       | **YES**         | No      |
-| Backup & Restore Speed                                                  | **FAST**         | Slower      |
-| Easy to Download, Install, and Use for Home & Business Users            | Easy         | Easy      |
 | Windows, Mac, and Linux Support                | **YES**         | No      |
 | Open Source                                     | **YES**         | No      |
 | Price                                           | **FREE**         | $49.99 Per Computer      |
@@ -162,8 +152,6 @@ _All of the features comparisons below are based on the official released versio
 | Restore Individual Files from Backups           | Yes         | Yes      |
 | Restore Complete Backups                        | Yes         | Yes      |
 | Mount Backups as Local Directory or Filesystem                                        | **YES**         | No      |
-| Backup & Restore Speed                                                  | **FAST**         | Slower      |
-| Easy to Download, Install, and Use for Home & Business Users            | Easy         | Easy     |
 | Windows, Mac, and Linux Support                | Yes         | Yes      |
 | Open Source                                     | **YES**         | Partially (Command-Line Version Only)      |
 | Price                                           | **FREE**         | FREE for Command-Line Version and Home Use Only      |
@@ -186,8 +174,6 @@ _All of the features comparisons below are based on the official released versio
 | Restore Individual Files from Backups           | Yes         | Yes      |
 | Restore Complete Backups                        | Yes         | Yes      |
 | Mount Backups as Local Directory or Filesystem                                        | Yes         | Yes      |
-| Backup & Restore Speed                                                  | Fast         | Fast      |
-| Easy to Download, Install, and Use for Home & Business Users            | **EASY**         | More Complicated     |
 | Windows, Mac, and Linux Support                | **YES**         | No      |
 | Open Source                                     | Yes         | Yes      |
 | Price                                           | FREE         | FREE      |
@@ -210,8 +196,6 @@ _All of the features comparisons below are based on the official released versio
 | Restore Individual Files from Backups           | Yes         | Yes      |
 | Restore Complete Backups                        | Yes         | Yes      |
 | Mount Backups as Local Directory or Filesystem                                        | **YES**         | No      |
-| Backup & Restore Speed                                                  | **FAST**         | Slower      |
-| Easy to Download, Install, and Use for Home & Business Users            | **EASY**         | More Complicated     |
 | Windows, Mac, and Linux Support                | **YES**         | No      |
 | Open Source                                     | Yes         | Yes      |
 | Price                                           | FREE         | FREE      |
@@ -238,8 +222,6 @@ _All of the features comparisons below are based on the official released versio
 | Restore Individual Files from Backups           | Yes         | Yes      |
 | Restore Complete Backups                        | Yes         | Yes      |
 | Mount Backups as Local Directory or Filesystem                                       | Yes         | Yes      |
-| Backup & Restore Speed                                                  | Fast         | Fast      |
-| Easy to Download, Install, and Use for Home & Business Users            | Easy         | Easy      |
 | Windows, Mac, and Linux Support                | **YES**         | No      |
 | Open Source                                     | **YES**         | No      |
 | Price                                           | **FREE**         | $49.99 Per Year for One Computer      |
@@ -266,36 +248,6 @@ _All of the features comparisons below are based on the official released versio
 | Restore Individual Files from Backups           | Yes         | Yes      |
 | Restore Complete Backups                        | Yes         | Yes      |
 | Mount Backups as Local Directory or Filesystem                                        | Yes         | Yes      |
-| Backup & Restore Speed                                                  | Fast         | Fast      |
-| Easy to Download, Install, and Use for Home & Business Users            | Easy         | Easy      |
 | Windows, Mac, and Linux Support                | **YES**         | No      |
 | Open Source                                     | **YES**         | No      |
 | Price                                           | **FREE**         | $69.99 for One Computer      |
-
-### Kopia vs Veeam
-
-> Kopia and Veeam are not necessarily "competitors." Kopia focuses on allowing you to backup/restore important files/directories. Veeam is an image backup program that can do something Kopia cannot: backup/restore your whole machine.
-
-> This comparison is based on Veeam's Free Agent and Community products. Veeam's other products may have other features.
-
-|                                                 |  Kopia  |  Veeam  |
-|-------------------------------------------------|-------------|----------|
-| End-to-End Encryption                           | Yes         | Yes       |
-| Compression                                     | Yes         | Yes       |
-| Data Deduplication                              | Yes         | Yes      |
-| Store Backups on Cloud Storage                  | **YES**         | No (Veeam Cloud Connect Partners and OneDrive Only)      |
-| Store Backups on Local Storage                  | Yes         | Yes      |
-| Store Backups on Network Storage                | Yes         | Yes      |
-| Official Desktop App (Graphical User Interface) | Yes         | Yes       |
-| Official Web App (Graphical User Interface)     | **YES**         | No       |
-| Command-Line Interface                          | Yes         | Yes      |
-| Incremental Backups of Files/Directories                             | Yes         | Yes      |
-| Image Backups of Whole Machines                             | No         | **YES**      |
-| Restore Individual Files from Backups           | Yes         | Yes      |
-| Restore Complete Backups                        | Yes         | Yes      |
-| Mount Backups as Local Directory or Filesystem                                        | Yes         | Yes      |
-| Backup & Restore Speed                                                  | Fast         | Fast      |
-| Easy to Download, Install, and Use for Home & Business Users            | **EASY**         | Easy if Using the Agents      |
-| Windows, Mac, and Linux Support                | Yes         | Yes      |
-| Open Source                                     | **YES**         | No      |
-| Price                                           | FREE         | FREE      |
