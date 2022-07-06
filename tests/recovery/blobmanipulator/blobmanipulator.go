@@ -61,7 +61,8 @@ func (bm *BlobManipulator) DeleteBlob(blobID string) error {
 
 		if err != nil {
 			return err
-		}
+		blobID = randomBlobID
+	}
 	}
 
 	log.Printf("Deleting BLOB %s", blobID)
