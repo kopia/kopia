@@ -61,8 +61,7 @@ func (bm *BlobManipulator) DeleteBlob(blobID string) error {
 
 		if err != nil {
 			return err
-		blobID = randomBlobID
-	}
+		}
 	}
 
 	log.Printf("Deleting BLOB %s", blobID)
@@ -155,6 +154,7 @@ func (bm *BlobManipulator) RestoreGivenOrRandomSnapshot(snapID, restoreDir strin
 
 	_, msg, err := bm.KopiaCommandRunner.Run("snapshot", "restore", snapID, restoreDir)
 	if err != nil {
+		// return the error message to parse the object ID to be used in snapshot fix command
 		return msg, err
 	}
 
