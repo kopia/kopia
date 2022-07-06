@@ -218,8 +218,9 @@ _All of the features comparisons below are based on the official released versio
 
 ### Kopia vs Acronis
 
-> This comparison is based on Acronis Cyber Protect Home and Acronis True Image. Acronis' other products may have other features.
 > Kopia and Acronis are not necessarily "competitors." Kopia focuses on allowing you to backup/restore important files/directories. Acronis is an image backup program that can do something Kopia cannot: backup/restore your whole machine.
+
+> This comparison is based on Acronis Cyber Protect Home and Acronis True Image. Acronis' other products may have other features.
 
 |                                                 |  Kopia  |  Acronis  |
 |-------------------------------------------------|-------------|----------|
@@ -245,8 +246,9 @@ _All of the features comparisons below are based on the official released versio
 
 ### Kopia vs Macrium Reflect
 
-> This comparison is based on Macrium Reflect Free & Home. Macrium Reflect's other products may have other features.
 > Kopia and Macrium Reflect are not necessarily "competitors." Kopia focuses on allowing you to backup/restore important files/directories. Macrium Reflect is an image backup program that can do something Kopia cannot: backup/restore your whole machine.
+
+> This comparison is based on Macrium Reflect Free & Home. Macrium Reflect's other products may have other features.
 
 |                                                 |  Kopia  |  Macrium Reflect  |
 |-------------------------------------------------|-------------|----------|
@@ -272,8 +274,9 @@ _All of the features comparisons below are based on the official released versio
 
 ### Kopia vs Veeam
 
+> Kopia and Veeam are not necessarily "competitors." Kopia focuses on allowing you to backup/restore important files/directories. Veeam is an image backup program that can do something Kopia cannot: backup/restore your whole machine.
+
 > This comparison is based on Veeam's Free Agent and Community products. Veeam's other products may have other features.
-> Kopia and Veeam are not necessarily "competitors." Kopia focuses on allowing you to backup/restore important files/directories. Veeam is an image backup program that can do something Veeam cannot: backup/restore your whole machine.
 
 |                                                 |  Kopia  |  Veeam  |
 |-------------------------------------------------|-------------|----------|
