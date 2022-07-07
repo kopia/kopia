@@ -378,8 +378,24 @@ func (c *commandSnapshotList) entryBits(ctx context.Context, m *snapshot.Manifes
 		bits = append(bits, "incomplete:"+m.IncompleteReason)
 	}
 
+	var summary *fs.DirectorySummary
+
+	if dws, ok := ent.(fs.DirectoryWithSummary); ok {
+		s, err := dws.Summary(ctx)
+		if err != nil {
+			log(ctx).Warnw("unable to get directory summary", "name", ent.Name(), "err", err)
+		}
+
+		summary = s
+	}
+
+	totalBytes := ent.Size()
+	if summary != nil {
+		totalBytes = summary.TotalFileSize
+	}
+
 	bits = append(bits,
-		maybeHumanReadableBytes(c.snapshotListShowHumanReadable, ent.Size()),
+		maybeHumanReadableBytes(c.snapshotListShowHumanReadable, totalBytes),
 		ent.Mode().String())
 	if c.shapshotListShowOwner {
 		bits = append(bits,
@@ -399,15 +415,13 @@ func (c *commandSnapshotList) entryBits(ctx context.Context, m *snapshot.Manifes
 		bits = append(bits, deltaBytes(ent.Size()-lastTotalFileSize))
 	}
 
-	if dws, ok := ent.(fs.DirectoryWithSummary); ok {
-		if s, _ := dws.Summary(ctx); s != nil {
-			bits = append(bits,
-				fmt.Sprintf("files:%v", s.TotalFileCount),
-				fmt.Sprintf("dirs:%v", s.TotalDirCount))
-			if s.FatalErrorCount > 0 {
-				bits = append(bits, fmt.Sprintf("errors:%v", s.FatalErrorCount))
-				col = errorColor
-			}
+	if summary != nil {
+		bits = append(bits,
+			fmt.Sprintf("files:%v", summary.TotalFileCount),
+			fmt.Sprintf("dirs:%v", summary.TotalDirCount))
+		if summary.FatalErrorCount > 0 {
+			bits = append(bits, fmt.Sprintf("errors:%v", summary.FatalErrorCount))
+			col = errorColor
 		}
 	}
 

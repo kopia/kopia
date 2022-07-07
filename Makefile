@@ -125,6 +125,10 @@ kopia-ui-with-local-htmlui-changes:
 	rm -f $(kopia_ui_embedded_exe)
 	GOWORK=$(CURDIR)/tools/localhtmlui.work $(MAKE) kopia-ui
 
+install-with-local-htmlui-changes:
+	(cd ../htmlui && npm run build && ./push_local.sh)
+	GOWORK=$(CURDIR)/tools/localhtmlui.work $(MAKE) install
+
 # build-current-os-noui compiles a binary for the current os/arch in the same location as goreleaser
 # kopia-ui build needs this particular location to embed the correct server binary.
 # note we're not building or embedding HTML UI to speed up PR testing process.
