@@ -31,7 +31,7 @@ function showRepoWindow(repoID) {
     title: 'KopiaUI is Loading...',
     autoHideMenuBar: true,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(resourcesPath(), 'preload.js'),
     },
   })
 
