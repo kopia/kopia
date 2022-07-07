@@ -81,7 +81,7 @@ You must use Kopia CLI if you want to change your `repository` password; changin
 
 Before changing your password, you must be [connected to your `repository`](../getting-started/#connecting-to-repository). This means that you **can** reset your password if you forget your password AND you are still connected to your `repository`. But this also means that you **cannot** reset your password if you forget your password and you are NOT still connected to your `repository`, because you will need your current password to connect to the `repository`.
 
-As a reminder, your `repository` password is used to [encrypt](../features/#end-to-end-zero-knowledge-encryption) your snapshots, so make sure to select a secure password!
+Remember to select a secure _repository password_. The password is used to [decrypt](../features/#end-to-end-zero-knowledge-encryption) and access the data in your snapshots.
 
 #### What is a Kopia Repository Server?
 
