@@ -22,6 +22,11 @@ import (
 	"github.com/kopia/kopia/tests/tools/kopiarunner"
 )
 
+var (
+	errKopiaRepoNotFound  = errors.New("kopia repository does not exist")
+	errCreatingFileWriter = errors.New("could not create file writer")
+)
+
 // BlobManipulator provides a way to run a kopia command.
 type BlobManipulator struct {
 	KopiaCommandRunner *kopiarunner.KopiaSnapshotter
@@ -45,9 +50,8 @@ func NewBlobManipulator(baseDirPath string) (*BlobManipulator, error) {
 
 // ConnectOrCreateRepo connects to an existing repository if possible or creates a new one.
 func (bm *BlobManipulator) ConnectOrCreateRepo(dataRepoPath string) error {
-	if bm == nil || bm.DirCreater == nil {
-		err := errors.New("kopia " + dataRepoPath + "repository does not exist")
-		return err
+	if bm.DirCreater == nil {
+		return errKopiaRepoNotFound
 	}
 
 	return bm.DirCreater.ConnectOrCreateRepo(dataRepoPath)
@@ -172,8 +176,7 @@ func (bm *BlobManipulator) SetUpSystemUnderTest() error {
 	// create random data
 	gotFileWriter := bm.getFileWriter()
 	if !gotFileWriter {
-		err = errors.New("Error creating file writer")
-		return err
+		return errCreatingFileWriter
 	}
 
 	fileSize := 100
