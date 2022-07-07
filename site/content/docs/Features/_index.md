@@ -16,7 +16,7 @@ Kopia uses [content-addressable storage](https://en.wikipedia.org/wiki/Content-a
 
 * After moving or renaming even large files, Kopia can recognize that they have the same content and won't need to upload them again.
 
-* Multiple users or computers can share the same repository: if different users have the same files, the files are uploaded only once to the repository thanks to deduplication. In other words, Kopia supports repository-level deduplication whereas many other software deduplicate files only within the same backup/snapshot.
+* Multiple users or computers can share the same repository: if different users have the same files, the files are uploaded only once as Kopia deduplicates content across the entire repository.
 
 > NOTE: Kopia allows one password per repository. Thus, if you share a repository with someone else, then you must also share your password with them. Repository passwords are [used to encrypt your data](../faqs/#how-do-i-enable-encryption). Therefore, make sure you trust all the other users/computers that you share a repository with, because they will have access to your password and data!
 
