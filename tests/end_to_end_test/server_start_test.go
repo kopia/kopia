@@ -585,7 +585,7 @@ func verifyUIServedWithCorrectTitle(t *testing.T, cli *apiclient.KopiaAPIClient,
 
 	// make sure the UI correctly inserts prefix from KOPIA_UI_TITLE_PREFIX
 	// and it's correctly HTML-escaped.
-	if !bytes.Contains(b, []byte(`<title>Blah: &lt;script&gt;bleh&lt;/script&gt; Kopia UI`)) {
+	if !bytes.Contains(b, []byte(`<title>Blah: &lt;script&gt;bleh&lt;/script&gt; KopiaUI`)) {
 		t.Fatalf("invalid title served by the UI: %v.", string(b))
 	}
 }
