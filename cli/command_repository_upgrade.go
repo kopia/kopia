@@ -40,10 +40,16 @@ func (c *commandRepositoryUpgrade) setup(svc advancedAppServices, parent command
 
 	cmd.Flag("force-rollback", "Force rollback the repository upgrade, this action can cause repository corruption").BoolVar(&c.forceRollback)
 
-	// upgrade sequence
+	// upgrade phases
+
+	// Set the upgrade lock intent.
 	cmd.Action(svc.directRepositoryWriteAction(c.runPhase(c.setLockIntent)))
+	// If requested then drain all the clients otherwise stop here.
 	cmd.Action(svc.directRepositoryWriteAction(c.runPhase(c.drainOrCommit)))
+	// If the lock is fully established then perform the upgrade.
 	cmd.Action(svc.directRepositoryWriteAction(c.runPhase(c.upgrade)))
+	// Commit the upgrade and revoke the lock, this will also cleanup any
+	// backups used for rollback.
 	cmd.Action(svc.directRepositoryWriteAction(c.runPhase(c.commitUpgrade)))
 
 	c.svc = svc
@@ -53,8 +59,11 @@ func (c *commandRepositoryUpgrade) runPhase(act func(context.Context, repo.Direc
 	return func(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 		if !c.skip {
 			if err := act(ctx, rep); err != nil {
-				// explicitly skip all stages on error because tests do not
-				// skip/exit on error because they override os.Exit()
+				// Explicitly skip all stages on error because tests do not
+				// skip/exit on error. Tests override os.Exit() that prevents
+				// running rest of the phases until we set the skip flag here.
+				// This flag is designed for testability and also to support
+				// rollback.
 				c.skip = true
 				return err
 			}
@@ -64,6 +73,8 @@ func (c *commandRepositoryUpgrade) runPhase(act func(context.Context, repo.Direc
 	}
 }
 
+// setLockIntent is an upgrade phase which sets the upgrade lock intent with
+// desired parameters.
 func (c *commandRepositoryUpgrade) setLockIntent(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	if c.forceRollback {
 		if err := rep.RollbackUpgrade(ctx); err != nil {
@@ -118,6 +129,10 @@ func (c *commandRepositoryUpgrade) setLockIntent(ctx context.Context, rep repo.D
 	return nil
 }
 
+// drainOrCommit is the upgrade CLI phase that will actually wait for all the
+// clients to be drained out of the upgrade quorum. If the block-until-drain
+// option is not specified then this phase will cause all other phases to be
+// skipped until the lock is fully established.
 func (c *commandRepositoryUpgrade) drainOrCommit(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	// skip next phases if requested
 	if c.blockUntilDrain {
@@ -203,6 +218,9 @@ func (c *commandRepositoryUpgrade) drainAllClients(ctx context.Context, rep repo
 	return nil
 }
 
+// upgrade phase perfoms the actual upgrade action that upgrades the target
+// repository. This phase runs after the lock has been acquired in one of the
+// prior phases.
 func (c *commandRepositoryUpgrade) upgrade(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	mp := rep.ContentReader().ContentFormat().MutableParameters
 	if mp.EpochParameters.Enabled {
@@ -230,6 +248,11 @@ func (c *commandRepositoryUpgrade) upgrade(ctx context.Context, rep repo.DirectR
 	return nil
 }
 
+// commitUpgrade is the upgrade CLI phase that commits the upgrade and removes
+// the lock after the actual upgrade phase has been ru nsuccessfully. We will
+// not end up here if any of the prior phases have failed. This will also
+// cleanup and backups used for the rollback mechanism, so we cannot rollback
+// after this phase.
 func (c *commandRepositoryUpgrade) commitUpgrade(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	if err := rep.CommitUpgrade(ctx); err != nil {
 		return errors.Wrap(err, "error finalizing upgrade")
