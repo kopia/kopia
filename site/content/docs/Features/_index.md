@@ -6,7 +6,7 @@ weight: 1
 
 ### Backup Files and Directories using Snapshots
 
-Kopia creates snapshots of the files and directories you designate and uploads these [encrypted](#end-to-end-zero-knowledge-encryption) snapshots to cloud/network/local storage called a [repository](../repositories/). Snapshots are maintained as a set of historical point-in-time records based on policies that you define.
+Kopia creates snapshots of the files and directories you designate, then  [encrypts](#end-to-end-zero-knowledge-encryption) and uploads these snapshots to cloud/network/local storage called a [repository](../repositories/). Snapshots are maintained as a set of historical point-in-time records based on policies that you define.
 
 Kopia uses [content-addressable storage](https://en.wikipedia.org/wiki/Content-addressable%20storage) for snapshots, which has many benefits:
 
