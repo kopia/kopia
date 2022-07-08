@@ -9,7 +9,7 @@ require (
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962 // indirect
 	github.com/alecthomas/kingpin v1.3.8-0.20220615105907-eae6867f4166 // this is pulling master, which is newer than v2
 	github.com/alecthomas/units v0.0.0-20210927113745-59d0afb8317a
-	github.com/aws/aws-sdk-go v1.44.50
+	github.com/aws/aws-sdk-go v1.44.51
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
 	github.com/dustinkirkland/golang-petname v0.0.0-20191129215211-8e5a1ed0cff0
 	github.com/fatih/color v1.13.0
@@ -107,10 +107,10 @@ require (
 	github.com/chromedp/chromedp v0.8.2
 	github.com/edsrzf/mmap-go v1.1.0
 	github.com/hashicorp/golang-lru v0.5.4
-	go.opentelemetry.io/otel v1.7.0
+	go.opentelemetry.io/otel v1.8.0
 	go.opentelemetry.io/otel/exporters/jaeger v1.7.0
-	go.opentelemetry.io/otel/sdk v1.7.0
-	go.opentelemetry.io/otel/trace v1.7.0
+	go.opentelemetry.io/otel/sdk v1.8.0
+	go.opentelemetry.io/otel/trace v1.8.0
 )
 
 require (
