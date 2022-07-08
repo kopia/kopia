@@ -130,7 +130,7 @@ func (l *UpgradeLock) totalDrainInterval() time.Duration {
 func (l *UpgradeLock) checkCoordinatorLock(ctx context.Context) (bool, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", l.CoordinatorURL, http.NoBody)
 	if err != nil {
-		return false, errors.Wrapf(err, "failed to check for coordinator lock with %q", l.CoordinatorURL)
+		return false, errors.Wrapf(err, "failed to prepare coordinator lock request with %q", l.CoordinatorURL)
 	}
 
 	resp, err := http.DefaultClient.Do(req)

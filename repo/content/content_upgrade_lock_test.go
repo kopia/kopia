@@ -418,4 +418,16 @@ func TestUpgradeLockCoordinator(t *testing.T) {
 	require.Error(t, err)
 	require.EqualValues(t, false, locked)
 	require.EqualValues(t, false, writersDrained)
+
+	l.CoordinatorURL = "http:/localhost:8080/bad-url-string-missing-slash" // bad host in URL
+	locked, writersDrained, err = l.IsLocked(testlogging.Context(t), clock.Now())
+	require.EqualError(t, err, "failed to check for coordinator lock with \"http:/localhost:8080/bad-url-string-missing-slash\": Get \"http:///localhost:8080/bad-url-string-missing-slash\": http: no Host in request URL")
+	require.EqualValues(t, false, locked)
+	require.EqualValues(t, false, writersDrained)
+
+	l.CoordinatorURL = "%%" // cannot parse this URL
+	locked, writersDrained, err = l.IsLocked(testlogging.Context(t), clock.Now())
+	require.EqualError(t, err, "failed to prepare coordinator lock request with \"%%\": parse \"%%\": invalid URL escape \"%%\"")
+	require.EqualValues(t, false, locked)
+	require.EqualValues(t, false, writersDrained)
 }

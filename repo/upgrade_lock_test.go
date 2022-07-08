@@ -3,6 +3,8 @@ package repo_test
 import (
 	"context"
 	"fmt"
+	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
@@ -389,4 +391,157 @@ func TestFormatUpgradeDuringOngoingWriteSessions(t *testing.T) {
 	require.ErrorIs(t, w2.Flush(ctx), repo.ErrRepositoryUnavailableDueToUpgrageInProgress)
 	require.ErrorIs(t, w3.Flush(ctx), repo.ErrRepositoryUnavailableDueToUpgrageInProgress)
 	require.ErrorIs(t, lw.Flush(ctx), repo.ErrRepositoryUnavailableDueToUpgrageInProgress)
+}
+
+func TestFormatUpgradeLockIntentUsingBadCoordinatorDuringRepoOpen(t *testing.T) {
+	curTime := clock.Now()
+	ctx, env := repotesting.NewEnvironment(t, content.FormatVersion1, repotesting.Options{
+		// new environment with controlled time
+		OpenOptions: func(opts *repo.Options) {
+			opts.TimeNowFunc = func() time.Time {
+				return curTime
+			}
+		},
+	})
+
+	// start a lock coordinator server
+	{
+		mux := http.NewServeMux()
+		mux.HandleFunc("/bad-lock", func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusBadRequest)
+		})
+
+		srv := &http.Server{Addr: ":8080", Handler: mux}
+
+		ln, err := net.Listen("tcp", srv.Addr)
+		require.NoError(t, err)
+
+		go func() {
+			require.ErrorIs(t, srv.Serve(ln), http.ErrServerClosed)
+		}()
+		defer func() {
+			require.NoError(t, srv.Close())
+		}()
+	}
+
+	formatBlockCacheDuration := env.Repository.ClientOptions().FormatBlobCacheDuration
+	l := content.UpgradeLock{
+		OwnerID:                "upgrade-owner",
+		CreationTime:           env.Repository.Time(),
+		AdvanceNoticeDuration:  0,
+		IODrainTimeout:         formatBlockCacheDuration * 2,
+		StatusPollInterval:     formatBlockCacheDuration,
+		Message:                "upgrading from format version 2 -> 3",
+		MaxPermittedClockDrift: formatBlockCacheDuration / 3,
+		CoordinatorURL:         "http://localhost:8080/bad-lock",
+	}
+
+	_, err := env.RepositoryWriter.SetUpgradeLockIntent(ctx, l)
+	require.NoError(t, err)
+
+	_, err = repo.Open(testlogging.Context(t), env.ConfigFile(), env.Password, nil)
+	require.EqualError(t, err, "unable to get upgrade lock status: invalid status code from coordinator: 400")
+}
+
+func TestFormatUpgradeUsingBadCoordinatorDuringOngoingWriteSessions(t *testing.T) {
+	curTime := clock.Now()
+	ctx, env := repotesting.NewEnvironment(t, content.FormatVersion1, repotesting.Options{
+		// new environment with controlled time
+		OpenOptions: func(opts *repo.Options) {
+			opts.TimeNowFunc = func() time.Time {
+				return curTime
+			}
+		},
+	})
+
+	// start a lock coordinator server
+	{
+		mux := http.NewServeMux()
+		mux.HandleFunc("/bad-lock", func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusBadRequest)
+		})
+
+		srv := &http.Server{Addr: ":8080", Handler: mux}
+
+		ln, err := net.Listen("tcp", srv.Addr)
+		require.NoError(t, err)
+
+		go func() {
+			require.ErrorIs(t, srv.Serve(ln), http.ErrServerClosed)
+		}()
+		defer func() {
+			require.NoError(t, srv.Close())
+		}()
+	}
+
+	rep := env.Repository // read-only
+
+	lw := rep.(repo.RepositoryWriter)
+
+	// w1, w2, w3 are indepdendent sessions.
+	_, w1, err := rep.NewWriter(ctx, repo.WriteSessionOptions{Purpose: "writer1"})
+	require.NoError(t, err)
+
+	defer w1.Close(ctx)
+
+	_, w2, err := rep.NewWriter(ctx, repo.WriteSessionOptions{Purpose: "writer2"})
+	require.NoError(t, err)
+
+	defer w2.Close(ctx)
+
+	_, w3, err := rep.NewWriter(ctx, repo.WriteSessionOptions{Purpose: "writer3"})
+	require.NoError(t, err)
+
+	defer w3.Close(ctx)
+
+	o1Data := []byte{1, 2, 3}
+	o2Data := []byte{2, 3, 4}
+	o3Data := []byte{3, 4, 5}
+	o4Data := []byte{4, 5, 6}
+
+	writeObject(ctx, t, w1, o1Data, "o1")
+	writeObject(ctx, t, w2, o2Data, "o2")
+	writeObject(ctx, t, w3, o3Data, "o3")
+	writeObject(ctx, t, lw, o4Data, "o4")
+
+	formatBlockCacheDuration := env.Repository.ClientOptions().FormatBlobCacheDuration
+	l := content.UpgradeLock{
+		OwnerID:                "upgrade-owner",
+		CreationTime:           env.Repository.Time(),
+		AdvanceNoticeDuration:  0,
+		IODrainTimeout:         formatBlockCacheDuration * 2,
+		StatusPollInterval:     formatBlockCacheDuration,
+		Message:                "upgrading from format version 2 -> 3",
+		MaxPermittedClockDrift: formatBlockCacheDuration / 3,
+		CoordinatorURL:         "http://localhost:8080/bad-lock",
+	}
+
+	_, err = env.RepositoryWriter.SetUpgradeLockIntent(ctx, l)
+	require.NoError(t, err)
+
+	// ongoing writes should NOT get interrupted because the upgrade lock
+	// monitor could not have noticed the lock yet
+	require.NoError(t, w1.Flush(ctx))
+	require.NoError(t, w2.Flush(ctx))
+	require.NoError(t, w3.Flush(ctx))
+	require.NoError(t, lw.Flush(ctx))
+
+	o5Data := []byte{7, 8, 9}
+	o6Data := []byte{10, 11, 12}
+	o7Data := []byte{13, 14, 15}
+	o8Data := []byte{16, 17, 18}
+
+	writeObject(ctx, t, w1, o5Data, "o5")
+	writeObject(ctx, t, w2, o6Data, "o6")
+	writeObject(ctx, t, w3, o7Data, "o7")
+	writeObject(ctx, t, lw, o8Data, "o8")
+
+	// move time forward by the lock refresh interval
+	curTime = curTime.Add(formatBlockCacheDuration + time.Second)
+
+	// ongoing writes should get interrupted this time
+	require.ErrorContains(t, w1.Flush(ctx), "invalid status code from coordinator: 400")
+	require.ErrorContains(t, w2.Flush(ctx), "invalid status code from coordinator: 400")
+	require.ErrorContains(t, w3.Flush(ctx), "invalid status code from coordinator: 400")
+	require.ErrorContains(t, lw.Flush(ctx), "invalid status code from coordinator: 400")
 }
