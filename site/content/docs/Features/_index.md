@@ -18,7 +18,7 @@ Kopia uses [content-addressable storage](https://en.wikipedia.org/wiki/Content-a
 
 * Multiple users or computers can share the same repository: if different users have the same files, the files are uploaded only once as Kopia deduplicates content across the entire repository.
 
-> NOTE: Kopia allows one password per repository, and there is currently no access control mechanism within repository. If you share a repository with someone else, then you must also share your password with them and they will have access to your data. Therefore, make sure you trust all the other users/computers that you share a repository with, because they will have access to your password and data!
+> NOTE: Kopia allows one password per repository, and there is currently no access control mechanism within repository. If you share a repository with someone else, then you must also share your password with them and they will have access to your data. Therefore, make sure you trust all the other users/computers that you share a repository with!
 
 ### Policies Control What and How Files/Directories are Saved in Snapshots
 
