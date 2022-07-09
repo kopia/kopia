@@ -12,10 +12,13 @@ Kopia allows you to save your [encrypted](../features/#end-to-end-zero-knowledge
   * Kopia supports all cloud storage that uses Amazon S3's API, such as:
     * Alibaba Cloud
     * Amazon Lightsail
+    * Backblaze B2
+    * China Mobile Cloud
     * Cloudflare R2
     * Contabo
     * DigitalOcean Spaces
     * Dreamhost
+    * Google Cloud Storage
     * IBM Cloud
     * IDrive E2
     * Linode
@@ -39,15 +42,14 @@ Kopia allows you to save your [encrypted](../features/#end-to-end-zero-knowledge
 * [Google Drive](#google-drive)
   * Kopia supports Google Drive natively and through Kopia's Rclone option (see below)
   * Native support for Google Drive in Kopia is currently experimental
-  * Native Google Drive support operates differently than Kopia's support for Google Drive through Rclone (see below); you will not be able to use the two interchangably, so pick one
+  * Native Google Drive support operates differently than Kopia's support for Google Drive through Rclone; you will not be able to use the two interchangably, so pick one
 * All remote servers or cloud storage that support [WebDAV](#webdav) 
 * All remote servers or cloud storage that support [SFTP](#sftp)
 * Dropbox, OneDrive, Google Drive, and all cloud storage supported by [Rclone](#rclone) 
   * Rclone is a (free and open-source) third-party program that you must download and setup seperately before you can use it with Kopia
-  * Once you setup Rclone, Kopia automatically manages Rclone for you, so you do not need to do much beyond the initial setup, aside from ensuring Rclone is kept up-to-date
+  * Once you setup Rclone, Kopia automatically manages and runs Rclone for you, so you do not need to do much beyond the initial setup, aside from enabling Rclone's self-update feature so that it stays up-to-date
   * Kopia's Rclone support is experimental and all the cloud storage supported by Rclone has not been tested to work with Kopia; Kopia has been tested to work with Dropbox, OneDrive, and Google Drive through Rclone
-* Your local machine 
-* Any network-attached storage or server 
+* Your local machine and any network-attached storage or server 
 * Your own remote server by setting up a [Kopia Repository Server](../docs/repository-server/)
 
 > PRO TIP: Many cloud storage providers offer a variety of [storage tiers](../docs/advanced/storage-tiers/) that may (or may not) help decrease your cost of cloud storage, depending on your use case. See the [storage tiers documentation](/docs/advanced/storage-tiers/) to learn the different types of files Kopia stores in repositories and which one of these file types you can possibly move to archive tiers, such as Amazon Deep Glacier.
@@ -387,30 +389,44 @@ After you have created the `repository`, you connect to it using the [`kopia rep
 
 ## Rclone
 
-Kopia can connect to certain backends supported by [Rclone](https://rclone.org) as long as they support
-server-side timestamps.
+[Rclone](https://rclone.org/) is an open-source program that allows you to connect to various cloud storage platforms. Many of these platforms are already supported natively by Kopia (see above), but some are not. If you want to use Kopia to backup to cloud storage that Rclone supports but Kopia does not yet, then you can use Kopia's Rclone `repository` feature to do just that. The best part is that once you setup the Rclone `repository`, Kopia manages Rclone for you (including running Rclone when needed), so you do not need to do anything else after setup except make sure you [enable Rclone's self-update feature](https://rclone.org/commands/rclone_selfupdate/) so that it stays up-to-date.
 
->WARNING: Rclone support is experimental, use at your own risk.
+> WARNING: Rclone support is experimental. In theory, all Rclone-supported storage providers should work with Kopia. However, in practice, only Dropbox, OneDrive, and Google Drive have been tested to work with Kopia through Rclone.
 
-### Creating a repository
+Before you can create an Rclone `repository` in Kopia, you first need to download/install Rclone and setup what is called an Rclone `remote` for the cloud storage you want to use. Do the following:
 
-First you should follow rclone instructions for setting up a remote. This is provider specific, detailed instructions can be found at https://rclone.org/#providers.
+1. Download Rclone from [the Rclone website](https://rclone.org/); it is a single executable like Kopia, so you do not need to install it but do remember the path on your machine that you save the Rclone executable file because you will need to know it when setting up your `repository` in Kopia
+2. Configure Rclone to setup a `remote` to the storage provider you want to use Kopia with; see [Rclone help docs](https://rclone.org/docs/) to understand how to do that
 
-Assuming you've configured a remote named `my-remote`, you may create Kopia repository using:
+### Kopia GUI
+
+Select the `Rclone Remote` option in the `Repository` tab in `KopiaUI`. Then, follow on-screen instructions.  You will need to enter `Rcone Remote Path` and `Rclone Executable Path`. The `Remote Path` is `my-remote:/some/path`, where you should replace `my-remote` with the name of the Rclone `remote` you created earlier and replace `/some/path` with the directory on the cloud storage where you want Kopia to save your snapshots. The `Executable Path` is the location on your machine where you saved the Rclone executable that you downloaded earlier.
+
+You will next need to enter the repository password that you want. Remember, this [password is used to encrypt your data](../docs/faqs/#how-do-i-enable-encryption), so make sure it is a secure password! At this same password screen, you have the option to change the `Encryption` algoirthm, `Hash` algorithm, `Splitter` algorithm, `Repository Format`, `Username`, and `Hostname`. Click the `Show Advanced Options` button to access these settings. If you do not understand what these settings are, do not change them because the default settings are the best settings.
+
+> NOTE: Some settings, such as [actions](../docs/advanced/actions/) and arguments to Rclone, can only be enabled when you create a new `repository` using command-line (see next section). However, once you create the `repository` via command-line, you can use the `repository` as normal in Kopia GUI: just connect to the `repository` as described above after you have created it in command-line.
+
+Once you do all that, your repository should be created and you can start backing up your data! Remember, Kopia manages Rclone for you, so you do not need to do anything further with Rclone.
+
+### Kopia CLI
+
+#### Creating a Repository
+
+You must use the [`kopia repository create rclone` command](../reference/command-line/common/repository-create-rclone/) to create a `repository` (assuming `my-remote` is the name of the Rclone `remote` you created earlier and `/some/path` is the directory on the cloud storage where you want Kopia to save your snapshots):
 
 ```shell
-$ kopia repository create rclone --remote-path my-remote:/some/path
+$ kopia repository create rclone --rclone-exe=/path/to/rclone/executable --remote-path=my-remote:/some/path
 ```
 
-### Connecting to repository
+There are also various other options (such as [actions](../docs/advanced/actions/) and arguments to Rclone) you can change or enable -- see the [help docs](../reference/command-line/common/repository-create-rclone/) for more information.
 
-```shell
-$ kopia repository connect rclone --remote-path my-remote:/some/path
-```
+You will be asked to enter the repository password that you want. Remember, this [password is used to encrypt your data](../docs/faqs/#how-do-i-enable-encryption), so make sure it is a secure password!
 
-[Detailed information and settings](/docs/reference/command-line/common/repository-connect-rclone/)
+Remember, Kopia manages Rclone for you, so you do not need to do anything further with Rclone once you have created the `repository`.
 
----
+#### Connecting to Repository
+
+After you have created the `repository`, you connect to it using the [`kopia repository connect rclone` command](../docs/reference/command-line/common/repository-connect-rclone/). Read the [help docs](../docs/reference/command-line/common/repository-connect-rclone/) for more information on the options available for this command.
 
 ## Local storage
 
