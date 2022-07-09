@@ -10,7 +10,7 @@ Kopia allows you to save your [encrypted] snapshots (i.e., backups) to a variety
 
 * [Amazon S3 and S3-compatible cloud storage](#amazon-s3-and-s3-compatible-cloud-storage)
   * Kopia supports all cloud storage that uses Amazon S3's API
-   * For example: MinIO, Wasabi, IDrive E2, Storj, Cloudflare R2, Oracle Cloud Infrastructure, IBM Cloud, DigitalOcean Spaces, Amazon Lightsail, Vultr, Linode, Scaleway, Synology c2, MEGA.io S4, Contabo, OVH, Dreamhost, Alibaba Cloud, Tencent Cloud, Yandex Cloud, Mail.ru Cloud, and many more!
+    * For example: MinIO, Wasabi, IDrive E2, Storj, Cloudflare R2, Oracle Cloud Infrastructure, IBM Cloud, DigitalOcean Spaces, Amazon Lightsail, Vultr, Linode, Scaleway, Synology c2, MEGA.io S4, Contabo, OVH, Dreamhost, Alibaba Cloud, Tencent Cloud, Yandex Cloud, Mail.ru Cloud, and many more!
   * Kopia supports object locking and [storage tiers](../advanced/amazon-s3/) for any cloud storage that supports the features using the Amazon S3 API!
 * [Azure Blob Storage](#azure-blob-storage)
 * [Backblaze B2](#backblaze-b2)
