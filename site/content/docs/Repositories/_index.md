@@ -268,6 +268,10 @@ $ kopia repository create gdrive \
         --credentials-file="<where-you-have-stored-the-json-key-file>"
 ```
 
+There are also various other options (such as [actions](../docs/advanced/actions/)) you can change or enable -- see the [help docs](../reference/command-line/common/repository-create-gdrive/) for more information.
+
+You will be asked to enter the repository password that you want. Remember, this [password is used to encrypt your data](../docs/faqs/#how-do-i-enable-encryption), so make sure it is a secure password!
+
 If you view your folder on Google Drive, you should see that Kopia has created the skeleton of the repository with a `kopia.repository` file and a couple of others. Kopia will store all the files for your snapshots in this folder.
 
 ### Connecting to Repository
@@ -276,60 +280,53 @@ After you have created the `repository`, you connect to it using the [`kopia rep
 
 ## SFTP
 
-The `SFTP` provider can be used to connect to a file server over SFTP/SSH protocol.
+Creating a SFTP or SSH `repository` is done differently depending on if you use Kopia GUI or Kopia CLI.
 
-You must first configure passwordless SFTP login by following [these instructions](https://www.redhat.com/sysadmin/passwordless-ssh). Choose an empty passphrase because Kopia does not allow password prompts for the backend.
+> NOTE: Currently, object locking is supported for Backblaze B2 but only through Kopia's [S3-compatabile storage `repository`](#amazon-s3-and-s3-compatible-cloud-storage) and not through the Backblaze B2 `repository` option. However, Backblaze B2 is fully S3 compatible, so you can setup your Backblaze B2 account via Kopia's [S3 `repository` option](#amazon-s3-and-s3-compatible-cloud-storage).
 
-If everything is configured correctly, you should be able to connect to your SFTP server without any password by using:
+### Kopia GUI
 
-```
-$ sftp some-user@my-server
-Connected to my-server.
-sftp>
-```
+Select the `SFTP Server` option in the `Repository` tab in `KopiaUI`. Then, follow on-screen instructions.  You will need to enter `Host, `User`, `Path`, and either `Password` or `Path to key file`. You can optionally enter `Path to known_hosts file`.
 
+You will next need to enter the repository password that you want. This password can be whatever you want, it does not need to be the same as your SFTP password. In fact, it shoud not be the same! Remember, this [password is used to encrypt your data](../docs/faqs/#how-do-i-enable-encryption), so make sure it is a secure password! At this same password screen, you have the option to change the `Encryption` algoirthm, `Hash` algorithm, `Splitter` algorithm, `Repository Format`, `Username`, and `Hostname`. Click the `Show Advanced Options` button to access these settings. If you do not understand what these settings are, do not change them because the default settings are the best settings.
 
-### Creating a repository
+> NOTE: Some settings, such as [actions](../docs/advanced/actions/), can only be enabled when you create a new `repository` using command-line (see next section). However, once you create the `repository` via command-line, you can use the `repository` as normal in Kopia GUI: just connect to the `repository` as described above after you have created it in command-line.
 
-Once the passwordless connection works, then you can create a Kopia SFTP repository. Assuming you want the files to be stored under `/remote/path`, run the command below. Adjust the username and paths to the key file and known hosts file as necessary.
+Once you do all that, your repository should be created and you can start backing up your data!
+
+### Kopia CLI
+
+#### Creating a Repository
+
+You must use the [`kopia repository create sftp` command](../reference/command-line/common/repository-create-sftp/) to create a `repository`:
 
 ```shell
 $ kopia repository create sftp \
-        --host my-server \
-        --username some-user \
-        --keyfile ~/.ssh/id_rsa \
-        --known-hosts ~/.ssh/known_hosts \
-        --path /remote/path
+        --path=... \
+        --host=... \
+        --username=... \
+        --sftp-password=...
 ```
 
-When prompted, enter Kopia password to encrypt the repository contents.
-
-If everything is done correctly, you should be able to verify that SFTP server indeed has Kopia files in the provided location, including special file named `kopia.repository.f`:
-
-```
-$ sftp some-user@my-server
-sftp> ls -al /remote/path
--rw-r--r--    1 some-user  some-user  661 Sep 18 16:12 kopia.repository.f
-```
-
-### Connecting To Repository
-
-To connect to an existing SFTP repository, simply use `connect` instead of `create`:
+OR
 
 ```shell
-$ kopia repository connect sftp \
-        --host my-server \
-        --username some-user \
-        --keyfile ~/.ssh/id_rsa \
-        --known-hosts ~/.ssh/known_hosts \
-        --path /remote/path
+$ kopia repository create sftp \
+        --path=... \
+        --host=... \
+        --username=... \
+        --keyfile=...
 ```
 
-If the connection to SFTP server does not work, try adding `--external` which will launch external `ssh` process, which supports more connectivity options which may be needed for some hosts.
+If the connection to SFTP server does not work, try adding `--external` which will launch external s `ssh` process yjsysupports more connectivity options and may be needed for some hosts.
 
-[Detailed information and settings](/docs/reference/command-line/common/repository-connect-sftp/)
+At a minimum, you will need to enter the path, host, username, and either password or path to key file. You may also need to include `--known-hosts`. There are also various other options (such as [actions](../docs/advanced/actions/)) you can change or enable -- see the [help docs](../reference/command-line/common/repository-create-sftp/) for more information.
 
----
+You will be asked to enter the repository password that you want. This password can be whatever you want, it does not need to be the same as your SFTP password. In fact, it shoud not be the same! Remember, this [password is used to encrypt your data](../docs/faqs/#how-do-i-enable-encryption), so make sure it is a secure password!
+
+#### Connecting to Repository
+
+After you have created the `repository`, you connect to it using the [`kopia repository connect sftp` command](../docs/reference/command-line/common/repository-connect-sftp/). Read the [help docs](../docs/reference/command-line/common/repository-connect-sftp/) for more information on the options available for this command.
 
 ## Rclone
 
