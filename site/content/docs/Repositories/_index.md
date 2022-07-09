@@ -50,7 +50,7 @@ Kopia allows you to save your [encrypted](../features/#end-to-end-zero-knowledge
   * Once you setup Rclone, Kopia automatically manages and runs Rclone for you, so you do not need to do much beyond the initial setup, aside from enabling Rclone's self-update feature so that it stays up-to-date
   * Kopia's Rclone support is experimental and all the cloud storage supported by Rclone has not been tested to work with Kopia; Kopia has been tested to work with Dropbox, OneDrive, and Google Drive through Rclone
 * Your local machine and any network-attached storage or server 
-* Your own remote server by setting up a [Kopia Repository Server](../docs/repository-server/)
+* Your own remote server by setting up a [Kopia Repository Server](../repository-server/)
 
 > PRO TIP: Many cloud storage providers offer a variety of [storage tiers](../docs/advanced/storage-tiers/) that may (or may not) help decrease your cost of cloud storage, depending on your use case. See the [storage tiers documentation](/docs/advanced/storage-tiers/) to learn the different types of files Kopia stores in repositories and which one of these file types you can possibly move to archive tiers, such as Amazon Deep Glacier.
 
