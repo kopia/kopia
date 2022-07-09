@@ -1,7 +1,7 @@
 
 ---
 title: "What is Kopia?"
-linkTitle: "Documentation"
+linkTitle: "What is Kopia?"
 weight: 20
 ---
 
