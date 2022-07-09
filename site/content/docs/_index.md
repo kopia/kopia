@@ -13,7 +13,7 @@ When ready, head to the [installation](installation/) page to download and insta
 
 ### Pick the Cloud Storage Provider You Want
 
-Kopia supports saving your [encrypted](features/#end-to-end-zero-knowledge-encryption) and [compressed](features/#compression) snapshots to all of the following [cloud storage](features/#save-snapshots-to-cloud-network-or-local-storage):
+Kopia supports saving your [encrypted](features/#end-to-end-zero-knowledge-encryption) and [compressed](features/#compression) snapshots to all of the following [storage locations](features/#save-snapshots-to-cloud-network-or-local-storage):
 
 * Amazon S3 and any cloud storage that is compatible with S3
   * Including Alibaba Cloud, Amazon Lightsail, Backblaze B2, China Mobile Cloud, Cloudflare R2, Contabo, DigitalOcean Spaces, Dreamhost, Google Cloud Storage, IBM Cloud, IDrive E2, Linode, Mail.ru Cloud, MEGA.io S4, MinIO, Oracle Cloud Infrastructure, OVH, Scaleway, Storj, Synology C2, Tencent Cloud, Vultr, Wasabi, Yandex Cloud, and many more!
