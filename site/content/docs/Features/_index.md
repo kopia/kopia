@@ -1,7 +1,7 @@
 ---
 title: "Features"
 linkTitle: "Features"
-toc_hide: true
+weight: 1
 ---
 
 * [Backup Files and Directories using Snapshots](#backup-files-and-directories-using-snapshots)
