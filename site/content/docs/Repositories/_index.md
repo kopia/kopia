@@ -1,24 +1,32 @@
 ---
 title: "Repositories"
-linkTitle: "Repositories"
+linkTitle: "Supported Storage Locations"
 toc_hide: true
 ---
 
-A repository is a place where Kopia stores its snapshot data. Kopia currently supports the following storage backends:
+Kopia allows you to save your snapshots (i.e., backups) to a variety of storage locations, and in Kopia a storage location is called a `repository`. Kopia supports all of the following storage locations:
 
-* [Google Cloud Storage](#google-cloud-storage)
+> Remember, no matter what repository you pick, all backups are always [encrypted!](../features/#end-to-end-zero-knowledge-encryption))
+
+* [Amazon S3 and S3-compatible cloud storage](#amazon-s3)
+        * Kopia supports all cloud storage that uses Amazon S3's API; this includes MinIO, Wasabi, IDrive E2, Storj, Cloudflare R2, Oracle Cloud Infrastructure, IBM Cloud, DigitalOcean Spaces, Amazon Lightsail, Vultr, Linode, Scaleway, Synology c2, MEGA.io S4, Contabo, OVH, Dreamhost, Alibaba Cloud, Tencent Cloud, Yandex Cloud, Mail.ru Cloud, and many more!
+        * Kopia supports object locking and [storage tiers](../advanced/amazon-s3/) for any cloud storage that supports the features using the Amazon S3 API!
 * [Azure Blob Storage](#azure)
-* [Amazon S3](#amazon-s3) (and compatible)
 * [Backblaze B2](#b2)
+* [Google Cloud Storage](#google-cloud-storage)
 * [Google Drive](#google-drive)
-* [SFTP](#sftp)
-* [WebDAV](#webdav)
-* [Rclone](#rclone)
-* [Local storage](#local-storage)
+        * Native support for Google Drive in Kopia is currently experimental
+        * Native Google Drive support operates differently than Kopia's support for Google Drive through Rclone (see below); you will not be able to use the two interchangably, so pick one
+* All remote servers or cloud storage that support [WebDAV](#webdav) 
+* All remote servers or cloud storage that support [SFTP](#sftp)
+* Dropbox, OneDrive, Google Drive, and all cloud storage supported by [Rclone](#rclone) 
+        * Rclone is an (open-source) third-party program that you must download and setup seperately before you can use it with Kopia
+        * Kopia's Rclone support is experimental and all the cloud storage supported by Rclone has not been tested to work with Kopia; Kopia has been tested to work with Dropbox, OneDrive, and Google Drive through Rclone
+* Your local machine 
+* Any network-attached storage or server 
+* Your own remote server by setting up a [Kopia Repository Server](../docs/repository-server/)
 
-In addition, Kopia can connect to a [Kopia Repository Server](/docs/repository-server/) that acts as a proxy for the storage backend.
-
-Many storage providers offer products with a variety of "tiers" suitable for different use cases. Choosing appropriate storage tiers may result in lower costs depending on, for example, how frequently data needs to be retrieved. See [Storage Tiers](/docs/advanced/storage-tiers/) for further details.
+> PRO TIP: Many cloud storage providers offer a variety of [storage tiers](../docs/advanced/storage-tiers/) that may (or may not) help decrease your cost of cloud storage, depending on your use case. See the [storage tiers documentation](/docs/advanced/storage-tiers/) to learn the different types of files Kopia stores in repositories and which one of these file types you can possibly move to archive tiers, such as Amazon Deep Glacier.
 
 ## Google Cloud Storage
 
