@@ -278,17 +278,15 @@ If you view your folder on Google Drive, you should see that Kopia has created t
 
 After you have created the `repository`, you connect to it using the [`kopia repository connect gdrive` command](../docs/reference/command-line/common/repository-connect-gdrive/). Read the [help docs](../docs/reference/command-line/common/repository-connect-gdrive/) for more information on the options available for this command.
 
-## WebDav
+## WebDAV
 
-Creating a SFTP or SSH `repository` is done differently depending on if you use Kopia GUI or Kopia CLI.
-
-> NOTE: Currently, object locking is supported for Backblaze B2 but only through Kopia's [S3-compatabile storage `repository`](#amazon-s3-and-s3-compatible-cloud-storage) and not through the Backblaze B2 `repository` option. However, Backblaze B2 is fully S3 compatible, so you can setup your Backblaze B2 account via Kopia's [S3 `repository` option](#amazon-s3-and-s3-compatible-cloud-storage).
+Creating a WebDAV `repository` is done differently depending on if you use Kopia GUI or Kopia CLI.
 
 ### Kopia GUI
 
-Select the `SFTP Server` option in the `Repository` tab in `KopiaUI`. Then, follow on-screen instructions.  You will need to enter `Host, `User`, `Path`, and either `Password` or `Path to key file`. You can optionally enter `Path to known_hosts file`.
+Select the `WebDAV Server` option in the `Repository` tab in `KopiaUI`. Then, follow on-screen instructions.  You will need to enter `WebDAV Server URL`, `Username`, and `Password.
 
-You will next need to enter the repository password that you want. This password can be whatever you want, it does not need to be the same as your SFTP password. In fact, it shoud not be the same! Remember, this [password is used to encrypt your data](../docs/faqs/#how-do-i-enable-encryption), so make sure it is a secure password! At this same password screen, you have the option to change the `Encryption` algoirthm, `Hash` algorithm, `Splitter` algorithm, `Repository Format`, `Username`, and `Hostname`. Click the `Show Advanced Options` button to access these settings. If you do not understand what these settings are, do not change them because the default settings are the best settings.
+You will next need to enter the repository password that you want. This password can be whatever you want, it does not need to be the same as your WebDAV password. In fact, it should not be the same! Remember, this [password is used to encrypt your data](../docs/faqs/#how-do-i-enable-encryption), so make sure it is a secure password! At this same password screen, you have the option to change the `Encryption` algoirthm, `Hash` algorithm, `Splitter` algorithm, `Repository Format`, `Username`, and `Hostname`. Click the `Show Advanced Options` button to access these settings. If you do not understand what these settings are, do not change them because the default settings are the best settings.
 
 > NOTE: Some settings, such as [actions](../docs/advanced/actions/), can only be enabled when you create a new `repository` using command-line (see next section). However, once you create the `repository` via command-line, you can use the `repository` as normal in Kopia GUI: just connect to the `repository` as described above after you have created it in command-line.
 
@@ -298,49 +296,35 @@ Once you do all that, your repository should be created and you can start backin
 
 #### Creating a Repository
 
-You must use the [`kopia repository create sftp` command](../reference/command-line/common/repository-create-sftp/) to create a `repository`:
+You must use the [`kopia repository create webdav` command](../reference/command-line/common/repository-create-webdav/) to create a `repository`:
 
 ```shell
-$ kopia repository create sftp \
-        --path=... \
-        --host=... \
-        --username=... \
-        --sftp-password=...
+$ kopia repository create webdav \
+        --url=... \
+        --webdav-password=... \
+        --webdav-username=...
 ```
 
-OR
 
-```shell
-$ kopia repository create sftp \
-        --path=... \
-        --host=... \
-        --username=... \
-        --keyfile=...
-```
+At a minimum, you will need to enter the WebDAV server URL, username, and password. There are also various other options (such as [actions](../docs/advanced/actions/)) you can change or enable -- see the [help docs](../reference/command-line/common/repository-create-webdav/) for more information.
 
-If the connection to SFTP server does not work, try adding `--external` which will launch external s `ssh` process yjsysupports more connectivity options and may be needed for some hosts.
-
-At a minimum, you will need to enter the path, host, username, and either password or path to key file. You may also need to include `--known-hosts`. There are also various other options (such as [actions](../docs/advanced/actions/)) you can change or enable -- see the [help docs](../reference/command-line/common/repository-create-sftp/) for more information.
-
-You will be asked to enter the repository password that you want. This password can be whatever you want, it does not need to be the same as your SFTP password. In fact, it shoud not be the same! Remember, this [password is used to encrypt your data](../docs/faqs/#how-do-i-enable-encryption), so make sure it is a secure password!
+You will be asked to enter the repository password that you want. This password can be whatever you want, it does not need to be the same as your WebDAV password. In fact, it should not be the same! Remember, this [password is used to encrypt your data](../docs/faqs/#how-do-i-enable-encryption), so make sure it is a secure password!
 
 #### Connecting to Repository
 
-After you have created the `repository`, you connect to it using the [`kopia repository connect sftp` command](../docs/reference/command-line/common/repository-connect-sftp/). Read the [help docs](../docs/reference/command-line/common/repository-connect-sftp/) for more information on the options available for this command.
+After you have created the `repository`, you connect to it using the [`kopia repository connect webdav` command](../docs/reference/command-line/common/repository-connect-webdav/). Read the [help docs](../docs/reference/command-line/common/repository-connect-webdav/) for more information on the options available for this command.
 
 ## SFTP
 
 Creating a SFTP or SSH `repository` is done differently depending on if you use Kopia GUI or Kopia CLI.
 
-> NOTE: Currently, object locking is supported for Backblaze B2 but only through Kopia's [S3-compatabile storage `repository`](#amazon-s3-and-s3-compatible-cloud-storage) and not through the Backblaze B2 `repository` option. However, Backblaze B2 is fully S3 compatible, so you can setup your Backblaze B2 account via Kopia's [S3 `repository` option](#amazon-s3-and-s3-compatible-cloud-storage).
-
 ### Kopia GUI
 
-Select the `SFTP Server` option in the `Repository` tab in `KopiaUI`. Then, follow on-screen instructions.  You will need to enter `Host, `User`, `Path`, and either `Password` or `Path to key file`. You can optionally enter `Path to known_hosts file`.
+Select the `SFTP Server` option in the `Repository` tab in `KopiaUI`. Then, follow on-screen instructions.  You will need to enter `Host`, `User`, `Path`, and either `Password` or `Path to key file`. You can optionally enter `Path to known_hosts file`.
 
 If the connection to SFTP server does not work, checking the option for `Launch external password-less SSH command` which will launch an external `ssh` process  that supports more connectivity options and may be needed for some hosts.
 
-You will next need to enter the repository password that you want. This password can be whatever you want, it does not need to be the same as your SFTP password. In fact, it shoud not be the same! Remember, this [password is used to encrypt your data](../docs/faqs/#how-do-i-enable-encryption), so make sure it is a secure password! At this same password screen, you have the option to change the `Encryption` algoirthm, `Hash` algorithm, `Splitter` algorithm, `Repository Format`, `Username`, and `Hostname`. Click the `Show Advanced Options` button to access these settings. If you do not understand what these settings are, do not change them because the default settings are the best settings.
+You will next need to enter the repository password that you want. This password can be whatever you want, it does not need to be the same as your SFTP password. In fact, it should not be the same! Remember, this [password is used to encrypt your data](../docs/faqs/#how-do-i-enable-encryption), so make sure it is a secure password! At this same password screen, you have the option to change the `Encryption` algoirthm, `Hash` algorithm, `Splitter` algorithm, `Repository Format`, `Username`, and `Hostname`. Click the `Show Advanced Options` button to access these settings. If you do not understand what these settings are, do not change them because the default settings are the best settings.
 
 > NOTE: Some settings, such as [actions](../docs/advanced/actions/), can only be enabled when you create a new `repository` using command-line (see next section). However, once you create the `repository` via command-line, you can use the `repository` as normal in Kopia GUI: just connect to the `repository` as described above after you have created it in command-line.
 
@@ -374,7 +358,7 @@ If the connection to SFTP server does not work, try adding `--external` which wi
 
 At a minimum, you will need to enter the path, host, username, and either password or path to key file. You may also need to include `--known-hosts`. There are also various other options (such as [actions](../docs/advanced/actions/)) you can change or enable -- see the [help docs](../reference/command-line/common/repository-create-sftp/) for more information.
 
-You will be asked to enter the repository password that you want. This password can be whatever you want, it does not need to be the same as your SFTP password. In fact, it shoud not be the same! Remember, this [password is used to encrypt your data](../docs/faqs/#how-do-i-enable-encryption), so make sure it is a secure password!
+You will be asked to enter the repository password that you want. This password can be whatever you want, it does not need to be the same as your SFTP password. In fact, it should not be the same! Remember, this [password is used to encrypt your data](../docs/faqs/#how-do-i-enable-encryption), so make sure it is a secure password!
 
 #### Connecting to Repository
 
