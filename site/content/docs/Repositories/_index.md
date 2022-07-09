@@ -428,29 +428,36 @@ Remember, Kopia manages Rclone for you, so you do not need to do anything furthe
 
 After you have created the `repository`, you connect to it using the [`kopia repository connect rclone` command](../docs/reference/command-line/common/repository-connect-rclone/). Read the [help docs](../docs/reference/command-line/common/repository-connect-rclone/) for more information on the options available for this command.
 
-## Local storage
+## Local or Network-attached Storage
 
-Local storage includes any directory mounted and accessible. You can mount any readable directory available on your storage, a directory on usb device, a directory mounted with smb, ntfs, sshfs or similar.
+Kopia allows you to save your snapshots on your local machine, network-attached, or any other readable directory that is attached to your local machine (such as USB device, SMB directory, SSHFS mount, etc.). All of these storages fall under the `filesystem` label.
 
-### Creating a repository
+Creating a filesystem `repository` is done differently depending on if you use Kopia GUI or Kopia CLI.
+
+### Kopia GUI
+
+Select the `Local Directory or NAS` option in the `Repository` tab in `KopiaUI`. Then, follow on-screen instructions.  You will need to enter `Directory Path`.
+
+You will next need to enter the repository password that you want. Remember, this [password is used to encrypt your data](../docs/faqs/#how-do-i-enable-encryption), so make sure it is a secure password! At this same password screen, you have the option to change the `Encryption` algoirthm, `Hash` algorithm, `Splitter` algorithm, `Repository Format`, `Username`, and `Hostname`. Click the `Show Advanced Options` button to access these settings. If you do not understand what these settings are, do not change them because the default settings are the best settings.
+
+> NOTE: Some settings, such as [actions](../docs/advanced/actions/), can only be enabled when you create a new `repository` using command-line (see next section). However, once you create the `repository` via command-line, you can use the `repository` as normal in Kopia GUI: just connect to the `repository` as described above after you have created it in command-line.
+
+Once you do all that, your repository should be created and you can start backing up your data!
+
+### Kopia CLI
+
+#### Creating a Repository
+
+You must use the [`kopia repository create filesystem` command](../reference/command-line/common/repository-create-filesystem/) to create a `repository`:
 
 ```shell
-$ kopia repository create filesystem --path /tmp/my-repository
+$ kopia repository create filesystem --path=...
 ```
 
-### Connecting to repository
+There are also various other options (such as [actions](../docs/advanced/actions/)) you can change or enable -- see the [help docs](../reference/command-line/common/repository-create-filesystem/) for more information.
 
-```shell
-$ kopia repository connect filesystem --path /tmp/my-repository
-```
+You will be asked to enter the repository password that you want. Remember, this [password is used to encrypt your data](../docs/faqs/#how-do-i-enable-encryption), so make sure it is a secure password!
 
-We can examine the directory to see which files were created. As you can see Kopia uses sharded directory structure to optimize performance.
+#### Connecting to Repository
 
-```shell
-$ find /tmp/my-repository -type f
-/tmp/my-repository/n1b/d00/aa56a13c1140142b39befb654a2.f
-/tmp/my-repository/pea/8b5/e01d92618653ffbf2bb9961448d.f
-/tmp/my-repository/kopia.repository.f
-```
-
-[Detailed information and settings](/docs/reference/command-line/common/repository-connect-filesystem/)
+After you have created the `repository`, you connect to it using the [`kopia repository connect filesystem` command](../docs/reference/command-line/common/repository-connect-filesystem/). Read the [help docs](../docs/reference/command-line/common/repository-connect-filesystem/) for more information on the options available for this command.
