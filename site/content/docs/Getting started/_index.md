@@ -11,9 +11,9 @@ This guide will walk you through installing Kopia and setting up Kopia to backup
 * A `repository` is the storage location where your snapshots are saved; Kopia supports [cloud/remote, network, and local storage locations](../features#save-snapshots-to-cloud-network-or-local-storage) and all repositories are [encrypted](../features/#end-to-end-zero-knowledge-encryption) with a password that you designate.
 * A `policy` is a set of rules that tells Kopia how to create/manage snapshots; this includes features such as [compression, snapshot retention, and scheduling when to take automatically snapshots](../features#policies-control-what-and-how-filesdirectories-are-saved-in-snapshots).
 
-## Installation
+## Download and Installation
 
-Read the the [installation guide](../installation/) to learn how to install Kopia. As a reminder, Kopia comes in two variants: [command-line interface (CLI)](../installation/#two-variants-of-kopia) and [graphical user interface (GUI)](../installation/#two-variants-of-kopia). Pick the one you like the most.
+Read the the [download and installation guide](../installation/) to learn how to download & install Kopia. As a reminder, Kopia comes in two variants: [command-line interface (CLI)](../installation/#two-variants-of-kopia) and [graphical user interface (GUI)](../installation/#two-variants-of-kopia). Pick the one you like the most.
 
 ## Setting Up Kopia
 
