@@ -6,8 +6,11 @@ weight: 4
 
 Kopia allows you to save your [encrypted] snapshots (i.e., backups) to a variety of storage locations, and in Kopia a storage location is called a `repository`. Kopia supports all of the following storage locations:
 
-* [Amazon S3 and S3-compatible cloud storage](#amazon-s3-and-s3compatible-cloud-storage)
-  * Kopia supports all cloud storage that uses Amazon S3's API; for example: MinIO, Wasabi, IDrive E2, Storj, Cloudflare R2, Oracle Cloud Infrastructure, IBM Cloud, DigitalOcean Spaces, Amazon Lightsail, Vultr, Linode, Scaleway, Synology c2, MEGA.io S4, Contabo, OVH, Dreamhost, Alibaba Cloud, Tencent Cloud, Yandex Cloud, Mail.ru Cloud, and many more!
+> Remember, you pick the storage locations you want to use. Kopia plays no role in selecting your storage locations. You must provision, setup, and pay (the storage provider) for whatever storage locations you want to use **before** you create a `repository` for that storage location to Kopia.
+
+* [Amazon S3 and S3-compatible cloud storage](#amazon-s3-and-s3-compatible-cloud-storage)
+  * Kopia supports all cloud storage that uses Amazon S3's API
+   * For example: MinIO, Wasabi, IDrive E2, Storj, Cloudflare R2, Oracle Cloud Infrastructure, IBM Cloud, DigitalOcean Spaces, Amazon Lightsail, Vultr, Linode, Scaleway, Synology c2, MEGA.io S4, Contabo, OVH, Dreamhost, Alibaba Cloud, Tencent Cloud, Yandex Cloud, Mail.ru Cloud, and many more!
   * Kopia supports [object locking](../advanced/ransomware-protection/) and [storage tiers](../advanced/amazon-s3/) for any cloud storage that supports the features using the Amazon S3 API!
 * [Azure Blob Storage](#azure-blob-storage)
 * [Backblaze B2](#b2)
@@ -66,28 +69,47 @@ After you have created the `repository`, you connect to it using the [`kopia rep
 
 ## Azure Blob Storage
 
-Kopia can connect to S3 compatible storage, such as [Amazon S3](https://aws.amazon.com/s3/), [minio.io](https://minio.io/), [Wasabi](https://wasabi.com/)
+Creating an Azure Blob Storage `repository` is done differently depending on if you use Kopia GUI or Kopia CLI.
+
+### Kopia GUI
+
+Select the `Azure Blob Storage` option in the `Repository` tab in `KopiaUI`. Then, follow on-screen instructions.  You will need to enter `Container` name, `Storage Account` name and either `Access Key` or `SAS Token`. You can optionally enter an `Azure Storage Domain`.
+
+You will next need to enter the repository password that you want. Remember, this [password is used to encrypt your data](../docs/faqs/#how-do-i-enable-encryption), so make sure it is a secure password! At this same password screen, you have the option to change the `Encryption` algoirthm, `Hash` algorithm, `Splitter` algorithm, `Repository Format`, `Username`, and `Hostname`. Click the `Show Advanced Options` button to access these settings. If you do not understand what these settings are, do not change them because the default settings are the best settings.
+
+> NOTE: Some settings, such as [object locking](../advanced/ransomware-protection/) and [actions](../docs/advanced/actions/), can only be enabled when you create a new `repository` using command-line (see next section). However, once you create the `repository` via command-line, you can use the `repository` as normal in Kopia GUI: just connect to the `repository` as described above after you have created it in command-line.
+
+Once you do all that, your repository should be created and you can start backing up your data!
+
+### Kopia CLI
 
 ### Creating a repository
 
-You will need your S3 bucket name, access key and secret access key.
+You must use the [`kopia repository create azure` command](../reference/command-line/common/repository-create-azure/) to create a `repository`:
 
 ```shell
-$ kopia repository create s3 \
-        --bucket=... \
-        --access-key=... \
-        --secret-access-key=...
+$ kopia repository create azure \
+        --container=... \
+        --storage-account=... \
+        --storage-key=...
 ```
+
+OR
+
+```shell
+$ kopia repository create azure \
+        --container=... \
+        --storage-account=... \
+        --sas-token=...
+```
+
+At a minimum, you will need to enter the container name, storage account name, and either your Azure account access key/storage key or a SAS token. There are also various other options (such as [object locking](../advanced/ransomware-protection/) and [actions](../docs/advanced/actions/)) you can change or enable -- see the [help docs](../reference/command-line/common/repository-create-azure/) for more information.
+
+You will be asked to enter the repository password that you want. Remember, this [password is used to encrypt your data](../docs/faqs/#how-do-i-enable-encryption), so make sure it is a secure password!
 
 ### Connecting To Repository
 
-```shell
-$ kopia repository connect s3
-```
-
-[Detailed information and settings](/docs/reference/command-line/common/repository-create-s3/)
-
----
+After you have created the `repository`, you connect to it using the [`kopia repository connect azure` command](../docs/reference/command-line/common/repository-create-azure/). Read the [help docs](../docs/reference/command-line/common/repository-create-azure/) for more information on the options available for this command.
 
 ## Google Cloud Storage
 
