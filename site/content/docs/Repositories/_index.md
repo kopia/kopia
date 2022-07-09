@@ -4,9 +4,9 @@ linkTitle: "Supported Storage Locations"
 weight: 4
 ---
 
-Kopia allows you to save your [encrypted] snapshots (i.e., backups) to a variety of storage locations, and in Kopia a storage location is called a `repository`. Kopia supports all of the following storage locations:
+Kopia allows you to save your [encrypted](../features/#end-to-end-zero-knowledge-encryption) snapshots (i.e., your [backups](../faqs/#what-is-a-snapshot)) to a variety of storage locations, and in Kopia a storage location is called a `repository`. Kopia supports all of the following storage locations:
 
-> Remember, you pick the storage locations you want to use. Kopia plays no role in selecting your storage locations. You must provision, setup, and pay (the storage provider) for whatever storage locations you want to use **before** you create a `repository` for that storage location to Kopia.
+> PRO TIP: Keep in mind, you pick the storage locations you want to use. Kopia plays no role in selecting your storage locations. This means you must provision, setup, and pay (the storage provider) for whatever storage locations you want to use **before** you create a `repository` for that storage location to Kopia.
 
 * [Amazon S3 and S3-compatible cloud storage](#amazon-s3-and-s3-compatible-cloud-storage)
   * Kopia supports all cloud storage that uses Amazon S3's API
@@ -222,7 +222,7 @@ You will be asked to enter the repository password that you want. Remember, this
 
 #### Connecting to Repository
 
-After you have created the `repository`, you connect to it using the [`kopia repository connect gcs` command](../docs/reference/command-line/common/repository-connect-b2/) or the [`kopia repository connect gcs` command](../docs/reference/command-line/common/repository-connect-s3/), depending on whichever way you setup the Google Cloud Storage `repository`. Read the [help docs for `repository connect gcs`](../docs/reference/command-line/common/repository-connect-gcs/) or the [help docs for `repository connect s3`](../docs/reference/command-line/common/repository-connect-s3/) for more information on the options available for these commands.
+After you have created the `repository`, you connect to it using the [`kopia repository connect gcs` command](../docs/reference/command-line/common/repository-connect-gcs/) or the [`kopia repository connect s3` command](../docs/reference/command-line/common/repository-connect-s3/), depending on whichever way you setup the Google Cloud Storage `repository`. Read the [help docs for `repository connect gcs`](../docs/reference/command-line/common/repository-connect-gcs/) or the [help docs for `repository connect s3`](../docs/reference/command-line/common/repository-connect-s3/) for more information on the options available for these commands.
 
 ## Google Drive
 
