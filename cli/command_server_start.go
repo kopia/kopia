@@ -192,7 +192,7 @@ func (c *commandServerStart) run(ctx context.Context) error {
 
 	srv.OnShutdown = httpServer.Shutdown
 
-	onCtrlC(func() {
+	c.svc.onCtrlC(func() {
 		log(ctx).Infof("Shutting down...")
 
 		if err = httpServer.Shutdown(ctx); err != nil {

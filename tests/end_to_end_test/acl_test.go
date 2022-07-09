@@ -12,7 +12,7 @@ import (
 func TestACL(t *testing.T) {
 	t.Parallel()
 
-	serverRunner := testenv.NewExeRunner(t)
+	serverRunner := testenv.NewInProcRunner(t)
 	serverEnvironment := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, serverRunner)
 
 	defer serverEnvironment.RunAndExpectSuccess(t, "repo", "disconnect")
@@ -42,7 +42,7 @@ func TestACL(t *testing.T) {
 
 	var sp testutil.ServerParameters
 
-	_, kill := serverEnvironment.RunAndProcessStderr(t, sp.ProcessOutput,
+	wait, kill := serverEnvironment.RunAndProcessStderr(t, sp.ProcessOutput,
 		"server", "start",
 		"--address=localhost:0",
 		"--server-control-username=admin-user",
@@ -53,6 +53,7 @@ func TestACL(t *testing.T) {
 
 	t.Logf("detected server parameters %#v", sp)
 
+	defer wait()
 	defer kill()
 
 	fooBarRunner := testenv.NewExeRunner(t)

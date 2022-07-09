@@ -24,6 +24,8 @@ type commandMount struct {
 	mountPreferWebDAV           bool
 	maxCachedEntries            int
 	maxCachedDirectories        int
+
+	svc appServices
 }
 
 func (c *commandMount) setup(svc appServices, parent commandParent) {
@@ -41,6 +43,7 @@ func (c *commandMount) setup(svc appServices, parent commandParent) {
 	cmd.Flag("max-cached-entries", "Limit the number of cached directory entries").Default("100000").IntVar(&c.maxCachedEntries)
 	cmd.Flag("max-cached-dirs", "Limit the number of cached directories").Default("100").IntVar(&c.maxCachedDirectories)
 
+	c.svc = svc
 	cmd.Action(svc.repositoryReaderAction(c.run))
 }
 
@@ -100,7 +103,7 @@ func (c *commandMount) run(ctx context.Context, rep repo.Repository) error {
 	// Wait until ctrl-c pressed or until the directory is unmounted.
 	ctrlCPressed := make(chan bool)
 
-	onCtrlC(func() {
+	c.svc.onCtrlC(func() {
 		close(ctrlCPressed)
 	})
 

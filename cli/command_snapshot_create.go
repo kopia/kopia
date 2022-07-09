@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -234,7 +233,7 @@ func (c *commandSnapshotCreate) setupUploader(rep repo.RepositoryWriter) *snapsh
 		u.CheckpointInterval = interval
 	}
 
-	onCtrlC(u.Cancel)
+	c.svc.onCtrlC(u.Cancel)
 
 	u.ForceHashPercentage = c.snapshotCreateForceHash
 	u.ParallelUploads = c.snapshotCreateParallelUploads
@@ -274,7 +273,7 @@ func (c *commandSnapshotCreate) snapshotSingleSource(ctx context.Context, rep re
 		// stdin source will be snapshotted using a virtual static root directory with a single streaming file entry
 		// Create a new static directory with the given name and add a streaming file entry with os.Stdin reader
 		fsEntry = virtualfs.NewStaticDirectory(sourceInfo.Path, []fs.Entry{
-			virtualfs.StreamingFileFromReader(c.snapshotCreateStdinFileName, os.Stdin),
+			virtualfs.StreamingFileFromReader(c.snapshotCreateStdinFileName, c.svc.stdin()),
 		})
 		setManual = true
 	} else {

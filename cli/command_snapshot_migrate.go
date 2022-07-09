@@ -68,7 +68,7 @@ func (c *commandSnapshotMigrate) run(ctx context.Context, destRepo repo.Reposito
 
 	c.svc.getProgress().StartShared()
 
-	onCtrlC(func() {
+	c.svc.onCtrlC(func() {
 		mu.Lock()
 		defer mu.Unlock()
 

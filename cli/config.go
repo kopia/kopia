@@ -25,12 +25,16 @@ func deprecatedFlag(w io.Writer, help string) func(_ *kingpin.ParseContext) erro
 	}
 }
 
-func onCtrlC(f func()) {
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
+func (c *App) onCtrlC(f func()) {
+	s := make(chan os.Signal, 1)
+	signal.Notify(s, os.Interrupt)
 
 	go func() {
-		<-c
+		// invoke the function when either real or simulated Ctrl-C signal is delivered
+		select {
+		case <-c.simulatedCtrlC:
+		case <-s:
+		}
 		f()
 	}()
 }

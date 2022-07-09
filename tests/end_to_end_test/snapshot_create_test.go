@@ -561,7 +561,7 @@ func TestSnapshotCreateAllWithManualSnapshot(t *testing.T) {
 func TestSnapshotCreateWithStdinStream(t *testing.T) {
 	t.Parallel()
 
-	runner := testenv.NewExeRunner(t)
+	runner := testenv.NewInProcRunner(t)
 	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
 
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")

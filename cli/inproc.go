@@ -12,13 +12,15 @@ import (
 
 // RunSubcommand executes the subcommand asynchronously in current process
 // with flags in an isolated CLI environment and returns standard output and standard error.
-func (c *App) RunSubcommand(ctx context.Context, kpapp *kingpin.Application, argsAndFlags []string) (stdout, stderr io.Reader, wait func() error, kill func()) {
+func (c *App) RunSubcommand(ctx context.Context, kpapp *kingpin.Application, stdin io.Reader, argsAndFlags []string) (stdout, stderr io.Reader, wait func() error, kill func()) {
 	stdoutReader, stdoutWriter := io.Pipe()
 	stderrReader, stderrWriter := io.Pipe()
 
+	c.stdinReader = stdin
 	c.stdoutWriter = stdoutWriter
 	c.stderrWriter = stderrWriter
 	c.rootctx = logging.WithLogger(ctx, logging.ToWriter(stderrWriter))
+	c.simulatedCtrlC = make(chan struct{})
 
 	c.Attach(kpapp)
 
@@ -48,6 +50,9 @@ func (c *App) RunSubcommand(ctx context.Context, kpapp *kingpin.Application, arg
 	}()
 
 	return stdoutReader, stderrReader, func() error {
-		return <-resultErr
-	}, func() {}
+			return <-resultErr
+		}, func() {
+			// deliver simulated Ctrl-C to the app.
+			close(c.simulatedCtrlC)
+		}
 }

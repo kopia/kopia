@@ -87,6 +87,8 @@ type appServices interface {
 	getProgress() *cliProgress
 	stdout() io.Writer
 	Stderr() io.Writer
+	stdin() io.Reader
+	onCtrlC(callback func())
 }
 
 type advancedAppServices interface {
@@ -150,15 +152,21 @@ type App struct {
 	logs        commandLogs
 
 	// testability hooks
-	osExit        func(int) // allows replacing os.Exit() with custom code
-	stdoutWriter  io.Writer
-	stderrWriter  io.Writer
-	rootctx       context.Context // nolint:containedctx
-	loggerFactory logging.LoggerFactory
+	osExit         func(int) // allows replacing os.Exit() with custom code
+	stdinReader    io.Reader
+	stdoutWriter   io.Writer
+	stderrWriter   io.Writer
+	rootctx        context.Context // nolint:containedctx
+	loggerFactory  logging.LoggerFactory
+	simulatedCtrlC chan struct{}
 }
 
 func (c *App) getProgress() *cliProgress {
 	return c.progress
+}
+
+func (c *App) stdin() io.Reader {
+	return c.stdinReader
 }
 
 func (c *App) stdout() io.Writer {
@@ -298,6 +306,7 @@ func NewApp() *App {
 		osExit:       os.Exit,
 		stdoutWriter: colorable.NewColorableStdout(),
 		stderrWriter: colorable.NewColorableStderr(),
+		stdinReader:  os.Stdin,
 		rootctx:      context.Background(),
 	}
 }

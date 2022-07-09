@@ -15,6 +15,8 @@ import (
 type CLIInProcRunner struct {
 	RepoPassword string
 
+	NextCommandStdin io.Reader // this is used for stdin source tests
+
 	CustomizeApp func(a *cli.App, kp *kingpin.Application)
 }
 
@@ -33,7 +35,10 @@ func (e *CLIInProcRunner) Start(t *testing.T, args []string) (stdout, stderr io.
 		e.CustomizeApp(a, kpapp)
 	}
 
-	return a.RunSubcommand(ctx, kpapp, append([]string{
+	stdin := e.NextCommandStdin
+	e.NextCommandStdin = nil
+
+	return a.RunSubcommand(ctx, kpapp, stdin, append([]string{
 		"--password", e.RepoPassword,
 	}, args...))
 }
