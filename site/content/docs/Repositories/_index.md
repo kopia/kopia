@@ -9,8 +9,29 @@ Kopia allows you to save your [encrypted](../features/#end-to-end-zero-knowledge
 > PRO TIP: Keep in mind, you pick the storage locations you want to use. Kopia plays no role in selecting your storage locations. This means you must provision, setup, and pay (the storage provider) for whatever storage locations you want to use **before** you create a `repository` for that storage location to Kopia.
 
 * [Amazon S3 and S3-compatible cloud storage](#amazon-s3-and-s3-compatible-cloud-storage)
-  * Kopia supports all cloud storage that uses Amazon S3's API
-    * Including MinIO, Wasabi, IDrive E2, Storj, Cloudflare R2, Oracle Cloud Infrastructure, IBM Cloud, DigitalOcean Spaces, Amazon Lightsail, Vultr, Linode, Scaleway, Synology c2, MEGA.io S4, Contabo, OVH, Dreamhost, Alibaba Cloud, Tencent Cloud, Yandex Cloud, Mail.ru Cloud, and many more!
+  * Kopia supports all cloud storage that uses Amazon S3's API, such as:
+    * Alibaba Cloud
+    * Amazon Lightsail
+    * Cloudflare R2
+    * Contabo
+    * DigitalOcean Spaces
+    * Dreamhost
+    * IBM Cloud
+    * IDrive E2
+    * Linode
+    * Mail.ru Cloud
+    * MEGA.io S4
+    * MinIO
+    * Oracle Cloud Infrastructure
+    * OVH
+    * Scaleway
+    * Storj
+    * Synology C2
+    * Tencent Cloud
+    * Vultr
+    * Wasabi
+    * Yandex Cloud
+    * And many more!
   * Kopia supports object locking and [storage tiers](../advanced/amazon-s3/) for any cloud storage that supports the features using the Amazon S3 API!
 * [Azure Blob Storage](#azure-blob-storage)
 * [Backblaze B2](#backblaze-b2)
