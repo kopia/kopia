@@ -1,7 +1,7 @@
 
 ---
 title: "Getting Started Guide"
-linkTitle: "Getting Started Guide"
+linkTitle: "Installation Guide"
 weight: 3
 ---
 
