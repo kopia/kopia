@@ -35,6 +35,16 @@ func Estimate(ctx context.Context, c *apiclient.KopiaAPIClient, req *EstimateReq
 	return resp, nil
 }
 
+// Restore starts snapshot restore task for a given directory.
+func Restore(ctx context.Context, c *apiclient.KopiaAPIClient, req *RestoreRequest) (*uitask.Info, error) {
+	resp := &uitask.Info{}
+	if err := c.Post(ctx, "restore", req, resp); err != nil {
+		return nil, errors.Wrap(err, "Restore")
+	}
+
+	return resp, nil
+}
+
 // GetTask starts snapshot estimation task for a given directory.
 func GetTask(ctx context.Context, c *apiclient.KopiaAPIClient, taskID string) (*uitask.Info, error) {
 	resp := &uitask.Info{}

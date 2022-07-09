@@ -93,7 +93,7 @@ type FilesystemOutput struct {
 
 	// copier is the StreamCopier to use for copying the actual bit stream to output.
 	// It is assigned at runtime based on the target filesystem and restore options.
-	copier streamCopier
+	copier streamCopier `json:"-"`
 }
 
 // Init initializes the internal members of the filesystem writer output.

@@ -41,7 +41,7 @@ func handleRestore(ctx context.Context, rc requestContext) (interface{}, *apiErr
 
 	rootEntry, err := snapshotfs.FilesystemEntryFromIDWithPath(ctx, rep, req.Root, false)
 	if err != nil {
-		return nil, internalServerError(err)
+		return nil, requestError(serverapi.ErrorMalformedRequest, "invalid root entry")
 	}
 
 	var (
@@ -51,11 +51,11 @@ func handleRestore(ctx context.Context, rc requestContext) (interface{}, *apiErr
 
 	switch {
 	case req.Filesystem != nil:
-		out := req.Filesystem
-		if err := out.Init(); err != nil {
+		if err := req.Filesystem.Init(); err != nil {
 			return nil, internalServerError(err)
 		}
 
+		out = req.Filesystem
 		description = "Destination: " + req.Filesystem.TargetPath
 
 	case req.ZipFile != "":

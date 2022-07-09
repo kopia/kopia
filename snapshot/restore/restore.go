@@ -84,8 +84,8 @@ type Options struct {
 	RestoreDirEntryAtDepth int32 `json:"restoreDirEntryAtDepth"`
 	MinSizeForPlaceholder  int32 `json:"minSizeForPlaceholder"`
 
-	ProgressCallback func(ctx context.Context, s Stats)
-	Cancel           chan struct{} // channel that can be externally closed to signal cancelation
+	ProgressCallback func(ctx context.Context, s Stats) `json:"-"`
+	Cancel           chan struct{}                      `json:"-"` // channel that can be externally closed to signal cancelation
 }
 
 // Entry walks a snapshot root with given root entry and restores it to the provided output.
