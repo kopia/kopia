@@ -50,7 +50,7 @@ Kopia performs all its operations locally on your machine, meaning that you do n
 * Dropbox, OneDrive, Google Drive, and all cloud storage supported by Rclone
   * Requires you to download and setup Rclone in addition to Kopia, but after that Kopia manages/runs Rclone for you
   * Rclone support is experimental and all the cloud storage supported by Rclone has not been tested to work with Kopia; Kopia has been tested to work with Dropbox, OneDrive, and Google Drive through Rclone
-* Your own server by setting up a [Kopia Repository Server](https://kopia.io/docs/repository-server/)
+* Your own server by setting up a [Kopia Repository Server](../repository-server/)
 
 Read the [repositories help page](../repositories/) for more information on supported storage locations. 
 
