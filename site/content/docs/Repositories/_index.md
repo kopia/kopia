@@ -16,6 +16,7 @@ Kopia allows you to save your [encrypted] snapshots (i.e., backups) to a variety
 * [Backblaze B2](#backblaze-b2)
 * [Google Cloud Storage](#google-cloud-storage)
 * [Google Drive](#google-drive)
+  * Kopia supports Google Drive natively and through Kopia's Rclone option (see below)
   * Native support for Google Drive in Kopia is currently experimental
   * Native Google Drive support operates differently than Kopia's support for Google Drive through Rclone (see below); you will not be able to use the two interchangably, so pick one
 * All remote servers or cloud storage that support [WebDAV](#webdav) 
@@ -48,7 +49,7 @@ Once you do all that, your repository should be created and you can start backin
 
 ### Kopia CLI
 
-#### Creating a repository
+#### Creating a Repository
 
 You must use the [`kopia repository create s3` command](../reference/command-line/common/repository-create-s3/) to create a `repository`:
 
@@ -63,7 +64,7 @@ At a minimum, you will need to enter the bucket name, access key, and secret acc
 
 You will be asked to enter the repository password that you want. Remember, this [password is used to encrypt your data](../docs/faqs/#how-do-i-enable-encryption), so make sure it is a secure password!
 
-#### Connecting To Repository
+#### Connecting to Repository
 
 After you have created the `repository`, you connect to it using the [`kopia repository connect s3` command](../docs/reference/command-line/common/repository-connect-s3/). Read the [help docs](../docs/reference/command-line/common/repository-connect-s3/) for more information on the options available for this command.
 
@@ -83,7 +84,7 @@ Once you do all that, your repository should be created and you can start backin
 
 ### Kopia CLI
 
-#### Creating a repository
+#### Creating a Repository
 
 You must use the [`kopia repository create azure` command](../reference/command-line/common/repository-create-azure/) to create a `repository`:
 
@@ -107,7 +108,7 @@ At a minimum, you will need to enter the container name, storage account name, a
 
 You will be asked to enter the repository password that you want. Remember, this [password is used to encrypt your data](../docs/faqs/#how-do-i-enable-encryption), so make sure it is a secure password!
 
-#### Connecting To Repository
+#### Connecting to Repository
 
 After you have created the `repository`, you connect to it using the [`kopia repository connect azure` command](../docs/reference/command-line/common/repository-connect-azure/). Read the [help docs](../docs/reference/command-line/common/repository-connect-azure/) for more information on the options available for this command.
 
@@ -129,7 +130,7 @@ Once you do all that, your repository should be created and you can start backin
 
 ### Kopia CLI
 
-#### Creating a repository
+#### Creating a Repository
 
 You must use the [`kopia repository create b2` command](../reference/command-line/common/repository-create-b2/) to create a `repository`:
 
@@ -144,7 +145,7 @@ There are also various other options (such as [actions](../docs/advanced/actions
 
 You will be asked to enter the repository password that you want. Remember, this [password is used to encrypt your data](../docs/faqs/#how-do-i-enable-encryption), so make sure it is a secure password!
 
-#### Connecting To Repository
+#### Connecting to Repository
 
 After you have created the `repository`, you connect to it using the [`kopia repository connect b2` command](../docs/reference/command-line/common/repository-connect-b2/). Read the [help docs](../docs/reference/command-line/common/repository-connect-b2/) for more information on the options available for this command.
 
@@ -154,7 +155,7 @@ Creating a Google Cloud Storage `repository` is done differently depending on if
 
 ### Kopia GUI
 
-Select the `Google Cloud Storage` option in the `Repository` tab in `KopiaUI`. Then, follow on-screen instructions.  You will need to enter the `GCS Bucket` name and enter the path to where on your machine you have saved the Google Cloud Storage `Credentials File`. The credentials file can be obtained by [creating a Google Cloud Service Account](https://cloud.google.com/docs/authentication/getting-started#create-service-account-console) that allows you to access your storage bucket and then downloading the JSON file for that service account. You enter the path to this JSON file in the `Credentials File` textbox in `KopiaUI`.
+Select the `Google Cloud Storage` option in the `Repository` tab in `KopiaUI`. Then, follow on-screen instructions.  You will need to enter the `GCS Bucket` name and enter the path to where on your machine you have saved the Google Cloud Storage `Credentials File`. The credentials file can be obtained by [creating a Google Cloud Service Account](https://cloud.google.com/docs/authentication/getting-started#create-service-account-console) that allows you to access your storage bucket and then downloading the JSON key file for that service account. You enter the path to this JSON key file in the `Credentials File` textbox in `KopiaUI`.
 
 You will next need to enter the repository password that you want. Remember, this [password is used to encrypt your data](../docs/faqs/#how-do-i-enable-encryption), so make sure it is a secure password! At this same password screen, you have the option to change the `Encryption` algoirthm, `Hash` algorithm, `Splitter` algorithm, `Repository Format`, `Username`, and `Hostname`. Click the `Show Advanced Options` button to access these settings. If you do not understand what these settings are, do not change them because the default settings are the best settings.
 
@@ -164,9 +165,9 @@ Once you do all that, your repository should be created and you can start backin
 
 ### Kopia CLI
 
-#### Creating a repository
+#### Creating a Repository
 
-There are three methods to create a `repository` for Google Cloud Storage: one that requires you to install Google Cloud SDK; the other method allows you to generate crendtials without Google Cloud SDK; and the third method allows you to use Google Cloud Storage through Kopia's [S3 `repository` option](#amazon-s3-and-s3-compatible-cloud-storage):
+There are three methods to create a `repository` for Google Cloud Storage: one that requires you to install Google Cloud SDK; the other method allows you to generate credentials without Google Cloud SDK; and the third method allows you to use Google Cloud Storage through Kopia's [S3 `repository` option](#amazon-s3-and-s3-compatible-cloud-storage):
 
 ***Method #1: Installing Google Cloud SDK
 
@@ -188,10 +189,10 @@ There are also various other options (such as object locking and [actions](../do
 
 You will be asked to enter the repository password that you want. Remember, this [password is used to encrypt your data](../docs/faqs/#how-do-i-enable-encryption), so make sure it is a secure password!
 
-***Method #2: Creating a Service Account and Using the JSON File
+***Method #2: Creating a Service Account and Using the JSON Key File
 
 1. Create a storage bucket in [Google Cloud Console](https://console.cloud.google.com/storage/)
-2. Create a Google Cloud Service Account that allows you to access your storage bucket. Directions are available on [Google Cloud's website](https://cloud.google.com/docs/authentication/getting-started#create-service-account-console). Make sure to download the JSON file for your service account and keep it safe.
+2. Create a Google Cloud Service Account that allows you to access your storage bucket. Directions are available on [Google Cloud's website](https://cloud.google.com/docs/authentication/getting-started#create-service-account-console). Make sure to download the JSON key file for your service account and keep it safe.
 
 After these preparations, we can create a Kopia `repository` (assuming bucket named `kopia-test-123`) using the [`kopia repository create gcs` command](../reference/command-line/common/repository-connect-gcs/):
 
@@ -219,27 +220,31 @@ There are also various other options (such as object locking and [actions](../do
 
 You will be asked to enter the repository password that you want. Remember, this [password is used to encrypt your data](../docs/faqs/#how-do-i-enable-encryption), so make sure it is a secure password!
 
-#### Connecting To Repository
+#### Connecting to Repository
 
-After you have created the `repository`, you connect to it using the [`kopia repository connect gcs` command](../docs/reference/command-line/common/repository-connect-b2/) or the [`kopia repository connect gcs` command](../docs/reference/command-line/common/repository-connect-s3/), depending on whichever way tou setup the Google Cloud Storage `repository`. Read the [help docs for `repository connect gcs`](../docs/reference/command-line/common/repository-connect-gcs/) or the [help docs for `repository connect s3`](../docs/reference/command-line/common/repository-connect-s3/) for more information on the options available for these commands.
+After you have created the `repository`, you connect to it using the [`kopia repository connect gcs` command](../docs/reference/command-line/common/repository-connect-b2/) or the [`kopia repository connect gcs` command](../docs/reference/command-line/common/repository-connect-s3/), depending on whichever way you setup the Google Cloud Storage `repository`. Read the [help docs for `repository connect gcs`](../docs/reference/command-line/common/repository-connect-gcs/) or the [help docs for `repository connect s3`](../docs/reference/command-line/common/repository-connect-s3/) for more information on the options available for these commands.
 
 ## Google Drive
 
-Google Drive is a file storage and synchronization service developed by Google, which you can set up as a storage backend for Kopia.
+Kopia supports Google Drive in two ways: natively and through Kopia's [Rclone `repository` option](#rclone). Native Google Drive support is currently only available through Kopia CLI; Kopia GUI users need to use Kopia's [Rclone `repository` option](#rclone).
 
-> WARNING: Google Drive support is experimental, use at your own risk.
+Below we describe how to setup a `repository` via Kopia CLI using native Google Drive support, and you will need a Google Cloud Storage service account for the process. You do not need a Google Cloud Storage service account if you create a Google Drive `repository` in Kopia through Rclone; to do that, read the [Rclone section of this page](#rclone). 
 
-Kopia uses a Google Drive folder that you provide to store all the files in a repository. Kopia will only access files in this folder, and using Kopia does not impact your other Drive files. We recommend that you let Kopia manage this folder and do not upload any other content to this folder.
+> WARNING: Native Google Drive support is experimental.
 
-### Creating a repository
+Kopia uses a Google Drive folder that you provide to store all the files in the `repository`. Kopia will only access files in this folder, and using Kopia does not impact your other Google Drive files. It is recommended that you let Kopia manage this folder and do not upload any other content to this folder.
 
-Here's a high-level rundown of what we will do:
+### Kopia CLI
 
-1. Create or use an existing Google Drive folder for the new repository.
+#### Creating a Repository
 
-2. Create a [Service Account](https://cloud.google.com/iam/docs/understanding-service-accounts) for Kopia. A service account is a Google account for a robot user, and can be created and managed more easily than a real Gmail account.
+Here's a high-level rundown of what you will need to do to create a Google Drive `repository`:
 
-3. Share the Google Drive folder with your new service account so that it can access the folder.
+1. Create or use an existing Google Drive folder for the repository.
+
+2. Create a [Google Cloud Service Account](https://cloud.google.com/iam/docs/understanding-service-accounts) for Kopia.
+
+3. Share the Google Drive folder with your new service account so that it allows Kopia to access the folder.
 
 Ready? Here are the step-by-step instructions:
 
@@ -247,47 +252,35 @@ Ready? Here are the step-by-step instructions:
    
    ![Create a Cloud Project](drive-create-project.png)
 
-2. [Enable the Google Drive API](https://console.cloud.google.com/apis/library/drive.googleapis.com) using your project.
+2. [Enable the Google Drive API](https://console.cloud.google.com/apis/library/drive.googleapis.com) for your project.
    
    ![Enable the Drive API](drive-enable-api.png)
 
-3. Create a service account. After enabling the API, you should be now prompted to [create credentials](https://console.cloud.google.com/apis/api/drive.googleapis.com/credentials). Choose "Service account" from the options, and give it a name. Note down the service account email.
+3. Create a service account. After enabling the API, you should be now prompted to [create credentials](https://console.cloud.google.com/apis/api/drive.googleapis.com/credentials). Choose `Service account` from the options, and give it a name. Note down the service account email.
    
    ![Create a service account](drive-create-credentials.png)
 
-4. Create a key for the service account. You can do this by viewing the service account, navigating to the "Keys" tab, and clicking "Add Key" -> "Create new key". You should choose "JSON" for the key type. Save the file on your computer.
+4. Create a key for the service account. You can do this by viewing the service account, navigating to the `Keys` tab, and clicking `Add Key` -> `Create new key`. You should choose `JSON` for the key type. Save the file on your computer.
    
    ![Create key](drive-create-key.png)
 
-5. Create or pick an existing Google Drive folder. The browser URL should look something like `https://drive.google.com/drive/u/0/folders/z63ZZ1Npv3OFvDPwU3dX0w`. Note down the last part of the URL. That's your folder ID.
+5. Create or pick an existing Google Drive folder. The browser URL should look something like `https://drive.google.com/drive/u/0/folders/[folder_id]`. Note down the last part of the URL. That's your folder ID.
 
-6. Share the folder with the service account. Open the share dialog for the folder, and put in the service account email. You should choose the "Editor" as the access role.
+6. Share the folder with the service account. Open the share dialog for the folder, and put in the service account email. You should choose the `Editor` as the access role.
 
-After these preparations we can create a Kopia repository (assuming the folder ID is `z63ZZ1Npv3OFvDPwU3dX0w`):
+After these preparations, we can create a Kopia `repository` (assuming the folder ID is `z63ZZ1Npv3OFvDPwU3dX0w`) using the [`kopia repository create gdrive` command](../reference/command-line/common/repository-connect-gdrive/):
 
 ```shell
 $ kopia repository create gdrive \
         --folder-id z63ZZ1Npv3OFvDPwU3dX0w \
-        --credentials-file=<where-you-have-stored-the-json-key-file>
+        --credentials-file="<where-you-have-stored-the-json-key-file>"
 ```
 
-If you view your folder on Google Drive, you should see that Kopia has created the skeleton of the repository with a `kopia.repository` file and a couple of others.
+If you view your folder on Google Drive, you should see that Kopia has created the skeleton of the repository with a `kopia.repository` file and a couple of others. Kopia will store all the files for your snapshots in this folder.
 
-### Connecting To Repository
+### Connecting to Repository
 
-To connect to a repository that already exists, simply use `kopia repository connect` instead of `kopia repository create`.
-
-You can connect as many computers as you like to any repository, even simultaneously. If you have multiple computers, we recommend that you create a new service account key for each computer for good security.
-
-```shell
-$ kopia repository connect gdrive \
-        --folder-id z63ZZ1Npv3OFvDPwU3dX0w \
-        --credentials-file=<where-you-have-stored-the-json-key-file>
-```
-
-[Detailed information and settings](/docs/reference/command-line/common/repository-connect-gdrive/)
-
----
+After you have created the `repository`, you connect to it using the [`kopia repository connect gdrive` command](../docs/reference/command-line/common/repository-connect-gdrive/). Read the [help docs](../docs/reference/command-line/common/repository-connect-gdrive/) for more information on the options available for this command.
 
 ## SFTP
 
