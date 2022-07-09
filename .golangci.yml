@@ -26,6 +26,7 @@ linters-settings:
     - time.Now # do not use outside of 'clock' and 'timetrack' packages use clock.Now or timetrack.StartTimer
     - time.Since # use timetrack.Timer.Elapsed()
     - time.Until # never use this
+    - Envar\(\" # do not use envar literals, always wrap with EnvName()
   funlen:
     lines: 100
     statements: 60

@@ -15,7 +15,7 @@ type commandServerShutdown struct {
 
 func (c *commandServerShutdown) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("shutdown", "Gracefully shutdown the server")
-	c.sf.setup(cmd)
+	c.sf.setup(svc, cmd)
 	c.out.setup(svc)
 	cmd.Action(svc.serverAction(&c.sf, c.run))
 }

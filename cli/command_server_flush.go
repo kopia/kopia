@@ -13,7 +13,7 @@ type commandServerFlush struct {
 
 func (c *commandServerFlush) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("flush", "Flush the state of Kopia server to persistent storage, etc.")
-	c.sf.setup(cmd)
+	c.sf.setup(svc, cmd)
 	cmd.Action(svc.serverAction(&c.sf, c.run))
 }
 

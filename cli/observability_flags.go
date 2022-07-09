@@ -52,19 +52,19 @@ type observabilityFlags struct {
 	traceProvider *trace.TracerProvider
 }
 
-func (c *observabilityFlags) setup(app *kingpin.Application) {
+func (c *observabilityFlags) setup(svc appServices, app *kingpin.Application) {
 	app.Flag("metrics-listen-addr", "Expose Prometheus metrics on a given host:port").Hidden().StringVar(&c.metricsListenAddr)
 	app.Flag("enable-pprof", "Expose pprof handlers").Hidden().BoolVar(&c.enablePProf)
 
 	// push gateway parameters
-	app.Flag("metrics-push-addr", "Address of push gateway").Envar("KOPIA_METRICS_PUSH_ADDR").Hidden().StringVar(&c.metricsPushAddr)
-	app.Flag("metrics-push-interval", "Frequency of metrics push").Envar("KOPIA_METRICS_PUSH_INTERVAL").Hidden().Default("5s").DurationVar(&c.metricsPushInterval)
-	app.Flag("metrics-push-job", "Job ID for to push gateway").Envar("KOPIA_METRICS_JOB").Hidden().Default("kopia").StringVar(&c.metricsJob)
-	app.Flag("metrics-push-grouping", "Grouping for push gateway").Envar("KOPIA_METRICS_PUSH_GROUPING").Hidden().StringsVar(&c.metricsGroupings)
-	app.Flag("metrics-push-username", "Username for push gateway").Envar("KOPIA_METRICS_PUSH_USERNAME").Hidden().StringVar(&c.metricsPushUsername)
-	app.Flag("metrics-push-password", "Password for push gateway").Envar("KOPIA_METRICS_PUSH_PASSWORD").Hidden().StringVar(&c.metricsPushPassword)
+	app.Flag("metrics-push-addr", "Address of push gateway").Envar(svc.EnvName("KOPIA_METRICS_PUSH_ADDR")).Hidden().StringVar(&c.metricsPushAddr)
+	app.Flag("metrics-push-interval", "Frequency of metrics push").Envar(svc.EnvName("KOPIA_METRICS_PUSH_INTERVAL")).Hidden().Default("5s").DurationVar(&c.metricsPushInterval)
+	app.Flag("metrics-push-job", "Job ID for to push gateway").Envar(svc.EnvName("KOPIA_METRICS_JOB")).Hidden().Default("kopia").StringVar(&c.metricsJob)
+	app.Flag("metrics-push-grouping", "Grouping for push gateway").Envar(svc.EnvName("KOPIA_METRICS_PUSH_GROUPING")).Hidden().StringsVar(&c.metricsGroupings)
+	app.Flag("metrics-push-username", "Username for push gateway").Envar(svc.EnvName("KOPIA_METRICS_PUSH_USERNAME")).Hidden().StringVar(&c.metricsPushUsername)
+	app.Flag("metrics-push-password", "Password for push gateway").Envar(svc.EnvName("KOPIA_METRICS_PUSH_PASSWORD")).Hidden().StringVar(&c.metricsPushPassword)
 
-	app.Flag("enable-jaeger-collector", "Emit OpenTelemetry traces to Jaeger collector").Hidden().Envar("KOPIA_ENABLE_JAEGER_COLLECTOR").BoolVar(&c.enableJaeger)
+	app.Flag("enable-jaeger-collector", "Emit OpenTelemetry traces to Jaeger collector").Hidden().Envar(svc.EnvName("KOPIA_ENABLE_JAEGER_COLLECTOR")).BoolVar(&c.enableJaeger)
 
 	var formats []string
 
@@ -74,7 +74,7 @@ func (c *observabilityFlags) setup(app *kingpin.Application) {
 
 	sort.Strings(formats)
 
-	app.Flag("metrics-push-format", "Format to use for push gateway").Envar("KOPIA_METRICS_FORMAT").Hidden().EnumVar(&c.metricsPushFormat, formats...)
+	app.Flag("metrics-push-format", "Format to use for push gateway").Envar(svc.EnvName("KOPIA_METRICS_FORMAT")).Hidden().EnumVar(&c.metricsPushFormat, formats...)
 }
 
 func (c *observabilityFlags) startMetrics(ctx context.Context) error {

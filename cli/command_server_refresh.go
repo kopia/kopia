@@ -13,7 +13,7 @@ type commandServerRefresh struct {
 
 func (c *commandServerRefresh) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("refresh", "Refresh the cache in Kopia server to observe new sources, etc.")
-	c.sf.setup(cmd)
+	c.sf.setup(svc, cmd)
 	cmd.Action(svc.serverAction(&c.sf, c.run))
 }
 

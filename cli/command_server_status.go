@@ -22,7 +22,7 @@ func (c *commandServerStatus) setup(svc appServices, parent commandParent) {
 
 	cmd.Flag("remote", "Show remote sources").BoolVar(&c.remote)
 
-	c.sf.setup(cmd)
+	c.sf.setup(svc, cmd)
 	c.out.setup(svc)
 
 	cmd.Action(svc.serverAction(&c.sf, c.runServerStatus))
