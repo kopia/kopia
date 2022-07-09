@@ -10,7 +10,7 @@ Kopia allows you to save your [encrypted] snapshots (i.e., backups) to a variety
 
 * [Amazon S3 and S3-compatible cloud storage](#amazon-s3-and-s3-compatible-cloud-storage)
   * Kopia supports all cloud storage that uses Amazon S3's API
-    * For example: MinIO, Wasabi, IDrive E2, Storj, Cloudflare R2, Oracle Cloud Infrastructure, IBM Cloud, DigitalOcean Spaces, Amazon Lightsail, Vultr, Linode, Scaleway, Synology c2, MEGA.io S4, Contabo, OVH, Dreamhost, Alibaba Cloud, Tencent Cloud, Yandex Cloud, Mail.ru Cloud, and many more!
+    * Including MinIO, Wasabi, IDrive E2, Storj, Cloudflare R2, Oracle Cloud Infrastructure, IBM Cloud, DigitalOcean Spaces, Amazon Lightsail, Vultr, Linode, Scaleway, Synology c2, MEGA.io S4, Contabo, OVH, Dreamhost, Alibaba Cloud, Tencent Cloud, Yandex Cloud, Mail.ru Cloud, and many more!
   * Kopia supports object locking and [storage tiers](../advanced/amazon-s3/) for any cloud storage that supports the features using the Amazon S3 API!
 * [Azure Blob Storage](#azure-blob-storage)
 * [Backblaze B2](#backblaze-b2)
@@ -48,7 +48,7 @@ Once you do all that, your repository should be created and you can start backin
 
 ### Kopia CLI
 
-### Creating a repository
+#### Creating a repository
 
 You must use the [`kopia repository create s3` command](../reference/command-line/common/repository-create-s3/) to create a `repository`:
 
@@ -63,7 +63,7 @@ At a minimum, you will need to enter the bucket name, access key, and secret acc
 
 You will be asked to enter the repository password that you want. Remember, this [password is used to encrypt your data](../docs/faqs/#how-do-i-enable-encryption), so make sure it is a secure password!
 
-### Connecting To Repository
+#### Connecting To Repository
 
 After you have created the `repository`, you connect to it using the [`kopia repository connect s3` command](../docs/reference/command-line/common/repository-connect-s3/). Read the [help docs](../docs/reference/command-line/common/repository-connect-s3/) for more information on the options available for this command.
 
@@ -83,7 +83,7 @@ Once you do all that, your repository should be created and you can start backin
 
 ### Kopia CLI
 
-### Creating a repository
+#### Creating a repository
 
 You must use the [`kopia repository create azure` command](../reference/command-line/common/repository-create-azure/) to create a `repository`:
 
@@ -107,13 +107,13 @@ At a minimum, you will need to enter the container name, storage account name, a
 
 You will be asked to enter the repository password that you want. Remember, this [password is used to encrypt your data](../docs/faqs/#how-do-i-enable-encryption), so make sure it is a secure password!
 
-### Connecting To Repository
+#### Connecting To Repository
 
 After you have created the `repository`, you connect to it using the [`kopia repository connect azure` command](../docs/reference/command-line/common/repository-connect-azure/). Read the [help docs](../docs/reference/command-line/common/repository-connect-azure/) for more information on the options available for this command.
 
 ## Backblaze B2
 
-Creating Backblaze B2 storage `repository` is done differently depending on if you use Kopia GUI or Kopia CLI.
+Creating a Backblaze B2 `repository` is done differently depending on if you use Kopia GUI or Kopia CLI.
 
 > NOTE: Currently, object locking is supported for Backblaze B2 but only through Kopia's [S3-compatabile storage `repository`](#amazon-s3-and-s3-compatible-cloud-storage) and not through the Backblaze B2 `repository` option. However, Backblaze B2 is fully S3 compatible, so you can setup your Backblaze B2 account via Kopia's [S3 `repository` option](#amazon-s3-and-s3-compatible-cloud-storage).
 
@@ -129,7 +129,7 @@ Once you do all that, your repository should be created and you can start backin
 
 ### Kopia CLI
 
-### Creating a repository
+#### Creating a repository
 
 You must use the [`kopia repository create b2` command](../reference/command-line/common/repository-create-b2/) to create a `repository`:
 
@@ -144,90 +144,84 @@ There are also various other options (such as [actions](../docs/advanced/actions
 
 You will be asked to enter the repository password that you want. Remember, this [password is used to encrypt your data](../docs/faqs/#how-do-i-enable-encryption), so make sure it is a secure password!
 
-### Connecting To Repository
+#### Connecting To Repository
 
 After you have created the `repository`, you connect to it using the [`kopia repository connect b2` command](../docs/reference/command-line/common/repository-connect-b2/). Read the [help docs](../docs/reference/command-line/common/repository-connect-b2/) for more information on the options available for this command.
 
 ## Google Cloud Storage
 
-Google Cloud Storage is a globally unified, scalable, and highly durable object storage for developers and enterprises.
+Creating a Google Cloud Storage `repository` is done differently depending on if you use Kopia GUI or Kopia CLI.
 
-### Creating a repository
+### Kopia GUI
 
-To create a repository in Google Cloud Storage you need to provision a storage bucket and install local credentials that can access that bucket. To do so, there are three methods (one that requires you to install Google Cloud SDK; the other method allows you to generate crendtials without Google Cloud SDK; the third method allows you to use Google Cloud Storage like it is AWS S3):
+Select the `Google Cloud Storage` option in the `Repository` tab in `KopiaUI`. Then, follow on-screen instructions.  You will need to enter the `GCS Bucket` name and enter the path to where on your machine you have saved the Google Cloud Storage `Credentials File`. The credentials file can be obtained by [creating a Google Cloud Service Account](https://cloud.google.com/docs/authentication/getting-started#create-service-account-console) that allows you to access your storage bucket and then downloading the JSON file for that service account. You enter the path to this JSON file in the `Credentials File` textbox in `KopiaUI`.
+
+You will next need to enter the repository password that you want. Remember, this [password is used to encrypt your data](../docs/faqs/#how-do-i-enable-encryption), so make sure it is a secure password! At this same password screen, you have the option to change the `Encryption` algoirthm, `Hash` algorithm, `Splitter` algorithm, `Repository Format`, `Username`, and `Hostname`. Click the `Show Advanced Options` button to access these settings. If you do not understand what these settings are, do not change them because the default settings are the best settings.
+
+> NOTE: Some settings, such as object locking and [actions](../docs/advanced/actions/), can only be enabled when you create a new `repository` using command-line (see next section). However, once you create the `repository` via command-line, you can use the `repository` as normal in Kopia GUI: just connect to the `repository` as described above after you have created it in command-line.
+
+Once you do all that, your repository should be created and you can start backing up your data!
+
+### Kopia CLI
+
+#### Creating a repository
+
+There are three methods to create a `repository` for Google Cloud Storage: one that requires you to install Google Cloud SDK; the other method allows you to generate crendtials without Google Cloud SDK; and the third method allows you to use Google Cloud Storage through Kopia's [S3 `repository` option](#amazon-s3-and-s3-compatible-cloud-storage):
 
 ***Method #1: Installing Google Cloud SDK
 
 1. Create a storage bucket in [Google Cloud Console](https://console.cloud.google.com/storage/)
 2. Install [Google Cloud SDK](https://cloud.google.com/sdk/)
-3. Log in with credentials that have permissions to the bucket.
+3. Log in with credentials that have permissions to the bucket
 
 ```shell
 $ gcloud auth application-default login
 ```
 
-After these preparations we can create Kopia repository (assuming bucket named `kopia-test-123`):
+After these preparations, we can create a Kopia `repository` (assuming bucket named `kopia-test-123`) using the [`kopia repository create gcs` command](../reference/command-line/common/repository-connect-gcs/):
 
 ```shell
 $ kopia repository create gcs --bucket kopia-test-123
 ```
 
-At this point we should be able to confirm that Kopia has created the skeleton of the repository with 3
-files in it:
+There are also various other options (such as object locking and [actions](../docs/advanced/actions/)) you can change or enable -- see the [help docs](../reference/command-line/common/repository-create-gcs/) for more information.
 
-```shell
-$ gsutil ls gs://kopia-test-123
-gs://kopia-test-123/kopia.repository
-gs://kopia-test-123/n417ffc2adc8dbe93f1814eda3ba8a07c
-gs://kopia-test-123/p78e034ac8b891168df97f9897d7ec316
-```
+You will be asked to enter the repository password that you want. Remember, this [password is used to encrypt your data](../docs/faqs/#how-do-i-enable-encryption), so make sure it is a secure password!
 
 ***Method #2: Creating a Service Account and Using the JSON File
 
 1. Create a storage bucket in [Google Cloud Console](https://console.cloud.google.com/storage/)
 2. Create a Google Cloud Service Account that allows you to access your storage bucket. Directions are available on [Google Cloud's website](https://cloud.google.com/docs/authentication/getting-started#create-service-account-console). Make sure to download the JSON file for your service account and keep it safe.
 
-After these preparations we can create Kopia repository (assuming bucket named `kopia-test-123`):
+After these preparations, we can create a Kopia `repository` (assuming bucket named `kopia-test-123`) using the [`kopia repository create gcs` command](../reference/command-line/common/repository-connect-gcs/):
 
 ```shell
 $ kopia repository create gcs --credentials-file="/path/to/your/credentials/file.json" --bucket kopia-test-123
 ```
 
-***Method #3: Enabling AWS S3 Interoperability in Google Cloud Storage
+There are also various other options (such as object locking and [actions](../docs/advanced/actions/)) you can change or enable -- see the [help docs](../reference/command-line/common/repository-create-gcs/) for more information.
+
+You will be asked to enter the repository password that you want. Remember, this [password is used to encrypt your data](../docs/faqs/#how-do-i-enable-encryption), so make sure it is a secure password!
+
+***Method #3: Enabling Amazon S3 Interoperability in Google Cloud Storage
 
 1. Create a storage bucket in [Google Cloud Console](https://console.cloud.google.com/storage/)
 2. Go to [Settings and then Interoperability](https://console.cloud.google.com/storage/settings;tab=interoperability) in your Google Cloud Storage account
-3. Enable your project under "Default project for interoperable access" and generate access keys for this project -- you will generate both access key and secret key, just like if you were using AWS S3
+3. Enable your project under `Default project for interoperable access` and generate access keys for this project -- you will generate both access key and secret key, just like if you were using Amazon S3
 
-After these preparations we can create Kopia repository using the s3 function (assuming bucket named `kopia-test-123`):
+After these preparations, we can create a Kopia `repository` (assuming bucket named `kopia-test-123`) using the [`kopia repository create s3` command](../reference/command-line/common/repository-connect-s3/):
 
 ```shell
 $ kopia repository create s3 --endpoint="storage.googleapis.com" --bucket="kopia-test-123" --access-key="access/key/here" --secret-access-key="secret/key/here"
 ```
 
-### Connecting To Repository
+There are also various other options (such as object locking and [actions](../docs/advanced/actions/)) you can change or enable -- see the [help docs](../reference/command-line/common/repository-create-s3/) for more information.
 
-To connect to a repository that already exists, simply use `kopia repository connect` instead of `kopia repository create`. You can connect as many computers as you like to any repository, even simultaneously.
+You will be asked to enter the repository password that you want. Remember, this [password is used to encrypt your data](../docs/faqs/#how-do-i-enable-encryption), so make sure it is a secure password!
 
-```shell
-$ kopia repository connect gcs --bucket kopia-test-123
-```
+#### Connecting To Repository
 
-or 
-
-```shell
-$ kopia repository connect gcs --credentials-file="/path/to/your/credentials/file.json" --bucket kopia-test-123
-```
-
-or 
-
-```shell
-$ kopia repository connect s3 --endpoint="storage.googleapis.com" --bucket="kopia-test-123" --access-key="access/key/here" --secret-access-key="secret/key/here"
-```
-
-[Detailed information and settings](/docs/reference/command-line/common/repository-connect-filesystem/)
-
----
+After you have created the `repository`, you connect to it using the [`kopia repository connect gcs` command](../docs/reference/command-line/common/repository-connect-b2/) or the [`kopia repository connect gcs` command](../docs/reference/command-line/common/repository-connect-s3/), depending on whichever way tou setup the Google Cloud Storage `repository`. Read the [help docs for `repository connect gcs`](../docs/reference/command-line/common/repository-connect-gcs/) or the [help docs for `repository connect s3`](../docs/reference/command-line/common/repository-connect-s3/) for more information on the options available for these commands.
 
 ## Google Drive
 
