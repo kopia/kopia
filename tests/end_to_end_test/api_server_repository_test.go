@@ -211,7 +211,7 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 	// we are providing custom password to connect, make sure we won't be providing
 	// (different) default password via environment variable, as command-line password
 	// takes precedence over persisted password.
-	runner2.RemoveDefaultPassword()
+	delete(e2.Environment, "KOPIA_PASSWORD")
 
 	// should see one snapshot
 	snapshots := clitestutil.ListSnapshotsAndExpectSuccess(t, e2)

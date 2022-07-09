@@ -56,12 +56,12 @@ func TestACL(t *testing.T) {
 	defer wait()
 	defer kill()
 
-	fooBarRunner := testenv.NewExeRunner(t)
+	fooBarRunner := testenv.NewInProcRunner(t)
 	foobarClientEnvironment := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, fooBarRunner)
 
 	defer foobarClientEnvironment.RunAndExpectSuccess(t, "repo", "disconnect")
 
-	fooBarRunner.RemoveDefaultPassword()
+	delete(foobarClientEnvironment.Environment, "KOPIA_PASSWORD")
 
 	// connect as foo@bar with password baz
 	foobarClientEnvironment.RunAndExpectSuccess(t, "repo", "connect", "server",
@@ -72,12 +72,12 @@ func TestACL(t *testing.T) {
 		"--password", "baz",
 	)
 
-	aliceInWonderlandRunner := testenv.NewExeRunner(t)
+	aliceInWonderlandRunner := testenv.NewInProcRunner(t)
 	aliceInWonderlandClientEnvironment := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, aliceInWonderlandRunner)
 
 	defer aliceInWonderlandClientEnvironment.RunAndExpectSuccess(t, "repo", "disconnect")
 
-	aliceInWonderlandRunner.RemoveDefaultPassword()
+	delete(aliceInWonderlandClientEnvironment.Environment, "KOPIA_PASSWORD")
 
 	// connect as alice@wonderland with password baz
 	aliceInWonderlandClientEnvironment.RunAndExpectSuccess(t, "repo", "connect", "server",

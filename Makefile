@@ -42,7 +42,7 @@ GOTESTSUM_FLAGS=--format=$(GOTESTSUM_FORMAT) --no-summary=skipped
 GO_TEST?=$(gotestsum) $(GOTESTSUM_FLAGS) --
 
 LINTER_DEADLINE=600s
-UNIT_TESTS_TIMEOUT=300s
+UNIT_TESTS_TIMEOUT=600s
 
 ifeq ($(GOARCH),amd64)
 PARALLEL=8
@@ -233,11 +233,13 @@ dev-deps:
 	GO111MODULE=off go get -u github.com/sqs/goreturns
 
 test-with-coverage: export KOPIA_COVERAGE_TEST=1
-test-with-coverage: $(gotestsum)
+test-with-coverage: export TESTING_ACTION_EXE ?= $(TESTING_ACTION_EXE)
+test-with-coverage: $(gotestsum) $(TESTING_ACTION_EXE)
 	$(GO_TEST) $(UNIT_TEST_RACE_FLAGS) -tags testing -count=$(REPEAT_TEST) -short -covermode=atomic -coverprofile=coverage.txt --coverpkg $(COVERAGE_PACKAGES) -timeout 300s ./...
 
 test: GOTESTSUM_FLAGS=--format=$(GOTESTSUM_FORMAT) --no-summary=skipped --jsonfile=.tmp.unit-tests.json
-test: $(gotestsum)
+test: export TESTING_ACTION_EXE ?= $(TESTING_ACTION_EXE)
+test: $(gotestsum) $(TESTING_ACTION_EXE)
 	$(GO_TEST) $(UNIT_TEST_RACE_FLAGS) -tags testing -count=$(REPEAT_TEST) -timeout $(UNIT_TESTS_TIMEOUT) ./...
 	-$(gotestsum) tool slowest --jsonfile .tmp.unit-tests.json  --threshold 1000ms
 

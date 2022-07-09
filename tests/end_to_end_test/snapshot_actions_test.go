@@ -21,10 +21,7 @@ import (
 func TestSnapshotActionsBeforeSnapshotRoot(t *testing.T) {
 	t.Parallel()
 
-	th := os.Getenv("TESTING_ACTION_EXE")
-	if th == "" {
-		t.Skip("TESTING_ACTION_EXE must be set")
-	}
+	th := skipUnlessTestAction(t)
 
 	logsDir := testutil.TempLogDirectory(t)
 
@@ -169,10 +166,7 @@ func TestSnapshotActionsBeforeSnapshotRoot(t *testing.T) {
 func TestSnapshotActionsBeforeAfterFolder(t *testing.T) {
 	t.Parallel()
 
-	th := os.Getenv("TESTING_ACTION_EXE")
-	if th == "" {
-		t.Skip("TESTING_ACTION_EXE must be set")
-	}
+	th := skipUnlessTestAction(t)
 
 	logsDir := testutil.TempLogDirectory(t)
 
@@ -304,10 +298,7 @@ func TestSnapshotActionsEmbeddedScript(t *testing.T) {
 func TestSnapshotActionsEnable(t *testing.T) {
 	t.Parallel()
 
-	th := os.Getenv("TESTING_ACTION_EXE")
-	if th == "" {
-		t.Skip("TESTING_ACTION_EXE must be set")
-	}
+	th := skipUnlessTestAction(t)
 
 	cases := []struct {
 		desc          string
@@ -417,12 +408,9 @@ func mustReadEnvFile(t *testing.T, fname string) map[string]string {
 func TestSnapshotActionsHonorIgnoreRules(t *testing.T) {
 	t.Parallel()
 
-	th := os.Getenv("TESTING_ACTION_EXE")
-	if th == "" {
-		t.Skip("TESTING_ACTION_EXE must be set")
-	}
+	th := skipUnlessTestAction(t)
 
-	runner := testenv.NewExeRunner(t)
+	runner := testenv.NewInProcRunner(t)
 	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
 
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
@@ -455,4 +443,19 @@ some-ignored-file
 
 	// make sure .kopiaignore was honored
 	require.NotContains(t, entries, "some-ignored-file")
+}
+
+func skipUnlessTestAction(t *testing.T) string {
+	t.Helper()
+
+	th := os.Getenv("TESTING_ACTION_EXE")
+	if th == "" {
+		t.Skip("TESTING_ACTION_EXE must be set")
+	}
+
+	if _, err := os.Stat(th); os.IsNotExist(err) {
+		t.Fatal("TESTING_ACTION_EXE does not exist")
+	}
+
+	return th
 }

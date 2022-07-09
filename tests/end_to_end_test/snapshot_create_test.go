@@ -582,7 +582,8 @@ func TestSnapshotCreateWithStdinStream(t *testing.T) {
 	w.Close()
 
 	streamFileName := "stream-file"
-	runner.NextCommandStdin = r
+
+	runner.SetNextStdin(r)
 
 	e.RunAndExpectSuccess(t, "snapshot", "create", "rootdir", "--stdin-file", streamFileName)
 

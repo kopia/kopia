@@ -7,6 +7,7 @@ import (
 	"github.com/alecthomas/kingpin"
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/releasable"
 	"github.com/kopia/kopia/repo/logging"
 )
 
@@ -20,7 +21,9 @@ func (c *App) RunSubcommand(ctx context.Context, kpapp *kingpin.Application, std
 	c.stdoutWriter = stdoutWriter
 	c.stderrWriter = stderrWriter
 	c.rootctx = logging.WithLogger(ctx, logging.ToWriter(stderrWriter))
-	c.simulatedCtrlC = make(chan struct{})
+	c.simulatedCtrlC = make(chan bool, 1)
+
+	releasable.Created("simulated-ctrl-c", c.simulatedCtrlC)
 
 	c.Attach(kpapp)
 
@@ -33,6 +36,11 @@ func (c *App) RunSubcommand(ctx context.Context, kpapp *kingpin.Application, std
 	}
 
 	go func() {
+		defer func() {
+			close(c.simulatedCtrlC)
+			releasable.Released("simulated-ctrl-c", c.simulatedCtrlC)
+		}()
+
 		defer close(resultErr)
 		defer stderrWriter.Close() //nolint:errcheck
 		defer stdoutWriter.Close() //nolint:errcheck
@@ -53,6 +61,6 @@ func (c *App) RunSubcommand(ctx context.Context, kpapp *kingpin.Application, std
 			return <-resultErr
 		}, func() {
 			// deliver simulated Ctrl-C to the app.
-			close(c.simulatedCtrlC)
+			c.simulatedCtrlC <- true
 		}
 }

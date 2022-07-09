@@ -159,7 +159,8 @@ type App struct {
 	stderrWriter   io.Writer
 	rootctx        context.Context // nolint:containedctx
 	loggerFactory  logging.LoggerFactory
-	simulatedCtrlC chan struct{}
+	simulatedCtrlC chan bool
+	envNamePrefix  string
 }
 
 func (c *App) getProgress() *cliProgress {
@@ -245,7 +246,7 @@ func (c *App) setup(app *kingpin.Application) {
 
 	c.observability.setup(c, app)
 
-	c.setupOSSpecificKeychainFlags(app)
+	c.setupOSSpecificKeychainFlags(c, app)
 
 	_ = app.Flag("caching", "Enables caching of objects (disable with --no-caching)").Default("true").Hidden().Action(
 		deprecatedFlag(c.stderrWriter, "The '--caching' flag is deprecated and has no effect, use 'kopia cache set' instead."),
@@ -312,9 +313,14 @@ func NewApp() *App {
 	}
 }
 
+// SetEnvNamePrefixForTesting sets the name prefix to be used for all environment variable names for testing.
+func (c *App) SetEnvNamePrefixForTesting(prefix string) {
+	c.envNamePrefix = prefix
+}
+
 // EnvName overrides the provided environment variable name for testability.
 func (c *App) EnvName(n string) string {
-	return n
+	return c.envNamePrefix + n
 }
 
 // Attach attaches the CLI parser to the application.

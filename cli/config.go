@@ -32,7 +32,11 @@ func (c *App) onCtrlC(f func()) {
 	go func() {
 		// invoke the function when either real or simulated Ctrl-C signal is delivered
 		select {
-		case <-c.simulatedCtrlC:
+		case v := <-c.simulatedCtrlC:
+			if !v {
+				return
+			}
+
 		case <-s:
 		}
 		f()
