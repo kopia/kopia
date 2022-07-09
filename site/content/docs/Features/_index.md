@@ -4,6 +4,20 @@ linkTitle: "Features"
 toc_hide: true
 ---
 
+* [Backup Files and Directories using Snapshots](#backup-files-and-directories-using-snapshots)
+* [Policies Control What and How Files/Directories are Saved in Snapshots](#policies-control-what-and-how-filesdirectories-are-saved-in-snapshots)
+* [Save Snapshots to Cloud, Network, or Local Storage](#save-snapshots-to-cloud-network-or-local-storage)
+* [Restore Snapshots Using Multiple Methods](#restore-snapshots-using-multiple-methods)
+* [End-to-End 'Zero Knowledge' Encryption](#end-to-end-zero-knowledge-encryption)
+* [Compression](#compression)
+* [Verifying Backup Validity and Consistency](#verifying-backup-validity-and-consistency)
+* [Recovering Backed Up Data When There is Data Loss](#recovering-backed-up-data-when-there-is-data-loss)
+* [Regular Automatic Maintence of Repositories](#regular-automatic-maintence-of-repositories)
+* [Caching](#caching)
+* [Both Command Line and Graphical User Interfaces](#both-command-line-and-graphical-user-interfaces)
+* [Optional Server Mode with API Support to Centrally Manage Backups of Multiple Machines](#optional-server-mode-with-api-support-to-centrally-manage-backups-of-multiple-machines)
+* [Speed](#speed)
+
 ### Backup Files and Directories using Snapshots
 
 Kopia creates snapshots of the files and directories you designate, then [encrypts](#end-to-end-zero-knowledge-encryption) these snapshots before they leave your computer, and finally uploads these encrypted snapshots to cloud/network/local storage called a [repository](../repositories/). Snapshots are maintained as a set of historical point-in-time records based on policies that you define.
