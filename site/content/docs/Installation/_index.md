@@ -1,7 +1,7 @@
 ---
 title: "Download & Installation"
-linkTitle: "Installation Guide"
-weight: 2
+linkTitle: "Download & Installation"
+toc_hide: true
 ---
 
 ### Two Variants of Kopia
