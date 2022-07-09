@@ -4,29 +4,90 @@ linkTitle: "Supported Storage Locations"
 toc_hide: true
 ---
 
-Kopia allows you to save your snapshots (i.e., backups) to a variety of storage locations, and in Kopia a storage location is called a `repository`. Kopia supports all of the following storage locations:
+Kopia allows you to save your [encrypted] snapshots (i.e., backups) to a variety of storage locations, and in Kopia a storage location is called a `repository`. Kopia supports all of the following storage locations:
 
-> Remember, no matter what repository you pick, all backups are always [encrypted!](../features/#end-to-end-zero-knowledge-encryption))
-
-* [Amazon S3 and S3-compatible cloud storage](#amazon-s3)
-        * Kopia supports all cloud storage that uses Amazon S3's API; this includes MinIO, Wasabi, IDrive E2, Storj, Cloudflare R2, Oracle Cloud Infrastructure, IBM Cloud, DigitalOcean Spaces, Amazon Lightsail, Vultr, Linode, Scaleway, Synology c2, MEGA.io S4, Contabo, OVH, Dreamhost, Alibaba Cloud, Tencent Cloud, Yandex Cloud, Mail.ru Cloud, and many more!
-        * Kopia supports object locking and [storage tiers](../advanced/amazon-s3/) for any cloud storage that supports the features using the Amazon S3 API!
-* [Azure Blob Storage](#azure)
+* [Amazon S3 and S3-compatible cloud storage](#amazon-s3-and-s3compatible-cloud-storage)
+  * Kopia supports all cloud storage that uses Amazon S3's API; for example: MinIO, Wasabi, IDrive E2, Storj, Cloudflare R2, Oracle Cloud Infrastructure, IBM Cloud, DigitalOcean Spaces, Amazon Lightsail, Vultr, Linode, Scaleway, Synology c2, MEGA.io S4, Contabo, OVH, Dreamhost, Alibaba Cloud, Tencent Cloud, Yandex Cloud, Mail.ru Cloud, and many more!
+  * Kopia supports [object locking](../advanced/ransomware-protection/) and [storage tiers](../advanced/amazon-s3/) for any cloud storage that supports the features using the Amazon S3 API!
+* [Azure Blob Storage](#azure-blob-storage)
 * [Backblaze B2](#b2)
 * [Google Cloud Storage](#google-cloud-storage)
 * [Google Drive](#google-drive)
-        * Native support for Google Drive in Kopia is currently experimental
-        * Native Google Drive support operates differently than Kopia's support for Google Drive through Rclone (see below); you will not be able to use the two interchangably, so pick one
+  * Native support for Google Drive in Kopia is currently experimental
+  * Native Google Drive support operates differently than Kopia's support for Google Drive through Rclone (see below); you will not be able to use the two interchangably, so pick one
 * All remote servers or cloud storage that support [WebDAV](#webdav) 
 * All remote servers or cloud storage that support [SFTP](#sftp)
 * Dropbox, OneDrive, Google Drive, and all cloud storage supported by [Rclone](#rclone) 
-        * Rclone is an (open-source) third-party program that you must download and setup seperately before you can use it with Kopia
-        * Kopia's Rclone support is experimental and all the cloud storage supported by Rclone has not been tested to work with Kopia; Kopia has been tested to work with Dropbox, OneDrive, and Google Drive through Rclone
+  * Rclone is a (free and open-source) third-party program that you must download and setup seperately before you can use it with Kopia
+  * Once you setup Rclone, Kopia automatically manages Rclone for you, so you do not need to do much beyond the initial setup, aside from ensuring Rclone is kept up-to-date
+  * Kopia's Rclone support is experimental and all the cloud storage supported by Rclone has not been tested to work with Kopia; Kopia has been tested to work with Dropbox, OneDrive, and Google Drive through Rclone
 * Your local machine 
 * Any network-attached storage or server 
 * Your own remote server by setting up a [Kopia Repository Server](../docs/repository-server/)
 
 > PRO TIP: Many cloud storage providers offer a variety of [storage tiers](../docs/advanced/storage-tiers/) that may (or may not) help decrease your cost of cloud storage, depending on your use case. See the [storage tiers documentation](/docs/advanced/storage-tiers/) to learn the different types of files Kopia stores in repositories and which one of these file types you can possibly move to archive tiers, such as Amazon Deep Glacier.
+
+## Amazon S3 and S3-compatible cloud storage
+
+Creating an Amazon S3 or S3-compatible storage `repository` is done differently depending on if you use Kopia GUI or Kopia CLI.
+
+### Kopia GUI
+
+Select the `Amazon S3 and Compatible Storage` option in the `Repository` tab in `KopiaUI`. Then, follow on-screen instructions.  You will need to enter `Bucket` name, `Server Endpoint`, `Access Key ID`, and `Secret Access Key`. You can optionally enter an `Override Region` and `Session Token`.
+
+> NOTE: Some S3-compatible cloud storage may have slightly different names for bucket, endpoint, access key, secret key, region, and session token. This will vary between cloud storages. Read the help documentation for the cloud storage you are using to find the appropriate values. You can typically find this information by searching for the S3 API settings for your cloud storage.
+
+You will next need to enter the repository password that you want. Remember, this [password is used to encrypt your data](../docs/faqs/#how-do-i-enable-encryption), so make sure it is a secure password! At this same password screen, you have the option to change the `Encryption` algoirthm, `Hash` algorithm, `Splitter` algorithm, `Repository Format`, `Username`, and `Hostname`. Click the `Show Advanced Options` button to access these settings. If you do not understand what these settings are, do not change them because the default settings are the best settings.
+
+> NOTE: Some settings, such as [object locking](../advanced/ransomware-protection/) and [actions](../docs/advanced/actions/), can only be enabled when you create a new `repository` using command-line (see next section). However, once you create the `repository` via command-line, you can use the `repository` as normal in Kopia GUI: just connect to the `repository` as described above after you have created it in command-line.
+
+Once you do all that, your repository should be created and you can start backing up your data!
+
+### Kopia CLI
+
+### Creating a repository
+
+You must use the [`kopia repository create s3` command](../reference/command-line/common/repository-create-s3/) to create a `repository`:
+
+```shell
+$ kopia repository create s3 \
+        --bucket=... \
+        --access-key=... \
+        --secret-access-key=...
+```
+
+At a minimum, you will need to enter the bucket name, access key, and secret access key. If you are not using Amazon S3 and are using an S3-compatible storage, you will also need to enter the endpoint and may need to enter the `region`. There are also various other options (such as [object locking](../advanced/ransomware-protection/) and [actions](../docs/advanced/actions/)) you can change or enable -- see the [help docs](../reference/command-line/common/repository-create-s3/) for more information.
+
+You will be asked to enter the repository password that you want. Remember, this [password is used to encrypt your data](../docs/faqs/#how-do-i-enable-encryption), so make sure it is a secure password!
+
+### Connecting To Repository
+
+After you have created the `repository`, you connect to it using the [`kopia repository connect s3` command](../docs/reference/command-line/common/repository-create-s3/). Read the [help docs](../docs/reference/command-line/common/repository-create-s3/) for more information on the options available for this command.
+
+## Azure Blob Storage
+
+Kopia can connect to S3 compatible storage, such as [Amazon S3](https://aws.amazon.com/s3/), [minio.io](https://minio.io/), [Wasabi](https://wasabi.com/)
+
+### Creating a repository
+
+You will need your S3 bucket name, access key and secret access key.
+
+```shell
+$ kopia repository create s3 \
+        --bucket=... \
+        --access-key=... \
+        --secret-access-key=...
+```
+
+### Connecting To Repository
+
+```shell
+$ kopia repository connect s3
+```
+
+[Detailed information and settings](/docs/reference/command-line/common/repository-create-s3/)
+
+---
 
 ## Google Cloud Storage
 
@@ -106,31 +167,6 @@ $ kopia repository connect s3 --endpoint="storage.googleapis.com" --bucket="kopi
 ```
 
 [Detailed information and settings](/docs/reference/command-line/common/repository-connect-filesystem/)
-
----
-
-## Amazon S3
-
-Kopia can connect to S3 compatible storage, such as [Amazon S3](https://aws.amazon.com/s3/), [minio.io](https://minio.io/), [Wasabi](https://wasabi.com/)
-
-### Creating a repository
-
-You will need your S3 bucket name, access key and secret access key.
-
-```shell
-$ kopia repository create s3 \
-        --bucket=... \
-        --access-key=... \
-        --secret-access-key=...
-```
-
-### Connecting To Repository
-
-```shell
-$ kopia repository connect s3
-```
-
-[Detailed information and settings](/docs/reference/command-line/common/repository-create-s3/)
 
 ---
 
