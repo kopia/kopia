@@ -249,20 +249,12 @@ Here's a high-level rundown of what you will need to do to create a Google Drive
 Ready? Here are the step-by-step instructions:
 
 1. [Create a Google Cloud project](https://console.cloud.google.com/projectcreate), or use an existing one.
-   
-   ![Create a Cloud Project](drive-create-project.png)
 
 2. [Enable the Google Drive API](https://console.cloud.google.com/apis/library/drive.googleapis.com) for your project.
-   
-   ![Enable the Drive API](drive-enable-api.png)
 
 3. Create a service account. After enabling the API, you should be now prompted to [create credentials](https://console.cloud.google.com/apis/api/drive.googleapis.com/credentials). Choose `Service account` from the options, and give it a name. Note down the service account email.
-   
-   ![Create a service account](drive-create-credentials.png)
 
 4. Create a key for the service account. You can do this by viewing the service account, navigating to the `Keys` tab, and clicking `Add Key` -> `Create new key`. You should choose `JSON` for the key type. Save the file on your computer.
-   
-   ![Create key](drive-create-key.png)
 
 5. Create or pick an existing Google Drive folder. The browser URL should look something like `https://drive.google.com/drive/u/0/folders/[folder_id]`. Note down the last part of the URL. That's your folder ID.
 
