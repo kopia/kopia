@@ -4,7 +4,7 @@ linkTitle: "Features"
 weight: 10
 ---
 
-* [Backup Files and Directories using Snapshots](#backup-files-and-directories-using-snapshots)
+* [Backup Files and Directories Using Snapshots](#backup-files-and-directories-using-snapshots)
 * [Policies Control What and How Files/Directories are Saved in Snapshots](#policies-control-what-and-how-filesdirectories-are-saved-in-snapshots)
 * [Save Snapshots to Cloud, Network, or Local Storage](#save-snapshots-to-cloud-network-or-local-storage)
 * [Restore Snapshots Using Multiple Methods](#restore-snapshots-using-multiple-methods)
@@ -18,7 +18,7 @@ weight: 10
 * [Optional Server Mode with API Support to Centrally Manage Backups of Multiple Machines](#optional-server-mode-with-api-support-to-centrally-manage-backups-of-multiple-machines)
 * [Speed](#speed)
 
-### Backup Files and Directories using Snapshots
+### Backup Files and Directories Using Snapshots
 
 Kopia creates snapshots of the files and directories you designate, then [encrypts](#end-to-end-zero-knowledge-encryption) these snapshots before they leave your computer, and finally uploads these encrypted snapshots to cloud/network/local storage called a [repository](../repositories/). Snapshots are maintained as a set of historical point-in-time records based on policies that you define.
 
