@@ -1,7 +1,7 @@
 ---
 title: "Download & Installation"
 linkTitle: "Installation Guide"
-weight: 3
+weight: 30
 ---
 
 ### Two Variants of Kopia
