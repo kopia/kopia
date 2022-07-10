@@ -29,6 +29,7 @@ func (c *commandCacheSetParams) setup(svc appServices, parent commandParent) {
 	c.contentMinSweepAge = -1
 	c.metadataMinSweepAge = -1
 	c.indexMinSweepAge = -1
+	c.maxListCacheDuration = -1
 
 	cmd.Flag("cache-directory", "Directory where to store cache files").StringVar(&c.directory)
 	cmd.Flag("content-cache-size-mb", "Size of local content cache").PlaceHolder("MB").Default("-1").Int64Var(&c.contentCacheSizeMB)
@@ -36,7 +37,7 @@ func (c *commandCacheSetParams) setup(svc appServices, parent commandParent) {
 	cmd.Flag("metadata-cache-size-mb", "Size of local metadata cache").PlaceHolder("MB").Default("-1").Int64Var(&c.maxMetadataCacheSizeMB)
 	cmd.Flag("metadata-min-sweep-age", "Minimal age of metadata cache item to be subject to sweeping").DurationVar(&c.metadataMinSweepAge)
 	cmd.Flag("index-min-sweep-age", "Minimal age of index cache item to be subject to sweeping").DurationVar(&c.indexMinSweepAge)
-	cmd.Flag("max-list-cache-duration", "Duration of index cache").Default("-1ns").DurationVar(&c.maxListCacheDuration)
+	cmd.Flag("max-list-cache-duration", "Duration of index cache").DurationVar(&c.maxListCacheDuration)
 	cmd.Action(svc.repositoryWriterAction(c.run))
 	c.svc = svc
 }
