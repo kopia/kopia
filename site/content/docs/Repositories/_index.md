@@ -8,7 +8,7 @@ Kopia allows you to save your [encrypted](../features/#end-to-end-zero-knowledge
 
 > PRO TIP: Keep in mind, you pick the storage locations you want to use. Kopia plays no role in selecting your storage locations. This means you must provision, setup, and pay (the storage provider) for whatever storage locations you want to use **before** you create a `repository` for that storage location to Kopia.
 
-* [Amazon S3 and S3-compatible cloud storage](#amazon-s3-and-s3-compatible-cloud-storage)
+* [Amazon S3 and S3-compatible Cloud Storage](#amazon-s3-and-s3-compatible-cloud-storage)
   * Kopia supports all cloud storage platforms that support the S3 API
     * This includes Alibaba Cloud, Amazon Lightsail, Backblaze B2, China Mobile Cloud, Cloudflare R2, Contabo, DigitalOcean Spaces, Dreamhost, Google Cloud Storage, IBM Cloud, IDrive E2, Linode, Mail.ru Cloud, MEGA.io S4, MinIO, Oracle Cloud Infrastructure, OVH, Scaleway, Storj, Synology C2, Tencent Cloud, Vultr, Wasabi, Yandex Cloud, and many other cloud storage platforms
   * Kopia supports object locking and [storage tiers](../advanced/amazon-s3/) for any cloud storage that supports the features using the S3 API
@@ -30,7 +30,7 @@ Kopia allows you to save your [encrypted](../features/#end-to-end-zero-knowledge
 
 > PRO TIP: Many cloud storage providers offer a variety of [storage tiers](../docs/advanced/storage-tiers/) that may (or may not) help decrease your cost of cloud storage, depending on your use case. See the [storage tiers documentation](/docs/advanced/storage-tiers/) to learn the different types of files Kopia stores in repositories and which one of these file types you can possibly move to archive tiers, such as Amazon Deep Glacier.
 
-## Amazon S3 and S3-compatible cloud storage
+## Amazon S3 and S3-compatible Cloud Storage
 
 Creating an Amazon S3 or S3-compatible storage `repository` is done differently depending on if you use Kopia GUI or Kopia CLI.
 
