@@ -115,7 +115,7 @@ After you have created the `repository`, you connect to it using the [`kopia rep
 
 Creating a Backblaze B2 `repository` is done differently depending on if you use Kopia GUI or Kopia CLI.
 
-> NOTE: Currently, object locking is supported for Backblaze B2 but only through Kopia's [S3-compatabile storage `repository`](#amazon-s3-and-s3-compatible-cloud-storage) and not through the Backblaze B2 `repository` option. However, Backblaze B2 is fully S3 compatible, so you can setup your Backblaze B2 account via Kopia's [S3 `repository` option](#amazon-s3-and-s3-compatible-cloud-storage).
+> NOTE: Currently, object locking is supported for Backblaze B2 but only through Kopia's [S3-compatible storage `repository`](#amazon-s3-and-s3-compatible-cloud-storage) and not through the Backblaze B2 `repository` option. However, Backblaze B2 is fully S3 compatible, so you can setup your Backblaze B2 account via Kopia's [S3 `repository` option](#amazon-s3-and-s3-compatible-cloud-storage).
 
 ### Kopia GUI
 
