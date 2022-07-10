@@ -2,7 +2,7 @@
 ---
 title: "Getting Started Guide"
 linkTitle: "Getting Started Guide"
-weight: 3
+weight: 35
 ---
 
 This guide will walk you through installing Kopia and setting up Kopia to backup/restore your data. Make sure to familiarize yourself with Kopia [features](../features/) before following this guide, so that you understand the appropriate terminology. As a reminder:
