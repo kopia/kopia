@@ -131,8 +131,6 @@ func (m *committedManifestManager) writeEntriesLocked(ctx context.Context, entri
 func (m *committedManifestManager) loadCommittedContentsLocked(ctx context.Context) error {
 	m.verifyLocked()
 
-	log(ctx).Debugf("listing manifest contents")
-
 	var (
 		mu        sync.Mutex
 		manifests map[content.ID]manifest
@@ -302,8 +300,6 @@ func (m *committedManifestManager) ensureInitializedLocked(ctx context.Context) 
 
 		return nil
 	}
-
-	log(ctx).Debugf("reloading committed manifest contents: rev=%v last=%v", rev, m.lastRevision)
 
 	if err := m.loadCommittedContentsLocked(ctx); err != nil {
 		return err

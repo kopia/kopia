@@ -885,7 +885,7 @@ func (w *mockLogger) Write(p []byte) (int, error) {
 
 func (w *mockLogger) ignore(la loggedAction) bool {
 	switch {
-	case strings.HasPrefix(la.msg, "Uploading ") && strings.Contains(la.msg, " with parallelism"):
+	case strings.HasPrefix(la.msg, "uploading"):
 		return true
 	default:
 		return false

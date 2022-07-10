@@ -3,6 +3,7 @@ package logging
 
 import (
 	"context"
+	"errors"
 	"sync/atomic"
 
 	"go.opentelemetry.io/otel"
@@ -29,9 +30,9 @@ func (s *loggingStorage) beginConcurrency() {
 	v := atomic.AddInt32(&s.concurrency, 1)
 
 	if mv := atomic.LoadInt32(&s.maxConcurrency); v > mv {
-		if atomic.CompareAndSwapInt32(&s.maxConcurrency, mv, v) {
+		if atomic.CompareAndSwapInt32(&s.maxConcurrency, mv, v) && v > 0 {
 			s.logger.Debugw(s.prefix+"concurrency level reached",
-				"maxConcurrency", mv)
+				"maxConcurrency", v)
 		}
 	}
 }
@@ -56,7 +57,7 @@ func (s *loggingStorage) GetBlob(ctx context.Context, id blob.ID, offset, length
 		"offset", offset,
 		"length", length,
 		"outputLength", output.Length(),
-		"error", err,
+		"error", s.translateError(err),
 		"duration", dt,
 	)
 
@@ -75,7 +76,7 @@ func (s *loggingStorage) GetCapacity(ctx context.Context) (blob.Capacity, error)
 	s.logger.Debugw(s.prefix+"GetCapacity",
 		"sizeBytes", c.SizeB,
 		"freeBytes", c.FreeB,
-		"error", err,
+		"error", s.translateError(err),
 		"duration", dt,
 	)
 
@@ -97,7 +98,7 @@ func (s *loggingStorage) GetMetadata(ctx context.Context, id blob.ID) (blob.Meta
 	s.logger.Debugw(s.prefix+"GetMetadata",
 		"blobID", id,
 		"result", result,
-		"error", err,
+		"error", s.translateError(err),
 		"duration", dt,
 	)
 
@@ -119,7 +120,7 @@ func (s *loggingStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Byte
 	s.logger.Debugw(s.prefix+"PutBlob",
 		"blobID", id,
 		"length", data.Length(),
-		"error", err,
+		"error", s.translateError(err),
 		"duration", dt,
 	)
 
@@ -140,7 +141,7 @@ func (s *loggingStorage) DeleteBlob(ctx context.Context, id blob.ID) error {
 
 	s.logger.Debugw(s.prefix+"DeleteBlob",
 		"blobID", id,
-		"error", err,
+		"error", s.translateError(err),
 		"duration", dt,
 	)
 	// nolint:wrapcheck
@@ -165,7 +166,7 @@ func (s *loggingStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback
 	s.logger.Debugw(s.prefix+"ListBlobs",
 		"prefix", prefix,
 		"resultCount", cnt,
-		"error", err,
+		"error", s.translateError(err),
 		"duration", dt,
 	)
 
@@ -182,7 +183,7 @@ func (s *loggingStorage) Close(ctx context.Context) error {
 	dt := timer.Elapsed()
 
 	s.logger.Debugw(s.prefix+"Close",
-		"error", err,
+		"error", s.translateError(err),
 		"duration", dt,
 	)
 
@@ -204,11 +205,23 @@ func (s *loggingStorage) FlushCaches(ctx context.Context) error {
 	dt := timer.Elapsed()
 
 	s.logger.Debugw(s.prefix+"FlushCaches",
-		"error", err,
+		"error", s.translateError(err),
 		"duration", dt,
 	)
 
 	// nolint:wrapcheck
+	return err
+}
+
+func (s *loggingStorage) translateError(err error) interface{} {
+	if err == nil {
+		return nil
+	}
+
+	if errors.Is(err, blob.ErrBlobNotFound) {
+		return err.Error()
+	}
+
 	return err
 }
 

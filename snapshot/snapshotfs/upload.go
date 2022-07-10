@@ -173,8 +173,6 @@ func (u *Uploader) uploadFileInternal(ctx context.Context, parentCheckpointRegis
 	parts := make([]*snapshot.DirEntry, fullParts+1)
 	partErrors := make([]error, fullParts+1)
 
-	uploadLog(ctx).Debugf("performing chunked upload for %v (%v parts)", relativePath, len(parts))
-
 	var wg workshare.AsyncGroup
 	defer wg.Close()
 
@@ -1189,7 +1187,7 @@ func (u *Uploader) Upload(
 
 	parallel := u.effectiveParallelFileReads(policyTree.EffectivePolicy())
 
-	uploadLog(ctx).Debugf("Uploading %v with parallelism %v", sourceInfo, parallel)
+	uploadLog(ctx).Debugw("uploading", "source", sourceInfo, "previousManifests", len(previousManifests), "parallel", parallel)
 
 	s := &snapshot.Manifest{
 		Source: sourceInfo,

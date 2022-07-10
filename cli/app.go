@@ -17,7 +17,6 @@ import (
 
 	"github.com/kopia/kopia/internal/apiclient"
 	"github.com/kopia/kopia/internal/gather"
-	"github.com/kopia/kopia/internal/memtrack"
 	"github.com/kopia/kopia/internal/passwordpersist"
 	"github.com/kopia/kopia/internal/releasable"
 	"github.com/kopia/kopia/repo"
@@ -112,7 +111,6 @@ type App struct {
 	// global flags
 	enableAutomaticMaintenance    bool
 	pf                            profileFlags
-	mt                            memoryTracker
 	progress                      *cliProgress
 	initialUpdateCheckDelay       time.Duration
 	updateCheckInterval           time.Duration
@@ -123,6 +121,7 @@ type App struct {
 	keyRingEnabled                bool
 	persistCredentials            bool
 	disableInternalLog            bool
+	dumpAllocatorStats            bool
 	AdvancedCommands              string
 	cliStorageProviders           []StorageProvider
 	trackReleasable               []string
@@ -243,6 +242,7 @@ func (c *App) setup(app *kingpin.Application) {
 	app.Flag("disable-internal-log", "Disable internal log").Hidden().Envar(c.EnvName("KOPIA_DISABLE_INTERNAL_LOG")).BoolVar(&c.disableInternalLog)
 	app.Flag("advanced-commands", "Enable advanced (and potentially dangerous) commands.").Hidden().Envar(c.EnvName("KOPIA_ADVANCED_COMMANDS")).StringVar(&c.AdvancedCommands)
 	app.Flag("track-releasable", "Enable tracking of releasable resources.").Hidden().Envar(c.EnvName("KOPIA_TRACK_RELEASABLE")).StringsVar(&c.trackReleasable)
+	app.Flag("dump-allocator-stats", "Dump allocator stats at the end of execution.").Hidden().Envar(c.EnvName("KOPIA_DUMP_ALLOCATOR_STATS")).BoolVar(&c.dumpAllocatorStats)
 
 	c.observability.setup(c, app)
 
@@ -256,7 +256,6 @@ func (c *App) setup(app *kingpin.Application) {
 		deprecatedFlag(c.stderrWriter, "The '--list-caching' flag is deprecated and has no effect, use 'kopia cache set' instead."),
 	).Bool()
 
-	c.mt.setup(app)
 	c.pf.setup(app)
 	c.progress.setup(c, app)
 
@@ -491,12 +490,11 @@ type repositoryAccessMode struct {
 
 func (c *App) baseActionWithContext(act func(ctx context.Context) error) func(ctx *kingpin.ParseContext) error {
 	return func(kpc *kingpin.ParseContext) error {
-		return c.runAppWithContext(kpc.SelectedCommand, func(ctx0 context.Context) error {
+		return c.runAppWithContext(kpc.SelectedCommand, func(ctx context.Context) error {
 			return c.pf.withProfiling(func() error {
-				ctx, finishMemoryTracking := c.mt.startMemoryTracking(ctx0)
-				defer finishMemoryTracking()
-
-				defer gather.DumpStats(ctx)
+				if c.dumpAllocatorStats {
+					defer gather.DumpStats(ctx)
+				}
 
 				return act(ctx)
 			})
@@ -506,11 +504,7 @@ func (c *App) baseActionWithContext(act func(ctx context.Context) error) func(ct
 
 func (c *App) maybeRepositoryAction(act func(ctx context.Context, rep repo.Repository) error, mode repositoryAccessMode) func(ctx *kingpin.ParseContext) error {
 	return c.baseActionWithContext(func(ctx context.Context) error {
-		memtrack.Dump(ctx, "before openRepository")
-
 		rep, err := c.openRepository(ctx, mode.mustBeConnected)
-
-		memtrack.Dump(ctx, "after openRepository")
 		if err != nil && mode.mustBeConnected {
 			return errors.Wrap(err, "open repository")
 		}
@@ -518,23 +512,15 @@ func (c *App) maybeRepositoryAction(act func(ctx context.Context, rep repo.Repos
 		err = act(ctx, rep)
 
 		if rep != nil && !mode.disableMaintenance {
-			memtrack.Dump(ctx, "before auto maintenance")
-
 			if merr := c.maybeRunMaintenance(ctx, rep); merr != nil {
 				log(ctx).Errorf("error running maintenance: %v", merr)
 			}
-
-			memtrack.Dump(ctx, "after auto maintenance")
 		}
 
 		if rep != nil && mode.mustBeConnected {
-			memtrack.Dump(ctx, "before close repository")
-
 			if cerr := rep.Close(ctx); cerr != nil {
 				return errors.Wrap(cerr, "unable to close repository")
 			}
-
-			memtrack.Dump(ctx, "after close repository")
 		}
 
 		return err
