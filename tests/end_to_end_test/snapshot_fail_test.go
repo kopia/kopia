@@ -41,7 +41,7 @@ func TestSnapshotFail_Default(t *testing.T) {
 
 func TestSnapshotFail_EnvOverride(t *testing.T) {
 	t.Parallel()
-	testSnapshotFail(t, true, nil, []string{"KOPIA_SNAPSHOT_FAIL_FAST=true"})
+	testSnapshotFail(t, true, nil, map[string]string{"KOPIA_SNAPSHOT_FAIL_FAST": "true"})
 }
 
 func TestSnapshotFail_NoFailFast(t *testing.T) {
@@ -70,7 +70,7 @@ func cond(c bool, a, b int) int {
 }
 
 // nolint:thelper,cyclop
-func testSnapshotFail(t *testing.T, isFailFast bool, snapshotCreateFlags, snapshotCreateEnv []string) {
+func testSnapshotFail(t *testing.T, isFailFast bool, snapshotCreateFlags []string, snapshotCreateEnv map[string]string) {
 	if runtime.GOOS == windowsOSName {
 		t.Skip("this test does not work on Windows")
 	}
@@ -240,7 +240,7 @@ func testSnapshotFail(t *testing.T, isFailFast bool, snapshotCreateFlags, snapsh
 				t.Run(tname, func(t *testing.T) {
 					t.Parallel()
 
-					runner := testenv.NewExeRunner(t)
+					runner := testenv.NewInProcRunner(t)
 					e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
 
 					defer e.RunAndExpectSuccess(t, "repo", "disconnect")
@@ -260,7 +260,7 @@ func testSnapshotFail(t *testing.T, isFailFast bool, snapshotCreateFlags, snapsh
 
 					e.RunAndExpectSuccess(t, "policy", "set", snapSource, "--ignore-dir-errors", tcIgnoreDirErr, "--ignore-file-errors", tcIgnoreFileErr)
 					restoreDir := fmt.Sprintf("%s%d_%v_%v", restoreDirPrefix, tcIdx, tcIgnoreDirErr, tcIgnoreFileErr)
-					testPermissions(t, runner, e, snapSource, modifyEntry, restoreDir, tc.expectSuccess, snapshotCreateFlags, snapshotCreateEnv)
+					testPermissions(t, e, snapSource, modifyEntry, restoreDir, tc.expectSuccess, snapshotCreateFlags, snapshotCreateEnv)
 
 					e.RunAndExpectSuccess(t, "policy", "remove", snapSource)
 				})
@@ -299,7 +299,7 @@ func createSimplestFileTree(t *testing.T, dirDepth, currDepth int, currPath stri
 // against "source" and will test permissions against all entries in "parentDir".
 // It returns the number of successful snapshot operations.
 // nolint:thelper
-func testPermissions(t *testing.T, runner *testenv.CLIExeRunner, e *testenv.CLITest, source, modifyEntry, restoreDir string, expect map[os.FileMode]expectedSnapshotResult, snapshotCreateFlags, snapshotCreateEnv []string) int {
+func testPermissions(t *testing.T, e *testenv.CLITest, source, modifyEntry, restoreDir string, expect map[os.FileMode]expectedSnapshotResult, snapshotCreateFlags []string, snapshotCreateEnv map[string]string) int {
 	var numSuccessfulSnapshots int
 
 	changeFile, err := os.Stat(modifyEntry)
@@ -323,10 +323,18 @@ func testPermissions(t *testing.T, runner *testenv.CLIExeRunner, e *testenv.CLIT
 			require.NoError(t, err)
 
 			// set up environment for the child process.
-			oldEnv := runner.Environment
-			runner.Environment = append(append([]string{}, runner.Environment...), snapshotCreateEnv...)
+			oldEnv := e.Environment
 
-			defer func() { runner.Environment = oldEnv }()
+			e.Environment = map[string]string{}
+			for k, v := range oldEnv {
+				e.Environment[k] = v
+			}
+
+			for k, v := range snapshotCreateEnv {
+				e.Environment[k] = v
+			}
+
+			defer func() { e.Environment = oldEnv }()
 
 			snapshotCreateWithArgs := append([]string{"snapshot", "create", source}, snapshotCreateFlags...)
 

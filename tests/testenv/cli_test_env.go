@@ -27,7 +27,7 @@ const (
 // CLIRunner encapsulates running kopia subcommands for testing purposes.
 // It supports implementations that use subprocesses or in-process invocations.
 type CLIRunner interface {
-	Start(t *testing.T, args []string) (stdout, stderr io.Reader, wait func() error, kill func())
+	Start(t *testing.T, args []string, env map[string]string) (stdout, stderr io.Reader, wait func() error, kill func())
 }
 
 // CLITest encapsulates state for a CLI-based test.
@@ -39,7 +39,8 @@ type CLITest struct {
 
 	Runner CLIRunner
 
-	fixedArgs []string
+	fixedArgs   []string
+	Environment map[string]string
 
 	DefaultRepositoryCreateFlags []string
 }
@@ -86,7 +87,10 @@ func NewCLITest(t *testing.T, repoCreateFlags []string, runner CLIRunner) *CLITe
 		ConfigDir:                    configDir,
 		fixedArgs:                    fixedArgs,
 		DefaultRepositoryCreateFlags: formatFlags,
-		Runner:                       runner,
+		Environment: map[string]string{
+			"KOPIA_PASSWORD": TestRepoPassword,
+		},
+		Runner: runner,
 	}
 }
 
@@ -106,7 +110,7 @@ func (e *CLITest) RunAndExpectSuccess(t *testing.T, args ...string) []string {
 func (e *CLITest) RunAndProcessStderr(t *testing.T, callback func(line string) bool, args ...string) (wait func() error, kill func()) {
 	t.Helper()
 
-	stdout, stderr, wait, kill := e.Runner.Start(t, e.cmdArgs(args))
+	stdout, stderr, wait, kill := e.Runner.Start(t, e.cmdArgs(args), e.Environment)
 	go io.Copy(io.Discard, stdout)
 
 	scanner := bufio.NewScanner(stderr)
@@ -179,11 +183,11 @@ func (e *CLITest) Run(t *testing.T, expectedError bool, args ...string) (stdout,
 	t.Helper()
 
 	args = e.cmdArgs(args)
-	t.Logf("running 'kopia %v'", strings.Join(args, " "))
+	t.Logf("running 'kopia %v' with %v", strings.Join(args, " "), e.Environment)
 
 	timer := timetrack.StartTimer()
 
-	stdoutReader, stderrReader, wait, _ := e.Runner.Start(t, args)
+	stdoutReader, stderrReader, wait, _ := e.Runner.Start(t, args, e.Environment)
 
 	var wg sync.WaitGroup
 

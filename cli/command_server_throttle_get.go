@@ -17,7 +17,7 @@ type commandServerThrottleGet struct {
 
 func (c *commandServerThrottleGet) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("get", "Get throttling parameters for a running server")
-	c.sf.setup(cmd)
+	c.sf.setup(svc, cmd)
 	c.ctg.setup(svc, cmd)
 	cmd.Action(svc.serverAction(&c.sf, c.run))
 }

@@ -16,7 +16,7 @@ type commandRepositoryChangePassword struct {
 
 func (c *commandRepositoryChangePassword) setup(svc advancedAppServices, parent commandParent) {
 	cmd := parent.Command("change-password", "Change repository password")
-	cmd.Flag("new-password", "New password").Envar("KOPIA_NEW_PASSWORD").StringVar(&c.newPassword)
+	cmd.Flag("new-password", "New password").Envar(svc.EnvName("KOPIA_NEW_PASSWORD")).StringVar(&c.newPassword)
 
 	c.svc = svc
 	cmd.Action(svc.directRepositoryWriteAction(c.run))

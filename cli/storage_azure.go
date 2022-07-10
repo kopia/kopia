@@ -13,12 +13,12 @@ type storageAzureFlags struct {
 	azOptions azure.Options
 }
 
-func (c *storageAzureFlags) Setup(_ StorageProviderServices, cmd *kingpin.CmdClause) {
+func (c *storageAzureFlags) Setup(svc StorageProviderServices, cmd *kingpin.CmdClause) {
 	cmd.Flag("container", "Name of the Azure blob container").Required().StringVar(&c.azOptions.Container)
-	cmd.Flag("storage-account", "Azure storage account name (overrides AZURE_STORAGE_ACCOUNT environment variable)").Required().Envar("AZURE_STORAGE_ACCOUNT").StringVar(&c.azOptions.StorageAccount)
-	cmd.Flag("storage-key", "Azure storage account key (overrides AZURE_STORAGE_KEY environment variable)").Envar("AZURE_STORAGE_KEY").StringVar(&c.azOptions.StorageKey)
-	cmd.Flag("storage-domain", "Azure storage domain").Envar("AZURE_STORAGE_DOMAIN").StringVar(&c.azOptions.StorageDomain)
-	cmd.Flag("sas-token", "Azure SAS Token").Envar("AZURE_STORAGE_SAS_TOKEN").StringVar(&c.azOptions.SASToken)
+	cmd.Flag("storage-account", "Azure storage account name (overrides AZURE_STORAGE_ACCOUNT environment variable)").Required().Envar(svc.EnvName("AZURE_STORAGE_ACCOUNT")).StringVar(&c.azOptions.StorageAccount)
+	cmd.Flag("storage-key", "Azure storage account key (overrides AZURE_STORAGE_KEY environment variable)").Envar(svc.EnvName("AZURE_STORAGE_KEY")).StringVar(&c.azOptions.StorageKey)
+	cmd.Flag("storage-domain", "Azure storage domain").Envar(svc.EnvName("AZURE_STORAGE_DOMAIN")).StringVar(&c.azOptions.StorageDomain)
+	cmd.Flag("sas-token", "Azure SAS Token").Envar(svc.EnvName("AZURE_STORAGE_SAS_TOKEN")).StringVar(&c.azOptions.SASToken)
 	cmd.Flag("prefix", "Prefix to use for objects in the bucket").StringVar(&c.azOptions.Prefix)
 
 	commonThrottlingFlags(cmd, &c.azOptions.Limits)

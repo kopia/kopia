@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/kopia/kopia/internal/testutil"
@@ -14,21 +13,24 @@ import (
 // CLIExeRunner is a CLIExeRunner that invokes the commands via external executable.
 type CLIExeRunner struct {
 	Exe               string
-	Environment       []string
 	PassthroughStderr bool      // this is for debugging only
 	NextCommandStdin  io.Reader // this is used for stdin source tests
 	LogsDir           string
 }
 
 // Start implements CLIRunner.
-func (e *CLIExeRunner) Start(t *testing.T, args []string) (stdout, stderr io.Reader, wait func() error, kill func()) {
+func (e *CLIExeRunner) Start(t *testing.T, args []string, env map[string]string) (stdout, stderr io.Reader, wait func() error, kill func()) {
 	t.Helper()
 
 	c := exec.Command(e.Exe, append([]string{
 		"--log-dir", e.LogsDir,
 	}, args...)...)
 
-	c.Env = append(os.Environ(), e.Environment...)
+	c.Env = append(c.Env, os.Environ()...)
+
+	for k, v := range env {
+		c.Env = append(c.Env, k+"="+v)
+	}
 
 	stdoutPipe, err := c.StdoutPipe()
 	if err != nil {
@@ -50,19 +52,6 @@ func (e *CLIExeRunner) Start(t *testing.T, args []string) (stdout, stderr io.Rea
 	return stdoutPipe, stderrPipe, c.Wait, func() {
 		c.Process.Kill()
 	}
-}
-
-// RemoveDefaultPassword prevents KOPIA_PASSWORD from being passed to kopia.
-func (e *CLIExeRunner) RemoveDefaultPassword() {
-	var newEnv []string
-
-	for _, s := range e.Environment {
-		if !strings.HasPrefix(s, "KOPIA_PASSWORD=") {
-			newEnv = append(newEnv, s)
-		}
-	}
-
-	e.Environment = newEnv
 }
 
 // NewExeRunner returns a CLIRunner that will execute kopia commands by launching subprocesses
@@ -96,11 +85,7 @@ func NewExeRunnerWithBinary(t *testing.T, exe string) *CLIExeRunner {
 	logsDir := testutil.TempLogDirectory(t)
 
 	return &CLIExeRunner{
-		Exe: filepath.FromSlash(exe),
-		Environment: []string{
-			"KOPIA_PASSWORD=" + TestRepoPassword,
-			"KOPIA_ADVANCED_COMMANDS=enabled",
-		},
+		Exe:     filepath.FromSlash(exe),
 		LogsDir: logsDir,
 	}
 }

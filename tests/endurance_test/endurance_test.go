@@ -77,7 +77,7 @@ func TestEndurance(t *testing.T) {
 	ft := httptest.NewServer(fts)
 	defer ft.Close()
 
-	runner.Environment = append(runner.Environment, "KOPIA_FAKE_CLOCK_ENDPOINT="+ft.URL)
+	e.Environment["KOPIA_FAKE_CLOCK_ENDPOINT"] = ft.URL
 
 	sts := httptest.NewServer(&webdav.Handler{
 		FileSystem: webdavDirWithFakeClock{webdav.Dir(tmpDir), fts},
@@ -267,10 +267,8 @@ func enduranceRunner(t *testing.T, runnerID int, fakeTimeServer, webdavServer st
 	runner := testenv.NewExeRunner(t)
 	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
 
-	runner.Environment = append(runner.Environment,
-		"KOPIA_FAKE_CLOCK_ENDPOINT="+fakeTimeServer,
-		"KOPIA_CHECK_FOR_UPDATES=false",
-	)
+	e.Environment["KOPIA_FAKE_CLOCK_ENDPOINT"] = fakeTimeServer
+	e.Environment["KOPIA_CHECK_FOR_UPDATES"] = "false"
 
 	e.RunAndExpectSuccess(t, "repo", "connect", "webdav", "--url", webdavServer, "--override-username="+fmt.Sprintf("runner-%v", runnerID))
 

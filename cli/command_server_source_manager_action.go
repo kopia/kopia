@@ -28,7 +28,7 @@ func (c *commandServerSourceManagerAction) setup(svc appServices, cmd *kingpin.C
 	cmd.Flag("all", "All paths managed by server").BoolVar(&c.all)
 	cmd.Arg("source", "Source path managed by server").StringVar(&c.source)
 
-	c.sf.setup(cmd)
+	c.sf.setup(svc, cmd)
 	c.out.setup(svc)
 }
 

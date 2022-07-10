@@ -158,7 +158,7 @@ func verifyGitHubReleaseIsComplete(ctx context.Context, releaseName string) erro
 }
 
 func (c *App) maybeCheckForUpdates(ctx context.Context) (string, error) {
-	if v := os.Getenv(checkForUpdatesEnvar); v != "" {
+	if v := os.Getenv(c.EnvName(checkForUpdatesEnvar)); v != "" {
 		// see if environment variable is set to false.
 		if b, err := strconv.ParseBool(v); err == nil && !b {
 			return "", errors.Errorf("update check disabled")

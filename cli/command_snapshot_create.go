@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -58,7 +57,7 @@ func (c *commandSnapshotCreate) setup(svc appServices, parent commandParent) {
 	cmd.Flag("upload-limit-mb", "Stop the backup process after the specified amount of data (in MB) has been uploaded.").PlaceHolder("MB").Default("0").Int64Var(&c.snapshotCreateCheckpointUploadLimitMB)
 	cmd.Flag("checkpoint-interval", "Frequency for creating periodic checkpoint.").DurationVar(&c.snapshotCreateCheckpointInterval)
 	cmd.Flag("description", "Free-form snapshot description.").StringVar(&c.snapshotCreateDescription)
-	cmd.Flag("fail-fast", "Fail fast when creating snapshot.").Envar("KOPIA_SNAPSHOT_FAIL_FAST").BoolVar(&c.snapshotCreateFailFast)
+	cmd.Flag("fail-fast", "Fail fast when creating snapshot.").Envar(svc.EnvName("KOPIA_SNAPSHOT_FAIL_FAST")).BoolVar(&c.snapshotCreateFailFast)
 	cmd.Flag("force-hash", "Force hashing of source files for a given percentage of files [0.0 .. 100.0]").Default("0").Float64Var(&c.snapshotCreateForceHash)
 	cmd.Flag("parallel", "Upload N files in parallel").PlaceHolder("N").Default("0").IntVar(&c.snapshotCreateParallelUploads)
 	cmd.Flag("start-time", "Override snapshot start timestamp.").StringVar(&c.snapshotCreateStartTime)
@@ -234,7 +233,7 @@ func (c *commandSnapshotCreate) setupUploader(rep repo.RepositoryWriter) *snapsh
 		u.CheckpointInterval = interval
 	}
 
-	onCtrlC(u.Cancel)
+	c.svc.onCtrlC(u.Cancel)
 
 	u.ForceHashPercentage = c.snapshotCreateForceHash
 	u.ParallelUploads = c.snapshotCreateParallelUploads
@@ -274,7 +273,7 @@ func (c *commandSnapshotCreate) snapshotSingleSource(ctx context.Context, rep re
 		// stdin source will be snapshotted using a virtual static root directory with a single streaming file entry
 		// Create a new static directory with the given name and add a streaming file entry with os.Stdin reader
 		fsEntry = virtualfs.NewStaticDirectory(sourceInfo.Path, []fs.Entry{
-			virtualfs.StreamingFileFromReader(c.snapshotCreateStdinFileName, os.Stdin),
+			virtualfs.StreamingFileFromReader(c.snapshotCreateStdinFileName, c.svc.stdin()),
 		})
 		setManual = true
 	} else {

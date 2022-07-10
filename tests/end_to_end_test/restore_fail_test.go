@@ -31,7 +31,7 @@ import (
 func TestRestoreFail(t *testing.T) {
 	t.Parallel()
 
-	runner := testenv.NewExeRunner(t)
+	runner := testenv.NewInProcRunner(t)
 	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
 
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
