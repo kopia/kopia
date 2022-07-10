@@ -6,7 +6,7 @@ weight: 20
 
 Kopia allows you to save your [encrypted](../features/#end-to-end-zero-knowledge-encryption) snapshots (i.e., your [backups](../faqs/#what-is-a-snapshot)) to a variety of storage locations, and in Kopia a storage location is called a `repository`. Kopia supports all of the following storage locations:
 
-> PRO TIP: Keep in mind, you pick the storage locations you want to use. Kopia plays no role in selecting your storage locations. This means you must provision, setup, and pay (the storage provider) for whatever storage locations you want to use **before** you create a `repository` for that storage location to Kopia.
+> PRO TIP: You pick the storage locations you want to use. Kopia plays no role in selecting your storage locations. This means you must provision, setup, and pay (the storage provider) for whatever storage locations you want to use **before** you create a `repository` for that storage location in Kopia.
 
 * [Amazon S3 and S3-compatible Cloud Storage](#amazon-s3-and-s3-compatible-cloud-storage)
   * Kopia supports all cloud storage platforms that support the S3 API
