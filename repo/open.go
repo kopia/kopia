@@ -555,7 +555,9 @@ func readAndCacheRepositoryBlobBytes(ctx context.Context, st blob.Storage, cache
 			return data, cacheMTime, nil
 		}
 
-		log(ctx).Debugf("%s could not be fetched from cache: %v", blobID, err)
+		if os.IsNotExist(err) {
+			log(ctx).Debugf("%s could not be fetched from cache: %v", blobID, err)
+		}
 	} else {
 		log(ctx).Debugf("%s cache not enabled", blobID)
 	}

@@ -281,8 +281,6 @@ func applicablePoliciesForSource(ctx context.Context, rep repo.Repository, si sn
 		return nil, errors.Wrapf(err, "unable to find manifests for %v@%v", si.UserName, si.Host)
 	}
 
-	log(ctx).Debugf("found %v policies for %v@%v", len(policies), si.UserName, si.Host)
-
 	for _, id := range policies {
 		pol := &Policy{}
 
@@ -295,12 +293,11 @@ func applicablePoliciesForSource(ctx context.Context, rep repo.Repository, si sn
 
 		rel := nestedRelativePathNormalizedToSlashes(si.Path, policyPath)
 		if rel == "" {
-			log(ctx).Debugf("%v is not under %v", policyPath, si.Path)
 			continue
 		}
 
 		rel = "./" + rel
-		log(ctx).Debugf("loading policy for %v (%v)", policyPath, rel)
+		log(ctx).Debugw("found applicable child policy", "target", si, "policyPath", policyPath, "rel", rel)
 
 		result[rel] = pol
 	}
