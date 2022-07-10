@@ -19,12 +19,18 @@ func TestCacheSet(t *testing.T) {
 	env.RunAndExpectFailure(t, "cache", "set")
 
 	ncd := testutil.TempDirectory(t)
+
+	env.RunAndExpectSuccess(t,
+		"cache", "set",
+		"--cache-directory", ncd,
+		"--max-list-cache-duration=55s",
+	)
+
 	env.RunAndExpectSuccess(t,
 		"cache", "set",
 		"--cache-directory", ncd,
 		"--content-cache-size-mb=33",
 		"--metadata-cache-size-mb=44",
-		"--max-list-cache-duration=55s",
 	)
 
 	out := env.RunAndExpectSuccess(t, "cache", "info")
