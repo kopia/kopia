@@ -371,7 +371,7 @@ After you have created the `repository`, you connect to it using the [`kopia rep
 
 Before you can create an Rclone `repository` in Kopia, you first need to download/install Rclone and setup what is called an Rclone `remote` for the cloud storage you want to use. Do the following:
 
-1. Download Rclone from [the Rclone website](https://rclone.org/); it is a single executable like Kopia, so you do not need to install it but do remember the path on your machine that you save the Rclone executable file because you will need to know it when setting up your `repository` in Kopia
+1. Download Rclone from [the Rclone website](https://rclone.org/); it is a single executable like Kopia, so you do not need to install it but do remember the path on your machine where you save the Rclone executable file because you will need to know it when setting up your `repository` in Kopia
 2. Configure Rclone to setup a `remote` to the storage provider you want to use Kopia with; see [Rclone help docs](https://rclone.org/docs/) to understand how to do that
 
 ### Kopia GUI
