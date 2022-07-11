@@ -2,6 +2,7 @@ package index
 
 import (
 	"container/heap"
+	"sync"
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -106,10 +107,11 @@ func (h *nextInfoHeap) Pop() interface{} {
 	return x
 }
 
-func iterateChan(r IDRange, ndx Index, done chan bool) <-chan Info {
+func iterateChan(r IDRange, ndx Index, done chan bool, wg *sync.WaitGroup) <-chan Info {
 	ch := make(chan Info, 1)
 
 	go func() {
+		defer wg.Done()
 		defer close(ch)
 
 		_ = ndx.Iterate(r, func(i Info) error {
@@ -132,16 +134,23 @@ func (m Merged) Iterate(r IDRange, cb func(i Info) error) error {
 
 	done := make(chan bool)
 
-	defer close(done)
+	wg := &sync.WaitGroup{}
 
 	for _, ndx := range m {
-		ch := iterateChan(r, ndx, done)
+		wg.Add(1)
+
+		ch := iterateChan(r, ndx, done, wg)
 
 		it, ok := <-ch
 		if ok {
 			heap.Push(&minHeap, &nextInfo{it, ch})
 		}
 	}
+
+	// make sure all iterateChan() complete before we return, otherwise they may be trying to reference
+	// index structures that have been closed.
+	defer wg.Wait()
+	defer close(done)
 
 	var pendingItem Info
 
