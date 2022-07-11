@@ -295,6 +295,13 @@ func TestPersistentLRUCacheNil(t *testing.T) {
 	pc.Close(ctx)
 	pc.Put(ctx, "key", gather.FromSlice([]byte{1, 2, 3}))
 
+	m1 := pc.GetFetchingMutex("dummy")
+	m2 := pc.GetFetchingMutex("dummy")
+
+	require.NotNil(t, m1)
+	require.NotNil(t, m2)
+	require.NotSame(t, m1, m2)
+
 	var tmp gather.WriteBuffer
 
 	require.False(t, pc.GetFull(ctx, "key", &tmp))
