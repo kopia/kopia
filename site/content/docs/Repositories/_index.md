@@ -23,7 +23,7 @@ Kopia allows you to save your [encrypted](../features/#end-to-end-zero-knowledge
 * Some of the cloud storages supported by [Rclone](#rclone) 
   * Rclone is a (free and open-source) third-party program that you must download and setup seperately before you can use it with Kopia
   * Once you setup Rclone, Kopia automatically manages and runs Rclone for you, so you do not need to do much beyond the initial setup, aside from enabling Rclone's self-update feature so that it stays up-to-date
-  * Kopia's Rclone support is experimental: not all the cloud storage supported by Rclone has been tested to work with Kopia, and some may not work with Kopia; Kopia has been tested to work with [Dropbox](#rclone), [OneDrive](#rclone), and [Google Drive](#rclone) through Rclone
+  * Kopia's Rclone support is experimental: not all the cloud storages supported by Rclone have been tested to work with Kopia, and some may not work with Kopia; Kopia has been tested to work with [Dropbox](#rclone), [OneDrive](#rclone), and [Google Drive](#rclone) through Rclone
 * Your local machine and any network-attached storage or server 
 * Your own remote server by setting up a [Kopia Repository Server](../repository-server/)
 
