@@ -161,6 +161,8 @@ func (c *loggingFlags) setupConsoleCore() zapcore.Core {
 			timeFormat = "15:04:05.000"
 			ec.EncodeTime = zaplogutil.TimezoneAdjust(zapcore.TimeEncoderOfLayout(timeFormat), true)
 		}
+	} else {
+		timeFormat = ""
 	}
 
 	stec := zaplogutil.StdConsoleEncoderConfig{

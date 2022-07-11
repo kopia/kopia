@@ -75,12 +75,13 @@ func TestLoggingFlags(t *testing.T) {
 
 		if strings.Contains(l, "DEBUG") {
 			require.NotContains(t, l, "\x1b[35mDEBUG")
-		}
 
-		// make sure each line is NOT prefixed with a timestamp.
-		_, perr := time.Parse("15:04:05.000 ", strings.Split(l, " ")[0])
-		require.Error(t, perr)
+			// make sure each line is NOT prefixed with a timestamp.
+			require.True(t, strings.HasPrefix(l, "DEBUG "))
+		}
 	}
+
+	require.Greater(t, len(stderr), 0)
 
 	// run command with --log-level=warning so no log error is produced on the console
 	_, stderr, err = env.Run(t, false, "snap", "create", dir1,
