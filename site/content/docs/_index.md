@@ -15,16 +15,15 @@ When ready, head to the [installation](installation/) page to download and insta
 
 Kopia supports saving your [encrypted](features/#end-to-end-zero-knowledge-encryption) and [compressed](features/#compression) snapshots to all of the following [storage locations](features/#save-snapshots-to-cloud-network-or-local-storage):
 
-* Amazon S3 and any cloud storage that is compatible with S3
-  * Including Alibaba Cloud, Amazon Lightsail, Backblaze B2, China Mobile Cloud, Cloudflare R2, Contabo, DigitalOcean Spaces, Dreamhost, Google Cloud Storage, IBM Cloud, IDrive E2, Linode, Mail.ru Cloud, MEGA.io S4, MinIO, Oracle Cloud Infrastructure, OVH, Scaleway, Storj, Synology C2, Tencent Cloud, Vultr, Wasabi, Yandex Cloud, and many more!
-* Azure Blob Storage
-* Backblaze B2
-* Google Cloud Storage
-* Any remote server or cloud storage that supports WebDAV
-* Any remote server or cloud storage that supports SFTP
-* Dropbox, OneDrive, Google Drive, and all cloud storage supported by Rclone
+* **Amazon S3** and any **cloud storage that is compatible with S3**
+* **Azure Blob Storage**
+* **Backblaze B2**
+* **Google Cloud Storage**
+* Any remote server or cloud storage that supports **WebDAV**
+* Any remote server or cloud storage that supports **SFTP**
+* Some of the cloud storages supported by **Rclone**
   * Requires you to download and setup Rclone in addition to Kopia, but after that Kopia manages/runs Rclone for you
-  * Rclone support is experimental and all the cloud storage supported by Rclone has not been tested to work with Kopia; Kopia has been tested to work with Dropbox, OneDrive, and Google Drive through Rclone
+  * Rclone support is experimental: all the cloud storages supported by Rclone have not been tested to work with Kopia, and some may not work with Kopia; Kopia has been tested to work with **Dropbox**, **OneDrive**, and **Google Drive** through Rclone
 * Your local machine and any network-attached storage or server
 * Your own server by setting up a [Kopia Repository Server](repository-server/)
 
