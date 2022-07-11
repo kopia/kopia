@@ -1,7 +1,7 @@
 
 ---
 title: "What is Kopia?"
-linkTitle: "Documentation"
+linkTitle: "What is Kopia?"
 weight: 20
 ---
 
@@ -13,18 +13,20 @@ When ready, head to the [installation](installation/) page to download and insta
 
 ### Pick the Cloud Storage Provider You Want
 
-Kopia supports saving your [encrypted](features/#end-to-end-zero-knowledge-encryption) and [compressed](features/#compression) snapshots to all of the following [cloud storage](features/#save-snapshots-to-cloud-network-or-local-storage):
+Kopia supports saving your [encrypted](features/#end-to-end-zero-knowledge-encryption) and [compressed](features/#compression) snapshots to all of the following [storage locations](features/#save-snapshots-to-cloud-network-or-local-storage):
 
-* Amazon S3 and any cloud storage that is compatible with S3 (e.g., Wasabi, IDrive E2, DigitalOcean Spaces, and more)
-* Azure Blob Storage
-* Backblaze B2
-* Google Cloud Storage
-* Any remote server or cloud storage that supports WebDAV
-* Any remote server or cloud storage that supports SFTP
-* All cloud storage supported by Rclone (requires you to download and setup Rclone in addition to Kopia)
-  * Rclone support is experimental and all the cloud storage supported by Rclone has not been tested to work with Kopia; Kopia has been tested to work with Dropbox, OneDrive, and Google Drive through Rclone
+* **Amazon S3** and any **cloud storage that is compatible with S3**
+* **Azure Blob Storage**
+* **Backblaze B2**
+* **Google Cloud Storage**
+* Any remote server or cloud storage that supports **WebDAV**
+* Any remote server or cloud storage that supports **SFTP**
+* Some of the cloud storages supported by **Rclone**
+  * Requires you to download and setup Rclone in addition to Kopia, but after that Kopia manages/runs Rclone for you
+  * Rclone support is experimental: not all the cloud storages supported by Rclone have been tested to work with Kopia, and some may not work with Kopia; Kopia has been tested to work with **Dropbox**, **OneDrive**, and **Google Drive** through Rclone
+* Your local machine and any network-attached storage or server
 * Your own server by setting up a [Kopia Repository Server](repository-server/)
 
-And Kopia uses [data deduplication](features/#backup-files-and-directories-using-snapshots) to save you money!
+And Kopia uses [data deduplication](features/#backup-files-and-directories-using-snapshots) to save you money! Read the [repositories help page](repositories/) for more information on supported storage locations.
 
 With Kopia you’re in full control of where to store your snapshots; you pick the cloud storage you want to use. Kopia plays no role in selecting your storage locations. You must provision and pay (the storage provider) for whatever storage locations you want to use, and then tell Kopia what those storage locations are. The advantage of decoupling the software (i.e., Kopia) from storage is that you can use whatever storage locations you desire -– it makes no difference to Kopia what storage you use. You can even use multiple storage locations if you want to, and Kopia also supports backing up multiple machines to the same storage location.

@@ -1,12 +1,26 @@
 ---
 title: "Features"
 linkTitle: "Features"
-weight: 1
+weight: 10
 ---
 
-### Backup Files and Directories using Snapshots
+* [Backup Files and Directories Using Snapshots](#backup-files-and-directories-using-snapshots)
+* [Policies Control What and How Files/Directories are Saved in Snapshots](#policies-control-what-and-how-filesdirectories-are-saved-in-snapshots)
+* [Save Snapshots to Cloud, Network, or Local Storage](#save-snapshots-to-cloud-network-or-local-storage)
+* [Restore Snapshots Using Multiple Methods](#restore-snapshots-using-multiple-methods)
+* [End-to-End 'Zero Knowledge' Encryption](#end-to-end-zero-knowledge-encryption)
+* [Compression](#compression)
+* [Verifying Backup Validity and Consistency](#verifying-backup-validity-and-consistency)
+* [Recovering Backed Up Data When There is Data Loss](#recovering-backed-up-data-when-there-is-data-loss)
+* [Regular Automatic Maintence of Repositories](#regular-automatic-maintence-of-repositories)
+* [Caching](#caching)
+* [Both Command Line and Graphical User Interfaces](#both-command-line-and-graphical-user-interfaces)
+* [Optional Server Mode with API Support to Centrally Manage Backups of Multiple Machines](#optional-server-mode-with-api-support-to-centrally-manage-backups-of-multiple-machines)
+* [Speed](#speed)
 
-Kopia creates snapshots of the files and directories you designate, then [encrypts](#end-to-end-zero-knowledge-encryption) these snapshots before they leave your computer, and finally uploads these encrypted snapshots to cloud/network/local storage called a [repository](../repositories/). Snapshots are maintained as a set of historical point-in-time records based on policies that you define.
+### Backup Files and Directories Using Snapshots
+
+Kopia creates snapshots of the files and directories you designate, then [encrypts](#end-to-end-zero-knowledge-encryption) these snapshots before they leave your computer, and finally uploads these encrypted snapshots to cloud/network/local storage called a [repository](../repositories/). Snapshots are maintained as a set of historical point-in-time records based on [policies](#policies-control-what-and-how-filesdirectories-are-saved-in-snapshots) that you define.
 
 Kopia uses [content-addressable storage](https://en.wikipedia.org/wiki/Content-addressable%20storage) for snapshots, which has many benefits:
 
@@ -18,7 +32,7 @@ Kopia uses [content-addressable storage](https://en.wikipedia.org/wiki/Content-a
 
 * Multiple users or computers can share the same repository: if different users have the same files, the files are uploaded only once as Kopia deduplicates content across the entire repository.
 
-> NOTE: Kopia allows one password per repository, and there is currently no access control mechanism within repository. If you share a repository with someone else, then you must also share your password with them and they will have access to your data. Therefore, make sure you trust all the other users/computers that you share a repository with!
+> NOTE: Kopia allows one password per repository, and there is currently no access control mechanism when sharing a repository with someone. If you share a repository with someone else, then you must also share your password with them and they will have access to your data. Therefore, make sure you trust all the other users/computers that you share a repository with!
 
 ### Policies Control What and How Files/Directories are Saved in Snapshots
 
@@ -40,15 +54,16 @@ Policies can be applied at multiple different levels:
 
 Kopia performs all its operations locally on your machine, meaning that you do not need to have any dedicated server to run your backups and you can save your snapshots to a variety of storage locations. Kopia supports network and local storage locations, of course, but also many cloud or remote storage locations:
 
-* Amazon S3 and any cloud storage that is compatible with S3 (e.g., Wasabi, IDrive E2, DigitalOcean Spaces, and more)
-* Azure Blob Storage
-* Backblaze B2
-* Google Cloud Storage
-* Any remote server or cloud storage that supports WebDAV
-* Any remote server or cloud storage that supports SFTP
-* All cloud storage supported by Rclone (requires you to download and setup Rclone in addition to Kopia)
-  * Rclone support is experimental and all the cloud storage supported by Rclone has not been tested to work with Kopia; Kopia has been tested to work with Dropbox, OneDrive, and Google Drive through Rclone
-* Your own server by setting up a [Kopia Repository Server](repository-server/)
+* **Amazon S3** and any **cloud storage that is compatible with S3**
+* **Azure Blob Storage**
+* **Backblaze B2**
+* **Google Cloud Storage**
+* Any remote server or cloud storage that supports **WebDAV**
+* Any remote server or cloud storage that supports **SFTP**
+* Some of the cloud storages supported by **Rclone**
+  * Requires you to download and setup Rclone in addition to Kopia, but after that Kopia manages/runs Rclone for you
+  * Rclone support is experimental: not all the cloud storages supported by Rclone have been tested to work with Kopia, and some may not work with Kopia; Kopia has been tested to work with **Dropbox**, **OneDrive**, and **Google Drive** through Rclone
+* Your own server by setting up a [Kopia Repository Server](../repository-server/)
 
 Read the [repositories help page](../repositories/) for more information on supported storage locations. 
 

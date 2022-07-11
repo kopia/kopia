@@ -31,9 +31,18 @@ pygmentsStyle = "tango"
  #images = ["images/project-illustration.png"]
 
 # Top Menu
+[menu]
 [[menu.main]]
-    name = "Download Kopia Now!"
+    name = "Features"
     weight = 1
+    url = "docs/features/"
+[[menu.main]]
+    name = "Getting Started Guide"
+    weight = 2
+    url = "docs/getting-started/"
+[[menu.main]]
+    name = "Download Now"
+    weight = 3
     url = "docs/installation/"
 
 # Configure how URLs look like per section.
@@ -62,7 +71,7 @@ anchor = "smart"
 [languages]
 [languages.en]
 title = "Kopia"
-description = "Fast And Secure Open Source Backup"
+description = "Fast and Secure Open-Source Backup Software for Windows, Mac, and Linux"
 languageName ="English"
 weight = 1
 
@@ -81,7 +90,7 @@ github_repo = "https://github.com/kopia/kopia"
 # Enable to show the side bar menu in its compact state.
 sidebar_menu_compact = true
 #  Set to true to disable breadcrumb navigation.
-breadcrumb_disable = false
+breadcrumb_disable = true
 
 # Adds a H2 section titled "Feedback" to the bottom of each doc. The responses are sent to Google Analytics as events.
 # This feature depends on [services.googleAnalytics] and will be disabled if "services.googleAnalytics.id" is not set.
