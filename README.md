@@ -33,7 +33,7 @@ Kopia supports saving your [encrypted](https://kopia.io/docs/features/#end-to-en
 * Google Cloud Storage
 * Any remote server or cloud storage that supports WebDAV
 * Any remote server or cloud storage that supports SFTP
-* Dropbox, OneDrive, Google Drive, and all cloud storage supported by Rclone
+* The cloud storages supported by Rclone
   * Requires you to download and setup Rclone in addition to Kopia, but after that Kopia manages/runs Rclone for you
   * Rclone support is experimental and all the cloud storage supported by Rclone has not been tested to work with Kopia; Kopia has been tested to work with Dropbox, OneDrive, and Google Drive through Rclone
 * Your local machine and any network-attached storage or server
