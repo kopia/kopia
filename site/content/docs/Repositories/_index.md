@@ -10,7 +10,6 @@ Kopia allows you to save your [encrypted](../features/#end-to-end-zero-knowledge
 
 * [Amazon S3 and S3-compatible Cloud Storage](#amazon-s3-and-s3-compatible-cloud-storage)
   * Kopia supports all cloud storage platforms that support the S3 API
-    * This includes Alibaba Cloud, Amazon Lightsail, Backblaze B2, China Mobile Cloud, Cloudflare R2, Contabo, DigitalOcean Spaces, Dreamhost, Google Cloud Storage, IBM Cloud, IDrive E2, Linode, Mail.ru Cloud, MEGA.io S4, MinIO, Oracle Cloud Infrastructure, OVH, Scaleway, Storj, Synology C2, Tencent Cloud, Vultr, Wasabi, Yandex Cloud, and many other cloud storage platforms
   * Kopia supports object locking and [storage tiers](../advanced/amazon-s3/) for any cloud storage that supports the features using the S3 API
 * [Azure Blob Storage](#azure-blob-storage)
 * [Backblaze B2](#backblaze-b2)
@@ -24,7 +23,7 @@ Kopia allows you to save your [encrypted](../features/#end-to-end-zero-knowledge
 * Dropbox, OneDrive, Google Drive, and all cloud storage supported by [Rclone](#rclone) 
   * Rclone is a (free and open-source) third-party program that you must download and setup seperately before you can use it with Kopia
   * Once you setup Rclone, Kopia automatically manages and runs Rclone for you, so you do not need to do much beyond the initial setup, aside from enabling Rclone's self-update feature so that it stays up-to-date
-  * Kopia's Rclone support is experimental and all the cloud storage supported by Rclone has not been tested to work with Kopia; Kopia has been tested to work with Dropbox, OneDrive, and Google Drive through Rclone
+  * Kopia's Rclone support is experimental: all the cloud storage supported by Rclone has not been tested to work with Kopia, and some may not work with Kopia; Kopia has been tested to work with Dropbox, OneDrive, and Google Drive through Rclone
 * Your local machine and any network-attached storage or server 
 * Your own remote server by setting up a [Kopia Repository Server](../repository-server/)
 
