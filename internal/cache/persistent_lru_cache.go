@@ -60,6 +60,11 @@ func (c *PersistentCache) CacheStorage() Storage {
 
 // GetFetchingMutex returns a RWMutex used to lock a blob or content during loading.
 func (c *PersistentCache) GetFetchingMutex(key string) *sync.RWMutex {
+	if c == nil {
+		// special case - also works on non-initialized cache pointer.
+		return &sync.RWMutex{}
+	}
+
 	if v, ok := c.mutexCache.Get(key); ok {
 		// nolint:forcetypeassert
 		return v.(*sync.RWMutex)
