@@ -27,15 +27,14 @@ Pick the Cloud Storage Provider You Want
 Kopia supports saving your [encrypted](https://kopia.io/docs/features/#end-to-end-zero-knowledge-encryption) and [compressed](https://kopia.io/docs/features/#compression) snapshots to all of the following [storage locations](https://kopia.io/docs/features/#save-snapshots-to-cloud-network-or-local-storage):
 
 * Amazon S3 and any cloud storage that is compatible with S3
-  * Including Alibaba Cloud, Amazon Lightsail, Backblaze B2, China Mobile Cloud, Cloudflare R2, Contabo, DigitalOcean Spaces, Dreamhost, Google Cloud Storage, IBM Cloud, IDrive E2, Linode, Mail.ru Cloud, MEGA.io S4, MinIO, Oracle Cloud Infrastructure, OVH, Scaleway, Storj, Synology C2, Tencent Cloud, Vultr, Wasabi, Yandex Cloud, and many more!
 * Azure Blob Storage
 * Backblaze B2
 * Google Cloud Storage
 * Any remote server or cloud storage that supports WebDAV
 * Any remote server or cloud storage that supports SFTP
-* The cloud storages supported by Rclone
+* Some of the cloud storages supported by Rclone
   * Requires you to download and setup Rclone in addition to Kopia, but after that Kopia manages/runs Rclone for you
-  * Rclone support is experimental and all the cloud storage supported by Rclone has not been tested to work with Kopia; Kopia has been tested to work with Dropbox, OneDrive, and Google Drive through Rclone
+  * Rclone support is experimental and all the cloud storages supported by Rclone have not been tested to work with Kopia; Kopia has been tested to work with Dropbox, OneDrive, and Google Drive through Rclone
 * Your local machine and any network-attached storage or server
 * Your own server by setting up a [Kopia Repository Server](https://kopia.io/docs/repository-server/)
 
