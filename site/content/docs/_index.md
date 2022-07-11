@@ -23,7 +23,7 @@ Kopia supports saving your [encrypted](features/#end-to-end-zero-knowledge-encry
 * Any remote server or cloud storage that supports **SFTP**
 * Some of the cloud storages supported by **Rclone**
   * Requires you to download and setup Rclone in addition to Kopia, but after that Kopia manages/runs Rclone for you
-  * Rclone support is experimental: all the cloud storages supported by Rclone have not been tested to work with Kopia, and some may not work with Kopia; Kopia has been tested to work with **Dropbox**, **OneDrive**, and **Google Drive** through Rclone
+  * Rclone support is experimental: not all the cloud storages supported by Rclone have been tested to work with Kopia, and some may not work with Kopia; Kopia has been tested to work with **Dropbox**, **OneDrive**, and **Google Drive** through Rclone
 * Your local machine and any network-attached storage or server
 * Your own server by setting up a [Kopia Repository Server](repository-server/)
 
