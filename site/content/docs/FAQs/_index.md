@@ -14,6 +14,8 @@ weight: 40
 * [How Do I Enable Compression?](#how-do-i-enable-compression)
 * [How Do I Enable Data Deduplication?](#how-do-i-enable-data-deduplication)
 * [How Do I Change My Repository Password?](#how-do-i-change-my-repository-password)
+* [How Do I Decrease Kopia's CPU Usage?](#how-do-i-decrease-kopias-cpu-usage)
+* [How Do I Decrease Kopia's Memory (RAM) Usage?](#how-do-i-decrease-kopias-memory-ram-usage)
 * [What is a Kopia Repository Server?](#what-is-a-kopia-repository-server)
 
 **Is your question not answered here? Please ask in the [Kopia discussion forums](https://kopia.discourse.group/) for help!**
@@ -61,15 +63,17 @@ Compression is controlled by [policies](../features#policies-control-what-and-ho
 Enabling compression when using `KopiaUI` is easy; edit the `policy` you want to add compression to and pick a `Compression Algorithm` in the `Compression` section. Kopia CLI users need to use the [`kopia policy set`](..reference/command-line/common/policy-set/) command as shown in the [Getting Started Guide](../getting-started/#policies). You can set compression on a per-source-directory basis...
 
 ```shell
-kopia policy set </path/to/source/directory/> --compression=<deflate-best-compression|deflate-best-speed|deflate-default|gzip|gzip-best-compression|gzip-best-speed|pgzip|pgzip-best-compression|pgzip-best-speed|s2-better|s2-default|s2-parallel-4|s2-parallel-8|zstd|zstd-better-compression|zstd-fastest>
+kopia policy set </path/to/source/directory/> --compression=<none|deflate-best-compression|deflate-best-speed|deflate-default|gzip|gzip-best-compression|gzip-best-speed|pgzip|pgzip-best-compression|pgzip-best-speed|s2-better|s2-default|s2-parallel-4|s2-parallel-8|zstd|zstd-better-compression|zstd-fastest>
 ```
 
 ...or globally for all source directories:
 
 ```shell
-kopia policy set --global --compression=<deflate-best-compression|deflate-best-speed|deflate-default|gzip|gzip-best-compression|gzip-best-speed|pgzip|pgzip-best-compression|pgzip-best-speed|s2-better|s2-default|s2-parallel-4|s2-parallel-8|zstd|zstd-better-compression|zstd-fastest>
+kopia policy set --global --compression=<none|deflate-best-compression|deflate-best-speed|deflate-default|gzip|gzip-best-compression|gzip-best-speed|pgzip|pgzip-best-compression|pgzip-best-speed|s2-better|s2-default|s2-parallel-4|s2-parallel-8|zstd|zstd-better-compression|zstd-fastest>
 ```
 If you enable or disable compression or change the compression algorithm, the new setting is applied going forward and not reteroactively. In other words, Kopia will not modify the compression for files/directories already uploaded to your repository.
+
+If you are unclear about what compression algorithm to use, `zstd` is considered one of the top algorithms currently.
 
 #### How Do I Enable Data Deduplication?
 
@@ -82,6 +86,26 @@ You must use Kopia CLI if you want to change your `repository` password; changin
 Before changing your password, you must be [connected to your `repository`](../getting-started/#connecting-to-repository). This means that you **can** reset your password if you forget your password AND you are still connected to your `repository`. But this also means that you **cannot** reset your password if you forget your password and you are NOT still connected to your `repository`, because you will need your current password to connect to the `repository`.
 
 Remember to select a secure _repository password_. The password is used to [decrypt](../features/#end-to-end-zero-knowledge-encryption) and access the data in your snapshots.
+
+#### How Do I Decrease Kopia's CPU Usage?
+
+It is difficult to know what is causing high CPU use on your machine without details about your unique issue (which you can post about [on the community forums](https://kopia.discourse.group/)). However, generally speaking, there are two `policy` settings you should change if you want to decrease the amount of CPU Kopia uses while creating snapshots:
+
+1. Maximum Parallel Snapshots: This setting controls how many snapshots Kopia runs simultaneously. The lower this number, the less CPU Kopia will use when running multiple snapshots -- with the caveat that the total time it takes to run all your snapshots will be higher. This setting is not applicable if you only ever run one snapshot at a time.
+    * Kopia CLI users can change this setting by running the [`kopia policy set --global --max-parallel-snapshots=#`](../reference/command-line/common/policy-set/) command, where `#` is the number of snapshots you want Kopia to run simultaneously.
+    * Kopia GUI users can change this setting from the `Upload` tab when editing the `global` policy in `KopiaUI`.
+2. Maximum Parallel File Reads: This setting controls how many files Kopia uploads simultaneously when running a snapshot. The lower this number, the less CPU Kopia will use when running a snapshot -- with the caveat that it will take longer to complete a snapshot. By default, Kopia sets this setting to the number of logical cores your machine's CPU has, so make sure to lower it to a smaller number than the default.
+    * Kopia CLI users can change this setting by running the [`kopia policy set [target] --max-parallel-file-reads=#`](../reference/command-line/common/policy-set/) command, where `#` is the number of file uploads you want Kopia to run simultaneously. This setting can be set per policy or globally, in which case make sure to use `--global` in your `kopia policy set` command.
+    * Kopia GUI users can change this setting from the `Upload` tab when editing policies in `KopiaUI`, either the `global` policy or individual policies.
+
+An added benefit of decreasing these settings is that [Kopia's memory usage will also decrease](#how-do-i-decrease-kopias-memory-ram-usage).
+
+#### How Do I Decrease Kopia's Memory (RAM) Usage?
+
+It is difficult to know what is causing high memory use on your machine without details about your unique issue (which you can post about [on the community forums](https://kopia.discourse.group/)). However, generally speaking, [compression](#how-do-i-enable-compression) and parallelism (i.e., [simultaneous snapshots or simultaneous uploads](#how-do-i-decrease-kopias-cpu-usage)) are the two big culprits of memory usage in Kopia when creating snapshots. If you want to decrease the amount of memory used by Kopia, you should tweak these settings:
+
+* Disabling compression will result in less memory usage than enabling compression. If you want to keep compression, [compression benchmarks](../advanced/compression/) suggest `s2`, `deflate`, and `gzip` are the most memory-friendly compression algorithms when backing up small files. When backing up large files, all the compression algorithms have similar memory usage. Thus, if your machine has low memory, try `s2`, `deflate`, or `gzip`. Read the FAQ on [enabling compression](#how-do-i-decrease-kopias-cpu-usage) to learn how to change or remove compression in Kopia.
+* Decreasing the number of parallel snapshots and parallel file reads will decrease Kopia's memory usage because Kopia will run fewer simultaneous processes. Read the FAQ on [decreasing Kopia's CPU usage](#how-do-i-decrease-kopias-cpu-usage) to learn how to decrease parallelism in Kopia.
 
 #### What is a Kopia Repository Server?
 
