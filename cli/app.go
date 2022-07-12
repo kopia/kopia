@@ -245,8 +245,8 @@ func (c *App) setup(app *kingpin.Application) {
 	app.Flag("advanced-commands", "Enable advanced (and potentially dangerous) commands.").Hidden().Envar(c.EnvName("KOPIA_ADVANCED_COMMANDS")).StringVar(&c.AdvancedCommands)
 	app.Flag("track-releasable", "Enable tracking of releasable resources.").Hidden().Envar(c.EnvName("KOPIA_TRACK_RELEASABLE")).StringsVar(&c.trackReleasable)
 	app.Flag("dump-allocator-stats", "Dump allocator stats at the end of execution.").Hidden().Envar(c.EnvName("KOPIA_DUMP_ALLOCATOR_STATS")).BoolVar(&c.dumpAllocatorStats)
-	app.Flag("upgrade-owner-id", "Repository format upgrade owner-id.").Hidden().Envar("KOPIA_REPO_UPGRADE_OWNER_ID").StringVar(&c.upgradeOwnerID)
-	app.Flag("upgrade-no-block", "Do not block when repository format upgrade is in progress.").Hidden().Default("false").Envar("KOPIA_REPO_UPGRADE_NO_BLOCK").BoolVar(&c.doNotWaitForUpgrade)
+	app.Flag("upgrade-owner-id", "Repository format upgrade owner-id.").Hidden().Envar(c.EnvName("KOPIA_REPO_UPGRADE_OWNER_ID")).StringVar(&c.upgradeOwnerID)
+	app.Flag("upgrade-no-block", "Do not block when repository format upgrade is in progress.").Hidden().Default("false").Envar(c.EnvName("KOPIA_REPO_UPGRADE_NO_BLOCK")).BoolVar(&c.doNotWaitForUpgrade)
 
 	c.observability.setup(c, app)
 
