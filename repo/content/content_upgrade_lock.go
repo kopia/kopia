@@ -130,7 +130,7 @@ func (l *UpgradeLock) totalDrainInterval() time.Duration {
 	return l.MaxPermittedClockDrift + 2*l.IODrainTimeout
 }
 
-// CoordinatorLockOwnerInfo is the json boduy for coordinator-lock URL
+// CoordinatorLockOwnerInfo is the json body for coordinator-lock URL
 // endpoint to help the coordinator make informed decisions about the lock.
 type CoordinatorLockOwnerInfo struct {
 	OwnerID   string `json:"ownerID"`
