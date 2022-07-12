@@ -89,7 +89,7 @@ Remember to select a secure _repository password_. The password is used to [decr
 
 #### How Do I Decrease Kopia's CPU Usage?
 
-It is difficult to know what is causing high CPU use on your machine without details about your unique issue (which you can post about [on the forums](https://https://kopia.discourse.group/). However, generally speaking, there are two `policy` settings you should change if you want to decrease the amount of CPU Kopia uses while creating snapshots:
+It is difficult to know what is causing high CPU use on your machine without details about your unique issue (which you can post about [on the community forums](https://https://kopia.discourse.group/)). However, generally speaking, there are two `policy` settings you should change if you want to decrease the amount of CPU Kopia uses while creating snapshots:
 
 1. Maximum Parallel Snapshots: This setting controls how many snapshots Kopia runs simultaneously. The lower this number, the less CPU Kopia will use when running multiple snapshots -- with the caveat that the total time it takes to run all your snapshots will be higher. This setting is not applicable if you only ever run one snapshot at a time.
     * Kopia CLI users can change this setting by running the [`kopia policy set --global --max-parallel-snapshots=#`](../reference/command-line/common/policy-set/) command, where `#` is the number of snapshots you want Kopia to run simultaneously.
@@ -102,7 +102,7 @@ An added benefit of decreasing these settings is that [Kopia's memory usage will
 
 #### How Do I Decrease Kopia's Memory (RAM) Usage?
 
-It is difficult to know what is causing high memory use on your machine without details about your unique issue (which you can post about [on the forums](https://https://kopia.discourse.group/). However, generally speaking, [compression](#how-do-i-enable-compression) and parallelism (i.e., [simultaneous snapshots or simultaneous uploads](#how-do-i-decrease-kopias-cpu-usage)) are two big culprits of memory usage in Kopia when creating snapshots. If you want to decrease the amount of memory used by Kopia, you should tweak these settings:
+It is difficult to know what is causing high memory use on your machine without details about your unique issue (which you can post about [on the community forums](https://https://kopia.discourse.group/)). However, generally speaking, [compression](#how-do-i-enable-compression) and parallelism (i.e., [simultaneous snapshots or simultaneous uploads](#how-do-i-decrease-kopias-cpu-usage)) are two big culprits of memory usage in Kopia when creating snapshots. If you want to decrease the amount of memory used by Kopia, you should tweak these settings:
 
 * Disabling compression will result in less memory usage than enabling compression. If you want to keep compression, [compression benchmarks](../advanced/compression/) suggest the `s2`, `deflate`, and `gzip` are the most memory-friendly compression algorithms when backing up small files. When backing up large files, all the compression algorithms have similar memory usage. Thus, if your machine has low memory, try `s2`, `deflate`, or `gzip`. Read the FAQ on [enabling compression](#how-do-i-decrease-kopias-cpu-usage) to learn how to change or remove compression in Kopia.
 * Decreasing the number of parallel snapshots and parallel file reads will decrease Kopia's memory usage because Kopia will run fewer simultaneous processes. Read the FAQ on [decreasing Kopia's CPU usage](#how-do-i-decrease-kopias-cpu-usage) to learn how to decrease parallelism in Kopia.
