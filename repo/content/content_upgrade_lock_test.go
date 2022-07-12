@@ -1,6 +1,7 @@
 package content_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
@@ -375,9 +376,14 @@ func TestUpgradeLockCoordinator(t *testing.T) {
 
 	{
 		mux := http.NewServeMux()
-		mux.HandleFunc("/good-lock", func(w http.ResponseWriter, r *http.Request) {})
+		mux.HandleFunc("/good-lock", func(w http.ResponseWriter, r *http.Request) {
+			info := &content.CoordinatorLockOwnerInfo{}
+			if err := json.NewDecoder(r.Body).Decode(info); err != nil || info.OwnerID != l.OwnerID || info.ProcessID <= 0 || r.Header.Get("Content-Type") != "application/json" {
+				w.WriteHeader(http.StatusBadRequest)
+			}
+		})
 		mux.HandleFunc("/existing-lock", func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusLocked)
+			w.WriteHeader(http.StatusConflict)
 		})
 		mux.HandleFunc("/bad-lock", func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusBadRequest)
@@ -421,7 +427,7 @@ func TestUpgradeLockCoordinator(t *testing.T) {
 
 	l.CoordinatorURL = "http:/localhost:8080/bad-url-string-missing-slash" // bad host in URL
 	locked, writersDrained, err = l.IsLocked(testlogging.Context(t), clock.Now())
-	require.EqualError(t, err, "failed to check for coordinator lock with \"http:/localhost:8080/bad-url-string-missing-slash\": Get \"http:///localhost:8080/bad-url-string-missing-slash\": http: no Host in request URL")
+	require.EqualError(t, err, "failed to check for coordinator lock with \"http:/localhost:8080/bad-url-string-missing-slash\": Post \"http:///localhost:8080/bad-url-string-missing-slash\": http: no Host in request URL")
 	require.EqualValues(t, false, locked)
 	require.EqualValues(t, false, writersDrained)
 

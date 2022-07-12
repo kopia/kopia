@@ -1,8 +1,11 @@
 package content
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/pkg/errors"
@@ -127,11 +130,28 @@ func (l *UpgradeLock) totalDrainInterval() time.Duration {
 	return l.MaxPermittedClockDrift + 2*l.IODrainTimeout
 }
 
+// CoordinatorLockOwnerInfo is the json boduy for coordinator-lock URL
+// endpoint to help the coordinator make informed decisions about the lock.
+type CoordinatorLockOwnerInfo struct {
+	OwnerID   string `json:"ownerID"`
+	ProcessID int    `json:"processID"`
+}
+
 func (l *UpgradeLock) checkCoordinatorLock(ctx context.Context) (bool, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", l.CoordinatorURL, http.NoBody)
+	buf, err := json.Marshal(&CoordinatorLockOwnerInfo{
+		OwnerID:   l.OwnerID,
+		ProcessID: os.Getpid(),
+	})
+	if err != nil {
+		return false, errors.Wrap(err, "failed to marshal request")
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, l.CoordinatorURL, bytes.NewBuffer(buf))
 	if err != nil {
 		return false, errors.Wrapf(err, "failed to prepare coordinator lock request with %q", l.CoordinatorURL)
 	}
+
+	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -142,7 +162,7 @@ func (l *UpgradeLock) checkCoordinatorLock(ctx context.Context) (bool, error) {
 	switch resp.StatusCode {
 	case http.StatusOK:
 		return true, nil
-	case http.StatusLocked:
+	case http.StatusConflict:
 		return false, nil
 	default:
 		return false, errors.Errorf("invalid status code from coordinator: %d", resp.StatusCode)
