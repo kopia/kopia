@@ -63,13 +63,13 @@ Compression is controlled by [policies](../features#policies-control-what-and-ho
 Enabling compression when using `KopiaUI` is easy; edit the `policy` you want to add compression to and pick a `Compression Algorithm` in the `Compression` section. Kopia CLI users need to use the [`kopia policy set`](..reference/command-line/common/policy-set/) command as shown in the [Getting Started Guide](../getting-started/#policies). You can set compression on a per-source-directory basis...
 
 ```shell
-kopia policy set </path/to/source/directory/> --compression=<deflate-best-compression|deflate-best-speed|deflate-default|gzip|gzip-best-compression|gzip-best-speed|pgzip|pgzip-best-compression|pgzip-best-speed|s2-better|s2-default|s2-parallel-4|s2-parallel-8|zstd|zstd-better-compression|zstd-fastest>
+kopia policy set </path/to/source/directory/> --compression=<none|deflate-best-compression|deflate-best-speed|deflate-default|gzip|gzip-best-compression|gzip-best-speed|pgzip|pgzip-best-compression|pgzip-best-speed|s2-better|s2-default|s2-parallel-4|s2-parallel-8|zstd|zstd-better-compression|zstd-fastest>
 ```
 
 ...or globally for all source directories:
 
 ```shell
-kopia policy set --global --compression=<deflate-best-compression|deflate-best-speed|deflate-default|gzip|gzip-best-compression|gzip-best-speed|pgzip|pgzip-best-compression|pgzip-best-speed|s2-better|s2-default|s2-parallel-4|s2-parallel-8|zstd|zstd-better-compression|zstd-fastest>
+kopia policy set --global --compression=<none|deflate-best-compression|deflate-best-speed|deflate-default|gzip|gzip-best-compression|gzip-best-speed|pgzip|pgzip-best-compression|pgzip-best-speed|s2-better|s2-default|s2-parallel-4|s2-parallel-8|zstd|zstd-better-compression|zstd-fastest>
 ```
 If you enable or disable compression or change the compression algorithm, the new setting is applied going forward and not reteroactively. In other words, Kopia will not modify the compression for files/directories already uploaded to your repository.
 
@@ -102,9 +102,9 @@ An added benefit of decreasing these settings is that [Kopia's memory usage will
 
 #### How Do I Decrease Kopia's Memory (RAM) Usage?
 
-[Compression](#how-do-i-enable-compression) and parallelism (i.e., [simultaneous snapshots or simultaneous uploads](#how-do-i-decrease-kopias-cpu-usage)) cause the biggest memory usage in Kopia when creating snapshots. If you want to decrease the amount of memory used by Kopia, you should tweak these settings:
+[Compression](#how-do-i-enable-compression) and parallelism (i.e., [simultaneous snapshots or simultaneous uploads](#how-do-i-decrease-kopias-cpu-usage)) are two big culprits of memory usage in Kopia when creating snapshots. If you want to decrease the amount of memory used by Kopia, you should tweak these settings:
 
-* Disabling compression will result in the greatest reduction on memory usage relative to enabling compression. If you want to keep compression, [compression benchmarks](../advanced/compression/) suggest the `s2`, `deflate`, and `gzip` are the most memory-friendly compression algorithms when backing up small files. When backing up large files, all the compression algorithms have similar memory usage. Thus, if your machine has low memory, try `s2`, `deflate`, or `gzip`.
+* Disabling compression will result in less memory usage than enabling compression. If you want to keep compression, [compression benchmarks](../advanced/compression/) suggest the `s2`, `deflate`, and `gzip` are the most memory-friendly compression algorithms when backing up small files. When backing up large files, all the compression algorithms have similar memory usage. Thus, if your machine has low memory, try `s2`, `deflate`, or `gzip`. Read the FAQ on [enabling compression](#how-do-i-decrease-kopias-cpu-usage) to learn how to change or remove compression in Kopia.
 * Decreasing the number of parallel snapshots and parallel file reads will decrease Kopia's memory usage because Kopia will run fewer simultaneous processes. Read the FAQ on [decreasing Kopia's CPU usage](#how-do-i-decrease-kopias-cpu-usage) to learn how to decrease parallelism in Kopia.
 
 #### What is a Kopia Repository Server?
