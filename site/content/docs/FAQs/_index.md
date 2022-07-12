@@ -92,11 +92,11 @@ Remember to select a secure _repository password_. The password is used to [decr
 There are two `policy` settings you should change if you want to decrease the amount of CPU Kopia uses while creating snapshots:
 
 1. Maximum Parallel Snapshots: This setting controls how many snapshots Kopia runs simultaneously. The lower this number, the less CPU Kopia will use when running multiple snapshots -- with the caveat that the total time it takes to run all your snapshots will be higher. This setting is not applicable if you only ever run one snapshot at a time.
-  * Kopia CLI users can change this setting by running the [`kopia policy set --global --max-parallel-snapshots=#` command](..reference/command-line/common/policy-set/), where `#` is the number of snapshots you want Kopia to run simultaneously.
-  * Kopia GUI users can change this setting from the `Upload` tab when editing the `global` policy in `KopiaUI`.
-3. Maximum Parallel File Reads: This setting controls how many files Kopia uploads simultaneously when running a snapshot. The lower this number, the less CPU Kopia will use when running a snapshot -- with the caveat that it will take longer to complete a snapshot. By default, Kopia sets this setting to the number of logical cores your machine's CPU has, so make sure to lower it to a smaller number than the default.
-  * Kopia CLI users can change this setting by running the [`kopia policy set [target] --max-parallel-file-reads=#` command](..reference/command-line/common/policy-set/), where `#` is the number of file uploads you want Kopia to run simultaneously. This setting can be set per policy or globally, in which case use `--global`If you do not want to set this setting globally, you can 
-  * Kopia GUI users can change this setting from the `Upload` tab when editing the `global` policy in `KopiaUI`.
+    * Kopia CLI users can change this setting by running the [`kopia policy set --global --max-parallel-snapshots=#`](../reference/command-line/common/policy-set/) command, where `#` is the number of snapshots you want Kopia to run simultaneously.
+    * Kopia GUI users can change this setting from the `Upload` tab when editing the `global` policy in `KopiaUI`.
+2. Maximum Parallel File Reads: This setting controls how many files Kopia uploads simultaneously when running a snapshot. The lower this number, the less CPU Kopia will use when running a snapshot -- with the caveat that it will take longer to complete a snapshot. By default, Kopia sets this setting to the number of logical cores your machine's CPU has, so make sure to lower it to a smaller number than the default.
+    * Kopia CLI users can change this setting by running the [`kopia policy set [target] --max-parallel-file-reads=#`](../reference/command-line/common/policy-set/) command, where `#` is the number of file uploads you want Kopia to run simultaneously. This setting can be set per policy or globally, in which case use `--global`If you do not want to set this setting globally, you can 
+    * Kopia GUI users can change this setting from the `Upload` tab when editing the `global` policy in `KopiaUI`.
 
 An added benefit of decreasing these settings is that [Kopia's memory usage will also decrease](#how-do-i-decrease-kopias-memory-ram-usage).
 
