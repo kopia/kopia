@@ -543,6 +543,12 @@ func (t *uitaskProgress) FinishedHashingFile(fname string, numBytes int64) {
 	t.maybeReport()
 }
 
+// FinishedFile is emitted when the system is done examining a file.
+func (t *uitaskProgress) FinishedFile(fname string, hadErr bool) {
+	t.p.FinishedFile(fname, hadErr)
+	t.maybeReport()
+}
+
 // HashedBytes is emitted while hashing any blocks of bytes.
 func (t *uitaskProgress) HashedBytes(numBytes int64) {
 	t.p.HashedBytes(numBytes)

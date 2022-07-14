@@ -136,8 +136,12 @@ func (u *Uploader) incompleteReason() string {
 	return ""
 }
 
-func (u *Uploader) uploadFileInternal(ctx context.Context, parentCheckpointRegistry *checkpointRegistry, relativePath string, f fs.File, pol *policy.Policy) (*snapshot.DirEntry, error) {
+func (u *Uploader) uploadFileInternal(ctx context.Context, parentCheckpointRegistry *checkpointRegistry, relativePath string, f fs.File, pol *policy.Policy) (dirEntry *snapshot.DirEntry, ret error) {
 	u.Progress.HashingFile(relativePath)
+
+	defer func() {
+		u.Progress.FinishedFile(relativePath, ret != nil)
+	}()
 	defer u.Progress.FinishedHashingFile(relativePath, f.Size())
 
 	if pf, ok := f.(snapshot.HasDirEntryOrNil); ok {
@@ -294,8 +298,12 @@ func (u *Uploader) uploadFileData(ctx context.Context, parentCheckpointRegistry 
 	return de, nil
 }
 
-func (u *Uploader) uploadSymlinkInternal(ctx context.Context, relativePath string, f fs.Symlink) (*snapshot.DirEntry, error) {
+func (u *Uploader) uploadSymlinkInternal(ctx context.Context, relativePath string, f fs.Symlink) (dirEntry *snapshot.DirEntry, ret error) {
 	u.Progress.HashingFile(relativePath)
+
+	defer func() {
+		u.Progress.FinishedFile(relativePath, ret != nil)
+	}()
 	defer u.Progress.FinishedHashingFile(relativePath, f.Size())
 
 	target, err := f.Readlink(ctx)
@@ -328,7 +336,7 @@ func (u *Uploader) uploadSymlinkInternal(ctx context.Context, relativePath strin
 	return de, nil
 }
 
-func (u *Uploader) uploadStreamingFileInternal(ctx context.Context, relativePath string, f fs.StreamingFile) (*snapshot.DirEntry, error) {
+func (u *Uploader) uploadStreamingFileInternal(ctx context.Context, relativePath string, f fs.StreamingFile) (dirEntry *snapshot.DirEntry, ret error) {
 	reader, err := f.GetReader(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to get streaming file reader")
@@ -340,6 +348,7 @@ func (u *Uploader) uploadStreamingFileInternal(ctx context.Context, relativePath
 
 	defer func() {
 		u.Progress.FinishedHashingFile(relativePath, streamSize)
+		u.Progress.FinishedFile(relativePath, ret != nil)
 	}()
 
 	writer := u.repo.NewObjectWriter(ctx, object.WriterOptions{
@@ -806,8 +815,11 @@ func (u *Uploader) processSingle(
 			// compute entryResult now, cachedEntry is short-lived
 			cachedDirEntry, err := newDirEntry(entry, entry.Name(), cachedEntry.(object.HasObjectID).ObjectID())
 			if err != nil {
+				u.Progress.FinishedFile(entryRelativePath, true)
 				return errors.Wrap(err, "unable to create dir entry")
 			}
+
+			u.Progress.FinishedFile(entryRelativePath, false)
 
 			return u.processEntryUploadResult(ctx, cachedDirEntry, nil, entryRelativePath, parentDirBuilder,
 				false,
