@@ -523,6 +523,87 @@ func TestUpload_SubDirectoryReadFailureSomeIgnoredNoFailFast(t *testing.T) {
 	)
 }
 
+type mockProgress struct {
+	UploadProgress
+	finishedFileCheck func(string, bool)
+}
+
+func (mp *mockProgress) FinishedFile(relativePath string, hadErr bool) {
+	defer mp.UploadProgress.FinishedFile(relativePath, hadErr)
+
+	mp.finishedFileCheck(relativePath, hadErr)
+}
+
+func TestUpload_FinishedFileProgress(t *testing.T) {
+	ctx := testlogging.Context(t)
+	th := newUploadTestHarness(ctx, t)
+	filesFinished := 0
+
+	defer th.cleanup()
+
+	t.Logf("checking FinishedFile callbacks")
+
+	root := mockfs.NewDirectory()
+	root.AddFile("f1", []byte{'1', '2', '3'}, 0o777)
+	root.AddFileWithSource("f2", 0o777, func() (mockfs.ReaderSeekerCloser, error) {
+		return nil, assert.AnError
+	})
+
+	u := NewUploader(th.repo)
+	u.ForceHashPercentage = 0
+	u.Progress = &mockProgress{
+		UploadProgress: u.Progress,
+		finishedFileCheck: func(relativePath string, hadErr bool) {
+			defer func() {
+				filesFinished++
+			}()
+
+			assert.Contains(t, []string{"f1", "f2"}, filepath.Base(relativePath))
+
+			if strings.Contains(relativePath, "f2") {
+				assert.True(t, hadErr)
+				return
+			}
+
+			assert.False(t, hadErr)
+		},
+	}
+
+	trueValue := policy.OptionalBool(true)
+	policyTree := policy.BuildTree(map[string]*policy.Policy{
+		".": {
+			ErrorHandlingPolicy: policy.ErrorHandlingPolicy{
+				IgnoreFileErrors:      &trueValue,
+				IgnoreDirectoryErrors: &trueValue,
+			},
+		},
+	}, policy.DefaultPolicy)
+
+	man, err := u.Upload(ctx, root, policyTree, snapshot.SourceInfo{})
+	require.NoError(t, err)
+
+	assert.Equal(t, int32(0), atomic.LoadInt32(&man.Stats.ErrorCount), "ErrorCount")
+	assert.Equal(t, int32(1), atomic.LoadInt32(&man.Stats.IgnoredErrorCount), "IgnoredErrorCount")
+	assert.Equal(t, int32(0), atomic.LoadInt32(&man.Stats.CachedFiles), "CachedFiles")
+	assert.Equal(t, int32(2), atomic.LoadInt32(&man.Stats.NonCachedFiles), "NonCachedFiles")
+	assert.Equal(t, int32(1), atomic.LoadInt32(&man.Stats.TotalDirectoryCount), "TotalDirectoryCount")
+	assert.Equal(t, int32(1), atomic.LoadInt32(&man.Stats.TotalFileCount), "TotalFileCount")
+	assert.Equal(t, 2, filesFinished, "FinishedFile calls")
+
+	// Upload a second time to check for cached files.
+	filesFinished = 0
+	man, err = u.Upload(ctx, root, policyTree, snapshot.SourceInfo{}, man)
+	require.NoError(t, err)
+
+	assert.Equal(t, int32(0), atomic.LoadInt32(&man.Stats.ErrorCount), "ErrorCount")
+	assert.Equal(t, int32(1), atomic.LoadInt32(&man.Stats.IgnoredErrorCount), "IgnoredErrorCount")
+	assert.Equal(t, int32(1), atomic.LoadInt32(&man.Stats.CachedFiles), "CachedFiles")
+	assert.Equal(t, int32(1), atomic.LoadInt32(&man.Stats.NonCachedFiles), "NonCachedFiles")
+	assert.Equal(t, int32(1), atomic.LoadInt32(&man.Stats.TotalDirectoryCount), "TotalDirectoryCount")
+	assert.Equal(t, int32(0), atomic.LoadInt32(&man.Stats.TotalFileCount), "TotalFileCount")
+	assert.Equal(t, 2, filesFinished, "FinishedFile calls")
+}
+
 func TestUploadWithCheckpointing(t *testing.T) {
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
