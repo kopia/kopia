@@ -3,9 +3,11 @@ package cli
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"time"
 
+	"github.com/alecthomas/kingpin"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/epoch"
@@ -28,8 +30,22 @@ type commandRepositoryUpgrade struct {
 	svc advancedAppServices
 }
 
+const (
+	experimentalWarning = `WARNING: The upgrade command is an EXPERIMENTAL feature. Please use with caution.
+
+You will need to set the env variable KOPIA_UPGRADE_LOCK_ENABLED in order to use this feature.
+`
+	upgradeLockFeatureEnv = "KOPIA_UPGRADE_LOCK_ENABLED"
+)
+
 func (c *commandRepositoryUpgrade) setup(svc advancedAppServices, parent commandParent) {
-	cmd := parent.Command("upgrade", "Upgrade repository format.")
+	cmd := parent.Command("upgrade", fmt.Sprintf("Upgrade repository format.\n\n%s", warningColor.Sprint(experimentalWarning))).Hidden().
+		Validate(func(tmpCmd *kingpin.CmdClause) error {
+			if v := os.Getenv(c.svc.EnvName(upgradeLockFeatureEnv)); v == "" {
+				return fmt.Errorf("Please set %q env variable to use this feature.", upgradeLockFeatureEnv)
+			}
+			return nil
+		})
 
 	cmd.Flag("advance-notice", "Advance notice for upgrade to allow enough time for other Kopia clients to notice the lock").DurationVar(&c.advanceNoticeDuration)
 	cmd.Flag("io-drain-timeout", "Max time it should take all other Kopia clients to drop repository connections").Default(repo.DefaultRepositoryBlobCacheDuration.String()).
