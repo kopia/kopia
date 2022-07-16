@@ -16,6 +16,8 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgrade(t *testing.T) {
 	env.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", env.RepoDir)
 	out := env.RunAndExpectSuccess(t, "repository", "status", "--upgrade-no-block")
 
+	env.Environment["KOPIA_UPGRADE_LOCK_ENABLED"] = "1"
+
 	switch s.formatVersion {
 	case content.FormatVersion1:
 		require.Contains(t, out, "Format version:      1")
@@ -55,6 +57,8 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgradeAdvanceNotice(t *testing.
 
 	env.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", env.RepoDir)
 	out := env.RunAndExpectSuccess(t, "repository", "status", "--upgrade-no-block")
+
+	env.Environment["KOPIA_UPGRADE_LOCK_ENABLED"] = "1"
 
 	switch s.formatVersion {
 	case content.FormatVersion1:

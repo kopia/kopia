@@ -32,6 +32,8 @@ func TestRepoCreatedWith08CanBeOpenedWithCurrent(t *testing.T) {
 	e2.RunAndExpectSuccess(t, "repo", "connect", "filesystem", "--path", e1.RepoDir)
 	e2.RunAndExpectSuccess(t, "snap", "ls")
 
+	e2.Environment["KOPIA_UPGRADE_LOCK_ENABLED"] = "1"
+
 	// upgrade
 	e2.RunAndExpectSuccess(t, "repository", "upgrade",
 		"--upgrade-owner-id", "owner",

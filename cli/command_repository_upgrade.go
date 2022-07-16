@@ -42,7 +42,7 @@ func (c *commandRepositoryUpgrade) setup(svc advancedAppServices, parent command
 	cmd := parent.Command("upgrade", fmt.Sprintf("Upgrade repository format.\n\n%s", warningColor.Sprint(experimentalWarning))).Hidden().
 		Validate(func(tmpCmd *kingpin.CmdClause) error {
 			if v := os.Getenv(c.svc.EnvName(upgradeLockFeatureEnv)); v == "" {
-				return fmt.Errorf("Please set %q env variable to use this feature.", upgradeLockFeatureEnv)
+				return errors.Errorf("please set %q env variable to use this feature", upgradeLockFeatureEnv)
 			}
 			return nil
 		})

@@ -138,6 +138,8 @@ func (s *formatSpecificTestSuite) TestRepositorySetParametersUpgrade(t *testing.
 		env.RunAndExpectSuccess(t, "index", "epoch", "list")
 	}
 
+	env.Environment["KOPIA_UPGRADE_LOCK_ENABLED"] = "1"
+
 	if s.formatVersion < content.MaxFormatVersion {
 		env.RunAndExpectSuccess(t, "repository", "upgrade",
 			"--upgrade-owner-id", "owner",
