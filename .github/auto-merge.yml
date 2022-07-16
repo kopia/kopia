@@ -27,6 +27,14 @@
     dependency_name: "github.com/minio/minio-go/v7"
     update_type: "semver:minor"
 
+# Prometheus
+- match:
+    dependency_name: "github.com/prometheus/common"
+    update_type: "semver:minor"
+- match:
+    dependency_name: "github.com/prometheus/client_golang"
+    update_type: "semver:minor"
+
 # ReactJS
 - match:
     dependency_name: "react-scripts"
