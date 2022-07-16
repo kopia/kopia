@@ -110,6 +110,22 @@ func TestTagging(t *testing.T) {
 	}
 }
 
+func TestSnapshotInterval(t *testing.T) {
+	t.Parallel()
+
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
+
+	e.RunAndExpectFailure(t, "snapshot", "create", "--checkpoint-interval=1h", sharedTestDataDir1)
+	e.RunAndExpectFailure(t, "snapshot", "create", "--checkpoint-interval=46m", sharedTestDataDir1)
+	e.RunAndExpectFailure(t, "snapshot", "create", "--checkpoint-interval=45m1s", sharedTestDataDir1)
+	e.RunAndExpectSuccess(t, "snapshot", "create", "--checkpoint-interval=45m", sharedTestDataDir1)
+}
+
 func TestTaggingBadTags(t *testing.T) {
 	t.Parallel()
 

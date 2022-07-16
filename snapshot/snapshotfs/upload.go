@@ -1185,6 +1185,10 @@ func (u *Uploader) Upload(
 	u.Progress.UploadStarted()
 	defer u.Progress.UploadFinished()
 
+	if u.CheckpointInterval > DefaultCheckpointInterval {
+		return nil, errors.Errorf("checkpoint interval cannot be greater than %v", DefaultCheckpointInterval)
+	}
+
 	parallel := u.effectiveParallelFileReads(policyTree.EffectivePolicy())
 
 	uploadLog(ctx).Debugw("uploading", "source", sourceInfo, "previousManifests", len(previousManifests), "parallel", parallel)
