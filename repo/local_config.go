@@ -101,6 +101,8 @@ type LocalConfig struct {
 type repositoryObjectFormat struct {
 	content.FormattingOptions
 	object.Format
+
+	UpgradeLock *UpgradeLockIntent `json:"upgradeLock,omitempty"`
 }
 
 // writeToFile writes the config to a given file.

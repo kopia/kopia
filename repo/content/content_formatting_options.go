@@ -35,8 +35,6 @@ type FormattingOptions struct {
 	MasterKey  []byte `json:"masterKey,omitempty" kopia:"sensitive"` // master encryption key (SIV-mode encryption only)
 	MutableParameters
 
-	UpgradeLock *UpgradeLock `json:"upgradeLock,omitempty"` // declares the intent to lock the repository for exclusive access during upgrade
-
 	EnablePasswordChange bool `json:"enablePasswordChange"` // disables replication of kopia.repository blob in packs
 }
 
