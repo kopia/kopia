@@ -27,7 +27,7 @@ Kopia allows you to save your [encrypted](../features/#end-to-end-zero-knowledge
 * Your local machine and any network-attached storage or server 
 * Your own remote server by setting up a [Kopia Repository Server](../repository-server/)
 
-> PRO TIP: Many cloud storage providers offer a variety of [storage tiers](../docs/advanced/storage-tiers/) that may (or may not) help decrease your cost of cloud storage, depending on your use case. See the [storage tiers documentation](/docs/advanced/storage-tiers/) to learn the different types of files Kopia stores in repositories and which one of these file types you can possibly move to archive tiers, such as Amazon Deep Glacier.
+> PRO TIP: Many cloud storage providers offer a variety of [storage tiers](../advanced/storage-tiers/) that may (or may not) help decrease your cost of cloud storage, depending on your use case. See the [storage tiers documentation](../advanced/storage-tiers/) to learn the different types of files Kopia stores in repositories and which one of these file types you can possibly move to archive tiers, such as Amazon Deep Glacier.
 
 ## Amazon S3 and S3-compatible Cloud Storage
 
@@ -39,9 +39,9 @@ Select the `Amazon S3 and Compatible Storage` option in the `Repository` tab in 
 
 > NOTE: Some S3-compatible cloud storage may have slightly different names for bucket, endpoint, access key, secret key, region, and session token. This will vary between cloud storages. Read the help documentation for the cloud storage you are using to find the appropriate values. You can typically find this information by searching for the S3 API settings for your cloud storage.
 
-You will next need to enter the repository password that you want. Remember, this [password is used to encrypt your data](../docs/faqs/#how-do-i-enable-encryption), so make sure it is a secure password! At this same password screen, you have the option to change the `Encryption` algoirthm, `Hash` algorithm, `Splitter` algorithm, `Repository Format`, `Username`, and `Hostname`. Click the `Show Advanced Options` button to access these settings. If you do not understand what these settings are, do not change them because the default settings are the best settings.
+You will next need to enter the repository password that you want. Remember, this [password is used to encrypt your data](../faqs/#how-do-i-enable-encryption), so make sure it is a secure password! At this same password screen, you have the option to change the `Encryption` algoirthm, `Hash` algorithm, `Splitter` algorithm, `Repository Format`, `Username`, and `Hostname`. Click the `Show Advanced Options` button to access these settings. If you do not understand what these settings are, do not change them because the default settings are the best settings.
 
-> NOTE: Some settings, such as object locking and [actions](../docs/advanced/actions/), can only be enabled when you create a new `repository` using command-line (see next section). However, once you create the `repository` via command-line, you can use the `repository` as normal in Kopia GUI: just connect to the `repository` as described above after you have created it in command-line.
+> NOTE: Some settings, such as object locking and [actions](../advanced/actions/), can only be enabled when you create a new `repository` using command-line (see next section). However, once you create the `repository` via command-line, you can use the `repository` as normal in Kopia GUI: just connect to the `repository` as described above after you have created it in command-line.
 
 Once you do all that, your repository should be created and you can start backing up your data!
 
@@ -58,13 +58,13 @@ $ kopia repository create s3 \
         --secret-access-key=...
 ```
 
-At a minimum, you will need to enter the bucket name, access key, and secret access key. If you are not using Amazon S3 and are using an S3-compatible storage, you will also need to enter the endpoint and may need to enter the `region`. There are also various other options (such as object locking and [actions](../docs/advanced/actions/)) you can change or enable -- see the [help docs](../reference/command-line/common/repository-create-s3/) for more information.
+At a minimum, you will need to enter the bucket name, access key, and secret access key. If you are not using Amazon S3 and are using an S3-compatible storage, you will also need to enter the endpoint and may need to enter the `region`. There are also various other options (such as object locking and [actions](../advanced/actions/)) you can change or enable -- see the [help docs](../reference/command-line/common/repository-create-s3/) for more information.
 
-You will be asked to enter the repository password that you want. Remember, this [password is used to encrypt your data](../docs/faqs/#how-do-i-enable-encryption), so make sure it is a secure password!
+You will be asked to enter the repository password that you want. Remember, this [password is used to encrypt your data](../faqs/#how-do-i-enable-encryption), so make sure it is a secure password!
 
 #### Connecting to Repository
 
-After you have created the `repository`, you connect to it using the [`kopia repository connect s3` command](../docs/reference/command-line/common/repository-connect-s3/). Read the [help docs](../docs/reference/command-line/common/repository-connect-s3/) for more information on the options available for this command.
+After you have created the `repository`, you connect to it using the [`kopia repository connect s3` command](../reference/command-line/common/repository-connect-s3/). Read the [help docs](../reference/command-line/common/repository-connect-s3/) for more information on the options available for this command.
 
 ## Azure Blob Storage
 
@@ -74,9 +74,9 @@ Creating an Azure Blob Storage `repository` is done differently depending on if 
 
 Select the `Azure Blob Storage` option in the `Repository` tab in `KopiaUI`. Then, follow on-screen instructions.  You will need to enter `Container` name, `Storage Account` name and either `Access Key` or `SAS Token`. You can optionally enter an `Azure Storage Domain`.
 
-You will next need to enter the repository password that you want. Remember, this [password is used to encrypt your data](../docs/faqs/#how-do-i-enable-encryption), so make sure it is a secure password! At this same password screen, you have the option to change the `Encryption` algoirthm, `Hash` algorithm, `Splitter` algorithm, `Repository Format`, `Username`, and `Hostname`. Click the `Show Advanced Options` button to access these settings. If you do not understand what these settings are, do not change them because the default settings are the best settings.
+You will next need to enter the repository password that you want. Remember, this [password is used to encrypt your data](../faqs/#how-do-i-enable-encryption), so make sure it is a secure password! At this same password screen, you have the option to change the `Encryption` algoirthm, `Hash` algorithm, `Splitter` algorithm, `Repository Format`, `Username`, and `Hostname`. Click the `Show Advanced Options` button to access these settings. If you do not understand what these settings are, do not change them because the default settings are the best settings.
 
-> NOTE: Some settings, such as object locking and [actions](../docs/advanced/actions/), can only be enabled when you create a new `repository` using command-line (see next section). However, once you create the `repository` via command-line, you can use the `repository` as normal in Kopia GUI: just connect to the `repository` as described above after you have created it in command-line.
+> NOTE: Some settings, such as [actions](../advanced/actions/), can only be enabled when you create a new `repository` using command-line (see next section). However, once you create the `repository` via command-line, you can use the `repository` as normal in Kopia GUI: just connect to the `repository` as described above after you have created it in command-line.
 
 Once you do all that, your repository should be created and you can start backing up your data!
 
@@ -102,13 +102,13 @@ $ kopia repository create azure \
         --sas-token=...
 ```
 
-At a minimum, you will need to enter the container name, storage account name, and either your Azure account access key/storage key or a SAS token. There are also various other options (such as object locking and [actions](../docs/advanced/actions/)) you can change or enable -- see the [help docs](../reference/command-line/common/repository-create-azure/) for more information.
+At a minimum, you will need to enter the container name, storage account name, and either your Azure account access key/storage key or a SAS token. There are also various other options (such as [actions](../advanced/actions/)) you can change or enable -- see the [help docs](../reference/command-line/common/repository-create-azure/) for more information.
 
-You will be asked to enter the repository password that you want. Remember, this [password is used to encrypt your data](../docs/faqs/#how-do-i-enable-encryption), so make sure it is a secure password!
+You will be asked to enter the repository password that you want. Remember, this [password is used to encrypt your data](../faqs/#how-do-i-enable-encryption), so make sure it is a secure password!
 
 #### Connecting to Repository
 
-After you have created the `repository`, you connect to it using the [`kopia repository connect azure` command](../docs/reference/command-line/common/repository-connect-azure/). Read the [help docs](../docs/reference/command-line/common/repository-connect-azure/) for more information on the options available for this command.
+After you have created the `repository`, you connect to it using the [`kopia repository connect azure` command](../reference/command-line/common/repository-connect-azure/). Read the [help docs](../reference/command-line/common/repository-connect-azure/) for more information on the options available for this command.
 
 ## Backblaze B2
 
@@ -120,9 +120,9 @@ Creating a Backblaze B2 `repository` is done differently depending on if you use
 
 Select the `Backblaze B2` option in the `Repository` tab in `KopiaUI`. Then, follow on-screen instructions.  You will need to enter `B2 Bucket` name, `Key ID`, and appliation `Key`.
 
-You will next need to enter the repository password that you want. Remember, this [password is used to encrypt your data](../docs/faqs/#how-do-i-enable-encryption), so make sure it is a secure password! At this same password screen, you have the option to change the `Encryption` algoirthm, `Hash` algorithm, `Splitter` algorithm, `Repository Format`, `Username`, and `Hostname`. Click the `Show Advanced Options` button to access these settings. If you do not understand what these settings are, do not change them because the default settings are the best settings.
+You will next need to enter the repository password that you want. Remember, this [password is used to encrypt your data](../faqs/#how-do-i-enable-encryption), so make sure it is a secure password! At this same password screen, you have the option to change the `Encryption` algoirthm, `Hash` algorithm, `Splitter` algorithm, `Repository Format`, `Username`, and `Hostname`. Click the `Show Advanced Options` button to access these settings. If you do not understand what these settings are, do not change them because the default settings are the best settings.
 
-> NOTE: Some settings, such as [actions](../docs/advanced/actions/), can only be enabled when you create a new `repository` using command-line (see next section). However, once you create the `repository` via command-line, you can use the `repository` as normal in Kopia GUI: just connect to the `repository` as described above after you have created it in command-line.
+> NOTE: Some settings, such as [actions](../advanced/actions/), can only be enabled when you create a new `repository` using command-line (see next section). However, once you create the `repository` via command-line, you can use the `repository` as normal in Kopia GUI: just connect to the `repository` as described above after you have created it in command-line.
 
 Once you do all that, your repository should be created and you can start backing up your data!
 
@@ -139,13 +139,13 @@ $ kopia repository create b2 \
         --key=...
 ```
 
-There are also various other options (such as [actions](../docs/advanced/actions/)) you can change or enable -- see the [help docs](../reference/command-line/common/repository-create-b2/) for more information.
+There are also various other options (such as [actions](../advanced/actions/)) you can change or enable -- see the [help docs](../reference/command-line/common/repository-create-b2/) for more information.
 
-You will be asked to enter the repository password that you want. Remember, this [password is used to encrypt your data](../docs/faqs/#how-do-i-enable-encryption), so make sure it is a secure password!
+You will be asked to enter the repository password that you want. Remember, this [password is used to encrypt your data](../faqs/#how-do-i-enable-encryption), so make sure it is a secure password!
 
 #### Connecting to Repository
 
-After you have created the `repository`, you connect to it using the [`kopia repository connect b2` command](../docs/reference/command-line/common/repository-connect-b2/). Read the [help docs](../docs/reference/command-line/common/repository-connect-b2/) for more information on the options available for this command.
+After you have created the `repository`, you connect to it using the [`kopia repository connect b2` command](../reference/command-line/common/repository-connect-b2/). Read the [help docs](../reference/command-line/common/repository-connect-b2/) for more information on the options available for this command.
 
 ## Google Cloud Storage
 
@@ -155,9 +155,9 @@ Creating a Google Cloud Storage `repository` is done differently depending on if
 
 Select the `Google Cloud Storage` option in the `Repository` tab in `KopiaUI`. Then, follow on-screen instructions.  You will need to enter the `GCS Bucket` name and enter the path to where on your machine you have saved the Google Cloud Storage `Credentials File`. The credentials file can be obtained by [creating a Google Cloud Service Account](https://cloud.google.com/docs/authentication/getting-started#create-service-account-console) that allows you to access your storage bucket and then downloading the JSON key file for that service account. You enter the path to this JSON key file in the `Credentials File` textbox in `KopiaUI`.
 
-You will next need to enter the repository password that you want. Remember, this [password is used to encrypt your data](../docs/faqs/#how-do-i-enable-encryption), so make sure it is a secure password! At this same password screen, you have the option to change the `Encryption` algoirthm, `Hash` algorithm, `Splitter` algorithm, `Repository Format`, `Username`, and `Hostname`. Click the `Show Advanced Options` button to access these settings. If you do not understand what these settings are, do not change them because the default settings are the best settings.
+You will next need to enter the repository password that you want. Remember, this [password is used to encrypt your data](../faqs/#how-do-i-enable-encryption), so make sure it is a secure password! At this same password screen, you have the option to change the `Encryption` algoirthm, `Hash` algorithm, `Splitter` algorithm, `Repository Format`, `Username`, and `Hostname`. Click the `Show Advanced Options` button to access these settings. If you do not understand what these settings are, do not change them because the default settings are the best settings.
 
-> NOTE: Some settings, such as object locking and [actions](../docs/advanced/actions/), can only be enabled when you create a new `repository` using command-line (see next section). However, once you create the `repository` via command-line, you can use the `repository` as normal in Kopia GUI: just connect to the `repository` as described above after you have created it in command-line.
+> NOTE: Some settings, such as [actions](../advanced/actions/), can only be enabled when you create a new `repository` using command-line (see next section). However, once you create the `repository` via command-line, you can use the `repository` as normal in Kopia GUI: just connect to the `repository` as described above after you have created it in command-line.
 
 Once you do all that, your repository should be created and you can start backing up your data!
 
@@ -183,14 +183,14 @@ After these preparations, we can create a Kopia `repository` (assuming bucket na
 $ kopia repository create gcs --bucket kopia-test-123
 ```
 
-There are also various other options (such as object locking and [actions](../docs/advanced/actions/)) you can change or enable -- see the [help docs](../reference/command-line/common/repository-create-gcs/) for more information.
+There are also various other options (such as [actions](../advanced/actions/)) you can change or enable -- see the [help docs](../reference/command-line/common/repository-create-gcs/) for more information.
 
-You will be asked to enter the repository password that you want. Remember, this [password is used to encrypt your data](../docs/faqs/#how-do-i-enable-encryption), so make sure it is a secure password!
+You will be asked to enter the repository password that you want. Remember, this [password is used to encrypt your data](../faqs/#how-do-i-enable-encryption), so make sure it is a secure password!
 
 ***Method #2: Creating a Service Account and Using the JSON Key File
 
 1. Create a storage bucket in [Google Cloud Console](https://console.cloud.google.com/storage/)
-2. Create a Google Cloud Service Account that allows you to access your storage bucket. Directions are available on [Google Cloud's website](https://cloud.google.com/docs/authentication/getting-started#create-service-account-console). Make sure to download the JSON key file for your service account and keep it safe.
+2. Create a Google Cloud Service Account that allows you to access your storage bucket. Directions are available on [Google Cloud's website](https://cloud.google.com/authentication/getting-started#create-service-account-console). Make sure to download the JSON key file for your service account and keep it safe.
 
 After these preparations, we can create a Kopia `repository` (assuming bucket named `kopia-test-123`) using the [`kopia repository create gcs` command](../reference/command-line/common/repository-connect-gcs/):
 
@@ -198,9 +198,9 @@ After these preparations, we can create a Kopia `repository` (assuming bucket na
 $ kopia repository create gcs --credentials-file="/path/to/your/credentials/file.json" --bucket kopia-test-123
 ```
 
-There are also various other options (such as object locking and [actions](../docs/advanced/actions/)) you can change or enable -- see the [help docs](../reference/command-line/common/repository-create-gcs/) for more information.
+There are also various other options (such as [actions](../advanced/actions/)) you can change or enable -- see the [help docs](../reference/command-line/common/repository-create-gcs/) for more information.
 
-You will be asked to enter the repository password that you want. Remember, this [password is used to encrypt your data](../docs/faqs/#how-do-i-enable-encryption), so make sure it is a secure password!
+You will be asked to enter the repository password that you want. Remember, this [password is used to encrypt your data](../faqs/#how-do-i-enable-encryption), so make sure it is a secure password!
 
 ***Method #3: Enabling Amazon S3 Interoperability in Google Cloud Storage
 
@@ -214,13 +214,13 @@ After these preparations, we can create a Kopia `repository` (assuming bucket na
 $ kopia repository create s3 --endpoint="storage.googleapis.com" --bucket="kopia-test-123" --access-key="access/key/here" --secret-access-key="secret/key/here"
 ```
 
-There are also various other options (such as object locking and [actions](../docs/advanced/actions/)) you can change or enable -- see the [help docs](../reference/command-line/common/repository-create-s3/) for more information.
+There are also various other options (such as [actions](../advanced/actions/)) you can change or enable -- see the [help docs](../reference/command-line/common/repository-create-s3/) for more information.
 
-You will be asked to enter the repository password that you want. Remember, this [password is used to encrypt your data](../docs/faqs/#how-do-i-enable-encryption), so make sure it is a secure password!
+You will be asked to enter the repository password that you want. Remember, this [password is used to encrypt your data](../faqs/#how-do-i-enable-encryption), so make sure it is a secure password!
 
 #### Connecting to Repository
 
-After you have created the `repository`, you connect to it using the [`kopia repository connect gcs` command](../docs/reference/command-line/common/repository-connect-gcs/) or the [`kopia repository connect s3` command](../docs/reference/command-line/common/repository-connect-s3/), depending on whichever way you setup the Google Cloud Storage `repository`. Read the [help docs for `repository connect gcs`](../docs/reference/command-line/common/repository-connect-gcs/) or the [help docs for `repository connect s3`](../docs/reference/command-line/common/repository-connect-s3/) for more information on the options available for these commands.
+After you have created the `repository`, you connect to it using the [`kopia repository connect gcs` command](../reference/command-line/common/repository-connect-gcs/) or the [`kopia repository connect s3` command](../reference/command-line/common/repository-connect-s3/), depending on whichever way you setup the Google Cloud Storage `repository`. Read the [help docs for `repository connect gcs`](../reference/command-line/common/repository-connect-gcs/) or the [help docs for `repository connect s3`](../reference/command-line/common/repository-connect-s3/) for more information on the options available for these commands.
 
 ## Google Drive
 
@@ -250,13 +250,13 @@ Ready? Here are the step-by-step instructions:
 
 2. [Enable the Google Drive API](https://console.cloud.google.com/apis/library/drive.googleapis.com) for your project.
 
-3. Create a service account. After enabling the API, you should be now prompted to [create credentials](https://console.cloud.google.com/apis/api/drive.googleapis.com/credentials). Choose `Service account` from the options, and give it a name. Note down the service account email.
+3. [Create a service account](https://console.cloud.google.com/iam-admin/serviceaccounts). After enabling the API, you should be now prompted to [create credentials](https://console.cloud.google.com/apis/api/drive.googleapis.com/credentials). Choose `Service account` from the options, and give it a name. Note down the service account email.
 
-4. Create a key for the service account. You can do this by viewing the service account, navigating to the `Keys` tab, and clicking `Add Key` -> `Create new key`. You should choose `JSON` for the key type. Save the file on your computer.
+4. Create a key for the service account. You can do this by [viewing the service account](https://console.cloud.google.com/iam-admin/serviceaccounts), navigating to the `Keys` tab, and clicking `Add Key` -> `Create new key`. You should choose `JSON` for the key type. Save the file on your computer.
 
 5. Create or pick an existing Google Drive folder. The browser URL should look something like `https://drive.google.com/drive/u/0/folders/[folder_id]`. Note down the last part of the URL. That's your folder ID.
 
-6. Share the folder with the service account. Open the share dialog for the folder, and put in the service account email. You should choose the `Editor` as the access role.
+6. Share the Google Drive folder with the service account. Open the share dialog for the folder by right-clicking the folder in Google Drive, and put in the service account email. You should choose the `Editor` as the access role.
 
 After these preparations, we can create a Kopia `repository` (assuming the folder ID is `z63ZZ1Npv3OFvDPwU3dX0w`) using the [`kopia repository create gdrive` command](../reference/command-line/common/repository-connect-gdrive/):
 
@@ -266,15 +266,15 @@ $ kopia repository create gdrive \
         --credentials-file="<where-you-have-stored-the-json-key-file>"
 ```
 
-There are also various other options (such as [actions](../docs/advanced/actions/)) you can change or enable -- see the [help docs](../reference/command-line/common/repository-create-gdrive/) for more information.
+There are also various other options (such as [actions](../advanced/actions/)) you can change or enable -- see the [help docs](../reference/command-line/common/repository-create-gdrive/) for more information.
 
-You will be asked to enter the repository password that you want. Remember, this [password is used to encrypt your data](../docs/faqs/#how-do-i-enable-encryption), so make sure it is a secure password!
+You will be asked to enter the repository password that you want. Remember, this [password is used to encrypt your data](../faqs/#how-do-i-enable-encryption), so make sure it is a secure password!
 
 If you view your folder on Google Drive, you should see that Kopia has created the skeleton of the repository with a `kopia.repository` file and a couple of others. Kopia will store all the files for your snapshots in this folder.
 
 ### Connecting to Repository
 
-After you have created the `repository`, you connect to it using the [`kopia repository connect gdrive` command](../docs/reference/command-line/common/repository-connect-gdrive/). Read the [help docs](../docs/reference/command-line/common/repository-connect-gdrive/) for more information on the options available for this command.
+After you have created the `repository`, you connect to it using the [`kopia repository connect gdrive` command](../reference/command-line/common/repository-connect-gdrive/). Read the [help docs](../reference/command-line/common/repository-connect-gdrive/) for more information on the options available for this command.
 
 ## WebDAV
 
@@ -284,9 +284,9 @@ Creating a WebDAV `repository` is done differently depending on if you use Kopia
 
 Select the `WebDAV Server` option in the `Repository` tab in `KopiaUI`. Then, follow on-screen instructions.  You will need to enter `WebDAV Server URL`, `Username`, and `Password.
 
-You will next need to enter the repository password that you want. This password can be whatever you want, it does not need to be the same as your WebDAV password. In fact, it should not be the same! Remember, this [password is used to encrypt your data](../docs/faqs/#how-do-i-enable-encryption), so make sure it is a secure password! At this same password screen, you have the option to change the `Encryption` algoirthm, `Hash` algorithm, `Splitter` algorithm, `Repository Format`, `Username`, and `Hostname`. Click the `Show Advanced Options` button to access these settings. If you do not understand what these settings are, do not change them because the default settings are the best settings.
+You will next need to enter the repository password that you want. This password can be whatever you want, it does not need to be the same as your WebDAV password. In fact, it should not be the same! Remember, this [password is used to encrypt your data](../faqs/#how-do-i-enable-encryption), so make sure it is a secure password! At this same password screen, you have the option to change the `Encryption` algoirthm, `Hash` algorithm, `Splitter` algorithm, `Repository Format`, `Username`, and `Hostname`. Click the `Show Advanced Options` button to access these settings. If you do not understand what these settings are, do not change them because the default settings are the best settings.
 
-> NOTE: Some settings, such as [actions](../docs/advanced/actions/), can only be enabled when you create a new `repository` using command-line (see next section). However, once you create the `repository` via command-line, you can use the `repository` as normal in Kopia GUI: just connect to the `repository` as described above after you have created it in command-line.
+> NOTE: Some settings, such as [actions](../advanced/actions/), can only be enabled when you create a new `repository` using command-line (see next section). However, once you create the `repository` via command-line, you can use the `repository` as normal in Kopia GUI: just connect to the `repository` as described above after you have created it in command-line.
 
 Once you do all that, your repository should be created and you can start backing up your data!
 
@@ -304,13 +304,13 @@ $ kopia repository create webdav \
 ```
 
 
-At a minimum, you will need to enter the WebDAV server URL, username, and password. There are also various other options (such as [actions](../docs/advanced/actions/)) you can change or enable -- see the [help docs](../reference/command-line/common/repository-create-webdav/) for more information.
+At a minimum, you will need to enter the WebDAV server URL, username, and password. There are also various other options (such as [actions](../advanced/actions/)) you can change or enable -- see the [help docs](../reference/command-line/common/repository-create-webdav/) for more information.
 
-You will be asked to enter the repository password that you want. This password can be whatever you want, it does not need to be the same as your WebDAV password. In fact, it should not be the same! Remember, this [password is used to encrypt your data](../docs/faqs/#how-do-i-enable-encryption), so make sure it is a secure password!
+You will be asked to enter the repository password that you want. This password can be whatever you want, it does not need to be the same as your WebDAV password. In fact, it should not be the same! Remember, this [password is used to encrypt your data](../faqs/#how-do-i-enable-encryption), so make sure it is a secure password!
 
 #### Connecting to Repository
 
-After you have created the `repository`, you connect to it using the [`kopia repository connect webdav` command](../docs/reference/command-line/common/repository-connect-webdav/). Read the [help docs](../docs/reference/command-line/common/repository-connect-webdav/) for more information on the options available for this command.
+After you have created the `repository`, you connect to it using the [`kopia repository connect webdav` command](../reference/command-line/common/repository-connect-webdav/). Read the [help docs](../reference/command-line/common/repository-connect-webdav/) for more information on the options available for this command.
 
 ## SFTP
 
@@ -322,9 +322,9 @@ Select the `SFTP Server` option in the `Repository` tab in `KopiaUI`. Then, foll
 
 If the connection to SFTP server does not work, checking the option for `Launch external password-less SSH command` which will launch an external `ssh` process  that supports more connectivity options and may be needed for some hosts.
 
-You will next need to enter the repository password that you want. This password can be whatever you want, it does not need to be the same as your SFTP password. In fact, it should not be the same! Remember, this [password is used to encrypt your data](../docs/faqs/#how-do-i-enable-encryption), so make sure it is a secure password! At this same password screen, you have the option to change the `Encryption` algoirthm, `Hash` algorithm, `Splitter` algorithm, `Repository Format`, `Username`, and `Hostname`. Click the `Show Advanced Options` button to access these settings. If you do not understand what these settings are, do not change them because the default settings are the best settings.
+You will next need to enter the repository password that you want. This password can be whatever you want, it does not need to be the same as your SFTP password. In fact, it should not be the same! Remember, this [password is used to encrypt your data](../faqs/#how-do-i-enable-encryption), so make sure it is a secure password! At this same password screen, you have the option to change the `Encryption` algoirthm, `Hash` algorithm, `Splitter` algorithm, `Repository Format`, `Username`, and `Hostname`. Click the `Show Advanced Options` button to access these settings. If you do not understand what these settings are, do not change them because the default settings are the best settings.
 
-> NOTE: Some settings, such as [actions](../docs/advanced/actions/), can only be enabled when you create a new `repository` using command-line (see next section). However, once you create the `repository` via command-line, you can use the `repository` as normal in Kopia GUI: just connect to the `repository` as described above after you have created it in command-line.
+> NOTE: Some settings, such as [actions](../advanced/actions/), can only be enabled when you create a new `repository` using command-line (see next section). However, once you create the `repository` via command-line, you can use the `repository` as normal in Kopia GUI: just connect to the `repository` as described above after you have created it in command-line.
 
 Once you do all that, your repository should be created and you can start backing up your data!
 
@@ -354,13 +354,13 @@ $ kopia repository create sftp \
 
 If the connection to SFTP server does not work, try adding `--external` which will launch an external `ssh` process that supports more connectivity options and may be needed for some hosts.
 
-At a minimum, you will need to enter the path, host, username, and either password or path to key file. You may also need to include `--known-hosts`. There are also various other options (such as [actions](../docs/advanced/actions/)) you can change or enable -- see the [help docs](../reference/command-line/common/repository-create-sftp/) for more information.
+At a minimum, you will need to enter the path, host, username, and either password or path to key file. You may also need to include `--known-hosts`. There are also various other options (such as [actions](../advanced/actions/)) you can change or enable -- see the [help docs](../reference/command-line/common/repository-create-sftp/) for more information.
 
-You will be asked to enter the repository password that you want. This password can be whatever you want, it does not need to be the same as your SFTP password. In fact, it should not be the same! Remember, this [password is used to encrypt your data](../docs/faqs/#how-do-i-enable-encryption), so make sure it is a secure password!
+You will be asked to enter the repository password that you want. This password can be whatever you want, it does not need to be the same as your SFTP password. In fact, it should not be the same! Remember, this [password is used to encrypt your data](../faqs/#how-do-i-enable-encryption), so make sure it is a secure password!
 
 #### Connecting to Repository
 
-After you have created the `repository`, you connect to it using the [`kopia repository connect sftp` command](../docs/reference/command-line/common/repository-connect-sftp/). Read the [help docs](../docs/reference/command-line/common/repository-connect-sftp/) for more information on the options available for this command.
+After you have created the `repository`, you connect to it using the [`kopia repository connect sftp` command](../reference/command-line/common/repository-connect-sftp/). Read the [help docs](../reference/command-line/common/repository-connect-sftp/) for more information on the options available for this command.
 
 ## Rclone
 
@@ -377,9 +377,9 @@ Before you can create an Rclone `repository` in Kopia, you first need to downloa
 
 Select the `Rclone Remote` option in the `Repository` tab in `KopiaUI`. Then, follow on-screen instructions.  You will need to enter `Rcone Remote Path` and `Rclone Executable Path`. The `Remote Path` is `my-remote:/some/path`, where you should replace `my-remote` with the name of the Rclone `remote` you created earlier and replace `/some/path` with the directory on the cloud storage where you want Kopia to save your snapshots. The `Executable Path` is the location on your machine where you saved the Rclone executable that you downloaded earlier.
 
-You will next need to enter the repository password that you want. Remember, this [password is used to encrypt your data](../docs/faqs/#how-do-i-enable-encryption), so make sure it is a secure password! At this same password screen, you have the option to change the `Encryption` algoirthm, `Hash` algorithm, `Splitter` algorithm, `Repository Format`, `Username`, and `Hostname`. Click the `Show Advanced Options` button to access these settings. If you do not understand what these settings are, do not change them because the default settings are the best settings.
+You will next need to enter the repository password that you want. Remember, this [password is used to encrypt your data](../faqs/#how-do-i-enable-encryption), so make sure it is a secure password! At this same password screen, you have the option to change the `Encryption` algoirthm, `Hash` algorithm, `Splitter` algorithm, `Repository Format`, `Username`, and `Hostname`. Click the `Show Advanced Options` button to access these settings. If you do not understand what these settings are, do not change them because the default settings are the best settings.
 
-> NOTE: Some settings, such as [actions](../docs/advanced/actions/) and arguments to Rclone, can only be enabled when you create a new `repository` using command-line (see next section). However, once you create the `repository` via command-line, you can use the `repository` as normal in Kopia GUI: just connect to the `repository` as described above after you have created it in command-line.
+> NOTE: Some settings, such as [actions](../advanced/actions/) and arguments to Rclone, can only be enabled when you create a new `repository` using command-line (see next section). However, once you create the `repository` via command-line, you can use the `repository` as normal in Kopia GUI: just connect to the `repository` as described above after you have created it in command-line.
 
 Once you do all that, your repository should be created and you can start backing up your data! Remember, Kopia manages Rclone for you, so you do not need to do anything further with Rclone.
 
@@ -393,15 +393,15 @@ You must use the [`kopia repository create rclone` command](../reference/command
 $ kopia repository create rclone --rclone-exe=/path/to/rclone/executable --remote-path=my-remote:/some/path
 ```
 
-There are also various other options (such as [actions](../docs/advanced/actions/) and arguments to Rclone) you can change or enable -- see the [help docs](../reference/command-line/common/repository-create-rclone/) for more information.
+There are also various other options (such as [actions](../advanced/actions/) and arguments to Rclone) you can change or enable -- see the [help docs](../reference/command-line/common/repository-create-rclone/) for more information.
 
-You will be asked to enter the repository password that you want. Remember, this [password is used to encrypt your data](../docs/faqs/#how-do-i-enable-encryption), so make sure it is a secure password!
+You will be asked to enter the repository password that you want. Remember, this [password is used to encrypt your data](../faqs/#how-do-i-enable-encryption), so make sure it is a secure password!
 
 Remember, Kopia manages Rclone for you, so you do not need to do anything further with Rclone once you have created the `repository`.
 
 #### Connecting to Repository
 
-After you have created the `repository`, you connect to it using the [`kopia repository connect rclone` command](../docs/reference/command-line/common/repository-connect-rclone/). Read the [help docs](../docs/reference/command-line/common/repository-connect-rclone/) for more information on the options available for this command.
+After you have created the `repository`, you connect to it using the [`kopia repository connect rclone` command](../reference/command-line/common/repository-connect-rclone/). Read the [help docs](../reference/command-line/common/repository-connect-rclone/) for more information on the options available for this command.
 
 ## Local or Network-attached Storage
 
@@ -413,9 +413,9 @@ Creating a filesystem `repository` is done differently depending on if you use K
 
 Select the `Local Directory or NAS` option in the `Repository` tab in `KopiaUI`. Then, follow on-screen instructions.  You will need to enter `Directory Path`.
 
-You will next need to enter the repository password that you want. Remember, this [password is used to encrypt your data](../docs/faqs/#how-do-i-enable-encryption), so make sure it is a secure password! At this same password screen, you have the option to change the `Encryption` algoirthm, `Hash` algorithm, `Splitter` algorithm, `Repository Format`, `Username`, and `Hostname`. Click the `Show Advanced Options` button to access these settings. If you do not understand what these settings are, do not change them because the default settings are the best settings.
+You will next need to enter the repository password that you want. Remember, this [password is used to encrypt your data](../faqs/#how-do-i-enable-encryption), so make sure it is a secure password! At this same password screen, you have the option to change the `Encryption` algoirthm, `Hash` algorithm, `Splitter` algorithm, `Repository Format`, `Username`, and `Hostname`. Click the `Show Advanced Options` button to access these settings. If you do not understand what these settings are, do not change them because the default settings are the best settings.
 
-> NOTE: Some settings, such as [actions](../docs/advanced/actions/), can only be enabled when you create a new `repository` using command-line (see next section). However, once you create the `repository` via command-line, you can use the `repository` as normal in Kopia GUI: just connect to the `repository` as described above after you have created it in command-line.
+> NOTE: Some settings, such as [actions](../advanced/actions/), can only be enabled when you create a new `repository` using command-line (see next section). However, once you create the `repository` via command-line, you can use the `repository` as normal in Kopia GUI: just connect to the `repository` as described above after you have created it in command-line.
 
 Once you do all that, your repository should be created and you can start backing up your data!
 
@@ -429,10 +429,10 @@ You must use the [`kopia repository create filesystem` command](../reference/com
 $ kopia repository create filesystem --path=...
 ```
 
-There are also various other options (such as [actions](../docs/advanced/actions/)) you can change or enable -- see the [help docs](../reference/command-line/common/repository-create-filesystem/) for more information.
+There are also various other options (such as [actions](../advanced/actions/)) you can change or enable -- see the [help docs](../reference/command-line/common/repository-create-filesystem/) for more information.
 
-You will be asked to enter the repository password that you want. Remember, this [password is used to encrypt your data](../docs/faqs/#how-do-i-enable-encryption), so make sure it is a secure password!
+You will be asked to enter the repository password that you want. Remember, this [password is used to encrypt your data](../faqs/#how-do-i-enable-encryption), so make sure it is a secure password!
 
 #### Connecting to Repository
 
-After you have created the `repository`, you connect to it using the [`kopia repository connect filesystem` command](../docs/reference/command-line/common/repository-connect-filesystem/). Read the [help docs](../docs/reference/command-line/common/repository-connect-filesystem/) for more information on the options available for this command.
+After you have created the `repository`, you connect to it using the [`kopia repository connect filesystem` command](../reference/command-line/common/repository-connect-filesystem/). Read the [help docs](../reference/command-line/common/repository-connect-filesystem/) for more information on the options available for this command.
