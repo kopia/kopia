@@ -18,7 +18,7 @@ import (
 const FormatBlobBackupIDPrefix = "kopia.repository.backup."
 
 // FormatBlobBackupID gets the upgrade backu pblob-id fro mthe lock.
-func FormatBlobBackupID(l content.UpgradeLock) blob.ID {
+func FormatBlobBackupID(l UpgradeLockIntent) blob.ID {
 	return blob.ID(FormatBlobBackupIDPrefix + l.OwnerID)
 }
 
@@ -59,13 +59,13 @@ func (r *directRepository) updateRepoConfig(ctx context.Context, cb func(repoCon
 // intent and sets the latest format-version o nthe repository blob. This
 // should cause the unsupporting clients (non-upgrade capable) to fail
 // connecting to the repository.
-func (r *directRepository) SetUpgradeLockIntent(ctx context.Context, l content.UpgradeLock) (*content.UpgradeLock, error) {
+func (r *directRepository) SetUpgradeLockIntent(ctx context.Context, l UpgradeLockIntent) (*UpgradeLockIntent, error) {
 	repoConfig, err := r.updateRepoConfig(ctx, func(repoConfig *repositoryObjectFormat) error {
 		if err := l.Validate(); err != nil {
 			return errors.Wrap(err, "invalid upgrade lock intent")
 		}
 
-		if repoConfig.FormattingOptions.UpgradeLock == nil {
+		if repoConfig.UpgradeLock == nil {
 			// when we are putting a new lock then ensure that we can upgrade
 			// to that version
 			if repoConfig.FormattingOptions.Version >= content.MaxFormatVersion {
@@ -80,12 +80,12 @@ func (r *directRepository) SetUpgradeLockIntent(ctx context.Context, l content.U
 			}
 
 			// set a new lock or revoke an existing lock
-			repoConfig.FormattingOptions.UpgradeLock = &l
+			repoConfig.UpgradeLock = &l
 			// mark the upgrade to the new format version, this will ensure that older
 			// clients won't be able to parse the new version
 			repoConfig.FormattingOptions.Version = content.MaxFormatVersion
-		} else if newL, err := repoConfig.FormattingOptions.UpgradeLock.Update(&l); err == nil {
-			repoConfig.FormattingOptions.UpgradeLock = newL
+		} else if newL, err := repoConfig.UpgradeLock.Update(&l); err == nil {
+			repoConfig.UpgradeLock = newL
 		} else {
 			return errors.Wrap(err, "failed to update the existing lock")
 		}
@@ -104,12 +104,12 @@ func (r *directRepository) SetUpgradeLockIntent(ctx context.Context, l content.U
 // resumes all access to the repository.
 func (r *directRepository) CommitUpgrade(ctx context.Context) error {
 	_, err := r.updateRepoConfig(ctx, func(repoConfig *repositoryObjectFormat) error {
-		if repoConfig.FormattingOptions.UpgradeLock == nil {
+		if repoConfig.UpgradeLock == nil {
 			return errors.New("no upgrade in progress")
 		}
 
 		// restore the old format version
-		repoConfig.FormattingOptions.UpgradeLock = nil
+		repoConfig.UpgradeLock = nil
 
 		return nil
 	})
@@ -133,7 +133,7 @@ func (r *directRepository) RollbackUpgrade(ctx context.Context) error {
 		return errors.Wrap(err, "unable to decrypt repository config")
 	}
 
-	if repoConfig.FormattingOptions.UpgradeLock == nil {
+	if repoConfig.UpgradeLock == nil {
 		return errors.New("no upgrade in progress")
 	}
 

@@ -1,4 +1,4 @@
-package content
+package repo
 
 import (
 	"time"
@@ -6,12 +6,12 @@ import (
 	"github.com/pkg/errors"
 )
 
-// UpgradeLock represents the intent to lock a kopia repository for upgrade
+// UpgradeLockIntent represents the intent to lock a kopia repository for upgrade
 // related maintenance activity. This signals a request for exclusive access to
 // the repository. The lock object is set on the Kopia repository format blob
 // 'kopia.repository' and must be respected by all clients accessing the
 // repository.
-type UpgradeLock struct {
+type UpgradeLockIntent struct {
 	OwnerID                string        `json:"ownerID,omitempty"`
 	CreationTime           time.Time     `json:"creationTime,omitempty"`
 	AdvanceNoticeDuration  time.Duration `json:"advanceNoticeDuration,omitempty"`
@@ -23,7 +23,7 @@ type UpgradeLock struct {
 
 // Update upgrades an existing lock intent. This method controls what mutations
 // are allowed on an upgrade lock once it has been placed on the repository.
-func (l *UpgradeLock) Update(other *UpgradeLock) (*UpgradeLock, error) {
+func (l *UpgradeLockIntent) Update(other *UpgradeLockIntent) (*UpgradeLockIntent, error) {
 	if l.OwnerID != other.OwnerID {
 		return nil, errors.Errorf("upgrade owner-id mismatch %q != %q, you are not the owner of the upgrade lock",
 			other.OwnerID, l.OwnerID)
@@ -50,13 +50,13 @@ func (l *UpgradeLock) Update(other *UpgradeLock) (*UpgradeLock, error) {
 }
 
 // Clone creates a copy of the UpgradeLock instance.
-func (l *UpgradeLock) Clone() *UpgradeLock {
+func (l *UpgradeLockIntent) Clone() *UpgradeLockIntent {
 	clone := *l
 	return &clone
 }
 
 // Validate verifies the parameters of an upgrade lock.
-func (l *UpgradeLock) Validate() error {
+func (l *UpgradeLockIntent) Validate() error {
 	if l.OwnerID == "" {
 		return errors.New("no owner-id set, it is required to set a unique owner-id")
 	}
@@ -99,7 +99,7 @@ func (l *UpgradeLock) Validate() error {
 // UpgradeTime returns the absolute time in future by when the upgrade lock
 // will be fully established, i.e. all non-upgrading-owner kopia accessors
 // would be drained.
-func (l *UpgradeLock) UpgradeTime() time.Time {
+func (l *UpgradeLockIntent) UpgradeTime() time.Time {
 	if l == nil {
 		return time.Time{}
 	}
@@ -118,13 +118,13 @@ func (l *UpgradeLock) UpgradeTime() time.Time {
 	return upgradeTime
 }
 
-func (l *UpgradeLock) totalDrainInterval() time.Duration {
+func (l *UpgradeLockIntent) totalDrainInterval() time.Duration {
 	return l.MaxPermittedClockDrift + 2*l.IODrainTimeout
 }
 
 // IsLocked indicates whether a lock intent has been placed and whether all
 // other repository accessors have been drained.
-func (l *UpgradeLock) IsLocked(now time.Time) (locked, writersDrained bool) {
+func (l *UpgradeLockIntent) IsLocked(now time.Time) (locked, writersDrained bool) {
 	if l == nil {
 		return false, false
 	}

@@ -33,7 +33,7 @@ func TestFormatUpgradeSetLock(t *testing.T) {
 	}})
 	formatBlockCacheDuration := env.Repository.ClientOptions().FormatBlobCacheDuration
 
-	l := &content.UpgradeLock{
+	l := &repo.UpgradeLockIntent{
 		CreationTime:           env.Repository.Time(),
 		AdvanceNoticeDuration:  15 * time.Hour,
 		IODrainTimeout:         formatBlockCacheDuration * 2,
@@ -73,7 +73,7 @@ func TestFormatUpgradeAlreadyUpgraded(t *testing.T) {
 	ctx, env := repotesting.NewEnvironment(t, content.MaxFormatVersion)
 	formatBlockCacheDuration := env.Repository.ClientOptions().FormatBlobCacheDuration
 
-	l := &content.UpgradeLock{
+	l := &repo.UpgradeLockIntent{
 		OwnerID:                "new-upgrade-owner",
 		CreationTime:           env.Repository.Time(),
 		AdvanceNoticeDuration:  0,
@@ -94,7 +94,7 @@ func TestFormatUpgradeCommit(t *testing.T) {
 	}})
 	formatBlockCacheDuration := env.Repository.ClientOptions().FormatBlobCacheDuration
 
-	l := &content.UpgradeLock{
+	l := &repo.UpgradeLockIntent{
 		OwnerID:                "upgrade-owner",
 		CreationTime:           env.Repository.Time(),
 		AdvanceNoticeDuration:  0,
@@ -121,7 +121,7 @@ func TestFormatUpgradeRollback(t *testing.T) {
 	}})
 	formatBlockCacheDuration := env.Repository.ClientOptions().FormatBlobCacheDuration
 
-	l := &content.UpgradeLock{
+	l := &repo.UpgradeLockIntent{
 		OwnerID:                "upgrade-owner",
 		CreationTime:           env.Repository.Time(),
 		AdvanceNoticeDuration:  0,
@@ -149,7 +149,7 @@ func TestFormatUpgradeMultipleLocksRollback(t *testing.T) {
 	}})
 	formatBlockCacheDuration := env.Repository.ClientOptions().FormatBlobCacheDuration
 
-	l := &content.UpgradeLock{
+	l := &repo.UpgradeLockIntent{
 		OwnerID:                "upgrade-owner",
 		CreationTime:           env.Repository.Time(),
 		AdvanceNoticeDuration:  0,
@@ -216,7 +216,7 @@ func TestFormatUpgradeMultipleLocksRollback(t *testing.T) {
 
 func TestFormatUpgradeFailureToBackupFormatBlobOnLock(t *testing.T) {
 	// this lock will be allowed by the backend to create backups
-	allowedLock := content.UpgradeLock{
+	allowedLock := repo.UpgradeLockIntent{
 		OwnerID:                "allowed-upgrade-owner",
 		CreationTime:           clock.Now(),
 		AdvanceNoticeDuration:  0,
@@ -351,7 +351,7 @@ func TestFormatUpgradeDuringOngoingWriteSessions(t *testing.T) {
 	writeObject(ctx, t, lw, o4Data, "o4")
 
 	formatBlockCacheDuration := env.Repository.ClientOptions().FormatBlobCacheDuration
-	l := content.UpgradeLock{
+	l := repo.UpgradeLockIntent{
 		OwnerID:                "upgrade-owner",
 		CreationTime:           env.Repository.Time(),
 		AdvanceNoticeDuration:  0,
