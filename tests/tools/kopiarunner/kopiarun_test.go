@@ -55,10 +55,7 @@ func TestKopiaRunner(t *testing.T) {
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			err := os.Setenv("KOPIA_EXE", tt.exe)
-			if err != nil {
-				t.Fatal("Unable to set environment variable KOPIA_EXE")
-			}
+			t.Setenv("KOPIA_EXE", tt.exe)
 
 			runner, err := NewRunner("")
 			if (err != nil) != tt.expNewRunnerErr {

@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/pkg/errors"
 	"golang.org/x/net/webdav"
@@ -51,7 +52,8 @@ func DirectoryWebDAV(ctx context.Context, entry fs.Directory) (Controller, error
 	}
 
 	srv := &http.Server{
-		Handler: mux,
+		ReadHeaderTimeout: 15 * time.Second, // nolint:gomnd
+		Handler:           mux,
 	}
 
 	done := make(chan struct{})

@@ -74,6 +74,7 @@ linters:
     - exhaustruct
     - gochecknoinits
     - golint
+    - gci
     - ifshort
     - interfacer
     - ireturn # this one may be interesting to control allocations
@@ -81,6 +82,7 @@ linters:
     - nilnil
     - nlreturn
     - nonamedreturns
+    - nosnakecase
     - paralleltest
     - prealloc
     - scopelint
