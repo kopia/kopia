@@ -184,7 +184,8 @@ func (c *commandServerStart) run(ctx context.Context) error {
 	}
 
 	httpServer := &http.Server{
-		Addr: stripProtocol(c.sf.serverAddress),
+		ReadHeaderTimeout: 15 * time.Second, // nolint:gomnd
+		Addr:              stripProtocol(c.sf.serverAddress),
 		BaseContext: func(l net.Listener) context.Context {
 			return ctx
 		},
