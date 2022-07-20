@@ -1,7 +1,7 @@
 ---
 title: "Repository Consistency and Repair"
 linkTitle: "Repository Consistency"
-weight: 2
+weight: 20
 ---
 
 ## Repository Consistency
