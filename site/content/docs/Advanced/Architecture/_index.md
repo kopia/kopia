@@ -1,7 +1,7 @@
 ---
 title: "Architecture"
 linkTitle: "Architecture"
-weight: 1
+weight: 30
 ---
 
 Kopia stores its data in a data structure called Repository.
