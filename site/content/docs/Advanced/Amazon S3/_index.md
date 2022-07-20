@@ -2,6 +2,7 @@
 title: "Amazon S3"
 linkTitle: "Amazon S3"
 weight: 20
+unlisted: true
 ---
 
 [Amazon S3](https://aws.amazon.com/s3/) is a highly featured cloud storage option. Kopia supports [connecting](/docs/reference/command-line/common/repository-create-s3/) to a repository stored on Amazon S3.
