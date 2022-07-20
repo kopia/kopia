@@ -15,14 +15,13 @@ const (
 	metadataSubPath = "recovery-metadata"
 )
 
-var repoPathPrefix = flag.String("repo-path-prefix", "", "Point the robustness tests at this path prefix")
+var repoPathPrefix = flag.String("repo-path-prefix", "/Users/chaitali.gondhalekar/Work/Kasten/kopia_dummy_repo/", "Point the robustness tests at this path prefix")
 
 func TestMain(m *testing.M) {
 	dataRepoPath := path.Join(*repoPathPrefix, dataSubPath)
-	metadataRepoPath := path.Join(*repoPathPrefix, metadataSubPath)
 
 	th := &kopiaRecoveryTestHarness{}
-	th.init(dataRepoPath, metadataRepoPath)
+	th.init(dataRepoPath)
 
 	// run the tests
 	result := m.Run()
@@ -35,7 +34,6 @@ type kopiaRecoveryTestHarness struct {
 	metaRepoPath string
 }
 
-func (th *kopiaRecoveryTestHarness) init(dataRepoPath, metaRepoPath string) {
+func (th *kopiaRecoveryTestHarness) init(dataRepoPath string) {
 	th.dataRepoPath = dataRepoPath
-	th.metaRepoPath = metaRepoPath
 }

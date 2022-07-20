@@ -131,6 +131,28 @@ func (bm *BlobManipulator) getFileWriter() bool {
 	return true
 }
 
+func (bm *BlobManipulator) writeRandomFiles(ctx context.Context, fileSize int, numFiles int) error {
+	// create random data
+	gotFileWriter := bm.getFileWriter()
+	if !gotFileWriter {
+		return errCreatingFileWriter
+	}
+
+	fileWriteOpts := map[string]string{
+		fiofilewriter.MaxDirDepthField:         strconv.Itoa(1),
+		fiofilewriter.MaxFileSizeField:         strconv.Itoa(fileSize),
+		fiofilewriter.MinFileSizeField:         strconv.Itoa(fileSize),
+		fiofilewriter.MaxNumFilesPerWriteField: strconv.Itoa(numFiles),
+		fiofilewriter.MinNumFilesPerWriteField: strconv.Itoa(numFiles),
+	}
+
+	_, err := bm.fileWriter.WriteRandomFiles(ctx, fileWriteOpts)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // RestoreGivenOrRandomSnapshot restores a given or a random snapshot from kopia repository into the provided target directory.
 func (bm *BlobManipulator) RestoreGivenOrRandomSnapshot(snapID, restoreDir string) (string, error) {
 	err := bm.KopiaCommandRunner.ConnectRepo("filesystem", "--path="+bm.DataRepoPath)
@@ -173,29 +195,11 @@ func (bm *BlobManipulator) SetUpSystemUnderTest() error {
 		return err
 	}
 
-	// create random data
-	gotFileWriter := bm.getFileWriter()
-	if !gotFileWriter {
-		return errCreatingFileWriter
-	}
-
 	fileSize := 100
 	numFiles := 100
-
-	fileWriteOpts := map[string]string{
-		fiofilewriter.MaxDirDepthField:         strconv.Itoa(1),
-		fiofilewriter.MaxFileSizeField:         strconv.Itoa(fileSize),
-		fiofilewriter.MinFileSizeField:         strconv.Itoa(fileSize),
-		fiofilewriter.MaxNumFilesPerWriteField: strconv.Itoa(numFiles),
-		fiofilewriter.MinNumFilesPerWriteField: strconv.Itoa(numFiles),
-	}
-
 	ctx := context.Background()
 
-	_, err = bm.fileWriter.WriteRandomFiles(ctx, fileWriteOpts)
-	if err != nil {
-		return err
-	}
+	err = bm.writeRandomFiles(ctx, fileSize, numFiles)
 
 	// create snapshot of the data
 	snapPath := bm.fileWriter.DataDirectory(ctx)
@@ -207,35 +211,12 @@ func (bm *BlobManipulator) SetUpSystemUnderTest() error {
 	}
 
 	numFiles = 50
-
-	fileWriteOpts = map[string]string{
-		fiofilewriter.MaxDirDepthField:         strconv.Itoa(1),
-		fiofilewriter.MaxFileSizeField:         strconv.Itoa(fileSize),
-		fiofilewriter.MinFileSizeField:         strconv.Itoa(fileSize),
-		fiofilewriter.MaxNumFilesPerWriteField: strconv.Itoa(numFiles),
-		fiofilewriter.MinNumFilesPerWriteField: strconv.Itoa(numFiles),
-	}
-
-	_, err = bm.fileWriter.WriteRandomFiles(ctx, fileWriteOpts)
-	if err != nil {
-		return err
-	}
+	err = bm.writeRandomFiles(ctx, fileSize, numFiles)
 
 	fileSize = 40 * 1024 * 1024
 	numFiles = 1
 
-	fileWriteOpts = map[string]string{
-		fiofilewriter.MaxDirDepthField:         strconv.Itoa(1),
-		fiofilewriter.MaxFileSizeField:         strconv.Itoa(fileSize),
-		fiofilewriter.MinFileSizeField:         strconv.Itoa(fileSize),
-		fiofilewriter.MaxNumFilesPerWriteField: strconv.Itoa(numFiles),
-		fiofilewriter.MinNumFilesPerWriteField: strconv.Itoa(numFiles),
-	}
-
-	_, err = bm.fileWriter.WriteRandomFiles(ctx, fileWriteOpts)
-	if err != nil {
-		return err
-	}
+	err = bm.writeRandomFiles(ctx, fileSize, numFiles)
 
 	// create snapshot of the data
 	log.Printf("Creating snapshot of directory %s", snapPath)
@@ -279,6 +260,17 @@ func (bm *BlobManipulator) SnapshotFixRemoveFilesByBlobID(blobID string) (string
 func (bm *BlobManipulator) SnapshotFixRemoveFilesByFilename(filename string) (string, error) {
 	// Get hold of the filename that can be used to in the snapshot fix command
 	stdout, msg, err := bm.KopiaCommandRunner.Run("snapshot", "fix", "remove-files", "--filename="+filename, "--commit")
+	if err != nil {
+		log.Println(stdout, msg)
+		return stdout, err
+	}
+
+	return "", nil
+}
+
+// SnapshotFixInvalidFiles runs snapshot fix invalid-files command with the provided flags.
+func (bm *BlobManipulator) SnapshotFixInvalidFiles(flags string) (string, error) {
+	stdout, msg, err := bm.KopiaCommandRunner.Run("snapshot", "fix", "invalid-files", flags, "--commit")
 	if err != nil {
 		log.Println(stdout, msg)
 		return stdout, err

@@ -30,12 +30,10 @@ func TestSnapshotFix(t *testing.T) {
 	bm, err := blobmanipulator.NewBlobManipulator(baseDir)
 	if err != nil {
 		if errors.Is(err, kopiarunner.ErrExeVariableNotSet) {
-			log.Println("Skipping robustness tests because KOPIA_EXE is not set")
+			t.Skip("Skipping recovery tests because KOPIA_EXE is not set")
 		} else {
-			log.Println("Error creating Blob Manipulator:", err)
+			t.Skip("Error creating Blob Manipulator:", err)
 		}
-
-		t.FailNow()
 	}
 
 	bm.DirCreater = getSnapshotter(baseDir)
@@ -88,6 +86,74 @@ func TestSnapshotFix(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestSnapshotFixInvalidFiles(t *testing.T) {
+	// assumption: the test is run on filesystem & not directly on object store
+	dataRepoPath := path.Join(*repoPathPrefix, dataSubPath)
+
+	baseDir := makeDir("base-dir-")
+	if baseDir == "" {
+		t.FailNow()
+	}
+
+	bm, err := blobmanipulator.NewBlobManipulator(baseDir)
+	if err != nil {
+		if errors.Is(err, kopiarunner.ErrExeVariableNotSet) {
+			log.Println("Skipping recovery tests because KOPIA_EXE is not set")
+		} else {
+			log.Println("Error creating Blob Manipulator:", err)
+		}
+
+		t.FailNow()
+	}
+
+	bm.DirCreater = getSnapshotter(baseDir)
+	if bm.DirCreater == nil {
+		t.FailNow()
+	}
+
+	err = bm.ConnectOrCreateRepo(dataRepoPath)
+	if err != nil {
+		t.FailNow()
+	}
+
+	bm.DataRepoPath = dataRepoPath
+
+	// populate the kopia repo under test with random snapshots
+	err = bm.SetUpSystemUnderTest()
+	if err != nil {
+		t.FailNow()
+	}
+
+	// delete random blob
+	// assumption: the repo contains "p" blobs to delete, else the test will fail
+	err = bm.DeleteBlob("")
+	if err != nil {
+		log.Println("Error deleting kopia blob: ", err)
+		t.FailNow()
+	}
+
+	// Create a temporary dir to restore a snapshot
+	restoreDir := makeDir("restore-data-")
+	if restoreDir == "" {
+		t.FailNow()
+	}
+
+	// try to restore a snapshot, this should error out
+	stdout, err := bm.RestoreGivenOrRandomSnapshot("", restoreDir)
+	require.Error(t, err)
+
+	// fix all the invalid files
+	stdout, err = bm.SnapshotFixInvalidFiles("--verify-files-percent=100")
+	if err != nil {
+		log.Println("Error repairing the kopia repository:", stdout, err)
+		t.FailNow()
+	}
+
+	// restore a random snapshot
+	_, err = bm.RestoreGivenOrRandomSnapshot("", restoreDir)
+	require.NoError(t, err)
+}
+
 func makeDir(dirName string) string {
 	baseDir, err := os.MkdirTemp("", dirName)
 	if err != nil {
@@ -114,14 +180,14 @@ func getBlobIDToBeDeleted(stdout string) string {
 		return ""
 	}
 
-	return s1[wantedIndex]
+	return strings.TrimSpace(s1[wantedIndex])
 }
 
 func getSnapshotter(baseDirPath string) *snapmeta.KopiaSnapshotter {
 	ks, err := snapmeta.NewSnapshotter(baseDirPath)
 	if err != nil {
 		if errors.Is(err, kopiarunner.ErrExeVariableNotSet) {
-			log.Println("Skipping robustness tests because KOPIA_EXE is not set")
+			log.Println("Skipping recovery tests because KOPIA_EXE is not set")
 		} else {
 			log.Println("Error creating kopia Snapshotter:", err)
 		}
