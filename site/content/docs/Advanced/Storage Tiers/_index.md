@@ -6,7 +6,7 @@ aliases:
     - ../advanced/amazon-s3/
 ---
 
-Most of the [cloud storages supported by Kopia](../repositories/) have a feature called storage classes (or storage tiers). Storage classes allow you to trade-off costs for storage and access and, in some cases, data redundancy. Exactly what the trade-offs are vary between cloud providers. However, 
+Most of the [cloud storages supported by Kopia](../../repositories/) have a feature called storage classes (or storage tiers). Storage classes allow you to trade-off costs for storage and access and, in some cases, data redundancy. Exactly what the trade-offs are vary between cloud providers. However, 
 
 * 'hot' storage is typically the most expensive to store, the least expensive to access, and has the highest redundancy; 
 * 'cold' storage is less expensive to store, more expensive to access, and sometimes has less redundancy than hot storage; 
@@ -20,9 +20,9 @@ Some storage classes also have a minimum data retention policy, meaning that the
 
 By default, Kopia stores all snapshots using whatever is the standard storage class for your cloud provider; often, that is hot storage. If you want to change storage classes, one way is to create 'lifecycle' rules from within your cloud provider account. This lifecycle rules feature allows you to automatically move snapshots to different storage classes directly from within your bucket. This approach is independent from Kopia; Kopia does not manage lifecycle rules for you, you have to do it from within your cloud provider account.
 
-Alternatively, Kopia supports the ability to pick a storage class when uploading snapshots to your cloud provider, so that you do not need to create any lifecycle rules. However, this feature is only available for the [Amazon S3 and S3-compatible cloud storage](../repositories/#amazon-s3-and-s3-compatible-cloud-storage) that have implemented the S3 storage class API (some S3-compatible cloud storage have implemented this API and some have not; you will need to research your cloud provider to find out). To use this feature, you must upload a `.storageconfig` file to the bucket in your cloud provider account that you use to store Kopia snapshots. This feature tells Kopia what storage class to use when uploading your snapshots.
+Alternatively, Kopia supports the ability to pick a storage class when uploading snapshots to your cloud provider, so that you do not need to create any lifecycle rules. However, this feature is only available for the [Amazon S3 and S3-compatible cloud storage](../../repositories/#amazon-s3-and-s3-compatible-cloud-storage) that have implemented the S3 storage class API (some S3-compatible cloud storage have implemented this API and some have not; you will need to research your cloud provider to find out). To use this feature, you must upload a `.storageconfig` file to the bucket in your cloud provider account that you use to store Kopia snapshots. This feature tells Kopia what storage class to use when uploading your snapshots.
 
-> PRO TIP: `.storageconfig` works for all uploads after you have created the file; it will not change the storage class of files uploaded before you create `.storageconfig`. Thus, if you want to use `.storageconfig` from all data stored in a repository, make sure to upload `.storageconfig` before you [create the repository in Kopia](../getting-started/).
+> PRO TIP: `.storageconfig` works for all uploads after you have created the file; it will not change the storage class of files uploaded before you create `.storageconfig`. Thus, if you want to use `.storageconfig` from all data stored in a repository, make sure to upload `.storageconfig` before you [create the repository in Kopia](../../getting-started/).
 
 An example `.storageconfig` looks like this:
 
