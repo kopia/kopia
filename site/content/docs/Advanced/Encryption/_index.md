@@ -1,7 +1,7 @@
 ---
 title: "Encryption"
 linkTitle: "Encryption"
-weight: 2
+weight: 40
 ---
 
 ### Format Blob Encryption
