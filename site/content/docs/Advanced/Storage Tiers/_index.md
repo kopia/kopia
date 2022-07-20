@@ -3,7 +3,7 @@ title: "Using Different Storage Classes"
 linkTitle: "Using Different Storage Classes"
 weight: 10
 aliases:
-    - /advanced/amazon-s3/
+    - ../advanced/amazon-s3/
 ---
 
 Most of the [cloud storages supported by Kopia](../repositories/) have a feature called storage classes (or storage tiers). Storage classes allow you to trade-off costs for storage and access and, in some cases, data redundancy. Exactly what the trade-offs are vary between cloud providers. However, 'hot' storage is typically the most expensive to store, the least expensive to access, and has the highest redundancy; 'cold' storage is less expensive to store, more expensive to access, and sometimes has less redundancy than hot storage; 'archive' storage is the least expensive to store, the most expensive to access, often has less redundancy than both hot and cold storage, and most of the time provides access to your files with a delay of several hours (i.e., you cannot instantly download your files). The most famous example of archive storage is Amazon Glacier (now called Amazon Glacier Deep Archive).
