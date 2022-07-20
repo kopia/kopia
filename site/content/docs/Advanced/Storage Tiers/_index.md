@@ -1,7 +1,7 @@
 ---
 title: "Using Different Storage Classes"
 linkTitle: "Using Different Storage Classes"
-weight: 1
+weight: 10
 aliases:
     - ../advanced/amazon-s3/
 ---
