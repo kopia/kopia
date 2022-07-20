@@ -6,9 +6,15 @@ aliases:
     - ../advanced/amazon-s3/
 ---
 
-Most of the [cloud storages supported by Kopia](../repositories/) have a feature called storage classes (or storage tiers). Storage classes allow you to trade-off costs for storage and access and, in some cases, data redundancy. Exactly what the trade-offs are vary between cloud providers. However, 'hot' storage is typically the most expensive to store, the least expensive to access, and has the highest redundancy; 'cold' storage is less expensive to store, more expensive to access, and sometimes has less redundancy than hot storage; 'archive' storage is the least expensive to store, the most expensive to access, often has less redundancy than both hot and cold storage, and most of the time provides access to your files with a delay of several hours (i.e., you cannot instantly download your files). The most famous example of archive storage is Amazon Glacier (now called Amazon Glacier Deep Archive).
+Most of the [cloud storages supported by Kopia](../repositories/) have a feature called storage classes (or storage tiers). Storage classes allow you to trade-off costs for storage and access and, in some cases, data redundancy. Exactly what the trade-offs are vary between cloud providers. However, 
 
-Some storage classes also have a minimum data retention policy, meaning that they charge you the full price for their whole retention period (e.g. 90 days) even if you delete files before the retention period has ended. 
+* 'hot' storage is typically the most expensive to store, the least expensive to access, and has the highest redundancy; 
+* 'cold' storage is less expensive to store, more expensive to access, and sometimes has less redundancy than hot storage; 
+* and 'archive' storage is the least expensive to store, the most expensive to access, often has less redundancy than both hot and cold storage, and most of the time provides access to your files with a delay of several hours (i.e., you cannot instantly download your files). 
+
+The most famous example of archive storage is Amazon Glacier (now called Amazon Glacier Deep Archive).
+
+Some storage classes also have a minimum data retention policy, meaning that they charge you the full price for their whole retention period (e.g. 90 days) even if you delete files before the retention period has ended. This rentention policy is typically with cold and archive storage, but some hot storage also have such policies. For example, Wasabi has a 90-day retention policy (at the time of this writing).
 
 > PRO TIP: Kopia works without issue with all storage classes that provide instant access to your files. If you are not downloading or [testing](../advanced/consistency/) your snapshots regularly, you will likely save money by using Kopia with some sort of cold storage class. You can also use Kopia with archive storage classes, but [some Kopia features will not work](#using-archive-storage-with-delayed-access): Kopia is not designed for storage classes that do not provide instant access, and it is not recommended for most users because delayed access can cause complications. If you really want to use archive storage with Kopia, consider using Google Cloud Storage's Archive storage class -- it is more expensive than Amazon Glacier Deep Archive but still very cheap to store ($0.0012 per GB at the time of this writing) and provides instant access to your files; but remember that, like other archive storage, costs are high for accessing files in Google Cloud Storage's Archive storage class.
 
