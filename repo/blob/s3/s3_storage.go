@@ -316,7 +316,25 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 }
 
 func newStorage(ctx context.Context, opt *Options) (*s3Storage, error) {
-	return newStorageWithCredentials(ctx, credentials.NewStaticV4(opt.AccessKeyID, opt.SecretAccessKey, opt.SessionToken), opt)
+	creds := credentials.NewChainCredentials(
+		[]credentials.Provider{
+			&credentials.Static{
+				Value: credentials.Value{
+					AccessKeyID:     opt.AccessKeyID,
+					SecretAccessKey: opt.SecretAccessKey,
+					SessionToken:    opt.SessionToken,
+					SignerType:      credentials.SignatureV4,
+				},
+			},
+			&credentials.EnvAWS{},
+			&credentials.IAM{
+				Client: &http.Client{
+					Transport: http.DefaultTransport,
+				},
+			},
+		},
+	)
+	return newStorageWithCredentials(ctx, creds, opt)
 }
 
 func newStorageWithCredentials(ctx context.Context, creds *credentials.Credentials, opt *Options) (*s3Storage, error) {
