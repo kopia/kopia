@@ -45,6 +45,7 @@ additional_args: '${@}'
 --- Optional Job Parameters via Environment Variables ---
 AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID-}
 AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:+<xxxx>}
+ENGINE_MODE=${ENGINE_MODE-}
 FIO_EXE=${FIO_EXE-}
 HOST_FIO_DATA_PATH:${HOST_FIO_DATA_PATH-}
 LOCAL_FIO_DATA_PATH=${LOCAL_FIO_DATA_PATH-}
@@ -100,6 +101,7 @@ readonly test_flags="-v -timeout=${test_timeout}\
  --repo-path-prefix=${test_repo_path_prefix}\
  -ldflags '${ld_flags}'"
 
+ENGINE_MODE="${ENGINE_MODE:-}"
 make_target="recovery-tests"
 
 # Run the recovery tests
