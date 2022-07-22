@@ -140,18 +140,21 @@ func (s *formatSpecificTestSuite) TestRepositorySetParametersUpgrade(t *testing.
 
 	env.Environment["KOPIA_UPGRADE_LOCK_ENABLED"] = "1"
 
-	if s.formatVersion < content.MaxFormatVersion {
-		env.RunAndExpectSuccess(t, "repository", "upgrade",
+	{
+		cmd := []string{
+			"repository", "upgrade",
 			"--upgrade-owner-id", "owner",
 			"--io-drain-timeout", "1s", "--force",
 			"--status-poll-interval", "1s",
-			"--max-clock-drift", "1s")
-	} else {
-		env.RunAndExpectFailure(t, "repository", "upgrade",
-			"--upgrade-owner-id", "owner",
-			"--io-drain-timeout", "1s", "--force",
-			"--status-poll-interval", "1s",
-			"--max-clock-drift", "1s")
+			"--max-clock-drift", "1s",
+		}
+
+		// You can only upgrade when you are not already upgraded
+		if s.formatVersion < content.MaxFormatVersion {
+			env.RunAndExpectSuccess(t, cmd...)
+		} else {
+			env.RunAndExpectFailure(t, cmd...)
+		}
 	}
 
 	env.RunAndExpectSuccess(t, "repository", "set-parameters", "--upgrade")
