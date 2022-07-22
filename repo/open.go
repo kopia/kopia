@@ -235,9 +235,9 @@ func readAndCacheRepoConfig(ctx context.Context, st blob.Storage, password strin
 }
 
 // ReadAndCacheRepoUpgradeLock loads the lock config from cache and returns it.
-func ReadAndCacheRepoUpgradeLock(ctx context.Context, st blob.Storage, password string, cacheOpts *content.CachingOptions, validDuration time.Duration) (*content.UpgradeLock, error) {
+func ReadAndCacheRepoUpgradeLock(ctx context.Context, st blob.Storage, password string, cacheOpts *content.CachingOptions, validDuration time.Duration) (*UpgradeLockIntent, error) {
 	ufb, err := readAndCacheRepoConfig(ctx, st, password, cacheOpts, validDuration)
-	return ufb.repoConfig.FormattingOptions.UpgradeLock, err
+	return ufb.repoConfig.UpgradeLock, err
 }
 
 // openWithConfig opens the repository with a given configuration, avoiding the need for a config file.

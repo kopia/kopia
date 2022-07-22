@@ -189,3 +189,14 @@ func (r *directRepository) RollbackUpgrade(ctx context.Context) error {
 
 	return nil
 }
+
+func (r *directRepository) GetUpgradeLockIntent(ctx context.Context) (*UpgradeLockIntent, error) {
+	f := r.formatBlob
+
+	repoConfig, err := f.decryptFormatBytes(r.formatEncryptionKey)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to decrypt repository config")
+	}
+
+	return repoConfig.UpgradeLock, nil
+}

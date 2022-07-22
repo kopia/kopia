@@ -81,17 +81,26 @@ func (c *commandRepositoryStatus) outputJSON(ctx context.Context, r repo.Reposit
 	return nil
 }
 
-func (c *commandRepositoryStatus) dumpUpgradeStatus(dr repo.DirectRepository) {
-	cf := dr.ContentReader().ContentFormat()
-	if cf.UpgradeLock == nil {
-		return
+func (c *commandRepositoryStatus) dumpUpgradeStatus(ctx context.Context, dr repo.DirectRepository) error {
+	drw, isDr := dr.(repo.DirectRepositoryWriter)
+	if !isDr {
+		return nil
 	}
 
-	locked, drainedClients := cf.UpgradeLock.IsLocked(dr.Time())
-	upgradeTime := cf.UpgradeLock.UpgradeTime()
+	l, err := drw.GetUpgradeLockIntent(ctx)
+	if err != nil {
+		return errors.Wrap(err, "failed to get the upgrade lock intent")
+	}
+
+	if l == nil {
+		return nil
+	}
+
+	locked, drainedClients := l.IsLocked(drw.Time())
+	upgradeTime := l.UpgradeTime()
 
 	c.out.printStdout("\n")
-	c.out.printStdout("Ongoing upgrade:     %s\n", cf.UpgradeLock.Message)
+	c.out.printStdout("Ongoing upgrade:     %s\n", l.Message)
 	c.out.printStdout("Upgrade Time:        %s\n", upgradeTime.Local())
 
 	if locked {
@@ -105,6 +114,8 @@ func (c *commandRepositoryStatus) dumpUpgradeStatus(dr repo.DirectRepository) {
 	} else {
 		c.out.printStdout("Lock status:         Draining\n")
 	}
+
+	return nil
 }
 
 func (c *commandRepositoryStatus) dumpRetentionStatus(dr repo.DirectRepository) {
@@ -190,7 +201,10 @@ func (c *commandRepositoryStatus) run(ctx context.Context, rep repo.Repository) 
 	}
 
 	c.dumpRetentionStatus(dr)
-	c.dumpUpgradeStatus(dr)
+
+	if err := c.dumpUpgradeStatus(ctx, dr); err != nil {
+		return errors.Wrap(err, "failed to dump upgrade status")
+	}
 
 	if !c.statusReconnectToken {
 		return nil
