@@ -80,6 +80,15 @@ func (r *rcloneStorage) waitForTransfersToEnd(ctx context.Context) {
 	log(ctx).Debugf("all background rclone transfers have completed.")
 }
 
+// Kill kills the rclone process. Used for testing.
+func (r *rcloneStorage) Kill() {
+	// this will kill rclone process if any
+	if r.cmd != nil && r.cmd.Process != nil {
+		r.cmd.Process.Kill() // nolint:errcheck
+		r.cmd.Wait()         // nolint:errcheck
+	}
+}
+
 func (r *rcloneStorage) Close(ctx context.Context) error {
 	if !r.Options.NoWaitForTransfers {
 		r.waitForTransfersToEnd(ctx)
@@ -250,13 +259,6 @@ func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error)
 	arguments := append([]string{
 		"-v",
 		"serve", "webdav", opt.RemotePath,
-		"--addr", "127.0.0.1:0", // allocate random port,
-		"--cert", temporaryCertPath,
-		"--key", temporaryKeyPath,
-		"--htpasswd", temporaryHtpassword,
-		"--stats", "1s",
-		"--stats-one-line",
-		"--stats-one-line-date-format=" + statsMarker,
 	}, opt.RCloneArgs...)
 
 	if opt.EmbeddedConfig != "" {
@@ -269,6 +271,19 @@ func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error)
 
 		arguments = append(arguments, "--config", tmpConfigFile)
 	}
+
+	// append our mandatory arguments at the end so that they precedence over user-provided
+	// arguments.
+	arguments = append(arguments,
+		"--addr", "127.0.0.1:0", // allocate random port,
+		"--cert", temporaryCertPath,
+		"--key", temporaryKeyPath,
+		"--htpasswd", temporaryHtpassword,
+		"--stats", "1s",
+		"--stats-one-line",
+		"--stats-one-line-date-format="+statsMarker,
+		"--vfs-write-back=0s", // disable write-back, critical for correctness
+	)
 
 	r.cmd = exec.Command(rcloneExe, arguments...) //nolint:gosec
 	r.cmd.Env = append(r.cmd.Env, opt.RCloneEnv...)
