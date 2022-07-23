@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 
 	"github.com/pkg/errors"
 
@@ -181,6 +182,8 @@ func (c *commandRepositoryStatus) run(ctx context.Context, rep repo.Repository) 
 	c.out.printStdout("Content compression: %v\n", dr.ContentReader().SupportsContentCompression())
 	c.out.printStdout("Password changes:    %v\n", contentFormat.SupportsPasswordChange())
 
+	c.outputRequiredFeatures(dr)
+
 	c.out.printStdout("Max pack length:     %v\n", units.BytesStringBase2(int64(contentFormat.MaxPackBlobSize())))
 	c.out.printStdout("Index Format:        v%v\n", contentFormat.WriteIndexVersion())
 
@@ -235,6 +238,18 @@ func (c *commandRepositoryStatus) run(ctx context.Context, rep repo.Repository) 
 	}
 
 	return nil
+}
+
+func (c *commandRepositoryStatus) outputRequiredFeatures(dr repo.DirectRepository) {
+	if req, _ := dr.RequiredFeatures(); len(req) > 0 {
+		var featureIDs []string
+
+		for _, r := range req {
+			featureIDs = append(featureIDs, string(r.Feature))
+		}
+
+		c.out.printStdout("Required Features:   %v\n", strings.Join(featureIDs, " "))
+	}
 }
 
 func scanCacheDir(dirname string) (fileCount int, totalFileLength int64, err error) {

@@ -251,6 +251,12 @@ func (c *commandRepositoryUpgrade) drainAllClients(ctx context.Context, rep repo
 // prior phases.
 func (c *commandRepositoryUpgrade) upgrade(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	mp := rep.ContentReader().ContentFormat().GetMutableParameters()
+
+	rf, err := rep.RequiredFeatures()
+	if err != nil {
+		return errors.Wrap(err, "error getting repository features")
+	}
+
 	if mp.EpochParameters.Enabled {
 		// nothing to upgrade on format, so let the next action commit the upgraded format blob
 		return nil
@@ -266,7 +272,7 @@ func (c *commandRepositoryUpgrade) upgrade(ctx context.Context, rep repo.DirectR
 	}
 
 	// update format-blob and clear the cache
-	if err := rep.SetParameters(ctx, mp, rep.BlobCfg()); err != nil {
+	if err := rep.SetParameters(ctx, mp, rep.BlobCfg(), rf); err != nil {
 		return errors.Wrap(err, "error setting parameters")
 	}
 

@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/atomicfile"
+	"github.com/kopia/kopia/internal/feature"
 	"github.com/kopia/kopia/internal/ospath"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/throttling"
@@ -102,7 +103,8 @@ type repositoryObjectFormat struct {
 	content.FormattingOptions
 	object.Format
 
-	UpgradeLock *UpgradeLockIntent `json:"upgradeLock,omitempty"`
+	UpgradeLock      *UpgradeLockIntent `json:"upgradeLock,omitempty"`
+	RequiredFeatures []feature.Required `json:"requiredFeatures,omitempty"`
 }
 
 // writeToFile writes the config to a given file.

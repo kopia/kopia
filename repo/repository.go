@@ -10,6 +10,7 @@ import (
 	"go.opentelemetry.io/otel"
 
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/feature"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/throttling"
 	"github.com/kopia/kopia/repo/content"
@@ -65,6 +66,7 @@ type DirectRepository interface {
 	DeriveKey(purpose []byte, keyLength int) []byte
 	Token(password string) (string, error)
 	Throttler() throttling.SettableThrottler
+	RequiredFeatures() ([]feature.Required, error)
 	DisableIndexRefresh()
 }
 
@@ -74,7 +76,7 @@ type DirectRepositoryWriter interface {
 	DirectRepository
 	BlobStorage() blob.Storage
 	ContentManager() *content.WriteManager
-	SetParameters(ctx context.Context, m content.MutableParameters, blobcfg content.BlobCfgBlob) error
+	SetParameters(ctx context.Context, m content.MutableParameters, blobcfg content.BlobCfgBlob, requiredFeatures []feature.Required) error
 	ChangePassword(ctx context.Context, newPassword string) error
 	GetUpgradeLockIntent(ctx context.Context) (*UpgradeLockIntent, error)
 	SetUpgradeLockIntent(ctx context.Context, l UpgradeLockIntent) (*UpgradeLockIntent, error)
