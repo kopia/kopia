@@ -334,6 +334,7 @@ func newStorage(ctx context.Context, opt *Options) (*s3Storage, error) {
 			},
 		},
 	)
+	
 	return newStorageWithCredentials(ctx, creds, opt)
 }
 
