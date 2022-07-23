@@ -384,7 +384,7 @@ func wrapLockingStorage(st blob.Storage, r content.BlobCfgBlob) blob.Storage {
 		prefixes = append(prefixes, string(prefix))
 	}
 
-	prefixes = append(prefixes, content.IndexBlobPrefix, epoch.EpochManagerIndexUberPrefix, FormatBlobID,
+	prefixes = append(prefixes, content.LegacyIndexBlobPrefix, epoch.EpochManagerIndexUberPrefix, FormatBlobID,
 		BlobCfgBlobID)
 
 	return beforeop.NewWrapper(st, nil, nil, nil, func(ctx context.Context, id blob.ID, opts *blob.PutOptions) error {

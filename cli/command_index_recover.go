@@ -58,7 +58,7 @@ func (c *commandIndexRecover) run(ctx context.Context, rep repo.DirectRepository
 	}()
 
 	if c.deleteIndexes {
-		if err := rep.BlobReader().ListBlobs(ctx, content.IndexBlobPrefix, func(bm blob.Metadata) error {
+		if err := rep.BlobReader().ListBlobs(ctx, content.LegacyIndexBlobPrefix, func(bm blob.Metadata) error {
 			if c.commit {
 				log(ctx).Infof("deleting old index blob: %v", bm.BlobID)
 				return errors.Wrap(rep.BlobStorage().DeleteBlob(ctx, bm.BlobID), "error deleting index blob")

@@ -172,6 +172,12 @@ func (c *commandRepositorySetParameters) run(ctx context.Context, rep repo.Direc
 		return errors.Wrap(err, "error setting parameters")
 	}
 
+	if upgradeToEpochManager {
+		if err := content.WriteLegacyIndexPoisonBlob(ctx, rep.BlobStorage()); err != nil {
+			log(ctx).Errorf("unable to write legacy index poison blob: %v", err)
+		}
+	}
+
 	log(ctx).Infof("NOTE: Repository parameters updated, you must disconnect and re-connect all other Kopia clients.")
 
 	return nil

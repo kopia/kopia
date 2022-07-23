@@ -699,7 +699,7 @@ func getAllFakeContentsInternal(ctx context.Context, t *testing.T, m *indexBlobM
 func assertBlobCounts(t *testing.T, data blobtesting.DataMap, wantN, wantM, wantL int) {
 	t.Helper()
 	require.Len(t, keysWithPrefix(data, compactionLogBlobPrefix), wantM)
-	require.Len(t, keysWithPrefix(data, IndexBlobPrefix), wantN)
+	require.Len(t, keysWithPrefix(data, LegacyIndexBlobPrefix), wantN)
 	require.Len(t, keysWithPrefix(data, "l"), wantL)
 }
 
@@ -783,7 +783,7 @@ func newIndexBlobManagerForTesting(t *testing.T, st blob.Storage, localTimeNow f
 	st = ownwrites.NewWrapper(
 		st,
 		blobtesting.NewMapStorage(blobtesting.DataMap{}, nil, nil),
-		[]blob.ID{IndexBlobPrefix, compactionLogBlobPrefix, cleanupBlobPrefix},
+		[]blob.ID{LegacyIndexBlobPrefix, compactionLogBlobPrefix, cleanupBlobPrefix},
 		15*time.Minute,
 	)
 

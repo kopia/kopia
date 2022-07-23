@@ -43,7 +43,7 @@ const (
 
 // nolint:gochecknoglobals
 var cachedIndexBlobPrefixes = []blob.ID{
-	IndexBlobPrefix,
+	LegacyIndexBlobPrefix,
 	compactionLogBlobPrefix,
 	cleanupBlobPrefix,
 
@@ -55,7 +55,7 @@ var cachedIndexBlobPrefixes = []blob.ID{
 
 // nolint:gochecknoglobals
 var allIndexBlobPrefixes = []blob.ID{
-	IndexBlobPrefix,
+	LegacyIndexBlobPrefix,
 	epoch.UncompactedIndexBlobPrefix,
 	epoch.SingleEpochCompactionBlobPrefix,
 	epoch.RangeCheckpointIndexBlobPrefix,
