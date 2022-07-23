@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -32,6 +34,7 @@ const cleanupAge = 4 * time.Hour
 var rcloneExternalProviders = map[string]string{
 	"GoogleDrive": "gdrive:/kopia",
 	"OneDrive":    "onedrive:/kopia",
+	"DropBox":     "dropbox:/kopia",
 }
 
 func mustGetRcloneExeOrSkip(t *testing.T) string {
@@ -134,6 +137,10 @@ func TestRCloneStorageDirectoryShards(t *testing.T) {
 	require.FileExists(t, filepath.Join(dataDir, "someb", "lo", "b1234567812345678.f"))
 }
 
+type Killable interface {
+	Kill()
+}
+
 func TestRCloneStorageInvalidExe(t *testing.T) {
 	t.Parallel()
 	testutil.ProviderTest(t)
@@ -190,9 +197,20 @@ func TestRCloneProviders(t *testing.T) {
 		rcloneArgs = append(rcloneArgs, "--config="+cfg)
 	}
 
+	testCacheDir := t.TempDir()
+
+	// Try some performance-improving caching, recommended in various places as a way to speed
+	// up rclone. Some of them unfortunately enable write-back which does not guarantee full crash
+	// consistency required by Kopia.
+	//
+	// The rclone provider will be ignoring and overriding some of these parameters.
 	rcloneArgs = append(rcloneArgs,
 		"--vfs-cache-max-size=100M",
 		"--vfs-cache-mode=full",
+		"--cert", "this-will-be-ignored",
+		"--vfs-write-back=30s", // this will be overridden
+		"--transfers=16",
+		"--cache-dir", testCacheDir,
 	)
 
 	if len(rcloneArgs)+len(embeddedConfig) == 0 {
@@ -231,15 +249,66 @@ func TestRCloneProviders(t *testing.T) {
 			opt.RemotePath += "/" + uuid.NewString()
 
 			st, err := rclone.New(ctx, opt, true)
-			if err != nil {
-				t.Fatalf("unable to connect to rclone backend: %v", err)
-			}
+			require.NoError(t, err)
 
-			defer st.Close(ctx)
+			k, ok := st.(Killable)
+			require.True(t, ok, "not killable")
 
 			blobtesting.VerifyStorage(ctx, t, logging.NewWrapper(st, testlogging.NewTestLogger(t), "[RCLONE-STORAGE] "),
 				blob.PutOptions{})
+
 			blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
+
+			// write a bunch of tiny blobs massively in parallel
+			// and kill rclone immediately after to ensure all writes are synchronous
+			var wg sync.WaitGroup
+
+			prefix := uuid.NewString()
+
+			for i := 0; i < 10; i++ {
+				i := i
+				wg.Add(1)
+
+				go func() {
+					defer wg.Done()
+
+					for j := 0; j < 3; j++ {
+						require.NoError(t, st.PutBlob(ctx, blob.ID(fmt.Sprintf("%v-%v-%v", prefix, i, j)), gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{}))
+					}
+				}()
+			}
+
+			wg.Wait()
+			k.Kill()
+
+			t.Logf("========================")
+
+			// wipe cache
+			time.Sleep(3 * time.Second)
+			os.RemoveAll(testCacheDir)
+
+			// ensure we can read all blobs written just before killing `rclone`
+			st2, err := rclone.New(ctx, opt, false)
+			require.NoError(t, err)
+
+			defer st2.Close(ctx)
+
+			var eg errgroup.Group
+
+			for i := 0; i < 10; i++ {
+				for j := 0; j < 3; j++ {
+					blobID := blob.ID(fmt.Sprintf("%v-%v-%v", prefix, i, j))
+
+					eg.Go(func() error {
+						var buf gather.WriteBuffer
+						defer buf.Close()
+
+						return errors.Wrapf(st2.GetBlob(ctx, blobID, 0, -1, &buf), "blob %v", blobID)
+					})
+				}
+			}
+
+			require.NoError(t, eg.Wait())
 		})
 	}
 }
