@@ -54,7 +54,7 @@ require (
 	golang.org/x/net v0.0.0-20220624214902-1bab6f366d9e
 	golang.org/x/oauth2 v0.0.0-20220622183110-fd043fe589d2
 	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f
-	golang.org/x/sys v0.0.0-20220624220833-87e55d714810
+	golang.org/x/sys v0.0.0-20220715151400-c0bba94af5f8
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
 	golang.org/x/text v0.3.7
 	google.golang.org/api v0.87.0
@@ -103,8 +103,8 @@ require (
 )
 
 require (
-	github.com/chromedp/cdproto v0.0.0-20220515234810-83d799542a04
-	github.com/chromedp/chromedp v0.8.2
+	github.com/chromedp/cdproto v0.0.0-20220725225757-5988d9195a6c
+	github.com/chromedp/chromedp v0.8.3
 	github.com/edsrzf/mmap-go v1.1.0
 	github.com/hashicorp/golang-lru v0.5.4
 	go.opentelemetry.io/otel v1.8.0
