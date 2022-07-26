@@ -52,7 +52,7 @@ func TestSnapshotFix(t *testing.T) {
 	cmd := exec.Command(kopiaExe, "maintenance", "run", "--full", "--force", "--safety", "none")
 
 	time.AfterFunc(10*time.Millisecond, func() {
-		syscall.Kill(cmd.Process.Pid, syscall.SIGKILL)
+		cmd.Process.Kill()
 	})
 
 	err = cmd.Start()
