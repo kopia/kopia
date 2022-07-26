@@ -39,7 +39,7 @@ type BlobManipulator struct {
 }
 
 // NewBlobManipulator instantiates a new BlobManipulator and returns its pointer.
-func NewBlobManipulator(baseDirPath string, dataRepoPath string) (*BlobManipulator, error) {
+func NewBlobManipulator(baseDirPath, dataRepoPath string) (*BlobManipulator, error) {
 	ks := getSnapshotter(baseDirPath, dataRepoPath)
 	if ks == nil {
 		return nil, nil
@@ -56,7 +56,7 @@ func NewBlobManipulator(baseDirPath string, dataRepoPath string) (*BlobManipulat
 	}, nil
 }
 
-func getSnapshotter(baseDirPath string, dataRepoPath string) *snapmeta.KopiaSnapshotter {
+func getSnapshotter(baseDirPath, dataRepoPath string) *snapmeta.KopiaSnapshotter {
 	ks, err := snapmeta.NewSnapshotter(baseDirPath)
 	if err != nil {
 		if errors.Is(err, kopiarunner.ErrExeVariableNotSet) {
@@ -114,7 +114,6 @@ func (bm *BlobManipulator) getBlobIDRand() (string, error) {
 
 	// assumption: the repo under test is in filesystem
 	err := bm.KopiaCommandRunner.ConnectRepo("filesystem", "--path="+bm.DataRepoPath)
-	// err := bm.ConnectOrCreateRepo(bm.DataRepoPath)
 	if err != nil {
 		return "", err
 	}
@@ -163,7 +162,7 @@ func (bm *BlobManipulator) getFileWriter() bool {
 	return true
 }
 
-func (bm *BlobManipulator) writeRandomFiles(ctx context.Context, fileSize int, numFiles int) error {
+func (bm *BlobManipulator) writeRandomFiles(ctx context.Context, fileSize, numFiles int) error {
 	// create random data
 	gotFileWriter := bm.getFileWriter()
 	if !gotFileWriter {
@@ -182,6 +181,7 @@ func (bm *BlobManipulator) writeRandomFiles(ctx context.Context, fileSize int, n
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -227,6 +227,9 @@ func (bm *BlobManipulator) SetUpSystemUnderTest() error {
 	ctx := context.Background()
 
 	err := bm.writeRandomFiles(ctx, fileSize, numFiles)
+	if err != nil {
+		return err
+	}
 
 	// create snapshot of the data
 	bm.PathToTakeSnapshot = bm.fileWriter.DataDirectory(ctx)
@@ -238,12 +241,19 @@ func (bm *BlobManipulator) SetUpSystemUnderTest() error {
 	}
 
 	numFiles = 50
+
 	err = bm.writeRandomFiles(ctx, fileSize, numFiles)
+	if err != nil {
+		return err
+	}
 
 	fileSize = 40 * 1024 * 1024
 	numFiles = 1
 
 	err = bm.writeRandomFiles(ctx, fileSize, numFiles)
+	if err != nil {
+		return err
+	}
 
 	// create snapshot of the data
 	log.Printf("Creating snapshot of directory %s", bm.PathToTakeSnapshot)
@@ -261,8 +271,8 @@ func (bm *BlobManipulator) SetUpSystemUnderTest() error {
 }
 
 // TakeSnapshot creates snapshot of the provided directory.
-func (bm *BlobManipulator) TakeSnapshot(dir string) (string, string, error) {
-	err := bm.KopiaCommandRunner.ConnectRepo("filesystem", "--path="+bm.DataRepoPath)
+func (bm *BlobManipulator) TakeSnapshot(dir string) (snapID, stdout string, err error) {
+	err = bm.KopiaCommandRunner.ConnectRepo("filesystem", "--path="+bm.DataRepoPath)
 	if err != nil {
 		return "", "", err
 	}
@@ -273,24 +283,26 @@ func (bm *BlobManipulator) TakeSnapshot(dir string) (string, string, error) {
 	}
 
 	var m snapshot.Manifest
+
 	err = json.Unmarshal([]byte(msg), &m)
 	if err != nil {
 		return "", "", err
 	}
 
-	return string(m.ID), stdout, nil
-	// return snapshot, "", nil
+	snapID = string(m.ID)
+
+	return snapID, stdout, nil
 }
 
 // DeleteSnapshot deletes provided snapshot.
-func (bm *BlobManipulator) DeleteSnapshot(snapshot string) (string, error) {
+func (bm *BlobManipulator) DeleteSnapshot(snapshotID string) (string, error) {
 	err := bm.ConnectOrCreateRepo(bm.DataRepoPath)
 	if err != nil {
 		return "", err
 	}
 
-	stdout, snapshot, err := bm.KopiaCommandRunner.Run("snapshot", "delete", snapshot, "--delete")
-	log.Println(snapshot)
+	stdout, _, err := bm.KopiaCommandRunner.Run("snapshot", "delete", snapshotID, "--delete")
+
 	if err != nil {
 		return stdout, err
 	}
@@ -333,15 +345,16 @@ func (bm *BlobManipulator) SnapshotFixInvalidFiles(flags string) (string, error)
 	return "", nil
 }
 
-// RunMaintenance runs repository maintenace.
+// RunMaintenance runs repository maintenance.
 func (bm *BlobManipulator) RunMaintenance() (string, error) {
-	stdout, msg, err := bm.KopiaCommandRunner.Run("maintenance", "set", "--full-interval", "2s")
+	stdout, _, err := bm.KopiaCommandRunner.Run("maintenance", "set", "--full-interval", "2s")
+	if err != nil {
+		return stdout, err
+	}
 
 	// Run full maintenance, most likely calls blob gc
-	stdout, msg, err = bm.KopiaCommandRunner.Run("maintenance", "run", "--full", "--force", "--safety", "none")
-
+	stdout, _, err = bm.KopiaCommandRunner.Run("maintenance", "run", "--full", "--force", "--safety", "none")
 	if err != nil {
-		log.Println(stdout, msg)
 		return stdout, err
 	}
 

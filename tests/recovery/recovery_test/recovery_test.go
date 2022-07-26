@@ -42,6 +42,7 @@ func TestSnapshotFix(t *testing.T) {
 
 	// populate the kopia repo under test with random snapshots
 	bm.CanRunMaintenance = false
+
 	err = bm.SetUpSystemUnderTest()
 	if err != nil {
 		t.FailNow()
@@ -49,10 +50,15 @@ func TestSnapshotFix(t *testing.T) {
 
 	kopiaExe := os.Getenv("KOPIA_EXE")
 	cmd := exec.Command(kopiaExe, "maintenance", "run", "--full", "--force", "--safety", "none")
+
 	time.AfterFunc(10*time.Millisecond, func() {
 		syscall.Kill(cmd.Process.Pid, syscall.SIGKILL)
 	})
+
 	err = cmd.Start()
+	if err != nil {
+		t.FailNow()
+	}
 
 	// delete random blob
 	// assumption: the repo contains "p" blobs to delete, else the test will fail
@@ -68,11 +74,11 @@ func TestSnapshotFix(t *testing.T) {
 		t.FailNow()
 	}
 
-	stdout, err := bm.RunMaintenance()
+	_, err = bm.RunMaintenance()
 	require.NoError(t, err)
 
 	// try to restore a snapshot, this should error out
-	stdout, err = bm.RestoreGivenOrRandomSnapshot("", restoreDir)
+	stdout, err := bm.RestoreGivenOrRandomSnapshot("", restoreDir)
 	require.Error(t, err)
 
 	// extract out object ID needed to be used in snapshot fix command
@@ -113,18 +119,23 @@ func TestSnapshotFixInvalidFiles(t *testing.T) {
 
 	// populate the kopia repo under test with random snapshots
 	bm.CanRunMaintenance = false
+
 	err = bm.SetUpSystemUnderTest()
 	if err != nil {
 		t.FailNow()
 	}
 
 	kopiaExe := os.Getenv("KOPIA_EXE")
-	// cmd := exec.Command(kopiaExe, "snapshot", "create", bm.PathToTakeSnapshot)
 	cmd := exec.Command(kopiaExe, "maintenance", "run", "--full", "--force", "--safety", "none")
+
 	time.AfterFunc(10*time.Millisecond, func() {
 		syscall.Kill(cmd.Process.Pid, syscall.SIGKILL)
 	})
+
 	err = cmd.Start()
+	if err != nil {
+		t.FailNow()
+	}
 
 	// delete random blob
 	// assumption: the repo contains "p" blobs to delete, else the test will fail
@@ -141,11 +152,11 @@ func TestSnapshotFixInvalidFiles(t *testing.T) {
 	}
 
 	// try to restore a snapshot, this should error out
-	stdout, err := bm.RestoreGivenOrRandomSnapshot("", restoreDir)
+	_, err = bm.RestoreGivenOrRandomSnapshot("", restoreDir)
 	require.Error(t, err)
 
 	// fix all the invalid files
-	stdout, err = bm.SnapshotFixInvalidFiles("--verify-files-percent=100")
+	stdout, err := bm.SnapshotFixInvalidFiles("--verify-files-percent=100")
 	if err != nil {
 		log.Println("Error repairing the kopia repository:", stdout, err)
 		t.FailNow()
