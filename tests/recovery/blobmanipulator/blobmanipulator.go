@@ -301,7 +301,6 @@ func (bm *BlobManipulator) DeleteSnapshot(snapshotID string) (string, error) {
 	}
 
 	stdout, _, err := bm.KopiaCommandRunner.Run("snapshot", "delete", snapshotID, "--delete")
-
 	if err != nil {
 		return stdout, err
 	}
