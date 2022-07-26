@@ -39,7 +39,12 @@ type BlobManipulator struct {
 }
 
 // NewBlobManipulator instantiates a new BlobManipulator and returns its pointer.
-func NewBlobManipulator(baseDirPath string) (*BlobManipulator, error) {
+func NewBlobManipulator(baseDirPath string, dataRepoPath string) (*BlobManipulator, error) {
+	ks := getSnapshotter(baseDirPath, dataRepoPath)
+	if ks == nil {
+		return nil, nil
+	}
+
 	runner, err := kopiarunner.NewKopiaSnapshotter(baseDirPath)
 	if err != nil {
 		return nil, err
@@ -47,16 +52,40 @@ func NewBlobManipulator(baseDirPath string) (*BlobManipulator, error) {
 
 	return &BlobManipulator{
 		KopiaCommandRunner: runner,
+		DirCreater:         ks,
 	}, nil
+}
+
+func getSnapshotter(baseDirPath string, dataRepoPath string) *snapmeta.KopiaSnapshotter {
+	ks, err := snapmeta.NewSnapshotter(baseDirPath)
+	if err != nil {
+		if errors.Is(err, kopiarunner.ErrExeVariableNotSet) {
+			log.Println("Skipping recovery tests because KOPIA_EXE is not set")
+		} else {
+			log.Println("Error creating kopia Snapshotter:", err)
+		}
+
+		return nil
+	}
+
+	log.Println("Created snapmeta.KopiaSnapshotter")
+
+	if err = ks.ConnectOrCreateRepo(dataRepoPath); err != nil {
+		log.Println("Error initializing kopia Snapshotter:", err)
+		return nil
+	}
+
+	return ks
 }
 
 // ConnectOrCreateRepo connects to an existing repository if possible or creates a new one.
 func (bm *BlobManipulator) ConnectOrCreateRepo(dataRepoPath string) error {
-	if bm.DirCreater == nil {
+	if bm.KopiaCommandRunner == nil {
 		return errKopiaRepoNotFound
 	}
 
-	return bm.DirCreater.ConnectOrCreateRepo(dataRepoPath)
+	// return err
+	return bm.DirCreater.ConnectOrCreateRepo(bm.DataRepoPath)
 }
 
 // DeleteBlob deletes the provided blob or a random blob, in kopia repo.
@@ -84,8 +113,8 @@ func (bm *BlobManipulator) getBlobIDRand() (string, error) {
 	var b []blob.Metadata
 
 	// assumption: the repo under test is in filesystem
-	// err := bm.KopiaCommandRunner.ConnectRepo("filesystem", "--path="+bm.DataRepoPath)
-	err := bm.ConnectOrCreateRepo(bm.DataRepoPath)
+	err := bm.KopiaCommandRunner.ConnectRepo("filesystem", "--path="+bm.DataRepoPath)
+	// err := bm.ConnectOrCreateRepo(bm.DataRepoPath)
 	if err != nil {
 		return "", err
 	}
@@ -158,7 +187,6 @@ func (bm *BlobManipulator) writeRandomFiles(ctx context.Context, fileSize int, n
 
 // RestoreGivenOrRandomSnapshot restores a given or a random snapshot from kopia repository into the provided target directory.
 func (bm *BlobManipulator) RestoreGivenOrRandomSnapshot(snapID, restoreDir string) (string, error) {
-	// err := bm.KopiaCommandRunner.ConnectRepo("filesystem", "--path="+bm.DataRepoPath)
 	err := bm.ConnectOrCreateRepo(bm.DataRepoPath)
 	if err != nil {
 		return "", err
@@ -234,8 +262,7 @@ func (bm *BlobManipulator) SetUpSystemUnderTest() error {
 
 // TakeSnapshot creates snapshot of the provided directory.
 func (bm *BlobManipulator) TakeSnapshot(dir string) (string, string, error) {
-	// err := bm.KopiaCommandRunner.ConnectRepo("filesystem", "--path="+bm.DataRepoPath)
-	err := bm.ConnectOrCreateRepo(bm.DataRepoPath)
+	err := bm.KopiaCommandRunner.ConnectRepo("filesystem", "--path="+bm.DataRepoPath)
 	if err != nil {
 		return "", "", err
 	}
@@ -252,11 +279,11 @@ func (bm *BlobManipulator) TakeSnapshot(dir string) (string, string, error) {
 	}
 
 	return string(m.ID), stdout, nil
+	// return snapshot, "", nil
 }
 
 // DeleteSnapshot deletes provided snapshot.
 func (bm *BlobManipulator) DeleteSnapshot(snapshot string) (string, error) {
-	// err := bm.KopiaCommandRunner.ConnectRepo("filesystem", "--path="+bm.DataRepoPath)
 	err := bm.ConnectOrCreateRepo(bm.DataRepoPath)
 	if err != nil {
 		return "", err
@@ -309,9 +336,6 @@ func (bm *BlobManipulator) SnapshotFixInvalidFiles(flags string) (string, error)
 // RunMaintenance runs repository maintenace.
 func (bm *BlobManipulator) RunMaintenance() (string, error) {
 	stdout, msg, err := bm.KopiaCommandRunner.Run("maintenance", "set", "--full-interval", "2s")
-
-	// Run blob gc
-	// stdout, msg, err = bm.KopiaCommandRunner.Run("blob", "gc", "--delete=DELETE", "--safety", "none", "--advanced-commands=enabled")
 
 	// Run full maintenance, most likely calls blob gc
 	stdout, msg, err = bm.KopiaCommandRunner.Run("maintenance", "run", "--full", "--force", "--safety", "none")
