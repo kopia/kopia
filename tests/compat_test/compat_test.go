@@ -3,7 +3,9 @@ package compat_test
 import (
 	"os"
 	"testing"
+	"time"
 
+	"github.com/kopia/kopia/cli"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
@@ -34,12 +36,13 @@ func TestRepoCreatedWith08CanBeOpenedWithCurrent(t *testing.T) {
 
 	e2.Environment["KOPIA_UPGRADE_LOCK_ENABLED"] = "1"
 
+	cli.MaxPermittedClockDrift = func() time.Duration { return time.Second }
+
 	// upgrade
 	e2.RunAndExpectSuccess(t, "repository", "upgrade",
 		"--upgrade-owner-id", "owner",
 		"--io-drain-timeout", "1s", "--force",
-		"--status-poll-interval", "1s",
-		"--max-clock-drift", "1s")
+		"--status-poll-interval", "1s")
 
 	// now 0.8 can't open it anymore
 	e3 := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner08)

@@ -16,16 +16,14 @@ import (
 )
 
 type commandRepositoryUpgrade struct {
-	forceRollback   bool
-	skip            bool
-	blockUntilDrain bool
-	force           bool
+	forceRollback bool
+	skip          bool
+	force         bool
 
 	// lock settings
-	advanceNoticeDuration  time.Duration
-	ioDrainTimeout         time.Duration
-	statusPollInterval     time.Duration
-	maxPermittedClockDrift time.Duration
+	advanceNoticeDuration time.Duration
+	ioDrainTimeout        time.Duration
+	statusPollInterval    time.Duration
 
 	svc advancedAppServices
 }
@@ -35,10 +33,20 @@ const (
 
 You will need to set the env variable KOPIA_UPGRADE_LOCK_ENABLED in order to use this feature.
 `
-	upgradeLockFeatureEnv = "KOPIA_UPGRADE_LOCK_ENABLED"
+	upgradeLockFeatureEnv                = "KOPIA_UPGRADE_LOCK_ENABLED"
+	maxPermittedClockDrift time.Duration = 5 * time.Minute
 )
 
+// MaxPermittedClockDrift is overridable interface for tests to define their
+// own constants so that they do not have to wait for the default clock-drift to
+// settle.
+//
+// nolint:gochecknoglobals
+var MaxPermittedClockDrift = func() time.Duration { return maxPermittedClockDrift }
+
 func (c *commandRepositoryUpgrade) setup(svc advancedAppServices, parent commandParent) {
+	// create a sub-command - begin / rollback
+	// make begin a default sub-command
 	cmd := parent.Command("upgrade", fmt.Sprintf("Upgrade repository format.\n\n%s", warningColor.Sprint(experimentalWarning))).Hidden().
 		Validate(func(tmpCmd *kingpin.CmdClause) error {
 			if v := os.Getenv(c.svc.EnvName(upgradeLockFeatureEnv)); v == "" {
@@ -47,14 +55,11 @@ func (c *commandRepositoryUpgrade) setup(svc advancedAppServices, parent command
 			return nil
 		})
 
+	// TODO: cmd := parent.Command("begin", "Begin upgrade.")
 	cmd.Flag("advance-notice", "Advance notice for upgrade to allow enough time for other Kopia clients to notice the lock").DurationVar(&c.advanceNoticeDuration)
-	cmd.Flag("io-drain-timeout", "Max time it should take all other Kopia clients to drop repository connections").Default(repo.DefaultRepositoryBlobCacheDuration.String()).
-		Envar(svc.EnvName("KOPIA_REPO_UPGRADE_IO_DRAIN_TIMEOUT")).DurationVar(&c.ioDrainTimeout)
+	cmd.Flag("io-drain-timeout", "Max time it should take all other Kopia clients to drop repository connections").Default(repo.DefaultRepositoryBlobCacheDuration.String()).DurationVar(&c.ioDrainTimeout)
 	cmd.Flag("force", "Force using an unsafe io-drain-timeout").Default("false").Hidden().BoolVar(&c.force)
 	cmd.Flag("status-poll-interval", "An advisory polling interval to check for the status of upgrade").Default("60s").DurationVar(&c.statusPollInterval)
-	cmd.Flag("max-clock-drift", "Maximum tolerated drift on clocks between all Kopia clients").Default("5m").DurationVar(&c.maxPermittedClockDrift)
-	cmd.Flag("block-until-drain", "Drain all the clients but do not perform the upgrade").BoolVar(&c.blockUntilDrain)
-
 	cmd.Flag("force-rollback", "Force rollback the repository upgrade, this action can cause repository corruption").BoolVar(&c.forceRollback)
 
 	// upgrade phases
@@ -119,7 +124,7 @@ func (c *commandRepositoryUpgrade) setLockIntent(ctx context.Context, rep repo.D
 		IODrainTimeout:         c.ioDrainTimeout,
 		StatusPollInterval:     c.statusPollInterval,
 		Message:                fmt.Sprintf("Upgrading from format version %d -> %d", mp.Version, content.MaxFormatVersion),
-		MaxPermittedClockDrift: c.maxPermittedClockDrift,
+		MaxPermittedClockDrift: MaxPermittedClockDrift(),
 	}
 
 	// Update format-blob and clear the cache.
@@ -131,7 +136,7 @@ func (c *commandRepositoryUpgrade) setLockIntent(ctx context.Context, rep repo.D
 	// we need to reopen the repository after this point
 
 	locked, _ := l.IsLocked(now)
-	if l.AdvanceNoticeDuration != 0 && !locked && !c.blockUntilDrain {
+	if l.AdvanceNoticeDuration != 0 && !locked {
 		upgradeTime := l.UpgradeTime()
 		log(ctx).Infof("Repository upgrade advance notice has been set, you must come back and perform the upgrade at %s.",
 			upgradeTime)
@@ -147,15 +152,9 @@ func (c *commandRepositoryUpgrade) setLockIntent(ctx context.Context, rep repo.D
 }
 
 // drainOrCommit is the upgrade CLI phase that will actually wait for all the
-// clients to be drained out of the upgrade quorum. If the block-until-drain
-// option is not specified then this phase will cause all other phases to be
+// clients to be drained out of the upgrade quorum. This phase will cause all other phases to be
 // skipped until the lock is fully established.
 func (c *commandRepositoryUpgrade) drainOrCommit(ctx context.Context, rep repo.DirectRepositoryWriter) error {
-	// skip next phases if requested
-	if c.blockUntilDrain {
-		c.skip = true
-	}
-
 	cf := rep.ContentReader().ContentFormat()
 	if cf.MutableParameters.EpochParameters.Enabled {
 		log(ctx).Infof("Repository indices have already been migrated to the epoch format, no need to drain other clients")
@@ -165,12 +164,12 @@ func (c *commandRepositoryUpgrade) drainOrCommit(ctx context.Context, rep repo.D
 			return errors.Wrap(err, "failed to get upgrade lock intent")
 		}
 
-		if l.AdvanceNoticeDuration == 0 || !c.blockUntilDrain {
+		if l.AdvanceNoticeDuration == 0 {
 			// let the upgrade continue to commit the new format blob
 			return nil
 		}
 
-		log(ctx).Infof("Continuing to drain since advance notice has been set and we have been requested to block until then")
+		log(ctx).Infof("Continuing to drain since advance notice has been set")
 	}
 
 	if err := c.drainAllClients(ctx, rep); err != nil {
@@ -229,7 +228,7 @@ func (c *commandRepositoryUpgrade) drainAllClients(ctx context.Context, rep repo
 				// we have the lock now
 				break
 			}
-		} else if !c.blockUntilDrain {
+		} else {
 			return errors.Wrap(err, "upgrade lock got revoked after the intent was placed, giving up")
 		}
 

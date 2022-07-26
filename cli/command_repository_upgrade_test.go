@@ -3,9 +3,11 @@ package cli_test
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/kopia/kopia/cli"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/tests/testenv"
 )
@@ -18,14 +20,15 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgrade(t *testing.T) {
 
 	env.Environment["KOPIA_UPGRADE_LOCK_ENABLED"] = "1"
 
+	cli.MaxPermittedClockDrift = func() time.Duration { return time.Second }
+
 	switch s.formatVersion {
 	case content.FormatVersion1:
 		require.Contains(t, out, "Format version:      1")
 		_, stderr := env.RunAndExpectSuccessWithErrOut(t, "repository", "upgrade",
 			"--upgrade-owner-id", "owner",
 			"--io-drain-timeout", "1s", "--force",
-			"--status-poll-interval", "1s",
-			"--max-clock-drift", "1s")
+			"--status-poll-interval", "1s")
 		require.Contains(t, stderr, "Repository indices have been upgraded.")
 		require.Contains(t, stderr, "Repository has been successfully upgraded.")
 	case content.FormatVersion2:
@@ -33,8 +36,7 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgrade(t *testing.T) {
 		_, stderr := env.RunAndExpectSuccessWithErrOut(t, "repository", "upgrade",
 			"--upgrade-owner-id", "owner",
 			"--io-drain-timeout", "1s", "--force",
-			"--status-poll-interval", "1s",
-			"--max-clock-drift", "1s")
+			"--status-poll-interval", "1s")
 		require.Contains(t, stderr, "Repository indices have already been migrated to the epoch format, no need to drain other clients")
 		require.Contains(t, stderr, "Repository has been successfully upgraded.")
 	default:
@@ -42,8 +44,7 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgrade(t *testing.T) {
 		env.RunAndExpectFailure(t, "repository", "upgrade",
 			"--upgrade-owner-id", "owner",
 			"--io-drain-timeout", "1s", "--force",
-			"--status-poll-interval", "1s",
-			"--max-clock-drift", "1s")
+			"--status-poll-interval", "1s")
 	}
 
 	out = env.RunAndExpectSuccess(t, "repository", "status", "--upgrade-no-block")
@@ -60,6 +61,8 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgradeAdvanceNotice(t *testing.
 
 	env.Environment["KOPIA_UPGRADE_LOCK_ENABLED"] = "1"
 
+	cli.MaxPermittedClockDrift = func() time.Duration { return time.Second }
+
 	switch s.formatVersion {
 	case content.FormatVersion1:
 		require.Contains(t, out, "Format version:      1")
@@ -67,7 +70,6 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgradeAdvanceNotice(t *testing.
 			"--upgrade-owner-id", "owner",
 			"--io-drain-timeout", "1s", "--force",
 			"--status-poll-interval", "1s",
-			"--max-clock-drift", "1s",
 			"--advance-notice", "30s")
 		require.Contains(t, strings.Join(stderr, "\n"),
 			"Repository upgrade advance notice has been set, you must come back and perform the upgrade")
@@ -76,8 +78,7 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgradeAdvanceNotice(t *testing.
 		env.RunAndExpectFailure(t, "repository", "upgrade",
 			"--upgrade-owner-id", "non-owner",
 			"--io-drain-timeout", "1s", "--force",
-			"--status-poll-interval", "1s",
-			"--max-clock-drift", "1s")
+			"--status-poll-interval", "1s")
 
 		// until we drain, we would be able to see the upgrade status
 		out = env.RunAndExpectSuccess(t, "repository", "status", "--upgrade-no-block")
@@ -91,18 +92,20 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgradeAdvanceNotice(t *testing.
 			"--upgrade-owner-id", "owner",
 			"--io-drain-timeout", "1s", "--force",
 			"--status-poll-interval", "1s",
-			"--max-clock-drift", "1s",
 			"--advance-notice", "30s")
 
-		// drain all clients
+		// setup advance-notice on upgrade, this will exit immediately
 		_, stderr = env.RunAndExpectSuccessWithErrOut(t, "repository", "upgrade",
-			"--block-until-drain",
 			"--upgrade-owner-id", "owner",
 			"--io-drain-timeout", "1s", "--force",
 			"--status-poll-interval", "1s",
-			"--max-clock-drift", "1s",
 			"--advance-notice", "30s")
-		require.Contains(t, stderr, "Successfully drained all repository clients, the lock has been fully-established now.")
+		require.Contains(t, strings.Join(stderr, "\n"),
+			"Repository upgrade advance notice has been set, you must come back and perform the upgrade")
+
+		// drain all clients
+		t.Log("Waiting to drain all clients ...")
+		time.Sleep(33 * time.Second)
 
 		// verify that access is denied after we drain
 		env.RunAndExpectFailure(t, "repository", "status", "--upgrade-no-block")
@@ -118,7 +121,6 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgradeAdvanceNotice(t *testing.
 			"--upgrade-owner-id", "owner",
 			"--io-drain-timeout", "1s", "--force",
 			"--status-poll-interval", "1s",
-			"--max-clock-drift", "1s",
 			"--advance-notice", "30s")
 		require.Contains(t, stderr, "Repository has been successfully upgraded.")
 
@@ -130,7 +132,6 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgradeAdvanceNotice(t *testing.
 			"--upgrade-owner-id", "owner",
 			"--io-drain-timeout", "1s", "--force",
 			"--status-poll-interval", "1s",
-			"--max-clock-drift", "1s",
 			"--advance-notice", "30s")
 		require.Contains(t, strings.Join(stderr, "\n"),
 			"Repository upgrade advance notice has been set, you must come back and perform the upgrade")
@@ -139,8 +140,7 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgradeAdvanceNotice(t *testing.
 		env.RunAndExpectFailure(t, "repository", "upgrade",
 			"--upgrade-owner-id", "non-owner",
 			"--io-drain-timeout", "1s", "--force",
-			"--status-poll-interval", "1s",
-			"--max-clock-drift", "1s")
+			"--status-poll-interval", "1s")
 
 		// until we drain, we would be able to see the upgrade status
 		out = env.RunAndExpectSuccess(t, "repository", "status", "--upgrade-no-block")
@@ -150,24 +150,19 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgradeAdvanceNotice(t *testing.
 
 		// attempt to rollback the upgrade and restart
 		env.RunAndExpectSuccess(t, "repository", "upgrade", "--force-rollback")
+
+		// setup advance-notice on upgrade, this will exit immediately
 		env.RunAndExpectSuccess(t, "repository", "upgrade",
 			"--upgrade-owner-id", "owner",
 			"--io-drain-timeout", "1s", "--force",
 			"--status-poll-interval", "1s",
-			"--max-clock-drift", "1s",
 			"--advance-notice", "30s")
+		require.Contains(t, strings.Join(stderr, "\n"),
+			"Repository upgrade advance notice has been set, you must come back and perform the upgrade")
 
 		// drain all clients
-		_, stderr = env.RunAndExpectSuccessWithErrOut(t, "repository", "upgrade",
-			"--block-until-drain",
-			"--upgrade-owner-id", "owner",
-			"--io-drain-timeout", "1s", "--force",
-			"--status-poll-interval", "1s",
-			"--max-clock-drift", "1s",
-			"--advance-notice", "30s")
-		require.Contains(t, stderr, "Repository indices have already been migrated to the epoch format, no need to drain other clients")
-		require.Contains(t, stderr, "Continuing to drain since advance notice has been set and we have been requested to block until then")
-		require.Contains(t, stderr, "Successfully drained all repository clients, the lock has been fully-established now.")
+		t.Log("Waiting to drain all clients ...")
+		time.Sleep(33 * time.Second)
 
 		// verify that access is denied after we drain
 		env.RunAndExpectFailure(t, "repository", "status", "--upgrade-no-block")
@@ -183,7 +178,6 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgradeAdvanceNotice(t *testing.
 			"--upgrade-owner-id", "owner",
 			"--io-drain-timeout", "1s", "--force",
 			"--status-poll-interval", "1s",
-			"--max-clock-drift", "1s",
 			"--advance-notice", "30s")
 		require.Contains(t, stderr, "Repository has been successfully upgraded.")
 
@@ -195,7 +189,6 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgradeAdvanceNotice(t *testing.
 			"--upgrade-owner-id", "owner",
 			"--io-drain-timeout", "1s", "--force",
 			"--status-poll-interval", "1s",
-			"--max-clock-drift", "1s",
 			"--advance-notice", "30s")
 	}
 
