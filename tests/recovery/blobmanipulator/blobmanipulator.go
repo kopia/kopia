@@ -84,7 +84,6 @@ func (bm *BlobManipulator) ConnectOrCreateRepo(dataRepoPath string) error {
 		return errKopiaRepoNotFound
 	}
 
-	// return err
 	return bm.DirCreater.ConnectOrCreateRepo(bm.DataRepoPath)
 }
 
