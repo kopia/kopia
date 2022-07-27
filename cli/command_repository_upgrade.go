@@ -29,7 +29,7 @@ type commandRepositoryUpgrade struct {
 }
 
 const (
-	experimentalWarning = `WARNING: The upgrade command is an EXPERIMENTAL feature. Please use with caution.
+	experimentalWarning = `WARNING: The upgrade command is an EXPERIMENTAL feature. Please DO NOT use it, it may corrupt your repository and cause data loss.
 
 You will need to set the env variable KOPIA_UPGRADE_LOCK_ENABLED in order to use this feature.
 `
