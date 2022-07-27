@@ -211,17 +211,17 @@ FreeBSD now has kopia in ports, which means it gets built as packages in snapsho
 To install the port:
 
 ```shell
-# cd /usr/ports/sysutils/kopia/ && make install clean
+cd /usr/ports/sysutils/kopia/ && make install clean
 ```
 
 To add the package, run one of these commands:
 
 ```shell
-# pkg install sysutils/kopia
-# pkg install kopia
+pkg install sysutils/kopia
+pkg install kopia
 ```
 
-More info on [ports](https://docs.freebsd.org/en/books/handbook/ports/index.html#ports) FreeBSD Handbook guide.
+For more information on ports, see the [FreeBSD Handbook](https://docs.freebsd.org/en/books/handbook/ports/index.html#ports).
 
 #### Verifying package integrity
 
