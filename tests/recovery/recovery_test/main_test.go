@@ -5,6 +5,7 @@ package recovery
 
 import (
 	"flag"
+	"log"
 	"os"
 	"path"
 	"testing"
@@ -14,7 +15,7 @@ const (
 	dataSubPath = "recovery-data"
 )
 
-var repoPathPrefix = flag.String("repo-path-prefix", "", "Point the robustness tests at this path prefix")
+var repoPathPrefix = flag.String("repo-path-prefix", "/Users/chaitali.gondhalekar/Work/Kasten/kopia_dummy_repo/", "Point the robustness tests at this path prefix")
 
 func TestMain(m *testing.M) {
 	dataRepoPath := path.Join(*repoPathPrefix, dataSubPath)
@@ -34,4 +35,10 @@ type kopiaRecoveryTestHarness struct {
 
 func (th *kopiaRecoveryTestHarness) init(dataRepoPath string) {
 	th.dataRepoPath = dataRepoPath
+
+	kopiaExe := os.Getenv("KOPIA_EXE")
+	if kopiaExe == "" {
+		log.Println("Skipping recovery tests because KOPIA_EXE is not set")
+		os.Exit(0)
+	}
 }
