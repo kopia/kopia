@@ -87,7 +87,7 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgradeAdvanceNotice(t *testing.
 		require.Contains(t, out, "Lock status:         Draining")
 
 		// attempt to rollback the upgrade and restart
-		env.RunAndExpectSuccess(t, "repository", "upgrade", "--force-rollback")
+		env.RunAndExpectSuccess(t, "repository", "upgrade", "rollback", "--force")
 		env.RunAndExpectSuccess(t, "repository", "upgrade",
 			"--upgrade-owner-id", "owner",
 			"--io-drain-timeout", "1s", "--force",
@@ -149,7 +149,7 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgradeAdvanceNotice(t *testing.
 		require.Contains(t, out, "Lock status:         Draining")
 
 		// attempt to rollback the upgrade and restart
-		env.RunAndExpectSuccess(t, "repository", "upgrade", "--force-rollback")
+		env.RunAndExpectSuccess(t, "repository", "upgrade", "rollback", "--force")
 
 		// setup advance-notice on upgrade, this will exit immediately
 		env.RunAndExpectSuccess(t, "repository", "upgrade",

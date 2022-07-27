@@ -45,9 +45,8 @@ You will need to set the env variable KOPIA_UPGRADE_LOCK_ENABLED in order to use
 var MaxPermittedClockDrift = func() time.Duration { return maxPermittedClockDrift }
 
 func (c *commandRepositoryUpgrade) setup(svc advancedAppServices, parent commandParent) {
-	// create a sub-command - begin / rollback
-	// make begin a default sub-command
-	cmd := parent.Command("upgrade", fmt.Sprintf("Upgrade repository format.\n\n%s", warningColor.Sprint(experimentalWarning))).Hidden().
+	// override the parent, the upgrade sub-command becomes the new parent here-onwards
+	parent = parent.Command("upgrade", fmt.Sprintf("Upgrade repository format.\n\n%s", warningColor.Sprint(experimentalWarning))).Hidden().
 		Validate(func(tmpCmd *kingpin.CmdClause) error {
 			if v := os.Getenv(c.svc.EnvName(upgradeLockFeatureEnv)); v == "" {
 				return errors.Errorf("please set %q env variable to use this feature", upgradeLockFeatureEnv)
@@ -55,26 +54,44 @@ func (c *commandRepositoryUpgrade) setup(svc advancedAppServices, parent command
 			return nil
 		})
 
-	// TODO: cmd := parent.Command("begin", "Begin upgrade.")
-	cmd.Flag("advance-notice", "Advance notice for upgrade to allow enough time for other Kopia clients to notice the lock").DurationVar(&c.advanceNoticeDuration)
-	cmd.Flag("io-drain-timeout", "Max time it should take all other Kopia clients to drop repository connections").Default(repo.DefaultRepositoryBlobCacheDuration.String()).DurationVar(&c.ioDrainTimeout)
-	cmd.Flag("force", "Force using an unsafe io-drain-timeout").Default("false").Hidden().BoolVar(&c.force)
-	cmd.Flag("status-poll-interval", "An advisory polling interval to check for the status of upgrade").Default("60s").DurationVar(&c.statusPollInterval)
-	cmd.Flag("force-rollback", "Force rollback the repository upgrade, this action can cause repository corruption").BoolVar(&c.forceRollback)
+	beginCmd := parent.Command("begin", "Begin upgrade.").Default()
+	beginCmd.Flag("advance-notice", "Advance notice for upgrade to allow enough time for other Kopia clients to notice the lock").DurationVar(&c.advanceNoticeDuration)
+	beginCmd.Flag("io-drain-timeout", "Max time it should take all other Kopia clients to drop repository connections").Default(repo.DefaultRepositoryBlobCacheDuration.String()).DurationVar(&c.ioDrainTimeout)
+	beginCmd.Flag("force", "Force using an unsafe io-drain-timeout").Default("false").Hidden().BoolVar(&c.force)
+	beginCmd.Flag("status-poll-interval", "An advisory polling interval to check for the status of upgrade").Default("60s").DurationVar(&c.statusPollInterval)
 
 	// upgrade phases
 
 	// Set the upgrade lock intent.
-	cmd.Action(svc.directRepositoryWriteAction(c.runPhase(c.setLockIntent)))
+	beginCmd.Action(svc.directRepositoryWriteAction(c.runPhase(c.setLockIntent)))
 	// If requested then drain all the clients otherwise stop here.
-	cmd.Action(svc.directRepositoryWriteAction(c.runPhase(c.drainOrCommit)))
+	beginCmd.Action(svc.directRepositoryWriteAction(c.runPhase(c.drainOrCommit)))
 	// If the lock is fully established then perform the upgrade.
-	cmd.Action(svc.directRepositoryWriteAction(c.runPhase(c.upgrade)))
+	beginCmd.Action(svc.directRepositoryWriteAction(c.runPhase(c.upgrade)))
 	// Commit the upgrade and revoke the lock, this will also cleanup any
 	// backups used for rollback.
-	cmd.Action(svc.directRepositoryWriteAction(c.runPhase(c.commitUpgrade)))
+	beginCmd.Action(svc.directRepositoryWriteAction(c.runPhase(c.commitUpgrade)))
+
+	rollbackCmd := parent.Command("rollback", "Rollback the repository upgrade.")
+	rollbackCmd.Flag("force", "Force rollback the repository upgrade, this action can cause repository corruption").BoolVar(&c.forceRollback)
+
+	rollbackCmd.Action(svc.directRepositoryWriteAction(c.forceRollbackAction))
 
 	c.svc = svc
+}
+
+func (c *commandRepositoryUpgrade) forceRollbackAction(ctx context.Context, rep repo.DirectRepositoryWriter) error {
+	if !c.forceRollback {
+		return errors.New("repository upgrade lock can only be revoked unsafely; please use the --force flag")
+	}
+
+	if err := rep.RollbackUpgrade(ctx); err != nil {
+		return errors.Wrap(err, "failed to rollback the upgrade")
+	}
+
+	log(ctx).Infof("Repository upgrade lock has been revoked.")
+
+	return nil
 }
 
 func (c *commandRepositoryUpgrade) runPhase(act func(context.Context, repo.DirectRepositoryWriter) error) func(context.Context, repo.DirectRepositoryWriter) error {
@@ -98,18 +115,6 @@ func (c *commandRepositoryUpgrade) runPhase(act func(context.Context, repo.Direc
 // setLockIntent is an upgrade phase which sets the upgrade lock intent with
 // desired parameters.
 func (c *commandRepositoryUpgrade) setLockIntent(ctx context.Context, rep repo.DirectRepositoryWriter) error {
-	if c.forceRollback {
-		if err := rep.RollbackUpgrade(ctx); err != nil {
-			return errors.Wrap(err, "failed to rollback the upgrade")
-		}
-
-		log(ctx).Infof("Repository upgrade lock has been revoked.")
-
-		c.skip = true
-
-		return nil
-	}
-
 	if c.ioDrainTimeout < repo.DefaultRepositoryBlobCacheDuration && !c.force {
 		return errors.Errorf("minimum required io-drain-timeout is %s", repo.DefaultRepositoryBlobCacheDuration)
 	}
