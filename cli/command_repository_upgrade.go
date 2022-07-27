@@ -99,16 +99,18 @@ func (c *commandRepositoryUpgrade) runPhase(act func(context.Context, repo.Direc
 		if c.skip {
 			return nil
 		}
-		if err := act(ctx, rep); err != nil {
+
+		err := act(ctx, rep)
+		if err != nil {
 			// Explicitly skip all stages on error because tests do not
 			// skip/exit on error. Tests override os.Exit() that prevents
 			// running rest of the phases until we set the skip flag here.
 			// This flag is designed for testability and also to support
 			// rollback.
 			c.skip = true
-			return err
 		}
 
+		return err
 	}
 }
 
