@@ -96,19 +96,19 @@ func (c *commandRepositoryUpgrade) forceRollbackAction(ctx context.Context, rep 
 
 func (c *commandRepositoryUpgrade) runPhase(act func(context.Context, repo.DirectRepositoryWriter) error) func(context.Context, repo.DirectRepositoryWriter) error {
 	return func(ctx context.Context, rep repo.DirectRepositoryWriter) error {
-		if !c.skip {
-			if err := act(ctx, rep); err != nil {
-				// Explicitly skip all stages on error because tests do not
-				// skip/exit on error. Tests override os.Exit() that prevents
-				// running rest of the phases until we set the skip flag here.
-				// This flag is designed for testability and also to support
-				// rollback.
-				c.skip = true
-				return err
-			}
+		if c.skip {
+			return nil
+		}
+		if err := act(ctx, rep); err != nil {
+			// Explicitly skip all stages on error because tests do not
+			// skip/exit on error. Tests override os.Exit() that prevents
+			// running rest of the phases until we set the skip flag here.
+			// This flag is designed for testability and also to support
+			// rollback.
+			c.skip = true
+			return err
 		}
 
-		return nil
 	}
 }
 
