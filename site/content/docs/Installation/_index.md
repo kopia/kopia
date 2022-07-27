@@ -31,6 +31,7 @@ The following installation options are available for the latest stable verison o
 * [macOS CLI Homebrew](#macos-cli-using-homebrew)
 * [macOS GUI (`KopiaUI`)](#macos-gui-installer)
 * [OpenBSD](#openbsd-installation-via-ports)
+* [FreeBSD](#freebsd-installation-via-ports)
 * [Docker Images](#docker-images)
 
 The following options are available if you like to test the beta and unreleased versions of Kopia:
@@ -203,6 +204,24 @@ To install the kopia package, run:
 
 To build Kopia from ports yourself, cd /usr/ports/sysutils/kopia and follow the [Ports](https://www.openbsd.org/faq/ports/ports.html) guide on building ports as usual.
 
+#### FreeBSD installation via ports
+
+FreeBSD now has kopia in ports, which means it gets built as packages in snapshots for several platforms (amd64, arm64 and i386) and will appear as a package for supported versions.
+
+To install the port:
+
+```shell
+# cd /usr/ports/sysutils/kopia/ && make install clean
+```
+
+To add the package, run one of these commands:
+
+```shell
+# pkg install sysutils/kopia
+# pkg install kopia
+```
+
+More info on [ports](https://docs.freebsd.org/en/books/handbook/ports/index.html#ports) FreeBSD Handbook guide.
 
 #### Verifying package integrity
 
