@@ -125,8 +125,10 @@ func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) (*repositoryOb
 			fv = content.FormatVersion1
 		case "2":
 			fv = content.FormatVersion2
+		case "3":
+			fv = content.FormatVersion3
 		default:
-			fv = content.FormatVersion2
+			fv = content.FormatVersion3
 		}
 	}
 

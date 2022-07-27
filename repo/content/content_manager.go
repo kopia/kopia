@@ -60,13 +60,13 @@ const (
 	defaultMaxPreambleLength = 32
 	defaultPaddingUnit       = 4096
 
-	currentWriteVersion = FormatVersion2
+	currentWriteVersion = FormatVersion3
 
 	minSupportedWriteVersion = FormatVersion1
-	maxSupportedWriteVersion = FormatVersion2
+	maxSupportedWriteVersion = FormatVersion3
 
 	minSupportedReadVersion = FormatVersion1
-	maxSupportedReadVersion = FormatVersion2
+	maxSupportedReadVersion = FormatVersion3
 
 	indexLoadAttempts = 10
 )

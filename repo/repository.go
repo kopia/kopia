@@ -76,6 +76,7 @@ type DirectRepositoryWriter interface {
 	ContentManager() *content.WriteManager
 	SetParameters(ctx context.Context, m content.MutableParameters, blobcfg content.BlobCfgBlob) error
 	ChangePassword(ctx context.Context, newPassword string) error
+	GetUpgradeLockIntent(ctx context.Context) (*UpgradeLockIntent, error)
 	SetUpgradeLockIntent(ctx context.Context, l UpgradeLockIntent) (*UpgradeLockIntent, error)
 	CommitUpgrade(ctx context.Context) error
 	RollbackUpgrade(ctx context.Context) error
