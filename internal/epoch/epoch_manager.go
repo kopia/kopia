@@ -29,6 +29,33 @@ const (
 	maxRefreshAttemptSleepExponent = 1.5
 )
 
+// ParametersProvider provides epoch manager parameters.
+type ParametersProvider interface {
+	// whether epoch manager is enabled, must be true.
+	GetEpochManagerEnabled() bool
+
+	// how frequently each client will list blobs to determine the current epoch.
+	GetEpochRefreshFrequency() time.Duration
+
+	// number of epochs between full checkpoints.
+	GetEpochFullCheckpointFrequency() int
+
+	// do not delete uncompacted blobs if the corresponding compacted blob age is less than this.
+	GetEpochCleanupSafetyMargin() time.Duration
+
+	// minimum duration of an epoch
+	GetMinEpochDuration() time.Duration
+
+	// advance epoch if number of files exceeds this
+	GetEpochAdvanceOnCountThreshold() int
+
+	// advance epoch if total size of files exceeds this.
+	GetEpochAdvanceOnTotalSizeBytesThreshold() int64
+
+	// number of blobs to delete in parallel during cleanup
+	GetEpochDeleteParallelism() int
+}
+
 // ErrVerySlowIndexWrite is returned by WriteIndex if a write takes more than 2 epochs (usually >48h).
 // This is theoretically possible with laptops going to sleep, etc.
 var ErrVerySlowIndexWrite = errors.Errorf("extremely slow index write - index write took more than two epochs")
@@ -58,6 +85,46 @@ type Parameters struct {
 
 	// number of blobs to delete in parallel during cleanup
 	DeleteParallelism int
+}
+
+// GetEpochManagerEnabled returns whether epoch manager is enabled, must be true.
+func (p *Parameters) GetEpochManagerEnabled() bool {
+	return p.Enabled
+}
+
+// GetEpochRefreshFrequency determines how frequently each client will list blobs to determine the current epoch.
+func (p *Parameters) GetEpochRefreshFrequency() time.Duration {
+	return p.EpochRefreshFrequency
+}
+
+// GetEpochFullCheckpointFrequency returns the number of epochs between full checkpoints.
+func (p *Parameters) GetEpochFullCheckpointFrequency() int {
+	return p.FullCheckpointFrequency
+}
+
+// GetEpochCleanupSafetyMargin returns safety margin to prevent uncompacted blobs from being deleted if the corresponding compacted blob age is less than this.
+func (p *Parameters) GetEpochCleanupSafetyMargin() time.Duration {
+	return p.CleanupSafetyMargin
+}
+
+// GetMinEpochDuration returns the minimum duration of an epoch.
+func (p *Parameters) GetMinEpochDuration() time.Duration {
+	return p.MinEpochDuration
+}
+
+// GetEpochAdvanceOnCountThreshold returns the number of files above which epoch should be advanced.
+func (p *Parameters) GetEpochAdvanceOnCountThreshold() int {
+	return p.EpochAdvanceOnCountThreshold
+}
+
+// GetEpochAdvanceOnTotalSizeBytesThreshold returns the total size of files above which the epoch should be advanced.
+func (p *Parameters) GetEpochAdvanceOnTotalSizeBytesThreshold() int64 {
+	return p.EpochAdvanceOnTotalSizeBytesThreshold
+}
+
+// GetEpochDeleteParallelism returns the number of blobs to delete in parallel during cleanup.
+func (p *Parameters) GetEpochDeleteParallelism() int {
+	return p.DeleteParallelism
 }
 
 // Validate validates epoch parameters.
@@ -129,7 +196,7 @@ func (cs *CurrentSnapshot) isSettledEpochNumber(epoch int) bool {
 
 // Manager manages repository epochs.
 type Manager struct {
-	Params Parameters
+	Parameters ParametersProvider
 
 	st       blob.Storage
 	compact  CompactionFunc
@@ -264,7 +331,7 @@ func (e *Manager) cleanupInternal(ctx context.Context, cs CurrentSnapshot) error
 	// only delete blobs if a suitable replacement exists and has been written sufficiently
 	// long ago. we don't want to delete blobs that are created too recently, because other clients
 	// may have not observed them yet.
-	maxReplacementTime := maxTime.Add(-e.Params.CleanupSafetyMargin)
+	maxReplacementTime := maxTime.Add(-e.Parameters.GetEpochCleanupSafetyMargin())
 
 	eg.Go(func() error {
 		return e.cleanupEpochMarkers(ctx, cs)
@@ -289,7 +356,7 @@ func (e *Manager) cleanupEpochMarkers(ctx context.Context, cs CurrentSnapshot) e
 		}
 	}
 
-	return errors.Wrap(blob.DeleteMultiple(ctx, e.st, toDelete, e.Params.DeleteParallelism), "error deleting index blob marker")
+	return errors.Wrap(blob.DeleteMultiple(ctx, e.st, toDelete, e.Parameters.GetEpochDeleteParallelism()), "error deleting index blob marker")
 }
 
 func (e *Manager) cleanupWatermarks(ctx context.Context, cs CurrentSnapshot, maxReplacementTime time.Time) error {
@@ -310,7 +377,7 @@ func (e *Manager) cleanupWatermarks(ctx context.Context, cs CurrentSnapshot, max
 		}
 	}
 
-	return errors.Wrap(blob.DeleteMultiple(ctx, e.st, toDelete, e.Params.DeleteParallelism), "error deleting watermark blobs")
+	return errors.Wrap(blob.DeleteMultiple(ctx, e.st, toDelete, e.Parameters.GetEpochDeleteParallelism()), "error deleting watermark blobs")
 }
 
 // CleanupSupersededIndexes cleans up the indexes which have been superseded by compacted ones.
@@ -331,7 +398,7 @@ func (e *Manager) CleanupSupersededIndexes(ctx context.Context) error {
 	// only delete blobs if a suitable replacement exists and has been written sufficiently
 	// long ago. we don't want to delete blobs that are created too recently, because other clients
 	// may have not observed them yet.
-	maxReplacementTime := maxTime.Add(-e.Params.CleanupSafetyMargin)
+	maxReplacementTime := maxTime.Add(-e.Parameters.GetEpochCleanupSafetyMargin())
 
 	e.log.Debugw("Cleaning up superseded index blobs...",
 		"maxReplacementTime", maxReplacementTime)
@@ -353,7 +420,7 @@ func (e *Manager) CleanupSupersededIndexes(ctx context.Context) error {
 		}
 	}
 
-	if err := blob.DeleteMultiple(ctx, e.st, toDelete, e.Params.DeleteParallelism); err != nil {
+	if err := blob.DeleteMultiple(ctx, e.st, toDelete, e.Parameters.GetEpochDeleteParallelism()); err != nil {
 		return errors.Wrap(err, "unable to delete uncompacted blobs")
 	}
 
@@ -378,7 +445,7 @@ func (e *Manager) refreshLocked(ctx context.Context) error {
 
 	nextDelayTime := initiaRefreshAttemptSleep
 
-	if !e.Params.Enabled {
+	if !e.Parameters.GetEpochManagerEnabled() {
 		return errors.Errorf("epoch manager not enabled")
 	}
 
@@ -497,7 +564,7 @@ func (e *Manager) maybeGenerateNextRangeCheckpointAsync(ctx context.Context, cs 
 		firstNonRangeCompacted = cs.LongestRangeCheckpointSets[len(cs.LongestRangeCheckpointSets)-1].MaxEpoch + 1
 	}
 
-	if latestSettled-firstNonRangeCompacted < e.Params.FullCheckpointFrequency {
+	if latestSettled-firstNonRangeCompacted < e.Parameters.GetEpochFullCheckpointFrequency() {
 		e.log.Debugf("not generating range checkpoint")
 
 		return
@@ -575,7 +642,7 @@ func (e *Manager) refreshAttemptLocked(ctx context.Context) error {
 		EpochStartTime:            map[int]time.Time{},
 		UncompactedEpochSets:      map[int][]blob.Metadata{},
 		SingleEpochCompactionSets: map[int][]blob.Metadata{},
-		ValidUntil:                e.timeFunc().Add(e.Params.EpochRefreshFrequency),
+		ValidUntil:                e.timeFunc().Add(e.Parameters.GetEpochRefreshFrequency()),
 	}
 
 	e.log.Debugf("refreshAttemptLocked")
@@ -613,7 +680,7 @@ func (e *Manager) refreshAttemptLocked(ctx context.Context) error {
 		len(ues[cs.WriteEpoch+1]),
 		cs.ValidUntil.Format(time.RFC3339Nano))
 
-	if shouldAdvance(cs.UncompactedEpochSets[cs.WriteEpoch], e.Params.MinEpochDuration, e.Params.EpochAdvanceOnCountThreshold, e.Params.EpochAdvanceOnTotalSizeBytesThreshold) {
+	if shouldAdvance(cs.UncompactedEpochSets[cs.WriteEpoch], e.Parameters.GetMinEpochDuration(), e.Parameters.GetEpochAdvanceOnCountThreshold(), e.Parameters.GetEpochAdvanceOnTotalSizeBytesThreshold()) {
 		if err := e.advanceEpoch(ctx, cs); err != nil {
 			return errors.Wrap(err, "error advancing epoch")
 		}
@@ -700,7 +767,7 @@ func (e *Manager) WriteIndex(ctx context.Context, dataShards map[blob.ID]blob.By
 	for {
 		// make sure we have at least 75% of remaining time
 		// nolint:gomnd
-		cs, err := e.committedState(ctx, 3*e.Params.EpochRefreshFrequency/4)
+		cs, err := e.committedState(ctx, 3*e.Parameters.GetEpochRefreshFrequency()/4)
 		if err != nil {
 			return nil, errors.Wrap(err, "error getting committed state")
 		}
@@ -924,13 +991,13 @@ func rangeCheckpointBlobPrefix(epoch1, epoch2 int) blob.ID {
 }
 
 // NewManager creates new epoch manager.
-func NewManager(st blob.Storage, params Parameters, compactor CompactionFunc, log logging.Logger, timeNow func() time.Time) *Manager {
+func NewManager(st blob.Storage, paramProvider ParametersProvider, compactor CompactionFunc, log logging.Logger, timeNow func() time.Time) *Manager {
 	return &Manager{
 		st:                           st,
 		log:                          log,
 		compact:                      compactor,
 		timeFunc:                     timeNow,
-		Params:                       params,
+		Parameters:                   paramProvider,
 		getCompleteIndexSetTooSlow:   new(int32),
 		committedStateRefreshTooSlow: new(int32),
 		writeIndexTooSlow:            new(int32),

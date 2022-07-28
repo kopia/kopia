@@ -354,13 +354,13 @@ func (s *contentManagerSuite) TestContentManagerFailedToWritePack(t *testing.T) 
 
 	ta := faketime.NewTimeAdvance(fakeTime, 0)
 
-	bm, err := NewManagerForTesting(testlogging.Context(t), st, &FormattingOptions{
+	bm, err := NewManagerForTesting(testlogging.Context(t), st, mustCreateFormatProvider(t, &FormattingOptions{
 		Hash:              "HMAC-SHA256-128",
 		Encryption:        "AES256-GCM-HMAC-SHA256",
 		MutableParameters: s.mutableParameters,
 		HMACSecret:        []byte("foo"),
 		MasterKey:         []byte("0123456789abcdef0123456789abcdef"),
-	}, nil, &ManagerOptions{TimeNow: ta.NowFunc()})
+	}), nil, &ManagerOptions{TimeNow: ta.NowFunc()})
 	if err != nil {
 		t.Fatalf("can't create bm: %v", err)
 	}
@@ -1877,10 +1877,10 @@ func (s *contentManagerSuite) verifyVersionCompat(t *testing.T, writeVersion For
 	data := blobtesting.DataMap{}
 	st := blobtesting.NewMapStorage(data, nil, nil)
 
-	mgr := s.newTestContentManager(t, st)
+	mgr := s.newTestContentManagerWithTweaks(t, st, &contentManagerTestTweaks{
+		formatVersion: writeVersion,
+	})
 	defer mgr.Close(ctx)
-
-	mgr.writeFormatVersion = int32(writeVersion)
 
 	dataSet := map[ID][]byte{}
 
@@ -2331,8 +2331,9 @@ type contentManagerTestTweaks struct {
 	CachingOptions
 	ManagerOptions
 
-	indexVersion int
-	maxPackSize  int
+	indexVersion  int
+	maxPackSize   int
+	formatVersion FormatVersion
 }
 
 func (s *contentManagerSuite) newTestContentManagerWithTweaks(t *testing.T, st blob.Storage, tweaks *contentManagerTestTweaks) *WriteManager {
@@ -2357,13 +2358,17 @@ func (s *contentManagerSuite) newTestContentManagerWithTweaks(t *testing.T, st b
 		mp.MaxPackSize = mps
 	}
 
+	if tweaks.formatVersion != 0 {
+		mp.Version = tweaks.formatVersion
+	}
+
 	ctx := testlogging.Context(t)
-	fo := &FormattingOptions{
+	fo := mustCreateFormatProvider(t, &FormattingOptions{
 		Hash:              "HMAC-SHA256",
 		Encryption:        "AES256-GCM-HMAC-SHA256",
 		HMACSecret:        hmacSecret,
 		MutableParameters: mp,
-	}
+	})
 
 	bm, err := NewManagerForTesting(ctx, st, fo, &tweaks.CachingOptions, &tweaks.ManagerOptions)
 	if err != nil {

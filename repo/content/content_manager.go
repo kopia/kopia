@@ -331,7 +331,7 @@ func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, dat
 		PackBlobID:       pp.packBlobID,
 		PackOffset:       uint32(pp.currentPackData.Length()),
 		TimestampSeconds: bm.contentWriteTime(previousWriteTime),
-		FormatVersion:    byte(bm.writeFormatVersion),
+		FormatVersion:    byte(bm.format.FormatVersion()),
 		OriginalLength:   uint32(data.Length()),
 	}
 
@@ -345,7 +345,7 @@ func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, dat
 
 	pp.currentPackItems[contentID] = info
 
-	shouldWrite := pp.currentPackData.Length() >= bm.maxPackSize
+	shouldWrite := pp.currentPackData.Length() >= bm.format.MaxPackBlobSize()
 	if shouldWrite {
 		// we're about to write to storage without holding a lock
 		// remove from pendingPacks so other goroutine tries to mess with this pending pack.
@@ -413,7 +413,7 @@ func (bm *WriteManager) verifyPackIndexBuilderLocked() {
 			bm.assertInvariant(cpi.GetPackBlobID() == "", "content can't be both deleted and have a pack content: %v", cpi.GetContentID())
 		} else {
 			bm.assertInvariant(cpi.GetPackBlobID() != "", "content that's not deleted must have a pack content: %+v", cpi)
-			bm.assertInvariant(cpi.GetFormatVersion() == byte(bm.writeFormatVersion), "content that's not deleted must have a valid format version: %+v", cpi)
+			bm.assertInvariant(cpi.GetFormatVersion() == byte(bm.format.FormatVersion()), "content that's not deleted must have a valid format version: %+v", cpi)
 		}
 
 		bm.assertInvariant(cpi.GetTimestampSeconds() != 0, "content has no timestamp: %v", cpi.GetContentID())
@@ -438,7 +438,7 @@ func (bm *WriteManager) writeIndexBlobs(ctx context.Context, dataShards []gather
 	defer span.End()
 
 	// nolint:wrapcheck
-	return bm.indexBlobManager.writeIndexBlobs(ctx, dataShards, sessionID)
+	return bm.indexBlobManager().writeIndexBlobs(ctx, dataShards, sessionID)
 }
 
 // +checklocksread:bm.indexesLock
@@ -461,7 +461,7 @@ func (bm *WriteManager) flushPackIndexesLocked(ctx context.Context) error {
 
 	if len(bm.packIndexBuilder) > 0 {
 		_, span2 := tracer.Start(ctx, "BuildShards")
-		dataShards, closeShards, err := bm.packIndexBuilder.BuildShards(bm.indexVersion, true, bm.indexShardSize)
+		dataShards, closeShards, err := bm.packIndexBuilder.BuildShards(bm.format.WriteIndexVersion(), true, bm.format.IndexShardSize())
 
 		span2.End()
 
@@ -592,7 +592,7 @@ func removePendingPack(slice []*pendingPackInfo, pp *pendingPackInfo) []*pending
 }
 
 // ContentFormat returns formatting options.
-func (bm *WriteManager) ContentFormat() FormattingOptions {
+func (bm *WriteManager) ContentFormat() FormattingOptionsProvider {
 	return bm.format
 }
 
@@ -743,7 +743,7 @@ func (bm *WriteManager) getOrCreatePendingPackInfoLocked(ctx context.Context, pr
 		return nil, errors.Wrap(err, "unable to read crypto bytes")
 	}
 
-	b.Append(bm.repositoryFormatBytes)
+	b.Append(bm.format.RepositoryFormatBytes())
 
 	// nolint:gosec
 	if err := writeRandomBytesToBuffer(b, rand.Intn(bm.maxPreambleLength-bm.minPreambleLength+1)+bm.minPreambleLength); err != nil {
@@ -762,7 +762,7 @@ func (bm *WriteManager) getOrCreatePendingPackInfoLocked(ctx context.Context, pr
 
 // SupportsContentCompression returns true if content manager supports content-compression.
 func (bm *WriteManager) SupportsContentCompression() bool {
-	return bm.format.IndexVersion >= index.Version2
+	return bm.format.WriteIndexVersion() >= index.Version2
 }
 
 // WriteContent saves a given content of data to a pack group with a provided name and returns a contentID
@@ -938,7 +938,7 @@ func (o *ManagerOptions) CloneOrDefault() *ManagerOptions {
 }
 
 // NewManagerForTesting creates new content manager with given packing options and a formatter.
-func NewManagerForTesting(ctx context.Context, st blob.Storage, f *FormattingOptions, caching *CachingOptions, options *ManagerOptions) (*WriteManager, error) {
+func NewManagerForTesting(ctx context.Context, st blob.Storage, f FormattingOptionsProvider, caching *CachingOptions, options *ManagerOptions) (*WriteManager, error) {
 	options = options.CloneOrDefault()
 	if options.TimeNow == nil {
 		options.TimeNow = clock.Now

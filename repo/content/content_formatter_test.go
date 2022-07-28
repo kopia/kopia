@@ -100,7 +100,7 @@ func verifyEndToEndFormatter(ctx context.Context, t *testing.T, hashAlgo, encryp
 	keyTime := map[blob.ID]time.Time{}
 	st := blobtesting.NewMapStorage(data, keyTime, nil)
 
-	bm, err := NewManagerForTesting(testlogging.Context(t), st, &FormattingOptions{
+	bm, err := NewManagerForTesting(testlogging.Context(t), st, mustCreateFormatProvider(t, &FormattingOptions{
 		Hash:       hashAlgo,
 		Encryption: encryptionAlgo,
 		HMACSecret: hmacSecret,
@@ -109,7 +109,7 @@ func verifyEndToEndFormatter(ctx context.Context, t *testing.T, hashAlgo, encryp
 			MaxPackSize: maxPackSize,
 		},
 		MasterKey: make([]byte, 32), // zero key, does not matter
-	}, nil, nil)
+	}), nil, nil)
 	if err != nil {
 		t.Errorf("can't create content manager with hash %v and encryption %v: %v", hashAlgo, encryptionAlgo, err.Error())
 		return
@@ -158,4 +158,13 @@ func verifyEndToEndFormatter(ctx context.Context, t *testing.T, hashAlgo, encryp
 			return
 		}
 	}
+}
+
+func mustCreateFormatProvider(t *testing.T, f *FormattingOptions) FormattingOptionsProvider {
+	t.Helper()
+
+	fop, err := NewFormattingOptionsProvider(f, nil)
+	require.NoError(t, err)
+
+	return fop
 }

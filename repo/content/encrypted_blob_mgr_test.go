@@ -43,10 +43,10 @@ func TestEncryptedBlobManager(t *testing.T) {
 	}
 
 	ebm := encryptedBlobMgr{
-		st:             fs,
-		crypter:        cr,
-		indexBlobCache: nil,
-		log:            logging.NullLogger,
+		st:              fs,
+		crypterProvider: staticCrypterProvider{cr},
+		indexBlobCache:  nil,
+		log:             logging.NullLogger,
 	}
 
 	ctx := testlogging.Context(t)
@@ -84,4 +84,12 @@ func TestEncryptedBlobManager(t *testing.T) {
 
 	_, err = ebm.encryptAndWriteBlob(ctx, gather.FromSlice([]byte{1, 2, 3, 4}), "x", "session1")
 	require.ErrorIs(t, err, someError2)
+}
+
+type staticCrypterProvider struct {
+	theCrypter *Crypter
+}
+
+func (p staticCrypterProvider) Crypter() *Crypter {
+	return p.theCrypter
 }

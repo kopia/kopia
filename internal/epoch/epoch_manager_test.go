@@ -92,7 +92,7 @@ func newTestEnv(t *testing.T) *epochManagerTestEnv {
 	st = fs
 	st = logging.NewWrapper(st, testlogging.NewTestLogger(t), "[STORAGE] ")
 	te := &epochManagerTestEnv{unloggedst: unloggedst, st: st, ft: ft}
-	m := NewManager(te.st, Parameters{
+	m := NewManager(te.st, &Parameters{
 		Enabled:                 true,
 		EpochRefreshFrequency:   20 * time.Minute,
 		FullCheckpointFrequency: 7,
@@ -121,7 +121,7 @@ func (te *epochManagerTestEnv) another() *epochManagerTestEnv {
 		faultyStorage: te.faultyStorage,
 	}
 
-	te2.mgr = NewManager(te2.st, te.mgr.Params, te2.compact, te.mgr.log, te.mgr.timeFunc)
+	te2.mgr = NewManager(te2.st, te.mgr.Parameters, te2.compact, te.mgr.log, te.mgr.timeFunc)
 
 	return te2
 }
@@ -577,7 +577,7 @@ func verifySequentialWrites(t *testing.T, te *epochManagerTestEnv) {
 func TestIndexEpochManager_Disabled(t *testing.T) {
 	te := newTestEnv(t)
 
-	te.mgr.Params.Enabled = false
+	(te.mgr.Parameters).(*Parameters).Enabled = false
 
 	_, err := te.mgr.Current(testlogging.Context(t))
 	require.Error(t, err)

@@ -45,14 +45,20 @@ type cleanupEntry struct {
 	age time.Duration // not serialized, computed on load
 }
 
+// IndexFormattingOptions provides options for formatting index blobs.
+type IndexFormattingOptions interface {
+	MaxIndexBlobSize() int64
+	WriteIndexVersion() int
+	IndexShardSize() int
+}
+
 type indexBlobManagerV0 struct {
-	st             blob.Storage
-	enc            *encryptedBlobMgr
-	timeNow        func() time.Time
-	log            logging.Logger
-	maxPackSize    int
-	indexVersion   int
-	indexShardSize int
+	st      blob.Storage
+	enc     *encryptedBlobMgr
+	timeNow func() time.Time
+	log     logging.Logger
+
+	formattingOptions IndexFormattingOptions
 }
 
 func (m *indexBlobManagerV0) listActiveIndexBlobs(ctx context.Context) ([]IndexBlobInfo, time.Time, error) {
@@ -413,14 +419,14 @@ func (m *indexBlobManagerV0) getBlobsToCompact(indexBlobs []IndexBlobInfo, opt C
 	var mediumSizedBlobCount int
 
 	for _, b := range indexBlobs {
-		if b.Length > int64(m.maxPackSize) && !opt.AllIndexes {
+		if b.Length > m.formattingOptions.MaxIndexBlobSize() && !opt.AllIndexes {
 			continue
 		}
 
 		nonCompactedBlobs = append(nonCompactedBlobs, b)
 		totalSizeNonCompactedBlobs += b.Length
 
-		if b.Length < int64(m.maxPackSize/verySmallContentFraction) {
+		if b.Length < m.formattingOptions.MaxIndexBlobSize()/verySmallContentFraction {
 			verySmallBlobs = append(verySmallBlobs, b)
 			totalSizeVerySmallBlobs += b.Length
 		} else {
@@ -468,7 +474,7 @@ func (m *indexBlobManagerV0) compactIndexBlobs(ctx context.Context, indexBlobs [
 	// we must do it after all input blobs have been merged, otherwise we may resurrect contents.
 	m.dropContentsFromBuilder(bld, opt)
 
-	dataShards, cleanupShards, err := bld.BuildShards(m.indexVersion, false, m.indexShardSize)
+	dataShards, cleanupShards, err := bld.BuildShards(m.formattingOptions.WriteIndexVersion(), false, m.formattingOptions.IndexShardSize())
 	if err != nil {
 		return errors.Wrap(err, "unable to build an index")
 	}
@@ -520,7 +526,7 @@ func addIndexBlobsToBuilder(ctx context.Context, enc *encryptedBlobMgr, bld inde
 		return errors.Wrapf(err, "error getting index %q", indexBlobID)
 	}
 
-	ndx, err := index.Open(data.ToByteSlice(), nil, uint32(enc.crypter.Encryptor.Overhead()))
+	ndx, err := index.Open(data.ToByteSlice(), nil, uint32(enc.crypterProvider.Crypter().Encryptor.Overhead()))
 	if err != nil {
 		return errors.Wrapf(err, "unable to open index blob %q", indexBlobID)
 	}

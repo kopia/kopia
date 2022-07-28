@@ -111,7 +111,7 @@ func (bm *WriteManager) writeSessionMarkerLocked(ctx context.Context) error {
 	var encrypted gather.WriteBuffer
 	defer encrypted.Close()
 
-	sessionBlobID, err := bm.crypter.EncryptBLOB(gather.FromSlice(js), BlobIDPrefixSession, bm.currentSessionInfo.ID, &encrypted)
+	sessionBlobID, err := bm.format.Crypter().EncryptBLOB(gather.FromSlice(js), BlobIDPrefixSession, bm.currentSessionInfo.ID, &encrypted)
 	if err != nil {
 		return errors.Wrap(err, "unable to encrypt session marker")
 	}
@@ -178,7 +178,7 @@ func (bm *WriteManager) ListActiveSessions(ctx context.Context) (map[SessionID]*
 			return nil, errors.Wrapf(err, "error loading session: %v", b.BlobID)
 		}
 
-		err = bm.crypter.DecryptBLOB(payload.Bytes(), b.BlobID, &decrypted)
+		err = bm.format.Crypter().DecryptBLOB(payload.Bytes(), b.BlobID, &decrypted)
 		if err != nil {
 			return nil, errors.Wrapf(err, "error decrypting session: %v", b.BlobID)
 		}

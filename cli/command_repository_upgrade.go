@@ -122,7 +122,7 @@ func (c *commandRepositoryUpgrade) setLockIntent(ctx context.Context, rep repo.D
 	}
 
 	now := rep.Time()
-	mp := rep.ContentReader().ContentFormat().MutableParameters
+	mp := rep.ContentReader().ContentFormat().GetMutableParameters()
 	openOpts := c.svc.optionsFromFlags(ctx)
 	l := &repo.UpgradeLockIntent{
 		OwnerID:                openOpts.UpgradeOwnerID,
@@ -163,7 +163,7 @@ func (c *commandRepositoryUpgrade) setLockIntent(ctx context.Context, rep repo.D
 // skipped until the lock is fully established.
 func (c *commandRepositoryUpgrade) drainOrCommit(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	cf := rep.ContentReader().ContentFormat()
-	if cf.MutableParameters.EpochParameters.Enabled {
+	if cf.GetEpochManagerEnabled() {
 		log(ctx).Infof("Repository indices have already been migrated to the epoch format, no need to drain other clients")
 
 		l, err := rep.GetUpgradeLockIntent(ctx)
@@ -250,7 +250,7 @@ func (c *commandRepositoryUpgrade) drainAllClients(ctx context.Context, rep repo
 // repository. This phase runs after the lock has been acquired in one of the
 // prior phases.
 func (c *commandRepositoryUpgrade) upgrade(ctx context.Context, rep repo.DirectRepositoryWriter) error {
-	mp := rep.ContentReader().ContentFormat().MutableParameters
+	mp := rep.ContentReader().ContentFormat().GetMutableParameters()
 	if mp.EpochParameters.Enabled {
 		// nothing to upgrade on format, so let the next action commit the upgraded format blob
 		return nil

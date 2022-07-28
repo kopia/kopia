@@ -113,7 +113,7 @@ func (c *commandRepositorySetParameters) setRetentionModeParameter(ctx context.C
 func (c *commandRepositorySetParameters) run(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	var anyChange bool
 
-	mp := rep.ContentReader().ContentFormat().MutableParameters
+	mp := rep.ContentReader().ContentFormat().GetMutableParameters()
 	blobcfg := rep.BlobCfg()
 
 	upgradeToEpochManager := false
