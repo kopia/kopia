@@ -57,7 +57,7 @@ require (
 	golang.org/x/sys v0.0.0-20220715151400-c0bba94af5f8
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
 	golang.org/x/text v0.3.7
-	google.golang.org/api v0.88.0
+	google.golang.org/api v0.89.0
 	google.golang.org/grpc v1.48.0
 	google.golang.org/protobuf v1.28.0
 	gopkg.in/ini.v1 v1.66.2 // indirect
