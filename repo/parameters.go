@@ -7,11 +7,26 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/feature"
 	"github.com/kopia/kopia/repo/content"
 )
 
+func (r *directRepository) RequiredFeatures() ([]feature.Required, error) {
+	repoConfig, err := r.formatBlob.decryptFormatBytes(r.formatEncryptionKey)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to decrypt repository config")
+	}
+
+	return repoConfig.RequiredFeatures, nil
+}
+
 // SetParameters changes mutable repository parameters.
-func (r *directRepository) SetParameters(ctx context.Context, m content.MutableParameters, blobcfg content.BlobCfgBlob) error {
+func (r *directRepository) SetParameters(
+	ctx context.Context,
+	m content.MutableParameters,
+	blobcfg content.BlobCfgBlob,
+	requiredFeatures []feature.Required,
+) error {
 	f := r.formatBlob
 
 	repoConfig, err := f.decryptFormatBytes(r.formatEncryptionKey)
@@ -28,6 +43,7 @@ func (r *directRepository) SetParameters(ctx context.Context, m content.MutableP
 	}
 
 	repoConfig.FormattingOptions.MutableParameters = m
+	repoConfig.RequiredFeatures = requiredFeatures
 
 	if err := encryptFormatBytes(f, repoConfig, r.formatEncryptionKey, f.UniqueID); err != nil {
 		return errors.Errorf("unable to encrypt format bytes")

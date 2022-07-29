@@ -10,6 +10,7 @@ import (
 	"github.com/kopia/kopia/cli"
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/repotesting"
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/tests/testenv"
@@ -182,4 +183,49 @@ func (s *formatSpecificTestSuite) TestRepositorySetParametersUpgrade(t *testing.
 	require.Contains(t, out, "Epoch checkpoint every:  9 epochs")
 
 	env.RunAndExpectSuccess(t, "index", "epoch", "list")
+}
+
+func (s *formatSpecificTestSuite) TestRepositorySetParametersRequiredFeatures(t *testing.T) {
+	env := s.setupInMemoryRepo(t)
+
+	env.RunAndExpectSuccess(t, "repository", "status")
+	env.RunAndExpectSuccess(t, "repository", "set-parameters", "--add-required-feature", "no-such-feature")
+	env.RunAndExpectFailure(t, "repository", "status")
+	env.RunAndExpectSuccess(t, "repository", "status", "--ignore-missing-required-features")
+	env.RunAndExpectSuccess(t, "repository", "set-parameters", "--remove-required-feature", "no-such-feature", "--ignore-missing-required-features")
+	env.RunAndExpectSuccess(t, "repository", "status")
+
+	// now require a feature but with a warning
+	env.RunAndExpectSuccess(t, "repository", "set-parameters", "--add-required-feature", "no-such-feature", "--warn-on-missing-required-feature")
+	env.RunAndExpectSuccess(t, "repository", "status")
+	env.RunAndExpectSuccess(t, "repository", "set-parameters", "--remove-required-feature", "no-such-feature")
+}
+
+func (s *formatSpecificTestSuite) TestRepositorySetParametersRequiredFeatures_ServerMode(t *testing.T) {
+	env := s.setupInMemoryRepo(t)
+
+	env.RunAndExpectSuccess(t, "repo", "set-client", "--repository-format-cache-duration=1s")
+
+	var sp testutil.ServerParameters
+
+	snapDir := testutil.TempDirectory(t)
+
+	// create a snapshot that will be created every second
+	env.RunAndExpectSuccess(t, "snapshot", "create", snapDir)
+	env.RunAndExpectSuccess(t, "policy", "set", "--snapshot-interval=1s", snapDir)
+
+	wait, _ := env.RunAndProcessStderr(t, sp.ProcessOutput,
+		"server", "start",
+		"--address=localhost:0",
+		"--server-control-password=admin-pwd",
+		"--tls-generate-cert",
+		"--tls-generate-rsa-key-size=2048", // use shorter key size to speed up generation
+	)
+
+	// now introduce required parameters while the server is running
+	env.RunAndExpectSuccess(t, "repository", "set-parameters", "--add-required-feature", "no-such-feature")
+
+	// we are aggressively creating snapshots every second,
+	// the server will soon notice the new required feature and shut down.
+	require.ErrorContains(t, wait(), "no-such-feature")
 }

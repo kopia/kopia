@@ -16,6 +16,7 @@ import (
 	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/epoch"
+	"github.com/kopia/kopia/internal/feature"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/retry"
 	"github.com/kopia/kopia/repo/blob"
@@ -28,6 +29,22 @@ import (
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/repo/object"
 )
+
+// The list below keeps track of features this version of Kopia supports for forwards compatibility.
+//
+// Repository can specify which features are required to open it and clients will refuse to open the
+// repository if they don't have all required features.
+//
+// In the future we'll be removing features from the list to deprecate them and this will ensure newer
+// versions of kopia won't be able to work with old, unmigrated repositories.
+//
+// The strings are arbitrary, but should be short, human-readable and immutable once a version
+// that starts requiring them is released.
+// nolint:gochecknoglobals
+var supportedFeatures = []feature.Feature{
+	"index-v1",
+	"index-v2",
+}
 
 // CacheDirMarkerFile is the name of the marker file indicating a directory contains Kopia caches.
 // See https://bford.info/cachedir/
@@ -73,6 +90,11 @@ type Options struct {
 	DisableInternalLog  bool             // Disable internal log
 	UpgradeOwnerID      string           // Owner-ID of any upgrade in progress, when this is not set the access may be restricted
 	DoNotWaitForUpgrade bool             // Disable the exponential forever backoff on an upgrade lock.
+
+	OnFatalError func(err error) // function to invoke when repository encounters a fatal error, usually invokes os.Exit
+
+	// test-only flags
+	TestOnlyIgnoreMissingRequiredFeatures bool // ignore missing features
 }
 
 // ErrInvalidPassword is returned when repository password is invalid.
@@ -95,6 +117,13 @@ func Open(ctx context.Context, configFile, password string, options *Options) (r
 
 	if options == nil {
 		options = &Options{}
+	}
+
+	if options.OnFatalError == nil {
+		options.OnFatalError = func(err error) {
+			log(ctx).Errorf("FATAL: %v", err)
+			os.Exit(1)
+		}
 	}
 
 	configFile, err = filepath.Abs(configFile)
@@ -241,7 +270,7 @@ func ReadAndCacheRepoUpgradeLock(ctx context.Context, st blob.Storage, password 
 }
 
 // openWithConfig opens the repository with a given configuration, avoiding the need for a config file.
-// nolint:funlen,gocyclo
+// nolint:funlen,gocyclo,cyclop
 func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, password string, options *Options, cacheOpts *content.CachingOptions, configFile string) (DirectRepository, error) {
 	cacheOpts = cacheOpts.CloneOrDefault()
 	cmOpts := &content.ManagerOptions{
@@ -269,6 +298,10 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 		return !options.DoNotWaitForUpgrade && errors.Is(internalErr, ErrRepositoryUnavailableDueToUpgrageInProgress)
 	}); err != nil {
 		// nolint:wrapcheck
+		return nil, err
+	}
+
+	if err := handleMissingRequiredFeatures(ctx, ufb.repoConfig, options.TestOnlyIgnoreMissingRequiredFeatures); err != nil {
 		return nil, err
 	}
 
@@ -331,7 +364,7 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 
 	// background/interleaving upgrade lock storage monitor
 	st = upgradeLockMonitor(options.UpgradeOwnerID, st, password, cacheOpts, lc.FormatBlobCacheDuration,
-		ufb.cacheMTime, cmOpts.TimeNow)
+		ufb.cacheMTime, cmOpts.TimeNow, options.OnFatalError, options.TestOnlyIgnoreMissingRequiredFeatures)
 
 	fop, err := content.NewFormattingOptionsProvider(fo, cmOpts.RepositoryFormatBytes)
 	if err != nil {
@@ -382,6 +415,23 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 	return dr, nil
 }
 
+func handleMissingRequiredFeatures(ctx context.Context, repoConfig *repositoryObjectFormat, ignoreErrors bool) error {
+	// See if the current version of Kopia supports all features required by the repository format.
+	// so we can safely fail to start in case repository has been upgraded to a new, incompatible version.
+	if missingFeatures := feature.GetUnsupportedFeatures(repoConfig.RequiredFeatures, supportedFeatures); len(missingFeatures) > 0 {
+		for _, mf := range missingFeatures {
+			if ignoreErrors || mf.IfNotUnderstood.Warn {
+				log(ctx).Warnf("%s", mf.UnsupportedMessage())
+			} else {
+				// by default, fail hard
+				return errors.Errorf("%s", mf.UnsupportedMessage())
+			}
+		}
+	}
+
+	return nil
+}
+
 func wrapLockingStorage(st blob.Storage, r content.BlobCfgBlob) blob.Storage {
 	// collect prefixes that need to be locked on put
 	var prefixes []string
@@ -421,6 +471,8 @@ func upgradeLockMonitor(
 	lockRefreshInterval time.Duration,
 	lastSync time.Time,
 	now func() time.Time,
+	onFatalError func(err error),
+	ignoreMissingRequiredFeatures bool,
 ) blob.Storage {
 	var (
 		m        sync.RWMutex
@@ -447,6 +499,11 @@ func upgradeLockMonitor(
 
 		ufb, err := readAndCacheRepoConfig(ctx, st, password, cacheOpts, lockRefreshInterval)
 		if err != nil {
+			return err
+		}
+
+		if err := handleMissingRequiredFeatures(ctx, ufb.repoConfig, ignoreMissingRequiredFeatures); err != nil {
+			onFatalError(err)
 			return err
 		}
 

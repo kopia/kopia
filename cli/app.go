@@ -88,6 +88,8 @@ type appServices interface {
 	Stderr() io.Writer
 	stdin() io.Reader
 	onCtrlC(callback func())
+	onRepositoryFatalError(callback func(err error))
+	enableTestOnlyFlags() bool
 	EnvName(s string) string
 }
 
@@ -130,8 +132,9 @@ type App struct {
 	upgradeOwnerID      string
 	doNotWaitForUpgrade bool
 
-	currentAction   string
-	onExitCallbacks []func()
+	currentAction         string
+	onExitCallbacks       []func()
+	onFatalErrorCallbacks []func(err error)
 
 	// subcommands
 	blob        commandBlob
@@ -154,14 +157,21 @@ type App struct {
 	logs        commandLogs
 
 	// testability hooks
-	osExit         func(int) // allows replacing os.Exit() with custom code
-	stdinReader    io.Reader
-	stdoutWriter   io.Writer
-	stderrWriter   io.Writer
-	rootctx        context.Context // nolint:containedctx
-	loggerFactory  logging.LoggerFactory
-	simulatedCtrlC chan bool
-	envNamePrefix  string
+	testonlyIgnoreMissingRequiredFeatures bool
+
+	isInProcessTest bool
+	exitWithError   func(err error) // os.Exit() with 1 or 0 based on err
+	stdinReader     io.Reader
+	stdoutWriter    io.Writer
+	stderrWriter    io.Writer
+	rootctx         context.Context // nolint:containedctx
+	loggerFactory   logging.LoggerFactory
+	simulatedCtrlC  chan bool
+	envNamePrefix   string
+}
+
+func (c *App) enableTestOnlyFlags() bool {
+	return c.isInProcessTest || os.Getenv("KOPIA_TESTONLY_FLAGS") != ""
 }
 
 func (c *App) getProgress() *cliProgress {
@@ -226,7 +236,7 @@ func (c *App) setup(app *kingpin.Application) {
 
 	_ = app.Flag("help-full", "Show help for all commands, including hidden").Action(func(pc *kingpin.ParseContext) error {
 		_ = app.UsageForContextWithTemplate(pc, 0, kingpin.DefaultUsageTemplate)
-		os.Exit(0)
+		c.exitWithError(nil)
 		return nil
 	}).Bool()
 
@@ -247,6 +257,10 @@ func (c *App) setup(app *kingpin.Application) {
 	app.Flag("dump-allocator-stats", "Dump allocator stats at the end of execution.").Hidden().Envar(c.EnvName("KOPIA_DUMP_ALLOCATOR_STATS")).BoolVar(&c.dumpAllocatorStats)
 	app.Flag("upgrade-owner-id", "Repository format upgrade owner-id.").Hidden().Envar(c.EnvName("KOPIA_REPO_UPGRADE_OWNER_ID")).StringVar(&c.upgradeOwnerID)
 	app.Flag("upgrade-no-block", "Do not block when repository format upgrade is in progress, instead exit with a message.").Hidden().Default("false").Envar(c.EnvName("KOPIA_REPO_UPGRADE_NO_BLOCK")).BoolVar(&c.doNotWaitForUpgrade)
+
+	if c.enableTestOnlyFlags() {
+		app.Flag("ignore-missing-required-features", "Open repository despite missing features (VERY DANGEROUS, ONLY FOR TESTING)").Hidden().BoolVar(&c.testonlyIgnoreMissingRequiredFeatures)
+	}
 
 	c.observability.setup(c, app)
 
@@ -308,7 +322,13 @@ func NewApp() *App {
 		},
 
 		// testability hooks
-		osExit:       os.Exit,
+		exitWithError: func(err error) {
+			if err != nil {
+				os.Exit(1)
+			} else {
+				os.Exit(0)
+			}
+		},
 		stdoutWriter: colorable.NewColorableStdout(),
 		stderrWriter: colorable.NewColorableStderr(),
 		stdinReader:  os.Stdin,
@@ -474,13 +494,13 @@ func (c *App) runAppWithContext(command *kingpin.CmdClause, cb func(ctx context.
 	if err != nil {
 		// print error in red
 		log(ctx).Errorf("%v", err.Error())
-		c.osExit(1)
+		c.exitWithError(err)
 	}
 
 	if len(c.trackReleasable) > 0 {
 		if err := releasable.Verify(); err != nil {
 			log(ctx).Warnf("%v", err.Error())
-			c.osExit(1)
+			c.exitWithError(err)
 		}
 	}
 
@@ -573,7 +593,7 @@ To run this command despite the warning, set --advanced-commands=enabled
 
 `)
 
-		c.osExit(1)
+		c.exitWithError(errors.Errorf("advanced commands are disabled"))
 	}
 }
 
