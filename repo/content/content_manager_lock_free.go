@@ -30,14 +30,14 @@ func (sm *SharedManager) maybeCompressAndEncryptDataForPacking(data gather.Bytes
 
 	// If the content is prefixed (which represents Kopia's own metadata as opposed to user data),
 	// and we're on V2 format or greater, enable internal compression even when not requested.
-	if contentID.HasPrefix() && comp == NoCompression && sm.format.IndexVersion >= index.Version2 {
+	if contentID.HasPrefix() && comp == NoCompression && sm.format.WriteIndexVersion() >= index.Version2 {
 		// 'zstd-fastest' has a good mix of being fast, low memory usage and high compression for JSON.
 		comp = compression.HeaderZstdFastest
 	}
 
 	// nolint:nestif
 	if comp != NoCompression {
-		if sm.format.IndexVersion < index.Version2 {
+		if sm.format.WriteIndexVersion() < index.Version2 {
 			return NoCompression, errors.Errorf("compression is not enabled for this repository")
 		}
 
@@ -62,7 +62,7 @@ func (sm *SharedManager) maybeCompressAndEncryptDataForPacking(data gather.Bytes
 		}
 	}
 
-	if err := sm.crypter.Encryptor.Encrypt(data, iv, output); err != nil {
+	if err := sm.Crypter().Encryptor.Encrypt(data, iv, output); err != nil {
 		return NoCompression, errors.Wrap(err, "unable to encrypt")
 	}
 
@@ -181,7 +181,7 @@ func (sm *SharedManager) writePackFileNotLocked(ctx context.Context, packFile bl
 
 func (sm *SharedManager) hashData(output []byte, data gather.Bytes) []byte {
 	// Hash the content and compute encryption key.
-	contentID := sm.crypter.HashFunction(output, data)
+	contentID := sm.format.Crypter().HashFunction(output, data)
 	sm.Stats.hashedContent(data.Length())
 
 	return contentID

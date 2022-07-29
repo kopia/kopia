@@ -21,7 +21,6 @@ import (
 	"github.com/kopia/kopia/repo/blob/filesystem"
 	"github.com/kopia/kopia/repo/blob/sharded"
 	"github.com/kopia/kopia/repo/compression"
-	"github.com/kopia/kopia/repo/content/index"
 	"github.com/kopia/kopia/repo/hashing"
 	"github.com/kopia/kopia/repo/logging"
 )
@@ -70,6 +69,11 @@ type indexBlobManager interface {
 	invalidate(ctx context.Context)
 }
 
+// CrypterProvider returns the crypter to use for encrypting contents and blobs.
+type CrypterProvider interface {
+	Crypter() *Crypter
+}
+
 // SharedManager is responsible for read-only access to committed data.
 type SharedManager struct {
 	// +checkatomic
@@ -80,7 +84,6 @@ type SharedManager struct {
 	Stats *Stats
 	st    blob.Storage
 
-	indexBlobManager   indexBlobManager // points at either indexBlobManagerV0 or indexBlobManagerV1
 	indexBlobManagerV0 *indexBlobManagerV0
 	indexBlobManagerV1 *indexBlobManagerV1
 
@@ -88,7 +91,6 @@ type SharedManager struct {
 	metadataCache     cache.ContentCache
 	indexBlobCache    *cache.PersistentCache
 	committedContents *committedContentIndex
-	crypter           *Crypter
 	enc               *encryptedBlobMgr
 	timeNow           func() time.Time
 
@@ -101,16 +103,12 @@ type SharedManager struct {
 	// +checklocks:indexesLock
 	refreshIndexesAfter time.Time
 
-	format                  FormattingOptions
+	format FormattingOptionsProvider
+
 	checkInvariantsOnUnlock bool
-	writeFormatVersion      int32 // format version to write
-	maxPackSize             int
 	minPreambleLength       int
 	maxPreambleLength       int
 	paddingUnit             int
-	repositoryFormatBytes   []byte
-	indexVersion            int
-	indexShardSize          int
 
 	// logger where logs should be written
 	log logging.Logger
@@ -123,7 +121,7 @@ type SharedManager struct {
 
 // Crypter returns the crypter.
 func (sm *SharedManager) Crypter() *Crypter {
-	return sm.crypter
+	return sm.format.Crypter()
 }
 
 func (sm *SharedManager) readPackFileLocalIndex(ctx context.Context, packFile blob.ID, packFileLength int64, output *gather.WriteBuffer) error {
@@ -198,13 +196,13 @@ func (sm *SharedManager) loadPackIndexesLocked(ctx context.Context) error {
 		}
 
 		if i > 0 {
-			sm.indexBlobManager.flushCache(ctx)
+			sm.indexBlobManager().flushCache(ctx)
 			sm.log.Debugf("encountered NOT_FOUND when loading, sleeping %v before retrying #%v", nextSleepTime, i)
 			time.Sleep(nextSleepTime)
 			nextSleepTime *= 2
 		}
 
-		indexBlobs, ignoreDeletedBefore, err := sm.indexBlobManager.listActiveIndexBlobs(ctx)
+		indexBlobs, ignoreDeletedBefore, err := sm.indexBlobManager().listActiveIndexBlobs(ctx)
 		if err != nil {
 			return errors.Wrap(err, "error listing index blobs")
 		}
@@ -246,6 +244,14 @@ func (sm *SharedManager) getCacheForContentID(id ID) cache.ContentCache {
 	return sm.contentCache
 }
 
+func (sm *SharedManager) indexBlobManager() indexBlobManager {
+	if sm.format.GetEpochManagerEnabled() {
+		return sm.indexBlobManagerV1
+	}
+
+	return sm.indexBlobManagerV0
+}
+
 func (sm *SharedManager) decryptContentAndVerify(payload gather.Bytes, bi Info, output *gather.WriteBuffer) error {
 	sm.Stats.readContent(payload.Length())
 
@@ -285,7 +291,7 @@ func (sm *SharedManager) decryptContentAndVerify(payload gather.Bytes, bi Info, 
 }
 
 func (sm *SharedManager) decryptAndVerify(encrypted gather.Bytes, iv []byte, output *gather.WriteBuffer) error {
-	if err := sm.crypter.Encryptor.Decrypt(encrypted, iv, output); err != nil {
+	if err := sm.format.Crypter().Encryptor.Decrypt(encrypted, iv, output); err != nil {
 		sm.Stats.foundInvalidContent()
 		return errors.Wrap(err, "decrypt")
 	}
@@ -316,7 +322,7 @@ func (sm *SharedManager) IndexBlobs(ctx context.Context, includeInactive bool) (
 		return result, nil
 	}
 
-	blobs, _, err := sm.indexBlobManager.listActiveIndexBlobs(ctx)
+	blobs, _, err := sm.indexBlobManager().listActiveIndexBlobs(ctx)
 
 	// nolint:wrapcheck
 	return blobs, err
@@ -429,54 +435,49 @@ func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *Ca
 	}
 
 	sm.enc = &encryptedBlobMgr{
-		st:             cachedSt,
-		crypter:        sm.crypter,
-		indexBlobCache: indexBlobCache,
-		log:            sm.namedLogger("encrypted-blob-manager"),
+		st:              cachedSt,
+		crypterProvider: sm.format,
+		indexBlobCache:  indexBlobCache,
+		log:             sm.namedLogger("encrypted-blob-manager"),
 	}
 
 	// set up legacy index blob manager
 	sm.indexBlobManagerV0 = &indexBlobManagerV0{
-		st:             cachedSt,
-		enc:            sm.enc,
-		timeNow:        sm.timeNow,
-		maxPackSize:    sm.maxPackSize,
-		indexVersion:   sm.indexVersion,
-		indexShardSize: sm.indexShardSize,
-		log:            sm.namedLogger("index-blob-manager"),
+		st:                cachedSt,
+		enc:               sm.enc,
+		timeNow:           sm.timeNow,
+		formattingOptions: sm.format,
+		log:               sm.namedLogger("index-blob-manager"),
 	}
 
 	// set up new index blob manager
 	sm.indexBlobManagerV1 = &indexBlobManagerV1{
-		st:             cachedSt,
-		enc:            sm.enc,
-		timeNow:        sm.timeNow,
-		maxPackSize:    sm.maxPackSize,
-		indexShardSize: sm.indexShardSize,
-		indexVersion:   sm.indexVersion,
-		log:            sm.namedLogger("index-blob-manager"),
+		st:                cachedSt,
+		enc:               sm.enc,
+		timeNow:           sm.timeNow,
+		formattingOptions: sm.format,
+		log:               sm.namedLogger("index-blob-manager"),
 	}
-	sm.indexBlobManagerV1.epochMgr = epoch.NewManager(cachedSt, sm.format.EpochParameters, sm.indexBlobManagerV1.compactEpoch, sm.namedLogger("epoch-manager"), sm.timeNow)
 
-	// select active index blob manager based on parameters
-	if sm.format.EpochParameters.Enabled {
-		sm.indexBlobManager = sm.indexBlobManagerV1
-	} else {
-		sm.indexBlobManager = sm.indexBlobManagerV0
-	}
+	sm.indexBlobManagerV1.epochMgr = epoch.NewManager(cachedSt, sm.format, sm.indexBlobManagerV1.compactEpoch, sm.namedLogger("epoch-manager"), sm.timeNow)
 
 	// once everything is ready, set it up
 	sm.contentCache = dataCache
 	sm.metadataCache = metadataCache
 	sm.indexBlobCache = indexBlobCache
-	sm.committedContents = newCommittedContentIndex(caching, uint32(sm.crypter.Encryptor.Overhead()), sm.indexVersion, sm.enc.getEncryptedBlob, sm.namedLogger("committed-content-index"), caching.MinIndexSweepAge.DurationOrDefault(DefaultIndexCacheSweepAge))
+	sm.committedContents = newCommittedContentIndex(caching,
+		uint32(sm.format.Crypter().Encryptor.Overhead()),
+		sm.format.WriteIndexVersion(),
+		sm.enc.getEncryptedBlob,
+		sm.namedLogger("committed-content-index"),
+		caching.MinIndexSweepAge.DurationOrDefault(DefaultIndexCacheSweepAge))
 
 	return nil
 }
 
 // EpochManager returns the epoch manager.
 func (sm *SharedManager) EpochManager() (*epoch.Manager, bool) {
-	ibm1, ok := sm.indexBlobManager.(*indexBlobManagerV1)
+	ibm1, ok := sm.indexBlobManager().(*indexBlobManagerV1)
 	if !ok {
 		return nil, false
 	}
@@ -546,36 +547,14 @@ func (sm *SharedManager) shouldRefreshIndexes() bool {
 }
 
 // NewSharedManager returns SharedManager that is used by SessionWriteManagers on top of a repository.
-func NewSharedManager(ctx context.Context, st blob.Storage, f *FormattingOptions, caching *CachingOptions, opts *ManagerOptions) (*SharedManager, error) {
+func NewSharedManager(ctx context.Context, st blob.Storage, prov FormattingOptionsProvider, caching *CachingOptions, opts *ManagerOptions) (*SharedManager, error) {
 	opts = opts.CloneOrDefault()
 	if opts.TimeNow == nil {
 		opts.TimeNow = clock.Now
 	}
 
-	if f.Version < minSupportedReadVersion || f.Version > currentWriteVersion {
-		return nil, errors.Errorf("can't handle repositories created using version %v (min supported %v, max supported %v)", f.Version, minSupportedReadVersion, maxSupportedReadVersion)
-	}
-
-	if f.Version < minSupportedWriteVersion || f.Version > currentWriteVersion {
-		return nil, errors.Errorf("can't handle repositories created using version %v (min supported %v, max supported %v)", f.Version, minSupportedWriteVersion, maxSupportedWriteVersion)
-	}
-
-	crypter, err := CreateCrypter(f)
-	if err != nil {
-		return nil, err
-	}
-
-	actualIndexVersion := f.IndexVersion
-	if actualIndexVersion == 0 {
-		actualIndexVersion = legacyIndexVersion
-	}
-
-	if actualIndexVersion < index.Version1 || actualIndexVersion > index.Version2 {
-		return nil, errors.Errorf("index version %v is not supported", actualIndexVersion)
-	}
-
 	// create internal logger that will be writing logs as encrypted repository blobs.
-	ilm := newInternalLogManager(ctx, st, crypter)
+	ilm := newInternalLogManager(ctx, st, prov)
 
 	// sharedBaseLogger writes to the both context and internal log
 	// and is used as a base for all content manager components.
@@ -588,19 +567,13 @@ func NewSharedManager(ctx context.Context, st blob.Storage, f *FormattingOptions
 
 	sm := &SharedManager{
 		st:                      st,
-		crypter:                 crypter,
 		Stats:                   new(Stats),
 		timeNow:                 opts.TimeNow,
-		format:                  *f,
-		maxPackSize:             f.MaxPackSize,
+		format:                  prov,
 		minPreambleLength:       defaultMinPreambleLength,
 		maxPreambleLength:       defaultMaxPreambleLength,
 		paddingUnit:             defaultPaddingUnit,
-		repositoryFormatBytes:   opts.RepositoryFormatBytes,
 		checkInvariantsOnUnlock: os.Getenv("KOPIA_VERIFY_INVARIANTS") != "",
-		writeFormatVersion:      int32(f.Version),
-		indexVersion:            actualIndexVersion,
-		indexShardSize:          defaultIndexShardSize,
 		internalLogManager:      ilm,
 		internalLogger:          internalLog,
 		contextLogger:           logging.Module(FormatLogModule)(ctx),

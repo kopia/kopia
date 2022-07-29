@@ -16,14 +16,12 @@ import (
 )
 
 type indexBlobManagerV1 struct {
-	st             blob.Storage
-	enc            *encryptedBlobMgr
-	epochMgr       *epoch.Manager
-	timeNow        func() time.Time
-	log            logging.Logger
-	maxPackSize    int
-	indexVersion   int
-	indexShardSize int
+	st                blob.Storage
+	enc               *encryptedBlobMgr
+	epochMgr          *epoch.Manager
+	timeNow           func() time.Time
+	log               logging.Logger
+	formattingOptions IndexFormattingOptions
 }
 
 func (m *indexBlobManagerV1) listActiveIndexBlobs(ctx context.Context) ([]IndexBlobInfo, time.Time, error) {
@@ -70,7 +68,7 @@ func (m *indexBlobManagerV1) compactEpoch(ctx context.Context, blobIDs []blob.ID
 		}
 	}
 
-	dataShards, cleanupShards, err := tmpbld.BuildShards(m.indexVersion, true, m.indexShardSize)
+	dataShards, cleanupShards, err := tmpbld.BuildShards(m.formattingOptions.WriteIndexVersion(), true, m.formattingOptions.IndexShardSize())
 	if err != nil {
 		return errors.Wrap(err, "unable to build index dataShards")
 	}
@@ -91,7 +89,7 @@ func (m *indexBlobManagerV1) compactEpoch(ctx context.Context, blobIDs []blob.ID
 	for _, data := range dataShards {
 		data2.Reset()
 
-		blobID, err := m.enc.crypter.EncryptBLOB(data, outputPrefix, SessionID(sessionID), &data2)
+		blobID, err := m.enc.crypterProvider.Crypter().EncryptBLOB(data, outputPrefix, SessionID(sessionID), &data2)
 		if err != nil {
 			return errors.Wrap(err, "error encrypting")
 		}
@@ -115,7 +113,7 @@ func (m *indexBlobManagerV1) writeIndexBlobs(ctx context.Context, dataShards []g
 		data2 := gather.NewWriteBuffer()
 		defer data2.Close() //nolint:gocritic
 
-		unprefixedBlobID, err := m.enc.crypter.EncryptBLOB(data, "", sessionID, data2)
+		unprefixedBlobID, err := m.enc.crypterProvider.Crypter().EncryptBLOB(data, "", sessionID, data2)
 		if err != nil {
 			return nil, errors.Wrap(err, "error encrypting")
 		}
@@ -131,8 +129,6 @@ var _ indexBlobManager = (*indexBlobManagerV1)(nil)
 
 // PrepareUpgradeToIndexBlobManagerV1 prepares the repository for migrating to IndexBlobManagerV1.
 func (sm *SharedManager) PrepareUpgradeToIndexBlobManagerV1(ctx context.Context, params epoch.Parameters) error {
-	sm.indexBlobManagerV1.epochMgr.Params = params
-
 	ibl, _, err := sm.indexBlobManagerV0.listActiveIndexBlobs(ctx)
 	if err != nil {
 		return errors.Wrap(err, "error listing active index blobs")
@@ -147,8 +143,6 @@ func (sm *SharedManager) PrepareUpgradeToIndexBlobManagerV1(ctx context.Context,
 	if err := sm.indexBlobManagerV1.compactEpoch(ctx, blobIDs, epoch.UncompactedEpochBlobPrefix(epoch.FirstEpoch)); err != nil {
 		return errors.Wrap(err, "unable to generate initial epoch")
 	}
-
-	sm.indexBlobManager = sm.indexBlobManagerV1
 
 	return nil
 }

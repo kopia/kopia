@@ -9,6 +9,8 @@ import (
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content/index"
+	"github.com/kopia/kopia/repo/encryption"
+	"github.com/kopia/kopia/repo/hashing"
 )
 
 const (
@@ -61,6 +63,16 @@ func (f *FormattingOptions) ResolveFormatVersion() error {
 	}
 }
 
+// GetMutableParameters implements FormattingOptionsProvider.
+func (f *FormattingOptions) GetMutableParameters() MutableParameters {
+	return f.MutableParameters
+}
+
+// SupportsPasswordChange implements FormattingOptionsProvider.
+func (f *FormattingOptions) SupportsPasswordChange() bool {
+	return f.EnablePasswordChange
+}
+
 // MutableParameters represents parameters of the content manager that can be mutated after the repository
 // is created.
 type MutableParameters struct {
@@ -110,6 +122,149 @@ func (f *FormattingOptions) GetHashFunction() string {
 func (f *FormattingOptions) GetHmacSecret() []byte {
 	return f.HMACSecret
 }
+
+// FormattingOptionsProvider provides current formatting options. The options returned
+// should not be cached for more than a few seconds as they are subject to change.
+type FormattingOptionsProvider interface {
+	epoch.ParametersProvider
+	IndexFormattingOptions
+	CrypterProvider
+
+	encryption.Parameters
+	hashing.Parameters
+
+	GetMutableParameters() MutableParameters
+	GetMasterKey() []byte
+	SupportsPasswordChange() bool
+	FormatVersion() FormatVersion
+	MaxPackBlobSize() int
+	RepositoryFormatBytes() []byte
+	Struct() FormattingOptions
+}
+
+type formattingOptionsProvider struct {
+	*FormattingOptions
+
+	crypter             *Crypter
+	actualFormatVersion FormatVersion
+	actualIndexVersion  int
+	formatBytes         []byte
+}
+
+func (f *formattingOptionsProvider) FormatVersion() FormatVersion {
+	return f.Version
+}
+
+// whether epoch manager is enabled, must be true.
+func (f *formattingOptionsProvider) GetEpochManagerEnabled() bool {
+	return f.EpochParameters.Enabled
+}
+
+// how frequently each client will list blobs to determine the current epoch.
+func (f *formattingOptionsProvider) GetEpochRefreshFrequency() time.Duration {
+	return f.EpochParameters.EpochRefreshFrequency
+}
+
+// number of epochs between full checkpoints.
+func (f *formattingOptionsProvider) GetEpochFullCheckpointFrequency() int {
+	return f.EpochParameters.FullCheckpointFrequency
+}
+
+// GetEpochCleanupSafetyMargin returns safety margin to prevent uncompacted blobs from being deleted if the corresponding compacted blob age is less than this.
+func (f *formattingOptionsProvider) GetEpochCleanupSafetyMargin() time.Duration {
+	return f.EpochParameters.CleanupSafetyMargin
+}
+
+// GetMinEpochDuration returns the minimum duration of an epoch.
+func (f *formattingOptionsProvider) GetMinEpochDuration() time.Duration {
+	return f.EpochParameters.MinEpochDuration
+}
+
+// GetEpochAdvanceOnCountThreshold returns the number of files above which epoch should be advanced.
+func (f *formattingOptionsProvider) GetEpochAdvanceOnCountThreshold() int {
+	return f.EpochParameters.EpochAdvanceOnCountThreshold
+}
+
+// GetEpochAdvanceOnTotalSizeBytesThreshold returns the total size of files above which the epoch should be advanced.
+func (f *formattingOptionsProvider) GetEpochAdvanceOnTotalSizeBytesThreshold() int64 {
+	return f.EpochParameters.EpochAdvanceOnTotalSizeBytesThreshold
+}
+
+// GetEpochDeleteParallelism returns the number of blobs to delete in parallel during cleanup.
+func (f *formattingOptionsProvider) GetEpochDeleteParallelism() int {
+	return f.EpochParameters.DeleteParallelism
+}
+
+func (f *formattingOptionsProvider) Struct() FormattingOptions {
+	return *f.FormattingOptions
+}
+
+// NewFormattingOptionsProvider validates the provided formatting options and returns static
+// FormattingOptionsProvider based on them.
+func NewFormattingOptionsProvider(f *FormattingOptions, formatBytes []byte) (FormattingOptionsProvider, error) {
+	formatVersion := f.Version
+
+	if formatVersion < minSupportedReadVersion || formatVersion > currentWriteVersion {
+		return nil, errors.Errorf("can't handle repositories created using version %v (min supported %v, max supported %v)", formatVersion, minSupportedReadVersion, maxSupportedReadVersion)
+	}
+
+	if formatVersion < minSupportedWriteVersion || formatVersion > currentWriteVersion {
+		return nil, errors.Errorf("can't handle repositories created using version %v (min supported %v, max supported %v)", formatVersion, minSupportedWriteVersion, maxSupportedWriteVersion)
+	}
+
+	actualIndexVersion := f.IndexVersion
+	if actualIndexVersion == 0 {
+		actualIndexVersion = legacyIndexVersion
+	}
+
+	if actualIndexVersion < index.Version1 || actualIndexVersion > index.Version2 {
+		return nil, errors.Errorf("index version %v is not supported", actualIndexVersion)
+	}
+
+	crypter, err := CreateCrypter(f)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to create crypter")
+	}
+
+	return &formattingOptionsProvider{
+		FormattingOptions: f,
+
+		crypter:             crypter,
+		actualIndexVersion:  actualIndexVersion,
+		actualFormatVersion: f.Version,
+		formatBytes:         formatBytes,
+	}, nil
+}
+
+func (f *formattingOptionsProvider) Crypter() *Crypter {
+	return f.crypter
+}
+
+func (f *formattingOptionsProvider) WriteIndexVersion() int {
+	return f.actualIndexVersion
+}
+
+func (f *formattingOptionsProvider) MaxIndexBlobSize() int64 {
+	return int64(f.MaxPackSize)
+}
+
+func (f *formattingOptionsProvider) MaxPackBlobSize() int {
+	return f.MaxPackSize
+}
+
+func (f *formattingOptionsProvider) GetEpochManagerParameters() epoch.Parameters {
+	return f.EpochParameters
+}
+
+func (f *formattingOptionsProvider) IndexShardSize() int {
+	return defaultIndexShardSize
+}
+
+func (f *formattingOptionsProvider) RepositoryFormatBytes() []byte {
+	return f.formatBytes
+}
+
+var _ FormattingOptionsProvider = (*formattingOptionsProvider)(nil)
 
 // BlobCfgBlob is the content for `kopia.blobcfg` blob which contains the blob
 // management configuration options.

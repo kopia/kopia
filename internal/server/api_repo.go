@@ -34,8 +34,8 @@ func handleRepoParameters(ctx context.Context, rc requestContext) (interface{}, 
 	}
 
 	rp := &remoterepoapi.Parameters{
-		HashFunction:               dr.ContentReader().ContentFormat().Hash,
-		HMACSecret:                 dr.ContentReader().ContentFormat().HMACSecret,
+		HashFunction:               dr.ContentReader().ContentFormat().GetHashFunction(),
+		HMACSecret:                 dr.ContentReader().ContentFormat().GetHmacSecret(),
 		Format:                     dr.ObjectFormat(),
 		SupportsContentCompression: dr.ContentReader().SupportsContentCompression(),
 	}
@@ -56,9 +56,9 @@ func handleRepoStatus(ctx context.Context, rc requestContext) (interface{}, *api
 		return &serverapi.StatusResponse{
 			Connected:                  true,
 			ConfigFile:                 dr.ConfigFilename(),
-			Hash:                       dr.ContentReader().ContentFormat().Hash,
-			Encryption:                 dr.ContentReader().ContentFormat().Encryption,
-			MaxPackSize:                dr.ContentReader().ContentFormat().MaxPackSize,
+			Hash:                       dr.ContentReader().ContentFormat().GetHashFunction(),
+			Encryption:                 dr.ContentReader().ContentFormat().GetEncryptionAlgorithm(),
+			MaxPackSize:                dr.ContentReader().ContentFormat().MaxPackBlobSize(),
 			Splitter:                   dr.ObjectFormat().Splitter,
 			Storage:                    dr.BlobReader().ConnectionInfo().Type,
 			ClientOptions:              dr.ClientOptions(),

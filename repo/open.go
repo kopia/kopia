@@ -333,7 +333,12 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 	st = upgradeLockMonitor(options.UpgradeOwnerID, st, password, cacheOpts, lc.FormatBlobCacheDuration,
 		ufb.cacheMTime, cmOpts.TimeNow)
 
-	scm, err := content.NewSharedManager(ctx, st, fo, cacheOpts, cmOpts)
+	fop, err := content.NewFormattingOptionsProvider(fo, cmOpts.RepositoryFormatBytes)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to create format options provider")
+	}
+
+	scm, err := content.NewSharedManager(ctx, st, fop, cacheOpts, cmOpts)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create shared content manager")
 	}

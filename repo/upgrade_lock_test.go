@@ -191,7 +191,7 @@ func TestFormatUpgradeMultipleLocksRollback(t *testing.T) {
 		opts.UpgradeOwnerID = "another-upgrade-owner"
 	})
 	require.Equal(t, content.FormatVersion3,
-		env.RepositoryWriter.ContentManager().ContentFormat().MutableParameters.Version)
+		env.RepositoryWriter.ContentManager().ContentFormat().FormatVersion())
 
 	require.NoError(t, env.RepositoryWriter.RollbackUpgrade(ctx))
 
@@ -211,7 +211,7 @@ func TestFormatUpgradeMultipleLocksRollback(t *testing.T) {
 
 	// verify that we are back to the original version where we started from
 	require.Equal(t, content.FormatVersion1,
-		env.RepositoryWriter.ContentManager().ContentFormat().MutableParameters.Version)
+		env.RepositoryWriter.ContentManager().ContentFormat().FormatVersion())
 }
 
 func TestFormatUpgradeFailureToBackupFormatBlobOnLock(t *testing.T) {

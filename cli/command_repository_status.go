@@ -63,8 +63,8 @@ func (c *commandRepositoryStatus) outputJSON(ctx context.Context, r repo.Reposit
 		s.UniqueIDHex = hex.EncodeToString(dr.UniqueID())
 		s.ObjectFormat = dr.ObjectFormat()
 		s.BlobRetention = dr.BlobCfg()
-		s.Storage = scrubber.ScrubSensitiveData(reflect.ValueOf(ci)).Interface().(blob.ConnectionInfo)                                             // nolint:forcetypeassert
-		s.ContentFormat = scrubber.ScrubSensitiveData(reflect.ValueOf(dr.ContentReader().ContentFormat())).Interface().(content.FormattingOptions) // nolint:forcetypeassert
+		s.Storage = scrubber.ScrubSensitiveData(reflect.ValueOf(ci)).Interface().(blob.ConnectionInfo)                                                      // nolint:forcetypeassert
+		s.ContentFormat = scrubber.ScrubSensitiveData(reflect.ValueOf(dr.ContentReader().ContentFormat().Struct())).Interface().(content.FormattingOptions) // nolint:forcetypeassert
 
 		switch cp, err := dr.BlobVolume().GetCapacity(ctx); {
 		case err == nil:
@@ -170,17 +170,19 @@ func (c *commandRepositoryStatus) run(ctx context.Context, rep repo.Repository) 
 		c.out.printStdout("Storage config:      %v\n", string(cjson))
 	}
 
+	contentFormat := dr.ContentReader().ContentFormat()
+
 	c.out.printStdout("\n")
 	c.out.printStdout("Unique ID:           %x\n", dr.UniqueID())
-	c.out.printStdout("Hash:                %v\n", dr.ContentReader().ContentFormat().Hash)
-	c.out.printStdout("Encryption:          %v\n", dr.ContentReader().ContentFormat().Encryption)
+	c.out.printStdout("Hash:                %v\n", contentFormat.GetHashFunction())
+	c.out.printStdout("Encryption:          %v\n", contentFormat.GetEncryptionAlgorithm())
 	c.out.printStdout("Splitter:            %v\n", dr.ObjectFormat().Splitter)
-	c.out.printStdout("Format version:      %v\n", dr.ContentReader().ContentFormat().Version)
+	c.out.printStdout("Format version:      %v\n", contentFormat.FormatVersion())
 	c.out.printStdout("Content compression: %v\n", dr.ContentReader().SupportsContentCompression())
-	c.out.printStdout("Password changes:    %v\n", dr.ContentReader().ContentFormat().EnablePasswordChange)
+	c.out.printStdout("Password changes:    %v\n", contentFormat.SupportsPasswordChange())
 
-	c.out.printStdout("Max pack length:     %v\n", units.BytesStringBase2(int64(dr.ContentReader().ContentFormat().MaxPackSize)))
-	c.out.printStdout("Index Format:        v%v\n", dr.ContentReader().ContentFormat().IndexVersion)
+	c.out.printStdout("Max pack length:     %v\n", units.BytesStringBase2(int64(contentFormat.MaxPackBlobSize())))
+	c.out.printStdout("Index Format:        v%v\n", contentFormat.WriteIndexVersion())
 
 	if emgr, ok := dr.ContentReader().EpochManager(); ok {
 		c.out.printStdout("\n")
@@ -192,10 +194,10 @@ func (c *commandRepositoryStatus) run(ctx context.Context, rep repo.Repository) 
 		}
 
 		c.out.printStdout("\n")
-		c.out.printStdout("Epoch refresh frequency: %v\n", emgr.Params.EpochRefreshFrequency)
-		c.out.printStdout("Epoch advance on:        %v blobs or %v, minimum %v\n", emgr.Params.EpochAdvanceOnCountThreshold, units.BytesStringBase2(emgr.Params.EpochAdvanceOnTotalSizeBytesThreshold), emgr.Params.MinEpochDuration)
-		c.out.printStdout("Epoch cleanup margin:    %v\n", emgr.Params.CleanupSafetyMargin)
-		c.out.printStdout("Epoch checkpoint every:  %v epochs\n", emgr.Params.FullCheckpointFrequency)
+		c.out.printStdout("Epoch refresh frequency: %v\n", contentFormat.GetEpochRefreshFrequency())
+		c.out.printStdout("Epoch advance on:        %v blobs or %v, minimum %v\n", contentFormat.GetEpochAdvanceOnCountThreshold(), units.BytesStringBase2(contentFormat.GetEpochAdvanceOnTotalSizeBytesThreshold()), contentFormat.GetMinEpochDuration())
+		c.out.printStdout("Epoch cleanup margin:    %v\n", contentFormat.GetEpochCleanupSafetyMargin())
+		c.out.printStdout("Epoch checkpoint every:  %v epochs\n", contentFormat.GetEpochFullCheckpointFrequency())
 	} else {
 		c.out.printStdout("Epoch Manager:       disabled\n")
 	}
