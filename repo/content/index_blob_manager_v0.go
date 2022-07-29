@@ -14,7 +14,12 @@ import (
 	"github.com/kopia/kopia/repo/logging"
 )
 
+// LegacyIndexBlobPrefix is the prefix for all legacy (v0) index blobs.
+const LegacyIndexBlobPrefix = "n"
+
 const (
+	legacyIndexPoisonBlobID = "n00000000000000000000000000000000-repository_unreadable_by_this_kopia_version_upgrade_required"
+
 	defaultEventualConsistencySettleTime = 1 * time.Hour
 	compactionLogBlobPrefix              = "m"
 	cleanupBlobPrefix                    = "l"
@@ -75,7 +80,7 @@ func (m *indexBlobManagerV0) listActiveIndexBlobs(ctx context.Context) ([]IndexB
 	})
 
 	eg.Go(func() error {
-		v, err := blob.ListAllBlobs(ctx, m.st, IndexBlobPrefix)
+		v, err := blob.ListAllBlobs(ctx, m.st, LegacyIndexBlobPrefix)
 		storageIndexBlobs = v
 
 		return errors.Wrap(err, "error listing index blobs")
@@ -183,7 +188,7 @@ func (m *indexBlobManagerV0) writeIndexBlobs(ctx context.Context, dataShards []g
 	var result []blob.Metadata
 
 	for _, data := range dataShards {
-		bm, err := m.enc.encryptAndWriteBlob(ctx, data, IndexBlobPrefix, sessionID)
+		bm, err := m.enc.encryptAndWriteBlob(ctx, data, LegacyIndexBlobPrefix, sessionID)
 		if err != nil {
 			return nil, errors.Wrap(err, "error writing index blbo")
 		}
@@ -515,6 +520,18 @@ func (m *indexBlobManagerV0) dropContentsFromBuilder(bld index.Builder, opt Comp
 
 		m.log.Debugf("finished drop-content-deleted-before %v", opt.DropDeletedBefore)
 	}
+}
+
+// WriteLegacyIndexPoisonBlob writes a "poison blob" that will prevent old kopia clients
+// that have not been upgraded from being able to open the repository after its format
+// has been upgraded.
+func WriteLegacyIndexPoisonBlob(ctx context.Context, st blob.Storage) error {
+	// nolint:wrapcheck
+	return st.PutBlob(
+		ctx,
+		legacyIndexPoisonBlobID,
+		gather.FromSlice([]byte("The format of this repository has been upgraded and cannot be read by old clients")),
+		blob.PutOptions{})
 }
 
 func addIndexBlobsToBuilder(ctx context.Context, enc *encryptedBlobMgr, bld index.Builder, indexBlobID blob.ID) error {

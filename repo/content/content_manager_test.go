@@ -550,7 +550,7 @@ func validateIndexCount(t *testing.T, data map[blob.ID][]byte, wantIndexCount, w
 	var indexCnt, compactionLogCnt int
 
 	for blobID := range data {
-		if strings.HasPrefix(string(blobID), IndexBlobPrefix) || strings.HasPrefix(string(blobID), "x") {
+		if strings.HasPrefix(string(blobID), LegacyIndexBlobPrefix) || strings.HasPrefix(string(blobID), "x") {
 			indexCnt++
 		}
 
@@ -1202,7 +1202,7 @@ func (s *contentManagerSuite) TestFlushWaitsForAllPendingWriters(t *testing.T) {
 	bm.Flush(ctx)
 	t.Logf("<<< end of flushing")
 
-	indexBlobPrefix := blob.ID(IndexBlobPrefix)
+	indexBlobPrefix := blob.ID(LegacyIndexBlobPrefix)
 	if s.mutableParameters.EpochParameters.Enabled {
 		indexBlobPrefix = "x"
 	}

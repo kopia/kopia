@@ -269,6 +269,12 @@ func (c *commandRepositoryUpgrade) upgrade(ctx context.Context, rep repo.DirectR
 	if err := rep.SetParameters(ctx, mp, rep.BlobCfg()); err != nil {
 		return errors.Wrap(err, "error setting parameters")
 	}
+
+	// poison V0 index so that old readers won't be able to open it.
+	if err := content.WriteLegacyIndexPoisonBlob(ctx, rep.BlobStorage()); err != nil {
+		log(ctx).Errorf("unable to write legacy index poison blob: %v", err)
+	}
+
 	// we need to reopen the repository after this point
 
 	log(ctx).Infof("Repository indices have been upgraded.")
