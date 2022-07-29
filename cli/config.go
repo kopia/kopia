@@ -81,6 +81,8 @@ func (c *App) optionsFromFlags(ctx context.Context) *repo.Options {
 		// when a fatal error is encountered in the repository, run all registered callbacks
 		// and exit the program.
 		OnFatalError: func(err error) {
+			log(ctx).Debugf("onFatalError: %v", err)
+
 			for _, cb := range c.onFatalErrorCallbacks {
 				cb(err)
 			}

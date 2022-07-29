@@ -364,7 +364,7 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 
 	// background/interleaving upgrade lock storage monitor
 	st = upgradeLockMonitor(options.UpgradeOwnerID, st, password, cacheOpts, lc.FormatBlobCacheDuration,
-		ufb.cacheMTime, cmOpts.TimeNow, options.OnFatalError)
+		ufb.cacheMTime, cmOpts.TimeNow, options.OnFatalError, options.TestOnlyIgnoreMissingRequiredFeatures)
 
 	fop, err := content.NewFormattingOptionsProvider(fo, cmOpts.RepositoryFormatBytes)
 	if err != nil {
@@ -472,6 +472,7 @@ func upgradeLockMonitor(
 	lastSync time.Time,
 	now func() time.Time,
 	onFatalError func(err error),
+	ignoreMissingRequiredFeatures bool,
 ) blob.Storage {
 	var (
 		m        sync.RWMutex
@@ -501,7 +502,7 @@ func upgradeLockMonitor(
 			return err
 		}
 
-		if err := handleMissingRequiredFeatures(ctx, ufb.repoConfig, false); err != nil {
+		if err := handleMissingRequiredFeatures(ctx, ufb.repoConfig, ignoreMissingRequiredFeatures); err != nil {
 			onFatalError(err)
 			return err
 		}

@@ -258,7 +258,9 @@ func (c *App) setup(app *kingpin.Application) {
 	app.Flag("upgrade-owner-id", "Repository format upgrade owner-id.").Hidden().Envar(c.EnvName("KOPIA_REPO_UPGRADE_OWNER_ID")).StringVar(&c.upgradeOwnerID)
 	app.Flag("upgrade-no-block", "Do not block when repository format upgrade is in progress, instead exit with a message.").Hidden().Default("false").Envar(c.EnvName("KOPIA_REPO_UPGRADE_NO_BLOCK")).BoolVar(&c.doNotWaitForUpgrade)
 
-	app.Flag("ignore-missing-required-features", "Open repository despite missing features (VERY DANGEROUS, ONLY FOR TESTING)").Hidden().BoolVar(&c.testonlyIgnoreMissingRequiredFeatures)
+	if c.enableTestOnlyFlags() {
+		app.Flag("ignore-missing-required-features", "Open repository despite missing features (VERY DANGEROUS, ONLY FOR TESTING)").Hidden().BoolVar(&c.testonlyIgnoreMissingRequiredFeatures)
+	}
 
 	c.observability.setup(c, app)
 
