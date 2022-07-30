@@ -89,7 +89,7 @@ func (m *indexBlobManagerV1) compactEpoch(ctx context.Context, blobIDs []blob.ID
 	for _, data := range dataShards {
 		data2.Reset()
 
-		blobID, err := m.enc.crypterProvider.Crypter().EncryptBLOB(data, outputPrefix, SessionID(sessionID), &data2)
+		blobID, err := EncryptBLOB(m.enc.crypter, data, outputPrefix, SessionID(sessionID), &data2)
 		if err != nil {
 			return errors.Wrap(err, "error encrypting")
 		}
@@ -113,7 +113,7 @@ func (m *indexBlobManagerV1) writeIndexBlobs(ctx context.Context, dataShards []g
 		data2 := gather.NewWriteBuffer()
 		defer data2.Close() //nolint:gocritic
 
-		unprefixedBlobID, err := m.enc.crypterProvider.Crypter().EncryptBLOB(data, "", sessionID, data2)
+		unprefixedBlobID, err := EncryptBLOB(m.enc.crypter, data, "", sessionID, data2)
 		if err != nil {
 			return nil, errors.Wrap(err, "error encrypting")
 		}

@@ -5,7 +5,6 @@ import (
 	"context"
 	cryptorand "crypto/rand"
 	"crypto/sha1"
-	"strings"
 	"testing"
 	"time"
 
@@ -18,18 +17,6 @@ import (
 	"github.com/kopia/kopia/repo/encryption"
 	"github.com/kopia/kopia/repo/hashing"
 )
-
-// combinations of hash and encryption that are not compatible.
-var incompatibleAlgorithms = map[string]string{
-	"BLAKE2B-256-128/XSALSA20":      "expected >=24 bytes, got 16",
-	"BLAKE2S-128/XSALSA20":          "expected >=24 bytes, got 16",
-	"HMAC-RIPEMD-160/XSALSA20":      "expected >=24 bytes, got 20",
-	"HMAC-SHA256-128/XSALSA20":      "expected >=24 bytes, got 16",
-	"BLAKE2B-256-128/XSALSA20-HMAC": "expected >=24 bytes, got 16",
-	"BLAKE2S-128/XSALSA20-HMAC":     "expected >=24 bytes, got 16",
-	"HMAC-RIPEMD-160/XSALSA20-HMAC": "expected >=24 bytes, got 20",
-	"HMAC-SHA256-128/XSALSA20-HMAC": "expected >=24 bytes, got 16",
-}
 
 func TestFormatters(t *testing.T) {
 	secret := []byte("secret")
@@ -46,40 +33,30 @@ func TestFormatters(t *testing.T) {
 				t.Run(encryptionAlgo, func(t *testing.T) {
 					ctx := testlogging.Context(t)
 
-					cr, err := CreateCrypter(&FormattingOptions{
+					fo := &FormattingOptions{
 						HMACSecret: secret,
 						MasterKey:  make([]byte, 32),
 						Hash:       hashAlgo,
 						Encryption: encryptionAlgo,
-					})
-					if err != nil {
-						key := hashAlgo + "/" + encryptionAlgo
-
-						errmsg := incompatibleAlgorithms[key]
-						if errmsg == "" {
-							t.Errorf("Algorithm %v not marked as incompatible and failed with %v", key, err)
-							return
-						}
-
-						if !strings.HasSuffix(err.Error(), errmsg) {
-							t.Errorf("unexpected error message %v, wanted %v", err.Error(), errmsg)
-							return
-						}
-
-						return
 					}
 
-					contentID := cr.HashFunction(nil, gather.FromSlice(data))
+					hf, err := hashing.CreateHashFunc(fo)
+					require.NoError(t, err)
+
+					enc, err := encryption.CreateEncryptor(fo)
+					require.NoError(t, err)
+
+					contentID := hf(nil, gather.FromSlice(data))
 
 					var cipherText gather.WriteBuffer
 					defer cipherText.Close()
 
-					require.NoError(t, cr.Encryptor.Encrypt(gather.FromSlice(data), contentID, &cipherText))
+					require.NoError(t, enc.Encrypt(gather.FromSlice(data), contentID, &cipherText))
 
 					var plainText gather.WriteBuffer
 					defer plainText.Close()
 
-					require.NoError(t, cr.Encryptor.Decrypt(cipherText.Bytes(), contentID, &plainText))
+					require.NoError(t, enc.Decrypt(cipherText.Bytes(), contentID, &plainText))
 
 					h1 := sha1.Sum(plainText.ToByteSlice())
 

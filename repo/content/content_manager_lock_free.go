@@ -16,7 +16,6 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content/index"
-	"github.com/kopia/kopia/repo/encryption"
 	"github.com/kopia/kopia/repo/hashing"
 	"github.com/kopia/kopia/repo/logging"
 )
@@ -62,7 +61,7 @@ func (sm *SharedManager) maybeCompressAndEncryptDataForPacking(data gather.Bytes
 		}
 	}
 
-	if err := sm.Crypter().Encryptor.Encrypt(data, iv, output); err != nil {
+	if err := sm.format.Encryptor().Encrypt(data, iv, output); err != nil {
 		return NoCompression, errors.Wrap(err, "unable to encrypt")
 	}
 
@@ -181,33 +180,8 @@ func (sm *SharedManager) writePackFileNotLocked(ctx context.Context, packFile bl
 
 func (sm *SharedManager) hashData(output []byte, data gather.Bytes) []byte {
 	// Hash the content and compute encryption key.
-	contentID := sm.format.Crypter().HashFunction(output, data)
+	contentID := sm.format.HashFunc()(output, data)
 	sm.Stats.hashedContent(data.Length())
 
 	return contentID
-}
-
-// CreateCrypter returns a Crypter based on the specified formatting options.
-func CreateCrypter(f *FormattingOptions) (*Crypter, error) {
-	h, err := hashing.CreateHashFunc(f)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to create hash")
-	}
-
-	e, err := encryption.CreateEncryptor(f)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to create encryptor")
-	}
-
-	contentID := h(nil, gather.FromSlice(nil))
-
-	var tmp gather.WriteBuffer
-	defer tmp.Close()
-
-	err = e.Encrypt(gather.FromSlice(nil), contentID, &tmp)
-	if err != nil {
-		return nil, errors.Wrap(err, "invalid encryptor")
-	}
-
-	return &Crypter{h, e}, nil
 }

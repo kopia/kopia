@@ -69,11 +69,6 @@ type indexBlobManager interface {
 	invalidate(ctx context.Context)
 }
 
-// CrypterProvider returns the crypter to use for encrypting contents and blobs.
-type CrypterProvider interface {
-	Crypter() *Crypter
-}
-
 // SharedManager is responsible for read-only access to committed data.
 type SharedManager struct {
 	// +checkatomic
@@ -117,11 +112,6 @@ type SharedManager struct {
 	contextLogger      logging.Logger
 	internalLogManager *internalLogManager
 	internalLogger     *zap.SugaredLogger // backing logger for 'sharedBaseLogger'
-}
-
-// Crypter returns the crypter.
-func (sm *SharedManager) Crypter() *Crypter {
-	return sm.format.Crypter()
 }
 
 func (sm *SharedManager) readPackFileLocalIndex(ctx context.Context, packFile blob.ID, packFileLength int64, output *gather.WriteBuffer) error {
@@ -291,7 +281,7 @@ func (sm *SharedManager) decryptContentAndVerify(payload gather.Bytes, bi Info, 
 }
 
 func (sm *SharedManager) decryptAndVerify(encrypted gather.Bytes, iv []byte, output *gather.WriteBuffer) error {
-	if err := sm.format.Crypter().Encryptor.Decrypt(encrypted, iv, output); err != nil {
+	if err := sm.format.Encryptor().Decrypt(encrypted, iv, output); err != nil {
 		sm.Stats.foundInvalidContent()
 		return errors.Wrap(err, "decrypt")
 	}
@@ -435,10 +425,10 @@ func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *Ca
 	}
 
 	sm.enc = &encryptedBlobMgr{
-		st:              cachedSt,
-		crypterProvider: sm.format,
-		indexBlobCache:  indexBlobCache,
-		log:             sm.namedLogger("encrypted-blob-manager"),
+		st:             cachedSt,
+		crypter:        sm.format,
+		indexBlobCache: indexBlobCache,
+		log:            sm.namedLogger("encrypted-blob-manager"),
 	}
 
 	// set up legacy index blob manager
@@ -466,7 +456,7 @@ func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *Ca
 	sm.metadataCache = metadataCache
 	sm.indexBlobCache = indexBlobCache
 	sm.committedContents = newCommittedContentIndex(caching,
-		uint32(sm.format.Crypter().Encryptor.Overhead()),
+		uint32(sm.format.Encryptor().Overhead()),
 		sm.format.WriteIndexVersion(),
 		sm.enc.getEncryptedBlob,
 		sm.namedLogger("committed-content-index"),

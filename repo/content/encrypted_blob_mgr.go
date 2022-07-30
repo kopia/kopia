@@ -12,10 +12,10 @@ import (
 )
 
 type encryptedBlobMgr struct {
-	st              blob.Storage
-	crypterProvider CrypterProvider
-	indexBlobCache  *cache.PersistentCache
-	log             logging.Logger
+	st             blob.Storage
+	crypter        crypter
+	indexBlobCache *cache.PersistentCache
+	log            logging.Logger
 }
 
 func (m *encryptedBlobMgr) getEncryptedBlob(ctx context.Context, blobID blob.ID, output *gather.WriteBuffer) error {
@@ -29,14 +29,14 @@ func (m *encryptedBlobMgr) getEncryptedBlob(ctx context.Context, blobID blob.ID,
 		return errors.Wrap(err, "getContent")
 	}
 
-	return m.crypterProvider.Crypter().DecryptBLOB(payload.Bytes(), blobID, output)
+	return DecryptBLOB(m.crypter, payload.Bytes(), blobID, output)
 }
 
 func (m *encryptedBlobMgr) encryptAndWriteBlob(ctx context.Context, data gather.Bytes, prefix blob.ID, sessionID SessionID) (blob.Metadata, error) {
 	var data2 gather.WriteBuffer
 	defer data2.Close()
 
-	blobID, err := m.crypterProvider.Crypter().EncryptBLOB(data, prefix, sessionID, &data2)
+	blobID, err := EncryptBLOB(m.crypter, data, prefix, sessionID, &data2)
 	if err != nil {
 		return blob.Metadata{}, errors.Wrap(err, "error encrypting")
 	}

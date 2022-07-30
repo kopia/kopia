@@ -162,7 +162,7 @@ func (c *commandIndexInspect) inspectSingleIndexBlob(ctx context.Context, rep re
 		return errors.Wrapf(err, "unable to get data for %v", blobID)
 	}
 
-	entries, err := content.ParseIndexBlob(ctx, blobID, data.Bytes(), rep.Crypter())
+	entries, err := content.ParseIndexBlob(ctx, blobID, data.Bytes(), rep.ContentReader().ContentFormat())
 	if err != nil {
 		return errors.Wrapf(err, "unable to recover index from %v", blobID)
 	}
