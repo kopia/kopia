@@ -37,16 +37,11 @@ func TestEncryptedBlobManager(t *testing.T) {
 	enc, err := encryption.CreateEncryptor(f)
 	require.NoError(t, err)
 
-	cr := &Crypter{
-		HashFunction: hf,
-		Encryptor:    enc,
-	}
-
 	ebm := encryptedBlobMgr{
-		st:              fs,
-		crypterProvider: staticCrypterProvider{cr},
-		indexBlobCache:  nil,
-		log:             logging.NullLogger,
+		st:             fs,
+		crypter:        staticCrypter{hf, enc},
+		indexBlobCache: nil,
+		log:            logging.NullLogger,
 	}
 
 	ctx := testlogging.Context(t)
@@ -80,16 +75,21 @@ func TestEncryptedBlobManager(t *testing.T) {
 
 	someError2 := errors.Errorf("some error 2")
 
-	cr.Encryptor = failingEncryptor{nil, someError2}
+	ebm.crypter = staticCrypter{hf, failingEncryptor{nil, someError2}}
 
 	_, err = ebm.encryptAndWriteBlob(ctx, gather.FromSlice([]byte{1, 2, 3, 4}), "x", "session1")
 	require.ErrorIs(t, err, someError2)
 }
 
-type staticCrypterProvider struct {
-	theCrypter *Crypter
+type staticCrypter struct {
+	h hashing.HashFunc
+	e encryption.Encryptor
 }
 
-func (p staticCrypterProvider) Crypter() *Crypter {
-	return p.theCrypter
+func (p staticCrypter) Encryptor() encryption.Encryptor {
+	return p.e
+}
+
+func (p staticCrypter) HashFunc() hashing.HashFunc {
+	return p.h
 }

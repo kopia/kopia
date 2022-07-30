@@ -67,12 +67,19 @@ func (c *commandBenchmarkCrypto) runBenchmark(ctx context.Context) []cryptoBench
 
 	for _, ha := range hashing.SupportedAlgorithms() {
 		for _, ea := range encryption.SupportedAlgorithms(c.deprecatedAlgorithms) {
-			cr, err := content.CreateCrypter(&content.FormattingOptions{
+			fo := &content.FormattingOptions{
 				Encryption: ea,
 				Hash:       ha,
 				MasterKey:  make([]byte, 32), // nolint:gomnd
 				HMACSecret: make([]byte, 32), // nolint:gomnd
-			})
+			}
+
+			hf, err := hashing.CreateHashFunc(fo)
+			if err != nil {
+				continue
+			}
+
+			enc, err := encryption.CreateEncryptor(fo)
 			if err != nil {
 				continue
 			}
@@ -91,9 +98,9 @@ func (c *commandBenchmarkCrypto) runBenchmark(ctx context.Context) []cryptoBench
 				defer encryptOutput.Close()
 
 				for i := 0; i < hashCount; i++ {
-					contentID := cr.HashFunction(hashOutput[:0], input)
+					contentID := hf(hashOutput[:0], input)
 
-					if encerr := cr.Encryptor.Encrypt(input, contentID, &encryptOutput); encerr != nil {
+					if encerr := enc.Encrypt(input, contentID, &encryptOutput); encerr != nil {
 						log(ctx).Errorf("encryption failed: %v", encerr)
 						break
 					}

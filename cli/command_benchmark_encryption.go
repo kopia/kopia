@@ -66,7 +66,7 @@ func (c *commandBenchmarkEncryption) runBenchmark(ctx context.Context) []cryptoB
 	data := make([]byte, c.blockSize)
 
 	for _, ea := range encryption.SupportedAlgorithms(c.deprecatedAlgorithms) {
-		cr, err := content.CreateCrypter(&content.FormattingOptions{
+		enc, err := encryption.CreateEncryptor(&content.FormattingOptions{
 			Encryption: ea,
 			Hash:       hashing.DefaultAlgorithm,
 			MasterKey:  make([]byte, 32), // nolint:gomnd
@@ -90,7 +90,7 @@ func (c *commandBenchmarkEncryption) runBenchmark(ctx context.Context) []cryptoB
 			defer encryptOutput.Close()
 
 			for i := 0; i < hashCount; i++ {
-				if encerr := cr.Encryptor.Encrypt(input, hashOutput[:32], &encryptOutput); encerr != nil {
+				if encerr := enc.Encrypt(input, hashOutput[:32], &encryptOutput); encerr != nil {
 					log(ctx).Errorf("encryption failed: %v", encerr)
 					break
 				}

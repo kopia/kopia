@@ -6,6 +6,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/epoch"
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content/index"
@@ -127,11 +128,16 @@ func (f *FormattingOptions) GetHmacSecret() []byte {
 // should not be cached for more than a few seconds as they are subject to change.
 type FormattingOptionsProvider interface {
 	epoch.ParametersProvider
-	IndexFormattingOptions
-	CrypterProvider
+
+	MaxIndexBlobSize() int64
+	WriteIndexVersion() int
+	IndexShardSize() int
 
 	encryption.Parameters
 	hashing.Parameters
+
+	HashFunc() hashing.HashFunc
+	Encryptor() encryption.Encryptor
 
 	GetMutableParameters() MutableParameters
 	GetMasterKey() []byte
@@ -145,7 +151,8 @@ type FormattingOptionsProvider interface {
 type formattingOptionsProvider struct {
 	*FormattingOptions
 
-	crypter             *Crypter
+	h                   hashing.HashFunc
+	e                   encryption.Encryptor
 	actualFormatVersion FormatVersion
 	actualIndexVersion  int
 	formatBytes         []byte
@@ -221,23 +228,43 @@ func NewFormattingOptionsProvider(f *FormattingOptions, formatBytes []byte) (For
 		return nil, errors.Errorf("index version %v is not supported", actualIndexVersion)
 	}
 
-	crypter, err := CreateCrypter(f)
+	h, err := hashing.CreateHashFunc(f)
 	if err != nil {
-		return nil, errors.Wrap(err, "unable to create crypter")
+		return nil, errors.Wrap(err, "unable to create hash")
+	}
+
+	e, err := encryption.CreateEncryptor(f)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to create encryptor")
+	}
+
+	contentID := h(nil, gather.FromSlice(nil))
+
+	var tmp gather.WriteBuffer
+	defer tmp.Close()
+
+	err = e.Encrypt(gather.FromSlice(nil), contentID, &tmp)
+	if err != nil {
+		return nil, errors.Wrap(err, "invalid encryptor")
 	}
 
 	return &formattingOptionsProvider{
 		FormattingOptions: f,
 
-		crypter:             crypter,
+		h:                   h,
+		e:                   e,
 		actualIndexVersion:  actualIndexVersion,
 		actualFormatVersion: f.Version,
 		formatBytes:         formatBytes,
 	}, nil
 }
 
-func (f *formattingOptionsProvider) Crypter() *Crypter {
-	return f.crypter
+func (f *formattingOptionsProvider) Encryptor() encryption.Encryptor {
+	return f.e
+}
+
+func (f *formattingOptionsProvider) HashFunc() hashing.HashFunc {
+	return f.h
 }
 
 func (f *formattingOptionsProvider) WriteIndexVersion() int {
