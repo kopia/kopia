@@ -10,6 +10,7 @@ import (
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/format"
 )
 
 // FormatBlobBackupIDPrefix is the prefix for all identifiers of the BLOBs that
@@ -18,14 +19,14 @@ import (
 const FormatBlobBackupIDPrefix = "kopia.repository.backup."
 
 // FormatBlobBackupID gets the upgrade backu pblob-id fro mthe lock.
-func FormatBlobBackupID(l UpgradeLockIntent) blob.ID {
+func FormatBlobBackupID(l format.UpgradeLockIntent) blob.ID {
 	return blob.ID(FormatBlobBackupIDPrefix + l.OwnerID)
 }
 
-func (r *directRepository) updateRepoConfig(ctx context.Context, cb func(repoConfig *repositoryObjectFormat) error) (*repositoryObjectFormat, error) {
+func (r *directRepository) updateRepoConfig(ctx context.Context, cb func(repoConfig *format.RepositoryConfig) error) (*format.RepositoryConfig, error) {
 	f := r.formatBlob
 
-	repoConfig, err := f.decryptFormatBytes(r.formatEncryptionKey)
+	repoConfig, err := f.DecryptRepositoryConfig(r.formatEncryptionKey)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to decrypt repository config")
 	}
@@ -34,16 +35,16 @@ func (r *directRepository) updateRepoConfig(ctx context.Context, cb func(repoCon
 		return nil, err
 	}
 
-	if err := encryptFormatBytes(f, repoConfig, r.formatEncryptionKey, f.UniqueID); err != nil {
+	if err := f.EncryptRepositoryConfig(repoConfig, r.formatEncryptionKey); err != nil {
 		return nil, errors.Errorf("unable to encrypt format bytes")
 	}
 
-	if err := writeFormatBlob(ctx, r.blobs, f, r.blobCfgBlob); err != nil {
+	if err := f.WriteKopiaRepositoryBlob(ctx, r.blobs, r.blobCfgBlob); err != nil {
 		return nil, errors.Wrap(err, "unable to write format blob")
 	}
 
 	if cd := r.cachingOptions.CacheDirectory; cd != "" {
-		if err := os.Remove(filepath.Join(cd, FormatBlobID)); err != nil && !os.IsNotExist(err) {
+		if err := os.Remove(filepath.Join(cd, format.KopiaRepositoryBlobID)); err != nil && !os.IsNotExist(err) {
 			return nil, errors.Errorf("unable to remove cached repository format blob: %v", err)
 		}
 	}
@@ -59,8 +60,8 @@ func (r *directRepository) updateRepoConfig(ctx context.Context, cb func(repoCon
 // intent and sets the latest format-version o nthe repository blob. This
 // should cause the unsupporting clients (non-upgrade capable) to fail
 // connecting to the repository.
-func (r *directRepository) SetUpgradeLockIntent(ctx context.Context, l UpgradeLockIntent) (*UpgradeLockIntent, error) {
-	repoConfig, err := r.updateRepoConfig(ctx, func(repoConfig *repositoryObjectFormat) error {
+func (r *directRepository) SetUpgradeLockIntent(ctx context.Context, l format.UpgradeLockIntent) (*format.UpgradeLockIntent, error) {
+	repoConfig, err := r.updateRepoConfig(ctx, func(repoConfig *format.RepositoryConfig) error {
 		if err := l.Validate(); err != nil {
 			return errors.Wrap(err, "invalid upgrade lock intent")
 		}
@@ -75,7 +76,7 @@ func (r *directRepository) SetUpgradeLockIntent(ctx context.Context, l UpgradeLo
 
 			// backup the current repository config from local cache to the
 			// repository when we place the lock for the first time
-			if err := writeFormatBlobWithID(ctx, r.blobs, r.formatBlob, r.blobCfgBlob, FormatBlobBackupID(l)); err != nil {
+			if err := r.formatBlob.WriteKopiaRepositoryBlobWithID(ctx, r.blobs, r.blobCfgBlob, FormatBlobBackupID(l)); err != nil {
 				return errors.Wrap(err, "failed to backup the repo format blob")
 			}
 
@@ -103,7 +104,7 @@ func (r *directRepository) SetUpgradeLockIntent(ctx context.Context, l UpgradeLo
 // blob. This in-effect commits the new repository format t othe repository and
 // resumes all access to the repository.
 func (r *directRepository) CommitUpgrade(ctx context.Context) error {
-	_, err := r.updateRepoConfig(ctx, func(repoConfig *repositoryObjectFormat) error {
+	_, err := r.updateRepoConfig(ctx, func(repoConfig *format.RepositoryConfig) error {
 		if repoConfig.UpgradeLock == nil {
 			return errors.New("no upgrade in progress")
 		}
@@ -128,7 +129,7 @@ func (r *directRepository) CommitUpgrade(ctx context.Context) error {
 func (r *directRepository) RollbackUpgrade(ctx context.Context) error {
 	f := r.formatBlob
 
-	repoConfig, err := f.decryptFormatBytes(r.formatEncryptionKey)
+	repoConfig, err := f.DecryptRepositoryConfig(r.formatEncryptionKey)
 	if err != nil {
 		return errors.Wrap(err, "unable to decrypt repository config")
 	}
@@ -171,7 +172,7 @@ func (r *directRepository) RollbackUpgrade(ctx context.Context) error {
 			return errors.Wrapf(err, "failed to read from backup %q", oldestBackup.BlobID)
 		}
 
-		if err = r.blobs.PutBlob(ctx, FormatBlobID, d.Bytes(), blob.PutOptions{}); err != nil {
+		if err = r.blobs.PutBlob(ctx, format.KopiaRepositoryBlobID, d.Bytes(), blob.PutOptions{}); err != nil {
 			return errors.Wrapf(err, "failed to restore format blob from backup %q", oldestBackup.BlobID)
 		}
 
@@ -182,7 +183,7 @@ func (r *directRepository) RollbackUpgrade(ctx context.Context) error {
 	}
 
 	if cd := r.cachingOptions.CacheDirectory; cd != "" {
-		if err = os.Remove(filepath.Join(cd, FormatBlobID)); err != nil && !os.IsNotExist(err) {
+		if err = os.Remove(filepath.Join(cd, format.KopiaRepositoryBlobID)); err != nil && !os.IsNotExist(err) {
 			return errors.Errorf("unable to remove cached repository format blob: %v", err)
 		}
 	}
@@ -190,10 +191,10 @@ func (r *directRepository) RollbackUpgrade(ctx context.Context) error {
 	return nil
 }
 
-func (r *directRepository) GetUpgradeLockIntent(ctx context.Context) (*UpgradeLockIntent, error) {
+func (r *directRepository) GetUpgradeLockIntent(ctx context.Context) (*format.UpgradeLockIntent, error) {
 	f := r.formatBlob
 
-	repoConfig, err := f.decryptFormatBytes(r.formatEncryptionKey)
+	repoConfig, err := f.DecryptRepositoryConfig(r.formatEncryptionKey)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to decrypt repository config")
 	}

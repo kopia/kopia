@@ -1,4 +1,5 @@
-package repo
+// Package format manages kopia.repository and other central format blobs.
+package format
 
 import (
 	"context"
@@ -14,12 +15,13 @@ import (
 
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
-	"github.com/kopia/kopia/repo/content"
 )
+
+// DefaultFormatEncryption is the identifier of the default format blob encryption algorithm.
+const DefaultFormatEncryption = "AES256_GCM"
 
 const (
 	aes256GcmEncryption             = "AES256_GCM"
-	defaultFormatEncryption         = "AES256_GCM"
 	lengthOfRecoverBlockLength      = 2 // number of bytes used to store recover block length
 	maxChecksummedFormatBytesLength = 65000
 	maxRecoverChunkLength           = 65536
@@ -27,8 +29,11 @@ const (
 	formatBlobChecksumSize          = sha256.Size
 )
 
-// FormatBlobID is the identifier of a BLOB that describes repository format.
-const FormatBlobID = "kopia.repository"
+// KopiaRepositoryBlobID is the identifier of a BLOB that describes repository format.
+const KopiaRepositoryBlobID = "kopia.repository"
+
+// ErrInvalidPassword is returned when repository password is invalid.
+var ErrInvalidPassword = errors.Errorf("invalid repository password")
 
 // nolint:gochecknoglobals
 var (
@@ -43,7 +48,8 @@ var (
 	errFormatBlobNotFound = errors.New("format blob not found")
 )
 
-type formatBlob struct {
+// KopiaRepositoryJSON represents JSON contents of 'kopia.repository' blob.
+type KopiaRepositoryJSON struct {
 	Tool         string `json:"tool"`
 	BuildVersion string `json:"buildVersion"`
 	BuildInfo    string `json:"buildInfo"`
@@ -56,13 +62,9 @@ type formatBlob struct {
 	EncryptedFormatBytes []byte `json:"encryptedBlockFormat,omitempty"`
 }
 
-// encryptedRepositoryConfig contains the configuration of repository that's persisted in encrypted format.
-type encryptedRepositoryConfig struct {
-	Format repositoryObjectFormat `json:"format"`
-}
-
-func parseFormatBlob(b []byte) (*formatBlob, error) {
-	f := &formatBlob{}
+// ParseKopiaRepositoryJSON parses the provided byte slice into KopiaRepositoryJSON.
+func ParseKopiaRepositoryJSON(b []byte) (*KopiaRepositoryJSON, error) {
+	f := &KopiaRepositoryJSON{}
 
 	if err := json.Unmarshal(b, &f); err != nil {
 		return nil, errors.Wrap(err, "invalid format blob")
@@ -163,11 +165,13 @@ func verifyFormatBlobChecksum(b []byte) ([]byte, bool) {
 	return data, true
 }
 
-func writeFormatBlob(ctx context.Context, st blob.Storage, f *formatBlob, blobCfg content.BlobCfgBlob) error {
-	return writeFormatBlobWithID(ctx, st, f, blobCfg, FormatBlobID)
+// WriteKopiaRepositoryBlob writes `kopia.repository` blob to a given storage.
+func (f *KopiaRepositoryJSON) WriteKopiaRepositoryBlob(ctx context.Context, st blob.Storage, blobCfg BlobStorageConfiguration) error {
+	return f.WriteKopiaRepositoryBlobWithID(ctx, st, blobCfg, KopiaRepositoryBlobID)
 }
 
-func writeFormatBlobWithID(ctx context.Context, st blob.Storage, f *formatBlob, blobCfg content.BlobCfgBlob, id blob.ID) error {
+// WriteKopiaRepositoryBlobWithID writes `kopia.repository` blob to a given storage under an alternate blobID.
+func (f *KopiaRepositoryJSON) WriteKopiaRepositoryBlobWithID(ctx context.Context, st blob.Storage, blobCfg BlobStorageConfiguration, id blob.ID) error {
 	buf := gather.NewWriteBuffer()
 	e := json.NewEncoder(buf)
 	e.SetIndent("", "  ")
@@ -186,29 +190,9 @@ func writeFormatBlobWithID(ctx context.Context, st blob.Storage, f *formatBlob, 
 	return nil
 }
 
-func (f *formatBlob) decryptFormatBytes(masterKey []byte) (*repositoryObjectFormat, error) {
-	switch f.EncryptionAlgorithm {
-	case aes256GcmEncryption:
-		plainText, err := decryptRepositoryBlobBytesAes256Gcm(f.EncryptedFormatBytes, masterKey, f.UniqueID)
-		if err != nil {
-			return nil, errors.Errorf("unable to decrypt repository format")
-		}
-
-		var erc encryptedRepositoryConfig
-		if err := json.Unmarshal(plainText, &erc); err != nil {
-			return nil, errors.Wrap(err, "invalid repository format")
-		}
-
-		return &erc.Format, nil
-
-	default:
-		return nil, errors.Errorf("unknown encryption algorithm: '%v'", f.EncryptionAlgorithm)
-	}
-}
-
 func initCrypto(masterKey, repositoryID []byte) (cipher.AEAD, []byte, error) {
-	aesKey := deriveKeyFromMasterKey(masterKey, repositoryID, purposeAESKey, 32)     // nolint:gomnd
-	authData := deriveKeyFromMasterKey(masterKey, repositoryID, purposeAuthData, 32) // nolint:gomnd
+	aesKey := DeriveKeyFromMasterKey(masterKey, repositoryID, purposeAESKey, 32)     // nolint:gomnd
+	authData := DeriveKeyFromMasterKey(masterKey, repositoryID, purposeAuthData, 32) // nolint:gomnd
 
 	blk, err := aes.NewCipher(aesKey)
 	if err != nil {
@@ -265,28 +249,6 @@ func decryptRepositoryBlobBytesAes256Gcm(data, masterKey, repositoryID []byte) (
 	}
 
 	return plainText, nil
-}
-
-func encryptFormatBytes(f *formatBlob, format *repositoryObjectFormat, masterKey, repositoryID []byte) error {
-	switch f.EncryptionAlgorithm {
-	case aes256GcmEncryption:
-		data, err := json.Marshal(&encryptedRepositoryConfig{Format: *format})
-		if err != nil {
-			return errors.Wrap(err, "can't marshal format to JSON")
-		}
-
-		data, err = encryptRepositoryBlobBytesAes256Gcm(data, masterKey, repositoryID)
-		if err != nil {
-			return errors.Wrap(err, "failed to encrypt format JSON")
-		}
-
-		f.EncryptedFormatBytes = data
-
-		return nil
-
-	default:
-		return errors.Errorf("unknown encryption algorithm: '%v'", f.EncryptionAlgorithm)
-	}
 }
 
 func addFormatBlobChecksumAndLength(fb []byte) ([]byte, error) {

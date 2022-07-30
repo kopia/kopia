@@ -1,4 +1,4 @@
-package repo
+package format
 
 import (
 	"crypto/sha256"
@@ -7,8 +7,8 @@ import (
 	"golang.org/x/crypto/hkdf"
 )
 
-// deriveKeyFromMasterKey computes a key for a specific purpose and length using HKDF based on the master key.
-func deriveKeyFromMasterKey(masterKey, uniqueID, purpose []byte, length int) []byte {
+// DeriveKeyFromMasterKey computes a key for a specific purpose and length using HKDF based on the master key.
+func DeriveKeyFromMasterKey(masterKey, uniqueID, purpose []byte, length int) []byte {
 	key := make([]byte, length)
 	k := hkdf.New(sha256.New, masterKey, uniqueID, purpose)
 

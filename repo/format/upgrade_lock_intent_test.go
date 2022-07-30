@@ -1,4 +1,4 @@
-package repo_test
+package format_test
 
 import (
 	"fmt"
@@ -8,11 +8,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/clock"
-	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/format"
 )
 
 func TestUpgradeLockIntentUpdatesWithAdvanceNotice(t *testing.T) {
-	oldLock := repo.UpgradeLockIntent{
+	oldLock := format.UpgradeLockIntent{
 		OwnerID:                "upgrade-owner",
 		CreationTime:           clock.Now(),
 		AdvanceNoticeDuration:  time.Hour,
@@ -57,7 +57,7 @@ func TestUpgradeLockIntentUpdatesWithAdvanceNotice(t *testing.T) {
 }
 
 func TestUpgradeLockIntentUpdatesWithoutAdvanceNotice(t *testing.T) {
-	oldLock := repo.UpgradeLockIntent{
+	oldLock := format.UpgradeLockIntent{
 		OwnerID:                "upgrade-owner",
 		CreationTime:           clock.Now(),
 		AdvanceNoticeDuration:  0, /* no advance notice */
@@ -77,7 +77,7 @@ func TestUpgradeLockIntentUpdatesWithoutAdvanceNotice(t *testing.T) {
 }
 
 func TestUpgradeLockIntentValidation(t *testing.T) {
-	var l repo.UpgradeLockIntent
+	var l format.UpgradeLockIntent
 
 	require.EqualError(t, l.Validate(), "no owner-id set, it is required to set a unique owner-id")
 	l.OwnerID = "new-owner"
@@ -116,7 +116,7 @@ func TestUpgradeLockIntentValidation(t *testing.T) {
 func TestUpgradeLockIntentImmediateLock(t *testing.T) {
 	now := clock.Now()
 
-	var l *repo.UpgradeLockIntent
+	var l *format.UpgradeLockIntent
 
 	// checking lock status on nil lock
 	locked, writersDrained := l.IsLocked(now)
@@ -127,7 +127,7 @@ func TestUpgradeLockIntentImmediateLock(t *testing.T) {
 	require.PanicsWithValue(t,
 		"writers have drained but we are not locked, this is not possible until the upgrade-lock intent is invalid",
 		func() {
-			tmp := repo.UpgradeLockIntent{
+			tmp := format.UpgradeLockIntent{
 				OwnerID:                "",
 				CreationTime:           now,
 				AdvanceNoticeDuration:  1 * time.Hour,
@@ -139,7 +139,7 @@ func TestUpgradeLockIntentImmediateLock(t *testing.T) {
 			tmp.IsLocked(now.Add(2 * time.Hour))
 		})
 
-	l = &repo.UpgradeLockIntent{
+	l = &format.UpgradeLockIntent{
 		OwnerID:                "upgrade-owner",
 		CreationTime:           now,
 		AdvanceNoticeDuration:  0, /* no advance notice */
@@ -182,7 +182,7 @@ func TestUpgradeLockIntentImmediateLock(t *testing.T) {
 
 func TestUpgradeLockIntentSufficientAdvanceLock(t *testing.T) {
 	now := clock.Now()
-	l := repo.UpgradeLockIntent{
+	l := format.UpgradeLockIntent{
 		OwnerID:                "upgrade-owner",
 		CreationTime:           now,
 		AdvanceNoticeDuration:  6 * time.Hour,
@@ -249,7 +249,7 @@ func TestUpgradeLockIntentSufficientAdvanceLock(t *testing.T) {
 
 func TestUpgradeLockIntentInSufficientAdvanceLock(t *testing.T) {
 	now := clock.Now()
-	l := repo.UpgradeLockIntent{
+	l := format.UpgradeLockIntent{
 		OwnerID:                "upgrade-owner",
 		CreationTime:           now,
 		AdvanceNoticeDuration:  20 * time.Minute, /* insufficient time to drain the writers */
@@ -288,12 +288,12 @@ func TestUpgradeLockIntentInSufficientAdvanceLock(t *testing.T) {
 func TestUpgradeLockIntentUpgradeTime(t *testing.T) {
 	now := clock.Now()
 
-	var l repo.UpgradeLockIntent
+	var l format.UpgradeLockIntent
 
 	// checking time on nil lock
 	require.Equal(t, time.Time{}, l.UpgradeTime())
 
-	l = repo.UpgradeLockIntent{
+	l = format.UpgradeLockIntent{
 		OwnerID:                "upgrade-owner",
 		CreationTime:           now,
 		AdvanceNoticeDuration:  20 * time.Minute, /* insufficient time to drain the writers */
@@ -304,7 +304,7 @@ func TestUpgradeLockIntentUpgradeTime(t *testing.T) {
 	}
 	require.Equal(t, now.Add(l.MaxPermittedClockDrift+2*l.IODrainTimeout), l.UpgradeTime())
 
-	l = repo.UpgradeLockIntent{
+	l = format.UpgradeLockIntent{
 		OwnerID:                "upgrade-owner",
 		CreationTime:           now,
 		AdvanceNoticeDuration:  20 * time.Hour, /* sufficient time to drain the writers */
@@ -315,7 +315,7 @@ func TestUpgradeLockIntentUpgradeTime(t *testing.T) {
 	}
 	require.Equal(t, now.Add(l.AdvanceNoticeDuration), l.UpgradeTime())
 
-	l = repo.UpgradeLockIntent{
+	l = format.UpgradeLockIntent{
 		OwnerID:                "upgrade-owner",
 		CreationTime:           now,
 		AdvanceNoticeDuration:  0, /* immediate lock */
@@ -328,7 +328,7 @@ func TestUpgradeLockIntentUpgradeTime(t *testing.T) {
 }
 
 func TestUpgradeLockIntentClone(t *testing.T) {
-	l := &repo.UpgradeLockIntent{
+	l := &format.UpgradeLockIntent{
 		OwnerID:                "upgrade-owner",
 		CreationTime:           clock.Now(),
 		AdvanceNoticeDuration:  20 * time.Minute,

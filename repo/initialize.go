@@ -13,6 +13,7 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/encryption"
+	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/hashing"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/repo/splitter"
@@ -56,7 +57,7 @@ func Initialize(ctx context.Context, st blob.Storage, opt *NewRepositoryOptions,
 	var tmp gather.WriteBuffer
 	defer tmp.Close()
 
-	err := st.GetBlob(ctx, FormatBlobID, 0, -1, &tmp)
+	err := st.GetBlob(ctx, format.KopiaRepositoryBlobID, 0, -1, &tmp)
 	if err == nil {
 		return ErrAlreadyInitialized
 	}
@@ -65,7 +66,7 @@ func Initialize(ctx context.Context, st blob.Storage, opt *NewRepositoryOptions,
 		return errors.Wrap(err, "unexpected error when checking for format blob")
 	}
 
-	err = st.GetBlob(ctx, BlobCfgBlobID, 0, -1, &tmp)
+	err = st.GetBlob(ctx, format.KopiaBlobCfgBlobID, 0, -1, &tmp)
 	if err == nil {
 		return errors.Errorf("possible corruption: blobcfg blob exists, but format blob is not found")
 	}
@@ -74,10 +75,10 @@ func Initialize(ctx context.Context, st blob.Storage, opt *NewRepositoryOptions,
 		return errors.Wrap(err, "unexpected error when checking for blobcfg blob")
 	}
 
-	format := formatBlobFromOptions(opt)
+	formatBlob := formatBlobFromOptions(opt)
 	blobcfg := blobCfgBlobFromOptions(opt)
 
-	formatEncryptionKey, err := format.deriveFormatEncryptionKeyFromPassword(password)
+	formatEncryptionKey, err := formatBlob.DeriveFormatEncryptionKeyFromPassword(password)
 	if err != nil {
 		return errors.Wrap(err, "unable to derive format encryption key")
 	}
@@ -91,33 +92,40 @@ func Initialize(ctx context.Context, st blob.Storage, opt *NewRepositoryOptions,
 		return errors.Wrap(err, "invalid parameters")
 	}
 
-	if err = encryptFormatBytes(format, f, formatEncryptionKey, format.UniqueID); err != nil {
+	if err = formatBlob.EncryptRepositoryConfig(f, formatEncryptionKey); err != nil {
 		return errors.Wrap(err, "unable to encrypt format bytes")
 	}
 
-	if err := writeBlobCfgBlob(ctx, st, format, blobcfg, formatEncryptionKey); err != nil {
+	if err := formatBlob.WriteBlobCfgBlob(ctx, st, blobcfg, formatEncryptionKey); err != nil {
 		return errors.Wrap(err, "unable to write blobcfg blob")
 	}
 
-	if err := writeFormatBlob(ctx, st, format, blobcfg); err != nil {
+	if err := formatBlob.WriteKopiaRepositoryBlob(ctx, st, blobcfg); err != nil {
 		return errors.Wrap(err, "unable to write format blob")
 	}
 
 	return nil
 }
 
-func formatBlobFromOptions(opt *NewRepositoryOptions) *formatBlob {
-	return &formatBlob{
+func formatBlobFromOptions(opt *NewRepositoryOptions) *format.KopiaRepositoryJSON {
+	return &format.KopiaRepositoryJSON{
 		Tool:                   "https://github.com/kopia/kopia",
 		BuildInfo:              BuildInfo,
 		BuildVersion:           BuildVersion,
-		KeyDerivationAlgorithm: defaultKeyDerivationAlgorithm,
+		KeyDerivationAlgorithm: format.DefaultKeyDerivationAlgorithm,
 		UniqueID:               applyDefaultRandomBytes(opt.UniqueID, uniqueIDLength),
-		EncryptionAlgorithm:    defaultFormatEncryption,
+		EncryptionAlgorithm:    format.DefaultFormatEncryption,
 	}
 }
 
-func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) (*repositoryObjectFormat, error) {
+func blobCfgBlobFromOptions(opt *NewRepositoryOptions) format.BlobStorageConfiguration {
+	return format.BlobStorageConfiguration{
+		RetentionMode:   opt.RetentionMode,
+		RetentionPeriod: opt.RetentionPeriod,
+	}
+}
+
+func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) (*format.RepositoryConfig, error) {
 	fv := opt.BlockFormat.Version
 	if fv == 0 {
 		switch os.Getenv("KOPIA_REPOSITORY_FORMAT_VERSION") {
@@ -132,7 +140,7 @@ func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) (*repositoryOb
 		}
 	}
 
-	f := &repositoryObjectFormat{
+	f := &format.RepositoryConfig{
 		FormattingOptions: content.FormattingOptions{
 			Hash:       applyDefaultString(opt.BlockFormat.Hash, hashing.DefaultAlgorithm),
 			Encryption: applyDefaultString(opt.BlockFormat.Encryption, encryption.DefaultAlgorithm),

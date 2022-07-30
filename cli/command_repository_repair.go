@@ -7,9 +7,9 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/gather"
-	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/format"
 )
 
 type commandRepositoryRepair struct {
@@ -61,7 +61,7 @@ func (c *commandRepositoryRepair) runRepairCommandWithStorage(ctx context.Contex
 		var tmp gather.WriteBuffer
 		defer tmp.Close()
 
-		if err := st.GetBlob(ctx, repo.FormatBlobID, 0, -1, &tmp); err == nil {
+		if err := st.GetBlob(ctx, format.KopiaRepositoryBlobID, 0, -1, &tmp); err == nil {
 			log(ctx).Infof("format blob already exists, not recovering, pass --recover-format=yes")
 			return nil
 		}
@@ -84,9 +84,9 @@ func (c *commandRepositoryRepair) recoverFormatBlob(ctx context.Context, st blob
 	for _, prefix := range prefixes {
 		err := st.ListBlobs(ctx, blob.ID(prefix), func(bi blob.Metadata) error {
 			log(ctx).Infof("looking for replica of format blob in %v...", bi.BlobID)
-			if b, err := repo.RecoverFormatBlob(ctx, st, bi.BlobID, bi.Length); err == nil {
+			if b, err := format.RecoverFormatBlob(ctx, st, bi.BlobID, bi.Length); err == nil {
 				if !c.repairDryRun {
-					if puterr := st.PutBlob(ctx, repo.FormatBlobID, gather.FromSlice(b), blob.PutOptions{}); puterr != nil {
+					if puterr := st.PutBlob(ctx, format.KopiaRepositoryBlobID, gather.FromSlice(b), blob.PutOptions{}); puterr != nil {
 						return errors.Wrap(puterr, "error writing format blob")
 					}
 				}

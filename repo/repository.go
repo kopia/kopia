@@ -14,6 +14,7 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/throttling"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/repo/object"
 )
@@ -53,7 +54,7 @@ type DirectRepository interface {
 	Repository
 
 	ObjectFormat() object.Format
-	BlobCfg() content.BlobCfgBlob
+	BlobCfg() format.BlobStorageConfiguration
 	BlobReader() blob.Reader
 	BlobVolume() blob.Volume
 	ContentReader() content.Reader
@@ -75,10 +76,10 @@ type DirectRepositoryWriter interface {
 	DirectRepository
 	BlobStorage() blob.Storage
 	ContentManager() *content.WriteManager
-	SetParameters(ctx context.Context, m content.MutableParameters, blobcfg content.BlobCfgBlob, requiredFeatures []feature.Required) error
+	SetParameters(ctx context.Context, m content.MutableParameters, blobcfg format.BlobStorageConfiguration, requiredFeatures []feature.Required) error
 	ChangePassword(ctx context.Context, newPassword string) error
-	GetUpgradeLockIntent(ctx context.Context) (*UpgradeLockIntent, error)
-	SetUpgradeLockIntent(ctx context.Context, l UpgradeLockIntent) (*UpgradeLockIntent, error)
+	GetUpgradeLockIntent(ctx context.Context) (*format.UpgradeLockIntent, error)
+	SetUpgradeLockIntent(ctx context.Context, l format.UpgradeLockIntent) (*format.UpgradeLockIntent, error)
 	CommitUpgrade(ctx context.Context) error
 	RollbackUpgrade(ctx context.Context) error
 }
@@ -89,8 +90,8 @@ type directRepositoryParameters struct {
 	cachingOptions      content.CachingOptions
 	cliOpts             ClientOptions
 	timeNow             func() time.Time
-	formatBlob          *formatBlob
-	blobCfgBlob         content.BlobCfgBlob
+	formatBlob          *format.KopiaRepositoryJSON
+	blobCfgBlob         format.BlobStorageConfiguration
 	formatEncryptionKey []byte
 	nextWriterID        *int32
 	throttler           throttling.SettableThrottler
@@ -112,13 +113,13 @@ type directRepository struct {
 // DeriveKey derives encryption key of the provided length from the master key.
 func (r *directRepository) DeriveKey(purpose []byte, keyLength int) []byte {
 	if r.cmgr.ContentFormat().SupportsPasswordChange() {
-		return deriveKeyFromMasterKey(r.cmgr.ContentFormat().GetMasterKey(), r.uniqueID, purpose, keyLength)
+		return format.DeriveKeyFromMasterKey(r.cmgr.ContentFormat().GetMasterKey(), r.uniqueID, purpose, keyLength)
 	}
 
 	// version of kopia <v0.9 had a bug where certain keys were derived directly from
 	// the password and not from the random master key. This made it impossible to change
 	// password.
-	return deriveKeyFromMasterKey(r.formatEncryptionKey, r.uniqueID, purpose, keyLength)
+	return format.DeriveKeyFromMasterKey(r.formatEncryptionKey, r.uniqueID, purpose, keyLength)
 }
 
 // ClientOptions returns client options.
@@ -341,7 +342,7 @@ func (r *directRepository) Time() time.Time {
 	return defaultTime(r.timeNow)()
 }
 
-func (r *directRepository) BlobCfg() content.BlobCfgBlob {
+func (r *directRepository) BlobCfg() format.BlobStorageConfiguration {
 	return r.directRepositoryParameters.blobCfgBlob
 }
 

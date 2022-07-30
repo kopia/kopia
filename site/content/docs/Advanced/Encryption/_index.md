@@ -40,7 +40,7 @@ type formatBlob struct {
 	Version              string                  `json:"version"`
 	EncryptionAlgorithm  string                  `json:"encryption"`
 	EncryptedFormatBytes []byte                  `json:"encryptedBlockFormat,omitempty"`
-	UnencryptedFormat    *repositoryObjectFormat `json:"blockFormat,omitempty"`
+	UnencryptedFormat    *format.RepositoryObjectFormat `json:"blockFormat,omitempty"`
 }
 ```
 
@@ -53,15 +53,15 @@ type formatBlob struct {
 * `encryptedBlockFormat` is a ciphertext containing among others, the encryption secrets and parameters used for encrypting the repository content. Below is additional information about its plaintext content and how it is encrypted.
 * Alternatively, the unencrypted block format parameters can be specified in the the `blockFormat` field.
 
-The `formatBlob.encryptedBlockFormat` field is the result of encrypting a JSON-serialized version of the `encryptedRepositoryConfig` struct shown below. The plaintext version contains the parameters for performing block chunking, as well as for encrypting and authenticating "content" objects.
+The `formatBlob.EncryptedBlockFormat` field is the result of encrypting a JSON-serialized version of the `EncryptedRepositoryConfig` struct shown below. The plaintext version contains the parameters for performing block chunking, as well as for encrypting and authenticating "content" objects.
 
 
 ```go
-type encryptedRepositoryConfig struct {
-	Format repositoryObjectFormat `json:"format"`
+type EncryptedRepositoryConfig struct {
+	Format RepositoryObjectFormat `json:"format"`
 }
 
-type repositoryObjectFormat struct {
+type RepositoryObjectFormat struct {
 	content.FormattingOptions
 	object.Format
 }

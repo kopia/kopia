@@ -16,6 +16,7 @@ import (
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/object"
 )
 
@@ -33,12 +34,12 @@ type RepositoryStatus struct {
 	ConfigFile  string `json:"configFile"`
 	UniqueIDHex string `json:"uniqueIDHex"`
 
-	ClientOptions repo.ClientOptions        `json:"clientOptions"`
-	Storage       blob.ConnectionInfo       `json:"storage"`
-	Capacity      *blob.Capacity            `json:"volume,omitempty"`
-	ContentFormat content.FormattingOptions `json:"contentFormat"`
-	ObjectFormat  object.Format             `json:"objectFormat"`
-	BlobRetention content.BlobCfgBlob       `json:"blobRetention"`
+	ClientOptions repo.ClientOptions              `json:"clientOptions"`
+	Storage       blob.ConnectionInfo             `json:"storage"`
+	Capacity      *blob.Capacity                  `json:"volume,omitempty"`
+	ContentFormat content.FormattingOptions       `json:"contentFormat"`
+	ObjectFormat  object.Format                   `json:"objectFormat"`
+	BlobRetention format.BlobStorageConfiguration `json:"blobRetention"`
 }
 
 func (c *commandRepositoryStatus) setup(svc advancedAppServices, parent commandParent) {
