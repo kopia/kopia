@@ -15,7 +15,6 @@ import (
 	"github.com/kopia/kopia/repo/encryption"
 	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/hashing"
-	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/repo/splitter"
 )
 
@@ -36,12 +35,12 @@ const (
 // NewRepositoryOptions specifies options that apply to newly created repositories.
 // All fields are optional, when not provided, reasonable defaults will be used.
 type NewRepositoryOptions struct {
-	UniqueID        []byte                    `json:"uniqueID"` // force the use of particular unique ID
-	BlockFormat     content.FormattingOptions `json:"blockFormat"`
-	DisableHMAC     bool                      `json:"disableHMAC"`
-	ObjectFormat    object.Format             `json:"objectFormat"` // object format
-	RetentionMode   blob.RetentionMode        `json:"retentionMode,omitempty"`
-	RetentionPeriod time.Duration             `json:"retentionPeriod,omitempty"`
+	UniqueID        []byte               `json:"uniqueID"` // force the use of particular unique ID
+	BlockFormat     format.ContentFormat `json:"blockFormat"`
+	DisableHMAC     bool                 `json:"disableHMAC"`
+	ObjectFormat    format.ObjectFormat  `json:"objectFormat"` // object format
+	RetentionMode   blob.RetentionMode   `json:"retentionMode,omitempty"`
+	RetentionPeriod time.Duration        `json:"retentionPeriod,omitempty"`
 }
 
 // ErrAlreadyInitialized indicates that repository has already been initialized.
@@ -130,23 +129,23 @@ func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) (*format.Repos
 	if fv == 0 {
 		switch os.Getenv("KOPIA_REPOSITORY_FORMAT_VERSION") {
 		case "1":
-			fv = content.FormatVersion1
+			fv = format.FormatVersion1
 		case "2":
-			fv = content.FormatVersion2
+			fv = format.FormatVersion2
 		case "3":
-			fv = content.FormatVersion3
+			fv = format.FormatVersion3
 		default:
-			fv = content.FormatVersion3
+			fv = format.FormatVersion3
 		}
 	}
 
 	f := &format.RepositoryConfig{
-		FormattingOptions: content.FormattingOptions{
+		ContentFormat: format.ContentFormat{
 			Hash:       applyDefaultString(opt.BlockFormat.Hash, hashing.DefaultAlgorithm),
 			Encryption: applyDefaultString(opt.BlockFormat.Encryption, encryption.DefaultAlgorithm),
 			HMACSecret: applyDefaultRandomBytes(opt.BlockFormat.HMACSecret, hmacSecretLength),
 			MasterKey:  applyDefaultRandomBytes(opt.BlockFormat.MasterKey, masterKeyLength),
-			MutableParameters: content.MutableParameters{
+			MutableParameters: format.MutableParameters{
 				Version:         fv,
 				MaxPackSize:     applyDefaultInt(opt.BlockFormat.MaxPackSize, 20<<20), //nolint:gomnd
 				IndexVersion:    applyDefaultInt(opt.BlockFormat.IndexVersion, content.DefaultIndexVersion),
@@ -154,7 +153,7 @@ func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) (*format.Repos
 			},
 			EnablePasswordChange: opt.BlockFormat.EnablePasswordChange,
 		},
-		Format: object.Format{
+		ObjectFormat: format.ObjectFormat{
 			Splitter: applyDefaultString(opt.ObjectFormat.Splitter, splitter.DefaultAlgorithm),
 		},
 	}
@@ -163,7 +162,7 @@ func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) (*format.Repos
 		f.HMACSecret = nil
 	}
 
-	if err := f.FormattingOptions.ResolveFormatVersion(); err != nil {
+	if err := f.ContentFormat.ResolveFormatVersion(); err != nil {
 		return nil, errors.Wrap(err, "error resolving format version")
 	}
 

@@ -62,16 +62,16 @@ type EncryptedRepositoryConfig struct {
 }
 
 type RepositoryObjectFormat struct {
-	content.FormattingOptions
-	object.Format
+	format.ContentFormat
+	format.ObjectFormat
 }
 ```
 
 ```go
 package content
 
-// FormattingOptions describes the rules for formatting contents in repository.
-type FormattingOptions struct {
+// ContentFormat describes the rules for formatting contents in repository.
+type ContentFormat struct {
 	Version     int    `json:"version,omitempty"`     // version number, must be "1"
 	Hash        string `json:"hash,omitempty"`        // identifier of the hash algorithm used
 	Encryption  string `json:"encryption,omitempty"`  // identifier of the encryption algorithm used

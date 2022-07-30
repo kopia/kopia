@@ -53,7 +53,7 @@ type RepositoryWriter interface {
 type DirectRepository interface {
 	Repository
 
-	ObjectFormat() object.Format
+	ObjectFormat() format.ObjectFormat
 	BlobCfg() format.BlobStorageConfiguration
 	BlobReader() blob.Reader
 	BlobVolume() blob.Volume
@@ -76,7 +76,7 @@ type DirectRepositoryWriter interface {
 	DirectRepository
 	BlobStorage() blob.Storage
 	ContentManager() *content.WriteManager
-	SetParameters(ctx context.Context, m content.MutableParameters, blobcfg format.BlobStorageConfiguration, requiredFeatures []feature.Required) error
+	SetParameters(ctx context.Context, m format.MutableParameters, blobcfg format.BlobStorageConfiguration, requiredFeatures []feature.Required) error
 	ChangePassword(ctx context.Context, newPassword string) error
 	GetUpgradeLockIntent(ctx context.Context) (*format.UpgradeLockIntent, error)
 	SetUpgradeLockIntent(ctx context.Context, l format.UpgradeLockIntent) (*format.UpgradeLockIntent, error)
@@ -302,7 +302,7 @@ func (r *directRepository) Flush(ctx context.Context) error {
 }
 
 // ObjectFormat returns the object format.
-func (r *directRepository) ObjectFormat() object.Format {
+func (r *directRepository) ObjectFormat() format.ObjectFormat {
 	return r.omgr.Format
 }
 

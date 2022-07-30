@@ -9,8 +9,8 @@ import (
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/internal/units"
-	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/encryption"
+	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/hashing"
 )
 
@@ -66,7 +66,7 @@ func (c *commandBenchmarkEncryption) runBenchmark(ctx context.Context) []cryptoB
 	data := make([]byte, c.blockSize)
 
 	for _, ea := range encryption.SupportedAlgorithms(c.deprecatedAlgorithms) {
-		enc, err := encryption.CreateEncryptor(&content.FormattingOptions{
+		enc, err := encryption.CreateEncryptor(&format.ContentFormat{
 			Encryption: ea,
 			Hash:       hashing.DefaultAlgorithm,
 			MasterKey:  make([]byte, 32), // nolint:gomnd

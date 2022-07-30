@@ -8,7 +8,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/feature"
-	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/format"
 )
 
@@ -24,7 +23,7 @@ func (r *directRepository) RequiredFeatures() ([]feature.Required, error) {
 // SetParameters changes mutable repository parameters.
 func (r *directRepository) SetParameters(
 	ctx context.Context,
-	m content.MutableParameters,
+	m format.MutableParameters,
 	blobcfg format.BlobStorageConfiguration,
 	requiredFeatures []feature.Required,
 ) error {
@@ -43,7 +42,7 @@ func (r *directRepository) SetParameters(
 		return errors.Wrap(err, "invalid blob-config options")
 	}
 
-	repoConfig.FormattingOptions.MutableParameters = m
+	repoConfig.ContentFormat.MutableParameters = m
 	repoConfig.RequiredFeatures = requiredFeatures
 
 	if err := f.EncryptRepositoryConfig(repoConfig, r.formatEncryptionKey); err != nil {

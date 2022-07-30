@@ -22,6 +22,7 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/encryption"
+	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/maintenance"
 	"github.com/kopia/kopia/repo/object"
 )
@@ -200,7 +201,7 @@ func mustPutDummySessionBlob(t *testing.T, st blob.Storage, sessionIDSuffix blob
 
 	blobID := blob.ID(fmt.Sprintf("s%x-%v", iv, sessionIDSuffix))
 
-	e, err := encryption.CreateEncryptor(&content.FormattingOptions{
+	e, err := encryption.CreateEncryptor(&format.ContentFormat{
 		Encryption: encryption.DefaultAlgorithm,
 		MasterKey:  testMasterKey,
 		HMACSecret: testHMACSecret,

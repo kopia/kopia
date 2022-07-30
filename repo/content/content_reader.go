@@ -4,12 +4,13 @@ import (
 	"context"
 
 	"github.com/kopia/kopia/internal/epoch"
+	"github.com/kopia/kopia/repo/format"
 )
 
 // Reader defines content read API.
 type Reader interface {
 	SupportsContentCompression() bool
-	ContentFormat() FormattingOptionsProvider
+	ContentFormat() format.Provider
 	GetContent(ctx context.Context, id ID) ([]byte, error)
 	ContentInfo(ctx context.Context, id ID) (Info, error)
 	IterateContents(ctx context.Context, opts IterateOptions, callback IterateCallback) error

@@ -17,6 +17,7 @@ import (
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/maintenance"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
@@ -230,7 +231,7 @@ func (s *formatSpecificTestSuite) TestSnapshotGCMinContentAgeSafety(t *testing.T
 	checkContentDeletion(t, th.Repository, cids, false)
 }
 
-func newTestHarness(t *testing.T, formatVersion content.FormatVersion) *testHarness {
+func newTestHarness(t *testing.T, formatVersion format.Version) *testHarness {
 	t.Helper()
 
 	baseTime := time.Date(2020, 9, 10, 0, 0, 0, 0, time.UTC)
@@ -254,7 +255,7 @@ func (s *formatSpecificTestSuite) TestMaintenanceAutoLiveness(t *testing.T) {
 			o.TimeNowFunc = ft.NowFunc()
 		},
 		NewRepositoryOptions: func(nro *repo.NewRepositoryOptions) {
-			nro.BlockFormat.Version = content.FormatVersion1
+			nro.BlockFormat.Version = format.FormatVersion1
 		},
 	})
 

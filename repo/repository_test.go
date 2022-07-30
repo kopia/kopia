@@ -636,7 +636,7 @@ func (s *formatSpecificTestSuite) TestWriteSessionFlushOnFailure(t *testing.T) {
 
 func (s *formatSpecificTestSuite) TestChangePassword(t *testing.T) {
 	ctx, env := repotesting.NewEnvironment(t, s.formatVersion)
-	if s.formatVersion == content.FormatVersion1 {
+	if s.formatVersion == format.FormatVersion1 {
 		require.Error(t, env.RepositoryWriter.ChangePassword(ctx, "new-password"))
 	} else {
 		require.NoError(t, env.RepositoryWriter.ChangePassword(ctx, "new-password"))

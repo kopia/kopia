@@ -15,9 +15,7 @@ import (
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
-	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/format"
-	"github.com/kopia/kopia/repo/object"
 )
 
 type commandRepositoryStatus struct {
@@ -37,8 +35,8 @@ type RepositoryStatus struct {
 	ClientOptions repo.ClientOptions              `json:"clientOptions"`
 	Storage       blob.ConnectionInfo             `json:"storage"`
 	Capacity      *blob.Capacity                  `json:"volume,omitempty"`
-	ContentFormat content.FormattingOptions       `json:"contentFormat"`
-	ObjectFormat  object.Format                   `json:"objectFormat"`
+	ContentFormat format.ContentFormat            `json:"contentFormat"`
+	ObjectFormat  format.ObjectFormat             `json:"objectFormat"`
 	BlobRetention format.BlobStorageConfiguration `json:"blobRetention"`
 }
 
@@ -65,8 +63,8 @@ func (c *commandRepositoryStatus) outputJSON(ctx context.Context, r repo.Reposit
 		s.UniqueIDHex = hex.EncodeToString(dr.UniqueID())
 		s.ObjectFormat = dr.ObjectFormat()
 		s.BlobRetention = dr.BlobCfg()
-		s.Storage = scrubber.ScrubSensitiveData(reflect.ValueOf(ci)).Interface().(blob.ConnectionInfo)                                                      // nolint:forcetypeassert
-		s.ContentFormat = scrubber.ScrubSensitiveData(reflect.ValueOf(dr.ContentReader().ContentFormat().Struct())).Interface().(content.FormattingOptions) // nolint:forcetypeassert
+		s.Storage = scrubber.ScrubSensitiveData(reflect.ValueOf(ci)).Interface().(blob.ConnectionInfo)                                                 // nolint:forcetypeassert
+		s.ContentFormat = scrubber.ScrubSensitiveData(reflect.ValueOf(dr.ContentReader().ContentFormat().Struct())).Interface().(format.ContentFormat) // nolint:forcetypeassert
 
 		switch cp, err := dr.BlobVolume().GetCapacity(ctx); {
 		case err == nil:

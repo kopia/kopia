@@ -24,11 +24,10 @@ import (
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/encryption"
 	"github.com/kopia/kopia/repo/format"
-	"github.com/kopia/kopia/repo/object"
 )
 
 func TestFormatUpgradeSetLock(t *testing.T) {
-	ctx, env := repotesting.NewEnvironment(t, content.FormatVersion1, repotesting.Options{OpenOptions: func(opts *repo.Options) {
+	ctx, env := repotesting.NewEnvironment(t, format.FormatVersion1, repotesting.Options{OpenOptions: func(opts *repo.Options) {
 		// nolint:goconst
 		opts.UpgradeOwnerID = "upgrade-owner"
 	}})
@@ -71,7 +70,7 @@ func TestFormatUpgradeSetLock(t *testing.T) {
 }
 
 func TestFormatUpgradeAlreadyUpgraded(t *testing.T) {
-	ctx, env := repotesting.NewEnvironment(t, content.MaxFormatVersion)
+	ctx, env := repotesting.NewEnvironment(t, format.MaxFormatVersion)
 	formatBlockCacheDuration := env.Repository.ClientOptions().FormatBlobCacheDuration
 
 	l := &format.UpgradeLockIntent{
@@ -86,11 +85,11 @@ func TestFormatUpgradeAlreadyUpgraded(t *testing.T) {
 
 	_, err := env.RepositoryWriter.SetUpgradeLockIntent(ctx, *l)
 	require.EqualError(t, err, fmt.Sprintf("repository is using version %d, and version %d is the maximum",
-		content.MaxFormatVersion, content.MaxFormatVersion))
+		format.MaxFormatVersion, format.MaxFormatVersion))
 }
 
 func TestFormatUpgradeCommit(t *testing.T) {
-	ctx, env := repotesting.NewEnvironment(t, content.FormatVersion1, repotesting.Options{OpenOptions: func(opts *repo.Options) {
+	ctx, env := repotesting.NewEnvironment(t, format.FormatVersion1, repotesting.Options{OpenOptions: func(opts *repo.Options) {
 		opts.UpgradeOwnerID = "upgrade-owner"
 	}})
 	formatBlockCacheDuration := env.Repository.ClientOptions().FormatBlobCacheDuration
@@ -117,7 +116,7 @@ func TestFormatUpgradeCommit(t *testing.T) {
 }
 
 func TestFormatUpgradeRollback(t *testing.T) {
-	ctx, env := repotesting.NewEnvironment(t, content.FormatVersion1, repotesting.Options{OpenOptions: func(opts *repo.Options) {
+	ctx, env := repotesting.NewEnvironment(t, format.FormatVersion1, repotesting.Options{OpenOptions: func(opts *repo.Options) {
 		opts.UpgradeOwnerID = "upgrade-owner"
 	}})
 	formatBlockCacheDuration := env.Repository.ClientOptions().FormatBlobCacheDuration
@@ -145,7 +144,7 @@ func TestFormatUpgradeRollback(t *testing.T) {
 }
 
 func TestFormatUpgradeMultipleLocksRollback(t *testing.T) {
-	ctx, env := repotesting.NewEnvironment(t, content.FormatVersion1, repotesting.Options{OpenOptions: func(opts *repo.Options) {
+	ctx, env := repotesting.NewEnvironment(t, format.FormatVersion1, repotesting.Options{OpenOptions: func(opts *repo.Options) {
 		opts.UpgradeOwnerID = "upgrade-owner"
 	}})
 	formatBlockCacheDuration := env.Repository.ClientOptions().FormatBlobCacheDuration
@@ -191,7 +190,7 @@ func TestFormatUpgradeMultipleLocksRollback(t *testing.T) {
 	env.MustReopen(t, func(opts *repo.Options) {
 		opts.UpgradeOwnerID = "another-upgrade-owner"
 	})
-	require.Equal(t, content.FormatVersion3,
+	require.Equal(t, format.FormatVersion3,
 		env.RepositoryWriter.ContentManager().ContentFormat().FormatVersion())
 
 	require.NoError(t, env.RepositoryWriter.RollbackUpgrade(ctx))
@@ -211,7 +210,7 @@ func TestFormatUpgradeMultipleLocksRollback(t *testing.T) {
 	require.EqualError(t, env.RepositoryWriter.CommitUpgrade(ctx), "no upgrade in progress")
 
 	// verify that we are back to the original version where we started from
-	require.Equal(t, content.FormatVersion1,
+	require.Equal(t, format.FormatVersion1,
 		env.RepositoryWriter.ContentManager().ContentFormat().FormatVersion())
 }
 
@@ -257,16 +256,16 @@ func TestFormatUpgradeFailureToBackupFormatBlobOnLock(t *testing.T) {
 	))
 
 	opt := &repo.NewRepositoryOptions{
-		BlockFormat: content.FormattingOptions{
-			MutableParameters: content.MutableParameters{
-				Version: content.FormatVersion1,
+		BlockFormat: format.ContentFormat{
+			MutableParameters: format.MutableParameters{
+				Version: format.FormatVersion1,
 			},
 			HMACSecret:           []byte{},
 			Hash:                 "HMAC-SHA256",
 			Encryption:           encryption.DefaultAlgorithm,
 			EnablePasswordChange: true,
 		},
-		ObjectFormat: object.Format{
+		ObjectFormat: format.ObjectFormat{
 			Splitter: "FIXED-1M",
 		},
 	}
@@ -312,7 +311,7 @@ func TestFormatUpgradeFailureToBackupFormatBlobOnLock(t *testing.T) {
 
 func TestFormatUpgradeDuringOngoingWriteSessions(t *testing.T) {
 	curTime := clock.Now()
-	ctx, env := repotesting.NewEnvironment(t, content.FormatVersion1, repotesting.Options{
+	ctx, env := repotesting.NewEnvironment(t, format.FormatVersion1, repotesting.Options{
 		// new environment with controlled time
 		OpenOptions: func(opts *repo.Options) {
 			opts.TimeNowFunc = func() time.Time {

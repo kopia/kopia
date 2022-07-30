@@ -9,10 +9,9 @@ import (
 
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
-	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/encryption"
+	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/hashing"
-	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/repo/splitter"
 	"github.com/kopia/kopia/snapshot/policy"
 )
@@ -77,15 +76,15 @@ func (c *commandRepositoryCreate) setup(svc advancedAppServices, parent commandP
 
 func (c *commandRepositoryCreate) newRepositoryOptionsFromFlags() *repo.NewRepositoryOptions {
 	return &repo.NewRepositoryOptions{
-		BlockFormat: content.FormattingOptions{
-			MutableParameters: content.MutableParameters{
-				Version: content.FormatVersion(c.createFormatVersion),
+		BlockFormat: format.ContentFormat{
+			MutableParameters: format.MutableParameters{
+				Version: format.Version(c.createFormatVersion),
 			},
 			Hash:       c.createBlockHashFormat,
 			Encryption: c.createBlockEncryptionFormat,
 		},
 
-		ObjectFormat: object.Format{
+		ObjectFormat: format.ObjectFormat{
 			Splitter: c.createSplitter,
 		},
 

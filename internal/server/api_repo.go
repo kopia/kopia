@@ -37,7 +37,7 @@ func handleRepoParameters(ctx context.Context, rc requestContext) (interface{}, 
 	rp := &remoterepoapi.Parameters{
 		HashFunction:               dr.ContentReader().ContentFormat().GetHashFunction(),
 		HMACSecret:                 dr.ContentReader().ContentFormat().GetHmacSecret(),
-		Format:                     dr.ObjectFormat(),
+		ObjectFormat:               dr.ObjectFormat(),
 		SupportsContentCompression: dr.ContentReader().SupportsContentCompression(),
 	}
 

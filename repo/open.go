@@ -245,14 +245,14 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 		return nil, ErrInvalidPassword
 	}
 
-	if ufb.RepoConfig.FormattingOptions.EnablePasswordChange {
+	if ufb.RepoConfig.ContentFormat.EnablePasswordChange {
 		cacheOpts.HMACSecret = format.DeriveKeyFromMasterKey(ufb.RepoConfig.HMACSecret, ufb.KopiaRepository.UniqueID, localCacheIntegrityPurpose, localCacheIntegrityHMACSecretLength)
 	} else {
 		// deriving from ufb.FormatEncryptionKey was actually a bug, that only matters will change when we change the password
 		cacheOpts.HMACSecret = format.DeriveKeyFromMasterKey(ufb.FormatEncryptionKey, ufb.KopiaRepository.UniqueID, localCacheIntegrityPurpose, localCacheIntegrityHMACSecretLength)
 	}
 
-	fo := &ufb.RepoConfig.FormattingOptions
+	fo := &ufb.RepoConfig.ContentFormat
 
 	if fo.MaxPackSize == 0 {
 		// legacy only, apply default
@@ -293,7 +293,7 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 	st = upgradeLockMonitor(options.UpgradeOwnerID, st, password, cacheOpts, lc.FormatBlobCacheDuration,
 		ufb.CacheMTime, cmOpts.TimeNow, options.OnFatalError, options.TestOnlyIgnoreMissingRequiredFeatures)
 
-	fop, err := content.NewFormattingOptionsProvider(fo, cmOpts.RepositoryFormatBytes)
+	fop, err := format.NewFormattingOptionsProvider(fo, cmOpts.RepositoryFormatBytes)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create format options provider")
 	}
@@ -308,7 +308,7 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 		SessionHost: lc.Hostname,
 	}, "")
 
-	om, err := object.NewObjectManager(ctx, cm, ufb.RepoConfig.Format)
+	om, err := object.NewObjectManager(ctx, cm, ufb.RepoConfig.ObjectFormat)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to open object manager")
 	}

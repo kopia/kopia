@@ -7,15 +7,13 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/feature"
-	"github.com/kopia/kopia/repo/content"
-	"github.com/kopia/kopia/repo/object"
 )
 
 // RepositoryConfig describes the format of objects in a repository.
 // The contents of this object are stored encrypted since they contain sensitive key material.
 type RepositoryConfig struct {
-	content.FormattingOptions
-	object.Format
+	ContentFormat
+	ObjectFormat
 
 	UpgradeLock      *UpgradeLockIntent `json:"upgradeLock,omitempty"`
 	RequiredFeatures []feature.Required `json:"requiredFeatures,omitempty"`

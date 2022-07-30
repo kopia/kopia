@@ -21,6 +21,7 @@ import (
 	"github.com/kopia/kopia/repo/blob/filesystem"
 	"github.com/kopia/kopia/repo/blob/sharded"
 	"github.com/kopia/kopia/repo/compression"
+	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/hashing"
 	"github.com/kopia/kopia/repo/logging"
 )
@@ -98,7 +99,7 @@ type SharedManager struct {
 	// +checklocks:indexesLock
 	refreshIndexesAfter time.Time
 
-	format FormattingOptionsProvider
+	format format.Provider
 
 	checkInvariantsOnUnlock bool
 	minPreambleLength       int
@@ -537,7 +538,7 @@ func (sm *SharedManager) shouldRefreshIndexes() bool {
 }
 
 // NewSharedManager returns SharedManager that is used by SessionWriteManagers on top of a repository.
-func NewSharedManager(ctx context.Context, st blob.Storage, prov FormattingOptionsProvider, caching *CachingOptions, opts *ManagerOptions) (*SharedManager, error) {
+func NewSharedManager(ctx context.Context, st blob.Storage, prov format.Provider, caching *CachingOptions, opts *ManagerOptions) (*SharedManager, error) {
 	opts = opts.CloneOrDefault()
 	if opts.TimeNow == nil {
 		opts.TimeNow = clock.Now

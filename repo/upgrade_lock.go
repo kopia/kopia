@@ -9,7 +9,6 @@ import (
 
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
-	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/format"
 )
 
@@ -69,9 +68,9 @@ func (r *directRepository) SetUpgradeLockIntent(ctx context.Context, l format.Up
 		if repoConfig.UpgradeLock == nil {
 			// when we are putting a new lock then ensure that we can upgrade
 			// to that version
-			if repoConfig.FormattingOptions.Version >= content.MaxFormatVersion {
+			if repoConfig.ContentFormat.Version >= format.MaxFormatVersion {
 				return errors.Errorf("repository is using version %d, and version %d is the maximum",
-					repoConfig.FormattingOptions.Version, content.MaxFormatVersion)
+					repoConfig.ContentFormat.Version, format.MaxFormatVersion)
 			}
 
 			// backup the current repository config from local cache to the
@@ -84,7 +83,7 @@ func (r *directRepository) SetUpgradeLockIntent(ctx context.Context, l format.Up
 			repoConfig.UpgradeLock = &l
 			// mark the upgrade to the new format version, this will ensure that older
 			// clients won't be able to parse the new version
-			repoConfig.FormattingOptions.Version = content.MaxFormatVersion
+			repoConfig.ContentFormat.Version = format.MaxFormatVersion
 		} else if newL, err := repoConfig.UpgradeLock.Update(&l); err == nil {
 			repoConfig.UpgradeLock = newL
 		} else {

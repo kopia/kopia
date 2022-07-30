@@ -15,6 +15,7 @@ import (
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/encryption"
+	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/hashing"
 )
 
@@ -33,7 +34,7 @@ func TestFormatters(t *testing.T) {
 				t.Run(encryptionAlgo, func(t *testing.T) {
 					ctx := testlogging.Context(t)
 
-					fo := &FormattingOptions{
+					fo := &format.ContentFormat{
 						HMACSecret: secret,
 						MasterKey:  make([]byte, 32),
 						Hash:       hashAlgo,
@@ -77,11 +78,11 @@ func verifyEndToEndFormatter(ctx context.Context, t *testing.T, hashAlgo, encryp
 	keyTime := map[blob.ID]time.Time{}
 	st := blobtesting.NewMapStorage(data, keyTime, nil)
 
-	bm, err := NewManagerForTesting(testlogging.Context(t), st, mustCreateFormatProvider(t, &FormattingOptions{
+	bm, err := NewManagerForTesting(testlogging.Context(t), st, mustCreateFormatProvider(t, &format.ContentFormat{
 		Hash:       hashAlgo,
 		Encryption: encryptionAlgo,
 		HMACSecret: hmacSecret,
-		MutableParameters: MutableParameters{
+		MutableParameters: format.MutableParameters{
 			Version:     1,
 			MaxPackSize: maxPackSize,
 		},
@@ -137,10 +138,10 @@ func verifyEndToEndFormatter(ctx context.Context, t *testing.T, hashAlgo, encryp
 	}
 }
 
-func mustCreateFormatProvider(t *testing.T, f *FormattingOptions) FormattingOptionsProvider {
+func mustCreateFormatProvider(t *testing.T, f *format.ContentFormat) format.Provider {
 	t.Helper()
 
-	fop, err := NewFormattingOptionsProvider(f, nil)
+	fop, err := format.NewFormattingOptionsProvider(f, nil)
 	require.NoError(t, err)
 
 	return fop

@@ -9,11 +9,12 @@ import (
 
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/encryption"
+	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/hashing"
 )
 
 func TestBlobCrypto(t *testing.T) {
-	f := &FormattingOptions{
+	f := &format.ContentFormat{
 		Hash:       hashing.DefaultAlgorithm,
 		Encryption: encryption.DefaultAlgorithm,
 	}
@@ -85,7 +86,7 @@ func TestBlobCrypto_Invalid(t *testing.T) {
 	_, err := EncryptBLOB(cr, gather.FromSlice([]byte{1, 2, 3}), "n", "mysessionid", &tmp)
 	require.Error(t, err)
 
-	f := &FormattingOptions{
+	f := &format.ContentFormat{
 		Hash:       hashing.DefaultAlgorithm,
 		Encryption: encryption.DefaultAlgorithm,
 	}
