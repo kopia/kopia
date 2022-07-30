@@ -18,6 +18,7 @@ import (
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/format"
 )
 
 type commandRepositorySyncTo struct {
@@ -345,21 +346,21 @@ func (c *commandRepositorySyncTo) ensureRepositoriesHaveSameFormatBlob(ctx conte
 	var srcData gather.WriteBuffer
 	defer srcData.Close()
 
-	if err := src.GetBlob(ctx, repo.FormatBlobID, 0, -1, &srcData); err != nil {
+	if err := src.GetBlob(ctx, format.KopiaRepositoryBlobID, 0, -1, &srcData); err != nil {
 		return errors.Wrap(err, "error reading format blob")
 	}
 
 	var dstData gather.WriteBuffer
 	defer dstData.Close()
 
-	if err := dst.GetBlob(ctx, repo.FormatBlobID, 0, -1, &dstData); err != nil {
+	if err := dst.GetBlob(ctx, format.KopiaRepositoryBlobID, 0, -1, &dstData); err != nil {
 		// target does not have format blob, save it there first.
 		if errors.Is(err, blob.ErrBlobNotFound) {
 			if c.repositorySyncDestinationMustExist {
 				return errors.Errorf("destination repository does not have a format blob")
 			}
 
-			return errors.Wrap(dst.PutBlob(ctx, repo.FormatBlobID, srcData.Bytes(), blob.PutOptions{}), "error saving format blob")
+			return errors.Wrap(dst.PutBlob(ctx, format.KopiaRepositoryBlobID, srcData.Bytes(), blob.PutOptions{}), "error saving format blob")
 		}
 
 		return errors.Wrap(err, "error reading destination repository format blob")

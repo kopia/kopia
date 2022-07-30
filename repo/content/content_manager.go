@@ -19,6 +19,7 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content/index"
+	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/hashing"
 	"github.com/kopia/kopia/repo/logging"
 )
@@ -34,11 +35,7 @@ const (
 
 	packBlobIDLength = 16
 
-	defaultIndexShardSize = 16e6 // slightly less than 2^24, which lets index use 24-bit/3-byte indexes
-
 	DefaultIndexVersion = 2
-
-	legacyIndexVersion = index.Version1
 )
 
 var tracer = otel.Tracer("kopia/content")
@@ -56,14 +53,6 @@ const (
 	defaultMinPreambleLength = 32
 	defaultMaxPreambleLength = 32
 	defaultPaddingUnit       = 4096
-
-	currentWriteVersion = FormatVersion3
-
-	minSupportedWriteVersion = FormatVersion1
-	maxSupportedWriteVersion = FormatVersion3
-
-	minSupportedReadVersion = FormatVersion1
-	maxSupportedReadVersion = FormatVersion3
 
 	indexLoadAttempts = 10
 )
@@ -589,7 +578,7 @@ func removePendingPack(slice []*pendingPackInfo, pp *pendingPackInfo) []*pending
 }
 
 // ContentFormat returns formatting options.
-func (bm *WriteManager) ContentFormat() FormattingOptionsProvider {
+func (bm *WriteManager) ContentFormat() format.Provider {
 	return bm.format
 }
 
@@ -935,7 +924,7 @@ func (o *ManagerOptions) CloneOrDefault() *ManagerOptions {
 }
 
 // NewManagerForTesting creates new content manager with given packing options and a formatter.
-func NewManagerForTesting(ctx context.Context, st blob.Storage, f FormattingOptionsProvider, caching *CachingOptions, options *ManagerOptions) (*WriteManager, error) {
+func NewManagerForTesting(ctx context.Context, st blob.Storage, f format.Provider, caching *CachingOptions, options *ManagerOptions) (*WriteManager, error) {
 	options = options.CloneOrDefault()
 	if options.TimeNow == nil {
 		options.TimeNow = clock.Now

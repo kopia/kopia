@@ -13,6 +13,7 @@ import (
 	"github.com/kopia/kopia/internal/epoch"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/format"
 )
 
 type commandRepositoryUpgrade struct {
@@ -56,7 +57,7 @@ func (c *commandRepositoryUpgrade) setup(svc advancedAppServices, parent command
 
 	beginCmd := parent.Command("begin", "Begin upgrade.").Default()
 	beginCmd.Flag("advance-notice", "Advance notice for upgrade to allow enough time for other Kopia clients to notice the lock").DurationVar(&c.advanceNoticeDuration)
-	beginCmd.Flag("io-drain-timeout", "Max time it should take all other Kopia clients to drop repository connections").Default(repo.DefaultRepositoryBlobCacheDuration.String()).DurationVar(&c.ioDrainTimeout)
+	beginCmd.Flag("io-drain-timeout", "Max time it should take all other Kopia clients to drop repository connections").Default(format.DefaultRepositoryBlobCacheDuration.String()).DurationVar(&c.ioDrainTimeout)
 	beginCmd.Flag("allow-unsafe-upgrade", "Force using an unsafe io-drain-timeout for the upgrade lock").Default("false").Hidden().BoolVar(&c.force)
 	beginCmd.Flag("status-poll-interval", "An advisory polling interval to check for the status of upgrade").Default("60s").DurationVar(&c.statusPollInterval)
 
@@ -117,20 +118,20 @@ func (c *commandRepositoryUpgrade) runPhase(act func(context.Context, repo.Direc
 // setLockIntent is an upgrade phase which sets the upgrade lock intent with
 // desired parameters.
 func (c *commandRepositoryUpgrade) setLockIntent(ctx context.Context, rep repo.DirectRepositoryWriter) error {
-	if c.ioDrainTimeout < repo.DefaultRepositoryBlobCacheDuration && !c.force {
-		return errors.Errorf("minimum required io-drain-timeout is %s", repo.DefaultRepositoryBlobCacheDuration)
+	if c.ioDrainTimeout < format.DefaultRepositoryBlobCacheDuration && !c.force {
+		return errors.Errorf("minimum required io-drain-timeout is %s", format.DefaultRepositoryBlobCacheDuration)
 	}
 
 	now := rep.Time()
 	mp := rep.ContentReader().ContentFormat().GetMutableParameters()
 	openOpts := c.svc.optionsFromFlags(ctx)
-	l := &repo.UpgradeLockIntent{
+	l := &format.UpgradeLockIntent{
 		OwnerID:                openOpts.UpgradeOwnerID,
 		CreationTime:           now,
 		AdvanceNoticeDuration:  c.advanceNoticeDuration,
 		IODrainTimeout:         c.ioDrainTimeout,
 		StatusPollInterval:     c.statusPollInterval,
-		Message:                fmt.Sprintf("Upgrading from format version %d -> %d", mp.Version, content.MaxFormatVersion),
+		Message:                fmt.Sprintf("Upgrading from format version %d -> %d", mp.Version, format.MaxFormatVersion),
 		MaxPermittedClockDrift: MaxPermittedClockDrift(),
 	}
 
@@ -219,7 +220,7 @@ func (c *commandRepositoryUpgrade) drainAllClients(ctx context.Context, rep repo
 	cacheOpts := lc.Caching.CloneOrDefault()
 
 	for {
-		l, err := repo.ReadAndCacheRepoUpgradeLock(ctx, rep.BlobStorage(), password, cacheOpts, -1)
+		l, err := format.ReadAndCacheRepoUpgradeLock(ctx, rep.BlobStorage(), password, cacheOpts.CacheDirectory, -1)
 		if err != nil {
 			return errors.Wrap(err, "unable to reload the repository format blob")
 		}

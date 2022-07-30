@@ -3,7 +3,7 @@ package endtoend_test
 import (
 	"testing"
 
-	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
@@ -33,7 +33,7 @@ func (s *formatSpecificTestSuite) TestRepositoryRepair(t *testing.T) {
 	// this will fail because the format blob in the repository is not found
 	e.RunAndExpectFailure(t, "repo", "connect", "filesystem", "--path", e.RepoDir)
 
-	if s.formatVersion == content.FormatVersion1 {
+	if s.formatVersion == format.FormatVersion1 {
 		// now run repair, which will recover the format blob from one of the pack blobs.
 		e.RunAndExpectSuccess(t, "repo", "repair", "filesystem", "--path", e.RepoDir)
 

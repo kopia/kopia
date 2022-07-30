@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/manifest"
-	"github.com/kopia/kopia/repo/object"
 )
 
 // Parameters encapsulates all parameters for repository.
@@ -16,7 +16,7 @@ type Parameters struct {
 	HMACSecret                 []byte `json:"hmacSecret"`
 	SupportsContentCompression bool   `json:"supportsContentCompression"`
 
-	object.Format
+	format.ObjectFormat
 }
 
 // GetHashFunction returns the name of the hash function for remote repository.

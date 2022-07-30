@@ -12,7 +12,7 @@ import (
 	"github.com/kopia/kopia/internal/repotesting"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
-	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
@@ -127,11 +127,11 @@ func (s *formatSpecificTestSuite) TestRepositorySetParametersUpgrade(t *testing.
 	require.Contains(t, out, "Max pack length:     20 MiB")
 
 	switch s.formatVersion {
-	case content.FormatVersion1:
+	case format.FormatVersion1:
 		require.Contains(t, out, "Format version:      1")
 		require.Contains(t, out, "Epoch Manager:       disabled")
 		env.RunAndExpectFailure(t, "index", "epoch", "list")
-	case content.FormatVersion2:
+	case format.FormatVersion2:
 		require.Contains(t, out, "Format version:      2")
 		require.Contains(t, out, "Epoch Manager:       enabled")
 		env.RunAndExpectSuccess(t, "index", "epoch", "list")
@@ -154,7 +154,7 @@ func (s *formatSpecificTestSuite) TestRepositorySetParametersUpgrade(t *testing.
 		cli.MaxPermittedClockDrift = func() time.Duration { return time.Second }
 
 		// You can only upgrade when you are not already upgraded
-		if s.formatVersion < content.MaxFormatVersion {
+		if s.formatVersion < format.MaxFormatVersion {
 			env.RunAndExpectSuccess(t, cmd...)
 		} else {
 			env.RunAndExpectFailure(t, cmd...)

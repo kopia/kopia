@@ -24,6 +24,7 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/logging"
 	"github.com/kopia/kopia/repo/encryption"
+	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/hashing"
 )
 
@@ -765,7 +766,7 @@ func assertIndexBlobList(t *testing.T, m *indexBlobManagerV0, wantMD ...blob.Met
 func newIndexBlobManagerForTesting(t *testing.T, st blob.Storage, localTimeNow func() time.Time) *indexBlobManagerV0 {
 	t.Helper()
 
-	p := &FormattingOptions{
+	p := &format.ContentFormat{
 		Encryption: encryption.DefaultAlgorithm,
 		Hash:       hashing.DefaultAlgorithm,
 	}

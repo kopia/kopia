@@ -18,6 +18,7 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/encryption"
+	"github.com/kopia/kopia/repo/format"
 )
 
 const goroutineCount = 16
@@ -47,10 +48,10 @@ func TestStressBlockManager(t *testing.T) {
 func stressTestWithStorage(t *testing.T, st blob.Storage, duration time.Duration) {
 	ctx := testlogging.Context(t)
 
-	fop, err := content.NewFormattingOptionsProvider(&content.FormattingOptions{
+	fop, err := format.NewFormattingOptionsProvider(&format.ContentFormat{
 		Hash:       "HMAC-SHA256-128",
 		Encryption: encryption.DefaultAlgorithm,
-		MutableParameters: content.MutableParameters{
+		MutableParameters: format.MutableParameters{
 			Version:     1,
 			MaxPackSize: 20000000,
 		},

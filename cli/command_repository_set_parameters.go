@@ -12,6 +12,7 @@ import (
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/format"
 )
 
 type commandRepositorySetParameters struct {
@@ -143,8 +144,8 @@ func (c *commandRepositorySetParameters) run(ctx context.Context, rep repo.Direc
 			mp.IndexVersion = 2
 		}
 
-		if mp.Version < content.FormatVersion2 {
-			mp.Version = content.FormatVersion2
+		if mp.Version < format.FormatVersion2 {
+			mp.Version = format.FormatVersion2
 		}
 	}
 

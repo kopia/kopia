@@ -17,6 +17,7 @@ import (
 	"github.com/kopia/kopia/repo/blob/throttling"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/encryption"
+	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/hashing"
 	"github.com/kopia/kopia/repo/maintenance"
 	"github.com/kopia/kopia/repo/splitter"
@@ -36,7 +37,7 @@ func handleRepoParameters(ctx context.Context, rc requestContext) (interface{}, 
 	rp := &remoterepoapi.Parameters{
 		HashFunction:               dr.ContentReader().ContentFormat().GetHashFunction(),
 		HMACSecret:                 dr.ContentReader().ContentFormat().GetHmacSecret(),
-		Format:                     dr.ObjectFormat(),
+		ObjectFormat:               dr.ObjectFormat(),
 		SupportsContentCompression: dr.ContentReader().SupportsContentCompression(),
 	}
 
@@ -174,7 +175,7 @@ func handleRepoExists(ctx context.Context, rc requestContext) (interface{}, *api
 	var tmp gather.WriteBuffer
 	defer tmp.Close()
 
-	if err := st.GetBlob(ctx, repo.FormatBlobID, 0, -1, &tmp); err != nil {
+	if err := st.GetBlob(ctx, format.KopiaRepositoryBlobID, 0, -1, &tmp); err != nil {
 		if errors.Is(err, blob.ErrBlobNotFound) {
 			return nil, requestError(serverapi.ErrorNotInitialized, "repository not initialized")
 		}

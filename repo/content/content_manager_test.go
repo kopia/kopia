@@ -33,6 +33,7 @@ import (
 	"github.com/kopia/kopia/repo/blob/logging"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content/index"
+	"github.com/kopia/kopia/repo/format"
 )
 
 const (
@@ -52,7 +53,7 @@ func TestMain(m *testing.M) { testutil.MyTestMain(m) }
 
 func TestFormatV1(t *testing.T) {
 	testutil.RunAllTestsWithParam(t, &contentManagerSuite{
-		mutableParameters: MutableParameters{
+		mutableParameters: format.MutableParameters{
 			Version:      1,
 			IndexVersion: 1,
 			MaxPackSize:  maxPackSize,
@@ -62,7 +63,7 @@ func TestFormatV1(t *testing.T) {
 
 func TestFormatV2(t *testing.T) {
 	testutil.RunAllTestsWithParam(t, &contentManagerSuite{
-		mutableParameters: MutableParameters{
+		mutableParameters: format.MutableParameters{
 			Version:         2,
 			MaxPackSize:     maxPackSize,
 			IndexVersion:    index.Version2,
@@ -72,7 +73,7 @@ func TestFormatV2(t *testing.T) {
 }
 
 type contentManagerSuite struct {
-	mutableParameters MutableParameters
+	mutableParameters format.MutableParameters
 }
 
 func (s *contentManagerSuite) TestContentManagerEmptyFlush(t *testing.T) {
@@ -354,7 +355,7 @@ func (s *contentManagerSuite) TestContentManagerFailedToWritePack(t *testing.T) 
 
 	ta := faketime.NewTimeAdvance(fakeTime, 0)
 
-	bm, err := NewManagerForTesting(testlogging.Context(t), st, mustCreateFormatProvider(t, &FormattingOptions{
+	bm, err := NewManagerForTesting(testlogging.Context(t), st, mustCreateFormatProvider(t, &format.ContentFormat{
 		Hash:              "HMAC-SHA256-128",
 		Encryption:        "AES256-GCM-HMAC-SHA256",
 		MutableParameters: s.mutableParameters,
@@ -1860,7 +1861,7 @@ func (s *contentManagerSuite) TestContentReadAliasing(t *testing.T) {
 }
 
 func (s *contentManagerSuite) TestVersionCompatibility(t *testing.T) {
-	for writeVer := minSupportedReadVersion; writeVer <= currentWriteVersion; writeVer++ {
+	for writeVer := format.MinSupportedReadVersion; writeVer <= format.CurrentWriteVersion; writeVer++ {
 		writeVer := writeVer
 		t.Run(fmt.Sprintf("version-%v", writeVer), func(t *testing.T) {
 			s.verifyVersionCompat(t, writeVer)
@@ -1868,7 +1869,7 @@ func (s *contentManagerSuite) TestVersionCompatibility(t *testing.T) {
 	}
 }
 
-func (s *contentManagerSuite) verifyVersionCompat(t *testing.T, writeVersion FormatVersion) {
+func (s *contentManagerSuite) verifyVersionCompat(t *testing.T, writeVersion format.Version) {
 	t.Helper()
 
 	ctx := testlogging.Context(t)
@@ -2333,7 +2334,7 @@ type contentManagerTestTweaks struct {
 
 	indexVersion  int
 	maxPackSize   int
-	formatVersion FormatVersion
+	formatVersion format.Version
 }
 
 func (s *contentManagerSuite) newTestContentManagerWithTweaks(t *testing.T, st blob.Storage, tweaks *contentManagerTestTweaks) *WriteManager {
@@ -2363,7 +2364,7 @@ func (s *contentManagerSuite) newTestContentManagerWithTweaks(t *testing.T, st b
 	}
 
 	ctx := testlogging.Context(t)
-	fo := mustCreateFormatProvider(t, &FormattingOptions{
+	fo := mustCreateFormatProvider(t, &format.ContentFormat{
 		Hash:              "HMAC-SHA256",
 		Encryption:        "AES256-GCM-HMAC-SHA256",
 		HMACSecret:        hmacSecret,

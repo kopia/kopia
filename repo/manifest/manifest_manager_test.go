@@ -18,6 +18,7 @@ import (
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/content/index"
 	"github.com/kopia/kopia/repo/encryption"
+	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/hashing"
 )
 
@@ -142,10 +143,10 @@ func TestManifestInitCorruptedBlock(t *testing.T) {
 	data := blobtesting.DataMap{}
 	st := blobtesting.NewMapStorage(data, nil, nil)
 
-	fop, err := content.NewFormattingOptionsProvider(&content.FormattingOptions{
+	fop, err := format.NewFormattingOptionsProvider(&format.ContentFormat{
 		Hash:       hashing.DefaultAlgorithm,
 		Encryption: encryption.DefaultAlgorithm,
-		MutableParameters: content.MutableParameters{
+		MutableParameters: format.MutableParameters{
 			Version:     1,
 			MaxPackSize: 100000,
 		},
@@ -302,10 +303,10 @@ func newManagerForTesting(ctx context.Context, t *testing.T, data blobtesting.Da
 
 	st := blobtesting.NewMapStorage(data, nil, nil)
 
-	fop, err := content.NewFormattingOptionsProvider(&content.FormattingOptions{
+	fop, err := format.NewFormattingOptionsProvider(&format.ContentFormat{
 		Hash:       hashing.DefaultAlgorithm,
 		Encryption: encryption.DefaultAlgorithm,
-		MutableParameters: content.MutableParameters{
+		MutableParameters: format.MutableParameters{
 			Version:     1,
 			MaxPackSize: 100000,
 		},

@@ -11,6 +11,7 @@ import (
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/encryption"
+	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/hashing"
 	"github.com/kopia/kopia/repo/logging"
 )
@@ -28,7 +29,7 @@ func TestEncryptedBlobManager(t *testing.T) {
 	data := blobtesting.DataMap{}
 	st := blobtesting.NewMapStorage(data, nil, nil)
 	fs := blobtesting.NewFaultyStorage(st)
-	f := &FormattingOptions{
+	f := &format.ContentFormat{
 		Hash:       hashing.DefaultAlgorithm,
 		Encryption: encryption.DefaultAlgorithm,
 	}

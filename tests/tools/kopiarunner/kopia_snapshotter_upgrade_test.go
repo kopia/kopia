@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/format"
 )
 
 func TestUpgradeFormatVersion(t *testing.T) {
@@ -24,7 +24,7 @@ func TestUpgradeFormatVersion(t *testing.T) {
 	require.NoError(t, err)
 
 	prev := rs.ContentFormat.MutableParameters.Version
-	require.Equal(t, prev, content.FormatVersion(1), "The format version should be 1.")
+	require.Equal(t, prev, format.Version(1), "The format version should be 1.")
 
 	ks.UpgradeRepository(repoDir)
 
@@ -32,7 +32,7 @@ func TestUpgradeFormatVersion(t *testing.T) {
 	require.NoError(t, err)
 
 	got := rs.ContentFormat.MutableParameters.Version
-	require.Equal(t, got, content.FormatVersion(2), "The format version should be upgraded to 2.")
+	require.Equal(t, got, format.Version(2), "The format version should be upgraded to 2.")
 
 	require.NotEqual(t, got, prev, "The format versions should be different.")
 }

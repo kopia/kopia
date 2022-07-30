@@ -7,12 +7,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/repotesting"
-	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/object"
 )
 
 func BenchmarkWriterDedup1M(b *testing.B) {
-	ctx, env := repotesting.NewEnvironment(b, content.FormatVersion2)
+	ctx, env := repotesting.NewEnvironment(b, format.FormatVersion2)
 	dataBuf := make([]byte, 4<<20)
 
 	writer := env.RepositoryWriter.NewObjectWriter(ctx, object.WriterOptions{})
@@ -33,7 +33,7 @@ func BenchmarkWriterDedup1M(b *testing.B) {
 }
 
 func BenchmarkWriterNoDedup1M(b *testing.B) {
-	ctx, env := repotesting.NewEnvironment(b, content.FormatVersion2)
+	ctx, env := repotesting.NewEnvironment(b, format.FormatVersion2)
 	dataBuf := make([]byte, 4<<20)
 	chunkSize := 32
 	offset := 0

@@ -9,7 +9,7 @@ import (
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/internal/units"
-	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/hashing"
 )
 
@@ -63,7 +63,7 @@ func (c *commandBenchmarkHashing) runBenchmark(ctx context.Context) []cryptoBenc
 	data := make([]byte, c.blockSize)
 
 	for _, ha := range hashing.SupportedAlgorithms() {
-		hf, err := hashing.CreateHashFunc(&content.FormattingOptions{
+		hf, err := hashing.CreateHashFunc(&format.ContentFormat{
 			Hash:       ha,
 			HMACSecret: make([]byte, 32), // nolint:gomnd
 		})

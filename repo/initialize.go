@@ -13,8 +13,8 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/encryption"
+	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/hashing"
-	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/repo/splitter"
 )
 
@@ -35,12 +35,12 @@ const (
 // NewRepositoryOptions specifies options that apply to newly created repositories.
 // All fields are optional, when not provided, reasonable defaults will be used.
 type NewRepositoryOptions struct {
-	UniqueID        []byte                    `json:"uniqueID"` // force the use of particular unique ID
-	BlockFormat     content.FormattingOptions `json:"blockFormat"`
-	DisableHMAC     bool                      `json:"disableHMAC"`
-	ObjectFormat    object.Format             `json:"objectFormat"` // object format
-	RetentionMode   blob.RetentionMode        `json:"retentionMode,omitempty"`
-	RetentionPeriod time.Duration             `json:"retentionPeriod,omitempty"`
+	UniqueID        []byte               `json:"uniqueID"` // force the use of particular unique ID
+	BlockFormat     format.ContentFormat `json:"blockFormat"`
+	DisableHMAC     bool                 `json:"disableHMAC"`
+	ObjectFormat    format.ObjectFormat  `json:"objectFormat"` // object format
+	RetentionMode   blob.RetentionMode   `json:"retentionMode,omitempty"`
+	RetentionPeriod time.Duration        `json:"retentionPeriod,omitempty"`
 }
 
 // ErrAlreadyInitialized indicates that repository has already been initialized.
@@ -56,7 +56,7 @@ func Initialize(ctx context.Context, st blob.Storage, opt *NewRepositoryOptions,
 	var tmp gather.WriteBuffer
 	defer tmp.Close()
 
-	err := st.GetBlob(ctx, FormatBlobID, 0, -1, &tmp)
+	err := st.GetBlob(ctx, format.KopiaRepositoryBlobID, 0, -1, &tmp)
 	if err == nil {
 		return ErrAlreadyInitialized
 	}
@@ -65,7 +65,7 @@ func Initialize(ctx context.Context, st blob.Storage, opt *NewRepositoryOptions,
 		return errors.Wrap(err, "unexpected error when checking for format blob")
 	}
 
-	err = st.GetBlob(ctx, BlobCfgBlobID, 0, -1, &tmp)
+	err = st.GetBlob(ctx, format.KopiaBlobCfgBlobID, 0, -1, &tmp)
 	if err == nil {
 		return errors.Errorf("possible corruption: blobcfg blob exists, but format blob is not found")
 	}
@@ -74,10 +74,10 @@ func Initialize(ctx context.Context, st blob.Storage, opt *NewRepositoryOptions,
 		return errors.Wrap(err, "unexpected error when checking for blobcfg blob")
 	}
 
-	format := formatBlobFromOptions(opt)
+	formatBlob := formatBlobFromOptions(opt)
 	blobcfg := blobCfgBlobFromOptions(opt)
 
-	formatEncryptionKey, err := format.deriveFormatEncryptionKeyFromPassword(password)
+	formatEncryptionKey, err := formatBlob.DeriveFormatEncryptionKeyFromPassword(password)
 	if err != nil {
 		return errors.Wrap(err, "unable to derive format encryption key")
 	}
@@ -91,54 +91,61 @@ func Initialize(ctx context.Context, st blob.Storage, opt *NewRepositoryOptions,
 		return errors.Wrap(err, "invalid parameters")
 	}
 
-	if err = encryptFormatBytes(format, f, formatEncryptionKey, format.UniqueID); err != nil {
+	if err = formatBlob.EncryptRepositoryConfig(f, formatEncryptionKey); err != nil {
 		return errors.Wrap(err, "unable to encrypt format bytes")
 	}
 
-	if err := writeBlobCfgBlob(ctx, st, format, blobcfg, formatEncryptionKey); err != nil {
+	if err := formatBlob.WriteBlobCfgBlob(ctx, st, blobcfg, formatEncryptionKey); err != nil {
 		return errors.Wrap(err, "unable to write blobcfg blob")
 	}
 
-	if err := writeFormatBlob(ctx, st, format, blobcfg); err != nil {
+	if err := formatBlob.WriteKopiaRepositoryBlob(ctx, st, blobcfg); err != nil {
 		return errors.Wrap(err, "unable to write format blob")
 	}
 
 	return nil
 }
 
-func formatBlobFromOptions(opt *NewRepositoryOptions) *formatBlob {
-	return &formatBlob{
+func formatBlobFromOptions(opt *NewRepositoryOptions) *format.KopiaRepositoryJSON {
+	return &format.KopiaRepositoryJSON{
 		Tool:                   "https://github.com/kopia/kopia",
 		BuildInfo:              BuildInfo,
 		BuildVersion:           BuildVersion,
-		KeyDerivationAlgorithm: defaultKeyDerivationAlgorithm,
+		KeyDerivationAlgorithm: format.DefaultKeyDerivationAlgorithm,
 		UniqueID:               applyDefaultRandomBytes(opt.UniqueID, uniqueIDLength),
-		EncryptionAlgorithm:    defaultFormatEncryption,
+		EncryptionAlgorithm:    format.DefaultFormatEncryption,
 	}
 }
 
-func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) (*repositoryObjectFormat, error) {
+func blobCfgBlobFromOptions(opt *NewRepositoryOptions) format.BlobStorageConfiguration {
+	return format.BlobStorageConfiguration{
+		RetentionMode:   opt.RetentionMode,
+		RetentionPeriod: opt.RetentionPeriod,
+	}
+}
+
+func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) (*format.RepositoryConfig, error) {
 	fv := opt.BlockFormat.Version
 	if fv == 0 {
 		switch os.Getenv("KOPIA_REPOSITORY_FORMAT_VERSION") {
 		case "1":
-			fv = content.FormatVersion1
+			fv = format.FormatVersion1
 		case "2":
-			fv = content.FormatVersion2
+			fv = format.FormatVersion2
 		case "3":
-			fv = content.FormatVersion3
+			fv = format.FormatVersion3
 		default:
-			fv = content.FormatVersion3
+			fv = format.FormatVersion3
 		}
 	}
 
-	f := &repositoryObjectFormat{
-		FormattingOptions: content.FormattingOptions{
+	f := &format.RepositoryConfig{
+		ContentFormat: format.ContentFormat{
 			Hash:       applyDefaultString(opt.BlockFormat.Hash, hashing.DefaultAlgorithm),
 			Encryption: applyDefaultString(opt.BlockFormat.Encryption, encryption.DefaultAlgorithm),
 			HMACSecret: applyDefaultRandomBytes(opt.BlockFormat.HMACSecret, hmacSecretLength),
 			MasterKey:  applyDefaultRandomBytes(opt.BlockFormat.MasterKey, masterKeyLength),
-			MutableParameters: content.MutableParameters{
+			MutableParameters: format.MutableParameters{
 				Version:         fv,
 				MaxPackSize:     applyDefaultInt(opt.BlockFormat.MaxPackSize, 20<<20), //nolint:gomnd
 				IndexVersion:    applyDefaultInt(opt.BlockFormat.IndexVersion, content.DefaultIndexVersion),
@@ -146,7 +153,7 @@ func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) (*repositoryOb
 			},
 			EnablePasswordChange: opt.BlockFormat.EnablePasswordChange,
 		},
-		Format: object.Format{
+		ObjectFormat: format.ObjectFormat{
 			Splitter: applyDefaultString(opt.ObjectFormat.Splitter, splitter.DefaultAlgorithm),
 		},
 	}
@@ -155,7 +162,7 @@ func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) (*repositoryOb
 		f.HMACSecret = nil
 	}
 
-	if err := f.FormattingOptions.ResolveFormatVersion(); err != nil {
+	if err := f.ContentFormat.ResolveFormatVersion(); err != nil {
 		return nil, errors.Wrap(err, "error resolving format version")
 	}
 

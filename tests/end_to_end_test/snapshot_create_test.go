@@ -15,8 +15,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/cli"
+	"github.com/kopia/kopia/internal/cachedir"
 	"github.com/kopia/kopia/internal/testutil"
-	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/tests/clitestutil"
 	"github.com/kopia/kopia/tests/testenv"
@@ -209,7 +209,7 @@ func TestSnapshottingCacheDirectory(t *testing.T) {
 	cachePath := filepath.Dir(strings.Split(lines[0], ": ")[0])
 
 	// verify cache marker exists
-	if _, err := os.Stat(filepath.Join(cachePath, repo.CacheDirMarkerFile)); err != nil {
+	if _, err := os.Stat(filepath.Join(cachePath, cachedir.CacheDirMarkerFile)); err != nil {
 		t.Fatal(err)
 	}
 

@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/cli"
-	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
@@ -23,7 +23,7 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgrade(t *testing.T) {
 	cli.MaxPermittedClockDrift = func() time.Duration { return time.Second }
 
 	switch s.formatVersion {
-	case content.FormatVersion1:
+	case format.FormatVersion1:
 		require.Contains(t, out, "Format version:      1")
 		_, stderr := env.RunAndExpectSuccessWithErrOut(t, "repository", "upgrade",
 			"--upgrade-owner-id", "owner",
@@ -31,7 +31,7 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgrade(t *testing.T) {
 			"--status-poll-interval", "1s")
 		require.Contains(t, stderr, "Repository indices have been upgraded.")
 		require.Contains(t, stderr, "Repository has been successfully upgraded.")
-	case content.FormatVersion2:
+	case format.FormatVersion2:
 		require.Contains(t, out, "Format version:      2")
 		_, stderr := env.RunAndExpectSuccessWithErrOut(t, "repository", "upgrade",
 			"--upgrade-owner-id", "owner",
@@ -64,7 +64,7 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgradeAdvanceNotice(t *testing.
 	cli.MaxPermittedClockDrift = func() time.Duration { return time.Second }
 
 	switch s.formatVersion {
-	case content.FormatVersion1:
+	case format.FormatVersion1:
 		require.Contains(t, out, "Format version:      1")
 		_, stderr := env.RunAndExpectSuccessWithErrOut(t, "repository", "upgrade",
 			"--upgrade-owner-id", "owner",
@@ -126,7 +126,7 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgradeAdvanceNotice(t *testing.
 
 		// verify that non-owner clients can resume access
 		env.RunAndExpectSuccess(t, "repository", "status", "--upgrade-no-block")
-	case content.FormatVersion2:
+	case format.FormatVersion2:
 		require.Contains(t, out, "Format version:      2")
 		_, stderr := env.RunAndExpectSuccessWithErrOut(t, "repository", "upgrade",
 			"--upgrade-owner-id", "owner",
