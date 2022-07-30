@@ -16,9 +16,9 @@ Some storage classes also have a minimum data retention policy, meaning that the
 
 The most famous example of archive storage is Amazon Glacier (now called Amazon Glacier Deep Archive).
 
-Kopia works without issue with all storage classes that provide **instant access** to your files, namely hot or cold storage. Kopia will **not** work with archive storage classes that provide *delayed* access to your files, such as Amazon Glacier Deep Archive. If 
+Kopia works without issue with all storage classes that provide **instant access** to your files, namely hot or cold storage. Kopia will **not** work with archive storage classes that provide *delayed* access to your files, such as Amazon Glacier Deep Archive.
 
-> PRO TIP: If you are not downloading or [testing](../consistency/) your snapshots regularly, you may save money by using Kopia with some sort of cold storage class.
+> PRO TIP: If you are not downloading or [testing](../consistency/) your snapshots regularly, you may save money by using Kopia with some sort of cold storage class; just make sure whatever storage class you use, that storage class provides instant access to your files and not delayed access.
 
 By default, Kopia stores all snapshots using whatever is the standard storage class for your cloud provider; often, that is hot storage. If you want to change storage classes, one way is to create 'lifecycle' rules from within your cloud provider account. This lifecycle rules feature allows you to automatically move snapshots to different storage classes directly from within your bucket. This approach is independent from Kopia; Kopia does not manage lifecycle rules for you, you have to do it from within your cloud provider account.
 
