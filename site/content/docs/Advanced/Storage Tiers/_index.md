@@ -12,11 +12,13 @@ Most of the [cloud storages supported by Kopia](../../repositories/) have a feat
 * 'cold' storage is less expensive to store, more expensive to access, and sometimes has less redundancy than hot storage; 
 * and 'archive' storage is the least expensive to store, the most expensive to access, often has less redundancy than both hot and cold storage, and most of the time provides access to your files with a delay of several hours (i.e., you cannot instantly download your files). 
 
-The most famous example of archive storage is Amazon Glacier (now called Amazon Glacier Deep Archive).
-
 Some storage classes also have a minimum data retention policy, meaning that they charge you the full price for their whole retention period (e.g. 90 days) even if you delete files before the retention period has ended. This retention policy is typically with cold and archive storage, but some hot storage also have such policies. For example, Wasabi has a 90-day retention policy (at the time of this writing).
 
-> PRO TIP: Kopia works without issue with all storage classes that provide instant access to your files. If you are not downloading or [testing](../consistency/) your snapshots regularly, you will likely save money by using Kopia with some sort of cold storage class. You can also use Kopia with archive storage classes, but [some Kopia features will not work](#using-archive-storage-with-delayed-access): Kopia is not designed for storage classes that do not provide instant access, and it is not recommended for most users because delayed access can cause complications. If you really want to use archive storage with Kopia, consider using Google Cloud Storage's Archive storage class -- it is more expensive than Amazon Glacier Deep Archive but still very cheap to store ($0.0012 per GB at the time of this writing) and provides instant access to your files; but remember that, like other archive storage, costs are high for accessing files in Google Cloud Storage's Archive storage class.
+The most famous example of archive storage is Amazon Glacier (now called Amazon Glacier Deep Archive).
+
+Kopia works without issue with all storage classes that provide **instant access** to your files, namely hot or cold storage. Kopia will **not** work with archive storage classes that provide *delayed* access to your files, such as Amazon Glacier Deep Archive. If 
+
+> PRO TIP: If you are not downloading or [testing](../consistency/) your snapshots regularly, you may save money by using Kopia with some sort of cold storage class.
 
 By default, Kopia stores all snapshots using whatever is the standard storage class for your cloud provider; often, that is hot storage. If you want to change storage classes, one way is to create 'lifecycle' rules from within your cloud provider account. This lifecycle rules feature allows you to automatically move snapshots to different storage classes directly from within your bucket. This approach is independent from Kopia; Kopia does not manage lifecycle rules for you, you have to do it from within your cloud provider account.
 
@@ -54,14 +56,6 @@ You may save money (depending on the cloud storage you use and their pricing) by
 
 #### Using Archive Storage With Delayed Access
 
-Archive storage classes have very low storage costs. For example, at the time of this writing, Amazon Glacier Deep Archive charges $0.00099 per GB to store data. However, there are three trade-offs that you must make with archive storage classes:
+Kopia does **not** currently support cloud storage that provides *delayed* access to your files -- namely, archive storage such as Amazon Glacier Deep Archive. Do not try it; things will break.
 
-* The cost to access data stored in an archive class is typically high. For example, Amazon Glacier Deep Archive charges $0.02 per GB (at the time of this writing) just for retrieval costs -- and this charge is ontop of their other charges such as egress.
-* Most archive storage classes have a data retention policy, where you must keep your data stored for a minimum amount of time. For example, Amazon Glacier Deep Archive has a 180-day retention policy (at the time of this writing).
-*  Archive storage classes typically provide access to your data with a delay that can last up to several hours, meaning you do not get instant access to your files. You usually have to request access to your files first (from within your cloud provider account), wait a few hours, and then you can access your files as normal. The only notable exception to this is Google Cloud Storage's Archive storage class, which provides instant access to your files.
-
-It is important to note that not having instant access to your files breaks some functionality in Kopia. Thus, it is not recommended to use any storage class that does not provide instant access to your files, unless you know exactly what you are doing and are willing to venture into the icy realm. If this applies to you, you should know the following:
-
-* The only blob type you could possibly put in a storage class that has delayed access are `p` blobs. If you put any other blob types in this storage class, Kopia will stop working because Kopia regularly accesses all other blob types (see above discussion). 
-* If you put `p` blobs in this storage class, you must first request access to your data from within your cloud provider account before you can use Kopia's `restore` features. Once the files are made accessible by your cloud provider, you can use Kopia to restore files like normal.
-* Because Kopia's [full maintenance](../maintenance/) will usually compact `p` blobs by reading and re-writing them, you will not be able to run full maintenance when you store `p` blobs on a storage class that has delayed access.
+If you really want to use archive storage with Kopia, consider using Google Cloud Storage's Archive storage class -- it is more expensive than Amazon Glacier Deep Archive but still very cheap to store ($0.0012 per GB at the time of this writing) and provides instant access to your files; but remember that, like other archive storage, costs are high for accessing files in Google Cloud Storage's Archive storage class.
