@@ -272,6 +272,10 @@ In order to run Kopia in a container, you must:
 * (optional) mount `/app/logs` directory in which Kopia will be writing logs
 * mount any data directory used for locally-attached repository
 * (optional, only when using `rclone` provider) mount `/app/rclone` directory in which RClone will look for `rclone.conf` file
+* mount `/tmp` directory in which Kopia will be mounting snapshots
+    * Ex: `-v /mnt/kopia:tmp:shared` (must have `:shared` property, so mounts can be browsable by host system)
+* (recommended) check tools/docker/docker-compose.yml for startup
+    * for nginx reverse proxy, use: `grpc_pass grpcs://container_ip:container_port` insted of `proxy_pass`
 
 Invocation of `kopia/kopia` in a container will be similar to the following example: 
 
