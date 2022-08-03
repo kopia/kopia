@@ -113,7 +113,7 @@
     "asar": "^3.1.0",
     "concurrently": "^7.3.0",
     "dotenv": "^16.0.1",
-    "electron": "^19.0.8",
+    "electron": "^20.0.0",
     "electron-builder": "^23.3.3",
     "electron-notarize": "^1.2.1"
   },
