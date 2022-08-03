@@ -43,6 +43,8 @@ Kopia data structures and algorithms are designed to maintain data consistency e
 
 Each type of data corruption is different, so there's not a single approach to data recovery. And, to be clear, there is no guarantee that you will be able to recover from corruption. Nonetheless, Kopia is designed to minimize corruption and give you the best shot at recovering your snapshots/repositories if there is corruption, so if you do run into a corruption issue, there are several things you can try:
 
+0. Keep a record of your corruption errors and everything you have attempted to try to fix them. We request that you please make a post on https://kopia.discourse.group or https://slack.kopia.io about the errors you faced and whatever you did to try to fix the errors, so that the developers can identify if the errors are caused by a bug in Kopia and fix the bug, if applicable.
+
 1. Disable any automatic snapshotting or maintenance or any other Kopia function. You don't want Kopia making changes to your repository while you are working on it.
 
 2. If possible, make a copy of your whole repository before you proceed further. This step is not necessary, but it is recommended because part of the corruption fixing process involves deleting blobs. Having a backup of your backups (yes, the irony is not lost on us) helps you easily revert any changes you make. 
