@@ -110,7 +110,7 @@
     "afterSign": "notarize.js"
   },
   "devDependencies": {
-    "asar": "^3.1.0",
+    "asar": "^3.2.0",
     "concurrently": "^7.3.0",
     "dotenv": "^16.0.1",
     "electron": "^19.0.8",
