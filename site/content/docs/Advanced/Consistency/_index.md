@@ -1,7 +1,7 @@
 ---
 title: "Verifying Validity of Snapshots/Repositories and Trying to Repair Any Corruption"
 linkTitle: "Testing Validity of Backups and Fixing Corruption"
-weight: 15
+weight: 5
 ---
 
 * [Verifying Validity of Snapshots/Repositories](#verifying-validity-of-snapshotsrepositories)
