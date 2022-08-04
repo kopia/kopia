@@ -28,3 +28,4 @@ node_modules/
 coverage.txt
 /vendor/
 .screenshots/
+.idea/
