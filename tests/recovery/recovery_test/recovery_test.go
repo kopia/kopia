@@ -50,14 +50,17 @@ func TestSnapshotFix(t *testing.T) {
 	kopiaExe := os.Getenv("KOPIA_EXE")
 	cmd := exec.Command(kopiaExe, "maintenance", "run", "--full", "--force", "--safety", "none")
 
-	time.AfterFunc(10*time.Millisecond, func() {
-		cmd.Process.Kill()
-	})
-
 	err = cmd.Start()
 	if err != nil {
 		t.FailNow()
 	}
+
+	// kill the kopia command before it exits
+	time.AfterFunc(10*time.Millisecond, func() {
+		if !cmd.ProcessState.Exited() {
+			cmd.Process.Kill()
+		}
+	})
 
 	// delete random blob
 	// assumption: the repo contains "p" blobs to delete, else the test will fail
@@ -127,14 +130,17 @@ func TestSnapshotFixInvalidFiles(t *testing.T) {
 	kopiaExe := os.Getenv("KOPIA_EXE")
 	cmd := exec.Command(kopiaExe, "maintenance", "run", "--full", "--force", "--safety", "none")
 
-	time.AfterFunc(10*time.Millisecond, func() {
-		cmd.Process.Kill()
-	})
-
 	err = cmd.Start()
 	if err != nil {
 		t.FailNow()
 	}
+
+	// kill the kopia command before it exits
+	time.AfterFunc(10*time.Millisecond, func() {
+		if !cmd.ProcessState.Success() {
+			cmd.Process.Kill()
+		}
+	})
 
 	// delete random blob
 	// assumption: the repo contains "p" blobs to delete, else the test will fail
