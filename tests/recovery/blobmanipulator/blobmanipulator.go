@@ -112,7 +112,7 @@ func (bm *BlobManipulator) getBlobIDRand() (string, error) {
 	var b []blob.Metadata
 
 	// assumption: the repo under test is in filesystem
-	err := bm.KopiaCommandRunner.ConnectRepo("filesystem", "--path="+bm.DataRepoPath)
+	err := bm.ConnectOrCreateRepo(bm.DataRepoPath)
 	if err != nil {
 		return "", err
 	}

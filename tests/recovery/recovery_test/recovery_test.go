@@ -10,7 +10,6 @@ import (
 	"os/exec"
 	"path"
 	"strings"
-	"syscall"
 	"testing"
 	"time"
 
@@ -24,7 +23,7 @@ func TestSnapshotFix(t *testing.T) {
 	// assumption: the test is run on filesystem & not directly on object store
 	dataRepoPath := path.Join(*repoPathPrefix, dataSubPath)
 
-	baseDir := makeDir("base-dir-")
+	baseDir := t.TempDir()
 	if baseDir == "" {
 		t.FailNow()
 	}
@@ -69,7 +68,7 @@ func TestSnapshotFix(t *testing.T) {
 	}
 
 	// Create a temporary dir to restore a snapshot
-	restoreDir := makeDir("restore-data-")
+	restoreDir := t.TempDir()
 	if restoreDir == "" {
 		t.FailNow()
 	}
@@ -97,9 +96,9 @@ func TestSnapshotFix(t *testing.T) {
 
 func TestSnapshotFixInvalidFiles(t *testing.T) {
 	// assumption: the test is run on filesystem & not directly on object store
-	dataRepoPath := path.Join(*repoPathPrefix, dataSubPath)
+	dataRepoPath := path.Join(*repoPathPrefix, dataSubPath, "-fix-invalid")
 
-	baseDir := makeDir("base-dir-")
+	baseDir := t.TempDir()
 	if baseDir == "" {
 		t.FailNow()
 	}
@@ -129,7 +128,7 @@ func TestSnapshotFixInvalidFiles(t *testing.T) {
 	cmd := exec.Command(kopiaExe, "maintenance", "run", "--full", "--force", "--safety", "none")
 
 	time.AfterFunc(10*time.Millisecond, func() {
-		syscall.Kill(cmd.Process.Pid, syscall.SIGKILL)
+		cmd.Process.Kill()
 	})
 
 	err = cmd.Start()
@@ -146,7 +145,7 @@ func TestSnapshotFixInvalidFiles(t *testing.T) {
 	}
 
 	// Create a temporary dir to restore a snapshot
-	restoreDir := makeDir("restore-data-")
+	restoreDir := t.TempDir()
 	if restoreDir == "" {
 		t.FailNow()
 	}
@@ -165,16 +164,6 @@ func TestSnapshotFixInvalidFiles(t *testing.T) {
 	// restore a random snapshot
 	_, err = bm.RestoreGivenOrRandomSnapshot("", restoreDir)
 	require.NoError(t, err)
-}
-
-func makeDir(dirName string) string {
-	baseDir, err := os.MkdirTemp("", dirName)
-	if err != nil {
-		log.Println("Error creating temp dir:", err)
-		return ""
-	}
-
-	return baseDir
 }
 
 func getBlobIDToBeDeleted(stdout string) string {
