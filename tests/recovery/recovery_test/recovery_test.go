@@ -57,7 +57,7 @@ func TestSnapshotFix(t *testing.T) {
 
 	// kill the kopia command before it exits
 	time.AfterFunc(10*time.Millisecond, func() {
-		if !cmd.ProcessState.Exited() {
+		if cmd.Process != nil {
 			cmd.Process.Kill()
 		}
 	})
@@ -137,7 +137,7 @@ func TestSnapshotFixInvalidFiles(t *testing.T) {
 
 	// kill the kopia command before it exits
 	time.AfterFunc(10*time.Millisecond, func() {
-		if !cmd.ProcessState.Success() {
+		if cmd.Process != nil {
 			cmd.Process.Kill()
 		}
 	})

@@ -257,7 +257,12 @@ func (bm *BlobManipulator) SetUpSystemUnderTest() error {
 	// create snapshot of the data
 	log.Printf("Creating snapshot of directory %s", bm.PathToTakeSnapshot)
 
-	_, _, err = bm.TakeSnapshot(bm.PathToTakeSnapshot)
+	snapshotID, _, err := bm.TakeSnapshot(bm.PathToTakeSnapshot)
+	if err != nil {
+		return err
+	}
+
+	_, err = bm.DeleteSnapshot(snapshotID)
 	if err != nil {
 		return err
 	}
