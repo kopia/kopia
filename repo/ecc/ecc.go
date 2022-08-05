@@ -64,22 +64,22 @@ func (e encryptorWrapper) Encrypt(plainText gather.Bytes, contentID []byte, outp
 	var tmp gather.WriteBuffer
 	defer tmp.Close()
 
-	if err := e.impl.Encrypt(plainText, contentID, &tmp); err != nil {
+	if err := e.next.Encrypt(plainText, contentID, &tmp); err != nil {
 		return err
 	}
 
-	return e.next.Encrypt(tmp.Bytes(), contentID, output)
+	return e.impl.Encrypt(tmp.Bytes(), contentID, output)
 }
 
 func (e encryptorWrapper) Decrypt(cipherText gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {
 	var tmp gather.WriteBuffer
 	defer tmp.Close()
 
-	if err := e.next.Decrypt(cipherText, contentID, &tmp); err != nil {
+	if err := e.impl.Decrypt(cipherText, contentID, &tmp); err != nil {
 		return err
 	}
 
-	return e.impl.Decrypt(tmp.Bytes(), contentID, output)
+	return e.next.Decrypt(tmp.Bytes(), contentID, output)
 }
 
 func (e encryptorWrapper) Overhead() int {
