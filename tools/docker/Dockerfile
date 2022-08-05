@@ -12,18 +12,18 @@ ENV 		DEBIAN_FRONTEND="noninteractive" \
 		    KOPIA_PERSIST_CREDENTIALS_ON_CONNECT=false \
 		    KOPIA_CHECK_FOR_UPDATES=false
 
-WORKDIR /app
-
-COPY 		bin-${TARGETARCH}/kopia .
-COPY 		bin-${TARGETARCH}/rclone /bin/rclone
-  
 RUN 		apt-get update && \
 		    apt-get upgrade -y --with-new-pkgs && \
-		    apt-get install -y --no-install-recommends fuse3 && \
+		    apt-get install -y --no-install-recommends fuse3 ca-certificates && \
 		    apt-get clean autoclean -y && \
     		apt-get autoremove -y && \
     		rm -rf /var/lib/apt/* /var/lib/cache/* /var/lib/log/* \
 		    /var/tmp/* /usr/share/doc/ /usr/share/man/ /usr/share/locale/ \
 		    /root/.cache /root/.local /root/.gnupg /root/.config /tmp/*
 	
+WORKDIR /app
+
+COPY 		bin-${TARGETARCH}/kopia .
+COPY 		bin-${TARGETARCH}/rclone /bin/rclone
+  
 ENTRYPOINT 	["/app/kopia"]
