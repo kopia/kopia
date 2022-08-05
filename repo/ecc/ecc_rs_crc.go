@@ -10,30 +10,30 @@ import (
 )
 
 const (
-	RsCrc321pEccName  = "RS-CRC32-1%"
-	RsCrc322pEccName  = "RS-CRC32-2%"
-	RsCrc325pEccName  = "RS-CRC32-5%"
-	RsCrc3210pEccName = "RS-CRC32-10%"
+	ReedSolomonCrc321pEccName  = "REED-SOLOMON-CRC32-1%"
+	ReedSolomonCrc322pEccName  = "REED-SOLOMON-CRC32-2%"
+	ReedSolomonCrc325pEccName  = "REED-SOLOMON-CRC32-5%"
+	ReedSolomonCrc3210pEccName = "REED-SOLOMON-CRC32-10%"
 )
 
-// RsCrcEcc implements Reed-Solomon error codes with CRC32 error detection
-type RsCrcEcc struct {
+// ReedSolomonCrcECC implements Reed-Solomon error codes with CRC32 error detection
+type ReedSolomonCrcECC struct {
 	Options
 	DataShards   int
 	ParityShards int
 	ShardSize    int
-	Enc          reedsolomon.Encoder
+	enc          reedsolomon.Encoder
 }
 
-func NewRsCrcEcc(opts *Options, spaceUsedPercentage float32, shardSize int) (*RsCrcEcc, error) {
-	result := new(RsCrcEcc)
+func NewReedSolomonCrcECC(opts *Options, spaceUsedPercentage float32, shardSize int) (*ReedSolomonCrcECC, error) {
+	result := new(ReedSolomonCrcECC)
 
 	result.Options = *opts
 	result.DataShards, result.ParityShards = ComputeShards(spaceUsedPercentage)
 	result.ShardSize = shardSize
 
 	var err error
-	result.Enc, err = reedsolomon.New(result.DataShards, result.ParityShards,
+	result.enc, err = reedsolomon.New(result.DataShards, result.ParityShards,
 		reedsolomon.WithMaxGoroutines(1))
 	if err != nil {
 		return nil, errors.Wrap(err, "Error creating reedsolomon encoder")
@@ -42,7 +42,7 @@ func NewRsCrcEcc(opts *Options, spaceUsedPercentage float32, shardSize int) (*Rs
 	return result, nil
 }
 
-func (r *RsCrcEcc) ComputeSizesFromOriginal(length int) (blocks, crcSize, shardSize, originalSize int) {
+func (r *ReedSolomonCrcECC) ComputeSizesFromOriginal(length int) (blocks, crcSize, shardSize, originalSize int) {
 	crcSize = 4
 	shardSize = r.ShardSize
 	blocks = CeilInt(length, r.DataShards*shardSize)
@@ -50,7 +50,7 @@ func (r *RsCrcEcc) ComputeSizesFromOriginal(length int) (blocks, crcSize, shardS
 	return
 }
 
-func (r *RsCrcEcc) ComputeSizesFromStored(length int) (blocks, crcSize, shardSize, originalSize int) {
+func (r *ReedSolomonCrcECC) ComputeSizesFromStored(length int) (blocks, crcSize, shardSize, originalSize int) {
 	crcSize = 4
 	shardSize = r.ShardSize
 	blocks = CeilInt(length, (r.DataShards+r.ParityShards)*(crcSize+shardSize))
@@ -59,7 +59,14 @@ func (r *RsCrcEcc) ComputeSizesFromStored(length int) (blocks, crcSize, shardSiz
 	return
 }
 
-func (r *RsCrcEcc) Encrypt(input gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {
+// Encrypt creates ECC for the bytes in input.
+// The bytes in output are stored in with the layout:
+//     ([CRC32][Parity shard])+ ([CRC32][Data shard])+
+// All shards must be of the same size, so it may be needed to pad the input data.
+// The parity data comes first so we can avoid storing the padding needed for the
+// data shards, and instead compute the padded size based on the input length.
+// All parity shards are always stored.
+func (r *ReedSolomonCrcECC) Encrypt(input gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {
 	blocks, crcSize, shardSize, originalSize := r.ComputeSizesFromOriginal(input.Length())
 	dataSizeInBlock := r.DataShards * shardSize
 	paritySizeInBlock := r.ParityShards * shardSize
@@ -67,20 +74,25 @@ func (r *RsCrcEcc) Encrypt(input gather.Bytes, contentID []byte, output *gather.
 	var inputBuffer gather.WriteBuffer
 	defer inputBuffer.Close()
 
+	// Allocate space for the input + padding
 	inputBytes := inputBuffer.MakeContiguous(dataSizeInBlock * blocks)
 
 	copied := input.AppendToSlice(inputBytes[:0])
 
+	// WriteBuffer does not clear the data, so we must clear the padding
 	if len(copied) < len(inputBytes) {
 		clear(inputBytes[len(copied):])
 	}
+
+	// Compute and store ECC + checksum
 
 	var eccBuffer gather.WriteBuffer
 	defer eccBuffer.Close()
 
 	eccBytes := eccBuffer.MakeContiguous(crcSize + paritySizeInBlock)
 
-	shards := make([][]byte, r.DataShards+r.ParityShards)
+	var maxShards [256][]byte
+	shards := maxShards[:r.DataShards+r.ParityShards]
 
 	inputPos := 0
 
@@ -96,7 +108,7 @@ func (r *RsCrcEcc) Encrypt(input gather.Bytes, contentID []byte, output *gather.
 			eccPos += shardSize
 		}
 
-		err := r.Enc.Encode(shards)
+		err := r.enc.Encode(shards)
 		if err != nil {
 			return errors.Wrap(err, "Error computing ECC")
 		}
@@ -109,6 +121,8 @@ func (r *RsCrcEcc) Encrypt(input gather.Bytes, contentID []byte, output *gather.
 			output.Append(shards[s])
 		}
 	}
+
+	// Now store the original data + checksum
 
 	inputPos = 0
 
@@ -125,26 +139,31 @@ func (r *RsCrcEcc) Encrypt(input gather.Bytes, contentID []byte, output *gather.
 	return nil
 }
 
-func (r *RsCrcEcc) Decrypt(input gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {
+// Decrypt corrects the data from input based on the ECC data.
+// See Encrypt comments for a description of the layout.
+func (r *ReedSolomonCrcECC) Decrypt(input gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {
 	blocks, crcSize, shardSize, originalSize := r.ComputeSizesFromStored(input.Length())
-	dataSizeInBlock := r.DataShards * (crcSize + shardSize)
-	paritySizeInBlock := r.ParityShards * (crcSize + shardSize)
+	dataPlusCrcSizeInBlock := r.DataShards * (crcSize + shardSize)
+	parityPlusCrcSizeInBlock := r.ParityShards * (crcSize + shardSize)
 
 	var inputBuffer gather.WriteBuffer
 	defer inputBuffer.Close()
 
-	inputBytes := inputBuffer.MakeContiguous((dataSizeInBlock + paritySizeInBlock) * blocks)
+	// Allocate space for the input + padding
+	inputBytes := inputBuffer.MakeContiguous((dataPlusCrcSizeInBlock + parityPlusCrcSizeInBlock) * blocks)
 
 	copied := input.AppendToSlice(inputBytes[:0])
 
+	// WriteBuffer does not clear the data, so we must clear the padding
 	if len(copied) < len(inputBytes) {
 		clear(inputBytes[len(copied):])
 	}
 
-	eccBytes := inputBytes[:paritySizeInBlock*blocks]
-	dataBytes := inputBytes[paritySizeInBlock*blocks:]
+	eccBytes := inputBytes[:parityPlusCrcSizeInBlock*blocks]
+	dataBytes := inputBytes[parityPlusCrcSizeInBlock*blocks:]
 
-	shards := make([][]byte, r.DataShards+r.ParityShards)
+	var maxShards [256][]byte
+	shards := maxShards[:r.DataShards+r.ParityShards]
 
 	dataPos := 0
 	originalPos := 0
@@ -161,6 +180,7 @@ func (r *RsCrcEcc) Decrypt(input gather.Bytes, contentID []byte, output *gather.
 			dataPos += shardSize
 
 			if originalPos < originalSize && crc != crc32.ChecksumIEEE(shards[i]) {
+				// The data was corrupted, so we need to reconstruct it
 				shards[i] = nil
 			}
 			originalPos += shardSize
@@ -175,11 +195,12 @@ func (r *RsCrcEcc) Decrypt(input gather.Bytes, contentID []byte, output *gather.
 			eccPos += shardSize
 
 			if crc != crc32.ChecksumIEEE(shards[s]) {
+				// The data was corrupted, so we need to reconstruct it
 				shards[s] = nil
 			}
 		}
 
-		err := r.Enc.ReconstructData(shards)
+		err := r.enc.ReconstructData(shards)
 		if err != nil {
 			return errors.Wrap(err, "Error computing ECC")
 		}
@@ -195,21 +216,21 @@ func (r *RsCrcEcc) Decrypt(input gather.Bytes, contentID []byte, output *gather.
 	return nil
 }
 
-func (r *RsCrcEcc) Overhead() int {
+func (r *ReedSolomonCrcECC) Overhead() int {
 	return 0
 }
 
 func init() {
-	RegisterAlgorithm(RsCrc321pEccName, func(opts *Options) (encryption.Encryptor, error) {
-		return NewRsCrcEcc(opts, 1, 1024)
+	RegisterAlgorithm(ReedSolomonCrc321pEccName, func(opts *Options) (encryption.Encryptor, error) {
+		return NewReedSolomonCrcECC(opts, 1, 1024)
 	})
-	RegisterAlgorithm(RsCrc322pEccName, func(opts *Options) (encryption.Encryptor, error) {
-		return NewRsCrcEcc(opts, 2, 1024)
+	RegisterAlgorithm(ReedSolomonCrc322pEccName, func(opts *Options) (encryption.Encryptor, error) {
+		return NewReedSolomonCrcECC(opts, 2, 1024)
 	})
-	RegisterAlgorithm(RsCrc325pEccName, func(opts *Options) (encryption.Encryptor, error) {
-		return NewRsCrcEcc(opts, 5, 512)
+	RegisterAlgorithm(ReedSolomonCrc325pEccName, func(opts *Options) (encryption.Encryptor, error) {
+		return NewReedSolomonCrcECC(opts, 5, 512)
 	})
-	RegisterAlgorithm(RsCrc3210pEccName, func(opts *Options) (encryption.Encryptor, error) {
-		return NewRsCrcEcc(opts, 10, 256)
+	RegisterAlgorithm(ReedSolomonCrc3210pEccName, func(opts *Options) (encryption.Encryptor, error) {
+		return NewReedSolomonCrcECC(opts, 10, 256)
 	})
 }

@@ -8,7 +8,7 @@ import (
 
 /*
 func Test_RsCrc32_ShardSizes(t *testing.T) {
-	impl, err := ecc.NewRsCrcEcc(&ecc.Options{
+	impl, err := ecc.NewReedSolomonCrcECC(&ecc.Options{
 		SpaceUsedPercentage: 2,
 	})
 	require.NoError(t, err)
@@ -38,7 +38,7 @@ func Test_RsCrc32_2p_1b(t *testing.T) {
 	t.Parallel()
 
 	opts := &ecc.Options{
-		Algorithm: ecc.RsCrc322pEccName,
+		Algorithm: ecc.ReedSolomonCrc322pEccName,
 	}
 
 	originalSize := 1
@@ -54,7 +54,7 @@ func Test_RsCrc32_2p_10kb(t *testing.T) {
 	t.Parallel()
 
 	opts := &ecc.Options{
-		Algorithm: ecc.RsCrc322pEccName,
+		Algorithm: ecc.ReedSolomonCrc322pEccName,
 	}
 
 	originalSize := 10 * 1024
@@ -72,7 +72,7 @@ func Test_RsCrc32_10p_1mb(t *testing.T) {
 	t.Parallel()
 
 	opts := &ecc.Options{
-		Algorithm: ecc.RsCrc3210pEccName,
+		Algorithm: ecc.ReedSolomonCrc3210pEccName,
 	}
 
 	originalSize := 1024 * 1024
@@ -94,8 +94,8 @@ func testRsCrc32NoChange(t *testing.T, opts *ecc.Options, originalSize, expected
 func testRsCrc32ChangeInData(t *testing.T, opts *ecc.Options, originalSize, changedBytes, expectedEccSize int, expectedSuccess bool) {
 	testPutAndGet(t, opts, originalSize, expectedEccSize, expectedSuccess,
 		func(impl encryption.Encryptor, data []byte) {
-			blocks, crcSize, shardSize, _ := impl.(*ecc.RsCrcEcc).ComputeSizesFromOriginal(originalSize)
-			parity := impl.(*ecc.RsCrcEcc).ParityShards * (crcSize + shardSize) * blocks
+			blocks, crcSize, shardSize, _ := impl.(*ecc.ReedSolomonCrcECC).ComputeSizesFromOriginal(originalSize)
+			parity := impl.(*ecc.ReedSolomonCrcECC).ParityShards * (crcSize + shardSize) * blocks
 
 			for i := 0; i < changedBytes; i++ {
 				flipByte(data, parity+i*(crcSize+shardSize)+crcSize)
@@ -106,8 +106,8 @@ func testRsCrc32ChangeInData(t *testing.T, opts *ecc.Options, originalSize, chan
 func testRsCrc32ChangeInDataCrc(t *testing.T, opts *ecc.Options, originalSize, changedBytes, expectedEccSize int, expectedSuccess bool) {
 	testPutAndGet(t, opts, originalSize, expectedEccSize, expectedSuccess,
 		func(impl encryption.Encryptor, data []byte) {
-			blocks, crcSize, shardSize, _ := impl.(*ecc.RsCrcEcc).ComputeSizesFromOriginal(originalSize)
-			parity := impl.(*ecc.RsCrcEcc).ParityShards * (crcSize + shardSize) * blocks
+			blocks, crcSize, shardSize, _ := impl.(*ecc.ReedSolomonCrcECC).ComputeSizesFromOriginal(originalSize)
+			parity := impl.(*ecc.ReedSolomonCrcECC).ParityShards * (crcSize + shardSize) * blocks
 
 			for i := 0; i < changedBytes; i++ {
 				flipByte(data, parity+i*(crcSize+shardSize))
@@ -118,7 +118,7 @@ func testRsCrc32ChangeInDataCrc(t *testing.T, opts *ecc.Options, originalSize, c
 func testRsCrc32ChangeInParity(t *testing.T, opts *ecc.Options, originalSize, changedBytes, expectedEccSize int, expectedSuccess bool) {
 	testPutAndGet(t, opts, originalSize, expectedEccSize, expectedSuccess,
 		func(impl encryption.Encryptor, data []byte) {
-			_, crcSize, shardSize, _ := impl.(*ecc.RsCrcEcc).ComputeSizesFromOriginal(originalSize)
+			_, crcSize, shardSize, _ := impl.(*ecc.ReedSolomonCrcECC).ComputeSizesFromOriginal(originalSize)
 
 			for i := 0; i < changedBytes; i++ {
 				flipByte(data, i*(crcSize+shardSize)+crcSize)
@@ -129,7 +129,7 @@ func testRsCrc32ChangeInParity(t *testing.T, opts *ecc.Options, originalSize, ch
 func testRsCrc32ChangeInParityCrc(t *testing.T, opts *ecc.Options, originalSize, changedBytes, expectedEccSize int, expectedSuccess bool) {
 	testPutAndGet(t, opts, originalSize, expectedEccSize, expectedSuccess,
 		func(impl encryption.Encryptor, data []byte) {
-			_, crcSize, shardSize, _ := impl.(*ecc.RsCrcEcc).ComputeSizesFromOriginal(originalSize)
+			_, crcSize, shardSize, _ := impl.(*ecc.ReedSolomonCrcECC).ComputeSizesFromOriginal(originalSize)
 
 			for i := 0; i < changedBytes; i++ {
 				flipByte(data, i*(crcSize+shardSize))

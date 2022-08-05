@@ -6,4 +6,4 @@ type Options struct {
 	Algorithm string `json:"algorithm,omitempty"`
 }
 
-var DefaultAlgorithm = RsCrc322pEccName
+var DefaultAlgorithm = ReedSolomonCrc322pEccName
