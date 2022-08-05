@@ -47,7 +47,7 @@ Each type of data corruption is different, so there's not a single approach to d
 
 1. Disable any automatic snapshotting or maintenance or any other Kopia function. You don't want Kopia making changes to your repository while you are working on it.
 
-2. If possible, make a copy of your whole repository before you proceed further. This step is not necessary, but it is recommended because part of the corruption fixing process involves deleting blobs. Having a backup of your backups (yes, the irony is not lost on us) helps you easily revert any changes you make. 
+2. If possible, make a copy of your whole repository before you proceed further. This step is optional, but it is recommended because part of the corruption fixing process involves deleting blobs. Having a backup of your backups (yes, the irony is not lost on us) helps you easily revert any changes you make. 
 
 3. Look for repository files with zero size and remove them. Kopia will never write such files and if they are present, it indicates data corruption. Simply removing them may work.
 
@@ -63,7 +63,7 @@ Each type of data corruption is different, so there's not a single approach to d
 
     * If the name(s) start with `q`, then the corruption is likely with metadata. Run `kopia snapshot fix invalid-files --parallel=10 --commit` and see if that fixes your issue.
 
-    * If the name(s) start with `p`, then the corruption may be in your indexes, metadata, or in the actual blob that stores your backed up files. First, try `kopia index recover --parallel=10 --commit`. Next, try `kopia index recover --parallel=10 --commit --delete-indexes`. If you are still having issues, try `kopia snapshot fix invalid-files --parallel=10 --commit`. Finally, try `kopia snapshot fix invalid-files --parallel=10 --commit --verify-files-percent=100` but note that this will download all your files, so it will take a while.
+    * If the name(s) start with `p`, then the corruption may be in your indexes, metadata, or in the actual blob that stores your backed up files. First, try `kopia index recover --parallel=10 --commit`. If your issue has not been solved, try `kopia index recover --parallel=10 --commit --delete-indexes`. If you are still having issues, try `kopia snapshot fix invalid-files --parallel=10 --commit`. Finally, if the corrupt is still not fixed, try `kopia snapshot fix invalid-files --parallel=10 --commit --verify-files-percent=100` but note that this will download all your files, so it will take a while.
   
 8. If all recovery attempts fail and you still have access to your original files, you can wipe the whole repository and start over with a clean snapshot. (Note that simply deleting snapshots from within Kopia does not wipe a repository. You need to manually delete all the files from the repository.) This allows Kopia to recreate clean backups without corruption, but keep in mind that if the corruption was caused by some hardware or software issue at your storage location, corruption may happen again.
   
