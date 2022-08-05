@@ -57,9 +57,7 @@ func TestSnapshotFix(t *testing.T) {
 
 	// kill the kopia command before it exits
 	time.AfterFunc(10*time.Millisecond, func() {
-		if cmd.Process != nil {
-			cmd.Process.Kill()
-		}
+		cmd.Process.Kill()
 	})
 
 	// delete random blob
@@ -137,9 +135,7 @@ func TestSnapshotFixInvalidFiles(t *testing.T) {
 
 	// kill the kopia command before it exits
 	time.AfterFunc(10*time.Millisecond, func() {
-		if cmd.Process != nil {
-			cmd.Process.Kill()
-		}
+		cmd.Process.Kill()
 	})
 
 	// delete random blob
