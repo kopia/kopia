@@ -381,7 +381,13 @@ func (c *App) currentActionName() string {
 func (c *App) noRepositoryAction(act func(ctx context.Context) error) func(ctx *kingpin.ParseContext) error {
 	return func(kpc *kingpin.ParseContext) error {
 		return c.runAppWithContext(kpc.SelectedCommand, func(ctx context.Context) error {
-			return act(ctx)
+			return c.pf.withProfiling(func() error {
+				if c.dumpAllocatorStats {
+					defer gather.DumpStats(ctx)
+				}
+
+				return act(ctx)
+			})
 		})
 	}
 }
