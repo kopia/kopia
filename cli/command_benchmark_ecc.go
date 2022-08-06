@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"fmt"
 	"github.com/kopia/kopia/repo/ecc"
 	"math"
 	"sort"
@@ -41,12 +42,12 @@ func (c *commandBenchmarkEcc) run(ctx context.Context) error {
 			min(results[j].throughputEncoding, results[j].throughputDecoding)
 	})
 
-	c.out.printStdout("     %-20v %14v %14v   %10v\n", "ECC", "Throughput", "Throughput", "Growth")
-	c.out.printStdout("     %-20v %14v %14v   %6v\n", "", "Encoding", "Decoding", "")
-	c.out.printStdout("-----------------------------------------------------------------------------\n")
+	c.out.printStdout("     %-30v %14v %14v   %10v\n", "ECC", "Throughput", "Throughput", "Growth")
+	c.out.printStdout("     %-30v %14v %14v   %6v\n", "", "Encoding", "Decoding", "")
+	c.out.printStdout("---------------------------------------------------------------------------------------\n")
 
 	for ndx, r := range results {
-		c.out.printStdout("%3d. %-20v %12v/s %12v/s   %6v%% [%v]", ndx, r.ecc,
+		c.out.printStdout("%3d. %-30v %12v/s %12v/s   %6v%% [%v]", ndx, r.ecc,
 			units.BytesStringBase2(int64(r.throughputEncoding)),
 			units.BytesStringBase2(int64(r.throughputDecoding)),
 			int(math.Round(r.growth*100)),
@@ -60,7 +61,7 @@ func (c *commandBenchmarkEcc) run(ctx context.Context) error {
 		c.out.printStdout("\n")
 	}
 
-	c.out.printStdout("-----------------------------------------------------------------------------\n")
+	c.out.printStdout("---------------------------------------------------------------------------------------\n")
 	c.out.printStdout("Fastest option for this machine is: --ecc=%s\n", results[0].ecc)
 
 	return nil
@@ -78,70 +79,74 @@ func (c *commandBenchmarkEcc) runBenchmark(ctx context.Context) []eccBenchResult
 	defer encodedBuffer.Close()
 
 	for _, name := range ecc.SupportedAlgorithms() {
-		impl, err := ecc.CreateAlgorithm(&ecc.Options{
-			Algorithm: name,
-		})
-		if err != nil {
-			continue
-		}
-
-		log(ctx).Infof("Benchmarking ECC encoding '%v'... (%v x %v bytes, parallelism %v)", name, c.repeat, len(data), c.parallel)
-
-		input := gather.FromSlice(data)
-		tt := timetrack.Start()
-
-		repeat := c.repeat
-
-		runInParallel(c.parallel, func() interface{} {
-			var tmp gather.WriteBuffer
-			defer tmp.Close()
-
-			for i := 0; i < repeat; i++ {
-				if encerr := impl.Encrypt(input, nil, &tmp); encerr != nil {
-					log(ctx).Errorf("encoding failed: %v", encerr)
-					break
-				}
+		for _, spaceOverhead := range []uint8{1, 2, 5, 10, 20} {
+			impl, err := ecc.CreateAlgorithm(&ecc.Options{
+				Algorithm:                ecc.AlgorithmReedSolomonWithCrc32,
+				SpaceOverhead:            spaceOverhead,
+				DeleteFirstShardForTests: true,
+			})
+			if err != nil {
+				continue
 			}
 
-			return nil
-		})
+			log(ctx).Infof("Benchmarking ECC encoding '%v' with %v space overhead... (%v x %v bytes, parallelism %v)", name, spaceOverhead, c.repeat, len(data), c.parallel)
 
-		_, bytesPerSecondEncoding := tt.Completed(float64(c.parallel) * float64(len(data)) * float64(repeat))
+			input := gather.FromSlice(data)
+			tt := timetrack.Start()
 
-		log(ctx).Infof("Benchmarking ECC decoding '%v'... (%v x %v bytes, parallelism %v)", name, c.repeat, len(data), c.parallel)
+			repeat := c.repeat
 
-		encodedBuffer.Reset()
-		if err = impl.Encrypt(gather.FromSlice(data), nil, &encodedBuffer); err != nil {
-			log(ctx).Errorf("encoding failed: %v", err)
-			break
-		}
+			runInParallel(c.parallel, func() interface{} {
+				var tmp gather.WriteBuffer
+				defer tmp.Close()
 
-		input = encodedBuffer.Bytes()
-		tt = timetrack.Start()
-
-		runInParallel(c.parallel, func() interface{} {
-			var tmp gather.WriteBuffer
-			defer tmp.Close()
-
-			for i := 0; i < repeat; i++ {
-				if decerr := impl.Decrypt(input, nil, &tmp); decerr != nil {
-					log(ctx).Errorf("decoding failed: %v", decerr)
-					break
+				for i := 0; i < repeat; i++ {
+					if encerr := impl.Encrypt(input, nil, &tmp); encerr != nil {
+						log(ctx).Errorf("encoding failed: %v", encerr)
+						break
+					}
 				}
+
+				return nil
+			})
+
+			_, bytesPerSecondEncoding := tt.Completed(float64(c.parallel) * float64(len(data)) * float64(repeat))
+
+			log(ctx).Infof("Benchmarking ECC decoding '%v' with %v space overhead... (%v x %v bytes, parallelism %v)", name, spaceOverhead, c.repeat, len(data), c.parallel)
+
+			encodedBuffer.Reset()
+			if err = impl.Encrypt(gather.FromSlice(data), nil, &encodedBuffer); err != nil {
+				log(ctx).Errorf("encoding failed: %v", err)
+				break
 			}
 
-			return nil
-		})
+			input = encodedBuffer.Bytes()
+			tt = timetrack.Start()
 
-		_, bytesPerSecondDecoding := tt.Completed(float64(c.parallel) * float64(len(data)) * float64(repeat))
+			runInParallel(c.parallel, func() interface{} {
+				var tmp gather.WriteBuffer
+				defer tmp.Close()
 
-		results = append(results, eccBenchResult{
-			ecc:                name,
-			throughputEncoding: bytesPerSecondEncoding,
-			throughputDecoding: bytesPerSecondDecoding,
-			size:               input.Length(),
-			growth:             float64(input.Length())/float64(c.blockSize) - 1,
-		})
+				for i := 0; i < repeat; i++ {
+					if decerr := impl.Decrypt(input, nil, &tmp); decerr != nil {
+						log(ctx).Errorf("decoding failed: %v", decerr)
+						break
+					}
+				}
+
+				return nil
+			})
+
+			_, bytesPerSecondDecoding := tt.Completed(float64(c.parallel) * float64(len(data)) * float64(repeat))
+
+			results = append(results, eccBenchResult{
+				ecc:                fmt.Sprintf("%v - %v%%", name, spaceOverhead),
+				throughputEncoding: bytesPerSecondEncoding,
+				throughputDecoding: bytesPerSecondDecoding,
+				size:               input.Length(),
+				growth:             float64(input.Length())/float64(c.blockSize) - 1,
+			})
+		}
 	}
 
 	return results

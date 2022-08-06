@@ -2,13 +2,13 @@ package ecc
 
 import "math"
 
-func ComputeShards(spaceUsedPercentage float32) (required, redundant int) {
+func ComputeShards(spaceOverhead float32) (required, redundant int) {
 	required = 128
-	redundant = between(applyPercent(required, spaceUsedPercentage/100), 1, 128)
+	redundant = between(applyPercent(required, spaceOverhead/100), 1, 128)
 
 	if redundant == 1 {
 		redundant = 2
-		required = between(applyPercent(redundant, 100/spaceUsedPercentage), 128, 254)
+		required = between(applyPercent(redundant, 100/spaceOverhead), 128, 254)
 	}
 
 	// Berlekamp-Welch error correction works better with an even number
@@ -40,8 +40,24 @@ func clear(bytes []byte) {
 	}
 }
 
-func min(a int, b int) int {
+func minInt(a int, b int) int {
 	if a <= b {
+		return a
+	} else {
+		return b
+	}
+}
+
+func maxInt(a int, b int) int {
+	if a >= b {
+		return a
+	} else {
+		return b
+	}
+}
+
+func maxFloat32(a float32, b float32) float32 {
+	if a >= b {
 		return a
 	} else {
 		return b
