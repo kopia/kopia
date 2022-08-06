@@ -34,11 +34,16 @@ func handleRepoParameters(ctx context.Context, rc requestContext) (interface{}, 
 		}, nil
 	}
 
+	scc, err := dr.ContentReader().SupportsContentCompression()
+	if err != nil {
+		return nil, internalServerError(err)
+	}
+
 	rp := &remoterepoapi.Parameters{
 		HashFunction:               dr.ContentReader().ContentFormat().GetHashFunction(),
 		HMACSecret:                 dr.ContentReader().ContentFormat().GetHmacSecret(),
 		ObjectFormat:               dr.ObjectFormat(),
-		SupportsContentCompression: dr.ContentReader().SupportsContentCompression(),
+		SupportsContentCompression: scc,
 	}
 
 	return rp, nil
@@ -54,16 +59,26 @@ func handleRepoStatus(ctx context.Context, rc requestContext) (interface{}, *api
 
 	dr, ok := rc.rep.(repo.DirectRepository)
 	if ok {
+		mp, mperr := dr.ContentReader().ContentFormat().GetMutableParameters()
+		if mperr != nil {
+			return nil, internalServerError(mperr)
+		}
+
+		scc, err := dr.ContentReader().SupportsContentCompression()
+		if err != nil {
+			return nil, internalServerError(err)
+		}
+
 		return &serverapi.StatusResponse{
 			Connected:                  true,
 			ConfigFile:                 dr.ConfigFilename(),
 			Hash:                       dr.ContentReader().ContentFormat().GetHashFunction(),
 			Encryption:                 dr.ContentReader().ContentFormat().GetEncryptionAlgorithm(),
-			MaxPackSize:                dr.ContentReader().ContentFormat().MaxPackBlobSize(),
+			MaxPackSize:                mp.MaxPackSize,
 			Splitter:                   dr.ObjectFormat().Splitter,
 			Storage:                    dr.BlobReader().ConnectionInfo().Type,
 			ClientOptions:              dr.ClientOptions(),
-			SupportsContentCompression: dr.ContentReader().SupportsContentCompression(),
+			SupportsContentCompression: scc,
 		}, nil
 	}
 

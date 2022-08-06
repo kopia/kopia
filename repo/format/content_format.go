@@ -42,8 +42,8 @@ func (f *ContentFormat) ResolveFormatVersion() error {
 }
 
 // GetMutableParameters implements FormattingOptionsProvider.
-func (f *ContentFormat) GetMutableParameters() MutableParameters {
-	return f.MutableParameters
+func (f *ContentFormat) GetMutableParameters() (MutableParameters, error) {
+	return f.MutableParameters, nil
 }
 
 // SupportsPasswordChange implements FormattingOptionsProvider.

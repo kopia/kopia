@@ -455,6 +455,11 @@ func (s *Server) handleInitialSessionHandshake(srv grpcapi.KopiaRepository_Sessi
 		return repo.WriteSessionOptions{}, errors.Errorf("missing initialization request")
 	}
 
+	scc, err := dr.ContentReader().SupportsContentCompression()
+	if err != nil {
+		return repo.WriteSessionOptions{}, errors.Wrap(err, "supports content compression")
+	}
+
 	if err := s.send(srv, initializeReq.GetRequestId(), &grpcapi.SessionResponse{
 		Response: &grpcapi.SessionResponse_InitializeSession{
 			InitializeSession: &grpcapi.InitializeSessionResponse{
@@ -462,7 +467,7 @@ func (s *Server) handleInitialSessionHandshake(srv grpcapi.KopiaRepository_Sessi
 					HashFunction:               dr.ContentReader().ContentFormat().GetHashFunction(),
 					HmacSecret:                 dr.ContentReader().ContentFormat().GetHmacSecret(),
 					Splitter:                   dr.ObjectFormat().Splitter,
-					SupportsContentCompression: dr.ContentReader().SupportsContentCompression(),
+					SupportsContentCompression: scc,
 				},
 			},
 		},

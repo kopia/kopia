@@ -68,7 +68,12 @@ func (m *indexBlobManagerV1) compactEpoch(ctx context.Context, blobIDs []blob.ID
 		}
 	}
 
-	dataShards, cleanupShards, err := tmpbld.BuildShards(m.formattingOptions.WriteIndexVersion(), true, m.formattingOptions.IndexShardSize())
+	mp, mperr := m.formattingOptions.GetMutableParameters()
+	if mperr != nil {
+		return errors.Wrap(mperr, "mutable parameters")
+	}
+
+	dataShards, cleanupShards, err := tmpbld.BuildShards(mp.IndexVersion, true, defaultIndexShardSize)
 	if err != nil {
 		return errors.Wrap(err, "unable to build index dataShards")
 	}

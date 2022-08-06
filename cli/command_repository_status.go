@@ -15,6 +15,7 @@ import (
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/content/index"
 	"github.com/kopia/kopia/repo/format"
 )
 
@@ -126,7 +127,7 @@ func (c *commandRepositoryStatus) dumpRetentionStatus(dr repo.DirectRepository) 
 	}
 }
 
-// nolint: funlen
+// nolint: funlen,gocyclo
 func (c *commandRepositoryStatus) run(ctx context.Context, rep repo.Repository) error {
 	if c.jo.jsonOutput {
 		return c.outputJSON(ctx, rep)
@@ -172,21 +173,31 @@ func (c *commandRepositoryStatus) run(ctx context.Context, rep repo.Repository) 
 
 	contentFormat := dr.ContentReader().ContentFormat()
 
+	mp, mperr := contentFormat.GetMutableParameters()
+	if mperr != nil {
+		return errors.Wrap(mperr, "mutable parameters")
+	}
+
 	c.out.printStdout("\n")
 	c.out.printStdout("Unique ID:           %x\n", dr.UniqueID())
 	c.out.printStdout("Hash:                %v\n", contentFormat.GetHashFunction())
 	c.out.printStdout("Encryption:          %v\n", contentFormat.GetEncryptionAlgorithm())
 	c.out.printStdout("Splitter:            %v\n", dr.ObjectFormat().Splitter)
-	c.out.printStdout("Format version:      %v\n", contentFormat.FormatVersion())
-	c.out.printStdout("Content compression: %v\n", dr.ContentReader().SupportsContentCompression())
+	c.out.printStdout("Format version:      %v\n", mp.Version)
+	c.out.printStdout("Content compression: %v\n", mp.IndexVersion >= index.Version2)
 	c.out.printStdout("Password changes:    %v\n", contentFormat.SupportsPasswordChange())
 
 	c.outputRequiredFeatures(dr)
 
-	c.out.printStdout("Max pack length:     %v\n", units.BytesStringBase2(int64(contentFormat.MaxPackBlobSize())))
-	c.out.printStdout("Index Format:        v%v\n", contentFormat.WriteIndexVersion())
+	c.out.printStdout("Max pack length:     %v\n", units.BytesStringBase2(int64(mp.MaxPackSize)))
+	c.out.printStdout("Index Format:        v%v\n", mp.IndexVersion)
 
-	if emgr, ok := dr.ContentReader().EpochManager(); ok {
+	emgr, epochMgrEnabled, emerr := dr.ContentReader().EpochManager()
+	if emerr != nil {
+		return errors.Wrap(emerr, "epoch manager")
+	}
+
+	if epochMgrEnabled {
 		c.out.printStdout("\n")
 		c.out.printStdout("Epoch Manager:       enabled\n")
 
@@ -196,10 +207,10 @@ func (c *commandRepositoryStatus) run(ctx context.Context, rep repo.Repository) 
 		}
 
 		c.out.printStdout("\n")
-		c.out.printStdout("Epoch refresh frequency: %v\n", contentFormat.GetEpochRefreshFrequency())
-		c.out.printStdout("Epoch advance on:        %v blobs or %v, minimum %v\n", contentFormat.GetEpochAdvanceOnCountThreshold(), units.BytesStringBase2(contentFormat.GetEpochAdvanceOnTotalSizeBytesThreshold()), contentFormat.GetMinEpochDuration())
-		c.out.printStdout("Epoch cleanup margin:    %v\n", contentFormat.GetEpochCleanupSafetyMargin())
-		c.out.printStdout("Epoch checkpoint every:  %v epochs\n", contentFormat.GetEpochFullCheckpointFrequency())
+		c.out.printStdout("Epoch refresh frequency: %v\n", mp.EpochParameters.EpochRefreshFrequency)
+		c.out.printStdout("Epoch advance on:        %v blobs or %v, minimum %v\n", mp.EpochParameters.EpochAdvanceOnCountThreshold, units.BytesStringBase2(mp.EpochParameters.EpochAdvanceOnTotalSizeBytesThreshold), mp.EpochParameters.MinEpochDuration)
+		c.out.printStdout("Epoch cleanup margin:    %v\n", mp.EpochParameters.CleanupSafetyMargin)
+		c.out.printStdout("Epoch checkpoint every:  %v epochs\n", mp.EpochParameters.FullCheckpointFrequency)
 	} else {
 		c.out.printStdout("Epoch Manager:       disabled\n")
 	}

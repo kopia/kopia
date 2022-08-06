@@ -145,8 +145,8 @@ func (r *apiServerRepository) Flush(ctx context.Context) error {
 	return errors.Wrap(r.cli.Post(ctx, "flush", nil, nil), "Flush")
 }
 
-func (r *apiServerRepository) SupportsContentCompression() bool {
-	return r.serverSupportsContentCompression
+func (r *apiServerRepository) SupportsContentCompression() (bool, error) {
+	return r.serverSupportsContentCompression, nil
 }
 
 func (r *apiServerRepository) NewWriter(ctx context.Context, opt WriteSessionOptions) (context.Context, RepositoryWriter, error) {

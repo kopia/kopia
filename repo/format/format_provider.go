@@ -1,11 +1,8 @@
 package format
 
 import (
-	"time"
-
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/internal/epoch"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/content/index"
 	"github.com/kopia/kopia/repo/encryption"
@@ -15,8 +12,6 @@ import (
 const (
 	minValidPackSize = 10 << 20
 	maxValidPackSize = 120 << 20
-
-	defaultIndexShardSize = 16e6 // slightly less than 2^24, which lets index use 24-bit/3-byte indexes
 
 	// CurrentWriteVersion is the version of the repository applied to new repositories.
 	CurrentWriteVersion = FormatVersion3
@@ -51,23 +46,17 @@ const (
 // Provider provides current formatting options. The options returned
 // should not be cached for more than a few seconds as they are subject to change.
 type Provider interface {
-	epoch.ParametersProvider
-
-	MaxIndexBlobSize() int64
-	WriteIndexVersion() int
-	IndexShardSize() int
-
 	encryption.Parameters
 	hashing.Parameters
 
 	HashFunc() hashing.HashFunc
 	Encryptor() encryption.Encryptor
 
-	GetMutableParameters() MutableParameters
-	GetMasterKey() []byte
+	// this is typically cached, but sometimes refreshes MutableParameters from
+	// the repository so the results should not be cached.
+	GetMutableParameters() (MutableParameters, error)
 	SupportsPasswordChange() bool
-	FormatVersion() Version
-	MaxPackBlobSize() int
+	GetMasterKey() []byte
 	RepositoryFormatBytes() []byte
 	Struct() ContentFormat
 }
@@ -75,55 +64,9 @@ type Provider interface {
 type formattingOptionsProvider struct {
 	*ContentFormat
 
-	h                   hashing.HashFunc
-	e                   encryption.Encryptor
-	actualFormatVersion Version
-	actualIndexVersion  int
-	formatBytes         []byte
-}
-
-func (f *formattingOptionsProvider) FormatVersion() Version {
-	return f.Version
-}
-
-// whether epoch manager is enabled, must be true.
-func (f *formattingOptionsProvider) GetEpochManagerEnabled() bool {
-	return f.EpochParameters.Enabled
-}
-
-// how frequently each client will list blobs to determine the current epoch.
-func (f *formattingOptionsProvider) GetEpochRefreshFrequency() time.Duration {
-	return f.EpochParameters.EpochRefreshFrequency
-}
-
-// number of epochs between full checkpoints.
-func (f *formattingOptionsProvider) GetEpochFullCheckpointFrequency() int {
-	return f.EpochParameters.FullCheckpointFrequency
-}
-
-// GetEpochCleanupSafetyMargin returns safety margin to prevent uncompacted blobs from being deleted if the corresponding compacted blob age is less than this.
-func (f *formattingOptionsProvider) GetEpochCleanupSafetyMargin() time.Duration {
-	return f.EpochParameters.CleanupSafetyMargin
-}
-
-// GetMinEpochDuration returns the minimum duration of an epoch.
-func (f *formattingOptionsProvider) GetMinEpochDuration() time.Duration {
-	return f.EpochParameters.MinEpochDuration
-}
-
-// GetEpochAdvanceOnCountThreshold returns the number of files above which epoch should be advanced.
-func (f *formattingOptionsProvider) GetEpochAdvanceOnCountThreshold() int {
-	return f.EpochParameters.EpochAdvanceOnCountThreshold
-}
-
-// GetEpochAdvanceOnTotalSizeBytesThreshold returns the total size of files above which the epoch should be advanced.
-func (f *formattingOptionsProvider) GetEpochAdvanceOnTotalSizeBytesThreshold() int64 {
-	return f.EpochParameters.EpochAdvanceOnTotalSizeBytesThreshold
-}
-
-// GetEpochDeleteParallelism returns the number of blobs to delete in parallel during cleanup.
-func (f *formattingOptionsProvider) GetEpochDeleteParallelism() int {
-	return f.EpochParameters.DeleteParallelism
+	h           hashing.HashFunc
+	e           encryption.Encryptor
+	formatBytes []byte
 }
 
 func (f *formattingOptionsProvider) Struct() ContentFormat {
@@ -143,13 +86,12 @@ func NewFormattingOptionsProvider(f *ContentFormat, formatBytes []byte) (Provide
 		return nil, errors.Errorf("can't handle repositories created using version %v (min supported %v, max supported %v)", formatVersion, MinSupportedWriteVersion, MaxSupportedWriteVersion)
 	}
 
-	actualIndexVersion := f.IndexVersion
-	if actualIndexVersion == 0 {
-		actualIndexVersion = legacyIndexVersion
+	if f.IndexVersion == 0 {
+		f.IndexVersion = legacyIndexVersion
 	}
 
-	if actualIndexVersion < index.Version1 || actualIndexVersion > index.Version2 {
-		return nil, errors.Errorf("index version %v is not supported", actualIndexVersion)
+	if f.IndexVersion < index.Version1 || f.IndexVersion > index.Version2 {
+		return nil, errors.Errorf("index version %v is not supported", f.IndexVersion)
 	}
 
 	h, err := hashing.CreateHashFunc(f)
@@ -175,11 +117,9 @@ func NewFormattingOptionsProvider(f *ContentFormat, formatBytes []byte) (Provide
 	return &formattingOptionsProvider{
 		ContentFormat: f,
 
-		h:                   h,
-		e:                   e,
-		actualIndexVersion:  actualIndexVersion,
-		actualFormatVersion: f.Version,
-		formatBytes:         formatBytes,
+		h:           h,
+		e:           e,
+		formatBytes: formatBytes,
 	}, nil
 }
 
@@ -189,26 +129,6 @@ func (f *formattingOptionsProvider) Encryptor() encryption.Encryptor {
 
 func (f *formattingOptionsProvider) HashFunc() hashing.HashFunc {
 	return f.h
-}
-
-func (f *formattingOptionsProvider) WriteIndexVersion() int {
-	return f.actualIndexVersion
-}
-
-func (f *formattingOptionsProvider) MaxIndexBlobSize() int64 {
-	return int64(f.MaxPackSize)
-}
-
-func (f *formattingOptionsProvider) MaxPackBlobSize() int {
-	return f.MaxPackSize
-}
-
-func (f *formattingOptionsProvider) GetEpochManagerParameters() epoch.Parameters {
-	return f.EpochParameters
-}
-
-func (f *formattingOptionsProvider) IndexShardSize() int {
-	return defaultIndexShardSize
 }
 
 func (f *formattingOptionsProvider) RepositoryFormatBytes() []byte {
