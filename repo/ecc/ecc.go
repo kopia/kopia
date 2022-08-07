@@ -2,24 +2,30 @@
 package ecc
 
 import (
+	"sort"
+
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/encryption"
 	"github.com/pkg/errors"
-	"sort"
 )
 
-type CreateEccFunc func(opts *Options) (encryption.Encryptor, error)
+// CreateECCFunc creates an ECC for given parameters.
+type CreateECCFunc func(opts *Options) (encryption.Encryptor, error)
 
-var factories = map[string]CreateEccFunc{}
+// nolint:gochecknoglobals
+var factories = map[string]CreateECCFunc{}
 
-func RegisterAlgorithm(name string, createFunc CreateEccFunc) {
+// RegisterAlgorithm registers new ecc algorithm.
+func RegisterAlgorithm(name string, createFunc CreateECCFunc) {
 	factories[name] = createFunc
 }
 
+// SupportedAlgorithms returns the names of the supported ecc
+// methods.
 func SupportedAlgorithms() []string {
 	var result []string
 
-	for k, _ := range factories {
+	for k := range factories {
 		result = append(result, k)
 	}
 
@@ -28,6 +34,7 @@ func SupportedAlgorithms() []string {
 	return result
 }
 
+// CreateAlgorithm returns new encryption.Encryptor with error correction.
 func CreateAlgorithm(opts *Options) (encryption.Encryptor, error) {
 	factory, exists := factories[opts.Algorithm]
 
@@ -38,7 +45,7 @@ func CreateAlgorithm(opts *Options) (encryption.Encryptor, error) {
 	return factory(opts)
 }
 
-// New returns new encryption.Encryptor with error correction.
+// New returns new encryption.Encryptor with error correction wrapped over another encryptor.
 func New(next encryption.Encryptor, opts *Options) (encryption.Encryptor, error) {
 	if opts.Algorithm == "" {
 		return next, nil
@@ -65,9 +72,11 @@ func (e encryptorWrapper) Encrypt(plainText gather.Bytes, contentID []byte, outp
 	defer tmp.Close()
 
 	if err := e.next.Encrypt(plainText, contentID, &tmp); err != nil {
+		// nolint:wrapcheck
 		return err
 	}
 
+	// nolint:wrapcheck
 	return e.impl.Encrypt(tmp.Bytes(), contentID, output)
 }
 
@@ -76,9 +85,11 @@ func (e encryptorWrapper) Decrypt(cipherText gather.Bytes, contentID []byte, out
 	defer tmp.Close()
 
 	if err := e.impl.Decrypt(cipherText, contentID, &tmp); err != nil {
+		// nolint:wrapcheck
 		return err
 	}
 
+	// nolint:wrapcheck
 	return e.next.Decrypt(tmp.Bytes(), contentID, output)
 }
 

@@ -2,25 +2,24 @@ package ecc
 
 import "math"
 
-func ComputeShards(spaceOverhead float32) (data, parity int) {
+func computeShards(spaceOverhead float32) (data, parity int) {
 	// It's recommended to have at least 2 parity shards.
 	// So the approach here is: we start with 128 data shards and compute
 	// how many shards parity shards are needed for the selected space overhead.
 	// If it turns out it is only 1, we invert the logic and compute how many
 	// data shards are needed for 2 parity shards.
-
 	data = 128
-	parity = between(applyPercent(data, spaceOverhead/100), 1, 128)
+	parity = between(applyPercent(data, spaceOverhead/100), 1, 128) //nolint:gomnd
 
 	if parity == 1 {
 		parity = 2
-		data = between(applyPercent(parity, 100/spaceOverhead), 128, 254)
+		data = between(applyPercent(parity, 100/spaceOverhead), 128, 254) //nolint:gomnd
 	}
 
 	return
 }
 
-func between(val int, min int, max int) int {
+func between(val, min, max int) int {
 	switch {
 	case val < min:
 		return min
@@ -41,28 +40,28 @@ func clear(bytes []byte) {
 	}
 }
 
-func minInt(a int, b int) int {
+func minInt(a, b int) int {
 	if a <= b {
 		return a
-	} else {
-		return b
 	}
+
+	return b
 }
 
-func maxInt(a int, b int) int {
+func maxInt(a, b int) int {
 	if a >= b {
 		return a
-	} else {
-		return b
 	}
+
+	return b
 }
 
-func maxFloat32(a float32, b float32) float32 {
+func maxFloat32(a, b float32) float32 {
 	if a >= b {
 		return a
-	} else {
-		return b
 	}
+
+	return b
 }
 
 func ceilInt(a, b int) int {

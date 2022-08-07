@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"fmt"
-	"github.com/kopia/kopia/repo/ecc"
 	"math"
 	"sort"
 
@@ -12,14 +11,14 @@ import (
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/internal/units"
+	"github.com/kopia/kopia/repo/ecc"
 )
 
 type commandBenchmarkEcc struct {
-	blockSize            atunits.Base2Bytes
-	repeat               int
-	deprecatedAlgorithms bool
-	optionPrint          bool
-	parallel             int
+	blockSize   atunits.Base2Bytes
+	repeat      int
+	optionPrint bool
+	parallel    int
 
 	out textOutput
 }
@@ -50,7 +49,7 @@ func (c *commandBenchmarkEcc) run(ctx context.Context) error {
 		c.out.printStdout("%3d. %-30v %12v/s %12v/s   %6v%% [%v]", ndx, r.ecc,
 			units.BytesStringBase2(int64(r.throughputEncoding)),
 			units.BytesStringBase2(int64(r.throughputDecoding)),
-			int(math.Round(r.growth*100)),
+			int(math.Round(r.growth*100)), //nolint:gomnd
 			units.BytesStringBase2(int64(r.size)),
 		)
 
@@ -115,7 +114,8 @@ func (c *commandBenchmarkEcc) runBenchmark(ctx context.Context) []eccBenchResult
 			log(ctx).Infof("Benchmarking ECC decoding '%v' with %v space overhead... (%v x %v bytes, parallelism %v)", name, spaceOverhead, c.repeat, len(data), c.parallel)
 
 			encodedBuffer.Reset()
-			if err = impl.Encrypt(gather.FromSlice(data), nil, &encodedBuffer); err != nil {
+
+			if err := impl.Encrypt(gather.FromSlice(data), nil, &encodedBuffer); err != nil {
 				log(ctx).Errorf("encoding failed: %v", err)
 				break
 			}
@@ -160,10 +160,10 @@ type eccBenchResult struct {
 	growth             float64
 }
 
-func min(a float64, b float64) float64 {
+func min(a, b float64) float64 {
 	if a <= b {
 		return a
-	} else {
-		return b
 	}
+
+	return b
 }

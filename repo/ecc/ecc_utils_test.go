@@ -1,11 +1,11 @@
-package ecc_test
+package ecc
 
 import (
+	"testing"
+
 	"github.com/kopia/kopia/internal/gather"
-	"github.com/kopia/kopia/repo/ecc"
 	"github.com/kopia/kopia/repo/encryption"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func TestComputeShares(t *testing.T) {
@@ -18,17 +18,21 @@ func TestComputeShares(t *testing.T) {
 }
 
 func testComputeShares(t *testing.T, spaceUsedPercentage float32, expectedRequired, expectedRedundant int) {
-	required, redundant := ecc.ComputeShards(spaceUsedPercentage)
+	t.Helper()
+
+	required, redundant := computeShards(spaceUsedPercentage)
 
 	require.Equal(t, expectedRequired, required)
 	require.Equal(t, expectedRedundant, redundant)
 }
 
-func testPutAndGet(t *testing.T, opts *ecc.Options, originalSize,
+func testPutAndGet(t *testing.T, opts *Options, originalSize,
 	expectedEccSize int, expectedSuccess bool,
-	makeChanges func(impl encryption.Encryptor, data []byte)) {
+	makeChanges func(impl encryption.Encryptor, data []byte),
+) {
+	t.Helper()
 
-	impl, err := ecc.CreateAlgorithm(opts)
+	impl, err := CreateAlgorithm(opts)
 	require.NoError(t, err)
 
 	original := make([]byte, originalSize)
@@ -53,7 +57,6 @@ func testPutAndGet(t *testing.T, opts *ecc.Options, originalSize,
 	if expectedSuccess {
 		require.NoError(t, err)
 		require.Equal(t, original, output.ToByteSlice())
-
 	} else {
 		require.Error(t, err)
 	}

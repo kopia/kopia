@@ -17,4 +17,5 @@ type Options struct {
 	DeleteFirstShardForTests bool
 }
 
-var DefaultAlgorithm = AlgorithmReedSolomonWithCrc32
+// DefaultAlgorithm is the name of the default ecc algorithm.
+const DefaultAlgorithm = AlgorithmReedSolomonWithCrc32
