@@ -647,6 +647,83 @@ func (s *formatSpecificTestSuite) TestChangePassword(t *testing.T) {
 	}
 }
 
+func TestDeriveKey(t *testing.T) {
+	testPurpose := []byte{0, 0, 0, 0}
+	testKeyLength := 8
+	masterKey := []byte("01234567890123456789012345678901")
+	uniqueID := []byte("a5ba5d2da4b14b518b9501b64b5d87ca")
+
+	j := format.KopiaRepositoryJSON{
+		UniqueID:               uniqueID,
+		KeyDerivationAlgorithm: format.DefaultKeyDerivationAlgorithm,
+	}
+
+	formatEncryptionKeyFromPassword, err := j.DeriveFormatEncryptionKeyFromPassword(repotesting.DefaultPasswordForTesting)
+	require.NoError(t, err)
+
+	validV1KeyDerivedFromPassword := format.DeriveKeyFromMasterKey(formatEncryptionKeyFromPassword, uniqueID, testPurpose, testKeyLength)
+	validV2KeyDerivedFromMasterKey := format.DeriveKeyFromMasterKey(masterKey, uniqueID, testPurpose, testKeyLength)
+
+	setup := func(v format.Version) repo.DirectRepositoryWriter {
+		_, env := repotesting.NewEnvironment(t, v, repotesting.Options{
+			NewRepositoryOptions: func(nro *repo.NewRepositoryOptions) {
+				nro.BlockFormat.MasterKey = masterKey
+				nro.UniqueID = uniqueID
+			},
+		})
+
+		return env.RepositoryWriter
+	}
+
+	setupUpgraded := func(v1, v2 format.Version) repo.DirectRepositoryWriter {
+		ctx, env := repotesting.NewEnvironment(t, v1, repotesting.Options{
+			NewRepositoryOptions: func(nro *repo.NewRepositoryOptions) {
+				// do not set nro.BlockFormat.MasterKey
+				nro.UniqueID = uniqueID
+			},
+		})
+
+		// prepare upgrade
+		dw1Upgraded := env.Repository.(repo.DirectRepositoryWriter)
+		cf := dw1Upgraded.ContentReader().ContentFormat()
+
+		mp, mperr := cf.GetMutableParameters()
+		require.NoError(t, mperr)
+
+		feat, err := dw1Upgraded.RequiredFeatures()
+		require.NoError(t, err)
+
+		// perform upgrade
+		mp.Version = v2
+
+		require.NoError(t, dw1Upgraded.SetParameters(ctx, mp, dw1Upgraded.BlobCfg(), feat))
+
+		return env.MustConnectOpenAnother(t).(repo.DirectRepositoryWriter)
+	}
+
+	// we verify that repositories started on V1 will continue to derive keys from
+	// password (which can't be changed) and not from the master key.
+	cases := []struct {
+		desc       string
+		dw         repo.DirectRepositoryWriter
+		wantFormat format.Version
+		wantKey    []byte
+	}{
+		{"v1", setup(format.FormatVersion1), format.FormatVersion1, validV1KeyDerivedFromPassword},
+		{"v1-v2", setupUpgraded(format.FormatVersion1, format.FormatVersion2), format.FormatVersion2, validV1KeyDerivedFromPassword},
+		{"v1-v3", setupUpgraded(format.FormatVersion1, format.FormatVersion3), format.FormatVersion3, validV1KeyDerivedFromPassword},
+		{"v2", setup(format.FormatVersion2), format.FormatVersion2, validV2KeyDerivedFromMasterKey},
+		{"v3", setup(format.FormatVersion3), format.FormatVersion3, validV2KeyDerivedFromMasterKey},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.desc, func(t *testing.T) {
+			require.Equal(t, tc.wantFormat, tc.dw.ContentReader().ContentFormat().Struct().Version)
+			require.Equal(t, tc.wantKey, tc.dw.DeriveKey(testPurpose, testKeyLength))
+		})
+	}
+}
+
 func verifyNotFound(ctx context.Context, t *testing.T, rep repo.Repository, objectID object.ID, testCaseID string) {
 	t.Helper()
 

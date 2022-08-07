@@ -20,7 +20,8 @@ import (
 	"github.com/kopia/kopia/snapshot"
 )
 
-const defaultPassword = "foobarbazfoobarbaz"
+// DefaultPasswordForTesting is the default password to use for all testing repositories.
+const DefaultPasswordForTesting = "foobarbazfoobarbaz"
 
 // Environment encapsulates details of a test environment.
 type Environment struct {
@@ -91,7 +92,7 @@ func (e *Environment) setup(tb testing.TB, version format.Version, opts ...Optio
 	e.st = st
 
 	if e.Password == "" {
-		e.Password = defaultPassword
+		e.Password = DefaultPasswordForTesting
 	}
 
 	if err := repo.Initialize(ctx, st, opt, e.Password); err != nil {
