@@ -1829,7 +1829,7 @@ func (s *contentManagerSuite) TestAutoCompressionOfMetadata(t *testing.T) {
 	info, err := bm.ContentInfo(ctx, contentID)
 	require.NoError(t, err)
 
-	if bm.SupportsContentCompression() {
+	if scc, _ := bm.SupportsContentCompression(); scc {
 		require.Equal(t, compression.HeaderZstdFastest, info.GetCompressionHeaderID())
 	} else {
 		require.Equal(t, NoCompression, info.GetCompressionHeaderID())
@@ -2030,7 +2030,6 @@ func (s *contentManagerSuite) TestCompression_Disabled(t *testing.T) {
 		indexVersion: index.Version1,
 	})
 
-	require.False(t, bm.SupportsContentCompression())
 	ctx := testlogging.Context(t)
 	compressibleData := bytes.Repeat([]byte{1, 2, 3, 4}, 1000)
 
@@ -2045,8 +2044,6 @@ func (s *contentManagerSuite) TestCompression_CompressibleData(t *testing.T) {
 	bm := s.newTestContentManagerWithTweaks(t, st, &contentManagerTestTweaks{
 		indexVersion: index.Version2,
 	})
-
-	require.True(t, bm.SupportsContentCompression())
 
 	ctx := testlogging.Context(t)
 	compressibleData := bytes.Repeat([]byte{1, 2, 3, 4}, 1000)
@@ -2080,8 +2077,6 @@ func (s *contentManagerSuite) TestCompression_NonCompressibleData(t *testing.T) 
 	bm := s.newTestContentManagerWithTweaks(t, st, &contentManagerTestTweaks{
 		indexVersion: index.Version2,
 	})
-
-	require.True(t, bm.SupportsContentCompression())
 
 	ctx := testlogging.Context(t)
 	nonCompressibleData := make([]byte, 65000)

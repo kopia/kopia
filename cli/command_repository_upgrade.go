@@ -123,7 +123,12 @@ func (c *commandRepositoryUpgrade) setLockIntent(ctx context.Context, rep repo.D
 	}
 
 	now := rep.Time()
-	mp := rep.ContentReader().ContentFormat().GetMutableParameters()
+
+	mp, mperr := rep.ContentReader().ContentFormat().GetMutableParameters()
+	if mperr != nil {
+		return errors.Wrap(mperr, "mutable parameters")
+	}
+
 	openOpts := c.svc.optionsFromFlags(ctx)
 	l := &format.UpgradeLockIntent{
 		OwnerID:                openOpts.UpgradeOwnerID,
@@ -164,7 +169,13 @@ func (c *commandRepositoryUpgrade) setLockIntent(ctx context.Context, rep repo.D
 // skipped until the lock is fully established.
 func (c *commandRepositoryUpgrade) drainOrCommit(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	cf := rep.ContentReader().ContentFormat()
-	if cf.GetEpochManagerEnabled() {
+
+	mp, mperr := cf.GetMutableParameters()
+	if mperr != nil {
+		return errors.Wrap(mperr, "mutable parameters")
+	}
+
+	if mp.EpochParameters.Enabled {
 		log(ctx).Infof("Repository indices have already been migrated to the epoch format, no need to drain other clients")
 
 		l, err := rep.GetUpgradeLockIntent(ctx)
@@ -251,7 +262,10 @@ func (c *commandRepositoryUpgrade) drainAllClients(ctx context.Context, rep repo
 // repository. This phase runs after the lock has been acquired in one of the
 // prior phases.
 func (c *commandRepositoryUpgrade) upgrade(ctx context.Context, rep repo.DirectRepositoryWriter) error {
-	mp := rep.ContentReader().ContentFormat().GetMutableParameters()
+	mp, mperr := rep.ContentReader().ContentFormat().GetMutableParameters()
+	if mperr != nil {
+		return errors.Wrap(mperr, "mutable parameters")
+	}
 
 	rf, err := rep.RequiredFeatures()
 	if err != nil {

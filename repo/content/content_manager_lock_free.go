@@ -16,27 +16,28 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content/index"
+	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/hashing"
 	"github.com/kopia/kopia/repo/logging"
 )
 
 const indexBlobCompactionWarningThreshold = 1000
 
-func (sm *SharedManager) maybeCompressAndEncryptDataForPacking(data gather.Bytes, contentID ID, comp compression.HeaderID, output *gather.WriteBuffer) (compression.HeaderID, error) {
+func (sm *SharedManager) maybeCompressAndEncryptDataForPacking(data gather.Bytes, contentID ID, comp compression.HeaderID, output *gather.WriteBuffer, mp format.MutableParameters) (compression.HeaderID, error) {
 	var hashOutput [hashing.MaxHashSize]byte
 
 	iv := getPackedContentIV(hashOutput[:0], contentID)
 
 	// If the content is prefixed (which represents Kopia's own metadata as opposed to user data),
 	// and we're on V2 format or greater, enable internal compression even when not requested.
-	if contentID.HasPrefix() && comp == NoCompression && sm.format.WriteIndexVersion() >= index.Version2 {
+	if contentID.HasPrefix() && comp == NoCompression && mp.IndexVersion >= index.Version2 {
 		// 'zstd-fastest' has a good mix of being fast, low memory usage and high compression for JSON.
 		comp = compression.HeaderZstdFastest
 	}
 
 	// nolint:nestif
 	if comp != NoCompression {
-		if sm.format.WriteIndexVersion() < index.Version2 {
+		if mp.IndexVersion < index.Version2 {
 			return NoCompression, errors.Errorf("compression is not enabled for this repository")
 		}
 

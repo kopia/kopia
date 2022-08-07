@@ -15,6 +15,7 @@ import (
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content/index"
+	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/logging"
 )
 
@@ -38,7 +39,7 @@ type committedContentIndex struct {
 	merged index.Merged
 
 	v1PerContentOverhead uint32
-	indexVersion         int
+	formatProvider       format.Provider
 
 	// fetchOne loads one index blob
 	fetchOne func(ctx context.Context, blobID blob.ID, output *gather.WriteBuffer) error
@@ -259,9 +260,14 @@ func (c *committedContentIndex) combineSmallIndexes(m index.Merged) (index.Merge
 		}
 	}
 
+	mp, mperr := c.formatProvider.GetMutableParameters()
+	if mperr != nil {
+		return nil, errors.Wrap(mperr, "error getting mutable parameters")
+	}
+
 	var buf bytes.Buffer
 
-	if err := b.Build(&buf, c.indexVersion); err != nil {
+	if err := b.Build(&buf, mp.IndexVersion); err != nil {
 		return nil, errors.Wrap(err, "error building combined in-memory index")
 	}
 
@@ -349,7 +355,7 @@ func (c *committedContentIndex) missingIndexBlobs(ctx context.Context, blobs []b
 
 func newCommittedContentIndex(caching *CachingOptions,
 	v1PerContentOverhead uint32,
-	indexVersion int,
+	formatProvider format.Provider,
 	fetchOne func(ctx context.Context, blobID blob.ID, output *gather.WriteBuffer) error,
 	log logging.Logger,
 	minSweepAge time.Duration,
@@ -370,7 +376,7 @@ func newCommittedContentIndex(caching *CachingOptions,
 		cache:                cache,
 		inUse:                map[blob.ID]index.Index{},
 		v1PerContentOverhead: v1PerContentOverhead,
-		indexVersion:         indexVersion,
+		formatProvider:       formatProvider,
 		fetchOne:             fetchOne,
 		log:                  log,
 	}

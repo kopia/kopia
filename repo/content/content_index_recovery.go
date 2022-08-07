@@ -171,7 +171,12 @@ func decodePostamble(payload []byte) *packContentPostamble {
 }
 
 func (sm *SharedManager) buildLocalIndex(pending index.Builder, output *gather.WriteBuffer) error {
-	if err := pending.Build(output, sm.format.WriteIndexVersion()); err != nil {
+	mp, mperr := sm.format.GetMutableParameters()
+	if mperr != nil {
+		return errors.Wrap(mperr, "mutable parameters")
+	}
+
+	if err := pending.Build(output, mp.IndexVersion); err != nil {
 		return errors.Wrap(err, "unable to build local index")
 	}
 

@@ -38,11 +38,16 @@ func (sm *SharedManager) Refresh(ctx context.Context) error {
 
 	sm.log.Debugf("Refresh started")
 
-	sm.indexBlobManager().invalidate(ctx)
+	ibm, err := sm.indexBlobManager()
+	if err != nil {
+		return err
+	}
+
+	ibm.invalidate(ctx)
 
 	timer := timetrack.StartTimer()
 
-	err := sm.loadPackIndexesLocked(ctx)
+	err = sm.loadPackIndexesLocked(ctx)
 	sm.log.Debugf("Refresh completed in %v", timer.Elapsed())
 
 	return err
@@ -57,7 +62,12 @@ func (sm *SharedManager) CompactIndexes(ctx context.Context, opt CompactOptions)
 
 	sm.log.Debugf("CompactIndexes(%+v)", opt)
 
-	if err := sm.indexBlobManager().compact(ctx, opt); err != nil {
+	ibm, err := sm.indexBlobManager()
+	if err != nil {
+		return err
+	}
+
+	if err := ibm.compact(ctx, opt); err != nil {
 		return errors.Wrap(err, "error performing compaction")
 	}
 

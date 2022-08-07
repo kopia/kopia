@@ -181,19 +181,24 @@ func (sm *SharedManager) loadPackIndexesLocked(ctx context.Context) error {
 	nextSleepTime := 100 * time.Millisecond //nolint:gomnd
 
 	for i := 0; i < indexLoadAttempts; i++ {
+		ibm, err0 := sm.indexBlobManager()
+		if err0 != nil {
+			return err0
+		}
+
 		if err := ctx.Err(); err != nil {
 			// nolint:wrapcheck
 			return err
 		}
 
 		if i > 0 {
-			sm.indexBlobManager().flushCache(ctx)
+			ibm.flushCache(ctx)
 			sm.log.Debugf("encountered NOT_FOUND when loading, sleeping %v before retrying #%v", nextSleepTime, i)
 			time.Sleep(nextSleepTime)
 			nextSleepTime *= 2
 		}
 
-		indexBlobs, ignoreDeletedBefore, err := sm.indexBlobManager().listActiveIndexBlobs(ctx)
+		indexBlobs, ignoreDeletedBefore, err := ibm.listActiveIndexBlobs(ctx)
 		if err != nil {
 			return errors.Wrap(err, "error listing index blobs")
 		}
@@ -235,12 +240,17 @@ func (sm *SharedManager) getCacheForContentID(id ID) cache.ContentCache {
 	return sm.contentCache
 }
 
-func (sm *SharedManager) indexBlobManager() indexBlobManager {
-	if sm.format.GetEpochManagerEnabled() {
-		return sm.indexBlobManagerV1
+func (sm *SharedManager) indexBlobManager() (indexBlobManager, error) {
+	mp, mperr := sm.format.GetMutableParameters()
+	if mperr != nil {
+		return nil, errors.Wrap(mperr, "mutable parameters")
 	}
 
-	return sm.indexBlobManagerV0
+	if mp.EpochParameters.Enabled {
+		return sm.indexBlobManagerV1, nil
+	}
+
+	return sm.indexBlobManagerV0, nil
 }
 
 func (sm *SharedManager) decryptContentAndVerify(payload gather.Bytes, bi Info, output *gather.WriteBuffer) error {
@@ -313,7 +323,12 @@ func (sm *SharedManager) IndexBlobs(ctx context.Context, includeInactive bool) (
 		return result, nil
 	}
 
-	blobs, _, err := sm.indexBlobManager().listActiveIndexBlobs(ctx)
+	ibm, err0 := sm.indexBlobManager()
+	if err0 != nil {
+		return nil, err0
+	}
+
+	blobs, _, err := ibm.listActiveIndexBlobs(ctx)
 
 	// nolint:wrapcheck
 	return blobs, err
@@ -450,7 +465,7 @@ func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *Ca
 		log:               sm.namedLogger("index-blob-manager"),
 	}
 
-	sm.indexBlobManagerV1.epochMgr = epoch.NewManager(cachedSt, sm.format, sm.indexBlobManagerV1.compactEpoch, sm.namedLogger("epoch-manager"), sm.timeNow)
+	sm.indexBlobManagerV1.epochMgr = epoch.NewManager(cachedSt, epochParameters{sm.format}, sm.indexBlobManagerV1.compactEpoch, sm.namedLogger("epoch-manager"), sm.timeNow)
 
 	// once everything is ready, set it up
 	sm.contentCache = dataCache
@@ -458,7 +473,7 @@ func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *Ca
 	sm.indexBlobCache = indexBlobCache
 	sm.committedContents = newCommittedContentIndex(caching,
 		uint32(sm.format.Encryptor().Overhead()),
-		sm.format.WriteIndexVersion(),
+		sm.format,
 		sm.enc.getEncryptedBlob,
 		sm.namedLogger("committed-content-index"),
 		caching.MinIndexSweepAge.DurationOrDefault(DefaultIndexCacheSweepAge))
@@ -466,14 +481,32 @@ func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *Ca
 	return nil
 }
 
-// EpochManager returns the epoch manager.
-func (sm *SharedManager) EpochManager() (*epoch.Manager, bool) {
-	ibm1, ok := sm.indexBlobManager().(*indexBlobManagerV1)
-	if !ok {
-		return nil, false
+type epochParameters struct {
+	prov format.Provider
+}
+
+func (p epochParameters) GetParameters() (*epoch.Parameters, error) {
+	mp, mperr := p.prov.GetMutableParameters()
+	if mperr != nil {
+		return nil, errors.Wrap(mperr, "mutable parameters")
 	}
 
-	return ibm1.epochMgr, true
+	return &mp.EpochParameters, nil
+}
+
+// EpochManager returns the epoch manager.
+func (sm *SharedManager) EpochManager() (*epoch.Manager, bool, error) {
+	ibm, err := sm.indexBlobManager()
+	if err != nil {
+		return nil, false, err
+	}
+
+	ibm1, ok := ibm.(*indexBlobManagerV1)
+	if !ok {
+		return nil, false, nil
+	}
+
+	return ibm1.epochMgr, true, nil
 }
 
 // AddRef adds a reference to shared manager to prevents its closing on Release().

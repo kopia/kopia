@@ -11,6 +11,7 @@ import (
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content/index"
+	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/logging"
 )
 
@@ -19,6 +20,8 @@ const LegacyIndexBlobPrefix = "n"
 
 const (
 	legacyIndexPoisonBlobID = "n00000000000000000000000000000000-repository_unreadable_by_this_kopia_version_upgrade_required"
+
+	defaultIndexShardSize = 16e6 // slightly less than 2^24, which lets index use 24-bit/3-byte indexes
 
 	defaultEventualConsistencySettleTime = 1 * time.Hour
 	compactionLogBlobPrefix              = "m"
@@ -52,9 +55,7 @@ type cleanupEntry struct {
 
 // IndexFormattingOptions provides options for formatting index blobs.
 type IndexFormattingOptions interface {
-	MaxIndexBlobSize() int64
-	WriteIndexVersion() int
-	IndexShardSize() int
+	GetMutableParameters() (format.MutableParameters, error)
 }
 
 type indexBlobManagerV0 struct {
@@ -136,7 +137,12 @@ func (m *indexBlobManagerV0) compact(ctx context.Context, opt CompactOptions) er
 		return errors.Wrap(err, "error listing active index blobs")
 	}
 
-	blobsToCompact := m.getBlobsToCompact(indexBlobs, opt)
+	mp, mperr := m.formattingOptions.GetMutableParameters()
+	if mperr != nil {
+		return errors.Wrap(mperr, "mutable parameters")
+	}
+
+	blobsToCompact := m.getBlobsToCompact(indexBlobs, opt, mp)
 
 	if err := m.compactIndexBlobs(ctx, blobsToCompact, opt); err != nil {
 		return errors.Wrap(err, "error performing compaction")
@@ -416,22 +422,22 @@ func (m *indexBlobManagerV0) cleanup(ctx context.Context, maxEventualConsistency
 	return nil
 }
 
-func (m *indexBlobManagerV0) getBlobsToCompact(indexBlobs []IndexBlobInfo, opt CompactOptions) []IndexBlobInfo {
-	var nonCompactedBlobs, verySmallBlobs []IndexBlobInfo
-
-	var totalSizeNonCompactedBlobs, totalSizeVerySmallBlobs, totalSizeMediumSizedBlobs int64
-
-	var mediumSizedBlobCount int
+func (m *indexBlobManagerV0) getBlobsToCompact(indexBlobs []IndexBlobInfo, opt CompactOptions, mp format.MutableParameters) []IndexBlobInfo {
+	var (
+		nonCompactedBlobs, verySmallBlobs                                              []IndexBlobInfo
+		totalSizeNonCompactedBlobs, totalSizeVerySmallBlobs, totalSizeMediumSizedBlobs int64
+		mediumSizedBlobCount                                                           int
+	)
 
 	for _, b := range indexBlobs {
-		if b.Length > m.formattingOptions.MaxIndexBlobSize() && !opt.AllIndexes {
+		if b.Length > int64(mp.MaxPackSize) && !opt.AllIndexes {
 			continue
 		}
 
 		nonCompactedBlobs = append(nonCompactedBlobs, b)
 		totalSizeNonCompactedBlobs += b.Length
 
-		if b.Length < m.formattingOptions.MaxIndexBlobSize()/verySmallContentFraction {
+		if b.Length < int64(mp.MaxPackSize)/verySmallContentFraction {
 			verySmallBlobs = append(verySmallBlobs, b)
 			totalSizeVerySmallBlobs += b.Length
 		} else {
@@ -461,6 +467,11 @@ func (m *indexBlobManagerV0) compactIndexBlobs(ctx context.Context, indexBlobs [
 		return nil
 	}
 
+	mp, mperr := m.formattingOptions.GetMutableParameters()
+	if mperr != nil {
+		return errors.Wrap(mperr, "mutable parameters")
+	}
+
 	bld := make(index.Builder)
 
 	var inputs, outputs []blob.Metadata
@@ -479,7 +490,7 @@ func (m *indexBlobManagerV0) compactIndexBlobs(ctx context.Context, indexBlobs [
 	// we must do it after all input blobs have been merged, otherwise we may resurrect contents.
 	m.dropContentsFromBuilder(bld, opt)
 
-	dataShards, cleanupShards, err := bld.BuildShards(m.formattingOptions.WriteIndexVersion(), false, m.formattingOptions.IndexShardSize())
+	dataShards, cleanupShards, err := bld.BuildShards(mp.IndexVersion, false, defaultIndexShardSize)
 	if err != nil {
 		return errors.Wrap(err, "unable to build an index")
 	}
