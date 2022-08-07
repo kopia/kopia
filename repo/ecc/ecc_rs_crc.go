@@ -59,7 +59,7 @@ func NewReedSolomonCrcECC(opts *Options) (*ReedSolomonCrcECC, error) {
 	result.ThresholdParityInput = 2 * crcSize * (result.DataShards + result.ParityShards)
 	result.ThresholdParityOutput = computeFinalFileSizeWithPadding(result.ThresholdParityInput,
 		smallFilesDataShards, smallFilesParityShards,
-		CeilInt(result.ThresholdParityInput, smallFilesDataShards), 1)
+		ceilInt(result.ThresholdParityInput, smallFilesDataShards), 1)
 
 	// Bellow this threshold the shard size will shrink to the smallest possible
 	result.ThresholdBlocksInput = result.DataShards * result.MaxShardSize
@@ -90,7 +90,7 @@ func (r *ReedSolomonCrcECC) ComputeSizesFromOriginal(length int) SizesInfo {
 		result.Blocks = 1
 		result.DataShards = smallFilesDataShards
 		result.ParityShards = smallFilesParityShards
-		result.ShardSize = CeilInt(length, result.DataShards)
+		result.ShardSize = ceilInt(length, result.DataShards)
 		result.StorePadding = true
 		result.enc = r.encSmallFiles
 
@@ -98,7 +98,7 @@ func (r *ReedSolomonCrcECC) ComputeSizesFromOriginal(length int) SizesInfo {
 		result.Blocks = 1
 		result.DataShards = r.DataShards
 		result.ParityShards = r.ParityShards
-		result.ShardSize = CeilInt(length, result.DataShards)
+		result.ShardSize = ceilInt(length, result.DataShards)
 		result.StorePadding = true
 		result.enc = r.encBigFiles
 
@@ -106,7 +106,7 @@ func (r *ReedSolomonCrcECC) ComputeSizesFromOriginal(length int) SizesInfo {
 		result.ShardSize = r.MaxShardSize
 		result.DataShards = r.DataShards
 		result.ParityShards = r.ParityShards
-		result.Blocks = CeilInt(length, result.DataShards*result.ShardSize)
+		result.Blocks = ceilInt(length, result.DataShards*result.ShardSize)
 		result.StorePadding = false
 		result.enc = r.encBigFiles
 	}
@@ -119,7 +119,7 @@ func (r *ReedSolomonCrcECC) ComputeSizesFromStored(length int) SizesInfo {
 		result.Blocks = 1
 		result.DataShards = smallFilesDataShards
 		result.ParityShards = smallFilesParityShards
-		result.ShardSize = maxInt(CeilInt(length, result.DataShards+result.ParityShards), 1+crcSize) - crcSize
+		result.ShardSize = maxInt(ceilInt(length, result.DataShards+result.ParityShards), 1+crcSize) - crcSize
 		result.StorePadding = true
 		result.enc = r.encSmallFiles
 
@@ -127,7 +127,7 @@ func (r *ReedSolomonCrcECC) ComputeSizesFromStored(length int) SizesInfo {
 		result.Blocks = 1
 		result.DataShards = r.DataShards
 		result.ParityShards = r.ParityShards
-		result.ShardSize = maxInt(CeilInt(length, result.DataShards+result.ParityShards), 1+crcSize) - crcSize
+		result.ShardSize = maxInt(ceilInt(length, result.DataShards+result.ParityShards), 1+crcSize) - crcSize
 		result.StorePadding = true
 		result.enc = r.encBigFiles
 
@@ -135,7 +135,7 @@ func (r *ReedSolomonCrcECC) ComputeSizesFromStored(length int) SizesInfo {
 		result.DataShards = r.DataShards
 		result.ParityShards = r.ParityShards
 		result.ShardSize = r.MaxShardSize
-		result.Blocks = CeilInt(length, (result.DataShards+result.ParityShards)*(crcSize+result.ShardSize))
+		result.Blocks = ceilInt(length, (result.DataShards+result.ParityShards)*(crcSize+result.ShardSize))
 		result.StorePadding = false
 		result.enc = r.encBigFiles
 	}
@@ -390,7 +390,7 @@ func computeFinalFileSizeWithPadding(inputSize, dataShards, parityShards, shardS
 }
 func computeFinalFileSizeWithoutPadding(inputSize, dataShards, parityShards, shardSize, blocks int) int {
 	sizePlusLength := lengthSize + inputSize
-	return parityShards*(crcSize+shardSize)*blocks + sizePlusLength + CeilInt(sizePlusLength, shardSize)*crcSize
+	return parityShards*(crcSize+shardSize)*blocks + sizePlusLength + ceilInt(sizePlusLength, shardSize)*crcSize
 }
 
 func init() {
