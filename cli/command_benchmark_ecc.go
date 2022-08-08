@@ -78,7 +78,7 @@ func (c *commandBenchmarkEcc) runBenchmark(ctx context.Context) []eccBenchResult
 	defer encodedBuffer.Close()
 
 	for _, name := range ecc.SupportedAlgorithms() {
-		for _, spaceOverhead := range []uint8{1, 2, 5, 10, 20} {
+		for _, spaceOverhead := range []int{1, 2, 5, 10, 20} {
 			impl, err := ecc.CreateAlgorithm(&ecc.Options{
 				Algorithm:                ecc.AlgorithmReedSolomonWithCrc32,
 				SpaceOverhead:            spaceOverhead,

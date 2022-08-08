@@ -390,9 +390,9 @@ func readLength(shards [][]byte, sizes *sizesInfo) (originalSize, startShard, st
 	return
 }
 
-// Overhead is not used. It's just implemented to avoid errors when running.
+// Overhead should not be called. It's just implemented because it is in the interface.
 func (r *ReedSolomonCrcECC) Overhead() int {
-	return 0
+	panic("Should not be called")
 }
 
 type sizesInfo struct {

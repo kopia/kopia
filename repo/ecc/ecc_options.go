@@ -1,13 +1,13 @@
 package ecc
 
-// Options must be anonymously embedded in sharded provider options.
+// Options represents the configuration for all ECC algorithms.
 type Options struct {
 	// Algorithm name to be used. Leave empty to disable error correction.
 	Algorithm string `json:"algorithm,omitempty"`
 
 	// SpaceOverhead is how much more space can be used for ECC, in percentage.
 	// Between 0 and 100. 0 means disable ECC.
-	SpaceOverhead uint8 `json:"spaceOverhead,omitempty"`
+	SpaceOverhead int `json:"spaceOverhead,omitempty"`
 
 	// MaxShardSize represents the max shard size before spliting in blocks.
 	// Use 0 to compute based on file size.
