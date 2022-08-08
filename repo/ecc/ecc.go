@@ -4,9 +4,10 @@ package ecc
 import (
 	"sort"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/encryption"
-	"github.com/pkg/errors"
 )
 
 // CreateECCFunc creates an ECC for given parameters.

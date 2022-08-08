@@ -5,9 +5,10 @@ import (
 	"hash/crc32"
 
 	"github.com/klauspost/reedsolomon"
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/encryption"
-	"github.com/pkg/errors"
 )
 
 const (

@@ -3,8 +3,9 @@ package ecc
 import (
 	"testing"
 
-	"github.com/kopia/kopia/repo/encryption"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kopia/kopia/repo/encryption"
 )
 
 func Test_RsCrc32_AssertSizeAlwaysGrow(t *testing.T) {

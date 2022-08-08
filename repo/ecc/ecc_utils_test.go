@@ -3,9 +3,10 @@ package ecc
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/encryption"
-	"github.com/stretchr/testify/require"
 )
 
 func TestComputeShares(t *testing.T) {
