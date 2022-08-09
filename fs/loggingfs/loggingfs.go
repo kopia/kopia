@@ -26,7 +26,7 @@ func (ld *loggingDirectory) Child(ctx context.Context, name string) (fs.Entry, e
 	ld.options.printf(ld.options.prefix+"Child(%v) took %v and returned %v", ld.relativePath, dt, err)
 
 	if err != nil {
-		// nolint:wrapcheck
+		//nolint:wrapcheck
 		return nil, err
 	}
 

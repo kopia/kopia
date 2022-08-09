@@ -21,6 +21,6 @@ func (c *commandServerShutdown) setup(svc appServices, parent commandParent) {
 }
 
 func (c *commandServerShutdown) run(ctx context.Context, cli *apiclient.KopiaAPIClient) error {
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return cli.Post(ctx, "control/shutdown", &serverapi.Empty{}, &serverapi.Empty{})
 }

@@ -72,7 +72,7 @@ func TestFormatters(t *testing.T) {
 	}
 }
 
-// nolint:thelper
+//nolint:thelper
 func verifyEndToEndFormatter(ctx context.Context, t *testing.T, hashAlgo, encryptionAlgo string) {
 	data := blobtesting.DataMap{}
 	keyTime := map[blob.ID]time.Time{}

@@ -13,7 +13,7 @@ type realOS struct{}
 func (realOS) Open(fname string) (osReadFile, error) {
 	f, err := os.Open(fname) //nolint:gosec
 	if err != nil {
-		// nolint:wrapcheck
+		//nolint:wrapcheck
 		return nil, err
 	}
 
@@ -27,12 +27,12 @@ func (realOS) IsExist(err error) bool { return os.IsExist(err) }
 func (realOS) IsPathSeparator(c byte) bool { return os.IsPathSeparator(c) }
 
 func (realOS) Rename(oldname, newname string) error {
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return os.Rename(oldname, newname)
 }
 
 func (realOS) ReadDir(dirname string) ([]fs.DirEntry, error) {
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return os.ReadDir(dirname)
 }
 
@@ -49,32 +49,32 @@ func (realOS) IsLinkError(err error) bool {
 }
 
 func (realOS) Remove(fname string) error {
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return os.Remove(fname)
 }
 
 func (realOS) Stat(fname string) (os.FileInfo, error) {
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return os.Stat(fname)
 }
 
 func (realOS) CreateNewFile(fname string, perm os.FileMode) (osWriteFile, error) {
-	// nolint:wrapcheck,gosec
+	//nolint:wrapcheck,gosec
 	return os.OpenFile(fname, os.O_CREATE|os.O_EXCL|os.O_WRONLY, perm)
 }
 
 func (realOS) Mkdir(fname string, mode os.FileMode) error {
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return os.Mkdir(fname, mode)
 }
 
 func (realOS) MkdirAll(fname string, mode os.FileMode) error {
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return os.MkdirAll(fname, mode)
 }
 
 func (realOS) Chtimes(fname string, atime, mtime time.Time) error {
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return os.Chtimes(fname, atime, mtime)
 }
 
@@ -83,7 +83,7 @@ func (realOS) Geteuid() int {
 }
 
 func (realOS) Chown(fname string, uid, gid int) error {
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return os.Chown(fname, uid, gid)
 }
 

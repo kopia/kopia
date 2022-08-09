@@ -25,7 +25,7 @@ func matchOrWildcard(rule, actual string) bool {
 
 func userMatches(rule, username, hostname string) bool {
 	ruleParts := strings.Split(rule, "@")
-	if len(ruleParts) != 2 { // nolint:gomnd
+	if len(ruleParts) != 2 { //nolint:gomnd
 		return false
 	}
 

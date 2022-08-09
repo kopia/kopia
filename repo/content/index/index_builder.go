@@ -44,7 +44,8 @@ func (b Builder) Add(i Info) {
 
 // base36Value stores a base-36 reverse lookup such that ASCII character corresponds to its
 // base-36 value ('0'=0..'9'=9, 'a'=10, 'b'=11, .., 'z'=35).
-// nolint:gochecknoglobals
+//
+//nolint:gochecknoglobals
 var base36Value [256]byte
 
 func init() {
@@ -68,7 +69,7 @@ func (b Builder) sortedContents() []Info {
 	// by first [0-9a-z] and second character [0-9a-f].
 	for cid, v := range b {
 		first := int(base36Value[cid.prefix])
-		second := int(cid.data[0] >> 4) // nolint:gomnd
+		second := int(cid.data[0] >> 4) //nolint:gomnd
 
 		// first: 0..35, second: 0..15
 		buck := first<<4 + second //nolint:gomnd
@@ -163,7 +164,7 @@ func (b Builder) shard(maxShardSize int) []Builder {
 
 	for k, v := range b {
 		h := fnv.New32a()
-		io.WriteString(h, k.String()) // nolint:errcheck
+		io.WriteString(h, k.String()) //nolint:errcheck
 
 		shard := h.Sum32() % uint32(numShards)
 

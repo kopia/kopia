@@ -50,12 +50,12 @@ func (c *storageFilesystemFlags) Connect(ctx context.Context, isCreate bool, for
 	}
 
 	if v := c.connectOwnerUID; v != "" {
-		// nolint:gomnd
+		//nolint:gomnd
 		fso.FileUID = getIntPtrValue(v, 10)
 	}
 
 	if v := c.connectOwnerGID; v != "" {
-		// nolint:gomnd
+		//nolint:gomnd
 		fso.FileGID = getIntPtrValue(v, 10)
 	}
 
@@ -63,7 +63,7 @@ func (c *storageFilesystemFlags) Connect(ctx context.Context, isCreate bool, for
 	fso.DirectoryMode = getFileModeValue(c.connectDirMode, defaultDirMode)
 	fso.DirectoryShards = initialDirectoryShards(c.connectFlat, formatVersion)
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return filesystem.New(ctx, &fso, isCreate)
 }
 
@@ -82,7 +82,7 @@ func initialDirectoryShards(flat bool, formatVersion int) []int {
 }
 
 func getIntPtrValue(value string, base int) *int {
-	// nolint:gomnd
+	//nolint:gomnd
 	if int64Val, err := strconv.ParseInt(value, base, 32); err == nil {
 		intVal := int(int64Val)
 		return &intVal
@@ -92,7 +92,7 @@ func getIntPtrValue(value string, base int) *int {
 }
 
 func getFileModeValue(value string, def os.FileMode) os.FileMode {
-	// nolint:gomnd
+	//nolint:gomnd
 	if uint32Val, err := strconv.ParseUint(value, 8, 32); err == nil {
 		return os.FileMode(uint32Val)
 	}

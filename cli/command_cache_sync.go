@@ -43,7 +43,7 @@ func (c *commandCacheSync) run(ctx context.Context, rep repo.DirectRepositoryWri
 	eg.Go(func() error {
 		defer close(ch)
 
-		// nolint:wrapcheck
+		//nolint:wrapcheck
 		return rep.BlobReader().ListBlobs(ctx, content.PackBlobIDPrefixSpecial, func(bm blob.Metadata) error {
 			ch <- bm.BlobID
 

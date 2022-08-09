@@ -19,7 +19,8 @@ import (
 )
 
 // BuildInfo is the build information of Kopia.
-// nolint:gochecknoglobals
+//
+//nolint:gochecknoglobals
 var (
 	BuildInfo       = "unknown"
 	BuildVersion    = "v0-unofficial"

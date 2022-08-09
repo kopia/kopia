@@ -133,7 +133,7 @@ func newUploadTestHarness(ctx context.Context, t *testing.T) *uploadTestHarness 
 	return th
 }
 
-// nolint:gocyclo
+//nolint:gocyclo
 func TestUpload(t *testing.T) {
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
@@ -1088,7 +1088,7 @@ type loggedAction struct {
 	keysAndValues map[string]interface{}
 }
 
-// nolint:maintidx
+//nolint:maintidx
 func TestUploadLogging(t *testing.T) {
 	sourceDir := mockfs.NewDirectory()
 	sourceDir.AddFile("f1", []byte{1, 2, 3}, defaultPermissions)

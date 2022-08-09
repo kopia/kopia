@@ -107,7 +107,7 @@ func (c netuseController) Unmount(ctx context.Context) error {
 		return errors.Wrap(err, "unable to delete drive with 'net use'")
 	}
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return c.inner.Unmount(ctx)
 }
 

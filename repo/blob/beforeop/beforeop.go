@@ -27,7 +27,7 @@ func (s beforeOp) GetBlob(ctx context.Context, id blob.ID, offset, length int64,
 		}
 	}
 
-	return s.Storage.GetBlob(ctx, id, offset, length, output) // nolint:wrapcheck
+	return s.Storage.GetBlob(ctx, id, offset, length, output) //nolint:wrapcheck
 }
 
 func (s beforeOp) GetMetadata(ctx context.Context, id blob.ID) (blob.Metadata, error) {
@@ -37,7 +37,7 @@ func (s beforeOp) GetMetadata(ctx context.Context, id blob.ID) (blob.Metadata, e
 		}
 	}
 
-	return s.Storage.GetMetadata(ctx, id) // nolint:wrapcheck
+	return s.Storage.GetMetadata(ctx, id) //nolint:wrapcheck
 }
 
 func (s beforeOp) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes, opts blob.PutOptions) error {
@@ -47,7 +47,7 @@ func (s beforeOp) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes, opts
 		}
 	}
 
-	return s.Storage.PutBlob(ctx, id, data, opts) // nolint:wrapcheck
+	return s.Storage.PutBlob(ctx, id, data, opts) //nolint:wrapcheck
 }
 
 func (s beforeOp) DeleteBlob(ctx context.Context, id blob.ID) error {
@@ -57,7 +57,7 @@ func (s beforeOp) DeleteBlob(ctx context.Context, id blob.ID) error {
 		}
 	}
 
-	return s.Storage.DeleteBlob(ctx, id) // nolint:wrapcheck
+	return s.Storage.DeleteBlob(ctx, id) //nolint:wrapcheck
 }
 
 // NewWrapper creates a wrapped storage interface for data operations that need

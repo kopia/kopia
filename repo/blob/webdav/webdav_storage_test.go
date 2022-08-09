@@ -32,7 +32,7 @@ func basicAuth(h http.Handler) http.HandlerFunc {
 			http.Error(w, "not authorized", http.StatusForbidden)
 		} else {
 			w.Header().Set("WWW-Authenticate", `Basic realm="testing"`)
-			w.WriteHeader(401)
+			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte("Unauthorized.\n"))
 		}
 	}
@@ -145,7 +145,7 @@ func transformMissingPUTs(next http.Handler) http.HandlerFunc {
 	}
 }
 
-// nolint:thelper
+//nolint:thelper
 func verifyWebDAVStorage(t *testing.T, url, username, password string, shardSpec []int) {
 	ctx := testlogging.Context(t)
 

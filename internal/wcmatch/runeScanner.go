@@ -12,9 +12,9 @@ func newRuneScanner(text string, ignoreCase bool) *runeScanner {
 	return &runeScanner{0, []rune(text), ignoreCase}
 }
 
-//	peek returns the character at the current position plus the specified index.
-//  If ignoreCase was specified when creating the reader, any uppercase character is
-//  converted to lowercase. If outside the bounds of the text, 0 is returned.
+//		peek returns the character at the current position plus the specified index.
+//	 If ignoreCase was specified when creating the reader, any uppercase character is
+//	 converted to lowercase. If outside the bounds of the text, 0 is returned.
 func (s *runeScanner) peek(index int) rune {
 	if s.pos+index < len(s.text) && s.pos+index >= 0 {
 		ch := s.text[s.pos+index]

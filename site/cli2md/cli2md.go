@@ -29,7 +29,7 @@ const (
 	dirMode = 0o750
 )
 
-// nolint:gochecknoglobals
+//nolint:gochecknoglobals
 var overrideDefault = map[string]string{
 	"config-file": "repository.config",
 	"log-dir":     "kopia",
@@ -244,7 +244,7 @@ func generateSubcommands(w io.Writer, dir, sectionTitle string, cmds []*kingpin.
 		}
 
 		subcommandSlug := strings.Replace(c.FullCommand, " ", "-", -1)
-		helpSummary := strings.SplitN(c.Help, "\n", 2)[0] // nolint:gomnd
+		helpSummary := strings.SplitN(c.Help, "\n", 2)[0] //nolint:gomnd
 		helpSummary = strings.TrimSuffix(helpSummary, ".")
 		fmt.Fprintf(w, "* [`%v`](%v) - %v\n", c.FullCommand, subcommandSlug+"/", helpSummary)
 		generateSubcommandPage(filepath.Join(dir, subcommandSlug+".md"), c)

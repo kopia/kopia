@@ -308,7 +308,7 @@ func deepenSubtreeDirectory(m *mutatorArgs) {
 
 	// 3. Original shouldn't require any changes as the entire tree should
 	// be there.
-} // nolint:wsl
+} //nolint:wsl
 
 // deepenSubtreeFile reifies a shallow file entry with its actual contents.
 func deepenSubtreeFile(m *mutatorArgs) {
@@ -323,7 +323,7 @@ func deepenSubtreeFile(m *mutatorArgs) {
 	m.e.RunAndExpectSuccess(m.t, "restore", "--shallow=1000", fileinshallow)
 
 	// 3. Original shouldn't require any changes.
-} // nolint:wsl
+} //nolint:wsl
 
 // deepenOneSubtreeLevel reifies a shallow directory entry with one level
 // of reification. In particular: given a path into a shallow restored
@@ -354,7 +354,7 @@ func deepenOneSubtreeLevel(m *mutatorArgs) {
 	compareShallowToOriginalDir(m.t, m.rdc, localfs.TrimShallowSuffix(origpath), localfs.TrimShallowSuffix(fileinshallow), 1)
 
 	// 3. Original shouldn't require any changes.
-} // nolint:wsl
+} //nolint:wsl
 
 // removeEntry tests that we can remove both directory and file shallow
 // placeholders.
@@ -874,6 +874,7 @@ func compareShallowToOriginalDir(t *testing.T, rdc *repoDirEntryCache, original,
 // FileInfo info. There are three cases: relpathdepth > depth: the part
 // of the original tree not shallow restored; relpathdepth == depth: the
 // shallow placeholders; relpathdepth < depth: the fully restored portion.
+//
 //nolint:gocyclo,cyclop
 func verifyShallowVsOriginalFile(t *testing.T, rdc *repoDirEntryCache, shallow, relpath, opath string, depth int, info os.FileInfo) {
 	t.Helper()

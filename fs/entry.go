@@ -85,7 +85,7 @@ func GetAllEntries(ctx context.Context, d Directory) ([]Entry, error) {
 		return nil
 	})
 
-	return entries, err // nolint:wrapcheck
+	return entries, err //nolint:wrapcheck
 }
 
 // ErrEntryNotFound is returned when an entry is not found.

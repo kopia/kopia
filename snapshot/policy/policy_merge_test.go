@@ -58,7 +58,7 @@ func TestPolicyMerge(t *testing.T) {
 	testPolicyMerge(t, reflect.TypeOf(policy.Policy{}), reflect.TypeOf(policy.Definition{}), "")
 }
 
-// nolint:thelper
+//nolint:thelper
 func testPolicyMerge(t *testing.T, policyType, definitionType reflect.Type, prefix string) {
 	for i := 0; i < policyType.NumField(); i++ {
 		f := policyType.Field(i)
@@ -80,7 +80,7 @@ func testPolicyMerge(t *testing.T, policyType, definitionType reflect.Type, pref
 	}
 }
 
-// nolint:thelper
+//nolint:thelper
 func testPolicyMergeSingleField(t *testing.T, fieldName string, typ reflect.Type) {
 	var v0, v1, v2 reflect.Value
 

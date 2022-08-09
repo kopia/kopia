@@ -43,7 +43,7 @@ func (c *commandBlobShardsModify) setup(svc appServices, parent commandParent) {
 }
 
 func (c *commandBlobShardsModify) getParameters(dotShardsFile string) (*sharded.Parameters, error) {
-	// nolint:gosec
+	//nolint:gosec
 	f, err := os.Open(dotShardsFile)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to open shards file")
@@ -192,7 +192,7 @@ func (c *commandBlobShardsModify) removeEmptyDirs(ctx context.Context, dir strin
 	isEmpty := true
 
 	for _, ent := range entries {
-		// nolint:nestif
+		//nolint:nestif
 		if ent.IsDir() {
 			childPath := path.Join(dir, ent.Name())
 
@@ -231,7 +231,7 @@ func (c *commandBlobShardsModify) renameBlobs(ctx context.Context, dir, prefix s
 	}
 
 	for _, ent := range entries {
-		// nolint:nestif
+		//nolint:nestif
 		if ent.IsDir() {
 			if err := c.renameBlobs(ctx, path.Join(dir, ent.Name()), prefix+ent.Name(), params, numMoved, numUnchanged); err != nil {
 				return err
@@ -253,7 +253,7 @@ func (c *commandBlobShardsModify) renameBlobs(ctx context.Context, dir, prefix s
 				if !c.dryRun {
 					err := os.Rename(srcFile, destFile)
 					if os.IsNotExist(err) {
-						// nolint:gomnd
+						//nolint:gomnd
 						if err2 := os.MkdirAll(destDir, 0o700); err2 != nil {
 							return errors.Wrap(err2, "error creating directory")
 						}

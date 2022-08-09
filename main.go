@@ -3,7 +3,7 @@ Command-line tool for creating and accessing backups.
 
 Usage:
 
-  $ kopia [<flags>] <subcommand> [<args> ...]
+	$ kopia [<flags>] <subcommand> [<args> ...]
 
 Use 'kopia help' to see more details.
 */

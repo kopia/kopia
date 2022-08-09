@@ -154,7 +154,7 @@ func (r *directRepository) NewObjectWriter(ctx context.Context, opt object.Write
 
 // ConcatenateObjects creates a concatenated objects from the provided object IDs.
 func (r *directRepository) ConcatenateObjects(ctx context.Context, objectIDs []object.ID) (object.ID, error) {
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return r.omgr.Concatenate(ctx, objectIDs)
 }
 
@@ -165,37 +165,37 @@ func (r *directRepository) DisableIndexRefresh() {
 
 // OpenObject opens the reader for a given object, returns object.ErrNotFound.
 func (r *directRepository) OpenObject(ctx context.Context, id object.ID) (object.Reader, error) {
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return object.Open(ctx, r.cmgr, id)
 }
 
 // VerifyObject verifies that the given object is stored properly in a repository and returns backing content IDs.
 func (r *directRepository) VerifyObject(ctx context.Context, id object.ID) ([]content.ID, error) {
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return object.VerifyObject(ctx, r.cmgr, id)
 }
 
 // GetManifest returns the given manifest data and metadata.
 func (r *directRepository) GetManifest(ctx context.Context, id manifest.ID, data interface{}) (*manifest.EntryMetadata, error) {
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return r.mmgr.Get(ctx, id, data)
 }
 
 // PutManifest saves the given manifest payload with a set of labels.
 func (r *directRepository) PutManifest(ctx context.Context, labels map[string]string, payload interface{}) (manifest.ID, error) {
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return r.mmgr.Put(ctx, labels, payload)
 }
 
 // FindManifests returns metadata for manifests matching given set of labels.
 func (r *directRepository) FindManifests(ctx context.Context, labels map[string]string) ([]*manifest.EntryMetadata, error) {
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return r.mmgr.Find(ctx, labels)
 }
 
 // DeleteManifest deletes the manifest with a given ID.
 func (r *directRepository) DeleteManifest(ctx context.Context, id manifest.ID) error {
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return r.mmgr.Delete(ctx, id)
 }
 
@@ -206,19 +206,19 @@ func (r *directRepository) PrefetchContents(ctx context.Context, contentIDs []co
 
 // PrefetchObjects brings the requested objects into the cache.
 func (r *directRepository) PrefetchObjects(ctx context.Context, objectIDs []object.ID, hint string) ([]content.ID, error) {
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return object.PrefetchBackingContents(ctx, r.cmgr, objectIDs, hint)
 }
 
 // ListActiveSessions returns the map of active sessions.
 func (r *directRepository) ListActiveSessions(ctx context.Context) (map[content.SessionID]*content.SessionInfo, error) {
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return r.cmgr.ListActiveSessions(ctx)
 }
 
 // ContentInfo gets the information about particular content.
 func (r *directRepository) ContentInfo(ctx context.Context, contentID content.ID) (content.Info, error) {
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return r.cmgr.ContentInfo(ctx, contentID)
 }
 
@@ -328,7 +328,7 @@ func (r *directRepository) ContentReader() content.Reader {
 
 // IndexBlobs returns the index blobs in use.
 func (r *directRepository) IndexBlobs(ctx context.Context, includeInactive bool) ([]content.IndexBlobInfo, error) {
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return r.cmgr.IndexBlobs(ctx, includeInactive)
 }
 

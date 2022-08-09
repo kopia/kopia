@@ -43,7 +43,7 @@ func GenerateServerCertificate(ctx context.Context, keySize int, certValid time.
 	notBefore := clock.Now()
 	notAfter := notBefore.Add(certValid)
 
-	// nolint:gomnd
+	//nolint:gomnd
 	serialNumber, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "unable to generate serial number")

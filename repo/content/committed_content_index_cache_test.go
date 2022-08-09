@@ -32,7 +32,7 @@ func TestCommittedContentIndexCache_Memory(t *testing.T) {
 	}, nil)
 }
 
-// nolint:thelper
+//nolint:thelper
 func testCache(t *testing.T, cache committedContentIndexCache, fakeTime *faketime.ClockTimeWithOffset) {
 	ctx := testlogging.Context(t)
 

@@ -124,7 +124,7 @@ func (r *directRepository) CommitUpgrade(ctx context.Context) error {
 // hence using this API could render the repository corrupted and unreadable by
 // clients.
 //
-// nolint:gocyclo
+//nolint:gocyclo
 func (r *directRepository) RollbackUpgrade(ctx context.Context) error {
 	f := r.formatBlob
 

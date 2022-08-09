@@ -26,7 +26,7 @@ const (
 	prefixDelete = "del"
 )
 
-// nolint:gochecknoglobals
+//nolint:gochecknoglobals
 var markerData = gather.FromSlice([]byte("marker"))
 
 // CacheStorage implements a wrapper around blob.Storage that ensures recent local mutations
@@ -95,7 +95,7 @@ func (s *CacheStorage) ListBlobs(ctx context.Context, prefix blob.ID, cb func(bl
 
 		return cb(bm)
 	}); err != nil {
-		// nolint:wrapcheck
+		//nolint:wrapcheck
 		return err
 	}
 
@@ -112,7 +112,7 @@ func (s *CacheStorage) ListBlobs(ctx context.Context, prefix blob.ID, cb func(bl
 		}
 
 		if err != nil {
-			// nolint:wrapcheck
+			//nolint:wrapcheck
 			return err
 		}
 
@@ -130,11 +130,11 @@ func (s *CacheStorage) PutBlob(ctx context.Context, blobID blob.ID, data blob.By
 	if err == nil && s.isCachedPrefix(blobID) {
 		opts.GetModTime = nil
 
-		// nolint:errcheck
+		//nolint:errcheck
 		s.cacheStorage.PutBlob(ctx, prefixAdd+blobID, markerData, opts)
 	}
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return err
 }
 
@@ -142,11 +142,11 @@ func (s *CacheStorage) PutBlob(ctx context.Context, blobID blob.ID, data blob.By
 func (s *CacheStorage) DeleteBlob(ctx context.Context, blobID blob.ID) error {
 	err := s.Storage.DeleteBlob(ctx, blobID)
 	if err == nil && s.isCachedPrefix(blobID) {
-		// nolint:errcheck
+		//nolint:errcheck
 		s.cacheStorage.PutBlob(ctx, prefixDelete+blobID, markerData, blob.PutOptions{})
 	}
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return err
 }
 

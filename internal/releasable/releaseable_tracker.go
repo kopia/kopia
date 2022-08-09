@@ -100,10 +100,10 @@ func (s *perKindTracker) active() map[interface{}]string {
 }
 
 var (
-	perKindMutex sync.Mutex // nolint:gochecknoglobals
+	perKindMutex sync.Mutex //nolint:gochecknoglobals
 
 	// +checklocks:perKindMutex
-	perKindTrackers = map[ItemKind]*perKindTracker{} // nolint:gochecknoglobals
+	perKindTrackers = map[ItemKind]*perKindTracker{} //nolint:gochecknoglobals
 )
 
 // EnableTracking enables tracking of the given item type.

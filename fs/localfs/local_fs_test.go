@@ -153,7 +153,7 @@ func TestIterateNonExistent(t *testing.T) {
 	}), os.ErrNotExist)
 }
 
-// nolint:thelper
+//nolint:thelper
 func testIterate(t *testing.T, nFiles int) {
 	tmp := testutil.TempDirectory(t)
 

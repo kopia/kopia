@@ -12,7 +12,7 @@ import (
 
 var log = logging.Module("retry")
 
-// nolint:gochecknoglobals
+//nolint:gochecknoglobals
 var (
 	maxAttempts             = 10
 	retryInitialSleepAmount = 100 * time.Millisecond
@@ -68,7 +68,7 @@ func internalRetry(ctx context.Context, desc string, attempt AttemptFunc, isRetr
 
 	for ; i < count || count < 0; i++ {
 		if cerr := ctx.Err(); cerr != nil {
-			// nolint:wrapcheck
+			//nolint:wrapcheck
 			return nil, cerr
 		}
 

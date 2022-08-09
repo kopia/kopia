@@ -331,7 +331,7 @@ func (s *sourceManager) snapshot(ctx context.Context) error {
 
 	defer s.server.endUpload(ctx, s.src)
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return s.server.taskmgr.Run(ctx,
 		"Snapshot",
 		fmt.Sprintf("%v at %v", s.src, clock.Now().Format(time.RFC3339)),
@@ -365,7 +365,7 @@ func (s *sourceManager) snapshotInternal(ctx context.Context, ctrl uitask.Contro
 	s.lastAttemptedSnapshotTime = clock.Now()
 	s.sourceMutex.Unlock()
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return repo.WriteSession(ctx, s.rep, repo.WriteSessionOptions{
 		Purpose: "Source Manager Uploader",
 		OnUpload: func(numBytes int64) {

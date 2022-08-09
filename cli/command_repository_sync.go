@@ -57,7 +57,7 @@ func (c *commandRepositorySyncTo) setup(svc advancedAppServices, parent commandP
 		cc := cmd.Command(prov.Name, "Synchronize repository data to another repository in "+prov.Description)
 		f.Setup(svc, cc)
 		cc.Action(func(kpc *kingpin.ParseContext) error {
-			// nolint:wrapcheck
+			//nolint:wrapcheck
 			return svc.runAppWithContext(kpc.SelectedCommand, func(ctx context.Context) error {
 				st, err := f.Connect(ctx, false, 0)
 				if err != nil {
@@ -69,7 +69,7 @@ func (c *commandRepositorySyncTo) setup(svc advancedAppServices, parent commandP
 					return errors.Wrap(err, "open repository")
 				}
 
-				defer rep.Close(ctx) // nolint:errcheck
+				defer rep.Close(ctx) //nolint:errcheck
 
 				dr, ok := rep.(repo.DirectRepository)
 				if !ok {

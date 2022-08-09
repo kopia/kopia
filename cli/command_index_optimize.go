@@ -46,6 +46,6 @@ func (c *commandIndexOptimize) runOptimizeCommand(ctx context.Context, rep repo.
 		opt.DropDeletedBefore = rep.Time().Add(-age)
 	}
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return rep.ContentManager().CompactIndexes(ctx, opt)
 }

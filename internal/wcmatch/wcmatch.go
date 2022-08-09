@@ -67,7 +67,8 @@ func (matcher *WildcardMatcher) Options() Options {
 
 // NewWildcardMatcher creates a new WildcardMatcher with the specified pattern and options.
 // The default option is for the matcher to be case-sensitive without a base dir.
-// nolint:funlen,gocognit,gocyclo,cyclop,maintidx
+//
+//nolint:funlen,gocognit,gocyclo,cyclop,maintidx
 func NewWildcardMatcher(pattern string, options ...Option) (matcher *WildcardMatcher, err error) {
 	var result []token
 

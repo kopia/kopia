@@ -19,7 +19,7 @@ const (
 	logsDirPermissions  = 0o750
 )
 
-// nolint:gochecknoglobals
+//nolint:gochecknoglobals
 var interestingLengths = []int{10, 50, 100, 240, 250, 260, 270}
 
 // GetInterestingTempDirectoryName returns interesting directory name used for testing.
@@ -29,13 +29,13 @@ func GetInterestingTempDirectoryName() (string, error) {
 		return "", errors.Wrap(err, "unable to create temp directory")
 	}
 
-	// nolint:gosec
+	//nolint:gosec
 	targetLen := interestingLengths[rand.Intn(len(interestingLengths))]
 
 	// make sure the base directory is quite long to trigger very long filenames on Windows.
 	if n := len(td); n < targetLen {
 		td = filepath.Join(td, strings.Repeat("f", targetLen-n))
-		// nolint:gomnd
+		//nolint:gomnd
 		if err := os.MkdirAll(td, 0o700); err != nil {
 			return "", errors.Wrap(err, "unable to create temp directory")
 		}
@@ -56,7 +56,7 @@ func TempDirectory(tb testing.TB) string {
 
 	tb.Cleanup(func() {
 		if !tb.Failed() {
-			os.RemoveAll(d) // nolint:errcheck
+			os.RemoveAll(d) //nolint:errcheck
 		} else {
 			tb.Logf("temporary files left in %v", d)
 		}
@@ -93,7 +93,7 @@ func TempLogDirectory(t *testing.T) string {
 			dumpLogs(t, logsDir)
 		}
 
-		os.RemoveAll(logsDir) // nolint:errcheck
+		os.RemoveAll(logsDir) //nolint:errcheck
 	})
 
 	return logsDir
@@ -122,7 +122,7 @@ func dumpLogs(t *testing.T, dirname string) {
 func dumpLogFile(t *testing.T, fname string) {
 	t.Helper()
 
-	data, err := os.ReadFile(fname) // nolint:gosec
+	data, err := os.ReadFile(fname) //nolint:gosec
 	if err != nil {
 		t.Error(err)
 		return
@@ -137,9 +137,9 @@ func trimOutput(s string) string {
 		return s
 	}
 
-	lines2 := append([]string(nil), lines[0:(maxOutputLinesToLog/2)]...) // nolint:gomnd
+	lines2 := append([]string(nil), lines[0:(maxOutputLinesToLog/2)]...) //nolint:gomnd
 	lines2 = append(lines2, fmt.Sprintf("/* %v lines removed */", len(lines)-maxOutputLinesToLog))
-	lines2 = append(lines2, lines[len(lines)-(maxOutputLinesToLog/2):]...) // nolint:gomnd
+	lines2 = append(lines2, lines[len(lines)-(maxOutputLinesToLog/2):]...) //nolint:gomnd
 
 	return strings.Join(lines2, "\n")
 }

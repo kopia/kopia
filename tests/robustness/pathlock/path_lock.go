@@ -13,12 +13,12 @@ import (
 // A call to Lock a given path will block any asynchronous calls to Lock
 // that same path, or any parent or child path in the same sub-tree.
 // For example:
-// 	- Lock path /a/b/c
-//		- Blocks a Lock call for the same path /a/b/c
-//		- Blocks a Lock call for path /a/b or /a
-//		- Blocks a Lock call for path /a/b/c/d
-//		- Allows a Lock call for path /a/b/x
-//		- Allows a Lock call for path /a/x
+//   - Lock path /a/b/c
+//   - Blocks a Lock call for the same path /a/b/c
+//   - Blocks a Lock call for path /a/b or /a
+//   - Blocks a Lock call for path /a/b/c/d
+//   - Allows a Lock call for path /a/b/x
+//   - Allows a Lock call for path /a/x
 type Locker interface {
 	Lock(path string) (Unlocker, error)
 }

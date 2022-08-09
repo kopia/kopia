@@ -73,14 +73,14 @@ func (fw *FileWriter) DataDirectory(ctx context.Context) string {
 // WriteRandomFiles writes a number of files at some filesystem depth, based
 // on its input options.
 //
-//  - MaxDirDepthField
-//  - MaxFileSizeField
-//  - MinFileSizeField
-//  - MaxNumFilesPerWriteField
-//  - MinNumFilesPerWriteField
-//  - MaxDedupePercentField
-//  - MinDedupePercentField
-//  - DedupePercentStepField
+//   - MaxDirDepthField
+//   - MaxFileSizeField
+//   - MinFileSizeField
+//   - MaxNumFilesPerWriteField
+//   - MinNumFilesPerWriteField
+//   - MaxDedupePercentField
+//   - MinDedupePercentField
+//   - DedupePercentStepField
 //
 // Default values are used for missing options. The method
 // returns the effective options used along with the selected depth
@@ -164,7 +164,7 @@ func (fw *FileWriter) WriteRandomFiles(ctx context.Context, opts map[string]stri
 // DeleteRandomSubdirectory deletes a random directory up to a specified depth,
 // based on its input options:
 //
-//  - MaxDirDepthField
+//   - MaxDirDepthField
 //
 // Default values are used for missing options. The method
 // returns the effective options used along with the selected depth
@@ -198,8 +198,8 @@ func (fw *FileWriter) DeleteRandomSubdirectory(ctx context.Context, opts map[str
 // DeleteDirectoryContents deletes some of the contents of random directory up to a specified depth,
 // based on its input options:
 //
-//  - MaxDirDepthField
-//  - DeletePercentOfContentsField
+//   - MaxDirDepthField
+//   - DeletePercentOfContentsField
 //
 // Default values are used for missing options. The method
 // returns the effective options used along with the selected depth

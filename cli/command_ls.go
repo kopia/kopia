@@ -57,7 +57,7 @@ func (c *commandList) listDirectory(ctx context.Context, d fs.Directory, prefix,
 	if err := d.IterateEntries(ctx, func(innerCtx context.Context, e fs.Entry) error {
 		return c.printDirectoryEntry(innerCtx, e, prefix, indent)
 	}); err != nil {
-		return err // nolint:wrapcheck
+		return err //nolint:wrapcheck
 	}
 
 	if dws, ok := d.(fs.DirectoryWithSummary); ok && c.errorSummary {

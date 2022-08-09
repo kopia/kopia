@@ -15,12 +15,12 @@ import (
 func Append(input gather.Bytes, secret []byte, output *gather.WriteBuffer) {
 	h := hmac.New(sha256.New, secret)
 
-	input.WriteTo(output) // nolint:errcheck
-	input.WriteTo(h)      // nolint:errcheck
+	input.WriteTo(output) //nolint:errcheck
+	input.WriteTo(h)      //nolint:errcheck
 
 	var hash [sha256.Size]byte
 
-	output.Write(h.Sum(hash[:0])) // nolint:errcheck
+	output.Write(h.Sum(hash[:0])) //nolint:errcheck
 }
 
 // VerifyAndStrip verifies that given block of bytes has correct HMAC-SHA256 checksum and strips it.

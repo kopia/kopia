@@ -64,7 +64,7 @@ func (c *App) writeUpdateState(us *updateState) error {
 }
 
 func (c *App) removeUpdateState() {
-	os.Remove(c.updateStateFilename()) // nolint:errcheck
+	os.Remove(c.updateStateFilename()) //nolint:errcheck
 }
 
 // getUpdateState reads the update state file if available.
@@ -107,7 +107,7 @@ func getLatestReleaseNameFromGitHub(ctx context.Context) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, githubTimeout)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf(latestReleaseGitHubURLFormat, repo.BuildGitHubRepo), http.NoBody)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf(latestReleaseGitHubURLFormat, repo.BuildGitHubRepo), http.NoBody)
 	if err != nil {
 		return "", errors.Wrap(err, "unable to get latest release from github")
 	}
@@ -138,7 +138,7 @@ func verifyGitHubReleaseIsComplete(ctx context.Context, releaseName string) erro
 	ctx, cancel := context.WithTimeout(ctx, githubTimeout)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf(checksumsURLFormat, repo.BuildGitHubRepo, releaseName), http.NoBody)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf(checksumsURLFormat, repo.BuildGitHubRepo, releaseName), http.NoBody)
 	if err != nil {
 		return errors.Wrap(err, "unable to download releases checksum")
 	}

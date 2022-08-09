@@ -153,7 +153,7 @@ func TestRandomizedSmall(t *testing.T) {
 		err := tryRestoreIntoDataDirectory(ctx, t)
 		require.NoError(t, err)
 
-		// nolint:forbidigo
+		//nolint:forbidigo
 		for st.Elapsed() <= *randomizedTestDur {
 			err := tryRandomAction(ctx, t, opts)
 			require.NoError(t, err)

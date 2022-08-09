@@ -50,7 +50,7 @@ func (c *commandSnapshotMigrate) run(ctx context.Context, destRepo repo.Reposito
 		return errors.Wrap(err, "can't open source repository")
 	}
 
-	defer sourceRepo.Close(ctx) // nolint:errcheck
+	defer sourceRepo.Close(ctx) //nolint:errcheck
 
 	sources, err := c.getSourcesToMigrate(ctx, sourceRepo)
 	if err != nil {
@@ -323,7 +323,7 @@ func (c *commandSnapshotMigrate) getSourcesToMigrate(ctx context.Context, rep re
 	}
 
 	if c.migrateAll {
-		// nolint:wrapcheck
+		//nolint:wrapcheck
 		return snapshot.ListSources(ctx, rep)
 	}
 

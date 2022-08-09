@@ -61,7 +61,7 @@ func (r *apiServerRepository) ClientOptions() ClientOptions {
 }
 
 func (r *apiServerRepository) OpenObject(ctx context.Context, id object.ID) (object.Reader, error) {
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return object.Open(ctx, r, id)
 }
 
@@ -71,12 +71,12 @@ func (r *apiServerRepository) NewObjectWriter(ctx context.Context, opt object.Wr
 
 // ConcatenateObjects creates a concatenated objects from the provided object IDs.
 func (r *apiServerRepository) ConcatenateObjects(ctx context.Context, objectIDs []object.ID) (object.ID, error) {
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return r.omgr.Concatenate(ctx, objectIDs)
 }
 
 func (r *apiServerRepository) VerifyObject(ctx context.Context, id object.ID) ([]content.ID, error) {
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return object.VerifyObject(ctx, r, id)
 }
 
@@ -87,7 +87,7 @@ func (r *apiServerRepository) GetManifest(ctx context.Context, id manifest.ID, d
 		return nil, errors.Wrap(err, "GetManifest")
 	}
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return mm.Metadata, json.Unmarshal(mm.Payload, data)
 }
 
@@ -188,12 +188,12 @@ func (r *apiServerRepository) GetContent(ctx context.Context, contentID content.
 			return errors.Wrap(err, "GetContent")
 		}
 
-		tmp.Write(result) // nolint:errcheck
+		tmp.Write(result) //nolint:errcheck
 
 		return nil
 	}, &tmp)
 	if err != nil {
-		// nolint:wrapcheck
+		//nolint:wrapcheck
 		return nil, err
 	}
 
@@ -252,7 +252,7 @@ func (r *apiServerRepository) Close(ctx context.Context) error {
 }
 
 func (r *apiServerRepository) PrefetchObjects(ctx context.Context, objectIDs []object.ID, hint string) ([]content.ID, error) {
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return object.PrefetchBackingContents(ctx, r, objectIDs, hint)
 }
 

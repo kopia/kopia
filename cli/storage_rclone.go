@@ -44,6 +44,6 @@ func (c *storageRcloneFlags) Connect(ctx context.Context, isCreate bool, formatV
 		c.opt.EmbeddedConfig = string(cfg)
 	}
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return rclone.New(ctx, &c.opt, isCreate)
 }

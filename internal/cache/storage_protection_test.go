@@ -27,7 +27,7 @@ func TestEncryptionStorageProtection(t *testing.T) {
 	testStorageProtection(t, e, true)
 }
 
-// nolint:thelper
+//nolint:thelper
 func testStorageProtection(t *testing.T, sp cache.StorageProtection, protectsFromBitFlips bool) {
 	payload := []byte{0, 1, 2, 3, 4}
 

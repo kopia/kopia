@@ -28,7 +28,7 @@ func (c *commandSnapshotExpire) setup(svc appServices, parent commandParent) {
 
 func (c *commandSnapshotExpire) getSnapshotSourcesToExpire(ctx context.Context, rep repo.Repository) ([]snapshot.SourceInfo, error) {
 	if c.snapshotExpireAll {
-		// nolint:wrapcheck
+		//nolint:wrapcheck
 		return snapshot.ListSources(ctx, rep)
 	}
 

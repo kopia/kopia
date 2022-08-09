@@ -155,7 +155,7 @@ func (c *commandContentVerify) contentVerify(ctx context.Context, r content.Read
 		return errors.Errorf("content %v out of bounds of its pack blob %v", ci.GetContentID(), ci.GetPackBlobID())
 	}
 
-	// nolint:gosec
+	//nolint:gosec
 	if 100*rand.Float64() < downloadPercent {
 		if _, err := r.GetContent(ctx, ci.GetContentID()); err != nil {
 			return errors.Wrapf(err, "content %v is invalid", ci.GetContentID())

@@ -114,7 +114,7 @@ func resolveSymlink(path string) (string, error) {
 		return path, nil
 	}
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return filepath.EvalSymlinks(path)
 }
 

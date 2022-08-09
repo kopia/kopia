@@ -60,7 +60,7 @@ func (o *TarOutput) Close(ctx context.Context) error {
 		return errors.Wrap(err, "error closing tar")
 	}
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return o.w.Close()
 }
 

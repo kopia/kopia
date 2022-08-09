@@ -140,7 +140,7 @@ func TestDisallowed_UseAfterPoolClose(t *testing.T) {
 	})
 }
 
-// nolint:thelper
+//nolint:thelper
 func testComputeTreeSum(t *testing.T, numWorkers int) {
 	w := workshare.NewPool(numWorkers)
 	defer w.Close()

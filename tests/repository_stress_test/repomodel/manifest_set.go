@@ -22,7 +22,7 @@ func (s *ManifestSet) PickRandom() manifest.ID {
 		return ""
 	}
 
-	// nolint:gosec
+	//nolint:gosec
 	return s.ids[rand.Intn(len(s.ids))]
 }
 

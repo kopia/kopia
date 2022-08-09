@@ -51,7 +51,7 @@ func (c *commandContentStats) run(ctx context.Context, rep repo.DirectRepository
 	sizeToString := units.BytesStringBase10
 	if c.raw {
 		sizeToString = func(l int64) string {
-			return strconv.FormatInt(l, 10) // nolint:gomnd
+			return strconv.FormatInt(l, 10) //nolint:gomnd
 		}
 	}
 
@@ -153,6 +153,6 @@ func (c *commandContentStats) calculateStats(ctx context.Context, rep repo.Direc
 			return nil
 		})
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return grandTotal, byCompressionTotal, countMap, totalSizeOfContentsUnder, err
 }

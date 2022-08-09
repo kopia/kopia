@@ -35,7 +35,7 @@ func (sm *SharedManager) maybeCompressAndEncryptDataForPacking(data gather.Bytes
 		comp = compression.HeaderZstdFastest
 	}
 
-	// nolint:nestif
+	//nolint:nestif
 	if comp != NoCompression {
 		if mp.IndexVersion < index.Version2 {
 			return NoCompression, errors.Errorf("compression is not enabled for this repository")

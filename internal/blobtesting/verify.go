@@ -17,7 +17,8 @@ import (
 )
 
 // VerifyStorage verifies the behavior of the specified storage.
-// nolint:gocyclo,thelper
+//
+//nolint:gocyclo,thelper
 func VerifyStorage(ctx context.Context, t *testing.T, r blob.Storage, opts blob.PutOptions) {
 	blocks := []struct {
 		blk      blob.ID
@@ -198,7 +199,8 @@ func VerifyStorage(ctx context.Context, t *testing.T, r blob.Storage, opts blob.
 
 // AssertConnectionInfoRoundTrips verifies that the ConnectionInfo returned by a given storage can be used to create
 // equivalent storage.
-// nolint:thelper
+//
+//nolint:thelper
 func AssertConnectionInfoRoundTrips(ctx context.Context, t *testing.T, s blob.Storage) {
 	ci := s.ConnectionInfo()
 
@@ -214,7 +216,8 @@ func AssertConnectionInfoRoundTrips(ctx context.Context, t *testing.T, s blob.St
 }
 
 // TestValidationOptions is the set of options used when running providing validation from tests.
-// nolint:gomnd
+//
+//nolint:gomnd
 var TestValidationOptions = providervalidation.Options{
 	MaxClockDrift:           3 * time.Minute,
 	ConcurrencyTestDuration: 15 * time.Second,

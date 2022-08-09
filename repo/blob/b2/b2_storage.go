@@ -64,7 +64,7 @@ func (s *b2Storage) GetBlob(ctx context.Context, id blob.ID, offset, length int6
 			return nil
 		}
 
-		// nolint:wrapcheck
+		//nolint:wrapcheck
 		return iocopy.JustCopy(output, r)
 	}
 
@@ -72,7 +72,7 @@ func (s *b2Storage) GetBlob(ctx context.Context, id blob.ID, offset, length int6
 		return translateError(err)
 	}
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return blob.EnsureLengthExactly(output.Length(), length)
 }
 
@@ -204,7 +204,7 @@ func (s *b2Storage) ListBlobs(ctx context.Context, prefix blob.ID, callback func
 	for {
 		resp, err := s.bucket.ListFileNamesWithPrefix(nextFile, maxFileQuery, fullPrefix, "")
 		if err != nil {
-			// nolint:wrapcheck
+			//nolint:wrapcheck
 			return err
 		}
 
@@ -292,6 +292,6 @@ func init() {
 			return &Options{}
 		},
 		func(ctx context.Context, o interface{}, isCreate bool) (blob.Storage, error) {
-			return New(ctx, o.(*Options)) // nolint:forcetypeassert
+			return New(ctx, o.(*Options)) //nolint:forcetypeassert
 		})
 }

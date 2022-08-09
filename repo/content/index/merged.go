@@ -95,7 +95,7 @@ func (h nextInfoHeap) Less(i, j int) bool {
 
 func (h nextInfoHeap) Swap(i, j int) { h[i], h[j] = h[j], h[i] }
 func (h *nextInfoHeap) Push(x interface{}) {
-	*h = append(*h, x.(*nextInfo)) // nolint:forcetypeassert
+	*h = append(*h, x.(*nextInfo)) //nolint:forcetypeassert
 }
 
 func (h *nextInfoHeap) Pop() interface{} {
@@ -155,7 +155,7 @@ func (m Merged) Iterate(r IDRange, cb func(i Info) error) error {
 	var pendingItem Info
 
 	for len(minHeap) > 0 {
-		// nolint:forcetypeassert
+		//nolint:forcetypeassert
 		min := heap.Pop(&minHeap).(*nextInfo)
 		if pendingItem == nil || pendingItem.GetContentID() != min.it.GetContentID() {
 			if pendingItem != nil {

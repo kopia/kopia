@@ -51,7 +51,7 @@ func (ti ToolInfo) actualURL(version, goos, goarch string) string {
 	return u
 }
 
-// nolint:gochecknoglobals
+//nolint:gochecknoglobals
 var tools = map[string]ToolInfo{
 	"linter": {
 		urlTemplate: "https://github.com/golangci/golangci-lint/releases/download/vVERSION/golangci-lint-VERSION-GOOS-GOARCH.EXT",
@@ -122,7 +122,7 @@ var tools = map[string]ToolInfo{
 	},
 }
 
-// nolint:gochecknoglobals
+//nolint:gochecknoglobals
 var (
 	tool      = flag.String("tool", "", "Name of the tool:version")
 	outputDir = flag.String("output-dir", "", "Output directory")
@@ -133,7 +133,7 @@ var (
 	regenerateChecksums = flag.Bool("regenerate-checksums", false, "Regenerate checksums")
 )
 
-// nolint:gochecknoglobals
+//nolint:gochecknoglobals
 var buildArchitectures = []struct {
 	goos   string
 	goarch string
@@ -184,7 +184,7 @@ func main() {
 	for _, toolNameVersion := range strings.Split(*tool, ",") {
 		parts := strings.Split(toolNameVersion, ":")
 
-		// nolint:gomnd
+		//nolint:gomnd
 		if len(parts) != 2 {
 			log.Fatalf("invalid tool spec, must be tool:version[,tool:version]")
 		}

@@ -64,8 +64,8 @@ func (c *commandRepositoryStatus) outputJSON(ctx context.Context, r repo.Reposit
 		s.UniqueIDHex = hex.EncodeToString(dr.UniqueID())
 		s.ObjectFormat = dr.ObjectFormat()
 		s.BlobRetention = dr.BlobCfg()
-		s.Storage = scrubber.ScrubSensitiveData(reflect.ValueOf(ci)).Interface().(blob.ConnectionInfo)                                                 // nolint:forcetypeassert
-		s.ContentFormat = scrubber.ScrubSensitiveData(reflect.ValueOf(dr.ContentReader().ContentFormat().Struct())).Interface().(format.ContentFormat) // nolint:forcetypeassert
+		s.Storage = scrubber.ScrubSensitiveData(reflect.ValueOf(ci)).Interface().(blob.ConnectionInfo)                                                 //nolint:forcetypeassert
+		s.ContentFormat = scrubber.ScrubSensitiveData(reflect.ValueOf(dr.ContentReader().ContentFormat().Struct())).Interface().(format.ContentFormat) //nolint:forcetypeassert
 
 		switch cp, err := dr.BlobVolume().GetCapacity(ctx); {
 		case err == nil:
@@ -127,7 +127,7 @@ func (c *commandRepositoryStatus) dumpRetentionStatus(dr repo.DirectRepository) 
 	}
 }
 
-// nolint: funlen,gocyclo
+//nolint:funlen,gocyclo
 func (c *commandRepositoryStatus) run(ctx context.Context, rep repo.Repository) error {
 	if c.jo.jsonOutput {
 		return c.outputJSON(ctx, rep)

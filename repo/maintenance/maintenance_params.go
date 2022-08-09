@@ -10,7 +10,7 @@ import (
 	"github.com/kopia/kopia/repo/manifest"
 )
 
-// nolint:gochecknoglobals
+//nolint:gochecknoglobals
 var manifestLabels = map[string]string{
 	"type": "maintenance",
 }

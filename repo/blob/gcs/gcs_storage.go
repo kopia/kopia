@@ -53,7 +53,7 @@ func (gcs *gcsStorage) GetBlob(ctx context.Context, b blob.ID, offset, length in
 		}
 		defer reader.Close() //nolint:errcheck
 
-		// nolint:wrapcheck
+		//nolint:wrapcheck
 		return iocopy.JustCopy(output, reader)
 	}
 
@@ -61,7 +61,7 @@ func (gcs *gcsStorage) GetBlob(ctx context.Context, b blob.ID, offset, length in
 		return translateError(err)
 	}
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return blob.EnsureLengthExactly(output.Length(), length)
 }
 

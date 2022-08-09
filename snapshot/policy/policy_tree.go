@@ -4,7 +4,7 @@ import (
 	"strings"
 )
 
-// nolint:gochecknoglobals
+//nolint:gochecknoglobals
 var (
 	// defaultActionsPolicy is the default actions policy.
 	defaultActionsPolicy = ActionsPolicy{}
@@ -56,7 +56,7 @@ var (
 		MaxParallelFileReads: nil, // defaults to runtime.NumCPUs()
 
 		// upload large files in chunks of 2 GiB
-		ParallelUploadAboveSize: newOptionalInt64(2 << 30), // nolint:gomnd
+		ParallelUploadAboveSize: newOptionalInt64(2 << 30), //nolint:gomnd
 	}
 
 	// DefaultPolicy is a default policy returned by policy tree in absence of other policies.

@@ -66,14 +66,14 @@ func (c *PersistentCache) GetFetchingMutex(key string) *sync.RWMutex {
 	}
 
 	if v, ok := c.mutexCache.Get(key); ok {
-		// nolint:forcetypeassert
+		//nolint:forcetypeassert
 		return v.(*sync.RWMutex)
 	}
 
 	newVal := &sync.RWMutex{}
 
 	if prevVal, ok, _ := c.mutexCache.PeekOrAdd(key, newVal); ok {
-		// nolint:forcetypeassert
+		//nolint:forcetypeassert
 		return prevVal.(*sync.RWMutex)
 	}
 
@@ -236,7 +236,7 @@ func (h contentMetadataHeap) Swap(i, j int) {
 }
 
 func (h *contentMetadataHeap) Push(x interface{}) {
-	*h = append(*h, x.(blob.Metadata)) // nolint:forcetypeassert
+	*h = append(*h, x.(blob.Metadata)) //nolint:forcetypeassert
 }
 
 func (h *contentMetadataHeap) Pop() interface{} {

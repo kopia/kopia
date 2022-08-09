@@ -83,7 +83,7 @@ func (fs *fsImpl) GetBlobFromPath(ctx context.Context, dirPath, path string, off
 		defer f.Close() //nolint:errcheck
 
 		if length < 0 {
-			// nolint:wrapcheck
+			//nolint:wrapcheck
 			return iocopy.JustCopy(output, f)
 		}
 
@@ -117,11 +117,11 @@ func (fs *fsImpl) GetBlobFromPath(ctx context.Context, dirPath, path string, off
 			return blob.ErrBlobNotFound
 		}
 
-		// nolint:wrapcheck
+		//nolint:wrapcheck
 		return err
 	}
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return blob.EnsureLengthExactly(output.Length(), length)
 }
 
@@ -133,7 +133,7 @@ func (fs *fsImpl) GetMetadataFromPath(ctx context.Context, dirPath, path string)
 				return blob.Metadata{}, blob.ErrBlobNotFound
 			}
 
-			// nolint:wrapcheck
+			//nolint:wrapcheck
 			return blob.Metadata{}, err
 		}
 
@@ -143,7 +143,7 @@ func (fs *fsImpl) GetMetadataFromPath(ctx context.Context, dirPath, path string)
 		}, nil
 	}, fs.isRetriable)
 	if err != nil {
-		// nolint:wrapcheck
+		//nolint:wrapcheck
 		return blob.Metadata{}, err
 	}
 
@@ -186,7 +186,7 @@ func (fs *fsImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data 
 				log(ctx).Errorf("can't remove temp file: %v", removeErr)
 			}
 
-			// nolint:wrapcheck
+			//nolint:wrapcheck
 			return err
 		}
 
@@ -222,12 +222,12 @@ func (fs *fsImpl) createTempFileAndDir(tempFile string) (osWriteFile, error) {
 			return nil, errors.Wrap(err, "cannot create directory")
 		}
 
-		// nolint:wrapcheck
+		//nolint:wrapcheck
 		return fs.osi.CreateNewFile(tempFile, fs.fileMode())
 	}
 
 	if err != nil {
-		// nolint:wrapcheck
+		//nolint:wrapcheck
 		return nil, err
 	}
 
@@ -235,14 +235,14 @@ func (fs *fsImpl) createTempFileAndDir(tempFile string) (osWriteFile, error) {
 }
 
 func (fs *fsImpl) DeleteBlobInPath(ctx context.Context, dirPath, path string) error {
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return retry.WithExponentialBackoffNoValue(ctx, "DeleteBlobInPath:"+path, func() error {
 		err := fs.osi.Remove(path)
 		if err == nil || fs.osi.IsNotExist(err) {
 			return nil
 		}
 
-		// nolint:wrapcheck
+		//nolint:wrapcheck
 		return err
 	}, fs.isRetriable)
 }
@@ -250,11 +250,11 @@ func (fs *fsImpl) DeleteBlobInPath(ctx context.Context, dirPath, path string) er
 func (fs *fsImpl) ReadDir(ctx context.Context, dirname string) ([]os.FileInfo, error) {
 	v, err := retry.WithExponentialBackoff(ctx, "ReadDir:"+dirname, func() (interface{}, error) {
 		v, err := fs.osi.ReadDir(dirname)
-		// nolint:wrapcheck
+		//nolint:wrapcheck
 		return v, err
 	}, fs.isRetriable)
 	if err != nil {
-		// nolint:wrapcheck
+		//nolint:wrapcheck
 		return nil, err
 	}
 
@@ -271,7 +271,7 @@ func (fs *fsImpl) ReadDir(ctx context.Context, dirname string) ([]os.FileInfo, e
 		}
 
 		if err != nil {
-			// nolint:wrapcheck
+			//nolint:wrapcheck
 			return nil, err
 		}
 
@@ -283,7 +283,7 @@ func (fs *fsImpl) ReadDir(ctx context.Context, dirname string) ([]os.FileInfo, e
 
 // TouchBlob updates file modification time to current time if it's sufficiently old.
 func (fs *fsStorage) TouchBlob(ctx context.Context, blobID blob.ID, threshold time.Duration) error {
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return retry.WithExponentialBackoffNoValue(ctx, "TouchBlob", func() error {
 		_, path, err := fs.Storage.GetShardedPathAndFilePath(ctx, blobID)
 		if err != nil {
@@ -294,7 +294,7 @@ func (fs *fsStorage) TouchBlob(ctx context.Context, blobID blob.ID, threshold ti
 
 		st, err := osi.Stat(path)
 		if err != nil {
-			// nolint:wrapcheck
+			//nolint:wrapcheck
 			return err
 		}
 
@@ -307,7 +307,7 @@ func (fs *fsStorage) TouchBlob(ctx context.Context, blobID blob.ID, threshold ti
 
 		log(ctx).Debugf("updating timestamp on %v to %v", path, n)
 
-		// nolint:wrapcheck
+		//nolint:wrapcheck
 		return osi.Chtimes(path, n, n)
 	}, fs.Impl.(*fsImpl).isRetriable) //nolint:forcetypeassert
 }

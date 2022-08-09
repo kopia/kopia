@@ -13,7 +13,7 @@ func runTaskIndexCompactionQuick(ctx context.Context, runParams RunParameters, s
 
 		const maxSmallBlobsForIndexCompaction = 8
 
-		// nolint:wrapcheck
+		//nolint:wrapcheck
 		return runParams.rep.ContentManager().CompactIndexes(ctx, content.CompactOptions{
 			MaxSmallBlobs:                    maxSmallBlobsForIndexCompaction,
 			DisableEventualConsistencySafety: safety.DisableEventualConsistencySafety,

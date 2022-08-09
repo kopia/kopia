@@ -164,13 +164,13 @@ func (ks *KopiaSnapshotter) ConnectOrCreateFilesystem(path string) error {
 
 // ConnectOrCreateS3WithServer TBD: remove this.
 func (ks *KopiaSnapshotter) ConnectOrCreateS3WithServer(serverAddr, bucketName, pathPrefix string) (*exec.Cmd, error) {
-	// nolint:nilnil
+	//nolint:nilnil
 	return nil, nil
 }
 
 // ConnectOrCreateFilesystemWithServer TBD: remove this.
 func (ks *KopiaSnapshotter) ConnectOrCreateFilesystemWithServer(serverAddr, repoPath string) (*exec.Cmd, error) {
-	// nolint:nilnil
+	//nolint:nilnil
 	return nil, nil
 }
 

@@ -10,7 +10,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-// nolint:gochecknoglobals
+//nolint:gochecknoglobals
 var invalidSliceBuf = []byte(uuid.NewString())
 
 // Bytes represents a sequence of bytes split into slices.
@@ -198,7 +198,7 @@ func (b Bytes) WriteTo(w io.Writer) (int64, error) {
 		totalN += int64(n)
 
 		if err != nil {
-			// nolint:wrapcheck
+			//nolint:wrapcheck
 			return totalN, err
 		}
 	}

@@ -28,7 +28,7 @@ func (s *sourceSnapshots) Name() string {
 }
 
 func (s *sourceSnapshots) Mode() os.FileMode {
-	return 0o555 | os.ModeDir // nolint:gomnd
+	return 0o555 | os.ModeDir //nolint:gomnd
 }
 
 func (s *sourceSnapshots) Size() int64 {
@@ -63,7 +63,7 @@ func (s *sourceSnapshots) Close() {
 }
 
 func (s *sourceSnapshots) Child(ctx context.Context, name string) (fs.Entry, error) {
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return fs.IterateEntriesAndFindChild(ctx, s, name)
 }
 

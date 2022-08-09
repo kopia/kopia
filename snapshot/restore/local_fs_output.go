@@ -335,7 +335,7 @@ func isWindows() bool {
 func (o *FilesystemOutput) createDirectory(ctx context.Context, path string) error {
 	switch st, err := os.Stat(path); {
 	case os.IsNotExist(err):
-		// nolint:wrapcheck
+		//nolint:wrapcheck
 		return os.MkdirAll(path, outputDirMode)
 	case err != nil:
 		return errors.Wrap(err, "failed to stat path "+path)
@@ -404,7 +404,7 @@ func (o *FilesystemOutput) copyFileContent(ctx context.Context, targetPath strin
 	targetPath = atomicfile.MaybePrefixLongFilenameOnWindows(targetPath)
 
 	if o.WriteFilesAtomically {
-		// nolint:wrapcheck
+		//nolint:wrapcheck
 		return atomicfile.Write(targetPath, r)
 	}
 

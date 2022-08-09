@@ -41,7 +41,7 @@ func (b *DirManifestBuilder) AddEntry(de *snapshot.DirEntry) {
 		b.summary.MaxModTime = de.ModTime
 	}
 
-	// nolint:exhaustive
+	//nolint:exhaustive
 	switch de.Type {
 	case snapshot.EntryTypeSymlink:
 		b.summary.TotalSymlinkCount++

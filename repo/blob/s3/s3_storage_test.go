@@ -132,7 +132,8 @@ func getProviderOptions(tb testing.TB, envName string) *Options {
 
 // verifyInvalidCredentialsForGetBlob verifies that the invalid credentials
 // error is returned by GetBlob.
-// nolint:thelper
+//
+//nolint:thelper
 func verifyInvalidCredentialsForGetBlob(ctx context.Context, t *testing.T, r blob.Storage) {
 	blocks := []struct {
 		blk      blob.ID
@@ -149,7 +150,8 @@ func verifyInvalidCredentialsForGetBlob(ctx context.Context, t *testing.T, r blo
 
 // verifyBlobNotFoundForGetBlob verifies that the ErrBlobNotFound
 // error is returned by GetBlob.
-// nolint:thelper
+//
+//nolint:thelper
 func verifyBlobNotFoundForGetBlob(ctx context.Context, t *testing.T, r blob.Storage) {
 	blocks := []struct {
 		blk      blob.ID
@@ -420,7 +422,7 @@ func TestInvalidCredsFailsFast(t *testing.T) {
 	})
 	require.Error(t, err)
 
-	// nolint:forbidigo
+	//nolint:forbidigo
 	if dt := timer.Elapsed(); dt > 10*time.Second {
 		t.Fatalf("opening storage took too long, probably due to retries")
 	}
@@ -503,7 +505,7 @@ func TestNeedMD5AWS(t *testing.T) {
 	require.NoError(t, err, "could not put test blob")
 }
 
-// nolint:thelper
+//nolint:thelper
 func testStorage(t *testing.T, options *Options, runValidationTest bool, opts blob.PutOptions) {
 	ctx := testlogging.Context(t)
 
@@ -537,7 +539,7 @@ func testStorage(t *testing.T, options *Options, runValidationTest bool, opts bl
 	}
 }
 
-// nolint:thelper,gocritic
+//nolint:thelper,gocritic
 func testPutBlobWithInvalidRetention(t *testing.T, options Options, opts blob.PutOptions) {
 	ctx := testlogging.Context(t)
 
@@ -571,7 +573,7 @@ func TestCustomTransportNoSSLVerify(t *testing.T) {
 func getURL(url string, insecureSkipVerify bool) error {
 	client := &http.Client{Transport: getCustomTransport(insecureSkipVerify)}
 
-	resp, err := client.Get(url) // nolint:noctx
+	resp, err := client.Get(url) //nolint:noctx
 	if err != nil {
 		return err
 	}

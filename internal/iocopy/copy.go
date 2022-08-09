@@ -46,20 +46,20 @@ func Copy(dst io.Writer, src io.Reader) (int64, error) {
 	// If the reader has a WriteTo method, use it to do the copy.
 	// Avoids an allocation and a copy.
 	if wt, ok := src.(io.WriterTo); ok {
-		// nolint:wrapcheck
+		//nolint:wrapcheck
 		return wt.WriteTo(dst)
 	}
 
 	// Similarly, if the writer has a ReadFrom method, use it to do the copy.
 	if rt, ok := dst.(io.ReaderFrom); ok {
-		// nolint:wrapcheck
+		//nolint:wrapcheck
 		return rt.ReadFrom(src)
 	}
 
 	buf := GetBuffer()
 	defer ReleaseBuffer(buf)
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return io.CopyBuffer(dst, src, buf)
 }
 

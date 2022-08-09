@@ -54,7 +54,7 @@ func mustGetLocalTmpDir(t *testing.T) string {
 	return tmpDir
 }
 
-// nolint:unparam
+//nolint:unparam
 func runAndGetOutput(t *testing.T, cmd string, args ...string) ([]byte, error) {
 	t.Helper()
 
@@ -75,7 +75,7 @@ func runAndGetOutput(t *testing.T, cmd string, args ...string) ([]byte, error) {
 	return o, nil
 }
 
-// nolint:unparam
+//nolint:unparam
 func mustRunCommand(t *testing.T, cmd string, args ...string) []byte {
 	t.Helper()
 
@@ -268,7 +268,7 @@ func TestInvalidServerFailsFast(t *testing.T) {
 		t.Fatalf("unexpected success with bad credentials")
 	}
 
-	// nolint:forbidigo
+	//nolint:forbidigo
 	if dt := timer.Elapsed(); dt > 10*time.Second {
 		t.Fatalf("opening storage took too long, probably due to retries")
 	}
@@ -321,7 +321,7 @@ func deleteBlobs(ctx context.Context, t *testing.T, st blob.Storage) {
 	}
 }
 
-// nolint:gocritic
+//nolint:gocritic
 func createSFTPStorage(ctx context.Context, t *testing.T, opt sftp.Options, embed bool) (blob.Storage, error) {
 	t.Helper()
 

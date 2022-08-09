@@ -38,6 +38,6 @@ func (c *storageGDriveFlags) Connect(ctx context.Context, isCreate bool, formatV
 		c.options.ServiceAccountCredentialsFile = ""
 	}
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return gdrive.New(ctx, &c.options)
 }

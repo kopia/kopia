@@ -51,7 +51,7 @@ func (s *Storage) GetBlob(ctx context.Context, blobID blob.ID, offset, length in
 		return errors.Wrap(err, "error determining sharded path")
 	}
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return s.Impl.GetBlobFromPath(ctx, dirPath, filePath, offset, length, output)
 }
 
@@ -72,7 +72,7 @@ func (s *Storage) ListBlobs(ctx context.Context, prefix blob.ID, callback func(b
 	pw := parallelwork.NewQueue()
 
 	// channel to which pw will write blob.Metadata, some buf
-	result := make(chan blob.Metadata, 128) // nolint:gomnd
+	result := make(chan blob.Metadata, 128) //nolint:gomnd
 
 	finished := make(chan struct{})
 	defer close(finished)
@@ -161,7 +161,7 @@ func (s *Storage) ListBlobs(ctx context.Context, prefix blob.ID, callback func(b
 		}
 	}
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return eg.Wait()
 }
 
@@ -185,7 +185,7 @@ func (s *Storage) PutBlob(ctx context.Context, blobID blob.ID, data blob.Bytes, 
 		return errors.Wrap(err, "error determining sharded path")
 	}
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return s.Impl.PutBlobInPath(ctx, dirPath, filePath, data, opts)
 }
 
@@ -196,7 +196,7 @@ func (s *Storage) DeleteBlob(ctx context.Context, blobID blob.ID) error {
 		return errors.Wrap(err, "error determining sharded path")
 	}
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return s.Impl.DeleteBlobInPath(ctx, dirPath, filePath)
 }
 
@@ -213,7 +213,7 @@ func (s *Storage) getParameters(ctx context.Context) (*Parameters, error) {
 
 	dotShardsFile := path.Join(s.RootPath, ParametersFile)
 
-	// nolint:nestif
+	//nolint:nestif
 	if err := s.Impl.GetBlobFromPath(ctx, s.RootPath, dotShardsFile, 0, -1, &tmp); err != nil {
 		if !errors.Is(err, blob.ErrBlobNotFound) {
 			return nil, errors.Wrap(err, "error getting sharding parameters for storage")

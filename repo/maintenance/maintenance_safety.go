@@ -36,7 +36,8 @@ type SafetyParameters struct {
 }
 
 // Supported safety levels.
-// nolint:gochecknoglobals
+//
+//nolint:gochecknoglobals
 var (
 	// SafetyNone has safety parameters which allow full garbage collection without unnecessary
 	// delays, but it is safe only if no other kopia clients are running and storage backend is

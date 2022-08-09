@@ -21,7 +21,7 @@ func (c *storageInMemoryFlags) Setup(_ cli.StorageProviderServices, cmd *kingpin
 }
 
 func (c *storageInMemoryFlags) Connect(ctx context.Context, isCreate bool, _ int) (blob.Storage, error) {
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return blob.NewStorage(ctx, blob.ConnectionInfo{
 		Type:   repotesting.ReconnectableStorageType,
 		Config: &c.options,

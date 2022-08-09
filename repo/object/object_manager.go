@@ -120,7 +120,7 @@ func (om *Manager) Concatenate(ctx context.Context, objectIDs []ID) (ID, error) 
 		Prefix:      indirectContentPrefix,
 		Description: "CONCATENATED INDEX",
 	})
-	defer w.Close() // nolint:errcheck
+	defer w.Close() //nolint:errcheck
 
 	if werr := writeIndirectObject(w, concatenatedEntries); werr != nil {
 		return EmptyID, werr

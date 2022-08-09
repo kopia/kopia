@@ -65,7 +65,7 @@ func (c *commandBenchmarkHashing) runBenchmark(ctx context.Context) []cryptoBenc
 	for _, ha := range hashing.SupportedAlgorithms() {
 		hf, err := hashing.CreateHashFunc(&format.ContentFormat{
 			Hash:       ha,
-			HMACSecret: make([]byte, 32), // nolint:gomnd
+			HMACSecret: make([]byte, 32), //nolint:gomnd
 		})
 		if err != nil {
 			continue

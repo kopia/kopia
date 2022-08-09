@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// nolint:gochecknoglobals
+//nolint:gochecknoglobals
 var (
 	base10UnitPrefixes = []string{"", "K", "M", "G", "T"}
 	base2UnitPrefixes  = []string{"", "Ki", "Mi", "Gi", "Ti"}
@@ -30,24 +30,24 @@ func toDecimalUnitString(f, thousand float64, prefixes []string, suffix string) 
 
 // BytesStringBase10 formats the given value as bytes with the appropriate base-10 suffix (KB, MB, GB, ...)
 func BytesStringBase10(b int64) string {
-	// nolint:gomnd
+	//nolint:gomnd
 	return toDecimalUnitString(float64(b), 1000, base10UnitPrefixes, "B")
 }
 
 // BytesStringBase2 formats the given value as bytes with the appropriate base-2 suffix (KiB, MiB, GiB, ...)
 func BytesStringBase2(b int64) string {
-	// nolint:gomnd
+	//nolint:gomnd
 	return toDecimalUnitString(float64(b), 1024.0, base2UnitPrefixes, "B")
 }
 
 // BytesPerSecondsString formats the given value bytes per second with the appropriate base-10 suffix (KB/s, MB/s, GB/s, ...)
 func BytesPerSecondsString(bps float64) string {
-	// nolint:gomnd
+	//nolint:gomnd
 	return toDecimalUnitString(bps, 1000, base10UnitPrefixes, "B/s")
 }
 
 // Count returns the given number with the appropriate base-10 suffix (K, M, G, ...)
 func Count(v int64) string {
-	// nolint:gomnd
+	//nolint:gomnd
 	return toDecimalUnitString(float64(v), 1000, base10UnitPrefixes, "")
 }

@@ -21,7 +21,7 @@ type parameters struct {
 func (p parameters) GetEncryptionAlgorithm() string { return p.encryptionAlgo }
 func (p parameters) GetMasterKey() []byte           { return p.masterKey }
 
-// nolint:gocyclo
+//nolint:gocyclo
 func TestRoundTrip(t *testing.T) {
 	data := make([]byte, 100)
 	rand.Read(data)

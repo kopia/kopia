@@ -12,7 +12,7 @@ import (
 func DropDeletedContents(ctx context.Context, rep repo.DirectRepositoryWriter, dropDeletedBefore time.Time, safety SafetyParameters) error {
 	log(ctx).Infof("Dropping contents deleted before %v", dropDeletedBefore)
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return rep.ContentManager().CompactIndexes(ctx, content.CompactOptions{
 		AllIndexes:                       true,
 		DropDeletedBefore:                dropDeletedBefore,

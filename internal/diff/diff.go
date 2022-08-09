@@ -37,7 +37,7 @@ func (c *Comparer) Compare(ctx context.Context, e1, e2 fs.Entry) error {
 
 // Close removes all temporary files used by the comparer.
 func (c *Comparer) Close() error {
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return os.RemoveAll(c.tmpDir)
 }
 
@@ -73,7 +73,7 @@ func (c *Comparer) compareDirectories(ctx context.Context, dir1, dir2 fs.Directo
 	return c.compareDirectoryEntries(ctx, entries1, entries2, parent)
 }
 
-// nolint:gocyclo
+//nolint:gocyclo
 func (c *Comparer) compareEntry(ctx context.Context, e1, e2 fs.Entry, path string) error {
 	// see if we have the same object IDs, which implies identical objects, thanks to content-addressable-storage
 	if h1, ok := e1.(object.HasObjectID); ok {
@@ -267,7 +267,7 @@ func (c *Comparer) compareFiles(ctx context.Context, f1, f2 fs.File, fname strin
 	args = append(args, c.DiffArguments...)
 	args = append(args, oldName, newName)
 
-	cmd := exec.CommandContext(ctx, c.DiffCommand, args...) // nolint:gosec
+	cmd := exec.CommandContext(ctx, c.DiffCommand, args...) //nolint:gosec
 	cmd.Dir = c.tmpDir
 	cmd.Stdout = c.out
 	cmd.Stderr = c.out

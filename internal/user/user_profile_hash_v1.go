@@ -9,7 +9,7 @@ import (
 	"golang.org/x/crypto/scrypt"
 )
 
-//  parameters for v1 hashing.
+// parameters for v1 hashing.
 const (
 	hashVersion1 = 1
 
@@ -20,7 +20,7 @@ const (
 	v1KeyLength  = 32
 )
 
-// nolint:gochecknoglobals
+//nolint:gochecknoglobals
 var dummyV1HashThatNeverMatchesAnyPassword = make([]byte, v1KeyLength+v1SaltLength)
 
 func (p *Profile) setPasswordV1(password string) error {

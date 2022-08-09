@@ -222,7 +222,7 @@ func TestSnapshottingCacheDirectory(t *testing.T) {
 	}
 }
 
-// nolint:maintidx
+//nolint:maintidx
 func TestSnapshotCreateWithIgnore(t *testing.T) {
 	cases := []struct {
 		desc     string

@@ -115,7 +115,7 @@ func TestDefaultAuthorizer_DefaultACLs(t *testing.T) {
 	verifyLegacyAuthorizer(ctx, t, env.Repository, auth.DefaultAuthorizer())
 }
 
-// nolint:thelper
+//nolint:thelper
 func verifyLegacyAuthorizer(ctx context.Context, t *testing.T, rep repo.Repository, authorizer auth.Authorizer) {
 	cases := []struct {
 		usernameAtHost           string

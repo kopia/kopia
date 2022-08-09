@@ -24,7 +24,7 @@ import (
 	"github.com/kopia/kopia/repo"
 )
 
-// nolint:gochecknoglobals
+//nolint:gochecknoglobals
 var metricsPushFormats = map[string]expfmt.Format{
 	"text":          expfmt.FmtText,
 	"proto-text":    expfmt.FmtProtoText,
@@ -92,7 +92,7 @@ func (c *observabilityFlags) startMetrics(ctx context.Context) error {
 
 		log(ctx).Infof("starting prometheus metrics on %v", c.metricsListenAddr)
 
-		go http.ListenAndServe(c.metricsListenAddr, m) // nolint:errcheck
+		go http.ListenAndServe(c.metricsListenAddr, m) //nolint:errcheck
 	}
 
 	if c.metricsPushAddr != "" {

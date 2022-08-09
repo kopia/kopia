@@ -118,7 +118,7 @@ func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *
 	log(ctx).Debugf("Total bytes rewritten %v", units.BytesStringBase10(totalBytes))
 
 	if failedCount == 0 {
-		// nolint:wrapcheck
+		//nolint:wrapcheck
 		return rep.ContentManager().Flush(ctx)
 	}
 
@@ -212,7 +212,7 @@ func findContentInShortPacks(ctx context.Context, rep repo.DirectRepository, ch 
 				return nil
 			}
 
-			// nolint:gomnd
+			//nolint:gomnd
 			if packNumberByPrefix[prefix] == 2 {
 				// when we encounter the 2nd pack, emit contents from the first one too.
 				for _, ci := range firstPackByPrefix[prefix].ContentInfos {

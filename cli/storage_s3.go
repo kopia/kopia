@@ -51,6 +51,6 @@ func (c *storageS3Flags) Connect(ctx context.Context, isCreate bool, formatVersi
 		return nil, errors.New("Cannot specify a 'point-in-time' option when creating a repository")
 	}
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return s3.New(ctx, &c.s3options)
 }

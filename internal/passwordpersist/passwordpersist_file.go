@@ -41,7 +41,7 @@ func (filePasswordStorage) PersistPassword(ctx context.Context, configFile, pass
 	fn := passwordFileName(configFile)
 	log(ctx).Debugf("Saving password to file %v.", fn)
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return os.WriteFile(fn, []byte(base64.StdEncoding.EncodeToString([]byte(password))), passwordFileMode)
 }
 

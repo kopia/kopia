@@ -22,7 +22,7 @@ func (s *ContentSet) PickRandom() content.ID {
 		return content.EmptyID
 	}
 
-	// nolint:gosec
+	//nolint:gosec
 	return s.ids[rand.Intn(len(s.ids))]
 }
 

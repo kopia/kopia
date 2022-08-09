@@ -15,7 +15,7 @@ import (
 	"github.com/kopia/kopia/repo/blob/sharded"
 )
 
-// nolint:gochecknoglobals
+//nolint:gochecknoglobals
 var mkdirAll = os.MkdirAll // for testability
 
 // DirMode is the directory mode for all caches.
@@ -52,5 +52,5 @@ func NewStorageOrNil(ctx context.Context, cacheDir string, maxBytes int64, subdi
 		},
 	}, false)
 
-	return fs.(Storage), errors.Wrap(err, "error initializing filesystem cache") // nolint:forcetypeassert
+	return fs.(Storage), errors.Wrap(err, "error initializing filesystem cache") //nolint:forcetypeassert
 }

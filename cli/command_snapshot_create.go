@@ -82,7 +82,7 @@ func (c *commandSnapshotCreate) setup(svc appServices, parent commandParent) {
 	cmd.Action(svc.repositoryWriterAction(c.run))
 }
 
-// nolint:gocyclo
+//nolint:gocyclo
 func (c *commandSnapshotCreate) run(ctx context.Context, rep repo.RepositoryWriter) error {
 	sources := c.snapshotCreateSources
 
@@ -249,7 +249,7 @@ func parseTimestamp(timestamp string) (time.Time, error) {
 		return time.Time{}, nil
 	}
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return time.Parse(timeFormat, timestamp)
 }
 
@@ -259,7 +259,7 @@ func startTimeAfterEndTime(startTime, endTime time.Time) bool {
 		startTime.After(endTime)
 }
 
-// nolint:gocyclo
+//nolint:gocyclo
 func (c *commandSnapshotCreate) snapshotSingleSource(ctx context.Context, rep repo.RepositoryWriter, u *snapshotfs.Uploader, sourceInfo snapshot.SourceInfo, tags map[string]string) error {
 	log(ctx).Infof("Snapshotting %v ...", sourceInfo)
 

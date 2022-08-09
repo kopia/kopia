@@ -33,7 +33,8 @@ const (
 const typeKey = manifest.TypeLabelKey
 
 // GlobalPolicySourceInfo is a source where global policy is attached.
-// nolint:gochecknoglobals
+//
+//nolint:gochecknoglobals
 var GlobalPolicySourceInfo = snapshot.SourceInfo{}
 
 var log = logging.Module("kopia/snapshot/policy")

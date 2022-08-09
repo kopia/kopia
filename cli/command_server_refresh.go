@@ -18,6 +18,6 @@ func (c *commandServerRefresh) setup(svc appServices, parent commandParent) {
 }
 
 func (c *commandServerRefresh) run(ctx context.Context, cli *apiclient.KopiaAPIClient) error {
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return cli.Post(ctx, "control/refresh", &serverapi.Empty{}, &serverapi.Empty{})
 }

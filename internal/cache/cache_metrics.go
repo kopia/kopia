@@ -5,7 +5,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
-// nolint:gochecknoglobals,promlinter
+//nolint:gochecknoglobals,promlinter
 var (
 	metricHitCount = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "kopia_content_cache_hit_count",

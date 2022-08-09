@@ -30,7 +30,7 @@ func (s *sourceDirectories) Name() string {
 }
 
 func (s *sourceDirectories) Mode() os.FileMode {
-	return 0o555 | os.ModeDir // nolint:gomnd
+	return 0o555 | os.ModeDir //nolint:gomnd
 }
 
 func (s *sourceDirectories) ModTime() time.Time {
@@ -65,7 +65,7 @@ func (s *sourceDirectories) Close() {
 }
 
 func (s *sourceDirectories) Child(ctx context.Context, name string) (fs.Entry, error) {
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return fs.IterateEntriesAndFindChild(ctx, s, name)
 }
 

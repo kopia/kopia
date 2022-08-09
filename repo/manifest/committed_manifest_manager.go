@@ -356,7 +356,7 @@ func loadManifestContent(ctx context.Context, b contentManager, contentID conten
 func newCommittedManager(b contentManager) *committedManifestManager {
 	debugID := ""
 	if os.Getenv("KOPIA_DEBUG_MANIFEST_MANAGER") != "" {
-		debugID = fmt.Sprintf("%x", rand.Int63()) // nolint:gosec
+		debugID = fmt.Sprintf("%x", rand.Int63()) //nolint:gosec
 	}
 
 	return &committedManifestManager{

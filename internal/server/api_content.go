@@ -76,7 +76,7 @@ func handleContentPut(ctx context.Context, rc requestContext) (interface{}, *api
 	var comp compression.HeaderID
 
 	if c := rc.queryParam("compression"); c != "" {
-		// nolint:gomnd
+		//nolint:gomnd
 		v, err := strconv.ParseInt(c, 16, 32)
 		if err != nil {
 			return nil, requestError(serverapi.ErrorMalformedRequest, "malformed compression ID")

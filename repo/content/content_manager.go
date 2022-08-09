@@ -41,7 +41,8 @@ const (
 var tracer = otel.Tracer("kopia/content")
 
 // PackBlobIDPrefixes contains all possible prefixes for pack blobs.
-// nolint:gochecknoglobals
+//
+//nolint:gochecknoglobals
 var PackBlobIDPrefixes = []blob.ID{
 	PackBlobIDPrefixRegular,
 	PackBlobIDPrefixSpecial,
@@ -428,7 +429,7 @@ func (bm *WriteManager) writeIndexBlobs(ctx context.Context, dataShards []gather
 		return nil, err
 	}
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return ibm.writeIndexBlobs(ctx, dataShards, sessionID)
 }
 
@@ -697,7 +698,9 @@ func (bm *WriteManager) UndeleteContent(ctx context.Context, contentID ID) error
 
 // When onlyRewriteDelete is true, the content is only rewritten if the existing
 // content is marked as deleted. The new content is NOT marked deleted.
-//  When onlyRewriteDelete is false, the content is unconditionally rewritten
+//
+//	When onlyRewriteDelete is false, the content is unconditionally rewritten
+//
 // and the content's deleted status is preserved.
 func (bm *WriteManager) rewriteContent(ctx context.Context, contentID ID, onlyRewriteDeleted bool, mp format.MutableParameters) error {
 	var data gather.WriteBuffer
@@ -751,7 +754,7 @@ func (bm *WriteManager) getOrCreatePendingPackInfoLocked(ctx context.Context, pr
 
 	b.Append(bm.format.RepositoryFormatBytes())
 
-	// nolint:gosec
+	//nolint:gosec
 	if err := writeRandomBytesToBuffer(b, rand.Intn(bm.maxPreambleLength-bm.minPreambleLength+1)+bm.minPreambleLength); err != nil {
 		return nil, errors.Wrap(err, "unable to prepare content preamble")
 	}

@@ -24,12 +24,12 @@ type nullStorageProtection struct{}
 
 func (nullStorageProtection) Protect(id string, input gather.Bytes, output *gather.WriteBuffer) {
 	output.Reset()
-	input.WriteTo(output) // nolint:errcheck
+	input.WriteTo(output) //nolint:errcheck
 }
 
 func (nullStorageProtection) Verify(id string, input gather.Bytes, output *gather.WriteBuffer) error {
 	output.Reset()
-	input.WriteTo(output) // nolint:errcheck
+	input.WriteTo(output) //nolint:errcheck
 
 	return nil
 }
@@ -50,7 +50,7 @@ func (p checksumProtection) Protect(id string, input gather.Bytes, output *gathe
 
 func (p checksumProtection) Verify(id string, input gather.Bytes, output *gather.WriteBuffer) error {
 	output.Reset()
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return hmac.VerifyAndStrip(input, p.Secret, output)
 }
 

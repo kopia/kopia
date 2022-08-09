@@ -73,7 +73,7 @@ func (d *davStorageImpl) GetBlobFromPath(ctx context.Context, dirPath, path stri
 		return d.translateError(err)
 	}
 
-	defer s.Close() // nolint:errcheck
+	defer s.Close() //nolint:errcheck
 
 	if length == 0 {
 		return nil
@@ -83,7 +83,7 @@ func (d *davStorageImpl) GetBlobFromPath(ctx context.Context, dirPath, path stri
 		return errors.Wrap(err, "error populating output")
 	}
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return blob.EnsureLengthExactly(output.Length(), length)
 }
 
@@ -159,23 +159,23 @@ func (d *davStorageImpl) PutBlobInPath(ctx context.Context, dirPath, filePath st
 
 	var buf bytes.Buffer
 
-	data.WriteTo(&buf) // nolint:errcheck
+	data.WriteTo(&buf) //nolint:errcheck
 
 	b := buf.Bytes()
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	if err := retry.WithExponentialBackoffNoValue(ctx, "WriteTemporaryFileAndCreateParentDirs", func() error {
 		mkdirAttempted := false
 
 		for {
-			// nolint:wrapcheck
+			//nolint:wrapcheck
 			err := d.translateError(d.cli.Write(writePath, b, defaultFilePerm))
 			if err == nil {
 				if d.Options.AtomicWrites {
 					return nil
 				}
 
-				// nolint:wrapcheck
+				//nolint:wrapcheck
 				return d.cli.Rename(writePath, filePath, true)
 			}
 
@@ -213,7 +213,7 @@ func (d *davStorageImpl) PutBlobInPath(ctx context.Context, dirPath, filePath st
 
 func (d *davStorageImpl) DeleteBlobInPath(ctx context.Context, dirPath, filePath string) error {
 	return d.translateError(retry.WithExponentialBackoffNoValue(ctx, "DeleteBlobInPath", func() error {
-		// nolint:wrapcheck
+		//nolint:wrapcheck
 		return d.cli.Remove(filePath)
 	}, isRetriable))
 }

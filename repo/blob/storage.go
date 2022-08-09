@@ -200,7 +200,7 @@ func ListAllBlobs(ctx context.Context, st Reader, prefix ID) ([]Metadata, error)
 // IterateAllPrefixesInParallel invokes the provided callback and returns the first error returned by the callback or nil.
 func IterateAllPrefixesInParallel(ctx context.Context, parallelism int, st Storage, prefixes []ID, callback func(Metadata) error) error {
 	if len(prefixes) == 1 {
-		// nolint:wrapcheck
+		//nolint:wrapcheck
 		return st.ListBlobs(ctx, prefixes[0], callback)
 	}
 
@@ -339,7 +339,7 @@ func PutBlobAndGetMetadata(ctx context.Context, st Storage, blobID ID, data Byte
 		BlobID:    blobID,
 		Length:    int64(data.Length()),
 		Timestamp: *opts.GetModTime,
-	}, err // nolint:wrapcheck
+	}, err //nolint:wrapcheck
 }
 
 // ReadBlobMap reads the map of all the blobs indexed by ID.

@@ -17,7 +17,7 @@ func (f *KopiaRepositoryJSON) DeriveFormatEncryptionKeyFromPassword(password str
 
 	switch f.KeyDerivationAlgorithm {
 	case "scrypt-65536-8-1":
-		// nolint:wrapcheck,gomnd
+		//nolint:wrapcheck,gomnd
 		return scrypt.Key([]byte(password), f.UniqueID, 65536, 8, 1, masterKeySize)
 
 	default:

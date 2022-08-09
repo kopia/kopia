@@ -6,7 +6,7 @@ import (
 	"bytes"
 	"os"
 
-	// nolint:staticcheck
+	//nolint:staticcheck
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/protobuf/encoding/prototext"
 )

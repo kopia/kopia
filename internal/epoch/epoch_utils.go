@@ -35,7 +35,7 @@ func epochNumberFromBlobID(blobID blob.ID) (int, bool) {
 func epochRangeFromBlobID(blobID blob.ID) (min, max int, ok bool) {
 	parts := strings.Split(string(blobID), "_")
 
-	// nolint:gomnd
+	//nolint:gomnd
 	if len(parts) < 3 {
 		return 0, 0, false
 	}
@@ -84,7 +84,7 @@ func groupByEpochRanges(bms []blob.Metadata) map[int]map[int][]blob.Metadata {
 func deletionWatermarkFromBlobID(blobID blob.ID) (time.Time, bool) {
 	str := strings.TrimPrefix(string(blobID), string(DeletionWatermarkBlobPrefix))
 
-	unixSeconds, err := strconv.ParseInt(str, 10, 64) // nolint:gomnd
+	unixSeconds, err := strconv.ParseInt(str, 10, 64) //nolint:gomnd
 	if err != nil {
 		return time.Time{}, false
 	}

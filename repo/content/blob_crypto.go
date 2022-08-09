@@ -22,7 +22,7 @@ type crypter interface {
 // getIndexBlobIV gets the initialization vector from the provided blob ID by taking
 // 32 characters immediately preceding the first dash ('-') and decoding them using base16.
 func getIndexBlobIV(s blob.ID) ([]byte, error) {
-	if p := strings.Index(string(s), "-"); p >= 0 { // nolint:gocritic
+	if p := strings.Index(string(s), "-"); p >= 0 { //nolint:gocritic
 		s = s[0:p]
 	}
 

@@ -30,7 +30,7 @@ func EditLoop(ctx context.Context, fname, initial string, parse func(updated str
 	tmpFile := filepath.Join(tmpDir, fname)
 	defer os.RemoveAll(tmpDir) //nolint:errcheck
 
-	// nolint:gomnd
+	//nolint:gomnd
 	if err := os.WriteFile(tmpFile, []byte(initial), 0o600); err != nil {
 		return errors.Wrap(err, "unable to write file to edit")
 	}

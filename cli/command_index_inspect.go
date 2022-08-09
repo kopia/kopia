@@ -102,7 +102,7 @@ func (c *commandIndexInspect) inspectAllBlobs(ctx context.Context, rep repo.Dire
 		})
 	}
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return eg.Wait()
 }
 

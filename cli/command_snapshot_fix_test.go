@@ -19,7 +19,7 @@ import (
 	"github.com/kopia/kopia/tests/testenv"
 )
 
-// nolint:maintidx
+//nolint:maintidx
 func TestSnapshotFix(t *testing.T) {
 	srcDir1 := testutil.TempDirectory(t)
 

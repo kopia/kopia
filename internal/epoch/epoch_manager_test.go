@@ -71,7 +71,7 @@ func (te *epochManagerTestEnv) compact(ctx context.Context, blobs []blob.ID, pre
 		"PutBlob error")
 }
 
-//  write two dummy compaction blobs instead of 3, simulating a compaction that crashed before fully complete.
+// write two dummy compaction blobs instead of 3, simulating a compaction that crashed before fully complete.
 func (te *epochManagerTestEnv) interruptedCompaction(ctx context.Context, _ []blob.ID, prefix blob.ID) error {
 	sess := rand.Int63()
 
@@ -525,7 +525,7 @@ func TestInvalid_Cleanup(t *testing.T) {
 	require.ErrorIs(t, err, ctx.Err())
 }
 
-// nolint:thelper
+//nolint:thelper
 func verifySequentialWrites(t *testing.T, te *epochManagerTestEnv) {
 	ctx := testlogging.Context(t)
 	expected := &fakeIndex{}

@@ -16,15 +16,16 @@ import (
 // TestRestoreFail
 // Motivation: Cause a kopia snapshot restore command to fail, ensure non-zero exit code.
 // Description:
-//		1. Create kopia repo
-//		2. Create a directory tree for testing
-//		3. Issue kopia blob list before issuing any snapshots
-//		4. Create a snapshot of the source directory, parse the snapshot ID
-//		5. Issue another kopia blob list, find the blob IDs that were not
-//			present in the previous blob list.
-//		6. Find a pack blob by searching for a blob ID with the "p" prefix
-//		7. Issue kopia blob delete on the ID of the found pack blob
-//		8. Attempt a snapshot restore on the snapshot, expecting failure
+//  1. Create kopia repo
+//  2. Create a directory tree for testing
+//  3. Issue kopia blob list before issuing any snapshots
+//  4. Create a snapshot of the source directory, parse the snapshot ID
+//  5. Issue another kopia blob list, find the blob IDs that were not
+//     present in the previous blob list.
+//  6. Find a pack blob by searching for a blob ID with the "p" prefix
+//  7. Issue kopia blob delete on the ID of the found pack blob
+//  8. Attempt a snapshot restore on the snapshot, expecting failure
+//
 // Pass Criteria: Kopia commands issue successfully, except the final restore
 // command is expected to fail. Expect to find new blobs after a snapshot
 // and expect one of them is a pack blob type prefixed with "p".

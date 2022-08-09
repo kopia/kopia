@@ -126,7 +126,7 @@ func (m *indexBlobManagerV1) writeIndexBlobs(ctx context.Context, dataShards []g
 		shards[unprefixedBlobID] = data2.Bytes()
 	}
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return m.epochMgr.WriteIndex(ctx, shards)
 }
 
