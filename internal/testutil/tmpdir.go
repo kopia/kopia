@@ -34,7 +34,10 @@ func GetInterestingTempDirectoryName() (string, error) {
 
 	// make sure the base directory is quite long to trigger very long filenames on Windows.
 	if n := len(td); n < targetLen {
-		td = filepath.Join(td, strings.Repeat("f", targetLen-n))
+		if !ShouldSkipLongFilenames() {
+			td = filepath.Join(td, strings.Repeat("f", targetLen-n))
+		}
+
 		//nolint:gomnd
 		if err := os.MkdirAll(td, 0o700); err != nil {
 			return "", errors.Wrap(err, "unable to create temp directory")
