@@ -65,14 +65,11 @@ func newReedSolomonCrcECC(opts *Options) (*ReedSolomonCrcECC, error) {
 
 	// Bellow this threshold the data will be split in less shards
 	result.ThresholdParityInput = 2 * crcSize * (result.DataShards + result.ParityShards) //nolint:gomnd
-	result.ThresholdParityOutput = computeFinalFileSizeWithPadding(result.ThresholdParityInput,
-		smallFilesDataShards, smallFilesParityShards,
-		ceilInt(result.ThresholdParityInput, smallFilesDataShards), 1)
+	result.ThresholdParityOutput = computeFinalFileSizeWithPadding(smallFilesDataShards, smallFilesParityShards, ceilInt(result.ThresholdParityInput, smallFilesDataShards), 1)
 
 	// Bellow this threshold the shard size will shrink to the smallest possible
 	result.ThresholdBlocksInput = result.DataShards * result.MaxShardSize
-	result.ThresholdBlocksOutput = computeFinalFileSizeWithPadding(result.ThresholdBlocksInput,
-		result.DataShards, result.ParityShards, result.MaxShardSize, 1)
+	result.ThresholdBlocksOutput = computeFinalFileSizeWithPadding(result.DataShards, result.ParityShards, result.MaxShardSize, 1)
 
 	var err error
 
@@ -159,7 +156,7 @@ func (r *ReedSolomonCrcECC) computeSizesFromStored(length int) sizesInfo {
 
 // Encrypt creates ECC for the bytes in input.
 // The bytes in output are stored in with the layout:
-//     ([CRC32][Parity shard])+ ([CRC32][Data shard])+
+// ([CRC32][Parity shard])+ ([CRC32][Data shard])+
 // With one detail: the length of the original data is prepended to the data itself,
 // so that we can know it when storing also the padding.
 // All shards must be of the same size, so it may be needed to pad the input data.
@@ -405,21 +402,21 @@ type sizesInfo struct {
 	enc          reedsolomon.Encoder
 }
 
+//nolint:unused // Used in tests
 func (s *sizesInfo) computeFinalFileSize(size int) int {
 	if s.StorePadding {
-		return computeFinalFileSizeWithPadding(size, s.DataShards, s.ParityShards, s.ShardSize, s.Blocks)
+		return computeFinalFileSizeWithPadding(s.DataShards, s.ParityShards, s.ShardSize, s.Blocks)
 	}
 
-	return computeFinalFileSizeWithoutPadding(size, s.DataShards, s.ParityShards, s.ShardSize, s.Blocks)
+	return computeFinalFileSizeWithoutPadding(size, s.ParityShards, s.ShardSize, s.Blocks)
 }
 
-//nolint:unparam
-func computeFinalFileSizeWithPadding(inputSize, dataShards, parityShards, shardSize, blocks int) int {
+func computeFinalFileSizeWithPadding(dataShards, parityShards, shardSize, blocks int) int {
 	return (parityShards + dataShards) * (crcSize + shardSize) * blocks
 }
 
-//nolint:unparam
-func computeFinalFileSizeWithoutPadding(inputSize, dataShards, parityShards, shardSize, blocks int) int {
+//nolint:unused // Used in tests
+func computeFinalFileSizeWithoutPadding(inputSize, parityShards, shardSize, blocks int) int {
 	sizePlusLength := lengthSize + inputSize
 	return parityShards*(crcSize+shardSize)*blocks + sizePlusLength + ceilInt(sizePlusLength, shardSize)*crcSize
 }

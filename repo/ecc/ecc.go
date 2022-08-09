@@ -13,7 +13,7 @@ import (
 // CreateECCFunc creates an ECC for given parameters.
 type CreateECCFunc func(opts *Options) (encryption.Encryptor, error)
 
-// nolint:gochecknoglobals
+//nolint:gochecknoglobals
 var factories = map[string]CreateECCFunc{}
 
 // RegisterAlgorithm registers new ecc algorithm.
@@ -73,11 +73,11 @@ func (e encryptorWrapper) Encrypt(plainText gather.Bytes, contentID []byte, outp
 	defer tmp.Close()
 
 	if err := e.next.Encrypt(plainText, contentID, &tmp); err != nil {
-		// nolint:wrapcheck
+		//nolint:wrapcheck
 		return err
 	}
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return e.impl.Encrypt(tmp.Bytes(), contentID, output)
 }
 
@@ -86,11 +86,11 @@ func (e encryptorWrapper) Decrypt(cipherText gather.Bytes, contentID []byte, out
 	defer tmp.Close()
 
 	if err := e.impl.Decrypt(cipherText, contentID, &tmp); err != nil {
-		// nolint:wrapcheck
+		//nolint:wrapcheck
 		return err
 	}
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return e.next.Decrypt(tmp.Bytes(), contentID, output)
 }
 
