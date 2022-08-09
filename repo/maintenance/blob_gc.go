@@ -23,7 +23,8 @@ type DeleteUnreferencedBlobsOptions struct {
 }
 
 // DeleteUnreferencedBlobs deletes o was created after maintenance startederenced by index entries.
-// nolint:gocyclo,funlen
+//
+//nolint:gocyclo,funlen
 func DeleteUnreferencedBlobs(ctx context.Context, rep repo.DirectRepositoryWriter, opt DeleteUnreferencedBlobsOptions, safety SafetyParameters) (int, error) {
 	if opt.Parallel == 0 {
 		opt.Parallel = 16

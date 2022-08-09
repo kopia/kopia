@@ -38,7 +38,8 @@ import (
 //
 // The strings are arbitrary, but should be short, human-readable and immutable once a version
 // that starts requiring them is released.
-// nolint:gochecknoglobals
+//
+//nolint:gochecknoglobals
 var supportedFeatures = []feature.Feature{
 	"index-v1",
 	"index-v2",
@@ -54,7 +55,7 @@ const throttleBucketInitialFill = 0.1
 // localCacheIntegrityHMACSecretLength length of HMAC secret protecting local cache items.
 const localCacheIntegrityHMACSecretLength = 16
 
-// nolint:gochecknoglobals
+//nolint:gochecknoglobals
 var localCacheIntegrityPurpose = []byte("local-cache-integrity")
 
 var log = logging.Module("kopia/repo")
@@ -131,7 +132,7 @@ func getContentCacheOrNil(ctx context.Context, opt *content.CachingOptions, pass
 	// derive content cache key from the password & HMAC secret using scrypt.
 	salt := append([]byte("content-cache-protection"), opt.HMACSecret...)
 
-	// nolint:gomnd
+	//nolint:gomnd
 	cacheEncryptionKey, err := scrypt.Key([]byte(password), salt, 65536, 8, 1, 32)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to derive cache encryption key from password")
@@ -196,7 +197,8 @@ func openDirect(ctx context.Context, configFile string, lc *LocalConfig, passwor
 }
 
 // openWithConfig opens the repository with a given configuration, avoiding the need for a config file.
-// nolint:funlen,gocyclo,cyclop
+//
+//nolint:funlen,gocyclo,cyclop
 func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, password string, options *Options, cacheOpts *content.CachingOptions, configFile string) (DirectRepository, error) {
 	cacheOpts = cacheOpts.CloneOrDefault()
 	cmOpts := &content.ManagerOptions{
@@ -211,7 +213,7 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 		ufb, internalErr = format.ReadAndCacheDecodedRepositoryConfig(ctx, st, password, cacheOpts.CacheDirectory,
 			lc.FormatBlobCacheDuration)
 		if internalErr != nil {
-			// nolint:wrapcheck
+			//nolint:wrapcheck
 			return nil, internalErr
 		}
 
@@ -224,7 +226,7 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 	}, func(internalErr error) bool {
 		return !options.DoNotWaitForUpgrade && errors.Is(internalErr, ErrRepositoryUnavailableDueToUpgrageInProgress)
 	}); err != nil {
-		// nolint:wrapcheck
+		//nolint:wrapcheck
 		return nil, err
 	}
 
@@ -256,7 +258,7 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 
 	if fo.MaxPackSize == 0 {
 		// legacy only, apply default
-		fo.MaxPackSize = 20 << 20 // nolint:gomnd
+		fo.MaxPackSize = 20 << 20 //nolint:gomnd
 	}
 
 	// do not embed repository format info in pack blobs when password change is enabled.
@@ -426,7 +428,7 @@ func upgradeLockMonitor(
 
 		ufb, err := format.ReadAndCacheDecodedRepositoryConfig(ctx, st, password, cacheOpts.CacheDirectory, lockRefreshInterval)
 		if err != nil {
-			// nolint:wrapcheck
+			//nolint:wrapcheck
 			return err
 		}
 

@@ -105,7 +105,7 @@ func (c *commandIndexRecover) recoverIndexesFromAllPacks(ctx context.Context, re
 
 	go func() {
 		for _, prefix := range prefixes {
-			// nolint:errcheck
+			//nolint:errcheck
 			rep.BlobStorage().ListBlobs(ctx, prefix, func(bm blob.Metadata) error {
 				atomic.AddInt32(discoveringBlobCount, 1)
 				return nil

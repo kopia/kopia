@@ -32,7 +32,8 @@ type ConcurrentAccessOptions struct {
 }
 
 // VerifyConcurrentAccess tests data races on a repository to ensure only clean errors are returned.
-// nolint:gocognit,gocyclo,funlen,cyclop
+//
+//nolint:gocognit,gocyclo,funlen,cyclop
 func VerifyConcurrentAccess(t *testing.T, st blob.Storage, options ConcurrentAccessOptions) {
 	t.Helper()
 

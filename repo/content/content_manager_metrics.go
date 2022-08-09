@@ -6,7 +6,8 @@ import (
 )
 
 // content cache metrics.
-// nolint:gochecknoglobals,promlinter
+//
+//nolint:gochecknoglobals,promlinter
 var (
 	metricContentGetCount = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "kopia_content_get_count",

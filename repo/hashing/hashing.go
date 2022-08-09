@@ -27,7 +27,7 @@ type HashFunc func(output []byte, data gather.Bytes) []byte
 // HashFuncFactory returns a hash function for given formatting options.
 type HashFuncFactory func(p Parameters) (HashFunc, error)
 
-// nolint:gochecknoglobals
+//nolint:gochecknoglobals
 var hashFunctions = map[string]HashFuncFactory{}
 
 // Register registers a hash function with a given name.
@@ -61,7 +61,7 @@ func truncatedHMACHashFuncFactory(hf func() hash.Hash, truncate int) HashFuncFac
 		}
 
 		return func(output []byte, data gather.Bytes) []byte {
-			// nolint:forcetypeassert
+			//nolint:forcetypeassert
 			h := pool.Get().(hash.Hash)
 			defer pool.Put(h)
 
@@ -90,7 +90,7 @@ func truncatedKeyedHashFuncFactory(hf func(key []byte) (hash.Hash, error), trunc
 		}
 
 		return func(output []byte, data gather.Bytes) []byte {
-			// nolint:forcetypeassert
+			//nolint:forcetypeassert
 			h := pool.Get().(hash.Hash)
 			defer pool.Put(h)
 

@@ -57,7 +57,7 @@ func (r *Reconnector) GetOrOpenConnection(ctx context.Context) (Connection, erro
 
 // UsingConnection invokes the provided callback for a Connection.
 func (r *Reconnector) UsingConnection(ctx context.Context, desc string, cb func(cli Connection) (interface{}, error)) (interface{}, error) {
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return retry.WithExponentialBackoff(ctx, desc, func() (interface{}, error) {
 		conn, err := r.GetOrOpenConnection(ctx)
 		if err != nil {

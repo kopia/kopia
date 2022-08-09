@@ -52,9 +52,10 @@ const (
 
 //     17: pack ID - bits 16..23 - present if more than 2^16 packs are in a single index
 
-//     18: high-order bits - present if any content length is greater than 2^24 == 16MiB
-//            original length bits 24..27  (4 hi bits)
-//            packed length bits 24..27    (4 lo bits)
+// 18: high-order bits - present if any content length is greater than 2^24 == 16MiB
+//
+//	original length bits 24..27  (4 hi bits)
+//	packed length bits 24..27    (4 lo bits)
 const (
 	v2EntryOffsetTimestampSeconds      = 0
 	v2EntryOffsetPackOffsetAndFlags    = 4
@@ -84,8 +85,8 @@ const (
 )
 
 // layout of v2 format entry
-//    0-3: compressionID - 32 bit (corresponding to compression.HeaderID)
 //
+//	0-3: compressionID - 32 bit (corresponding to compression.HeaderID)
 const (
 	v2FormatInfoSize = 6
 

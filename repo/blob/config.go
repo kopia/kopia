@@ -40,7 +40,7 @@ func (c *ConnectionInfo) UnmarshalJSON(b []byte) error {
 
 // MarshalJSON returns JSON-encoded storage configuration.
 func (c ConnectionInfo) MarshalJSON() ([]byte, error) {
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return json.Marshal(struct {
 		Type string      `json:"type"`
 		Data interface{} `json:"config"`

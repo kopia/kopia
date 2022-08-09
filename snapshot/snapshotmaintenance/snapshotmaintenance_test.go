@@ -82,13 +82,13 @@ func (s *formatSpecificTestSuite) TestSnapshotGCSimple(t *testing.T) {
 
 // Test maintenance when a directory is deleted and then reused.
 // Scenario / events:
-// - create snapshot s1 on a directory d is created
-// - delete s1
-// - let enough time pass so the contents in s1 are eligible for GC mark/deletion
-// - concurrently create a snapshot s2 on directory d while performing full
-//   maintenance
-// - Check full maintenance can be run afterwards
-// - Verify contents.
+//   - create snapshot s1 on a directory d is created
+//   - delete s1
+//   - let enough time pass so the contents in s1 are eligible for GC mark/deletion
+//   - concurrently create a snapshot s2 on directory d while performing full
+//     maintenance
+//   - Check full maintenance can be run afterwards
+//   - Verify contents.
 func (s *formatSpecificTestSuite) TestMaintenanceReuseDirManifest(t *testing.T) {
 	ctx := testlogging.Context(t)
 	th := newTestHarness(t, s.formatVersion)

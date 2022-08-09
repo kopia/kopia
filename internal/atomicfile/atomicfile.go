@@ -53,6 +53,6 @@ func MaybePrefixLongFilenameOnWindows(fname string) string {
 
 // Write is a wrapper around atomic.WriteFile that handles long file names on Windows.
 func Write(filename string, r io.Reader) error {
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return atomic.WriteFile(MaybePrefixLongFilenameOnWindows(filename), r)
 }

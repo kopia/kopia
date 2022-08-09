@@ -231,7 +231,7 @@ func (e *CLITest) Run(t *testing.T, expectedError bool, args ...string) (stdout,
 		require.NoError(t, gotErr, "unexpected error when running 'kopia %v' (stdout:\n%v\nstderr:\n%v", strings.Join(args, " "), strings.Join(stdout, "\n"), strings.Join(stderr, "\n"))
 	}
 
-	// nolint:forbidigo
+	//nolint:forbidigo
 	t.Logf("finished in %v: 'kopia %v'", timer.Elapsed().Milliseconds(), strings.Join(args, " "))
 
 	return stdout, stderr, gotErr

@@ -39,6 +39,6 @@ func (c *storageGCSFlags) Connect(ctx context.Context, isCreate bool, formatVers
 		c.options.ServiceAccountCredentialsFile = ""
 	}
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return gcs.New(ctx, &c.options)
 }

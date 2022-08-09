@@ -65,7 +65,7 @@ func (c *commandBlobStats) run(ctx context.Context, rep repo.DirectRepository) e
 	sizeToString := units.BytesStringBase10
 	if c.raw {
 		sizeToString = func(l int64) string {
-			// nolint:gomnd
+			//nolint:gomnd
 			return strconv.FormatInt(l, 10)
 		}
 	}

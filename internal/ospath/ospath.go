@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-// nolint:gochecknoglobals
+//nolint:gochecknoglobals
 var (
 	userSettingsDir string
 	userLogsDir     string
@@ -26,7 +26,7 @@ func LogsDir() string {
 
 // IsAbs determines if a given path is absolute, in particular treating treating \\hostname\share as absolute on Windows.
 func IsAbs(s string) bool {
-	// nolint:forbidigo
+	//nolint:forbidigo
 	if filepath.IsAbs(s) {
 		return true
 	}

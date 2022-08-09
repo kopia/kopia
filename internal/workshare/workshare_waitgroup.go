@@ -2,40 +2,40 @@
 //
 // It is commonly used to traverse tree-like structures:
 //
-// type processWorkRequest struct {
-//   node *someNode
-//   err error
-// }
+//	type processWorkRequest struct {
+//	  node *someNode
+//	  err error
+//	}
 //
-// func processWork(p *workshare.Pool, req interface{}) {
-//   req := req.(*processWorkRequest)
-//   req.err = visitNode(p, req.node)
-// }
+//	func processWork(p *workshare.Pool, req interface{}) {
+//	  req := req.(*processWorkRequest)
+//	  req.err = visitNode(p, req.node)
+//	}
 //
-// func visitNode(p *workshare.Pool, n *someNode) error {
-//   var wg workshare.AsyncGroup
-//   defer wg.Close()
+//	func visitNode(p *workshare.Pool, n *someNode) error {
+//	  var wg workshare.AsyncGroup
+//	  defer wg.Close()
 //
-//   for _, child := range n.children {
-//     if wg.CanShareWork(p) {
-//       // run asynchronously, collect result using wg.Wait() below.
-//       RunAsync(p, processWork, processWorkRequest{child})
-//     } else {
-// 	      if err := visitNode(p, n); err != nil {
-//          return err
-//        }
-//     }
-//   }
+//	  for _, child := range n.children {
+//	    if wg.CanShareWork(p) {
+//	      // run asynchronously, collect result using wg.Wait() below.
+//	      RunAsync(p, processWork, processWorkRequest{child})
+//	    } else {
+//		      if err := visitNode(p, n); err != nil {
+//	         return err
+//	       }
+//	    }
+//	  }
 //
-//   // wait for results from all shared work and handle them.
-//   for _, req := range wg.Wait() {
-//     if err := req.(*processWorkRequest).err; err != nil {
-//       return err
-//     }
-//   }
+//	  // wait for results from all shared work and handle them.
+//	  for _, req := range wg.Wait() {
+//	    if err := req.(*processWorkRequest).err; err != nil {
+//	      return err
+//	    }
+//	  }
 //
-//   return nil
-// }
+//	  return nil
+//	}
 //
 // wp = workshare.NewPool(10)
 // defer wp.Close()

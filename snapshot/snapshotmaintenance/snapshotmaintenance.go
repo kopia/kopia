@@ -13,7 +13,7 @@ import (
 
 // Run runs the complete snapshot and repository maintenance.
 func Run(ctx context.Context, dr repo.DirectRepositoryWriter, mode maintenance.Mode, force bool, safety maintenance.SafetyParameters) error {
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return maintenance.RunExclusive(ctx, dr, mode, force,
 		func(ctx context.Context, runParams maintenance.RunParameters) error {
 			// run snapshot GC before full maintenance
@@ -23,7 +23,7 @@ func Run(ctx context.Context, dr repo.DirectRepositoryWriter, mode maintenance.M
 				}
 			}
 
-			// nolint:wrapcheck
+			//nolint:wrapcheck
 			return maintenance.Run(ctx, runParams, safety)
 		})
 }

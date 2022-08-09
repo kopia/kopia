@@ -69,7 +69,7 @@ func cond(c bool, a, b int) int {
 	return b
 }
 
-// nolint:thelper,cyclop
+//nolint:thelper,cyclop
 func testSnapshotFail(t *testing.T, isFailFast bool, snapshotCreateFlags []string, snapshotCreateEnv map[string]string) {
 	if runtime.GOOS == windowsOSName {
 		t.Skip("this test does not work on Windows")
@@ -298,7 +298,8 @@ func createSimplestFileTree(t *testing.T, dirDepth, currDepth int, currPath stri
 // files and directories (if present). It issues the kopia snapshot command
 // against "source" and will test permissions against all entries in "parentDir".
 // It returns the number of successful snapshot operations.
-// nolint:thelper
+//
+//nolint:thelper
 func testPermissions(t *testing.T, e *testenv.CLITest, source, modifyEntry, restoreDir string, expect map[os.FileMode]expectedSnapshotResult, snapshotCreateFlags []string, snapshotCreateEnv map[string]string) int {
 	var numSuccessfulSnapshots int
 

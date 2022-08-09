@@ -93,10 +93,10 @@ func (p Permissions) MarshalJSON() ([]byte, error) {
 		return nil, nil
 	}
 
-	// nolint:gomnd
+	//nolint:gomnd
 	s := "0" + strconv.FormatInt(int64(p), 8)
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return json.Marshal(&s)
 }
 
@@ -108,7 +108,7 @@ func (p *Permissions) UnmarshalJSON(b []byte) error {
 		return errors.Wrap(err, "unable to unmarshal JSON")
 	}
 
-	// nolint:gomnd
+	//nolint:gomnd
 	v, err := strconv.ParseInt(s, 0, 32)
 	if err != nil {
 		return errors.Wrap(err, "unable to parse permission string")

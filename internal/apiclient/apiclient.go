@@ -21,7 +21,8 @@ import (
 var log = logging.Module("client")
 
 // CSRFTokenHeader is the name of CSRF token header that must be sent for most API calls.
-// nolint:gosec
+//
+//nolint:gosec
 const CSRFTokenHeader = "X-Kopia-Csrf-Token"
 
 // KopiaAPIClient provides helper methods for communicating with Kopia API server.
@@ -224,7 +225,7 @@ type basicAuthTransport struct {
 func (t basicAuthTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	req.SetBasicAuth(t.username, t.password)
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return t.base.RoundTrip(req)
 }
 

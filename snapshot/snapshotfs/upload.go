@@ -124,7 +124,6 @@ func (u *Uploader) IsCanceled() bool {
 	return u.incompleteReason() != ""
 }
 
-//
 func (u *Uploader) incompleteReason() string {
 	if c := atomic.LoadInt32(&u.canceled) != 0; c {
 		return IncompleteReasonCanceled
@@ -247,7 +246,7 @@ func (u *Uploader) uploadFileData(ctx context.Context, parentCheckpointRegistry 
 	defer writer.Close() //nolint:errcheck
 
 	parentCheckpointRegistry.addCheckpointCallback(fname, func() (*snapshot.DirEntry, error) {
-		// nolint:govet
+		//nolint:govet
 		checkpointID, err := writer.Checkpoint()
 		if err != nil {
 			return nil, errors.Wrap(err, "checkpoint error")
@@ -396,7 +395,7 @@ func (u *Uploader) copyWithProgress(dst io.Writer, src io.Reader) (int64, error)
 			}
 
 			if writeErr != nil {
-				// nolint:wrapcheck
+				//nolint:wrapcheck
 				return written, writeErr
 			}
 
@@ -410,7 +409,7 @@ func (u *Uploader) copyWithProgress(dst io.Writer, src io.Reader) (int64, error)
 				break
 			}
 
-			// nolint:wrapcheck
+			//nolint:wrapcheck
 			return written, readErr
 		}
 	}
@@ -693,7 +692,7 @@ func findCachedEntry(ctx context.Context, entryRelativePath string, entry fs.Ent
 
 func (u *Uploader) maybeIgnoreCachedEntry(ctx context.Context, ent fs.Entry) fs.Entry {
 	if h, ok := ent.(object.HasObjectID); ok {
-		if 100*rand.Float64() < u.ForceHashPercentage { // nolint:gosec
+		if 100*rand.Float64() < u.ForceHashPercentage { //nolint:gosec
 			uploadLog(ctx).Debugw("re-hashing cached object", "oid", h.ObjectID())
 			return nil
 		}
@@ -768,7 +767,7 @@ func (u *Uploader) processDirectoryEntries(
 	return dirReadError{err}
 }
 
-// nolint:funlen
+//nolint:funlen
 func (u *Uploader) processSingle(
 	ctx context.Context,
 	entry fs.Entry,
@@ -937,7 +936,7 @@ func maybeLogEntryProcessed(logger logging.Logger, level policy.LogDetail, msg, 
 		keyValuePairs = append(keyValuePairs, "dur", timer.Elapsed())
 	}
 
-	// nolint:nestif
+	//nolint:nestif
 	if de != nil {
 		if level >= minDetailLevelSize {
 			if ds := de.DirSummary; ds != nil {

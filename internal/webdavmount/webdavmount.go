@@ -26,7 +26,7 @@ var (
 type webdavFile struct {
 	// webdavFile implements webdav.File but needs context
 	// +checklocks:mu
-	ctx context.Context // nolint:containedctx
+	ctx context.Context //nolint:containedctx
 
 	entry fs.File
 
@@ -66,7 +66,7 @@ func (f *webdavFile) Read(b []byte) (int, error) {
 		return 0, err
 	}
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return r.Read(b)
 }
 
@@ -76,7 +76,7 @@ func (f *webdavFile) Seek(offset int64, whence int) (int64, error) {
 		return 0, err
 	}
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return r.Seek(offset, whence)
 }
 
@@ -91,7 +91,7 @@ func (f *webdavFile) Close() error {
 	f.mu.Unlock()
 
 	if r != nil {
-		// nolint:wrapcheck
+		//nolint:wrapcheck
 		return r.Close()
 	}
 
@@ -100,13 +100,13 @@ func (f *webdavFile) Close() error {
 
 type webdavDir struct {
 	// webdavDir implements webdav.File but needs context
-	ctx context.Context // nolint:containedctx
+	ctx context.Context //nolint:containedctx
 
 	w     *webdavFS
 	entry fs.Directory
 }
 
-// nolint:gochecknoglobals
+//nolint:gochecknoglobals
 var symlinksAreUnsupportedLogged = new(int32)
 
 // TODO: (bug) This incorrectly truncates the entries in the directory and does not allow pagination.

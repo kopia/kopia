@@ -106,7 +106,8 @@ func (p *Parameters) GetEpochDeleteParallelism() int {
 }
 
 // Validate validates epoch parameters.
-// nolint:gomnd
+//
+//nolint:gomnd
 func (p *Parameters) Validate() error {
 	if !p.Enabled {
 		return nil
@@ -140,7 +141,8 @@ func (p *Parameters) Validate() error {
 }
 
 // DefaultParameters contains default epoch manager parameters.
-// nolint:gomnd
+//
+//nolint:gomnd
 func DefaultParameters() Parameters {
 	return Parameters{
 		Enabled:                               true,
@@ -780,7 +782,7 @@ func (e *Manager) WriteIndex(ctx context.Context, dataShards map[blob.ID]blob.By
 		}
 
 		// make sure we have at least 75% of remaining time
-		// nolint:gomnd
+		//nolint:gomnd
 		cs, err := e.committedState(ctx, 3*p.EpochRefreshFrequency/4)
 		if err != nil {
 			return nil, errors.Wrap(err, "error getting committed state")

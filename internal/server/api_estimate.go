@@ -128,7 +128,7 @@ func handleEstimate(ctx context.Context, rc requestContext) (interface{}, *apiEr
 
 	// launch a goroutine that will continue the estimate and can be observed in the Tasks UI.
 
-	// nolint:errcheck
+	//nolint:errcheck
 	go rc.srv.taskManager().Run(ctx, "Estimate", resolvedRoot, func(ctx context.Context, ctrl uitask.Controller) error {
 		taskIDChan <- ctrl.CurrentTaskID()
 
@@ -137,7 +137,7 @@ func handleEstimate(ctx context.Context, rc requestContext) (interface{}, *apiEr
 
 		ctrl.OnCancel(cancel)
 
-		// nolint:wrapcheck
+		//nolint:wrapcheck
 		return snapshotfs.Estimate(estimatectx, dir, policyTree, estimateTaskProgress{ctrl}, req.MaxExamplesPerBucket)
 	})
 

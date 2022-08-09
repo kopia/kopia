@@ -50,7 +50,7 @@ func (c *storageFromConfigFlags) connectToStorageFromConfigFile(ctx context.Cont
 		return nil, errors.Errorf("connection file does not specify blob storage connection parameters, kopia server connections are not supported")
 	}
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return blob.NewStorage(ctx, *cfg.Storage, false)
 }
 
@@ -64,6 +64,6 @@ func (c *storageFromConfigFlags) connectToStorageFromConfigToken(ctx context.Con
 		c.sps.setPasswordFromToken(pass)
 	}
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return blob.NewStorage(ctx, ci, false)
 }

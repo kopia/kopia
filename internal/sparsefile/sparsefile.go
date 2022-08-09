@@ -24,10 +24,10 @@ func Copy(dst io.WriteSeeker, src io.Reader, bufSize uint64) (int64, error) {
 func copyBuffer(dst io.WriteSeeker, src io.Reader, buf []byte) (written int64, err error) {
 	for {
 		nr, er := src.Read(buf)
-		if nr > 0 { // nolint:nestif
+		if nr > 0 { //nolint:nestif
 			// If non-zero data is read, write it. Otherwise, skip forwards.
 			if isAllZero(buf) {
-				dst.Seek(int64(nr), os.SEEK_CUR) // nolint:errcheck
+				dst.Seek(int64(nr), os.SEEK_CUR) //nolint:errcheck
 				written += int64(nr)
 
 				continue

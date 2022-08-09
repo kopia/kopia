@@ -10,7 +10,7 @@ import (
 // creating the underlying storage location (e.g. directory), when possible.
 type CreateStorageFunc func(ctx context.Context, options interface{}, isCreate bool) (Storage, error)
 
-// nolint:gochecknoglobals
+//nolint:gochecknoglobals
 var factories = map[string]*storageFactory{}
 
 // StorageFactory allows creation of repositories in a generic way.

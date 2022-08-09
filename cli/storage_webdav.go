@@ -40,6 +40,6 @@ func (c *storageWebDAVFlags) Connect(ctx context.Context, isCreate bool, formatV
 
 	wo.DirectoryShards = initialDirectoryShards(c.connectFlat, formatVersion)
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return webdav.New(ctx, &wo, isCreate)
 }

@@ -32,7 +32,7 @@ type SessionInfo struct {
 	Host           string    `json:"hostname"`
 }
 
-// nolint:gochecknoglobals
+//nolint:gochecknoglobals
 var (
 	sessionIDEpochStartTime   = time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 	sessionIDEpochGranularity = 30 * 24 * time.Hour

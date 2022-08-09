@@ -160,7 +160,7 @@ func (w *objectWriter) flushBuffer() error {
 	w.asyncWritesWG.Add(1)
 
 	asyncBuf := gather.NewWriteBuffer()
-	w.buffer.Bytes().WriteTo(asyncBuf) // nolint:errcheck
+	w.buffer.Bytes().WriteTo(asyncBuf) //nolint:errcheck
 
 	go func() {
 		defer func() {

@@ -383,7 +383,7 @@ func (b *indexBuilderV1) formatEntry(entry []byte, it Info) error {
 	entryPackFileOffset := entry[8:12]
 	entryPackedOffset := entry[12:16]
 	entryPackedLength := entry[16:20]
-	timestampAndFlags := uint64(it.GetTimestampSeconds()) << 16 // nolint:gomnd
+	timestampAndFlags := uint64(it.GetTimestampSeconds()) << 16 //nolint:gomnd
 
 	packBlobID := it.GetPackBlobID()
 	if len(packBlobID) == 0 {
@@ -399,7 +399,7 @@ func (b *indexBuilderV1) formatEntry(entry []byte, it Info) error {
 	}
 
 	binary.BigEndian.PutUint32(entryPackedLength, it.GetPackedLength())
-	timestampAndFlags |= uint64(it.GetFormatVersion()) << 8 // nolint:gomnd
+	timestampAndFlags |= uint64(it.GetFormatVersion()) << 8 //nolint:gomnd
 	timestampAndFlags |= uint64(len(packBlobID))
 	binary.BigEndian.PutUint64(entryTimestampAndFlags, timestampAndFlags)
 

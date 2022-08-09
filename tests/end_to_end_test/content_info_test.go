@@ -14,7 +14,7 @@ import (
 	"github.com/kopia/kopia/tests/testenv"
 )
 
-// nolint:thelper
+//nolint:thelper
 func (s *formatSpecificTestSuite) TestContentListAndStats(t *testing.T) {
 	runner := testenv.NewInProcRunner(t)
 	e := testenv.NewCLITest(t, s.formatFlags, runner)

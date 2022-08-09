@@ -140,7 +140,7 @@ var _ snapshot.HasDirEntryOrNil = (*ignoreDirectory)(nil)
 
 func (d *ignoreDirectory) DirEntryOrNil(ctx context.Context) (*snapshot.DirEntry, error) {
 	if defp, ok := d.Directory.(snapshot.HasDirEntryOrNil); ok {
-		// nolint:wrapcheck
+		//nolint:wrapcheck
 		return defp.DirEntryOrNil(ctx)
 	}
 	// Ignored directories do not have DirEntry objects.
@@ -157,7 +157,7 @@ func (d *ignoreDirectory) IterateEntries(ctx context.Context, callback func(ctx 
 		return err
 	}
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return d.Directory.IterateEntries(ctx, func(ctx context.Context, e fs.Entry) error {
 		if wrapped, ok := d.maybeWrappedChildEntry(ctx, thisContext, e); ok {
 			return callback(ctx, wrapped)
@@ -194,7 +194,7 @@ func (d *ignoreDirectory) Child(ctx context.Context, name string) (fs.Entry, err
 
 	e, err := d.Directory.Child(ctx, name)
 	if err != nil {
-		// nolint:wrapcheck
+		//nolint:wrapcheck
 		return nil, err
 	}
 

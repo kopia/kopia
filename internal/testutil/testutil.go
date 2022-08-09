@@ -137,7 +137,8 @@ func MustParseJSONLines(t *testing.T, lines []string, v interface{}) {
 }
 
 // RunAllTestsWithParam uses reflection to run all test methods starting with 'Test' on the provided object.
-// nolint:thelper
+//
+//nolint:thelper
 func RunAllTestsWithParam(t *testing.T, v interface{}) {
 	m := reflect.ValueOf(v)
 	typ := m.Type()

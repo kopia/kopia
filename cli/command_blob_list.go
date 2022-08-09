@@ -39,7 +39,7 @@ func (c *commandBlobList) run(ctx context.Context, rep repo.DirectRepository) er
 	jl.begin(&c.jo)
 	defer jl.end()
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return rep.BlobReader().ListBlobs(ctx, blob.ID(c.blobListPrefix), func(b blob.Metadata) error {
 		if !c.shouldInclude(b) {
 			return nil

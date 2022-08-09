@@ -48,7 +48,7 @@ func (c *commandContentRewrite) runContentRewriteCommand(ctx context.Context, re
 		return err
 	}
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return maintenance.RewriteContents(ctx, rep, &maintenance.RewriteContentsOptions{
 		ContentIDRange: c.contentRange.contentIDRange(),
 		ContentIDs:     contentIDs,

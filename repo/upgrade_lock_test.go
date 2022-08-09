@@ -28,7 +28,7 @@ import (
 
 func TestFormatUpgradeSetLock(t *testing.T) {
 	ctx, env := repotesting.NewEnvironment(t, format.FormatVersion1, repotesting.Options{OpenOptions: func(opts *repo.Options) {
-		// nolint:goconst
+		//nolint:goconst
 		opts.UpgradeOwnerID = "upgrade-owner"
 	}})
 	formatBlockCacheDuration := env.Repository.ClientOptions().FormatBlobCacheDuration

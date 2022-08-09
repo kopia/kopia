@@ -30,7 +30,7 @@ func (s *repositoryAllSources) ModTime() time.Time {
 }
 
 func (s *repositoryAllSources) Mode() os.FileMode {
-	return 0o555 | os.ModeDir // nolint:gomnd
+	return 0o555 | os.ModeDir //nolint:gomnd
 }
 
 func (s *repositoryAllSources) Size() int64 {
@@ -61,7 +61,7 @@ func (s *repositoryAllSources) Close() {
 }
 
 func (s *repositoryAllSources) Child(ctx context.Context, name string) (fs.Entry, error) {
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return fs.IterateEntriesAndFindChild(ctx, s, name)
 }
 

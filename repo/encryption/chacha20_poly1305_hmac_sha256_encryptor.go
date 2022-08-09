@@ -23,7 +23,7 @@ type chacha20poly1305hmacSha256Encryptor struct {
 
 // aeadForContent returns cipher.AEAD using key derived from a given contentID.
 func (e chacha20poly1305hmacSha256Encryptor) aeadForContent(contentID []byte) (cipher.AEAD, error) {
-	// nolint:forcetypeassert
+	//nolint:forcetypeassert
 	h := e.hmacPool.Get().(hash.Hash)
 	defer e.hmacPool.Put(h)
 
@@ -36,7 +36,7 @@ func (e chacha20poly1305hmacSha256Encryptor) aeadForContent(contentID []byte) (c
 	var hashBuf [32]byte
 	key := h.Sum(hashBuf[:0])
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return chacha20poly1305.New(key)
 }
 

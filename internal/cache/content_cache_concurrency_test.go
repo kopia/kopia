@@ -80,7 +80,7 @@ func TestGetContentRaceFetchesOnce_MetadataCache(t *testing.T) {
 	testGetContentRaceFetchesOnce(t, newContentMetadataCache)
 }
 
-// nolint:thelper
+//nolint:thelper
 func testContentCachePrefetchBlocksGetContent(t *testing.T, newCache newContentCacheFunc) {
 	ctx := testlogging.Context(t)
 
@@ -148,7 +148,7 @@ func testContentCachePrefetchBlocksGetContent(t *testing.T, newCache newContentC
 	require.Less(t, getBlobFinishedCnt, getContentFinishedCnt)
 }
 
-// nolint:thelper
+//nolint:thelper
 func testGetContentForDifferentContentIDsExecutesInParallel(t *testing.T, newCache newContentCacheFunc, minGetBlobParallelism int) {
 	ctx := testlogging.Context(t)
 
@@ -196,7 +196,7 @@ func testGetContentForDifferentContentIDsExecutesInParallel(t *testing.T, newCac
 	require.GreaterOrEqual(t, ct.maxConcurrencyLevel, minGetBlobParallelism)
 }
 
-// nolint:thelper
+//nolint:thelper
 func testGetContentForDifferentBlobsExecutesInParallel(t *testing.T, newCache newContentCacheFunc) {
 	ctx := testlogging.Context(t)
 
@@ -246,7 +246,7 @@ func testGetContentForDifferentBlobsExecutesInParallel(t *testing.T, newCache ne
 	require.GreaterOrEqual(t, ct.maxConcurrencyLevel, 2)
 }
 
-// nolint:thelper
+//nolint:thelper
 func testGetContentRaceFetchesOnce(t *testing.T, newCache newContentCacheFunc) {
 	ctx := testlogging.Context(t)
 

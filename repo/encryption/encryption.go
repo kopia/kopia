@@ -88,7 +88,7 @@ type encryptorInfo struct {
 	newEncryptor EncryptorFactory
 }
 
-// nolint:gochecknoglobals
+//nolint:gochecknoglobals
 var encryptors = map[string]*encryptorInfo{}
 
 // deriveKey uses HKDF to derive a key of a given length and a given purpose from parameters.

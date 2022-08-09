@@ -19,7 +19,7 @@ import (
 	"github.com/kopia/kopia/tests/testenv"
 )
 
-// nolint:thelper
+//nolint:thelper
 func runInBrowser(t *testing.T, run func(ctx context.Context, sp *testutil.ServerParameters, tc *TestContext)) {
 	if os.Getenv("HTMLUI_E2E_TEST") == "" {
 		t.Skip()

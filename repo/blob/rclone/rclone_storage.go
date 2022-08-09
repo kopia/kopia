@@ -84,8 +84,8 @@ func (r *rcloneStorage) waitForTransfersToEnd(ctx context.Context) {
 func (r *rcloneStorage) Kill() {
 	// this will kill rclone process if any
 	if r.cmd != nil && r.cmd.Process != nil {
-		r.cmd.Process.Kill() // nolint:errcheck
-		r.cmd.Wait()         // nolint:errcheck
+		r.cmd.Process.Kill() //nolint:errcheck
+		r.cmd.Wait()         //nolint:errcheck
 	}
 }
 
@@ -103,8 +103,8 @@ func (r *rcloneStorage) Close(ctx context.Context) error {
 	// this will kill rclone process if any
 	if r.cmd != nil && r.cmd.Process != nil {
 		log(ctx).Debugf("killing rclone")
-		r.cmd.Process.Kill() // nolint:errcheck
-		r.cmd.Wait()         // nolint:errcheck
+		r.cmd.Process.Kill() //nolint:errcheck
+		r.cmd.Wait()         //nolint:errcheck
 	}
 
 	if r.temporaryDir != "" {
@@ -194,7 +194,8 @@ func (r *rcloneStorage) runRCloneAndWaitForServerAddress(ctx context.Context, c 
 }
 
 // New creates new RClone storage with specified options.
-// nolint:funlen
+//
+//nolint:funlen
 func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error) {
 	// generate directory for all temp files.
 	td, err := os.MkdirTemp("", "kopia-rclone")
@@ -227,7 +228,7 @@ func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error)
 	}()
 
 	// write TLS files.
-	// nolint:gomnd
+	//nolint:gomnd
 	cert, key, err := tlsutil.GenerateServerCertificate(ctx, 2048, 365*24*time.Hour, []string{"127.0.0.1"})
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to generate server certificate")
@@ -264,7 +265,7 @@ func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error)
 	if opt.EmbeddedConfig != "" {
 		tmpConfigFile := filepath.Join(r.temporaryDir, "rclone.conf")
 
-		// nolint:gomnd
+		//nolint:gomnd
 		if err = os.WriteFile(tmpConfigFile, []byte(opt.EmbeddedConfig), 0o600); err != nil {
 			return nil, errors.Wrap(err, "unable to write config file")
 		}

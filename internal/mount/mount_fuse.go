@@ -17,7 +17,8 @@ import (
 )
 
 // we're serving read-only filesystem, cache some attributes for 30 seconds.
-// nolint:gochecknoglobals
+//
+//nolint:gochecknoglobals
 var cacheTimeout = 30 * time.Second
 
 func (mo *Options) toFuseMountOptions() *gofusefs.Options {

@@ -15,10 +15,10 @@ type prefetchOptions struct {
 	fullBlobPrefetchBytesThreshold int64
 }
 
-// nolint:gochecknoglobals
+//nolint:gochecknoglobals
 var defaultPrefetchOptions = &prefetchOptions{2, 5e6}
 
-// nolint:gochecknoglobals
+//nolint:gochecknoglobals
 var prefetchHintToOptions = map[string]*prefetchOptions{
 	"":        defaultPrefetchOptions,
 	"default": defaultPrefetchOptions,
@@ -48,7 +48,8 @@ func (o *prefetchOptions) shouldPrefetchEntireBlob(infos []Info) bool {
 // PrefetchContents fetches the provided content IDs into the cache.
 // Note that due to cache configuration, it's not guaranteed that all contents will
 // actually be added to the cache.
-// nolint:gocyclo
+//
+//nolint:gocyclo
 func (bm *WriteManager) PrefetchContents(ctx context.Context, contentIDs []ID, hint string) []ID {
 	o := prefetchHintToOptions[hint]
 	if o == nil {

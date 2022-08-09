@@ -41,7 +41,7 @@ const (
 	DefaultIndexCacheSweepAge    = 1 * time.Hour
 )
 
-// nolint:gochecknoglobals
+//nolint:gochecknoglobals
 var cachedIndexBlobPrefixes = []blob.ID{
 	LegacyIndexBlobPrefix,
 	compactionLogBlobPrefix,
@@ -53,7 +53,7 @@ var cachedIndexBlobPrefixes = []blob.ID{
 	epoch.RangeCheckpointIndexBlobPrefix,
 }
 
-// nolint:gochecknoglobals
+//nolint:gochecknoglobals
 var allIndexBlobPrefixes = []blob.ID{
 	LegacyIndexBlobPrefix,
 	epoch.UncompactedIndexBlobPrefix,
@@ -187,7 +187,7 @@ func (sm *SharedManager) loadPackIndexesLocked(ctx context.Context) error {
 		}
 
 		if err := ctx.Err(); err != nil {
-			// nolint:wrapcheck
+			//nolint:wrapcheck
 			return err
 		}
 
@@ -330,7 +330,7 @@ func (sm *SharedManager) IndexBlobs(ctx context.Context, includeInactive bool) (
 
 	blobs, _, err := ibm.listActiveIndexBlobs(ctx)
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return blobs, err
 }
 
@@ -365,7 +365,7 @@ func newCacheBackingStorage(ctx context.Context, caching *CachingOptions, subdir
 		}
 	}
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return filesystem.New(ctx, &filesystem.Options{
 		Path: blobListCacheDir,
 		Options: sharded.Options{
@@ -545,7 +545,7 @@ func (sm *SharedManager) release(ctx context.Context) error {
 	sm.indexBlobCache.Close(ctx)
 
 	if sm.internalLogger != nil {
-		sm.internalLogger.Sync() // nolint:errcheck
+		sm.internalLogger.Sync() //nolint:errcheck
 	}
 
 	sm.internalLogManager.Close(ctx)

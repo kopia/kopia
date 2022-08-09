@@ -9,7 +9,7 @@ import (
 	"github.com/kopia/kopia/internal/testlogging"
 )
 
-// nolint:gocritic
+//nolint:gocritic
 func TestHash(t *testing.T) {
 	const expectDifferentHashes = "Expected different hashes, got the same"
 

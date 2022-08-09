@@ -42,7 +42,7 @@ const (
 	maxCacheSizeBytes = 1e6
 )
 
-// nolint:thelper
+//nolint:thelper
 func startServer(t *testing.T, env *repotesting.Environment, tls bool) *repo.APIServerInfo {
 	ctx := testlogging.Context(t)
 
@@ -103,7 +103,7 @@ func TestServer_GRPC(t *testing.T) {
 	testServer(t, false)
 }
 
-// nolint:thelper
+//nolint:thelper
 func testServer(t *testing.T, disableGRPC bool) {
 	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
 	apiServerInfo := startServer(t, env, true)
@@ -145,7 +145,7 @@ func TestGPRServer_AuthenticationError(t *testing.T) {
 	}
 }
 
-// nolint:gocyclo
+//nolint:gocyclo
 func TestServerUIAccessDeniedToRemoteUser(t *testing.T) {
 	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
 	si := startServer(t, env, true)
@@ -238,7 +238,7 @@ func TestServerUIAccessDeniedToRemoteUser(t *testing.T) {
 	}
 }
 
-// nolint:thelper
+//nolint:thelper
 func remoteRepositoryTest(ctx context.Context, t *testing.T, rep repo.Repository) {
 	mustListSnapshotCount(ctx, t, rep, 0)
 	mustGetObjectNotFound(ctx, t, rep, mustParseObjectID(t, "abcd"))
@@ -436,7 +436,7 @@ func mustManifestNotFound(t *testing.T, err error) {
 	}
 }
 
-// nolint:unparam
+//nolint:unparam
 func mustParseObjectID(t *testing.T, s string) object.ID {
 	t.Helper()
 

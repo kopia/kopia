@@ -37,6 +37,6 @@ func (c *commandMaintenanceRun) run(ctx context.Context, rep repo.DirectReposito
 		mode = maintenance.ModeFull
 	}
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return snapshotmaintenance.Run(ctx, rep, mode, c.maintenanceRunForce, c.safety)
 }

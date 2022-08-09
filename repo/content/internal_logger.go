@@ -30,7 +30,7 @@ type internalLogManager struct {
 
 	// internalLogManager implements io.Writer and we must be able to write to the
 	// repository asynchronously when the context is not provided.
-	ctx context.Context // nolint:containedctx
+	ctx context.Context //nolint:containedctx
 
 	st             blob.Storage
 	bc             crypter
@@ -76,7 +76,7 @@ func (m *internalLogManager) encryptAndWriteLogBlob(prefix blob.ID, data gather.
 func (m *internalLogManager) NewLogger() *zap.SugaredLogger {
 	var rnd [2]byte
 
-	rand.Read(rnd[:]) // nolint:errcheck
+	rand.Read(rnd[:]) //nolint:errcheck
 
 	w := &internalLogger{
 		m:      m,

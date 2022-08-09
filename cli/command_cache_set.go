@@ -98,6 +98,6 @@ func (c *commandCacheSetParams) run(ctx context.Context, rep repo.RepositoryWrit
 		return errors.Errorf("no changes")
 	}
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return repo.SetCachingOptions(ctx, c.svc.repositoryConfigFileName(), opts)
 }

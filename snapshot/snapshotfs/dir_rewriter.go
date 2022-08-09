@@ -59,7 +59,7 @@ type DirRewriter struct {
 }
 
 type dirRewriterRequest struct {
-	ctx        context.Context // nolint:containedctx
+	ctx        context.Context //nolint:containedctx
 	parentPath string
 	input      *snapshot.DirEntry
 	result     *snapshot.DirEntry
@@ -92,7 +92,7 @@ func (rw *DirRewriter) getCachedReplacement(ctx context.Context, parentPath stri
 
 	// see if we already processed this exact directory entry
 	if v, ok := rw.cache.Load(key); ok {
-		// nolint:forcetypeassert
+		//nolint:forcetypeassert
 		return v.(*snapshot.DirEntry).Clone(), nil
 	}
 
@@ -116,7 +116,7 @@ func (rw *DirRewriter) getCachedReplacement(ctx context.Context, parentPath stri
 
 	actual, _ := rw.cache.LoadOrStore(key, result.Clone())
 
-	// nolint:forcetypeassert
+	//nolint:forcetypeassert
 	return actual.(*snapshot.DirEntry), nil
 }
 

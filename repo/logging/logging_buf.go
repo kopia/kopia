@@ -15,7 +15,7 @@ type Buffer struct {
 	validLen int // valid length
 }
 
-// nolint:gochecknoglobals
+//nolint:gochecknoglobals
 var bufPool = &sync.Pool{
 	New: func() interface{} {
 		return &Buffer{}
@@ -24,7 +24,7 @@ var bufPool = &sync.Pool{
 
 // GetBuffer gets a logging buffer.
 func GetBuffer() *Buffer {
-	// nolint:forcetypeassert
+	//nolint:forcetypeassert
 	return bufPool.Get().(*Buffer)
 }
 

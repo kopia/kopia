@@ -186,7 +186,7 @@ func (fsd *filesystemDirectory) IterateEntries(ctx context.Context, cb func(cont
 	return errors.Wrap(err, "error listing directory")
 }
 
-// nolint:gocognit,gocyclo
+//nolint:gocognit,gocyclo
 func (fsd *filesystemDirectory) iterateEntriesInParallel(ctx context.Context, f *os.File, childPrefix string, batch []os.DirEntry, cb func(context.Context, fs.Entry) error) error {
 	inputCh := make(chan os.DirEntry, dirListingPrefetch)
 	outputCh := make(chan entryWithError, dirListingPrefetch)
@@ -248,7 +248,7 @@ func (fsd *filesystemDirectory) iterateEntriesInParallel(ctx context.Context, f 
 
 		nextBatch, err := f.ReadDir(numEntriesToRead)
 		if err != nil && !errors.Is(err, io.EOF) {
-			// nolint:wrapcheck
+			//nolint:wrapcheck
 			return err
 		}
 
@@ -295,7 +295,7 @@ func (fsf *filesystemFile) Open(ctx context.Context) (fs.Reader, error) {
 }
 
 func (fsl *filesystemSymlink) Readlink(ctx context.Context) (string, error) {
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return os.Readlink(fsl.fullPath())
 }
 

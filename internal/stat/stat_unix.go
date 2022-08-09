@@ -24,7 +24,7 @@ func GetFileAllocSize(fname string) (uint64, error) {
 
 	err := syscall.Stat(fname, &st)
 	if err != nil {
-		return 0, err // nolint:wrapcheck
+		return 0, err //nolint:wrapcheck
 	}
 
 	return uint64(st.Blocks) * diskBlockSize, nil
@@ -36,12 +36,12 @@ func GetBlockSize(path string) (uint64, error) {
 
 	err := syscall.Statfs(path, &st)
 	if err != nil {
-		return 0, err // nolint:wrapcheck
+		return 0, err //nolint:wrapcheck
 	}
 
 	if st.Bsize <= 0 {
 		return 0, errors.Wrapf(errInvalidBlockSize, "%d", st.Bsize)
 	}
 
-	return uint64(st.Bsize), nil // nolint:unconvert,nolintlint
+	return uint64(st.Bsize), nil //nolint:unconvert,nolintlint
 }

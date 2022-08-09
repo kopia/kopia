@@ -185,7 +185,7 @@ func handleRepoExists(ctx context.Context, rc requestContext) (interface{}, *api
 		return nil, internalServerError(err)
 	}
 
-	defer st.Close(ctx) // nolint:errcheck
+	defer st.Close(ctx) //nolint:errcheck
 
 	var tmp gather.WriteBuffer
 	defer tmp.Close()
@@ -361,7 +361,7 @@ func connectAPIServerAndOpen(ctx context.Context, si *repo.APIServerInfo, passwo
 		return nil, errors.Wrap(err, "error connecting to API server")
 	}
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return repo.Open(ctx, opts.ConfigFile, password, nil)
 }
 
@@ -378,7 +378,7 @@ func connectAndOpen(ctx context.Context, conn blob.ConnectionInfo, password stri
 		return nil, errors.Wrap(err, "error connecting")
 	}
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return repo.Open(ctx, opts.ConfigFile, password, nil)
 }
 
@@ -397,12 +397,12 @@ func (s *Server) disconnect(ctx context.Context) error {
 	}
 
 	if err := repo.Disconnect(ctx, s.options.ConfigFile); err != nil {
-		// nolint:wrapcheck
+		//nolint:wrapcheck
 		return err
 	}
 
 	if err := s.options.PasswordPersist.DeletePassword(ctx, s.options.ConfigFile); err != nil {
-		// nolint:wrapcheck
+		//nolint:wrapcheck
 		return err
 	}
 

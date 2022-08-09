@@ -19,13 +19,16 @@ func PrefixRange(prefix IDPrefix) IDRange {
 }
 
 // AllIDs is an IDRange that contains all valid IDs.
-// nolint:gochecknoglobals
+//
+//nolint:gochecknoglobals
 var AllIDs = IDRange{"", maxIDCharacterPlus1}
 
 // AllPrefixedIDs is an IDRange that contains all valid IDs prefixed IDs ('g' .. 'z').
-// nolint:gochecknoglobals
+//
+//nolint:gochecknoglobals
 var AllPrefixedIDs = IDRange{"g", maxIDCharacterPlus1}
 
 // AllNonPrefixedIDs is an IDRange that contains all valid IDs non-prefixed IDs ('0' .. 'f').
-// nolint:gochecknoglobals
+//
+//nolint:gochecknoglobals
 var AllNonPrefixedIDs = IDRange{"0", "g"}

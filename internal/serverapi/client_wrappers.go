@@ -77,25 +77,25 @@ func CancelUpload(ctx context.Context, c *apiclient.KopiaAPIClient, match *snaps
 
 // CreateRepository invokes the 'repo/create' API.
 func CreateRepository(ctx context.Context, c *apiclient.KopiaAPIClient, req *CreateRepositoryRequest) error {
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return c.Post(ctx, "repo/create", req, &StatusResponse{})
 }
 
 // ConnectToRepository invokes the 'repo/connect' API.
 func ConnectToRepository(ctx context.Context, c *apiclient.KopiaAPIClient, req *ConnectRepositoryRequest) error {
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return c.Post(ctx, "repo/connect", req, &StatusResponse{})
 }
 
 // DisconnectFromRepository invokes the 'repo/disconnect' API.
 func DisconnectFromRepository(ctx context.Context, c *apiclient.KopiaAPIClient) error {
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return c.Post(ctx, "repo/disconnect", &Empty{}, &Empty{})
 }
 
 // Shutdown invokes the 'control/shutdown' API.
 func Shutdown(ctx context.Context, c *apiclient.KopiaAPIClient) error {
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return c.Post(ctx, "control/shutdown", &Empty{}, &Empty{})
 }
 

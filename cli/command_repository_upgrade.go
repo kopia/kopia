@@ -42,7 +42,7 @@ You will need to set the env variable KOPIA_UPGRADE_LOCK_ENABLED in order to use
 // own constants so that they do not have to wait for the default clock-drift to
 // settle.
 //
-// nolint:gochecknoglobals
+//nolint:gochecknoglobals
 var MaxPermittedClockDrift = func() time.Duration { return maxPermittedClockDrift }
 
 func (c *commandRepositoryUpgrade) setup(svc advancedAppServices, parent commandParent) {

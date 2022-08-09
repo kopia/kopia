@@ -198,7 +198,7 @@ func (th *kopiaRobustnessTestHarness) getEngine() bool {
 		SyncRepositories: true,
 	}
 
-	eng, err := engine.New(args) // nolint:govet
+	eng, err := engine.New(args) //nolint:govet
 	if err != nil {
 		log.Println("Error on engine creation:", err)
 		return false

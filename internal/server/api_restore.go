@@ -89,7 +89,7 @@ func handleRestore(ctx context.Context, rc requestContext) (interface{}, *apiErr
 
 	// launch a goroutine that will continue the restore and can be observed in the Tasks UI.
 
-	// nolint:errcheck
+	//nolint:errcheck
 	go rc.srv.taskManager().Run(ctx, "Restore", description, func(ctx context.Context, ctrl uitask.Controller) error {
 		taskIDChan <- ctrl.CurrentTaskID()
 

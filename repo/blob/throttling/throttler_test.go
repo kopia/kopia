@@ -94,7 +94,7 @@ func TestThrottlerLargeWindow(t *testing.T) {
 	require.Greater(t, timer.Elapsed(), 900*time.Millisecond)
 }
 
-// nolint:thelper
+//nolint:thelper
 func testRateLimiting(t *testing.T, name string, wantRate float64, worker func(total *int64)) {
 	t.Run(name, func(t *testing.T) {
 		t.Parallel()

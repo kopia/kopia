@@ -47,7 +47,7 @@ func readRepositoryBlobBytesFromCache(ctx context.Context, cachedFile string, va
 		return nil, time.Time{}, errors.Errorf("cached file too old")
 	}
 
-	data, err = os.ReadFile(cachedFile) // nolint:gosec
+	data, err = os.ReadFile(cachedFile) //nolint:gosec
 	if err != nil {
 		return nil, time.Time{}, errors.Wrapf(err, "failed to read the cache file %q", cachedFile)
 	}

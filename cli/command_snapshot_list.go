@@ -239,7 +239,7 @@ type snapshotListRow struct {
 
 func (c *commandSnapshotList) iterateSnapshotsMaybeWithStorageStats(ctx context.Context, rep repo.Repository, manifests []*snapshot.Manifest, callback func(m *snapshot.Manifest) error) error {
 	if c.storageStats {
-		// nolint:wrapcheck
+		//nolint:wrapcheck
 		return snapshotfs.CalculateStorageStats(ctx, rep, manifests, callback)
 	}
 

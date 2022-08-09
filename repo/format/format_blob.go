@@ -35,7 +35,7 @@ const KopiaRepositoryBlobID = "kopia.repository"
 // ErrInvalidPassword is returned when repository password is invalid.
 var ErrInvalidPassword = errors.Errorf("invalid repository password")
 
-// nolint:gochecknoglobals
+//nolint:gochecknoglobals
 var (
 	purposeAESKey   = []byte("AES")
 	purposeAuthData = []byte("CHECKSUM")
@@ -191,8 +191,8 @@ func (f *KopiaRepositoryJSON) WriteKopiaRepositoryBlobWithID(ctx context.Context
 }
 
 func initCrypto(masterKey, repositoryID []byte) (cipher.AEAD, []byte, error) {
-	aesKey := DeriveKeyFromMasterKey(masterKey, repositoryID, purposeAESKey, 32)     // nolint:gomnd
-	authData := DeriveKeyFromMasterKey(masterKey, repositoryID, purposeAuthData, 32) // nolint:gomnd
+	aesKey := DeriveKeyFromMasterKey(masterKey, repositoryID, purposeAESKey, 32)     //nolint:gomnd
+	authData := DeriveKeyFromMasterKey(masterKey, repositoryID, purposeAuthData, 32) //nolint:gomnd
 
 	blk, err := aes.NewCipher(aesKey)
 	if err != nil {

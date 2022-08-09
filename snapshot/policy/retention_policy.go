@@ -315,11 +315,11 @@ func CompactPins(pins []string) []string {
 func SortRetentionTags(tags []string) {
 	retentionPrefixSortValue := map[string]int{
 		"latest":  1,
-		"hourly":  2, // nolint:gomnd
-		"daily":   3, // nolint:gomnd
-		"weekly":  4, // nolint:gomnd
-		"monthly": 5, // nolint:gomnd
-		"annual":  6, // nolint:gomnd
+		"hourly":  2, //nolint:gomnd
+		"daily":   3, //nolint:gomnd
+		"weekly":  4, //nolint:gomnd
+		"monthly": 5, //nolint:gomnd
+		"annual":  6, //nolint:gomnd
 	}
 
 	sort.Slice(tags, func(i, j int) bool {

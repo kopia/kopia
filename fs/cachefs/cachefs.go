@@ -24,7 +24,7 @@ type directory struct {
 func (d *directory) Child(ctx context.Context, name string) (fs.Entry, error) {
 	e, err := d.Directory.Child(ctx, name)
 	if err != nil {
-		// nolint:wrapcheck
+		//nolint:wrapcheck
 		return nil, err
 	}
 
@@ -41,7 +41,7 @@ func (d *directory) IterateEntries(ctx context.Context, callback func(context.Co
 		callback,
 	)
 
-	return err // nolint:wrapcheck
+	return err //nolint:wrapcheck
 }
 
 type file struct {

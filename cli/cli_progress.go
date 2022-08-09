@@ -169,7 +169,7 @@ func (p *cliProgress) output(col *color.Color, msg string) {
 			prefix = ""
 		}
 
-		col.Fprintf(p.out.stderr(), "%v%v", prefix, msg) // nolint:errcheck
+		col.Fprintf(p.out.stderr(), "%v%v", prefix, msg) //nolint:errcheck
 	}
 
 	if !p.enableProgress {

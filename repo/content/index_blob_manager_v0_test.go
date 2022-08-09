@@ -157,7 +157,8 @@ func pickRandomActionTestIndexBlobManagerStress() action {
 
 // TestIndexBlobManagerStress launches N actors, each randomly writing new index blobs,
 // verifying that all blobs previously written by it are correct and randomly compacting blobs.
-// nolint:gocyclo
+//
+//nolint:gocyclo
 func TestIndexBlobManagerStress(t *testing.T) {
 	t.Parallel()
 	testutil.SkipNonDeterministicTestUnderCodeCoverage(t)

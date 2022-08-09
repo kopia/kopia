@@ -61,7 +61,7 @@ func (c *commandRepositoryCreate) setup(svc advancedAppServices, parent commandP
 		cc := cmd.Command(prov.Name, "Create repository in "+prov.Description)
 		f.Setup(svc, cc)
 		cc.Action(func(kpc *kingpin.ParseContext) error {
-			// nolint:wrapcheck
+			//nolint:wrapcheck
 			return svc.runAppWithContext(kpc.SelectedCommand, func(ctx context.Context) error {
 				st, err := f.Connect(ctx, true, c.createFormatVersion)
 				if err != nil {
@@ -146,7 +146,7 @@ func (c *commandRepositoryCreate) runCreateCommandWithStorage(ctx context.Contex
 		return errors.Wrap(err, "error populating repository")
 	}
 
-	noteColor.Fprintf(c.out.stdout(), runValidationNote) // nolint:errcheck
+	noteColor.Fprintf(c.out.stdout(), runValidationNote) //nolint:errcheck
 
 	return nil
 }
@@ -158,7 +158,7 @@ func (c *commandRepositoryCreate) populateRepository(ctx context.Context, passwo
 	}
 	defer rep.Close(ctx) //nolint:errcheck
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return repo.WriteSession(ctx, rep, repo.WriteSessionOptions{
 		Purpose: "populate repository",
 	}, func(ctx context.Context, w repo.RepositoryWriter) error {

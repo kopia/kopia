@@ -112,16 +112,16 @@ func prepareCommandForAction(ctx context.Context, actionType string, h *policy.A
 
 		switch {
 		case runtime.GOOS == "windows":
-			c = exec.CommandContext(ctx, os.Getenv("COMSPEC"), "/c", scriptFile) // nolint:gosec
+			c = exec.CommandContext(ctx, os.Getenv("COMSPEC"), "/c", scriptFile) //nolint:gosec
 		case strings.HasPrefix(h.Script, "#!"):
 			// on unix if a script starts with #!, it will run under designated interpreter
-			c = exec.CommandContext(ctx, scriptFile) // nolint:gosec
+			c = exec.CommandContext(ctx, scriptFile) //nolint:gosec
 		default:
-			c = exec.CommandContext(ctx, "sh", "-e", scriptFile) // nolint:gosec
+			c = exec.CommandContext(ctx, "sh", "-e", scriptFile) //nolint:gosec
 		}
 
 	case h.Command != "":
-		c = exec.CommandContext(ctx, h.Command, h.Arguments...) // nolint:gosec
+		c = exec.CommandContext(ctx, h.Command, h.Arguments...) //nolint:gosec
 
 	default:
 		cancel()
@@ -177,7 +177,7 @@ func runActionCommand(
 func parseCaptures(v []byte, captures map[string]string) error {
 	s := bufio.NewScanner(bytes.NewReader(v))
 	for s.Scan() {
-		// nolint:gomnd
+		//nolint:gomnd
 		l := strings.SplitN(s.Text(), "=", 2)
 		if len(l) <= 1 {
 			continue
@@ -189,7 +189,7 @@ func parseCaptures(v []byte, captures map[string]string) error {
 		}
 	}
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return s.Err()
 }
 

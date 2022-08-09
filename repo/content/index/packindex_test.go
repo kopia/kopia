@@ -107,7 +107,7 @@ func TestPackIndex_V2(t *testing.T) {
 	testPackIndex(t, Version2)
 }
 
-// nolint:thelper,gocyclo,cyclop
+//nolint:thelper,gocyclo,cyclop
 func testPackIndex(t *testing.T, version int) {
 	var infos []Info
 	// deleted contents with all information

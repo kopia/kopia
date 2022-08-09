@@ -71,21 +71,21 @@ func (s *throttlingStorage) GetBlob(ctx context.Context, id blob.ID, offset, len
 		}
 	}
 
-	return err // nolint:wrapcheck
+	return err //nolint:wrapcheck
 }
 
 func (s *throttlingStorage) GetMetadata(ctx context.Context, id blob.ID) (blob.Metadata, error) {
 	s.throttler.BeforeOperation(ctx, operationGetMetadata)
 	defer s.throttler.AfterOperation(ctx, operationGetMetadata)
 
-	return s.Storage.GetMetadata(ctx, id) // nolint:wrapcheck
+	return s.Storage.GetMetadata(ctx, id) //nolint:wrapcheck
 }
 
 func (s *throttlingStorage) ListBlobs(ctx context.Context, blobIDPrefix blob.ID, cb func(bm blob.Metadata) error) error {
 	s.throttler.BeforeOperation(ctx, operationListBlobs)
 	defer s.throttler.AfterOperation(ctx, operationListBlobs)
 
-	return s.Storage.ListBlobs(ctx, blobIDPrefix, cb) // nolint:wrapcheck
+	return s.Storage.ListBlobs(ctx, blobIDPrefix, cb) //nolint:wrapcheck
 }
 
 func (s *throttlingStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes, opts blob.PutOptions) error {
@@ -94,14 +94,14 @@ func (s *throttlingStorage) PutBlob(ctx context.Context, id blob.ID, data blob.B
 
 	s.throttler.BeforeUpload(ctx, int64(data.Length()))
 
-	return s.Storage.PutBlob(ctx, id, data, opts) // nolint:wrapcheck
+	return s.Storage.PutBlob(ctx, id, data, opts) //nolint:wrapcheck
 }
 
 func (s *throttlingStorage) DeleteBlob(ctx context.Context, id blob.ID) error {
 	s.throttler.BeforeOperation(ctx, operationDeleteBlob)
 	defer s.throttler.AfterOperation(ctx, operationDeleteBlob)
 
-	return s.Storage.DeleteBlob(ctx, id) // nolint:wrapcheck
+	return s.Storage.DeleteBlob(ctx, id) //nolint:wrapcheck
 }
 
 // NewWrapper returns a Storage wrapper that adds retry loop around all operations of the underlying storage.

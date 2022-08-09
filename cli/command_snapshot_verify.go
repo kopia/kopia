@@ -70,7 +70,7 @@ func (c *commandSnapshotVerify) run(ctx context.Context, rep repo.Repository) er
 
 	v := snapshotfs.NewVerifier(ctx, rep, opts)
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return v.InParallel(ctx, func(tw *snapshotfs.TreeWalker) error {
 		manifests, err := c.loadSourceManifests(ctx, rep, c.verifyCommandSources)
 		if err != nil {
@@ -90,7 +90,7 @@ func (c *commandSnapshotVerify) run(ctx context.Context, rep repo.Repository) er
 			}
 
 			// ignore error now, return aggregate error at a higher level.
-			// nolint:errcheck
+			//nolint:errcheck
 			tw.Process(ctx, root, rootPath)
 		}
 
@@ -101,7 +101,7 @@ func (c *commandSnapshotVerify) run(ctx context.Context, rep repo.Repository) er
 			}
 
 			// ignore error now, return aggregate error at a higher level.
-			// nolint:errcheck
+			//nolint:errcheck
 			tw.Process(ctx, snapshotfs.DirectoryEntry(rep, oid, nil), oidStr)
 		}
 
@@ -112,7 +112,7 @@ func (c *commandSnapshotVerify) run(ctx context.Context, rep repo.Repository) er
 			}
 
 			// ignore error now, return aggregate error at a higher level.
-			// nolint:errcheck
+			//nolint:errcheck
 			tw.Process(ctx, snapshotfs.AutoDetectEntryFromObjectID(ctx, rep, oid, oidStr), oidStr)
 		}
 
@@ -144,6 +144,6 @@ func (c *commandSnapshotVerify) loadSourceManifests(ctx context.Context, rep rep
 		}
 	}
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return snapshot.LoadSnapshots(ctx, rep, manifestIDs)
 }

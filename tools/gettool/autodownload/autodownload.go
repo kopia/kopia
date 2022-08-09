@@ -28,9 +28,9 @@ func createFile(target string, mode os.FileMode, modTime time.Time, src io.Reade
 		return errors.Wrap(err, "error creating file")
 	}
 
-	defer os.Chtimes(target, modTime, modTime) // nolint:errcheck
+	defer os.Chtimes(target, modTime, modTime) //nolint:errcheck
 
-	defer f.Close() // nolint:errcheck,gosec
+	defer f.Close() //nolint:errcheck,gosec
 
 	if _, err := io.Copy(f, src); err != nil {
 		return errors.Wrap(err, "error copying contents")
@@ -40,7 +40,7 @@ func createFile(target string, mode os.FileMode, modTime time.Time, src io.Reade
 }
 
 func createSymlink(linkPath, linkTarget string) error {
-	os.Remove(linkPath) // nolint:errcheck
+	os.Remove(linkPath) //nolint:errcheck
 
 	return errors.Wrap(os.Symlink(linkTarget, linkPath), "error creating symlink")
 }
@@ -148,7 +148,7 @@ func unzip(dir string, r io.Reader, stripPathComponents int) error {
 				return errors.Wrapf(ferr, "error creating file %v", f.Name)
 			}
 
-			fc.Close() // nolint:errcheck
+			fc.Close() //nolint:errcheck
 
 		default:
 			return errors.Errorf("unsupported zip entry %v: %v", f.Name, f.FileInfo().Mode())
@@ -160,7 +160,7 @@ func unzip(dir string, r io.Reader, stripPathComponents int) error {
 
 // Download downloads the provided.
 func Download(url, dir string, checksum map[string]string, stripPathComponents int) (err error) {
-	resp, err := http.Get(url) // nolint:gosec,noctx
+	resp, err := http.Get(url) //nolint:gosec,noctx
 	if err != nil {
 		return errors.Wrapf(err, "unable to get %q", url)
 	}

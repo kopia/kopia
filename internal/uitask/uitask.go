@@ -178,7 +178,7 @@ func uiLevelEncoder(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
 	}
 }
 
-// nolint:gochecknoglobals
+//nolint:gochecknoglobals
 var containsFormatLogModule = []byte(`"` + uiLogModuleKey + `":"` + content.FormatLogModule + `"`)
 
 func (t *runningTaskInfo) addLogEntry(le json.RawMessage) {

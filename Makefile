@@ -76,6 +76,13 @@ ifneq ($(GOOS)/$(GOARCH),linux/arm)
 endif
 endif
 
+lint-fix: $(linter)
+ifneq ($(GOOS)/$(GOARCH),linux/arm64)
+ifneq ($(GOOS)/$(GOARCH),linux/arm)
+	$(linter) --deadline $(LINTER_DEADLINE) run --fix $(linter_flags)
+endif
+endif
+
 lint-and-log: $(linter)
 	$(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags) | tee .linterr.txt
 

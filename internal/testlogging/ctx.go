@@ -29,7 +29,8 @@ const (
 )
 
 // NewTestLogger returns logger bound to the provided testing.T.
-// nolint:thelper
+//
+//nolint:thelper
 func NewTestLogger(t *testing.T) logging.Logger {
 	return Printf(t.Logf, "")
 }

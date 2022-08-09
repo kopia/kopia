@@ -111,14 +111,14 @@ func (s *sftpStorage) GetCapacity(ctx context.Context) (blob.Capacity, error) {
 		return blob.Capacity{
 			SizeB: stat.Blocks * stat.Bsize,
 			FreeB: stat.Bfree * stat.Bsize,
-		}, err // nolint:wrapcheck
+		}, err //nolint:wrapcheck
 	})
 
-	return i.(blob.Capacity), err // nolint:forcetypeassert,wrapcheck
+	return i.(blob.Capacity), err //nolint:forcetypeassert,wrapcheck
 }
 
 func (s *sftpImpl) GetBlobFromPath(ctx context.Context, dirPath, fullPath string, offset, length int64, output blob.OutputBuffer) error {
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return s.rec.UsingConnectionNoResult(ctx, "GetBlobFromPath", func(conn connection.Connection) error {
 		r, err := sftpClientFromConnection(conn).Open(fullPath)
 		if isNotExist(err) {
@@ -134,7 +134,7 @@ func (s *sftpImpl) GetBlobFromPath(ctx context.Context, dirPath, fullPath string
 			// read entire blob
 			output.Reset()
 
-			// nolint:wrapcheck
+			//nolint:wrapcheck
 			return iocopy.JustCopy(output, r)
 		}
 
@@ -157,7 +157,7 @@ func (s *sftpImpl) GetBlobFromPath(ctx context.Context, dirPath, fullPath string
 			return errors.Wrap(err, "read error")
 		}
 
-		// nolint:wrapcheck
+		//nolint:wrapcheck
 		return blob.EnsureLengthExactly(output.Length(), length)
 	})
 }
@@ -179,7 +179,7 @@ func (s *sftpImpl) GetMetadataFromPath(ctx context.Context, dirPath, fullPath st
 		}, nil
 	})
 	if err != nil {
-		// nolint:wrapcheck
+		//nolint:wrapcheck
 		return blob.Metadata{}, err
 	}
 
@@ -194,7 +194,7 @@ func (s *sftpImpl) PutBlobInPath(ctx context.Context, dirPath, fullPath string, 
 		return errors.Wrap(blob.ErrUnsupportedPutBlobOption, "do-not-recreate")
 	}
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return s.rec.UsingConnectionNoResult(ctx, "PutBlobInPath", func(conn connection.Connection) error {
 		randSuffix := make([]byte, tempFileRandomSuffixLen)
 		if _, err := rand.Read(randSuffix); err != nil {
@@ -261,7 +261,7 @@ func (osInterface) IsPathSeparator(c byte) bool {
 }
 
 func (osi osInterface) Mkdir(name string, perm os.FileMode) error {
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return osi.cli.Mkdir(name)
 }
 
@@ -275,7 +275,7 @@ func (s *sftpImpl) createTempFileAndDir(cli *sftp.Client, tempFile string) (*sft
 			return nil, errors.Wrap(err, "cannot create directory")
 		}
 
-		// nolint:wrapcheck
+		//nolint:wrapcheck
 		return cli.OpenFile(tempFile, flags)
 	}
 
@@ -295,7 +295,7 @@ func isNotExist(err error) bool {
 }
 
 func (s *sftpImpl) DeleteBlobInPath(ctx context.Context, dirPath, fullPath string) error {
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return s.rec.UsingConnectionNoResult(ctx, "DeleteBlobInPath", func(conn connection.Connection) error {
 		err := sftpClientFromConnection(conn).Remove(fullPath)
 		if err == nil || isNotExist(err) {
@@ -308,11 +308,11 @@ func (s *sftpImpl) DeleteBlobInPath(ctx context.Context, dirPath, fullPath strin
 
 func (s *sftpImpl) ReadDir(ctx context.Context, dirname string) ([]os.FileInfo, error) {
 	v, err := s.rec.UsingConnection(ctx, "ReadDir", func(conn connection.Connection) (interface{}, error) {
-		// nolint:wrapcheck
+		//nolint:wrapcheck
 		return sftpClientFromConnection(conn).ReadDir(dirname)
 	})
 	if err != nil {
-		// nolint:wrapcheck
+		//nolint:wrapcheck
 		return nil, err
 	}
 
@@ -367,9 +367,9 @@ func getHostKeyCallback(opt *Options) (ssh.HostKeyCallback, error) {
 		}
 
 		// this file is no longer needed after `knownhosts.New` returns, so we can delete it.
-		defer os.Remove(tmpFile) // nolint:errcheck
+		defer os.Remove(tmpFile) //nolint:errcheck
 
-		// nolint:wrapcheck
+		//nolint:wrapcheck
 		return knownhosts.New(tmpFile)
 	}
 
@@ -377,7 +377,7 @@ func getHostKeyCallback(opt *Options) (ssh.HostKeyCallback, error) {
 		return nil, errors.Errorf("known hosts path must be absolute")
 	}
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return knownhosts.New(opt.knownHostsFile())
 }
 
@@ -483,7 +483,7 @@ func getSFTPClientExternal(ctx context.Context, opt *Options) (*sftpConnection, 
 	closeFunc := func() error {
 		p := cmd.Process
 		if p != nil {
-			p.Kill() // nolint:errcheck
+			p.Kill() //nolint:errcheck
 		}
 
 		return nil
@@ -492,7 +492,7 @@ func getSFTPClientExternal(ctx context.Context, opt *Options) (*sftpConnection, 
 	// open the SFTP session
 	c, err := sftp.NewClientPipe(rd, wr)
 	if err != nil {
-		closeFunc() // nolint:errcheck
+		closeFunc() //nolint:errcheck
 
 		return nil, errors.Wrap(err, "error creating sftp client pipe")
 	}
@@ -526,7 +526,7 @@ func getSFTPClient(ctx context.Context, opt *Options) (*sftpConnection, error) {
 		sftp.UseConcurrentReads(true),
 	)
 	if err != nil {
-		conn.Close() // nolint:errcheck
+		conn.Close() //nolint:errcheck
 		return nil, errors.Wrapf(err, "unable to create sftp client")
 	}
 

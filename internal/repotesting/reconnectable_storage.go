@@ -46,7 +46,7 @@ func NewReconnectableStorage(tb testing.TB, st blob.Storage) blob.Storage {
 	return st2
 }
 
-// nolint:gochecknoglobals
+//nolint:gochecknoglobals
 var reconnectableStorageByUUID sync.Map
 
 func (s reconnectableStorage) ConnectionInfo() blob.ConnectionInfo {

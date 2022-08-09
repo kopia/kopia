@@ -17,11 +17,11 @@ func newBlake3(key []byte) (hash.Hash, error) {
 		key = xKey[:blake3KeySize]
 	}
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return blake3.NewKeyed(key[:blake3KeySize])
 }
 
 func init() {
-	Register("BLAKE3-256", truncatedKeyedHashFuncFactory(newBlake3, 32))     // nolint:gomnd
-	Register("BLAKE3-256-128", truncatedKeyedHashFuncFactory(newBlake3, 16)) // nolint:gomnd
+	Register("BLAKE3-256", truncatedKeyedHashFuncFactory(newBlake3, 32))     //nolint:gomnd
+	Register("BLAKE3-256-128", truncatedKeyedHashFuncFactory(newBlake3, 16)) //nolint:gomnd
 }

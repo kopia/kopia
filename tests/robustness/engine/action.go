@@ -258,7 +258,7 @@ func restoreIntoDataDirectoryAction(ctx context.Context, e *Engine, opts map[str
 	if err := e.Checker.RestoreSnapshotToPath(ctx, snapID, e.FileWriter.DataDirectory(ctx), b, opts); err != nil {
 		log.Print(b.String())
 
-		return nil, err // nolint:wrapcheck
+		return nil, err //nolint:wrapcheck
 	}
 
 	return nil, nil

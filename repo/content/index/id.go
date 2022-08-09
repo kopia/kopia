@@ -42,7 +42,7 @@ type ID struct {
 func (i ID) MarshalJSON() ([]byte, error) {
 	s := i.String()
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return json.Marshal(s)
 }
 
@@ -70,10 +70,11 @@ func (i ID) Hash() []byte {
 }
 
 // EmptyID represents empty content ID.
-var EmptyID = ID{} // nolint:gochecknoglobals
+var EmptyID = ID{} //nolint:gochecknoglobals
 
 // prefixStrings contains precomputed single-character strings for all valid prefixes 'g'..'z'
-// nolint:gochecknoglobals
+//
+//nolint:gochecknoglobals
 var prefixStrings [256]IDPrefix
 
 func init() {

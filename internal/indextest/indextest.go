@@ -10,7 +10,8 @@ import (
 )
 
 // InfoDiff returns a list of differences between two index.Info, empty if they are equal.
-// nolint:gocyclo
+//
+//nolint:gocyclo
 func InfoDiff(i1, i2 index.Info, ignore ...string) []string {
 	var diffs []string
 
@@ -60,7 +61,7 @@ func InfoDiff(i1, i2 index.Info, ignore ...string) []string {
 
 	// dear future reader, if this fails because the number of methods has changed,
 	// you need to add additional verification above.
-	// nolint:gomnd
+	//nolint:gomnd
 	if cnt := reflect.TypeOf((*index.Info)(nil)).Elem().NumMethod(); cnt != 11 {
 		diffs = append(diffs, fmt.Sprintf("unexpected number of methods on content.Info: %v, must update the test", cnt))
 	}

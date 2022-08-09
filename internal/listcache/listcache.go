@@ -84,7 +84,7 @@ func (s *listCacheStorage) readBlobsFromCache(ctx context.Context, prefix blob.I
 // ListBlobs implements blob.Storage and caches previous list results for a given prefix.
 func (s *listCacheStorage) ListBlobs(ctx context.Context, prefix blob.ID, cb func(blob.Metadata) error) error {
 	if !s.isCachedPrefix(prefix) {
-		// nolint:wrapcheck
+		//nolint:wrapcheck
 		return s.Storage.ListBlobs(ctx, prefix, cb)
 	}
 
@@ -92,7 +92,7 @@ func (s *listCacheStorage) ListBlobs(ctx context.Context, prefix blob.ID, cb fun
 	if cached == nil {
 		all, err := blob.ListAllBlobs(ctx, s.Storage, prefix)
 		if err != nil {
-			// nolint:wrapcheck
+			//nolint:wrapcheck
 			return err
 		}
 
@@ -118,7 +118,7 @@ func (s *listCacheStorage) PutBlob(ctx context.Context, blobID blob.ID, data blo
 	err := s.Storage.PutBlob(ctx, blobID, data, opts)
 	s.invalidateAfterUpdate(ctx, blobID)
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return err
 }
 
@@ -135,7 +135,7 @@ func (s *listCacheStorage) DeleteBlob(ctx context.Context, blobID blob.ID) error
 	err := s.Storage.DeleteBlob(ctx, blobID)
 	s.invalidateAfterUpdate(ctx, blobID)
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return err
 }
 

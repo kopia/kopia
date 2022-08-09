@@ -48,7 +48,7 @@ func (c *storageSFTPFlags) Setup(_ StorageProviderServices, cmd *kingpin.CmdClau
 func (c *storageSFTPFlags) getOptions(formatVersion int) (*sftp.Options, error) {
 	sftpo := c.options
 
-	// nolint:nestif
+	//nolint:nestif
 	if !sftpo.ExternalSSH {
 		if c.embedCredentials {
 			if sftpo.KeyData == "" {
@@ -115,6 +115,6 @@ func (c *storageSFTPFlags) Connect(ctx context.Context, isCreate bool, formatVer
 		return nil, err
 	}
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return sftp.New(ctx, opt, isCreate)
 }

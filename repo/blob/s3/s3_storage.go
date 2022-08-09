@@ -75,7 +75,7 @@ func (s *s3Storage) getBlobWithVersion(ctx context.Context, b blob.ID, version s
 			return nil
 		}
 
-		// nolint:wrapcheck
+		//nolint:wrapcheck
 		return iocopy.JustCopy(output, o)
 	}
 
@@ -83,7 +83,7 @@ func (s *s3Storage) getBlobWithVersion(ctx context.Context, b blob.ID, version s
 		return translateError(err)
 	}
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return blob.EnsureLengthExactly(output.Length(), length)
 }
 
@@ -194,7 +194,7 @@ func (s *s3Storage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes, opt
 	var er minio.ErrorResponse
 
 	if errors.As(err, &er) && er.Code == "InvalidRequest" && strings.Contains(strings.ToLower(er.Message), "content-md5") {
-		return versionMetadata{}, err // nolint:wrapcheck
+		return versionMetadata{}, err //nolint:wrapcheck
 	}
 
 	if errors.Is(err, io.EOF) && uploadInfo.Size == 0 {
@@ -208,7 +208,7 @@ func (s *s3Storage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes, opt
 	}
 
 	if err != nil {
-		return versionMetadata{}, err // nolint:wrapcheck
+		return versionMetadata{}, err //nolint:wrapcheck
 	}
 
 	return versionMetadata{
@@ -293,7 +293,7 @@ func (s *s3Storage) FlushCaches(ctx context.Context) error {
 }
 
 func getCustomTransport(insecureSkipVerify bool) (transport *http.Transport) {
-	// nolint:gosec
+	//nolint:gosec
 	customTransport := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: insecureSkipVerify}}
 	return customTransport
 }
@@ -393,6 +393,6 @@ func init() {
 			return &Options{}
 		},
 		func(ctx context.Context, o interface{}, isCreate bool) (blob.Storage, error) {
-			return New(ctx, o.(*Options)) // nolint:forcetypeassert
+			return New(ctx, o.(*Options)) //nolint:forcetypeassert
 		})
 }

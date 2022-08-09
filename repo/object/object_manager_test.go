@@ -474,7 +474,7 @@ func TestHMAC(t *testing.T) {
 	}
 }
 
-// nolint:gocyclo
+//nolint:gocyclo
 func TestConcatenate(t *testing.T) {
 	ctx := testlogging.Context(t)
 	_, _, om := setupTest(t, nil)
@@ -826,7 +826,7 @@ func verify(ctx context.Context, t *testing.T, cr contentReader, objectID ID, ex
 	}
 }
 
-// nolint:gocyclo
+//nolint:gocyclo
 func TestSeek(t *testing.T) {
 	ctx := testlogging.Context(t)
 	_, _, om := setupTest(t, nil)

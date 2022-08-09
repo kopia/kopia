@@ -522,17 +522,17 @@ func maxEndTime(taskRuns ...[]RunInfo) time.Time {
 //
 // Step #1 - race between GC and snapshot creation:
 //
-//  - 'snapshot gc' runs and marks unreachable contents as deleted
-//  - 'snapshot create' runs at approximately the same time and creates manifest
-//    which makes some contents live again.
+//   - 'snapshot gc' runs and marks unreachable contents as deleted
+//   - 'snapshot create' runs at approximately the same time and creates manifest
+//     which makes some contents live again.
 //
 // As a result of this race, GC has marked some entries as incorrectly deleted, but we
 // can still return them since they are not dropped from the index.
 //
 // Step #2 - fix incorrectly deleted contents
 //
-//  - subsequent 'snapshot gc' runs and undeletes contents incorrectly
-//    marked as deleted in Step 1.
+//   - subsequent 'snapshot gc' runs and undeletes contents incorrectly
+//     marked as deleted in Step 1.
 //
 // After Step 2 completes, we know for sure that all contents deleted before Step #1 has started
 // are safe to drop from the index because Step #2 has fixed them, as long as all snapshots that

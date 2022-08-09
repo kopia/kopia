@@ -48,7 +48,7 @@ func TestAPIServerRepository_DisableGRPC_htpasswd(t *testing.T) {
 	testAPIServerRepository(t, []string{"--no-grpc"}, false, false)
 }
 
-// nolint:thelper
+//nolint:thelper
 func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, allowRepositoryUsers bool) {
 	ctx := testlogging.Context(t)
 
@@ -266,7 +266,7 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 		Hostname: "bar",
 	}, nil, "baz")
 
-	// nolint:forbidigo
+	//nolint:forbidigo
 	if dur := timer.Elapsed(); dur > 15*time.Second {
 		t.Fatalf("failed connection took %v", dur)
 	}

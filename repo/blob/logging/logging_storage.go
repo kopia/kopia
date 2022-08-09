@@ -61,7 +61,7 @@ func (s *loggingStorage) GetBlob(ctx context.Context, id blob.ID, offset, length
 		"duration", dt,
 	)
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return err
 }
 
@@ -80,7 +80,7 @@ func (s *loggingStorage) GetCapacity(ctx context.Context) (blob.Capacity, error)
 		"duration", dt,
 	)
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return c, err
 }
 
@@ -102,7 +102,7 @@ func (s *loggingStorage) GetMetadata(ctx context.Context, id blob.ID) (blob.Meta
 		"duration", dt,
 	)
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return result, err
 }
 
@@ -124,7 +124,7 @@ func (s *loggingStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Byte
 		"duration", dt,
 	)
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return err
 }
 
@@ -144,7 +144,7 @@ func (s *loggingStorage) DeleteBlob(ctx context.Context, id blob.ID) error {
 		"error", s.translateError(err),
 		"duration", dt,
 	)
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return err
 }
 
@@ -170,7 +170,7 @@ func (s *loggingStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback
 		"duration", dt,
 	)
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return err
 }
 
@@ -187,7 +187,7 @@ func (s *loggingStorage) Close(ctx context.Context) error {
 		"duration", dt,
 	)
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return err
 }
 
@@ -209,7 +209,7 @@ func (s *loggingStorage) FlushCaches(ctx context.Context) error {
 		"duration", dt,
 	)
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return err
 }
 

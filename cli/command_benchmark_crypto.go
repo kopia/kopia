@@ -70,8 +70,8 @@ func (c *commandBenchmarkCrypto) runBenchmark(ctx context.Context) []cryptoBench
 			fo := &format.ContentFormat{
 				Encryption: ea,
 				Hash:       ha,
-				MasterKey:  make([]byte, 32), // nolint:gomnd
-				HMACSecret: make([]byte, 32), // nolint:gomnd
+				MasterKey:  make([]byte, 32), //nolint:gomnd
+				HMACSecret: make([]byte, 32), //nolint:gomnd
 			}
 
 			hf, err := hashing.CreateHashFunc(fo)

@@ -97,7 +97,7 @@ func (gdrive *gdriveStorage) GetBlob(ctx context.Context, b blob.ID, offset, len
 		}
 	}
 
-	return blob.EnsureLengthExactly(output.Length(), length) // nolint:wrapcheck
+	return blob.EnsureLengthExactly(output.Length(), length) //nolint:wrapcheck
 }
 
 func (gdrive *gdriveStorage) GetMetadata(ctx context.Context, blobID blob.ID) (blob.Metadata, error) {
@@ -120,7 +120,7 @@ func (gdrive *gdriveStorage) GetMetadata(ctx context.Context, blobID blob.ID) (b
 		return blob.Metadata{}, errors.Wrapf(err, "get file by blob id in GetMetadata(%s)", blobID)
 	}
 
-	file := f.(*drive.File) // nolint:forcetypeassert
+	file := f.(*drive.File) //nolint:forcetypeassert
 
 	if file.Size == 0 { // Need to retrieve the rest of metadata fields.
 		file, err = gdrive.getFileByFileID(ctx, file.Id, metadataFields)
@@ -340,7 +340,7 @@ func (gdrive *gdriveStorage) getFileID(ctx context.Context, blobID blob.ID) (str
 		return fileID, err
 	})
 
-	return fileID.(string), err // nolint:forcetypeassert
+	return fileID.(string), err //nolint:forcetypeassert
 }
 
 // Get fileID for a blob with the given cache entry.
@@ -366,10 +366,10 @@ func (gdrive *gdriveStorage) tryGetFileByBlobID(ctx context.Context, blobID blob
 		return gdrive.getFileByBlobID(ctx, blobID, fields)
 	}, retryNotFound)
 	if err != nil {
-		return nil, err // nolint:wrapcheck
+		return nil, err //nolint:wrapcheck
 	}
 
-	return f.(*drive.File), nil // nolint:forcetypeassert
+	return f.(*drive.File), nil //nolint:forcetypeassert
 }
 
 func (gdrive *gdriveStorage) getFileByFileID(ctx context.Context, fileID string, fields googleapi.Field) (*drive.File, error) {
@@ -384,7 +384,7 @@ func (gdrive *gdriveStorage) getFileByBlobID(ctx context.Context, blobID blob.ID
 		IncludeItemsFromAllDrives(true).
 		Q(fmt.Sprintf("'%s' in parents and name = '%s' and mimeType = '%s' and trashed = false", gdrive.folderID, toFileName(blobID), blobMimeType)).
 		Fields(fields).
-		PageSize(2). // nolint:gomnd
+		PageSize(2). //nolint:gomnd
 		Context(ctx).
 		Do()
 
@@ -452,7 +452,7 @@ func parseBlobMetadata(file *drive.File, blobID blob.ID) (blob.Metadata, error) 
 }
 
 func parseModifiedTime(file *drive.File) (time.Time, error) {
-	return time.Parse(time.RFC3339, file.ModifiedTime) // nolint:wrapcheck
+	return time.Parse(time.RFC3339, file.ModifiedTime) //nolint:wrapcheck
 }
 
 func retryNotFound(err error) bool {

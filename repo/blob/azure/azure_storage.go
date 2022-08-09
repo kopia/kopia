@@ -57,7 +57,7 @@ func (az *azStorage) GetBlob(ctx context.Context, b blob.ID, offset, length int6
 	}
 
 	body := resp.Body(nil)
-	defer body.Close() // nolint:errcheck
+	defer body.Close() //nolint:errcheck
 
 	if length == 0 {
 		return nil
@@ -67,7 +67,7 @@ func (az *azStorage) GetBlob(ctx context.Context, b blob.ID, offset, length int6
 		return translateError(err)
 	}
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return blob.EnsureLengthExactly(output.Length(), length)
 }
 
@@ -100,7 +100,7 @@ func translateError(err error) error {
 	var re *azblob.StorageError
 
 	if errors.As(err, &re) {
-		// nolint:exhaustive
+		//nolint:exhaustive
 		switch re.ErrorCode {
 		case azblob.StorageErrorCodeBlobNotFound:
 			return blob.ErrBlobNotFound
@@ -296,6 +296,6 @@ func init() {
 			return &Options{}
 		},
 		func(ctx context.Context, o interface{}, isCreate bool) (blob.Storage, error) {
-			return New(ctx, o.(*Options)) // nolint:forcetypeassert
+			return New(ctx, o.(*Options)) //nolint:forcetypeassert
 		})
 }

@@ -113,7 +113,7 @@ func sleepWithContext(ctx context.Context, dur time.Duration) {
 func newTokenBucket(name string, initialTokens, maxTokens float64, addTimeUnit time.Duration) *tokenBucket {
 	return &tokenBucket{
 		name:              name,
-		now:               time.Now, // nolint:forbidigo
+		now:               time.Now, //nolint:forbidigo
 		sleep:             sleepWithContext,
 		numTokens:         initialTokens,
 		maxTokens:         maxTokens,

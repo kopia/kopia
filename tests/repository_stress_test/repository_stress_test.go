@@ -185,7 +185,7 @@ func TestStressContentReadHeavy(t *testing.T) {
 	})
 }
 
-// nolint:thelper
+//nolint:thelper
 func runStress(t *testing.T, opt *StressOptions) {
 	if testing.Short() {
 		return

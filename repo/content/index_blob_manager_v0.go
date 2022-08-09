@@ -537,7 +537,7 @@ func (m *indexBlobManagerV0) dropContentsFromBuilder(bld index.Builder, opt Comp
 // that have not been upgraded from being able to open the repository after its format
 // has been upgraded.
 func WriteLegacyIndexPoisonBlob(ctx context.Context, st blob.Storage) error {
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return st.PutBlob(
 		ctx,
 		legacyIndexPoisonBlobID,

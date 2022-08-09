@@ -716,10 +716,10 @@ func (s *s3Storage) putBlobVersion(ctx context.Context, id blob.ID, data blob.By
 		v, err := s.putBlob(ctx, id, data, opts)
 		vm = v
 
-		return true, err // nolint:wrapcheck
+		return true, err //nolint:wrapcheck
 	}, isRetriable)
 
-	return vm, err // nolint:wrapcheck
+	return vm, err //nolint:wrapcheck
 }
 
 func compareMetadata(tb testing.TB, a, b versionMetadata) {

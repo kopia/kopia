@@ -286,7 +286,7 @@ func TestDeleteContentsAtDepth(t *testing.T) {
 	}
 }
 
-// nolint:thelper
+//nolint:thelper
 func testDeleteContentsAtDepth(t *testing.T, prob float32, checker func(t *testing.T, fileCount int)) {
 	r, err := NewRunner()
 	require.NoError(t, err)

@@ -244,7 +244,7 @@ func (s *Server) isAuthCookieValid(username, cookieValue string) bool {
 }
 
 func (s *Server) generateShortTermAuthCookie(username string, now time.Time) (string, error) {
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return jwt.NewWithClaims(jwt.SigningMethodHS256, &jwt.RegisteredClaims{
 		Subject:   username,
 		NotBefore: jwt.NewNumericDate(now.Add(-time.Minute)),
@@ -657,11 +657,11 @@ func periodicMaintenanceOnce(ctx context.Context, rep repo.Repository) error {
 		return errors.Errorf("not a direct repository")
 	}
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return repo.DirectWriteSession(ctx, dr, repo.WriteSessionOptions{
 		Purpose: "periodicMaintenanceOnce",
 	}, func(ctx context.Context, w repo.DirectRepositoryWriter) error {
-		// nolint:wrapcheck
+		//nolint:wrapcheck
 		return snapshotmaintenance.Run(ctx, w, maintenance.ModeAuto, false, maintenance.SafetyFull)
 	})
 }
@@ -891,7 +891,7 @@ func (s *Server) InitRepositoryAsync(ctx context.Context, mode string, initializ
 
 	wg.Add(1)
 
-	// nolint:errcheck
+	//nolint:errcheck
 	go s.taskmgr.Run(ctx, "Repository", mode, func(ctx context.Context, ctrl uitask.Controller) error {
 		// we're still holding a lock, until wg.Done(), so no lock around this is needed.
 		taskID = ctrl.CurrentTaskID()
@@ -950,7 +950,7 @@ func RetryInitRepository(initialize InitRepositoryFunc) InitRepositoryFunc {
 		for {
 			if cerr := ctx.Err(); cerr != nil {
 				// context canceled, bail
-				// nolint:wrapcheck
+				//nolint:wrapcheck
 				return nil, cerr
 			}
 
@@ -962,7 +962,7 @@ func RetryInitRepository(initialize InitRepositoryFunc) InitRepositoryFunc {
 			log(ctx).Warnf("unable to open repository: %v, will keep trying until canceled. Sleeping for %v", rerr, nextSleepTime)
 
 			if !clock.SleepInterruptibly(ctx, nextSleepTime) {
-				// nolint:wrapcheck
+				//nolint:wrapcheck
 				return nil, ctx.Err()
 			}
 

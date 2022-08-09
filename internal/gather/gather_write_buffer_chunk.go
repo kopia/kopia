@@ -16,27 +16,27 @@ const (
 	maxCallersToTrackAllocations = 3
 )
 
-// nolint:gochecknoglobals
+//nolint:gochecknoglobals
 var (
 	trackChunkAllocations = os.Getenv("KOPIA_TRACK_CHUNK_ALLOC") != ""
 
 	defaultAllocator = &chunkAllocator{
 		name:            "default",
-		chunkSize:       1 << 16, // nolint:gomnd
-		maxFreeListSize: 2048,    // nolint:gomnd
+		chunkSize:       1 << 16, //nolint:gomnd
+		maxFreeListSize: 2048,    //nolint:gomnd
 	}
 
 	// typicalContiguousAllocator is used for short-term buffers for encryption.
 	typicalContiguousAllocator = &chunkAllocator{
 		name:            "mid-size contiguous",
-		chunkSize:       8<<20 + 128, // nolint:gomnd
+		chunkSize:       8<<20 + 128, //nolint:gomnd
 		maxFreeListSize: runtime.NumCPU(),
 	}
 
 	// maxContiguousAllocator is used for short-term buffers for encryption.
 	maxContiguousAllocator = &chunkAllocator{
 		name:            "contiguous",
-		chunkSize:       16<<20 + 128, // nolint:gomnd
+		chunkSize:       16<<20 + 128, //nolint:gomnd
 		maxFreeListSize: runtime.NumCPU(),
 	}
 )

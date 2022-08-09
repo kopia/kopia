@@ -9,11 +9,14 @@ import (
 )
 
 // FindFirst looks for a first complete set of blobs IDs following a naming convention:
-//    '<any>-s<set>-c<count>'
+//
+//	'<any>-s<set>-c<count>'
+//
 // where:
-//   'prefix' is arbitrary string not containing a dash ('-')
-//   'set' is a random string shared by all indexes in the same set
-//   'count' is a number that specifies how many items must be in the set to make it complete.
+//
+//	'prefix' is arbitrary string not containing a dash ('-')
+//	'set' is a random string shared by all indexes in the same set
+//	'count' is a number that specifies how many items must be in the set to make it complete.
 //
 // The algorithm returns IDs of blobs that form the first complete set.
 func FindFirst(bms []blob.Metadata) []blob.Metadata {

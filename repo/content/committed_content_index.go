@@ -129,7 +129,7 @@ func (c *committedContentIndex) listContents(r IDRange, cb func(i Info) error) e
 	deletionWatermark := c.deletionWatermark
 	c.mu.Unlock()
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return m.Iterate(r, func(i Info) error {
 		if shouldIgnore(i, deletionWatermark) {
 			return nil
@@ -169,7 +169,7 @@ func (c *committedContentIndex) merge(ctx context.Context, indexFiles []blob.ID)
 
 			ndx, err = c.cache.openIndex(ctx, e)
 			if err != nil {
-				newlyOpened.Close() // nolint:errcheck
+				newlyOpened.Close() //nolint:errcheck
 
 				return nil, nil, errors.Wrapf(err, "unable to open pack index %q", e)
 			}
@@ -183,7 +183,7 @@ func (c *committedContentIndex) merge(ctx context.Context, indexFiles []blob.ID)
 
 	mergedAndCombined, err := c.combineSmallIndexes(newMerged)
 	if err != nil {
-		newlyOpened.Close() // nolint:errcheck
+		newlyOpened.Close() //nolint:errcheck
 
 		return nil, nil, errors.Wrap(err, "unable to combine small indexes")
 	}

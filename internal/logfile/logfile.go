@@ -28,7 +28,7 @@ import (
 
 const logsDirMode = 0o700
 
-// nolint:gochecknoglobals
+//nolint:gochecknoglobals
 var logLevels = []string{"debug", "info", "warning", "error"}
 
 type loggingFlags struct {
@@ -277,7 +277,7 @@ func (c *loggingFlags) setupLogFileCore(now time.Time, suffix string) zapcore.Co
 	)
 }
 
-// nolint:gocritic
+//nolint:gocritic
 func (c *loggingFlags) jsonOrConsoleEncoder(ec zaplogutil.StdConsoleEncoderConfig, jc zapcore.EncoderConfig, isJSON bool) zapcore.Encoder {
 	if isJSON {
 		return zapcore.NewJSONEncoder(jc)
@@ -412,7 +412,7 @@ func (w *onDemandFile) Sync() error {
 		return nil
 	}
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return w.f.Sync()
 }
 
@@ -480,6 +480,6 @@ func (w *onDemandFile) Write(b []byte) (int, error) {
 	n, err := w.f.Write(b)
 	w.currentSegmentSize += n
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return n, err
 }

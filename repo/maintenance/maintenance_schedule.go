@@ -20,7 +20,7 @@ const (
 	maintenanceScheduleBlobID  = "kopia.maintenance"
 )
 
-// nolint:gochecknoglobals
+//nolint:gochecknoglobals
 var (
 	maintenanceScheduleKeyPurpose    = []byte("maintenance schedule")
 	maintenanceScheduleAEADExtraData = []byte("maintenance")
@@ -67,7 +67,7 @@ func getAES256GCM(rep repo.DirectRepository) (cipher.AEAD, error) {
 		return nil, errors.Wrap(err, "unable to create AES-256 cipher")
 	}
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return cipher.NewGCM(c)
 }
 
@@ -170,7 +170,7 @@ func SetSchedule(ctx context.Context, rep repo.DirectRepositoryWriter, s *Schedu
 	result := append([]byte(nil), nonce...)
 	ciphertext := c.Seal(result, nonce, v, maintenanceScheduleAEADExtraData)
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return rep.BlobStorage().PutBlob(ctx, maintenanceScheduleBlobID, gather.FromSlice(ciphertext), blob.PutOptions{})
 }
 

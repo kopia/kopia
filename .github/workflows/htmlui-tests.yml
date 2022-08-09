@@ -16,8 +16,8 @@ env:
   UNIX_SHELL_ON_WINDOWS: true
   # set (to any value other than false) to trigger random unicode filenames testing (logs may be difficult to read)
   ENABLE_UNICODE_FILENAMES: ${{ secrets.ENABLE_UNICODE_FILENAMES }}
-  # set (to any value other than false) to trigger very long filenames testing
-  ENABLE_LONG_FILENAMES: ${{ secrets.ENABLE_LONG_FILENAMES }}
+  # disable long filenames since they sometimes get messed up when simulating input keystrokes
+  ENABLE_LONG_FILENAMES: false
 concurrency: 
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true

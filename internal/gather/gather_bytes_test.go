@@ -159,7 +159,7 @@ func TestGatherBytesReadSeeker(t *testing.T) {
 	require.Equal(t, len(buf), tmp.Length())
 
 	reader := tmp.inner.Reader()
-	defer reader.Close() // nolint:errcheck
+	defer reader.Close() //nolint:errcheck
 
 	require.NoError(t, iotest.TestReader(reader, buf))
 

@@ -10,7 +10,7 @@ import (
 )
 
 func TestKopiaConnector(t *testing.T) {
-	assert := assert.New(t) // nolint:gocritic
+	assert := assert.New(t) //nolint:gocritic
 
 	t.Setenv("KOPIA_EXE", "kopia.exe")
 

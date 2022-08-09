@@ -40,6 +40,6 @@ func symlinkChtimes(linkPath string, atime, mtime time.Time) error {
 
 	defer windows.CloseHandle(h) //nolint:errcheck
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return windows.SetFileTime(h, &ftw, &fta, &ftw)
 }

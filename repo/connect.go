@@ -43,7 +43,7 @@ func Connect(ctx context.Context, configFile string, st blob.Storage, password s
 
 	f, err := format.ParseKopiaRepositoryJSON(formatBytes.ToByteSlice())
 	if err != nil {
-		// nolint:wrapcheck
+		//nolint:wrapcheck
 		return err
 	}
 
@@ -102,7 +102,7 @@ func Disconnect(ctx context.Context, configFile string) error {
 		log(ctx).Errorf("unable to remove maintenance lock file", maintenanceLock)
 	}
 
-	// nolint:wrapcheck
+	//nolint:wrapcheck
 	return os.Remove(configFile)
 }
 

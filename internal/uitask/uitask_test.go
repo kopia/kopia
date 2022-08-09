@@ -315,7 +315,7 @@ func TestUITaskCancel_BeforeOnCancel(t *testing.T) {
 func getTaskID(t *testing.T, m *uitask.Manager, desc string) string {
 	t.Helper()
 
-	// nolint:gocritic
+	//nolint:gocritic
 	for _, tsk := range m.ListTasks() {
 		if tsk.Description == desc {
 			return tsk.TaskID
@@ -354,7 +354,7 @@ func logText(items []json.RawMessage) string {
 func mustFindTask(t *testing.T, tasks []uitask.Info, tid string) uitask.Info {
 	t.Helper()
 
-	// nolint:gocritic
+	//nolint:gocritic
 	for _, tsk := range tasks {
 		if tsk.TaskID == tid {
 			return tsk
