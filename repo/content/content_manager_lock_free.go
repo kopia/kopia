@@ -62,7 +62,7 @@ func (sm *SharedManager) maybeCompressAndEncryptDataForPacking(data gather.Bytes
 		}
 	}
 
-	if err := sm.format.Encryptor().Encrypt(data, iv, output); err != nil {
+	if err := sm.format.Transformer().ToRepository(data, iv, output); err != nil {
 		return NoCompression, errors.Wrap(err, "unable to encrypt")
 	}
 

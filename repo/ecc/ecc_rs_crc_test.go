@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/kopia/kopia/repo/encryption"
+	"github.com/kopia/kopia/repo/transform"
 )
 
 func Test_RsCrc32_AssertSizeAlwaysGrow(t *testing.T) {
@@ -106,14 +106,14 @@ func testRsCrc32NoChange(t *testing.T, opts *Options, originalSize, expectedEccS
 	t.Helper()
 
 	testPutAndGet(t, opts, originalSize, expectedEccSize, true,
-		func(impl encryption.Encryptor, data []byte) {})
+		func(impl transform.Transformer, data []byte) {})
 }
 
 func testRsCrc32ChangeInData(t *testing.T, opts *Options, originalSize, changedBytes, expectedEccSize int, expectedSuccess bool) {
 	t.Helper()
 
 	testPutAndGet(t, opts, originalSize, expectedEccSize, expectedSuccess,
-		func(impl encryption.Encryptor, data []byte) {
+		func(impl transform.Transformer, data []byte) {
 			sizes := impl.(*ReedSolomonCrcECC).computeSizesFromOriginal(originalSize)
 			parity := sizes.ParityShards * (crcSize + sizes.ShardSize) * sizes.Blocks
 
@@ -127,7 +127,7 @@ func testRsCrc32ChangeInDataCrc(t *testing.T, opts *Options, originalSize, chang
 	t.Helper()
 
 	testPutAndGet(t, opts, originalSize, expectedEccSize, expectedSuccess,
-		func(impl encryption.Encryptor, data []byte) {
+		func(impl transform.Transformer, data []byte) {
 			sizes := impl.(*ReedSolomonCrcECC).computeSizesFromOriginal(originalSize)
 			parity := sizes.ParityShards * (crcSize + sizes.ShardSize) * sizes.Blocks
 
@@ -141,7 +141,7 @@ func testRsCrc32ChangeInParity(t *testing.T, opts *Options, originalSize, change
 	t.Helper()
 
 	testPutAndGet(t, opts, originalSize, expectedEccSize, expectedSuccess,
-		func(impl encryption.Encryptor, data []byte) {
+		func(impl transform.Transformer, data []byte) {
 			sizes := impl.(*ReedSolomonCrcECC).computeSizesFromOriginal(originalSize)
 
 			for i := 0; i < changedBytes; i++ {
@@ -154,7 +154,7 @@ func testRsCrc32ChangeInParityCrc(t *testing.T, opts *Options, originalSize, cha
 	t.Helper()
 
 	testPutAndGet(t, opts, originalSize, expectedEccSize, expectedSuccess,
-		func(impl encryption.Encryptor, data []byte) {
+		func(impl transform.Transformer, data []byte) {
 			sizes := impl.(*ReedSolomonCrcECC).computeSizesFromOriginal(originalSize)
 
 			for i := 0; i < changedBytes; i++ {

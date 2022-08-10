@@ -100,7 +100,7 @@ func (c *commandBenchmarkEcc) runBenchmark(ctx context.Context) []eccBenchResult
 				defer tmp.Close()
 
 				for i := 0; i < repeat; i++ {
-					if encerr := impl.Encrypt(input, nil, &tmp); encerr != nil {
+					if encerr := impl.ToRepository(input, nil, &tmp); encerr != nil {
 						log(ctx).Errorf("encoding failed: %v", encerr)
 						break
 					}
@@ -115,7 +115,7 @@ func (c *commandBenchmarkEcc) runBenchmark(ctx context.Context) []eccBenchResult
 
 			encodedBuffer.Reset()
 
-			if err := impl.Encrypt(gather.FromSlice(data), nil, &encodedBuffer); err != nil {
+			if err := impl.ToRepository(gather.FromSlice(data), nil, &encodedBuffer); err != nil {
 				log(ctx).Errorf("encoding failed: %v", err)
 				break
 			}
@@ -128,7 +128,7 @@ func (c *commandBenchmarkEcc) runBenchmark(ctx context.Context) []eccBenchResult
 				defer tmp.Close()
 
 				for i := 0; i < repeat; i++ {
-					if decerr := impl.Decrypt(input, nil, &tmp); decerr != nil {
+					if decerr := impl.FromRepository(input, nil, &tmp); decerr != nil {
 						log(ctx).Errorf("decoding failed: %v", decerr)
 						break
 					}

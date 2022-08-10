@@ -52,17 +52,17 @@ func TestFormatters(t *testing.T) {
 					var cipherText gather.WriteBuffer
 					defer cipherText.Close()
 
-					require.NoError(t, enc.Encrypt(gather.FromSlice(data), contentID, &cipherText))
+					require.NoError(t, enc.ToRepository(gather.FromSlice(data), contentID, &cipherText))
 
 					var plainText gather.WriteBuffer
 					defer plainText.Close()
 
-					require.NoError(t, enc.Decrypt(cipherText.Bytes(), contentID, &plainText))
+					require.NoError(t, enc.FromRepository(cipherText.Bytes(), contentID, &plainText))
 
 					h1 := sha1.Sum(plainText.ToByteSlice())
 
 					if !bytes.Equal(h0[:], h1[:]) {
-						t.Errorf("Encrypt()/Decrypt() does not round-trip: %x %x", h0, h1)
+						t.Errorf("ToRepository()/FromRepository() does not round-trip: %x %x", h0, h1)
 					}
 
 					verifyEndToEndFormatter(ctx, t, hashAlgo, encryptionAlgo)

@@ -49,34 +49,34 @@ func TestRoundTrip(t *testing.T) {
 			var cipherText1b gather.WriteBuffer
 			defer cipherText1b.Close()
 
-			require.NoError(t, e.Encrypt(gather.FromSlice(data), contentID1, &cipherText1))
-			require.NoError(t, e.Encrypt(gather.FromSlice(data), contentID1, &cipherText1b))
+			require.NoError(t, e.ToRepository(gather.FromSlice(data), contentID1, &cipherText1))
+			require.NoError(t, e.ToRepository(gather.FromSlice(data), contentID1, &cipherText1b))
 
 			if v := cipherText1.ToByteSlice(); bytes.Equal(v, cipherText1b.ToByteSlice()) {
-				t.Errorf("multiple Encrypt returned the same ciphertext: %x", v)
+				t.Errorf("multiple ToRepository returned the same ciphertext: %x", v)
 			}
 
 			var plainText1 gather.WriteBuffer
 			defer plainText1.Close()
 
-			require.NoError(t, e.Decrypt(cipherText1.Bytes(), contentID1, &plainText1))
+			require.NoError(t, e.FromRepository(cipherText1.Bytes(), contentID1, &plainText1))
 
 			if v := plainText1.ToByteSlice(); !bytes.Equal(v, data) {
-				t.Errorf("Encrypt()/Decrypt() does not round-trip: %x %x", v, data)
+				t.Errorf("ToRepository()/FromRepository() does not round-trip: %x %x", v, data)
 			}
 
 			var cipherText2 gather.WriteBuffer
 			defer cipherText2.Close()
 
-			require.NoError(t, e.Encrypt(gather.FromSlice(data), contentID2, &cipherText2))
+			require.NoError(t, e.ToRepository(gather.FromSlice(data), contentID2, &cipherText2))
 
 			var plainText2 gather.WriteBuffer
 			defer plainText2.Close()
 
-			require.NoError(t, e.Decrypt(cipherText2.Bytes(), contentID2, &plainText2))
+			require.NoError(t, e.FromRepository(cipherText2.Bytes(), contentID2, &plainText2))
 
 			if v := plainText2.ToByteSlice(); !bytes.Equal(v, data) {
-				t.Errorf("Encrypt()/Decrypt() does not round-trip: %x %x", v, data)
+				t.Errorf("ToRepository()/FromRepository() does not round-trip: %x %x", v, data)
 			}
 
 			if v := cipherText1.ToByteSlice(); bytes.Equal(v, cipherText2.ToByteSlice()) {
@@ -84,13 +84,13 @@ func TestRoundTrip(t *testing.T) {
 			}
 
 			// decrypt using wrong content ID
-			require.Error(t, e.Decrypt(cipherText2.Bytes(), contentID1, &plainText2))
+			require.Error(t, e.FromRepository(cipherText2.Bytes(), contentID1, &plainText2))
 
 			// flip some bits in the cipherText
 			b := cipherText2.Bytes()
 			b.Slices[0][mathrand.Intn(b.Length())] ^= byte(1 + mathrand.Intn(254))
 
-			require.Error(t, e.Decrypt(b, contentID1, &plainText2))
+			require.Error(t, e.FromRepository(b, contentID1, &plainText2))
 		})
 	}
 }
@@ -145,7 +145,7 @@ func verifyCiphertextSamples(t *testing.T, masterKey, contentID, payload []byte,
 			func() {
 				var v gather.WriteBuffer
 				defer v.Close()
-				require.NoError(t, enc.Encrypt(gather.FromSlice(payload), contentID, &v))
+				require.NoError(t, enc.ToRepository(gather.FromSlice(payload), contentID, &v))
 
 				t.Errorf("missing ciphertext sample for %q: %q,", encryptionAlgo, hex.EncodeToString(payload))
 			}()
@@ -160,7 +160,7 @@ func verifyCiphertextSamples(t *testing.T, masterKey, contentID, payload []byte,
 				var plainText gather.WriteBuffer
 				defer plainText.Close()
 
-				require.NoError(t, enc.Decrypt(gather.FromSlice(b), contentID, &plainText))
+				require.NoError(t, enc.FromRepository(gather.FromSlice(b), contentID, &plainText))
 
 				if v := plainText.ToByteSlice(); !bytes.Equal(v, payload) {
 					t.Errorf("invalid plaintext after decryption %x, want %x", v, payload)
@@ -184,7 +184,7 @@ func BenchmarkEncryption(b *testing.B) {
 
 	iv := []byte{0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3, 4, 5, 6, 7}
 
-	require.NoError(b, enc.Encrypt(plainText, iv, &warmupOut))
+	require.NoError(b, enc.ToRepository(plainText, iv, &warmupOut))
 	warmupOut.Close()
 
 	b.ResetTimer()
@@ -192,7 +192,7 @@ func BenchmarkEncryption(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		var out gather.WriteBuffer
 
-		enc.Encrypt(plainText, iv, &out)
+		enc.ToRepository(plainText, iv, &out)
 		out.Close()
 	}
 }

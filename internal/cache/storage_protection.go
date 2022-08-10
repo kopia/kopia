@@ -9,6 +9,7 @@ import (
 	"github.com/kopia/kopia/internal/hmac"
 	"github.com/kopia/kopia/internal/impossible"
 	"github.com/kopia/kopia/repo/encryption"
+	"github.com/kopia/kopia/repo/transform"
 )
 
 // encryptionProtectionAlgorithm is the authenticated encryption algorithm used by authenticatedEncryptionProtection.
@@ -60,7 +61,7 @@ func ChecksumProtection(key []byte) StorageProtection {
 }
 
 type authenticatedEncryptionProtection struct {
-	e encryption.Encryptor
+	t transform.Transformer
 }
 
 func (p authenticatedEncryptionProtection) deriveIV(id string) []byte {
@@ -71,13 +72,13 @@ func (p authenticatedEncryptionProtection) deriveIV(id string) []byte {
 func (p authenticatedEncryptionProtection) Protect(id string, input gather.Bytes, output *gather.WriteBuffer) {
 	output.Reset()
 
-	impossible.PanicOnError(p.e.Encrypt(input, p.deriveIV(id), output))
+	impossible.PanicOnError(p.t.ToRepository(input, p.deriveIV(id), output))
 }
 
 func (p authenticatedEncryptionProtection) Verify(id string, input gather.Bytes, output *gather.WriteBuffer) error {
 	output.Reset()
 
-	if err := p.e.Decrypt(input, p.deriveIV(id), output); err != nil {
+	if err := p.t.FromRepository(input, p.deriveIV(id), output); err != nil {
 		return errors.Wrap(err, "unable to decrypt cache content")
 	}
 

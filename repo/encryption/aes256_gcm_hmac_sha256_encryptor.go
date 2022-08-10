@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/gather"
+	"github.com/kopia/kopia/repo/transform"
 )
 
 const aes256GCMHmacSha256Overhead = 28
@@ -44,7 +45,7 @@ func (e aes256GCMHmacSha256) aeadForContent(contentID []byte) (cipher.AEAD, erro
 	return cipher.NewGCM(c)
 }
 
-func (e aes256GCMHmacSha256) Decrypt(input gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {
+func (e aes256GCMHmacSha256) FromRepository(input gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {
 	a, err := e.aeadForContent(contentID)
 	if err != nil {
 		return err
@@ -53,7 +54,7 @@ func (e aes256GCMHmacSha256) Decrypt(input gather.Bytes, contentID []byte, outpu
 	return aeadOpenPrefixedWithNonce(a, input, contentID, output)
 }
 
-func (e aes256GCMHmacSha256) Encrypt(input gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {
+func (e aes256GCMHmacSha256) ToRepository(input gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {
 	a, err := e.aeadForContent(contentID)
 	if err != nil {
 		return err
@@ -67,7 +68,7 @@ func (e aes256GCMHmacSha256) Overhead() int {
 }
 
 func init() {
-	Register("AES256-GCM-HMAC-SHA256", "AES-256-GCM using per-content key generated using HMAC-SHA256", false, func(p Parameters) (Encryptor, error) {
+	Register("AES256-GCM-HMAC-SHA256", "AES-256-GCM using per-content key generated using HMAC-SHA256", false, func(p Parameters) (transform.Transformer, error) {
 		keyDerivationSecret, err := deriveKey(p, []byte(purposeEncryptionKey), aes256KeyDerivationSecretSize)
 		if err != nil {
 			return nil, err

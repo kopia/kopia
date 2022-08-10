@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/gather"
-	"github.com/kopia/kopia/repo/encryption"
+	"github.com/kopia/kopia/repo/transform"
 )
 
 func TestComputeShares(t *testing.T) {
@@ -29,7 +29,7 @@ func testComputeShares(t *testing.T, spaceUsedPercentage float32, expectedRequir
 
 func testPutAndGet(t *testing.T, opts *Options, originalSize,
 	expectedEccSize int, expectedSuccess bool,
-	makeChanges func(impl encryption.Encryptor, data []byte),
+	makeChanges func(impl transform.Transformer, data []byte),
 ) {
 	t.Helper()
 
@@ -43,7 +43,7 @@ func testPutAndGet(t *testing.T, opts *Options, originalSize,
 
 	output := gather.NewWriteBuffer()
 
-	err = impl.Encrypt(gather.FromSlice(original), nil, output)
+	err = impl.ToRepository(gather.FromSlice(original), nil, output)
 	require.NoError(t, err)
 
 	result := output.ToByteSlice()
@@ -53,7 +53,7 @@ func testPutAndGet(t *testing.T, opts *Options, originalSize,
 
 	output = gather.NewWriteBuffer()
 
-	err = impl.Decrypt(gather.FromSlice(result), nil, output)
+	err = impl.FromRepository(gather.FromSlice(result), nil, output)
 
 	if expectedSuccess {
 		require.NoError(t, err)

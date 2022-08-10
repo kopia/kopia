@@ -9,14 +9,14 @@ import (
 
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
-	"github.com/kopia/kopia/repo/encryption"
 	"github.com/kopia/kopia/repo/hashing"
+	"github.com/kopia/kopia/repo/transform"
 )
 
 // crypter ecapsulates hashing and encryption.
 type crypter interface {
 	HashFunc() hashing.HashFunc
-	Encryptor() encryption.Encryptor
+	Transformer() transform.Transformer
 }
 
 // getIndexBlobIV gets the initialization vector from the provided blob ID by taking
@@ -57,7 +57,7 @@ func EncryptBLOB(c crypter, payload gather.Bytes, prefix blob.ID, sessionID Sess
 
 	output.Reset()
 
-	if err := c.Encryptor().Encrypt(payload, iv, output); err != nil {
+	if err := c.Transformer().ToRepository(payload, iv, output); err != nil {
 		return "", errors.Wrapf(err, "error encrypting BLOB %v", blobID)
 	}
 
@@ -73,8 +73,8 @@ func DecryptBLOB(c crypter, payload gather.Bytes, blobID blob.ID, output *gather
 
 	output.Reset()
 
-	// Decrypt will verify the payload.
-	if err := c.Encryptor().Decrypt(payload, iv, output); err != nil {
+	// FromRepository will verify the payload.
+	if err := c.Transformer().FromRepository(payload, iv, output); err != nil {
 		return errors.Wrapf(err, "error decrypting BLOB %v", blobID)
 	}
 

@@ -292,7 +292,7 @@ func (sm *SharedManager) decryptContentAndVerify(payload gather.Bytes, bi Info, 
 }
 
 func (sm *SharedManager) decryptAndVerify(encrypted gather.Bytes, iv []byte, output *gather.WriteBuffer) error {
-	if err := sm.format.Encryptor().Decrypt(encrypted, iv, output); err != nil {
+	if err := sm.format.Transformer().FromRepository(encrypted, iv, output); err != nil {
 		sm.Stats.foundInvalidContent()
 		return errors.Wrap(err, "decrypt")
 	}
@@ -472,7 +472,7 @@ func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *Ca
 	sm.metadataCache = metadataCache
 	sm.indexBlobCache = indexBlobCache
 	sm.committedContents = newCommittedContentIndex(caching,
-		sm.format.Encryptor().Overhead,
+		sm.format.Transformer().Overhead,
 		sm.format,
 		sm.enc.getEncryptedBlob,
 		sm.namedLogger("committed-content-index"),

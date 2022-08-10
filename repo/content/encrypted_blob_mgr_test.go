@@ -14,14 +14,15 @@ import (
 	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/hashing"
 	"github.com/kopia/kopia/repo/logging"
+	"github.com/kopia/kopia/repo/transform"
 )
 
 type failingEncryptor struct {
-	encryption.Encryptor
+	transform.Transformer
 	err error
 }
 
-func (f failingEncryptor) Encrypt(input gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {
+func (f failingEncryptor) ToRepository(input gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {
 	return f.err
 }
 
@@ -84,10 +85,10 @@ func TestEncryptedBlobManager(t *testing.T) {
 
 type staticCrypter struct {
 	h hashing.HashFunc
-	e encryption.Encryptor
+	e transform.Transformer
 }
 
-func (p staticCrypter) Encryptor() encryption.Encryptor {
+func (p staticCrypter) Transformer() transform.Transformer {
 	return p.e
 }
 

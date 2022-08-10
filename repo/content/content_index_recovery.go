@@ -22,7 +22,7 @@ func (bm *WriteManager) RecoverIndexFromPackBlob(ctx context.Context, packFile b
 		return nil, err
 	}
 
-	ndx, err := index.Open(localIndexBytes.Bytes().ToByteSlice(), nil, bm.format.Encryptor().Overhead)
+	ndx, err := index.Open(localIndexBytes.Bytes().ToByteSlice(), nil, bm.format.Transformer().Overhead)
 	if err != nil {
 		return nil, errors.Errorf("unable to open index in file %v", packFile)
 	}
@@ -200,7 +200,7 @@ func (sm *SharedManager) appendPackFileIndexRecoveryData(pending index.Builder, 
 	var encryptedLocalIndex gather.WriteBuffer
 	defer encryptedLocalIndex.Close()
 
-	if err := sm.format.Encryptor().Encrypt(localIndex.Bytes(), localIndexIV, &encryptedLocalIndex); err != nil {
+	if err := sm.format.Transformer().ToRepository(localIndex.Bytes(), localIndexIV, &encryptedLocalIndex); err != nil {
 		return errors.Wrap(err, "encryption error")
 	}
 

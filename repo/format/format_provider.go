@@ -7,6 +7,7 @@ import (
 	"github.com/kopia/kopia/repo/content/index"
 	"github.com/kopia/kopia/repo/encryption"
 	"github.com/kopia/kopia/repo/hashing"
+	"github.com/kopia/kopia/repo/transform"
 )
 
 const (
@@ -50,7 +51,7 @@ type Provider interface {
 	hashing.Parameters
 
 	HashFunc() hashing.HashFunc
-	Encryptor() encryption.Encryptor
+	Transformer() transform.Transformer
 
 	// this is typically cached, but sometimes refreshes MutableParameters from
 	// the repository so the results should not be cached.
@@ -65,7 +66,7 @@ type formattingOptionsProvider struct {
 	*ContentFormat
 
 	h           hashing.HashFunc
-	e           encryption.Encryptor
+	t           transform.Transformer
 	formatBytes []byte
 }
 
@@ -109,7 +110,7 @@ func NewFormattingOptionsProvider(f *ContentFormat, formatBytes []byte) (Provide
 	var tmp gather.WriteBuffer
 	defer tmp.Close()
 
-	err = e.Encrypt(gather.FromSlice(nil), contentID, &tmp)
+	err = e.ToRepository(gather.FromSlice(nil), contentID, &tmp)
 	if err != nil {
 		return nil, errors.Wrap(err, "invalid encryptor")
 	}
@@ -118,13 +119,13 @@ func NewFormattingOptionsProvider(f *ContentFormat, formatBytes []byte) (Provide
 		ContentFormat: f,
 
 		h:           h,
-		e:           e,
+		t:           e,
 		formatBytes: formatBytes,
 	}, nil
 }
 
-func (f *formattingOptionsProvider) Encryptor() encryption.Encryptor {
-	return f.e
+func (f *formattingOptionsProvider) Transformer() transform.Transformer {
+	return f.t
 }
 
 func (f *formattingOptionsProvider) HashFunc() hashing.HashFunc {

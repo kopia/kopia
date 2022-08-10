@@ -59,11 +59,11 @@ func TestBlobCrypto(t *testing.T) {
 
 type badEncryptor struct{}
 
-func (badEncryptor) Encrypt(input gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {
+func (badEncryptor) ToRepository(input gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {
 	return errors.Errorf("some error")
 }
 
-func (badEncryptor) Decrypt(input gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {
+func (badEncryptor) FromRepository(input gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {
 	return errors.Errorf("some error")
 }
 

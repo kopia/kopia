@@ -100,7 +100,7 @@ func (c *commandBenchmarkCrypto) runBenchmark(ctx context.Context) []cryptoBench
 				for i := 0; i < hashCount; i++ {
 					contentID := hf(hashOutput[:0], input)
 
-					if encerr := enc.Encrypt(input, contentID, &encryptOutput); encerr != nil {
+					if encerr := enc.ToRepository(input, contentID, &encryptOutput); encerr != nil {
 						log(ctx).Errorf("encryption failed: %v", encerr)
 						break
 					}

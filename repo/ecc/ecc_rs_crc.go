@@ -8,7 +8,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/gather"
-	"github.com/kopia/kopia/repo/encryption"
+	"github.com/kopia/kopia/repo/transform"
 )
 
 const (
@@ -154,7 +154,7 @@ func (r *ReedSolomonCrcECC) computeSizesFromStored(length int) sizesInfo {
 	return result
 }
 
-// Encrypt creates ECC for the bytes in input.
+// ToRepository creates ECC for the bytes in input.
 // The bytes in output are stored in with the layout:
 // ([CRC32][Parity shard])+ ([CRC32][Data shard])+
 // With one detail: the length of the original data is prepended to the data itself,
@@ -163,7 +163,7 @@ func (r *ReedSolomonCrcECC) computeSizesFromStored(length int) sizesInfo {
 // The parity data comes first so we can avoid storing the padding needed for the
 // data shards, and instead compute the padded size based on the input length.
 // All parity shards are always stored.
-func (r *ReedSolomonCrcECC) Encrypt(input gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {
+func (r *ReedSolomonCrcECC) ToRepository(input gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {
 	sizes := r.computeSizesFromOriginal(input.Length())
 	inputPlusLengthSize := lengthSize + input.Length()
 	dataSizeInBlock := sizes.DataShards * sizes.ShardSize
@@ -245,9 +245,9 @@ func (r *ReedSolomonCrcECC) Encrypt(input gather.Bytes, contentID []byte, output
 	return nil
 }
 
-// Decrypt corrects the data from input based on the ECC data.
-// See Encrypt comments for a description of the layout.
-func (r *ReedSolomonCrcECC) Decrypt(input gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {
+// FromRepository corrects the data from input based on the ECC data.
+// See ToRepository comments for a description of the layout.
+func (r *ReedSolomonCrcECC) FromRepository(input gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {
 	sizes := r.computeSizesFromStored(input.Length())
 	dataPlusCrcSizeInBlock := sizes.DataShards * (crcSize + sizes.ShardSize)
 	parityPlusCrcSizeInBlock := sizes.ParityShards * (crcSize + sizes.ShardSize)
@@ -422,7 +422,7 @@ func computeFinalFileSizeWithoutPadding(inputSize, parityShards, shardSize, bloc
 }
 
 func init() {
-	RegisterAlgorithm(AlgorithmReedSolomonWithCrc32, func(opts *Options) (encryption.Encryptor, error) {
+	RegisterAlgorithm(AlgorithmReedSolomonWithCrc32, func(opts *Options) (transform.Transformer, error) {
 		return newReedSolomonCrcECC(opts)
 	})
 }

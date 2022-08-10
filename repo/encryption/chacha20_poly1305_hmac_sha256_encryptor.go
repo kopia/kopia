@@ -11,6 +11,7 @@ import (
 	"golang.org/x/crypto/chacha20poly1305"
 
 	"github.com/kopia/kopia/internal/gather"
+	"github.com/kopia/kopia/repo/transform"
 )
 
 const chacha20poly1305hmacSha256EncryptorOverhead = 28
@@ -40,7 +41,7 @@ func (e chacha20poly1305hmacSha256Encryptor) aeadForContent(contentID []byte) (c
 	return chacha20poly1305.New(key)
 }
 
-func (e chacha20poly1305hmacSha256Encryptor) Decrypt(input gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {
+func (e chacha20poly1305hmacSha256Encryptor) FromRepository(input gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {
 	a, err := e.aeadForContent(contentID)
 	if err != nil {
 		return err
@@ -49,7 +50,7 @@ func (e chacha20poly1305hmacSha256Encryptor) Decrypt(input gather.Bytes, content
 	return aeadOpenPrefixedWithNonce(a, input, contentID, output)
 }
 
-func (e chacha20poly1305hmacSha256Encryptor) Encrypt(input gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {
+func (e chacha20poly1305hmacSha256Encryptor) ToRepository(input gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {
 	a, err := e.aeadForContent(contentID)
 	if err != nil {
 		return err
@@ -63,7 +64,7 @@ func (e chacha20poly1305hmacSha256Encryptor) Overhead() int {
 }
 
 func init() {
-	Register("CHACHA20-POLY1305-HMAC-SHA256", "CHACHA20-POLY1305 using per-content key generated using HMAC-SHA256", false, func(p Parameters) (Encryptor, error) {
+	Register("CHACHA20-POLY1305-HMAC-SHA256", "CHACHA20-POLY1305 using per-content key generated using HMAC-SHA256", false, func(p Parameters) (transform.Transformer, error) {
 		keyDerivationSecret, err := deriveKey(p, []byte(purposeEncryptionKey), chacha20KeyDerivationSecretSize)
 		if err != nil {
 			return nil, err

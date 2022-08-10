@@ -6,12 +6,11 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/internal/gather"
-	"github.com/kopia/kopia/repo/encryption"
+	"github.com/kopia/kopia/repo/transform"
 )
 
 // CreateECCFunc creates an ECC for given parameters.
-type CreateECCFunc func(opts *Options) (encryption.Encryptor, error)
+type CreateECCFunc func(opts *Options) (transform.Transformer, error)
 
 //nolint:gochecknoglobals
 var factories = map[string]CreateECCFunc{}
@@ -35,8 +34,8 @@ func SupportedAlgorithms() []string {
 	return result
 }
 
-// CreateAlgorithm returns new encryption.Encryptor with error correction.
-func CreateAlgorithm(opts *Options) (encryption.Encryptor, error) {
+// CreateAlgorithm returns new transformer with error correction.
+func CreateAlgorithm(opts *Options) (transform.Transformer, error) {
 	factory, exists := factories[opts.Algorithm]
 
 	if !exists {
@@ -44,56 +43,4 @@ func CreateAlgorithm(opts *Options) (encryption.Encryptor, error) {
 	}
 
 	return factory(opts)
-}
-
-// New returns new encryption.Encryptor with error correction wrapped over another encryptor.
-func New(next encryption.Encryptor, opts *Options) (encryption.Encryptor, error) {
-	if opts.Algorithm == "" {
-		return next, nil
-	}
-
-	impl, err := CreateAlgorithm(opts)
-	if err != nil {
-		return nil, err
-	}
-
-	return &encryptorWrapper{
-		next: next,
-		impl: impl,
-	}, nil
-}
-
-type encryptorWrapper struct {
-	next encryption.Encryptor
-	impl encryption.Encryptor
-}
-
-func (e encryptorWrapper) Encrypt(plainText gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {
-	var tmp gather.WriteBuffer
-	defer tmp.Close()
-
-	if err := e.next.Encrypt(plainText, contentID, &tmp); err != nil {
-		//nolint:wrapcheck
-		return err
-	}
-
-	//nolint:wrapcheck
-	return e.impl.Encrypt(tmp.Bytes(), contentID, output)
-}
-
-func (e encryptorWrapper) Decrypt(cipherText gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {
-	var tmp gather.WriteBuffer
-	defer tmp.Close()
-
-	if err := e.impl.Decrypt(cipherText, contentID, &tmp); err != nil {
-		//nolint:wrapcheck
-		return err
-	}
-
-	//nolint:wrapcheck
-	return e.next.Decrypt(tmp.Bytes(), contentID, output)
-}
-
-func (e encryptorWrapper) Overhead() int {
-	panic("Overhead() should not be called")
 }
