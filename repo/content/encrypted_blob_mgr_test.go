@@ -41,7 +41,7 @@ func TestEncryptedBlobManager(t *testing.T) {
 
 	ebm := encryptedBlobMgr{
 		st:             fs,
-		crypter:        staticCrypter{hf, enc},
+		t:              staticCrypter{hf, enc},
 		indexBlobCache: nil,
 		log:            logging.NullLogger,
 	}
@@ -77,7 +77,7 @@ func TestEncryptedBlobManager(t *testing.T) {
 
 	someError2 := errors.Errorf("some error 2")
 
-	ebm.crypter = staticCrypter{hf, failingEncryptor{nil, someError2}}
+	ebm.t = staticCrypter{hf, failingEncryptor{nil, someError2}}
 
 	_, err = ebm.encryptAndWriteBlob(ctx, gather.FromSlice([]byte{1, 2, 3, 4}), "x", "session1")
 	require.ErrorIs(t, err, someError2)

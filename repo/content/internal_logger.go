@@ -33,7 +33,7 @@ type internalLogManager struct {
 	ctx context.Context //nolint:containedctx
 
 	st             blob.Storage
-	bc             crypter
+	bc             hasherAndTransformer
 	wg             sync.WaitGroup
 	timeFunc       func() time.Time
 	flushThreshold int
@@ -48,7 +48,7 @@ func (m *internalLogManager) encryptAndWriteLogBlob(prefix blob.ID, data gather.
 	encrypted := gather.NewWriteBuffer()
 	// Close happens in a goroutine
 
-	blobID, err := EncryptBLOB(m.bc, data, prefix, "", encrypted)
+	blobID, err := ConvertBlobToRepository(m.bc, data, prefix, "", encrypted)
 	if err != nil {
 		encrypted.Close()
 
@@ -208,7 +208,7 @@ func (l *internalLogger) Sync() error {
 }
 
 // newInternalLogManager creates a new blobLogManager that will emit logs as repository blobs with a given prefix.
-func newInternalLogManager(ctx context.Context, st blob.Storage, bc crypter) *internalLogManager {
+func newInternalLogManager(ctx context.Context, st blob.Storage, bc hasherAndTransformer) *internalLogManager {
 	return &internalLogManager{
 		ctx:            ctx,
 		st:             st,

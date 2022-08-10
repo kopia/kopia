@@ -796,7 +796,7 @@ func newIndexBlobManagerForTesting(t *testing.T, st blob.Storage, localTimeNow f
 		enc: &encryptedBlobMgr{
 			st:             st,
 			indexBlobCache: nil,
-			crypter:        staticCrypter{hf, enc},
+			t:              staticCrypter{hf, enc},
 			log:            log,
 		},
 		timeNow: localTimeNow,

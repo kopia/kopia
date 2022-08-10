@@ -57,8 +57,8 @@ func (c *commandBlobShow) maybeDecryptBlob(ctx context.Context, w io.Writer, rep
 		var tmp gather.WriteBuffer
 		defer tmp.Close()
 
-		if err := content.DecryptBLOB(rep.ContentReader().ContentFormat(), b, blobID, &tmp); err != nil {
-			return errors.Wrap(err, "error decrypting blob")
+		if err := content.ConvertBlobFromRepository(rep.ContentReader().ContentFormat(), b, blobID, &tmp); err != nil {
+			return errors.Wrap(err, "error converting back blob")
 		}
 
 		b = tmp.Bytes()

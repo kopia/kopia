@@ -111,9 +111,9 @@ func (bm *WriteManager) writeSessionMarkerLocked(ctx context.Context) error {
 	var encrypted gather.WriteBuffer
 	defer encrypted.Close()
 
-	sessionBlobID, err := EncryptBLOB(bm.format, gather.FromSlice(js), BlobIDPrefixSession, bm.currentSessionInfo.ID, &encrypted)
+	sessionBlobID, err := ConvertBlobToRepository(bm.format, gather.FromSlice(js), BlobIDPrefixSession, bm.currentSessionInfo.ID, &encrypted)
 	if err != nil {
-		return errors.Wrap(err, "unable to encrypt session marker")
+		return errors.Wrap(err, "unable to convert session marker")
 	}
 
 	bm.onUpload(int64(encrypted.Length()))
@@ -178,9 +178,9 @@ func (bm *WriteManager) ListActiveSessions(ctx context.Context) (map[SessionID]*
 			return nil, errors.Wrapf(err, "error loading session: %v", b.BlobID)
 		}
 
-		err = DecryptBLOB(bm.format, payload.Bytes(), b.BlobID, &decrypted)
+		err = ConvertBlobFromRepository(bm.format, payload.Bytes(), b.BlobID, &decrypted)
 		if err != nil {
-			return nil, errors.Wrapf(err, "error decrypting session: %v", b.BlobID)
+			return nil, errors.Wrapf(err, "error converting back session: %v", b.BlobID)
 		}
 
 		if err := json.NewDecoder(decrypted.Bytes().Reader()).Decode(si); err != nil {

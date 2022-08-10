@@ -442,7 +442,7 @@ func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *Ca
 
 	sm.enc = &encryptedBlobMgr{
 		st:             cachedSt,
-		crypter:        sm.format,
+		t:              sm.format,
 		indexBlobCache: indexBlobCache,
 		log:            sm.namedLogger("encrypted-blob-manager"),
 	}

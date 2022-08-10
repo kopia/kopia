@@ -13,7 +13,7 @@ import (
 
 type encryptedBlobMgr struct {
 	st             blob.Storage
-	crypter        crypter
+	t              hasherAndTransformer
 	indexBlobCache *cache.PersistentCache
 	log            logging.Logger
 }
@@ -29,16 +29,16 @@ func (m *encryptedBlobMgr) getEncryptedBlob(ctx context.Context, blobID blob.ID,
 		return errors.Wrap(err, "getContent")
 	}
 
-	return DecryptBLOB(m.crypter, payload.Bytes(), blobID, output)
+	return ConvertBlobFromRepository(m.t, payload.Bytes(), blobID, output)
 }
 
 func (m *encryptedBlobMgr) encryptAndWriteBlob(ctx context.Context, data gather.Bytes, prefix blob.ID, sessionID SessionID) (blob.Metadata, error) {
 	var data2 gather.WriteBuffer
 	defer data2.Close()
 
-	blobID, err := EncryptBLOB(m.crypter, data, prefix, sessionID, &data2)
+	blobID, err := ConvertBlobToRepository(m.t, data, prefix, sessionID, &data2)
 	if err != nil {
-		return blob.Metadata{}, errors.Wrap(err, "error encrypting")
+		return blob.Metadata{}, errors.Wrap(err, "error converting blob")
 	}
 
 	bm, err := blob.PutBlobAndGetMetadata(ctx, m.st, blobID, data2.Bytes(), blob.PutOptions{})

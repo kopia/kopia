@@ -13,8 +13,8 @@ import (
 	"github.com/kopia/kopia/repo/transform"
 )
 
-// crypter ecapsulates hashing and encryption.
-type crypter interface {
+// hasherAndTransformer encapsulates hashing and transformation.
+type hasherAndTransformer interface {
 	HashFunc() hashing.HashFunc
 	Transformer() transform.Transformer
 }
@@ -38,12 +38,12 @@ func getIndexBlobIV(s blob.ID) ([]byte, error) {
 	return v, nil
 }
 
-// EncryptBLOB encrypts the given data using crypter-defined key and returns a name that should
-// be used to save the blob in thre repository.
-func EncryptBLOB(c crypter, payload gather.Bytes, prefix blob.ID, sessionID SessionID, output *gather.WriteBuffer) (blob.ID, error) {
+// ConvertBlobToRepository prepares the given data to be written and returns a name that should
+// be used to save the blob in the repository.
+func ConvertBlobToRepository(t hasherAndTransformer, payload gather.Bytes, prefix blob.ID, sessionID SessionID, output *gather.WriteBuffer) (blob.ID, error) {
 	var hashOutput [hashing.MaxHashSize]byte
 
-	hash := c.HashFunc()(hashOutput[:0], payload)
+	hash := t.HashFunc()(hashOutput[:0], payload)
 	blobID := prefix + blob.ID(hex.EncodeToString(hash))
 
 	if sessionID != "" {
@@ -57,15 +57,15 @@ func EncryptBLOB(c crypter, payload gather.Bytes, prefix blob.ID, sessionID Sess
 
 	output.Reset()
 
-	if err := c.Transformer().ToRepository(payload, iv, output); err != nil {
-		return "", errors.Wrapf(err, "error encrypting BLOB %v", blobID)
+	if err := t.Transformer().ToRepository(payload, iv, output); err != nil {
+		return "", errors.Wrapf(err, "error converting BLOB %v", blobID)
 	}
 
 	return blobID, nil
 }
 
-// DecryptBLOB decrypts the provided data using provided blobID to derive initialization vector.
-func DecryptBLOB(c crypter, payload gather.Bytes, blobID blob.ID, output *gather.WriteBuffer) error {
+// ConvertBlobFromRepository converts back the provided data using provided blobID.
+func ConvertBlobFromRepository(t hasherAndTransformer, payload gather.Bytes, blobID blob.ID, output *gather.WriteBuffer) error {
 	iv, err := getIndexBlobIV(blobID)
 	if err != nil {
 		return errors.Wrap(err, "unable to get index blob IV")
@@ -74,8 +74,8 @@ func DecryptBLOB(c crypter, payload gather.Bytes, blobID blob.ID, output *gather
 	output.Reset()
 
 	// FromRepository will verify the payload.
-	if err := c.Transformer().FromRepository(payload, iv, output); err != nil {
-		return errors.Wrapf(err, "error decrypting BLOB %v", blobID)
+	if err := t.Transformer().FromRepository(payload, iv, output); err != nil {
+		return errors.Wrapf(err, "error converting back BLOB %v", blobID)
 	}
 
 	return nil

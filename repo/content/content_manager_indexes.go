@@ -80,12 +80,12 @@ func (sm *SharedManager) CompactIndexes(ctx context.Context, opt CompactOptions)
 }
 
 // ParseIndexBlob loads entries in a given index blob and returns them.
-func ParseIndexBlob(ctx context.Context, blobID blob.ID, encrypted gather.Bytes, crypter crypter) ([]Info, error) {
+func ParseIndexBlob(ctx context.Context, blobID blob.ID, encrypted gather.Bytes, crypter hasherAndTransformer) ([]Info, error) {
 	var data gather.WriteBuffer
 	defer data.Close()
 
-	if err := DecryptBLOB(crypter, encrypted, blobID, &data); err != nil {
-		return nil, errors.Wrap(err, "unable to decrypt index blob")
+	if err := ConvertBlobFromRepository(crypter, encrypted, blobID, &data); err != nil {
+		return nil, errors.Wrap(err, "unable to covert back index blob")
 	}
 
 	ndx, err := index.Open(data.Bytes().ToByteSlice(), nil, crypter.Transformer().Overhead)
