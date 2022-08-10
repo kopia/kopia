@@ -10,6 +10,7 @@ type commandBenchmark struct {
 	hashing     commandBenchmarkHashing
 	encryption  commandBenchmarkEncryption
 	splitters   commandBenchmarkSplitters
+	ecc         commandBenchmarkEcc
 }
 
 func (c *commandBenchmark) setup(svc appServices, parent commandParent) {
@@ -20,6 +21,7 @@ func (c *commandBenchmark) setup(svc appServices, parent commandParent) {
 	c.splitters.setup(svc, cmd)
 	c.hashing.setup(svc, cmd)
 	c.encryption.setup(svc, cmd)
+	c.ecc.setup(svc, cmd)
 }
 
 type cryptoBenchResult struct {
