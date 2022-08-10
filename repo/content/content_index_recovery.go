@@ -22,7 +22,7 @@ func (bm *WriteManager) RecoverIndexFromPackBlob(ctx context.Context, packFile b
 		return nil, err
 	}
 
-	ndx, err := index.Open(localIndexBytes.Bytes().ToByteSlice(), nil, uint32(bm.format.Encryptor().Overhead()))
+	ndx, err := index.Open(localIndexBytes.Bytes().ToByteSlice(), nil, bm.format.Encryptor().Overhead)
 	if err != nil {
 		return nil, errors.Errorf("unable to open index in file %v", packFile)
 	}

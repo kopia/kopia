@@ -25,7 +25,7 @@ type Index interface {
 }
 
 // Open reads an Index from a given reader. The caller must call Close() when the index is no longer used.
-func Open(data []byte, closer func() error, v1PerContentOverhead uint32) (Index, error) {
+func Open(data []byte, closer func() error, v1PerContentOverhead func() int) (Index, error) {
 	h, err := v1ReadHeader(data)
 	if err != nil {
 		return nil, errors.Wrap(err, "invalid header")
@@ -33,7 +33,7 @@ func Open(data []byte, closer func() error, v1PerContentOverhead uint32) (Index,
 
 	switch h.version {
 	case Version1:
-		return openV1PackIndex(h, data, closer, v1PerContentOverhead)
+		return openV1PackIndex(h, data, closer, uint32(v1PerContentOverhead()))
 
 	case Version2:
 		return openV2PackIndex(data, closer)

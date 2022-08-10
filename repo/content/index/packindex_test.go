@@ -188,7 +188,7 @@ func testPackIndex(t *testing.T, version int) {
 		fuzzTestIndexOpen(data1)
 	})
 
-	ndx, err := Open(data1, nil, fakeEncryptionOverhead)
+	ndx, err := Open(data1, nil, func() int { return fakeEncryptionOverhead })
 	if err != nil {
 		t.Fatalf("can't open index: %v", err)
 	}
@@ -281,7 +281,7 @@ func TestPackIndexPerContentLimits(t *testing.T) {
 		if tc.errMsg == "" {
 			require.NoError(t, b.buildV2(&result))
 
-			pi, err := Open(result.Bytes(), nil, fakeEncryptionOverhead)
+			pi, err := Open(result.Bytes(), nil, func() int { return fakeEncryptionOverhead })
 			require.NoError(t, err)
 
 			got, err := pi.GetInfo(cid)
@@ -399,7 +399,7 @@ func fuzzTestIndexOpen(originalData []byte) {
 	rnd := rand.New(rand.NewSource(12345))
 
 	fuzzTest(rnd, originalData, 50000, func(d []byte) {
-		ndx, err := Open(d, nil, 0)
+		ndx, err := Open(d, nil, func() int { return 0 })
 		if err != nil {
 			return
 		}

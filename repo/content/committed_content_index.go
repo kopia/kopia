@@ -38,7 +38,7 @@ type committedContentIndex struct {
 	// +checklocks:mu
 	merged index.Merged
 
-	v1PerContentOverhead uint32
+	v1PerContentOverhead func() int
 	formatProvider       format.Provider
 
 	// fetchOne loads one index blob
@@ -354,7 +354,7 @@ func (c *committedContentIndex) missingIndexBlobs(ctx context.Context, blobs []b
 }
 
 func newCommittedContentIndex(caching *CachingOptions,
-	v1PerContentOverhead uint32,
+	v1PerContentOverhead func() int,
 	formatProvider format.Provider,
 	fetchOne func(ctx context.Context, blobID blob.ID, output *gather.WriteBuffer) error,
 	log logging.Logger,

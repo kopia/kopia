@@ -95,5 +95,5 @@ func (e encryptorWrapper) Decrypt(cipherText gather.Bytes, contentID []byte, out
 }
 
 func (e encryptorWrapper) Overhead() int {
-	return e.impl.Overhead() + e.next.Overhead()
+	panic("Overhead() should not be called")
 }

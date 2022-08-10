@@ -24,7 +24,7 @@ const (
 type diskCommittedContentIndexCache struct {
 	dirname              string
 	timeNow              func() time.Time
-	v1PerContentOverhead uint32
+	v1PerContentOverhead func() int
 	log                  logging.Logger
 	minSweepAge          time.Duration
 }

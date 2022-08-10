@@ -17,7 +17,7 @@ type memoryCommittedContentIndexCache struct {
 	// +checklocks:mu
 	contents map[blob.ID]index.Index
 
-	v1PerContentOverhead uint32 // +checklocksignore
+	v1PerContentOverhead func() int // +checklocksignore
 }
 
 func (m *memoryCommittedContentIndexCache) hasIndexBlobID(ctx context.Context, indexBlobID blob.ID) (bool, error) {

@@ -472,7 +472,7 @@ func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *Ca
 	sm.metadataCache = metadataCache
 	sm.indexBlobCache = indexBlobCache
 	sm.committedContents = newCommittedContentIndex(caching,
-		uint32(sm.format.Encryptor().Overhead()),
+		sm.format.Encryptor().Overhead,
 		sm.format,
 		sm.enc.getEncryptedBlob,
 		sm.namedLogger("committed-content-index"),
