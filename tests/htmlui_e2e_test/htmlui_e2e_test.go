@@ -137,10 +137,7 @@ func TestEndToEndTest(t *testing.T) {
 			chromedp.Click(`a[data-testid='new-snapshot']`),
 
 			tc.log("entering path:"+snap1Path),
-			chromedp.SendKeys(`input[name='path']`, snap1Path),
-
-			// sleep a bit to ensure all the keys in the long path get typed
-			chromedp.Sleep(500*time.Millisecond),
+			chromedp.SendKeys(`input[name='path']`, snap1Path+"\t"),
 
 			tc.log("clicking estimate"),
 			chromedp.Click(`button[data-testid='estimate-now']`),
