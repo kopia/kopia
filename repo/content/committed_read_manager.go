@@ -87,7 +87,7 @@ type SharedManager struct {
 	metadataCache     cache.ContentCache
 	indexBlobCache    *cache.PersistentCache
 	committedContents *committedContentIndex
-	enc               *encryptedBlobMgr
+	transf            *transformedBlobMgr
 	timeNow           func() time.Time
 
 	// lock to protect the set of commtited indexes
@@ -440,17 +440,17 @@ func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *Ca
 		return errors.Wrap(err, "unable to initialize list cache")
 	}
 
-	sm.enc = &encryptedBlobMgr{
+	sm.transf = &transformedBlobMgr{
 		st:             cachedSt,
 		t:              sm.format,
 		indexBlobCache: indexBlobCache,
-		log:            sm.namedLogger("encrypted-blob-manager"),
+		log:            sm.namedLogger("transformed-blob-manager"),
 	}
 
 	// set up legacy index blob manager
 	sm.indexBlobManagerV0 = &indexBlobManagerV0{
 		st:                cachedSt,
-		enc:               sm.enc,
+		transf:            sm.transf,
 		timeNow:           sm.timeNow,
 		formattingOptions: sm.format,
 		log:               sm.namedLogger("index-blob-manager"),
@@ -459,7 +459,7 @@ func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *Ca
 	// set up new index blob manager
 	sm.indexBlobManagerV1 = &indexBlobManagerV1{
 		st:                cachedSt,
-		enc:               sm.enc,
+		transf:            sm.transf,
 		timeNow:           sm.timeNow,
 		formattingOptions: sm.format,
 		log:               sm.namedLogger("index-blob-manager"),
@@ -474,7 +474,7 @@ func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *Ca
 	sm.committedContents = newCommittedContentIndex(caching,
 		sm.format.Transformer().Overhead,
 		sm.format,
-		sm.enc.getEncryptedBlob,
+		sm.transf.readBlob,
 		sm.namedLogger("committed-content-index"),
 		caching.MinIndexSweepAge.DurationOrDefault(DefaultIndexCacheSweepAge))
 

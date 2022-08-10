@@ -60,7 +60,7 @@ type IndexFormattingOptions interface {
 
 type indexBlobManagerV0 struct {
 	st      blob.Storage
-	enc     *encryptedBlobMgr
+	transf  *transformedBlobMgr
 	timeNow func() time.Time
 	log     logging.Logger
 
@@ -164,7 +164,7 @@ func (m *indexBlobManagerV0) registerCompaction(ctx context.Context, inputs, out
 		return errors.Wrap(err, "unable to marshal log entry bytes")
 	}
 
-	compactionLogBlobMetadata, err := m.enc.encryptAndWriteBlob(ctx, gather.FromSlice(logEntryBytes), compactionLogBlobPrefix, "")
+	compactionLogBlobMetadata, err := m.transf.writeBlob(ctx, gather.FromSlice(logEntryBytes), compactionLogBlobPrefix, "")
 	if err != nil {
 		return errors.Wrap(err, "unable to write compaction log")
 	}
@@ -187,14 +187,14 @@ func (m *indexBlobManagerV0) registerCompaction(ctx context.Context, inputs, out
 }
 
 func (m *indexBlobManagerV0) getIndexBlob(ctx context.Context, blobID blob.ID, output *gather.WriteBuffer) error {
-	return m.enc.getEncryptedBlob(ctx, blobID, output)
+	return m.transf.readBlob(ctx, blobID, output)
 }
 
 func (m *indexBlobManagerV0) writeIndexBlobs(ctx context.Context, dataShards []gather.Bytes, sessionID SessionID) ([]blob.Metadata, error) {
 	var result []blob.Metadata
 
 	for _, data := range dataShards {
-		bm, err := m.enc.encryptAndWriteBlob(ctx, data, LegacyIndexBlobPrefix, sessionID)
+		bm, err := m.transf.writeBlob(ctx, data, LegacyIndexBlobPrefix, sessionID)
 		if err != nil {
 			return nil, errors.Wrap(err, "error writing index blbo")
 		}
@@ -212,7 +212,7 @@ func (m *indexBlobManagerV0) getCompactionLogEntries(ctx context.Context, blobs 
 	defer data.Close()
 
 	for _, cb := range blobs {
-		err := m.enc.getEncryptedBlob(ctx, cb.BlobID, &data)
+		err := m.transf.readBlob(ctx, cb.BlobID, &data)
 
 		if errors.Is(err, blob.ErrBlobNotFound) {
 			continue
@@ -245,7 +245,7 @@ func (m *indexBlobManagerV0) getCleanupEntries(ctx context.Context, latestServer
 	for _, cb := range blobs {
 		data.Reset()
 
-		err := m.enc.getEncryptedBlob(ctx, cb.BlobID, &data)
+		err := m.transf.readBlob(ctx, cb.BlobID, &data)
 
 		if errors.Is(err, blob.ErrBlobNotFound) {
 			continue
@@ -365,7 +365,7 @@ func (m *indexBlobManagerV0) delayCleanupBlobs(ctx context.Context, blobIDs []bl
 		return errors.Wrap(err, "unable to marshal cleanup log bytes")
 	}
 
-	if _, err := m.enc.encryptAndWriteBlob(ctx, gather.FromSlice(payload), cleanupBlobPrefix, ""); err != nil {
+	if _, err := m.transf.writeBlob(ctx, gather.FromSlice(payload), cleanupBlobPrefix, ""); err != nil {
 		return errors.Wrap(err, "unable to cleanup log")
 	}
 
@@ -479,7 +479,7 @@ func (m *indexBlobManagerV0) compactIndexBlobs(ctx context.Context, indexBlobs [
 	for i, indexBlob := range indexBlobs {
 		m.log.Debugf("compacting-entries[%v/%v] %v", i, len(indexBlobs), indexBlob)
 
-		if err := addIndexBlobsToBuilder(ctx, m.enc, bld, indexBlob.BlobID); err != nil {
+		if err := addIndexBlobsToBuilder(ctx, m.transf, bld, indexBlob.BlobID); err != nil {
 			return errors.Wrap(err, "error adding index to builder")
 		}
 
@@ -545,11 +545,11 @@ func WriteLegacyIndexPoisonBlob(ctx context.Context, st blob.Storage) error {
 		blob.PutOptions{})
 }
 
-func addIndexBlobsToBuilder(ctx context.Context, enc *encryptedBlobMgr, bld index.Builder, indexBlobID blob.ID) error {
+func addIndexBlobsToBuilder(ctx context.Context, enc *transformedBlobMgr, bld index.Builder, indexBlobID blob.ID) error {
 	var data gather.WriteBuffer
 	defer data.Close()
 
-	err := enc.getEncryptedBlob(ctx, indexBlobID, &data)
+	err := enc.readBlob(ctx, indexBlobID, &data)
 	if err != nil {
 		return errors.Wrapf(err, "error getting index %q", indexBlobID)
 	}

@@ -11,14 +11,14 @@ import (
 	"github.com/kopia/kopia/repo/logging"
 )
 
-type encryptedBlobMgr struct {
+type transformedBlobMgr struct {
 	st             blob.Storage
 	t              hasherAndTransformer
 	indexBlobCache *cache.PersistentCache
 	log            logging.Logger
 }
 
-func (m *encryptedBlobMgr) getEncryptedBlob(ctx context.Context, blobID blob.ID, output *gather.WriteBuffer) error {
+func (m *transformedBlobMgr) readBlob(ctx context.Context, blobID blob.ID, output *gather.WriteBuffer) error {
 	var payload gather.WriteBuffer
 	defer payload.Close()
 
@@ -32,7 +32,7 @@ func (m *encryptedBlobMgr) getEncryptedBlob(ctx context.Context, blobID blob.ID,
 	return ConvertBlobFromRepository(m.t, payload.Bytes(), blobID, output)
 }
 
-func (m *encryptedBlobMgr) encryptAndWriteBlob(ctx context.Context, data gather.Bytes, prefix blob.ID, sessionID SessionID) (blob.Metadata, error) {
+func (m *transformedBlobMgr) writeBlob(ctx context.Context, data gather.Bytes, prefix blob.ID, sessionID SessionID) (blob.Metadata, error) {
 	var data2 gather.WriteBuffer
 	defer data2.Close()
 

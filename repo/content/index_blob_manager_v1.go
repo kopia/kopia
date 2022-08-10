@@ -17,7 +17,7 @@ import (
 
 type indexBlobManagerV1 struct {
 	st                blob.Storage
-	enc               *encryptedBlobMgr
+	transf            *transformedBlobMgr
 	epochMgr          *epoch.Manager
 	timeNow           func() time.Time
 	log               logging.Logger
@@ -63,7 +63,7 @@ func (m *indexBlobManagerV1) compactEpoch(ctx context.Context, blobIDs []blob.ID
 	tmpbld := make(index.Builder)
 
 	for _, indexBlob := range blobIDs {
-		if err := addIndexBlobsToBuilder(ctx, m.enc, tmpbld, indexBlob); err != nil {
+		if err := addIndexBlobsToBuilder(ctx, m.transf, tmpbld, indexBlob); err != nil {
 			return errors.Wrap(err, "error adding index to builder")
 		}
 	}
@@ -94,7 +94,7 @@ func (m *indexBlobManagerV1) compactEpoch(ctx context.Context, blobIDs []blob.ID
 	for _, data := range dataShards {
 		data2.Reset()
 
-		blobID, err := ConvertBlobToRepository(m.enc.t, data, outputPrefix, SessionID(sessionID), &data2)
+		blobID, err := ConvertBlobToRepository(m.transf.t, data, outputPrefix, SessionID(sessionID), &data2)
 		if err != nil {
 			return errors.Wrap(err, "error converting blob")
 		}
@@ -118,7 +118,7 @@ func (m *indexBlobManagerV1) writeIndexBlobs(ctx context.Context, dataShards []g
 		data2 := gather.NewWriteBuffer()
 		defer data2.Close() //nolint:gocritic
 
-		unprefixedBlobID, err := ConvertBlobToRepository(m.enc.t, data, "", sessionID, data2)
+		unprefixedBlobID, err := ConvertBlobToRepository(m.transf.t, data, "", sessionID, data2)
 		if err != nil {
 			return nil, errors.Wrap(err, "error converting blob")
 		}
