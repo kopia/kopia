@@ -10,10 +10,12 @@ import (
 
 // ContentFormat describes the rules for formatting contents in repository.
 type ContentFormat struct {
-	Hash       string `json:"hash,omitempty"`                        // identifier of the hash algorithm used
-	Encryption string `json:"encryption,omitempty"`                  // identifier of the encryption algorithm used
-	HMACSecret []byte `json:"secret,omitempty" kopia:"sensitive"`    // HMAC secret used to generate encryption keys
-	MasterKey  []byte `json:"masterKey,omitempty" kopia:"sensitive"` // master encryption key (SIV-mode encryption only)
+	Hash        string `json:"hash,omitempty"`                        // identifier of the hash algorithm used
+	Encryption  string `json:"encryption,omitempty"`                  // identifier of the encryption algorithm used
+	ECC         string `json:"ecc,omitempty"`                         // identifier of the ecc algorithm used
+	ECCOverhead int    `json:"eccOverhead,omitempty"`                 // space overhead for ecc
+	HMACSecret  []byte `json:"secret,omitempty" kopia:"sensitive"`    // HMAC secret used to generate encryption keys
+	MasterKey   []byte `json:"masterKey,omitempty" kopia:"sensitive"` // master encryption key (SIV-mode encryption only)
 	MutableParameters
 
 	EnablePasswordChange bool `json:"enablePasswordChange"` // disables replication of kopia.repository blob in packs
@@ -89,6 +91,16 @@ func (f *ContentFormat) GetEncryptionAlgorithm() string {
 // GetMasterKey implements encryption.Parameters.
 func (f *ContentFormat) GetMasterKey() []byte {
 	return f.MasterKey
+}
+
+// GetECCAlgorithm implements ecc.Parameters.
+func (f *ContentFormat) GetECCAlgorithm() string {
+	return f.ECC
+}
+
+// GetECCOverhead implements ecc.Parameters.
+func (f *ContentFormat) GetECCOverhead() int {
+	return f.ECCOverhead
 }
 
 // GetHashFunction implements hashing.Parameters.

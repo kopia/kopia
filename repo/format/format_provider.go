@@ -5,6 +5,7 @@ import (
 
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/content/index"
+	"github.com/kopia/kopia/repo/ecc"
 	"github.com/kopia/kopia/repo/encryption"
 	"github.com/kopia/kopia/repo/hashing"
 )
@@ -99,10 +100,17 @@ func NewFormattingOptionsProvider(f *ContentFormat, formatBytes []byte) (Provide
 		return nil, errors.Wrap(err, "unable to create hash")
 	}
 
-	e, err := encryption.CreateEncryptor(f)
+	encryptionEncryptor, err := encryption.CreateEncryptor(f)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create encryptor")
 	}
+
+	eccEncryptor, err := ecc.CreateEncryptor(f)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to create ECC")
+	}
+
+	e := encryption.Pipeline(encryptionEncryptor, eccEncryptor)
 
 	contentID := h(nil, gather.FromSlice(nil))
 
