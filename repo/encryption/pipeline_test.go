@@ -73,6 +73,7 @@ type appendEncryptor struct {
 func (a appendEncryptor) Encrypt(plainText gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {
 	output.Write(plainText.ToByteSlice())
 	output.Write([]byte{a.Data})
+
 	return nil
 }
 
@@ -85,6 +86,7 @@ func (a appendEncryptor) Decrypt(cipherText gather.Bytes, contentID []byte, outp
 	}
 
 	output.Write(inputBytes[:inputLen-1])
+
 	return nil
 }
 

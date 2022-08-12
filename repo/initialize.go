@@ -146,7 +146,7 @@ func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) (*format.Repos
 			Hash:        applyDefaultString(opt.BlockFormat.Hash, hashing.DefaultAlgorithm),
 			Encryption:  applyDefaultString(opt.BlockFormat.Encryption, encryption.DefaultAlgorithm),
 			ECC:         applyDefaultString(opt.BlockFormat.ECC, ecc.DefaultAlgorithm),
-			ECCOverhead: applyDefaultIntRange(opt.BlockFormat.ECCOverhead, 0, 100),
+			ECCOverhead: applyDefaultIntRange(opt.BlockFormat.ECCOverhead, 0, 100), //nolint:gomnd
 			HMACSecret:  applyDefaultRandomBytes(opt.BlockFormat.HMACSecret, hmacSecretLength),
 			MasterKey:   applyDefaultRandomBytes(opt.BlockFormat.MasterKey, masterKeyLength),
 			MutableParameters: format.MutableParameters{
@@ -192,7 +192,7 @@ func applyDefaultInt(v, def int) int {
 	return v
 }
 
-func applyDefaultIntRange(v, min int, max int) int {
+func applyDefaultIntRange(v, min, max int) int {
 	if v < min {
 		return min
 	} else if v > max {
