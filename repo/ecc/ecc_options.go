@@ -7,7 +7,7 @@ type Options struct {
 
 	// OverheadPercent is how much more space can be used for ECC, in percentage.
 	// Between 0 and 100. 0 means disable ECC.
-	OverheadPercent int `json:"spaceOverhead,omitempty"`
+	OverheadPercent int `json:"overheadPercent,omitempty"`
 
 	// MaxShardSize represents the max shard size before splitting in blocks.
 	// Use 0 to compute based on file size.

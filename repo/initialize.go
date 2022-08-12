@@ -166,8 +166,9 @@ func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) (*format.Repos
 		f.HMACSecret = nil
 	}
 
-	if opt.BlockFormat.ECCOverheadPercent == 0 {
+	if fv == format.FormatVersion1 || f.ContentFormat.ECCOverheadPercent == 0 {
 		f.ContentFormat.ECC = ""
+		f.ContentFormat.ECCOverheadPercent = 0
 	}
 
 	if err := f.ContentFormat.ResolveFormatVersion(); err != nil {
