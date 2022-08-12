@@ -22,9 +22,8 @@ type commandRepositoryUpgrade struct {
 	force         bool
 
 	// lock settings
-	advanceNoticeDuration time.Duration
-	ioDrainTimeout        time.Duration
-	statusPollInterval    time.Duration
+	ioDrainTimeout     time.Duration
+	statusPollInterval time.Duration
 
 	svc advancedAppServices
 }
@@ -56,7 +55,6 @@ func (c *commandRepositoryUpgrade) setup(svc advancedAppServices, parent command
 		})
 
 	beginCmd := parent.Command("begin", "Begin upgrade.").Default()
-	beginCmd.Flag("advance-notice", "Advance notice for upgrade to allow enough time for other Kopia clients to notice the lock").DurationVar(&c.advanceNoticeDuration)
 	beginCmd.Flag("io-drain-timeout", "Max time it should take all other Kopia clients to drop repository connections").Default(format.DefaultRepositoryBlobCacheDuration.String()).DurationVar(&c.ioDrainTimeout)
 	beginCmd.Flag("allow-unsafe-upgrade", "Force using an unsafe io-drain-timeout for the upgrade lock").Default("false").Hidden().BoolVar(&c.force)
 	beginCmd.Flag("status-poll-interval", "An advisory polling interval to check for the status of upgrade").Default("60s").DurationVar(&c.statusPollInterval)
@@ -133,7 +131,6 @@ func (c *commandRepositoryUpgrade) setLockIntent(ctx context.Context, rep repo.D
 	l := &format.UpgradeLockIntent{
 		OwnerID:                openOpts.UpgradeOwnerID,
 		CreationTime:           now,
-		AdvanceNoticeDuration:  c.advanceNoticeDuration,
 		IODrainTimeout:         c.ioDrainTimeout,
 		StatusPollInterval:     c.statusPollInterval,
 		Message:                fmt.Sprintf("Upgrading from format version %d -> %d", mp.Version, format.MaxFormatVersion),
@@ -201,14 +198,21 @@ func (c *commandRepositoryUpgrade) drainOrCommit(ctx context.Context, rep repo.D
 	return nil
 }
 
-// TODO(small): Better reuse.
-func sleepWithContext(ctx context.Context, dur time.Duration) {
+func (c *commandRepositoryUpgrade) sleepWithContext(ctx context.Context, dur time.Duration) bool {
 	t := time.NewTimer(dur)
 	defer t.Stop()
 
+	stop := make(chan struct{})
+
+	c.svc.onCtrlC(func() { close(stop) })
+
 	select {
 	case <-ctx.Done():
+		return false
+	case <-stop:
+		return false
 	case <-t.C:
+		return true
 	}
 }
 
@@ -252,7 +256,9 @@ func (c *commandRepositoryUpgrade) drainAllClients(ctx context.Context, rep repo
 		}
 
 		// TODO: this can get stuck
-		sleepWithContext(ctx, l.StatusPollInterval)
+		if !c.sleepWithContext(ctx, l.StatusPollInterval) {
+			return errors.Errorf("upgrade drain interrupted")
+		}
 	}
 
 	return nil
