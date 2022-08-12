@@ -24,15 +24,15 @@ $ kopia repository validate-provider
 `
 
 type commandRepositoryCreate struct {
-	createBlockHashFormat       string
-	createBlockEncryptionFormat string
-	createBlockECCFormat        string
-	createBlockECCOverhead      int
-	createSplitter              string
-	createOnly                  bool
-	createFormatVersion         int
-	retentionMode               string
-	retentionPeriod             time.Duration
+	createBlockHashFormat         string
+	createBlockEncryptionFormat   string
+	createBlockECCFormat          string
+	createBlockECCOverheadPercent int
+	createSplitter                string
+	createOnly                    bool
+	createFormatVersion           int
+	retentionMode                 string
+	retentionPeriod               time.Duration
 
 	co  connectOptions
 	svc advancedAppServices
@@ -45,7 +45,7 @@ func (c *commandRepositoryCreate) setup(svc advancedAppServices, parent commandP
 	cmd.Flag("block-hash", "Content hash algorithm.").PlaceHolder("ALGO").Default(hashing.DefaultAlgorithm).EnumVar(&c.createBlockHashFormat, hashing.SupportedAlgorithms()...)
 	cmd.Flag("encryption", "Content encryption algorithm.").PlaceHolder("ALGO").Default(encryption.DefaultAlgorithm).EnumVar(&c.createBlockEncryptionFormat, encryption.SupportedAlgorithms(false)...)
 	cmd.Flag("ecc", "Error correction algorithm.").Hidden().PlaceHolder("ALGO").Default(ecc.DefaultAlgorithm).EnumVar(&c.createBlockECCFormat, ecc.SupportedAlgorithms()...)
-	cmd.Flag("ecc-overhead", "How much space overhead can be used for error correction, in percentage. Use 0 to disable ECC.").Hidden().Default("0").IntVar(&c.createBlockECCOverhead)
+	cmd.Flag("ecc-overhead-percent", "How much space overhead can be used for error correction, in percentage. Use 0 to disable ECC.").Hidden().Default("0").IntVar(&c.createBlockECCOverheadPercent)
 	cmd.Flag("object-splitter", "The splitter to use for new objects in the repository").Default(splitter.DefaultAlgorithm).EnumVar(&c.createSplitter, splitter.SupportedAlgorithms()...)
 	cmd.Flag("create-only", "Create repository, but don't connect to it.").Short('c').BoolVar(&c.createOnly)
 	cmd.Flag("format-version", "Force a particular repository format version (1 or 2, 0==default)").IntVar(&c.createFormatVersion)
@@ -85,10 +85,10 @@ func (c *commandRepositoryCreate) newRepositoryOptionsFromFlags() *repo.NewRepos
 			MutableParameters: format.MutableParameters{
 				Version: format.Version(c.createFormatVersion),
 			},
-			Hash:        c.createBlockHashFormat,
-			Encryption:  c.createBlockEncryptionFormat,
-			ECC:         c.createBlockECCFormat,
-			ECCOverhead: c.createBlockECCOverhead,
+			Hash:               c.createBlockHashFormat,
+			Encryption:         c.createBlockEncryptionFormat,
+			ECC:                c.createBlockECCFormat,
+			ECCOverheadPercent: c.createBlockECCOverheadPercent,
 		},
 
 		ObjectFormat: format.ObjectFormat{
@@ -136,8 +136,8 @@ func (c *commandRepositoryCreate) runCreateCommandWithStorage(ctx context.Contex
 	log(ctx).Infof("  block hash:          %v", options.BlockFormat.Hash)
 	log(ctx).Infof("  encryption:          %v", options.BlockFormat.Encryption)
 
-	if options.BlockFormat.ECCOverhead > 0 {
-		log(ctx).Infof("  ecc:                 %v with %v%% overhead", options.BlockFormat.ECC, options.BlockFormat.ECCOverhead)
+	if options.BlockFormat.ECC != "" && options.BlockFormat.ECCOverheadPercent > 0 {
+		log(ctx).Infof("  ecc:                 %v with %v%% overhead", options.BlockFormat.ECC, options.BlockFormat.ECCOverheadPercent)
 	}
 
 	log(ctx).Infof("  splitter:            %v", options.ObjectFormat.Splitter)

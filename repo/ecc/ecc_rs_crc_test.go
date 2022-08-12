@@ -12,8 +12,8 @@ func Test_RsCrc32_AssertSizeAlwaysGrow(t *testing.T) {
 	t.Skip("Only needed to run once the size algo changes because this is slow")
 
 	impl, err := newReedSolomonCrcECC(&Options{
-		Algorithm:     AlgorithmReedSolomonWithCrc32,
-		SpaceOverhead: 2,
+		Algorithm:       AlgorithmReedSolomonWithCrc32,
+		OverheadPercent: 2,
 	})
 	require.NoError(t, err)
 
@@ -48,9 +48,9 @@ func Test_RsCrc32_2p_1b(t *testing.T) {
 	t.Parallel()
 
 	opts := &Options{
-		Algorithm:     AlgorithmReedSolomonWithCrc32,
-		SpaceOverhead: 2,
-		MaxShardSize:  1024,
+		Algorithm:       AlgorithmReedSolomonWithCrc32,
+		OverheadPercent: 2,
+		MaxShardSize:    1024,
 	}
 
 	originalSize := 1
@@ -66,9 +66,9 @@ func Test_RsCrc32_2p_10kb(t *testing.T) {
 	t.Parallel()
 
 	opts := &Options{
-		Algorithm:     AlgorithmReedSolomonWithCrc32,
-		SpaceOverhead: 2,
-		MaxShardSize:  1024,
+		Algorithm:       AlgorithmReedSolomonWithCrc32,
+		OverheadPercent: 2,
+		MaxShardSize:    1024,
 	}
 
 	originalSize := 10 * 1024
@@ -86,9 +86,9 @@ func Test_RsCrc32_10p_1mb(t *testing.T) {
 	t.Parallel()
 
 	opts := &Options{
-		Algorithm:     AlgorithmReedSolomonWithCrc32,
-		SpaceOverhead: 10,
-		MaxShardSize:  1024,
+		Algorithm:       AlgorithmReedSolomonWithCrc32,
+		OverheadPercent: 10,
+		MaxShardSize:    1024,
 	}
 
 	originalSize := 1024 * 1024

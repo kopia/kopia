@@ -143,12 +143,12 @@ func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) (*format.Repos
 
 	f := &format.RepositoryConfig{
 		ContentFormat: format.ContentFormat{
-			Hash:        applyDefaultString(opt.BlockFormat.Hash, hashing.DefaultAlgorithm),
-			Encryption:  applyDefaultString(opt.BlockFormat.Encryption, encryption.DefaultAlgorithm),
-			ECC:         applyDefaultString(opt.BlockFormat.ECC, ecc.DefaultAlgorithm),
-			ECCOverhead: applyDefaultIntRange(opt.BlockFormat.ECCOverhead, 0, 100), //nolint:gomnd
-			HMACSecret:  applyDefaultRandomBytes(opt.BlockFormat.HMACSecret, hmacSecretLength),
-			MasterKey:   applyDefaultRandomBytes(opt.BlockFormat.MasterKey, masterKeyLength),
+			Hash:               applyDefaultString(opt.BlockFormat.Hash, hashing.DefaultAlgorithm),
+			Encryption:         applyDefaultString(opt.BlockFormat.Encryption, encryption.DefaultAlgorithm),
+			ECC:                applyDefaultString(opt.BlockFormat.ECC, ecc.DefaultAlgorithm),
+			ECCOverheadPercent: applyDefaultIntRange(opt.BlockFormat.ECCOverheadPercent, 0, 100), //nolint:gomnd
+			HMACSecret:         applyDefaultRandomBytes(opt.BlockFormat.HMACSecret, hmacSecretLength),
+			MasterKey:          applyDefaultRandomBytes(opt.BlockFormat.MasterKey, masterKeyLength),
 			MutableParameters: format.MutableParameters{
 				Version:         fv,
 				MaxPackSize:     applyDefaultInt(opt.BlockFormat.MaxPackSize, 20<<20), //nolint:gomnd
@@ -166,7 +166,7 @@ func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) (*format.Repos
 		f.HMACSecret = nil
 	}
 
-	if opt.BlockFormat.ECCOverhead == 0 {
+	if opt.BlockFormat.ECCOverheadPercent == 0 {
 		f.ContentFormat.ECC = ""
 	}
 

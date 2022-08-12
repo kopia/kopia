@@ -36,10 +36,6 @@ func SupportedAlgorithms() []string {
 
 // CreateAlgorithm returns new encryption.Encryptor with error correction.
 func CreateAlgorithm(opts *Options) (encryption.Encryptor, error) {
-	if opts.SpaceOverhead <= 0 {
-		return nil, nil
-	}
-
 	factory, exists := factories[opts.Algorithm]
 
 	if !exists {
@@ -52,13 +48,13 @@ func CreateAlgorithm(opts *Options) (encryption.Encryptor, error) {
 // Parameters encapsulates all ECC parameters.
 type Parameters interface {
 	GetECCAlgorithm() string
-	GetECCOverhead() int
+	GetECCOverheadPercent() int
 }
 
 // CreateEncryptor returns new encryption.Encryptor with error correction.
 func CreateEncryptor(p Parameters) (encryption.Encryptor, error) {
 	return CreateAlgorithm(&Options{
-		Algorithm:     p.GetECCAlgorithm(),
-		SpaceOverhead: p.GetECCOverhead(),
+		Algorithm:       p.GetECCAlgorithm(),
+		OverheadPercent: p.GetECCOverheadPercent(),
 	})
 }

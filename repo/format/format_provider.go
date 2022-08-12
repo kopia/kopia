@@ -100,18 +100,22 @@ func NewFormattingOptionsProvider(f *ContentFormat, formatBytes []byte) (Provide
 		return nil, errors.Wrap(err, "unable to create hash")
 	}
 
-	encryptionEncryptor, err := encryption.CreateEncryptor(f)
+	e, err := encryption.CreateEncryptor(f)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create encryptor")
 	}
 
-	// This will return nil if the current options disable ECC
-	eccEncryptor, err := ecc.CreateEncryptor(f)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to create ECC")
-	}
+	if f.GetECCAlgorithm() != "" && f.GetECCOverheadPercent() > 0 {
+		eccEncryptor, err := ecc.CreateEncryptor(f) //nolint:govet
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to create ECC")
+		}
 
-	e := encryption.Pipeline(encryptionEncryptor, eccEncryptor)
+		e = &encryptorWrapper{
+			impl: e,
+			next: eccEncryptor,
+		}
+	}
 
 	contentID := h(nil, gather.FromSlice(nil))
 

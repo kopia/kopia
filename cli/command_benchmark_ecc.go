@@ -81,7 +81,7 @@ func (c *commandBenchmarkEcc) runBenchmark(ctx context.Context) []eccBenchResult
 		for _, spaceOverhead := range []int{1, 2, 5, 10, 20} {
 			impl, err := ecc.CreateAlgorithm(&ecc.Options{
 				Algorithm:                ecc.AlgorithmReedSolomonWithCrc32,
-				SpaceOverhead:            spaceOverhead,
+				OverheadPercent:          spaceOverhead,
 				DeleteFirstShardForTests: true,
 			})
 			if err != nil {

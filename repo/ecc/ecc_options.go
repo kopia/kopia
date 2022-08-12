@@ -5,11 +5,11 @@ type Options struct {
 	// Algorithm name to be used. Leave empty to disable error correction.
 	Algorithm string `json:"algorithm,omitempty"`
 
-	// SpaceOverhead is how much more space can be used for ECC, in percentage.
+	// OverheadPercent is how much more space can be used for ECC, in percentage.
 	// Between 0 and 100. 0 means disable ECC.
-	SpaceOverhead int `json:"spaceOverhead,omitempty"`
+	OverheadPercent int `json:"spaceOverhead,omitempty"`
 
-	// MaxShardSize represents the max shard size before spliting in blocks.
+	// MaxShardSize represents the max shard size before splitting in blocks.
 	// Use 0 to compute based on file size.
 	MaxShardSize int `json:"maxShardSize,omitempty"`
 
