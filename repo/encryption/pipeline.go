@@ -56,5 +56,5 @@ func (p *pipelineStep) Decrypt(cipherText gather.Bytes, contentID []byte, output
 }
 
 func (p *pipelineStep) Overhead() int {
-	return p.impl.Overhead() + p.next.Overhead()
+	panic("Should not be called")
 }

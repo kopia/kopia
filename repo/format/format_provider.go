@@ -105,6 +105,7 @@ func NewFormattingOptionsProvider(f *ContentFormat, formatBytes []byte) (Provide
 		return nil, errors.Wrap(err, "unable to create encryptor")
 	}
 
+	// This will return nil if the current options disable ECC
 	eccEncryptor, err := ecc.CreateEncryptor(f)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create ECC")
