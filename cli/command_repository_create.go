@@ -135,9 +135,11 @@ func (c *commandRepositoryCreate) runCreateCommandWithStorage(ctx context.Contex
 
 	log(ctx).Infof("  block hash:          %v", options.BlockFormat.Hash)
 	log(ctx).Infof("  encryption:          %v", options.BlockFormat.Encryption)
+
 	if options.BlockFormat.ECCOverhead > 0 {
 		log(ctx).Infof("  ecc:                 %v with %v%% overhead", options.BlockFormat.ECC, options.BlockFormat.ECCOverhead)
 	}
+
 	log(ctx).Infof("  splitter:            %v", options.ObjectFormat.Splitter)
 
 	if err := repo.Initialize(ctx, st, options, pass); err != nil {
