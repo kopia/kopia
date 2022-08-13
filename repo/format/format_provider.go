@@ -5,6 +5,7 @@ import (
 
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/content/index"
+	"github.com/kopia/kopia/repo/ecc"
 	"github.com/kopia/kopia/repo/encryption"
 	"github.com/kopia/kopia/repo/hashing"
 )
@@ -102,6 +103,18 @@ func NewFormattingOptionsProvider(f *ContentFormat, formatBytes []byte) (Provide
 	e, err := encryption.CreateEncryptor(f)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create encryptor")
+	}
+
+	if f.GetECCAlgorithm() != "" && f.GetECCOverheadPercent() > 0 {
+		eccEncryptor, err := ecc.CreateEncryptor(f) //nolint:govet
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to create ECC")
+		}
+
+		e = &encryptorWrapper{
+			impl: e,
+			next: eccEncryptor,
+		}
 	}
 
 	contentID := h(nil, gather.FromSlice(nil))

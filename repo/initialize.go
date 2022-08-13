@@ -12,6 +12,7 @@ import (
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/ecc"
 	"github.com/kopia/kopia/repo/encryption"
 	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/hashing"
@@ -142,10 +143,12 @@ func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) (*format.Repos
 
 	f := &format.RepositoryConfig{
 		ContentFormat: format.ContentFormat{
-			Hash:       applyDefaultString(opt.BlockFormat.Hash, hashing.DefaultAlgorithm),
-			Encryption: applyDefaultString(opt.BlockFormat.Encryption, encryption.DefaultAlgorithm),
-			HMACSecret: applyDefaultRandomBytes(opt.BlockFormat.HMACSecret, hmacSecretLength),
-			MasterKey:  applyDefaultRandomBytes(opt.BlockFormat.MasterKey, masterKeyLength),
+			Hash:               applyDefaultString(opt.BlockFormat.Hash, hashing.DefaultAlgorithm),
+			Encryption:         applyDefaultString(opt.BlockFormat.Encryption, encryption.DefaultAlgorithm),
+			ECC:                applyDefaultString(opt.BlockFormat.ECC, ecc.DefaultAlgorithm),
+			ECCOverheadPercent: applyDefaultIntRange(opt.BlockFormat.ECCOverheadPercent, 0, 100), //nolint:gomnd
+			HMACSecret:         applyDefaultRandomBytes(opt.BlockFormat.HMACSecret, hmacSecretLength),
+			MasterKey:          applyDefaultRandomBytes(opt.BlockFormat.MasterKey, masterKeyLength),
 			MutableParameters: format.MutableParameters{
 				Version:         fv,
 				MaxPackSize:     applyDefaultInt(opt.BlockFormat.MaxPackSize, 20<<20), //nolint:gomnd
@@ -161,6 +164,11 @@ func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) (*format.Repos
 
 	if opt.DisableHMAC {
 		f.HMACSecret = nil
+	}
+
+	if fv == format.FormatVersion1 || f.ContentFormat.ECCOverheadPercent == 0 {
+		f.ContentFormat.ECC = ""
+		f.ContentFormat.ECCOverheadPercent = 0
 	}
 
 	if err := f.ContentFormat.ResolveFormatVersion(); err != nil {
@@ -180,6 +188,16 @@ func randomBytes(n int) []byte {
 func applyDefaultInt(v, def int) int {
 	if v == 0 {
 		return def
+	}
+
+	return v
+}
+
+func applyDefaultIntRange(v, min, max int) int {
+	if v < min {
+		return min
+	} else if v > max {
+		return max
 	}
 
 	return v

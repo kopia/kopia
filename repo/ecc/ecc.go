@@ -6,7 +6,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/encryption"
 )
 
@@ -46,54 +45,16 @@ func CreateAlgorithm(opts *Options) (encryption.Encryptor, error) {
 	return factory(opts)
 }
 
-// New returns new encryption.Encryptor with error correction wrapped over another encryptor.
-func New(next encryption.Encryptor, opts *Options) (encryption.Encryptor, error) {
-	if opts.Algorithm == "" {
-		return next, nil
-	}
-
-	impl, err := CreateAlgorithm(opts)
-	if err != nil {
-		return nil, err
-	}
-
-	return &encryptorWrapper{
-		next: next,
-		impl: impl,
-	}, nil
+// Parameters encapsulates all ECC parameters.
+type Parameters interface {
+	GetECCAlgorithm() string
+	GetECCOverheadPercent() int
 }
 
-type encryptorWrapper struct {
-	next encryption.Encryptor
-	impl encryption.Encryptor
-}
-
-func (e encryptorWrapper) Encrypt(plainText gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {
-	var tmp gather.WriteBuffer
-	defer tmp.Close()
-
-	if err := e.next.Encrypt(plainText, contentID, &tmp); err != nil {
-		//nolint:wrapcheck
-		return err
-	}
-
-	//nolint:wrapcheck
-	return e.impl.Encrypt(tmp.Bytes(), contentID, output)
-}
-
-func (e encryptorWrapper) Decrypt(cipherText gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {
-	var tmp gather.WriteBuffer
-	defer tmp.Close()
-
-	if err := e.impl.Decrypt(cipherText, contentID, &tmp); err != nil {
-		//nolint:wrapcheck
-		return err
-	}
-
-	//nolint:wrapcheck
-	return e.next.Decrypt(tmp.Bytes(), contentID, output)
-}
-
-func (e encryptorWrapper) Overhead() int {
-	panic("Overhead() should not be called")
+// CreateEncryptor returns new encryption.Encryptor with error correction.
+func CreateEncryptor(p Parameters) (encryption.Encryptor, error) {
+	return CreateAlgorithm(&Options{
+		Algorithm:       p.GetECCAlgorithm(),
+		OverheadPercent: p.GetECCOverheadPercent(),
+	})
 }

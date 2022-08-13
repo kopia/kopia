@@ -41,16 +41,16 @@ func newReedSolomonCrcECC(opts *Options) (*ReedSolomonCrcECC, error) {
 
 	if opts.MaxShardSize == 0 {
 		switch {
-		case opts.SpaceOverhead == 1:
+		case opts.OverheadPercent == 1:
 			result.MaxShardSize = 1024
 
-		case opts.SpaceOverhead == 2: //nolint:gomnd
+		case opts.OverheadPercent == 2: //nolint:gomnd
 			result.MaxShardSize = 512
 
-		case opts.SpaceOverhead == 3: //nolint:gomnd
+		case opts.OverheadPercent == 3: //nolint:gomnd
 			result.MaxShardSize = 256
 
-		case opts.SpaceOverhead <= 6: //nolint:gomnd
+		case opts.OverheadPercent <= 6: //nolint:gomnd
 			result.MaxShardSize = 128
 
 		default:
@@ -59,7 +59,7 @@ func newReedSolomonCrcECC(opts *Options) (*ReedSolomonCrcECC, error) {
 	}
 
 	// Remove the space used for the crc from the allowed space overhead, if possible
-	freeSpaceOverhead := float32(opts.SpaceOverhead) - 100*crcSize/float32(result.MaxShardSize)
+	freeSpaceOverhead := float32(opts.OverheadPercent) - 100*crcSize/float32(result.MaxShardSize)
 	freeSpaceOverhead = maxFloat32(freeSpaceOverhead, 0.01) //nolint:gomnd
 	result.DataShards, result.ParityShards = computeShards(freeSpaceOverhead)
 
