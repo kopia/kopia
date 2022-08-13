@@ -13,7 +13,7 @@ type ContentFormat struct {
 	Hash               string `json:"hash,omitempty"`                        // identifier of the hash algorithm used
 	Encryption         string `json:"encryption,omitempty"`                  // identifier of the encryption algorithm used
 	ECC                string `json:"ecc,omitempty"`                         // identifier of the ecc algorithm used
-	ECCOverheadPercent int    `json:"eccOverhead,omitempty"`                 // space overhead for ecc
+	ECCOverheadPercent int    `json:"eccOverheadPercent,omitempty"`          // space overhead for ecc
 	HMACSecret         []byte `json:"secret,omitempty" kopia:"sensitive"`    // HMAC secret used to generate encryption keys
 	MasterKey          []byte `json:"masterKey,omitempty" kopia:"sensitive"` // master encryption key (SIV-mode encryption only)
 	MutableParameters

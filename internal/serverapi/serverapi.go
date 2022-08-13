@@ -23,6 +23,8 @@ type StatusResponse struct {
 	ConfigFile                 string `json:"configFile,omitempty"`
 	Hash                       string `json:"hash,omitempty"`
 	Encryption                 string `json:"encryption,omitempty"`
+	ECC                        string `json:"ecc,omitempty"`
+	ECCOverheadPercent         int    `json:"eccOverheadPercent,omitempty"`
 	Splitter                   string `json:"splitter,omitempty"`
 	MaxPackSize                int    `json:"maxPackSize,omitempty"`
 	Storage                    string `json:"storage,omitempty"`
@@ -138,10 +140,12 @@ type AlgorithmInfo struct {
 type SupportedAlgorithmsResponse struct {
 	DefaultHashAlgorithm       string `json:"defaultHash"`
 	DefaultEncryptionAlgorithm string `json:"defaultEncryption"`
+	DefaultECCAlgorithm        string `json:"defaultEcc"`
 	DefaultSplitterAlgorithm   string `json:"defaultSplitter"`
 
 	SupportedHashAlgorithms        []AlgorithmInfo `json:"hash"`
 	SupportedEncryptionAlgorithms  []AlgorithmInfo `json:"encryption"`
+	SupportedECCAlgorithms         []AlgorithmInfo `json:"ecc"`
 	SupportedSplitterAlgorithms    []AlgorithmInfo `json:"splitter"`
 	SupportedCompressionAlgorithms []AlgorithmInfo `json:"compression"`
 }

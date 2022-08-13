@@ -16,6 +16,7 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/throttling"
 	"github.com/kopia/kopia/repo/compression"
+	"github.com/kopia/kopia/repo/ecc"
 	"github.com/kopia/kopia/repo/encryption"
 	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/hashing"
@@ -74,6 +75,8 @@ func handleRepoStatus(ctx context.Context, rc requestContext) (interface{}, *api
 			ConfigFile:                 dr.ConfigFilename(),
 			Hash:                       dr.ContentReader().ContentFormat().GetHashFunction(),
 			Encryption:                 dr.ContentReader().ContentFormat().GetEncryptionAlgorithm(),
+			ECC:                        dr.ContentReader().ContentFormat().GetECCAlgorithm(),
+			ECCOverheadPercent:         dr.ContentReader().ContentFormat().GetECCOverheadPercent(),
 			MaxPackSize:                mp.MaxPackSize,
 			Splitter:                   dr.ObjectFormat().Splitter,
 			Storage:                    dr.BlobReader().ConnectionInfo().Type,
@@ -273,6 +276,9 @@ func handleRepoSupportedAlgorithms(ctx context.Context, rc requestContext) (inte
 		DefaultEncryptionAlgorithm:    encryption.DefaultAlgorithm,
 		SupportedEncryptionAlgorithms: toAlgorithmInfo(encryption.SupportedAlgorithms(false), neverDeprecated),
 
+		DefaultECCAlgorithm:    ecc.DefaultAlgorithm,
+		SupportedECCAlgorithms: toAlgorithmInfo(ecc.SupportedAlgorithms(), neverDeprecated),
+
 		DefaultSplitterAlgorithm:    splitter.DefaultAlgorithm,
 		SupportedSplitterAlgorithms: toAlgorithmInfo(splitter.SupportedAlgorithms(), neverDeprecated),
 	}
@@ -286,6 +292,7 @@ func handleRepoSupportedAlgorithms(ctx context.Context, rc requestContext) (inte
 
 	sortAlgorithms(res.SupportedHashAlgorithms)
 	sortAlgorithms(res.SupportedEncryptionAlgorithms)
+	sortAlgorithms(res.SupportedECCAlgorithms)
 	sortAlgorithms(res.SupportedCompressionAlgorithms)
 	sortAlgorithms(res.SupportedSplitterAlgorithms)
 

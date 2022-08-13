@@ -49,6 +49,7 @@ const (
 type Provider interface {
 	encryption.Parameters
 	hashing.Parameters
+	ecc.Parameters
 
 	HashFunc() hashing.HashFunc
 	Encryptor() encryption.Encryptor
