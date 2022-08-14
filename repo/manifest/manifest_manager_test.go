@@ -143,12 +143,14 @@ func TestManifestInitCorruptedBlock(t *testing.T) {
 	data := blobtesting.DataMap{}
 	st := blobtesting.NewMapStorage(data, nil, nil)
 
-	fop, err := format.NewFormattingOptionsProvider(&format.ContentFormat{
-		Hash:       hashing.DefaultAlgorithm,
-		Encryption: encryption.DefaultAlgorithm,
-		MutableParameters: format.MutableParameters{
-			Version:     1,
-			MaxPackSize: 100000,
+	fop, err := format.NewStaticProvider(&format.RepositoryConfig{
+		ContentFormat: format.ContentFormat{
+			Hash:       hashing.DefaultAlgorithm,
+			Encryption: encryption.DefaultAlgorithm,
+			MutableParameters: format.MutableParameters{
+				Version:     1,
+				MaxPackSize: 100000,
+			},
 		},
 	}, nil)
 	require.NoError(t, err)
@@ -303,12 +305,14 @@ func newManagerForTesting(ctx context.Context, t *testing.T, data blobtesting.Da
 
 	st := blobtesting.NewMapStorage(data, nil, nil)
 
-	fop, err := format.NewFormattingOptionsProvider(&format.ContentFormat{
-		Hash:       hashing.DefaultAlgorithm,
-		Encryption: encryption.DefaultAlgorithm,
-		MutableParameters: format.MutableParameters{
-			Version:     1,
-			MaxPackSize: 100000,
+	fop, err := format.NewStaticProvider(&format.RepositoryConfig{
+		ContentFormat: format.ContentFormat{
+			Hash:       hashing.DefaultAlgorithm,
+			Encryption: encryption.DefaultAlgorithm,
+			MutableParameters: format.MutableParameters{
+				Version:     1,
+				MaxPackSize: 100000,
+			},
 		},
 	}, nil)
 

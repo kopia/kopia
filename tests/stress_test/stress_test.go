@@ -48,14 +48,16 @@ func TestStressBlockManager(t *testing.T) {
 func stressTestWithStorage(t *testing.T, st blob.Storage, duration time.Duration) {
 	ctx := testlogging.Context(t)
 
-	fop, err := format.NewFormattingOptionsProvider(&format.ContentFormat{
-		Hash:       "HMAC-SHA256-128",
-		Encryption: encryption.DefaultAlgorithm,
-		MutableParameters: format.MutableParameters{
-			Version:     1,
-			MaxPackSize: 20000000,
+	fop, err := format.NewStaticProvider(&format.RepositoryConfig{
+		ContentFormat: format.ContentFormat{
+			Hash:       "HMAC-SHA256-128",
+			Encryption: encryption.DefaultAlgorithm,
+			MutableParameters: format.MutableParameters{
+				Version:     1,
+				MaxPackSize: 20000000,
+			},
+			MasterKey: []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
 		},
-		MasterKey: []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
 	}, nil)
 	require.NoError(t, err)
 

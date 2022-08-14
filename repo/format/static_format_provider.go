@@ -1,8 +1,11 @@
 package format
 
 import (
+	"time"
+
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/content/index"
 	"github.com/kopia/kopia/repo/ecc"
@@ -59,26 +62,62 @@ type Provider interface {
 	GetMutableParameters() (MutableParameters, error)
 	SupportsPasswordChange() bool
 	GetMasterKey() []byte
-	RepositoryFormatBytes() []byte
-	Struct() ContentFormat
+
+	RepositoryFormatBytes() ([]byte, error)
+
+	LoadedTime() time.Time // time when the format was loaded
 }
 
-type formattingOptionsProvider struct {
-	*ContentFormat
-
+type staticProvider struct {
+	rc          *RepositoryConfig
 	h           hashing.HashFunc
 	e           encryption.Encryptor
 	formatBytes []byte
+	loadedTime  time.Time
 }
 
-func (f *formattingOptionsProvider) Struct() ContentFormat {
-	return *f.ContentFormat
+// GetEncryptionAlgorithm implements encryption.Parameters.
+func (f *staticProvider) GetEncryptionAlgorithm() string {
+	return f.rc.Encryption
 }
 
-// NewFormattingOptionsProvider validates the provided formatting options and returns static
+// GetMasterKey implements encryption.Parameters.
+func (f *staticProvider) GetMasterKey() []byte {
+	return f.rc.MasterKey
+}
+
+// GetHashFunction implements hashing.Parameters.
+func (f *staticProvider) GetHashFunction() string {
+	return f.rc.Hash
+}
+
+// GetHmacSecret implements hashing.Parameters.
+func (f *staticProvider) GetHmacSecret() []byte {
+	return f.rc.HMACSecret
+}
+
+// GetMutableParameters implements FormattingOptionsProvider.
+func (f *staticProvider) GetMutableParameters() (MutableParameters, error) {
+	return f.rc.MutableParameters, nil
+}
+
+// SupportsPasswordChange implements FormattingOptionsProvider.
+func (f *staticProvider) SupportsPasswordChange() bool {
+	return f.rc.EnablePasswordChange
+}
+
+func (f *staticProvider) FormatVersion() Version {
+	return f.rc.Version
+}
+
+func (f *staticProvider) LoadedTime() time.Time {
+	return f.loadedTime
+}
+
+// NewStaticProvider validates the provided formatting options and returns static
 // FormattingOptionsProvider based on them.
-func NewFormattingOptionsProvider(f *ContentFormat, formatBytes []byte) (Provider, error) {
-	formatVersion := f.Version
+func NewStaticProvider(rc *RepositoryConfig, formatBytes []byte) (Provider, error) {
+	formatVersion := rc.Version
 
 	if formatVersion < MinSupportedReadVersion || formatVersion > CurrentWriteVersion {
 		return nil, errors.Errorf("can't handle repositories created using version %v (min supported %v, max supported %v)", formatVersion, MinSupportedReadVersion, MaxSupportedReadVersion)
@@ -88,26 +127,32 @@ func NewFormattingOptionsProvider(f *ContentFormat, formatBytes []byte) (Provide
 		return nil, errors.Errorf("can't handle repositories created using version %v (min supported %v, max supported %v)", formatVersion, MinSupportedWriteVersion, MaxSupportedWriteVersion)
 	}
 
-	if f.IndexVersion == 0 {
-		f.IndexVersion = legacyIndexVersion
+	if rc.ContentFormat.IndexVersion == 0 {
+		rc.ContentFormat.IndexVersion = legacyIndexVersion
 	}
 
-	if f.IndexVersion < index.Version1 || f.IndexVersion > index.Version2 {
-		return nil, errors.Errorf("index version %v is not supported", f.IndexVersion)
+	if rc.ContentFormat.IndexVersion < index.Version1 || rc.ContentFormat.IndexVersion > index.Version2 {
+		return nil, errors.Errorf("index version %v is not supported", rc.ContentFormat.IndexVersion)
 	}
 
-	h, err := hashing.CreateHashFunc(f)
+	// apply default
+	if rc.ContentFormat.MaxPackSize == 0 {
+		// legacy only, apply default
+		rc.ContentFormat.MaxPackSize = 20 << 20 //nolint:gomnd
+	}
+
+	h, err := hashing.CreateHashFunc(rc)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create hash")
 	}
 
-	e, err := encryption.CreateEncryptor(f)
+	e, err := encryption.CreateEncryptor(rc)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create encryptor")
 	}
 
-	if f.GetECCAlgorithm() != "" && f.GetECCOverheadPercent() > 0 {
-		eccEncryptor, err := ecc.CreateEncryptor(f) //nolint:govet
+	if rc.GetECCAlgorithm() != "" && rc.GetECCOverheadPercent() > 0 {
+		eccEncryptor, err := ecc.CreateEncryptor(rc) //nolint:govet
 		if err != nil {
 			return nil, errors.Wrap(err, "unable to create ECC")
 		}
@@ -128,25 +173,31 @@ func NewFormattingOptionsProvider(f *ContentFormat, formatBytes []byte) (Provide
 		return nil, errors.Wrap(err, "invalid encryptor")
 	}
 
-	return &formattingOptionsProvider{
-		ContentFormat: f,
+	return &staticProvider{
+		rc: rc,
 
 		h:           h,
 		e:           e,
 		formatBytes: formatBytes,
+
+		loadedTime: clock.Now(),
 	}, nil
 }
 
-func (f *formattingOptionsProvider) Encryptor() encryption.Encryptor {
+func (f *staticProvider) Encryptor() encryption.Encryptor {
 	return f.e
 }
 
-func (f *formattingOptionsProvider) HashFunc() hashing.HashFunc {
+func (f *staticProvider) HashFunc() hashing.HashFunc {
 	return f.h
 }
 
-func (f *formattingOptionsProvider) RepositoryFormatBytes() []byte {
-	return f.formatBytes
+func (f *staticProvider) RepositoryFormatBytes() ([]byte, error) {
+	if f.rc.SupportsPasswordChange() {
+		return nil, nil
+	}
+
+	return f.formatBytes, nil
 }
 
-var _ Provider = (*formattingOptionsProvider)(nil)
+var _ Provider = (*staticProvider)(nil)

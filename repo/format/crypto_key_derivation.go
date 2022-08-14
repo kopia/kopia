@@ -5,6 +5,8 @@ import (
 	"io"
 
 	"golang.org/x/crypto/hkdf"
+
+	"github.com/kopia/kopia/internal/impossible"
 )
 
 // DeriveKeyFromMasterKey computes a key for a specific purpose and length using HKDF based on the master key.
@@ -12,9 +14,8 @@ func DeriveKeyFromMasterKey(masterKey, uniqueID, purpose []byte, length int) []b
 	key := make([]byte, length)
 	k := hkdf.New(sha256.New, masterKey, uniqueID, purpose)
 
-	if _, err := io.ReadFull(k, key); err != nil {
-		panic("unable to derive key from master key, this should never happen")
-	}
+	_, err := io.ReadFull(k, key)
+	impossible.PanicOnError(err)
 
 	return key
 }

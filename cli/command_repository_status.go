@@ -63,9 +63,9 @@ func (c *commandRepositoryStatus) outputJSON(ctx context.Context, r repo.Reposit
 		ci := dr.BlobReader().ConnectionInfo()
 		s.UniqueIDHex = hex.EncodeToString(dr.UniqueID())
 		s.ObjectFormat = dr.ObjectFormat()
-		s.BlobRetention = dr.BlobCfg()
-		s.Storage = scrubber.ScrubSensitiveData(reflect.ValueOf(ci)).Interface().(blob.ConnectionInfo)                                                 //nolint:forcetypeassert
-		s.ContentFormat = scrubber.ScrubSensitiveData(reflect.ValueOf(dr.ContentReader().ContentFormat().Struct())).Interface().(format.ContentFormat) //nolint:forcetypeassert
+		s.BlobRetention, _ = dr.FormatManager().BlobCfgBlob()
+		s.Storage = scrubber.ScrubSensitiveData(reflect.ValueOf(ci)).Interface().(blob.ConnectionInfo) //nolint:forcetypeassert
+		s.ContentFormat = dr.FormatManager().ScrubbedContentFormat()
 
 		switch cp, err := dr.BlobVolume().GetCapacity(ctx); {
 		case err == nil:
@@ -88,7 +88,7 @@ func (c *commandRepositoryStatus) dumpUpgradeStatus(ctx context.Context, dr repo
 		return nil
 	}
 
-	l, err := drw.GetUpgradeLockIntent(ctx)
+	l, err := drw.FormatManager().GetUpgradeLockIntent(ctx)
 	if err != nil {
 		return errors.Wrap(err, "failed to get the upgrade lock intent")
 	}
@@ -120,7 +120,7 @@ func (c *commandRepositoryStatus) dumpUpgradeStatus(ctx context.Context, dr repo
 }
 
 func (c *commandRepositoryStatus) dumpRetentionStatus(dr repo.DirectRepository) {
-	if blobcfg := dr.BlobCfg(); blobcfg.IsRetentionEnabled() {
+	if blobcfg, _ := dr.FormatManager().BlobCfgBlob(); blobcfg.IsRetentionEnabled() {
 		c.out.printStdout("\n")
 		c.out.printStdout("Blob retention mode:     %s\n", blobcfg.RetentionMode)
 		c.out.printStdout("Blob retention period:   %s\n", blobcfg.RetentionPeriod)
@@ -251,7 +251,7 @@ func (c *commandRepositoryStatus) run(ctx context.Context, rep repo.Repository) 
 }
 
 func (c *commandRepositoryStatus) outputRequiredFeatures(dr repo.DirectRepository) {
-	if req, _ := dr.RequiredFeatures(); len(req) > 0 {
+	if req, _ := dr.FormatManager().RequiredFeatures(); len(req) > 0 {
 		var featureIDs []string
 
 		for _, r := range req {

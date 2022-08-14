@@ -141,7 +141,9 @@ func verifyEndToEndFormatter(ctx context.Context, t *testing.T, hashAlgo, encryp
 func mustCreateFormatProvider(t *testing.T, f *format.ContentFormat) format.Provider {
 	t.Helper()
 
-	fop, err := format.NewFormattingOptionsProvider(f, nil)
+	fop, err := format.NewStaticProvider(&format.RepositoryConfig{
+		ContentFormat: *f,
+	}, nil)
 	require.NoError(t, err)
 
 	return fop

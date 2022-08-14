@@ -10,7 +10,6 @@ import (
 	"go.opentelemetry.io/otel"
 
 	"github.com/kopia/kopia/internal/clock"
-	"github.com/kopia/kopia/internal/feature"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/throttling"
 	"github.com/kopia/kopia/repo/content"
@@ -54,7 +53,7 @@ type DirectRepository interface {
 	Repository
 
 	ObjectFormat() format.ObjectFormat
-	BlobCfg() format.BlobStorageConfiguration
+	FormatManager() *format.Manager
 	BlobReader() blob.Reader
 	BlobVolume() blob.Volume
 	ContentReader() content.Reader
@@ -66,7 +65,6 @@ type DirectRepository interface {
 	DeriveKey(purpose []byte, keyLength int) []byte
 	Token(password string) (string, error)
 	Throttler() throttling.SettableThrottler
-	RequiredFeatures() ([]feature.Required, error)
 	DisableIndexRefresh()
 }
 
@@ -76,25 +74,22 @@ type DirectRepositoryWriter interface {
 	DirectRepository
 	BlobStorage() blob.Storage
 	ContentManager() *content.WriteManager
-	SetParameters(ctx context.Context, m format.MutableParameters, blobcfg format.BlobStorageConfiguration, requiredFeatures []feature.Required) error
-	ChangePassword(ctx context.Context, newPassword string) error
-	GetUpgradeLockIntent(ctx context.Context) (*format.UpgradeLockIntent, error)
-	SetUpgradeLockIntent(ctx context.Context, l format.UpgradeLockIntent) (*format.UpgradeLockIntent, error)
-	CommitUpgrade(ctx context.Context) error
-	RollbackUpgrade(ctx context.Context) error
+	// SetParameters(ctx context.Context, m format.MutableParameters, blobcfg format.BlobStorageConfiguration, requiredFeatures []feature.Required) error
+	// ChangePassword(ctx context.Context, newPassword string) error
+	// GetUpgradeLockIntent(ctx context.Context) (*format.UpgradeLockIntent, error)
+	// SetUpgradeLockIntent(ctx context.Context, l format.UpgradeLockIntent) (*format.UpgradeLockIntent, error)
+	// CommitUpgrade(ctx context.Context) error
+	// RollbackUpgrade(ctx context.Context) error
 }
 
 type directRepositoryParameters struct {
-	uniqueID            []byte
-	configFile          string
-	cachingOptions      content.CachingOptions
-	cliOpts             ClientOptions
-	timeNow             func() time.Time
-	formatBlob          *format.KopiaRepositoryJSON
-	blobCfgBlob         format.BlobStorageConfiguration
-	formatEncryptionKey []byte
-	nextWriterID        *int32
-	throttler           throttling.SettableThrottler
+	configFile     string
+	cachingOptions content.CachingOptions
+	cliOpts        ClientOptions
+	timeNow        func() time.Time
+	fmgr           *format.Manager
+	nextWriterID   *int32
+	throttler      throttling.SettableThrottler
 }
 
 // directRepository is an implementation of repository that directly manipulates underlying storage.
@@ -113,13 +108,13 @@ type directRepository struct {
 // DeriveKey derives encryption key of the provided length from the master key.
 func (r *directRepository) DeriveKey(purpose []byte, keyLength int) []byte {
 	if r.cmgr.ContentFormat().SupportsPasswordChange() {
-		return format.DeriveKeyFromMasterKey(r.cmgr.ContentFormat().GetMasterKey(), r.uniqueID, purpose, keyLength)
+		return format.DeriveKeyFromMasterKey(r.cmgr.ContentFormat().GetMasterKey(), r.UniqueID(), purpose, keyLength)
 	}
 
 	// version of kopia <v0.9 had a bug where certain keys were derived directly from
 	// the password and not from the random master key. This made it impossible to change
 	// password.
-	return format.DeriveKeyFromMasterKey(r.formatEncryptionKey, r.uniqueID, purpose, keyLength)
+	return format.DeriveKeyFromMasterKey(r.fmgr.FormatEncryptionKey(), r.UniqueID(), purpose, keyLength)
 }
 
 // ClientOptions returns client options.
@@ -308,7 +303,7 @@ func (r *directRepository) ObjectFormat() format.ObjectFormat {
 
 // UniqueID returns unique repository ID from which many keys and secrets are derived.
 func (r *directRepository) UniqueID() []byte {
-	return r.uniqueID
+	return r.fmgr.UniqueID()
 }
 
 // BlobReader returns the blob reader.
@@ -342,8 +337,9 @@ func (r *directRepository) Time() time.Time {
 	return defaultTime(r.timeNow)()
 }
 
-func (r *directRepository) BlobCfg() format.BlobStorageConfiguration {
-	return r.directRepositoryParameters.blobCfgBlob
+// FormatManager returns the format manager.
+func (r *directRepository) FormatManager() *format.Manager {
+	return r.fmgr
 }
 
 // WriteSessionOptions describes options for a write session.
