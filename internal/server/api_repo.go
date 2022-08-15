@@ -70,9 +70,15 @@ func handleRepoStatus(ctx context.Context, rc requestContext) (interface{}, *api
 			return nil, internalServerError(err)
 		}
 
+		pars, err := dr.ContentReader().ContentFormat().GetMutableParameters()
+		if err != nil {
+			return nil, internalServerError(err)
+		}
+
 		return &serverapi.StatusResponse{
 			Connected:                  true,
 			ConfigFile:                 dr.ConfigFilename(),
+			FormatVersion:              pars.Version,
 			Hash:                       dr.ContentReader().ContentFormat().GetHashFunction(),
 			Encryption:                 dr.ContentReader().ContentFormat().GetEncryptionAlgorithm(),
 			ECC:                        dr.ContentReader().ContentFormat().GetECCAlgorithm(),

@@ -9,6 +9,7 @@ import (
 	"github.com/kopia/kopia/internal/uitask"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
@@ -19,17 +20,18 @@ import (
 
 // StatusResponse is the response of 'status' HTTP API command.
 type StatusResponse struct {
-	Connected                  bool   `json:"connected"`
-	ConfigFile                 string `json:"configFile,omitempty"`
-	Hash                       string `json:"hash,omitempty"`
-	Encryption                 string `json:"encryption,omitempty"`
-	ECC                        string `json:"ecc,omitempty"`
-	ECCOverheadPercent         int    `json:"eccOverheadPercent,omitempty"`
-	Splitter                   string `json:"splitter,omitempty"`
-	MaxPackSize                int    `json:"maxPackSize,omitempty"`
-	Storage                    string `json:"storage,omitempty"`
-	APIServerURL               string `json:"apiServerURL,omitempty"`
-	SupportsContentCompression bool   `json:"supportsContentCompression"`
+	Connected                  bool           `json:"connected"`
+	ConfigFile                 string         `json:"configFile,omitempty"`
+	FormatVersion              format.Version `json:"formatVersion,omitempty"`
+	Hash                       string         `json:"hash,omitempty"`
+	Encryption                 string         `json:"encryption,omitempty"`
+	ECC                        string         `json:"ecc,omitempty"`
+	ECCOverheadPercent         int            `json:"eccOverheadPercent,omitempty"`
+	Splitter                   string         `json:"splitter,omitempty"`
+	MaxPackSize                int            `json:"maxPackSize,omitempty"`
+	Storage                    string         `json:"storage,omitempty"`
+	APIServerURL               string         `json:"apiServerURL,omitempty"`
+	SupportsContentCompression bool           `json:"supportsContentCompression"`
 
 	repo.ClientOptions
 
