@@ -1,6 +1,7 @@
 package snapshotfs
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/json"
@@ -768,6 +769,75 @@ func TestUpload_VirtualDirectoryWithStreamingFile(t *testing.T) {
 	if got, want := atomic.LoadInt32(&man.Stats.TotalFileCount), int32(1); got != want {
 		// must have one file
 		t.Fatalf("unexpected manifest file count: %v, want %v", got, want)
+	}
+}
+
+func TestUpload_VirtualDirectoryWithStreamingFileWithModTime(t *testing.T) {
+	content := []byte("Streaming Temporary file content")
+	mt := time.Date(2021, 1, 2, 3, 4, 5, 0, time.UTC)
+
+	cases := []struct {
+		desc          string
+		getFile       func() fs.StreamingFile
+		cachedFiles   int32
+		uploadedFiles int32
+	}{
+		{
+			desc: "CurrentTime",
+			getFile: func() fs.StreamingFile {
+				return virtualfs.StreamingFileFromReader("a", bytes.NewReader(content))
+			},
+			cachedFiles:   0,
+			uploadedFiles: 1,
+		},
+		{
+			desc: "FixedTime",
+			getFile: func() fs.StreamingFile {
+				return virtualfs.StreamingFileWithModTimeFromReader("a", mt, bytes.NewReader(content))
+			},
+			cachedFiles:   1,
+			uploadedFiles: 0,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.desc, func(t *testing.T) {
+			ctx := testlogging.Context(t)
+			th := newUploadTestHarness(ctx, t)
+
+			defer th.cleanup()
+
+			u := NewUploader(th.repo)
+			u.ForceHashPercentage = 0
+
+			policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
+
+			staticRoot := virtualfs.NewStaticDirectory("rootdir", []fs.Entry{
+				tc.getFile(),
+			})
+
+			// First snapshot should upload all files/directories.
+			man1, err := u.Upload(ctx, staticRoot, policyTree, snapshot.SourceInfo{})
+			require.NoError(t, err)
+			require.Equal(t, int32(0), atomic.LoadInt32(&man1.Stats.CachedFiles))
+			require.Equal(t, int32(1), atomic.LoadInt32(&man1.Stats.NonCachedFiles))
+			require.Equal(t, int32(1), atomic.LoadInt32(&man1.Stats.TotalDirectoryCount))
+			require.Equal(t, int32(1), atomic.LoadInt32(&man1.Stats.TotalFileCount))
+
+			// Rebuild tree because reader only works once.
+			staticRoot = virtualfs.NewStaticDirectory("rootdir", []fs.Entry{
+				tc.getFile(),
+			})
+
+			// Second upload may find some cached files depending on timestamps.
+			man2, err := u.Upload(ctx, staticRoot, policyTree, snapshot.SourceInfo{}, man1)
+			require.NoError(t, err)
+
+			assert.Equal(t, int32(1), atomic.LoadInt32(&man2.Stats.TotalDirectoryCount))
+			assert.Equal(t, tc.cachedFiles, atomic.LoadInt32(&man2.Stats.CachedFiles))
+			assert.Equal(t, tc.uploadedFiles, atomic.LoadInt32(&man2.Stats.NonCachedFiles))
+			// Cached files don't count towards the total file count.
+			assert.Equal(t, tc.uploadedFiles, atomic.LoadInt32(&man2.Stats.TotalFileCount))
+		})
 	}
 }
 
