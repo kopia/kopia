@@ -22,7 +22,6 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/ignorefs"
-	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/internal/workshare"
@@ -365,7 +364,6 @@ func (u *Uploader) uploadStreamingFileInternal(ctx context.Context, relativePath
 
 	de.FileSize = written
 	streamSize = written
-	de.ModTime = clock.Now()
 
 	atomic.AddInt32(&u.stats.TotalFileCount, 1)
 	atomic.AddInt64(&u.stats.TotalFileSize, de.FileSize)
@@ -643,7 +641,7 @@ func (u *Uploader) processChildren(
 	return nil
 }
 
-func metadataEquals(e1, e2 fs.Entry) bool {
+func commonMetadataEquals(e1, e2 fs.Entry) bool {
 	if l, r := e1.ModTime(), e2.ModTime(); !l.Equal(r) {
 		return false
 	}
@@ -652,11 +650,19 @@ func metadataEquals(e1, e2 fs.Entry) bool {
 		return false
 	}
 
-	if l, r := e1.Size(), e2.Size(); l != r {
+	if l, r := e1.Owner(), e2.Owner(); l != r {
 		return false
 	}
 
-	if l, r := e1.Owner(), e2.Owner(); l != r {
+	return true
+}
+
+func metadataEquals(e1, e2 fs.Entry) bool {
+	if !commonMetadataEquals(e1, e2) {
+		return false
+	}
+
+	if l, r := e1.Size(), e2.Size(); l != r {
 		return false
 	}
 
@@ -668,8 +674,15 @@ func findCachedEntry(ctx context.Context, entryRelativePath string, entry fs.Ent
 
 	for _, e := range prevDirs {
 		if ent, err := e.Child(ctx, entry.Name()); err == nil {
-			if metadataEquals(entry, ent) {
-				return ent
+			switch entry.(type) {
+			case fs.StreamingFile:
+				if commonMetadataEquals(entry, ent) {
+					return ent
+				}
+			default:
+				if metadataEquals(entry, ent) {
+					return ent
+				}
 			}
 
 			missedEntry = ent
