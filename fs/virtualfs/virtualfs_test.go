@@ -7,6 +7,7 @@ import (
 	"os"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -71,6 +72,15 @@ func TestStreamingFile(t *testing.T) {
 	if !reflect.DeepEqual(result, content) {
 		t.Fatalf("did not get expected file content: (actual) %v != %v (expected)", result, content)
 	}
+}
+
+func TestStreamingFileModTime(t *testing.T) {
+	data := []byte("data")
+	f1 := StreamingFileFromReader("f1", bytes.NewReader(data))
+	mt := time.Date(2021, 1, 2, 3, 4, 5, 0, time.UTC)
+	f2 := StreamingFileWithModTimeFromReader("f2", mt, bytes.NewReader(data))
+
+	assert.True(t, f1.ModTime().After(f2.ModTime()))
 }
 
 func TestStreamingFileGetReader(t *testing.T) {
