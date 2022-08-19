@@ -480,7 +480,7 @@ func shouldFullRewriteContents(s *Schedule, safety SafetyParameters) bool {
 // rewritten packs become orphaned immediately but if we don't wait before their deletion
 // clients who have old indexes cached may be trying to read pre-rewrite blobs.
 func shouldDeleteOrphanedPacks(now time.Time, s *Schedule, safety SafetyParameters) bool {
-	return now.After(nextBlobDeleteTime(s, safety))
+	return !now.Before(nextBlobDeleteTime(s, safety))
 }
 
 func nextBlobDeleteTime(s *Schedule, safety SafetyParameters) time.Time {
