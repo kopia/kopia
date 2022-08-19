@@ -44,8 +44,8 @@ func (c *commandRepositoryCreate) setup(svc advancedAppServices, parent commandP
 
 	cmd.Flag("block-hash", "Content hash algorithm.").PlaceHolder("ALGO").Default(hashing.DefaultAlgorithm).EnumVar(&c.createBlockHashFormat, hashing.SupportedAlgorithms()...)
 	cmd.Flag("encryption", "Content encryption algorithm.").PlaceHolder("ALGO").Default(encryption.DefaultAlgorithm).EnumVar(&c.createBlockEncryptionFormat, encryption.SupportedAlgorithms(false)...)
-	cmd.Flag("ecc", "Error correction algorithm.").Hidden().PlaceHolder("ALGO").Default(ecc.DefaultAlgorithm).EnumVar(&c.createBlockECCFormat, ecc.SupportedAlgorithms()...)
-	cmd.Flag("ecc-overhead-percent", "How much space overhead can be used for error correction, in percentage. Use 0 to disable ECC.").Hidden().Default("0").IntVar(&c.createBlockECCOverheadPercent)
+	cmd.Flag("ecc", "[EXPERIMENTAL] Error correction algorithm.").PlaceHolder("ALGO").Default(ecc.DefaultAlgorithm).EnumVar(&c.createBlockECCFormat, ecc.SupportedAlgorithms()...)
+	cmd.Flag("ecc-overhead-percent", "[EXPERIMENTAL] How much space overhead can be used for error correction, in percentage. Use 0 to disable ECC.").Default("0").IntVar(&c.createBlockECCOverheadPercent)
 	cmd.Flag("object-splitter", "The splitter to use for new objects in the repository").Default(splitter.DefaultAlgorithm).EnumVar(&c.createSplitter, splitter.SupportedAlgorithms()...)
 	cmd.Flag("create-only", "Create repository, but don't connect to it.").Short('c').BoolVar(&c.createOnly)
 	cmd.Flag("format-version", "Force a particular repository format version (1 or 2, 0==default)").IntVar(&c.createFormatVersion)
