@@ -61,7 +61,7 @@ func shouldRun(ctx context.Context, rep repo.DirectRepository, p *Params) (Mode,
 
 	// check full cycle first, as it does more than the quick cycle
 	if p.FullCycle.Enabled {
-		if rep.Time().After(s.NextFullMaintenanceTime) {
+		if !rep.Time().Before(s.NextFullMaintenanceTime) {
 			log(ctx).Debugf("due for full maintenance cycle")
 			return ModeFull, nil
 		}
@@ -73,7 +73,7 @@ func shouldRun(ctx context.Context, rep repo.DirectRepository, p *Params) (Mode,
 
 	// no time for full cycle, check quick cycle
 	if p.QuickCycle.Enabled {
-		if rep.Time().After(s.NextQuickMaintenanceTime) {
+		if !rep.Time().Before(s.NextQuickMaintenanceTime) {
 			log(ctx).Debugf("due for quick maintenance cycle")
 			return ModeQuick, nil
 		}
@@ -454,7 +454,7 @@ func shouldQuickRewriteContents(s *Schedule, safety SafetyParameters) bool {
 		return true
 	}
 
-	return latestBlobDeleteTime.After(latestContentRewriteEndTime)
+	return !latestBlobDeleteTime.Before(latestContentRewriteEndTime)
 }
 
 // shouldFullRewriteContents returns true if it's currently ok to rewrite contents.
@@ -471,7 +471,7 @@ func shouldFullRewriteContents(s *Schedule, safety SafetyParameters) bool {
 		return true
 	}
 
-	return latestBlobDeleteTime.After(latestContentRewriteEndTime)
+	return !latestBlobDeleteTime.Before(latestContentRewriteEndTime)
 }
 
 // shouldDeleteOrphanedPacks returns true if it's ok to delete orphaned packs.
@@ -480,7 +480,7 @@ func shouldFullRewriteContents(s *Schedule, safety SafetyParameters) bool {
 // rewritten packs become orphaned immediately but if we don't wait before their deletion
 // clients who have old indexes cached may be trying to read pre-rewrite blobs.
 func shouldDeleteOrphanedPacks(now time.Time, s *Schedule, safety SafetyParameters) bool {
-	return now.After(nextBlobDeleteTime(s, safety))
+	return !now.Before(nextBlobDeleteTime(s, safety))
 }
 
 func nextBlobDeleteTime(s *Schedule, safety SafetyParameters) time.Time {
@@ -493,7 +493,7 @@ func nextBlobDeleteTime(s *Schedule, safety SafetyParameters) time.Time {
 }
 
 func hadRecentFullRewrite(s *Schedule) bool {
-	return maxEndTime(s.Runs[TaskRewriteContentsFull]).After(maxEndTime(s.Runs[TaskRewriteContentsQuick]))
+	return !maxEndTime(s.Runs[TaskRewriteContentsFull]).Before(maxEndTime(s.Runs[TaskRewriteContentsQuick]))
 }
 
 func maxEndTime(taskRuns ...[]RunInfo) time.Time {
