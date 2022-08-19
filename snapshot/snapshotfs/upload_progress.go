@@ -31,7 +31,9 @@ type UploadProgress interface {
 	FinishedHashingFile(fname string, numBytes int64)
 
 	// FinishedFile is emitted when the uploader is done with a file, regardless of if it was hashed
-	// or cached. If an error was encountered it reports that too.
+	// or cached. If an error was encountered it reports that too. A call to FinishedFile gives no
+	// information about the reachability of the file in checkpoints that may occur close to the
+	// time this function is called.
 	FinishedFile(fname string, hadErr bool)
 
 	// HashedBytes is emitted while hashing any blocks of bytes.
