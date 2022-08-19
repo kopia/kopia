@@ -91,6 +91,16 @@ func (f *staticProvider) GetHashFunction() string {
 	return f.rc.Hash
 }
 
+// GetECCAlgorithm returns the ECC algorithm.
+func (f *staticProvider) GetECCAlgorithm() string {
+	return f.rc.ECC
+}
+
+// GetECCOverheadPercent returns the ECC overhead percent.
+func (f *staticProvider) GetECCOverheadPercent() int {
+	return f.rc.ECCOverheadPercent
+}
+
 // GetHmacSecret implements hashing.Parameters.
 func (f *staticProvider) GetHmacSecret() []byte {
 	return f.rc.HMACSecret

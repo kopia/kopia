@@ -195,6 +195,16 @@ func (m *Manager) GetHashFunction() string {
 	return m.getFormat().GetHashFunction()
 }
 
+// GetECCAlgorithm returns the ECC algorithm.
+func (m *Manager) GetECCAlgorithm() string {
+	return m.getFormat().GetECCAlgorithm()
+}
+
+// GetECCOverheadPercent returns the ECC overhead percent.
+func (m *Manager) GetECCOverheadPercent() int {
+	return m.getFormat().GetECCOverheadPercent()
+}
+
 // GetHmacSecret returns the HMAC function.
 func (m *Manager) GetHmacSecret() []byte {
 	return m.getFormat().GetHmacSecret()
