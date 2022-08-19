@@ -1,7 +1,6 @@
 package cli_test
 
 import (
-	"strings"
 	"testing"
 	"time"
 
@@ -53,32 +52,14 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgrade(t *testing.T) {
 	require.Contains(t, out, "Format version:      3")
 }
 
-func lockAndKill(t *testing.T, env *testenv.CLITest) {
+func lockRepositoryForUpgrade(t *testing.T, env *testenv.CLITest) {
 	t.Helper()
 
 	t.Log("Placing upgrade lock ...")
-	wait, kill := env.RunAndProcessStderr(t, func(line string) bool { return false }, "repository", "upgrade",
+	env.RunAndExpectSuccess(t, "repository", "upgrade",
 		"--upgrade-owner-id", "owner",
 		"--io-drain-timeout", "30s", "--allow-unsafe-upgrade",
-		"--status-poll-interval", "1s")
-
-	go func() {
-		for {
-			t.Log("Waiting for the repository to be locked ...")
-
-			out := env.RunAndExpectSuccess(t, "repository", "status", "--upgrade-no-block", "--upgrade-owner-id", "owner")
-			if strings.Contains(strings.Join(out, "\n"), "Lock status:         Draining") {
-				t.Log("Repository is locked, interrupting upgrade drain.")
-				kill()
-
-				break
-			}
-
-			time.Sleep(200 * time.Millisecond)
-		}
-	}()
-
-	require.EqualError(t, wait(), "failed to upgrade the repository, lock is not released: upgrade drain interrupted")
+		"--status-poll-interval", "1s", "--lock-only")
 }
 
 func (s *formatSpecificTestSuite) TestRepositoryUpgradeStatusWhileLocked(t *testing.T) {
@@ -94,7 +75,7 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgradeStatusWhileLocked(t *test
 	switch s.formatVersion {
 	case format.FormatVersion1:
 		require.Contains(t, out, "Format version:      1")
-		lockAndKill(t, env)
+		lockRepositoryForUpgrade(t, env)
 
 		// verify that non-owner clients will fail to connect/upgrade
 		env.RunAndExpectFailure(t, "repository", "upgrade",
@@ -111,7 +92,7 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgradeStatusWhileLocked(t *test
 
 		// attempt to rollback the upgrade and restart
 		env.RunAndExpectSuccess(t, "repository", "upgrade", "rollback", "--force", "--upgrade-owner-id", "owner")
-		lockAndKill(t, env)
+		lockRepositoryForUpgrade(t, env)
 
 		// drain all clients
 		t.Log("Waiting to drain all clients ...")
