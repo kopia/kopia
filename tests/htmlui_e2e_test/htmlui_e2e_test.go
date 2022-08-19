@@ -138,6 +138,7 @@ func TestEndToEndTest(t *testing.T) {
 
 			tc.log("entering path:"+snap1Path),
 			chromedp.SendKeys(`input[name='path']`, snap1Path+"\t"),
+			chromedp.Sleep(2*time.Second),
 
 			tc.log("clicking estimate"),
 			chromedp.Click(`button[data-testid='estimate-now']`),
