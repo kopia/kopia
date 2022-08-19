@@ -20,6 +20,7 @@ type commandRepositoryUpgrade struct {
 	forceRollback bool
 	skip          bool
 	force         bool
+	lockOnly      bool
 
 	// lock settings
 	ioDrainTimeout     time.Duration
@@ -58,6 +59,7 @@ func (c *commandRepositoryUpgrade) setup(svc advancedAppServices, parent command
 	beginCmd.Flag("io-drain-timeout", "Max time it should take all other Kopia clients to drop repository connections").Default(format.DefaultRepositoryBlobCacheDuration.String()).DurationVar(&c.ioDrainTimeout)
 	beginCmd.Flag("allow-unsafe-upgrade", "Force using an unsafe io-drain-timeout for the upgrade lock").Default("false").Hidden().BoolVar(&c.force)
 	beginCmd.Flag("status-poll-interval", "An advisory polling interval to check for the status of upgrade").Default("60s").DurationVar(&c.statusPollInterval)
+	beginCmd.Flag("lock-only", "Advertise the upgrade lock and exit without actually performing the drain or upgrade").Default("false").Hidden().BoolVar(&c.lockOnly) // this is used by tests
 
 	// upgrade phases
 
@@ -157,6 +159,11 @@ func (c *commandRepositoryUpgrade) setLockIntent(ctx context.Context, rep repo.D
 	}
 
 	log(ctx).Infof("Repository upgrade lock intent has been placed.")
+
+	// skip all other phases after this step
+	if c.lockOnly {
+		c.skip = true
+	}
 
 	return nil
 }
