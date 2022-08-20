@@ -8,9 +8,9 @@ import (
 const (
 	splitterSlidingWindowSize = 64
 
-    splitterSize128KB = 128 << 10
-    splitterSize256KB = 256 << 10
-    splitterSize512KB = 512 << 10
+	splitterSize128KB = 128 << 10
+	splitterSize256KB = 256 << 10
+	splitterSize512KB = 512 << 10
 	splitterSize1MB = 1 << 20
 	splitterSize2MB = 2 << 20
 	splitterSize4MB = 4 << 20
@@ -54,9 +54,9 @@ var splitterFactories = map[string]Factory{
 	"FIXED-4M": Fixed(splitterSize4MB),
 	"FIXED-8M": Fixed(splitterSize8MB),
 
-    "DYNAMIC-128K-BUZHASH": newBuzHash32SplitterFactory(splitterSize128K),
-    "DYNAMIC-256K-BUZHASH": newBuzHash32SplitterFactory(splitterSize256K),
-    "DYNAMIC-512K-BUZHASH": newBuzHash32SplitterFactory(splitterSize512K),
+	"DYNAMIC-128K-BUZHASH": newBuzHash32SplitterFactory(splitterSize128KB),
+	"DYNAMIC-256K-BUZHASH": newBuzHash32SplitterFactory(splitterSize256KB),
+	"DYNAMIC-512K-BUZHASH": newBuzHash32SplitterFactory(splitterSize512KB),
 	"DYNAMIC-1M-BUZHASH": newBuzHash32SplitterFactory(splitterSize1MB),
 	"DYNAMIC-2M-BUZHASH": newBuzHash32SplitterFactory(splitterSize2MB),
 	"DYNAMIC-4M-BUZHASH": newBuzHash32SplitterFactory(splitterSize4MB),
