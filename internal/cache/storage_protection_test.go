@@ -8,6 +8,7 @@ import (
 
 	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/gather"
+	"github.com/kopia/kopia/repo/encryption"
 )
 
 func TestNoStorageProection(t *testing.T) {
@@ -45,7 +46,7 @@ func testStorageProtection(t *testing.T, sp cache.StorageProtection, protectsFro
 	// append dummy bytes to ensure Reset is called.
 	unprotected.Append([]byte("dummy"))
 
-	require.NoError(t, sp.Verify("x", protected.Bytes(), &unprotected))
+	require.NoError(t, sp.Verify("x", protected.Bytes(), &unprotected, &encryption.DecryptInfo{}))
 
 	if got, want := unprotected.ToByteSlice(), payload; !bytes.Equal(got, want) {
 		t.Fatalf("invalid unprotected payload %x, wanted %x", got, want)
@@ -57,8 +58,8 @@ func testStorageProtection(t *testing.T, sp cache.StorageProtection, protectsFro
 		// flip one bit
 		pb[0] ^= 1
 
-		require.Error(t, sp.Verify("x", gather.FromSlice(pb), &unprotected))
+		require.Error(t, sp.Verify("x", gather.FromSlice(pb), &unprotected, &encryption.DecryptInfo{}))
 	} else {
-		require.NoError(t, sp.Verify("x", gather.FromSlice(pb), &unprotected))
+		require.NoError(t, sp.Verify("x", gather.FromSlice(pb), &unprotected, &encryption.DecryptInfo{}))
 	}
 }

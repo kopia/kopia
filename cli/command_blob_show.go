@@ -13,6 +13,7 @@ import (
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/encryption"
 )
 
 type commandBlobShow struct {
@@ -57,8 +58,14 @@ func (c *commandBlobShow) maybeDecryptBlob(ctx context.Context, w io.Writer, rep
 		var tmp gather.WriteBuffer
 		defer tmp.Close()
 
-		if err := content.DecryptBLOB(rep.ContentReader().ContentFormat(), b, blobID, &tmp); err != nil {
+		info := encryption.DecryptInfo{}
+
+		if err := content.DecryptBLOB(rep.ContentReader().ContentFormat(), b, blobID, &tmp, &info); err != nil {
 			return errors.Wrap(err, "error decrypting blob")
+		}
+
+		if info.CorrectedBlocksByECC > 0 {
+			// TODO Write corrected blob
 		}
 
 		b = tmp.Bytes()

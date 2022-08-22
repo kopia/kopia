@@ -11,6 +11,7 @@ import (
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/encryption"
 )
 
 type commandIndexInspect struct {
@@ -162,9 +163,15 @@ func (c *commandIndexInspect) inspectSingleIndexBlob(ctx context.Context, rep re
 		return errors.Wrapf(err, "unable to get data for %v", blobID)
 	}
 
-	entries, err := content.ParseIndexBlob(ctx, blobID, data.Bytes(), rep.ContentReader().ContentFormat())
+	info := encryption.DecryptInfo{}
+
+	entries, err := content.ParseIndexBlob(ctx, blobID, data.Bytes(), rep.ContentReader().ContentFormat(), &info)
 	if err != nil {
 		return errors.Wrapf(err, "unable to recover index from %v", blobID)
+	}
+
+	if info.CorrectedBlocksByECC > 0 {
+		// TODO Write corrected data
 	}
 
 	for _, ent := range entries {

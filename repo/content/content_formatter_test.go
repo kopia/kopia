@@ -57,7 +57,7 @@ func TestFormatters(t *testing.T) {
 					var plainText gather.WriteBuffer
 					defer plainText.Close()
 
-					require.NoError(t, enc.Decrypt(cipherText.Bytes(), contentID, &plainText))
+					require.NoError(t, enc.Decrypt(cipherText.Bytes(), contentID, &plainText, &encryption.DecryptInfo{}))
 
 					h1 := sha1.Sum(plainText.ToByteSlice())
 

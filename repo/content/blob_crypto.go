@@ -65,7 +65,7 @@ func EncryptBLOB(c crypter, payload gather.Bytes, prefix blob.ID, sessionID Sess
 }
 
 // DecryptBLOB decrypts the provided data using provided blobID to derive initialization vector.
-func DecryptBLOB(c crypter, payload gather.Bytes, blobID blob.ID, output *gather.WriteBuffer) error {
+func DecryptBLOB(c crypter, payload gather.Bytes, blobID blob.ID, output *gather.WriteBuffer, info *encryption.DecryptInfo) error {
 	iv, err := getIndexBlobIV(blobID)
 	if err != nil {
 		return errors.Wrap(err, "unable to get index blob IV")
@@ -74,7 +74,7 @@ func DecryptBLOB(c crypter, payload gather.Bytes, blobID blob.ID, output *gather
 	output.Reset()
 
 	// Decrypt will verify the payload.
-	if err := c.Encryptor().Decrypt(payload, iv, output); err != nil {
+	if err := c.Encryptor().Decrypt(payload, iv, output, info); err != nil {
 		return errors.Wrapf(err, "error decrypting BLOB %v", blobID)
 	}
 

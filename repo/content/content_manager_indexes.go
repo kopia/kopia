@@ -10,6 +10,7 @@ import (
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content/index"
+	"github.com/kopia/kopia/repo/encryption"
 )
 
 const verySmallContentFraction = 20 // blobs less than 1/verySmallContentFraction of maxPackSize are considered 'very small'
@@ -80,11 +81,11 @@ func (sm *SharedManager) CompactIndexes(ctx context.Context, opt CompactOptions)
 }
 
 // ParseIndexBlob loads entries in a given index blob and returns them.
-func ParseIndexBlob(ctx context.Context, blobID blob.ID, encrypted gather.Bytes, crypter crypter) ([]Info, error) {
+func ParseIndexBlob(ctx context.Context, blobID blob.ID, encrypted gather.Bytes, crypter crypter, info *encryption.DecryptInfo) ([]Info, error) {
 	var data gather.WriteBuffer
 	defer data.Close()
 
-	if err := DecryptBLOB(crypter, encrypted, blobID, &data); err != nil {
+	if err := DecryptBLOB(crypter, encrypted, blobID, &data, info); err != nil {
 		return nil, errors.Wrap(err, "unable to decrypt index blob")
 	}
 

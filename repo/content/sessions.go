@@ -12,6 +12,7 @@ import (
 
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/encryption"
 )
 
 // BlobIDPrefixSession is the prefix for blob IDs indicating active sessions.
@@ -178,9 +179,18 @@ func (bm *WriteManager) ListActiveSessions(ctx context.Context) (map[SessionID]*
 			return nil, errors.Wrapf(err, "error loading session: %v", b.BlobID)
 		}
 
-		err = DecryptBLOB(bm.format, payload.Bytes(), b.BlobID, &decrypted)
+		info := encryption.DecryptInfo{}
+
+		err = DecryptBLOB(bm.format, payload.Bytes(), b.BlobID, &decrypted, &info)
 		if err != nil {
 			return nil, errors.Wrapf(err, "error decrypting session: %v", b.BlobID)
+		}
+
+		if info.CorrectedBlocksByECC > 0 {
+			err = bm.st.PutBlob(ctx, b.BlobID, decrypted.Bytes(), blob.PutOptions{})
+			if err != nil {
+				return nil, errors.Wrapf(err, "error storing corrected session: %v", b.BlobID)
+			}
 		}
 
 		if err := json.NewDecoder(decrypted.Bytes().Reader()).Decode(si); err != nil {

@@ -16,6 +16,7 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content/index"
+	"github.com/kopia/kopia/repo/encryption"
 	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/hashing"
 	"github.com/kopia/kopia/repo/logging"
@@ -103,7 +104,18 @@ func (sm *SharedManager) getContentDataReadLocked(ctx context.Context, pp *pendi
 		return errors.Wrap(err, "error getting cached content")
 	}
 
-	return sm.decryptContentAndVerify(payload.Bytes(), bi, output)
+	info := encryption.DecryptInfo{}
+
+	err := sm.decryptContentAndVerify(payload.Bytes(), bi, output, &info)
+	if err != nil {
+		return err
+	}
+
+	if info.CorrectedBlocksByECC > 0 {
+		// TODO Write corrected blob
+	}
+
+	return nil
 }
 
 func (sm *SharedManager) preparePackDataContent(pp *pendingPackInfo) (index.Builder, error) {

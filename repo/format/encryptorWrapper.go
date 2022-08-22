@@ -23,17 +23,17 @@ func (p *encryptorWrapper) Encrypt(plainText gather.Bytes, contentID []byte, out
 	return p.next.Encrypt(tmp.Bytes(), contentID, output)
 }
 
-func (p *encryptorWrapper) Decrypt(cipherText gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {
+func (p *encryptorWrapper) Decrypt(cipherText gather.Bytes, contentID []byte, output *gather.WriteBuffer, info *encryption.DecryptInfo) error {
 	var tmp gather.WriteBuffer
 	defer tmp.Close()
 
-	if err := p.next.Decrypt(cipherText, contentID, &tmp); err != nil {
+	if err := p.next.Decrypt(cipherText, contentID, &tmp, info); err != nil {
 		//nolint:wrapcheck
 		return err
 	}
 
 	//nolint:wrapcheck
-	return p.impl.Decrypt(tmp.Bytes(), contentID, output)
+	return p.impl.Decrypt(tmp.Bytes(), contentID, output, info)
 }
 
 func (p *encryptorWrapper) Overhead() int {

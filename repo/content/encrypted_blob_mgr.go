@@ -8,6 +8,7 @@ import (
 	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/encryption"
 	"github.com/kopia/kopia/repo/logging"
 )
 
@@ -29,7 +30,18 @@ func (m *encryptedBlobMgr) getEncryptedBlob(ctx context.Context, blobID blob.ID,
 		return errors.Wrap(err, "getContent")
 	}
 
-	return DecryptBLOB(m.crypter, payload.Bytes(), blobID, output)
+	info := encryption.DecryptInfo{}
+
+	err := DecryptBLOB(m.crypter, payload.Bytes(), blobID, output, &info)
+	if err != nil {
+		return err
+	}
+
+	if info.CorrectedBlocksByECC > 0 {
+		m.indexBlobCache.Put(ctx, string(blobID), output.Bytes())
+	}
+
+	return nil
 }
 
 func (m *encryptedBlobMgr) encryptAndWriteBlob(ctx context.Context, data gather.Bytes, prefix blob.ID, sessionID SessionID) (blob.Metadata, error) {

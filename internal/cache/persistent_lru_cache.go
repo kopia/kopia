@@ -17,6 +17,7 @@ import (
 	"github.com/kopia/kopia/internal/releasable"
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/encryption"
 	"github.com/kopia/kopia/repo/logging"
 )
 
@@ -138,7 +139,9 @@ func (c *PersistentCache) GetPartial(ctx context.Context, key string, offset, le
 			prot = nullStorageProtection{}
 		}
 
-		if err := prot.Verify(key, tmp.Bytes(), output); err == nil {
+		info := encryption.DecryptInfo{}
+
+		if err := prot.Verify(key, tmp.Bytes(), output, &info); err == nil {
 			// cache hit
 			reportHitBytes(int64(output.Length()))
 

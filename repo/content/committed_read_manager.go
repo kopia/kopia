@@ -21,6 +21,7 @@ import (
 	"github.com/kopia/kopia/repo/blob/filesystem"
 	"github.com/kopia/kopia/repo/blob/sharded"
 	"github.com/kopia/kopia/repo/compression"
+	"github.com/kopia/kopia/repo/encryption"
 	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/hashing"
 	"github.com/kopia/kopia/repo/logging"
@@ -166,14 +167,29 @@ func (sm *SharedManager) attemptReadPackFileLocalIndex(ctx context.Context, pack
 	var encryptedLocalIndexBytes gather.WriteBuffer
 	defer encryptedLocalIndexBytes.Close()
 
-	if err := payload.AppendSectionTo(&encryptedLocalIndexBytes, int(postamble.localIndexOffset), int(postamble.localIndexLength)); err != nil {
+	if err = payload.AppendSectionTo(&encryptedLocalIndexBytes, int(postamble.localIndexOffset), int(postamble.localIndexLength)); err != nil {
 		// should never happen
 		return errors.Wrap(err, "error appending to local index bytes")
 	}
 
-	return errors.Wrap(
-		sm.decryptAndVerify(encryptedLocalIndexBytes.Bytes(), postamble.localIndexIV, output),
-		"unable to decrypt local index")
+	info := encryption.DecryptInfo{}
+
+	err = sm.decryptAndVerify(encryptedLocalIndexBytes.Bytes(), postamble.localIndexIV, output, &info)
+	if err != nil {
+		return errors.Wrap(err,
+			"unable to decrypt local index")
+	}
+
+	// Correct blob on disk if possible
+	if length < 0 && info.CorrectedBlocksByECC > 0 {
+		// TODO Options
+		err := sm.st.PutBlob(ctx, packFile, output.Bytes(), blob.PutOptions{})
+		if err != nil {
+			return errors.Wrapf(err, "error correcting blob %v", packFile)
+		}
+	}
+
+	return nil
 }
 
 // +checklocks:sm.indexesLock
@@ -253,7 +269,7 @@ func (sm *SharedManager) indexBlobManager() (indexBlobManager, error) {
 	return sm.indexBlobManagerV0, nil
 }
 
-func (sm *SharedManager) decryptContentAndVerify(payload gather.Bytes, bi Info, output *gather.WriteBuffer) error {
+func (sm *SharedManager) decryptContentAndVerify(payload gather.Bytes, bi Info, output *gather.WriteBuffer, info *encryption.DecryptInfo) error {
 	sm.Stats.readContent(payload.Length())
 
 	var hashBuf [hashing.MaxHashSize]byte
@@ -266,16 +282,18 @@ func (sm *SharedManager) decryptContentAndVerify(payload gather.Bytes, bi Info, 
 	}
 
 	h := bi.GetCompressionHeaderID()
+	info.Compression = h
+
 	if h == 0 {
 		return errors.Wrapf(
-			sm.decryptAndVerify(payload, iv, output),
+			sm.decryptAndVerify(payload, iv, output, info),
 			"invalid checksum at %v offset %v length %v/%v", bi.GetPackBlobID(), bi.GetPackOffset(), bi.GetPackedLength(), payload.Length())
 	}
 
 	var tmp gather.WriteBuffer
 	defer tmp.Close()
 
-	if err := sm.decryptAndVerify(payload, iv, &tmp); err != nil {
+	if err := sm.decryptAndVerify(payload, iv, &tmp, info); err != nil {
 		return errors.Wrapf(err, "invalid checksum at %v offset %v length %v/%v", bi.GetPackBlobID(), bi.GetPackOffset(), bi.GetPackedLength(), payload.Length())
 	}
 
@@ -288,17 +306,23 @@ func (sm *SharedManager) decryptContentAndVerify(payload gather.Bytes, bi Info, 
 		return errors.Wrap(err, "error decompressing")
 	}
 
+	info.BytesAfterDecompression = output.Length()
+
+	// TODO sm.Stats.decompressed(info.BytesAfterDecompression)
+
 	return nil
 }
 
-func (sm *SharedManager) decryptAndVerify(encrypted gather.Bytes, iv []byte, output *gather.WriteBuffer) error {
-	if err := sm.format.Encryptor().Decrypt(encrypted, iv, output); err != nil {
+func (sm *SharedManager) decryptAndVerify(encrypted gather.Bytes, iv []byte, output *gather.WriteBuffer, info *encryption.DecryptInfo) error {
+	if err := sm.format.Encryptor().Decrypt(encrypted, iv, output, info); err != nil {
 		sm.Stats.foundInvalidContent()
 		return errors.Wrap(err, "decrypt")
 	}
 
 	sm.Stats.foundValidContent()
-	sm.Stats.decrypted(output.Length())
+	sm.Stats.decrypted(info.BytesAfterDecryption)
+	// TODO sm.Stats.eccRead(info.BytesAfterECC)
+	// TODO sm.Stats.eccCorrected(info.CorrectedBlocksByECC)
 
 	// already verified
 	return nil

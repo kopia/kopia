@@ -40,13 +40,20 @@ func (e chacha20poly1305hmacSha256Encryptor) aeadForContent(contentID []byte) (c
 	return chacha20poly1305.New(key)
 }
 
-func (e chacha20poly1305hmacSha256Encryptor) Decrypt(input gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {
+func (e chacha20poly1305hmacSha256Encryptor) Decrypt(input gather.Bytes, contentID []byte, output *gather.WriteBuffer, info *DecryptInfo) error {
 	a, err := e.aeadForContent(contentID)
 	if err != nil {
 		return err
 	}
 
-	return aeadOpenPrefixedWithNonce(a, input, contentID, output)
+	err = aeadOpenPrefixedWithNonce(a, input, contentID, output)
+	if err != nil {
+		return err
+	}
+
+	info.BytesAfterDecryption = output.Length()
+
+	return nil
 }
 
 func (e chacha20poly1305hmacSha256Encryptor) Encrypt(input gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {

@@ -38,23 +38,23 @@ func TestBlobCrypto(t *testing.T) {
 
 	require.NotEqual(t, id, id2)
 
-	require.NoError(t, DecryptBLOB(cr, tmp.Bytes(), id, &tmp3))
+	require.NoError(t, DecryptBLOB(cr, tmp.Bytes(), id, &tmp3, &encryption.DecryptInfo{}))
 	require.Equal(t, []byte{1, 2, 3}, tmp3.ToByteSlice())
-	require.NoError(t, DecryptBLOB(cr, tmp2.Bytes(), id2, &tmp3))
+	require.NoError(t, DecryptBLOB(cr, tmp2.Bytes(), id2, &tmp3, &encryption.DecryptInfo{}))
 	require.Equal(t, []byte{1, 2, 4}, tmp3.ToByteSlice())
 
 	// decrypting using invalid ID fails
-	require.Error(t, DecryptBLOB(cr, tmp.Bytes(), id2, &tmp3))
-	require.Error(t, DecryptBLOB(cr, tmp2.Bytes(), id, &tmp3))
+	require.Error(t, DecryptBLOB(cr, tmp.Bytes(), id2, &tmp3, &encryption.DecryptInfo{}))
+	require.Error(t, DecryptBLOB(cr, tmp2.Bytes(), id, &tmp3, &encryption.DecryptInfo{}))
 
 	require.True(t, strings.HasPrefix(string(id), "n"))
 	require.True(t, strings.HasSuffix(string(id), "-mysessionid"), id)
 
 	// negative cases
-	require.Error(t, DecryptBLOB(cr, tmp.Bytes(), "invalid-blob-id", &tmp3))
-	require.Error(t, DecryptBLOB(cr, tmp.Bytes(), "zzz0123456789abcdef0123456789abcde-suffix", &tmp3))
-	require.Error(t, DecryptBLOB(cr, tmp.Bytes(), id2, &tmp3))
-	require.Error(t, DecryptBLOB(cr, gather.FromSlice([]byte{2, 3, 4}), id, &tmp2))
+	require.Error(t, DecryptBLOB(cr, tmp.Bytes(), "invalid-blob-id", &tmp3, &encryption.DecryptInfo{}))
+	require.Error(t, DecryptBLOB(cr, tmp.Bytes(), "zzz0123456789abcdef0123456789abcde-suffix", &tmp3, &encryption.DecryptInfo{}))
+	require.Error(t, DecryptBLOB(cr, tmp.Bytes(), id2, &tmp3, &encryption.DecryptInfo{}))
+	require.Error(t, DecryptBLOB(cr, gather.FromSlice([]byte{2, 3, 4}), id, &tmp2, &encryption.DecryptInfo{}))
 }
 
 type badEncryptor struct{}
@@ -63,7 +63,7 @@ func (badEncryptor) Encrypt(input gather.Bytes, contentID []byte, output *gather
 	return errors.Errorf("some error")
 }
 
-func (badEncryptor) Decrypt(input gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {
+func (badEncryptor) Decrypt(input gather.Bytes, contentID []byte, output *gather.WriteBuffer, info *encryption.DecryptInfo) error {
 	return errors.Errorf("some error")
 }
 

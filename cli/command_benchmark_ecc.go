@@ -12,6 +12,7 @@ import (
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo/ecc"
+	"github.com/kopia/kopia/repo/encryption"
 )
 
 type commandBenchmarkEcc struct {
@@ -128,7 +129,7 @@ func (c *commandBenchmarkEcc) runBenchmark(ctx context.Context) []eccBenchResult
 				defer tmp.Close()
 
 				for i := 0; i < repeat; i++ {
-					if decerr := impl.Decrypt(input, nil, &tmp); decerr != nil {
+					if decerr := impl.Decrypt(input, nil, &tmp, &encryption.DecryptInfo{}); decerr != nil {
 						log(ctx).Errorf("decoding failed: %v", decerr)
 						break
 					}

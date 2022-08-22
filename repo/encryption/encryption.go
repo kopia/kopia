@@ -10,6 +10,7 @@ import (
 	"golang.org/x/crypto/hkdf"
 
 	"github.com/kopia/kopia/internal/gather"
+	"github.com/kopia/kopia/repo/compression"
 )
 
 const (
@@ -27,10 +28,41 @@ type Encryptor interface {
 	// Decrypt appends the unencrypted bytes corresponding to the given ciphertext to a given slice.
 	// Must not clobber the input slice. If IsAuthenticated() == true, Decrypt will perform
 	// authenticity check before decrypting.
-	Decrypt(cipherText gather.Bytes, contentID []byte, output *gather.WriteBuffer) error
+	Decrypt(cipherText gather.Bytes, contentID []byte, output *gather.WriteBuffer, info *DecryptInfo) error
 
 	// Overhead is the number of bytes of overhead added by Encrypt()
 	Overhead() int
+}
+
+// EncryptInfo stores information about an encryption request an result.
+type EncryptInfo struct {
+	RequestedCompression compression.HeaderID
+	Compression          compression.HeaderID
+
+	// 0 means no compression
+	BytesAfterCompression int
+
+	// 0 means no encryption
+	BytesAfterEncryption int
+
+	// 0 means no ECC
+	BytesAfterECC int
+}
+
+// DecryptInfo stores information about an encryption request an result.
+type DecryptInfo struct {
+	Compression compression.HeaderID
+
+	// 0 means no compression
+	BytesAfterDecompression int
+
+	// 0 means no encryption
+	BytesAfterDecryption int
+
+	// 0 means no ECC
+	BytesAfterECC int
+	// CorrectedBlocksByECC indicates the number of blocks that were corrected by ECC
+	CorrectedBlocksByECC int
 }
 
 // Parameters encapsulates all encryption parameters.

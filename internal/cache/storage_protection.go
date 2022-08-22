@@ -17,7 +17,7 @@ const encryptionProtectionAlgorithm = "AES256-GCM-HMAC-SHA256"
 // StorageProtection encapsulates protection (HMAC and/or encryption) applied to local cache items.
 type StorageProtection interface {
 	Protect(id string, input gather.Bytes, output *gather.WriteBuffer)
-	Verify(id string, input gather.Bytes, output *gather.WriteBuffer) error
+	Verify(id string, input gather.Bytes, output *gather.WriteBuffer, info *encryption.DecryptInfo) error
 }
 
 type nullStorageProtection struct{}
@@ -27,7 +27,7 @@ func (nullStorageProtection) Protect(id string, input gather.Bytes, output *gath
 	input.WriteTo(output) //nolint:errcheck
 }
 
-func (nullStorageProtection) Verify(id string, input gather.Bytes, output *gather.WriteBuffer) error {
+func (nullStorageProtection) Verify(id string, input gather.Bytes, output *gather.WriteBuffer, info *encryption.DecryptInfo) error {
 	output.Reset()
 	input.WriteTo(output) //nolint:errcheck
 
@@ -48,7 +48,7 @@ func (p checksumProtection) Protect(id string, input gather.Bytes, output *gathe
 	hmac.Append(input, p.Secret, output)
 }
 
-func (p checksumProtection) Verify(id string, input gather.Bytes, output *gather.WriteBuffer) error {
+func (p checksumProtection) Verify(id string, input gather.Bytes, output *gather.WriteBuffer, info *encryption.DecryptInfo) error {
 	output.Reset()
 	//nolint:wrapcheck
 	return hmac.VerifyAndStrip(input, p.Secret, output)
@@ -74,10 +74,10 @@ func (p authenticatedEncryptionProtection) Protect(id string, input gather.Bytes
 	impossible.PanicOnError(p.e.Encrypt(input, p.deriveIV(id), output))
 }
 
-func (p authenticatedEncryptionProtection) Verify(id string, input gather.Bytes, output *gather.WriteBuffer) error {
+func (p authenticatedEncryptionProtection) Verify(id string, input gather.Bytes, output *gather.WriteBuffer, info *encryption.DecryptInfo) error {
 	output.Reset()
 
-	if err := p.e.Decrypt(input, p.deriveIV(id), output); err != nil {
+	if err := p.e.Decrypt(input, p.deriveIV(id), output, info); err != nil {
 		return errors.Wrap(err, "unable to decrypt cache content")
 	}
 

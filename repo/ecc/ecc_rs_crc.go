@@ -247,7 +247,7 @@ func (r *ReedSolomonCrcECC) Encrypt(input gather.Bytes, contentID []byte, output
 
 // Decrypt corrects the data from input based on the ECC data.
 // See Encrypt comments for a description of the layout.
-func (r *ReedSolomonCrcECC) Decrypt(input gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {
+func (r *ReedSolomonCrcECC) Decrypt(input gather.Bytes, contentID []byte, output *gather.WriteBuffer, info *encryption.DecryptInfo) error {
 	sizes := r.computeSizesFromStored(input.Length())
 	dataPlusCrcSizeInBlock := sizes.DataShards * (crcSize + sizes.ShardSize)
 	parityPlusCrcSizeInBlock := sizes.ParityShards * (crcSize + sizes.ShardSize)
@@ -293,6 +293,7 @@ func (r *ReedSolomonCrcECC) Decrypt(input gather.Bytes, contentID []byte, output
 				if crc != crc32.ChecksumIEEE(shards[i]) {
 					// The data was corrupted, so we need to reconstruct it
 					shards[i] = nil
+					info.CorrectedBlocksByECC++
 				}
 			}
 		}
@@ -309,6 +310,7 @@ func (r *ReedSolomonCrcECC) Decrypt(input gather.Bytes, contentID []byte, output
 			if crc != crc32.ChecksumIEEE(shards[s]) {
 				// The data was corrupted, so we need to reconstruct it
 				shards[s] = nil
+				info.CorrectedBlocksByECC++
 			}
 		}
 
@@ -339,6 +341,8 @@ func (r *ReedSolomonCrcECC) Decrypt(input gather.Bytes, contentID []byte, output
 			startByte = 0
 		}
 	}
+
+	info.BytesAfterECC = output.Length()
 
 	return nil
 }

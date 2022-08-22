@@ -44,13 +44,20 @@ func (e aes256GCMHmacSha256) aeadForContent(contentID []byte) (cipher.AEAD, erro
 	return cipher.NewGCM(c)
 }
 
-func (e aes256GCMHmacSha256) Decrypt(input gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {
+func (e aes256GCMHmacSha256) Decrypt(input gather.Bytes, contentID []byte, output *gather.WriteBuffer, info *DecryptInfo) error {
 	a, err := e.aeadForContent(contentID)
 	if err != nil {
 		return err
 	}
 
-	return aeadOpenPrefixedWithNonce(a, input, contentID, output)
+	err = aeadOpenPrefixedWithNonce(a, input, contentID, output)
+	if err != nil {
+		return err
+	}
+
+	info.BytesAfterDecryption = output.Length()
+
+	return nil
 }
 
 func (e aes256GCMHmacSha256) Encrypt(input gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {

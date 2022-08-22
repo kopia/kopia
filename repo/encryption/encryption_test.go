@@ -59,7 +59,7 @@ func TestRoundTrip(t *testing.T) {
 			var plainText1 gather.WriteBuffer
 			defer plainText1.Close()
 
-			require.NoError(t, e.Decrypt(cipherText1.Bytes(), contentID1, &plainText1))
+			require.NoError(t, e.Decrypt(cipherText1.Bytes(), contentID1, &plainText1, &encryption.DecryptInfo{}))
 
 			if v := plainText1.ToByteSlice(); !bytes.Equal(v, data) {
 				t.Errorf("Encrypt()/Decrypt() does not round-trip: %x %x", v, data)
@@ -73,7 +73,7 @@ func TestRoundTrip(t *testing.T) {
 			var plainText2 gather.WriteBuffer
 			defer plainText2.Close()
 
-			require.NoError(t, e.Decrypt(cipherText2.Bytes(), contentID2, &plainText2))
+			require.NoError(t, e.Decrypt(cipherText2.Bytes(), contentID2, &plainText2, &encryption.DecryptInfo{}))
 
 			if v := plainText2.ToByteSlice(); !bytes.Equal(v, data) {
 				t.Errorf("Encrypt()/Decrypt() does not round-trip: %x %x", v, data)
@@ -84,13 +84,13 @@ func TestRoundTrip(t *testing.T) {
 			}
 
 			// decrypt using wrong content ID
-			require.Error(t, e.Decrypt(cipherText2.Bytes(), contentID1, &plainText2))
+			require.Error(t, e.Decrypt(cipherText2.Bytes(), contentID1, &plainText2, &encryption.DecryptInfo{}))
 
 			// flip some bits in the cipherText
 			b := cipherText2.Bytes()
 			b.Slices[0][mathrand.Intn(b.Length())] ^= byte(1 + mathrand.Intn(254))
 
-			require.Error(t, e.Decrypt(b, contentID1, &plainText2))
+			require.Error(t, e.Decrypt(b, contentID1, &plainText2, &encryption.DecryptInfo{}))
 		})
 	}
 }
@@ -160,7 +160,7 @@ func verifyCiphertextSamples(t *testing.T, masterKey, contentID, payload []byte,
 				var plainText gather.WriteBuffer
 				defer plainText.Close()
 
-				require.NoError(t, enc.Decrypt(gather.FromSlice(b), contentID, &plainText))
+				require.NoError(t, enc.Decrypt(gather.FromSlice(b), contentID, &plainText, &encryption.DecryptInfo{}))
 
 				if v := plainText.ToByteSlice(); !bytes.Equal(v, payload) {
 					t.Errorf("invalid plaintext after decryption %x, want %x", v, payload)
