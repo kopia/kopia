@@ -525,13 +525,13 @@ func TestUpload_SubDirectoryReadFailureSomeIgnoredNoFailFast(t *testing.T) {
 
 type mockProgress struct {
 	UploadProgress
-	finishedFileCheck func(string, bool)
+	finishedFileCheck func(string, error)
 }
 
-func (mp *mockProgress) FinishedFile(relativePath string, hadErr bool) {
-	defer mp.UploadProgress.FinishedFile(relativePath, hadErr)
+func (mp *mockProgress) FinishedFile(relativePath string, err error) {
+	defer mp.UploadProgress.FinishedFile(relativePath, err)
 
-	mp.finishedFileCheck(relativePath, hadErr)
+	mp.finishedFileCheck(relativePath, err)
 }
 
 func TestUpload_FinishedFileProgress(t *testing.T) {
@@ -553,7 +553,7 @@ func TestUpload_FinishedFileProgress(t *testing.T) {
 	u.ForceHashPercentage = 0
 	u.Progress = &mockProgress{
 		UploadProgress: u.Progress,
-		finishedFileCheck: func(relativePath string, hadErr bool) {
+		finishedFileCheck: func(relativePath string, err error) {
 			defer func() {
 				filesFinished++
 			}()
@@ -561,11 +561,11 @@ func TestUpload_FinishedFileProgress(t *testing.T) {
 			assert.Contains(t, []string{"f1", "f2"}, filepath.Base(relativePath))
 
 			if strings.Contains(relativePath, "f2") {
-				assert.True(t, hadErr)
+				assert.Error(t, err)
 				return
 			}
 
-			assert.False(t, hadErr)
+			assert.NoError(t, err)
 		},
 	}
 

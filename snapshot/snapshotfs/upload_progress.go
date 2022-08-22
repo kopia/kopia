@@ -34,7 +34,7 @@ type UploadProgress interface {
 	// or cached. If an error was encountered it reports that too. A call to FinishedFile gives no
 	// information about the reachability of the file in checkpoints that may occur close to the
 	// time this function is called.
-	FinishedFile(fname string, hadErr bool)
+	FinishedFile(fname string, err error)
 
 	// HashedBytes is emitted while hashing any blocks of bytes.
 	HashedBytes(numBytes int64)
@@ -89,7 +89,7 @@ func (p *NullUploadProgress) HashingFile(fname string) {}
 func (p *NullUploadProgress) FinishedHashingFile(fname string, numBytes int64) {}
 
 // FinishedFile implements UploadProgress.
-func (p *NullUploadProgress) FinishedFile(fname string, hadErr bool) {}
+func (p *NullUploadProgress) FinishedFile(fname string, err error) {}
 
 // StartedDirectory implements UploadProgress.
 func (p *NullUploadProgress) StartedDirectory(dirname string) {}
@@ -180,7 +180,7 @@ func (p *CountingUploadProgress) FinishedHashingFile(fname string, numBytes int6
 }
 
 // FinishedFile implements UploadProgress.
-func (p *CountingUploadProgress) FinishedFile(fname string, hadErr bool) {}
+func (p *CountingUploadProgress) FinishedFile(fname string, err error) {}
 
 // ExcludedDir implements UploadProgress.
 func (p *CountingUploadProgress) ExcludedDir(dirname string) {

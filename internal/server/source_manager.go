@@ -544,8 +544,8 @@ func (t *uitaskProgress) FinishedHashingFile(fname string, numBytes int64) {
 }
 
 // FinishedFile is emitted when the system is done examining a file.
-func (t *uitaskProgress) FinishedFile(fname string, hadErr bool) {
-	t.p.FinishedFile(fname, hadErr)
+func (t *uitaskProgress) FinishedFile(fname string, err error) {
+	t.p.FinishedFile(fname, err)
 	t.maybeReport()
 }
 
