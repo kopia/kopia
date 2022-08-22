@@ -83,6 +83,8 @@ func (c *commandSnapshotEstimate) run(ctx context.Context, rep repo.Repository) 
 		return err
 	}
 
+	defer entry.Close()
+
 	dir, ok := entry.(fs.Directory)
 	if !ok {
 		return errors.Errorf("invalid path: '%s': must be a directory", path)

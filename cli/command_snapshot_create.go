@@ -284,6 +284,8 @@ func (c *commandSnapshotCreate) snapshotSingleSource(ctx context.Context, rep re
 		}
 	}
 
+	defer fsEntry.Close()
+
 	previous, err := findPreviousSnapshotManifest(ctx, rep, sourceInfo, nil)
 	if err != nil {
 		return err

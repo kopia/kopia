@@ -13,7 +13,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/fs"
-	"github.com/kopia/kopia/fs/localfs"
+	"github.com/kopia/kopia/fs/fssnapshotfs"
 	"github.com/kopia/kopia/internal/ospath"
 	"github.com/kopia/kopia/repo"
 )
@@ -128,12 +128,12 @@ func getLocalFSEntry(ctx context.Context, path0 string) (fs.Entry, error) {
 		log(ctx).Infof("%v resolved to %v", path0, path)
 	}
 
-	e, err := localfs.NewEntry(path)
+	s, err := fssnapshotfs.NewEntry(path)
 	if err != nil {
-		return nil, errors.Wrap(err, "can't get local fs entry")
+		return nil, errors.Wrap(err, "can't create snapshot local fs entry")
 	}
 
-	return e, nil
+	return s, nil
 }
 
 func isWindows() bool {
