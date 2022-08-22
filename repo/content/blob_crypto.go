@@ -57,7 +57,7 @@ func EncryptBLOB(c crypter, payload gather.Bytes, prefix blob.ID, sessionID Sess
 
 	output.Reset()
 
-	if err := c.Encryptor().Encrypt(payload, iv, output); err != nil {
+	if err := c.Encryptor().Encrypt(payload, iv, output, &encryption.EncryptInfo{}); err != nil {
 		return "", errors.Wrapf(err, "error encrypting BLOB %v", blobID)
 	}
 

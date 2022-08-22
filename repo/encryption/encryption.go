@@ -23,7 +23,7 @@ const (
 type Encryptor interface {
 	// Encrypt appends the encrypted bytes corresponding to the given plaintext to a given slice.
 	// Must not clobber the input slice and return ciphertext with additional padding and checksum.
-	Encrypt(plainText gather.Bytes, contentID []byte, output *gather.WriteBuffer) error
+	Encrypt(plainText gather.Bytes, contentID []byte, output *gather.WriteBuffer, info *EncryptInfo) error
 
 	// Decrypt appends the unencrypted bytes corresponding to the given ciphertext to a given slice.
 	// Must not clobber the input slice. If IsAuthenticated() == true, Decrypt will perform

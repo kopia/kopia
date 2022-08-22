@@ -49,8 +49,8 @@ func TestRoundTrip(t *testing.T) {
 			var cipherText1b gather.WriteBuffer
 			defer cipherText1b.Close()
 
-			require.NoError(t, e.Encrypt(gather.FromSlice(data), contentID1, &cipherText1))
-			require.NoError(t, e.Encrypt(gather.FromSlice(data), contentID1, &cipherText1b))
+			require.NoError(t, e.Encrypt(gather.FromSlice(data), contentID1, &cipherText1, &encryption.EncryptInfo{}))
+			require.NoError(t, e.Encrypt(gather.FromSlice(data), contentID1, &cipherText1b, &encryption.EncryptInfo{}))
 
 			if v := cipherText1.ToByteSlice(); bytes.Equal(v, cipherText1b.ToByteSlice()) {
 				t.Errorf("multiple Encrypt returned the same ciphertext: %x", v)
@@ -68,7 +68,7 @@ func TestRoundTrip(t *testing.T) {
 			var cipherText2 gather.WriteBuffer
 			defer cipherText2.Close()
 
-			require.NoError(t, e.Encrypt(gather.FromSlice(data), contentID2, &cipherText2))
+			require.NoError(t, e.Encrypt(gather.FromSlice(data), contentID2, &cipherText2, &encryption.EncryptInfo{}))
 
 			var plainText2 gather.WriteBuffer
 			defer plainText2.Close()
@@ -145,7 +145,7 @@ func verifyCiphertextSamples(t *testing.T, masterKey, contentID, payload []byte,
 			func() {
 				var v gather.WriteBuffer
 				defer v.Close()
-				require.NoError(t, enc.Encrypt(gather.FromSlice(payload), contentID, &v))
+				require.NoError(t, enc.Encrypt(gather.FromSlice(payload), contentID, &v, &encryption.EncryptInfo{}))
 
 				t.Errorf("missing ciphertext sample for %q: %q,", encryptionAlgo, hex.EncodeToString(payload))
 			}()
@@ -184,7 +184,7 @@ func BenchmarkEncryption(b *testing.B) {
 
 	iv := []byte{0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3, 4, 5, 6, 7}
 
-	require.NoError(b, enc.Encrypt(plainText, iv, &warmupOut))
+	require.NoError(b, enc.Encrypt(plainText, iv, &warmupOut, &encryption.EncryptInfo{}))
 	warmupOut.Close()
 
 	b.ResetTimer()
@@ -192,7 +192,7 @@ func BenchmarkEncryption(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		var out gather.WriteBuffer
 
-		enc.Encrypt(plainText, iv, &out)
+		enc.Encrypt(plainText, iv, &out, &encryption.EncryptInfo{})
 		out.Close()
 	}
 }

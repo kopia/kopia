@@ -56,13 +56,20 @@ func (e chacha20poly1305hmacSha256Encryptor) Decrypt(input gather.Bytes, content
 	return nil
 }
 
-func (e chacha20poly1305hmacSha256Encryptor) Encrypt(input gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {
+func (e chacha20poly1305hmacSha256Encryptor) Encrypt(input gather.Bytes, contentID []byte, output *gather.WriteBuffer, info *EncryptInfo) error {
 	a, err := e.aeadForContent(contentID)
 	if err != nil {
 		return err
 	}
 
-	return aeadSealWithRandomNonce(a, input, contentID, output)
+	err = aeadSealWithRandomNonce(a, input, contentID, output)
+	if err != nil {
+		return err
+	}
+
+	info.BytesAfterEncryption = output.Length()
+
+	return nil
 }
 
 func (e chacha20poly1305hmacSha256Encryptor) Overhead() int {

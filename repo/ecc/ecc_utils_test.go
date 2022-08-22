@@ -43,7 +43,7 @@ func testPutAndGet(t *testing.T, opts *Options, originalSize,
 
 	output := gather.NewWriteBuffer()
 
-	err = impl.Encrypt(gather.FromSlice(original), nil, output)
+	err = impl.Encrypt(gather.FromSlice(original), nil, output, &encryption.EncryptInfo{})
 	require.NoError(t, err)
 
 	result := output.ToByteSlice()

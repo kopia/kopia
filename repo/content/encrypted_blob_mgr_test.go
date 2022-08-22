@@ -21,7 +21,7 @@ type failingEncryptor struct {
 	err error
 }
 
-func (f failingEncryptor) Encrypt(input gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {
+func (f failingEncryptor) Encrypt(input gather.Bytes, contentID []byte, output *gather.WriteBuffer, info *encryption.EncryptInfo) error {
 	return f.err
 }
 

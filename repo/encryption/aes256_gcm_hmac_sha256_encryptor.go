@@ -60,13 +60,20 @@ func (e aes256GCMHmacSha256) Decrypt(input gather.Bytes, contentID []byte, outpu
 	return nil
 }
 
-func (e aes256GCMHmacSha256) Encrypt(input gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {
+func (e aes256GCMHmacSha256) Encrypt(input gather.Bytes, contentID []byte, output *gather.WriteBuffer, info *EncryptInfo) error {
 	a, err := e.aeadForContent(contentID)
 	if err != nil {
 		return err
 	}
 
-	return aeadSealWithRandomNonce(a, input, contentID, output)
+	err = aeadSealWithRandomNonce(a, input, contentID, output)
+	if err != nil {
+		return err
+	}
+
+	info.BytesAfterEncryption = output.Length()
+
+	return nil
 }
 
 func (e aes256GCMHmacSha256) Overhead() int {

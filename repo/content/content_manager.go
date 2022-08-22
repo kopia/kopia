@@ -19,6 +19,7 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content/index"
+	"github.com/kopia/kopia/repo/encryption"
 	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/hashing"
 	"github.com/kopia/kopia/repo/logging"
@@ -256,7 +257,7 @@ func (bm *WriteManager) maybeRetryWritingFailedPacksUnlocked(ctx context.Context
 	return nil
 }
 
-func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, data gather.Bytes, isDeleted bool, comp compression.HeaderID, previousWriteTime int64, mp format.MutableParameters) error {
+func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, data gather.Bytes, isDeleted bool, previousWriteTime int64, mp format.MutableParameters, einfo *encryption.EncryptInfo) error {
 	// see if the current index is old enough to cause automatic flush.
 	if err := bm.maybeFlushBasedOnTimeUnlocked(ctx); err != nil {
 		return errors.Wrap(err, "unable to flush old pending writes")
@@ -268,7 +269,7 @@ func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, dat
 	defer compressedAndEncrypted.Close()
 
 	// encrypt and compress before taking lock
-	actualComp, err := bm.maybeCompressAndEncryptDataForPacking(data, contentID, comp, &compressedAndEncrypted, mp)
+	err := bm.maybeCompressAndEncryptDataForPacking(data, contentID, &compressedAndEncrypted, mp, einfo)
 	if err != nil {
 		return errors.Wrapf(err, "unable to encrypt %q", contentID)
 	}
@@ -327,7 +328,7 @@ func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, dat
 		return errors.Wrapf(err, "unable to append %q to pack data", contentID)
 	}
 
-	info.CompressionHeaderID = actualComp
+	info.CompressionHeaderID = einfo.Compression
 	info.PackedLength = uint32(pp.currentPackData.Length()) - info.PackOffset
 
 	pp.currentPackItems[contentID] = info
@@ -721,7 +722,10 @@ func (bm *WriteManager) rewriteContent(ctx context.Context, contentID ID, onlyRe
 		isDeleted = false
 	}
 
-	return bm.addToPackUnlocked(ctx, contentID, data.Bytes(), isDeleted, bi.GetCompressionHeaderID(), bi.GetTimestampSeconds(), mp)
+	info := encryption.EncryptInfo{}
+	info.RequestedCompression = bi.GetCompressionHeaderID()
+
+	return bm.addToPackUnlocked(ctx, contentID, data.Bytes(), isDeleted, bi.GetTimestampSeconds(), mp, &info)
 }
 
 func packPrefixForContentID(contentID ID) blob.ID {
@@ -835,7 +839,10 @@ func (bm *WriteManager) WriteContent(ctx context.Context, data gather.Bytes, pre
 
 	bm.log.Debugf(logbuf.String())
 
-	return contentID, bm.addToPackUnlocked(ctx, contentID, data, false, comp, previousWriteTime, mp)
+	info := encryption.EncryptInfo{}
+	info.RequestedCompression = comp
+
+	return contentID, bm.addToPackUnlocked(ctx, contentID, data, false, previousWriteTime, mp, &info)
 }
 
 // GetContent gets the contents of a given content. If the content is not found returns ErrContentNotFound.

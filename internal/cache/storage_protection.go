@@ -71,7 +71,7 @@ func (p authenticatedEncryptionProtection) deriveIV(id string) []byte {
 func (p authenticatedEncryptionProtection) Protect(id string, input gather.Bytes, output *gather.WriteBuffer) {
 	output.Reset()
 
-	impossible.PanicOnError(p.e.Encrypt(input, p.deriveIV(id), output))
+	impossible.PanicOnError(p.e.Encrypt(input, p.deriveIV(id), output, &encryption.EncryptInfo{}))
 }
 
 func (p authenticatedEncryptionProtection) Verify(id string, input gather.Bytes, output *gather.WriteBuffer, info *encryption.DecryptInfo) error {

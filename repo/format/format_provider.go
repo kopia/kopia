@@ -127,7 +127,7 @@ func NewFormattingOptionsProvider(f0 *ContentFormat, formatBytes []byte) (Provid
 	var tmp gather.WriteBuffer
 	defer tmp.Close()
 
-	err = e.Encrypt(gather.FromSlice(nil), contentID, &tmp)
+	err = e.Encrypt(gather.FromSlice(nil), contentID, &tmp, &encryption.EncryptInfo{})
 	if err != nil {
 		return nil, errors.Wrap(err, "invalid encryptor")
 	}

@@ -59,7 +59,7 @@ func TestBlobCrypto(t *testing.T) {
 
 type badEncryptor struct{}
 
-func (badEncryptor) Encrypt(input gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {
+func (badEncryptor) Encrypt(input gather.Bytes, contentID []byte, output *gather.WriteBuffer, info *encryption.EncryptInfo) error {
 	return errors.Errorf("some error")
 }
 

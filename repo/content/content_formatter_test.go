@@ -52,7 +52,7 @@ func TestFormatters(t *testing.T) {
 					var cipherText gather.WriteBuffer
 					defer cipherText.Close()
 
-					require.NoError(t, enc.Encrypt(gather.FromSlice(data), contentID, &cipherText))
+					require.NoError(t, enc.Encrypt(gather.FromSlice(data), contentID, &cipherText, &encryption.EncryptInfo{}))
 
 					var plainText gather.WriteBuffer
 					defer plainText.Close()

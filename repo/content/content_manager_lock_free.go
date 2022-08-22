@@ -24,52 +24,58 @@ import (
 
 const indexBlobCompactionWarningThreshold = 1000
 
-func (sm *SharedManager) maybeCompressAndEncryptDataForPacking(data gather.Bytes, contentID ID, comp compression.HeaderID, output *gather.WriteBuffer, mp format.MutableParameters) (compression.HeaderID, error) {
+func (sm *SharedManager) maybeCompressAndEncryptDataForPacking(data gather.Bytes, contentID ID, output *gather.WriteBuffer, mp format.MutableParameters, info *encryption.EncryptInfo) error {
 	var hashOutput [hashing.MaxHashSize]byte
 
 	iv := getPackedContentIV(hashOutput[:0], contentID)
 
+	info.Compression = info.RequestedCompression
+
 	// If the content is prefixed (which represents Kopia's own metadata as opposed to user data),
 	// and we're on V2 format or greater, enable internal compression even when not requested.
-	if contentID.HasPrefix() && comp == NoCompression && mp.IndexVersion >= index.Version2 {
+	if contentID.HasPrefix() && info.Compression == NoCompression && mp.IndexVersion >= index.Version2 {
 		// 'zstd-fastest' has a good mix of being fast, low memory usage and high compression for JSON.
-		comp = compression.HeaderZstdFastest
+		info.Compression = compression.HeaderZstdFastest
 	}
 
 	//nolint:nestif
-	if comp != NoCompression {
+	if info.Compression != NoCompression {
 		if mp.IndexVersion < index.Version2 {
-			return NoCompression, errors.Errorf("compression is not enabled for this repository")
+			return errors.Errorf("compression is not enabled for this repository")
 		}
 
 		var tmp gather.WriteBuffer
 		defer tmp.Close()
 
 		// allocate temporary buffer to hold the compressed bytes.
-		c := compression.ByHeaderID[comp]
+		c := compression.ByHeaderID[info.Compression]
 		if c == nil {
-			return NoCompression, errors.Errorf("unsupported compressor %x", comp)
+			return errors.Errorf("unsupported compressor %x", info.Compression)
 		}
 
 		if err := c.Compress(&tmp, data.Reader()); err != nil {
-			return NoCompression, errors.Wrap(err, "compression error")
+			return errors.Wrap(err, "compression error")
 		}
 
 		if cd := tmp.Length(); cd >= data.Length() {
 			// data was not compressible enough.
-			comp = NoCompression
+			info.Compression = NoCompression
 		} else {
 			data = tmp.Bytes()
 		}
 	}
 
-	if err := sm.format.Encryptor().Encrypt(data, iv, output); err != nil {
-		return NoCompression, errors.Wrap(err, "unable to encrypt")
+	info.BytesAfterCompression = data.Length()
+
+	if err := sm.format.Encryptor().Encrypt(data, iv, output, info); err != nil {
+		return errors.Wrap(err, "unable to encrypt")
 	}
 
-	sm.Stats.encrypted(data.Length())
+	sm.Stats.encrypted(info.BytesAfterEncryption)
+	// TODO sm.Stats.compressed(info.BytesAfterEncryption)
+	// TODO sm.Stats.ecc(info.BytesAfterECC)
 
-	return comp, nil
+	return nil
 }
 
 func writeRandomBytesToBuffer(b *gather.WriteBuffer, count int) error {

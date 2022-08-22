@@ -10,6 +10,7 @@ import (
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content/index"
+	"github.com/kopia/kopia/repo/encryption"
 )
 
 // RecoverIndexFromPackBlob attempts to recover index blob entries from a given pack file.
@@ -200,7 +201,7 @@ func (sm *SharedManager) appendPackFileIndexRecoveryData(pending index.Builder, 
 	var encryptedLocalIndex gather.WriteBuffer
 	defer encryptedLocalIndex.Close()
 
-	if err := sm.format.Encryptor().Encrypt(localIndex.Bytes(), localIndexIV, &encryptedLocalIndex); err != nil {
+	if err := sm.format.Encryptor().Encrypt(localIndex.Bytes(), localIndexIV, &encryptedLocalIndex, &encryption.EncryptInfo{}); err != nil {
 		return errors.Wrap(err, "encryption error")
 	}
 
