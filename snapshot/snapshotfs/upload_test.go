@@ -13,6 +13,7 @@ import (
 	"runtime/debug"
 	"sort"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -537,6 +538,7 @@ func (mp *mockProgress) FinishedFile(relativePath string, err error) {
 func TestUpload_FinishedFileProgress(t *testing.T) {
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
+	mu := sync.Mutex{}
 	filesFinished := 0
 
 	defer th.cleanup()
@@ -555,6 +557,9 @@ func TestUpload_FinishedFileProgress(t *testing.T) {
 		UploadProgress: u.Progress,
 		finishedFileCheck: func(relativePath string, err error) {
 			defer func() {
+				mu.Lock()
+				defer mu.Unlock()
+
 				filesFinished++
 			}()
 
