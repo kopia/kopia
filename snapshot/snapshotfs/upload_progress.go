@@ -30,6 +30,12 @@ type UploadProgress interface {
 	// FinishedHashingFile is emitted at the end of hashing of a given file.
 	FinishedHashingFile(fname string, numBytes int64)
 
+	// FinishedFile is emitted when the uploader is done with a file, regardless of if it was hashed
+	// or cached. If an error was encountered it reports that too. A call to FinishedFile gives no
+	// information about the reachability of the file in checkpoints that may occur close to the
+	// time this function is called.
+	FinishedFile(fname string, err error)
+
 	// HashedBytes is emitted while hashing any blocks of bytes.
 	HashedBytes(numBytes int64)
 
@@ -81,6 +87,9 @@ func (p *NullUploadProgress) HashingFile(fname string) {}
 
 // FinishedHashingFile implements UploadProgress.
 func (p *NullUploadProgress) FinishedHashingFile(fname string, numBytes int64) {}
+
+// FinishedFile implements UploadProgress.
+func (p *NullUploadProgress) FinishedFile(fname string, err error) {}
 
 // StartedDirectory implements UploadProgress.
 func (p *NullUploadProgress) StartedDirectory(dirname string) {}
@@ -169,6 +178,9 @@ func (p *CountingUploadProgress) CachedFile(fname string, numBytes int64) {
 func (p *CountingUploadProgress) FinishedHashingFile(fname string, numBytes int64) {
 	atomic.AddInt32(&p.counters.TotalHashedFiles, 1)
 }
+
+// FinishedFile implements UploadProgress.
+func (p *CountingUploadProgress) FinishedFile(fname string, err error) {}
 
 // ExcludedDir implements UploadProgress.
 func (p *CountingUploadProgress) ExcludedDir(dirname string) {

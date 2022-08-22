@@ -115,6 +115,25 @@ func (imd *Directory) AddFile(name string, content []byte, permissions os.FileMo
 	return file
 }
 
+// AddFileWithSource adds a mock file with the specified name, permissions, and
+// given source function for getting a Reader instance.
+func (imd *Directory) AddFileWithSource(name string, permissions os.FileMode, source func() (ReaderSeekerCloser, error)) *File {
+	imd, name = imd.resolveSubdir(name)
+	file := &File{
+		entry: entry{
+			name:    name,
+			mode:    permissions,
+			size:    0,
+			modTime: DefaultModTime,
+		},
+		source: source,
+	}
+
+	imd.addChild(file)
+
+	return file
+}
+
 // AddSymlink adds a mock symlink with the specified name, target and permissions.
 func (imd *Directory) AddSymlink(name, target string, permissions os.FileMode) *Symlink {
 	imd, name = imd.resolveSubdir(name)
