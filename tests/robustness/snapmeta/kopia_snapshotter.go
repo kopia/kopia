@@ -5,11 +5,13 @@ package snapmeta
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"log"
 	"os/exec"
 	"strconv"
 
+	"github.com/kopia/kopia/cli"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/tests/robustness"
 	"github.com/kopia/kopia/tests/tools/fswalker"
@@ -177,4 +179,24 @@ func (ks *KopiaSnapshotter) ConnectOrCreateFilesystemWithServer(serverAddr, repo
 // Cleanup should be called before termination.
 func (ks *KopiaSnapshotter) Cleanup() {
 	ks.snap.Cleanup()
+}
+
+// GetRepositoryStatus returns the repository status in JSON format.
+func (ks *KopiaSnapshotter) GetRepositoryStatus() (cli.RepositoryStatus, error) {
+	a1, _, _ := ks.snap.Run("repository", "status", "--json")
+
+	var rs cli.RepositoryStatus
+	if err := json.Unmarshal([]byte(a1), &rs); err != nil {
+		return rs, err
+	}
+
+	return rs, nil
+}
+
+// UpgradeRepository upgrades the given kopia repository
+// from current format version to latest stable format version.
+func (ks *KopiaSnapshotter) UpgradeRepository() error {
+	_, _, err := ks.snap.Run("repository", "set-parameters", "--upgrade")
+
+	return err
 }
