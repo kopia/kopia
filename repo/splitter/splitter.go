@@ -8,13 +8,16 @@ import (
 const (
 	splitterSlidingWindowSize = 64
 
+	splitterSize16KB  = 16 << 10
+	splitterSize32KB  = 32 << 10
+	splitterSize64KB  = 64 << 10
 	splitterSize128KB = 128 << 10
 	splitterSize256KB = 256 << 10
 	splitterSize512KB = 512 << 10
-	splitterSize1MB = 1 << 20
-	splitterSize2MB = 2 << 20
-	splitterSize4MB = 4 << 20
-	splitterSize8MB = 8 << 20
+	splitterSize1MB   = 1 << 20
+	splitterSize2MB   = 2 << 20
+	splitterSize4MB   = 4 << 20
+	splitterSize8MB   = 8 << 20
 )
 
 // Splitter determines when to split a given object.
@@ -54,13 +57,16 @@ var splitterFactories = map[string]Factory{
 	"FIXED-4M": Fixed(splitterSize4MB),
 	"FIXED-8M": Fixed(splitterSize8MB),
 
+	"DYNAMIC-16K-BUZHASH":  newBuzHash32SplitterFactory(splitterSize16KB),
+	"DYNAMIC-32K-BUZHASH":  newBuzHash32SplitterFactory(splitterSize32KB),
+	"DYNAMIC-64K-BUZHASH":  newBuzHash32SplitterFactory(splitterSize64KB),
 	"DYNAMIC-128K-BUZHASH": newBuzHash32SplitterFactory(splitterSize128KB),
 	"DYNAMIC-256K-BUZHASH": newBuzHash32SplitterFactory(splitterSize256KB),
 	"DYNAMIC-512K-BUZHASH": newBuzHash32SplitterFactory(splitterSize512KB),
-	"DYNAMIC-1M-BUZHASH": newBuzHash32SplitterFactory(splitterSize1MB),
-	"DYNAMIC-2M-BUZHASH": newBuzHash32SplitterFactory(splitterSize2MB),
-	"DYNAMIC-4M-BUZHASH": newBuzHash32SplitterFactory(splitterSize4MB),
-	"DYNAMIC-8M-BUZHASH": newBuzHash32SplitterFactory(splitterSize8MB),
+	"DYNAMIC-1M-BUZHASH":   newBuzHash32SplitterFactory(splitterSize1MB),
+	"DYNAMIC-2M-BUZHASH":   newBuzHash32SplitterFactory(splitterSize2MB),
+	"DYNAMIC-4M-BUZHASH":   newBuzHash32SplitterFactory(splitterSize4MB),
+	"DYNAMIC-8M-BUZHASH":   newBuzHash32SplitterFactory(splitterSize8MB),
 
 	"DYNAMIC-1M-RABINKARP": newRabinKarp64SplitterFactory(splitterSize1MB),
 	"DYNAMIC-2M-RABINKARP": newRabinKarp64SplitterFactory(splitterSize2MB),
