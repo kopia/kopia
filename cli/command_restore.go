@@ -17,6 +17,9 @@ import (
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/content/index"
+	"github.com/kopia/kopia/repo/object"
+	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/restore"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
@@ -346,7 +349,12 @@ func (c *commandRestore) run(ctx context.Context, rep repo.Repository) error {
 
 			rootEntry = re
 		} else {
-			re, err := snapshotfs.FilesystemEntryFromIDWithPath(ctx, rep, rstp.source, c.restoreConsistentAttributes)
+			source, err := tryToConvertPathToID(ctx, rep, rstp.source)
+			if err != nil {
+				return err
+			}
+
+			re, err := snapshotfs.FilesystemEntryFromIDWithPath(ctx, rep, source, c.restoreConsistentAttributes)
 			if err != nil {
 				return errors.Wrap(err, "unable to get filesystem entry")
 			}
@@ -400,6 +408,93 @@ func (c *commandRestore) run(ctx context.Context, rep repo.Repository) error {
 		}
 
 		printRestoreStats(ctx, st)
+	}
+
+	return nil
+}
+
+// tryToConvertPathToID checks if the source is a path and in this case returns the ID of the snapshot
+// containing the latest version available.
+func tryToConvertPathToID(ctx context.Context, rep repo.Repository, source string) (string, error) {
+	pathElements := strings.Split(filepath.ToSlash(source), "/")
+
+	_, err := index.ParseID(pathElements[0])
+	if err == nil {
+		// source is an ID
+		return source, nil
+	}
+
+	// Consider source as a path
+
+	si, err := snapshot.ParseSourceInfo(source, rep.ClientOptions().Hostname, rep.ClientOptions().Username)
+	if err != nil {
+		return "", errors.Errorf("invalid directory: '%s': %s", source, err)
+	}
+
+	if si.Path == "" {
+		return "", errors.Errorf("the source must contain a path element")
+	}
+
+	manifestIDs, relPath, err := findSnapshotsForSource(ctx, rep, si, map[string]string{})
+	if err != nil {
+		return "", err
+	}
+
+	if len(manifestIDs) == 0 {
+		return "", errors.Errorf("no snapshots contain data for %v", source)
+	}
+
+	manifests, err := snapshot.LoadSnapshots(ctx, rep, manifestIDs)
+	if err != nil {
+		return "", errors.Wrap(err, "unable to load snapshots")
+	}
+
+	manifest := findLastManifestWithPath(ctx, rep, manifests, relPath)
+	if manifest == nil {
+		return "", errors.Errorf("no snapshots contain data for %v", source)
+	}
+
+	if relPath != "" {
+		relPath = "/" + relPath
+	}
+
+	result := string(manifest.ID) + relPath
+
+	log(ctx).Infof("Restoring from snapshot %v...", result)
+
+	return result, nil
+}
+
+func findLastManifestWithPath(ctx context.Context, rep repo.Repository, manifests []*snapshot.Manifest, relPath string) *snapshot.Manifest {
+	pathElements := strings.Split(relPath, "/")
+
+	manifests = snapshot.SortByTime(manifests, true)
+
+	for _, m := range manifests {
+		root, err := snapshotfs.SnapshotRoot(rep, m)
+		if err != nil {
+			// Ignore this snapshot
+			continue
+		}
+
+		ent, err := snapshotfs.GetNestedEntry(ctx, root, pathElements)
+		if err != nil {
+			// Ignore this snapshot
+			continue
+		}
+
+		_, ok := ent.(object.HasObjectID)
+		if !ok {
+			// Ignore this snapshot
+			continue
+		}
+
+		if m.IncompleteReason != "" {
+			// Ignore this snapshot
+			continue
+		}
+
+		return m
 	}
 
 	return nil
