@@ -57,18 +57,15 @@ func TestMain(m *testing.M) {
 	if os.Getenv("UPGRADE_REPOSITORY_FORMAT_VERSION") == "ON" {
 		log.Print("Upgrading the repository.")
 
-		err := th.upgrader.ConnectRepo("filesystem", "--path="+dataRepoPath)
-		exitOnError("failed to connect to repository", err)
-
-		rs, err := th.upgrader.GetRepositoryStatus()
+		rs, err := th.snapshotter.GetRepositoryStatus()
 		exitOnError("failed to get repository status before upgrade", err)
 
 		prev := rs.ContentFormat.MutableParameters.Version
 
 		log.Println("Old repository format:", prev)
-		th.upgrader.UpgradeRepository(dataRepoPath)
+		th.snapshotter.UpgradeRepository()
 
-		rs, err = th.upgrader.GetRepositoryStatus()
+		rs, err = th.snapshotter.GetRepositoryStatus()
 		exitOnError("failed to get repository status after upgrade", err)
 
 		curr := rs.ContentFormat.MutableParameters.Version
