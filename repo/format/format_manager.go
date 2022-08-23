@@ -73,11 +73,13 @@ func (m *Manager) getOrRefreshFormat() (Provider, error) {
 
 // +checklocks:m.mu
 func (m *Manager) maybeRefreshLocked() error {
-	if n := m.timeNow(); !n.Before(m.validUntil) {
-		// current format not valid anymore, kick off a refresh
-		if err := m.refreshLocked(m.ctx); err != nil {
-			return err
-		}
+	if m.timeNow().Before(m.validUntil) {
+		return nil
+	}
+
+	// current format not valid anymore, kick off a refresh
+	if err := m.refreshLocked(m.ctx); err != nil {
+		return err
 	}
 
 	return nil

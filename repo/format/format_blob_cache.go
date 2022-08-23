@@ -22,6 +22,8 @@ import (
 const DefaultRepositoryBlobCacheDuration = 15 * time.Minute
 
 // BlobCache encapsulates cache for format blobs.
+// Note that the cache only stores very small number of blobs at the root of the repository,
+// usually 1 or 2.
 type BlobCache interface {
 	Get(ctx context.Context, blobID blob.ID) ([]byte, time.Time, bool)
 	Put(ctx context.Context, blobID blob.ID, data []byte) (time.Time, error)
