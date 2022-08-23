@@ -67,7 +67,7 @@ func formatBlobFromOptions(opt *NewRepositoryOptions) *format.KopiaRepositoryJSO
 		BuildInfo:              BuildInfo,
 		BuildVersion:           BuildVersion,
 		KeyDerivationAlgorithm: format.DefaultKeyDerivationAlgorithm,
-		UniqueID:               applyDefaultRandomBytes(opt.UniqueID, format.UniqueIDLength),
+		UniqueID:               applyDefaultRandomBytes(opt.UniqueID, format.UniqueIDLengthBytes),
 		EncryptionAlgorithm:    format.DefaultFormatEncryption,
 	}
 }

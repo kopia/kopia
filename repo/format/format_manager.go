@@ -19,8 +19,8 @@ import (
 
 var log = logging.Module("kopia/repo/format")
 
-// UniqueIDLength is the length of random unique ID of each repository.
-const UniqueIDLength = 32
+// UniqueIDLengthBytes is the length of random unique ID of each repository.
+const UniqueIDLengthBytes = 32
 
 // Manager manages the contents of `kopia.repository` and `kopia.blobcfg`.
 type Manager struct {
@@ -427,7 +427,7 @@ func Initialize(ctx context.Context, st blob.Storage, formatBlob *KopiaRepositor
 	}
 
 	if len(formatBlob.UniqueID) == 0 {
-		formatBlob.UniqueID = randomBytes(UniqueIDLength)
+		formatBlob.UniqueID = randomBytes(UniqueIDLengthBytes)
 	}
 
 	formatEncryptionKey, err := formatBlob.DeriveFormatEncryptionKeyFromPassword(password)
