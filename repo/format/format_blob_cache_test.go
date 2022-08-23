@@ -1,4 +1,4 @@
-package format_test
+package format
 
 import (
 	"path/filepath"
@@ -11,7 +11,6 @@ import (
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
-	"github.com/kopia/kopia/repo/format"
 )
 
 func TestFormatBlobCache(t *testing.T) {
@@ -20,13 +19,13 @@ func TestFormatBlobCache(t *testing.T) {
 
 	cases := []struct {
 		desc      string
-		fbc       format.BlobCache
+		fbc       blobCache
 		isDurable bool
 	}{
-		{"NullCache", format.NewFormatBlobCache("", -1, clock.Now), false},
-		{"DiskCache-Exists", format.NewFormatBlobCache(tempdir1, -1, clock.Now), true},
-		{"DiskCache-NotExists", format.NewFormatBlobCache(tempdir2, -1, clock.Now), true},
-		{"MemoryCache", format.NewFormatBlobCache("", 10*time.Second, clock.Now), true},
+		{"NullCache", NewFormatBlobCache("", -1, clock.Now), false},
+		{"DiskCache-Exists", NewFormatBlobCache(tempdir1, -1, clock.Now), true},
+		{"DiskCache-NotExists", NewFormatBlobCache(tempdir2, -1, clock.Now), true},
+		{"MemoryCache", NewFormatBlobCache("", 10*time.Second, clock.Now), true},
 	}
 
 	t.Run("Cases", func(t *testing.T) {

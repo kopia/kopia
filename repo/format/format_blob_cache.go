@@ -21,10 +21,10 @@ import (
 // as valid.
 const DefaultRepositoryBlobCacheDuration = 15 * time.Minute
 
-// BlobCache encapsulates cache for format blobs.
+// blobCache encapsulates cache for format blobs.
 // Note that the cache only stores very small number of blobs at the root of the repository,
 // usually 1 or 2.
-type BlobCache interface {
+type blobCache interface {
 	Get(ctx context.Context, blobID blob.ID) ([]byte, time.Time, bool)
 	Put(ctx context.Context, blobID blob.ID, data []byte) (time.Time, error)
 	Remove(ctx context.Context, ids []blob.ID)
@@ -143,12 +143,12 @@ func (c *onDiskCache) Remove(ctx context.Context, ids []blob.ID) {
 }
 
 // NewDiskCache returns on-disk blob cache.
-func NewDiskCache(cacheDir string) BlobCache {
+func NewDiskCache(cacheDir string) blobCache {
 	return &onDiskCache{cacheDir}
 }
 
 // NewMemoryBlobCache returns in-memory blob cache.
-func NewMemoryBlobCache(timeNow func() time.Time) BlobCache {
+func NewMemoryBlobCache(timeNow func() time.Time) blobCache {
 	return &inMemoryCache{
 		timeNow: timeNow,
 		data:    map[blob.ID][]byte{},
@@ -156,8 +156,8 @@ func NewMemoryBlobCache(timeNow func() time.Time) BlobCache {
 	}
 }
 
-// NewFormatBlobCache creates an implementationof BlobCache for particular cache settings.
-func NewFormatBlobCache(cacheDir string, validDuration time.Duration, timeNow func() time.Time) BlobCache {
+// NewFormatBlobCache creates an implementationof blobCache for particular cache settings.
+func NewFormatBlobCache(cacheDir string, validDuration time.Duration, timeNow func() time.Time) blobCache {
 	if cacheDir != "" {
 		return NewDiskCache(cacheDir)
 	}
@@ -170,7 +170,7 @@ func NewFormatBlobCache(cacheDir string, validDuration time.Duration, timeNow fu
 }
 
 var (
-	_ BlobCache = (*nullCache)(nil)
-	_ BlobCache = (*inMemoryCache)(nil)
-	_ BlobCache = (*onDiskCache)(nil)
+	_ blobCache = (*nullCache)(nil)
+	_ blobCache = (*inMemoryCache)(nil)
+	_ blobCache = (*onDiskCache)(nil)
 )

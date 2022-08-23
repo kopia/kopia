@@ -29,7 +29,7 @@ type Manager struct {
 	blobs         blob.Storage    // +checklocksignore
 	validDuration time.Duration   // +checklocksignore
 	password      string          // +checklocksignore
-	cache         BlobCache       // +checklocksignore
+	cache         blobCache       // +checklocksignore
 
 	timeNow func() time.Time // +checklocksignore
 
@@ -372,7 +372,7 @@ func NewManagerWithCache(
 	validDuration time.Duration,
 	password string,
 	timeNow func() time.Time,
-	cache BlobCache,
+	cache blobCache,
 ) (*Manager, error) {
 	m := &Manager{
 		ctx:           ctx,
