@@ -126,7 +126,9 @@ func (f *staticProvider) LoadedTime() time.Time {
 
 // NewStaticProvider validates the provided formatting options and returns static
 // FormattingOptionsProvider based on them.
-func NewStaticProvider(rc *RepositoryConfig, formatBytes []byte) (Provider, error) {
+func NewStaticProvider(rc0 *RepositoryConfig, formatBytes []byte) (Provider, error) {
+	rc := *rc0
+
 	formatVersion := rc.Version
 
 	if formatVersion < MinSupportedReadVersion || formatVersion > CurrentWriteVersion {
@@ -151,18 +153,18 @@ func NewStaticProvider(rc *RepositoryConfig, formatBytes []byte) (Provider, erro
 		rc.ContentFormat.MaxPackSize = 20 << 20 //nolint:gomnd
 	}
 
-	h, err := hashing.CreateHashFunc(rc)
+	h, err := hashing.CreateHashFunc(&rc)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create hash")
 	}
 
-	e, err := encryption.CreateEncryptor(rc)
+	e, err := encryption.CreateEncryptor(&rc)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create encryptor")
 	}
 
 	if rc.GetECCAlgorithm() != "" && rc.GetECCOverheadPercent() > 0 {
-		eccEncryptor, err := ecc.CreateEncryptor(rc) //nolint:govet
+		eccEncryptor, err := ecc.CreateEncryptor(&rc) //nolint:govet
 		if err != nil {
 			return nil, errors.Wrap(err, "unable to create ECC")
 		}
@@ -184,7 +186,7 @@ func NewStaticProvider(rc *RepositoryConfig, formatBytes []byte) (Provider, erro
 	}
 
 	return &staticProvider{
-		rc: rc,
+		rc: &rc,
 
 		h:           h,
 		e:           e,
