@@ -183,9 +183,13 @@ func (ks *KopiaSnapshotter) Cleanup() {
 
 // GetRepositoryStatus returns the repository status in JSON format.
 func (ks *KopiaSnapshotter) GetRepositoryStatus() (cli.RepositoryStatus, error) {
-	a1, _, _ := ks.snap.Run("repository", "status", "--json")
-
 	var rs cli.RepositoryStatus
+
+	a1, _, err := ks.snap.Run("repository", "status", "--json")
+	if err != nil {
+		return rs, err
+	}
+
 	if err := json.Unmarshal([]byte(a1), &rs); err != nil {
 		return rs, err
 	}
