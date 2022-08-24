@@ -52,14 +52,14 @@ type Factory func() Splitter
 //
 //nolint:gochecknoglobals
 var splitterFactories = map[string]Factory{
-	"FIXED-1M": Fixed(splitterSize1MB),
-	"FIXED-2M": Fixed(splitterSize2MB),
-	"FIXED-4M": Fixed(splitterSize4MB),
-	"FIXED-8M": Fixed(splitterSize8MB),
+	"FIXED-128K": Fixed(splitterSize128KB),
+	"FIXED-256K": Fixed(splitterSize256KB),
+	"FIXED-512K": Fixed(splitterSize512KB),
+	"FIXED-1M":   Fixed(splitterSize1MB),
+	"FIXED-2M":   Fixed(splitterSize2MB),
+	"FIXED-4M":   Fixed(splitterSize4MB),
+	"FIXED-8M":   Fixed(splitterSize8MB),
 
-	"DYNAMIC-16K-BUZHASH":  newBuzHash32SplitterFactory(splitterSize16KB),
-	"DYNAMIC-32K-BUZHASH":  newBuzHash32SplitterFactory(splitterSize32KB),
-	"DYNAMIC-64K-BUZHASH":  newBuzHash32SplitterFactory(splitterSize64KB),
 	"DYNAMIC-128K-BUZHASH": newBuzHash32SplitterFactory(splitterSize128KB),
 	"DYNAMIC-256K-BUZHASH": newBuzHash32SplitterFactory(splitterSize256KB),
 	"DYNAMIC-512K-BUZHASH": newBuzHash32SplitterFactory(splitterSize512KB),
@@ -68,10 +68,13 @@ var splitterFactories = map[string]Factory{
 	"DYNAMIC-4M-BUZHASH":   newBuzHash32SplitterFactory(splitterSize4MB),
 	"DYNAMIC-8M-BUZHASH":   newBuzHash32SplitterFactory(splitterSize8MB),
 
-	"DYNAMIC-1M-RABINKARP": newRabinKarp64SplitterFactory(splitterSize1MB),
-	"DYNAMIC-2M-RABINKARP": newRabinKarp64SplitterFactory(splitterSize2MB),
-	"DYNAMIC-4M-RABINKARP": newRabinKarp64SplitterFactory(splitterSize4MB),
-	"DYNAMIC-8M-RABINKARP": newRabinKarp64SplitterFactory(splitterSize8MB),
+	"DYNAMIC-128K-RABINKARP": newRabinKarp64SplitterFactory(splitterSize128KB),
+	"DYNAMIC-256K-RABINKARP": newRabinKarp64SplitterFactory(splitterSize256KB),
+	"DYNAMIC-512K-RABINKARP": newRabinKarp64SplitterFactory(splitterSize512KB),
+	"DYNAMIC-1M-RABINKARP":   newRabinKarp64SplitterFactory(splitterSize1MB),
+	"DYNAMIC-2M-RABINKARP":   newRabinKarp64SplitterFactory(splitterSize2MB),
+	"DYNAMIC-4M-RABINKARP":   newRabinKarp64SplitterFactory(splitterSize4MB),
+	"DYNAMIC-8M-RABINKARP":   newRabinKarp64SplitterFactory(splitterSize8MB),
 
 	// handle deprecated legacy names to splitters of arbitrary size
 	"FIXED": Fixed(splitterSize4MB),
