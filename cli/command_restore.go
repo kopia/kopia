@@ -435,7 +435,7 @@ func tryToConvertPathToID(ctx context.Context, rep repo.Repository, source strin
 		return "", errors.Errorf("the source must contain a path element")
 	}
 
-	manifestIDs, relPath, err := findSnapshotsForSource(ctx, rep, si, map[string]string{})
+	manifestIDs, err := findSnapshotsForSource(ctx, rep, si, map[string]string{})
 	if err != nil {
 		return "", err
 	}
@@ -449,16 +449,19 @@ func tryToConvertPathToID(ctx context.Context, rep repo.Repository, source strin
 		return "", errors.Wrap(err, "unable to load snapshots")
 	}
 
-	manifest := findLastManifestWithPath(ctx, rep, manifests, relPath)
+	manifest := findLastManifestWithPath(ctx, rep, manifests, si.Path)
 	if manifest == nil {
 		return "", errors.Errorf("no snapshots contain data for %v", source)
 	}
 
-	if relPath != "" {
-		relPath = "/" + relPath
+	relPathParts, err := findRelativePathParts(manifest, si.Path)
+	if err != nil {
+		return "", err
 	}
 
-	result := string(manifest.ID) + relPath
+	relPathParts = append([]string{string(manifest.ID)}, relPathParts...)
+
+	result := filepath.ToSlash(filepath.Join(relPathParts...))
 
 	log(ctx).Infof("Restoring from snapshot %v...", result)
 
