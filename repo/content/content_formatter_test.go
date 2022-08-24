@@ -5,7 +5,6 @@ import (
 	"context"
 	cryptorand "crypto/rand"
 	"crypto/sha1"
-	"strings"
 	"testing"
 	"time"
 
@@ -16,20 +15,9 @@ import (
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/encryption"
+	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/hashing"
 )
-
-// combinations of hash and encryption that are not compatible.
-var incompatibleAlgorithms = map[string]string{
-	"BLAKE2B-256-128/XSALSA20":      "expected >=24 bytes, got 16",
-	"BLAKE2S-128/XSALSA20":          "expected >=24 bytes, got 16",
-	"HMAC-RIPEMD-160/XSALSA20":      "expected >=24 bytes, got 20",
-	"HMAC-SHA256-128/XSALSA20":      "expected >=24 bytes, got 16",
-	"BLAKE2B-256-128/XSALSA20-HMAC": "expected >=24 bytes, got 16",
-	"BLAKE2S-128/XSALSA20-HMAC":     "expected >=24 bytes, got 16",
-	"HMAC-RIPEMD-160/XSALSA20-HMAC": "expected >=24 bytes, got 20",
-	"HMAC-SHA256-128/XSALSA20-HMAC": "expected >=24 bytes, got 16",
-}
 
 func TestFormatters(t *testing.T) {
 	secret := []byte("secret")
@@ -46,40 +34,30 @@ func TestFormatters(t *testing.T) {
 				t.Run(encryptionAlgo, func(t *testing.T) {
 					ctx := testlogging.Context(t)
 
-					cr, err := CreateCrypter(&FormattingOptions{
+					fo := &format.ContentFormat{
 						HMACSecret: secret,
 						MasterKey:  make([]byte, 32),
 						Hash:       hashAlgo,
 						Encryption: encryptionAlgo,
-					})
-					if err != nil {
-						key := hashAlgo + "/" + encryptionAlgo
-
-						errmsg := incompatibleAlgorithms[key]
-						if errmsg == "" {
-							t.Errorf("Algorithm %v not marked as incompatible and failed with %v", key, err)
-							return
-						}
-
-						if !strings.HasSuffix(err.Error(), errmsg) {
-							t.Errorf("unexpected error message %v, wanted %v", err.Error(), errmsg)
-							return
-						}
-
-						return
 					}
 
-					contentID := cr.HashFunction(nil, gather.FromSlice(data))
+					hf, err := hashing.CreateHashFunc(fo)
+					require.NoError(t, err)
+
+					enc, err := encryption.CreateEncryptor(fo)
+					require.NoError(t, err)
+
+					contentID := hf(nil, gather.FromSlice(data))
 
 					var cipherText gather.WriteBuffer
 					defer cipherText.Close()
 
-					require.NoError(t, cr.Encryptor.Encrypt(gather.FromSlice(data), contentID, &cipherText))
+					require.NoError(t, enc.Encrypt(gather.FromSlice(data), contentID, &cipherText))
 
 					var plainText gather.WriteBuffer
 					defer plainText.Close()
 
-					require.NoError(t, cr.Encryptor.Decrypt(cipherText.Bytes(), contentID, &plainText))
+					require.NoError(t, enc.Decrypt(cipherText.Bytes(), contentID, &plainText))
 
 					h1 := sha1.Sum(plainText.ToByteSlice())
 
@@ -100,16 +78,16 @@ func verifyEndToEndFormatter(ctx context.Context, t *testing.T, hashAlgo, encryp
 	keyTime := map[blob.ID]time.Time{}
 	st := blobtesting.NewMapStorage(data, keyTime, nil)
 
-	bm, err := NewManagerForTesting(testlogging.Context(t), st, &FormattingOptions{
+	bm, err := NewManagerForTesting(testlogging.Context(t), st, mustCreateFormatProvider(t, &format.ContentFormat{
 		Hash:       hashAlgo,
 		Encryption: encryptionAlgo,
 		HMACSecret: hmacSecret,
-		MutableParameters: MutableParameters{
+		MutableParameters: format.MutableParameters{
 			Version:     1,
 			MaxPackSize: maxPackSize,
 		},
 		MasterKey: make([]byte, 32), // zero key, does not matter
-	}, nil, nil)
+	}), nil, nil)
 	if err != nil {
 		t.Errorf("can't create content manager with hash %v and encryption %v: %v", hashAlgo, encryptionAlgo, err.Error())
 		return
@@ -158,4 +136,13 @@ func verifyEndToEndFormatter(ctx context.Context, t *testing.T, hashAlgo, encryp
 			return
 		}
 	}
+}
+
+func mustCreateFormatProvider(t *testing.T, f *format.ContentFormat) format.Provider {
+	t.Helper()
+
+	fop, err := format.NewFormattingOptionsProvider(f, nil)
+	require.NoError(t, err)
+
+	return fop
 }

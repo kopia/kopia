@@ -16,7 +16,7 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/encryption"
-	"github.com/kopia/kopia/repo/object"
+	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/snapshot"
 )
 
@@ -47,7 +47,7 @@ func (e *Environment) RootStorage() blob.Storage {
 }
 
 // setup sets up a test environment.
-func (e *Environment) setup(tb testing.TB, version content.FormatVersion, opts ...Options) *Environment {
+func (e *Environment) setup(tb testing.TB, version format.Version, opts ...Options) *Environment {
 	tb.Helper()
 
 	ctx := testlogging.Context(tb)
@@ -55,8 +55,8 @@ func (e *Environment) setup(tb testing.TB, version content.FormatVersion, opts .
 	openOpt := &repo.Options{}
 
 	opt := &repo.NewRepositoryOptions{
-		BlockFormat: content.FormattingOptions{
-			MutableParameters: content.MutableParameters{
+		BlockFormat: format.ContentFormat{
+			MutableParameters: format.MutableParameters{
 				Version: version,
 			},
 			HMACSecret:           []byte{},
@@ -64,7 +64,7 @@ func (e *Environment) setup(tb testing.TB, version content.FormatVersion, opts .
 			Encryption:           encryption.DefaultAlgorithm,
 			EnablePasswordChange: true,
 		},
-		ObjectFormat: object.Format{
+		ObjectFormat: format.ObjectFormat{
 			Splitter: "FIXED-1M",
 		},
 	}
@@ -267,10 +267,10 @@ func repoOptions(openOpts []func(*repo.Options)) *repo.Options {
 }
 
 // FormatNotImportant chooses arbitrary format version where it's not important to the test.
-const FormatNotImportant = content.FormatVersion3
+const FormatNotImportant = format.FormatVersion3
 
 // NewEnvironment creates a new repository testing environment and ensures its cleanup at the end of the test.
-func NewEnvironment(tb testing.TB, version content.FormatVersion, opts ...Options) (context.Context, *Environment) {
+func NewEnvironment(tb testing.TB, version format.Version, opts ...Options) (context.Context, *Environment) {
 	tb.Helper()
 
 	ctx := testlogging.Context(tb)

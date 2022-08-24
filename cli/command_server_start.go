@@ -196,8 +196,14 @@ func (c *commandServerStart) run(ctx context.Context) error {
 	c.svc.onCtrlC(func() {
 		log(ctx).Infof("Shutting down...")
 
-		if err = httpServer.Shutdown(ctx); err != nil {
-			log(ctx).Debugf("unable to shut down: %v", err)
+		if serr := httpServer.Shutdown(ctx); serr != nil {
+			log(ctx).Debugf("unable to shut down: %v", serr)
+		}
+	})
+
+	c.svc.onRepositoryFatalError(func(_ error) {
+		if serr := httpServer.Shutdown(ctx); serr != nil {
+			log(ctx).Debugf("unable to shut down: %v", serr)
 		}
 	})
 

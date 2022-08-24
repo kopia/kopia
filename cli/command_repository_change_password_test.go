@@ -3,7 +3,7 @@ package cli_test
 import (
 	"testing"
 
-	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
@@ -15,7 +15,7 @@ func (s *formatSpecificTestSuite) TestRepositoryChangePassword(t *testing.T) {
 
 	env1.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", env1.RepoDir, "--disable-repository-format-cache")
 
-	if s.formatVersion == content.FormatVersion1 {
+	if s.formatVersion == format.FormatVersion1 {
 		env1.RunAndExpectFailure(t, "repo", "change-password", "--new-password", "newPass")
 
 		return

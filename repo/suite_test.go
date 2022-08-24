@@ -4,23 +4,23 @@ import (
 	"testing"
 
 	"github.com/kopia/kopia/internal/testutil"
-	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/format"
 )
 
 func TestMain(m *testing.M) { testutil.MyTestMain(m) }
 
 type formatSpecificTestSuite struct {
-	formatVersion content.FormatVersion
+	formatVersion format.Version
 }
 
 func TestFormatV1(t *testing.T) {
-	testutil.RunAllTestsWithParam(t, &formatSpecificTestSuite{content.FormatVersion1})
+	testutil.RunAllTestsWithParam(t, &formatSpecificTestSuite{format.FormatVersion1})
 }
 
 func TestFormatV2(t *testing.T) {
-	testutil.RunAllTestsWithParam(t, &formatSpecificTestSuite{content.FormatVersion2})
+	testutil.RunAllTestsWithParam(t, &formatSpecificTestSuite{format.FormatVersion2})
 }
 
 func TestFormatV3(t *testing.T) {
-	testutil.RunAllTestsWithParam(t, &formatSpecificTestSuite{content.FormatVersion3})
+	testutil.RunAllTestsWithParam(t, &formatSpecificTestSuite{format.FormatVersion3})
 }

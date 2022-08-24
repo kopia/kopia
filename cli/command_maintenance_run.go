@@ -3,6 +3,8 @@ package cli
 import (
 	"context"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/maintenance"
 	"github.com/kopia/kopia/snapshot/snapshotmaintenance"
@@ -25,7 +27,11 @@ func (c *commandMaintenanceRun) setup(svc appServices, parent commandParent) {
 
 func (c *commandMaintenanceRun) run(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	mode := maintenance.ModeQuick
-	_, supportsEpochManager := rep.ContentManager().EpochManager()
+
+	_, supportsEpochManager, err := rep.ContentManager().EpochManager()
+	if err != nil {
+		return errors.Wrap(err, "EpochManager")
+	}
 
 	if c.maintenanceRunFull || supportsEpochManager {
 		mode = maintenance.ModeFull

@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 
 	"github.com/pkg/errors"
 
@@ -14,8 +15,8 @@ import (
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
-	"github.com/kopia/kopia/repo/content"
-	"github.com/kopia/kopia/repo/object"
+	"github.com/kopia/kopia/repo/content/index"
+	"github.com/kopia/kopia/repo/format"
 )
 
 type commandRepositoryStatus struct {
@@ -32,12 +33,12 @@ type RepositoryStatus struct {
 	ConfigFile  string `json:"configFile"`
 	UniqueIDHex string `json:"uniqueIDHex"`
 
-	ClientOptions repo.ClientOptions        `json:"clientOptions"`
-	Storage       blob.ConnectionInfo       `json:"storage"`
-	Capacity      *blob.Capacity            `json:"volume,omitempty"`
-	ContentFormat content.FormattingOptions `json:"contentFormat"`
-	ObjectFormat  object.Format             `json:"objectFormat"`
-	BlobRetention content.BlobCfgBlob       `json:"blobRetention"`
+	ClientOptions repo.ClientOptions              `json:"clientOptions"`
+	Storage       blob.ConnectionInfo             `json:"storage"`
+	Capacity      *blob.Capacity                  `json:"volume,omitempty"`
+	ContentFormat format.ContentFormat            `json:"contentFormat"`
+	ObjectFormat  format.ObjectFormat             `json:"objectFormat"`
+	BlobRetention format.BlobStorageConfiguration `json:"blobRetention"`
 }
 
 func (c *commandRepositoryStatus) setup(svc advancedAppServices, parent commandParent) {
@@ -63,8 +64,8 @@ func (c *commandRepositoryStatus) outputJSON(ctx context.Context, r repo.Reposit
 		s.UniqueIDHex = hex.EncodeToString(dr.UniqueID())
 		s.ObjectFormat = dr.ObjectFormat()
 		s.BlobRetention = dr.BlobCfg()
-		s.Storage = scrubber.ScrubSensitiveData(reflect.ValueOf(ci)).Interface().(blob.ConnectionInfo)                                             // nolint:forcetypeassert
-		s.ContentFormat = scrubber.ScrubSensitiveData(reflect.ValueOf(dr.ContentReader().ContentFormat())).Interface().(content.FormattingOptions) // nolint:forcetypeassert
+		s.Storage = scrubber.ScrubSensitiveData(reflect.ValueOf(ci)).Interface().(blob.ConnectionInfo)                                                 // nolint:forcetypeassert
+		s.ContentFormat = scrubber.ScrubSensitiveData(reflect.ValueOf(dr.ContentReader().ContentFormat().Struct())).Interface().(format.ContentFormat) // nolint:forcetypeassert
 
 		switch cp, err := dr.BlobVolume().GetCapacity(ctx); {
 		case err == nil:
@@ -126,7 +127,7 @@ func (c *commandRepositoryStatus) dumpRetentionStatus(dr repo.DirectRepository) 
 	}
 }
 
-// nolint: funlen
+// nolint: funlen,gocyclo
 func (c *commandRepositoryStatus) run(ctx context.Context, rep repo.Repository) error {
 	if c.jo.jsonOutput {
 		return c.outputJSON(ctx, rep)
@@ -170,19 +171,33 @@ func (c *commandRepositoryStatus) run(ctx context.Context, rep repo.Repository) 
 		c.out.printStdout("Storage config:      %v\n", string(cjson))
 	}
 
+	contentFormat := dr.ContentReader().ContentFormat()
+
+	mp, mperr := contentFormat.GetMutableParameters()
+	if mperr != nil {
+		return errors.Wrap(mperr, "mutable parameters")
+	}
+
 	c.out.printStdout("\n")
 	c.out.printStdout("Unique ID:           %x\n", dr.UniqueID())
-	c.out.printStdout("Hash:                %v\n", dr.ContentReader().ContentFormat().Hash)
-	c.out.printStdout("Encryption:          %v\n", dr.ContentReader().ContentFormat().Encryption)
+	c.out.printStdout("Hash:                %v\n", contentFormat.GetHashFunction())
+	c.out.printStdout("Encryption:          %v\n", contentFormat.GetEncryptionAlgorithm())
 	c.out.printStdout("Splitter:            %v\n", dr.ObjectFormat().Splitter)
-	c.out.printStdout("Format version:      %v\n", dr.ContentReader().ContentFormat().Version)
-	c.out.printStdout("Content compression: %v\n", dr.ContentReader().SupportsContentCompression())
-	c.out.printStdout("Password changes:    %v\n", dr.ContentReader().ContentFormat().EnablePasswordChange)
+	c.out.printStdout("Format version:      %v\n", mp.Version)
+	c.out.printStdout("Content compression: %v\n", mp.IndexVersion >= index.Version2)
+	c.out.printStdout("Password changes:    %v\n", contentFormat.SupportsPasswordChange())
 
-	c.out.printStdout("Max pack length:     %v\n", units.BytesStringBase2(int64(dr.ContentReader().ContentFormat().MaxPackSize)))
-	c.out.printStdout("Index Format:        v%v\n", dr.ContentReader().ContentFormat().IndexVersion)
+	c.outputRequiredFeatures(dr)
 
-	if emgr, ok := dr.ContentReader().EpochManager(); ok {
+	c.out.printStdout("Max pack length:     %v\n", units.BytesStringBase2(int64(mp.MaxPackSize)))
+	c.out.printStdout("Index Format:        v%v\n", mp.IndexVersion)
+
+	emgr, epochMgrEnabled, emerr := dr.ContentReader().EpochManager()
+	if emerr != nil {
+		return errors.Wrap(emerr, "epoch manager")
+	}
+
+	if epochMgrEnabled {
 		c.out.printStdout("\n")
 		c.out.printStdout("Epoch Manager:       enabled\n")
 
@@ -192,10 +207,10 @@ func (c *commandRepositoryStatus) run(ctx context.Context, rep repo.Repository) 
 		}
 
 		c.out.printStdout("\n")
-		c.out.printStdout("Epoch refresh frequency: %v\n", emgr.Params.EpochRefreshFrequency)
-		c.out.printStdout("Epoch advance on:        %v blobs or %v, minimum %v\n", emgr.Params.EpochAdvanceOnCountThreshold, units.BytesStringBase2(emgr.Params.EpochAdvanceOnTotalSizeBytesThreshold), emgr.Params.MinEpochDuration)
-		c.out.printStdout("Epoch cleanup margin:    %v\n", emgr.Params.CleanupSafetyMargin)
-		c.out.printStdout("Epoch checkpoint every:  %v epochs\n", emgr.Params.FullCheckpointFrequency)
+		c.out.printStdout("Epoch refresh frequency: %v\n", mp.EpochParameters.EpochRefreshFrequency)
+		c.out.printStdout("Epoch advance on:        %v blobs or %v, minimum %v\n", mp.EpochParameters.EpochAdvanceOnCountThreshold, units.BytesStringBase2(mp.EpochParameters.EpochAdvanceOnTotalSizeBytesThreshold), mp.EpochParameters.MinEpochDuration)
+		c.out.printStdout("Epoch cleanup margin:    %v\n", mp.EpochParameters.CleanupSafetyMargin)
+		c.out.printStdout("Epoch checkpoint every:  %v epochs\n", mp.EpochParameters.FullCheckpointFrequency)
 	} else {
 		c.out.printStdout("Epoch Manager:       disabled\n")
 	}
@@ -233,6 +248,18 @@ func (c *commandRepositoryStatus) run(ctx context.Context, rep repo.Repository) 
 	}
 
 	return nil
+}
+
+func (c *commandRepositoryStatus) outputRequiredFeatures(dr repo.DirectRepository) {
+	if req, _ := dr.RequiredFeatures(); len(req) > 0 {
+		var featureIDs []string
+
+		for _, r := range req {
+			featureIDs = append(featureIDs, string(r.Feature))
+		}
+
+		c.out.printStdout("Required Features:   %v\n", strings.Join(featureIDs, " "))
+	}
 }
 
 func scanCacheDir(dirname string) (fileCount int, totalFileLength int64, err error) {

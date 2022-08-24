@@ -246,9 +246,14 @@ func Run(ctx context.Context, runParams RunParameters, safety SafetyParameters) 
 }
 
 func runQuickMaintenance(ctx context.Context, runParams RunParameters, safety SafetyParameters) error {
-	if _, ok := runParams.rep.ContentManager().EpochManager(); ok {
+	_, ok, emerr := runParams.rep.ContentManager().EpochManager()
+	if ok {
 		log(ctx).Debugf("quick maintenance not required for epoch manager")
 		return nil
+	}
+
+	if emerr != nil {
+		return errors.Wrap(emerr, "epoch manager")
 	}
 
 	s, err := GetSchedule(ctx, runParams.rep)
@@ -321,7 +326,11 @@ func runTaskCleanupLogs(ctx context.Context, runParams RunParameters, s *Schedul
 }
 
 func runTaskCleanupEpochManager(ctx context.Context, runParams RunParameters, s *Schedule) error {
-	em, ok := runParams.rep.ContentManager().EpochManager()
+	em, ok, emerr := runParams.rep.ContentManager().EpochManager()
+	if emerr != nil {
+		return errors.Wrap(emerr, "epoch manager")
+	}
+
 	if !ok {
 		return nil
 	}

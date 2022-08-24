@@ -11,6 +11,7 @@ import (
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/encryption"
+	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/hashing"
 	"github.com/kopia/kopia/repo/logging"
 )
@@ -28,7 +29,7 @@ func TestEncryptedBlobManager(t *testing.T) {
 	data := blobtesting.DataMap{}
 	st := blobtesting.NewMapStorage(data, nil, nil)
 	fs := blobtesting.NewFaultyStorage(st)
-	f := &FormattingOptions{
+	f := &format.ContentFormat{
 		Hash:       hashing.DefaultAlgorithm,
 		Encryption: encryption.DefaultAlgorithm,
 	}
@@ -37,14 +38,9 @@ func TestEncryptedBlobManager(t *testing.T) {
 	enc, err := encryption.CreateEncryptor(f)
 	require.NoError(t, err)
 
-	cr := &Crypter{
-		HashFunction: hf,
-		Encryptor:    enc,
-	}
-
 	ebm := encryptedBlobMgr{
 		st:             fs,
-		crypter:        cr,
+		crypter:        staticCrypter{hf, enc},
 		indexBlobCache: nil,
 		log:            logging.NullLogger,
 	}
@@ -80,8 +76,21 @@ func TestEncryptedBlobManager(t *testing.T) {
 
 	someError2 := errors.Errorf("some error 2")
 
-	cr.Encryptor = failingEncryptor{nil, someError2}
+	ebm.crypter = staticCrypter{hf, failingEncryptor{nil, someError2}}
 
 	_, err = ebm.encryptAndWriteBlob(ctx, gather.FromSlice([]byte{1, 2, 3, 4}), "x", "session1")
 	require.ErrorIs(t, err, someError2)
+}
+
+type staticCrypter struct {
+	h hashing.HashFunc
+	e encryption.Encryptor
+}
+
+func (p staticCrypter) Encryptor() encryption.Encryptor {
+	return p.e
+}
+
+func (p staticCrypter) HashFunc() hashing.HashFunc {
+	return p.h
 }

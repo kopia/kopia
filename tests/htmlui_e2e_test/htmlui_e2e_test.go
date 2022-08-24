@@ -122,8 +122,10 @@ func TestEndToEndTest(t *testing.T) {
 			chromedp.Click("button[data-testid='provider-filesystem']"),
 			tc.captureScreenshot("filesystem-setup"),
 
-			tc.log("entering password"),
+			tc.log("entering repo path: "+repoPath),
 			chromedp.SendKeys("input[data-testid='control-path']", repoPath+"\n"),
+
+			tc.log("entering password"),
 			chromedp.SendKeys("input[data-testid='control-password']", "password1"),
 			chromedp.SendKeys("input[data-testid='control-confirmPassword']", "password1\n"),
 
@@ -133,7 +135,12 @@ func TestEndToEndTest(t *testing.T) {
 
 			tc.log("clicking new snapshot"),
 			chromedp.Click(`a[data-testid='new-snapshot']`),
+
+			tc.log("entering path:"+snap1Path),
 			chromedp.SendKeys(`input[name='path']`, snap1Path),
+
+			// sleep a bit to ensure all the keys in the long path get typed
+			chromedp.Sleep(500*time.Millisecond),
 
 			tc.log("clicking estimate"),
 			chromedp.Click(`button[data-testid='estimate-now']`),

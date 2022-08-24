@@ -9,8 +9,8 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/internal/cachedir"
 	"github.com/kopia/kopia/internal/wcmatch"
-	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
@@ -79,7 +79,7 @@ type ignoreDirectory struct {
 
 func isCorrectCacheDirSignature(ctx context.Context, f fs.File) error {
 	const (
-		validSignature    = repo.CacheDirMarkerHeader
+		validSignature    = cachedir.CacheDirMarkerHeader
 		validSignatureLen = len(validSignature)
 	)
 
@@ -112,7 +112,7 @@ func (d *ignoreDirectory) skipCacheDirectory(ctx context.Context, relativePath s
 		return false
 	}
 
-	e, err := d.Directory.Child(ctx, repo.CacheDirMarkerFile)
+	e, err := d.Directory.Child(ctx, cachedir.CacheDirMarkerFile)
 	if err != nil {
 		return false
 	}

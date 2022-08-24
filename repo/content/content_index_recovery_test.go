@@ -28,7 +28,7 @@ func (s *contentManagerSuite) TestContentIndexRecovery(t *testing.T) {
 	}
 
 	// delete all index blobs
-	require.NoError(t, bm.st.ListBlobs(ctx, IndexBlobPrefix, func(bi blob.Metadata) error {
+	require.NoError(t, bm.st.ListBlobs(ctx, LegacyIndexBlobPrefix, func(bi blob.Metadata) error {
 		t.Logf("deleting %v", bi.BlobID)
 		return bm.st.DeleteBlob(ctx, bi.BlobID)
 	}))

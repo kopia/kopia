@@ -33,6 +33,7 @@ import (
 	"github.com/kopia/kopia/repo/blob/logging"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content/index"
+	"github.com/kopia/kopia/repo/format"
 )
 
 const (
@@ -52,7 +53,7 @@ func TestMain(m *testing.M) { testutil.MyTestMain(m) }
 
 func TestFormatV1(t *testing.T) {
 	testutil.RunAllTestsWithParam(t, &contentManagerSuite{
-		mutableParameters: MutableParameters{
+		mutableParameters: format.MutableParameters{
 			Version:      1,
 			IndexVersion: 1,
 			MaxPackSize:  maxPackSize,
@@ -62,7 +63,7 @@ func TestFormatV1(t *testing.T) {
 
 func TestFormatV2(t *testing.T) {
 	testutil.RunAllTestsWithParam(t, &contentManagerSuite{
-		mutableParameters: MutableParameters{
+		mutableParameters: format.MutableParameters{
 			Version:         2,
 			MaxPackSize:     maxPackSize,
 			IndexVersion:    index.Version2,
@@ -72,7 +73,7 @@ func TestFormatV2(t *testing.T) {
 }
 
 type contentManagerSuite struct {
-	mutableParameters MutableParameters
+	mutableParameters format.MutableParameters
 }
 
 func (s *contentManagerSuite) TestContentManagerEmptyFlush(t *testing.T) {
@@ -354,13 +355,13 @@ func (s *contentManagerSuite) TestContentManagerFailedToWritePack(t *testing.T) 
 
 	ta := faketime.NewTimeAdvance(fakeTime, 0)
 
-	bm, err := NewManagerForTesting(testlogging.Context(t), st, &FormattingOptions{
+	bm, err := NewManagerForTesting(testlogging.Context(t), st, mustCreateFormatProvider(t, &format.ContentFormat{
 		Hash:              "HMAC-SHA256-128",
 		Encryption:        "AES256-GCM-HMAC-SHA256",
 		MutableParameters: s.mutableParameters,
 		HMACSecret:        []byte("foo"),
 		MasterKey:         []byte("0123456789abcdef0123456789abcdef"),
-	}, nil, &ManagerOptions{TimeNow: ta.NowFunc()})
+	}), nil, &ManagerOptions{TimeNow: ta.NowFunc()})
 	if err != nil {
 		t.Fatalf("can't create bm: %v", err)
 	}
@@ -550,7 +551,7 @@ func validateIndexCount(t *testing.T, data map[blob.ID][]byte, wantIndexCount, w
 	var indexCnt, compactionLogCnt int
 
 	for blobID := range data {
-		if strings.HasPrefix(string(blobID), IndexBlobPrefix) || strings.HasPrefix(string(blobID), "x") {
+		if strings.HasPrefix(string(blobID), LegacyIndexBlobPrefix) || strings.HasPrefix(string(blobID), "x") {
 			indexCnt++
 		}
 
@@ -1202,7 +1203,7 @@ func (s *contentManagerSuite) TestFlushWaitsForAllPendingWriters(t *testing.T) {
 	bm.Flush(ctx)
 	t.Logf("<<< end of flushing")
 
-	indexBlobPrefix := blob.ID(IndexBlobPrefix)
+	indexBlobPrefix := blob.ID(LegacyIndexBlobPrefix)
 	if s.mutableParameters.EpochParameters.Enabled {
 		indexBlobPrefix = "x"
 	}
@@ -1828,7 +1829,7 @@ func (s *contentManagerSuite) TestAutoCompressionOfMetadata(t *testing.T) {
 	info, err := bm.ContentInfo(ctx, contentID)
 	require.NoError(t, err)
 
-	if bm.SupportsContentCompression() {
+	if scc, _ := bm.SupportsContentCompression(); scc {
 		require.Equal(t, compression.HeaderZstdFastest, info.GetCompressionHeaderID())
 	} else {
 		require.Equal(t, NoCompression, info.GetCompressionHeaderID())
@@ -1860,7 +1861,7 @@ func (s *contentManagerSuite) TestContentReadAliasing(t *testing.T) {
 }
 
 func (s *contentManagerSuite) TestVersionCompatibility(t *testing.T) {
-	for writeVer := minSupportedReadVersion; writeVer <= currentWriteVersion; writeVer++ {
+	for writeVer := format.MinSupportedReadVersion; writeVer <= format.CurrentWriteVersion; writeVer++ {
 		writeVer := writeVer
 		t.Run(fmt.Sprintf("version-%v", writeVer), func(t *testing.T) {
 			s.verifyVersionCompat(t, writeVer)
@@ -1868,7 +1869,7 @@ func (s *contentManagerSuite) TestVersionCompatibility(t *testing.T) {
 	}
 }
 
-func (s *contentManagerSuite) verifyVersionCompat(t *testing.T, writeVersion FormatVersion) {
+func (s *contentManagerSuite) verifyVersionCompat(t *testing.T, writeVersion format.Version) {
 	t.Helper()
 
 	ctx := testlogging.Context(t)
@@ -1877,10 +1878,10 @@ func (s *contentManagerSuite) verifyVersionCompat(t *testing.T, writeVersion For
 	data := blobtesting.DataMap{}
 	st := blobtesting.NewMapStorage(data, nil, nil)
 
-	mgr := s.newTestContentManager(t, st)
+	mgr := s.newTestContentManagerWithTweaks(t, st, &contentManagerTestTweaks{
+		formatVersion: writeVersion,
+	})
 	defer mgr.Close(ctx)
-
-	mgr.writeFormatVersion = int32(writeVersion)
 
 	dataSet := map[ID][]byte{}
 
@@ -2029,7 +2030,6 @@ func (s *contentManagerSuite) TestCompression_Disabled(t *testing.T) {
 		indexVersion: index.Version1,
 	})
 
-	require.False(t, bm.SupportsContentCompression())
 	ctx := testlogging.Context(t)
 	compressibleData := bytes.Repeat([]byte{1, 2, 3, 4}, 1000)
 
@@ -2044,8 +2044,6 @@ func (s *contentManagerSuite) TestCompression_CompressibleData(t *testing.T) {
 	bm := s.newTestContentManagerWithTweaks(t, st, &contentManagerTestTweaks{
 		indexVersion: index.Version2,
 	})
-
-	require.True(t, bm.SupportsContentCompression())
 
 	ctx := testlogging.Context(t)
 	compressibleData := bytes.Repeat([]byte{1, 2, 3, 4}, 1000)
@@ -2079,8 +2077,6 @@ func (s *contentManagerSuite) TestCompression_NonCompressibleData(t *testing.T) 
 	bm := s.newTestContentManagerWithTweaks(t, st, &contentManagerTestTweaks{
 		indexVersion: index.Version2,
 	})
-
-	require.True(t, bm.SupportsContentCompression())
 
 	ctx := testlogging.Context(t)
 	nonCompressibleData := make([]byte, 65000)
@@ -2331,8 +2327,9 @@ type contentManagerTestTweaks struct {
 	CachingOptions
 	ManagerOptions
 
-	indexVersion int
-	maxPackSize  int
+	indexVersion  int
+	maxPackSize   int
+	formatVersion format.Version
 }
 
 func (s *contentManagerSuite) newTestContentManagerWithTweaks(t *testing.T, st blob.Storage, tweaks *contentManagerTestTweaks) *WriteManager {
@@ -2357,13 +2354,17 @@ func (s *contentManagerSuite) newTestContentManagerWithTweaks(t *testing.T, st b
 		mp.MaxPackSize = mps
 	}
 
+	if tweaks.formatVersion != 0 {
+		mp.Version = tweaks.formatVersion
+	}
+
 	ctx := testlogging.Context(t)
-	fo := &FormattingOptions{
+	fo := mustCreateFormatProvider(t, &format.ContentFormat{
 		Hash:              "HMAC-SHA256",
 		Encryption:        "AES256-GCM-HMAC-SHA256",
 		HMACSecret:        hmacSecret,
 		MutableParameters: mp,
-	}
+	})
 
 	bm, err := NewManagerForTesting(ctx, st, fo, &tweaks.CachingOptions, &tweaks.ManagerOptions)
 	if err != nil {

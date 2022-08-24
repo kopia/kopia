@@ -1,4 +1,4 @@
-package repo
+package format
 
 import (
 	"crypto/sha256"

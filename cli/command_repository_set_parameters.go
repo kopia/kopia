@@ -7,10 +7,12 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/epoch"
+	"github.com/kopia/kopia/internal/feature"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/format"
 )
 
 type commandRepositorySetParameters struct {
@@ -28,6 +30,10 @@ type commandRepositorySetParameters struct {
 	epochCheckpointFrequency int
 
 	upgradeRepositoryFormat bool
+
+	addRequiredFeature           string
+	removeRequiredFeature        string
+	warnOnMissingRequiredFeature bool
 
 	svc appServices
 }
@@ -49,6 +55,12 @@ func (c *commandRepositorySetParameters) setup(svc appServices, parent commandPa
 	cmd.Flag("epoch-advance-on-size-mb", "Advance epoch if the total size of indexes exceeds given threshold").Int64Var(&c.epochAdvanceOnSizeMB)
 	cmd.Flag("epoch-delete-parallelism", "Epoch delete parallelism").IntVar(&c.epochDeleteParallelism)
 	cmd.Flag("epoch-checkpoint-frequency", "Checkpoint frequency").IntVar(&c.epochCheckpointFrequency)
+
+	if svc.enableTestOnlyFlags() {
+		cmd.Flag("add-required-feature", "Add required feature which must be present to open the repository").Hidden().StringVar(&c.addRequiredFeature)
+		cmd.Flag("remove-required-feature", "Remove required feature").Hidden().StringVar(&c.removeRequiredFeature)
+		cmd.Flag("warn-on-missing-required-feature", "Only warn (instead of failing) when the required feature is missing").Hidden().BoolVar(&c.warnOnMissingRequiredFeature)
+	}
 
 	cmd.Action(svc.directRepositoryWriteAction(c.run))
 
@@ -113,8 +125,13 @@ func (c *commandRepositorySetParameters) setRetentionModeParameter(ctx context.C
 func (c *commandRepositorySetParameters) run(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	var anyChange bool
 
-	mp := rep.ContentReader().ContentFormat().MutableParameters
+	mp := rep.ContentReader().ContentFormat().Struct().MutableParameters
 	blobcfg := rep.BlobCfg()
+
+	requiredFeatures, err := rep.RequiredFeatures()
+	if err != nil {
+		return errors.Wrap(err, "unable to get required features")
+	}
 
 	upgradeToEpochManager := false
 
@@ -127,8 +144,8 @@ func (c *commandRepositorySetParameters) run(ctx context.Context, rep repo.Direc
 			mp.IndexVersion = 2
 		}
 
-		if mp.Version < content.FormatVersion2 {
-			mp.Version = content.FormatVersion2
+		if mp.Version < format.FormatVersion2 {
+			mp.Version = format.FormatVersion2
 		}
 	}
 
@@ -156,6 +173,8 @@ func (c *commandRepositorySetParameters) run(ctx context.Context, rep repo.Direc
 	c.setIntParameter(ctx, c.epochDeleteParallelism, "epoch delete parallelism", &mp.EpochParameters.DeleteParallelism, &anyChange)
 	c.setIntParameter(ctx, c.epochCheckpointFrequency, "epoch checkpoint frequency", &mp.EpochParameters.FullCheckpointFrequency, &anyChange)
 
+	requiredFeatures = c.addRemoveUpdateRequiredFeatures(requiredFeatures, &anyChange)
+
 	if !anyChange {
 		return errors.Errorf("no changes")
 	}
@@ -168,11 +187,44 @@ func (c *commandRepositorySetParameters) run(ctx context.Context, rep repo.Direc
 		}
 	}
 
-	if err := rep.SetParameters(ctx, mp, blobcfg); err != nil {
+	if err := rep.SetParameters(ctx, mp, blobcfg, requiredFeatures); err != nil {
 		return errors.Wrap(err, "error setting parameters")
+	}
+
+	if upgradeToEpochManager {
+		if err := content.WriteLegacyIndexPoisonBlob(ctx, rep.BlobStorage()); err != nil {
+			log(ctx).Errorf("unable to write legacy index poison blob: %v", err)
+		}
 	}
 
 	log(ctx).Infof("NOTE: Repository parameters updated, you must disconnect and re-connect all other Kopia clients.")
 
 	return nil
+}
+
+func (c *commandRepositorySetParameters) addRemoveUpdateRequiredFeatures(orig []feature.Required, anyChange *bool) []feature.Required {
+	var result []feature.Required
+
+	for _, v := range orig {
+		if v.Feature == feature.Feature(c.removeRequiredFeature) || v.Feature == feature.Feature(c.addRequiredFeature) {
+			*anyChange = true
+
+			continue
+		}
+
+		result = append(result, v)
+	}
+
+	if c.addRequiredFeature != "" {
+		result = append(result, feature.Required{
+			Feature: feature.Feature(c.addRequiredFeature),
+			IfNotUnderstood: feature.IfNotUnderstood{
+				Warn: c.warnOnMissingRequiredFeature,
+			},
+		})
+
+		*anyChange = true
+	}
+
+	return result
 }

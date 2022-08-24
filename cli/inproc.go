@@ -5,7 +5,6 @@ import (
 	"io"
 
 	"github.com/alecthomas/kingpin"
-	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/releasable"
 	"github.com/kopia/kopia/repo/logging"
@@ -22,17 +21,18 @@ func (c *App) RunSubcommand(ctx context.Context, kpapp *kingpin.Application, std
 	c.stderrWriter = stderrWriter
 	c.rootctx = logging.WithLogger(ctx, logging.ToWriter(stderrWriter))
 	c.simulatedCtrlC = make(chan bool, 1)
+	c.isInProcessTest = true
 
 	releasable.Created("simulated-ctrl-c", c.simulatedCtrlC)
 
 	c.Attach(kpapp)
 
-	var exitCode int
+	var exitError error
 
 	resultErr := make(chan error, 1)
 
-	c.osExit = func(ec int) {
-		exitCode = ec
+	c.exitWithError = func(ec error) {
+		exitError = ec
 	}
 
 	go func() {
@@ -51,8 +51,8 @@ func (c *App) RunSubcommand(ctx context.Context, kpapp *kingpin.Application, std
 			return
 		}
 
-		if exitCode != 0 {
-			resultErr <- errors.Errorf("exit code %v", exitCode)
+		if exitError != nil {
+			resultErr <- exitError
 			return
 		}
 	}()

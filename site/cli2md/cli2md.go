@@ -45,6 +45,7 @@ func emitFlags(w io.Writer, flags []*kingpin.FlagModel) {
 
 	for _, f := range sortFlags(flags) {
 		maybeAdvanced := ""
+
 		if f.Hidden {
 			maybeAdvanced = "[ADV] "
 		}

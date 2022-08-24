@@ -15,7 +15,7 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/throttling"
 	"github.com/kopia/kopia/repo/content"
-	"github.com/kopia/kopia/repo/object"
+	"github.com/kopia/kopia/repo/format"
 )
 
 const configDirMode = 0o700
@@ -52,7 +52,7 @@ func (o ClientOptions) ApplyDefaults(ctx context.Context, defaultDesc string) Cl
 	}
 
 	if o.FormatBlobCacheDuration == 0 {
-		o.FormatBlobCacheDuration = DefaultRepositoryBlobCacheDuration
+		o.FormatBlobCacheDuration = format.DefaultRepositoryBlobCacheDuration
 	}
 
 	return o
@@ -95,14 +95,6 @@ type LocalConfig struct {
 	Caching *content.CachingOptions `json:"caching,omitempty"`
 
 	ClientOptions
-}
-
-// repositoryObjectFormat describes the format of objects in a repository.
-type repositoryObjectFormat struct {
-	content.FormattingOptions
-	object.Format
-
-	UpgradeLock *UpgradeLockIntent `json:"upgradeLock,omitempty"`
 }
 
 // writeToFile writes the config to a given file.

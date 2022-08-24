@@ -1,35 +1,15 @@
-package content
+package format
 
 import (
-	"time"
-
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/epoch"
 	"github.com/kopia/kopia/internal/units"
-	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content/index"
 )
 
-const (
-	minValidPackSize = 10 << 20
-	maxValidPackSize = 120 << 20
-)
-
-// FormatVersion denotes content format version.
-type FormatVersion int
-
-// Supported format versions.
-const (
-	FormatVersion1 FormatVersion = 1
-	FormatVersion2 FormatVersion = 2 // new in v0.9
-	FormatVersion3 FormatVersion = 3 // new in v0.11
-
-	MaxFormatVersion = FormatVersion3
-)
-
-// FormattingOptions describes the rules for formatting contents in repository.
-type FormattingOptions struct {
+// ContentFormat describes the rules for formatting contents in repository.
+type ContentFormat struct {
 	Hash       string `json:"hash,omitempty"`                        // identifier of the hash algorithm used
 	Encryption string `json:"encryption,omitempty"`                  // identifier of the encryption algorithm used
 	HMACSecret []byte `json:"secret,omitempty" kopia:"sensitive"`    // HMAC secret used to generate encryption keys
@@ -40,7 +20,7 @@ type FormattingOptions struct {
 }
 
 // ResolveFormatVersion applies format options parameters based on the format version.
-func (f *FormattingOptions) ResolveFormatVersion() error {
+func (f *ContentFormat) ResolveFormatVersion() error {
 	switch f.Version {
 	case FormatVersion2, FormatVersion3:
 		f.EnablePasswordChange = true
@@ -61,10 +41,20 @@ func (f *FormattingOptions) ResolveFormatVersion() error {
 	}
 }
 
+// GetMutableParameters implements FormattingOptionsProvider.
+func (f *ContentFormat) GetMutableParameters() (MutableParameters, error) {
+	return f.MutableParameters, nil
+}
+
+// SupportsPasswordChange implements FormattingOptionsProvider.
+func (f *ContentFormat) SupportsPasswordChange() bool {
+	return f.EnablePasswordChange
+}
+
 // MutableParameters represents parameters of the content manager that can be mutated after the repository
 // is created.
 type MutableParameters struct {
-	Version         FormatVersion    `json:"version,omitempty"`         // version number, must be "1", "2" or "3"
+	Version         Version          `json:"version,omitempty"`         // version number, must be "1", "2" or "3"
 	MaxPackSize     int              `json:"maxPackSize,omitempty"`     // maximum size of a pack object
 	IndexVersion    int              `json:"indexVersion,omitempty"`    // force particular index format version (1,2,..)
 	EpochParameters epoch.Parameters `json:"epochParameters,omitempty"` // epoch manager parameters
@@ -92,47 +82,21 @@ func (v *MutableParameters) Validate() error {
 }
 
 // GetEncryptionAlgorithm implements encryption.Parameters.
-func (f *FormattingOptions) GetEncryptionAlgorithm() string {
+func (f *ContentFormat) GetEncryptionAlgorithm() string {
 	return f.Encryption
 }
 
 // GetMasterKey implements encryption.Parameters.
-func (f *FormattingOptions) GetMasterKey() []byte {
+func (f *ContentFormat) GetMasterKey() []byte {
 	return f.MasterKey
 }
 
 // GetHashFunction implements hashing.Parameters.
-func (f *FormattingOptions) GetHashFunction() string {
+func (f *ContentFormat) GetHashFunction() string {
 	return f.Hash
 }
 
 // GetHmacSecret implements hashing.Parameters.
-func (f *FormattingOptions) GetHmacSecret() []byte {
+func (f *ContentFormat) GetHmacSecret() []byte {
 	return f.HMACSecret
-}
-
-// BlobCfgBlob is the content for `kopia.blobcfg` blob which contains the blob
-// management configuration options.
-type BlobCfgBlob struct {
-	RetentionMode   blob.RetentionMode `json:"retentionMode,omitempty"`
-	RetentionPeriod time.Duration      `json:"retentionPeriod,omitempty"`
-}
-
-// IsRetentionEnabled returns true if retention is enabled on the blob-config
-// object.
-func (r *BlobCfgBlob) IsRetentionEnabled() bool {
-	return r.RetentionMode != "" && r.RetentionPeriod != 0
-}
-
-// Validate validates the blob config parameters.
-func (r *BlobCfgBlob) Validate() error {
-	if (r.RetentionMode == "") != (r.RetentionPeriod == 0) {
-		return errors.Errorf("both retention mode and period must be provided when setting blob retention properties")
-	}
-
-	if r.RetentionPeriod != 0 && r.RetentionPeriod < 24*time.Hour {
-		return errors.Errorf("invalid retention-period, the minimum required is 1-day and there is no maximum limit")
-	}
-
-	return nil
 }

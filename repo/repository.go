@@ -10,9 +10,11 @@ import (
 	"go.opentelemetry.io/otel"
 
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/feature"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/throttling"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/repo/object"
 )
@@ -51,20 +53,20 @@ type RepositoryWriter interface {
 type DirectRepository interface {
 	Repository
 
-	ObjectFormat() object.Format
-	BlobCfg() content.BlobCfgBlob
+	ObjectFormat() format.ObjectFormat
+	BlobCfg() format.BlobStorageConfiguration
 	BlobReader() blob.Reader
 	BlobVolume() blob.Volume
 	ContentReader() content.Reader
 	IndexBlobs(ctx context.Context, includeInactive bool) ([]content.IndexBlobInfo, error)
-	Crypter() *content.Crypter
 	NewDirectWriter(ctx context.Context, opt WriteSessionOptions) (context.Context, DirectRepositoryWriter, error)
 	AlsoLogToContentLog(ctx context.Context) context.Context
 	UniqueID() []byte
 	ConfigFilename() string
-	DeriveKey(purpose []byte, keyLength int) []byte
+	DeriveKey(purpose []byte, keyLength int) ([]byte, error)
 	Token(password string) (string, error)
 	Throttler() throttling.SettableThrottler
+	RequiredFeatures() ([]feature.Required, error)
 	DisableIndexRefresh()
 }
 
@@ -74,10 +76,10 @@ type DirectRepositoryWriter interface {
 	DirectRepository
 	BlobStorage() blob.Storage
 	ContentManager() *content.WriteManager
-	SetParameters(ctx context.Context, m content.MutableParameters, blobcfg content.BlobCfgBlob) error
+	SetParameters(ctx context.Context, m format.MutableParameters, blobcfg format.BlobStorageConfiguration, requiredFeatures []feature.Required) error
 	ChangePassword(ctx context.Context, newPassword string) error
-	GetUpgradeLockIntent(ctx context.Context) (*UpgradeLockIntent, error)
-	SetUpgradeLockIntent(ctx context.Context, l UpgradeLockIntent) (*UpgradeLockIntent, error)
+	GetUpgradeLockIntent(ctx context.Context) (*format.UpgradeLockIntent, error)
+	SetUpgradeLockIntent(ctx context.Context, l format.UpgradeLockIntent) (*format.UpgradeLockIntent, error)
 	CommitUpgrade(ctx context.Context) error
 	RollbackUpgrade(ctx context.Context) error
 }
@@ -88,8 +90,8 @@ type directRepositoryParameters struct {
 	cachingOptions      content.CachingOptions
 	cliOpts             ClientOptions
 	timeNow             func() time.Time
-	formatBlob          *formatBlob
-	blobCfgBlob         content.BlobCfgBlob
+	formatBlob          *format.KopiaRepositoryJSON
+	blobCfgBlob         format.BlobStorageConfiguration
 	formatEncryptionKey []byte
 	nextWriterID        *int32
 	throttler           throttling.SettableThrottler
@@ -109,15 +111,20 @@ type directRepository struct {
 }
 
 // DeriveKey derives encryption key of the provided length from the master key.
-func (r *directRepository) DeriveKey(purpose []byte, keyLength int) []byte {
-	if r.cmgr.ContentFormat().EnablePasswordChange {
-		return deriveKeyFromMasterKey(r.cmgr.ContentFormat().MasterKey, r.uniqueID, purpose, keyLength)
+func (r *directRepository) DeriveKey(purpose []byte, keyLength int) ([]byte, error) {
+	mp, mperr := r.cmgr.ContentFormat().GetMutableParameters()
+	if mperr != nil {
+		return nil, errors.Wrap(mperr, "mutable parameters")
+	}
+
+	if mp.Version >= format.FormatVersion2 {
+		return format.DeriveKeyFromMasterKey(r.cmgr.ContentFormat().GetMasterKey(), r.uniqueID, purpose, keyLength), nil
 	}
 
 	// version of kopia <v0.9 had a bug where certain keys were derived directly from
 	// the password and not from the random master key. This made it impossible to change
 	// password.
-	return deriveKeyFromMasterKey(r.formatEncryptionKey, r.uniqueID, purpose, keyLength)
+	return format.DeriveKeyFromMasterKey(r.formatEncryptionKey, r.uniqueID, purpose, keyLength), nil
 }
 
 // ClientOptions returns client options.
@@ -143,11 +150,6 @@ func (r *directRepository) ContentManager() *content.WriteManager {
 // ConfigFilename returns the name of the configuration file.
 func (r *directRepository) ConfigFilename() string {
 	return r.configFile
-}
-
-// Crypter returns a Crypter object.
-func (r *directRepository) Crypter() *content.Crypter {
-	return r.sm.Crypter()
 }
 
 // NewObjectWriter creates an object writer.
@@ -305,7 +307,7 @@ func (r *directRepository) Flush(ctx context.Context) error {
 }
 
 // ObjectFormat returns the object format.
-func (r *directRepository) ObjectFormat() object.Format {
+func (r *directRepository) ObjectFormat() format.ObjectFormat {
 	return r.omgr.Format
 }
 
@@ -345,7 +347,7 @@ func (r *directRepository) Time() time.Time {
 	return defaultTime(r.timeNow)()
 }
 
-func (r *directRepository) BlobCfg() content.BlobCfgBlob {
+func (r *directRepository) BlobCfg() format.BlobStorageConfiguration {
 	return r.directRepositoryParameters.blobCfgBlob
 }
 

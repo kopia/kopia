@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/gather"
@@ -16,6 +18,7 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/encryption"
+	"github.com/kopia/kopia/repo/format"
 )
 
 const goroutineCount = 16
@@ -45,16 +48,19 @@ func TestStressBlockManager(t *testing.T) {
 func stressTestWithStorage(t *testing.T, st blob.Storage, duration time.Duration) {
 	ctx := testlogging.Context(t)
 
+	fop, err := format.NewFormattingOptionsProvider(&format.ContentFormat{
+		Hash:       "HMAC-SHA256-128",
+		Encryption: encryption.DefaultAlgorithm,
+		MutableParameters: format.MutableParameters{
+			Version:     1,
+			MaxPackSize: 20000000,
+		},
+		MasterKey: []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
+	}, nil)
+	require.NoError(t, err)
+
 	openMgr := func() (*content.WriteManager, error) {
-		return content.NewManagerForTesting(ctx, st, &content.FormattingOptions{
-			Hash:       "HMAC-SHA256-128",
-			Encryption: encryption.DefaultAlgorithm,
-			MutableParameters: content.MutableParameters{
-				Version:     1,
-				MaxPackSize: 20000000,
-			},
-			MasterKey: []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
-		}, nil, nil)
+		return content.NewManagerForTesting(ctx, st, fop, nil, nil)
 	}
 
 	seed0 := clock.Now().Nanosecond()

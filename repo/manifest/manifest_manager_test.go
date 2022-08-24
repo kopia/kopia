@@ -18,6 +18,7 @@ import (
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/content/index"
 	"github.com/kopia/kopia/repo/encryption"
+	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/hashing"
 )
 
@@ -142,20 +143,19 @@ func TestManifestInitCorruptedBlock(t *testing.T) {
 	data := blobtesting.DataMap{}
 	st := blobtesting.NewMapStorage(data, nil, nil)
 
-	f := &content.FormattingOptions{
+	fop, err := format.NewFormattingOptionsProvider(&format.ContentFormat{
 		Hash:       hashing.DefaultAlgorithm,
 		Encryption: encryption.DefaultAlgorithm,
-		MutableParameters: content.MutableParameters{
+		MutableParameters: format.MutableParameters{
 			Version:     1,
 			MaxPackSize: 100000,
 		},
-	}
+	}, nil)
+	require.NoError(t, err)
 
 	// write some data to storage
-	bm, err := content.NewManagerForTesting(ctx, st, f, nil, nil)
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
+	bm, err := content.NewManagerForTesting(ctx, st, fop, nil, nil)
+	require.NoError(t, err)
 
 	bm0 := bm
 
@@ -182,10 +182,8 @@ func TestManifestInitCorruptedBlock(t *testing.T) {
 	}
 
 	// make a new content manager based on corrupted data.
-	bm, err = content.NewManagerForTesting(ctx, st, f, nil, nil)
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
+	bm, err = content.NewManagerForTesting(ctx, st, fop, nil, nil)
+	require.NoError(t, err)
 
 	t.Cleanup(func() { bm.Close(ctx) })
 
@@ -305,24 +303,24 @@ func newManagerForTesting(ctx context.Context, t *testing.T, data blobtesting.Da
 
 	st := blobtesting.NewMapStorage(data, nil, nil)
 
-	bm, err := content.NewManagerForTesting(ctx, st, &content.FormattingOptions{
+	fop, err := format.NewFormattingOptionsProvider(&format.ContentFormat{
 		Hash:       hashing.DefaultAlgorithm,
 		Encryption: encryption.DefaultAlgorithm,
-		MutableParameters: content.MutableParameters{
+		MutableParameters: format.MutableParameters{
 			Version:     1,
 			MaxPackSize: 100000,
 		},
-	}, nil, nil)
-	if err != nil {
-		t.Fatalf("can't create content manager: %v", err)
-	}
+	}, nil)
+
+	require.NoError(t, err)
+
+	bm, err := content.NewManagerForTesting(ctx, st, fop, nil, nil)
+	require.NoError(t, err)
 
 	t.Cleanup(func() { bm.Close(ctx) })
 
 	mm, err := NewManager(ctx, bm, ManagerOptions{})
-	if err != nil {
-		t.Fatalf("can't create manifest manager: %v", err)
-	}
+	require.NoError(t, err)
 
 	return mm
 }

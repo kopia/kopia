@@ -14,6 +14,7 @@ weight: 40
 * [How Do I Enable Compression?](#how-do-i-enable-compression)
 * [How Do I Enable Data Deduplication?](#how-do-i-enable-data-deduplication)
 * [How Do I Change My Repository Password?](#how-do-i-change-my-repository-password)
+* [Does Kopia Support Storage Classes, Like Amazon Glacier?](#does-kopia-support-storage-classes-like-amazon-glacier)
 * [How Do I Decrease Kopia's CPU Usage?](#how-do-i-decrease-kopias-cpu-usage)
 * [How Do I Decrease Kopia's Memory (RAM) Usage?](#how-do-i-decrease-kopias-memory-ram-usage)
 * [What is a Kopia Repository Server?](#what-is-a-kopia-repository-server)
@@ -86,6 +87,10 @@ You must use Kopia CLI if you want to change your `repository` password; changin
 Before changing your password, you must be [connected to your `repository`](../getting-started/#connecting-to-repository). This means that you **can** reset your password if you forget your password AND you are still connected to your `repository`. But this also means that you **cannot** reset your password if you forget your password and you are NOT still connected to your `repository`, because you will need your current password to connect to the `repository`.
 
 Remember to select a secure _repository password_. The password is used to [decrypt](../features/#end-to-end-zero-knowledge-encryption) and access the data in your snapshots.
+
+#### Does Kopia Support Storage Classes, Like Amazon Glacier?
+
+Yes. Please read the [storage classes guide](../advanced/storage-tiers) to learn more.
 
 #### How Do I Decrease Kopia's CPU Usage?
 

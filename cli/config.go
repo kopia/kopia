@@ -25,6 +25,10 @@ func deprecatedFlag(w io.Writer, help string) func(_ *kingpin.ParseContext) erro
 	}
 }
 
+func (c *App) onRepositoryFatalError(f func(err error)) {
+	c.onFatalErrorCallbacks = append(c.onFatalErrorCallbacks, f)
+}
+
 func (c *App) onCtrlC(f func()) {
 	s := make(chan os.Signal, 1)
 	signal.Notify(s, os.Interrupt)
@@ -73,6 +77,20 @@ func (c *App) optionsFromFlags(ctx context.Context) *repo.Options {
 		DisableInternalLog:  c.disableInternalLog,
 		UpgradeOwnerID:      c.upgradeOwnerID,
 		DoNotWaitForUpgrade: c.doNotWaitForUpgrade,
+
+		// when a fatal error is encountered in the repository, run all registered callbacks
+		// and exit the program.
+		OnFatalError: func(err error) {
+			log(ctx).Debugf("onFatalError: %v", err)
+
+			for _, cb := range c.onFatalErrorCallbacks {
+				cb(err)
+			}
+
+			c.exitWithError(err)
+		},
+
+		TestOnlyIgnoreMissingRequiredFeatures: c.testonlyIgnoreMissingRequiredFeatures,
 	}
 }
 

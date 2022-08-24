@@ -11,6 +11,7 @@ import (
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/splitter"
 )
 
@@ -33,18 +34,13 @@ type contentReader interface {
 
 type contentManager interface {
 	contentReader
-	SupportsContentCompression() bool
+	SupportsContentCompression() (bool, error)
 	WriteContent(ctx context.Context, data gather.Bytes, prefix content.IDPrefix, comp compression.HeaderID) (content.ID, error)
-}
-
-// Format describes the format of objects in a repository.
-type Format struct {
-	Splitter string `json:"splitter,omitempty"` // splitter used to break objects into pieces of content
 }
 
 // Manager implements a content-addressable storage on top of blob storage.
 type Manager struct {
-	Format Format
+	Format format.ObjectFormat
 
 	contentMgr  contentManager
 	newSplitter splitter.Factory
@@ -201,7 +197,7 @@ func PrefetchBackingContents(ctx context.Context, contentMgr contentManager, obj
 }
 
 // NewObjectManager creates an ObjectManager with the specified content manager and format.
-func NewObjectManager(ctx context.Context, bm contentManager, f Format) (*Manager, error) {
+func NewObjectManager(ctx context.Context, bm contentManager, f format.ObjectFormat) (*Manager, error) {
 	om := &Manager{
 		contentMgr: bm,
 		Format:     f,

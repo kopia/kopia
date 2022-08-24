@@ -92,7 +92,7 @@ func newTestEnv(t *testing.T) *epochManagerTestEnv {
 	st = fs
 	st = logging.NewWrapper(st, testlogging.NewTestLogger(t), "[STORAGE] ")
 	te := &epochManagerTestEnv{unloggedst: unloggedst, st: st, ft: ft}
-	m := NewManager(te.st, Parameters{
+	m := NewManager(te.st, parameterProvider{&Parameters{
 		Enabled:                 true,
 		EpochRefreshFrequency:   20 * time.Minute,
 		FullCheckpointFrequency: 7,
@@ -102,7 +102,7 @@ func newTestEnv(t *testing.T) *epochManagerTestEnv {
 		EpochAdvanceOnCountThreshold:          15,
 		EpochAdvanceOnTotalSizeBytesThreshold: 20 << 20,
 		DeleteParallelism:                     1,
-	}, te.compact, testlogging.NewTestLogger(t), te.ft.NowFunc())
+	}}, te.compact, testlogging.NewTestLogger(t), te.ft.NowFunc())
 	te.mgr = m
 	te.faultyStorage = fs
 	te.data = data
@@ -121,7 +121,7 @@ func (te *epochManagerTestEnv) another() *epochManagerTestEnv {
 		faultyStorage: te.faultyStorage,
 	}
 
-	te2.mgr = NewManager(te2.st, te.mgr.Params, te2.compact, te.mgr.log, te.mgr.timeFunc)
+	te2.mgr = NewManager(te2.st, te.mgr.paramProvider, te2.compact, te.mgr.log, te.mgr.timeFunc)
 
 	return te2
 }
@@ -577,7 +577,7 @@ func verifySequentialWrites(t *testing.T, te *epochManagerTestEnv) {
 func TestIndexEpochManager_Disabled(t *testing.T) {
 	te := newTestEnv(t)
 
-	te.mgr.Params.Enabled = false
+	te.mgr.paramProvider.(parameterProvider).Parameters.Enabled = false
 
 	_, err := te.mgr.Current(testlogging.Context(t))
 	require.Error(t, err)
@@ -735,4 +735,12 @@ func (te *epochManagerTestEnv) mustWriteIndexFiles(ctx context.Context, t *testi
 	_, err := te.writeIndexFiles(ctx, ndx...)
 
 	require.NoError(t, err)
+}
+
+type parameterProvider struct {
+	*Parameters
+}
+
+func (p parameterProvider) GetParameters() (*Parameters, error) {
+	return p.Parameters, nil
 }

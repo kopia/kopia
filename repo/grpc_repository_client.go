@@ -25,6 +25,7 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/hashing"
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/repo/object"
@@ -74,7 +75,7 @@ type grpcRepositoryClient struct {
 	asyncWritesWG        errgroup.Group
 
 	h                                hashing.HashFunc
-	objectFormat                     object.Format
+	objectFormat                     format.ObjectFormat
 	serverSupportsContentCompression bool
 	cliOpts                          ClientOptions
 	omgr                             *object.Manager
@@ -632,8 +633,8 @@ func (r *grpcInnerSession) GetContent(ctx context.Context, contentID content.ID)
 	return nil, errNoSessionResponse()
 }
 
-func (r *grpcRepositoryClient) SupportsContentCompression() bool {
-	return r.serverSupportsContentCompression
+func (r *grpcRepositoryClient) SupportsContentCompression() (bool, error) {
+	return r.serverSupportsContentCompression, nil
 }
 
 func (r *grpcRepositoryClient) doWrite(ctx context.Context, contentID content.ID, data []byte, prefix content.IDPrefix, comp compression.HeaderID) error {
@@ -906,7 +907,7 @@ func newGRPCAPIRepositoryForConnection(ctx context.Context, conn *grpc.ClientCon
 
 		rr.h = hf
 
-		rr.objectFormat = object.Format{
+		rr.objectFormat = format.ObjectFormat{
 			Splitter: p.Splitter,
 		}
 

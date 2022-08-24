@@ -26,6 +26,7 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/splitter"
 )
 
@@ -79,8 +80,8 @@ func (f *fakeContentManager) WriteContent(ctx context.Context, data gather.Bytes
 	return contentID, nil
 }
 
-func (f *fakeContentManager) SupportsContentCompression() bool {
-	return f.supportsContentCompression
+func (f *fakeContentManager) SupportsContentCompression() (bool, error) {
+	return f.supportsContentCompression, nil
 }
 
 func (f *fakeContentManager) ContentInfo(ctx context.Context, contentID content.ID) (content.Info, error) {
@@ -109,7 +110,7 @@ func setupTest(t *testing.T, compressionHeaderID map[content.ID]compression.Head
 		compresionIDs:              compressionHeaderID,
 	}
 
-	r, err := NewObjectManager(testlogging.Context(t), fcm, Format{
+	r, err := NewObjectManager(testlogging.Context(t), fcm, format.ObjectFormat{
 		Splitter: "FIXED-1M",
 	})
 	if err != nil {
@@ -280,7 +281,7 @@ func TestObjectWriterRaceBetweenCheckpointAndResult(t *testing.T) {
 		data: data,
 	}
 
-	om, err := NewObjectManager(testlogging.Context(t), fcm, Format{
+	om, err := NewObjectManager(testlogging.Context(t), fcm, format.ObjectFormat{
 		Splitter: "FIXED-1M",
 	})
 	if err != nil {

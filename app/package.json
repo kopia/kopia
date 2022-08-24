@@ -7,7 +7,7 @@
     "electron-first-run": "^3.0.0",
     "electron-is-dev": "^2.0.0",
     "electron-log": "^4.4.8",
-    "electron-updater": "^5.0.5",
+    "electron-updater": "^5.2.1",
     "minimist": "^1.2.6",
     "uuid": "^8.3.2"
   },
@@ -110,11 +110,11 @@
     "afterSign": "notarize.js"
   },
   "devDependencies": {
-    "asar": "^3.1.0",
-    "concurrently": "^7.2.2",
+    "asar": "^3.2.0",
+    "concurrently": "^7.3.0",
     "dotenv": "^16.0.1",
     "electron": "^19.0.8",
-    "electron-builder": "^23.1.0",
+    "electron-builder": "^23.3.3",
     "electron-notarize": "^1.2.1"
   },
   "homepage": "./",

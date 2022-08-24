@@ -44,9 +44,13 @@ func TestRepoCreatedWith08CanBeOpenedWithCurrent(t *testing.T) {
 		"--io-drain-timeout", "1s", "--allow-unsafe-upgrade",
 		"--status-poll-interval", "1s")
 
-	// now 0.8 can't open it anymore
+	// now 0.8 client can't open it anymore because they won't understand format V2
 	e3 := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner08)
 	e3.RunAndExpectFailure(t, "repo", "connect", "filesystem", "--path", e1.RepoDir)
+
+	// old 0.8 client who has cached the format blob and never disconnected
+	// can't open the repository because of the poison blob
+	e1.RunAndExpectFailure(t, "snap", "ls")
 }
 
 func TestRepoCreatedWithCurrentWithFormatVersion1CanBeOpenedWith08(t *testing.T) {

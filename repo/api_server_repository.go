@@ -16,6 +16,7 @@ import (
 	"github.com/kopia/kopia/internal/remoterepoapi"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/hashing"
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/repo/object"
@@ -33,7 +34,7 @@ type APIServerInfo struct {
 type apiServerRepository struct {
 	cli                              *apiclient.KopiaAPIClient
 	h                                hashing.HashFunc
-	objectFormat                     object.Format
+	objectFormat                     format.ObjectFormat
 	serverSupportsContentCompression bool
 	cliOpts                          ClientOptions
 	omgr                             *object.Manager
@@ -144,8 +145,8 @@ func (r *apiServerRepository) Flush(ctx context.Context) error {
 	return errors.Wrap(r.cli.Post(ctx, "flush", nil, nil), "Flush")
 }
 
-func (r *apiServerRepository) SupportsContentCompression() bool {
-	return r.serverSupportsContentCompression
+func (r *apiServerRepository) SupportsContentCompression() (bool, error) {
+	return r.serverSupportsContentCompression, nil
 }
 
 func (r *apiServerRepository) NewWriter(ctx context.Context, opt WriteSessionOptions) (context.Context, RepositoryWriter, error) {
@@ -306,7 +307,7 @@ func openRestAPIRepository(ctx context.Context, si *APIServerInfo, cliOpts Clien
 	}
 
 	rr.h = hf
-	rr.objectFormat = p.Format
+	rr.objectFormat = p.ObjectFormat
 	rr.serverSupportsContentCompression = p.SupportsContentCompression
 
 	// create object manager using rr as contentManager implementation.

@@ -16,28 +16,28 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content/index"
-	"github.com/kopia/kopia/repo/encryption"
+	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/hashing"
 	"github.com/kopia/kopia/repo/logging"
 )
 
 const indexBlobCompactionWarningThreshold = 1000
 
-func (sm *SharedManager) maybeCompressAndEncryptDataForPacking(data gather.Bytes, contentID ID, comp compression.HeaderID, output *gather.WriteBuffer) (compression.HeaderID, error) {
+func (sm *SharedManager) maybeCompressAndEncryptDataForPacking(data gather.Bytes, contentID ID, comp compression.HeaderID, output *gather.WriteBuffer, mp format.MutableParameters) (compression.HeaderID, error) {
 	var hashOutput [hashing.MaxHashSize]byte
 
 	iv := getPackedContentIV(hashOutput[:0], contentID)
 
 	// If the content is prefixed (which represents Kopia's own metadata as opposed to user data),
 	// and we're on V2 format or greater, enable internal compression even when not requested.
-	if contentID.HasPrefix() && comp == NoCompression && sm.format.IndexVersion >= index.Version2 {
+	if contentID.HasPrefix() && comp == NoCompression && mp.IndexVersion >= index.Version2 {
 		// 'zstd-fastest' has a good mix of being fast, low memory usage and high compression for JSON.
 		comp = compression.HeaderZstdFastest
 	}
 
 	// nolint:nestif
 	if comp != NoCompression {
-		if sm.format.IndexVersion < index.Version2 {
+		if mp.IndexVersion < index.Version2 {
 			return NoCompression, errors.Errorf("compression is not enabled for this repository")
 		}
 
@@ -62,7 +62,7 @@ func (sm *SharedManager) maybeCompressAndEncryptDataForPacking(data gather.Bytes
 		}
 	}
 
-	if err := sm.crypter.Encryptor.Encrypt(data, iv, output); err != nil {
+	if err := sm.format.Encryptor().Encrypt(data, iv, output); err != nil {
 		return NoCompression, errors.Wrap(err, "unable to encrypt")
 	}
 
@@ -181,33 +181,8 @@ func (sm *SharedManager) writePackFileNotLocked(ctx context.Context, packFile bl
 
 func (sm *SharedManager) hashData(output []byte, data gather.Bytes) []byte {
 	// Hash the content and compute encryption key.
-	contentID := sm.crypter.HashFunction(output, data)
+	contentID := sm.format.HashFunc()(output, data)
 	sm.Stats.hashedContent(data.Length())
 
 	return contentID
-}
-
-// CreateCrypter returns a Crypter based on the specified formatting options.
-func CreateCrypter(f *FormattingOptions) (*Crypter, error) {
-	h, err := hashing.CreateHashFunc(f)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to create hash")
-	}
-
-	e, err := encryption.CreateEncryptor(f)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to create encryptor")
-	}
-
-	contentID := h(nil, gather.FromSlice(nil))
-
-	var tmp gather.WriteBuffer
-	defer tmp.Close()
-
-	err = e.Encrypt(gather.FromSlice(nil), contentID, &tmp)
-	if err != nil {
-		return nil, errors.Wrap(err, "invalid encryptor")
-	}
-
-	return &Crypter{h, e}, nil
 }

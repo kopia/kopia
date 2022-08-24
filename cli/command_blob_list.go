@@ -57,7 +57,7 @@ func (c *commandBlobList) run(ctx context.Context, rep repo.DirectRepository) er
 
 func (c *commandBlobList) shouldInclude(b blob.Metadata) bool {
 	if c.dataOnly {
-		if strings.HasPrefix(string(b.BlobID), content.IndexBlobPrefix) {
+		if strings.HasPrefix(string(b.BlobID), content.LegacyIndexBlobPrefix) {
 			return false
 		}
 

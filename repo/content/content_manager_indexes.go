@@ -38,11 +38,16 @@ func (sm *SharedManager) Refresh(ctx context.Context) error {
 
 	sm.log.Debugf("Refresh started")
 
-	sm.indexBlobManager.invalidate(ctx)
+	ibm, err := sm.indexBlobManager()
+	if err != nil {
+		return err
+	}
+
+	ibm.invalidate(ctx)
 
 	timer := timetrack.StartTimer()
 
-	err := sm.loadPackIndexesLocked(ctx)
+	err = sm.loadPackIndexesLocked(ctx)
 	sm.log.Debugf("Refresh completed in %v", timer.Elapsed())
 
 	return err
@@ -57,7 +62,12 @@ func (sm *SharedManager) CompactIndexes(ctx context.Context, opt CompactOptions)
 
 	sm.log.Debugf("CompactIndexes(%+v)", opt)
 
-	if err := sm.indexBlobManager.compact(ctx, opt); err != nil {
+	ibm, err := sm.indexBlobManager()
+	if err != nil {
+		return err
+	}
+
+	if err := ibm.compact(ctx, opt); err != nil {
 		return errors.Wrap(err, "error performing compaction")
 	}
 
@@ -70,15 +80,15 @@ func (sm *SharedManager) CompactIndexes(ctx context.Context, opt CompactOptions)
 }
 
 // ParseIndexBlob loads entries in a given index blob and returns them.
-func ParseIndexBlob(ctx context.Context, blobID blob.ID, encrypted gather.Bytes, crypter *Crypter) ([]Info, error) {
+func ParseIndexBlob(ctx context.Context, blobID blob.ID, encrypted gather.Bytes, crypter crypter) ([]Info, error) {
 	var data gather.WriteBuffer
 	defer data.Close()
 
-	if err := crypter.DecryptBLOB(encrypted, blobID, &data); err != nil {
+	if err := DecryptBLOB(crypter, encrypted, blobID, &data); err != nil {
 		return nil, errors.Wrap(err, "unable to decrypt index blob")
 	}
 
-	ndx, err := index.Open(data.Bytes().ToByteSlice(), nil, uint32(crypter.Encryptor.Overhead()))
+	ndx, err := index.Open(data.Bytes().ToByteSlice(), nil, uint32(crypter.Encryptor().Overhead()))
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to open index blob")
 	}

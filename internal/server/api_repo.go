@@ -17,6 +17,7 @@ import (
 	"github.com/kopia/kopia/repo/blob/throttling"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/encryption"
+	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/hashing"
 	"github.com/kopia/kopia/repo/maintenance"
 	"github.com/kopia/kopia/repo/splitter"
@@ -33,11 +34,16 @@ func handleRepoParameters(ctx context.Context, rc requestContext) (interface{}, 
 		}, nil
 	}
 
+	scc, err := dr.ContentReader().SupportsContentCompression()
+	if err != nil {
+		return nil, internalServerError(err)
+	}
+
 	rp := &remoterepoapi.Parameters{
-		HashFunction:               dr.ContentReader().ContentFormat().Hash,
-		HMACSecret:                 dr.ContentReader().ContentFormat().HMACSecret,
-		Format:                     dr.ObjectFormat(),
-		SupportsContentCompression: dr.ContentReader().SupportsContentCompression(),
+		HashFunction:               dr.ContentReader().ContentFormat().GetHashFunction(),
+		HMACSecret:                 dr.ContentReader().ContentFormat().GetHmacSecret(),
+		ObjectFormat:               dr.ObjectFormat(),
+		SupportsContentCompression: scc,
 	}
 
 	return rp, nil
@@ -53,16 +59,26 @@ func handleRepoStatus(ctx context.Context, rc requestContext) (interface{}, *api
 
 	dr, ok := rc.rep.(repo.DirectRepository)
 	if ok {
+		mp, mperr := dr.ContentReader().ContentFormat().GetMutableParameters()
+		if mperr != nil {
+			return nil, internalServerError(mperr)
+		}
+
+		scc, err := dr.ContentReader().SupportsContentCompression()
+		if err != nil {
+			return nil, internalServerError(err)
+		}
+
 		return &serverapi.StatusResponse{
 			Connected:                  true,
 			ConfigFile:                 dr.ConfigFilename(),
-			Hash:                       dr.ContentReader().ContentFormat().Hash,
-			Encryption:                 dr.ContentReader().ContentFormat().Encryption,
-			MaxPackSize:                dr.ContentReader().ContentFormat().MaxPackSize,
+			Hash:                       dr.ContentReader().ContentFormat().GetHashFunction(),
+			Encryption:                 dr.ContentReader().ContentFormat().GetEncryptionAlgorithm(),
+			MaxPackSize:                mp.MaxPackSize,
 			Splitter:                   dr.ObjectFormat().Splitter,
 			Storage:                    dr.BlobReader().ConnectionInfo().Type,
 			ClientOptions:              dr.ClientOptions(),
-			SupportsContentCompression: dr.ContentReader().SupportsContentCompression(),
+			SupportsContentCompression: scc,
 		}, nil
 	}
 
@@ -174,7 +190,7 @@ func handleRepoExists(ctx context.Context, rc requestContext) (interface{}, *api
 	var tmp gather.WriteBuffer
 	defer tmp.Close()
 
-	if err := st.GetBlob(ctx, repo.FormatBlobID, 0, -1, &tmp); err != nil {
+	if err := st.GetBlob(ctx, format.KopiaRepositoryBlobID, 0, -1, &tmp); err != nil {
 		if errors.Is(err, blob.ErrBlobNotFound) {
 			return nil, requestError(serverapi.ErrorNotInitialized, "repository not initialized")
 		}

@@ -11,10 +11,18 @@ import (
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content/index"
+	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/logging"
 )
 
+// LegacyIndexBlobPrefix is the prefix for all legacy (v0) index blobs.
+const LegacyIndexBlobPrefix = "n"
+
 const (
+	legacyIndexPoisonBlobID = "n00000000000000000000000000000000-repository_unreadable_by_this_kopia_version_upgrade_required"
+
+	defaultIndexShardSize = 16e6 // slightly less than 2^24, which lets index use 24-bit/3-byte indexes
+
 	defaultEventualConsistencySettleTime = 1 * time.Hour
 	compactionLogBlobPrefix              = "m"
 	cleanupBlobPrefix                    = "l"
@@ -45,14 +53,18 @@ type cleanupEntry struct {
 	age time.Duration // not serialized, computed on load
 }
 
+// IndexFormattingOptions provides options for formatting index blobs.
+type IndexFormattingOptions interface {
+	GetMutableParameters() (format.MutableParameters, error)
+}
+
 type indexBlobManagerV0 struct {
-	st             blob.Storage
-	enc            *encryptedBlobMgr
-	timeNow        func() time.Time
-	log            logging.Logger
-	maxPackSize    int
-	indexVersion   int
-	indexShardSize int
+	st      blob.Storage
+	enc     *encryptedBlobMgr
+	timeNow func() time.Time
+	log     logging.Logger
+
+	formattingOptions IndexFormattingOptions
 }
 
 func (m *indexBlobManagerV0) listActiveIndexBlobs(ctx context.Context) ([]IndexBlobInfo, time.Time, error) {
@@ -69,7 +81,7 @@ func (m *indexBlobManagerV0) listActiveIndexBlobs(ctx context.Context) ([]IndexB
 	})
 
 	eg.Go(func() error {
-		v, err := blob.ListAllBlobs(ctx, m.st, IndexBlobPrefix)
+		v, err := blob.ListAllBlobs(ctx, m.st, LegacyIndexBlobPrefix)
 		storageIndexBlobs = v
 
 		return errors.Wrap(err, "error listing index blobs")
@@ -125,7 +137,12 @@ func (m *indexBlobManagerV0) compact(ctx context.Context, opt CompactOptions) er
 		return errors.Wrap(err, "error listing active index blobs")
 	}
 
-	blobsToCompact := m.getBlobsToCompact(indexBlobs, opt)
+	mp, mperr := m.formattingOptions.GetMutableParameters()
+	if mperr != nil {
+		return errors.Wrap(mperr, "mutable parameters")
+	}
+
+	blobsToCompact := m.getBlobsToCompact(indexBlobs, opt, mp)
 
 	if err := m.compactIndexBlobs(ctx, blobsToCompact, opt); err != nil {
 		return errors.Wrap(err, "error performing compaction")
@@ -177,7 +194,7 @@ func (m *indexBlobManagerV0) writeIndexBlobs(ctx context.Context, dataShards []g
 	var result []blob.Metadata
 
 	for _, data := range dataShards {
-		bm, err := m.enc.encryptAndWriteBlob(ctx, data, IndexBlobPrefix, sessionID)
+		bm, err := m.enc.encryptAndWriteBlob(ctx, data, LegacyIndexBlobPrefix, sessionID)
 		if err != nil {
 			return nil, errors.Wrap(err, "error writing index blbo")
 		}
@@ -405,22 +422,22 @@ func (m *indexBlobManagerV0) cleanup(ctx context.Context, maxEventualConsistency
 	return nil
 }
 
-func (m *indexBlobManagerV0) getBlobsToCompact(indexBlobs []IndexBlobInfo, opt CompactOptions) []IndexBlobInfo {
-	var nonCompactedBlobs, verySmallBlobs []IndexBlobInfo
-
-	var totalSizeNonCompactedBlobs, totalSizeVerySmallBlobs, totalSizeMediumSizedBlobs int64
-
-	var mediumSizedBlobCount int
+func (m *indexBlobManagerV0) getBlobsToCompact(indexBlobs []IndexBlobInfo, opt CompactOptions, mp format.MutableParameters) []IndexBlobInfo {
+	var (
+		nonCompactedBlobs, verySmallBlobs                                              []IndexBlobInfo
+		totalSizeNonCompactedBlobs, totalSizeVerySmallBlobs, totalSizeMediumSizedBlobs int64
+		mediumSizedBlobCount                                                           int
+	)
 
 	for _, b := range indexBlobs {
-		if b.Length > int64(m.maxPackSize) && !opt.AllIndexes {
+		if b.Length > int64(mp.MaxPackSize) && !opt.AllIndexes {
 			continue
 		}
 
 		nonCompactedBlobs = append(nonCompactedBlobs, b)
 		totalSizeNonCompactedBlobs += b.Length
 
-		if b.Length < int64(m.maxPackSize/verySmallContentFraction) {
+		if b.Length < int64(mp.MaxPackSize)/verySmallContentFraction {
 			verySmallBlobs = append(verySmallBlobs, b)
 			totalSizeVerySmallBlobs += b.Length
 		} else {
@@ -450,6 +467,11 @@ func (m *indexBlobManagerV0) compactIndexBlobs(ctx context.Context, indexBlobs [
 		return nil
 	}
 
+	mp, mperr := m.formattingOptions.GetMutableParameters()
+	if mperr != nil {
+		return errors.Wrap(mperr, "mutable parameters")
+	}
+
 	bld := make(index.Builder)
 
 	var inputs, outputs []blob.Metadata
@@ -468,7 +490,7 @@ func (m *indexBlobManagerV0) compactIndexBlobs(ctx context.Context, indexBlobs [
 	// we must do it after all input blobs have been merged, otherwise we may resurrect contents.
 	m.dropContentsFromBuilder(bld, opt)
 
-	dataShards, cleanupShards, err := bld.BuildShards(m.indexVersion, false, m.indexShardSize)
+	dataShards, cleanupShards, err := bld.BuildShards(mp.IndexVersion, false, defaultIndexShardSize)
 	if err != nil {
 		return errors.Wrap(err, "unable to build an index")
 	}
@@ -511,6 +533,18 @@ func (m *indexBlobManagerV0) dropContentsFromBuilder(bld index.Builder, opt Comp
 	}
 }
 
+// WriteLegacyIndexPoisonBlob writes a "poison blob" that will prevent old kopia clients
+// that have not been upgraded from being able to open the repository after its format
+// has been upgraded.
+func WriteLegacyIndexPoisonBlob(ctx context.Context, st blob.Storage) error {
+	// nolint:wrapcheck
+	return st.PutBlob(
+		ctx,
+		legacyIndexPoisonBlobID,
+		gather.FromSlice([]byte("The format of this repository has been upgraded and cannot be read by old clients")),
+		blob.PutOptions{})
+}
+
 func addIndexBlobsToBuilder(ctx context.Context, enc *encryptedBlobMgr, bld index.Builder, indexBlobID blob.ID) error {
 	var data gather.WriteBuffer
 	defer data.Close()
@@ -520,7 +554,7 @@ func addIndexBlobsToBuilder(ctx context.Context, enc *encryptedBlobMgr, bld inde
 		return errors.Wrapf(err, "error getting index %q", indexBlobID)
 	}
 
-	ndx, err := index.Open(data.ToByteSlice(), nil, uint32(enc.crypter.Encryptor.Overhead()))
+	ndx, err := index.Open(data.ToByteSlice(), nil, uint32(enc.crypter.Encryptor().Overhead()))
 	if err != nil {
 		return errors.Wrapf(err, "unable to open index blob %q", indexBlobID)
 	}
