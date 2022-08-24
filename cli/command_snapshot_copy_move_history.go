@@ -108,13 +108,13 @@ func (c *commandSnapshotCopyMoveHistory) run(ctx context.Context, rep repo.Repos
 
 		if snapshotExists(dstSnapshots, dstSource, manifest) {
 			if isMoveCommand && !c.snapshotCopyOrMoveDryRun {
-				log(ctx).Infof("%v (%v) already exists - deleting source", dstSource, formatTimestamp(manifest.StartTime))
+				log(ctx).Infof("%v (%v) already exists - deleting source", dstSource, formatTimestamp(manifest.StartTime.ToTime()))
 
 				if err := rep.DeleteManifest(ctx, manifest.ID); err != nil {
 					return errors.Wrap(err, "unable to delete source manifest")
 				}
 			} else {
-				log(ctx).Infof("%v (%v) already exists", dstSource, formatTimestamp(manifest.StartTime))
+				log(ctx).Infof("%v (%v) already exists", dstSource, formatTimestamp(manifest.StartTime.ToTime()))
 			}
 
 			continue
@@ -122,7 +122,7 @@ func (c *commandSnapshotCopyMoveHistory) run(ctx context.Context, rep repo.Repos
 
 		srcID := manifest.ID
 
-		log(ctx).Infof("%v %v (%v) => %v", c.getCopySnapshotAction(isMoveCommand), manifest.Source, formatTimestamp(manifest.StartTime), dstSource)
+		log(ctx).Infof("%v %v (%v) => %v", c.getCopySnapshotAction(isMoveCommand), manifest.Source, formatTimestamp(manifest.StartTime.ToTime()), dstSource)
 
 		if c.snapshotCopyOrMoveDryRun {
 			continue

@@ -78,7 +78,7 @@ func (c *commandSnapshotVerify) run(ctx context.Context, rep repo.Repository) er
 		}
 
 		for _, man := range manifests {
-			rootPath := fmt.Sprintf("%v@%v", man.Source, formatTimestamp(man.StartTime))
+			rootPath := fmt.Sprintf("%v@%v", man.Source, formatTimestamp(man.StartTime.ToTime()))
 
 			if man.RootEntry == nil {
 				continue

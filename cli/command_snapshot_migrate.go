@@ -4,10 +4,10 @@ import (
 	"context"
 	"sort"
 	"sync"
-	"time"
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
@@ -202,7 +202,7 @@ func (c *commandSnapshotMigrate) migrateSinglePolicy(ctx context.Context, source
 	return errors.Wrap(policy.SetPolicy(ctx, destRepo, si, pol), "error setting policy")
 }
 
-func (c *commandSnapshotMigrate) findPreviousSnapshotManifestWithStartTime(ctx context.Context, rep repo.Repository, sourceInfo snapshot.SourceInfo, startTime time.Time) (*snapshot.Manifest, error) {
+func (c *commandSnapshotMigrate) findPreviousSnapshotManifestWithStartTime(ctx context.Context, rep repo.Repository, sourceInfo snapshot.SourceInfo, startTime fs.UTCTimestamp) (*snapshot.Manifest, error) {
 	previous, err := snapshot.ListSnapshots(ctx, rep, sourceInfo)
 	if err != nil {
 		return nil, errors.Wrap(err, "error listing previous snapshots")
@@ -247,7 +247,7 @@ func (c *commandSnapshotMigrate) migrateSingleSource(ctx context.Context, upload
 
 func (c *commandSnapshotMigrate) migrateSingleSourceSnapshot(ctx context.Context, uploader *snapshotfs.Uploader, sourceRepo repo.Repository, destRepo repo.RepositoryWriter, s snapshot.SourceInfo, m *snapshot.Manifest) error {
 	if m.IncompleteReason != "" {
-		log(ctx).Debugf("ignoring incomplete %v at %v", s, formatTimestamp(m.StartTime))
+		log(ctx).Debugf("ignoring incomplete %v at %v", s, formatTimestamp(m.StartTime.ToTime()))
 		return nil
 	}
 
@@ -262,11 +262,11 @@ func (c *commandSnapshotMigrate) migrateSingleSourceSnapshot(ctx context.Context
 	}
 
 	if existing != nil {
-		log(ctx).Infof("already migrated %v at %v", s, formatTimestamp(m.StartTime))
+		log(ctx).Infof("already migrated %v at %v", s, formatTimestamp(m.StartTime.ToTime()))
 		return nil
 	}
 
-	log(ctx).Infof("migrating snapshot of %v at %v", s, formatTimestamp(m.StartTime))
+	log(ctx).Infof("migrating snapshot of %v at %v", s, formatTimestamp(m.StartTime.ToTime()))
 
 	previous, err := findPreviousSnapshotManifest(ctx, destRepo, m.Source, &m.StartTime)
 	if err != nil {

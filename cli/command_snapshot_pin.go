@@ -72,12 +72,12 @@ func (c *commandSnapshotPin) pinSnapshotsByRootObjectID(ctx context.Context, rep
 
 func (c *commandSnapshotPin) pinSnapshot(ctx context.Context, rep repo.RepositoryWriter, m *snapshot.Manifest) error {
 	if !m.UpdatePins(c.addPins, c.removePins) {
-		log(ctx).Infof("No change for snapshot at %v of %v", formatTimestamp(m.StartTime), m.Source)
+		log(ctx).Infof("No change for snapshot at %v of %v", formatTimestamp(m.StartTime.ToTime()), m.Source)
 
 		return nil
 	}
 
-	log(ctx).Infof("Updating snapshot at %v of %v", formatTimestamp(m.StartTime), m.Source)
+	log(ctx).Infof("Updating snapshot at %v of %v", formatTimestamp(m.StartTime.ToTime()), m.Source)
 
 	return errors.Wrap(snapshot.UpdateSnapshot(ctx, rep, m), "error updating snapshot")
 }
