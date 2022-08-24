@@ -86,14 +86,14 @@ func findSnapshotsForSource(ctx context.Context, rep repo.Repository, sourceInfo
 	return result, nil
 }
 
-func findRelativePathParts(manifest *snapshot.Manifest, path string) ([]string, error) {
+func findRelativePathParts(m *snapshot.Manifest, path string) ([]string, error) {
 	if path == "" {
 		return nil, nil
 	}
 
-	relPath, err := filepath.Rel(manifest.Source.Path, path)
+	relPath, err := filepath.Rel(m.Source.Path, path)
 	if err != nil {
-		return nil, err
+		return nil, err //nolint:wrapcheck
 	}
 
 	if relPath == "." {
