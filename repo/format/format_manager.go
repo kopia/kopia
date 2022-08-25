@@ -54,35 +54,34 @@ type Manager struct {
 }
 
 func (m *Manager) getFormat() Provider {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 
 	return m.current
 }
 
 func (m *Manager) getOrRefreshFormat() (Provider, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if err := m.maybeRefreshLocked(); err != nil {
+	if err := m.maybeRefreshNotLocked(); err != nil {
 		return nil, err
 	}
+
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 
 	return m.current, nil
 }
 
-// +checklocks:m.mu
-func (m *Manager) maybeRefreshLocked() error {
-	if m.timeNow().Before(m.validUntil) {
+func (m *Manager) maybeRefreshNotLocked() error {
+	m.mu.RLock()
+	val := m.validUntil
+	m.mu.RUnlock()
+
+	if m.timeNow().Before(val) {
 		return nil
 	}
 
 	// current format not valid anymore, kick off a refresh
-	if err := m.refreshLocked(m.ctx); err != nil {
-		return err
-	}
-
-	return nil
+	return m.refresh(m.ctx)
 }
 
 // readAndCacheRepositoryBlobBytes reads the provided blob from the repository or cache directory.
@@ -112,16 +111,16 @@ func (m *Manager) readAndCacheRepositoryBlobBytes(ctx context.Context, blobID bl
 
 // RefreshCount returns the number of time the format has been refreshed.
 func (m *Manager) RefreshCount() int {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 
 	return m.refreshCounter
 }
 
-// refreshLocked reads `kopia.repository` blob, potentially from cache and decodes it.
-// +checklocks:m.mu
-func (m *Manager) refreshLocked(ctx context.Context) error {
-	log(ctx).Infow("refreshLocked", "now", m.timeNow())
+// refresh reads `kopia.repository` blob, potentially from cache and decodes it.
+func (m *Manager) refresh(ctx context.Context) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 
 	b, cacheMTime, err := m.readAndCacheRepositoryBlobBytes(ctx, KopiaRepositoryBlobID)
 	if err != nil {
@@ -258,32 +257,32 @@ func (m *Manager) GetMutableParameters() (MutableParameters, error) {
 
 // UpgradeLockIntent returns the current lock intent.
 func (m *Manager) UpgradeLockIntent() (*UpgradeLockIntent, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if err := m.maybeRefreshLocked(); err != nil {
+	if err := m.maybeRefreshNotLocked(); err != nil {
 		return nil, err
 	}
+
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 
 	return m.repoConfig.UpgradeLock.Clone(), nil
 }
 
 // RequiredFeatures returns the list of features required to open the repository.
 func (m *Manager) RequiredFeatures() ([]feature.Required, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if err := m.maybeRefreshLocked(); err != nil {
+	if err := m.maybeRefreshNotLocked(); err != nil {
 		return nil, err
 	}
+
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 
 	return m.repoConfig.RequiredFeatures, nil
 }
 
 // LoadedTime gets the time when the config was last reloaded.
 func (m *Manager) LoadedTime() time.Time {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 
 	return m.loadedTime
 }
@@ -306,44 +305,44 @@ func (m *Manager) updateRepoConfigLocked(ctx context.Context) error {
 
 // UniqueID gets the unique ID of a repository allocated at creation time.
 func (m *Manager) UniqueID() []byte {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 
 	return m.j.UniqueID
 }
 
 // BlobCfgBlob gets the BlobStorageConfiguration.
 func (m *Manager) BlobCfgBlob() (BlobStorageConfiguration, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if err := m.maybeRefreshLocked(); err != nil {
+	if err := m.maybeRefreshNotLocked(); err != nil {
 		return BlobStorageConfiguration{}, err
 	}
+
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 
 	return m.blobCfgBlob, nil
 }
 
 // ObjectFormat gets the object format.
 func (m *Manager) ObjectFormat() ObjectFormat {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 
 	return m.repoConfig.ObjectFormat
 }
 
 // FormatEncryptionKey gets the format encryption key derived from the password.
 func (m *Manager) FormatEncryptionKey() []byte {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 
 	return m.formatEncryptionKey
 }
 
 // ScrubbedContentFormat returns scrubbed content format with all sensitive data replaced.
 func (m *Manager) ScrubbedContentFormat() ContentFormat {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 
 	cf := m.repoConfig.ContentFormat
 	cf.MasterKey = nil
@@ -383,10 +382,7 @@ func NewManagerWithCache(
 		timeNow:       timeNow,
 	}
 
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	err := m.refreshLocked(ctx)
+	err := m.refresh(ctx)
 
 	return m, err
 }

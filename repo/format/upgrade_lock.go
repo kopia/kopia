@@ -28,12 +28,12 @@ func BackupBlobID(l UpgradeLockIntent) blob.ID {
 // should cause the unsupporting clients (non-upgrade capable) to fail
 // connecting to the repository.
 func (m *Manager) SetUpgradeLockIntent(ctx context.Context, l UpgradeLockIntent) (*UpgradeLockIntent, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if err := m.maybeRefreshLocked(); err != nil {
+	if err := m.maybeRefreshNotLocked(); err != nil {
 		return nil, err
 	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
 
 	if err := l.Validate(); err != nil {
 		return nil, errors.Wrap(err, "invalid upgrade lock intent")
@@ -75,12 +75,12 @@ func (m *Manager) SetUpgradeLockIntent(ctx context.Context, l UpgradeLockIntent)
 // blob. This in-effect commits the new repository format t othe repository and
 // resumes all access to the repository.
 func (m *Manager) CommitUpgrade(ctx context.Context) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if err := m.maybeRefreshLocked(); err != nil {
+	if err := m.maybeRefreshNotLocked(); err != nil {
 		return err
 	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
 
 	if m.repoConfig.UpgradeLock == nil {
 		return errors.New("no upgrade in progress")
@@ -99,12 +99,12 @@ func (m *Manager) CommitUpgrade(ctx context.Context) error {
 // hence using this API could render the repository corrupted and unreadable by
 // clients.
 func (m *Manager) RollbackUpgrade(ctx context.Context) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if err := m.maybeRefreshLocked(); err != nil {
+	if err := m.maybeRefreshNotLocked(); err != nil {
 		return err
 	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
 
 	if m.repoConfig.UpgradeLock == nil {
 		return errors.New("no upgrade in progress")
@@ -161,12 +161,12 @@ func (m *Manager) RollbackUpgrade(ctx context.Context) error {
 
 // GetUpgradeLockIntent gets the current upgrade lock intent.
 func (m *Manager) GetUpgradeLockIntent(ctx context.Context) (*UpgradeLockIntent, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if err := m.maybeRefreshLocked(); err != nil {
+	if err := m.maybeRefreshNotLocked(); err != nil {
 		return nil, err
 	}
+
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 
 	return m.repoConfig.UpgradeLock, nil
 }
