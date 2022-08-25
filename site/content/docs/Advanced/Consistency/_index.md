@@ -41,32 +41,18 @@ Kopia data structures and algorithms are designed to maintain data consistency e
 
 ### Repairing Corruption
 
-Each type of data corruption is different, so there's not a single approach to data recovery. And, to be clear, there is no guarantee that you will be able to recover from corruption. Nonetheless, Kopia is designed to minimize corruption and give you the best shot at recovering your snapshots/repositories if there is corruption, so if you do run into a corruption issue, there are several things you can try:
+Each type of data corruption is different, so there’s not a single approach to data recovery.
 
-0. Keep a record of your corruption errors and everything you have attempted to try to fix them. We request that you please make a post on https://kopia.discourse.group or https://slack.kopia.io about the errors you faced and whatever you did to try to fix the errors, so that the developers can identify if the errors are caused by a bug in Kopia and fix the bug, if applicable.
+There are few tips to try, which are generally safe to try:
 
-1. Disable any automatic snapshotting or maintenance or any other Kopia function. You don't want Kopia making changes to your repository while you are working on it.
+1. Look for repository files with zero size and remove them. Kopia will never write such files and if they are present, it indicates filesystem data corruption. Simply removing them may work.
 
-2. If possible, make a copy of your whole repository before you proceed further. This step is optional, but it is recommended because part of the corruption fixing process involves deleting blobs. Having a backup of your backups (yes, the irony is not lost on us) helps you easily revert any changes you make. 
+2. Try to open the repository from another computer. If that works, local cache may be corrupted and clearing that should fix the issue. Please do NOT clear the cache on the main computer where the corruption has manifested. Data in cache may help the recovery.
 
-3. Look for repository files with zero size and remove them. Kopia will never write such files and if they are present, it indicates data corruption. Simply removing them may work.
+3. Look for files with unusual timestamps (like year 1970, year 2038 or similar), file extensions, etc and try to clean them up.
 
-4. Try to open the repository from another computer. If that works, local cache may be corrupted and clearing that should fix the issue. Please do NOT clear the cache on the main computer where the corruption has manifested. Data in cache may help the recovery.
+4. If a repository can’t be opened but was working recently and maintenance has not run yet, it may be helpful to try to remove (or stash away) the most recently-written index files whose names start with `x` in the reverse timestamp order one by one until the issue is fixed. This will effectively roll back the repository writes to a prior state. Exercise caution when removing the files.
 
-5. Look for files with unusual timestamps (like year 1970, year 2038, or similar), file extensions, etc. and delete them. Exercise caution when deleting files. The [`kopia blob delete` command](../../reference/command-line/advanced/blob-delete/) can be used to delete the files.
+5. If the steps above do not help, report your issue on https://kopia.discourse.group or https://slack.kopia.io. Kopia has many low-level data recovery tools, but they should not be used by end users without guidance from developers.
 
-6. If a repository can't be opened but was working recently and maintenance has not run yet, it may be helpful to try to remove the most recently-written index files whose names start with `x` in the reverse timestamp order one by one until the issue is fixed. This will effectively roll back the repository writes to a prior state. Exercise caution when removing the files. The [`kopia blob delete` command](../../reference/command-line/advanced/blob-delete/) can be used to delete the files.
-
-7. Look at the error that Kopia is throwing. Identify the name(s) of the corrupt blobs. 
-
-    * If the name(s) start with `n`, `m`, `l` and `x`, then the corruption is likely with index files. Delete the corrupt blobs, run `kopia index recover --parallel=10 --commit`, and see if that fixes your issue. The [`kopia blob delete` command](../../reference/command-line/advanced/blob-delete/) can be used to delete blobs. If your issue has not been solved, go back and delete the whole directory that shares the name with the blob. For example, if the corrupt blob's name is `xn25_04abe9d83a08a65c09bda238af191587-s91f147a798c55c73110-c1`, then find the directory that starts with `xn25` and delete it. Then, run `kopia index recover --parallel=10 --commit` and see if that fixes your issue. If that still does not fix your issues, try running `kopia index recover --parallel=10 --commit --delete-indexes` and see if that fixes your issue.
-
-    * If the name(s) start with `q`, then the corruption is likely with metadata. Run `kopia snapshot fix invalid-files --parallel=10 --commit` and see if that fixes your issue.
-
-    * If the name(s) start with `p`, then the corruption may be in your indexes, metadata, or in the actual blob that stores your backed up files. First, try `kopia index recover --parallel=10 --commit`. If your issue has not been solved, try `kopia index recover --parallel=10 --commit --delete-indexes`. If you are still having issues, try `kopia snapshot fix invalid-files --parallel=10 --commit`. Finally, if the corrupt is still not fixed, try `kopia snapshot fix invalid-files --parallel=10 --commit --verify-files-percent=100` but note that this will download all your files, so it will take a while.
-  
-8. If all recovery attempts fail and you still have access to your original files, you can wipe the whole repository and start over with a clean snapshot. (Note that simply deleting snapshots from within Kopia does not wipe a repository. You need to manually delete all the files from the repository.) This allows Kopia to recreate clean backups without corruption, but keep in mind that if the corruption was caused by some hardware or software issue at your storage location, corruption may happen again.
-  
-If the steps above do not help, report your issue on https://kopia.discourse.group or https://slack.kopia.io. Kopia has many low-level data recovery tools, but they should not be used by end users without guidance from developers.
-
-> NOTE: Since all data corruption cases are unique, it's generally not recommended to attempt fixes recommended to other users even for possibly similar issues, since the particular fix method may not be applicable to you.
+> NOTE: Since all data corruption cases are unique, it’s generally not recommended to attempt fixes recommended to other users even for possibly similar issues, since the particular fix method may not be applicable.
