@@ -7,14 +7,13 @@ import (
 
 const (
 	splitterSlidingWindowSize = 64
-	
-	splitterSize128KB = 128 << 10
-	splitterSize256KB = 256 << 10
-	splitterSize512KB = 512 << 10
-	splitterSize1MB   = 1 << 20
-	splitterSize2MB   = 2 << 20
-	splitterSize4MB   = 4 << 20
-	splitterSize8MB   = 8 << 20
+	splitterSize128KB         = 128 << 10
+	splitterSize256KB         = 256 << 10
+	splitterSize512KB         = 512 << 10
+	splitterSize1MB           = 1 << 20
+	splitterSize2MB           = 2 << 20
+	splitterSize4MB           = 4 << 20
+	splitterSize8MB           = 8 << 20
 )
 
 // Splitter determines when to split a given object.
