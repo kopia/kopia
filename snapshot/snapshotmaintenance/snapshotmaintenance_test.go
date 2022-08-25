@@ -208,7 +208,7 @@ func (s *formatSpecificTestSuite) TestSnapshotGCMinContentAgeSafety(t *testing.T
 
 	// Advance time so the first content created above is close fall of the
 	// SafetyFull.MinContentAgeSubjectToGC window. Leave a small buffer
-	// of 10 seconds below for "passage of time" between now an when snapshot
+	// of 20 seconds below for "passage of time" between now an when snapshot
 	// GC actually starts.
 	// Note: The duration of this buffer is a "magical number" that depends on
 	// the number of times time is advanced between "now" and when snapshot
@@ -217,7 +217,7 @@ func (s *formatSpecificTestSuite) TestSnapshotGCMinContentAgeSafety(t *testing.T
 	require.NoError(t, err)
 	require.NotEmpty(t, ci)
 
-	timeAdvance := safety.MinContentAgeSubjectToGC - th.fakeTime.NowFunc()().Sub(ci.Timestamp()) - 10*time.Second
+	timeAdvance := safety.MinContentAgeSubjectToGC - th.fakeTime.NowFunc()().Sub(ci.Timestamp()) - 20*time.Second
 
 	require.Positive(t, timeAdvance)
 	th.fakeTime.Advance(timeAdvance)
