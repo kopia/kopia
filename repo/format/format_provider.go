@@ -59,8 +59,8 @@ type Provider interface {
 	GetMutableParameters() (MutableParameters, error)
 	SupportsPasswordChange() bool
 	GetMasterKey() []byte
-	RepositoryFormatBytes() []byte
-	Struct() ContentFormat
+
+	RepositoryFormatBytes() ([]byte, error)
 }
 
 type formattingOptionsProvider struct {
@@ -71,13 +71,11 @@ type formattingOptionsProvider struct {
 	formatBytes []byte
 }
 
-func (f *formattingOptionsProvider) Struct() ContentFormat {
-	return *f.ContentFormat
-}
-
 // NewFormattingOptionsProvider validates the provided formatting options and returns static
 // FormattingOptionsProvider based on them.
-func NewFormattingOptionsProvider(f *ContentFormat, formatBytes []byte) (Provider, error) {
+func NewFormattingOptionsProvider(f0 *ContentFormat, formatBytes []byte) (Provider, error) {
+	clone := *f0
+	f := &clone
 	formatVersion := f.Version
 
 	if formatVersion < MinSupportedReadVersion || formatVersion > CurrentWriteVersion {
@@ -94,6 +92,12 @@ func NewFormattingOptionsProvider(f *ContentFormat, formatBytes []byte) (Provide
 
 	if f.IndexVersion < index.Version1 || f.IndexVersion > index.Version2 {
 		return nil, errors.Errorf("index version %v is not supported", f.IndexVersion)
+	}
+
+	// apply default
+	if f.MaxPackSize == 0 {
+		// legacy only, apply default
+		f.MaxPackSize = 20 << 20 //nolint:gomnd
 	}
 
 	h, err := hashing.CreateHashFunc(f)
@@ -145,8 +149,12 @@ func (f *formattingOptionsProvider) HashFunc() hashing.HashFunc {
 	return f.h
 }
 
-func (f *formattingOptionsProvider) RepositoryFormatBytes() []byte {
-	return f.formatBytes
+func (f *formattingOptionsProvider) RepositoryFormatBytes() ([]byte, error) {
+	if f.SupportsPasswordChange() {
+		return nil, nil
+	}
+
+	return f.formatBytes, nil
 }
 
 var _ Provider = (*formattingOptionsProvider)(nil)
