@@ -7,10 +7,7 @@ import (
 
 const (
 	splitterSlidingWindowSize = 64
-
-	splitterSize16KB  = 16 << 10
-	splitterSize32KB  = 32 << 10
-	splitterSize64KB  = 64 << 10
+	
 	splitterSize128KB = 128 << 10
 	splitterSize256KB = 256 << 10
 	splitterSize512KB = 512 << 10
