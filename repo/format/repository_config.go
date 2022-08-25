@@ -2,7 +2,6 @@ package format
 
 import (
 	"encoding/json"
-	"time"
 
 	"github.com/pkg/errors"
 
@@ -24,17 +23,8 @@ type EncryptedRepositoryConfig struct {
 	Format RepositoryConfig `json:"format"`
 }
 
-// DecodedRepositoryConfig encapsulates contents of decoded `kopia.repository` blob.
-type DecodedRepositoryConfig struct {
-	KopiaRepository      *KopiaRepositoryJSON
-	KopiaRepositoryBytes []byte            // serialized format blob
-	CacheMTime           time.Time         // mod time of the format blob cache file
-	RepoConfig           *RepositoryConfig // unencrypted format blob structure
-	FormatEncryptionKey  []byte            // key derived from the password
-}
-
-// DecryptRepositoryConfig decrypts RepositoryConfig stored in EncryptedFormatBytes.
-func (f *KopiaRepositoryJSON) DecryptRepositoryConfig(masterKey []byte) (*RepositoryConfig, error) {
+// decryptRepositoryConfig decrypts RepositoryConfig stored in EncryptedFormatBytes.
+func (f *KopiaRepositoryJSON) decryptRepositoryConfig(masterKey []byte) (*RepositoryConfig, error) {
 	switch f.EncryptionAlgorithm {
 	case aes256GcmEncryption:
 		plainText, err := decryptRepositoryBlobBytesAes256Gcm(f.EncryptedFormatBytes, masterKey, f.UniqueID)
