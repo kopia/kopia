@@ -8,6 +8,8 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -472,10 +474,15 @@ func (c *commandRestore) tryToConvertPathToID(ctx context.Context, rep repo.Repo
 	return ohid.String(), nil
 }
 
-func createSnapshotTimeFilter(timespec string) (func(*snapshot.Manifest) bool, error) {
+func createSnapshotTimeFilter(timespec string) (func(*snapshot.Manifest, int, int) bool, error) {
 	if timespec == "" || timespec == "latest" {
-		return func(m *snapshot.Manifest) bool {
-			return true
+		return func(m *snapshot.Manifest, i, total int) bool {
+			return i == 0
+		}, nil
+	}
+	if timespec == "oldest" {
+		return func(m *snapshot.Manifest, i, total int) bool {
+			return i == total-1
 		}, nil
 	}
 
@@ -484,10 +491,12 @@ func createSnapshotTimeFilter(timespec string) (func(*snapshot.Manifest) bool, e
 		return nil, err
 	}
 
-	return func(m *snapshot.Manifest) bool {
+	return func(m *snapshot.Manifest, i, total int) bool {
 		return m.StartTime.Before(t)
 	}, nil
 }
+
+var timeAgoRE = regexp.MustCompile(`^(?:(\d{1,3})(?:y|year|years)-)?(?:(\d{1,3})(?:m|mo|month|months)-)?(?:(\d{1,3})(?:d|day|days)-)?ago$`)
 
 // computeMaxTime returns the first time after the max allowed.
 func computeMaxTime(timespec string) (time.Time, error) {
@@ -505,6 +514,20 @@ func computeMaxTime(timespec string) (time.Time, error) {
 		return time.Date(now.Year(), 1, 1, 0, 0, 0, 0, now.Location()), nil
 	}
 
+	if strings.HasSuffix(timespec, "-ago") {
+		ymd := timeAgoRE.FindStringSubmatch(timespec)
+		if ymd != nil {
+			t := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+
+			years, _ := strconv.Atoi(ymd[1])
+			months, _ := strconv.Atoi(ymd[2])
+			days, _ := strconv.Atoi(ymd[3])
+
+			// +1 to compute end time of current day
+			return t.AddDate(-years, -months, -days+1), nil
+		}
+	}
+
 	// Just used as markers, the value does not really matter
 	day := 24 * time.Hour //nolint:gomnd
 	month := 30 * day     //nolint:gomnd
@@ -519,27 +542,32 @@ func computeMaxTime(timespec string) (time.Time, error) {
 		{"2006-01-02 15:04:05.000 MST", time.Millisecond},
 
 		// Others
-		{"2006-01-02T15:04:05Z07:00", time.Second},
-		{"2006-01-02T15:04:05Z0700", time.Second},
-		{"2006-01-02T15:04:05Z07", time.Second},
-		{"2006-01-02T15:04:05", time.Second},
-		{"2006-01-02T15:04Z07", time.Minute},
-		{"2006-01-02T15:04", time.Minute},
-		{"2006-01-02T15", time.Hour},
-		{"2006-01-02 15:04:05Z0700", time.Second},
-		{"2006-01-02 15:04:05Z07", time.Second},
-		{"2006-01-02 15:04:05", time.Second},
-		{"2006-01-02 15:04Z07", time.Minute},
-		{"2006-01-02 15:04", time.Minute},
-		{"2006-01-02 15", time.Hour},
-		{"2006-01-02", day},
-		{"2006-01", month},
+		{"2006-1-2T15:04:05Z07:00", time.Second},
+		{"2006-1-2T15:04:05Z0700", time.Second},
+		{"2006-1-2T15:04:05Z07", time.Second},
+		{"2006-1-2T15:04:05", time.Second},
+		{"2006-1-2T15:04Z07", time.Minute},
+		{"2006-1-2T15:04", time.Minute},
+		{"2006-1-2T15", time.Hour},
+		{"2006-1-2 15:04:05Z0700", time.Second},
+		{"2006-1-2 15:04:05Z07", time.Second},
+		{"2006-1-2 15:04:05", time.Second},
+		{"2006-1-2 15:04Z07", time.Minute},
+		{"2006-1-2 15:04", time.Minute},
+		{"2006-1-2 15", time.Hour},
+		{"2006-1-2", day},
+		{"2006-1", month},
 		{"2006", year},
 	}
 	for _, f := range formats {
 		t, err := time.Parse(f.format, timespec)
 		if err != nil {
 			continue
+		}
+
+		// If no timezone is given, assume local time
+		if !strings.Contains(f.format, "Z") && !strings.Contains(f.format, "MST") {
+			t = time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), now.Location())
 		}
 
 		switch f.precision {
@@ -559,8 +587,16 @@ func computeMaxTime(timespec string) (time.Time, error) {
 	return now, errors.Errorf("Invalid time spec: %v", timespec)
 }
 
-func findLastManifestWithPath(ctx context.Context, rep repo.Repository, ms []*snapshot.Manifest, path string, filter func(*snapshot.Manifest) bool) (*snapshot.Manifest, string, object.ID) {
+func findLastManifestWithPath(ctx context.Context, rep repo.Repository, ms []*snapshot.Manifest, path string, filter func(*snapshot.Manifest, int, int) bool) (*snapshot.Manifest, string, object.ID) {
 	ms = snapshot.SortByTime(ms, true)
+
+	type candidateInfo struct {
+		m    *snapshot.Manifest
+		pe   []string
+		ohid object.HasObjectID
+	}
+
+	var candidates []candidateInfo
 
 	for _, m := range ms {
 		if m.IncompleteReason != "" {
@@ -592,12 +628,16 @@ func findLastManifestWithPath(ctx context.Context, rep repo.Repository, ms []*sn
 			continue
 		}
 
-		if !filter(m) {
+		candidates = append(candidates, candidateInfo{m, pathElements, ohid})
+	}
+
+	for i, c := range candidates {
+		if !filter(c.m, i, len(candidates)) {
 			// Ignore this snapshot
 			continue
 		}
 
-		return m, filepath.Join(pathElements...), ohid.ObjectID()
+		return c.m, filepath.Join(c.pe...), c.ohid.ObjectID()
 	}
 
 	return nil, "", object.ID{}
