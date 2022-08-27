@@ -854,8 +854,38 @@ func TestSnapshotRestoreByPath(t *testing.T) {
 
 	// Restore based on source path
 	restoreDir := testutil.TempDirectory(t)
-	e.RunAndExpectSuccess(t, "snapshot", "restore", source, restoreDir)
+	e.RunAndExpectSuccess(t, "snapshot", "restore", source, restoreDir, "--snapshot-time=latest")
 
 	// Restored contents should match source
 	compareDirs(t, source, restoreDir)
+}
+
+func TestRestoreByPathWithoutTarget(t *testing.T) {
+	t.Parallel()
+
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
+
+	srcdir := testutil.TempDirectory(t)
+	file := filepath.Join(srcdir, "a.txt")
+	originalData := []byte{1, 2, 3}
+
+	require.NoError(t, os.WriteFile(file, originalData, 0o755))
+
+	e.RunAndExpectSuccess(t, "snapshot", "create", srcdir)
+
+	require.NoError(t, os.WriteFile(file, []byte{4, 5, 6, 7}, 0o755))
+
+	e.RunAndExpectSuccess(t, "restore", srcdir, "--snapshot-time=latest")
+
+	data, err := os.ReadFile(file)
+
+	require.NoError(t, err)
+	require.Equal(t, originalData, data)
+
+	// Must pass snapshot time
+	e.RunAndExpectFailure(t, "restore", srcdir)
 }

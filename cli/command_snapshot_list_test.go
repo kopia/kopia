@@ -90,7 +90,7 @@ func TestSnapshotListWithSameFileInMultipleSnapshots(t *testing.T) {
 
 	srcdir := testutil.TempDirectory(t)
 
-	require.NoError(t, os.MkdirAll(filepath.Join(srcdir, "a", "b", "c", "d"), os.FileMode(0x600)))
+	require.NoError(t, os.MkdirAll(filepath.Join(srcdir, "a", "b", "c", "d"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(srcdir, "a", "b", "c", "d", "e.txt"), []byte{1, 2, 3}, 0o755))
 
 	e.RunAndExpectSuccess(t, "snapshot", "create", srcdir)

@@ -163,7 +163,7 @@ const (
 // constructTargetPairs builds the sourceIdPathPairs array for this
 // command for the two forms of command: expansion of one or more
 // placeholders or restoring of a single source to a single destination.
-func (c *commandRestore) constructTargetPairs() error {
+func (c *commandRestore) constructTargetPairs(rep repo.Repository) error {
 	targetPairs := make([]restoreSourceTarget, 0, len(c.restoreTargetPaths))
 
 	for _, p := range c.restoreTargetPaths {
@@ -183,6 +183,33 @@ func (c *commandRestore) constructTargetPairs() error {
 	}
 
 	switch tplen, restpslen := len(targetPairs), len(c.restoreTargetPaths); {
+	case tplen == 0 && restpslen == 1:
+		// This means that none of the restoreTargetPaths are placeholders and we
+		// have 1 arg: a source path that should also be used as a destination.
+		source := c.restoreTargetPaths[0]
+
+		si, err := snapshot.ParseSourceInfo(source, rep.ClientOptions().Hostname, rep.ClientOptions().Username)
+		if err != nil {
+			return errors.Errorf("invalid path to be used as source: '%s': %s", source, err)
+		}
+
+		if si.Path == "" {
+			return errors.New("the source must contain a path element")
+		}
+
+		if si.Host != rep.ClientOptions().Hostname || si.UserName != rep.ClientOptions().Username {
+			return errors.New("the source must be a path in with the same username/hostname to be used as a target too")
+		}
+
+		c.restores = []restoreSourceTarget{
+			{
+				source:        source,
+				target:        si.Path,
+				isplaceholder: false,
+			},
+		}
+
+		return nil
 	case tplen == 0 && restpslen == 2:
 		// This means that none of the restoreTargetPaths are placeholders and we
 		// we have two args: a sourceID and a destination directory.
@@ -210,8 +237,8 @@ func (c *commandRestore) constructTargetPairs() error {
 	return errors.Errorf("restore requires a source and targetpath or placeholders")
 }
 
-func (c *commandRestore) restoreOutput(ctx context.Context) (restore.Output, error) {
-	err := c.constructTargetPairs()
+func (c *commandRestore) restoreOutput(ctx context.Context, rep repo.Repository) (restore.Output, error) {
+	err := c.constructTargetPairs(rep)
 	if err != nil {
 		return nil, err
 	}
@@ -339,7 +366,7 @@ func (c *commandRestore) setupPlaceholderExpansion(ctx context.Context, rep repo
 }
 
 func (c *commandRestore) run(ctx context.Context, rep repo.Repository) error {
-	output, oerr := c.restoreOutput(ctx)
+	output, oerr := c.restoreOutput(ctx, rep)
 	if oerr != nil {
 		return errors.Wrap(oerr, "unable to initialize output")
 	}
@@ -432,6 +459,10 @@ func (c *commandRestore) tryToConvertPathToID(ctx context.Context, rep repo.Repo
 
 	// Consider source as a path
 
+	if c.snapshotTime == "" {
+		return "", errors.New("a snapshot time is needed to use a path as source")
+	}
+
 	filter, err := createSnapshotTimeFilter(c.snapshotTime)
 	if err != nil {
 		return "", err
@@ -480,6 +511,7 @@ func createSnapshotTimeFilter(timespec string) (func(*snapshot.Manifest, int, in
 			return i == 0
 		}, nil
 	}
+
 	if timespec == "oldest" {
 		return func(m *snapshot.Manifest, i, total int) bool {
 			return i == total-1

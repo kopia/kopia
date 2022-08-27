@@ -25,7 +25,6 @@ func TestRestoreSnapshotMaxTime(t *testing.T) {
 		mt, err := computeMaxTime(timespect)
 		require.NoError(t, err)
 		require.Equal(t, expected, mt)
-
 	}
 
 	requireTime(ago(0, 0, 0), "yesterday")
