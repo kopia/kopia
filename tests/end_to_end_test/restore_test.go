@@ -827,3 +827,35 @@ func verifyValidTarGzipFile(t *testing.T, fname string) {
 
 	verifyValidTarReader(t, tar.NewReader(gz))
 }
+
+func TestSnapshotRestoreByPath(t *testing.T) {
+	t.Parallel()
+
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
+
+	source := testutil.TempDirectory(t)
+
+	// create a file with well-known name.
+	f, err := os.Create(filepath.Join(source, "single-file"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fmt.Fprintf(f, "some-data")
+	f.Close()
+
+	// Create snapshot
+	e.RunAndExpectSuccess(t, "snapshot", "create", source)
+
+	// Restore based on source path
+	restoreDir := testutil.TempDirectory(t)
+	e.RunAndExpectSuccess(t, "snapshot", "restore", source, restoreDir)
+
+	// Restored contents should match source
+	compareDirs(t, source, restoreDir)
+}
