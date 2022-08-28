@@ -451,10 +451,12 @@ func (c *commandRestore) run(ctx context.Context, rep repo.Repository) error {
 func (c *commandRestore) tryToConvertPathToID(ctx context.Context, rep repo.Repository, source string) (string, error) {
 	pathElements := strings.Split(filepath.ToSlash(source), "/")
 
-	_, err := index.ParseID(pathElements[0])
-	if err == nil {
-		// source is an ID
-		return source, nil
+	if pathElements[0] != "" {
+		_, err := index.ParseID(pathElements[0])
+		if err == nil {
+			// source is an ID
+			return source, nil
+		}
 	}
 
 	// Consider source as a path

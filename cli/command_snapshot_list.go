@@ -103,20 +103,20 @@ func findRelativePathParts(m *snapshot.Manifest, path string) ([]string, error) 
 	return strings.Split(filepath.ToSlash(relPath), "/"), nil
 }
 
-func findManifestIDs(ctx context.Context, rep repo.Repository, source string, tags map[string]string) ([]manifest.ID, error) {
+func findManifestIDs(ctx context.Context, rep repo.Repository, source string, tags map[string]string) ([]manifest.ID, string, error) {
 	if source == "" {
 		man, err := snapshot.ListSnapshotManifests(ctx, rep, nil, tags)
-		return man, errors.Wrap(err, "error listing all snapshot manifests")
+		return man, "", errors.Wrap(err, "error listing all snapshot manifests")
 	}
 
 	si, err := snapshot.ParseSourceInfo(source, rep.ClientOptions().Hostname, rep.ClientOptions().Username)
 	if err != nil {
-		return nil, errors.Errorf("invalid directory: '%s': %s", source, err)
+		return nil, "", errors.Errorf("invalid directory: '%s': %s", source, err)
 	}
 
 	manifestIDs, err := findSnapshotsForSource(ctx, rep, si, tags)
 
-	return manifestIDs, err
+	return manifestIDs, si.Path, err
 }
 
 func (c *commandSnapshotList) run(ctx context.Context, rep repo.Repository) error {
@@ -125,7 +125,7 @@ func (c *commandSnapshotList) run(ctx context.Context, rep repo.Repository) erro
 		return err
 	}
 
-	manifestIDs, err := findManifestIDs(ctx, rep, c.snapshotListPath, tags)
+	manifestIDs, fullPath, err := findManifestIDs(ctx, rep, c.snapshotListPath, tags)
 	if err != nil {
 		return err
 	}
@@ -139,7 +139,7 @@ func (c *commandSnapshotList) run(ctx context.Context, rep repo.Repository) erro
 		return c.outputJSON(ctx, rep, manifests)
 	}
 
-	return c.outputManifestGroups(ctx, rep, manifests, c.snapshotListPath)
+	return c.outputManifestGroups(ctx, rep, manifests, fullPath)
 }
 
 // SnapshotManifest defines the JSON output for the CLI snapshot commands.
