@@ -31,6 +31,9 @@ type Manager struct {
 	password      string          // +checklocksignore
 	cache         blobCache       // +checklocksignore
 
+	// provider for immutable parts of the format data, used to avoid locks.
+	immutable Provider
+
 	timeNow func() time.Time // +checklocksignore
 
 	// all the stuff protected by a mutex is valid until `validUntil`
@@ -51,13 +54,6 @@ type Manager struct {
 	loadedTime time.Time
 	// +checklocks:mu
 	refreshCounter int
-}
-
-func (m *Manager) getFormat() Provider {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	return m.current
 }
 
 func (m *Manager) getOrRefreshFormat() (Provider, error) {
@@ -181,6 +177,12 @@ func (m *Manager) refresh(ctx context.Context) error {
 	m.formatEncryptionKey = formatEncryptionKey
 	m.loadedTime = cacheMTime
 	m.blobCfgBlob = blobCfg
+
+	if m.immutable == nil {
+		// on first refresh, set `immutable``
+		m.immutable = prov
+	}
+
 	m.refreshCounter++
 
 	return nil
@@ -188,47 +190,47 @@ func (m *Manager) refresh(ctx context.Context) error {
 
 // GetEncryptionAlgorithm returns the encryption algorithm.
 func (m *Manager) GetEncryptionAlgorithm() string {
-	return m.getFormat().GetEncryptionAlgorithm()
+	return m.immutable.GetEncryptionAlgorithm()
 }
 
 // GetHashFunction returns the hash function.
 func (m *Manager) GetHashFunction() string {
-	return m.getFormat().GetHashFunction()
+	return m.immutable.GetHashFunction()
 }
 
 // GetECCAlgorithm returns the ECC algorithm.
 func (m *Manager) GetECCAlgorithm() string {
-	return m.getFormat().GetECCAlgorithm()
+	return m.immutable.GetECCAlgorithm()
 }
 
 // GetECCOverheadPercent returns the ECC overhead percent.
 func (m *Manager) GetECCOverheadPercent() int {
-	return m.getFormat().GetECCOverheadPercent()
+	return m.immutable.GetECCOverheadPercent()
 }
 
 // GetHmacSecret returns the HMAC function.
 func (m *Manager) GetHmacSecret() []byte {
-	return m.getFormat().GetHmacSecret()
+	return m.immutable.GetHmacSecret()
 }
 
 // HashFunc returns the resolved hash function.
 func (m *Manager) HashFunc() hashing.HashFunc {
-	return m.getFormat().HashFunc()
+	return m.immutable.HashFunc()
 }
 
 // Encryptor returns the resolved encryptor.
 func (m *Manager) Encryptor() encryption.Encryptor {
-	return m.getFormat().Encryptor()
+	return m.immutable.Encryptor()
 }
 
 // GetMasterKey gets the master key.
 func (m *Manager) GetMasterKey() []byte {
-	return m.getFormat().GetMasterKey()
+	return m.immutable.GetMasterKey()
 }
 
 // SupportsPasswordChange returns true if the repository supports password change.
 func (m *Manager) SupportsPasswordChange() bool {
-	return m.getFormat().SupportsPasswordChange()
+	return m.immutable.SupportsPasswordChange()
 }
 
 // RepositoryFormatBytes returns the bytes of `kopia.repository` blob.
