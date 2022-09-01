@@ -35,16 +35,9 @@ const (
 
 You will need to set the env variable KOPIA_UPGRADE_LOCK_ENABLED in order to use this feature.
 `
-	upgradeLockFeatureEnv                       = "KOPIA_UPGRADE_LOCK_ENABLED"
-	maxPermittedClockDriftDefault time.Duration = 5 * time.Minute
+	upgradeLockFeatureEnv         = "KOPIA_UPGRADE_LOCK_ENABLED"
+	maxPermittedClockDriftDefault = 5 * time.Minute
 )
-
-// MaxPermittedClockDrift is overridable interface for tests to define their
-// own constants so that they do not have to wait for the default clock-drift to
-// settle.
-//
-//nolint:gochecknoglobals
-//var MaxPermittedClockDrift = func() time.Duration { return maxPermittedClockDriftDefault }
 
 func (c *commandRepositoryUpgrade) setup(svc advancedAppServices, parent commandParent) {
 	// override the parent, the upgrade sub-command becomes the new parent here-onwards
@@ -60,7 +53,7 @@ func (c *commandRepositoryUpgrade) setup(svc advancedAppServices, parent command
 	beginCmd.Flag("io-drain-timeout", "Max time it should take all other Kopia clients to drop repository connections").Default(format.DefaultRepositoryBlobCacheDuration.String()).DurationVar(&c.ioDrainTimeout)
 	beginCmd.Flag("allow-unsafe-upgrade", "Force using an unsafe io-drain-timeout for the upgrade lock").Default("false").Hidden().BoolVar(&c.force)
 	beginCmd.Flag("status-poll-interval", "An advisory polling interval to check for the status of upgrade").Default("60s").DurationVar(&c.statusPollInterval)
-	beginCmd.Flag("max-permitted-clock-drift", "An advisory polling interval to check for the status of upgrade").Default(maxPermittedClockDriftDefault.String()).DurationVar(&c.maxPermittedClockDrift)
+	beginCmd.Flag("max-permitted-clock-drift", "The maximum drift between repository and client clocks").Default(maxPermittedClockDriftDefault.String()).DurationVar(&c.maxPermittedClockDrift)
 	beginCmd.Flag("lock-only", "Advertise the upgrade lock and exit without actually performing the drain or upgrade").Default("false").Hidden().BoolVar(&c.lockOnly) // this is used by tests
 
 	// upgrade phases
