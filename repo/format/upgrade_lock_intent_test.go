@@ -192,26 +192,26 @@ func TestUpgradeLockIntentSufficientAdvanceLock(t *testing.T) {
 		MaxPermittedClockDrift: 5 * time.Second,
 	}
 
-	// Verify that the lock intent has been placed but is not locked at all
+	// Verify that the lock intent has been placed but is not locked at all,
 	// at the time of taking the lock with advance notice
 	locked, writersDrained := l.IsLocked(now)
 	require.False(t, locked)
 	require.False(t, writersDrained)
 
-	// Verify that the lock intent has been placed but is not locked at all
+	// Verify that the lock intent has been placed but is not locked at all,
 	// even at the next drain timeout mark
 	locked, writersDrained = l.IsLocked(now.Add(l.IODrainTimeout))
 	require.False(t, locked)
 	require.False(t, writersDrained)
 
-	// Verify that the lock intent has been placed but is not locked at all
-	// even at the twice the drain timeout mark
+	// Verify that the lock intent has been placed but is not locked at all,
+	// even at twice drain timeout mark
 	locked, writersDrained = l.IsLocked(now.Add(2 * l.IODrainTimeout))
 	require.False(t, locked)
 	require.False(t, writersDrained)
 
-	// Verify that the lock intent has been placed but is not locked at all
-	// even at the twice the drain timeout mark + clock drift
+	// Verify that the lock intent has been placed but is not locked at all,
+	// even at twice the drain timeout mark + clock drift
 	locked, writersDrained = l.IsLocked(now.Add(l.MaxPermittedClockDrift + 2*l.IODrainTimeout))
 	require.False(t, locked)
 	require.False(t, writersDrained)
@@ -260,7 +260,7 @@ func TestUpgradeLockIntentInSufficientAdvanceLock(t *testing.T) {
 	}
 
 	// Verify that the lock intent has been placed and is held right at the
-	// creation time because there si insufficient time to drain fro mthe
+	// creation time because there is insufficient time to drain from the
 	// advance notice.
 	locked, writersDrained := l.IsLocked(now)
 	require.True(t, locked)
