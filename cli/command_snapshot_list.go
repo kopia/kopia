@@ -265,13 +265,13 @@ func (c *commandSnapshotList) outputManifestFromSingleSource(ctx context.Context
 	if err := c.iterateSnapshotsMaybeWithStorageStats(ctx, rep, manifests, func(m *snapshot.Manifest) error {
 		root, err := snapshotfs.SnapshotRoot(rep, m)
 		if err != nil {
-			c.out.printStdout("  %v <ERROR> %v\n", formatTimestamp(m.StartTime), err)
+			c.out.printStdout("  %v <ERROR> %v\n", formatTimestamp(m.StartTime.ToTime()), err)
 			return nil
 		}
 
 		ent, err := snapshotfs.GetNestedEntry(ctx, root, parts)
 		if err != nil {
-			c.out.printStdout("  %v <ERROR> %v\n", formatTimestamp(m.StartTime), err)
+			c.out.printStdout("  %v <ERROR> %v\n", formatTimestamp(m.StartTime.ToTime()), err)
 			return nil
 		}
 
@@ -288,8 +288,8 @@ func (c *commandSnapshotList) outputManifestFromSingleSource(ctx context.Context
 		bits, col := c.entryBits(ctx, m, ent, lastTotalFileSize)
 
 		rows = append(rows, &snapshotListRow{
-			firstStartTime:   m.StartTime,
-			lastStartTime:    m.StartTime,
+			firstStartTime:   m.StartTime.ToTime(),
+			lastStartTime:    m.StartTime.ToTime(),
 			count:            1,
 			oid:              ohid.ObjectID(),
 			bits:             bits,

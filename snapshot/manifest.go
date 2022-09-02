@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"sort"
 	"strconv"
-	"time"
 
 	"github.com/pkg/errors"
 
@@ -19,9 +18,9 @@ type Manifest struct {
 	ID     manifest.ID `json:"id"`
 	Source SourceInfo  `json:"source"`
 
-	Description string    `json:"description"`
-	StartTime   time.Time `json:"startTime"`
-	EndTime     time.Time `json:"endTime"`
+	Description string          `json:"description"`
+	StartTime   fs.UTCTimestamp `json:"startTime"`
+	EndTime     fs.UTCTimestamp `json:"endTime"`
 
 	Stats            Stats  `json:"stats,omitempty"`
 	IncompleteReason string `json:"incomplete,omitempty"`
@@ -125,7 +124,7 @@ type DirEntry struct {
 	Type        EntryType            `json:"type,omitempty"`
 	Permissions Permissions          `json:"mode,omitempty"`
 	FileSize    int64                `json:"size,omitempty"`
-	ModTime     time.Time            `json:"mtime,omitempty"`
+	ModTime     fs.UTCTimestamp      `json:"mtime,omitempty"`
 	UserID      uint32               `json:"uid,omitempty"`
 	GroupID     uint32               `json:"gid,omitempty"`
 	ObjectID    object.ID            `json:"obj,omitempty"`
@@ -243,7 +242,7 @@ func GroupBySource(manifests []*Manifest) [][]*Manifest {
 func SortByTime(manifests []*Manifest, reverse bool) []*Manifest {
 	result := append([]*Manifest(nil), manifests...)
 	sort.Slice(result, func(i, j int) bool {
-		return result[i].StartTime.After(result[j].StartTime) == reverse
+		return result[i].StartTime > result[j].StartTime == reverse
 	})
 
 	return result

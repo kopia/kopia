@@ -54,7 +54,7 @@ func (e *repositoryEntry) Size() int64 {
 }
 
 func (e *repositoryEntry) ModTime() time.Time {
-	return e.metadata.ModTime
+	return e.metadata.ModTime.ToTime()
 }
 
 func (e *repositoryEntry) ObjectID() object.ID {

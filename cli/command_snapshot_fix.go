@@ -87,7 +87,7 @@ func (c *commonRewriteSnapshots) rewriteMatchingSnapshots(ctx context.Context, r
 		log(ctx).Infof("Processing snapshot %v", mg[0].Source)
 
 		for _, man := range snapshot.SortByTime(mg, false) {
-			log(ctx).Debugf("  %v (%v)", formatTimestamp(man.StartTime), man.ID)
+			log(ctx).Debugf("  %v (%v)", formatTimestamp(man.StartTime.ToTime()), man.ID)
 
 			old := man.Clone()
 
@@ -97,7 +97,7 @@ func (c *commonRewriteSnapshots) rewriteMatchingSnapshots(ctx context.Context, r
 			}
 
 			if !changed {
-				log(ctx).Infof("  %v unchanged (%v)", formatTimestamp(man.StartTime), man.ID)
+				log(ctx).Infof("  %v unchanged (%v)", formatTimestamp(man.StartTime.ToTime()), man.ID)
 
 				continue
 			}
@@ -108,7 +108,7 @@ func (c *commonRewriteSnapshots) rewriteMatchingSnapshots(ctx context.Context, r
 				}
 			}
 
-			log(ctx).Infof("  %v replaced manifest from %v to %v", formatTimestamp(man.StartTime), old.ID, man.ID)
+			log(ctx).Infof("  %v replaced manifest from %v to %v", formatTimestamp(man.StartTime.ToTime()), old.ID, man.ID)
 			log(ctx).Infof("    diff %v %v", old.RootEntry.ObjectID, man.RootEntry.ObjectID)
 
 			if d := snapshotSizeDelta(old, man); d != "" {
