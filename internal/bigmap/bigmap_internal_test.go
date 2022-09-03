@@ -1,4 +1,4 @@
-package bigmap_test
+package bigmap
 
 import (
 	"bytes"
@@ -10,14 +10,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/kopia/kopia/internal/bigmap"
 	"github.com/kopia/kopia/internal/testlogging"
 )
 
-func TestMap(t *testing.T) {
+func TestInternalMap(t *testing.T) {
 	ctx := testlogging.Context(t)
 
-	impl, err := bigmap.NewMap(ctx)
+	impl, err := newInternalMap(ctx)
 	require.NoError(t, err)
 
 	defer impl.Close(ctx)
@@ -55,7 +54,7 @@ func TestMap(t *testing.T) {
 func TestGrowingMap(t *testing.T) {
 	ctx := testlogging.Context(t)
 
-	impl, err := bigmap.NewMapWithOptions(ctx, true, &bigmap.Options{
+	impl, err := newInternalMapWithOptions(ctx, true, &Options{
 		InitialSizeLogarithm: 9,
 		NumMemorySegments:    3,
 		MemorySegmentSize:    1000,
@@ -98,7 +97,7 @@ func TestGrowingMap(t *testing.T) {
 func TestGrowingSet(t *testing.T) {
 	ctx := testlogging.Context(t)
 
-	impl, err := bigmap.NewSetWithOptions(ctx, &bigmap.Options{
+	impl, err := NewSetWithOptions(ctx, &Options{
 		InitialSizeLogarithm: 9,
 		NumMemorySegments:    3,
 		MemorySegmentSize:    1000,
@@ -144,28 +143,28 @@ func sha256Key(h hash.Hash, out []byte, i int) []byte {
 	return s
 }
 
-func BenchmarkMap_NoValue(b *testing.B) {
+func BenchmarkInternalMap_NoValue(b *testing.B) {
 	ctx := testlogging.Context(b)
-	m, err := bigmap.NewMapWithOptions(ctx, false, nil)
+	m, err := newInternalMapWithOptions(ctx, false, nil)
 	require.NoError(b, err)
 
 	defer m.Close(ctx)
 
-	benchmarkMap(b, m, []byte{})
+	benchmarkInternalMap(b, m, []byte{})
 }
 
-func BenchmarkMap_WithValue(b *testing.B) {
+func BenchmarkInternalMap_WithValue(b *testing.B) {
 	ctx := testlogging.Context(b)
-	m, err := bigmap.NewMap(ctx)
+	m, err := newInternalMap(ctx)
 	require.NoError(b, err)
 
 	defer m.Close(ctx)
 
-	benchmarkMap(b, m, []byte{1, 2, 3})
+	benchmarkInternalMap(b, m, []byte{1, 2, 3})
 }
 
 //nolint:thelper
-func benchmarkMap(b *testing.B, m *bigmap.Map, someVal []byte) {
+func benchmarkInternalMap(b *testing.B, m *internalMap, someVal []byte) {
 	ctx := testlogging.Context(b)
 
 	b.ResetTimer()
@@ -252,7 +251,7 @@ func benchmarkSyncMap(b *testing.B, someVal []byte) {
 func TestErrors(t *testing.T) {
 	ctx := testlogging.Context(t)
 
-	_, err := bigmap.NewMapWithOptions(ctx, true, &bigmap.Options{
+	_, err := newInternalMapWithOptions(ctx, true, &Options{
 		InitialSizeLogarithm: 8,
 	})
 
@@ -262,7 +261,7 @@ func TestErrors(t *testing.T) {
 func TestPanics(t *testing.T) {
 	ctx := testlogging.Context(t)
 
-	m, err := bigmap.NewSet(ctx)
+	m, err := NewSet(ctx)
 	require.NoError(t, err)
 
 	// too short keys
@@ -277,7 +276,7 @@ func TestMapWithoutValue(t *testing.T) {
 	ctx := testlogging.Context(t)
 
 	// this is a corner case, it's possible to create a map that can only support zero-length values.
-	m, err := bigmap.NewMapWithOptions(ctx, false, nil)
+	m, err := newInternalMapWithOptions(ctx, false, nil)
 	require.NoError(t, err)
 
 	key := []byte{1, 2, 3, 4}

@@ -4,7 +4,7 @@ import "context"
 
 // Set is a wrapper around Map that only supports Put() and Contains().
 type Set struct {
-	inner *Map
+	inner *internalMap
 }
 
 // Put adds the element to a set, returns true if the element was added (as opposed to having
@@ -30,7 +30,7 @@ func NewSet(ctx context.Context) (*Set, error) {
 
 // NewSetWithOptions creates new Set with options.
 func NewSetWithOptions(ctx context.Context, opt *Options) (*Set, error) {
-	inner, err := NewMapWithOptions(ctx, false, opt)
+	inner, err := newInternalMapWithOptions(ctx, false, opt)
 	if err != nil {
 		return nil, err
 	}

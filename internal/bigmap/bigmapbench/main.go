@@ -58,7 +58,7 @@ func main() {
 	} else if *impl == 1 {
 		fmt.Println("using bigmap.Map")
 
-		bm, _ = bigmap.NewMapWithOptions(ctx, true, &bigmap.Options{})
+		bm, _ = bigmap.NewMapWithOptions(ctx, &bigmap.Options{})
 
 	}
 

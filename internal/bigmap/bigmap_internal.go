@@ -29,6 +29,7 @@ const (
 	defaultMemorySegmentSize    = 18 * 1e6   // 18MB enough to store >1M 16-17-byte keys
 	defaultFileSegmentSize      = 1024 << 20 // 1 GiB
 	defaultInitialSizeLogarithm = 20
+	mmapFileMode                = 0o600
 
 	// grow hash table above this percentage utilization, higher values (close to 100) will be very slow,
 	// smaller values will waste memory.
@@ -42,7 +43,7 @@ const (
 
 var log = logging.Module("bigmap")
 
-// Options provides options for the Map.
+// Options provides options for the internalMap.
 type Options struct {
 	LoadFactorPercentage int   // grow the size of the hash table when this percentage full
 	NumMemorySegments    int   // number of segments to keep in RAM
@@ -52,10 +53,10 @@ type Options struct {
 	InitialSizeLogarithm int // logarithm of the initial size of the hash table, default - 20
 }
 
-// Map is a custom hashtable implementation using https://en.wikipedia.org/wiki/Double_hashing
+// internalMap is a custom hashtable implementation using https://en.wikipedia.org/wiki/Double_hashing
 // that stores all (key,value) pairs densely packed in segments of fixed size to minimize data
 // fragmentation.
-type Map struct {
+type internalMap struct {
 	hasValues bool    // +checklocksignore
 	opts      Options // +checklocksignore
 
@@ -142,12 +143,12 @@ var tableSizesPrimes = []uint64{
 }
 
 type entry struct {
-	segment uint32 // 0-empty, otherwise index into Map.segments+1
+	segment uint32 // 0-empty, otherwise index into internalMap.segments+1
 	offset  uint32 // offset within a segment
 }
 
 // Contains returns true if the provided key is in the map.
-func (m *Map) Contains(key []byte) bool {
+func (m *internalMap) Contains(key []byte) bool {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -157,7 +158,7 @@ func (m *Map) Contains(key []byte) bool {
 }
 
 // Get gets the value associated with a given key. It is appended to the provided buffer.
-func (m *Map) Get(buf, key []byte) ([]byte, bool) {
+func (m *internalMap) Get(buf, key []byte) ([]byte, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -182,7 +183,7 @@ func (m *Map) Get(buf, key []byte) ([]byte, bool) {
 	return append(buf, data[start:start+uint32(vlen)]...), true
 }
 
-func (m *Map) hashValue(key []byte) uint64 {
+func (m *internalMap) hashValue(key []byte) uint64 {
 	if len(key) < 8 { //nolint:gomnd
 		return uint64(binary.BigEndian.Uint32(key))
 	}
@@ -191,7 +192,7 @@ func (m *Map) hashValue(key []byte) uint64 {
 }
 
 // h2 returns the secondary hash value used for double hashing.
-func (m *Map) h2(key []byte) uint64 {
+func (m *internalMap) h2(key []byte) uint64 {
 	if len(key) < 16 { //nolint:gomnd
 		// use linear scan.
 		return 1
@@ -201,7 +202,7 @@ func (m *Map) h2(key []byte) uint64 {
 }
 
 // +checklocksread:m.mu
-func (m *Map) keyEquals(e entry, key []byte) bool {
+func (m *internalMap) keyEquals(e entry, key []byte) bool {
 	data := m.segments[e.segment-1] // 1-indexed
 	koff := e.offset
 	keyLen := uint32(data[koff])
@@ -210,7 +211,7 @@ func (m *Map) keyEquals(e entry, key []byte) bool {
 }
 
 // +checklocksread:m.mu
-func (m *Map) findSlotInSlice(key []byte, slots []entry, h2Prime uint64) uint64 {
+func (m *internalMap) findSlotInSlice(key []byte, slots []entry, h2Prime uint64) uint64 {
 	slot := m.hashValue(key) % uint64(len(slots))
 
 	delta := m.h2(key) % h2Prime
@@ -226,12 +227,12 @@ func (m *Map) findSlotInSlice(key []byte, slots []entry, h2Prime uint64) uint64 
 }
 
 // +checklocksread:m.mu
-func (m *Map) findSlot(key []byte) uint64 {
+func (m *internalMap) findSlot(key []byte) uint64 {
 	return m.findSlotInSlice(key, m.slots, m.h2Prime)
 }
 
 // +checklocks:m.mu
-func (m *Map) growLocked(newSize uint64) {
+func (m *internalMap) growLocked(newSize uint64) {
 	newSlots := make([]entry, newSize)
 	newH2Prime := uint64(len(m.slots))
 
@@ -258,7 +259,7 @@ func (m *Map) growLocked(newSize uint64) {
 }
 
 // PutIfAbsent conditionally adds the provided (key, value) to the map if the provided key is absent.
-func (m *Map) PutIfAbsent(ctx context.Context, key, value []byte) bool {
+func (m *internalMap) PutIfAbsent(ctx context.Context, key, value []byte) bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -322,7 +323,7 @@ func (m *Map) PutIfAbsent(ctx context.Context, key, value []byte) bool {
 }
 
 // +checklocks:m.mu
-func (m *Map) newMemoryMappedSegment(ctx context.Context) (mmap.MMap, error) {
+func (m *internalMap) newMemoryMappedSegment(ctx context.Context) (mmap.MMap, error) {
 	flags := 0
 
 	f, err := m.maybeCreateMappedFile(ctx)
@@ -345,7 +346,7 @@ func (m *Map) newMemoryMappedSegment(ctx context.Context) (mmap.MMap, error) {
 }
 
 // +checklocks:m.mu
-func (m *Map) maybeCreateMappedFile(ctx context.Context) (*os.File, error) {
+func (m *internalMap) maybeCreateMappedFile(ctx context.Context) (*os.File, error) {
 	if m.tempDir == "" {
 		tempDir, err := os.MkdirTemp("", "kopia-map")
 		if err != nil {
@@ -357,7 +358,7 @@ func (m *Map) maybeCreateMappedFile(ctx context.Context) (*os.File, error) {
 
 	fname := filepath.Join(m.tempDir, uuid.NewString())
 
-	f, err := os.Create(fname) //nolint:gosec
+	f, err := os.OpenFile(fname, os.O_CREATE|os.O_EXCL|os.O_RDWR, mmapFileMode) //nolint:gosec
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create memory-mapped file")
 	}
@@ -386,7 +387,7 @@ func closeAndRemoveFile(ctx context.Context, f *os.File, fname string) {
 }
 
 // +checklocks:m.mu
-func (m *Map) newSegment(ctx context.Context) mmap.MMap {
+func (m *internalMap) newSegment(ctx context.Context) mmap.MMap {
 	var s mmap.MMap
 
 	if len(m.segments) >= m.opts.NumMemorySegments {
@@ -406,7 +407,7 @@ func (m *Map) newSegment(ctx context.Context) mmap.MMap {
 }
 
 // Close releases all resources associated with a map.
-func (m *Map) Close(ctx context.Context) {
+func (m *internalMap) Close(ctx context.Context) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -422,13 +423,13 @@ func (m *Map) Close(ctx context.Context) {
 	}
 }
 
-// NewMap creates new Map.
-func NewMap(ctx context.Context) (*Map, error) {
-	return NewMapWithOptions(ctx, true, nil)
+// newInternalMap creates new internalMap.
+func newInternalMap(ctx context.Context) (*internalMap, error) {
+	return newInternalMapWithOptions(ctx, true, nil)
 }
 
-// NewMapWithOptions creates a new instance of Map.
-func NewMapWithOptions(ctx context.Context, hasValues bool, opts *Options) (*Map, error) {
+// newInternalMapWithOptions creates a new instance of internalMap.
+func newInternalMapWithOptions(ctx context.Context, hasValues bool, opts *Options) (*internalMap, error) {
 	if opts == nil {
 		opts = &Options{}
 	}
@@ -459,7 +460,7 @@ func NewMapWithOptions(ctx context.Context, hasValues bool, opts *Options) (*Map
 		return nil, errors.Errorf("invalid initial size")
 	}
 
-	m := &Map{
+	m := &internalMap{
 		hasValues:      hasValues,
 		opts:           *opts,
 		tableSizeIndex: tablewSizeIndex,
