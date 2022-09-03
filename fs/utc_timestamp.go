@@ -26,7 +26,7 @@ func (u *UTCTimestamp) UnmarshalJSON(v []byte) error {
 // MarshalJSON implements json.Marshaler.
 func (u UTCTimestamp) MarshalJSON() ([]byte, error) {
 	//nolint:wrapcheck
-	return u.ToTime().MarshalJSON()
+	return u.ToTime().UTC().MarshalJSON()
 }
 
 // ToTime returns time.Time representation of the time.
@@ -61,7 +61,7 @@ func (u UTCTimestamp) Equal(other UTCTimestamp) bool {
 
 // Format formats the timestamp according to the provided layout.
 func (u UTCTimestamp) Format(layout string) string {
-	return u.ToTime().Format(layout)
+	return u.ToTime().UTC().Format(layout)
 }
 
 // UTCTimestampFromTime converts time.Time to UTCTimestamp.
