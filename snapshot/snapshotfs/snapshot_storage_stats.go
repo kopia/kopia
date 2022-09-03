@@ -2,13 +2,13 @@ package snapshotfs
 
 import (
 	"context"
-	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/internal/bigmap"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
@@ -24,9 +24,14 @@ func CalculateStorageStats(ctx context.Context, rep repo.Repository, manifests [
 	unique := new(snapshot.StorageUsageDetails)
 	runningTotal := new(snapshot.StorageUsageDetails)
 
-	var uniqueContents sync.Map
+	uniqueContents, err := bigmap.NewSet(ctx)
+	if err != nil {
+		return errors.Wrap(err, "NewSet")
+	}
 
-	tw := NewTreeWalker(TreeWalkerOptions{
+	defer uniqueContents.Close(ctx)
+
+	tw, twerr := NewTreeWalker(ctx, TreeWalkerOptions{
 		EntryCallback: func(ctx context.Context, entry fs.Entry, oid object.ID, entryPath string) error {
 			if !entry.IsDir() {
 				atomic.AddInt32(&unique.FileObjectCount, 1)
@@ -44,8 +49,10 @@ func CalculateStorageStats(ctx context.Context, rep repo.Repository, manifests [
 				return errors.Wrapf(err, "error verifying object %v", oid)
 			}
 
+			var cidbuf [128]byte
+
 			for _, cid := range contentIDs {
-				if _, loaded := uniqueContents.LoadOrStore(cid, struct{}{}); !loaded {
+				if uniqueContents.Put(ctx, cid.Append(cidbuf[:0])) {
 					atomic.AddInt32(&unique.ContentCount, 1)
 					atomic.AddInt32(&runningTotal.ContentCount, 1)
 
@@ -71,7 +78,10 @@ func CalculateStorageStats(ctx context.Context, rep repo.Repository, manifests [
 			return nil
 		},
 	})
-	defer tw.Close()
+	if twerr != nil {
+		return errors.Wrap(twerr, "tree walker")
+	}
+	defer tw.Close(ctx)
 
 	src := manifests[0].Source
 

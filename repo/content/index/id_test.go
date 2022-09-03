@@ -2,6 +2,7 @@ package index
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -121,6 +122,8 @@ func TestIDHash(t *testing.T) {
 			cid, err := IDFromHash(prefix, h)
 			require.NoError(t, err)
 			require.Equal(t, h, cid.Hash())
+
+			require.Equal(t, fmt.Sprintf("%v%x", prefix, h), string(cid.Append(nil)))
 
 			require.Equal(t, prefix != "", cid.HasPrefix())
 			require.Equal(t, prefix, cid.Prefix())

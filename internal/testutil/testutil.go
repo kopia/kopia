@@ -75,7 +75,7 @@ func ShouldReduceTestComplexity() bool {
 		return true
 	}
 
-	return strings.Contains(runtime.GOARCH, "arm")
+	return strings.Contains(runtime.GOARCH, "arm") && runtime.GOOS != "darwin"
 }
 
 // ShouldSkipUnicodeFilenames returns true if:

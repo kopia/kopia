@@ -64,12 +64,16 @@ func failedEntryCallback(rep repo.RepositoryWriter, enumVal string) snapshotfs.R
 }
 
 func (c *commonRewriteSnapshots) rewriteMatchingSnapshots(ctx context.Context, rep repo.RepositoryWriter, rewrite snapshotfs.RewriteDirEntryCallback) error {
-	rw := snapshotfs.NewDirRewriter(rep, snapshotfs.DirRewriterOptions{
+	rw, err := snapshotfs.NewDirRewriter(ctx, rep, snapshotfs.DirRewriterOptions{
 		Parallel:               c.parallel,
 		RewriteEntry:           rewrite,
 		OnDirectoryReadFailure: failedEntryCallback(rep, c.invalidDirHandling),
 	})
-	defer rw.Close()
+	if err != nil {
+		return errors.Wrap(err, "unable to create dir rewriter")
+	}
+
+	defer rw.Close(ctx)
 
 	var updatedSnapshots int
 

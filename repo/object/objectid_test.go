@@ -67,6 +67,21 @@ func TestToStrings(t *testing.T) {
 	require.Equal(t, []string{"f0f0", "f1f1"}, strs)
 }
 
+func TestString(t *testing.T) {
+	cases := map[ID]string{
+		EmptyID:                  "",
+		mustParseID(t, "Dabcd"):  "abcd",
+		mustParseID(t, "abcd"):   "abcd",
+		mustParseID(t, "IIabcd"): "IIabcd",
+		mustParseID(t, "Zabcd"):  "Zabcd",
+	}
+
+	for id, str := range cases {
+		require.Equal(t, str, id.String())
+		require.Equal(t, str, string(id.Append(nil)))
+	}
+}
+
 func mustParseID(t *testing.T, s string) ID {
 	t.Helper()
 
