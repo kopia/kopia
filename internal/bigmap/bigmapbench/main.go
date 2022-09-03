@@ -20,9 +20,10 @@ import (
 
 //nolint:gochecknoglobals
 var (
-	impl       = flag.Int("impl", 0, "Select implementation")
-	profileDir = flag.String("profile-dir", "", "Profile directory")
-	profileCPU = flag.Bool("profile-cpu", false, "Profile CPU")
+	impl          = flag.Int("impl", 0, "Select implementation")
+	profileDir    = flag.String("profile-dir", "", "Profile directory")
+	profileCPU    = flag.Bool("profile-cpu", false, "Profile CPU")
+	profileMemory = flag.Bool("profile-memory", false, "Profile RAM")
 )
 
 func main() {
@@ -43,6 +44,10 @@ func main() {
 
 		if *profileCPU {
 			defer profile.Start(pp, profile.CPUProfile).Stop()
+		}
+
+		if *profileMemory {
+			defer profile.Start(pp, profile.MemProfile).Stop()
 		}
 	}
 
