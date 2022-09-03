@@ -211,6 +211,38 @@ func TestChangePassword(t *testing.T) {
 	require.ErrorIs(t, err, format.ErrInvalidPassword)
 }
 
+func TestFormatManagerValidDuration(t *testing.T) {
+	cases := map[time.Duration]time.Duration{
+		-1:               15 * time.Minute,
+		time.Second:      time.Second,
+		30 * time.Minute: 15 * time.Minute,
+		10 * time.Minute: 10 * time.Minute,
+	}
+
+	for requestedCacheDuration, actualCacheDuration := range cases {
+		ctx := testlogging.Context(t)
+
+		startTime := time.Date(2020, 1, 1, 12, 0, 0, 0, time.UTC)
+		ta := faketime.NewTimeAdvance(startTime, 0)
+		nowFunc := ta.NowFunc()
+		cache := format.NewMemoryBlobCache(nowFunc)
+
+		st := blobtesting.NewMapStorage(blobtesting.DataMap{}, nil, nil)
+		fst := blobtesting.NewFaultyStorage(st)
+		require.NoError(t, format.Initialize(ctx, fst, &format.KopiaRepositoryJSON{}, rc, format.BlobStorageConfiguration{}, "some-password"))
+
+		if requestedCacheDuration < 0 {
+			// plant a malformed cache entry to ensure it's not being used
+			cache.Put(ctx, "kopia.repository", []byte("malformed"))
+		}
+
+		mgr, err := format.NewManagerWithCache(ctx, fst, requestedCacheDuration, "some-password", nowFunc, cache)
+		require.NoError(t, err)
+
+		require.Equal(t, actualCacheDuration, mgr.ValidCacheDuration())
+	}
+}
+
 func mustGetMutableParameters(t *testing.T, mgr *format.Manager) format.MutableParameters {
 	t.Helper()
 

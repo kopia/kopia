@@ -54,6 +54,8 @@ type Manager struct {
 	loadedTime time.Time
 	// +checklocks:mu
 	refreshCounter int
+	// +checklocks:mu
+	ignoreCacheOnFirstRefresh bool
 }
 
 func (m *Manager) getOrRefreshFormat() (Provider, error) {
@@ -81,13 +83,16 @@ func (m *Manager) maybeRefreshNotLocked() error {
 }
 
 // readAndCacheRepositoryBlobBytes reads the provided blob from the repository or cache directory.
+// +checklocks:m.mu
 func (m *Manager) readAndCacheRepositoryBlobBytes(ctx context.Context, blobID blob.ID) ([]byte, time.Time, error) {
-	if data, mtime, ok := m.cache.Get(ctx, blobID); ok {
-		// read from cache and still valid
-		age := m.timeNow().Sub(mtime)
+	if !m.ignoreCacheOnFirstRefresh {
+		if data, mtime, ok := m.cache.Get(ctx, blobID); ok {
+			// read from cache and still valid
+			age := m.timeNow().Sub(mtime)
 
-		if age < m.validDuration {
-			return data, mtime, nil
+			if age < m.validDuration {
+				return data, mtime, nil
+			}
 		}
 	}
 
@@ -103,6 +108,11 @@ func (m *Manager) readAndCacheRepositoryBlobBytes(ctx context.Context, blobID bl
 	mtime, err := m.cache.Put(ctx, blobID, data)
 
 	return data, mtime, errors.Wrapf(err, "error adding %s blob", blobID)
+}
+
+// ValidCacheDuration returns the duration for which each blob in the cache is valid.
+func (m *Manager) ValidCacheDuration() time.Duration {
+	return m.validDuration
 }
 
 // RefreshCount returns the number of time the format has been refreshed.
@@ -177,6 +187,7 @@ func (m *Manager) refresh(ctx context.Context) error {
 	m.formatEncryptionKey = formatEncryptionKey
 	m.loadedTime = cacheMTime
 	m.blobCfgBlob = blobCfg
+	m.ignoreCacheOnFirstRefresh = false
 
 	if m.immutable == nil {
 		// on first refresh, set `immutable``
@@ -375,13 +386,28 @@ func NewManagerWithCache(
 	timeNow func() time.Time,
 	cache blobCache,
 ) (*Manager, error) {
+	var ignoreCacheOnFirstRefresh bool
+
+	if validDuration < 0 {
+		// valid duration less than zero indicates we want to skip cache on first access
+		validDuration = DefaultRepositoryBlobCacheDuration
+		ignoreCacheOnFirstRefresh = true
+	}
+
+	if validDuration > DefaultRepositoryBlobCacheDuration {
+		log(ctx).Infof("repository format cache duration capped at %v", DefaultRepositoryBlobCacheDuration)
+
+		validDuration = DefaultRepositoryBlobCacheDuration
+	}
+
 	m := &Manager{
-		ctx:           ctx,
-		blobs:         st,
-		validDuration: validDuration,
-		password:      password,
-		cache:         cache,
-		timeNow:       timeNow,
+		ctx:                       ctx,
+		blobs:                     st,
+		validDuration:             validDuration,
+		password:                  password,
+		cache:                     cache,
+		timeNow:                   timeNow,
+		ignoreCacheOnFirstRefresh: ignoreCacheOnFirstRefresh,
 	}
 
 	err := m.refresh(ctx)
