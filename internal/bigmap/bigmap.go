@@ -363,30 +363,26 @@ func (m *Map) maybeCreateMappedFile(ctx context.Context) (*os.File, error) {
 	}
 
 	if err := f.Truncate(int64(m.opts.FileSegmentSize)); err != nil {
-		log(ctx).Warnf("unable to truncate memory-mapped file to size: %v", err)
-
-		if cerr := f.Close(); cerr != nil {
-			log(ctx).Warnf("unable to close segment file: %v", cerr)
-		}
-
-		if rerr := os.Remove(fname); rerr != nil {
-			log(ctx).Warnf("unable to remove segment file: %v", rerr)
-		}
+		closeAndRemoveFile(ctx, f, fname)
 
 		return nil, errors.Wrap(err, "unable to truncate memory-mapped file")
 	}
 
 	m.cleanups = append(m.cleanups, func() {
-		if err := f.Close(); err != nil {
-			log(ctx).Warnf("unable to close segment file: %v", err)
-		}
-
-		if err := os.Remove(fname); err != nil {
-			log(ctx).Warnf("unable to remove segment file: %v", err)
-		}
+		closeAndRemoveFile(ctx, f, fname)
 	})
 
 	return f, nil
+}
+
+func closeAndRemoveFile(ctx context.Context, f *os.File, fname string) {
+	if err := f.Close(); err != nil {
+		log(ctx).Warnf("unable to close segment file: %v", err)
+	}
+
+	if err := os.Remove(fname); err != nil {
+		log(ctx).Warnf("unable to remove segment file: %v", err)
+	}
 }
 
 // +checklocks:m.mu

@@ -1,6 +1,7 @@
 package bigmap_test
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
 	"hash"
@@ -116,6 +117,7 @@ func TestGrowingSet(t *testing.T) {
 		k := sha256Key(h, keybuf[:0], i)
 
 		require.True(t, impl.Put(ctx, k))
+		require.False(t, impl.Put(ctx, k))
 
 		// ensure that previously written key is still there.
 		pkindex := i / 2
@@ -255,4 +257,35 @@ func TestErrors(t *testing.T) {
 	})
 
 	require.ErrorContains(t, err, "invalid initial size")
+}
+
+func TestPanics(t *testing.T) {
+	ctx := testlogging.Context(t)
+
+	m, err := bigmap.NewSet(ctx)
+	require.NoError(t, err)
+
+	// too short keys
+	require.Panics(t, func() { m.Put(ctx, nil) })
+	require.Panics(t, func() { m.Put(ctx, []byte{1}) })
+
+	// too long key
+	require.Panics(t, func() { m.Put(ctx, bytes.Repeat([]byte{1}, 256)) })
+}
+
+func TestMapWithoutValue(t *testing.T) {
+	ctx := testlogging.Context(t)
+
+	// this is a corner case, it's possible to create a map that can only support zero-length values.
+	m, err := bigmap.NewMapWithOptions(ctx, false, nil)
+	require.NoError(t, err)
+
+	key := []byte{1, 2, 3, 4}
+	m.PutIfAbsent(ctx, key, nil)
+
+	require.Panics(t, func() { m.PutIfAbsent(ctx, key, []byte{3, 4, 5}) })
+
+	v, ok := m.Get(nil, key)
+	require.True(t, ok)
+	require.Nil(t, v)
 }
