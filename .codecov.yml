@@ -25,4 +25,5 @@ ignore:
  - internal/repotesting/
  - internal/fshasher/
  - internal/blobtesting/
+ - internal/bigmap/bigmapbench/
  
