@@ -59,8 +59,8 @@ func serializeBlobCfgBytes(f *KopiaRepositoryJSON, r BlobStorageConfiguration, f
 	}
 }
 
-// DeserializeBlobCfgBytes decrypts and deserializes the given bytes into BlobStorageConfiguration.
-func (f *KopiaRepositoryJSON) DeserializeBlobCfgBytes(encryptedBlobCfgBytes, formatEncryptionKey []byte) (BlobStorageConfiguration, error) {
+// deserializeBlobCfgBytes decrypts and deserializes the given bytes into BlobStorageConfiguration.
+func deserializeBlobCfgBytes(j *KopiaRepositoryJSON, encryptedBlobCfgBytes, formatEncryptionKey []byte) (BlobStorageConfiguration, error) {
 	var (
 		plainText []byte
 		r         BlobStorageConfiguration
@@ -71,18 +71,18 @@ func (f *KopiaRepositoryJSON) DeserializeBlobCfgBytes(encryptedBlobCfgBytes, for
 		return r, nil
 	}
 
-	switch f.EncryptionAlgorithm {
+	switch j.EncryptionAlgorithm {
 	case "NONE": // do nothing
 		plainText = encryptedBlobCfgBytes
 
 	case aes256GcmEncryption:
-		plainText, err = decryptRepositoryBlobBytesAes256Gcm(encryptedBlobCfgBytes, formatEncryptionKey, f.UniqueID)
+		plainText, err = decryptRepositoryBlobBytesAes256Gcm(encryptedBlobCfgBytes, formatEncryptionKey, j.UniqueID)
 		if err != nil {
 			return BlobStorageConfiguration{}, errors.Errorf("unable to decrypt repository blobcfg blob")
 		}
 
 	default:
-		return BlobStorageConfiguration{}, errors.Errorf("unknown encryption algorithm: '%v'", f.EncryptionAlgorithm)
+		return BlobStorageConfiguration{}, errors.Errorf("unknown encryption algorithm: '%v'", j.EncryptionAlgorithm)
 	}
 
 	if err = json.Unmarshal(plainText, &r); err != nil {

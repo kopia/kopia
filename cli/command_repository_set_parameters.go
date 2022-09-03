@@ -125,10 +125,17 @@ func (c *commandRepositorySetParameters) setRetentionModeParameter(ctx context.C
 func (c *commandRepositorySetParameters) run(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	var anyChange bool
 
-	mp := rep.ContentReader().ContentFormat().Struct().MutableParameters
-	blobcfg := rep.BlobCfg()
+	mp, err := rep.FormatManager().GetMutableParameters()
+	if err != nil {
+		return errors.Wrap(err, "mutable parameters")
+	}
 
-	requiredFeatures, err := rep.RequiredFeatures()
+	blobcfg, err := rep.FormatManager().BlobCfgBlob()
+	if err != nil {
+		return errors.Wrap(err, "blob configuration")
+	}
+
+	requiredFeatures, err := rep.FormatManager().RequiredFeatures()
 	if err != nil {
 		return errors.Wrap(err, "unable to get required features")
 	}
@@ -187,7 +194,7 @@ func (c *commandRepositorySetParameters) run(ctx context.Context, rep repo.Direc
 		}
 	}
 
-	if err := rep.SetParameters(ctx, mp, blobcfg, requiredFeatures); err != nil {
+	if err := rep.FormatManager().SetParameters(ctx, mp, blobcfg, requiredFeatures); err != nil {
 		return errors.Wrap(err, "error setting parameters")
 	}
 

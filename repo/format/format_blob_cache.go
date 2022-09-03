@@ -1,9 +1,11 @@
 package format
 
 import (
+	"bytes"
 	"context"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -12,133 +14,163 @@ import (
 	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/cachedir"
 	"github.com/kopia/kopia/internal/clock"
-	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
-	"github.com/kopia/kopia/repo/logging"
 )
 
 // DefaultRepositoryBlobCacheDuration is the duration for which we treat cached kopia.repository
 // as valid.
 const DefaultRepositoryBlobCacheDuration = 15 * time.Minute
 
-var log = logging.Module("kopia/repo/format")
-
-func formatBytesCachingEnabled(cacheDirectory string, validDuration time.Duration) bool {
-	if cacheDirectory == "" {
-		return false
-	}
-
-	return validDuration > 0
+// blobCache encapsulates cache for format blobs.
+// Note that the cache only stores very small number of blobs at the root of the repository,
+// usually 1 or 2.
+type blobCache interface {
+	Get(ctx context.Context, blobID blob.ID) ([]byte, time.Time, bool)
+	Put(ctx context.Context, blobID blob.ID, data []byte) (time.Time, error)
+	Remove(ctx context.Context, ids []blob.ID)
 }
 
-func readRepositoryBlobBytesFromCache(ctx context.Context, cachedFile string, validDuration time.Duration) (data []byte, cacheMTime time.Time, err error) {
+type nullCache struct{}
+
+func (nullCache) Get(ctx context.Context, blobID blob.ID) ([]byte, time.Time, bool) {
+	return nil, time.Time{}, false
+}
+
+func (nullCache) Put(ctx context.Context, blobID blob.ID, data []byte) (time.Time, error) {
+	return clock.Now(), nil
+}
+
+func (nullCache) Remove(ctx context.Context, ids []blob.ID) {
+}
+
+type inMemoryCache struct {
+	timeNow func() time.Time // +checklocksignore
+
+	mu sync.Mutex
+	// +checklocks:mu
+	data map[blob.ID][]byte
+	// +checklocks:mu
+	times map[blob.ID]time.Time
+}
+
+func (c *inMemoryCache) Get(ctx context.Context, blobID blob.ID) ([]byte, time.Time, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	data, ok := c.data[blobID]
+	if ok {
+		return data, c.times[blobID], true
+	}
+
+	return nil, time.Time{}, false
+}
+
+func (c *inMemoryCache) Put(ctx context.Context, blobID blob.ID, data []byte) (time.Time, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.data[blobID] = data
+	c.times[blobID] = c.timeNow()
+
+	return c.times[blobID], nil
+}
+
+func (c *inMemoryCache) Remove(ctx context.Context, ids []blob.ID) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	for _, blobID := range ids {
+		delete(c.data, blobID)
+		delete(c.times, blobID)
+	}
+}
+
+type onDiskCache struct {
+	cacheDirectory string
+}
+
+func (c *onDiskCache) Get(ctx context.Context, blobID blob.ID) ([]byte, time.Time, bool) {
+	cachedFile := filepath.Join(c.cacheDirectory, string(blobID))
+
 	cst, err := os.Stat(cachedFile)
 	if err != nil {
-		return nil, time.Time{}, errors.Wrap(err, "unable to open cache file")
+		return nil, time.Time{}, false
 	}
 
-	cacheMTime = cst.ModTime()
-	if clock.Now().Sub(cacheMTime) > validDuration {
-		// got cached file, but it's too old, remove it
-		if err = os.Remove(cachedFile); err != nil {
-			log(ctx).Debugf("unable to remove cache file: %v", err)
-		}
+	cacheMTime := cst.ModTime()
 
-		return nil, time.Time{}, errors.Errorf("cached file too old")
-	}
+	//nolint:gosec
+	data, err := os.ReadFile(cachedFile)
 
-	data, err = os.ReadFile(cachedFile) //nolint:gosec
-	if err != nil {
-		return nil, time.Time{}, errors.Wrapf(err, "failed to read the cache file %q", cachedFile)
-	}
-
-	return data, cacheMTime, nil
+	return data, cacheMTime, err == nil
 }
 
-// ReadAndCacheRepositoryBlobBytes reads the provided blob from the repository or cache directory.
-func ReadAndCacheRepositoryBlobBytes(ctx context.Context, st blob.Storage, cacheDirectory, blobID string, validDuration time.Duration) ([]byte, time.Time, error) {
-	cachedFile := filepath.Join(cacheDirectory, blobID)
+func (c *onDiskCache) Put(ctx context.Context, blobID blob.ID, data []byte) (time.Time, error) {
+	cachedFile := filepath.Join(c.cacheDirectory, string(blobID))
 
-	if validDuration == 0 {
-		validDuration = DefaultRepositoryBlobCacheDuration
-	}
+	// optimistically assume cache directory exist, create it if not
+	if err := atomicfile.Write(cachedFile, bytes.NewReader(data)); err != nil {
+		if err := os.MkdirAll(c.cacheDirectory, cache.DirMode); err != nil && !os.IsExist(err) {
+			return time.Time{}, errors.Wrap(err, "unable to create cache directory")
+		}
 
-	if cacheDirectory != "" {
-		if err := os.MkdirAll(cacheDirectory, cache.DirMode); err != nil && !os.IsExist(err) {
-			log(ctx).Errorf("unable to create cache directory: %v", err)
+		if err := cachedir.WriteCacheMarker(c.cacheDirectory); err != nil {
+			return time.Time{}, errors.Wrap(err, "unable to write cache directory marker")
+		}
+
+		if err := atomicfile.Write(cachedFile, bytes.NewReader(data)); err != nil {
+			return time.Time{}, errors.Wrapf(err, "unable to write to cache: %v", string(blobID))
 		}
 	}
 
-	cacheEnabled := formatBytesCachingEnabled(cacheDirectory, validDuration)
-	if cacheEnabled {
-		data, cacheMTime, err := readRepositoryBlobBytesFromCache(ctx, cachedFile, validDuration)
-		if err == nil {
-			log(ctx).Debugf("%s retrieved from cache", blobID)
-
-			return data, cacheMTime, nil
-		}
-
-		if os.IsNotExist(err) {
-			log(ctx).Debugf("%s could not be fetched from cache: %v", blobID, err)
-		}
-	} else {
-		log(ctx).Debugf("%s cache not enabled", blobID)
+	cst, err := os.Stat(cachedFile)
+	if err != nil {
+		return time.Time{}, errors.Wrap(err, "unable to open cache file")
 	}
 
-	var b gather.WriteBuffer
-	defer b.Close()
-
-	if err := st.GetBlob(ctx, blob.ID(blobID), 0, -1, &b); err != nil {
-		return nil, time.Time{}, errors.Wrapf(err, "error getting %s blob", blobID)
-	}
-
-	if cacheEnabled {
-		if err := atomicfile.Write(cachedFile, b.Bytes().Reader()); err != nil {
-			log(ctx).Warnf("unable to write cache: %v", err)
-		}
-	}
-
-	return b.ToByteSlice(), clock.Now(), nil
+	return cst.ModTime(), nil
 }
 
-// ReadAndCacheDecodedRepositoryConfig reads `kopia.repository` blob, potentially from cache and decodes it.
-func ReadAndCacheDecodedRepositoryConfig(ctx context.Context, st blob.Storage, password, cacheDir string, validDuration time.Duration) (ufb *DecodedRepositoryConfig, err error) {
-	ufb = &DecodedRepositoryConfig{}
+func (c *onDiskCache) Remove(ctx context.Context, ids []blob.ID) {
+	for _, blobID := range ids {
+		fname := filepath.Join(c.cacheDirectory, string(blobID))
+		log(ctx).Infof("deleting %v", fname)
 
-	ufb.KopiaRepositoryBytes, ufb.CacheMTime, err = ReadAndCacheRepositoryBlobBytes(ctx, st, cacheDir, KopiaRepositoryBlobID, validDuration)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to read format blob")
+		if err := os.Remove(fname); err != nil && !os.IsNotExist(err) {
+			log(ctx).Debugf("unable to remove cached repository format blob: %v", err)
+		}
 	}
-
-	if err = cachedir.WriteCacheMarker(cacheDir); err != nil {
-		return nil, errors.Wrap(err, "unable to write cache directory marker")
-	}
-
-	ufb.KopiaRepository, err = ParseKopiaRepositoryJSON(ufb.KopiaRepositoryBytes)
-	if err != nil {
-		return nil, errors.Wrap(err, "can't parse format blob")
-	}
-
-	ufb.KopiaRepositoryBytes, err = addFormatBlobChecksumAndLength(ufb.KopiaRepositoryBytes)
-	if err != nil {
-		return nil, errors.Errorf("unable to add checksum")
-	}
-
-	ufb.FormatEncryptionKey, err = ufb.KopiaRepository.DeriveFormatEncryptionKeyFromPassword(password)
-	if err != nil {
-		return nil, err
-	}
-
-	ufb.RepoConfig, err = ufb.KopiaRepository.DecryptRepositoryConfig(ufb.FormatEncryptionKey)
-	if err != nil {
-		return nil, ErrInvalidPassword
-	}
-
-	return ufb, nil
 }
 
-// ReadAndCacheRepoUpgradeLock loads the lock config from cache and returns it.
-func ReadAndCacheRepoUpgradeLock(ctx context.Context, st blob.Storage, password, cacheDir string, validDuration time.Duration) (*UpgradeLockIntent, error) {
-	ufb, err := ReadAndCacheDecodedRepositoryConfig(ctx, st, password, cacheDir, validDuration)
-	return ufb.RepoConfig.UpgradeLock, err
+// NewDiskCache returns on-disk blob cache.
+func NewDiskCache(cacheDir string) blobCache {
+	return &onDiskCache{cacheDir}
 }
+
+// NewMemoryBlobCache returns in-memory blob cache.
+func NewMemoryBlobCache(timeNow func() time.Time) blobCache {
+	return &inMemoryCache{
+		timeNow: timeNow,
+		data:    map[blob.ID][]byte{},
+		times:   map[blob.ID]time.Time{},
+	}
+}
+
+// NewFormatBlobCache creates an implementationof blobCache for particular cache settings.
+func NewFormatBlobCache(cacheDir string, validDuration time.Duration, timeNow func() time.Time) blobCache {
+	if cacheDir != "" {
+		return NewDiskCache(cacheDir)
+	}
+
+	if validDuration > 0 {
+		return NewMemoryBlobCache(timeNow)
+	}
+
+	return &nullCache{}
+}
+
+var (
+	_ blobCache = (*nullCache)(nil)
+	_ blobCache = (*inMemoryCache)(nil)
+	_ blobCache = (*onDiskCache)(nil)
+)

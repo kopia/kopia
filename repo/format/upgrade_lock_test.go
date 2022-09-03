@@ -1,4 +1,4 @@
-package repo_test
+package format_test
 
 import (
 	"context"
@@ -24,6 +24,7 @@ import (
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/encryption"
 	"github.com/kopia/kopia/repo/format"
+	"github.com/kopia/kopia/repo/object"
 )
 
 func TestFormatUpgradeSetLock(t *testing.T) {
@@ -43,17 +44,17 @@ func TestFormatUpgradeSetLock(t *testing.T) {
 	}
 
 	// set invalid lock
-	_, err := env.RepositoryWriter.SetUpgradeLockIntent(ctx, *l)
+	_, err := env.RepositoryWriter.FormatManager().SetUpgradeLockIntent(ctx, *l)
 	require.EqualError(t, err, "invalid upgrade lock intent: no owner-id set, it is required to set a unique owner-id")
 
 	l.OwnerID = "upgrade-owner"
-	l, err = env.RepositoryWriter.SetUpgradeLockIntent(ctx, *l)
+	l, err = env.RepositoryWriter.FormatManager().SetUpgradeLockIntent(ctx, *l)
 	require.NoError(t, err)
 
 	l.OwnerID = "new-upgrade-owner"
 
 	// verify that second owner cannot set / update the lock
-	_, err = env.RepositoryWriter.SetUpgradeLockIntent(ctx, *l)
+	_, err = env.RepositoryWriter.FormatManager().SetUpgradeLockIntent(ctx, *l)
 	require.EqualError(t, err,
 		"failed to update the existing lock: upgrade owner-id mismatch \"new-upgrade-owner\" != \"upgrade-owner\", you are not the owner of the upgrade lock")
 
@@ -63,10 +64,10 @@ func TestFormatUpgradeSetLock(t *testing.T) {
 	l.AdvanceNoticeDuration *= 2
 
 	// update the lock
-	_, err = env.RepositoryWriter.SetUpgradeLockIntent(ctx, *l)
+	_, err = env.RepositoryWriter.FormatManager().SetUpgradeLockIntent(ctx, *l)
 	require.NoError(t, err)
 
-	require.NoError(t, env.RepositoryWriter.CommitUpgrade(ctx))
+	require.NoError(t, env.RepositoryWriter.FormatManager().CommitUpgrade(ctx))
 }
 
 func TestFormatUpgradeAlreadyUpgraded(t *testing.T) {
@@ -83,7 +84,7 @@ func TestFormatUpgradeAlreadyUpgraded(t *testing.T) {
 		MaxPermittedClockDrift: formatBlockCacheDuration / 3,
 	}
 
-	_, err := env.RepositoryWriter.SetUpgradeLockIntent(ctx, *l)
+	_, err := env.RepositoryWriter.FormatManager().SetUpgradeLockIntent(ctx, *l)
 	require.EqualError(t, err, fmt.Sprintf("repository is using version %d, and version %d is the maximum",
 		format.MaxFormatVersion, format.MaxFormatVersion))
 }
@@ -104,15 +105,15 @@ func TestFormatUpgradeCommit(t *testing.T) {
 		MaxPermittedClockDrift: formatBlockCacheDuration / 3,
 	}
 
-	require.EqualError(t, env.RepositoryWriter.CommitUpgrade(ctx), "no upgrade in progress")
+	require.EqualError(t, env.RepositoryWriter.FormatManager().CommitUpgrade(ctx), "no upgrade in progress")
 
-	_, err := env.RepositoryWriter.SetUpgradeLockIntent(ctx, *l)
+	_, err := env.RepositoryWriter.FormatManager().SetUpgradeLockIntent(ctx, *l)
 	require.NoError(t, err)
 
-	require.NoError(t, env.RepositoryWriter.CommitUpgrade(ctx))
+	require.NoError(t, env.RepositoryWriter.FormatManager().CommitUpgrade(ctx))
 
 	// verify that rollback after commit fails
-	require.EqualError(t, env.RepositoryWriter.RollbackUpgrade(ctx), "no upgrade in progress")
+	require.EqualError(t, env.RepositoryWriter.FormatManager().RollbackUpgrade(ctx), "no upgrade in progress")
 }
 
 func TestFormatUpgradeRollback(t *testing.T) {
@@ -131,16 +132,16 @@ func TestFormatUpgradeRollback(t *testing.T) {
 		MaxPermittedClockDrift: formatBlockCacheDuration / 3,
 	}
 
-	_, err := env.RepositoryWriter.SetUpgradeLockIntent(ctx, *l)
+	_, err := env.RepositoryWriter.FormatManager().SetUpgradeLockIntent(ctx, *l)
 	require.NoError(t, err)
 
-	require.NoError(t, env.RepositoryWriter.RollbackUpgrade(ctx))
+	require.NoError(t, env.RepositoryWriter.FormatManager().RollbackUpgrade(ctx))
 
 	// reopen the repo because we still have the lock in-memory
 	env.MustReopen(t)
 
 	// verify that commit after rollback fails
-	require.EqualError(t, env.RepositoryWriter.CommitUpgrade(ctx), "no upgrade in progress")
+	require.EqualError(t, env.RepositoryWriter.FormatManager().CommitUpgrade(ctx), "no upgrade in progress")
 }
 
 func TestFormatUpgradeMultipleLocksRollback(t *testing.T) {
@@ -164,25 +165,25 @@ func TestFormatUpgradeMultipleLocksRollback(t *testing.T) {
 	})
 
 	// first lock by primary creator
-	_, err := env.RepositoryWriter.SetUpgradeLockIntent(ctx, *l)
+	_, err := env.RepositoryWriter.FormatManager().SetUpgradeLockIntent(ctx, *l)
 	require.NoError(t, err)
 
 	// second lock from a random owner
 	secondL := l.Clone()
 	secondL.OwnerID = "another-upgrade-owner"
-	_, err = secondWriter.(repo.DirectRepositoryWriter).SetUpgradeLockIntent(ctx, *secondL)
+	_, err = secondWriter.(repo.DirectRepositoryWriter).FormatManager().SetUpgradeLockIntent(ctx, *secondL)
 	require.NoError(t, err)
 
 	// verify that we have two repository backups, the second one will contain
 	// the first owner's lock
 	{
 		var backups []string
-		require.NoError(t, env.RootStorage().ListBlobs(ctx, repo.FormatBlobBackupIDPrefix, func(bm blob.Metadata) error {
+		require.NoError(t, env.RootStorage().ListBlobs(ctx, format.BackupBlobIDPrefix, func(bm blob.Metadata) error {
 			backups = append(backups, string(bm.BlobID))
 			return nil
 		}))
 		sort.Strings(backups)
-		require.Equal(t, []string{string(repo.FormatBlobBackupID(*secondL)), string(repo.FormatBlobBackupID(*l))},
+		require.Equal(t, []string{string(format.BackupBlobID(*secondL)), string(format.BackupBlobID(*l))},
 			backups, "invalid backups list")
 	}
 
@@ -195,10 +196,10 @@ func TestFormatUpgradeMultipleLocksRollback(t *testing.T) {
 	require.NoError(t, mperr)
 	require.Equal(t, format.FormatVersion3, mp.Version)
 
-	require.NoError(t, env.RepositoryWriter.RollbackUpgrade(ctx))
+	require.NoError(t, env.RepositoryWriter.FormatManager().RollbackUpgrade(ctx))
 
 	// verify that we have no repository backups pending
-	require.NoError(t, env.RootStorage().ListBlobs(ctx, repo.FormatBlobBackupIDPrefix, func(bm blob.Metadata) error {
+	require.NoError(t, env.RootStorage().ListBlobs(ctx, format.BackupBlobIDPrefix, func(bm blob.Metadata) error {
 		t.Fatalf("found unexpected backup: %s", bm.BlobID)
 		return nil
 	}))
@@ -209,7 +210,7 @@ func TestFormatUpgradeMultipleLocksRollback(t *testing.T) {
 	// verify that commit after rollback fails, this ensures that the correct
 	// backup got restored because if the second backup was restored then we'd
 	// still get a lock to be committed without any error
-	require.EqualError(t, env.RepositoryWriter.CommitUpgrade(ctx), "no upgrade in progress")
+	require.EqualError(t, env.RepositoryWriter.FormatManager().CommitUpgrade(ctx), "no upgrade in progress")
 
 	// verify that we are back to the original version where we started from
 	mp, err = env.RepositoryWriter.ContentManager().ContentFormat().GetMutableParameters()
@@ -238,7 +239,7 @@ func TestFormatUpgradeFailureToBackupFormatBlobOnLock(t *testing.T) {
 		blobtesting.NewVersionedMapStorage(nil),
 		// GetBlob filter
 		func(ctx context.Context, id blob.ID) error {
-			if !allowGets && id == repo.FormatBlobBackupID(allowedLock) {
+			if !allowGets && id == format.BackupBlobID(allowedLock) {
 				return errors.New("unexpected error on get")
 			}
 			return nil
@@ -252,7 +253,7 @@ func TestFormatUpgradeFailureToBackupFormatBlobOnLock(t *testing.T) {
 		},
 		// PutBlob callback
 		func(ctx context.Context, id blob.ID, _ *blob.PutOptions) error {
-			if !allowPuts || (strings.HasPrefix(string(id), repo.FormatBlobBackupIDPrefix) && id != repo.FormatBlobBackupID(allowedLock)) {
+			if !allowPuts || (strings.HasPrefix(string(id), format.BackupBlobIDPrefix) && id != format.BackupBlobID(allowedLock)) {
 				return errors.New("unexpected error")
 			}
 			return nil
@@ -286,31 +287,31 @@ func TestFormatUpgradeFailureToBackupFormatBlobOnLock(t *testing.T) {
 	r, err := repo.Open(testlogging.Context(t), configFile, "password", &repo.Options{UpgradeOwnerID: "allowed-upgrade-owner"})
 	require.NoError(t, err)
 
-	_, err = r.(repo.DirectRepositoryWriter).SetUpgradeLockIntent(testlogging.Context(t), *faultyLock)
+	_, err = r.(repo.DirectRepositoryWriter).FormatManager().SetUpgradeLockIntent(testlogging.Context(t), *faultyLock)
 	require.EqualError(t, err, "failed to backup the repo format blob: unable to write format blob \"kopia.repository.backup.faulty-upgrade-owner\": unexpected error")
 
-	_, err = r.(repo.DirectRepositoryWriter).SetUpgradeLockIntent(testlogging.Context(t), allowedLock)
+	_, err = r.(repo.DirectRepositoryWriter).FormatManager().SetUpgradeLockIntent(testlogging.Context(t), allowedLock)
 	require.NoError(t, err)
 
-	require.EqualError(t, r.(repo.DirectRepositoryWriter).RollbackUpgrade(testlogging.Context(t)),
+	require.EqualError(t, r.(repo.DirectRepositoryWriter).FormatManager().RollbackUpgrade(testlogging.Context(t)),
 		"failed to delete the format blob backup \"kopia.repository.backup.allowed-upgrade-owner\": unexpected error")
 
-	require.EqualError(t, r.(repo.DirectRepositoryWriter).RollbackUpgrade(testlogging.Context(t)),
+	require.EqualError(t, r.(repo.DirectRepositoryWriter).FormatManager().RollbackUpgrade(testlogging.Context(t)),
 		"failed to delete the format blob backup \"kopia.repository.backup.allowed-upgrade-owner\": unexpected error")
 
 	allowPuts = false
 
-	require.EqualError(t, r.(repo.DirectRepositoryWriter).RollbackUpgrade(testlogging.Context(t)),
+	require.EqualError(t, r.(repo.DirectRepositoryWriter).FormatManager().RollbackUpgrade(testlogging.Context(t)),
 		"failed to restore format blob from backup \"kopia.repository.backup.allowed-upgrade-owner\": unexpected error")
 
 	allowGets = false
 
-	require.EqualError(t, r.(repo.DirectRepositoryWriter).RollbackUpgrade(testlogging.Context(t)),
+	require.EqualError(t, r.(repo.DirectRepositoryWriter).FormatManager().RollbackUpgrade(testlogging.Context(t)),
 		"failed to read from backup \"kopia.repository.backup.allowed-upgrade-owner\": unexpected error on get")
 
 	allowPuts, allowGets, allowDeletes = true, true, true
 
-	require.NoError(t, r.(repo.DirectRepositoryWriter).RollbackUpgrade(testlogging.Context(t)))
+	require.NoError(t, r.(repo.DirectRepositoryWriter).FormatManager().RollbackUpgrade(testlogging.Context(t)))
 }
 
 func TestFormatUpgradeDuringOngoingWriteSessions(t *testing.T) {
@@ -365,7 +366,8 @@ func TestFormatUpgradeDuringOngoingWriteSessions(t *testing.T) {
 		MaxPermittedClockDrift: formatBlockCacheDuration / 3,
 	}
 
-	_, err = env.RepositoryWriter.SetUpgradeLockIntent(ctx, l)
+	// set upgrade lock using independent client
+	_, err = env.MustConnectOpenAnother(t).(repo.DirectRepositoryWriter).FormatManager().SetUpgradeLockIntent(ctx, l)
 	require.NoError(t, err)
 
 	// ongoing writes should NOT get interrupted because the upgrade lock
@@ -390,7 +392,20 @@ func TestFormatUpgradeDuringOngoingWriteSessions(t *testing.T) {
 
 	// ongoing writes should get interrupted this time
 	require.ErrorIs(t, w1.Flush(ctx), repo.ErrRepositoryUnavailableDueToUpgrageInProgress)
+
 	require.ErrorIs(t, w2.Flush(ctx), repo.ErrRepositoryUnavailableDueToUpgrageInProgress)
 	require.ErrorIs(t, w3.Flush(ctx), repo.ErrRepositoryUnavailableDueToUpgrageInProgress)
 	require.ErrorIs(t, lw.Flush(ctx), repo.ErrRepositoryUnavailableDueToUpgrageInProgress)
+}
+
+func writeObject(ctx context.Context, t *testing.T, rep repo.RepositoryWriter, data []byte, testCaseID string) {
+	t.Helper()
+
+	w := rep.NewObjectWriter(ctx, object.WriterOptions{})
+
+	_, err := w.Write(data)
+	require.NoError(t, err, testCaseID)
+
+	_, err = w.Result()
+	require.NoError(t, err, testCaseID)
 }
