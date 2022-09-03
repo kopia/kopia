@@ -30,6 +30,10 @@ func TestUTCTimestamp(t *testing.T) {
 	require.NoError(t, json.Unmarshal(v, &y))
 	require.Equal(t, x, y)
 
+	require.NoError(t, json.Unmarshal([]byte(`{"myts":"2022-07-10T11:15:22.656077568-07:00"}`), &y))
+	require.Equal(t, fs.UTCTimestamp(1657476922656077568), y.TS)
+	require.Equal(t, "2022-07-10T18:15:22.656077568Z", y.TS.Format(time.RFC3339Nano))
+
 	require.True(t, fs.UTCTimestampFromTime(t0) < fs.UTCTimestampFromTime(t1))
 	require.True(t, fs.UTCTimestampFromTime(t0).Equal(fs.UTCTimestampFromTime(t0)))
 	require.False(t, fs.UTCTimestampFromTime(t0).Equal(fs.UTCTimestampFromTime(t1)))
