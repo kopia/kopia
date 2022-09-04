@@ -914,6 +914,9 @@ func TestUpload_VirtualDirectoryWithStreamingFileWithModTime(t *testing.T) {
 				tc.getFile(),
 			})
 
+			// wait a little bit to ensure clock moves forward which is not always the case on Windows.
+			time.Sleep(100 * time.Millisecond)
+
 			// Second upload may find some cached files depending on timestamps.
 			man2, err := u.Upload(ctx, staticRoot, policyTree, snapshot.SourceInfo{}, man1)
 			require.NoError(t, err)
