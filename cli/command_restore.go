@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/alecthomas/kingpin"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/fs"
@@ -17,6 +18,7 @@ import (
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot/restore"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
@@ -96,6 +98,34 @@ type restoreSourceTarget struct {
 	isplaceholder bool
 }
 
+type objectReaderOptionsFlags struct {
+	disableReadAhead bool
+	readAheadMB      int64
+}
+
+func (c *objectReaderOptionsFlags) setup(cmd *kingpin.CmdClause) {
+	cmd.Flag("disable-read-ahead", "Disable read-ahead").BoolVar(&c.disableReadAhead)
+	cmd.Flag("read-ahead-mb", "Amount of bytes (in MB) to read-ahead in large objects (default=auto)").Int64Var(&c.readAheadMB)
+}
+
+func (c *objectReaderOptionsFlags) applyObjectReaderOptions(ctx context.Context) context.Context {
+	if c.disableReadAhead {
+		// negative value disables read-ahead
+		return object.WithReaderOptions(ctx, object.ReaderOptions{
+			ReadAheadBytes: -1,
+		})
+	}
+
+	if c.readAheadMB == 0 {
+		// default
+		return ctx
+	}
+
+	return object.WithReaderOptions(ctx, object.ReaderOptions{
+		ReadAheadBytes: c.readAheadMB * 1e6,
+	})
+}
+
 type commandRestore struct {
 	restoreTargetPaths            []string
 	restoreOverwriteDirectories   bool
@@ -114,6 +144,8 @@ type commandRestore struct {
 	restoreIgnoreErrors           bool
 	restoreShallowAtDepth         int32
 	minSizeForPlaceholder         int32
+
+	objectReaderOptionsFlags
 
 	restores []restoreSourceTarget
 }
@@ -139,6 +171,9 @@ func (c *commandRestore) setup(svc appServices, parent commandParent) {
 	cmd.Flag("skip-existing", "Skip files and symlinks that exist in the output").BoolVar(&c.restoreIncremental)
 	cmd.Flag("shallow", "Shallow restore the directory hierarchy starting at this level (default is to deep restore the entire hierarchy.)").Int32Var(&c.restoreShallowAtDepth)
 	cmd.Flag("shallow-minsize", "When doing a shallow restore, write actual files instead of placeholders smaller than this size.").Int32Var(&c.minSizeForPlaceholder)
+
+	c.objectReaderOptionsFlags.setup(cmd)
+
 	cmd.Action(svc.repositoryReaderAction(c.run))
 }
 
@@ -330,6 +365,9 @@ func (c *commandRestore) setupPlaceholderExpansion(ctx context.Context, rep repo
 }
 
 func (c *commandRestore) run(ctx context.Context, rep repo.Repository) error {
+	// setup read-ahead options
+	ctx = c.applyObjectReaderOptions(ctx)
+
 	output, oerr := c.restoreOutput(ctx)
 	if oerr != nil {
 		return errors.Wrap(oerr, "unable to initialize output")

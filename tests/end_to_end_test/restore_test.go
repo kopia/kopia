@@ -82,11 +82,11 @@ func TestRestoreCommand(t *testing.T) {
 
 	// Attempt to restore using snapshot ID
 	restoreFailDir := testutil.TempDirectory(t)
-	e.RunAndExpectSuccess(t, "restore", snapID, restoreFailDir)
+	e.RunAndExpectSuccess(t, "restore", "--read-ahead-mb=50", snapID, restoreFailDir)
 
 	// Restore last snapshot
 	restoreDir := testutil.TempDirectory(t)
-	e.RunAndExpectSuccess(t, "restore", rootID, restoreDir)
+	e.RunAndExpectSuccess(t, "restore", "--disable-read-ahead", rootID, restoreDir)
 
 	// Note: restore does not reset the permissions for the top directory due to
 	// the way the top FS entry is created in snapshotfs. Force the permissions

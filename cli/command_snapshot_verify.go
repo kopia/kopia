@@ -25,6 +25,8 @@ type commandSnapshotVerify struct {
 
 	fileQueueLength int
 	fileParallelism int
+
+	objectReaderOptionsFlags
 }
 
 func (c *commandSnapshotVerify) setup(svc appServices, parent commandParent) {
@@ -40,10 +42,13 @@ func (c *commandSnapshotVerify) setup(svc appServices, parent commandParent) {
 	cmd.Flag("file-queue-length", "Queue length for file verification").Default("20000").IntVar(&c.fileQueueLength)
 	cmd.Flag("file-parallelism", "Parallelism for file verification").IntVar(&c.fileParallelism)
 	cmd.Flag("verify-files-percent", "Randomly verify a percentage of files by downloading them [0.0 .. 100.0]").Default("0").Float64Var(&c.verifyCommandFilesPercent)
+	c.objectReaderOptionsFlags.setup(cmd)
 	cmd.Action(svc.repositoryReaderAction(c.run))
 }
 
 func (c *commandSnapshotVerify) run(ctx context.Context, rep repo.Repository) error {
+	ctx = c.applyObjectReaderOptions(ctx)
+
 	if c.verifyCommandAllSources {
 		log(ctx).Errorf("DEPRECATED: --all-sources flag has no effect and is the default when no sources are provided.")
 	}

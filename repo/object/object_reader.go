@@ -49,6 +49,10 @@ type objectReader struct {
 	currentChunkIndex    int    // Index of current chunk in the seek table
 	currentChunkData     []byte // Current chunk data
 	currentChunkPosition int    // Read position in the current chunk
+
+	maxReadAheadChunkIndex int // maximum index of current chunk for which we have issued read-ahead
+
+	opts ReaderOptions
 }
 
 func (r *objectReader) Read(buffer []byte) (int, error) {
@@ -102,7 +106,38 @@ func (r *objectReader) Read(buffer []byte) (int, error) {
 	return readBytes, nil
 }
 
+func (r *objectReader) readAhead(ctx context.Context) {
+	if r.opts.ReadAheadBytes <= 0 {
+		return
+	}
+
+	var (
+		contentIDs  []content.ID
+		totalLength int64
+	)
+
+	for i := r.currentChunkIndex + 1; i < len(r.seekTable); i++ {
+		if cid, _, ok := r.seekTable[i].Object.ContentID(); ok {
+			if i > r.maxReadAheadChunkIndex {
+				contentIDs = append(contentIDs, cid)
+				r.maxReadAheadChunkIndex = i
+			}
+
+			totalLength += r.seekTable[i].Length
+			if totalLength > r.opts.ReadAheadBytes {
+				break
+			}
+		}
+	}
+
+	if len(contentIDs) > 0 {
+		go r.cr.PrefetchContents(ctx, contentIDs, "blobs")
+	}
+}
+
 func (r *objectReader) openCurrentChunk() error {
+	r.readAhead(r.ctx)
+
 	st := r.seekTable[r.currentChunkIndex]
 
 	rd, err := openAndAssertLength(r.ctx, r.cr, st.Object, st.Length)
@@ -151,6 +186,9 @@ func (r *objectReader) findChunkIndexForOffset(offset int64) (int, error) {
 }
 
 func (r *objectReader) Seek(offset int64, whence int) (int64, error) {
+	// reset
+	r.maxReadAheadChunkIndex = 0
+
 	if whence == io.SeekCurrent {
 		return r.Seek(r.currentPosition+offset, 0)
 	}
@@ -209,15 +247,37 @@ func openAndAssertLength(ctx context.Context, cr contentReader, objectID ID, ass
 
 		totalLength := seekTable[len(seekTable)-1].endOffset()
 
+		opts := ReaderOptionsFromContext(ctx)
+		if opts.ReadAheadBytes == 0 {
+			opts.ReadAheadBytes = defaultReadAheadBytesFromLength(totalLength, len(seekTable))
+		}
+
 		return &objectReader{
 			ctx:         ctx,
 			cr:          cr,
 			seekTable:   seekTable,
 			totalLength: totalLength,
+			opts:        opts,
 		}, nil
 	}
 
 	return newRawReader(ctx, cr, objectID, assertLength)
+}
+
+func defaultReadAheadBytesFromLength(objectLength int64, numContents int) int64 {
+	switch {
+	case numContents <= 3: //nolint:gomnd
+		// no read-ahead for files with just <=3 contents
+		return 0
+
+	case objectLength < 100_000_000: // nolint:gomnd
+		// prefetch 30 MB ahead (usually ~2 full blobs).
+		return 30e6 // nolint:gomnd
+
+	default:
+		// prefetch 100 MB ahead (~3-4 full blobs).
+		return 100e6 // nolint:gomnd
+	}
 }
 
 func iterateIndirectObjectContents(ctx context.Context, cr contentReader, indexObjectID ID, tracker *contentIDTracker, callbackFunc func(contentID content.ID) error) error {
