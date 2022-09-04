@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -13,16 +14,19 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ettle/strcase"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/localfs"
+	"github.com/kopia/kopia/internal/tlsutil"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
 const (
 	actionCommandTimeout    = 3 * time.Minute
+	webhookTimeout          = 30 * time.Second
 	actionScriptPermissions = 0o700
 )
 
@@ -35,13 +39,13 @@ type actionContext struct {
 	WorkDir        string
 }
 
-func (hc *actionContext) envars(actionType string) []string {
-	return []string{
-		fmt.Sprintf("KOPIA_ACTION=%v", actionType),
-		fmt.Sprintf("KOPIA_SNAPSHOT_ID=%v", hc.SnapshotID),
-		fmt.Sprintf("KOPIA_SOURCE_PATH=%v", hc.SourcePath),
-		fmt.Sprintf("KOPIA_SNAPSHOT_PATH=%v", hc.SnapshotPath),
-		fmt.Sprintf("KOPIA_VERSION=%v", repo.BuildVersion),
+func (hc *actionContext) envars(actionType string) map[string]string {
+	return map[string]string{
+		"KOPIA_ACTION":        actionType,
+		"KOPIA_SNAPSHOT_ID":   hc.SnapshotID,
+		"KOPIA_SOURCE_PATH":   hc.SourcePath,
+		"KOPIA_SNAPSHOT_PATH": hc.SnapshotPath,
+		"KOPIA_VERSION":       repo.BuildVersion,
 	}
 }
 
@@ -135,6 +139,70 @@ func prepareCommandForAction(ctx context.Context, actionType string, h *policy.A
 	return c, cancel, nil
 }
 
+// runActionWebHook executes the action webhook passing the provided inputs as header values
+// "X-Kopia-{key}={value}". It analyzes the response headers of the command looking for
+// 'X-Kopia-{key}={value}' where the key is present in the provided captures map and sets the
+// corresponding map value.
+func runActionWebHook(ctx context.Context, h *policy.ActionCommand, inputs, captures map[string]string) error {
+	method := h.WebHook.Method
+	if method == "" {
+		method = "POST"
+	}
+
+	if h.WebHook.WebhookURL == "" {
+		return errors.Errorf("missing webhook URL")
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, h.WebHook.WebhookURL, http.NoBody)
+	if err != nil {
+		return errors.Wrap(err, "error constructing webhook request")
+	}
+
+	for k, v := range h.WebHook.Headers {
+		req.Header.Add(k, v)
+	}
+
+	for k, v := range inputs {
+		req.Header.Add(envarToHTTPHeader(k), v)
+	}
+
+	cli := http.Client{
+		Timeout: webhookTimeout,
+	}
+
+	if h.TimeoutSeconds != 0 {
+		cli.Timeout = time.Duration(h.TimeoutSeconds) * time.Second
+	}
+
+	if fp := h.WebHook.TrustedServerCertificateFingerprint; fp != "" {
+		cli.Transport = tlsutil.TransportTrustingSingleCertificate(fp)
+	}
+
+	resp, err := cli.Do(req)
+	if err != nil {
+		return errors.Wrap(err, "webhook HTTP request failure")
+	}
+
+	defer resp.Body.Close() //nolint:errcheck
+
+	// fail on HTTP 4xx and 5xx
+	if resp.StatusCode >= http.StatusBadRequest {
+		return errors.Errorf("invalid webhook HTTP response: %v", resp.Status)
+	}
+
+	for k := range captures {
+		if v := resp.Header.Get(envarToHTTPHeader(k)); v != "" {
+			captures[k] = v
+		}
+	}
+
+	return nil
+}
+
+func envarToHTTPHeader(k string) string {
+	return "X-" + strcase.ToCase(k, strcase.CamelCase, '-')
+}
+
 // runActionCommand executes the action command passing the provided inputs as environment
 // variables. It analyzes the standard output of the command looking for 'key=value'
 // where the key is present in the provided outputs map and sets the corresponding map value.
@@ -142,10 +210,22 @@ func runActionCommand(
 	ctx context.Context,
 	actionType string,
 	h *policy.ActionCommand,
-	inputs []string,
+	inputs map[string]string,
 	captures map[string]string,
 	workDir string,
 ) error {
+	if h.WebHook != nil {
+		if err := runActionWebHook(ctx, h, inputs, captures); err != nil {
+			if h.Mode == "essential" {
+				return errors.Wrap(err, "essential webhook failed")
+			}
+
+			uploadLog(ctx).Errorf("error running non-essential action webhook: %v", err)
+		}
+
+		return nil
+	}
+
 	cmd, cancel, err := prepareCommandForAction(ctx, actionType, h, workDir)
 	if err != nil {
 		return errors.Wrap(err, "error preparing command")
@@ -153,7 +233,11 @@ func runActionCommand(
 
 	defer cancel()
 
-	cmd.Env = append(os.Environ(), inputs...)
+	cmd.Env = append([]string{}, os.Environ()...)
+	for k, v := range inputs {
+		cmd.Env = append(cmd.Env, k+"="+v)
+	}
+
 	cmd.Stderr = os.Stderr
 
 	if h.Mode == "async" {

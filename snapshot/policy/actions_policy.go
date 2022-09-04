@@ -19,6 +19,15 @@ type ActionsPolicyDefinition struct {
 	AfterSnapshotRoot  snapshot.SourceInfo `json:"afterSnapshotRoot,omitempty"`
 }
 
+// WebHookInfo encapsulates all parameters for invoking a webhook.
+type WebHookInfo struct {
+	WebhookURL string            `json:"url"`
+	Method     string            `json:"method,omitempty"`  // method, default==POST
+	Headers    map[string]string `json:"headers,omitempty"` // HTTP headers to add
+
+	TrustedServerCertificateFingerprint string `json:"certFingerprint,omitempty"`
+}
+
 // ActionCommand configures a action command.
 type ActionCommand struct {
 	// command + args to run
@@ -27,6 +36,8 @@ type ActionCommand struct {
 
 	// alternatively inline script to run using either Unix shell or cmd.exe on Windows.
 	Script string `json:"script,omitempty"`
+
+	WebHook *WebHookInfo `json:"webhook,omitempty"`
 
 	TimeoutSeconds int    `json:"timeout,omitempty"`
 	Mode           string `json:"mode,omitempty"` // essential,optional,async

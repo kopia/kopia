@@ -369,7 +369,7 @@ func appendActionsPolicyRows(rows []policyTableRow, p *policy.Policy, def *polic
 
 	if h := p.Actions.BeforeSnapshotRoot; h != nil {
 		rows = append(rows,
-			policyTableRow{"Run command before snapshot root:", "", definitionPointToString(p.Target(), def.Actions.BeforeSnapshotRoot)})
+			policyTableRow{"Run before snapshot root:", "", definitionPointToString(p.Target(), def.Actions.BeforeSnapshotRoot)})
 		rows = appendActionCommandRows(rows, h)
 
 		anyActions = true
@@ -383,14 +383,14 @@ func appendActionsPolicyRows(rows []policyTableRow, p *policy.Policy, def *polic
 	}
 
 	if h := p.Actions.BeforeFolder; h != nil {
-		rows = append(rows, policyTableRow{"Run command before this folder:", "", "(non-inheritable)"})
+		rows = append(rows, policyTableRow{"Run before this folder:", "", "(non-inheritable)"})
 		rows = appendActionCommandRows(rows, h)
 
 		anyActions = true
 	}
 
 	if h := p.Actions.AfterFolder; h != nil {
-		rows = append(rows, policyTableRow{"Run command after this folder:", "", "(non-inheritable)"})
+		rows = append(rows, policyTableRow{"Run after this folder:", "", "(non-inheritable)"})
 		rows = appendActionCommandRows(rows, h)
 
 		anyActions = true
@@ -404,12 +404,28 @@ func appendActionsPolicyRows(rows []policyTableRow, p *policy.Policy, def *polic
 }
 
 func appendActionCommandRows(rows []policyTableRow, h *policy.ActionCommand) []policyTableRow {
-	if h.Script != "" {
+	switch {
+	case h.WebHook != nil:
+		rows = append(rows,
+			policyTableRow{"  Webhook:", h.WebHook.Method + " " + h.WebHook.WebhookURL, ""},
+		)
+
+		if len(h.WebHook.Headers) > 0 {
+			rows = append(rows, policyTableRow{"  HTTP Headers:", "", ""})
+			for k, v := range h.WebHook.Headers {
+				rows = append(rows, policyTableRow{"    " + k + ": " + v, "", ""})
+			}
+		}
+
+		if h.WebHook.TrustedServerCertificateFingerprint != "" {
+			rows = append(rows, policyTableRow{"  Trusted Certificate Fingerprint:", h.WebHook.TrustedServerCertificateFingerprint, ""})
+		}
+	case h.Script != "":
 		rows = append(rows,
 			policyTableRow{"  Embedded script (stored in repository):", "", ""},
 			policyTableRow{indentMultilineString(h.Script, "    "), "", ""},
 		)
-	} else {
+	default:
 		rows = append(rows,
 			policyTableRow{"  Command:", "", ""},
 			policyTableRow{"    " + h.Command + " " + strings.Join(h.Arguments, " "), "", ""})

@@ -2,10 +2,15 @@ package endtoend_test
 
 import (
 	"bufio"
+	"crypto/sha256"
+	"encoding/hex"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -293,6 +298,234 @@ func TestSnapshotActionsEmbeddedScript(t *testing.T) {
 
 	e.RunAndExpectSuccess(t, "policy", "set", sharedTestDataDir1, "--before-folder-action", failingScript, "--persist-action-script")
 	e.RunAndExpectFailure(t, "snapshot", "create", sharedTestDataDir1)
+}
+
+func TestSnapshotActionsWebHook(t *testing.T) {
+	t.Run("HTTP", func(t *testing.T) {
+		testSnapshotActionsWebHook(t, false)
+	})
+	t.Run("HTTPS", func(t *testing.T) {
+		testSnapshotActionsWebHook(t, true)
+	})
+}
+
+//nolint:thelper
+func testSnapshotActionsWebHook(t *testing.T, tls bool) {
+	t.Parallel()
+
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--enable-actions")
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	srcdir := testutil.TempDirectory(t)
+	require.NoError(t, os.MkdirAll(filepath.Join(srcdir, "subdir1"), 0o755))
+
+	mux := http.NewServeMux()
+
+	beforeFolderCount := new(int32)
+	afterFolderCount := new(int32)
+	beforeSnapshotRootCount := new(int32)
+	afterSnapshotRootCount := new(int32)
+
+	mux.HandleFunc("/myhook-before-folder", func(w http.ResponseWriter, r *http.Request) {
+		t.Logf("got webhook call: %v", r.RequestURI)
+		for k := range r.Header {
+			t.Logf("  Header: %v = %v", k, r.Header.Get(k))
+		}
+
+		require.NotEmpty(t, r.Header.Get("X-Kopia-Version"))
+		require.NotEmpty(t, r.Header.Get("X-Kopia-Snapshot-Id"))
+		require.NotEmpty(t, r.Header.Get("X-Kopia-Snapshot-Path"))
+		require.NotEmpty(t, r.Header.Get("X-Kopia-Source-Path"))
+		require.Equal(t, "before-folder", r.Header.Get("X-Kopia-Action"))
+		require.Equal(t, "GET", r.Method)
+
+		atomic.AddInt32(beforeFolderCount, 1)
+	})
+
+	mux.HandleFunc("/myhook-after-folder", func(w http.ResponseWriter, r *http.Request) {
+		t.Logf("got webhook call: %v", r.RequestURI)
+		for k := range r.Header {
+			t.Logf("  Header: %v = %v", k, r.Header.Get(k))
+		}
+
+		require.NotEmpty(t, r.Header.Get("X-Kopia-Version"))
+		require.NotEmpty(t, r.Header.Get("X-Kopia-Snapshot-Id"))
+		require.NotEmpty(t, r.Header.Get("X-Kopia-Snapshot-Path"))
+		require.NotEmpty(t, r.Header.Get("X-Kopia-Source-Path"))
+		require.Equal(t, "after-folder", r.Header.Get("X-Kopia-Action"))
+		require.Equal(t, "POST", r.Method)
+
+		atomic.AddInt32(afterFolderCount, 1)
+	})
+
+	mux.HandleFunc("/myhook-before-snapshot-root", func(w http.ResponseWriter, r *http.Request) {
+		t.Logf("got webhook call: %v", r.RequestURI)
+		for k := range r.Header {
+			t.Logf("  Header: %v = %v", k, r.Header.Get(k))
+		}
+
+		require.NotEmpty(t, r.Header.Get("X-Kopia-Version"))
+		require.NotEmpty(t, r.Header.Get("X-Kopia-Snapshot-Id"))
+		require.NotEmpty(t, r.Header.Get("X-Kopia-Snapshot-Path"))
+		require.NotEmpty(t, r.Header.Get("X-Kopia-Source-Path"))
+		require.Equal(t, "before-snapshot-root", r.Header.Get("X-Kopia-Action"))
+		require.Equal(t, "bar", r.Header.Get("Foo"))
+		require.Equal(t, "Baz", r.Header.Get("Bar"))
+		require.Equal(t, "PATCH", r.Method)
+
+		atomic.AddInt32(beforeSnapshotRootCount, 1)
+	})
+
+	mux.HandleFunc("/myhook-after-snapshot-root", func(w http.ResponseWriter, r *http.Request) {
+		t.Logf("got webhook call: %v", r.RequestURI)
+		for k := range r.Header {
+			t.Logf("  Header: %v = %v", k, r.Header.Get(k))
+		}
+
+		require.NotEmpty(t, r.Header.Get("X-Kopia-Version"))
+		require.NotEmpty(t, r.Header.Get("X-Kopia-Snapshot-Id"))
+		require.NotEmpty(t, r.Header.Get("X-Kopia-Snapshot-Path"))
+		require.NotEmpty(t, r.Header.Get("X-Kopia-Source-Path"))
+		require.Equal(t, "after-snapshot-root", r.Header.Get("X-Kopia-Action"))
+		require.Equal(t, "PUT", r.Method)
+
+		atomic.AddInt32(afterSnapshotRootCount, 1)
+	})
+
+	var (
+		ts        *httptest.Server
+		extraArgs []string
+	)
+
+	if tls {
+		ts = httptest.NewTLSServer(mux)
+		fingerprint := sha256.Sum256(ts.Certificate().Raw)
+
+		extraArgs = append(extraArgs,
+			"--webhook-server-certificate-fingerprint", hex.EncodeToString(fingerprint[:]))
+	} else {
+		ts = httptest.NewServer(mux)
+	}
+
+	defer ts.Close()
+
+	e.RunAndExpectSuccess(t, append(append([]string{}, "policy", "set", srcdir, "--before-folder-webhook-url", ts.URL+"/myhook-before-folder", "--webhook-method=GET"), extraArgs...)...)
+	e.RunAndExpectSuccess(t, append(append([]string{}, "policy", "set", srcdir, "--after-folder-webhook-url", ts.URL+"/myhook-after-folder"), extraArgs...)...)
+	e.RunAndExpectSuccess(t, append(append([]string{}, "policy", "set", filepath.Join(srcdir, "subdir1"), "--before-folder-webhook-url", ts.URL+"/myhook-before-folder", "--webhook-method=GET"), extraArgs...)...)
+	e.RunAndExpectSuccess(t, append(append([]string{}, "policy", "set", filepath.Join(srcdir, "subdir1"), "--after-folder-webhook-url", ts.URL+"/myhook-after-folder"), extraArgs...)...)
+	e.RunAndExpectSuccess(t, append(append([]string{},
+		"policy", "set", srcdir, "--before-snapshot-root-webhook-url",
+		ts.URL+"/myhook-before-snapshot-root", "--webhook-header", "Foo=bar",
+		"--webhook-header", "Bar=Baz", "--webhook-method=PATCH"),
+		extraArgs...)...)
+	e.RunAndExpectSuccess(t, append(append([]string{},
+		"policy", "set", srcdir, "--after-snapshot-root-webhook-url",
+		ts.URL+"/myhook-after-snapshot-root", "--webhook-method=PUT"),
+		extraArgs...)...)
+	e.RunAndExpectSuccess(t, "snapshot", "create", srcdir)
+
+	require.EqualValues(t, 1, *beforeSnapshotRootCount)
+	require.EqualValues(t, 1, *afterSnapshotRootCount)
+	require.EqualValues(t, 2, *beforeFolderCount)
+	require.EqualValues(t, 2, *afterFolderCount)
+
+	ts.Close()
+
+	// snapshot fails due to essential webhook not being able to be sent.
+	e.RunAndExpectFailure(t, "snapshot", "create", srcdir)
+}
+
+func TestSnapshotActionsNonEssentialWebHook(t *testing.T) {
+	t.Parallel()
+
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--enable-actions")
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	srcdir := testutil.TempDirectory(t)
+
+	// setup dummy optional webhook without setting up server
+	e.RunAndExpectSuccess(t,
+		"policy", "set", srcdir,
+		"--before-folder-webhook-url", "http://localhost:41231/no-such-url",
+		"--webhook-mode=optional")
+
+	// async webhooks are unsupported
+	e.RunAndExpectFailure(t,
+		"policy", "set", srcdir,
+		"--before-folder-webhook-url", "http://localhost:41231/no-such-url",
+		"--webhook-mode=async")
+
+	// snapshot will succeeded because webhook is non-essential.
+	e.RunAndExpectSuccess(t, "snapshot", "create", srcdir)
+}
+
+func TestSnapshotActionsInvalidWebhookTLS(t *testing.T) {
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--enable-actions")
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	srcdir := testutil.TempDirectory(t)
+	require.NoError(t, os.MkdirAll(filepath.Join(srcdir, "subdir1"), 0o755))
+
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/myhook-before-folder", func(w http.ResponseWriter, r *http.Request) {
+	})
+
+	ts := httptest.NewTLSServer(mux)
+
+	defer ts.Close()
+
+	e.RunAndExpectSuccess(t, "policy", "set", srcdir, "--before-folder-webhook-url", ts.URL+"/myhook-before-folder")
+	e.RunAndExpectFailure(t, "snapshot", "create", srcdir)
+}
+
+func TestSnapshotActionsWebHookRedirect(t *testing.T) {
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--enable-actions")
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	srcdir := testutil.TempDirectory(t)
+	srcdir2 := testutil.TempDirectory(t)
+	require.NoError(t, os.MkdirAll(filepath.Join(srcdir2, "foo"), 0o755))
+	require.NoError(t, os.MkdirAll(filepath.Join(srcdir2, "bar"), 0o755))
+	require.NoError(t, os.MkdirAll(filepath.Join(srcdir2, "baz"), 0o755))
+
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/myhook-before", func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, r.Header.Get("X-Kopia-Source-Path"), r.Header.Get("X-Kopia-Snapshot-Path"))
+
+		w.Header().Add("X-Kopia-Snapshot-Path", srcdir2)
+	})
+
+	mux.HandleFunc("/myhook-after", func(w http.ResponseWriter, r *http.Request) {
+		require.NotEqual(t, r.Header.Get("X-Kopia-Source-Path"), r.Header.Get("X-Kopia-Snapshot-Path"))
+	})
+
+	ts := httptest.NewServer(mux)
+
+	defer ts.Close()
+
+	e.RunAndExpectSuccess(t, "policy", "set", srcdir, "--before-snapshot-root-webhook-url", ts.URL+"/myhook-before")
+	e.RunAndExpectSuccess(t, "policy", "set", srcdir, "--after-snapshot-root-webhook-url", ts.URL+"/myhook-after")
+
+	var man snapshot.Manifest
+
+	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "create", srcdir, "--json"), &man)
+
+	// make sure we snapshotted second directory 1 + 3 subdirectories.
+	require.Equal(t, int64(4), man.RootEntry.DirSummary.TotalDirCount)
 }
 
 func TestSnapshotActionsEnable(t *testing.T) {
