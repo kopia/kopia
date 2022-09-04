@@ -23,7 +23,7 @@ RUN 		apt-get update && \
 	
 WORKDIR /app
 
-COPY 		bin-${TARGETARCH}/kopia .
+COPY 		bin-${TARGETARCH}/kopia /bin/kopia
 COPY 		bin-${TARGETARCH}/rclone /bin/rclone
   
-ENTRYPOINT 	["/app/kopia"]
+ENTRYPOINT 	["/bin/kopia"]
