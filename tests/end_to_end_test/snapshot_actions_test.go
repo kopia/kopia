@@ -425,6 +425,13 @@ func testSnapshotActionsWebHook(t *testing.T, tls bool) {
 		"policy", "set", srcdir, "--after-snapshot-root-webhook-url",
 		ts.URL+"/myhook-after-snapshot-root", "--webhook-method=PUT"),
 		extraArgs...)...)
+
+	lines := testutil.CompressSpaces(e.RunAndExpectSuccess(t, "policy", "show", srcdir))
+	require.Contains(t, lines, " Webhook: GET "+ts.URL+"/myhook-before-folder")
+	require.Contains(t, lines, " Webhook: PATCH "+ts.URL+"/myhook-before-snapshot-root")
+	require.Contains(t, lines, " Webhook: POST "+ts.URL+"/myhook-after-folder")
+	require.Contains(t, lines, " Webhook: PUT "+ts.URL+"/myhook-after-snapshot-root")
+
 	e.RunAndExpectSuccess(t, "snapshot", "create", srcdir)
 
 	require.EqualValues(t, 1, *beforeSnapshotRootCount)
@@ -526,6 +533,29 @@ func TestSnapshotActionsWebHookRedirect(t *testing.T) {
 
 	// make sure we snapshotted second directory 1 + 3 subdirectories.
 	require.Equal(t, int64(4), man.RootEntry.DirSummary.TotalDirCount)
+}
+
+func TestSnapshotActionsWebHookFailure(t *testing.T) {
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--enable-actions")
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	srcdir := testutil.TempDirectory(t)
+
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/myhook-before", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	})
+
+	ts := httptest.NewServer(mux)
+
+	defer ts.Close()
+
+	e.RunAndExpectSuccess(t, "policy", "set", srcdir, "--before-snapshot-root-webhook-url", ts.URL+"/myhook-before")
+	e.RunAndExpectFailure(t, "snapshot", "create", srcdir)
 }
 
 func TestSnapshotActionsEnable(t *testing.T) {

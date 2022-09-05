@@ -1,7 +1,6 @@
 package cli_test
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -17,7 +16,7 @@ func TestSetLoggingPolicy(t *testing.T) {
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 
 	lines := e.RunAndExpectSuccess(t, "policy", "show", "--global")
-	lines = compressSpaces(lines)
+	lines = testutil.CompressSpaces(lines)
 	require.Contains(t, lines, " Directory snapshotted: 5 (defined for this target)")
 	require.Contains(t, lines, " Directory ignored: 5 (defined for this target)")
 	require.Contains(t, lines, " Entry snapshotted: 0 (defined for this target)")
@@ -29,7 +28,7 @@ func TestSetLoggingPolicy(t *testing.T) {
 	td := testutil.TempDirectory(t)
 
 	lines = e.RunAndExpectSuccess(t, "policy", "show", td)
-	lines = compressSpaces(lines)
+	lines = testutil.CompressSpaces(lines)
 	require.Contains(t, lines, " Directory snapshotted: 5 inherited from (global)")
 	require.Contains(t, lines, " Directory ignored: 5 inherited from (global)")
 	require.Contains(t, lines, " Entry snapshotted: 0 inherited from (global)")
@@ -46,7 +45,7 @@ func TestSetLoggingPolicy(t *testing.T) {
 		"--log-entry-cache-miss=6")
 
 	lines = e.RunAndExpectSuccess(t, "policy", "show", td)
-	lines = compressSpaces(lines)
+	lines = testutil.CompressSpaces(lines)
 	require.Contains(t, lines, " Directory snapshotted: 1 (defined for this target)")
 	require.Contains(t, lines, " Directory ignored: 2 (defined for this target)")
 	require.Contains(t, lines, " Entry snapshotted: 3 (defined for this target)")
@@ -57,7 +56,7 @@ func TestSetLoggingPolicy(t *testing.T) {
 	e.RunAndExpectSuccess(t, "policy", "set", td, "--log-entry-ignored=inherit")
 
 	lines = e.RunAndExpectSuccess(t, "policy", "show", td)
-	lines = compressSpaces(lines)
+	lines = testutil.CompressSpaces(lines)
 	require.Contains(t, lines, " Entry ignored: 5 inherited from (global)")
 
 	e.RunAndExpectFailure(t, "policy", "set", td, "--log-dir-snapshotted=-1")
@@ -66,18 +65,4 @@ func TestSetLoggingPolicy(t *testing.T) {
 	e.RunAndExpectFailure(t, "policy", "set", td, "--log-entry-ignored=-1")
 	e.RunAndExpectFailure(t, "policy", "set", td, "--log-entry-cache-hit=-1")
 	e.RunAndExpectFailure(t, "policy", "set", td, "--log-entry-cache-miss=-1")
-}
-
-func compressSpaces(lines []string) []string {
-	var result []string
-
-	for _, l := range lines {
-		for l2 := strings.ReplaceAll(l, "  ", " "); l != l2; l2 = strings.ReplaceAll(l, "  ", " ") {
-			l = l2
-		}
-
-		result = append(result, l)
-	}
-
-	return result
 }

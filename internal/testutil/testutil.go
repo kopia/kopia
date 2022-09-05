@@ -178,3 +178,18 @@ func MustGetTotalDirSize(t *testing.T, dirpath string) int64 {
 
 	return total
 }
+
+// CompressSpaces normalizes all repeated spaces in the given lines with single space.
+func CompressSpaces(lines []string) []string {
+	var result []string
+
+	for _, l := range lines {
+		for l2 := strings.ReplaceAll(l, "  ", " "); l != l2; l2 = strings.ReplaceAll(l, "  ", " ") {
+			l = l2
+		}
+
+		result = append(result, l)
+	}
+
+	return result
+}
