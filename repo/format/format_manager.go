@@ -9,6 +9,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/ctxutil"
 	"github.com/kopia/kopia/internal/feature"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
@@ -401,7 +402,7 @@ func NewManagerWithCache(
 	}
 
 	m := &Manager{
-		ctx:                       ctx,
+		ctx:                       ctxutil.Detach(ctx),
 		blobs:                     st,
 		validDuration:             validDuration,
 		password:                  password,
