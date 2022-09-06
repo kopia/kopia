@@ -502,7 +502,7 @@ func (c *commandRestore) tryToConvertPathToID(ctx context.Context, rep repo.Repo
 		"   Snapshot source: %v\n"+
 		"   Snapshot time: %v\n"+
 		"   Relative path: %v\n"+
-		"   Object ID: %v", m.Source, formatTimestamp(m.StartTime), relPath, ohid)
+		"   Object ID: %v", m.Source, formatTimestamp(m.StartTime.ToTime()), relPath, ohid)
 
 	return ohid.String(), nil
 }
@@ -526,7 +526,7 @@ func createSnapshotTimeFilter(timespec string) (func(*snapshot.Manifest, int, in
 	}
 
 	return func(m *snapshot.Manifest, i, total int) bool {
-		return m.StartTime.Before(t)
+		return m.StartTime.ToTime().Before(t)
 	}, nil
 }
 
@@ -537,21 +537,21 @@ func computeMaxTime(timespec string) (time.Time, error) {
 	now := clock.Now()
 
 	if timespec == "yesterday" {
-		return time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()), nil
+		return time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local), nil
 	}
 
 	if timespec == "last-month" {
-		return time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location()), nil
+		return time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.Local), nil
 	}
 
 	if timespec == "last-year" {
-		return time.Date(now.Year(), 1, 1, 0, 0, 0, 0, now.Location()), nil
+		return time.Date(now.Year(), 1, 1, 0, 0, 0, 0, time.Local), nil
 	}
 
 	if strings.HasSuffix(timespec, "-ago") {
 		ymd := timeAgoRE.FindStringSubmatch(timespec)
 		if ymd != nil {
-			t := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+			t := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
 
 			years, _ := strconv.Atoi(ymd[1])
 			months, _ := strconv.Atoi(ymd[2])
@@ -601,7 +601,7 @@ func computeMaxTime(timespec string) (time.Time, error) {
 
 		// If no timezone is given, assume local time
 		if !strings.Contains(f.format, "Z") && !strings.Contains(f.format, "MST") {
-			t = time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), now.Location())
+			t = time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), time.Local)
 		}
 
 		switch f.precision {
