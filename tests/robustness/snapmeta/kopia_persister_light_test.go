@@ -131,8 +131,6 @@ func TestPersistence(t *testing.T) {
 }
 
 func TestS3Connect(t *testing.T) {
-	t.Skip("TODO - fix me")
-
 	repoPath, err := os.MkdirTemp("", "kopia-test-repo-")
 	assertNoError(t, err)
 
