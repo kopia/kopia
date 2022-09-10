@@ -18,9 +18,15 @@ import (
 	"github.com/kopia/kopia/repo/logging"
 )
 
+const (
+	implSyncMap           = 0
+	implMapWithEmptyValue = 1
+	implMapWithValues     = 2
+)
+
 //nolint:gochecknoglobals
 var (
-	impl          = flag.Int("impl", 0, "Select implementation")
+	impl          = flag.Int("impl", implMapWithEmptyValue, "Select implementation")
 	profileDir    = flag.String("profile-dir", "", "Profile directory")
 	profileCPU    = flag.Bool("profile-cpu", false, "Profile CPU")
 	profileMemory = flag.Bool("profile-memory", false, "Profile RAM")
@@ -51,15 +57,19 @@ func main() {
 		}
 	}
 
-	if *impl == 0 {
+	switch *impl {
+	case implSyncMap:
 		sm = &sync.Map{}
 
 		fmt.Println("using sync.Map")
-	} else if *impl == 1 {
-		fmt.Println("using bigmap.Map")
+	case implMapWithEmptyValue:
+		fmt.Println("using bigmap.Map without values")
 
 		bm, _ = bigmap.NewMapWithOptions(ctx, &bigmap.Options{})
+	case implMapWithValues:
+		fmt.Println("using bigmap.Map with values")
 
+		bm, _ = bigmap.NewMapWithOptions(ctx, &bigmap.Options{})
 	}
 
 	h := sha256.New()
@@ -91,10 +101,13 @@ func main() {
 		h.Write(num[:])
 		h.Sum(keyBuf[:0])
 
-		if *impl == 0 {
+		switch *impl {
+		case implSyncMap:
 			sm.LoadOrStore(keyBuf, nil)
-		} else if *impl == 1 {
+		case implMapWithEmptyValue:
 			bm.PutIfAbsent(ctx, keyBuf[:], nil)
+		case implMapWithValues:
+			bm.PutIfAbsent(ctx, keyBuf[:], keyBuf[:])
 		}
 	}
 }
