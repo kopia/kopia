@@ -909,13 +909,13 @@ func TestUpload_VirtualDirectoryWithStreamingFileWithModTime(t *testing.T) {
 			require.Equal(t, int32(1), atomic.LoadInt32(&man1.Stats.TotalDirectoryCount))
 			require.Equal(t, int32(1), atomic.LoadInt32(&man1.Stats.TotalFileCount))
 
+			// wait a little bit to ensure clock moves forward which is not always the case on Windows.
+			time.Sleep(100 * time.Millisecond)
+
 			// Rebuild tree because reader only works once.
 			staticRoot = virtualfs.NewStaticDirectory("rootdir", []fs.Entry{
 				tc.getFile(),
 			})
-
-			// wait a little bit to ensure clock moves forward which is not always the case on Windows.
-			time.Sleep(100 * time.Millisecond)
 
 			// Second upload may find some cached files depending on timestamps.
 			man2, err := u.Upload(ctx, staticRoot, policyTree, snapshot.SourceInfo{}, man1)
