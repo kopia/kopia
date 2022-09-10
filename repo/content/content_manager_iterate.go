@@ -9,6 +9,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/bigmap"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content/index"
 )
@@ -228,7 +229,12 @@ func (bm *WriteManager) IteratePacks(ctx context.Context, options IteratePackOpt
 
 // IterateUnreferencedBlobs returns the list of unreferenced storage blobs.
 func (bm *WriteManager) IterateUnreferencedBlobs(ctx context.Context, blobPrefixes []blob.ID, parallellism int, callback func(blob.Metadata) error) error {
-	var usedPacks sync.Map
+	usedPacks, err := bigmap.NewSet(ctx)
+	if err != nil {
+		return errors.Wrap(err, "new set")
+	}
+
+	defer usedPacks.Close(ctx)
 
 	bm.log.Debugf("determining blobs in use")
 	// find packs in use
@@ -240,7 +246,7 @@ func (bm *WriteManager) IterateUnreferencedBlobs(ctx context.Context, blobPrefix
 		},
 		func(pi PackInfo) error {
 			if pi.ContentCount > 0 {
-				usedPacks.Store(pi.PackID, struct{}{})
+				usedPacks.Put(ctx, []byte(pi.PackID))
 			}
 			return nil
 		}); err != nil {
@@ -270,7 +276,7 @@ func (bm *WriteManager) IterateUnreferencedBlobs(ctx context.Context, blobPrefix
 
 	if err := blob.IterateAllPrefixesInParallel(ctx, parallellism, bm.st, prefixes,
 		func(bm blob.Metadata) error {
-			if _, ok := usedPacks.Load(bm.BlobID); ok {
+			if usedPacks.Contains([]byte(bm.BlobID)) {
 				return nil
 			}
 

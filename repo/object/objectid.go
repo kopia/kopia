@@ -80,6 +80,19 @@ func (i ID) String() string {
 	return indirectPrefix + compressionPrefix + i.cid.String()
 }
 
+// Append appends string representation of ObjectID that is suitable for displaying in the UI.
+func (i ID) Append(out []byte) []byte {
+	for j := 0; j < int(i.indirection); j++ {
+		out = append(out, 'I')
+	}
+
+	if i.compression {
+		out = append(out, 'Z')
+	}
+
+	return i.cid.Append(out)
+}
+
 // IndexObjectID returns the object ID of the underlying index object.
 func (i ID) IndexObjectID() (ID, bool) {
 	if i.indirection > 0 {

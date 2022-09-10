@@ -108,6 +108,19 @@ func (i ID) AppendToLogBuffer(sb *logging.Buffer) {
 	sb.AppendBytes(buf[0 : i.idLen*2])
 }
 
+// Append appends content ID to the slice.
+func (i ID) Append(out []byte) []byte {
+	var buf [128]byte
+
+	if i.prefix != 0 {
+		out = append(out, i.prefix)
+	}
+
+	hex.Encode(buf[0:i.idLen*2], i.data[0:i.idLen])
+
+	return append(out, buf[0:i.idLen*2]...)
+}
+
 // String returns a string representation of ID.
 func (i ID) String() string {
 	return string(i.Prefix()) + hex.EncodeToString(i.data[:i.idLen])

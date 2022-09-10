@@ -7,10 +7,10 @@ import (
 	"encoding/json"
 	"path"
 	"runtime"
-	"sync"
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/bigmap"
 	"github.com/kopia/kopia/internal/impossible"
 	"github.com/kopia/kopia/internal/workshare"
 	"github.com/kopia/kopia/repo"
@@ -53,7 +53,7 @@ type DirRewriter struct {
 	ws   *workshare.Pool
 	opts DirRewriterOptions
 
-	cache sync.Map
+	cache *bigmap.Map
 
 	rep repo.RepositoryWriter
 }
@@ -91,9 +91,16 @@ func (rw *DirRewriter) getCachedReplacement(ctx context.Context, parentPath stri
 	key := rw.getCacheKey(input)
 
 	// see if we already processed this exact directory entry
-	if v, ok := rw.cache.Load(key); ok {
-		//nolint:forcetypeassert
-		return v.(*snapshot.DirEntry).Clone(), nil
+	cached, ok, err := rw.cache.Get(ctx, nil, key[:])
+	if err != nil {
+		return nil, errors.Wrap(err, "cache get")
+	}
+
+	if ok {
+		de := &snapshot.DirEntry{}
+		jerr := json.Unmarshal(cached, de)
+
+		return de, errors.Wrap(jerr, "json unmarshal")
 	}
 
 	// entry not cached yet, run rewriter
@@ -114,10 +121,14 @@ func (rw *DirRewriter) getCachedReplacement(ctx context.Context, parentPath stri
 		result = rep2
 	}
 
-	actual, _ := rw.cache.LoadOrStore(key, result.Clone())
+	v, err := json.Marshal(result)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to marshal JSON")
+	}
 
-	//nolint:forcetypeassert
-	return actual.(*snapshot.DirEntry), nil
+	rw.cache.PutIfAbsent(ctx, key[:], v)
+
+	return result, nil
 }
 
 func (rw *DirRewriter) processDirectory(ctx context.Context, pathFromRoot string, entry *snapshot.DirEntry) (*snapshot.DirEntry, error) {
@@ -232,8 +243,10 @@ func (rw *DirRewriter) RewriteSnapshotManifest(ctx context.Context, man *snapsho
 }
 
 // Close closes the rewriter.
-func (rw *DirRewriter) Close() {
+func (rw *DirRewriter) Close(ctx context.Context) {
 	rw.ws.Close()
+
+	rw.cache.Close(ctx)
 }
 
 // RewriteKeep is a callback that keeps the unreadable entry.
@@ -294,7 +307,7 @@ func RewriteRemove(ctx context.Context, parentPath string, entry *snapshot.DirEn
 }
 
 // NewDirRewriter creates a new directory rewriter.
-func NewDirRewriter(rep repo.RepositoryWriter, opts DirRewriterOptions) *DirRewriter {
+func NewDirRewriter(ctx context.Context, rep repo.RepositoryWriter, opts DirRewriterOptions) (*DirRewriter, error) {
 	if opts.Parallel == 0 {
 		opts.Parallel = runtime.NumCPU()
 	}
@@ -303,9 +316,15 @@ func NewDirRewriter(rep repo.RepositoryWriter, opts DirRewriterOptions) *DirRewr
 		opts.OnDirectoryReadFailure = RewriteFail
 	}
 
-	return &DirRewriter{
-		ws:   workshare.NewPool(opts.Parallel - 1),
-		opts: opts,
-		rep:  rep,
+	cache, err := bigmap.NewMap(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "new map")
 	}
+
+	return &DirRewriter{
+		ws:    workshare.NewPool(opts.Parallel - 1),
+		opts:  opts,
+		rep:   rep,
+		cache: cache,
+	}, nil
 }
