@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -142,6 +144,15 @@ func (r *grpcInnerSession) sendRequest(ctx context.Context, req *apipb.SessionRe
 	r.activeRequestsMutex.Unlock()
 
 	req.RequestId = rid
+
+	// pass trace context to the server
+	if sc := trace.SpanContextFromContext(ctx); sc.IsValid() {
+		var tc propagation.TraceContext
+
+		req.TraceContext = map[string]string{}
+
+		tc.Inject(ctx, propagation.MapCarrier(req.TraceContext))
+	}
 
 	// sends to GRPC stream must be single-threaded.
 	r.sendMutex.Lock()
