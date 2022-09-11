@@ -211,11 +211,14 @@ func (r *apiServerRepository) WriteContent(ctx context.Context, data gather.Byte
 	if err != nil {
 		return content.EmptyID, errors.Wrap(err, "invalid content ID")
 	}
-
-	// avoid uploading the content body if it already exists.
-	if _, err := r.ContentInfo(ctx, contentID); err == nil {
-		// content already exists
-		return contentID, nil
+	// if content is large enough, perform existence check on the server,
+	// for small contents we skip the check, since the server-side existence
+	// check is fast and we avoid double round trip.
+	if data.Length() >= writeContentCheckExistenceAboveSize {
+		if _, err := r.ContentInfo(ctx, contentID); err == nil {
+			// content already exists
+			return contentID, nil
+		}
 	}
 
 	r.wso.OnUpload(int64(data.Length()))
