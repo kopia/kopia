@@ -248,7 +248,7 @@ func remoteRepositoryTest(ctx context.Context, t *testing.T, rep repo.Repository
 	var (
 		result                  object.ID
 		manifestID, manifestID2 manifest.ID
-		written                 = []byte{1, 2, 3}
+		written                 = make([]byte, 100000)
 		srcInfo                 = snapshot.SourceInfo{
 			Host:     testHostname,
 			UserName: testUsername,
