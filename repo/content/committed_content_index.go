@@ -30,7 +30,7 @@ type committedContentIndex struct {
 	rev   int64
 	cache committedContentIndexCache
 
-	mu sync.Mutex
+	mu sync.RWMutex
 	// +checklocks:mu
 	deletionWatermark time.Time
 	// +checklocks:mu
@@ -59,8 +59,8 @@ func (c *committedContentIndex) revision() int64 {
 }
 
 func (c *committedContentIndex) getContent(contentID ID) (Info, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 
 	info, err := c.merged.GetInfo(contentID)
 	if info != nil {
@@ -124,10 +124,10 @@ func (c *committedContentIndex) addIndexBlob(ctx context.Context, indexBlobID bl
 }
 
 func (c *committedContentIndex) listContents(r IDRange, cb func(i Info) error) error {
-	c.mu.Lock()
+	c.mu.RLock()
 	m := append(index.Merged(nil), c.merged...)
 	deletionWatermark := c.deletionWatermark
-	c.mu.Unlock()
+	c.mu.RUnlock()
 
 	//nolint:wrapcheck
 	return m.Iterate(r, func(i Info) error {
