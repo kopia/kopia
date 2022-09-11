@@ -679,7 +679,7 @@ func TestParallelUploadUploadsBlobsInParallel(t *testing.T) {
 	th := newUploadTestHarness(ctx, t)
 
 	u := NewUploader(th.repo)
-	u.ParallelUploads = 10
+	u.ParallelUploads = 13
 
 	// no faults for first blob write - session marker.
 	th.faulty.AddFault(blobtesting.MethodPutBlob)
@@ -704,6 +704,8 @@ func TestParallelUploadUploadsBlobsInParallel(t *testing.T) {
 	u.disableEstimation = true
 
 	policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
+
+	require.Equal(t, 13, u.effectiveParallelFileReads(policyTree.EffectivePolicy()))
 
 	si := snapshot.SourceInfo{
 		UserName: "user",
