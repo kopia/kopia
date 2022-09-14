@@ -27,6 +27,16 @@
     dependency_name: "github.com/minio/minio-go/v7"
     update_type: "semver:minor"
 
+# otel
+- match:
+    dependency_name: "go.opentelemetry.io/.*"
+    update_type: "semver:minor"
+
+# chromedp
+- match:
+    dependency_name: "github.com/chromedp/.*"
+    update_type: "semver:minor"
+
 # Prometheus
 - match:
     dependency_name: "github.com/prometheus/common"
