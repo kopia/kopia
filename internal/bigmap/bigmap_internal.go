@@ -28,7 +28,6 @@ const (
 	defaultMemorySegmentSize    = 18 * 1e6   // 18MB enough to store >1M 16-17-byte keys
 	defaultFileSegmentSize      = 1024 << 20 // 1 GiB
 	defaultInitialSizeLogarithm = 20
-	mmapFileMode                = 0o600
 
 	// grow hash table above this percentage utilization, higher values (close to 100) will be very slow,
 	// smaller values will waste memory.
