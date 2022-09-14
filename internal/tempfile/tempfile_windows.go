@@ -20,7 +20,10 @@ func Create(dir string) (*os.File, error) {
 
 	// This call creates a file that's automatically deleted on close.
 	h, err := syscall.CreateFile(
-		fname, 0, 0, nil,
+		fname,
+		windows.GENERIC_READ|windows.GENERIC_WRITE,
+		0,
+		nil,
 		syscall.OPEN_ALWAYS,
 		uint32(windows.FILE_FLAG_DELETE_ON_CLOSE),
 		0)
