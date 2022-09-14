@@ -14,13 +14,12 @@ import (
 	"context"
 	"encoding/binary"
 	"os"
-	"path/filepath"
 	"sync"
 
 	"github.com/edsrzf/mmap-go"
-	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/tempfile"
 	"github.com/kopia/kopia/repo/logging"
 )
 
@@ -75,9 +74,6 @@ type internalMap struct {
 
 	// +checklocks:mu
 	cleanups []func()
-
-	// +checklocks:mu
-	tempDir string
 }
 
 // The list of prime numbers close to 2^N from https://primes.utm.edu/lists/2small/0bit.html
@@ -347,42 +343,27 @@ func (m *internalMap) newMemoryMappedSegment(ctx context.Context) (mmap.MMap, er
 
 // +checklocks:m.mu
 func (m *internalMap) maybeCreateMappedFile(ctx context.Context) (*os.File, error) {
-	if m.tempDir == "" {
-		tempDir, err := os.MkdirTemp("", "kopia-map")
-		if err != nil {
-			return nil, errors.Wrap(err, "unable to create temp directory")
-		}
-
-		m.tempDir = tempDir
-	}
-
-	fname := filepath.Join(m.tempDir, uuid.NewString())
-
-	f, err := os.OpenFile(fname, os.O_CREATE|os.O_EXCL|os.O_RDWR, mmapFileMode) //nolint:gosec
+	f, err := tempfile.Create("")
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create memory-mapped file")
 	}
 
 	if err := f.Truncate(int64(m.opts.FileSegmentSize)); err != nil {
-		closeAndRemoveFile(ctx, f, fname)
+		closeFile(ctx, f)
 
 		return nil, errors.Wrap(err, "unable to truncate memory-mapped file")
 	}
 
 	m.cleanups = append(m.cleanups, func() {
-		closeAndRemoveFile(ctx, f, fname)
+		closeFile(ctx, f)
 	})
 
 	return f, nil
 }
 
-func closeAndRemoveFile(ctx context.Context, f *os.File, fname string) {
+func closeFile(ctx context.Context, f *os.File) {
 	if err := f.Close(); err != nil {
 		log(ctx).Warnf("unable to close segment file: %v", err)
-	}
-
-	if err := os.Remove(fname); err != nil {
-		log(ctx).Warnf("unable to remove segment file: %v", err)
 	}
 }
 
@@ -417,10 +398,6 @@ func (m *internalMap) Close(ctx context.Context) {
 
 	m.cleanups = nil
 	m.segments = nil
-
-	if m.tempDir != "" {
-		os.RemoveAll(m.tempDir) //nolint:errcheck
-	}
 }
 
 // newInternalMap creates new internalMap.
