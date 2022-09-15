@@ -32,7 +32,7 @@ const (
 
 var (
 	randomizedTestDur = flag.Duration("rand-test-duration", defaultTestDur, "Set the duration for the randomized test")
-	repoPathPrefix    = flag.String("repo-path-prefix", "", "Point the robustness tests at this path prefix")
+	repoPathPrefix    = flag.String("repo-path-prefix", "/Users/chaitali.gondhalekar/Work/Kasten/kopia_dummy_repo/", "Point the robustness tests at this path prefix")
 )
 
 func TestMain(m *testing.M) {
@@ -62,6 +62,9 @@ func TestMain(m *testing.M) {
 
 		prev := rs.ContentFormat.MutableParameters.Version
 
+		// This variable is reset in cleanup function.
+		os.Setenv("KOPIA_UPGRADE_LOCK_ENABLED", "1")
+
 		log.Println("Old repository format:", prev)
 		th.snapshotter.UpgradeRepository()
 
@@ -70,6 +73,9 @@ func TestMain(m *testing.M) {
 
 		curr := rs.ContentFormat.MutableParameters.Version
 		log.Println("Upgraded repository format:", curr)
+
+		//Reset the env variable.
+		os.Setenv("KOPIA_UPGRADE_LOCK_ENABLED", "")
 	}
 
 	// run the tests
@@ -216,6 +222,9 @@ func (th *kopiaRobustnessTestHarness) getEngine() bool {
 }
 
 func (th *kopiaRobustnessTestHarness) cleanup(ctx context.Context) (retErr error) {
+	if os.Getenv("UPGRADE_REPOSITORY_FORMAT_VERSION") == "ON" {
+		os.Setenv("KOPIA_UPGRADE_LOCK_ENABLED", "")
+	}
 	if th.engine != nil {
 		retErr = th.engine.Shutdown(ctx)
 	}

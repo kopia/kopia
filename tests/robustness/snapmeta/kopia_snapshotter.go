@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"io"
 	"log"
-	"os"
 	"os/exec"
 	"strconv"
 
@@ -201,8 +200,6 @@ func (ks *KopiaSnapshotter) GetRepositoryStatus() (cli.RepositoryStatus, error) 
 // UpgradeRepository upgrades the given kopia repository
 // from current format version to latest stable format version.
 func (ks *KopiaSnapshotter) UpgradeRepository() error {
-	os.Setenv("KOPIA_UPGRADE_LOCK_ENABLED", "1")
-
 	_, _, err := ks.snap.Run("repository", "upgrade",
 		"--upgrade-owner-id", "robustness-tests",
 		"--io-drain-timeout", "30s", "--allow-unsafe-upgrade",
