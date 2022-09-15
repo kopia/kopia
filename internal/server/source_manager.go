@@ -9,6 +9,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/ctxutil"
@@ -67,7 +68,7 @@ type sourceManager struct {
 	// +checklocks:sourceMutex
 	currentTask string
 	// +checklocks:sourceMutex
-	lastAttemptedSnapshotTime time.Time
+	lastAttemptedSnapshotTime fs.UTCTimestamp
 
 	isReadOnly bool
 	progress   *snapshotfs.CountingUploadProgress
@@ -362,7 +363,7 @@ func (s *sourceManager) snapshotInternal(ctx context.Context, ctrl uitask.Contro
 
 	s.sourceMutex.Lock()
 	manifestsSinceLastCompleteSnapshot := append([]*snapshot.Manifest(nil), s.manifestsSinceLastCompleteSnapshot...)
-	s.lastAttemptedSnapshotTime = clock.Now()
+	s.lastAttemptedSnapshotTime = fs.UTCTimestampFromTime(clock.Now())
 	s.sourceMutex.Unlock()
 
 	//nolint:wrapcheck
@@ -427,7 +428,7 @@ func (s *sourceManager) snapshotInternal(ctx context.Context, ctrl uitask.Contro
 
 // +checklocksread:s.sourceMutex
 func (s *sourceManager) findClosestNextSnapshotTimeReadLocked() *time.Time {
-	var previousSnapshotTime time.Time
+	var previousSnapshotTime fs.UTCTimestamp
 	if lcs := s.lastCompleteSnapshot; lcs != nil {
 		previousSnapshotTime = lcs.StartTime
 	}
@@ -437,7 +438,7 @@ func (s *sourceManager) findClosestNextSnapshotTimeReadLocked() *time.Time {
 		previousSnapshotTime = s.lastAttemptedSnapshotTime
 	}
 
-	t, ok := s.pol.NextSnapshotTime(previousSnapshotTime, clock.Now())
+	t, ok := s.pol.NextSnapshotTime(previousSnapshotTime.ToTime(), clock.Now())
 	if !ok {
 		return nil
 	}

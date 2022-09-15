@@ -752,7 +752,12 @@ func (bm *WriteManager) getOrCreatePendingPackInfoLocked(ctx context.Context, pr
 		return nil, errors.Wrap(err, "unable to read crypto bytes")
 	}
 
-	b.Append(bm.format.RepositoryFormatBytes())
+	suffix, berr := bm.format.RepositoryFormatBytes()
+	if berr != nil {
+		return nil, errors.Wrap(berr, "format bytes")
+	}
+
+	b.Append(suffix)
 
 	//nolint:gosec
 	if err := writeRandomBytesToBuffer(b, rand.Intn(bm.maxPreambleLength-bm.minPreambleLength+1)+bm.minPreambleLength); err != nil {
@@ -941,11 +946,10 @@ func (bm *WriteManager) MetadataCache() cache.ContentCache {
 
 // ManagerOptions are the optional parameters for manager creation.
 type ManagerOptions struct {
-	RepositoryFormatBytes []byte
-	TimeNow               func() time.Time // Time provider
-	DisableInternalLog    bool
-	RetentionMode         string
-	RetentionPeriod       time.Duration
+	TimeNow            func() time.Time // Time provider
+	DisableInternalLog bool
+	RetentionMode      string
+	RetentionPeriod    time.Duration
 }
 
 // CloneOrDefault returns a clone of provided ManagerOptions or default empty struct if nil.

@@ -456,7 +456,7 @@ func newDirEntry(md fs.Entry, fname string, oid object.ID) (*snapshot.DirEntry, 
 		Type:        entryType,
 		Permissions: snapshot.Permissions(md.Mode() & os.ModePerm),
 		FileSize:    md.Size(),
-		ModTime:     md.ModTime(),
+		ModTime:     fs.UTCTimestampFromTime(md.ModTime()),
 		UserID:      md.Owner().UserID,
 		GroupID:     md.Owner().GroupID,
 		ObjectID:    oid,
@@ -490,7 +490,7 @@ func (u *Uploader) checkpointRoot(ctx context.Context, cp *checkpointRegistry, p
 		return errors.Wrap(err, "running checkpointers")
 	}
 
-	checkpointManifest := dmbCheckpoint.Build(u.repo.Time(), "dummy")
+	checkpointManifest := dmbCheckpoint.Build(fs.UTCTimestampFromTime(u.repo.Time()), "dummy")
 	if len(checkpointManifest.Entries) == 0 {
 		// did not produce a checkpoint, that's ok
 		return nil
@@ -506,7 +506,7 @@ func (u *Uploader) checkpointRoot(ctx context.Context, cp *checkpointRegistry, p
 
 	man := *prototypeManifest
 	man.RootEntry = rootEntry
-	man.EndTime = u.repo.Time()
+	man.EndTime = fs.UTCTimestampFromTime(u.repo.Time())
 	man.StartTime = man.EndTime
 	man.IncompleteReason = IncompleteReasonCheckpoint
 
@@ -727,8 +727,13 @@ func (u *Uploader) maybeIgnoreCachedEntry(ctx context.Context, ent fs.Entry) fs.
 
 func (u *Uploader) effectiveParallelFileReads(pol *policy.Policy) int {
 	p := u.ParallelUploads
-	max := pol.UploadPolicy.MaxParallelFileReads.OrDefault(runtime.NumCPU())
+	if p > 0 {
+		// command-line override takes precedence.
+		return p
+	}
 
+	// use policy setting or number of CPUs.
+	max := pol.UploadPolicy.MaxParallelFileReads.OrDefault(runtime.NumCPU())
 	if p < 1 || p > max {
 		return max
 	}
@@ -1114,7 +1119,7 @@ func uploadDirInternal(
 			return nil, errors.Wrapf(err, "error checkpointing children")
 		}
 
-		checkpointManifest := thisCheckpointBuilder.Build(directory.ModTime(), IncompleteReasonCheckpoint)
+		checkpointManifest := thisCheckpointBuilder.Build(fs.UTCTimestampFromTime(directory.ModTime()), IncompleteReasonCheckpoint)
 		oid, err := writeDirManifest(ctx, u.repo, dirRelativePath, checkpointManifest)
 		if err != nil {
 			return nil, errors.Wrap(err, "error writing dir manifest")
@@ -1128,7 +1133,7 @@ func uploadDirInternal(
 		return nil, err
 	}
 
-	dirManifest := thisDirBuilder.Build(directory.ModTime(), u.incompleteReason())
+	dirManifest := thisDirBuilder.Build(fs.UTCTimestampFromTime(directory.ModTime()), u.incompleteReason())
 
 	oid, err := writeDirManifest(ctx, u.repo, dirRelativePath, dirManifest)
 	if err != nil {
@@ -1228,7 +1233,7 @@ func (u *Uploader) Upload(
 
 	var err error
 
-	s.StartTime = u.repo.Time()
+	s.StartTime = fs.UTCTimestampFromTime(u.repo.Time())
 
 	var scanWG sync.WaitGroup
 
@@ -1278,7 +1283,7 @@ func (u *Uploader) Upload(
 	scanWG.Wait()
 
 	s.IncompleteReason = u.incompleteReason()
-	s.EndTime = u.repo.Time()
+	s.EndTime = fs.UTCTimestampFromTime(u.repo.Time())
 	s.Stats = *u.stats
 
 	return s, nil

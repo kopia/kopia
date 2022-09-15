@@ -51,7 +51,12 @@ func (l *UpgradeLockIntent) Update(other *UpgradeLockIntent) (*UpgradeLockIntent
 
 // Clone creates a copy of the UpgradeLock instance.
 func (l *UpgradeLockIntent) Clone() *UpgradeLockIntent {
+	if l == nil {
+		return nil
+	}
+
 	clone := *l
+
 	return &clone
 }
 

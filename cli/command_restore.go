@@ -8,15 +8,22 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/localfs"
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/content/index"
+	"github.com/kopia/kopia/repo/object"
+	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/restore"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
@@ -114,6 +121,7 @@ type commandRestore struct {
 	restoreIgnoreErrors           bool
 	restoreShallowAtDepth         int32
 	minSizeForPlaceholder         int32
+	snapshotTime                  string
 
 	restores []restoreSourceTarget
 }
@@ -139,6 +147,7 @@ func (c *commandRestore) setup(svc appServices, parent commandParent) {
 	cmd.Flag("skip-existing", "Skip files and symlinks that exist in the output").BoolVar(&c.restoreIncremental)
 	cmd.Flag("shallow", "Shallow restore the directory hierarchy starting at this level (default is to deep restore the entire hierarchy.)").Int32Var(&c.restoreShallowAtDepth)
 	cmd.Flag("shallow-minsize", "When doing a shallow restore, write actual files instead of placeholders smaller than this size.").Int32Var(&c.minSizeForPlaceholder)
+	cmd.Flag("snapshot-time", "When using a path as the source, use the latest snapshot available before this date. Default is latest").StringVar(&c.snapshotTime)
 	cmd.Action(svc.repositoryReaderAction(c.run))
 }
 
@@ -154,7 +163,7 @@ const (
 // constructTargetPairs builds the sourceIdPathPairs array for this
 // command for the two forms of command: expansion of one or more
 // placeholders or restoring of a single source to a single destination.
-func (c *commandRestore) constructTargetPairs() error {
+func (c *commandRestore) constructTargetPairs(rep repo.Repository) error {
 	targetPairs := make([]restoreSourceTarget, 0, len(c.restoreTargetPaths))
 
 	for _, p := range c.restoreTargetPaths {
@@ -174,6 +183,33 @@ func (c *commandRestore) constructTargetPairs() error {
 	}
 
 	switch tplen, restpslen := len(targetPairs), len(c.restoreTargetPaths); {
+	case tplen == 0 && restpslen == 1:
+		// This means that none of the restoreTargetPaths are placeholders and we
+		// have 1 arg: a source path that should also be used as a destination.
+		source := c.restoreTargetPaths[0]
+
+		si, err := snapshot.ParseSourceInfo(source, rep.ClientOptions().Hostname, rep.ClientOptions().Username)
+		if err != nil {
+			return errors.Errorf("invalid path to be used as source: '%s': %s", source, err)
+		}
+
+		if si.Path == "" {
+			return errors.New("the source must contain a path element")
+		}
+
+		if si.Host != rep.ClientOptions().Hostname || si.UserName != rep.ClientOptions().Username {
+			return errors.New("the source must be a path in with the same username/hostname to be used as a target too")
+		}
+
+		c.restores = []restoreSourceTarget{
+			{
+				source:        source,
+				target:        si.Path,
+				isplaceholder: false,
+			},
+		}
+
+		return nil
 	case tplen == 0 && restpslen == 2:
 		// This means that none of the restoreTargetPaths are placeholders and we
 		// we have two args: a sourceID and a destination directory.
@@ -201,8 +237,8 @@ func (c *commandRestore) constructTargetPairs() error {
 	return errors.Errorf("restore requires a source and targetpath or placeholders")
 }
 
-func (c *commandRestore) restoreOutput(ctx context.Context) (restore.Output, error) {
-	err := c.constructTargetPairs()
+func (c *commandRestore) restoreOutput(ctx context.Context, rep repo.Repository) (restore.Output, error) {
+	err := c.constructTargetPairs(rep)
 	if err != nil {
 		return nil, err
 	}
@@ -330,7 +366,7 @@ func (c *commandRestore) setupPlaceholderExpansion(ctx context.Context, rep repo
 }
 
 func (c *commandRestore) run(ctx context.Context, rep repo.Repository) error {
-	output, oerr := c.restoreOutput(ctx)
+	output, oerr := c.restoreOutput(ctx, rep)
 	if oerr != nil {
 		return errors.Wrap(oerr, "unable to initialize output")
 	}
@@ -346,7 +382,12 @@ func (c *commandRestore) run(ctx context.Context, rep repo.Repository) error {
 
 			rootEntry = re
 		} else {
-			re, err := snapshotfs.FilesystemEntryFromIDWithPath(ctx, rep, rstp.source, c.restoreConsistentAttributes)
+			source, err := c.tryToConvertPathToID(ctx, rep, rstp.source)
+			if err != nil {
+				return err
+			}
+
+			re, err := snapshotfs.FilesystemEntryFromIDWithPath(ctx, rep, source, c.restoreConsistentAttributes)
 			if err != nil {
 				return errors.Wrap(err, "unable to get filesystem entry")
 			}
@@ -403,4 +444,235 @@ func (c *commandRestore) run(ctx context.Context, rep repo.Repository) error {
 	}
 
 	return nil
+}
+
+// tryToConvertPathToID checks if the source is a path and in this case returns the ID of the snapshot
+// containing the latest version available.
+func (c *commandRestore) tryToConvertPathToID(ctx context.Context, rep repo.Repository, source string) (string, error) {
+	pathElements := strings.Split(filepath.ToSlash(source), "/")
+
+	if pathElements[0] != "" {
+		_, err := index.ParseID(pathElements[0])
+		if err == nil {
+			// source is an ID
+			return source, nil
+		}
+	}
+
+	// Consider source as a path
+
+	if c.snapshotTime == "" {
+		return "", errors.New("a snapshot time is needed to use a path as source")
+	}
+
+	filter, err := createSnapshotTimeFilter(c.snapshotTime)
+	if err != nil {
+		return "", err
+	}
+
+	si, err := snapshot.ParseSourceInfo(source, rep.ClientOptions().Hostname, rep.ClientOptions().Username)
+	if err != nil {
+		return "", errors.Errorf("invalid directory: '%s': %s", source, err)
+	}
+
+	if si.Path == "" {
+		return "", errors.Errorf("the source must contain a path element")
+	}
+
+	manifestIDs, err := findSnapshotsForSource(ctx, rep, si, map[string]string{})
+	if err != nil {
+		return "", err
+	}
+
+	if len(manifestIDs) == 0 {
+		return "", errors.Errorf("no snapshots contain data for %v", source)
+	}
+
+	ms, err := snapshot.LoadSnapshots(ctx, rep, manifestIDs)
+	if err != nil {
+		return "", errors.Wrap(err, "unable to load snapshots")
+	}
+
+	m, relPath, ohid := findLastManifestWithPath(ctx, rep, ms, si.Path, filter)
+	if m == nil {
+		return "", errors.Errorf("no snapshots contain data for %v", source)
+	}
+
+	log(ctx).Infof("Restoring from\n"+
+		"   Snapshot source: %v\n"+
+		"   Snapshot time: %v\n"+
+		"   Relative path: %v\n"+
+		"   Object ID: %v", m.Source, formatTimestamp(m.StartTime.ToTime()), relPath, ohid)
+
+	return ohid.String(), nil
+}
+
+func createSnapshotTimeFilter(timespec string) (func(*snapshot.Manifest, int, int) bool, error) {
+	if timespec == "" || timespec == "latest" {
+		return func(m *snapshot.Manifest, i, total int) bool {
+			return i == 0
+		}, nil
+	}
+
+	if timespec == "oldest" {
+		return func(m *snapshot.Manifest, i, total int) bool {
+			return i == total-1
+		}, nil
+	}
+
+	t, err := computeMaxTime(timespec)
+	if err != nil {
+		return nil, err
+	}
+
+	return func(m *snapshot.Manifest, i, total int) bool {
+		return m.StartTime.ToTime().Before(t)
+	}, nil
+}
+
+var timeAgoRE = regexp.MustCompile(`^(?:(\d{1,3})(?:y|year|years)-)?(?:(\d{1,3})(?:m|mo|month|months)-)?(?:(\d{1,3})(?:d|day|days)-)?ago$`)
+
+// computeMaxTime returns the first time after the max allowed.
+func computeMaxTime(timespec string) (time.Time, error) {
+	now := clock.Now()
+
+	if timespec == "yesterday" {
+		return time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local), nil
+	}
+
+	if timespec == "last-month" {
+		return time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.Local), nil
+	}
+
+	if timespec == "last-year" {
+		return time.Date(now.Year(), 1, 1, 0, 0, 0, 0, time.Local), nil
+	}
+
+	if strings.HasSuffix(timespec, "-ago") {
+		ymd := timeAgoRE.FindStringSubmatch(timespec)
+		if ymd != nil {
+			t := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
+
+			years, _ := strconv.Atoi(ymd[1])
+			months, _ := strconv.Atoi(ymd[2])
+			days, _ := strconv.Atoi(ymd[3])
+
+			// +1 to compute end time of current day
+			return t.AddDate(-years, -months, -days+1), nil
+		}
+	}
+
+	// Just used as markers, the value does not really matter
+	day := 24 * time.Hour //nolint:gomnd
+	month := 30 * day     //nolint:gomnd
+	year := 12 * month    //nolint:gomnd
+
+	formats := []struct {
+		format    string
+		precision time.Duration
+	}{
+		// Used by kopia output
+		{"2006-01-02 15:04:05 MST", time.Second},
+		{"2006-01-02 15:04:05.000 MST", time.Millisecond},
+
+		// Others
+		{"2006-1-2T15:04:05Z07:00", time.Second},
+		{"2006-1-2T15:04:05Z0700", time.Second},
+		{"2006-1-2T15:04:05Z07", time.Second},
+		{"2006-1-2T15:04:05", time.Second},
+		{"2006-1-2T15:04Z07", time.Minute},
+		{"2006-1-2T15:04", time.Minute},
+		{"2006-1-2T15", time.Hour},
+		{"2006-1-2 15:04:05Z0700", time.Second},
+		{"2006-1-2 15:04:05Z07", time.Second},
+		{"2006-1-2 15:04:05", time.Second},
+		{"2006-1-2 15:04Z07", time.Minute},
+		{"2006-1-2 15:04", time.Minute},
+		{"2006-1-2 15", time.Hour},
+		{"2006-1-2", day},
+		{"2006-1", month},
+		{"2006", year},
+	}
+	for _, f := range formats {
+		t, err := time.Parse(f.format, timespec)
+		if err != nil {
+			continue
+		}
+
+		// If no timezone is given, assume local time
+		if !strings.Contains(f.format, "Z") && !strings.Contains(f.format, "MST") {
+			t = time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), time.Local)
+		}
+
+		switch f.precision {
+		case year:
+			t = t.AddDate(1, 0, 0)
+		case month:
+			t = t.AddDate(0, 1, 0)
+		case day:
+			t = t.AddDate(0, 0, 1)
+		default:
+			t = t.Add(f.precision)
+		}
+
+		return t, nil
+	}
+
+	return now, errors.Errorf("Invalid time spec: %v", timespec)
+}
+
+func findLastManifestWithPath(ctx context.Context, rep repo.Repository, ms []*snapshot.Manifest, path string, filter func(*snapshot.Manifest, int, int) bool) (*snapshot.Manifest, string, object.ID) {
+	ms = snapshot.SortByTime(ms, true)
+
+	type candidateInfo struct {
+		m    *snapshot.Manifest
+		pe   []string
+		ohid object.HasObjectID
+	}
+
+	var candidates []candidateInfo
+
+	for _, m := range ms {
+		if m.IncompleteReason != "" {
+			// Ignore this snapshot
+			continue
+		}
+
+		root, err := snapshotfs.SnapshotRoot(rep, m)
+		if err != nil {
+			// Ignore this snapshot
+			continue
+		}
+
+		pathElements, err := findRelativePathParts(m, path)
+		if err != nil {
+			// Ignore this snapshot
+			continue
+		}
+
+		ent, err := snapshotfs.GetNestedEntry(ctx, root, pathElements)
+		if err != nil {
+			// Ignore this snapshot
+			continue
+		}
+
+		ohid, ok := ent.(object.HasObjectID)
+		if !ok {
+			// Ignore this snapshot
+			continue
+		}
+
+		candidates = append(candidates, candidateInfo{m, pathElements, ohid})
+	}
+
+	for i, c := range candidates {
+		if !filter(c.m, i, len(candidates)) {
+			// Ignore this snapshot
+			continue
+		}
+
+		return c.m, filepath.Join(c.pe...), c.ohid.ObjectID()
+	}
+
+	return nil, "", object.ID{}
 }

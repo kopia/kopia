@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/mockfs"
 	"github.com/kopia/kopia/snapshot"
@@ -63,7 +64,7 @@ func TestCheckpointRegistry(t *testing.T) {
 		t.Fatalf("error running checkpoints: %v", err)
 	}
 
-	dm := dmb.Build(clock.Now(), "checkpoint")
+	dm := dmb.Build(fs.UTCTimestampFromTime(clock.Now()), "checkpoint")
 	if got, want := len(dm.Entries), 4; got != want {
 		t.Fatalf("got %v entries, wanted %v (%+#v)", got, want, dm.Entries)
 	}

@@ -82,7 +82,7 @@ func (c *commandSnapshotDelete) snapshotDeleteSources(ctx context.Context, rep r
 }
 
 func (c *commandSnapshotDelete) deleteSnapshot(ctx context.Context, rep repo.RepositoryWriter, m *snapshot.Manifest) error {
-	desc := fmt.Sprintf("snapshot %v of %v at %v", m.ID, m.Source, formatTimestamp(m.StartTime))
+	desc := fmt.Sprintf("snapshot %v of %v at %v", m.ID, m.Source, formatTimestamp(m.StartTime.ToTime()))
 
 	if !c.snapshotDeleteConfirm {
 		log(ctx).Infof("Would delete %v (pass --delete to confirm)", desc)

@@ -679,7 +679,7 @@ func TestParallelUploadUploadsBlobsInParallel(t *testing.T) {
 	th := newUploadTestHarness(ctx, t)
 
 	u := NewUploader(th.repo)
-	u.ParallelUploads = 10
+	u.ParallelUploads = 13
 
 	// no faults for first blob write - session marker.
 	th.faulty.AddFault(blobtesting.MethodPutBlob)
@@ -704,6 +704,8 @@ func TestParallelUploadUploadsBlobsInParallel(t *testing.T) {
 	u.disableEstimation = true
 
 	policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
+
+	require.Equal(t, 13, u.effectiveParallelFileReads(policyTree.EffectivePolicy()))
 
 	si := snapshot.SourceInfo{
 		UserName: "user",
@@ -908,6 +910,9 @@ func TestUpload_VirtualDirectoryWithStreamingFileWithModTime(t *testing.T) {
 			require.Equal(t, int32(1), atomic.LoadInt32(&man1.Stats.NonCachedFiles))
 			require.Equal(t, int32(1), atomic.LoadInt32(&man1.Stats.TotalDirectoryCount))
 			require.Equal(t, int32(1), atomic.LoadInt32(&man1.Stats.TotalFileCount))
+
+			// wait a little bit to ensure clock moves forward which is not always the case on Windows.
+			time.Sleep(100 * time.Millisecond)
 
 			// Rebuild tree because reader only works once.
 			staticRoot = virtualfs.NewStaticDirectory("rootdir", []fs.Entry{

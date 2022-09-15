@@ -135,6 +135,7 @@ message PrefetchContentsResponse {
 
 message SessionRequest {
   int64 request_id = 1;
+  map<string,string> trace_context = 2;
 
   // each SessionRequest returns SessionResponse with request_id matching the request
   // and corresponding type specific to each request. In case of an error, ErrorResponse

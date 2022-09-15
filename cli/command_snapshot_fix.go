@@ -64,12 +64,16 @@ func failedEntryCallback(rep repo.RepositoryWriter, enumVal string) snapshotfs.R
 }
 
 func (c *commonRewriteSnapshots) rewriteMatchingSnapshots(ctx context.Context, rep repo.RepositoryWriter, rewrite snapshotfs.RewriteDirEntryCallback) error {
-	rw := snapshotfs.NewDirRewriter(rep, snapshotfs.DirRewriterOptions{
+	rw, err := snapshotfs.NewDirRewriter(ctx, rep, snapshotfs.DirRewriterOptions{
 		Parallel:               c.parallel,
 		RewriteEntry:           rewrite,
 		OnDirectoryReadFailure: failedEntryCallback(rep, c.invalidDirHandling),
 	})
-	defer rw.Close()
+	if err != nil {
+		return errors.Wrap(err, "unable to create dir rewriter")
+	}
+
+	defer rw.Close(ctx)
 
 	var updatedSnapshots int
 
@@ -87,7 +91,7 @@ func (c *commonRewriteSnapshots) rewriteMatchingSnapshots(ctx context.Context, r
 		log(ctx).Infof("Processing snapshot %v", mg[0].Source)
 
 		for _, man := range snapshot.SortByTime(mg, false) {
-			log(ctx).Debugf("  %v (%v)", formatTimestamp(man.StartTime), man.ID)
+			log(ctx).Debugf("  %v (%v)", formatTimestamp(man.StartTime.ToTime()), man.ID)
 
 			old := man.Clone()
 
@@ -97,7 +101,7 @@ func (c *commonRewriteSnapshots) rewriteMatchingSnapshots(ctx context.Context, r
 			}
 
 			if !changed {
-				log(ctx).Infof("  %v unchanged (%v)", formatTimestamp(man.StartTime), man.ID)
+				log(ctx).Infof("  %v unchanged (%v)", formatTimestamp(man.StartTime.ToTime()), man.ID)
 
 				continue
 			}
@@ -108,7 +112,7 @@ func (c *commonRewriteSnapshots) rewriteMatchingSnapshots(ctx context.Context, r
 				}
 			}
 
-			log(ctx).Infof("  %v replaced manifest from %v to %v", formatTimestamp(man.StartTime), old.ID, man.ID)
+			log(ctx).Infof("  %v replaced manifest from %v to %v", formatTimestamp(man.StartTime.ToTime()), old.ID, man.ID)
 			log(ctx).Infof("    diff %v %v", old.RootEntry.ObjectID, man.RootEntry.ObjectID)
 
 			if d := snapshotSizeDelta(old, man); d != "" {

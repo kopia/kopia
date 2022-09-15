@@ -45,7 +45,7 @@ func TestAllSources(t *testing.T) {
 		ts, err := time.Parse(time.RFC3339, m.timestamp)
 		require.NoError(t, err)
 
-		mustWriteSnapshotManifest(ctx, t, env.RepositoryWriter, snapshot.SourceInfo{UserName: m.user, Host: m.host, Path: m.path}, ts, man)
+		mustWriteSnapshotManifest(ctx, t, env.RepositoryWriter, snapshot.SourceInfo{UserName: m.user, Host: m.host, Path: m.path}, fs.UTCTimestampFromTime(ts), man)
 	}
 
 	as := AllSourcesEntry(env.RepositoryWriter)
@@ -102,7 +102,7 @@ func iterateAllNames(ctx context.Context, t *testing.T, dir fs.Directory, prefix
 	return result
 }
 
-func mustWriteSnapshotManifest(ctx context.Context, t *testing.T, rep repo.RepositoryWriter, src snapshot.SourceInfo, startTime time.Time, man *snapshot.Manifest) {
+func mustWriteSnapshotManifest(ctx context.Context, t *testing.T, rep repo.RepositoryWriter, src snapshot.SourceInfo, startTime fs.UTCTimestamp, man *snapshot.Manifest) {
 	t.Helper()
 
 	man.Source = src

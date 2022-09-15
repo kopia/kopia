@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/internal/bigmap"
 	"github.com/kopia/kopia/internal/workshare"
 	"github.com/kopia/kopia/repo/object"
 )
@@ -23,7 +24,7 @@ type EntryCallback func(ctx context.Context, entry fs.Entry, oid object.ID, entr
 type TreeWalker struct {
 	options TreeWalkerOptions
 
-	enqueued sync.Map
+	enqueued *bigmap.Set
 	wp       *workshare.Pool
 
 	mu sync.Mutex
@@ -85,9 +86,10 @@ func (w *TreeWalker) TooManyErrors() bool {
 	return w.numErrors >= w.options.MaxErrors
 }
 
-func (w *TreeWalker) alreadyProcessed(e fs.Entry) bool {
-	_, existing := w.enqueued.LoadOrStore(oidOf(e), struct{}{})
-	return existing
+func (w *TreeWalker) alreadyProcessed(ctx context.Context, e fs.Entry) bool {
+	var idbuf [128]byte
+
+	return !w.enqueued.Put(ctx, oidOf(e).Append(idbuf[:0]))
 }
 
 func (w *TreeWalker) processEntry(ctx context.Context, e fs.Entry, entryPath string) {
@@ -117,7 +119,7 @@ func (w *TreeWalker) processDirEntry(ctx context.Context, dir fs.Directory, entr
 			return errStop{errors.New("")}
 		}
 
-		if w.alreadyProcessed(ent) {
+		if w.alreadyProcessed(ctx, ent) {
 			return nil
 		}
 
@@ -146,7 +148,7 @@ func (w *TreeWalker) Process(ctx context.Context, e fs.Entry, entryPath string) 
 		return errors.Errorf("entry does not have ObjectID")
 	}
 
-	if w.alreadyProcessed(e) {
+	if w.alreadyProcessed(ctx, e) {
 		return nil
 	}
 
@@ -156,8 +158,9 @@ func (w *TreeWalker) Process(ctx context.Context, e fs.Entry, entryPath string) 
 }
 
 // Close closes the tree walker.
-func (w *TreeWalker) Close() {
+func (w *TreeWalker) Close(ctx context.Context) {
 	w.wp.Close()
+	w.enqueued.Close(ctx)
 }
 
 // TreeWalkerOptions provides optional fields for TreeWalker.
@@ -169,7 +172,7 @@ type TreeWalkerOptions struct {
 }
 
 // NewTreeWalker creates new tree walker.
-func NewTreeWalker(options TreeWalkerOptions) *TreeWalker {
+func NewTreeWalker(ctx context.Context, options TreeWalkerOptions) (*TreeWalker, error) {
 	if options.Parallelism <= 0 {
 		options.Parallelism = runtime.NumCPU() * walkersPerCPU
 	}
@@ -178,8 +181,14 @@ func NewTreeWalker(options TreeWalkerOptions) *TreeWalker {
 		options.MaxErrors = 1
 	}
 
-	return &TreeWalker{
-		options: options,
-		wp:      workshare.NewPool(options.Parallelism - 1),
+	s, err := bigmap.NewSet(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "NewSet")
 	}
+
+	return &TreeWalker{
+		options:  options,
+		wp:       workshare.NewPool(options.Parallelism - 1),
+		enqueued: s,
+	}, nil
 }

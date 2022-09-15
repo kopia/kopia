@@ -344,6 +344,10 @@ endif
 htmlui-e2e-test:
 	HTMLUI_E2E_TEST=1 go test -timeout 600s github.com/kopia/kopia/tests/htmlui_e2e_test -v $(TEST_FLAGS)
 
+htmlui-e2e-test-local-htmlui-changes:
+	(cd ../htmlui && npm run build)
+	HTMLUI_E2E_TEST=1 HTMLUI_BUILD_DIR=$(CURDIR)/../htmlui/build go test -timeout 600s github.com/kopia/kopia/tests/htmlui_e2e_test -v $(TEST_FLAGS)
+
 godoc:
 	godoc -http=:33333
 
