@@ -21,7 +21,7 @@ import (
 func TestManySmallFiles(t *testing.T) {
 	const (
 		fileSize = 4096
-		numFiles = 100
+		numFiles = 10000
 	)
 
 	fileWriteOpts := map[string]string{
