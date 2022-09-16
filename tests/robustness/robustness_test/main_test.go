@@ -32,7 +32,7 @@ const (
 
 var (
 	randomizedTestDur = flag.Duration("rand-test-duration", defaultTestDur, "Set the duration for the randomized test")
-	repoPathPrefix    = flag.String("repo-path-prefix", "/Users/chaitali.gondhalekar/Work/Kasten/kopia_dummy_repo/", "Point the robustness tests at this path prefix")
+	repoPathPrefix    = flag.String("repo-path-prefix", "", "Point the robustness tests at this path prefix")
 )
 
 func TestMain(m *testing.M) {
@@ -61,9 +61,6 @@ func TestMain(m *testing.M) {
 		exitOnError("failed to get repository status before upgrade", err)
 
 		prev := rs.ContentFormat.MutableParameters.Version
-
-		// This variable is reset in cleanup function.
-		os.Setenv("KOPIA_UPGRADE_LOCK_ENABLED", "1")
 
 		log.Println("Old repository format:", prev)
 		th.snapshotter.UpgradeRepository()
