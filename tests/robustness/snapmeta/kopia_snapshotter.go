@@ -201,7 +201,6 @@ func (ks *KopiaSnapshotter) GetRepositoryStatus() (cli.RepositoryStatus, error) 
 // UpgradeRepository upgrades the given kopia repository
 // from current format version to latest stable format version.
 func (ks *KopiaSnapshotter) UpgradeRepository() error {
-
 	// This variable is also reset in cleanup function
 	// in case the test fails
 	os.Setenv("KOPIA_UPGRADE_LOCK_ENABLED", "1")
