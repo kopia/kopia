@@ -219,9 +219,7 @@ func (th *kopiaRobustnessTestHarness) getEngine() bool {
 }
 
 func (th *kopiaRobustnessTestHarness) cleanup(ctx context.Context) (retErr error) {
-	if os.Getenv("UPGRADE_REPOSITORY_FORMAT_VERSION") == "ON" {
-		os.Setenv("KOPIA_UPGRADE_LOCK_ENABLED", "")
-	}
+	os.Setenv("KOPIA_UPGRADE_LOCK_ENABLED", "")
 
 	if th.engine != nil {
 		retErr = th.engine.Shutdown(ctx)
