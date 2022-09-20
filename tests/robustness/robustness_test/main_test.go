@@ -70,6 +70,9 @@ func TestMain(m *testing.M) {
 
 		curr := rs.ContentFormat.MutableParameters.Version
 		log.Println("Upgraded repository format:", curr)
+
+		// Reset the env variable.
+		os.Setenv("KOPIA_UPGRADE_LOCK_ENABLED", "")
 	}
 
 	// run the tests
@@ -216,6 +219,8 @@ func (th *kopiaRobustnessTestHarness) getEngine() bool {
 }
 
 func (th *kopiaRobustnessTestHarness) cleanup(ctx context.Context) (retErr error) {
+	os.Setenv("KOPIA_UPGRADE_LOCK_ENABLED", "")
+
 	if th.engine != nil {
 		retErr = th.engine.Shutdown(ctx)
 	}
