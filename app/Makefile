@@ -68,6 +68,9 @@ dev: node_modules/.up-to-date
 run:
 	$(npm) $(npm_flags) run start-electron-prebuilt
 
+e2e-test:
+	$(npm) $(npm_flags) run e2e
+
 build-electron: ../dist/kopia-ui/.up-to-date
 
 # rebuild packages if HTML, embedded EXE or build config changed.

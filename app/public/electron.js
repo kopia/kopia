@@ -273,6 +273,10 @@ function isOutsideOfApplicationsFolderOnMac() {
 }
 
 function maybeMoveToApplicationsFolder() {
+  if (process.env["KOPIA_UI_TESTING"]) {
+    return;
+  }
+
   dialog.showMessageBox({
     buttons: ["Yes", "No"],
     message: "For best experience, Kopia needs to be installed in Applications folder.\n\nDo you want to move it now?"
@@ -336,6 +340,14 @@ app.on('ready', () => {
       selectByOS({ mac: 'kopia-tray.png', win: 'kopia-tray.ico', linux: 'kopia-tray.png' })));
 
   tray.setToolTip('Kopia');
+
+  // hooks exposed to tests
+  if (process.env["KOPIA_UI_TESTING"]) {
+    app.testHooks = {
+      tray: tray,
+      showRepoWindow: showRepoWindow,
+    }
+  }
 
   safeTrayHandler("click", () => tray.popUpContextMenu());
   safeTrayHandler("right-click", () => tray.popUpContextMenu());
