@@ -9,18 +9,25 @@ import {
  let electronApp
 
  function getKopiaUIBuiltPath() {
-  switch (process.platform) {
-    case "darwin":
+  switch (process.platform + "/" + process.arch) {
+    case "darwin/x64":
       return path.resolve("../dist/kopia-ui/mac");
-    case "linux":
+    case "darwin/arm64":
+      return path.resolve("../dist/kopia-ui/mac-arm64");
+    case "linux/x64":
       return path.resolve("../dist/kopia-ui/linux-unpacked");
-    case "windows":
+    case "linux/arm64":
+      return path.resolve("../dist/kopia-ui/linux-arm64-unpacked");
+    case "win32/x64":
       return path.resolve("../dist/kopia-ui/win-unpacked");
+    default:
+      return null;
   }
  }
  
  test.beforeAll(async () => {
    const latestBuild = getKopiaUIBuiltPath();
+   expect(latestBuild).not.toBeNull();
 
    // parse the directory and find paths and other info
    const appInfo = parseElectronApp(latestBuild)
