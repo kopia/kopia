@@ -118,8 +118,14 @@ website:
 kopia-ui: $(kopia_ui_embedded_exe)
 	$(MAKE) -C app build-electron
 
+MAYBE_XVFB=
+ifeq ($(GOOS),linux)
+# on Linux
+MAYBE_XVFB=xvfb-run --auto-servernum --server-args="-screen 0 1280x960x24" --
+endif
+
 kopia-ui-test:
-	$(MAKE) -C app e2e-test
+	$(MAYBE_XVFB) $(MAKE) -C app e2e-test
 
 # use this to test htmlui changes in full build of KopiaUI, this is rarely needed
 # except when testing htmlui specific features that only light up when running under Electron.

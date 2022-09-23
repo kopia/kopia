@@ -77,7 +77,7 @@ test.afterAll(async () => {
   await electronApp.close()
 })
  
-test('renders the first page', async () => {
+test('opens repository window', async () => {
   await electronApp.evaluate(async ({app}) => {
     app.testHooks.showRepoWindow('repository');
   });
