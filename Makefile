@@ -118,6 +118,15 @@ website:
 kopia-ui: $(kopia_ui_embedded_exe)
 	$(MAKE) -C app build-electron
 
+MAYBE_XVFB=
+ifeq ($(GOOS),linux)
+# on Linux
+MAYBE_XVFB=xvfb-run --auto-servernum --server-args="-screen 0 1280x960x24" --
+endif
+
+kopia-ui-test:
+	$(MAYBE_XVFB) $(MAKE) -C app e2e-test
+
 # use this to test htmlui changes in full build of KopiaUI, this is rarely needed
 # except when testing htmlui specific features that only light up when running under Electron.
 #
@@ -188,6 +197,7 @@ ci-build:
 	$(MAKE) kopia
 ifeq ($(GOARCH),amd64)
 	$(retry) $(MAKE) kopia-ui
+	$(retry) $(MAKE) kopia-ui-test
 endif
 ifeq ($(GOOS)/$(GOARCH),linux/amd64)
 	$(MAKE) generate-change-log

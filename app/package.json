@@ -110,12 +110,15 @@
     "afterSign": "notarize.js"
   },
   "devDependencies": {
+    "@playwright/test": "^1.26.0",
     "asar": "^3.2.0",
     "concurrently": "^7.3.0",
     "dotenv": "^16.0.2",
     "electron": "^19.0.8",
     "electron-builder": "^23.3.3",
-    "electron-notarize": "^1.2.1"
+    "electron-notarize": "^1.2.1",
+    "playwright": "^1.26.0",
+    "playwright-core": "^1.26.0"
   },
   "homepage": "./",
   "description": "Fast and secure open source backup.",
@@ -124,7 +127,7 @@
   "scripts": {
     "start": "react-scripts start",
     "build-html": "react-scripts build",
-    "test": "react-scripts test",
+    "e2e": "playwright test",
     "eject": "react-scripts eject",
     "start-electron": "electron .",
     "build-electron": "electron-builder",
