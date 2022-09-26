@@ -123,7 +123,7 @@ Do not want to use command-line? No problem. Kopia also comes with a [powerful o
 
 ### Optional Server Mode with API Support to Centrally Manage Backups of Multiple Machines
 
-Kopia is designed to backup individual machines and you absolutely do not need a server to run Kopia. If you have a handful of machines, you can install and use Kopia on each of them individually, no problem. At the same time, Kopia can also be run in [server mode](../docs/faqs/#what-is-a-kopia-repository-server) for those that are looking to centrally manage backups of multiple machines, in which case the Kopia server exposes an API that can be used to build client tools to do things like trigger snapshots, get client status, and access snapshotted data. Kopia's server mode makes it incredibly easy to centrally manage backups of multiple computers.
+Kopia is designed to backup individual machines and you absolutely do not need a server to run Kopia. If you have a handful of machines, you can install and use Kopia on each of them individually, no problem. At the same time, Kopia can also be run in [server mode](../faqs/#what-is-a-kopia-repository-server) for those that are looking to centrally manage backups of multiple machines, in which case the Kopia server exposes an API that can be used to build client tools to do things like trigger snapshots, get client status, and access snapshotted data. Kopia's server mode makes it incredibly easy to centrally manage backups of multiple computers.
 
 ### Speed
 
