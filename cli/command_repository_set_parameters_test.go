@@ -3,11 +3,9 @@ package cli_test
 import (
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/kopia/kopia/cli"
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/repotesting"
 	"github.com/kopia/kopia/internal/testutil"
@@ -149,9 +147,8 @@ func (s *formatSpecificTestSuite) TestRepositorySetParametersUpgrade(t *testing.
 			"--upgrade-owner-id", "owner",
 			"--io-drain-timeout", "1s", "--allow-unsafe-upgrade",
 			"--status-poll-interval", "1s",
+			"--max-permitted-clock-drift", "1s",
 		}
-
-		cli.MaxPermittedClockDrift = func() time.Duration { return time.Second }
 
 		// You can only upgrade when you are not already upgraded
 		if s.formatVersion < format.MaxFormatVersion {

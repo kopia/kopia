@@ -6,7 +6,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/kopia/kopia/cli"
 	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/tests/testenv"
 )
@@ -19,15 +18,14 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgrade(t *testing.T) {
 
 	env.Environment["KOPIA_UPGRADE_LOCK_ENABLED"] = "1"
 
-	cli.MaxPermittedClockDrift = func() time.Duration { return time.Second }
-
 	switch s.formatVersion {
 	case format.FormatVersion1:
 		require.Contains(t, out, "Format version:      1")
 		_, stderr := env.RunAndExpectSuccessWithErrOut(t, "repository", "upgrade",
 			"--upgrade-owner-id", "owner",
 			"--io-drain-timeout", "1s", "--allow-unsafe-upgrade",
-			"--status-poll-interval", "1s")
+			"--status-poll-interval", "1s",
+			"--max-permitted-clock-drift", "1s")
 		require.Contains(t, stderr, "Repository indices have been upgraded.")
 		require.Contains(t, stderr, "Repository has been successfully upgraded.")
 	case format.FormatVersion2:
@@ -35,7 +33,8 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgrade(t *testing.T) {
 		_, stderr := env.RunAndExpectSuccessWithErrOut(t, "repository", "upgrade",
 			"--upgrade-owner-id", "owner",
 			"--io-drain-timeout", "1s", "--allow-unsafe-upgrade",
-			"--status-poll-interval", "1s")
+			"--status-poll-interval", "1s",
+			"--max-permitted-clock-drift", "1s")
 		require.Contains(t, stderr, "Repository indices have already been migrated to the epoch format, no need to drain other clients")
 		require.Contains(t, stderr, "Repository has been successfully upgraded.")
 	default:
@@ -43,7 +42,8 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgrade(t *testing.T) {
 		env.RunAndExpectFailure(t, "repository", "upgrade",
 			"--upgrade-owner-id", "owner",
 			"--io-drain-timeout", "1s", "--allow-unsafe-upgrade",
-			"--status-poll-interval", "1s")
+			"--status-poll-interval", "1s",
+			"--max-permitted-clock-drift", "1s")
 	}
 
 	out = env.RunAndExpectSuccess(t, "repository", "status", "--upgrade-no-block")
@@ -59,7 +59,8 @@ func lockRepositoryForUpgrade(t *testing.T, env *testenv.CLITest) {
 	env.RunAndExpectSuccess(t, "repository", "upgrade",
 		"--upgrade-owner-id", "owner",
 		"--io-drain-timeout", "30s", "--allow-unsafe-upgrade",
-		"--status-poll-interval", "1s", "--lock-only")
+		"--status-poll-interval", "1s", "--lock-only",
+		"--max-permitted-clock-drift", "1s")
 }
 
 func (s *formatSpecificTestSuite) TestRepositoryUpgradeStatusWhileLocked(t *testing.T) {
@@ -70,8 +71,6 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgradeStatusWhileLocked(t *test
 
 	env.Environment["KOPIA_UPGRADE_LOCK_ENABLED"] = "1"
 
-	cli.MaxPermittedClockDrift = func() time.Duration { return time.Second }
-
 	switch s.formatVersion {
 	case format.FormatVersion1:
 		require.Contains(t, out, "Format version:      1")
@@ -81,7 +80,8 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgradeStatusWhileLocked(t *test
 		env.RunAndExpectFailure(t, "repository", "upgrade",
 			"--upgrade-owner-id", "non-owner",
 			"--io-drain-timeout", "15s", "--allow-unsafe-upgrade",
-			"--status-poll-interval", "1s", "--upgrade-no-block")
+			"--status-poll-interval", "1s", "--upgrade-no-block",
+			"--max-permitted-clock-drift", "1s")
 
 		// until we drain, we would be able to see the upgrade status as
 		// "Draining"
@@ -112,7 +112,8 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgradeStatusWhileLocked(t *test
 		_, stderr := env.RunAndExpectSuccessWithErrOut(t, "repository", "upgrade",
 			"--upgrade-owner-id", "owner",
 			"--io-drain-timeout", "15s", "--allow-unsafe-upgrade",
-			"--status-poll-interval", "1s")
+			"--status-poll-interval", "1s",
+			"--max-permitted-clock-drift", "1s")
 		require.Contains(t, stderr, "Repository has been successfully upgraded.")
 
 		// verify that non-owner clients can resume access
@@ -124,7 +125,8 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgradeStatusWhileLocked(t *test
 		_, stderr := env.RunAndExpectSuccessWithErrOut(t, "repository", "upgrade",
 			"--upgrade-owner-id", "owner",
 			"--io-drain-timeout", "1s", "--allow-unsafe-upgrade",
-			"--status-poll-interval", "1s")
+			"--status-poll-interval", "1s",
+			"--max-permitted-clock-drift", "1s")
 		require.Contains(t, stderr, "Repository has been successfully upgraded.")
 
 		// verify that non-owner clients can resume access
@@ -134,7 +136,8 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgradeStatusWhileLocked(t *test
 		env.RunAndExpectFailure(t, "repository", "upgrade",
 			"--upgrade-owner-id", "owner",
 			"--io-drain-timeout", "1s", "--allow-unsafe-upgrade",
-			"--status-poll-interval", "1s")
+			"--status-poll-interval", "1s",
+			"--max-permitted-clock-drift", "1s")
 	}
 
 	out = env.RunAndExpectSuccess(t, "repository", "status", "--upgrade-no-block")

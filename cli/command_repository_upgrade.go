@@ -22,8 +22,9 @@ type commandRepositoryUpgrade struct {
 	lockOnly      bool
 
 	// lock settings
-	ioDrainTimeout     time.Duration
-	statusPollInterval time.Duration
+	ioDrainTimeout         time.Duration
+	statusPollInterval     time.Duration
+	maxPermittedClockDrift time.Duration
 
 	svc advancedAppServices
 }
@@ -33,16 +34,9 @@ const (
 
 You will need to set the env variable KOPIA_UPGRADE_LOCK_ENABLED in order to use this feature.
 `
-	upgradeLockFeatureEnv                = "KOPIA_UPGRADE_LOCK_ENABLED"
-	maxPermittedClockDrift time.Duration = 5 * time.Minute
+	upgradeLockFeatureEnv         = "KOPIA_UPGRADE_LOCK_ENABLED"
+	maxPermittedClockDriftDefault = 5 * time.Minute
 )
-
-// MaxPermittedClockDrift is overridable interface for tests to define their
-// own constants so that they do not have to wait for the default clock-drift to
-// settle.
-//
-//nolint:gochecknoglobals
-var MaxPermittedClockDrift = func() time.Duration { return maxPermittedClockDrift }
 
 func (c *commandRepositoryUpgrade) setup(svc advancedAppServices, parent commandParent) {
 	// override the parent, the upgrade sub-command becomes the new parent here-onwards
@@ -58,6 +52,7 @@ func (c *commandRepositoryUpgrade) setup(svc advancedAppServices, parent command
 	beginCmd.Flag("io-drain-timeout", "Max time it should take all other Kopia clients to drop repository connections").Default(format.DefaultRepositoryBlobCacheDuration.String()).DurationVar(&c.ioDrainTimeout)
 	beginCmd.Flag("allow-unsafe-upgrade", "Force using an unsafe io-drain-timeout for the upgrade lock").Default("false").Hidden().BoolVar(&c.force)
 	beginCmd.Flag("status-poll-interval", "An advisory polling interval to check for the status of upgrade").Default("60s").DurationVar(&c.statusPollInterval)
+	beginCmd.Flag("max-permitted-clock-drift", "The maximum drift between repository and client clocks").Default(maxPermittedClockDriftDefault.String()).DurationVar(&c.maxPermittedClockDrift)
 	beginCmd.Flag("lock-only", "Advertise the upgrade lock and exit without actually performing the drain or upgrade").Default("false").Hidden().BoolVar(&c.lockOnly) // this is used by tests
 
 	// upgrade phases
@@ -135,7 +130,7 @@ func (c *commandRepositoryUpgrade) setLockIntent(ctx context.Context, rep repo.D
 		IODrainTimeout:         c.ioDrainTimeout,
 		StatusPollInterval:     c.statusPollInterval,
 		Message:                fmt.Sprintf("Upgrading from format version %d -> %d", mp.Version, format.MaxFormatVersion),
-		MaxPermittedClockDrift: MaxPermittedClockDrift(),
+		MaxPermittedClockDrift: c.maxPermittedClockDrift,
 	}
 
 	// Update format-blob and clear the cache.
@@ -250,7 +245,7 @@ func (c *commandRepositoryUpgrade) drainAllClients(ctx context.Context, rep repo
 	return nil
 }
 
-// upgrade phase perfoms the actual upgrade action that upgrades the target
+// upgrade phase performs the actual upgrade action that upgrades the target
 // repository. This phase runs after the lock has been acquired in one of the
 // prior phases.
 func (c *commandRepositoryUpgrade) upgrade(ctx context.Context, rep repo.DirectRepositoryWriter) error {
@@ -301,7 +296,7 @@ func (c *commandRepositoryUpgrade) upgrade(ctx context.Context, rep repo.DirectR
 }
 
 // commitUpgrade is the upgrade CLI phase that commits the upgrade and removes
-// the lock after the actual upgrade phase has been ru nsuccessfully. We will
+// the lock after the actual upgrade phase has been run successfully. We will
 // not end up here if any of the prior phases have failed. This will also
 // cleanup and backups used for the rollback mechanism, so we cannot rollback
 // after this phase.
