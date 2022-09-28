@@ -2,6 +2,8 @@ package cli
 
 import (
 	"context"
+	"crypto/boring"
+	"fmt"
 	"sort"
 
 	atunits "github.com/alecthomas/units"
@@ -64,6 +66,10 @@ func (c *commandBenchmarkCrypto) runBenchmark(ctx context.Context) []cryptoBench
 	var results []cryptoBenchResult
 
 	data := make([]byte, c.blockSize)
+
+	if boring.Enabled() {
+		fmt.Println("Boring enabled")
+	}
 
 	for _, ha := range hashing.SupportedAlgorithms() {
 		for _, ea := range encryption.SupportedAlgorithms(c.deprecatedAlgorithms) {
