@@ -11,7 +11,10 @@ ARG kopiaCommit="boring_kopia"
 RUN git checkout "${kopiaCommit}"
 
 
-RUN GO111MODULE=on GO_EXTLINK_ENABLED=0 GOOS=linux GOARCH=amd64 CGO_ENABLED=1 GOEXPERIMENT=boringcrypto go install \
+RUN GO111MODULE=on GO_EXTLINK_ENABLED=0 GOOS=linux GOARCH=amd64 CGO_ENABLED=1 GOEXPERIMENT=boringcrypto go build -o kopiaboring \
+  -ldflags="-X github.com/kopia/kopia/repo.BuildVersion=$(git show --no-patch --format='%cs-%h') -X github.com/kopia/kopia/repo.BuildInfo=$(git show --no-patch --format='%cI-%H')-${kopiaCommit}" .
+
+RUN GO111MODULE=on GO_EXTLINK_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o kopia \
   -ldflags="-X github.com/kopia/kopia/repo.BuildVersion=$(git show --no-patch --format='%cs-%h') -X github.com/kopia/kopia/repo.BuildInfo=$(git show --no-patch --format='%cI-%H')-${kopiaCommit}" .
 
 FROM alpine
@@ -28,7 +31,9 @@ USER kopia:kopia
 
 ENTRYPOINT [ "/bin/kopia" ]
 
-COPY --from=builder --chown=kopia:kopia /go/bin/kopia /bin/kopia
+COPY --from=builder --chown=kopia:kopia /go/src/kopia/kopiaboring /bin/kopiaboring
+
+COPY --from=builder --chown=kopia:kopia /go/src/kopia/kopia /bin/kopia
 
 ARG imageVersion="unknown"
 # TODO: replace with build date + git commit info
