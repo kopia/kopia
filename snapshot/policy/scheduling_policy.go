@@ -81,6 +81,10 @@ func (p *SchedulingPolicy) SetInterval(d time.Duration) {
 // NextSnapshotTime computes next snapshot time given previous
 // snapshot time and current wall clock time.
 func (p *SchedulingPolicy) NextSnapshotTime(previousSnapshotTime, now time.Time) (time.Time, bool) {
+	if p.Manual {
+		return time.Time{}, false
+	}
+
 	const oneDay = 24 * time.Hour
 
 	var (
