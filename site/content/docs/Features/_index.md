@@ -10,6 +10,7 @@ weight: 10
 * [Restore Snapshots Using Multiple Methods](#restore-snapshots-using-multiple-methods)
 * [End-to-End 'Zero Knowledge' Encryption](#end-to-end-zero-knowledge-encryption)
 * [Compression](#compression)
+* [Error Correction](#error-correction)
 * [Verifying Backup Validity and Consistency](#verifying-backup-validity-and-consistency)
 * [Recovering Backed Up Data When There is Data Loss](#recovering-backed-up-data-when-there-is-data-loss)
 * [Regular Automatic Maintence of Repositories](#regular-automatic-maintence-of-repositories)
@@ -98,6 +99,10 @@ Kopia can [compress your data](../advanced/compression/) to save storage and ban
 * [s2](https://github.com/klauspost/compress/tree/master/s2)
 
 * [zstd](https://github.com/klauspost/compress/tree/master/zstd)
+
+### Error Correction
+
+Kopia supports [Reed-Solomon error correction algorithm](../advanced/ecc/) to help prevent your snapshots from being corrupted by faulty hardware, such as bitflips or bitrot.
 
 ### Verifying Backup Validity and Consistency
 
