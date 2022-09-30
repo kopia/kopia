@@ -162,6 +162,17 @@ func TestNextSnapshotTime(t *testing.T) {
 			wantTime:             time.Date(2020, time.January, 1, 19, 0, 0, 0, time.Local),
 			wantOK:               true,
 		},
+		{
+			pol: policy.SchedulingPolicy{
+				IntervalSeconds: 43200,
+				TimesOfDay:      []policy.TimeOfDay{{19, 0}, {20, 0}},
+				Manual:          true,
+			},
+			previousSnapshotTime: time.Date(2020, time.January, 1, 19, 0, 0, 0, time.Local),
+			now:                  time.Date(2020, time.January, 1, 10, 0, 0, 0, time.Local),
+			wantTime:             time.Time{},
+			wantOK:               false,
+		},
 	}
 
 	for i, tc := range cases {
