@@ -54,7 +54,7 @@ require (
 	golang.org/x/net v0.0.0-20220909164309-bea034e7d591
 	golang.org/x/oauth2 v0.0.0-20220909003341-f21342109be1
 	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f
-	golang.org/x/sys v0.0.0-20220825204002-c680a09ffe64
+	golang.org/x/sys v0.0.0-20220928140112-f11e5e49a4ec
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
 	golang.org/x/text v0.3.7
 	google.golang.org/api v0.98.0
@@ -103,8 +103,8 @@ require (
 )
 
 require (
-	github.com/chromedp/cdproto v0.0.0-20220827030233-358ed4af73cf
-	github.com/chromedp/chromedp v0.8.5
+	github.com/chromedp/cdproto v0.0.0-20220924210414-0e3390be1777
+	github.com/chromedp/chromedp v0.8.6
 	github.com/edsrzf/mmap-go v1.1.0
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/klauspost/reedsolomon v1.11.0
