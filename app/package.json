@@ -131,7 +131,7 @@
     "eject": "react-scripts eject",
     "start-electron": "electron .",
     "build-electron": "electron-builder",
-    "build-electron-windows": "electron-builder -w",
+    "build-electron-windows": "electron-builder -w --x64",
     "build-electron-linux": "electron-builder -l",
     "build-electron-dir": "electron-builder --dir",
     "start-electron-prebuilt": "ELECTRON_IS_DEV=0 electron .",

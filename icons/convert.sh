@@ -16,8 +16,8 @@ make_icns() {
     sips -z 256 256   $source --out MyIcon.iconset/icon_128x128@2x.png
     sips -z 256 256   $source --out MyIcon.iconset/icon_256x256.png
     sips -z 512 512   $source --out MyIcon.iconset/icon_256x256@2x.png
-    sips -z 512 512   $source --out MyIcon.iconset/icon_512x512.png
-    cp $source MyIcon.iconset/icon_512x512@2x.png
+    # sips -z 512 512   $source --out MyIcon.iconset/icon_512x512.png
+    # cp $source MyIcon.iconset/icon_512x512@2x.png
     iconutil -c icns MyIcon.iconset
     rm -R MyIcon.iconset
     mv MyIcon.icns $output
@@ -33,13 +33,13 @@ make_ico() {
 make_icns kopia-app-dark-1024.png ../app/assets/icon.icns
 
 # Windows icon
-make_ico kopia-app-dark-1024.png ../app/assets/icon.ico
+make_ico kopia-app-win-1024.png ../app/assets/icon.ico
 
 # macOS tray icon
 sips -z 20 28 ../app/resources/mac/icons/kopia-tray@2x.png --out ../app/resources/mac/icons/kopia-tray.png
 
 # Windows tray icon
-convert kopia-outline-win-tray.png -define icon:auto-resize="32,16" ../app/resources/win/icons/kopia-tray.ico
+convert kopia-outline-win-tray.png -define icon:auto-resize="32" ../app/resources/win/icons/kopia-tray.ico
 
 # site
 cp kopia-white.svg ../site/assets/icons/logo.svg
