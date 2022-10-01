@@ -190,7 +190,9 @@ func openDirect(ctx context.Context, configFile string, lc *LocalConfig, passwor
 		st = readonly.NewWrapper(st)
 	}
 
-	r, err := openWithConfig(ctx, st, lc, password, options, lc.Caching, configFile)
+	cliOpts := lc.ApplyDefaults(ctx, "Repository in "+st.DisplayName())
+
+	r, err := openWithConfig(ctx, st, cliOpts, password, options, lc.Caching, configFile)
 	if err != nil {
 		st.Close(ctx) //nolint:errcheck
 		return nil, err
@@ -202,14 +204,14 @@ func openDirect(ctx context.Context, configFile string, lc *LocalConfig, passwor
 // openWithConfig opens the repository with a given configuration, avoiding the need for a config file.
 //
 //nolint:funlen,gocyclo
-func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, password string, options *Options, cacheOpts *content.CachingOptions, configFile string) (DirectRepository, error) {
+func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions, password string, options *Options, cacheOpts *content.CachingOptions, configFile string) (DirectRepository, error) {
 	cacheOpts = cacheOpts.CloneOrDefault()
 	cmOpts := &content.ManagerOptions{
 		TimeNow:            defaultTime(options.TimeNowFunc),
 		DisableInternalLog: options.DisableInternalLog,
 	}
 
-	fmgr, ferr := format.NewManager(ctx, st, cacheOpts.CacheDirectory, lc.FormatBlobCacheDuration, password, cmOpts.TimeNow)
+	fmgr, ferr := format.NewManager(ctx, st, cacheOpts.CacheDirectory, cliOpts.FormatBlobCacheDuration, password, cmOpts.TimeNow)
 	if ferr != nil {
 		return nil, errors.Wrap(ferr, "unable to create format manager")
 	}
@@ -246,8 +248,8 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 	}
 
 	limits := throttlingLimitsFromConnectionInfo(ctx, st.ConnectionInfo())
-	if lc.Throttling != nil {
-		limits = *lc.Throttling
+	if cliOpts.Throttling != nil {
+		limits = *cliOpts.Throttling
 	}
 
 	st, throttler, ferr := addThrottler(st, limits)
@@ -284,8 +286,8 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 	}
 
 	cm := content.NewWriteManager(ctx, scm, content.SessionOptions{
-		SessionUser: lc.Username,
-		SessionHost: lc.Hostname,
+		SessionUser: cliOpts.Username,
+		SessionHost: cliOpts.Hostname,
 	}, "")
 
 	om, ferr := object.NewObjectManager(ctx, cm, fmgr.ObjectFormat())
@@ -308,7 +310,7 @@ func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 			cachingOptions: *cacheOpts,
 			fmgr:           fmgr,
 			timeNow:        cmOpts.TimeNow,
-			cliOpts:        lc.ClientOptions.ApplyDefaults(ctx, "Repository in "+st.DisplayName()),
+			cliOpts:        cliOpts,
 			configFile:     configFile,
 			nextWriterID:   new(int32),
 			throttler:      throttler,
