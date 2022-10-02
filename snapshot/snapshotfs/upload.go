@@ -1252,6 +1252,7 @@ func (u *Uploader) Upload(
 
 	scanctx, cancelScan := context.WithCancel(ctx)
 
+	defer scanWG.Wait()
 	defer cancelScan()
 
 	switch entry := source.(type) {
