@@ -10,6 +10,7 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/localfs"
+	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
@@ -34,8 +35,7 @@ func NewEntry(originalPath string, policyTree *policy.Tree) (fs.Entry, error) {
 
 	cfg := &fs_snapshot.SnapshoterConfig{
 		InfoCallback: func(level fs_snapshot.MessageLevel, msg string, a ...interface{}) {
-			switch level {
-			case fs_snapshot.OutputLevel:
+			if level == fs_snapshot.OutputLevel {
 				fmt.Printf(msg+"\n", a...)
 			}
 		},
@@ -123,9 +123,11 @@ func (s *snapshotEntry) wrapEntry(e fs.Entry, isRoot bool) (fs.Entry, error) {
 			policyTree = s.policyTree.Child(e.Name())
 		}
 
+		originalRoot := s.originalRoot
+		snapshotRoot := s.snapshotRoot
+
 		snapshotPath := e.LocalFilesystemPath()
 		originalPath := s.toOriginal(snapshotPath)
-
 		correctSnapshotPath := createFilesystemSnapshot(s.backuper, policyTree, originalPath)
 
 		if correctSnapshotPath != snapshotPath {
@@ -141,27 +143,21 @@ func (s *snapshotEntry) wrapEntry(e fs.Entry, isRoot bool) (fs.Entry, error) {
 				return nil, errors.Errorf("should be a directory: %v", correctSnapshotPath)
 			}
 
-			return &snapshotDirectory{
-				snapshotEntry: snapshotEntry{
-					policyTree:      policyTree,
-					snapshoter:      s.snapshoter,
-					backuper:        s.backuper,
-					closeSnapshoter: isRoot,
-					originalRoot:    originalPath,
-					snapshotRoot:    correctSnapshotPath,
-					Entry:           en,
-				},
-				directory: dir,
-			}, nil
+			originalRoot = originalPath
+			snapshotRoot = correctSnapshotPath
+			e = en
+			et = dir
 		}
 
 		return &snapshotDirectory{
 			snapshotEntry: snapshotEntry{
-				snapshoter:   s.snapshoter,
-				backuper:     s.backuper,
-				originalRoot: s.originalRoot,
-				snapshotRoot: s.snapshotRoot,
-				Entry:        e,
+				policyTree:      policyTree,
+				snapshoter:      s.snapshoter,
+				backuper:        s.backuper,
+				closeSnapshoter: isRoot,
+				originalRoot:    originalRoot,
+				snapshotRoot:    snapshotRoot,
+				Entry:           e,
 			},
 			directory: et,
 		}, nil
@@ -196,6 +192,15 @@ func (s *snapshotEntry) wrapEntry(e fs.Entry, isRoot bool) (fs.Entry, error) {
 	default:
 		return nil, errors.Errorf("Unknown entry: %t %v", e, e)
 	}
+}
+
+func (s *snapshotEntry) DirEntryOrNil(ctx context.Context) (*snapshot.DirEntry, error) {
+	if defp, ok := s.Entry.(snapshot.HasDirEntryOrNil); ok {
+		//nolint:wrapcheck
+		return defp.DirEntryOrNil(ctx)
+	}
+
+	return nil, nil
 }
 
 func (s *snapshotEntry) Close() {
@@ -289,3 +294,11 @@ func (s *snapshotReader) Close() error {
 	//nolint:wrapcheck
 	return s.reader.Close()
 }
+
+var (
+	_ snapshot.HasDirEntryOrNil = &snapshotDirectory{}
+	_ snapshot.HasDirEntryOrNil = &snapshotFile{}
+	_ fs.Directory              = &snapshotDirectory{}
+	_ fs.File                   = &snapshotFile{}
+	_ fs.Symlink                = &snapshotSymlink{}
+)

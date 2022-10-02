@@ -201,13 +201,12 @@ func appendFilesPolicyValue(items []policyTableRow, p *policy.Policy, def *polic
 		"  Scan one filesystem only:",
 		boolToString(p.FilesPolicy.OneFileSystem.OrDefault(false)),
 		definitionPointToString(p.Target(), def.FilesPolicy.OneFileSystem),
-	})
-
-	items = append(items, policyTableRow{
-		"  Use filesystem snapshots:",
-		boolToString(p.FilesPolicy.UseFsSnapshots.OrDefault(false)),
-		definitionPointToString(p.Target(), def.FilesPolicy.UseFsSnapshots),
-	})
+	},
+		policyTableRow{
+			"  Use filesystem snapshots:",
+			boolToString(p.FilesPolicy.UseFsSnapshots.OrDefault(false)),
+			definitionPointToString(p.Target(), def.FilesPolicy.UseFsSnapshots),
+		})
 
 	return items
 }
