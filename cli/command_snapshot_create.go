@@ -270,6 +270,11 @@ func (c *commandSnapshotCreate) snapshotSingleSource(ctx context.Context, rep re
 		setManual bool
 	)
 
+	policyTree, err := policy.TreeForSource(ctx, rep, sourceInfo)
+	if err != nil {
+		return errors.Wrap(err, "unable to get policy tree")
+	}
+
 	if c.snapshotCreateStdinFileName != "" {
 		// stdin source will be snapshotted using a virtual static root directory with a single streaming file entry
 		// Create a new static directory with the given name and add a streaming file entry with os.Stdin reader
@@ -278,7 +283,7 @@ func (c *commandSnapshotCreate) snapshotSingleSource(ctx context.Context, rep re
 		})
 		setManual = true
 	} else {
-		fsEntry, err = getLocalFSEntry(ctx, sourceInfo.Path)
+		fsEntry, err = getLocalFSEntry(ctx, sourceInfo.Path, policyTree)
 		if err != nil {
 			return errors.Wrap(err, "unable to get local filesystem entry")
 		}
@@ -289,11 +294,6 @@ func (c *commandSnapshotCreate) snapshotSingleSource(ctx context.Context, rep re
 	previous, err := findPreviousSnapshotManifest(ctx, rep, sourceInfo, nil)
 	if err != nil {
 		return err
-	}
-
-	policyTree, err := policy.TreeForSource(ctx, rep, sourceInfo)
-	if err != nil {
-		return errors.Wrap(err, "unable to get policy tree")
 	}
 
 	manifest, err := u.Upload(ctx, fsEntry, policyTree, sourceInfo, previous...)

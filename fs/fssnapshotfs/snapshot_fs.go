@@ -10,80 +10,102 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/localfs"
+	"github.com/kopia/kopia/snapshot/policy"
 )
 
 type snapshotEntry struct {
-	snapshoter   fs_snapshot.Snapshoter
-	backuper     fs_snapshot.Backuper
-	originalRoot string
-	snapshotRoot string
+	policyTree      *policy.Tree
+	snapshoter      fs_snapshot.Snapshoter
+	backuper        fs_snapshot.Backuper
+	closeSnapshoter bool
+	originalRoot    string
+	snapshotRoot    string
 	fs.Entry
 }
 
 // NewEntry returns fs.Entry for the specified path, the result will be one of supported entry types: fs.File, fs.Directory, fs.Symlink
 // or fs.UnsupportedEntry.
-func NewEntry(originalPath string) (fs.Entry, error) {
-	snapshoter, err := fs_snapshot.CreateSnapshoter()
+func NewEntry(originalPath string, policyTree *policy.Tree) (fs.Entry, error) {
+	entry, err := localfs.NewEntry(originalPath)
 	if err != nil {
-		// If we can't use snapshots, just use the filesystem directly
-		fmt.Printf("Error creating filesystem snapshot: %v\n", err)
-
-		//nolint:wrapcheck
-		return localfs.NewEntry(originalPath)
-	}
-
-	backuper, err := snapshoter.StartBackup(&fs_snapshot.CreateSnapshotOptions{
-		InfoCallback: func(level fs_snapshot.MessageLevel, msg string) {
-			if level == fs_snapshot.InfoLevel {
-				fmt.Println(msg)
-			}
-		},
-	})
-	if err != nil {
-		// If we can't use snapshots, just use the filesystem directly
-		fmt.Printf("Error creating filesystem snapshot: %v\n", err)
-
-		snapshoter.Close()
-
-		//nolint:wrapcheck
-		return localfs.NewEntry(originalPath)
-	}
-
-	snapshotPath, _ := backuper.TryToCreateTemporarySnapshot(originalPath)
-
-	e, err := localfs.NewEntry(snapshotPath)
-	if err != nil {
-		backuper.Close()
-		snapshoter.Close()
-
 		//nolint:wrapcheck
 		return nil, err
 	}
 
-	dir, ok := e.(fs.Directory)
-	if !ok {
-		return nil, errors.Errorf("Filesystem snapshot path should be a directory: %v", snapshotPath)
+	cfg := &fs_snapshot.SnapshoterConfig{
+		InfoCallback: func(level fs_snapshot.MessageLevel, msg string, a ...interface{}) {
+			switch level {
+			case fs_snapshot.OutputLevel:
+				fmt.Printf(msg+"\n", a...)
+			}
+		},
 	}
 
-	return &snapshotRoot{
-		snapshotDirectory{
-			snapshotEntry: snapshotEntry{
-				snapshoter:   snapshoter,
-				backuper:     backuper,
-				originalRoot: originalPath,
-				snapshotRoot: snapshotPath,
-				Entry:        e,
-			},
-			directory: dir,
-		},
-	}, nil
+	snapshoter, err := fs_snapshot.NewSnapshoter(cfg)
+	if err != nil {
+		// If we can't use snapshots, just use the filesystem directly
+		fmt.Printf("Error creating filesystem snapshot: %v\n", err)
+
+		return entry, nil
+	}
+
+	backuper, err := snapshoter.StartBackup(nil)
+	if err != nil {
+		// If we can't use snapshots, just use the filesystem directly
+		fmt.Printf("Error creating filesystem snapshot: %v\n", err)
+
+		snapshoter.Close()
+
+		return entry, nil
+	}
+
+	se := &snapshotEntry{
+		policyTree:   policyTree,
+		snapshoter:   snapshoter,
+		backuper:     backuper,
+		originalRoot: originalPath,
+		snapshotRoot: originalPath,
+		Entry:        entry,
+	}
+
+	return se.wrapEntry(entry, true)
+}
+
+func createFilesystemSnapshot(backuper fs_snapshot.Backuper, policyTree *policy.Tree, originalPath string) string {
+	if !policyTree.EffectivePolicy().FilesPolicy.UseFsSnapshots.OrDefault(false) {
+		return originalPath
+	}
+
+	snapshotPath, err := backuper.TryToCreateTemporarySnapshot(originalPath)
+	if err != nil {
+		if err.Error() != "snapshot failed in a previous attempt" {
+			fmt.Printf("Error creating filesystem snapshot for '%v': %v. Ignoring and using original files.", originalPath, err.Error())
+		}
+
+		// On case of error just use original dir
+		return originalPath
+	}
+
+	if snapshotPath[len(snapshotPath)-1] == filepath.Separator {
+		snapshotPath = snapshotPath[:len(snapshotPath)-1]
+	}
+
+	return snapshotPath
 }
 
 func (s *snapshotEntry) LocalFilesystemPath() string {
 	return s.toOriginal(s.Entry.LocalFilesystemPath())
 }
 
+func (s *snapshotEntry) hasSnapshot() bool {
+	return s.originalRoot != s.snapshotRoot
+}
+
 func (s *snapshotEntry) toOriginal(snapshotPath string) string {
+	if !s.hasSnapshot() {
+		return snapshotPath
+	}
+
 	relative, err := filepath.Rel(s.snapshotRoot, snapshotPath)
 	if err != nil {
 		// Should never happen
@@ -93,54 +115,41 @@ func (s *snapshotEntry) toOriginal(snapshotPath string) string {
 	return filepath.Join(s.originalRoot, relative)
 }
 
-func (s *snapshotEntry) Close() {
-	s.Entry.Close()
-}
-
-type snapshotRoot struct {
-	snapshotDirectory
-}
-
-func (s *snapshotRoot) Close() {
-	s.snapshotEntry.Close()
-	s.backuper.Close()
-	s.snapshoter.Close()
-}
-
-type snapshotDirectory struct {
-	snapshotEntry
-	directory fs.Directory
-}
-
-func (s *snapshotDirectory) wrapEntry(e fs.Entry) (fs.Entry, error) {
-	switch ee := e.(type) {
+func (s *snapshotEntry) wrapEntry(e fs.Entry, isRoot bool) (fs.Entry, error) {
+	switch et := e.(type) {
 	case fs.Directory:
+		policyTree := s.policyTree
+		if !isRoot {
+			policyTree = s.policyTree.Child(e.Name())
+		}
+
 		snapshotPath := e.LocalFilesystemPath()
 		originalPath := s.toOriginal(snapshotPath)
 
-		// On case of error just use original dir
-		correctSnapshotPath, _ := s.backuper.TryToCreateTemporarySnapshot(originalPath)
+		correctSnapshotPath := createFilesystemSnapshot(s.backuper, policyTree, originalPath)
 
 		if correctSnapshotPath != snapshotPath {
 			// Changed snapshot location
-			ee, err := localfs.NewEntry(correctSnapshotPath)
+			en, err := localfs.NewEntry(correctSnapshotPath)
 			if err != nil {
 				//nolint:wrapcheck
 				return nil, err
 			}
 
-			dir, ok := ee.(fs.Directory)
+			dir, ok := en.(fs.Directory)
 			if !ok {
-				return nil, errors.Errorf("Filesystem snapshot path should be a directory: %v", correctSnapshotPath)
+				return nil, errors.Errorf("should be a directory: %v", correctSnapshotPath)
 			}
 
 			return &snapshotDirectory{
 				snapshotEntry: snapshotEntry{
-					snapshoter:   s.snapshoter,
-					backuper:     s.backuper,
-					originalRoot: originalPath,
-					snapshotRoot: correctSnapshotPath,
-					Entry:        ee,
+					policyTree:      policyTree,
+					snapshoter:      s.snapshoter,
+					backuper:        s.backuper,
+					closeSnapshoter: isRoot,
+					originalRoot:    originalPath,
+					snapshotRoot:    correctSnapshotPath,
+					Entry:           en,
 				},
 				directory: dir,
 			}, nil
@@ -154,7 +163,7 @@ func (s *snapshotDirectory) wrapEntry(e fs.Entry) (fs.Entry, error) {
 				snapshotRoot: s.snapshotRoot,
 				Entry:        e,
 			},
-			directory: ee,
+			directory: et,
 		}, nil
 
 	case fs.File:
@@ -166,7 +175,7 @@ func (s *snapshotDirectory) wrapEntry(e fs.Entry) (fs.Entry, error) {
 				snapshotRoot: s.snapshotRoot,
 				Entry:        e,
 			},
-			file: ee,
+			file: et,
 		}, nil
 
 	case fs.Symlink:
@@ -178,7 +187,7 @@ func (s *snapshotDirectory) wrapEntry(e fs.Entry) (fs.Entry, error) {
 				snapshotRoot: s.snapshotRoot,
 				Entry:        e,
 			},
-			symlink: ee,
+			symlink: et,
 		}, nil
 
 	case fs.ErrorEntry:
@@ -189,6 +198,20 @@ func (s *snapshotDirectory) wrapEntry(e fs.Entry) (fs.Entry, error) {
 	}
 }
 
+func (s *snapshotEntry) Close() {
+	s.Entry.Close()
+
+	if s.closeSnapshoter {
+		s.backuper.Close()
+		s.snapshoter.Close()
+	}
+}
+
+type snapshotDirectory struct {
+	snapshotEntry
+	directory fs.Directory
+}
+
 func (s *snapshotDirectory) Child(ctx context.Context, name string) (fs.Entry, error) {
 	e, err := s.directory.Child(ctx, name)
 	if err != nil {
@@ -196,13 +219,13 @@ func (s *snapshotDirectory) Child(ctx context.Context, name string) (fs.Entry, e
 		return nil, err
 	}
 
-	return s.wrapEntry(e)
+	return s.wrapEntry(e, false)
 }
 
 func (s *snapshotDirectory) IterateEntries(ctx context.Context, cb func(context.Context, fs.Entry) error) error {
 	//nolint:wrapcheck
 	return s.directory.IterateEntries(ctx, func(ctx context.Context, e fs.Entry) error {
-		ee, err := s.wrapEntry(e)
+		ee, err := s.wrapEntry(e, false)
 		if err != nil {
 			return err
 		}

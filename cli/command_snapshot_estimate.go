@@ -78,7 +78,12 @@ func (c *commandSnapshotEstimate) run(ctx context.Context, rep repo.Repository) 
 		UserName: rep.ClientOptions().Username,
 	}
 
-	entry, err := getLocalFSEntry(ctx, path)
+	policyTree, err := policy.TreeForSource(ctx, rep, sourceInfo)
+	if err != nil {
+		return errors.Wrapf(err, "error creating policy tree for %v", sourceInfo)
+	}
+
+	entry, err := getLocalFSEntry(ctx, path, policyTree)
 	if err != nil {
 		return err
 	}
@@ -93,11 +98,6 @@ func (c *commandSnapshotEstimate) run(ctx context.Context, rep repo.Repository) 
 	var ep estimateProgress
 
 	ep.quiet = c.snapshotEstimateQuiet
-
-	policyTree, err := policy.TreeForSource(ctx, rep, sourceInfo)
-	if err != nil {
-		return errors.Wrapf(err, "error creating policy tree for %v", sourceInfo)
-	}
 
 	if err := snapshotfs.Estimate(ctx, dir, policyTree, &ep, c.maxExamplesPerBucket); err != nil {
 		return errors.Wrap(err, "error estimating")

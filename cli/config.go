@@ -16,6 +16,7 @@ import (
 	"github.com/kopia/kopia/fs/fssnapshotfs"
 	"github.com/kopia/kopia/internal/ospath"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/snapshot/policy"
 )
 
 func deprecatedFlag(w io.Writer, help string) func(_ *kingpin.ParseContext) error {
@@ -118,7 +119,7 @@ func resolveSymlink(path string) (string, error) {
 	return filepath.EvalSymlinks(path)
 }
 
-func getLocalFSEntry(ctx context.Context, path0 string) (fs.Entry, error) {
+func getLocalFSEntry(ctx context.Context, path0 string, policyTree *policy.Tree) (fs.Entry, error) {
 	path, err := resolveSymlink(path0)
 	if err != nil {
 		return nil, errors.Wrap(err, "resolveSymlink")
@@ -128,7 +129,7 @@ func getLocalFSEntry(ctx context.Context, path0 string) (fs.Entry, error) {
 		log(ctx).Infof("%v resolved to %v", path0, path)
 	}
 
-	s, err := fssnapshotfs.NewEntry(path)
+	s, err := fssnapshotfs.NewEntry(path, policyTree)
 	if err != nil {
 		return nil, errors.Wrap(err, "can't create snapshot local fs entry")
 	}
