@@ -141,7 +141,7 @@ func TestSourceRefreshesAfterPolicy(t *testing.T) {
 	// make sure that soon after setting policy, the next snapshot time is up-to-date.
 	match := false
 
-	for attempt := 0; attempt < 3; attempt++ {
+	for attempt := 0; attempt < 15; attempt++ {
 		sources = mustListSources(t, cli, &snapshot.SourceInfo{})
 		require.Len(t, sources, 1)
 		require.NotNil(t, sources[0].NextSnapshotTime)
