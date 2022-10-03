@@ -5,14 +5,18 @@ import (
 	"fmt"
 	"path/filepath"
 
-	fs_snapshot "github.com/pescuma/go-fs-snapshot/lib"
 	"github.com/pkg/errors"
+
+	fs_snapshot "github.com/pescuma/go-fs-snapshot/lib"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/localfs"
+	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
 )
+
+var log = logging.Module("kopia/fssnapshotfs")
 
 type snapshotEntry struct {
 	policyTree      *policy.Tree
@@ -26,7 +30,7 @@ type snapshotEntry struct {
 
 // NewEntry returns fs.Entry for the specified path, the result will be one of supported entry types: fs.File, fs.Directory, fs.Symlink
 // or fs.UnsupportedEntry.
-func NewEntry(originalPath string, policyTree *policy.Tree) (fs.Entry, error) {
+func NewEntry(ctx context.Context, originalPath string, policyTree *policy.Tree) (fs.Entry, error) {
 	entry, err := localfs.NewEntry(originalPath)
 	if err != nil {
 		//nolint:wrapcheck
@@ -41,21 +45,27 @@ func NewEntry(originalPath string, policyTree *policy.Tree) (fs.Entry, error) {
 		},
 	}
 
+	enabled := policyTree.EffectivePolicy().FilesPolicy.UseFsSnapshots.OrDefault(false)
+
 	snapshoter, err := fs_snapshot.NewSnapshoter(cfg)
 	if err != nil {
-		// If we can't use snapshots, just use the filesystem directly
-		fmt.Printf("Error creating filesystem snapshot: %v\n", err)
+		if enabled {
+			log(ctx).Errorf("Error creating filesystem snapshot: %v\n", err)
+		}
 
+		// If we can't use snapshots, just use the filesystem directly
 		return entry, nil
 	}
 
 	backuper, err := snapshoter.StartBackup(nil)
 	if err != nil {
-		// If we can't use snapshots, just use the filesystem directly
-		fmt.Printf("Error creating filesystem snapshot: %v\n", err)
+		if enabled {
+			log(ctx).Errorf("Error creating filesystem snapshot: %v\n", err)
+		}
 
 		snapshoter.Close()
 
+		// If we can't use snapshots, just use the filesystem directly
 		return entry, nil
 	}
 
@@ -78,8 +88,8 @@ func createFilesystemSnapshot(backuper fs_snapshot.Backuper, policyTree *policy.
 
 	snapshotPath, err := backuper.TryToCreateTemporarySnapshot(originalPath)
 	if err != nil {
-		if err.Error() != "snapshot failed in a previous attempt" {
-			fmt.Printf("Error creating filesystem snapshot for '%v': %v. Ignoring and using original files.", originalPath, err.Error())
+		if !errors.Is(err, fs_snapshot.ErrorSnapshotFailedInPreviousAttempt) {
+			fmt.Printf("Error creating filesystem snapshot for '%v': %v. Ignoring and using original files.", originalPath, err)
 		}
 
 		// On case of error just use original dir

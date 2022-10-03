@@ -129,7 +129,7 @@ func getLocalFSEntry(ctx context.Context, path0 string, policyTree *policy.Tree)
 		log(ctx).Infof("%v resolved to %v", path0, path)
 	}
 
-	s, err := fssnapshotfs.NewEntry(path, policyTree)
+	s, err := fssnapshotfs.NewEntry(ctx, path, policyTree)
 	if err != nil {
 		return nil, errors.Wrap(err, "can't create snapshot local fs entry")
 	}
