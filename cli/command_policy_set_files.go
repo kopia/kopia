@@ -61,7 +61,7 @@ func (c *policyFilesFlags) setFilesPolicyFromFlags(ctx context.Context, fp *poli
 		return err
 	}
 
-	if err := applyPolicyBoolPtr(ctx, "use fileystem snapshots where available", &fp.UseFsSnapshots, c.policyUseFsSnapshots, changeCount); err != nil {
+	if err := applyPolicyBoolPtr(ctx, "use filesystem snapshots where available", &fp.UseFsSnapshots, c.policyUseFsSnapshots, changeCount); err != nil {
 		return err
 	}
 

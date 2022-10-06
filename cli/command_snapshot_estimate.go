@@ -83,7 +83,7 @@ func (c *commandSnapshotEstimate) run(ctx context.Context, rep repo.Repository) 
 		return errors.Wrapf(err, "error creating policy tree for %v", sourceInfo)
 	}
 
-	entry, err := getLocalFSEntry(ctx, path, policyTree)
+	entry, err := getLocalFSEntry(ctx, path)
 	if err != nil {
 		return err
 	}

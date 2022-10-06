@@ -20,8 +20,11 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/multierr"
 
+	"github.com/kopia/kopia/fs/filesystemSnapshots"
+
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/ignorefs"
+	"github.com/kopia/kopia/fs/mappedfs"
 	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/internal/workshare"
@@ -1265,6 +1268,13 @@ func (u *Uploader) Upload(
 			}
 		}
 
+		entry, close, err := u.wrapFilesystemSnapshots(ctx, entry, policyTree)
+		if err != nil {
+			return nil, err
+		}
+
+		defer close()
+
 		scanWG.Add(1)
 
 		go func() {
@@ -1331,4 +1341,17 @@ func (u *Uploader) wrapIgnorefs(logger logging.Logger, entry fs.Directory, polic
 
 		u.stats.AddExcluded(md)
 	}))
+}
+
+func (u *Uploader) wrapFilesystemSnapshots(ctx context.Context, dir fs.Directory, policyTree *policy.Tree) (fs.Directory, func(), error) {
+	if dir.LocalFilesystemPath() == "" {
+		return dir, func() {}, nil
+	}
+
+	entry, err := mappedfs.New(dir, filesystemSnapshots.FsSnapshot(ctx, dir.LocalFilesystemPath(), policyTree))
+	if err != nil {
+		return nil, func() {}, errors.Wrap(err, "can't create snapshot local fs entry")
+	}
+
+	return entry.(fs.Directory), entry.Close, nil
 }

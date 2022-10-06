@@ -283,7 +283,7 @@ func (c *commandSnapshotCreate) snapshotSingleSource(ctx context.Context, rep re
 		})
 		setManual = true
 	} else {
-		fsEntry, err = getLocalFSEntry(ctx, sourceInfo.Path, policyTree)
+		fsEntry, err = getLocalFSEntry(ctx, sourceInfo.Path)
 		if err != nil {
 			return errors.Wrap(err, "unable to get local filesystem entry")
 		}
