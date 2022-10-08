@@ -128,13 +128,12 @@ func getLocalFSEntry(ctx context.Context, path0 string) (fs.Entry, error) {
 		log(ctx).Infof("%v resolved to %v", path0, path)
 	}
 
-	s, err := localfs.NewEntry(path)
+	e, err := localfs.NewEntry(path)
 	if err != nil {
-		//nolint:wrapcheck
-		return nil, err
+		return nil, errors.Wrap(err, "can't get local fs entry")
 	}
 
-	return s, nil
+	return e, nil
 }
 
 func isWindows() bool {

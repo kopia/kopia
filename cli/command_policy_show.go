@@ -204,8 +204,8 @@ func appendFilesPolicyValue(items []policyTableRow, p *policy.Policy, def *polic
 	},
 		policyTableRow{
 			"  Use filesystem snapshots:",
-			boolToString(p.FilesPolicy.UseFsSnapshots.OrDefault(false)),
-			definitionPointToString(p.Target(), def.FilesPolicy.UseFsSnapshots),
+			valueOr(p.FilesPolicy.UseFilesystemSnapshots, "no"),
+			definitionPointToString(p.Target(), def.FilesPolicy.UseFilesystemSnapshots),
 		})
 
 	return items
@@ -448,4 +448,12 @@ func valueOrNotSetOptionalInt64Bytes(p *policy.OptionalInt64) string {
 	}
 
 	return units.BytesString(int64(*p))
+}
+
+func valueOr(p, def string) string {
+	if p == "" {
+		return def
+	}
+
+	return p
 }

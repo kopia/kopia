@@ -26,7 +26,7 @@ type policyFilesFlags struct {
 
 	policyIgnoreCacheDirs string
 
-	policyUseFsSnapshots string
+	policyUseFilesystemSnapshots string
 }
 
 func (c *policyFilesFlags) setup(cmd *kingpin.CmdClause) {
@@ -46,7 +46,7 @@ func (c *policyFilesFlags) setup(cmd *kingpin.CmdClause) {
 
 	cmd.Flag("ignore-cache-dirs", "Ignore cache directories ('true', 'false', 'inherit')").EnumVar(&c.policyIgnoreCacheDirs, booleanEnumValues...)
 
-	cmd.Flag("use-filesystem-snapshots", "Use filesystem snapshots ('true', 'false', 'inherit')").EnumVar(&c.policyUseFsSnapshots, booleanEnumValues...)
+	cmd.Flag("use-filesystem-snapshots", "Use filesystem snapshots").Default("no").EnumVar(&c.policyUseFilesystemSnapshots, "required", "if available", "no")
 }
 
 func (c *policyFilesFlags) setFilesPolicyFromFlags(ctx context.Context, fp *policy.FilesPolicy, changeCount *int) error {
@@ -61,9 +61,7 @@ func (c *policyFilesFlags) setFilesPolicyFromFlags(ctx context.Context, fp *poli
 		return err
 	}
 
-	if err := applyPolicyBoolPtr(ctx, "use filesystem snapshots where available", &fp.UseFsSnapshots, c.policyUseFsSnapshots, changeCount); err != nil {
-		return err
-	}
+	applyPolicyString(ctx, "use filesystem snapshots", &fp.UseFilesystemSnapshots, c.policyUseFilesystemSnapshots, changeCount)
 
 	return applyPolicyBoolPtr(ctx, "one filesystem", &fp.OneFileSystem, c.policyOneFileSystem, changeCount)
 }

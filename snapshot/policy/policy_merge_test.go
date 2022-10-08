@@ -153,6 +153,11 @@ func testPolicyMergeSingleField(t *testing.T, fieldName string, typ reflect.Type
 		v1 = reflect.ValueOf(compression.Name("foo"))
 		v2 = reflect.ValueOf(compression.Name("bar"))
 
+	case "string":
+		v0 = reflect.ValueOf("")
+		v1 = reflect.ValueOf("no")
+		v2 = reflect.ValueOf("required")
+
 	default:
 		t.Fatalf("unhandled case: %v - %v - please update test", fieldName, typ)
 	}

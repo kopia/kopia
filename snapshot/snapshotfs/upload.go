@@ -20,9 +20,8 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/multierr"
 
-	"github.com/kopia/kopia/fs/filesystemSnapshots"
-
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/fs/filesystemsnapshots"
 	"github.com/kopia/kopia/fs/ignorefs"
 	"github.com/kopia/kopia/fs/mappedfs"
 	"github.com/kopia/kopia/internal/iocopy"
@@ -1268,12 +1267,14 @@ func (u *Uploader) Upload(
 			}
 		}
 
-		entry, close, err := u.wrapFilesystemSnapshots(ctx, entry, policyTree)
-		if err != nil {
-			return nil, err
-		}
+		if entry.LocalFilesystemPath() != "" {
+			entry, err = u.wrapFilesystemSnapshots(ctx, entry, policyTree)
+			if err != nil {
+				return nil, err
+			}
 
-		defer close()
+			defer entry.Close()
+		}
 
 		scanWG.Add(1)
 
@@ -1343,15 +1344,16 @@ func (u *Uploader) wrapIgnorefs(logger logging.Logger, entry fs.Directory, polic
 	}))
 }
 
-func (u *Uploader) wrapFilesystemSnapshots(ctx context.Context, dir fs.Directory, policyTree *policy.Tree) (fs.Directory, func(), error) {
-	if dir.LocalFilesystemPath() == "" {
-		return dir, func() {}, nil
-	}
-
-	entry, err := mappedfs.New(dir, filesystemSnapshots.FsSnapshot(ctx, dir.LocalFilesystemPath(), policyTree))
+func (u *Uploader) wrapFilesystemSnapshots(ctx context.Context, dir fs.Directory, policyTree *policy.Tree) (fs.Directory, error) {
+	wrapped, err := mappedfs.New(dir, filesystemsnapshots.FsSnapshot(ctx, dir.LocalFilesystemPath(), policyTree))
 	if err != nil {
-		return nil, func() {}, errors.Wrap(err, "can't create snapshot local fs entry")
+		return nil, errors.Wrap(err, "can't create snapshot local fs entry")
 	}
 
-	return entry.(fs.Directory), entry.Close, nil
+	result, ok := wrapped.(fs.Directory)
+	if !ok {
+		return nil, errors.Errorf("should be a directory: %v", wrapped.LocalFilesystemPath())
+	}
+
+	return result, nil
 }

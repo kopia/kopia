@@ -11,7 +11,7 @@ import (
 	"github.com/kopia/kopia/snapshot"
 )
 
-// FilesystemMapper represents a mapping between paths in the filesystem
+// FilesystemMapper represents a mapping between paths in the filesystem.
 type FilesystemMapper interface {
 	Apply(path string) (string, error)
 	Close()
@@ -19,6 +19,7 @@ type FilesystemMapper interface {
 
 // New returns fs.Entry for the specified path, the result will be one of supported entry types: fs.File, fs.Directory, fs.Symlink
 // or fs.UnsupportedEntry.
+// entry is not closed when the returning entry is closed. The caller is responsible for closing entry.
 func New(entry fs.Entry, fsm FilesystemMapper) (fs.Entry, error) {
 	path := entry.LocalFilesystemPath()
 
@@ -36,7 +37,7 @@ type snapshotEntry struct {
 	originalRoot string
 	mappedRoot   string
 	fsm          FilesystemMapper
-	isRoot       bool
+	closeFsm     bool
 }
 
 func (s *snapshotEntry) LocalFilesystemPath() string {
@@ -47,12 +48,12 @@ func (s *snapshotEntry) isMapped() bool {
 	return s.originalRoot != s.mappedRoot
 }
 
-func (s *snapshotEntry) toOriginal(mappedPath string) string {
+func (s *snapshotEntry) toOriginal(mappedDir string) string {
 	if !s.isMapped() {
-		return mappedPath
+		return mappedDir
 	}
 
-	relative, err := filepath.Rel(s.mappedRoot, mappedPath)
+	relative, err := filepath.Rel(s.mappedRoot, mappedDir)
 	if err != nil {
 		// Should never happen
 		panic(err)
@@ -61,23 +62,23 @@ func (s *snapshotEntry) toOriginal(mappedPath string) string {
 	return filepath.Join(s.originalRoot, relative)
 }
 
-func (s *snapshotEntry) wrapChild(e fs.Entry, isRoot bool) (fs.Entry, error) {
+func (s *snapshotEntry) wrapChild(e fs.Entry, closeFsm bool) (fs.Entry, error) {
 	switch et := e.(type) {
 	case fs.Directory:
 		originalRoot := s.originalRoot
 		mappedRoot := s.mappedRoot
 
-		mappedPath := e.LocalFilesystemPath()
-		originalPath := s.toOriginal(mappedPath)
+		mappedDir := e.LocalFilesystemPath()
+		originalDir := s.toOriginal(mappedDir)
 
-		correctMappedPath, err := s.applyMapping(originalPath)
+		correctMappedDir, err := s.applyMapping(originalDir)
 		if err != nil {
 			return nil, err
 		}
 
-		if correctMappedPath != mappedPath {
+		if correctMappedDir != mappedDir {
 			// Changed snapshot location
-			en, err := localfs.NewEntry(correctMappedPath)
+			en, err := localfs.NewEntry(correctMappedDir)
 			if err != nil {
 				//nolint:wrapcheck
 				return nil, err
@@ -85,11 +86,11 @@ func (s *snapshotEntry) wrapChild(e fs.Entry, isRoot bool) (fs.Entry, error) {
 
 			dir, ok := en.(fs.Directory)
 			if !ok {
-				return nil, errors.Errorf("should be a directory: %v", correctMappedPath)
+				return nil, errors.Errorf("should be a directory: %v", correctMappedDir)
 			}
 
-			originalRoot = originalPath
-			mappedRoot = correctMappedPath
+			originalRoot = originalDir
+			mappedRoot = correctMappedDir
 			e = en
 			et = dir
 		}
@@ -100,7 +101,7 @@ func (s *snapshotEntry) wrapChild(e fs.Entry, isRoot bool) (fs.Entry, error) {
 				originalRoot: originalRoot,
 				mappedRoot:   mappedRoot,
 				fsm:          s.fsm,
-				isRoot:       isRoot,
+				closeFsm:     closeFsm,
 			},
 			directory: et,
 		}, nil
@@ -112,7 +113,7 @@ func (s *snapshotEntry) wrapChild(e fs.Entry, isRoot bool) (fs.Entry, error) {
 				originalRoot: s.originalRoot,
 				mappedRoot:   s.mappedRoot,
 				fsm:          s.fsm,
-				isRoot:       isRoot,
+				closeFsm:     closeFsm,
 			},
 			file: et,
 		}, nil
@@ -124,7 +125,7 @@ func (s *snapshotEntry) wrapChild(e fs.Entry, isRoot bool) (fs.Entry, error) {
 				originalRoot: s.originalRoot,
 				mappedRoot:   s.mappedRoot,
 				fsm:          s.fsm,
-				isRoot:       isRoot,
+				closeFsm:     closeFsm,
 			},
 			symlink: et,
 		}, nil
@@ -144,7 +145,7 @@ func (s *snapshotEntry) applyMapping(originalPath string) (string, error) {
 		return "", err
 	}
 
-	if snapshotPath[len(snapshotPath)-1] == filepath.Separator {
+	if snapshotPath != "" && snapshotPath[len(snapshotPath)-1] == filepath.Separator {
 		snapshotPath = snapshotPath[:len(snapshotPath)-1]
 	}
 
@@ -161,7 +162,7 @@ func (s *snapshotEntry) DirEntryOrNil(ctx context.Context) (*snapshot.DirEntry, 
 }
 
 func (s *snapshotEntry) Close() {
-	if s.isRoot {
+	if s.closeFsm {
 		s.fsm.Close()
 	} else {
 		s.Entry.Close()

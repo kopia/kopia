@@ -11,7 +11,7 @@ type FilesPolicy struct {
 	IgnoreCacheDirectories *OptionalBool `json:"ignoreCacheDirs,omitempty"`
 	MaxFileSize            int64         `json:"maxFileSize,omitempty"`
 	OneFileSystem          *OptionalBool `json:"oneFileSystem,omitempty"`
-	UseFsSnapshots         *OptionalBool `json:"useFsSnapshots,omitempty"`
+	UseFilesystemSnapshots string        `json:"useFilesystemSnapshots,omitempty"` // required, if available, no
 }
 
 // FilesPolicyDefinition specifies which policy definition provided the value of a particular field.
@@ -23,7 +23,7 @@ type FilesPolicyDefinition struct {
 	IgnoreCacheDirectories snapshot.SourceInfo `json:"ignoreCacheDirs,omitempty"`
 	MaxFileSize            snapshot.SourceInfo `json:"maxFileSize,omitempty"`
 	OneFileSystem          snapshot.SourceInfo `json:"oneFileSystem,omitempty"`
-	UseFsSnapshots         snapshot.SourceInfo `json:"useFsSnapshots,omitempty"`
+	UseFilesystemSnapshots snapshot.SourceInfo `json:"useFilesystemSnapshots,omitempty"`
 }
 
 // Merge applies default values from the provided policy.
@@ -35,5 +35,5 @@ func (p *FilesPolicy) Merge(src FilesPolicy, def *FilesPolicyDefinition, si snap
 	mergeOptionalBool(&p.IgnoreCacheDirectories, src.IgnoreCacheDirectories, &def.IgnoreCacheDirectories, si)
 	mergeInt64(&p.MaxFileSize, src.MaxFileSize, &def.MaxFileSize, si)
 	mergeOptionalBool(&p.OneFileSystem, src.OneFileSystem, &def.OneFileSystem, si)
-	mergeOptionalBool(&p.UseFsSnapshots, src.UseFsSnapshots, &def.UseFsSnapshots, si)
+	mergeStringReplace(&p.UseFilesystemSnapshots, src.UseFilesystemSnapshots, &def.UseFilesystemSnapshots, si)
 }

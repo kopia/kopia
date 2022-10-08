@@ -171,6 +171,27 @@ func applyPolicyStringList(ctx context.Context, desc string, val *[]string, add,
 	*val = s
 }
 
+func applyPolicyString(ctx context.Context, desc string, val *string, str string, changeCount *int) {
+	if str == "" {
+		// not changed
+		return
+	}
+
+	if str == inheritPolicyString || str == defaultPolicyString {
+		*changeCount++
+
+		log(ctx).Infof(" - resetting %q to a default value inherited from parent.", desc)
+
+		*val = ""
+
+		return
+	}
+
+	log(ctx).Infof(" - setting %q to %v.", desc, str)
+	*val = str
+	*changeCount++
+}
+
 func applyOptionalInt(ctx context.Context, desc string, val **policy.OptionalInt, str string, changeCount *int) error {
 	if str == "" {
 		// not changed
