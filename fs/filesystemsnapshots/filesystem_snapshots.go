@@ -10,7 +10,9 @@ import (
 	fs_snapshot "github.com/pescuma/go-fs-snapshot/lib"
 
 	"github.com/kopia/kopia/fs/mappedfs"
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/repo/logging"
+	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
@@ -29,11 +31,12 @@ func (n NoSnapshots) Close() {
 }
 
 // FsSnapshot creates a filesystem mapping based on fs_snapshot and configured by policies.
-func FsSnapshot(ctx context.Context, root string, policyTree *policy.Tree) mappedfs.FilesystemMapper {
+func FsSnapshot(ctx context.Context, root string, policyTree *policy.Tree, manifest *snapshot.Manifest) mappedfs.FilesystemMapper {
 	return &fsSnapshot{
 		log:         log(ctx),
 		root:        root,
 		policyTree:  policyTree,
+		manifest:    manifest,
 		snapshotIDs: map[string]bool{},
 	}
 }
@@ -41,6 +44,7 @@ func FsSnapshot(ctx context.Context, root string, policyTree *policy.Tree) mappe
 type fsSnapshot struct {
 	log         logging.Logger
 	policyTree  *policy.Tree
+	manifest    *snapshot.Manifest
 	root        string
 	initialized bool
 	snapshoter  fs_snapshot.Snapshoter
@@ -77,6 +81,13 @@ func (s *fsSnapshot) Apply(originalDir string) (string, error) {
 				return "", errors.Wrapf(err, "error creating filesystem snapshot engine")
 			}
 
+			s.manifest.FilesystemSnapshots = append(s.manifest.FilesystemSnapshots,
+				snapshot.FilesystemSnapshotInfo{
+					Path:      originalDir,
+					Timestamp: clock.Now(),
+					Error:     err.Error(),
+				})
+
 			s.log.Errorf("Error creating filesystem snapshot engine: %v. Ignoring and using original files.", err)
 		}
 	}
@@ -85,24 +96,40 @@ func (s *fsSnapshot) Apply(originalDir string) (string, error) {
 		return originalDir, nil
 	}
 
-	snapshotDir, snapshot, err := s.backuper.TryToCreateTemporarySnapshot(originalDir)
+	snapshotDir, snapshotInfo, err := s.backuper.TryToCreateTemporarySnapshot(originalDir)
 	if err != nil {
 		if required {
 			return "", errors.Wrapf(err, "error creating filesystem snapshot for '%v'", originalDir)
 		}
 
 		if !errors.Is(err, fs_snapshot.ErrSnapshotFailedInPreviousAttempt) {
+			s.manifest.FilesystemSnapshots = append(s.manifest.FilesystemSnapshots,
+				snapshot.FilesystemSnapshotInfo{
+					Path:      originalDir,
+					Timestamp: clock.Now(),
+					Error:     err.Error(),
+				})
+
 			s.log.Errorf("Error creating filesystem snapshot for '%v': %v. Ignoring and using original files.", originalDir, err)
 		}
 
 		return originalDir, nil
 	}
 
-	if !s.snapshotIDs[snapshot.ID] {
-		s.snapshotIDs[snapshot.ID] = true
+	if !s.snapshotIDs[snapshotInfo.ID] {
+		s.snapshotIDs[snapshotInfo.ID] = true
+
+		s.manifest.FilesystemSnapshots = append(s.manifest.FilesystemSnapshots,
+			snapshot.FilesystemSnapshotInfo{
+				ID:         snapshotInfo.ID,
+				Path:       snapshotInfo.OriginalDir,
+				Timestamp:  snapshotInfo.CreationTime,
+				Provider:   snapshotInfo.Provider.Name,
+				Attributes: snapshotInfo.Attributes,
+			})
 
 		s.log.Infof("Created filesystem snapshot for '%v' using provider '%v' and mapped to '%v",
-			snapshot.OriginalDir, snapshot.Provider.Name, snapshot.SnapshotDir)
+			snapshotInfo.OriginalDir, snapshotInfo.Provider.Name, snapshotInfo.SnapshotDir)
 	}
 
 	return snapshotDir, nil

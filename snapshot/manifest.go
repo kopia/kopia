@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"sort"
 	"strconv"
+	"time"
 
 	"github.com/pkg/errors"
 
@@ -36,6 +37,18 @@ type Manifest struct {
 
 	// list of manually-defined pins which prevent the snapshot from being deleted.
 	Pins []string `json:"pins,omitempty"`
+
+	FilesystemSnapshots []FilesystemSnapshotInfo `json:"filesystemSnapshots,omitempty"`
+}
+
+// FilesystemSnapshotInfo contains information about filesystem snapshots taken during a backup.
+type FilesystemSnapshotInfo struct {
+	ID         string    `json:"id,omitempty"`
+	Path       string    `json:"path,omitempty"`
+	Timestamp  time.Time `json:"timestamp,omitempty"`
+	Provider   string    `json:"provider,omitempty"`
+	Attributes string    `json:"attributes,omitempty"`
+	Error      string    `json:"error,omitempty"`
 }
 
 // UpdatePins updates pins in the provided manifest.

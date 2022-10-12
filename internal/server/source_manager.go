@@ -359,6 +359,8 @@ func (s *sourceManager) snapshotInternal(ctx context.Context, ctrl uitask.Contro
 		return errors.Wrap(err, "unable to create local filesystem")
 	}
 
+	defer localEntry.Close()
+
 	onUpload := func(int64) {}
 
 	s.sourceMutex.Lock()
