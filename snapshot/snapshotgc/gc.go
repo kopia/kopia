@@ -3,12 +3,12 @@ package snapshotgc
 
 import (
 	"context"
-	"sync"
 	"time"
 
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/internal/bigmap"
 	"github.com/kopia/kopia/internal/stats"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
@@ -23,7 +23,7 @@ import (
 
 var log = logging.Module("snapshotgc")
 
-func findInUseContentIDs(ctx context.Context, rep repo.Repository, used *sync.Map) error {
+func findInUseContentIDs(ctx context.Context, rep repo.Repository, used *bigmap.Set) error {
 	ids, err := snapshot.ListSnapshotManifests(ctx, rep, nil, nil)
 	if err != nil {
 		return errors.Wrap(err, "unable to list snapshot manifest IDs")
@@ -34,21 +34,27 @@ func findInUseContentIDs(ctx context.Context, rep repo.Repository, used *sync.Ma
 		return errors.Wrap(err, "unable to load manifest IDs")
 	}
 
-	w := snapshotfs.NewTreeWalker(snapshotfs.TreeWalkerOptions{
+	w, twerr := snapshotfs.NewTreeWalker(ctx, snapshotfs.TreeWalkerOptions{
 		EntryCallback: func(ctx context.Context, entry fs.Entry, oid object.ID, entryPath string) error {
-			contentIDs, err := rep.VerifyObject(ctx, oid)
-			if err != nil {
-				return errors.Wrapf(err, "error verifying %v", oid)
+			contentIDs, verr := rep.VerifyObject(ctx, oid)
+			if verr != nil {
+				return errors.Wrapf(verr, "error verifying %v", oid)
 			}
 
+			var cidbuf [128]byte
+
 			for _, cid := range contentIDs {
-				used.Store(cid, nil)
+				used.Put(ctx, cid.Append(cidbuf[:0]))
 			}
 
 			return nil
 		},
 	})
-	defer w.Close()
+	if twerr != nil {
+		return errors.Wrap(err, "unable to create tree walker")
+	}
+
+	defer w.Close(ctx)
 
 	log(ctx).Infof("Looking for active contents...")
 
@@ -93,13 +99,15 @@ func Run(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete bool, sa
 }
 
 func runInternal(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete bool, safety maintenance.SafetyParameters, maintenanceStartTime time.Time, st *Stats) error {
-	var (
-		used sync.Map
+	var unused, inUse, system, tooRecent, undeleted stats.CountSum
 
-		unused, inUse, system, tooRecent, undeleted stats.CountSum
-	)
+	used, serr := bigmap.NewSet(ctx)
+	if serr != nil {
+		return errors.Wrap(serr, "unable to create new set")
+	}
+	defer used.Close(ctx)
 
-	if err := findInUseContentIDs(ctx, rep, &used); err != nil {
+	if err := findInUseContentIDs(ctx, rep, used); err != nil {
 		return errors.Wrap(err, "unable to find in-use content ID")
 	}
 
@@ -113,7 +121,9 @@ func runInternal(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete 
 			return nil
 		}
 
-		if _, ok := used.Load(ci.GetContentID()); ok {
+		var cidbuf [128]byte
+
+		if used.Contains(ci.GetContentID().Append(cidbuf[:0])) {
 			if ci.GetDeleted() {
 				if err := rep.ContentManager().UndeleteContent(ctx, ci.GetContentID()); err != nil {
 					return errors.Wrapf(err, "Could not undelete referenced content: %v", ci)

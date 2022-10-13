@@ -5,11 +5,14 @@ package snapmeta
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"log"
+	"os"
 	"os/exec"
 	"strconv"
 
+	"github.com/kopia/kopia/cli"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/tests/robustness"
 	"github.com/kopia/kopia/tests/tools/fswalker"
@@ -177,4 +180,38 @@ func (ks *KopiaSnapshotter) ConnectOrCreateFilesystemWithServer(serverAddr, repo
 // Cleanup should be called before termination.
 func (ks *KopiaSnapshotter) Cleanup() {
 	ks.snap.Cleanup()
+}
+
+// GetRepositoryStatus returns the repository status in JSON format.
+func (ks *KopiaSnapshotter) GetRepositoryStatus() (cli.RepositoryStatus, error) {
+	var rs cli.RepositoryStatus
+
+	a1, _, err := ks.snap.Run("repository", "status", "--json")
+	if err != nil {
+		return rs, err
+	}
+
+	if err := json.Unmarshal([]byte(a1), &rs); err != nil {
+		return rs, err
+	}
+
+	return rs, nil
+}
+
+// UpgradeRepository upgrades the given kopia repository
+// from current format version to latest stable format version.
+func (ks *KopiaSnapshotter) UpgradeRepository() error {
+	// This variable is also reset in cleanup function
+	// in case the test fails
+	os.Setenv("KOPIA_UPGRADE_LOCK_ENABLED", "1")
+
+	_, _, err := ks.snap.Run("repository", "upgrade",
+		"--upgrade-owner-id", "robustness-tests",
+		"--io-drain-timeout", "30s", "--allow-unsafe-upgrade",
+		"--status-poll-interval", "1s")
+
+	// cleanup
+	os.Setenv("KOPIA_UPGRADE_LOCK_ENABLED", "")
+
+	return err
 }

@@ -36,7 +36,7 @@ func (c *commandRepositoryChangePassword) run(ctx context.Context, rep repo.Dire
 		newPass = c.newPassword
 	}
 
-	if err := rep.ChangePassword(ctx, newPass); err != nil {
+	if err := rep.FormatManager().ChangePassword(ctx, newPass); err != nil {
 		return errors.Wrap(err, "unable to change password")
 	}
 

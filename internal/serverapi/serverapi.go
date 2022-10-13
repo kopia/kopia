@@ -168,8 +168,8 @@ type CreateSnapshotSourceResponse struct {
 type Snapshot struct {
 	ID               manifest.ID          `json:"id"`
 	Description      string               `json:"description"`
-	StartTime        time.Time            `json:"startTime"`
-	EndTime          time.Time            `json:"endTime"`
+	StartTime        fs.UTCTimestamp      `json:"startTime"`
+	EndTime          fs.UTCTimestamp      `json:"endTime"`
 	IncompleteReason string               `json:"incomplete,omitempty"`
 	Summary          *fs.DirectorySummary `json:"summary"`
 	RootEntry        string               `json:"rootID"`

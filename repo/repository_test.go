@@ -405,7 +405,7 @@ func TestInitializeWithBlobCfgRetentionBlob(t *testing.T) {
 
 	// verify that the blobcfg retention blob is created
 	require.NoError(t, env.RepositoryWriter.BlobStorage().GetBlob(ctx, format.KopiaBlobCfgBlobID, 0, -1, &d))
-	require.NoError(t, env.RepositoryWriter.ChangePassword(ctx, "new-password"))
+	require.NoError(t, env.RepositoryWriter.FormatManager().ChangePassword(ctx, "new-password"))
 	// verify that the blobcfg retention blob is created and is different after
 	// password-change
 	require.NoError(t, env.RepositoryWriter.BlobStorage().GetBlob(ctx, format.KopiaBlobCfgBlobID, 0, -1, &d))
@@ -425,7 +425,7 @@ func TestInitializeWithBlobCfgRetentionBlob(t *testing.T) {
 
 		// verify that we error out on corrupted blobcfg blob
 		_, err := repo.Open(ctx, env.ConfigFile(), env.Password, &repo.Options{})
-		require.EqualError(t, err, "invalid repository password")
+		require.ErrorContains(t, err, "invalid repository password")
 
 		// restore the original blob
 		require.NoError(t, env.RepositoryWriter.BlobStorage().PutBlob(ctx, format.KopiaBlobCfgBlobID, d.Bytes(), blob.PutOptions{}))
@@ -637,9 +637,9 @@ func (s *formatSpecificTestSuite) TestWriteSessionFlushOnFailure(t *testing.T) {
 func (s *formatSpecificTestSuite) TestChangePassword(t *testing.T) {
 	ctx, env := repotesting.NewEnvironment(t, s.formatVersion)
 	if s.formatVersion == format.FormatVersion1 {
-		require.Error(t, env.RepositoryWriter.ChangePassword(ctx, "new-password"))
+		require.Error(t, env.RepositoryWriter.FormatManager().ChangePassword(ctx, "new-password"))
 	} else {
-		require.NoError(t, env.RepositoryWriter.ChangePassword(ctx, "new-password"))
+		require.NoError(t, env.RepositoryWriter.FormatManager().ChangePassword(ctx, "new-password"))
 
 		r, err := repo.Open(ctx, env.RepositoryWriter.ConfigFilename(), "new-password", nil)
 		require.NoError(t, err)
@@ -690,13 +690,16 @@ func TestDeriveKey(t *testing.T) {
 		mp, mperr := cf.GetMutableParameters()
 		require.NoError(t, mperr)
 
-		feat, err := dw1Upgraded.RequiredFeatures()
+		feat, err := dw1Upgraded.FormatManager().RequiredFeatures()
 		require.NoError(t, err)
 
 		// perform upgrade
 		mp.Version = v2
 
-		require.NoError(t, dw1Upgraded.SetParameters(ctx, mp, dw1Upgraded.BlobCfg(), feat))
+		blobCfg, err := dw1Upgraded.FormatManager().BlobCfgBlob()
+		require.NoError(t, err)
+
+		require.NoError(t, dw1Upgraded.FormatManager().SetParameters(ctx, mp, blobCfg, feat))
 
 		return env.MustConnectOpenAnother(t).(repo.DirectRepositoryWriter)
 	}
@@ -718,7 +721,10 @@ func TestDeriveKey(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.desc, func(t *testing.T) {
-			require.Equal(t, tc.wantFormat, tc.dw.ContentReader().ContentFormat().Struct().Version)
+			mp, err := tc.dw.FormatManager().GetMutableParameters()
+			require.NoError(t, err)
+
+			require.Equal(t, tc.wantFormat, mp.Version)
 			require.Equal(t, tc.wantKey, tc.dw.DeriveKey(testPurpose, testKeyLength))
 		})
 	}

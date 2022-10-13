@@ -10,6 +10,7 @@ weight: 10
 * [Restore Snapshots Using Multiple Methods](#restore-snapshots-using-multiple-methods)
 * [End-to-End 'Zero Knowledge' Encryption](#end-to-end-zero-knowledge-encryption)
 * [Compression](#compression)
+* [Error Correction](#error-correction)
 * [Verifying Backup Validity and Consistency](#verifying-backup-validity-and-consistency)
 * [Recovering Backed Up Data When There is Data Loss](#recovering-backed-up-data-when-there-is-data-loss)
 * [Regular Automatic Maintence of Repositories](#regular-automatic-maintence-of-repositories)
@@ -99,6 +100,10 @@ Kopia can [compress your data](../advanced/compression/) to save storage and ban
 
 * [zstd](https://github.com/klauspost/compress/tree/master/zstd)
 
+### Error Correction
+
+Kopia supports [Reed-Solomon error correction algorithm](../advanced/ecc/) to help prevent your snapshots from being corrupted by faulty hardware, such as bitflips or bitrot.
+
 ### Verifying Backup Validity and Consistency
 
 Backing up data is great, but you also need to be able to restore that data when (if) the time arises. Kopia has built-in functions that enable you to verify the consistency/validity of your backed up files. You can run these consistency checks are frequently as you like (e.g., once a month, once a year, etc.). Read the [repository consistency](../advanced/consistency/) help docs for more information.
@@ -123,7 +128,7 @@ Do not want to use command-line? No problem. Kopia also comes with a [powerful o
 
 ### Optional Server Mode with API Support to Centrally Manage Backups of Multiple Machines
 
-Kopia is designed to backup individual machines and you absolutely do not need a server to run Kopia. If you have a handful of machines, you can install and use Kopia on each of them individually, no problem. At the same time, Kopia can also be run in [server mode](../docs/faqs/#what-is-a-kopia-repository-server) for those that are looking to centrally manage backups of multiple machines, in which case the Kopia server exposes an API that can be used to build client tools to do things like trigger snapshots, get client status, and access snapshotted data. Kopia's server mode makes it incredibly easy to centrally manage backups of multiple computers.
+Kopia is designed to backup individual machines and you absolutely do not need a server to run Kopia. If you have a handful of machines, you can install and use Kopia on each of them individually, no problem. At the same time, Kopia can also be run in [server mode](../faqs/#what-is-a-kopia-repository-server) for those that are looking to centrally manage backups of multiple machines, in which case the Kopia server exposes an API that can be used to build client tools to do things like trigger snapshots, get client status, and access snapshotted data. Kopia's server mode makes it incredibly easy to centrally manage backups of multiple computers.
 
 ### Speed
 

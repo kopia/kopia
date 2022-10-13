@@ -92,7 +92,7 @@ func TestTimeFuncWiring(t *testing.T) {
 		t.Fatal("failed to create snapshot:", err)
 	}
 
-	if got, want := nt, s1.StartTime; !got.Equal(want) {
+	if got, want := nt, s1.StartTime.ToTime(); !got.Equal(want) {
 		t.Fatalf("snapshot time does not match, got: %v, want: %v", got, want)
 	}
 }

@@ -14,7 +14,7 @@ ENV 		DEBIAN_FRONTEND="noninteractive" \
 
 RUN 		apt-get update && \
 		    apt-get upgrade -y --with-new-pkgs && \
-		    apt-get install -y --no-install-recommends fuse3 ca-certificates && \
+		    apt-get install -y --no-install-recommends fuse3 ca-certificates curl && \
 		    apt-get clean autoclean -y && \
     		apt-get autoremove -y && \
     		rm -rf /var/lib/apt/* /var/lib/cache/* /var/lib/log/* \
@@ -23,7 +23,7 @@ RUN 		apt-get update && \
 	
 WORKDIR /app
 
-COPY 		bin-${TARGETARCH}/kopia .
+COPY 		bin-${TARGETARCH}/kopia /bin/kopia
 COPY 		bin-${TARGETARCH}/rclone /bin/rclone
   
-ENTRYPOINT 	["/app/kopia"]
+ENTRYPOINT 	["/bin/kopia"]

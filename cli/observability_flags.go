@@ -88,6 +88,7 @@ func (c *observabilityFlags) startMetrics(ctx context.Context) error {
 			m.HandleFunc("/debug/pprof/profile", pprof.Profile)
 			m.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
 			m.HandleFunc("/debug/pprof/trace", pprof.Trace)
+			m.HandleFunc("/debug/pprof/{cmd}", pprof.Index) // special handling for Gorilla mux, see https://stackoverflow.com/questions/30560859/cant-use-go-tool-pprof-with-an-existing-server/71032595#71032595
 		}
 
 		log(ctx).Infof("starting prometheus metrics on %v", c.metricsListenAddr)

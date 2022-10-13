@@ -9,6 +9,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/snapshot"
 )
 
@@ -179,7 +180,7 @@ func TestRetentionPolicyTest(t *testing.T) {
 				manifests = append(manifests, &snapshot.Manifest{
 					// store original ts to get it back quicker
 					Description:      ts,
-					StartTime:        startTime,
+					StartTime:        fs.UTCTimestampFromTime(startTime),
 					IncompleteReason: incompleteReason,
 				})
 
@@ -187,7 +188,7 @@ func TestRetentionPolicyTest(t *testing.T) {
 					manifests2 = append(manifests2, &snapshot.Manifest{
 						// store original ts to get it back quicker
 						Description:      ts,
-						StartTime:        startTime,
+						StartTime:        fs.UTCTimestampFromTime(startTime),
 						IncompleteReason: incompleteReason,
 					})
 				}

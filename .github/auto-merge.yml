@@ -27,6 +27,27 @@
     dependency_name: "github.com/minio/minio-go/v7"
     update_type: "semver:minor"
 
+# Playwright test framework
+- match:
+    dependency_name: "@playwright/test"
+    update_type: "semver:minor"
+- match:
+    dependency_name: "playwright"
+    update_type: "semver:minor"
+- match:
+    dependency_name: "playwright-core"
+    update_type: "semver:minor"
+
+# otel
+- match:
+    dependency_name: "go.opentelemetry.io/.*"
+    update_type: "semver:minor"
+
+# chromedp
+- match:
+    dependency_name: "github.com/chromedp/.*"
+    update_type: "semver:minor"
+
 # Prometheus
 - match:
     dependency_name: "github.com/prometheus/common"

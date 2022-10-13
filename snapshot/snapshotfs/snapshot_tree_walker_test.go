@@ -19,16 +19,19 @@ import (
 func TestSnapshotTreeWalker(t *testing.T) {
 	callbackCounter := new(int32)
 
-	w := snapshotfs.NewTreeWalker(
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
+
+	w, err := snapshotfs.NewTreeWalker(
+		ctx,
 		snapshotfs.TreeWalkerOptions{
 			EntryCallback: func(ctx context.Context, entry fs.Entry, oid object.ID, entryPath string) error {
 				atomic.AddInt32(callbackCounter, 1)
 				return nil
 			},
 		})
-	defer w.Close()
+	require.NoError(t, err)
 
-	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
+	defer w.Close(ctx)
 
 	sourceRoot := mockfs.NewDirectory()
 	require.Error(t, w.Process(ctx, sourceRoot, "."))
@@ -79,7 +82,10 @@ func TestSnapshotTreeWalker(t *testing.T) {
 func TestSnapshotTreeWalker_Errors(t *testing.T) {
 	someErr1 := errors.Errorf("some error")
 
-	w := snapshotfs.NewTreeWalker(
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
+
+	w, err := snapshotfs.NewTreeWalker(
+		ctx,
 		snapshotfs.TreeWalkerOptions{
 			Parallelism: 1,
 			EntryCallback: func(ctx context.Context, entry fs.Entry, oid object.ID, entryPath string) error {
@@ -90,9 +96,9 @@ func TestSnapshotTreeWalker_Errors(t *testing.T) {
 				return nil
 			},
 		})
-	defer w.Close()
+	require.NoError(t, err)
 
-	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
+	defer w.Close(ctx)
 
 	sourceRoot := mockfs.NewDirectory()
 	require.Error(t, w.Process(ctx, sourceRoot, "root-dir"))
@@ -118,7 +124,10 @@ func TestSnapshotTreeWalker_Errors(t *testing.T) {
 func TestSnapshotTreeWalker_MultipleErrors(t *testing.T) {
 	someErr1 := errors.Errorf("some error")
 
-	w := snapshotfs.NewTreeWalker(
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
+
+	w, err := snapshotfs.NewTreeWalker(
+		ctx,
 		snapshotfs.TreeWalkerOptions{
 			Parallelism: 1,
 			MaxErrors:   -1,
@@ -134,9 +143,9 @@ func TestSnapshotTreeWalker_MultipleErrors(t *testing.T) {
 				return nil
 			},
 		})
-	defer w.Close()
+	require.NoError(t, err)
 
-	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
+	defer w.Close(ctx)
 
 	sourceRoot := mockfs.NewDirectory()
 	require.Error(t, w.Process(ctx, sourceRoot, "root-dir"))
@@ -165,7 +174,10 @@ func TestSnapshotTreeWalker_MultipleErrors(t *testing.T) {
 func TestSnapshotTreeWalker_MultipleErrorsSameOID(t *testing.T) {
 	someErr1 := errors.Errorf("some error")
 
-	w := snapshotfs.NewTreeWalker(
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
+
+	w, err := snapshotfs.NewTreeWalker(
+		ctx,
 		snapshotfs.TreeWalkerOptions{
 			Parallelism: 1,
 			MaxErrors:   -1,
@@ -181,9 +193,9 @@ func TestSnapshotTreeWalker_MultipleErrorsSameOID(t *testing.T) {
 				return nil
 			},
 		})
-	defer w.Close()
+	require.NoError(t, err)
 
-	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
+	defer w.Close(ctx)
 
 	sourceRoot := mockfs.NewDirectory()
 	require.Error(t, w.Process(ctx, sourceRoot, "root-dir"))

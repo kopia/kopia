@@ -129,12 +129,15 @@ type VerifierOptions struct {
 // InParallel starts parallel verification and invokes the provided function which can call
 // call Process() on in the provided TreeWalker.
 func (v *Verifier) InParallel(ctx context.Context, enqueue func(tw *TreeWalker) error) error {
-	tw := NewTreeWalker(TreeWalkerOptions{
+	tw, twerr := NewTreeWalker(ctx, TreeWalkerOptions{
 		Parallelism:   v.opts.Parallelism,
 		EntryCallback: v.verifyObject,
 		MaxErrors:     v.opts.MaxErrors,
 	})
-	defer tw.Close()
+	if twerr != nil {
+		return errors.Wrap(twerr, "tree walker")
+	}
+	defer tw.Close(ctx)
 
 	v.fileWorkQueue = make(chan verifyFileWorkItem, v.opts.FileQueueLength)
 

@@ -78,3 +78,47 @@ func TestSnapshotList(t *testing.T) {
 	require.Contains(t, lines[4], " 8 B ")
 	require.Contains(t, lines[4], " files:3 dirs:1 ")
 }
+
+func TestSnapshotListWithSameFileInMultipleSnapshots(t *testing.T) {
+	t.Parallel()
+
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
+
+	srcdir := testutil.TempDirectory(t)
+
+	require.NoError(t, os.MkdirAll(filepath.Join(srcdir, "a", "b", "c", "d"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(srcdir, "a", "b", "c", "d", "e.txt"), []byte{1, 2, 3}, 0o755))
+
+	e.RunAndExpectSuccess(t, "snapshot", "create", srcdir)
+	e.RunAndExpectSuccess(t, "snapshot", "create", filepath.Join(srcdir, "a"))
+	e.RunAndExpectSuccess(t, "snapshot", "create", filepath.Join(srcdir, "a", "b"))
+	e.RunAndExpectSuccess(t, "snapshot", "create", filepath.Join(srcdir, "a", "b", "c"))
+	e.RunAndExpectSuccess(t, "snapshot", "create", filepath.Join(srcdir, "a", "b", "c", "d"))
+	e.RunAndExpectSuccess(t, "snapshot", "create", filepath.Join(srcdir, "a", "b", "c", "d", "e.txt"))
+
+	var snapshots []*cli.SnapshotManifest
+
+	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "list",
+		filepath.Join(srcdir, "a", "b", "c", "d", "e.txt"), "--json"), &snapshots)
+
+	require.Len(t, snapshots, 6)
+
+	var sps []string
+
+	for _, s := range snapshots {
+		sps = append(sps, s.Source.Path)
+	}
+
+	require.Equal(t, []string{
+		srcdir,
+		filepath.Join(srcdir, "a"),
+		filepath.Join(srcdir, "a", "b"),
+		filepath.Join(srcdir, "a", "b", "c"),
+		filepath.Join(srcdir, "a", "b", "c", "d"),
+		filepath.Join(srcdir, "a", "b", "c", "d", "e.txt"),
+	}, sps)
+}

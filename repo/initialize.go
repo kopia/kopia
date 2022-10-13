@@ -9,7 +9,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/ecc"
@@ -31,7 +30,6 @@ var (
 const (
 	hmacSecretLength = 32
 	masterKeyLength  = 32
-	uniqueIDLength   = 32
 )
 
 // NewRepositoryOptions specifies options that apply to newly created repositories.
@@ -45,67 +43,22 @@ type NewRepositoryOptions struct {
 	RetentionPeriod time.Duration        `json:"retentionPeriod,omitempty"`
 }
 
-// ErrAlreadyInitialized indicates that repository has already been initialized.
-var ErrAlreadyInitialized = errors.Errorf("repository already initialized")
-
 // Initialize creates initial repository data structures in the specified storage with given credentials.
 func Initialize(ctx context.Context, st blob.Storage, opt *NewRepositoryOptions, password string) error {
 	if opt == nil {
 		opt = &NewRepositoryOptions{}
 	}
 
-	// get the blob - expect ErrNotFound
-	var tmp gather.WriteBuffer
-	defer tmp.Close()
-
-	err := st.GetBlob(ctx, format.KopiaRepositoryBlobID, 0, -1, &tmp)
-	if err == nil {
-		return ErrAlreadyInitialized
-	}
-
-	if !errors.Is(err, blob.ErrBlobNotFound) {
-		return errors.Wrap(err, "unexpected error when checking for format blob")
-	}
-
-	err = st.GetBlob(ctx, format.KopiaBlobCfgBlobID, 0, -1, &tmp)
-	if err == nil {
-		return errors.Errorf("possible corruption: blobcfg blob exists, but format blob is not found")
-	}
-
-	if !errors.Is(err, blob.ErrBlobNotFound) {
-		return errors.Wrap(err, "unexpected error when checking for blobcfg blob")
-	}
-
 	formatBlob := formatBlobFromOptions(opt)
 	blobcfg := blobCfgBlobFromOptions(opt)
 
-	formatEncryptionKey, err := formatBlob.DeriveFormatEncryptionKeyFromPassword(password)
-	if err != nil {
-		return errors.Wrap(err, "unable to derive format encryption key")
-	}
-
-	f, err := repositoryObjectFormatFromOptions(opt)
+	repoConfig, err := repositoryObjectFormatFromOptions(opt)
 	if err != nil {
 		return errors.Wrap(err, "invalid parameters")
 	}
 
-	if err = f.MutableParameters.Validate(); err != nil {
-		return errors.Wrap(err, "invalid parameters")
-	}
-
-	if err = formatBlob.EncryptRepositoryConfig(f, formatEncryptionKey); err != nil {
-		return errors.Wrap(err, "unable to encrypt format bytes")
-	}
-
-	if err := formatBlob.WriteBlobCfgBlob(ctx, st, blobcfg, formatEncryptionKey); err != nil {
-		return errors.Wrap(err, "unable to write blobcfg blob")
-	}
-
-	if err := formatBlob.WriteKopiaRepositoryBlob(ctx, st, blobcfg); err != nil {
-		return errors.Wrap(err, "unable to write format blob")
-	}
-
-	return nil
+	//nolint:wrapcheck
+	return format.Initialize(ctx, st, formatBlob, repoConfig, blobcfg, password)
 }
 
 func formatBlobFromOptions(opt *NewRepositoryOptions) *format.KopiaRepositoryJSON {
@@ -114,7 +67,7 @@ func formatBlobFromOptions(opt *NewRepositoryOptions) *format.KopiaRepositoryJSO
 		BuildInfo:              BuildInfo,
 		BuildVersion:           BuildVersion,
 		KeyDerivationAlgorithm: format.DefaultKeyDerivationAlgorithm,
-		UniqueID:               applyDefaultRandomBytes(opt.UniqueID, uniqueIDLength),
+		UniqueID:               applyDefaultRandomBytes(opt.UniqueID, format.UniqueIDLengthBytes),
 		EncryptionAlgorithm:    format.DefaultFormatEncryption,
 	}
 }
@@ -178,13 +131,6 @@ func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) (*format.Repos
 	return f, nil
 }
 
-func randomBytes(n int) []byte {
-	b := make([]byte, n)
-	io.ReadFull(rand.Reader, b) //nolint:errcheck
-
-	return b
-}
-
 func applyDefaultInt(v, def int) int {
 	if v == 0 {
 		return def
@@ -209,6 +155,13 @@ func applyDefaultString(v, def string) string {
 	}
 
 	return v
+}
+
+func randomBytes(n int) []byte {
+	b := make([]byte, n)
+	io.ReadFull(rand.Reader, b) //nolint:errcheck
+
+	return b
 }
 
 func applyDefaultRandomBytes(b []byte, n int) []byte {

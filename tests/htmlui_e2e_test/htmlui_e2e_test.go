@@ -42,7 +42,7 @@ func runInBrowser(t *testing.T, run func(ctx context.Context, sp *testutil.Serve
 
 	var sp testutil.ServerParameters
 
-	_, kill := e.RunAndProcessStderr(t, sp.ProcessOutput,
+	args := []string{
 		"server", "start",
 		"--ui",
 		"--address=localhost:0",
@@ -54,8 +54,14 @@ func runInBrowser(t *testing.T, run func(ctx context.Context, sp *testutil.Serve
 		"--without-password",
 		"--override-hostname=the-hostname",
 		"--override-username=the-username",
-		// "--html="+os.Getenv("HTMLUI_BUILD_DIR"),
-	)
+	}
+
+	if h := os.Getenv("HTMLUI_BUILD_DIR"); h != "" {
+		args = append(args, "--html="+os.Getenv("HTMLUI_BUILD_DIR"))
+	}
+
+	_, kill := e.RunAndProcessStderr(t, sp.ProcessOutput, args...)
+
 	defer kill()
 
 	t.Logf("detected server parameters %#v", sp)

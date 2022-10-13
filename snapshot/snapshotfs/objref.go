@@ -3,6 +3,7 @@ package snapshotfs
 import (
 	"context"
 	"encoding/json"
+	"path/filepath"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -143,7 +144,7 @@ func latestManifest(mans []*snapshot.Manifest) *snapshot.Manifest {
 // If multiple snapshots match and they don't agree on root object attributes and consistentAttributes==true
 // the function fails, otherwise it returns the latest of the snapshots.
 func FilesystemEntryFromIDWithPath(ctx context.Context, rep repo.Repository, rootID string, consistentAttributes bool) (fs.Entry, error) {
-	pathElements := strings.Split(rootID, "/")
+	pathElements := strings.Split(filepath.ToSlash(rootID), "/")
 
 	if len(pathElements) > 1 {
 		// if a path is provided, consistentAttributes is meaningless since descending into nested path is

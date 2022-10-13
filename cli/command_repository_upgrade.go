@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/alecthomas/kingpin"
@@ -23,8 +22,9 @@ type commandRepositoryUpgrade struct {
 	lockOnly      bool
 
 	// lock settings
-	ioDrainTimeout     time.Duration
-	statusPollInterval time.Duration
+	ioDrainTimeout         time.Duration
+	statusPollInterval     time.Duration
+	maxPermittedClockDrift time.Duration
 
 	svc advancedAppServices
 }
@@ -34,16 +34,9 @@ const (
 
 You will need to set the env variable KOPIA_UPGRADE_LOCK_ENABLED in order to use this feature.
 `
-	upgradeLockFeatureEnv                = "KOPIA_UPGRADE_LOCK_ENABLED"
-	maxPermittedClockDrift time.Duration = 5 * time.Minute
+	upgradeLockFeatureEnv         = "KOPIA_UPGRADE_LOCK_ENABLED"
+	maxPermittedClockDriftDefault = 5 * time.Minute
 )
-
-// MaxPermittedClockDrift is overridable interface for tests to define their
-// own constants so that they do not have to wait for the default clock-drift to
-// settle.
-//
-//nolint:gochecknoglobals
-var MaxPermittedClockDrift = func() time.Duration { return maxPermittedClockDrift }
 
 func (c *commandRepositoryUpgrade) setup(svc advancedAppServices, parent commandParent) {
 	// override the parent, the upgrade sub-command becomes the new parent here-onwards
@@ -59,6 +52,7 @@ func (c *commandRepositoryUpgrade) setup(svc advancedAppServices, parent command
 	beginCmd.Flag("io-drain-timeout", "Max time it should take all other Kopia clients to drop repository connections").Default(format.DefaultRepositoryBlobCacheDuration.String()).DurationVar(&c.ioDrainTimeout)
 	beginCmd.Flag("allow-unsafe-upgrade", "Force using an unsafe io-drain-timeout for the upgrade lock").Default("false").Hidden().BoolVar(&c.force)
 	beginCmd.Flag("status-poll-interval", "An advisory polling interval to check for the status of upgrade").Default("60s").DurationVar(&c.statusPollInterval)
+	beginCmd.Flag("max-permitted-clock-drift", "The maximum drift between repository and client clocks").Default(maxPermittedClockDriftDefault.String()).DurationVar(&c.maxPermittedClockDrift)
 	beginCmd.Flag("lock-only", "Advertise the upgrade lock and exit without actually performing the drain or upgrade").Default("false").Hidden().BoolVar(&c.lockOnly) // this is used by tests
 
 	// upgrade phases
@@ -86,7 +80,7 @@ func (c *commandRepositoryUpgrade) forceRollbackAction(ctx context.Context, rep 
 		return errors.New("repository upgrade lock can only be revoked unsafely; please use the --force flag")
 	}
 
-	if err := rep.RollbackUpgrade(ctx); err != nil {
+	if err := rep.FormatManager().RollbackUpgrade(ctx); err != nil {
 		return errors.Wrap(err, "failed to rollback the upgrade")
 	}
 
@@ -136,12 +130,12 @@ func (c *commandRepositoryUpgrade) setLockIntent(ctx context.Context, rep repo.D
 		IODrainTimeout:         c.ioDrainTimeout,
 		StatusPollInterval:     c.statusPollInterval,
 		Message:                fmt.Sprintf("Upgrading from format version %d -> %d", mp.Version, format.MaxFormatVersion),
-		MaxPermittedClockDrift: MaxPermittedClockDrift(),
+		MaxPermittedClockDrift: c.maxPermittedClockDrift,
 	}
 
 	// Update format-blob and clear the cache.
 	// This will fail if we have already upgraded.
-	l, err := rep.SetUpgradeLockIntent(ctx, *l)
+	l, err := rep.FormatManager().SetUpgradeLockIntent(ctx, *l)
 	if err != nil {
 		return errors.Wrap(err, "error setting the upgrade lock intent")
 	}
@@ -182,7 +176,7 @@ func (c *commandRepositoryUpgrade) drainOrCommit(ctx context.Context, rep repo.D
 	if mp.EpochParameters.Enabled {
 		log(ctx).Infof("Repository indices have already been migrated to the epoch format, no need to drain other clients")
 
-		l, err := rep.GetUpgradeLockIntent(ctx)
+		l, err := rep.FormatManager().GetUpgradeLockIntent(ctx)
 		if err != nil {
 			return errors.Wrap(err, "failed to get upgrade lock intent")
 		}
@@ -224,28 +218,8 @@ func (c *commandRepositoryUpgrade) sleepWithContext(ctx context.Context, dur tim
 }
 
 func (c *commandRepositoryUpgrade) drainAllClients(ctx context.Context, rep repo.DirectRepositoryWriter) error {
-	password, err := c.svc.getPasswordFromFlags(ctx, false, false)
-	if err != nil {
-		return errors.Wrap(err, "getting password")
-	}
-
-	configFile, err := filepath.Abs(c.svc.repositoryConfigFileName())
-	if err != nil {
-		return errors.Wrap(err, "error resolving config file path")
-	}
-
-	lc, err := repo.LoadConfigFromFile(configFile)
-	if err != nil {
-		return errors.Wrapf(err, "error loading config file %q", configFile)
-	}
-
-	cacheOpts := lc.Caching.CloneOrDefault()
-
 	for {
-		l, err := format.ReadAndCacheRepoUpgradeLock(ctx, rep.BlobStorage(), password, cacheOpts.CacheDirectory, -1)
-		if err != nil {
-			return errors.Wrap(err, "unable to reload the repository format blob")
-		}
+		l, err := rep.FormatManager().GetUpgradeLockIntent(ctx)
 
 		upgradeTime := l.UpgradeTime()
 		now := rep.Time()
@@ -271,7 +245,7 @@ func (c *commandRepositoryUpgrade) drainAllClients(ctx context.Context, rep repo
 	return nil
 }
 
-// upgrade phase perfoms the actual upgrade action that upgrades the target
+// upgrade phase performs the actual upgrade action that upgrades the target
 // repository. This phase runs after the lock has been acquired in one of the
 // prior phases.
 func (c *commandRepositoryUpgrade) upgrade(ctx context.Context, rep repo.DirectRepositoryWriter) error {
@@ -280,7 +254,7 @@ func (c *commandRepositoryUpgrade) upgrade(ctx context.Context, rep repo.DirectR
 		return errors.Wrap(mperr, "mutable parameters")
 	}
 
-	rf, err := rep.RequiredFeatures()
+	rf, err := rep.FormatManager().RequiredFeatures()
 	if err != nil {
 		return errors.Wrap(err, "error getting repository features")
 	}
@@ -295,12 +269,17 @@ func (c *commandRepositoryUpgrade) upgrade(ctx context.Context, rep repo.DirectR
 
 	log(ctx).Infof("migrating current indices to epoch format")
 
-	if err := rep.ContentManager().PrepareUpgradeToIndexBlobManagerV1(ctx, mp.EpochParameters); err != nil {
-		return errors.Wrap(err, "error upgrading indices")
+	if uerr := rep.ContentManager().PrepareUpgradeToIndexBlobManagerV1(ctx, mp.EpochParameters); uerr != nil {
+		return errors.Wrap(uerr, "error upgrading indices")
+	}
+
+	blobCfg, err := rep.FormatManager().BlobCfgBlob()
+	if err != nil {
+		return errors.Wrap(err, "error getting blob configuration")
 	}
 
 	// update format-blob and clear the cache
-	if err := rep.SetParameters(ctx, mp, rep.BlobCfg(), rf); err != nil {
+	if err := rep.FormatManager().SetParameters(ctx, mp, blobCfg, rf); err != nil {
 		return errors.Wrap(err, "error setting parameters")
 	}
 
@@ -317,12 +296,12 @@ func (c *commandRepositoryUpgrade) upgrade(ctx context.Context, rep repo.DirectR
 }
 
 // commitUpgrade is the upgrade CLI phase that commits the upgrade and removes
-// the lock after the actual upgrade phase has been ru nsuccessfully. We will
+// the lock after the actual upgrade phase has been run successfully. We will
 // not end up here if any of the prior phases have failed. This will also
 // cleanup and backups used for the rollback mechanism, so we cannot rollback
 // after this phase.
 func (c *commandRepositoryUpgrade) commitUpgrade(ctx context.Context, rep repo.DirectRepositoryWriter) error {
-	if err := rep.CommitUpgrade(ctx); err != nil {
+	if err := rep.FormatManager().CommitUpgrade(ctx); err != nil {
 		return errors.Wrap(err, "error finalizing upgrade")
 	}
 	// we need to reopen the repository after this point

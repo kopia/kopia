@@ -62,24 +62,18 @@ func (c *commandSnapshotList) setup(svc appServices, parent commandParent) {
 	cmd.Action(svc.repositoryReaderAction(c.run))
 }
 
-func findSnapshotsForSource(ctx context.Context, rep repo.Repository, sourceInfo snapshot.SourceInfo, tags map[string]string) (manifestIDs []manifest.ID, relPath string, err error) {
+func findSnapshotsForSource(ctx context.Context, rep repo.Repository, sourceInfo snapshot.SourceInfo, tags map[string]string) (manifestIDs []manifest.ID, err error) {
+	var result []manifest.ID
+
 	for len(sourceInfo.Path) > 0 {
 		list, err := snapshot.ListSnapshotManifests(ctx, rep, &sourceInfo, tags)
 		if err != nil {
-			return nil, "", errors.Wrapf(err, "error listing manifests for %v", sourceInfo)
+			return nil, errors.Wrapf(err, "error listing manifests for %v", sourceInfo)
 		}
 
 		if len(list) > 0 {
-			return list, relPath, nil
+			result = append(result, list...)
 		}
-
-		if len(relPath) > 0 {
-			relPath = filepath.Base(sourceInfo.Path) + "/" + relPath
-		} else {
-			relPath = filepath.Base(sourceInfo.Path)
-		}
-
-		log(ctx).Debugf("No snapshots of %v@%v:%v", sourceInfo.UserName, sourceInfo.Host, sourceInfo.Path)
 
 		parentPath := filepath.Dir(sourceInfo.Path)
 		if parentPath == sourceInfo.Path {
@@ -89,7 +83,24 @@ func findSnapshotsForSource(ctx context.Context, rep repo.Repository, sourceInfo
 		sourceInfo.Path = parentPath
 	}
 
-	return nil, "", nil
+	return result, nil
+}
+
+func findRelativePathParts(m *snapshot.Manifest, path string) ([]string, error) {
+	if path == "" {
+		return nil, nil
+	}
+
+	relPath, err := filepath.Rel(m.Source.Path, path)
+	if err != nil {
+		return nil, err //nolint:wrapcheck
+	}
+
+	if relPath == "." {
+		return nil, nil
+	}
+
+	return strings.Split(filepath.ToSlash(relPath), "/"), nil
 }
 
 func findManifestIDs(ctx context.Context, rep repo.Repository, source string, tags map[string]string) ([]manifest.ID, string, error) {
@@ -103,12 +114,9 @@ func findManifestIDs(ctx context.Context, rep repo.Repository, source string, ta
 		return nil, "", errors.Errorf("invalid directory: '%s': %s", source, err)
 	}
 
-	manifestIDs, relPath, err := findSnapshotsForSource(ctx, rep, si, tags)
-	if relPath != "" {
-		relPath = "/" + relPath
-	}
+	manifestIDs, err := findSnapshotsForSource(ctx, rep, si, tags)
 
-	return manifestIDs, relPath, err
+	return manifestIDs, si.Path, err
 }
 
 func (c *commandSnapshotList) run(ctx context.Context, rep repo.Repository) error {
@@ -117,7 +125,7 @@ func (c *commandSnapshotList) run(ctx context.Context, rep repo.Repository) erro
 		return err
 	}
 
-	manifestIDs, relPath, err := findManifestIDs(ctx, rep, c.snapshotListPath, tags)
+	manifestIDs, fullPath, err := findManifestIDs(ctx, rep, c.snapshotListPath, tags)
 	if err != nil {
 		return err
 	}
@@ -131,7 +139,7 @@ func (c *commandSnapshotList) run(ctx context.Context, rep repo.Repository) erro
 		return c.outputJSON(ctx, rep, manifests)
 	}
 
-	return c.outputManifestGroups(ctx, rep, manifests, strings.Split(relPath, "/"))
+	return c.outputManifestGroups(ctx, rep, manifests, fullPath)
 }
 
 // SnapshotManifest defines the JSON output for the CLI snapshot commands.
@@ -190,7 +198,7 @@ func (c *commandSnapshotList) shouldOutputSnapshotSource(rep repo.Repository, sr
 	return src.UserName == co.Username
 }
 
-func (c *commandSnapshotList) outputManifestGroups(ctx context.Context, rep repo.Repository, manifests []*snapshot.Manifest, relPathParts []string) error {
+func (c *commandSnapshotList) outputManifestGroups(ctx context.Context, rep repo.Repository, manifests []*snapshot.Manifest, path string) error {
 	separator := ""
 
 	var anyOutput bool
@@ -212,6 +220,11 @@ func (c *commandSnapshotList) outputManifestGroups(ctx context.Context, rep repo
 			log(ctx).Errorf("unable to determine effective policy for %v", src)
 		} else {
 			pol.RetentionPolicy.ComputeRetentionReasons(snapshotGroup)
+		}
+
+		relPathParts, err := findRelativePathParts(snapshotGroup[0], path)
+		if err != nil {
+			return err
 		}
 
 		if err := c.outputManifestFromSingleSource(ctx, rep, snapshotGroup, relPathParts); err != nil {
@@ -265,13 +278,13 @@ func (c *commandSnapshotList) outputManifestFromSingleSource(ctx context.Context
 	if err := c.iterateSnapshotsMaybeWithStorageStats(ctx, rep, manifests, func(m *snapshot.Manifest) error {
 		root, err := snapshotfs.SnapshotRoot(rep, m)
 		if err != nil {
-			c.out.printStdout("  %v <ERROR> %v\n", formatTimestamp(m.StartTime), err)
+			c.out.printStdout("  %v <ERROR> %v\n", formatTimestamp(m.StartTime.ToTime()), err)
 			return nil
 		}
 
 		ent, err := snapshotfs.GetNestedEntry(ctx, root, parts)
 		if err != nil {
-			c.out.printStdout("  %v <ERROR> %v\n", formatTimestamp(m.StartTime), err)
+			c.out.printStdout("  %v <ERROR> %v\n", formatTimestamp(m.StartTime.ToTime()), err)
 			return nil
 		}
 
@@ -288,8 +301,8 @@ func (c *commandSnapshotList) outputManifestFromSingleSource(ctx context.Context
 		bits, col := c.entryBits(ctx, m, ent, lastTotalFileSize)
 
 		rows = append(rows, &snapshotListRow{
-			firstStartTime:   m.StartTime,
-			lastStartTime:    m.StartTime,
+			firstStartTime:   m.StartTime.ToTime(),
+			lastStartTime:    m.StartTime.ToTime(),
 			count:            1,
 			oid:              ohid.ObjectID(),
 			bits:             bits,

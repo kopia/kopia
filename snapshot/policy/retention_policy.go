@@ -55,12 +55,12 @@ func (r *RetentionPolicy) ComputeRetentionReasons(manifests []*snapshot.Manifest
 	)
 
 	for _, m := range manifests {
-		if m.StartTime.After(maxStartTime) {
-			maxStartTime = m.StartTime
+		if m.StartTime.ToTime().After(maxStartTime) {
+			maxStartTime = m.StartTime.ToTime()
 		}
 
-		if m.IncompleteReason == "" && m.StartTime.After(maxCompleteStartTime) {
-			maxCompleteStartTime = m.StartTime
+		if m.IncompleteReason == "" && m.StartTime.ToTime().After(maxCompleteStartTime) {
+			maxCompleteStartTime = m.StartTime.ToTime()
 		}
 	}
 
@@ -104,7 +104,7 @@ func (r *RetentionPolicy) ComputeRetentionReasons(manifests []*snapshot.Manifest
 			break
 		}
 
-		age := maxStartTime.Sub(s.StartTime)
+		age := maxStartTime.Sub(s.StartTime.ToTime())
 		// retain incomplete snapshots below certain age and below maximum count.
 		if age < retainIncompleteSnapshotsYoungerThan || i < retainIncompleteSnapshotMinimumCount {
 			s.RetentionReasons = append(s.RetentionReasons, "incomplete")
@@ -114,7 +114,9 @@ func (r *RetentionPolicy) ComputeRetentionReasons(manifests []*snapshot.Manifest
 	}
 }
 
-func (r *RetentionPolicy) effectiveKeepLatest() *OptionalInt {
+// EffectiveKeepLatest returns the number of "latest" snapshots to keep. If all
+// retention values are set to 0 then returns MaxInt.
+func (r *RetentionPolicy) EffectiveKeepLatest() *OptionalInt {
 	if r.KeepLatest.OrDefault(0)+r.KeepHourly.OrDefault(0)+r.KeepDaily.OrDefault(0)+r.KeepWeekly.OrDefault(0)+r.KeepMonthly.OrDefault(0)+r.KeepAnnual.OrDefault(0) == 0 {
 		return newOptionalInt(math.MaxInt)
 	}
@@ -131,9 +133,9 @@ func (r *RetentionPolicy) getRetentionReasons(i int, s *snapshot.Manifest, cutof
 
 	var zeroTime time.Time
 
-	yyyy, wk := s.StartTime.ISOWeek()
+	yyyy, wk := s.StartTime.ToTime().ISOWeek()
 
-	effectiveKeepLatest := r.effectiveKeepLatest()
+	effectiveKeepLatest := r.EffectiveKeepLatest()
 
 	cases := []struct {
 		cutoffTime     time.Time
@@ -154,7 +156,7 @@ func (r *RetentionPolicy) getRetentionReasons(i int, s *snapshot.Manifest, cutof
 			continue
 		}
 
-		if s.StartTime.Before(c.cutoffTime) {
+		if s.StartTime.ToTime().Before(c.cutoffTime) {
 			continue
 		}
 
