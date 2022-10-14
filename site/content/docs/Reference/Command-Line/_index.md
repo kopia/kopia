@@ -8,6 +8,14 @@ Kopia provides a command-line interface (CLI) for accessing all its functions. A
 
 Kopia functionality is organized into [Common Commands](common/) for typical use or [Advanced Commands](advanced/) for low-level data manipulation or recovery. Click on the above links for more details.
 
+### Environment Variables
+
+The following environment variables can be used to configure how Kopia runs:
+
+| Variable Name         | Default | Description                                                                                              |
+| --------------------- | ------- | -------------------------------------------------------------------------------------------------------- |
+| `BYTES_STRING_BASE_2` | `false` | If set to `true`, Kopia will output storage values in binary (base-2). The default is decimal (base-10). |
+
 ### Connecting to Repository
 
 Most commands require a [Repository](../../advanced/architecture/) to be connected first. The first time you use Kopia, repository must be created, later on it can be connected to from one or more machines.
