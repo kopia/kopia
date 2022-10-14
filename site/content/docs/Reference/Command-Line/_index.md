@@ -12,9 +12,9 @@ Kopia functionality is organized into [Common Commands](common/) for typical use
 
 The following environment variables can be used to configure how Kopia runs:
 
-| Variable Name         | Default | Description                                                                                              |
-| --------------------- | ------- | -------------------------------------------------------------------------------------------------------- |
-| `BYTES_STRING_BASE_2` | `false` | If set to `true`, Kopia will output storage values in binary (base-2). The default is decimal (base-10). |
+| Variable Name               | Default | Description                                                                                              |
+| --------------------------- | ------- | -------------------------------------------------------------------------------------------------------- |
+| `KOPIA_BYTES_STRING_BASE_2` | `false` | If set to `true`, Kopia will output storage values in binary (base-2). The default is decimal (base-10). |
 
 ### Connecting to Repository
 
