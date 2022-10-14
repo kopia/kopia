@@ -440,7 +440,7 @@ func (c *commandSnapshotList) entryBits(ctx context.Context, m *snapshot.Manifes
 
 	if u := m.StorageStats; u != nil {
 		bits = append(bits,
-			fmt.Sprintf("new-data:%v", units.BytesStringBase10(atomic.LoadInt64(&u.NewData.PackedContentBytes))),
+			fmt.Sprintf("new-data:%v", units.BytesStringBaseEnv(atomic.LoadInt64(&u.NewData.PackedContentBytes))),
 			fmt.Sprintf("new-files:%v", atomic.LoadInt32(&u.NewData.FileObjectCount)),
 			fmt.Sprintf("new-dirs:%v", atomic.LoadInt32(&u.NewData.DirObjectCount)),
 			fmt.Sprintf("compression:%v", formatCompressionPercentage(atomic.LoadInt64(&u.NewData.OriginalContentBytes), atomic.LoadInt64(&u.NewData.PackedContentBytes))),
@@ -452,7 +452,7 @@ func (c *commandSnapshotList) entryBits(ctx context.Context, m *snapshot.Manifes
 
 func deltaBytes(b int64) string {
 	if b > 0 {
-		return "(+" + units.BytesStringBase10(b) + ")"
+		return "(+" + units.BytesStringBaseEnv(b) + ")"
 	}
 
 	return ""

@@ -54,7 +54,7 @@ func showContentWithFlags(w io.Writer, rd io.Reader, unzip, indentJSON bool) err
 
 func maybeHumanReadableBytes(enable bool, value int64) string {
 	if enable {
-		return units.BytesStringBase10(value)
+		return units.BytesStringBaseEnv(value)
 	}
 
 	return fmt.Sprintf("%v", value)

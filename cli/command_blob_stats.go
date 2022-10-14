@@ -62,7 +62,7 @@ func (c *commandBlobStats) run(ctx context.Context, rep repo.DirectRepository) e
 		return errors.Wrap(err, "error listing blobs")
 	}
 
-	sizeToString := units.BytesStringBase10
+	sizeToString := units.BytesStringBaseEnv
 	if c.raw {
 		sizeToString = func(l int64) string {
 			//nolint:gomnd

@@ -58,14 +58,14 @@ func (c *commandCacheSetParams) run(ctx context.Context, rep repo.RepositoryWrit
 
 	if v := c.contentCacheSizeMB; v != -1 {
 		v *= 1e6 // convert MB to bytes
-		log(ctx).Infof("changing content cache size to %v", units.BytesStringBase10(v))
+		log(ctx).Infof("changing content cache size to %v", units.BytesStringBaseEnv(v))
 		opts.MaxCacheSizeBytes = v
 		changed++
 	}
 
 	if v := c.maxMetadataCacheSizeMB; v != -1 {
 		v *= 1e6 // convert MB to bytes
-		log(ctx).Infof("changing metadata cache size to %v", units.BytesStringBase10(v))
+		log(ctx).Infof("changing metadata cache size to %v", units.BytesStringBaseEnv(v))
 		opts.MaxMetadataCacheSizeBytes = v
 		changed++
 	}

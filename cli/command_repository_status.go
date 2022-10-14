@@ -189,7 +189,7 @@ func (c *commandRepositoryStatus) run(ctx context.Context, rep repo.Repository) 
 
 	c.outputRequiredFeatures(dr)
 
-	c.out.printStdout("Max pack length:     %v\n", units.BytesStringBase2(int64(mp.MaxPackSize)))
+	c.out.printStdout("Max pack length:     %v\n", units.BytesStringBaseEnv(int64(mp.MaxPackSize)))
 	c.out.printStdout("Index Format:        v%v\n", mp.IndexVersion)
 
 	emgr, epochMgrEnabled, emerr := dr.ContentReader().EpochManager()
@@ -208,7 +208,7 @@ func (c *commandRepositoryStatus) run(ctx context.Context, rep repo.Repository) 
 
 		c.out.printStdout("\n")
 		c.out.printStdout("Epoch refresh frequency: %v\n", mp.EpochParameters.EpochRefreshFrequency)
-		c.out.printStdout("Epoch advance on:        %v blobs or %v, minimum %v\n", mp.EpochParameters.EpochAdvanceOnCountThreshold, units.BytesStringBase2(mp.EpochParameters.EpochAdvanceOnTotalSizeBytesThreshold), mp.EpochParameters.MinEpochDuration)
+		c.out.printStdout("Epoch advance on:        %v blobs or %v, minimum %v\n", mp.EpochParameters.EpochAdvanceOnCountThreshold, units.BytesStringBaseEnv(mp.EpochParameters.EpochAdvanceOnTotalSizeBytesThreshold), mp.EpochParameters.MinEpochDuration)
 		c.out.printStdout("Epoch cleanup margin:    %v\n", mp.EpochParameters.CleanupSafetyMargin)
 		c.out.printStdout("Epoch checkpoint every:  %v epochs\n", mp.EpochParameters.FullCheckpointFrequency)
 	} else {

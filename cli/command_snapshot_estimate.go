@@ -101,12 +101,12 @@ func (c *commandSnapshotEstimate) run(ctx context.Context, rep repo.Repository) 
 		return errors.Wrap(err, "error estimating")
 	}
 
-	c.out.printStdout("Snapshot includes %v file(s), total size %v\n", ep.stats.TotalFileCount, units.BytesStringBase10(ep.stats.TotalFileSize))
+	c.out.printStdout("Snapshot includes %v file(s), total size %v\n", ep.stats.TotalFileCount, units.BytesStringBaseEnv(ep.stats.TotalFileSize))
 	c.showBuckets(ep.included, c.snapshotEstimateShowFiles)
 	c.out.printStdout("\n")
 
 	if ep.stats.ExcludedFileCount > 0 {
-		c.out.printStdout("Snapshot excludes %v file(s), total size %v\n", ep.stats.ExcludedFileCount, units.BytesStringBase10(ep.stats.ExcludedTotalFileSize))
+		c.out.printStdout("Snapshot excludes %v file(s), total size %v\n", ep.stats.ExcludedFileCount, units.BytesStringBaseEnv(ep.stats.ExcludedTotalFileSize))
 		c.showBuckets(ep.excluded, true)
 	} else {
 		c.out.printStdout("Snapshot excludes no files.\n")
@@ -145,16 +145,16 @@ func (c *commandSnapshotEstimate) showBuckets(buckets snapshotfs.SampleBuckets, 
 
 		if i == 0 {
 			sizeRange = fmt.Sprintf("< %-6v",
-				units.BytesStringBase10(bucket.MinSize))
+				units.BytesStringBaseEnv(bucket.MinSize))
 		} else {
 			sizeRange = fmt.Sprintf("%-6v...%6v",
-				units.BytesStringBase10(bucket.MinSize),
-				units.BytesStringBase10(buckets[i-1].MinSize))
+				units.BytesStringBaseEnv(bucket.MinSize),
+				units.BytesStringBaseEnv(buckets[i-1].MinSize))
 		}
 
 		c.out.printStdout("%18v: %7v files, total size %v\n",
 			sizeRange,
-			bucket.Count, units.BytesStringBase10(bucket.TotalSize))
+			bucket.Count, units.BytesStringBaseEnv(bucket.TotalSize))
 
 		if showFiles {
 			for _, sample := range bucket.Examples {

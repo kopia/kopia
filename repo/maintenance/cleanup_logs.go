@@ -82,7 +82,7 @@ func CleanupLogs(ctx context.Context, rep repo.DirectRepositoryWriter, opt LogRe
 
 	toDelete := allLogBlobs[deletePosition:]
 
-	log(ctx).Debugf("Keeping %v logs of total size %v", deletePosition, units.BytesStringBase2(totalSize))
+	log(ctx).Debugf("Keeping %v logs of total size %v", deletePosition, units.BytesStringBaseEnv(totalSize))
 
 	if !opt.DryRun {
 		for _, bm := range toDelete {

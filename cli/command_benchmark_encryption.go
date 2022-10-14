@@ -45,7 +45,7 @@ func (c *commandBenchmarkEncryption) run(ctx context.Context) error {
 	c.out.printStdout("-----------------------------------------------------------------\n")
 
 	for ndx, r := range results {
-		c.out.printStdout("%3d. %-30v %v / second", ndx, r.encryption, units.BytesStringBase2(int64(r.throughput)))
+		c.out.printStdout("%3d. %-30v %v / second", ndx, r.encryption, units.BytesStringBaseEnv(int64(r.throughput)))
 
 		if c.optionPrint {
 			c.out.printStdout(",   --encryption=%s", r.encryption)

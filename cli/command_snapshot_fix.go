@@ -149,11 +149,11 @@ func snapshotSizeDelta(m1, m2 *snapshot.Manifest) string {
 
 	deltaBytes := m2.RootEntry.DirSummary.TotalFileSize - m1.RootEntry.DirSummary.TotalFileSize
 	if deltaBytes < 0 {
-		return "-" + units.BytesStringBase10(-deltaBytes)
+		return "-" + units.BytesStringBaseEnv(-deltaBytes)
 	}
 
 	if deltaBytes > 0 {
-		return "+" + units.BytesStringBase10(deltaBytes)
+		return "+" + units.BytesStringBaseEnv(deltaBytes)
 	}
 
 	return ""
