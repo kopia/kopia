@@ -159,8 +159,8 @@ func (c *commandRepositoryStatus) run(ctx context.Context, rep repo.Repository) 
 
 	switch cp, err := dr.BlobVolume().GetCapacity(ctx); {
 	case err == nil:
-		c.out.printStdout("Storage capacity:    %v\n", units.BytesStringBase10(int64(cp.SizeB)))
-		c.out.printStdout("Storage available:   %v\n", units.BytesStringBase10(int64(cp.FreeB)))
+		c.out.printStdout("Storage capacity:    %v\n", units.BytesStringBaseEnv(int64(cp.SizeB)))
+		c.out.printStdout("Storage available:   %v\n", units.BytesStringBaseEnv(int64(cp.FreeB)))
 	case errors.Is(err, blob.ErrNotAVolume):
 		c.out.printStdout("Storage capacity:    unbounded\n")
 	default:
