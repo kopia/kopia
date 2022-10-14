@@ -53,6 +53,10 @@ func (s *sourceDirectories) Device() fs.DeviceInfo {
 	return fs.DeviceInfo{}
 }
 
+func (s *sourceDirectories) ExtendedAttributes() fs.Attributes {
+	return fs.AttributesNotSupported{}
+}
+
 func (s *sourceDirectories) LocalFilesystemPath() string {
 	return ""
 }

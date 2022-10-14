@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/pkg/xattr"
 
 	"github.com/kopia/kopia/fs"
 )
@@ -65,6 +66,10 @@ func (e *filesystemEntry) Owner() fs.OwnerInfo {
 
 func (e *filesystemEntry) Device() fs.DeviceInfo {
 	return e.device
+}
+
+func (e *filesystemEntry) ExtendedAttributes() fs.Attributes {
+	return &filesystemExtendedAttributes{e}
 }
 
 func (e *filesystemEntry) LocalFilesystemPath() string {
@@ -376,6 +381,25 @@ func entryFromDirEntry(fi os.FileInfo, prefix string) fs.Entry {
 	default:
 		return newFilesystemErrorEntry(newEntry(fi, prefix), fs.ErrUnknown)
 	}
+}
+
+type filesystemExtendedAttributes struct {
+	e *filesystemEntry
+}
+
+func (a *filesystemExtendedAttributes) HasAny(names ...string) (bool, error) {
+	if !xattr.XATTR_SUPPORTED {
+		return false, nil
+	}
+
+	for _, name := range names {
+		_, err := xattr.Get(a.e.fullPath(), name)
+		if err == nil {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 var (

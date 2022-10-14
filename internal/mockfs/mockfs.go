@@ -40,6 +40,7 @@ type entry struct {
 	modTime time.Time
 	owner   fs.OwnerInfo
 	device  fs.DeviceInfo
+	xattrs  Attributes
 }
 
 func (e *entry) Name() string {
@@ -74,11 +75,40 @@ func (e *entry) Device() fs.DeviceInfo {
 	return e.device
 }
 
+func (e *entry) ExtendedAttributes() fs.Attributes {
+	return &e.xattrs
+}
+
 func (e *entry) LocalFilesystemPath() string {
 	return ""
 }
 
 func (e *entry) Close() {
+}
+
+// Attributes mocks the extended attributes from a file.
+type Attributes struct {
+	entries map[string]bool
+}
+
+// HasAny returns true if the current entry has an attribute with any of the provided names.
+func (a *Attributes) HasAny(names ...string) (bool, error) {
+	for _, n := range names {
+		if a.entries[n] {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+// Add adds a fake attribute to an entry.
+func (a *Attributes) Add(name string) {
+	if a.entries == nil {
+		a.entries = map[string]bool{}
+	}
+
+	a.entries[name] = true
 }
 
 // Directory is mock in-memory implementation of fs.Directory.
@@ -334,6 +364,11 @@ func (imf *File) SetContents(b []byte) {
 	imf.source = func() (ReaderSeekerCloser, error) {
 		return readerSeekerCloser{bytes.NewReader(b)}, nil
 	}
+}
+
+// AddExtendedAttribute adds a fake extended attribute to an entry.
+func (imf *File) AddExtendedAttribute(name string) {
+	imf.xattrs.Add(name)
 }
 
 type fileReader struct {

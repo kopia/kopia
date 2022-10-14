@@ -107,6 +107,7 @@ require (
 	github.com/edsrzf/mmap-go v1.1.0
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/klauspost/reedsolomon v1.11.6
+	github.com/pkg/xattr v0.4.9
 	github.com/prometheus/client_model v0.3.0
 	go.opentelemetry.io/otel v1.13.0
 	go.opentelemetry.io/otel/exporters/jaeger v1.13.0

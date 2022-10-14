@@ -58,6 +58,9 @@ var defaultPolicy = policy.BuildTree(map[string]*policy.Policy{
 			IgnoreRules: []string{
 				"*-by-rule",
 			},
+			IgnoreExtendedAttributes: []string{
+				"com.apple.metadata:com_apple_backup_excludeItem",
+			},
 		},
 	},
 }, policy.DefaultPolicy)
@@ -491,6 +494,20 @@ var cases = []struct {
 			"./B/AB/file.go",
 		},
 		ignoredFiles: []string{},
+	},
+	{
+		desc:       "default policy, only ignore file by extended attributes",
+		policyTree: defaultPolicy,
+		setup: func(root *mockfs.Directory) {
+			f := root.AddFile("ignored-by-xattr", dummyFileContents, 0)
+			f.AddExtendedAttribute("com.apple.metadata:com_apple_backup_excludeItem")
+		},
+		addedFiles: nil,
+		ignoredFiles: []string{
+			"./ignored-by-xattr",
+			"./ignored-by-rule",
+			"./largefile1",
+		},
 	},
 }
 

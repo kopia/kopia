@@ -59,6 +59,10 @@ func (e *virtualEntry) Device() fs.DeviceInfo {
 	return e.device
 }
 
+func (e *virtualEntry) ExtendedAttributes() fs.Attributes {
+	return fs.AttributesNotSupported{}
+}
+
 func (e *virtualEntry) LocalFilesystemPath() string {
 	return ""
 }

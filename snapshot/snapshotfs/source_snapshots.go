@@ -51,6 +51,10 @@ func (s *sourceSnapshots) Device() fs.DeviceInfo {
 	return fs.DeviceInfo{}
 }
 
+func (s *sourceSnapshots) ExtendedAttributes() fs.Attributes {
+	return fs.AttributesNotSupported{}
+}
+
 func (s *sourceSnapshots) LocalFilesystemPath() string {
 	return ""
 }

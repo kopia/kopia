@@ -5,6 +5,7 @@ import (
 	"path"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"sort"
 	"strings"
 	"testing"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/kylelemons/godebug/pretty"
 	"github.com/pkg/errors"
+	"github.com/pkg/xattr"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/cli"
@@ -228,6 +230,7 @@ func TestSnapshotCreateWithIgnore(t *testing.T) {
 		desc     string
 		files    []testFileEntry
 		expected []string
+		disabled bool
 	}{
 		{
 			desc: "ignore_all_recursive",
@@ -498,9 +501,27 @@ func TestSnapshotCreateWithIgnore(t *testing.T) {
 				"B/AA/file.txt",
 			},
 		},
+		{
+			desc:     "ignore_attributes_darwin",
+			disabled: runtime.GOOS != "darwin",
+			files: []testFileEntry{
+				{
+					Name:               "file1",
+					ExtendedAttributes: []string{"com.apple.metadata:com_apple_backup_excludeItem"},
+				},
+				{Name: "file2"},
+			},
+			expected: []string{
+				"file2",
+			},
+		},
 	}
 
 	for _, tc := range cases {
+		if tc.disabled {
+			continue
+		}
+
 		tc := tc
 		t.Run(tc.desc, func(t *testing.T) {
 			runner := testenv.NewInProcRunner(t)
@@ -650,8 +671,9 @@ func appendIfMissing(slice []string, i string) []string {
 }
 
 type testFileEntry struct {
-	Name    string
-	Content []string
+	Name               string
+	Content            []string
+	ExtendedAttributes []string
 }
 
 func createFileStructure(baseDir string, files []testFileEntry) error {
@@ -689,6 +711,13 @@ func createFileStructure(baseDir string, files []testFileEntry) error {
 			}
 
 			f.Close()
+
+			for _, a := range ent.ExtendedAttributes {
+				err = xattr.Set(fullPath, a, nil)
+				if err != nil {
+					return err
+				}
+			}
 		}
 	}
 

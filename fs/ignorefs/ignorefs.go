@@ -26,9 +26,10 @@ type ignoreContext struct {
 
 	onIgnore []IgnoreCallback
 
-	dotIgnoreFiles []string                  // which files to look for more ignore rules
-	matchers       []wcmatch.WildcardMatcher // current set of rules to ignore files
-	maxFileSize    int64                     // maximum size of file allowed
+	dotIgnoreFiles           []string                  // which files to look for more ignore rules
+	matchers                 []wcmatch.WildcardMatcher // current set of rules to ignore files
+	maxFileSize              int64                     // maximum size of file allowed
+	ignoreExtendedAttributes []string                  // extended attributes that, if exist, make the entry be ignored
 
 	oneFileSystem bool // should we enter other mounted filesystems
 }
@@ -67,6 +68,24 @@ func (c *ignoreContext) shouldIncludeByDevice(e fs.Entry, parent *ignoreDirector
 	}
 
 	return e.Device().Dev == parent.Device().Dev
+}
+
+func (c *ignoreContext) shouldIncludeByAttributes(ignore []string, attribs fs.Attributes) (bool, error) {
+	if len(ignore) == 0 {
+		return true, nil
+	}
+
+	has, err := attribs.HasAny(ignore...)
+	if err != nil {
+		//nolint:wrapcheck
+		return false, err
+	}
+
+	if has {
+		return false, nil
+	}
+
+	return true, nil
 }
 
 type ignoreDirectory struct {
@@ -159,7 +178,12 @@ func (d *ignoreDirectory) IterateEntries(ctx context.Context, callback func(ctx 
 
 	//nolint:wrapcheck
 	return d.Directory.IterateEntries(ctx, func(ctx context.Context, e fs.Entry) error {
-		if wrapped, ok := d.maybeWrappedChildEntry(ctx, thisContext, e); ok {
+		wrapped, ok, err := d.maybeWrappedChildEntry(ctx, thisContext, e)
+		if err != nil {
+			return err
+		}
+
+		if ok {
 			return callback(ctx, wrapped)
 		}
 
@@ -167,24 +191,33 @@ func (d *ignoreDirectory) IterateEntries(ctx context.Context, callback func(ctx 
 	})
 }
 
-func (d *ignoreDirectory) maybeWrappedChildEntry(ctx context.Context, ic *ignoreContext, e fs.Entry) (fs.Entry, bool) {
+func (d *ignoreDirectory) maybeWrappedChildEntry(ctx context.Context, ic *ignoreContext, e fs.Entry) (fs.Entry, bool, error) {
 	if !ic.shouldIncludeByName(ctx, d.relativePath+"/"+e.Name(), e, d.policyTree) {
-		return nil, false
+		return nil, false, nil
 	}
 
 	if maxSize := ic.maxFileSize; maxSize > 0 && e.Size() > maxSize {
-		return nil, false
+		return nil, false, nil
 	}
 
 	if !ic.shouldIncludeByDevice(e, d) {
-		return nil, false
+		return nil, false, nil
+	}
+
+	ok, err := ic.shouldIncludeByAttributes(ic.ignoreExtendedAttributes, e.ExtendedAttributes())
+	if err != nil {
+		return nil, false, err
+	}
+
+	if !ok {
+		return nil, false, nil
 	}
 
 	if dir, ok := e.(fs.Directory); ok {
-		return &ignoreDirectory{d.relativePath + "/" + e.Name(), ic, d.policyTree.Child(e.Name()), dir}, true
+		return &ignoreDirectory{d.relativePath + "/" + e.Name(), ic, d.policyTree.Child(e.Name()), dir}, true, nil
 	}
 
-	return e, true
+	return e, true, nil
 }
 
 func (d *ignoreDirectory) Child(ctx context.Context, name string) (fs.Entry, error) {
@@ -203,7 +236,12 @@ func (d *ignoreDirectory) Child(ctx context.Context, name string) (fs.Entry, err
 		return nil, err
 	}
 
-	if wrapped, ok := d.maybeWrappedChildEntry(ctx, thisContext, e); ok {
+	wrapped, ok, err := d.maybeWrappedChildEntry(ctx, thisContext, e)
+	if err != nil {
+		return nil, err
+	}
+
+	if ok {
 		return wrapped, nil
 	}
 
@@ -212,10 +250,12 @@ func (d *ignoreDirectory) Child(ctx context.Context, name string) (fs.Entry, err
 
 func (d *ignoreDirectory) buildContext(ctx context.Context) (*ignoreContext, error) {
 	effectiveDotIgnoreFiles := d.parentContext.dotIgnoreFiles
+	effectiveIgnoreExtendedAttributes := d.parentContext.ignoreExtendedAttributes
 
 	pol := d.policyTree.DefinedPolicy()
 	if pol != nil {
 		effectiveDotIgnoreFiles = pol.FilesPolicy.DotIgnoreFiles
+		effectiveIgnoreExtendedAttributes = pol.FilesPolicy.IgnoreExtendedAttributes
 	}
 
 	var dotIgnoreFiles []fs.File
@@ -234,11 +274,12 @@ func (d *ignoreDirectory) buildContext(ctx context.Context) (*ignoreContext, err
 	}
 
 	newic := &ignoreContext{
-		parent:         d.parentContext,
-		onIgnore:       d.parentContext.onIgnore,
-		dotIgnoreFiles: effectiveDotIgnoreFiles,
-		maxFileSize:    d.parentContext.maxFileSize,
-		oneFileSystem:  d.parentContext.oneFileSystem,
+		parent:                   d.parentContext,
+		onIgnore:                 d.parentContext.onIgnore,
+		dotIgnoreFiles:           effectiveDotIgnoreFiles,
+		maxFileSize:              d.parentContext.maxFileSize,
+		ignoreExtendedAttributes: effectiveIgnoreExtendedAttributes,
+		oneFileSystem:            d.parentContext.oneFileSystem,
 	}
 
 	if pol != nil {
@@ -279,6 +320,8 @@ func (c *ignoreContext) overrideFromPolicy(fp *policy.FilesPolicy, dirPath strin
 
 		c.matchers = append(c.matchers, *m)
 	}
+
+	c.ignoreExtendedAttributes = combineAndDedupe(c.ignoreExtendedAttributes, fp.IgnoreExtendedAttributes)
 
 	return nil
 }

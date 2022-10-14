@@ -25,6 +25,11 @@ type policyFilesFlags struct {
 	policyOneFileSystem string
 
 	policyIgnoreCacheDirs string
+
+	// Ignore extended attributes rules.
+	policySetAddIgnoreExtendedAttributes    []string
+	policySetRemoveIgnoreExtendedAttributes []string
+	policySetClearIgnoreExtendedAttributes  bool
 }
 
 func (c *policyFilesFlags) setup(cmd *kingpin.CmdClause) {
@@ -43,6 +48,11 @@ func (c *policyFilesFlags) setup(cmd *kingpin.CmdClause) {
 	cmd.Flag("one-file-system", "Stay in parent filesystem when finding files ('true', 'false', 'inherit')").EnumVar(&c.policyOneFileSystem, booleanEnumValues...)
 
 	cmd.Flag("ignore-cache-dirs", "Ignore cache directories ('true', 'false', 'inherit')").EnumVar(&c.policyIgnoreCacheDirs, booleanEnumValues...)
+
+	// Ignore extended attribute rules.
+	cmd.Flag("add-ignore-extended-attribute", "List of extended attribute names to add to the ignore extended attributes list").PlaceHolder("NAME").StringsVar(&c.policySetAddIgnoreExtendedAttributes)
+	cmd.Flag("remove-ignore-extended-attribute", "List of extended attribute names to remove from the ignore extended attributes list").PlaceHolder("NAME").StringsVar(&c.policySetRemoveIgnoreExtendedAttributes)
+	cmd.Flag("clear-ignore-extended-attributes", "Clear list of extended attribute names in the ignore attributes extended list").BoolVar(&c.policySetClearIgnoreExtendedAttributes)
 }
 
 func (c *policyFilesFlags) setFilesPolicyFromFlags(ctx context.Context, fp *policy.FilesPolicy, changeCount *int) error {
@@ -56,6 +66,8 @@ func (c *policyFilesFlags) setFilesPolicyFromFlags(ctx context.Context, fp *poli
 	if err := applyPolicyBoolPtr(ctx, "ignore cache dirs", &fp.IgnoreCacheDirectories, c.policyIgnoreCacheDirs, changeCount); err != nil {
 		return err
 	}
+
+	applyPolicyStringList(ctx, "ignore extended attributes", &fp.IgnoreExtendedAttributes, c.policySetAddIgnoreExtendedAttributes, c.policySetRemoveIgnoreExtendedAttributes, c.policySetClearIgnoreExtendedAttributes, changeCount)
 
 	return applyPolicyBoolPtr(ctx, "one filesystem", &fp.OneFileSystem, c.policyOneFileSystem, changeCount)
 }

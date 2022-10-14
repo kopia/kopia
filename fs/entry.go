@@ -20,6 +20,7 @@ type Entry interface {
 	os.FileInfo
 	Owner() OwnerInfo
 	Device() DeviceInfo
+	ExtendedAttributes() Attributes
 	LocalFilesystemPath() string // returns full local filesystem path or "" if not a local filesystem
 	Close()                      // closes or recycles any resources associated with the entry, must be idempotent
 }
@@ -34,6 +35,11 @@ type OwnerInfo struct {
 type DeviceInfo struct {
 	Dev  uint64 `json:"dev"`
 	Rdev uint64 `json:"rdev"`
+}
+
+// Attributes allows to get extended attributes from a file.
+type Attributes interface {
+	HasAny(names ...string) (bool, error)
 }
 
 // Reader allows reading from a file and retrieving its up-to-date file info.
@@ -184,4 +190,13 @@ func Sort(entries []Entry) {
 	sort.Slice(entries, func(i, j int) bool {
 		return entries[i].Name() < entries[j].Name()
 	})
+}
+
+// AttributesNotSupported is a implementation of the Attributes interface for filesystems that don't
+// support attributes.
+type AttributesNotSupported struct{}
+
+// HasAny returns true if the current entry has an attribute with any of the provided names.
+func (a AttributesNotSupported) HasAny(names ...string) (bool, error) {
+	return false, nil
 }

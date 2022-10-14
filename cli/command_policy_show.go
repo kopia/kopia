@@ -169,13 +169,19 @@ func appendFilesPolicyValue(items []policyTableRow, p *policy.Policy, def *polic
 
 	if len(p.FilesPolicy.IgnoreRules) > 0 {
 		items = append(items, policyTableRow{
-			"  Ignore rules:", "", definitionPointToString(p.Target(), def.FilesPolicy.IgnoreRules),
+			"  Ignore rules:",
+			"",
+			definitionPointToString(p.Target(), def.FilesPolicy.IgnoreRules),
 		})
 		for _, rule := range p.FilesPolicy.IgnoreRules {
 			items = append(items, policyTableRow{"    " + rule, "", ""})
 		}
 	} else {
-		items = append(items, policyTableRow{"  No ignore rules:", "", ""})
+		items = append(items, policyTableRow{
+			"  No ignore rules:",
+			"",
+			definitionPointToString(p.Target(), def.FilesPolicy.IgnoreRules),
+		})
 	}
 
 	if len(p.FilesPolicy.DotIgnoreFiles) > 0 {
@@ -202,6 +208,23 @@ func appendFilesPolicyValue(items []policyTableRow, p *policy.Policy, def *polic
 		boolToString(p.FilesPolicy.OneFileSystem.OrDefault(false)),
 		definitionPointToString(p.Target(), def.FilesPolicy.OneFileSystem),
 	})
+
+	if len(p.FilesPolicy.IgnoreExtendedAttributes) > 0 {
+		items = append(items, policyTableRow{
+			"  Ignore extended attributes:",
+			"",
+			definitionPointToString(p.Target(), def.FilesPolicy.IgnoreExtendedAttributes),
+		})
+		for _, attrib := range p.FilesPolicy.IgnoreExtendedAttributes {
+			items = append(items, policyTableRow{"    " + attrib, "", ""})
+		}
+	} else {
+		items = append(items, policyTableRow{
+			"  No ignore extended attributes:",
+			"",
+			definitionPointToString(p.Target(), def.FilesPolicy.IgnoreExtendedAttributes),
+		})
+	}
 
 	return items
 }

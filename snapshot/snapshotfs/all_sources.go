@@ -49,6 +49,10 @@ func (s *repositoryAllSources) Sys() interface{} {
 	return nil
 }
 
+func (s *repositoryAllSources) ExtendedAttributes() fs.Attributes {
+	return fs.AttributesNotSupported{}
+}
+
 func (s *repositoryAllSources) LocalFilesystemPath() string {
 	return ""
 }

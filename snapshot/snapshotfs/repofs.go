@@ -80,6 +80,10 @@ func (e *repositoryEntry) DirEntry() *snapshot.DirEntry {
 	return e.metadata
 }
 
+func (e *repositoryEntry) ExtendedAttributes() fs.Attributes {
+	return fs.AttributesNotSupported{}
+}
+
 func (e *repositoryEntry) LocalFilesystemPath() string {
 	return ""
 }

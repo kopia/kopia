@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"runtime"
 	"strings"
 )
 
@@ -22,7 +23,8 @@ var (
 
 	// defaultFilesPolicy is the default file ignore policy.
 	defaultFilesPolicy = FilesPolicy{
-		DotIgnoreFiles: []string{".kopiaignore"},
+		DotIgnoreFiles:           []string{".kopiaignore"},
+		IgnoreExtendedAttributes: createDefaultIgnoreExtendedAttributes(),
 	}
 
 	// defaultLoggingPolicy is the default logs policy.
@@ -74,6 +76,15 @@ var (
 	// DefaultDefinition provides the Definition for the default policy.
 	DefaultDefinition = &Definition{}
 )
+
+func createDefaultIgnoreExtendedAttributes() []string {
+	switch runtime.GOOS {
+	case "darwin":
+		return []string{"com.apple.metadata:com_apple_backup_excludeItem"}
+	default:
+		return nil
+	}
+}
 
 // Tree represents a node in the policy tree, where a policy can be
 // defined. A nil tree is a valid tree with default policy.
