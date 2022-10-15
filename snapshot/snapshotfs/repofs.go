@@ -230,6 +230,10 @@ func (rsl *repositorySymlink) Readlink(ctx context.Context) (string, error) {
 	return string(b), nil
 }
 
+func (rsl *repositorySymlink) Resolve(ctx context.Context) (fs.Entry, error) {
+	return nil, errors.New("not implemented")
+}
+
 func (ee *repositoryEntryError) ErrorInfo() error {
 	return ee.err
 }

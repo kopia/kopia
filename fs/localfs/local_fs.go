@@ -299,6 +299,15 @@ func (fsl *filesystemSymlink) Readlink(ctx context.Context) (string, error) {
 	return os.Readlink(fsl.fullPath())
 }
 
+func (fsl *filesystemSymlink) Resolve(ctx context.Context) (fs.Entry, error) {
+	path, err := fsl.Readlink(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to get symlink target")
+	}
+
+	return NewEntry(path)
+}
+
 func (e *filesystemErrorEntry) ErrorInfo() error {
 	return e.err
 }

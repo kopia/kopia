@@ -222,6 +222,13 @@ func (d *ignoreDirectory) buildContext(ctx context.Context) (*ignoreContext, err
 
 	for _, dotfile := range effectiveDotIgnoreFiles {
 		if e, err := d.Directory.Child(ctx, dotfile); err == nil {
+			if f, ok := e.(fs.Symlink); ok {
+				e, err = f.Resolve(ctx)
+				if err != nil {
+					continue
+				}
+			}
+
 			if f, ok := e.(fs.File); ok {
 				dotIgnoreFiles = append(dotIgnoreFiles, f)
 			}

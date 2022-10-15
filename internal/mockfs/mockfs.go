@@ -4,6 +4,7 @@ package mockfs
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -368,6 +369,11 @@ type Symlink struct {
 // Readlink implements fs.Symlink interface.
 func (imsl *Symlink) Readlink(ctx context.Context) (string, error) {
 	return imsl.target, nil
+}
+
+// Resolve covers for Symlink interface's Resolve. Not implemented currently.
+func (imsl *Symlink) Resolve(ctx context.Context) (fs.Entry, error) {
+	return nil, errors.New("not implemented") //nolint:goerr113
 }
 
 // NewDirectory returns new mock directory.

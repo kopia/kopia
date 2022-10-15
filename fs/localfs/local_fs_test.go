@@ -294,6 +294,80 @@ func TestDirPrefix(t *testing.T) {
 	}
 }
 
+func TestSymlink(t *testing.T) {
+	tmp := testutil.TempDirectory(t)
+	fileName := "file"
+	dirName := "dir"
+	fileLinkName := "fileLink"
+	dirLinkName := "dirLink"
+
+	filePath := filepath.Join(tmp, fileName)
+	dirPath := filepath.Join(tmp, dirName)
+	fileLinkPath := filepath.Join(tmp, fileLinkName)
+	dirLinkPath := filepath.Join(tmp, dirLinkName)
+
+	assertNoError(t, os.WriteFile(filePath, []byte{1, 2}, 0o777))
+	assertNoError(t, os.Mkdir(dirPath, 0o777))
+	assertNoError(t, os.Symlink(filePath, fileLinkPath))
+	assertNoError(t, os.Symlink(dirPath, dirLinkPath))
+
+	dir, err := Directory(tmp)
+	require.NoError(t, err)
+	ctx := testlogging.Context(t)
+
+	file, err := dir.Child(ctx, fileLinkName)
+	if err != nil {
+		t.Errorf("Child error: %v", err)
+	}
+
+	f, ok := file.(fs.Symlink)
+	if !ok {
+		t.Errorf("symlink is not detected as a symlink")
+	}
+
+	path, err := f.Readlink(ctx)
+	if err != nil {
+		t.Errorf("Unable to read link: %v", err)
+	}
+
+	require.Equal(t, path, filePath)
+
+	obj, err := f.Resolve(ctx)
+	if err != nil {
+		t.Errorf("Resolve error: %v", err)
+	}
+
+	if _, ok = obj.(fs.File); !ok {
+		t.Error("Symlink is not pointing to a file")
+	}
+
+	file, err = dir.Child(ctx, dirLinkName)
+	if err != nil {
+		t.Errorf("Child error: %v", err)
+	}
+
+	f, ok = file.(fs.Symlink)
+	if !ok {
+		t.Errorf("symlink is not detected as a symlink")
+	}
+
+	path, err = f.Readlink(ctx)
+	if err != nil {
+		t.Errorf("Unable to read link: %v", err)
+	}
+
+	require.Equal(t, path, dirPath)
+
+	obj, err = f.Resolve(ctx)
+	if err != nil {
+		t.Errorf("Resolve error: %v", err)
+	}
+
+	if _, ok = obj.(fs.Directory); !ok {
+		t.Error("Symlink is not pointing to a directory")
+	}
+}
+
 func assertNoError(t *testing.T, err error) {
 	t.Helper()
 

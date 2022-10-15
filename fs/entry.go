@@ -158,6 +158,7 @@ func (s *DirectorySummary) Clone() DirectorySummary {
 type Symlink interface {
 	Entry
 	Readlink(ctx context.Context) (string, error)
+	Resolve(ctx context.Context) (Entry, error)
 }
 
 // FindByName returns an entry with a given name, or nil if not found. Assumes
