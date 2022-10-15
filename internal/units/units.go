@@ -14,6 +14,10 @@ var (
 	base2UnitPrefixes  = []string{"", "Ki", "Mi", "Gi", "Ti"}
 )
 
+const (
+	bytesStringBase2Envar = "KOPIA_BYTES_STRING_BASE_2"
+)
+
 func niceNumber(f float64) string {
 	return strings.TrimRight(strings.TrimRight(fmt.Sprintf("%.1f", f), "0"), ".")
 }
@@ -43,7 +47,7 @@ func BytesStringBase2(b int64) string {
 }
 
 func BytesString(b int64) string {
-	if v := os.Getenv("KOPIA_BYTES_STRING_BASE_2"); v != "" {
+	if v := os.Getenv(bytesStringBase2Envar); v != "" {
 		if bool, err := strconv.ParseBool(v); err == nil && bool {
 			return BytesStringBase2(b)
 		}
