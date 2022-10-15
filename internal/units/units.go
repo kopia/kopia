@@ -47,7 +47,7 @@ func BytesStringBase2(b int64) string {
 }
 
 func BytesString(b int64) string {
-	if bool, err := strconv.ParseBool(os.Getenv(bytesStringBase2Envar)); err == nil && bool {
+	if v, _ := strconv.ParseBool(os.Getenv(bytesStringBase2Envar)); v {
 		return BytesStringBase2(b)
 	}
 	return BytesStringBase10(b)
