@@ -80,7 +80,7 @@ func (c *commandMaintenanceSet) setLogCleanupParametersFromFlags(ctx context.Con
 		p.LogRetention = cl
 		*changed = true
 
-		log(ctx).Infof("Setting total retained log size to %v.", units.BytesStringBaseEnv(cl.MaxTotalSize))
+		log(ctx).Infof("Setting total retained log size to %v.", units.BytesString(cl.MaxTotalSize))
 	}
 }
 

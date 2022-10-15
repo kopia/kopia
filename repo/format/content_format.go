@@ -65,11 +65,11 @@ type MutableParameters struct {
 // Validate validates the parameters.
 func (v *MutableParameters) Validate() error {
 	if v.MaxPackSize < minValidPackSize {
-		return errors.Errorf("max pack size too small, must be >= %v", units.BytesStringBaseEnv(minValidPackSize))
+		return errors.Errorf("max pack size too small, must be >= %v", units.BytesString(minValidPackSize))
 	}
 
 	if v.MaxPackSize > maxValidPackSize {
-		return errors.Errorf("max pack size too big, must be <= %v", units.BytesStringBaseEnv(maxValidPackSize))
+		return errors.Errorf("max pack size too big, must be <= %v", units.BytesString(maxValidPackSize))
 	}
 
 	if v.IndexVersion < 0 || v.IndexVersion > index.Version2 {

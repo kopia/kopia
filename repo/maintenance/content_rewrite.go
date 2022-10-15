@@ -115,7 +115,7 @@ func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *
 
 	wg.Wait()
 
-	log(ctx).Debugf("Total bytes rewritten %v", units.BytesStringBaseEnv(totalBytes))
+	log(ctx).Debugf("Total bytes rewritten %v", units.BytesString(totalBytes))
 
 	if failedCount == 0 {
 		//nolint:wrapcheck

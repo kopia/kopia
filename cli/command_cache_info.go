@@ -73,14 +73,14 @@ func (c *commandCacheInfo) run(ctx context.Context, rep repo.Repository) error {
 
 		maybeLimit := ""
 		if l, ok := path2Limit[ent.Name()]; ok {
-			maybeLimit = fmt.Sprintf(" (limit %v, min sweep age %v)", units.BytesStringBaseEnv(l), path2SweepAgeSeconds[ent.Name()])
+			maybeLimit = fmt.Sprintf(" (limit %v, min sweep age %v)", units.BytesString(l), path2SweepAgeSeconds[ent.Name()])
 		}
 
 		if ent.Name() == "blob-list" {
 			maybeLimit = fmt.Sprintf(" (duration %v)", opts.MaxListCacheDuration.DurationOrDefault(0))
 		}
 
-		c.out.printStdout("%v: %v files %v%v\n", subdir, fileCount, units.BytesStringBaseEnv(totalFileSize), maybeLimit)
+		c.out.printStdout("%v: %v files %v%v\n", subdir, fileCount, units.BytesString(totalFileSize), maybeLimit)
 	}
 
 	c.out.printStderr("To adjust cache sizes use 'kopia cache set'.\n")

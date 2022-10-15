@@ -73,12 +73,12 @@ func TestBytesStringBase2(t *testing.T) {
 	}
 }
 
-func TestBytesStringBaseEnv(t *testing.T) {
+func TestBytesString(t *testing.T) {
 	defer os.Unsetenv(bytesStringBase2Envar)
 
 	os.Setenv(bytesStringBase2Envar, "false")
 	for i, c := range base10Cases {
-		actual := BytesStringBaseEnv(c.value)
+		actual := BytesString(c.value)
 		if actual != c.expected {
 			t.Errorf("case #%v failed for %v, expected: '%v', got '%v'", i, c.value, c.expected, actual)
 		}
@@ -86,7 +86,7 @@ func TestBytesStringBaseEnv(t *testing.T) {
 
 	os.Setenv(bytesStringBase2Envar, "true")
 	for i, c := range base2Cases {
-		actual := BytesStringBaseEnv(c.value)
+		actual := BytesString(c.value)
 		if actual != c.expected {
 			t.Errorf("case #%v failed for %v, expected: '%v', got '%v'", i, c.value, c.expected, actual)
 		}

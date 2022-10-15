@@ -48,7 +48,7 @@ func DeleteUnreferencedBlobs(ctx context.Context, rep repo.DirectRepositoryWrite
 					}
 					cnt, del := deleted.Add(bm.Length)
 					if cnt%100 == 0 {
-						log(ctx).Infof("  deleted %v unreferenced blobs (%v)", cnt, units.BytesStringBaseEnv(del))
+						log(ctx).Infof("  deleted %v unreferenced blobs (%v)", cnt, units.BytesString(del))
 					}
 				}
 
@@ -119,7 +119,7 @@ func DeleteUnreferencedBlobs(ctx context.Context, rep repo.DirectRepositoryWrite
 	close(unused)
 
 	unreferencedCount, unreferencedSize := unreferenced.Approximate()
-	log(ctx).Debugf("Found %v blobs to delete (%v)", unreferencedCount, units.BytesStringBaseEnv(unreferencedSize))
+	log(ctx).Debugf("Found %v blobs to delete (%v)", unreferencedCount, units.BytesString(unreferencedSize))
 
 	// wait for all delete workers to finish.
 	if err := eg.Wait(); err != nil {
@@ -132,7 +132,7 @@ func DeleteUnreferencedBlobs(ctx context.Context, rep repo.DirectRepositoryWrite
 
 	del, cnt := deleted.Approximate()
 
-	log(ctx).Infof("Deleted total %v unreferenced blobs (%v)", del, units.BytesStringBaseEnv(cnt))
+	log(ctx).Infof("Deleted total %v unreferenced blobs (%v)", del, units.BytesString(cnt))
 
 	return int(del), nil
 }

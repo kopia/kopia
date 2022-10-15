@@ -329,7 +329,7 @@ func printRestoreStats(ctx context.Context, st restore.Stats) {
 	var maybeSkipped, maybeErrors string
 
 	if st.SkippedCount > 0 {
-		maybeSkipped = fmt.Sprintf(", skipped %v (%v)", st.SkippedCount, units.BytesStringBaseEnv(st.SkippedTotalFileSize))
+		maybeSkipped = fmt.Sprintf(", skipped %v (%v)", st.SkippedCount, units.BytesString(st.SkippedTotalFileSize))
 	}
 
 	if st.IgnoredErrorCount > 0 {
@@ -340,7 +340,7 @@ func printRestoreStats(ctx context.Context, st restore.Stats) {
 		st.RestoredFileCount,
 		st.RestoredDirCount,
 		st.RestoredSymlinkCount,
-		units.BytesStringBaseEnv(st.RestoredTotalFileSize),
+		units.BytesString(st.RestoredTotalFileSize),
 		maybeSkipped, maybeErrors)
 }
 
@@ -421,7 +421,7 @@ func (c *commandRestore) run(ctx context.Context, rep repo.Repository) error {
 				}
 
 				if stats.SkippedCount > 0 {
-					maybeSkipped = fmt.Sprintf(", skipped %v (%v)", stats.SkippedCount, units.BytesStringBaseEnv(stats.SkippedTotalFileSize))
+					maybeSkipped = fmt.Sprintf(", skipped %v (%v)", stats.SkippedCount, units.BytesString(stats.SkippedTotalFileSize))
 				}
 
 				if stats.IgnoredErrorCount > 0 {
@@ -429,8 +429,8 @@ func (c *commandRestore) run(ctx context.Context, rep repo.Repository) error {
 				}
 
 				log(ctx).Infof("Processed %v (%v) of %v (%v)%v%v%v.",
-					restoredCount, units.BytesStringBaseEnv(stats.RestoredTotalFileSize),
-					enqueuedCount, units.BytesStringBaseEnv(stats.EnqueuedTotalFileSize),
+					restoredCount, units.BytesString(stats.RestoredTotalFileSize),
+					enqueuedCount, units.BytesString(stats.EnqueuedTotalFileSize),
 					maybeSkipped,
 					maybeErrors,
 					maybeRemaining)

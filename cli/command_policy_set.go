@@ -230,7 +230,7 @@ func applyOptionalInt64MiB(ctx context.Context, desc string, val **policy.Option
 	i := policy.OptionalInt64(v)
 	*changeCount++
 
-	log(ctx).Infof(" - setting %q to %v.", desc, units.BytesStringBaseEnv(v))
+	log(ctx).Infof(" - setting %q to %v.", desc, units.BytesString(v))
 
 	*val = &i
 

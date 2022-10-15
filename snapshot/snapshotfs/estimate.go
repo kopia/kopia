@@ -29,7 +29,7 @@ func (b *SampleBucket) add(fname string, size int64, maxExamplesPerBucket int) {
 	b.TotalSize += size
 
 	if len(b.Examples) < maxExamplesPerBucket {
-		b.Examples = append(b.Examples, fmt.Sprintf("%v - %v", fname, units.BytesStringBaseEnv(size)))
+		b.Examples = append(b.Examples, fmt.Sprintf("%v - %v", fname, units.BytesString(size)))
 	}
 }
 
@@ -94,7 +94,7 @@ func Estimate(ctx context.Context, entry fs.Directory, policyTree *policy.Tree, 
 
 			estimateLog(ctx).Debugf("excluded dir %v", relativePath)
 		} else {
-			estimateLog(ctx).Debugf("excluded file %v (%v)", relativePath, units.BytesStringBaseEnv(e.Size()))
+			estimateLog(ctx).Debugf("excluded file %v (%v)", relativePath, units.BytesString(e.Size()))
 			atomic.AddInt32(&stats.ExcludedFileCount, 1)
 			atomic.AddInt64(&stats.ExcludedTotalFileSize, e.Size())
 			eb.add(relativePath, e.Size(), maxExamplesPerBucket)

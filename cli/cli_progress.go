@@ -147,12 +147,12 @@ func (p *cliProgress) output(col *color.Color, msg string) {
 		inProgressHashing,
 
 		hashedFiles,
-		units.BytesStringBaseEnv(hashedBytes),
+		units.BytesString(hashedBytes),
 
 		cachedFiles,
-		units.BytesStringBaseEnv(cachedBytes),
+		units.BytesString(cachedBytes),
 
-		units.BytesStringBaseEnv(uploadedBytes),
+		units.BytesString(uploadedBytes),
 	)
 
 	if fatalErrorCount > 0 {
@@ -177,7 +177,7 @@ func (p *cliProgress) output(col *color.Color, msg string) {
 	}
 
 	if est, ok := p.uploadStartTime.Estimate(float64(hashedBytes+cachedBytes), float64(p.estimatedTotalBytes)); ok {
-		line += fmt.Sprintf(", estimated %v", units.BytesStringBaseEnv(p.estimatedTotalBytes))
+		line += fmt.Sprintf(", estimated %v", units.BytesString(p.estimatedTotalBytes))
 		line += fmt.Sprintf(" (%.1f%%)", est.PercentComplete)
 		line += fmt.Sprintf(" %v left", est.Remaining)
 	} else {

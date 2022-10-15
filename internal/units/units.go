@@ -42,7 +42,7 @@ func BytesStringBase2(b int64) string {
 	return toDecimalUnitString(float64(b), 1024.0, base2UnitPrefixes, "B")
 }
 
-func BytesStringBaseEnv(b int64) string {
+func BytesString(b int64) string {
 	if v := os.Getenv("KOPIA_BYTES_STRING_BASE_2"); v != "" {
 		if bool, err := strconv.ParseBool(v); err == nil && bool {
 			return BytesStringBase2(b)

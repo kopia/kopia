@@ -62,7 +62,7 @@ func (c *commandBenchmarkCompression) readInputFile(ctx context.Context) ([]byte
 	if dataLength > defaultCompressedDataByMethod {
 		dataLength = defaultCompressedDataByMethod
 
-		log(ctx).Infof("NOTICE: The provided input file is too big, using first %v.", units.BytesStringBaseEnv(dataLength))
+		log(ctx).Infof("NOTICE: The provided input file is too big, using first %v.", units.BytesString(dataLength))
 	}
 
 	data := make([]byte, dataLength)
@@ -94,7 +94,7 @@ func (c *commandBenchmarkCompression) run(ctx context.Context) error {
 		return errors.Errorf("empty data file")
 	}
 
-	log(ctx).Infof("Compressing input file %q (%v) using all compression methods.", c.dataFile, units.BytesStringBaseEnv(int64(len(data))))
+	log(ctx).Infof("Compressing input file %q (%v) using all compression methods.", c.dataFile, units.BytesString(int64(len(data))))
 
 	repeatCount := c.repeat
 
@@ -106,7 +106,7 @@ func (c *commandBenchmarkCompression) run(ctx context.Context) error {
 		}
 	}
 
-	log(ctx).Infof("Repeating %v times per compression method (total %v). Override with --repeat=N.", repeatCount, units.BytesStringBaseEnv(int64(repeatCount*len(data))))
+	log(ctx).Infof("Repeating %v times per compression method (total %v). Override with --repeat=N.", repeatCount, units.BytesString(int64(repeatCount*len(data))))
 
 	for name, comp := range compression.ByName {
 		if compression.IsDeprecated[name] && !c.deprecated {
@@ -211,10 +211,10 @@ func (c *commandBenchmarkCompression) printResults(results []compressionBechmark
 		c.out.printStdout("%3d. %-26v %-12v %-12v %-8v %v%v",
 			ndx,
 			r.compression,
-			units.BytesStringBaseEnv(r.compressedSize),
-			units.BytesStringBaseEnv(int64(r.throughput))+"/s",
+			units.BytesString(r.compressedSize),
+			units.BytesString(int64(r.throughput))+"/s",
 			r.allocations,
-			units.BytesStringBaseEnv(r.allocBytes),
+			units.BytesString(r.allocBytes),
 			maybeDeprecated,
 		)
 

@@ -192,7 +192,7 @@ func appendFilesPolicyValue(items []policyTableRow, p *policy.Policy, def *polic
 	if maxSize := p.FilesPolicy.MaxFileSize; maxSize > 0 {
 		items = append(items, policyTableRow{
 			"  Ignore files above:",
-			units.BytesStringBaseEnv(maxSize),
+			units.BytesString(maxSize),
 			definitionPointToString(p.Target(), def.FilesPolicy.MaxFileSize),
 		})
 	}
@@ -349,13 +349,13 @@ func appendCompressionPolicyRows(rows []policyTableRow, p *policy.Policy, def *p
 	case p.CompressionPolicy.MaxSize > 0:
 		rows = append(rows, policyTableRow{fmt.Sprintf(
 			"  Only compress files between %v and %v.",
-			units.BytesStringBaseEnv(p.CompressionPolicy.MinSize),
-			units.BytesStringBaseEnv(p.CompressionPolicy.MaxSize)), "", ""})
+			units.BytesString(p.CompressionPolicy.MinSize),
+			units.BytesString(p.CompressionPolicy.MaxSize)), "", ""})
 
 	case p.CompressionPolicy.MinSize > 0:
 		rows = append(rows, policyTableRow{fmt.Sprintf(
 			"  Only compress files bigger than %v.",
-			units.BytesStringBaseEnv(p.CompressionPolicy.MinSize)), "", ""})
+			units.BytesString(p.CompressionPolicy.MinSize)), "", ""})
 
 	default:
 		rows = append(rows, policyTableRow{"  Compress files of all sizes.", "", ""})
@@ -442,5 +442,5 @@ func valueOrNotSetOptionalInt64Bytes(p *policy.OptionalInt64) string {
 		return "-"
 	}
 
-	return units.BytesStringBaseEnv(int64(*p))
+	return units.BytesString(int64(*p))
 }

@@ -42,7 +42,7 @@ func (c *commandLogsList) run(ctx context.Context, rep repo.DirectRepository) er
 			"%v %v %v %v %v\n", s.id,
 			formatTimestamp(s.startTime),
 			s.endTime.Sub(s.startTime),
-			units.BytesStringBaseEnv(s.totalSize),
+			units.BytesString(s.totalSize),
 			len(s.segments),
 		)
 	}
