@@ -56,7 +56,7 @@ require (
 	golang.org/x/sync v0.0.0-20220929204114-8fcdb60fdcc0
 	golang.org/x/sys v0.0.0-20220928140112-f11e5e49a4ec
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
-	golang.org/x/text v0.3.8
+	golang.org/x/text v0.4.0
 	google.golang.org/api v0.99.0
 	google.golang.org/grpc v1.50.1
 	google.golang.org/protobuf v1.28.1
