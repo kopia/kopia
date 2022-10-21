@@ -275,7 +275,7 @@ In order to run Kopia in a container, you must:
 * mount `/tmp` directory in which Kopia will be mounting snapshots
     * Ex: `-v /mnt/kopia:tmp:shared` (must have `:shared` property, so mounts can be browsable by host system)
 * (recommended) check tools/docker/docker-compose.yml for startup
-    * for nginx reverse proxy, use: `grpc_pass grpcs://container_ip:container_port` insted of `proxy_pass`
+    * for nginx reverse proxy, use: `grpc_pass grpcs://container_ip:container_port` instead of `proxy_pass`
 
 Invocation of `kopia/kopia` in a container will be similar to the following example: 
 
