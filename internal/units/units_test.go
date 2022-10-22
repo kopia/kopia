@@ -76,7 +76,8 @@ func TestBytesStringBase2(t *testing.T) {
 func TestBytesString(t *testing.T) {
 	defer os.Unsetenv(bytesStringBase2Envar)
 
-	os.Setenv(bytesStringBase2Envar, "false")
+	t.Setenv(bytesStringBase2Envar, "false")
+
 	for i, c := range base10Cases {
 		actual := BytesString(c.value)
 		if actual != c.expected {
@@ -84,7 +85,8 @@ func TestBytesString(t *testing.T) {
 		}
 	}
 
-	os.Setenv(bytesStringBase2Envar, "true")
+	t.Setenv(bytesStringBase2Envar, "true")
+
 	for i, c := range base2Cases {
 		actual := BytesString(c.value)
 		if actual != c.expected {

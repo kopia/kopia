@@ -32,7 +32,7 @@ func (s *formatSpecificTestSuite) TestRepositorySetParameters(t *testing.T) {
 	out := env.RunAndExpectSuccess(t, "repository", "status")
 
 	// default values
-	require.Contains(t, out, "Max pack length:     20 MiB")
+	require.Contains(t, out, "Max pack length:     21 MB")
 	require.Contains(t, out, fmt.Sprintf("Format version:      %d", s.formatVersion))
 
 	// failure cases
@@ -43,11 +43,11 @@ func (s *formatSpecificTestSuite) TestRepositorySetParameters(t *testing.T) {
 
 	env.RunAndExpectSuccess(t, "repository", "set-parameters", "--index-version=2", "--max-pack-size-mb=33")
 	out = env.RunAndExpectSuccess(t, "repository", "status")
-	require.Contains(t, out, "Max pack length:     33 MiB")
+	require.Contains(t, out, "Max pack length:     34.6 MB")
 
 	env.RunAndExpectSuccess(t, "repository", "set-parameters", "--max-pack-size-mb=44")
 	out = env.RunAndExpectSuccess(t, "repository", "status")
-	require.Contains(t, out, "Max pack length:     44 MiB")
+	require.Contains(t, out, "Max pack length:     46.1 MB")
 }
 
 func (s *formatSpecificTestSuite) TestRepositorySetParametersRetention(t *testing.T) {
@@ -122,7 +122,7 @@ func (s *formatSpecificTestSuite) TestRepositorySetParametersUpgrade(t *testing.
 	out := env.RunAndExpectSuccess(t, "repository", "status")
 
 	// default values
-	require.Contains(t, out, "Max pack length:     20 MiB")
+	require.Contains(t, out, "Max pack length:     21 MB")
 
 	switch s.formatVersion {
 	case format.FormatVersion1:
@@ -176,7 +176,7 @@ func (s *formatSpecificTestSuite) TestRepositorySetParametersUpgrade(t *testing.
 	require.Contains(t, out, "Index Format:        v2")
 	require.Contains(t, out, "Format version:      3")
 	require.Contains(t, out, "Epoch cleanup margin:    23h0m0s")
-	require.Contains(t, out, "Epoch advance on:        22 blobs or 77 MiB, minimum 3h0m0s")
+	require.Contains(t, out, "Epoch advance on:        22 blobs or 80.7 MB, minimum 3h0m0s")
 	require.Contains(t, out, "Epoch checkpoint every:  9 epochs")
 
 	env.RunAndExpectSuccess(t, "index", "epoch", "list")

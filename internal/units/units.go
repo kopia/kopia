@@ -46,10 +46,12 @@ func BytesStringBase2(b int64) string {
 	return toDecimalUnitString(float64(b), 1024.0, base2UnitPrefixes, "B")
 }
 
+// BytesString formats the given value as bytes with the unit provided from the environment.
 func BytesString(b int64) string {
 	if v, _ := strconv.ParseBool(os.Getenv(bytesStringBase2Envar)); v {
 		return BytesStringBase2(b)
 	}
+
 	return BytesStringBase10(b)
 }
 
