@@ -107,6 +107,7 @@ require (
 	github.com/edsrzf/mmap-go v1.1.0
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/klauspost/reedsolomon v1.11.6
+	github.com/pescuma/go-fs-snapshot v0.0.11
 	github.com/prometheus/client_model v0.3.0
 	go.opentelemetry.io/otel v1.13.0
 	go.opentelemetry.io/otel/exporters/jaeger v1.13.0
@@ -119,9 +120,11 @@ require (
 	cloud.google.com/go/compute v1.18.0 // indirect
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
 	cloud.google.com/go/iam v0.8.0 // indirect
+	github.com/Masterminds/semver/v3 v3.1.1 // indirect
 	github.com/alessio/shellescape v1.4.1 // indirect
 	github.com/chromedp/sysutil v1.0.0 // indirect
 	github.com/felixge/fgprof v0.9.3 // indirect
+	github.com/fourcorelabs/wintoken v1.0.0 // indirect
 	github.com/go-logr/logr v1.2.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
@@ -132,6 +135,6 @@ require (
 	github.com/googleapis/enterprise-certificate-proxy v0.2.3 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
-	github.com/pescuma/go-fs-snapshot v0.0.1 // indirect
+	github.com/winlabs/gowin32 v0.0.0-20221003142512-0d265587d3c9 // indirect
 	github.com/xhit/go-str2duration v1.2.0 // indirect
 )

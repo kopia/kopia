@@ -7,7 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	fs_snapshot "github.com/pescuma/go-fs-snapshot/lib"
+	"github.com/pescuma/go-fs-snapshot/lib/fs_snapshot"
 
 	"github.com/kopia/kopia/fs/mappedfs"
 	"github.com/kopia/kopia/internal/clock"
