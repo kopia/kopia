@@ -139,7 +139,7 @@ func (c *commandRepositorySyncTo) runSyncWithStorage(ctx context.Context, src bl
 		}
 
 		srcBlobs++
-		c.outputSyncProgress(fmt.Sprintf("  Found %v BLOBs (%v) in the source repository, %v (%v) to copy", srcBlobs, units.BytesStringBase10(totalSrcSize), len(blobsToCopy), units.BytesStringBase10(totalCopyBytes)))
+		c.outputSyncProgress(fmt.Sprintf("  Found %v BLOBs (%v) in the source repository, %v (%v) to copy", srcBlobs, units.BytesString(totalSrcSize), len(blobsToCopy), units.BytesString(totalCopyBytes)))
 
 		return nil
 	}); err != nil {
@@ -158,8 +158,8 @@ func (c *commandRepositorySyncTo) runSyncWithStorage(ctx context.Context, src bl
 
 	log(ctx).Infof(
 		"  Found %v BLOBs to delete (%v), %v in sync (%v)",
-		len(blobsToDelete), units.BytesStringBase10(totalDeleteBytes),
-		inSyncBlobs, units.BytesStringBase10(inSyncBytes),
+		len(blobsToDelete), units.BytesString(totalDeleteBytes),
+		inSyncBlobs, units.BytesString(inSyncBytes),
 	)
 
 	if c.repositorySyncDryRun {
@@ -186,7 +186,7 @@ func (c *commandRepositorySyncTo) listDestinationBlobs(ctx context.Context, dst 
 	if err := dst.ListBlobs(ctx, "", func(bm blob.Metadata) error {
 		dstMetadata[bm.BlobID] = bm
 		dstTotalBytes += bm.Length
-		c.outputSyncProgress(fmt.Sprintf("  Found %v BLOBs in the destination repository (%v)", len(dstMetadata), units.BytesStringBase10(dstTotalBytes)))
+		c.outputSyncProgress(fmt.Sprintf("  Found %v BLOBs in the destination repository (%v)", len(dstMetadata), units.BytesString(dstTotalBytes)))
 		return nil
 	}); err != nil {
 		return nil, errors.Wrap(err, "error listing BLOBs in destination repository")
@@ -255,7 +255,7 @@ func (c *commandRepositorySyncTo) runSyncBlobs(ctx context.Context, src blob.Rea
 
 				c.outputSyncProgress(
 					fmt.Sprintf("  Copied %v blobs (%v), Speed: %v, ETA: %v",
-						numBlobs, units.BytesStringBase10(bytesCopied), speed, eta))
+						numBlobs, units.BytesString(bytesCopied), speed, eta))
 				progressMutex.Unlock()
 			}
 

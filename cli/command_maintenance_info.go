@@ -64,7 +64,7 @@ func (c *commandMaintenanceInfo) run(ctx context.Context, rep repo.DirectReposit
 	c.out.printStdout("Log Retention:\n")
 	c.out.printStdout("  max count:       %v\n", cl.MaxCount)
 	c.out.printStdout("  max age of logs: %v\n", cl.MaxAge)
-	c.out.printStdout("  max total size:  %v\n", units.BytesStringBase2(cl.MaxTotalSize))
+	c.out.printStdout("  max total size:  %v\n", units.BytesString(cl.MaxTotalSize))
 
 	c.out.printStdout("Recent Maintenance Runs:\n")
 

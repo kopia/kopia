@@ -100,7 +100,7 @@ func (kc *KopiaClient) SnapshotCreate(ctx context.Context, key string, val []byt
 		return errors.Wrap(err, "cannot get manifest")
 	}
 
-	log.Printf("snapshotting %v", units.BytesStringBase10(atomic.LoadInt64(&man.Stats.TotalFileSize)))
+	log.Printf("snapshotting %v", units.BytesString(atomic.LoadInt64(&man.Stats.TotalFileSize)))
 
 	if _, err := snapshot.SaveSnapshot(ctx, rw, man); err != nil {
 		return errors.Wrap(err, "cannot save snapshot")
@@ -143,7 +143,7 @@ func (kc *KopiaClient) SnapshotRestore(ctx context.Context, key string) ([]byte,
 		return nil, err
 	}
 
-	log.Printf("restored %v", units.BytesStringBase10(int64(len(val))))
+	log.Printf("restored %v", units.BytesString(int64(len(val))))
 
 	if err := r.Close(ctx); err != nil {
 		return nil, err

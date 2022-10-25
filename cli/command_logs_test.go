@@ -107,6 +107,6 @@ func TestLogsMaintenance(t *testing.T) {
 
 	infoLines := e.RunAndExpectSuccess(t, "maintenance", "info")
 	require.Contains(t, infoLines, "  max age of logs: 22h0m0s")
-	require.Contains(t, infoLines, "  max total size:  33 MiB")
+	require.Contains(t, infoLines, "  max total size:  34.6 MB")
 	require.Contains(t, infoLines, "  max count:       44")
 }

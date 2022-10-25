@@ -126,7 +126,7 @@ func (c *commandBenchmarkSplitters) run(ctx context.Context) error { //nolint:fu
 
 		c.out.printStdout("%-25v %12v count:%v min:%v 10th:%v 25th:%v 50th:%v 75th:%v 90th:%v max:%v\n",
 			r.splitter,
-			units.BytesStringBase10(r.bytesPerSecond)+"/s",
+			units.BytesString(r.bytesPerSecond)+"/s",
 			r.segmentCount,
 			r.min, r.p10, r.p25, r.p50, r.p75, r.p90, r.max,
 		)
@@ -143,7 +143,7 @@ func (c *commandBenchmarkSplitters) run(ctx context.Context) error { //nolint:fu
 		c.out.printStdout("%3v. %-25v %-12v count:%v min:%v 10th:%v 25th:%v 50th:%v 75th:%v 90th:%v max:%v\n",
 			ndx,
 			r.splitter,
-			units.BytesStringBase10(r.bytesPerSecond)+"/s",
+			units.BytesString(r.bytesPerSecond)+"/s",
 			r.segmentCount,
 			r.min, r.p10, r.p25, r.p50, r.p75, r.p90, r.max)
 

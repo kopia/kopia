@@ -58,7 +58,7 @@ func (c *commandIndexEpochList) run(ctx context.Context, rep repo.DirectReposito
 				formatTimestamp(min),
 				formatTimestamp(max),
 				len(uces),
-				units.BytesStringBase2(blob.TotalLength(uces)),
+				units.BytesString(blob.TotalLength(uces)),
 				max.Sub(min).Round(time.Second),
 			)
 		}
@@ -68,7 +68,7 @@ func (c *commandIndexEpochList) run(ctx context.Context, rep repo.DirectReposito
 				e,
 				formatTimestamp(secs[0].Timestamp),
 				len(secs),
-				units.BytesStringBase2(blob.TotalLength(secs)),
+				units.BytesString(blob.TotalLength(secs)),
 			)
 		}
 	}
@@ -78,7 +78,7 @@ func (c *commandIndexEpochList) run(ctx context.Context, rep repo.DirectReposito
 			cs.MinEpoch,
 			cs.MaxEpoch,
 			len(cs.Blobs),
-			units.BytesStringBase2(blob.TotalLength(cs.Blobs)),
+			units.BytesString(blob.TotalLength(cs.Blobs)),
 		)
 	}
 

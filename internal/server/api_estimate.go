@@ -66,17 +66,17 @@ func logBucketSamples(ctx context.Context, buckets snapshotfs.SampleBuckets, pre
 
 		if i == 0 {
 			sizeRange = fmt.Sprintf("< %-6v",
-				units.BytesStringBase10(bucket.MinSize))
+				units.BytesString(bucket.MinSize))
 		} else {
 			sizeRange = fmt.Sprintf("%-6v...%6v",
-				units.BytesStringBase10(bucket.MinSize),
-				units.BytesStringBase10(buckets[i-1].MinSize))
+				units.BytesString(bucket.MinSize),
+				units.BytesString(buckets[i-1].MinSize))
 		}
 
 		log(ctx).Infof("%v files %v: %7v files, total size %v\n",
 			prefix,
 			sizeRange,
-			bucket.Count, units.BytesStringBase10(bucket.TotalSize))
+			bucket.Count, units.BytesString(bucket.TotalSize))
 
 		hasAny = true
 

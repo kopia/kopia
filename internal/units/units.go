@@ -1,8 +1,10 @@
-// Package units contains helpers to convert sizes to humand-readable strings.
+// Package units contains helpers to convert sizes to human-readable strings.
 package units
 
 import (
 	"fmt"
+	"os"
+	"strconv"
 	"strings"
 )
 
@@ -10,6 +12,10 @@ import (
 var (
 	base10UnitPrefixes = []string{"", "K", "M", "G", "T"}
 	base2UnitPrefixes  = []string{"", "Ki", "Mi", "Gi", "Ti"}
+)
+
+const (
+	bytesStringBase2Envar = "KOPIA_BYTES_STRING_BASE_2"
 )
 
 func niceNumber(f float64) string {
@@ -38,6 +44,15 @@ func BytesStringBase10(b int64) string {
 func BytesStringBase2(b int64) string {
 	//nolint:gomnd
 	return toDecimalUnitString(float64(b), 1024.0, base2UnitPrefixes, "B")
+}
+
+// BytesString formats the given value as bytes with the unit provided from the environment.
+func BytesString(b int64) string {
+	if v, _ := strconv.ParseBool(os.Getenv(bytesStringBase2Envar)); v {
+		return BytesStringBase2(b)
+	}
+
+	return BytesStringBase10(b)
 }
 
 // BytesPerSecondsString formats the given value bytes per second with the appropriate base-10 suffix (KB/s, MB/s, GB/s, ...)
