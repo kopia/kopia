@@ -78,14 +78,12 @@ func (c *commandBenchmarkHashing) runBenchmark(ctx context.Context) []cryptoBenc
 
 		hashCount := c.repeat
 
-		runInParallel(c.parallel, func() interface{} {
+		runInParallelNoResult(c.parallel, func() {
 			var hashOutput [hashing.MaxHashSize]byte
 
 			for i := 0; i < hashCount; i++ {
 				hf(hashOutput[:0], input)
 			}
-
-			return nil
 		})
 
 		_, bytesPerSecond := tt.Completed(float64(c.parallel) * float64(len(data)) * float64(hashCount))

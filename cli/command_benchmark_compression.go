@@ -121,7 +121,7 @@ func (c *commandBenchmarkCompression) run(ctx context.Context) error {
 
 		var startMS, endMS runtime.MemStats
 
-		run := func() interface{} {
+		run := func() int64 {
 			var (
 				compressedSize int64
 				lastHash       uint64
@@ -159,7 +159,7 @@ func (c *commandBenchmarkCompression) run(ctx context.Context) error {
 
 		runtime.ReadMemStats(&startMS)
 
-		compressedSize, _ := runInParallel(c.parallel, run).(int64)
+		compressedSize := runInParallel(c.parallel, run)
 
 		runtime.ReadMemStats(&endMS)
 

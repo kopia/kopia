@@ -95,7 +95,7 @@ func (c *commandBenchmarkEcc) runBenchmark(ctx context.Context) []eccBenchResult
 
 			repeat := c.repeat
 
-			runInParallel(c.parallel, func() interface{} {
+			runInParallelNoResult(c.parallel, func() {
 				var tmp gather.WriteBuffer
 				defer tmp.Close()
 
@@ -105,8 +105,6 @@ func (c *commandBenchmarkEcc) runBenchmark(ctx context.Context) []eccBenchResult
 						break
 					}
 				}
-
-				return nil
 			})
 
 			_, bytesPerSecondEncoding := tt.Completed(float64(c.parallel) * float64(len(data)) * float64(repeat))
@@ -123,7 +121,7 @@ func (c *commandBenchmarkEcc) runBenchmark(ctx context.Context) []eccBenchResult
 			input = encodedBuffer.Bytes()
 			tt = timetrack.Start()
 
-			runInParallel(c.parallel, func() interface{} {
+			runInParallelNoResult(c.parallel, func() {
 				var tmp gather.WriteBuffer
 				defer tmp.Close()
 
@@ -133,8 +131,6 @@ func (c *commandBenchmarkEcc) runBenchmark(ctx context.Context) []eccBenchResult
 						break
 					}
 				}
-
-				return nil
 			})
 
 			_, bytesPerSecondDecoding := tt.Completed(float64(c.parallel) * float64(len(data)) * float64(repeat))
