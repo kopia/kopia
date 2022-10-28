@@ -117,24 +117,29 @@ type SharedManager struct {
 	internalLogger     *zap.SugaredLogger // backing logger for 'sharedBaseLogger'
 }
 
-func (sm *SharedManager) loadIndexBlob(ctx context.Context, ibi IndexBlobInfo, d gather.WriteBuffer) ([]Info, error) {
-	err := sm.st.GetBlob(ctx, ibi.BlobID, 0, -1, &d)
+// loadIndexBlob return index information loaded from the specified blob
+func (sm *SharedManager) loadIndexBlob(ctx context.Context, ibid blob.ID, d gather.WriteBuffer) ([]Info, error) {
+	err := sm.st.GetBlob(ctx, ibid, 0, -1, &d)
 	if err != nil {
 		return nil, err
 	}
-	q, err := ParseIndexBlob(ibi.BlobID, d.Bytes(), sm.format)
+	q, err := ParseIndexBlob(ibid, d.Bytes(), sm.format)
 	if err != nil {
 		return nil, err
 	}
 	return q, nil
 }
 
+// assign store the info struct in a map that can be used to compare indexes
 func assign(iif Info, i int, m map[ID][2]Info) {
 	v := m[iif.GetContentID()]
 	v[i] = iif
 	m[iif.GetContentID()] = v
 }
 
+// ValidateIndexes returns an array of strings (report) that describes differences between
+// the V0 index blob and V1 index blob content.  This is used to check that the upgraded index
+// (V1 index) reflects the content of the old V0 index.
 func (sm *SharedManager) ValidateIndexes(ctx context.Context) ([]string, error) {
 
 	d := gather.WriteBuffer{}
@@ -146,10 +151,11 @@ func (sm *SharedManager) ValidateIndexes(ctx context.Context) ([]string, error) 
 	}
 
 	for _, ibi0 := range ibis0 {
+		// skip the V0 blob poison that is used to prevent client reads.
 		if ibi0.BlobID == legacyIndexPoisonBlobID {
 			continue
 		}
-		iifs0, err := sm.loadIndexBlob(ctx, ibi0, d)
+		iifs0, err := sm.loadIndexBlob(ctx, ibi0.BlobID, d)
 		if err != nil {
 			return nil, err
 		}
@@ -164,7 +170,7 @@ func (sm *SharedManager) ValidateIndexes(ctx context.Context) ([]string, error) 
 	}
 
 	for _, ibi1 := range ibis1 {
-		iifs1, err := sm.loadIndexBlob(ctx, ibi1, d)
+		iifs1, err := sm.loadIndexBlob(ctx, ibi1.BlobID, d)
 		if err != nil {
 			return nil, err
 		}
