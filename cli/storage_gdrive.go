@@ -39,5 +39,5 @@ func (c *storageGDriveFlags) Connect(ctx context.Context, isCreate bool, formatV
 	}
 
 	//nolint:wrapcheck
-	return gdrive.New(ctx, &c.options)
+	return gdrive.New(ctx, &c.options, false)
 }

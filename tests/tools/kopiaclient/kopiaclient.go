@@ -191,7 +191,7 @@ func (kc *KopiaClient) getStorage(ctx context.Context, repoDir, bucketName strin
 			AccessKeyID:     os.Getenv(awsAccessKeyIDEnvKey),
 			SecretAccessKey: os.Getenv(awsSecretAccessKeyEnvKey),
 		}
-		st, err = s3.New(ctx, s3Opts)
+		st, err = s3.New(ctx, s3Opts, false)
 	} else {
 		if iErr := os.MkdirAll(repoDir, 0o700); iErr != nil {
 			return nil, errors.Wrap(iErr, "cannot create directory")

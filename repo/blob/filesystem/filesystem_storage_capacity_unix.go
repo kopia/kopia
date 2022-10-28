@@ -14,7 +14,7 @@ import (
 )
 
 func (fs *fsStorage) GetCapacity(ctx context.Context) (blob.Capacity, error) {
-	c, err := retry.WithExponentialBackoff(ctx, "GetCapacity", func() (interface{}, error) {
+	return retry.WithExponentialBackoff(ctx, "GetCapacity", func() (blob.Capacity, error) {
 		var stat syscall.Statfs_t
 		if err := syscall.Statfs(fs.RootPath, &stat); err != nil {
 			return blob.Capacity{}, errors.Wrap(err, "GetCapacity")
@@ -24,7 +24,5 @@ func (fs *fsStorage) GetCapacity(ctx context.Context) (blob.Capacity, error) {
 			SizeB: uint64(stat.Blocks) * uint64(stat.Bsize), //nolint:unconvert
 			FreeB: uint64(stat.Bavail) * uint64(stat.Bsize), //nolint:unconvert
 		}, nil
-	}, fs.Impl.(*fsImpl).isRetriable)
-
-	return c.(blob.Capacity), err //nolint:forcetypeassert,wrapcheck
+	}, fs.Impl.(*fsImpl).isRetriable) //nolint:forcetypeassert
 }

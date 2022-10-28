@@ -85,7 +85,7 @@ func TestCleanupOldData(t *testing.T) {
 		Container:      container,
 		StorageAccount: storageAccount,
 		StorageKey:     storageKey,
-	})
+	}, false)
 
 	require.NoError(t, err)
 
@@ -117,7 +117,7 @@ func TestAzureStorage(t *testing.T) {
 		StorageAccount: storageAccount,
 		StorageKey:     storageKey,
 		Prefix:         fmt.Sprintf("test-%v-%x-", clock.Now().Unix(), data),
-	})
+	}, false)
 
 	cancel()
 	require.NoError(t, err)
@@ -150,7 +150,7 @@ func TestAzureStorageSASToken(t *testing.T) {
 		StorageAccount: storageAccount,
 		SASToken:       sasToken,
 		Prefix:         fmt.Sprintf("sastest-%v-%x-", clock.Now().Unix(), data),
-	})
+	}, false)
 
 	require.NoError(t, err)
 	cancel()
@@ -176,7 +176,7 @@ func TestAzureStorageInvalidBlob(t *testing.T) {
 		Container:      container,
 		StorageAccount: storageAccount,
 		StorageKey:     storageKey,
-	})
+	}, false)
 	if err != nil {
 		t.Fatalf("unable to connect to Azure container: %v", err)
 	}
@@ -204,7 +204,7 @@ func TestAzureStorageInvalidContainer(t *testing.T) {
 		Container:      container,
 		StorageAccount: storageAccount,
 		StorageKey:     storageKey,
-	})
+	}, false)
 
 	if err == nil {
 		t.Errorf("unexpected success connecting to Azure container, wanted error")
@@ -223,7 +223,7 @@ func TestAzureStorageInvalidCreds(t *testing.T) {
 		Container:      container,
 		StorageAccount: storageAccount,
 		StorageKey:     storageKey,
-	})
+	}, false)
 
 	if err == nil {
 		t.Errorf("unexpected success connecting to Azure blob storage, wanted error")

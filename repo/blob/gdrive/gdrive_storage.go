@@ -362,14 +362,9 @@ func (gdrive *gdriveStorage) getFileIDWithCache(ctx context.Context, entry *cach
 
 // Try getFileByBlobID with periodic backoff.
 func (gdrive *gdriveStorage) tryGetFileByBlobID(ctx context.Context, blobID blob.ID, fields googleapi.Field) (*drive.File, error) {
-	f, err := retry.Periodically(ctx, queryRetryDelay, queryRetryMax, fmt.Sprintf("getFileIDByblobID(%v)", blobID), func() (interface{}, error) {
+	return retry.Periodically(ctx, queryRetryDelay, queryRetryMax, fmt.Sprintf("getFileIDByblobID(%v)", blobID), func() (*drive.File, error) {
 		return gdrive.getFileByBlobID(ctx, blobID, fields)
 	}, retryNotFound)
-	if err != nil {
-		return nil, err //nolint:wrapcheck
-	}
-
-	return f.(*drive.File), nil //nolint:forcetypeassert
 }
 
 func (gdrive *gdriveStorage) getFileByFileID(ctx context.Context, fileID string, fields googleapi.Field) (*drive.File, error) {
@@ -545,7 +540,7 @@ func CreateDriveService(ctx context.Context, opt *Options) (*drive.Service, erro
 //
 // By default the connection reuses credentials managed by (https://cloud.google.com/sdk/),
 // but this can be disabled by setting IgnoreDefaultCredentials to true.
-func New(ctx context.Context, opt *Options) (blob.Storage, error) {
+func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error) {
 	if opt.FolderID == "" {
 		return nil, errors.New("folder-id must be specified")
 	}
@@ -578,12 +573,5 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 }
 
 func init() {
-	blob.AddSupportedStorage(
-		gdriveStorageType,
-		func() interface{} {
-			return &Options{}
-		},
-		func(ctx context.Context, o interface{}, isCreate bool) (blob.Storage, error) {
-			return New(ctx, o.(*Options)) //nolint:forcetypeassert
-		})
+	blob.AddSupportedStorage(gdriveStorageType, Options{}, New)
 }

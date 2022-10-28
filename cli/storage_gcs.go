@@ -40,5 +40,5 @@ func (c *storageGCSFlags) Connect(ctx context.Context, isCreate bool, formatVers
 	}
 
 	//nolint:wrapcheck
-	return gcs.New(ctx, &c.options)
+	return gcs.New(ctx, &c.options, false)
 }

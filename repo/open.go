@@ -228,11 +228,10 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 			return nil, ErrRepositoryUnavailableDueToUpgrageInProgress
 		}
 
-		return nil, nil
+		return false, nil
 	}, func(internalErr error) bool {
 		return !options.DoNotWaitForUpgrade && errors.Is(internalErr, ErrRepositoryUnavailableDueToUpgrageInProgress)
 	}); err != nil {
-		//nolint:wrapcheck
 		return nil, err
 	}
 

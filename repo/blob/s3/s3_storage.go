@@ -301,7 +301,7 @@ func getCustomTransport(insecureSkipVerify bool) (transport *http.Transport) {
 // New creates new S3-backed storage with specified options:
 //
 // - the 'BucketName' field is required and all other parameters are optional.
-func New(ctx context.Context, opt *Options) (blob.Storage, error) {
+func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error) {
 	st, err := newStorage(ctx, opt)
 	if err != nil {
 		return nil, err
@@ -387,12 +387,5 @@ func newStorageWithCredentials(ctx context.Context, creds *credentials.Credentia
 }
 
 func init() {
-	blob.AddSupportedStorage(
-		s3storageType,
-		func() interface{} {
-			return &Options{}
-		},
-		func(ctx context.Context, o interface{}, isCreate bool) (blob.Storage, error) {
-			return New(ctx, o.(*Options)) //nolint:forcetypeassert
-		})
+	blob.AddSupportedStorage(s3storageType, Options{}, New)
 }

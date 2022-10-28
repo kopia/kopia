@@ -226,7 +226,7 @@ func (az *azStorage) FlushCaches(ctx context.Context) error {
 // New creates new Azure Blob Storage-backed storage with specified options:
 //
 // - the 'Container', 'StorageAccount' and 'StorageKey' fields are required and all other parameters are optional.
-func New(ctx context.Context, opt *Options) (blob.Storage, error) {
+func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error) {
 	if opt.Container == "" {
 		return nil, errors.New("container name must be specified")
 	}
@@ -290,12 +290,5 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 }
 
 func init() {
-	blob.AddSupportedStorage(
-		azStorageType,
-		func() interface{} {
-			return &Options{}
-		},
-		func(ctx context.Context, o interface{}, isCreate bool) (blob.Storage, error) {
-			return New(ctx, o.(*Options)) //nolint:forcetypeassert
-		})
+	blob.AddSupportedStorage(azStorageType, Options{}, New)
 }

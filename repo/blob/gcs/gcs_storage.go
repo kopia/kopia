@@ -241,7 +241,7 @@ func tokenSourceFromCredentialsJSON(ctx context.Context, data json.RawMessage, s
 //
 // By default the connection reuses credentials managed by (https://cloud.google.com/sdk/),
 // but this can be disabled by setting IgnoreDefaultCredentials to true.
-func New(ctx context.Context, opt *Options) (blob.Storage, error) {
+func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error) {
 	var ts oauth2.TokenSource
 
 	var err error
@@ -295,12 +295,5 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 }
 
 func init() {
-	blob.AddSupportedStorage(
-		gcsStorageType,
-		func() interface{} {
-			return &Options{}
-		},
-		func(ctx context.Context, o interface{}, isCreate bool) (blob.Storage, error) {
-			return New(ctx, o.(*Options)) //nolint:forcetypeassert
-		})
+	blob.AddSupportedStorage(gcsStorageType, Options{}, New)
 }

@@ -419,7 +419,7 @@ func TestInvalidCredsFailsFast(t *testing.T) {
 		Region:          minioRegion,
 		DoNotUseTLS:     false,
 		DoNotVerifyTLS:  false,
-	})
+	}, false)
 	require.Error(t, err)
 
 	//nolint:forbidigo
@@ -493,7 +493,7 @@ func TestNeedMD5AWS(t *testing.T) {
 
 	options.Prefix = uuid.NewString() + "/"
 
-	s, err := New(ctx, options)
+	s, err := New(ctx, options, false)
 	require.NoError(t, err, "could not create storage")
 
 	t.Cleanup(func() {
@@ -511,7 +511,7 @@ func testStorage(t *testing.T, options *Options, runValidationTest bool, opts bl
 
 	require.Equal(t, "", options.Prefix)
 
-	st0, err := New(ctx, options)
+	st0, err := New(ctx, options, false)
 
 	require.NoError(t, err)
 
@@ -523,7 +523,7 @@ func testStorage(t *testing.T, options *Options, runValidationTest bool, opts bl
 
 	// use context that gets canceled after opening storage to ensure it's not used beyond New().
 	newctx, cancel := context.WithCancel(ctx)
-	st, err := New(newctx, options)
+	st, err := New(newctx, options, false)
 
 	cancel()
 	require.NoError(t, err)
