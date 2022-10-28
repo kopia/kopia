@@ -50,15 +50,15 @@ import (
 // It provides API designed to minimize allocations while being reasonably easy to use.
 // AsyncGroup is very lightweight and NOT safe for concurrent use, all interactions must
 // be from the same goroutine.
-type AsyncGroup struct {
+type AsyncGroup[T any] struct {
 	wg       *sync.WaitGroup
-	requests []interface{}
+	requests []T
 	waited   bool
 	isClosed bool
 }
 
 // Wait waits for scheduled asynchronous work to complete and returns all asynchronously processed inputs.
-func (g *AsyncGroup) Wait() []interface{} {
+func (g *AsyncGroup[T]) Wait() []T {
 	if g.isClosed {
 		panic("Wait() can't be called after Close()")
 	}
@@ -79,7 +79,7 @@ func (g *AsyncGroup) Wait() []interface{} {
 }
 
 // Close ensures all asynchronous work has been awaited for.
-func (g *AsyncGroup) Close() {
+func (g *AsyncGroup[T]) Close() {
 	if g.isClosed {
 		return
 	}
@@ -93,19 +93,17 @@ func (g *AsyncGroup) Close() {
 
 // RunAsync starts the asynchronous work to process the provided request,
 // the user must call Wait() after all RunAsync() have been scheduled.
-func (g *AsyncGroup) RunAsync(w *Pool, process ProcessFunc, request interface{}) {
+func (g *AsyncGroup[T]) RunAsync(w *Pool[T], process ProcessFunc[T], request T) {
 	if g.wg == nil {
 		g.wg = &sync.WaitGroup{}
 	}
 
 	g.wg.Add(1)
 
-	if request != nil {
-		g.requests = append(g.requests, request)
-	}
+	g.requests = append(g.requests, request)
 
 	select {
-	case w.work <- workItem{
+	case w.work <- workItem[T]{
 		process: process,
 		request: request,
 		wg:      g.wg,
@@ -119,7 +117,7 @@ func (g *AsyncGroup) RunAsync(w *Pool, process ProcessFunc, request interface{})
 // CanShareWork determines if the provided worker pool has capacity to share work.
 // If the function returns true, the use MUST call RunAsync() exactly once. This pattern avoids
 // allocations required to create asynchronous input if the worker pool is full.
-func (g *AsyncGroup) CanShareWork(w *Pool) bool {
+func (g *AsyncGroup[T]) CanShareWork(w *Pool[T]) bool {
 	// check pool is not closed
 	select {
 	case <-w.closed:

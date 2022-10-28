@@ -50,7 +50,7 @@ type DirRewriterOptions struct {
 
 // DirRewriter rewrites contents of directories by walking the snapshot tree recursively.
 type DirRewriter struct {
-	ws   *workshare.Pool
+	ws   *workshare.Pool[*dirRewriterRequest]
 	opts DirRewriterOptions
 
 	cache *bigmap.Map
@@ -66,9 +66,7 @@ type dirRewriterRequest struct {
 	err        error
 }
 
-func (rw *DirRewriter) processRequest(pool *workshare.Pool, req0 interface{}) {
-	req, _ := req0.(*dirRewriterRequest)
-
+func (rw *DirRewriter) processRequest(pool *workshare.Pool[*dirRewriterRequest], req *dirRewriterRequest) {
 	req.result, req.err = rw.getCachedReplacement(req.ctx, req.parentPath, req.input)
 }
 
@@ -151,7 +149,7 @@ func (rw *DirRewriter) processDirectory(ctx context.Context, pathFromRoot string
 func (rw *DirRewriter) processDirectoryEntries(ctx context.Context, parentPath string, entry *snapshot.DirEntry, entries []*snapshot.DirEntry) (*snapshot.DirEntry, error) {
 	var (
 		builder DirManifestBuilder
-		wg      workshare.AsyncGroup
+		wg      workshare.AsyncGroup[*dirRewriterRequest]
 	)
 
 	// ensure we wait for all work items before returning
@@ -187,10 +185,8 @@ func (rw *DirRewriter) processDirectoryEntries(ctx context.Context, parentPath s
 	// now wait for all asynchronous work to complete and add resulting entries to
 	// the builder
 	for _, req := range wg.Wait() {
-		if req, ok := req.(*dirRewriterRequest); ok {
-			if req.result != nil {
-				builder.AddEntry(req.result)
-			}
+		if req.result != nil {
+			builder.AddEntry(req.result)
 		}
 	}
 
@@ -322,7 +318,7 @@ func NewDirRewriter(ctx context.Context, rep repo.RepositoryWriter, opts DirRewr
 	}
 
 	return &DirRewriter{
-		ws:    workshare.NewPool(opts.Parallel - 1),
+		ws:    workshare.NewPool[*dirRewriterRequest](opts.Parallel - 1),
 		opts:  opts,
 		rep:   rep,
 		cache: cache,

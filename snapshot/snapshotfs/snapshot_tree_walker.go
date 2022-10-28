@@ -25,7 +25,7 @@ type TreeWalker struct {
 	options TreeWalkerOptions
 
 	enqueued *bigmap.Set
-	wp       *workshare.Pool
+	wp       *workshare.Pool[any]
 
 	mu sync.Mutex
 	// +checklocks:mu
@@ -111,7 +111,7 @@ func (w *TreeWalker) processDirEntry(ctx context.Context, dir fs.Directory, entr
 		error
 	}
 
-	var ag workshare.AsyncGroup
+	var ag workshare.AsyncGroup[any]
 	defer ag.Close()
 
 	err := dir.IterateEntries(ctx, func(c context.Context, ent fs.Entry) error {
@@ -126,7 +126,7 @@ func (w *TreeWalker) processDirEntry(ctx context.Context, dir fs.Directory, entr
 		childPath := path.Join(entryPath, ent.Name())
 
 		if ag.CanShareWork(w.wp) {
-			ag.RunAsync(w.wp, func(c *workshare.Pool, request interface{}) {
+			ag.RunAsync(w.wp, func(c *workshare.Pool[any], request any) {
 				w.processEntry(ctx, ent, childPath)
 			}, nil)
 		} else {
@@ -188,7 +188,7 @@ func NewTreeWalker(ctx context.Context, options TreeWalkerOptions) (*TreeWalker,
 
 	return &TreeWalker{
 		options:  options,
-		wp:       workshare.NewPool(options.Parallelism - 1),
+		wp:       workshare.NewPool[any](options.Parallelism - 1),
 		enqueued: s,
 	}, nil
 }
