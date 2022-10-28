@@ -8,6 +8,8 @@ import (
 )
 
 // Info is an information about a single piece of content managed by Manager.
+//
+//nolint:interfacebloat
 type Info interface {
 	GetContentID() ID
 	GetPackBlobID() blob.ID

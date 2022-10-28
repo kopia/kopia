@@ -98,8 +98,8 @@ type FilesystemOutput struct {
 
 // Init initializes the internal members of the filesystem writer output.
 // This method must be called before FilesystemOutput can be used.
-func (o *FilesystemOutput) Init() error {
-	c, err := getStreamCopier(context.TODO(), o.TargetPath, o.WriteSparseFiles)
+func (o *FilesystemOutput) Init(ctx context.Context) error {
+	c, err := getStreamCopier(ctx, o.TargetPath, o.WriteSparseFiles)
 	if err != nil {
 		return errors.Wrap(err, "unable to get stream copier")
 	}

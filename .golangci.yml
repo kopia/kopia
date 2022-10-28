@@ -1,5 +1,5 @@
 run:
-  go: '1.17'
+  go: '1.19'
   skip-dirs:
     - test/testdata_etc
 
@@ -70,6 +70,7 @@ linters-settings:
 linters:
   enable-all: true
   disable:
+    - deadcode
     - exhaustivestruct
     - exhaustruct
     - gochecknoinits
@@ -85,16 +86,24 @@ linters:
     - nosnakecase
     - paralleltest
     - prealloc
+    - rowserrcheck
     - scopelint
+    - sqlclosecheck
+    - structcheck
     - tagliatelle
     - testpackage
     - tparallel
+    - varcheck
     - varnamelen # this one may be interesting, but too much churn
+    - wastedassign
     - whitespace
 
 issues:
   exclude-use-default: false
   exclude-rules:
+    - path: \.pb\.go
+      linters:
+      - gofmt
     - path: _test\.go|testing|tests|test_env|fshasher|fault
       linters:
       - contextcheck
@@ -107,6 +116,7 @@ issues:
       - gomnd
       - gosec
       - nestif
+      - revive
       - nolintlint
       - wrapcheck
     - text: "log is a global variable"
@@ -133,6 +143,9 @@ issues:
     - text: "Line contains TODO"
       linters:
         - godox
+    - text: timeCmpSimplify
+      linters:
+        - gocritic
     - text: ".*Magic number\\: [01],"
       linters:
         - gomnd

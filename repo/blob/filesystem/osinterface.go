@@ -8,6 +8,8 @@ import (
 )
 
 // osInterface is an operating system file interface, used by filesystemStorage to support mocking.
+//
+//nolint:interfacebloat
 type osInterface interface {
 	Open(fname string) (osReadFile, error)
 	IsNotExist(err error) bool

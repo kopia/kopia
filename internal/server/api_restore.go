@@ -51,7 +51,7 @@ func handleRestore(ctx context.Context, rc requestContext) (interface{}, *apiErr
 
 	switch {
 	case req.Filesystem != nil:
-		if err := req.Filesystem.Init(); err != nil {
+		if err := req.Filesystem.Init(ctx); err != nil {
 			return nil, internalServerError(err)
 		}
 

@@ -7,7 +7,9 @@ import (
 	"github.com/kopia/kopia/internal/uitask"
 )
 
-// UploadProgress is invoked by by uploader to report status of file and directory uploads.
+// UploadProgress is invoked by uploader to report status of file and directory uploads.
+//
+//nolint:interfacebloat
 type UploadProgress interface {
 	// UploadStarted is emitted once at the start of an upload
 	UploadStarted()

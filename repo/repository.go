@@ -21,6 +21,8 @@ import (
 var tracer = otel.Tracer("kopia/repository")
 
 // Repository exposes public API of Kopia repository, including objects and manifests.
+//
+//nolint:interfacebloat
 type Repository interface {
 	OpenObject(ctx context.Context, id object.ID) (object.Reader, error)
 	VerifyObject(ctx context.Context, id object.ID) ([]content.ID, error)
@@ -49,6 +51,8 @@ type RepositoryWriter interface {
 }
 
 // DirectRepository provides additional low-level repository functionality.
+//
+//nolint:interfacebloat
 type DirectRepository interface {
 	Repository
 

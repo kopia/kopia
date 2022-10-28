@@ -102,7 +102,7 @@ func (fs *fsImpl) GetBlobFromPath(ctx context.Context, dirPath, path string, off
 				if st, err := f.Stat(); err == nil && st.Size() == 0 {
 					// this sometimes fails on macOS for unknown reasons, likely a bug in the filesystem
 					// retry deals with this transient state.
-					// see see https://github.com/kopia/kopia/issues/299
+					// see https://github.com/kopia/kopia/issues/299
 					return errRetriableInvalidLength
 				}
 			}

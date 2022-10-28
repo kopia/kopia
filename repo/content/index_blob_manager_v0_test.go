@@ -683,7 +683,7 @@ func getAllFakeContentsInternal(ctx context.Context, t *testing.T, m *indexBlobM
 			return nil, nil, errors.Wrap(err, "error unmarshaling")
 		}
 
-		// merge contents based based on time
+		// merge contents based on time
 		for k, v := range indexData.Entries {
 			old, ok := allContents[k]
 

@@ -93,7 +93,7 @@ func (c *observabilityFlags) startMetrics(ctx context.Context) error {
 
 		log(ctx).Infof("starting prometheus metrics on %v", c.metricsListenAddr)
 
-		go http.ListenAndServe(c.metricsListenAddr, m) //nolint:errcheck
+		go http.ListenAndServe(c.metricsListenAddr, m) //nolint:errcheck,gosec
 	}
 
 	if c.metricsPushAddr != "" {

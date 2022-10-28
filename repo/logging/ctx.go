@@ -44,7 +44,7 @@ func loggerFactoryFromContext(ctx context.Context) LoggerFactory {
 	return v.(*loggerCache).getLogger //nolint:forcetypeassert
 }
 
-// AlsoLogTo returns a context where all logging is emitted the the original output plus the provided loggers.
+// AlsoLogTo returns a context where all logging is emitted the original output plus the provided loggers.
 func AlsoLogTo(ctx context.Context, loggers ...Logger) context.Context {
 	originalLogFactory := loggerFactoryFromContext(ctx)
 

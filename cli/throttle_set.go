@@ -79,7 +79,6 @@ func (c *commonThrottleSet) setThrottleFloat64(ctx context.Context, desc string,
 		return nil
 	}
 
-	//nolint:gomnd
 	v, err := strconv.ParseFloat(str, 64)
 	if err != nil {
 		return errors.Wrapf(err, "can't parse the %v %q", desc, str)
@@ -114,7 +113,6 @@ func (c *commonThrottleSet) setThrottleInt(ctx context.Context, desc string, val
 		return nil
 	}
 
-	//nolint:gomnd
 	v, err := strconv.ParseInt(str, 10, 64)
 	if err != nil {
 		return errors.Wrapf(err, "can't parse the %v %q", desc, str)

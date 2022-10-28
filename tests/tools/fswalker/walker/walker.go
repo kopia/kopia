@@ -1,7 +1,7 @@
 //go:build darwin || (linux && amd64)
 // +build darwin linux,amd64
 
-// Package walker wraps calls to the the fswalker Walker
+// Package walker wraps calls to the fswalker Walker
 package walker
 
 import (

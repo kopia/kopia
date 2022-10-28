@@ -1,3 +1,4 @@
+// Command cli2md generates documentation pages from CLI flags.
 package main
 
 import (
