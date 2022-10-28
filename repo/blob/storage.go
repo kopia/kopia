@@ -74,7 +74,7 @@ type Volume interface {
 // Reader defines read access API to blob storage.
 type Reader interface {
 	// GetBlob returns full or partial contents of a blob with given ID.
-	// If length>0, the the function retrieves a range of bytes [offset,offset+length)
+	// If length>0, the function retrieves a range of bytes [offset,offset+length)
 	// If length<0, the entire blob must be fetched.
 	// Returns ErrInvalidRange if the fetched blob length is invalid.
 	GetBlob(ctx context.Context, blobID ID, offset, length int64, output OutputBuffer) error

@@ -187,7 +187,6 @@ func applyOptionalInt(ctx context.Context, desc string, val **policy.OptionalInt
 		return nil
 	}
 
-	//nolint:gomnd
 	v, err := strconv.ParseInt(str, 10, 32)
 	if err != nil {
 		return errors.Wrapf(err, "can't parse the %v %q", desc, str)
@@ -218,7 +217,6 @@ func applyOptionalInt64MiB(ctx context.Context, desc string, val **policy.Option
 		return nil
 	}
 
-	//nolint:gomnd
 	v, err := strconv.ParseInt(str, 10, 32)
 	if err != nil {
 		return errors.Wrapf(err, "can't parse the %v %q", desc, str)
@@ -253,7 +251,6 @@ func applyPolicyNumber64(ctx context.Context, desc string, val *int64, str strin
 		return nil
 	}
 
-	//nolint:gomnd
 	v, err := strconv.ParseInt(str, 10, 64)
 	if err != nil {
 		return errors.Wrapf(err, "can't parse the %q %q", desc, str)

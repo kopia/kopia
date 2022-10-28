@@ -15,6 +15,7 @@ import (
 	"github.com/kopia/kopia/snapshot"
 )
 
+//nolint:interfacebloat
 type serverInterface interface {
 	deleteSourceManager(ctx context.Context, src snapshot.SourceInfo) bool
 	generateShortTermAuthCookie(username string, now time.Time) (string, error)

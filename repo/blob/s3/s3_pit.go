@@ -102,7 +102,7 @@ func newestAtUnlessDeleted(vs []versionMetadata, t time.Time) (v versionMetadata
 	return v, !v.IsDeleteMarker
 }
 
-// Removes versions that are newer than t. The filtering is done in place and
+// Removes versions that are newer than t. The filtering is done in place
 // and uses the same slice storage as vs. Assumes entries in vs are in descending
 // timestamp order.
 func getOlderThan(vs []versionMetadata, t time.Time) []versionMetadata {

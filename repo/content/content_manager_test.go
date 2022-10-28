@@ -1455,7 +1455,7 @@ func (s *contentManagerSuite) TestRewriteDeleted(t *testing.T) {
 
 func (s *contentManagerSuite) TestDeleteAndRecreate(t *testing.T) {
 	ctx := testlogging.Context(t)
-	// simulate race between delete/recreate and delete
+	// simulate race between delete/recreate and
 	// delete happens at t0+10, recreate at t0+20 and second delete time is parameterized.
 	// depending on it, the second delete results will be visible.
 	cases := []struct {

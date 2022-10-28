@@ -42,7 +42,7 @@ const (
 	sleepOnMaintenanceError        = 30 * time.Minute
 
 	// retry initialization of repository starting at 1s doubling delay each time up to max 5 minutes
-	// (1s, 2s, 4s, 8s, 16s, 32s, 64s, 128s, 256s, 300s, 300s, 300s, ...)
+	// (1s, 2s, 4s, 8s, 16s, 32s, 64s, 128s, 256s, 300s, which then stays at 300s...)
 	retryInitRepositorySleepOnError    = 1 * time.Second
 	maxRetryInitRepositorySleepOnError = 5 * time.Minute
 
@@ -288,6 +288,7 @@ func (s *Server) requireAuth(checkCSRFToken csrfTokenOption, f func(ctx context.
 	return func(w http.ResponseWriter, r *http.Request) {
 		rc := s.captureRequestContext(w, r)
 
+		//nolint:contextcheck
 		if !isAuthenticated(rc) {
 			return
 		}
@@ -813,10 +814,12 @@ func (s *Server) ServeStaticFiles(m *mux.Router, fs http.FileSystem) {
 
 		rc := s.captureRequestContext(w, r)
 
+		//nolint:contextcheck
 		if !isAuthenticated(rc) {
 			return
 		}
 
+		//nolint:contextcheck
 		if !requireUIUser(rc.req.Context(), rc) {
 			http.Error(w, `UI Access denied. See https://github.com/kopia/kopia/issues/880#issuecomment-798421751 for more information.`, http.StatusForbidden)
 			return

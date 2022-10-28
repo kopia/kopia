@@ -126,7 +126,7 @@ type VerifierOptions struct {
 	BlobMap            map[blob.ID]blob.Metadata
 }
 
-// InParallel starts parallel verification and invokes the provided function which can call
+// InParallel starts parallel verification and invokes the provided function which can
 // call Process() on in the provided TreeWalker.
 func (v *Verifier) InParallel(ctx context.Context, enqueue func(tw *TreeWalker) error) error {
 	tw, twerr := NewTreeWalker(ctx, TreeWalkerOptions{

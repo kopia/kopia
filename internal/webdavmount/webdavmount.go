@@ -124,6 +124,7 @@ func (d *webdavDir) Readdir(n int) ([]os.FileInfo, error) {
 
 		if _, isSymlink := e.(fs.Symlink); isSymlink {
 			if atomic.AddInt32(symlinksAreUnsupportedLogged, 1) == 1 {
+				//nolint:contextcheck
 				log(d.ctx).Errorf("Mounting directories containing symbolic links using WebDAV is not supported. The link entries will be skipped.")
 			}
 

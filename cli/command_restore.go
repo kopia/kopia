@@ -212,7 +212,7 @@ func (c *commandRestore) constructTargetPairs(rep repo.Repository) error {
 		return nil
 	case tplen == 0 && restpslen == 2:
 		// This means that none of the restoreTargetPaths are placeholders and we
-		// we have two args: a sourceID and a destination directory.
+		// have two args: a sourceID and a destination directory.
 		absp, err := filepath.Abs(c.restoreTargetPaths[1])
 		if err != nil {
 			return errors.Wrapf(err, "restore can't resolve path for %q", c.restoreTargetPaths[1])
@@ -261,7 +261,7 @@ func (c *commandRestore) restoreOutput(ctx context.Context, rep repo.Repository)
 			WriteSparseFiles:       c.restoreWriteSparseFiles,
 		}
 
-		if err := o.Init(); err != nil {
+		if err := o.Init(ctx); err != nil {
 			return nil, errors.Wrap(err, "unable to create output file")
 		}
 

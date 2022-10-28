@@ -69,7 +69,7 @@ ifneq ($(GOOS)/$(GOARCH),linux/arm)
 endif
 endif
 
-lint: $(linter) check-locks
+lint: $(linter)
 ifneq ($(GOOS)/$(GOARCH),linux/arm64)
 ifneq ($(GOOS)/$(GOARCH),linux/arm)
 	$(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)

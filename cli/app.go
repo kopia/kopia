@@ -71,6 +71,8 @@ func (o *textOutput) printStderr(msg string, args ...interface{}) {
 }
 
 // appServices are the methods of *App that command handles are allowed to call.
+//
+//nolint:interfacebloat
 type appServices interface {
 	noRepositoryAction(act func(ctx context.Context) error) func(ctx *kingpin.ParseContext) error
 	serverAction(sf *serverClientFlags, act func(ctx context.Context, cli *apiclient.KopiaAPIClient) error) func(ctx *kingpin.ParseContext) error
@@ -93,6 +95,7 @@ type appServices interface {
 	EnvName(s string) string
 }
 
+//nolint:interfacebloat
 type advancedAppServices interface {
 	appServices
 	StorageProviderServices

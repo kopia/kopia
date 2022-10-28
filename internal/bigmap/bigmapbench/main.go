@@ -1,3 +1,4 @@
+// Command bigmapbench provides a benchmark for the bigmap implementation.
 package main
 
 import (
