@@ -2,6 +2,7 @@ package content
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -21,6 +22,7 @@ import (
 	"github.com/kopia/kopia/repo/blob/filesystem"
 	"github.com/kopia/kopia/repo/blob/sharded"
 	"github.com/kopia/kopia/repo/compression"
+	"github.com/kopia/kopia/repo/content/index"
 	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/hashing"
 	"github.com/kopia/kopia/repo/logging"
@@ -113,6 +115,75 @@ type SharedManager struct {
 	contextLogger      logging.Logger
 	internalLogManager *internalLogManager
 	internalLogger     *zap.SugaredLogger // backing logger for 'sharedBaseLogger'
+}
+
+func (sm *SharedManager) loadIndexBlob(ctx context.Context, ibi IndexBlobInfo, d gather.WriteBuffer) ([]Info, error) {
+	err := sm.st.GetBlob(ctx, ibi.BlobID, 0, -1, &d)
+	if err != nil {
+		return nil, err
+	}
+	q, err := ParseIndexBlob(ibi.BlobID, d.Bytes(), sm.format)
+	if err != nil {
+		return nil, err
+	}
+	return q, nil
+}
+
+func assign(iif Info, i int, m map[ID][2]Info) {
+	v := m[iif.GetContentID()]
+	v[i] = iif
+	m[iif.GetContentID()] = v
+}
+
+func (sm *SharedManager) ValidateIndexes(ctx context.Context) ([]string, error) {
+
+	d := gather.WriteBuffer{}
+	indexEntries := map[ID][2]Info{}
+
+	ibis0, _, err := sm.indexBlobManagerV0.listActiveIndexBlobs(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, ibi0 := range ibis0 {
+		if ibi0.BlobID == legacyIndexPoisonBlobID {
+			continue
+		}
+		iifs0, err := sm.loadIndexBlob(ctx, ibi0, d)
+		if err != nil {
+			return nil, err
+		}
+		for _, iif0 := range iifs0 {
+			assign(iif0, 0, indexEntries)
+		}
+	}
+
+	ibis1, _, err := sm.indexBlobManagerV1.listActiveIndexBlobs(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, ibi1 := range ibis1 {
+		iifs1, err := sm.loadIndexBlob(ctx, ibi1, d)
+		if err != nil {
+			return nil, err
+		}
+		for _, iif1 := range iifs1 {
+			assign(iif1, 1, indexEntries)
+		}
+	}
+
+	var report []string
+	for k, ies := range indexEntries {
+		if ies[0] == nil || ies[1] == nil {
+			report = append(report, fmt.Sprintf("lop-sided index entries for contentID %q", k))
+			continue
+		}
+		diffs := index.DiffInfo(ies[0], ies[1])
+		report = append(report, diffs...)
+	}
+
+	return report, nil
 }
 
 func (sm *SharedManager) readPackFileLocalIndex(ctx context.Context, packFile blob.ID, packFileLength int64, output *gather.WriteBuffer) error {
