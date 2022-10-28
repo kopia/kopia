@@ -72,7 +72,22 @@ func (c *commandRepositoryUpgrade) setup(svc advancedAppServices, parent command
 
 	rollbackCmd.Action(svc.directRepositoryWriteAction(c.forceRollbackAction))
 
+	validateCmd := parent.Command("validate", "Validate the upgraded indexes.")
+	validateCmd.Flag("force", "Force rollback the repository upgrade, this action can cause repository corruption").BoolVar(&c.forceRollback)
+
+	validateCmd.Action(svc.directRepositoryWriteAction(c.validateAction))
+
 	c.svc = svc
+}
+
+func (c *commandRepositoryUpgrade) validateAction(ctx context.Context, rep repo.DirectRepositoryWriter) error {
+
+	_, err := rep.ContentManager().SharedManager.ValidateIndexes(ctx)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (c *commandRepositoryUpgrade) forceRollbackAction(ctx context.Context, rep repo.DirectRepositoryWriter) error {
