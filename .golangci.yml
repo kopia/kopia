@@ -143,6 +143,12 @@ issues:
     - text: "Line contains TODO"
       linters:
         - godox
+    - text: "error returned from external package is unwrapped: sig: func github.com/kopia/kopia/internal/retry"
+      linters:
+        - wrapcheck
+    - text: "error returned from external package is unwrapped: sig: func github.com/kopia/kopia/internal/connection.UsingConnection"
+      linters:
+        - wrapcheck
     - text: timeCmpSimplify
       linters:
         - gocritic

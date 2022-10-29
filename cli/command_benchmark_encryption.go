@@ -83,7 +83,7 @@ func (c *commandBenchmarkEncryption) runBenchmark(ctx context.Context) []cryptoB
 
 		hashCount := c.repeat
 
-		runInParallel(c.parallel, func() interface{} {
+		runInParallelNoResult(c.parallel, func() {
 			var hashOutput [hashing.MaxHashSize]byte
 
 			var encryptOutput gather.WriteBuffer
@@ -95,8 +95,6 @@ func (c *commandBenchmarkEncryption) runBenchmark(ctx context.Context) []cryptoB
 					break
 				}
 			}
-
-			return nil
 		})
 
 		_, bytesPerSecond := tt.Completed(float64(c.parallel) * float64(len(data)) * float64(hashCount))

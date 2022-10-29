@@ -27,33 +27,24 @@ func (s retryingStorage) GetBlob(ctx context.Context, id blob.ID, offset, length
 }
 
 func (s retryingStorage) GetMetadata(ctx context.Context, id blob.ID) (blob.Metadata, error) {
-	v, err := retry.WithExponentialBackoff(ctx, "GetMetadata("+string(id)+")", func() (interface{}, error) {
+	return retry.WithExponentialBackoff(ctx, "GetMetadata("+string(id)+")", func() (blob.Metadata, error) {
 		//nolint:wrapcheck
 		return s.Storage.GetMetadata(ctx, id)
 	}, isRetriable)
-	if err != nil {
-		return blob.Metadata{}, err //nolint:wrapcheck
-	}
-
-	return v.(blob.Metadata), nil //nolint:forcetypeassert
 }
 
 func (s retryingStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes, opts blob.PutOptions) error {
-	_, err := retry.WithExponentialBackoff(ctx, "PutBlob("+string(id)+")", func() (interface{}, error) {
+	return retry.WithExponentialBackoffNoValue(ctx, "PutBlob("+string(id)+")", func() error {
 		//nolint:wrapcheck
-		return true, s.Storage.PutBlob(ctx, id, data, opts)
+		return s.Storage.PutBlob(ctx, id, data, opts)
 	}, isRetriable)
-
-	return err //nolint:wrapcheck
 }
 
 func (s retryingStorage) DeleteBlob(ctx context.Context, id blob.ID) error {
-	_, err := retry.WithExponentialBackoff(ctx, "DeleteBlob("+string(id)+")", func() (interface{}, error) {
-		//nolint:wrapcheck
-		return true, s.Storage.DeleteBlob(ctx, id)
+	//nolint:wrapcheck
+	return retry.WithExponentialBackoffNoValue(ctx, "DeleteBlob("+string(id)+")", func() error {
+		return s.Storage.DeleteBlob(ctx, id)
 	}, isRetriable)
-
-	return err //nolint:wrapcheck
 }
 
 // NewWrapper returns a Storage wrapper that adds retry loop around all operations of the underlying storage.

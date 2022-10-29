@@ -6,28 +6,30 @@ import (
 	"github.com/pkg/errors"
 )
 
-// CreateStorageFunc is a function that returns Storage with provided options, optionally
-// creating the underlying storage location (e.g. directory), when possible.
-type CreateStorageFunc func(ctx context.Context, options interface{}, isCreate bool) (Storage, error)
-
 //nolint:gochecknoglobals
 var factories = map[string]*storageFactory{}
 
 // StorageFactory allows creation of repositories in a generic way.
 type storageFactory struct {
 	defaultConfigFunc func() interface{}
-	createStorageFunc CreateStorageFunc
+	createStorageFunc func(ctx context.Context, options interface{}, isCreate bool) (Storage, error)
 }
 
 // AddSupportedStorage registers factory function to create storage with a given type name.
-func AddSupportedStorage(
+func AddSupportedStorage[T any](
 	urlScheme string,
-	defaultConfigFunc func() interface{},
-	createStorageFunc CreateStorageFunc,
+	defaultConfig T,
+	createStorageFunc func(ctx context.Context, options *T, isCreate bool) (Storage, error),
 ) {
 	f := &storageFactory{
-		defaultConfigFunc: defaultConfigFunc,
-		createStorageFunc: createStorageFunc,
+		defaultConfigFunc: func() interface{} {
+			c := defaultConfig
+			return &c
+		},
+		createStorageFunc: func(ctx context.Context, options interface{}, isCreate bool) (Storage, error) {
+			//nolint:forcetypeassert
+			return createStorageFunc(ctx, options.(*T), isCreate)
+		},
 	}
 
 	factories[urlScheme] = f

@@ -113,7 +113,7 @@ type Uploader struct {
 	// disable snapshot size estimation
 	disableEstimation bool
 
-	workerPool *workshare.Pool
+	workerPool *workshare.Pool[*uploadWorkItem]
 
 	traceEnabled bool
 }
@@ -175,7 +175,7 @@ func (u *Uploader) uploadFileInternal(ctx context.Context, parentCheckpointRegis
 	parts := make([]*snapshot.DirEntry, fullParts+1)
 	partErrors := make([]error, fullParts+1)
 
-	var wg workshare.AsyncGroup
+	var wg workshare.AsyncGroup[*uploadWorkItem]
 	defer wg.Close()
 
 	for i := 0; i < len(parts); i++ {
@@ -190,7 +190,7 @@ func (u *Uploader) uploadFileInternal(ctx context.Context, parentCheckpointRegis
 
 		if wg.CanShareWork(u.workerPool) {
 			// another goroutine is available, delegate to them
-			wg.RunAsync(u.workerPool, func(c *workshare.Pool, request interface{}) {
+			wg.RunAsync(u.workerPool, func(c *workshare.Pool[*uploadWorkItem], request *uploadWorkItem) {
 				parts[i], partErrors[i] = u.uploadFileData(ctx, parentCheckpointRegistry, f, uuid.NewString(), offset, length, comp)
 			}, nil)
 		} else {
@@ -620,7 +620,7 @@ func (u *Uploader) processChildren(
 	policyTree *policy.Tree,
 	previousDirs []fs.Directory,
 ) error {
-	var wg workshare.AsyncGroup
+	var wg workshare.AsyncGroup[*uploadWorkItem]
 
 	// ensure we wait for all work items before returning
 	defer wg.Close()
@@ -633,12 +633,7 @@ func (u *Uploader) processChildren(
 	}
 
 	for _, wi := range wg.Wait() {
-		wi, ok := wi.(*uploadWorkItem)
-		if !ok {
-			return errors.Errorf("unexpected work item type %T", wi)
-		}
-
-		if wi.err != nil {
+		if wi != nil && wi.err != nil {
 			return wi.err
 		}
 	}
@@ -750,7 +745,7 @@ func (u *Uploader) processDirectoryEntries(
 	dir fs.Directory,
 	policyTree *policy.Tree,
 	prevDirs []fs.Directory,
-	wg *workshare.AsyncGroup,
+	wg *workshare.AsyncGroup[*uploadWorkItem],
 ) error {
 	// processEntryError distinguishes an error thrown when attempting to read a directory.
 	type processEntryError struct {
@@ -765,8 +760,7 @@ func (u *Uploader) processDirectoryEntries(
 		entryRelativePath := path.Join(dirRelativePath, entry.Name())
 
 		if wg.CanShareWork(u.workerPool) {
-			wg.RunAsync(u.workerPool, func(c *workshare.Pool, input interface{}) {
-				wi, _ := input.(*uploadWorkItem)
+			wg.RunAsync(u.workerPool, func(c *workshare.Pool[*uploadWorkItem], wi *uploadWorkItem) {
 				wi.err = u.processSingle(ctx, entry, entryRelativePath, parentDirBuilder, policyTree, prevDirs, localDirPathOrEmpty, parentCheckpointRegistry)
 			}, &uploadWorkItem{})
 		} else {
@@ -1225,7 +1219,7 @@ func (u *Uploader) Upload(
 		Source: sourceInfo,
 	}
 
-	u.workerPool = workshare.NewPool(parallel - 1)
+	u.workerPool = workshare.NewPool[*uploadWorkItem](parallel - 1)
 	defer u.workerPool.Close()
 
 	u.stats = &snapshot.Stats{}

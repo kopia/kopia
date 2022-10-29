@@ -30,7 +30,14 @@ type cryptoBenchResult struct {
 	throughput float64
 }
 
-func runInParallel(parallel int, run func() interface{}) interface{} {
+func runInParallelNoResult(parallel int, run func()) {
+	runInParallel(parallel, func() any {
+		run()
+		return nil
+	})
+}
+
+func runInParallel[T any](parallel int, run func() T) T {
 	var wg sync.WaitGroup
 
 	for i := 0; i < parallel-1; i++ {

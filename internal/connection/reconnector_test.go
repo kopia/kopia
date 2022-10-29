@@ -74,7 +74,7 @@ func TestConnection(t *testing.T) {
 
 	r := connection.NewReconnector(fc)
 
-	v, err := r.UsingConnection(ctx, "first", func(cli connection.Connection) (interface{}, error) {
+	v, err := connection.UsingConnection(ctx, r, "first", func(cli connection.Connection) (interface{}, error) {
 		require.EqualValues(t, 1, cli.(*fakeConnection).id)
 		return "foo", nil
 	})

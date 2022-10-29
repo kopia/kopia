@@ -80,7 +80,7 @@ func (c *commandBenchmarkSplitters) run(ctx context.Context) error { //nolint:fu
 	for _, sp := range splitter.SupportedAlgorithms() {
 		tt := timetrack.Start()
 
-		segmentLengths, _ := runInParallel(c.parallel, func() interface{} {
+		segmentLengths := runInParallel(c.parallel, func() []int {
 			fact := splitter.GetFactory(sp)
 
 			var segmentLengths []int
@@ -102,7 +102,7 @@ func (c *commandBenchmarkSplitters) run(ctx context.Context) error { //nolint:fu
 			}
 
 			return segmentLengths
-		}).([]int)
+		})
 
 		_, bytesPerSecond := tt.Completed(float64(c.parallel) * float64(c.blockCount) * float64(c.blockSize))
 

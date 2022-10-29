@@ -102,7 +102,8 @@ func (s *sftpImpl) IsConnectionClosedError(err error) bool {
 }
 
 func (s *sftpStorage) GetCapacity(ctx context.Context) (blob.Capacity, error) {
-	i, err := s.Impl.(*sftpImpl).rec.UsingConnection(ctx, "GetCapacity", func(conn connection.Connection) (interface{}, error) {
+	//nolint:forcetypeassert
+	return connection.UsingConnection(ctx, s.Impl.(*sftpImpl).rec, "GetCapacity", func(conn connection.Connection) (blob.Capacity, error) {
 		stat, err := sftpClientFromConnection(conn).StatVFS(s.RootPath)
 		if err != nil {
 			return blob.Capacity{}, errors.Wrap(err, "GetCapacity")
@@ -113,8 +114,6 @@ func (s *sftpStorage) GetCapacity(ctx context.Context) (blob.Capacity, error) {
 			FreeB: stat.Bfree * stat.Bsize,
 		}, err //nolint:wrapcheck
 	})
-
-	return i.(blob.Capacity), err //nolint:forcetypeassert,wrapcheck
 }
 
 func (s *sftpImpl) GetBlobFromPath(ctx context.Context, dirPath, fullPath string, offset, length int64, output blob.OutputBuffer) error {
@@ -163,7 +162,7 @@ func (s *sftpImpl) GetBlobFromPath(ctx context.Context, dirPath, fullPath string
 }
 
 func (s *sftpImpl) GetMetadataFromPath(ctx context.Context, dirPath, fullPath string) (blob.Metadata, error) {
-	v, err := s.rec.UsingConnection(ctx, "GetMetadataFromPath", func(conn connection.Connection) (interface{}, error) {
+	return connection.UsingConnection(ctx, s.rec, "GetMetadataFromPath", func(conn connection.Connection) (blob.Metadata, error) {
 		fi, err := sftpClientFromConnection(conn).Stat(fullPath)
 		if isNotExist(err) {
 			return blob.Metadata{}, blob.ErrBlobNotFound
@@ -178,12 +177,6 @@ func (s *sftpImpl) GetMetadataFromPath(ctx context.Context, dirPath, fullPath st
 			Timestamp: fi.ModTime(),
 		}, nil
 	})
-	if err != nil {
-		//nolint:wrapcheck
-		return blob.Metadata{}, err
-	}
-
-	return v.(blob.Metadata), nil //nolint:forcetypeassert
 }
 
 func (s *sftpImpl) PutBlobInPath(ctx context.Context, dirPath, fullPath string, data blob.Bytes, opts blob.PutOptions) error {
@@ -307,16 +300,10 @@ func (s *sftpImpl) DeleteBlobInPath(ctx context.Context, dirPath, fullPath strin
 }
 
 func (s *sftpImpl) ReadDir(ctx context.Context, dirname string) ([]os.FileInfo, error) {
-	v, err := s.rec.UsingConnection(ctx, "ReadDir", func(conn connection.Connection) (interface{}, error) {
+	return connection.UsingConnection(ctx, s.rec, "ReadDir", func(conn connection.Connection) ([]os.FileInfo, error) {
 		//nolint:wrapcheck
 		return sftpClientFromConnection(conn).ReadDir(dirname)
 	})
-	if err != nil {
-		//nolint:wrapcheck
-		return nil, err
-	}
-
-	return v.([]os.FileInfo), nil //nolint:forcetypeassert
 }
 
 func (s *sftpStorage) ConnectionInfo() blob.ConnectionInfo {
@@ -571,10 +558,5 @@ func sftpClientFromConnection(conn connection.Connection) *sftp.Client {
 }
 
 func init() {
-	blob.AddSupportedStorage(
-		sftpStorageType,
-		func() interface{} { return &Options{} },
-		func(ctx context.Context, o interface{}, isCreate bool) (blob.Storage, error) {
-			return New(ctx, o.(*Options), isCreate) //nolint:forcetypeassert
-		})
+	blob.AddSupportedStorage(sftpStorageType, Options{}, New)
 }

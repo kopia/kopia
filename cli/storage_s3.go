@@ -52,5 +52,5 @@ func (c *storageS3Flags) Connect(ctx context.Context, isCreate bool, formatVersi
 	}
 
 	//nolint:wrapcheck
-	return s3.New(ctx, &c.s3options)
+	return s3.New(ctx, &c.s3options, false)
 }

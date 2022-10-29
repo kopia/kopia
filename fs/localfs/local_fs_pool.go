@@ -4,53 +4,16 @@ import "github.com/kopia/kopia/internal/freepool"
 
 //nolint:gochecknoglobals
 var (
-	filesystemFilePool = freepool.New(
-		func() interface{} { return &filesystemFile{} },
-		func(v interface{}) {
-			//nolint:forcetypeassert
-			*v.(*filesystemFile) = filesystemFile{}
-		},
-	)
-	filesystemDirectoryPool = freepool.New(
-		func() interface{} { return &filesystemDirectory{} },
-		func(v interface{}) {
-			//nolint:forcetypeassert
-			*v.(*filesystemDirectory) = filesystemDirectory{}
-		},
-	)
-	filesystemSymlinkPool = freepool.New(
-		func() interface{} { return &filesystemSymlink{} },
-		func(v interface{}) {
-			//nolint:forcetypeassert
-			*v.(*filesystemSymlink) = filesystemSymlink{}
-		},
-	)
-	filesystemErrorEntryPool = freepool.New(
-		func() interface{} { return &filesystemErrorEntry{} },
-		func(v interface{}) {
-			//nolint:forcetypeassert
-			*v.(*filesystemErrorEntry) = filesystemErrorEntry{}
-		},
-	)
-	shallowFilesystemFilePool = freepool.New(
-		func() interface{} { return &shallowFilesystemFile{} },
-		func(v interface{}) {
-			//nolint:forcetypeassert
-			*v.(*shallowFilesystemFile) = shallowFilesystemFile{}
-		},
-	)
-	shallowFilesystemDirectoryPool = freepool.New(
-		func() interface{} { return &shallowFilesystemDirectory{} },
-		func(v interface{}) {
-			//nolint:forcetypeassert
-			*v.(*shallowFilesystemDirectory) = shallowFilesystemDirectory{}
-		},
-	)
+	filesystemFilePool             = freepool.NewStruct(filesystemFile{})
+	filesystemDirectoryPool        = freepool.NewStruct(filesystemDirectory{})
+	filesystemSymlinkPool          = freepool.NewStruct(filesystemSymlink{})
+	filesystemErrorEntryPool       = freepool.NewStruct(filesystemErrorEntry{})
+	shallowFilesystemFilePool      = freepool.NewStruct(shallowFilesystemFile{})
+	shallowFilesystemDirectoryPool = freepool.NewStruct(shallowFilesystemDirectory{})
 )
 
 func newFilesystemFile(e filesystemEntry) *filesystemFile {
-	//nolint:forcetypeassert
-	fsf := filesystemFilePool.Take().(*filesystemFile)
+	fsf := filesystemFilePool.Take()
 	fsf.filesystemEntry = e
 
 	return fsf
@@ -61,8 +24,7 @@ func (fsf *filesystemFile) Close() {
 }
 
 func newFilesystemDirectory(e filesystemEntry) *filesystemDirectory {
-	//nolint:forcetypeassert
-	fsd := filesystemDirectoryPool.Take().(*filesystemDirectory)
+	fsd := filesystemDirectoryPool.Take()
 	fsd.filesystemEntry = e
 
 	return fsd
@@ -73,8 +35,7 @@ func (fsd *filesystemDirectory) Close() {
 }
 
 func newFilesystemSymlink(e filesystemEntry) *filesystemSymlink {
-	//nolint:forcetypeassert
-	fsd := filesystemSymlinkPool.Take().(*filesystemSymlink)
+	fsd := filesystemSymlinkPool.Take()
 	fsd.filesystemEntry = e
 
 	return fsd
@@ -85,8 +46,7 @@ func (fsl *filesystemSymlink) Close() {
 }
 
 func newFilesystemErrorEntry(e filesystemEntry, err error) *filesystemErrorEntry {
-	//nolint:forcetypeassert
-	fse := filesystemErrorEntryPool.Take().(*filesystemErrorEntry)
+	fse := filesystemErrorEntryPool.Take()
 	fse.filesystemEntry = e
 	fse.err = err
 
@@ -98,8 +58,7 @@ func (e *filesystemErrorEntry) Close() {
 }
 
 func newShallowFilesystemFile(e filesystemEntry) *shallowFilesystemFile {
-	//nolint:forcetypeassert
-	fsf := shallowFilesystemFilePool.Take().(*shallowFilesystemFile)
+	fsf := shallowFilesystemFilePool.Take()
 	fsf.filesystemEntry = e
 
 	return fsf
@@ -110,8 +69,7 @@ func (fsf *shallowFilesystemFile) Close() {
 }
 
 func newShallowFilesystemDirectory(e filesystemEntry) *shallowFilesystemDirectory {
-	//nolint:forcetypeassert
-	fsf := shallowFilesystemDirectoryPool.Take().(*shallowFilesystemDirectory)
+	fsf := shallowFilesystemDirectoryPool.Take()
 	fsf.filesystemEntry = e
 
 	return fsf
