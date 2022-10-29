@@ -140,7 +140,7 @@ func TestGPRServer_AuthenticationError(t *testing.T) {
 	if _, err := repo.OpenGRPCAPIRepository(ctx, apiServerInfo, repo.ClientOptions{
 		Username: "bad-username",
 		Hostname: "bad-hostname",
-	}, nil, "bad-password"); err == nil {
+	}, nil, "bad-password", nil); err == nil {
 		t.Fatal("unexpected success when connecting with invalid username")
 	}
 }

@@ -13,6 +13,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/kopia/kopia/internal/gather"
+	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content/index"
@@ -50,21 +51,35 @@ func (sm *SharedManager) maybeCompressAndEncryptDataForPacking(data gather.Bytes
 			return NoCompression, errors.Errorf("unsupported compressor %x", comp)
 		}
 
+		t0 := timetrack.StartTimer()
+
 		if err := c.Compress(&tmp, data.Reader()); err != nil {
 			return NoCompression, errors.Wrap(err, "compression error")
 		}
 
+		sm.compressionAttemptedBytes.Observe(int64(data.Length()), t0.Elapsed())
+
 		if cd := tmp.Length(); cd >= data.Length() {
 			// data was not compressible enough.
 			comp = NoCompression
+
+			sm.nonCompressibleBytes.Add(int64(data.Length()))
 		} else {
+			sm.compressionSavings.Add(int64(data.Length()) - int64(cd))
+			sm.compressibleBytes.Add(int64(data.Length()))
 			data = tmp.Bytes()
 		}
 	}
 
+	sm.afterCompressionBytes.Add(int64(data.Length()))
+
+	t1 := timetrack.StartTimer()
+
 	if err := sm.format.Encryptor().Encrypt(data, iv, output); err != nil {
 		return NoCompression, errors.Wrap(err, "unable to encrypt")
 	}
+
+	sm.encryptedBytes.Observe(int64(output.Length()), t1.Elapsed())
 
 	sm.Stats.encrypted(data.Length())
 
@@ -181,8 +196,11 @@ func (sm *SharedManager) writePackFileNotLocked(ctx context.Context, packFile bl
 
 func (sm *SharedManager) hashData(output []byte, data gather.Bytes) []byte {
 	// Hash the content and compute encryption key.
+	t0 := timetrack.StartTimer()
 	contentID := sm.format.HashFunc()(output, data)
 	sm.Stats.hashedContent(data.Length())
+
+	sm.hashedBytes.Observe(int64(data.Length()), t0.Elapsed())
 
 	return contentID
 }

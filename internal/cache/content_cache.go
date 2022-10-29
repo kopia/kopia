@@ -7,6 +7,7 @@ import (
 
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/impossible"
+	"github.com/kopia/kopia/internal/metrics"
 	"github.com/kopia/kopia/repo/blob"
 )
 
@@ -95,12 +96,12 @@ func (c *contentCacheImpl) getContentFromFullBlob(ctx context.Context, blobID bl
 func (c *contentCacheImpl) fetchBlobInternal(ctx context.Context, blobID blob.ID, blobData *gather.WriteBuffer) error {
 	// read the entire blob
 	if err := c.st.GetBlob(ctx, blobID, 0, -1, blobData); err != nil {
-		reportMissError()
+		c.pc.reportMissError()
 
 		return errors.Wrapf(err, "failed to get blob with ID %s", blobID)
 	}
 
-	reportMissBytes(int64(blobData.Length()))
+	c.pc.reportMissBytes(int64(blobData.Length()))
 
 	// store the whole blob in the cache.
 	c.pc.Put(ctx, BlobIDCacheKey(blobID), blobData.Bytes())
@@ -131,12 +132,12 @@ func (c *contentCacheImpl) getContentFromFullOrPartialBlob(ctx context.Context, 
 	}
 
 	if err := c.st.GetBlob(ctx, blobID, offset, length, output); err != nil {
-		reportMissError()
+		c.pc.reportMissError()
 
 		return errors.Wrapf(err, "failed to get blob with ID %s", blobID)
 	}
 
-	reportMissBytes(int64(output.Length()))
+	c.pc.reportMissBytes(int64(output.Length()))
 
 	c.pc.Put(ctx, ContentIDCacheKey(contentID), output.Bytes())
 
@@ -173,7 +174,7 @@ func (c *contentCacheImpl) CacheStorage() Storage {
 }
 
 // NewContentCache creates new content cache for data contents.
-func NewContentCache(ctx context.Context, st blob.Storage, opt Options) (ContentCache, error) {
+func NewContentCache(ctx context.Context, st blob.Storage, opt Options, mr *metrics.Registry) (ContentCache, error) {
 	cacheStorage := opt.Storage
 	if cacheStorage == nil {
 		if opt.BaseCacheDirectory == "" {
@@ -188,7 +189,7 @@ func NewContentCache(ctx context.Context, st blob.Storage, opt Options) (Content
 		}
 	}
 
-	pc, err := NewPersistentCache(ctx, opt.CacheSubDir, cacheStorage, ChecksumProtection(opt.HMACSecret), opt.Sweep)
+	pc, err := NewPersistentCache(ctx, opt.CacheSubDir, cacheStorage, ChecksumProtection(opt.HMACSecret), opt.Sweep, mr)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create base cache")
 	}

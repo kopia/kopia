@@ -112,7 +112,7 @@ func setupTest(t *testing.T, compressionHeaderID map[content.ID]compression.Head
 
 	r, err := NewObjectManager(testlogging.Context(t), fcm, format.ObjectFormat{
 		Splitter: "FIXED-1M",
-	})
+	}, nil)
 	if err != nil {
 		t.Fatalf("can't create object manager: %v", err)
 	}
@@ -283,7 +283,7 @@ func TestObjectWriterRaceBetweenCheckpointAndResult(t *testing.T) {
 
 	om, err := NewObjectManager(testlogging.Context(t), fcm, format.ObjectFormat{
 		Splitter: "FIXED-1M",
-	})
+	}, nil)
 	if err != nil {
 		t.Fatalf("can't create object manager: %v", err)
 	}

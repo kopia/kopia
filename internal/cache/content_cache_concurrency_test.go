@@ -27,7 +27,7 @@ func newContentDataCache(ctx context.Context, st blob.Storage, cacheStorage cach
 		Sweep: cache.SweepSettings{
 			MaxSizeBytes: 100,
 		},
-	})
+	}, nil)
 }
 
 func newContentMetadataCache(ctx context.Context, st blob.Storage, cacheStorage cache.Storage) (cache.ContentCache, error) {
@@ -38,7 +38,7 @@ func newContentMetadataCache(ctx context.Context, st blob.Storage, cacheStorage 
 		Sweep: cache.SweepSettings{
 			MaxSizeBytes: 100,
 		},
-	})
+	}, nil)
 }
 
 func TestPrefetchBlocksGetContent_DataCache(t *testing.T) {

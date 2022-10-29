@@ -169,7 +169,7 @@ func TestManifestInitCorruptedBlock(t *testing.T) {
 
 	t.Cleanup(func() { bm0.Close(ctx) })
 
-	mgr, err := NewManager(ctx, bm, ManagerOptions{})
+	mgr, err := NewManager(ctx, bm, ManagerOptions{}, nil)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -195,7 +195,7 @@ func TestManifestInitCorruptedBlock(t *testing.T) {
 
 	t.Cleanup(func() { bm.Close(ctx) })
 
-	mgr, err = NewManager(ctx, bm, ManagerOptions{})
+	mgr, err = NewManager(ctx, bm, ManagerOptions{}, nil)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -327,7 +327,7 @@ func newManagerForTesting(ctx context.Context, t *testing.T, data blobtesting.Da
 
 	t.Cleanup(func() { bm.Close(ctx) })
 
-	mm, err := NewManager(ctx, bm, ManagerOptions{})
+	mm, err := NewManager(ctx, bm, ManagerOptions{}, nil)
 	require.NoError(t, err)
 
 	return mm

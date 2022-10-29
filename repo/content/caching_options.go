@@ -1,6 +1,9 @@
 package content
 
-import "time"
+import (
+	"path/filepath"
+	"time"
+)
 
 // DurationSeconds represents the duration in seconds.
 type DurationSeconds float64
@@ -35,4 +38,17 @@ func (c *CachingOptions) CloneOrDefault() *CachingOptions {
 	c2 := *c
 
 	return &c2
+}
+
+// CacheSubdirOrEmpty returns path to a cache subdirectory or empty string if cache is disabled.
+func (c *CachingOptions) CacheSubdirOrEmpty(subdir string) string {
+	if c == nil {
+		return ""
+	}
+
+	if c.CacheDirectory == "" {
+		return ""
+	}
+
+	return filepath.Join(c.CacheDirectory, subdir)
 }

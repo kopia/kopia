@@ -29,7 +29,7 @@ func TestPersistentLRUCache(t *testing.T) {
 		MaxSizeBytes:   maxSizeBytes,
 		TouchThreshold: cache.DefaultTouchThreshold,
 		SweepFrequency: cache.DefaultSweepFrequency,
-	})
+	}, nil)
 	require.NoError(t, err)
 
 	var tmp gather.WriteBuffer
@@ -71,7 +71,7 @@ func TestPersistentLRUCache(t *testing.T) {
 		MaxSizeBytes:   maxSizeBytes,
 		TouchThreshold: cache.DefaultTouchThreshold,
 		SweepFrequency: cache.DefaultSweepFrequency,
-	})
+	}, nil)
 	require.NoError(t, err)
 
 	verifyCached(ctx, t, pc, "key1", nil)
@@ -85,7 +85,7 @@ func TestPersistentLRUCache(t *testing.T) {
 		MaxSizeBytes:   maxSizeBytes,
 		TouchThreshold: cache.DefaultTouchThreshold,
 		SweepFrequency: cache.DefaultSweepFrequency,
-	})
+	}, nil)
 	require.NoError(t, err)
 
 	someError := errors.Errorf("some error")
@@ -135,7 +135,7 @@ func TestPersistentLRUCache_Invalid(t *testing.T) {
 
 	fs.AddFault(blobtesting.MethodGetMetadata).ErrorInstead(someError)
 
-	pc, err := cache.NewPersistentCache(ctx, "test", fc, nil, cache.SweepSettings{})
+	pc, err := cache.NewPersistentCache(ctx, "test", fc, nil, cache.SweepSettings{}, nil)
 	require.ErrorIs(t, err, someError)
 	require.Nil(t, pc)
 }
@@ -153,7 +153,7 @@ func TestPersistentLRUCache_GetDeletesInvalidBlob(t *testing.T) {
 	fs := blobtesting.NewFaultyStorage(st)
 	fc := faultyCache{fs}
 
-	pc, err := cache.NewPersistentCache(ctx, "test", fc, cache.ChecksumProtection([]byte{1, 2, 3}), cache.SweepSettings{})
+	pc, err := cache.NewPersistentCache(ctx, "test", fc, cache.ChecksumProtection([]byte{1, 2, 3}), cache.SweepSettings{}, nil)
 	require.NoError(t, err)
 
 	pc.Put(ctx, "key", gather.FromSlice([]byte{1, 2, 3}))
@@ -183,7 +183,7 @@ func TestPersistentLRUCache_PutIgnoresStorageFailure(t *testing.T) {
 	fs := blobtesting.NewFaultyStorage(st)
 	fc := faultyCache{fs}
 
-	pc, err := cache.NewPersistentCache(ctx, "test", fc, cache.ChecksumProtection([]byte{1, 2, 3}), cache.SweepSettings{})
+	pc, err := cache.NewPersistentCache(ctx, "test", fc, cache.ChecksumProtection([]byte{1, 2, 3}), cache.SweepSettings{}, nil)
 	require.NoError(t, err)
 
 	fs.AddFault(blobtesting.MethodPutBlob).ErrorInstead(someError)
@@ -213,7 +213,7 @@ func TestPersistentLRUCache_SweepMinSweepAge(t *testing.T) {
 		SweepFrequency: 100 * time.Millisecond,
 		MaxSizeBytes:   1000,
 		MinSweepAge:    10 * time.Second,
-	})
+	}, nil)
 	require.NoError(t, err)
 	pc.Put(ctx, "key", gather.FromSlice([]byte{1, 2, 3}))
 	pc.Put(ctx, "key2", gather.FromSlice(bytes.Repeat([]byte{1, 2, 3}, 1e6)))
@@ -241,7 +241,7 @@ func TestPersistentLRUCache_SweepIgnoresErrors(t *testing.T) {
 	pc, err := cache.NewPersistentCache(ctx, "test", fc, cache.ChecksumProtection([]byte{1, 2, 3}), cache.SweepSettings{
 		SweepFrequency: 100 * time.Millisecond,
 		MaxSizeBytes:   1000,
-	})
+	}, nil)
 	require.NoError(t, err)
 
 	// ignore delete errors forever
@@ -275,7 +275,7 @@ func TestPersistentLRUCache_Sweep1(t *testing.T) {
 		SweepFrequency: 10 * time.Millisecond,
 		MaxSizeBytes:   1,
 		MinSweepAge:    0 * time.Second,
-	})
+	}, nil)
 	require.NoError(t, err)
 	pc.Put(ctx, "key", gather.FromSlice([]byte{1, 2, 3}))
 	pc.Put(ctx, "key", gather.FromSlice(bytes.Repeat([]byte{1, 2, 3}, 1e6)))
@@ -329,7 +329,7 @@ func TestPersistentLRUCache_Defaults(t *testing.T) {
 
 	pc, err := cache.NewPersistentCache(ctx, "testing", cs, nil, cache.SweepSettings{
 		MaxSizeBytes: maxSizeBytes,
-	})
+	}, nil)
 	require.NoError(t, err)
 
 	defer pc.Close(ctx)

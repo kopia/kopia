@@ -647,6 +647,72 @@ func (s *formatSpecificTestSuite) TestChangePassword(t *testing.T) {
 	}
 }
 
+func TestMetrics_CompressibleData(t *testing.T) {
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
+	_ = ctx
+	ms := env.Repository.Metrics().Snapshot()
+
+	require.EqualValues(t, 0, ensureMapEntry(t, ms.Counters, "content_write_bytes"))
+
+	var (
+		inputData = bytes.Repeat([]byte{1, 2, 3, 4}, 100)
+		count     = 0
+		oid       object.ID
+	)
+
+	for ensureMapEntry(t, env.Repository.Metrics().Snapshot().Counters, "content_write_duration_nanos") < 5e6 {
+		w := env.RepositoryWriter.NewObjectWriter(ctx, object.WriterOptions{
+			Compressor: "gzip",
+		})
+		w.Write(inputData)
+
+		var err error
+
+		oid, err = w.Result()
+		require.NoError(t, err)
+
+		count++
+	}
+
+	ms = env.Repository.Metrics().Snapshot()
+	require.EqualValues(t, count*len(inputData), ensureMapEntry(t, ms.Counters, "content_write_bytes"))
+	require.EqualValues(t, count*len(inputData), ensureMapEntry(t, ms.Counters, "content_hashed_bytes"))
+	require.EqualValues(t, len(inputData), ensureMapEntry(t, ms.Counters, "content_compression_attempted_bytes"))
+
+	// this is what 100x{1,2,3,4} compresses down to using gzip, it's also
+	// the number of bytes that go into encryption.
+	const compressedByteCount = 36
+
+	const encryptionOverhead = 28
+
+	require.EqualValues(t, compressedByteCount, ensureMapEntry(t, ms.Counters, "content_after_compression_bytes"))
+	require.EqualValues(t, len(inputData), ensureMapEntry(t, ms.Counters, "content_compressible_bytes"))
+	require.EqualValues(t, 0, ensureMapEntry(t, ms.Counters, "content_non_compressible_bytes"))
+	require.EqualValues(t, len(inputData)-compressedByteCount, ensureMapEntry(t, ms.Counters, "content_compression_savings_bytes"))
+	require.EqualValues(t, compressedByteCount+encryptionOverhead, ensureMapEntry(t, ms.Counters, "content_encrypted_bytes"))
+
+	r, err := env.RepositoryWriter.OpenObject(ctx, oid)
+	require.NoError(t, err)
+
+	data, err := io.ReadAll(r)
+	require.NoError(t, err)
+	require.Equal(t, inputData, data)
+
+	ms = env.Repository.Metrics().Snapshot()
+	require.EqualValues(t, len(inputData), ensureMapEntry(t, ms.Counters, "content_read_bytes"))
+	require.EqualValues(t, compressedByteCount, ensureMapEntry(t, ms.Counters, "content_decompressed_bytes"))
+	require.EqualValues(t, compressedByteCount+encryptionOverhead, ensureMapEntry(t, ms.Counters, "content_decrypted_bytes"))
+}
+
+func ensureMapEntry[T any](t *testing.T, m map[string]T, key string) T {
+	t.Helper()
+
+	actual, got := m[key]
+	require.True(t, got, key)
+
+	return actual
+}
+
 func TestDeriveKey(t *testing.T) {
 	testPurpose := []byte{0, 0, 0, 0}
 	testKeyLength := 8
