@@ -107,7 +107,7 @@ require (
 	github.com/chromedp/chromedp v0.8.6
 	github.com/edsrzf/mmap-go v1.1.0
 	github.com/hashicorp/golang-lru v0.5.4
-	github.com/klauspost/reedsolomon v1.11.0
+	github.com/klauspost/reedsolomon v1.11.1
 	go.opentelemetry.io/otel v1.11.1
 	go.opentelemetry.io/otel/exporters/jaeger v1.11.0
 	go.opentelemetry.io/otel/sdk v1.11.1
