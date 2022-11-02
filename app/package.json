@@ -116,7 +116,7 @@
     "dotenv": "^16.0.3",
     "electron": "^19.0.8",
     "electron-builder": "^23.3.3",
-    "electron-notarize": "^1.2.1",
+    "electron-notarize": "^1.2.2",
     "playwright": "^1.26.1",
     "playwright-core": "^1.26.0"
   },
