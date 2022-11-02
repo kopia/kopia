@@ -48,7 +48,7 @@ require (
 	github.com/zalando/go-keyring v0.2.1
 	github.com/zeebo/blake3 v0.2.3
 	go.opencensus.io v0.23.0 // indirect
-	go.uber.org/zap v1.21.0
+	go.uber.org/zap v1.23.0
 	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa
 	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4
 	golang.org/x/net v0.0.0-20221012135044-0b7e1fb9d458
