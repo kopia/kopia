@@ -199,7 +199,7 @@ func cloneEntryMetadata(e *manifestEntry) *EntryMetadata {
 // matchesLabels returns true when all entries in 'b' are found in the 'a'.
 func matchesLabels(a, b map[string]string) bool {
 	for k, v := range b {
-		if a[k] != v {
+		if av, ok := a[k]; !ok || av != v {
 			return false
 		}
 	}
