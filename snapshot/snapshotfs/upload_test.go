@@ -636,6 +636,11 @@ func TestUploadWithCheckpointing(t *testing.T) {
 		Path:     "path",
 	}
 
+	labels := map[string]string{
+		"shape": "square",
+		"color": "red",
+	}
+
 	// inject a action into mock filesystem to trigger and wait for checkpoints at few places.
 	// the places are not important, what's important that those are 3 separate points in time.
 	dirsToCheckpointAt := []*mockfs.Directory{
@@ -656,7 +661,7 @@ func TestUploadWithCheckpointing(t *testing.T) {
 		})
 	}
 
-	if _, err := u.Upload(ctx, th.sourceDir, policyTree, si); err != nil {
+	if _, err := u.Upload(ctx, th.sourceDir, policyTree, si, labels); err != nil {
 		t.Errorf("Upload error: %v", err)
 	}
 
@@ -671,6 +676,8 @@ func TestUploadWithCheckpointing(t *testing.T) {
 		if got, want := sn.IncompleteReason, IncompleteReasonCheckpoint; got != want {
 			t.Errorf("unexpected incompleteReason %q, want %q", got, want)
 		}
+
+		assert.Equal(t, labels, sn.Tags)
 	}
 }
 

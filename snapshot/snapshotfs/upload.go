@@ -464,10 +464,10 @@ func newDirEntry(md fs.Entry, fname string, oid object.ID) (*snapshot.DirEntry, 
 }
 
 // uploadFileWithCheckpointing uploads the specified File to the repository.
-func (u *Uploader) uploadFileWithCheckpointing(ctx context.Context, relativePath string, file fs.File, pol *policy.Policy, sourceInfo snapshot.SourceInfo) (*snapshot.DirEntry, error) {
+func (u *Uploader) uploadFileWithCheckpointing(ctx context.Context, relativePath string, file fs.File, pol *policy.Policy, sourceInfo snapshot.SourceInfo, labels map[string]string) (*snapshot.DirEntry, error) {
 	var cp checkpointRegistry
 
-	cancelCheckpointer := u.periodicallyCheckpoint(ctx, &cp, &snapshot.Manifest{Source: sourceInfo})
+	cancelCheckpointer := u.periodicallyCheckpoint(ctx, &cp, &snapshot.Manifest{Source: sourceInfo}, labels)
 	defer cancelCheckpointer()
 
 	res, err := u.uploadFileInternal(ctx, &cp, relativePath, file, pol)
@@ -484,7 +484,7 @@ func (u *Uploader) uploadFileWithCheckpointing(ctx context.Context, relativePath
 
 // checkpointRoot invokes checkpoints on the provided registry and if a checkpoint entry was generated,
 // saves it in an incomplete snapshot manifest.
-func (u *Uploader) checkpointRoot(ctx context.Context, cp *checkpointRegistry, prototypeManifest *snapshot.Manifest) error {
+func (u *Uploader) checkpointRoot(ctx context.Context, cp *checkpointRegistry, prototypeManifest *snapshot.Manifest, labels map[string]string) error {
 	var dmbCheckpoint DirManifestBuilder
 	if err := cp.runCheckpoints(&dmbCheckpoint); err != nil {
 		return errors.Wrap(err, "running checkpointers")
@@ -509,6 +509,7 @@ func (u *Uploader) checkpointRoot(ctx context.Context, cp *checkpointRegistry, p
 	man.EndTime = fs.UTCTimestampFromTime(u.repo.Time())
 	man.StartTime = man.EndTime
 	man.IncompleteReason = IncompleteReasonCheckpoint
+	man.Tags = labels
 
 	if _, err := snapshot.SaveSnapshot(ctx, u.repo, &man); err != nil {
 		return errors.Wrap(err, "error saving checkpoint snapshot")
@@ -527,7 +528,7 @@ func (u *Uploader) checkpointRoot(ctx context.Context, cp *checkpointRegistry, p
 
 // periodicallyCheckpoint periodically (every CheckpointInterval) invokes checkpointRoot until the
 // returned cancelation function has been called.
-func (u *Uploader) periodicallyCheckpoint(ctx context.Context, cp *checkpointRegistry, prototypeManifest *snapshot.Manifest) (cancelFunc func()) {
+func (u *Uploader) periodicallyCheckpoint(ctx context.Context, cp *checkpointRegistry, prototypeManifest *snapshot.Manifest, labels map[string]string) (cancelFunc func()) {
 	shutdown := make(chan struct{})
 	ch := u.getTicker(u.CheckpointInterval)
 
@@ -538,7 +539,7 @@ func (u *Uploader) periodicallyCheckpoint(ctx context.Context, cp *checkpointReg
 				return
 
 			case <-ch:
-				if err := u.checkpointRoot(ctx, cp, prototypeManifest); err != nil {
+				if err := u.checkpointRoot(ctx, cp, prototypeManifest, labels); err != nil {
 					uploadLog(ctx).Errorf("error checkpointing: %v", err)
 					u.Cancel()
 
@@ -559,13 +560,13 @@ func (u *Uploader) periodicallyCheckpoint(ctx context.Context, cp *checkpointReg
 }
 
 // uploadDirWithCheckpointing uploads the specified Directory to the repository.
-func (u *Uploader) uploadDirWithCheckpointing(ctx context.Context, rootDir fs.Directory, policyTree *policy.Tree, previousDirs []fs.Directory, sourceInfo snapshot.SourceInfo) (*snapshot.DirEntry, error) {
+func (u *Uploader) uploadDirWithCheckpointing(ctx context.Context, rootDir fs.Directory, policyTree *policy.Tree, previousDirs []fs.Directory, sourceInfo snapshot.SourceInfo, labels map[string]string) (*snapshot.DirEntry, error) {
 	var (
 		dmb DirManifestBuilder
 		cp  checkpointRegistry
 	)
 
-	cancelCheckpointer := u.periodicallyCheckpoint(ctx, &cp, &snapshot.Manifest{Source: sourceInfo})
+	cancelCheckpointer := u.periodicallyCheckpoint(ctx, &cp, &snapshot.Manifest{Source: sourceInfo}, labels)
 	defer cancelCheckpointer()
 
 	var hc actionContext
@@ -1192,11 +1193,13 @@ func (u *Uploader) maybeOpenDirectoryFromManifest(ctx context.Context, man *snap
 
 // Upload uploads contents of the specified filesystem entry (file or directory) to the repository and returns snapshot.Manifest with statistics.
 // Old snapshot manifest, when provided can be used to speed up uploads by utilizing hash cache.
+// labels is applied to every checkpoint of a backup.
 func (u *Uploader) Upload(
 	ctx context.Context,
 	source fs.Entry,
 	policyTree *policy.Tree,
 	sourceInfo snapshot.SourceInfo,
+	labels map[string]string,
 	previousManifests ...*snapshot.Manifest,
 ) (*snapshot.Manifest, error) {
 	ctx, span := uploadTracer.Start(ctx, "Upload")
@@ -1259,11 +1262,11 @@ func (u *Uploader) Upload(
 
 		wrapped := u.wrapIgnorefs(uploadLog(ctx), entry, policyTree, true /* reportIgnoreStats */)
 
-		s.RootEntry, err = u.uploadDirWithCheckpointing(ctx, wrapped, policyTree, previousDirs, sourceInfo)
+		s.RootEntry, err = u.uploadDirWithCheckpointing(ctx, wrapped, policyTree, previousDirs, sourceInfo, labels)
 
 	case fs.File:
 		u.Progress.EstimatedDataSize(1, entry.Size())
-		s.RootEntry, err = u.uploadFileWithCheckpointing(ctx, entry.Name(), entry, policyTree.EffectivePolicy(), sourceInfo)
+		s.RootEntry, err = u.uploadFileWithCheckpointing(ctx, entry.Name(), entry, policyTree.EffectivePolicy(), sourceInfo, labels)
 
 	default:
 		return nil, errors.Errorf("unsupported source: %v", s.Source)
