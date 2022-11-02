@@ -81,13 +81,8 @@ func (c *commandRepositoryUpgrade) setup(svc advancedAppServices, parent command
 }
 
 func (c *commandRepositoryUpgrade) validateAction(ctx context.Context, rep repo.DirectRepositoryWriter) error {
-
 	_, err := rep.ContentManager().SharedManager.ValidateIndexes(ctx)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 func (c *commandRepositoryUpgrade) forceRollbackAction(ctx context.Context, rep repo.DirectRepositoryWriter) error {
