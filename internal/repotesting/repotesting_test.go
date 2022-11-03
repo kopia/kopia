@@ -87,7 +87,7 @@ func TestTimeFuncWiring(t *testing.T) {
 	u := snapshotfs.NewUploader(env.RepositoryWriter)
 	policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
 
-	s1, err := u.Upload(ctx, sourceDir, policyTree, snapshot.SourceInfo{})
+	s1, err := u.Upload(ctx, sourceDir, policyTree, snapshot.SourceInfo{}, nil)
 	if err != nil {
 		t.Fatal("failed to create snapshot:", err)
 	}

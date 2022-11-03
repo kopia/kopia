@@ -19,7 +19,7 @@ func TestAllSources(t *testing.T) {
 	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
 
 	u := NewUploader(env.RepositoryWriter)
-	man, err := u.Upload(ctx, mockfs.NewDirectory(), nil, snapshot.SourceInfo{Host: "dummy", UserName: "dummy", Path: "dummy"})
+	man, err := u.Upload(ctx, mockfs.NewDirectory(), nil, snapshot.SourceInfo{Host: "dummy", UserName: "dummy", Path: "dummy"}, nil)
 	require.NoError(t, err)
 
 	manifests := []struct {

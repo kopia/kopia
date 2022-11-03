@@ -38,7 +38,7 @@ func TestRestoreSnapshots(t *testing.T) {
 		dir1.AddFile("file1", []byte{1, 2, 3}, 0o644)
 		dir1.AddDir("dir1", 0o644).AddFile("file2", []byte{1, 2, 4}, 0o644)
 
-		man11, err := u.Upload(ctx, dir1, nil, si1)
+		man11, err := u.Upload(ctx, dir1, nil, si1, nil)
 		require.NoError(t, err)
 		id11, err = snapshot.SaveSnapshot(ctx, w, man11)
 		require.NoError(t, err)
