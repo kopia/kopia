@@ -32,14 +32,17 @@ func TestManifest(t *testing.T) {
 	item1 := map[string]int{"foo": 1, "bar": 2}
 	item2 := map[string]int{"foo": 2, "bar": 3}
 	item3 := map[string]int{"foo": 3, "bar": 4}
+	item4 := map[string]int{"foo": 4, "bar": 5}
 
 	labels1 := map[string]string{"type": "item", "color": "red"}
 	labels2 := map[string]string{"type": "item", "color": "blue", "shape": "square"}
 	labels3 := map[string]string{"type": "item", "shape": "square", "color": "red"}
+	labels4 := map[string]string{"type": "item", "rounded": ""}
 
 	id1 := addAndVerify(ctx, t, mgr, labels1, item1)
 	id2 := addAndVerify(ctx, t, mgr, labels2, item2)
 	id3 := addAndVerify(ctx, t, mgr, labels3, item3)
+	id4 := addAndVerify(ctx, t, mgr, labels4, item4)
 
 	cases := []struct {
 		criteria map[string]string
@@ -51,6 +54,7 @@ func TestManifest(t *testing.T) {
 		{map[string]string{"color": "red", "shape": "square"}, []ID{id3}},
 		{map[string]string{"color": "blue", "shape": "square"}, []ID{id2}},
 		{map[string]string{"color": "red", "shape": "circle"}, nil},
+		{map[string]string{"rounded": ""}, []ID{id4}},
 	}
 
 	// verify before flush
@@ -61,6 +65,7 @@ func TestManifest(t *testing.T) {
 	verifyItem(ctx, t, mgr, id1, labels1, item1)
 	verifyItem(ctx, t, mgr, id2, labels2, item2)
 	verifyItem(ctx, t, mgr, id3, labels3, item3)
+	verifyItem(ctx, t, mgr, id4, labels4, item4)
 
 	if err := mgr.Flush(ctx); err != nil {
 		t.Errorf("flush error: %v", err)
@@ -78,6 +83,7 @@ func TestManifest(t *testing.T) {
 	verifyItem(ctx, t, mgr, id1, labels1, item1)
 	verifyItem(ctx, t, mgr, id2, labels2, item2)
 	verifyItem(ctx, t, mgr, id3, labels3, item3)
+	verifyItem(ctx, t, mgr, id4, labels4, item4)
 
 	// flush underlying content manager and verify in new manifest manager.
 	mgr.b.Flush(ctx)
@@ -90,6 +96,7 @@ func TestManifest(t *testing.T) {
 	verifyItem(ctx, t, mgr2, id1, labels1, item1)
 	verifyItem(ctx, t, mgr2, id2, labels2, item2)
 	verifyItem(ctx, t, mgr2, id3, labels3, item3)
+	verifyItem(ctx, t, mgr2, id4, labels4, item4)
 
 	if err := mgr2.Flush(ctx); err != nil {
 		t.Errorf("flush error: %v", err)
@@ -136,6 +143,7 @@ func TestManifest(t *testing.T) {
 	verifyItem(ctx, t, mgr3, id1, labels1, item1)
 	verifyItem(ctx, t, mgr3, id2, labels2, item2)
 	verifyItemNotFound(ctx, t, mgr3, id3)
+	verifyItem(ctx, t, mgr3, id4, labels4, item4)
 }
 
 func TestManifestInitCorruptedBlock(t *testing.T) {
