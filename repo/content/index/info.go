@@ -1,7 +1,6 @@
 package index
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/kopia/kopia/repo/blob"
@@ -92,33 +91,4 @@ func ToInfoStruct(i Info) *InfoStruct {
 		CompressionHeaderID: i.GetCompressionHeaderID(),
 		EncryptionKeyID:     i.GetEncryptionKeyID(),
 	}
-}
-
-func DiffInfo(i0, i1 Info) []string {
-	var qs []string
-	if i0.GetFormatVersion() != i1.GetFormatVersion() {
-		qs = append(qs, fmt.Sprintf("mixed FormatVersions: %v %v", i0.GetFormatVersion(), i1.GetFormatVersion()))
-	}
-	if i0.GetOriginalLength() != i1.GetOriginalLength() {
-		qs = append(qs, fmt.Sprintf("mixed OriginalLengths: %v %v", i0.GetOriginalLength(), i1.GetOriginalLength()))
-	}
-	if i0.GetPackBlobID() != i1.GetPackBlobID() {
-		qs = append(qs, fmt.Sprintf("mixed PackBlobIDs: %v %v", i0.GetPackBlobID(), i1.GetPackBlobID()))
-	}
-	if i0.GetPackedLength() != i1.GetPackedLength() {
-		qs = append(qs, fmt.Sprintf("mixed PackedLengths: %v %v", i0.GetPackedLength(), i1.GetPackedLength()))
-	}
-	if i0.GetPackOffset() != i1.GetPackOffset() {
-		qs = append(qs, fmt.Sprintf("mixed PackOffsets: %v %v", i0.GetPackOffset(), i1.GetPackOffset()))
-	}
-	if i0.GetEncryptionKeyID() != i1.GetEncryptionKeyID() {
-		qs = append(qs, fmt.Sprintf("mixed EncryptionKeyIDs: %v %v", i0.GetEncryptionKeyID(), i1.GetEncryptionKeyID()))
-	}
-	if i0.GetDeleted() != i1.GetDeleted() {
-		qs = append(qs, fmt.Sprintf("mixed Deleted flags: %v %v", i0.GetDeleted(), i1.GetDeleted()))
-	}
-	if i0.GetTimestampSeconds() != i1.GetTimestampSeconds() {
-		qs = append(qs, fmt.Sprintf("mixed TimestampSeconds: %v %v", i0.GetTimestampSeconds(), i1.GetTimestampSeconds()))
-	}
-	return qs
 }

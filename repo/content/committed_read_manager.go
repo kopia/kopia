@@ -2,7 +2,6 @@ package content
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -22,7 +21,6 @@ import (
 	"github.com/kopia/kopia/repo/blob/filesystem"
 	"github.com/kopia/kopia/repo/blob/sharded"
 	"github.com/kopia/kopia/repo/compression"
-	"github.com/kopia/kopia/repo/content/index"
 	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/hashing"
 	"github.com/kopia/kopia/repo/logging"
@@ -61,6 +59,11 @@ var allIndexBlobPrefixes = []blob.ID{
 	epoch.UncompactedIndexBlobPrefix,
 	epoch.SingleEpochCompactionBlobPrefix,
 	epoch.RangeCheckpointIndexBlobPrefix,
+}
+
+// IndexBlobReader provides and API for reading index blobs
+type IndexBlobReader interface {
+	ListIndexBlobInfos(context.Context) ([]IndexBlobInfo, time.Time, error)
 }
 
 // indexBlobManager is the API of index blob manager as used by content manager.
@@ -117,8 +120,8 @@ type SharedManager struct {
 	internalLogger     *zap.SugaredLogger // backing logger for 'sharedBaseLogger'
 }
 
-// loadIndexBlob return index information loaded from the specified blob
-func (sm *SharedManager) loadIndexBlob(ctx context.Context, ibid blob.ID, d gather.WriteBuffer) ([]Info, error) {
+// LoadIndexBlob return index information loaded from the specified blob
+func (sm *SharedManager) LoadIndexBlob(ctx context.Context, ibid blob.ID, d gather.WriteBuffer) ([]Info, error) {
 	err := sm.st.GetBlob(ctx, ibid, 0, -1, &d)
 	if err != nil {
 		return nil, err
@@ -130,66 +133,14 @@ func (sm *SharedManager) loadIndexBlob(ctx context.Context, ibid blob.ID, d gath
 	return q, nil
 }
 
-// assign store the info struct in a map that can be used to compare indexes
-func assign(iif Info, i int, m map[ID][2]Info) {
-	v := m[iif.GetContentID()]
-	v[i] = iif
-	m[iif.GetContentID()] = v
+// IndexReaderV0 return an index reader for reading V0 indexes
+func (sm *SharedManager) IndexReaderV0() IndexBlobReader {
+	return sm.indexBlobManagerV0
 }
 
-// ValidateIndexes returns an array of strings (report) that describes differences between
-// the V0 index blob and V1 index blob content.  This is used to check that the upgraded index
-// (V1 index) reflects the content of the old V0 index.
-func (sm *SharedManager) ValidateIndexes(ctx context.Context) ([]string, error) {
-
-	d := gather.WriteBuffer{}
-	indexEntries := map[ID][2]Info{}
-
-	ibis0, _, err := sm.indexBlobManagerV0.listActiveIndexBlobs(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, ibi0 := range ibis0 {
-		// skip the V0 blob poison that is used to prevent client reads.
-		if ibi0.BlobID == legacyIndexPoisonBlobID {
-			continue
-		}
-		iifs0, err := sm.loadIndexBlob(ctx, ibi0.BlobID, d)
-		if err != nil {
-			return nil, err
-		}
-		for _, iif0 := range iifs0 {
-			assign(iif0, 0, indexEntries)
-		}
-	}
-
-	ibis1, _, err := sm.indexBlobManagerV1.listActiveIndexBlobs(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, ibi1 := range ibis1 {
-		iifs1, err := sm.loadIndexBlob(ctx, ibi1.BlobID, d)
-		if err != nil {
-			return nil, err
-		}
-		for _, iif1 := range iifs1 {
-			assign(iif1, 1, indexEntries)
-		}
-	}
-
-	var report []string
-	for k, ies := range indexEntries {
-		if ies[0] == nil || ies[1] == nil {
-			report = append(report, fmt.Sprintf("lop-sided index entries for contentID %q", k))
-			continue
-		}
-		diffs := index.DiffInfo(ies[0], ies[1])
-		report = append(report, diffs...)
-	}
-
-	return report, nil
+// IndexReaderV1 return an index reader for reading V0 indexes
+func (sm *SharedManager) IndexReaderV1() IndexBlobReader {
+	return sm.indexBlobManagerV1
 }
 
 func (sm *SharedManager) readPackFileLocalIndex(ctx context.Context, packFile blob.ID, packFileLength int64, output *gather.WriteBuffer) error {

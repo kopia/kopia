@@ -10,21 +10,26 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/epoch"
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/content/index"
 	"github.com/kopia/kopia/repo/format"
 )
 
 type commandRepositoryUpgrade struct {
-	forceRollback bool
-	skip          bool
-	force         bool
-	lockOnly      bool
+	forceRollback             bool
+	skip                      bool
+	allowUnsafeUpgradeTimings bool
+	forceCommit               bool
+	lockOnly                  bool
 
 	// lock settings
 	ioDrainTimeout         time.Duration
 	statusPollInterval     time.Duration
 	maxPermittedClockDrift time.Duration
+
+	out textOutput
 
 	svc advancedAppServices
 }
@@ -50,10 +55,11 @@ func (c *commandRepositoryUpgrade) setup(svc advancedAppServices, parent command
 
 	beginCmd := parent.Command("begin", "Begin upgrade.").Default()
 	beginCmd.Flag("io-drain-timeout", "Max time it should take all other Kopia clients to drop repository connections").Default(format.DefaultRepositoryBlobCacheDuration.String()).DurationVar(&c.ioDrainTimeout)
-	beginCmd.Flag("allow-unsafe-upgrade", "Force using an unsafe io-drain-timeout for the upgrade lock").Default("false").Hidden().BoolVar(&c.force)
+	beginCmd.Flag("allow-unsafe-upgrade", "Force using an unsafe io-drain-timeout for the upgrade lock").Default("false").Hidden().BoolVar(&c.allowUnsafeUpgradeTimings)
 	beginCmd.Flag("status-poll-interval", "An advisory polling interval to check for the status of upgrade").Default("60s").DurationVar(&c.statusPollInterval)
 	beginCmd.Flag("max-permitted-clock-drift", "The maximum drift between repository and client clocks").Default(maxPermittedClockDriftDefault.String()).DurationVar(&c.maxPermittedClockDrift)
 	beginCmd.Flag("lock-only", "Advertise the upgrade lock and exit without actually performing the drain or upgrade").Default("false").Hidden().BoolVar(&c.lockOnly) // this is used by tests
+	beginCmd.Flag("force-commit", "Commit the upgrade even if validation fails").Default("false").Hidden().BoolVar(&c.forceCommit)
 
 	// upgrade phases
 
@@ -63,6 +69,8 @@ func (c *commandRepositoryUpgrade) setup(svc advancedAppServices, parent command
 	beginCmd.Action(svc.directRepositoryWriteAction(c.runPhase(c.drainOrCommit)))
 	// If the lock is fully established then perform the upgrade.
 	beginCmd.Action(svc.directRepositoryWriteAction(c.runPhase(c.upgrade)))
+	// Validate index upgrade success
+	beginCmd.Action(svc.directRepositoryWriteAction(c.runPhase(c.validateAction)))
 	// Commit the upgrade and revoke the lock, this will also cleanup any
 	// backups used for rollback.
 	beginCmd.Action(svc.directRepositoryWriteAction(c.runPhase(c.commitUpgrade)))
@@ -73,16 +81,126 @@ func (c *commandRepositoryUpgrade) setup(svc advancedAppServices, parent command
 	rollbackCmd.Action(svc.directRepositoryWriteAction(c.forceRollbackAction))
 
 	validateCmd := parent.Command("validate", "Validate the upgraded indexes.")
-	validateCmd.Flag("force", "Force rollback the repository upgrade, this action can cause repository corruption").BoolVar(&c.forceRollback)
 
 	validateCmd.Action(svc.directRepositoryWriteAction(c.validateAction))
 
 	c.svc = svc
 }
 
+// assign store the info struct in a map that can be used to compare indexes
+func assign(iif content.Info, i int, m map[content.ID][2]index.Info) {
+	v := m[iif.GetContentID()]
+	v[i] = iif
+	m[iif.GetContentID()] = v
+}
+
+// loadIndexBlobs load index blobs into indexEntries map
+func loadIndexBlobs(ctx context.Context, indexEntries map[content.ID][2]index.Info, sm *content.SharedManager, index int, indexBlobInfos []content.IndexBlobInfo) error {
+	d := gather.WriteBuffer{}
+	for _, indexBlobInfo := range indexBlobInfos {
+		blobID := indexBlobInfo.BlobID
+		indexInfos, err := sm.LoadIndexBlob(ctx, blobID, d)
+		if err != nil {
+			return errors.Wrapf(err, "failed to load index blob with BlobID %s", blobID)
+		}
+		for _, indexInfo := range indexInfos {
+			assign(indexInfo, index, indexEntries)
+		}
+	}
+	return nil
+}
+
+// validateAction returns an array of strings (report) that describes differences between
+// the V0 index blob and V1 index blob content.  This is used to check that the upgraded index
+// (V1 index) reflects the content of the old V0 index.
 func (c *commandRepositoryUpgrade) validateAction(ctx context.Context, rep repo.DirectRepositoryWriter) error {
-	_, err := rep.ContentManager().SharedManager.ValidateIndexes(ctx)
-	return err
+
+	indexEntries := map[content.ID][2]index.Info{}
+
+	sm := rep.ContentManager().SharedManager
+
+	indexBlobInfos, _, err := sm.IndexReaderV0().ListIndexBlobInfos(ctx)
+	if err != nil {
+		return errors.Wrapf(err, "failed to list index blobs for v0 index")
+	}
+
+	err = loadIndexBlobs(ctx, indexEntries, sm, 0, indexBlobInfos)
+	if err != nil {
+		return errors.Wrapf(err, "failed to load index entries for v0 index entry")
+	}
+
+	indexBlobInfos, _, err = sm.IndexReaderV1().ListIndexBlobInfos(ctx)
+	if err != nil {
+		return errors.Wrapf(err, "failed to list index blobs for v1 index")
+	}
+
+	err = loadIndexBlobs(ctx, indexEntries, sm, 1, indexBlobInfos)
+	if err != nil {
+		return errors.Wrapf(err, "failed to load index entries for v1 index entry")
+	}
+
+	var report []string
+	for contentID, indexEntryPairs := range indexEntries {
+		if indexEntryPairs[0] == nil || indexEntryPairs[1] == nil {
+			report = append(report, fmt.Sprintf("lop-sided index entries for contentID %q", contentID))
+			continue
+		}
+		diffs := diffInfo(indexEntryPairs[0], indexEntryPairs[1])
+		for i := range diffs {
+			diffs[i] = fmt.Sprintf("blobs %q, %q: %s\n",
+				string(indexEntryPairs[0].GetPackBlobID()),
+				string(indexEntryPairs[1].GetPackBlobID()),
+				diffs[i])
+		}
+		report = append(report, diffs...)
+	}
+
+	if len(report) == 0 {
+		log(ctx).Infof("success: old and new repository indexes match.")
+		return nil
+	}
+
+	log(ctx).Infof("failure: some differences found between old and new indexes:")
+	for _, s := range report {
+		log(ctx).Info(s)
+	}
+
+	errMessage := "repository will remain locked until index differences are resolved"
+	if c.forceCommit {
+		log(ctx).Errorf(errMessage)
+		return nil
+	}
+	return errors.New(errMessage)
+}
+
+// diffInfo compare two index infos.  If a mismatch exists, return basic diagnostic information.
+func diffInfo(i0, i1 index.Info) []string {
+	var qs []string
+	if i0.GetFormatVersion() != i1.GetFormatVersion() {
+		qs = append(qs, fmt.Sprintf("mismatched FormatVersions: %v %v", i0.GetFormatVersion(), i1.GetFormatVersion()))
+	}
+	if i0.GetOriginalLength() != i1.GetOriginalLength() {
+		qs = append(qs, fmt.Sprintf("mismatched OriginalLengths: %v %v", i0.GetOriginalLength(), i1.GetOriginalLength()))
+	}
+	if i0.GetPackBlobID() != i1.GetPackBlobID() {
+		qs = append(qs, fmt.Sprintf("mismatched PackBlobIDs: %v %v", i0.GetPackBlobID(), i1.GetPackBlobID()))
+	}
+	if i0.GetPackedLength() != i1.GetPackedLength() {
+		qs = append(qs, fmt.Sprintf("mismatched PackedLengths: %v %v", i0.GetPackedLength(), i1.GetPackedLength()))
+	}
+	if i0.GetPackOffset() != i1.GetPackOffset() {
+		qs = append(qs, fmt.Sprintf("mismatched PackOffsets: %v %v", i0.GetPackOffset(), i1.GetPackOffset()))
+	}
+	if i0.GetEncryptionKeyID() != i1.GetEncryptionKeyID() {
+		qs = append(qs, fmt.Sprintf("mismatched EncryptionKeyIDs: %v %v", i0.GetEncryptionKeyID(), i1.GetEncryptionKeyID()))
+	}
+	if i0.GetDeleted() != i1.GetDeleted() {
+		qs = append(qs, fmt.Sprintf("mismatched Deleted flags: %v %v", i0.GetDeleted(), i1.GetDeleted()))
+	}
+	if i0.GetTimestampSeconds() != i1.GetTimestampSeconds() {
+		qs = append(qs, fmt.Sprintf("mismatched TimestampSeconds: %v %v", i0.GetTimestampSeconds(), i1.GetTimestampSeconds()))
+	}
+	return qs
 }
 
 func (c *commandRepositoryUpgrade) forceRollbackAction(ctx context.Context, rep repo.DirectRepositoryWriter) error {
@@ -122,7 +240,7 @@ func (c *commandRepositoryUpgrade) runPhase(act func(context.Context, repo.Direc
 // setLockIntent is an upgrade phase which sets the upgrade lock intent with
 // desired parameters.
 func (c *commandRepositoryUpgrade) setLockIntent(ctx context.Context, rep repo.DirectRepositoryWriter) error {
-	if c.ioDrainTimeout < format.DefaultRepositoryBlobCacheDuration && !c.force {
+	if c.ioDrainTimeout < format.DefaultRepositoryBlobCacheDuration && !c.allowUnsafeUpgradeTimings {
 		return errors.Errorf("minimum required io-drain-timeout is %s", format.DefaultRepositoryBlobCacheDuration)
 	}
 
