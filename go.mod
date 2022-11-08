@@ -67,9 +67,9 @@ require (
 
 require (
 	cloud.google.com/go v0.105.0 // indirect
-	github.com/Azure/azure-sdk-for-go/sdk/azcore v0.21.1 // indirect
-	github.com/Azure/azure-sdk-for-go/sdk/internal v0.8.3 // indirect
-	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v0.3.0
+	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.1.4 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/internal v1.0.1 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v0.5.1
 	github.com/Azure/go-autorest/autorest/adal v0.9.16 // indirect
 	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
