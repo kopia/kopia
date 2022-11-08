@@ -109,7 +109,7 @@ require (
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/klauspost/reedsolomon v1.11.1
 	go.opentelemetry.io/otel v1.11.1
-	go.opentelemetry.io/otel/exporters/jaeger v1.11.0
+	go.opentelemetry.io/otel/exporters/jaeger v1.11.1
 	go.opentelemetry.io/otel/sdk v1.11.1
 	go.opentelemetry.io/otel/trace v1.11.1
 )
