@@ -21,7 +21,7 @@ type commandRepositoryUpgrade struct {
 	forceRollback             bool
 	skip                      bool
 	allowUnsafeUpgradeTimings bool
-	forceCommit               bool
+	commitMode                commitMode
 	lockOnly                  bool
 
 	// lock settings
@@ -29,10 +29,10 @@ type commandRepositoryUpgrade struct {
 	statusPollInterval     time.Duration
 	maxPermittedClockDrift time.Duration
 
-	out textOutput
-
 	svc advancedAppServices
 }
+
+type commitMode string
 
 const (
 	experimentalWarning = `WARNING: The upgrade command is an EXPERIMENTAL feature. Please DO NOT use it, it may corrupt your repository and cause data loss.
@@ -41,6 +41,12 @@ You will need to set the env variable KOPIA_UPGRADE_LOCK_ENABLED in order to use
 `
 	upgradeLockFeatureEnv         = "KOPIA_UPGRADE_LOCK_ENABLED"
 	maxPermittedClockDriftDefault = 5 * time.Minute
+)
+
+const (
+	commitModeCommitOnValidationSuccess commitMode = ""
+	commitModeAlwaysCommit                         = "always"
+	commitModeNeverCommit                          = "never"
 )
 
 func (c *commandRepositoryUpgrade) setup(svc advancedAppServices, parent commandParent) {
@@ -59,7 +65,7 @@ func (c *commandRepositoryUpgrade) setup(svc advancedAppServices, parent command
 	beginCmd.Flag("status-poll-interval", "An advisory polling interval to check for the status of upgrade").Default("60s").DurationVar(&c.statusPollInterval)
 	beginCmd.Flag("max-permitted-clock-drift", "The maximum drift between repository and client clocks").Default(maxPermittedClockDriftDefault.String()).DurationVar(&c.maxPermittedClockDrift)
 	beginCmd.Flag("lock-only", "Advertise the upgrade lock and exit without actually performing the drain or upgrade").Default("false").Hidden().BoolVar(&c.lockOnly) // this is used by tests
-	beginCmd.Flag("force-commit", "Commit the upgrade even if validation fails").Default("false").Hidden().BoolVar(&c.forceCommit)
+	beginCmd.Flag("commit-mode", "Change behavior of commit. When not set, commit on validation success. 'always': always commit. 'never': always exit before commit.").Hidden().StringVar((*string)(&c.commitMode))
 
 	// upgrade phases
 
@@ -139,68 +145,61 @@ func (c *commandRepositoryUpgrade) validateAction(ctx context.Context, rep repo.
 		return errors.Wrapf(err, "failed to load index entries for v1 index entry")
 	}
 
-	var report []string
 	for contentID, indexEntryPairs := range indexEntries {
 		if indexEntryPairs[0] == nil || indexEntryPairs[1] == nil {
-			report = append(report, fmt.Sprintf("lop-sided index entries for contentID %q", contentID))
-			continue
+			err = errors.Errorf("lop-sided index entries for contentID %q", contentID)
+		} else {
+			err = checkIndexInfo(indexEntryPairs[0], indexEntryPairs[1])
 		}
-		diffs := diffInfo(indexEntryPairs[0], indexEntryPairs[1])
-		for i := range diffs {
-			diffs[i] = fmt.Sprintf("blobs %q, %q: %s\n",
-				string(indexEntryPairs[0].GetPackBlobID()),
-				string(indexEntryPairs[1].GetPackBlobID()),
-				diffs[i])
+		if err != nil {
+			break
 		}
-		report = append(report, diffs...)
 	}
-
-	if len(report) == 0 {
-		log(ctx).Infof("success: old and new repository indexes match.")
+	if err == nil {
 		return nil
 	}
 
-	log(ctx).Infof("failure: some differences found between old and new indexes:")
-	for _, s := range report {
-		log(ctx).Info(s)
-	}
-
-	errMessage := "repository will remain locked until index differences are resolved"
-	if c.forceCommit {
-		log(ctx).Errorf(errMessage)
+	err = errors.Wrap(err, "repository will remain locked until index differences are resolved")
+	if c.commitMode == commitModeAlwaysCommit {
+		log(ctx).Errorf("%v", err)
 		return nil
 	}
-	return errors.New(errMessage)
+	return err
 }
 
-// diffInfo compare two index infos.  If a mismatch exists, return basic diagnostic information.
-func diffInfo(i0, i1 index.Info) []string {
-	var qs []string
+// checkIndexInfo compare two index infos.  If a mismatch exists, return an error with diagnostic information.
+func checkIndexInfo(i0, i1 index.Info) error {
+	var err error
 	if i0.GetFormatVersion() != i1.GetFormatVersion() {
-		qs = append(qs, fmt.Sprintf("mismatched FormatVersions: %v %v", i0.GetFormatVersion(), i1.GetFormatVersion()))
+		err = errors.Errorf("mismatched FormatVersions: %v %v", i0.GetFormatVersion(), i1.GetFormatVersion())
 	}
 	if i0.GetOriginalLength() != i1.GetOriginalLength() {
-		qs = append(qs, fmt.Sprintf("mismatched OriginalLengths: %v %v", i0.GetOriginalLength(), i1.GetOriginalLength()))
+		err = errors.Errorf("mismatched OriginalLengths: %v %v", i0.GetOriginalLength(), i1.GetOriginalLength())
 	}
 	if i0.GetPackBlobID() != i1.GetPackBlobID() {
-		qs = append(qs, fmt.Sprintf("mismatched PackBlobIDs: %v %v", i0.GetPackBlobID(), i1.GetPackBlobID()))
+		err = errors.Errorf("mismatched PackBlobIDs: %v %v", i0.GetPackBlobID(), i1.GetPackBlobID())
 	}
 	if i0.GetPackedLength() != i1.GetPackedLength() {
-		qs = append(qs, fmt.Sprintf("mismatched PackedLengths: %v %v", i0.GetPackedLength(), i1.GetPackedLength()))
+		err = errors.Errorf("mismatched PackedLengths: %v %v", i0.GetPackedLength(), i1.GetPackedLength())
 	}
 	if i0.GetPackOffset() != i1.GetPackOffset() {
-		qs = append(qs, fmt.Sprintf("mismatched PackOffsets: %v %v", i0.GetPackOffset(), i1.GetPackOffset()))
+		err = errors.Errorf("mismatched PackOffsets: %v %v", i0.GetPackOffset(), i1.GetPackOffset())
 	}
 	if i0.GetEncryptionKeyID() != i1.GetEncryptionKeyID() {
-		qs = append(qs, fmt.Sprintf("mismatched EncryptionKeyIDs: %v %v", i0.GetEncryptionKeyID(), i1.GetEncryptionKeyID()))
+		err = errors.Errorf("mismatched EncryptionKeyIDs: %v %v", i0.GetEncryptionKeyID(), i1.GetEncryptionKeyID())
 	}
 	if i0.GetDeleted() != i1.GetDeleted() {
-		qs = append(qs, fmt.Sprintf("mismatched Deleted flags: %v %v", i0.GetDeleted(), i1.GetDeleted()))
+		err = errors.Errorf("mismatched Deleted flags: %v %v", i0.GetDeleted(), i1.GetDeleted())
 	}
 	if i0.GetTimestampSeconds() != i1.GetTimestampSeconds() {
-		qs = append(qs, fmt.Sprintf("mismatched TimestampSeconds: %v %v", i0.GetTimestampSeconds(), i1.GetTimestampSeconds()))
+		err = errors.Errorf("mismatched TimestampSeconds: %v %v", i0.GetTimestampSeconds(), i1.GetTimestampSeconds())
 	}
-	return qs
+	if err != nil {
+		return errors.Wrapf(err, "index blobs do not match: %v, %v",
+			string(i0.GetPackBlobID()),
+			string(i1.GetPackBlobID()))
+	}
+	return nil
 }
 
 func (c *commandRepositoryUpgrade) forceRollbackAction(ctx context.Context, rep repo.DirectRepositoryWriter) error {
@@ -429,6 +428,10 @@ func (c *commandRepositoryUpgrade) upgrade(ctx context.Context, rep repo.DirectR
 // cleanup and backups used for the rollback mechanism, so we cannot rollback
 // after this phase.
 func (c *commandRepositoryUpgrade) commitUpgrade(ctx context.Context, rep repo.DirectRepositoryWriter) error {
+	if c.commitMode == commitModeNeverCommit {
+		log(ctx).Warnf("Commit mode is set to 'never'.  Skipping commit.")
+		return nil
+	}
 	if err := rep.FormatManager().CommitUpgrade(ctx); err != nil {
 		return errors.Wrap(err, "error finalizing upgrade")
 	}
