@@ -15,11 +15,13 @@ import (
 	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/epoch"
 	"github.com/kopia/kopia/internal/feature"
+	"github.com/kopia/kopia/internal/metrics"
 	"github.com/kopia/kopia/internal/retry"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/beforeop"
 	loggingwrapper "github.com/kopia/kopia/repo/blob/logging"
 	"github.com/kopia/kopia/repo/blob/readonly"
+	"github.com/kopia/kopia/repo/blob/storagemetrics"
 	"github.com/kopia/kopia/repo/blob/throttling"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/format"
@@ -123,7 +125,7 @@ func Open(ctx context.Context, configFile, password string, options *Options) (r
 	return openDirect(ctx, configFile, lc, password, options)
 }
 
-func getContentCacheOrNil(ctx context.Context, opt *content.CachingOptions, password string) (*cache.PersistentCache, error) {
+func getContentCacheOrNil(ctx context.Context, opt *content.CachingOptions, password string, mr *metrics.Registry) (*cache.PersistentCache, error) {
 	opt = opt.CloneOrDefault()
 
 	cs, err := cache.NewStorageOrNil(ctx, opt.CacheDirectory, opt.MaxCacheSizeBytes, "server-contents")
@@ -149,7 +151,7 @@ func getContentCacheOrNil(ctx context.Context, opt *content.CachingOptions, pass
 	pc, err := cache.NewPersistentCache(ctx, "cache-storage", cs, prot, cache.SweepSettings{
 		MaxSizeBytes: opt.MaxCacheSizeBytes,
 		MinSweepAge:  opt.MinContentSweepAge.DurationOrDefault(content.DefaultDataCacheSweepAge),
-	})
+	}, mr)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to open persistent cache")
 	}
@@ -159,16 +161,18 @@ func getContentCacheOrNil(ctx context.Context, opt *content.CachingOptions, pass
 
 // OpenAPIServer connects remote repository over Kopia API.
 func OpenAPIServer(ctx context.Context, si *APIServerInfo, cliOpts ClientOptions, cachingOptions *content.CachingOptions, password string) (Repository, error) {
-	contentCache, err := getContentCacheOrNil(ctx, cachingOptions, password)
+	me := metrics.NewRegistry()
+
+	contentCache, err := getContentCacheOrNil(ctx, cachingOptions, password, me)
 	if err != nil {
 		return nil, errors.Wrap(err, "error opening content cache")
 	}
 
 	if si.DisableGRPC {
-		return openRestAPIRepository(ctx, si, cliOpts, contentCache, password)
+		return openRestAPIRepository(ctx, si, cliOpts, contentCache, password, me)
 	}
 
-	return OpenGRPCAPIRepository(ctx, si, cliOpts, contentCache, password)
+	return OpenGRPCAPIRepository(ctx, si, cliOpts, contentCache, password, me)
 }
 
 // openDirect opens the repository that directly manipulates blob storage..
@@ -210,6 +214,9 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 		TimeNow:            defaultTime(options.TimeNowFunc),
 		DisableInternalLog: options.DisableInternalLog,
 	}
+
+	me := metrics.NewRegistry()
+	st = storagemetrics.NewWrapper(st, me)
 
 	fmgr, ferr := format.NewManager(ctx, st, cacheOpts.CacheDirectory, cliOpts.FormatBlobCacheDuration, password, cmOpts.TimeNow)
 	if ferr != nil {
@@ -279,7 +286,7 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 	// background/interleaving upgrade lock storage monitor
 	st = upgradeLockMonitor(fmgr, options.UpgradeOwnerID, st, cmOpts.TimeNow, options.OnFatalError, options.TestOnlyIgnoreMissingRequiredFeatures)
 
-	scm, ferr := content.NewSharedManager(ctx, st, fmgr, cacheOpts, cmOpts)
+	scm, ferr := content.NewSharedManager(ctx, st, fmgr, cacheOpts, cmOpts, me)
 	if ferr != nil {
 		return nil, errors.Wrap(ferr, "unable to create shared content manager")
 	}
@@ -289,12 +296,12 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 		SessionHost: cliOpts.Hostname,
 	}, "")
 
-	om, ferr := object.NewObjectManager(ctx, cm, fmgr.ObjectFormat())
+	om, ferr := object.NewObjectManager(ctx, cm, fmgr.ObjectFormat(), me)
 	if ferr != nil {
 		return nil, errors.Wrap(ferr, "unable to open object manager")
 	}
 
-	manifests, ferr := manifest.NewManager(ctx, cm, manifest.ManagerOptions{TimeNow: cmOpts.TimeNow})
+	manifests, ferr := manifest.NewManager(ctx, cm, manifest.ManagerOptions{TimeNow: cmOpts.TimeNow}, me)
 	if ferr != nil {
 		return nil, errors.Wrap(ferr, "unable to open manifests")
 	}
@@ -306,13 +313,14 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 		mmgr:  manifests,
 		sm:    scm,
 		directRepositoryParameters: directRepositoryParameters{
-			cachingOptions: *cacheOpts,
-			fmgr:           fmgr,
-			timeNow:        cmOpts.TimeNow,
-			cliOpts:        cliOpts,
-			configFile:     configFile,
-			nextWriterID:   new(int32),
-			throttler:      throttler,
+			cachingOptions:  *cacheOpts,
+			fmgr:            fmgr,
+			timeNow:         cmOpts.TimeNow,
+			cliOpts:         cliOpts,
+			configFile:      configFile,
+			nextWriterID:    new(int32),
+			throttler:       throttler,
+			metricsRegistry: me,
 		},
 		closed: make(chan struct{}),
 	}

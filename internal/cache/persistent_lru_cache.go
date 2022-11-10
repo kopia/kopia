@@ -14,6 +14,7 @@ import (
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/ctxutil"
 	"github.com/kopia/kopia/internal/gather"
+	"github.com/kopia/kopia/internal/metrics"
 	"github.com/kopia/kopia/internal/releasable"
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/repo/blob"
@@ -51,6 +52,8 @@ type PersistentCache struct {
 	periodicSweepClosed  chan struct{}
 
 	mutexCache *lru.Cache
+
+	metricsStruct
 }
 
 // CacheStorage returns cache storage.
@@ -104,12 +107,12 @@ func (c *PersistentCache) GetOrLoad(ctx context.Context, key string, fetch func(
 	}
 
 	if err := fetch(output); err != nil {
-		reportMissError()
+		c.reportMissError()
 
 		return err
 	}
 
-	reportMissBytes(int64(output.Length()))
+	c.reportMissBytes(int64(output.Length()))
 
 	c.Put(ctx, key, output.Bytes())
 
@@ -140,7 +143,7 @@ func (c *PersistentCache) GetPartial(ctx context.Context, key string, offset, le
 
 		if err := prot.Verify(key, tmp.Bytes(), output); err == nil {
 			// cache hit
-			reportHitBytes(int64(output.Length()))
+			c.reportHitBytes(int64(output.Length()))
 
 			// cache hit
 			c.cacheStorage.TouchBlob(ctx, blob.ID(key), c.sweep.TouchThreshold) //nolint:errcheck
@@ -149,7 +152,7 @@ func (c *PersistentCache) GetPartial(ctx context.Context, key string, offset, le
 		}
 
 		// delete invalid blob
-		reportMalformedData()
+		c.reportMalformedData()
 
 		if err := c.cacheStorage.DeleteBlob(ctx, blob.ID(key)); err != nil && !errors.Is(err, blob.ErrBlobNotFound) {
 			log(ctx).Errorf("unable to delete %v entry %v: %v", c.description, key, err)
@@ -162,7 +165,7 @@ func (c *PersistentCache) GetPartial(ctx context.Context, key string, offset, le
 		l = 0
 	}
 
-	reportMissBytes(l)
+	c.reportMissBytes(l)
 
 	return false
 }
@@ -181,7 +184,7 @@ func (c *PersistentCache) Put(ctx context.Context, key string, data gather.Bytes
 	c.storageProtection.Protect(key, data, &protected)
 
 	if err := c.cacheStorage.PutBlob(ctx, blob.ID(key), protected.Bytes(), blob.PutOptions{}); err != nil {
-		reportStoreError()
+		c.reportStoreError()
 
 		log(ctx).Errorf("unable to add %v to %v: %v", key, c.description, err)
 	}
@@ -331,7 +334,7 @@ func (s SweepSettings) applyDefaults() SweepSettings {
 }
 
 // NewPersistentCache creates the persistent cache in the provided storage.
-func NewPersistentCache(ctx context.Context, description string, cacheStorage Storage, storageProtection StorageProtection, sweep SweepSettings) (*PersistentCache, error) {
+func NewPersistentCache(ctx context.Context, description string, cacheStorage Storage, storageProtection StorageProtection, sweep SweepSettings, mr *metrics.Registry) (*PersistentCache, error) {
 	if cacheStorage == nil {
 		return nil, nil
 	}
@@ -348,6 +351,7 @@ func NewPersistentCache(ctx context.Context, description string, cacheStorage St
 		periodicSweepClosed: make(chan struct{}),
 		description:         description,
 		storageProtection:   storageProtection,
+		metricsStruct:       initMetricsStruct(mr, description),
 	}
 
 	c.mutexCache, _ = lru.New(mutexCacheSize)

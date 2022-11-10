@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/gather"
+	"github.com/kopia/kopia/internal/metrics"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/format"
@@ -197,7 +198,7 @@ func PrefetchBackingContents(ctx context.Context, contentMgr contentManager, obj
 }
 
 // NewObjectManager creates an ObjectManager with the specified content manager and format.
-func NewObjectManager(ctx context.Context, bm contentManager, f format.ObjectFormat) (*Manager, error) {
+func NewObjectManager(ctx context.Context, bm contentManager, f format.ObjectFormat, mr *metrics.Registry) (*Manager, error) {
 	om := &Manager{
 		contentMgr: bm,
 		Format:     f,

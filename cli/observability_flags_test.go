@@ -69,7 +69,7 @@ func TestMetricsPushFlags(t *testing.T) {
 
 	for _, b := range bodies {
 		// make sure bodies include some kopia metrics, don't need more
-		require.Contains(t, b, "kopia_content_cache_hit_bytes")
+		require.Contains(t, b, "kopia_cache_hit_bytes_total")
 	}
 
 	env.RunAndExpectFailure(t, "repo", "status",

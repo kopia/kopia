@@ -14,6 +14,7 @@ import (
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/gather"
+	"github.com/kopia/kopia/internal/metrics"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/logging"
@@ -266,7 +267,7 @@ type ManagerOptions struct {
 }
 
 // NewManager returns new manifest manager for the provided content manager.
-func NewManager(ctx context.Context, b contentManager, options ManagerOptions) (*Manager, error) {
+func NewManager(ctx context.Context, b contentManager, options ManagerOptions, mr *metrics.Registry) (*Manager, error) {
 	timeNow := options.TimeNow
 	if timeNow == nil {
 		timeNow = clock.Now

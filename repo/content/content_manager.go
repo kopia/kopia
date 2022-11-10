@@ -16,6 +16,7 @@ import (
 	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/gather"
+	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content/index"
@@ -787,6 +788,11 @@ func (bm *WriteManager) SupportsContentCompression() (bool, error) {
 // WriteContent saves a given content of data to a pack group with a provided name and returns a contentID
 // that's based on the contents of data written.
 func (bm *WriteManager) WriteContent(ctx context.Context, data gather.Bytes, prefix index.IDPrefix, comp compression.HeaderID) (ID, error) {
+	t0 := timetrack.StartTimer()
+	defer func() {
+		bm.writeContentBytes.Observe(int64(data.Length()), t0.Elapsed())
+	}()
+
 	mp, mperr := bm.format.GetMutableParameters()
 	if mperr != nil {
 		return EmptyID, errors.Wrap(mperr, "mutable parameters")
@@ -795,8 +801,6 @@ func (bm *WriteManager) WriteContent(ctx context.Context, data gather.Bytes, pre
 	if err := bm.maybeRetryWritingFailedPacksUnlocked(ctx); err != nil {
 		return EmptyID, err
 	}
-
-	reportContentWriteBytes(int64(data.Length()))
 
 	if err := prefix.ValidateSingle(); err != nil {
 		return EmptyID, errors.Wrap(err, "invalid prefix")
@@ -824,6 +828,9 @@ func (bm *WriteManager) WriteContent(ctx context.Context, data gather.Bytes, pre
 	// content already tracked
 	if err == nil {
 		if !bi.GetDeleted() {
+			bm.deduplicatedContents.Add(1)
+			bm.deduplicatedBytes.Add(int64(data.Length()))
+
 			return contentID, nil
 		}
 
@@ -840,14 +847,16 @@ func (bm *WriteManager) WriteContent(ctx context.Context, data gather.Bytes, pre
 
 // GetContent gets the contents of a given content. If the content is not found returns ErrContentNotFound.
 func (bm *WriteManager) GetContent(ctx context.Context, contentID ID) (v []byte, err error) {
+	t0 := timetrack.StartTimer()
+
 	defer func() {
 		switch {
 		case err == nil:
-			reportContentGetBytes(int64(len(v)))
+			bm.getContentBytes.Observe(int64(len(v)), t0.Elapsed())
 		case errors.Is(err, ErrContentNotFound):
-			reportContentGetNotFound()
+			bm.getContentNotFoundCount.Add(1)
 		default:
-			reportContentGetError()
+			bm.getContentErrorCount.Add(1)
 		}
 	}()
 
@@ -970,7 +979,7 @@ func NewManagerForTesting(ctx context.Context, st blob.Storage, f format.Provide
 		options.TimeNow = clock.Now
 	}
 
-	sharedManager, err := NewSharedManager(ctx, st, f, caching, options)
+	sharedManager, err := NewSharedManager(ctx, st, f, caching, options, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "error initializing read manager")
 	}
@@ -1001,7 +1010,10 @@ func NewWriteManager(ctx context.Context, sm *SharedManager, options SessionOpti
 		packIndexBuilder:      make(index.Builder),
 		sessionUser:           options.SessionUser,
 		sessionHost:           options.SessionHost,
-		onUpload:              options.OnUpload,
+		onUpload: func(numBytes int64) {
+			options.OnUpload(numBytes)
+			sm.uploadedBytes.Add(numBytes)
+		},
 
 		log: sm.namedLogger(writeManagerID),
 	}
