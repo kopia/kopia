@@ -10,6 +10,7 @@ import (
 	"go.opentelemetry.io/otel"
 
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/metrics"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/throttling"
 	"github.com/kopia/kopia/repo/content"
@@ -37,6 +38,7 @@ type Repository interface {
 	UpdateDescription(d string)
 	Refresh(ctx context.Context) error
 	Close(ctx context.Context) error
+	Metrics() *metrics.Registry
 }
 
 // RepositoryWriter provides methods to write to a repository.
@@ -87,13 +89,14 @@ type DirectRepositoryWriter interface {
 }
 
 type directRepositoryParameters struct {
-	configFile     string
-	cachingOptions content.CachingOptions
-	cliOpts        ClientOptions
-	timeNow        func() time.Time
-	fmgr           *format.Manager
-	nextWriterID   *int32
-	throttler      throttling.SettableThrottler
+	configFile      string
+	cachingOptions  content.CachingOptions
+	cliOpts         ClientOptions
+	timeNow         func() time.Time
+	fmgr            *format.Manager
+	nextWriterID    *int32
+	throttler       throttling.SettableThrottler
+	metricsRegistry *metrics.Registry
 }
 
 // directRepository is an implementation of repository that directly manipulates underlying storage.
@@ -248,12 +251,12 @@ func (r *directRepository) NewDirectWriter(ctx context.Context, opt WriteSession
 
 	mmgr, err := manifest.NewManager(ctx, cmgr, manifest.ManagerOptions{
 		TimeNow: r.timeNow,
-	})
+	}, r.metricsRegistry)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "error creating manifest manager")
 	}
 
-	omgr, err := object.NewObjectManager(ctx, cmgr, r.omgr.Format)
+	omgr, err := object.NewObjectManager(ctx, cmgr, r.omgr.Format, r.metricsRegistry)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "error creating object manager")
 	}
@@ -298,6 +301,11 @@ func (r *directRepository) Flush(ctx context.Context) error {
 	}
 
 	return errors.Wrap(r.cmgr.Flush(ctx), "error flushing contents")
+}
+
+// Metrics provides access to metrics registry.
+func (r *directRepository) Metrics() *metrics.Registry {
+	return r.metricsRegistry
 }
 
 // ObjectFormat returns the object format.

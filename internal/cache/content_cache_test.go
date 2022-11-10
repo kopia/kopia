@@ -62,7 +62,7 @@ func TestCacheExpiration(t *testing.T) {
 			SweepFrequency: 500 * time.Millisecond,
 			TouchThreshold: -1,
 		},
-	})
+	}, nil)
 
 	require.NoError(t, err)
 
@@ -121,7 +121,7 @@ func TestDiskContentCache(t *testing.T) {
 		Sweep: cache.SweepSettings{
 			MaxSizeBytes: maxBytes,
 		},
-	})
+	}, nil)
 	require.NoError(t, err)
 
 	defer cc.Close(ctx)
@@ -208,7 +208,7 @@ func TestCacheFailureToOpen(t *testing.T) {
 	_, err := cache.NewContentCache(testlogging.Context(t), underlyingStorage, cache.Options{
 		Storage: withoutTouchBlob{faultyCache},
 		Sweep:   cache.SweepSettings{MaxSizeBytes: 10000},
-	})
+	}, nil)
 	require.Error(t, err)
 	require.ErrorContains(t, err, someError.Error())
 
@@ -218,7 +218,7 @@ func TestCacheFailureToOpen(t *testing.T) {
 	cc, err := cache.NewContentCache(ctx, underlyingStorage, cache.Options{
 		Storage: withoutTouchBlob{faultyCache},
 		Sweep:   cache.SweepSettings{MaxSizeBytes: 10000},
-	})
+	}, nil)
 	require.NoError(t, err)
 
 	cc.Close(ctx)
@@ -235,7 +235,7 @@ func TestCacheFailureToWrite(t *testing.T) {
 	cc, err := cache.NewContentCache(testlogging.Context(t), underlyingStorage, cache.Options{
 		Storage: withoutTouchBlob{faultyCache},
 		Sweep:   cache.SweepSettings{MaxSizeBytes: 10000},
-	})
+	}, nil)
 	require.NoError(t, err)
 
 	ctx := testlogging.Context(t)
@@ -270,7 +270,7 @@ func TestCacheFailureToRead(t *testing.T) {
 	cc, err := cache.NewContentCache(testlogging.Context(t), underlyingStorage, cache.Options{
 		Storage: withoutTouchBlob{faultyCache},
 		Sweep:   cache.SweepSettings{MaxSizeBytes: 10000},
-	})
+	}, nil)
 	require.NoError(t, err)
 
 	ctx := testlogging.Context(t)

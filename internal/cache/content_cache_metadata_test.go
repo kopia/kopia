@@ -29,7 +29,7 @@ func TestContentCacheForMetadata(t *testing.T) {
 		Sweep: cache.SweepSettings{
 			MaxSizeBytes: 100,
 		},
-	})
+	}, nil)
 	require.NoError(t, err)
 
 	cacheStorage := metadataCache.CacheStorage()
@@ -80,7 +80,7 @@ func TestContentCacheForMetadata_Passthrough(t *testing.T) {
 		Sweep: cache.SweepSettings{
 			MaxSizeBytes: 100,
 		},
-	})
+	}, nil)
 
 	require.NoError(t, err)
 	require.NoError(t, underlying.PutBlob(ctx, "blob1", gather.FromSlice([]byte{1, 2, 3, 4, 5, 6}), blob.PutOptions{}))

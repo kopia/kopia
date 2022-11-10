@@ -13,6 +13,7 @@ import (
 	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/gather"
+	"github.com/kopia/kopia/internal/metrics"
 	"github.com/kopia/kopia/internal/remoterepoapi"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content"
@@ -39,6 +40,7 @@ type apiServerRepository struct {
 	cliOpts                          ClientOptions
 	omgr                             *object.Manager
 	wso                              WriteSessionOptions
+	metricsRegistry                  *metrics.Registry
 
 	isSharedReadOnlySession bool
 	contentCache            *cache.PersistentCache
@@ -155,7 +157,7 @@ func (r *apiServerRepository) NewWriter(ctx context.Context, opt WriteSessionOpt
 	w := &r2
 
 	// create object manager using a remote repo as contentManager implementation.
-	omgr, err := object.NewObjectManager(ctx, w, r.objectFormat)
+	omgr, err := object.NewObjectManager(ctx, w, r.objectFormat, r.metricsRegistry)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "error initializing object manager")
 	}
@@ -273,10 +275,15 @@ func (r *apiServerRepository) PrefetchContents(ctx context.Context, contentIDs [
 	return resp.ContentIDs
 }
 
+// Metrics provides access to the metrics registry.
+func (r *apiServerRepository) Metrics() *metrics.Registry {
+	return r.metricsRegistry
+}
+
 var _ Repository = (*apiServerRepository)(nil)
 
 // openRestAPIRepository connects remote repository over Kopia API.
-func openRestAPIRepository(ctx context.Context, si *APIServerInfo, cliOpts ClientOptions, contentCache *cache.PersistentCache, password string) (Repository, error) {
+func openRestAPIRepository(ctx context.Context, si *APIServerInfo, cliOpts ClientOptions, contentCache *cache.PersistentCache, password string, mr *metrics.Registry) (Repository, error) {
 	cli, err := apiclient.NewKopiaAPIClient(apiclient.Options{
 		BaseURL:                             si.BaseURL,
 		TrustedServerCertificateFingerprint: si.TrustedServerCertificateFingerprint,
@@ -296,6 +303,7 @@ func openRestAPIRepository(ctx context.Context, si *APIServerInfo, cliOpts Clien
 			OnUpload: func(i int64) {},
 		},
 		isSharedReadOnlySession: true,
+		metricsRegistry:         mr,
 	}
 
 	var p remoterepoapi.Parameters
@@ -314,7 +322,7 @@ func openRestAPIRepository(ctx context.Context, si *APIServerInfo, cliOpts Clien
 	rr.serverSupportsContentCompression = p.SupportsContentCompression
 
 	// create object manager using rr as contentManager implementation.
-	omgr, err := object.NewObjectManager(ctx, rr, rr.objectFormat)
+	omgr, err := object.NewObjectManager(ctx, rr, rr.objectFormat, mr)
 	if err != nil {
 		return nil, errors.Wrap(err, "error initializing object manager")
 	}

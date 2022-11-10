@@ -1,66 +1,71 @@
 package cache
 
-import (
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
-)
+import "github.com/kopia/kopia/internal/metrics"
 
-//nolint:gochecknoglobals,promlinter
-var (
-	metricHitCount = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "kopia_content_cache_hit_count",
-		Help: "Number of time content was retrieved from the cache",
-	})
-
-	metricHitBytes = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "kopia_content_cache_hit_bytes",
-		Help: "Number of bytes retrieved from the cache",
-	})
-
-	metricMissCount = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "kopia_content_cache_miss_count",
-		Help: "Number of time content was not found in the cache and fetched from the storage",
-	})
-
-	metricMalformedCacheDataCount = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "kopia_content_cache_malformed",
-		Help: "Number of times malformed content was read from the cache",
-	})
-
-	metricMissBytes = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "kopia_content_cache_missed_bytes",
-		Help: "Number of bytes retrieved from the underlying storage",
-	})
-
-	metricMissErrors = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "kopia_content_cache_miss_error_count",
-		Help: "Number of time content could not be found in the underlying storage",
-	})
-
-	metricStoreErrors = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "kopia_content_cache_store_error_count",
-		Help: "Number of time content could not be saved in the cache",
-	})
-)
-
-func reportMissError() {
-	metricMissErrors.Inc()
+type metricsStruct struct {
+	metricHitCount                *metrics.Counter
+	metricHitBytes                *metrics.Counter
+	metricMissCount               *metrics.Counter
+	metricMalformedCacheDataCount *metrics.Counter
+	metricMissBytes               *metrics.Counter
+	metricMissErrors              *metrics.Counter
+	metricStoreErrors             *metrics.Counter
 }
 
-func reportMissBytes(length int64) {
-	metricMissCount.Inc()
-	metricMissBytes.Add(float64(length))
+func initMetricsStruct(mr *metrics.Registry, cacheID string) metricsStruct {
+	labels := map[string]string{
+		"cache": cacheID,
+	}
+
+	return metricsStruct{
+		metricHitCount: mr.CounterInt64(
+			"cache_hit",
+			"Number of time content was retrieved from the cache", labels),
+
+		metricHitBytes: mr.CounterInt64(
+			"cache_hit_bytes",
+			"Number of bytes retrieved from the cache", labels),
+
+		metricMissCount: mr.CounterInt64(
+			"cache_miss",
+			"Number of time content was not found in the cache and fetched from the storage", labels),
+
+		metricMalformedCacheDataCount: mr.CounterInt64(
+			"cache_malformed",
+			"Number of times malformed content was read from the cache", labels),
+
+		metricMissBytes: mr.CounterInt64(
+			"cache_miss_bytes",
+			"Number of bytes retrieved from the underlying storage", labels),
+
+		metricMissErrors: mr.CounterInt64(
+			"cache_miss_errors",
+			"Number of time content could not be found in the underlying storage", labels),
+
+		metricStoreErrors: mr.CounterInt64(
+			"cache_store_errors",
+			"Number of time content could not be saved in the cache", labels),
+	}
 }
 
-func reportHitBytes(length int64) {
-	metricHitCount.Inc()
-	metricHitBytes.Add(float64(length))
+func (s *metricsStruct) reportMissError() {
+	s.metricMissErrors.Add(1)
 }
 
-func reportMalformedData() {
-	metricMalformedCacheDataCount.Inc()
+func (s *metricsStruct) reportMissBytes(length int64) {
+	s.metricMissCount.Add(1)
+	s.metricMissBytes.Add(length)
 }
 
-func reportStoreError() {
-	metricStoreErrors.Inc()
+func (s *metricsStruct) reportHitBytes(length int64) {
+	s.metricHitCount.Add(1)
+	s.metricHitBytes.Add(length)
+}
+
+func (s *metricsStruct) reportMalformedData() {
+	s.metricMalformedCacheDataCount.Add(1)
+}
+
+func (s *metricsStruct) reportStoreError() {
+	s.metricStoreErrors.Add(1)
 }

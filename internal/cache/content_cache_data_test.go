@@ -27,7 +27,7 @@ func TestContentCacheForData(t *testing.T) {
 		Sweep: cache.SweepSettings{
 			MaxSizeBytes: 100,
 		},
-	})
+	}, nil)
 	require.NoError(t, err)
 
 	var tmp gather.WriteBuffer
@@ -78,7 +78,7 @@ func TestContentCacheForData_Passthrough(t *testing.T) {
 
 	ctx := testlogging.Context(t)
 
-	dataCache, err := cache.NewContentCache(ctx, underlying, cache.Options{})
+	dataCache, err := cache.NewContentCache(ctx, underlying, cache.Options{}, nil)
 
 	require.NoError(t, err)
 	require.NoError(t, underlying.PutBlob(ctx, "blob1", gather.FromSlice([]byte{1, 2, 3, 4, 5, 6}), blob.PutOptions{}))
