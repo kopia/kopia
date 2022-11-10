@@ -19,8 +19,6 @@ import (
 const LegacyIndexBlobPrefix = "n"
 
 const (
-	legacyIndexPoisonBlobID = "n00000000000000000000000000000000-repository_unreadable_by_this_kopia_version_upgrade_required"
-
 	defaultIndexShardSize = 16e6 // slightly less than 2^24, which lets index use 24-bit/3-byte indexes
 
 	defaultEventualConsistencySettleTime = 1 * time.Hour
@@ -76,7 +74,7 @@ func (m *indexBlobManagerV0) ListIndexBlobInfos(ctx context.Context) ([]IndexBlo
 	q := make([]IndexBlobInfo, 0, len(activeIndexBlobs))
 	for _, activeIndexBlob := range activeIndexBlobs {
 		// skip the V0 blob poison that is used to prevent client reads.
-		if activeIndexBlob.BlobID == legacyIndexPoisonBlobID {
+		if activeIndexBlob.BlobID == format.LegacyIndexPoisonBlobID {
 			continue
 		}
 		q = append(q, activeIndexBlob)
@@ -548,18 +546,6 @@ func (m *indexBlobManagerV0) dropContentsFromBuilder(bld index.Builder, opt Comp
 
 		m.log.Debugf("finished drop-content-deleted-before %v", opt.DropDeletedBefore)
 	}
-}
-
-// WriteLegacyIndexPoisonBlob writes a "poison blob" that will prevent old kopia clients
-// that have not been upgraded from being able to open the repository after its format
-// has been upgraded.
-func WriteLegacyIndexPoisonBlob(ctx context.Context, st blob.Storage) error {
-	//nolint:wrapcheck
-	return st.PutBlob(
-		ctx,
-		legacyIndexPoisonBlobID,
-		gather.FromSlice([]byte("The format of this repository has been upgraded and cannot be read by old clients")),
-		blob.PutOptions{})
 }
 
 func addIndexBlobsToBuilder(ctx context.Context, enc *encryptedBlobMgr, bld index.Builder, indexBlobID blob.ID) error {
