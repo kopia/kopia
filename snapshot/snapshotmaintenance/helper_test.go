@@ -30,7 +30,7 @@ func createSnapshot(ctx context.Context, rep repo.RepositoryWriter, e fs.Entry, 
 
 	u := snapshotfs.NewUploader(rep)
 
-	manifest, err := u.Upload(ctx, e, policyTree, si, nil, previous...)
+	manifest, err := u.Upload(ctx, e, policyTree, si, previous...)
 	if err != nil {
 		return nil, err
 	}

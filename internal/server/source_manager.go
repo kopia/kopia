@@ -395,7 +395,7 @@ func (s *sourceManager) snapshotInternal(ctx context.Context, ctrl uitask.Contro
 		log(ctx).Debugf("starting upload of %v", s.src)
 		s.setUploader(u)
 
-		manifest, err := u.Upload(ctx, localEntry, policyTree, s.src, nil, manifestsSinceLastCompleteSnapshot...)
+		manifest, err := u.Upload(ctx, localEntry, policyTree, s.src, manifestsSinceLastCompleteSnapshot...)
 		prog.report(true)
 
 		s.setUploader(nil)

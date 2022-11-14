@@ -30,18 +30,18 @@ func TestCalculateStorageStats(t *testing.T) {
 	}
 
 	u := snapshotfs.NewUploader(env.RepositoryWriter)
-	man1, err := u.Upload(ctx, sourceRoot, nil, src, nil)
+	man1, err := u.Upload(ctx, sourceRoot, nil, src)
 	require.NoError(t, err)
 	require.NoError(t, env.RepositoryWriter.Flush(ctx))
 
-	man2, err := u.Upload(ctx, sourceRoot, nil, src, nil)
+	man2, err := u.Upload(ctx, sourceRoot, nil, src)
 	require.NoError(t, err)
 	require.NoError(t, env.RepositoryWriter.Flush(ctx))
 
 	// add one more file, upload again
 	dir2.AddFile("file23", []byte{1, 2, 3, 4, 5}, 0o644)
 
-	man3, err := u.Upload(ctx, sourceRoot, nil, src, nil)
+	man3, err := u.Upload(ctx, sourceRoot, nil, src)
 	require.NoError(t, err)
 	require.NoError(t, env.RepositoryWriter.Flush(ctx))
 

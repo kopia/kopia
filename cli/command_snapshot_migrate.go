@@ -280,7 +280,7 @@ func (c *commandSnapshotMigrate) migrateSingleSourceSnapshot(ctx context.Context
 
 	uploader.DisableIgnoreRules = !c.applyIgnoreRules
 
-	newm, err := uploader.Upload(ctx, sourceEntry, policyTree, m.Source, nil, previous...)
+	newm, err := uploader.Upload(ctx, sourceEntry, policyTree, m.Source, previous...)
 	if err != nil {
 		return errors.Wrapf(err, "error migrating shapshot %v @ %v", m.Source, m.StartTime)
 	}

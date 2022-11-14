@@ -47,7 +47,7 @@ func TestSnapshotTreeWalker(t *testing.T) {
 	const numUniqueObjects = 5
 
 	u := snapshotfs.NewUploader(env.RepositoryWriter)
-	man, err := u.Upload(ctx, sourceRoot, nil, snapshot.SourceInfo{}, nil)
+	man, err := u.Upload(ctx, sourceRoot, nil, snapshot.SourceInfo{})
 	require.NoError(t, err)
 
 	uploadedRoot, err := snapshotfs.SnapshotRoot(env.Repository, man)
@@ -66,7 +66,7 @@ func TestSnapshotTreeWalker(t *testing.T) {
 	// add one more file, upload again
 	dir2.AddFile("file23", []byte{1, 2, 3, 4, 5}, 0o644)
 
-	man, err = u.Upload(ctx, sourceRoot, nil, snapshot.SourceInfo{}, nil)
+	man, err = u.Upload(ctx, sourceRoot, nil, snapshot.SourceInfo{})
 	require.NoError(t, err)
 
 	uploadedRoot, err = snapshotfs.SnapshotRoot(env.Repository, man)
@@ -111,7 +111,7 @@ func TestSnapshotTreeWalker_Errors(t *testing.T) {
 	dir2.AddFile("file22", []byte{1, 2, 3}, 0o644) // same content as dir11/file11
 
 	u := snapshotfs.NewUploader(env.RepositoryWriter)
-	man, err := u.Upload(ctx, sourceRoot, nil, snapshot.SourceInfo{}, nil)
+	man, err := u.Upload(ctx, sourceRoot, nil, snapshot.SourceInfo{})
 	require.NoError(t, err)
 
 	uploadedRoot, err := snapshotfs.SnapshotRoot(env.Repository, man)
@@ -158,7 +158,7 @@ func TestSnapshotTreeWalker_MultipleErrors(t *testing.T) {
 	dir2.AddFile("file22", []byte{1, 2, 3, 4, 5}, 0o644)
 
 	u := snapshotfs.NewUploader(env.RepositoryWriter)
-	man, err := u.Upload(ctx, sourceRoot, nil, snapshot.SourceInfo{}, nil)
+	man, err := u.Upload(ctx, sourceRoot, nil, snapshot.SourceInfo{})
 	require.NoError(t, err)
 
 	uploadedRoot, err := snapshotfs.SnapshotRoot(env.Repository, man)
@@ -208,7 +208,7 @@ func TestSnapshotTreeWalker_MultipleErrorsSameOID(t *testing.T) {
 	dir2.AddFile("file22", []byte{1, 2, 3}, 0o644) // same content as dir11/file11
 
 	u := snapshotfs.NewUploader(env.RepositoryWriter)
-	man, err := u.Upload(ctx, sourceRoot, nil, snapshot.SourceInfo{}, nil)
+	man, err := u.Upload(ctx, sourceRoot, nil, snapshot.SourceInfo{})
 	require.NoError(t, err)
 
 	uploadedRoot, err := snapshotfs.SnapshotRoot(env.Repository, man)

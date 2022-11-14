@@ -32,33 +32,33 @@ func TestListAndDeleteSnapshots(t *testing.T) {
 		dir1.AddFile("file1", []byte{1, 2, 3}, 0o644)
 		dir1.AddFile("file2", []byte{1, 2, 4}, 0o644)
 
-		man11, err := u.Upload(ctx, dir1, nil, si1, nil)
+		man11, err := u.Upload(ctx, dir1, nil, si1)
 		require.NoError(t, err)
 		id11, err = snapshot.SaveSnapshot(ctx, w, man11)
 		require.NoError(t, err)
 
-		man12, err := u.Upload(ctx, dir1, nil, si1, nil)
+		man12, err := u.Upload(ctx, dir1, nil, si1)
 		require.NoError(t, err)
 		id12, err = snapshot.SaveSnapshot(ctx, w, man12)
 		require.NoError(t, err)
 
 		dir1.AddFile("file3", []byte{1, 2, 5}, 0o644)
 
-		man13, err := u.Upload(ctx, dir1, nil, si1, nil)
+		man13, err := u.Upload(ctx, dir1, nil, si1)
 		require.NoError(t, err)
 		id13, err = snapshot.SaveSnapshot(ctx, w, man13)
 		require.NoError(t, err)
 
 		dir1.AddFile("file4", []byte{1, 2, 6}, 0o644)
 
-		man14, err := u.Upload(ctx, dir1, nil, si1, nil)
+		man14, err := u.Upload(ctx, dir1, nil, si1)
 		require.NoError(t, err)
 		id14, err = snapshot.SaveSnapshot(ctx, w, man14)
 		require.NoError(t, err)
 
 		dir2 := mockfs.NewDirectory()
 
-		man21, err := u.Upload(ctx, dir2, nil, si2, nil)
+		man21, err := u.Upload(ctx, dir2, nil, si2)
 		require.NoError(t, err)
 		id21, err = snapshot.SaveSnapshot(ctx, w, man21)
 		require.NoError(t, err)
@@ -193,7 +193,7 @@ func TestEditSnapshots(t *testing.T) {
 		dir1.AddFile("file1", []byte{1, 2, 3}, 0o644)
 		dir1.AddFile("file2", []byte{1, 2, 4}, 0o644)
 
-		man11, err := u.Upload(ctx, dir1, nil, si1, nil)
+		man11, err := u.Upload(ctx, dir1, nil, si1)
 		require.NoError(t, err)
 		id11, err = snapshot.SaveSnapshot(ctx, w, man11)
 		require.NoError(t, err)
