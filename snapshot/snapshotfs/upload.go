@@ -97,6 +97,9 @@ type Uploader struct {
 	// When set to true, do not ignore any files, regardless of policy settings.
 	DisableIgnoreRules bool
 
+	// Labels to apply to every checkpoint made for this snapshot.
+	CheckpointLabels map[string]string
+
 	repo repo.RepositoryWriter
 
 	// stats must be allocated on heap to enforce 64-bit alignment due to atomic access on ARM.
@@ -509,6 +512,7 @@ func (u *Uploader) checkpointRoot(ctx context.Context, cp *checkpointRegistry, p
 	man.EndTime = fs.UTCTimestampFromTime(u.repo.Time())
 	man.StartTime = man.EndTime
 	man.IncompleteReason = IncompleteReasonCheckpoint
+	man.Tags = u.CheckpointLabels
 
 	if _, err := snapshot.SaveSnapshot(ctx, u.repo, &man); err != nil {
 		return errors.Wrap(err, "error saving checkpoint snapshot")
