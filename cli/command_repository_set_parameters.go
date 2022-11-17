@@ -157,6 +157,7 @@ func (c *commandRepositorySetParameters) run(ctx context.Context, rep repo.Direc
 
 	c.setSizeMBParameter(ctx, c.maxPackSizeMB, "maximum pack size", &mp.MaxPackSize, &anyChange)
 
+	// prevent downgrade of index format
 	if c.indexFormatVersion > mp.IndexVersion {
 		c.setIntParameter(ctx, c.indexFormatVersion, "index format version", &mp.IndexVersion, &anyChange)
 	} else if c.indexFormatVersion != mp.IndexVersion {

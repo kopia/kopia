@@ -9,12 +9,13 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 )
 
-// BackupBlobIDPrefix is the prefix for all identifiers of the BLOBs that
-// keep a backup copy of the FormatBlobID BLOB for the purposes of rollback
-// during upgrade.
 const (
+	// BackupBlobIDPrefix is the prefix for all identifiers of the BLOBs that
+	// keep a backup copy of the FormatBlobID BLOB for the purposes of rollback
+	// during upgrade.
 	BackupBlobIDPrefix = "kopia.repository.backup."
 
+	// LegacyIndexPoisonBlobID used to pollute V0 indexes after upgrade to prevent legacy clients from corrupting V1 indexes
 	LegacyIndexPoisonBlobID = "n00000000000000000000000000000000-repository_unreadable_by_this_kopia_version_upgrade_required"
 )
 

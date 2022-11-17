@@ -116,9 +116,8 @@ func loadIndexBlobs(ctx context.Context, indexEntries map[content.ID][2]index.In
 	return nil
 }
 
-// validateAction returns an array of strings (report) that describes differences between
-// the V0 index blob and V1 index blob content.  This is used to check that the upgraded index
-// (V1 index) reflects the content of the old V0 index.
+// validateAction returns an error of the new V1 index blob content does not match the source V0 index blob content.
+// This is used to check that the upgraded index (V1 index) reflects the content of the old V0 index.
 func (c *commandRepositoryUpgrade) validateAction(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 
 	indexEntries := map[content.ID][2]index.Info{}
@@ -171,28 +170,22 @@ func (c *commandRepositoryUpgrade) validateAction(ctx context.Context, rep repo.
 // checkIndexInfo compare two index infos.  If a mismatch exists, return an error with diagnostic information.
 func checkIndexInfo(i0, i1 index.Info) error {
 	var err error
-	if i0.GetFormatVersion() != i1.GetFormatVersion() {
+	switch {
+	case i0.GetFormatVersion() != i1.GetFormatVersion():
 		err = errors.Errorf("mismatched FormatVersions: %v %v", i0.GetFormatVersion(), i1.GetFormatVersion())
-	}
-	if i0.GetOriginalLength() != i1.GetOriginalLength() {
+	case i0.GetOriginalLength() != i1.GetOriginalLength():
 		err = errors.Errorf("mismatched OriginalLengths: %v %v", i0.GetOriginalLength(), i1.GetOriginalLength())
-	}
-	if i0.GetPackBlobID() != i1.GetPackBlobID() {
+	case i0.GetPackBlobID() != i1.GetPackBlobID():
 		err = errors.Errorf("mismatched PackBlobIDs: %v %v", i0.GetPackBlobID(), i1.GetPackBlobID())
-	}
-	if i0.GetPackedLength() != i1.GetPackedLength() {
+	case i0.GetPackedLength() != i1.GetPackedLength():
 		err = errors.Errorf("mismatched PackedLengths: %v %v", i0.GetPackedLength(), i1.GetPackedLength())
-	}
-	if i0.GetPackOffset() != i1.GetPackOffset() {
+	case i0.GetPackOffset() != i1.GetPackOffset():
 		err = errors.Errorf("mismatched PackOffsets: %v %v", i0.GetPackOffset(), i1.GetPackOffset())
-	}
-	if i0.GetEncryptionKeyID() != i1.GetEncryptionKeyID() {
+	case i0.GetEncryptionKeyID() != i1.GetEncryptionKeyID():
 		err = errors.Errorf("mismatched EncryptionKeyIDs: %v %v", i0.GetEncryptionKeyID(), i1.GetEncryptionKeyID())
-	}
-	if i0.GetDeleted() != i1.GetDeleted() {
+	case i0.GetDeleted() != i1.GetDeleted():
 		err = errors.Errorf("mismatched Deleted flags: %v %v", i0.GetDeleted(), i1.GetDeleted())
-	}
-	if i0.GetTimestampSeconds() != i1.GetTimestampSeconds() {
+	case i0.GetTimestampSeconds() != i1.GetTimestampSeconds():
 		err = errors.Errorf("mismatched TimestampSeconds: %v %v", i0.GetTimestampSeconds(), i1.GetTimestampSeconds())
 	}
 	if err != nil {

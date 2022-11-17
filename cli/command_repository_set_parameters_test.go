@@ -182,6 +182,71 @@ func (s *formatSpecificTestSuite) TestRepositorySetParametersUpgrade(t *testing.
 	env.RunAndExpectSuccess(t, "index", "epoch", "list")
 }
 
+func (s *formatSpecificTestSuite) TestRepositorySetParametersDowngrade(t *testing.T) {
+	env := s.setupInMemoryRepo(t)
+	out := env.RunAndExpectSuccess(t, "repository", "status")
+
+	// default values
+	require.Contains(t, out, "Max pack length:     21 MB")
+
+	switch s.formatVersion {
+	case format.FormatVersion1:
+		require.Contains(t, out, "Format version:      1")
+		require.Contains(t, out, "Epoch Manager:       disabled")
+		env.RunAndExpectFailure(t, "index", "epoch", "list")
+	case format.FormatVersion2:
+		require.Contains(t, out, "Format version:      2")
+		require.Contains(t, out, "Epoch Manager:       enabled")
+		env.RunAndExpectSuccess(t, "index", "epoch", "list")
+	default:
+		require.Contains(t, out, "Format version:      3")
+		require.Contains(t, out, "Epoch Manager:       enabled")
+		env.RunAndExpectSuccess(t, "index", "epoch", "list")
+	}
+
+	env.Environment["KOPIA_UPGRADE_LOCK_ENABLED"] = "1"
+
+	{
+		cmd := []string{
+			"repository", "upgrade",
+			"--upgrade-owner-id", "owner",
+			"--io-drain-timeout", "1s", "--allow-unsafe-upgrade",
+			"--status-poll-interval", "1s",
+			"--max-permitted-clock-drift", "1s",
+		}
+
+		// You can only upgrade when you are not already upgraded
+		if s.formatVersion < format.MaxFormatVersion {
+			env.RunAndExpectSuccess(t, cmd...)
+		} else {
+			env.RunAndExpectFailure(t, cmd...)
+		}
+	}
+
+	env.RunAndExpectSuccess(t, "repository", "set-parameters", "--upgrade")
+	env.RunAndExpectSuccess(t, "repository", "set-parameters", "--epoch-min-duration", "3h")
+	env.RunAndExpectSuccess(t, "repository", "set-parameters", "--epoch-cleanup-safety-margin", "23h")
+	env.RunAndExpectSuccess(t, "repository", "set-parameters", "--epoch-advance-on-size-mb", "77")
+	env.RunAndExpectSuccess(t, "repository", "set-parameters", "--epoch-advance-on-count", "22")
+	env.RunAndExpectSuccess(t, "repository", "set-parameters", "--epoch-checkpoint-frequency", "9")
+
+	env.RunAndExpectFailure(t, "repository", "set-parameters", "--epoch-min-duration", "1s")
+	env.RunAndExpectFailure(t, "repository", "set-parameters", "--epoch-refresh-frequency", "10h")
+	env.RunAndExpectFailure(t, "repository", "set-parameters", "--epoch-checkpoint-frequency", "-10")
+	env.RunAndExpectFailure(t, "repository", "set-parameters", "--epoch-cleanup-safety-margin", "10s")
+	env.RunAndExpectFailure(t, "repository", "set-parameters", "--epoch-advance-on-count", "1")
+
+	out = env.RunAndExpectSuccess(t, "repository", "status")
+	require.Contains(t, out, "Epoch Manager:       enabled")
+	require.Contains(t, out, "Index Format:        v2")
+	require.Contains(t, out, "Format version:      3")
+	require.Contains(t, out, "Epoch cleanup margin:    23h0m0s")
+	require.Contains(t, out, "Epoch advance on:        22 blobs or 80.7 MB, minimum 3h0m0s")
+	require.Contains(t, out, "Epoch checkpoint every:  9 epochs")
+
+	env.RunAndExpectSuccess(t, "index", "epoch", "list")
+}
+
 func (s *formatSpecificTestSuite) TestRepositorySetParametersRequiredFeatures(t *testing.T) {
 	env := s.setupInMemoryRepo(t)
 
