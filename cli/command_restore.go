@@ -325,7 +325,7 @@ func (c *commandRestore) detectRestoreMode(ctx context.Context, m, targetpath st
 	}
 }
 
-func printRestoreStats(ctx context.Context, st restore.Stats) {
+func printRestoreStats(ctx context.Context, st *restore.Stats) {
 	var maybeSkipped, maybeErrors string
 
 	if st.SkippedCount > 0 {
@@ -440,7 +440,7 @@ func (c *commandRestore) run(ctx context.Context, rep repo.Repository) error {
 			return errors.Wrap(err, "error restoring")
 		}
 
-		printRestoreStats(ctx, st)
+		printRestoreStats(ctx, &st)
 	}
 
 	return nil

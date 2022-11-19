@@ -39,8 +39,7 @@ const (
 
 // PersistentCache provides persistent on-disk cache.
 type PersistentCache struct {
-	// +checkatomic
-	anyChange int32
+	anyChange atomic.Bool
 
 	cacheStorage      Storage
 	storageProtection StorageProtection
@@ -176,7 +175,7 @@ func (c *PersistentCache) Put(ctx context.Context, key string, data gather.Bytes
 		return
 	}
 
-	atomic.StoreInt32(&c.anyChange, 1)
+	c.anyChange.Store(true)
 
 	var protected gather.WriteBuffer
 	defer protected.Close()
@@ -200,7 +199,7 @@ func (c *PersistentCache) Close(ctx context.Context) {
 	c.periodicSweepRunning.Wait()
 
 	// if we added anything to the cache in this sesion, run one last sweep before shutting down.
-	if atomic.LoadInt32(&c.anyChange) == 1 {
+	if c.anyChange.Load() {
 		if err := c.sweepDirectory(ctx); err != nil {
 			log(ctx).Errorf("error during final sweep of the %v: %v", c.description, err)
 		}

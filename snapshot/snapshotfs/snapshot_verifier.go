@@ -31,10 +31,8 @@ type verifyFileWorkItem struct {
 type Verifier struct {
 	throttle timetrack.Throttle
 
-	// +checkatomic
-	queued int32
-	// +checkatomic
-	processed int32
+	queued    atomic.Int32
+	processed atomic.Int32
 
 	fileWorkQueue chan verifyFileWorkItem
 	rep           repo.Repository
@@ -46,7 +44,7 @@ type Verifier struct {
 
 // ShowStats logs verification statistics.
 func (v *Verifier) ShowStats(ctx context.Context) {
-	processed := atomic.LoadInt32(&v.processed)
+	processed := v.processed.Load()
 
 	verifierLog(ctx).Infof("Processed %v objects.", processed)
 }
@@ -56,7 +54,7 @@ func (v *Verifier) VerifyFile(ctx context.Context, oid object.ID, entryPath stri
 	verifierLog(ctx).Debugf("verifying object %v", oid)
 
 	defer func() {
-		atomic.AddInt32(&v.processed, 1)
+		v.processed.Add(1)
 	}()
 
 	contentIDs, err := v.rep.VerifyObject(ctx, oid)
@@ -95,10 +93,10 @@ func (v *Verifier) verifyObject(ctx context.Context, e fs.Entry, oid object.ID, 
 
 	if !e.IsDir() {
 		v.fileWorkQueue <- verifyFileWorkItem{oid, entryPath}
-		atomic.AddInt32(&v.queued, 1)
+		v.queued.Add(1)
 	} else {
-		atomic.AddInt32(&v.queued, 1)
-		atomic.AddInt32(&v.processed, 1)
+		v.queued.Add(1)
+		v.processed.Add(1)
 	}
 
 	return nil

@@ -87,7 +87,8 @@ func TestEndurance(t *testing.T) {
 
 	e.RunAndExpectSuccess(t, "repo", "create", "webdav", "--url", sts.URL)
 
-	failureCount := new(int32)
+	var failureCount atomic.Int32
+
 	rwMutex := &sync.RWMutex{}
 
 	t.Run("Runners", func(t *testing.T) {
@@ -98,11 +99,11 @@ func TestEndurance(t *testing.T) {
 				t.Parallel()
 				defer func() {
 					if t.Failed() {
-						atomic.AddInt32(failureCount, 1)
+						failureCount.Add(1)
 					}
 				}()
 
-				enduranceRunner(t, i, ft.URL, sts.URL, failureCount, rwMutex, testTime)
+				enduranceRunner(t, i, ft.URL, sts.URL, &failureCount, rwMutex, testTime)
 			})
 		}
 	})
@@ -259,7 +260,7 @@ func pickRandomEnduranceTestAction() *actionInfo {
 	panic("impossible")
 }
 
-func enduranceRunner(t *testing.T, runnerID int, fakeTimeServer, webdavServer string, failureCount *int32, lock *sync.RWMutex, fakeClock *faketime.ClockTimeWithOffset) {
+func enduranceRunner(t *testing.T, runnerID int, fakeTimeServer, webdavServer string, failureCount *atomic.Int32, lock *sync.RWMutex, fakeClock *faketime.ClockTimeWithOffset) {
 	t.Helper()
 
 	nowFunc := fakeClock.NowFunc()
@@ -284,7 +285,7 @@ func enduranceRunner(t *testing.T, runnerID int, fakeTimeServer, webdavServer st
 	actionAddNewSource(t, e, &s)
 
 	for now, k := nowFunc(), 0; now.Before(endTime); now, k = nowFunc(), k+1 {
-		if atomic.LoadInt32(failureCount) != 0 {
+		if failureCount.Load() != 0 {
 			t.Logf("Aborting early because of failures.")
 			break
 		}

@@ -19,8 +19,7 @@ type workItem[T any] struct {
 
 // Pool manages a pool of generic workers that can process workItem.
 type Pool[T any] struct {
-	// +checkatomic
-	activeWorkers int32
+	activeWorkers atomic.Int32
 
 	semaphore chan struct{}
 
@@ -32,7 +31,7 @@ type Pool[T any] struct {
 
 // ActiveWorkers returns the number of active workers.
 func (w *Pool[T]) ActiveWorkers() int {
-	return int(atomic.LoadInt32(&w.activeWorkers))
+	return int(w.activeWorkers.Load())
 }
 
 // NewPool creates a worker pool that launches a given number of goroutines that can invoke shared work.
@@ -58,9 +57,9 @@ func NewPool[T any](numWorkers int) *Pool[T] {
 			for {
 				select {
 				case it := <-w.work:
-					atomic.AddInt32(&w.activeWorkers, 1)
+					w.activeWorkers.Add(1)
 					it.process(w, it.request)
-					atomic.AddInt32(&w.activeWorkers, -1)
+					w.activeWorkers.Add(-1)
 					<-w.semaphore
 					it.wg.Done()
 

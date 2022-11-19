@@ -43,14 +43,14 @@ type rcloneStorage struct {
 	cmd          *exec.Cmd // running rclone
 	temporaryDir string
 
-	allTransfersComplete *int32 // set to 1 when rclone process emits "Transferred:*100%"
-	changeCount          *int32 // set to 1 when we had any writes
+	allTransfersComplete atomic.Bool // set to true when rclone process emits "Transferred:*100%"
+	hasWrites            atomic.Bool // set to true when we had any writes
 }
 
 func (r *rcloneStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes, opts blob.PutOptions) error {
 	err := r.Storage.PutBlob(ctx, b, data, opts)
 	if err == nil {
-		atomic.StoreInt32(r.changeCount, 1)
+		r.hasWrites.Store(true)
 		return nil
 	}
 
@@ -65,14 +65,14 @@ func (r *rcloneStorage) ConnectionInfo() blob.ConnectionInfo {
 }
 
 func (r *rcloneStorage) waitForTransfersToEnd(ctx context.Context) {
-	if atomic.LoadInt32(r.changeCount) == 0 {
+	if !r.hasWrites.Load() {
 		log(ctx).Debugf("no writes in this session, no need to wait")
 		return
 	}
 
 	log(ctx).Debugf("waiting for background rclone transfers to complete...")
 
-	for atomic.LoadInt32(r.allTransfersComplete) == 0 {
+	for !r.allTransfersComplete.Load() {
 		log(ctx).Debugf("still waiting for background rclone transfers to complete...")
 		time.Sleep(1 * time.Second)
 	}
@@ -130,9 +130,9 @@ func (r *rcloneStorage) processStderrStatus(ctx context.Context, statsMarker str
 
 		if strings.Contains(l, statsMarker) {
 			if strings.Contains(l, " 100%,") || strings.Contains(l, ", -,") {
-				atomic.StoreInt32(r.allTransfersComplete, 1)
+				r.allTransfersComplete.Store(true)
 			} else {
-				atomic.StoreInt32(r.allTransfersComplete, 0)
+				r.allTransfersComplete.Store(false)
 			}
 		}
 	}
@@ -206,9 +206,6 @@ func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error)
 	r := &rcloneStorage{
 		Options:      *opt,
 		temporaryDir: td,
-
-		changeCount:          new(int32),
-		allTransfersComplete: new(int32),
 	}
 
 	// TLS key for rclone webdav server.

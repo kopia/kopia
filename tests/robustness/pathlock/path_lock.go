@@ -60,7 +60,7 @@ func (l *lock) Unlock() {
 
 // busyCounter is for unit testing, to determine whether a Lock has been
 // called and blocked.
-var busyCounter uint64
+var busyCounter atomic.Uint64
 
 // Lock will lock the given path, preventing concurrent calls to Lock
 // for that path, or any parent/child path, until Unlock has been called.
@@ -81,7 +81,7 @@ func (pl *pathLock) Lock(path string) (Unlocker, error) {
 			break
 		}
 
-		atomic.AddUint64(&busyCounter, 1)
+		busyCounter.Add(1)
 
 		<-ch
 	}

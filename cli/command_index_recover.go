@@ -41,19 +41,21 @@ func (c *commandIndexRecover) setup(svc appServices, parent commandParent) {
 func (c *commandIndexRecover) run(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	c.svc.advancedCommand(ctx)
 
-	processedBlobCount := new(int32)
-	recoveredContentCount := new(int32)
+	var (
+		processedBlobCount    atomic.Int32
+		recoveredContentCount atomic.Int32
+	)
 
 	defer func() {
-		if *recoveredContentCount == 0 {
+		if recoveredContentCount.Load() == 0 {
 			log(ctx).Infof("No contents recovered.")
 			return
 		}
 
 		if !c.commit {
-			log(ctx).Infof("Found %v contents to recover from %v blobs, but not committed. Re-run with --commit", *recoveredContentCount, *processedBlobCount)
+			log(ctx).Infof("Found %v contents to recover from %v blobs, but not committed. Re-run with --commit", recoveredContentCount.Load(), processedBlobCount.Load())
 		} else {
-			log(ctx).Infof("Recovered %v contents from %v.", *recoveredContentCount, *processedBlobCount)
+			log(ctx).Infof("Recovered %v contents from %v.", recoveredContentCount.Load(), processedBlobCount.Load())
 		}
 	}()
 
@@ -82,11 +84,11 @@ func (c *commandIndexRecover) run(ctx context.Context, rep repo.DirectRepository
 			prefixes = content.PackBlobIDPrefixes
 		}
 
-		return c.recoverIndexesFromAllPacks(ctx, rep, prefixes, processedBlobCount, recoveredContentCount)
+		return c.recoverIndexesFromAllPacks(ctx, rep, prefixes, &processedBlobCount, &recoveredContentCount)
 	}
 
 	for _, packFile := range c.blobIDs {
-		if err := c.recoverIndexFromSinglePackFile(ctx, rep, blob.ID(packFile), 0, processedBlobCount, recoveredContentCount); err != nil && !c.ignoreErrors {
+		if err := c.recoverIndexFromSinglePackFile(ctx, rep, blob.ID(packFile), 0, &processedBlobCount, &recoveredContentCount); err != nil && !c.ignoreErrors {
 			return errors.Wrapf(err, "error recovering index from %v", packFile)
 		}
 	}
@@ -94,10 +96,12 @@ func (c *commandIndexRecover) run(ctx context.Context, rep repo.DirectRepository
 	return nil
 }
 
-func (c *commandIndexRecover) recoverIndexesFromAllPacks(ctx context.Context, rep repo.DirectRepositoryWriter, prefixes []blob.ID, processedBlobCount, recoveredContentCount *int32) error {
-	discoveredBlobCount := new(int32)
-	discoveringBlobCount := new(int32)
-	tt := new(timetrack.Throttle)
+func (c *commandIndexRecover) recoverIndexesFromAllPacks(ctx context.Context, rep repo.DirectRepositoryWriter, prefixes []blob.ID, processedBlobCount, recoveredContentCount *atomic.Int32) error {
+	var (
+		discoveredBlobCount  atomic.Int32
+		discoveringBlobCount atomic.Int32
+		tt                   timetrack.Throttle
+	)
 
 	// recover indexes from all pack blobs in parallel.
 	// this is actually quite fast since we typically need to read only 8KB from each blob.
@@ -107,12 +111,12 @@ func (c *commandIndexRecover) recoverIndexesFromAllPacks(ctx context.Context, re
 		for _, prefix := range prefixes {
 			//nolint:errcheck
 			rep.BlobStorage().ListBlobs(ctx, prefix, func(bm blob.Metadata) error {
-				atomic.AddInt32(discoveringBlobCount, 1)
+				discoveringBlobCount.Add(1)
 				return nil
 			})
 		}
 
-		atomic.StoreInt32(discoveredBlobCount, atomic.LoadInt32(discoveringBlobCount))
+		discoveredBlobCount.Store(discoveringBlobCount.Load())
 	}()
 
 	est := timetrack.Start()
@@ -143,17 +147,17 @@ func (c *commandIndexRecover) recoverIndexesFromAllPacks(ctx context.Context, re
 			cnt := 0
 
 			for bm := range blobCh {
-				finishedBlobs := atomic.LoadInt32(processedBlobCount)
+				finishedBlobs := processedBlobCount.Load()
 
 				log(ctx).Debugf("worker %v got %v", worker, cnt)
 				cnt++
 
 				if tt.ShouldOutput(time.Second) {
-					if disc := atomic.LoadInt32(discoveredBlobCount); disc > 0 {
+					if disc := discoveredBlobCount.Load(); disc > 0 {
 						e, ok := est.Estimate(float64(finishedBlobs), float64(disc))
 						if ok {
 							log(ctx).Infof("Recovered %v index entries from %v/%v blobs (%.1f %%) %v remaining %v ETA",
-								atomic.LoadInt32(recoveredContentCount),
+								recoveredContentCount.Load(),
 								finishedBlobs,
 								disc,
 								e.PercentComplete,
@@ -162,9 +166,9 @@ func (c *commandIndexRecover) recoverIndexesFromAllPacks(ctx context.Context, re
 						}
 					} else {
 						log(ctx).Infof("Recovered %v index entries from %v blobs, estimating time remaining... (found %v blobs)",
-							atomic.LoadInt32(recoveredContentCount),
+							recoveredContentCount.Load(),
 							finishedBlobs,
-							atomic.LoadInt32(discoveringBlobCount))
+							discoveringBlobCount.Load())
 					}
 				}
 
@@ -180,7 +184,7 @@ func (c *commandIndexRecover) recoverIndexesFromAllPacks(ctx context.Context, re
 	return errors.Wrap(eg.Wait(), "recovering indexes")
 }
 
-func (c *commandIndexRecover) recoverIndexFromSinglePackFile(ctx context.Context, rep repo.DirectRepositoryWriter, blobID blob.ID, length int64, processedBlobCount, recoveredContentCount *int32) error {
+func (c *commandIndexRecover) recoverIndexFromSinglePackFile(ctx context.Context, rep repo.DirectRepositoryWriter, blobID blob.ID, length int64, processedBlobCount, recoveredContentCount *atomic.Int32) error {
 	log(ctx).Debugf("recovering from %v", blobID)
 
 	recovered, err := rep.ContentManager().RecoverIndexFromPackBlob(ctx, blobID, length, c.commit)
@@ -192,8 +196,8 @@ func (c *commandIndexRecover) recoverIndexFromSinglePackFile(ctx context.Context
 		return errors.Wrapf(err, "unable to recover index from %v", blobID)
 	}
 
-	atomic.AddInt32(recoveredContentCount, int32(len(recovered)))
-	atomic.AddInt32(processedBlobCount, 1)
+	recoveredContentCount.Add(int32(len(recovered)))
+	processedBlobCount.Add(1)
 	log(ctx).Debugf("Recovered %v entries from %v (commit=%v)", len(recovered), blobID, c.commit)
 
 	return nil

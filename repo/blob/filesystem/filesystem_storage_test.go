@@ -183,11 +183,9 @@ func TestFileStorage_GetBlob_RetriesOnReadError(t *testing.T) {
 
 	dataDir := testutil.TempDirectory(t)
 
-	osi := &mockOS{
-		readFileRemainingErrors: 1,
+	osi := newMockOS()
 
-		osInterface: realOS{},
-	}
+	osi.readFileRemainingErrors.Store(1)
 
 	st, err := New(ctx, &Options{
 		Path: dataDir,
@@ -216,11 +214,9 @@ func TestFileStorage_GetMetadata_RetriesOnError(t *testing.T) {
 
 	dataDir := testutil.TempDirectory(t)
 
-	osi := &mockOS{
-		statRemainingErrors: 1,
+	osi := newMockOS()
 
-		osInterface: realOS{},
-	}
+	osi.statRemainingErrors.Store(1)
 
 	st, err := New(ctx, &Options{
 		Path: dataDir,
@@ -247,19 +243,16 @@ func TestFileStorage_PutBlob_RetriesOnErrors(t *testing.T) {
 
 	dataDir := testutil.TempDirectory(t)
 
-	osi := &mockOS{
-		osInterface:                    realOS{},
-		createNewFileRemainingErrors:   3,
-		mkdirAllRemainingErrors:        2,
-		writeFileRemainingErrors:       3,
-		writeFileCloseRemainingErrors:  2,
-		renameRemainingErrors:          1,
-		removeRemainingRetriableErrors: 3,
-		chownRemainingErrors:           3,
-		chtimesRemainingErrors:         3,
+	osi := newMockOS()
 
-		effectiveUID: 0, // running as root
-	}
+	osi.createNewFileRemainingErrors.Store(3)
+	osi.mkdirAllRemainingErrors.Store(2)
+	osi.writeFileRemainingErrors.Store(3)
+	osi.writeFileCloseRemainingErrors.Store(2)
+	osi.renameRemainingErrors.Store(1)
+	osi.removeRemainingRetriableErrors.Store(3)
+	osi.chownRemainingErrors.Store(3)
+	osi.chtimesRemainingErrors.Store(3)
 
 	fileUID := 3
 	fileGID := 4
@@ -304,10 +297,8 @@ func TestFileStorage_DeleteBlob_ErrorHandling(t *testing.T) {
 
 	dataDir := testutil.TempDirectory(t)
 
-	osi := &mockOS{
-		osInterface:                       realOS{},
-		removeRemainingNonRetriableErrors: 1,
-	}
+	osi := newMockOS()
+	osi.removeRemainingNonRetriableErrors.Store(1)
 
 	st, err := New(ctx, &Options{
 		Path: dataDir,
@@ -331,10 +322,8 @@ func TestFileStorage_New_MkdirAllFailureIsIgnored(t *testing.T) {
 
 	dataDir := testutil.TempDirectory(t)
 
-	osi := &mockOS{
-		osInterface:             realOS{},
-		mkdirAllRemainingErrors: 1,
-	}
+	osi := newMockOS()
+	osi.mkdirAllRemainingErrors.Store(1)
 
 	st, err := New(ctx, &Options{
 		Path: dataDir,
@@ -355,10 +344,9 @@ func TestFileStorage_New_ChecksDirectoryExistence(t *testing.T) {
 
 	dataDir := testutil.TempDirectory(t)
 
-	osi := &mockOS{
-		osInterface:         realOS{},
-		statRemainingErrors: 1,
-	}
+	osi := newMockOS()
+
+	osi.statRemainingErrors.Store(1)
 
 	st, err := New(ctx, &Options{
 		Path: dataDir,
@@ -378,11 +366,10 @@ func TestFileStorage_ListBlobs_ErrorHandling(t *testing.T) {
 
 	dataDir := testutil.TempDirectory(t)
 
-	osi := &mockOS{
-		osInterface:                         realOS{},
-		readDirRemainingErrors:              3,
-		readDirRemainingFileDeletedDirEntry: 3,
-	}
+	osi := newMockOS()
+
+	osi.readDirRemainingErrors.Store(3)
+	osi.readDirRemainingFileDeletedDirEntry.Store(3)
 
 	st, err := New(ctx, &Options{
 		Path: dataDir,
@@ -400,13 +387,13 @@ func TestFileStorage_ListBlobs_ErrorHandling(t *testing.T) {
 		return nil
 	}))
 
-	osi.readDirRemainingNonRetriableErrors = 1
+	osi.readDirRemainingNonRetriableErrors.Store(1)
 
 	require.ErrorIs(t, st.ListBlobs(ctx, "", func(bm blob.Metadata) error {
 		return nil
 	}), errNonRetriable)
 
-	osi.readDirRemainingFatalDirEntry = 1
+	osi.readDirRemainingFatalDirEntry.Store(1)
 
 	require.ErrorIs(t, st.ListBlobs(ctx, "", func(bm blob.Metadata) error {
 		return nil
@@ -420,9 +407,7 @@ func TestFileStorage_TouchBlob_ErrorHandling(t *testing.T) {
 
 	dataDir := testutil.TempDirectory(t)
 
-	osi := &mockOS{
-		osInterface: realOS{},
-	}
+	osi := newMockOS()
 
 	st, err := New(ctx, &Options{
 		Path: dataDir,
@@ -438,7 +423,7 @@ func TestFileStorage_TouchBlob_ErrorHandling(t *testing.T) {
 
 	require.NoError(t, st.PutBlob(ctx, "someblob1234567812345678", gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{}))
 
-	osi.statRemainingErrors = 1
+	osi.statRemainingErrors.Store(1)
 
 	require.NoError(t, st.(*fsStorage).TouchBlob(ctx, "someblob1234567812345678", 0))
 }
@@ -492,5 +477,11 @@ func assertNoError(t *testing.T, err error) {
 
 	if err != nil {
 		t.Errorf("err: %v", err)
+	}
+}
+
+func newMockOS() *mockOS {
+	return &mockOS{
+		osInterface: realOS{},
 	}
 }
