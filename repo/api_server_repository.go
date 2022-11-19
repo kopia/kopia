@@ -44,6 +44,7 @@ type apiServerRepository struct {
 
 	isSharedReadOnlySession bool
 	contentCache            *cache.PersistentCache
+	*refCountedCloser
 }
 
 func (r *apiServerRepository) APIServerURL() string {
@@ -164,7 +165,8 @@ func (r *apiServerRepository) NewWriter(ctx context.Context, opt WriteSessionOpt
 
 	w.omgr = omgr
 	w.wso = opt
-	w.isSharedReadOnlySession = false
+
+	r.refCountedCloser.addRef()
 
 	return ctx, w, nil
 }
@@ -247,15 +249,6 @@ func (r *apiServerRepository) UpdateDescription(d string) {
 	r.cliOpts.Description = d
 }
 
-func (r *apiServerRepository) Close(ctx context.Context) error {
-	if r.isSharedReadOnlySession && r.contentCache != nil {
-		r.contentCache.Close(ctx)
-		r.contentCache = nil
-	}
-
-	return nil
-}
-
 func (r *apiServerRepository) PrefetchObjects(ctx context.Context, objectIDs []object.ID, hint string) ([]content.ID, error) {
 	//nolint:wrapcheck
 	return object.PrefetchBackingContents(ctx, r, objectIDs, hint)
@@ -295,6 +288,17 @@ func openRestAPIRepository(ctx context.Context, si *APIServerInfo, cliOpts Clien
 		return nil, errors.Wrap(err, "unable to create API client")
 	}
 
+	rcc := newRefCountedCloser(
+		func(ctx context.Context) error {
+			if contentCache != nil {
+				contentCache.Close(ctx)
+			}
+
+			return nil
+		},
+		mr.Close,
+	)
+
 	rr := &apiServerRepository{
 		cli:          cli,
 		cliOpts:      cliOpts,
@@ -304,6 +308,7 @@ func openRestAPIRepository(ctx context.Context, si *APIServerInfo, cliOpts Clien
 		},
 		isSharedReadOnlySession: true,
 		metricsRegistry:         mr,
+		refCountedCloser:        rcc,
 	}
 
 	var p remoterepoapi.Parameters

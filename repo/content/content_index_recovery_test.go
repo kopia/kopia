@@ -38,11 +38,11 @@ func (s *contentManagerSuite) TestContentIndexRecovery(t *testing.T) {
 		return bm.st.DeleteBlob(ctx, bi.BlobID)
 	}))
 
-	bm.Close(ctx)
+	bm.CloseShared(ctx)
 
 	// now with index blobs gone, all contents appear to not be found
 	bm = s.newTestContentManagerWithCustomTime(t, st, nil)
-	defer bm.Close(ctx)
+	defer bm.CloseShared(ctx)
 
 	verifyContentNotFound(ctx, t, bm, content1)
 	verifyContentNotFound(ctx, t, bm, content2)

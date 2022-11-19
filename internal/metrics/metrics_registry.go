@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kopia/kopia/internal/releasable"
 	"github.com/kopia/kopia/repo/logging"
 )
 
@@ -64,6 +65,8 @@ func (r *Registry) Close(ctx context.Context) error {
 		return nil
 	}
 
+	releasable.Released("metric-registry", r)
+
 	return nil
 }
 
@@ -98,13 +101,17 @@ func (r *Registry) Log(ctx context.Context) error {
 
 // NewRegistry returns new metrics registry.
 func NewRegistry() *Registry {
-	return &Registry{
+	r := &Registry{
 		allCounters:              map[string]*Counter{},
 		allGauges:                map[string]*Gauge{},
 		allDurationDistributions: map[string]*Distribution[time.Duration]{},
 		allSizeDistributions:     map[string]*Distribution[int64]{},
 		allThroughput:            map[string]*Throughput{},
 	}
+
+	releasable.Created("metric-registry", r)
+
+	return r
 }
 
 func labelsSuffix(l map[string]string) string {

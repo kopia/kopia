@@ -306,6 +306,11 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 		return nil, errors.Wrap(ferr, "unable to open manifests")
 	}
 
+	rcc := newRefCountedCloser(
+		scm.CloseShared,
+		me.Close,
+	)
+
 	dr := &directRepository{
 		cmgr:  cm,
 		omgr:  om,
@@ -321,8 +326,9 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 			nextWriterID:    new(int32),
 			throttler:       throttler,
 			metricsRegistry: me,
+
+			refCountedCloser: rcc,
 		},
-		closed: make(chan struct{}),
 	}
 
 	return dr, nil

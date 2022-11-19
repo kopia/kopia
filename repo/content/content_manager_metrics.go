@@ -5,8 +5,6 @@ import (
 )
 
 type metricsStruct struct {
-	metricsEmitter *metrics.Registry
-
 	uploadedBytes *metrics.Counter
 
 	getContentBytes         *metrics.Throughput
@@ -36,8 +34,6 @@ type metricsStruct struct {
 
 func initMetricsStruct(mr *metrics.Registry) metricsStruct {
 	return metricsStruct{
-		metricsEmitter: mr,
-
 		uploadedBytes:           mr.CounterInt64("content_uploaded_bytes", "Number of bytes uploaded from content manager.", nil),
 		getContentErrorCount:    mr.CounterInt64("content_get_error_count", "Number of time GetContent() was called and the result was an error", nil),
 		getContentNotFoundCount: mr.CounterInt64("content_get_not_found_count", "Number of time GetContent() was called and the result was not found", nil),

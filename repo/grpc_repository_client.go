@@ -7,7 +7,6 @@ import (
 	"net/url"
 	"runtime"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
@@ -59,8 +58,8 @@ func errNoSessionResponse() error {
 // grpcRepositoryClient is an implementation of Repository that connects to an instance of
 // GPRC API server hosted by `kopia server`.
 type grpcRepositoryClient struct {
-	connRefCount *int32
-	conn         *grpc.ClientConn
+	*refCountedCloser
+	conn *grpc.ClientConn
 
 	innerSessionMutex sync.Mutex
 
@@ -461,10 +460,12 @@ func (r *grpcInnerSession) Flush(ctx context.Context) error {
 }
 
 func (r *grpcRepositoryClient) NewWriter(ctx context.Context, opt WriteSessionOptions) (context.Context, RepositoryWriter, error) {
-	w, err := newGRPCAPIRepositoryForConnection(ctx, r.conn, r.connRefCount, r.cliOpts, opt, r.contentCache, false, r.metricsRegistry)
+	w, err := newGRPCAPIRepositoryForConnection(ctx, r.conn, r.refCountedCloser, r.cliOpts, opt, r.contentCache, false, r.metricsRegistry)
 	if err != nil {
 		return nil, nil, err
 	}
+
+	w.addRef()
 
 	return ctx, w, nil
 }
@@ -727,25 +728,6 @@ func (r *grpcRepositoryClient) UpdateDescription(d string) {
 	r.cliOpts.Description = d
 }
 
-func (r *grpcRepositoryClient) Close(ctx context.Context) error {
-	if r.omgr == nil {
-		// already closed
-		return nil
-	}
-
-	r.omgr = nil
-
-	if atomic.AddInt32(r.connRefCount, -1) == 0 {
-		log(ctx).Debugf("closing GPRC connection to %v", r.conn.Target())
-
-		defer r.contentCache.Close(ctx)
-
-		return errors.Wrap(r.conn.Close(), "error closing GRPC connection")
-	}
-
-	return nil
-}
-
 var _ Repository = (*grpcRepositoryClient)(nil)
 
 type grpcCreds struct {
@@ -804,7 +786,18 @@ func OpenGRPCAPIRepository(ctx context.Context, si *APIServerInfo, cliOpts Clien
 		return nil, errors.Wrap(err, "dial error")
 	}
 
-	rep, err := newGRPCAPIRepositoryForConnection(ctx, conn, new(int32), cliOpts, WriteSessionOptions{}, contentCache, true, mr)
+	rcc := newRefCountedCloser(
+		func(ctx context.Context) error {
+			return errors.Wrap(conn.Close(), "error closing GRPC connection")
+		},
+		func(ctx context.Context) error {
+			contentCache.Close(ctx)
+			return nil
+		},
+		mr.Close,
+	)
+
+	rep, err := newGRPCAPIRepositoryForConnection(ctx, conn, rcc, cliOpts, WriteSessionOptions{}, contentCache, true, mr)
 	if err != nil {
 		return nil, err
 	}
@@ -880,7 +873,7 @@ func (r *grpcRepositoryClient) Metrics() *metrics.Registry {
 func newGRPCAPIRepositoryForConnection(
 	ctx context.Context,
 	conn *grpc.ClientConn,
-	connRefCount *int32,
+	sc *refCountedCloser,
 	cliOpts ClientOptions,
 	opt WriteSessionOptions,
 	contentCache *cache.PersistentCache,
@@ -892,7 +885,7 @@ func newGRPCAPIRepositoryForConnection(
 	}
 
 	rr := &grpcRepositoryClient{
-		connRefCount:       connRefCount,
+		refCountedCloser:   sc,
 		conn:               conn,
 		cliOpts:            cliOpts,
 		transparentRetries: transparentRetries,
@@ -922,8 +915,6 @@ func newGRPCAPIRepositoryForConnection(
 		if err != nil {
 			return nil, errors.Wrap(err, "unable to initialize object manager")
 		}
-
-		atomic.AddInt32(connRefCount, 1)
 
 		return rr, nil
 	})
