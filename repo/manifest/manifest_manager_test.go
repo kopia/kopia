@@ -167,7 +167,7 @@ func TestManifestInitCorruptedBlock(t *testing.T) {
 
 	bm0 := bm
 
-	t.Cleanup(func() { bm0.Close(ctx) })
+	t.Cleanup(func() { bm0.CloseShared(ctx) })
 
 	mgr, err := NewManager(ctx, bm, ManagerOptions{}, nil)
 	if err != nil {
@@ -193,7 +193,7 @@ func TestManifestInitCorruptedBlock(t *testing.T) {
 	bm, err = content.NewManagerForTesting(ctx, st, fop, nil, nil)
 	require.NoError(t, err)
 
-	t.Cleanup(func() { bm.Close(ctx) })
+	t.Cleanup(func() { bm.CloseShared(ctx) })
 
 	mgr, err = NewManager(ctx, bm, ManagerOptions{}, nil)
 	if err != nil {
@@ -325,7 +325,7 @@ func newManagerForTesting(ctx context.Context, t *testing.T, data blobtesting.Da
 	bm, err := content.NewManagerForTesting(ctx, st, fop, nil, nil)
 	require.NoError(t, err)
 
-	t.Cleanup(func() { bm.Close(ctx) })
+	t.Cleanup(func() { bm.CloseShared(ctx) })
 
 	mm, err := NewManager(ctx, bm, ManagerOptions{}, nil)
 	require.NoError(t, err)

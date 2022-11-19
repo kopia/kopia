@@ -589,11 +589,6 @@ func (bm *WriteManager) ContentFormat() format.Provider {
 	return bm.format
 }
 
-// Close closes the content manager.
-func (bm *WriteManager) Close(ctx context.Context) error {
-	return bm.SharedManager.release(ctx)
-}
-
 // +checklocks:bm.mu
 func (bm *WriteManager) setFlushingLocked(v bool) {
 	bm.flushing = v
@@ -996,8 +991,6 @@ type SessionOptions struct {
 
 // NewWriteManager returns a session write manager.
 func NewWriteManager(ctx context.Context, sm *SharedManager, options SessionOptions, writeManagerID string) *WriteManager {
-	sm.addRef()
-
 	if options.OnUpload == nil {
 		options.OnUpload = func(int64) {}
 	}
