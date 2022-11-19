@@ -18,6 +18,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/fs/filesystemsnapshots"
 	"github.com/kopia/kopia/internal/auth"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/ctxutil"
@@ -83,6 +84,11 @@ type Server struct {
 	currentParallelSnapshots int
 	// +checklocks:parallelSnapshotsMutex
 	maxParallelSnapshots int
+	// +checklocks:parallelSnapshotsMutex
+	pendingParallelSnapshots int
+
+	// +checklocks:parallelSnapshotsMutex
+	fssm filesystemsnapshots.FilesystemSnapshotManager
 
 	// +checklocks:serverMutex
 	rep repo.Repository
@@ -500,14 +506,25 @@ func (s *Server) beginUpload(ctx context.Context, src snapshot.SourceInfo) bool 
 	s.parallelSnapshotsMutex.Lock()
 	defer s.parallelSnapshotsMutex.Unlock()
 
+	s.pendingParallelSnapshots++
+
 	for s.currentParallelSnapshots >= s.maxParallelSnapshots && ctx.Err() == nil {
 		log(ctx).Debugf("waiting on for parallel snapshot upload slot to be available %v", src)
 		s.parallelSnapshotsChanged.Wait()
 	}
 
+	s.pendingParallelSnapshots--
+
 	if ctx.Err() != nil {
 		// context closed
 		return false
+	}
+
+	// If this is the first upload done at the same time, start filesystem snapshot manager
+	if s.currentParallelSnapshots == 0 && s.fssm == nil {
+		log(ctx).Debugf("creating filesystem snapshots manager: all snapshots from now on will use the same filesystem snapshots until this one is closed")
+
+		s.fssm = filesystemsnapshots.CreateFsSnapshotsManager()
 	}
 
 	// at this point s.currentParallelSnapshots < s.maxParallelSnapshots and we are locked
@@ -523,6 +540,13 @@ func (s *Server) endUpload(ctx context.Context, src snapshot.SourceInfo) {
 	log(ctx).Debugf("finished uploading %v", src)
 
 	s.currentParallelSnapshots--
+
+	// If there are no more snapshots running and none pending, stop filesystem snapshot manager
+	if s.currentParallelSnapshots == 0 && s.pendingParallelSnapshots == 0 {
+		log(ctx).Debugf("closing filesystem snapshots manager")
+		s.fssm.Close()
+		s.fssm = nil
+	}
 
 	// notify one of the waiters
 	s.parallelSnapshotsChanged.Signal()
