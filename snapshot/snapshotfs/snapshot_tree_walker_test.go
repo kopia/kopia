@@ -17,7 +17,7 @@ import (
 )
 
 func TestSnapshotTreeWalker(t *testing.T) {
-	callbackCounter := new(int32)
+	var callbackCounter atomic.Int32
 
 	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
 
@@ -25,7 +25,7 @@ func TestSnapshotTreeWalker(t *testing.T) {
 		ctx,
 		snapshotfs.TreeWalkerOptions{
 			EntryCallback: func(ctx context.Context, entry fs.Entry, oid object.ID, entryPath string) error {
-				atomic.AddInt32(callbackCounter, 1)
+				callbackCounter.Add(1)
 				return nil
 			},
 		})
@@ -56,12 +56,12 @@ func TestSnapshotTreeWalker(t *testing.T) {
 	require.NoError(t, env.RepositoryWriter.Flush(ctx))
 	require.NoError(t, w.Process(ctx, uploadedRoot, "."))
 
-	require.EqualValues(t, numUniqueObjects, atomic.LoadInt32(callbackCounter))
+	require.EqualValues(t, numUniqueObjects, callbackCounter.Load())
 
 	require.NoError(t, w.Process(ctx, uploadedRoot, "."))
 
 	// callback not invoked again
-	require.EqualValues(t, numUniqueObjects, atomic.LoadInt32(callbackCounter))
+	require.EqualValues(t, numUniqueObjects, callbackCounter.Load())
 
 	// add one more file, upload again
 	dir2.AddFile("file23", []byte{1, 2, 3, 4, 5}, 0o644)
@@ -76,7 +76,7 @@ func TestSnapshotTreeWalker(t *testing.T) {
 	require.NoError(t, w.Process(ctx, uploadedRoot, "."))
 
 	// uploading new object causes 3 new objects: 1 object, 1 update dir2, 1 updated root
-	require.EqualValues(t, numUniqueObjects+3, atomic.LoadInt32(callbackCounter))
+	require.EqualValues(t, numUniqueObjects+3, callbackCounter.Load())
 }
 
 func TestSnapshotTreeWalker_Errors(t *testing.T) {

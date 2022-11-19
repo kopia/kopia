@@ -386,7 +386,10 @@ func (s *sourceManager) snapshotInternal(ctx context.Context, ctrl uitask.Contro
 		}
 
 		// set up progress that will keep counters and report to the uitask.
-		prog := &uitaskProgress{0, s.progress, ctrl}
+		prog := &uitaskProgress{
+			p:    s.progress,
+			ctrl: ctrl,
+		}
 		u.Progress = prog
 		onUpload = func(numBytes int64) {
 			u.Progress.UploadedBytes(numBytes)
@@ -493,8 +496,7 @@ func (s *sourceManager) refreshStatus(ctx context.Context) {
 }
 
 type uitaskProgress struct {
-	// +checkatomic
-	nextReportTimeNanos int64 // must be aligned due to atomic access
+	nextReportTimeNanos atomic.Int64
 	p                   *snapshotfs.CountingUploadProgress
 	ctrl                uitask.Controller
 }
@@ -508,8 +510,8 @@ func (t *uitaskProgress) report(final bool) {
 func (t *uitaskProgress) maybeReport() {
 	n := clock.Now().UnixNano()
 
-	nrt := atomic.LoadInt64(&t.nextReportTimeNanos)
-	if n > nrt && atomic.CompareAndSwapInt64(&t.nextReportTimeNanos, nrt, n+time.Second.Nanoseconds()) {
+	nrt := t.nextReportTimeNanos.Load()
+	if n > nrt && t.nextReportTimeNanos.CompareAndSwap(nrt, n+time.Second.Nanoseconds()) {
 		t.report(false)
 	}
 }

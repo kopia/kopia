@@ -16,10 +16,8 @@ import (
 var tracer = otel.Tracer("BlobStorage")
 
 type loggingStorage struct {
-	// +checkatomic
-	concurrency int32
-	// +checkatomic
-	maxConcurrency int32
+	concurrency    atomic.Int32
+	maxConcurrency atomic.Int32
 
 	base   blob.Storage
 	prefix string
@@ -27,10 +25,10 @@ type loggingStorage struct {
 }
 
 func (s *loggingStorage) beginConcurrency() {
-	v := atomic.AddInt32(&s.concurrency, 1)
+	v := s.concurrency.Add(1)
 
-	if mv := atomic.LoadInt32(&s.maxConcurrency); v > mv {
-		if atomic.CompareAndSwapInt32(&s.maxConcurrency, mv, v) && v > 0 {
+	if mv := s.maxConcurrency.Load(); v > mv {
+		if s.maxConcurrency.CompareAndSwap(mv, v) && v > 0 {
 			s.logger.Debugw(s.prefix+"concurrency level reached",
 				"maxConcurrency", v)
 		}
@@ -38,7 +36,7 @@ func (s *loggingStorage) beginConcurrency() {
 }
 
 func (s *loggingStorage) endConcurrency() {
-	atomic.AddInt32(&s.concurrency, -1)
+	s.concurrency.Add(-1)
 }
 
 func (s *loggingStorage) GetBlob(ctx context.Context, id blob.ID, offset, length int64, output blob.OutputBuffer) error {

@@ -22,7 +22,7 @@ import (
 )
 
 type commandRepositorySyncTo struct {
-	nextSyncOutputTime *timetrack.Throttle
+	nextSyncOutputTime timetrack.Throttle
 
 	repositorySyncUpdate               bool
 	repositorySyncDelete               bool
@@ -47,9 +47,6 @@ func (c *commandRepositorySyncTo) setup(svc advancedAppServices, parent commandP
 	cmd.Flag("times", "Synchronize blob times if supported.").BoolVar(&c.repositorySyncTimes)
 
 	c.out.setup(svc)
-
-	// needs to be 64-bit aligned on ARM
-	c.nextSyncOutputTime = new(timetrack.Throttle)
 
 	for _, prov := range svc.storageProviders() {
 		// Set up 'sync-to' subcommand

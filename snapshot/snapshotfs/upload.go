@@ -64,9 +64,7 @@ const (
 
 // Uploader supports efficient uploading files and directories to repository.
 type Uploader struct {
-	// values aligned to 8-bytes due to atomic access
-	// +checkatomic
-	totalWrittenBytes int64
+	totalWrittenBytes atomic.Int64
 
 	Progress UploadProgress
 
@@ -102,8 +100,7 @@ type Uploader struct {
 	// stats must be allocated on heap to enforce 64-bit alignment due to atomic access on ARM.
 	stats *snapshot.Stats
 
-	// +checkatomic
-	canceled int32
+	isCanceled atomic.Bool
 
 	getTicker func(time.Duration) <-chan time.Time
 
@@ -124,11 +121,11 @@ func (u *Uploader) IsCanceled() bool {
 }
 
 func (u *Uploader) incompleteReason() string {
-	if c := atomic.LoadInt32(&u.canceled) != 0; c {
+	if c := u.isCanceled.Load(); c {
 		return IncompleteReasonCanceled
 	}
 
-	wb := atomic.LoadInt64(&u.totalWrittenBytes)
+	wb := u.totalWrittenBytes.Load()
 	if mub := u.MaxUploadBytes; mub > 0 && wb > mub {
 		return IncompleteReasonLimitReached
 	}
@@ -397,7 +394,7 @@ func (u *Uploader) copyWithProgress(dst io.Writer, src io.Reader) (int64, error)
 			wroteBytes, writeErr := dst.Write(uploadBuf[0:readBytes])
 			if wroteBytes > 0 {
 				written += int64(wroteBytes)
-				atomic.AddInt64(&u.totalWrittenBytes, int64(wroteBytes))
+				u.totalWrittenBytes.Add(int64(wroteBytes))
 				u.Progress.HashedBytes(int64(wroteBytes))
 			}
 
@@ -1171,7 +1168,7 @@ func NewUploader(r repo.RepositoryWriter) *Uploader {
 
 // Cancel requests cancellation of an upload that's in progress. Will typically result in an incomplete snapshot.
 func (u *Uploader) Cancel() {
-	atomic.StoreInt32(&u.canceled, 1)
+	u.isCanceled.Store(true)
 }
 
 func (u *Uploader) maybeOpenDirectoryFromManifest(ctx context.Context, man *snapshot.Manifest) fs.Directory {
@@ -1223,7 +1220,7 @@ func (u *Uploader) Upload(
 	defer u.workerPool.Close()
 
 	u.stats = &snapshot.Stats{}
-	atomic.StoreInt64(&u.totalWrittenBytes, 0)
+	u.totalWrittenBytes.Store(0)
 
 	var err error
 

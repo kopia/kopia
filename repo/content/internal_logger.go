@@ -25,8 +25,7 @@ const blobLoggerFlushThreshold = 4 << 20
 const TextLogBlobPrefix = "_log_"
 
 type internalLogManager struct {
-	// +checkatomic
-	enabled int32 // set by enable(), logger is ineffective until called
+	enabled atomic.Bool // set by enable(), logger is ineffective until called
 
 	// internalLogManager implements io.Writer and we must be able to write to the
 	// repository asynchronously when the context is not provided.
@@ -94,8 +93,7 @@ func (m *internalLogManager) NewLogger() *zap.SugaredLogger {
 // internalLogger represents a single log session that saves log files as blobs in the repository.
 // The logger starts disabled and to actually persist logs enable() must be called.
 type internalLogger struct {
-	// +checkatomic
-	nextChunkNumber int32 // chunk number incremented using atomic.AddInt32()
+	nextChunkNumber atomic.Int32
 
 	m  *internalLogManager
 	mu sync.Mutex
@@ -116,7 +114,7 @@ func (m *internalLogManager) enable() {
 		return
 	}
 
-	atomic.StoreInt32(&m.enabled, 1)
+	m.enabled.Store(true)
 }
 
 func (l *internalLogger) Write(b []byte) (int, error) {
@@ -130,7 +128,7 @@ func (l *internalLogger) maybeEncryptAndWriteChunkUnlocked(data gather.Bytes, cl
 		return
 	}
 
-	if atomic.LoadInt32(&l.m.enabled) == 0 {
+	if !l.m.enabled.Load() {
 		closeFunc()
 		return
 	}
@@ -141,7 +139,7 @@ func (l *internalLogger) maybeEncryptAndWriteChunkUnlocked(data gather.Bytes, cl
 	st := l.startTime
 	l.mu.Unlock()
 
-	prefix := blob.ID(fmt.Sprintf("%v_%v_%v_%v_", l.prefix, st, endTime, atomic.AddInt32(&l.nextChunkNumber, 1)))
+	prefix := blob.ID(fmt.Sprintf("%v_%v_%v_%v_", l.prefix, st, endTime, l.nextChunkNumber.Add(1)))
 
 	l.m.encryptAndWriteLogBlob(prefix, data, closeFunc)
 }

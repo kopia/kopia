@@ -26,8 +26,7 @@ import (
 const smallIndexEntryCountThreshold = 100
 
 type committedContentIndex struct {
-	// +checkatomic
-	rev   int64
+	rev   atomic.Int64
 	cache committedContentIndexCache
 
 	mu sync.RWMutex
@@ -55,7 +54,7 @@ type committedContentIndexCache interface {
 }
 
 func (c *committedContentIndex) revision() int64 {
-	return atomic.LoadInt64(&c.rev)
+	return c.rev.Load()
 }
 
 func (c *committedContentIndex) getContent(contentID ID) (Info, error) {
@@ -92,7 +91,7 @@ func (c *committedContentIndex) addIndexBlob(ctx context.Context, indexBlobID bl
 	// a set of old contents and associate it with new revision, before new contents
 	// are actually available.
 	defer func() {
-		atomic.AddInt64(&c.rev, 1)
+		c.rev.Add(1)
 	}()
 
 	if err := c.cache.addContentToCache(ctx, indexBlobID, data); err != nil {
@@ -212,7 +211,7 @@ func (c *committedContentIndex) use(ctx context.Context, indexFiles []blob.ID, i
 		return err
 	}
 
-	atomic.AddInt64(&c.rev, 1)
+	c.rev.Add(1)
 	c.merged = mergedAndCombined
 
 	oldInUse := c.inUse

@@ -21,8 +21,7 @@ var (
 )
 
 type fakeConnector struct {
-	// +checkatomic
-	nextConnectionID int32
+	nextConnectionID atomic.Int32
 
 	maxConnections        int
 	connectionConcurrency int
@@ -58,7 +57,7 @@ func (c *fakeConnector) NewConnection(ctx context.Context) (connection.Connectio
 	}
 
 	return &fakeConnection{
-		atomic.AddInt32(&c.nextConnectionID, 1),
+		c.nextConnectionID.Add(1),
 		false,
 	}, nil
 }
@@ -102,7 +101,7 @@ func TestConnection(t *testing.T) {
 		return nil
 	})
 
-	require.EqualValues(t, 2, fc.nextConnectionID)
+	require.EqualValues(t, 2, fc.nextConnectionID.Load())
 
 	r.UsingConnectionNoResult(ctx, "third", func(cli connection.Connection) error {
 		t.Logf("third called with %v", cli.(*fakeConnection).id)
@@ -110,7 +109,7 @@ func TestConnection(t *testing.T) {
 		return nil
 	})
 
-	require.EqualValues(t, 2, fc.nextConnectionID)
+	require.EqualValues(t, 2, fc.nextConnectionID.Load())
 
 	r.UsingConnectionNoResult(ctx, "parallel-1", func(cli connection.Connection) error {
 		t.Logf("parallel-1 called with %v", cli.(*fakeConnection).id)
