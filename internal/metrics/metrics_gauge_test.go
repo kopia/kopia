@@ -14,7 +14,7 @@ func TestGauge_Nil(t *testing.T) {
 	g := mr.Gauge("aaa", "bbb", nil)
 	require.Nil(t, g)
 	g.Set(33)
-	require.Equal(t, int64(0), g.Snapshot())
+	require.Equal(t, int64(0), g.Snapshot(false))
 }
 
 func TestGauge_NoLabels(t *testing.T) {
@@ -33,7 +33,9 @@ func TestGauge_NoLabels(t *testing.T) {
 		mustFindMetric(t, "kopia_some_gauge", prommodel.MetricType_GAUGE, nil).
 			GetGauge().GetValue())
 
-	require.Equal(t, int64(133), g.Snapshot())
+	require.Equal(t, int64(133), g.Snapshot(false))
+	require.Equal(t, int64(133), g.Snapshot(true)) // reset
+	require.Equal(t, int64(0), g.Snapshot(false))
 }
 
 func TestGauge_WithLabels(t *testing.T) {

@@ -29,9 +29,13 @@ func (c *Counter) newState() int64 {
 }
 
 // Snapshot captures the momentary state of a counter.
-func (c *Counter) Snapshot() int64 {
+func (c *Counter) Snapshot(reset bool) int64 {
 	if c == nil {
 		return 0
+	}
+
+	if reset {
+		return c.newState()
 	}
 
 	return c.state.Load()

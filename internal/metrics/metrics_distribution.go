@@ -11,12 +11,12 @@ import (
 
 // DistributionState captures momentary state of a Distribution.
 type DistributionState[T constraints.Float | constraints.Integer] struct {
-	Min              T
-	Max              T
-	Sum              T
-	Count            int64
-	BucketCounters   []int64
-	BucketThresholds []T
+	Min              T       `json:"min"`
+	Max              T       `json:"max"`
+	Sum              T       `json:"sum"`
+	Count            int64   `json:"count"`
+	BucketCounters   []int64 `json:"buckets"`
+	BucketThresholds []T     `json:"-"`
 }
 
 // Mean returns arithmetic mean value captured in the distribution.
@@ -72,9 +72,13 @@ func (d *Distribution[T]) Observe(value T) {
 }
 
 // Snapshot returns a snapshot of the distribution state.
-func (d *Distribution[T]) Snapshot() DistributionState[T] {
+func (d *Distribution[T]) Snapshot(reset bool) DistributionState[T] {
 	if d == nil {
 		return DistributionState[T]{}
+	}
+
+	if reset {
+		return *(d.newState())
 	}
 
 	d.mu.Lock()
