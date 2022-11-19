@@ -32,9 +32,13 @@ func (c *Gauge) newState() int64 {
 }
 
 // Snapshot captures a momentary state of the gauge.
-func (c *Gauge) Snapshot() int64 {
+func (c *Gauge) Snapshot(reset bool) int64 {
 	if c == nil {
 		return 0
+	}
+
+	if reset {
+		return c.newState()
 	}
 
 	return c.state.Load()

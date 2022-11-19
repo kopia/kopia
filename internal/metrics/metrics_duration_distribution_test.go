@@ -15,7 +15,7 @@ func TestDurationDistribution_Nil(t *testing.T) {
 	dist := e.DurationDistribution("aaa", "bbb", metrics.IOLatencyThresholds, nil)
 	require.Nil(t, dist)
 	dist.Observe(time.Second)
-	require.Equal(t, metrics.DistributionState[time.Duration]{}, dist.Snapshot())
+	require.Equal(t, metrics.DistributionState[time.Duration]{}, dist.Snapshot(false))
 }
 
 func TestSizeDistribution_Nil(t *testing.T) {
@@ -46,7 +46,7 @@ func TestDurationDistribution_WithLabels(t *testing.T) {
 	cnt1 := e.DurationDistribution("some_dur_dist2", "some-help", metrics.IOLatencyThresholds, map[string]string{"key1": "label1"})
 	cnt2 := e.DurationDistribution("some_dur_dist2", "some-help", metrics.IOLatencyThresholds, map[string]string{"key1": "label2"})
 
-	snap0 := cnt1.Snapshot()
+	snap0 := cnt1.Snapshot(false)
 
 	require.Equal(t, int64(0), snap0.Count)
 	require.Equal(t, 0*time.Second, snap0.Min)
@@ -74,7 +74,7 @@ func TestDurationDistribution_WithLabels(t *testing.T) {
 	require.Equal(t, uint64(2), h2.GetHistogram().GetSampleCount())
 	require.Equal(t, 3650000.0, h2.GetHistogram().GetSampleSum())
 
-	snap1 := cnt1.Snapshot()
+	snap1 := cnt1.Snapshot(false)
 
 	require.Equal(t, int64(2), snap1.Count)
 	require.Equal(t, time.Second, snap1.Min)
@@ -82,7 +82,7 @@ func TestDurationDistribution_WithLabels(t *testing.T) {
 	require.Equal(t, 31*time.Second, snap1.Sum)
 	require.Equal(t, 15500*time.Millisecond, snap1.Mean())
 
-	snap2 := cnt2.Snapshot()
+	snap2 := cnt2.Snapshot(false)
 
 	require.Equal(t, int64(2), snap2.Count)
 	require.Equal(t, 50*time.Second, snap2.Min)
@@ -96,7 +96,7 @@ func TestSizeDistribution_WithLabels(t *testing.T) {
 	cnt1 := e.SizeDistribution("some_size_dist", "some-help", metrics.ISOBytesThresholds, map[string]string{"key1": "label1"})
 	cnt2 := e.SizeDistribution("some_size_dist", "some-help", metrics.ISOBytesThresholds, map[string]string{"key1": "label2"})
 
-	snap0 := cnt1.Snapshot()
+	snap0 := cnt1.Snapshot(false)
 
 	require.Equal(t, int64(0), snap0.Count)
 	require.Equal(t, int64(0), snap0.Min)
@@ -124,7 +124,7 @@ func TestSizeDistribution_WithLabels(t *testing.T) {
 	require.Equal(t, uint64(2), h2.GetHistogram().GetSampleCount())
 	require.Equal(t, 51.0e6, h2.GetHistogram().GetSampleSum())
 
-	snap1 := cnt1.Snapshot()
+	snap1 := cnt1.Snapshot(false)
 
 	require.Equal(t, int64(2), snap1.Count)
 	require.Equal(t, int64(300), snap1.Min)
@@ -132,11 +132,27 @@ func TestSizeDistribution_WithLabels(t *testing.T) {
 	require.Equal(t, int64(1300), snap1.Sum)
 	require.Equal(t, int64(650), snap1.Mean())
 
-	snap2 := cnt2.Snapshot()
+	snap2 := cnt2.Snapshot(false)
 
 	require.Equal(t, int64(2), snap2.Count)
 	require.Equal(t, int64(1000000), snap2.Min)
 	require.Equal(t, int64(50000000), snap2.Max)
 	require.Equal(t, int64(51000000), snap2.Sum)
 	require.Equal(t, int64(25500000), snap2.Mean())
+
+	snap3 := cnt2.Snapshot(true) // reset
+
+	require.Equal(t, int64(2), snap3.Count)
+	require.Equal(t, int64(1000000), snap3.Min)
+	require.Equal(t, int64(50000000), snap3.Max)
+	require.Equal(t, int64(51000000), snap3.Sum)
+	require.Equal(t, int64(25500000), snap3.Mean())
+
+	snap4 := cnt2.Snapshot(false)
+
+	require.Equal(t, int64(0), snap4.Count)
+	require.Equal(t, int64(0), snap4.Min)
+	require.Equal(t, int64(0), snap4.Max)
+	require.Equal(t, int64(0), snap4.Sum)
+	require.Equal(t, int64(0), snap4.Mean())
 }
