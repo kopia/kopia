@@ -2,7 +2,6 @@
 package filesystemsnapshots
 
 import (
-	"context"
 	"path/filepath"
 
 	"github.com/pkg/errors"
@@ -16,44 +15,17 @@ import (
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
-var log = logging.Module("kopia/filesystemsnapshots")
-
-// NoSnapshots is a noop mapping.
-type NoSnapshots struct{}
-
-// Apply is noop.
-func (n NoSnapshots) Apply(path string) (string, error) {
-	return path, nil
-}
-
-// Close is noop.
-func (n NoSnapshots) Close() {
-}
-
-// FsSnapshot creates a filesystem mapping based on fs_snapshot and configured by policies.
-func FsSnapshot(ctx context.Context, root string, policyTree *policy.Tree, manifest *snapshot.Manifest) mappedfs.FilesystemMapper {
-	return &fsSnapshot{
-		log:         log(ctx),
-		root:        root,
-		policyTree:  policyTree,
-		manifest:    manifest,
-		snapshotIDs: map[string]bool{},
-	}
-}
-
-type fsSnapshot struct {
-	log         logging.Logger
-	policyTree  *policy.Tree
-	manifest    *snapshot.Manifest
-	root        string
-	initialized bool
-	snapshoter  fs_snapshot.Snapshoter
-	backuper    fs_snapshot.Backuper
-	snapshotIDs map[string]bool
+type fsSnapshotsMapper struct {
+	getOrCreateBackuper func() (fs_snapshot.Backuper, error)
+	log                 logging.Logger
+	policyTree          *policy.Tree
+	manifest            *snapshot.Manifest
+	root                string
+	snapshotIDs         map[string]bool
 }
 
 // Apply creates a filesystem snapshot if configured in the policies.
-func (s *fsSnapshot) Apply(originalDir string) (string, error) {
+func (s *fsSnapshotsMapper) Apply(originalDir string) (string, error) {
 	rel, err := filepath.Rel(s.root, originalDir)
 	if err != nil {
 		return "", errors.Wrapf(err, "%v should be inside %v", originalDir, s.root)
@@ -72,15 +44,14 @@ func (s *fsSnapshot) Apply(originalDir string) (string, error) {
 		return originalDir, nil
 	}
 
-	if !s.initialized {
-		s.initialized = true
+	// Store the error once per kopia snapshot
+	backuper, err := s.getOrCreateBackuper()
+	if err != nil {
+		if required {
+			return "", errors.Wrapf(err, "error creating filesystem snapshot engine")
+		}
 
-		err = s.init()
-		if err != nil {
-			if required {
-				return "", errors.Wrapf(err, "error creating filesystem snapshot engine")
-			}
-
+		if !hasError(s.manifest.FilesystemSnapshots, err.Error()) {
 			s.manifest.FilesystemSnapshots = append(s.manifest.FilesystemSnapshots,
 				snapshot.FilesystemSnapshotInfo{
 					Path:      originalDir,
@@ -90,19 +61,17 @@ func (s *fsSnapshot) Apply(originalDir string) (string, error) {
 
 			s.log.Errorf("Error creating filesystem snapshot engine: %v. Ignoring and using original files.", err)
 		}
-	}
 
-	if s.snapshoter == nil {
 		return originalDir, nil
 	}
 
-	snapshotDir, snapshotInfo, err := s.backuper.TryToCreateTemporarySnapshot(originalDir)
+	snapshotDir, snapshotInfo, err := backuper.TryToCreateTemporarySnapshot(originalDir)
 	if err != nil {
 		if required {
 			return "", errors.Wrapf(err, "error creating filesystem snapshot for '%v'", originalDir)
 		}
 
-		if !errors.Is(err, fs_snapshot.ErrSnapshotFailedInPreviousAttempt) {
+		if !hasError(s.manifest.FilesystemSnapshots, err.Error()) {
 			s.manifest.FilesystemSnapshots = append(s.manifest.FilesystemSnapshots,
 				snapshot.FilesystemSnapshotInfo{
 					Path:      originalDir,
@@ -135,41 +104,18 @@ func (s *fsSnapshot) Apply(originalDir string) (string, error) {
 	return snapshotDir, nil
 }
 
-func (s *fsSnapshot) init() error {
-	snapshoter, err := fs_snapshot.NewSnapshoter(nil)
-	if err != nil {
-		//nolint:wrapcheck
-		return err
+func hasError(fsis []snapshot.FilesystemSnapshotInfo, err string) bool {
+	for _, fsi := range fsis {
+		if fsi.Error == err {
+			return true
+		}
 	}
 
-	backuper, err := snapshoter.StartBackup(nil)
-	if err != nil {
-		snapshoter.Close()
-
-		//nolint:wrapcheck
-		return err
-	}
-
-	s.backuper = backuper
-	s.snapshoter = snapshoter
-
-	return nil
+	return false
 }
 
 // Close frees resources.
-func (s *fsSnapshot) Close() {
-	if s.backuper != nil {
-		s.backuper.Close()
-		s.backuper = nil
-	}
-
-	if s.snapshoter != nil {
-		s.snapshoter.Close()
-		s.snapshoter = nil
-	}
+func (s *fsSnapshotsMapper) Close() {
 }
 
-var (
-	_ mappedfs.FilesystemMapper = &fsSnapshot{}
-	_ mappedfs.FilesystemMapper = &NoSnapshots{}
-)
+var _ mappedfs.FilesystemMapper = &fsSnapshotsMapper{}

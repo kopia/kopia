@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/fs/filesystemsnapshots"
 	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/ctxutil"
@@ -400,7 +401,10 @@ func (s *sourceManager) snapshotInternal(ctx context.Context, ctrl uitask.Contro
 		log(ctx).Debugf("starting upload of %v", s.src)
 		s.setUploader(u)
 
-		manifest, err := u.Upload(ctx, localEntry, policyTree, s.src, manifestsSinceLastCompleteSnapshot...)
+		// TODO Create only once when running multiple at the same time
+		fssm := filesystemsnapshots.CreateFsSnapshotsManager()
+
+		manifest, err := u.Upload(ctx, localEntry, policyTree, fssm, s.src, manifestsSinceLastCompleteSnapshot...)
 		prog.report(true)
 
 		s.setUploader(nil)

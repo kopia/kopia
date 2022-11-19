@@ -148,7 +148,7 @@ func TestUpload(t *testing.T) {
 
 	policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
 
-	s1, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{})
+	s1, err := u.Upload(ctx, th.sourceDir, policyTree, nil, snapshot.SourceInfo{})
 	if err != nil {
 		t.Errorf("Upload error: %v", err)
 	}
@@ -157,7 +157,7 @@ func TestUpload(t *testing.T) {
 
 	t.Logf("Uploading s2")
 
-	s2, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{}, s1)
+	s2, err := u.Upload(ctx, th.sourceDir, policyTree, nil, snapshot.SourceInfo{}, s1)
 	if err != nil {
 		t.Errorf("Upload error: %v", err)
 	}
@@ -182,7 +182,7 @@ func TestUpload(t *testing.T) {
 	// Add one more file, the s1.RootObjectID should change.
 	th.sourceDir.AddFile("d2/d1/f3", []byte{1, 2, 3, 4, 5}, defaultPermissions)
 
-	s3, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{}, s1)
+	s3, err := u.Upload(ctx, th.sourceDir, policyTree, nil, snapshot.SourceInfo{}, s1)
 	if err != nil {
 		t.Errorf("upload failed: %v", err)
 	}
@@ -199,7 +199,7 @@ func TestUpload(t *testing.T) {
 	// Now remove the added file, OID should be identical to the original before the file got added.
 	th.sourceDir.Subdir("d2", "d1").Remove("f3")
 
-	s4, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{}, s1)
+	s4, err := u.Upload(ctx, th.sourceDir, policyTree, nil, snapshot.SourceInfo{}, s1)
 	if err != nil {
 		t.Errorf("upload failed: %v", err)
 	}
@@ -213,7 +213,7 @@ func TestUpload(t *testing.T) {
 		t.Errorf("unexpected s4 stats: %+v", s4.Stats)
 	}
 
-	s5, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{}, s3)
+	s5, err := u.Upload(ctx, th.sourceDir, policyTree, nil, snapshot.SourceInfo{}, s3)
 	if err != nil {
 		t.Errorf("upload failed: %v", err)
 	}
@@ -240,7 +240,7 @@ func TestUpload_TopLevelDirectoryReadFailure(t *testing.T) {
 
 	policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
 
-	s, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{})
+	s, err := u.Upload(ctx, th.sourceDir, policyTree, nil, snapshot.SourceInfo{})
 	require.ErrorIs(t, err, errTest)
 	require.Nil(t, s)
 }
@@ -277,7 +277,7 @@ func TestUploadDoesNotReportProgressForIgnoredFilesTwice(t *testing.T) {
 		},
 	}, policy.DefaultPolicy)
 
-	_, err := u.Upload(ctx, sourceDir, policyTree, snapshot.SourceInfo{})
+	_, err := u.Upload(ctx, sourceDir, policyTree, nil, snapshot.SourceInfo{})
 	require.NoError(t, err)
 
 	// make sure ignored counter is only incremented by 1, even though we process each directory twice
@@ -301,7 +301,7 @@ func TestUpload_SubDirectoryReadFailureFailFast(t *testing.T) {
 
 	policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
 
-	man, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{})
+	man, err := u.Upload(ctx, th.sourceDir, policyTree, nil, snapshot.SourceInfo{})
 	require.NoError(t, err)
 
 	require.NotEqual(t, "", man.IncompleteReason, "snapshot not marked as incomplete")
@@ -338,7 +338,7 @@ func TestUpload_SubDirectoryReadFailureIgnoredNoFailFast(t *testing.T) {
 		},
 	})
 
-	man, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{})
+	man, err := u.Upload(ctx, th.sourceDir, policyTree, nil, snapshot.SourceInfo{})
 	require.NoError(t, err)
 
 	// 0 failed, 2 ignored
@@ -432,7 +432,7 @@ func TestUpload_ErrorEntries(t *testing.T) {
 				ErrorHandlingPolicy: tc.ehp,
 			})
 
-			man, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{})
+			man, err := u.Upload(ctx, th.sourceDir, policyTree, nil, snapshot.SourceInfo{})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -459,7 +459,7 @@ func TestUpload_SubDirectoryReadFailureNoFailFast(t *testing.T) {
 
 	policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
 
-	man, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{})
+	man, err := u.Upload(ctx, th.sourceDir, policyTree, nil, snapshot.SourceInfo{})
 	require.NoError(t, err)
 
 	// make sure we have 2 errors
@@ -511,7 +511,7 @@ func TestUpload_SubDirectoryReadFailureSomeIgnoredNoFailFast(t *testing.T) {
 		t.Fatalf("policy not effective")
 	}
 
-	man, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{})
+	man, err := u.Upload(ctx, th.sourceDir, policyTree, nil, snapshot.SourceInfo{})
 	require.NoError(t, err)
 
 	verifyErrors(t, man,
@@ -584,7 +584,7 @@ func TestUpload_FinishedFileProgress(t *testing.T) {
 		},
 	}, policy.DefaultPolicy)
 
-	man, err := u.Upload(ctx, root, policyTree, snapshot.SourceInfo{})
+	man, err := u.Upload(ctx, root, policyTree, nil, snapshot.SourceInfo{})
 	require.NoError(t, err)
 
 	assert.Equal(t, int32(0), atomic.LoadInt32(&man.Stats.ErrorCount), "ErrorCount")
@@ -597,7 +597,7 @@ func TestUpload_FinishedFileProgress(t *testing.T) {
 
 	// Upload a second time to check for cached files.
 	filesFinished = 0
-	man, err = u.Upload(ctx, root, policyTree, snapshot.SourceInfo{}, man)
+	man, err = u.Upload(ctx, root, policyTree, nil, snapshot.SourceInfo{}, man)
 	require.NoError(t, err)
 
 	assert.Equal(t, int32(0), atomic.LoadInt32(&man.Stats.ErrorCount), "ErrorCount")
@@ -668,7 +668,7 @@ func TestUploadWithCheckpointing(t *testing.T) {
 		})
 	}
 
-	if _, err := u.Upload(ctx, th.sourceDir, policyTree, si); err != nil {
+	if _, err := u.Upload(ctx, th.sourceDir, policyTree, nil, si); err != nil {
 		t.Errorf("Upload error: %v", err)
 	}
 
@@ -738,7 +738,7 @@ func TestParallelUploadUploadsBlobsInParallel(t *testing.T) {
 	th.sourceDir.AddFile("d2/large3", randomBytes(1e7), defaultPermissions)
 	th.sourceDir.AddFile("d2/large4", randomBytes(1e7), defaultPermissions)
 
-	_, err := u.Upload(ctx, th.sourceDir, policyTree, si)
+	_, err := u.Upload(ctx, th.sourceDir, policyTree, nil, si)
 	require.NoError(t, err)
 
 	require.NoError(t, th.repo.Flush(ctx))
@@ -848,7 +848,7 @@ func TestUpload_VirtualDirectoryWithStreamingFile(t *testing.T) {
 		virtualfs.StreamingFileFromReader("stream-file", r),
 	})
 
-	man, err := u.Upload(ctx, staticRoot, policyTree, snapshot.SourceInfo{})
+	man, err := u.Upload(ctx, staticRoot, policyTree, nil, snapshot.SourceInfo{})
 	if err != nil {
 		t.Fatalf("Upload error: %v", err)
 	}
@@ -917,7 +917,7 @@ func TestUpload_VirtualDirectoryWithStreamingFileWithModTime(t *testing.T) {
 			})
 
 			// First snapshot should upload all files/directories.
-			man1, err := u.Upload(ctx, staticRoot, policyTree, snapshot.SourceInfo{})
+			man1, err := u.Upload(ctx, staticRoot, policyTree, nil, snapshot.SourceInfo{})
 			require.NoError(t, err)
 			require.Equal(t, int32(0), atomic.LoadInt32(&man1.Stats.CachedFiles))
 			require.Equal(t, int32(1), atomic.LoadInt32(&man1.Stats.NonCachedFiles))
@@ -934,7 +934,7 @@ func TestUpload_VirtualDirectoryWithStreamingFileWithModTime(t *testing.T) {
 			})
 
 			// Second upload may find some cached files depending on timestamps.
-			man2, err := u.Upload(ctx, staticRoot, policyTree, snapshot.SourceInfo{}, man1)
+			man2, err := u.Upload(ctx, staticRoot, policyTree, nil, snapshot.SourceInfo{}, man1)
 			require.NoError(t, err)
 
 			assert.Equal(t, int32(1), atomic.LoadInt32(&man2.Stats.TotalDirectoryCount))
@@ -978,7 +978,7 @@ func TestUpload_StreamingDirectory(t *testing.T) {
 		),
 	})
 
-	man, err := u.Upload(ctx, staticRoot, policyTree, snapshot.SourceInfo{})
+	man, err := u.Upload(ctx, staticRoot, policyTree, nil, snapshot.SourceInfo{})
 	require.NoError(t, err)
 
 	assert.Equal(t, atomic.LoadInt32(&man.Stats.CachedFiles), int32(0))
@@ -1025,7 +1025,7 @@ func TestUpload_StreamingDirectoryWithIgnoredFile(t *testing.T) {
 		),
 	})
 
-	man, err := u.Upload(ctx, staticRoot, policyTree, snapshot.SourceInfo{})
+	man, err := u.Upload(ctx, staticRoot, policyTree, nil, snapshot.SourceInfo{})
 	require.NoError(t, err)
 
 	assert.Equal(t, atomic.LoadInt32(&man.Stats.CachedFiles), int32(0))
@@ -1118,7 +1118,7 @@ func TestParallelUploadDedup(t *testing.T) {
 	srcdir, err := localfs.Directory(td)
 	require.NoError(t, err)
 
-	_, err = u.Upload(ctx, srcdir, policyTree, snapshot.SourceInfo{})
+	_, err = u.Upload(ctx, srcdir, policyTree, nil, snapshot.SourceInfo{})
 	require.NoError(t, err)
 
 	// we wrote 500 MB, which can be deduped to 50MB, repo size must be less than 51MB
@@ -1180,7 +1180,7 @@ func TestParallelUploadOfLargeFiles(t *testing.T) {
 	srcdir, err := localfs.Directory(td)
 	require.NoError(t, err)
 
-	man, err := u.Upload(ctx, srcdir, policyTree, snapshot.SourceInfo{})
+	man, err := u.Upload(ctx, srcdir, policyTree, nil, snapshot.SourceInfo{})
 	require.NoError(t, err)
 
 	t.Logf("man: %v", man.RootObjectID())
@@ -1581,7 +1581,7 @@ func TestUploadLogging(t *testing.T) {
 			polTree, err := policy.TreeForSource(ctx, th.repo, sourceInfo)
 			require.NoError(t, err)
 
-			man1, err := u.Upload(ctx, sourceDir, polTree, sourceInfo)
+			man1, err := u.Upload(ctx, sourceDir, polTree, nil, sourceInfo)
 			require.NoError(t, err)
 
 			var gotEntries []string
@@ -1598,7 +1598,7 @@ func TestUploadLogging(t *testing.T) {
 			ml.logged = nil
 
 			// run second upload with previous manifest to trigger cache.
-			_, err = u.Upload(ctx, sourceDir, polTree, sourceInfo, man1)
+			_, err = u.Upload(ctx, sourceDir, polTree, nil, sourceInfo, man1)
 			require.NoError(t, err)
 
 			var gotEntriesSecond []string

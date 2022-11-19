@@ -95,7 +95,7 @@ func (kc *KopiaClient) SnapshotCreate(ctx context.Context, key string, val []byt
 	source := kc.getSourceForKeyVal(key, val)
 	u := snapshotfs.NewUploader(rw)
 
-	man, err := u.Upload(ctx, source, policyTree, si)
+	man, err := u.Upload(ctx, source, policyTree, nil, si)
 	if err != nil {
 		return errors.Wrap(err, "cannot get manifest")
 	}

@@ -1217,6 +1217,7 @@ func (u *Uploader) Upload(
 	ctx context.Context,
 	source fs.Entry,
 	policyTree *policy.Tree,
+	fssm filesystemsnapshots.FilesystemSnapshotManager,
 	sourceInfo snapshot.SourceInfo,
 	previousManifests ...*snapshot.Manifest,
 ) (*snapshot.Manifest, error) {
@@ -1268,7 +1269,7 @@ func (u *Uploader) Upload(
 		}
 
 		if entry.LocalFilesystemPath() != "" {
-			entry, err = u.wrapFilesystemSnapshots(ctx, entry, policyTree, s)
+			entry, err = u.wrapFilesystemSnapshots(ctx, entry, policyTree, fssm, s)
 			if err != nil {
 				return nil, err
 			}
@@ -1344,8 +1345,12 @@ func (u *Uploader) wrapIgnorefs(logger logging.Logger, entry fs.Directory, polic
 	}))
 }
 
-func (u *Uploader) wrapFilesystemSnapshots(ctx context.Context, dir fs.Directory, policyTree *policy.Tree, manifest *snapshot.Manifest) (fs.Directory, error) {
-	wrapped, err := mappedfs.New(dir, filesystemsnapshots.FsSnapshot(ctx, dir.LocalFilesystemPath(), policyTree, manifest))
+func (u *Uploader) wrapFilesystemSnapshots(ctx context.Context, dir fs.Directory, policyTree *policy.Tree, fssm filesystemsnapshots.FilesystemSnapshotManager, manifest *snapshot.Manifest) (fs.Directory, error) {
+	if fssm == nil {
+		return dir, nil
+	}
+
+	wrapped, err := mappedfs.New(dir, fssm.CreateMapper(ctx, dir.LocalFilesystemPath(), policyTree, manifest))
 	if err != nil {
 		return nil, errors.Wrap(err, "can't create snapshot local fs entry")
 	}

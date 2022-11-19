@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/fs/filesystemsnapshots"
 	"github.com/kopia/kopia/fs/virtualfs"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
@@ -121,6 +122,9 @@ func (c *commandSnapshotCreate) run(ctx context.Context, rep repo.RepositoryWrit
 		return err
 	}
 
+	fssm := filesystemsnapshots.CreateFsSnapshotsManager()
+	defer fssm.Close()
+
 	for _, snapshotDir := range sources {
 		if u.IsCanceled() {
 			log(ctx).Infof("Upload canceled")
@@ -139,7 +143,7 @@ func (c *commandSnapshotCreate) run(ctx context.Context, rep repo.RepositoryWrit
 			UserName: rep.ClientOptions().Username,
 		}
 
-		if err := c.snapshotSingleSource(ctx, rep, u, sourceInfo, tags); err != nil {
+		if err := c.snapshotSingleSource(ctx, fssm, rep, u, sourceInfo, tags); err != nil {
 			finalErrors = append(finalErrors, err.Error())
 		}
 	}
@@ -261,7 +265,7 @@ func startTimeAfterEndTime(startTime, endTime time.Time) bool {
 }
 
 //nolint:gocyclo
-func (c *commandSnapshotCreate) snapshotSingleSource(ctx context.Context, rep repo.RepositoryWriter, u *snapshotfs.Uploader, sourceInfo snapshot.SourceInfo, tags map[string]string) error {
+func (c *commandSnapshotCreate) snapshotSingleSource(ctx context.Context, fssm filesystemsnapshots.FilesystemSnapshotManager, rep repo.RepositoryWriter, u *snapshotfs.Uploader, sourceInfo snapshot.SourceInfo, tags map[string]string) error {
 	log(ctx).Infof("Snapshotting %v ...", sourceInfo)
 
 	var (
@@ -296,7 +300,7 @@ func (c *commandSnapshotCreate) snapshotSingleSource(ctx context.Context, rep re
 		return errors.Wrap(err, "unable to get policy tree")
 	}
 
-	manifest, err := u.Upload(ctx, fsEntry, policyTree, sourceInfo, previous...)
+	manifest, err := u.Upload(ctx, fsEntry, policyTree, fssm, sourceInfo, previous...)
 	if err != nil {
 		// fail-fast uploads will fail here without recording a manifest, other uploads will
 		// possibly fail later.
