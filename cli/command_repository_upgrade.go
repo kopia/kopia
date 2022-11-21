@@ -21,7 +21,7 @@ type commandRepositoryUpgrade struct {
 	forceRollback             bool
 	skip                      bool
 	allowUnsafeUpgradeTimings bool
-	commitMode                commitMode
+	commitMode                string
 	lockOnly                  bool
 
 	// lock settings
@@ -31,8 +31,6 @@ type commandRepositoryUpgrade struct {
 
 	svc advancedAppServices
 }
-
-type commitMode string
 
 const (
 	experimentalWarning = `WARNING: The upgrade command is an EXPERIMENTAL feature. Please DO NOT use it, it may corrupt your repository and cause data loss.
@@ -44,9 +42,9 @@ You will need to set the env variable KOPIA_UPGRADE_LOCK_ENABLED in order to use
 )
 
 const (
-	commitModeCommitOnValidationSuccess commitMode = ""
-	commitModeAlwaysCommit                         = "always"
-	commitModeNeverCommit                          = "never"
+	commitModeCommitOnValidationSuccess string = ""
+	commitModeAlwaysCommit                     = "always"
+	commitModeNeverCommit                      = "never"
 )
 
 func (c *commandRepositoryUpgrade) setup(svc advancedAppServices, parent commandParent) {
@@ -65,7 +63,7 @@ func (c *commandRepositoryUpgrade) setup(svc advancedAppServices, parent command
 	beginCmd.Flag("status-poll-interval", "An advisory polling interval to check for the status of upgrade").Default("60s").DurationVar(&c.statusPollInterval)
 	beginCmd.Flag("max-permitted-clock-drift", "The maximum drift between repository and client clocks").Default(maxPermittedClockDriftDefault.String()).DurationVar(&c.maxPermittedClockDrift)
 	beginCmd.Flag("lock-only", "Advertise the upgrade lock and exit without actually performing the drain or upgrade").Default("false").Hidden().BoolVar(&c.lockOnly) // this is used by tests
-	beginCmd.Flag("commit-mode", "Change behavior of commit. When not set, commit on validation success. 'always': always commit. 'never': always exit before commit.").Hidden().StringVar((*string)(&c.commitMode))
+	beginCmd.Flag("commit-mode", "Change behavior of commit. When not set, commit on validation success. 'always': always commit. 'never': always exit before commit.").Hidden().EnumVar(&c.commitMode, commitModeAlwaysCommit, commitModeNeverCommit)
 
 	// upgrade phases
 
@@ -124,24 +122,29 @@ func (c *commandRepositoryUpgrade) validateAction(ctx context.Context, rep repo.
 
 	sm := rep.ContentManager().SharedManager
 
-	indexBlobInfos, _, err := sm.IndexReaderV0().ListIndexBlobInfos(ctx)
+	indexBlobInfos0, _, err := sm.IndexReaderV0().ListIndexBlobInfos(ctx)
 	if err != nil {
-		return errors.Wrapf(err, "failed to list index blobs for v0 index")
+		return errors.Wrapf(err, "failed to list index blobs for old index")
 	}
 
-	err = loadIndexBlobs(ctx, indexEntries, sm, 0, indexBlobInfos)
+	indexBlobInfos1, _, err := sm.IndexReaderV1().ListIndexBlobInfos(ctx)
+	if err != nil {
+		return errors.Wrapf(err, "failed to list index blobs for new index")
+	}
+
+	if len(indexBlobInfos0) == 0 && len(indexBlobInfos1) > 0 {
+		log(ctx).Infof("index has already been upgraded.  Nothing to do")
+		return nil
+	}
+
+	err = loadIndexBlobs(ctx, indexEntries, sm, 0, indexBlobInfos0)
 	if err != nil {
 		return errors.Wrapf(err, "failed to load index entries for v0 index entry")
 	}
 
-	indexBlobInfos, _, err = sm.IndexReaderV1().ListIndexBlobInfos(ctx)
+	err = loadIndexBlobs(ctx, indexEntries, sm, 1, indexBlobInfos1)
 	if err != nil {
-		return errors.Wrapf(err, "failed to list index blobs for v1 index")
-	}
-
-	err = loadIndexBlobs(ctx, indexEntries, sm, 1, indexBlobInfos)
-	if err != nil {
-		return errors.Wrapf(err, "failed to load index entries for v1 index entry")
+		return errors.Wrapf(err, "failed to load index entries for new index")
 	}
 
 	for contentID, indexEntryPairs := range indexEntries {
@@ -155,7 +158,7 @@ func (c *commandRepositoryUpgrade) validateAction(ctx context.Context, rep repo.
 		}
 	}
 	if err == nil {
-		log(ctx).Infof("success: upgraded index matches old index")
+		log(ctx).Infof("index validation succeeded")
 		return nil
 	}
 
@@ -418,7 +421,7 @@ func (c *commandRepositoryUpgrade) upgrade(ctx context.Context, rep repo.DirectR
 // after this phase.
 func (c *commandRepositoryUpgrade) commitUpgrade(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	if c.commitMode == commitModeNeverCommit {
-		log(ctx).Warnf("Commit mode is set to 'never'.  Skipping commit.")
+		log(ctx).Infof("Commit mode is set to 'never'.  Skipping commit.")
 		return nil
 	}
 	if err := rep.FormatManager().CommitUpgrade(ctx); err != nil {

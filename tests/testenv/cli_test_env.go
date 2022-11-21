@@ -4,7 +4,10 @@ package testenv
 import (
 	"bufio"
 	"io"
+	"io/fs"
+	"math/rand"
 	"os"
+	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -106,6 +109,37 @@ func (e *CLITest) RunAndExpectSuccess(t *testing.T, args ...string) []string {
 	return stdout
 }
 
+// TweakFile writes a 0x00 byte at a random point in a file.  Used to simulate file corruption
+func (e *CLITest) TweakFile(t *testing.T, dirn, fglob string) {
+	const RwUserGroupOther = 0o666
+	// find a file within the repository to corrupt
+	mch, err := fs.Glob(os.DirFS(dirn), fglob)
+	require.NoError(t, err)
+	require.Greater(t, len(mch), 0)
+	// grab a random file in the directory dirn
+	fn := mch[rand.Intn(len(mch))]
+	f, err := os.OpenFile(path.Join(dirn, fn), os.O_RDWR, os.FileMode(RwUserGroupOther))
+	require.NoError(t, err)
+	// find the length of the file, then seek to a random location
+	l, err := f.Seek(0, io.SeekEnd)
+	require.NoError(t, err)
+	i := rand.Int63n(l)
+	bs := [1]byte{}
+	for {
+		// find a location that isn't already
+		// the value we want to write
+		_, err := f.ReadAt(bs[:], i)
+		require.NoError(t, err)
+		if bs[0] != 0x00 {
+			break
+		}
+		i = rand.Int63n(l)
+	}
+	// write the byte
+	_, err = f.WriteAt([]byte{0x00}, i)
+	require.NoError(t, err)
+}
+
 // RunAndProcessStderr runs the given command, and streams its output line-by-line to a given function until it returns false.
 func (e *CLITest) RunAndProcessStderr(t *testing.T, callback func(line string) bool, args ...string) (wait func() error, kill func()) {
 	t.Helper()
@@ -143,15 +177,15 @@ func (e *CLITest) RunAndExpectSuccessWithErrOut(t *testing.T, args ...string) (s
 }
 
 // RunAndExpectFailure runs the given command, expects it to fail and returns its output lines.
-func (e *CLITest) RunAndExpectFailure(t *testing.T, args ...string) []string {
+func (e *CLITest) RunAndExpectFailure(t *testing.T, args ...string) ([]string, []string) {
 	t.Helper()
 
-	stdout, _, err := e.Run(t, true, args...)
+	stdout, stderr, err := e.Run(t, true, args...)
 	if err == nil {
 		t.Fatalf("'kopia %v' succeeded, but expected failure", strings.Join(args, " "))
 	}
 
-	return stdout
+	return stdout, stderr
 }
 
 // RunAndVerifyOutputLineCount runs the given command and asserts it returns the given number of output lines, then returns them.
