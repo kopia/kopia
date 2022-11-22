@@ -101,15 +101,20 @@ func assign(iif content.Info, i int, m map[content.ID][2]index.Info) {
 // loadIndexBlobs load index blobs into indexEntries map
 func loadIndexBlobs(ctx context.Context, indexEntries map[content.ID][2]index.Info, sm *content.SharedManager, which int, indexBlobInfos []content.IndexBlobInfo) error {
 	d := gather.WriteBuffer{}
+	
 	for _, indexBlobInfo := range indexBlobInfos {
+
 		blobID := indexBlobInfo.BlobID
+
 		indexInfos, err := sm.LoadIndexBlob(ctx, blobID, d)
 		if err != nil {
 			return errors.Wrapf(err, "failed to load index blob with BlobID %s", blobID)
 		}
+
 		for _, indexInfo := range indexInfos {
 			assign(indexInfo, which, indexEntries)
 		}
+
 	}
 	return nil
 }

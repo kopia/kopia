@@ -62,7 +62,7 @@ var allIndexBlobPrefixes = []blob.ID{
 	epoch.RangeCheckpointIndexBlobPrefix,
 }
 
-// IndexBlobReader provides and API for reading index blobs
+// IndexBlobReader provides and API for reading index blobs.
 type IndexBlobReader interface {
 	ListIndexBlobInfos(context.Context) ([]IndexBlobInfo, time.Time, error)
 }
@@ -118,21 +118,22 @@ type SharedManager struct {
 	metricsStruct
 }
 
-// LoadIndexBlob return index information loaded from the specified blob
+// LoadIndexBlob return index information loaded from the specified blob.
 func (sm *SharedManager) LoadIndexBlob(ctx context.Context, ibid blob.ID, d gather.WriteBuffer) ([]Info, error) {
 	err := sm.st.GetBlob(ctx, ibid, 0, -1, &d)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "could not find index blob %q", ibid)
 	}
+
 	return ParseIndexBlob(ibid, d.Bytes(), sm.format)
 }
 
-// IndexReaderV0 return an index reader for reading V0 indexes
+// IndexReaderV0 return an index reader for reading V0 indexes.
 func (sm *SharedManager) IndexReaderV0() IndexBlobReader {
 	return sm.indexBlobManagerV0
 }
 
-// IndexReaderV1 return an index reader for reading V0 indexes
+// IndexReaderV1 return an index reader for reading V0 indexes.
 func (sm *SharedManager) IndexReaderV1() IndexBlobReader {
 	return sm.indexBlobManagerV1
 }

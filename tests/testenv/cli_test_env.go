@@ -111,6 +111,8 @@ func (e *CLITest) RunAndExpectSuccess(t *testing.T, args ...string) []string {
 
 // TweakFile writes a 0x00 byte at a random point in a file.  Used to simulate file corruption
 func (e *CLITest) TweakFile(t *testing.T, dirn, fglob string) {
+	t.Helper()
+
 	const RwUserGroupOther = 0o666
 	// find a file within the repository to corrupt
 	mch, err := fs.Glob(os.DirFS(dirn), fglob)
