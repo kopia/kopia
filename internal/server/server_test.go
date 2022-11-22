@@ -133,14 +133,14 @@ func testServer(t *testing.T, disableGRPC bool) {
 	remoteRepositoryTest(ctx, t, rep)
 }
 
-func TestGPRServer_AuthenticationError(t *testing.T) {
+func TestGRPCServer_AuthenticationError(t *testing.T) {
 	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
 	apiServerInfo := startServer(t, env, true)
 
-	if _, err := repo.OpenGRPCAPIRepository(ctx, apiServerInfo, repo.ClientOptions{
+	if _, err := repo.OpenAPIServer(ctx, apiServerInfo, repo.ClientOptions{
 		Username: "bad-username",
 		Hostname: "bad-hostname",
-	}, nil, "bad-password", nil); err == nil {
+	}, nil, "bad-password"); err == nil {
 		t.Fatal("unexpected success when connecting with invalid username")
 	}
 }
