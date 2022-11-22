@@ -102,13 +102,13 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgradeCommitNever(t *testing.T)
 	env := testenv.NewCLITest(t, s.formatFlags, testenv.NewInProcRunner(t))
 
 	env.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", env.RepoDir)
-	out := env.RunAndExpectSuccess(t, "repository", "status", "--upgrade-no-block")
+	stdout := env.RunAndExpectSuccess(t, "repository", "status", "--upgrade-no-block")
 
 	env.Environment["KOPIA_UPGRADE_LOCK_ENABLED"] = "1"
 
 	switch s.formatVersion {
 	case format.FormatVersion1:
-		require.Contains(t, out, "Format version:      1")
+		require.Contains(t, stdout, "Format version:      1")
 		_, stderr := env.RunAndExpectSuccessWithErrOut(t, "repository", "upgrade",
 			"--commit-mode", "never",
 			"--upgrade-owner-id", "owner",
@@ -117,9 +117,8 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgradeCommitNever(t *testing.T)
 			"--max-permitted-clock-drift", "1s")
 		require.Contains(t, stderr, "Repository indices have been upgraded.")
 		require.Contains(t, stderr, "Commit mode is set to 'never'.  Skipping commit.")
-		require.Contains(t, stderr, "Repository has been successfully upgraded.")
 	case format.FormatVersion2:
-		require.Contains(t, out, "Format version:      2")
+		require.Contains(t, stdout, "Format version:      2")
 		_, stderr := env.RunAndExpectSuccessWithErrOut(t, "repository", "upgrade",
 			"--commit-mode", "never",
 			"--upgrade-owner-id", "owner",
@@ -128,9 +127,8 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgradeCommitNever(t *testing.T)
 			"--max-permitted-clock-drift", "1s")
 		require.Contains(t, stderr, "Repository indices have already been migrated to the epoch format, no need to drain other clients")
 		require.Contains(t, stderr, "Commit mode is set to 'never'.  Skipping commit.")
-		require.Contains(t, stderr, "Repository has been successfully upgraded.")
 	default:
-		require.Contains(t, out, "Format version:      3")
+		require.Contains(t, stdout, "Format version:      3")
 		env.RunAndExpectFailure(t, "repository", "upgrade",
 			"--commit-mode", "never",
 			"--upgrade-owner-id", "owner",
@@ -139,12 +137,8 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgradeCommitNever(t *testing.T)
 			"--max-permitted-clock-drift", "1s")
 	}
 
-	out = env.RunAndExpectSuccess(t, "repository", "status", "--upgrade-no-block")
-	require.Contains(t, out, "Epoch Manager:       enabled")
-	require.Contains(t, out, "Index Format:        v2")
-	require.Contains(t, out, "Format version:      3")
-	require.Contains(t, out, "Upgrade lock:        Locked")
-	require.Contains(t, out, "Ongoing upgrade:     Upgrading from format version 1 -> 3")
+	_, stderr := env.RunAndExpectFailure(t, "repository", "status", "--upgrade-no-block")
+	require.Contains(t, stderr, "failed to open repository: repository upgrade in progress")
 }
 
 func (s *formatSpecificTestSuite) TestRepositoryUpgradeCommitAlways(t *testing.T) {
