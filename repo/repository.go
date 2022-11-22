@@ -88,7 +88,7 @@ type DirectRepositoryWriter interface {
 	// RollbackUpgrade(ctx context.Context) error
 }
 
-type directRepositoryParameters struct {
+type immutableDirectRepositoryParameters struct {
 	configFile      string
 	cachingOptions  content.CachingOptions
 	cliOpts         ClientOptions
@@ -103,7 +103,7 @@ type directRepositoryParameters struct {
 
 // directRepository is an implementation of repository that directly manipulates underlying storage.
 type directRepository struct {
-	directRepositoryParameters
+	immutableDirectRepositoryParameters
 
 	blobs blob.Storage
 	cmgr  *content.WriteManager
@@ -262,12 +262,12 @@ func (r *directRepository) NewDirectWriter(ctx context.Context, opt WriteSession
 	}
 
 	w := &directRepository{
-		directRepositoryParameters: r.directRepositoryParameters,
-		blobs:                      r.blobs,
-		cmgr:                       cmgr,
-		omgr:                       omgr,
-		mmgr:                       mmgr,
-		sm:                         r.sm,
+		immutableDirectRepositoryParameters: r.immutableDirectRepositoryParameters,
+		blobs:                               r.blobs,
+		cmgr:                                cmgr,
+		omgr:                                omgr,
+		mmgr:                                mmgr,
+		sm:                                  r.sm,
 	}
 
 	w.addRef()

@@ -49,6 +49,10 @@ func (c *refCountedCloser) addRef() {
 	c.refCount.Add(1)
 }
 
+func (c *refCountedCloser) registerEarlyCloseFunc(f closeFunc) {
+	c.closers = append(c.closers, append([]closeFunc(nil), f)...)
+}
+
 func newRefCountedCloser(f ...closeFunc) *refCountedCloser {
 	rcc := &refCountedCloser{
 		closers: f,
