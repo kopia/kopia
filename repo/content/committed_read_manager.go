@@ -124,11 +124,7 @@ func (sm *SharedManager) LoadIndexBlob(ctx context.Context, ibid blob.ID, d gath
 	if err != nil {
 		return nil, err
 	}
-	q, err := ParseIndexBlob(ibid, d.Bytes(), sm.format)
-	if err != nil {
-		return nil, err
-	}
-	return q, nil
+	return ParseIndexBlob(ibid, d.Bytes(), sm.format)
 }
 
 // IndexReaderV0 return an index reader for reading V0 indexes
