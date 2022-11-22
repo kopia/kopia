@@ -161,18 +161,36 @@ func getContentCacheOrNil(ctx context.Context, opt *content.CachingOptions, pass
 
 // OpenAPIServer connects remote repository over Kopia API.
 func OpenAPIServer(ctx context.Context, si *APIServerInfo, cliOpts ClientOptions, cachingOptions *content.CachingOptions, password string) (Repository, error) {
-	me := metrics.NewRegistry()
+	mr := metrics.NewRegistry()
 
-	contentCache, err := getContentCacheOrNil(ctx, cachingOptions, password, me)
+	contentCache, err := getContentCacheOrNil(ctx, cachingOptions, password, mr)
 	if err != nil {
 		return nil, errors.Wrap(err, "error opening content cache")
 	}
 
-	if si.DisableGRPC {
-		return openRestAPIRepository(ctx, si, cliOpts, contentCache, password, me)
+	closer := newRefCountedCloser(
+		func(ctx context.Context) error {
+			if contentCache != nil {
+				contentCache.Close(ctx)
+			}
+
+			return nil
+		},
+		mr.Close,
+	)
+
+	par := immutableServerRepositoryParameters{
+		cliOpts:          cliOpts,
+		contentCache:     contentCache,
+		metricsRegistry:  mr,
+		refCountedCloser: closer,
 	}
 
-	return OpenGRPCAPIRepository(ctx, si, cliOpts, contentCache, password, me)
+	if si.DisableGRPC {
+		return openRestAPIRepository(ctx, si, password, par)
+	}
+
+	return openGRPCAPIRepository(ctx, si, password, par)
 }
 
 // openDirect opens the repository that directly manipulates blob storage..
@@ -215,8 +233,8 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 		DisableInternalLog: options.DisableInternalLog,
 	}
 
-	me := metrics.NewRegistry()
-	st = storagemetrics.NewWrapper(st, me)
+	mr := metrics.NewRegistry()
+	st = storagemetrics.NewWrapper(st, mr)
 
 	fmgr, ferr := format.NewManager(ctx, st, cacheOpts.CacheDirectory, cliOpts.FormatBlobCacheDuration, password, cmOpts.TimeNow)
 	if ferr != nil {
@@ -286,7 +304,7 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 	// background/interleaving upgrade lock storage monitor
 	st = upgradeLockMonitor(fmgr, options.UpgradeOwnerID, st, cmOpts.TimeNow, options.OnFatalError, options.TestOnlyIgnoreMissingRequiredFeatures)
 
-	scm, ferr := content.NewSharedManager(ctx, st, fmgr, cacheOpts, cmOpts, me)
+	scm, ferr := content.NewSharedManager(ctx, st, fmgr, cacheOpts, cmOpts, mr)
 	if ferr != nil {
 		return nil, errors.Wrap(ferr, "unable to create shared content manager")
 	}
@@ -296,15 +314,20 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 		SessionHost: cliOpts.Hostname,
 	}, "")
 
-	om, ferr := object.NewObjectManager(ctx, cm, fmgr.ObjectFormat(), me)
+	om, ferr := object.NewObjectManager(ctx, cm, fmgr.ObjectFormat(), mr)
 	if ferr != nil {
 		return nil, errors.Wrap(ferr, "unable to open object manager")
 	}
 
-	manifests, ferr := manifest.NewManager(ctx, cm, manifest.ManagerOptions{TimeNow: cmOpts.TimeNow}, me)
+	manifests, ferr := manifest.NewManager(ctx, cm, manifest.ManagerOptions{TimeNow: cmOpts.TimeNow}, mr)
 	if ferr != nil {
 		return nil, errors.Wrap(ferr, "unable to open manifests")
 	}
+
+	closer := newRefCountedCloser(
+		scm.CloseShared,
+		mr.Close,
+	)
 
 	dr := &directRepository{
 		cmgr:  cm,
@@ -312,17 +335,17 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 		blobs: st,
 		mmgr:  manifests,
 		sm:    scm,
-		directRepositoryParameters: directRepositoryParameters{
-			cachingOptions:  *cacheOpts,
-			fmgr:            fmgr,
-			timeNow:         cmOpts.TimeNow,
-			cliOpts:         cliOpts,
-			configFile:      configFile,
-			nextWriterID:    new(int32),
-			throttler:       throttler,
-			metricsRegistry: me,
+		immutableDirectRepositoryParameters: immutableDirectRepositoryParameters{
+			cachingOptions:   *cacheOpts,
+			fmgr:             fmgr,
+			timeNow:          cmOpts.TimeNow,
+			cliOpts:          cliOpts,
+			configFile:       configFile,
+			nextWriterID:     new(int32),
+			throttler:        throttler,
+			metricsRegistry:  mr,
+			refCountedCloser: closer,
 		},
-		closed: make(chan struct{}),
 	}
 
 	return dr, nil

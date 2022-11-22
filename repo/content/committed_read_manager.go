@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
@@ -79,11 +78,6 @@ type indexBlobManager interface {
 
 // SharedManager is responsible for read-only access to committed data.
 type SharedManager struct {
-	// +checkatomic
-	refCount int32 // number of Manager objects that refer to this SharedManager
-	// +checkatomic
-	closed int32 // set to 1 if shared manager has been closed
-
 	Stats *Stats
 	st    blob.Storage
 
@@ -548,33 +542,8 @@ func (sm *SharedManager) EpochManager() (*epoch.Manager, bool, error) {
 	return ibm1.epochMgr, true, nil
 }
 
-// AddRef adds a reference to shared manager to prevents its closing on Release().
-func (sm *SharedManager) addRef() {
-	if atomic.LoadInt32(&sm.closed) != 0 {
-		panic("attempted to re-use closed SharedManager")
-	}
-
-	atomic.AddInt32(&sm.refCount, 1)
-}
-
-// release removes a reference to the shared manager and destroys it if no more references are remaining.
-func (sm *SharedManager) release(ctx context.Context) error {
-	if atomic.LoadInt32(&sm.closed) != 0 {
-		// already closed
-		return nil
-	}
-
-	remaining := atomic.AddInt32(&sm.refCount, -1)
-	if remaining != 0 {
-		sm.log.Debugf("not closing shared manager, remaining = %v", remaining)
-
-		return nil
-	}
-
-	atomic.StoreInt32(&sm.closed, 1)
-
-	sm.log.Debugf("closing shared manager")
-
+// CloseShared releases all resources in a shared manager.
+func (sm *SharedManager) CloseShared(ctx context.Context) error {
 	if err := sm.committedContents.close(); err != nil {
 		return errors.Wrap(err, "error closing committed content index")
 	}
@@ -593,10 +562,6 @@ func (sm *SharedManager) release(ctx context.Context) error {
 
 	if err := sm.st.Close(ctx); err != nil {
 		return errors.Wrap(err, "error closing storage")
-	}
-
-	if err := sm.metricsEmitter.Close(ctx); err != nil {
-		return errors.Wrap(err, "error closing metrics")
 	}
 
 	return nil

@@ -10,14 +10,11 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/apiclient"
-	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/gather"
-	"github.com/kopia/kopia/internal/metrics"
 	"github.com/kopia/kopia/internal/remoterepoapi"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content"
-	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/hashing"
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/repo/object"
@@ -34,16 +31,11 @@ type APIServerInfo struct {
 // API server hosted by `kopia server`, instead of directly manipulating files in the BLOB storage.
 type apiServerRepository struct {
 	cli                              *apiclient.KopiaAPIClient
-	h                                hashing.HashFunc
-	objectFormat                     format.ObjectFormat
 	serverSupportsContentCompression bool
-	cliOpts                          ClientOptions
 	omgr                             *object.Manager
 	wso                              WriteSessionOptions
-	metricsRegistry                  *metrics.Registry
 
-	isSharedReadOnlySession bool
-	contentCache            *cache.PersistentCache
+	immutableServerRepositoryParameters // immutable parameters
 }
 
 func (r *apiServerRepository) APIServerURL() string {
@@ -56,10 +48,6 @@ func (r *apiServerRepository) Description() string {
 	}
 
 	return fmt.Sprintf("Repository Server: %v", r.cli.BaseURL)
-}
-
-func (r *apiServerRepository) ClientOptions() ClientOptions {
-	return r.cliOpts
 }
 
 func (r *apiServerRepository) OpenObject(ctx context.Context, id object.ID) (object.Reader, error) {
@@ -164,7 +152,8 @@ func (r *apiServerRepository) NewWriter(ctx context.Context, opt WriteSessionOpt
 
 	w.omgr = omgr
 	w.wso = opt
-	w.isSharedReadOnlySession = false
+
+	r.addRef()
 
 	return ctx, w, nil
 }
@@ -247,15 +236,6 @@ func (r *apiServerRepository) UpdateDescription(d string) {
 	r.cliOpts.Description = d
 }
 
-func (r *apiServerRepository) Close(ctx context.Context) error {
-	if r.isSharedReadOnlySession && r.contentCache != nil {
-		r.contentCache.Close(ctx)
-		r.contentCache = nil
-	}
-
-	return nil
-}
-
 func (r *apiServerRepository) PrefetchObjects(ctx context.Context, objectIDs []object.ID, hint string) ([]content.ID, error) {
 	//nolint:wrapcheck
 	return object.PrefetchBackingContents(ctx, r, objectIDs, hint)
@@ -275,19 +255,14 @@ func (r *apiServerRepository) PrefetchContents(ctx context.Context, contentIDs [
 	return resp.ContentIDs
 }
 
-// Metrics provides access to the metrics registry.
-func (r *apiServerRepository) Metrics() *metrics.Registry {
-	return r.metricsRegistry
-}
-
 var _ Repository = (*apiServerRepository)(nil)
 
 // openRestAPIRepository connects remote repository over Kopia API.
-func openRestAPIRepository(ctx context.Context, si *APIServerInfo, cliOpts ClientOptions, contentCache *cache.PersistentCache, password string, mr *metrics.Registry) (Repository, error) {
+func openRestAPIRepository(ctx context.Context, si *APIServerInfo, password string, par immutableServerRepositoryParameters) (Repository, error) {
 	cli, err := apiclient.NewKopiaAPIClient(apiclient.Options{
 		BaseURL:                             si.BaseURL,
 		TrustedServerCertificateFingerprint: si.TrustedServerCertificateFingerprint,
-		Username:                            cliOpts.UsernameAtHost(),
+		Username:                            par.cliOpts.UsernameAtHost(),
 		Password:                            password,
 		LogRequests:                         true,
 	})
@@ -296,14 +271,11 @@ func openRestAPIRepository(ctx context.Context, si *APIServerInfo, cliOpts Clien
 	}
 
 	rr := &apiServerRepository{
-		cli:          cli,
-		cliOpts:      cliOpts,
-		contentCache: contentCache,
+		immutableServerRepositoryParameters: par,
+		cli:                                 cli,
 		wso: WriteSessionOptions{
 			OnUpload: func(i int64) {},
 		},
-		isSharedReadOnlySession: true,
-		metricsRegistry:         mr,
 	}
 
 	var p remoterepoapi.Parameters
@@ -322,7 +294,7 @@ func openRestAPIRepository(ctx context.Context, si *APIServerInfo, cliOpts Clien
 	rr.serverSupportsContentCompression = p.SupportsContentCompression
 
 	// create object manager using rr as contentManager implementation.
-	omgr, err := object.NewObjectManager(ctx, rr, rr.objectFormat, mr)
+	omgr, err := object.NewObjectManager(ctx, rr, rr.objectFormat, par.metricsRegistry)
 	if err != nil {
 		return nil, errors.Wrap(err, "error initializing object manager")
 	}

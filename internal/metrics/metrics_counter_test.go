@@ -14,7 +14,7 @@ func TestCounter_Nil(t *testing.T) {
 	cnt := e.CounterInt64("aaa", "bbb", nil)
 	require.Nil(t, cnt)
 	cnt.Add(33)
-	require.Equal(t, int64(0), cnt.Snapshot())
+	require.Equal(t, int64(0), cnt.Snapshot(false))
 }
 
 func TestCounter_NoLabels(t *testing.T) {
@@ -33,7 +33,10 @@ func TestCounter_NoLabels(t *testing.T) {
 		mustFindMetric(t, "kopia_some_gauge_total", prommodel.MetricType_COUNTER, nil).
 			GetCounter().GetValue())
 
-	require.Equal(t, int64(133), cnt.Snapshot())
+	require.Equal(t, int64(133), cnt.Snapshot(false))
+
+	require.Equal(t, int64(133), cnt.Snapshot(true)) // reset
+	require.Equal(t, int64(0), cnt.Snapshot(false))
 }
 
 func TestCounter_WithLabels(t *testing.T) {

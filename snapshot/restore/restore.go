@@ -32,45 +32,49 @@ type Output interface {
 
 // Stats represents restore statistics.
 type Stats struct {
-	// +checkatomic
 	RestoredTotalFileSize int64
-	// +checkatomic
 	EnqueuedTotalFileSize int64
-	// +checkatomic
-	SkippedTotalFileSize int64
+	SkippedTotalFileSize  int64
 
-	// +checkatomic
-	RestoredFileCount int32
-	// +checkatomic
-	RestoredDirCount int32
-	// +checkatomic
+	RestoredFileCount    int32
+	RestoredDirCount     int32
 	RestoredSymlinkCount int32
-	// +checkatomic
-	EnqueuedFileCount int32
-	// +checkatomic
-	EnqueuedDirCount int32
-	// +checkatomic
+	EnqueuedFileCount    int32
+	EnqueuedDirCount     int32
 	EnqueuedSymlinkCount int32
-	// +checkatomic
-	SkippedCount int32
-	// +checkatomic
-	IgnoredErrorCount int32
+	SkippedCount         int32
+	IgnoredErrorCount    int32
 }
 
-func (s *Stats) clone() Stats {
-	return Stats{
-		RestoredTotalFileSize: atomic.LoadInt64(&s.RestoredTotalFileSize),
-		EnqueuedTotalFileSize: atomic.LoadInt64(&s.EnqueuedTotalFileSize),
-		SkippedTotalFileSize:  atomic.LoadInt64(&s.SkippedTotalFileSize),
+// stats represents restore statistics.
+type statsInternal struct {
+	RestoredTotalFileSize atomic.Int64
+	EnqueuedTotalFileSize atomic.Int64
+	SkippedTotalFileSize  atomic.Int64
 
-		RestoredFileCount:    atomic.LoadInt32(&s.RestoredFileCount),
-		RestoredDirCount:     atomic.LoadInt32(&s.RestoredDirCount),
-		RestoredSymlinkCount: atomic.LoadInt32(&s.RestoredSymlinkCount),
-		EnqueuedFileCount:    atomic.LoadInt32(&s.EnqueuedFileCount),
-		EnqueuedDirCount:     atomic.LoadInt32(&s.EnqueuedDirCount),
-		EnqueuedSymlinkCount: atomic.LoadInt32(&s.EnqueuedSymlinkCount),
-		SkippedCount:         atomic.LoadInt32(&s.SkippedCount),
-		IgnoredErrorCount:    atomic.LoadInt32(&s.IgnoredErrorCount),
+	RestoredFileCount    atomic.Int32
+	RestoredDirCount     atomic.Int32
+	RestoredSymlinkCount atomic.Int32
+	EnqueuedFileCount    atomic.Int32
+	EnqueuedDirCount     atomic.Int32
+	EnqueuedSymlinkCount atomic.Int32
+	SkippedCount         atomic.Int32
+	IgnoredErrorCount    atomic.Int32
+}
+
+func (s *statsInternal) clone() Stats {
+	return Stats{
+		RestoredTotalFileSize: s.RestoredTotalFileSize.Load(),
+		EnqueuedTotalFileSize: s.EnqueuedTotalFileSize.Load(),
+		SkippedTotalFileSize:  s.SkippedTotalFileSize.Load(),
+		RestoredFileCount:     s.RestoredFileCount.Load(),
+		RestoredDirCount:      s.RestoredDirCount.Load(),
+		RestoredSymlinkCount:  s.RestoredSymlinkCount.Load(),
+		EnqueuedFileCount:     s.EnqueuedFileCount.Load(),
+		EnqueuedDirCount:      s.EnqueuedDirCount.Load(),
+		EnqueuedSymlinkCount:  s.EnqueuedSymlinkCount.Load(),
+		SkippedCount:          s.SkippedCount.Load(),
+		IgnoredErrorCount:     s.IgnoredErrorCount.Load(),
 	}
 }
 
@@ -129,11 +133,11 @@ func Entry(ctx context.Context, rep repo.Repository, output Output, rootEntry fs
 		return Stats{}, errors.Wrap(err, "error closing output")
 	}
 
-	return c.stats, nil
+	return c.stats.clone(), nil
 }
 
 type copier struct {
-	stats         Stats
+	stats         statsInternal
 	output        Output
 	shallowoutput Output
 	q             *parallelwork.Queue
@@ -158,15 +162,15 @@ func (c *copier) copyEntry(ctx context.Context, e fs.Entry, targetPath string, c
 		case fs.File:
 			if c.output.FileExists(ctx, targetPath, e) {
 				log(ctx).Debugf("skipping file %v because it already exists and metadata matches", targetPath)
-				atomic.AddInt32(&c.stats.SkippedCount, 1)
-				atomic.AddInt64(&c.stats.SkippedTotalFileSize, e.Size())
+				c.stats.SkippedCount.Add(1)
+				c.stats.SkippedTotalFileSize.Add(e.Size())
 
 				return onCompletion()
 			}
 
 		case fs.Symlink:
 			if c.output.SymlinkExists(ctx, targetPath, e) {
-				atomic.AddInt32(&c.stats.SkippedCount, 1)
+				c.stats.SkippedCount.Add(1)
 				log(ctx).Debugf("skipping symlink %v because it already exists", targetPath)
 
 				return onCompletion()
@@ -180,7 +184,7 @@ func (c *copier) copyEntry(ctx context.Context, e fs.Entry, targetPath string, c
 	}
 
 	if c.ignoreErrors {
-		atomic.AddInt32(&c.stats.IgnoredErrorCount, 1)
+		c.stats.IgnoredErrorCount.Add(1)
 		log(ctx).Errorf("ignored error %v on %v", err, targetPath)
 
 		return nil
@@ -197,8 +201,8 @@ func (c *copier) copyEntryInternal(ctx context.Context, e fs.Entry, targetPath s
 	case fs.File:
 		log(ctx).Debugf("file: '%v'", targetPath)
 
-		atomic.AddInt32(&c.stats.RestoredFileCount, 1)
-		atomic.AddInt64(&c.stats.RestoredTotalFileSize, e.Size())
+		c.stats.RestoredFileCount.Add(1)
+		c.stats.RestoredTotalFileSize.Add(e.Size())
 
 		if currentdepth > maxdepth {
 			if err := c.shallowoutput.WriteFile(ctx, targetPath, e); err != nil {
@@ -213,7 +217,7 @@ func (c *copier) copyEntryInternal(ctx context.Context, e fs.Entry, targetPath s
 		return onCompletion()
 
 	case fs.Symlink:
-		atomic.AddInt32(&c.stats.RestoredSymlinkCount, 1)
+		c.stats.RestoredSymlinkCount.Add(1)
 		log(ctx).Debugf("symlink: '%v'", targetPath)
 
 		if err := c.output.CreateSymlink(ctx, targetPath, e); err != nil {
@@ -228,7 +232,7 @@ func (c *copier) copyEntryInternal(ctx context.Context, e fs.Entry, targetPath s
 }
 
 func (c *copier) copyDirectory(ctx context.Context, d fs.Directory, targetPath string, currentdepth, maxdepth int32, onCompletion parallelwork.CallbackFunc) error {
-	atomic.AddInt32(&c.stats.RestoredDirCount, 1)
+	c.stats.RestoredDirCount.Add(1)
 
 	if SafelySuffixablePath(targetPath) && currentdepth > maxdepth {
 		de, ok := d.(snapshot.HasDirEntry)
@@ -272,19 +276,19 @@ func (c *copier) copyDirectoryContent(ctx context.Context, d fs.Directory, targe
 		e := e
 
 		if e.IsDir() {
-			atomic.AddInt32(&c.stats.EnqueuedDirCount, 1)
+			c.stats.EnqueuedDirCount.Add(1)
 			// enqueue directories first, so that we quickly determine the total number and size of items.
 			c.q.EnqueueFront(ctx, func() error {
 				return c.copyEntry(ctx, e, path.Join(targetPath, e.Name()), currentdepth, maxdepth, onItemCompletion)
 			})
 		} else {
 			if isSymlink(e) {
-				atomic.AddInt32(&c.stats.EnqueuedSymlinkCount, 1)
+				c.stats.EnqueuedSymlinkCount.Add(1)
 			} else {
-				atomic.AddInt32(&c.stats.EnqueuedFileCount, 1)
+				c.stats.EnqueuedFileCount.Add(1)
 			}
 
-			atomic.AddInt64(&c.stats.EnqueuedTotalFileSize, e.Size())
+			c.stats.EnqueuedTotalFileSize.Add(e.Size())
 
 			c.q.EnqueueBack(ctx, func() error {
 				return c.copyEntry(ctx, e, path.Join(targetPath, e.Name()), currentdepth, maxdepth, onItemCompletion)

@@ -70,10 +70,8 @@ type IndexBlobInfo struct {
 
 // WriteManager builds content-addressable storage with encryption, deduplication and packaging on top of BLOB store.
 type WriteManager struct {
-	// +checkatomic
-	revision int64 // changes on each local write
-	// +checkatomic
-	disableIndexRefresh int32
+	revision            atomic.Int64 // changes on each local write
+	disableIndexRefresh atomic.Bool
 
 	mu sync.RWMutex
 	// +checklocks:mu
@@ -118,7 +116,7 @@ type pendingPackInfo struct {
 
 // Revision returns data revision number that changes on each write or refresh.
 func (bm *WriteManager) Revision() int64 {
-	return atomic.LoadInt64(&bm.revision) + bm.committedContents.revision()
+	return bm.revision.Load() + bm.committedContents.revision()
 }
 
 // DeleteContent marks the given contentID as deleted.
@@ -130,7 +128,7 @@ func (bm *WriteManager) DeleteContent(ctx context.Context, contentID ID) error {
 	bm.lock()
 	defer bm.unlock()
 
-	atomic.AddInt64(&bm.revision, 1)
+	bm.revision.Add(1)
 
 	bm.log.Debugf("delete-content %v", contentID)
 
@@ -168,7 +166,7 @@ func (bm *WriteManager) DeleteContent(ctx context.Context, contentID ID) error {
 }
 
 func (bm *WriteManager) maybeRefreshIndexes(ctx context.Context) error {
-	if atomic.LoadInt32(&bm.disableIndexRefresh) == 0 && bm.shouldRefreshIndexes() {
+	if !bm.disableIndexRefresh.Load() && bm.shouldRefreshIndexes() {
 		if err := bm.Refresh(ctx); err != nil {
 			return errors.Wrap(err, "error refreshing indexes")
 		}
@@ -284,7 +282,7 @@ func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, dat
 		}
 	}
 
-	atomic.AddInt64(&bm.revision, 1)
+	bm.revision.Add(1)
 
 	// do not start new uploads while flushing
 	for bm.flushing {
@@ -587,11 +585,6 @@ func removePendingPack(slice []*pendingPackInfo, pp *pendingPackInfo) []*pending
 // ContentFormat returns formatting options.
 func (bm *WriteManager) ContentFormat() format.Provider {
 	return bm.format
-}
-
-// Close closes the content manager.
-func (bm *WriteManager) Close(ctx context.Context) error {
-	return bm.SharedManager.release(ctx)
 }
 
 // +checklocks:bm.mu
@@ -928,7 +921,7 @@ func (bm *WriteManager) ContentInfo(ctx context.Context, contentID ID) (Info, er
 
 // DisableIndexRefresh disables index refresh for the remainder of this session.
 func (bm *WriteManager) DisableIndexRefresh() {
-	atomic.StoreInt32(&bm.disableIndexRefresh, 1)
+	bm.disableIndexRefresh.Store(true)
 }
 
 // +checklocksacquire:bm.mu
@@ -996,8 +989,6 @@ type SessionOptions struct {
 
 // NewWriteManager returns a session write manager.
 func NewWriteManager(ctx context.Context, sm *SharedManager, options SessionOptions, writeManagerID string) *WriteManager {
-	sm.addRef()
-
 	if options.OnUpload == nil {
 		options.OnUpload = func(int64) {}
 	}

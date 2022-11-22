@@ -650,7 +650,7 @@ func (s *formatSpecificTestSuite) TestChangePassword(t *testing.T) {
 func TestMetrics_CompressibleData(t *testing.T) {
 	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
 	_ = ctx
-	ms := env.Repository.Metrics().Snapshot()
+	ms := env.Repository.Metrics().Snapshot(false)
 
 	require.EqualValues(t, 0, ensureMapEntry(t, ms.Counters, "content_write_bytes"))
 
@@ -660,7 +660,7 @@ func TestMetrics_CompressibleData(t *testing.T) {
 		oid       object.ID
 	)
 
-	for ensureMapEntry(t, env.Repository.Metrics().Snapshot().Counters, "content_write_duration_nanos") < 5e6 {
+	for ensureMapEntry(t, env.Repository.Metrics().Snapshot(false).Counters, "content_write_duration_nanos") < 5e6 {
 		w := env.RepositoryWriter.NewObjectWriter(ctx, object.WriterOptions{
 			Compressor: "gzip",
 		})
@@ -674,7 +674,7 @@ func TestMetrics_CompressibleData(t *testing.T) {
 		count++
 	}
 
-	ms = env.Repository.Metrics().Snapshot()
+	ms = env.Repository.Metrics().Snapshot(false)
 	require.EqualValues(t, count*len(inputData), ensureMapEntry(t, ms.Counters, "content_write_bytes"))
 	require.EqualValues(t, count*len(inputData), ensureMapEntry(t, ms.Counters, "content_hashed_bytes"))
 	require.EqualValues(t, len(inputData), ensureMapEntry(t, ms.Counters, "content_compression_attempted_bytes"))
@@ -698,7 +698,7 @@ func TestMetrics_CompressibleData(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, inputData, data)
 
-	ms = env.Repository.Metrics().Snapshot()
+	ms = env.Repository.Metrics().Snapshot(false)
 	require.EqualValues(t, len(inputData), ensureMapEntry(t, ms.Counters, "content_read_bytes"))
 	require.EqualValues(t, compressedByteCount, ensureMapEntry(t, ms.Counters, "content_decompressed_bytes"))
 	require.EqualValues(t, compressedByteCount+encryptionOverhead, ensureMapEntry(t, ms.Counters, "content_decrypted_bytes"))

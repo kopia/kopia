@@ -7,7 +7,6 @@ import (
 	"net/url"
 	"runtime"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
@@ -17,12 +16,10 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
-	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/ctxutil"
 	"github.com/kopia/kopia/internal/gather"
 	apipb "github.com/kopia/kopia/internal/grpcapi"
-	"github.com/kopia/kopia/internal/metrics"
 	"github.com/kopia/kopia/internal/retry"
 	"github.com/kopia/kopia/internal/tlsutil"
 	"github.com/kopia/kopia/repo/blob"
@@ -59,8 +56,7 @@ func errNoSessionResponse() error {
 // grpcRepositoryClient is an implementation of Repository that connects to an instance of
 // GPRC API server hosted by `kopia server`.
 type grpcRepositoryClient struct {
-	connRefCount *int32
-	conn         *grpc.ClientConn
+	conn *grpc.ClientConn
 
 	innerSessionMutex sync.Mutex
 
@@ -77,17 +73,12 @@ type grpcRepositoryClient struct {
 
 	asyncWritesWG *errgroup.Group
 
-	h                                hashing.HashFunc
-	objectFormat                     format.ObjectFormat
+	immutableServerRepositoryParameters
+
 	serverSupportsContentCompression bool
-	cliOpts                          ClientOptions
 	omgr                             *object.Manager
 
-	contentCache *cache.PersistentCache
-
 	recent recentlyRead
-
-	metricsRegistry *metrics.Registry
 }
 
 type grpcInnerSession struct {
@@ -208,10 +199,6 @@ func (r *grpcRepositoryClient) Description() string {
 
 func (r *grpcRepositoryClient) LegacyWriter() RepositoryWriter {
 	return nil
-}
-
-func (r *grpcRepositoryClient) ClientOptions() ClientOptions {
-	return r.cliOpts
 }
 
 func (r *grpcRepositoryClient) OpenObject(ctx context.Context, id object.ID) (object.Reader, error) {
@@ -461,10 +448,12 @@ func (r *grpcInnerSession) Flush(ctx context.Context) error {
 }
 
 func (r *grpcRepositoryClient) NewWriter(ctx context.Context, opt WriteSessionOptions) (context.Context, RepositoryWriter, error) {
-	w, err := newGRPCAPIRepositoryForConnection(ctx, r.conn, r.connRefCount, r.cliOpts, opt, r.contentCache, false, r.metricsRegistry)
+	w, err := newGRPCAPIRepositoryForConnection(ctx, r.conn, opt, false, r.immutableServerRepositoryParameters)
 	if err != nil {
 		return nil, nil, err
 	}
+
+	w.addRef()
 
 	return ctx, w, nil
 }
@@ -727,25 +716,6 @@ func (r *grpcRepositoryClient) UpdateDescription(d string) {
 	r.cliOpts.Description = d
 }
 
-func (r *grpcRepositoryClient) Close(ctx context.Context) error {
-	if r.omgr == nil {
-		// already closed
-		return nil
-	}
-
-	r.omgr = nil
-
-	if atomic.AddInt32(r.connRefCount, -1) == 0 {
-		log(ctx).Debugf("closing GPRC connection to %v", r.conn.Target())
-
-		defer r.contentCache.Close(ctx)
-
-		return errors.Wrap(r.conn.Close(), "error closing GRPC connection")
-	}
-
-	return nil
-}
-
 var _ Repository = (*grpcRepositoryClient)(nil)
 
 type grpcCreds struct {
@@ -771,9 +741,9 @@ func (c grpcCreds) RequireTransportSecurity() bool {
 	return true
 }
 
-// OpenGRPCAPIRepository opens the Repository based on remote GRPC server.
+// openGRPCAPIRepository opens the Repository based on remote GRPC server.
 // The APIServerInfo must have the address of the repository as 'https://host:port'
-func OpenGRPCAPIRepository(ctx context.Context, si *APIServerInfo, cliOpts ClientOptions, contentCache *cache.PersistentCache, password string, mr *metrics.Registry) (Repository, error) {
+func openGRPCAPIRepository(ctx context.Context, si *APIServerInfo, password string, par immutableServerRepositoryParameters) (Repository, error) {
 	var transportCreds credentials.TransportCredentials
 
 	if si.TrustedServerCertificateFingerprint != "" {
@@ -793,7 +763,7 @@ func OpenGRPCAPIRepository(ctx context.Context, si *APIServerInfo, cliOpts Clien
 
 	conn, err := grpc.Dial(
 		u.Hostname()+":"+u.Port(),
-		grpc.WithPerRPCCredentials(grpcCreds{cliOpts.Hostname, cliOpts.Username, password}),
+		grpc.WithPerRPCCredentials(grpcCreds{par.cliOpts.Hostname, par.cliOpts.Username, password}),
 		grpc.WithTransportCredentials(transportCreds),
 		grpc.WithDefaultCallOptions(
 			grpc.MaxCallRecvMsgSize(MaxGRPCMessageSize),
@@ -804,7 +774,12 @@ func OpenGRPCAPIRepository(ctx context.Context, si *APIServerInfo, cliOpts Clien
 		return nil, errors.Wrap(err, "dial error")
 	}
 
-	rep, err := newGRPCAPIRepositoryForConnection(ctx, conn, new(int32), cliOpts, WriteSessionOptions{}, contentCache, true, mr)
+	par.refCountedCloser.registerEarlyCloseFunc(
+		func(ctx context.Context) error {
+			return errors.Wrap(conn.Close(), "error closing GRPC connection")
+		})
+
+	rep, err := newGRPCAPIRepositoryForConnection(ctx, conn, WriteSessionOptions{}, true, par)
 	if err != nil {
 		return nil, err
 	}
@@ -871,36 +846,25 @@ func (r *grpcRepositoryClient) killInnerSession() {
 	}
 }
 
-// Metrics provides access to the metrics registry.
-func (r *grpcRepositoryClient) Metrics() *metrics.Registry {
-	return r.metricsRegistry
-}
-
 // newGRPCAPIRepositoryForConnection opens GRPC-based repository connection.
 func newGRPCAPIRepositoryForConnection(
 	ctx context.Context,
 	conn *grpc.ClientConn,
-	connRefCount *int32,
-	cliOpts ClientOptions,
 	opt WriteSessionOptions,
-	contentCache *cache.PersistentCache,
 	transparentRetries bool,
-	mr *metrics.Registry,
+	par immutableServerRepositoryParameters,
 ) (*grpcRepositoryClient, error) {
 	if opt.OnUpload == nil {
 		opt.OnUpload = func(i int64) {}
 	}
 
 	rr := &grpcRepositoryClient{
-		connRefCount:       connRefCount,
-		conn:               conn,
-		cliOpts:            cliOpts,
-		transparentRetries: transparentRetries,
-		opt:                opt,
-		isReadOnly:         cliOpts.ReadOnly,
-		contentCache:       contentCache,
-		asyncWritesWG:      new(errgroup.Group),
-		metricsRegistry:    mr,
+		immutableServerRepositoryParameters: par,
+		conn:                                conn,
+		transparentRetries:                  transparentRetries,
+		opt:                                 opt,
+		isReadOnly:                          par.cliOpts.ReadOnly,
+		asyncWritesWG:                       new(errgroup.Group),
 	}
 
 	return inSessionWithoutRetry(ctx, rr, func(ctx context.Context, sess *grpcInnerSession) (*grpcRepositoryClient, error) {
@@ -922,8 +886,6 @@ func newGRPCAPIRepositoryForConnection(
 		if err != nil {
 			return nil, errors.Wrap(err, "unable to initialize object manager")
 		}
-
-		atomic.AddInt32(connRefCount, 1)
 
 		return rr, nil
 	})

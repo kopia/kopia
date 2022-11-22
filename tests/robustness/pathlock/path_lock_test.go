@@ -111,7 +111,7 @@ func TestPathLockBasic(t *testing.T) {
 			t.Fatalf("Unexpected path lock error: %v", err)
 		}
 
-		currBusyCounter := atomic.LoadUint64(&busyCounter)
+		currBusyCounter := busyCounter.Load()
 
 		var path2Err error
 
@@ -134,7 +134,7 @@ func TestPathLockBasic(t *testing.T) {
 		// That will only happen once the Lock call to path2 executes
 		// and blocks on the prior Lock to path1.
 		for {
-			if atomic.LoadUint64(&busyCounter) > currBusyCounter {
+			if busyCounter.Load() > currBusyCounter {
 				break
 			}
 
@@ -214,7 +214,7 @@ func TestPathLockWithoutBlock(t *testing.T) {
 		goroutineLockedWg := new(sync.WaitGroup)
 		goroutineLockedWg.Add(1)
 
-		trigger := new(int32)
+		var trigger atomic.Int32
 
 		triggerFalseCh := make(chan struct{})
 
@@ -232,13 +232,13 @@ func TestPathLockWithoutBlock(t *testing.T) {
 				return
 			}
 
-			atomic.StoreInt32(trigger, 1)
+			trigger.Store(1)
 
 			goroutineLockedWg.Done()
 
 			time.Sleep(10 * time.Millisecond)
 
-			atomic.StoreInt32(trigger, 0)
+			trigger.Store(0)
 
 			close(triggerFalseCh)
 
@@ -258,7 +258,7 @@ func TestPathLockWithoutBlock(t *testing.T) {
 			t.Fatalf("Unexpected path lock error: %v", err)
 		}
 
-		if atomic.LoadInt32(trigger) == 0 {
+		if trigger.Load() == 0 {
 			t.Fatalf("Lock blocked")
 		}
 
@@ -266,7 +266,7 @@ func TestPathLockWithoutBlock(t *testing.T) {
 
 		<-triggerFalseCh
 
-		if atomic.LoadInt32(trigger) == 1 {
+		if trigger.Load() == 1 {
 			t.Fatalf("Trigger should have been set false")
 		}
 

@@ -88,7 +88,7 @@ type DirectRepositoryWriter interface {
 	// RollbackUpgrade(ctx context.Context) error
 }
 
-type directRepositoryParameters struct {
+type immutableDirectRepositoryParameters struct {
 	configFile      string
 	cachingOptions  content.CachingOptions
 	cliOpts         ClientOptions
@@ -97,19 +97,19 @@ type directRepositoryParameters struct {
 	nextWriterID    *int32
 	throttler       throttling.SettableThrottler
 	metricsRegistry *metrics.Registry
+
+	*refCountedCloser
 }
 
 // directRepository is an implementation of repository that directly manipulates underlying storage.
 type directRepository struct {
-	directRepositoryParameters
+	immutableDirectRepositoryParameters
 
 	blobs blob.Storage
 	cmgr  *content.WriteManager
 	omgr  *object.Manager
 	mmgr  *manifest.Manager
 	sm    *content.SharedManager
-
-	closed chan struct{}
 }
 
 // DeriveKey derives encryption key of the provided length from the master key.
@@ -262,36 +262,17 @@ func (r *directRepository) NewDirectWriter(ctx context.Context, opt WriteSession
 	}
 
 	w := &directRepository{
-		directRepositoryParameters: r.directRepositoryParameters,
-		blobs:                      r.blobs,
-		cmgr:                       cmgr,
-		omgr:                       omgr,
-		mmgr:                       mmgr,
-		sm:                         r.sm,
-		closed:                     make(chan struct{}),
+		immutableDirectRepositoryParameters: r.immutableDirectRepositoryParameters,
+		blobs:                               r.blobs,
+		cmgr:                                cmgr,
+		omgr:                                omgr,
+		mmgr:                                mmgr,
+		sm:                                  r.sm,
 	}
+
+	w.addRef()
 
 	return ctx, w, nil
-}
-
-// Close closes the repository and releases all resources.
-func (r *directRepository) Close(ctx context.Context) error {
-	select {
-	case <-r.closed:
-		// already closed
-		return nil
-
-	default:
-	}
-
-	// this will release shared manager and MAY release blob.Store (on last outstanding reference).
-	if err := r.cmgr.Close(ctx); err != nil {
-		return errors.Wrap(err, "error closing content-addressable storage manager")
-	}
-
-	close(r.closed)
-
-	return nil
 }
 
 // Flush waits for all in-flight writes to complete.

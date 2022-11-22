@@ -6,13 +6,15 @@ import (
 )
 
 // Throttle throttles UI updates to a specific interval.
-type Throttle int64
+type Throttle struct {
+	v atomic.Int64
+}
 
 // ShouldOutput returns true if it's ok to produce output given the for a given time interval.
 func (t *Throttle) ShouldOutput(interval time.Duration) bool {
-	nextOutputTimeUnixNano := atomic.LoadInt64((*int64)(t))
+	nextOutputTimeUnixNano := t.v.Load()
 	if nowNano := time.Now().UnixNano(); nowNano > nextOutputTimeUnixNano { //nolint:forbidigo
-		if atomic.CompareAndSwapInt64((*int64)(t), nextOutputTimeUnixNano, nowNano+interval.Nanoseconds()) {
+		if t.v.CompareAndSwap(nextOutputTimeUnixNano, nowNano+interval.Nanoseconds()) {
 			return true
 		}
 	}
@@ -22,5 +24,5 @@ func (t *Throttle) ShouldOutput(interval time.Duration) bool {
 
 // Reset resets the throttle.
 func (t *Throttle) Reset() {
-	*t = 0
+	t.v.Store(0)
 }

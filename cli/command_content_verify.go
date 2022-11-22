@@ -50,10 +50,13 @@ func (c *commandContentVerify) run(ctx context.Context, rep repo.DirectRepositor
 		return errors.Wrap(err, "unable to read blob map")
 	}
 
-	verifiedCount := new(int32)
-	successCount := new(int32)
-	errorCount := new(int32)
-	totalCount := new(int32)
+	var (
+		verifiedCount atomic.Int32
+		successCount  atomic.Int32
+		errorCount    atomic.Int32
+		totalCount    atomic.Int32
+	)
+
 	subctx, cancel := context.WithCancel(ctx)
 
 	var wg sync.WaitGroup
@@ -69,7 +72,7 @@ func (c *commandContentVerify) run(ctx context.Context, rep repo.DirectRepositor
 
 	go func() {
 		defer wg.Done()
-		c.getTotalContentCount(subctx, rep, totalCount)
+		c.getTotalContentCount(subctx, rep, &totalCount)
 	}()
 
 	log(ctx).Infof("Verifying all contents...")
@@ -86,26 +89,26 @@ func (c *commandContentVerify) run(ctx context.Context, rep repo.DirectRepositor
 	}, func(ci content.Info) error {
 		if err := c.contentVerify(ctx, rep.ContentReader(), ci, blobMap, downloadPercent); err != nil {
 			log(ctx).Errorf("error %v", err)
-			atomic.AddInt32(errorCount, 1)
+			errorCount.Add(1)
 		} else {
-			atomic.AddInt32(successCount, 1)
+			successCount.Add(1)
 		}
 
-		atomic.AddInt32(verifiedCount, 1)
+		verifiedCount.Add(1)
 
 		if throttle.ShouldOutput(c.progressInterval) {
-			timings, ok := est.Estimate(float64(atomic.LoadInt32(verifiedCount)), float64(atomic.LoadInt32(totalCount)))
+			timings, ok := est.Estimate(float64(verifiedCount.Load()), float64(totalCount.Load()))
 			if ok {
 				log(ctx).Infof("  Verified %v of %v contents (%.1f%%), %v errors, remaining %v, ETA %v",
-					atomic.LoadInt32(verifiedCount),
-					atomic.LoadInt32(totalCount),
+					verifiedCount.Load(),
+					totalCount.Load(),
 					timings.PercentComplete,
-					atomic.LoadInt32(errorCount),
+					errorCount.Load(),
 					timings.Remaining,
 					formatTimestamp(timings.EstimatedEndTime),
 				)
 			} else {
-				log(ctx).Infof("  Verified %v contents, %v errors, estimating...", atomic.LoadInt32(verifiedCount), atomic.LoadInt32(errorCount))
+				log(ctx).Infof("  Verified %v contents, %v errors, estimating...", verifiedCount.Load(), errorCount.Load())
 			}
 		}
 
@@ -114,9 +117,9 @@ func (c *commandContentVerify) run(ctx context.Context, rep repo.DirectRepositor
 		return errors.Wrap(err, "iterate contents")
 	}
 
-	log(ctx).Infof("Finished verifying %v contents, found %v errors.", atomic.LoadInt32(verifiedCount), atomic.LoadInt32(errorCount))
+	log(ctx).Infof("Finished verifying %v contents, found %v errors.", verifiedCount.Load(), errorCount.Load())
 
-	ec := atomic.LoadInt32(errorCount)
+	ec := errorCount.Load()
 	if ec == 0 {
 		return nil
 	}
@@ -124,7 +127,7 @@ func (c *commandContentVerify) run(ctx context.Context, rep repo.DirectRepositor
 	return errors.Errorf("encountered %v errors", ec)
 }
 
-func (c *commandContentVerify) getTotalContentCount(ctx context.Context, rep repo.DirectRepository, totalCount *int32) {
+func (c *commandContentVerify) getTotalContentCount(ctx context.Context, rep repo.DirectRepository, totalCount *atomic.Int32) {
 	var tc int32
 
 	if err := rep.ContentReader().IterateContents(ctx, content.IterateOptions{
@@ -142,7 +145,7 @@ func (c *commandContentVerify) getTotalContentCount(ctx context.Context, rep rep
 		return
 	}
 
-	atomic.StoreInt32(totalCount, tc)
+	totalCount.Store(tc)
 }
 
 func (c *commandContentVerify) contentVerify(ctx context.Context, r content.Reader, ci content.Info, blobMap map[blob.ID]blob.Metadata, downloadPercent float64) error {

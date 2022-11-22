@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kopia/kopia/internal/releasable"
 	"github.com/kopia/kopia/repo/logging"
 )
 
@@ -16,7 +17,6 @@ var log = logging.Module("metrics")
 type Registry struct {
 	mu                       sync.Mutex
 	allCounters              map[string]*Counter
-	allGauges                map[string]*Gauge
 	allThroughput            map[string]*Throughput
 	allDurationDistributions map[string]*Distribution[time.Duration]
 	allSizeDistributions     map[string]*Distribution[int64]
@@ -24,35 +24,59 @@ type Registry struct {
 
 // Snapshot captures the state of all metrics.
 type Snapshot struct {
-	Counters              map[string]int64
-	Gauges                map[string]int64
-	DurationDistributions map[string]DistributionState[time.Duration]
-	SizeDistributions     map[string]DistributionState[int64]
+	Counters              map[string]int64                             `json:"counters"`
+	DurationDistributions map[string]*DistributionState[time.Duration] `json:"durationDistributions"`
+	SizeDistributions     map[string]*DistributionState[int64]         `json:"sizeDistributions"`
+}
+
+func (s *Snapshot) mergeFrom(other Snapshot) {
+	for k, v := range other.Counters {
+		s.Counters[k] += v
+	}
+
+	for k, v := range other.DurationDistributions {
+		target := s.DurationDistributions[k]
+		if target == nil {
+			target = &DistributionState[time.Duration]{}
+			s.DurationDistributions[k] = target
+		}
+
+		target.mergeFrom(v)
+	}
+
+	for k, v := range other.SizeDistributions {
+		target := s.SizeDistributions[k]
+		if target == nil {
+			target = &DistributionState[int64]{}
+			s.SizeDistributions[k] = target
+		}
+
+		target.mergeFrom(v)
+	}
+}
+
+func createSnapshot() Snapshot {
+	return Snapshot{
+		Counters:              map[string]int64{},
+		DurationDistributions: map[string]*DistributionState[time.Duration]{},
+		SizeDistributions:     map[string]*DistributionState[int64]{},
+	}
 }
 
 // Snapshot captures the snapshot of all metrics.
-func (r *Registry) Snapshot() Snapshot {
-	s := Snapshot{
-		Counters:              map[string]int64{},
-		Gauges:                map[string]int64{},
-		DurationDistributions: map[string]DistributionState[time.Duration]{},
-		SizeDistributions:     map[string]DistributionState[int64]{},
-	}
+func (r *Registry) Snapshot(reset bool) Snapshot {
+	s := createSnapshot()
 
 	for k, c := range r.allCounters {
-		s.Counters[k] = c.Snapshot()
-	}
-
-	for k, c := range r.allGauges {
-		s.Gauges[k] = c.Snapshot()
+		s.Counters[k] = c.Snapshot(reset)
 	}
 
 	for k, c := range r.allDurationDistributions {
-		s.DurationDistributions[k] = c.Snapshot()
+		s.DurationDistributions[k] = c.Snapshot(reset)
 	}
 
 	for k, c := range r.allSizeDistributions {
-		s.SizeDistributions[k] = c.Snapshot()
+		s.SizeDistributions[k] = c.Snapshot(reset)
 	}
 
 	return s
@@ -60,23 +84,25 @@ func (r *Registry) Snapshot() Snapshot {
 
 // Close closes the metrics registry.
 func (r *Registry) Close(ctx context.Context) error {
-	return nil
-}
-
-// Log logs all metrics in the registry.
-func (r *Registry) Log(ctx context.Context) error {
 	if r == nil {
 		return nil
 	}
 
-	s := r.Snapshot()
+	releasable.Released("metric-registry", r)
+
+	return nil
+}
+
+// Log logs all metrics in the registry.
+func (r *Registry) Log(ctx context.Context) {
+	if r == nil {
+		return
+	}
+
+	s := r.Snapshot(false)
 
 	for n, val := range s.Counters {
 		log(ctx).Debugw("COUNTER", "name", n, "value", val)
-	}
-
-	for n, val := range s.Gauges {
-		log(ctx).Debugw("GAUGE", "name", n, "value", val)
 	}
 
 	for n, st := range s.DurationDistributions {
@@ -88,21 +114,20 @@ func (r *Registry) Log(ctx context.Context) error {
 			log(ctx).Debugw("SIZE-DISTRIBUTION", "name", n, "counters", st.BucketCounters, "cnt", st.Count, "sum", st.Sum, "min", st.Min, "avg", st.Mean(), "max", st.Max)
 		}
 	}
-
-	return nil
 }
 
 // NewRegistry returns new metrics registry.
 func NewRegistry() *Registry {
-	e := &Registry{
+	r := &Registry{
 		allCounters:              map[string]*Counter{},
-		allGauges:                map[string]*Gauge{},
 		allDurationDistributions: map[string]*Distribution[time.Duration]{},
 		allSizeDistributions:     map[string]*Distribution[int64]{},
 		allThroughput:            map[string]*Throughput{},
 	}
 
-	return e
+	releasable.Created("metric-registry", r)
+
+	return r
 }
 
 func labelsSuffix(l map[string]string) string {

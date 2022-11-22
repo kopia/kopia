@@ -93,7 +93,7 @@ func verifyEndToEndFormatter(ctx context.Context, t *testing.T, hashAlgo, encryp
 		return
 	}
 
-	defer bm.Close(ctx)
+	defer bm.CloseShared(ctx)
 
 	cases := []gather.Bytes{
 		gather.FromSlice([]byte{}),

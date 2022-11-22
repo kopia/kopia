@@ -11,12 +11,44 @@ import (
 
 // DistributionState captures momentary state of a Distribution.
 type DistributionState[T constraints.Float | constraints.Integer] struct {
-	Min              T
-	Max              T
-	Sum              T
-	Count            int64
-	BucketCounters   []int64
-	BucketThresholds []T
+	Min              T       `json:"min"`
+	Max              T       `json:"max"`
+	Sum              T       `json:"sum"`
+	Count            int64   `json:"count"`
+	BucketCounters   []int64 `json:"buckets"`
+	BucketThresholds []T     `json:"-"`
+}
+
+func (s *DistributionState[T]) mergeFrom(other *DistributionState[T]) {
+	if s.Count == 0 {
+		s.Min = other.Min
+		s.Max = other.Max
+	}
+
+	if other.Max > s.Max {
+		s.Max = other.Max
+	}
+
+	if other.Min < s.Min {
+		s.Min = other.Min
+	}
+
+	s.Sum += other.Sum
+	s.Count += other.Count
+
+	if s.BucketCounters == nil {
+		s.BucketCounters = make([]int64, len(other.BucketCounters))
+	}
+
+	if s.BucketThresholds == nil {
+		s.BucketThresholds = other.BucketThresholds
+	}
+
+	if len(s.BucketCounters) == len(other.BucketCounters) {
+		for i, v := range other.BucketCounters {
+			s.BucketCounters[i] += v
+		}
+	}
 }
 
 // Mean returns arithmetic mean value captured in the distribution.
@@ -72,9 +104,13 @@ func (d *Distribution[T]) Observe(value T) {
 }
 
 // Snapshot returns a snapshot of the distribution state.
-func (d *Distribution[T]) Snapshot() DistributionState[T] {
+func (d *Distribution[T]) Snapshot(reset bool) *DistributionState[T] {
 	if d == nil {
-		return DistributionState[T]{}
+		return &DistributionState[T]{}
+	}
+
+	if reset {
+		return d.newState()
 	}
 
 	d.mu.Lock()
@@ -82,7 +118,7 @@ func (d *Distribution[T]) Snapshot() DistributionState[T] {
 
 	s := d.state.Load()
 
-	return DistributionState[T]{
+	return &DistributionState[T]{
 		Sum:            s.Sum,
 		Count:          s.Count,
 		Min:            s.Min,

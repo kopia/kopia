@@ -24,7 +24,7 @@ func TestStorageMetrics_PutBlob(t *testing.T) {
 
 	mr := metrics.NewRegistry()
 	ms := storagemetrics.NewWrapper(fs, mr)
-	snap := mr.Snapshot()
+	snap := mr.Snapshot(false)
 
 	requireCounterValue(t, snap, "blob_upload_bytes", 0)
 	requireCounterValue(t, snap, "blob_errors[method:PutBlob]", 0)
@@ -32,7 +32,7 @@ func TestStorageMetrics_PutBlob(t *testing.T) {
 	require.ErrorIs(t, ms.PutBlob(ctx, "someBlob1", gather.FromSlice([]byte{1, 2, 3, 4}), blob.PutOptions{}), someError)
 	require.NoError(t, ms.PutBlob(ctx, "someBlob", gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{}))
 
-	snap = mr.Snapshot()
+	snap = mr.Snapshot(false)
 	requireCounterValue(t, snap, "blob_errors[method:PutBlob]", 1)
 	requireCounterValue(t, snap, "blob_upload_bytes", 3)
 
@@ -52,7 +52,7 @@ func TestStorageMetrics_GetBlob(t *testing.T) {
 
 	mr := metrics.NewRegistry()
 	ms := storagemetrics.NewWrapper(fs, mr)
-	snap := mr.Snapshot()
+	snap := mr.Snapshot(false)
 
 	requireCounterValue(t, snap, "blob_download_full_blob_bytes", 0)
 	requireCounterValue(t, snap, "blob_download_partial_blob_bytes", 0)
@@ -64,7 +64,7 @@ func TestStorageMetrics_GetBlob(t *testing.T) {
 	require.ErrorIs(t, ms.GetBlob(ctx, "someBlob", 0, -1, &tmp), someError)
 	require.NoError(t, ms.GetBlob(ctx, "someBlob", 0, -1, &tmp))
 
-	snap = mr.Snapshot()
+	snap = mr.Snapshot(false)
 	requireCounterValue(t, snap, "blob_errors[method:GetBlob]", 1)
 	requireCounterValue(t, snap, "blob_download_full_blob_bytes", 5)
 
@@ -73,7 +73,7 @@ func TestStorageMetrics_GetBlob(t *testing.T) {
 
 	require.NoError(t, ms.GetBlob(ctx, "someBlob", 2, 2, &tmp))
 
-	snap = mr.Snapshot()
+	snap = mr.Snapshot(false)
 	requireCounterValue(t, snap, "blob_errors[method:GetBlob]", 1)
 	requireCounterValue(t, snap, "blob_download_full_blob_bytes", 5)
 	require.Equal(t, 2, tmp.Length())
@@ -94,7 +94,7 @@ func TestStorageMetrics_GetMetadata(t *testing.T) {
 
 	mr := metrics.NewRegistry()
 	ms := storagemetrics.NewWrapper(fs, mr)
-	snap := mr.Snapshot()
+	snap := mr.Snapshot(false)
 
 	requireCounterValue(t, snap, "blob_errors[method:GetMetadata]", 0)
 
@@ -107,7 +107,7 @@ func TestStorageMetrics_GetMetadata(t *testing.T) {
 	_, err = ms.GetMetadata(ctx, "someBlob")
 	require.NoError(t, err)
 
-	snap = mr.Snapshot()
+	snap = mr.Snapshot(false)
 	requireCounterValue(t, snap, "blob_errors[method:GetMetadata]", 1)
 
 	d := snap.DurationDistributions["blob_storage_latency[method:GetMetadata]"]
@@ -124,7 +124,7 @@ func TestStorageMetrics_GetCapacity(t *testing.T) {
 
 	mr := metrics.NewRegistry()
 	ms := storagemetrics.NewWrapper(fs, mr)
-	snap := mr.Snapshot()
+	snap := mr.Snapshot(false)
 
 	requireCounterValue(t, snap, "blob_errors[method:GetCapacity]", 0)
 
@@ -137,7 +137,7 @@ func TestStorageMetrics_GetCapacity(t *testing.T) {
 	_, err = ms.GetCapacity(ctx)
 	require.ErrorIs(t, err, blob.ErrNotAVolume)
 
-	snap = mr.Snapshot()
+	snap = mr.Snapshot(false)
 	requireCounterValue(t, snap, "blob_errors[method:GetCapacity]", 2)
 
 	d := snap.DurationDistributions["blob_storage_latency[method:GetCapacity]"]
@@ -156,7 +156,7 @@ func TestStorageMetrics_DeleteBlob(t *testing.T) {
 
 	mr := metrics.NewRegistry()
 	ms := storagemetrics.NewWrapper(fs, mr)
-	snap := mr.Snapshot()
+	snap := mr.Snapshot(false)
 
 	requireCounterValue(t, snap, "blob_errors[method:DeleteBlob]", 0)
 
@@ -169,7 +169,7 @@ func TestStorageMetrics_DeleteBlob(t *testing.T) {
 	err = ms.DeleteBlob(ctx, "someBlob")
 	require.NoError(t, err)
 
-	snap = mr.Snapshot()
+	snap = mr.Snapshot(false)
 	requireCounterValue(t, snap, "blob_errors[method:DeleteBlob]", 1)
 
 	d := snap.DurationDistributions["blob_storage_latency[method:DeleteBlob]"]
@@ -186,7 +186,7 @@ func TestStorageMetrics_Close(t *testing.T) {
 
 	mr := metrics.NewRegistry()
 	ms := storagemetrics.NewWrapper(fs, mr)
-	snap := mr.Snapshot()
+	snap := mr.Snapshot(false)
 
 	requireCounterValue(t, snap, "blob_errors[method:Close]", 0)
 
@@ -199,7 +199,7 @@ func TestStorageMetrics_Close(t *testing.T) {
 	err = ms.Close(ctx)
 	require.NoError(t, err)
 
-	snap = mr.Snapshot()
+	snap = mr.Snapshot(false)
 	requireCounterValue(t, snap, "blob_errors[method:Close]", 1)
 
 	d := snap.DurationDistributions["blob_storage_latency[method:Close]"]
@@ -216,7 +216,7 @@ func TestStorageMetrics_FlushCaches(t *testing.T) {
 
 	mr := metrics.NewRegistry()
 	ms := storagemetrics.NewWrapper(fs, mr)
-	snap := mr.Snapshot()
+	snap := mr.Snapshot(false)
 
 	requireCounterValue(t, snap, "blob_errors[method:FlushCaches]", 0)
 
@@ -229,7 +229,7 @@ func TestStorageMetrics_FlushCaches(t *testing.T) {
 	err = ms.FlushCaches(ctx)
 	require.NoError(t, err)
 
-	snap = mr.Snapshot()
+	snap = mr.Snapshot(false)
 	requireCounterValue(t, snap, "blob_errors[method:FlushCaches]", 1)
 
 	d := snap.DurationDistributions["blob_storage_latency[method:FlushCaches]"]
@@ -249,7 +249,7 @@ func TestStorageMetrics_ListBlobs(t *testing.T) {
 
 	mr := metrics.NewRegistry()
 	ms := storagemetrics.NewWrapper(fs, mr)
-	snap := mr.Snapshot()
+	snap := mr.Snapshot(false)
 
 	requireCounterValue(t, snap, "blob_errors[method:ListBlobs]", 0)
 	requireCounterValue(t, snap, "blob_list_items", 0)
@@ -263,7 +263,7 @@ func TestStorageMetrics_ListBlobs(t *testing.T) {
 	err = ms.ListBlobs(ctx, "", func(bm blob.Metadata) error { return nil })
 	require.NoError(t, err)
 
-	snap = mr.Snapshot()
+	snap = mr.Snapshot(false)
 	requireCounterValue(t, snap, "blob_errors[method:ListBlobs]", 1)
 
 	d := snap.DurationDistributions["blob_storage_latency[method:ListBlobs]"]

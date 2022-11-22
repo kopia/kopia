@@ -243,7 +243,7 @@ func runStress(t *testing.T, opt *StressOptions) {
 		}
 	}
 
-	stop := new(int32)
+	var stop atomic.Bool
 
 	eg, ctx := errgroup.WithContext(ctx)
 
@@ -273,7 +273,7 @@ func runStress(t *testing.T, opt *StressOptions) {
 					return log
 				})
 
-				return longLivedRepositoryTest(ctx2, t, configFile, rm, log, opt, stop)
+				return longLivedRepositoryTest(ctx2, t, configFile, rm, log, opt, &stop)
 			})
 		}
 	}
@@ -284,12 +284,12 @@ func runStress(t *testing.T, opt *StressOptions) {
 	}
 
 	time.Sleep(duration)
-	atomic.StoreInt32(stop, 1)
+	stop.Store(true)
 
 	require.NoError(t, eg.Wait())
 }
 
-func longLivedRepositoryTest(ctx context.Context, t *testing.T, configFile string, rm *repomodel.RepositoryData, log logging.Logger, opt *StressOptions, stop *int32) error {
+func longLivedRepositoryTest(ctx context.Context, t *testing.T, configFile string, rm *repomodel.RepositoryData, log logging.Logger, opt *StressOptions, stop *atomic.Bool) error {
 	t.Helper()
 
 	// important to call OpenRepository() before repo.Open() to ensure we're not seeing state
@@ -327,7 +327,7 @@ func longLivedRepositoryTest(ctx context.Context, t *testing.T, configFile strin
 	return eg.Wait()
 }
 
-func repositoryTest(ctx context.Context, t *testing.T, stop *int32, rep repo.DirectRepositoryWriter, rs *repomodel.RepositorySession, log logging.Logger, opt *StressOptions) error {
+func repositoryTest(ctx context.Context, t *testing.T, stop *atomic.Bool, rep repo.DirectRepositoryWriter, rs *repomodel.RepositorySession, log logging.Logger, opt *StressOptions) error {
 	t.Helper()
 
 	var totalWeight int
@@ -335,7 +335,7 @@ func repositoryTest(ctx context.Context, t *testing.T, stop *int32, rep repo.Dir
 		totalWeight += w
 	}
 
-	for ctx.Err() == nil && atomic.LoadInt32(stop) == 0 {
+	for ctx.Err() == nil && !stop.Load() {
 		roulette := rand.Intn(totalWeight)
 		for act, weight := range opt.ActionWeights {
 			if roulette < weight {
