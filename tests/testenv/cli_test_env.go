@@ -177,10 +177,11 @@ func (e *CLITest) RunAndExpectSuccessWithErrOut(t *testing.T, args ...string) (s
 }
 
 // RunAndExpectFailure runs the given command, expects it to fail and returns its output lines.
-func (e *CLITest) RunAndExpectFailure(t *testing.T, args ...string) ([]string, []string) {
+func (e *CLITest) RunAndExpectFailure(t *testing.T, args ...string) (stdout []string, stderr []string) {
 	t.Helper()
 
-	stdout, stderr, err := e.Run(t, true, args...)
+	var err error
+	stdout, stderr, err = e.Run(t, true, args...)
 	if err == nil {
 		t.Fatalf("'kopia %v' succeeded, but expected failure", strings.Join(args, " "))
 	}
