@@ -15,7 +15,7 @@ func TestDurationDistribution_Nil(t *testing.T) {
 	dist := e.DurationDistribution("aaa", "bbb", metrics.IOLatencyThresholds, nil)
 	require.Nil(t, dist)
 	dist.Observe(time.Second)
-	require.Equal(t, metrics.DistributionState[time.Duration]{}, dist.Snapshot(false))
+	require.Equal(t, &metrics.DistributionState[time.Duration]{}, dist.Snapshot(false))
 }
 
 func TestSizeDistribution_Nil(t *testing.T) {
