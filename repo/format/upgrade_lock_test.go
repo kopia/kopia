@@ -15,7 +15,6 @@ import (
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/clock"
-	"github.com/kopia/kopia/internal/epoch"
 	"github.com/kopia/kopia/internal/repotesting"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
@@ -115,77 +114,6 @@ func TestFormatUpgradeCommit(t *testing.T) {
 
 	// verify that rollback after commit fails
 	require.EqualError(t, env.RepositoryWriter.FormatManager().RollbackUpgrade(ctx), "no upgrade in progress")
-}
-
-func TestFormatUpgradeValidate(t *testing.T) {
-	upgradeOwnerId := "upgrade-owner"
-	ctx, env := repotesting.NewEnvironment(t, format.FormatVersion1, repotesting.Options{
-		OpenOptions: func(opts *repo.Options) {
-			opts.UpgradeOwnerID = upgradeOwnerId
-		},
-	})
-
-	formatBlockCacheDuration := env.Repository.ClientOptions().FormatBlobCacheDuration
-
-	l := &format.UpgradeLockIntent{
-		OwnerID:                upgradeOwnerId,
-		CreationTime:           env.Repository.Time(),
-		AdvanceNoticeDuration:  0,
-		IODrainTimeout:         formatBlockCacheDuration * 2,
-		StatusPollInterval:     formatBlockCacheDuration,
-		Message:                "upgrading from format version 2 -> 3",
-		MaxPermittedClockDrift: formatBlockCacheDuration / 3,
-	}
-
-	rep := env.RepositoryWriter
-
-	_, err := rep.FormatManager().SetUpgradeLockIntent(ctx, *l)
-	require.NoError(t, err)
-
-	rf, err := rep.FormatManager().RequiredFeatures()
-	require.NoError(t, err)
-
-	mp, err := rep.FormatManager().GetMutableParameters()
-	require.NoError(t, err)
-
-	require.Zero(t, mp.EpochParameters.Enabled)
-
-	mp.EpochParameters = epoch.DefaultParameters()
-	mp.IndexVersion = 2
-
-	err = rep.ContentManager().PrepareUpgradeToIndexBlobManagerV1(ctx, mp.EpochParameters)
-	require.NoError(t, err)
-
-	blobCfg, err := rep.FormatManager().BlobCfgBlob()
-	require.NoError(t, err)
-
-	// update format-blob and clear the cache
-	err = rep.FormatManager().SetParameters(ctx, mp, blobCfg, rf)
-
-	// poison V0 index so that old readers won't be able to open it.
-	err = content.WriteLegacyIndexPoisonBlob(ctx, rep.BlobStorage())
-	require.NoError(t, err)
-
-	mp, err = rep.FormatManager().GetMutableParameters()
-	require.NoError(t, err)
-
-	err = env.RepositoryWriter.FormatManager().CommitUpgrade(ctx)
-	require.NoError(t, err)
-
-	// reopen the repo because we still have the lock in-memory
-	env.MustReopen(t, func(opts *repo.Options) {
-		opts.UpgradeOwnerID = upgradeOwnerId
-	})
-	rep = env.RepositoryWriter
-
-	mp, err = rep.FormatManager().GetMutableParameters()
-	require.NoError(t, err)
-
-	require.True(t, mp.EpochParameters.Enabled)
-
-	msgs, err := rep.ContentManager().ValidateIndexes(ctx)
-	require.NoError(t, err)
-	require.Len(t, msgs, 0)
 }
 
 func TestFormatUpgradeRollback(t *testing.T) {
