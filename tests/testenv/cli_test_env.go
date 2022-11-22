@@ -177,7 +177,7 @@ func (e *CLITest) RunAndExpectSuccessWithErrOut(t *testing.T, args ...string) (s
 }
 
 // RunAndExpectFailure runs the given command, expects it to fail and returns its output lines.
-func (e *CLITest) RunAndExpectFailure(t *testing.T, args ...string) (stdout []string, stderr []string) {
+func (e *CLITest) RunAndExpectFailure(t *testing.T, args ...string) (stdout, stderr []string) {
 	t.Helper()
 
 	var err error
