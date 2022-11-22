@@ -28,11 +28,10 @@ func TestMetricEmitter_NotNil(t *testing.T) {
 
 	r := metrics.NewRegistry()
 	r.CounterInt64("c1", "h1", nil).Add(33)
-	r.Gauge("g1", "h1", nil).Set(44)
 	r.Throughput("t1", "h1", nil).Observe(44, time.Second)
 	r.DurationDistribution("d1", "h1", metrics.IOLatencyThresholds, nil).Observe(33 * time.Second)
 	r.SizeDistribution("s1", "h1", metrics.ISOBytesThresholds, nil).Observe(333)
-	require.NoError(t, r.Log(ctx))
+	r.Log(ctx)
 	require.NoError(t, r.Close(ctx))
 
 	lines := strings.Split(strings.TrimSpace(buf.String()), "\n")
@@ -43,7 +42,6 @@ func TestMetricEmitter_NotNil(t *testing.T) {
 		"COUNTER\t{\"name\":\"t1_bytes\",\"value\":44}",
 		"COUNTER\t{\"name\":\"t1_duration_nanos\",\"value\":1000000000}",
 		"DURATION-DISTRIBUTION\t{\"name\":\"d1\",\"counters\":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0],\"cnt\":1,\"sum\":\"33s\",\"min\":\"33s\",\"avg\":\"33s\",\"max\":\"33s\"}",
-		"GAUGE\t{\"name\":\"g1\",\"value\":44}",
 		"SIZE-DISTRIBUTION\t{\"name\":\"s1\",\"counters\":[0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],\"cnt\":1,\"sum\":333,\"min\":333,\"avg\":333,\"max\":333}",
 	}, lines)
 }
