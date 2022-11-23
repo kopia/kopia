@@ -454,7 +454,7 @@ func newDirEntry(md fs.Entry, fname string, oid object.ID) (*snapshot.DirEntry, 
 	return &snapshot.DirEntry{
 		Name:        fname,
 		Type:        entryType,
-		Permissions: snapshot.Permissions(md.Mode() & os.ModePerm),
+		Permissions: snapshot.Permissions(md.Mode() & fs.ModBits),
 		FileSize:    md.Size(),
 		ModTime:     fs.UTCTimestampFromTime(md.ModTime()),
 		UserID:      md.Owner().UserID,

@@ -9,6 +9,9 @@ import (
 	"github.com/pkg/errors"
 )
 
+// ModBits is a bitmask representing the mode flags supported.
+const ModBits = os.ModePerm | os.ModeSetgid | os.ModeSetuid | os.ModeSticky
+
 // ErrUnknown is returned by ErrorEntry.ErrorInfo() to indicate that type of an entry is unknown.
 var ErrUnknown = errors.Errorf("unknown or unsupported entry type")
 
