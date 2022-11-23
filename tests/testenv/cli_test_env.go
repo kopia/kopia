@@ -109,32 +109,39 @@ func (e *CLITest) RunAndExpectSuccess(t *testing.T, args ...string) []string {
 	return stdout
 }
 
-// TweakFile writes a 0x00 byte at a random point in a file.  Used to simulate file corruption
+// TweakFile writes a 0x00 byte at a random point in a file.  Used to simulate file corruption.
 func (e *CLITest) TweakFile(t *testing.T, dirn, fglob string) {
 	t.Helper()
 
 	const RwUserGroupOther = 0o666
+
 	// find a file within the repository to corrupt
 	mch, err := fs.Glob(os.DirFS(dirn), fglob)
 	require.NoError(t, err)
 	require.Greater(t, len(mch), 0)
+
 	// grab a random file in the directory dirn
 	fn := mch[rand.Intn(len(mch))]
 	f, err := os.OpenFile(path.Join(dirn, fn), os.O_RDWR, os.FileMode(RwUserGroupOther))
 	require.NoError(t, err)
+
 	// find the length of the file, then seek to a random location
 	l, err := f.Seek(0, io.SeekEnd)
 	require.NoError(t, err)
+
 	i := rand.Int63n(l)
 	bs := [1]byte{}
+
 	for {
 		// find a location that isn't already
 		// the value we want to write
-		_, err := f.ReadAt(bs[:], i)
+		_, err = f.ReadAt(bs[:], i)
 		require.NoError(t, err)
+
 		if bs[0] != 0x00 {
 			break
 		}
+
 		i = rand.Int63n(l)
 	}
 	// write the byte
@@ -183,7 +190,7 @@ func (e *CLITest) RunAndExpectFailure(t *testing.T, args ...string) (stdout, std
 	t.Helper()
 
 	var err error
-	stdout, stderr, err = e.Run(t, true, args...)
+
 	if err == nil {
 		t.Fatalf("'kopia %v' succeeded, but expected failure", strings.Join(args, " "))
 	}

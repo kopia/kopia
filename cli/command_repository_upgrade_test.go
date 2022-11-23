@@ -95,7 +95,6 @@ func (s *formatSpecificTestSuite) TestRepositoryCorruptedUpgrade(t *testing.T) {
 			"--status-poll-interval", "1s",
 			"--max-permitted-clock-drift", "1s")
 	}
-
 }
 
 func (s *formatSpecificTestSuite) TestRepositoryUpgradeCommitNever(t *testing.T) {

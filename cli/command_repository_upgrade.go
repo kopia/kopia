@@ -42,9 +42,8 @@ You will need to set the env variable KOPIA_UPGRADE_LOCK_ENABLED in order to use
 )
 
 const (
-	commitModeCommitOnValidationSuccess string = ""
-	commitModeAlwaysCommit                     = "always"
-	commitModeNeverCommit                      = "never"
+	commitModeAlwaysCommit = "always"
+	commitModeNeverCommit  = "never"
 )
 
 func (c *commandRepositoryUpgrade) setup(svc advancedAppServices, parent commandParent) {
@@ -91,22 +90,21 @@ func (c *commandRepositoryUpgrade) setup(svc advancedAppServices, parent command
 	c.svc = svc
 }
 
-// assign store the info struct in a map that can be used to compare indexes
+// assign store the info struct in a map that can be used to compare indexes.
 func assign(iif content.Info, i int, m map[content.ID][2]index.Info) {
 	v := m[iif.GetContentID()]
 	v[i] = iif
 	m[iif.GetContentID()] = v
 }
 
-// loadIndexBlobs load index blobs into indexEntries map
+// loadIndexBlobs load index blobs into indexEntries map.
 func loadIndexBlobs(ctx context.Context, indexEntries map[content.ID][2]index.Info, sm *content.SharedManager, which int, indexBlobInfos []content.IndexBlobInfo) error {
 	d := gather.WriteBuffer{}
-	
-	for _, indexBlobInfo := range indexBlobInfos {
 
+	for _, indexBlobInfo := range indexBlobInfos {
 		blobID := indexBlobInfo.BlobID
 
-		indexInfos, err := sm.LoadIndexBlob(ctx, blobID, d)
+		indexInfos, err := sm.LoadIndexBlob(ctx, blobID, &d)
 		if err != nil {
 			return errors.Wrapf(err, "failed to load index blob with BlobID %s", blobID)
 		}
@@ -114,15 +112,14 @@ func loadIndexBlobs(ctx context.Context, indexEntries map[content.ID][2]index.In
 		for _, indexInfo := range indexInfos {
 			assign(indexInfo, which, indexEntries)
 		}
-
 	}
+
 	return nil
 }
 
 // validateAction returns an error of the new V1 index blob content does not match the source V0 index blob content.
 // This is used to check that the upgraded index (V1 index) reflects the content of the old V0 index.
 func (c *commandRepositoryUpgrade) validateAction(ctx context.Context, rep repo.DirectRepositoryWriter) error {
-
 	indexEntries := map[content.ID][2]index.Info{}
 
 	sm := rep.ContentManager().SharedManager
@@ -158,10 +155,12 @@ func (c *commandRepositoryUpgrade) validateAction(ctx context.Context, rep repo.
 		} else {
 			err = checkIndexInfo(indexEntryPairs[0], indexEntryPairs[1])
 		}
+
 		if err != nil {
 			break
 		}
 	}
+
 	if err == nil {
 		log(ctx).Infof("index validation succeeded")
 		return nil
@@ -172,12 +171,14 @@ func (c *commandRepositoryUpgrade) validateAction(ctx context.Context, rep repo.
 		log(ctx).Errorf("%v", err)
 		return nil
 	}
+
 	return err
 }
 
 // checkIndexInfo compare two index infos.  If a mismatch exists, return an error with diagnostic information.
 func checkIndexInfo(i0, i1 index.Info) error {
 	var err error
+
 	switch {
 	case i0.GetFormatVersion() != i1.GetFormatVersion():
 		err = errors.Errorf("mismatched FormatVersions: %v %v", i0.GetFormatVersion(), i1.GetFormatVersion())
@@ -196,11 +197,13 @@ func checkIndexInfo(i0, i1 index.Info) error {
 	case i0.GetTimestampSeconds() != i1.GetTimestampSeconds():
 		err = errors.Errorf("mismatched TimestampSeconds: %v %v", i0.GetTimestampSeconds(), i1.GetTimestampSeconds())
 	}
+
 	if err != nil {
 		return errors.Wrapf(err, "index blobs do not match: %v, %v",
 			string(i0.GetPackBlobID()),
 			string(i1.GetPackBlobID()))
 	}
+
 	return nil
 }
 
@@ -429,6 +432,7 @@ func (c *commandRepositoryUpgrade) commitUpgrade(ctx context.Context, rep repo.D
 		log(ctx).Infof("Commit mode is set to 'never'.  Skipping commit.")
 		return nil
 	}
+
 	if err := rep.FormatManager().CommitUpgrade(ctx); err != nil {
 		return errors.Wrap(err, "error finalizing upgrade")
 	}
