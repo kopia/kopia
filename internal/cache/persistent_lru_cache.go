@@ -11,6 +11,7 @@ import (
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/cacheprot"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/ctxutil"
 	"github.com/kopia/kopia/internal/gather"
@@ -42,7 +43,7 @@ type PersistentCache struct {
 	anyChange atomic.Bool
 
 	cacheStorage      Storage
-	storageProtection StorageProtection
+	storageProtection cacheprot.StorageProtection
 	sweep             SweepSettings
 
 	description string
@@ -137,7 +138,7 @@ func (c *PersistentCache) GetPartial(ctx context.Context, key string, offset, le
 		prot := c.storageProtection
 		if length >= 0 {
 			// only full items have protection.
-			prot = nullStorageProtection{}
+			prot = cacheprot.NoProtection()
 		}
 
 		if err := prot.Verify(key, tmp.Bytes(), output); err == nil {
@@ -333,7 +334,7 @@ func (s SweepSettings) applyDefaults() SweepSettings {
 }
 
 // NewPersistentCache creates the persistent cache in the provided storage.
-func NewPersistentCache(ctx context.Context, description string, cacheStorage Storage, storageProtection StorageProtection, sweep SweepSettings, mr *metrics.Registry) (*PersistentCache, error) {
+func NewPersistentCache(ctx context.Context, description string, cacheStorage Storage, storageProtection cacheprot.StorageProtection, sweep SweepSettings, mr *metrics.Registry) (*PersistentCache, error) {
 	if cacheStorage == nil {
 		return nil, nil
 	}
@@ -341,7 +342,7 @@ func NewPersistentCache(ctx context.Context, description string, cacheStorage St
 	sweep = sweep.applyDefaults()
 
 	if storageProtection == nil {
-		storageProtection = NoProtection()
+		storageProtection = cacheprot.NoProtection()
 	}
 
 	c := &PersistentCache{
