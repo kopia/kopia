@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/kopia/kopia/internal/cache"
+	"github.com/kopia/kopia/internal/cacheprot"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/epoch"
 	"github.com/kopia/kopia/internal/gather"
@@ -427,7 +428,7 @@ func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *Ca
 		return errors.Wrap(err, "unable to initialize index blob cache storage")
 	}
 
-	indexBlobCache, err := cache.NewPersistentCache(ctx, "index-blobs", indexBlobStorage, cache.ChecksumProtection(caching.HMACSecret), cache.SweepSettings{
+	indexBlobCache, err := cache.NewPersistentCache(ctx, "index-blobs", indexBlobStorage, cacheprot.ChecksumProtection(caching.HMACSecret), cache.SweepSettings{
 		MaxSizeBytes: metadataCacheSize,
 		MinSweepAge:  caching.MinMetadataSweepAge.DurationOrDefault(DefaultMetadataCacheSweepAge),
 	}, mr)
