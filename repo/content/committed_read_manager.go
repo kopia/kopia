@@ -62,7 +62,7 @@ var allIndexBlobPrefixes = []blob.ID{
 	epoch.RangeCheckpointIndexBlobPrefix,
 }
 
-// IndexBlobReader provides and API for reading index blobs.
+// IndexBlobReader provides an API for reading index blobs.
 type IndexBlobReader interface {
 	ListIndexBlobInfos(context.Context) ([]IndexBlobInfo, time.Time, error)
 }
@@ -133,7 +133,7 @@ func (sm *SharedManager) IndexReaderV0() IndexBlobReader {
 	return sm.indexBlobManagerV0
 }
 
-// IndexReaderV1 return an index reader for reading V0 indexes.
+// IndexReaderV1 return an index reader for reading V1 indexes.
 func (sm *SharedManager) IndexReaderV1() IndexBlobReader {
 	return sm.indexBlobManagerV1
 }
