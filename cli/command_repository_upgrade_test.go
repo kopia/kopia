@@ -117,6 +117,9 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgradeCommitNever(t *testing.T)
 			"--max-permitted-clock-drift", "1s")
 		require.Contains(t, stderr, "Repository indices have been upgraded.")
 		require.Contains(t, stderr, "Commit mode is set to 'never'.  Skipping commit.")
+
+		_, stderr = env.RunAndExpectFailure(t, "repository", "status", "--upgrade-no-block")
+		require.Contains(t, stderr, "failed to open repository: repository upgrade in progress")
 	case format.FormatVersion2:
 		require.Contains(t, stdout, "Format version:      2")
 		_, stderr := env.RunAndExpectSuccessWithErrOut(t, "repository", "upgrade",
@@ -127,6 +130,9 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgradeCommitNever(t *testing.T)
 			"--max-permitted-clock-drift", "1s")
 		require.Contains(t, stderr, "Repository indices have already been migrated to the epoch format, no need to drain other clients")
 		require.Contains(t, stderr, "Commit mode is set to 'never'.  Skipping commit.")
+
+		_, stderr = env.RunAndExpectFailure(t, "repository", "status", "--upgrade-no-block")
+		require.Contains(t, stderr, "failed to open repository: repository upgrade in progress")
 	default:
 		require.Contains(t, stdout, "Format version:      3")
 		env.RunAndExpectFailure(t, "repository", "upgrade",
@@ -135,10 +141,9 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgradeCommitNever(t *testing.T)
 			"--io-drain-timeout", "1s", "--allow-unsafe-upgrade",
 			"--status-poll-interval", "1s",
 			"--max-permitted-clock-drift", "1s")
-	}
 
-	_, stderr := env.RunAndExpectFailure(t, "repository", "status", "--upgrade-no-block")
-	require.Contains(t, stderr, "failed to open repository: repository upgrade in progress")
+		env.RunAndExpectSuccess(t, "repository", "status", "--upgrade-no-block")
+	}
 }
 
 func (s *formatSpecificTestSuite) TestRepositoryUpgradeCommitAlways(t *testing.T) {

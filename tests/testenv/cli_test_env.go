@@ -127,18 +127,12 @@ func (e *CLITest) TweakFile(t *testing.T, dirn, fglob string) {
 	require.NoError(t, err)
 	i := rand.Int63n(l)
 	bs := [1]byte{}
-	for {
-		// find a location that isn't already
-		// the value we want to write
-		_, err := f.ReadAt(bs[:], i)
-		require.NoError(t, err)
-		if bs[0] != 0x00 {
-			break
-		}
-		i = rand.Int63n(l)
-	}
+
+	_, err = f.ReadAt(bs[:], i)
+	require.NoError(t, err)
+
 	// write the byte
-	_, err = f.WriteAt([]byte{0x00}, i)
+	_, err = f.WriteAt([]byte{^bs[0]}, i)
 	require.NoError(t, err)
 }
 
@@ -183,6 +177,7 @@ func (e *CLITest) RunAndExpectFailure(t *testing.T, args ...string) (stdout, std
 	t.Helper()
 
 	var err error
+
 	stdout, stderr, err = e.Run(t, true, args...)
 	if err == nil {
 		t.Fatalf("'kopia %v' succeeded, but expected failure", strings.Join(args, " "))
