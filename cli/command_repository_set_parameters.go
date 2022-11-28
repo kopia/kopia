@@ -121,9 +121,29 @@ func (c *commandRepositorySetParameters) setRetentionModeParameter(ctx context.C
 	log(ctx).Infof(" - setting %v to %s.\n", desc, v)
 }
 
-func (c *commandRepositorySetParameters) run(ctx context.Context, rep repo.DirectRepositoryWriter) error {
-	var anyChange bool
+func (c *commandRepositorySetParameters) updateEpochParameters(mp *format.MutableParameters, anyChange, upgradeToEpochManager *bool) {
+	*anyChange = true
 
+	if !mp.EpochParameters.Enabled {
+		mp.EpochParameters = epoch.DefaultParameters()
+		mp.IndexVersion = 2
+		*upgradeToEpochManager = true
+	}
+
+	if mp.Version < format.FormatVersion2 {
+		mp.Version = format.FormatVersion2
+	}
+}
+
+func (c *commandRepositorySetParameters) disableBlobRetention(ctx context.Context, blobcfg *format.BlobStorageConfiguration, anyChange *bool) {
+	log(ctx).Infof("disabling blob retention")
+
+	blobcfg.RetentionMode = ""
+	blobcfg.RetentionPeriod = 0
+	*anyChange = true
+}
+
+func (c *commandRepositorySetParameters) run(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	mp, err := rep.FormatManager().GetMutableParameters()
 	if err != nil {
 		return errors.Wrap(err, "mutable parameters")
@@ -139,38 +159,28 @@ func (c *commandRepositorySetParameters) run(ctx context.Context, rep repo.Direc
 		return errors.Wrap(err, "unable to get required features")
 	}
 
+	anyChange := false
 	upgradeToEpochManager := false
 
 	if c.upgradeRepositoryFormat {
-		anyChange = true
-
-		if !mp.EpochParameters.Enabled {
-			mp.EpochParameters = epoch.DefaultParameters()
-			mp.IndexVersion = 2
-			upgradeToEpochManager = true
-		}
-
-		if mp.Version < format.FormatVersion2 {
-			mp.Version = format.FormatVersion2
-		}
+		c.updateEpochParameters(&mp, &anyChange, &upgradeToEpochManager)
 	}
 
 	c.setSizeMBParameter(ctx, c.maxPackSizeMB, "maximum pack size", &mp.MaxPackSize, &anyChange)
 
 	// prevent downgrade of index format
-	if c.indexFormatVersion > mp.IndexVersion {
-		c.setIntParameter(ctx, c.indexFormatVersion, "index format version", &mp.IndexVersion, &anyChange)
-	} else if c.indexFormatVersion > 0 && c.indexFormatVersion != mp.IndexVersion {
-		return errors.Errorf("index format version can only be upgraded")
+	if c.indexFormatVersion != 0 {
+		if c.indexFormatVersion > mp.IndexVersion {
+			c.setIntParameter(ctx, c.indexFormatVersion, "index format version", &mp.IndexVersion, &anyChange)
+		} else {
+			return errors.Errorf("index format version can only be upgraded")
+		}
 	}
 
 	if c.retentionMode == "none" {
 		if blobcfg.IsRetentionEnabled() {
-			log(ctx).Infof("disabling blob retention")
-
-			blobcfg.RetentionMode = ""
-			blobcfg.RetentionPeriod = 0
-			anyChange = true
+			// disable blob retention if already enabled
+			c.disableBlobRetention(ctx, &blobcfg, &anyChange)
 		}
 	} else {
 		c.setRetentionModeParameter(ctx, blob.RetentionMode(c.retentionMode), "storage backend blob retention mode", &blobcfg.RetentionMode, &anyChange)

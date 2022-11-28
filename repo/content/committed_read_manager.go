@@ -119,8 +119,8 @@ type SharedManager struct {
 }
 
 // LoadIndexBlob return index information loaded from the specified blob.
-func (sm *SharedManager) LoadIndexBlob(ctx context.Context, ibid blob.ID, d gather.WriteBuffer) ([]Info, error) {
-	err := sm.st.GetBlob(ctx, ibid, 0, -1, &d)
+func (sm *SharedManager) LoadIndexBlob(ctx context.Context, ibid blob.ID, d *gather.WriteBuffer) ([]Info, error) {
+	err := sm.st.GetBlob(ctx, ibid, 0, -1, d)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not find index blob %q", ibid)
 	}

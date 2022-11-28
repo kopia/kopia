@@ -67,7 +67,6 @@ type indexBlobManagerV0 struct {
 
 // ListIndexBlobInfos list active blob info structs.  Also returns time of latest content deletion commit.
 func (m *indexBlobManagerV0) ListIndexBlobInfos(ctx context.Context) ([]IndexBlobInfo, time.Time, error) {
-
 	activeIndexBlobs, t0, err := m.listActiveIndexBlobs(ctx)
 	if err != nil {
 		return nil, time.Time{}, err
@@ -80,7 +79,7 @@ func (m *indexBlobManagerV0) ListIndexBlobInfos(ctx context.Context) ([]IndexBlo
 		if activeIndexBlob.BlobID == format.LegacyIndexPoisonBlobID {
 			continue
 		}
-		
+
 		q = append(q, activeIndexBlob)
 	}
 

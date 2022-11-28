@@ -109,7 +109,7 @@ func (e *CLITest) RunAndExpectSuccess(t *testing.T, args ...string) []string {
 	return stdout
 }
 
-// TweakFile writes a 0x00 byte at a random point in a file.  Used to simulate file corruption
+// TweakFile writes a xor-ed byte at a random point in a file.  Used to simulate file corruption.
 func (e *CLITest) TweakFile(t *testing.T, dirn, fglob string) {
 	t.Helper()
 
@@ -118,13 +118,16 @@ func (e *CLITest) TweakFile(t *testing.T, dirn, fglob string) {
 	mch, err := fs.Glob(os.DirFS(dirn), fglob)
 	require.NoError(t, err)
 	require.Greater(t, len(mch), 0)
+
 	// grab a random file in the directory dirn
 	fn := mch[rand.Intn(len(mch))]
 	f, err := os.OpenFile(path.Join(dirn, fn), os.O_RDWR, os.FileMode(RwUserGroupOther))
 	require.NoError(t, err)
+
 	// find the length of the file, then seek to a random location
 	l, err := f.Seek(0, io.SeekEnd)
 	require.NoError(t, err)
+
 	i := rand.Int63n(l)
 	bs := [1]byte{}
 
