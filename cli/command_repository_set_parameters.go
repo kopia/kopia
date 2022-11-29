@@ -143,6 +143,28 @@ func (c *commandRepositorySetParameters) disableBlobRetention(ctx context.Contex
 	*anyChange = true
 }
 
+func (c *commandRepositorySetParameters) applyNewParameters(ctx context.Context, rep repo.DirectRepositoryWriter, requiredFeatures []feature.Required, blobcfg format.BlobStorageConfiguration, mp format.MutableParameters, upgradeToEpochManager bool) error {
+	if upgradeToEpochManager {
+		log(ctx).Infof("migrating current indexes to epoch format")
+
+		if err := rep.ContentManager().PrepareUpgradeToIndexBlobManagerV1(ctx, mp.EpochParameters); err != nil {
+			return errors.Wrap(err, "error upgrading indexes")
+		}
+	}
+
+	if err := rep.FormatManager().SetParameters(ctx, mp, blobcfg, requiredFeatures); err != nil {
+		return errors.Wrap(err, "error setting parameters")
+	}
+
+	if upgradeToEpochManager {
+		if err := format.WriteLegacyIndexPoisonBlob(ctx, rep.BlobStorage()); err != nil {
+			log(ctx).Errorf("unable to write legacy index poison blob: %v", err)
+		}
+	}
+
+	return nil
+}
+
 func (c *commandRepositorySetParameters) run(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	mp, err := rep.FormatManager().GetMutableParameters()
 	if err != nil {
@@ -169,7 +191,7 @@ func (c *commandRepositorySetParameters) run(ctx context.Context, rep repo.Direc
 	c.setSizeMBParameter(ctx, c.maxPackSizeMB, "maximum pack size", &mp.MaxPackSize, &anyChange)
 
 	// prevent downgrade of index format
-	if c.indexFormatVersion != 0 {
+	if c.indexFormatVersion != 0 && c.indexFormatVersion != mp.IndexVersion {
 		if c.indexFormatVersion > mp.IndexVersion {
 			c.setIntParameter(ctx, c.indexFormatVersion, "index format version", &mp.IndexVersion, &anyChange)
 		} else {
@@ -201,22 +223,8 @@ func (c *commandRepositorySetParameters) run(ctx context.Context, rep repo.Direc
 		return errors.Errorf("no changes")
 	}
 
-	if upgradeToEpochManager {
-		log(ctx).Infof("migrating current indexes to epoch format")
-
-		if err := rep.ContentManager().PrepareUpgradeToIndexBlobManagerV1(ctx, mp.EpochParameters); err != nil {
-			return errors.Wrap(err, "error upgrading indexes")
-		}
-	}
-
-	if err := rep.FormatManager().SetParameters(ctx, mp, blobcfg, requiredFeatures); err != nil {
-		return errors.Wrap(err, "error setting parameters")
-	}
-
-	if upgradeToEpochManager {
-		if err := format.WriteLegacyIndexPoisonBlob(ctx, rep.BlobStorage()); err != nil {
-			log(ctx).Errorf("unable to write legacy index poison blob: %v", err)
-		}
+	if err := c.applyNewParameters(ctx, rep, requiredFeatures, blobcfg, mp, upgradeToEpochManager); err != nil {
+		return errors.Wrap(err, "error updating repository parameters")
 	}
 
 	log(ctx).Infof("NOTE: Repository parameters updated, you must disconnect and re-connect all other Kopia clients.")
