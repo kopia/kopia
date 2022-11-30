@@ -150,8 +150,8 @@ func updateRepositoryParameters(
 	return nil
 }
 
-func (c *commandRepositorySetParameters) run(ctx context.Context, rep repo.DirectRepositoryWriter) error {
-	var anyChange bool
+func updateEpochParameters(mp *format.MutableParameters, anyChange, upgradeToEpochManager *bool) {
+	*anyChange = true
 
 	if !mp.EpochParameters.Enabled {
 		mp.EpochParameters = epoch.DefaultParameters()
@@ -170,28 +170,6 @@ func (c *commandRepositorySetParameters) disableBlobRetention(ctx context.Contex
 	blobcfg.RetentionMode = ""
 	blobcfg.RetentionPeriod = 0
 	*anyChange = true
-}
-
-func (c *commandRepositorySetParameters) applyNewParameters(ctx context.Context, rep repo.DirectRepositoryWriter, requiredFeatures []feature.Required, blobcfg format.BlobStorageConfiguration, mp format.MutableParameters, upgradeToEpochManager bool) error {
-	if upgradeToEpochManager {
-		log(ctx).Infof("migrating current indexes to epoch format")
-
-		if err := rep.ContentManager().PrepareUpgradeToIndexBlobManagerV1(ctx, mp.EpochParameters); err != nil {
-			return errors.Wrap(err, "error upgrading indexes")
-		}
-	}
-
-	if err := rep.FormatManager().SetParameters(ctx, mp, blobcfg, requiredFeatures); err != nil {
-		return errors.Wrap(err, "error setting parameters")
-	}
-
-	if upgradeToEpochManager {
-		if err := format.WriteLegacyIndexPoisonBlob(ctx, rep.BlobStorage()); err != nil {
-			log(ctx).Errorf("unable to write legacy index poison blob: %v", err)
-		}
-	}
-
-	return nil
 }
 
 func (c *commandRepositorySetParameters) run(ctx context.Context, rep repo.DirectRepositoryWriter) error {
@@ -214,7 +192,7 @@ func (c *commandRepositorySetParameters) run(ctx context.Context, rep repo.Direc
 	upgradeToEpochManager := false
 
 	if c.upgradeRepositoryFormat {
-		c.updateEpochParameters(&mp, &anyChange, &upgradeToEpochManager)
+		updateEpochParameters(&mp, &anyChange, &upgradeToEpochManager)
 	}
 
 	c.setSizeMBParameter(ctx, c.maxPackSizeMB, "maximum pack size", &mp.MaxPackSize, &anyChange)
