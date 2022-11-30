@@ -223,18 +223,15 @@ func (s *formatSpecificTestSuite) TestRepositorySetParametersDowngrade(t *testin
 		}
 	}
 
-	env.RunAndExpectSuccess(t, "repository", "set-parameters", "--upgrade")
-	env.RunAndExpectSuccess(t, "repository", "set-parameters", "--epoch-min-duration", "3h")
-	env.RunAndExpectSuccess(t, "repository", "set-parameters", "--epoch-cleanup-safety-margin", "23h")
-	env.RunAndExpectSuccess(t, "repository", "set-parameters", "--epoch-advance-on-size-mb", "77")
-	env.RunAndExpectSuccess(t, "repository", "set-parameters", "--epoch-advance-on-count", "22")
-	env.RunAndExpectSuccess(t, "repository", "set-parameters", "--epoch-checkpoint-frequency", "9")
+	{
+		cmd := []string{"repository", "set-parameters", "--index-version=1"}
 
-	env.RunAndExpectFailure(t, "repository", "set-parameters", "--epoch-min-duration", "1s")
-	env.RunAndExpectFailure(t, "repository", "set-parameters", "--epoch-refresh-frequency", "10h")
-	env.RunAndExpectFailure(t, "repository", "set-parameters", "--epoch-checkpoint-frequency", "-10")
-	env.RunAndExpectFailure(t, "repository", "set-parameters", "--epoch-cleanup-safety-margin", "10s")
-	env.RunAndExpectFailure(t, "repository", "set-parameters", "--epoch-advance-on-count", "1")
+		if s.formatVersion <= 1 {
+			env.RunAndExpectSuccess(t, cmd...)
+		} else {
+			env.RunAndExpectFailure(t, cmd...)
+		}
+	}
 
 	out = env.RunAndExpectSuccess(t, "repository", "status")
 	require.Contains(t, out, "Epoch Manager:       enabled")
