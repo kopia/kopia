@@ -114,6 +114,7 @@ func (e *CLITest) TweakFile(t *testing.T, dirn, fglob string) {
 	t.Helper()
 
 	const RwUserGroupOther = 0o666
+
 	// find a file within the repository to corrupt
 	mch, err := fs.Glob(os.DirFS(dirn), fglob)
 	require.NoError(t, err)
