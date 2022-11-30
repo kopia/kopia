@@ -204,44 +204,30 @@ func (s *formatSpecificTestSuite) TestRepositorySetParametersDowngrade(t *testin
 		env.RunAndExpectSuccess(t, "index", "epoch", "list")
 	}
 
-	env.Environment["KOPIA_UPGRADE_LOCK_ENABLED"] = "1"
-
-	{
-		cmd := []string{
-			"repository", "upgrade",
-			"--upgrade-owner-id", "owner",
-			"--io-drain-timeout", "1s", "--allow-unsafe-upgrade",
-			"--status-poll-interval", "1s",
-			"--max-permitted-clock-drift", "1s",
-		}
-
-		// You can only upgrade when you are not already upgraded
-		if s.formatVersion < format.MaxFormatVersion {
-			env.RunAndExpectSuccess(t, cmd...)
-		} else {
-			env.RunAndExpectFailure(t, cmd...)
-		}
-	}
-
 	{
 		cmd := []string{"repository", "set-parameters", "--index-version=1"}
 
-		if s.formatVersion <= 1 {
-			env.RunAndExpectSuccess(t, cmd...)
-		} else {
-			env.RunAndExpectFailure(t, cmd...)
-		}
+		env.RunAndExpectFailure(t, cmd...)
 	}
 
 	out = env.RunAndExpectSuccess(t, "repository", "status")
-	require.Contains(t, out, "Epoch Manager:       enabled")
-	require.Contains(t, out, "Index Format:        v2")
-	require.Contains(t, out, "Format version:      3")
-	require.Contains(t, out, "Epoch cleanup margin:    23h0m0s")
-	require.Contains(t, out, "Epoch advance on:        22 blobs or 80.7 MB, minimum 3h0m0s")
-	require.Contains(t, out, "Epoch checkpoint every:  9 epochs")
 
-	env.RunAndExpectSuccess(t, "index", "epoch", "list")
+	require.Contains(t, out, "Max pack length:     21 MB")
+
+	switch s.formatVersion {
+	case format.FormatVersion1:
+		require.Contains(t, out, "Format version:      1")
+		require.Contains(t, out, "Epoch Manager:       disabled")
+		env.RunAndExpectFailure(t, "index", "epoch", "list")
+	case format.FormatVersion2:
+		require.Contains(t, out, "Format version:      2")
+		require.Contains(t, out, "Epoch Manager:       enabled")
+		env.RunAndExpectSuccess(t, "index", "epoch", "list")
+	default:
+		require.Contains(t, out, "Format version:      3")
+		require.Contains(t, out, "Epoch Manager:       enabled")
+		env.RunAndExpectSuccess(t, "index", "epoch", "list")
+	}
 }
 
 func (s *formatSpecificTestSuite) TestRepositorySetParametersRequiredFeatures(t *testing.T) {
