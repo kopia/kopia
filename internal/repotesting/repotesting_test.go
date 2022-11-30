@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/kopia/kopia/internal/faketime"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/mockfs"
@@ -28,9 +30,7 @@ func TestTimeFuncWiring(t *testing.T) {
 	r0 := rep.(repo.DirectRepository)
 
 	_, env.RepositoryWriter, err = r0.NewDirectWriter(ctx, repo.WriteSessionOptions{Purpose: "test"})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	// verify wiring for the repo layer
 	if got, want := env.RepositoryWriter.Time(), ft.NowFunc()(); !got.Equal(want) {

@@ -7,6 +7,8 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/kopia/kopia/internal/stat"
 )
 
@@ -20,9 +22,7 @@ func TestSparseCopy(t *testing.T) {
 	dir := t.TempDir()
 
 	blk, err := stat.GetBlockSize(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	type chunk struct {
 		slice []byte

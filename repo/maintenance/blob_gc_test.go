@@ -55,9 +55,7 @@ func (s *formatSpecificTestSuite) TestDeleteUnreferencedBlobs(t *testing.T) {
 	env.RepositoryWriter.Flush(ctx)
 
 	blobsBefore, err := blob.ListAllBlobs(ctx, env.RepositoryWriter.BlobStorage(), "")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	if got, want := len(blobsBefore), 4; got != want {
 		t.Fatalf("unexpected number of blobs after writing: %v", blobsBefore)
@@ -153,9 +151,7 @@ func (s *formatSpecificTestSuite) TestDeleteUnreferencedBlobs(t *testing.T) {
 	// make sure we're back to the starting point.
 
 	blobsAfter, err := blob.ListAllBlobs(ctx, env.RepositoryWriter.BlobStorage(), "")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	if diff := cmp.Diff(blobsBefore, blobsAfter); diff != "" {
 		t.Fatalf("unexpected diff: %v", diff)
@@ -190,9 +186,7 @@ func mustPutDummySessionBlob(t *testing.T, st blob.Storage, sessionIDSuffix blob
 	t.Helper()
 
 	j, err := json.Marshal(si)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	h := hmac.New(sha256.New, testHMACSecret)
 	h.Write(j)

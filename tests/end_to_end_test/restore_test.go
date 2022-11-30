@@ -182,9 +182,7 @@ func TestSnapshotRestore(t *testing.T) {
 
 	// create a file with well-known name.
 	f, err := os.Create(filepath.Join(source, "single-file"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	fmt.Fprintf(f, "some-data")
 	f.Close()
@@ -427,9 +425,7 @@ func TestRestoreSnapshotOfSingleFile(t *testing.T) {
 	sourceFile := filepath.Join(sourceDir, "single-file")
 
 	f, err := os.Create(sourceFile)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	fmt.Fprintf(f, "some-data")
 	f.Close()
@@ -765,9 +761,7 @@ func verifyFileMode(t *testing.T, filename string, want os.FileMode) {
 	}
 
 	s, err := os.Lstat(filename)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	// make sure we restored permissions correctly
 	if s.Mode() != want {
@@ -779,9 +773,7 @@ func verifyValidZipFile(t *testing.T, fname string) {
 	t.Helper()
 
 	zr, err := zip.OpenReader(fname)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	defer zr.Close()
 }
@@ -790,9 +782,8 @@ func verifyValidTarFile(t *testing.T, fname string) {
 	t.Helper()
 
 	f, err := os.Open(fname)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+
 	defer f.Close()
 
 	verifyValidTarReader(t, tar.NewReader(f))
@@ -815,15 +806,12 @@ func verifyValidTarGzipFile(t *testing.T, fname string) {
 	t.Helper()
 
 	f, err := os.Open(fname)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+
 	defer f.Close()
 
 	gz, err := gzip.NewReader(f)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	verifyValidTarReader(t, tar.NewReader(gz))
 }
@@ -842,9 +830,7 @@ func TestSnapshotRestoreByPath(t *testing.T) {
 
 	// create a file with well-known name.
 	f, err := os.Create(filepath.Join(source, "single-file"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	fmt.Fprintf(f, "some-data")
 	f.Close()

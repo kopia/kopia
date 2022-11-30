@@ -359,9 +359,7 @@ func verifyFull(ctx context.Context, t *testing.T, om *Manager, oid ID, want []b
 func verifyNoError(t *testing.T, err error) {
 	t.Helper()
 
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 }
 
 func verifyIndirectBlock(ctx context.Context, t *testing.T, om *Manager, oid ID) {
@@ -598,14 +596,10 @@ func mustWriteObject(t *testing.T, om *Manager, data []byte, compressor compress
 	defer w.Close()
 
 	_, err := w.Write(data)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	oid, err := w.Result()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	return oid
 }

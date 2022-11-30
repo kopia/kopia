@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/acl"
 )
@@ -23,9 +24,7 @@ func TestAccessLevelJSONSerialization(t *testing.T) {
 	s1.E = acl.AccessLevelFull
 
 	v, err := json.MarshalIndent(s1, "", "  ")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	got := string(v)
 	want := `{
