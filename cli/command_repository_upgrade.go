@@ -135,7 +135,7 @@ func (c *commandRepositoryUpgrade) validateAction(ctx context.Context, rep repo.
 	}
 
 	if len(indexBlobInfos0) == 0 && len(indexBlobInfos1) > 0 {
-		log(ctx).Infof("index has already been upgraded.  Nothing to do")
+		log(ctx).Infof("old index is empty (possibly due to upgrade), nothing to compare against")
 		return nil
 	}
 
