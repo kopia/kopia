@@ -117,7 +117,7 @@ func loadIndexBlobs(ctx context.Context, indexEntries map[content.ID][2]index.In
 	return nil
 }
 
-// validateAction returns an error of the new V1 index blob content does not match the source V0 index blob content.
+// validateAction returns an error if the new V1 index blob content does not match the source V0 index blob content.
 // This is used to check that the upgraded index (V1 index) reflects the content of the old V0 index.
 func (c *commandRepositoryUpgrade) validateAction(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	indexEntries := map[content.ID][2]index.Info{}
