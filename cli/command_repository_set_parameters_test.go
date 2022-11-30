@@ -182,52 +182,47 @@ func (s *formatSpecificTestSuite) TestRepositorySetParametersUpgrade(t *testing.
 	env.RunAndExpectSuccess(t, "index", "epoch", "list")
 }
 
+// TestRepositorySetParametersDowngrade test that a repository cannot be downgraded by using `set-parameters`.
 func (s *formatSpecificTestSuite) TestRepositorySetParametersDowngrade(t *testing.T) {
 	env := s.setupInMemoryRepo(t)
+
+	// checkStatusForVersion is a function with stanzas to check that the repository has the expected version.
+	// 	its saved into a variable to prevent repetition and enforce that nothing has changed between invocations
+	//  if `set-parameters`
+	checkStatusForVersion := func() {
+		out := env.RunAndExpectSuccess(t, "repository", "status")
+
+		// default values
+		require.Contains(t, out, "Max pack length:     21 MB")
+
+		switch s.formatVersion {
+		case format.FormatVersion1:
+			require.Contains(t, out, "Format version:      1")
+			require.Contains(t, out, "Epoch Manager:       disabled")
+			env.RunAndExpectFailure(t, "index", "epoch", "list")
+		case format.FormatVersion2:
+			require.Contains(t, out, "Format version:      2")
+			require.Contains(t, out, "Epoch Manager:       enabled")
+			env.RunAndExpectSuccess(t, "index", "epoch", "list")
+		default:
+			require.Contains(t, out, "Format version:      3")
+			require.Contains(t, out, "Epoch Manager:       enabled")
+			env.RunAndExpectSuccess(t, "index", "epoch", "list")
+		}
+	}
+
+	checkStatusForVersion()
+
+	env.RunAndExpectFailure(t, "repository", "set-parameters", "--index-version=1")
+
+	checkStatusForVersion()
+
+	// run basic check to ensure that an upgrade can still be performed as expected
+	env.RunAndExpectSuccess(t, "repository", "set-parameters", "--upgrade")
+
 	out := env.RunAndExpectSuccess(t, "repository", "status")
-
-	// default values
-	require.Contains(t, out, "Max pack length:     21 MB")
-
-	switch s.formatVersion {
-	case format.FormatVersion1:
-		require.Contains(t, out, "Format version:      1")
-		require.Contains(t, out, "Epoch Manager:       disabled")
-		env.RunAndExpectFailure(t, "index", "epoch", "list")
-	case format.FormatVersion2:
-		require.Contains(t, out, "Format version:      2")
-		require.Contains(t, out, "Epoch Manager:       enabled")
-		env.RunAndExpectSuccess(t, "index", "epoch", "list")
-	default:
-		require.Contains(t, out, "Format version:      3")
-		require.Contains(t, out, "Epoch Manager:       enabled")
-		env.RunAndExpectSuccess(t, "index", "epoch", "list")
-	}
-
-	{
-		cmd := []string{"repository", "set-parameters", "--index-version=1"}
-
-		env.RunAndExpectFailure(t, cmd...)
-	}
-
-	out = env.RunAndExpectSuccess(t, "repository", "status")
-
-	require.Contains(t, out, "Max pack length:     21 MB")
-
-	switch s.formatVersion {
-	case format.FormatVersion1:
-		require.Contains(t, out, "Format version:      1")
-		require.Contains(t, out, "Epoch Manager:       disabled")
-		env.RunAndExpectFailure(t, "index", "epoch", "list")
-	case format.FormatVersion2:
-		require.Contains(t, out, "Format version:      2")
-		require.Contains(t, out, "Epoch Manager:       enabled")
-		env.RunAndExpectSuccess(t, "index", "epoch", "list")
-	default:
-		require.Contains(t, out, "Format version:      3")
-		require.Contains(t, out, "Epoch Manager:       enabled")
-		env.RunAndExpectSuccess(t, "index", "epoch", "list")
-	}
+	require.Contains(t, out, "Epoch Manager:       enabled")
+	require.Contains(t, out, "Index Format:        v2")
 }
 
 func (s *formatSpecificTestSuite) TestRepositorySetParametersRequiredFeatures(t *testing.T) {
