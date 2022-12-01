@@ -20,9 +20,7 @@ func TestHMACStorageProtection(t *testing.T) {
 
 func TestEncryptionStorageProtection(t *testing.T) {
 	e, err := cache.AuthenticatedEncryptionProtection([]byte{1})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	testStorageProtection(t, e, true)
 }

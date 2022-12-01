@@ -38,14 +38,10 @@ func mustGetLocalTmpDir(t *testing.T) string {
 	t.Helper()
 
 	tmpDir, err := os.MkdirTemp(".", ".creds")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	tmpDir, err = filepath.Abs(tmpDir)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	t.Cleanup(func() {
 		os.RemoveAll(tmpDir)
@@ -80,9 +76,7 @@ func mustRunCommand(t *testing.T, cmd string, args ...string) []byte {
 	t.Helper()
 
 	v, err := runAndGetOutput(t, cmd, args...)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	return v
 }
@@ -344,9 +338,7 @@ func mustReadFileToString(t *testing.T, fname string) string {
 	t.Helper()
 
 	data, err := os.ReadFile(fname)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	return string(data)
 }

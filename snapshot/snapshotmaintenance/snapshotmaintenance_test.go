@@ -337,9 +337,7 @@ func (th *testHarness) openAnother(t *testing.T) repo.RepositoryWriter {
 	})
 
 	_, w, err := r.NewWriter(ctx, repo.WriteSessionOptions{Purpose: "test"})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	return w
 }

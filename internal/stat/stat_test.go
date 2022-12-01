@@ -8,13 +8,13 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestGetBlockSize(t *testing.T) {
 	s, err := GetBlockSize(os.DevNull)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	if s <= 0 {
 		t.Fatalf("invalid disk block size: %d, must be greater than 0", s)
@@ -29,9 +29,7 @@ func TestGetFileAllocSize(t *testing.T) {
 	data := bytes.Repeat([]byte{1}, size)
 
 	err := os.WriteFile(f, data, os.ModePerm)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	s, err := GetFileAllocSize(f)
 	if err != nil {

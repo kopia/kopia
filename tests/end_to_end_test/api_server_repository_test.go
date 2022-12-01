@@ -7,13 +7,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/kopia/kopia/internal/apiclient"
 	"github.com/kopia/kopia/internal/serverapi"
+	"github.com/kopia/kopia/internal/servertesting"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/tests/clitestutil"
 	"github.com/kopia/kopia/tests/testdirtree"
 	"github.com/kopia/kopia/tests/testenv"
@@ -124,29 +128,25 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 
 	// open repository client.
 	ctx2, cancel := context.WithCancel(ctx)
-	rep, err := repo.OpenAPIServer(ctx2, &repo.APIServerInfo{
+	rep, err := servertesting.ConnectAndOpenAPIServer(t, ctx2, &repo.APIServerInfo{
 		BaseURL:                             sp.BaseURL,
 		TrustedServerCertificateFingerprint: sp.SHA256Fingerprint,
 		DisableGRPC:                         !useGRPC,
 	}, repo.ClientOptions{
 		Username: "foo",
 		Hostname: "bar",
-	}, nil, "baz")
+	}, content.CachingOptions{}, "baz", &repo.Options{})
 
 	// cancel immediately to ensure we did not spawn goroutines that depend on ctx inside
 	// repo.OpenAPIServer()
 	cancel()
 
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	// open new write session in repository client
 
 	_, writeSess, err := rep.NewWriter(ctx, repo.WriteSessionOptions{Purpose: "some writer"})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	logErrorAndIgnore(t, serverapi.Shutdown(ctx, controlClient))
 
@@ -257,14 +257,14 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 	// open repository client to a dead server, this should fail quickly instead of retrying forever.
 	timer := timetrack.StartTimer()
 
-	repo.OpenAPIServer(ctx, &repo.APIServerInfo{
+	servertesting.ConnectAndOpenAPIServer(t, ctx, &repo.APIServerInfo{
 		BaseURL:                             sp.BaseURL,
 		TrustedServerCertificateFingerprint: sp.SHA256Fingerprint,
 		DisableGRPC:                         !useGRPC,
 	}, repo.ClientOptions{
 		Username: "foo",
 		Hostname: "bar",
-	}, nil, "baz")
+	}, content.CachingOptions{}, "baz", &repo.Options{})
 
 	//nolint:forbidigo
 	if dur := timer.Elapsed(); dur > 15*time.Second {
