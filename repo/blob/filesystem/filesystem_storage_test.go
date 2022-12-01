@@ -139,9 +139,7 @@ func TestFileStorageConcurrency(t *testing.T) {
 	st, err := New(ctx, &Options{
 		Path: path,
 	}, true)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	blobtesting.VerifyConcurrentAccess(t, st, blobtesting.ConcurrentAccessOptions{
 		NumBlobs:                        16,

@@ -3,6 +3,8 @@ package content
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/repo/blob"
 )
@@ -11,19 +13,13 @@ func TestGenerateSessionID(t *testing.T) {
 	n := clock.Now()
 
 	s1, err := generateSessionID(n)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	s2, err := generateSessionID(n)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	s3, err := generateSessionID(n)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	m := map[SessionID]bool{
 		s1: true,
