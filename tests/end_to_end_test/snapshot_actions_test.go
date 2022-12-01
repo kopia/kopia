@@ -368,17 +368,13 @@ func verifyFileExists(t *testing.T, fname string) {
 	t.Helper()
 
 	_, err := os.Stat(fname)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 }
 
 func verifyNoError(t *testing.T, err error) {
 	t.Helper()
 
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 }
 
 func mustReadEnvFile(t *testing.T, fname string) map[string]string {

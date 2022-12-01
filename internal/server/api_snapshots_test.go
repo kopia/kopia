@@ -10,6 +10,7 @@ import (
 	"github.com/kopia/kopia/internal/mockfs"
 	"github.com/kopia/kopia/internal/repotesting"
 	"github.com/kopia/kopia/internal/serverapi"
+	"github.com/kopia/kopia/internal/servertesting"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/snapshot"
@@ -72,13 +73,13 @@ func TestListAndDeleteSnapshots(t *testing.T) {
 		return nil
 	}))
 
-	srvInfo := startServer(t, env, false)
+	srvInfo := servertesting.StartServer(t, env, false)
 
 	cli, err := apiclient.NewKopiaAPIClient(apiclient.Options{
 		BaseURL:                             srvInfo.BaseURL,
 		TrustedServerCertificateFingerprint: srvInfo.TrustedServerCertificateFingerprint,
-		Username:                            testUIUsername,
-		Password:                            testUIPassword,
+		Username:                            servertesting.TestUIUsername,
+		Password:                            servertesting.TestUIPassword,
 	})
 
 	require.NoError(t, err)
@@ -201,13 +202,13 @@ func TestEditSnapshots(t *testing.T) {
 		return nil
 	}))
 
-	srvInfo := startServer(t, env, false)
+	srvInfo := servertesting.StartServer(t, env, false)
 
 	cli, err := apiclient.NewKopiaAPIClient(apiclient.Options{
 		BaseURL:                             srvInfo.BaseURL,
 		TrustedServerCertificateFingerprint: srvInfo.TrustedServerCertificateFingerprint,
-		Username:                            testUIUsername,
-		Password:                            testUIPassword,
+		Username:                            servertesting.TestUIUsername,
+		Password:                            servertesting.TestUIPassword,
 	})
 
 	require.NoError(t, err)
