@@ -73,7 +73,7 @@ type grpcRepositoryClient struct {
 
 	asyncWritesWG *errgroup.Group
 
-	immutableServerRepositoryParameters
+	*immutableServerRepositoryParameters
 
 	serverSupportsContentCompression bool
 	omgr                             *object.Manager
@@ -422,11 +422,21 @@ func (r *grpcRepositoryClient) Flush(ctx context.Context) error {
 		return errors.Wrap(err, "error waiting for async writes")
 	}
 
-	_, err := inSessionWithoutRetry(ctx, r, func(ctx context.Context, sess *grpcInnerSession) (bool, error) {
-		return false, sess.Flush(ctx)
-	})
+	if err := invokeCallbacks(ctx, r, r.beforeFlush); err != nil {
+		return errors.Wrap(err, "before flush")
+	}
 
-	return err
+	if _, err := inSessionWithoutRetry(ctx, r, func(ctx context.Context, sess *grpcInnerSession) (bool, error) {
+		return false, sess.Flush(ctx)
+	}); err != nil {
+		return err
+	}
+
+	if err := invokeCallbacks(ctx, r, r.afterFlush); err != nil {
+		return errors.Wrap(err, "after flush")
+	}
+
+	return nil
 }
 
 func (r *grpcInnerSession) Flush(ctx context.Context) error {
@@ -743,7 +753,7 @@ func (c grpcCreds) RequireTransportSecurity() bool {
 
 // openGRPCAPIRepository opens the Repository based on remote GRPC server.
 // The APIServerInfo must have the address of the repository as 'https://host:port'
-func openGRPCAPIRepository(ctx context.Context, si *APIServerInfo, password string, par immutableServerRepositoryParameters) (Repository, error) {
+func openGRPCAPIRepository(ctx context.Context, si *APIServerInfo, password string, par *immutableServerRepositoryParameters) (Repository, error) {
 	var transportCreds credentials.TransportCredentials
 
 	if si.TrustedServerCertificateFingerprint != "" {
@@ -852,7 +862,7 @@ func newGRPCAPIRepositoryForConnection(
 	conn *grpc.ClientConn,
 	opt WriteSessionOptions,
 	transparentRetries bool,
-	par immutableServerRepositoryParameters,
+	par *immutableServerRepositoryParameters,
 ) (*grpcRepositoryClient, error) {
 	if opt.OnUpload == nil {
 		opt.OnUpload = func(i int64) {}
