@@ -67,6 +67,8 @@ type grpcRepositoryClient struct {
 	isReadOnly         bool
 	transparentRetries bool
 
+	afterFlush []RepositoryWriterCallback
+
 	// how many times we tried to establish inner session
 	// +checklocks:innerSessionMutex
 	innerSessionAttemptCount int
@@ -724,6 +726,11 @@ func (r *grpcInnerSession) WriteContentAsyncAndVerify(ctx context.Context, conte
 // UpdateDescription updates the description of a connected repository.
 func (r *grpcRepositoryClient) UpdateDescription(d string) {
 	r.cliOpts.Description = d
+}
+
+// OnSuccessfulFlush registers the provided callback to be invoked after flush succeeds.
+func (r *grpcRepositoryClient) OnSuccessfulFlush(callback RepositoryWriterCallback) {
+	r.afterFlush = append(r.afterFlush, callback)
 }
 
 var _ Repository = (*grpcRepositoryClient)(nil)

@@ -34,6 +34,7 @@ type apiServerRepository struct {
 	serverSupportsContentCompression bool
 	omgr                             *object.Manager
 	wso                              WriteSessionOptions
+	afterFlush                       []RepositoryWriterCallback
 
 	*immutableServerRepositoryParameters // immutable parameters
 }
@@ -164,6 +165,7 @@ func (r *apiServerRepository) NewWriter(ctx context.Context, opt WriteSessionOpt
 
 	w.omgr = omgr
 	w.wso = opt
+	w.afterFlush = nil
 
 	if w.wso.OnUpload == nil {
 		w.wso.OnUpload = func(i int64) {}
@@ -269,6 +271,11 @@ func (r *apiServerRepository) PrefetchContents(ctx context.Context, contentIDs [
 	}
 
 	return resp.ContentIDs
+}
+
+// OnSuccessfulFlush registers the provided callback to be invoked after flush succeeds.
+func (r *apiServerRepository) OnSuccessfulFlush(callback RepositoryWriterCallback) {
+	r.afterFlush = append(r.afterFlush, callback)
 }
 
 var _ Repository = (*apiServerRepository)(nil)

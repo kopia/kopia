@@ -593,11 +593,10 @@ func TestWriteSessionFlushOnSuccess(t *testing.T) {
 		OpenOptions: func(o *repo.Options) {
 			o.BeforeFlush = append(o.BeforeFlush, func(ctx context.Context, w repo.RepositoryWriter) error {
 				beforeFlushCount.Add(1)
-				return nil
-			})
-
-			o.AfterFlush = append(o.AfterFlush, func(ctx context.Context, w repo.RepositoryWriter) error {
-				afterFlushCount.Add(1)
+				w.OnSuccessfulFlush(func(ctx context.Context, w repo.RepositoryWriter) error {
+					afterFlushCount.Add(1)
+					return nil
+				})
 				return nil
 			})
 		},
@@ -662,15 +661,13 @@ func testWriteSessionFlushOnSuccessClient(t *testing.T, disableGRPC bool) {
 	}, content.CachingOptions{
 		CacheDirectory: testutil.TempDirectory(t),
 	}, servertesting.TestPassword, &repo.Options{
-		BeforeFlush: []repo.RepositoryWriterCallbacks{
+		BeforeFlush: []repo.RepositoryWriterCallback{
 			func(ctx context.Context, w repo.RepositoryWriter) error {
 				beforeFlushCount.Add(1)
-				return nil
-			},
-		},
-		AfterFlush: []repo.RepositoryWriterCallbacks{
-			func(ctx context.Context, w repo.RepositoryWriter) error {
-				afterFlushCount.Add(1)
+				w.OnSuccessfulFlush(func(ctx context.Context, w repo.RepositoryWriter) error {
+					afterFlushCount.Add(1)
+					return nil
+				})
 				return nil
 			},
 		},
