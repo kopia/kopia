@@ -97,8 +97,23 @@ type immutableDirectRepositoryParameters struct {
 	nextWriterID    *int32
 	throttler       throttling.SettableThrottler
 	metricsRegistry *metrics.Registry
+	beforeFlush     []RepositoryWriterCallbacks
+	afterFlush      []RepositoryWriterCallbacks
 
 	*refCountedCloser
+}
+
+// RepositoryWriterCallbacks is a hook function invoked before and after each flush.
+type RepositoryWriterCallbacks func(ctx context.Context, w RepositoryWriter) error
+
+func invokeCallbacks(ctx context.Context, w RepositoryWriter, callbacks []RepositoryWriterCallbacks) error {
+	for _, h := range callbacks {
+		if err := h(ctx, w); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // directRepository is an implementation of repository that directly manipulates underlying storage.
@@ -277,11 +292,23 @@ func (r *directRepository) NewDirectWriter(ctx context.Context, opt WriteSession
 
 // Flush waits for all in-flight writes to complete.
 func (r *directRepository) Flush(ctx context.Context) error {
+	if err := invokeCallbacks(ctx, r, r.beforeFlush); err != nil {
+		return errors.Wrap(err, "before flush")
+	}
+
 	if err := r.mmgr.Flush(ctx); err != nil {
 		return errors.Wrap(err, "error flushing manifests")
 	}
 
-	return errors.Wrap(r.cmgr.Flush(ctx), "error flushing contents")
+	if err := r.cmgr.Flush(ctx); err != nil {
+		return errors.Wrap(err, "error flushing contents")
+	}
+
+	if err := invokeCallbacks(ctx, r, r.afterFlush); err != nil {
+		return errors.Wrap(err, "after flush")
+	}
+
+	return nil
 }
 
 // Metrics provides access to metrics registry.
