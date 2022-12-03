@@ -114,8 +114,8 @@
     "asar": "^3.2.0",
     "concurrently": "^7.4.0",
     "dotenv": "^16.0.3",
-    "electron": "^19.0.8",
-    "electron-builder": "^23.3.3",
+    "electron": "^22.0.0",
+    "electron-builder": "^23.6.0",
     "electron-notarize": "^1.2.2",
     "playwright": "^1.28.1",
     "playwright-core": "^1.28.1"
