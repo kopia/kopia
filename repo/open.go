@@ -13,6 +13,7 @@ import (
 	"golang.org/x/crypto/scrypt"
 
 	"github.com/kopia/kopia/internal/cache"
+	"github.com/kopia/kopia/internal/cacheprot"
 	"github.com/kopia/kopia/internal/epoch"
 	"github.com/kopia/kopia/internal/feature"
 	"github.com/kopia/kopia/internal/metrics"
@@ -143,7 +144,7 @@ func getContentCacheOrNil(ctx context.Context, opt *content.CachingOptions, pass
 		return nil, errors.Wrap(err, "unable to derive cache encryption key from password")
 	}
 
-	prot, err := cache.AuthenticatedEncryptionProtection(cacheEncryptionKey)
+	prot, err := cacheprot.AuthenticatedEncryptionProtection(cacheEncryptionKey)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to initialize protection")
 	}
