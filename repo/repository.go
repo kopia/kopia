@@ -49,6 +49,7 @@ type RepositoryWriter interface {
 	ConcatenateObjects(ctx context.Context, objectIDs []object.ID) (object.ID, error)
 	PutManifest(ctx context.Context, labels map[string]string, payload interface{}) (manifest.ID, error)
 	DeleteManifest(ctx context.Context, id manifest.ID) error
+	OnSuccessfulFlush(callback RepositoryWriterCallback)
 	Flush(ctx context.Context) error
 }
 
@@ -97,16 +98,15 @@ type immutableDirectRepositoryParameters struct {
 	nextWriterID    *int32
 	throttler       throttling.SettableThrottler
 	metricsRegistry *metrics.Registry
-	beforeFlush     []RepositoryWriterCallbacks
-	afterFlush      []RepositoryWriterCallbacks
+	beforeFlush     []RepositoryWriterCallback
 
 	*refCountedCloser
 }
 
-// RepositoryWriterCallbacks is a hook function invoked before and after each flush.
-type RepositoryWriterCallbacks func(ctx context.Context, w RepositoryWriter) error
+// RepositoryWriterCallback is a hook function invoked before and after each flush.
+type RepositoryWriterCallback func(ctx context.Context, w RepositoryWriter) error
 
-func invokeCallbacks(ctx context.Context, w RepositoryWriter, callbacks []RepositoryWriterCallbacks) error {
+func invokeCallbacks(ctx context.Context, w RepositoryWriter, callbacks []RepositoryWriterCallback) error {
 	for _, h := range callbacks {
 		if err := h(ctx, w); err != nil {
 			return err
@@ -125,6 +125,8 @@ type directRepository struct {
 	omgr  *object.Manager
 	mmgr  *manifest.Manager
 	sm    *content.SharedManager
+
+	afterFlush []RepositoryWriterCallback
 }
 
 // DeriveKey derives encryption key of the provided length from the master key.
@@ -360,6 +362,11 @@ func (r *directRepository) Time() time.Time {
 // FormatManager returns the format manager.
 func (r *directRepository) FormatManager() *format.Manager {
 	return r.fmgr
+}
+
+// OnSuccessfulFlush registers the provided callback to be invoked after flush succeeds.
+func (r *directRepository) OnSuccessfulFlush(callback RepositoryWriterCallback) {
+	r.afterFlush = append(r.afterFlush, callback)
 }
 
 // WriteSessionOptions describes options for a write session.

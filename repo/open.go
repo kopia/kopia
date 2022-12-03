@@ -65,13 +65,12 @@ var log = logging.Module("kopia/repo")
 
 // Options provides configuration parameters for connection to a repository.
 type Options struct {
-	TraceStorage        bool                        // Logs all storage access using provided Printf-style function
-	TimeNowFunc         func() time.Time            // Time provider
-	DisableInternalLog  bool                        // Disable internal log
-	UpgradeOwnerID      string                      // Owner-ID of any upgrade in progress, when this is not set the access may be restricted
-	DoNotWaitForUpgrade bool                        // Disable the exponential forever backoff on an upgrade lock.
-	BeforeFlush         []RepositoryWriterCallbacks // list of callbacks to invoke before every flush
-	AfterFlush          []RepositoryWriterCallbacks // list of callbacks to invoke after every flush
+	TraceStorage        bool                       // Logs all storage access using provided Printf-style function
+	TimeNowFunc         func() time.Time           // Time provider
+	DisableInternalLog  bool                       // Disable internal log
+	UpgradeOwnerID      string                     // Owner-ID of any upgrade in progress, when this is not set the access may be restricted
+	DoNotWaitForUpgrade bool                       // Disable the exponential forever backoff on an upgrade lock.
+	BeforeFlush         []RepositoryWriterCallback // list of callbacks to invoke before every flush
 
 	OnFatalError func(err error) // function to invoke when repository encounters a fatal error, usually invokes os.Exit
 
@@ -190,7 +189,6 @@ func openAPIServer(ctx context.Context, si *APIServerInfo, cliOpts ClientOptions
 		metricsRegistry:  mr,
 		refCountedCloser: closer,
 		beforeFlush:      options.BeforeFlush,
-		afterFlush:       options.AfterFlush,
 	}
 
 	if si.DisableGRPC {
@@ -353,7 +351,6 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 			metricsRegistry:  mr,
 			refCountedCloser: closer,
 			beforeFlush:      options.BeforeFlush,
-			afterFlush:       options.AfterFlush,
 		},
 	}
 
