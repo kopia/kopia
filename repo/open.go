@@ -13,6 +13,7 @@ import (
 	"golang.org/x/crypto/scrypt"
 
 	"github.com/kopia/kopia/internal/cache"
+	"github.com/kopia/kopia/internal/cacheprot"
 	"github.com/kopia/kopia/internal/epoch"
 	"github.com/kopia/kopia/internal/feature"
 	"github.com/kopia/kopia/internal/metrics"
@@ -64,11 +65,12 @@ var log = logging.Module("kopia/repo")
 
 // Options provides configuration parameters for connection to a repository.
 type Options struct {
-	TraceStorage        bool             // Logs all storage access using provided Printf-style function
-	TimeNowFunc         func() time.Time // Time provider
-	DisableInternalLog  bool             // Disable internal log
-	UpgradeOwnerID      string           // Owner-ID of any upgrade in progress, when this is not set the access may be restricted
-	DoNotWaitForUpgrade bool             // Disable the exponential forever backoff on an upgrade lock.
+	TraceStorage        bool                       // Logs all storage access using provided Printf-style function
+	TimeNowFunc         func() time.Time           // Time provider
+	DisableInternalLog  bool                       // Disable internal log
+	UpgradeOwnerID      string                     // Owner-ID of any upgrade in progress, when this is not set the access may be restricted
+	DoNotWaitForUpgrade bool                       // Disable the exponential forever backoff on an upgrade lock.
+	BeforeFlush         []RepositoryWriterCallback // list of callbacks to invoke before every flush
 
 	OnFatalError func(err error) // function to invoke when repository encounters a fatal error, usually invokes os.Exit
 
@@ -119,7 +121,7 @@ func Open(ctx context.Context, configFile, password string, options *Options) (r
 	}
 
 	if lc.APIServer != nil {
-		return OpenAPIServer(ctx, lc.APIServer, lc.ClientOptions, lc.Caching, password)
+		return openAPIServer(ctx, lc.APIServer, lc.ClientOptions, lc.Caching, password, options)
 	}
 
 	return openDirect(ctx, configFile, lc, password, options)
@@ -143,7 +145,7 @@ func getContentCacheOrNil(ctx context.Context, opt *content.CachingOptions, pass
 		return nil, errors.Wrap(err, "unable to derive cache encryption key from password")
 	}
 
-	prot, err := cache.AuthenticatedEncryptionProtection(cacheEncryptionKey)
+	prot, err := cacheprot.AuthenticatedEncryptionProtection(cacheEncryptionKey)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to initialize protection")
 	}
@@ -159,8 +161,10 @@ func getContentCacheOrNil(ctx context.Context, opt *content.CachingOptions, pass
 	return pc, nil
 }
 
-// OpenAPIServer connects remote repository over Kopia API.
-func OpenAPIServer(ctx context.Context, si *APIServerInfo, cliOpts ClientOptions, cachingOptions *content.CachingOptions, password string) (Repository, error) {
+// openAPIServer connects remote repository over Kopia API.
+func openAPIServer(ctx context.Context, si *APIServerInfo, cliOpts ClientOptions, cachingOptions *content.CachingOptions, password string, options *Options) (Repository, error) {
+	cachingOptions = cachingOptions.CloneOrDefault()
+
 	mr := metrics.NewRegistry()
 
 	contentCache, err := getContentCacheOrNil(ctx, cachingOptions, password, mr)
@@ -179,11 +183,12 @@ func OpenAPIServer(ctx context.Context, si *APIServerInfo, cliOpts ClientOptions
 		mr.Close,
 	)
 
-	par := immutableServerRepositoryParameters{
+	par := &immutableServerRepositoryParameters{
 		cliOpts:          cliOpts,
 		contentCache:     contentCache,
 		metricsRegistry:  mr,
 		refCountedCloser: closer,
+		beforeFlush:      options.BeforeFlush,
 	}
 
 	if si.DisableGRPC {
@@ -345,6 +350,7 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 			throttler:        throttler,
 			metricsRegistry:  mr,
 			refCountedCloser: closer,
+			beforeFlush:      options.BeforeFlush,
 		},
 	}
 

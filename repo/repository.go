@@ -49,6 +49,7 @@ type RepositoryWriter interface {
 	ConcatenateObjects(ctx context.Context, objectIDs []object.ID) (object.ID, error)
 	PutManifest(ctx context.Context, labels map[string]string, payload interface{}) (manifest.ID, error)
 	DeleteManifest(ctx context.Context, id manifest.ID) error
+	OnSuccessfulFlush(callback RepositoryWriterCallback)
 	Flush(ctx context.Context) error
 }
 
@@ -97,8 +98,22 @@ type immutableDirectRepositoryParameters struct {
 	nextWriterID    *int32
 	throttler       throttling.SettableThrottler
 	metricsRegistry *metrics.Registry
+	beforeFlush     []RepositoryWriterCallback
 
 	*refCountedCloser
+}
+
+// RepositoryWriterCallback is a hook function invoked before and after each flush.
+type RepositoryWriterCallback func(ctx context.Context, w RepositoryWriter) error
+
+func invokeCallbacks(ctx context.Context, w RepositoryWriter, callbacks []RepositoryWriterCallback) error {
+	for _, h := range callbacks {
+		if err := h(ctx, w); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // directRepository is an implementation of repository that directly manipulates underlying storage.
@@ -110,6 +125,8 @@ type directRepository struct {
 	omgr  *object.Manager
 	mmgr  *manifest.Manager
 	sm    *content.SharedManager
+
+	afterFlush []RepositoryWriterCallback
 }
 
 // DeriveKey derives encryption key of the provided length from the master key.
@@ -277,11 +294,23 @@ func (r *directRepository) NewDirectWriter(ctx context.Context, opt WriteSession
 
 // Flush waits for all in-flight writes to complete.
 func (r *directRepository) Flush(ctx context.Context) error {
+	if err := invokeCallbacks(ctx, r, r.beforeFlush); err != nil {
+		return errors.Wrap(err, "before flush")
+	}
+
 	if err := r.mmgr.Flush(ctx); err != nil {
 		return errors.Wrap(err, "error flushing manifests")
 	}
 
-	return errors.Wrap(r.cmgr.Flush(ctx), "error flushing contents")
+	if err := r.cmgr.Flush(ctx); err != nil {
+		return errors.Wrap(err, "error flushing contents")
+	}
+
+	if err := invokeCallbacks(ctx, r, r.afterFlush); err != nil {
+		return errors.Wrap(err, "after flush")
+	}
+
+	return nil
 }
 
 // Metrics provides access to metrics registry.
@@ -333,6 +362,11 @@ func (r *directRepository) Time() time.Time {
 // FormatManager returns the format manager.
 func (r *directRepository) FormatManager() *format.Manager {
 	return r.fmgr
+}
+
+// OnSuccessfulFlush registers the provided callback to be invoked after flush succeeds.
+func (r *directRepository) OnSuccessfulFlush(callback RepositoryWriterCallback) {
+	r.afterFlush = append(r.afterFlush, callback)
 }
 
 // WriteSessionOptions describes options for a write session.

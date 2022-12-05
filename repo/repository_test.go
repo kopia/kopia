@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"runtime/debug"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -16,8 +17,11 @@ import (
 	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/epoch"
 	"github.com/kopia/kopia/internal/gather"
+	"github.com/kopia/kopia/internal/metricid"
 	"github.com/kopia/kopia/internal/repotesting"
+	"github.com/kopia/kopia/internal/servertesting"
 	"github.com/kopia/kopia/internal/testlogging"
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/beforeop"
@@ -583,8 +587,21 @@ func TestObjectWritesWithRetention(t *testing.T) {
 	}))
 }
 
-func (s *formatSpecificTestSuite) TestWriteSessionFlushOnSuccess(t *testing.T) {
-	ctx, env := repotesting.NewEnvironment(t, s.formatVersion)
+func TestWriteSessionFlushOnSuccess(t *testing.T) {
+	var beforeFlushCount, afterFlushCount atomic.Int32
+
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant, repotesting.Options{
+		OpenOptions: func(o *repo.Options) {
+			o.BeforeFlush = append(o.BeforeFlush, func(ctx context.Context, w repo.RepositoryWriter) error {
+				beforeFlushCount.Add(1)
+				w.OnSuccessfulFlush(func(ctx context.Context, w repo.RepositoryWriter) error {
+					afterFlushCount.Add(1)
+					return nil
+				})
+				return nil
+			})
+		},
+	})
 
 	var oid object.ID
 
@@ -593,7 +610,107 @@ func (s *formatSpecificTestSuite) TestWriteSessionFlushOnSuccess(t *testing.T) {
 		return nil
 	}))
 
+	require.EqualValues(t, 1, beforeFlushCount.Load())
+	require.EqualValues(t, 1, afterFlushCount.Load())
+
 	verify(ctx, t, env.Repository, oid, []byte{1, 2, 3}, "test-1")
+
+	someErr := errors.Errorf("some error")
+
+	require.ErrorIs(t, repo.WriteSession(ctx, env.Repository, repo.WriteSessionOptions{}, func(ctx context.Context, w repo.RepositoryWriter) error {
+		oid = writeObject(ctx, t, w, []byte{1, 2, 3, 4}, "test-2")
+		return someErr
+	}), someErr)
+
+	require.EqualValues(t, 1, beforeFlushCount.Load())
+	require.EqualValues(t, 1, afterFlushCount.Load())
+
+	require.ErrorIs(t, repo.WriteSession(ctx, env.Repository, repo.WriteSessionOptions{
+		FlushOnFailure: true,
+	}, func(ctx context.Context, w repo.RepositoryWriter) error {
+		oid = writeObject(ctx, t, w, []byte{1, 2, 3, 4, 5}, "test-3")
+		return someErr
+	}), someErr)
+
+	require.EqualValues(t, 2, beforeFlushCount.Load())
+	require.EqualValues(t, 2, afterFlushCount.Load())
+}
+
+func TestWriteSessionFlushOnSuccessClient_REST(t *testing.T) {
+	testWriteSessionFlushOnSuccessClient(t, true)
+}
+
+func TestWriteSessionFlushOnSuccessClient_GRPC(t *testing.T) {
+	testWriteSessionFlushOnSuccessClient(t, false)
+}
+
+//nolint:thelper
+func testWriteSessionFlushOnSuccessClient(t *testing.T, disableGRPC bool) {
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant, repotesting.Options{})
+
+	apiServerInfo := servertesting.StartServer(t, env, true)
+	apiServerInfo.DisableGRPC = disableGRPC
+
+	var beforeFlushCount, afterFlushCount atomic.Int32
+
+	ctx2, cancel := context.WithCancel(testlogging.Context(t))
+	defer cancel()
+
+	rep, err := servertesting.ConnectAndOpenAPIServer(t, ctx2, apiServerInfo, repo.ClientOptions{
+		Username: servertesting.TestUsername,
+		Hostname: servertesting.TestHostname,
+	}, content.CachingOptions{
+		CacheDirectory: testutil.TempDirectory(t),
+	}, servertesting.TestPassword, &repo.Options{
+		BeforeFlush: []repo.RepositoryWriterCallback{
+			func(ctx context.Context, w repo.RepositoryWriter) error {
+				beforeFlushCount.Add(1)
+				w.OnSuccessfulFlush(func(ctx context.Context, w repo.RepositoryWriter) error {
+					afterFlushCount.Add(1)
+					return nil
+				})
+				return nil
+			},
+		},
+	})
+
+	defer rep.Close(ctx) //nolint:errcheck,staticcheck
+
+	require.NoError(t, err)
+
+	var oid object.ID
+
+	require.NoError(t, repo.WriteSession(ctx, rep, repo.WriteSessionOptions{}, func(ctx context.Context, w repo.RepositoryWriter) error {
+		oid = writeObject(ctx, t, w, []byte{1, 2, 3}, "test-1")
+		return nil
+	}))
+
+	require.EqualValues(t, 1, beforeFlushCount.Load())
+	require.EqualValues(t, 1, afterFlushCount.Load())
+
+	verify(ctx, t, rep, oid, []byte{1, 2, 3}, "test-1")
+
+	someErr := errors.Errorf("some error")
+
+	require.ErrorIs(t, repo.WriteSession(ctx, rep, repo.WriteSessionOptions{}, func(ctx context.Context, w repo.RepositoryWriter) error {
+		oid = writeObject(ctx, t, w, []byte{1, 2, 3, 4}, "test-2")
+		return someErr
+	}), someErr)
+
+	require.EqualValues(t, 1, beforeFlushCount.Load())
+	require.EqualValues(t, 1, afterFlushCount.Load())
+
+	require.ErrorIs(t, repo.WriteSession(ctx, rep, repo.WriteSessionOptions{
+		FlushOnFailure: true,
+	}, func(ctx context.Context, w repo.RepositoryWriter) error {
+		oid = writeObject(ctx, t, w, []byte{1, 2, 3, 4, 5}, "test-3")
+		return someErr
+	}), someErr)
+
+	t.Logf("-----")
+
+	require.EqualValues(t, 2, beforeFlushCount.Load())
+	require.EqualValues(t, 2, afterFlushCount.Load())
 }
 
 func (s *formatSpecificTestSuite) TestWriteSessionNoFlushOnFailure(t *testing.T) {
@@ -711,6 +828,24 @@ func ensureMapEntry[T any](t *testing.T, m map[string]T, key string) T {
 	require.True(t, got, key)
 
 	return actual
+}
+
+func TestAllRegistryMetricsAreMapped(t *testing.T) {
+	_, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
+
+	snap := env.Repository.Metrics().Snapshot(false)
+
+	for s := range snap.Counters {
+		require.Contains(t, metricid.Counters.NameToIndex, s)
+	}
+
+	for s := range snap.DurationDistributions {
+		require.Contains(t, metricid.DurationDistributions.NameToIndex, s)
+	}
+
+	for s := range snap.SizeDistributions {
+		require.Contains(t, metricid.SizeDistributions.NameToIndex, s)
+	}
 }
 
 func TestDeriveKey(t *testing.T) {

@@ -34,8 +34,9 @@ type apiServerRepository struct {
 	serverSupportsContentCompression bool
 	omgr                             *object.Manager
 	wso                              WriteSessionOptions
+	afterFlush                       []RepositoryWriterCallback
 
-	immutableServerRepositoryParameters // immutable parameters
+	*immutableServerRepositoryParameters // immutable parameters
 }
 
 func (r *apiServerRepository) APIServerURL() string {
@@ -132,7 +133,19 @@ func (r *apiServerRepository) Refresh(ctx context.Context) error {
 }
 
 func (r *apiServerRepository) Flush(ctx context.Context) error {
-	return errors.Wrap(r.cli.Post(ctx, "flush", nil, nil), "Flush")
+	if err := invokeCallbacks(ctx, r, r.beforeFlush); err != nil {
+		return errors.Wrap(err, "before flush")
+	}
+
+	if err := r.cli.Post(ctx, "flush", nil, nil); err != nil {
+		return errors.Wrap(err, "Flush")
+	}
+
+	if err := invokeCallbacks(ctx, r, r.afterFlush); err != nil {
+		return errors.Wrap(err, "after flush")
+	}
+
+	return nil
 }
 
 func (r *apiServerRepository) SupportsContentCompression() (bool, error) {
@@ -152,6 +165,11 @@ func (r *apiServerRepository) NewWriter(ctx context.Context, opt WriteSessionOpt
 
 	w.omgr = omgr
 	w.wso = opt
+	w.afterFlush = nil
+
+	if w.wso.OnUpload == nil {
+		w.wso.OnUpload = func(i int64) {}
+	}
 
 	r.addRef()
 
@@ -255,10 +273,15 @@ func (r *apiServerRepository) PrefetchContents(ctx context.Context, contentIDs [
 	return resp.ContentIDs
 }
 
+// OnSuccessfulFlush registers the provided callback to be invoked after flush succeeds.
+func (r *apiServerRepository) OnSuccessfulFlush(callback RepositoryWriterCallback) {
+	r.afterFlush = append(r.afterFlush, callback)
+}
+
 var _ Repository = (*apiServerRepository)(nil)
 
 // openRestAPIRepository connects remote repository over Kopia API.
-func openRestAPIRepository(ctx context.Context, si *APIServerInfo, password string, par immutableServerRepositoryParameters) (Repository, error) {
+func openRestAPIRepository(ctx context.Context, si *APIServerInfo, password string, par *immutableServerRepositoryParameters) (Repository, error) {
 	cli, err := apiclient.NewKopiaAPIClient(apiclient.Options{
 		BaseURL:                             si.BaseURL,
 		TrustedServerCertificateFingerprint: si.TrustedServerCertificateFingerprint,

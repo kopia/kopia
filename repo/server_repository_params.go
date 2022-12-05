@@ -14,6 +14,8 @@ type immutableServerRepositoryParameters struct {
 	cliOpts         ClientOptions
 	metricsRegistry *metrics.Registry
 	contentCache    *cache.PersistentCache
+	beforeFlush     []RepositoryWriterCallback
+
 	*refCountedCloser
 }
 

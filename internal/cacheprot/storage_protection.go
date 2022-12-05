@@ -1,4 +1,5 @@
-package cache
+// Package cacheprot provides utilities for protection of cache entries.
+package cacheprot
 
 import (
 	"crypto/sha256"
