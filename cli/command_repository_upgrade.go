@@ -152,19 +152,21 @@ func (c *commandRepositoryUpgrade) validateAction(ctx context.Context, rep repo.
 		return errors.Wrapf(err, "failed to load index entries for new index")
 	}
 
-	var msgs []string
+	var msgs []string // a place to keep messages from the index comparison process
 
+	// both indexes will have matching contentiDs with matching indexInfo sructures.
 	for contentID, indexEntryPairs := range indexEntries {
-		iep0 := indexEntryPairs[0]
-		iep1 := indexEntryPairs[1]
+		iep0 := indexEntryPairs[0] // first entry of index entry pair
+		iep1 := indexEntryPairs[1] // second entry of index entry pair
 
-		// compare two index blobs for the same content ID
-
+		// check that both the new and old indexes have entries for the same content
 		if iep0 != nil && iep1 != nil {
+			// this is the happy-path, check the entries.  any problems found will be added to msgs
 			msgs = append(msgs, checkIndexInfo(iep0, iep1)...)
 			continue
 		}
 
+		// one of iep0 or iep1 are nil .. find out which one and add an appropriate message.
 		if iep0 != nil {
 			msgs = append(msgs, fmt.Sprintf("lop-sided index entries for contentID %q at blob %q", contentID, iep0.GetPackBlobID()))
 			continue
@@ -173,17 +175,20 @@ func (c *commandRepositoryUpgrade) validateAction(ctx context.Context, rep repo.
 		msgs = append(msgs, fmt.Sprintf("lop-sided index entries for contentID %q at blob %q", contentID, iep1.GetPackBlobID()))
 	}
 
+	// no msgs means the check passed without finding anything wrong
 	if len(msgs) == 0 {
 		log(ctx).Infof("index validation succeeded")
 		return nil
 	}
 
+	// otherwise there's a problem somewhere ... log the problems
 	log(ctx).Error("inconsistencies found in migrated index:")
 
 	for _, m := range msgs {
 		log(ctx).Error(m)
 	}
 
+	// and return an error that states something's wrong.
 	return errors.Wrap(err, "repository will remain locked until index differences are resolved")
 }
 

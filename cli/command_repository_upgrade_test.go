@@ -87,7 +87,6 @@ func (s *formatSpecificTestSuite) TestRepositoryCorruptedUpgrade(t *testing.T) {
 			"--status-poll-interval", "1s",
 			"--max-permitted-clock-drift", "1s")
 		require.Contains(t, stderr, "Repository indices have already been migrated to the epoch format, no need to drain other clients")
-		require.Contains(t, stderr, "Commit mode is set to 'never'.  Skipping commit.")
 	default:
 		require.Contains(t, out, "Format version:      3")
 		env.RunAndExpectFailure(t, "repository", "upgrade",
