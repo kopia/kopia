@@ -29,7 +29,7 @@ func BackupBlobID(l UpgradeLockIntent) blob.ID {
 // it updates the existing lock using the output of the UpgradeLock.Update().
 //
 // This method also backs up the original format version on the upgrade lock
-// intent and sets the latest format-version o nthe repository blob. This
+// intent and sets the latest format-version to the repository blob. This
 // should cause the unsupporting clients (non-upgrade capable) to fail
 // connecting to the repository.
 func (m *Manager) SetUpgradeLockIntent(ctx context.Context, l UpgradeLockIntent) (*UpgradeLockIntent, error) {

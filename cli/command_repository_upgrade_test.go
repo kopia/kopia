@@ -63,9 +63,11 @@ func (s *formatSpecificTestSuite) TestRepositoryCorruptedUpgrade(t *testing.T) {
 	switch s.formatVersion {
 	case format.FormatVersion1:
 		require.Contains(t, out, "Format version:      1")
+		// run upgrade first with commit-mode set to never.  this leaves the lock and new index intact so that
+		// the file can be corrupted with "TweakFile".
 		_, stderr := env.RunAndExpectSuccessWithErrOut(t, "repository", "upgrade",
-			"--commit-mode", "never",
 			"--upgrade-owner-id", "owner",
+			"--commit-mode", "never",
 			"--io-drain-timeout", "1s", "--allow-unsafe-upgrade",
 			"--status-poll-interval", "1s",
 			"--max-permitted-clock-drift", "1s")
@@ -73,13 +75,13 @@ func (s *formatSpecificTestSuite) TestRepositoryCorruptedUpgrade(t *testing.T) {
 		require.Contains(t, stderr, "Commit mode is set to 'never'.  Skipping commit.")
 		require.Contains(t, stderr, "index validation succeeded")
 		env.TweakFile(t, env.RepoDir, "x*/*/*.f")
+		// then re-run the upgrade with the corrupted index.  This should fail on index validation.
 		_, stderr = env.RunAndExpectFailure(t, "repository", "upgrade",
 			"--upgrade-owner-id", "owner")
 		require.Regexp(t, "failed to load index entries for new index: failed to load index blob with BlobID", stderr)
 	case format.FormatVersion2:
 		require.Contains(t, out, "Format version:      2")
 		_, stderr := env.RunAndExpectSuccessWithErrOut(t, "repository", "upgrade",
-			"--commit-mode", "never",
 			"--upgrade-owner-id", "owner",
 			"--io-drain-timeout", "1s", "--allow-unsafe-upgrade",
 			"--status-poll-interval", "1s",
@@ -89,7 +91,6 @@ func (s *formatSpecificTestSuite) TestRepositoryCorruptedUpgrade(t *testing.T) {
 	default:
 		require.Contains(t, out, "Format version:      3")
 		env.RunAndExpectFailure(t, "repository", "upgrade",
-			"--commit-mode", "never",
 			"--upgrade-owner-id", "owner",
 			"--io-drain-timeout", "1s", "--allow-unsafe-upgrade",
 			"--status-poll-interval", "1s",
