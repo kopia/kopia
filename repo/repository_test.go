@@ -17,6 +17,7 @@ import (
 	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/epoch"
 	"github.com/kopia/kopia/internal/gather"
+	"github.com/kopia/kopia/internal/metricid"
 	"github.com/kopia/kopia/internal/repotesting"
 	"github.com/kopia/kopia/internal/servertesting"
 	"github.com/kopia/kopia/internal/testlogging"
@@ -827,6 +828,24 @@ func ensureMapEntry[T any](t *testing.T, m map[string]T, key string) T {
 	require.True(t, got, key)
 
 	return actual
+}
+
+func TestAllRegistryMetricsAreMapped(t *testing.T) {
+	_, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
+
+	snap := env.Repository.Metrics().Snapshot(false)
+
+	for s := range snap.Counters {
+		require.Contains(t, metricid.Counters.NameToIndex, s)
+	}
+
+	for s := range snap.DurationDistributions {
+		require.Contains(t, metricid.DurationDistributions.NameToIndex, s)
+	}
+
+	for s := range snap.SizeDistributions {
+		require.Contains(t, metricid.SizeDistributions.NameToIndex, s)
+	}
 }
 
 func TestDeriveKey(t *testing.T) {
