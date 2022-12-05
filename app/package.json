@@ -117,8 +117,8 @@
     "electron": "^19.0.8",
     "electron-builder": "^23.3.3",
     "electron-notarize": "^1.2.2",
-    "playwright": "^1.26.1",
-    "playwright-core": "^1.26.0"
+    "playwright": "^1.28.1",
+    "playwright-core": "^1.28.1"
   },
   "homepage": "./",
   "description": "Fast and secure open source backup.",

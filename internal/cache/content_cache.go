@@ -5,6 +5,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/cacheprot"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/impossible"
 	"github.com/kopia/kopia/internal/metrics"
@@ -189,7 +190,7 @@ func NewContentCache(ctx context.Context, st blob.Storage, opt Options, mr *metr
 		}
 	}
 
-	pc, err := NewPersistentCache(ctx, opt.CacheSubDir, cacheStorage, ChecksumProtection(opt.HMACSecret), opt.Sweep, mr)
+	pc, err := NewPersistentCache(ctx, opt.CacheSubDir, cacheStorage, cacheprot.ChecksumProtection(opt.HMACSecret), opt.Sweep, mr)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create base cache")
 	}

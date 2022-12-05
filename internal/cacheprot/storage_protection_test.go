@@ -1,4 +1,4 @@
-package cache_test
+package cacheprot_test
 
 import (
 	"bytes"
@@ -6,27 +6,27 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/kopia/kopia/internal/cache"
+	"github.com/kopia/kopia/internal/cacheprot"
 	"github.com/kopia/kopia/internal/gather"
 )
 
 func TestNoStorageProection(t *testing.T) {
-	testStorageProtection(t, cache.NoProtection(), false)
+	testStorageProtection(t, cacheprot.NoProtection(), false)
 }
 
 func TestHMACStorageProtection(t *testing.T) {
-	testStorageProtection(t, cache.ChecksumProtection([]byte{1, 2, 3, 4}), true)
+	testStorageProtection(t, cacheprot.ChecksumProtection([]byte{1, 2, 3, 4}), true)
 }
 
 func TestEncryptionStorageProtection(t *testing.T) {
-	e, err := cache.AuthenticatedEncryptionProtection([]byte{1})
+	e, err := cacheprot.AuthenticatedEncryptionProtection([]byte{1})
 	require.NoError(t, err)
 
 	testStorageProtection(t, e, true)
 }
 
 //nolint:thelper
-func testStorageProtection(t *testing.T, sp cache.StorageProtection, protectsFromBitFlips bool) {
+func testStorageProtection(t *testing.T, sp cacheprot.StorageProtection, protectsFromBitFlips bool) {
 	payload := []byte{0, 1, 2, 3, 4}
 
 	var protected gather.WriteBuffer

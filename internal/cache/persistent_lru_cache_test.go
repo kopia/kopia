@@ -11,6 +11,7 @@ import (
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/cache"
+	"github.com/kopia/kopia/internal/cacheprot"
 	"github.com/kopia/kopia/internal/fault"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/testlogging"
@@ -25,7 +26,7 @@ func TestPersistentLRUCache(t *testing.T) {
 
 	cs := blobtesting.NewMapStorage(blobtesting.DataMap{}, nil, nil).(cache.Storage)
 
-	pc, err := cache.NewPersistentCache(ctx, "testing", cs, cache.ChecksumProtection([]byte{1, 2, 3}), cache.SweepSettings{
+	pc, err := cache.NewPersistentCache(ctx, "testing", cs, cacheprot.ChecksumProtection([]byte{1, 2, 3}), cache.SweepSettings{
 		MaxSizeBytes:   maxSizeBytes,
 		TouchThreshold: cache.DefaultTouchThreshold,
 		SweepFrequency: cache.DefaultSweepFrequency,
@@ -67,7 +68,7 @@ func TestPersistentLRUCache(t *testing.T) {
 	verifyBlobExists(ctx, t, cs, "key3")
 	verifyBlobExists(ctx, t, cs, "key4")
 
-	pc, err = cache.NewPersistentCache(ctx, "testing", cs, cache.ChecksumProtection([]byte{1, 2, 3}), cache.SweepSettings{
+	pc, err = cache.NewPersistentCache(ctx, "testing", cs, cacheprot.ChecksumProtection([]byte{1, 2, 3}), cache.SweepSettings{
 		MaxSizeBytes:   maxSizeBytes,
 		TouchThreshold: cache.DefaultTouchThreshold,
 		SweepFrequency: cache.DefaultSweepFrequency,
@@ -81,7 +82,7 @@ func TestPersistentLRUCache(t *testing.T) {
 
 	// create another persistent cache based on the same storage but wrong protection key.
 	// all reads from cache will be invalid, which means GetOrLoad will fetch them from the source.
-	pc2, err := cache.NewPersistentCache(ctx, "testing", cs, cache.ChecksumProtection([]byte{3, 2, 1}), cache.SweepSettings{
+	pc2, err := cache.NewPersistentCache(ctx, "testing", cs, cacheprot.ChecksumProtection([]byte{3, 2, 1}), cache.SweepSettings{
 		MaxSizeBytes:   maxSizeBytes,
 		TouchThreshold: cache.DefaultTouchThreshold,
 		SweepFrequency: cache.DefaultSweepFrequency,
@@ -153,7 +154,7 @@ func TestPersistentLRUCache_GetDeletesInvalidBlob(t *testing.T) {
 	fs := blobtesting.NewFaultyStorage(st)
 	fc := faultyCache{fs}
 
-	pc, err := cache.NewPersistentCache(ctx, "test", fc, cache.ChecksumProtection([]byte{1, 2, 3}), cache.SweepSettings{}, nil)
+	pc, err := cache.NewPersistentCache(ctx, "test", fc, cacheprot.ChecksumProtection([]byte{1, 2, 3}), cache.SweepSettings{}, nil)
 	require.NoError(t, err)
 
 	pc.Put(ctx, "key", gather.FromSlice([]byte{1, 2, 3}))
@@ -183,7 +184,7 @@ func TestPersistentLRUCache_PutIgnoresStorageFailure(t *testing.T) {
 	fs := blobtesting.NewFaultyStorage(st)
 	fc := faultyCache{fs}
 
-	pc, err := cache.NewPersistentCache(ctx, "test", fc, cache.ChecksumProtection([]byte{1, 2, 3}), cache.SweepSettings{}, nil)
+	pc, err := cache.NewPersistentCache(ctx, "test", fc, cacheprot.ChecksumProtection([]byte{1, 2, 3}), cache.SweepSettings{}, nil)
 	require.NoError(t, err)
 
 	fs.AddFault(blobtesting.MethodPutBlob).ErrorInstead(someError)
@@ -209,7 +210,7 @@ func TestPersistentLRUCache_SweepMinSweepAge(t *testing.T) {
 	fs := blobtesting.NewFaultyStorage(st)
 	fc := faultyCache{fs}
 
-	pc, err := cache.NewPersistentCache(ctx, "test", fc, cache.ChecksumProtection([]byte{1, 2, 3}), cache.SweepSettings{
+	pc, err := cache.NewPersistentCache(ctx, "test", fc, cacheprot.ChecksumProtection([]byte{1, 2, 3}), cache.SweepSettings{
 		SweepFrequency: 100 * time.Millisecond,
 		MaxSizeBytes:   1000,
 		MinSweepAge:    10 * time.Second,
@@ -238,7 +239,7 @@ func TestPersistentLRUCache_SweepIgnoresErrors(t *testing.T) {
 	fs := blobtesting.NewFaultyStorage(st)
 	fc := faultyCache{fs}
 
-	pc, err := cache.NewPersistentCache(ctx, "test", fc, cache.ChecksumProtection([]byte{1, 2, 3}), cache.SweepSettings{
+	pc, err := cache.NewPersistentCache(ctx, "test", fc, cacheprot.ChecksumProtection([]byte{1, 2, 3}), cache.SweepSettings{
 		SweepFrequency: 100 * time.Millisecond,
 		MaxSizeBytes:   1000,
 	}, nil)
@@ -271,7 +272,7 @@ func TestPersistentLRUCache_Sweep1(t *testing.T) {
 	fs := blobtesting.NewFaultyStorage(st)
 	fc := faultyCache{fs}
 
-	pc, err := cache.NewPersistentCache(ctx, "test", fc, cache.ChecksumProtection([]byte{1, 2, 3}), cache.SweepSettings{
+	pc, err := cache.NewPersistentCache(ctx, "test", fc, cacheprot.ChecksumProtection([]byte{1, 2, 3}), cache.SweepSettings{
 		SweepFrequency: 10 * time.Millisecond,
 		MaxSizeBytes:   1,
 		MinSweepAge:    0 * time.Second,
