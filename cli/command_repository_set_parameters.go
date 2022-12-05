@@ -11,6 +11,7 @@ import (
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/format"
 )
 
@@ -142,7 +143,7 @@ func updateRepositoryParameters(
 	}
 
 	if upgradeToEpochManager {
-		if err := format.WriteLegacyIndexPoisonBlob(ctx, rep.BlobStorage()); err != nil {
+		if err := content.WriteLegacyIndexPoisonBlob(ctx, rep.BlobStorage()); err != nil {
 			log(ctx).Errorf("unable to write legacy index poison blob: %v", err)
 		}
 	}
@@ -230,7 +231,7 @@ func (c *commandRepositorySetParameters) run(ctx context.Context, rep repo.Direc
 		return errors.Errorf("no changes")
 	}
 
-	if err := c.applyNewParameters(ctx, rep, requiredFeatures, blobcfg, mp, upgradeToEpochManager); err != nil {
+	if err := updateRepositoryParameters(ctx, upgradeToEpochManager, mp, rep, blobcfg, requiredFeatures); err != nil {
 		return errors.Wrap(err, "error updating repository parameters")
 	}
 
