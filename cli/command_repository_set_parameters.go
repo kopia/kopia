@@ -196,15 +196,7 @@ func (c *commandRepositorySetParameters) run(ctx context.Context, rep repo.Direc
 	}
 
 	c.setSizeMBParameter(ctx, c.maxPackSizeMB, "maximum pack size", &mp.MaxPackSize, &anyChange)
-
-	// prevent downgrade of index format
-	if c.indexFormatVersion != 0 && c.indexFormatVersion != mp.IndexVersion {
-		if c.indexFormatVersion > mp.IndexVersion {
-			c.setIntParameter(ctx, c.indexFormatVersion, "index format version", &mp.IndexVersion, &anyChange)
-		} else {
-			return errors.Errorf("index format version can only be upgraded")
-		}
-	}
+	c.setIntParameter(ctx, c.indexFormatVersion, "index format version", &mp.IndexVersion, &anyChange)
 
 	if c.retentionMode == "none" {
 		if blobcfg.IsRetentionEnabled() {
