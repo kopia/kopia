@@ -98,6 +98,22 @@ Alternatively, to install the latest unreleased version of Kopia use the followi
 $ brew install kopia/test-builds/kopia
 ```
 
+#### macOS GUI using Homebrew
+
+On macOS, you can use [Homebrew](https://brew.sh) to install and keep Kopia up-to-date.
+
+To install:
+
+```shell
+$ brew install kopiaui
+```
+
+To upgrade Kopia:
+
+```shell
+$ brew upgrade kopiaui
+```
+
 #### macOS GUI installer
 
 MacOS package with `KopiaUI` is available in DMG and ZIP formats on the [releases page](https://github.com/kopia/kopia/releases/latest).
