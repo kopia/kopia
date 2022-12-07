@@ -51,6 +51,12 @@ func (fs *fsImpl) isRetriable(err error) bool {
 
 	err = errors.Cause(err)
 
+	if fs.osi.IsESTALE(err) {
+		// errors indicative of stale resource handle or invalid
+		// descriptors should not be retried
+		return false
+	}
+
 	if fs.osi.IsNotExist(err) {
 		return false
 	}

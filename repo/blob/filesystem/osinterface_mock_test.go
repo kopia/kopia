@@ -31,6 +31,10 @@ type mockOS struct {
 
 	effectiveUID int
 
+	// remaining syscall errnos
+	//nolint:unused // Used with platform specific code
+	eStaleRemainingErrors atomic.Int32
+
 	osInterface
 }
 
@@ -92,14 +96,6 @@ func (osi *mockOS) Remove(fname string) error {
 	}
 
 	return osi.osInterface.Remove(fname)
-}
-
-func (osi *mockOS) Stat(fname string) (fs.FileInfo, error) {
-	if osi.statRemainingErrors.Add(-1) >= 0 {
-		return nil, &os.PathError{Op: "stat", Err: errors.Errorf("underlying problem")}
-	}
-
-	return osi.osInterface.Stat(fname)
 }
 
 func (osi *mockOS) Chtimes(fname string, atime, mtime time.Time) error {
