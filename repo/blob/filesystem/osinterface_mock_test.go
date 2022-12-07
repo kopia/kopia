@@ -32,6 +32,7 @@ type mockOS struct {
 	effectiveUID int
 
 	// remaining syscall errnos
+	//nolint:unused // Used with platform specific code
 	eStaleRemainingErrors atomic.Int32
 
 	osInterface
