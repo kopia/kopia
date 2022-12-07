@@ -21,7 +21,6 @@ import (
 )
 
 const (
-	modBits                           = os.ModePerm | os.ModeSetgid | os.ModeSetuid | os.ModeSticky
 	outputDirMode                     = 0o700 // default mode to create directories in before setting their ACLs
 	maxTimeDeltaToConsiderFileTheSame = 2 * time.Second
 )
@@ -273,7 +272,7 @@ func (o *FilesystemOutput) setAttributes(targetPath string, e fs.Entry, modclear
 
 	// Set file permissions from e
 	if o.shouldUpdatePermissions(le, e, modclear) {
-		if err = o.maybeIgnorePermissionError(osChmod(targetPath, (e.Mode()&modBits)&^modclear)); err != nil {
+		if err = o.maybeIgnorePermissionError(osChmod(targetPath, (e.Mode()&fs.ModBits)&^modclear)); err != nil {
 			return errors.Wrap(err, "could not change permissions on "+targetPath)
 		}
 	}
@@ -317,7 +316,7 @@ func (o *FilesystemOutput) shouldUpdatePermissions(local, remote fs.Entry, modcl
 		return false
 	}
 
-	return ((local.Mode() & modBits) &^ modclear) != (remote.Mode() & modBits)
+	return ((local.Mode() & fs.ModBits) &^ modclear) != (remote.Mode() & fs.ModBits)
 }
 
 func (o *FilesystemOutput) shouldUpdateTimes(local, remote fs.Entry) bool {

@@ -27,6 +27,9 @@ type osInterface interface {
 	Chtimes(fname string, atime, mtime time.Time) error
 	Geteuid() int
 	Chown(fname string, uid, gid int) error
+
+	// Errno
+	IsESTALE(err error) bool
 }
 
 type osReadFile interface {
