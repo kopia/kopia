@@ -259,7 +259,7 @@ func TestSnapshotRestore(t *testing.T) {
 
 	// restoring single file
 	e.RunAndExpectSuccess(t, "snapshot", "restore", rootID+"/single-file", filepath.Join(restoreByOIDFile, "output-file"))
-	verifyFileMode(t, filepath.Join(restoreByOIDFile, "output-file"), os.FileMode(0o651))
+	verifyFileMode(t, filepath.Join(restoreByOIDFile, "output-file"), overriddenFilePermissions)
 
 	// Restore last snapshot using the snapshot ID
 	e.RunAndExpectSuccess(t, "snapshot", "restore", snapID, restoreDir)
@@ -461,21 +461,22 @@ func TestRestoreSnapshotOfSingleFile(t *testing.T) {
 	verifyFileMode(t, filepath.Join(restoreDir, "restored-2"), os.FileMode(0o653))
 
 	if runtime.GOOS != windowsOSName {
+		overriddenFilePermissions := 0o654 | os.ModeSetuid
+
 		// change source file permissions and create one more snapshot
 		// at this poing we will have multiple snapshot manifests with one root but different attributes.
-		os.Chmod(sourceFile, 0o654)
+		os.Chmod(sourceFile, overriddenFilePermissions)
 		e.RunAndExpectSuccess(t, "snapshot", "create", sourceFile)
 
 		// when restoring by root Kopia needs to pick which manifest to apply since they are conflicting
 		// We're passing --consistent-attributes which causes it to fail, since otherwise we'd restore arbitrary
 		// top-level object permissions.
 		e.RunAndExpectFailure(t, "snapshot", "restore", rootID, "--consistent-attributes", filepath.Join(restoreDir, "restored-3"))
+
+		// Without the flag kopia picks the attributes from the latest snapshot.
+		e.RunAndExpectSuccess(t, "snapshot", "restore", rootID, filepath.Join(restoreDir, "restored-3"))
+		verifyFileMode(t, filepath.Join(restoreDir, "restored-3"), overriddenFilePermissions)
 	}
-
-	// Without the flag kopia picks the attributes from the latest snapshot.
-	e.RunAndExpectSuccess(t, "snapshot", "restore", rootID, filepath.Join(restoreDir, "restored-3"))
-
-	verifyFileMode(t, filepath.Join(restoreDir, "restored-3"), os.FileMode(0o654))
 
 	// restoring using snapshot ID is unambiguous and always produces file with 0o653
 	e.RunAndExpectSuccess(t, "snapshot", "restore", snapID, filepath.Join(restoreDir, "restored-4"))

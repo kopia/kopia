@@ -30,8 +30,26 @@ type fuseNode struct {
 	entry fs.Entry
 }
 
+func goModeToUnixMode(mode os.FileMode) uint32 {
+	unixmode := uint32(mode.Perm())
+
+	if mode&os.ModeSetuid != 0 {
+		unixmode |= 0o4000
+	}
+
+	if mode&os.ModeSetgid != 0 {
+		unixmode |= 0o2000
+	}
+
+	if mode&os.ModeSticky != 0 {
+		unixmode |= 0o1000
+	}
+
+	return unixmode
+}
+
 func populateAttributes(a *fuse.Attr, e fs.Entry) {
-	a.Mode = uint32(e.Mode()) & uint32(os.ModePerm)
+	a.Mode = goModeToUnixMode(e.Mode())
 	a.Size = uint64(e.Size())
 	a.Mtime = uint64(e.ModTime().Unix())
 	a.Ctime = a.Mtime
