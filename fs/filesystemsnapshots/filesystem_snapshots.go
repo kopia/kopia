@@ -97,7 +97,7 @@ func (s *fsSnapshotsMapper) Apply(originalDir string) (string, error) {
 				Attributes: snapshotInfo.Attributes,
 			})
 
-		s.log.Infof("Created filesystem snapshot for '%v' using provider '%v' and mapped to '%v",
+		s.log.Infof("Created filesystem snapshot for '%v' using provider '%v' and mapped to '%v'",
 			snapshotInfo.OriginalDir, snapshotInfo.Provider.Name, snapshotInfo.SnapshotDir)
 	}
 
