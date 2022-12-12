@@ -162,7 +162,7 @@ func (c *commandRepositoryUpgrade) validateAction(ctx context.Context, rep repo.
 		// check that both the new and old indexes have entries for the same content
 		if iep0 != nil && iep1 != nil {
 			// this is the happy-path, check the entries.  any problems found will be added to msgs
-			msgs = append(msgs, checkIndexInfo(iep0, iep1)...)
+			msgs = append(msgs, CheckIndexInfo(iep0, iep1)...)
 			continue
 		}
 
@@ -192,8 +192,8 @@ func (c *commandRepositoryUpgrade) validateAction(ctx context.Context, rep repo.
 	return errors.Wrap(err, "repository will remain locked until index differences are resolved")
 }
 
-// checkIndexInfo compare two index infos.  If a mismatch exists, return an error with diagnostic information.
-func checkIndexInfo(i0, i1 index.Info) []string {
+// CheckIndexInfo compare two index infos.  If a mismatch exists, return an error with diagnostic information.
+func CheckIndexInfo(i0, i1 index.Info) []string {
 	var q []string
 
 	switch {
@@ -209,6 +209,8 @@ func checkIndexInfo(i0, i1 index.Info) []string {
 		q = append(q, fmt.Sprintf("mismatched PackOffsets: %v %v", i0.GetPackOffset(), i1.GetPackOffset()))
 	case i0.GetEncryptionKeyID() != i1.GetEncryptionKeyID():
 		q = append(q, fmt.Sprintf("mismatched EncryptionKeyIDs: %v %v", i0.GetEncryptionKeyID(), i1.GetEncryptionKeyID()))
+	case i0.GetCompressionHeaderID() != i1.GetCompressionHeaderID():
+		q = append(q, fmt.Sprintf("mismatched GetCompressionHeaderID: %v %v", i0.GetCompressionHeaderID(), i1.GetCompressionHeaderID()))
 	case i0.GetDeleted() != i1.GetDeleted():
 		q = append(q, fmt.Sprintf("mismatched Deleted flags: %v %v", i0.GetDeleted(), i1.GetDeleted()))
 	case i0.GetTimestampSeconds() != i1.GetTimestampSeconds():

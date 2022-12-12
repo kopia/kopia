@@ -1,11 +1,14 @@
 package cli_test
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/kopia/kopia/cli"
+	"github.com/kopia/kopia/repo/content/index"
 	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/tests/testenv"
 )
@@ -282,4 +285,136 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgradeStatusWhileLocked(t *test
 	require.Contains(t, out, "Epoch Manager:       enabled")
 	require.Contains(t, out, "Index Format:        v2")
 	require.Contains(t, out, "Format version:      3")
+}
+
+func TestRepositoryUpgrade_checkIndexInfo(t *testing.T) {
+	tcs := []struct {
+		indexInfo0   index.Info
+		indexInfo1   index.Info
+		expectRegexs []string
+	}{
+		{
+			indexInfo0:   &index.InfoStruct{PackBlobID: "a"},
+			indexInfo1:   &index.InfoStruct{PackBlobID: "a"},
+			expectRegexs: []string{},
+		},
+		{
+			indexInfo0: &index.InfoStruct{PackBlobID: "a"},
+			indexInfo1: &index.InfoStruct{PackBlobID: "b"},
+			expectRegexs: []string{
+				`do not match: "a", "b".*PackBlobID`,
+			},
+		},
+		{
+			indexInfo0:   &index.InfoStruct{TimestampSeconds: 1},
+			indexInfo1:   &index.InfoStruct{TimestampSeconds: 1},
+			expectRegexs: []string{},
+		},
+		{
+			indexInfo0: &index.InfoStruct{TimestampSeconds: 1},
+			indexInfo1: &index.InfoStruct{TimestampSeconds: 2},
+			expectRegexs: []string{
+				"do not match.*TimestampSeconds",
+			},
+		},
+		{
+			indexInfo0:   &index.InfoStruct{OriginalLength: 1},
+			indexInfo1:   &index.InfoStruct{OriginalLength: 1},
+			expectRegexs: []string{},
+		},
+		{
+			indexInfo0: &index.InfoStruct{OriginalLength: 1},
+			indexInfo1: &index.InfoStruct{OriginalLength: 2},
+			expectRegexs: []string{
+				"do not match.*OriginalLength",
+			},
+		},
+		{
+			indexInfo0:   &index.InfoStruct{PackedLength: 1},
+			indexInfo1:   &index.InfoStruct{PackedLength: 1},
+			expectRegexs: []string{},
+		},
+		{
+			indexInfo0: &index.InfoStruct{PackedLength: 1},
+			indexInfo1: &index.InfoStruct{PackedLength: 2},
+			expectRegexs: []string{
+				"do not match.*PackedLength",
+			},
+		},
+		{
+			indexInfo0:   &index.InfoStruct{PackOffset: 1},
+			indexInfo1:   &index.InfoStruct{PackOffset: 1},
+			expectRegexs: []string{},
+		},
+		{
+			indexInfo0: &index.InfoStruct{PackOffset: 1},
+			indexInfo1: &index.InfoStruct{PackOffset: 2},
+			expectRegexs: []string{
+				"do not match.*PackOffset",
+			},
+		},
+		{
+			indexInfo0:   &index.InfoStruct{Deleted: true},
+			indexInfo1:   &index.InfoStruct{Deleted: true},
+			expectRegexs: []string{},
+		},
+		{
+			indexInfo0: &index.InfoStruct{Deleted: false},
+			indexInfo1: &index.InfoStruct{Deleted: true},
+			expectRegexs: []string{
+				"do not match.*Deleted",
+			},
+		},
+		// simple logic error can make result of this false... so check
+		{
+			indexInfo0:   &index.InfoStruct{Deleted: false},
+			indexInfo1:   &index.InfoStruct{Deleted: false},
+			expectRegexs: []string{},
+		},
+		{
+			indexInfo0:   &index.InfoStruct{FormatVersion: 1},
+			indexInfo1:   &index.InfoStruct{FormatVersion: 1},
+			expectRegexs: []string{},
+		},
+		{
+			indexInfo0: &index.InfoStruct{FormatVersion: 1},
+			indexInfo1: &index.InfoStruct{FormatVersion: 2},
+			expectRegexs: []string{
+				"do not match.*FormatVersion",
+			},
+		},
+		{
+			indexInfo0:   &index.InfoStruct{CompressionHeaderID: 1},
+			indexInfo1:   &index.InfoStruct{CompressionHeaderID: 1},
+			expectRegexs: []string{},
+		},
+		{
+			indexInfo0: &index.InfoStruct{CompressionHeaderID: 1},
+			indexInfo1: &index.InfoStruct{CompressionHeaderID: 2},
+			expectRegexs: []string{
+				"do not match.*CompressionHeaderID",
+			},
+		},
+		{
+			indexInfo0:   &index.InfoStruct{EncryptionKeyID: 1},
+			indexInfo1:   &index.InfoStruct{EncryptionKeyID: 1},
+			expectRegexs: []string{},
+		},
+		{
+			indexInfo0: &index.InfoStruct{EncryptionKeyID: 1},
+			indexInfo1: &index.InfoStruct{EncryptionKeyID: 2},
+			expectRegexs: []string{
+				"do not match.*EncryptionKeyID",
+			},
+		},
+	}
+	for i, tc := range tcs {
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			report := cli.CheckIndexInfo(tc.indexInfo0, tc.indexInfo1)
+			require.Equal(t, len(report), len(tc.expectRegexs), "unexpected report length")
+			for i := range tc.expectRegexs {
+				require.Regexp(t, tc.expectRegexs[i], report[i], "report does not match regular expression")
+			}
+		})
+	}
 }

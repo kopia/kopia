@@ -142,7 +142,7 @@ func updateRepositoryParameters(
 	}
 
 	if upgradeToEpochManager {
-		if err := content.WriteLegacyIndexPoisonBlob(ctx, rep.BlobStorage()); err != nil {
+		if err := format.WriteLegacyIndexPoisonBlob(ctx, rep.BlobStorage()); err != nil {
 			log(ctx).Errorf("unable to write legacy index poison blob: %v", err)
 		}
 	}
