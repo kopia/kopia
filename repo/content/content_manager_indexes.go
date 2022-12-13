@@ -80,7 +80,7 @@ func (sm *SharedManager) CompactIndexes(ctx context.Context, opt CompactOptions)
 }
 
 // ParseIndexBlob loads entries in a given index blob and returns them.
-func ParseIndexBlob(ctx context.Context, blobID blob.ID, encrypted gather.Bytes, crypter crypter) ([]Info, error) {
+func ParseIndexBlob(blobID blob.ID, encrypted gather.Bytes, crypter crypter) ([]Info, error) {
 	var data gather.WriteBuffer
 	defer data.Close()
 

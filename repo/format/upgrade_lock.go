@@ -9,10 +9,15 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 )
 
-// BackupBlobIDPrefix is the prefix for all identifiers of the BLOBs that
-// keep a backup copy of the FormatBlobID BLOB for the purposes of rollback
-// during upgrade.
-const BackupBlobIDPrefix = "kopia.repository.backup."
+const (
+	// BackupBlobIDPrefix is the prefix for all identifiers of the BLOBs that
+	// keep a backup copy of the FormatBlobID BLOB for the purposes of rollback
+	// during upgrade.
+	BackupBlobIDPrefix = "kopia.repository.backup."
+
+	// LegacyIndexPoisonBlobID used to pollute V0 indexes after upgrade to prevent legacy clients from corrupting V1 indexes.
+	LegacyIndexPoisonBlobID = "n00000000000000000000000000000000-repository_unreadable_by_this_kopia_version_upgrade_required"
+)
 
 // BackupBlobID gets the upgrade backu pblob-id fro mthe lock.
 func BackupBlobID(l UpgradeLockIntent) blob.ID {
@@ -24,7 +29,7 @@ func BackupBlobID(l UpgradeLockIntent) blob.ID {
 // it updates the existing lock using the output of the UpgradeLock.Update().
 //
 // This method also backs up the original format version on the upgrade lock
-// intent and sets the latest format-version o nthe repository blob. This
+// intent and sets the latest format-version to the repository blob. This
 // should cause the unsupporting clients (non-upgrade capable) to fail
 // connecting to the repository.
 func (m *Manager) SetUpgradeLockIntent(ctx context.Context, l UpgradeLockIntent) (*UpgradeLockIntent, error) {
@@ -53,7 +58,7 @@ func (m *Manager) SetUpgradeLockIntent(ctx context.Context, l UpgradeLockIntent)
 			return nil, errors.Wrap(err, "failed to backup the repo format blob")
 		}
 
-		// set a new lock or revoke an existing lock
+		// set a new lock or revoke an existing lock.
 		m.repoConfig.UpgradeLock = &l
 		// mark the upgrade to the new format version, this will ensure that older
 		// clients won't be able to parse the new version
@@ -71,6 +76,18 @@ func (m *Manager) SetUpgradeLockIntent(ctx context.Context, l UpgradeLockIntent)
 	return m.repoConfig.UpgradeLock.Clone(), nil
 }
 
+// WriteLegacyIndexPoisonBlob writes a "poison blob" that will prevent old kopia clients
+// that have not been upgraded from being able to open the repository after its format
+// has been upgraded.
+func WriteLegacyIndexPoisonBlob(ctx context.Context, st blob.Storage) error {
+	//nolint:wrapcheck
+	return st.PutBlob(
+		ctx,
+		LegacyIndexPoisonBlobID,
+		gather.FromSlice([]byte("The format of this repository has been upgraded and cannot be read by old clients")),
+		blob.PutOptions{})
+}
+
 // CommitUpgrade removes the upgrade lock from the from the repository format
 // blob. This in-effect commits the new repository format t othe repository and
 // resumes all access to the repository.
@@ -84,6 +101,11 @@ func (m *Manager) CommitUpgrade(ctx context.Context) error {
 
 	if m.repoConfig.UpgradeLock == nil {
 		return errors.New("no upgrade in progress")
+	}
+
+	// poison V0 index so that old readers won't be able to open it.
+	if err := WriteLegacyIndexPoisonBlob(ctx, m.blobs); err != nil {
+		log(ctx).Errorf("unable to write legacy index poison blob: %v", err)
 	}
 
 	// restore the old format version

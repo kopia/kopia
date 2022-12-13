@@ -24,6 +24,11 @@ type indexBlobManagerV1 struct {
 	formattingOptions IndexFormattingOptions
 }
 
+// ListIndexBlobInfos list active blob info structs.  Also returns time of latest content deletion commit.
+func (m *indexBlobManagerV1) ListIndexBlobInfos(ctx context.Context) ([]IndexBlobInfo, time.Time, error) {
+	return m.listActiveIndexBlobs(ctx)
+}
+
 func (m *indexBlobManagerV1) listActiveIndexBlobs(ctx context.Context) ([]IndexBlobInfo, time.Time, error) {
 	active, deletionWatermark, err := m.epochMgr.GetCompleteIndexSet(ctx, epoch.LatestEpoch)
 	if err != nil {
