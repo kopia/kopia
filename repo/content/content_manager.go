@@ -20,6 +20,7 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content/index"
+	"github.com/kopia/kopia/repo/content/indexblob"
 	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/hashing"
 	"github.com/kopia/kopia/repo/logging"
@@ -61,12 +62,6 @@ const (
 
 // ErrContentNotFound is returned when content is not found.
 var ErrContentNotFound = errors.New("content not found")
-
-// IndexBlobInfo is an information about a single index blob managed by Manager.
-type IndexBlobInfo struct {
-	blob.Metadata
-	Superseded []blob.Metadata
-}
 
 // WriteManager builds content-addressable storage with encryption, deduplication and packaging on top of BLOB store.
 type WriteManager struct {
@@ -429,7 +424,7 @@ func (bm *WriteManager) writeIndexBlobs(ctx context.Context, dataShards []gather
 	}
 
 	//nolint:wrapcheck
-	return ibm.writeIndexBlobs(ctx, dataShards, sessionID)
+	return ibm.WriteIndexBlobs(ctx, dataShards, blob.ID(sessionID))
 }
 
 // +checklocksread:bm.indexesLock
@@ -452,7 +447,7 @@ func (bm *WriteManager) flushPackIndexesLocked(ctx context.Context, mp format.Mu
 
 	if len(bm.packIndexBuilder) > 0 {
 		_, span2 := tracer.Start(ctx, "BuildShards")
-		dataShards, closeShards, err := bm.packIndexBuilder.BuildShards(mp.IndexVersion, true, defaultIndexShardSize)
+		dataShards, closeShards, err := bm.packIndexBuilder.BuildShards(mp.IndexVersion, true, indexblob.DefaultIndexShardSize)
 
 		span2.End()
 
@@ -732,7 +727,7 @@ func (bm *WriteManager) getOrCreatePendingPackInfoLocked(ctx context.Context, pr
 		return pp, nil
 	}
 
-	bm.internalLogManager.enable()
+	bm.repoLogManager.Enable()
 
 	b := gather.NewWriteBuffer()
 

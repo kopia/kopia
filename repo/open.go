@@ -25,6 +25,7 @@ import (
 	"github.com/kopia/kopia/repo/blob/storagemetrics"
 	"github.com/kopia/kopia/repo/blob/throttling"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/content/indexblob"
 	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/repo/manifest"
@@ -386,7 +387,7 @@ func wrapLockingStorage(st blob.Storage, r format.BlobStorageConfiguration) blob
 		prefixes = append(prefixes, string(prefix))
 	}
 
-	prefixes = append(prefixes, content.LegacyIndexBlobPrefix, epoch.EpochManagerIndexUberPrefix, format.KopiaRepositoryBlobID,
+	prefixes = append(prefixes, indexblob.V0IndexBlobPrefix, epoch.EpochManagerIndexUberPrefix, format.KopiaRepositoryBlobID,
 		format.KopiaBlobCfgBlobID)
 
 	return beforeop.NewWrapper(st, nil, nil, nil, func(ctx context.Context, id blob.ID, opts *blob.PutOptions) error {

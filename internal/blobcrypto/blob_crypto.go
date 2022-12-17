@@ -1,4 +1,5 @@
-package content
+// Package blobcrypto performs whole-blob crypto operations.
+package blobcrypto
 
 import (
 	"crypto/aes"
@@ -13,8 +14,8 @@ import (
 	"github.com/kopia/kopia/repo/hashing"
 )
 
-// crypter ecapsulates hashing and encryption.
-type crypter interface {
+// Crypter ecapsulates hashing and encryption.
+type Crypter interface {
 	HashFunc() hashing.HashFunc
 	Encryptor() encryption.Encryptor
 }
@@ -38,16 +39,16 @@ func getIndexBlobIV(s blob.ID) ([]byte, error) {
 	return v, nil
 }
 
-// EncryptBLOB encrypts the given data using crypter-defined key and returns a name that should
+// Encrypt encrypts the given data using crypter-defined key and returns a name that should
 // be used to save the blob in thre repository.
-func EncryptBLOB(c crypter, payload gather.Bytes, prefix blob.ID, sessionID SessionID, output *gather.WriteBuffer) (blob.ID, error) {
+func Encrypt(c Crypter, payload gather.Bytes, prefix, suffix blob.ID, output *gather.WriteBuffer) (blob.ID, error) {
 	var hashOutput [hashing.MaxHashSize]byte
 
 	hash := c.HashFunc()(hashOutput[:0], payload)
 	blobID := prefix + blob.ID(hex.EncodeToString(hash))
 
-	if sessionID != "" {
-		blobID += blob.ID("-" + sessionID)
+	if suffix != "" {
+		blobID += "-" + suffix
 	}
 
 	iv, err := getIndexBlobIV(blobID)
@@ -64,8 +65,8 @@ func EncryptBLOB(c crypter, payload gather.Bytes, prefix blob.ID, sessionID Sess
 	return blobID, nil
 }
 
-// DecryptBLOB decrypts the provided data using provided blobID to derive initialization vector.
-func DecryptBLOB(c crypter, payload gather.Bytes, blobID blob.ID, output *gather.WriteBuffer) error {
+// Decrypt decrypts the provided data using provided blobID to derive initialization vector.
+func Decrypt(c Crypter, payload gather.Bytes, blobID blob.ID, output *gather.WriteBuffer) error {
 	iv, err := getIndexBlobIV(blobID)
 	if err != nil {
 		return errors.Wrap(err, "unable to get index blob IV")

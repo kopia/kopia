@@ -10,6 +10,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/blobcrypto"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 )
@@ -111,7 +112,7 @@ func (bm *WriteManager) writeSessionMarkerLocked(ctx context.Context) error {
 	var encrypted gather.WriteBuffer
 	defer encrypted.Close()
 
-	sessionBlobID, err := EncryptBLOB(bm.format, gather.FromSlice(js), BlobIDPrefixSession, bm.currentSessionInfo.ID, &encrypted)
+	sessionBlobID, err := blobcrypto.Encrypt(bm.format, gather.FromSlice(js), BlobIDPrefixSession, blob.ID(bm.currentSessionInfo.ID), &encrypted)
 	if err != nil {
 		return errors.Wrap(err, "unable to encrypt session marker")
 	}
@@ -178,7 +179,7 @@ func (bm *WriteManager) ListActiveSessions(ctx context.Context) (map[SessionID]*
 			return nil, errors.Wrapf(err, "error loading session: %v", b.BlobID)
 		}
 
-		err = DecryptBLOB(bm.format, payload.Bytes(), b.BlobID, &decrypted)
+		err = blobcrypto.Decrypt(bm.format, payload.Bytes(), b.BlobID, &decrypted)
 		if err != nil {
 			return nil, errors.Wrapf(err, "error decrypting session: %v", b.BlobID)
 		}

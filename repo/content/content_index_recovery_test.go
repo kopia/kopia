@@ -9,6 +9,7 @@ import (
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/content/indexblob"
 )
 
 func (s *contentManagerSuite) TestContentIndexRecovery(t *testing.T) {
@@ -28,7 +29,7 @@ func (s *contentManagerSuite) TestContentIndexRecovery(t *testing.T) {
 	}
 
 	// delete all index blobs
-	require.NoError(t, bm.st.ListBlobs(ctx, LegacyIndexBlobPrefix, func(bi blob.Metadata) error {
+	require.NoError(t, bm.st.ListBlobs(ctx, indexblob.V0IndexBlobPrefix, func(bi blob.Metadata) error {
 		t.Logf("deleting %v", bi.BlobID)
 		return bm.st.DeleteBlob(ctx, bi.BlobID)
 	}))

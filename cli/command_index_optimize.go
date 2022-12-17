@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/content/indexblob"
 )
 
 type commandIndexOptimize struct {
@@ -36,7 +36,7 @@ func (c *commandIndexOptimize) runOptimizeCommand(ctx context.Context, rep repo.
 		return err
 	}
 
-	opt := content.CompactOptions{
+	opt := indexblob.CompactOptions{
 		MaxSmallBlobs: c.optimizeMaxSmallBlobs,
 		AllIndexes:    c.optimizeAllIndexes,
 		DropContents:  contentIDs,

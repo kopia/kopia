@@ -5,9 +5,9 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/blobcrypto"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/repo/content"
 )
 
 type commandLogsShow struct {
@@ -70,7 +70,7 @@ func (c *commandLogsShow) run(ctx context.Context, rep repo.DirectRepository) er
 				return errors.Wrap(err, "error getting log")
 			}
 
-			if err := content.DecryptBLOB(rep.ContentReader().ContentFormat(), data.Bytes(), bm.BlobID, &decrypted); err != nil {
+			if err := blobcrypto.Decrypt(rep.ContentReader().ContentFormat(), data.Bytes(), bm.BlobID, &decrypted); err != nil {
 				return errors.Wrap(err, "error decrypting log")
 			}
 

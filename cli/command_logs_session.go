@@ -11,8 +11,8 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/repolog"
 	"github.com/kopia/kopia/repo/blob"
-	"github.com/kopia/kopia/repo/content"
 )
 
 type logSessionInfo struct {
@@ -70,7 +70,7 @@ func getLogSessions(ctx context.Context, st blob.Reader) ([]*logSessionInfo, err
 
 	var allSessions []*logSessionInfo
 
-	if err := st.ListBlobs(ctx, content.TextLogBlobPrefix, func(bm blob.Metadata) error {
+	if err := st.ListBlobs(ctx, repolog.BlobPrefix, func(bm blob.Metadata) error {
 		parts := strings.Split(string(bm.BlobID), "_")
 
 		//nolint:gomnd

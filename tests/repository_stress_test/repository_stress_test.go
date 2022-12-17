@@ -22,6 +22,7 @@ import (
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob/filesystem"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/content/indexblob"
 	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/tests/repository_stress_test/repomodel"
 )
@@ -444,7 +445,7 @@ func compact(ctx context.Context, r repo.DirectRepositoryWriter, rs *repomodel.R
 	log.Debugf("compact()")
 
 	return errors.Wrapf(
-		r.ContentManager().CompactIndexes(ctx, content.CompactOptions{MaxSmallBlobs: 1}),
+		r.ContentManager().CompactIndexes(ctx, indexblob.CompactOptions{MaxSmallBlobs: 1}),
 		"compact()")
 }
 

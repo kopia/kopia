@@ -1,4 +1,4 @@
-package content
+package indexblob
 
 import (
 	"context"
@@ -15,16 +15,16 @@ import (
 	"github.com/kopia/kopia/repo/logging"
 )
 
-// LegacyIndexBlobPrefix is the prefix for all legacy (v0) index blobs.
-const LegacyIndexBlobPrefix = "n"
+// V0IndexBlobPrefix is the prefix for all legacy (v0) index blobs.
+const V0IndexBlobPrefix = "n"
 
-const (
-	defaultIndexShardSize = 16e6 // slightly less than 2^24, which lets index use 24-bit/3-byte indexes
+// V0CompactionLogBlobPrefix is the prefix for all legacy (v0) index compactions blobs.
+const V0CompactionLogBlobPrefix = "m"
 
-	defaultEventualConsistencySettleTime = 1 * time.Hour
-	compactionLogBlobPrefix              = "m"
-	cleanupBlobPrefix                    = "l"
-)
+// V0CleanupBlobPrefix is the prefix for all legacy (v0) index cleanup blobs.
+const V0CleanupBlobPrefix = "l"
+
+const defaultEventualConsistencySettleTime = 1 * time.Hour
 
 // compactionLogEntry represents contents of compaction log entry stored in `m` blob.
 type compactionLogEntry struct {
@@ -56,23 +56,23 @@ type IndexFormattingOptions interface {
 	GetMutableParameters() (format.MutableParameters, error)
 }
 
-type indexBlobManagerV0 struct {
-	st      blob.Storage
-	enc     *encryptedBlobMgr
-	timeNow func() time.Time
-	log     logging.Logger
-
+// ManagerV0 is a V0 (legacy) implementation of index blob manager.
+type ManagerV0 struct {
+	st                blob.Storage
+	enc               *EncryptionManager
+	timeNow           func() time.Time
 	formattingOptions IndexFormattingOptions
+	log               logging.Logger
 }
 
 // ListIndexBlobInfos list active blob info structs.  Also returns time of latest content deletion commit.
-func (m *indexBlobManagerV0) ListIndexBlobInfos(ctx context.Context) ([]IndexBlobInfo, time.Time, error) {
-	activeIndexBlobs, t0, err := m.listActiveIndexBlobs(ctx)
+func (m *ManagerV0) ListIndexBlobInfos(ctx context.Context) ([]Metadata, time.Time, error) {
+	activeIndexBlobs, t0, err := m.ListActiveIndexBlobs(ctx)
 	if err != nil {
 		return nil, time.Time{}, err
 	}
 
-	q := make([]IndexBlobInfo, 0, len(activeIndexBlobs))
+	q := make([]Metadata, 0, len(activeIndexBlobs))
 
 	for _, activeIndexBlob := range activeIndexBlobs {
 		// skip the V0 blob poison that is used to prevent client reads.
@@ -86,21 +86,23 @@ func (m *indexBlobManagerV0) ListIndexBlobInfos(ctx context.Context) ([]IndexBlo
 	return q, t0, nil
 }
 
-func (m *indexBlobManagerV0) listActiveIndexBlobs(ctx context.Context) ([]IndexBlobInfo, time.Time, error) {
+// ListActiveIndexBlobs lists the metadata for active index blobs and returns the cut-off time
+// before which all deleted index entries should be treated as non-existent.
+func (m *ManagerV0) ListActiveIndexBlobs(ctx context.Context) ([]Metadata, time.Time, error) {
 	var compactionLogMetadata, storageIndexBlobs []blob.Metadata
 
 	var eg errgroup.Group
 
 	// list index and cleanup blobs in parallel.
 	eg.Go(func() error {
-		v, err := blob.ListAllBlobs(ctx, m.st, compactionLogBlobPrefix)
+		v, err := blob.ListAllBlobs(ctx, m.st, V0CompactionLogBlobPrefix)
 		compactionLogMetadata = v
 
 		return errors.Wrap(err, "error listing compaction blobs")
 	})
 
 	eg.Go(func() error {
-		v, err := blob.ListAllBlobs(ctx, m.st, LegacyIndexBlobPrefix)
+		v, err := blob.ListAllBlobs(ctx, m.st, V0IndexBlobPrefix)
 		storageIndexBlobs = v
 
 		return errors.Wrap(err, "error listing index blobs")
@@ -118,7 +120,7 @@ func (m *indexBlobManagerV0) listActiveIndexBlobs(ctx context.Context) ([]IndexB
 		m.log.Debugf("found-compaction-blobs[%v] %v", i, clm)
 	}
 
-	indexMap := map[blob.ID]*IndexBlobInfo{}
+	indexMap := map[blob.ID]*Metadata{}
 	addBlobsToIndex(indexMap, storageIndexBlobs)
 
 	compactionLogs, err := m.getCompactionLogEntries(ctx, compactionLogMetadata)
@@ -129,7 +131,7 @@ func (m *indexBlobManagerV0) listActiveIndexBlobs(ctx context.Context) ([]IndexB
 	// remove entries from indexMap that have been compacted and replaced by other indexes.
 	m.removeCompactedIndexes(indexMap, compactionLogs)
 
-	var results []IndexBlobInfo
+	var results []Metadata
 	for _, v := range indexMap {
 		results = append(results, *v)
 	}
@@ -141,17 +143,14 @@ func (m *indexBlobManagerV0) listActiveIndexBlobs(ctx context.Context) ([]IndexB
 	return results, time.Time{}, nil
 }
 
-func (m *indexBlobManagerV0) invalidate(ctx context.Context) {
+// Invalidate invalidates any caches.
+func (m *ManagerV0) Invalidate(ctx context.Context) {
 }
 
-func (m *indexBlobManagerV0) flushCache(ctx context.Context) {
-	if err := m.st.FlushCaches(ctx); err != nil {
-		m.log.Debugf("error flushing caches: %v", err)
-	}
-}
-
-func (m *indexBlobManagerV0) compact(ctx context.Context, opt CompactOptions) error {
-	indexBlobs, _, err := m.listActiveIndexBlobs(ctx)
+// Compact performs compaction of index blobs by merging smaller ones into larger
+// and registering compaction and cleanup blobs in the repository.
+func (m *ManagerV0) Compact(ctx context.Context, opt CompactOptions) error {
+	indexBlobs, _, err := m.ListActiveIndexBlobs(ctx)
 	if err != nil {
 		return errors.Wrap(err, "error listing active index blobs")
 	}
@@ -174,7 +173,7 @@ func (m *indexBlobManagerV0) compact(ctx context.Context, opt CompactOptions) er
 	return nil
 }
 
-func (m *indexBlobManagerV0) registerCompaction(ctx context.Context, inputs, outputs []blob.Metadata, maxEventualConsistencySettleTime time.Duration) error {
+func (m *ManagerV0) registerCompaction(ctx context.Context, inputs, outputs []blob.Metadata, maxEventualConsistencySettleTime time.Duration) error {
 	logEntryBytes, err := json.Marshal(&compactionLogEntry{
 		InputMetadata:  inputs,
 		OutputMetadata: outputs,
@@ -183,7 +182,7 @@ func (m *indexBlobManagerV0) registerCompaction(ctx context.Context, inputs, out
 		return errors.Wrap(err, "unable to marshal log entry bytes")
 	}
 
-	compactionLogBlobMetadata, err := m.enc.encryptAndWriteBlob(ctx, gather.FromSlice(logEntryBytes), compactionLogBlobPrefix, "")
+	compactionLogBlobMetadata, err := m.enc.EncryptAndWriteBlob(ctx, gather.FromSlice(logEntryBytes), V0CompactionLogBlobPrefix, "")
 	if err != nil {
 		return errors.Wrap(err, "unable to write compaction log")
 	}
@@ -205,15 +204,12 @@ func (m *indexBlobManagerV0) registerCompaction(ctx context.Context, inputs, out
 	return nil
 }
 
-func (m *indexBlobManagerV0) getIndexBlob(ctx context.Context, blobID blob.ID, output *gather.WriteBuffer) error {
-	return m.enc.getEncryptedBlob(ctx, blobID, output)
-}
-
-func (m *indexBlobManagerV0) writeIndexBlobs(ctx context.Context, dataShards []gather.Bytes, sessionID SessionID) ([]blob.Metadata, error) {
+// WriteIndexBlobs writes the provided data shards into new index blobs oprionally appending the provided suffix.
+func (m *ManagerV0) WriteIndexBlobs(ctx context.Context, dataShards []gather.Bytes, suffix blob.ID) ([]blob.Metadata, error) {
 	var result []blob.Metadata
 
 	for _, data := range dataShards {
-		bm, err := m.enc.encryptAndWriteBlob(ctx, data, LegacyIndexBlobPrefix, sessionID)
+		bm, err := m.enc.EncryptAndWriteBlob(ctx, data, V0IndexBlobPrefix, suffix)
 		if err != nil {
 			return nil, errors.Wrap(err, "error writing index blbo")
 		}
@@ -224,14 +220,14 @@ func (m *indexBlobManagerV0) writeIndexBlobs(ctx context.Context, dataShards []g
 	return result, nil
 }
 
-func (m *indexBlobManagerV0) getCompactionLogEntries(ctx context.Context, blobs []blob.Metadata) (map[blob.ID]*compactionLogEntry, error) {
+func (m *ManagerV0) getCompactionLogEntries(ctx context.Context, blobs []blob.Metadata) (map[blob.ID]*compactionLogEntry, error) {
 	results := map[blob.ID]*compactionLogEntry{}
 
 	var data gather.WriteBuffer
 	defer data.Close()
 
 	for _, cb := range blobs {
-		err := m.enc.getEncryptedBlob(ctx, cb.BlobID, &data)
+		err := m.enc.GetEncryptedBlob(ctx, cb.BlobID, &data)
 
 		if errors.Is(err, blob.ErrBlobNotFound) {
 			continue
@@ -255,7 +251,7 @@ func (m *indexBlobManagerV0) getCompactionLogEntries(ctx context.Context, blobs 
 	return results, nil
 }
 
-func (m *indexBlobManagerV0) getCleanupEntries(ctx context.Context, latestServerBlobTime time.Time, blobs []blob.Metadata) (map[blob.ID]*cleanupEntry, error) {
+func (m *ManagerV0) getCleanupEntries(ctx context.Context, latestServerBlobTime time.Time, blobs []blob.Metadata) (map[blob.ID]*cleanupEntry, error) {
 	results := map[blob.ID]*cleanupEntry{}
 
 	var data gather.WriteBuffer
@@ -264,7 +260,7 @@ func (m *indexBlobManagerV0) getCleanupEntries(ctx context.Context, latestServer
 	for _, cb := range blobs {
 		data.Reset()
 
-		err := m.enc.getEncryptedBlob(ctx, cb.BlobID, &data)
+		err := m.enc.GetEncryptedBlob(ctx, cb.BlobID, &data)
 
 		if errors.Is(err, blob.ErrBlobNotFound) {
 			continue
@@ -288,8 +284,8 @@ func (m *indexBlobManagerV0) getCleanupEntries(ctx context.Context, latestServer
 	return results, nil
 }
 
-func (m *indexBlobManagerV0) deleteOldBlobs(ctx context.Context, latestBlob blob.Metadata, maxEventualConsistencySettleTime time.Duration) error {
-	allCompactionLogBlobs, err := blob.ListAllBlobs(ctx, m.st, compactionLogBlobPrefix)
+func (m *ManagerV0) deleteOldBlobs(ctx context.Context, latestBlob blob.Metadata, maxEventualConsistencySettleTime time.Duration) error {
+	allCompactionLogBlobs, err := blob.ListAllBlobs(ctx, m.st, V0CompactionLogBlobPrefix)
 	if err != nil {
 		return errors.Wrap(err, "error listing compaction log blobs")
 	}
@@ -323,7 +319,7 @@ func (m *indexBlobManagerV0) deleteOldBlobs(ctx context.Context, latestBlob blob
 	return nil
 }
 
-func (m *indexBlobManagerV0) findIndexBlobsToDelete(latestServerBlobTime time.Time, entries map[blob.ID]*compactionLogEntry, maxEventualConsistencySettleTime time.Duration) []blob.ID {
+func (m *ManagerV0) findIndexBlobsToDelete(latestServerBlobTime time.Time, entries map[blob.ID]*compactionLogEntry, maxEventualConsistencySettleTime time.Duration) []blob.ID {
 	tmp := map[blob.ID]bool{}
 
 	for _, cl := range entries {
@@ -349,7 +345,7 @@ func (m *indexBlobManagerV0) findIndexBlobsToDelete(latestServerBlobTime time.Ti
 	return result
 }
 
-func (m *indexBlobManagerV0) findCompactionLogBlobsToDelayCleanup(compactionBlobs []blob.Metadata) []blob.ID {
+func (m *ManagerV0) findCompactionLogBlobsToDelayCleanup(compactionBlobs []blob.Metadata) []blob.ID {
 	var result []blob.ID
 
 	for _, cb := range compactionBlobs {
@@ -360,7 +356,7 @@ func (m *indexBlobManagerV0) findCompactionLogBlobsToDelayCleanup(compactionBlob
 	return result
 }
 
-func (m *indexBlobManagerV0) findBlobsToDelete(entries map[blob.ID]*cleanupEntry, maxEventualConsistencySettleTime time.Duration) (compactionLogs, cleanupBlobs []blob.ID) {
+func (m *ManagerV0) findBlobsToDelete(entries map[blob.ID]*cleanupEntry, maxEventualConsistencySettleTime time.Duration) (compactionLogs, cleanupBlobs []blob.ID) {
 	for k, e := range entries {
 		if e.age >= maxEventualConsistencySettleTime {
 			compactionLogs = append(compactionLogs, e.BlobIDs...)
@@ -371,7 +367,7 @@ func (m *indexBlobManagerV0) findBlobsToDelete(entries map[blob.ID]*cleanupEntry
 	return
 }
 
-func (m *indexBlobManagerV0) delayCleanupBlobs(ctx context.Context, blobIDs []blob.ID, cleanupScheduleTime time.Time) error {
+func (m *ManagerV0) delayCleanupBlobs(ctx context.Context, blobIDs []blob.ID, cleanupScheduleTime time.Time) error {
 	if len(blobIDs) == 0 {
 		return nil
 	}
@@ -384,14 +380,14 @@ func (m *indexBlobManagerV0) delayCleanupBlobs(ctx context.Context, blobIDs []bl
 		return errors.Wrap(err, "unable to marshal cleanup log bytes")
 	}
 
-	if _, err := m.enc.encryptAndWriteBlob(ctx, gather.FromSlice(payload), cleanupBlobPrefix, ""); err != nil {
+	if _, err := m.enc.EncryptAndWriteBlob(ctx, gather.FromSlice(payload), V0CleanupBlobPrefix, ""); err != nil {
 		return errors.Wrap(err, "unable to cleanup log")
 	}
 
 	return nil
 }
 
-func (m *indexBlobManagerV0) deleteBlobsFromStorageAndCache(ctx context.Context, blobIDs []blob.ID) error {
+func (m *ManagerV0) deleteBlobsFromStorageAndCache(ctx context.Context, blobIDs []blob.ID) error {
 	for _, blobID := range blobIDs {
 		if err := m.st.DeleteBlob(ctx, blobID); err != nil && !errors.Is(err, blob.ErrBlobNotFound) {
 			m.log.Debugf("delete-blob failed %v %v", blobID, err)
@@ -404,8 +400,8 @@ func (m *indexBlobManagerV0) deleteBlobsFromStorageAndCache(ctx context.Context,
 	return nil
 }
 
-func (m *indexBlobManagerV0) cleanup(ctx context.Context, maxEventualConsistencySettleTime time.Duration) error {
-	allCleanupBlobs, err := blob.ListAllBlobs(ctx, m.st, cleanupBlobPrefix)
+func (m *ManagerV0) cleanup(ctx context.Context, maxEventualConsistencySettleTime time.Duration) error {
+	allCleanupBlobs, err := blob.ListAllBlobs(ctx, m.st, V0CleanupBlobPrefix)
 	if err != nil {
 		return errors.Wrap(err, "error listing cleanup blobs")
 	}
@@ -436,14 +432,16 @@ func (m *indexBlobManagerV0) cleanup(ctx context.Context, maxEventualConsistency
 		return errors.Wrap(err, "unable to delete cleanup blobs")
 	}
 
-	m.flushCache(ctx)
+	if err := m.st.FlushCaches(ctx); err != nil {
+		m.log.Debugw("error flushing caches", "err", err)
+	}
 
 	return nil
 }
 
-func (m *indexBlobManagerV0) getBlobsToCompact(indexBlobs []IndexBlobInfo, opt CompactOptions, mp format.MutableParameters) []IndexBlobInfo {
+func (m *ManagerV0) getBlobsToCompact(indexBlobs []Metadata, opt CompactOptions, mp format.MutableParameters) []Metadata {
 	var (
-		nonCompactedBlobs, verySmallBlobs                                              []IndexBlobInfo
+		nonCompactedBlobs, verySmallBlobs                                              []Metadata
 		totalSizeNonCompactedBlobs, totalSizeVerySmallBlobs, totalSizeMediumSizedBlobs int64
 		mediumSizedBlobCount                                                           int
 	)
@@ -467,7 +465,7 @@ func (m *indexBlobManagerV0) getBlobsToCompact(indexBlobs []IndexBlobInfo, opt C
 
 	if len(nonCompactedBlobs) < opt.MaxSmallBlobs {
 		// current count is below min allowed - nothing to do
-		m.log.Debugf("no small contents to compact")
+		m.log.Debugf("no small contents to Compact")
 		return nil
 	}
 
@@ -481,7 +479,7 @@ func (m *indexBlobManagerV0) getBlobsToCompact(indexBlobs []IndexBlobInfo, opt C
 	return nonCompactedBlobs
 }
 
-func (m *indexBlobManagerV0) compactIndexBlobs(ctx context.Context, indexBlobs []IndexBlobInfo, opt CompactOptions) error {
+func (m *ManagerV0) compactIndexBlobs(ctx context.Context, indexBlobs []Metadata, opt CompactOptions) error {
 	if len(indexBlobs) <= 1 && opt.DropDeletedBefore.IsZero() && len(opt.DropContents) == 0 {
 		return nil
 	}
@@ -509,14 +507,14 @@ func (m *indexBlobManagerV0) compactIndexBlobs(ctx context.Context, indexBlobs [
 	// we must do it after all input blobs have been merged, otherwise we may resurrect contents.
 	m.dropContentsFromBuilder(bld, opt)
 
-	dataShards, cleanupShards, err := bld.BuildShards(mp.IndexVersion, false, defaultIndexShardSize)
+	dataShards, cleanupShards, err := bld.BuildShards(mp.IndexVersion, false, DefaultIndexShardSize)
 	if err != nil {
 		return errors.Wrap(err, "unable to build an index")
 	}
 
 	defer cleanupShards()
 
-	compactedIndexBlobs, err := m.writeIndexBlobs(ctx, dataShards, "")
+	compactedIndexBlobs, err := m.WriteIndexBlobs(ctx, dataShards, "")
 	if err != nil {
 		return errors.Wrap(err, "unable to write compacted indexes")
 	}
@@ -530,7 +528,7 @@ func (m *indexBlobManagerV0) compactIndexBlobs(ctx context.Context, indexBlobs [
 	return nil
 }
 
-func (m *indexBlobManagerV0) dropContentsFromBuilder(bld index.Builder, opt CompactOptions) {
+func (m *ManagerV0) dropContentsFromBuilder(bld index.Builder, opt CompactOptions) {
 	for _, dc := range opt.DropContents {
 		if _, ok := bld[dc]; ok {
 			m.log.Debugf("manual-drop-from-index %v", dc)
@@ -552,11 +550,11 @@ func (m *indexBlobManagerV0) dropContentsFromBuilder(bld index.Builder, opt Comp
 	}
 }
 
-func addIndexBlobsToBuilder(ctx context.Context, enc *encryptedBlobMgr, bld index.Builder, indexBlobID blob.ID) error {
+func addIndexBlobsToBuilder(ctx context.Context, enc *EncryptionManager, bld index.Builder, indexBlobID blob.ID) error {
 	var data gather.WriteBuffer
 	defer data.Close()
 
-	err := enc.getEncryptedBlob(ctx, indexBlobID, &data)
+	err := enc.GetEncryptedBlob(ctx, indexBlobID, &data)
 	if err != nil {
 		return errors.Wrapf(err, "error getting index %q", indexBlobID)
 	}
@@ -566,7 +564,7 @@ func addIndexBlobsToBuilder(ctx context.Context, enc *encryptedBlobMgr, bld inde
 		return errors.Wrapf(err, "unable to open index blob %q", indexBlobID)
 	}
 
-	_ = ndx.Iterate(index.AllIDs, func(i Info) error {
+	_ = ndx.Iterate(index.AllIDs, func(i index.Info) error {
 		bld.Add(i)
 		return nil
 	})
@@ -586,7 +584,7 @@ func blobsOlderThan(m []blob.Metadata, cutoffTime time.Time) []blob.Metadata {
 	return res
 }
 
-func (m *indexBlobManagerV0) removeCompactedIndexes(bimap map[blob.ID]*IndexBlobInfo, compactionLogs map[blob.ID]*compactionLogEntry) {
+func (m *ManagerV0) removeCompactedIndexes(bimap map[blob.ID]*Metadata, compactionLogs map[blob.ID]*compactionLogEntry) {
 	var validCompactionLogs []*compactionLogEntry
 
 	for _, cl := range compactionLogs {
@@ -619,3 +617,16 @@ func (m *indexBlobManagerV0) removeCompactedIndexes(bimap map[blob.ID]*IndexBlob
 		}
 	}
 }
+
+// NewManagerV0 creates new instance of ManagerV0 with all required parameters set.
+func NewManagerV0(
+	st blob.Storage,
+	enc *EncryptionManager,
+	timeNow func() time.Time,
+	formattingOptions IndexFormattingOptions,
+	log logging.Logger,
+) *ManagerV0 {
+	return &ManagerV0{st, enc, timeNow, formattingOptions, log}
+}
+
+var _ Manager = (*ManagerV0)(nil)

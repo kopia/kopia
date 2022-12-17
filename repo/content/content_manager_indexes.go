@@ -2,34 +2,16 @@ package content
 
 import (
 	"context"
-	"time"
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/blobcrypto"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content/index"
+	"github.com/kopia/kopia/repo/content/indexblob"
 )
-
-const verySmallContentFraction = 20 // blobs less than 1/verySmallContentFraction of maxPackSize are considered 'very small'
-
-// CompactOptions provides options for compaction.
-type CompactOptions struct {
-	MaxSmallBlobs                    int
-	AllIndexes                       bool
-	DropDeletedBefore                time.Time
-	DropContents                     []ID
-	DisableEventualConsistencySafety bool
-}
-
-func (co *CompactOptions) maxEventualConsistencySettleTime() time.Duration {
-	if co.DisableEventualConsistencySafety {
-		return 0
-	}
-
-	return defaultEventualConsistencySettleTime
-}
 
 // Refresh reloads the committed content indexes.
 func (sm *SharedManager) Refresh(ctx context.Context) error {
@@ -43,7 +25,7 @@ func (sm *SharedManager) Refresh(ctx context.Context) error {
 		return err
 	}
 
-	ibm.invalidate(ctx)
+	ibm.Invalidate(ctx)
 
 	timer := timetrack.StartTimer()
 
@@ -54,7 +36,7 @@ func (sm *SharedManager) Refresh(ctx context.Context) error {
 }
 
 // CompactIndexes performs compaction of index blobs ensuring that # of small index blobs is below opt.maxSmallBlobs.
-func (sm *SharedManager) CompactIndexes(ctx context.Context, opt CompactOptions) error {
+func (sm *SharedManager) CompactIndexes(ctx context.Context, opt indexblob.CompactOptions) error {
 	// we must hold the lock here to avoid the race with Refresh() which can reload the
 	// current set of indexes while we process them.
 	sm.indexesLock.Lock()
@@ -67,7 +49,7 @@ func (sm *SharedManager) CompactIndexes(ctx context.Context, opt CompactOptions)
 		return err
 	}
 
-	if err := ibm.compact(ctx, opt); err != nil {
+	if err := ibm.Compact(ctx, opt); err != nil {
 		return errors.Wrap(err, "error performing compaction")
 	}
 
@@ -80,11 +62,11 @@ func (sm *SharedManager) CompactIndexes(ctx context.Context, opt CompactOptions)
 }
 
 // ParseIndexBlob loads entries in a given index blob and returns them.
-func ParseIndexBlob(blobID blob.ID, encrypted gather.Bytes, crypter crypter) ([]Info, error) {
+func ParseIndexBlob(blobID blob.ID, encrypted gather.Bytes, crypter blobcrypto.Crypter) ([]Info, error) {
 	var data gather.WriteBuffer
 	defer data.Close()
 
-	if err := DecryptBLOB(crypter, encrypted, blobID, &data); err != nil {
+	if err := blobcrypto.Decrypt(crypter, encrypted, blobID, &data); err != nil {
 		return nil, errors.Wrap(err, "unable to decrypt index blob")
 	}
 
@@ -101,18 +83,4 @@ func ParseIndexBlob(blobID blob.ID, encrypted gather.Bytes, crypter crypter) ([]
 	})
 
 	return results, errors.Wrap(err, "error iterating index entries")
-}
-
-func addBlobsToIndex(ndx map[blob.ID]*IndexBlobInfo, blobs []blob.Metadata) {
-	for _, it := range blobs {
-		if ndx[it.BlobID] == nil {
-			ndx[it.BlobID] = &IndexBlobInfo{
-				Metadata: blob.Metadata{
-					BlobID:    it.BlobID,
-					Length:    it.Length,
-					Timestamp: it.Timestamp,
-				},
-			}
-		}
-	}
 }

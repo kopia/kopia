@@ -26,6 +26,7 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/beforeop"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/content/indexblob"
 	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/object"
 )
@@ -131,7 +132,7 @@ func (s *formatSpecificTestSuite) TestPackingSimple(t *testing.T) {
 	verify(ctx, t, env.RepositoryWriter, oid2a, []byte(content2), "packed-object-2")
 	verify(ctx, t, env.RepositoryWriter, oid3a, []byte(content3), "packed-object-3")
 
-	if err := env.RepositoryWriter.ContentManager().CompactIndexes(ctx, content.CompactOptions{MaxSmallBlobs: 1}); err != nil {
+	if err := env.RepositoryWriter.ContentManager().CompactIndexes(ctx, indexblob.CompactOptions{MaxSmallBlobs: 1}); err != nil {
 		t.Errorf("optimize error: %v", err)
 	}
 
@@ -141,7 +142,7 @@ func (s *formatSpecificTestSuite) TestPackingSimple(t *testing.T) {
 	verify(ctx, t, env.RepositoryWriter, oid2a, []byte(content2), "packed-object-2")
 	verify(ctx, t, env.RepositoryWriter, oid3a, []byte(content3), "packed-object-3")
 
-	if err := env.RepositoryWriter.ContentManager().CompactIndexes(ctx, content.CompactOptions{MaxSmallBlobs: 1}); err != nil {
+	if err := env.RepositoryWriter.ContentManager().CompactIndexes(ctx, indexblob.CompactOptions{MaxSmallBlobs: 1}); err != nil {
 		t.Errorf("optimize error: %v", err)
 	}
 
@@ -570,7 +571,7 @@ func TestObjectWritesWithRetention(t *testing.T) {
 		prefixesWithRetention = append(prefixesWithRetention, string(prefix))
 	}
 
-	prefixesWithRetention = append(prefixesWithRetention, content.LegacyIndexBlobPrefix, epoch.EpochManagerIndexUberPrefix,
+	prefixesWithRetention = append(prefixesWithRetention, indexblob.V0IndexBlobPrefix, epoch.EpochManagerIndexUberPrefix,
 		format.KopiaRepositoryBlobID, format.KopiaBlobCfgBlobID)
 
 	// make sure that we cannot set mtime on the kopia objects created due to the

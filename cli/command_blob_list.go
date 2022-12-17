@@ -5,9 +5,10 @@ import (
 	"strings"
 
 	"github.com/kopia/kopia/internal/epoch"
+	"github.com/kopia/kopia/internal/repolog"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
-	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/content/indexblob"
 )
 
 type commandBlobList struct {
@@ -57,7 +58,7 @@ func (c *commandBlobList) run(ctx context.Context, rep repo.DirectRepository) er
 
 func (c *commandBlobList) shouldInclude(b blob.Metadata) bool {
 	if c.dataOnly {
-		if strings.HasPrefix(string(b.BlobID), content.LegacyIndexBlobPrefix) {
+		if strings.HasPrefix(string(b.BlobID), indexblob.V0IndexBlobPrefix) {
 			return false
 		}
 
@@ -65,7 +66,7 @@ func (c *commandBlobList) shouldInclude(b blob.Metadata) bool {
 			return false
 		}
 
-		if strings.HasPrefix(string(b.BlobID), content.TextLogBlobPrefix) {
+		if strings.HasPrefix(string(b.BlobID), repolog.BlobPrefix) {
 			return false
 		}
 

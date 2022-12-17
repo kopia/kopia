@@ -1,4 +1,4 @@
-package content
+package indexblob
 
 import (
 	"testing"
@@ -38,7 +38,7 @@ func TestEncryptedBlobManager(t *testing.T) {
 	enc, err := encryption.CreateEncryptor(f)
 	require.NoError(t, err)
 
-	ebm := encryptedBlobMgr{
+	ebm := EncryptionManager{
 		st:             fs,
 		crypter:        staticCrypter{hf, enc},
 		indexBlobCache: nil,
@@ -47,7 +47,7 @@ func TestEncryptedBlobManager(t *testing.T) {
 
 	ctx := testlogging.Context(t)
 
-	bm, err := ebm.encryptAndWriteBlob(ctx, gather.FromSlice([]byte{1, 2, 3}), "x", "session1")
+	bm, err := ebm.EncryptAndWriteBlob(ctx, gather.FromSlice([]byte{1, 2, 3}), "x", "session1")
 	require.NoError(t, err)
 
 	stbm, err := st.GetMetadata(ctx, bm.BlobID)
@@ -58,27 +58,27 @@ func TestEncryptedBlobManager(t *testing.T) {
 	var tmp gather.WriteBuffer
 	defer tmp.Close()
 
-	require.NoError(t, ebm.getEncryptedBlob(ctx, bm.BlobID, &tmp))
+	require.NoError(t, ebm.GetEncryptedBlob(ctx, bm.BlobID, &tmp))
 
 	// data corruption
 	data[bm.BlobID][0] ^= 1
 
-	require.Error(t, ebm.getEncryptedBlob(ctx, bm.BlobID, &tmp))
+	require.Error(t, ebm.GetEncryptedBlob(ctx, bm.BlobID, &tmp))
 
-	require.ErrorIs(t, ebm.getEncryptedBlob(ctx, "no-such-blob", &tmp), blob.ErrBlobNotFound)
+	require.ErrorIs(t, ebm.GetEncryptedBlob(ctx, "no-such-blob", &tmp), blob.ErrBlobNotFound)
 
 	someError := errors.Errorf("some error")
 
 	fs.AddFault(blobtesting.MethodPutBlob).ErrorInstead(someError)
 
-	_, err = ebm.encryptAndWriteBlob(ctx, gather.FromSlice([]byte{1, 2, 3, 4}), "x", "session1")
+	_, err = ebm.EncryptAndWriteBlob(ctx, gather.FromSlice([]byte{1, 2, 3, 4}), "x", "session1")
 	require.ErrorIs(t, err, someError)
 
 	someError2 := errors.Errorf("some error 2")
 
 	ebm.crypter = staticCrypter{hf, failingEncryptor{nil, someError2}}
 
-	_, err = ebm.encryptAndWriteBlob(ctx, gather.FromSlice([]byte{1, 2, 3, 4}), "x", "session1")
+	_, err = ebm.EncryptAndWriteBlob(ctx, gather.FromSlice([]byte{1, 2, 3, 4}), "x", "session1")
 	require.ErrorIs(t, err, someError2)
 }
 

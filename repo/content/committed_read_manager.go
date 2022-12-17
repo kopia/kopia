@@ -18,11 +18,13 @@ import (
 	"github.com/kopia/kopia/internal/listcache"
 	"github.com/kopia/kopia/internal/metrics"
 	"github.com/kopia/kopia/internal/ownwrites"
+	"github.com/kopia/kopia/internal/repolog"
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/filesystem"
 	"github.com/kopia/kopia/repo/blob/sharded"
 	"github.com/kopia/kopia/repo/compression"
+	"github.com/kopia/kopia/repo/content/indexblob"
 	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/hashing"
 	"github.com/kopia/kopia/repo/logging"
@@ -45,9 +47,9 @@ const (
 
 //nolint:gochecknoglobals
 var cachedIndexBlobPrefixes = []blob.ID{
-	LegacyIndexBlobPrefix,
-	compactionLogBlobPrefix,
-	cleanupBlobPrefix,
+	indexblob.V0IndexBlobPrefix,
+	indexblob.V0CompactionLogBlobPrefix,
+	indexblob.V0CleanupBlobPrefix,
 
 	epoch.UncompactedIndexBlobPrefix,
 	epoch.EpochMarkerIndexBlobPrefix,
@@ -57,7 +59,7 @@ var cachedIndexBlobPrefixes = []blob.ID{
 
 //nolint:gochecknoglobals
 var allIndexBlobPrefixes = []blob.ID{
-	LegacyIndexBlobPrefix,
+	indexblob.V0IndexBlobPrefix,
 	epoch.UncompactedIndexBlobPrefix,
 	epoch.SingleEpochCompactionBlobPrefix,
 	epoch.RangeCheckpointIndexBlobPrefix,
@@ -65,16 +67,7 @@ var allIndexBlobPrefixes = []blob.ID{
 
 // IndexBlobReader provides an API for reading index blobs.
 type IndexBlobReader interface {
-	ListIndexBlobInfos(context.Context) ([]IndexBlobInfo, time.Time, error)
-}
-
-// indexBlobManager is the API of index blob manager as used by content manager.
-type indexBlobManager interface {
-	writeIndexBlobs(ctx context.Context, data []gather.Bytes, sessionID SessionID) ([]blob.Metadata, error)
-	listActiveIndexBlobs(ctx context.Context) ([]IndexBlobInfo, time.Time, error)
-	compact(ctx context.Context, opts CompactOptions) error
-	flushCache(ctx context.Context)
-	invalidate(ctx context.Context)
+	ListIndexBlobInfos(context.Context) ([]indexblob.Metadata, time.Time, error)
 }
 
 // SharedManager is responsible for read-only access to committed data.
@@ -82,14 +75,13 @@ type SharedManager struct {
 	Stats *Stats
 	st    blob.Storage
 
-	indexBlobManagerV0 *indexBlobManagerV0
-	indexBlobManagerV1 *indexBlobManagerV1
+	indexBlobManagerV0 *indexblob.ManagerV0
+	indexBlobManagerV1 *indexblob.ManagerV1
 
 	contentCache      cache.ContentCache
 	metadataCache     cache.ContentCache
 	indexBlobCache    *cache.PersistentCache
 	committedContents *committedContentIndex
-	enc               *encryptedBlobMgr
 	timeNow           func() time.Time
 
 	// lock to protect the set of commtited indexes
@@ -112,9 +104,9 @@ type SharedManager struct {
 	log logging.Logger
 
 	// logger associated with the context that opened the repository.
-	contextLogger      logging.Logger
-	internalLogManager *internalLogManager
-	internalLogger     *zap.SugaredLogger // backing logger for 'sharedBaseLogger'
+	contextLogger  logging.Logger
+	repoLogManager *repolog.LogManager
+	internalLogger *zap.SugaredLogger // backing logger for 'sharedBaseLogger'
 
 	metricsStruct
 }
@@ -216,13 +208,17 @@ func (sm *SharedManager) loadPackIndexesLocked(ctx context.Context) error {
 		}
 
 		if i > 0 {
-			ibm.flushCache(ctx)
+			// invalidate any list caches.
+			if err := sm.st.FlushCaches(ctx); err != nil {
+				sm.log.Errorw("unable to flush caches", "err", err)
+			}
+
 			sm.log.Debugf("encountered NOT_FOUND when loading, sleeping %v before retrying #%v", nextSleepTime, i)
 			time.Sleep(nextSleepTime)
 			nextSleepTime *= 2
 		}
 
-		indexBlobs, ignoreDeletedBefore, err := ibm.listActiveIndexBlobs(ctx)
+		indexBlobs, ignoreDeletedBefore, err := ibm.ListActiveIndexBlobs(ctx)
 		if err != nil {
 			return errors.Wrap(err, "error listing index blobs")
 		}
@@ -264,7 +260,7 @@ func (sm *SharedManager) getCacheForContentID(id ID) cache.ContentCache {
 	return sm.contentCache
 }
 
-func (sm *SharedManager) indexBlobManager() (indexBlobManager, error) {
+func (sm *SharedManager) indexBlobManager() (indexblob.Manager, error) {
 	mp, mperr := sm.format.GetMutableParameters()
 	if mperr != nil {
 		return nil, errors.Wrap(mperr, "mutable parameters")
@@ -336,9 +332,9 @@ func (sm *SharedManager) decryptAndVerify(encrypted gather.Bytes, iv []byte, out
 }
 
 // IndexBlobs returns the list of active index blobs.
-func (sm *SharedManager) IndexBlobs(ctx context.Context, includeInactive bool) ([]IndexBlobInfo, error) {
+func (sm *SharedManager) IndexBlobs(ctx context.Context, includeInactive bool) ([]indexblob.Metadata, error) {
 	if includeInactive {
-		var result []IndexBlobInfo
+		var result []indexblob.Metadata
 
 		for _, prefix := range allIndexBlobPrefixes {
 			blobs, err := blob.ListAllBlobs(ctx, sm.st, prefix)
@@ -347,7 +343,7 @@ func (sm *SharedManager) IndexBlobs(ctx context.Context, includeInactive bool) (
 			}
 
 			for _, bm := range blobs {
-				result = append(result, IndexBlobInfo{Metadata: bm})
+				result = append(result, indexblob.Metadata{Metadata: bm})
 			}
 		}
 
@@ -359,7 +355,7 @@ func (sm *SharedManager) IndexBlobs(ctx context.Context, includeInactive bool) (
 		return nil, err0
 	}
 
-	blobs, _, err := ibm.listActiveIndexBlobs(ctx)
+	blobs, _, err := ibm.ListActiveIndexBlobs(ctx)
 
 	//nolint:wrapcheck
 	return blobs, err
@@ -471,32 +467,36 @@ func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *Ca
 		return errors.Wrap(err, "unable to initialize list cache")
 	}
 
-	sm.enc = &encryptedBlobMgr{
-		st:             cachedSt,
-		crypter:        sm.format,
-		indexBlobCache: indexBlobCache,
-		log:            sm.namedLogger("encrypted-blob-manager"),
-	}
+	enc := indexblob.NewEncryptionManager(
+		cachedSt,
+		sm.format,
+		indexBlobCache,
+		sm.namedLogger("encrypted-blob-manager"))
 
 	// set up legacy index blob manager
-	sm.indexBlobManagerV0 = &indexBlobManagerV0{
-		st:                cachedSt,
-		enc:               sm.enc,
-		timeNow:           sm.timeNow,
-		formattingOptions: sm.format,
-		log:               sm.namedLogger("index-blob-manager"),
-	}
+	sm.indexBlobManagerV0 = indexblob.NewManagerV0(
+		cachedSt,
+		enc,
+		sm.timeNow,
+		sm.format,
+		sm.namedLogger("index-blob-manager"),
+	)
 
 	// set up new index blob manager
-	sm.indexBlobManagerV1 = &indexBlobManagerV1{
-		st:                cachedSt,
-		enc:               sm.enc,
-		timeNow:           sm.timeNow,
-		formattingOptions: sm.format,
-		log:               sm.namedLogger("index-blob-manager"),
-	}
-
-	sm.indexBlobManagerV1.epochMgr = epoch.NewManager(cachedSt, epochParameters{sm.format}, sm.indexBlobManagerV1.compactEpoch, sm.namedLogger("epoch-manager"), sm.timeNow)
+	sm.indexBlobManagerV1 = indexblob.NewManagerV1(
+		cachedSt,
+		enc,
+		epoch.NewManager(cachedSt,
+			epochParameters{sm.format},
+			func(ctx context.Context, blobIDs []blob.ID, outputPrefix blob.ID) error {
+				return errors.Wrap(sm.indexBlobManagerV1.CompactEpoch(ctx, blobIDs, outputPrefix), "CompactEpoch")
+			},
+			sm.namedLogger("epoch-manager"),
+			sm.timeNow),
+		sm.timeNow,
+		sm.format,
+		sm.namedLogger("index-blob-manager"),
+	)
 
 	// once everything is ready, set it up
 	sm.contentCache = dataCache
@@ -505,7 +505,7 @@ func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *Ca
 	sm.committedContents = newCommittedContentIndex(caching,
 		sm.format.Encryptor().Overhead,
 		sm.format,
-		sm.enc.getEncryptedBlob,
+		enc.GetEncryptedBlob,
 		sm.namedLogger("committed-content-index"),
 		caching.MinIndexSweepAge.DurationOrDefault(DefaultIndexCacheSweepAge))
 
@@ -532,12 +532,12 @@ func (sm *SharedManager) EpochManager() (*epoch.Manager, bool, error) {
 		return nil, false, err
 	}
 
-	ibm1, ok := ibm.(*indexBlobManagerV1)
+	ibm1, ok := ibm.(*indexblob.ManagerV1)
 	if !ok {
 		return nil, false, nil
 	}
 
-	return ibm1.epochMgr, true, nil
+	return ibm1.EpochManager(), true, nil
 }
 
 // CloseShared releases all resources in a shared manager.
@@ -554,9 +554,9 @@ func (sm *SharedManager) CloseShared(ctx context.Context) error {
 		sm.internalLogger.Sync() //nolint:errcheck
 	}
 
-	sm.internalLogManager.Close(ctx)
+	sm.repoLogManager.Close(ctx)
 
-	sm.indexBlobManagerV1.epochMgr.Flush()
+	sm.indexBlobManagerV1.EpochManager().Flush()
 
 	if err := sm.st.Close(ctx); err != nil {
 		return errors.Wrap(err, "error closing storage")
@@ -568,7 +568,7 @@ func (sm *SharedManager) CloseShared(ctx context.Context) error {
 // AlsoLogToContentLog wraps the provided content so that all logs are also sent to
 // internal content log.
 func (sm *SharedManager) AlsoLogToContentLog(ctx context.Context) context.Context {
-	sm.internalLogManager.enable()
+	sm.repoLogManager.Enable()
 
 	return logging.AlsoLogTo(ctx, sm.log)
 }
@@ -580,23 +580,17 @@ func (sm *SharedManager) shouldRefreshIndexes() bool {
 	return sm.timeNow().After(sm.refreshIndexesAfter)
 }
 
+// PrepareUpgradeToIndexBlobManagerV1 prepares the repository for migrating to IndexBlobManagerV1.
+func (sm *SharedManager) PrepareUpgradeToIndexBlobManagerV1(ctx context.Context, params epoch.Parameters) error {
+	//nolint:wrapcheck
+	return sm.indexBlobManagerV1.PrepareUpgradeToIndexBlobManagerV1(ctx, params, sm.indexBlobManagerV0)
+}
+
 // NewSharedManager returns SharedManager that is used by SessionWriteManagers on top of a repository.
 func NewSharedManager(ctx context.Context, st blob.Storage, prov format.Provider, caching *CachingOptions, opts *ManagerOptions, mr *metrics.Registry) (*SharedManager, error) {
 	opts = opts.CloneOrDefault()
 	if opts.TimeNow == nil {
 		opts.TimeNow = clock.Now
-	}
-
-	// create internal logger that will be writing logs as encrypted repository blobs.
-	ilm := newInternalLogManager(ctx, st, prov)
-
-	// sharedBaseLogger writes to the both context and internal log
-	// and is used as a base for all content manager components.
-	var internalLog *zap.SugaredLogger
-
-	// capture logger (usually console or log file) associated with current context.
-	if !opts.DisableInternalLog {
-		internalLog = ilm.NewLogger()
 	}
 
 	sm := &SharedManager{
@@ -608,14 +602,16 @@ func NewSharedManager(ctx context.Context, st blob.Storage, prov format.Provider
 		maxPreambleLength:       defaultMaxPreambleLength,
 		paddingUnit:             defaultPaddingUnit,
 		checkInvariantsOnUnlock: os.Getenv("KOPIA_VERIFY_INVARIANTS") != "",
-		internalLogManager:      ilm,
-		internalLogger:          internalLog,
+		repoLogManager:          repolog.NewLogManager(ctx, st, prov),
 		contextLogger:           logging.Module(FormatLogModule)(ctx),
 
 		metricsStruct: initMetricsStruct(mr),
 	}
 
-	// remember logger defined for the context.
+	if !opts.DisableInternalLog {
+		sm.internalLogger = sm.repoLogManager.NewLogger()
+	}
+
 	sm.log = sm.namedLogger("shared-manager")
 
 	caching = caching.CloneOrDefault()
