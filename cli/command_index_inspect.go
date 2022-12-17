@@ -11,6 +11,7 @@ import (
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/content/indexblob"
 )
 
 type commandIndexInspect struct {
@@ -81,7 +82,7 @@ func (c *commandIndexInspect) inspectAllBlobs(ctx context.Context, rep repo.Dire
 		return errors.Wrap(err, "error listing index blobs")
 	}
 
-	indexesCh := make(chan content.IndexBlobInfo, len(indexes))
+	indexesCh := make(chan indexblob.Metadata, len(indexes))
 	for _, bm := range indexes {
 		indexesCh <- bm
 	}

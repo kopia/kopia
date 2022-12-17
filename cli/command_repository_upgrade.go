@@ -14,6 +14,7 @@ import (
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/content/index"
+	"github.com/kopia/kopia/repo/content/indexblob"
 	"github.com/kopia/kopia/repo/format"
 )
 
@@ -98,7 +99,7 @@ func assign(iif content.Info, i int, m map[content.ID][2]index.Info) {
 }
 
 // loadIndexBlobs load index blobs into indexEntries map.  indexEntries map will allow comparison betweel two indexes (index at which == 0 and index at which == 1).
-func loadIndexBlobs(ctx context.Context, indexEntries map[content.ID][2]index.Info, sm *content.SharedManager, which int, indexBlobInfos []content.IndexBlobInfo) error {
+func loadIndexBlobs(ctx context.Context, indexEntries map[content.ID][2]index.Info, sm *content.SharedManager, which int, indexBlobInfos []indexblob.Metadata) error {
 	d := gather.WriteBuffer{}
 
 	for _, indexBlobInfo := range indexBlobInfos {

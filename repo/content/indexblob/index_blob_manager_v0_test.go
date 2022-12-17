@@ -1,4 +1,4 @@
-package content
+package indexblob
 
 import (
 	"context"
@@ -426,7 +426,7 @@ type fakeContentIndexEntry struct {
 	Deleted bool
 }
 
-func verifyFakeContentsWritten(ctx context.Context, t *testing.T, m *indexBlobManagerV0, numWritten int, contentPrefix string, deletedContents map[string]bool) error {
+func verifyFakeContentsWritten(ctx context.Context, t *testing.T, m *ManagerV0, numWritten int, contentPrefix string, deletedContents map[string]bool) error {
 	t.Helper()
 
 	if numWritten == 0 {
@@ -460,7 +460,7 @@ func verifyFakeContentsWritten(ctx context.Context, t *testing.T, m *indexBlobMa
 	return nil
 }
 
-func fakeCompaction(ctx context.Context, t *testing.T, m *indexBlobManagerV0, dropDeleted bool) error {
+func fakeCompaction(ctx context.Context, t *testing.T, m *ManagerV0, dropDeleted bool) error {
 	t.Helper()
 
 	t.Logf("fakeCompaction(dropDeleted=%v)", dropDeleted)
@@ -516,7 +516,7 @@ func fakeContentID(prefix string, n int) string {
 	return fmt.Sprintf("%v-%06v", prefix, n)
 }
 
-func deleteFakeContents(ctx context.Context, t *testing.T, m *indexBlobManagerV0, prefix string, numWritten int, deleted map[string]bool, timeFunc func() time.Time) error {
+func deleteFakeContents(ctx context.Context, t *testing.T, m *ManagerV0, prefix string, numWritten int, deleted map[string]bool, timeFunc func() time.Time) error {
 	t.Helper()
 
 	if numWritten == 0 {
@@ -553,7 +553,7 @@ func deleteFakeContents(ctx context.Context, t *testing.T, m *indexBlobManagerV0
 	return err
 }
 
-func undeleteFakeContents(ctx context.Context, t *testing.T, m *indexBlobManagerV0, deleted map[string]bool, timeFunc func() time.Time) error {
+func undeleteFakeContents(ctx context.Context, t *testing.T, m *ManagerV0, deleted map[string]bool, timeFunc func() time.Time) error {
 	t.Helper()
 
 	if len(deleted) == 0 {
@@ -591,7 +591,7 @@ func undeleteFakeContents(ctx context.Context, t *testing.T, m *indexBlobManager
 	return err
 }
 
-func writeFakeContents(ctx context.Context, t *testing.T, m *indexBlobManagerV0, prefix string, count int, numWritten *int, timeFunc func() time.Time) error {
+func writeFakeContents(ctx context.Context, t *testing.T, m *ManagerV0, prefix string, count int, numWritten *int, timeFunc func() time.Time) error {
 	t.Helper()
 
 	t.Logf("writeFakeContents()")
@@ -618,7 +618,7 @@ type fakeIndexData struct {
 	Entries  map[string]fakeContentIndexEntry
 }
 
-func writeFakeIndex(ctx context.Context, t *testing.T, m *indexBlobManagerV0, ndx map[string]fakeContentIndexEntry) ([]blob.Metadata, error) {
+func writeFakeIndex(ctx context.Context, t *testing.T, m *ManagerV0, ndx map[string]fakeContentIndexEntry) ([]blob.Metadata, error) {
 	t.Helper()
 
 	var tmp gather.WriteBuffer
@@ -629,7 +629,7 @@ func writeFakeIndex(ctx context.Context, t *testing.T, m *indexBlobManagerV0, nd
 		Entries:  ndx,
 	}))
 
-	bms, err := m.writeIndexBlobs(ctx, []gather.Bytes{tmp.Bytes()}, "")
+	bms, err := m.WriteIndexBlobs(ctx, []gather.Bytes{tmp.Bytes()}, "")
 	if err != nil {
 		return nil, errors.Wrap(err, "error writing blob")
 	}
@@ -639,7 +639,7 @@ func writeFakeIndex(ctx context.Context, t *testing.T, m *indexBlobManagerV0, nd
 
 var errGetAllFakeContentsRetry = errors.New("retry")
 
-func getAllFakeContents(ctx context.Context, t *testing.T, m *indexBlobManagerV0) (map[string]fakeContentIndexEntry, []IndexBlobInfo, error) {
+func getAllFakeContents(ctx context.Context, t *testing.T, m *ManagerV0) (map[string]fakeContentIndexEntry, []Metadata, error) {
 	t.Helper()
 
 	allContents, allBlobs, err := getAllFakeContentsInternal(ctx, t, m)
@@ -651,10 +651,10 @@ func getAllFakeContents(ctx context.Context, t *testing.T, m *indexBlobManagerV0
 	return allContents, allBlobs, err
 }
 
-func getAllFakeContentsInternal(ctx context.Context, t *testing.T, m *indexBlobManagerV0) (map[string]fakeContentIndexEntry, []IndexBlobInfo, error) {
+func getAllFakeContentsInternal(ctx context.Context, t *testing.T, m *ManagerV0) (map[string]fakeContentIndexEntry, []Metadata, error) {
 	t.Helper()
 
-	blobs, _, err := m.listActiveIndexBlobs(ctx)
+	blobs, _, err := m.ListActiveIndexBlobs(ctx)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "error listing index blobs")
 	}
@@ -667,7 +667,7 @@ func getAllFakeContentsInternal(ctx context.Context, t *testing.T, m *indexBlobM
 	defer bb.Close()
 
 	for _, bi := range blobs {
-		err := m.getIndexBlob(ctx, bi.BlobID, &bb)
+		err := m.enc.GetEncryptedBlob(ctx, bi.BlobID, &bb)
 		if errors.Is(err, blob.ErrBlobNotFound) {
 			return nil, nil, errGetAllFakeContentsRetry
 		}
@@ -700,8 +700,8 @@ func getAllFakeContentsInternal(ctx context.Context, t *testing.T, m *indexBlobM
 
 func assertBlobCounts(t *testing.T, data blobtesting.DataMap, wantN, wantM, wantL int) {
 	t.Helper()
-	require.Len(t, keysWithPrefix(data, compactionLogBlobPrefix), wantM)
-	require.Len(t, keysWithPrefix(data, LegacyIndexBlobPrefix), wantN)
+	require.Len(t, keysWithPrefix(data, V0CompactionLogBlobPrefix), wantM)
+	require.Len(t, keysWithPrefix(data, V0IndexBlobPrefix), wantN)
 	require.Len(t, keysWithPrefix(data, "l"), wantL)
 }
 
@@ -717,7 +717,7 @@ func keysWithPrefix(data blobtesting.DataMap, prefix blob.ID) []blob.ID {
 	return res
 }
 
-func mustRegisterCompaction(t *testing.T, m *indexBlobManagerV0, inputs, outputs []blob.Metadata) {
+func mustRegisterCompaction(t *testing.T, m *ManagerV0, inputs, outputs []blob.Metadata) {
 	t.Helper()
 
 	t.Logf("compacting %v to %v", inputs, outputs)
@@ -728,12 +728,12 @@ func mustRegisterCompaction(t *testing.T, m *indexBlobManagerV0, inputs, outputs
 	}
 }
 
-func mustWriteIndexBlob(t *testing.T, m *indexBlobManagerV0, data string) blob.Metadata {
+func mustWriteIndexBlob(t *testing.T, m *ManagerV0, data string) blob.Metadata {
 	t.Helper()
 
 	t.Logf("writing index blob %q", data)
 
-	blobMDs, err := m.writeIndexBlobs(testlogging.Context(t), []gather.Bytes{gather.FromSlice([]byte(data))}, "")
+	blobMDs, err := m.WriteIndexBlobs(testlogging.Context(t), []gather.Bytes{gather.FromSlice([]byte(data))}, "")
 	if err != nil {
 		t.Fatalf("failed to write index blob: %v", err)
 	}
@@ -741,7 +741,7 @@ func mustWriteIndexBlob(t *testing.T, m *indexBlobManagerV0, data string) blob.M
 	return blobMDs[0]
 }
 
-func assertIndexBlobList(t *testing.T, m *indexBlobManagerV0, wantMD ...blob.Metadata) {
+func assertIndexBlobList(t *testing.T, m *ManagerV0, wantMD ...blob.Metadata) {
 	t.Helper()
 
 	var want []blob.ID
@@ -749,7 +749,7 @@ func assertIndexBlobList(t *testing.T, m *indexBlobManagerV0, wantMD ...blob.Met
 		want = append(want, it.BlobID)
 	}
 
-	l, _, err := m.listActiveIndexBlobs(testlogging.Context(t))
+	l, _, err := m.ListActiveIndexBlobs(testlogging.Context(t))
 	if err != nil {
 		t.Fatalf("failed to list index blobs: %v", err)
 	}
@@ -764,7 +764,7 @@ func assertIndexBlobList(t *testing.T, m *indexBlobManagerV0, wantMD ...blob.Met
 	require.ElementsMatch(t, got, want)
 }
 
-func newIndexBlobManagerForTesting(t *testing.T, st blob.Storage, localTimeNow func() time.Time) *indexBlobManagerV0 {
+func newIndexBlobManagerForTesting(t *testing.T, st blob.Storage, localTimeNow func() time.Time) *ManagerV0 {
 	t.Helper()
 
 	p := &format.ContentFormat{
@@ -785,15 +785,15 @@ func newIndexBlobManagerForTesting(t *testing.T, st blob.Storage, localTimeNow f
 	st = ownwrites.NewWrapper(
 		st,
 		blobtesting.NewMapStorage(blobtesting.DataMap{}, nil, nil),
-		[]blob.ID{LegacyIndexBlobPrefix, compactionLogBlobPrefix, cleanupBlobPrefix},
+		[]blob.ID{V0IndexBlobPrefix, V0CompactionLogBlobPrefix, V0CleanupBlobPrefix},
 		15*time.Minute,
 	)
 
 	log := testlogging.Printf(t.Logf, "")
 
-	m := &indexBlobManagerV0{
+	m := &ManagerV0{
 		st: st,
-		enc: &encryptedBlobMgr{
+		enc: &EncryptionManager{
 			st:             st,
 			indexBlobCache: nil,
 			crypter:        staticCrypter{hf, enc},

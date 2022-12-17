@@ -33,6 +33,7 @@ import (
 	"github.com/kopia/kopia/repo/blob/logging"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content/index"
+	"github.com/kopia/kopia/repo/content/indexblob"
 	"github.com/kopia/kopia/repo/format"
 )
 
@@ -442,7 +443,7 @@ func (s *contentManagerSuite) TestIndexCompactionDropsContent(t *testing.T) {
 
 	bm = s.newTestContentManagerWithCustomTime(t, st, timeFunc)
 	// this drops deleted entries, including from index #1
-	require.NoError(t, bm.CompactIndexes(ctx, CompactOptions{
+	require.NoError(t, bm.CompactIndexes(ctx, indexblob.CompactOptions{
 		DropDeletedBefore: deleteThreshold,
 		AllIndexes:        true,
 	}))
@@ -522,7 +523,7 @@ func (s *contentManagerSuite) TestContentManagerConcurrency(t *testing.T) {
 
 	validateIndexCount(t, data, 4, 0)
 
-	if err := bm4.CompactIndexes(ctx, CompactOptions{MaxSmallBlobs: 1}); err != nil {
+	if err := bm4.CompactIndexes(ctx, indexblob.CompactOptions{MaxSmallBlobs: 1}); err != nil {
 		t.Errorf("compaction error: %v", err)
 	}
 
@@ -540,7 +541,7 @@ func (s *contentManagerSuite) TestContentManagerConcurrency(t *testing.T) {
 	verifyContent(ctx, t, bm5, bm2content, seededRandomData(32, 100))
 	verifyContent(ctx, t, bm5, bm3content, seededRandomData(33, 100))
 
-	if err := bm5.CompactIndexes(ctx, CompactOptions{MaxSmallBlobs: 1}); err != nil {
+	if err := bm5.CompactIndexes(ctx, indexblob.CompactOptions{MaxSmallBlobs: 1}); err != nil {
 		t.Errorf("compaction error: %v", err)
 	}
 }
@@ -551,11 +552,11 @@ func validateIndexCount(t *testing.T, data map[blob.ID][]byte, wantIndexCount, w
 	var indexCnt, compactionLogCnt int
 
 	for blobID := range data {
-		if strings.HasPrefix(string(blobID), LegacyIndexBlobPrefix) || strings.HasPrefix(string(blobID), "x") {
+		if strings.HasPrefix(string(blobID), indexblob.V0IndexBlobPrefix) || strings.HasPrefix(string(blobID), "x") {
 			indexCnt++
 		}
 
-		if strings.HasPrefix(string(blobID), compactionLogBlobPrefix) {
+		if strings.HasPrefix(string(blobID), indexblob.V0CompactionLogBlobPrefix) {
 			compactionLogCnt++
 		}
 	}
@@ -1203,7 +1204,7 @@ func (s *contentManagerSuite) TestFlushWaitsForAllPendingWriters(t *testing.T) {
 	bm.Flush(ctx)
 	t.Logf("<<< end of flushing")
 
-	indexBlobPrefix := blob.ID(LegacyIndexBlobPrefix)
+	indexBlobPrefix := blob.ID(indexblob.V0IndexBlobPrefix)
 	if s.mutableParameters.EpochParameters.Enabled {
 		indexBlobPrefix = "x"
 	}
@@ -1923,7 +1924,7 @@ func (s *contentManagerSuite) verifyVersionCompat(t *testing.T, writeVersion for
 	// make sure we can read everything
 	verifyContentManagerDataSet(ctx, t, mgr, dataSet)
 
-	if err := mgr.CompactIndexes(ctx, CompactOptions{MaxSmallBlobs: 1}); err != nil {
+	if err := mgr.CompactIndexes(ctx, indexblob.CompactOptions{MaxSmallBlobs: 1}); err != nil {
 		t.Fatalf("unable to compact indexes: %v", err)
 	}
 

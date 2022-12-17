@@ -14,6 +14,7 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/throttling"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/content/indexblob"
 	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/repo/object"
@@ -64,7 +65,7 @@ type DirectRepository interface {
 	BlobReader() blob.Reader
 	BlobVolume() blob.Volume
 	ContentReader() content.Reader
-	IndexBlobs(ctx context.Context, includeInactive bool) ([]content.IndexBlobInfo, error)
+	IndexBlobs(ctx context.Context, includeInactive bool) ([]indexblob.Metadata, error)
 	NewDirectWriter(ctx context.Context, opt WriteSessionOptions) (context.Context, DirectRepositoryWriter, error)
 	AlsoLogToContentLog(ctx context.Context) context.Context
 	UniqueID() []byte
@@ -344,7 +345,7 @@ func (r *directRepository) ContentReader() content.Reader {
 }
 
 // IndexBlobs returns the index blobs in use.
-func (r *directRepository) IndexBlobs(ctx context.Context, includeInactive bool) ([]content.IndexBlobInfo, error) {
+func (r *directRepository) IndexBlobs(ctx context.Context, includeInactive bool) ([]indexblob.Metadata, error) {
 	//nolint:wrapcheck
 	return r.cmgr.IndexBlobs(ctx, includeInactive)
 }
