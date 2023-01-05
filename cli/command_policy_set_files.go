@@ -46,7 +46,7 @@ func (c *policyFilesFlags) setup(cmd *kingpin.CmdClause) {
 
 	cmd.Flag("ignore-cache-dirs", "Ignore cache directories ('true', 'false', 'inherit')").EnumVar(&c.policyIgnoreCacheDirs, booleanEnumValues...)
 
-	cmd.Flag("use-filesystem-snapshots", "Use filesystem snapshots").Default("no").EnumVar(&c.policyUseFilesystemSnapshots, "required", "if available", "no")
+	cmd.Flag("use-filesystem-snapshots", "Use filesystem snapshots ('required', 'if available', 'no')").EnumVar(&c.policyUseFilesystemSnapshots, "required", "if available", "no")
 }
 
 func (c *policyFilesFlags) setFilesPolicyFromFlags(ctx context.Context, fp *policy.FilesPolicy, changeCount *int) error {
