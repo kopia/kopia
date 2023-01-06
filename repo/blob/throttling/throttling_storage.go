@@ -92,9 +92,13 @@ func (s *throttlingStorage) PutBlob(ctx context.Context, id blob.ID, data blob.B
 	s.throttler.BeforeOperation(ctx, operationPutBlob)
 	defer s.throttler.AfterOperation(ctx, operationPutBlob)
 
-	s.throttler.BeforeUpload(ctx, int64(data.Length()))
+	throttledData := ThrottledBytes{
+		data:      data,
+		throttler: s.throttler,
+		ctx:       ctx,
+	}
 
-	return s.Storage.PutBlob(ctx, id, data, opts) //nolint:wrapcheck
+	return s.Storage.PutBlob(ctx, id, throttledData, opts) //nolint:wrapcheck
 }
 
 func (s *throttlingStorage) DeleteBlob(ctx context.Context, id blob.ID) error {
