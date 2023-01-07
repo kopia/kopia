@@ -166,7 +166,7 @@ func (a aclEntriesAuthorizer) ManifestAccessLevel(labels map[string]string) Acce
 }
 
 // DefaultAuthorizer returns Authorizer that will fetch ACLs from the repository
-// and evaluate them in the context of current user to determine their permision levels.
+// and evaluate them in the context of current user to determine their permission levels.
 // It will fall back to legacy authorizer if no ACL entries are defined in the repository.
 func DefaultAuthorizer() Authorizer {
 	return &aclCache{

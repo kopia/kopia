@@ -164,7 +164,7 @@ func (e *Environment) MustReopen(tb testing.TB, openOpts ...func(*repo.Options))
 		tb.Fatalf("close error: %v", err)
 	}
 
-	// ensure context passed to Open() is not used for cancelation signal.
+	// ensure context passed to Open() is not used for cancellation signal.
 	ctx2, cancel := context.WithCancel(ctx)
 	defer cancel()
 

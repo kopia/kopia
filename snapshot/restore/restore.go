@@ -89,7 +89,7 @@ type Options struct {
 	MinSizeForPlaceholder  int32 `json:"minSizeForPlaceholder"`
 
 	ProgressCallback func(ctx context.Context, s Stats) `json:"-"`
-	Cancel           chan struct{}                      `json:"-"` // channel that can be externally closed to signal cancelation
+	Cancel           chan struct{}                      `json:"-"` // channel that can be externally closed to signal cancellation
 }
 
 // Entry walks a snapshot root with given root entry and restores it to the provided output.

@@ -84,7 +84,7 @@ type SharedManager struct {
 	committedContents *committedContentIndex
 	timeNow           func() time.Time
 
-	// lock to protect the set of commtited indexes
+	// lock to protect the set of committed indexes
 	// shared lock will be acquired when writing new content to allow it to happen in parallel
 	// exclusive lock will be acquired during compaction or refresh.
 	indexesLock sync.RWMutex

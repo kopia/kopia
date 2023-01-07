@@ -89,7 +89,7 @@ func WriteLegacyIndexPoisonBlob(ctx context.Context, st blob.Storage) error {
 }
 
 // CommitUpgrade removes the upgrade lock from the from the repository format
-// blob. This in-effect commits the new repository format t othe repository and
+// blob. This in-effect commits the new repository format to the repository and
 // resumes all access to the repository.
 func (m *Manager) CommitUpgrade(ctx context.Context) error {
 	if err := m.maybeRefreshNotLocked(); err != nil {

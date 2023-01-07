@@ -21,7 +21,7 @@ type policyFilesFlags struct {
 	policySetClearDotIgnore  bool
 	policySetMaxFileSize     string
 
-	// Ignore other mounted fileystems.
+	// Ignore other mounted filesystems.
 	policyOneFileSystem string
 
 	policyIgnoreCacheDirs string

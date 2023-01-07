@@ -527,7 +527,7 @@ func (u *Uploader) checkpointRoot(ctx context.Context, cp *checkpointRegistry, p
 }
 
 // periodicallyCheckpoint periodically (every CheckpointInterval) invokes checkpointRoot until the
-// returned cancelation function has been called.
+// returned cancellation function has been called.
 func (u *Uploader) periodicallyCheckpoint(ctx context.Context, cp *checkpointRegistry, prototypeManifest *snapshot.Manifest) (cancelFunc func()) {
 	shutdown := make(chan struct{})
 	ch := u.getTicker(u.CheckpointInterval)
@@ -627,7 +627,7 @@ func (u *Uploader) processChildren(
 	defer wg.Close()
 
 	// ignore errCancel because a more serious error may be reported in wg.Wait()
-	// we'll check for cancelation later.
+	// we'll check for cancellation later.
 
 	if err := u.processDirectoryEntries(ctx, parentDirCheckpointRegistry, parentDirBuilder, localDirPathOrEmpty, relativePath, dir, policyTree, previousDirs, &wg); err != nil && !errors.Is(err, errCanceled) {
 		return err
@@ -1140,7 +1140,7 @@ func uploadDirInternal(
 
 func (u *Uploader) reportErrorAndMaybeCancel(err error, isIgnored bool, dmb *DirManifestBuilder, entryRelativePath string) {
 	if u.IsCanceled() && errors.Is(err, errCanceled) {
-		// alrady canceled, do not report another.
+		// already canceled, do not report another.
 		return
 	}
 

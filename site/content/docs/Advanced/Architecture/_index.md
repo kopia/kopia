@@ -62,7 +62,7 @@ Object IDs can also have an optional single-letter prefix `g..z` that helps quic
 
 Objects without prefixes are stored in the `p` pack while objects with prefixes are stored in the `q` metadata pack by the CABS layer.
 
-To represent objects larger than the size of a single CABS block, Kopia links together multiple blocks via special indirect JSON content. Such blocks are distinguished from regular blocks the `I` virtual prefix. Indirection can be applied to any object type, including metadata such as directory listing. However, when applied to a data block, an `x` prefix is added to ensure than the indrect JSON is stored in a metadata pack instead of a data pack by the CABS layer.
+To represent objects larger than the size of a single CABS block, Kopia links together multiple blocks via special indirect JSON content. Such blocks are distinguished from regular blocks the `I` virtual prefix. Indirection can be applied to any object type, including metadata such as directory listing. However, when applied to a data block, an `x` prefix is added to ensure than the indirect JSON is stored in a metadata pack instead of a data pack by the CABS layer.
 
 For example large file object might have an identifier such as `Ixac47f7ce280fdd81f04c670fec2353dc` and JSON content:
 
@@ -92,7 +92,7 @@ $ kopia content show xac47f7ce280fdd81f04c670fec2353dc
 $ kopia content show Ixac47f7ce280fdd81f04c670fec2353dc
 ```
 
-Note that the example above shows that `I` is a virtual prefix. The actual CABS block does not content the `I` prefix but referencing the block with the `I` prefix tells Kopia to interprete the block as an indirect JSON object and return the resolved content instead of the raw content.
+Note that the example above shows that `I` is a virtual prefix. The actual CABS block does not content the `I` prefix but referencing the block with the `I` prefix tells Kopia to interpret the block as an indirect JSON object and return the resolved content instead of the raw content.
 
 The API for CAOS can be found in https://godoc.org/github.com/kopia/kopia/repo/object
 

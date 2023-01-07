@@ -40,7 +40,7 @@ func getIndexBlobIV(s blob.ID) ([]byte, error) {
 }
 
 // Encrypt encrypts the given data using crypter-defined key and returns a name that should
-// be used to save the blob in thre repository.
+// be used to save the blob in the repository.
 func Encrypt(c Crypter, payload gather.Bytes, prefix, suffix blob.ID, output *gather.WriteBuffer) (blob.ID, error) {
 	var hashOutput [hashing.MaxHashSize]byte
 

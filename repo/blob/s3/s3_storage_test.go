@@ -37,7 +37,7 @@ import (
 const (
 	// https://github.com/minio/minio-go
 
-	// fake creadentials used by minio server we're launching.
+	// fake credentials used by minio server we're launching.
 	minioRootAccessKeyID     = "fake-key"
 	minioRootSecretAccessKey = "fake-secret"
 	minioRegion              = "fake-region-1"

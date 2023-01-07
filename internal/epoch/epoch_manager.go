@@ -578,7 +578,7 @@ func (e *Manager) maybeGenerateNextRangeCheckpointAsync(ctx context.Context, cs 
 
 	e.backgroundWork.Add(1)
 
-	// we're starting background work, ignore parent cancelation signal.
+	// we're starting background work, ignore parent cancellation signal.
 	ctxutil.GoDetached(ctx, func(ctx context.Context) {
 		defer e.backgroundWork.Done()
 
@@ -594,7 +594,7 @@ func (e *Manager) maybeOptimizeRangeCheckpointsAsync(ctx context.Context, cs Cur
 func (e *Manager) maybeStartCleanupAsync(ctx context.Context, cs CurrentSnapshot, p *Parameters) {
 	e.backgroundWork.Add(1)
 
-	// we're starting background work, ignore parent cancelation signal.
+	// we're starting background work, ignore parent cancellation signal.
 	ctxutil.GoDetached(ctx, func(ctx context.Context) {
 		defer e.backgroundWork.Done()
 
@@ -958,7 +958,7 @@ func (e *Manager) getIndexesFromEpochInternal(ctx context.Context, cs CurrentSna
 	if epochSettled {
 		e.backgroundWork.Add(1)
 
-		// we're starting background work, ignore parent cancelation signal.
+		// we're starting background work, ignore parent cancellation signal.
 		ctxutil.GoDetached(ctx, func(ctx context.Context) {
 			defer e.backgroundWork.Done()
 

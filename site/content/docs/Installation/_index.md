@@ -6,7 +6,7 @@ weight: 30
 
 ### Two Variants of Kopia
 
-Kopia is a standalone binary and can be used through a command-line interface (CLI) or a graphical user inferace (GUI). 
+Kopia is a standalone binary and can be used through a command-line interface (CLI) or a graphical user interface (GUI). 
 
 * If you want to use Kopia via CLI, you will install the `kopia` binary; when you want to use Kopia, you will call the `kopia` binary (along with [Kopia commands](../reference/command-line/)) in a terminal/command prompt window or within a script. 
 
@@ -20,7 +20,7 @@ Kopia CLI is recommended only if you are comfortable with command-line interface
 
 ### Kopia Download Links
 
-The following installation options are available for the latest stable verison of Kopia:
+The following installation options are available for the latest stable version of Kopia:
 
 * [Official Releases](https://github.com/kopia/kopia/releases/latest)
 * [Windows CLI (Scoop)](#windows-cli-installation-using-scoop)
