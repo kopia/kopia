@@ -103,6 +103,7 @@ func (c *commandRepositoryStatus) dumpUpgradeStatus(ctx context.Context, dr repo
 	c.out.printStdout("\n")
 	c.out.printStdout("Ongoing upgrade:     %s\n", l.Message)
 	c.out.printStdout("Upgrade Time:        %s\n", upgradeTime.Local())
+	c.out.printStdout("Upgrade Owner:       %s\n", l.OwnerID)
 
 	if locked {
 		c.out.printStdout("Upgrade lock:        Locked\n")
