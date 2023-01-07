@@ -228,6 +228,7 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgradeStatusWhileLocked(t *test
 		// "Draining"
 		out = env.RunAndExpectSuccess(t, "repository", "status", "--upgrade-no-block", "--upgrade-owner-id", "owner")
 		require.Contains(t, out, "Ongoing upgrade:     Upgrading from format version 1 -> 3")
+		require.Contains(t, out, "Upgrade Owner:       owner")
 		require.Contains(t, out, "Upgrade lock:        Locked")
 		require.Contains(t, out, "Lock status:         Draining")
 
@@ -246,6 +247,7 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgradeStatusWhileLocked(t *test
 		// verify that owner clients can check status
 		out = env.RunAndExpectSuccess(t, "repository", "status", "--upgrade-owner-id", "owner")
 		require.Contains(t, out, "Ongoing upgrade:     Upgrading from format version 1 -> 3")
+		require.Contains(t, out, "Upgrade Owner:       owner")
 		require.Contains(t, out, "Upgrade lock:        Locked")
 		require.Contains(t, out, "Lock status:         Fully Established")
 
