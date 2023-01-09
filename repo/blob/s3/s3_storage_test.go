@@ -347,6 +347,29 @@ func TestTokenExpiration(t *testing.T) {
 	verifyBlobNotFoundForGetBlob(ctx, t, rst)
 }
 
+func TestS3StorageCustomCredentials(t *testing.T) {
+	t.Parallel()
+
+	// skip the test if AWS creds are not provided
+	creds := miniocreds.New(&miniocreds.Static{
+		Value: miniocreds.Value{
+			AccessKeyID:     getEnvOrSkip(t, testAccessKeyIDEnv),
+			SecretAccessKey: getEnvOrSkip(t, testSecretAccessKeyEnv),
+			SignerType:      miniocreds.SignatureV4,
+		},
+	})
+
+	options := &Options{
+		Endpoint:   getEnv(testEndpointEnv, awsEndpoint),
+		BucketName: getEnvOrSkip(t, testBucketEnv),
+		Region:     getEnvOrSkip(t, testRegionEnv),
+		Creds:      creds,
+	}
+
+	getOrCreateBucket(t, options)
+	testStorage(t, options, false, blob.PutOptions{})
+}
+
 func TestS3StorageMinio(t *testing.T) {
 	t.Parallel()
 	testutil.ProviderTest(t)

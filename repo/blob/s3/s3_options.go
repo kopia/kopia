@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/repo/blob/throttling"
+	"github.com/minio/minio-go/v7/pkg/credentials"
 )
 
 // Options defines options for S3-based storage.
@@ -29,4 +30,7 @@ type Options struct {
 
 	// PointInTime specifies a view of the (versioned) store at that time
 	PointInTime *time.Time `json:"pointInTime,omitempty"`
+
+	// Creds is an optional credential container to use
+	Creds *credentials.Credentials `json:"-"`
 }

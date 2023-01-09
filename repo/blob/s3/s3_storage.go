@@ -335,6 +335,11 @@ func newStorage(ctx context.Context, opt *Options) (*s3Storage, error) {
 		},
 	)
 
+	// If a credential container was specified, use that instead.
+	if opt.Creds != nil {
+		creds = opt.Creds
+	}
+
 	return newStorageWithCredentials(ctx, creds, opt)
 }
 
