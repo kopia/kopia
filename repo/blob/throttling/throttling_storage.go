@@ -31,9 +31,15 @@ type Throttler interface {
 	// possibly blocking until enough are available.
 	BeforeDownload(ctx context.Context, numBytes int64)
 
-	// BeforeUpload acquires the specified number of upload bytes
+	// BeforeUpload acquires the specified number of upload bytes before an upload starts
 	// possibly blocking until enough are available.
+	// This ensures new uploads are not started unless enough bandwidth is available
 	BeforeUpload(ctx context.Context, numBytes int64)
+
+	// BeforeUpload acquires the specified number of upload bytes while an upload is in progress
+	// possibly blocking until enough are available.
+	// This ensures that uploads do not exceed rate limits during uploads
+	DuringUpload(ctx context.Context, numBytes int64)
 
 	// ReturnUnusedDownloadBytes returns the specified number of unused download bytes.
 	ReturnUnusedDownloadBytes(ctx context.Context, numBytes int64)
@@ -92,12 +98,13 @@ func (s *throttlingStorage) PutBlob(ctx context.Context, id blob.ID, data blob.B
 	s.throttler.BeforeOperation(ctx, operationPutBlob)
 	defer s.throttler.AfterOperation(ctx, operationPutBlob)
 
+	s.throttler.BeforeUpload(ctx, int64(data.Length()))
+
 	throttledData := ThrottledBytes{
 		data:      data,
 		throttler: s.throttler,
 		ctx:       ctx,
 	}
-
 	return s.Storage.PutBlob(ctx, id, throttledData, opts) //nolint:wrapcheck
 }
 

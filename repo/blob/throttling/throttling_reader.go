@@ -50,7 +50,7 @@ func (s *ThrottledReader) Read(p []byte) (int, error) {
 	if err != nil {
 		return n, err
 	}
-	s.throttler.BeforeUpload(s.ctx, int64(n))
+	s.throttler.DuringUpload(s.ctx, int64(n))
 	return n, nil
 }
 
