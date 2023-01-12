@@ -830,8 +830,8 @@ func (u *Uploader) processSingle(
 		// See if we had this name during either of previous passes.
 		if cachedEntry := u.maybeIgnoreCachedEntry(ctx, findCachedEntry(ctx, entryRelativePath, entry, prevDirs, policyTree)); cachedEntry != nil {
 			atomic.AddInt32(&u.stats.CachedFiles, 1)
-			atomic.AddInt64(&u.stats.TotalFileSize, entry.Size())
-			u.Progress.CachedFile(entryRelativePath, entry.Size())
+			atomic.AddInt64(&u.stats.TotalFileSize, cachedEntry.Size())
+			u.Progress.CachedFile(entryRelativePath, cachedEntry.Size())
 
 			cachedDirEntry, err := newCachedDirEntry(entry, cachedEntry, entry.Name())
 
