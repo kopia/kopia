@@ -10,6 +10,19 @@ let configDir = "";
 let isPortable = false;
 let firstRun = false;
 
+// returns additional server args for starting Kopia server
+function additionalServerArgs(repoID) {
+    const argsFile=path.resolve(globalConfigDir(), `server_args-${repoID}.conf`)
+    log.info(`Checking for additional server args in ${argsFile}`)
+    if(fs.existsSync(argsFile)){
+        const additionalArgs=fs.readFileSync(argsFile).toString().split("\n").filter(v => v.trim().length >= 0)
+        log.info(`Found additional server args for ${repoID}: ${JSON.stringify(additionalArgs)}`)
+        return additionalArgs
+    } else {
+        return []
+    }
+}
+
 // returns the list of directories to be checked for portable configurations
 function portableConfigDirs() {
     let result = [];
@@ -107,6 +120,7 @@ function deleteConfigIfDisconnected(repoID) {
 }
 
 module.exports = {
+    additionalServerArgs,
     loadConfigs() {
         fs.mkdirSync(globalConfigDir(), { recursive: true, mode: 0700 });
         let entries = fs.readdirSync(globalConfigDir());
