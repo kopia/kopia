@@ -362,6 +362,16 @@ func newStorage(ctx context.Context, opt *Options) (*s3Storage, error) {
 		},
 	)
 
+	// If a role was specified, use the assume role credential provider
+	if opt.RoleARN != "" {
+		assumeRoleCreds, err := assumeRoleCredentials(opt.RoleARN, opt.SessionName, opt.RoleDuration, opt.Tags)
+		if err != nil {
+			return nil, err
+		}
+
+		creds = credentials.New(assumeRoleCreds)
+	}
+
 	return newStorageWithCredentials(ctx, creds, opt)
 }
 
