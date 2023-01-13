@@ -210,7 +210,7 @@ func (kc *KopiaClient) getStorage(ctx context.Context, repoDir, bucketName strin
 // reads its contents from `val`.
 func (kc *KopiaClient) getSourceForKeyVal(key string, val []byte) fs.Entry {
 	return virtualfs.NewStaticDirectory(key, []fs.Entry{
-		virtualfs.StreamingFileFromReader(dataFileName, bytes.NewReader(val)),
+		virtualfs.StreamingFileFromReader(dataFileName, io.NopCloser(bytes.NewReader(val))),
 	})
 }
 
