@@ -463,6 +463,22 @@ func newDirEntry(md fs.Entry, fname string, oid object.ID) (*snapshot.DirEntry, 
 	}, nil
 }
 
+// newCachedDirEntry makes DirEntry objects for entries that are also in
+// previous snapshots. It ensures file sizes are populated correctly for
+// StreamingFiles.
+func newCachedDirEntry(md, cached fs.Entry, fname string) (*snapshot.DirEntry, error) {
+	hoid, ok := cached.(object.HasObjectID)
+	if !ok {
+		return nil, errors.New("cached entry does not implement HasObjectID")
+	}
+
+	if _, ok := md.(fs.StreamingFile); ok {
+		return newDirEntry(cached, fname, hoid.ObjectID())
+	}
+
+	return newDirEntry(md, fname, hoid.ObjectID())
+}
+
 // uploadFileWithCheckpointing uploads the specified File to the repository.
 func (u *Uploader) uploadFileWithCheckpointing(ctx context.Context, relativePath string, file fs.File, pol *policy.Policy, sourceInfo snapshot.SourceInfo) (*snapshot.DirEntry, error) {
 	var cp checkpointRegistry
@@ -809,11 +825,11 @@ func (u *Uploader) processSingle(
 		// See if we had this name during either of previous passes.
 		if cachedEntry := u.maybeIgnoreCachedEntry(ctx, findCachedEntry(ctx, entryRelativePath, entry, prevDirs, policyTree)); cachedEntry != nil {
 			atomic.AddInt32(&u.stats.CachedFiles, 1)
-			atomic.AddInt64(&u.stats.TotalFileSize, entry.Size())
-			u.Progress.CachedFile(entryRelativePath, entry.Size())
+			atomic.AddInt64(&u.stats.TotalFileSize, cachedEntry.Size())
+			u.Progress.CachedFile(entryRelativePath, cachedEntry.Size())
 
-			// compute entryResult now, cachedEntry is short-lived
-			cachedDirEntry, err := newDirEntry(entry, entry.Name(), cachedEntry.(object.HasObjectID).ObjectID())
+			cachedDirEntry, err := newCachedDirEntry(entry, cachedEntry, entry.Name())
+
 			u.Progress.FinishedFile(entryRelativePath, err)
 
 			if err != nil {

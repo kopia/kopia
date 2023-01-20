@@ -923,6 +923,7 @@ func TestUpload_VirtualDirectoryWithStreamingFileWithModTime(t *testing.T) {
 			require.Equal(t, int32(1), atomic.LoadInt32(&man1.Stats.NonCachedFiles))
 			require.Equal(t, int32(1), atomic.LoadInt32(&man1.Stats.TotalDirectoryCount))
 			require.Equal(t, int32(1), atomic.LoadInt32(&man1.Stats.TotalFileCount))
+			require.Equal(t, int64(len(content)), atomic.LoadInt64(&man1.Stats.TotalFileSize))
 
 			// wait a little bit to ensure clock moves forward which is not always the case on Windows.
 			time.Sleep(100 * time.Millisecond)
@@ -941,6 +942,7 @@ func TestUpload_VirtualDirectoryWithStreamingFileWithModTime(t *testing.T) {
 			assert.Equal(t, tc.uploadedFiles, atomic.LoadInt32(&man2.Stats.NonCachedFiles))
 			// Cached files don't count towards the total file count.
 			assert.Equal(t, tc.uploadedFiles, atomic.LoadInt32(&man2.Stats.TotalFileCount))
+			require.Equal(t, int64(len(content)), atomic.LoadInt64(&man2.Stats.TotalFileSize))
 		})
 	}
 }
