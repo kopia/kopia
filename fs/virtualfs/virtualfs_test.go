@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
 	"os"
 	"reflect"
 	"testing"
@@ -76,9 +77,9 @@ func TestStreamingFile(t *testing.T) {
 
 func TestStreamingFileModTime(t *testing.T) {
 	data := []byte("data")
-	f1 := StreamingFileFromReader("f1", bytes.NewReader(data))
+	f1 := StreamingFileFromReader("f1", io.NopCloser(bytes.NewReader(data)))
 	mt := time.Date(2021, 1, 2, 3, 4, 5, 0, time.UTC)
-	f2 := StreamingFileWithModTimeFromReader("f2", mt, bytes.NewReader(data))
+	f2 := StreamingFileWithModTimeFromReader("f2", mt, io.NopCloser(bytes.NewReader(data)))
 
 	assert.True(t, f1.ModTime().After(f2.ModTime()))
 }
@@ -130,7 +131,7 @@ func TestStreamingFileGetReader(t *testing.T) {
 func TestStreamingDirectory(t *testing.T) {
 	// Create a temporary file with test data
 	content := []byte("Temporary file content")
-	r := bytes.NewReader(content)
+	r := io.NopCloser(bytes.NewReader(content))
 
 	f := StreamingFileFromReader(testFileName, r)
 
@@ -167,7 +168,7 @@ func TestStreamingDirectory(t *testing.T) {
 func TestStreamingDirectory_MultipleIterationsFails(t *testing.T) {
 	// Create a temporary file with test data
 	content := []byte("Temporary file content")
-	r := bytes.NewReader(content)
+	r := io.NopCloser(bytes.NewReader(content))
 
 	f := StreamingFileFromReader(testFileName, r)
 
@@ -195,7 +196,7 @@ var errCallback = errors.New("callback error")
 func TestStreamingDirectory_ReturnsCallbackError(t *testing.T) {
 	// Create a temporary file with test data
 	content := []byte("Temporary file content")
-	r := bytes.NewReader(content)
+	r := io.NopCloser(bytes.NewReader(content))
 
 	f := StreamingFileFromReader(testFileName, r)
 

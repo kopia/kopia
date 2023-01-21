@@ -342,6 +342,8 @@ func (u *Uploader) uploadStreamingFileInternal(ctx context.Context, relativePath
 		return nil, errors.Wrap(err, "unable to get streaming file reader")
 	}
 
+	defer reader.Close() //nolint:errcheck
+
 	var streamSize int64
 
 	u.Progress.HashingFile(relativePath)

@@ -886,7 +886,7 @@ func TestUpload_VirtualDirectoryWithStreamingFileWithModTime(t *testing.T) {
 		{
 			desc: "CurrentTime",
 			getFile: func() fs.StreamingFile {
-				return virtualfs.StreamingFileFromReader("a", bytes.NewReader(content))
+				return virtualfs.StreamingFileFromReader("a", io.NopCloser(bytes.NewReader(content)))
 			},
 			cachedFiles:   0,
 			uploadedFiles: 1,
@@ -894,7 +894,7 @@ func TestUpload_VirtualDirectoryWithStreamingFileWithModTime(t *testing.T) {
 		{
 			desc: "FixedTime",
 			getFile: func() fs.StreamingFile {
-				return virtualfs.StreamingFileWithModTimeFromReader("a", mt, bytes.NewReader(content))
+				return virtualfs.StreamingFileWithModTimeFromReader("a", mt, io.NopCloser(bytes.NewReader(content)))
 			},
 			cachedFiles:   1,
 			uploadedFiles: 0,
