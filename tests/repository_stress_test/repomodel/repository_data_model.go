@@ -1,4 +1,4 @@
-// Package repomodel provides simplified model of repository operaton.
+// Package repomodel provides simplified model of repository operation.
 package repomodel
 
 import "sync/atomic"

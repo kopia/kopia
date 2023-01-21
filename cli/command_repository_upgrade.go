@@ -155,7 +155,7 @@ func (c *commandRepositoryUpgrade) validateAction(ctx context.Context, rep repo.
 
 	var msgs []string // a place to keep messages from the index comparison process
 
-	// both indexes will have matching contentiDs with matching indexInfo sructures.
+	// both indexes will have matching contentiDs with matching indexInfo structures.
 	for contentID, indexEntryPairs := range indexEntries {
 		iep0 := indexEntryPairs[0] // first entry of index entry pair
 		iep1 := indexEntryPairs[1] // second entry of index entry pair

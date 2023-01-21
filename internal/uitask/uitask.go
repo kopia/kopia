@@ -100,7 +100,7 @@ func (t *runningTaskInfo) cancel() {
 	if t.Status == StatusRunning {
 		t.Status = StatusCanceling
 		for _, c := range t.taskCancel {
-			// run cancelation functions on their own goroutines
+			// run cancellation functions on their own goroutines
 			go c()
 		}
 

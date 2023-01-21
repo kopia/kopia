@@ -328,7 +328,7 @@ func deepenSubtreeFile(m *mutatorArgs) {
 // deepenOneSubtreeLevel reifies a shallow directory entry with one level
 // of reification. In particular: given a path into a shallow restored
 // tree, we restore a single shallow directory and the directory should
-// become a real (mutable) directory contaning shallow entries.
+// become a real (mutable) directory containing shallow entries.
 // TODO(rjk): generalize the testing of the shallow restoration
 // validation to make sure that the restored directory of this form has
 // the correct form.
@@ -655,7 +655,7 @@ func (rdc *repoDirEntryCache) repoRootRel(t *testing.T, fpath string) string {
 }
 
 // getRepoDirEntry retrieves the directory entry for rdc.rootid/rop via kopia
-// show of the repository rdc.rootid's directory contaning rdc.rootid/rop.
+// show of the repository rdc.rootid's directory containing rdc.rootid/rop.
 // Assumption: repository paths are paths and not filepaths.
 func (rdc *repoDirEntryCache) getRepoDirEntry(t *testing.T, rop string) *snapshot.DirEntry {
 	t.Helper()

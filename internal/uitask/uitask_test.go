@@ -242,7 +242,7 @@ func TestUITaskCancel_AfterOnCancel(t *testing.T) {
 
 		time.Sleep(time.Second)
 
-		t.Logf("requesting cancelation of %v", childTaskID)
+		t.Logf("requesting cancellation of %v", childTaskID)
 		m.CancelTask(childTaskID)
 	}()
 

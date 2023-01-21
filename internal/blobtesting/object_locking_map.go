@@ -26,7 +26,7 @@ type versionedEntries map[blob.ID][]*entry
 // objectLockingMap is an in-memory versioned object store which maintains
 // historical versions of each blob on every put. Deletes use a delete-marker
 // overlay mechanism and lists will avoid entries if their latest object is a
-// marker. This struct manages the retention time of each blob throug hte
+// marker. This struct manages the retention time of each blob through the
 // PutBlob options.
 type objectLockingMap struct {
 	// +checklocks:mutex

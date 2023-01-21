@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// SourceInfo reprents a single source (user@host:/path) with its snapshots.
+// SourceInfo represents a single source (user@host:/path) with its snapshots.
 type SourceInfo struct {
 	User      string
 	Host      string

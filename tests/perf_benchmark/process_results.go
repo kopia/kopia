@@ -108,7 +108,7 @@ func parseRepoSize(fname string) (int64, error) {
 
 	fields := strings.Fields(s.Text())
 	if len(fields) != 2 {
-		return 0, errors.Errorf("unvalid repo size format")
+		return 0, errors.Errorf("invalid repo size format")
 	}
 
 	return strconv.ParseInt(fields[0], 10, 64)

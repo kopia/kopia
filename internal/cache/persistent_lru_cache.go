@@ -199,7 +199,7 @@ func (c *PersistentCache) Close(ctx context.Context) {
 	close(c.periodicSweepClosed)
 	c.periodicSweepRunning.Wait()
 
-	// if we added anything to the cache in this sesion, run one last sweep before shutting down.
+	// if we added anything to the cache in this session, run one last sweep before shutting down.
 	if c.anyChange.Load() {
 		if err := c.sweepDirectory(ctx); err != nil {
 			log(ctx).Errorf("error during final sweep of the %v: %v", c.description, err)

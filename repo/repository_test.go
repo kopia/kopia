@@ -311,7 +311,7 @@ func TestWriterScope(t *testing.T) {
 
 	lw := rep.(repo.RepositoryWriter)
 
-	// w1, w2, w3 are indepdendent sessions.
+	// w1, w2, w3 are independent sessions.
 	_, w1, err := rep.NewWriter(ctx, repo.WriteSessionOptions{Purpose: "writer1"})
 	require.NoError(t, err)
 

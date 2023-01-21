@@ -464,7 +464,7 @@ func TestRestoreSnapshotOfSingleFile(t *testing.T) {
 		overriddenFilePermissions := 0o654 | os.ModeSetuid
 
 		// change source file permissions and create one more snapshot
-		// at this poing we will have multiple snapshot manifests with one root but different attributes.
+		// at this point we will have multiple snapshot manifests with one root but different attributes.
 		os.Chmod(sourceFile, overriddenFilePermissions)
 		e.RunAndExpectSuccess(t, "snapshot", "create", sourceFile)
 

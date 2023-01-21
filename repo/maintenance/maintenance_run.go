@@ -20,7 +20,7 @@ var log = logging.Module("maintenance")
 
 const maxClockSkew = 5 * time.Minute
 
-// Mode describes the mode of maintenance to perfor.
+// Mode describes the mode of maintenance to perform.
 type Mode string
 
 // Supported maintenance modes.

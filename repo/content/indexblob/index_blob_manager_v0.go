@@ -305,7 +305,7 @@ func (m *ManagerV0) deleteOldBlobs(ctx context.Context, latestBlob blob.Metadata
 	indexBlobsToDelete := m.findIndexBlobsToDelete(latestBlob.Timestamp, compactionBlobEntries, maxEventualConsistencySettleTime)
 
 	// note that we must always delete index blobs first before compaction logs
-	// otherwise we may inadvertedly resurrect an index blob that should have been removed.
+	// otherwise we may inadvertently resurrect an index blob that should have been removed.
 	if err := m.deleteBlobsFromStorageAndCache(ctx, indexBlobsToDelete); err != nil {
 		return errors.Wrap(err, "unable to delete compaction logs")
 	}
