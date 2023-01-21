@@ -9,7 +9,7 @@
     "electron-log": "^4.4.8",
     "electron-updater": "^5.2.1",
     "minimist": "^1.2.7",
-    "uuid": "^8.3.2"
+    "uuid": "^9.0.0"
   },
   "author": {
     "email": "kopia-pmc@googlegroups.com",
