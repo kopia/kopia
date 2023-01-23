@@ -10,31 +10,7 @@
 
 # golang.org/x 
 - match:
-    dependency_name: "golang.org/x/net"
-    update_type: "semver:minor"
-- match:
-    dependency_name: "golang.org/x/crypto"
-    update_type: "semver:minor"
-- match:
-    dependency_name: "golang.org/x/mod"
-    update_type: "semver:minor"
-- match:
-    dependency_name: "golang.org/x/net"
-    update_type: "semver:minor"
-- match:
-    dependency_name: "golang.org/x/oauth2"
-    update_type: "semver:minor"
-- match:
-    dependency_name: "golang.org/x/sync"
-    update_type: "semver:minor"
-- match:
-    dependency_name: "golang.org/x/sys"
-    update_type: "semver:minor"
-- match:
-    dependency_name: "golang.org/x/term"
-    update_type: "semver:minor"
-- match:
-    dependency_name: "golang.org/x/text"
+    dependency_name: "golang.org/x/.*"
     update_type: "semver:minor"
 
 # Google-provided libraries
