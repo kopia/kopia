@@ -34,7 +34,7 @@ import (
 // MaxGRPCMessageSize is the maximum size of a message sent or received over GRPC API when talking to
 // Kopia repository server. This is bigger than the size of any possible content, which is
 // defined by supported splitters.
-const MaxGRPCMessageSize = 20 << 21
+const MaxGRPCMessageSize = 20 << 20
 
 const (
 	// when writing contents of this size or above, make a round-trip to the server to
