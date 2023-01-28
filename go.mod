@@ -12,7 +12,7 @@ require (
 	github.com/aws/aws-sdk-go v1.44.185
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
 	github.com/dustinkirkland/golang-petname v0.0.0-20191129215211-8e5a1ed0cff0
-	github.com/fatih/color v1.13.0
+	github.com/fatih/color v1.14.1
 	github.com/foomo/htpasswd v0.0.0-20200116085101-e3a90e78da9c
 	github.com/frankban/quicktest v1.13.1 // indirect
 	github.com/gofrs/flock v0.8.1
@@ -86,7 +86,7 @@ require (
 	github.com/kopia/htmluibuild v0.0.0-20220928042710-9fdd02afb1e7
 	github.com/kr/fs v0.1.0 // indirect
 	github.com/mattn/go-ieproxy v0.0.1 // indirect
-	github.com/mattn/go-isatty v0.0.16 // indirect
+	github.com/mattn/go-isatty v0.0.17 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
