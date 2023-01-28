@@ -104,6 +104,9 @@ func (r *apiServerRepository) PutManifest(ctx context.Context, labels map[string
 	return resp.ID, nil
 }
 
+func (r *apiServerRepository) SetFindManifestPageSizeForTesting(v int32) {
+}
+
 func (r *apiServerRepository) FindManifests(ctx context.Context, labels map[string]string) ([]*manifest.EntryMetadata, error) {
 	uv := make(url.Values)
 
