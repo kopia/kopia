@@ -36,7 +36,7 @@ type Throttler interface {
 	// This ensures new uploads are not started unless enough bandwidth is available
 	BeforeUpload(ctx context.Context, numBytes int64)
 
-	// BeforeUpload acquires the specified number of upload bytes while an upload is in progress
+	// DuringUpload acquires the specified number of upload bytes while an upload is in progress
 	// possibly blocking until enough are available.
 	// This ensures that uploads do not exceed rate limits during uploads
 	DuringUpload(ctx context.Context, numBytes int64)
@@ -105,6 +105,7 @@ func (s *throttlingStorage) PutBlob(ctx context.Context, id blob.ID, data blob.B
 		throttler: s.throttler,
 		ctx:       ctx,
 	}
+
 	return s.Storage.PutBlob(ctx, id, throttledData, opts) //nolint:wrapcheck
 }
 
