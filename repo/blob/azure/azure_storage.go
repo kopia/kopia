@@ -23,6 +23,7 @@ const (
 
 type azStorage struct {
 	Options
+	blob.UnsupportedBlobRetention
 
 	service azblob.ServiceClient
 	bucket  azblob.ContainerClient

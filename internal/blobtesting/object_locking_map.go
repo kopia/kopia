@@ -187,6 +187,23 @@ func (s *objectLockingMap) DeleteBlob(ctx context.Context, id blob.ID) error {
 	return nil
 }
 
+// ExtendBlobRetention will alter the retention time on a blob if it exists.
+func (s *objectLockingMap) ExtendBlobRetention(ctx context.Context, id blob.ID, opts blob.ExtendOptions) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	e, err := s.getLatestByID(id)
+	if err != nil {
+		return blob.ErrBlobNotFound
+	}
+
+	if !e.retentionTime.IsZero() {
+		e.retentionTime = e.mtime.Add(opts.RetentionPeriod)
+	}
+
+	return nil
+}
+
 // ListBlobs will return the list of all the objects except the ones which have
 // a delete-marker as their latest version.
 func (s *objectLockingMap) ListBlobs(ctx context.Context, prefix blob.ID, callback func(blob.Metadata) error) error {

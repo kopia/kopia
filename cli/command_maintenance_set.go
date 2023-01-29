@@ -23,6 +23,8 @@ type commandMaintenanceSet struct {
 	maxRetainedLogCount       int
 	maxRetainedLogAge         time.Duration
 	maxTotalRetainedLogSizeMB int64
+
+	extendObjectLocks []bool // optional boolean
 }
 
 func (c *commandMaintenanceSet) setup(svc appServices, parent commandParent) {
@@ -51,6 +53,7 @@ func (c *commandMaintenanceSet) setup(svc appServices, parent commandParent) {
 	cmd.Flag("max-retained-log-count", "Set maximum number of log sessions to retain").IntVar(&c.maxRetainedLogCount)
 	cmd.Flag("max-retained-log-age", "Set maximum age of log sessions to retain").DurationVar(&c.maxRetainedLogAge)
 	cmd.Flag("max-retained-log-size-mb", "Set maximum total size of log sessions").Int64Var(&c.maxTotalRetainedLogSizeMB)
+	cmd.Flag("extend-object-locks", "Extend retention period of locked objects as part of full maintenance.").BoolListVar(&c.extendObjectLocks)
 
 	cmd.Action(svc.directRepositoryWriteAction(c.run))
 }
@@ -121,6 +124,22 @@ func (c *commandMaintenanceSet) setMaintenanceEnabledAndIntervalFromFlags(ctx co
 	}
 }
 
+func (c *commandMaintenanceSet) setMaintenanceObjectLockExtendFromFlags(ctx context.Context, p *maintenance.Params, changed *bool) {
+	// we use lists to distinguish between flag not set
+	// Zero elements == not set, more than zero - flag set, in which case we pick the last value
+	if len(c.extendObjectLocks) > 0 {
+		lastVal := c.extendObjectLocks[len(c.extendObjectLocks)-1]
+		p.ExtendObjectLocks = lastVal
+		*changed = true
+
+		if lastVal {
+			log(ctx).Info("Object Lock extension maintenance enabled.")
+		} else {
+			log(ctx).Info("Object Lock extension maintenance disabled.")
+		}
+	}
+}
+
 func (c *commandMaintenanceSet) run(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	p, err := maintenance.GetParams(ctx, rep)
 	if err != nil {
@@ -138,6 +157,7 @@ func (c *commandMaintenanceSet) run(ctx context.Context, rep repo.DirectReposito
 	c.setMaintenanceEnabledAndIntervalFromFlags(ctx, &p.QuickCycle, "quick", c.maintenanceSetEnableQuick, c.maintenanceSetQuickFrequency, &changedParams)
 	c.setMaintenanceEnabledAndIntervalFromFlags(ctx, &p.FullCycle, "full", c.maintenanceSetEnableFull, c.maintenanceSetFullFrequency, &changedParams)
 	c.setLogCleanupParametersFromFlags(ctx, p, &changedParams)
+	c.setMaintenanceObjectLockExtendFromFlags(ctx, p, &changedParams)
 
 	if pauseDuration := c.maintenanceSetPauseQuick; pauseDuration != -1 {
 		s.NextQuickMaintenanceTime = rep.Time().Add(pauseDuration)

@@ -20,6 +20,7 @@ const KopiaBlobCfgBlobID = "kopia.blobcfg"
 type BlobStorageConfiguration struct {
 	RetentionMode   blob.RetentionMode `json:"retentionMode,omitempty"`
 	RetentionPeriod time.Duration      `json:"retentionPeriod,omitempty"`
+	RetentionExtend bool               `json:"retetionExtend,omitempty"`
 }
 
 // IsRetentionEnabled returns true if retention is enabled on the blob-config

@@ -45,6 +45,7 @@ var log = logging.Module("gdrive")
 
 type gdriveStorage struct {
 	Options
+	blob.UnsupportedBlobRetention
 
 	client      *drive.FilesService
 	about       *drive.AboutService

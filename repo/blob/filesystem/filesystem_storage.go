@@ -34,6 +34,7 @@ const (
 
 type fsStorage struct {
 	sharded.Storage
+	blob.UnsupportedBlobRetention
 }
 
 type fsImpl struct {
@@ -350,7 +351,7 @@ func New(ctx context.Context, opts *Options, isCreate bool) (blob.Storage, error
 	}
 
 	return &fsStorage{
-		sharded.New(&fsImpl{*opts, osi}, opts.Path, opts.Options, isCreate),
+		Storage: sharded.New(&fsImpl{*opts, osi}, opts.Path, opts.Options, isCreate),
 	}, nil
 }
 

@@ -32,6 +32,7 @@ const (
 
 type gcsStorage struct {
 	Options
+	blob.UnsupportedBlobRetention
 
 	storageClient *gcsclient.Client
 	bucket        *gcsclient.BucketHandle

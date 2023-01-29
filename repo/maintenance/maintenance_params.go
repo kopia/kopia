@@ -23,6 +23,8 @@ type Params struct {
 	FullCycle  CycleParams `json:"full"`
 
 	LogRetention LogRetentionOptions `json:"logRetention"`
+
+	ExtendObjectLocks bool `json:"extendObjectLocks"`
 }
 
 func (p *Params) isOwnedByByThisUser(rep repo.Repository) bool {
@@ -40,7 +42,8 @@ func DefaultParams() Params {
 			Enabled:  true,
 			Interval: 1 * time.Hour,
 		},
-		LogRetention: defaultLogRetention(),
+		LogRetention:      defaultLogRetention(),
+		ExtendObjectLocks: false,
 	}
 }
 

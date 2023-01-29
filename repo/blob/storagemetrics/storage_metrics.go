@@ -12,30 +12,33 @@ import (
 
 type blobMetrics struct {
 	base blob.Storage
+	blob.UnsupportedBlobRetention
 
 	downloadedBytesPartial *metrics.Counter
 	downloadedBytesFull    *metrics.Counter
 	uploadedBytes          *metrics.Counter
 	listBlobItems          *metrics.Counter
 
-	getBlobPartialDuration *metrics.Distribution[time.Duration]
-	getBlobFullDuration    *metrics.Distribution[time.Duration]
-	putBlobDuration        *metrics.Distribution[time.Duration]
-	getCapacityDuration    *metrics.Distribution[time.Duration]
-	getMetadataDuration    *metrics.Distribution[time.Duration]
-	deleteBlobDuration     *metrics.Distribution[time.Duration]
-	listBlobsDuration      *metrics.Distribution[time.Duration]
-	closeDuration          *metrics.Distribution[time.Duration]
-	flushCachesDuration    *metrics.Distribution[time.Duration]
+	getBlobPartialDuration      *metrics.Distribution[time.Duration]
+	getBlobFullDuration         *metrics.Distribution[time.Duration]
+	putBlobDuration             *metrics.Distribution[time.Duration]
+	getCapacityDuration         *metrics.Distribution[time.Duration]
+	getMetadataDuration         *metrics.Distribution[time.Duration]
+	deleteBlobDuration          *metrics.Distribution[time.Duration]
+	extendBlobRetentionDuration *metrics.Distribution[time.Duration]
+	listBlobsDuration           *metrics.Distribution[time.Duration]
+	closeDuration               *metrics.Distribution[time.Duration]
+	flushCachesDuration         *metrics.Distribution[time.Duration]
 
-	getBlobErrors     *metrics.Counter
-	getCapacityErrors *metrics.Counter
-	getMetadataErrors *metrics.Counter
-	putBlobErrors     *metrics.Counter
-	deleteBlobErrors  *metrics.Counter
-	listBlobsErrors   *metrics.Counter
-	closeErrors       *metrics.Counter
-	flushCachesErrors *metrics.Counter
+	getBlobErrors             *metrics.Counter
+	getCapacityErrors         *metrics.Counter
+	getMetadataErrors         *metrics.Counter
+	putBlobErrors             *metrics.Counter
+	deleteBlobErrors          *metrics.Counter
+	extendBlobRetentionErrors *metrics.Counter
+	listBlobsErrors           *metrics.Counter
+	closeErrors               *metrics.Counter
+	flushCachesErrors         *metrics.Counter
 }
 
 func (s *blobMetrics) GetBlob(ctx context.Context, id blob.ID, offset, length int64, output blob.OutputBuffer) error {
@@ -115,6 +118,21 @@ func (s *blobMetrics) DeleteBlob(ctx context.Context, id blob.ID) error {
 
 	if err != nil {
 		s.deleteBlobErrors.Add(1)
+	}
+
+	//nolint:wrapcheck
+	return err
+}
+
+func (s *blobMetrics) ExtendBlobRetention(ctx context.Context, id blob.ID, opts blob.ExtendOptions) error {
+	timer := timetrack.StartTimer()
+	err := s.base.ExtendBlobRetention(ctx, id, opts)
+	dt := timer.Elapsed()
+
+	s.extendBlobRetentionDuration.Observe(dt)
+
+	if err != nil {
+		s.extendBlobRetentionErrors.Add(1)
 	}
 
 	//nolint:wrapcheck

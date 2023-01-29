@@ -39,6 +39,7 @@ const (
 // sftpStorage implements blob.Storage on top of sftp.
 type sftpStorage struct {
 	sharded.Storage
+	blob.UnsupportedBlobRetention
 }
 
 type sftpImpl struct {
@@ -530,7 +531,7 @@ func New(ctx context.Context, opts *Options, isCreate bool) (blob.Storage, error
 	}
 
 	r := &sftpStorage{
-		sharded.New(impl, opts.Path, opts.Options, isCreate),
+		Storage: sharded.New(impl, opts.Path, opts.Options, isCreate),
 	}
 
 	impl.rec = connection.NewReconnector(impl)
