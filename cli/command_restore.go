@@ -118,6 +118,7 @@ type commandRestore struct {
 	restoreSkipOwners             bool
 	restoreSkipPermissions        bool
 	restoreIncremental            bool
+	restoreDeleteExtra            bool
 	restoreIgnoreErrors           bool
 	restoreShallowAtDepth         int32
 	minSizeForPlaceholder         int32
@@ -145,6 +146,7 @@ func (c *commandRestore) setup(svc appServices, parent commandParent) {
 	cmd.Flag("write-files-atomically", "Write files atomically to disk, ensuring they are either fully committed, or not written at all, preventing partially written files").Default("false").BoolVar(&c.restoreWriteFilesAtomically)
 	cmd.Flag("ignore-errors", "Ignore all errors").BoolVar(&c.restoreIgnoreErrors)
 	cmd.Flag("skip-existing", "Skip files and symlinks that exist in the output").BoolVar(&c.restoreIncremental)
+	cmd.Flag("delete-extra", "Delete additional files, directories and symlinks that already exist in the output but do not exist in the snapshot").BoolVar(&c.restoreDeleteExtra)
 	cmd.Flag("shallow", "Shallow restore the directory hierarchy starting at this level (default is to deep restore the entire hierarchy.)").Int32Var(&c.restoreShallowAtDepth)
 	cmd.Flag("shallow-minsize", "When doing a shallow restore, write actual files instead of placeholders smaller than this size.").Int32Var(&c.minSizeForPlaceholder)
 	cmd.Flag("snapshot-time", "When using a path as the source, use the latest snapshot available before this date. Default is latest").StringVar(&c.snapshotTime)
@@ -400,6 +402,7 @@ func (c *commandRestore) run(ctx context.Context, rep repo.Repository) error {
 		st, err := restore.Entry(ctx, rep, output, rootEntry, restore.Options{
 			Parallel:               c.restoreParallel,
 			Incremental:            c.restoreIncremental,
+			DeleteExtra:            c.restoreDeleteExtra,
 			IgnoreErrors:           c.restoreIgnoreErrors,
 			RestoreDirEntryAtDepth: c.restoreShallowAtDepth,
 			MinSizeForPlaceholder:  c.minSizeForPlaceholder,

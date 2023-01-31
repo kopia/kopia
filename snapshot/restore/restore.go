@@ -2,6 +2,7 @@ package restore
 
 import (
 	"context"
+	"os"
 	"path"
 	"runtime"
 	"sync/atomic"
@@ -84,6 +85,7 @@ type Options struct {
 	// required bindings in the UI.
 	Parallel               int   `json:"parallel"`
 	Incremental            bool  `json:"incremental"`
+	DeleteExtra            bool  `json:"deleteExtra"`
 	IgnoreErrors           bool  `json:"ignoreErrors"`
 	RestoreDirEntryAtDepth int32 `json:"restoreDirEntryAtDepth"`
 	MinSizeForPlaceholder  int32 `json:"minSizeForPlaceholder"`
@@ -99,6 +101,7 @@ func Entry(ctx context.Context, rep repo.Repository, output Output, rootEntry fs
 		shallowoutput: makeShallowFilesystemOutput(output, options),
 		q:             parallelwork.NewQueue(),
 		incremental:   options.Incremental,
+		deleteExtra:   options.DeleteExtra,
 		ignoreErrors:  options.IgnoreErrors,
 		cancel:        options.Cancel,
 	}
@@ -142,6 +145,7 @@ type copier struct {
 	shallowoutput Output
 	q             *parallelwork.Queue
 	incremental   bool
+	deleteExtra   bool
 	ignoreErrors  bool
 	cancel        chan struct{}
 }
@@ -251,6 +255,12 @@ func (c *copier) copyDirectory(ctx context.Context, d fs.Directory, targetPath s
 		return errors.Wrap(err, "create directory")
 	}
 
+	if c.deleteExtra {
+		if err := c.deleteExtraFilesInDir(ctx, d, targetPath); err != nil {
+			return errors.Wrap(err, "delete extra")
+		}
+	}
+
 	return errors.Wrap(c.copyDirectoryContent(ctx, d, targetPath, currentdepth+1, maxdepth, func() error {
 		if err := c.output.FinishDirectory(ctx, targetPath, d); err != nil {
 			return errors.Wrap(err, "finish directory")
@@ -258,6 +268,54 @@ func (c *copier) copyDirectory(ctx context.Context, d fs.Directory, targetPath s
 
 		return onCompletion()
 	}), "copy directory contents")
+}
+
+func (c *copier) deleteExtraFilesInDir(ctx context.Context, d fs.Directory, targetPath string) error {
+	entries, err := fs.GetAllEntries(ctx, d)
+	if err != nil {
+		return errors.Wrap(err, "error reading directory")
+	}
+
+	// first classify snapshot entries to help with deletion (treat symlinks like normal files)
+	dirs := map[string]struct{}{}
+	files := map[string]struct{}{}
+
+	for _, e := range entries {
+		e := e
+
+		if e.IsDir() {
+			dirs[e.Name()] = struct{}{}
+		} else /* file */ {
+			files[e.Name()] = struct{}{}
+		}
+	}
+
+	// read existing entries on disk
+	existingEntries, err := os.ReadDir(targetPath)
+	if err != nil {
+		return errors.Wrap(err, "read existing dir entries")
+	}
+
+	// iterate existing entries, delete the ones that don't exist in the snapshot
+	for _, e := range existingEntries {
+		if e.IsDir() { //nolint:nestif
+			_, existsInSnapshot := dirs[e.Name()]
+			if !existsInSnapshot {
+				if err := os.RemoveAll(path.Join(targetPath, e.Name())); err != nil {
+					return errors.Wrap(err, "delete directory "+path.Join(targetPath, e.Name()))
+				}
+			}
+		} else /* file */ {
+			_, existsInSnapshot := files[e.Name()]
+			if !existsInSnapshot {
+				if err := os.Remove(path.Join(targetPath, e.Name())); err != nil {
+					return errors.Wrap(err, "delete file "+path.Join(targetPath, e.Name()))
+				}
+			}
+		}
+	}
+
+	return nil
 }
 
 func (c *copier) copyDirectoryContent(ctx context.Context, d fs.Directory, targetPath string, currentdepth, maxdepth int32, onCompletion parallelwork.CallbackFunc) error {
