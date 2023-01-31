@@ -118,6 +118,7 @@ type commandRestore struct {
 	restoreSkipOwners             bool
 	restoreSkipPermissions        bool
 	restoreIncremental            bool
+	restoreDeleteExtra            bool
 	restoreIgnoreErrors           bool
 	restoreShallowAtDepth         int32
 	minSizeForPlaceholder         int32
@@ -145,6 +146,7 @@ func (c *commandRestore) setup(svc appServices, parent commandParent) {
 	cmd.Flag("write-files-atomically", "Write files atomically to disk, ensuring they are either fully committed, or not written at all, preventing partially written files").Default("false").BoolVar(&c.restoreWriteFilesAtomically)
 	cmd.Flag("ignore-errors", "Ignore all errors").BoolVar(&c.restoreIgnoreErrors)
 	cmd.Flag("skip-existing", "Skip files and symlinks that exist in the output").BoolVar(&c.restoreIncremental)
+	cmd.Flag("delete-extra", "Delete additional files, directories and symlinks that already exist in the output but do not exist in the snapshot").BoolVar(&c.restoreDeleteExtra)
 	cmd.Flag("shallow", "Shallow restore the directory hierarchy starting at this level (default is to deep restore the entire hierarchy.)").Int32Var(&c.restoreShallowAtDepth)
 	cmd.Flag("shallow-minsize", "When doing a shallow restore, write actual files instead of placeholders smaller than this size.").Int32Var(&c.minSizeForPlaceholder)
 	cmd.Flag("snapshot-time", "When using a path as the source, use the latest snapshot available before this date. Default is latest").StringVar(&c.snapshotTime)
@@ -326,22 +328,26 @@ func (c *commandRestore) detectRestoreMode(ctx context.Context, m, targetpath st
 }
 
 func printRestoreStats(ctx context.Context, st *restore.Stats) {
-	var maybeSkipped, maybeErrors string
+	var maybeSkipped, maybeDeleted, maybeErrors string
 
 	if st.SkippedCount > 0 {
 		maybeSkipped = fmt.Sprintf(", skipped %v (%v)", st.SkippedCount, units.BytesString(st.SkippedTotalFileSize))
+	}
+
+	if st.DeletedCount > 0 {
+		maybeDeleted = fmt.Sprintf(", deleted %v", st.DeletedCount)
 	}
 
 	if st.IgnoredErrorCount > 0 {
 		maybeErrors = fmt.Sprintf(", ignored %v errors", st.IgnoredErrorCount)
 	}
 
-	log(ctx).Infof("Restored %v files, %v directories and %v symbolic links (%v)%v%v.\n",
+	log(ctx).Infof("Restored %v files, %v directories and %v symbolic links (%v)%v%v%v.\n",
 		st.RestoredFileCount,
 		st.RestoredDirCount,
 		st.RestoredSymlinkCount,
 		units.BytesString(st.RestoredTotalFileSize),
-		maybeSkipped, maybeErrors)
+		maybeSkipped, maybeDeleted, maybeErrors)
 }
 
 func (c *commandRestore) setupPlaceholderExpansion(ctx context.Context, rep repo.Repository, rstp restoreSourceTarget, output restore.Output) (fs.Entry, error) {
@@ -400,6 +406,7 @@ func (c *commandRestore) run(ctx context.Context, rep repo.Repository) error {
 		st, err := restore.Entry(ctx, rep, output, rootEntry, restore.Options{
 			Parallel:               c.restoreParallel,
 			Incremental:            c.restoreIncremental,
+			DeleteExtra:            c.restoreDeleteExtra,
 			IgnoreErrors:           c.restoreIgnoreErrors,
 			RestoreDirEntryAtDepth: c.restoreShallowAtDepth,
 			MinSizeForPlaceholder:  c.minSizeForPlaceholder,
@@ -411,7 +418,7 @@ func (c *commandRestore) run(ctx context.Context, rep repo.Repository) error {
 					return
 				}
 
-				var maybeRemaining, maybeSkipped, maybeErrors string
+				var maybeRemaining, maybeSkipped, maybeDeleted, maybeErrors string
 
 				if est, ok := eta.Estimate(float64(stats.RestoredTotalFileSize), float64(stats.EnqueuedTotalFileSize)); ok {
 					maybeRemaining = fmt.Sprintf(" %v (%.1f%%) remaining %v",
@@ -424,14 +431,19 @@ func (c *commandRestore) run(ctx context.Context, rep repo.Repository) error {
 					maybeSkipped = fmt.Sprintf(", skipped %v (%v)", stats.SkippedCount, units.BytesString(stats.SkippedTotalFileSize))
 				}
 
+				if stats.DeletedCount > 0 {
+					maybeDeleted = fmt.Sprintf(", deleted %v", stats.DeletedCount)
+				}
+
 				if stats.IgnoredErrorCount > 0 {
 					maybeErrors = fmt.Sprintf(", ignored %v errors", stats.IgnoredErrorCount)
 				}
 
-				log(ctx).Infof("Processed %v (%v) of %v (%v)%v%v%v.",
+				log(ctx).Infof("Processed %v (%v) of %v (%v)%v%v%v%v.",
 					restoredCount, units.BytesString(stats.RestoredTotalFileSize),
 					enqueuedCount, units.BytesString(stats.EnqueuedTotalFileSize),
 					maybeSkipped,
+					maybeDeleted,
 					maybeErrors,
 					maybeRemaining)
 			},

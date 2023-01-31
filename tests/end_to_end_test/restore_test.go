@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -127,6 +128,26 @@ func TestRestoreCommand(t *testing.T) {
 
 	// Attempt to restore into a target directory that already exists
 	e.RunAndExpectFailure(t, "restore", rootID, restoreDir, "--no-overwrite-files")
+
+	// Attempt to restore into a target directory with extra files, and check they have been deleted
+	extraFile := path.Join(restoreDir, "extraFile.txt")
+	f, err := os.Create(extraFile)
+	
+	if err != nil {
+		t.Fatalf("unable to create extra file: %v", stderr)
+	}
+	
+	if err := f.Close(); err != nil {
+		t.Fatalf("unable to create extra file: %v", stderr)
+	}
+	
+	extraDir := path.Join(restoreDir, "extraDir")
+	if err := os.Mkdir(extraDir, 0o700); err != nil {
+		t.Fatalf("unable to create extra dir: %v", stderr)
+	}
+	
+	e.RunAndExpectSuccess(t, "restore", rootID, restoreDir, "--delete-extra")
+	compareDirs(t, source, restoreDir)
 }
 
 func compareDirs(t *testing.T, source, restoreDir string) {
