@@ -3,7 +3,7 @@ module github.com/kopia/kopia
 go 1.19
 
 require (
-	cloud.google.com/go/storage v1.28.1
+	cloud.google.com/go/storage v1.29.0
 	github.com/Azure/azure-pipeline-go v0.2.3 // indirect
 	github.com/Azure/azure-storage-blob-go v0.15.0
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962 // indirect
@@ -66,7 +66,7 @@ require (
 )
 
 require (
-	cloud.google.com/go v0.105.0 // indirect
+	cloud.google.com/go v0.107.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v0.21.1 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v0.8.3 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v0.3.0
@@ -98,7 +98,7 @@ require (
 	go.uber.org/multierr v1.8.0
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20221227171554-f9683d7f8bef // indirect
+	google.golang.org/genproto v0.0.0-20230110181048-76db0878b65f // indirect
 )
 
 require (
