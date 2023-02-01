@@ -281,8 +281,6 @@ func (c *copier) deleteExtraFilesInDir(ctx context.Context, d fs.Directory, targ
 	files := map[string]struct{}{}
 
 	for _, e := range entries {
-		e := e
-
 		if e.IsDir() {
 			dirs[e.Name()] = struct{}{}
 		} else /* file */ {
