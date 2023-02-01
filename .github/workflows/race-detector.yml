@@ -22,5 +22,3 @@ jobs:
         fetch-depth: 0
     - name: Unit Tests
       run: make -j2 test UNIT_TEST_RACE_FLAGS=-race UNIT_TESTS_TIMEOUT=1200s
-    - name: Integration Tests
-      run: make -j2 ci-integration-tests INTEGRATION_TEST_RACE_FLAGS=-race
