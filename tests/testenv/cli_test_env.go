@@ -42,6 +42,9 @@ type CLITest struct {
 
 	Runner CLIRunner
 
+	LogOutput       bool
+	LogOutputPrefix string
+
 	fixedArgs   []string
 	Environment map[string]string
 
@@ -145,7 +148,17 @@ func (e *CLITest) RunAndProcessStderr(t *testing.T, callback func(line string) b
 	t.Helper()
 
 	stdout, stderr, wait, kill := e.Runner.Start(t, e.cmdArgs(args), e.Environment)
-	go io.Copy(io.Discard, stdout)
+
+	go func() {
+		scanner := bufio.NewScanner(stdout)
+		for scanner.Scan() {
+			if os.Getenv("KOPIA_TEST_LOG_OUTPUT") != "" || e.LogOutput {
+				t.Logf("[%vstdout] %v", e.LogOutputPrefix, scanner.Text())
+			}
+		}
+
+		t.Logf("[%vstdout] EOF", e.LogOutputPrefix)
+	}()
 
 	scanner := bufio.NewScanner(stderr)
 	for scanner.Scan() {
@@ -157,8 +170,12 @@ func (e *CLITest) RunAndProcessStderr(t *testing.T, callback func(line string) b
 	// complete the scan in background without processing lines.
 	go func() {
 		for scanner.Scan() {
-			// ignore
+			if os.Getenv("KOPIA_TEST_LOG_OUTPUT") != "" || e.LogOutput {
+				t.Logf("[%vstderr] %v", e.LogOutputPrefix, scanner.Text())
+			}
 		}
+
+		t.Logf("[%vstderr] EOF", e.LogOutputPrefix)
 	}()
 
 	return wait, kill
@@ -219,7 +236,7 @@ func (e *CLITest) Run(t *testing.T, expectedError bool, args ...string) (stdout,
 	t.Helper()
 
 	args = e.cmdArgs(args)
-	t.Logf("running 'kopia %v' with %v", strings.Join(args, " "), e.Environment)
+	t.Logf("%vrunning 'kopia %v' with %v", e.LogOutputPrefix, strings.Join(args, " "), e.Environment)
 
 	timer := timetrack.StartTimer()
 
@@ -234,8 +251,8 @@ func (e *CLITest) Run(t *testing.T, expectedError bool, args ...string) (stdout,
 
 		scanner := bufio.NewScanner(stdoutReader)
 		for scanner.Scan() {
-			if os.Getenv("KOPIA_TEST_LOG_OUTPUT") != "" {
-				t.Logf("[stdout] %v", scanner.Text())
+			if os.Getenv("KOPIA_TEST_LOG_OUTPUT") != "" || e.LogOutput {
+				t.Logf("[%vstdout] %v", e.LogOutputPrefix, scanner.Text())
 			}
 
 			stdout = append(stdout, scanner.Text())
@@ -249,8 +266,8 @@ func (e *CLITest) Run(t *testing.T, expectedError bool, args ...string) (stdout,
 
 		scanner := bufio.NewScanner(stderrReader)
 		for scanner.Scan() {
-			if os.Getenv("KOPIA_TEST_LOG_OUTPUT") != "" {
-				t.Logf("[stderr] %v", scanner.Text())
+			if os.Getenv("KOPIA_TEST_LOG_OUTPUT") != "" || e.LogOutput {
+				t.Logf("[%vstderr] %v", e.LogOutputPrefix, scanner.Text())
 			}
 
 			stderr = append(stderr, scanner.Text())
@@ -268,7 +285,7 @@ func (e *CLITest) Run(t *testing.T, expectedError bool, args ...string) (stdout,
 	}
 
 	//nolint:forbidigo
-	t.Logf("finished in %v: 'kopia %v'", timer.Elapsed().Milliseconds(), strings.Join(args, " "))
+	t.Logf("%vfinished in %v: 'kopia %v'", e.LogOutputPrefix, timer.Elapsed().Milliseconds(), strings.Join(args, " "))
 
 	return stdout, stderr, gotErr
 }

@@ -60,8 +60,9 @@ func runInBrowser(t *testing.T, run func(ctx context.Context, sp *testutil.Serve
 		args = append(args, "--html="+os.Getenv("HTMLUI_BUILD_DIR"))
 	}
 
-	_, kill := e.RunAndProcessStderr(t, sp.ProcessOutput, args...)
+	wait, kill := e.RunAndProcessStderr(t, sp.ProcessOutput, args...)
 
+	defer wait()
 	defer kill()
 
 	t.Logf("detected server parameters %#v", sp)

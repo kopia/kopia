@@ -96,10 +96,14 @@ type grpcInnerSession struct {
 
 	cli        apipb.KopiaRepository_SessionClient
 	repoParams *apipb.RepositoryParameters
+
+	wg sync.WaitGroup
 }
 
 // readLoop runs in a goroutine and consumes all messages in session and forwards them to appropriate channels.
 func (r *grpcInnerSession) readLoop(ctx context.Context) {
+	defer r.wg.Done()
+
 	msg, err := r.cli.Recv()
 
 	for ; err == nil; msg, err = r.cli.Recv() {
@@ -122,6 +126,8 @@ func (r *grpcInnerSession) readLoop(ctx context.Context) {
 	for id := range r.activeRequests {
 		r.sendStreamBrokenAndClose(r.getAndDeleteResponseChannelLocked(id), err)
 	}
+
+	log(ctx).Debugf("finished closing active requests")
 }
 
 // sendRequest sends the provided request to the server and returns a channel on which the
@@ -834,6 +840,8 @@ func (r *grpcRepositoryClient) getOrEstablishInnerSession(ctx context.Context) (
 				nextRequestID:  1,
 			}
 
+			newSess.wg.Add(1)
+
 			go newSess.readLoop(ctx)
 
 			newSess.repoParams, err = newSess.initializeSession(ctx, r.opt.Purpose, r.isReadOnly)
@@ -859,6 +867,7 @@ func (r *grpcRepositoryClient) killInnerSession() {
 
 	if r.innerSession != nil {
 		r.innerSession.cli.CloseSend() //nolint:errcheck
+		r.innerSession.wg.Wait()
 		r.innerSession = nil
 	}
 }
