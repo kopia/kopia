@@ -147,6 +147,8 @@ func TestLogFileRotation(t *testing.T) {
 }
 
 func TestLogFileMaxTotalSize(t *testing.T) {
+	t.Parallel()
+
 	runner := testenv.NewInProcRunner(t)
 	runner.CustomizeApp = logfile.Attach
 
@@ -156,11 +158,11 @@ func TestLogFileMaxTotalSize(t *testing.T) {
 	srcDir := testutil.TempDirectory(t)
 	tmpLogDir := testutil.TempDirectory(t)
 
-	// 5-level directory with <=10 files and <=10 subdirectories at each level
+	// 2-level directory with <=10 files and <=10 subdirectories at each level
 	testdirtree.CreateDirectoryTree(srcDir, testdirtree.MaybeSimplifyFilesystem(testdirtree.DirectoryTreeOptions{
-		Depth:                  3,
+		Depth:                  2,
 		MaxSubdirsPerDirectory: 10,
-		MaxFilesPerDirectory:   100,
+		MaxFilesPerDirectory:   10,
 		MaxFileSize:            10,
 	}), &testdirtree.DirectoryTreeCounters{})
 
@@ -178,12 +180,16 @@ func TestLogFileMaxTotalSize(t *testing.T) {
 		flag := flag
 
 		t.Run(subdir, func(t *testing.T) {
-			env.RunAndExpectSuccess(t, "snap", "ls", "--file-log-level=debug", "--log-dir", tmpLogDir, flag+"=40000")
+			size0 := getTotalDirSize(t, logSubdir)
+			size0MB := float64(size0) / 1e6
+
+			env.RunAndExpectSuccess(t, "snap", "ls", "--file-log-level=debug", "--log-dir", tmpLogDir, fmt.Sprintf("%s=%v", flag, size0MB/2))
 			size1 := getTotalDirSize(t, logSubdir)
 			size1MB := float64(size1) / 1e6
 
 			env.RunAndExpectSuccess(t, "snap", "ls", "--file-log-level=debug", "--log-dir", tmpLogDir, fmt.Sprintf("%s=%v", flag, size1MB/2))
 			size2 := getTotalDirSize(t, logSubdir)
+			require.Less(t, size1, size0/2)
 			require.Less(t, size2, size1/2)
 			require.Greater(t, size2, size1/4)
 		})

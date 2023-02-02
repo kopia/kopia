@@ -205,6 +205,8 @@ func lockRepositoryForUpgrade(t *testing.T, env *testenv.CLITest) {
 }
 
 func (s *formatSpecificTestSuite) TestRepositoryUpgradeStatusWhileLocked(t *testing.T) {
+	t.Parallel()
+
 	env := testenv.NewCLITest(t, s.formatFlags, testenv.NewInProcRunner(t))
 
 	env.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", env.RepoDir)
