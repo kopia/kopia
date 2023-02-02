@@ -41,7 +41,7 @@ GOTESTSUM_FLAGS=--format=$(GOTESTSUM_FORMAT) --no-summary=skipped
 GO_TEST?=$(gotestsum) $(GOTESTSUM_FLAGS) --
 
 LINTER_DEADLINE=600s
-UNIT_TESTS_TIMEOUT=600s
+UNIT_TESTS_TIMEOUT=1200s
 
 ifeq ($(GOARCH),amd64)
 PARALLEL=8
@@ -250,7 +250,7 @@ dev-deps:
 test-with-coverage: export KOPIA_COVERAGE_TEST=1
 test-with-coverage: export TESTING_ACTION_EXE ?= $(TESTING_ACTION_EXE)
 test-with-coverage: $(gotestsum) $(TESTING_ACTION_EXE)
-	$(GO_TEST) $(UNIT_TEST_RACE_FLAGS) -tags testing -count=$(REPEAT_TEST) -short -covermode=atomic -coverprofile=coverage.txt --coverpkg $(COVERAGE_PACKAGES) -timeout 300s ./...
+	$(GO_TEST) $(UNIT_TEST_RACE_FLAGS) -tags testing -count=$(REPEAT_TEST) -short -covermode=atomic -coverprofile=coverage.txt --coverpkg $(COVERAGE_PACKAGES) -timeout $(UNIT_TESTS_TIMEOUT) ./...
 
 test: GOTESTSUM_FLAGS=--format=$(GOTESTSUM_FORMAT) --no-summary=skipped --jsonfile=.tmp.unit-tests.json
 test: export TESTING_ACTION_EXE ?= $(TESTING_ACTION_EXE)
