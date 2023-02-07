@@ -34,7 +34,7 @@ import (
 // MaxGRPCMessageSize is the maximum size of a message sent or received over GRPC API when talking to
 // Kopia repository server. This is bigger than the size of any possible content, which is
 // defined by supported splitters.
-const MaxGRPCMessageSize = 36 << 20
+const MaxGRPCMessageSize = 20 << 20
 
 const (
 	// when writing contents of this size or above, make a round-trip to the server to
@@ -45,6 +45,9 @@ const (
 	// helps avoid round trip to the server to write the same content since we know it already exists
 	// this greatly helps with performance of incremental snapshots.
 	numRecentReadsToCache = 1024
+
+	// number of manifests to fetch in a single batch.
+	defaultFindManifestsPageSize = 1000
 )
 
 var errShouldRetry = errors.New("should retry")
@@ -80,6 +83,8 @@ type grpcRepositoryClient struct {
 	serverSupportsContentCompression bool
 	omgr                             *object.Manager
 
+	findManifestsPageSize int32
+
 	recent recentlyRead
 }
 
@@ -109,12 +114,17 @@ func (r *grpcInnerSession) readLoop(ctx context.Context) {
 	for ; err == nil; msg, err = r.cli.Recv() {
 		r.activeRequestsMutex.Lock()
 		ch := r.activeRequests[msg.RequestId]
-		delete(r.activeRequests, msg.RequestId)
+
+		if !msg.HasMore {
+			delete(r.activeRequests, msg.RequestId)
+		}
 
 		r.activeRequestsMutex.Unlock()
 
 		ch <- msg
-		close(ch)
+		if !msg.HasMore {
+			close(ch)
+		}
 	}
 
 	log(ctx).Debugf("GRPC stream read loop terminated with %v", err)
@@ -270,9 +280,7 @@ func (r *grpcInnerSession) GetManifest(ctx context.Context, id manifest.ID, data
 	return nil, errNoSessionResponse()
 }
 
-func decodeManifestEntryMetadataList(md []*apipb.ManifestEntryMetadata) []*manifest.EntryMetadata {
-	var result []*manifest.EntryMetadata
-
+func appendManifestEntryMetadataList(result []*manifest.EntryMetadata, md []*apipb.ManifestEntryMetadata) []*manifest.EntryMetadata {
 	for _, v := range md {
 		result = append(result, decodeManifestEntryMetadata(v))
 	}
@@ -321,23 +329,34 @@ func (r *grpcInnerSession) PutManifest(ctx context.Context, labels map[string]st
 	return "", errNoSessionResponse()
 }
 
+func (r *grpcRepositoryClient) SetFindManifestPageSizeForTesting(v int32) {
+	r.findManifestsPageSize = v
+}
+
 func (r *grpcRepositoryClient) FindManifests(ctx context.Context, labels map[string]string) ([]*manifest.EntryMetadata, error) {
 	return maybeRetry(ctx, r, func(ctx context.Context, sess *grpcInnerSession) ([]*manifest.EntryMetadata, error) {
-		return sess.FindManifests(ctx, labels)
+		return sess.FindManifests(ctx, labels, r.findManifestsPageSize)
 	})
 }
 
-func (r *grpcInnerSession) FindManifests(ctx context.Context, labels map[string]string) ([]*manifest.EntryMetadata, error) {
+func (r *grpcInnerSession) FindManifests(ctx context.Context, labels map[string]string, pageSize int32) ([]*manifest.EntryMetadata, error) {
+	var entries []*manifest.EntryMetadata
+
 	for resp := range r.sendRequest(ctx, &apipb.SessionRequest{
 		Request: &apipb.SessionRequest_FindManifests{
 			FindManifests: &apipb.FindManifestsRequest{
-				Labels: labels,
+				Labels:   labels,
+				PageSize: pageSize,
 			},
 		},
 	}) {
 		switch rr := resp.Response.(type) {
 		case *apipb.SessionResponse_FindManifests:
-			return decodeManifestEntryMetadataList(rr.FindManifests.GetMetadata()), nil
+			entries = appendManifestEntryMetadataList(entries, rr.FindManifests.GetMetadata())
+
+			if !resp.GetHasMore() {
+				return entries, nil
+			}
 
 		default:
 			return nil, unhandledSessionResponse(resp)
@@ -891,6 +910,7 @@ func newGRPCAPIRepositoryForConnection(
 		opt:                                 opt,
 		isReadOnly:                          par.cliOpts.ReadOnly,
 		asyncWritesWG:                       new(errgroup.Group),
+		findManifestsPageSize:               defaultFindManifestsPageSize,
 	}
 
 	return inSessionWithoutRetry(ctx, rr, func(ctx context.Context, sess *grpcInnerSession) (*grpcRepositoryClient, error) {

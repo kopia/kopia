@@ -4,9 +4,12 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/apiclient"
@@ -18,6 +21,7 @@ import (
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/tests/clitestutil"
 	"github.com/kopia/kopia/tests/testdirtree"
 	"github.com/kopia/kopia/tests/testenv"
@@ -198,7 +202,10 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 	}
 
 	// invoke some read method, the repository will automatically reconnect to the server.
-	verifyFindManifestCount(ctx, t, rep, someLabels, 5)
+	// verify different page sizes (only works with GRPC).
+	for _, pageSize := range []int32{0, 1, 3, 5, 6} {
+		verifyFindManifestCount(ctx, t, rep, pageSize, someLabels, 5)
+	}
 
 	if useGRPC {
 		// the same method on a GRPC write session should fail because the stream was broken.
@@ -207,7 +214,7 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 	} else {
 		// invoke some method on write session, this will succeed because legacy API is stateless
 		// (also incorrect in this case).
-		verifyFindManifestCount(ctx, t, writeSess, someLabels, 5)
+		verifyFindManifestCount(ctx, t, writeSess, 1, someLabels, 5)
 	}
 
 	runner2 := testenv.NewInProcRunner(t)
@@ -281,10 +288,116 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 	require.Less(t, timer.Elapsed(), 15*time.Second)
 }
 
-func verifyFindManifestCount(ctx context.Context, t *testing.T, rep repo.Repository, labels map[string]string, wantCount int) {
+func verifyFindManifestCount(ctx context.Context, t *testing.T, rep repo.Repository, pageSize int32, labels map[string]string, wantCount int) {
 	t.Helper()
+
+	// use test hook to set requested page size (GRPC only, ignored for legacy API)
+	th, ok := rep.(interface {
+		SetFindManifestPageSizeForTesting(v int32)
+	})
+	require.True(t, ok)
+
+	th.SetFindManifestPageSizeForTesting(pageSize)
 
 	man, err := rep.FindManifests(ctx, labels)
 	require.NoError(t, err)
 	require.Len(t, man, wantCount)
+}
+
+func TestFindManifestsPaginationOverGRPC(t *testing.T) {
+	ctx := testlogging.Context(t)
+
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--override-username", "foo", "--override-hostname", "bar")
+	e.RunAndExpectSuccess(t, "server", "users", "add", "foo@bar", "--user-password", "baz")
+
+	tlsCert := filepath.Join(e.ConfigDir, "tls.cert")
+	tlsKey := filepath.Join(e.ConfigDir, "tls.key")
+
+	var sp testutil.ServerParameters
+
+	wait, kill := e.RunAndProcessStderr(t, sp.ProcessOutput,
+		"server", "start",
+		"--address=localhost:0",
+		"--grpc",
+		"--no-legacy-api",
+		"--tls-key-file", tlsKey,
+		"--tls-cert-file", tlsCert,
+		"--tls-generate-cert",
+		"--server-username", uiUsername,
+		"--server-password", uiPassword,
+		"--server-control-username", controlUsername,
+		"--server-control-password", controlPassword)
+
+	defer wait()
+	defer kill()
+
+	controlClient, err := apiclient.NewKopiaAPIClient(apiclient.Options{
+		BaseURL:                             sp.BaseURL,
+		Username:                            controlUsername,
+		Password:                            controlPassword,
+		TrustedServerCertificateFingerprint: sp.SHA256Fingerprint,
+		LogRequests:                         true,
+	})
+	require.NoError(t, err)
+
+	waitUntilServerStarted(ctx, t, controlClient)
+
+	rep, err := servertesting.ConnectAndOpenAPIServer(t, ctx, &repo.APIServerInfo{
+		BaseURL:                             sp.BaseURL,
+		TrustedServerCertificateFingerprint: sp.SHA256Fingerprint,
+	}, repo.ClientOptions{
+		Username: "foo",
+		Hostname: "bar",
+	}, content.CachingOptions{}, "baz", &repo.Options{})
+
+	require.NoError(t, err)
+
+	defer rep.Close(ctx)
+
+	numManifests := 10000
+	uniqueIDs := map[string]struct{}{}
+
+	// add about 36 MB worth of manifests
+	require.NoError(t, repo.WriteSession(ctx, rep, repo.WriteSessionOptions{}, func(ctx context.Context, w repo.RepositoryWriter) error {
+		for i := 0; i < numManifests; i++ {
+			uniqueID := strings.Repeat(uuid.NewString(), 100)
+			require.Len(t, uniqueID, 3600)
+
+			uniqueIDs[uniqueID] = struct{}{}
+
+			if _, err := w.PutManifest(ctx, map[string]string{
+				"type":          "snapshot",
+				"username":      "foo",
+				"hostname":      "bar",
+				"verylonglabel": uniqueID,
+			}, &snapshot.Manifest{}); err != nil {
+				return errors.Wrap(err, "error writing manifest")
+			}
+		}
+
+		return nil
+	}))
+
+	manifests, ferr := rep.FindManifests(ctx, map[string]string{
+		"type":     "snapshot",
+		"username": "foo",
+		"hostname": "bar",
+	})
+
+	require.NoError(t, ferr)
+	require.Equal(t, numManifests, len(manifests))
+
+	// make sure every manifest is unique and in the uniqueIDs map
+	for _, m := range manifests {
+		require.Contains(t, uniqueIDs, m.Labels["verylonglabel"])
+		delete(uniqueIDs, m.Labels["verylonglabel"])
+	}
+
+	// make sure we got them all
+	require.Empty(t, uniqueIDs)
 }
