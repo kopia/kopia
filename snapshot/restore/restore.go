@@ -44,6 +44,7 @@ type Stats struct {
 	EnqueuedDirCount     int32
 	EnqueuedSymlinkCount int32
 	SkippedCount         int32
+	DeletedCount         int32
 	IgnoredErrorCount    int32
 }
 
@@ -60,6 +61,7 @@ type statsInternal struct {
 	EnqueuedDirCount     atomic.Int32
 	EnqueuedSymlinkCount atomic.Int32
 	SkippedCount         atomic.Int32
+	DeletedCount         atomic.Int32
 	IgnoredErrorCount    atomic.Int32
 }
 
@@ -75,6 +77,7 @@ func (s *statsInternal) clone() Stats {
 		EnqueuedDirCount:      s.EnqueuedDirCount.Load(),
 		EnqueuedSymlinkCount:  s.EnqueuedSymlinkCount.Load(),
 		SkippedCount:          s.SkippedCount.Load(),
+		DeletedCount:          s.DeletedCount.Load(),
 		IgnoredErrorCount:     s.IgnoredErrorCount.Load(),
 	}
 }
@@ -255,13 +258,14 @@ func (c *copier) copyDirectory(ctx context.Context, d fs.Directory, targetPath s
 		return errors.Wrap(err, "create directory")
 	}
 
-	// deleting existing files only makes sense in the context of an actual filesystem (compared to a tar or zip)
-	_, isFileSystem := c.output.(*FilesystemOutput)
-	_, isShallowFileSystem := c.output.(*ShallowFilesystemOutput)
-	
-	if c.deleteExtra && (isFileSystem || isShallowFileSystem) {
-		if err := c.deleteExtraFilesInDir(ctx, d, targetPath); err != nil {
-			return errors.Wrap(err, "delete extra")
+	if c.deleteExtra {
+		// deleting existing files only makes sense in the context of an actual filesystem (compared to a tar or zip)
+		fsOutput, isFileSystem := c.output.(*FilesystemOutput)
+
+		if isFileSystem {
+			if err := c.deleteExtraFilesInDir(ctx, fsOutput, d, targetPath); err != nil {
+				return errors.Wrap(err, "delete extra")
+			}
 		}
 	}
 
@@ -274,7 +278,19 @@ func (c *copier) copyDirectory(ctx context.Context, d fs.Directory, targetPath s
 	}), "copy directory contents")
 }
 
-func (c *copier) deleteExtraFilesInDir(ctx context.Context, d fs.Directory, targetPath string) error {
+func (c *copier) deleteExtraFilesInDir(ctx context.Context, o *FilesystemOutput, d fs.Directory, targetPath string) error {
+
+	// read existing entries on disk
+	existingEntries, err := os.ReadDir(path.Join(o.TargetPath, targetPath))
+
+	if os.IsNotExist(err) {
+		return nil
+	}
+
+	if err != nil {
+		return errors.Wrap(err, "read existing dir entries ('"+path.Join(o.TargetPath, targetPath)+"')")
+	}
+
 	entries, err := fs.GetAllEntries(ctx, d)
 	if err != nil {
 		return errors.Wrap(err, "error reading directory")
@@ -292,27 +308,23 @@ func (c *copier) deleteExtraFilesInDir(ctx context.Context, d fs.Directory, targ
 		}
 	}
 
-	// read existing entries on disk
-	existingEntries, err := os.ReadDir(targetPath)
-	if err != nil {
-		return errors.Wrap(err, "read existing dir entries")
-	}
-
 	// iterate existing entries, delete the ones that don't exist in the snapshot
 	for _, e := range existingEntries {
 		if e.IsDir() { //nolint:nestif
 			_, existsInSnapshot := dirs[e.Name()]
 			if !existsInSnapshot {
-				if err := os.RemoveAll(path.Join(targetPath, e.Name())); err != nil {
-					return errors.Wrap(err, "delete directory "+path.Join(targetPath, e.Name()))
+				if err := os.RemoveAll(path.Join(o.TargetPath, targetPath, e.Name())); err != nil {
+					return errors.Wrap(err, "delete directory "+path.Join(o.TargetPath, targetPath, e.Name()))
 				}
+				c.stats.DeletedCount.Add(1)
 			}
 		} else /* file */ {
 			_, existsInSnapshot := files[e.Name()]
 			if !existsInSnapshot {
-				if err := os.Remove(path.Join(targetPath, e.Name())); err != nil {
-					return errors.Wrap(err, "delete file "+path.Join(targetPath, e.Name()))
+				if err := os.Remove(path.Join(o.TargetPath, targetPath, e.Name())); err != nil {
+					return errors.Wrap(err, "delete file "+path.Join(o.TargetPath, targetPath, e.Name()))
 				}
+				c.stats.DeletedCount.Add(1)
 			}
 		}
 	}
