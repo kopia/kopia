@@ -45,7 +45,7 @@ require (
 	github.com/stretchr/testify v1.8.1
 	github.com/studio-b12/gowebdav v0.0.0-20211106090535-29e74efa701f
 	github.com/tg123/go-htpasswd v1.2.0
-	github.com/zalando/go-keyring v0.2.1
+	github.com/zalando/go-keyring v0.2.2
 	github.com/zeebo/blake3 v0.2.3
 	go.opencensus.io v0.24.0 // indirect
 	go.uber.org/zap v1.24.0
@@ -77,7 +77,7 @@ require (
 	github.com/danieljoos/wincred v1.1.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
-	github.com/godbus/dbus/v5 v5.0.6 // indirect
+	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/golang/glog v1.0.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/googleapis/gax-go/v2 v2.7.0 // indirect
