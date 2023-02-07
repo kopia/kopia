@@ -258,6 +258,7 @@ func (c *copier) copyDirectory(ctx context.Context, d fs.Directory, targetPath s
 	// deleting existing files only makes sense in the context of an actual filesystem (compared to a tar or zip)
 	_, isFileSystem := c.output.(*FilesystemOutput)
 	_, isShallowFileSystem := c.output.(*ShallowFilesystemOutput)
+	
 	if c.deleteExtra && (isFileSystem || isShallowFileSystem) {
 		if err := c.deleteExtraFilesInDir(ctx, d, targetPath); err != nil {
 			return errors.Wrap(err, "delete extra")
