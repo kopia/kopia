@@ -99,19 +99,8 @@ func GetParams(ctx context.Context, rep repo.Repository) (*Params, error) {
 
 // SetParams sets the maintenance parameters.
 func SetParams(ctx context.Context, rep repo.RepositoryWriter, par *Params) error {
-	md, err := manifestIDs(ctx, rep)
-	if err != nil {
-		return err
-	}
-
-	if _, err := rep.PutManifest(ctx, manifestLabels, par); err != nil {
+	if _, err := rep.ReplaceManifests(ctx, manifestLabels, par); err != nil {
 		return errors.Wrap(err, "put manifest")
-	}
-
-	for _, m := range md {
-		if err := rep.DeleteManifest(ctx, m.ID); err != nil {
-			return errors.Wrap(err, "delete manifest")
-		}
 	}
 
 	return nil
