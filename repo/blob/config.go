@@ -7,6 +7,8 @@ import (
 )
 
 // ConnectionInfo represents JSON-serializable configuration of a blob storage.
+//
+//nolint:musttag // we use custom JSON marshaling.
 type ConnectionInfo struct {
 	Type   string
 	Config interface{}

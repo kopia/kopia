@@ -104,6 +104,9 @@ issues:
     - path: \.pb\.go
       linters:
       - gofmt
+    - path: reporter.go
+      linters:
+      - musttag
     - path: _test\.go|testing|tests|test_env|fshasher|fault
       linters:
       - contextcheck
@@ -115,6 +118,7 @@ issues:
       - gocognit
       - gomnd
       - gosec
+      - musttag
       - nestif
       - revive
       - nolintlint
