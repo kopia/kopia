@@ -21,7 +21,7 @@ func Test_RsCrc32_AssertSizeAlwaysGrow(t *testing.T) {
 
 	for i := 1; i < 10*1024*1024; i++ {
 		sizes := impl.computeSizesFromOriginal(i)
-		total := sizes.computeFinalFileSize(i)
+		total := computeFinalFileSize(&sizes, i)
 
 		//nolint:gocritic
 		// println(fmt.Sprintf("%-8v -> b:%-4v s:%-8v t:%-8v", i, sizes.Blocks, sizes.ShardSize, total))
