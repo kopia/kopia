@@ -1,0 +1,38 @@
+package cli_test
+
+import (
+	"os"
+	"path"
+	"testing"
+
+	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/blob/filesystem"
+	"github.com/kopia/kopia/tests/testenv"
+
+	"github.com/stretchr/testify/require"
+)
+
+func TestRepositoryCreateWithConfigFile(t *testing.T) {
+	env := testenv.NewCLITest(t, nil, testenv.NewInProcRunner(t))
+
+	_, stderr := env.RunAndExpectFailure(t, "repo", "create", "from-config", "--file", path.Join(env.ConfigDir, "does_not_exist.config"))
+	require.Contains(t, stderr, "can't connect to storage: either --token-file or --token must be provided")
+
+	_, stderr = env.RunAndExpectFailure(t, "repo", "create", "from-config", "--token", "bad-token")
+	require.Contains(t, stderr, "can't connect to storage: invalid token: unable to decode token")
+
+	storageCfgFName := path.Join(env.ConfigDir, "storage-config.json")
+	ci := blob.ConnectionInfo{
+		Type:   "filesystem",
+		Config: filesystem.Options{Path: env.RepoDir},
+	}
+	token, err := repo.EncodeToken("12345678", ci)
+	require.Nil(t, err)
+
+	require.Nil(t, os.WriteFile(storageCfgFName, []byte(token), 0o600))
+
+	defer os.Remove(storageCfgFName) //nolint:errcheck,gosec
+
+	env.RunAndExpectSuccess(t, "repo", "create", "from-config", "--token-file", storageCfgFName)
+}
