@@ -49,7 +49,7 @@ require (
 	github.com/zeebo/blake3 v0.2.3
 	go.opencensus.io v0.24.0 // indirect
 	go.uber.org/zap v1.24.0
-	golang.org/x/crypto v0.5.0
+	golang.org/x/crypto v0.6.0
 	golang.org/x/mod v0.8.0
 	golang.org/x/net v0.6.0
 	golang.org/x/oauth2 v0.5.0
