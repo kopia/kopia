@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 
+	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/repo/blob"
 )
 
@@ -24,7 +25,7 @@ func (t ThrottledBytes) Length() int {
 // WriteTo writes to the writer while meeting the rate limit.
 func (t ThrottledBytes) WriteTo(w io.Writer) (int64, error) {
 	// Use Copy & t.Reader rather than delegate to t.data.WriteTo to ensure we rate limit
-	return io.Copy(w, t.Reader()) //nolint:wrapcheck
+	return iocopy.Copy(w, t.Reader()) //nolint:wrapcheck
 }
 
 // Reader returns a throttled reader.
