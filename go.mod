@@ -57,7 +57,7 @@ require (
 	golang.org/x/sys v0.5.0
 	golang.org/x/term v0.5.0
 	golang.org/x/text v0.7.0
-	google.golang.org/api v0.109.0
+	google.golang.org/api v0.110.0
 	google.golang.org/grpc v1.53.0
 	google.golang.org/protobuf v1.28.1
 	gopkg.in/ini.v1 v1.66.6 // indirect
@@ -98,7 +98,7 @@ require (
 	go.uber.org/multierr v1.9.0
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20230110181048-76db0878b65f // indirect
+	google.golang.org/genproto v0.0.0-20230209215440-0dfe4f8abfcc // indirect
 )
 
 require (
@@ -116,7 +116,7 @@ require (
 )
 
 require (
-	cloud.google.com/go/compute v1.15.1 // indirect
+	cloud.google.com/go/compute v1.18.0 // indirect
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
 	cloud.google.com/go/iam v0.8.0 // indirect
 	github.com/alessio/shellescape v1.4.1 // indirect
@@ -128,7 +128,7 @@ require (
 	github.com/gobwas/pool v0.2.1 // indirect
 	github.com/gobwas/ws v1.1.0 // indirect
 	github.com/google/pprof v0.0.0-20211214055906-6f57359322fd // indirect
-	github.com/googleapis/enterprise-certificate-proxy v0.2.1 // indirect
+	github.com/googleapis/enterprise-certificate-proxy v0.2.3 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/xhit/go-str2duration v1.2.0 // indirect
