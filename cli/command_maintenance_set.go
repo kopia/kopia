@@ -177,6 +177,15 @@ func (c *commandMaintenanceSet) run(ctx context.Context, rep repo.DirectReposito
 		return errors.Errorf("no changes specified")
 	}
 
+	blobCfg, err := rep.FormatManager().BlobCfgBlob()
+	if err != nil {
+		return errors.Wrap(err, "blob configuration")
+	}
+
+	if err = maintenance.CheckExtendRetention(ctx, blobCfg, p); err != nil {
+		return errors.Wrap(err, "unable to apply maintenance changes")
+	}
+
 	if changedSchedule {
 		if err := maintenance.SetSchedule(ctx, rep, s); err != nil {
 			return errors.Wrap(err, "unable to set schedule")

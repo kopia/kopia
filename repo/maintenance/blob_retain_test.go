@@ -53,11 +53,12 @@ func (s *formatSpecificTestSuite) TestExtendBlobRetentionTime(t *testing.T) {
 		t.Fatalf("unexpected number of blobs after writing: %v", blobsBefore)
 	}
 
+	lastBlobIdx := len(blobsBefore) - 1
 	st := env.RootStorage().(cache.Storage)
 
 	ta.Advance(7 * 24 * time.Hour)
 
-	if err = st.TouchBlob(ctx, blobsBefore[3].BlobID, time.Hour); err != nil {
+	if err = st.TouchBlob(ctx, blobsBefore[lastBlobIdx].BlobID, time.Hour); err != nil {
 		t.Fatalf("Altering expired object failed")
 	}
 
@@ -66,7 +67,7 @@ func (s *formatSpecificTestSuite) TestExtendBlobRetentionTime(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = st.TouchBlob(ctx, blobsBefore[3].BlobID, time.Hour)
+	err = st.TouchBlob(ctx, blobsBefore[lastBlobIdx].BlobID, time.Hour)
 	assert.EqualErrorf(t, err, "cannot alter object before retention period expires", "Altering locked object should fail")
 }
 
@@ -102,11 +103,12 @@ func (s *formatSpecificTestSuite) TestExtendBlobRetentionTimeDisabled(t *testing
 		t.Fatalf("unexpected number of blobs after writing: %v", blobsBefore)
 	}
 
+	lastBlobIdx := len(blobsBefore) - 1
 	st := env.RootStorage().(cache.Storage)
 
 	ta.Advance(7 * 24 * time.Hour)
 
-	if err = st.TouchBlob(ctx, blobsBefore[3].BlobID, time.Hour); err != nil {
+	if err = st.TouchBlob(ctx, blobsBefore[lastBlobIdx].BlobID, time.Hour); err != nil {
 		t.Fatalf("Altering expired object failed")
 	}
 
@@ -115,7 +117,7 @@ func (s *formatSpecificTestSuite) TestExtendBlobRetentionTimeDisabled(t *testing
 		t.Fatal(err)
 	}
 
-	if err = st.TouchBlob(ctx, blobsBefore[3].BlobID, time.Hour); err != nil {
+	if err = st.TouchBlob(ctx, blobsBefore[lastBlobIdx].BlobID, time.Hour); err != nil {
 		t.Fatalf("Altering expired object failed")
 	}
 }

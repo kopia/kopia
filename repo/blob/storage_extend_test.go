@@ -36,7 +36,6 @@ func (s *formatSpecificTestSuite) TestExtendBlobRetention(t *testing.T) {
 			nro.BlockFormat.HMACSecret = testHMACSecret
 			nro.RetentionMode = blob.Governance
 			nro.RetentionPeriod = time.Hour * 24
-			nro.RetentionExtend = true
 		},
 	})
 	w := env.RepositoryWriter.NewObjectWriter(ctx, object.WriterOptions{})
@@ -55,22 +54,23 @@ func (s *formatSpecificTestSuite) TestExtendBlobRetention(t *testing.T) {
 		t.Fatalf("unexpected number of blobs after writing: %v", blobsBefore)
 	}
 
+	lastBlobIdx := len(blobsBefore) - 1
 	st := env.RootStorage().(cache.Storage)
 
 	// Verify that file is locked
-	err = st.TouchBlob(ctx, blobsBefore[3].BlobID, time.Hour)
+	err = st.TouchBlob(ctx, blobsBefore[lastBlobIdx].BlobID, time.Hour)
 	assert.EqualErrorf(t, err, "cannot alter object before retention period expires", "Altering locked object should fail")
 
 	ta.Advance(7 * 24 * time.Hour)
 
 	// Verify that file is unlocked
-	err = st.TouchBlob(ctx, blobsBefore[3].BlobID, time.Hour)
+	err = st.TouchBlob(ctx, blobsBefore[lastBlobIdx].BlobID, time.Hour)
 	if err != nil {
 		t.Fatalf("Altering expired object failed")
 	}
 
 	// Relock blob
-	err = env.RepositoryWriter.BlobStorage().ExtendBlobRetention(ctx, blobsBefore[3].BlobID, blob.ExtendOptions{
+	err = env.RepositoryWriter.BlobStorage().ExtendBlobRetention(ctx, blobsBefore[lastBlobIdx].BlobID, blob.ExtendOptions{
 		RetentionMode:   blob.Governance,
 		RetentionPeriod: 2 * time.Hour,
 	})
@@ -81,12 +81,12 @@ func (s *formatSpecificTestSuite) TestExtendBlobRetention(t *testing.T) {
 	// Verify Lock period
 	ta.Advance(1 * time.Hour)
 
-	err = st.TouchBlob(ctx, blobsBefore[3].BlobID, time.Hour)
+	err = st.TouchBlob(ctx, blobsBefore[lastBlobIdx].BlobID, time.Hour)
 	assert.EqualErrorf(t, err, "cannot alter object before retention period expires", "Altering locked object should fail")
 
 	ta.Advance(2 * time.Hour)
 
-	err = st.TouchBlob(ctx, blobsBefore[3].BlobID, time.Hour)
+	err = st.TouchBlob(ctx, blobsBefore[lastBlobIdx].BlobID, time.Hour)
 	if err != nil {
 		t.Fatalf("Altering expired object failed")
 	}
@@ -106,6 +106,9 @@ func (s *formatSpecificTestSuite) TestExtendBlobRetentionUnsupported(t *testing.
 			nro.BlockFormat.MasterKey = testMasterKey
 			nro.BlockFormat.Hash = "HMAC-SHA256"
 			nro.BlockFormat.HMACSecret = testHMACSecret
+			// Ensure retention is disabled to trigger ExtendBlobRetention unsupported
+			nro.RetentionPeriod = 0
+			nro.RetentionMode = ""
 		},
 	})
 	w := env.RepositoryWriter.NewObjectWriter(ctx, object.WriterOptions{})
@@ -124,8 +127,10 @@ func (s *formatSpecificTestSuite) TestExtendBlobRetentionUnsupported(t *testing.
 		t.Fatalf("unexpected number of blobs after writing: %v", blobsBefore)
 	}
 
+	lastBlobIdx := len(blobsBefore) - 1
+
 	// Extend retention time
-	err = env.RepositoryWriter.BlobStorage().ExtendBlobRetention(ctx, blobsBefore[3].BlobID, blob.ExtendOptions{
+	err = env.RepositoryWriter.BlobStorage().ExtendBlobRetention(ctx, blobsBefore[lastBlobIdx].BlobID, blob.ExtendOptions{
 		RetentionMode:   blob.Governance,
 		RetentionPeriod: 2 * time.Hour,
 	})

@@ -2,16 +2,23 @@ package maintenance
 
 import (
 	"context"
+	"runtime"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/format"
 )
 
-// ExtendBlobRetentionTimeOptions provides option for iextending blob retention algorithm.
+const parallelBlobRetainCPUMultiplier = 2
+
+const minRetentionMaintenanceDiff = time.Duration(24) * time.Hour
+
+// ExtendBlobRetentionTimeOptions provides options for extending blob retention algorithm.
 type ExtendBlobRetentionTimeOptions struct {
 	Parallel int
 	DryRun   bool
@@ -30,7 +37,7 @@ func ExtendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWrite
 	)
 
 	if opt.Parallel == 0 {
-		opt.Parallel = 16
+		opt.Parallel = runtime.NumCPU() * parallelBlobRetainCPUMultiplier
 	}
 
 	blobCfg, err := rep.FormatManager().BlobCfgBlob()
@@ -75,7 +82,7 @@ func ExtendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWrite
 		}
 	}
 
-	// Convert prefixes from strong to BlobID.
+	// Convert prefixes from string to BlobID.
 	for _, pfx := range repo.GetLockingStoragePrefixes() {
 		prefixes = append(prefixes, blob.ID(pfx))
 	}
@@ -87,6 +94,7 @@ func ExtendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWrite
 		if !opt.DryRun {
 			extend <- bm
 		}
+
 		atomic.AddUint32(toExtend, 1)
 		return nil
 	})
@@ -112,4 +120,21 @@ func ExtendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWrite
 	log(ctx).Infof("Extended total %v blobs", *cnt)
 
 	return int(*cnt), nil
+}
+
+// CheckExtendRetention verifies if extension can be enabled due to maintenance and blob parameters.
+func CheckExtendRetention(ctx context.Context, blobCfg format.BlobStorageConfiguration, p *Params) error {
+	if !p.ExtendObjectLocks {
+		return nil
+	}
+
+	if !p.FullCycle.Enabled {
+		log(ctx).Warn("Object Lock extension will not function because Full-Maintenance is disabled")
+	}
+
+	if blobCfg.RetentionPeriod > 0 && blobCfg.RetentionPeriod-p.FullCycle.Interval < minRetentionMaintenanceDiff {
+		return errors.Errorf("The repo RetentionPeriod must be %v greater than the Full Maintenance interval %v %v", minRetentionMaintenanceDiff, blobCfg.RetentionPeriod, p.FullCycle.Interval)
+	}
+
+	return nil
 }

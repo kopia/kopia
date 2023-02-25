@@ -41,7 +41,6 @@ type NewRepositoryOptions struct {
 	ObjectFormat    format.ObjectFormat  `json:"objectFormat"` // object format
 	RetentionMode   blob.RetentionMode   `json:"retentionMode,omitempty"`
 	RetentionPeriod time.Duration        `json:"retentionPeriod,omitempty"`
-	RetentionExtend bool                 `json:"retentionExtend,omitempty"`
 }
 
 // Initialize creates initial repository data structures in the specified storage with given credentials.
@@ -77,7 +76,6 @@ func blobCfgBlobFromOptions(opt *NewRepositoryOptions) format.BlobStorageConfigu
 	return format.BlobStorageConfiguration{
 		RetentionMode:   opt.RetentionMode,
 		RetentionPeriod: opt.RetentionPeriod,
-		RetentionExtend: opt.RetentionExtend,
 	}
 }
 
