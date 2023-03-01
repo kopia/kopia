@@ -31,7 +31,7 @@ A `snapshot` is a [point-in-time backup](../features#backup-files-and-directorie
 
 A `repository` is the storage location where your snapshots are saved; Kopia supports [cloud/remote, network, and local storage locations](../features#save-snapshots-to-cloud-network-or-local-storage) and all repositories are [encrypted](../features/#end-to-end-zero-knowledge-encryption) with a password that you designate.
 
-See the [repository help docs](../repository) for more information.
+See the [repository help docs](../repositories) for more information.
 
 #### What is a Policy?
 
