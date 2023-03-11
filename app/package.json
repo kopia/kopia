@@ -117,7 +117,7 @@
     "electron": "^19.0.8",
     "electron-builder": "^23.3.3",
     "electron-notarize": "^1.2.2",
-    "playwright": "^1.28.1",
+    "playwright": "^1.31.1",
     "playwright-core": "^1.31.1"
   },
   "homepage": "./",
