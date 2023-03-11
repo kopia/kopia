@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/alecthomas/kingpin"
+	"github.com/alecthomas/kingpin/v2"
 	"github.com/fatih/color"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"

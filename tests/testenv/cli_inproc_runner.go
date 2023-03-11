@@ -8,7 +8,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/alecthomas/kingpin"
+	"github.com/alecthomas/kingpin/v2"
 
 	"github.com/kopia/kopia/cli"
 	"github.com/kopia/kopia/internal/testlogging"
