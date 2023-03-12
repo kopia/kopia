@@ -170,19 +170,8 @@ func SetPolicy(ctx context.Context, rep repo.RepositoryWriter, si snapshot.Sourc
 		}
 	}
 
-	md, err := rep.FindManifests(ctx, LabelsForSource(si))
-	if err != nil {
-		return errors.Wrapf(err, "unable to load manifests for %v", si)
-	}
-
-	if _, err := rep.PutManifest(ctx, LabelsForSource(si), pol); err != nil {
+	if _, err := rep.ReplaceManifests(ctx, LabelsForSource(si), pol); err != nil {
 		return errors.Wrap(err, "error writing policy manifest")
-	}
-
-	for _, em := range md {
-		if err := rep.DeleteManifest(ctx, em.ID); err != nil {
-			return errors.Wrap(err, "unable to delete previous policy manifest")
-		}
 	}
 
 	return nil
