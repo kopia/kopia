@@ -29,3 +29,4 @@ coverage.txt
 /vendor/
 .screenshots/
 .idea/
+/.vs
