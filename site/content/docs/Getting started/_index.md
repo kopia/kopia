@@ -1,4 +1,3 @@
-
 ---
 title: "Getting Started Guide"
 linkTitle: "Getting Started Guide"

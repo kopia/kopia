@@ -1,35 +1,36 @@
 ---
 title: "Download & Installation"
 linkTitle: "Installation Guide"
-weight: 30
+weight: 35
 ---
 
-### Two Variants of Kopia
+## Two Variants of Kopia
 
 Kopia is a standalone binary and can be used through a command-line interface (CLI) or a graphical user interface (GUI). 
 
 * If you want to use Kopia via CLI, you will install the `kopia` binary; when you want to use Kopia, you will call the `kopia` binary (along with [Kopia commands](../reference/command-line/)) in a terminal/command prompt window or within a script. 
 
-* If you want to use Kopia via GUI, you will install `KopiaUI`, which is the name of the Kopia GUI. The installer for KopiaUI comes with the `kopia` binary and a graphical user interface called `KopiaUI` that is a wrapper for the `kopia` binary. `KopiaUI` runs the `kopia` binary and associated commands as necessary, so you do not need to use the command-line interface. 
+* If you want to use Kopia via GUI, you will install `KopiaUI`, the name of the Kopia GUI. The installer for KopiaUI comes with the `kopia` binary and a graphical user interface called `KopiaUI` - a wrapper for the `kopia` binary. `KopiaUI` runs the `kopia` binary and associated commands as necessary, so you do not need to use the command-line interface. 
 
-> NOTE: `KopiaUI` is available both as a web-based application and a desktop application. The web-based application is available when you run Kopia in [server mode](../features/#optional-server-mode-with-api-support-to-centrally-manage-backups-of-multiple-machines). For users who will be using Kopia to backup their individual machines and not running Kopia in server mode, you will use the desktop application. If you do not understand what Kopia server mode is, then do not worry about it -- just download `KopiaUI` from the [links below](#kopia-download-links) and you will get the desktop application by default.
+> NOTE: `KopiaUI` is available both as a web-based application and a desktop application. The web-based application is available when you run Kopia in [server mode](../features/#optional-server-mode-with-api-support-to-centrally-manage-backups-of-multiple-machines). For users who will be using Kopia to backup their individual machines and not running Kopia in server mode, you will use the desktop application. If you do not understand Kopia server mode, do not worry; download `KopiaUI` from the [links below](#kopia-download-links), and you will get the desktop application by default.
 
-Both the CLI and GUI versions of Kopia use the same `kopia` binary, so you are getting the same features regardless of which variant you decide to go with (since the `kopia` binary is the workhorse). However, there are some advanced features that are available through CLI but which have not yet been added to `KopiaUI`. Right now, `KopiaUI` allows you to access all the essential features of Kopia that are required to backup/restore data: create and connect to repositories (including encryption), set policies (including compression, scheduling automatic snapshots, and snapshot retention), create snapshots, restore snapshots, automatically run maintenance, and install Kopia updates. If you use `KopiaUI` and you want access to advanced features that are not yet available in `KopiaUI`, you can easily run the commands for those features via CLI by calling the `kopia` binary that comes with `KopiaUI`. In other words, using Kopia GUI does not restrict you from using Kopia CLI as well.
+Both the CLI and GUI versions of Kopia use the same `kopia` binary, so you are getting the same features regardless of which variant you decide to go with (since the `kopia` binary is the workhorse). However, some advanced features are available through CLI but have not yet been added to `KopiaUI`. Right now, `KopiaUI` allows you to access all the essential features of Kopia that are required to backup/restore data: create and connect to repositories (including encryption), set policies (including compression, scheduling automatic snapshots, and snapshot retention), create snapshots, restore snapshots, automatically run maintenance, and install Kopia updates. If you use `KopiaUI` and you want access to advanced features that are not yet available in `KopiaUI`, you can easily run the commands for those features via CLI by calling the `kopia` binary that comes with `KopiaUI`. In other words, using Kopia GUI does not restrict you from using Kopia CLI as well.
 
-Kopia CLI is recommended only if you are comfortable with command-line interfaces (e.g., power users, system administrators, etc.). If you are not comfortable with command-line, you should use Kopia GUI. Although more limited than Kopia CLI, Kopia GUI is still very powerful and allows you to easily use Kopia to backup/restore your data.
+Kopia CLI is recommended only if you are comfortable with command-line interfaces (e.g., power users, system administrators, etc.). If you are uncomfortable with the command-line, use Kopia GUI. Although more limited than Kopia CLI, Kopia GUI is still very powerful and allows you to use Kopia to back up/restore your data easily.
 
-### Kopia Download Links
+## Kopia Download Links
 
 The following installation options are available for the latest stable version of Kopia:
 
 * [Official Releases](https://github.com/kopia/kopia/releases/latest)
 * [Windows CLI (Scoop)](#windows-cli-installation-using-scoop)
 * [Windows GUI (`KopiaUI`)](#windows-gui-installation)
+* [macOS CLI Homebrew](#macos-cli-using-homebrew)
+* [macOS GUI Homebrew](#macos-gui-using-homebrew)
+* [macOS GUI (`KopiaUI`)](#macos-gui-installer)
 * [Debian/Ubuntu Linux (APT Repository, both CLI and `KopiaUI`)](#linux-installation-using-apt-debian-ubuntu)
 * [RedHat/CentOS/Fedora Linux (Linux YUM Repository, both CLI and `KopiaUI`)](#linux-installation-using-rpm-redhat-centos-fedora)
 * [Arch Linux/Manjaro (AUR)](#linux-installation-using-aur-arch-manjaro)
-* [macOS CLI Homebrew](#macos-cli-using-homebrew)
-* [macOS GUI (`KopiaUI`)](#macos-gui-installer)
 * [OpenBSD](#openbsd-installation-via-ports)
 * [FreeBSD](#freebsd-installation-via-ports)
 * [Docker Images](#docker-images)
@@ -43,9 +44,7 @@ The following options are available if you like to test the beta and unreleased 
 * [RedHat/CentOS/Fedora Linux (Linux YUM Repository)](#linux-installation-using-rpm-redhat-centos-fedora) offers `unstable` channel
 * [Source Code](https://github.com/kopia/kopia/) - see [compilation instructions](#compilation-from-source)
 
-### Installing Kopia
-
-#### Operating System Support
+## Installing Kopia
 
 CLI and GUI packages are available for:
 
@@ -53,7 +52,7 @@ CLI and GUI packages are available for:
 * macOS 10.11 or later, 64-bit (CLI binary, GUI installer {`KopiaUI`}, and Homebrew package)
 * Linux - `amd64`, `armhf` or `arm64` (CLI binary and `KopiaUI` available via RPM and DEB repositories)
 
-#### Windows CLI installation using Scoop
+### Windows CLI installation using Scoop
 
 On Windows, Kopia CLI is available as a [Scoop](https://scoop.sh) package, which automates installation and upgrades.
 
@@ -72,11 +71,11 @@ Alternatively, to install the latest unreleased version of Kopia use the followi
 > scoop bucket add kopia https://github.com/kopia/scoop-test-builds.git
 ```
 
-#### Windows GUI installation
+### Windows GUI installation
 
-Installer of `KopiaUI` is available on the [releases page](https://github.com/kopia/kopia/releases/latest). Simply download the file named `KopiaUI-Setup-X.Y.Z.exe` (where `X.Y.Z` is the version number), double click the file, and follow on-screen prompts.
+The installer of `KopiaUI` is available on the [releases page](https://github.com/kopia/kopia/releases/latest). Simply download the file named `KopiaUI-Setup-X.Y.Z.exe` (where `X.Y.Z` is the version number), double click the file, and follow on-screen prompts.
 
-#### macOS CLI using Homebrew
+### macOS CLI using Homebrew
 
 On macOS, you can use [Homebrew](https://brew.sh) to install and keep Kopia up-to-date.
 
@@ -98,7 +97,7 @@ Alternatively, to install the latest unreleased version of Kopia use the followi
 $ brew install kopia/test-builds/kopia
 ```
 
-#### macOS GUI using Homebrew
+### macOS GUI using Homebrew
 
 On macOS, you can use [Homebrew](https://brew.sh) to install and keep Kopia up-to-date.
 
@@ -114,11 +113,11 @@ To upgrade Kopia:
 $ brew upgrade kopiaui
 ```
 
-#### macOS GUI installer
+### macOS GUI installer
 
 MacOS package with `KopiaUI` is available in DMG and ZIP formats on the [releases page](https://github.com/kopia/kopia/releases/latest).
 
-#### Linux installation using APT (Debian, Ubuntu)
+### Linux installation using APT (Debian, Ubuntu)
 
 Kopia offers APT repository compatible with Debian, Ubuntu and other similar distributions.
 
@@ -144,7 +143,7 @@ sudo apt install kopia
 sudo apt install kopia-ui
 ```
 
-#### Linux installation using RPM (RedHat, CentOS, Fedora)
+### Linux installation using RPM (RedHat, CentOS, Fedora)
 
 Kopia offers RPM repository compatible with RedHat, CentOS, Fedora and other similar distributions.
 
@@ -176,7 +175,7 @@ sudo yum install kopia
 sudo yum install kopia-ui
 ```
 
-#### Linux installation using AUR (Arch, Manjaro)
+### Linux installation using AUR (Arch, Manjaro)
 
 Those using Arch-based distributions have the option of building Kopia from source or installing pre-complied binaries:
 
@@ -208,7 +207,7 @@ or if you use an AUR helper such as yay:
 yay -S kopia-bin
 ```
 
-#### OpenBSD installation via ports
+### OpenBSD installation via ports
 
 OpenBSD now has kopia in -current ports, which means it gets built as packages in snapshots for several platforms (amd64, arm64, mips64 and i386) and will appear as a package for OpenBSD 7.1 and later releases.
 
@@ -220,7 +219,7 @@ To install the kopia package, run:
 
 To build Kopia from ports yourself, cd /usr/ports/sysutils/kopia and follow the [Ports](https://www.openbsd.org/faq/ports/ports.html) guide on building ports as usual.
 
-#### FreeBSD installation via ports
+### FreeBSD installation via ports
 
 FreeBSD now has kopia in ports, which means it gets built as packages in snapshots for several platforms (amd64, arm64 and i386) and will appear as a package for supported versions.
 
@@ -239,7 +238,87 @@ pkg install kopia
 
 For more information on ports, see the [FreeBSD Handbook](https://docs.freebsd.org/en/books/handbook/ports/index.html#ports).
 
-#### Verifying package integrity
+### Docker Images
+
+Kopia provides pre-built Docker container images for `amd64`, `arm64` and `arm` on [DockerHub](https://hub.docker.com/r/kopia/kopia).
+
+The following tags are available:
+
+* `latest` - tracks the latest stable release
+* `testing` - tracks the latest stable or pre-release (such as a beta or release candidate)
+* `unstable` - tracks the latest unstable nightly build
+* `major.minor` - latest patch release for a given major and minor version (e.g. `0.8`)
+* `major.minor.patch` - specific stable release
+
+In order to run Kopia in a docker container, you must:
+
+* provide repository password via `KOPIA_PASSWORD` environment variable
+* mount `/app/config` directory in which Kopia will look for `repository.config` file
+* (recommended) mount `/app/cache` directory in which Kopia will be keeping a cache of downloaded data
+* (optional) mount `/app/logs` directory in which Kopia will be writing logs
+* (optional), **only** when using `rclone` provider) mount `/app/rclone` directory in which RClone will look for `rclone.conf` file
+* mount any directory used for locally-attached `repository`
+* mount `/tmp` directory to browse mounted snapshots
+    * the directory must have `:shared` property, so mounts can be browsable by host system
+* for nginx reverse proxy, use: `grpc_pass grpcs://container_ip:container_port` instead of `proxy_pass`
+
+Invocation of `kopia/kopia` in a container will be similar to the following minimal example: 
+
+```shell
+$ docker pull kopia/kopia:latest
+$ docker run -e KOPIA_PASSWORD \
+    -v /path/to/config/dir:/app/config \
+    -v /path/to/cache/dir:/app/cache \
+    -v /path/to/logs/dir:/app/logs \
+    -v /path/to/repository/dir:/repository \
+    -v /path/to/tmp/dir:/tmp:shared \
+```
+
+In addition to creating the docker container with *docker run*, the following docker-compose provides an example for setting up a minimal container in [server mode](../features/#optional-server-mode-with-api-support-to-centrally-manage-backups-of-multiple-machines) including the web interface. You can access the interface via http://localhost:51515 or at the server's IP address after starting the container.  
+
+>NOTE Kopia provides a vast of parameters to configure the container. Please check our [docker-compose](https://github.com/kopia/kopia/blob/master/tools/docker/docker-compose.yml) for more details.
+
+```shell
+version: '3.7'
+services:
+    kopia:
+        image: kopia/kopia:latest
+        hostname: Hostname
+        container_name: Kopia
+        restart: unless-stopped
+        ports:
+            - 51515:51515
+        # Setup the server that provides the web gui
+        command:
+            - server
+            - start
+            - --disable-csrf-token-checks
+            - --insecure
+            - --address=0.0.0.0:51515
+            - --server-username="USERNAME"
+            - --server-password="SECRET_PASSWORD"
+        environment:
+            # Set repository password
+            KOPIA_PASSWORD: "SECRET"
+            USER: "User"
+        volumes:
+            # Mount local folders needed by kopia
+            - /path/to/config/dir:/app/config
+            - /path/to/cache/dir:/app/cache
+            - /path/to/logs/dir:/app/logs
+            # Mount local folders to snapshot
+            - /path/to/data/dir:/data:ro
+            # Mount repository location
+            - /path/to/repository/dir:/repository
+            # Mount path for browsing mounted snaphots
+            - /path/to/tmp/dir:/tmp:shared
+```
+
+Because the Docker environment uses random hostnames for its containers, it is recommended to explicitly set them using `hostname`. The name will be persisted in a configuration file and used afterwards.
+
+>NOTE Kopia within a container overrides default values of some environment variables, see our [dockerfile](https://github.com/kopia/kopia/blob/master/tools/docker/Dockerfile) for more details.
+
+### Verifying package integrity
 
 When downloading from GitHub it's recommended to verify SHA256 checksum of the binary and comparing that to `checksums.txt`. For extra security you may want to verify that the checksums have been signed by official Kopia builder, by running GPG:
 
@@ -268,50 +347,7 @@ $ chmod u+x path/to/kopia
 $ sudo mv path/to/kopia /usr/local/bin/kopia
 ```
 
-#### Docker Images
-
-Kopia provides pre-built Docker container images for `amd64`, `arm64` and `arm` on [DockerHub](https://hub.docker.com/r/kopia/kopia).
-
-The following tags are available:
-
-* `latest` - tracks the latest stable release
-* `testing` - tracks the latest stable or pre-release (such as a beta or release candidate)
-* `unstable` - tracks the latest unstable nightly build
-* `major.minor` - latest patch release for a given major and minor version (e.g. `0.8`)
-* `major.minor.patch` - specific stable release
-
-In order to run Kopia in a container, you must:
-
-* provide repository password via `KOPIA_PASSWORD` environment variable
-* mount `/app/config` directory in which Kopia will look for `repository.config` file
-* (recommended) mount `/app/cache` directory in which Kopia will be keeping a cache of downloaded data
-* (optional) mount `/app/logs` directory in which Kopia will be writing logs
-* mount any data directory used for locally-attached repository
-* (optional, only when using `rclone` provider) mount `/app/rclone` directory in which RClone will look for `rclone.conf` file
-* mount `/tmp` directory in which Kopia will be mounting snapshots
-    * Ex: `-v /mnt/kopia:tmp:shared` (must have `:shared` property, so mounts can be browsable by host system)
-* (recommended) check tools/docker/docker-compose.yml for startup
-    * for nginx reverse proxy, use: `grpc_pass grpcs://container_ip:container_port` instead of `proxy_pass`
-
-Invocation of `kopia/kopia` in a container will be similar to the following example: 
-
-```shell
-$ docker pull kopia/kopia:testing
-$ docker run -e KOPIA_PASSWORD \
-    -v /path/to/config/dir:/app/config \
-    -v /path/to/cache/dir:/app/cache \
-    -v ~/.config/rclone:/app/rclone \
-    kopia/kopia:testing snapshot list
-```
-
-(Adjust `testing` tag to the appropriate version)
-
->NOTE Kopia in container overrides default values of some environment variables, see https://github.com/kopia/kopia/blob/master/tools/docker/Dockerfile for more details.
-
-Because Docker environment uses random hostnames it is recommended to explicitly set them using `--override-hostname` and `--override-username` parameters to Kopia when connecting
-to a repository. The names will be persisted in a configuration file and used afterwards.
-
-#### Compilation From Source
+### Compilation From Source
 
 If you have [Go 1.16](https://golang.org/) or newer, you may download and build Kopia yourself. No special setup is necessary, other than the Go compiler and [git](https://git-scm.com/). You can simply run:
 
