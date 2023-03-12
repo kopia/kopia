@@ -36,13 +36,13 @@ function newServerForRepo(repoID) {
 
             args.push('server', '--ui',
                 '--tls-print-server-cert',
-                '--tls-generate-cert-name=localhost',
+                '--tls-generate-cert-name=127.0.0.1',
                 '--random-password',
                 '--random-server-control-password',
                 '--tls-generate-cert',
                 '--async-repo-connect',
                 '--shutdown-on-stdin', // shutdown the server when parent dies
-                '--address=localhost:0');
+                '--address=127.0.0.1:0');
     
 
             args.push("--config-file", path.resolve(configDir(), repoID + ".config"));
@@ -74,7 +74,7 @@ function newServerForRepo(repoID) {
 
                 const req = https.request({
                     ca: [runningServerCertificate],
-                    host: "localhost",
+                    host: "127.0.0.1",
                     port: parseInt(new URL(runningServerAddress).port),
                     method: "GET",
                     path: "/api/v1/control/status",
