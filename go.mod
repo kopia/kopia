@@ -23,7 +23,7 @@ require (
 	github.com/google/go-cmp v0.5.9
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
-	github.com/hanwen/go-fuse/v2 v2.1.1-0.20220112183258-f57e95bda82d
+	github.com/hanwen/go-fuse/v2 v2.2.0
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/klauspost/compress v1.15.15
 	github.com/klauspost/pgzip v1.2.5
