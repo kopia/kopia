@@ -4,7 +4,7 @@ import (
 	"context"
 	"os"
 
-	"github.com/alecthomas/kingpin"
+	"github.com/alecthomas/kingpin/v2"
 
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/webdav"

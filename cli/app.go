@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/alecthomas/kingpin"
+	"github.com/alecthomas/kingpin/v2"
 	"github.com/fatih/color"
 	"github.com/mattn/go-colorable"
 	"github.com/pkg/errors"

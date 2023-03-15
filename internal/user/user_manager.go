@@ -121,26 +121,12 @@ func SetUserProfile(ctx context.Context, w repo.RepositoryWriter, p *Profile) er
 		return err
 	}
 
-	manifests, err := w.FindManifests(ctx, map[string]string{
-		manifest.TypeLabelKey:   ManifestType,
-		UsernameAtHostnameLabel: p.Username,
-	})
-	if err != nil {
-		return errors.Wrap(err, "error looking for user profile")
-	}
-
-	id, err := w.PutManifest(ctx, map[string]string{
+	id, err := w.ReplaceManifests(ctx, map[string]string{
 		manifest.TypeLabelKey:   ManifestType,
 		UsernameAtHostnameLabel: p.Username,
 	}, p)
 	if err != nil {
-		return errors.Wrap(err, "error writing user profile")
-	}
-
-	for _, m := range manifests {
-		if err := w.DeleteManifest(ctx, m.ID); err != nil {
-			return errors.Wrapf(err, "error deleting user profile %v", p.Username)
-		}
+		return errors.Wrap(err, "error looking for user profile")
 	}
 
 	p.ManifestID = id

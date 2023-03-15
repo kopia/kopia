@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/alecthomas/kingpin"
+	"github.com/alecthomas/kingpin/v2"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/fs"

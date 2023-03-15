@@ -49,6 +49,7 @@ type RepositoryWriter interface {
 	NewObjectWriter(ctx context.Context, opt object.WriterOptions) object.Writer
 	ConcatenateObjects(ctx context.Context, objectIDs []object.ID) (object.ID, error)
 	PutManifest(ctx context.Context, labels map[string]string, payload interface{}) (manifest.ID, error)
+	ReplaceManifests(ctx context.Context, labels map[string]string, payload interface{}) (manifest.ID, error)
 	DeleteManifest(ctx context.Context, id manifest.ID) error
 	OnSuccessfulFlush(callback RepositoryWriterCallback)
 	Flush(ctx context.Context) error
@@ -205,6 +206,11 @@ func (r *directRepository) GetManifest(ctx context.Context, id manifest.ID, data
 func (r *directRepository) PutManifest(ctx context.Context, labels map[string]string, payload interface{}) (manifest.ID, error) {
 	//nolint:wrapcheck
 	return r.mmgr.Put(ctx, labels, payload)
+}
+
+// ReplaceManifests saves the given manifest payload with a set of labels and replaces any previous manifests with the same labels.
+func (r *directRepository) ReplaceManifests(ctx context.Context, labels map[string]string, payload interface{}) (manifest.ID, error) {
+	return replaceManifestsHelper(ctx, r, labels, payload)
 }
 
 // FindManifests returns metadata for manifests matching given set of labels.
@@ -401,6 +407,32 @@ func DirectWriteSession(ctx context.Context, r DirectRepository, opt WriteSessio
 	}
 
 	return handleWriteSessionResult(ctx, w, opt, cb(ctx, w))
+}
+
+// replaceManifestsHelper is a helper that deletes all manifests matching provided labels and replaces them with the provided one.
+func replaceManifestsHelper(ctx context.Context, rep RepositoryWriter, labels map[string]string, payload interface{}) (manifest.ID, error) {
+	const minReplaceManifestTimeDelta = 100 * time.Millisecond
+
+	md, err := rep.FindManifests(ctx, labels)
+	if err != nil {
+		return "", errors.Wrap(err, "unable to load manifests")
+	}
+
+	for _, em := range md {
+		// when replacing a manifest, make sure at least minimal amount of time passes by sleeping for few milliseconds
+		// on Windows, the clock does not always advance when measured in quick succession leading to flaky tests.
+		age := rep.Time().Sub(em.ModTime)
+		if age < minReplaceManifestTimeDelta {
+			time.Sleep(minReplaceManifestTimeDelta)
+		}
+
+		if err := rep.DeleteManifest(ctx, em.ID); err != nil {
+			return "", errors.Wrap(err, "unable to delete previous manifest")
+		}
+	}
+
+	//nolint:wrapcheck
+	return rep.PutManifest(ctx, labels, payload)
 }
 
 func handleWriteSessionResult(ctx context.Context, w RepositoryWriter, opt WriteSessionOptions, resultErr error) error {
