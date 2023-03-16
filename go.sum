@@ -52,10 +52,10 @@ github.com/cespare/xxhash/v2 v2.2.0 h1:DC2CZ1Ep5Y4k3ZQ899DldepgrayRUGE6BBZ/cd9Cj
 github.com/cespare/xxhash/v2 v2.2.0/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
 github.com/chmduquesne/rollinghash v4.0.0+incompatible h1:hnREQO+DXjqIw3rUTzWN7/+Dpw+N5Um8zpKV0JOEgbo=
 github.com/chmduquesne/rollinghash v4.0.0+incompatible/go.mod h1:Uc2I36RRfTAf7Dge82bi3RU0OQUmXT9iweIcPqvr8A0=
-github.com/chromedp/cdproto v0.0.0-20230109101555-6b041c6303cc h1:pgBIUnhrsNh0Xi+8qUdHIP/nljIVz3laeRv23eqr45M=
-github.com/chromedp/cdproto v0.0.0-20230109101555-6b041c6303cc/go.mod h1:GKljq0VrfU4D5yc+2qA6OVr8pmO/MBbPEWqWQ/oqGEs=
-github.com/chromedp/chromedp v0.8.7 h1:dYOYc5ynTBzwSLOi+1IfgHwPr8r2BqV48l/RC+3OuJ0=
-github.com/chromedp/chromedp v0.8.7/go.mod h1:iL+ywnwk3eG3EVXV1ackXBMNzdEh3Ye/KHvQkq1KRKU=
+github.com/chromedp/cdproto v0.0.0-20230220211738-2b1ec77315c9 h1:wMSvdj3BswqfQOXp2R1bJOAE7xIQLt2dlMQDMf836VY=
+github.com/chromedp/cdproto v0.0.0-20230220211738-2b1ec77315c9/go.mod h1:GKljq0VrfU4D5yc+2qA6OVr8pmO/MBbPEWqWQ/oqGEs=
+github.com/chromedp/chromedp v0.9.1 h1:CC7cC5p1BeLiiS2gfNNPwp3OaUxtRMBjfiw3E3k6dFA=
+github.com/chromedp/chromedp v0.9.1/go.mod h1:DUgZWRvYoEfgi66CgZ/9Yv+psgi+Sksy5DTScENWjaQ=
 github.com/chromedp/sysutil v1.0.0 h1:+ZxhTpfpZlmchB58ih/LBHX52ky7w2VhQVKQMucy3Ic=
 github.com/chromedp/sysutil v1.0.0/go.mod h1:kgWmDdq8fTzXYcKIBqIYvRRTnYb9aNS9moAV0xufSww=
 github.com/chzyer/logex v1.1.10/go.mod h1:+Ywpsq7O8HXn0nuIou7OrIPyXbp3wmkHB+jjWRnGsAI=
@@ -200,6 +200,7 @@ github.com/kylelemons/godebug v0.0.0-20170820004349-d65d576e9348/go.mod h1:B69LE
 github.com/kylelemons/godebug v1.1.0 h1:RPNrshWIDI6G2gRW9EHilWtl7Z6Sb1BR0xunSBf0SNc=
 github.com/kylelemons/godebug v1.1.0/go.mod h1:9/0rRGxNHcop5bhtWyNeEfOS8JIWk580+fNqagV/RAw=
 github.com/ledongthuc/pdf v0.0.0-20220302134840-0c2507a12d80 h1:6Yzfa6GP0rIo/kULo2bwGEkFvCePZ3qHDDTC3/J9Swo=
+github.com/ledongthuc/pdf v0.0.0-20220302134840-0c2507a12d80/go.mod h1:imJHygn/1yfhB7XSJJKlFZKl/J+dCPAknuiaGOshXAs=
 github.com/mailru/easyjson v0.7.7 h1:UGYAvKxe3sBsEDzO8ZeWOSlIQfWFlxbzLZe7hwFURr0=
 github.com/mailru/easyjson v0.7.7/go.mod h1:xzfreul335JAWq5oZzymOObrkdz5UnU4kGfJJLY9Nlc=
 github.com/mattn/go-colorable v0.1.13 h1:fFA4WZxdEF4tXPZVKMLwD8oUnCTTo08duU7wxecdEvA=
@@ -226,6 +227,7 @@ github.com/modocache/gover v0.0.0-20171022184752-b58185e213c5/go.mod h1:caMODM3P
 github.com/natefinch/atomic v1.0.1 h1:ZPYKxkqQOx3KZ+RsbnP/YsgvxWQPGxjC0oBt2AhwV0A=
 github.com/natefinch/atomic v1.0.1/go.mod h1:N/D/ELrljoqDyT3rZrsUmtsuzvHkeB/wWjHV22AZRbM=
 github.com/orisano/pixelmatch v0.0.0-20220722002657-fb0b55479cde h1:x0TT0RDC7UhAVbbWWBzr41ElhJx5tXPWkIHA2HWPRuw=
+github.com/orisano/pixelmatch v0.0.0-20220722002657-fb0b55479cde/go.mod h1:nZgzbfBr3hhjoZnS66nKrHmduYNpc34ny7RK4z5/HM0=
 github.com/pierrec/lz4 v2.6.1+incompatible h1:9UY3+iC23yxF0UfGaYrGplQ+79Rg+h/q9FV9ix19jjM=
 github.com/pierrec/lz4 v2.6.1+incompatible/go.mod h1:pdkljMzZIN41W+lC3N2tnIh5sFi+IEE17M5jbnwPHcY=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=

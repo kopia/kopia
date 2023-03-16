@@ -10,8 +10,8 @@ require (
 	github.com/alecthomas/units v0.0.0-20211218093645-b94a6e3cc137
 	github.com/aws/aws-sdk-go v1.44.207
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
-	github.com/chromedp/cdproto v0.0.0-20230109101555-6b041c6303cc
-	github.com/chromedp/chromedp v0.8.7
+	github.com/chromedp/cdproto v0.0.0-20230220211738-2b1ec77315c9
+	github.com/chromedp/chromedp v0.9.1
 	github.com/dustinkirkland/golang-petname v0.0.0-20191129215211-8e5a1ed0cff0
 	github.com/edsrzf/mmap-go v1.1.0
 	github.com/fatih/color v1.14.1
