@@ -1,10 +1,13 @@
 ---
 title: "Sharding"
 linkTitle: "Sharding"
-weight: 20
+weight: 55
 ---
 
+## Sharding
+
 Sharding is a feature introduced in Kopia v0.9.0 that allows user to customize the file system structure of a repository. Sharded repository looks like this on disk:
+
 ```
 │   .shards
 │   kopia.maintenance.f
