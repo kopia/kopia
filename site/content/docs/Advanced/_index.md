@@ -16,7 +16,7 @@ In the following, we will highlight and explain some advanced topics related to 
 * [Error Correction Algorithm: Reed-Solomon](eec/#error-correction-algorithm)
 * [Maintenance](maintenance/#maintenance)
 * [Consistency](consistency/#consistency)
-	* [Verifying Validity of Snapshots](consistency/#verifying-validity-of-vnapshots )
+	* [Verifying Validity of Snapshots](consistency/#verifying-validity-of-snapshots )
 	* [Repairing Corruption of Snapshots](consistency/#repairing-corruption-of-snapshots)
 * [Actions](actions/#actions)
 * [Caching](caching/#caching)
