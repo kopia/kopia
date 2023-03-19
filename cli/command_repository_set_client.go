@@ -10,11 +10,12 @@ import (
 )
 
 type commandRepositorySetClient struct {
-	repoClientOptionsReadOnly    bool
-	repoClientOptionsReadWrite   bool
-	repoClientOptionsDescription []string
-	repoClientOptionsUsername    []string
-	repoClientOptionsHostname    []string
+	repoClientOptionsReadOnly             bool
+	repoClientOptionsReadWrite            bool
+	repoClientOptionsPermissiveIndexReads bool
+	repoClientOptionsDescription          []string
+	repoClientOptionsUsername             []string
+	repoClientOptionsHostname             []string
 
 	formatBlobCacheDuration time.Duration
 	disableFormatBlobCache  bool
@@ -27,6 +28,7 @@ func (c *commandRepositorySetClient) setup(svc appServices, parent commandParent
 
 	cmd.Flag("read-only", "Set repository to read-only").BoolVar(&c.repoClientOptionsReadOnly)
 	cmd.Flag("read-write", "Set repository to read-write").BoolVar(&c.repoClientOptionsReadWrite)
+	cmd.Flag("permissive-index-reads", "Do not fail reading bad index entries").BoolVar(&c.repoClientOptionsPermissiveIndexReads)
 	cmd.Flag("description", "Change description").StringsVar(&c.repoClientOptionsDescription)
 	cmd.Flag("username", "Change username").StringsVar(&c.repoClientOptionsUsername)
 	cmd.Flag("hostname", "Change hostname").StringsVar(&c.repoClientOptionsHostname)
@@ -62,6 +64,19 @@ func (c *commandRepositorySetClient) run(ctx context.Context, rep repo.Repositor
 
 			log(ctx).Infof("Setting repository to read-write mode.")
 		}
+	}
+
+	if c.repoClientOptionsPermissiveIndexReads {
+		if !opt.PermissiveIndexReads {
+			log(ctx).Infof("Repository is already fails on bad index reads.")
+			anyChange = true
+		} else {
+			opt.PermissiveIndexReads = true
+			anyChange = true
+
+			log(ctx).Infof("Setting repository to read indexes permissively.")
+		}
+
 	}
 
 	if v := c.repoClientOptionsDescription; len(v) > 0 {

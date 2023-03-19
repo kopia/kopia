@@ -20,12 +20,15 @@ import (
 
 const configDirMode = 0o700
 
+var ErrCannotWriteToRepoConnectionWithPermissiveIndexReads = errors.Errorf("cannot write to repo connection with permissive index reads")
+
 // ClientOptions contains client-specific options that are persisted in local configuration file.
 type ClientOptions struct {
 	Hostname string `json:"hostname"`
 	Username string `json:"username"`
 
-	ReadOnly bool `json:"readonly,omitempty"`
+	ReadOnly             bool `json:"readonly,omitempty"`
+	PermissiveIndexReads bool `json:"permissiveCacheLoading,omitempty"`
 
 	// Description is human-readable description of the repository to use in the UI.
 	Description string `json:"description,omitempty"`
@@ -147,6 +150,10 @@ func LoadConfigFromFile(fileName string) (*LocalConfig, error) {
 		if cd := os.Getenv("KOPIA_CACHE_DIRECTORY"); cd != "" && ospath.IsAbs(cd) {
 			lc.Caching.CacheDirectory = cd
 		}
+	}
+
+	if lc.PermissiveIndexReads && os.Getenv("KOPIA_UPGRADE_LOCK_ENABLED") == "" {
+		return nil, errors.New("cannot connect to repository with permissive index and without upgrade lock")
 	}
 
 	return &lc, nil

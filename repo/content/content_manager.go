@@ -943,10 +943,11 @@ func (bm *WriteManager) MetadataCache() cache.ContentCache {
 
 // ManagerOptions are the optional parameters for manager creation.
 type ManagerOptions struct {
-	TimeNow            func() time.Time // Time provider
-	DisableInternalLog bool
-	RetentionMode      string
-	RetentionPeriod    time.Duration
+	TimeNow             func() time.Time // Time provider
+	DisableInternalLog  bool
+	RetentionMode       string
+	RetentionPeriod     time.Duration
+	PermissiveIndexRead bool
 }
 
 // CloneOrDefault returns a clone of provided ManagerOptions or default empty struct if nil.

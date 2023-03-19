@@ -2283,6 +2283,110 @@ func (s *contentManagerSuite) TestPrefetchContent(t *testing.T) {
 	}
 }
 
+// TestContentIndexPermissiveReads check that permissive reads read content as recorded
+func (s *contentManagerSuite) TestContentIndexPermissiveReads(t *testing.T) {
+	data := blobtesting.DataMap{}
+	timeNow := faketime.AutoAdvance(fakeTime, 1*time.Second)
+	st := blobtesting.NewMapStorage(data, nil, timeNow)
+
+	ctx := testlogging.Context(t)
+
+	tweaks := &contentManagerTestTweaks{
+		ManagerOptions: ManagerOptions{
+			TimeNow: timeNow,
+		},
+	}
+
+	bm := s.newTestContentManagerWithTweaks(t, st, tweaks)
+
+	ids := make([]ID, 100)
+	for i := 0; i < len(ids); i++ {
+		ids[i] = writeContentAndVerify(ctx, t, bm, seededRandomData(i, maxPackCapacity/2))
+
+		for j := 0; j < i; j++ {
+			// verify all contents written so far
+			verifyContent(ctx, t, bm, ids[j], seededRandomData(j, maxPackCapacity/2))
+		}
+
+		// every 10 contents, create new content manager
+		if i%10 == 0 {
+			t.Logf("------- flushing & reopening -----")
+			require.NoError(t, bm.Flush(ctx))
+			require.NoError(t, bm.CloseShared(ctx))
+			bm = s.newTestContentManagerWithTweaks(t, st, tweaks)
+		}
+	}
+
+	require.NoError(t, bm.Flush(ctx))
+	require.NoError(t, bm.CloseShared(ctx))
+
+	tweaks = &contentManagerTestTweaks{
+		ManagerOptions: ManagerOptions{
+			TimeNow:             timeNow,
+			PermissiveIndexRead: true,
+		},
+	}
+
+	bm = s.newTestContentManagerWithTweaks(t, st, tweaks)
+
+	for i := 0; i < len(ids); i++ {
+		verifyContent(ctx, t, bm, ids[i], seededRandomData(i, maxPackCapacity/2))
+	}
+}
+
+// TestContentIndexPermissiveReadsWithFault check that permissive reads read content as recorded
+func (s *contentManagerSuite) TestContentIndexPermissiveReadsWithFault(t *testing.T) {
+	data := blobtesting.DataMap{}
+	timeNow := faketime.AutoAdvance(fakeTime, 1*time.Second)
+	st := blobtesting.NewMapStorage(data, nil, timeNow)
+
+	ctx := testlogging.Context(t)
+
+	tweaks := &contentManagerTestTweaks{
+		ManagerOptions: ManagerOptions{
+			TimeNow: timeNow,
+		},
+	}
+
+	bm := s.newTestContentManagerWithTweaks(t, st, tweaks)
+
+	ids := make([]ID, 100)
+	for i := 0; i < len(ids); i++ {
+		ids[i] = writeContentAndVerify(ctx, t, bm, seededRandomData(i, maxPackCapacity/2))
+
+		for j := 0; j < i; j++ {
+			// verify all contents written so far
+			verifyContent(ctx, t, bm, ids[j], seededRandomData(j, maxPackCapacity/2))
+		}
+
+		// every 10 contents, create new content manager
+		if i%10 == 0 {
+			t.Logf("------- flushing & reopening -----")
+			require.NoError(t, bm.Flush(ctx))
+			require.NoError(t, bm.CloseShared(ctx))
+			bm = s.newTestContentManagerWithTweaks(t, st, tweaks)
+		}
+	}
+
+	require.NoError(t, format.WriteLegacyIndexPoisonBlob(ctx, st))
+
+	require.NoError(t, bm.Flush(ctx))
+	require.NoError(t, bm.CloseShared(ctx))
+
+	tweaks = &contentManagerTestTweaks{
+		ManagerOptions: ManagerOptions{
+			TimeNow:             timeNow,
+			PermissiveIndexRead: true,
+		},
+	}
+
+	bm = s.newTestContentManagerWithTweaks(t, st, tweaks)
+
+	for i := 0; i < len(ids); i++ {
+		verifyContent(ctx, t, bm, ids[i], seededRandomData(i, maxPackCapacity/2))
+	}
+}
+
 func wipeCache(t *testing.T, st cache.Storage) {
 	t.Helper()
 
@@ -2320,6 +2424,16 @@ func (s *contentManagerSuite) newTestContentManagerWithCustomTime(t *testing.T, 
 	return s.newTestContentManagerWithTweaks(t, st, &contentManagerTestTweaks{
 		ManagerOptions: ManagerOptions{
 			TimeNow: timeFunc,
+		},
+	})
+}
+
+func (s *contentManagerSuite) newTestContentManagerWithPermissiveIndexReads(t *testing.T, st blob.Storage, timeFunc func() time.Time) *WriteManager {
+	t.Helper()
+
+	return s.newTestContentManagerWithTweaks(t, st, &contentManagerTestTweaks{
+		ManagerOptions: ManagerOptions{
+			PermissiveIndexRead: true,
 		},
 	})
 }

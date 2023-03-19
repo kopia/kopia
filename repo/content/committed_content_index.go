@@ -291,7 +291,7 @@ func (c *committedContentIndex) close() error {
 	return nil
 }
 
-func (c *committedContentIndex) fetchIndexBlobs(ctx context.Context, indexBlobs []blob.ID) error {
+func (c *committedContentIndex) fetchIndexBlobs(ctx context.Context, isPermissiveIndexRead bool, indexBlobs []blob.ID) error {
 	ch, err := c.missingIndexBlobs(ctx, indexBlobs)
 	if err != nil {
 		return err
@@ -313,6 +313,10 @@ func (c *committedContentIndex) fetchIndexBlobs(ctx context.Context, indexBlobs 
 				data.Reset()
 
 				if err := c.fetchOne(ctx, indexBlobID, &data); err != nil {
+					if isPermissiveIndexRead {
+						errors.Errorf("%s", errors.Wrapf(err, "skipping bad read of index blob %v", indexBlobID))
+						continue
+					}
 					return errors.Wrapf(err, "error loading index blob %v", indexBlobID)
 				}
 
