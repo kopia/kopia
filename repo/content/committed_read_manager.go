@@ -87,8 +87,8 @@ type SharedManager struct {
 	// lock to protect the set of committed indexes
 	// shared lock will be acquired when writing new content to allow it to happen in parallel
 	// exclusive lock will be acquired during compaction or refresh.
-	indexesLock       sync.RWMutex
-	indexesPermissive bool
+	indexesLock          sync.RWMutex
+	permissiveIndexReads bool
 
 	// maybeRefreshIndexes() will call Refresh() after this point in ime.
 	// +checklocks:indexesLock
@@ -229,7 +229,7 @@ func (sm *SharedManager) loadPackIndexesLocked(ctx context.Context) error {
 			indexBlobIDs = append(indexBlobIDs, b.BlobID)
 		}
 
-		err = sm.committedContents.fetchIndexBlobs(ctx, sm.indexesPermissive, indexBlobIDs)
+		err = sm.committedContents.fetchIndexBlobs(ctx, sm.permissiveIndexReads, indexBlobIDs)
 		if err == nil {
 			err = sm.committedContents.use(ctx, indexBlobIDs, ignoreDeletedBefore)
 			if err != nil {
@@ -508,6 +508,7 @@ func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *Ca
 	sm.committedContents = newCommittedContentIndex(caching,
 		sm.format.Encryptor().Overhead,
 		sm.format,
+		sm.permissiveIndexReads,
 		enc.GetEncryptedBlob,
 		sm.namedLogger("committed-content-index"),
 		caching.MinIndexSweepAge.DurationOrDefault(DefaultIndexCacheSweepAge))
@@ -601,7 +602,7 @@ func NewSharedManager(ctx context.Context, st blob.Storage, prov format.Provider
 		Stats:                   new(Stats),
 		timeNow:                 opts.TimeNow,
 		format:                  prov,
-		indexesPermissive:       opts.PermissiveIndexRead,
+		permissiveIndexReads:    opts.PermissiveIndexRead,
 		minPreambleLength:       defaultMinPreambleLength,
 		maxPreambleLength:       defaultMaxPreambleLength,
 		paddingUnit:             defaultPaddingUnit,

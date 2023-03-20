@@ -26,8 +26,9 @@ import (
 const smallIndexEntryCountThreshold = 100
 
 type committedContentIndex struct {
-	rev   atomic.Int64
-	cache committedContentIndexCache
+	rev                 atomic.Int64
+	cache               committedContentIndexCache
+	permissiveIndexRead bool
 
 	mu sync.RWMutex
 	// +checklocks:mu
@@ -168,6 +169,10 @@ func (c *committedContentIndex) merge(ctx context.Context, indexFiles []blob.ID)
 
 			ndx, err = c.cache.openIndex(ctx, e)
 			if err != nil {
+				if c.permissiveIndexRead {
+					continue
+				}
+
 				newlyOpened.Close() //nolint:errcheck
 
 				return nil, nil, errors.Wrapf(err, "unable to open pack index %q", e)
@@ -302,7 +307,6 @@ func (c *committedContentIndex) fetchIndexBlobs(ctx context.Context, isPermissiv
 	}
 
 	c.log.Debugf("Downloading %v new index blobs...", len(indexBlobs))
-
 	eg, ctx := errgroup.WithContext(ctx)
 	for i := 0; i < parallelFetches; i++ {
 		eg.Go(func() error {
@@ -359,6 +363,7 @@ func (c *committedContentIndex) missingIndexBlobs(ctx context.Context, blobs []b
 func newCommittedContentIndex(caching *CachingOptions,
 	v1PerContentOverhead func() int,
 	formatProvider format.Provider,
+	permissiveIndexReads bool,
 	fetchOne func(ctx context.Context, blobID blob.ID, output *gather.WriteBuffer) error,
 	log logging.Logger,
 	minSweepAge time.Duration,
@@ -377,6 +382,7 @@ func newCommittedContentIndex(caching *CachingOptions,
 
 	return &committedContentIndex{
 		cache:                cache,
+		permissiveIndexRead:  permissiveIndexReads,
 		inUse:                map[blob.ID]index.Index{},
 		v1PerContentOverhead: v1PerContentOverhead,
 		formatProvider:       formatProvider,

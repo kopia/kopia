@@ -68,13 +68,12 @@ func (c *commandRepositorySetClient) run(ctx context.Context, rep repo.Repositor
 
 	if c.repoClientOptionsPermissiveIndexReads {
 		if !opt.PermissiveIndexReads {
-			log(ctx).Infof("Repository is already fails on bad index reads.")
-			anyChange = true
+			log(ctx).Infof("Repository fails on read of bad index blobs.")
 		} else {
 			opt.PermissiveIndexReads = true
 			anyChange = true
 
-			log(ctx).Infof("Setting repository to read indexes permissively.")
+			log(ctx).Infof("Setting repository to read index blobs permissively.")
 		}
 
 	}
