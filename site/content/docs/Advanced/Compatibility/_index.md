@@ -1,8 +1,10 @@
 ---
 title: Compatibility
 linkTitle: Compatibility
-weight: 100
+weight: 65
 ---
+
+## Compatibility
 
 Kopia uses [semantic versioning](https://semver.org).
 
