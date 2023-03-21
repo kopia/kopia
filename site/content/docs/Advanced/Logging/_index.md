@@ -1,7 +1,7 @@
 ---
 title: "Logging"
 linkTitle: "Logging"
-weight: 60
+weight: 65
 ---
 
 ## Logging
