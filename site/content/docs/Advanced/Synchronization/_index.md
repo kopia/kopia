@@ -4,7 +4,7 @@ linkTitle: "Synchronization"
 weight: 50
 ---
 
-## Synchronistation
+## Synchronization
 
 Maintaining multiple copies of a repository is important for disaster recovery scenarios. While cloud-based repositories often have better durability than local ones, a local repository copy may help speed up data recovery.
 
