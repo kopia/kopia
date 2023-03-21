@@ -5,6 +5,8 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"crypto/x509"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
@@ -298,6 +300,24 @@ func getCustomTransport(insecureSkipVerify bool) (transport *http.Transport) {
 	return customTransport
 }
 
+func getCustomTransportWithCA(caAsString string) (*http.Transport, error) {
+	transport := http.DefaultTransport.(*http.Transport).Clone() //nolint:forcetypeassert
+	rootcas := x509.NewCertPool()
+
+	caContent, err := base64.StdEncoding.DecodeString(caAsString)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to decode CA")
+	}
+
+	if ok := rootcas.AppendCertsFromPEM(caContent); !ok {
+		return nil, errors.Errorf("cannot parse provided CA")
+	}
+
+	transport.TLSClientConfig.RootCAs = rootcas
+
+	return transport, nil
+}
+
 // New creates new S3-backed storage with specified options:
 //
 // - the 'BucketName' field is required and all other parameters are optional.
@@ -351,6 +371,12 @@ func newStorageWithCredentials(ctx context.Context, creds *credentials.Credentia
 
 	if opt.DoNotVerifyTLS {
 		minioOpts.Transport = getCustomTransport(true)
+	} else if opt.RootCA != "" {
+		var err error
+		minioOpts.Transport, err = getCustomTransportWithCA(opt.RootCA)
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to instantiate transport")
+		}
 	}
 
 	cli, err := minio.New(opt.Endpoint, minioOpts)

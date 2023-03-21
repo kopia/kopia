@@ -17,6 +17,7 @@ type Options struct {
 	Endpoint       string `json:"endpoint"`
 	DoNotUseTLS    bool   `json:"doNotUseTLS,omitempty"`
 	DoNotVerifyTLS bool   `json:"doNotVerifyTLS,omitempty"`
+	RootCA         string `json:"RootCA,omitempty"`
 
 	AccessKeyID     string `json:"accessKeyID"`
 	SecretAccessKey string `json:"secretAccessKey" kopia:"sensitive"`

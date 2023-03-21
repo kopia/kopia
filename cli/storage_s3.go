@@ -25,6 +25,7 @@ func (c *storageS3Flags) Setup(svc StorageProviderServices, cmd *kingpin.CmdClau
 	cmd.Flag("prefix", "Prefix to use for objects in the bucket").StringVar(&c.s3options.Prefix)
 	cmd.Flag("disable-tls", "Disable TLS security (HTTPS)").BoolVar(&c.s3options.DoNotUseTLS)
 	cmd.Flag("disable-tls-verification", "Disable TLS (HTTPS) certificate verification").BoolVar(&c.s3options.DoNotVerifyTLS)
+	cmd.Flag("rootca", "Certficate authority (base64 enc.)").StringVar(&c.s3options.RootCA)
 
 	commonThrottlingFlags(cmd, &c.s3options.Limits)
 
