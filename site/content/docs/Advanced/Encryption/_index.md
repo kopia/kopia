@@ -1,10 +1,10 @@
 ---
 title: "Encryption"
 linkTitle: "Encryption"
-weight: 40
+weight: 15
 ---
 
-### Format Blob Encryption
+## Encryption
 
 Kopia uses a standard envelope encryption technique to de-couple the repository passphrase from the keys used for encrypting and authenticating the contents of the repository.
 

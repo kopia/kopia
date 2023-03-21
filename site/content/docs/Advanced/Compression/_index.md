@@ -4,6 +4,8 @@ linkTitle: "Compression"
 weight: 20
 ---
 
+## Compression
+
 Kopia offers internal content compression feature. Each data block stored may be compressed with the algorithm of user choice.
 
 Here is how the whole process works in a summary (with the [architecture](/docs/advanced/architecture/) in your belly first). When Kopia sees a file to backup, it first splits its data into "chunks" with the configured splitter. Then compute its hash with the configured hash algorithm, and compare it against the existing database. If a matching hash is found, this chunk is already stored, thus can be safely discarded. Otherwise, Kopia applies the compression algorithm on the chunk, encrypt it, and pack a few of such into a blob if fit.
@@ -12,7 +14,7 @@ Kopia allows user to set compression algorithm, minimum and maximum file size an
 
 To see how much data is saved by compression in a repository, use `kopia content stats` command. To see the size before and after compression for each content object, use `kopia content list --json` command then look for ID.
 
-#### Algorithm
+### Algorithm
 
 Some algorithms come with different presets. Others are fixed as the code was originally designed. For example, the [s2 compression](https://github.com/klauspost/compress/tree/master/s2) presents 3 variants: default, better and parallel-n. "default" balances between compression ratio and performance, while "better" offers higher compression ratio at the cost of performance. Both of the two have the concurrency equal to the number of logical cores. "parallel-n" is basically "default" with fixed amount of concurrency.
 
@@ -86,7 +88,7 @@ While s2 significantly uses way less memory in this case, pgzip's numbers seem i
 
 Therefore, if your backup target is small, and memory is extremely restricted, s2 might be necessary. Otherwise, all algorithms are valid candidates.
 
-#### Minimum file size and extensions to compress
+### Minimum file size and extensions to compress
 
 As discussed above, some compression algorithms make sense only if the payload is large enough. So it might be beneficial to set a minimum file size when using these algorithms.
 
@@ -94,7 +96,7 @@ On the other hand, if Kopia notices that a data chunk grows size after compressi
 
 As for extensions, some file formats are already heavily compressed, such as video files. Applying general-purposed compression would not have much effect, while wasting CPU time. These file extensions are suggested to be set to never compressed.
 
-#### Side note
+### Side note
 
 We also compared the efficiency of compressing a file as whole using standalone tools versus Kopia (that is, split with default `DYNAMIC-4M-BUZHASH` then compress). Here is the result
 
