@@ -20,6 +20,7 @@ import (
 
 const configDirMode = 0o700
 
+// ErrCannotWriteToRepoConnectionWithPermissiveIndexReads error to indicate.
 var ErrCannotWriteToRepoConnectionWithPermissiveIndexReads = errors.Errorf("cannot write to repo connection with permissive index reads")
 
 // ClientOptions contains client-specific options that are persisted in local configuration file.

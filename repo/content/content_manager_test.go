@@ -2283,7 +2283,7 @@ func (s *contentManagerSuite) TestPrefetchContent(t *testing.T) {
 	}
 }
 
-// TestContentIndexPermissiveReads check that permissive reads read content as recorded
+// TestContentIndexPermissiveReads check that permissive reads read content as recorded.
 func (s *contentManagerSuite) TestContentIndexPermissiveReads(t *testing.T) {
 	data := blobtesting.DataMap{}
 	timeNow := faketime.AutoAdvance(fakeTime, 1*time.Second)
@@ -2334,7 +2334,7 @@ func (s *contentManagerSuite) TestContentIndexPermissiveReads(t *testing.T) {
 	}
 }
 
-// TestContentIndexPermissiveReadsWithFault check that permissive reads read content as recorded
+// TestContentIndexPermissiveReadsWithFault check that permissive reads read content as recorded.
 func (s *contentManagerSuite) TestContentIndexPermissiveReadsWithFault(t *testing.T) {
 	data := blobtesting.DataMap{}
 	timeNow := faketime.AutoAdvance(fakeTime, 1*time.Second)
@@ -2424,16 +2424,6 @@ func (s *contentManagerSuite) newTestContentManagerWithCustomTime(t *testing.T, 
 	return s.newTestContentManagerWithTweaks(t, st, &contentManagerTestTweaks{
 		ManagerOptions: ManagerOptions{
 			TimeNow: timeFunc,
-		},
-	})
-}
-
-func (s *contentManagerSuite) newTestContentManagerWithPermissiveIndexReads(t *testing.T, st blob.Storage, timeFunc func() time.Time) *WriteManager {
-	t.Helper()
-
-	return s.newTestContentManagerWithTweaks(t, st, &contentManagerTestTweaks{
-		ManagerOptions: ManagerOptions{
-			PermissiveIndexRead: true,
 		},
 	})
 }

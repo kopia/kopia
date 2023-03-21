@@ -75,7 +75,6 @@ func (c *commandRepositorySetClient) run(ctx context.Context, rep repo.Repositor
 
 			log(ctx).Infof("Setting repository to read index blobs permissively.")
 		}
-
 	}
 
 	if v := c.repoClientOptionsDescription; len(v) > 0 {

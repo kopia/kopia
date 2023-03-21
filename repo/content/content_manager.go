@@ -164,6 +164,7 @@ func (bm *WriteManager) maybeRefreshIndexes(ctx context.Context) error {
 	if bm.permissiveIndexReads {
 		return nil
 	}
+
 	if !bm.disableIndexRefresh.Load() && bm.shouldRefreshIndexes() {
 		if err := bm.Refresh(ctx); err != nil {
 			return errors.Wrap(err, "error refreshing indexes")

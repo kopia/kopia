@@ -307,7 +307,9 @@ func (c *committedContentIndex) fetchIndexBlobs(ctx context.Context, isPermissiv
 	}
 
 	c.log.Debugf("Downloading %v new index blobs...", len(indexBlobs))
+
 	eg, ctx := errgroup.WithContext(ctx)
+
 	for i := 0; i < parallelFetches; i++ {
 		eg.Go(func() error {
 			var data gather.WriteBuffer
@@ -318,7 +320,7 @@ func (c *committedContentIndex) fetchIndexBlobs(ctx context.Context, isPermissiv
 
 				if err := c.fetchOne(ctx, indexBlobID, &data); err != nil {
 					if isPermissiveIndexRead {
-						errors.Errorf("%s", errors.Wrapf(err, "skipping bad read of index blob %v", indexBlobID))
+						c.log.Errorf("skipping bad read of index blob %v", indexBlobID)
 						continue
 					}
 					return errors.Wrapf(err, "error loading index blob %v", indexBlobID)
