@@ -6,7 +6,6 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
@@ -300,14 +299,9 @@ func getCustomTransport(insecureSkipVerify bool) (transport *http.Transport) {
 	return customTransport
 }
 
-func getCustomTransportWithCA(caAsString string) (*http.Transport, error) {
+func getCustomTransportWithCA(caContent []byte) (*http.Transport, error) {
 	transport := http.DefaultTransport.(*http.Transport).Clone() //nolint:forcetypeassert
 	rootcas := x509.NewCertPool()
-
-	caContent, err := base64.StdEncoding.DecodeString(caAsString)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to decode CA")
-	}
 
 	if ok := rootcas.AppendCertsFromPEM(caContent); !ok {
 		return nil, errors.Errorf("cannot parse provided CA")
@@ -371,7 +365,7 @@ func newStorageWithCredentials(ctx context.Context, creds *credentials.Credentia
 
 	if opt.DoNotVerifyTLS {
 		minioOpts.Transport = getCustomTransport(true)
-	} else if opt.RootCA != "" {
+	} else if len(opt.RootCA) != 0 {
 		var err error
 		minioOpts.Transport, err = getCustomTransportWithCA(opt.RootCA)
 		if err != nil {

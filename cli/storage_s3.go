@@ -2,6 +2,8 @@ package cli
 
 import (
 	"context"
+	"encoding/base64"
+	"os"
 	"time"
 
 	"github.com/alecthomas/kingpin/v2"
@@ -25,7 +27,6 @@ func (c *storageS3Flags) Setup(svc StorageProviderServices, cmd *kingpin.CmdClau
 	cmd.Flag("prefix", "Prefix to use for objects in the bucket").StringVar(&c.s3options.Prefix)
 	cmd.Flag("disable-tls", "Disable TLS security (HTTPS)").BoolVar(&c.s3options.DoNotUseTLS)
 	cmd.Flag("disable-tls-verification", "Disable TLS (HTTPS) certificate verification").BoolVar(&c.s3options.DoNotVerifyTLS)
-	cmd.Flag("rootca", "Certficate authority (base64 enc.)").StringVar(&c.s3options.RootCA)
 
 	commonThrottlingFlags(cmd, &c.s3options.Limits)
 
@@ -45,6 +46,33 @@ func (c *storageS3Flags) Setup(svc StorageProviderServices, cmd *kingpin.CmdClau
 	}
 
 	cmd.Flag("point-in-time", "Use a point-in-time view of the storage repository when supported").PlaceHolder(time.RFC3339).PreAction(pitPreAction).StringVar(&pointInTimeStr)
+
+	var rootCaPemBase64 string
+	cmd.Flag("root-ca-pem-base64", "Certficate authority in-line (base64 enc.)").Envar(svc.EnvName("ROOT_CA_PEM_BASE64")).PreAction(func(pc *kingpin.ParseContext) error {
+		caContent, err := base64.StdEncoding.DecodeString(rootCaPemBase64)
+		if err != nil {
+			return errors.Wrap(err, "unable to decode CA")
+		}
+		c.s3options.RootCA = caContent
+
+		return nil
+	}).StringVar(&rootCaPemBase64)
+
+	var rootCaPemPath string
+	cmd.Flag("root-ca-pem-path", "Certficate authority file path").PreAction(func(pc *kingpin.ParseContext) error {
+		if len(c.s3options.RootCA) > 0 {
+			return errors.Errorf("root-ca-pem-base64 and root-ca-pem-path are mutually exclusive")
+		}
+		data, err := os.ReadFile(rootCaPemPath)
+		if err != nil {
+			return errors.Wrapf(err, "error openning root-ca-pem-path %v", rootCaPemPath)
+		}
+
+		c.s3options.RootCA = data
+
+		return nil
+	}).StringVar(&rootCaPemPath)
+
 }
 
 func (c *storageS3Flags) Connect(ctx context.Context, isCreate bool, formatVersion int) (blob.Storage, error) {
