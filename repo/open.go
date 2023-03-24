@@ -132,7 +132,7 @@ func Open(ctx context.Context, configFile, password string, options *Options) (r
 	return openDirect(ctx, configFile, lc, password, options)
 }
 
-func getContentCacheOrNil(ctx context.Context, opt *content.CachingOptions, password string, mr *metrics.Registry) (*cache.PersistentCache, error) {
+func getContentCacheOrNil(ctx context.Context, opt *content.CachingOptions, password string, mr *metrics.Registry, timeNow func() time.Time) (*cache.PersistentCache, error) {
 	opt = opt.CloneOrDefault()
 
 	cs, err := cache.NewStorageOrNil(ctx, opt.CacheDirectory, opt.MaxCacheSizeBytes, "server-contents")
@@ -158,7 +158,7 @@ func getContentCacheOrNil(ctx context.Context, opt *content.CachingOptions, pass
 	pc, err := cache.NewPersistentCache(ctx, "cache-storage", cs, prot, cache.SweepSettings{
 		MaxSizeBytes: opt.MaxCacheSizeBytes,
 		MinSweepAge:  opt.MinContentSweepAge.DurationOrDefault(content.DefaultDataCacheSweepAge),
-	}, mr)
+	}, mr, timeNow)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to open persistent cache")
 	}
@@ -172,7 +172,7 @@ func openAPIServer(ctx context.Context, si *APIServerInfo, cliOpts ClientOptions
 
 	mr := metrics.NewRegistry()
 
-	contentCache, err := getContentCacheOrNil(ctx, cachingOptions, password, mr)
+	contentCache, err := getContentCacheOrNil(ctx, cachingOptions, password, mr, options.TimeNowFunc)
 	if err != nil {
 		return nil, errors.Wrap(err, "error opening content cache")
 	}

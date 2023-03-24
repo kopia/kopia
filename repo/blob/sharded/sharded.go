@@ -22,7 +22,7 @@ const CompleteBlobSuffix = ".f"
 
 var log = logging.Module("sharded") // +checklocksignore
 
-// Impl must be implemented by underlying provided.
+// Impl must be implemented by underlying provider.
 type Impl interface {
 	GetBlobFromPath(ctx context.Context, dirPath, filePath string, offset, length int64, output blob.OutputBuffer) error
 	GetMetadataFromPath(ctx context.Context, dirPath, filePath string) (blob.Metadata, error)

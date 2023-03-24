@@ -279,9 +279,11 @@ func (fs *fsImpl) ReadDir(ctx context.Context, dirname string) ([]os.FileInfo, e
 }
 
 // TouchBlob updates file modification time to current time if it's sufficiently old.
-func (fs *fsStorage) TouchBlob(ctx context.Context, blobID blob.ID, threshold time.Duration) error {
-	//nolint:wrapcheck
-	return retry.WithExponentialBackoffNoValue(ctx, "TouchBlob", func() error {
+func (fs *fsStorage) TouchBlob(ctx context.Context, blobID blob.ID, threshold time.Duration) (time.Time, error) {
+	var mtime time.Time
+
+	//nolint:wrapcheck,forcetypeassert
+	err := retry.WithExponentialBackoffNoValue(ctx, "TouchBlob", func() error {
 		_, path, err := fs.Storage.GetShardedPathAndFilePath(ctx, blobID)
 		if err != nil {
 			return errors.Wrap(err, "error getting sharded path")
@@ -296,17 +298,22 @@ func (fs *fsStorage) TouchBlob(ctx context.Context, blobID blob.ID, threshold ti
 		}
 
 		n := clock.Now()
+		mtime = st.ModTime()
 
-		age := n.Sub(st.ModTime())
+		age := n.Sub(mtime)
 		if age < threshold {
 			return nil
 		}
+
+		mtime = n
 
 		log(ctx).Debugf("updating timestamp on %v to %v", path, n)
 
 		//nolint:wrapcheck
 		return osi.Chtimes(path, n, n)
-	}, fs.Impl.(*fsImpl).isRetriable) //nolint:forcetypeassert
+	}, fs.Impl.(*fsImpl).isRetriable)
+
+	return mtime, err
 }
 
 func (fs *fsStorage) ConnectionInfo() blob.ConnectionInfo {

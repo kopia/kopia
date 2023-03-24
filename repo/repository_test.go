@@ -579,11 +579,13 @@ func TestObjectWritesWithRetention(t *testing.T) {
 	require.NoError(t, versionedMap.ListBlobs(ctx, "", func(it blob.Metadata) error {
 		for _, prefix := range prefixesWithRetention {
 			if strings.HasPrefix(string(it.BlobID), prefix) {
-				require.Error(t, versionedMap.TouchBlob(ctx, it.BlobID, 0), "expected error while touching blob %s", it.BlobID)
+				_, err = versionedMap.TouchBlob(ctx, it.BlobID, 0)
+				require.Error(t, err, "expected error while touching blob %s", it.BlobID)
 				return nil
 			}
 		}
-		require.NoError(t, versionedMap.TouchBlob(ctx, it.BlobID, 0), "unexpected error while touching blob %s", it.BlobID)
+		_, err = versionedMap.TouchBlob(ctx, it.BlobID, 0)
+		require.NoError(t, err, "unexpected error while touching blob %s", it.BlobID)
 		return nil
 	}))
 }

@@ -455,7 +455,7 @@ func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *Ca
 	indexBlobCache, err := cache.NewPersistentCache(ctx, "index-blobs", indexBlobStorage, cacheprot.ChecksumProtection(caching.HMACSecret), cache.SweepSettings{
 		MaxSizeBytes: metadataCacheSize,
 		MinSweepAge:  caching.MinMetadataSweepAge.DurationOrDefault(DefaultMetadataCacheSweepAge),
-	}, mr)
+	}, mr, sm.timeNow)
 	if err != nil {
 		return errors.Wrap(err, "unable to create index blob cache")
 	}

@@ -165,7 +165,7 @@ func (s *mapStorage) Close(ctx context.Context) error {
 	return nil
 }
 
-func (s *mapStorage) TouchBlob(ctx context.Context, blobID blob.ID, threshold time.Duration) error {
+func (s *mapStorage) TouchBlob(ctx context.Context, blobID blob.ID, threshold time.Duration) (time.Time, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -176,7 +176,7 @@ func (s *mapStorage) TouchBlob(ctx context.Context, blobID blob.ID, threshold ti
 		}
 	}
 
-	return nil
+	return s.keyTime[blobID], nil
 }
 
 func (s *mapStorage) ConnectionInfo() blob.ConnectionInfo {

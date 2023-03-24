@@ -59,9 +59,9 @@ func TestCacheExpiration(t *testing.T) {
 		Storage: cacheStorage.(cache.Storage),
 		Sweep: cache.SweepSettings{
 			MaxSizeBytes:   10000,
-			SweepFrequency: 500 * time.Millisecond,
 			TouchThreshold: -1,
 		},
+		TimeNow: movingTimeFunc,
 	}, nil)
 
 	require.NoError(t, err)
@@ -80,9 +80,6 @@ func TestCacheExpiration(t *testing.T) {
 	err = cc.GetContent(ctx, "00000d", "content-4k", 0, -1, &tmp) // 4k
 	require.NoError(t, err)
 
-	// wait for a sweep
-	time.Sleep(2 * time.Second)
-
 	// 00000a and 00000b will be removed from cache because it's the oldest.
 	// to verify, let's remove content-4k from the underlying storage and make sure we can still read
 	// 00000c and 00000d from the cache but not 00000a nor 00000b
@@ -100,7 +97,7 @@ func TestCacheExpiration(t *testing.T) {
 
 	for _, tc := range cases {
 		got := cc.GetContent(ctx, tc.contentID, "content-4k", 0, -1, &tmp)
-		if assert.ErrorIs(t, got, tc.expectedError, "tc.contentID:", tc.contentID) {
+		if assert.ErrorIs(t, got, tc.expectedError, "tc.contentID: %v", tc.contentID) {
 			t.Logf("got correct error %v when reading content %v", tc.expectedError, tc.contentID)
 		}
 	}
@@ -311,6 +308,6 @@ type withoutTouchBlob struct {
 	blob.Storage
 }
 
-func (c withoutTouchBlob) TouchBlob(ctx context.Context, blobID blob.ID, threshold time.Duration) error {
-	return errors.Errorf("TouchBlob not implemented")
+func (c withoutTouchBlob) TouchBlob(ctx context.Context, blobID blob.ID, threshold time.Duration) (time.Time, error) {
+	return time.Time{}, errors.Errorf("TouchBlob not implemented")
 }
