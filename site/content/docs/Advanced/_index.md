@@ -18,6 +18,7 @@ In the following, we will highlight and explain some advanced topics related to 
 * [Consistency](consistency/#consistency)
 	* [Verifying Validity of Snapshots](consistency/#verifying-validity-of-snapshots )
 	* [Repairing Corruption of Snapshots](consistency/#repairing-corruption-of-snapshots)
+* [Ignoring Files and Folders in Snapshots](kopiaignore/#ignoring-files-and-folders-in-snapshots)
 * [Actions](actions/#actions)
 * [Caching](caching/#caching)
 * [Synchronization](synchronization/#synchronization)

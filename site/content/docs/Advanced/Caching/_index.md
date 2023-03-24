@@ -1,7 +1,7 @@
 ---
 title: "Caching"
 linkTitle: "Caching"
-weight: 45
+weight: 50
 ---
 
 ## Caching

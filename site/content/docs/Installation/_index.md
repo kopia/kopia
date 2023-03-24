@@ -295,8 +295,8 @@ services:
             - --disable-csrf-token-checks
             - --insecure
             - --address=0.0.0.0:51515
-            - --server-username="USERNAME"
-            - --server-password="SECRET_PASSWORD"
+            - --server-username=USERNAME
+            - --server-password=SECRET_PASSWORD
         environment:
             # Set repository password
             KOPIA_PASSWORD: "SECRET"
