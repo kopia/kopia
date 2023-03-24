@@ -11,7 +11,7 @@ Users may want to exclude folders and files not to be saved within the repositor
 Kopia features `pattern-based` ignore rules to omit folders and files from snapshots. While scanning directories and their content, Kopia looks explicitly for files that contain such patterns. 
 If such a file is placed within a directory, `Kopia` omits files and folders `matching` the pattern.
 
->NOTE The default file is called `.kopiaignore`. However, files containing ignore patterns can be specified within the global or snapshot-specific `policy`.   
+>NOTE The default file is called `.kopiaignore`. However, ignore patterns can be specified within the global or snapshot-specific `policy` - either directly or by providing a path to file containing such patterns.   
 
 In the following, we explain different patterns and provide examples to create `.kopiaignore` files.
 
@@ -91,11 +91,11 @@ The following table provides some example patterns related to our [example](#kop
 |-----------------------|-------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------|---------------------------------------|
 | `logs`				| Matches files and folders that are named `logs`																				| thesis/logs/ </br> thesis/chapters/logs/						| 2 directories, 6 files				|
 | `/logs`				| Matches files and folders that are named `logs` only within the parent directory												| thesis/logs/													| 1 directory, 5 files					|   
-| `*.db`				| Matches files with extension `.db`																							| thesis/tmp.db </br> thesis/logs/log.db						| 0 directories, 2 files				|
-| `*.db*`				| Matches files with extension `.db` followed by any other number or character													| thesis/tmp.db </br> thesis/logs/tmp.dba						| 0 directories, 6 files				|
-| `**/logs/**`			| Matches all occurences of `logs` within the parent  																			| thesis/logs/ </br> thesis/chapters/logs/						| 2 directories, 6 files				|										|      
+| `*.db`				| Matches files with extension `.db`																							| (...) </br> thesis/tmp.db </br> thesis/logs/log.db			| 0 directories, 5 files				|
+| `*.db*`				| Matches files with extension `.db` followed by any other number or character													| (...) </br> thesis/tmp.db </br> thesis/logs/tmp.dba			| 0 directories, 6 files				|
+| `**/logs/**`			| Matches all occurences of `logs` within the `thesis` and sub-directories  													| (...) </br> thesis/logs/ </br> thesis/chapters/logs/			| 2 directories, 6 files				|
 | `chapters/**/*.log`	| Matches all files with extension `.log` in all sub-directories within `chapters` 												| thesis/chapters/logs/chapter.log								| 0 directores, 1 file					|      
-| `*.*`					| Matches all files in `thesis`																									| thesis/ </br> thesis/tmp.db etc.								| 5 directories, 17 files (all)			|
+| `*.*`					| Matches all files in `thesis`																									| (...) </br> thesis/ </br> thesis/tmp.db						| 5 directories, 17 files (all)			|
 | `!*.*`				| Matches no files in `thesis`																									| -																| 0 directories, 0 files				|
 | `[a-z]?tmp.db`		| Matches files beginning with characters between `a` and `z`, followed by a single character, ending with `tmp.db`				| thesis/abtmp.db												| 0 directories, 1 file					|
 | `?tmp.db`				| Matches files with exactly one character ending with `tmp.db`																	| thesis/atmp.db												| 0 directories, 1 file					|
