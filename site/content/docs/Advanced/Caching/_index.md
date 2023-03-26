@@ -1,8 +1,10 @@
 ---
 title: "Caching"
 linkTitle: "Caching"
-weight: 20
+weight: 50
 ---
+
+## Caching
 
 To optimize performance Kopia maintains local cache of contents, metadata, indexes and more. This document provides more insight into this process.
 

@@ -1,15 +1,14 @@
 ---
 title: "Verifying Validity of Snapshots/Repositories and Trying to Repair Any Corruption"
 linkTitle: "Testing Validity of Backups and Fixing Corruption"
-weight: 5
+weight: 35
 ---
 
-* [Verifying Validity of Snapshots/Repositories](#verifying-validity-of-snapshotsrepositories)
-* [Repairing Corruption of Snapshots/Repositories](#repairing-corruption-of-snapshotsrepositories)
-
-## Verifying Validity of Snapshots/Repositories
+## Consistency 
 
 Backing up data is great, but you also need to be able to restore that data when (if) the time arises. That means you need to test snapshots regularly to ensure that a snapshot remains valid and has not become corrupt after you have created the snapshot. (There are various different reasons why a snapshot may become corrupt; see the [corruption repair discussion below](#repairing-corruption-of-snapshotsrepositories) for more details.)
+
+### Verifying Validity of Snapshots 
 
 The gold standard for testing the validity of backups is to simply [restore the snapshot](../../getting-started/); if restore is successful, then the backup is valid. However, in many situations it is not feasible to conduct a full restore of a snapshot, such as if you do not have enough local hard drive space to do a full restore or if the egress costs of your cloud storage are extremely high (e.g., Amazon S3 charges $0.09 per GB you download). 
 
@@ -25,7 +24,7 @@ If you do not want Kopia to download 100% of your files, you can set `--verify-f
 
 Currently, `kopia snapshot verify --verify-files-percent=# --file-parallelism=10 --parallel=10` must be run via CLI. KopiaUI does not yet have the ability to run `kopia snapshot verify` with the `--verify-files-percent` option, so all KopiaUI users will need to run the command via CLI.
 
-## Repairing Corruption of Snapshots/Repositories
+## Repairing Corruption of Snapshots
 
 ### How Corruption Happens
 

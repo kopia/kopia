@@ -256,7 +256,7 @@ In order to run Kopia in a docker container, you must:
 * mount `/app/config` directory in which Kopia will look for `repository.config` file
 * (recommended) mount `/app/cache` directory in which Kopia will be keeping a cache of downloaded data
 * (optional) mount `/app/logs` directory in which Kopia will be writing logs
-* (optional), **only** when using `rclone` provider) mount `/app/rclone` directory in which RClone will look for `rclone.conf` file
+* (optional), **only** when using `rclone` provider mount `/app/rclone` directory in which RClone will look for `rclone.conf` file
 * mount any directory used for locally-attached `repository`
 * mount `/tmp` directory to browse mounted snapshots
     * the directory must have `:shared` property, so mounts can be browsable by host system
@@ -295,8 +295,8 @@ services:
             - --disable-csrf-token-checks
             - --insecure
             - --address=0.0.0.0:51515
-            - --server-username="USERNAME"
-            - --server-password="SECRET_PASSWORD"
+            - --server-username=USERNAME
+            - --server-password=SECRET_PASSWORD
         environment:
             # Set repository password
             KOPIA_PASSWORD: "SECRET"

@@ -1,8 +1,10 @@
 ---
 title: "Actions"
 linkTitle: "Actions"
-weight: 15
+weight: 45
 ---
+
+## Actions
 
 Starting with v0.8 Kopia supports running custom user-provided commands or scripts before and after snapshot root and also before/after individual folders as they get snapshotted. This supports scenarios such as:
 
@@ -99,7 +101,7 @@ snapshotted (either `KOPIA_SOURCE_PATH` or `KOPIA_SNAPSHOT_PATH` if returned by 
 
 ## Examples
 
-#### Dumping SQL databases before snapshotting:
+### Dumping SQL databases before snapshotting:
 
 This script invokes `mysqldump` to create a file called `dump.sql` in the directory
 that's being snapshotted. This can be used to automate database backups.
@@ -110,7 +112,7 @@ set -e
 mysqldump SomeDatabase --result-file=$KOPIA_SOURCE_PATH/dump.sql
 ```
 
-#### ZFS point-in-time snapshotting:
+### ZFS point-in-time snapshotting:
 
 When snapshotting ZFS pools, we must first create a snapshot using `zfs snapshot`, mount it somewhere
 and tell `kopia` to snapshot the mounted directory instead of the current one.
@@ -140,7 +142,7 @@ zfs destroy $ZPOOL_NAME@$KOPIA_SNAPSHOT_ID
 ```
 
 
-#### Windows shadow copy
+### Windows shadow copy
 
 When backing up files opened with exclusive lock in Windows, Kopia would fail the snapshot task because it can't read the file content.
 One of the popular solutions is taking a [shadow copy](https://en.wikipedia.org/wiki/Shadow_Copy) of the storage volume and ask Kopia to backup that instead.
@@ -215,7 +217,7 @@ kopia policy set <target_dir> --before-folder-action "powershell -WindowStyle Hi
 kopia policy set <target_dir> --after-folder-action  "powershell -WindowStyle Hidden <path_to_script>\after.ps1"
 ```
 
-#### Contributions Welcome
+### Contributions Welcome
 
 Those are just some initial ideas, we're certain more interesting types of actions will be developed using this mechanism, including LVM snapshots, BTRFS Snapshots, notifications and more.
 
