@@ -28,7 +28,7 @@ func (c *commandRepositorySetClient) setup(svc appServices, parent commandParent
 
 	cmd.Flag("read-only", "Set repository to read-only").BoolVar(&c.repoClientOptionsReadOnly)
 	cmd.Flag("read-write", "Set repository to read-write").BoolVar(&c.repoClientOptionsReadWrite)
-	cmd.Flag("permissive-cache-loading", "Do not fail reading when loading cache index entries.  Repository must be opened in read-only mode").BoolVar(&c.repoClientOptionsPermissiveCacheLoading)
+	cmd.Flag("permissive-cache-loading", "Do not fail when loading bad cache index entries.  Repository must be opened in read-only mode").Hidden().BoolVar(&c.repoClientOptionsPermissiveCacheLoading)
 	cmd.Flag("description", "Change description").StringsVar(&c.repoClientOptionsDescription)
 	cmd.Flag("username", "Change username").StringsVar(&c.repoClientOptionsUsername)
 	cmd.Flag("hostname", "Change hostname").StringsVar(&c.repoClientOptionsHostname)
