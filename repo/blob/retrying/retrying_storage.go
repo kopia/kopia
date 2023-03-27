@@ -72,7 +72,7 @@ func isRetriable(err error) bool {
 	case errors.Is(err, blob.ErrBlobAlreadyExists):
 		return false
 
-	case errors.Is(err, repo.ErrRepositoryUnavailableDueToUpgrageInProgress):
+	case errors.Is(err, repo.ErrRepositoryUnavailableDueToUpgradeInProgress):
 		// hard-fail when upgrade is in progress
 		return false
 
