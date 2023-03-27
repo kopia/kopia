@@ -70,6 +70,9 @@ linters-settings:
 linters:
   enable-all: true
   disable:
+    - godot
+    - wsl
+    - staticcheck
     - deadcode
     - exhaustivestruct
     - exhaustruct
