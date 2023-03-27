@@ -314,7 +314,7 @@ func TestServerCreateAndConnectViaAPI(t *testing.T) {
 			Password: "foofoo",
 			Storage:  connInfo,
 			ClientOptions: repo.ClientOptions{
-				PermissiveIndexReads: true,
+				PermissiveCacheLoading: true,
 			},
 		},
 	}); err != nil {
