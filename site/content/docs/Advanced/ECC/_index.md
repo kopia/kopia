@@ -1,8 +1,10 @@
 ---
 title: "Error Correction Algorithm"
 linkTitle: "Error Correction Algorithm"
-weight: 13
+weight: 25
 ---
+
+## Error Correction Algorithm
 
 Starting with v0.12.0, Kopia supports the use of error correction using the Reed-Solomon error correction algorithm. Error correction in Kopia is used to mitigate the likelihood that your snapshots become corrupt due to storage errors caused by the hardware your snapshots are saved on (like bitflips). Most, if not all, cloud storage platforms use their own error correction, so using Kopia's error correction for cloud repositories may be overkill. However, the choice is yours.
 

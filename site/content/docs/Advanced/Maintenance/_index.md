@@ -1,14 +1,16 @@
 ---
 title: "Maintenance"
 linkTitle: "Maintenance"
-weight: 45
+weight: 30
 ---
+
+## Maintenance
 
 Kopia repositories require periodic maintenance to ensure best possible performance and optimal storage usage.
 
 Starting with v0.6.0 the repository maintenance is automatic and will happen occasionally when `kopia` command-line client is used. This document describes maintenance functionality in greater detail.
 
-## Maintenance Tasks
+### Maintenance Tasks
 
 Kopia uses the following types of maintenance tasks:
 
@@ -22,7 +24,7 @@ Kopia uses the following types of maintenance tasks:
 
   The most important task is Snapshot GC which marks for deletion all contents that are no longer reachable from any of the active snapshots. Full Maintenance is also responsible for compaction of data pack blobs (`p`) after contents stored in them have been deleted. Full Maintenance Tasks are enabled by default and will execute every 24 hours. 
 
-## Maintenance Task Ownership
+### Maintenance Task Ownership
 
 For correctness reasons, Kopia requires that no more than one instance of certain maintenance operations runs at any given time. To achieve that, one repository `user@hostname` is designated as the Maintenance Owner. Other repository users will not attempt to run maintenance automatically and the designated user will attempt to do so after holding an exclusive lock.
 
@@ -40,7 +42,7 @@ $ kopia maintenance set --owner=me
 $ kopia maintenance set --owner=another@somehost
 ```
 
-## Maintenance Task Scheduling
+### Maintenance Task Scheduling
 
 To enable or disable quick or full maintenance:
 
@@ -63,7 +65,7 @@ $ kopia maintenance set --pause-quick=48h
 $ kopia maintenance set --pause-full=268h
 ```
 
-## Manually Running Maintenance
+### Manually Running Maintenance
 
 To run maintenance manually use `kopia maintenance run`:
 
@@ -77,7 +79,7 @@ $ kopia maintenance run --full
 
 The current user must be the maintenance owner.
 
-## Maintenance Safety
+### Maintenance Safety
 
 Kopia's maintenance routine follows certain safety rules which rely on passage of time to ensure correctness. This is needed in case other Kopia clients are currently operating on the repository. To guarantee correctness, certain length of time must pass to ensure all caches and transient state are properly synchronized with the repository. Kopia must also account for eventual consistency delays introduced by the blob storage provider.
 
@@ -93,7 +95,7 @@ Example of running full maintenance with safety disabled:
 $ kopia maintenance run --full --safety=none
 ```
 
-## Viewing Maintenance History
+### Viewing Maintenance History
 
 To view the history of maintenance operations use `kopia maintenance info`, which will display the history of last 5 maintenance runs.
 

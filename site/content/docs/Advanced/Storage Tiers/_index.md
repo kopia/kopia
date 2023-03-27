@@ -6,6 +6,8 @@ aliases:
     - ../advanced/amazon-s3/
 ---
 
+## Storage Classes
+
 Most of the [cloud storages supported by Kopia](../../repositories/) have a feature called storage classes (or storage tiers). Storage classes allow you to trade-off costs for storage and access and, in some cases, data redundancy. Exactly what the trade-offs are vary between cloud providers. However, 
 
 * 'hot' storage is typically the most expensive to store, the least expensive to access, and has the highest redundancy; 
