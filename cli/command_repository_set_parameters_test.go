@@ -154,7 +154,8 @@ func (s *formatSpecificTestSuite) TestRepositorySetParametersUpgrade(t *testing.
 		if s.formatVersion < format.MaxFormatVersion {
 			env.RunAndExpectSuccess(t, cmd...)
 		} else {
-			env.RunAndExpectFailure(t, cmd...)
+			_, stderr := env.RunAndExpectSuccessWithErrOut(t, cmd...)
+			require.Contains(t, stderr, "Repository format is already upto date.")
 		}
 	}
 

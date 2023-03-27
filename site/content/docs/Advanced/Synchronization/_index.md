@@ -1,7 +1,7 @@
 ---
 title: "Synchronization"
 linkTitle: "Synchronization"
-weight: 50
+weight: 55
 ---
 
 ## Synchronization
