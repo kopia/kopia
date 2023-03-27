@@ -29,7 +29,7 @@ type ClientOptions struct {
 	Username string `json:"username"`
 
 	ReadOnly             bool `json:"readonly,omitempty"`
-	PermissiveIndexReads bool `json:"permissiveCacheLoading,omitempty"`
+	PermissiveIndexReads bool `json:"permissiveIndexReads,omitempty"`
 
 	// Description is human-readable description of the repository to use in the UI.
 	Description string `json:"description,omitempty"`
