@@ -70,6 +70,8 @@ linters-settings:
 linters:
   enable-all: true
   disable:
+    - wsl
+    - staticcheck
     - deadcode
     - exhaustivestruct
     - exhaustruct

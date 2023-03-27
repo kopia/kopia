@@ -7,7 +7,6 @@ import (
 )
 
 // Fault describes the behavior of a singe fault.
-// TODO: Fault has poor structure for use-cases.  Should not use locking.  Should return an immutable object with all settings
 type Fault struct {
 	repeatCount int           // how many times to repeat this fault
 	sleep       time.Duration // sleep before returning
