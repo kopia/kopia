@@ -28,8 +28,8 @@ type ClientOptions struct {
 	Hostname string `json:"hostname"`
 	Username string `json:"username"`
 
-	ReadOnly             bool `json:"readonly,omitempty"`
-	PermissiveIndexReads bool `json:"permissiveCacheLoading,omitempty"`
+	ReadOnly               bool `json:"readonly,omitempty"`
+	PermissiveCacheLoading bool `json:"permissiveCacheLoading,omitempty"`
 
 	// Description is human-readable description of the repository to use in the UI.
 	Description string `json:"description,omitempty"`
@@ -153,7 +153,7 @@ func LoadConfigFromFile(fileName string) (*LocalConfig, error) {
 		}
 	}
 
-	if lc.PermissiveIndexReads && os.Getenv("KOPIA_UPGRADE_LOCK_ENABLED") == "" {
+	if lc.PermissiveCacheLoading && os.Getenv("KOPIA_UPGRADE_LOCK_ENABLED") == "" {
 		return nil, errors.New("cannot connect to repository with permissive index and without upgrade lock")
 	}
 

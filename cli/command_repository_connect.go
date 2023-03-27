@@ -100,7 +100,7 @@ func (c *connectOptions) toRepoConnectOptions() *repo.ConnectOptions {
 			Hostname:                c.connectHostname,
 			Username:                c.connectUsername,
 			ReadOnly:                c.connectReadonly,
-			PermissiveIndexReads:    c.connectPermissiveIndexReads,
+			PermissiveCacheLoading:  c.connectPermissiveIndexReads,
 			Description:             c.connectDescription,
 			EnableActions:           c.connectEnableActions,
 			FormatBlobCacheDuration: c.getFormatBlobCacheDuration(),

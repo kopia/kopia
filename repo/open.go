@@ -121,7 +121,7 @@ func Open(ctx context.Context, configFile, password string, options *Options) (r
 		return nil, err
 	}
 
-	if lc.PermissiveIndexReads && !lc.ReadOnly {
+	if lc.PermissiveCacheLoading && !lc.ReadOnly {
 		return nil, ErrCannotWriteToRepoConnectionWithPermissiveIndexReads
 	}
 
@@ -241,7 +241,7 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 	cmOpts := &content.ManagerOptions{
 		TimeNow:             defaultTime(options.TimeNowFunc),
 		DisableInternalLog:  options.DisableInternalLog,
-		PermissiveIndexRead: cliOpts.PermissiveIndexReads,
+		PermissiveIndexRead: cliOpts.PermissiveCacheLoading,
 	}
 
 	mr := metrics.NewRegistry()
@@ -303,7 +303,7 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 		}
 
 		// retry if upgrade lock has been taken
-		if !cliOpts.PermissiveIndexReads {
+		if !cliOpts.PermissiveCacheLoading {
 			if locked, _ := uli.IsLocked(cmOpts.TimeNow()); locked && options.UpgradeOwnerID != uli.OwnerID {
 				return nil, ErrRepositoryUnavailableDueToUpgradeInProgress
 			}
@@ -317,7 +317,7 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 		return nil, err
 	}
 
-	if !cliOpts.PermissiveIndexReads {
+	if !cliOpts.PermissiveCacheLoading {
 		// background/interleaving upgrade lock storage monitor
 		st = upgradeLockMonitor(fmgr, options.UpgradeOwnerID, st, cmOpts.TimeNow, options.OnFatalError, options.TestOnlyIgnoreMissingRequiredFeatures)
 	}

@@ -10,12 +10,12 @@ import (
 )
 
 type commandRepositorySetClient struct {
-	repoClientOptionsReadOnly             bool
-	repoClientOptionsReadWrite            bool
-	repoClientOptionsPermissiveIndexReads bool
-	repoClientOptionsDescription          []string
-	repoClientOptionsUsername             []string
-	repoClientOptionsHostname             []string
+	repoClientOptionsReadOnly               bool
+	repoClientOptionsReadWrite              bool
+	repoClientOptionsPermissiveCacheLoading bool
+	repoClientOptionsDescription            []string
+	repoClientOptionsUsername               []string
+	repoClientOptionsHostname               []string
 
 	formatBlobCacheDuration time.Duration
 	disableFormatBlobCache  bool
@@ -28,7 +28,7 @@ func (c *commandRepositorySetClient) setup(svc appServices, parent commandParent
 
 	cmd.Flag("read-only", "Set repository to read-only").BoolVar(&c.repoClientOptionsReadOnly)
 	cmd.Flag("read-write", "Set repository to read-write").BoolVar(&c.repoClientOptionsReadWrite)
-	cmd.Flag("permissive-index-reads", "Do not fail reading bad index entries").BoolVar(&c.repoClientOptionsPermissiveIndexReads)
+	cmd.Flag("permissive-cache-loading", "Do not fail reading when loading cache index entries.  Repository must be opened in read-only mode").BoolVar(&c.repoClientOptionsPermissiveCacheLoading)
 	cmd.Flag("description", "Change description").StringsVar(&c.repoClientOptionsDescription)
 	cmd.Flag("username", "Change username").StringsVar(&c.repoClientOptionsUsername)
 	cmd.Flag("hostname", "Change hostname").StringsVar(&c.repoClientOptionsHostname)
@@ -66,11 +66,11 @@ func (c *commandRepositorySetClient) run(ctx context.Context, rep repo.Repositor
 		}
 	}
 
-	if c.repoClientOptionsPermissiveIndexReads {
-		if !opt.PermissiveIndexReads {
+	if c.repoClientOptionsPermissiveCacheLoading {
+		if !opt.PermissiveCacheLoading {
 			log(ctx).Infof("Repository fails on read of bad index blobs.")
 		} else {
-			opt.PermissiveIndexReads = true
+			opt.PermissiveCacheLoading = true
 			anyChange = true
 
 			log(ctx).Infof("Setting repository to read index blobs permissively.")
