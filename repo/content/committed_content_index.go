@@ -26,9 +26,9 @@ import (
 const smallIndexEntryCountThreshold = 100
 
 type committedContentIndex struct {
-	rev                 atomic.Int64
-	cache               committedContentIndexCache
-	permissiveIndexRead bool
+	rev                    atomic.Int64
+	cache                  committedContentIndexCache
+	permissiveCacheLoading bool
 
 	mu sync.RWMutex
 	// +checklocks:mu
@@ -169,7 +169,7 @@ func (c *committedContentIndex) merge(ctx context.Context, indexFiles []blob.ID)
 
 			ndx, err = c.cache.openIndex(ctx, e)
 			if err != nil {
-				if c.permissiveIndexRead {
+				if c.permissiveCacheLoading {
 					continue
 				}
 
@@ -296,7 +296,7 @@ func (c *committedContentIndex) close() error {
 	return nil
 }
 
-func (c *committedContentIndex) fetchIndexBlobs(ctx context.Context, isPermissiveIndexRead bool, indexBlobs []blob.ID) error {
+func (c *committedContentIndex) fetchIndexBlobs(ctx context.Context, isPermissiveCacheLoading bool, indexBlobs []blob.ID) error {
 	ch, err := c.missingIndexBlobs(ctx, indexBlobs)
 	if err != nil {
 		return err
@@ -319,7 +319,7 @@ func (c *committedContentIndex) fetchIndexBlobs(ctx context.Context, isPermissiv
 				data.Reset()
 
 				if err := c.fetchOne(ctx, indexBlobID, &data); err != nil {
-					if isPermissiveIndexRead {
+					if isPermissiveCacheLoading {
 						c.log.Errorf("skipping bad read of index blob %v", indexBlobID)
 						continue
 					}
@@ -365,7 +365,7 @@ func (c *committedContentIndex) missingIndexBlobs(ctx context.Context, blobs []b
 func newCommittedContentIndex(caching *CachingOptions,
 	v1PerContentOverhead func() int,
 	formatProvider format.Provider,
-	permissiveIndexReads bool,
+	permissiveCacheLoading bool,
 	fetchOne func(ctx context.Context, blobID blob.ID, output *gather.WriteBuffer) error,
 	log logging.Logger,
 	minSweepAge time.Duration,
@@ -383,12 +383,12 @@ func newCommittedContentIndex(caching *CachingOptions,
 	}
 
 	return &committedContentIndex{
-		cache:                cache,
-		permissiveIndexRead:  permissiveIndexReads,
-		inUse:                map[blob.ID]index.Index{},
-		v1PerContentOverhead: v1PerContentOverhead,
-		formatProvider:       formatProvider,
-		fetchOne:             fetchOne,
-		log:                  log,
+		cache:                  cache,
+		permissiveCacheLoading: permissiveCacheLoading,
+		inUse:                  map[blob.ID]index.Index{},
+		v1PerContentOverhead:   v1PerContentOverhead,
+		formatProvider:         formatProvider,
+		fetchOne:               fetchOne,
+		log:                    log,
 	}
 }

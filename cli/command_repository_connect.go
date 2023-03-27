@@ -54,7 +54,7 @@ type connectOptions struct {
 	connectUsername               string
 	connectCheckForUpdates        bool
 	connectReadonly               bool
-	connectPermissiveIndexReads   bool
+	connectPermissiveCacheLoading bool
 	connectDescription            string
 	connectEnableActions          bool
 
@@ -73,7 +73,7 @@ func (c *connectOptions) setup(svc appServices, cmd *kingpin.CmdClause) {
 	cmd.Flag("override-username", "Override username used by this repository connection").Hidden().StringVar(&c.connectUsername)
 	cmd.Flag("check-for-updates", "Periodically check for Kopia updates on GitHub").Default("true").Envar(svc.EnvName(checkForUpdatesEnvar)).BoolVar(&c.connectCheckForUpdates)
 	cmd.Flag("readonly", "Make repository read-only to avoid accidental changes").BoolVar(&c.connectReadonly)
-	cmd.Flag("permissive-index-reads", "Do not fail reading bad index entries").BoolVar(&c.connectPermissiveIndexReads)
+	cmd.Flag("permissive-cache-loading", "Do not fail when reading bad index entries into cache.  Repository must have been opened read-only").BoolVar(&c.connectPermissiveCacheLoading)
 	cmd.Flag("description", "Human-readable description of the repository").StringVar(&c.connectDescription)
 	cmd.Flag("enable-actions", "Allow snapshot actions").BoolVar(&c.connectEnableActions)
 	cmd.Flag("repository-format-cache-duration", "Duration of kopia.repository format blob cache").Hidden().DurationVar(&c.formatBlobCacheDuration)
@@ -100,7 +100,7 @@ func (c *connectOptions) toRepoConnectOptions() *repo.ConnectOptions {
 			Hostname:                c.connectHostname,
 			Username:                c.connectUsername,
 			ReadOnly:                c.connectReadonly,
-			PermissiveCacheLoading:  c.connectPermissiveIndexReads,
+			PermissiveCacheLoading:  c.connectPermissiveCacheLoading,
 			Description:             c.connectDescription,
 			EnableActions:           c.connectEnableActions,
 			FormatBlobCacheDuration: c.getFormatBlobCacheDuration(),

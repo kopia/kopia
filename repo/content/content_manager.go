@@ -161,7 +161,7 @@ func (bm *WriteManager) DeleteContent(ctx context.Context, contentID ID) error {
 }
 
 func (bm *WriteManager) maybeRefreshIndexes(ctx context.Context) error {
-	if bm.permissiveIndexReads {
+	if bm.permissiveCacheLoading {
 		return nil
 	}
 
@@ -947,11 +947,11 @@ func (bm *WriteManager) MetadataCache() cache.ContentCache {
 
 // ManagerOptions are the optional parameters for manager creation.
 type ManagerOptions struct {
-	TimeNow             func() time.Time // Time provider
-	DisableInternalLog  bool
-	RetentionMode       string
-	RetentionPeriod     time.Duration
-	PermissiveIndexRead bool
+	TimeNow                func() time.Time // Time provider
+	DisableInternalLog     bool
+	RetentionMode          string
+	RetentionPeriod        time.Duration
+	PermissiveCacheLoading bool
 }
 
 // CloneOrDefault returns a clone of provided ManagerOptions or default empty struct if nil.

@@ -122,7 +122,7 @@ func Open(ctx context.Context, configFile, password string, options *Options) (r
 	}
 
 	if lc.PermissiveCacheLoading && !lc.ReadOnly {
-		return nil, ErrCannotWriteToRepoConnectionWithPermissiveIndexReads
+		return nil, ErrCannotWriteToRepoConnectionWithPermissiveCacheLoading
 	}
 
 	if lc.APIServer != nil {
@@ -239,9 +239,9 @@ func openDirect(ctx context.Context, configFile string, lc *LocalConfig, passwor
 func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions, password string, options *Options, cacheOpts *content.CachingOptions, configFile string) (DirectRepository, error) {
 	cacheOpts = cacheOpts.CloneOrDefault()
 	cmOpts := &content.ManagerOptions{
-		TimeNow:             defaultTime(options.TimeNowFunc),
-		DisableInternalLog:  options.DisableInternalLog,
-		PermissiveIndexRead: cliOpts.PermissiveCacheLoading,
+		TimeNow:                defaultTime(options.TimeNowFunc),
+		DisableInternalLog:     options.DisableInternalLog,
+		PermissiveCacheLoading: cliOpts.PermissiveCacheLoading,
 	}
 
 	mr := metrics.NewRegistry()

@@ -20,8 +20,8 @@ import (
 
 const configDirMode = 0o700
 
-// ErrCannotWriteToRepoConnectionWithPermissiveIndexReads error to indicate.
-var ErrCannotWriteToRepoConnectionWithPermissiveIndexReads = errors.Errorf("cannot write to repo connection with permissive index reads")
+// ErrCannotWriteToRepoConnectionWithPermissiveCacheLoading error to indicate.
+var ErrCannotWriteToRepoConnectionWithPermissiveCacheLoading = errors.Errorf("cannot write to repo connection with permissive cache loading")
 
 // ClientOptions contains client-specific options that are persisted in local configuration file.
 type ClientOptions struct {
@@ -154,7 +154,7 @@ func LoadConfigFromFile(fileName string) (*LocalConfig, error) {
 	}
 
 	if lc.PermissiveCacheLoading && os.Getenv("KOPIA_UPGRADE_LOCK_ENABLED") == "" {
-		return nil, errors.New("cannot connect to repository with permissive index and without upgrade lock")
+		return nil, errors.New("must have set KOPIA_UPGRADE_LOCK_ENABLED when connecting to repository with permissive cache loading")
 	}
 
 	return &lc, nil

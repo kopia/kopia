@@ -2283,8 +2283,8 @@ func (s *contentManagerSuite) TestPrefetchContent(t *testing.T) {
 	}
 }
 
-// TestContentIndexPermissiveReads check that permissive reads read content as recorded.
-func (s *contentManagerSuite) TestContentIndexPermissiveReads(t *testing.T) {
+// TestContentPermissiveCacheLoading check that permissive reads read content as recorded.
+func (s *contentManagerSuite) TestContentPermissiveCacheLoading(t *testing.T) {
 	data := blobtesting.DataMap{}
 	timeNow := faketime.AutoAdvance(fakeTime, 1*time.Second)
 	st := blobtesting.NewMapStorage(data, nil, timeNow)
@@ -2322,8 +2322,8 @@ func (s *contentManagerSuite) TestContentIndexPermissiveReads(t *testing.T) {
 
 	tweaks = &contentManagerTestTweaks{
 		ManagerOptions: ManagerOptions{
-			TimeNow:             timeNow,
-			PermissiveIndexRead: true,
+			TimeNow:                timeNow,
+			PermissiveCacheLoading: true,
 		},
 	}
 
@@ -2375,8 +2375,8 @@ func (s *contentManagerSuite) TestContentIndexPermissiveReadsWithFault(t *testin
 
 	tweaks = &contentManagerTestTweaks{
 		ManagerOptions: ManagerOptions{
-			TimeNow:             timeNow,
-			PermissiveIndexRead: true,
+			TimeNow:                timeNow,
+			PermissiveCacheLoading: true,
 		},
 	}
 
