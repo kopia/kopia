@@ -8,10 +8,12 @@ import (
 
 // Fault describes the behavior of a singe fault.
 type Fault struct {
-	repeatCount int           // how many times to repeat this fault
-	sleep       time.Duration // sleep before returning
-	callback    func()
-	errCallback func() error
+	// how many times to repeat this fault
+	repeatCount int // +checklocks:mu
+	// sleep before returning
+	sleep       time.Duration // +checklocks:mu
+	callback    func() // +checklocks:mu
+	errCallback func() error // +checklocks:mu
 	mu          sync.Mutex
 }
 
