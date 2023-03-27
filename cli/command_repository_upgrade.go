@@ -314,6 +314,14 @@ func (c *commandRepositoryUpgrade) setLockIntent(ctx context.Context, rep repo.D
 	// This will fail if we have already upgraded.
 	l, err := rep.FormatManager().SetUpgradeLockIntent(ctx, *l)
 	if err != nil {
+		if errors.Is(err, format.ErrFormatUptoDate) {
+			log(ctx).Info("Repository format is already upto date.")
+
+			c.skip = true
+
+			return nil
+		}
+
 		return errors.Wrap(err, "error setting the upgrade lock intent")
 	}
 	// we need to reopen the repository after this point
