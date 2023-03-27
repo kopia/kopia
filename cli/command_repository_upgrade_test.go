@@ -42,11 +42,12 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgrade(t *testing.T) {
 		require.Contains(t, stderr, "Repository has been successfully upgraded.")
 	default:
 		require.Contains(t, out, "Format version:      3")
-		env.RunAndExpectFailure(t, "repository", "upgrade",
+		_, stderr := env.RunAndExpectSuccessWithErrOut(t, "repository", "upgrade",
 			"--upgrade-owner-id", "owner",
 			"--io-drain-timeout", "1s", "--allow-unsafe-upgrade",
 			"--status-poll-interval", "1s",
 			"--max-permitted-clock-drift", "1s")
+		require.Contains(t, stderr, "Repository format is already upto date.")
 	}
 
 	out = env.RunAndExpectSuccess(t, "repository", "status", "--upgrade-no-block")
@@ -92,11 +93,12 @@ func (s *formatSpecificTestSuite) TestRepositoryCorruptedUpgrade(t *testing.T) {
 		require.Contains(t, stderr, "Repository indices have already been migrated to the epoch format, no need to drain other clients")
 	default:
 		require.Contains(t, out, "Format version:      3")
-		env.RunAndExpectFailure(t, "repository", "upgrade",
+		_, stderr := env.RunAndExpectSuccessWithErrOut(t, "repository", "upgrade",
 			"--upgrade-owner-id", "owner",
 			"--io-drain-timeout", "1s", "--allow-unsafe-upgrade",
 			"--status-poll-interval", "1s",
 			"--max-permitted-clock-drift", "1s")
+		require.Contains(t, stderr, "Repository format is already upto date.")
 	}
 }
 
@@ -137,12 +139,13 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgradeCommitNever(t *testing.T)
 		require.Contains(t, stderr, "failed to open repository: repository upgrade in progress")
 	default:
 		require.Contains(t, stdout, "Format version:      3")
-		env.RunAndExpectFailure(t, "repository", "upgrade",
+		_, stderr := env.RunAndExpectSuccessWithErrOut(t, "repository", "upgrade",
 			"--commit-mode", "never",
 			"--upgrade-owner-id", "owner",
 			"--io-drain-timeout", "1s", "--allow-unsafe-upgrade",
 			"--status-poll-interval", "1s",
 			"--max-permitted-clock-drift", "1s")
+		require.Contains(t, stderr, "Repository format is already upto date.")
 
 		env.RunAndExpectSuccess(t, "repository", "status", "--upgrade-no-block")
 	}
@@ -179,12 +182,13 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgradeCommitAlways(t *testing.T
 		require.Contains(t, stderr, "Repository has been successfully upgraded.")
 	default:
 		require.Contains(t, out, "Format version:      3")
-		env.RunAndExpectFailure(t, "repository", "upgrade",
+		_, stderr := env.RunAndExpectSuccessWithErrOut(t, "repository", "upgrade",
 			"--commit-mode", "always",
 			"--upgrade-owner-id", "owner",
 			"--io-drain-timeout", "1s", "--allow-unsafe-upgrade",
 			"--status-poll-interval", "1s",
 			"--max-permitted-clock-drift", "1s")
+		require.Contains(t, stderr, "Repository format is already upto date.")
 	}
 
 	out = env.RunAndExpectSuccess(t, "repository", "status", "--upgrade-no-block")
@@ -278,11 +282,12 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgradeStatusWhileLocked(t *test
 		env.RunAndExpectSuccess(t, "repository", "status", "--upgrade-no-block")
 	default:
 		require.Contains(t, out, "Format version:      3")
-		env.RunAndExpectFailure(t, "repository", "upgrade",
+		_, stderr := env.RunAndExpectSuccessWithErrOut(t, "repository", "upgrade",
 			"--upgrade-owner-id", "owner",
 			"--io-drain-timeout", "1s", "--allow-unsafe-upgrade",
 			"--status-poll-interval", "1s",
 			"--max-permitted-clock-drift", "1s")
+		require.Contains(t, stderr, "Repository format is already upto date.")
 	}
 
 	out = env.RunAndExpectSuccess(t, "repository", "status", "--upgrade-no-block")

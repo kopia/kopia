@@ -85,7 +85,7 @@ func TestFormatUpgradeAlreadyUpgraded(t *testing.T) {
 	}
 
 	_, err := env.RepositoryWriter.FormatManager().SetUpgradeLockIntent(ctx, *l)
-	require.EqualError(t, err, fmt.Sprintf("repository is using version %d, and version %d is the maximum",
+	require.ErrorContains(t, err, fmt.Sprintf("repository is using version %d, and version %d is the maximum",
 		format.MaxFormatVersion, format.MaxFormatVersion))
 }
 

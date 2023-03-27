@@ -108,8 +108,7 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 
 	var sp testutil.ServerParameters
 
-	e.LogOutput = true
-	e.LogOutputPrefix = "<first> "
+	e.SetLogOutput(true, "<first> ")
 
 	t.Logf("******** first server startup ********")
 
@@ -174,8 +173,7 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 
 	defer rep.Close(ctx)
 
-	e.LogOutput = true
-	e.LogOutputPrefix = "<second> "
+	e.SetLogOutput(true, "<second> ")
 
 	// start the server again, using the same address & TLS key+cert, so existing connection
 	// should be re-established.
@@ -219,8 +217,7 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 
 	runner2 := testenv.NewInProcRunner(t)
 	e2 := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner2)
-	e2.LogOutput = true
-	e2.LogOutputPrefix = "client2 "
+	e2.SetLogOutput(true, "<client2>")
 
 	defer e2.RunAndExpectSuccess(t, "repo", "disconnect")
 
