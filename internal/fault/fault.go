@@ -27,6 +27,7 @@ func (f *Fault) ErrorInstead(err error) *Fault {
 	f.mu.Lock()
 	f.errCallback = func() error { return err }
 	f.mu.Unlock()
+
 	return f
 }
 
@@ -35,6 +36,7 @@ func (f *Fault) ErrorCallbackInstead(cb func() error) *Fault {
 	f.mu.Lock()
 	f.errCallback = cb
 	f.mu.Unlock()
+
 	return f
 }
 
@@ -43,6 +45,7 @@ func (f *Fault) Before(cb func()) *Fault {
 	f.mu.Lock()
 	f.callback = cb
 	f.mu.Unlock()
+
 	return f
 }
 
@@ -51,6 +54,7 @@ func (f *Fault) Repeat(n int) *Fault {
 	f.mu.Lock()
 	f.repeatCount = n
 	f.mu.Unlock()
+
 	return f
 }
 
@@ -59,5 +63,6 @@ func (f *Fault) SleepFor(d time.Duration) *Fault {
 	f.mu.Lock()
 	f.sleep = d
 	f.mu.Unlock()
+
 	return f
 }
