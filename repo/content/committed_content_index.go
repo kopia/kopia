@@ -26,8 +26,9 @@ import (
 const smallIndexEntryCountThreshold = 100
 
 type committedContentIndex struct {
-	rev   atomic.Int64
-	cache committedContentIndexCache
+	rev                    atomic.Int64
+	cache                  committedContentIndexCache
+	permissiveCacheLoading bool
 
 	mu sync.RWMutex
 	// +checklocks:mu
@@ -168,6 +169,10 @@ func (c *committedContentIndex) merge(ctx context.Context, indexFiles []blob.ID)
 
 			ndx, err = c.cache.openIndex(ctx, e)
 			if err != nil {
+				if c.permissiveCacheLoading {
+					continue
+				}
+
 				newlyOpened.Close() //nolint:errcheck
 
 				return nil, nil, errors.Wrapf(err, "unable to open pack index %q", e)
@@ -291,7 +296,7 @@ func (c *committedContentIndex) close() error {
 	return nil
 }
 
-func (c *committedContentIndex) fetchIndexBlobs(ctx context.Context, indexBlobs []blob.ID) error {
+func (c *committedContentIndex) fetchIndexBlobs(ctx context.Context, isPermissiveCacheLoading bool, indexBlobs []blob.ID) error {
 	ch, err := c.missingIndexBlobs(ctx, indexBlobs)
 	if err != nil {
 		return err
@@ -304,6 +309,7 @@ func (c *committedContentIndex) fetchIndexBlobs(ctx context.Context, indexBlobs 
 	c.log.Debugf("Downloading %v new index blobs...", len(indexBlobs))
 
 	eg, ctx := errgroup.WithContext(ctx)
+
 	for i := 0; i < parallelFetches; i++ {
 		eg.Go(func() error {
 			var data gather.WriteBuffer
@@ -313,6 +319,10 @@ func (c *committedContentIndex) fetchIndexBlobs(ctx context.Context, indexBlobs 
 				data.Reset()
 
 				if err := c.fetchOne(ctx, indexBlobID, &data); err != nil {
+					if isPermissiveCacheLoading {
+						c.log.Errorf("skipping bad read of index blob %v", indexBlobID)
+						continue
+					}
 					return errors.Wrapf(err, "error loading index blob %v", indexBlobID)
 				}
 
@@ -355,6 +365,7 @@ func (c *committedContentIndex) missingIndexBlobs(ctx context.Context, blobs []b
 func newCommittedContentIndex(caching *CachingOptions,
 	v1PerContentOverhead func() int,
 	formatProvider format.Provider,
+	permissiveCacheLoading bool,
 	fetchOne func(ctx context.Context, blobID blob.ID, output *gather.WriteBuffer) error,
 	log logging.Logger,
 	minSweepAge time.Duration,
@@ -372,11 +383,12 @@ func newCommittedContentIndex(caching *CachingOptions,
 	}
 
 	return &committedContentIndex{
-		cache:                cache,
-		inUse:                map[blob.ID]index.Index{},
-		v1PerContentOverhead: v1PerContentOverhead,
-		formatProvider:       formatProvider,
-		fetchOne:             fetchOne,
-		log:                  log,
+		cache:                  cache,
+		permissiveCacheLoading: permissiveCacheLoading,
+		inUse:                  map[blob.ID]index.Index{},
+		v1PerContentOverhead:   v1PerContentOverhead,
+		formatProvider:         formatProvider,
+		fetchOne:               fetchOne,
+		log:                    log,
 	}
 }
