@@ -78,10 +78,6 @@ var errSkipped = errors.Errorf("skipped")
 
 const masterPassword = "foo-bar-baz-1234"
 
-func init() {
-	rand.Seed(clock.Now().UnixNano())
-}
-
 func TestStressRepositoryMixAll(t *testing.T) {
 	runStress(t, &StressOptions{
 		ConfigsPerRepository:      2,
