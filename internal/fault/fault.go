@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-// Fault describes the behavior of a singe fault.
+// Fault describes the behavior of a single fault.
 type Fault struct {
 	// how many times to repeat this fault
 	repeatCount int // +checklocks:mu
