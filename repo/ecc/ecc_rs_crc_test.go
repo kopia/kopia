@@ -162,3 +162,16 @@ func testRsCrc32ChangeInParityCrc(t *testing.T, opts *Options, originalSize, cha
 			}
 		})
 }
+
+func computeFinalFileSize(s *sizesInfo, size int) int {
+	if s.StorePadding {
+		return computeFinalFileSizeWithPadding(s.DataShards, s.ParityShards, s.ShardSize, s.Blocks)
+	}
+
+	return computeFinalFileSizeWithoutPadding(size, s.ParityShards, s.ShardSize, s.Blocks)
+}
+
+func computeFinalFileSizeWithoutPadding(inputSize, parityShards, shardSize, blocks int) int {
+	sizePlusLength := lengthSize + inputSize
+	return parityShards*(crcSize+shardSize)*blocks + sizePlusLength + ceilInt(sizePlusLength, shardSize)*crcSize
+}
