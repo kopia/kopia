@@ -57,7 +57,7 @@ func (c *commandRepositoryUpgrade) setup(svc advancedAppServices, parent command
 			return nil
 		})
 
-	beginCmd := parent.Command("begin", "Begin upgrade.").Default()
+	beginCmd := parent.Command("begin", "Begin upgrade.")
 	beginCmd.Flag("io-drain-timeout", "Max time it should take all other Kopia clients to drop repository connections").Default(format.DefaultRepositoryBlobCacheDuration.String()).DurationVar(&c.ioDrainTimeout)
 	beginCmd.Flag("allow-unsafe-upgrade", "Force using an unsafe io-drain-timeout for the upgrade lock").Default("false").Hidden().BoolVar(&c.allowUnsafeUpgradeTimings)
 	beginCmd.Flag("status-poll-interval", "An advisory polling interval to check for the status of upgrade").Default("60s").DurationVar(&c.statusPollInterval)
