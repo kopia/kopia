@@ -17,7 +17,6 @@ type Fault struct {
 	callback func()
 	// +checklocks:mu
 	errCallback func() error
-	mu          sync.Mutex
 }
 
 // New creates a new fault.
