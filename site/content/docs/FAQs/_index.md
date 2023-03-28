@@ -10,6 +10,7 @@ weight: 40
 * [What is a Repository?](#what-is-a-repository)
 * [What is a Policy?](#what-is-a-policy)
 * [How to Restore My Backed Up Files/Directories?](#how-to-restore-my-backed-up-filesdirectories)
+* [How Do I Define Files And Folders To Be Ignored By Kopia](#how-do-i-define-files-and-folders-to-be-ignored-by-kopia)
 * [How Do I Enable Encryption?](#how-do-i-enable-encryption)
 * [How Do I Enable Compression?](#how-do-i-enable-compression)
 * [How Do I Enable Data Deduplication?](#how-do-i-enable-data-deduplication)
@@ -17,6 +18,7 @@ weight: 40
 * [Does Kopia Support Storage Classes, Like Amazon Glacier?](#does-kopia-support-storage-classes-like-amazon-glacier)
 * [How Do I Decrease Kopia's CPU Usage?](#how-do-i-decrease-kopias-cpu-usage)
 * [How Do I Decrease Kopia's Memory (RAM) Usage?](#how-do-i-decrease-kopias-memory-ram-usage)
+* [What are Incomplete Snapshots?](#what-are-incomplete-snapshots)
 * [What is a Kopia Repository Server?](#what-is-a-kopia-repository-server)
 
 **Is your question not answered here? Please ask in the [Kopia discussion forums](https://kopia.discourse.group/) for help!**
@@ -35,7 +37,7 @@ See the [repository help docs](../repositories) for more information.
 
 #### What is a Policy?
 
-A `policy` is a set of rules that tells Kopia how to create/manage snapshots; this includes features such as [compression, snapshot retention, and scheduling when to take automatically snapshots](../features#policies-control-what-and-how-filesdirectories-are-saved-in-snapshots).
+A `policy` is a set of rules that tells Kopia how to create/manage snapshots; this includes features such as [compression, snapshot retention, and scheduling when to take snapshots automatically](../features#policies-control-what-and-how-filesdirectories-are-saved-in-snapshots).
 
 #### How to Restore My Backed Up Files/Directories?
 
@@ -49,13 +51,19 @@ Files/directories are restored from the snapshots you create. To restore the dat
 
 The [Getting Started Guide](../getting-started/) provides directions on how to restore files/directions [when using Kopia GUI](../getting-started/#restoring-filesdirectories-from-snapshots) and [when using Kopia CLI](../getting-started/#mounting-snapshots-and-restoring-filesdirectories-from-snapshots).
 
+#### How Do I Define Files And Folders To Be Ignored By Kopia?
+
+Files and directories can be ignored from snapshots by adding `ignore rules` to the `policy` or creating `.kopiagignore` files. For more information, please refer to our [guide on creating ignore rules](../advanced/kopiaignore/).
+
 #### How Do I Enable Encryption?
 
-Encryption is at the `repository` level, and Kopia encrypts all snapshots in all repositories by default. You should have been asked for a password when you created your `repository`. That password is used to encrypt your backups. (Do not forget it, there is no way to recover the password!)
+Encryption is at the `repository` level, and Kopia encrypts all snapshots in all repositories by default. Kopia asks for a password when creating your `repository`. This password is used to encrypt your backups. 
 
 By default, Kopia uses the `AES256-GCM-HMAC-SHA256` encryption algorithm for all repositories, but you can choose `CHACHA20-POLY1305-HMAC-SHA256` if you want to. Picking an encryption algorithm is done when you initially create a `repository`. In `KopiaUI`, to pick the `CHACHA20-POLY1305-HMAC-SHA256` encryption algorithm, you need to click the `Show Advanced Options` button at the screen where you enter your password when creating a new `repository`. For Kopia CLI users, you need to use the `--encryption=CHACHA20-POLY1305-HMAC-SHA256` option when [creating a `repository`](../getting-started/#creating-a-repository) with the [`kopia repository create` command](../reference/command-line/common/#commands-to-manipulate-repository).
 
 Currently, encryption algorithms cannot be changed after a `repository` has been created.
+
+> NOTE Do not forget your repository password. If it is lost, there is no way to recover it or the files and folders within that repository.
 
 #### How Do I Enable Compression?
 
@@ -111,6 +119,12 @@ It is difficult to know what is causing high memory use on your machine without 
 
 * Disabling compression will result in less memory usage than enabling compression. If you want to keep compression, [compression benchmarks](../advanced/compression/) suggest `s2`, `deflate`, and `gzip` are the most memory-friendly compression algorithms when backing up small files. When backing up large files, all the compression algorithms have similar memory usage. Thus, if your machine has low memory, try `s2`, `deflate`, or `gzip`. Read the FAQ on [enabling compression](#how-do-i-decrease-kopias-cpu-usage) to learn how to change or remove compression in Kopia.
 * Decreasing the number of parallel snapshots and parallel file reads will decrease Kopia's memory usage because Kopia will run fewer simultaneous processes. Read the FAQ on [decreasing Kopia's CPU usage](#how-do-i-decrease-kopias-cpu-usage) to learn how to decrease parallelism in Kopia.
+
+#### What are Incomplete Snapshots?
+
+When creating snapshots from large files or folders, `Kopia` sometimes marks snapshots as incomplete. This is because `Kopia` creates `checkpoints` at predefined time intervals. If a snapshot takes longer than the predefined checkpoint interval, `Kopia` creates a temporary **incomplete** snapshot, preventing the snapshot from being garbage-collected by the maintenance tasks. *Kopia* will remove incomplete snapshots once a **complete** snapshot of the files and directories has been created. 
+
+For more information on the `checkpoint interval`, please refer to the [command-line reference](../reference/command-line/common/).
 
 #### What is a Kopia Repository Server?
 

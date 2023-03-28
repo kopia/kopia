@@ -44,6 +44,10 @@ pygmentsStyle = "tango"
     name = "Download Now"
     weight = 3
     url = "docs/installation/"
+[[menu.main]]
+    name = "FAQs"
+    weight = 4
+    url = "docs/faqs/"
 
 # Configure how URLs look like per section.
 [permalinks]

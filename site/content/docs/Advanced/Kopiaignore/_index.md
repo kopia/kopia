@@ -8,12 +8,12 @@ weight: 40
 
 Users may want to exclude folders and files not to be saved within the repository when creating snapshots. The benefits of omitting unnecessary files and folders are smaller and faster snapshots while saving only essential data. 
 
-Kopia features `pattern-based` ignore rules to omit folders and files from snapshots. While scanning directories and their content, Kopia looks explicitly for files that contain such patterns. 
-If such a file is placed within a directory, `Kopia` omits files and folders `matching` the pattern.
+Kopia features `pattern-based` ignore rules to omit folders and files from snapshots. While scanning directories and their content, Kopia looks explicitly for files that contain such rules. 
+If such a file is placed within a directory, `Kopia` omits files and folders `matching` the rule.
 
->NOTE The default file is called `.kopiaignore`. However, ignore patterns can be specified within the global or snapshot-specific `policy` - either directly or by providing a path to file containing such patterns.   
+>NOTE The default file is called `.kopiaignore`. However, ignore rules can be specified within the global or snapshot-specific `policy` - either directly or by providing a path to file containing such rules.   
 
-In the following, we explain different patterns and provide examples to create `.kopiaignore` files.
+In the following, we explain different rules and provide examples to create `.kopiaignore` files.
 
 ### Kopiaignore Files
 
@@ -44,7 +44,7 @@ thesis/
   --logs.dat
 ```
 
-The above directory consists of a bunch of `tex` files, figures, and temporary files. Generally, a `.kopiaignore` file is a simple text file where each line represents a single pattern. To only save the essential files, we create the following `.kopiaignore` file:
+The above directory consists of a bunch of `tex` files, figures, and temporary files. Generally, a `.kopiaignore` file is a simple text file where each line represents a single rule. To only save the essential files, we create the following `.kopiaignore` file:
 
 ```shell
 # Ignoring all files that end with ".dat"
@@ -57,23 +57,23 @@ The above directory consists of a bunch of `tex` files, figures, and temporary f
 tmp.db
 ```
 
-The example above contains three simple patterns to exclude files and folders from a `snapshot` and some comments. 
-Each line that begins with a `#` is a `comment` and can be used to describe the pattern. 
+The example above contains three simple rules to exclude files and folders from a `snapshot` and some comments. 
+Each line that begins with a `#` is a `comment` and can be used to describe the rule. 
 
-* The first pattern, `*.dat` contains a `wildcard` and ignores all files with a filename that ends with `.dat`. 
-* The second pattern, `/logs/*` ignores all files within the `logs` directory. Only the `logs` directory at the `root` will be ignored as the pattern begins with a `/`.
-* The third pattern, `tmp.db` ignores the corresponding files within the whole directory. In our example both `tmp.db` files will be ignored. 
+* The first rule, `*.dat` contains a `wildcard` and ignores all files with a filename that ends with `.dat`. 
+* The second rule, `/logs/*` ignores all files within the `logs` directory. Only the `logs` directory at the `root` will be ignored as the rule begins with a `/`.
+* The third rule, `tmp.db` ignores the corresponding files within the whole directory. In our example both `tmp.db` files will be ignored. 
 
-The example shows that excluding files using `.kopiaignore` from a snapshot is easy. However, there is also the risk of accidentally excluding files when creating patterns - leading to incomplete snapshots or data loss. 
+The example shows that excluding files using `.kopiaignore` from a snapshot is easy. However, there is also the risk of accidentally excluding files when creating rule - leading to incomplete snapshots or data loss. 
  
 ### Supported Patters
 
-`Kopia` supports a lot of different patterns allowing users to precisely exclude unnecessary files or folders. The following table shows special operators used to generate patterns.
+`Kopia` supports a lot of different operators allowing users to precisely exclude unnecessary files or folders. The following table shows special operators used to generate rules.
 
 | **Special Operator**	| **Explanation**												|
 |-----------------------|---------------------------------------------------------------|
 | `#`					| `Comment` that is ignored by `Kopia`							|
-| `!`					| `Negates` a following pattern									|
+| `!`					| `Negates` a following rule									|
 | `*`					| `Wildcard` that matches any character zero or multiple times	|
 | `**`					| Double `Wildcard` that matches zero or multiple directories	|
 | `?`					| Matches any character exactly `one` time						|
@@ -81,13 +81,13 @@ The example shows that excluding files using `.kopiaignore` from a snapshot is e
 | `[a-z]`				| Matches any single character between `a` and `z`				|
 | `[A-Z]`				| Matches any single character between `A` and `Z`				|
 | `[abc]`				| Matches one of `a`, `b`, or `c`								|
-| `/`					| Matches a following pattern only at the `root` directory		|
+| `/`					| Matches a following rule only at the `root` directory		|
 
-### Examples of Kopiaignore Patters 
+### Examples of Kopiaignore Rules 
 
-The following table provides some example patterns related to our [example](#kopiaignore-files). Files and folders that `match` the given pattern are excluded from the snapshot.
+The following table provides some example rules related to our [example](#kopiaignore-files). Files and folders that `match` the given rules are excluded from the snapshot.
 
-| **Pattern**			| **Explanation**																												| **Matches**													|**Ignores**							|
+| **Rule**			| **Explanation**																												| **Matches**													|**Ignores**							|
 |-----------------------|-------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------|---------------------------------------|
 | `logs`				| Matches files and folders that are named `logs`																				| thesis/logs/ </br> thesis/chapters/logs/						| 2 directories, 6 files				|
 | `/logs`				| Matches files and folders that are named `logs` only within the parent directory												| thesis/logs/													| 1 directory, 5 files					|   
@@ -101,4 +101,4 @@ The following table provides some example patterns related to our [example](#kop
 | `?tmp.db`				| Matches files with exactly one character ending with `tmp.db`																	| thesis/atmp.db												| 0 directories, 1 file					|
 | `[a-z]*tmp.db`		| Matches files beginning with characters between `a` and `z`, followed by zero or multiple characters, ending with `tmp.db`	| thesis/abtmp.db </br> thesis/atmp.db </br> thesis/logs/tmp.db	| 0 directories, 3 files				|
 
->NOTE Make sure that you have tested your `.kopiaignore` file and the resulting snapshot for correctnes. If a file or folder is missing, you will need to adjust the patterns to your needs.
+>NOTE Make sure that you have tested your `.kopiaignore` file and the resulting snapshot for correctnes. If a file or folder is missing, you will need to adjust the rules to your needs.
