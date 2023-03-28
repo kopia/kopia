@@ -2083,7 +2083,7 @@ func (s *contentManagerSuite) TestCompression_NonCompressibleData(t *testing.T) 
 	nonCompressibleData := make([]byte, 65000)
 	headerID := compression.ByName["pgzip"].HeaderID()
 
-	rand.Read(nonCompressibleData)
+	randRead(nonCompressibleData)
 
 	cid, err := bm.WriteContent(ctx, gather.FromSlice(nonCompressibleData), "", headerID)
 	require.NoError(t, err)
@@ -2630,7 +2630,7 @@ func makeRandomHexID(t *testing.T, length int) index.ID {
 	t.Helper()
 
 	b := make([]byte, length/2)
-	if _, err := rand.Read(b); err != nil {
+	if _, err := randRead(b); err != nil {
 		t.Fatal("Could not read random bytes", err)
 	}
 
@@ -2680,4 +2680,17 @@ type withDeleted struct {
 
 func (o withDeleted) GetDeleted() bool {
 	return o.deleted
+}
+
+var (
+	r   = rand.New(rand.NewSource(rand.Int63()))
+	rMu sync.Mutex
+)
+
+func randRead(b []byte) (n int, err error) {
+	rMu.Lock()
+	n, err = r.Read(b)
+	rMu.Unlock()
+
+	return
 }
