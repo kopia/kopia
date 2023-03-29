@@ -108,6 +108,7 @@ type advancedAppServices interface {
 	passwordPersistenceStrategy() passwordpersist.Strategy
 	getPasswordFromFlags(ctx context.Context, isCreate, allowPersistent bool) (string, error)
 	optionsFromFlags(ctx context.Context) *repo.Options
+	optionsForConnectSubsetFromFlags(ctx context.Context) *repo.Options
 	runAppWithContext(command *kingpin.CmdClause, callback func(ctx context.Context) error) error
 }
 

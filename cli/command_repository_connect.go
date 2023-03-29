@@ -111,7 +111,7 @@ func (c *App) runConnectCommandWithStorage(ctx context.Context, co *connectOptio
 		return errors.Wrap(err, "getting password")
 	}
 
-	return c.runConnectCommandWithStorageAndPassword(ctx, co, st, pass, c.optionsFromFlags(ctx))
+	return c.runConnectCommandWithStorageAndPassword(ctx, co, st, pass, c.optionsForConnectSubsetFromFlags(ctx))
 }
 
 func (c *App) runConnectCommandWithStorageAndPassword(ctx context.Context, co *connectOptions, st blob.Storage, password string, options *repo.Options) error {

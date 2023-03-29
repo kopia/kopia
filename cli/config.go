@@ -94,6 +94,16 @@ func (c *App) optionsFromFlags(ctx context.Context) *repo.Options {
 	}
 }
 
+func (c *App) optionsForConnectSubsetFromFlags(ctx context.Context) *repo.Options {
+	return &repo.Options{
+		TraceStorage:        c.traceStorage,
+		DisableInternalLog:  c.disableInternalLog,
+		DoNotWaitForUpgrade: c.doNotWaitForUpgrade,
+
+		TestOnlyIgnoreMissingRequiredFeatures: c.testonlyIgnoreMissingRequiredFeatures,
+	}
+}
+
 func (c *App) repositoryConfigFileName() string {
 	if filepath.Base(c.configPath) != c.configPath {
 		return c.configPath

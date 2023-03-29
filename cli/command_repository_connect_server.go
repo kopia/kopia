@@ -61,7 +61,7 @@ func (c *commandRepositoryConnectServer) run(ctx context.Context) error {
 	}
 
 	if err := passwordpersist.OnSuccess(
-		ctx, repo.ConnectAPIServer(ctx, configFile, as, pass, c.svc.optionsFromFlags(ctx), connectOptions),
+		ctx, repo.ConnectAPIServer(ctx, configFile, as, pass, c.svc.optionsForConnectSubsetFromFlags(ctx), connectOptions),
 		c.svc.passwordPersistenceStrategy(), configFile, pass); err != nil {
 		return errors.Wrap(err, "error connecting to API server")
 	}
