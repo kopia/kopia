@@ -63,7 +63,7 @@ By default, Kopia uses the `AES256-GCM-HMAC-SHA256` encryption algorithm for all
 
 Currently, encryption algorithms cannot be changed after a `repository` has been created.
 
-> NOTE Do not forget your repository password. If it is lost, there is no way to recover it or the files and folders within that repository.
+> NOTE There is no way to recover it or the files and folders within that repository. Store your repository password in a safe place, such as a password manager, so you can retrieve it later.
 
 #### How Do I Enable Compression?
 
