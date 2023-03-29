@@ -293,23 +293,24 @@ func (s *s3Storage) FlushCaches(ctx context.Context) error {
 	return nil
 }
 
-func getCustomTransport(insecureSkipVerify bool) (transport *http.Transport) {
-	//nolint:gosec
-	customTransport := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: insecureSkipVerify}}
-	return customTransport
-}
+func getCustomTransport(opt *Options) (*http.Transport, error) {
+	if opt.DoNotVerifyTLS {
+		//nolint:gosec
+		return &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}, nil
+	} else if len(opt.RootCA) != 0 {
+		transport := http.DefaultTransport.(*http.Transport).Clone() //nolint:forcetypeassert
+		rootcas := x509.NewCertPool()
 
-func getCustomTransportWithCA(caContent []byte) (*http.Transport, error) {
-	transport := http.DefaultTransport.(*http.Transport).Clone() //nolint:forcetypeassert
-	rootcas := x509.NewCertPool()
+		if ok := rootcas.AppendCertsFromPEM(opt.RootCA); !ok {
+			return nil, errors.Errorf("cannot parse provided CA")
+		}
 
-	if ok := rootcas.AppendCertsFromPEM(caContent); !ok {
-		return nil, errors.Errorf("cannot parse provided CA")
+		transport.TLSClientConfig.RootCAs = rootcas
+
+		return transport, nil
 	}
 
-	transport.TLSClientConfig.RootCAs = rootcas
-
-	return transport, nil
+	return nil, nil
 }
 
 // New creates new S3-backed storage with specified options:
@@ -363,14 +364,12 @@ func newStorageWithCredentials(ctx context.Context, creds *credentials.Credentia
 		Region: opt.Region,
 	}
 
-	if opt.DoNotVerifyTLS {
-		minioOpts.Transport = getCustomTransport(true)
-	} else if len(opt.RootCA) != 0 {
-		var err error
-		minioOpts.Transport, err = getCustomTransportWithCA(opt.RootCA)
-		if err != nil {
-			return nil, errors.Wrap(err, "unable to instantiate transport")
-		}
+	var err error
+
+	minioOpts.Transport, err = getCustomTransport(opt)
+
+	if err != nil {
+		return nil, err
 	}
 
 	cli, err := minio.New(opt.Endpoint, minioOpts)
