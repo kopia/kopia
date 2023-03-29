@@ -101,7 +101,7 @@ type advancedAppServices interface {
 	StorageProviderServices
 
 	runConnectCommandWithStorage(ctx context.Context, co *connectOptions, st blob.Storage) error
-	runConnectCommandWithStorageAndPassword(ctx context.Context, co *connectOptions, st blob.Storage, password string) error
+	runConnectCommandWithStorageAndPassword(ctx context.Context, co *connectOptions, st blob.Storage, password string, options *repo.Options) error
 	openRepository(ctx context.Context, required bool) (repo.Repository, error)
 	maybeInitializeUpdateCheck(ctx context.Context, co *connectOptions)
 	removeUpdateState()

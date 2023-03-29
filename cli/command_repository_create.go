@@ -150,7 +150,7 @@ func (c *commandRepositoryCreate) runCreateCommandWithStorage(ctx context.Contex
 		return nil
 	}
 
-	if err := c.svc.runConnectCommandWithStorageAndPassword(ctx, &c.co, st, pass); err != nil {
+	if err := c.svc.runConnectCommandWithStorageAndPassword(ctx, &c.co, st, pass, c.svc.optionsFromFlags(ctx)); err != nil {
 		return errors.Wrap(err, "unable to connect to repository")
 	}
 

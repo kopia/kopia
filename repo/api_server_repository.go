@@ -336,7 +336,7 @@ func openRestAPIRepository(ctx context.Context, si *APIServerInfo, password stri
 }
 
 // ConnectAPIServer sets up repository connection to a particular API server.
-func ConnectAPIServer(ctx context.Context, configFile string, si *APIServerInfo, password string, opt *ConnectOptions) error {
+func ConnectAPIServer(ctx context.Context, configFile string, si *APIServerInfo, password string, options *Options, opt *ConnectOptions) error {
 	lc := LocalConfig{
 		APIServer:     si,
 		ClientOptions: opt.ClientOptions.ApplyDefaults(ctx, "API Server: "+si.BaseURL),
@@ -350,5 +350,5 @@ func ConnectAPIServer(ctx context.Context, configFile string, si *APIServerInfo,
 		return errors.Wrap(err, "unable to write config file")
 	}
 
-	return verifyConnect(ctx, configFile, password)
+	return verifyConnect(ctx, configFile, password, options)
 }

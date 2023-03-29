@@ -17,6 +17,8 @@ import (
 type ConnectOptions struct {
 	ClientOptions
 
+	doNotWaitForUpgrade bool
+
 	content.CachingOptions
 }
 
@@ -25,9 +27,9 @@ type ConnectOptions struct {
 var ErrRepositoryNotInitialized = errors.Errorf("repository not initialized in the provided storage")
 
 // Connect connects to the repository in the specified storage and persists the configuration and credentials in the file provided.
-func Connect(ctx context.Context, configFile string, st blob.Storage, password string, opt *ConnectOptions) error {
-	if opt == nil {
-		opt = &ConnectOptions{}
+func Connect(ctx context.Context, configFile string, st blob.Storage, password string, options *Options, connectOptions *ConnectOptions) error {
+	if connectOptions == nil {
+		connectOptions = &ConnectOptions{}
 	}
 
 	var formatBytes gather.WriteBuffer
@@ -51,9 +53,9 @@ func Connect(ctx context.Context, configFile string, st blob.Storage, password s
 
 	ci := st.ConnectionInfo()
 	lc.Storage = &ci
-	lc.ClientOptions = opt.ClientOptions.ApplyDefaults(ctx, "Repository in "+st.DisplayName())
+	lc.ClientOptions = connectOptions.ClientOptions.ApplyDefaults(ctx, "Repository in "+st.DisplayName())
 
-	if err = setupCachingOptionsWithDefaults(ctx, configFile, &lc, &opt.CachingOptions, f.UniqueID); err != nil {
+	if err = setupCachingOptionsWithDefaults(ctx, configFile, &lc, &connectOptions.CachingOptions, f.UniqueID); err != nil {
 		return errors.Wrap(err, "unable to set up caching")
 	}
 
@@ -61,12 +63,12 @@ func Connect(ctx context.Context, configFile string, st blob.Storage, password s
 		return errors.Wrap(err, "unable to write config file")
 	}
 
-	return verifyConnect(ctx, configFile, password)
+	return verifyConnect(ctx, configFile, password, options)
 }
 
-func verifyConnect(ctx context.Context, configFile, password string) error {
+func verifyConnect(ctx context.Context, configFile string, password string, options *Options) error {
 	// now verify that the repository can be opened with the provided config file.
-	r, err := Open(ctx, configFile, password, nil)
+	r, err := Open(ctx, configFile, password, options)
 	if err != nil {
 		// we failed to open the repository after writing the config file,
 		// remove the config file we just wrote and any caches.

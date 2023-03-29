@@ -66,7 +66,7 @@ func (kc *KopiaClient) CreateOrConnectRepo(ctx context.Context, repoDir, bucketN
 		log.Println("connecting to existing repository")
 	}
 
-	if iErr := repo.Connect(ctx, kc.configPath, st, kc.pw, &repo.ConnectOptions{}); iErr != nil {
+	if iErr := repo.Connect(ctx, kc.configPath, st, nil, kc.pw, &repo.ConnectOptions{}); iErr != nil {
 		return errors.Wrap(iErr, "error connecting to repository")
 	}
 

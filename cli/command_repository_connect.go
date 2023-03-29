@@ -111,13 +111,13 @@ func (c *App) runConnectCommandWithStorage(ctx context.Context, co *connectOptio
 		return errors.Wrap(err, "getting password")
 	}
 
-	return c.runConnectCommandWithStorageAndPassword(ctx, co, st, pass)
+	return c.runConnectCommandWithStorageAndPassword(ctx, co, st, pass, c.optionsFromFlags(ctx))
 }
 
-func (c *App) runConnectCommandWithStorageAndPassword(ctx context.Context, co *connectOptions, st blob.Storage, password string) error {
+func (c *App) runConnectCommandWithStorageAndPassword(ctx context.Context, co *connectOptions, st blob.Storage, password string, options *repo.Options) error {
 	configFile := c.repositoryConfigFileName()
 	if err := passwordpersist.OnSuccess(
-		ctx, repo.Connect(ctx, configFile, st, password, co.toRepoConnectOptions()),
+		ctx, repo.Connect(ctx, configFile, st, password, options, co.toRepoConnectOptions()),
 		c.passwordPersistenceStrategy(), configFile, password); err != nil {
 		return errors.Wrap(err, "error connecting to repository")
 	}

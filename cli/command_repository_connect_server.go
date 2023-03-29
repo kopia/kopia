@@ -41,14 +41,14 @@ func (c *commandRepositoryConnectServer) run(ctx context.Context) error {
 	}
 
 	configFile := c.svc.repositoryConfigFileName()
-	opt := c.co.toRepoConnectOptions()
+	connectOptions := c.co.toRepoConnectOptions()
 
-	u := opt.Username
+	u := connectOptions.Username
 	if u == "" {
 		u = repo.GetDefaultUserName(ctx)
 	}
 
-	h := opt.Hostname
+	h := connectOptions.Hostname
 	if h == "" {
 		h = repo.GetDefaultHostName(ctx)
 	}
@@ -61,7 +61,7 @@ func (c *commandRepositoryConnectServer) run(ctx context.Context) error {
 	}
 
 	if err := passwordpersist.OnSuccess(
-		ctx, repo.ConnectAPIServer(ctx, configFile, as, pass, opt),
+		ctx, repo.ConnectAPIServer(ctx, configFile, as, pass, c.svc.optionsFromFlags(ctx), connectOptions),
 		c.svc.passwordPersistenceStrategy(), configFile, pass); err != nil {
 		return errors.Wrap(err, "error connecting to API server")
 	}

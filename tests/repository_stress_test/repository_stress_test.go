@@ -234,7 +234,7 @@ func runStress(t *testing.T, opt *StressOptions) {
 		configFile := filepath.Join(tmpPath, fmt.Sprintf("kopia-%v.config", i))
 		configFiles = append(configFiles, configFile)
 
-		if err = repo.Connect(ctx, configFile, st, masterPassword, &repo.ConnectOptions{
+		if err = repo.Connect(ctx, configFile, st, nil, masterPassword, &repo.ConnectOptions{
 			CachingOptions: content.CachingOptions{
 				CacheDirectory:    filepath.Join(tmpPath, fmt.Sprintf("cache-%v", i)),
 				MaxCacheSizeBytes: 2000000000,

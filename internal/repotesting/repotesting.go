@@ -99,7 +99,7 @@ func (e *Environment) setup(tb testing.TB, version format.Version, opts ...Optio
 		tb.Fatalf("err: %v", err)
 	}
 
-	if err := repo.Connect(ctx, e.ConfigFile(), st, e.Password, nil); err != nil {
+	if err := repo.Connect(ctx, e.ConfigFile(), st, nil, e.Password, nil); err != nil {
 		tb.Fatalf("can't connect: %v", err)
 	}
 
