@@ -402,21 +402,8 @@ type sizesInfo struct {
 	enc          reedsolomon.Encoder
 }
 
-func computeFinalFileSize(s *sizesInfo, size int) int {
-	if s.StorePadding {
-		return computeFinalFileSizeWithPadding(s.DataShards, s.ParityShards, s.ShardSize, s.Blocks)
-	}
-
-	return computeFinalFileSizeWithoutPadding(size, s.ParityShards, s.ShardSize, s.Blocks)
-}
-
 func computeFinalFileSizeWithPadding(dataShards, parityShards, shardSize, blocks int) int {
 	return (parityShards + dataShards) * (crcSize + shardSize) * blocks
-}
-
-func computeFinalFileSizeWithoutPadding(inputSize, parityShards, shardSize, blocks int) int {
-	sizePlusLength := lengthSize + inputSize
-	return parityShards*(crcSize+shardSize)*blocks + sizePlusLength + ceilInt(sizePlusLength, shardSize)*crcSize
 }
 
 func init() {
