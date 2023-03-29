@@ -8,7 +8,7 @@ weight: 40
 
 Users may want to exclude folders and files not to be saved within the repository when creating snapshots. The benefits of omitting unnecessary files and folders are smaller and faster snapshots while saving only essential data. 
 
-Kopia features `pattern-based` ignore rules to omit folders and files from snapshots. While scanning directories and their content, Kopia looks explicitly for files that contain such rules. 
+Kopia uses `pattern-based` ignore rules to omit folders and files from snapshots. While scanning directories and their content, Kopia looks explicitly for files that contain such rules. 
 If such a file is placed within a directory, `Kopia` omits files and folders `matching` the rule.
 
 >NOTE The default file is called `.kopiaignore`. However, ignore rules can be specified within the global or snapshot-specific `policy` - either directly or by providing a path to file containing such rules.   
