@@ -297,8 +297,11 @@ func getCustomTransport(opt *Options) (*http.Transport, error) {
 	if opt.DoNotVerifyTLS {
 		//nolint:gosec
 		return &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}, nil
-	} else if len(opt.RootCA) != 0 {
-		transport := http.DefaultTransport.(*http.Transport).Clone() //nolint:forcetypeassert
+	}
+
+	transport := http.DefaultTransport.(*http.Transport).Clone() //nolint:forcetypeassert
+
+	if len(opt.RootCA) != 0 {
 		rootcas := x509.NewCertPool()
 
 		if ok := rootcas.AppendCertsFromPEM(opt.RootCA); !ok {
@@ -306,11 +309,9 @@ func getCustomTransport(opt *Options) (*http.Transport, error) {
 		}
 
 		transport.TLSClientConfig.RootCAs = rootcas
-
-		return transport, nil
 	}
 
-	return nil, nil
+	return transport, nil
 }
 
 // New creates new S3-backed storage with specified options:
