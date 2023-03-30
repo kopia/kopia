@@ -173,14 +173,11 @@ func TestIndexEpochManager_Parallel(t *testing.T) {
 
 				indexNum++
 
-				var rnd [8]byte
-
-				rand.Read(rnd[:])
-
+				rnd := rand.Uint64()
 				ndx := newFakeIndexWithEntries(indexNum)
 
 				if _, err := te2.mgr.WriteIndex(ctx, map[blob.ID]blob.Bytes{
-					blob.ID(fmt.Sprintf("w%vr%x", worker, rnd)): gather.FromSlice(ndx.Bytes()),
+					blob.ID(fmt.Sprintf("w%vr%0x", worker, rnd)): gather.FromSlice(ndx.Bytes()),
 				}); err != nil {
 					if errors.Is(err, ErrVerySlowIndexWrite) {
 						indexNum--
@@ -713,17 +710,12 @@ func (te *epochManagerTestEnv) getMergedIndexContents(ctx context.Context, blobI
 
 func (te *epochManagerTestEnv) writeIndexFiles(ctx context.Context, ndx ...*fakeIndex) ([]blob.Metadata, error) {
 	shards := map[blob.ID]blob.Bytes{}
-
-	var sessionID [8]byte
-
-	rand.Read(sessionID[:])
+	sessionID := rand.Uint64()
 
 	for _, n := range ndx {
-		var rnd [8]byte
+		rnd := rand.Uint64()
 
-		rand.Read(rnd[:])
-
-		shards[blob.ID(fmt.Sprintf("%x-c%v-s%x", rnd[:], len(ndx), sessionID))] = gather.FromSlice(n.Bytes())
+		shards[blob.ID(fmt.Sprintf("%0x-c%v-s%0x", rnd, len(ndx), sessionID))] = gather.FromSlice(n.Bytes())
 	}
 
 	return te.mgr.WriteIndex(ctx, shards)
