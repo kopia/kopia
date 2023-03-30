@@ -14,7 +14,9 @@ import (
 )
 
 type storageS3Flags struct {
-	s3options s3.Options
+	s3options       s3.Options
+	rootCaPemBase64 string
+	rootCaPemPath   string
 }
 
 func (c *storageS3Flags) Setup(svc StorageProviderServices, cmd *kingpin.CmdClause) {
@@ -47,35 +49,34 @@ func (c *storageS3Flags) Setup(svc StorageProviderServices, cmd *kingpin.CmdClau
 
 	cmd.Flag("point-in-time", "Use a point-in-time view of the storage repository when supported").PlaceHolder(time.RFC3339).PreAction(pitPreAction).StringVar(&pointInTimeStr)
 
-	var rootCaPemBase64 string
+	cmd.Flag("root-ca-pem-base64", "Certficate authority in-line (base64 enc.)").Envar(svc.EnvName("ROOT_CA_PEM_BASE64")).PreAction(c.preActionLoadPEMBase64).StringVar(&c.rootCaPemBase64)
+	cmd.Flag("root-ca-pem-path", "Certficate authority file path").PreAction(c.preActionLoadPEMPath).StringVar(&c.rootCaPemPath)
+}
 
-	cmd.Flag("root-ca-pem-base64", "Certficate authority in-line (base64 enc.)").Envar(svc.EnvName("ROOT_CA_PEM_BASE64")).PreAction(func(pc *kingpin.ParseContext) error {
-		caContent, err := base64.StdEncoding.DecodeString(rootCaPemBase64)
-		if err != nil {
-			return errors.Wrap(err, "unable to decode CA")
-		}
+func (c *storageS3Flags) preActionLoadPEMPath(pc *kingpin.ParseContext) error {
+	if len(c.s3options.RootCA) > 0 {
+		return errors.Errorf("root-ca-pem-base64 and root-ca-pem-path are mutually exclusive")
+	}
 
-		c.s3options.RootCA = caContent
+	data, err := os.ReadFile(c.rootCaPemPath) //#nosec
+	if err != nil {
+		return errors.Wrapf(err, "error openning root-ca-pem-path %v", c.rootCaPemPath)
+	}
 
-		return nil
-	}).StringVar(&rootCaPemBase64)
+	c.s3options.RootCA = data
 
-	var rootCaPemPath string
+	return nil
+}
 
-	cmd.Flag("root-ca-pem-path", "Certficate authority file path").PreAction(func(pc *kingpin.ParseContext) error {
-		if len(c.s3options.RootCA) > 0 {
-			return errors.Errorf("root-ca-pem-base64 and root-ca-pem-path are mutually exclusive")
-		}
+func (c *storageS3Flags) preActionLoadPEMBase64(pc *kingpin.ParseContext) error {
+	caContent, err := base64.StdEncoding.DecodeString(c.rootCaPemBase64)
+	if err != nil {
+		return errors.Wrap(err, "unable to decode CA")
+	}
 
-		data, err := os.ReadFile(rootCaPemPath) //#nosec
-		if err != nil {
-			return errors.Wrapf(err, "error openning root-ca-pem-path %v", rootCaPemPath)
-		}
+	c.s3options.RootCA = caContent
 
-		c.s3options.RootCA = data
-
-		return nil
-	}).StringVar(&rootCaPemPath)
+	return nil
 }
 
 func (c *storageS3Flags) Connect(ctx context.Context, isCreate bool, formatVersion int) (blob.Storage, error) {
