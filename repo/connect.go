@@ -17,8 +17,6 @@ import (
 type ConnectOptions struct {
 	ClientOptions
 
-	doNotWaitForUpgrade bool
-
 	content.CachingOptions
 }
 
@@ -66,7 +64,7 @@ func Connect(ctx context.Context, configFile string, st blob.Storage, password s
 	return verifyConnect(ctx, configFile, password, options)
 }
 
-func verifyConnect(ctx context.Context, configFile string, password string, options *Options) error {
+func verifyConnect(ctx context.Context, configFile, password string, options *Options) error {
 	// now verify that the repository can be opened with the provided config file.
 	r, err := Open(ctx, configFile, password, options)
 	if err != nil {

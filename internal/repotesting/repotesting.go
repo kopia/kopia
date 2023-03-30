@@ -99,7 +99,7 @@ func (e *Environment) setup(tb testing.TB, version format.Version, opts ...Optio
 		tb.Fatalf("err: %v", err)
 	}
 
-	if err := repo.Connect(ctx, e.ConfigFile(), st, nil, e.Password, nil); err != nil {
+	if err := repo.Connect(ctx, e.ConfigFile(), st, e.Password, nil, nil); err != nil {
 		tb.Fatalf("can't connect: %v", err)
 	}
 
@@ -218,7 +218,7 @@ func (e *Environment) MustConnectOpenAnother(tb testing.TB, openOpts ...func(*re
 		},
 	}
 
-	if err := repo.Connect(ctx, config, e.st, e.Password, connOpts); err != nil {
+	if err := repo.Connect(ctx, config, e.st, e.Password, nil, connOpts); err != nil {
 		tb.Fatal("can't connect:", err)
 	}
 

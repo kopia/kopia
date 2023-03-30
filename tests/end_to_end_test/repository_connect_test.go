@@ -1,6 +1,7 @@
 package endtoend_test
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/testutil"
+	"github.com/kopia/kopia/repo/blob/filesystem"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
@@ -73,6 +75,19 @@ func TestReconnect(t *testing.T) {
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 	e.RunAndExpectSuccess(t, "repo", "disconnect")
+	e.RunAndExpectSuccess(t, "repo", "connect", "filesystem", "--path", e.RepoDir)
+	e.RunAndExpectSuccess(t, "repo", "status")
+}
+
+func TestReconnectWithDoNotWaitForUpgrade(t *testing.T) {
+	t.Parallel()
+
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
+	e.RunAndExpectSuccess(t, "repo", "disconnect")
+	filesystem.New(context.Background(), &filesystem.Options{Path: e.RepoDir}, false)
 	e.RunAndExpectSuccess(t, "repo", "connect", "filesystem", "--path", e.RepoDir)
 	e.RunAndExpectSuccess(t, "repo", "status")
 }

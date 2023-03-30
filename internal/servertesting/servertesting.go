@@ -91,7 +91,7 @@ func ConnectAndOpenAPIServer(t *testing.T, ctx context.Context, asi *repo.APISer
 
 	configFile := filepath.Join(t.TempDir(), "tmp.config")
 
-	if err := repo.ConnectAPIServer(ctx, configFile, asi, password, &repo.ConnectOptions{
+	if err := repo.ConnectAPIServer(ctx, configFile, asi, password, nil, &repo.ConnectOptions{
 		ClientOptions:  rco,
 		CachingOptions: caching,
 	}); err != nil {
