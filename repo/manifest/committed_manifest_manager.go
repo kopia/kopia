@@ -346,11 +346,12 @@ func loadManifestContent(ctx context.Context, b contentManager, contentID conten
 		return man, errors.Wrapf(err, "unable to unpack manifest data %q", contentID)
 	}
 
-	if err := json.NewDecoder(gz).Decode(&man); err != nil {
-		return man, errors.Wrapf(err, "unable to parse manifest %q", contentID)
-	}
+	// Not needed?
+	defer gz.Close()
 
-	return man, nil
+	man, err = decodeManifestArray(gz)
+
+	return man, errors.Wrapf(err, "unable to parse manifest %q", contentID)
 }
 
 func newCommittedManager(b contentManager) *committedManifestManager {
