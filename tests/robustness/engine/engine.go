@@ -119,7 +119,8 @@ func (e *Engine) Shutdown(ctx context.Context) error {
 		}
 	}
 
-	cleanupSummaryBuilder := new(strings.Builder)
+	var cleanupSummaryBuilder strings.Builder
+
 	cleanupSummaryBuilder.WriteString("\n================\n")
 	cleanupSummaryBuilder.WriteString("Cleanup Summary:\n\n")
 	cleanupSummaryBuilder.WriteString(e.Stats())

@@ -18,7 +18,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/impossible"
 	"github.com/kopia/kopia/internal/testlogging"
@@ -273,8 +272,6 @@ func TestCheckpointing(t *testing.T) {
 }
 
 func TestObjectWriterRaceBetweenCheckpointAndResult(t *testing.T) {
-	rand.Seed(clock.Now().UnixNano())
-
 	ctx := testlogging.Context(t)
 	data := map[content.ID][]byte{}
 	fcm := &fakeContentManager{

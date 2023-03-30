@@ -167,8 +167,6 @@ func TestIndexBlobManagerStress(t *testing.T) {
 		return
 	}
 
-	rand.Seed(clock.Now().UnixNano())
-
 	for i := range actionsTestIndexBlobManagerStress {
 		actionsTestIndexBlobManagerStress[i].weight = rand.Intn(100)
 		t.Logf("weight[%v] = %v", i, actionsTestIndexBlobManagerStress[i].weight)
@@ -268,8 +266,6 @@ func TestIndexBlobManagerStress(t *testing.T) {
 }
 
 func TestIndexBlobManagerPreventsResurrectOfDeletedContents(t *testing.T) {
-	rand.Seed(clock.Now().UnixNano())
-
 	// the test is randomized and runs very quickly, run it lots of times
 	failed := false
 	for i := 0; i < 100 && !failed; i++ {
@@ -282,8 +278,6 @@ func TestIndexBlobManagerPreventsResurrectOfDeletedContents(t *testing.T) {
 }
 
 func TestCompactionCreatesPreviousIndex(t *testing.T) {
-	rand.Seed(clock.Now().UnixNano())
-
 	storageData := blobtesting.DataMap{}
 
 	fakeTime := faketime.NewTimeAdvance(fakeLocalStartTime, 0)
@@ -333,8 +327,6 @@ func TestCompactionCreatesPreviousIndex(t *testing.T) {
 }
 
 func TestIndexBlobManagerPreventsResurrectOfDeletedContents_RandomizedTimings(t *testing.T) {
-	rand.Seed(clock.Now().UnixNano())
-
 	numAttempts := 1000
 	if testutil.ShouldReduceTestComplexity() {
 		numAttempts = 100

@@ -87,7 +87,8 @@ type SharedManager struct {
 	// lock to protect the set of committed indexes
 	// shared lock will be acquired when writing new content to allow it to happen in parallel
 	// exclusive lock will be acquired during compaction or refresh.
-	indexesLock sync.RWMutex
+	indexesLock            sync.RWMutex
+	permissiveCacheLoading bool
 
 	// maybeRefreshIndexes() will call Refresh() after this point in ime.
 	// +checklocks:indexesLock
@@ -228,7 +229,7 @@ func (sm *SharedManager) loadPackIndexesLocked(ctx context.Context) error {
 			indexBlobIDs = append(indexBlobIDs, b.BlobID)
 		}
 
-		err = sm.committedContents.fetchIndexBlobs(ctx, indexBlobIDs)
+		err = sm.committedContents.fetchIndexBlobs(ctx, sm.permissiveCacheLoading, indexBlobIDs)
 		if err == nil {
 			err = sm.committedContents.use(ctx, indexBlobIDs, ignoreDeletedBefore)
 			if err != nil {
@@ -260,17 +261,19 @@ func (sm *SharedManager) getCacheForContentID(id ID) cache.ContentCache {
 	return sm.contentCache
 }
 
+// indexBlobManager return the index manager for content.
 func (sm *SharedManager) indexBlobManager() (indexblob.Manager, error) {
 	mp, mperr := sm.format.GetMutableParameters()
 	if mperr != nil {
 		return nil, errors.Wrap(mperr, "mutable parameters")
 	}
 
+	var q indexblob.Manager = sm.indexBlobManagerV0
 	if mp.EpochParameters.Enabled {
-		return sm.indexBlobManagerV1, nil
+		q = sm.indexBlobManagerV1
 	}
 
-	return sm.indexBlobManagerV0, nil
+	return q, nil
 }
 
 func (sm *SharedManager) decryptContentAndVerify(payload gather.Bytes, bi Info, output *gather.WriteBuffer) error {
@@ -505,6 +508,7 @@ func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *Ca
 	sm.committedContents = newCommittedContentIndex(caching,
 		sm.format.Encryptor().Overhead,
 		sm.format,
+		sm.permissiveCacheLoading,
 		enc.GetEncryptedBlob,
 		sm.namedLogger("committed-content-index"),
 		caching.MinIndexSweepAge.DurationOrDefault(DefaultIndexCacheSweepAge))
@@ -598,6 +602,7 @@ func NewSharedManager(ctx context.Context, st blob.Storage, prov format.Provider
 		Stats:                   new(Stats),
 		timeNow:                 opts.TimeNow,
 		format:                  prov,
+		permissiveCacheLoading:  opts.PermissiveCacheLoading,
 		minPreambleLength:       defaultMinPreambleLength,
 		maxPreambleLength:       defaultMaxPreambleLength,
 		paddingUnit:             defaultPaddingUnit,

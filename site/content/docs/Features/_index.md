@@ -40,7 +40,7 @@ Kopia uses [content-addressable storage](https://en.wikipedia.org/wiki/Content-a
 Kopia allows you to create an unlimited number of policies for each repository. Policies allow you to define what files/directories to backup in a snapshot and other features of a snapshot, including but not limited to:
 
 * how frequently/when Kopia should automatically create snapshots of your data
-* whether to exclude certain files/directories from snapshots, similar to `.gitignore`
+* whether to exclude [certain files/directories](../advanced/kopiaignore/) from snapshots
 * how long to retain a snapshot before expiring it and removing it from the repository
 * whether and how to compress the files/directories being backed up
 

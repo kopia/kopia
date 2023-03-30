@@ -140,9 +140,14 @@ kopia-ui-with-local-htmlui-changes:
 	rm -f $(kopia_ui_embedded_exe)
 	GOWORK=$(CURDIR)/tools/localhtmlui.work $(MAKE) kopia-ui
 
+install-with-local-htmlui-changes: export GOWORK=$(CURDIR)/tools/localhtmlui.work
 install-with-local-htmlui-changes:
+ifeq ($(GOOS),windows)
+	(cd ../htmlui && npm run build && push_local.cmd)
+else
 	(cd ../htmlui && npm run build && ./push_local.sh)
-	GOWORK=$(CURDIR)/tools/localhtmlui.work $(MAKE) install
+endif
+	$(MAKE) install
 
 # build-current-os-noui compiles a binary for the current os/arch in the same location as goreleaser
 # kopia-ui build needs this particular location to embed the correct server binary.
@@ -475,3 +480,4 @@ perf-benchmark-results:
 	gcloud compute scp $(PERF_BENCHMARK_INSTANCE):psrecord-* tests/perf_benchmark --zone=$(PERF_BENCHMARK_INSTANCE_ZONE) 
 	gcloud compute scp $(PERF_BENCHMARK_INSTANCE):repo-size-* tests/perf_benchmark --zone=$(PERF_BENCHMARK_INSTANCE_ZONE)
 	(cd tests/perf_benchmark && go run process_results.go)
+
