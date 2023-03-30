@@ -52,7 +52,7 @@ func TestLoadPEMPath(t *testing.T) {
 	s3flags = storageS3Flags{rootCaPemPath: "/does-not-exists"}
 	err := s3flags.preActionLoadPEMPath(nil)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "no such file or directory")
+	require.Contains(t, err.Error(), "error openning root-ca-pem-path")
 }
 
 func TestLoadPEMBoth(t *testing.T) {
