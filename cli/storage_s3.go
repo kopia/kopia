@@ -60,7 +60,7 @@ func (c *storageS3Flags) preActionLoadPEMPath(pc *kingpin.ParseContext) error {
 
 	data, err := os.ReadFile(c.rootCaPemPath) //#nosec
 	if err != nil {
-		return errors.Wrapf(err, "error openning root-ca-pem-path %v", c.rootCaPemPath)
+		return errors.Wrapf(err, "error opening root-ca-pem-path %v", c.rootCaPemPath)
 	}
 
 	c.s3options.RootCA = data
