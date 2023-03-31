@@ -346,7 +346,8 @@ func loadManifestContent(ctx context.Context, b contentManager, contentID conten
 		return man, errors.Wrapf(err, "unable to unpack manifest data %q", contentID)
 	}
 
-	// Not needed?
+	// Will be GC-ed even if we don't close it?
+	//nolint:errcheck
 	defer gz.Close()
 
 	man, err = decodeManifestArray(gz)

@@ -3,6 +3,7 @@ package manifest
 import (
 	"encoding/json"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -31,7 +32,7 @@ var errEOF = errors.New("unexpected end of input")
 
 func expectDelimToken(dec *json.Decoder, expectedToken string) error {
 	t, err := dec.Token()
-	if err == io.EOF {
+	if errors.Is(err, io.EOF) {
 		return errors.WithStack(errEOF)
 	} else if err != nil {
 		return errors.Wrap(err, "reading JSON token")
@@ -45,6 +46,22 @@ func expectDelimToken(dec *json.Decoder, expectedToken string) error {
 	}
 
 	return nil
+}
+
+func stringToken(dec *json.Decoder) (string, error) {
+	t, err := dec.Token()
+	if errors.Is(err, io.EOF) {
+		return "", errors.WithStack(errEOF)
+	} else if err != nil {
+		return "", errors.Wrap(err, "reading JSON token")
+	}
+
+	l, ok := t.(string)
+	if !ok {
+		return "", errors.Errorf("unexpected token (%T) %v; wanted field name", t, t)
+	}
+
+	return l, nil
 }
 
 func decodeManifestArray(r io.Reader) (manifest, error) {
@@ -70,25 +87,26 @@ func decodeManifestArray(r io.Reader) (manifest, error) {
 }
 
 func parseFields(dec *json.Decoder, res *manifest) error {
+	var seen bool
+
 	for dec.More() {
-		t, err := dec.Token()
-		if err == io.EOF {
-			return errors.WithStack(errEOF)
-		} else if err != nil {
-			return errors.Wrap(err, "reading JSON token")
+		l, err := stringToken(dec)
+		if err != nil {
+			return err
 		}
 
-		l, ok := t.(string)
-		if !ok {
-			return errors.Errorf("unexpected token (%T) %v; wanted field name", t, t)
+		// Only have `entries` field right now. Skip other fields.
+		if !strings.EqualFold("entries", l) {
+			continue
 		}
 
-		// Only have `entries` field right now.
-		if l != "entries" {
-			return errors.Errorf("unexpected field name %s", l)
+		if seen {
+			return errors.New("repeated Entries field")
 		}
 
-		if err = decodeArray(dec, &res.Entries); err != nil {
+		seen = true
+
+		if err := decodeArray(dec, &res.Entries); err != nil {
 			return err
 		}
 	}
@@ -96,7 +114,12 @@ func parseFields(dec *json.Decoder, res *manifest) error {
 	return nil
 }
 
-func decodeArray[T any](dec *json.Decoder, output *[]T) error {
+// decodeArray decodes an array of *manifestEntry and returns them in output. If
+// an error occurs output may contain intermediate state.
+//
+// This can be made into a generic function pretty easily if it's needed in
+// other places.
+func decodeArray(dec *json.Decoder, output *[]*manifestEntry) error {
 	// Consume starting bracket.
 	if err := expectDelimToken(dec, arrayOpen); err != nil {
 		return err
@@ -104,7 +127,8 @@ func decodeArray[T any](dec *json.Decoder, output *[]T) error {
 
 	// Read elements.
 	for dec.More() {
-		tmp := *new(T)
+		var tmp *manifestEntry
+
 		if err := dec.Decode(&tmp); err != nil {
 			return errors.Wrap(err, "decoding array element")
 		}
