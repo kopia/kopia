@@ -24,7 +24,7 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
 	github.com/hanwen/go-fuse/v2 v2.2.0
-	github.com/hashicorp/golang-lru v0.5.4
+	github.com/hashicorp/golang-lru v0.6.0
 	github.com/klauspost/compress v1.16.4
 	github.com/klauspost/pgzip v1.2.5
 	github.com/klauspost/reedsolomon v1.11.7
