@@ -2,6 +2,8 @@ package cli
 
 import (
 	"context"
+	"encoding/base64"
+	"os"
 	"time"
 
 	"github.com/alecthomas/kingpin/v2"
@@ -12,7 +14,9 @@ import (
 )
 
 type storageS3Flags struct {
-	s3options s3.Options
+	s3options       s3.Options
+	rootCaPemBase64 string
+	rootCaPemPath   string
 }
 
 func (c *storageS3Flags) Setup(svc StorageProviderServices, cmd *kingpin.CmdClause) {
@@ -44,6 +48,35 @@ func (c *storageS3Flags) Setup(svc StorageProviderServices, cmd *kingpin.CmdClau
 	}
 
 	cmd.Flag("point-in-time", "Use a point-in-time view of the storage repository when supported").PlaceHolder(time.RFC3339).PreAction(pitPreAction).StringVar(&pointInTimeStr)
+
+	cmd.Flag("root-ca-pem-base64", "Certficate authority in-line (base64 enc.)").Envar(svc.EnvName("ROOT_CA_PEM_BASE64")).PreAction(c.preActionLoadPEMBase64).StringVar(&c.rootCaPemBase64)
+	cmd.Flag("root-ca-pem-path", "Certficate authority file path").PreAction(c.preActionLoadPEMPath).StringVar(&c.rootCaPemPath)
+}
+
+func (c *storageS3Flags) preActionLoadPEMPath(pc *kingpin.ParseContext) error {
+	if len(c.s3options.RootCA) > 0 {
+		return errors.Errorf("root-ca-pem-base64 and root-ca-pem-path are mutually exclusive")
+	}
+
+	data, err := os.ReadFile(c.rootCaPemPath) //#nosec
+	if err != nil {
+		return errors.Wrapf(err, "error opening root-ca-pem-path %v", c.rootCaPemPath)
+	}
+
+	c.s3options.RootCA = data
+
+	return nil
+}
+
+func (c *storageS3Flags) preActionLoadPEMBase64(pc *kingpin.ParseContext) error {
+	caContent, err := base64.StdEncoding.DecodeString(c.rootCaPemBase64)
+	if err != nil {
+		return errors.Wrap(err, "unable to decode CA")
+	}
+
+	c.s3options.RootCA = caContent
+
+	return nil
 }
 
 func (c *storageS3Flags) Connect(ctx context.Context, isCreate bool, formatVersion int) (blob.Storage, error) {
