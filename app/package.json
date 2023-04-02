@@ -112,7 +112,7 @@
   "devDependencies": {
     "@playwright/test": "^1.26.1",
     "asar": "^3.2.0",
-    "concurrently": "^7.6.0",
+    "concurrently": "^8.0.1",
     "dotenv": "^16.0.3",
     "electron": "^24.1.1",
     "electron-builder": "^24.2.0",
