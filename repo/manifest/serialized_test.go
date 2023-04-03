@@ -12,16 +12,6 @@ import (
 	"github.com/kopia/kopia/repo/manifest/testdata"
 )
 
-func newDecodeInput(t *testing.T, input []byte) manifest {
-	t.Helper()
-
-	arrReader := bytes.NewReader([]byte(input))
-	arrDec, err := decodeManifestArray(arrReader)
-	require.NoError(t, err)
-
-	return arrDec
-}
-
 func TestManifestDecode_GoodInput(t *testing.T) {
 	table := []struct {
 		name  string
