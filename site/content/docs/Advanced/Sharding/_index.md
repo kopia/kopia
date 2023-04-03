@@ -1,7 +1,7 @@
 ---
 title: "Sharding"
 linkTitle: "Sharding"
-weight: 55
+weight: 60
 ---
 
 ## Sharding

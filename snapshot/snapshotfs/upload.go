@@ -336,7 +336,7 @@ func (u *Uploader) uploadSymlinkInternal(ctx context.Context, relativePath strin
 	return de, nil
 }
 
-func (u *Uploader) uploadStreamingFileInternal(ctx context.Context, relativePath string, f fs.StreamingFile) (dirEntry *snapshot.DirEntry, ret error) {
+func (u *Uploader) uploadStreamingFileInternal(ctx context.Context, relativePath string, f fs.StreamingFile, pol *policy.Policy) (dirEntry *snapshot.DirEntry, ret error) {
 	reader, err := f.GetReader(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to get streaming file reader")
@@ -353,9 +353,12 @@ func (u *Uploader) uploadStreamingFileInternal(ctx context.Context, relativePath
 		u.Progress.FinishedFile(relativePath, ret)
 	}()
 
+	comp := pol.CompressionPolicy.CompressorForFile(f)
 	writer := u.repo.NewObjectWriter(ctx, object.WriterOptions{
 		Description: "STREAMFILE:" + f.Name(),
+		Compressor:  comp,
 	})
+
 	defer writer.Close() //nolint:errcheck
 
 	written, err := u.copyWithProgress(writer, reader)
@@ -919,7 +922,7 @@ func (u *Uploader) processSingle(
 	case fs.StreamingFile:
 		atomic.AddInt32(&u.stats.NonCachedFiles, 1)
 
-		de, err := u.uploadStreamingFileInternal(ctx, entryRelativePath, entry)
+		de, err := u.uploadStreamingFileInternal(ctx, entryRelativePath, entry, policyTree.Child(entry.Name()).EffectivePolicy())
 
 		return u.processEntryUploadResult(ctx, de, err, entryRelativePath, parentDirBuilder,
 			policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreFileErrors.OrDefault(false),

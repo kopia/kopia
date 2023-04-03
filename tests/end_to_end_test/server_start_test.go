@@ -20,6 +20,7 @@ import (
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/internal/uitask"
+	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/filesystem"
 	"github.com/kopia/kopia/snapshot"
@@ -253,6 +254,9 @@ func TestServerStartAsyncRepoConnect(t *testing.T) {
 func TestServerCreateAndConnectViaAPI(t *testing.T) {
 	t.Parallel()
 
+	//nolint:tenv
+	os.Setenv("KOPIA_UPGRADE_LOCK_ENABLED", "true")
+
 	ctx := testlogging.Context(t)
 
 	runner := testenv.NewInProcRunner(t)
@@ -309,6 +313,9 @@ func TestServerCreateAndConnectViaAPI(t *testing.T) {
 		ConnectRepositoryRequest: serverapi.ConnectRepositoryRequest{
 			Password: "foofoo",
 			Storage:  connInfo,
+			ClientOptions: repo.ClientOptions{
+				PermissiveCacheLoading: true,
+			},
 		},
 	}); err != nil {
 		t.Fatalf("create error: %v", err)

@@ -20,12 +20,16 @@ import (
 
 const configDirMode = 0o700
 
+// ErrCannotWriteToRepoConnectionWithPermissiveCacheLoading error to indicate.
+var ErrCannotWriteToRepoConnectionWithPermissiveCacheLoading = errors.Errorf("cannot write to repo connection with permissive cache loading")
+
 // ClientOptions contains client-specific options that are persisted in local configuration file.
 type ClientOptions struct {
 	Hostname string `json:"hostname"`
 	Username string `json:"username"`
 
-	ReadOnly bool `json:"readonly,omitempty"`
+	ReadOnly               bool `json:"readonly,omitempty"`
+	PermissiveCacheLoading bool `json:"permissiveCacheLoading,omitempty"`
 
 	// Description is human-readable description of the repository to use in the UI.
 	Description string `json:"description,omitempty"`
@@ -147,6 +151,10 @@ func LoadConfigFromFile(fileName string) (*LocalConfig, error) {
 		if cd := os.Getenv("KOPIA_CACHE_DIRECTORY"); cd != "" && ospath.IsAbs(cd) {
 			lc.Caching.CacheDirectory = cd
 		}
+	}
+
+	if lc.PermissiveCacheLoading && os.Getenv("KOPIA_UPGRADE_LOCK_ENABLED") == "" {
+		return nil, errors.New("must have set KOPIA_UPGRADE_LOCK_ENABLED when connecting to repository with permissive cache loading")
 	}
 
 	return &lc, nil

@@ -40,9 +40,9 @@ jobs:
     continue-on-error: ${{ contains(matrix.os, 'self-hosted') }}
     steps:
     - name: Set up Go.
-      uses: actions/setup-go@v3
+      uses: actions/setup-go@v4
       with:
-        go-version: '1.19'
+        go-version: '1.20'
       id: go
       if: ${{ !contains(matrix.os, 'ARMHF') }}
     - name: Install GoLang for ARMHF
