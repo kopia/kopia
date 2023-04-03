@@ -282,7 +282,7 @@ func TestFormatUpgradeFailureToBackupFormatBlobOnLock(t *testing.T) {
 	connectOpts := repo.ConnectOptions{CachingOptions: content.CachingOptions{CacheDirectory: testutil.TempDirectory(t)}}
 	defer os.RemoveAll(connectOpts.CacheDirectory)
 
-	require.NoError(t, repo.Connect(testlogging.Context(t), configFile, st, "password", nil, &connectOpts))
+	require.NoError(t, repo.Connect(testlogging.Context(t), configFile, st, "password", &connectOpts))
 
 	r, err := repo.Open(testlogging.Context(t), configFile, "password", &repo.Options{UpgradeOwnerID: "allowed-upgrade-owner"})
 	require.NoError(t, err)

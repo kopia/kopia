@@ -122,6 +122,7 @@ func (c *App) runConnectCommandWithStorageAndPassword(ctx context.Context, co *c
 	// combine repo config with command-line options
 	rco := co.toRepoConnectOptions()
 	rco.Options = options
+	
 	if err := passwordpersist.OnSuccess(
 		ctx, repo.Connect(ctx, configFile, st, password, rco),
 		c.passwordPersistenceStrategy(), configFile, password); err != nil {

@@ -86,7 +86,7 @@ func newUploadTestHarness(ctx context.Context, t *testing.T) *uploadTestHarness 
 	t.Logf("repo dir: %v", repoDir)
 
 	configFile := filepath.Join(repoDir, ".kopia.config")
-	if conerr := repo.Connect(ctx, configFile, rec, masterPassword, nil, nil); conerr != nil {
+	if conerr := repo.Connect(ctx, configFile, rec, masterPassword, nil); conerr != nil {
 		panic("unable to connect to repository: " + conerr.Error())
 	}
 
