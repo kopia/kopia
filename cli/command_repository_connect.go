@@ -6,7 +6,6 @@ import (
 
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/pkg/errors"
-
 	"github.com/kopia/kopia/internal/passwordpersist"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
@@ -122,7 +121,7 @@ func (c *App) runConnectCommandWithStorageAndPassword(ctx context.Context, co *c
 	// combine repo config with command-line options
 	rco := co.toRepoConnectOptions()
 	rco.Options = options
-	
+
 	if err := passwordpersist.OnSuccess(
 		ctx, repo.Connect(ctx, configFile, st, password, rco),
 		c.passwordPersistenceStrategy(), configFile, password); err != nil {
