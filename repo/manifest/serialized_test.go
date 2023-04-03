@@ -39,6 +39,10 @@ func TestManifestDecode_GoodInput(t *testing.T) {
 			name:  "StopsAtStructEnd",
 			input: []byte(testdata.ExtraInputAtEnd),
 		},
+		{
+			name:  "CaseInsensitive",
+			input: []byte(testdata.CaseInsensitive),
+		},
 	}
 
 	for _, test := range table {

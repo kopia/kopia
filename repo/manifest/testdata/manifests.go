@@ -771,4 +771,109 @@ const (
 	}
 	]
 }abcdefg`
+	CaseInsensitive = `
+{
+	"Entries": [
+	{
+		"id": "2e14cba9427c57223dd768bd1ddf694c",
+		"labels": {
+			"hostname": "host-name",
+			"path": "/root/tmp/test",
+			"tag": "value",
+			"type": "snapshot",
+			"username": "user-name"
+		},
+		"modified": "2023-03-17T01:08:32.962808Z",
+		"data": {
+			"id": "",
+			"source": {
+				"host": "host-name",
+				"userName": "user-name",
+				"path": "/root/tmp/test"
+			},
+			"description": "",
+			"startTime": "2023-03-17T01:08:29.674573Z",
+			"endTime": "2023-03-17T01:08:32.962614Z",
+			"stats": {
+				"totalSize": 427221,
+				"excludedTotalSize": 0,
+				"fileCount": 143,
+				"cachedFiles": 0,
+				"nonCachedFiles": 143,
+				"dirCount": 10,
+				"excludedFileCount": 0,
+				"excludedDirCount": 0,
+				"ignoredErrorCount": 0,
+				"errorCount": 0
+			},
+			"rootEntry": {
+				"name": "test",
+				"type": "d",
+				"mode": "0777",
+				"mtime": "1754-08-30T22:43:41.128654848Z",
+				"obj": "kfe00a91781912fc352edca26571a5f83",
+				"summ": {
+					"size": 427221,
+					"files": 143,
+					"symlinks": 0,
+					"dirs": 10,
+					"maxTime": "2023-03-17T01:08:29.677079Z",
+					"numFailed": 0
+				}
+			},
+			"tags": {
+				"tag": "value"
+			}
+		}
+	},
+	{
+		"id": "2c54893efd80bcda7102f622da5c63ee",
+		"labels": {
+			"hostname": "host-name",
+			"path": "/root/tmp/test",
+			"type": "snapshot",
+			"username": "user-name"
+		},
+		"modified": "2023-03-17T01:11:34.506121Z",
+		"data": {
+			"id": "",
+			"source": {
+				"host": "host-name",
+				"userName": "user-name",
+				"path": "/root/tmp/test"
+			},
+			"description": "",
+			"startTime": "2023-03-17T01:11:22.34148Z",
+			"endTime": "2023-03-17T01:11:34.505952Z",
+			"stats": {
+				"totalSize": 427221,
+				"excludedTotalSize": 0,
+				"fileCount": 2,
+				"cachedFiles": 141,
+				"nonCachedFiles": 2,
+				"dirCount": 10,
+				"excludedFileCount": 0,
+				"excludedDirCount": 0,
+				"ignoredErrorCount": 0,
+				"errorCount": 0
+			},
+			"rootEntry": {
+				"name": "test",
+				"type": "d",
+				"mode": "0777",
+				"mtime": "1754-08-30T22:43:41.128654848Z",
+				"obj": "k4f1a9e8049091615cbe4ad93507680f3",
+				"summ": {
+					"size": 427221,
+					"files": 143,
+					"symlinks": 0,
+					"dirs": 10,
+					"maxTime": "2023-03-17T01:11:22.725375Z",
+					"numFailed": 0
+				}
+			}
+		}
+	}
+	]
+}`
 )
