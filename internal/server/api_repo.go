@@ -381,12 +381,13 @@ func connectAndOpen(ctx context.Context, conn blob.ConnectionInfo, password stri
 	defer st.Close(ctx) //nolint:errcheck
 
 	if err = passwordpersist.OnSuccess(
-		ctx, repo.Connect(ctx, opts.ConfigFile, st, password, nil, connectOpts),
+		ctx, repo.Connect(ctx, opts.ConfigFile, st, password, connectOpts),
 		opts.PasswordPersist, opts.ConfigFile, password); err != nil {
 		return nil, errors.Wrap(err, "error connecting")
 	}
 
 	//nolint:wrapcheck
+	// Open for http handler.  *Options structure is not configured for client calls, so its not passed into Open here.
 	return repo.Open(ctx, opts.ConfigFile, password, nil)
 }
 

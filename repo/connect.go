@@ -18,6 +18,8 @@ type ConnectOptions struct {
 	ClientOptions
 
 	content.CachingOptions
+
+	Options *Options `json:"-"`
 }
 
 // ErrRepositoryNotInitialized is returned when attempting to connect to repository that has not
@@ -25,7 +27,7 @@ type ConnectOptions struct {
 var ErrRepositoryNotInitialized = errors.Errorf("repository not initialized in the provided storage")
 
 // Connect connects to the repository in the specified storage and persists the configuration and credentials in the file provided.
-func Connect(ctx context.Context, configFile string, st blob.Storage, password string, options *Options, connectOptions *ConnectOptions) error {
+func Connect(ctx context.Context, configFile string, st blob.Storage, password string, connectOptions *ConnectOptions) error {
 	if connectOptions == nil {
 		connectOptions = &ConnectOptions{}
 	}
@@ -61,7 +63,7 @@ func Connect(ctx context.Context, configFile string, st blob.Storage, password s
 		return errors.Wrap(err, "unable to write config file")
 	}
 
-	return verifyConnect(ctx, configFile, password, options)
+	return verifyConnect(ctx, configFile, password, connectOptions.Options)
 }
 
 func verifyConnect(ctx context.Context, configFile, password string, options *Options) error {
