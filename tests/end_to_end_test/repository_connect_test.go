@@ -83,13 +83,13 @@ func TestReconnectWithDoNotWaitForUpgrade(t *testing.T) {
 	t.Parallel()
 
 	runner := testenv.NewInProcRunner(t)
-	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+  e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+  e.Environment["KOPIA_UPGRADE_LOCK_ENABLED"] = "1"
 
-	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--format-version", "2")
+	e.RunAndExpectSuccess(t, "repo", "upgrade", "begin", "--lock-only", "--upgrade-owner-id", "admin")
 	e.RunAndExpectSuccess(t, "repo", "disconnect")
-	filesystem.New(context.Background(), &filesystem.Options{Path: e.RepoDir}, false)
-	e.RunAndExpectSuccess(t, "repo", "connect", "filesystem", "--path", e.RepoDir)
-	e.RunAndExpectSuccess(t, "repo", "status")
+	e.RunAndExpectFailure(t, "repo", "connect", "filesystem", "--path", e.RepoDir, "--upgrade-no-block")
 }
 
 func TestReconnectUsingToken(t *testing.T) {
