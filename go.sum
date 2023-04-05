@@ -397,8 +397,8 @@ golang.org/x/xerrors v0.0.0-20190717185122-a985d3407aa7/go.mod h1:I/5z698sn9Ka8T
 golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
 golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 h1:H2TDz8ibqkAF6YGhCdN3jS9O0/s90v0rJh3X/OLHEUk=
 golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2/go.mod h1:K8+ghG5WaK9qNqU5K3HdILfMLy1f3aNYFI/wnl100a8=
-google.golang.org/api v0.115.0 h1:6FFkVvStt4YqXSx3azKyzj7fXerGnVlLJ/eud01nBDE=
-google.golang.org/api v0.115.0/go.mod h1:9cD4/t6uvd9naoEJFA+M96d0IuB6BqFuyhpw68+mRGg=
+google.golang.org/api v0.116.0 h1:09tOPVufPwfm5W4aA8EizGHJ7BcoRDsIareM2a15gO4=
+google.golang.org/api v0.116.0/go.mod h1:9cD4/t6uvd9naoEJFA+M96d0IuB6BqFuyhpw68+mRGg=
 google.golang.org/appengine v1.1.0/go.mod h1:EbEs0AVv82hx2wNQdGPgUI5lhzA/G0D9YwlJXL52JkM=
 google.golang.org/appengine v1.4.0/go.mod h1:xpcJRLb0r/rnEns0DIKYYv+WjYCduHsrkT7/EB5XEv4=
 google.golang.org/appengine v1.6.7 h1:FZR1q0exgwxzPzp/aF+VccGrSfxfPpkBqjIIEq3ru6c=
