@@ -254,7 +254,7 @@ func (c *PersistentCache) Put(ctx context.Context, key string, data gather.Bytes
 	}
 
 	c.listCacheMutex.Lock()
-	// LOCK RE-AQUiRED
+	// LOCK RE-ACQUIRED
 
 	c.listCache.Push(blob.Metadata{
 		BlobID:    blob.ID(key),
