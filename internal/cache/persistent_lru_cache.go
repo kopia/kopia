@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	lru "github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/cacheprot"
@@ -26,11 +25,6 @@ const (
 	// DefaultTouchThreshold specifies the resolution of timestamps used to determine which cache items
 	// to expire. This helps cache storage writes on frequently accessed items.
 	DefaultTouchThreshold = 10 * time.Minute
-
-	// Size of the mutex cache LRU.
-	// In case a mutex is evicted of the cache, the impact will be some redundant read,
-	// which given the size should be extremely rare.
-	mutexCacheSize = 10000
 )
 
 // PersistentCache provides persistent on-disk cache.
@@ -46,8 +40,6 @@ type PersistentCache struct {
 
 	description string
 
-	mutexCache *lru.Cache
-
 	metricsStruct
 }
 
@@ -57,25 +49,24 @@ func (c *PersistentCache) CacheStorage() Storage {
 }
 
 // GetFetchingMutex returns a RWMutex used to lock a blob or content during loading.
-func (c *PersistentCache) GetFetchingMutex(key string) *sync.RWMutex {
+func (c *PersistentCache) GetFetchingMutex(id blob.ID) *sync.RWMutex {
 	if c == nil {
 		// special case - also works on non-initialized cache pointer.
 		return &sync.RWMutex{}
 	}
 
-	if v, ok := c.mutexCache.Get(key); ok {
-		//nolint:forcetypeassert
-		return v.(*sync.RWMutex)
+	c.listCacheMutex.Lock()
+	defer c.listCacheMutex.Unlock()
+
+	if _, entry := c.listCache.LookupByID(id); entry != nil {
+		return &entry.contentDownloadMutex
 	}
 
-	newVal := &sync.RWMutex{}
+	heap.Push(&c.listCache, blob.Metadata{BlobID: id})
 
-	if prevVal, ok, _ := c.mutexCache.PeekOrAdd(key, newVal); ok {
-		//nolint:forcetypeassert
-		return prevVal.(*sync.RWMutex)
-	}
+	_, entry := c.listCache.LookupByID(id)
 
-	return newVal
+	return &entry.contentDownloadMutex
 }
 
 // GetOrLoad is utility function gets the provided item from the cache or invokes the provided fetch function.
@@ -92,7 +83,7 @@ func (c *PersistentCache) GetOrLoad(ctx context.Context, key string, fetch func(
 
 	output.Reset()
 
-	mut := c.GetFetchingMutex(key)
+	mut := c.GetFetchingMutex(blob.ID(key))
 	mut.Lock()
 	defer mut.Unlock()
 
@@ -168,7 +159,7 @@ func (c *PersistentCache) getPartialDeleteInvalidBlob(ctx context.Context, key s
 		log(ctx).Errorf("unable to delete %v entry %v: %v", c.description, key, err)
 	} else {
 		c.listCacheMutex.Lock()
-		if i, ok := c.listCache.Index(blob.ID(key)); ok {
+		if i, entry := c.listCache.LookupByID(blob.ID(key)); entry != nil {
 			heap.Remove(&c.listCache, i)
 		}
 		c.listCacheMutex.Unlock()
@@ -274,9 +265,14 @@ func (c *PersistentCache) Close(ctx context.Context) {
 	releasable.Released("persistent-cache", c)
 }
 
+type blobCacheEntry struct {
+	metadata             blob.Metadata
+	contentDownloadMutex sync.RWMutex
+}
+
 // A contentMetadataHeap implements heap.Interface and holds blob.Metadata.
 type contentMetadataHeap struct {
-	data     []blob.Metadata
+	data     []*blobCacheEntry
 	index    map[blob.ID]int
 	dataSize int64
 }
@@ -288,11 +284,11 @@ func newContentMetadataHeap() contentMetadataHeap {
 func (h contentMetadataHeap) Len() int { return len(h.data) }
 
 func (h contentMetadataHeap) Less(i, j int) bool {
-	return h.data[i].Timestamp.Before(h.data[j].Timestamp)
+	return h.data[i].metadata.Timestamp.Before(h.data[j].metadata.Timestamp)
 }
 
 func (h contentMetadataHeap) Swap(i, j int) {
-	h.index[h.data[i].BlobID], h.index[h.data[j].BlobID] = h.index[h.data[j].BlobID], h.index[h.data[i].BlobID]
+	h.index[h.data[i].metadata.BlobID], h.index[h.data[j].metadata.BlobID] = h.index[h.data[j].metadata.BlobID], h.index[h.data[i].metadata.BlobID]
 	h.data[i], h.data[j] = h.data[j], h.data[i]
 }
 
@@ -300,14 +296,14 @@ func (h *contentMetadataHeap) Push(x interface{}) {
 	bm := x.(blob.Metadata) //nolint:forcetypeassert
 	if i, exists := h.index[bm.BlobID]; exists {
 		// only accept newer timestamps
-		if bm.Timestamp.After(h.data[i].Timestamp) {
-			h.dataSize += bm.Length - h.data[i].Length
-			h.data[i] = bm
+		if h.data[i].metadata.Timestamp.IsZero() || bm.Timestamp.After(h.data[i].metadata.Timestamp) {
+			h.dataSize += bm.Length - h.data[i].metadata.Length
+			h.data[i] = &blobCacheEntry{metadata: bm}
 			heap.Fix(h, i)
 		}
 	} else {
 		h.index[bm.BlobID] = len(h.data)
-		h.data = append(h.data, bm)
+		h.data = append(h.data, &blobCacheEntry{metadata: bm})
 		h.dataSize += bm.Length
 	}
 }
@@ -317,15 +313,19 @@ func (h *contentMetadataHeap) Pop() interface{} {
 	n := len(old)
 	item := old[n-1]
 	h.data = old[0 : n-1]
-	h.dataSize -= item.Length
-	delete(h.index, item.BlobID)
+	h.dataSize -= item.metadata.Length
+	delete(h.index, item.metadata.BlobID)
 
-	return item
+	return item.metadata
 }
 
-func (h *contentMetadataHeap) Index(id blob.ID) (int, bool) {
+func (h *contentMetadataHeap) LookupByID(id blob.ID) (int, *blobCacheEntry) {
 	i, ok := h.index[id]
-	return i, ok
+	if !ok {
+		return -1, nil
+	}
+
+	return i, h.data[i]
 }
 
 func (h contentMetadataHeap) DataSize() int64 { return h.dataSize }
@@ -467,8 +467,6 @@ func NewPersistentCache(ctx context.Context, description string, cacheStorage St
 	if c.timeNow == nil {
 		c.timeNow = clock.Now
 	}
-
-	c.mutexCache, _ = lru.New(mutexCacheSize)
 
 	// verify that cache storage is functional by listing from it
 	if _, err := c.cacheStorage.GetMetadata(ctx, "test-blob"); err != nil && !errors.Is(err, blob.ErrBlobNotFound) {
