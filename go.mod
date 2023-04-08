@@ -8,7 +8,7 @@ require (
 	github.com/Azure/azure-storage-blob-go v0.15.0
 	github.com/alecthomas/kingpin/v2 v2.3.2
 	github.com/alecthomas/units v0.0.0-20211218093645-b94a6e3cc137
-	github.com/aws/aws-sdk-go v1.44.238
+	github.com/aws/aws-sdk-go v1.44.239
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
 	github.com/chromedp/cdproto v0.0.0-20230220211738-2b1ec77315c9
 	github.com/chromedp/chromedp v0.9.1
@@ -57,7 +57,7 @@ require (
 	golang.org/x/exp v0.0.0-20221028150844-83b7d23a625f
 	golang.org/x/mod v0.10.0
 	golang.org/x/net v0.9.0
-	golang.org/x/oauth2 v0.6.0
+	golang.org/x/oauth2 v0.7.0
 	golang.org/x/sync v0.1.0
 	golang.org/x/sys v0.7.0
 	golang.org/x/term v0.7.0
