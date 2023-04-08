@@ -24,7 +24,7 @@ const DirMode = 0o700
 // Storage is the storage interface required by the cache and is implemented by the filesystem Storage.
 type Storage interface {
 	blob.Storage
-	TouchBlob(ctx context.Context, contentID blob.ID, threshold time.Duration) error
+	TouchBlob(ctx context.Context, contentID blob.ID, threshold time.Duration) (time.Time, error)
 }
 
 // NewStorageOrNil returns cache.Storage backed by the provided directory.
