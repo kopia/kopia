@@ -160,7 +160,7 @@ func (ks *KopiaSnapshotter) DeleteSnapshot(snapID string) (err error) {
 
 // RunGC implements the Snapshotter interface, issues a gc command to the kopia repo.
 func (ks *KopiaSnapshotter) RunGC() (err error) {
-	_, _, err = ks.Runner.Run("snapshot", "gc")
+	_, _, err = ks.Runner.Run("maintenance", "run", "--full")
 	return err
 }
 
