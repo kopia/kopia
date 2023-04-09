@@ -34,7 +34,7 @@ function newServerForRepo(repoID) {
             let kopiaPath = defaultServerBinary();
             let args = [];
 
-            args.push('server', '--ui',
+            args.push('server', 'start', '--ui',
                 '--tls-print-server-cert',
                 '--tls-generate-cert-name=127.0.0.1',
                 '--random-password',
