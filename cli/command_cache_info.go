@@ -22,7 +22,7 @@ type commandCacheInfo struct {
 }
 
 func (c *commandCacheInfo) setup(svc appServices, parent commandParent) {
-	cmd := parent.Command("info", "Displays cache information and statistics").Default()
+	cmd := parent.Command("info", "Displays cache information and statistics")
 	cmd.Flag("path", "Only display cache path").BoolVar(&c.onlyShowPath)
 	cmd.Action(svc.repositoryReaderAction(c.run))
 

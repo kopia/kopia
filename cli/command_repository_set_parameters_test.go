@@ -143,7 +143,7 @@ func (s *formatSpecificTestSuite) TestRepositorySetParametersUpgrade(t *testing.
 
 	{
 		cmd := []string{
-			"repository", "upgrade",
+			"repository", "upgrade", "begin",
 			"--upgrade-owner-id", "owner",
 			"--io-drain-timeout", "1s", "--allow-unsafe-upgrade",
 			"--status-poll-interval", "1s",

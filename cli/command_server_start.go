@@ -75,7 +75,7 @@ type commandServerStart struct {
 }
 
 func (c *commandServerStart) setup(svc advancedAppServices, parent commandParent) {
-	cmd := parent.Command("start", "Start Kopia server").Default()
+	cmd := parent.Command("start", "Start Kopia server")
 	cmd.Flag("html", "Server the provided HTML at the root URL").ExistingDirVar(&c.serverStartHTMLPath)
 	cmd.Flag("ui", "Start the server with HTML UI").Default("true").BoolVar(&c.serverStartUI)
 

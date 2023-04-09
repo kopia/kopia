@@ -205,7 +205,7 @@ func (ks *KopiaSnapshotter) UpgradeRepository() error {
 	// in case the test fails
 	os.Setenv("KOPIA_UPGRADE_LOCK_ENABLED", "1")
 
-	_, _, err := ks.snap.Run("repository", "upgrade",
+	_, _, err := ks.snap.Run("repository", "upgrade", "begin",
 		"--upgrade-owner-id", "robustness-tests",
 		"--io-drain-timeout", "30s", "--allow-unsafe-upgrade",
 		"--status-poll-interval", "1s")
