@@ -216,7 +216,7 @@ func (m *committedManifestManager) compact(ctx context.Context) error {
 func (m *committedManifestManager) maybeCompactLocked(ctx context.Context) error {
 	m.verifyLocked()
 
-	if len(m.committedContentIDs) < autoCompactionContentCount {
+	if len(m.committedContentIDs) < getAutoCompactionContentCount() {
 		return nil
 	}
 
