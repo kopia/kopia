@@ -198,7 +198,7 @@ $(kopia08):
 MINIO_MC_PATH=$(TOOLS_DIR)/bin/mc$(exe_suffix)
 
 $(MINIO_MC_PATH):
-	GOBIN=$(TOOLS_DIR)/bin go install github.com/minio/mc@latest
+	GOBIN=$(TOOLS_DIR)/bin go install github.com/minio/mc@RELEASE.2023-04-06T16-51-10Z
 
 export MINIO_MC_PATH
 
