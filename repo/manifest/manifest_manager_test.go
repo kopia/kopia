@@ -27,7 +27,7 @@ func TestMain(m *testing.M) { testutil.MyTestMain(m) }
 func TestManifest(t *testing.T) {
 	ctx := testlogging.Context(t)
 	data := blobtesting.DataMap{}
-	mgr := newManagerForTesting(ctx, t, data)
+	mgr := newManagerForTesting(ctx, t, data, ManagerOptions{})
 
 	item1 := map[string]int{"foo": 1, "bar": 2}
 	item2 := map[string]int{"foo": 2, "bar": 3}
@@ -87,7 +87,7 @@ func TestManifest(t *testing.T) {
 
 	// flush underlying content manager and verify in new manifest manager.
 	mgr.b.Flush(ctx)
-	mgr2 := newManagerForTesting(ctx, t, data)
+	mgr2 := newManagerForTesting(ctx, t, data, ManagerOptions{})
 
 	for _, tc := range cases {
 		verifyMatches(ctx, t, mgr2, tc.criteria, tc.expected)
@@ -138,7 +138,7 @@ func TestManifest(t *testing.T) {
 
 	mgr.b.Flush(ctx)
 
-	mgr3 := newManagerForTesting(ctx, t, data)
+	mgr3 := newManagerForTesting(ctx, t, data, ManagerOptions{})
 
 	verifyItem(ctx, t, mgr3, id1, labels1, item1)
 	verifyItem(ctx, t, mgr3, id2, labels2, item2)
@@ -306,7 +306,7 @@ func sortIDs(s []ID) {
 	})
 }
 
-func newManagerForTesting(ctx context.Context, t *testing.T, data blobtesting.DataMap) *Manager {
+func newManagerForTesting(ctx context.Context, t *testing.T, data blobtesting.DataMap, options ManagerOptions) *Manager {
 	t.Helper()
 
 	st := blobtesting.NewMapStorage(data, nil, nil)
@@ -327,7 +327,7 @@ func newManagerForTesting(ctx context.Context, t *testing.T, data blobtesting.Da
 
 	t.Cleanup(func() { bm.CloseShared(ctx) })
 
-	mm, err := NewManager(ctx, bm, ManagerOptions{}, nil)
+	mm, err := NewManager(ctx, bm, options, nil)
 	require.NoError(t, err)
 
 	return mm
@@ -336,7 +336,7 @@ func newManagerForTesting(ctx context.Context, t *testing.T, data blobtesting.Da
 func TestManifestInvalidPut(t *testing.T) {
 	ctx := testlogging.Context(t)
 	data := blobtesting.DataMap{}
-	mgr := newManagerForTesting(ctx, t, data)
+	mgr := newManagerForTesting(ctx, t, data, ManagerOptions{})
 
 	cases := []struct {
 		labels        map[string]string
@@ -359,7 +359,7 @@ func TestManifestAutoCompaction(t *testing.T) {
 	ctx := testlogging.Context(t)
 	data := blobtesting.DataMap{}
 
-	mgr := newManagerForTesting(ctx, t, data)
+	mgr := newManagerForTesting(ctx, t, data, ManagerOptions{})
 
 	for i := 0; i < 100; i++ {
 		item1 := map[string]int{"foo": 1, "bar": 2}
@@ -380,4 +380,61 @@ func TestManifestAutoCompaction(t *testing.T) {
 		require.NoError(t, mgr.Flush(ctx))
 		require.NoError(t, mgr.b.Flush(ctx))
 	}
+}
+
+func TestManifestConfigureAutoCompaction(t *testing.T) {
+	ctx := testlogging.Context(t)
+	data := blobtesting.DataMap{}
+	item1 := map[string]int{"foo": 1, "bar": 2}
+	labels1 := map[string]string{"type": "item", "color": "red"}
+	compactionCount := 99
+
+	mgr := newManagerForTesting(ctx, t, data, ManagerOptions{AutoCompactionThreshold: compactionCount})
+
+	for i := 0; i < compactionCount-1; i++ {
+		addAndVerify(ctx, t, mgr, labels1, item1)
+		require.NoError(t, mgr.Flush(ctx))
+		require.NoError(t, mgr.b.Flush(ctx))
+	}
+
+	// Should not trigger compaction
+	_, err := mgr.Find(ctx, labels1)
+	require.NoError(t, err)
+
+	foundContents := getManifestContentCount(ctx, t, mgr)
+
+	if got, want := foundContents, compactionCount-1; got != want {
+		t.Errorf("unexpected number of blocks: %v, want %v", got, want)
+	}
+
+	// Add another manifest
+	addAndVerify(ctx, t, mgr, labels1, item1)
+
+	require.NoError(t, mgr.Flush(ctx))
+	require.NoError(t, mgr.b.Flush(ctx))
+
+	// *Should* trigger compaction
+	_, err = mgr.Find(ctx, labels1)
+	require.NoError(t, err)
+
+	foundContents = getManifestContentCount(ctx, t, mgr)
+
+	if got, want := foundContents, 1; got != want {
+		t.Errorf("unexpected number of blocks: %v, want %v", got, want)
+	}
+
+}
+
+func getManifestContentCount(ctx context.Context, t *testing.T, mgr *Manager) int {
+	foundContents := 0
+	if err := mgr.b.IterateContents(
+		ctx,
+		content.IterateOptions{Range: index.PrefixRange(ContentPrefix)},
+		func(ci content.Info) error {
+			foundContents++
+			return nil
+		}); err != nil {
+		t.Errorf("unable to list manifest content: %v", err)
+	}
+	return foundContents
 }
