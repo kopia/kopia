@@ -24,7 +24,6 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
 	github.com/hanwen/go-fuse/v2 v2.2.0
-	github.com/hashicorp/golang-lru v0.6.0
 	github.com/klauspost/compress v1.16.4
 	github.com/klauspost/pgzip v1.2.5
 	github.com/klauspost/reedsolomon v1.11.7
@@ -53,7 +52,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.14.0
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.24.0
-	golang.org/x/crypto v0.7.0
+	golang.org/x/crypto v0.8.0
 	golang.org/x/exp v0.0.0-20221028150844-83b7d23a625f
 	golang.org/x/mod v0.10.0
 	golang.org/x/net v0.9.0
