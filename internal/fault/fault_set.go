@@ -16,24 +16,27 @@ type Method int
 
 // Set encapsulates a set of faults.
 type Set struct {
-	mu          sync.Mutex
-	faults      map[Method][]*Fault
+	mu sync.Locker
+	// +checklocks:mu
+	faults map[Method][]*Fault
+	// +checklocks:mu
 	callCounter map[Method]int
 }
 
-func (s *Set) ensureInitialized() {
-	if s.faults == nil {
-		s.faults = map[Method][]*Fault{}
-		s.callCounter = map[Method]int{}
+func NewSet() *Set {
+	q := &Set{
+		mu:          &sync.Mutex{},
+		faults:      map[Method][]*Fault{},
+		callCounter: map[Method]int{},
 	}
+
+	return q
 }
 
 // AddFault adds a new fault for a given method.
 func (s *Set) AddFault(method Method) *Fault {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
-	s.ensureInitialized()
 
 	f := New()
 	s.faults[method] = append(s.faults[method], f)
@@ -45,8 +48,6 @@ func (s *Set) AddFault(method Method) *Fault {
 func (s *Set) AddFaults(method Method, faults ...*Fault) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
-	s.ensureInitialized()
 
 	s.faults[method] = append(s.faults[method], faults...)
 }
@@ -73,9 +74,8 @@ func (s *Set) VerifyAllFaultsExercised(t *testing.T) {
 
 // GetNextFault returns the error message to return on next fault.
 func (s *Set) GetNextFault(ctx context.Context, method Method, args ...interface{}) (bool, error) {
+	// lock set for map accesses.
 	s.mu.Lock()
-
-	s.ensureInitialized()
 
 	s.callCounter[method]++
 
@@ -87,6 +87,8 @@ func (s *Set) GetNextFault(ctx context.Context, method Method, args ...interface
 	}
 
 	f := faults[0]
+	f.mu.Lock()
+
 	if f.repeatCount > 0 {
 		f.repeatCount--
 		log(ctx).Debugf("will repeat %v more times the fault for %v %v", f.repeatCount, method, args)
@@ -98,19 +100,31 @@ func (s *Set) GetNextFault(ctx context.Context, method Method, args ...interface
 		}
 	}
 
+	delay := f.sleep
+
+	f.mu.Unlock()
+
 	s.mu.Unlock()
 
-	if f.sleep > 0 {
-		log(ctx).Debugf("sleeping for %v in %v %v", f.sleep, method, args)
-		time.Sleep(f.sleep)
+	if delay > 0 {
+		log(ctx).Debugf("sleeping for %v in %v %v", delay, method, args)
+		time.Sleep(delay)
 	}
 
-	if f.callback != nil {
-		f.callback()
+	// determine callbacks under lock so that callbacks can be called without locking.
+	f.mu.Lock()
+
+	cb := f.callback
+	errCb := f.errCallback
+
+	f.mu.Unlock()
+
+	if cb != nil {
+		cb()
 	}
 
-	if f.errCallback != nil {
-		err := f.errCallback()
+	if errCb != nil {
+		err := errCb()
 		log(ctx).Debugf("returning %v for %v %v", err, method, args)
 
 		return true, err
