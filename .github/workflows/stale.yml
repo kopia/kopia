@@ -18,7 +18,6 @@ jobs:
         with:
           # process older PRs first
           ascending: true
-          delete-branch: true
           operations-per-run: 100
           stale-issue-label: 'stale'
           stale-pr-label: 'stale'
