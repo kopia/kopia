@@ -1,0 +1,23 @@
+name: 'Manage stale issues and pull requests'
+
+permissions:
+  issues: write
+  pull-requests: write
+
+on:
+  schedule:
+    # Sundays at 8:17 p.m. UTC
+    - cron: '17 20 * * 0'
+  workflow_dispatch:
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@v4
+        with:
+          # process older PRs first
+          ascending: true
+          delete-branch: true
+          operations-per-run: 100
+          stale-pr-label: 'stale'
