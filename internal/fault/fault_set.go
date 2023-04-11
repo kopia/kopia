@@ -74,7 +74,8 @@ func (s *Set) VerifyAllFaultsExercised(t *testing.T) {
 
 // GetNextFault returns the error message to return on next fault.
 func (s *Set) GetNextFault(ctx context.Context, method Method, args ...interface{}) (bool, error) {
-	// lock set for map accesses.
+	// Lock set for map accesses.  Call counters will be updated for the fault-set, and the fault for the fault-set method
+	// will be gotten.
 	s.mu.Lock()
 
 	s.callCounter[method]++
@@ -86,32 +87,39 @@ func (s *Set) GetNextFault(ctx context.Context, method Method, args ...interface
 		return false, nil
 	}
 
+	// Access the "next" fault.  The fault at the end of the queue
 	f := faults[0]
+	// `fault` comes from `s.faults` so nested locks held at this point.
 	f.mu.Lock()
 
+	// Count down repeat count in fault.
 	if f.repeatCount > 0 {
 		f.repeatCount--
 		log(ctx).Debugf("will repeat %v more times the fault for %v %v", f.repeatCount, method, args)
 	} else {
+		// `repeatCount` == 0.  Remove the fault if there are faults remaining in the queue ...
 		if remaining := faults[1:]; len(remaining) > 0 {
 			s.faults[method] = remaining
 		} else {
+			// ... otherwise delete the map entry for the method
 			delete(s.faults, method)
 		}
 	}
 
 	delay := f.sleep
 
+	// Two locks are held, so unlock both before waiting.
 	f.mu.Unlock()
 
 	s.mu.Unlock()
 
 	if delay > 0 {
+		// sleep for a while
 		log(ctx).Debugf("sleeping for %v in %v %v", delay, method, args)
 		time.Sleep(delay)
 	}
 
-	// determine callbacks under lock so that callbacks can be called without locking.
+	// Re-acquire fault lock to get callback functions.  Callbacks will be called without lock.
 	f.mu.Lock()
 
 	cb := f.callback
@@ -119,6 +127,7 @@ func (s *Set) GetNextFault(ctx context.Context, method Method, args ...interface
 
 	f.mu.Unlock()
 
+	// No more references to `f`.  Perform callbacks inline.
 	if cb != nil {
 		cb()
 	}
