@@ -2,7 +2,6 @@ package s3
 
 import (
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -37,7 +36,7 @@ import (
 const (
 	// https://github.com/minio/minio-go
 
-	// fake creadentials used by minio server we're launching.
+	// fake credentials used by minio server we're launching.
 	minioRootAccessKeyID     = "fake-key"
 	minioRootSecretAccessKey = "fake-secret"
 	minioRegion              = "fake-region-1"
@@ -401,6 +400,48 @@ func TestS3StorageMinioSelfSignedCert(t *testing.T) {
 	testStorage(t, options, true, blob.PutOptions{})
 }
 
+func TestS3StorageMinioSelfSignedCertWithProvidedCA(t *testing.T) {
+	t.Parallel()
+	testutil.ProviderTest(t)
+
+	ctx := testlogging.Context(t)
+	minioConfigDir := testutil.TempDirectory(t)
+	certsDir := filepath.Join(minioConfigDir, "certs")
+	require.NoError(t, os.MkdirAll(certsDir, 0o755))
+
+	cert, key, err := tlsutil.GenerateServerCertificate(
+		ctx,
+		2048,
+		24*time.Hour,
+		[]string{"localhost"})
+
+	require.NoError(t, err)
+
+	certificatePath := filepath.Join(certsDir, "public.crt")
+
+	require.NoError(t, tlsutil.WriteCertificateToFile(certificatePath, cert))
+	require.NoError(t, tlsutil.WritePrivateKeyToFile(filepath.Join(certsDir, "private.key"), key))
+
+	minioEndpoint := startDockerMinioOrSkip(t, minioConfigDir)
+
+	data, err := os.ReadFile(certificatePath)
+
+	require.NoError(t, err)
+
+	options := &Options{
+		Endpoint:        minioEndpoint,
+		AccessKeyID:     minioRootAccessKeyID,
+		SecretAccessKey: minioRootSecretAccessKey,
+		BucketName:      minioBucketName,
+		Region:          minioRegion,
+		DoNotVerifyTLS:  false,
+		RootCA:          data,
+	}
+
+	createBucket(t, options)
+	testStorage(t, options, true, blob.PutOptions{})
+}
+
 func TestInvalidCredsFailsFast(t *testing.T) {
 	t.Parallel()
 	testutil.ProviderTest(t)
@@ -571,7 +612,12 @@ func TestCustomTransportNoSSLVerify(t *testing.T) {
 }
 
 func getURL(url string, insecureSkipVerify bool) error {
-	client := &http.Client{Transport: getCustomTransport(insecureSkipVerify)}
+	transport, err := getCustomTransport(&Options{DoNotVerifyTLS: insecureSkipVerify})
+	if err != nil {
+		return err
+	}
+
+	client := &http.Client{Transport: transport}
 
 	resp, err := client.Get(url) //nolint:noctx
 	if err != nil {
@@ -602,8 +648,12 @@ func createClient(tb testing.TB, opt *Options) *minio.Client {
 
 	var transport http.RoundTripper
 
-	if opt.DoNotVerifyTLS {
-		transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
+	var err error
+
+	transport, err = getCustomTransport(opt)
+
+	if err != nil {
+		tb.Fatalf("unable to get proper transport: %v", err)
 	}
 
 	minioClient, err := minio.New(opt.Endpoint,

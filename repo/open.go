@@ -85,9 +85,9 @@ var ErrInvalidPassword = format.ErrInvalidPassword
 // ErrAlreadyInitialized is returned when repository is already initialized in the provided storage.
 var ErrAlreadyInitialized = format.ErrAlreadyInitialized
 
-// ErrRepositoryUnavailableDueToUpgrageInProgress is returned when repository
+// ErrRepositoryUnavailableDueToUpgradeInProgress is returned when repository
 // is undergoing upgrade that requires exclusive access.
-var ErrRepositoryUnavailableDueToUpgrageInProgress = errors.Errorf("repository upgrade in progress")
+var ErrRepositoryUnavailableDueToUpgradeInProgress = errors.Errorf("repository upgrade in progress")
 
 // Open opens a Repository specified in the configuration file.
 func Open(ctx context.Context, configFile, password string, options *Options) (rep Repository, err error) {
@@ -121,6 +121,10 @@ func Open(ctx context.Context, configFile, password string, options *Options) (r
 		return nil, err
 	}
 
+	if lc.PermissiveCacheLoading && !lc.ReadOnly {
+		return nil, ErrCannotWriteToRepoConnectionWithPermissiveCacheLoading
+	}
+
 	if lc.APIServer != nil {
 		return openAPIServer(ctx, lc.APIServer, lc.ClientOptions, lc.Caching, password, options)
 	}
@@ -128,7 +132,7 @@ func Open(ctx context.Context, configFile, password string, options *Options) (r
 	return openDirect(ctx, configFile, lc, password, options)
 }
 
-func getContentCacheOrNil(ctx context.Context, opt *content.CachingOptions, password string, mr *metrics.Registry) (*cache.PersistentCache, error) {
+func getContentCacheOrNil(ctx context.Context, opt *content.CachingOptions, password string, mr *metrics.Registry, timeNow func() time.Time) (*cache.PersistentCache, error) {
 	opt = opt.CloneOrDefault()
 
 	cs, err := cache.NewStorageOrNil(ctx, opt.CacheDirectory, opt.MaxCacheSizeBytes, "server-contents")
@@ -154,7 +158,7 @@ func getContentCacheOrNil(ctx context.Context, opt *content.CachingOptions, pass
 	pc, err := cache.NewPersistentCache(ctx, "cache-storage", cs, prot, cache.SweepSettings{
 		MaxSizeBytes: opt.MaxCacheSizeBytes,
 		MinSweepAge:  opt.MinContentSweepAge.DurationOrDefault(content.DefaultDataCacheSweepAge),
-	}, mr)
+	}, mr, timeNow)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to open persistent cache")
 	}
@@ -168,7 +172,7 @@ func openAPIServer(ctx context.Context, si *APIServerInfo, cliOpts ClientOptions
 
 	mr := metrics.NewRegistry()
 
-	contentCache, err := getContentCacheOrNil(ctx, cachingOptions, password, mr)
+	contentCache, err := getContentCacheOrNil(ctx, cachingOptions, password, mr, options.TimeNowFunc)
 	if err != nil {
 		return nil, errors.Wrap(err, "error opening content cache")
 	}
@@ -235,8 +239,9 @@ func openDirect(ctx context.Context, configFile string, lc *LocalConfig, passwor
 func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions, password string, options *Options, cacheOpts *content.CachingOptions, configFile string) (DirectRepository, error) {
 	cacheOpts = cacheOpts.CloneOrDefault()
 	cmOpts := &content.ManagerOptions{
-		TimeNow:            defaultTime(options.TimeNowFunc),
-		DisableInternalLog: options.DisableInternalLog,
+		TimeNow:                defaultTime(options.TimeNowFunc),
+		DisableInternalLog:     options.DisableInternalLog,
+		PermissiveCacheLoading: cliOpts.PermissiveCacheLoading,
 	}
 
 	mr := metrics.NewRegistry()
@@ -247,25 +252,7 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 		return nil, errors.Wrap(ferr, "unable to create format manager")
 	}
 
-	if _, err := retry.WithExponentialBackoffMaxRetries(ctx, -1, "wait for upgrade", func() (interface{}, error) {
-		uli, err := fmgr.UpgradeLockIntent()
-		if err != nil {
-			//nolint:wrapcheck
-			return nil, err
-		}
-
-		// retry if upgrade lock has been taken
-		if locked, _ := uli.IsLocked(cmOpts.TimeNow()); locked && options.UpgradeOwnerID != uli.OwnerID {
-			return nil, ErrRepositoryUnavailableDueToUpgrageInProgress
-		}
-
-		return false, nil
-	}, func(internalErr error) bool {
-		return !options.DoNotWaitForUpgrade && errors.Is(internalErr, ErrRepositoryUnavailableDueToUpgrageInProgress)
-	}); err != nil {
-		return nil, err
-	}
-
+	// check features before and perform configuration before performing IO
 	if err := handleMissingRequiredFeatures(ctx, fmgr, options.TestOnlyIgnoreMissingRequiredFeatures); err != nil {
 		return nil, err
 	}
@@ -307,8 +294,33 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 		st = wrapLockingStorage(st, blobcfg)
 	}
 
-	// background/interleaving upgrade lock storage monitor
-	st = upgradeLockMonitor(fmgr, options.UpgradeOwnerID, st, cmOpts.TimeNow, options.OnFatalError, options.TestOnlyIgnoreMissingRequiredFeatures)
+	_, err = retry.WithExponentialBackoffMaxRetries(ctx, -1, "wait for upgrade", func() (interface{}, error) {
+		//nolint:govet
+		uli, err := fmgr.UpgradeLockIntent()
+		if err != nil {
+			//nolint:wrapcheck
+			return nil, err
+		}
+
+		// retry if upgrade lock has been taken
+		if !cliOpts.PermissiveCacheLoading {
+			if locked, _ := uli.IsLocked(cmOpts.TimeNow()); locked && options.UpgradeOwnerID != uli.OwnerID {
+				return nil, ErrRepositoryUnavailableDueToUpgradeInProgress
+			}
+		}
+
+		return false, nil
+	}, func(internalErr error) bool {
+		return !options.DoNotWaitForUpgrade && errors.Is(internalErr, ErrRepositoryUnavailableDueToUpgradeInProgress)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if !cliOpts.PermissiveCacheLoading {
+		// background/interleaving upgrade lock storage monitor
+		st = upgradeLockMonitor(fmgr, options.UpgradeOwnerID, st, cmOpts.TimeNow, options.OnFatalError, options.TestOnlyIgnoreMissingRequiredFeatures)
+	}
 
 	scm, ferr := content.NewSharedManager(ctx, st, fmgr, cacheOpts, cmOpts, mr)
 	if ferr != nil {
@@ -456,7 +468,7 @@ func upgradeLockMonitor(
 		if uli != nil {
 			// only allow the upgrade owner to perform storage operations
 			if locked, _ := uli.IsLocked(now()); locked && upgradeOwnerID != uli.OwnerID {
-				return ErrRepositoryUnavailableDueToUpgrageInProgress
+				return ErrRepositoryUnavailableDueToUpgradeInProgress
 			}
 		}
 

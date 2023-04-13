@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/alecthomas/kingpin"
+	"github.com/alecthomas/kingpin/v2"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/epoch"
@@ -57,7 +57,7 @@ func (c *commandRepositoryUpgrade) setup(svc advancedAppServices, parent command
 			return nil
 		})
 
-	beginCmd := parent.Command("begin", "Begin upgrade.").Default()
+	beginCmd := parent.Command("begin", "Begin upgrade.")
 	beginCmd.Flag("io-drain-timeout", "Max time it should take all other Kopia clients to drop repository connections").Default(format.DefaultRepositoryBlobCacheDuration.String()).DurationVar(&c.ioDrainTimeout)
 	beginCmd.Flag("allow-unsafe-upgrade", "Force using an unsafe io-drain-timeout for the upgrade lock").Default("false").Hidden().BoolVar(&c.allowUnsafeUpgradeTimings)
 	beginCmd.Flag("status-poll-interval", "An advisory polling interval to check for the status of upgrade").Default("60s").DurationVar(&c.statusPollInterval)
@@ -155,7 +155,7 @@ func (c *commandRepositoryUpgrade) validateAction(ctx context.Context, rep repo.
 
 	var msgs []string // a place to keep messages from the index comparison process
 
-	// both indexes will have matching contentiDs with matching indexInfo sructures.
+	// both indexes will have matching contentiDs with matching indexInfo structures.
 	for contentID, indexEntryPairs := range indexEntries {
 		iep0 := indexEntryPairs[0] // first entry of index entry pair
 		iep1 := indexEntryPairs[1] // second entry of index entry pair
@@ -314,6 +314,14 @@ func (c *commandRepositoryUpgrade) setLockIntent(ctx context.Context, rep repo.D
 	// This will fail if we have already upgraded.
 	l, err := rep.FormatManager().SetUpgradeLockIntent(ctx, *l)
 	if err != nil {
+		if errors.Is(err, format.ErrFormatUptoDate) {
+			log(ctx).Info("Repository format is already upto date.")
+
+			c.skip = true
+
+			return nil
+		}
+
 		return errors.Wrap(err, "error setting the upgrade lock intent")
 	}
 	// we need to reopen the repository after this point

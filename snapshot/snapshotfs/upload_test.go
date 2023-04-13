@@ -873,6 +873,42 @@ func TestUpload_VirtualDirectoryWithStreamingFile(t *testing.T) {
 	}
 }
 
+func TestUpload_VirtualDirectoryWithStreamingFile_WithCompression(t *testing.T) {
+	ctx := testlogging.Context(t)
+	th := newUploadTestHarness(ctx, t)
+
+	defer th.cleanup()
+
+	u := NewUploader(th.repo)
+
+	pol := *policy.DefaultPolicy
+	pol.CompressionPolicy.CompressorName = "pgzip"
+
+	policyTree := policy.BuildTree(nil, &pol)
+
+	// Create a temporary file with test data. Want something compressible but
+	// small so we don't trigger dedupe.
+	content := []byte(strings.Repeat("a", 4096))
+	r := io.NopCloser(bytes.NewReader(content))
+
+	staticRoot := virtualfs.NewStaticDirectory("rootdir", []fs.Entry{
+		virtualfs.StreamingFileFromReader("stream-file", r),
+	})
+
+	man, err := u.Upload(ctx, staticRoot, policyTree, snapshot.SourceInfo{})
+	require.NoError(t, err)
+
+	assert.Equal(t, int32(0), atomic.LoadInt32(&man.Stats.CachedFiles), "cached file count")
+	assert.Equal(t, int32(1), atomic.LoadInt32(&man.Stats.NonCachedFiles), "non-cached file count")
+	assert.Equal(t, int32(1), atomic.LoadInt32(&man.Stats.TotalDirectoryCount), "directory count")
+	assert.Equal(t, int32(1), atomic.LoadInt32(&man.Stats.TotalFileCount), "total file count")
+
+	// Write out pending data so the below size check compares properly.
+	require.NoError(t, th.repo.Flush(ctx), "flushing repo")
+
+	assert.Less(t, testutil.MustGetTotalDirSize(t, th.repoDir), int64(14000))
+}
+
 func TestUpload_VirtualDirectoryWithStreamingFileWithModTime(t *testing.T) {
 	content := []byte("Streaming Temporary file content")
 	mt := time.Date(2021, 1, 2, 3, 4, 5, 0, time.UTC)
@@ -886,7 +922,7 @@ func TestUpload_VirtualDirectoryWithStreamingFileWithModTime(t *testing.T) {
 		{
 			desc: "CurrentTime",
 			getFile: func() fs.StreamingFile {
-				return virtualfs.StreamingFileFromReader("a", bytes.NewReader(content))
+				return virtualfs.StreamingFileFromReader("a", io.NopCloser(bytes.NewReader(content)))
 			},
 			cachedFiles:   0,
 			uploadedFiles: 1,
@@ -894,7 +930,7 @@ func TestUpload_VirtualDirectoryWithStreamingFileWithModTime(t *testing.T) {
 		{
 			desc: "FixedTime",
 			getFile: func() fs.StreamingFile {
-				return virtualfs.StreamingFileWithModTimeFromReader("a", mt, bytes.NewReader(content))
+				return virtualfs.StreamingFileWithModTimeFromReader("a", mt, io.NopCloser(bytes.NewReader(content)))
 			},
 			cachedFiles:   1,
 			uploadedFiles: 0,
@@ -923,6 +959,7 @@ func TestUpload_VirtualDirectoryWithStreamingFileWithModTime(t *testing.T) {
 			require.Equal(t, int32(1), atomic.LoadInt32(&man1.Stats.NonCachedFiles))
 			require.Equal(t, int32(1), atomic.LoadInt32(&man1.Stats.TotalDirectoryCount))
 			require.Equal(t, int32(1), atomic.LoadInt32(&man1.Stats.TotalFileCount))
+			require.Equal(t, int64(len(content)), atomic.LoadInt64(&man1.Stats.TotalFileSize))
 
 			// wait a little bit to ensure clock moves forward which is not always the case on Windows.
 			time.Sleep(100 * time.Millisecond)
@@ -941,6 +978,7 @@ func TestUpload_VirtualDirectoryWithStreamingFileWithModTime(t *testing.T) {
 			assert.Equal(t, tc.uploadedFiles, atomic.LoadInt32(&man2.Stats.NonCachedFiles))
 			// Cached files don't count towards the total file count.
 			assert.Equal(t, tc.uploadedFiles, atomic.LoadInt32(&man2.Stats.TotalFileCount))
+			require.Equal(t, int64(len(content)), atomic.LoadInt64(&man2.Stats.TotalFileSize))
 		})
 	}
 }

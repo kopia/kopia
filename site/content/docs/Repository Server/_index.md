@@ -19,7 +19,7 @@ Repository Server should be started on a dedicated server in LAN, such that all 
 
 Before we can start repository server, we must first create a list of usernames and passwords that will be allowed access.
 
-## Configuring Allowed Users - Kopia v0.8
+## Configuring Allowed Users
 
 Starting in Kopia v0.8, allowed repository users can be configured using `kopia server user` commands. Each user is identified by its lowercase `username@hostname` where hostname by default is the name of the computer the client is connecting from (without domain name suffix).
 
@@ -40,64 +40,33 @@ Other commands are also available:
 * `kopia server user set` - changes password
 * `kopia server user delete` - deletes user account
 
-## Configuring Allowed Users - Kopia v0.7
-
->NOTE: This method is still supported in v0.8, but it's recommended to use `kopia server user` to manage users
-instead.
-
-In Kopia v7.0 the user list must be put in a text file formatted using the [htpasswd](https://httpd.apache.org/docs/2.4/programs/htpasswd.html) utility from Apache. 
-
-Each username must be named:
-
-```
-<client-username>@<client-host-name-lowercase-without-domain>
-```
-
-where `<client-host-name-lowercase-without-domain>` is the host name of the client computer in **lowercase and without domain component**. On Linux clients, the client host name can be found with the following command. Notice that this is *not* the server host name, but the client host name instead.
-
-```shell
-$ cat /etc/hostname
-```
-
->NOTE: The use of htpasswd tool is only temporary. In future releases Kopia may introduce its own password management options and ACL management without having to rely on external utility.
-
-To create password file for two users:
-
-```shell
-$ htpasswd -c password.txt user1@host1
-New password: 
-Re-type new password: 
-Adding password for user user1@host1
-
-$ htpasswd password.txt user2@host1
-New password: 
-Re-type new password: 
-Adding password for user user2@host1
-```
-
-The contents of password file will store hashes of provided passwords and not passwords themselves:
-
-```
-user1@host1:$apr1$8yF23v/9$Su9NdzkBp.r456/qcgJBF.
-user2@host1:$apr1$KbY23BUf$xtzBjaMnrOBOfPePIfS//.
-```
-
-It is recommended to use TLS to ensure security of connections to the server.
+>__Prior to Kopia v0.8__, the user list must be put in a text file formatted using the [htpasswd](https://httpd.apache.org/docs/2.4/programs/htpasswd.html) utility from Apache. This method is still supported in v0.8, but it's recommended to use `kopia server user` to manage users instead.
+> To create password file for two users: 
+> ```shell
+> $ htpasswd -c password.txt user1@host1
+> New password: 
+> Re-type new password: 
+> Adding password for user user1@host1
+> 
+> $ htpasswd password.txt user2@host1
+> New password: 
+> Re-type new password: 
+> Adding password for user user2@host1
+> ```
 
 ### Auto-Generated TLS Certificate
 
 To start repository server with auto-generated TLS certificate for the first time:
 
 ```shell
-kopia server start --htpasswd-file ~/password.txt --tls-generate-cert --tls-cert-file ~/my.cert --tls-key-file ~/my.key --address 0.0.0.0:51515
+kopia server start \
+  --tls-generate-cert \
+  --tls-cert-file ~/my.cert \
+  --tls-key-file ~/my.key \
+  --address 0.0.0.0:51515 \
+  --server-control-username control \
+  --server-control-password PASSWORD_HERE
 ```
-
-or when using repository users in Kopia v0.8 and newer:
-
-```shell
-kopia server start --tls-generate-cert --tls-cert-file ~/my.cert --tls-key-file ~/my.key --address 0.0.0.0:51515
-```
-
 
 This will generate TLS certificate and key files and store them in the provided paths (`~/my.cert` and `~/my.key` respectively). It will also print certificate SHA256 fingerprint, which will be used later:
 
@@ -106,6 +75,8 @@ SERVER CERT SHA256: 48537cce585fed39fb26c639eb8ef38143592ba4b4e7677a84a31916398d
 ```
 
 Note that when starting the server again the `--tls-generate-cert` must be omitted, otherwise the server will fail to start.
+
+>__Prior to Kopia v0.8,__ the command line for `kopia server start` also needs `--htpasswd-file ~/password.txt`
 
 ### Custom TLS Certificates
 
@@ -143,7 +114,7 @@ $ kopia repo connect server --url=http://11.222.111.222:51515 --override-usernam
 
 Kopia server will check permissions when users try to access contents and manifests based on rules we call ACLs (access control list).
 
-Prior to v0.8, the rules were non-configurable and each user could only read and write their own
+>__Prior to Kopia v0.8,__ the rules were non-configurable and each user could only read and write their own
 snapshot manifests. Starting in Kopia v0.8 the ACLs can be controlled by using `kopia server acl` commands. 
 
 If no ACLs are explicitly defined, Kopia will use a set of built-in access control rules, which grants all authenticated users identified by `username@hostname` ability to:
@@ -277,7 +248,8 @@ Kopia server will refresh its configuration by fetching it from repository perio
 ```shell
 $ kopia server refresh \
   --address=https://server:port [--server-cert-fingerprint=FINGERPRINT] \
-  --server-username=U --server-password=P
+  --server-username=control \
+  --server-password=PASSWORD_HERE
 ```
 
 To authenticate, pass any valid username and password configured on the server.

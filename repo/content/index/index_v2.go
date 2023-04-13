@@ -452,7 +452,7 @@ func buildUniqueFormatToIndexMap(sortedInfos []Info) map[indexV2FormatInfo]byte 
 	return result
 }
 
-// buildPackIDToIndexMap builds a map of unqiue blob IDs to their numeric identifiers.
+// buildPackIDToIndexMap builds a map of unique blob IDs to their numeric identifiers.
 func buildPackIDToIndexMap(sortedInfos []Info) map[blob.ID]int {
 	result := map[blob.ID]int{}
 

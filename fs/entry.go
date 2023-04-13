@@ -53,7 +53,7 @@ type File interface {
 // StreamingFile represents an entry that is a stream.
 type StreamingFile interface {
 	Entry
-	GetReader(ctx context.Context) (io.Reader, error)
+	GetReader(ctx context.Context) (io.ReadCloser, error)
 }
 
 // Directory represents contents of a directory.

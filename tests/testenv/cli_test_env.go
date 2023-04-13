@@ -46,6 +46,10 @@ type CLITest struct {
 	Environment map[string]string
 
 	DefaultRepositoryCreateFlags []string
+
+	logMu            sync.RWMutex
+	logOutputEnabled bool
+	logOutputPrefix  string
 }
 
 // RepoFormatNotImportant chooses arbitrary format version where it's not important to the test.
@@ -140,12 +144,39 @@ func (e *CLITest) TweakFile(t *testing.T, dirn, fglob string) {
 	require.NoError(t, err)
 }
 
+func (e *CLITest) SetLogOutput(enable bool, prefix string) {
+	e.logMu.Lock()
+	defer e.logMu.Unlock()
+
+	e.logOutputEnabled = enable
+	e.logOutputPrefix = prefix
+}
+
+func (e *CLITest) getLogOutputPrefix() (string, bool) {
+	e.logMu.RLock()
+	defer e.logMu.RUnlock()
+
+	return e.logOutputPrefix, os.Getenv("KOPIA_TEST_LOG_OUTPUT") != "" || e.logOutputEnabled
+}
+
 // RunAndProcessStderr runs the given command, and streams its output line-by-line to a given function until it returns false.
 func (e *CLITest) RunAndProcessStderr(t *testing.T, callback func(line string) bool, args ...string) (wait func() error, kill func()) {
 	t.Helper()
 
 	stdout, stderr, wait, kill := e.Runner.Start(t, e.cmdArgs(args), e.Environment)
-	go io.Copy(io.Discard, stdout)
+
+	go func() {
+		scanner := bufio.NewScanner(stdout)
+		for scanner.Scan() {
+			if prefix, ok := e.getLogOutputPrefix(); ok {
+				t.Logf("[%vstdout] %v", prefix, scanner.Text())
+			}
+		}
+
+		if prefix, ok := e.getLogOutputPrefix(); ok {
+			t.Logf("[%vstdout] EOF", prefix)
+		}
+	}()
 
 	scanner := bufio.NewScanner(stderr)
 	for scanner.Scan() {
@@ -157,7 +188,13 @@ func (e *CLITest) RunAndProcessStderr(t *testing.T, callback func(line string) b
 	// complete the scan in background without processing lines.
 	go func() {
 		for scanner.Scan() {
-			// ignore
+			if prefix, ok := e.getLogOutputPrefix(); ok {
+				t.Logf("[%vstderr] %v", prefix, scanner.Text())
+			}
+		}
+
+		if prefix, ok := e.getLogOutputPrefix(); ok {
+			t.Logf("[%vstderr] EOF", prefix)
 		}
 	}()
 
@@ -219,7 +256,8 @@ func (e *CLITest) Run(t *testing.T, expectedError bool, args ...string) (stdout,
 	t.Helper()
 
 	args = e.cmdArgs(args)
-	t.Logf("running 'kopia %v' with %v", strings.Join(args, " "), e.Environment)
+	outputPrefix, logOutput := e.getLogOutputPrefix()
+	t.Logf("%vrunning 'kopia %v' with %v", outputPrefix, strings.Join(args, " "), e.Environment)
 
 	timer := timetrack.StartTimer()
 
@@ -234,8 +272,8 @@ func (e *CLITest) Run(t *testing.T, expectedError bool, args ...string) (stdout,
 
 		scanner := bufio.NewScanner(stdoutReader)
 		for scanner.Scan() {
-			if os.Getenv("KOPIA_TEST_LOG_OUTPUT") != "" {
-				t.Logf("[stdout] %v", scanner.Text())
+			if logOutput {
+				t.Logf("[%vstdout] %v", outputPrefix, scanner.Text())
 			}
 
 			stdout = append(stdout, scanner.Text())
@@ -249,8 +287,8 @@ func (e *CLITest) Run(t *testing.T, expectedError bool, args ...string) (stdout,
 
 		scanner := bufio.NewScanner(stderrReader)
 		for scanner.Scan() {
-			if os.Getenv("KOPIA_TEST_LOG_OUTPUT") != "" {
-				t.Logf("[stderr] %v", scanner.Text())
+			if logOutput {
+				t.Logf("[%vstderr] %v", outputPrefix, scanner.Text())
 			}
 
 			stderr = append(stderr, scanner.Text())
@@ -268,7 +306,7 @@ func (e *CLITest) Run(t *testing.T, expectedError bool, args ...string) (stdout,
 	}
 
 	//nolint:forbidigo
-	t.Logf("finished in %v: 'kopia %v'", timer.Elapsed().Milliseconds(), strings.Join(args, " "))
+	t.Logf("%vfinished in %v: 'kopia %v'", outputPrefix, timer.Elapsed().Milliseconds(), strings.Join(args, " "))
 
 	return stdout, stderr, gotErr
 }

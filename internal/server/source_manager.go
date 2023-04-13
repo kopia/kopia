@@ -157,7 +157,7 @@ func (s *sourceManager) start(ctx context.Context, rep repo.Repository) {
 }
 
 func (s *sourceManager) run(ctx context.Context, isLocal bool) {
-	// make sure we run in a detached context, which ignores outside cancelation and deadline.
+	// make sure we run in a detached context, which ignores outside cancellation and deadline.
 	ctx = ctxutil.Detach(ctx)
 
 	s.setStatus("INITIALIZING")

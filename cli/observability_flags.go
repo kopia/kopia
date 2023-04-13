@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/alecthomas/kingpin"
+	"github.com/alecthomas/kingpin/v2"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"

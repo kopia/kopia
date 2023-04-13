@@ -129,7 +129,7 @@ type PutOptions struct {
 }
 
 // HasRetentionOptions returns true when blob-retention settings have been
-// specified, otherwise retruns false.
+// specified, otherwise returns false.
 func (o PutOptions) HasRetentionOptions() bool {
 	return o.RetentionPeriod != 0 || o.RetentionMode != ""
 }
@@ -290,7 +290,7 @@ func MinTimestamp(mds []Metadata) time.Time {
 	return min
 }
 
-// MaxTimestamp returns maxinum timestamp for blobs in Metadata slice.
+// MaxTimestamp returns maximum timestamp for blobs in Metadata slice.
 func MaxTimestamp(mds []Metadata) time.Time {
 	max := time.Time{}
 

@@ -132,9 +132,13 @@ func (ks *KopiaSnapshotter) ConnectOrCreateFilesystem(repoPath string) error {
 // CreateSnapshot implements the Snapshotter interface, issues a kopia snapshot
 // create command on the provided source path.
 func (ks *KopiaSnapshotter) CreateSnapshot(source string) (snapID string, err error) {
-	_, errOut, err := ks.Runner.Run("snapshot", "create", parallelFlag, strconv.Itoa(parallelSetting), noProgressFlag, source)
+	stdOut, errOut, err := ks.Runner.Run("snapshot", "create", parallelFlag, strconv.Itoa(parallelSetting), noProgressFlag, source)
 	if err != nil {
 		return "", err
+	}
+
+	if stdOut != "" {
+		return parseSnapID(strings.Split(stdOut, "\n"))
 	}
 
 	return parseSnapID(strings.Split(errOut, "\n"))
@@ -156,7 +160,7 @@ func (ks *KopiaSnapshotter) DeleteSnapshot(snapID string) (err error) {
 
 // RunGC implements the Snapshotter interface, issues a gc command to the kopia repo.
 func (ks *KopiaSnapshotter) RunGC() (err error) {
-	_, _, err = ks.Runner.Run("snapshot", "gc")
+	_, _, err = ks.Runner.Run("maintenance", "run", "--full")
 	return err
 }
 

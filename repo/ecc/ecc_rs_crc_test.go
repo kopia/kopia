@@ -21,7 +21,7 @@ func Test_RsCrc32_AssertSizeAlwaysGrow(t *testing.T) {
 
 	for i := 1; i < 10*1024*1024; i++ {
 		sizes := impl.computeSizesFromOriginal(i)
-		total := sizes.computeFinalFileSize(i)
+		total := computeFinalFileSize(&sizes, i)
 
 		//nolint:gocritic
 		// println(fmt.Sprintf("%-8v -> b:%-4v s:%-8v t:%-8v", i, sizes.Blocks, sizes.ShardSize, total))
@@ -161,4 +161,17 @@ func testRsCrc32ChangeInParityCrc(t *testing.T, opts *Options, originalSize, cha
 				flipByte(data, i*(crcSize+sizes.ShardSize))
 			}
 		})
+}
+
+func computeFinalFileSize(s *sizesInfo, size int) int {
+	if s.StorePadding {
+		return computeFinalFileSizeWithPadding(s.DataShards, s.ParityShards, s.ShardSize, s.Blocks)
+	}
+
+	return computeFinalFileSizeWithoutPadding(size, s.ParityShards, s.ShardSize, s.Blocks)
+}
+
+func computeFinalFileSizeWithoutPadding(inputSize, parityShards, shardSize, blocks int) int {
+	sizePlusLength := lengthSize + inputSize
+	return parityShards*(crcSize+shardSize)*blocks + sizePlusLength + ceilInt(sizePlusLength, shardSize)*crcSize
 }

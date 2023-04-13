@@ -63,6 +63,8 @@ type commandServerStart struct {
 	uiPreferencesFile                   string
 	asyncRepoConnect                    bool
 
+	shutdownGracePeriod time.Duration
+
 	logServerRequests bool
 
 	disableCSRFTokenChecks bool // disable CSRF token checks - used for development/debugging only
@@ -73,7 +75,7 @@ type commandServerStart struct {
 }
 
 func (c *commandServerStart) setup(svc advancedAppServices, parent commandParent) {
-	cmd := parent.Command("start", "Start Kopia server").Default()
+	cmd := parent.Command("start", "Start Kopia server")
 	cmd.Flag("html", "Server the provided HTML at the root URL").ExistingDirVar(&c.serverStartHTMLPath)
 	cmd.Flag("ui", "Start the server with HTML UI").Default("true").BoolVar(&c.serverStartUI)
 
@@ -111,6 +113,8 @@ func (c *commandServerStart) setup(svc advancedAppServices, parent commandParent
 
 	cmd.Flag("log-server-requests", "Log server requests").Hidden().BoolVar(&c.logServerRequests)
 	cmd.Flag("disable-csrf-token-checks", "Disable CSRF token").Hidden().BoolVar(&c.disableCSRFTokenChecks)
+
+	cmd.Flag("shutdown-grace-period", "Grace period for shutting down the server").Default("5s").DurationVar(&c.shutdownGracePeriod)
 
 	c.sf.setup(svc, cmd)
 	c.co.setup(svc, cmd)
@@ -191,7 +195,23 @@ func (c *commandServerStart) run(ctx context.Context) error {
 		},
 	}
 
-	srv.OnShutdown = httpServer.Shutdown
+	srv.OnShutdown = func(ctx context.Context) error {
+		ctx2, cancel := context.WithTimeout(ctx, c.shutdownGracePeriod)
+		defer cancel()
+
+		// wait for all connections to finish for up to 5 seconds
+		log(ctx2).Debugf("attempting graceful shutdown for %v", c.shutdownGracePeriod)
+
+		if serr := httpServer.Shutdown(ctx2); serr != nil {
+			// graceful shutdown unsuccessful, force close
+			log(ctx2).Debugf("unable to shut down gracefully - closing: %v", serr)
+			return errors.Wrap(httpServer.Close(), "close")
+		}
+
+		log(ctx2).Debugf("graceful shutdown succeeded")
+
+		return nil
+	}
 
 	c.svc.onCtrlC(func() {
 		log(ctx).Infof("Shutting down...")

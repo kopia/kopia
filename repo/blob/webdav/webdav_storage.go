@@ -212,10 +212,15 @@ func (d *davStorageImpl) PutBlobInPath(ctx context.Context, dirPath, filePath st
 }
 
 func (d *davStorageImpl) DeleteBlobInPath(ctx context.Context, dirPath, filePath string) error {
-	return d.translateError(retry.WithExponentialBackoffNoValue(ctx, "DeleteBlobInPath", func() error {
+	err := d.translateError(retry.WithExponentialBackoffNoValue(ctx, "DeleteBlobInPath", func() error {
 		//nolint:wrapcheck
 		return d.cli.Remove(filePath)
 	}, isRetriable))
+	if errors.Is(err, blob.ErrBlobNotFound) {
+		return nil
+	}
+
+	return err
 }
 
 func (d *davStorage) ConnectionInfo() blob.ConnectionInfo {

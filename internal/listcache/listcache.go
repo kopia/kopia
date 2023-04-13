@@ -69,7 +69,7 @@ func (s *listCacheStorage) readBlobsFromCache(ctx context.Context, prefix blob.I
 	}
 
 	if err := json.NewDecoder(verified.Bytes().Reader()).Decode(&cl); err != nil {
-		log(ctx).Warnf("cant't unmarshal cached list results for %v, ignoring", prefix)
+		log(ctx).Warnf("can't unmarshal cached list results for %v, ignoring", prefix)
 		return nil
 	}
 

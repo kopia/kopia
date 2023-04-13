@@ -55,7 +55,7 @@ func (matcher *WildcardMatcher) Pattern() string {
 	return matcher.pattern
 }
 
-// Negated inidicates whether the pattern used by this matcher is a negated pattern, i.e. starts with a '!'.
+// Negated indicates whether the pattern used by this matcher is a negated pattern, i.e. starts with a '!'.
 func (matcher *WildcardMatcher) Negated() bool {
 	return matcher.negated
 }

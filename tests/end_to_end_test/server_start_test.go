@@ -20,6 +20,7 @@ import (
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/internal/uitask"
+	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/filesystem"
 	"github.com/kopia/kopia/snapshot"
@@ -42,7 +43,7 @@ func TestServerStart(t *testing.T) {
 
 	var sp testutil.ServerParameters
 
-	e.RunAndProcessStderr(t, sp.ProcessOutput,
+	wait, _ := e.RunAndProcessStderr(t, sp.ProcessOutput,
 		"server", "start",
 		"--ui",
 		"--address=localhost:0",
@@ -54,6 +55,9 @@ func TestServerStart(t *testing.T) {
 		"--override-username=fake-username",
 		"--ui-title-prefix", "Blah: <script>bleh</script> ",
 	)
+
+	defer wait()
+
 	t.Logf("detected server parameters %#v", sp)
 
 	cli, err := apiclient.NewKopiaAPIClient(apiclient.Options{
@@ -196,7 +200,7 @@ func TestServerStartAsyncRepoConnect(t *testing.T) {
 	)
 
 	// run again - passing --async-repo-connect
-	e.RunAndProcessStderr(t, sp.ProcessOutput,
+	wait, _ := e.RunAndProcessStderr(t, sp.ProcessOutput,
 		"server", "start",
 		"--ui",
 		"--address=localhost:0",
@@ -206,6 +210,9 @@ func TestServerStartAsyncRepoConnect(t *testing.T) {
 		"--tls-generate-cert",
 		"--tls-generate-rsa-key-size=2048", // use shorter key size to speed up generation
 	)
+
+	defer wait()
+
 	t.Logf("detected server parameters %#v", sp)
 
 	controlClient, err := apiclient.NewKopiaAPIClient(apiclient.Options{
@@ -247,6 +254,9 @@ func TestServerStartAsyncRepoConnect(t *testing.T) {
 func TestServerCreateAndConnectViaAPI(t *testing.T) {
 	t.Parallel()
 
+	//nolint:tenv
+	os.Setenv("KOPIA_UPGRADE_LOCK_ENABLED", "true")
+
 	ctx := testlogging.Context(t)
 
 	runner := testenv.NewInProcRunner(t)
@@ -263,13 +273,16 @@ func TestServerCreateAndConnectViaAPI(t *testing.T) {
 		},
 	}
 
-	e.RunAndProcessStderr(t, sp.ProcessOutput,
+	wait, _ := e.RunAndProcessStderr(t, sp.ProcessOutput,
 		"server", "start", "--ui",
 		"--address=localhost:0", "--random-password",
 		"--random-server-control-password",
 		"--tls-generate-cert",
 		"--tls-generate-rsa-key-size=2048", // use shorter key size to speed up generation,
 	)
+
+	defer wait()
+
 	t.Logf("detected server parameters %#v", sp)
 
 	cli, err := apiclient.NewKopiaAPIClient(apiclient.Options{
@@ -300,6 +313,9 @@ func TestServerCreateAndConnectViaAPI(t *testing.T) {
 		ConnectRepositoryRequest: serverapi.ConnectRepositoryRequest{
 			Password: "foofoo",
 			Storage:  connInfo,
+			ClientOptions: repo.ClientOptions{
+				PermissiveCacheLoading: true,
+			},
 		},
 	}); err != nil {
 		t.Fatalf("create error: %v", err)
@@ -345,12 +361,16 @@ func TestConnectToExistingRepositoryViaAPI(t *testing.T) {
 	}
 
 	// at this point repository is not connected, start the server
-	e.RunAndProcessStderr(t, sp.ProcessOutput, "server", "start",
+	wait, _ := e.RunAndProcessStderr(t, sp.ProcessOutput, "server", "start",
 		"--ui", "--address=localhost:0", "--random-password",
 		"--random-server-control-password",
 		"--tls-generate-cert",
 		"--tls-generate-rsa-key-size=2048", // use shorter key size to speed up generation
-		"--override-hostname=fake-hostname", "--override-username=fake-username")
+		"--override-hostname=fake-hostname", "--override-username=fake-username",
+	)
+
+	defer wait()
+
 	t.Logf("detected server parameters %#v", sp)
 
 	controlClient, err := apiclient.NewKopiaAPIClient(apiclient.Options{
@@ -428,13 +448,15 @@ func TestServerStartInsecure(t *testing.T) {
 	var sp testutil.ServerParameters
 
 	// server starts without password and no TLS when --insecure is provided.
-	e.RunAndProcessStderr(t, sp.ProcessOutput,
+	wait, _ := e.RunAndProcessStderr(t, sp.ProcessOutput,
 		"server", "start",
 		"--ui",
 		"--address=localhost:0",
 		"--without-password",
 		"--insecure",
 	)
+
+	defer wait()
 
 	cli, err := apiclient.NewKopiaAPIClient(apiclient.Options{
 		BaseURL: sp.BaseURL,

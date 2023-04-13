@@ -143,7 +143,7 @@ func (s *formatSpecificTestSuite) TestRepositorySetParametersUpgrade(t *testing.
 
 	{
 		cmd := []string{
-			"repository", "upgrade",
+			"repository", "upgrade", "begin",
 			"--upgrade-owner-id", "owner",
 			"--io-drain-timeout", "1s", "--allow-unsafe-upgrade",
 			"--status-poll-interval", "1s",
@@ -154,7 +154,8 @@ func (s *formatSpecificTestSuite) TestRepositorySetParametersUpgrade(t *testing.
 		if s.formatVersion < format.MaxFormatVersion {
 			env.RunAndExpectSuccess(t, cmd...)
 		} else {
-			env.RunAndExpectFailure(t, cmd...)
+			_, stderr := env.RunAndExpectSuccessWithErrOut(t, cmd...)
+			require.Contains(t, stderr, "Repository format is already upto date.")
 		}
 	}
 

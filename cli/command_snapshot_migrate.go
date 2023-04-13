@@ -282,7 +282,7 @@ func (c *commandSnapshotMigrate) migrateSingleSourceSnapshot(ctx context.Context
 
 	newm, err := uploader.Upload(ctx, sourceEntry, policyTree, m.Source, previous...)
 	if err != nil {
-		return errors.Wrapf(err, "error migrating shapshot %v @ %v", m.Source, m.StartTime)
+		return errors.Wrapf(err, "error migrating snapshot %v @ %v", m.Source, m.StartTime)
 	}
 
 	newm.StartTime = m.StartTime

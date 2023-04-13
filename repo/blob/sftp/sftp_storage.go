@@ -137,7 +137,7 @@ func (s *sftpImpl) GetBlobFromPath(ctx context.Context, dirPath, fullPath string
 			return iocopy.JustCopy(output, r)
 		}
 
-		// parial read, seek to the provided offset and read given number of bytes.
+		// partial read, seek to the provided offset and read given number of bytes.
 		if _, err = r.Seek(offset, io.SeekStart); err != nil {
 			return errors.Wrapf(blob.ErrInvalidRange, "seek error: %v", err)
 		}

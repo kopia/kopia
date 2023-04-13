@@ -161,6 +161,10 @@ func (bm *WriteManager) DeleteContent(ctx context.Context, contentID ID) error {
 }
 
 func (bm *WriteManager) maybeRefreshIndexes(ctx context.Context) error {
+	if bm.permissiveCacheLoading {
+		return nil
+	}
+
 	if !bm.disableIndexRefresh.Load() && bm.shouldRefreshIndexes() {
 		if err := bm.Refresh(ctx); err != nil {
 			return errors.Wrap(err, "error refreshing indexes")
@@ -356,7 +360,7 @@ func (bm *WriteManager) DisableIndexFlush(ctx context.Context) {
 }
 
 // EnableIndexFlush decrements the counter preventing automatic index flushes.
-// The flushes will be reenabled when the index drops to zero.
+// The flushes will be re-enabled when the index drops to zero.
 func (bm *WriteManager) EnableIndexFlush(ctx context.Context) {
 	bm.lock()
 	defer bm.unlock()
@@ -655,7 +659,7 @@ func (bm *WriteManager) RewriteContent(ctx context.Context, contentID ID) error 
 }
 
 func (bm *WriteManager) getContentDataAndInfo(ctx context.Context, contentID ID, output *gather.WriteBuffer) (Info, error) {
-	// acquire read lock since to preven flush from happening between getContentInfoReadLocked() and getContentDataReadLocked().
+	// acquire read lock since to prevent flush from happening between getContentInfoReadLocked() and getContentDataReadLocked().
 	bm.mu.RLock()
 	defer bm.mu.RUnlock()
 
@@ -943,10 +947,11 @@ func (bm *WriteManager) MetadataCache() cache.ContentCache {
 
 // ManagerOptions are the optional parameters for manager creation.
 type ManagerOptions struct {
-	TimeNow            func() time.Time // Time provider
-	DisableInternalLog bool
-	RetentionMode      string
-	RetentionPeriod    time.Duration
+	TimeNow                func() time.Time // Time provider
+	DisableInternalLog     bool
+	RetentionMode          string
+	RetentionPeriod        time.Duration
+	PermissiveCacheLoading bool
 }
 
 // CloneOrDefault returns a clone of provided ManagerOptions or default empty struct if nil.

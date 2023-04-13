@@ -3,7 +3,6 @@ package sparsefile
 
 import (
 	"io"
-	"os"
 
 	"github.com/pkg/errors"
 
@@ -27,7 +26,7 @@ func copyBuffer(dst io.WriteSeeker, src io.Reader, buf []byte) (written int64, e
 		if nr > 0 { //nolint:nestif
 			// If non-zero data is read, write it. Otherwise, skip forwards.
 			if isAllZero(buf) {
-				dst.Seek(int64(nr), os.SEEK_CUR) //nolint:errcheck
+				dst.Seek(int64(nr), io.SeekCurrent) //nolint:errcheck
 				written += int64(nr)
 
 				continue

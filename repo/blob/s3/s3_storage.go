@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"io"
 	"net/http"
@@ -292,10 +293,25 @@ func (s *s3Storage) FlushCaches(ctx context.Context) error {
 	return nil
 }
 
-func getCustomTransport(insecureSkipVerify bool) (transport *http.Transport) {
-	//nolint:gosec
-	customTransport := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: insecureSkipVerify}}
-	return customTransport
+func getCustomTransport(opt *Options) (*http.Transport, error) {
+	if opt.DoNotVerifyTLS {
+		//nolint:gosec
+		return &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}, nil
+	}
+
+	transport := http.DefaultTransport.(*http.Transport).Clone() //nolint:forcetypeassert
+
+	if len(opt.RootCA) != 0 {
+		rootcas := x509.NewCertPool()
+
+		if ok := rootcas.AppendCertsFromPEM(opt.RootCA); !ok {
+			return nil, errors.Errorf("cannot parse provided CA")
+		}
+
+		transport.TLSClientConfig.RootCAs = rootcas
+	}
+
+	return transport, nil
 }
 
 // New creates new S3-backed storage with specified options:
@@ -349,8 +365,12 @@ func newStorageWithCredentials(ctx context.Context, creds *credentials.Credentia
 		Region: opt.Region,
 	}
 
-	if opt.DoNotVerifyTLS {
-		minioOpts.Transport = getCustomTransport(true)
+	var err error
+
+	minioOpts.Transport, err = getCustomTransport(opt)
+
+	if err != nil {
+		return nil, err
 	}
 
 	cli, err := minio.New(opt.Endpoint, minioOpts)

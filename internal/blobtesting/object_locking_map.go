@@ -26,7 +26,7 @@ type versionedEntries map[blob.ID][]*entry
 // objectLockingMap is an in-memory versioned object store which maintains
 // historical versions of each blob on every put. Deletes use a delete-marker
 // overlay mechanism and lists will avoid entries if their latest object is a
-// marker. This struct manages the retention time of each blob throug hte
+// marker. This struct manages the retention time of each blob through the
 // PutBlob options.
 type objectLockingMap struct {
 	// +checklocks:mutex
@@ -233,7 +233,7 @@ func (s *objectLockingMap) Close(ctx context.Context) error {
 // delete-marker or if it does not exist then this becomes a no-op. If the
 // latest version has retention parameters set then they are respected.
 // Mutations are no allowed unless retention period expires.
-func (s *objectLockingMap) TouchBlob(ctx context.Context, id blob.ID, threshold time.Duration) error {
+func (s *objectLockingMap) TouchBlob(ctx context.Context, id blob.ID, threshold time.Duration) (time.Time, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -242,10 +242,10 @@ func (s *objectLockingMap) TouchBlob(ctx context.Context, id blob.ID, threshold 
 		// no error if delete-marker or not-exists, prevent changing mtime
 		// of delete-markers
 		if errors.Is(err, blob.ErrBlobNotFound) {
-			return nil
+			return time.Time{}, nil
 		}
 
-		return err
+		return time.Time{}, err
 	}
 
 	n := s.timeNow()
@@ -253,7 +253,7 @@ func (s *objectLockingMap) TouchBlob(ctx context.Context, id blob.ID, threshold 
 		e.mtime = n
 	}
 
-	return nil
+	return e.mtime, nil
 }
 
 // ConnectionInfo is a no-op.

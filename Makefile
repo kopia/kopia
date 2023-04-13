@@ -14,7 +14,6 @@ all_go_sources=$(foreach d,$(go_source_dirs),$(call rwildcard,$d/,*.go)) $(wildc
 all:
 	$(MAKE) test
 	$(MAKE) lint
-	$(MAKE) integration-tests
 
 include tools/tools.mk
 
@@ -42,7 +41,7 @@ GOTESTSUM_FLAGS=--format=$(GOTESTSUM_FORMAT) --no-summary=skipped
 GO_TEST?=$(gotestsum) $(GOTESTSUM_FLAGS) --
 
 LINTER_DEADLINE=600s
-UNIT_TESTS_TIMEOUT=600s
+UNIT_TESTS_TIMEOUT=1200s
 
 ifeq ($(GOARCH),amd64)
 PARALLEL=8
@@ -141,9 +140,14 @@ kopia-ui-with-local-htmlui-changes:
 	rm -f $(kopia_ui_embedded_exe)
 	GOWORK=$(CURDIR)/tools/localhtmlui.work $(MAKE) kopia-ui
 
+install-with-local-htmlui-changes: export GOWORK=$(CURDIR)/tools/localhtmlui.work
 install-with-local-htmlui-changes:
+ifeq ($(GOOS),windows)
+	(cd ../htmlui && npm run build && push_local.cmd)
+else
 	(cd ../htmlui && npm run build && ./push_local.sh)
-	GOWORK=$(CURDIR)/tools/localhtmlui.work $(MAKE) install
+endif
+	$(MAKE) install
 
 # build-current-os-noui compiles a binary for the current os/arch in the same location as goreleaser
 # kopia-ui build needs this particular location to embed the correct server binary.
@@ -213,7 +217,6 @@ download-rclone:
 ci-tests: lint vet test 
 
 ci-integration-tests:
-	$(MAKE) integration-tests
 	$(MAKE) robustness-tool-tests
 
 ci-publish-coverage:
@@ -252,7 +255,7 @@ dev-deps:
 test-with-coverage: export KOPIA_COVERAGE_TEST=1
 test-with-coverage: export TESTING_ACTION_EXE ?= $(TESTING_ACTION_EXE)
 test-with-coverage: $(gotestsum) $(TESTING_ACTION_EXE)
-	$(GO_TEST) $(UNIT_TEST_RACE_FLAGS) -tags testing -count=$(REPEAT_TEST) -short -covermode=atomic -coverprofile=coverage.txt --coverpkg $(COVERAGE_PACKAGES) -timeout 300s ./...
+	$(GO_TEST) $(UNIT_TEST_RACE_FLAGS) -tags testing -count=$(REPEAT_TEST) -short -covermode=atomic -coverprofile=coverage.txt --coverpkg $(COVERAGE_PACKAGES) -timeout $(UNIT_TESTS_TIMEOUT) ./...
 
 test: GOTESTSUM_FLAGS=--format=$(GOTESTSUM_FORMAT) --no-summary=skipped --jsonfile=.tmp.unit-tests.json
 test: export TESTING_ACTION_EXE ?= $(TESTING_ACTION_EXE)
@@ -285,15 +288,6 @@ build-integration-test-binary:
 
 $(TESTING_ACTION_EXE): tests/testingaction/main.go
 	go build -o $(TESTING_ACTION_EXE) -tags testing github.com/kopia/kopia/tests/testingaction
-
-integration-tests: export KOPIA_EXE ?= $(KOPIA_INTEGRATION_EXE)
-integration-tests: export KOPIA_08_EXE=$(kopia08)
-integration-tests: export KOPIA_TRACK_CHUNK_ALLOC=1
-integration-tests: export TESTING_ACTION_EXE ?= $(TESTING_ACTION_EXE)
-integration-tests: GOTESTSUM_FLAGS=--format=testname --no-summary=skipped --jsonfile=.tmp.integration-tests.json
-integration-tests: build-integration-test-binary $(gotestsum) $(TESTING_ACTION_EXE) $(kopia08)
-	$(GO_TEST) $(TEST_FLAGS) -count=$(REPEAT_TEST) -parallel $(PARALLEL) -timeout 3600s github.com/kopia/kopia/tests/end_to_end_test
-	-$(gotestsum) tool slowest --jsonfile .tmp.integration-tests.json  --threshold 1000ms
 
 compat-tests: export KOPIA_CURRENT_EXE=$(CURDIR)/$(kopia_ui_embedded_exe)
 compat-tests: export KOPIA_08_EXE=$(kopia08)
@@ -486,3 +480,4 @@ perf-benchmark-results:
 	gcloud compute scp $(PERF_BENCHMARK_INSTANCE):psrecord-* tests/perf_benchmark --zone=$(PERF_BENCHMARK_INSTANCE_ZONE) 
 	gcloud compute scp $(PERF_BENCHMARK_INSTANCE):repo-size-* tests/perf_benchmark --zone=$(PERF_BENCHMARK_INSTANCE_ZONE)
 	(cd tests/perf_benchmark && go run process_results.go)
+

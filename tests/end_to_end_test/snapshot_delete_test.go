@@ -230,7 +230,7 @@ func TestSnapshotDeleteRestore(t *testing.T) {
 	e.RunAndExpectFailure(t, "snapshot", "delete", snapID, "--delete")
 
 	// garbage-collect to clean up the root object.
-	e.RunAndExpectSuccess(t, "snapshot", "gc", "--delete", "--safety=none")
+	e.RunAndExpectSuccess(t, "maintenance", "run", "--full")
 
 	// Run a restore on the deleted snapshot's root ID. The root should be
 	// marked as deleted but still recoverable

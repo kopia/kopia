@@ -93,7 +93,7 @@ func findSnapshotByRootObjectIDOrManifestID(ctx context.Context, rep repo.Reposi
 
 	mans, err := snapshot.FindSnapshotsByRootObjectID(ctx, rep, rootOID)
 	if err != nil {
-		return nil, errors.Wrapf(err, "unable to find shapshots by ID %v", rootID)
+		return nil, errors.Wrapf(err, "unable to find snapshots by ID %v", rootID)
 	}
 
 	// no matching snapshots.

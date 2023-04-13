@@ -8,6 +8,11 @@
     dependency_name: "github.com/aws/aws-sdk-go"
     update_type: "semver:minor"
 
+# golang.org/x 
+- match:
+    dependency_name: "golang.org/x/.*"
+    update_type: "semver:minor"
+
 # Google-provided libraries
 - match:
     dependency_name: "google.golang.org/grpc"

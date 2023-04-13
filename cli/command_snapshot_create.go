@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"io"
 	"path/filepath"
 	"strings"
 	"time"
@@ -50,7 +51,7 @@ type commandSnapshotCreate struct {
 }
 
 func (c *commandSnapshotCreate) setup(svc appServices, parent commandParent) {
-	cmd := parent.Command("create", "Creates a snapshot of local directory or file.").Default()
+	cmd := parent.Command("create", "Creates a snapshot of local directory or file.")
 
 	cmd.Arg("source", "Files or directories to create snapshot(s) of.").StringsVar(&c.snapshotCreateSources)
 	cmd.Flag("all", "Create snapshots for files or directories previously backed up by this user on this computer").BoolVar(&c.snapshotCreateAll)
@@ -273,7 +274,7 @@ func (c *commandSnapshotCreate) snapshotSingleSource(ctx context.Context, rep re
 		// stdin source will be snapshotted using a virtual static root directory with a single streaming file entry
 		// Create a new static directory with the given name and add a streaming file entry with os.Stdin reader
 		fsEntry = virtualfs.NewStaticDirectory(sourceInfo.Path, []fs.Entry{
-			virtualfs.StreamingFileFromReader(c.snapshotCreateStdinFileName, c.svc.stdin()),
+			virtualfs.StreamingFileFromReader(c.snapshotCreateStdinFileName, io.NopCloser(c.svc.stdin())),
 		})
 		setManual = true
 	} else {

@@ -8,7 +8,6 @@ type commandSnapshot struct {
 	estimate    commandSnapshotEstimate
 	expire      commandSnapshotExpire
 	fix         commandSnapshotFix
-	gc          commandSnapshotGC
 	list        commandSnapshotList
 	migrate     commandSnapshotMigrate
 	pin         commandSnapshotPin
@@ -25,7 +24,6 @@ func (c *commandSnapshot) setup(svc advancedAppServices, parent commandParent) {
 	c.estimate.setup(svc, cmd)
 	c.expire.setup(svc, cmd)
 	c.fix.setup(svc, cmd)
-	c.gc.setup(svc, cmd)
 	c.list.setup(svc, cmd)
 	c.migrate.setup(svc, cmd)
 	c.pin.setup(svc, cmd)

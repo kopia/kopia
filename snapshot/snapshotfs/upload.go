@@ -336,11 +336,13 @@ func (u *Uploader) uploadSymlinkInternal(ctx context.Context, relativePath strin
 	return de, nil
 }
 
-func (u *Uploader) uploadStreamingFileInternal(ctx context.Context, relativePath string, f fs.StreamingFile) (dirEntry *snapshot.DirEntry, ret error) {
+func (u *Uploader) uploadStreamingFileInternal(ctx context.Context, relativePath string, f fs.StreamingFile, pol *policy.Policy) (dirEntry *snapshot.DirEntry, ret error) {
 	reader, err := f.GetReader(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to get streaming file reader")
 	}
+
+	defer reader.Close() //nolint:errcheck
 
 	var streamSize int64
 
@@ -351,9 +353,12 @@ func (u *Uploader) uploadStreamingFileInternal(ctx context.Context, relativePath
 		u.Progress.FinishedFile(relativePath, ret)
 	}()
 
+	comp := pol.CompressionPolicy.CompressorForFile(f)
 	writer := u.repo.NewObjectWriter(ctx, object.WriterOptions{
 		Description: "STREAMFILE:" + f.Name(),
+		Compressor:  comp,
 	})
+
 	defer writer.Close() //nolint:errcheck
 
 	written, err := u.copyWithProgress(writer, reader)
@@ -463,6 +468,22 @@ func newDirEntry(md fs.Entry, fname string, oid object.ID) (*snapshot.DirEntry, 
 	}, nil
 }
 
+// newCachedDirEntry makes DirEntry objects for entries that are also in
+// previous snapshots. It ensures file sizes are populated correctly for
+// StreamingFiles.
+func newCachedDirEntry(md, cached fs.Entry, fname string) (*snapshot.DirEntry, error) {
+	hoid, ok := cached.(object.HasObjectID)
+	if !ok {
+		return nil, errors.New("cached entry does not implement HasObjectID")
+	}
+
+	if _, ok := md.(fs.StreamingFile); ok {
+		return newDirEntry(cached, fname, hoid.ObjectID())
+	}
+
+	return newDirEntry(md, fname, hoid.ObjectID())
+}
+
 // uploadFileWithCheckpointing uploads the specified File to the repository.
 func (u *Uploader) uploadFileWithCheckpointing(ctx context.Context, relativePath string, file fs.File, pol *policy.Policy, sourceInfo snapshot.SourceInfo) (*snapshot.DirEntry, error) {
 	var cp checkpointRegistry
@@ -527,7 +548,7 @@ func (u *Uploader) checkpointRoot(ctx context.Context, cp *checkpointRegistry, p
 }
 
 // periodicallyCheckpoint periodically (every CheckpointInterval) invokes checkpointRoot until the
-// returned cancelation function has been called.
+// returned cancellation function has been called.
 func (u *Uploader) periodicallyCheckpoint(ctx context.Context, cp *checkpointRegistry, prototypeManifest *snapshot.Manifest) (cancelFunc func()) {
 	shutdown := make(chan struct{})
 	ch := u.getTicker(u.CheckpointInterval)
@@ -627,7 +648,7 @@ func (u *Uploader) processChildren(
 	defer wg.Close()
 
 	// ignore errCancel because a more serious error may be reported in wg.Wait()
-	// we'll check for cancelation later.
+	// we'll check for cancellation later.
 
 	if err := u.processDirectoryEntries(ctx, parentDirCheckpointRegistry, parentDirBuilder, localDirPathOrEmpty, relativePath, dir, policyTree, previousDirs, &wg); err != nil && !errors.Is(err, errCanceled) {
 		return err
@@ -809,11 +830,11 @@ func (u *Uploader) processSingle(
 		// See if we had this name during either of previous passes.
 		if cachedEntry := u.maybeIgnoreCachedEntry(ctx, findCachedEntry(ctx, entryRelativePath, entry, prevDirs, policyTree)); cachedEntry != nil {
 			atomic.AddInt32(&u.stats.CachedFiles, 1)
-			atomic.AddInt64(&u.stats.TotalFileSize, entry.Size())
-			u.Progress.CachedFile(entryRelativePath, entry.Size())
+			atomic.AddInt64(&u.stats.TotalFileSize, cachedEntry.Size())
+			u.Progress.CachedFile(entryRelativePath, cachedEntry.Size())
 
-			// compute entryResult now, cachedEntry is short-lived
-			cachedDirEntry, err := newDirEntry(entry, entry.Name(), cachedEntry.(object.HasObjectID).ObjectID())
+			cachedDirEntry, err := newCachedDirEntry(entry, cachedEntry, entry.Name())
+
 			u.Progress.FinishedFile(entryRelativePath, err)
 
 			if err != nil {
@@ -901,7 +922,7 @@ func (u *Uploader) processSingle(
 	case fs.StreamingFile:
 		atomic.AddInt32(&u.stats.NonCachedFiles, 1)
 
-		de, err := u.uploadStreamingFileInternal(ctx, entryRelativePath, entry)
+		de, err := u.uploadStreamingFileInternal(ctx, entryRelativePath, entry, policyTree.Child(entry.Name()).EffectivePolicy())
 
 		return u.processEntryUploadResult(ctx, de, err, entryRelativePath, parentDirBuilder,
 			policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreFileErrors.OrDefault(false),
@@ -1140,7 +1161,7 @@ func uploadDirInternal(
 
 func (u *Uploader) reportErrorAndMaybeCancel(err error, isIgnored bool, dmb *DirManifestBuilder, entryRelativePath string) {
 	if u.IsCanceled() && errors.Is(err, errCanceled) {
-		// alrady canceled, do not report another.
+		// already canceled, do not report another.
 		return
 	}
 

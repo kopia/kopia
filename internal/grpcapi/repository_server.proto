@@ -118,6 +118,9 @@ message DeleteManifestResponse {
 
 message FindManifestsRequest {
   map<string, string> labels = 1;
+
+  // if set to non-zero, the server will return up to N entries.
+  int32 page_size = 2;
 }
 
 message FindManifestsResponse {
@@ -156,6 +159,7 @@ message SessionRequest {
 
 message SessionResponse {
   int64 request_id = 1; // corresponds to request ID
+  bool has_more = 3; // if set to true, the client should expect more responses with the same request_id.
 
   oneof response {
     ErrorResponse error = 2;

@@ -167,7 +167,7 @@ func NewStreamingDirectory(
 // virtualFile is an implementation of fs.StreamingFile with an io.Reader.
 type virtualFile struct {
 	virtualEntry
-	reader io.Reader
+	reader io.ReadCloser
 }
 
 var errReaderAlreadyUsed = errors.New("cannot use streaming file reader more than once")
@@ -175,7 +175,7 @@ var errReaderAlreadyUsed = errors.New("cannot use streaming file reader more tha
 // GetReader returns the streaming file's reader.
 // Note: Caller of this function has to ensure concurrency safety.
 // The file's reader is set to nil after the first call.
-func (vf *virtualFile) GetReader(ctx context.Context) (io.Reader, error) {
+func (vf *virtualFile) GetReader(ctx context.Context) (io.ReadCloser, error) {
 	if vf.reader == nil {
 		return nil, errReaderAlreadyUsed
 	}
@@ -188,12 +188,12 @@ func (vf *virtualFile) GetReader(ctx context.Context) (io.Reader, error) {
 }
 
 // StreamingFileFromReader returns a streaming file with given name and reader.
-func StreamingFileFromReader(name string, reader io.Reader) fs.StreamingFile {
+func StreamingFileFromReader(name string, reader io.ReadCloser) fs.StreamingFile {
 	return StreamingFileWithModTimeFromReader(name, clock.Now(), reader)
 }
 
 // StreamingFileWithModTimeFromReader returns a streaming file with given name, modified time, and reader.
-func StreamingFileWithModTimeFromReader(name string, t time.Time, reader io.Reader) fs.StreamingFile {
+func StreamingFileWithModTimeFromReader(name string, t time.Time, reader io.ReadCloser) fs.StreamingFile {
 	return &virtualFile{
 		virtualEntry: virtualEntry{
 			name:    name,

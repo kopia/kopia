@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 
-	"github.com/alecthomas/kingpin"
+	"github.com/alecthomas/kingpin/v2"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/user"

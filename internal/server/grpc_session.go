@@ -131,14 +131,14 @@ func (s *Server) Session(srv grpcapi.KopiaRepository_SessionServer) error {
 			go func() {
 				defer s.grpcServerState.sem.Release(1)
 
-				resp := handleSessionRequest(ctx, dw, authz, req)
-
-				if err := s.send(srv, req.RequestId, resp); err != nil {
-					select {
-					case lastErr <- err:
-					default:
+				handleSessionRequest(ctx, dw, authz, req, func(resp *grpcapi.SessionResponse) {
+					if err := s.send(srv, req.RequestId, resp); err != nil {
+						select {
+						case lastErr <- err:
+						default:
+						}
 					}
-				}
+				})
 			}()
 		}
 
@@ -148,7 +148,7 @@ func (s *Server) Session(srv grpcapi.KopiaRepository_SessionServer) error {
 
 var tracer = otel.Tracer("kopia/grpc")
 
-func handleSessionRequest(ctx context.Context, dw repo.DirectRepositoryWriter, authz auth.AuthorizationInfo, req *grpcapi.SessionRequest) *grpcapi.SessionResponse {
+func handleSessionRequest(ctx context.Context, dw repo.DirectRepositoryWriter, authz auth.AuthorizationInfo, req *grpcapi.SessionRequest, respond func(*grpcapi.SessionResponse)) {
 	if req.TraceContext != nil {
 		var tc propagation.TraceContext
 		ctx = tc.Extract(ctx, propagation.MapCarrier(req.TraceContext))
@@ -156,37 +156,37 @@ func handleSessionRequest(ctx context.Context, dw repo.DirectRepositoryWriter, a
 
 	switch inner := req.GetRequest().(type) {
 	case *grpcapi.SessionRequest_GetContentInfo:
-		return handleGetContentInfoRequest(ctx, dw, authz, inner.GetContentInfo)
+		respond(handleGetContentInfoRequest(ctx, dw, authz, inner.GetContentInfo))
 
 	case *grpcapi.SessionRequest_GetContent:
-		return handleGetContentRequest(ctx, dw, authz, inner.GetContent)
+		respond(handleGetContentRequest(ctx, dw, authz, inner.GetContent))
 
 	case *grpcapi.SessionRequest_WriteContent:
-		return handleWriteContentRequest(ctx, dw, authz, inner.WriteContent)
+		respond(handleWriteContentRequest(ctx, dw, authz, inner.WriteContent))
 
 	case *grpcapi.SessionRequest_Flush:
-		return handleFlushRequest(ctx, dw, authz, inner.Flush)
+		respond(handleFlushRequest(ctx, dw, authz, inner.Flush))
 
 	case *grpcapi.SessionRequest_GetManifest:
-		return handleGetManifestRequest(ctx, dw, authz, inner.GetManifest)
+		respond(handleGetManifestRequest(ctx, dw, authz, inner.GetManifest))
 
 	case *grpcapi.SessionRequest_PutManifest:
-		return handlePutManifestRequest(ctx, dw, authz, inner.PutManifest)
+		respond(handlePutManifestRequest(ctx, dw, authz, inner.PutManifest))
 
 	case *grpcapi.SessionRequest_FindManifests:
-		return handleFindManifestsRequest(ctx, dw, authz, inner.FindManifests)
+		handleFindManifestsRequest(ctx, dw, authz, inner.FindManifests, respond)
 
 	case *grpcapi.SessionRequest_DeleteManifest:
-		return handleDeleteManifestRequest(ctx, dw, authz, inner.DeleteManifest)
+		respond(handleDeleteManifestRequest(ctx, dw, authz, inner.DeleteManifest))
 
 	case *grpcapi.SessionRequest_PrefetchContents:
-		return handlePrefetchContentsRequest(ctx, dw, authz, inner.PrefetchContents)
+		respond(handlePrefetchContentsRequest(ctx, dw, authz, inner.PrefetchContents))
 
 	case *grpcapi.SessionRequest_InitializeSession:
-		return errorResponse(errors.Errorf("InitializeSession must be the first request in a session"))
+		respond(errorResponse(errors.Errorf("InitializeSession must be the first request in a session")))
 
 	default:
-		return errorResponse(errors.Errorf("unhandled session request"))
+		respond(errorResponse(errors.Errorf("unhandled session request")))
 	}
 }
 
@@ -344,13 +344,14 @@ func handlePutManifestRequest(ctx context.Context, dw repo.DirectRepositoryWrite
 	}
 }
 
-func handleFindManifestsRequest(ctx context.Context, dw repo.DirectRepositoryWriter, authz auth.AuthorizationInfo, req *grpcapi.FindManifestsRequest) *grpcapi.SessionResponse {
+func handleFindManifestsRequest(ctx context.Context, dw repo.DirectRepositoryWriter, authz auth.AuthorizationInfo, req *grpcapi.FindManifestsRequest, respond func(*grpcapi.SessionResponse)) {
 	ctx, span := tracer.Start(ctx, "GRPCSession.FindManifests")
 	defer span.End()
 
 	em, err := dw.FindManifests(ctx, req.GetLabels())
 	if err != nil {
-		return errorResponse(err)
+		respond(errorResponse(err))
+		return
 	}
 
 	// only return manifests which the caller can read
@@ -361,16 +362,32 @@ func handleFindManifestsRequest(ctx context.Context, dw repo.DirectRepositoryWri
 			continue
 		}
 
+		// if pagination was requested and we've already reached the page size,
+		// send a response with the current batch of manifests and reset the batch.
+		if ps := int(req.GetPageSize()); ps > 0 && len(filtered) >= ps {
+			respond(&grpcapi.SessionResponse{
+				HasMore: true,
+				Response: &grpcapi.SessionResponse_FindManifests{
+					FindManifests: &grpcapi.FindManifestsResponse{
+						Metadata: makeEntryMetadataList(filtered),
+					},
+				},
+			})
+
+			filtered = nil
+		}
+
 		filtered = append(filtered, m)
 	}
 
-	return &grpcapi.SessionResponse{
+	// respond with the final page of manifests
+	respond(&grpcapi.SessionResponse{
 		Response: &grpcapi.SessionResponse_FindManifests{
 			FindManifests: &grpcapi.FindManifestsResponse{
 				Metadata: makeEntryMetadataList(filtered),
 			},
 		},
-	}
+	})
 }
 
 func handleDeleteManifestRequest(ctx context.Context, dw repo.DirectRepositoryWriter, authz auth.AuthorizationInfo, req *grpcapi.DeleteManifestRequest) *grpcapi.SessionResponse {

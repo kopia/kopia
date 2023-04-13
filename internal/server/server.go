@@ -382,7 +382,7 @@ func (s *Server) handleRequestPossiblyNotConnected(isAuthorized isAuthorizedFunc
 		var v interface{}
 		var err *apiError
 
-		// process the request while ignoring the cancelation signal
+		// process the request while ignoring the cancellation signal
 		// to ensure all goroutines started by it won't be canceled
 		// when the request finishes.
 		ctx = ctxutil.Detach(ctx)

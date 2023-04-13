@@ -90,7 +90,7 @@ func (om *Manager) closedWriter(ow *objectWriter) {
 //
 // For example when uploading a 100 GB file it is beneficial to independently upload sections of [0..25GB),
 // [25..50GB), [50GB..75GB) and [75GB..100GB) and concatenate them together as this allows us to run four splitters
-// in parallel utilizing more CPU cores. Because some split points now start at fixed bounaries and not content-specific,
+// in parallel utilizing more CPU cores. Because some split points now start at fixed boundaries and not content-specific,
 // this causes some slight loss of deduplication at concatenation points (typically 1-2 contents, usually <10MB),
 // so this method should only be used for very large files where this overhead is relatively small.
 func (om *Manager) Concatenate(ctx context.Context, objectIDs []ID) (ID, error) {
