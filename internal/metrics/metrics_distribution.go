@@ -63,8 +63,8 @@ func (s *DistributionState[T]) Mean() T {
 // Distribution measures distribution/summary of values.
 type Distribution[T constraints.Integer | constraints.Float] struct {
 	mu               sync.Mutex
-	state            atomic.Pointer[DistributionState[T]]
-	bucketThresholds []T
+	state            atomic.Pointer[DistributionState[T]] // +checklocksignore
+	bucketThresholds []T                                  // +checklocksignore
 
 	prom            prometheus.Observer
 	prometheusScale float64
