@@ -649,7 +649,8 @@ func randHex(tb testing.TB, length int) string {
 // Notice that this is not a crypto RNG.
 var (
 	rMu sync.Mutex
-	r   = rand.New(rand.NewSource(clock.Now().UnixNano()))
+	// +checklocks:rMu
+	r = rand.New(rand.NewSource(clock.Now().UnixNano()))
 )
 
 func randLongHex(tb testing.TB, length int) string {

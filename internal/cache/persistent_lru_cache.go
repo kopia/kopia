@@ -203,6 +203,7 @@ func (c *PersistentCache) GetPartial(ctx context.Context, key string, offset, le
 	return false
 }
 
+// +checklocks:c.listCacheMutex
 func (c *PersistentCache) isCacheFullLocked() bool {
 	return c.listCache.DataSize() > c.sweep.MaxSizeBytes
 }
@@ -330,6 +331,7 @@ func (h *contentMetadataHeap) LookupByID(id blob.ID) (int, *blobCacheEntry) {
 
 func (h contentMetadataHeap) DataSize() int64 { return h.dataSize }
 
+// +checklocks:c.listCacheMutex
 func (c *PersistentCache) listCacheCleanupLocked(ctx context.Context) {
 	var (
 		unsuccessfulDeletes     []blob.Metadata
@@ -391,7 +393,7 @@ func (c *PersistentCache) initialScan(ctx context.Context) error {
 			tooRecentBytes += it.Length
 		}
 
-		heap.Push(&c.listCache, it)
+		heap.Push(&c.listCache, it) // +checklocksignore
 
 		return nil
 	})
