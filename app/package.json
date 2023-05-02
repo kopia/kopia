@@ -115,7 +115,7 @@
     "concurrently": "^8.0.1",
     "dotenv": "^16.0.3",
     "electron": "^24.1.2",
-    "electron-builder": "^24.2.0",
+    "electron-builder": "^24.3.0",
     "electron-notarize": "^1.2.2",
     "playwright": "^1.32.3",
     "playwright-core": "^1.33.0"
