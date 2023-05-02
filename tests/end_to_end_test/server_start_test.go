@@ -23,8 +23,10 @@ import (
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/filesystem"
+	"github.com/kopia/kopia/repo/maintenance"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
+	"github.com/kopia/kopia/tests/clitestutil"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
@@ -429,6 +431,66 @@ func TestConnectToExistingRepositoryViaAPI(t *testing.T) {
 	if minSize != maxSize {
 		t.Errorf("snapshots don't have consistent size: min %v max %v", minSize, maxSize)
 	}
+}
+
+func TestServerScheduling(t *testing.T) {
+	t.Parallel()
+
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+
+	emptyDir1 := testutil.TempDirectory(t)
+	emptyDir2 := testutil.TempDirectory(t)
+
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--override-hostname=fake-hostname", "--override-username=fake-username")
+
+	e.RunAndExpectSuccess(t, "snapshot", "create", emptyDir1)
+	e.RunAndExpectSuccess(t, "snapshot", "create", emptyDir2)
+	e.RunAndExpectSuccess(t, "maintenance", "set", "--full-interval", "2s", "--pause-full", "0s")
+	e.RunAndExpectSuccess(t, "policy", "set", emptyDir1, "--snapshot-interval=1s")
+	e.RunAndExpectSuccess(t, "policy", "set", emptyDir2, "--snapshot-interval=2s")
+
+	var sp testutil.ServerParameters
+
+	// maintenance info before and after server run
+	var miBefore, miAfter struct {
+		maintenance.Params
+		maintenance.Schedule `json:"schedule"`
+	}
+
+	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "maintenance", "info", "--json"), &miBefore)
+
+	e.SetLogOutput(true, "server-")
+
+	// start a server, run for 10 seconds and kill it.
+	wait, kill := e.RunAndProcessStderr(t, sp.ProcessOutput,
+		"server", "start",
+		"--address=localhost:0",
+		"--insecure",
+		"--without-password",
+		"--server-control-password=admin-pwd",
+	)
+
+	time.Sleep(10 * time.Second)
+
+	kill()
+	wait()
+
+	snaps1 := clitestutil.ListSnapshotsAndExpectSuccess(t, e, emptyDir1)[0].Snapshots
+	snaps2 := clitestutil.ListSnapshotsAndExpectSuccess(t, e, emptyDir2)[0].Snapshots
+
+	// 10 seconds should be enough to make 8+ snapshots of emptyDir1 and 4+ snapshots of emptyDir2
+	require.GreaterOrEqual(t, len(snaps1), 8)
+	require.GreaterOrEqual(t, len(snaps2), 4)
+	require.Less(t, len(snaps2), len(snaps1))
+
+	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "maintenance", "info", "--json"), &miAfter)
+
+	// make sure we got some maintenance runs
+	numRuns := len(miAfter.Schedule.Runs["cleanup-logs"]) - len(miBefore.Schedule.Runs["cleanup-logs"])
+	require.Greater(t, numRuns, 2)
+	require.Less(t, numRuns, 5)
 }
 
 func TestServerStartInsecure(t *testing.T) {

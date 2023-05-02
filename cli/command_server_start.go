@@ -63,6 +63,8 @@ type commandServerStart struct {
 	uiPreferencesFile                   string
 	asyncRepoConnect                    bool
 	persistentLogs                      bool
+	debugScheduler                      bool
+	minMaintenanceInterval              time.Duration
 
 	shutdownGracePeriod time.Duration
 
@@ -84,7 +86,7 @@ func (c *commandServerStart) setup(svc advancedAppServices, parent commandParent
 	cmd.Flag("grpc", "Start the GRPC server").Default("true").BoolVar(&c.serverStartGRPC)
 	cmd.Flag("control-api", "Start the control API").Default("true").BoolVar(&c.serverStartControlAPI)
 
-	cmd.Flag("refresh-interval", "Frequency for refreshing repository status").Default("300s").DurationVar(&c.serverStartRefreshInterval)
+	cmd.Flag("refresh-interval", "Frequency for refreshing repository status").Default("4h").DurationVar(&c.serverStartRefreshInterval)
 	cmd.Flag("insecure", "Allow insecure configurations (do not use in production)").Hidden().BoolVar(&c.serverStartInsecure)
 	cmd.Flag("max-concurrency", "Maximum number of server goroutines").Default("0").IntVar(&c.serverStartMaxConcurrency)
 
@@ -97,6 +99,8 @@ func (c *commandServerStart) setup(svc advancedAppServices, parent commandParent
 	cmd.Flag("server-control-password", "Server control password").PlaceHolder("PASSWORD").Envar(svc.EnvName("KOPIA_SERVER_CONTROL_PASSWORD")).StringVar(&c.serverControlPassword)
 
 	cmd.Flag("auth-cookie-signing-key", "Force particular auth cookie signing key").Envar(svc.EnvName("KOPIA_AUTH_COOKIE_SIGNING_KEY")).Hidden().StringVar(&c.serverAuthCookieSingingKey)
+	cmd.Flag("log-scheduler", "Enable logging of scheduler actions").Hidden().Default("true").BoolVar(&c.debugScheduler)
+	cmd.Flag("min-maintenance-interval", "Minimal maintenance interval").Hidden().Default("60s").DurationVar(&c.minMaintenanceInterval)
 
 	cmd.Flag("shutdown-on-stdin", "Shut down the server when stdin handle has closed.").Hidden().BoolVar(&c.serverStartShutdownWhenStdinClosed)
 
@@ -153,6 +157,8 @@ func (c *commandServerStart) serverStartOptions(ctx context.Context) (*server.Op
 		UITitlePrefix:        c.uiTitlePrefix,
 		PersistentLogs:       c.persistentLogs,
 
+		DebugScheduler:         c.debugScheduler,
+		MinMaintenanceInterval: c.minMaintenanceInterval,
 		DisableCSRFTokenChecks: c.disableCSRFTokenChecks,
 	}, nil
 }
@@ -257,11 +263,7 @@ func (c *commandServerStart) run(ctx context.Context) error {
 		})
 	}
 
-	onExternalConfigReloadRequest(func() {
-		if rerr := srv.Refresh(ctx); rerr != nil {
-			log(ctx).Errorf("refresh failed: %v", rerr)
-		}
-	})
+	onExternalConfigReloadRequest(srv.Refresh)
 
 	err = c.startServerWithOptionalTLS(ctx, httpServer)
 	if !errors.Is(err, http.ErrServerClosed) {
