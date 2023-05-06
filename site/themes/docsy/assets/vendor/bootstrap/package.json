@@ -114,7 +114,7 @@
     "http-server": "^0.11.1",
     "ip": "^1.1.5",
     "karma": "^3.0.0",
-    "karma-browserstack-launcher": "^1.3.0",
+    "karma-browserstack-launcher": "^1.4.0",
     "karma-chrome-launcher": "^2.2.0",
     "karma-coverage-istanbul-reporter": "^2.0.2",
     "karma-detect-browsers": "^2.3.2",
