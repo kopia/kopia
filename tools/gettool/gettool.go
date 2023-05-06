@@ -23,6 +23,7 @@ import (
 type ToolInfo struct {
 	urlTemplate         string
 	osMap               map[string]string
+	osarchMap           map[string]string
 	archMap             map[string]string
 	stripPathComponents int
 	unsupportedArch     map[string]bool
@@ -40,6 +41,8 @@ func (ti ToolInfo) actualURL(version, goos, goarch string) string {
 
 	u := ti.urlTemplate
 	u = strings.ReplaceAll(u, "VERSION", version)
+	u = strings.ReplaceAll(u, "GOOSARCH", replacementFromMap(goos+"/"+goarch, ti.osarchMap))
+	u = strings.ReplaceAll(u, "GOOS", replacementFromMap(goos, ti.osMap))
 	u = strings.ReplaceAll(u, "GOARCH", replacementFromMap(goarch, ti.archMap))
 	u = strings.ReplaceAll(u, "GOOS", replacementFromMap(goos, ti.osMap))
 	u = strings.ReplaceAll(u, "EXT", replacementFromMap(goos, map[string]string{
@@ -61,19 +64,19 @@ var tools = map[string]ToolInfo{
 		stripPathComponents: 1,
 	},
 	"hugo": {
-		urlTemplate: "https://github.com/gohugoio/hugo/releases/download/vVERSION/hugo_extended_VERSION_GOOS-GOARCH.EXT",
-		archMap: map[string]string{
-			"amd64": "64bit", "arm": "ARM", "arm64": "ARM64",
-		},
-		osMap: map[string]string{
-			"linux": "Linux", "darwin": "macOS",
+		urlTemplate: "https://github.com/gohugoio/hugo/releases/download/vVERSION/hugo_extended_VERSION_GOOSARCH.EXT",
+		osarchMap: map[string]string{
+			"darwin/amd64":  "darwin-universal",
+			"darwin/arm64":  "darwin-universal",
+			"linux/amd64":   "linux-amd64",
+			"linux/arm64":   "linux-arm64",
+			"windows/amd64": "windows-amd64",
+			"windows/arm64": "windows-arm64",
 		},
 		unsupportedArch: map[string]bool{
 			"arm": true,
 		},
-		unsupportedOSArch: map[string]bool{
-			"linux/arm64": true,
-		},
+		unsupportedOSArch: map[string]bool{},
 	},
 	"gotestsum": {
 		urlTemplate: "https://github.com/gotestyourself/gotestsum/releases/download/vVERSION/gotestsum_VERSION_GOOS_GOARCH.tar.gz",
