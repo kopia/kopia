@@ -9,11 +9,13 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
+	azureblob "github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/blob"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/bloberror"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/internal/timestampmeta"
 	"github.com/kopia/kopia/repo/blob"
@@ -30,8 +32,9 @@ type azStorage struct {
 	Options
 	blob.DefaultProviderImplementation
 
-	service   *azblob.Client
-	container string
+	service         *azblob.Client
+	container       string
+	azStorageConfig *StorageConfig
 }
 
 func (az *azStorage) GetBlob(ctx context.Context, b blob.ID, offset, length int64, output blob.OutputBuffer) error {
@@ -122,6 +125,8 @@ func (az *azStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes, op
 		return errors.Wrap(blob.ErrUnsupportedPutBlobOption, "do-not-recreate")
 	}
 
+	accessTier := azureblob.AccessTier(az.azStorageConfig.GetStorageClassForAzureBlobID(b))
+
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -134,7 +139,8 @@ func (az *azStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes, op
 	}
 
 	uso := &azblob.UploadStreamOptions{
-		Metadata: metadata,
+		Metadata:   metadata,
+		AccessTier: &accessTier,
 	}
 
 	resp, err := az.service.UploadStream(ctx, az.container, az.getObjectNameString(b), data.Reader(), uso)
@@ -283,9 +289,20 @@ func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error)
 	}
 
 	raw := &azStorage{
-		Options:   *opt,
-		container: opt.Container,
-		service:   service,
+		Options:         *opt,
+		container:       opt.Container,
+		service:         service,
+		azStorageConfig: &StorageConfig{},
+	}
+
+	var scOutput gather.WriteBuffer
+
+	if getBlobError := raw.GetBlob(ctx, ConfigName, 0, -1, &scOutput); getBlobError == nil {
+		if scError := raw.azStorageConfig.Load(scOutput.Bytes().Reader()); scError != nil {
+			return nil, errors.Wrapf(scError, "error parsing storage config for account %q", opt.StorageAccount)
+		}
+	} else if !errors.Is(getBlobError, blob.ErrBlobNotFound) {
+		return nil, errors.Wrapf(getBlobError, "error retrieving storage config from account %q", opt.StorageAccount)
 	}
 
 	az := retrying.NewWrapper(raw)

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/Azure/azure-storage-blob-go/azblob"
@@ -268,5 +269,38 @@ func TestAzureStorageInvalidCreds(t *testing.T) {
 
 	if err == nil {
 		t.Errorf("unexpected success connecting to Azure blob storage, wanted error")
+	}
+}
+
+func TestGetStorageClassForAzureBlobID(t *testing.T) {
+	configData := `
+	{
+		"blobOptions": [
+			{ "prefix": "p", "storageClass": "Cool" },
+			{ "prefix": "q", "storageClass": "Hot" }
+		]
+	}`
+
+	config := &azure.StorageConfig{}
+	err := config.Load(strings.NewReader(configData))
+	if err != nil {
+		t.Fatalf("failed to load storage config: %v", err)
+	}
+
+	testCases := []struct {
+		blobID       blob.ID
+		expectedType string
+	}{
+		{blob.ID("test/someblob"), ""},
+		{blob.ID("p/someblob1"), "Cool"},
+		{blob.ID("q/someblob1"), "Hot"},
+		{blob.ID("q/someblob2"), "Hot"},
+	}
+
+	for _, tc := range testCases {
+		storageClass := config.GetStorageClassForAzureBlobID(tc.blobID)
+		if storageClass != tc.expectedType {
+			t.Errorf("expected storage class '%s' for blob ID '%s', but got '%s'", tc.expectedType, tc.blobID, storageClass)
+		}
 	}
 }
