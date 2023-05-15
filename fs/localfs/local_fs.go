@@ -373,6 +373,9 @@ func entryFromDirEntry(fi os.FileInfo, prefix string) fs.Entry {
 	case maskedmode == 0 && isplaceholder:
 		return newShallowFilesystemFile(newEntry(fi, prefix))
 
+	case maskedmode == os.ModeNamedPipe:
+		return newFilesystemFile(newEntry(fi, prefix))
+
 	default:
 		return newFilesystemErrorEntry(newEntry(fi, prefix), fs.ErrUnknown)
 	}
