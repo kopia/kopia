@@ -84,7 +84,7 @@ func (e *Engine) RandomAction(ctx context.Context, actionOpts ActionOpts) error 
 }
 
 // CheckErrRecovery tries to recover from no space left error
-// by deleting data directories
+// by deleting data directories.
 func (e *Engine) CheckErrRecovery(ctx context.Context, incomingErr error, actionOpts ActionOpts) (outgoingErr error) {
 	outgoingErr = incomingErr
 
