@@ -139,10 +139,10 @@ func (c *commandSnapshotCreate) run(ctx context.Context, rep repo.RepositoryWrit
 
 		if i < len(c.sourceOverrides) {
 			sourceOverride := c.sourceOverrides[i]
-			sourceInfo, err = snapshot.ParseSourceInfo(sourceOverride, rep.ClientOptions().Hostname, rep.ClientOptions().Username)
+			sourceInfo, err = parseFullSource(sourceOverride, rep)
 
 			if err != nil {
-				finalErrors = append(finalErrors, fmt.Sprintf("invalid source override: '%s': %s", snapshotDir, err))
+				finalErrors = append(finalErrors, fmt.Sprintf("invalid source override: '%s': %s", sourceOverride, err))
 				continue
 			}
 		} else {
@@ -483,4 +483,16 @@ func shouldSnapshotSource(ctx context.Context, src snapshot.SourceInfo, rep repo
 	return src.Host == rep.ClientOptions().Hostname &&
 		src.UserName == rep.ClientOptions().Username &&
 		!policy.IsManualSnapshot(policyTree), nil
+}
+
+func parseFullSource(str string, rep repo.RepositoryWriter) (snapshot.SourceInfo, error) {
+	sourceInfo, err := snapshot.ParseSourceInfo(str, rep.ClientOptions().Hostname, rep.ClientOptions().Username)
+
+	if err != nil {
+		return snapshot.SourceInfo{}, errors.Wrapf(err, "not a valid source %v", str)
+	} else if sourceInfo.Host == "" || sourceInfo.UserName == "" || sourceInfo.Path == "" {
+		return snapshot.SourceInfo{}, errors.Errorf("source does not resolve into host, user and path: '%s'", str)
+	}
+
+	return sourceInfo, nil
 }
