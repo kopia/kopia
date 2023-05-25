@@ -39,6 +39,7 @@ type commandSnapshotCreate struct {
 	snapshotCreateCheckpointUploadLimitMB int64
 	snapshotCreateTags                    []string
 	flushPerSource                        bool
+	sourceOverrides                       []string
 
 	pins []string
 
@@ -69,6 +70,7 @@ func (c *commandSnapshotCreate) setup(svc appServices, parent commandParent) {
 	cmd.Flag("tags", "Tags applied on the snapshot. Must be provided in the <key>:<value> format.").StringsVar(&c.snapshotCreateTags)
 	cmd.Flag("pin", "Create a pinned snapshot that's will not expire automatically").StringsVar(&c.pins)
 	cmd.Flag("flush-per-source", "Flush writes at the end of each source").Hidden().BoolVar(&c.flushPerSource)
+	cmd.Flag("set-source", "Override the source of the snapshot. One flag can be given per source to snapshot.").StringsVar(&c.sourceOverrides)
 
 	c.logDirDetail = -1
 	c.logEntryDetail = -1
@@ -121,7 +123,9 @@ func (c *commandSnapshotCreate) run(ctx context.Context, rep repo.RepositoryWrit
 		return err
 	}
 
-	for _, snapshotDir := range sources {
+	for i, snapshotDir := range sources {
+		var sourceInfo snapshot.SourceInfo
+
 		if u.IsCanceled() {
 			log(ctx).Infof("Upload canceled")
 			break
@@ -133,13 +137,23 @@ func (c *commandSnapshotCreate) run(ctx context.Context, rep repo.RepositoryWrit
 			continue
 		}
 
-		sourceInfo := snapshot.SourceInfo{
-			Path:     filepath.Clean(dir),
-			Host:     rep.ClientOptions().Hostname,
-			UserName: rep.ClientOptions().Username,
+		if i < len(c.sourceOverrides) {
+			sourceOverride := c.sourceOverrides[i]
+			sourceInfo, err = snapshot.ParseSourceInfo(sourceOverride, rep.ClientOptions().Hostname, rep.ClientOptions().Username)
+
+			if err != nil {
+				finalErrors = append(finalErrors, fmt.Sprintf("invalid source override: '%s': %s", snapshotDir, err))
+				continue
+			}
+		} else {
+			sourceInfo = snapshot.SourceInfo{
+				Path:     dir,
+				Host:     rep.ClientOptions().Hostname,
+				UserName: rep.ClientOptions().Username,
+			}
 		}
 
-		if err := c.snapshotSingleSource(ctx, rep, u, sourceInfo, tags); err != nil {
+		if err := c.snapshotSingleSource(ctx, dir, rep, u, sourceInfo, tags); err != nil {
 			finalErrors = append(finalErrors, err.Error())
 		}
 	}
@@ -261,7 +275,7 @@ func startTimeAfterEndTime(startTime, endTime time.Time) bool {
 }
 
 //nolint:gocyclo
-func (c *commandSnapshotCreate) snapshotSingleSource(ctx context.Context, rep repo.RepositoryWriter, u *snapshotfs.Uploader, sourceInfo snapshot.SourceInfo, tags map[string]string) error {
+func (c *commandSnapshotCreate) snapshotSingleSource(ctx context.Context, pathToSnapshot string, rep repo.RepositoryWriter, u *snapshotfs.Uploader, sourceInfo snapshot.SourceInfo, tags map[string]string) error {
 	log(ctx).Infof("Snapshotting %v ...", sourceInfo)
 
 	var (
@@ -273,12 +287,12 @@ func (c *commandSnapshotCreate) snapshotSingleSource(ctx context.Context, rep re
 	if c.snapshotCreateStdinFileName != "" {
 		// stdin source will be snapshotted using a virtual static root directory with a single streaming file entry
 		// Create a new static directory with the given name and add a streaming file entry with os.Stdin reader
-		fsEntry = virtualfs.NewStaticDirectory(sourceInfo.Path, []fs.Entry{
+		fsEntry = virtualfs.NewStaticDirectory(pathToSnapshot, []fs.Entry{
 			virtualfs.StreamingFileFromReader(c.snapshotCreateStdinFileName, io.NopCloser(c.svc.stdin())),
 		})
 		setManual = true
 	} else {
-		fsEntry, err = getLocalFSEntry(ctx, sourceInfo.Path)
+		fsEntry, err = getLocalFSEntry(ctx, pathToSnapshot)
 		if err != nil {
 			return errors.Wrap(err, "unable to get local filesystem entry")
 		}

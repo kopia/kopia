@@ -728,3 +728,34 @@ func TestSnapshotCreateAllFlushPerSource(t *testing.T) {
 	require.Len(t, indexList3, len(indexList2)+3)
 	require.Len(t, metadataBlobList3, len(metadataBlobList2)+3)
 }
+
+func TestSnapshotCreateAllSnapshotPath(t *testing.T) {
+	t.Parallel()
+
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--override-hostname=foo", "--override-username=foo")
+	e.RunAndExpectSuccess(t, "snapshot", "create", "--set-source", "bar@bar:/foo/bar", sharedTestDataDir1)
+	e.RunAndExpectSuccess(t, "snapshot", "create", "--set-source", "bar@bar:C:\\foo\\baz", sharedTestDataDir2)
+	e.RunAndExpectSuccess(t, "snapshot", "create", "--set-source", "/foo/bar", sharedTestDataDir3)
+
+	si := clitestutil.ListSnapshotsAndExpectSuccess(t, e)
+	if got, want := len(si), 3; got != want {
+		t.Fatalf("got %v sources, wanted %v", got, want)
+	}
+
+	require.Equal(t, si[0].User, "bar")
+	require.Equal(t, si[0].Host, "bar")
+	require.Equal(t, si[0].Path, "/foo/bar")
+
+	require.Equal(t, si[1].User, "bar")
+	require.Equal(t, si[1].Host, "bar")
+	require.Equal(t, si[1].Path, "C:\\foo\\baz")
+
+	require.Equal(t, si[2].User, "foo")
+	require.Equal(t, si[2].Host, "foo")
+	require.Equal(t, si[2].Path, "/foo/bar")
+}
