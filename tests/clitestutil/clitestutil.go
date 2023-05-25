@@ -120,7 +120,7 @@ type testEnv interface {
 func ListSnapshotsAndExpectSuccess(t *testing.T, e testEnv, targets ...string) []SourceInfo {
 	t.Helper()
 
-	lines := e.RunAndExpectSuccess(t, append([]string{"snapshot", "list", "--all", "-l", "--manifest-id"}, targets...)...)
+	lines := e.RunAndExpectSuccess(t, append([]string{"snapshot", "list", "-l", "--manifest-id"}, targets...)...)
 
 	return MustParseSnapshots(t, lines)
 }

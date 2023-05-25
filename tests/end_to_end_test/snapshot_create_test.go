@@ -742,7 +742,7 @@ func TestSnapshotCreateAllSnapshotPath(t *testing.T) {
 	e.RunAndExpectSuccess(t, "snapshot", "create", "--set-source", "bar@bar:C:\\foo\\baz", sharedTestDataDir2)
 	e.RunAndExpectSuccess(t, "snapshot", "create", "--set-source", "/foo/bar", sharedTestDataDir3)
 
-	si := clitestutil.ListSnapshotsAndExpectSuccess(t, e)
+	si := clitestutil.ListSnapshotsAndExpectSuccess(t, e, "--all")
 	if got, want := len(si), 3; got != want {
 		t.Fatalf("got %v sources, wanted %v", got, want)
 	}
