@@ -261,6 +261,7 @@ func restoreIntoDataDirectoryAction(ctx context.Context, e *Engine, opts map[str
 		if len(opts) == 0 {
 			opts[SnapshotIDField] = snapID
 		}
+
 		return opts, err //nolint:wrapcheck
 	}
 
@@ -316,7 +317,7 @@ func pickActionWeighted(actionControlOpts map[string]string, actionList map[Acti
 	return keepKey
 }
 
-// ErrIsNotEnoughSpace checks if the given error is about no space left
+// ErrIsNotEnoughSpace checks if the given error is about no space left.
 func (e *Engine) ErrIsNotEnoughSpace(err error) bool {
 	return errors.Is(err, robustness.ErrCannotPerformIO) || strings.Contains(err.Error(), noSpaceOnDeviceMatchStr)
 }

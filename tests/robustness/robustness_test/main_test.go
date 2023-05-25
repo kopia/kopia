@@ -55,6 +55,7 @@ func TestMain(m *testing.M) {
 			log.Println("snap ID: ", snapID)
 			_ = eng.Checker.DeleteSnapshot(ctx, snapID, opts)
 		}
+
 		th.cleanup(ctx)
 		log.Fatalln("Error restoring into the data directory:", err)
 	}
