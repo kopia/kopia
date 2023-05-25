@@ -48,7 +48,13 @@ func TestMain(m *testing.M) {
 	eng = th.engine
 
 	// Restore a random snapshot into the data directory
-	if _, err := eng.ExecAction(ctx, engine.RestoreIntoDataDirectoryActionKey, nil); err != nil && !errors.Is(err, robustness.ErrNoOp) {
+	if opts, err := eng.ExecAction(ctx, engine.RestoreIntoDataDirectoryActionKey, nil); err != nil && !errors.Is(err, robustness.ErrNoOp) {
+		if eng.ErrIsNotEnoughSpace(err) {
+			// Delete the snapshot
+			snapID := opts["snapshot-ID"]
+			log.Println("snap ID: ", snapID)
+			_ = eng.Checker.DeleteSnapshot(ctx, snapID, opts)
+		}
 		th.cleanup(ctx)
 		log.Fatalln("Error restoring into the data directory:", err)
 	}
