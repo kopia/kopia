@@ -5,6 +5,7 @@ import (
 	"path"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"sort"
 	"strings"
 	"testing"
@@ -757,5 +758,10 @@ func TestSnapshotCreateAllSnapshotPath(t *testing.T) {
 
 	require.Equal(t, si[2].User, "foo")
 	require.Equal(t, si[2].Host, "foo")
-	require.Equal(t, si[2].Path, "/foo/bar")
+
+	if runtime.GOOS == "windows" {
+		require.Regexp(t, si[2].Path, "[A-Z]:\\foo\\bar")
+	} else {
+		require.Equal(t, si[2].Path, "/foo/bar")
+	}
 }
