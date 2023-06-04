@@ -105,7 +105,6 @@ func translateError(err error) error {
 	var re *azcore.ResponseError
 
 	if errors.As(err, &re) {
-		//nolint:exhaustive
 		switch re.ErrorCode {
 		case string(bloberror.BlobNotFound):
 			return blob.ErrBlobNotFound
