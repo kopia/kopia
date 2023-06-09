@@ -19,6 +19,39 @@ import (
 )
 
 const (
+	snapshotCreateHelp = `Creates a snapshot from the given path.
+
+A snapshots is a point in time backup of the given <path>. Snapshots are organized by source.
+Each user@host:/path is considered a unique source, and can have policies applied to them.
+
+Example: $ kopia snapshot create /home/user
+
+Creates a single snapshot of the home directory. This can be viewed using.
+
+$ kopia snapshot list
+
+Snapshots are always saved and tracked per source.
+Sources are indidual user@host:/path so 2 different paths on the same client are considered seperate sources.
+
+$ kopia snapshot create /home/user
+
+$ kopia snapshot create /home/other_user
+This will create 2 seperate sources from the same client and will be tracked seperately.
+
+When --all is used, a new snapshot is created for each source in the connected repository from the current client.
+This is useful if using kopia with a cron job or script. This won't disable the <path> argument if specified.
+
+Using $ kopia snapshot create --all /home/user
+will create 2 snapshots for /home/user if one already exsists in the
+repository for this source.
+
+Snapshots can be pinned as well to prevent it from being automatically deleted by the retention policy.
+Use the --pin NAME_OF_PIN to create a snapshot wit a pin. Mulitple pins can be created. A pinned snapshot will never be
+deleted automatically, but can be manually deleted.
+Add or remove a pin with $ kopia snapshot pin
+
+`
+
 	maxSnapshotDescriptionLength = 1024
 	timeFormat                   = "2006-01-02 15:04:05 MST"
 )
@@ -52,16 +85,16 @@ type commandSnapshotCreate struct {
 }
 
 func (c *commandSnapshotCreate) setup(svc appServices, parent commandParent) {
-	cmd := parent.Command("create", "Creates a snapshot of local directory or file.")
+	cmd := parent.Command("create", snapshotCreateHelp)
 
 	cmd.Arg("source", "Files or directories to create snapshot(s) of.").StringsVar(&c.snapshotCreateSources)
 	cmd.Flag("all", "Create snapshots for files or directories previously backed up by this user on this computer. Cannot be used when a source path argument is also specified.").BoolVar(&c.snapshotCreateAll)
 	cmd.Flag("upload-limit-mb", "Stop the backup process after the specified amount of data (in MB) has been uploaded.").PlaceHolder("MB").Default("0").Int64Var(&c.snapshotCreateCheckpointUploadLimitMB)
 	cmd.Flag("checkpoint-interval", "Interval between periodic checkpoints (must be <= 45 minutes).").Hidden().DurationVar(&c.snapshotCreateCheckpointInterval)
 	cmd.Flag("description", "Free-form snapshot description.").StringVar(&c.snapshotCreateDescription)
-	cmd.Flag("fail-fast", "Fail fast when creating snapshot.").Envar(svc.EnvName("KOPIA_SNAPSHOT_FAIL_FAST")).BoolVar(&c.snapshotCreateFailFast)
+	cmd.Flag("fail-fast", "Fail fast when creating snapshot. Read errors on files will cause a snapshot to fail immediately").Envar(svc.EnvName("KOPIA_SNAPSHOT_FAIL_FAST")).BoolVar(&c.snapshotCreateFailFast)
 	cmd.Flag("force-hash", "Force hashing of source files for a given percentage of files [0.0 .. 100.0]").Default("0").Float64Var(&c.snapshotCreateForceHash)
-	cmd.Flag("parallel", "Upload N files in parallel").PlaceHolder("N").Default("0").IntVar(&c.snapshotCreateParallelUploads)
+	cmd.Flag("parallel", "Hash and upload N files in parallel").PlaceHolder("N").Default("0").IntVar(&c.snapshotCreateParallelUploads)
 	cmd.Flag("start-time", "Override snapshot start timestamp.").StringVar(&c.snapshotCreateStartTime)
 	cmd.Flag("end-time", "Override snapshot end timestamp.").StringVar(&c.snapshotCreateEndTime)
 	cmd.Flag("force-enable-actions", "Enable snapshot actions even if globally disabled on this client").Hidden().BoolVar(&c.snapshotCreateForceEnableActions)
