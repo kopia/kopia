@@ -1,6 +1,10 @@
+//go:build linux
+// +build linux
+
 package endtoend_test
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -13,8 +17,10 @@ import (
 	"github.com/kopia/kopia/tests/testenv"
 )
 
-const PIPE_PATH = "pipe.txt"
-const TESTFILE_PATH = "testfile.txt"
+const (
+	pipePath     = "pipe.txt"
+	testfilePath = "testfile.txt"
+)
 
 func TestIgnoreNamedPipe(t *testing.T) {
 	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, testenv.NewExeRunner(t))
@@ -26,32 +32,41 @@ func TestIgnoreNamedPipe(t *testing.T) {
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--override-hostname=foo", "--override-username=foo")
 
 	// Create a named pipe
-	pipePath := filepath.Join(tmpDir, PIPE_PATH)
+	pipePath := filepath.Join(tmpDir, pipePath)
+
 	err := createNamedPipe(pipePath)
 	if err != nil {
 		t.Fatalf("failed to create named pipe: %v", err)
 	}
 
 	// Create a test file next to the pipe
-	testFilePath := filepath.Join(tmpDir, TESTFILE_PATH)
+	testFilePath := filepath.Join(tmpDir, testfilePath)
+
 	err = createTestFile(testFilePath)
 	if err != nil {
 		t.Fatalf("failed to create test file: %v", err)
 	}
 
+	errChan := make(chan error)
+
 	// Start streaming data to the pipe asynchronously
-	go streamDataToPipe(pipePath)
+	go streamDataToPipe(pipePath, errChan)
 
 	// Create a snapshot of the directory
 	e.RunAndExpectSuccess(t, "snapshot", "create", tmpDir)
 
-	sources := clitestutil.ListSnapshotsAndExpectSuccess(t, e)
-	snapshotId := sources[0].Snapshots[0].SnapshotID
+	err = <-errChan
+	if err != nil {
+		t.Fatalf("failed to stream to pipe: %v", err)
+	}
 
-	entries := e.RunAndExpectSuccess(t, "ls", "-r", snapshotId)
+	sources := clitestutil.ListSnapshotsAndExpectSuccess(t, e)
+	snapshotID := sources[0].Snapshots[0].SnapshotID
+
+	entries := e.RunAndExpectSuccess(t, "ls", "-r", snapshotID)
 
 	for _, entry := range entries {
-		if strings.Contains(entry, PIPE_PATH) {
+		if strings.Contains(entry, pipePath) {
 			t.Fatalf("pipe was snapshoted when it shouldn't have been")
 		}
 	}
@@ -67,30 +82,39 @@ func TestBackupNamedPipe(t *testing.T) {
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--override-hostname=foo", "--override-username=foo")
 
 	// Create a named pipe
-	pipePath := filepath.Join(tmpDir, PIPE_PATH)
+	pipePath := filepath.Join(tmpDir, pipePath)
+
 	err := createNamedPipe(pipePath)
 	if err != nil {
 		t.Fatalf("failed to create named pipe: %v", err)
 	}
 
 	// Create a test file next to the pipe
-	testFilePath := filepath.Join(tmpDir, TESTFILE_PATH)
+	testFilePath := filepath.Join(tmpDir, testfilePath)
+
 	err = createTestFile(testFilePath)
 	if err != nil {
 		t.Fatalf("failed to create test file: %v", err)
 	}
 
+	errChan := make(chan error)
+
 	// Start streaming data to the pipe asynchronously
-	go streamDataToPipe(pipePath)
+	go streamDataToPipe(pipePath, errChan)
 
 	// Create a snapshot of the directory
 	e.RunAndExpectSuccess(t, "snapshot", "create", tmpDir)
 
-	sources := clitestutil.ListSnapshotsAndExpectSuccess(t, e)
-	snapshotId := sources[0].Snapshots[0].ObjectID
+	err = <-errChan
+	if err != nil {
+		t.Fatalf("failed to stream to pipe: %v", err)
+	}
 
-	content := e.RunAndExpectSuccess(t, "cat", snapshotId+"/"+PIPE_PATH)
-	if strings.Join(content, "\n") != PIPE_CONTENT {
+	sources := clitestutil.ListSnapshotsAndExpectSuccess(t, e)
+	snapshotID := sources[0].Snapshots[0].ObjectID
+
+	content := e.RunAndExpectSuccess(t, "cat", snapshotID+"/"+pipePath)
+	if strings.Join(content, "\n") != pipeContent {
 		t.Fatalf("pipe was not read correctly")
 	}
 }
@@ -120,25 +144,25 @@ func createTestFile(filePath string) error {
 	return nil
 }
 
-const PIPE_CONTENT = "Data\nFrom\nPipe"
+const pipeContent = "Data\nFrom\nPipe"
 
-func streamDataToPipe(pipePath string) {
+func streamDataToPipe(pipePath string, errChan chan error) {
 	// Open the named pipe for writing
 	pipe, err := os.OpenFile(pipePath, os.O_WRONLY, os.ModeNamedPipe)
 	if err != nil {
-		fmt.Printf("failed to open named pipe for writing: %v", err)
+		errChan <- fmt.Errorf("failed to open named pipe for writing: %w", err)
 		return
 	}
 	defer pipe.Close()
 
-	_, err = pipe.WriteString(PIPE_CONTENT)
+	_, err = pipe.WriteString(pipeContent)
 	if err != nil {
-		if err == io.ErrClosedPipe {
-			fmt.Println("Pipe closed")
+		if errors.Is(err, io.ErrClosedPipe) {
 			return
+		} else {
+			errChan <- fmt.Errorf("failed to write to pipe: %w", err)
 		}
-		fmt.Printf("failed to write to pipe: %v", err)
-		return
 	}
 
+	close(errChan)
 }
