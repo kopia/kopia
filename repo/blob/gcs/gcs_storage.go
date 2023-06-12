@@ -217,22 +217,26 @@ func tokenSourceFromCredentialsFile(ctx context.Context, fn string, scopes ...st
 	if err != nil {
 		return nil, errors.Wrap(err, "error reading credentials file")
 	}
-
-	cfg, err := google.JWTConfigFromJSON(data, scopes...)
+	fmt.Println("tokenSourceFromCredentialsFile")
+	creds, err := google.CredentialsFromJSON(context.Background(), data, scopes...)
 	if err != nil {
-		return nil, errors.Wrap(err, "google.JWTConfigFromJSON")
+		fmt.Println("tokenSourceFromCredentialsFile error: ", err)
+		return nil, errors.Wrap(err, "google.CredentialsFromJSON")
 	}
-
-	return cfg.TokenSource(ctx), nil
+	fmt.Println("tokenSourceFromCredentialsFile token source", creds.TokenSource)
+	// fmt.Println("tokenSourceFromCredentialsFile token source", creds.Token())
+	return creds.TokenSource, nil
 }
 
 func tokenSourceFromCredentialsJSON(ctx context.Context, data json.RawMessage, scopes ...string) (oauth2.TokenSource, error) {
-	cfg, err := google.JWTConfigFromJSON([]byte(data), scopes...)
+	fmt.Println("tokenSourceFromCredentialsJSON")
+	creds, err := google.CredentialsFromJSON(context.Background(), data, scopes...)
 	if err != nil {
-		return nil, errors.Wrap(err, "google.JWTConfigFromJSON")
+		fmt.Println("tokenSourceFromCredentialsJSON error: ", err)
+		return nil, errors.Wrap(err, "google.CredentialsFromJSON")
 	}
-
-	return cfg.TokenSource(ctx), nil
+	fmt.Println("tokenSourceFromCredentialsJSON token source", creds.TokenSource)
+	return creds.TokenSource, nil
 }
 
 // New creates new Google Cloud Storage-backed storage with specified options:
