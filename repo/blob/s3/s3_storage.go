@@ -293,6 +293,39 @@ func (s *s3Storage) FlushCaches(ctx context.Context) error {
 	return nil
 }
 
+func isAccessDenied(err error) bool {
+	var e minio.ErrorResponse
+	return errors.As(err, &e) && e.Code == "AccessDenied"
+}
+
+func (s *s3Storage) bucketExists(ctx context.Context) (bool, error) {
+	ok, err := s.cli.BucketExists(ctx, s.Options.BucketName)
+	if err == nil {
+		return ok, nil
+	}
+
+	if !isAccessDenied(err) {
+		return false, err
+	}
+
+	if s.Options.Prefix == "" {
+		return false, err
+	}
+
+	// Verify the existence of bucket by getting an non-existent object from the bucket/prefix and
+	// expecting an BlobNotFound error, in case that the account has no permission to the bucket itself
+	// but has permission to the prefix of the bucket
+	nonExistentBlob := fmt.Sprintf("kopia-s3-storage-initializing-%v", clock.Now().UnixNano())
+
+	var scOutput gather.WriteBuffer
+	err = translateError(s.GetBlob(ctx, blob.ID(nonExistentBlob), 0, -1, &scOutput))
+	if err != blob.ErrBlobNotFound {
+		return false, err
+	} else {
+		return true, nil
+	}
+}
+
 func getCustomTransport(opt *Options) (*http.Transport, error) {
 	if opt.DoNotVerifyTLS {
 		//nolint:gosec
@@ -378,19 +411,20 @@ func newStorageWithCredentials(ctx context.Context, creds *credentials.Credentia
 		return nil, errors.Wrap(err, "unable to create client")
 	}
 
-	ok, err := cli.BucketExists(ctx, opt.BucketName)
+	s := s3Storage{
+		Options:       *opt,
+		cli:           cli,
+		storageConfig: &StorageConfig{},
+	}
+
+	ok, err := s.bucketExists(ctx)
+
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to determine if bucket %q exists", opt.BucketName)
 	}
 
 	if !ok {
 		return nil, errors.Errorf("bucket %q does not exist", opt.BucketName)
-	}
-
-	s := s3Storage{
-		Options:       *opt,
-		cli:           cli,
-		storageConfig: &StorageConfig{},
 	}
 
 	var scOutput gather.WriteBuffer
