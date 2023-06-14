@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel"
 
+	"github.com/kopia/kopia/debug"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/metrics"
 	"github.com/kopia/kopia/repo/blob"
@@ -39,6 +40,7 @@ type Repository interface {
 	UpdateDescription(d string)
 	Refresh(ctx context.Context) error
 	Close(ctx context.Context) error
+	CloseDebug(ctx context.Context)
 }
 
 // RepositoryWriter provides methods to write to a repository.
@@ -128,6 +130,10 @@ type directRepository struct {
 	sm    *content.SharedManager
 
 	afterFlush []RepositoryWriterCallback
+}
+
+func (r *directRepository) CloseDebug(ctx context.Context) {
+	debug.StopProfileBuffers(ctx)
 }
 
 // DeriveKey derives encryption key of the provided length from the master key.

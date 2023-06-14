@@ -9,6 +9,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/debug"
 	"github.com/kopia/kopia/internal/apiclient"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/gather"
@@ -37,6 +38,10 @@ type apiServerRepository struct {
 	afterFlush                       []RepositoryWriterCallback
 
 	*immutableServerRepositoryParameters // immutable parameters
+}
+
+func (r *apiServerRepository) CloseDebug(ctx context.Context) {
+	debug.StopProfileBuffers(ctx)
 }
 
 func (r *apiServerRepository) APIServerURL() string {
@@ -301,6 +306,8 @@ func openRestAPIRepository(ctx context.Context, si *APIServerInfo, password stri
 		return nil, errors.Wrap(err, "unable to create API client")
 	}
 
+	debug.StartProfileBuffers(ctx)
+
 	rr := &apiServerRepository{
 		immutableServerRepositoryParameters: par,
 		cli:                                 cli,
@@ -331,6 +338,10 @@ func openRestAPIRepository(ctx context.Context, si *APIServerInfo, password stri
 	}
 
 	rr.omgr = omgr
+	par.registerEarlyCloseFunc(func(ctx context.Context) error {
+		rr.CloseDebug(ctx)
+		return nil
+	})
 
 	return rr, nil
 }

@@ -7,6 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/debug"
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
@@ -50,7 +51,10 @@ func (c *commandSnapshotMigrate) run(ctx context.Context, destRepo repo.Reposito
 		return errors.Wrap(err, "can't open source repository")
 	}
 
-	defer sourceRepo.Close(ctx) //nolint:errcheck
+	defer func() {
+		destRepo.Close(ctx)
+		sourceRepo.Close(ctx)
+	}()
 
 	sources, err := c.getSourcesToMigrate(ctx, sourceRepo)
 	if err != nil {
@@ -78,7 +82,16 @@ func (c *commandSnapshotMigrate) run(ctx context.Context, destRepo repo.Reposito
 				log(ctx).Infof("canceling active uploader for %v", s)
 				u.Cancel()
 			}
+			ctx := context.Background()
+			debug.StopProfileBuffers(ctx)
 		}
+	})
+
+	c.svc.onSigDump(func() {
+		ctx := context.Background()
+		log(ctx).Infof("Dumping profiles...")
+		debug.StopProfileBuffers(ctx)
+		debug.StartProfileBuffers(ctx)
 	})
 
 	if c.migratePolicies {

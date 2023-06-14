@@ -12,6 +12,8 @@ import (
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/pkg/errors"
 
+	"syscall"
+
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/internal/ospath"
@@ -29,14 +31,26 @@ func (c *App) onRepositoryFatalError(f func(err error)) {
 	c.onFatalErrorCallbacks = append(c.onFatalErrorCallbacks, f)
 }
 
+func (c *App) onSigTerm(f func()) {
+	onSig(c.simulatedSigTerm, syscall.SIGTERM, f)
+}
+
+func (c *App) onSigDump(f func()) {
+	onSig(c.simulatedSigDump, syscall.SIGUSR1, f)
+}
+
 func (c *App) onCtrlC(f func()) {
+	onSig(c.simulatedSigDump, os.Interrupt, f)
+}
+
+func onSig(chn chan bool, sig os.Signal, f func()) {
 	s := make(chan os.Signal, 1)
-	signal.Notify(s, os.Interrupt)
+	signal.Notify(s, sig)
 
 	go func() {
-		// invoke the function when either real or simulated Ctrl-C signal is delivered
+		// invoke the function when either real or simulated SIGTERM signal is delivered
 		select {
-		case v := <-c.simulatedCtrlC:
+		case v := <-chn:
 			if !v {
 				return
 			}

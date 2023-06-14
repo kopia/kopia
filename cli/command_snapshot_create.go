@@ -10,6 +10,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/debug"
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/virtualfs"
 	"github.com/kopia/kopia/repo"
@@ -234,7 +235,23 @@ func (c *commandSnapshotCreate) setupUploader(rep repo.RepositoryWriter) *snapsh
 		u.CheckpointInterval = interval
 	}
 
-	c.svc.onCtrlC(u.Cancel)
+	c.svc.onCtrlC(func() {
+		ctx := context.Background()
+		u.Cancel()
+		debug.StopProfileBuffers(ctx)
+	})
+
+	c.svc.onSigDump(func() {
+		ctx := context.Background()
+		log(ctx).Infof("Dumping profiles...")
+		debug.StopProfileBuffers(ctx)
+		debug.StartProfileBuffers(ctx)
+	})
+
+	c.svc.onSigTerm(func() {
+		ctx := context.Background()
+		debug.StopProfileBuffers(ctx)
+	})
 
 	u.ForceHashPercentage = c.snapshotCreateForceHash
 	u.ParallelUploads = c.snapshotCreateParallelUploads

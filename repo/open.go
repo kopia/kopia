@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/scrypt"
 
+	"github.com/kopia/kopia/debug"
 	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/cacheprot"
 	"github.com/kopia/kopia/internal/epoch"
@@ -214,6 +215,8 @@ func openDirect(ctx context.Context, configFile string, lc *LocalConfig, passwor
 		return nil, errors.Wrap(err, "cannot open storage")
 	}
 
+	debug.StartProfileBuffers(ctx)
+
 	if options.TraceStorage {
 		st = loggingwrapper.NewWrapper(st, log(ctx), "[STORAGE] ")
 	}
@@ -366,6 +369,11 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 			beforeFlush:      options.BeforeFlush,
 		},
 	}
+
+	dr.registerEarlyCloseFunc(func(ctx context.Context) error {
+		dr.CloseDebug(ctx)
+		return nil
+	})
 
 	return dr, nil
 }
