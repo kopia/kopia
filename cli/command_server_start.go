@@ -16,8 +16,9 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	htpasswd "github.com/tg123/go-htpasswd"
+	"github.com/tg123/go-htpasswd"
 
+	"github.com/kopia/kopia/debug"
 	"github.com/kopia/kopia/internal/auth"
 	"github.com/kopia/kopia/internal/ctxutil"
 	"github.com/kopia/kopia/internal/server"
@@ -217,22 +218,41 @@ func (c *commandServerStart) run(ctx context.Context) error {
 			return errors.Wrap(httpServer.Close(), "close")
 		}
 
+		rep := srv.GetRepository()
+		if rep != nil {
+			rep.Close(ctx)
+		}
+
 		log(ctx2).Debugf("graceful shutdown succeeded")
 
 		return nil
 	}
 
-	c.svc.onCtrlC(func() {
-		log(ctx).Infof("Shutting down...")
+	c.svc.onCtrlC(shutdownOnSignal)
 
+	c.svc.onSigTerm(func() {
+		log(ctx).Infof("Shutting down...")
 		if serr := httpServer.Shutdown(ctx); serr != nil {
 			log(ctx).Debugf("unable to shut down: %v", serr)
 		}
+		rep := srv.GetRepository()
+		if rep != nil {
+			rep.Close(ctx)
+		}
+	})
+
+	c.svc.onSigDump(func() {
+		debug.StopProfileBuffers(ctx)
+		debug.StartProfileBuffers(ctx)
 	})
 
 	c.svc.onRepositoryFatalError(func(_ error) {
 		if serr := httpServer.Shutdown(ctx); serr != nil {
 			log(ctx).Debugf("unable to shut down: %v", serr)
+		}
+		rep := srv.GetRepository()
+		if rep != nil {
+			rep.Close(ctx)
 		}
 	})
 
@@ -271,6 +291,17 @@ func (c *commandServerStart) run(ctx context.Context) error {
 	}
 
 	return errors.Wrap(srv.SetRepository(ctx, nil), "error setting active repository")
+}
+
+func shutdownOnSignal(ctx context.Context, httpServer *http.Server, srv *server.Server) {
+	log(ctx).Infof("Shutting down...")
+	if serr := httpServer.Shutdown(ctx); serr != nil {
+		log(ctx).Debugf("unable to shut down: %v", serr)
+	}
+	rep := srv.GetRepository()
+	if rep != nil {
+		rep.Close(ctx)
+	}
 }
 
 func (c *commandServerStart) setupHandlers(srv *server.Server, m *mux.Router) {
