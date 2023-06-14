@@ -748,20 +748,20 @@ func TestSnapshotCreateAllSnapshotPath(t *testing.T) {
 		t.Fatalf("got %v sources, wanted %v", got, want)
 	}
 
-	require.Equal(t, si[0].User, "bar")
-	require.Equal(t, si[0].Host, "bar")
-	require.Equal(t, si[0].Path, "/foo/bar")
+	require.Equal(t, "bar", si[0].User)
+	require.Equal(t, "bar", si[0].Host)
+	require.Equal(t, "/foo/bar", si[0].Path)
 
-	require.Equal(t, si[1].User, "bar")
-	require.Equal(t, si[1].Host, "bar")
-	require.Equal(t, si[1].Path, "C:\\foo\\baz")
+	require.Equal(t, "bar", si[1].User)
+	require.Equal(t, "bar", si[1].Host)
+	require.Equal(t, "C:\\foo\\baz", si[1].Path)
 
-	require.Equal(t, si[2].User, "foo")
-	require.Equal(t, si[2].Host, "foo")
+	require.Equal(t, "foo", si[2].User)
+	require.Equal(t, "foo", si[2].Host)
 
 	if runtime.GOOS == "windows" {
-		require.Regexp(t, si[2].Path, "[A-Z]:\\foo\\bar")
+		require.Regexp(t, "[A-Z]:\\foo\\bar", si[2].Path)
 	} else {
-		require.Equal(t, si[2].Path, "/foo/bar")
+		require.Equal(t, "/foo/bar", si[2].Path)
 	}
 }

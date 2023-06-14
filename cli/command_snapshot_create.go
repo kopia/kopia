@@ -70,7 +70,7 @@ func (c *commandSnapshotCreate) setup(svc appServices, parent commandParent) {
 	cmd.Flag("tags", "Tags applied on the snapshot. Must be provided in the <key>:<value> format.").StringsVar(&c.snapshotCreateTags)
 	cmd.Flag("pin", "Create a pinned snapshot that's will not expire automatically").StringsVar(&c.pins)
 	cmd.Flag("flush-per-source", "Flush writes at the end of each source").Hidden().BoolVar(&c.flushPerSource)
-	cmd.Flag("set-source", "Override the source of the snapshot.").StringVar(&c.sourceOverride)
+	cmd.Flag("override-source", "Override the source of the snapshot.").StringVar(&c.sourceOverride)
 
 	c.logDirDetail = -1
 	c.logEntryDetail = -1
