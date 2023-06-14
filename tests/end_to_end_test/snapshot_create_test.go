@@ -19,6 +19,7 @@ import (
 	"github.com/kopia/kopia/internal/cachedir"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/snapshot"
+	"github.com/kopia/kopia/snapshot/policy"
 	"github.com/kopia/kopia/tests/clitestutil"
 	"github.com/kopia/kopia/tests/testenv"
 )
@@ -739,9 +740,24 @@ func TestSnapshotCreateAllSnapshotPath(t *testing.T) {
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--override-hostname=foo", "--override-username=foo")
-	e.RunAndExpectSuccess(t, "snapshot", "create", "--set-source", "bar@bar:/foo/bar", sharedTestDataDir1)
-	e.RunAndExpectSuccess(t, "snapshot", "create", "--set-source", "bar@bar:C:\\foo\\baz", sharedTestDataDir2)
-	e.RunAndExpectSuccess(t, "snapshot", "create", "--set-source", "/foo/bar", sharedTestDataDir3)
+	e.RunAndExpectSuccess(t, "snapshot", "create", "--override-source", "bar@bar:/foo/bar", sharedTestDataDir1)
+	e.RunAndExpectSuccess(t, "snapshot", "create", "--override-source", "bar@bar:C:\\foo\\baz", sharedTestDataDir2)
+	e.RunAndExpectSuccess(t, "snapshot", "create", "--override-source", "/foo/bar", sharedTestDataDir3)
+
+	// Make sure the scheduling policy with manual field is set and visible in the policy list, includes global policy
+	var plist []policy.TargetWithPolicy
+	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "policy", "list", "--json"), &plist)
+
+	if got, want := len(plist), 4; got != want {
+		t.Fatalf("got %v policies, wanted %v", got, want)
+	}
+
+	// all non-global policies should be manual
+	for _, p := range plist {
+		if (p.Target != snapshot.SourceInfo{}) {
+			require.True(t, p.Policy.SchedulingPolicy.Manual)
+		}
+	}
 
 	si := clitestutil.ListSnapshotsAndExpectSuccess(t, e, "--all")
 	if got, want := len(si), 3; got != want {
