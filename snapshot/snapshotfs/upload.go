@@ -744,6 +744,11 @@ func (u *Uploader) maybeIgnoreCachedEntry(ctx context.Context, ent fs.Entry) fs.
 
 func (u *Uploader) effectiveParallelFileReads(pol *policy.Policy) int {
 	p := u.ParallelUploads
+
+	if p > runtime.NumCPU() {
+		p = runtime.NumCPU()
+	}
+
 	if p > 0 {
 		// command-line override takes precedence.
 		return p
