@@ -17,10 +17,12 @@ const (
 
 	snapshotFixHelp = `Commands to fix snapshot consistency issues.
 
-This can be used to remove files invalid or redact files that should not be in
-the snapshot for security reasons.
 
-	`
+This can be used to remove invalid files, or remove files that should not be in
+the snapshot for security or other reasons. Use invalid-files or remove-files
+command. See help for each sub command.
+`
+
 )
 
 type commandSnapshotFix struct {

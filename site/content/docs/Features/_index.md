@@ -21,7 +21,7 @@ weight: 10
 
 ### Backup Files and Directories Using Snapshots
 
-Kopia creates snapshots of the files and directories you designate, then [encrypts](#end-to-end-zero-knowledge-encryption) these snapshots before they leave your computer, and finally uploads these encrypted snapshots to cloud/network/local storage called a [repository](../repositories/). Snapshots are maintained as a set of historical point-in-time records based on [policies](#policies-control-what-and-how-filesdirectories-are-saved-in-snapshots) that you define.
+Kopia creates snapshots of the files and directories you designate, then [encrypts](#end-to-end-zero-knowledge-encryption) these snapshots before they leave your computer, then finally uploads these encrypted snapshots to into a [repository](../repositories/) saved on cloud/network/local storage. Snapshots are maintained as a set of historical point-in-time records based on [policies](#policies-control-what-and-how-filesdirectories-are-saved-in-snapshots) that you define.
 
 Kopia uses [content-addressable storage](https://en.wikipedia.org/wiki/Content-addressable%20storage) for snapshots, which has many benefits:
 
@@ -33,7 +33,14 @@ Kopia uses [content-addressable storage](https://en.wikipedia.org/wiki/Content-a
 
 * Multiple users or computers can share the same repository: if different users have the same files, the files are uploaded only once as Kopia deduplicates content across the entire repository.
 
-> NOTE: Kopia allows one password per repository, and there is currently no access control mechanism when sharing a repository with someone. If you share a repository with someone else, then you must also share your password with them and they will have access to your data. Therefore, make sure you trust all the other users/computers that you share a repository with!
+
+### Repositories are Concurrency Safe
+
+Kopia fully supports accessing the same repository by multiple users at the same time with no write locks. This means many different computers can all create snapshots and upload data to a single repository at the same time! There are built-in protocols that allow for this to happen seamlessly and you don't need to run a server to enable this feature. This all happens on the client. It does this using the passage of time to prevent deleting or overwriting data that another client is actively working with. **All clients must have their clocks in sync** +- a few minutes, otherwise bad things can happen.
+
+> NOTE: Kopia allows one password per repository, and there is currently no access control mechanism when sharing a repository with someone. If you share a repository with someone else, then you must also share your password with them and they will have access to all your data. Therefore, make sure you trust all the other users/computers that you share a repository with!
+
+Basic access control lists can be done using the Kopia [server](#Optional-Server-Mode-with-API-Support-to-Centrally-Manage-Backups-of-Multiple-Machines) to provide some protection.
 
 ### Policies Control What and How Files/Directories are Saved in Snapshots
 
@@ -66,15 +73,15 @@ Kopia performs all its operations locally on your machine, meaning that you do n
   * Rclone support is experimental: not all the cloud storages supported by Rclone have been tested to work with Kopia, and some may not work with Kopia; Kopia has been tested to work with **Dropbox**, **OneDrive**, and **Google Drive** through Rclone
 * Your own server by setting up a [Kopia Repository Server](../repository-server/)
 
-Read the [repositories help page](../repositories/) for more information on supported storage locations. 
+Read the [repositories help page](../repositories/) for more information on supported storage locations.
 
-With Kopia you’re in full control of where to store your snapshots; you pick the cloud storage you want to use. Kopia plays no role in selecting your storage locations. You must provision and pay (the storage provider) for whatever storage locations you want to use, and then tell Kopia what those storage locations are. The advantage of decoupling the software (i.e., Kopia) from storage is that you can use whatever storage locations you desire -– it makes no difference to Kopia what storage you use. You can even use multiple storage locations if you want to, and Kopia also supports backing up multiple machines to the same storage location. 
+With Kopia you’re in full control of where to store your snapshots; you pick the storage you want to use. Kopia plays no role in selecting your storage locations. You must provision and pay (the storage provider) for whatever storage locations you want to use, and then tell Kopia what those storage locations are. The advantage of decoupling the software (i.e., Kopia) from storage is that you can use whatever storage locations you desire -– it makes no difference to Kopia what storage you use. You can even use multiple storage locations if you want to, and Kopia also supports backing up multiple machines to the same storage location to take advantage of deduplication even more.
 
-> NOTE: Different storage providers may operate slightly differently, so you need to make sure whatever storage location you use has enough capacity to store your backups and enough availability to be able to recover the data when needed. 
+> NOTE: Different storage providers may operate slightly differently, so you need to make sure whatever storage location you use has enough capacity to store your backups and enough availability to be able to recover the data when needed.
 
 ### Restore Snapshots Using Multiple Methods
 
-To restore data, Kopia gives you three options: 
+To restore data, Kopia gives you three options:
 
 * mount the contents of a snapshot as a local disk so that you can browse and copy files/directories from the snapshot as if the snapshot is a local directory on your machine
 
@@ -122,7 +129,7 @@ Kopia maintains a local cache of recently accessed objects making it possible to
 
 ### Both Command Line and Graphical User Interfaces
 
-Kopia has a rich [command-line interface](../installation/#two-variants-of-kopia) that gives you full access to all Kopia features, including allowing you to create/connect to repositories, manage snapshots and policies, and provides low-level access to the underlying repository, including low-level data recovery. 
+Kopia has a rich [command-line interface](../installation/#two-variants-of-kopia) that gives you full access to all Kopia features, including allowing you to create/connect to repositories, manage snapshots and policies, and provides low-level access to the underlying repository, including low-level data recovery.
 
 Do not want to use command-line? No problem. Kopia also comes with a [powerful official graphical user interface](../installation/#two-variants-of-kopia) that allows you to easily create/connect to repositories, manage snapshots and policies, and restore data as needed.
 

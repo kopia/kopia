@@ -24,13 +24,13 @@ type commandList struct {
 }
 
 func (c *commandList) setup(svc appServices, parent commandParent) {
-	cmd := parent.Command("list", "List a directory stored in repository object.").Alias("ls")
+	cmd := parent.Command("list", "List a directory stored in repository object. Takes an object ID as input.").Alias("ls")
 
-	cmd.Flag("long", "Long output").Short('l').BoolVar(&c.long)
+	cmd.Flag("long", "Long output. Similar to ls -l on bash").Short('l').BoolVar(&c.long)
 	cmd.Flag("recursive", "Recursive output").Short('r').BoolVar(&c.recursive)
 	cmd.Flag("show-object-id", "Show object IDs").Short('o').BoolVar(&c.showOID)
 	cmd.Flag("error-summary", "Emit error summary").Default("true").BoolVar(&c.errorSummary)
-	cmd.Arg("object-path", "Path").Required().StringVar(&c.path)
+	cmd.Arg("object-path", "Path or object ID").Required().StringVar(&c.path)
 	cmd.Action(svc.repositoryReaderAction(c.run))
 
 	c.out.setup(svc)

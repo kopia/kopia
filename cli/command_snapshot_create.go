@@ -24,32 +24,39 @@ const (
 A snapshots is a point in time backup of the given <path>. Snapshots are organized by source.
 Each user@host:/path is considered a unique source, and can have policies applied to them.
 
-Example: $ kopia snapshot create /home/user
+Example: ` + "`" + `$ kopia snapshot create /home/user` + "`" + `
 
-Creates a single snapshot of the home directory. This can be viewed using.
+Creates a single snapshot of the home directory. This can be viewed using
 
-$ kopia snapshot list
+` + "`" + `$ kopia snapshot list` + "`" + `
 
 Snapshots are always saved and tracked per source.
 Sources are indidual user@host:/path so 2 different paths on the same client are considered seperate sources.
 
-$ kopia snapshot create /home/user
+` + "`" + `$ kopia snapshot create /home/user` + "`" + `
 
-$ kopia snapshot create /home/other_user
+` + "`" + `$ kopia snapshot create /home/other_user` + "`" + `
 This will create 2 seperate sources from the same client and will be tracked seperately.
 
 When --all is used, a new snapshot is created for each source in the connected repository from the current client.
-This is useful if using kopia with a cron job or script. This won't disable the <path> argument if specified.
-
-Using $ kopia snapshot create --all /home/user
-will create 2 snapshots for /home/user if one already exsists in the
-repository for this source.
+This is useful if using kopia with a cron job or script. This will give an error if <path> argument is specified.
 
 Snapshots can be pinned as well to prevent it from being automatically deleted by the retention policy.
-Use the --pin NAME_OF_PIN to create a snapshot wit a pin. Mulitple pins can be created. A pinned snapshot will never be
-deleted automatically, but can be manually deleted.
-Add or remove a pin with $ kopia snapshot pin
+Use the ` + "`" + `--pin NAME_OF_PIN` + "`" + ` to create a snapshot with a pin. Mulitple pins can be created. A pinned snapshot will never be
+deleted by retention policy, but can be manually deleted.
+Add or remove a pin with ` + "`" + `$ kopia snapshot pin` + "`" + `
 
+The timestamps can be overridden with ` + "`" + `--start-time` + "`" + ` and
+` + "`" + `--end-time` + "`" + ` . These both accept a time in the format of
+` + "`" + `yyyy-mm-dd hh:mm:ss TZ` + "`" + `. Useful for migrating from another backup system or testing.
+
+Stdin can be used as a snapshot source. Simply pipe the output of the stream into kopia giving - as the source.
+The snapshot normally gets the name from the source path, so use --stdin-file to give a source path instead.
+` + "`" + `$ mysql dump | kopia snapshot create --stdin-file=database.sql -` + "`" + `
+
+An upload limit can be applied to stop the snapshot after x amount of data
+is uploaded using ` + "`" + `--upload-limit-mb` + "`" + `.
+Takes an integer of the number of megabytes.
 `
 
 	maxSnapshotDescriptionLength = 1024

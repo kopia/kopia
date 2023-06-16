@@ -14,6 +14,27 @@ import (
 	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
 
+const (
+	snapshotMigrateHelp = `Migrates snapshots from another repository.
+This command will migrate all snapshots from all sources from the
+repository in the source config into the currently connect repository.
+This can be useful for changing repository parameters like
+encryption algorithm that can't be changed otherwise.
+All migrated snapshots will dedeuplicated against data that already
+exsists in the destination repository.
+
+Requires a source config file to be specified by the
+` + "`" + `--source-config` + "`" + ` option.
+
+A list of sources can be given using ` + "`" + `--sources` + "`" + `
+to limit the migrated snapshot sources to what is given.
+It's possible to use user@host or user@host:/home.
+
+Policies are also copied over by default, but will not overwrite already
+exsisting policies. Ignore rules are not copied by default.
+`
+)
+
 type commandSnapshotMigrate struct {
 	migrateSourceConfig      string
 	migrateSources           []string
@@ -29,7 +50,7 @@ type commandSnapshotMigrate struct {
 }
 
 func (c *commandSnapshotMigrate) setup(svc advancedAppServices, parent commandParent) {
-	cmd := parent.Command("migrate", "Migrate snapshots from another repository")
+	cmd := parent.Command("migrate", snapshotMigrateHelp)
 	cmd.Flag("source-config", "Configuration file for the source repository").Required().ExistingFileVar(&c.migrateSourceConfig)
 	cmd.Flag("sources", "List of sources to migrate").StringsVar(&c.migrateSources)
 	cmd.Flag("all", "Migrate all sources").BoolVar(&c.migrateAll)

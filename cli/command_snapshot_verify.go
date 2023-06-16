@@ -18,17 +18,25 @@ const (
 	snapshotVerifyHelp = `Verify the contents of stored snapshot.
 
 This will read the snapshot manifests for all sources and make sure
-they are consistant. The contents are then checked the same as content verify
-does. Contents are not downloaded by default, but can be done at random with
---verify-files-percent
+they are valid. The contents are then checked the same as content verify
+does.
 
-To verify the entire repository by downloading, decrypting and decompressing
-all the contents. use --verify-files-percent=100 This will read the entire repository
-and give an error for any contents that has a different hash. Please consider bandwidth
-costs before doing this.
+File contents are not downloaded by default, just checked that they exsist.
+A random subset of files can be downloaded and
+decrypted with ` + "`" + `--verify-files-percent` + "`" + `
 
-The scope can be reduced by specifing a source with --source
-	`
+To verify the entire repository use ` + "`" + `--verify-files-percent=100` + "`" + `
+This will read the entire repository contents
+and give an error for any contents that don't match their checksum.
+Please consider bandwidth costs before doing this. Check with your object
+storage provider for more information.
+
+The scope of what snapshots are checked can be
+reduced by specifing a source with ` + "`" + `--source` + "`" + `
+
+Parallelism can also be specified using ` + "`" + `--parallel` + "`" + `
+and ` + "`" + `--file-parallelism` + "`" + `
+`
 
 )
 

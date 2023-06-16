@@ -46,29 +46,35 @@ The source to be restored is specified in the form of a directory or file ID and
 optionally a sub-directory path.
 
 For example, the following source and target arguments will restore the contents
-of the 'kffbb7c28ea6c34d6cbe555d1cf80faa9' directory into a new, local directory
-named 'd1'
+of the ` + "`" + `kffbb7c28ea6c34d6cbe555d1cf80faa9` + "`" + ` directory into a new, local directory
+named ` + "`" + `d1` + "`" + `
 
-'restore kffbb7c28ea6c34d6cbe555d1cf80faa9 d1'
+` + "`" + `restore kffbb7c28ea6c34d6cbe555d1cf80faa9 d1` + "`" + `
 
 Similarly, the following command will restore the contents of a subdirectory
-'subdir/subdir2' under 'kffbb7c28ea6c34d6cbe555d1cf80faa9'  into a new, local
-directory named 'sd2'
+` + "`" + `subdir/subdir2` + "`" + ` under ` + "`" + `kffbb7c28ea6c34d6cbe555d1cf80faa9` + "`" + `  into a new, local
+directory named ` + "`" + `sd2` + "`" + `
 
-'restore kffbb7c28ea6c34d6cbe555d1cf80faa9/subdir1/subdir2 sd2'
+` + "`" + `restore kffbb7c28ea6c34d6cbe555d1cf80faa9/subdir1/subdir2 sd2` + "`" + `
 
 When restoring to a target path that already has existing data, by default
 the restore will attempt to overwrite, unless one or more of the following flags
 has been set (to prevent overwrite of each type):
 
+` + "```" + `
+
 --no-overwrite-files
+
 --no-overwrite-directories
+
 --no-overwrite-symlinks
 
-If the '--shallow' option is provided, files and directories this
+` + "```" + `
+
+If the ` + "`" + `--shallow` + "`" + ` option is provided, files and directories this
 depth and below in the directory hierarchy will be represented by
-compact placeholder files of the form 'entry.kopia-entry' instead of
-being restored. (I.e. setting '--shallow' to 0 will only shallow
+compact placeholder files of the form ` + "`" + `entry.kopia-entry` + "`" + ` instead of
+being restored. (I.e. setting ` + "`" + `--shallow` + "`" + ` to 0 will only shallow
 restore.) Snapshots created of directory contents represented by
 placeholder files will be identical to snapshots of the equivalent
 fully expanded tree.
@@ -76,22 +82,48 @@ fully expanded tree.
 In the expanding-a-placeholder mode:
 
 The source to be restored is a pre-existing placeholder entry of the form
-'entry.kopia-entry'. The target will be 'entry'. '--shallow' controls the depth
+` + "`" + `entry.kopia-entry` + "`" + `. The target will be ` + "`" + `entry` + "`" + `. ` + "`" + `--shallow` + "`" + ` controls the depth
 of the expansion and defaults to 0. For example:
 
-'restore d3.kopiadir'
+` + "`" + `restore d3.kopiadir` + "`" + `
 
 will remove the d3.kopiadir placeholder and restore the referenced repository
 contents into path d3 where the contents of the newly created path d3 will
 themselves be placeholder files.
+
+restore can output files into an archive set by --mode.
+This feature can be used to create a .zip, .tar, tgz or .tar.gz archive of the restored
+files. The default setting is auto which will look at the file extention of the
+destination (when given) and try to set the restore mode accordinly.
+
+Example:
+
+` + "```" + `
+
+$ kopia restore kffbb7c28ea6c34d6cbe555d1cf80faa9/subdir destination.zip
+
+Restoring to a zip file (destination.zip)..
+
+$ ls
+
+destination.zip
+
+` + "```" + `
+
+Notice how the file created is a zip file. This zip file will contain all of the files
+inside the restored subdir.
+
+>Note: To restore a .zip file from a snapshot use
+` + "`" + `--mode=local` + "`" + ` to
+override this behaviour otherwise it will create a malformed zip file.
 `
 	restoreCommandSourcePathHelp = `Two forms: 1. Source directory ID/path in the form of a
 directory ID and optionally a sub-directory path. For example,
-'kffbb7c28ea6c34d6cbe555d1cf80faa9' or
-'kffbb7c28ea6c34d6cbe555d1cf80faa9/subdir1/subdir2'
+` + "`" + `kffbb7c28ea6c34d6cbe555d1cf80faa9` + "`" + ` or
+` + "`" + `kffbb7c28ea6c34d6cbe555d1cf80faa9/subdir1/subdir2` + "`" + `
 followed by the path of the directory for the contents to be restored.
 
-2. one or more placeholder files of the form path.kopia-entry
+2. one or more placeholder files of the form path.kopia-entry.
 `
 
 	unlimitedDepth = math.MaxInt32
@@ -136,17 +168,17 @@ func (c *commandRestore) setup(svc appServices, parent commandParent) {
 	cmd.Flag("overwrite-symlinks", "Specifies whether or not to overwrite already existing symlinks").Default("true").BoolVar(&c.restoreOverwriteSymlinks)
 	cmd.Flag("write-sparse-files", "When doing a restore, attempt to write files sparsely-allocating the minimum amount of disk space needed.").Default("false").BoolVar(&c.restoreWriteSparseFiles)
 	cmd.Flag("consistent-attributes", "When multiple snapshots match, fail if they have inconsistent attributes").Envar(svc.EnvName("KOPIA_RESTORE_CONSISTENT_ATTRIBUTES")).BoolVar(&c.restoreConsistentAttributes)
-	cmd.Flag("mode", "Override restore mode").Default(restoreModeAuto).EnumVar(&c.restoreMode, restoreModeAuto, restoreModeLocal, restoreModeZip, restoreModeZipNoCompress, restoreModeTar, restoreModeTgz)
+	cmd.Flag("mode", "Set restore mode, options are local, auto, zip, zip-nocompress, tar, tgz").Default(restoreModeAuto).EnumVar(&c.restoreMode, restoreModeAuto, restoreModeLocal, restoreModeZip, restoreModeZipNoCompress, restoreModeTar, restoreModeTgz)
 	cmd.Flag("parallel", "Restore parallelism (1=disable)").Default("8").IntVar(&c.restoreParallel)
-	cmd.Flag("skip-owners", "Skip owners during restore").BoolVar(&c.restoreSkipOwners)
-	cmd.Flag("skip-permissions", "Skip permissions during restore").BoolVar(&c.restoreSkipPermissions)
-	cmd.Flag("skip-times", "Skip times during restore").BoolVar(&c.restoreSkipTimes)
+	cmd.Flag("skip-owners", "Skips writing file owners metadata during restore").BoolVar(&c.restoreSkipOwners)
+	cmd.Flag("skip-permissions", "Skips writing file permissions during restore").BoolVar(&c.restoreSkipPermissions)
+	cmd.Flag("skip-times", "Skip writing modtimes during restore").BoolVar(&c.restoreSkipTimes)
 	cmd.Flag("ignore-permission-errors", "Ignore permission errors").Default("true").BoolVar(&c.restoreIgnorePermissionErrors)
 	cmd.Flag("write-files-atomically", "Write files atomically to disk, ensuring they are either fully committed, or not written at all, preventing partially written files").Default("false").BoolVar(&c.restoreWriteFilesAtomically)
-	cmd.Flag("ignore-errors", "Ignore all errors").BoolVar(&c.restoreIgnoreErrors)
-	cmd.Flag("skip-existing", "Skip files and symlinks that exist in the output").BoolVar(&c.restoreIncremental)
-	cmd.Flag("shallow", "Shallow restore the directory hierarchy starting at this level (default is to deep restore the entire hierarchy.)").Int32Var(&c.restoreShallowAtDepth)
-	cmd.Flag("shallow-minsize", "When doing a shallow restore, write actual files instead of placeholders smaller than this size.").Int32Var(&c.minSizeForPlaceholder)
+	cmd.Flag("ignore-errors", "Ignores all file errors").BoolVar(&c.restoreIgnoreErrors)
+	cmd.Flag("skip-existing", "Skips files and symlinks that exist in the output target").BoolVar(&c.restoreIncremental)
+	cmd.Flag("shallow", "Shallow restore the directory hierarchy starting at this level (default is to deep restore the entire hierarchy)").Int32Var(&c.restoreShallowAtDepth)
+	cmd.Flag("shallow-minsize", "When doing a shallow restore, write actual files instead of placeholders smaller than this size").Int32Var(&c.minSizeForPlaceholder)
 	cmd.Flag("snapshot-time", "When using a path as the source, use the latest snapshot available before this date. Default is latest").StringVar(&c.snapshotTime)
 	cmd.Action(svc.repositoryReaderAction(c.run))
 }

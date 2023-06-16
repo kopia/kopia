@@ -18,10 +18,14 @@ const(
 The snapshot ID is derived from the contents of the snapshot, so identical snapshots
 will alwaysh have the same ID.
 The manifest ID can also be used, which is always unique to each snapshot even identacal ones.
-Get the manifest ID with the -m flag on for kopia snapshot list
+Get the manifest ID with the ` + "`" + `-m` + "`" + ` flag on for kopia snapshot list
+
+` + "```" + `
 
 $ kopia snapshot delete 3fc72d7eb3a942c28f03196eee0239f5 --delete
 	Would delete snapshot 3fc72d7eb3a942c28f03196eee0239f5 of user@host:/home/user at 2023-06-06 10:00:00 UTC (pass --delete to confirm)
+
+` + "```" + `
 
 Deletion must be confirmed wit the --delete flag.
 Space used up by unique content in the deleted snapshot is not freed up immediately on the underlying storage.
@@ -29,8 +33,10 @@ This is for concurreny safety reasons.
 It may take up to 3 days before this space is actually freed up
 on the underlying storage. See help for kopia maintenance for more information.
 
-It is also possible to delete all snapshots from a source using --all-snapshots-for-source
-This takes the given user@host:/path or user@host and deletes all snapshots from that source.
+It is also possible to delete all snapshots from a source using ` + "`" + `--all-snapshots-for-source` + "`" + `
+This takes the given ` + "`" + `user@host:/path` + "`" + ` or ` + "`" + `user@host` + "`" + ` and deletes all snapshots from that source.
+
+` + "```" + `
 
 $ kopia snapshot delete --all-snapshots-for-source user@host:/path
 	Would delete snapshot 37c666eb0d5a63825d9d69ac19ce1d58 of user@host:/path at 2023-05-30 22:00:10 UTC (pass --delete to confirm)
@@ -38,8 +44,10 @@ $ kopia snapshot delete --all-snapshots-for-source user@host:/path
 	Would delete snapshot 1187f14b1c5c6bd1bc24f90644b4993f of user@host:/path at 2023-06-03 09:00:19 UTC (pass --delete to confirm)
 	Would delete snapshot 355fdc532a3b13fc7c2e5ecf40992afd of user@host:/path at 2023-06-03 23:00:05 UTC (pass --delete to confirm)
 
-This can be useful for removing a unused source that is no longer needed in the backup. Use with caution as it WILL DELETE ALL SNAPSHOTS
-for the given host. This is irreversable. Use --no-delete for a dry run.
+` + "```" + `
+
+>This can be useful for removing an unused source that is no longer needed in the backup. Use with caution as it WILL DELETE ALL SNAPSHOTS
+for the given host. This is irreversable. Use ` + "`" + `--no-delete` + "`" + ` for a dry run.
 `
 )
 
