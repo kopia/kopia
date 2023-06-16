@@ -219,33 +219,16 @@ func (c *commandServerStart) run(ctx context.Context) error {
 		return nil
 	}
 
-	c.svc.onCtrlC(shutdownOnSignal)
+	c.svc.onCtrlC(func() { shutdownServer(ctx, httpServer, srv) })
 
-	c.svc.onSigTerm(func() {
-		log(ctx).Infof("Shutting down...")
-		if serr := httpServer.Shutdown(ctx); serr != nil {
-			log(ctx).Debugf("unable to shut down: %v", serr)
-		}
-		rep := srv.GetRepository()
-		if rep != nil {
-			rep.Close(ctx)
-		}
-	})
+	c.svc.onSigTerm(func() { shutdownServer(ctx, httpServer, srv) })
 
 	c.svc.onSigDump(func() {
 		debug.StopProfileBuffers(ctx)
 		debug.StartProfileBuffers(ctx)
 	})
 
-	c.svc.onRepositoryFatalError(func(_ error) {
-		if serr := httpServer.Shutdown(ctx); serr != nil {
-			log(ctx).Debugf("unable to shut down: %v", serr)
-		}
-		rep := srv.GetRepository()
-		if rep != nil {
-			rep.Close(ctx)
-		}
-	})
+	c.svc.onRepositoryFatalError(func(error) { shutdownServer(ctx, httpServer, srv) })
 
 	m := mux.NewRouter()
 
@@ -288,14 +271,17 @@ func (c *commandServerStart) run(ctx context.Context) error {
 	return errors.Wrap(srv.SetRepository(ctx, nil), "error setting active repository")
 }
 
-func shutdownOnSignal(ctx context.Context, httpServer *http.Server, srv *server.Server) {
+// shutdownServer shutdown http server and close the repository
+func shutdownServer(ctx context.Context, httpServer *http.Server, srv *server.Server) {
 	log(ctx).Infof("Shutting down...")
 	if serr := httpServer.Shutdown(ctx); serr != nil {
-		log(ctx).Debugf("unable to shut down: %v", serr)
+		log(ctx).Debugf("unable to shut down http server: %v", serr)
 	}
 	rep := srv.GetRepository()
 	if rep != nil {
-		rep.Close(ctx)
+		if rerr := rep.Close(ctx); rerr != nil {
+			log(ctx).Debugf("unable to shut down repository: %v", rerr)
+		}
 	}
 }
 

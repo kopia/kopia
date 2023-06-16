@@ -31,17 +31,13 @@ const (
 	EnvVarKopiaDebugPprof = "KOPIA_DEBUG_PPROF"
 	KopiaDebugFlagForceGc = "forcegc"
 	KopiaDebugFlagDebug   = "debug"
+	KopiaDebugFlagRate    = "rate"
 )
 
 const (
-	ProfileNameGoroutine    ProfileName = "goroutine"
-	ProfileNameThreadcreate             = "threadcreate"
-	ProfileNameHeap                     = "heap"
-	ProfileNameAllocs                   = "allocs"
-	ProfileNameBlock                    = "block"
-	ProfileNameMutex                    = "mutex"
-	ProfileNameTrace                    = "trace"
-	ProfileNameCpu                      = "cpu"
+	ProfileNameBlock ProfileName = "block"
+	ProfileNameMutex             = "mutex"
+	ProfileNameCpu               = "cpu"
 )
 
 type ProfileConfig struct {
@@ -49,17 +45,28 @@ type ProfileConfig struct {
 	buf   *bytes.Buffer
 }
 
+type ProfileConfigs struct {
+	mu  sync.Mutex
+	pcm map[ProfileName]*ProfileConfig
+}
+
 var (
-	pprofMu             = sync.Mutex{}
-	pprofProfileConfigs = map[ProfileName]*ProfileConfig{}
+	pprofConfigs = &ProfileConfigs{}
 )
 
-var pprofProfileRates = map[ProfileName]func(int){
-	ProfileNameBlock: func(x int) {
-		runtime.SetBlockProfileRate(x)
+type pprofSetRate struct {
+	fn  func(int)
+	def int
+}
+
+var pprofProfileRates = map[ProfileName]pprofSetRate{
+	ProfileNameBlock: {
+		fn:  func(x int) { runtime.SetBlockProfileRate(x) },
+		def: 100,
 	},
-	ProfileNameMutex: func(x int) {
-		runtime.SetMutexProfileFraction(x)
+	ProfileNameMutex: {
+		fn:  func(x int) { runtime.SetMutexProfileFraction(x) },
+		def: 100,
 	},
 }
 
@@ -105,43 +112,44 @@ func newProfileConfig(bufSizeB int, ppconfig string) *ProfileConfig {
 }
 
 func setupProfileFractions(ctx context.Context, profileBuffers map[ProfileName]*ProfileConfig) {
-	for k, fn := range pprofProfileRates {
+	for k, pprofset := range pprofProfileRates {
 		v, ok := profileBuffers[k]
 		if !ok {
+			// profile not configured - leave it alone
 			continue
 		}
-		n := 100
-		s, _ := v.GetValue("rate")
-		if s == "" { // flag without argument is meaningless
+		if v == nil {
+			// profile configured, but no rate - set to default
+			pprofset.fn(pprofset.def)
 			continue
 		}
-		var err error
-		var n1 int
-		n1, err = strconv.Atoi(s)
+		s, _ := v.GetValue(KopiaDebugFlagRate)
+		if s == "" {
+			// flag without an argument - set to default
+			pprofset.fn(pprofset.def)
+			continue
+		}
+		n1, err := strconv.Atoi(s)
 		if err != nil {
 			log(ctx).With("cause", err).Warnf("invalid PPROF rate, %q, for %s: %v", s, k)
-		} else {
-			n = n1
-			log(ctx).Debugf("setting PPROF rate, %d, for %s", n, k)
+			continue
 		}
-		fn(n)
+		log(ctx).Debugf("setting PPROF rate, %d, for %s", n1, k)
+		pprofset.fn(n1)
 	}
 }
 
-func clearProfileFractions(profileBuffers map[ProfileName]*ProfileConfig) {
-	for k, fn := range pprofProfileRates {
-		if k == "cpu" {
-			continue
-		}
+func ClearProfileFractions(profileBuffers map[ProfileName]*ProfileConfig) {
+	for k, pprofset := range pprofProfileRates {
 		v := profileBuffers[k]
 		if v == nil { // fold missing values and empty values
 			continue
 		}
-		_, ok := v.GetValue("rate")
+		_, ok := v.GetValue(KopiaDebugFlagRate)
 		if !ok { // only care if a value might have been set before
 			continue
 		}
-		fn(0)
+		pprofset.fn(0)
 	}
 }
 
@@ -161,27 +169,25 @@ func StartProfileBuffers(ctx context.Context) {
 	// look for matching services.  "*" signals all services for profiling
 	log(ctx).Debug("configuring profile buffers")
 
-	// getting to this point means that we had profile configurations but no buffers were setup,
-	// which is kinda wierd - so produce a warning and don't do anymore work
 	pcfgs := parseProfileConfigs(bufSizeB, ppconfigs)
 
-	pprofMu.Lock()
-	defer pprofMu.Unlock()
+	// aquire global lock when performing operations with global side-effects
+	pprofConfigs.mu.Lock()
+	defer pprofConfigs.mu.Unlock()
 
 	// profiling rates need to be set before starting profiling
 	setupProfileFractions(ctx, pcfgs)
 
-	// cpu has special initializaion
+	// cpu has special initialization
 	v, ok := pcfgs[ProfileNameCpu]
 	if ok {
-		// signal that the profile buffers have been configured
 		err := pprof.StartCPUProfile(v.buf)
 		if err != nil {
 			log(ctx).With("cause", err).Warn("cannot start cpu PPROF")
 			delete(pcfgs, ProfileNameCpu)
 		}
 	}
-	pprofProfileConfigs = pcfgs
+	pprofConfigs.pcm = pcfgs
 }
 
 // DumpPem dump a PEM version of the byte slice, bs, into writer, wrt
@@ -237,11 +243,11 @@ func parseDebugNumber(v *ProfileConfig) (int, error) {
 // StopProfileBuffers stop and dump the contents of the buffers to the log as PEMs.  Buffers
 // supplied here are from StartProfileBuffers
 func StopProfileBuffers(ctx context.Context) {
-	pprofMu.Lock()
-	defer pprofMu.Unlock()
+	pprofConfigs.mu.Lock()
+	defer pprofConfigs.mu.Unlock()
 
-	pcfgs := pprofProfileConfigs
-	pprofProfileConfigs = map[ProfileName]*ProfileConfig{}
+	pcfgs := pprofConfigs
+	pprofConfigs.pcm = map[ProfileName]*ProfileConfig{}
 
 	if pcfgs == nil {
 		log(ctx).Debug("profile buffers not configured")
@@ -250,7 +256,7 @@ func StopProfileBuffers(ctx context.Context) {
 
 	log(ctx).Debug("saving PEM buffers for output")
 	// cpu and heap profiles requires special handling
-	for k, v := range pcfgs {
+	for k, v := range pcfgs.pcm {
 		log(ctx).Debugf("stopping PPROF profile %q", k)
 		if v == nil {
 			continue
@@ -272,7 +278,7 @@ func StopProfileBuffers(ctx context.Context) {
 		pent := pprof.Lookup(string(k))
 		if pent == nil {
 			log(ctx).Warnf("no system PPROF entry for %q", k)
-			delete(pcfgs, k)
+			delete(pcfgs.pcm, k)
 			continue
 		}
 		err = pent.WriteTo(v.buf, debug)
@@ -282,7 +288,7 @@ func StopProfileBuffers(ctx context.Context) {
 		}
 	}
 	// dump the profiles out into their respective PEMs
-	for k, v := range pcfgs {
+	for k, v := range pcfgs.pcm {
 		if v == nil {
 			continue
 		}
@@ -295,5 +301,5 @@ func StopProfileBuffers(ctx context.Context) {
 	}
 
 	// clear the profile rates and fractions to effectively stop profiling
-	clearProfileFractions(pcfgs)
+	ClearProfileFractions(pcfgs.pcm)
 }
