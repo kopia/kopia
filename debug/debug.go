@@ -169,25 +169,24 @@ func StartProfileBuffers(ctx context.Context) {
 	// look for matching services.  "*" signals all services for profiling
 	log(ctx).Debug("configuring profile buffers")
 
-	pcfgs := parseProfileConfigs(bufSizeB, ppconfigs)
-
 	// aquire global lock when performing operations with global side-effects
 	pprofConfigs.mu.Lock()
 	defer pprofConfigs.mu.Unlock()
 
+	pprofConfigs.pcm = parseProfileConfigs(bufSizeB, ppconfigs)
+
 	// profiling rates need to be set before starting profiling
-	setupProfileFractions(ctx, pcfgs)
+	setupProfileFractions(ctx, pprofConfigs.pcm)
 
 	// cpu has special initialization
-	v, ok := pcfgs[ProfileNameCpu]
+	v, ok := pprofConfigs.pcm[ProfileNameCpu]
 	if ok {
 		err := pprof.StartCPUProfile(v.buf)
 		if err != nil {
 			log(ctx).With("cause", err).Warn("cannot start cpu PPROF")
-			delete(pcfgs, ProfileNameCpu)
+			delete(pprofConfigs.pcm, ProfileNameCpu)
 		}
 	}
-	pprofConfigs.pcm = pcfgs
 }
 
 // DumpPem dump a PEM version of the byte slice, bs, into writer, wrt
@@ -246,17 +245,14 @@ func StopProfileBuffers(ctx context.Context) {
 	pprofConfigs.mu.Lock()
 	defer pprofConfigs.mu.Unlock()
 
-	pcfgs := pprofConfigs
-	pprofConfigs.pcm = map[ProfileName]*ProfileConfig{}
-
-	if pcfgs == nil {
+	if pprofConfigs == nil {
 		log(ctx).Debug("profile buffers not configured")
 		return
 	}
 
 	log(ctx).Debug("saving PEM buffers for output")
 	// cpu and heap profiles requires special handling
-	for k, v := range pcfgs.pcm {
+	for k, v := range pprofConfigs.pcm {
 		log(ctx).Debugf("stopping PPROF profile %q", k)
 		if v == nil {
 			continue
@@ -278,7 +274,7 @@ func StopProfileBuffers(ctx context.Context) {
 		pent := pprof.Lookup(string(k))
 		if pent == nil {
 			log(ctx).Warnf("no system PPROF entry for %q", k)
-			delete(pcfgs.pcm, k)
+			delete(pprofConfigs.pcm, k)
 			continue
 		}
 		err = pent.WriteTo(v.buf, debug)
@@ -288,7 +284,7 @@ func StopProfileBuffers(ctx context.Context) {
 		}
 	}
 	// dump the profiles out into their respective PEMs
-	for k, v := range pcfgs.pcm {
+	for k, v := range pprofConfigs.pcm {
 		if v == nil {
 			continue
 		}
@@ -301,5 +297,6 @@ func StopProfileBuffers(ctx context.Context) {
 	}
 
 	// clear the profile rates and fractions to effectively stop profiling
-	ClearProfileFractions(pcfgs.pcm)
+	ClearProfileFractions(pprofConfigs.pcm)
+	pprofConfigs.pcm = map[ProfileName]*ProfileConfig{}
 }
