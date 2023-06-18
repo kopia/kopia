@@ -301,8 +301,8 @@ func main() {
 		log.Fatalf("invalid base directory: %v", err)
 	}
 
-	os.RemoveAll(filepath.Join(*baseDir, commonSection))
-	os.RemoveAll(filepath.Join(*baseDir, advancedSection))
+	_ = os.RemoveAll(filepath.Join(*baseDir, commonSection))
+	_ = os.RemoveAll(filepath.Join(*baseDir, advancedSection))
 
 	kingpinApp := kingpin.New("kopia", "Kopia - Fast And Secure Open-Source Backup").Author("http://kopia.github.io/")
 	cli.NewApp().Attach(kingpinApp)
