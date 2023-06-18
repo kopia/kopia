@@ -23,12 +23,12 @@ type StorageProtection interface {
 
 type nullStorageProtection struct{}
 
-func (nullStorageProtection) Protect(id string, input gather.Bytes, output *gather.WriteBuffer) {
+func (nullStorageProtection) Protect(_ string, input gather.Bytes, output *gather.WriteBuffer) {
 	output.Reset()
 	input.WriteTo(output) //nolint:errcheck
 }
 
-func (nullStorageProtection) Verify(id string, input gather.Bytes, output *gather.WriteBuffer) error {
+func (nullStorageProtection) Verify(_ string, input gather.Bytes, output *gather.WriteBuffer) error {
 	output.Reset()
 	input.WriteTo(output) //nolint:errcheck
 
@@ -44,12 +44,12 @@ type checksumProtection struct {
 	Secret []byte
 }
 
-func (p checksumProtection) Protect(id string, input gather.Bytes, output *gather.WriteBuffer) {
+func (p checksumProtection) Protect(_ string, input gather.Bytes, output *gather.WriteBuffer) {
 	output.Reset()
 	hmac.Append(input, p.Secret, output)
 }
 
-func (p checksumProtection) Verify(id string, input gather.Bytes, output *gather.WriteBuffer) error {
+func (p checksumProtection) Verify(_ string, input gather.Bytes, output *gather.WriteBuffer) error {
 	output.Reset()
 	//nolint:wrapcheck
 	return hmac.VerifyAndStrip(input, p.Secret, output)

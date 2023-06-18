@@ -585,9 +585,9 @@ func (sm *SharedManager) shouldRefreshIndexes() bool {
 }
 
 // PrepareUpgradeToIndexBlobManagerV1 prepares the repository for migrating to IndexBlobManagerV1.
-func (sm *SharedManager) PrepareUpgradeToIndexBlobManagerV1(ctx context.Context, params epoch.Parameters) error {
+func (sm *SharedManager) PrepareUpgradeToIndexBlobManagerV1(ctx context.Context) error {
 	//nolint:wrapcheck
-	return sm.indexBlobManagerV1.PrepareUpgradeToIndexBlobManagerV1(ctx, params, sm.indexBlobManagerV0)
+	return sm.indexBlobManagerV1.PrepareUpgradeToIndexBlobManagerV1(ctx, sm.indexBlobManagerV0)
 }
 
 // NewSharedManager returns SharedManager that is used by SessionWriteManagers on top of a repository.

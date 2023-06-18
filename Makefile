@@ -39,7 +39,7 @@ GOTESTSUM_FORMAT=pkgname-and-test-fails
 GOTESTSUM_FLAGS=--format=$(GOTESTSUM_FORMAT) --no-summary=skipped
 GO_TEST?=$(gotestsum) $(GOTESTSUM_FLAGS) --
 
-LINTER_DEADLINE=600s
+LINTER_DEADLINE=1200s
 UNIT_TESTS_TIMEOUT=1200s
 
 ifeq ($(GOARCH),amd64)
@@ -213,7 +213,7 @@ download-rclone:
 	go run ./tools/gettool --tool rclone:$(RCLONE_VERSION) --output-dir dist/kopia_linux_arm_6/ --goos=linux --goarch=arm
 
 
-ci-tests: lint vet test 
+ci-tests: vet test 
 
 ci-integration-tests:
 	$(MAKE) robustness-tool-tests

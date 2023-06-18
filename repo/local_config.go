@@ -133,7 +133,7 @@ func LoadConfigFromFile(fileName string) (*LocalConfig, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "error loading config file")
 	}
-	defer f.Close() //nolint:errcheck,gosec
+	defer f.Close() //nolint:errcheck
 
 	var lc LocalConfig
 

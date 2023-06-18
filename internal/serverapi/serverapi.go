@@ -123,8 +123,6 @@ type CheckRepositoryExistsRequest struct {
 }
 
 // ConnectRepositoryRequest contains request to connect to a repository.
-//
-//nolint:musttag // false positive
 type ConnectRepositoryRequest struct {
 	Storage             blob.ConnectionInfo `json:"storage"`
 	Password            string              `json:"password"`

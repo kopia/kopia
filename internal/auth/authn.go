@@ -25,7 +25,7 @@ type singleUserAuthenticator struct {
 	expectedPasswordBytes []byte
 }
 
-func (a *singleUserAuthenticator) IsValid(ctx context.Context, rep repo.Repository, username, password string) bool {
+func (a *singleUserAuthenticator) IsValid(ctx context.Context, _ repo.Repository, username, password string) bool {
 	return subtle.ConstantTimeCompare([]byte(username), a.expectedUsernameBytes)*
 		subtle.ConstantTimeCompare([]byte(password), a.expectedPasswordBytes) == 1
 }
@@ -75,7 +75,7 @@ type htpasswdAuthenticator struct {
 	f *htpasswd.File
 }
 
-func (a htpasswdAuthenticator) IsValid(ctx context.Context, rep repo.Repository, username, password string) bool {
+func (a htpasswdAuthenticator) IsValid(ctx context.Context, _ repo.Repository, username, password string) bool {
 	return a.f.Match(username, password)
 }
 

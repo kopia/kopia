@@ -33,7 +33,7 @@ func (f *testFile) ModTime() time.Time          { return f.modtime }
 func (f *testFile) Sys() interface{}            { return nil }
 func (f *testFile) Owner() fs.OwnerInfo         { return fs.OwnerInfo{UserID: 1000, GroupID: 1000} }
 func (f *testFile) Device() fs.DeviceInfo       { return fs.DeviceInfo{Dev: 1} }
-func (f *testFile) Open(_ context.Context) (io.Reader, error) {
+func (f *testFile) Open(ctx context.Context) (io.Reader, error) {
 	return strings.NewReader(f.content), nil
 }
 
@@ -66,7 +66,7 @@ func (d *testDirectory) ModTime() time.Time               { return d.modtime }
 func (d *testDirectory) Sys() interface{}                 { return nil }
 func (d *testDirectory) Owner() fs.OwnerInfo              { return fs.OwnerInfo{UserID: 1000, GroupID: 1000} }
 func (d *testDirectory) Device() fs.DeviceInfo            { return fs.DeviceInfo{Dev: 1} }
-func (d *testDirectory) Child(_ context.Context, name string) (fs.Entry, error) {
+func (d *testDirectory) Child(ctx context.Context, name string) (fs.Entry, error) {
 	for _, f := range d.files {
 		if f.Name() == name {
 			return f, nil
@@ -75,7 +75,7 @@ func (d *testDirectory) Child(_ context.Context, name string) (fs.Entry, error) 
 
 	return nil, fs.ErrEntryNotFound
 }
-func (d *testDirectory) Readdir(_ context.Context) ([]fs.Entry, error) { return d.files, nil }
+func (d *testDirectory) Readdir(ctx context.Context) ([]fs.Entry, error) { return d.files, nil }
 
 func TestCompareEmptyDirectories(t *testing.T) {
 	var buf bytes.Buffer

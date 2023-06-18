@@ -10,8 +10,6 @@ import (
 
 // RepositoryConfig describes the format of objects in a repository.
 // The contents of this object are stored encrypted since they contain sensitive key material.
-//
-//nolint:musttag // false positive
 type RepositoryConfig struct {
 	ContentFormat
 	ObjectFormat
