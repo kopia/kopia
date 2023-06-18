@@ -85,6 +85,9 @@ weight = 1
 copyright = "Kopia Project"
 privacy_policy = "https://kopia.io/docs/privacy-policy/"
 github_repo = "https://github.com/kopia/kopia"
+github_subdir = "site"
+github_branch = "master"
+path_base_for_github_subdir = "content/\\w+/some-section"
 
 # Google Custom Search Engine ID. Remove or comment out to disable search.
 # gcs_engine_id = "017899350404537892552:t3ckb1h0zq4"
