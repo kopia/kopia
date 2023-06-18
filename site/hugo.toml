@@ -1,4 +1,4 @@
-baseURL = ""
+baseURL = "https://kopia.io"
 title = "Kopia"
 
 enableRobotsTXT = true
@@ -36,17 +36,18 @@ pygmentsStyle = "tango"
     weight = 1
     url = "docs/features/"
 [[menu.main]]
-    name = "Getting Started Guide"
+    name = "Getting Started"
     weight = 2
     url = "docs/getting-started/"
 [[menu.main]]
-    name = "Download Now"
+    name = "Download"
     weight = 3
     url = "docs/installation/"
 [[menu.main]]
-    name = "FAQs"
+    name = "GitHub"
     weight = 4
-    url = "docs/faqs/"
+    pre = "<i class='fa-brands fa-github'></i>"
+    url = "https://github.com/kopia/kopia/"
 
 # Configure how URLs look like per section.
 [permalinks]
