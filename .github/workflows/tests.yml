@@ -58,6 +58,8 @@ jobs:
       if: ${{ contains(matrix.os, 'macos') }}
     - name: Setup
       run: make -j4 ci-setup
+    - name: Lint
+      run: make lint
     - name: Tests
       run: make ci-tests
     - name: Integration Tests
