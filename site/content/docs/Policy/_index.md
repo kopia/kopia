@@ -1,4 +1,10 @@
-# Kopia Policy
+
+---
+title: "Working with Policy"
+linkTitle: "Working with Policy"
+weight: 20
+---
+
 Policies are a useful tool to help manage repositories. You can configure things like how many snapshots are retained, files that are ignored, compression algorithms, etc...
 
 ## Sources
@@ -10,7 +16,7 @@ Default Policy
 >> Host level policy
 >>> Source level policy
 
-In this system, policies are inherited from the next highest level, in  much the same way as Windows does permissions or GP. Any setting that is not explicitly defined in a lower level is inherited from the next highest level, until the default is reached. To edit a specific policy `$ kopia policy edit` is used. This takes a source as an argument, or if `--global` is given, then the global policy is edited. This will open your default text editor in the terminal where you can edit the policy in JSON format. When editing is finished save the file and close the editor. Kopia will then upload and apply the policy to the repository. Policies are always checked and updated at the start of a snapshot create.
+In this system, policies are inherited from the next highest level, in  much the same way as Windows does permissions or GP. Any setting that is not explicitly defined in a lower level is inherited from the next highest level, until the default is reached. Polices can be edited directly in JSON format using `kopia policy edit` or individual settings can be changed using `kopia policy set`. This takes a source as an argument, or if `--global` is given, then the global policy is edited. This will open your default text editor in the terminal where you can edit the policy in JSON format. When editing is finished save the file and close the editor. Kopia will then upload and apply the policy to the repository. Policies are always checked and updated at the start of a snapshot create.
 
 
 ## Retention Policy

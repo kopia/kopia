@@ -58,6 +58,8 @@ Policies can be applied at multiple different levels:
 * `username@hostname` (i.e., the policy is applied for all policies belonging to the specific user)
 * `@hostname` (i.e., the policy is applied to all policies belonging to the specific machine)
 
+To read more about policies see [Working with Policy](../policy/)
+
 ### Save Snapshots to Cloud, Network, or Local Storage
 
 Kopia performs all its operations locally on your machine, meaning that you do not need to have any dedicated server to run your backups and you can save your snapshots to a variety of storage locations. Kopia supports network and local storage locations, of course, but also many cloud or remote storage locations:
