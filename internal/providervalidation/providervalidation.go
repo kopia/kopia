@@ -371,6 +371,9 @@ func (c *concurrencyTest) getMetadataWorker(ctx context.Context, worker int) fun
 }
 
 func (c *concurrencyTest) listBlobWorker(ctx context.Context, worker int) func() error {
+	// TODO: implement me
+	_ = worker
+
 	return func() error {
 		return nil
 	}

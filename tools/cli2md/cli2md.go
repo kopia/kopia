@@ -133,7 +133,7 @@ func generateAppFlags(app *kingpin.ApplicationModel) error {
 	if err != nil {
 		return errors.Wrap(err, "unable to create common flags file")
 	}
-	defer f.Close() //nolint:errcheck,gosec
+	defer f.Close() //nolint:errcheck
 
 	title := "Flags"
 	fmt.Fprintf(f, `---
@@ -158,7 +158,7 @@ func generateCommands(app *kingpin.ApplicationModel, section string, weight int,
 	if err != nil {
 		return errors.Wrap(err, "unable to create common flags file")
 	}
-	defer f.Close() //nolint:errcheck,gosec
+	defer f.Close() //nolint:errcheck
 
 	title := section + " Commands"
 	fmt.Fprintf(f, `---
@@ -258,7 +258,7 @@ func generateSubcommandPage(fname string, cmd *kingpin.CmdModel) {
 	if err != nil {
 		log.Fatalf("unable to create page: %v", err)
 	}
-	defer f.Close() //nolint:errcheck,gosec
+	defer f.Close() //nolint:errcheck
 
 	title := cmd.FullCommand
 	fmt.Fprintf(f, `---

@@ -15,7 +15,7 @@ type Manager interface {
 	WriteIndexBlobs(ctx context.Context, data []gather.Bytes, suffix blob.ID) ([]blob.Metadata, error)
 	ListActiveIndexBlobs(ctx context.Context) ([]Metadata, time.Time, error)
 	Compact(ctx context.Context, opts CompactOptions) error
-	Invalidate(ctx context.Context)
+	Invalidate()
 }
 
 // CompactOptions provides options for compaction.
