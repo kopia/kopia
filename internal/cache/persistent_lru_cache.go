@@ -231,6 +231,7 @@ func (c *PersistentCache) Put(ctx context.Context, key string, data gather.Bytes
 		// MUST NOT go over the specified limit for the cache space to avoid
 		// snapshots/restores from getting affected by the cache's storage use.
 		if c.isCacheFullLocked() {
+			log(ctx).Debugf("Cache is full, unable to add %v into cache.", key)
 			return
 		}
 	}
