@@ -110,7 +110,7 @@
     "afterSign": "notarize.js"
   },
   "devDependencies": {
-    "@playwright/test": "^1.33.0",
+    "@playwright/test": "^1.34.3",
     "asar": "^3.2.0",
     "concurrently": "^8.0.1",
     "dotenv": "^16.0.3",
