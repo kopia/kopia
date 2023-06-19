@@ -5,6 +5,7 @@ import (
 	"path"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"runtime"
 	"sort"
 	"strings"
@@ -746,6 +747,7 @@ func TestSnapshotCreateAllSnapshotPath(t *testing.T) {
 
 	// Make sure the scheduling policy with manual field is set and visible in the policy list, includes global policy
 	var plist []policy.TargetWithPolicy
+
 	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "policy", "list", "--json"), &plist)
 
 	if got, want := len(plist), 4; got != want {
@@ -776,7 +778,7 @@ func TestSnapshotCreateAllSnapshotPath(t *testing.T) {
 	require.Equal(t, "foo", si[2].Host)
 
 	if runtime.GOOS == "windows" {
-		require.Regexp(t, "[A-Z]:\\foo\\bar", si[2].Path)
+		require.Regexp(t, regexp.MustCompile(`[A-Z]:\\foo\\bar`), si[2].Path)
 	} else {
 		require.Equal(t, "/foo/bar", si[2].Path)
 	}
