@@ -282,6 +282,7 @@ func TestGetStorageClassForAzureBlobID(t *testing.T) {
 	}`
 
 	config := &azure.StorageConfig{}
+
 	err := config.Load(strings.NewReader(configData))
 	if err != nil {
 		t.Fatalf("failed to load storage config: %v", err)
