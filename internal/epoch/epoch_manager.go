@@ -39,30 +39,33 @@ type ParametersProvider interface {
 var ErrVerySlowIndexWrite = errors.Errorf("extremely slow index write - index write took more than two epochs")
 
 // Parameters encapsulates all parameters that influence the behavior of epoch manager.
+//
+// Note as a historical mistake, JSON tags are not camelCase, but rather PascalCase. We can't change
+// that since the parameters are stored in a repository.
 type Parameters struct {
 	// whether epoch manager is enabled, must be true.
-	Enabled bool
+	Enabled bool `json:"Enabled"`
 
 	// how frequently each client will list blobs to determine the current epoch.
-	EpochRefreshFrequency time.Duration
+	EpochRefreshFrequency time.Duration `json:"EpochRefreshFrequency"`
 
 	// number of epochs between full checkpoints.
-	FullCheckpointFrequency int
+	FullCheckpointFrequency int `json:"FullCheckpointFrequency"`
 
 	// do not delete uncompacted blobs if the corresponding compacted blob age is less than this.
-	CleanupSafetyMargin time.Duration
+	CleanupSafetyMargin time.Duration `json:"CleanupSafetyMargin"`
 
 	// minimum duration of an epoch
-	MinEpochDuration time.Duration
+	MinEpochDuration time.Duration `json:"MinEpochDuration"`
 
 	// advance epoch if number of files exceeds this
-	EpochAdvanceOnCountThreshold int
+	EpochAdvanceOnCountThreshold int `json:"EpochAdvanceOnCountThreshold"`
 
 	// advance epoch if total size of files exceeds this.
-	EpochAdvanceOnTotalSizeBytesThreshold int64
+	EpochAdvanceOnTotalSizeBytesThreshold int64 `json:"EpochAdvanceOnTotalSizeBytesThreshold"`
 
 	// number of blobs to delete in parallel during cleanup
-	DeleteParallelism int
+	DeleteParallelism int `json:"DeleteParallelism"`
 }
 
 // GetEpochManagerEnabled returns whether epoch manager is enabled, must be true.
@@ -589,6 +592,8 @@ func (e *Manager) maybeGenerateNextRangeCheckpointAsync(ctx context.Context, cs 
 }
 
 func (e *Manager) maybeOptimizeRangeCheckpointsAsync(ctx context.Context, cs CurrentSnapshot) {
+	// TODO: implement me
+	_ = cs
 }
 
 func (e *Manager) maybeStartCleanupAsync(ctx context.Context, cs CurrentSnapshot, p *Parameters) {

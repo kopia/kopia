@@ -268,6 +268,8 @@ type ManagerOptions struct {
 
 // NewManager returns new manifest manager for the provided content manager.
 func NewManager(ctx context.Context, b contentManager, options ManagerOptions, mr *metrics.Registry) (*Manager, error) {
+	_ = mr
+
 	timeNow := options.TimeNow
 	if timeNow == nil {
 		timeNow = clock.Now

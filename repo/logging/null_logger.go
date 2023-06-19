@@ -7,6 +7,6 @@ import "go.uber.org/zap"
 //nolint:gochecknoglobals
 var NullLogger = zap.NewNop().Sugar()
 
-func getNullLogger(module string) Logger {
+func getNullLogger(_ string) Logger {
 	return NullLogger
 }

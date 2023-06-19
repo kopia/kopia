@@ -36,7 +36,7 @@ func getProcessStats(fname string) (processStats, error) {
 	if err != nil {
 		return processStats{}, err
 	}
-	defer f.Close() //nolint:errcheck,gosec
+	defer f.Close() //nolint:errcheck
 
 	s := bufio.NewScanner(f)
 
@@ -101,7 +101,7 @@ func parseRepoSize(fname string) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer f.Close() //nolint:errcheck,gosec
+	defer f.Close() //nolint:errcheck
 
 	s := bufio.NewScanner(f)
 	s.Scan()

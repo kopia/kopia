@@ -28,6 +28,8 @@ func (c *storageGDriveFlags) Setup(_ StorageProviderServices, cmd *kingpin.CmdCl
 }
 
 func (c *storageGDriveFlags) Connect(ctx context.Context, isCreate bool, formatVersion int) (blob.Storage, error) {
+	_ = formatVersion
+
 	if c.embedCredentials {
 		data, err := os.ReadFile(c.options.ServiceAccountCredentialsFile)
 		if err != nil {
@@ -39,5 +41,5 @@ func (c *storageGDriveFlags) Connect(ctx context.Context, isCreate bool, formatV
 	}
 
 	//nolint:wrapcheck
-	return gdrive.New(ctx, &c.options, false)
+	return gdrive.New(ctx, &c.options, isCreate)
 }
