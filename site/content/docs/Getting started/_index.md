@@ -12,7 +12,7 @@ This guide will walk you through installing Kopia and setting up Kopia to backup
 
 ## Download and Installation
 
-Read the the [download and installation guide](../installation/) to learn how to download & install Kopia. As a reminder, Kopia comes in two variants: [command-line interface (CLI)](../installation/#two-variants-of-kopia) and [graphical user interface (GUI)](../installation/#two-variants-of-kopia). Pick the one you like the most.
+Read the [download and installation guide](../installation/) to learn how to download & install Kopia. As a reminder, Kopia comes in two variants: [command-line interface (CLI)](../installation/#two-variants-of-kopia) and [graphical user interface (GUI)](../installation/#two-variants-of-kopia). Pick the one you like the most.
 
 ## Setting Up Kopia
 

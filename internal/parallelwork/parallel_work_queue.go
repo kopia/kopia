@@ -1,4 +1,4 @@
-// Package parallelwork implements pallel work queue with fixed number of workers that concurrently process and add work items to the queue.
+// Package parallelwork implements parallel work queue with fixed number of workers that concurrently process and add work items to the queue.
 package parallelwork
 
 import (

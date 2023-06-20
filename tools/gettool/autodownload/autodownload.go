@@ -30,7 +30,7 @@ func createFile(target string, mode os.FileMode, modTime time.Time, src io.Reade
 
 	defer os.Chtimes(target, modTime, modTime) //nolint:errcheck
 
-	defer f.Close() //nolint:errcheck,gosec
+	defer f.Close() //nolint:errcheck
 
 	if _, err := io.Copy(f, src); err != nil {
 		return errors.Wrap(err, "error copying contents")

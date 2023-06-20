@@ -39,7 +39,6 @@ type Repository interface {
 	UpdateDescription(d string)
 	Refresh(ctx context.Context) error
 	Close(ctx context.Context) error
-	Metrics() *metrics.Registry
 }
 
 // RepositoryWriter provides methods to write to a repository.

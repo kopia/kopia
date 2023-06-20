@@ -53,7 +53,7 @@ func (m *ManagerV1) ListActiveIndexBlobs(ctx context.Context) ([]Metadata, time.
 }
 
 // Invalidate clears any read caches.
-func (m *ManagerV1) Invalidate(ctx context.Context) {
+func (m *ManagerV1) Invalidate() {
 	m.EpochMgr.Invalidate()
 }
 
@@ -147,7 +147,7 @@ func (m *ManagerV1) EpochManager() *epoch.Manager {
 }
 
 // PrepareUpgradeToIndexBlobManagerV1 prepares the repository for migrating to IndexBlobManagerV1.
-func (m *ManagerV1) PrepareUpgradeToIndexBlobManagerV1(ctx context.Context, params epoch.Parameters, v0 *ManagerV0) error {
+func (m *ManagerV1) PrepareUpgradeToIndexBlobManagerV1(ctx context.Context, v0 *ManagerV0) error {
 	ibl, _, err := v0.ListActiveIndexBlobs(ctx)
 	if err != nil {
 		return errors.Wrap(err, "error listing active index blobs")

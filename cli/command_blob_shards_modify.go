@@ -178,7 +178,7 @@ func (c *commandBlobShardsModify) run(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "error creating .shards file")
 	}
-	defer of.Close() //nolint:errcheck,gosec
+	defer of.Close() //nolint:errcheck
 
 	return errors.Wrap(dstPar.Save(of), "error saving .shards file")
 }

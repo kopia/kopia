@@ -32,14 +32,17 @@ type blobCache interface {
 
 type nullCache struct{}
 
+//nolint:revive
 func (nullCache) Get(ctx context.Context, blobID blob.ID) ([]byte, time.Time, bool) {
 	return nil, time.Time{}, false
 }
 
+//nolint:revive
 func (nullCache) Put(ctx context.Context, blobID blob.ID, data []byte) (time.Time, error) {
 	return clock.Now(), nil
 }
 
+//nolint:revive
 func (nullCache) Remove(ctx context.Context, ids []blob.ID) {
 }
 

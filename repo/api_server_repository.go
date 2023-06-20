@@ -110,6 +110,7 @@ func (r *apiServerRepository) ReplaceManifests(ctx context.Context, labels map[s
 }
 
 func (r *apiServerRepository) SetFindManifestPageSizeForTesting(v int32) {
+	_ = v
 }
 
 func (r *apiServerRepository) FindManifests(ctx context.Context, labels map[string]string) ([]*manifest.EntryMetadata, error) {

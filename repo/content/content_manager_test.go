@@ -2683,6 +2683,7 @@ func (o withDeleted) GetDeleted() bool {
 }
 
 var (
+	// +checklocks:rMu
 	r   = rand.New(rand.NewSource(rand.Int63()))
 	rMu sync.Mutex
 )
