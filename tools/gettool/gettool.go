@@ -27,6 +27,7 @@ type ToolInfo struct {
 	stripPathComponents int
 	unsupportedArch     map[string]bool
 	unsupportedOSArch   map[string]bool
+	macosUniversalArch  string
 }
 
 func (ti ToolInfo) actualURL(version, goos, goarch string) string {
@@ -40,6 +41,11 @@ func (ti ToolInfo) actualURL(version, goos, goarch string) string {
 
 	u := ti.urlTemplate
 	u = strings.ReplaceAll(u, "VERSION", version)
+
+	if goos == "darwin" && ti.macosUniversalArch != "" {
+		goarch = ti.macosUniversalArch
+	}
+
 	u = strings.ReplaceAll(u, "GOARCH", replacementFromMap(goarch, ti.archMap))
 	u = strings.ReplaceAll(u, "GOOS", replacementFromMap(goos, ti.osMap))
 	u = strings.ReplaceAll(u, "EXT", replacementFromMap(goos, map[string]string{
@@ -62,18 +68,13 @@ var tools = map[string]ToolInfo{
 	},
 	"hugo": {
 		urlTemplate: "https://github.com/gohugoio/hugo/releases/download/vVERSION/hugo_extended_VERSION_GOOS-GOARCH.EXT",
-		archMap: map[string]string{
-			"amd64": "64bit", "arm": "ARM", "arm64": "ARM64",
-		},
-		osMap: map[string]string{
-			"linux": "Linux", "darwin": "macOS",
-		},
 		unsupportedArch: map[string]bool{
 			"arm": true,
 		},
 		unsupportedOSArch: map[string]bool{
 			"linux/arm64": true,
 		},
+		macosUniversalArch: "universal",
 	},
 	"gotestsum": {
 		urlTemplate: "https://github.com/gotestyourself/gotestsum/releases/download/vVERSION/gotestsum_VERSION_GOOS_GOARCH.tar.gz",

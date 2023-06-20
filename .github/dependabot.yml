@@ -1,16 +1,7 @@
 version: 2
 updates:
-  - package-ecosystem: gomod
-    directory: "/"
-    open-pull-requests-limit: 5
-    schedule:
-      interval: daily
   - package-ecosystem: github-actions
     directory: "/"
     open-pull-requests-limit: 3
     schedule:
       interval: weekly
-  - package-ecosystem: npm
-    directory: "/app"
-    schedule:
-      interval: monthly

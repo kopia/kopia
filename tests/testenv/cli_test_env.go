@@ -47,9 +47,11 @@ type CLITest struct {
 
 	DefaultRepositoryCreateFlags []string
 
-	logMu            sync.RWMutex
+	logMu sync.RWMutex
+	// +checklocks:logMu
 	logOutputEnabled bool
-	logOutputPrefix  string
+	// +checklocks:logMu
+	logOutputPrefix string
 }
 
 // RepoFormatNotImportant chooses arbitrary format version where it's not important to the test.

@@ -189,7 +189,9 @@ jobs:
         DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
     - name: Bump Homebrew formula
       uses: dawidd6/action-homebrew-bump-formula@v3
-      if: github.ref_type == 'tag'
+      # only bump formula for tags which don't contain '-'
+      # this excludes vx.y.z-rc1
+      if: github.ref_type == 'tag' && !contains(github.ref_name, '-')
       with:
         token: ${{ secrets.HOMEBREW_PUSH_TOKEN }}
         formula: kopia

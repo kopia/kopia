@@ -144,7 +144,7 @@ func (m *ManagerV0) ListActiveIndexBlobs(ctx context.Context) ([]Metadata, time.
 }
 
 // Invalidate invalidates any caches.
-func (m *ManagerV0) Invalidate(ctx context.Context) {
+func (m *ManagerV0) Invalidate() {
 }
 
 // Compact performs compaction of index blobs by merging smaller ones into larger

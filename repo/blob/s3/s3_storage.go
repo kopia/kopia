@@ -318,6 +318,8 @@ func getCustomTransport(opt *Options) (*http.Transport, error) {
 //
 // - the 'BucketName' field is required and all other parameters are optional.
 func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error) {
+	_ = isCreate
+
 	st, err := newStorage(ctx, opt)
 	if err != nil {
 		return nil, err

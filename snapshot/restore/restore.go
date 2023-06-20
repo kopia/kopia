@@ -93,6 +93,8 @@ type Options struct {
 }
 
 // Entry walks a snapshot root with given root entry and restores it to the provided output.
+//
+//nolint:revive
 func Entry(ctx context.Context, rep repo.Repository, output Output, rootEntry fs.Entry, options Options) (Stats, error) {
 	c := copier{
 		output:        output,

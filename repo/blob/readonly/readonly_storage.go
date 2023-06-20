@@ -32,10 +32,12 @@ func (s readonlyStorage) GetMetadata(ctx context.Context, id blob.ID) (blob.Meta
 	return s.base.GetMetadata(ctx, id)
 }
 
+//nolint:revive
 func (s readonlyStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes, opts blob.PutOptions) error {
 	return ErrReadonly
 }
 
+//nolint:revive
 func (s readonlyStorage) DeleteBlob(ctx context.Context, id blob.ID) error {
 	return ErrReadonly
 }

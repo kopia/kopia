@@ -26,11 +26,12 @@ import (
 const smallIndexEntryCountThreshold = 100
 
 type committedContentIndex struct {
-	rev                    atomic.Int64
-	cache                  committedContentIndexCache
-	permissiveCacheLoading bool
+	rev   atomic.Int64
+	cache committedContentIndexCache
 
 	mu sync.RWMutex
+	// +checklocks:mu
+	permissiveCacheLoading bool
 	// +checklocks:mu
 	deletionWatermark time.Time
 	// +checklocks:mu
