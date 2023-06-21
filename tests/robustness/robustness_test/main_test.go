@@ -52,7 +52,7 @@ func TestMain(m *testing.M) {
 		if eng.ErrIsNotEnoughSpace(err) {
 			// Delete the snapshot
 			snapID := opts["snapshot-ID"]
-			log.Println("snap ID: ", snapID)
+			log.Println("deleting snap ID: ", snapID)
 			_ = eng.Checker.DeleteSnapshot(ctx, snapID, opts)
 		}
 
