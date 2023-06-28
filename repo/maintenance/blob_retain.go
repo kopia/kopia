@@ -25,7 +25,7 @@ type ExtendBlobRetentionTimeOptions struct {
 }
 
 // ExtendBlobRetentionTime extends the retention time of all relevant blobs managed by storage engine with Object Locking enabled.
-func ExtendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWriter, opt ExtendBlobRetentionTimeOptions, safety SafetyParameters) (int, error) {
+func ExtendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWriter, opt ExtendBlobRetentionTimeOptions) (int, error) {
 	const extendQueueSize = 100
 
 	var (

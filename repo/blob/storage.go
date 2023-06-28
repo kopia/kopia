@@ -142,7 +142,7 @@ type ExtendOptions struct {
 type UnsupportedBlobRetention struct{}
 
 // ExtendBlobRetention provides a common implementation for unsupported blob retention storage.
-func (s *UnsupportedBlobRetention) ExtendBlobRetention(ctx context.Context, b ID, opts ExtendOptions) error {
+func (s *UnsupportedBlobRetention) ExtendBlobRetention(context.Context, ID, ExtendOptions) error {
 	return ErrUnsupportedObjectLock
 }
 

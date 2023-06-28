@@ -58,13 +58,13 @@ func (s *formatSpecificTestSuite) TestExtendBlobRetention(t *testing.T) {
 	st := env.RootStorage().(cache.Storage)
 
 	// Verify that file is locked
-	err = st.TouchBlob(ctx, blobsBefore[lastBlobIdx].BlobID, time.Hour)
+	_, err = st.TouchBlob(ctx, blobsBefore[lastBlobIdx].BlobID, time.Hour)
 	assert.EqualErrorf(t, err, "cannot alter object before retention period expires", "Altering locked object should fail")
 
 	ta.Advance(7 * 24 * time.Hour)
 
 	// Verify that file is unlocked
-	err = st.TouchBlob(ctx, blobsBefore[lastBlobIdx].BlobID, time.Hour)
+	_, err = st.TouchBlob(ctx, blobsBefore[lastBlobIdx].BlobID, time.Hour)
 	if err != nil {
 		t.Fatalf("Altering expired object failed")
 	}
@@ -81,12 +81,12 @@ func (s *formatSpecificTestSuite) TestExtendBlobRetention(t *testing.T) {
 	// Verify Lock period
 	ta.Advance(1 * time.Hour)
 
-	err = st.TouchBlob(ctx, blobsBefore[lastBlobIdx].BlobID, time.Hour)
+	_, err = st.TouchBlob(ctx, blobsBefore[lastBlobIdx].BlobID, time.Hour)
 	assert.EqualErrorf(t, err, "cannot alter object before retention period expires", "Altering locked object should fail")
 
 	ta.Advance(2 * time.Hour)
 
-	err = st.TouchBlob(ctx, blobsBefore[lastBlobIdx].BlobID, time.Hour)
+	_, err = st.TouchBlob(ctx, blobsBefore[lastBlobIdx].BlobID, time.Hour)
 	if err != nil {
 		t.Fatalf("Altering expired object failed")
 	}
