@@ -3,7 +3,7 @@ package cli
 import (
 	"context"
 
-	"github.com/alecthomas/kingpin"
+	"github.com/alecthomas/kingpin/v2"
 
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/azure"
@@ -25,6 +25,8 @@ func (c *storageAzureFlags) Setup(svc StorageProviderServices, cmd *kingpin.CmdC
 }
 
 func (c *storageAzureFlags) Connect(ctx context.Context, isCreate bool, formatVersion int) (blob.Storage, error) {
+	_ = formatVersion
+
 	//nolint:wrapcheck
-	return azure.New(ctx, &c.azOptions, false)
+	return azure.New(ctx, &c.azOptions, isCreate)
 }

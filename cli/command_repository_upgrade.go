@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/alecthomas/kingpin"
+	"github.com/alecthomas/kingpin/v2"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/epoch"
@@ -57,7 +57,7 @@ func (c *commandRepositoryUpgrade) setup(svc advancedAppServices, parent command
 			return nil
 		})
 
-	beginCmd := parent.Command("begin", "Begin upgrade.").Default()
+	beginCmd := parent.Command("begin", "Begin upgrade.")
 	beginCmd.Flag("io-drain-timeout", "Max time it should take all other Kopia clients to drop repository connections").Default(format.DefaultRepositoryBlobCacheDuration.String()).DurationVar(&c.ioDrainTimeout)
 	beginCmd.Flag("allow-unsafe-upgrade", "Force using an unsafe io-drain-timeout for the upgrade lock").Default("false").Hidden().BoolVar(&c.allowUnsafeUpgradeTimings)
 	beginCmd.Flag("status-poll-interval", "An advisory polling interval to check for the status of upgrade").Default("60s").DurationVar(&c.statusPollInterval)
@@ -314,6 +314,14 @@ func (c *commandRepositoryUpgrade) setLockIntent(ctx context.Context, rep repo.D
 	// This will fail if we have already upgraded.
 	l, err := rep.FormatManager().SetUpgradeLockIntent(ctx, *l)
 	if err != nil {
+		if errors.Is(err, format.ErrFormatUptoDate) {
+			log(ctx).Info("Repository format is already upto date.")
+
+			c.skip = true
+
+			return nil
+		}
+
 		return errors.Wrap(err, "error setting the upgrade lock intent")
 	}
 	// we need to reopen the repository after this point
@@ -353,7 +361,7 @@ func (c *commandRepositoryUpgrade) drainOrCommit(ctx context.Context, rep repo.D
 	if mp.EpochParameters.Enabled {
 		log(ctx).Infof("Repository indices have already been migrated to the epoch format, no need to drain other clients")
 
-		l, err := rep.FormatManager().GetUpgradeLockIntent(ctx)
+		l, err := rep.FormatManager().GetUpgradeLockIntent()
 		if err != nil {
 			return errors.Wrap(err, "failed to get upgrade lock intent")
 		}
@@ -396,7 +404,7 @@ func (c *commandRepositoryUpgrade) sleepWithContext(ctx context.Context, dur tim
 
 func (c *commandRepositoryUpgrade) drainAllClients(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	for {
-		l, err := rep.FormatManager().GetUpgradeLockIntent(ctx)
+		l, err := rep.FormatManager().GetUpgradeLockIntent()
 
 		upgradeTime := l.UpgradeTime()
 		now := rep.Time()
@@ -446,7 +454,7 @@ func (c *commandRepositoryUpgrade) upgrade(ctx context.Context, rep repo.DirectR
 
 	log(ctx).Infof("migrating current indices to epoch format")
 
-	if uerr := rep.ContentManager().PrepareUpgradeToIndexBlobManagerV1(ctx, mp.EpochParameters); uerr != nil {
+	if uerr := rep.ContentManager().PrepareUpgradeToIndexBlobManagerV1(ctx); uerr != nil {
 		return errors.Wrap(uerr, "error upgrading indices")
 	}
 

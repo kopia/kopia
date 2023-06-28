@@ -2,6 +2,7 @@ package cache
 
 import (
 	"context"
+	"time"
 
 	"github.com/pkg/errors"
 
@@ -28,6 +29,7 @@ type Options struct {
 	HMACSecret         []byte
 	FetchFullBlobs     bool
 	Sweep              SweepSettings
+	TimeNow            func() time.Time
 }
 
 type contentCacheImpl struct {
@@ -61,7 +63,7 @@ func (c *contentCacheImpl) GetContent(ctx context.Context, contentID string, blo
 
 func (c *contentCacheImpl) getContentFromFullBlob(ctx context.Context, blobID blob.ID, offset, length int64, output *gather.WriteBuffer) error {
 	// acquire exclusive lock
-	mut := c.pc.GetFetchingMutex(string(blobID))
+	mut := c.pc.GetFetchingMutex(blobID)
 	mut.Lock()
 	defer mut.Unlock()
 
@@ -112,7 +114,7 @@ func (c *contentCacheImpl) fetchBlobInternal(ctx context.Context, blobID blob.ID
 
 func (c *contentCacheImpl) getContentFromFullOrPartialBlob(ctx context.Context, contentID string, blobID blob.ID, offset, length int64, output *gather.WriteBuffer) error {
 	// acquire shared lock on a blob, PrefetchBlob will acquire exclusive lock here.
-	mut := c.pc.GetFetchingMutex(string(blobID))
+	mut := c.pc.GetFetchingMutex(blobID)
 	mut.RLock()
 	defer mut.RUnlock()
 
@@ -122,7 +124,7 @@ func (c *contentCacheImpl) getContentFromFullOrPartialBlob(ctx context.Context, 
 	}
 
 	// acquire exclusive lock on the content
-	mut2 := c.pc.GetFetchingMutex(contentID)
+	mut2 := c.pc.GetFetchingMutex(blob.ID(contentID))
 	mut2.Lock()
 	defer mut2.Unlock()
 
@@ -159,7 +161,7 @@ func (c *contentCacheImpl) PrefetchBlob(ctx context.Context, blobID blob.ID) err
 	}
 
 	// acquire exclusive lock for the blob.
-	mut := c.pc.GetFetchingMutex(string(blobID))
+	mut := c.pc.GetFetchingMutex(blobID)
 	mut.Lock()
 	defer mut.Unlock()
 
@@ -190,7 +192,7 @@ func NewContentCache(ctx context.Context, st blob.Storage, opt Options, mr *metr
 		}
 	}
 
-	pc, err := NewPersistentCache(ctx, opt.CacheSubDir, cacheStorage, cacheprot.ChecksumProtection(opt.HMACSecret), opt.Sweep, mr)
+	pc, err := NewPersistentCache(ctx, opt.CacheSubDir, cacheStorage, cacheprot.ChecksumProtection(opt.HMACSecret), opt.Sweep, mr, opt.TimeNow)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create base cache")
 	}

@@ -3,7 +3,7 @@ package cli
 import (
 	"context"
 
-	"github.com/alecthomas/kingpin"
+	"github.com/alecthomas/kingpin/v2"
 
 	"github.com/kopia/kopia/snapshot/policy"
 )
@@ -29,9 +29,5 @@ func (c *policyUploadFlags) setUploadPolicyFromFlags(ctx context.Context, up *po
 		return err
 	}
 
-	if err := applyOptionalInt64MiB(ctx, "parallel upload above size", &up.ParallelUploadAboveSize, c.parallelizeUploadAboveSizeMiB, changeCount); err != nil {
-		return err
-	}
-
-	return nil
+	return applyOptionalInt64MiB(ctx, "parallel upload above size", &up.ParallelUploadAboveSize, c.parallelizeUploadAboveSizeMiB, changeCount)
 }

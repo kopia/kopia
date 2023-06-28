@@ -39,7 +39,7 @@ func TestRepoCreatedWith08CanBeOpenedWithCurrent(t *testing.T) {
 	e2.Environment["KOPIA_UPGRADE_LOCK_ENABLED"] = "1"
 
 	// upgrade
-	e2.RunAndExpectSuccess(t, "repository", "upgrade",
+	e2.RunAndExpectSuccess(t, "repository", "upgrade", "begin",
 		"--upgrade-owner-id", "owner",
 		"--io-drain-timeout", "1s", "--allow-unsafe-upgrade",
 		"--status-poll-interval", "1s",

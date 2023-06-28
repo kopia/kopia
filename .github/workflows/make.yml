@@ -39,10 +39,14 @@ jobs:
     runs-on: ${{ matrix.os }}
     continue-on-error: ${{ contains(matrix.os, 'self-hosted') }}
     steps:
-    - name: Set up Go.
-      uses: actions/setup-go@v3
+    - name: Check out repository
+      uses: actions/checkout@v3
       with:
-        go-version: '1.19'
+        fetch-depth: 0
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.20'
       id: go
       if: ${{ !contains(matrix.os, 'ARMHF') }}
     - name: Install GoLang for ARMHF
@@ -54,10 +58,6 @@ jobs:
     - name: Install macOS-specific packages
       run: "sudo xcode-select -r"
       if: ${{ contains(matrix.os, 'macos') }}
-    - name: Check out code into the Go module directory
-      uses: actions/checkout@v3
-      with:
-        fetch-depth: 0
     - name: Setup
       run: make -j4 ci-setup
     - name: Install macOS certificates
@@ -189,7 +189,9 @@ jobs:
         DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
     - name: Bump Homebrew formula
       uses: dawidd6/action-homebrew-bump-formula@v3
-      if: github.ref_type == 'tag'
+      # only bump formula for tags which don't contain '-'
+      # this excludes vx.y.z-rc1
+      if: github.ref_type == 'tag' && !contains(github.ref_name, '-')
       with:
         token: ${{ secrets.HOMEBREW_PUSH_TOKEN }}
         formula: kopia

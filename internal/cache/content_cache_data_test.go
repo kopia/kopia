@@ -25,7 +25,7 @@ func TestContentCacheForData(t *testing.T) {
 		Storage:    cacheStorage,
 		HMACSecret: []byte{1, 2, 3, 4},
 		Sweep: cache.SweepSettings{
-			MaxSizeBytes: 100,
+			MaxSizeBytes: 150,
 		},
 	}, nil)
 	require.NoError(t, err)

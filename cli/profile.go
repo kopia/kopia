@@ -1,7 +1,7 @@
 package cli
 
 import (
-	"github.com/alecthomas/kingpin"
+	"github.com/alecthomas/kingpin/v2"
 	"github.com/pkg/profile"
 )
 

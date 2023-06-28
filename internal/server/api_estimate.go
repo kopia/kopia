@@ -37,6 +37,9 @@ func (p estimateTaskProgress) Error(ctx context.Context, dirname string, err err
 }
 
 func (p estimateTaskProgress) Stats(ctx context.Context, st *snapshot.Stats, included, excluded snapshotfs.SampleBuckets, excludedDirs []string, final bool) {
+	_ = excludedDirs
+	_ = final
+
 	p.ctrl.ReportCounters(map[string]uitask.CounterValue{
 		"Bytes":                uitask.BytesCounter(atomic.LoadInt64(&st.TotalFileSize)),
 		"Excluded Bytes":       uitask.BytesCounter(atomic.LoadInt64(&st.ExcludedTotalFileSize)),

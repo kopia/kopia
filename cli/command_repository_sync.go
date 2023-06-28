@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/alecthomas/kingpin"
+	"github.com/alecthomas/kingpin/v2"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 

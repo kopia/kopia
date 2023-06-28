@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/alecthomas/kingpin"
+	"github.com/alecthomas/kingpin/v2"
 	"github.com/fatih/color"
 	"github.com/mattn/go-colorable"
 	"github.com/pkg/errors"
@@ -328,9 +328,9 @@ func NewApp() *App {
 		exitWithError: func(err error) {
 			if err != nil {
 				os.Exit(1)
-			} else {
-				os.Exit(0)
 			}
+
+			os.Exit(0)
 		},
 		stdoutWriter: colorable.NewColorableStdout(),
 		stderrWriter: colorable.NewColorableStderr(),

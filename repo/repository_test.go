@@ -579,11 +579,13 @@ func TestObjectWritesWithRetention(t *testing.T) {
 	require.NoError(t, versionedMap.ListBlobs(ctx, "", func(it blob.Metadata) error {
 		for _, prefix := range prefixesWithRetention {
 			if strings.HasPrefix(string(it.BlobID), prefix) {
-				require.Error(t, versionedMap.TouchBlob(ctx, it.BlobID, 0), "expected error while touching blob %s", it.BlobID)
+				_, err = versionedMap.TouchBlob(ctx, it.BlobID, 0)
+				require.Error(t, err, "expected error while touching blob %s", it.BlobID)
 				return nil
 			}
 		}
-		require.NoError(t, versionedMap.TouchBlob(ctx, it.BlobID, 0), "unexpected error while touching blob %s", it.BlobID)
+		_, err = versionedMap.TouchBlob(ctx, it.BlobID, 0)
+		require.NoError(t, err, "unexpected error while touching blob %s", it.BlobID)
 		return nil
 	}))
 }
@@ -768,7 +770,8 @@ func (s *formatSpecificTestSuite) TestChangePassword(t *testing.T) {
 func TestMetrics_CompressibleData(t *testing.T) {
 	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
 	_ = ctx
-	ms := env.Repository.Metrics().Snapshot(false)
+
+	ms := env.RepositoryMetrics().Snapshot(false)
 
 	require.EqualValues(t, 0, ensureMapEntry(t, ms.Counters, "content_write_bytes"))
 
@@ -778,7 +781,7 @@ func TestMetrics_CompressibleData(t *testing.T) {
 		oid       object.ID
 	)
 
-	for ensureMapEntry(t, env.Repository.Metrics().Snapshot(false).Counters, "content_write_duration_nanos") < 5e6 {
+	for ensureMapEntry(t, env.RepositoryMetrics().Snapshot(false).Counters, "content_write_duration_nanos") < 5e6 {
 		w := env.RepositoryWriter.NewObjectWriter(ctx, object.WriterOptions{
 			Compressor: "gzip",
 		})
@@ -792,7 +795,7 @@ func TestMetrics_CompressibleData(t *testing.T) {
 		count++
 	}
 
-	ms = env.Repository.Metrics().Snapshot(false)
+	ms = env.RepositoryMetrics().Snapshot(false)
 	require.EqualValues(t, count*len(inputData), ensureMapEntry(t, ms.Counters, "content_write_bytes"))
 	require.EqualValues(t, count*len(inputData), ensureMapEntry(t, ms.Counters, "content_hashed_bytes"))
 	require.EqualValues(t, len(inputData), ensureMapEntry(t, ms.Counters, "content_compression_attempted_bytes"))
@@ -816,7 +819,7 @@ func TestMetrics_CompressibleData(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, inputData, data)
 
-	ms = env.Repository.Metrics().Snapshot(false)
+	ms = env.RepositoryMetrics().Snapshot(false)
 	require.EqualValues(t, len(inputData), ensureMapEntry(t, ms.Counters, "content_read_bytes"))
 	require.EqualValues(t, compressedByteCount, ensureMapEntry(t, ms.Counters, "content_decompressed_bytes"))
 	require.EqualValues(t, compressedByteCount+encryptionOverhead, ensureMapEntry(t, ms.Counters, "content_decrypted_bytes"))
@@ -834,7 +837,7 @@ func ensureMapEntry[T any](t *testing.T, m map[string]T, key string) T {
 func TestAllRegistryMetricsAreMapped(t *testing.T) {
 	_, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
 
-	snap := env.Repository.Metrics().Snapshot(false)
+	snap := env.RepositoryMetrics().Snapshot(false)
 
 	for s := range snap.Counters {
 		require.Contains(t, metricid.Counters.NameToIndex, s)

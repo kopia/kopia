@@ -133,7 +133,7 @@ func updateRepositoryParameters(
 	if upgradeToEpochManager {
 		log(ctx).Infof("migrating current indexes to epoch format")
 
-		if err := rep.ContentManager().PrepareUpgradeToIndexBlobManagerV1(ctx, mp.EpochParameters); err != nil {
+		if err := rep.ContentManager().PrepareUpgradeToIndexBlobManagerV1(ctx); err != nil {
 			return errors.Wrap(err, "error upgrading indexes")
 		}
 	}

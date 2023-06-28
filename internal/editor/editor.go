@@ -68,7 +68,7 @@ func readAndStripComments(fname string) (string, error) {
 	if err != nil {
 		return "", errors.Wrap(err, "error opening edited file")
 	}
-	defer f.Close() //nolint:errcheck,gosec
+	defer f.Close() //nolint:errcheck
 
 	var result []string
 

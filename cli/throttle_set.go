@@ -4,7 +4,7 @@ import (
 	"context"
 	"strconv"
 
-	"github.com/alecthomas/kingpin"
+	"github.com/alecthomas/kingpin/v2"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/units"
@@ -56,11 +56,7 @@ func (c *commonThrottleSet) apply(ctx context.Context, limits *throttling.Limits
 		return err
 	}
 
-	if err := c.setThrottleInt(ctx, "concurrent writes", &limits.ConcurrentWrites, c.setConcurrentWrites, changeCount); err != nil {
-		return err
-	}
-
-	return nil
+	return c.setThrottleInt(ctx, "concurrent writes", &limits.ConcurrentWrites, c.setConcurrentWrites, changeCount)
 }
 
 func (c *commonThrottleSet) setThrottleFloat64(ctx context.Context, desc string, bps bool, val *float64, str string, changeCount *int) error {

@@ -3,7 +3,7 @@ package cli
 import (
 	"context"
 
-	"github.com/alecthomas/kingpin"
+	"github.com/alecthomas/kingpin/v2"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/snapshot/policy"

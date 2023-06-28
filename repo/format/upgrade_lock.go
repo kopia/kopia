@@ -19,6 +19,10 @@ const (
 	LegacyIndexPoisonBlobID = "n00000000000000000000000000000000-repository_unreadable_by_this_kopia_version_upgrade_required"
 )
 
+// ErrFormatUptoDate is returned whenever a lock intent is attempted to be set
+// on a repository that is already using the latest format version.
+var ErrFormatUptoDate = errors.New("repository format is up to date") // +checklocksignore
+
 // BackupBlobID gets the upgrade backu pblob-id fro mthe lock.
 func BackupBlobID(l UpgradeLockIntent) blob.ID {
 	return blob.ID(BackupBlobIDPrefix + l.OwnerID)
@@ -48,7 +52,7 @@ func (m *Manager) SetUpgradeLockIntent(ctx context.Context, l UpgradeLockIntent)
 		// when we are putting a new lock then ensure that we can upgrade
 		// to that version
 		if m.repoConfig.ContentFormat.Version >= MaxFormatVersion {
-			return nil, errors.Errorf("repository is using version %d, and version %d is the maximum",
+			return nil, errors.WithMessagef(ErrFormatUptoDate, "repository is using version %d, and version %d is the maximum",
 				m.repoConfig.ContentFormat.Version, MaxFormatVersion)
 		}
 
@@ -182,7 +186,7 @@ func (m *Manager) RollbackUpgrade(ctx context.Context) error {
 }
 
 // GetUpgradeLockIntent gets the current upgrade lock intent.
-func (m *Manager) GetUpgradeLockIntent(ctx context.Context) (*UpgradeLockIntent, error) {
+func (m *Manager) GetUpgradeLockIntent() (*UpgradeLockIntent, error) {
 	if err := m.maybeRefreshNotLocked(); err != nil {
 		return nil, err
 	}

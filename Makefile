@@ -1,6 +1,5 @@
 COVERAGE_PACKAGES=./repo/...,./fs/...,./snapshot/...,./cli/...,./internal/...
 TEST_FLAGS?=
-
 KOPIA_INTEGRATION_EXE=$(CURDIR)/dist/testing_$(GOOS)_$(GOARCH)/kopia.exe
 TESTING_ACTION_EXE=$(CURDIR)/dist/testing_$(GOOS)_$(GOARCH)/testingaction.exe
 FIO_DOCKER_TAG=ljishen/fio
@@ -40,7 +39,7 @@ GOTESTSUM_FORMAT=pkgname-and-test-fails
 GOTESTSUM_FLAGS=--format=$(GOTESTSUM_FORMAT) --no-summary=skipped
 GO_TEST?=$(gotestsum) $(GOTESTSUM_FLAGS) --
 
-LINTER_DEADLINE=600s
+LINTER_DEADLINE=1200s
 UNIT_TESTS_TIMEOUT=1200s
 
 ifeq ($(GOARCH),amd64)
@@ -140,9 +139,14 @@ kopia-ui-with-local-htmlui-changes:
 	rm -f $(kopia_ui_embedded_exe)
 	GOWORK=$(CURDIR)/tools/localhtmlui.work $(MAKE) kopia-ui
 
+install-with-local-htmlui-changes: export GOWORK=$(CURDIR)/tools/localhtmlui.work
 install-with-local-htmlui-changes:
+ifeq ($(GOOS),windows)
+	(cd ../htmlui && npm run build && push_local.cmd)
+else
 	(cd ../htmlui && npm run build && ./push_local.sh)
-	GOWORK=$(CURDIR)/tools/localhtmlui.work $(MAKE) install
+endif
+	$(MAKE) install
 
 # build-current-os-noui compiles a binary for the current os/arch in the same location as goreleaser
 # kopia-ui build needs this particular location to embed the correct server binary.
@@ -209,7 +213,7 @@ download-rclone:
 	go run ./tools/gettool --tool rclone:$(RCLONE_VERSION) --output-dir dist/kopia_linux_arm_6/ --goos=linux --goarch=arm
 
 
-ci-tests: lint vet test 
+ci-tests: vet test 
 
 ci-integration-tests:
 	$(MAKE) robustness-tool-tests

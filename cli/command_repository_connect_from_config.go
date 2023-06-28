@@ -3,7 +3,7 @@ package cli
 import (
 	"context"
 
-	"github.com/alecthomas/kingpin"
+	"github.com/alecthomas/kingpin/v2"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/repo"
@@ -25,6 +25,8 @@ func (c *storageFromConfigFlags) Setup(sps StorageProviderServices, cmd *kingpin
 }
 
 func (c *storageFromConfigFlags) Connect(ctx context.Context, isCreate bool, formatVersion int) (blob.Storage, error) {
+	_ = formatVersion
+
 	if isCreate {
 		return nil, errors.New("not supported")
 	}

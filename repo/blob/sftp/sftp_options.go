@@ -16,9 +16,9 @@ type Options struct {
 	Port     int    `json:"port"`
 	Username string `json:"username"`
 	// if password is specified Keyfile/Keydata is ignored.
-	Password       string `json:"password" kopia:"sensitive"`
+	Password       string `json:"password"                 kopia:"sensitive"`
 	Keyfile        string `json:"keyfile,omitempty"`
-	KeyData        string `json:"keyData,omitempty" kopia:"sensitive"`
+	KeyData        string `json:"keyData,omitempty"        kopia:"sensitive"`
 	KnownHostsFile string `json:"knownHostsFile,omitempty"`
 	KnownHostsData string `json:"knownHostsData,omitempty"`
 

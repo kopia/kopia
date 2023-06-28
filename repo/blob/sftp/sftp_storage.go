@@ -118,6 +118,8 @@ func (s *sftpStorage) GetCapacity(ctx context.Context) (blob.Capacity, error) {
 }
 
 func (s *sftpImpl) GetBlobFromPath(ctx context.Context, dirPath, fullPath string, offset, length int64, output blob.OutputBuffer) error {
+	_ = dirPath
+
 	//nolint:wrapcheck
 	return s.rec.UsingConnectionNoResult(ctx, "GetBlobFromPath", func(conn connection.Connection) error {
 		r, err := sftpClientFromConnection(conn).Open(fullPath)
@@ -163,6 +165,8 @@ func (s *sftpImpl) GetBlobFromPath(ctx context.Context, dirPath, fullPath string
 }
 
 func (s *sftpImpl) GetMetadataFromPath(ctx context.Context, dirPath, fullPath string) (blob.Metadata, error) {
+	_ = dirPath
+
 	return connection.UsingConnection(ctx, s.rec, "GetMetadataFromPath", func(conn connection.Connection) (blob.Metadata, error) {
 		fi, err := sftpClientFromConnection(conn).Stat(fullPath)
 		if isNotExist(err) {
@@ -181,6 +185,8 @@ func (s *sftpImpl) GetMetadataFromPath(ctx context.Context, dirPath, fullPath st
 }
 
 func (s *sftpImpl) PutBlobInPath(ctx context.Context, dirPath, fullPath string, data blob.Bytes, opts blob.PutOptions) error {
+	_ = dirPath
+
 	switch {
 	case opts.HasRetentionOptions():
 		return errors.Wrap(blob.ErrUnsupportedPutBlobOption, "blob-retention")
@@ -220,7 +226,7 @@ func (s *sftpImpl) PutBlobInPath(ctx context.Context, dirPath, fullPath string, 
 		}
 
 		if t := opts.SetModTime; !t.IsZero() {
-			if chtimesErr := sftpClientFromConnection(conn).Chtimes(fullPath, t, t); err != nil {
+			if chtimesErr := sftpClientFromConnection(conn).Chtimes(fullPath, t, t); chtimesErr != nil {
 				return errors.Wrap(chtimesErr, "can't change file times")
 			}
 		}
@@ -255,6 +261,8 @@ func (osInterface) IsPathSeparator(c byte) bool {
 }
 
 func (osi osInterface) Mkdir(name string, perm os.FileMode) error {
+	_ = perm
+
 	//nolint:wrapcheck
 	return osi.cli.Mkdir(name)
 }
@@ -289,6 +297,8 @@ func isNotExist(err error) bool {
 }
 
 func (s *sftpImpl) DeleteBlobInPath(ctx context.Context, dirPath, fullPath string) error {
+	_ = dirPath
+
 	//nolint:wrapcheck
 	return s.rec.UsingConnectionNoResult(ctx, "DeleteBlobInPath", func(conn connection.Connection) error {
 		err := sftpClientFromConnection(conn).Remove(fullPath)
@@ -330,7 +340,7 @@ func writeKnownHostsDataStringToTempFile(data string) (string, error) {
 		return "", errors.Wrap(err, "error creating temp file")
 	}
 
-	defer tf.Close() //nolint:errcheck,gosec
+	defer tf.Close() //nolint:errcheck
 
 	if _, err := tf.WriteString(data); err != nil {
 		return "", errors.Wrap(err, "error writing temporary file")

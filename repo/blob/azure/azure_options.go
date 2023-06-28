@@ -14,7 +14,7 @@ type Options struct {
 
 	// Azure Storage account name and key
 	StorageAccount string `json:"storageAccount"`
-	StorageKey     string `json:"storageKey" kopia:"sensitive"`
+	StorageKey     string `json:"storageKey"     kopia:"sensitive"`
 
 	// Alternatively provide SAS Token
 	SASToken string `json:"sasToken" kopia:"sensitive"`

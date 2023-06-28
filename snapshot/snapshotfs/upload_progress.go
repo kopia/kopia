@@ -64,42 +64,66 @@ type NullUploadProgress struct{}
 func (p *NullUploadProgress) UploadStarted() {}
 
 // EstimatedDataSize implements UploadProgress.
+//
+//nolint:revive
 func (p *NullUploadProgress) EstimatedDataSize(fileCount int, totalBytes int64) {}
 
 // UploadFinished implements UploadProgress.
 func (p *NullUploadProgress) UploadFinished() {}
 
 // HashedBytes implements UploadProgress.
+//
+//nolint:revive
 func (p *NullUploadProgress) HashedBytes(numBytes int64) {}
 
 // ExcludedFile implements UploadProgress.
+//
+//nolint:revive
 func (p *NullUploadProgress) ExcludedFile(fname string, numBytes int64) {}
 
 // ExcludedDir implements UploadProgress.
+//
+//nolint:revive
 func (p *NullUploadProgress) ExcludedDir(dirname string) {}
 
 // CachedFile implements UploadProgress.
+//
+//nolint:revive
 func (p *NullUploadProgress) CachedFile(fname string, numBytes int64) {}
 
 // UploadedBytes implements UploadProgress.
+//
+//nolint:revive
 func (p *NullUploadProgress) UploadedBytes(numBytes int64) {}
 
 // HashingFile implements UploadProgress.
+//
+//nolint:revive
 func (p *NullUploadProgress) HashingFile(fname string) {}
 
 // FinishedHashingFile implements UploadProgress.
+//
+//nolint:revive
 func (p *NullUploadProgress) FinishedHashingFile(fname string, numBytes int64) {}
 
 // FinishedFile implements UploadProgress.
+//
+//nolint:revive
 func (p *NullUploadProgress) FinishedFile(fname string, err error) {}
 
 // StartedDirectory implements UploadProgress.
+//
+//nolint:revive
 func (p *NullUploadProgress) StartedDirectory(dirname string) {}
 
 // FinishedDirectory implements UploadProgress.
+//
+//nolint:revive
 func (p *NullUploadProgress) FinishedDirectory(dirname string) {}
 
 // Error implements UploadProgress.
+//
+//nolint:revive
 func (p *NullUploadProgress) Error(path string, err error, isIgnored bool) {}
 
 var _ UploadProgress = (*NullUploadProgress)(nil)
@@ -171,25 +195,35 @@ func (p *CountingUploadProgress) HashedBytes(numBytes int64) {
 }
 
 // CachedFile implements UploadProgress.
+//
+//nolint:revive
 func (p *CountingUploadProgress) CachedFile(fname string, numBytes int64) {
 	atomic.AddInt32(&p.counters.TotalCachedFiles, 1)
 	atomic.AddInt64(&p.counters.TotalCachedBytes, numBytes)
 }
 
 // FinishedHashingFile implements UploadProgress.
+//
+//nolint:revive
 func (p *CountingUploadProgress) FinishedHashingFile(fname string, numBytes int64) {
 	atomic.AddInt32(&p.counters.TotalHashedFiles, 1)
 }
 
 // FinishedFile implements UploadProgress.
+//
+//nolint:revive
 func (p *CountingUploadProgress) FinishedFile(fname string, err error) {}
 
 // ExcludedDir implements UploadProgress.
+//
+//nolint:revive
 func (p *CountingUploadProgress) ExcludedDir(dirname string) {
 	atomic.AddInt32(&p.counters.TotalExcludedDirs, 1)
 }
 
 // ExcludedFile implements UploadProgress.
+//
+//nolint:revive
 func (p *CountingUploadProgress) ExcludedFile(fname string, numBytes int64) {
 	atomic.AddInt32(&p.counters.TotalExcludedFiles, 1)
 }

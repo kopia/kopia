@@ -1,8 +1,10 @@
 ---
 title: "Logging"
 linkTitle: "Logging"
-weight: 30
+weight: 65
 ---
+
+## Logging
 
 Kopia maintains diagnostic logging for troubleshooting purposes. This documents describes parameters that can be set to configure logging:
 

@@ -25,13 +25,14 @@ const (
 type FaultyStorage struct {
 	base blob.Storage
 
-	fault.Set
+	*fault.Set
 }
 
 // NewFaultyStorage creates new Storage with fault injection.
 func NewFaultyStorage(base blob.Storage) *FaultyStorage {
 	return &FaultyStorage{
 		base: base,
+		Set:  fault.NewSet(),
 	}
 }
 

@@ -303,6 +303,11 @@ func (r *grpcRepositoryClient) PutManifest(ctx context.Context, labels map[strin
 	})
 }
 
+// ReplaceManifests saves the given manifest payload with a set of labels and replaces any previous manifests with the same labels.
+func (r *grpcRepositoryClient) ReplaceManifests(ctx context.Context, labels map[string]string, payload interface{}) (manifest.ID, error) {
+	return replaceManifestsHelper(ctx, r, labels, payload)
+}
+
 func (r *grpcInnerSession) PutManifest(ctx context.Context, labels map[string]string, payload interface{}) (manifest.ID, error) {
 	v, err := json.Marshal(payload)
 	if err != nil {
@@ -767,6 +772,8 @@ type grpcCreds struct {
 }
 
 func (c grpcCreds) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
+	_ = uri
+
 	return map[string]string{
 		"kopia-hostname":   c.hostname,
 		"kopia-username":   c.username,

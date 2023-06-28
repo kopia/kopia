@@ -1,0 +1,3 @@
+exclude:
+  global:
+    - site/themes/docsy/**

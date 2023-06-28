@@ -19,7 +19,7 @@ type commandIndexList struct {
 }
 
 func (c *commandIndexList) setup(svc appServices, parent commandParent) {
-	cmd := parent.Command("list", "List content indexes").Alias("ls").Default()
+	cmd := parent.Command("list", "List content indexes").Alias("ls")
 	cmd.Flag("summary", "Display index blob summary").BoolVar(&c.blockIndexListSummary)
 	cmd.Flag("superseded", "Include inactive index files superseded by compaction").BoolVar(&c.blockIndexListIncludeSuperseded)
 	cmd.Flag("sort", "Index blob sort order").Default("time").EnumVar(&c.blockIndexListSort, "time", "size", "name")

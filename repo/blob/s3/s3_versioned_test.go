@@ -9,6 +9,7 @@ import (
 	"math/rand"
 	"path"
 	"sort"
+	"sync"
 	"testing"
 	"time"
 
@@ -640,12 +641,30 @@ func randHex(tb testing.TB, length int) string {
 		return fmt.Sprintf("%0x", rand.Uint64())[0:length]
 	}
 
+	return randLongHex(tb, length)
+}
+
+// Protects the initialization of a random number generator for byte sequences
+// that are larger than 16 characters (8 bytes)
+// Notice that this is not a crypto RNG.
+var (
+	rMu sync.Mutex
+	// +checklocks:rMu
+	r = rand.New(rand.NewSource(clock.Now().UnixNano()))
+)
+
+func randLongHex(tb testing.TB, length int) string {
+	tb.Helper()
+
 	byteLength := (length + 1) / 2
 	b := make([]byte, byteLength)
-	n, err := rand.Read(b)
+
+	rMu.Lock()
+	n, err := r.Read(b)
+	rMu.Unlock()
 
 	require.NoError(tb, err)
-	require.Equal(tb, byteLength, n, "unexpected number of bytes from rand.Read")
+	require.Equal(tb, byteLength, n, "unexpected number of bytes while reading RNG")
 
 	return hex.EncodeToString(b)[:length]
 }

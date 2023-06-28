@@ -3,7 +3,7 @@ package cli
 import (
 	"context"
 
-	"github.com/alecthomas/kingpin"
+	"github.com/alecthomas/kingpin/v2"
 
 	"github.com/kopia/kopia/snapshot/policy"
 )
@@ -48,9 +48,5 @@ func (c *policyRetentionFlags) setRetentionPolicyFromFlags(ctx context.Context, 
 		}
 	}
 
-	if err := applyPolicyBoolPtr(ctx, "do not save identical snapshots", &rp.IgnoreIdenticalSnapshots, c.policySetIgnoreIdenticalSnapshots, changeCount); err != nil {
-		return err
-	}
-
-	return nil
+	return applyPolicyBoolPtr(ctx, "do not save identical snapshots", &rp.IgnoreIdenticalSnapshots, c.policySetIgnoreIdenticalSnapshots, changeCount)
 }

@@ -20,7 +20,7 @@ type commandManifestList struct {
 }
 
 func (c *commandManifestList) setup(svc appServices, parent commandParent) {
-	cmd := parent.Command("list", "List manifest items").Alias("ls").Default()
+	cmd := parent.Command("list", "List manifest items").Alias("ls")
 	cmd.Flag("filter", "List of key:value pairs").StringsVar(&c.manifestListFilter)
 	cmd.Flag("sort", "List of keys to sort by").StringsVar(&c.manifestListSort)
 	c.jo.setup(svc, cmd)

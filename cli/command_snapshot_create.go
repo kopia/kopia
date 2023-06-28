@@ -51,7 +51,7 @@ type commandSnapshotCreate struct {
 }
 
 func (c *commandSnapshotCreate) setup(svc appServices, parent commandParent) {
-	cmd := parent.Command("create", "Creates a snapshot of local directory or file.").Default()
+	cmd := parent.Command("create", "Creates a snapshot of local directory or file.")
 
 	cmd.Arg("source", "Files or directories to create snapshot(s) of.").StringsVar(&c.snapshotCreateSources)
 	cmd.Flag("all", "Create snapshots for files or directories previously backed up by this user on this computer").BoolVar(&c.snapshotCreateAll)

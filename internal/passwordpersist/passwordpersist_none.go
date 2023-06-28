@@ -9,15 +9,18 @@ func None() Strategy {
 
 type noneStrategy struct{}
 
+//nolint:revive
 func (noneStrategy) GetPassword(ctx context.Context, configFile string) (string, error) {
 	return "", ErrPasswordNotFound
 }
 
+//nolint:revive
 func (noneStrategy) PersistPassword(ctx context.Context, configFile, password string) error {
 	// silently succeed
 	return nil
 }
 
+//nolint:revive
 func (noneStrategy) DeletePassword(ctx context.Context, configFile string) error {
 	return nil
 }

@@ -102,13 +102,13 @@ retry:=
 endif
 
 # tool versions
-GOLANGCI_LINT_VERSION=1.51.1
+GOLANGCI_LINT_VERSION=1.53.3
 CHECKLOCKS_VERSION=release-20221026.0
-NODE_VERSION=16.13.0
-HUGO_VERSION=0.89.2
-GOTESTSUM_VERSION=1.7.0
+NODE_VERSION=18.16.0
+HUGO_VERSION=0.113.0
+GOTESTSUM_VERSION=1.10.0
 GORELEASER_VERSION=v0.176.0
-RCLONE_VERSION=1.59.0
+RCLONE_VERSION=1.62.2
 GITCHGLOG_VERSION=0.15.1
 
 # nodejs / npm
@@ -158,6 +158,12 @@ $(checklocks): export GOPATH=$(checklocks_dir)
 $(checklocks):
 	go install gvisor.dev/gvisor/tools/checklocks/cmd/checklocks@$(CHECKLOCKS_VERSION)
 	go clean -modcache
+
+# cli2md
+cli2mdbin=$(TOOLS_DIR)$(slash)cli2md-current$(exe_suffix)
+
+$(cli2mdbin):
+	go build -o $(cli2mdbin) github.com/kopia/kopia/tools/cli2md
 
 # hugo
 hugo_dir=$(TOOLS_DIR)$(slash)hugo-$(HUGO_VERSION)

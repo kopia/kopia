@@ -255,7 +255,7 @@ func mustGetMutableParameters(t *testing.T, mgr *format.Manager) format.MutableP
 func mustGetUpgradeLockIntent(t *testing.T, mgr *format.Manager) *format.UpgradeLockIntent {
 	t.Helper()
 
-	uli, err := mgr.GetUpgradeLockIntent(testlogging.Context(t))
+	uli, err := mgr.GetUpgradeLockIntent()
 	require.NoError(t, err)
 
 	return uli

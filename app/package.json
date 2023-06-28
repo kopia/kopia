@@ -7,8 +7,8 @@
     "electron-first-run": "^3.0.0",
     "electron-is-dev": "^2.0.0",
     "electron-log": "^4.4.8",
-    "electron-updater": "^5.2.1",
-    "minimist": "^1.2.7",
+    "electron-updater": "^5.3.0",
+    "minimist": "^1.2.8",
     "uuid": "^9.0.0"
   },
   "author": {
@@ -110,15 +110,15 @@
     "afterSign": "notarize.js"
   },
   "devDependencies": {
-    "@playwright/test": "^1.26.1",
+    "@playwright/test": "^1.33.0",
     "asar": "^3.2.0",
-    "concurrently": "^7.6.0",
+    "concurrently": "^8.0.1",
     "dotenv": "^16.0.3",
-    "electron": "^19.0.8",
-    "electron-builder": "^23.3.3",
+    "electron": "^24.5.1",
+    "electron-builder": "^24.2.0",
     "electron-notarize": "^1.2.2",
-    "playwright": "^1.28.1",
-    "playwright-core": "^1.28.1"
+    "playwright": "^1.32.3",
+    "playwright-core": "^1.33.0"
   },
   "homepage": "./",
   "description": "Fast and secure open source backup.",

@@ -104,7 +104,13 @@ func (r *apiServerRepository) PutManifest(ctx context.Context, labels map[string
 	return resp.ID, nil
 }
 
+// ReplaceManifests saves the given manifest payload with a set of labels and replaces any previous manifests with the same labels.
+func (r *apiServerRepository) ReplaceManifests(ctx context.Context, labels map[string]string, payload interface{}) (manifest.ID, error) {
+	return replaceManifestsHelper(ctx, r, labels, payload)
+}
+
 func (r *apiServerRepository) SetFindManifestPageSizeForTesting(v int32) {
+	_ = v
 }
 
 func (r *apiServerRepository) FindManifests(ctx context.Context, labels map[string]string) ([]*manifest.EntryMetadata, error) {
