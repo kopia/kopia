@@ -212,7 +212,7 @@ func (s *loggingStorage) FlushCaches(ctx context.Context) error {
 }
 
 func (s *loggingStorage) ExtendBlobRetention(ctx context.Context, b blob.ID, opts blob.ExtendOptions) error {
-	ctx, span := tracer.Start(ctx, "DeleteBlob")
+	ctx, span := tracer.Start(ctx, "ExtendBlobRetention")
 	defer span.End()
 
 	s.beginConcurrency()

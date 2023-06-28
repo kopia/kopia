@@ -12,7 +12,6 @@ import (
 
 type blobMetrics struct {
 	base blob.Storage
-	blob.UnsupportedBlobRetention
 
 	downloadedBytesPartial *metrics.Counter
 	downloadedBytesFull    *metrics.Counter

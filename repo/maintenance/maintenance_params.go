@@ -42,7 +42,11 @@ func DefaultParams() Params {
 			Enabled:  true,
 			Interval: 1 * time.Hour,
 		},
-		LogRetention:      defaultLogRetention(),
+		LogRetention: defaultLogRetention(),
+		// Don't attempt to extend object locks by default. This option may not be
+		// supported by all storage providers or blob implementations (currently
+		// supported by S3 backend) and may cause data to be kept longer than
+		// desired if the retention period is relatively long.
 		ExtendObjectLocks: false,
 	}
 }

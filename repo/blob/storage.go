@@ -41,7 +41,7 @@ var ErrUnsupportedPutBlobOption = errors.New("unsupported put-blob option")
 var ErrNotAVolume = errors.New("unsupported method, storage is not a volume")
 
 // ErrUnsupportedObjectLock is returned when attempting to use an Object Lock specific
-// function on a storage implementation that does not have the inteded functionality.
+// function on a storage implementation that does not have the intedend functionality.
 var ErrUnsupportedObjectLock = errors.New("object locking unsupported")
 
 // Bytes encapsulates a sequence of bytes, possibly stored in a non-contiguous buffers,
