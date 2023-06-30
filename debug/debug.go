@@ -21,17 +21,27 @@ import (
 
 var log = logging.Module("kopia/debug")
 
+// ProfileName the name of the profile (see: runtime/pprof/Lookup)
 type ProfileName string
 
 const (
+	// DefaultDebugProfileDumpBufferSizeB default size of the pprof output buffer
 	DefaultDebugProfileDumpBufferSizeB = 1 << 17
 )
 
 const (
+	// EnvVarKopiaDebugPprof environment variable that contains the pprof dump configuration
 	EnvVarKopiaDebugPprof = "KOPIA_DEBUG_PPROF"
+)
+
+// flags used to configure profiling in EnvVarKopiaDebugPprof
+const (
+	// KopiaDebugFlagForceGc force garbage collection before dumping heap data
 	KopiaDebugFlagForceGc = "forcegc"
-	KopiaDebugFlagDebug   = "debug"
-	KopiaDebugFlagRate    = "rate"
+	// KopiaDebugFlagDebug value of the profiles `debug` parameter
+	KopiaDebugFlagDebug = "debug"
+	// KopiaDebugFlagRate rate setting for the named profile (if available). always an integer.
+	KopiaDebugFlagRate = "rate"
 )
 
 const (
@@ -40,11 +50,13 @@ const (
 	ProfileNameCpu               = "cpu"
 )
 
+// ProfileConfig configuration flags for a profile
 type ProfileConfig struct {
 	flags []string
 	buf   *bytes.Buffer
 }
 
+// ProfileConfigs configuration flags for all requested profiles
 type ProfileConfigs struct {
 	mu  sync.Mutex
 	pcm map[ProfileName]*ProfileConfig
@@ -70,6 +82,8 @@ var pprofProfileRates = map[ProfileName]pprofSetRate{
 	},
 }
 
+// GetValue get the value of the named flag, `s`.  false will be returned
+// if the flag value does not exist
 func (p ProfileConfig) GetValue(s string) (string, bool) {
 	for _, f := range p.flags {
 		kvs := strings.SplitN(f, "=", 2)
@@ -100,6 +114,7 @@ func parseProfileConfigs(bufSizeB int, ppconfigs string) map[ProfileName]*Profil
 	return pbs
 }
 
+// newProfileConfig create a new profiling configuration
 func newProfileConfig(bufSizeB int, ppconfig string) *ProfileConfig {
 	q := &ProfileConfig{
 		buf: bytes.NewBuffer(make([]byte, 0, bufSizeB)),
@@ -139,6 +154,7 @@ func setupProfileFractions(ctx context.Context, profileBuffers map[ProfileName]*
 	}
 }
 
+// ClearProfileFractions set the profile fractions to their zero values.
 func ClearProfileFractions(profileBuffers map[ProfileName]*ProfileConfig) {
 	for k, pprofset := range pprofProfileRates {
 		v := profileBuffers[k]

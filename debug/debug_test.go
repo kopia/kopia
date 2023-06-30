@@ -88,9 +88,8 @@ func TestDebug_newProfileConfigs(t *testing.T) {
 	for i, tc := range tcs {
 		t.Run(fmt.Sprintf("%d %s", i, tc.in), func(t *testing.T) {
 			pb := newProfileConfig(1<<10, tc.in)
-			require.NotNil(t, pb)           // always not nil
-			require.False(t, pb.configured) // always false
-			require.Len(t, pb.buf, 1<<10)   // bufsize is always 1024
+			require.NotNil(t, pb)                 // always not nil
+			require.Equal(t, pb.buf.Cap(), 1<<10) // bufsize is always 1024
 			v, ok := pb.GetValue(tc.key)
 			require.Equal(t, tc.ok, ok)
 			require.Equal(t, tc.expect, v)
