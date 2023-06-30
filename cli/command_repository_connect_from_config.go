@@ -25,6 +25,8 @@ func (c *storageFromConfigFlags) Setup(sps StorageProviderServices, cmd *kingpin
 }
 
 func (c *storageFromConfigFlags) Connect(ctx context.Context, isCreate bool, formatVersion int) (blob.Storage, error) {
+	_ = formatVersion
+
 	if isCreate {
 		return nil, errors.New("not supported")
 	}

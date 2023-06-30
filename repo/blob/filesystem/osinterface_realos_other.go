@@ -3,6 +3,7 @@
 
 package filesystem
 
+//nolint:revive
 func (realOS) IsESTALE(err error) bool {
 	return false
 }

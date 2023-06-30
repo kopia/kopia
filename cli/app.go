@@ -332,9 +332,9 @@ func NewApp() *App {
 		exitWithError: func(err error) {
 			if err != nil {
 				os.Exit(1)
-			} else {
-				os.Exit(0)
 			}
+
+			os.Exit(0)
 		},
 		stdoutWriter: colorable.NewColorableStdout(),
 		stderrWriter: colorable.NewColorableStderr(),

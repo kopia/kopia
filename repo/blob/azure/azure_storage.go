@@ -240,6 +240,8 @@ func (az *azStorage) FlushCaches(ctx context.Context) error {
 //
 // - the 'Container', 'StorageAccount' and 'StorageKey' fields are required and all other parameters are optional.
 func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error) {
+	_ = isCreate
+
 	if opt.Container == "" {
 		return nil, errors.New("container name must be specified")
 	}
