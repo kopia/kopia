@@ -21,7 +21,12 @@ import (
 const (
 	snapshotCreateHelp = `Creates a snapshot from the given path.
 
-A snapshots is a point in time backup of the given <path>. Snapshots are organized by source.
+A snapshots is a point in time backup of the given <path>.
+Snapshots can be interupted safely by CTL^C. File uploads in progress are finished and a
+hidded incomplete snapshot is saved. The snapshot will resume uploading where it left off
+when run again.
+
+Snapshots are organized by source.
 Each user@host:/path is considered a unique source, and can have policies applied to them.
 
 Example: ` + "`" + `$ kopia snapshot create /home/user` + "`" + `
@@ -31,12 +36,14 @@ Creates a single snapshot of the home directory. This can be viewed using
 ` + "`" + `$ kopia snapshot list` + "`" + `
 
 Snapshots are always saved and tracked per source.
-Sources are indidual user@host:/path so 2 different paths on the same client are considered seperate sources.
+Sources are indivdual user@host:/path so 2 different paths on the same client are considered seperate sources.
 
 ` + "`" + `$ kopia snapshot create /home/user` + "`" + `
 
 ` + "`" + `$ kopia snapshot create /home/other_user` + "`" + `
 This will create 2 seperate sources from the same client and will be tracked seperately.
+
+Similarly snapshotting the same directory on 2 different hosts will also create different sources.
 
 When --all is used, a new snapshot is created for each source in the connected repository from the current client.
 This is useful if using kopia with a cron job or script. This will give an error if <path> argument is specified.
