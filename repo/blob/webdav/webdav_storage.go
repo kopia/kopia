@@ -36,6 +36,7 @@ const (
 // may be accessed using WebDAV or File interchangeably.
 type davStorage struct {
 	sharded.Storage
+	blob.UnsupportedBlobRetention
 }
 
 type davStorageImpl struct {
@@ -277,7 +278,7 @@ func New(ctx context.Context, opts *Options, isCreate bool) (blob.Storage, error
 	}
 
 	s := retrying.NewWrapper(&davStorage{
-		sharded.New(&davStorageImpl{
+		Storage: sharded.New(&davStorageImpl{
 			Options: *opts,
 			cli:     cli,
 		}, "", opts.Options, isCreate),

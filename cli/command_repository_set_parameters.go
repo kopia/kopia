@@ -12,6 +12,7 @@ import (
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/format"
+	"github.com/kopia/kopia/repo/maintenance"
 )
 
 type commandRepositorySetParameters struct {
@@ -228,6 +229,17 @@ func (c *commandRepositorySetParameters) run(ctx context.Context, rep repo.Direc
 
 	if !anyChange {
 		return errors.Errorf("no changes")
+	}
+
+	if blobcfg.IsRetentionEnabled() {
+		p, err := maintenance.GetParams(ctx, rep)
+		if err != nil {
+			return errors.Wrap(err, "unable to get current maintenance parameters")
+		}
+
+		if err := maintenance.CheckExtendRetention(ctx, blobcfg, p); err != nil {
+			return errors.Wrap(err, "unable to apply maintenance changes")
+		}
 	}
 
 	if err := updateRepositoryParameters(ctx, upgradeToEpochManager, mp, rep, blobcfg, requiredFeatures); err != nil {
