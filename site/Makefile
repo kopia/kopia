@@ -21,7 +21,7 @@ server: install-tools
 
 node_modules: install-tools
 	$(npm) $(npm_flags) install --no-audit
-	$(npm) $(npm_flags) audit --production
+	$(npm) $(npm_flags) audit --omit=dev
 
 clean:
 	rm -rf public/ resources/ node_modules/ $(TOOLS_DIR)/
