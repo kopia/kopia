@@ -30,6 +30,6 @@ updates:
     groups:
       # create once-per-week PR for all KopiaUI dependency bumps, that usually includes
       # electron, electron-builder, etc.
-      common-golang-dependencies:
+      kopia-ui-npm-dependencies:
         patterns:
         - "*"
