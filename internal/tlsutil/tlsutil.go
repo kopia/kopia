@@ -91,7 +91,7 @@ func WritePrivateKeyToFile(fname string, priv *rsa.PrivateKey) error {
 	if err != nil {
 		return errors.Wrap(err, "error opening private key file")
 	}
-	defer f.Close() //nolint:errcheck,gosec
+	defer f.Close() //nolint:errcheck
 
 	privBytes, err := x509.MarshalPKCS8PrivateKey(priv)
 	if err != nil {
@@ -111,7 +111,7 @@ func WriteCertificateToFile(fname string, cert *x509.Certificate) error {
 	if err != nil {
 		return errors.Wrap(err, "error opening certificate file")
 	}
-	defer f.Close() //nolint:errcheck,gosec
+	defer f.Close() //nolint:errcheck
 
 	if err := pem.Encode(f, &pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw}); err != nil {
 		return errors.Wrap(err, "Failed to write data")

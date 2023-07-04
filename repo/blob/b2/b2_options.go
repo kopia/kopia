@@ -11,7 +11,7 @@ type Options struct {
 	Prefix string `json:"prefix,omitempty"`
 
 	KeyID string `json:"keyID"`
-	Key   string `json:"key" kopia:"sensitive"`
+	Key   string `json:"key"   kopia:"sensitive"`
 
 	throttling.Limits
 }

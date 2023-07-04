@@ -30,7 +30,7 @@ func (c *commandCacheInfo) setup(svc appServices, parent commandParent) {
 	c.out.setup(svc)
 }
 
-func (c *commandCacheInfo) run(ctx context.Context, rep repo.Repository) error {
+func (c *commandCacheInfo) run(ctx context.Context, _ repo.Repository) error {
 	opts, err := repo.GetCachingOptions(ctx, c.svc.repositoryConfigFileName())
 	if err != nil {
 		return errors.Wrap(err, "error getting cache options")

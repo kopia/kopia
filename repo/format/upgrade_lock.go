@@ -186,7 +186,7 @@ func (m *Manager) RollbackUpgrade(ctx context.Context) error {
 }
 
 // GetUpgradeLockIntent gets the current upgrade lock intent.
-func (m *Manager) GetUpgradeLockIntent(ctx context.Context) (*UpgradeLockIntent, error) {
+func (m *Manager) GetUpgradeLockIntent() (*UpgradeLockIntent, error) {
 	if err := m.maybeRefreshNotLocked(); err != nil {
 		return nil, err
 	}

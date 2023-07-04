@@ -32,6 +32,7 @@ const (
 
 type gcsStorage struct {
 	Options
+	blob.UnsupportedBlobRetention
 
 	storageClient *gcsclient.Client
 	bucket        *gcsclient.BucketHandle
@@ -242,6 +243,8 @@ func tokenSourceFromCredentialsJSON(ctx context.Context, data json.RawMessage, s
 // By default the connection reuses credentials managed by (https://cloud.google.com/sdk/),
 // but this can be disabled by setting IgnoreDefaultCredentials to true.
 func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error) {
+	_ = isCreate
+
 	var ts oauth2.TokenSource
 
 	var err error

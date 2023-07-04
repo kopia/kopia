@@ -14,11 +14,12 @@ const unknownBlobAcquireLength = 20000000
 
 // operations supported.
 const (
-	operationGetBlob     = "GetBlob"
-	operationGetMetadata = "GetMetadata"
-	operationListBlobs   = "ListBlobs"
-	operationPutBlob     = "PutBlob"
-	operationDeleteBlob  = "DeleteBlob"
+	operationGetBlob             = "GetBlob"
+	operationGetMetadata         = "GetMetadata"
+	operationListBlobs           = "ListBlobs"
+	operationPutBlob             = "PutBlob"
+	operationDeleteBlob          = "DeleteBlob"
+	operationExtendBlobRetention = "ExtendBlobRetention"
 )
 
 // Throttler implements throttling policy by blocking before certain operations are
@@ -102,6 +103,13 @@ func (s *throttlingStorage) DeleteBlob(ctx context.Context, id blob.ID) error {
 	defer s.throttler.AfterOperation(ctx, operationDeleteBlob)
 
 	return s.Storage.DeleteBlob(ctx, id) //nolint:wrapcheck
+}
+
+func (s *throttlingStorage) ExtendBlobRetention(ctx context.Context, id blob.ID, opts blob.ExtendOptions) error {
+	s.throttler.BeforeOperation(ctx, operationExtendBlobRetention)
+	defer s.throttler.AfterOperation(ctx, operationExtendBlobRetention)
+
+	return s.Storage.ExtendBlobRetention(ctx, id, opts) //nolint:wrapcheck
 }
 
 // NewWrapper returns a Storage wrapper that adds retry loop around all operations of the underlying storage.
