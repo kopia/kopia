@@ -18,7 +18,7 @@ For the context of Kopia protection, ransomware refers to viruses, trojans or ot
     * Note that not all S3 compatible providers provide sufficient access controls to take advantage of these features.  Notably,
       Google Cloud Storage (GCS) (see below).
  * Kopia's Backblaze B2 storage engine provides support for using restricted access keys, but not for object locks at the current time.
-    * To use storage locks with Backblaze B2, use the S3 storage engine
+    * To use storage locks with Backblaze B2, use the S3 storage engine.
  * Kopia's Google Cloud Services (GCS) engine provides neither restricted access key nor object-lock support.
     * Google's S3 compatibility layer does not provide sufficient access controls to use these features, and thus Kopia cannot use
       the ransomware mitigation discussed on this page with GCS at this time.
@@ -31,10 +31,42 @@ Some cloud storage solutions provide the ability to generate restricted access k
 
 #### AWS
 
- * `FIXME`: Create a new application key
-   * Provide access only to the bucket used by Kopia
-   * The following capabilities are needed: Read, Write, ListBuckets, ...
- * `FIXME`: Enable Lifecycle management for the Kopia bucket setting the 'Expiration' action to the time you want to ensure your data is protected for
+ * Create a new application key
+   * Create a IAM user for kopia to use
+     * Select 'Attach policies directly'
+     * <details>
+        <summary>
+           Create a new policy, with the following permissions (paste into JSON form)
+        </summary>
+
+        ```
+        {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Sid": "Stmt1480692207000",
+                    "Effect": "Deny",
+                    "Action": [
+                        "s3:DeleteBucket",
+                        "s3:DeleteBucketPolicy",
+                        "s3:DeleteBucketWebsite",
+                        "s3:DeleteObject",
+                        "s3:DeleteObjectVersion"
+                    ],
+                    "Resource": [
+                        "arn:aws:s3:::*"
+                    ]
+                }
+            ]
+        }
+        ```
+       </details>
+
+     * Attach created policy to new user
+   * Manage user's security-credentials and create a new access key
+ * Disconnect and reconnect your existing Kopia repo using the new key (or create a new bucket using this key)
+ * Regenerate (or delete) your root application key if you have one
+ * Enable Lifecycle management for the Kopia bucket setting the 'Expiration' action to the time you want to ensure your data is protected for
 
 #### Backblaze
   * Backblaze does not allow creation of an application key with restricted permission from the website.  Instead, you must use the cli-application to generate a restricted key.
@@ -51,9 +83,13 @@ Some cloud storage solutions provide the ability to generate restricted access k
 
 ### Even more protection
 
-So far, we have secured your access such that even if a bad actor gets access to your Kopia configuration, they can't do irreparable harm to your cloud backup.  However, what if they get access to your login credentials?  Your login credentials provide the ability to delete your data and even your entire buckets for all the buckets in your account.  But the cloud providers have protection from that too.  AWS (and S3 compatible providers) offer a feature called 'Object Locking'.  An Object Lock is applied when a file is created (or on an existing file), and it provides a specific retention date.  Until that retention date occurs, there is no way to delete the locked file.  Even using your login credentials, the file is protected from deletion.  It can still be overwritten with a new version or hidden such that it doesn't appear in a file list.  But it will always be accessible until its retention date occurs.  While Kopia supports applying Object Locks, there are some caveats:
+So far, we have secured your access such that even if a bad actor gets access to your Kopia configuration, they can't do irreparable harm to your cloud backup.  However, what if they get access to your login credentials?  Your login credentials provide the ability to delete your data and even your entire buckets for all the buckets in your account.  But the cloud providers have protection from that too.
 
-  * Object Locks must be enabled when a bucket is created.  If you already have backups in the cloud, you will need to create a new bucket with Object Locks turned on.
+Multi-factor-authentication (MFA) is one option.  With MFA enabled, an attacker would need access to your password as well as your security device to be able to manipulate your account.  All major providers support MFA, and it is recommended to use it to secure your account.  Note that it is important to eliminate and root/global acess keys as well, since they can generally be used to execute nearly any task you can do when logged in (effectively bypassing MFA).
+
+An additional layer of protection is `Object Locking' that can be enabled in AWS (and S3 compatible providers).  An Object Lock is applied when a file is created (or on an existing file), and it provides a specific retention date.  Until that retention date occurs, there is no way to delete the locked file.  Even using your login credentials, the file is protected from deletion.  It can still be overwritten with a new version or hidden such that it doesn't appear in a file list.  But it will always be accessible until its retention date occurs.  While Kopia supports applying Object Locks, there are some caveats:
+
+  * Object Locks must be enabled when a bucket is created.  If you already have backups in the cloud, you will need to create a new bucket with Object Locks turned on (NOTE: On Backblaze S3, object-lock can be enabled on existing buckets via `b2 update bucket`).
   * You must enable Object Lock extension in Kopia.  By default, Kopia does not renew Object Lock retention dates, however this can be enabled in the `full-maintenance` options.  You must ensure that you run full maintenance at least as frequently as your Object Lock period to ensure Object Locks do not expire, otherwise the Retention date will pass, and your data will no longer be protected by an Object Locks.
   * Kopia currently only supports object locks when using an S3 repo.  If you use Backblaze, you will need to use the S3 repo method with Kopia instead of the Backblaze native API.
 
@@ -61,6 +97,7 @@ So far, we have secured your access such that even if a bad actor gets access to
 
   * Create a new bucket with Object Locks enabled
     * There is no need to set a default Retention time
+    * Backblaze S3 uses can use `b2 update bucket` to enable Object Locks on an existing bucket
   * Optional: Create a restricted access key as instructed above for additional protection
   * Create a new Kopia repository
     * Run: `kopia repo create s3 --bucket <bucket name> --access-key=<access key> --secret-access-key=<secret access key> --retention-mode COMPLIANCE --retention-period <retention time>`
