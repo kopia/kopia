@@ -324,11 +324,11 @@ func (s *s3Storage) bucketExists(ctx context.Context) (bool, error) {
 	}
 
 	if !isAccessDenied(err) {
-		return false, err
+		return false, errors.Wrap(err, "error checking bucket existence")
 	}
 
 	if s.Options.Prefix == "" {
-		return false, err
+		return false, errors.Wrap(err, "no permission to access bucket itself")
 	}
 
 	// Verify the existence of bucket by getting an non-existent object from the bucket/prefix and
@@ -338,11 +338,12 @@ func (s *s3Storage) bucketExists(ctx context.Context) (bool, error) {
 
 	var scOutput gather.WriteBuffer
 	err = translateError(s.GetBlob(ctx, blob.ID(nonExistentBlob), 0, -1, &scOutput))
-	if err != blob.ErrBlobNotFound {
-		return false, err
-	} else {
-		return true, nil
+
+	if !errors.Is(err, blob.ErrBlobNotFound) {
+		return false, errors.Wrap(err, "error getting blobs from bucket")
 	}
+
+	return true, nil
 }
 
 func getCustomTransport(opt *Options) (*http.Transport, error) {
