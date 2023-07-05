@@ -100,7 +100,7 @@ func (p ProfileConfig) GetValue(s string) (string, bool) {
 
 func parseProfileConfigs(bufSizeB int, ppconfigs string) map[ProfileName]*ProfileConfig {
 	pbs := map[ProfileName]*ProfileConfig{}
-	allProfileOptions := strings.Split(ppconfigs, ",")
+	allProfileOptions := strings.Split(ppconfigs, ":")
 	for _, profileOptionWithFlags := range allProfileOptions {
 		// of those, see if any have profile-specific settings
 		profileFlagNameValuePairs := strings.SplitN(profileOptionWithFlags, "=", 2)
@@ -119,7 +119,7 @@ func newProfileConfig(bufSizeB int, ppconfig string) *ProfileConfig {
 	q := &ProfileConfig{
 		buf: bytes.NewBuffer(make([]byte, 0, bufSizeB)),
 	}
-	flgs := strings.Split(ppconfig, ":")
+	flgs := strings.Split(ppconfig, ",")
 	if len(flgs) > 0 && flgs[0] != "" { // len(flgs) > 1 && flgs[0] == "" should never happen
 		q.flags = flgs
 	}
