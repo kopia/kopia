@@ -336,8 +336,10 @@ func (s *s3Storage) bucketExists(ctx context.Context) (bool, error) {
 	// but has permission to the prefix of the bucket
 	nonExistentBlob := fmt.Sprintf("kopia-s3-storage-initializing-%v", clock.Now().UnixNano())
 
-	var scOutput gather.WriteBuffer
-	err = translateError(s.GetBlob(ctx, blob.ID(nonExistentBlob), 0, -1, &scOutput))
+	var blobOutput gather.WriteBuffer
+	defer blobOutput.Close()
+
+	err = translateError(s.GetBlob(ctx, blob.ID(nonExistentBlob), 0, -1, &blobOutput))
 
 	if !errors.Is(err, blob.ErrBlobNotFound) {
 		return false, errors.Wrap(err, "error getting blobs from bucket")
@@ -440,7 +442,6 @@ func newStorageWithCredentials(ctx context.Context, creds *credentials.Credentia
 	}
 
 	ok, err := s.bucketExists(ctx)
-
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to determine if bucket %q exists", opt.BucketName)
 	}
