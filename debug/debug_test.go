@@ -15,7 +15,28 @@ func TestDebug_parseProfileConfigs(t *testing.T) {
 		expect []string
 	}{
 		{
-			in:  "foo=bar;first=one=1,two=2;second;third",
+			in:  "foo=bar",
+			key: "foo",
+			expect: []string{
+				"bar",
+			},
+		},
+		{
+			in:  "first=one=1",
+			key: "first",
+			expect: []string{
+				"one=1",
+			},
+		},
+		{
+			in:  "foo=bar:first=one=1",
+			key: "first",
+			expect: []string{
+				"one=1",
+			},
+		},
+		{
+			in:  "foo=bar:first=one=1,two=2",
 			key: "first",
 			expect: []string{
 				"one=1",
@@ -23,19 +44,27 @@ func TestDebug_parseProfileConfigs(t *testing.T) {
 			},
 		},
 		{
-			in:  "foo=bar;first=one=1,two=2;second;third",
+			in:  "foo=bar:first=one=1,two=2:second:third",
+			key: "first",
+			expect: []string{
+				"one=1",
+				"two=2",
+			},
+		},
+		{
+			in:  "foo=bar:first=one=1,two=2:second:third",
 			key: "foo",
 			expect: []string{
 				"bar",
 			},
 		},
 		{
-			in:     "foo=bar;first=one=1,two=2;second;third",
+			in:     "foo=bar:first=one=1,two=2:second:third",
 			key:    "second",
 			expect: nil,
 		},
 		{
-			in:     "foo=bar;first=one=1,two=2;second;third",
+			in:     "foo=bar:first=one=1,two=2:second:third",
 			key:    "third",
 			expect: nil,
 		},
@@ -43,7 +72,7 @@ func TestDebug_parseProfileConfigs(t *testing.T) {
 	for i, tc := range tcs {
 		t.Run(fmt.Sprintf("%d %s", i, tc.in), func(t *testing.T) {
 			pbs := parseProfileConfigs(1<<10, tc.in)
-			pb, ok := pbs[tc.key]
+			pb, ok := pbs[tc.key] // no negative testing for missing keys (see newProfileConfigs)
 			require.True(t, ok)
 			require.NotNil(t, pb)                 // always not nil
 			require.Equal(t, 1<<10, pb.buf.Cap()) // bufsize is always 1024
