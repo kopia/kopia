@@ -19,7 +19,11 @@ import (
 	"github.com/kopia/kopia/repo/logging"
 )
 
-var log = logging.Module("cache")
+var (
+	log = logging.Module("cache")
+	lastCacheFullWarning time.Time
+)
+
 
 const (
 	// DefaultTouchThreshold specifies the resolution of timestamps used to determine which cache items
@@ -231,7 +235,11 @@ func (c *PersistentCache) Put(ctx context.Context, key string, data gather.Bytes
 		// MUST NOT go over the specified limit for the cache space to avoid
 		// snapshots/restores from getting affected by the cache's storage use.
 		if c.isCacheFullLocked() {
-			log(ctx).Warnf("Cache is full, unable to add %v into cache.", key)
+			// Limit warnings to one per minute max.
+			if time.Now().Sub(lastCacheFullWarning) > time.Minute {
+				lastCacheFullWarning = time.Now()
+				log(ctx).Warnf("Cache is full, unable to add %v into cache.", key)
+			}
 			return
 		}
 	}
