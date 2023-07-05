@@ -15,7 +15,6 @@ import (
 	"github.com/kopia/kopia/debug"
 	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/cacheprot"
-	"github.com/kopia/kopia/internal/epoch"
 	"github.com/kopia/kopia/internal/feature"
 	"github.com/kopia/kopia/internal/metrics"
 	"github.com/kopia/kopia/internal/retry"
@@ -26,7 +25,6 @@ import (
 	"github.com/kopia/kopia/repo/blob/storagemetrics"
 	"github.com/kopia/kopia/repo/blob/throttling"
 	"github.com/kopia/kopia/repo/content"
-	"github.com/kopia/kopia/repo/content/indexblob"
 	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/repo/manifest"
@@ -402,13 +400,7 @@ func handleMissingRequiredFeatures(ctx context.Context, fmgr *format.Manager, ig
 
 func wrapLockingStorage(st blob.Storage, r format.BlobStorageConfiguration) blob.Storage {
 	// collect prefixes that need to be locked on put
-	var prefixes []string
-	for _, prefix := range content.PackBlobIDPrefixes {
-		prefixes = append(prefixes, string(prefix))
-	}
-
-	prefixes = append(prefixes, indexblob.V0IndexBlobPrefix, epoch.EpochManagerIndexUberPrefix, format.KopiaRepositoryBlobID,
-		format.KopiaBlobCfgBlobID)
+	prefixes := GetLockingStoragePrefixes()
 
 	return beforeop.NewWrapper(st, nil, nil, nil, func(ctx context.Context, id blob.ID, opts *blob.PutOptions) error {
 		for _, prefix := range prefixes {

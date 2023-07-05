@@ -128,6 +128,18 @@ func VerifyStorage(ctx context.Context, t *testing.T, r blob.Storage, opts blob.
 		}
 	})
 
+	t.Run("ExtendBlobRetention", func(t *testing.T) {
+		err := r.ExtendBlobRetention(ctx, blocks[0].blk, blob.ExtendOptions{
+			RetentionMode:   opts.RetentionMode,
+			RetentionPeriod: opts.RetentionPeriod,
+		})
+		if opts.RetentionMode != "" && err != nil {
+			t.Fatalf("No error expected during extend retention: %v", err)
+		} else if opts.RetentionMode == "" && err == nil {
+			t.Fatal("No error found when expected during extend retention")
+		}
+	})
+
 	t.Run("DeleteBlobsAndList", func(t *testing.T) {
 		require.NoError(t, r.DeleteBlob(ctx, blocks[0].blk))
 		require.NoError(t, r.DeleteBlob(ctx, blocks[0].blk))
