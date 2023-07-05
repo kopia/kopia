@@ -123,4 +123,9 @@ func (s *FaultyStorage) FlushCaches(ctx context.Context) error {
 	return s.base.FlushCaches(ctx)
 }
 
+// ExtendBlobRetention implements blob.Storage.
+func (s *FaultyStorage) ExtendBlobRetention(ctx context.Context, b blob.ID, opts blob.ExtendOptions) error {
+	return s.base.ExtendBlobRetention(ctx, b, opts)
+}
+
 var _ blob.Storage = (*FaultyStorage)(nil)

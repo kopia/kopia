@@ -40,6 +40,10 @@ var ErrUnsupportedPutBlobOption = errors.New("unsupported put-blob option")
 // implementation that does not support the intended functionality.
 var ErrNotAVolume = errors.New("unsupported method, storage is not a volume")
 
+// ErrUnsupportedObjectLock is returned when attempting to use an Object Lock specific
+// function on a storage implementation that does not have the intended functionality.
+var ErrUnsupportedObjectLock = errors.New("object locking unsupported")
+
 // Bytes encapsulates a sequence of bytes, possibly stored in a non-contiguous buffers,
 // which can be written sequentially or treated as a io.Reader.
 type Bytes interface {
@@ -128,6 +132,20 @@ type PutOptions struct {
 	GetModTime *time.Time // if != nil, populate the value pointed at with the actual modification time
 }
 
+// ExtendOptions represents retention options for extending object locks.
+type ExtendOptions struct {
+	RetentionMode   RetentionMode
+	RetentionPeriod time.Duration
+}
+
+// UnsupportedBlobRetention provides a default implementation for ExtendBlobRetention.
+type UnsupportedBlobRetention struct{}
+
+// ExtendBlobRetention provides a common implementation for unsupported blob retention storage.
+func (s *UnsupportedBlobRetention) ExtendBlobRetention(context.Context, ID, ExtendOptions) error {
+	return ErrUnsupportedObjectLock
+}
+
 // HasRetentionOptions returns true when blob-retention settings have been
 // specified, otherwise returns false.
 func (o PutOptions) HasRetentionOptions() bool {
@@ -161,6 +179,9 @@ type Storage interface {
 
 	// FlushCaches flushes any local caches associated with storage.
 	FlushCaches(ctx context.Context) error
+
+	// ExtendBlobRetention extends the retention time of a blob (when blob retention is enabled)
+	ExtendBlobRetention(ctx context.Context, blobID ID, opts ExtendOptions) error
 }
 
 // ID is a string that represents blob identifier.

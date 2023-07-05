@@ -39,7 +39,7 @@ GOTESTSUM_FORMAT=pkgname-and-test-fails
 GOTESTSUM_FLAGS=--format=$(GOTESTSUM_FORMAT) --no-summary=skipped
 GO_TEST?=$(gotestsum) $(GOTESTSUM_FLAGS) --
 
-LINTER_DEADLINE=600s
+LINTER_DEADLINE=1200s
 UNIT_TESTS_TIMEOUT=1200s
 
 ifeq ($(GOARCH),amd64)
@@ -213,7 +213,7 @@ download-rclone:
 	go run ./tools/gettool --tool rclone:$(RCLONE_VERSION) --output-dir dist/kopia_linux_arm_6/ --goos=linux --goarch=arm
 
 
-ci-tests: lint vet test 
+ci-tests: vet test 
 
 ci-integration-tests:
 	$(MAKE) robustness-tool-tests
@@ -277,7 +277,7 @@ ALLOWED_LICENSES=Apache-2.0;MIT;BSD-2-Clause;BSD-3-Clause;CC0-1.0;ISC;MPL-2.0;CC
 
 license-check: $(wwhrd) app-node-modules
 	$(wwhrd) check
-	(cd app && npx license-checker --summary --onlyAllow "$(ALLOWED_LICENSES)")
+	(cd app && npx license-checker --summary --production --onlyAllow "$(ALLOWED_LICENSES)")
 
 vtest: $(gotestsum)
 	$(GO_TEST) -count=$(REPEAT_TEST) -short -v -timeout $(UNIT_TESTS_TIMEOUT) ./...

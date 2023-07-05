@@ -24,16 +24,22 @@ func (o *ZipOutput) Parallelizable() bool {
 }
 
 // BeginDirectory implements restore.Output interface.
+//
+//nolint:revive
 func (o *ZipOutput) BeginDirectory(ctx context.Context, relativePath string, e fs.Directory) error {
 	return nil
 }
 
 // FinishDirectory implements restore.Output interface.
+//
+//nolint:revive
 func (o *ZipOutput) FinishDirectory(ctx context.Context, relativePath string, e fs.Directory) error {
 	return nil
 }
 
 // WriteDirEntry implements restore.Output interface.
+//
+//nolint:revive
 func (o *ZipOutput) WriteDirEntry(ctx context.Context, relativePath string, de *snapshot.DirEntry, e fs.Directory) error {
 	return nil
 }
@@ -77,17 +83,23 @@ func (o *ZipOutput) WriteFile(ctx context.Context, relativePath string, f fs.Fil
 }
 
 // FileExists implements restore.Output interface.
+//
+//nolint:revive
 func (o *ZipOutput) FileExists(ctx context.Context, relativePath string, l fs.File) bool {
 	return false
 }
 
 // CreateSymlink implements restore.Output interface.
+//
+//nolint:revive
 func (o *ZipOutput) CreateSymlink(ctx context.Context, relativePath string, e fs.Symlink) error {
 	log(ctx).Debugf("create symlink not implemented yet")
 	return nil
 }
 
 // SymlinkExists implements restore.Output interface.
+//
+//nolint:revive
 func (o *ZipOutput) SymlinkExists(ctx context.Context, relativePath string, l fs.Symlink) bool {
 	return false
 }

@@ -60,7 +60,7 @@ func populateAttributes(a *fuse.Attr, e fs.Entry) {
 	a.Blocks = (a.Size + fakeBlockSize - 1) / fakeBlockSize
 }
 
-func (n *fuseNode) Getattr(ctx context.Context, fh gofusefs.FileHandle, a *fuse.AttrOut) syscall.Errno {
+func (n *fuseNode) Getattr(ctx context.Context, _ gofusefs.FileHandle, a *fuse.AttrOut) syscall.Errno {
 	populateAttributes(&a.Attr, n.entry)
 
 	a.Ino = n.StableAttr().Ino
@@ -72,7 +72,7 @@ type fuseFileNode struct {
 	fuseNode
 }
 
-func (f *fuseFileNode) Open(ctx context.Context, flags uint32) (gofusefs.FileHandle, uint32, syscall.Errno) {
+func (f *fuseFileNode) Open(ctx context.Context, _ uint32) (gofusefs.FileHandle, uint32, syscall.Errno) {
 	reader, err := f.entry.(fs.File).Open(ctx)
 	if err != nil {
 		log(ctx).Errorf("error opening %v: %v", f.entry.Name(), err)
