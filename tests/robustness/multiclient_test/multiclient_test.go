@@ -42,15 +42,18 @@ func TestManySmallFiles(t *testing.T) {
 
 	f := func(ctx context.Context, t *testing.T) { //nolint:thelper
 		err := tryRestoreIntoDataDirectory(ctx, t)
+		err = eng.CheckErrRecovery(ctx, err, engine.ActionOpts{})
 		require.NoError(t, err)
 
 		_, err = eng.ExecAction(ctx, engine.WriteRandomFilesActionKey, fileWriteOpts)
+		err = eng.CheckErrRecovery(ctx, err, engine.ActionOpts{})
 		require.NoError(t, err)
 
 		snapOut, err := eng.ExecAction(ctx, engine.SnapshotDirActionKey, nil)
 		require.NoError(t, err)
 
 		_, err = eng.ExecAction(ctx, engine.RestoreSnapshotActionKey, snapOut)
+		err = eng.CheckErrRecovery(ctx, err, engine.ActionOpts{})
 		require.NoError(t, err)
 	}
 
@@ -75,15 +78,18 @@ func TestOneLargeFile(t *testing.T) {
 
 	f := func(ctx context.Context, t *testing.T) { //nolint:thelper
 		err := tryRestoreIntoDataDirectory(ctx, t)
+		err = eng.CheckErrRecovery(ctx, err, engine.ActionOpts{})
 		require.NoError(t, err)
 
 		_, err = eng.ExecAction(ctx, engine.WriteRandomFilesActionKey, fileWriteOpts)
+		err = eng.CheckErrRecovery(ctx, err, engine.ActionOpts{})
 		require.NoError(t, err)
 
 		snapOut, err := eng.ExecAction(ctx, engine.SnapshotDirActionKey, nil)
 		require.NoError(t, err)
 
 		_, err = eng.ExecAction(ctx, engine.RestoreSnapshotActionKey, snapOut)
+		err = eng.CheckErrRecovery(ctx, err, engine.ActionOpts{})
 		require.NoError(t, err)
 	}
 
@@ -112,15 +118,18 @@ func TestManySmallFilesAcrossDirecoryTree(t *testing.T) {
 
 	f := func(ctx context.Context, t *testing.T) { //nolint:thelper
 		err := tryRestoreIntoDataDirectory(ctx, t)
+		err = eng.CheckErrRecovery(ctx, err, engine.ActionOpts{})
 		require.NoError(t, err)
 
 		_, err = eng.ExecAction(ctx, engine.WriteRandomFilesActionKey, fileWriteOpts)
+		err = eng.CheckErrRecovery(ctx, err, engine.ActionOpts{})
 		require.NoError(t, err)
 
 		snapOut, err := eng.ExecAction(ctx, engine.SnapshotDirActionKey, nil)
 		require.NoError(t, err)
 
 		_, err = eng.ExecAction(ctx, engine.RestoreSnapshotActionKey, snapOut)
+		err = eng.CheckErrRecovery(ctx, err, engine.ActionOpts{})
 		require.NoError(t, err)
 	}
 
@@ -151,6 +160,7 @@ func TestRandomizedSmall(t *testing.T) {
 
 	f := func(ctx context.Context, t *testing.T) { //nolint:thelper
 		err := tryRestoreIntoDataDirectory(ctx, t)
+		err = eng.CheckErrRecovery(ctx, err, engine.ActionOpts{})
 		require.NoError(t, err)
 
 		//nolint:forbidigo
