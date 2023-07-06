@@ -23,5 +23,5 @@ jobs:
           stale-pr-label: 'stale'
           exempt-issue-labels: 'bug,keep-open'
           exempt-pr-labels: 'keep-open'
-          stale-issue-message: 'Closed due to inactivity. Re-open and remove "stale" label if it should remain open for an additional period of time'
-          stale-pr-message: 'Closed due to inactivity. Re-open and remove "stale" label if it should remain open for an additional period of time'
+          close-issue-message: 'Closed due to inactivity. Re-open and remove "stale" label if it should remain open for an additional period of time'
+          close-pr-message: 'Closed due to inactivity. Re-open and remove "stale" label if it should remain open for an additional period of time'
