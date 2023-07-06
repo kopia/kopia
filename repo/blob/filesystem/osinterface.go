@@ -17,6 +17,7 @@ type osInterface interface {
 	IsPathError(err error) bool
 	IsLinkError(err error) bool
 	IsPathSeparator(c byte) bool
+	IsStale(err error) bool
 	Remove(fname string) error
 	Rename(oldname, newname string) error
 	ReadDir(dirname string) ([]fs.DirEntry, error)
@@ -27,9 +28,6 @@ type osInterface interface {
 	Chtimes(fname string, atime, mtime time.Time) error
 	Geteuid() int
 	Chown(fname string, uid, gid int) error
-
-	// Errno
-	IsESTALE(err error) bool
 }
 
 type osReadFile interface {
