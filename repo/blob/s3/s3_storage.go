@@ -317,18 +317,21 @@ func isAccessDenied(err error) bool {
 	return errors.As(err, &e) && e.Code == "AccessDenied"
 }
 
-func (s *s3Storage) bucketExists(ctx context.Context) (bool, error) {
+func (s *s3Storage) bucketAccessible(ctx context.Context) error {
 	ok, err := s.cli.BucketExists(ctx, s.Options.BucketName)
-	if err == nil {
-		return ok, nil
+
+	if err == nil && ok {
+		return nil
+	} else if err == nil {
+		return errors.Errorf("bucket %q does not exist", s.Options.BucketName)
 	}
 
 	if !isAccessDenied(err) {
-		return false, errors.Wrap(err, "error checking bucket existence")
+		return errors.Wrap(err, "error checking bucket existence")
 	}
 
 	if s.Options.Prefix == "" {
-		return false, errors.Wrap(err, "no permission to access bucket itself")
+		return errors.Wrapf(err, "no permission to access bucket itself, bucket %q", s.Options.BucketName)
 	}
 
 	// Verify the existence of bucket by getting an non-existent object from the bucket/prefix and
@@ -341,11 +344,11 @@ func (s *s3Storage) bucketExists(ctx context.Context) (bool, error) {
 
 	err = translateError(s.GetBlob(ctx, blob.ID(nonExistentBlob), 0, -1, &blobOutput))
 
-	if !errors.Is(err, blob.ErrBlobNotFound) {
-		return false, errors.Wrap(err, "error getting blobs from bucket")
+	if errors.Is(err, blob.ErrBlobNotFound) {
+		return nil
 	}
 
-	return true, nil
+	return errors.Wrapf(err, "unable to determine if bucket dir is accessible, bucket %q, prefix %q", s.Options.BucketName, s.Options.Prefix)
 }
 
 func getCustomTransport(opt *Options) (*http.Transport, error) {
@@ -441,13 +444,9 @@ func newStorageWithCredentials(ctx context.Context, creds *credentials.Credentia
 		storageConfig: &StorageConfig{},
 	}
 
-	ok, err := s.bucketExists(ctx)
+	err = s.bucketAccessible(ctx)
 	if err != nil {
-		return nil, errors.Wrapf(err, "unable to determine if bucket %q exists", opt.BucketName)
-	}
-
-	if !ok {
-		return nil, errors.Errorf("bucket %q does not exist", opt.BucketName)
+		return nil, err
 	}
 
 	var scOutput gather.WriteBuffer
