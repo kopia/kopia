@@ -9,7 +9,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-func (realOS) IsESTALE(err error) bool {
+func (realOS) IsStale(err error) bool {
 	var errno syscall.Errno
 
 	return errors.As(err, &errno) && errno == syscall.ESTALE
