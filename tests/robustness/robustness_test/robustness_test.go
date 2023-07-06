@@ -63,12 +63,14 @@ func TestOneLargeFile(t *testing.T) {
 	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
 
 	_, err := eng.ExecAction(ctx, engine.WriteRandomFilesActionKey, fileWriteOpts)
+	err = eng.CheckErrRecovery(ctx, err, engine.ActionOpts{})
 	require.NoError(t, err)
 
 	snapOut, err := eng.ExecAction(ctx, engine.SnapshotDirActionKey, nil)
 	require.NoError(t, err)
 
 	_, err = eng.ExecAction(ctx, engine.RestoreSnapshotActionKey, snapOut)
+	err = eng.CheckErrRecovery(ctx, err, engine.ActionOpts{})
 	require.NoError(t, err)
 }
 
