@@ -365,11 +365,12 @@ func (e *Engine) gatherStats() {
 	fmt.Println(string(stdout))
 
 	// temp dirs
-	// du -ah /tmp/
+	// du -sh /tmp/
+	// /tmp/engine-data-*
 	app = "du"
-	arg0 = "-ah"
+	arg0 = "-sh"
 	arg1 := "/tmp/"
-	fmt.Println("du -ah /tmp/")
+	fmt.Println("du -sh /tmp/engine-data-*")
 	cmd = exec.Command(app, arg0, arg1)
 	stdout, err = cmd.Output()
 
@@ -382,11 +383,9 @@ func (e *Engine) gatherStats() {
 	fmt.Println(string(stdout))
 
 	// logs, cache
-	// du -ah /root/
-	app = "du"
-	arg0 = "-ah"
-	arg1 = "/root/"
-	fmt.Println("du -ah /root/")
+	// du -sh /root/.cache/kopia/*/server-contents/
+	arg1 = "/root/.cache/kopia/*/server-contents/"
+	fmt.Println("du -sh ", arg1)
 	cmd = exec.Command(app, arg0, arg1)
 	stdout, err = cmd.Output()
 
@@ -399,11 +398,66 @@ func (e *Engine) gatherStats() {
 	fmt.Println(string(stdout))
 
 	// filesystem
-	// du -ah /codefresh/volume/
-	app = "du"
-	arg0 = "-ah"
-	arg1 = "/codefresh/volume/"
-	fmt.Println("du -ah /codefresh/volume/")
+	// du -sh /codefresh/volume/test-repo/robustness-metadata/
+	arg1 = "/codefresh/volume/test-repo/robustness-metadata/"
+	fmt.Println("du -sh ", arg1)
+	cmd = exec.Command(app, arg0, arg1)
+	stdout, err = cmd.Output()
+
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+
+	// Print the output
+	fmt.Println(string(stdout))
+
+	// du -sh /codefresh/volume/fio-data-root/fio-data-*
+	arg1 = "/codefresh/volume/fio-data-root/fio-data-*"
+	fmt.Println("du -sh ", arg1)
+	cmd = exec.Command(app, arg0, arg1)
+	stdout, err = cmd.Output()
+
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+
+	// Print the output
+	fmt.Println(string(stdout))
+
+	// robustness-data
+	// du -sh /codefresh/volume/test-repo/robustness-data/
+	arg1 = "/codefresh/volume/test-repo/robustness-data/"
+	fmt.Println("du -sh ", arg1)
+	cmd = exec.Command(app, arg0, arg1)
+	stdout, err = cmd.Output()
+
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+
+	// Print the output
+	fmt.Println(string(stdout))
+
+	// du -sh /codefresh/volume/kopia/
+	arg1 = "/codefresh/volume/kopia/"
+	fmt.Println("du -sh ", arg1)
+	cmd = exec.Command(app, arg0, arg1)
+	stdout, err = cmd.Output()
+
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+
+	// Print the output
+	fmt.Println(string(stdout))
+
+	// du -sh /codefresh/volume/k10/
+	arg1 = "/codefresh/volume/k10/"
+	fmt.Println("du -sh ", arg1)
 	cmd = exec.Command(app, arg0, arg1)
 	stdout, err = cmd.Output()
 
