@@ -317,7 +317,7 @@ func isAccessDenied(err error) bool {
 	return errors.As(err, &e) && e.Code == "AccessDenied"
 }
 
-func (s *s3Storage) bucketAccessible(ctx context.Context) error {
+func (s *s3Storage) checkBucketAccess(ctx context.Context) error {
 	ok, err := s.cli.BucketExists(ctx, s.Options.BucketName)
 
 	if err == nil && ok {
@@ -444,7 +444,7 @@ func newStorageWithCredentials(ctx context.Context, creds *credentials.Credentia
 		storageConfig: &StorageConfig{},
 	}
 
-	err = s.bucketAccessible(ctx)
+	err = s.checkBucketAccess(ctx)
 	if err != nil {
 		return nil, err
 	}
