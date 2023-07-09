@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/snapshot/policy"
 )
@@ -35,7 +37,6 @@ func TestSetErrorHandlingPolicyFromFlags(t *testing.T) {
 				IgnoreFileErrors:      newOptionalBool(true),
 				IgnoreDirectoryErrors: newOptionalBool(true),
 			},
-			expErr:         false,
 			expChangeCount: 0,
 		},
 		{
@@ -71,7 +72,6 @@ func TestSetErrorHandlingPolicyFromFlags(t *testing.T) {
 				IgnoreFileErrors:      nil,
 				IgnoreDirectoryErrors: nil,
 			},
-			expErr:         false,
 			expChangeCount: 2,
 		},
 		{
@@ -83,7 +83,6 @@ func TestSetErrorHandlingPolicyFromFlags(t *testing.T) {
 				IgnoreFileErrors:      newOptionalBool(true),
 				IgnoreDirectoryErrors: newOptionalBool(true),
 			},
-			expErr:         false,
 			expChangeCount: 2,
 		},
 		{
@@ -98,7 +97,6 @@ func TestSetErrorHandlingPolicyFromFlags(t *testing.T) {
 				IgnoreFileErrors:      newOptionalBool(false),
 				IgnoreDirectoryErrors: newOptionalBool(false),
 			},
-			expErr:         false,
 			expChangeCount: 2,
 		},
 		{
@@ -113,7 +111,6 @@ func TestSetErrorHandlingPolicyFromFlags(t *testing.T) {
 				IgnoreFileErrors:      newOptionalBool(false),
 				IgnoreDirectoryErrors: newOptionalBool(true),
 			},
-			expErr:         false,
 			expChangeCount: 2,
 		},
 		{
@@ -128,7 +125,6 @@ func TestSetErrorHandlingPolicyFromFlags(t *testing.T) {
 				IgnoreFileErrors:      newOptionalBool(true),
 				IgnoreDirectoryErrors: newOptionalBool(false),
 			},
-			expErr:         false,
 			expChangeCount: 2,
 		},
 		{
@@ -143,7 +139,6 @@ func TestSetErrorHandlingPolicyFromFlags(t *testing.T) {
 				IgnoreFileErrors:      nil,
 				IgnoreDirectoryErrors: newOptionalBool(true),
 			},
-			expErr:         false,
 			expChangeCount: 2,
 		},
 		{
@@ -158,7 +153,6 @@ func TestSetErrorHandlingPolicyFromFlags(t *testing.T) {
 				IgnoreFileErrors:      newOptionalBool(true),
 				IgnoreDirectoryErrors: nil,
 			},
-			expErr:         false,
 			expChangeCount: 2,
 		},
 	} {
@@ -187,16 +181,16 @@ func TestSetSchedulingPolicyFromFlags(t *testing.T) {
 		startingPolicy *policy.SchedulingPolicy
 		intervalArg    []time.Duration
 		timesOfDayArg  []string
+		cronArg        string
 		manualArg      bool
 		expResult      *policy.SchedulingPolicy
-		expErr         bool
+		expErrMsg      string
 		expChangeCount int
 	}{
 		{
 			name:           "No flags provided, no starting policy",
 			startingPolicy: &policy.SchedulingPolicy{},
 			expResult:      &policy.SchedulingPolicy{},
-			expErr:         false,
 			expChangeCount: 0,
 		},
 		{
@@ -206,7 +200,6 @@ func TestSetSchedulingPolicyFromFlags(t *testing.T) {
 			expResult: &policy.SchedulingPolicy{
 				Manual: true,
 			},
-			expErr:         false,
 			expChangeCount: 1,
 		},
 		{
@@ -218,7 +211,6 @@ func TestSetSchedulingPolicyFromFlags(t *testing.T) {
 			expResult: &policy.SchedulingPolicy{
 				IntervalSeconds: 3600,
 			},
-			expErr:         false,
 			expChangeCount: 1,
 		},
 		{
@@ -235,7 +227,6 @@ func TestSetSchedulingPolicyFromFlags(t *testing.T) {
 					},
 				},
 			},
-			expErr:         false,
 			expChangeCount: 1,
 		},
 		{
@@ -246,7 +237,7 @@ func TestSetSchedulingPolicyFromFlags(t *testing.T) {
 			},
 			manualArg:      true,
 			expResult:      &policy.SchedulingPolicy{},
-			expErr:         true,
+			expErrMsg:      "cannot set manual field when scheduling snapshots",
 			expChangeCount: 0,
 		},
 		{
@@ -257,7 +248,16 @@ func TestSetSchedulingPolicyFromFlags(t *testing.T) {
 			},
 			manualArg:      true,
 			expResult:      &policy.SchedulingPolicy{},
-			expErr:         true,
+			expErrMsg:      "cannot set manual field when scheduling snapshots",
+			expChangeCount: 0,
+		},
+		{
+			name:           "Manual and cron set, no starting policy",
+			startingPolicy: &policy.SchedulingPolicy{},
+			cronArg:        "* * * * *",
+			manualArg:      true,
+			expResult:      &policy.SchedulingPolicy{},
+			expErrMsg:      "cannot set manual field when scheduling snapshots",
 			expChangeCount: 0,
 		},
 		{
@@ -269,7 +269,6 @@ func TestSetSchedulingPolicyFromFlags(t *testing.T) {
 			expResult: &policy.SchedulingPolicy{
 				Manual: true,
 			},
-			expErr:         false,
 			expChangeCount: 2,
 		},
 		{
@@ -286,7 +285,6 @@ func TestSetSchedulingPolicyFromFlags(t *testing.T) {
 			expResult: &policy.SchedulingPolicy{
 				Manual: true,
 			},
-			expErr:         false,
 			expChangeCount: 2,
 		},
 		{
@@ -304,7 +302,6 @@ func TestSetSchedulingPolicyFromFlags(t *testing.T) {
 			expResult: &policy.SchedulingPolicy{
 				Manual: true,
 			},
-			expErr:         false,
 			expChangeCount: 3,
 		},
 		{
@@ -318,7 +315,6 @@ func TestSetSchedulingPolicyFromFlags(t *testing.T) {
 			expResult: &policy.SchedulingPolicy{
 				IntervalSeconds: 3600,
 			},
-			expErr:         false,
 			expChangeCount: 2,
 		},
 		{
@@ -337,7 +333,6 @@ func TestSetSchedulingPolicyFromFlags(t *testing.T) {
 					},
 				},
 			},
-			expErr:         false,
 			expChangeCount: 2,
 		},
 		{
@@ -352,7 +347,6 @@ func TestSetSchedulingPolicyFromFlags(t *testing.T) {
 					{Hour: 14, Minute: 0},
 				},
 			},
-			expErr:         false,
 			expChangeCount: 1,
 		},
 		{
@@ -364,36 +358,82 @@ func TestSetSchedulingPolicyFromFlags(t *testing.T) {
 			expResult: &policy.SchedulingPolicy{
 				TimesOfDay: nil,
 			},
-			expErr:         false,
+			expChangeCount: 1,
+		},
+		{
+			name:           "Set single cron expression",
+			startingPolicy: &policy.SchedulingPolicy{},
+			cronArg:        "1 2 * * *",
+			expResult: &policy.SchedulingPolicy{
+				Cron: []string{"1 2 * * *"},
+			},
+			expChangeCount: 1,
+		},
+		{
+			name:           "Set single cron expression with comment",
+			startingPolicy: &policy.SchedulingPolicy{},
+			cronArg:        "1 2 * * * # some comment",
+			expResult: &policy.SchedulingPolicy{
+				Cron: []string{"1 2 * * * # some comment"},
+			},
+			expChangeCount: 1,
+		},
+		{
+			name:           "Support comment-only cron expression",
+			startingPolicy: &policy.SchedulingPolicy{},
+			cronArg:        "# some comment;1 2 * * * ",
+			expResult: &policy.SchedulingPolicy{
+				Cron: []string{"# some comment", "1 2 * * *"},
+			},
+			expChangeCount: 1,
+		},
+		{
+			name:           "Set multiple cron expressions",
+			startingPolicy: &policy.SchedulingPolicy{},
+			cronArg:        ";1 2 * * *;;;2 1 * * *;",
+			expResult: &policy.SchedulingPolicy{
+				Cron: []string{"1 2 * * *", "2 1 * * *"},
+			},
+			expChangeCount: 1,
+		},
+		{
+			name:           "Set invalid cron expression",
+			startingPolicy: &policy.SchedulingPolicy{},
+			cronArg:        "aa bb * * *",
+			expErrMsg:      "invalid cron expression",
+			expChangeCount: 1,
+		},
+		{
+			name: "Inherit cron expressions",
+			startingPolicy: &policy.SchedulingPolicy{
+				Cron: []string{"1 2 * * *", "2 1 * * *"},
+			},
+			cronArg: "inherit",
+			expResult: &policy.SchedulingPolicy{
+				Cron: nil,
+			},
 			expChangeCount: 1,
 		},
 	} {
-		t.Log(tc.name)
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			changeCount := 0
 
-		changeCount := 0
+			psf.policySetInterval = tc.intervalArg
+			psf.policySetTimesOfDay = tc.timesOfDayArg
+			psf.policySetManual = tc.manualArg
+			psf.policySetCron = tc.cronArg
 
-		psf.policySetInterval = tc.intervalArg
-		psf.policySetTimesOfDay = tc.timesOfDayArg
-		psf.policySetManual = tc.manualArg
-
-		err := psf.setSchedulingPolicyFromFlags(ctx, tc.startingPolicy, &changeCount)
-		if tc.expErr {
-			if err == nil {
-				t.Errorf("Expected error but got none")
+			err := psf.setSchedulingPolicyFromFlags(ctx, tc.startingPolicy, &changeCount)
+			if tc.expErrMsg != "" {
+				require.ErrorContains(t, err, tc.expErrMsg)
+				return
 			}
-		} else {
-			if err != nil {
-				t.Errorf("Expected none but got err: %v", err)
-			}
-		}
 
-		if !reflect.DeepEqual(tc.startingPolicy, tc.expResult) {
-			t.Errorf("Did not get expected output: (actual) %v != %v (expected)", tc.startingPolicy, tc.expResult)
-		}
-
-		if !reflect.DeepEqual(tc.expChangeCount, changeCount) {
-			t.Errorf("Did not get expected output: (actual) %v != %v (expected)", tc.expChangeCount, changeCount)
-		}
+			require.NoError(t, err)
+			require.Equal(t, tc.expResult, tc.startingPolicy)
+			require.Equal(t, tc.expChangeCount, changeCount)
+		})
 	}
 }
 
