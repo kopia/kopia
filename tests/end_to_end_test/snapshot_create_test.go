@@ -728,3 +728,20 @@ func TestSnapshotCreateAllFlushPerSource(t *testing.T) {
 	require.Len(t, indexList3, len(indexList2)+3)
 	require.Len(t, metadataBlobList3, len(metadataBlobList2)+3)
 }
+
+func TestSnapshotCreateWithAllAndPath(t *testing.T) {
+	t.Parallel()
+
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
+
+	// creating a snapshot with a directory and --all should fail
+	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
+	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir2)
+	e.RunAndExpectFailure(t, "snapshot", "create", sharedTestDataDir1, "--all")
+
+}
