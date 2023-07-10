@@ -89,8 +89,7 @@ func (e *Engine) RandomAction(ctx context.Context, actionOpts ActionOpts) error 
 // by deleting data directories.
 func (e *Engine) CheckErrRecovery(ctx context.Context, incomingErr error, actionOpts ActionOpts) (outgoingErr error) {
 	outgoingErr = incomingErr
-	// debug
-	e.gatherStats()
+
 	if incomingErr == nil {
 		return nil
 	}
@@ -382,21 +381,6 @@ func (e *Engine) gatherStats() {
 	// Print the output
 	fmt.Println(string(stdout))
 
-	// logs, cache
-	// du -sh /root/.cache/kopia/*/server-contents/
-	arg1 = "/root/.cache/kopia/*/server-contents/"
-	fmt.Println("du -sh ", arg1)
-	cmd = exec.Command(app, arg0, arg1)
-	stdout, err = cmd.Output()
-
-	if err != nil {
-		fmt.Println(err.Error())
-		return
-	}
-
-	// Print the output
-	fmt.Println(string(stdout))
-
 	// filesystem
 	// du -sh /codefresh/volume/test-repo/robustness-metadata/
 	arg1 = "/codefresh/volume/test-repo/robustness-metadata/"
@@ -469,4 +453,18 @@ func (e *Engine) gatherStats() {
 	// Print the output
 	fmt.Println(string(stdout))
 
+	// logs, cache
+	// du -sh /root/.cache/kopia/*/server-contents/
+	arg1 = "/root/.cache/kopia/*/server-contents/"
+	fmt.Println("du -sh ", arg1)
+	cmd = exec.Command(app, arg0, arg1)
+	stdout, err = cmd.Output()
+
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+
+	// Print the output
+	fmt.Println(string(stdout))
 }
