@@ -312,45 +312,6 @@ func (s *s3Storage) FlushCaches(ctx context.Context) error {
 	return nil
 }
 
-func isAccessDenied(err error) bool {
-	var e minio.ErrorResponse
-	return errors.As(err, &e) && e.Code == "AccessDenied"
-}
-
-func (s *s3Storage) checkBucketAccess(ctx context.Context) error {
-	ok, err := s.cli.BucketExists(ctx, s.Options.BucketName)
-
-	if err == nil && ok {
-		return nil
-	} else if err == nil {
-		return errors.Errorf("bucket %q does not exist", s.Options.BucketName)
-	}
-
-	if !isAccessDenied(err) {
-		return errors.Wrap(err, "error checking bucket existence")
-	}
-
-	if s.Options.Prefix == "" {
-		return errors.Wrapf(err, "no permission to access bucket itself, bucket %q", s.Options.BucketName)
-	}
-
-	// Verify the existence of bucket by getting an non-existent object from the bucket/prefix and
-	// expecting an BlobNotFound error, in case that the account has no permission to the bucket itself
-	// but has permission to the prefix of the bucket
-	nonExistentBlob := fmt.Sprintf("kopia-s3-storage-initializing-%v", clock.Now().UnixNano())
-
-	var blobOutput gather.WriteBuffer
-	defer blobOutput.Close()
-
-	err = translateError(s.GetBlob(ctx, blob.ID(nonExistentBlob), 0, -1, &blobOutput))
-
-	if errors.Is(err, blob.ErrBlobNotFound) {
-		return nil
-	}
-
-	return errors.Wrapf(err, "unable to determine if bucket dir is accessible, bucket %q, prefix %q", s.Options.BucketName, s.Options.Prefix)
-}
-
 func getCustomTransport(opt *Options) (*http.Transport, error) {
 	if opt.DoNotVerifyTLS {
 		//nolint:gosec
@@ -442,11 +403,6 @@ func newStorageWithCredentials(ctx context.Context, creds *credentials.Credentia
 		Options:       *opt,
 		cli:           cli,
 		storageConfig: &StorageConfig{},
-	}
-
-	err = s.checkBucketAccess(ctx)
-	if err != nil {
-		return nil, err
 	}
 
 	var scOutput gather.WriteBuffer
