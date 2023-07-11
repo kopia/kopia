@@ -35,7 +35,8 @@ Some cloud storage solutions provide the ability to generate restricted access k
    * Create a IAM user for kopia to use
      * Select 'Attach policies directly'
      * Create a new policy, with the following permissions (paste into JSON form)
-        ```
+     ```json
+     package content
         {
             "Version": "2012-10-17",
             "Statement": [
