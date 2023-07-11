@@ -472,7 +472,7 @@ func (c *commandSnapshotCreate) getContentToSnapshot(ctx context.Context, dir st
 		setManual = true
 	} else {
 		sourceInfo = snapshot.SourceInfo{
-			Path:     dir,
+			Path:     filepath.Clean(absDir),
 			Host:     rep.ClientOptions().Hostname,
 			UserName: rep.ClientOptions().Username,
 		}
