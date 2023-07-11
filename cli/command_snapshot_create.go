@@ -68,7 +68,7 @@ func (c *commandSnapshotCreate) setup(svc appServices, parent commandParent) {
 	cmd.Flag("force-disable-actions", "Disable snapshot actions even if globally enabled on this client").Hidden().BoolVar(&c.snapshotCreateForceDisableActions)
 	cmd.Flag("stdin-file", "File path to be used for stdin data snapshot.").StringVar(&c.snapshotCreateStdinFileName)
 	cmd.Flag("tags", "Tags applied on the snapshot. Must be provided in the <key>:<value> format.").StringsVar(&c.snapshotCreateTags)
-	cmd.Flag("pin", "Create a pinned snapshot that's will not expire automatically").StringsVar(&c.pins)
+	cmd.Flag("pin", "Create a pinned snapshot that will not expire automatically").StringsVar(&c.pins)
 	cmd.Flag("flush-per-source", "Flush writes at the end of each source").Hidden().BoolVar(&c.flushPerSource)
 	cmd.Flag("override-source", "Override the source of the snapshot.").StringVar(&c.sourceOverride)
 
@@ -131,7 +131,7 @@ func (c *commandSnapshotCreate) run(ctx context.Context, rep repo.RepositoryWrit
 
 		fsEntry, sourceInfo, setManual, err := c.getContentToSnapshot(ctx, snapshotDir, rep)
 		if err != nil {
-			finalErrors = append(finalErrors, fmt.Sprintf("Failed to prepare source: %s", err))
+			finalErrors = append(finalErrors, fmt.Sprintf("failed to prepare source: %s", err))
 		}
 
 		if err := c.snapshotSingleSource(ctx, fsEntry, setManual, rep, u, sourceInfo, tags); err != nil {
