@@ -2,7 +2,6 @@
 title: "Advanced Topics"
 linkTitle: "Advanced Topics"
 weight: 99
-toc_hide: true
 ---
 
 ## Advanced Topics
