@@ -399,15 +399,6 @@ func newStorageWithCredentials(ctx context.Context, creds *credentials.Credentia
 		return nil, errors.Wrap(err, "unable to create client")
 	}
 
-	ok, err := cli.BucketExists(ctx, opt.BucketName)
-	if err != nil {
-		return nil, errors.Wrapf(err, "unable to determine if bucket %q exists", opt.BucketName)
-	}
-
-	if !ok {
-		return nil, errors.Errorf("bucket %q does not exist", opt.BucketName)
-	}
-
 	s := s3Storage{
 		Options:       *opt,
 		cli:           cli,
