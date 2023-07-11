@@ -22,7 +22,7 @@ In the following, we will highlight and explain some advanced topics related to 
 * [Ignoring Files and Folders in Snapshots](kopiaignore/#ignoring-files-and-folders-in-snapshots)
 * [Actions](actions/#actions)
 * [Caching](caching/#caching)
-* [Ransomware-Protection](ransomware-protection/#What-is-ransomware-and-why-do-we-need-extra protections?)
+* [Ransomware-Protection](ransomware-protection/#what-is-ransomware-and-why-do-we-need-extra protections?)
 * [Synchronization](synchronization/#synchronization)
 * [Sharding](sharding/#sharding)
 * [Logging](logging/#logging)
