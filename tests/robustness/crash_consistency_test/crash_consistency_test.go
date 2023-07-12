@@ -22,7 +22,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestConsistencyWhenKill9WithoutModify(t *testing.T) {
+func TestConsistencyWhenKill9AfterModify(t *testing.T) {
 	// create, connect repository
 	dataRepoPath := path.Join(*repoPathPrefix, dirPath+dataPath)
 	baseDir := makeBaseDir()
@@ -82,6 +82,29 @@ func TestConsistencyWhenKill9WithoutModify(t *testing.T) {
 	kopiaExe := os.Getenv("KOPIA_EXE")
 	cmd := exec.Command(kopiaExe, "snap", "create", dst, "--json", "--parallel", "1")
 
+	// excute kill -9 while recieve ` | 1 hashing, 0 hashed (65.5 KB), 0 cached (0 B), uploaded 0 B, estimating...` message
+	killOnCondition(cmd)
+
+	// snapshot verification
+	// kopia snapshot verify --verify-files-percent=100
+	cmd = exec.Command(kopiaExe, "snapshot", "verify", "--verify-files-percent=100")
+	err = cmd.Run()
+	if err != nil {
+		t.Errorf("kopia snapshot verify --verify-files-percent=100 failed")
+	}
+
+	newResotrePath := filepath.Join(dirPath, "restore")
+	// try to restore a snapshot named restore
+	stdout, err = bm.RestoreGivenOrRandomSnapshot(snapID, newResotrePath)
+	if err != nil {
+		log.Println("Error restoring the kopia repository:", stdout, err)
+		t.FailNow()
+	}
+
+	compareDirs(t, preResotrePath, newResotrePath)
+}
+
+func killOnCondition(cmd *exec.Cmd) {
 	stderrPipe, err := cmd.StderrPipe()
 	if err != nil {
 		panic(err)
@@ -146,24 +169,6 @@ func TestConsistencyWhenKill9WithoutModify(t *testing.T) {
 
 	// Wait for the goroutines to finish
 	wg.Wait()
-
-	// snapshot verification
-	// kopia snapshot verify --verify-files-percent=100
-	cmd = exec.Command(kopiaExe, "snapshot", "verify", "--verify-files-percent=100")
-	err = cmd.Run()
-	if err != nil {
-		t.Errorf("kopia snapshot verify --verify-files-percent=100 failed")
-	}
-
-	newResotrePath := filepath.Join(dirPath, "restore")
-	// try to restore a snapshot named restore
-	stdout, err = bm.RestoreGivenOrRandomSnapshot(snapID, newResotrePath)
-	if err != nil {
-		log.Println("Error restoring the kopia repository:", stdout, err)
-		t.FailNow()
-	}
-
-	compareDirs(t, preResotrePath, newResotrePath)
 }
 
 func compareDirs(t *testing.T, source, restoreDir string) {
