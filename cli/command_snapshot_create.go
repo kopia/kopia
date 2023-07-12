@@ -449,7 +449,7 @@ func shouldSnapshotSource(ctx context.Context, src snapshot.SourceInfo, rep repo
 }
 
 // the setManual return value is true when a snapshot is manually created, such
-// as when overriding the source info or snapshotting from stdin
+// as when overriding the source info or snapshotting from stdin.
 func (c *commandSnapshotCreate) getContentToSnapshot(ctx context.Context, dir string, rep repo.RepositoryWriter) (fsEntry fs.Entry, info snapshot.SourceInfo, setManual bool, err error) {
 	var absDir string
 
@@ -491,7 +491,7 @@ func (c *commandSnapshotCreate) getContentToSnapshot(ctx context.Context, dir st
 	return fsEntry, info, setManual, nil
 }
 
-func parseFullSource(str string, hostname, username string) (snapshot.SourceInfo, error) {
+func parseFullSource(str, hostname, username string) (snapshot.SourceInfo, error) {
 	sourceInfo, err := snapshot.ParseSourceInfo(str, hostname, username)
 
 	if err != nil {
