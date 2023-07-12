@@ -463,7 +463,7 @@ func (c *commandSnapshotCreate) getContentToSnapshot(ctx context.Context, dir st
 	}
 
 	if c.sourceOverride != "" {
-		sourceInfo, err = parseFullSource(c.sourceOverride, rep)
+		sourceInfo, err = parseFullSource(c.sourceOverride, rep.ClientOptions().Hostname, rep.ClientOptions().Username)
 
 		if err != nil {
 			return nil, sourceInfo, false, errors.Wrapf(err, "invalid source override %v", c.sourceOverride)
@@ -495,8 +495,8 @@ func (c *commandSnapshotCreate) getContentToSnapshot(ctx context.Context, dir st
 	return fsEntry, sourceInfo, setManual, nil
 }
 
-func parseFullSource(str string, rep repo.RepositoryWriter) (snapshot.SourceInfo, error) {
-	sourceInfo, err := snapshot.ParseSourceInfo(str, rep.ClientOptions().Hostname, rep.ClientOptions().Username)
+func parseFullSource(str string, hostname, username string) (snapshot.SourceInfo, error) {
+	sourceInfo, err := snapshot.ParseSourceInfo(str, hostname, username)
 
 	if err != nil {
 		return snapshot.SourceInfo{}, errors.Wrapf(err, "not a valid source %v", str)
