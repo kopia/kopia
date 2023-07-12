@@ -448,30 +448,26 @@ func shouldSnapshotSource(ctx context.Context, src snapshot.SourceInfo, rep repo
 		!policy.IsManualSnapshot(policyTree), nil
 }
 
-func (c *commandSnapshotCreate) getContentToSnapshot(ctx context.Context, dir string, rep repo.RepositoryWriter) (fs.Entry, snapshot.SourceInfo, bool, error) {
-	var (
-		absDir     string
-		sourceInfo snapshot.SourceInfo
-		fsEntry    fs.Entry
-		setManual  bool
-		err        error
-	)
+// the setManual return value is true when a snapshot is manually created, such
+// as when overriding the source info or snapshotting from stdin
+func (c *commandSnapshotCreate) getContentToSnapshot(ctx context.Context, dir string, rep repo.RepositoryWriter) (fsEntry fs.Entry, info snapshot.SourceInfo, setManual bool, err error) {
+	var absDir string
 
 	absDir, err = filepath.Abs(dir)
 	if err != nil {
-		return nil, sourceInfo, false, errors.Wrapf(err, "invalid source %v", dir)
+		return nil, info, false, errors.Wrapf(err, "invalid source %v", dir)
 	}
 
 	if c.sourceOverride != "" {
-		sourceInfo, err = parseFullSource(c.sourceOverride, rep.ClientOptions().Hostname, rep.ClientOptions().Username)
+		info, err = parseFullSource(c.sourceOverride, rep.ClientOptions().Hostname, rep.ClientOptions().Username)
 
 		if err != nil {
-			return nil, sourceInfo, false, errors.Wrapf(err, "invalid source override %v", c.sourceOverride)
+			return nil, info, false, errors.Wrapf(err, "invalid source override %v", c.sourceOverride)
 		}
 
 		setManual = true
 	} else {
-		sourceInfo = snapshot.SourceInfo{
+		info = snapshot.SourceInfo{
 			Path:     filepath.Clean(absDir),
 			Host:     rep.ClientOptions().Hostname,
 			UserName: rep.ClientOptions().Username,
@@ -488,11 +484,11 @@ func (c *commandSnapshotCreate) getContentToSnapshot(ctx context.Context, dir st
 	} else {
 		fsEntry, err = getLocalFSEntry(ctx, absDir)
 		if err != nil {
-			return nil, sourceInfo, false, errors.Wrap(err, "unable to get local filesystem entry")
+			return nil, info, false, errors.Wrap(err, "unable to get local filesystem entry")
 		}
 	}
 
-	return fsEntry, sourceInfo, setManual, nil
+	return fsEntry, info, setManual, nil
 }
 
 func parseFullSource(str string, hostname, username string) (snapshot.SourceInfo, error) {
