@@ -25,16 +25,12 @@ import (
 func TestConsistencyWhenKill9AfterModify(t *testing.T) {
 	// create, connect repository
 	dataRepoPath := path.Join(*repoPathPrefix, dirPath+dataPath)
-	baseDir := makeBaseDir()
+	baseDir := makeBaseDir(t)
 	bm, err := blobmanipulator.NewBlobManipulator(baseDir, dataRepoPath)
-	if err != nil {
-		if errors.Is(err, kopiarunner.ErrExeVariableNotSet) {
-			log.Println("Skipping recovery tests because KOPIA_EXE is not set")
-		} else {
-			log.Println("Error creating Blob Manipulator:", err)
-		}
-		os.Exit(0)
+	if errors.Is(err, kopiarunner.ErrExeVariableNotSet) {
+		t.Skip("Skipping recovery tests because KOPIA_EXE is not set")
 	}
+	require.NoError(t, err)
 
 	bm.DataRepoPath = dataRepoPath
 
@@ -42,39 +38,28 @@ func TestConsistencyWhenKill9AfterModify(t *testing.T) {
 	fileSize := 1 * 1024 * 1024
 	numFiles := 100
 	err = bm.GenerateRandomFiles(fileSize, numFiles)
-	if err != nil {
-		log.Println("Error in creating snapshot data", err)
-		t.FailNow()
-	}
+	require.NoError(t, err)
 
 	// Create the first snapshot and expect it to run successfully.
 	// This will populate the repository under test with initial data snapshot.
 	snapID, _, err := bm.TakeSnapshot(bm.PathToTakeSnapshot)
-	if err != nil {
-		log.Println("Error in creating snapshot", err)
-		t.FailNow()
-	}
-	dst := getRootDir(bm.PathToTakeSnapshot)
+	require.NoError(t, err)
 
-	preResotrePath := filepath.Join(dirPath, "restore_pre")
+	dst := getRootDir(t, bm.PathToTakeSnapshot)
+
+	preRestorePath := filepath.Join(dirPath, "restore_pre")
 	// try to restore a snapshot named restore_pre
-	stdout, err := bm.RestoreGivenOrRandomSnapshot("", preResotrePath)
-	if err != nil {
-		log.Println("Error restoring the kopia repository:", stdout, err)
-		t.FailNow()
-	}
+	_, err = bm.RestoreGivenOrRandomSnapshot("", preRestorePath)
+	require.NoError(t, err)
 
 	// generate a 10M dataset
 	err = bm.GenerateRandomFiles(fileSize, 1)
-	if err != nil {
-		log.Println("Error in creating snapshot data", err)
-		t.FailNow()
-	}
+	require.NoError(t, err)
 
-	src := getRootDir(bm.PathToTakeSnapshot)
+	src := getRootDir(t, bm.PathToTakeSnapshot)
 
 	// modify the data
-	modifyDataSet(src, dst)
+	modifyDataSet(t, src, dst)
 
 	log.Println("----kopia creation process ----: ")
 
@@ -83,32 +68,25 @@ func TestConsistencyWhenKill9AfterModify(t *testing.T) {
 	cmd := exec.Command(kopiaExe, "snap", "create", dst, "--json", "--parallel", "1")
 
 	// excute kill -9 while recieve ` | 1 hashing, 0 hashed (65.5 KB), 0 cached (0 B), uploaded 0 B, estimating...` message
-	killOnCondition(cmd)
+	killOnCondition(t, cmd)
 
 	// snapshot verification
 	// kopia snapshot verify --verify-files-percent=100
 	cmd = exec.Command(kopiaExe, "snapshot", "verify", "--verify-files-percent=100")
 	err = cmd.Run()
-	if err != nil {
-		t.Errorf("kopia snapshot verify --verify-files-percent=100 failed")
-	}
+	require.NoError(t, err)
 
 	newResotrePath := filepath.Join(dirPath, "restore")
 	// try to restore a snapshot named restore
-	stdout, err = bm.RestoreGivenOrRandomSnapshot(snapID, newResotrePath)
-	if err != nil {
-		log.Println("Error restoring the kopia repository:", stdout, err)
-		t.FailNow()
-	}
+	_, err = bm.RestoreGivenOrRandomSnapshot(snapID, newResotrePath)
+	require.NoError(t, err)
 
-	compareDirs(t, preResotrePath, newResotrePath)
+	compareDirs(t, preRestorePath, newResotrePath)
 }
 
-func killOnCondition(cmd *exec.Cmd) {
+func killOnCondition(t *testing.T, cmd *exec.Cmd) {
 	stderrPipe, err := cmd.StderrPipe()
-	if err != nil {
-		panic(err)
-	}
+	require.NoError(t, err)
 
 	// excute kill -9 while recieve ` | 1 hashing, 0 hashed (65.5 KB), 0 cached (0 B), uploaded 0 B, estimating...` message
 	var wg sync.WaitGroup
@@ -203,24 +181,19 @@ func compareDirs(t *testing.T, source, restoreDir string) {
 	}
 }
 
-func makeBaseDir() string {
+func makeBaseDir(t *testing.T) string {
 	baseDir, err := os.MkdirTemp("", dataPath)
-	if err != nil {
-		log.Println("Error creating temp dir:", err)
-		os.Exit(0)
-	}
+	require.NoError(t, err)
 
 	return baseDir
 }
 
-func getRootDir(source string) string {
+func getRootDir(t *testing.T, source string) string {
 	path := source
 
 	for {
 		dirEntries, err := os.ReadDir(path)
-		if err != nil {
-			log.Fatalf("Error open source folder '%s': %s", path, err)
-		}
+		require.NoError(t, err)
 
 		if len(dirEntries) == 0 || !dirEntries[0].IsDir() {
 			break
@@ -231,31 +204,22 @@ func getRootDir(source string) string {
 	return path
 }
 
-func modifyDataSet(source, destination string) {
+func modifyDataSet(t *testing.T, source string, destination string) {
 	srcFile, err := os.Open(filepath.Join(source, "file_0"))
-	if err != nil {
-		log.Fatalf("Error opening source file: %s", err)
-	}
+	require.NoError(t, err)
 	defer srcFile.Close()
 
 	dstDirs, err := os.ReadDir(destination)
-	if err != nil {
-		log.Fatalf("Error opening destination folder: %s", err)
-	}
+	require.NoError(t, err)
 
 	for _, dstFile := range dstDirs {
 		dstFilePath := filepath.Join(destination, dstFile.Name())
 
 		dstFile, err := os.OpenFile(dstFilePath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
-		if err != nil {
-			log.Fatalf("Error opening destination file '%s': %s", dstFilePath, err)
-		}
+		require.NoError(t, err)
 
 		_, err = io.Copy(dstFile, srcFile)
-		if err != nil {
-			dstFile.Close()
-			log.Fatalf("Error copying content to '%s': %s", dstFilePath, err)
-		}
+		require.NoError(t, err)
 
 		dstFile.Close()
 	}
