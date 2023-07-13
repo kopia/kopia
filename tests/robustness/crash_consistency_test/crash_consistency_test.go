@@ -47,8 +47,8 @@ func TestConsistencyWhenKill9AfterModify(t *testing.T) {
 		t.FailNow()
 	}
 
-	// create snapshot successfully at the first time
-	// populate the kopia repo under test with random snapshots
+	// Create the first snapshot and expect it to run successfully.
+	// This will populate the repository under test with initial data snapshot.
 	snapID, _, err := bm.TakeSnapshot(bm.PathToTakeSnapshot)
 	if err != nil {
 		log.Println("Error in creating snapshot", err)
