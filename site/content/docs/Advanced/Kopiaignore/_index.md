@@ -66,7 +66,7 @@ Each line that begins with a `#` is a `comment` and can be used to describe the 
 
 The example shows that excluding files using `.kopiaignore` from a snapshot is easy. However, there is also the risk of accidentally excluding files when creating rule - leading to incomplete snapshots or data loss. 
  
-### Supported Patters
+### Supported Patterns
 
 `Kopia` supports a lot of different operators allowing users to precisely exclude unnecessary files or folders. The following table shows special operators used to generate rules.
 
