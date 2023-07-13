@@ -101,4 +101,4 @@ The following table provides some example rules related to our [example](#kopiai
 | `?tmp.db`				| Matches files with exactly one character ending with `tmp.db`																	| thesis/atmp.db												| 0 directories, 1 file					|
 | `[a-z]*tmp.db`		| Matches files beginning with characters between `a` and `z`, followed by zero or multiple characters, ending with `tmp.db`	| thesis/abtmp.db </br> thesis/atmp.db </br> thesis/logs/tmp.db	| 0 directories, 3 files				|
 
->NOTE Make sure that you have tested your `.kopiaignore` file and the resulting snapshot for correctnes. If a file or folder is missing, you will need to adjust the rules to your needs.
+>NOTE Make sure that you have tested your `.kopiaignore` file and the resulting snapshot for correctness. If a file or folder is missing, you will need to adjust the rules to your needs.
