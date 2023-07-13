@@ -274,8 +274,8 @@ func (bm *BlobManipulator) SetUpSystemUnderTest() error {
 	return nil
 }
 
-// GenerateRandomFiles connects or creates a kopia repo, writes random data in source directory,
-// creates snapshots of the source directory.
+// GenerateRandomFiles connects or creates a Kopia repository that writes random data in source directory.
+// Tests can later create snapshots from the source directory.
 func (bm *BlobManipulator) GenerateRandomFiles(fileSize int, numFiles int) error {
 	ctx := context.Background()
 
