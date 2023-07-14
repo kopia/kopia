@@ -55,7 +55,7 @@ Some cloud storage solutions provide the ability to generate restricted access k
                 }
             ]
         }
-        ```
+      ```
      * Attach created policy to new user
    * Manage user's security-credentials and create a new access key
  * Disconnect and reconnect your existing Kopia repo using the new key (or create a new bucket using this key)
