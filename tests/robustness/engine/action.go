@@ -398,20 +398,6 @@ func (e *Engine) gatherStats() {
 	// Print the output
 	fmt.Println(string(stdout))
 
-	// du -sh /codefresh/volume/fio-data-root/fio-data-*
-	arg1 = "/codefresh/volume/fio-data-root/"
-	fmt.Println("du -sh ", arg1)
-	cmd = exec.Command(app, arg0, arg1)
-	stdout, err = cmd.Output()
-
-	if err != nil {
-		fmt.Println(err.Error())
-		return
-	}
-
-	// Print the output
-	fmt.Println(string(stdout))
-
 	// robustness-data
 	// du -sh /codefresh/volume/test-repo/robustness-data/
 	arg1 = "/codefresh/volume/test-repo/robustness-data/"
@@ -427,8 +413,36 @@ func (e *Engine) gatherStats() {
 	// Print the output
 	fmt.Println(string(stdout))
 
+	// du -sh /codefresh/volume/fio-data-root/fio-data-*
+	arg1 = "/codefresh/volume/fio-data-root/"
+	fmt.Println("du -sh ", arg1)
+	cmd = exec.Command(app, arg0, arg1)
+	stdout, err = cmd.Output()
+
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+
+	// Print the output
+	fmt.Println(string(stdout))
+
 	// du -sh /codefresh/volume/kopia/
 	arg1 = "/codefresh/volume/kopia/"
+	fmt.Println("du -sh ", arg1)
+	cmd = exec.Command(app, arg0, arg1)
+	stdout, err = cmd.Output()
+
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+
+	// Print the output
+	fmt.Println(string(stdout))
+
+	// du -sh /root/.cache/kopia/cli-logs
+	arg1 = "/root/.cache/kopia/cli-logs"
 	fmt.Println("du -sh ", arg1)
 	cmd = exec.Command(app, arg0, arg1)
 	stdout, err = cmd.Output()
@@ -457,7 +471,8 @@ func (e *Engine) gatherStats() {
 
 	// logs, cache
 	// du -sh /root/.cache/kopia/*/server-contents/
-	arg1 = "/root/.cache/kopia/*/server-contents/"
+	// the above one doesn't work
+	arg1 = "/root/.cache/kopia/"
 	fmt.Println("du -sh ", arg1)
 	cmd = exec.Command(app, arg0, arg1)
 	stdout, err = cmd.Output()

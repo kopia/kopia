@@ -50,6 +50,7 @@ func TestManySmallFiles(t *testing.T) {
 		require.NoError(t, err)
 
 		snapOut, err := eng.ExecAction(ctx, engine.SnapshotDirActionKey, nil)
+		err = eng.CheckErrRecovery(ctx, err, engine.ActionOpts{})
 		require.NoError(t, err)
 
 		_, err = eng.ExecAction(ctx, engine.RestoreSnapshotActionKey, snapOut)
@@ -86,6 +87,7 @@ func TestOneLargeFile(t *testing.T) {
 		require.NoError(t, err)
 
 		snapOut, err := eng.ExecAction(ctx, engine.SnapshotDirActionKey, nil)
+		err = eng.CheckErrRecovery(ctx, err, engine.ActionOpts{})
 		require.NoError(t, err)
 
 		_, err = eng.ExecAction(ctx, engine.RestoreSnapshotActionKey, snapOut)
@@ -126,9 +128,11 @@ func TestManySmallFilesAcrossDirecoryTree(t *testing.T) {
 		require.NoError(t, err)
 
 		snapOut, err := eng.ExecAction(ctx, engine.SnapshotDirActionKey, nil)
+		err = eng.CheckErrRecovery(ctx, err, engine.ActionOpts{})
 		require.NoError(t, err)
 
 		_, err = eng.ExecAction(ctx, engine.RestoreSnapshotActionKey, snapOut)
+		err = eng.CheckErrRecovery(ctx, err, engine.ActionOpts{})
 		require.NoError(t, err)
 	}
 
