@@ -102,7 +102,7 @@ readonly test_flags="-v -timeout=${test_timeout}\
  -ldflags '${ld_flags}'"
 
 ENGINE_MODE="${ENGINE_MODE:-}"
-make_target="crash_consistency_test"
+make_target="crash-consistency-test"
 
 # Run the crash consistency tests
 set -o verbose
