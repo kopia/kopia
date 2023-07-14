@@ -257,7 +257,7 @@ func (bm *SnapshotTester) GenerateRandomFiles(fileSize int, numFiles int) error 
 		return err
 	}
 
-	bm.PathToTakeSnapshot = bm.fileWriter.DataDirectory(ctx)
+	bm.PathToTakeSnapshot = bm.FileHandler.GetRootDir(bm.fileWriter.DataDirectory(ctx))
 
 	return nil
 }
