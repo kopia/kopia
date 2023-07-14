@@ -88,6 +88,8 @@ func (e *Engine) RandomAction(ctx context.Context, actionOpts ActionOpts) error 
 // CheckErrRecovery tries to recover from no space left error
 // by deleting data directories.
 func (e *Engine) CheckErrRecovery(ctx context.Context, incomingErr error, actionOpts ActionOpts) (outgoingErr error) {
+	log.Printf("Inside CheckErrRecovery")
+
 	outgoingErr = incomingErr
 
 	if incomingErr == nil {
@@ -346,7 +348,7 @@ func (e *Engine) getSnapIDOptOrRandLive(opts map[string]string) (snapID string, 
 }
 
 func (e *Engine) gatherStats() {
-
+	log.Printf("Inside gatherStats")
 	// Gather evidence
 	// df -ah
 	app := "df"
@@ -397,7 +399,7 @@ func (e *Engine) gatherStats() {
 	fmt.Println(string(stdout))
 
 	// du -sh /codefresh/volume/fio-data-root/fio-data-*
-	arg1 = "/codefresh/volume/fio-data-root/fio-data-*"
+	arg1 = "/codefresh/volume/fio-data-root/"
 	fmt.Println("du -sh ", arg1)
 	cmd = exec.Command(app, arg0, arg1)
 	stdout, err = cmd.Output()
