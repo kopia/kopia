@@ -72,7 +72,17 @@ func TestConsistencyWhenKill9AfterModify(t *testing.T) {
 
 	// kill the kopia command before it exits
 	kopiaExe := os.Getenv("KOPIA_EXE")
-	cmd := exec.Command(kopiaExe, "snap", "create", copyDir, "--json")
+
+	cmd := exec.Command(kopiaExe, "repo", "connect", "filesystem", "--path="+dataRepoPath, "--content-cache-size-mb", "500", "--metadata-cache-size-mb", "500", "--no-check-for-updates")
+	env := []string{"KOPIA_PASSWORD=" + repoPassword}
+	cmd.Env = append(os.Environ(), env...)
+
+	o, err := cmd.CombinedOutput()
+	require.NoError(t, err)
+	log.Println(string(o))
+
+	cmd = exec.Command(kopiaExe, "snap", "create", copyDir, "--json")
+
 	log.Println("Kill the kopia command before it exits:")
 	killOnCondition(t, cmd)
 

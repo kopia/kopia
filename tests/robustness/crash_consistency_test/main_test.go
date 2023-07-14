@@ -14,8 +14,9 @@ import (
 )
 
 const (
-	dirPath  = "kopia_dummy_repo"
-	dataPath = "crash-consistency-data"
+	dirPath      = "kopia_dummy_repo"
+	dataPath     = "crash-consistency-data"
+	repoPassword = "qWQPJ2hiiLgWRRCr"
 )
 
 var repoPathPrefix = flag.String("repo-path-prefix", "", "Point the robustness tests at this path prefix")
@@ -23,7 +24,7 @@ var repoPathPrefix = flag.String("repo-path-prefix", "", "Point the robustness t
 // var bm *blobmanipulator.BlobManipulator = nil
 
 func TestMain(m *testing.M) {
-	dataRepoPath := path.Join(*repoPathPrefix, dirPath+dataPath)
+	dataRepoPath := path.Join(*repoPathPrefix, dirPath, dataPath)
 
 	th := &kopiaTestHarness{}
 	th.init(dataRepoPath)
