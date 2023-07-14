@@ -307,6 +307,13 @@ recovery-tests: build-integration-test-binary $(gotestsum)
 	FIO_DOCKER_IMAGE=$(FIO_DOCKER_TAG) \
 	$(GO_TEST) -count=$(REPEAT_TEST) github.com/kopia/kopia/tests/recovery/recovery_test $(TEST_FLAGS)
 
+crash-consistency-test: export KOPIA_EXE ?= $(KOPIA_INTEGRATION_EXE)
+crash-consistency-test: GOTESTSUM_FORMAT=testname
+crash-consistency-test: build-integration-test-binary $(gotestsum)
+	FIO_DOCKER_IMAGE=$(FIO_DOCKER_TAG) \
+	$(GO_TEST) -count=$(REPEAT_TEST) github.com/kopia/kopia/tests/robustness/crash_consistency_test/crash_consistency_test $(TEST_FLAGS)
+
+
 robustness-tests: export KOPIA_EXE ?= $(KOPIA_INTEGRATION_EXE)
 robustness-tests: GOTESTSUM_FORMAT=testname
 robustness-tests: build-integration-test-binary $(gotestsum)
