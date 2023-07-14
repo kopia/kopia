@@ -24,7 +24,7 @@ import (
 
 func TestConsistencyWhenKill9AfterModify(t *testing.T) {
 	// create, connect repository
-	dataRepoPath := path.Join(*repoPathPrefix, dirPath+dataPath)
+	dataRepoPath := path.Join(*repoPathPrefix, dirPath, dataPath)
 	baseDir := makeBaseDir(t)
 	bm, err := blobmanipulator.NewBlobManipulator(baseDir, dataRepoPath)
 	if errors.Is(err, kopiarunner.ErrExeVariableNotSet) {
@@ -62,6 +62,8 @@ func TestConsistencyWhenKill9AfterModify(t *testing.T) {
 	modifyDataSet(t, src, dst)
 
 	log.Println("----kopia creation process ----: ")
+
+	err = bm.KopiaCommandRunner.ConnectRepo("filesystem", "--path="+bm.DataRepoPath)
 
 	// kopia snapshot create for new data
 	kopiaExe := os.Getenv("KOPIA_EXE")
