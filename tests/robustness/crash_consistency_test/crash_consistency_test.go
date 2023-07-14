@@ -68,12 +68,15 @@ func TestConsistencyWhenKill9AfterModify(t *testing.T) {
 	content := "\nthis is a test for TestConsistencyWhenKill9AfterModify\n"
 	err = bm.FileHandler.ModifyDataSetWithContent(copyDir, content)
 	require.NoError(t, err)
+	log.Println("Copy content and modify the files.")
 
 	// kill the kopia command before it exits
 	kopiaExe := os.Getenv("KOPIA_EXE")
 	cmd := exec.Command(kopiaExe, "snap", "create", copyDir, "--json")
+	log.Println("Kill the kopia command before it exits:")
 	killOnCondition(t, cmd)
 
+	log.Println("Verify snapshot corruption:")
 	// verify snapshot corruption
 	err = bm.VerifySnapshot()
 	require.NoError(t, err)
@@ -95,6 +98,7 @@ func TestConsistencyWhenKill9AfterModify(t *testing.T) {
 
 	log.Println(stdout)
 
+	log.Println("Compare restored data and original data:")
 	err = bm.FileHandler.CompareDirs(restoreDir, cmpDir)
 	require.NoError(t, err)
 }
@@ -122,6 +126,7 @@ func killOnCondition(t *testing.T, cmd *exec.Cmd) {
 			errOut.Write(scanner.Bytes())
 			errOut.WriteByte('\n')
 
+			log.Println(output)
 			// Check if the output contains the "hashing" etc.
 			if strings.Contains(output, "hashing") && strings.Contains(output, "hashed") && strings.Contains(output, "uploaded") {
 				log.Println("Detaching and terminating target process")
@@ -150,6 +155,8 @@ func killOnCondition(t *testing.T, cmd *exec.Cmd) {
 			log.Println(output)
 			o.Write(scanner.Bytes())
 			o.WriteByte('\n')
+
+			log.Println(output)
 			// Check if the output contains the "copying" text
 			if strings.Contains(output, "hashing") && strings.Contains(output, "hashed") && strings.Contains(output, "uploaded") {
 				cmd.Process.Kill()
