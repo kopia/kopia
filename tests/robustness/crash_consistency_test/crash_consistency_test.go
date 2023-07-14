@@ -45,12 +45,11 @@ func TestConsistencyWhenKill9AfterModify(t *testing.T) {
 	err = bm.GenerateRandomFiles(fileSize, numFiles)
 	require.NoError(t, err)
 
+	dst := getRootDir(t, bm.PathToTakeSnapshot)
 	// Create the first snapshot and expect it to run successfully.
 	// This will populate the repository under test with initial data snapshot.
-	snapID, _, err := bm.TakeSnapshot(bm.PathToTakeSnapshot)
+	snapID, _, err := bm.TakeSnapshot(dst)
 	require.NoError(t, err)
-
-	dst := getRootDir(t, bm.PathToTakeSnapshot)
 
 	preRestorePath := filepath.Join(dirPath, "restore_pre")
 	// try to restore a snapshot named restore_pre
