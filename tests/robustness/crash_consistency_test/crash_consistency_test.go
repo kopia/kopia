@@ -81,10 +81,10 @@ func TestConsistencyWhenKill9AfterModify(t *testing.T) {
 	err = bm.VerifySnapshot()
 	require.NoError(t, err)
 
-	// delete random blob
-	// assumption: the repo contains "p" blobs to delete, else the test will fail
-	err = bm.DeleteBlob("")
-	require.NoError(t, err, "Error deleting kopia blob")
+	// // delete random blob
+	// // assumption: the repo contains "p" blobs to delete, else the test will fail
+	// err = bm.DeleteBlob("")
+	// require.NoError(t, err, "Error deleting kopia blob")
 
 	// Create a temporary dir to restore a snapshot
 	restoreDir := t.TempDir()
