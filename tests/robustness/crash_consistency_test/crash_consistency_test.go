@@ -23,9 +23,14 @@ import (
 )
 
 func TestConsistencyWhenKill9AfterModify(t *testing.T) {
-	// create, connect repository
+	// assumption: the test is run on filesystem & not directly on object store
 	dataRepoPath := path.Join(*repoPathPrefix, dirPath, dataPath)
-	baseDir := makeBaseDir(t)
+
+	baseDir := t.TempDir()
+	if baseDir == "" {
+		t.FailNow()
+	}
+
 	bm, err := blobmanipulator.NewBlobManipulator(baseDir, dataRepoPath)
 	if errors.Is(err, kopiarunner.ErrExeVariableNotSet) {
 		t.Skip("Skipping recovery tests because KOPIA_EXE is not set")
@@ -63,12 +68,14 @@ func TestConsistencyWhenKill9AfterModify(t *testing.T) {
 
 	log.Println("----kopia creation process ----: ")
 
-	err = bm.KopiaCommandRunner.ConnectRepo("filesystem", "--path="+bm.DataRepoPath)
+	err = bm.KopiaCommandRunner.ConnectOrCreateRepo("filesystem", "--path="+bm.DataRepoPath)
+	require.NoError(t, err)
 
 	// kopia snapshot create for new data
 	kopiaExe := os.Getenv("KOPIA_EXE")
 	cmd := exec.Command(kopiaExe, "snap", "create", dst, "--json", "--parallel", "1")
 
+	log.Println(cmd.Args)
 	// excute kill -9 while recieve ` | 1 hashing, 0 hashed (65.5 KB), 0 cached (0 B), uploaded 0 B, estimating...` message
 	killOnCondition(t, cmd)
 
