@@ -7,17 +7,14 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
-	"io"
 	"log"
 	"os"
 	"os/exec"
 	"path"
-	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
 
-	"github.com/kopia/kopia/tests/recovery/blobmanipulator"
 	"github.com/kopia/kopia/tests/tools/kopiarunner"
 	"github.com/stretchr/testify/require"
 )
@@ -31,65 +28,75 @@ func TestConsistencyWhenKill9AfterModify(t *testing.T) {
 		t.FailNow()
 	}
 
-	bm, err := blobmanipulator.NewBlobManipulator(baseDir, dataRepoPath)
-	if errors.Is(err, kopiarunner.ErrExeVariableNotSet) {
-		t.Skip("Skipping recovery tests because KOPIA_EXE is not set")
+	bm, err := NewSnapshotTester(baseDir, dataRepoPath)
+	if err != nil {
+		if errors.Is(err, kopiarunner.ErrExeVariableNotSet) {
+			t.Skip("Skipping crash consistency tests because KOPIA_EXE is not set")
+		} else {
+			t.Skip("Error creating SnapshotTester:", err)
+		}
 	}
-	require.NoError(t, err)
 
 	bm.DataRepoPath = dataRepoPath
 
-	// generate 10M * 10 dataset
+	// create a snapshot for initialized data
+	snapID, err := bm.SetUpSystemUnderTest()
+	if err != nil {
+		t.FailNow()
+	}
+	cmpDir := bm.PathToTakeSnapshot
+
+	copyDir := t.TempDir()
+	if copyDir == "" {
+		t.FailNow()
+	}
+
+	err = bm.FileHandler.CopyAllFiles(cmpDir, copyDir)
+	require.NoError(t, err)
+
+	// add files
 	fileSize := 1 * 1024 * 1024
-	numFiles := 100
+	numFiles := 30
+
 	err = bm.GenerateRandomFiles(fileSize, numFiles)
 	require.NoError(t, err)
 
-	dst := getRootDir(t, bm.PathToTakeSnapshot)
-	// Create the first snapshot and expect it to run successfully.
-	// This will populate the repository under test with initial data snapshot.
-	snapID, _, err := bm.TakeSnapshot(dst)
+	err = bm.FileHandler.CopyAllFiles(bm.PathToTakeSnapshot, copyDir)
 	require.NoError(t, err)
 
-	preRestorePath := filepath.Join(dirPath, "restore_pre")
-	// try to restore a snapshot named restore_pre
-	_, err = bm.RestoreGivenOrRandomSnapshot("", preRestorePath)
+	// modify original files
+	content := "\nthis is a test for TestConsistencyWhenKill9AfterModify\n"
+	err = bm.FileHandler.ModifyDataSetWithContent(copyDir, content)
 	require.NoError(t, err)
 
-	// generate a 10M dataset
-	err = bm.GenerateRandomFiles(fileSize, 1)
-	require.NoError(t, err)
-
-	src := getRootDir(t, bm.PathToTakeSnapshot)
-
-	// modify the data
-	modifyDataSet(t, src, dst)
-
-	log.Println("----kopia creation process ----: ")
-
-	err = bm.KopiaCommandRunner.ConnectOrCreateRepo("filesystem", "--path="+bm.DataRepoPath)
-	require.NoError(t, err)
-
-	// kopia snapshot create for new data
+	// kill the kopia command before it exits
 	kopiaExe := os.Getenv("KOPIA_EXE")
-	cmd := exec.Command(kopiaExe, "snap", "create", dst, "--json", "--parallel", "1")
-
-	log.Println(cmd.Args)
-	// excute kill -9 while recieve ` | 1 hashing, 0 hashed (65.5 KB), 0 cached (0 B), uploaded 0 B, estimating...` message
+	cmd := exec.Command(kopiaExe, "snap", "create", copyDir, "--json")
 	killOnCondition(t, cmd)
 
-	// snapshot verification
-	// kopia snapshot verify --verify-files-percent=100
-	cmd = exec.Command(kopiaExe, "snapshot", "verify", "--verify-files-percent=100")
-	err = cmd.Run()
+	// verify snapshot corruption
+	err = bm.VerifySnapshot()
 	require.NoError(t, err)
 
-	newResotrePath := filepath.Join(dirPath, "restore")
-	// try to restore a snapshot named restore
-	_, err = bm.RestoreGivenOrRandomSnapshot(snapID, newResotrePath)
+	// delete random blob
+	// assumption: the repo contains "p" blobs to delete, else the test will fail
+	err = bm.DeleteBlob("")
+	require.NoError(t, err, "Error deleting kopia blob")
+
+	// Create a temporary dir to restore a snapshot
+	restoreDir := t.TempDir()
+	if restoreDir == "" {
+		t.FailNow()
+	}
+
+	// try to restore a snapshot, this should error out
+	stdout, err := bm.RestoreGivenOrRandomSnapshot(snapID, restoreDir)
 	require.NoError(t, err)
 
-	compareDirs(t, preRestorePath, newResotrePath)
+	log.Println(stdout)
+
+	err = bm.FileHandler.CompareDirs(restoreDir, cmpDir)
+	require.NoError(t, err)
 }
 
 func killOnCondition(t *testing.T, cmd *exec.Cmd) {
@@ -117,6 +124,7 @@ func killOnCondition(t *testing.T, cmd *exec.Cmd) {
 
 			// Check if the output contains the "hashing" etc.
 			if strings.Contains(output, "hashing") && strings.Contains(output, "hashed") && strings.Contains(output, "uploaded") {
+				log.Println("Detaching and terminating target process")
 				cmd.Process.Kill()
 				break
 			}
@@ -155,80 +163,4 @@ func killOnCondition(t *testing.T, cmd *exec.Cmd) {
 
 	// Wait for the goroutines to finish
 	wg.Wait()
-}
-
-func compareDirs(t *testing.T, source, restoreDir string) {
-	t.Helper()
-
-	srcDirs, err := os.ReadDir(source)
-	require.NoError(t, err)
-
-	dstDirs, err := os.ReadDir(restoreDir)
-	require.NoError(t, err)
-
-	require.Equal(t, len(dstDirs), len(srcDirs))
-
-	checkSet := make(map[string]bool)
-
-	for _, dstDir := range dstDirs {
-		checkSet[dstDir.Name()] = true
-	}
-
-	for _, srcDir := range srcDirs {
-		_, ok := checkSet[srcDir.Name()]
-		require.True(t, ok)
-
-		srcFilePath := filepath.Join(source, srcDir.Name())
-		dstFilePath := filepath.Join(restoreDir, srcDir.Name())
-
-		cmd := exec.Command("cmp", "-s", srcFilePath, dstFilePath)
-		err := cmd.Run()
-		if err != nil {
-			t.Errorf("Files '%s' and '%s' are different.", srcFilePath, dstFilePath)
-		}
-	}
-}
-
-func makeBaseDir(t *testing.T) string {
-	baseDir, err := os.MkdirTemp("", dataPath)
-	require.NoError(t, err)
-
-	return baseDir
-}
-
-func getRootDir(t *testing.T, source string) string {
-	path := source
-
-	for {
-		dirEntries, err := os.ReadDir(path)
-		require.NoError(t, err)
-
-		if len(dirEntries) == 0 || !dirEntries[0].IsDir() {
-			break
-		}
-
-		path = filepath.Join(path, dirEntries[0].Name())
-	}
-	return path
-}
-
-func modifyDataSet(t *testing.T, source string, destination string) {
-	srcFile, err := os.Open(filepath.Join(source, "file_0"))
-	require.NoError(t, err)
-	defer srcFile.Close()
-
-	dstDirs, err := os.ReadDir(destination)
-	require.NoError(t, err)
-
-	for _, dstFile := range dstDirs {
-		dstFilePath := filepath.Join(destination, dstFile.Name())
-
-		dstFile, err := os.OpenFile(dstFilePath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
-		require.NoError(t, err)
-
-		_, err = io.Copy(dstFile, srcFile)
-		require.NoError(t, err)
-
-		dstFile.Close()
-	}
 }

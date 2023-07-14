@@ -151,6 +151,14 @@ func (ks *KopiaSnapshotter) RestoreSnapshot(snapID, restoreDir string) (err erro
 	return err
 }
 
+// VerifySnapshot implements the Snapshotter interface to verify a kopia snapshot corruption
+// verify command of args to the provided paramters such as --verify-files-percent.
+func (ks *KopiaSnapshotter) VerifySnapshot(args ...string) (err error) {
+	args = append([]string{"snapshot", "verify"}, args...)
+	_, _, err = ks.Runner.Run(args...)
+	return err
+}
+
 // DeleteSnapshot implements the Snapshotter interface, issues a kopia snapshot
 // delete of the provided snapshot ID.
 func (ks *KopiaSnapshotter) DeleteSnapshot(snapID string) (err error) {
