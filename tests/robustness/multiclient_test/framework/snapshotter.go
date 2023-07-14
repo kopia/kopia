@@ -62,6 +62,12 @@ func (mcs *MultiClientSnapshotter) ConnectOrCreateRepo(repoPath string) error {
 		return err
 	}
 
+	_, _, err1 := mcs.server.Run("cache", "info")
+
+	if err1 != nil {
+		return err1
+	}
+
 	_, _, err := mcs.server.Run("policy", "set", "--global", "--keep-latest", strconv.Itoa(1<<31-1), "--compression", "s2-default")
 
 	return err
