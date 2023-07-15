@@ -57,7 +57,7 @@ func TestConsistencyWhenKill9AfterModify(t *testing.T) {
 
 	// add files
 	fileSize := 1 * 1024 * 1024
-	numFiles := 100
+	numFiles := 130
 
 	err = bm.GenerateRandomFiles(fileSize, numFiles)
 	require.NoError(t, err)
@@ -82,7 +82,7 @@ func TestConsistencyWhenKill9AfterModify(t *testing.T) {
 	require.NoError(t, err)
 	log.Println(string(o))
 
-	cmd = exec.Command(kopiaExe, "snap", "create", copyDir, "--json")
+	cmd = exec.Command(kopiaExe, "snap", "create", copyDir, "--json", "--parallel=1")
 
 	log.Println("Kill the kopia command before it exits:")
 	killOnCondition(t, cmd)
