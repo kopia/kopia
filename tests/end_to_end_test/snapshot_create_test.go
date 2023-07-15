@@ -732,7 +732,6 @@ func TestSnapshotCreateAllFlushPerSource(t *testing.T) {
 	require.Len(t, metadataBlobList3, len(metadataBlobList2)+3)
 }
 
-
 func TestSnapshotCreateAllSnapshotPath(t *testing.T) {
 	t.Parallel()
 
@@ -740,7 +739,6 @@ func TestSnapshotCreateAllSnapshotPath(t *testing.T) {
 	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
 
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
-
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--override-hostname=foo", "--override-username=foo")
 	e.RunAndExpectSuccess(t, "snapshot", "create", "--override-source", "bar@bar:/foo/bar", sharedTestDataDir1)
@@ -800,5 +798,4 @@ func TestSnapshotCreateWithAllAndPath(t *testing.T) {
 	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
 	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir2)
 	e.RunAndExpectFailure(t, "snapshot", "create", sharedTestDataDir1, "--all")
-
 }
