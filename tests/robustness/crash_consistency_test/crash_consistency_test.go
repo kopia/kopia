@@ -120,6 +120,7 @@ func killOnCondition(t *testing.T, cmd *exec.Cmd) {
 
 	// excute kill -9 while recieve ` | 1 hashing, 0 hashed (65.5 KB), 0 cached (0 B), uploaded 0 B, estimating...` message
 	var wg sync.WaitGroup
+	var mu sync.Mutex
 
 	// Add a WaitGroup counter for the first goroutine
 	wg.Add(1)
@@ -127,6 +128,8 @@ func killOnCondition(t *testing.T, cmd *exec.Cmd) {
 	errOut := bytes.Buffer{}
 
 	go func() {
+		mu.Lock()
+		defer mu.Unlock()
 		defer wg.Done()
 
 		// Create a scanner to read from stderrPipe
