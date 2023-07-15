@@ -15,6 +15,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/kopia/kopia/tests/testenv"
 	"github.com/kopia/kopia/tests/tools/kopiarunner"
 	"github.com/stretchr/testify/require"
 )
@@ -56,7 +57,7 @@ func TestConsistencyWhenKill9AfterModify(t *testing.T) {
 
 	// add files
 	fileSize := 1 * 1024 * 1024
-	numFiles := 30
+	numFiles := 100
 
 	err = bm.GenerateRandomFiles(fileSize, numFiles)
 	require.NoError(t, err)
@@ -74,7 +75,7 @@ func TestConsistencyWhenKill9AfterModify(t *testing.T) {
 	kopiaExe := os.Getenv("KOPIA_EXE")
 
 	cmd := exec.Command(kopiaExe, "repo", "connect", "filesystem", "--path="+dataRepoPath, "--content-cache-size-mb", "500", "--metadata-cache-size-mb", "500", "--no-check-for-updates")
-	env := []string{"KOPIA_PASSWORD=" + repoPassword}
+	env := []string{"KOPIA_PASSWORD=" + testenv.TestRepoPassword}
 	cmd.Env = append(os.Environ(), env...)
 
 	o, err := cmd.CombinedOutput()
