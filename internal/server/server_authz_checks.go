@@ -87,11 +87,11 @@ func requireServerControlUser(ctx context.Context, rc requestContext) bool {
 	return user == rc.srv.getOptions().ServerControlUser
 }
 
-func anyAuthenticatedUser(ctx context.Context, rc requestContext) bool {
+func anyAuthenticatedUser(ctx context.Context, _ requestContext) bool {
 	return true
 }
 
-func handlerWillCheckAuthorization(ctx context.Context, rc requestContext) bool {
+func handlerWillCheckAuthorization(ctx context.Context, _ requestContext) bool {
 	return true
 }
 

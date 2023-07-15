@@ -73,7 +73,7 @@ func (c *App) getUpdateState() (*updateState, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to open update state file")
 	}
-	defer f.Close() //nolint:errcheck,gosec
+	defer f.Close() //nolint:errcheck
 
 	us := &updateState{}
 	if err := json.NewDecoder(f).Decode(us); err != nil {

@@ -114,7 +114,7 @@ func (o *FilesystemOutput) Parallelizable() bool {
 }
 
 // BeginDirectory implements restore.Output interface.
-func (o *FilesystemOutput) BeginDirectory(ctx context.Context, relativePath string, e fs.Directory) error {
+func (o *FilesystemOutput) BeginDirectory(ctx context.Context, relativePath string, _ fs.Directory) error {
 	path := filepath.Join(o.TargetPath, filepath.FromSlash(relativePath))
 
 	if err := o.createDirectory(ctx, path); err != nil {
@@ -135,6 +135,8 @@ func (o *FilesystemOutput) FinishDirectory(ctx context.Context, relativePath str
 }
 
 // WriteDirEntry implements restore.Output interface.
+//
+//nolint:revive
 func (o *FilesystemOutput) WriteDirEntry(ctx context.Context, relativePath string, de *snapshot.DirEntry, e fs.Directory) error {
 	return nil
 }
@@ -230,6 +232,8 @@ func fileIsSymlink(st os.FileInfo) bool {
 }
 
 // SymlinkExists implements restore.Output interface.
+//
+//nolint:revive
 func (o *FilesystemOutput) SymlinkExists(ctx context.Context, relativePath string, e fs.Symlink) bool {
 	st, err := os.Lstat(filepath.Join(o.TargetPath, relativePath))
 	if err != nil {
@@ -365,7 +369,7 @@ func write(targetPath string, r fs.Reader, size int64, c streamCopier) error {
 
 	// ensure we always close f. Note that this does not conflict with the
 	// close below, as close is idempotent.
-	defer f.Close() //nolint:errcheck,gosec
+	defer f.Close() //nolint:errcheck
 
 	name := f.Name()
 
@@ -416,7 +420,7 @@ func isEmptyDirectory(name string) (bool, error) {
 		return false, errors.Wrap(err, "error opening directory")
 	}
 
-	defer f.Close() //nolint:errcheck,gosec
+	defer f.Close() //nolint:errcheck
 
 	if _, err = f.Readdirnames(1); errors.Is(err, io.EOF) {
 		return true, nil

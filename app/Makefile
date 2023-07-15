@@ -6,7 +6,7 @@ deps: node_modules/.up-to-date
 
 node_modules/.up-to-date: $(npm) package.json package-lock.json
 	$(retry) $(npm) $(npm_flags) install --no-audit
-	$(npm) $(npm_flags) audit --production
+	$(npm) $(npm_flags) audit --omit=dev
 	echo updated > node_modules/.up-to-date
 
 electron_builder_flags+=-c.extraMetadata.version=$(KOPIA_VERSION:v%=%)
