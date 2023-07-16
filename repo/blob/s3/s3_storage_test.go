@@ -477,7 +477,7 @@ func TestS3StorageMinioSTS(t *testing.T) {
 
 	time.Sleep(2 * time.Second)
 
-	kopiaAccessKeyID, kopiaSecretKey, kopiaSessionToken := createMinioSessionToken(t, minioEndpoint, minioRootAccessKeyID, minioRootSecretAccessKey, minioBucketName)
+	kopiaCreds := createMinioSessionToken(t, minioEndpoint, minioRootAccessKeyID, minioRootSecretAccessKey, minioBucketName)
 
 	createBucket(t, &Options{
 		Endpoint:        minioEndpoint,
@@ -488,14 +488,15 @@ func TestS3StorageMinioSTS(t *testing.T) {
 		DoNotUseTLS:     true,
 	})
 
-	require.NotEqual(t, kopiaAccessKeyID, minioRootAccessKeyID)
-	require.NotEqual(t, kopiaSecretKey, minioRootSecretAccessKey)
+	require.NotEqual(t, kopiaCreds.AccessKeyID, minioRootAccessKeyID)
+	require.NotEqual(t, kopiaCreds.SecretAccessKey, minioRootSecretAccessKey)
+	require.NotEmpty(t, kopiaCreds.SessionToken)
 
 	testStorage(t, &Options{
 		Endpoint:        minioEndpoint,
-		AccessKeyID:     kopiaAccessKeyID,
-		SecretAccessKey: kopiaSecretKey,
-		SessionToken:    kopiaSessionToken,
+		AccessKeyID:     kopiaCreds.AccessKeyID,
+		SecretAccessKey: kopiaCreds.SecretAccessKey,
+		SessionToken:    kopiaCreds.SessionToken,
 		BucketName:      minioBucketName,
 		Region:          minioRegion,
 		DoNotUseTLS:     true,
@@ -723,7 +724,7 @@ func makeBucket(tb testing.TB, cli *minio.Client, opt *Options, objectLocking bo
 	}
 }
 
-func createMinioSessionToken(t *testing.T, minioEndpoint, kopiaUserName, kopiaUserPasswd, bucketName string) (accessID, secretKey, sessionToken string) {
+func createMinioSessionToken(t *testing.T, minioEndpoint, kopiaUserName, kopiaUserPasswd, bucketName string) miniocreds.Value {
 	t.Helper()
 
 	// Configure to use MinIO Server
@@ -777,7 +778,11 @@ func createMinioSessionToken(t *testing.T, minioEndpoint, kopiaUserName, kopiaUs
 
 	t.Logf("created session token with assume role: expiration: %s", result.Credentials.Expiration)
 
-	return *result.Credentials.AccessKeyId, *result.Credentials.SecretAccessKey, *result.Credentials.SessionToken
+	return miniocreds.Value{
+		AccessKeyID:     *result.Credentials.AccessKeyId,
+		SecretAccessKey: *result.Credentials.SecretAccessKey,
+		SessionToken:    *result.Credentials.SessionToken,
+	}
 }
 
 // customProvider is a custom provider based on minio's STSAssumeRole struct
