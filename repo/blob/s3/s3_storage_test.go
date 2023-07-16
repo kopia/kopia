@@ -748,6 +748,10 @@ func createMinioSessionToken(t *testing.T, minioEndpoint, kopiaUserName, kopiaUs
 		RoleSessionName: "kopiaTestSession",
 	}
 
+	if !strings.HasPrefix(minioEndpoint, "http") {
+		minioEndpoint = "http://" + minioEndpoint
+	}
+
 	// Get STS credentials from MinIO server
 	roleCreds, err := credentials.NewSTSAssumeRole(minioEndpoint, stsOpts)
 	require.NoError(t, err, "during STSAssumeRole:", minioEndpoint)
