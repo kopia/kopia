@@ -15,7 +15,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/minio/minio-go/v7"
-	miniocreds "github.com/minio/minio-go/v7/pkg/credentials"
+	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/blobtesting"
@@ -655,7 +655,7 @@ func createClient(tb testing.TB, opt *Options) *minio.Client {
 
 	minioClient, err := minio.New(opt.Endpoint,
 		&minio.Options{
-			Creds:     miniocreds.NewStaticV4(opt.AccessKeyID, opt.SecretAccessKey, ""),
+			Creds:     credentials.NewStaticV4(opt.AccessKeyID, opt.SecretAccessKey, ""),
 			Secure:    !opt.DoNotUseTLS,
 			Region:    opt.Region,
 			Transport: transport,
@@ -720,10 +720,10 @@ func makeBucket(tb testing.TB, cli *minio.Client, opt *Options, objectLocking bo
 	}
 }
 
-func createMinioSessionToken(t *testing.T, minioEndpoint, kopiaUserName, kopiaUserPasswd, bucketName string) miniocreds.Value {
+func createMinioSessionToken(t *testing.T, minioEndpoint, kopiaUserName, kopiaUserPasswd, bucketName string) credentials.Value {
 	t.Helper()
 
-	stsOpts := miniocreds.STSAssumeRoleOptions{
+	stsOpts := credentials.STSAssumeRoleOptions{
 		AccessKey:       kopiaUserName,
 		SecretKey:       kopiaUserPasswd,
 		DurationSeconds: 900,
@@ -749,7 +749,7 @@ func createMinioSessionToken(t *testing.T, minioEndpoint, kopiaUserName, kopiaUs
 	}
 
 	// Get STS credentials from MinIO server
-	roleCreds, err := miniocreds.NewSTSAssumeRole(minioEndpoint, stsOpts)
+	roleCreds, err := credentials.NewSTSAssumeRole(minioEndpoint, stsOpts)
 	require.NoError(t, err, "during STSAssumeRole:", minioEndpoint)
 	require.NotNil(t, roleCreds)
 
@@ -768,7 +768,7 @@ func createMinioSessionToken(t *testing.T, minioEndpoint, kopiaUserName, kopiaUs
 // the next call to Retrieve to return expired credentials.
 type customProvider struct {
 	forceExpired atomic.Bool
-	stsProvider  miniocreds.STSAssumeRole
+	stsProvider  credentials.STSAssumeRole
 }
 
 const expiredSessionToken = "IQoJb3JpZ2luX2VjEBMaCXVzLXdlc3QtMiJIM" +
@@ -785,13 +785,13 @@ const expiredSessionToken = "IQoJb3JpZ2luX2VjEBMaCXVzLXdlc3QtMiJIM" +
 	"RCcVWcntllxyL/sUZ7VbMr7xZxWWbilu8pVtQqTwwBxZO0rth8XftMzGQ5oyd" +
 	"82CdcwRB+t7K1LEmRErltbteGtM="
 
-func (cp *customProvider) Retrieve() (miniocreds.Value, error) {
+func (cp *customProvider) Retrieve() (credentials.Value, error) {
 	if cp.forceExpired.Load() {
-		return miniocreds.Value{
+		return credentials.Value{
 			AccessKeyID:     "ASIAQREAKNKDBR4F5F2I",
 			SecretAccessKey: "EF82nKmZbnFETa96xxx1C3k20hG4Nw+2v+FBNjp3",
 			SessionToken:    expiredSessionToken,
-			SignerType:      miniocreds.SignatureV2,
+			SignerType:      credentials.SignatureV2,
 		}, nil
 	}
 
@@ -804,8 +804,8 @@ func (cp *customProvider) IsExpired() bool {
 
 // customCredentialsAndProvider creates a custom provider and returns credentials
 // using this provider.
-func customCredentialsAndProvider(accessKey, secretKey, roleARN, region string) (*miniocreds.Credentials, *customProvider) {
-	opts := miniocreds.STSAssumeRoleOptions{
+func customCredentialsAndProvider(accessKey, secretKey, roleARN, region string) (*credentials.Credentials, *customProvider) {
+	opts := credentials.STSAssumeRoleOptions{
 		AccessKey:       accessKey,
 		SecretKey:       secretKey,
 		Location:        region,
@@ -814,7 +814,7 @@ func customCredentialsAndProvider(accessKey, secretKey, roleARN, region string) 
 	}
 	stsEndpoint := awsStsEndpointUSWest2
 	cp := &customProvider{
-		stsProvider: miniocreds.STSAssumeRole{
+		stsProvider: credentials.STSAssumeRole{
 			Client: &http.Client{
 				Transport: http.DefaultTransport,
 			},
@@ -825,5 +825,5 @@ func customCredentialsAndProvider(accessKey, secretKey, roleARN, region string) 
 	// Initialize expired to false
 	cp.forceExpired.Store(false)
 
-	return miniocreds.New(cp), cp
+	return credentials.New(cp), cp
 }
