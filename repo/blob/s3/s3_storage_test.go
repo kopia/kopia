@@ -13,10 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/sts"
 	"github.com/google/uuid"
 	"github.com/minio/minio-go/v7"
 	miniocreds "github.com/minio/minio-go/v7/pkg/credentials"
@@ -727,25 +723,11 @@ func makeBucket(tb testing.TB, cli *minio.Client, opt *Options, objectLocking bo
 func createMinioSessionToken(t *testing.T, minioEndpoint, kopiaUserName, kopiaUserPasswd, bucketName string) miniocreds.Value {
 	t.Helper()
 
-	// Configure to use MinIO Server
-	awsConfig := &aws.Config{
-		Credentials:      credentials.NewStaticCredentials(kopiaUserName, kopiaUserPasswd, ""),
-		Endpoint:         aws.String(minioEndpoint),
-		Region:           aws.String(minioRegion),
-		S3ForcePathStyle: aws.Bool(true),
-		DisableSSL:       aws.Bool(true),
-	}
-
-	awsSession, err := session.NewSession(awsConfig)
-	if err != nil {
-		t.Fatalf("failed to create aws session: %v", err)
-	}
-
-	svc := sts.New(awsSession)
-
-	input := &sts.AssumeRoleInput{
-		// give access to only S3 bucket with name bucketName
-		Policy: aws.String(fmt.Sprintf(`{
+	stsOpts := miniocreds.STSAssumeRoleOptions{
+		AccessKey:       kopiaUserName,
+		SecretKey:       kopiaUserPasswd,
+		DurationSeconds: 900,
+		Policy: fmt.Sprintf(`{
 			"Version":"2012-10-17",
 			"Statement":[
 				{
@@ -760,29 +742,21 @@ func createMinioSessionToken(t *testing.T, minioEndpoint, kopiaUserName, kopiaUs
 					"Action": "s3:*",
 					"Resource": "arn:aws:s3:::%v/*"
 				  }
-			]}`, bucketName, bucketName)),
+			]}`, bucketName, bucketName),
 		// RoleArn and RoleSessionName are not meaningful for MinIO and can be set to any value
-		RoleArn:         aws.String("arn:xxx:xxx:xxx:xxxx"),
-		RoleSessionName: aws.String("kopiaTestSession"),
-		DurationSeconds: aws.Int64(900), // in seconds
+		RoleARN:         "arn:xxx:xxx:xxx:xxxx",
+		RoleSessionName: "kopiaTestSession",
 	}
 
-	result, err := svc.AssumeRole(input)
-	if err != nil {
-		t.Fatalf("failed to create session with aws assume role: %v", err)
-	}
+	// Get STS credentials from MinIO server
+	roleCreds, err := miniocreds.NewSTSAssumeRole(minioEndpoint, stsOpts)
+	require.NoError(t, err, "during STSAssumeRole:", minioEndpoint)
+	require.NotNil(t, roleCreds)
 
-	if result.Credentials == nil {
-		t.Fatalf("couldn't find aws creds in aws assume role response")
-	}
+	credsValue, err := roleCreds.Get()
+	require.NoError(t, err)
 
-	t.Logf("created session token with assume role: expiration: %s", result.Credentials.Expiration)
-
-	return miniocreds.Value{
-		AccessKeyID:     *result.Credentials.AccessKeyId,
-		SecretAccessKey: *result.Credentials.SecretAccessKey,
-		SessionToken:    *result.Credentials.SessionToken,
-	}
+	return credsValue
 }
 
 // customProvider is a custom provider based on minio's STSAssumeRole struct
