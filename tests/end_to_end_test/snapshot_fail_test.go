@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/testutil"
+	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/tests/testdirtree"
 	"github.com/kopia/kopia/tests/testenv"
 )
@@ -36,22 +37,27 @@ func TestSnapshotNonexistent(t *testing.T) {
 
 func TestSnapshotFail_Default(t *testing.T) {
 	t.Parallel()
-	testSnapshotFail(t, false, nil, nil)
+	testSnapshotFailText(t, false, nil, nil)
+}
+
+func TestSnapshotFail_DefaultJSONOutput(t *testing.T) {
+	t.Parallel()
+	testSnapshotFail(t, false, []string{"--json"}, nil, parseSnapshotResultJSON)
 }
 
 func TestSnapshotFail_EnvOverride(t *testing.T) {
 	t.Parallel()
-	testSnapshotFail(t, true, nil, map[string]string{"KOPIA_SNAPSHOT_FAIL_FAST": "true"})
+	testSnapshotFailText(t, true, nil, map[string]string{"KOPIA_SNAPSHOT_FAIL_FAST": "true"})
 }
 
 func TestSnapshotFail_NoFailFast(t *testing.T) {
 	t.Parallel()
-	testSnapshotFail(t, false, []string{"--no-fail-fast"}, nil)
+	testSnapshotFailText(t, false, []string{"--no-fail-fast"}, nil)
 }
 
 func TestSnapshotFail_FailFast(t *testing.T) {
 	t.Parallel()
-	testSnapshotFail(t, true, []string{"--fail-fast"}, nil)
+	testSnapshotFailText(t, true, []string{"--fail-fast"}, nil)
 }
 
 type expectedSnapshotResult struct {
@@ -69,8 +75,18 @@ func cond(c bool, a, b int) int {
 	return b
 }
 
+func testSnapshotFailText(t *testing.T, isFailFast bool, snapshotCreateFlags []string, snapshotCreateEnv map[string]string) {
+	testSnapshotFail(t, isFailFast, snapshotCreateFlags, snapshotCreateEnv, parseSnapshotResultFromLog)
+}
+
 //nolint:thelper,cyclop
-func testSnapshotFail(t *testing.T, isFailFast bool, snapshotCreateFlags []string, snapshotCreateEnv map[string]string) {
+func testSnapshotFail(
+	t *testing.T,
+	isFailFast bool,
+	snapshotCreateFlags []string,
+	snapshotCreateEnv map[string]string,
+	parseSnapshotResultFn func(t *testing.T, stdOut, _ []string) parsedSnapshotResult,
+) {
 	if runtime.GOOS == windowsOSName {
 		t.Skip("this test does not work on Windows")
 	}
@@ -79,7 +95,7 @@ func testSnapshotFail(t *testing.T, isFailFast bool, snapshotCreateFlags []strin
 		t.Skip("this test does not work as root, because we're unable to remove permissions.")
 	}
 
-	dir0Path := "dir0"
+	const dir0Path = "dir0"
 
 	for _, ignoreFileErr := range []string{"true", "false"} {
 		for _, ignoreDirErr := range []string{"true", "false"} {
@@ -260,7 +276,7 @@ func testSnapshotFail(t *testing.T, isFailFast bool, snapshotCreateFlags []strin
 
 					e.RunAndExpectSuccess(t, "policy", "set", snapSource, "--ignore-dir-errors", tcIgnoreDirErr, "--ignore-file-errors", tcIgnoreFileErr)
 					restoreDir := fmt.Sprintf("%s%d_%v_%v", restoreDirPrefix, tcIdx, tcIgnoreDirErr, tcIgnoreFileErr)
-					testPermissions(t, e, snapSource, modifyEntry, restoreDir, tc.expectSuccess, snapshotCreateFlags, snapshotCreateEnv)
+					testPermissions(t, e, snapSource, modifyEntry, restoreDir, tc.expectSuccess, snapshotCreateFlags, snapshotCreateEnv, parseSnapshotResultFn)
 
 					e.RunAndExpectSuccess(t, "policy", "remove", snapSource)
 				})
@@ -300,7 +316,15 @@ func createSimplestFileTree(t *testing.T, dirDepth, currDepth int, currPath stri
 // It returns the number of successful snapshot operations.
 //
 //nolint:thelper
-func testPermissions(t *testing.T, e *testenv.CLITest, source, modifyEntry, restoreDir string, expect map[os.FileMode]expectedSnapshotResult, snapshotCreateFlags []string, snapshotCreateEnv map[string]string) int {
+func testPermissions(
+	t *testing.T,
+	e *testenv.CLITest,
+	source, modifyEntry, restoreDir string,
+	expect map[os.FileMode]expectedSnapshotResult,
+	snapshotCreateFlags []string,
+	snapshotCreateEnv map[string]string,
+	parseSnapshotResultFn func(_ *testing.T, _, _ []string) parsedSnapshotResult,
+) int {
 	var numSuccessfulSnapshots int
 
 	changeFile, err := os.Stat(modifyEntry)
@@ -339,13 +363,13 @@ func testPermissions(t *testing.T, e *testenv.CLITest, source, modifyEntry, rest
 
 			snapshotCreateWithArgs := append([]string{"snapshot", "create", source}, snapshotCreateFlags...)
 
-			_, errOut, runErr := e.Run(t, !expected.success, snapshotCreateWithArgs...)
+			stdOut, stdErr, runErr := e.Run(t, !expected.success, snapshotCreateWithArgs...)
 
 			if got, want := (runErr == nil), expected.success; got != want {
 				t.Fatalf("unexpected success %v, want %v", got, want)
 			}
 
-			parsed := parseSnapshotResult(t, errOut)
+			parsed := parseSnapshotResultFn(t, stdOut, stdErr)
 
 			if expected.success {
 				numSuccessfulSnapshots++
@@ -362,7 +386,7 @@ func testPermissions(t *testing.T, e *testenv.CLITest, source, modifyEntry, rest
 			}
 
 			if got, want := parsed.partial, expected.wantPartial; got != want {
-				t.Fatalf("unexpected partial %v, want %v (%s)", got, want, errOut)
+				t.Fatalf("unexpected partial %v, want %v (%s)", got, want, stdErr)
 			}
 		}()
 	}
@@ -384,7 +408,7 @@ type parsedSnapshotResult struct {
 	ignoredErrorCount int
 }
 
-func parseSnapshotResult(t *testing.T, lines []string) parsedSnapshotResult {
+func parseSnapshotResultFromLog(t *testing.T, _, stdErr []string) parsedSnapshotResult {
 	t.Helper()
 
 	var (
@@ -392,7 +416,7 @@ func parseSnapshotResult(t *testing.T, lines []string) parsedSnapshotResult {
 		res parsedSnapshotResult
 	)
 
-	for _, l := range lines {
+	for _, l := range stdErr {
 		if match := createdSnapshotPattern.FindStringSubmatch(l); match != nil {
 			res.partial = strings.TrimSpace(match[1]) == "partial"
 			res.rootID = match[2]
@@ -415,4 +439,24 @@ func parseSnapshotResult(t *testing.T, lines []string) parsedSnapshotResult {
 	}
 
 	return res
+}
+
+func parseSnapshotResultJSON(t *testing.T, stdOut, _ []string) parsedSnapshotResult {
+	t.Helper()
+
+	if len(stdOut) == 0 {
+		return parsedSnapshotResult{}
+	}
+
+	var m snapshot.Manifest
+
+	testutil.MustParseJSONLines(t, stdOut, &m)
+
+	return parsedSnapshotResult{
+		manifestID:        string(m.ID),
+		rootID:            m.RootEntry.ObjectID.String(),
+		errorCount:        m.RootEntry.DirSummary.FatalErrorCount,
+		ignoredErrorCount: m.RootEntry.DirSummary.IgnoredErrorCount,
+		partial:           m.IncompleteReason != "",
+	}
 }
