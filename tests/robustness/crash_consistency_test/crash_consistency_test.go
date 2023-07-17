@@ -57,7 +57,7 @@ func TestConsistencyWhenKill9AfterModify(t *testing.T) {
 
 	// add files
 	fileSize := 1 * 1024 * 1024
-	numFiles := 130
+	numFiles := 200
 
 	err = bm.GenerateRandomFiles(fileSize, numFiles)
 	require.NoError(t, err)
@@ -91,11 +91,6 @@ func TestConsistencyWhenKill9AfterModify(t *testing.T) {
 	// verify snapshot corruption
 	err = bm.VerifySnapshot()
 	require.NoError(t, err)
-
-	// // delete random blob
-	// // assumption: the repo contains "p" blobs to delete, else the test will fail
-	// err = bm.DeleteBlob("")
-	// require.NoError(t, err, "Error deleting kopia blob")
 
 	// Create a temporary dir to restore a snapshot
 	restoreDir := t.TempDir()
@@ -142,7 +137,7 @@ func killOnCondition(t *testing.T, cmd *exec.Cmd) {
 
 			log.Println(output)
 			// Check if the output contains the "hashing" etc.
-			if strings.Contains(output, "hashing") && strings.Contains(output, "hashed") && strings.Contains(output, "uploaded") {
+			if (strings.Contains(output, "hashing") && strings.Contains(output, "hashed") && strings.Contains(output, "uploaded")) || (strings.Contains(output, "Snapshotting")) {
 				log.Println("Detaching and terminating target process")
 				cmd.Process.Kill()
 				break
