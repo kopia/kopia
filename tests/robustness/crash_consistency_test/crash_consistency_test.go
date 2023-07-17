@@ -138,7 +138,7 @@ func killOnCondition(t *testing.T, cmd *exec.Cmd) {
 
 			log.Println(output)
 			// Check if the output contains the "hashing" etc.
-			if strings.Contains(output, "hashing") && strings.Contains(output, "hashed") && strings.Contains(output, "uploaded") {
+			if strings.Contains(output, "hashing") && strings.Contains(output, "hashed") && strings.Contains(output, "uploaded") || strings.Contains(output, "Snapshotting") {
 				log.Println("Detaching and terminating target process")
 				cmd.Process.Kill()
 				break
@@ -166,7 +166,7 @@ func killOnCondition(t *testing.T, cmd *exec.Cmd) {
 			o.Write(scanner.Bytes())
 			o.WriteByte('\n')
 
-			log.Println(output)
+			log.Println("snapshot create successfully", output)
 			// Check if the output contains the "copying" text
 			if strings.Contains(output, "hashing") && strings.Contains(output, "hashed") && strings.Contains(output, "uploaded") {
 				cmd.Process.Kill()
