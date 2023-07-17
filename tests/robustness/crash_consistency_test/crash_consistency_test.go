@@ -15,6 +15,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/kopia/kopia/tests/recovery/blobmanipulator"
 	"github.com/kopia/kopia/tests/testenv"
 	"github.com/kopia/kopia/tests/tools/kopiarunner"
 	"github.com/stretchr/testify/require"
@@ -29,7 +30,7 @@ func TestConsistencyWhenKill9AfterModify(t *testing.T) {
 		t.FailNow()
 	}
 
-	bm, err := NewSnapshotTester(baseDir, dataRepoPath)
+	bm, err := blobmanipulator.NewBlobManipulator(baseDir, dataRepoPath)
 	if err != nil {
 		if errors.Is(err, kopiarunner.ErrExeVariableNotSet) {
 			t.Skip("Skipping crash consistency tests because KOPIA_EXE is not set")
@@ -41,7 +42,7 @@ func TestConsistencyWhenKill9AfterModify(t *testing.T) {
 	bm.DataRepoPath = dataRepoPath
 
 	// create a snapshot for initialized data
-	snapID, err := bm.SetUpSystemUnderTest()
+	snapID, err := bm.SetUpSystemWithOneSnapshot()
 	if err != nil {
 		t.FailNow()
 	}
@@ -137,7 +138,7 @@ func killOnCondition(t *testing.T, cmd *exec.Cmd) {
 
 			log.Println(output)
 			// Check if the output contains the "hashing" etc.
-			if (strings.Contains(output, "hashing") && strings.Contains(output, "hashed") && strings.Contains(output, "uploaded")) || (strings.Contains(output, "Snapshotting")) {
+			if strings.Contains(output, "hashing") && strings.Contains(output, "hashed") && strings.Contains(output, "uploaded") {
 				log.Println("Detaching and terminating target process")
 				cmd.Process.Kill()
 				break
