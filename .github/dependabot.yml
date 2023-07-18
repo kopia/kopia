@@ -13,6 +13,7 @@ updates:
         patterns:
         - "cloud.google.com/*"
         - "github.com/aws/aws-sdk-go/*"
+        - "github.com/Azure/azure-sdk-for-go/sdk/*"
         - "github.com/minio/minio-go/*"
         - "golang.org/x/*"
         - "google.golang.org/*"
