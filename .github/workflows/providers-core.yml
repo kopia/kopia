@@ -7,7 +7,14 @@ on:
   schedule:
     # run once per day
     - cron:  '19 7 * * *'
-concurrency: 
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'branch or git ref to use for the build'
+        required: true
+        default: 'test/providers'
+
+concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 jobs:
