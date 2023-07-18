@@ -15,8 +15,8 @@ import (
 
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/snapshot"
+	"github.com/kopia/kopia/tests/recovery/recovery_test/filehandler"
 	"github.com/kopia/kopia/tests/robustness"
-	"github.com/kopia/kopia/tests/robustness/filehandler"
 	"github.com/kopia/kopia/tests/robustness/fiofilewriter"
 	"github.com/kopia/kopia/tests/robustness/snapmeta"
 	"github.com/kopia/kopia/tests/tools/fio"
