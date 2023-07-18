@@ -4,12 +4,11 @@ go 1.20
 
 require (
 	cloud.google.com/go/storage v1.31.0
-	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.6.1
-	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.0.0
+	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.7.0
+	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.1.0
 	github.com/Azure/azure-storage-blob-go v0.15.0
 	github.com/alecthomas/kingpin/v2 v2.3.2
 	github.com/alecthomas/units v0.0.0-20211218093645-b94a6e3cc137
-	github.com/aws/aws-sdk-go v1.44.298
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
 	github.com/chromedp/cdproto v0.0.0-20230220211738-2b1ec77315c9
 	github.com/chromedp/chromedp v0.9.1
@@ -25,13 +24,13 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
 	github.com/hanwen/go-fuse/v2 v2.3.0
-	github.com/klauspost/compress v1.16.5
+	github.com/klauspost/compress v1.16.7
 	github.com/klauspost/pgzip v1.2.6
 	github.com/klauspost/reedsolomon v1.11.8
-	github.com/kopia/htmluibuild v0.0.0-20230605144737-e386b860759d
+	github.com/kopia/htmluibuild v0.0.0-20230714030926-ff7ed652d883
 	github.com/kylelemons/godebug v1.1.0
 	github.com/mattn/go-colorable v0.1.13
-	github.com/minio/minio-go/v7 v7.0.59
+	github.com/minio/minio-go/v7 v7.0.61
 	github.com/natefinch/atomic v1.0.1
 	github.com/pierrec/lz4 v2.6.1+incompatible
 	github.com/pkg/errors v0.9.1
@@ -62,7 +61,7 @@ require (
 	golang.org/x/sys v0.10.0
 	golang.org/x/term v0.10.0
 	golang.org/x/text v0.11.0
-	google.golang.org/api v0.130.0
+	google.golang.org/api v0.131.0
 	google.golang.org/grpc v1.56.2
 	google.golang.org/protobuf v1.31.0
 	gopkg.in/kothar/go-backblaze.v0 v0.0.0-20210124194846-35409b867216
@@ -98,8 +97,7 @@ require (
 	github.com/google/readahead v0.0.0-20161222183148-eaceba169032 // indirect
 	github.com/google/s2a-go v0.1.4 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.2.5 // indirect
-	github.com/googleapis/gax-go/v2 v2.11.0 // indirect
-	github.com/jmespath/go-jmespath v0.4.0 // indirect
+	github.com/googleapis/gax-go/v2 v2.12.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.5 // indirect
@@ -123,9 +121,9 @@ require (
 	go.uber.org/atomic v1.11.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20230530153820-e85fd2cbaebc // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20230530153820-e85fd2cbaebc // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20230629202037-9506855d4529 // indirect
+	google.golang.org/genproto v0.0.0-20230629202037-9506855d4529 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20230629202037-9506855d4529 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20230706204954-ccb25ca9f130 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

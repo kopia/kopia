@@ -44,7 +44,7 @@ When developing the UI, the most convenient way is to use two terminals. The fir
 In the first terminal do:
 
 ```shell
-$ go run . server --insecure --without-password --disable-csrf-token-checks
+$ go run . server start --insecure --without-password --disable-csrf-token-checks
 ```
 
 In the second terminal, in the `htmlui` repository run:
@@ -72,7 +72,7 @@ $ npm run build
 2. In the `kopia` repository run:
 
 ```shell
-go run . server --insecure --without-password --html=../htmlui/build
+go run . server start --insecure --without-password --html=../htmlui/build
 ```
 
 ## KopiaUI App
