@@ -35,7 +35,7 @@ Some cloud storage solutions provide the ability to generate restricted access k
    * Create a IAM user for kopia to use
      * Select 'Attach policies directly'
      * Create a new policy, with the following permissions (paste into JSON form)
-        ```
+     ```json
         {
             "Version": "2012-10-17",
             "Statement": [
@@ -54,7 +54,8 @@ Some cloud storage solutions provide the ability to generate restricted access k
                     ]
                 }
             ]
-        }```
+        }
+      ```
      * Attach created policy to new user
    * Manage user's security-credentials and create a new access key
  * Disconnect and reconnect your existing Kopia repo using the new key (or create a new bucket using this key)
