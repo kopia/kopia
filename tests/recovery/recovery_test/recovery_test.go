@@ -172,6 +172,7 @@ func TestSnapshotFixInvalidFiles(t *testing.T) {
 	require.NoError(t, err)
 }
 
+// TestConsistencyWhenKill9AfterModify will test the data consistency while it encounterd kill -9 signal
 func TestConsistencyWhenKill9AfterModify(t *testing.T) {
 	// assumption: the test is run on filesystem & not directly on object store
 	dataRepoPath := path.Join(*repoPathPrefix, dirPath, dataPath)
@@ -250,7 +251,7 @@ func TestConsistencyWhenKill9AfterModify(t *testing.T) {
 		t.FailNow()
 	}
 
-	// try to restore a snapshot, this should error out
+	// try to restore a snapshot without any error messages.
 	stdout, err := bm.RestoreGivenOrRandomSnapshot(snapID, restoreDir)
 	require.NoError(t, err)
 
