@@ -1,6 +1,7 @@
 //go:build darwin || (linux && amd64)
 // +build darwin linux,amd64
 
+// Package filehandler provides the tools that handling files.
 package filehandler
 
 import (
@@ -10,12 +11,16 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 )
 
 // FileHandler implements a FileHandler struct.
-type FileHandler struct {
-}
+type FileHandler struct{}
+
+// ErrFileNumberInconsistency is utilized to raise an error when the number of items in the two folders differs.
+var ErrFileNumberInconsistency = errors.New("the number of items in the two folders is not the same")
+
+// ErrFilesInconsistency is utilized to raise an error when the name of item in the two folders differs.
+var ErrFilesInconsistency = errors.New("the name of the item in the source folder does not match the name in the duplicated folder")
 
 // GetRootDir browses through the provided file path and return a path, ensuring that the first item is a file and not a folder. If the first item is a folder, it will continue to open directories until the condition of the first item being a file is met.
 func (handler *FileHandler) GetRootDir(source string) string {
@@ -34,11 +39,12 @@ func (handler *FileHandler) GetRootDir(source string) string {
 
 		path = filepath.Join(path, dirEntries[0].Name())
 	}
+
 	return path
 }
 
 // ModifyDataSetWithContent appends the specified content to all files in the provided folder.
-func (handler *FileHandler) ModifyDataSetWithContent(destination string, content string) error {
+func (handler *FileHandler) ModifyDataSetWithContent(destination, content string) error {
 	dstDirs, err := os.ReadDir(destination)
 	if err != nil {
 		return err
@@ -47,25 +53,27 @@ func (handler *FileHandler) ModifyDataSetWithContent(destination string, content
 	for _, dstFile := range dstDirs {
 		dstFilePath := filepath.Join(destination, dstFile.Name())
 
-		dstFile, err := os.OpenFile(dstFilePath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+		dstFile, err := os.OpenFile(dstFilePath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o644)
 		if err != nil {
 			return err
 		}
 
-		_, err = io.WriteString(dstFile, content)
+		_, err = dstFile.WriteString(content)
+
 		if err != nil {
 			return err
 		}
 
 		dstFile.Close()
 	}
+
 	return nil
 }
 
-// CopyAllFiles implements copying all the files  from a source folder to a destination folder
-func (handler *FileHandler) CopyAllFiles(source string, destination string) error {
+// CopyAllFiles implements copying all the files from a source folder to a destination folder.
+func (handler *FileHandler) CopyAllFiles(source, destination string) error {
 	// Create the destination folder if it doesn't exist
-	err := os.MkdirAll(destination, 0755)
+	err := os.MkdirAll(destination, 0o755)
 	if err != nil {
 		return err
 	}
@@ -96,13 +104,15 @@ func (handler *FileHandler) CopyAllFiles(source string, destination string) erro
 		}
 
 		sourceFile.Close()
+
 		destinationFile.Close()
 	}
+
 	return nil
 }
 
-// CompareDirs examines and compares the quantities and contents of files in two different folders
-func (handler *FileHandler) CompareDirs(source string, destination string) error {
+// CompareDirs examines and compares the quantities and contents of files in two different folders.
+func (handler *FileHandler) CompareDirs(source, destination string) error {
 	srcDirs, err := os.ReadDir(source)
 	if err != nil {
 		return err
@@ -114,7 +124,7 @@ func (handler *FileHandler) CompareDirs(source string, destination string) error
 	}
 
 	if len(dstDirs) != len(srcDirs) {
-		return errors.New("The number of items in the two folders is not the same. " + source + " has " + strconv.Itoa(len(srcDirs)) + ". " + destination + " has " + strconv.Itoa(len(dstDirs)))
+		return ErrFileNumberInconsistency
 	}
 
 	checkSet := make(map[string]bool)
@@ -126,17 +136,20 @@ func (handler *FileHandler) CompareDirs(source string, destination string) error
 	for _, srcDir := range srcDirs {
 		_, ok := checkSet[srcDir.Name()]
 		if !ok {
-			return errors.New(srcDir.Name() + " is not in the folder:" + destination)
+			return ErrFilesInconsistency
 		}
 
 		srcFilePath := filepath.Join(source, srcDir.Name())
 		dstFilePath := filepath.Join(destination, srcDir.Name())
 
 		cmd := exec.Command("cmp", "-s", srcFilePath, dstFilePath)
+
 		err := cmd.Run()
 		if err != nil {
-			return errors.New("Files '" + srcFilePath + "' and '" + dstFilePath + "' are different.")
+			log.Println("Files are different:", srcFilePath, dstFilePath)
+			return err
 		}
 	}
+
 	return nil
 }

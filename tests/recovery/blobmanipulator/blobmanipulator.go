@@ -15,7 +15,7 @@ import (
 
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/snapshot"
-	"github.com/kopia/kopia/tests/recovery/recovery_test/filehandler"
+	"github.com/kopia/kopia/tests/recovery/filehandler"
 	"github.com/kopia/kopia/tests/robustness"
 	"github.com/kopia/kopia/tests/robustness/fiofilewriter"
 	"github.com/kopia/kopia/tests/robustness/snapmeta"
@@ -306,7 +306,7 @@ func (bm *BlobManipulator) SetUpSystemWithOneSnapshot() (string, error) {
 
 // GenerateRandomFiles connects or creates a Kopia repository that writes random data in source directory.
 // Tests can later create snapshots from the source directory.
-func (bm *BlobManipulator) GenerateRandomFiles(fileSize int, numFiles int) error {
+func (bm *BlobManipulator) GenerateRandomFiles(fileSize, numFiles int) error {
 	ctx := context.Background()
 
 	err := bm.writeRandomFiles(ctx, fileSize, numFiles)
@@ -319,7 +319,7 @@ func (bm *BlobManipulator) GenerateRandomFiles(fileSize int, numFiles int) error
 	return nil
 }
 
-// VerifySnapshot implements the Snapshotter interface to verify a kopia snapshot corruption
+// VerifySnapshot implements the Snapshotter interface to verify a kopia snapshot corruption.
 func (bm *BlobManipulator) VerifySnapshot() error {
 	return bm.KopiaCommandRunner.VerifySnapshot("--verify-files-percent=100")
 }

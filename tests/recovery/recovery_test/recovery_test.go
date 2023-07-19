@@ -172,7 +172,7 @@ func TestSnapshotFixInvalidFiles(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// TestConsistencyWhenKill9AfterModify will test the data consistency while it encounterd kill -9 signal
+// TestConsistencyWhenKill9AfterModify will test the data consistency while it encountered kill -9 signal.
 func TestConsistencyWhenKill9AfterModify(t *testing.T) {
 	// assumption: the test is run on filesystem & not directly on object store
 	dataRepoPath := path.Join(*repoPathPrefix, dirPath, dataPath)
@@ -198,6 +198,7 @@ func TestConsistencyWhenKill9AfterModify(t *testing.T) {
 	if err != nil {
 		t.FailNow()
 	}
+
 	cmpDir := bm.PathToTakeSnapshot
 
 	copyDir := t.TempDir()
@@ -258,16 +259,18 @@ func TestConsistencyWhenKill9AfterModify(t *testing.T) {
 	log.Println(stdout)
 
 	log.Println("Compare restored data and original data:")
-	err = bm.FileHandler.CompareDirs(restoreDir, cmpDir)
-	require.NoError(t, err)
+	require.NoError(t, bm.FileHandler.CompareDirs(restoreDir, cmpDir))
 }
 
 func killOnCondition(t *testing.T, cmd *exec.Cmd) {
+	t.Helper()
+
 	stderrPipe, err := cmd.StderrPipe()
 	require.NoError(t, err)
 
-	// excute kill -9 while recieve ` | 1 hashing, 0 hashed (65.5 KB), 0 cached (0 B), uploaded 0 B, estimating...` message
+	// execute kill -9 while receive ` | 1 hashing, 0 hashed (65.5 KB), 0 cached (0 B), uploaded 0 B, estimating...` message
 	var wg sync.WaitGroup
+
 	var mu sync.Mutex
 
 	// Add a WaitGroup counter for the first goroutine
@@ -293,6 +296,7 @@ func killOnCondition(t *testing.T, cmd *exec.Cmd) {
 			if strings.Contains(output, "hashing") && strings.Contains(output, "hashed") && strings.Contains(output, "uploaded") || strings.Contains(output, "Snapshotting") {
 				log.Println("Detaching and terminating target process")
 				cmd.Process.Kill()
+
 				break
 			}
 		}
@@ -328,7 +332,7 @@ func killOnCondition(t *testing.T, cmd *exec.Cmd) {
 	}()
 
 	// Run the command
-	err = cmd.Run()
+	_ = cmd.Run()
 
 	// Wait for the goroutines to finish
 	wg.Wait()
