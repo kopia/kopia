@@ -1,4 +1,4 @@
-name: Provider Test
+name: Providers - Core
 on:
   push:
     branches: [ master, test/providers ]
@@ -7,13 +7,20 @@ on:
   schedule:
     # run once per day
     - cron:  '19 7 * * *'
-concurrency: 
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'branch or git ref to use for the build'
+        required: true
+        default: 'test/providers'
+
+concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   provider-test:
-    name: Provider Test
-    if: ${{ github.repository == 'kopia/kopia' }}
+    name: Core Providers Test
+    if: ${{ github.repository == 'kopia/kopia' && !github.event.pull_request.head.repo.fork }}
     runs-on: ubuntu-latest
     steps:
     - name: Check out repository
@@ -34,24 +41,11 @@ jobs:
         KOPIA_AZURE_TEST_STORAGE_ACCOUNT: ${{ secrets.KOPIA_AZURE_TEST_STORAGE_ACCOUNT }}
         KOPIA_AZURE_TEST_STORAGE_KEY: ${{ secrets.KOPIA_AZURE_TEST_STORAGE_KEY }}
         KOPIA_AZURE_TEST_SAS_TOKEN:  ${{ secrets.KOPIA_AZURE_TEST_SAS_TOKEN }}
-    - name: B2
-      run: make provider-tests PROVIDER_TEST_TARGET=b2
-      env:
-        KOPIA_B2_TEST_BUCKET: ${{ secrets.KOPIA_B2_TEST_BUCKET }}
-        KOPIA_B2_TEST_KEY: ${{ secrets.KOPIA_B2_TEST_KEY }}
-        KOPIA_B2_TEST_KEY_ID: ${{ secrets.KOPIA_B2_TEST_KEY_ID }}
-      if: ${{ success() || failure() }}
     - name: GCS
       run: make provider-tests PROVIDER_TEST_TARGET=gcs
       env:
         KOPIA_GCS_CREDENTIALS_JSON_GZIP: ${{ secrets.KOPIA_GCS_CREDENTIALS_JSON_GZIP }}
         KOPIA_GCS_TEST_BUCKET: ${{ secrets.KOPIA_GCS_TEST_BUCKET }}
-      if: ${{ success() || failure() }}
-    - name: GDrive
-      run: make provider-tests PROVIDER_TEST_TARGET=gdrive
-      env:
-        KOPIA_GDRIVE_CREDENTIALS_JSON_GZIP: ${{ secrets.KOPIA_GDRIVE_CREDENTIALS_JSON_GZIP }}
-        KOPIA_GDRIVE_TEST_FOLDER_ID: ${{ secrets.KOPIA_GDRIVE_TEST_FOLDER_ID }}
       if: ${{ success() || failure() }}
     - name: S3
       run: make provider-tests PROVIDER_TEST_TARGET=s3
@@ -69,18 +63,6 @@ jobs:
         KOPIA_S3_WASABI_CREDS: ${{ secrets.KOPIA_S3_WASABI_CREDS }}
         KOPIA_S3_WASABI_VERSIONED_CREDS: ${{ secrets.KOPIA_S3_WASABI_VERSIONED_CREDS }}
       if: ${{ success() || failure() }}
-    - name: Rclone
-      run: make provider-tests PROVIDER_TEST_TARGET=rclone
-      env:
-        KOPIA_RCLONE_EMBEDDED_CONFIG_B64: ${{ secrets.KOPIA_RCLONE_EMBEDDED_CONFIG_B64 }}
-      if: ${{ success() || failure() }}
     - name: SFTP
       run: make provider-tests PROVIDER_TEST_TARGET=sftp
-      if: ${{ success() || failure() }}
-    - name: WebDAV
-      run: make provider-tests PROVIDER_TEST_TARGET=webdav
-      env:
-        KOPIA_WEBDAV_TEST_URL: ${{ secrets.KOPIA_WEBDAV_TEST_URL }}
-        KOPIA_WEBDAV_TEST_USERNAME: ${{ secrets.KOPIA_WEBDAV_TEST_USERNAME }}
-        KOPIA_WEBDAV_TEST_PASSWORD: ${{ secrets.KOPIA_WEBDAV_TEST_PASSWORD }}
       if: ${{ success() || failure() }}
