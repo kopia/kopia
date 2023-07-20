@@ -24,10 +24,11 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
 	github.com/hanwen/go-fuse/v2 v2.3.0
+	github.com/hashicorp/cronexpr v1.1.2
 	github.com/klauspost/compress v1.16.7
 	github.com/klauspost/pgzip v1.2.6
 	github.com/klauspost/reedsolomon v1.11.8
-	github.com/kopia/htmluibuild v0.0.0-20230714030926-ff7ed652d883
+	github.com/kopia/htmluibuild v0.0.0-20230716183504-d78b44b3a9bd
 	github.com/kylelemons/godebug v1.1.0
 	github.com/mattn/go-colorable v0.1.13
 	github.com/minio/minio-go/v7 v7.0.61

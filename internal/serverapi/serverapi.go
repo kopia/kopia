@@ -269,6 +269,7 @@ type ResolvePolicyResponse struct {
 	Definition            *policy.Definition `json:"definition"`
 	Defined               *policy.Policy     `json:"defined"`
 	UpcomingSnapshotTimes []time.Time        `json:"upcomingSnapshotTimes"`
+	SchedulingError       string             `json:"schedulingError,omitempty"`
 }
 
 // ResolvePathRequest contains request to resolve a particular path to ResolvePathResponse.
