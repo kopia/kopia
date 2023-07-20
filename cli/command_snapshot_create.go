@@ -349,10 +349,9 @@ func (c *commandSnapshotCreate) reportSnapshotStatus(ctx context.Context, manife
 
 	if c.jo.jsonOutput {
 		c.out.printStdout("%s\n", c.jo.jsonIndentedBytes(manifest, "  "))
-		return nil
+	} else {
+		log(ctx).Infof("Created%v snapshot with root %v and ID %v in %v", maybePartial, manifest.RootObjectID(), snapID, manifest.EndTime.Sub(manifest.StartTime).Truncate(time.Second))
 	}
-
-	log(ctx).Infof("Created%v snapshot with root %v and ID %v in %v", maybePartial, manifest.RootObjectID(), snapID, manifest.EndTime.Sub(manifest.StartTime).Truncate(time.Second))
 
 	if ds := manifest.RootEntry.DirSummary; ds != nil {
 		if ds.IgnoredErrorCount > 0 {
