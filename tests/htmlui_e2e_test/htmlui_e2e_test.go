@@ -115,13 +115,13 @@ func createTestSnapshot(t *testing.T, ctx context.Context, sp *testutil.ServerPa
 	require.NoError(t, os.WriteFile(filepath.Join(snap1Path, "some-file.txt"), []byte("content"), 0o644))
 	f, err := os.Create(filepath.Join(snap1Path, "big.file"))
 
-	// assert that no error occured
+	// assert that no error occurred
 	assert.Nil(t, err)
 
 	// truncate file to 10 mb
 	err = f.Truncate(1e7)
 
-	// assert that no error occured
+	// assert that no error occurred
 	assert.Nil(t, err)
 
 	// create test repository
@@ -278,7 +278,7 @@ func TestChangeTheme(t *testing.T) {
 			chromedp.Click("a[data-testid='tab-preferences']", chromedp.BySearch),
 
 			chromedp.Nodes("html", &nodes),
-			tc.captureScreenshot("intial-theme"),
+			tc.captureScreenshot("initial-theme"),
 		))
 
 		// ensure we start with light mode
@@ -324,6 +324,9 @@ func TestByteRepresentation(t *testing.T) {
 		repoPath := testutil.TempDirectory(t)
 		snap1Path := testutil.TempDirectory(t)
 
+		var base2 string
+		var base10 string
+
 		// create a test snaphot
 		createTestSnapshot(t, ctx, sp, tc, repoPath, snap1Path)
 
@@ -339,6 +342,8 @@ func TestByteRepresentation(t *testing.T) {
 
 			tc.log("clicking on snapshots tab"),
 			chromedp.Click("a[data-testid='tab-snapshots']", chromedp.BySearch),
+			// getting text from the third column of the first row indicating the size of the snapshot
+			chromedp.Text(`#root > div > table > tbody > tr:nth-child(1) > td:nth-child(3)`, &base2, chromedp.ByQuery),
 			tc.captureScreenshot("snapshot-base-2"),
 
 			tc.log("clicking on preferences tab"),
@@ -350,13 +355,20 @@ func TestByteRepresentation(t *testing.T) {
 
 			tc.log("clicking on snapshots tab"),
 			chromedp.Click("a[data-testid='tab-snapshots']", chromedp.BySearch),
+			// getting text from the third column of the first row indicating the size of the snapshot
+			chromedp.Text(`#root > div > table > tbody > tr:nth-child(1) > td:nth-child(3)`, &base10, chromedp.BySearch),
 			tc.captureScreenshot("snapshot-base-10"),
 		))
+
+		// check result of base-2 representation
+		require.Equal(t, "9.5 MiB", base2, "Expected 9.5 MiB as a result.")
+		// check result of base-10 representation
+		require.Equal(t, "10 MB", base10, "Expected 10 MB as a result.")
 	})
 }
 
 func TestPagination(t *testing.T) {
-	t.Skip("Fix me")
+	t.Skip("Test needs proper ID for pagination button")
 	runInBrowser(t, func(ctx context.Context, sp *testutil.ServerParameters, tc *TestContext) {
 		repoPath := testutil.TempDirectory(t)
 		snap1Path := testutil.TempDirectory(t)
