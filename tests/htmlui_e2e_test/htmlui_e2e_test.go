@@ -112,7 +112,7 @@ func runInBrowser(t *testing.T, run func(ctx context.Context, sp *testutil.Serve
 }
 
 //nolint:thelper
-func createTestSnapshot(t *testing.T, ctx context.Context, sp *testutil.ServerParameters, tc *TestContext, repoPath string, snap1Path string) {
+func createTestSnapshot(t *testing.T, ctx context.Context, sp *testutil.ServerParameters, tc *TestContext, repoPath, snap1Path string) {
 	require.NoError(t, os.WriteFile(filepath.Join(snap1Path, "some-file.txt"), []byte("content"), 0o644))
 	f, err := os.Create(filepath.Join(snap1Path, "big.file"))
 
