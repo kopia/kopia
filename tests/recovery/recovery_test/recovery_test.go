@@ -186,9 +186,8 @@ func TestConsistencyWhenKill9AfterModify(t *testing.T) {
 	if err != nil {
 		if errors.Is(err, kopiarunner.ErrExeVariableNotSet) {
 			t.Skip("Skipping crash consistency tests because KOPIA_EXE is not set")
-		} else {
-			t.Skip("Error creating SnapshotTester:", err)
-		}
+
+		t.Skip("Error creating SnapshotTester:", err)
 	}
 
 	bm.DataRepoPath = dataRepoPath
