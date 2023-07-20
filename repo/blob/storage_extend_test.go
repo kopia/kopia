@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/faketime"
 	"github.com/kopia/kopia/internal/repotesting"
@@ -59,7 +60,7 @@ func (s *formatSpecificTestSuite) TestExtendBlobRetention(t *testing.T) {
 
 	// Verify that file is locked
 	_, err = st.TouchBlob(ctx, blobsBefore[lastBlobIdx].BlobID, time.Hour)
-	assert.EqualErrorf(t, err, "cannot alter object before retention period expires", "Altering locked object should fail")
+	assert.ErrorIs(t, err, blobtesting.ErrBlobLocked, "Altering locked object should fail")
 
 	ta.Advance(7 * 24 * time.Hour)
 
@@ -82,7 +83,7 @@ func (s *formatSpecificTestSuite) TestExtendBlobRetention(t *testing.T) {
 	ta.Advance(1 * time.Hour)
 
 	_, err = st.TouchBlob(ctx, blobsBefore[lastBlobIdx].BlobID, time.Hour)
-	assert.EqualErrorf(t, err, "cannot alter object before retention period expires", "Altering locked object should fail")
+	assert.ErrorIs(t, err, blobtesting.ErrBlobLocked, "Altering locked object should fail")
 
 	ta.Advance(2 * time.Hour)
 
