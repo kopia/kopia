@@ -8,7 +8,7 @@
     "electron-log": "^4.4.8",
     "electron-updater": "^6.1.2",
     "minimist": "^1.2.8",
-    "semver": "^7.5.3",
+    "semver": "^7.5.4",
     "uuid": "^9.0.0"
   },
   "author": {
@@ -110,14 +110,14 @@
     "afterSign": "notarize.js"
   },
   "devDependencies": {
-    "@playwright/test": "^1.35.1",
+    "@playwright/test": "^1.36.1",
     "asar": "^3.2.0",
     "concurrently": "^8.2.0",
     "dotenv": "^16.3.1",
-    "electron": "^25.2.0",
+    "electron": "^25.3.0",
     "electron-builder": "^24.4.0",
     "electron-notarize": "^1.2.2",
-    "playwright": "^1.35.1",
+    "playwright": "^1.36.1",
     "playwright-core": "^1.35.1"
   },
   "homepage": "./",
