@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/cache"
@@ -47,9 +48,7 @@ func (s *formatSpecificTestSuite) TestExtendBlobRetention(t *testing.T) {
 	env.RepositoryWriter.Flush(ctx)
 
 	blobsBefore, err := blob.ListAllBlobs(ctx, env.RepositoryWriter.BlobStorage(), "")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	if got, want := len(blobsBefore), 4; got != want {
 		t.Fatalf("unexpected number of blobs after writing: %v", blobsBefore)
@@ -66,18 +65,14 @@ func (s *formatSpecificTestSuite) TestExtendBlobRetention(t *testing.T) {
 
 	// Verify that file is unlocked
 	_, err = st.TouchBlob(ctx, blobsBefore[lastBlobIdx].BlobID, time.Hour)
-	if err != nil {
-		t.Fatalf("Altering expired object failed")
-	}
+	require.NoError(t, err, "Altering expired object failed")
 
 	// Relock blob
 	err = env.RepositoryWriter.BlobStorage().ExtendBlobRetention(ctx, blobsBefore[lastBlobIdx].BlobID, blob.ExtendOptions{
 		RetentionMode:   blob.Governance,
 		RetentionPeriod: 2 * time.Hour,
 	})
-	if err != nil {
-		t.Fatalf("Extending Retention time failed, got err: %v", err)
-	}
+	require.NoErrorf(t, err, "Extending Retention time failed, got err: %v", err)
 
 	// Verify Lock period
 	ta.Advance(1 * time.Hour)
@@ -88,9 +83,7 @@ func (s *formatSpecificTestSuite) TestExtendBlobRetention(t *testing.T) {
 	ta.Advance(2 * time.Hour)
 
 	_, err = st.TouchBlob(ctx, blobsBefore[lastBlobIdx].BlobID, time.Hour)
-	if err != nil {
-		t.Fatalf("Altering expired object failed")
-	}
+	require.NoError(t, err, "Altering expired object failed")
 }
 
 func (s *formatSpecificTestSuite) TestExtendBlobRetentionUnsupported(t *testing.T) {

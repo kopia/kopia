@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/cache"
@@ -46,9 +47,7 @@ func (s *formatSpecificTestSuite) TestExtendBlobRetentionTime(t *testing.T) {
 	env.RepositoryWriter.Flush(ctx)
 
 	blobsBefore, err := blob.ListAllBlobs(ctx, env.RepositoryWriter.BlobStorage(), "")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	if got, want := len(blobsBefore), 4; got != want {
 		t.Fatalf("unexpected number of blobs after writing: %v", blobsBefore)
@@ -59,14 +58,12 @@ func (s *formatSpecificTestSuite) TestExtendBlobRetentionTime(t *testing.T) {
 
 	ta.Advance(7 * 24 * time.Hour)
 
-	if _, err = st.TouchBlob(ctx, blobsBefore[lastBlobIdx].BlobID, time.Hour); err != nil {
-		t.Fatalf("Altering expired object failed")
-	}
+	_, err = st.TouchBlob(ctx, blobsBefore[lastBlobIdx].BlobID, time.Hour)
+	require.NoError(t, err, "Altering expired object failed")
 
 	// extend retention time of all blobs
-	if _, err = maintenance.ExtendBlobRetentionTime(ctx, env.RepositoryWriter, maintenance.ExtendBlobRetentionTimeOptions{}); err != nil {
-		t.Fatal(err)
-	}
+	_, err = maintenance.ExtendBlobRetentionTime(ctx, env.RepositoryWriter, maintenance.ExtendBlobRetentionTimeOptions{})
+	require.NoError(t, err)
 
 	_, err = st.TouchBlob(ctx, blobsBefore[lastBlobIdx].BlobID, time.Hour)
 	assert.ErrorIs(t, err, blobtesting.ErrBlobLocked, "Altering locked object should fail")
@@ -96,9 +93,7 @@ func (s *formatSpecificTestSuite) TestExtendBlobRetentionTimeDisabled(t *testing
 	env.RepositoryWriter.Flush(ctx)
 
 	blobsBefore, err := blob.ListAllBlobs(ctx, env.RepositoryWriter.BlobStorage(), "")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	if got, want := len(blobsBefore), 4; got != want {
 		t.Fatalf("unexpected number of blobs after writing: %v", blobsBefore)
@@ -109,16 +104,13 @@ func (s *formatSpecificTestSuite) TestExtendBlobRetentionTimeDisabled(t *testing
 
 	ta.Advance(7 * 24 * time.Hour)
 
-	if _, err = st.TouchBlob(ctx, blobsBefore[lastBlobIdx].BlobID, time.Hour); err != nil {
-		t.Fatalf("Altering expired object failed")
-	}
+	_, err = st.TouchBlob(ctx, blobsBefore[lastBlobIdx].BlobID, time.Hour)
+	require.NoError(t, err, "Altering expired object failed")
 
 	// extend retention time of all blobs
-	if _, err = maintenance.ExtendBlobRetentionTime(ctx, env.RepositoryWriter, maintenance.ExtendBlobRetentionTimeOptions{}); err != nil {
-		t.Fatal(err)
-	}
+	_, err = maintenance.ExtendBlobRetentionTime(ctx, env.RepositoryWriter, maintenance.ExtendBlobRetentionTimeOptions{})
+	require.NoError(t, err)
 
-	if _, err = st.TouchBlob(ctx, blobsBefore[lastBlobIdx].BlobID, time.Hour); err != nil {
-		t.Fatalf("Altering expired object failed")
-	}
+	_, err = st.TouchBlob(ctx, blobsBefore[lastBlobIdx].BlobID, time.Hour)
+	require.NoError(t, err, "Altering expired object failed")
 }
