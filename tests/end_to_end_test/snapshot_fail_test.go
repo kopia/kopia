@@ -76,6 +76,8 @@ func cond(c bool, a, b int) int {
 }
 
 func testSnapshotFailText(t *testing.T, isFailFast bool, snapshotCreateFlags []string, snapshotCreateEnv map[string]string) {
+	t.Helper()
+
 	testSnapshotFail(t, isFailFast, snapshotCreateFlags, snapshotCreateEnv, parseSnapshotResultFromLog)
 }
 
