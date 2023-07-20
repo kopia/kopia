@@ -130,6 +130,7 @@ func (p *SchedulingPolicy) NextSnapshotTime(previousSnapshotTime, now time.Time)
 		ce, err := cronexpr.Parse(stripCronComment(e))
 		if err != nil {
 			// ignore invalid crontab entries, nothing we can do at this point
+			// we already validated cron expressions them when they were added to the policy.
 			continue
 		}
 
@@ -213,5 +214,5 @@ func ValidateSchedulingPolicy(p SchedulingPolicy) error {
 }
 
 func stripCronComment(s string) string {
-	return strings.TrimSpace(strings.Split(s, "#")[0])
+	return strings.TrimSpace(strings.SplitN(s, "#", 2)[0]) //nolint:gomnd
 }

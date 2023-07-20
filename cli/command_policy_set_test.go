@@ -172,8 +172,6 @@ func TestSetErrorHandlingPolicyFromFlags(t *testing.T) {
 }
 
 func TestSetSchedulingPolicyFromFlags(t *testing.T) {
-	var psf policySchedulingFlags
-
 	ctx := testlogging.Context(t)
 
 	for _, tc := range []struct {
@@ -418,6 +416,8 @@ func TestSetSchedulingPolicyFromFlags(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			changeCount := 0
+
+			var psf policySchedulingFlags
 
 			psf.policySetInterval = tc.intervalArg
 			psf.policySetTimesOfDay = tc.timesOfDayArg

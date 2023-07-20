@@ -177,8 +177,7 @@ func TestNextSnapshotTime(t *testing.T) {
 			pol: policy.SchedulingPolicy{
 				Cron: []string{"0 23 * * *"},
 			},
-			previousSnapshotTime: time.Date(2020, time.January, 1, 19, 0, 0, 0, time.Local),
-			now:                  time.Date(2020, time.January, 1, 10, 0, 0, 0, time.Local),
+			now: time.Date(2020, time.January, 1, 10, 0, 0, 0, time.Local),
 			// matches 23:00
 			wantTime: time.Date(2020, time.January, 1, 23, 0, 0, 0, time.Local),
 			wantOK:   true,
@@ -187,8 +186,7 @@ func TestNextSnapshotTime(t *testing.T) {
 			pol: policy.SchedulingPolicy{
 				Cron: []string{"5 3 * Feb Thu"},
 			},
-			previousSnapshotTime: time.Date(2020, time.January, 1, 19, 0, 0, 0, time.Local),
-			now:                  time.Date(2020, time.January, 1, 1, 0, 0, 0, time.Local),
+			now: time.Date(2020, time.January, 1, 1, 0, 0, 0, time.Local),
 			// matches next Thursday in February, 3:05
 			wantTime: time.Date(2020, time.February, 6, 3, 5, 0, 0, time.Local),
 			wantOK:   true,
