@@ -27,18 +27,17 @@ else
 
 # Running as part of a pull_request event on GH, or outside a GH workflow, then
 # don't build installer and don't publish
-ifeq ($(FORCE_KOPIA_UI_SIGN),)
+ifneq ($(FORCE_KOPIA_UI_SIGN),)
+electron_builder_flags+=--dir
+
+else
 
 # unset CSC_LINK completely, otherwise electron builder hangs attempting to
 # notarize.
 unexport CSC_LINK
 unexport CSC_KEY_PASSWORD
 
-else
-electron_builder_flags+=--dir
-
 endif
-
 endif
 
 # empty CSC_LINK, unset completely since empty value confuses electron builder.
