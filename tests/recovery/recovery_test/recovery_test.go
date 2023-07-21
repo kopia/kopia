@@ -306,8 +306,7 @@ func killOnCondition(t *testing.T, cmd *exec.Cmd) {
 	wg.Wait()
 
 	// Wait for the command
-	err = cmd.Wait()
-	require.NoError(t, err)
+	cmd.Wait()
 }
 
 func getBlobIDToBeDeleted(stdout string) string {
