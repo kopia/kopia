@@ -5,6 +5,9 @@ updates:
     open-pull-requests-limit: 5
     schedule:
       interval: weekly
+    ignore:
+      # htmluibuild is explicitly updated by us
+      - dependency-name: "github.com/kopia/htmluibuild"
     groups:
       # create large PR upgrading multiple infrastructure dependencies in one shot,
       # only include upstream dependencies that are stable and have somewhat
