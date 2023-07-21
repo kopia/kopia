@@ -7,7 +7,6 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
-	"log"
 	"os"
 	"os/exec"
 	"path"
@@ -68,7 +67,7 @@ func TestSnapshotFix(t *testing.T) {
 	// assumption: the repo contains "p" blobs to delete, else the test will fail
 	err = bm.DeleteBlob("")
 	if err != nil {
-		log.Println("Error deleting kopia blob: ", err)
+		t.Logf("Error deleting kopia blob: ", err)
 		t.FailNow()
 	}
 
@@ -90,7 +89,7 @@ func TestSnapshotFix(t *testing.T) {
 
 	stdout, err = bm.SnapshotFixRemoveFilesByBlobID(blobID)
 	if err != nil {
-		log.Println("Error repairing the kopia repository:", stdout, err)
+		t.Logf("Error repairing the kopia repository:", stdout, err)
 		t.FailNow()
 	}
 
@@ -111,9 +110,9 @@ func TestSnapshotFixInvalidFiles(t *testing.T) {
 	bm, err := blobmanipulator.NewBlobManipulator(baseDir, dataRepoPath)
 	if err != nil {
 		if errors.Is(err, kopiarunner.ErrExeVariableNotSet) {
-			log.Println("Skipping recovery tests because KOPIA_EXE is not set")
+			t.Logf("Skipping recovery tests because KOPIA_EXE is not set")
 		} else {
-			log.Println("Error creating Blob Manipulator:", err)
+			t.Logf("Error creating Blob Manipulator:", err)
 		}
 
 		t.FailNow()
@@ -146,7 +145,7 @@ func TestSnapshotFixInvalidFiles(t *testing.T) {
 	// assumption: the repo contains "p" blobs to delete, else the test will fail
 	err = bm.DeleteBlob("")
 	if err != nil {
-		log.Println("Error deleting kopia blob: ", err)
+		t.Logf("Error deleting kopia blob: ", err)
 		t.FailNow()
 	}
 
@@ -163,7 +162,7 @@ func TestSnapshotFixInvalidFiles(t *testing.T) {
 	// fix all the invalid files
 	stdout, err := bm.SnapshotFixInvalidFiles("--verify-files-percent=100")
 	if err != nil {
-		log.Println("Error repairing the kopia repository:", stdout, err)
+		t.Logf("Error repairing the kopia repository:", stdout, err)
 		t.FailNow()
 	}
 
@@ -178,14 +177,13 @@ func TestConsistencyWhenKill9AfterModify(t *testing.T) {
 	dataRepoPath := path.Join(*repoPathPrefix, dirPath, dataPath)
 
 	baseDir := t.TempDir()
-	if baseDir == "" {
-		t.FailNow()
-	}
+	require.NotEmpty(t, baseDir, "TempDir() did not generate a valid dir")
 
 	bm, err := blobmanipulator.NewBlobManipulator(baseDir, dataRepoPath)
 	if err != nil {
 		if errors.Is(err, kopiarunner.ErrExeVariableNotSet) {
 			t.Skip("Skipping crash consistency tests because KOPIA_EXE is not set")
+		}
 
 		t.Skip("Error creating SnapshotTester:", err)
 	}
@@ -194,16 +192,12 @@ func TestConsistencyWhenKill9AfterModify(t *testing.T) {
 
 	// create a snapshot for initialized data
 	snapID, err := bm.SetUpSystemWithOneSnapshot()
-	if err != nil {
-		t.FailNow()
-	}
+	require.NoError(t, err)
 
 	cmpDir := bm.PathToTakeSnapshot
 
 	copyDir := t.TempDir()
-	if copyDir == "" {
-		t.FailNow()
-	}
+	require.NotEmpty(t, copyDir, "TempDir() did not generate a valid dir")
 
 	err = bm.FileHandler.CopyAllFiles(cmpDir, copyDir)
 	require.NoError(t, err)
@@ -222,9 +216,9 @@ func TestConsistencyWhenKill9AfterModify(t *testing.T) {
 	content := "\nthis is a test for TestConsistencyWhenKill9AfterModify\n"
 	err = bm.FileHandler.ModifyDataSetWithContent(copyDir, content)
 	require.NoError(t, err)
-	log.Println("Copy content and modify the files.")
+	t.Logf("Copy content and modify the files.")
 
-	// kill the kopia command before it exits
+	// connect with repository with the environment configuration, otherwise it will display "ERROR open repository: repository is not connected.kopia connect repo".
 	kopiaExe := os.Getenv("KOPIA_EXE")
 
 	cmd := exec.Command(kopiaExe, "repo", "connect", "filesystem", "--path="+dataRepoPath, "--content-cache-size-mb", "500", "--metadata-cache-size-mb", "500", "--no-check-for-updates")
@@ -233,31 +227,32 @@ func TestConsistencyWhenKill9AfterModify(t *testing.T) {
 
 	o, err := cmd.CombinedOutput()
 	require.NoError(t, err)
-	log.Println(string(o))
+	t.Logf(string(o))
 
+	// create snapshot with StderrPipe
 	cmd = exec.Command(kopiaExe, "snap", "create", copyDir, "--json", "--parallel=1")
 
-	log.Println("Kill the kopia command before it exits:")
+	// kill the kopia command before it exits
+	t.Logf("Kill the kopia command before it exits:")
 	killOnCondition(t, cmd)
 
-	log.Println("Verify snapshot corruption:")
+	t.Logf("Verify snapshot corruption:")
 	// verify snapshot corruption
 	err = bm.VerifySnapshot()
 	require.NoError(t, err)
 
 	// Create a temporary dir to restore a snapshot
 	restoreDir := t.TempDir()
-	if restoreDir == "" {
-		t.FailNow()
-	}
+	require.NotEmpty(t, restoreDir, "TempDir() did not generate a valid dir")
 
 	// try to restore a snapshot without any error messages.
 	stdout, err := bm.RestoreGivenOrRandomSnapshot(snapID, restoreDir)
 	require.NoError(t, err)
 
-	log.Println(stdout)
+	t.Logf(stdout)
 
-	log.Println("Compare restored data and original data:")
+	// Compare restored data and original data
+	t.Logf("Compare restored data and original data:")
 	require.NoError(t, bm.FileHandler.CompareDirs(restoreDir, cmpDir))
 }
 
@@ -286,14 +281,14 @@ func killOnCondition(t *testing.T, cmd *exec.Cmd) {
 		scanner := bufio.NewScanner(stderrPipe)
 		for scanner.Scan() {
 			output := scanner.Text()
-			log.Println(output)
+			t.Logf(output)
 			errOut.Write(scanner.Bytes())
 			errOut.WriteByte('\n')
 
-			log.Println(output)
+			t.Logf(output)
 			// Check if the output contains the "hashing" etc.
 			if strings.Contains(output, "hashing") && strings.Contains(output, "hashed") && strings.Contains(output, "uploaded") || strings.Contains(output, "Snapshotting") {
-				log.Println("Detaching and terminating target process")
+				t.Logf("Detaching and terminating target process")
 				cmd.Process.Kill()
 
 				break
@@ -302,9 +297,7 @@ func killOnCondition(t *testing.T, cmd *exec.Cmd) {
 	}()
 
 	stdoutPipe, err := cmd.StdoutPipe()
-	if err != nil {
-		panic(err)
-	}
+	require.NoError(t, err)
 
 	wg.Add(1)
 
@@ -317,11 +310,11 @@ func killOnCondition(t *testing.T, cmd *exec.Cmd) {
 		scanner := bufio.NewScanner(stdoutPipe)
 		for scanner.Scan() {
 			output := scanner.Text()
-			log.Println(output)
+			t.Logf(output)
 			o.Write(scanner.Bytes())
 			o.WriteByte('\n')
 
-			log.Println("snapshot create successfully", output)
+			t.Logf("snapshot create successfully", output)
 			// Check if the output contains the "copying" text
 			if strings.Contains(output, "hashing") && strings.Contains(output, "hashed") && strings.Contains(output, "uploaded") {
 				cmd.Process.Kill()
