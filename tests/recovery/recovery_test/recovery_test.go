@@ -111,7 +111,7 @@ func TestSnapshotFixInvalidFiles(t *testing.T) {
 	bm, err := blobmanipulator.NewBlobManipulator(baseDir, dataRepoPath)
 	if err != nil {
 		if errors.Is(err, kopiarunner.ErrExeVariableNotSet) {
-			t.Logf("Skipping recovery tests because KOPIA_EXE is not set")
+			log.Println("Skipping recovery tests because KOPIA_EXE is not set")
 		} else {
 			log.Println("Error creating Blob Manipulator:", err)
 		}
