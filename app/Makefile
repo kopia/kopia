@@ -36,6 +36,7 @@ else
 # notarize.
 unexport CSC_LINK
 unexport CSC_KEY_PASSWORD
+unexport KOPIA_UI_NOTARIZE
 
 endif
 endif
