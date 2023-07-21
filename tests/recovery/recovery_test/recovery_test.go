@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
+	"log"
 	"os"
 	"os/exec"
 	"path"
@@ -67,7 +68,7 @@ func TestSnapshotFix(t *testing.T) {
 	// assumption: the repo contains "p" blobs to delete, else the test will fail
 	err = bm.DeleteBlob("")
 	if err != nil {
-		t.Logf("Error deleting kopia blob: ", err)
+		log.Println("Error deleting kopia blob: ", err)
 		t.FailNow()
 	}
 
@@ -89,7 +90,7 @@ func TestSnapshotFix(t *testing.T) {
 
 	stdout, err = bm.SnapshotFixRemoveFilesByBlobID(blobID)
 	if err != nil {
-		t.Logf("Error repairing the kopia repository:", stdout, err)
+		log.Println("Error repairing the kopia repository:", stdout, err)
 		t.FailNow()
 	}
 
@@ -112,7 +113,7 @@ func TestSnapshotFixInvalidFiles(t *testing.T) {
 		if errors.Is(err, kopiarunner.ErrExeVariableNotSet) {
 			t.Logf("Skipping recovery tests because KOPIA_EXE is not set")
 		} else {
-			t.Logf("Error creating Blob Manipulator:", err)
+			log.Println("Error creating Blob Manipulator:", err)
 		}
 
 		t.FailNow()
@@ -145,7 +146,7 @@ func TestSnapshotFixInvalidFiles(t *testing.T) {
 	// assumption: the repo contains "p" blobs to delete, else the test will fail
 	err = bm.DeleteBlob("")
 	if err != nil {
-		t.Logf("Error deleting kopia blob: ", err)
+		log.Println("Error deleting kopia blob: ", err)
 		t.FailNow()
 	}
 
@@ -162,7 +163,7 @@ func TestSnapshotFixInvalidFiles(t *testing.T) {
 	// fix all the invalid files
 	stdout, err := bm.SnapshotFixInvalidFiles("--verify-files-percent=100")
 	if err != nil {
-		t.Logf("Error repairing the kopia repository:", stdout, err)
+		log.Println("Error repairing the kopia repository:", stdout, err)
 		t.FailNow()
 	}
 
@@ -251,7 +252,7 @@ func TestConsistencyWhenKill9AfterModify(t *testing.T) {
 
 	t.Logf(stdout)
 
-	// Compare restored data and original data
+	//
 	t.Logf("Compare restored data and original data:")
 	require.NoError(t, bm.FileHandler.CompareDirs(restoreDir, cmpDir))
 }
@@ -314,7 +315,7 @@ func killOnCondition(t *testing.T, cmd *exec.Cmd) {
 			o.Write(scanner.Bytes())
 			o.WriteByte('\n')
 
-			t.Logf("snapshot create successfully", output)
+			t.Logf("snapshot create successfully!!!!!")
 			// Check if the output contains the "copying" text
 			if strings.Contains(output, "hashing") && strings.Contains(output, "hashed") && strings.Contains(output, "uploaded") {
 				cmd.Process.Kill()
