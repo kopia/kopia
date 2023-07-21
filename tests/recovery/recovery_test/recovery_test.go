@@ -280,15 +280,16 @@ func killOnCondition(t *testing.T, cmd *exec.Cmd) {
 
 		// Create a scanner to read from stderrPipe
 		scanner := bufio.NewScanner(stderrPipe)
+		scanner.Split(bufio.ScanLines)
+
 		for scanner.Scan() {
 			output := scanner.Text()
 			t.Logf(output)
 			errOut.Write(scanner.Bytes())
 			errOut.WriteByte('\n')
 
-			t.Logf(output)
 			// Check if the output contains the "hashing" etc.
-			if strings.Contains(output, "hashing") && strings.Contains(output, "hashed") && strings.Contains(output, "uploaded") || strings.Contains(output, "Snapshotting") {
+			if strings.Contains(output, "hashing") && strings.Contains(output, "hashed") && strings.Contains(output, "uploaded") {
 				t.Logf("Detaching and terminating target process")
 				cmd.Process.Kill()
 
@@ -297,38 +298,16 @@ func killOnCondition(t *testing.T, cmd *exec.Cmd) {
 		}
 	}()
 
-	stdoutPipe, err := cmd.StdoutPipe()
+	// Start the command
+	err = cmd.Start()
 	require.NoError(t, err)
-
-	wg.Add(1)
-
-	o := bytes.Buffer{}
-
-	go func() {
-		defer wg.Done()
-
-		// Create a scanner to read from stdoutPipe
-		scanner := bufio.NewScanner(stdoutPipe)
-		for scanner.Scan() {
-			output := scanner.Text()
-			t.Logf(output)
-			o.Write(scanner.Bytes())
-			o.WriteByte('\n')
-
-			t.Logf("snapshot create successfully!!!!!")
-			// Check if the output contains the "copying" text
-			if strings.Contains(output, "hashing") && strings.Contains(output, "hashed") && strings.Contains(output, "uploaded") {
-				cmd.Process.Kill()
-				break
-			}
-		}
-	}()
-
-	// Run the command
-	_ = cmd.Run()
 
 	// Wait for the goroutines to finish
 	wg.Wait()
+
+	// Wait for the command
+	err = cmd.Wait()
+	require.NoError(t, err)
 }
 
 func getBlobIDToBeDeleted(stdout string) string {
