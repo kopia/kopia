@@ -51,7 +51,7 @@ func (c *commandBenchmarkCompression) readInputFile(ctx context.Context) ([]byte
 		return nil, errors.Wrap(err, "error opening input file")
 	}
 
-	defer f.Close() //nolint:errcheck,gosec
+	defer f.Close() //nolint:errcheck
 
 	st, err := f.Stat()
 	if err != nil {

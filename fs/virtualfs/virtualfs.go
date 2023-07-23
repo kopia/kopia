@@ -113,7 +113,7 @@ type streamingDirectory struct {
 
 var errChildNotSupported = errors.New("streamingDirectory.Child not supported")
 
-func (sd *streamingDirectory) Child(ctx context.Context, name string) (fs.Entry, error) {
+func (sd *streamingDirectory) Child(ctx context.Context, _ string) (fs.Entry, error) {
 	return nil, errChildNotSupported
 }
 

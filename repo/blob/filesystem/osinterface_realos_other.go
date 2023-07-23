@@ -3,6 +3,7 @@
 
 package filesystem
 
-func (realOS) IsESTALE(err error) bool {
+//nolint:revive
+func (realOS) IsStale(err error) bool {
 	return false
 }

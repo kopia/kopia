@@ -14,6 +14,8 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 )
 
+var ErrBlobLocked = errors.New("cannot alter object before retention period expires")
+
 type entry struct {
 	value          []byte
 	mtime          time.Time
@@ -60,7 +62,7 @@ func (s *objectLockingMap) getLatestForMutationLocked(id blob.ID) (*entry, error
 	}
 
 	if !e.retentionTime.IsZero() && e.retentionTime.After(s.timeNow()) {
-		return nil, errors.New("cannot alter object before retention period expires")
+		return nil, errors.WithStack(ErrBlobLocked)
 	}
 
 	return e, nil
@@ -183,6 +185,23 @@ func (s *objectLockingMap) DeleteBlob(ctx context.Context, id blob.ID) error {
 		mtime:          s.timeNow(),
 		isDeleteMarker: true,
 	})
+
+	return nil
+}
+
+// ExtendBlobRetention will alter the retention time on a blob if it exists.
+func (s *objectLockingMap) ExtendBlobRetention(ctx context.Context, id blob.ID, opts blob.ExtendOptions) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	e, err := s.getLatestByID(id)
+	if err != nil {
+		return blob.ErrBlobNotFound
+	}
+
+	if !e.retentionTime.IsZero() {
+		e.retentionTime = e.mtime.Add(opts.RetentionPeriod)
+	}
 
 	return nil
 }

@@ -1,5 +1,4 @@
 run:
-  go: '1.19'
   skip-dirs:
     - test/testdata_etc
 
@@ -71,6 +70,7 @@ linters:
   enable-all: true
   disable:
     - deadcode
+    - depguard
     - exhaustivestruct
     - exhaustruct
     - gochecknoinits
@@ -79,6 +79,7 @@ linters:
     - ifshort
     - interfacer
     - ireturn # this one may be interesting to control allocations
+    - gosmopolitan
     - maligned
     - nilnil
     - nlreturn
@@ -90,6 +91,7 @@ linters:
     - scopelint
     - sqlclosecheck
     - structcheck
+    - tagalign
     - tagliatelle
     - testpackage
     - tparallel
@@ -129,6 +131,10 @@ issues:
     - text: "tracer is a global variable"
       linters:
       - gochecknoglobals
+    # always allow ctx even when unused
+    - text: "unused-parameter: parameter 'ctx' seems to be unused"
+      linters:
+      - revive
     - text: "Magic number: 1e"
       linters:
       - gomnd

@@ -123,8 +123,6 @@ type CheckRepositoryExistsRequest struct {
 }
 
 // ConnectRepositoryRequest contains request to connect to a repository.
-//
-//nolint:musttag // false positive
 type ConnectRepositoryRequest struct {
 	Storage             blob.ConnectionInfo `json:"storage"`
 	Password            string              `json:"password"`
@@ -271,6 +269,7 @@ type ResolvePolicyResponse struct {
 	Definition            *policy.Definition `json:"definition"`
 	Defined               *policy.Policy     `json:"defined"`
 	UpcomingSnapshotTimes []time.Time        `json:"upcomingSnapshotTimes"`
+	SchedulingError       string             `json:"schedulingError,omitempty"`
 }
 
 // ResolvePathRequest contains request to resolve a particular path to ResolvePathResponse.

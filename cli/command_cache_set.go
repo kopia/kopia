@@ -42,7 +42,7 @@ func (c *commandCacheSetParams) setup(svc appServices, parent commandParent) {
 	c.svc = svc
 }
 
-func (c *commandCacheSetParams) run(ctx context.Context, rep repo.RepositoryWriter) error {
+func (c *commandCacheSetParams) run(ctx context.Context, _ repo.RepositoryWriter) error {
 	opts, err := repo.GetCachingOptions(ctx, c.svc.repositoryConfigFileName())
 	if err != nil {
 		return errors.Wrap(err, "error getting caching options")

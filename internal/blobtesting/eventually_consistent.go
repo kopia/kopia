@@ -285,6 +285,10 @@ func (s *eventuallyConsistentStorage) FlushCaches(ctx context.Context) error {
 	return s.realStorage.FlushCaches(ctx)
 }
 
+func (s *eventuallyConsistentStorage) ExtendBlobRetention(ctx context.Context, b blob.ID, opts blob.ExtendOptions) error {
+	return s.realStorage.ExtendBlobRetention(ctx, b, opts)
+}
+
 // NewEventuallyConsistentStorage returns an eventually-consistent storage wrapper on top
 // of provided storage.
 func NewEventuallyConsistentStorage(st blob.Storage, listSettleTime time.Duration, timeNow func() time.Time) blob.Storage {

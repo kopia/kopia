@@ -211,6 +211,26 @@ func (s *loggingStorage) FlushCaches(ctx context.Context) error {
 	return err
 }
 
+func (s *loggingStorage) ExtendBlobRetention(ctx context.Context, b blob.ID, opts blob.ExtendOptions) error {
+	ctx, span := tracer.Start(ctx, "ExtendBlobRetention")
+	defer span.End()
+
+	s.beginConcurrency()
+	defer s.endConcurrency()
+
+	timer := timetrack.StartTimer()
+	err := s.base.ExtendBlobRetention(ctx, b, opts)
+	dt := timer.Elapsed()
+
+	s.logger.Debugw(s.prefix+"ExtendBlobRetention",
+		"blobID", b,
+		"error", err,
+		"duration", dt,
+	)
+	//nolint:wrapcheck
+	return err
+}
+
 func (s *loggingStorage) translateError(err error) interface{} {
 	if err == nil {
 		return nil
