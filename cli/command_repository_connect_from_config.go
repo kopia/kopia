@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"io"
 	"os"
 
 	"github.com/alecthomas/kingpin/v2"
@@ -15,6 +16,7 @@ type storageFromConfigFlags struct {
 	connectFromConfigFile  string
 	connectFromConfigToken string
 	connectFromTokenFile   string
+	connectFromTokenStdin  bool
 
 	sps StorageProviderServices
 }
@@ -23,6 +25,7 @@ func (c *storageFromConfigFlags) Setup(sps StorageProviderServices, cmd *kingpin
 	cmd.Flag("file", "Path to the configuration file").StringVar(&c.connectFromConfigFile)
 	cmd.Flag("token", "Configuration token").StringVar(&c.connectFromConfigToken)
 	cmd.Flag("token-file", "Path to the configuration token file").StringVar(&c.connectFromTokenFile)
+	cmd.Flag("token-stdin", "Read configuration token from stdin").BoolVar(&c.connectFromTokenStdin)
 
 	c.sps = sps
 }
@@ -30,11 +33,7 @@ func (c *storageFromConfigFlags) Setup(sps StorageProviderServices, cmd *kingpin
 func (c *storageFromConfigFlags) Connect(ctx context.Context, isCreate bool, formatVersion int) (blob.Storage, error) {
 	_ = formatVersion
 
-	if isCreate {
-		return nil, errors.New("not supported")
-	}
-
-	if c.connectFromConfigFile != "" {
+	if !isCreate && c.connectFromConfigFile != "" {
 		return c.connectToStorageFromConfigFile(ctx)
 	}
 
@@ -46,11 +45,15 @@ func (c *storageFromConfigFlags) Connect(ctx context.Context, isCreate bool, for
 		return c.connectToStorageFromStorageConfigFile(ctx)
 	}
 
-	if isCreate {
-		return nil, errors.New("either --token-file or --token must be provided")
+	if c.connectFromTokenStdin {
+		return c.connectToStorageFromStorageConfigStdin(ctx)
 	}
 
-	return nil, errors.New("one of --file, --token-file or --token must be provided")
+	if isCreate {
+		return nil, errors.New("one of --token-file, --token-stdin or --token must be provided")
+	}
+
+	return nil, errors.New("one of --file, --token-file, --token-stdin or --token must be provided")
 }
 
 func (c *storageFromConfigFlags) connectToStorageFromConfigFile(ctx context.Context) (blob.Storage, error) {
@@ -85,6 +88,15 @@ func (c *storageFromConfigFlags) connectToStorageFromStorageConfigFile(ctx conte
 	tokenData, err := os.ReadFile(c.connectFromTokenFile)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to open token file")
+	}
+
+	return c.connectToStorageFromConfigToken(ctx, string(tokenData))
+}
+
+func (c *storageFromConfigFlags) connectToStorageFromStorageConfigStdin(ctx context.Context) (blob.Storage, error) {
+	tokenData, err := io.ReadAll(c.sps.stdin())
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to read token from stdin")
 	}
 
 	return c.connectToStorageFromConfigToken(ctx, string(tokenData))
