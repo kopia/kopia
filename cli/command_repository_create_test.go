@@ -20,6 +20,9 @@ func TestRepositoryCreateWithConfigFile(t *testing.T) {
 	_, stderr := env.RunAndExpectFailure(t, "repo", "create", "from-config", "--file", path.Join(env.ConfigDir, "does_not_exist.config"))
 	require.Contains(t, stderr, "can't connect to storage: one of --token-file, --token-stdin or --token must be provided")
 
+	_, stderr = env.RunAndExpectFailure(t, "repo", "connect", "from-config")
+	require.Contains(t, stderr, "can't connect to storage: one of --file, --token-file, --token-stdin or --token must be provided")
+
 	_, stderr = env.RunAndExpectFailure(t, "repo", "create", "from-config", "--token", "bad-token")
 	require.Contains(t, stderr, "can't connect to storage: invalid token: unable to decode token")
 
@@ -30,6 +33,10 @@ func TestRepositoryCreateWithConfigFile(t *testing.T) {
 	}
 	token, err := repo.EncodeToken("12345678", ci)
 	require.Nil(t, err)
+
+	// expect failure before writing to file
+	_, stderr = env.RunAndExpectFailure(t, "repo", "create", "from-config", "--token-file", storageCfgFName)
+	require.Contains(t, strings.Join(stderr, "\n"), "can't connect to storage: unable to open token file")
 
 	require.Nil(t, os.WriteFile(storageCfgFName, []byte(token), 0o600))
 
