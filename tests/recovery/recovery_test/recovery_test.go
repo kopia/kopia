@@ -6,6 +6,7 @@ package recovery
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"errors"
 	"log"
 	"os"
@@ -18,6 +19,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/kopia/kopia/fs/localfs"
+	"github.com/kopia/kopia/internal/diff"
 	"github.com/kopia/kopia/tests/recovery/blobmanipulator"
 	"github.com/kopia/kopia/tests/testenv"
 	"github.com/kopia/kopia/tests/tools/kopiarunner"
@@ -192,7 +195,7 @@ func TestConsistencyWhenKill9AfterModify(t *testing.T) {
 	bm.DataRepoPath = dataRepoPath
 
 	// create a snapshot for initialized data
-	snapID, err := bm.SetUpSystemWithOneSnapshot()
+	_, err = bm.SetUpSystemWithOneSnapshot()
 	require.NoError(t, err)
 
 	cmpDir := bm.PathToTakeSnapshot
@@ -247,14 +250,13 @@ func TestConsistencyWhenKill9AfterModify(t *testing.T) {
 	require.NotEmpty(t, restoreDir, "TempDir() did not generate a valid dir")
 
 	// try to restore a snapshot without any error messages.
-	stdout, err := bm.RestoreGivenOrRandomSnapshot(snapID, restoreDir)
+	stdout, err := bm.RestoreGivenOrRandomSnapshot("", restoreDir)
 	require.NoError(t, err)
 
 	t.Logf(stdout)
 
-	//
 	t.Logf("Compare restored data and original data:")
-	require.NoError(t, bm.FileHandler.CompareDirs(restoreDir, cmpDir))
+	CompareDirs(t, restoreDir, cmpDir)
 }
 
 func killOnCondition(t *testing.T, cmd *exec.Cmd) {
@@ -307,6 +309,31 @@ func killOnCondition(t *testing.T, cmd *exec.Cmd) {
 
 	// Wait for the command
 	cmd.Wait()
+}
+
+// CompareDirs examines and compares the quantities and contents of files in two different folders.
+func CompareDirs(t *testing.T, source, destination string) {
+	t.Helper()
+
+	var buf bytes.Buffer
+
+	ctx := context.Background()
+
+	c, err := diff.NewComparer(&buf)
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		_ = c.Close()
+	})
+
+	e1, err := localfs.NewEntry(source)
+	require.NoError(t, err)
+
+	e2, err := localfs.NewEntry(destination)
+	require.NoError(t, err)
+
+	err = c.Compare(ctx, e1, e2)
+	require.NoError(t, err)
 }
 
 func getBlobIDToBeDeleted(stdout string) string {

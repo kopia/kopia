@@ -9,7 +9,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"os/exec"
 	"path/filepath"
 )
 
@@ -106,49 +105,6 @@ func (handler *FileHandler) CopyAllFiles(source, destination string) error {
 		sourceFile.Close()
 
 		destinationFile.Close()
-	}
-
-	return nil
-}
-
-// CompareDirs examines and compares the quantities and contents of files in two different folders.
-func (handler *FileHandler) CompareDirs(source, destination string) error {
-	srcDirs, err := os.ReadDir(source)
-	if err != nil {
-		return err
-	}
-
-	dstDirs, err := os.ReadDir(destination)
-	if err != nil {
-		return err
-	}
-
-	if len(dstDirs) != len(srcDirs) {
-		return ErrFileNumberInconsistency
-	}
-
-	checkSet := make(map[string]bool)
-
-	for _, dstDir := range dstDirs {
-		checkSet[dstDir.Name()] = true
-	}
-
-	for _, srcDir := range srcDirs {
-		_, ok := checkSet[srcDir.Name()]
-		if !ok {
-			return ErrFilesInconsistency
-		}
-
-		srcFilePath := filepath.Join(source, srcDir.Name())
-		dstFilePath := filepath.Join(destination, srcDir.Name())
-
-		cmd := exec.Command("cmp", "-s", srcFilePath, dstFilePath)
-
-		err := cmd.Run()
-		if err != nil {
-			log.Println("Files are different:", srcFilePath, dstFilePath)
-			return err
-		}
 	}
 
 	return nil
