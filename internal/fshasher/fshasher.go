@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"sort"
 	"time"
 
 	"github.com/pkg/errors"
@@ -96,8 +97,8 @@ func header(ctx context.Context, fullpath string, e os.FileInfo) (*tar.Header, e
 	// filesystems that don't preserve full timestamp fidelity.
 	// https://travis-ci.org/github/kopia/kopia/jobs/732592885
 	h.ModTime = h.ModTime.Truncate(time.Second).UTC()
-	h.AccessTime = h.ModTime
-	h.ChangeTime = h.ModTime
+	h.AccessTime = h.ModTime.Truncate(time.Second).UTC()
+	h.ChangeTime = h.ModTime.Truncate(time.Second).UTC()
 
 	if sl, ok := e.(fs.Symlink); ok {
 		h.Linkname, err = sl.Readlink(ctx)
@@ -110,13 +111,20 @@ func header(ctx context.Context, fullpath string, e os.FileInfo) (*tar.Header, e
 }
 
 func writeDirectory(ctx context.Context, tw *tar.Writer, fullpath string, d fs.Directory) error {
-	err := d.IterateEntries(ctx, func(c context.Context, e fs.Entry) error {
-		if err2 := write(c, tw, path.Join(fullpath, e.Name()), e); err2 != nil {
+	all, err := fs.GetAllEntries(ctx, d)
+	if err != nil {
+		return errors.Wrap(err, "error getting all entries")
+	}
+
+	sort.Slice(all, func(i, j int) bool {
+		return all[i].Name() < all[j].Name()
+	})
+
+	for _, e := range all {
+		if err2 := write(ctx, tw, path.Join(fullpath, e.Name()), e); err2 != nil {
 			return err2
 		}
-
-		return nil
-	})
+	}
 
 	return err
 }
