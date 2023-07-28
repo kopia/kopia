@@ -200,12 +200,6 @@ func TestConsistencyWhenKill9AfterModify(t *testing.T) {
 
 	cmpDir := bm.PathToTakeSnapshot
 
-	copyDir := t.TempDir()
-	require.NotEmpty(t, copyDir, "TempDir() did not generate a valid dir")
-
-	err = bm.FileHandler.CopyAllFiles(cmpDir, copyDir)
-	require.NoError(t, err)
-
 	// add files
 	fileSize := 1 * 1024 * 1024
 	numFiles := 200
@@ -213,14 +207,7 @@ func TestConsistencyWhenKill9AfterModify(t *testing.T) {
 	err = bm.GenerateRandomFiles(fileSize, numFiles)
 	require.NoError(t, err)
 
-	err = bm.FileHandler.CopyAllFiles(bm.PathToTakeSnapshot, copyDir)
-	require.NoError(t, err)
-
-	// modify original files
-	content := "\nthis is a test for TestConsistencyWhenKill9AfterModify\n"
-	err = bm.FileHandler.ModifyDataSetWithContent(copyDir, content)
-	require.NoError(t, err)
-	t.Logf("Copy content and modify the files.")
+	newDir := bm.PathToTakeSnapshot
 
 	// connect with repository with the environment configuration, otherwise it will display "ERROR open repository: repository is not connected.kopia connect repo".
 	kopiaExe := os.Getenv("KOPIA_EXE")
@@ -234,7 +221,7 @@ func TestConsistencyWhenKill9AfterModify(t *testing.T) {
 	t.Logf(string(o))
 
 	// create snapshot with StderrPipe
-	cmd = exec.Command(kopiaExe, "snap", "create", copyDir, "--json", "--parallel=1")
+	cmd = exec.Command(kopiaExe, "snap", "create", newDir, "--json", "--parallel=1")
 
 	// kill the kopia command before it exits
 	t.Logf("Kill the kopia command before it exits:")

@@ -15,7 +15,6 @@ import (
 
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/snapshot"
-	"github.com/kopia/kopia/tests/recovery/filehandler"
 	"github.com/kopia/kopia/tests/robustness"
 	"github.com/kopia/kopia/tests/robustness/fiofilewriter"
 	"github.com/kopia/kopia/tests/robustness/snapmeta"
@@ -33,7 +32,6 @@ type BlobManipulator struct {
 	KopiaCommandRunner *kopiarunner.KopiaSnapshotter
 	DirCreater         *snapmeta.KopiaSnapshotter
 	fileWriter         *fiofilewriter.FileWriter
-	FileHandler        *filehandler.FileHandler
 
 	DataRepoPath       string
 	CanRunMaintenance  bool
@@ -289,7 +287,7 @@ func (bm *BlobManipulator) SetUpSystemWithOneSnapshot() (string, error) {
 	}
 
 	// create snapshot of the data
-	bm.PathToTakeSnapshot = bm.FileHandler.GetRootDir(bm.fileWriter.DataDirectory(ctx))
+	bm.PathToTakeSnapshot = bm.fileWriter.DataDirectory(ctx)
 
 	// create snapshot of the data
 	log.Printf("Creating snapshot of directory %s", bm.PathToTakeSnapshot)
@@ -314,7 +312,7 @@ func (bm *BlobManipulator) GenerateRandomFiles(fileSize, numFiles int) error {
 		return err
 	}
 
-	bm.PathToTakeSnapshot = bm.FileHandler.GetRootDir(bm.fileWriter.DataDirectory(ctx))
+	bm.PathToTakeSnapshot = bm.fileWriter.DataDirectory(ctx)
 
 	return nil
 }
