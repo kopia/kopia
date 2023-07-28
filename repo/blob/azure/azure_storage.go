@@ -5,7 +5,11 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
+
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/bloberror"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/clock"
@@ -23,9 +27,10 @@ const (
 
 type azStorage struct {
 	Options
+	blob.UnsupportedBlobRetention
 
-	service azblob.ServiceClient
-	bucket  azblob.ContainerClient
+	service   *azblob.Client
+	container string
 }
 
 func (az *azStorage) GetCapacity(ctx context.Context) (blob.Capacity, error) {
@@ -37,26 +42,25 @@ func (az *azStorage) GetBlob(ctx context.Context, b blob.ID, offset, length int6
 		return errors.Wrap(blob.ErrInvalidRange, "invalid offset")
 	}
 
-	bc := az.bucket.NewBlockBlobClient(az.getObjectNameString(b))
-	opt := &azblob.DownloadBlobOptions{}
+	opt := &azblob.DownloadStreamOptions{}
 
 	if length > 0 {
-		opt.Offset = &offset
-		opt.Count = &length
+		opt.Range.Offset = offset
+		opt.Range.Count = length
 	}
 
 	if length == 0 {
 		l1 := int64(1)
-		opt.Offset = &offset
-		opt.Count = &l1
+		opt.Range.Offset = offset
+		opt.Range.Count = l1
 	}
 
-	resp, err := bc.Download(ctx, opt)
+	resp, err := az.service.DownloadStream(ctx, az.container, az.getObjectNameString(b), opt)
 	if err != nil {
 		return translateError(err)
 	}
 
-	body := resp.Body(nil)
+	body := resp.Body
 	defer body.Close() //nolint:errcheck
 
 	if length == 0 {
@@ -72,9 +76,9 @@ func (az *azStorage) GetBlob(ctx context.Context, b blob.ID, offset, length int6
 }
 
 func (az *azStorage) GetMetadata(ctx context.Context, b blob.ID) (blob.Metadata, error) {
-	bc := az.bucket.NewBlockBlobClient(az.getObjectNameString(b))
+	bc := az.service.ServiceClient().NewContainerClient(az.container).NewBlobClient(az.getObjectNameString(b))
 
-	fi, err := bc.GetProperties(ctx, &azblob.GetBlobPropertiesOptions{})
+	fi, err := bc.GetProperties(ctx, nil)
 	if err != nil {
 		return blob.Metadata{}, errors.Wrap(translateError(err), "Attributes")
 	}
@@ -85,8 +89,10 @@ func (az *azStorage) GetMetadata(ctx context.Context, b blob.ID) (blob.Metadata,
 		Timestamp: *fi.LastModified,
 	}
 
-	if t, ok := timestampmeta.FromValue(fi.Metadata[timeMapKey]); ok {
-		bm.Timestamp = t
+	if fi.Metadata[timeMapKey] != nil {
+		if t, ok := timestampmeta.FromValue(*fi.Metadata[timeMapKey]); ok {
+			bm.Timestamp = t
+		}
 	}
 
 	return bm, nil
@@ -97,14 +103,13 @@ func translateError(err error) error {
 		return nil
 	}
 
-	var re *azblob.StorageError
+	var re *azcore.ResponseError
 
 	if errors.As(err, &re) {
-		//nolint:exhaustive
 		switch re.ErrorCode {
-		case azblob.StorageErrorCodeBlobNotFound:
+		case string(bloberror.BlobNotFound):
 			return blob.ErrBlobNotFound
-		case azblob.StorageErrorCodeInvalidRange:
+		case string(bloberror.InvalidRange):
 			return blob.ErrInvalidRange
 		}
 	}
@@ -123,13 +128,19 @@ func (az *azStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes, op
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	bc := az.bucket.NewBlockBlobClient(az.getObjectNameString(b))
+	tsMetadata := timestampmeta.ToMap(opts.SetModTime, timeMapKey)
 
-	ubo := &azblob.UploadBlockBlobOptions{
-		Metadata: timestampmeta.ToMap(opts.SetModTime, timeMapKey),
+	metadata := make(map[string]*string, len(tsMetadata))
+
+	for k, v := range tsMetadata {
+		metadata[k] = to.Ptr(v)
 	}
 
-	resp, err := bc.Upload(ctx, data.Reader(), ubo)
+	uso := &azblob.UploadStreamOptions{
+		Metadata: metadata,
+	}
+
+	resp, err := az.service.UploadStream(ctx, az.container, az.getObjectNameString(b), data.Reader(), uso)
 	if err != nil {
 		return translateError(err)
 	}
@@ -143,7 +154,7 @@ func (az *azStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes, op
 
 // DeleteBlob deletes azure blob from container with given ID.
 func (az *azStorage) DeleteBlob(ctx context.Context, b blob.ID) error {
-	_, err := az.bucket.NewBlockBlobClient(az.getObjectNameString(b)).Delete(ctx, nil)
+	_, err := az.service.DeleteBlob(ctx, az.container, az.getObjectNameString(b), nil)
 	err = translateError(err)
 
 	// don't return error if blob is already deleted
@@ -162,17 +173,20 @@ func (az *azStorage) getObjectNameString(b blob.ID) string {
 func (az *azStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback func(blob.Metadata) error) error {
 	prefixStr := az.Prefix + string(prefix)
 
-	pager := az.bucket.ListBlobsFlat(&azblob.ContainerListBlobFlatSegmentOptions{
+	pager := az.service.NewListBlobsFlatPager(az.container, &azblob.ListBlobsFlatOptions{
 		Prefix: &prefixStr,
-		Include: []azblob.ListBlobsIncludeItem{
-			"[" + azblob.ListBlobsIncludeItemMetadata + "]",
+		Include: azblob.ListBlobsInclude{
+			Metadata: true,
 		},
 	})
 
-	for pager.NextPage(ctx) {
-		resp := pager.PageResponse()
+	for pager.More() {
+		page, err := pager.NextPage(ctx)
+		if err != nil {
+			return translateError(err)
+		}
 
-		for _, it := range resp.Segment.BlobItems {
+		for _, it := range page.Segment.BlobItems {
 			n := *it.Name
 
 			bm := blob.Metadata{
@@ -193,7 +207,7 @@ func (az *azStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback fun
 		}
 	}
 
-	return translateError(pager.Err())
+	return nil
 }
 
 func stringDefault(s *string, def string) string {
@@ -227,12 +241,14 @@ func (az *azStorage) FlushCaches(ctx context.Context) error {
 //
 // - the 'Container', 'StorageAccount' and 'StorageKey' fields are required and all other parameters are optional.
 func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error) {
+	_ = isCreate
+
 	if opt.Container == "" {
 		return nil, errors.New("container name must be specified")
 	}
 
 	var (
-		service    azblob.ServiceClient
+		service    *azblob.Client
 		serviceErr error
 	)
 
@@ -245,7 +261,7 @@ func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error)
 
 	switch {
 	case opt.SASToken != "":
-		service, serviceErr = azblob.NewServiceClientWithNoCredential(
+		service, serviceErr = azblob.NewClientWithNoCredential(
 			fmt.Sprintf("https://%s?%s", storageHostname, opt.SASToken), nil)
 
 	case opt.StorageKey != "":
@@ -255,7 +271,7 @@ func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error)
 			return nil, errors.Wrap(err, "unable to initialize credentials")
 		}
 
-		service, serviceErr = azblob.NewServiceClientWithSharedKey(
+		service, serviceErr = azblob.NewClientWithSharedKeyCredential(
 			fmt.Sprintf("https://%s/", storageHostname), cred, nil,
 		)
 
@@ -267,12 +283,10 @@ func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error)
 		return nil, errors.Wrap(serviceErr, "opening azure service")
 	}
 
-	bucket := service.NewContainerClient(opt.Container)
-
 	raw := &azStorage{
-		Options: *opt,
-		bucket:  bucket,
-		service: service,
+		Options:   *opt,
+		container: opt.Container,
+		service:   service,
 	}
 
 	az := retrying.NewWrapper(raw)

@@ -29,6 +29,8 @@ func (c *storageGCSFlags) Setup(_ StorageProviderServices, cmd *kingpin.CmdClaus
 }
 
 func (c *storageGCSFlags) Connect(ctx context.Context, isCreate bool, formatVersion int) (blob.Storage, error) {
+	_ = formatVersion
+
 	if c.embedCredentials {
 		data, err := os.ReadFile(c.options.ServiceAccountCredentialsFile)
 		if err != nil {
@@ -40,5 +42,5 @@ func (c *storageGCSFlags) Connect(ctx context.Context, isCreate bool, formatVers
 	}
 
 	//nolint:wrapcheck
-	return gcs.New(ctx, &c.options, false)
+	return gcs.New(ctx, &c.options, isCreate)
 }

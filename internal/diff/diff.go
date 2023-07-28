@@ -292,7 +292,7 @@ func downloadFile(ctx context.Context, f fs.File, fname string) error {
 		return errors.Wrap(err, "error creating file to edit")
 	}
 
-	defer dst.Close() //nolint:errcheck,gosec
+	defer dst.Close() //nolint:errcheck
 
 	return errors.Wrap(iocopy.JustCopy(dst, src), "error downloading file")
 }

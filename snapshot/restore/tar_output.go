@@ -45,11 +45,15 @@ func (o *TarOutput) BeginDirectory(ctx context.Context, relativePath string, d f
 }
 
 // FinishDirectory implements restore.Output interface.
+//
+//nolint:revive
 func (o *TarOutput) FinishDirectory(ctx context.Context, relativePath string, e fs.Directory) error {
 	return nil
 }
 
 // WriteDirEntry implements restore.Output interface.
+//
+//nolint:revive
 func (o *TarOutput) WriteDirEntry(ctx context.Context, relativePath string, de *snapshot.DirEntry, e fs.Directory) error {
 	return nil
 }
@@ -94,6 +98,8 @@ func (o *TarOutput) WriteFile(ctx context.Context, relativePath string, f fs.Fil
 }
 
 // FileExists implements restore.Output interface.
+//
+//nolint:revive
 func (o *TarOutput) FileExists(ctx context.Context, relativePath string, f fs.File) bool {
 	return false
 }
@@ -123,6 +129,8 @@ func (o *TarOutput) CreateSymlink(ctx context.Context, relativePath string, l fs
 }
 
 // SymlinkExists implements restore.Output interface.
+//
+//nolint:revive
 func (o *TarOutput) SymlinkExists(ctx context.Context, relativePath string, l fs.Symlink) bool {
 	return false
 }

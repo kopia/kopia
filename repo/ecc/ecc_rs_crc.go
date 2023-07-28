@@ -163,7 +163,7 @@ func (r *ReedSolomonCrcECC) computeSizesFromStored(length int) sizesInfo {
 // The parity data comes first so we can avoid storing the padding needed for the
 // data shards, and instead compute the padded size based on the input length.
 // All parity shards are always stored.
-func (r *ReedSolomonCrcECC) Encrypt(input gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {
+func (r *ReedSolomonCrcECC) Encrypt(input gather.Bytes, _ []byte, output *gather.WriteBuffer) error {
 	sizes := r.computeSizesFromOriginal(input.Length())
 	inputPlusLengthSize := lengthSize + input.Length()
 	dataSizeInBlock := sizes.DataShards * sizes.ShardSize
@@ -247,7 +247,7 @@ func (r *ReedSolomonCrcECC) Encrypt(input gather.Bytes, contentID []byte, output
 
 // Decrypt corrects the data from input based on the ECC data.
 // See Encrypt comments for a description of the layout.
-func (r *ReedSolomonCrcECC) Decrypt(input gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {
+func (r *ReedSolomonCrcECC) Decrypt(input gather.Bytes, _ []byte, output *gather.WriteBuffer) error {
 	sizes := r.computeSizesFromStored(input.Length())
 	dataPlusCrcSizeInBlock := sizes.DataShards * (crcSize + sizes.ShardSize)
 	parityPlusCrcSizeInBlock := sizes.ParityShards * (crcSize + sizes.ShardSize)
