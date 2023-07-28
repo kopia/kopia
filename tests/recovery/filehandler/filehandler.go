@@ -5,7 +5,6 @@
 package filehandler
 
 import (
-	"errors"
 	"io"
 	"log"
 	"os"
@@ -14,12 +13,6 @@ import (
 
 // FileHandler implements a FileHandler struct.
 type FileHandler struct{}
-
-// ErrFileNumberInconsistency is utilized to raise an error when the number of items in the two folders differs.
-var ErrFileNumberInconsistency = errors.New("the number of items in the two folders is not the same")
-
-// ErrFilesInconsistency is utilized to raise an error when the name of item in the two folders differs.
-var ErrFilesInconsistency = errors.New("the name of the item in the source folder does not match the name in the duplicated folder")
 
 // GetRootDir browses through the provided file path and return a path, ensuring that the first item is a file and not a folder. If the first item is a folder, it will continue to open directories until the condition of the first item being a file is met.
 func (handler *FileHandler) GetRootDir(source string) string {
