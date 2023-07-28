@@ -337,7 +337,7 @@ app.on('ready', () => {
   tray = new Tray(
     path.join(
       resourcesPath(), 'icons',
-      selectByOS({ mac: 'kopia-tray.png', win: 'kopia-tray.ico', linux: 'kopia-tray.png' })));
+      selectByOS({ mac: 'kopiaTrayTemplate.png', win: 'kopia-tray.ico', linux: 'kopia-tray.png' })));
 
   tray.setToolTip('Kopia');
 

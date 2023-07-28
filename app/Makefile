@@ -25,11 +25,20 @@ endif
 
 else
 
-# not running on Travis, or Travis in PR mode, don't build installer and don't publish
+# Running as part of a pull_request event on GH, or outside a GH workflow, then
+# don't build installer and don't publish
 ifneq ($(FORCE_KOPIA_UI_SIGN),)
 electron_builder_flags+=--dir
-endif
 
+else
+
+# unset CSC_LINK completely, otherwise electron builder hangs attempting to
+# notarize.
+unexport CSC_LINK
+unexport CSC_KEY_PASSWORD
+unexport KOPIA_UI_NOTARIZE
+
+endif
 endif
 
 # empty CSC_LINK, unset completely since empty value confuses electron builder.

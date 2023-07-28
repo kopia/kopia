@@ -29,15 +29,16 @@
      inkscape:pagecheckerboard="0"
      inkscape:deskcolor="#d1d1d1"
      showgrid="false"
-     inkscape:zoom="9.2580367"
-     inkscape:cx="15.392032"
-     inkscape:cy="23.277073"
-     inkscape:window-width="1512"
+     inkscape:zoom="8.723516"
+     inkscape:cx="15.761993"
+     inkscape:cy="16.793687"
+     inkscape:window-width="1280"
      inkscape:window-height="667"
      inkscape:window-x="0"
-     inkscape:window-y="38"
+     inkscape:window-y="25"
      inkscape:window-maximized="0"
-     inkscape:current-layer="svg7" />
+     inkscape:current-layer="svg7"
+     inkscape:pageshadow="2" />
   <title
      id="title2">kopia-flat-outline-svg</title>
   <style
@@ -56,7 +57,7 @@
   <path
      id="Shape 1-1"
      class="s0"
-     d="M 18.385204,11.430586 C 27.14124,-6.4540195 49.778789,4.2767401 47.856738,20.253655 57.253466,21.68443 57.253466,39.092102 46.788934,39.092102 44.226192,39.33057 36.071448,39.33057 36.071448,39.33057 V 31.699808 L 40.55625,26.453651 32.907409,11.19213 24.728611,26.453651 29.42697,31.699808 V 39.33057 H 10.056292 C 0.0188829,39.33057 -2.9709838,20.969049 8.7749185,17.869052 8.3477946,13.576745 12.832595,9.2844387 18.171639,11.430586 Z"
-     style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:1.81053;stroke-linejoin:round;stroke-dasharray:none"
+     d="m 19.99794,12.912259 c 6.872425,-14.0372412 24.640151,-5.6148985 23.131574,6.925038 7.375291,1.122984 7.375291,14.785892 -0.838096,14.785892 -2.011442,0.187168 -8.411925,0.187168 -8.411925,0.187168 v -5.989221 l 3.520025,-4.117596 -6.00341,-11.97844 -6.419364,11.97844 3.687642,4.117596 v 5.989221 H 13.460755 c -7.8781461,0 -10.2248281,-14.411562 -1.005723,-16.844684 -0.335239,-3.368939 3.184785,-6.737877 7.375285,-5.053414 z"
+     style="fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:1;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1;stroke-miterlimit:4"
      sodipodi:nodetypes="ccccccccccsccc" />
 </svg>
