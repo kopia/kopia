@@ -299,7 +299,7 @@ func (bm *BlobManipulator) SetUpSystemWithOneSnapshot() (string, error) {
 		return "", err
 	}
 
-	log.Printf("Creating snapshot of snapshot ID %s", snapshotID)
+	log.Printf("Created snapshot of snapshot ID %s", snapshotID)
 
 	return snapshotID, nil
 }
