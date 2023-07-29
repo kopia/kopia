@@ -110,13 +110,13 @@
     "afterSign": "notarize.js"
   },
   "devDependencies": {
+    "@electron/notarize": "^2.1.0",
     "@playwright/test": "^1.36.1",
     "asar": "^3.2.0",
     "concurrently": "^8.2.0",
     "dotenv": "^16.3.1",
     "electron": "^25.3.1",
     "electron-builder": "^24.4.0",
-    "electron-notarize": "^1.2.2",
     "playwright": "^1.36.1",
     "playwright-core": "^1.35.1"
   },
