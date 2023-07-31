@@ -1,0 +1,143 @@
+baseURL = "https://kopia.io"
+title = "Kopia"
+
+enableRobotsTXT = true
+
+# Will give values to .Lastmod etc.
+enableGitInfo = true
+
+staticDir="static"
+
+# Language settings
+contentDir = "content"
+defaultContentLanguage = "en"
+defaultContentLanguageInSubdir = false
+# Useful when translating.
+enableMissingTranslationPlaceholders = true
+
+disableKinds = ["taxonomy", "taxonomyTerm"]
+
+# Highlighting config
+pygmentsCodeFences = true
+pygmentsUseClasses = false
+# Use the new Chroma Go highlighter in Hugo.
+pygmentsUseClassic = false
+#pygmentsOptions = "linenos=table"
+# See https://help.farbox.com/pygments.html
+pygmentsStyle = "tango"
+
+ # First one is picked as the Twitter card image if not set on page.
+ #images = ["images/project-illustration.png"]
+
+# Top Menu
+[menu]
+[[menu.main]]
+    name = "Features"
+    weight = 1
+    url = "docs/features/"
+[[menu.main]]
+    name = "Getting Started"
+    weight = 2
+    url = "docs/getting-started/"
+[[menu.main]]
+    name = "Download"
+    weight = 3
+    url = "docs/installation/"
+[[menu.main]]
+    name = "GitHub"
+    weight = 4
+    pre = "<i class='fa-brands fa-github'></i>"
+    url = "https://github.com/kopia/kopia/"
+
+# Configure how URLs look like per section.
+[permalinks]
+blog = "/:section/:year/:month/:day/:slug/"
+
+## Configuration for BlackFriday markdown parser: https://github.com/russross/blackfriday
+[blackfriday]
+plainIDAnchors = true
+hrefTargetBlank = true
+angledQuotes = false
+latexDashes = true
+
+# Image processing configuration.
+[imaging]
+resampleFilter = "CatmullRom"
+quality = 75
+anchor = "smart"
+
+[services]
+[services.googleAnalytics]
+# handled manually
+
+# Language configuration
+
+[languages]
+[languages.en]
+title = "Kopia"
+[languages.en.params]
+description = "Fast and Secure Open-Source Backup Software for Windows, Mac, and Linux"
+languageName ="English"
+weight = 1
+
+# Everything below this are Site Params
+
+[params]
+copyright = "Kopia Project"
+privacy_policy = "https://kopia.io/docs/privacy-policy/"
+github_repo = "https://github.com/kopia/kopia"
+github_subdir = "site"
+github_branch = "master"
+path_base_for_github_subdir = "content/\\w+/some-section"
+
+# Google Custom Search Engine ID. Remove or comment out to disable search.
+# gcs_engine_id = "017899350404537892552:t3ckb1h0zq4"
+
+# User interface configuration
+[params.ui]
+# Enable to show the side bar menu in its compact state.
+sidebar_menu_compact = true
+#  Set to true to disable breadcrumb navigation.
+breadcrumb_disable = true
+
+# Adds a H2 section titled "Feedback" to the bottom of each doc. The responses are sent to Google Analytics as events.
+# This feature depends on [services.googleAnalytics] and will be disabled if "services.googleAnalytics.id" is not set.
+# If you want this feature, but occasionally need to remove the "Feedback" section from a single page,
+# add "hide_feedback: true" to the page's front matter.
+[params.ui.feedback]
+enable = true
+# The responses that the user sees after clicking "yes" (the page was helpful) or "no" (the page was not helpful).
+yes = 'Glad to hear it! Please <a href="https://github.com/kopia/kopia/issues/new">tell us how we can improve</a>.'
+no = 'Sorry to hear that. Please <a href="https://github.com/kopia/kopia/issues/new">tell us how we can improve</a>.'
+
+[params.links]
+# End user relevant links. These will show up on left side of footer and in the community page if you have one.
+[[params.links.user]]
+	name = "Kopia Forum"
+	url = "https://kopia.discourse.group"
+	icon = "fas fa-comments"
+    desc = "Chat with fellow Kopia users"
+[[params.links.developer]]
+	name = "Slack"
+	url = "https://slack.kopia.io"
+	icon = "fab fa-slack"
+    desc = "Chat with other project developers"
+[[params.links.developer]]
+	name = "GitHub"
+	url = "https://github.com/kopia/kopia"
+	icon = "fab fa-github"
+    desc = "Development takes place here!"
+
+[module]
+  proxy = "direct"
+  # uncomment line below for temporary local development of module
+  # replacements = "github.com/google/docsy -> ../../docsy"
+  [module.hugoVersion]
+    extended = true
+    min = "0.73.0"
+  [[module.imports]]
+    path = "github.com/google/docsy"
+    disable = false
+  [[module.imports]]
+    path = "github.com/google/docsy/dependencies"
+    disable = false

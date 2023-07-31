@@ -82,13 +82,13 @@ func (c *commandRepositoryStatus) outputJSON(ctx context.Context, r repo.Reposit
 	return nil
 }
 
-func (c *commandRepositoryStatus) dumpUpgradeStatus(ctx context.Context, dr repo.DirectRepository) error {
+func (c *commandRepositoryStatus) dumpUpgradeStatus(dr repo.DirectRepository) error {
 	drw, isDr := dr.(repo.DirectRepositoryWriter)
 	if !isDr {
 		return nil
 	}
 
-	l, err := drw.FormatManager().GetUpgradeLockIntent(ctx)
+	l, err := drw.FormatManager().GetUpgradeLockIntent()
 	if err != nil {
 		return errors.Wrap(err, "failed to get the upgrade lock intent")
 	}
@@ -218,7 +218,7 @@ func (c *commandRepositoryStatus) run(ctx context.Context, rep repo.Repository) 
 
 	c.dumpRetentionStatus(dr)
 
-	if err := c.dumpUpgradeStatus(ctx, dr); err != nil {
+	if err := c.dumpUpgradeStatus(dr); err != nil {
 		return errors.Wrap(err, "failed to dump upgrade status")
 	}
 

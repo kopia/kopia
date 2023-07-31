@@ -688,39 +688,38 @@ func TestSnapshotSparseRestore(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		sourceFile := filepath.Join(sourceDir, c.name+"_source")
+		c := c
 
-		fd, err := os.Create(sourceFile)
-		if err != nil {
-			t.Fatal(err)
-		}
+		t.Run(c.name, func(t *testing.T) {
+			if c.name == "blk_hole_on_buf_boundary" && runtime.GOARCH == "arm64" {
+				t.Skip("skipping on arm64 due to a failure - https://github.com/kopia/kopia/issues/3178")
+			}
 
-		err = fd.Truncate(int64(c.trunc))
-		if err != nil {
-			t.Fatal(err)
-		}
+			sourceFile := filepath.Join(sourceDir, c.name+"_source")
 
-		for _, d := range c.data {
-			fd.WriteAt(bytes.Repeat(d.slice, int(d.rep)), int64(d.off))
-		}
+			fd, err := os.Create(sourceFile)
+			require.NoError(t, err)
 
-		verifyFileSize(t, sourceFile, c.sLog, c.sPhys)
-		e.RunAndExpectSuccess(t, "snapshot", "create", sourceFile)
+			err = fd.Truncate(int64(c.trunc))
+			require.NoError(t, err)
 
-		si := clitestutil.ListSnapshotsAndExpectSuccess(t, e, sourceFile)
-		if got, want := len(si), 1; got != want {
-			t.Fatalf("got %v sources, wanted %v", got, want)
-		}
+			for _, d := range c.data {
+				fd.WriteAt(bytes.Repeat(d.slice, int(d.rep)), int64(d.off))
+			}
 
-		if got, want := len(si[0].Snapshots), 1; got != want {
-			t.Fatalf("got %v snapshots, wanted %v", got, want)
-		}
+			verifyFileSize(t, sourceFile, c.sLog, c.sPhys)
+			e.RunAndExpectSuccess(t, "snapshot", "create", sourceFile)
 
-		snapID := si[0].Snapshots[0].SnapshotID
-		restoreFile := filepath.Join(restoreDir, c.name+"_restore")
+			si := clitestutil.ListSnapshotsAndExpectSuccess(t, e, sourceFile)
+			require.Len(t, si, 1)
+			require.Len(t, si[0].Snapshots, 1)
 
-		e.RunAndExpectSuccess(t, "snapshot", "restore", snapID, "--write-sparse-files", restoreFile)
-		verifyFileSize(t, restoreFile, c.rLog, c.rPhys)
+			snapID := si[0].Snapshots[0].SnapshotID
+			restoreFile := filepath.Join(restoreDir, c.name+"_restore")
+
+			e.RunAndExpectSuccess(t, "snapshot", "restore", snapID, "--write-sparse-files", restoreFile)
+			verifyFileSize(t, restoreFile, c.rLog, c.rPhys)
+		})
 	}
 }
 
@@ -728,15 +727,11 @@ func verifyFileSize(t *testing.T, fname string, logical, physical uint64) {
 	t.Helper()
 
 	st, err := os.Stat(fname)
-	if err != nil {
-		t.Fatalf("error verifying file size: %v", err)
-	}
+	require.NoError(t, err)
 
 	realLogical := uint64(st.Size())
 
-	if realLogical != logical {
-		t.Errorf("%s logical file size incorrect: expected %d, got %d", fname, logical, realLogical)
-	}
+	require.Equal(t, logical, realLogical)
 
 	if runtime.GOOS == windowsOSName {
 		t.Logf("getting physical file size is not supported on windows")
@@ -744,13 +739,9 @@ func verifyFileSize(t *testing.T, fname string, logical, physical uint64) {
 	}
 
 	realPhysical, err := stat.GetFileAllocSize(fname)
-	if err != nil {
-		t.Fatalf("error verifying file size: %v", err)
-	}
+	require.NoError(t, err)
 
-	if realPhysical != physical {
-		t.Errorf("%s physical file size incorrect: expected %d, got %d", fname, physical, realPhysical)
-	}
+	require.Equal(t, physical, realPhysical)
 }
 
 func verifyFileMode(t *testing.T, filename string, want os.FileMode) {

@@ -36,7 +36,7 @@ type webdavFile struct {
 	r fs.Reader
 }
 
-func (f *webdavFile) Readdir(n int) ([]os.FileInfo, error) {
+func (f *webdavFile) Readdir(_ int) ([]os.FileInfo, error) {
 	return nil, errors.New("not a directory")
 }
 
@@ -80,7 +80,7 @@ func (f *webdavFile) Seek(offset int64, whence int) (int64, error) {
 	return r.Seek(offset, whence)
 }
 
-func (f *webdavFile) Write(b []byte) (int, error) {
+func (f *webdavFile) Write(_ []byte) (int, error) {
 	return 0, errors.New("read-only filesystem")
 }
 
@@ -145,7 +145,7 @@ func (d *webdavDir) Stat() (os.FileInfo, error) {
 	return webdavFileInfo{d.entry}, nil
 }
 
-func (d *webdavDir) Write(b []byte) (int, error) {
+func (d *webdavDir) Write(_ []byte) (int, error) {
 	return 0, errors.New("read-only filesystem")
 }
 
@@ -153,7 +153,7 @@ func (d *webdavDir) Close() error {
 	return nil
 }
 
-func (d *webdavDir) Read(b []byte) (int, error) {
+func (d *webdavDir) Read(_ []byte) (int, error) {
 	return 0, errors.New("not supported")
 }
 
@@ -169,7 +169,7 @@ type webdavFS struct {
 	dir fs.Directory
 }
 
-func (w *webdavFS) Mkdir(ctx context.Context, path string, mode os.FileMode) error {
+func (w *webdavFS) Mkdir(ctx context.Context, path string, _ os.FileMode) error {
 	return errors.Errorf("can't create %q: read-only filesystem", path)
 }
 
@@ -181,7 +181,7 @@ func (w *webdavFS) Rename(ctx context.Context, oldPath, newPath string) error {
 	return errors.Errorf("can't rename %q to %q: read-only filesystem", oldPath, newPath)
 }
 
-func (w *webdavFS) OpenFile(ctx context.Context, path string, flags int, mode os.FileMode) (webdav.File, error) {
+func (w *webdavFS) OpenFile(ctx context.Context, path string, _ int, _ os.FileMode) (webdav.File, error) {
 	f, err := w.findEntry(ctx, path)
 	if err != nil {
 		log(ctx).Errorf("OpenFile(%q) failed with %v", path, err)

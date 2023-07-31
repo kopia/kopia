@@ -89,6 +89,10 @@ func handlePolicyResolve(ctx context.Context, rc requestContext) (interface{}, *
 	resp.Effective, resp.Definition = policy.MergePolicies(policies, target)
 	resp.UpcomingSnapshotTimes = []time.Time{}
 
+	if err := policy.ValidateSchedulingPolicy(policies[0].SchedulingPolicy); err != nil {
+		resp.SchedulingError = err.Error()
+	}
+
 	now := clock.Now().Local()
 
 	for i := 0; i < req.NumUpcomingSnapshotTimes; i++ {

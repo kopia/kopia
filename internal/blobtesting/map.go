@@ -18,6 +18,7 @@ import (
 type DataMap map[blob.ID][]byte
 
 type mapStorage struct {
+	blob.UnsupportedBlobRetention
 	// +checklocks:mutex
 	data DataMap
 	// +checklocks:mutex

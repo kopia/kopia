@@ -151,7 +151,7 @@ func (fsd *filesystemDirectory) IterateEntries(ctx context.Context, cb func(cont
 	if direrr != nil {
 		return errors.Wrap(direrr, "unable to read directory")
 	}
-	defer f.Close() //nolint:errcheck,gosec
+	defer f.Close() //nolint:errcheck
 
 	childPrefix := fullPath + string(filepath.Separator)
 

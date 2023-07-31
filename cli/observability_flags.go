@@ -26,11 +26,12 @@ import (
 
 //nolint:gochecknoglobals
 var metricsPushFormats = map[string]expfmt.Format{
-	"text":          expfmt.FmtText,
-	"proto-text":    expfmt.FmtProtoText,
-	"proto-delim":   expfmt.FmtProtoDelim,
-	"proto-compact": expfmt.FmtProtoCompact,
-	"open-metrics":  expfmt.FmtOpenMetrics,
+	"text":               expfmt.FmtText,
+	"proto-text":         expfmt.FmtProtoText,
+	"proto-delim":        expfmt.FmtProtoDelim,
+	"proto-compact":      expfmt.FmtProtoCompact,
+	"open-metrics":       expfmt.FmtOpenMetrics_1_0_0,
+	"open-metrics-0.0.1": expfmt.FmtOpenMetrics_0_0_1,
 }
 
 type observabilityFlags struct {

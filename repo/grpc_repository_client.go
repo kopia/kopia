@@ -772,6 +772,8 @@ type grpcCreds struct {
 }
 
 func (c grpcCreds) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
+	_ = uri
+
 	return map[string]string{
 		"kopia-hostname":   c.hostname,
 		"kopia-username":   c.username,

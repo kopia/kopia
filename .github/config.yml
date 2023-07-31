@@ -1,0 +1,2 @@
+PR_TITLE_REGEX: /(feat|fix|breaking|build|chore|docs|style|refactor|test)\((app|cli|server|providers|deps|site|ci|infra|general)\): .*/
+COMMIT_MESSAGE_REGEX: /(feat|fix|breaking|build|chore|docs|style|refactor|test)\((app|cli|server|providers|deps|site|ci|infra|general)\): .*/

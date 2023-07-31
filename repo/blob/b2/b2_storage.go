@@ -26,6 +26,7 @@ const (
 
 type b2Storage struct {
 	Options
+	blob.UnsupportedBlobRetention
 
 	cli    *backblaze.B2
 	bucket *backblaze.Bucket
@@ -260,6 +261,8 @@ func (s *b2Storage) String() string {
 
 // New creates new B2-backed storage with specified options.
 func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error) {
+	_ = isCreate
+
 	if opt.BucketName == "" {
 		return nil, errors.New("bucket name must be specified")
 	}
