@@ -220,7 +220,6 @@ func tokenSourceFromCredentialsFile(ctx context.Context, fn string, scopes ...st
 	}
 	creds, err := google.CredentialsFromJSON(context.Background(), data, scopes...)
 	if err != nil {
-		fmt.Println("tokenSourceFromCredentialsFile error: ", err)
 		return nil, errors.Wrap(err, "google.CredentialsFromJSON")
 	}
 	return creds.TokenSource, nil
