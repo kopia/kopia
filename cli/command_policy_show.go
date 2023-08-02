@@ -301,6 +301,16 @@ func appendSchedulingPolicyRows(rows []policyTableRow, p *policy.Policy, def *po
 		hasAny = true
 	}
 
+	if len(p.SchedulingPolicy.Cron) > 0 {
+		rows = append(rows, policyTableRow{"  Crontab expressions:", "", definitionPointToString(p.Target(), def.SchedulingPolicy.Cron)})
+
+		for _, cron := range p.SchedulingPolicy.Cron {
+			rows = append(rows, policyTableRow{"    " + cron, "", ""})
+		}
+
+		hasAny = true
+	}
+
 	if !hasAny {
 		rows = append(rows, policyTableRow{"    None.", "", ""})
 	}

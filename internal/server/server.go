@@ -760,6 +760,7 @@ func (s *Server) isKnownUIRoute(path string) bool {
 	return strings.HasPrefix(path, "/snapshots") ||
 		strings.HasPrefix(path, "/policies") ||
 		strings.HasPrefix(path, "/tasks") ||
+		strings.HasPrefix(path, "/preferences") ||
 		strings.HasPrefix(path, "/repo")
 }
 
