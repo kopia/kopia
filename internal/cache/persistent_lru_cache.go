@@ -233,10 +233,12 @@ func (c *PersistentCache) Put(ctx context.Context, key string, data gather.Bytes
 		// snapshots/restores from getting affected by the cache's storage use.
 		if c.isCacheFullLocked() {
 			// Limit warnings to one per minute max.
-			if time.Now().Sub(c.lastCacheWarning) > time.Minute {
-				c.lastCacheWarning = time.Now()
+			if clock.Now().Sub(c.lastCacheWarning) > time.Minute {
+				c.lastCacheWarning = clock.Now()
+
 				log(ctx).Warnf("Cache is full, unable to add %v into cache.", key)
 			}
+
 			return
 		}
 	}
