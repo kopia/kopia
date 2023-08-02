@@ -218,14 +218,16 @@ func tokenSourceFromCredentialsFile(ctx context.Context, fn string, scopes ...st
 	if err != nil {
 		return nil, errors.Wrap(err, "error reading credentials file")
 	}
+
 	return tokenSourceFromCredentialsJSON(ctx, data, scopes...)
 }
 
 func tokenSourceFromCredentialsJSON(ctx context.Context, data json.RawMessage, scopes ...string) (oauth2.TokenSource, error) {
-	creds, err := google.CredentialsFromJSON(context.Background(), data, scopes...)
+	creds, err := google.CredentialsFromJSON(ctx, data, scopes...)
 	if err != nil {
 		return nil, errors.Wrap(err, "google.CredentialsFromJSON")
 	}
+
 	return creds.TokenSource, nil
 }
 
