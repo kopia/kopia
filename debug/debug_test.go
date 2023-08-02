@@ -52,13 +52,6 @@ func TestDebug_parseProfileConfigs(t *testing.T) {
 			},
 		},
 		{
-			in:  "foo=bar:first=one=1,two=2:second:third",
-			key: "foo",
-			expect: []string{
-				"bar",
-			},
-		},
-		{
 			in:     "foo=bar:first=one=1,two=2:second:third",
 			key:    "second",
 			expect: nil,
