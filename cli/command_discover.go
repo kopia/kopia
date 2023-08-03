@@ -75,7 +75,7 @@ func (c *commandDiscover) getContentToDiscover(ctx context.Context, dir string, 
 }
 
 func (c *commandDiscover) setupScanner(rep repo.RepositoryWriter) *snapshotfs.Scanner {
-	u := snapshotfs.NewScanner(rep)
+	u := snapshotfs.NewScanner()
 
 	return u
 }
