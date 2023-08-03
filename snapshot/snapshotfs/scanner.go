@@ -234,93 +234,6 @@ func (u *Scanner) copyWithProgress(dst io.Writer, src io.Reader) (int64, error) 
 	return written, nil
 }
 
-// newDirEntry makes DirEntry objects for any type of Entry.
-func newDirEntry(md fs.Entry, fname string, oid object.ID) (*snapshot.DirEntry, error) {
-	var entryType snapshot.EntryType
-
-	switch md := md.(type) {
-	case fs.Directory:
-		entryType = snapshot.EntryTypeDirectory
-	case fs.Symlink:
-		entryType = snapshot.EntryTypeSymlink
-	case fs.File, fs.StreamingFile:
-		entryType = snapshot.EntryTypeFile
-	default:
-		return nil, errors.Errorf("invalid entry type %T", md)
-	}
-
-	return &snapshot.DirEntry{
-		Name:        fname,
-		Type:        entryType,
-		Permissions: snapshot.Permissions(md.Mode() & fs.ModBits),
-		FileSize:    md.Size(),
-		ModTime:     fs.UTCTimestampFromTime(md.ModTime()),
-		UserID:      md.Owner().UserID,
-		GroupID:     md.Owner().GroupID,
-		ObjectID:    oid,
-	}, nil
-}
-
-// newCachedDirEntry makes DirEntry objects for entries that are also in
-// previous snapshots. It ensures file sizes are populated correctly for
-// StreamingFiles.
-func newCachedDirEntry(md, cached fs.Entry, fname string) (*snapshot.DirEntry, error) {
-	hoid, ok := cached.(object.HasObjectID)
-	if !ok {
-		return nil, errors.New("cached entry does not implement HasObjectID")
-	}
-
-	if _, ok := md.(fs.StreamingFile); ok {
-		return newDirEntry(cached, fname, hoid.ObjectID())
-	}
-
-	return newDirEntry(md, fname, hoid.ObjectID())
-}
-
-// checkpointRoot invokes checkpoints on the provided registry and if a checkpoint entry was generated,
-// saves it in an incomplete snapshot manifest.
-func (u *Scanner) checkpointRoot(ctx context.Context, cp *checkpointRegistry, prototypeManifest *snapshot.Manifest) error {
-	var dmbCheckpoint DirManifestBuilder
-	if err := cp.runCheckpoints(&dmbCheckpoint); err != nil {
-		return errors.Wrap(err, "running checkpointers")
-	}
-
-	checkpointManifest := dmbCheckpoint.Build(fs.UTCTimestampFromTime(u.repo.Time()), "dummy")
-	if len(checkpointManifest.Entries) == 0 {
-		// did not produce a checkpoint, that's ok
-		return nil
-	}
-
-	if len(checkpointManifest.Entries) > 1 {
-		return errors.Errorf("produced more than one checkpoint: %v", len(checkpointManifest.Entries))
-	}
-
-	rootEntry := checkpointManifest.Entries[0]
-
-	scannerLog(ctx).Debugf("checkpointed root %v", rootEntry.ObjectID)
-
-	man := *prototypeManifest
-	man.RootEntry = rootEntry
-	man.EndTime = fs.UTCTimestampFromTime(u.repo.Time())
-	man.StartTime = man.EndTime
-	man.IncompleteReason = IncompleteReasonCheckpoint
-	man.Tags = u.CheckpointLabels
-
-	if _, err := snapshot.SaveSnapshot(ctx, u.repo, &man); err != nil {
-		return errors.Wrap(err, "error saving checkpoint snapshot")
-	}
-
-	if _, err := policy.ApplyRetentionPolicy(ctx, u.repo, man.Source, true); err != nil {
-		return errors.Wrap(err, "unable to apply retention policy")
-	}
-
-	if err := u.repo.Flush(ctx); err != nil {
-		return errors.Wrap(err, "error flushing after checkpoint")
-	}
-
-	return nil
-}
-
 // uploadDirWithCheckpointing uploads the specified Directory to the repository.
 func (s *Scanner) uploadDirWithCheckpointing(ctx context.Context, rootDir fs.Directory, previousDirs []fs.Directory, sourceInfo snapshot.SourceInfo) error {
 	var dmb DirManifestBuilder
@@ -583,7 +496,7 @@ func (s *Scanner) uploadDirInternal(
 	localDirPathOrEmpty, dirRelativePath string,
 	thisDirBuilder *DirManifestBuilder,
 ) (resultErr error) {
-	atomic.AddInt32(&u.stats.TotalDirectoryCount, 1)
+	atomic.AddInt32(&s.stats.TotalDirectoryCount, 1)
 
 	if s.traceEnabled {
 		var span trace.Span
