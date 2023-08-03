@@ -630,7 +630,7 @@ func (u *Scanner) reportErrorAndMaybeCancel(err error, isIgnored bool, entryRela
 	}
 }
 
-// NewUploader creates new Scanner object for a given repository.
+// NewScanner creates new Scanner object for a given repository.
 func NewScanner() *Scanner {
 	return &Scanner{
 		Progress: &NullUploadProgress{},
@@ -642,9 +642,9 @@ func (u *Scanner) Cancel() {
 	u.isCanceled.Store(true)
 }
 
-// Upload uploads contents of the specified filesystem entry (file or directory) to the repository and returns snapshot.Manifest with statistics.
+// Scan uploads contents of the specified filesystem entry (file or directory) to the repository and returns snapshot.Manifest with statistics.
 // Old snapshot manifest, when provided can be used to speed up uploads by utilizing hash cache.
-func (s *Scanner) Upload(
+func (s *Scanner) Scan(
 	ctx context.Context,
 	source fs.Entry,
 	sourceInfo snapshot.SourceInfo,

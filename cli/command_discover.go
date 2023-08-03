@@ -40,7 +40,7 @@ func (c *commandDiscover) scanSingleSource(ctx context.Context, rep repo.Reposit
 
 	s := c.setupScanner(rep)
 
-	err = s.Upload(ctx, fsEntry, sourceInfo)
+	err = s.Scan(ctx, fsEntry, sourceInfo)
 	if err != nil {
 		// fail-fast uploads will fail here without recording a manifest, other uploads will
 		// possibly fail later.
