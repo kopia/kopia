@@ -55,7 +55,7 @@ func (c *commandSnapshotCreate) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("create", "Creates a snapshot of local directory or file.")
 
 	cmd.Arg("source", "Files or directories to create snapshot(s) of.").StringsVar(&c.snapshotCreateSources)
-	cmd.Flag("all", "Create snapshots for files or directories previously backed up by this user on this computer").BoolVar(&c.snapshotCreateAll)
+	cmd.Flag("all", "Create snapshots for files or directories previously backed up by this user on this computer. Cannot be used when a source path argument is also specified.").BoolVar(&c.snapshotCreateAll)
 	cmd.Flag("upload-limit-mb", "Stop the backup process after the specified amount of data (in MB) has been uploaded.").PlaceHolder("MB").Default("0").Int64Var(&c.snapshotCreateCheckpointUploadLimitMB)
 	cmd.Flag("checkpoint-interval", "Interval between periodic checkpoints (must be <= 45 minutes).").Hidden().DurationVar(&c.snapshotCreateCheckpointInterval)
 	cmd.Flag("description", "Free-form snapshot description.").StringVar(&c.snapshotCreateDescription)
@@ -88,6 +88,10 @@ func (c *commandSnapshotCreate) setup(svc appServices, parent commandParent) {
 //nolint:gocyclo
 func (c *commandSnapshotCreate) run(ctx context.Context, rep repo.RepositoryWriter) error {
 	sources := c.snapshotCreateSources
+
+	if c.snapshotCreateAll && len(sources) > 0 {
+		return errors.New("cannot use --all when a source path argument is specified")
+	}
 
 	if err := maybeAutoUpgradeRepository(ctx, rep); err != nil {
 		return errors.Wrap(err, "error upgrading repository")
