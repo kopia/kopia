@@ -462,7 +462,7 @@ func (s *Scanner) processSingle(
 	}
 }
 
-func (u *Scanner) processEntryScanResult(ctx context.Context, de *snapshot.DirEntry, err error, entryRelativePath string, bool, logDetail policy.LogDetail, logMessage string, t0 timetrack.Timer) error {
+func (u *Scanner) processEntryScanResult(ctx context.Context, de *snapshot.DirEntry, err error, entryRelativePath string, logDetail policy.LogDetail, logMessage string, t0 timetrack.Timer) error {
 	if err != nil {
 		u.reportErrorAndMaybeCancel(err, entryRelativePath)
 	}
