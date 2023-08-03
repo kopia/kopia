@@ -3,7 +3,6 @@ package snapshotfs
 import (
 	"context"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"path"
 	"path/filepath"
@@ -170,7 +169,7 @@ func (s *Scanner) updateStreamingFileStats(ctx context.Context, relativePath str
 		s.Progress.FinishedFile(relativePath, ret)
 	}()
 
-	written, err := s.copyWithProgress(ioutil.Discard, reader)
+	written, err := s.copyWithProgress(io.Discard, reader)
 	if err != nil {
 		return err
 	}
