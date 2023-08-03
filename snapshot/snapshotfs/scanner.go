@@ -12,11 +12,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
-	"go.uber.org/multierr"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/ignorefs"
@@ -154,79 +152,6 @@ func (u *Scanner) updateFileSummaryInternal(ctx context.Context, f fs.File) {
 	}
 
 	wg.Wait()
-}
-
-func (u *Scanner) uploadFileInternal(ctx context.Context, relativePath string, f fs.File, pol *policy.Policy) (dirEntry *snapshot.DirEntry, ret error) {
-	u.Progress.HashingFile(relativePath)
-
-	defer func() {
-		u.Progress.FinishedFile(relativePath, ret)
-	}()
-	defer u.Progress.FinishedHashingFile(relativePath, f.Size())
-
-	if pf, ok := f.(snapshot.HasDirEntryOrNil); ok {
-		switch de, err := pf.DirEntryOrNil(ctx); {
-		case err != nil:
-			return nil, errors.Wrap(err, "can't read placeholder")
-		case err == nil && de != nil:
-			// We have read sufficient information from the shallow file's extended
-			// attribute to construct DirEntry.
-			_, err := u.repo.VerifyObject(ctx, de.ObjectID)
-			if err != nil {
-				return nil, errors.Wrapf(err, "invalid placeholder for %q contains foreign object.ID", f.Name())
-			}
-
-			return de, nil
-		}
-	}
-
-	comp := pol.CompressionPolicy.CompressorForFile(f)
-
-	chunkSize := pol.UploadPolicy.ParallelUploadAboveSize.OrDefault(-1)
-	if chunkSize < 0 || f.Size() <= chunkSize {
-		// all data fits in 1 full chunks, upload directly
-		return u.uploadFileData(ctx, f, f.Name(), 0, -1, comp)
-	}
-
-	// we always have N+1 parts, first N are exactly chunkSize, last one has undetermined length
-	fullParts := f.Size() / chunkSize
-
-	// directory entries and errors for partial upload results
-	parts := make([]*snapshot.DirEntry, fullParts+1)
-	partErrors := make([]error, fullParts+1)
-
-	var wg workshare.AsyncGroup[*uploadWorkItem]
-	defer wg.Close()
-
-	for i := 0; i < len(parts); i++ {
-		i := i
-		offset := int64(i) * chunkSize
-
-		length := chunkSize
-		if i == len(parts)-1 {
-			// last part has unknown length to accommodate the file that may be growing as we're snapshotting it
-			length = -1
-		}
-
-		if wg.CanShareWork(u.workerPool) {
-			// another goroutine is available, delegate to them
-			wg.RunAsync(u.workerPool, func(c *workshare.Pool[*uploadWorkItem], request *uploadWorkItem) {
-				parts[i], partErrors[i] = u.uploadFileData(ctx, f, uuid.NewString(), offset, length, comp)
-			}, nil)
-		} else {
-			// just do the work in the current goroutine
-			parts[i], partErrors[i] = u.uploadFileData(ctx, f, uuid.NewString(), offset, length, comp)
-		}
-	}
-
-	wg.Wait()
-
-	// see if we got any errors
-	if err := multierr.Combine(partErrors...); err != nil {
-		return nil, errors.Wrap(err, "error uploading parts")
-	}
-
-	return concatenateParts(ctx, u.repo, f.Name(), parts)
 }
 
 func (u *Scanner) uploadSymlinkInternal(ctx context.Context, relativePath string, f fs.Symlink) (dirEntry *snapshot.DirEntry, ret error) {
@@ -727,10 +652,8 @@ func (u *Scanner) processSingle(
 			"snapshotted symlink", t0)
 
 	case fs.File:
-		atomic.AddInt32(&u.stats.NonCachedFiles, 1)
 
-		// de, err := u.uploadFileInternal(ctx, entryRelativePath, entry, policyTree.Child(entry.Name()).EffectivePolicy())
-		de, err := u.updateFileSummaryInternal(ctx, entry)
+		u.updateFileSummaryInternal(ctx, entry)
 
 		return u.processEntryScanResult(ctx, de, err, entryRelativePath,
 			policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreFileErrors.OrDefault(false),
@@ -906,7 +829,7 @@ func (s *Scanner) Upload(
 
 	case fs.File:
 		s.Progress.EstimatedDataSize(1, entry.Size())
-		_, err = s.uploadFileInternal(ctx, entry.Name(), entry, policyTree.EffectivePolicy())
+		s.updateFileSummaryInternal(ctx, entry)
 
 	default:
 		return errors.Errorf("unsupported source: %v", source)
