@@ -115,8 +115,8 @@ func TestLogFileRotation(t *testing.T) {
 
 	// expected number of files per directory
 	subdirs := map[string]int{
-		"cli-logs":     3,
-		"content-logs": 4,
+		"cli-logs":     4,
+		"content-logs": 5,
 	}
 
 	for subdir, wantEntryCount := range subdirs {
@@ -189,8 +189,8 @@ func TestLogFileMaxTotalSize(t *testing.T) {
 
 			env.RunAndExpectSuccess(t, "snap", "ls", "--file-log-level=debug", "--log-dir", tmpLogDir, fmt.Sprintf("%s=%v", flag, size1MB/2))
 			size2 := getTotalDirSize(t, logSubdir)
-			require.LessOrEqual(t, size1, size0/2)
-			require.LessOrEqual(t, size2, size1/2)
+			require.LessOrEqual(t, size1, size0/2+291)
+			require.LessOrEqual(t, size2, size1/2+291)
 			require.Greater(t, size2, size1/4)
 		})
 	}
@@ -237,4 +237,26 @@ func getTotalDirSize(t *testing.T, dir string) int {
 	}
 
 	return totalSize
+}
+
+func TestCacheFileExists(t *testing.T) {
+	t.Parallel()
+
+	runner := testenv.NewInProcRunner(t)
+	runner.CustomizeApp = logfile.Attach
+
+	env := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+
+	tmpLogDir := testutil.TempDirectory(t)
+	cacheTagName := "CACHEDIR.TAG"
+
+	env.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", env.RepoDir, "--log-dir", tmpLogDir)
+
+	if _, err := os.Stat(filepath.Join(tmpLogDir, "cli-logs", cacheTagName)); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := os.Stat(filepath.Join(tmpLogDir, "content-logs", cacheTagName)); err != nil {
+		t.Fatal(err)
+	}
 }
