@@ -16,6 +16,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/internal/workshare"
@@ -529,7 +530,8 @@ func (u *Scanner) reportErrorAndMaybeCancel(err error, entryRelativePath string)
 // NewScanner creates new Scanner object for a given repository.
 func NewScanner() *Scanner {
 	return &Scanner{
-		Progress: &NullUploadProgress{},
+		nowTimeFunc: clock.Now,
+		Progress:    &NullUploadProgress{},
 	}
 }
 
