@@ -23,7 +23,6 @@ import (
 	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/internal/workshare"
-	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
@@ -74,9 +73,6 @@ type Scanner struct {
 	// Number of files to hash and upload in parallel.
 	ParallelUploads int
 
-	// Enable snapshot actions
-	EnableActions bool
-
 	// override the directory log level and entry log verbosity.
 	OverrideDirLogDetail   *policy.LogDetail
 	OverrideEntryLogDetail *policy.LogDetail
@@ -96,8 +92,6 @@ type Scanner struct {
 	stats *sourceHistogram
 
 	isCanceled atomic.Bool
-
-	getTicker func(time.Duration) <-chan time.Time
 
 	// for testing only, when set will write to a given channel whenever checkpoint completes
 	checkpointFinished chan struct{}
@@ -465,12 +459,12 @@ func (u *Scanner) checkpointRoot(ctx context.Context, cp *checkpointRegistry, pr
 }
 
 // uploadDirWithCheckpointing uploads the specified Directory to the repository.
-func (u *Scanner) uploadDirWithCheckpointing(ctx context.Context, rootDir fs.Directory, policyTree *policy.Tree, previousDirs []fs.Directory, sourceInfo snapshot.SourceInfo) (*snapshot.DirEntry, error) {
+func (s *Scanner) uploadDirWithCheckpointing(ctx context.Context, rootDir fs.Directory, policyTree *policy.Tree, previousDirs []fs.Directory, sourceInfo snapshot.SourceInfo) error {
 	var dmb DirManifestBuilder
 
 	localDirPathOrEmpty := rootDir.LocalFilesystemPath()
 
-	return uploadDirInternal(ctx, u, rootDir, policyTree, previousDirs, localDirPathOrEmpty, ".", &dmb)
+	return s.uploadDirInternal(ctx, rootDir, policyTree, previousDirs, localDirPathOrEmpty, ".", &dmb)
 }
 
 type uploadWorkItem struct {
@@ -661,7 +655,6 @@ func (u *Scanner) processSingle(
 	ctx context.Context,
 	entry fs.Entry,
 	entryRelativePath string,
-	parentDirBuilder *DirManifestBuilder,
 	policyTree *policy.Tree,
 	prevDirs []fs.Directory,
 	localDirPathOrEmpty string,
@@ -686,7 +679,7 @@ func (u *Scanner) processSingle(
 				return errors.Wrap(err, "unable to create dir entry")
 			}
 
-			return u.processEntryUploadResult(ctx, cachedDirEntry, nil, entryRelativePath, parentDirBuilder,
+			return u.processEntryScanResult(ctx, cachedDirEntry, nil, entryRelativePath,
 				false,
 				u.OverrideEntryLogDetail.OrDefault(policyTree.EffectivePolicy().LoggingPolicy.Entries.CacheHit.OrDefault(policy.LogDetailNone)),
 				"cached", t0)
@@ -705,7 +698,7 @@ func (u *Scanner) processSingle(
 		childTree := policyTree.Child(entry.Name())
 		childPrevDirs := uniqueChildDirectories(ctx, prevDirs, entry.Name())
 
-		de, err := uploadDirInternal(ctx, u, entry, childTree, childPrevDirs, childLocalDirPathOrEmpty, entryRelativePath, childDirBuilder)
+		err := u.uploadDirInternal(ctx, entry, childTree, childPrevDirs, childLocalDirPathOrEmpty, entryRelativePath, childDirBuilder)
 		if errors.Is(err, errCanceled) {
 			return err
 		}
@@ -717,12 +710,10 @@ func (u *Scanner) processSingle(
 			var dre dirReadError
 			if errors.As(err, &dre) {
 				isIgnoredError := childTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreDirectoryErrors.OrDefault(false)
-				u.reportErrorAndMaybeCancel(dre.error, isIgnoredError, parentDirBuilder, entryRelativePath)
+				u.reportErrorAndMaybeCancel(dre.error, isIgnoredError, entryRelativePath)
 			} else {
 				return errors.Wrapf(err, "unable to process directory %q", entry.Name())
 			}
-		} else {
-			parentDirBuilder.AddEntry(de)
 		}
 
 		return nil
@@ -730,7 +721,7 @@ func (u *Scanner) processSingle(
 	case fs.Symlink:
 		de, err := u.uploadSymlinkInternal(ctx, entryRelativePath, entry)
 
-		return u.processEntryUploadResult(ctx, de, err, entryRelativePath, parentDirBuilder,
+		return u.processEntryScanResult(ctx, de, err, entryRelativePath,
 			policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreFileErrors.OrDefault(false),
 			u.OverrideEntryLogDetail.OrDefault(policyTree.EffectivePolicy().LoggingPolicy.Entries.Snapshotted.OrDefault(policy.LogDetailNone)),
 			"snapshotted symlink", t0)
@@ -741,7 +732,7 @@ func (u *Scanner) processSingle(
 		// de, err := u.uploadFileInternal(ctx, entryRelativePath, entry, policyTree.Child(entry.Name()).EffectivePolicy())
 		de, err := u.updateFileSummaryInternal(ctx, entry)
 
-		return u.processEntryUploadResult(ctx, de, err, entryRelativePath, parentDirBuilder,
+		return u.processEntryScanResult(ctx, de, err, entryRelativePath,
 			policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreFileErrors.OrDefault(false),
 			u.OverrideEntryLogDetail.OrDefault(policyTree.EffectivePolicy().LoggingPolicy.Entries.Snapshotted.OrDefault(policy.LogDetailNone)),
 			"snapshotted file", t0)
@@ -760,7 +751,7 @@ func (u *Scanner) processSingle(
 			prefix = "error"
 		}
 
-		return u.processEntryUploadResult(ctx, nil, entry.ErrorInfo(), entryRelativePath, parentDirBuilder,
+		return u.processEntryScanResult(ctx, nil, entry.ErrorInfo(), entryRelativePath,
 			isIgnoredError,
 			u.OverrideEntryLogDetail.OrDefault(policyTree.EffectivePolicy().LoggingPolicy.Entries.Snapshotted.OrDefault(policy.LogDetailNone)),
 			prefix, t0)
@@ -770,7 +761,7 @@ func (u *Scanner) processSingle(
 
 		de, err := u.uploadStreamingFileInternal(ctx, entryRelativePath, entry, policyTree.Child(entry.Name()).EffectivePolicy())
 
-		return u.processEntryUploadResult(ctx, de, err, entryRelativePath, parentDirBuilder,
+		return u.processEntryScanResult(ctx, de, err, entryRelativePath,
 			policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreFileErrors.OrDefault(false),
 			u.OverrideEntryLogDetail.OrDefault(policyTree.EffectivePolicy().LoggingPolicy.Entries.Snapshotted.OrDefault(policy.LogDetailNone)),
 			"snapshotted streaming file", t0)
@@ -780,11 +771,9 @@ func (u *Scanner) processSingle(
 	}
 }
 
-func (u *Scanner) processEntryUploadResult(ctx context.Context, de *snapshot.DirEntry, err error, entryRelativePath string, parentDirBuilder *DirManifestBuilder, isIgnored bool, logDetail policy.LogDetail, logMessage string, t0 timetrack.Timer) error {
+func (u *Scanner) processEntryScanResult(ctx context.Context, de *snapshot.DirEntry, err error, entryRelativePath string, isIgnored bool, logDetail policy.LogDetail, logMessage string, t0 timetrack.Timer) error {
 	if err != nil {
-		u.reportErrorAndMaybeCancel(err, isIgnored, parentDirBuilder, entryRelativePath)
-	} else {
-		parentDirBuilder.AddEntry(de)
+		u.reportErrorAndMaybeCancel(err, isIgnored, entryRelativePath)
 	}
 
 	maybeLogEntryProcessed(
@@ -795,9 +784,8 @@ func (u *Scanner) processEntryUploadResult(ctx context.Context, de *snapshot.Dir
 	return nil
 }
 
-func uploadDirInternal(
+func (s *Scanner) uploadDirInternal(
 	ctx context.Context,
-	u *Scanner,
 	directory fs.Directory,
 	policyTree *policy.Tree,
 	previousDirs []fs.Directory,
@@ -806,26 +794,26 @@ func uploadDirInternal(
 ) (resultErr error) {
 	atomic.AddInt32(&u.stats.TotalDirectoryCount, 1)
 
-	if u.traceEnabled {
+	if s.traceEnabled {
 		var span trace.Span
 
 		ctx, span = uploadTracer.Start(ctx, "ScanDir", trace.WithAttributes(attribute.String("dir", dirRelativePath)))
 		defer span.End()
 	}
 
-	u.Progress.StartedDirectory(dirRelativePath)
-	defer u.Progress.FinishedDirectory(dirRelativePath)
+	s.Progress.StartedDirectory(dirRelativePath)
+	defer s.Progress.FinishedDirectory(dirRelativePath)
 
 	// TOOD: support for shallow dirs
 
-	if err := u.processChildren(ctx, thisDirBuilder, localDirPathOrEmpty, dirRelativePath, directory, policyTree, uniqueDirectories(previousDirs)); err != nil && !errors.Is(err, errCanceled) {
+	if err := s.processChildren(ctx, thisDirBuilder, localDirPathOrEmpty, dirRelativePath, directory, policyTree, uniqueDirectories(previousDirs)); err != nil && !errors.Is(err, errCanceled) {
 		return err
 	}
 
 	return nil
 }
 
-func (u *Scanner) reportErrorAndMaybeCancel(err error, isIgnored bool, dmb *DirManifestBuilder, entryRelativePath string) {
+func (u *Scanner) reportErrorAndMaybeCancel(err error, isIgnored bool, entryRelativePath string) {
 	if u.IsCanceled() && errors.Is(err, errCanceled) {
 		// already canceled, do not report another.
 		return
@@ -839,7 +827,6 @@ func (u *Scanner) reportErrorAndMaybeCancel(err error, isIgnored bool, dmb *DirM
 
 	rc := rootCauseError(err)
 	u.Progress.Error(entryRelativePath, rc, isIgnored)
-	dmb.AddFailedEntry(entryRelativePath, isIgnored, rc)
 
 	if u.FailFast && !isIgnored {
 		u.Cancel()
@@ -847,12 +834,9 @@ func (u *Scanner) reportErrorAndMaybeCancel(err error, isIgnored bool, dmb *DirM
 }
 
 // NewUploader creates new Scanner object for a given repository.
-func NewScanner(r repo.RepositoryWriter) *Scanner {
+func NewScanner() *Scanner {
 	return &Scanner{
-		repo:          r,
-		Progress:      &NullUploadProgress{},
-		EnableActions: r.ClientOptions().EnableActions,
-		getTicker:     time.Tick,
+		Progress: &NullUploadProgress{},
 	}
 }
 
