@@ -882,9 +882,7 @@ func (u *Scanner) maybeOpenDirectoryFromManifest(ctx context.Context, man *snaps
 func (s *Scanner) Upload(
 	ctx context.Context,
 	source fs.Entry,
-	policyTree *policy.Tree,
 	sourceInfo snapshot.SourceInfo,
-	previousManifests ...*snapshot.Manifest,
 ) error {
 	ctx, span := uploadTracer.Start(ctx, "Scan")
 	defer span.End()
@@ -894,9 +892,10 @@ func (s *Scanner) Upload(
 	s.Progress.UploadStarted()
 	defer s.Progress.UploadFinished()
 
-	parallel := s.effectiveParallelFileReads(policyTree.EffectivePolicy())
+	// set default as 8
+	parallel := 8
 
-	scannerLog(ctx).Debugw("uploading", "source", sourceInfo, "previousManifests", len(previousManifests), "parallel", parallel)
+	scannerLog(ctx).Debugw("uploading", "source", sourceInfo, "parallel", parallel)
 
 	s.workerPool = workshare.NewPool[*uploadWorkItem](parallel - 1)
 	defer s.workerPool.Close()
