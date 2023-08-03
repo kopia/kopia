@@ -56,6 +56,10 @@ type sourceHistogram struct {
 	dirs       dirHistogram
 }
 
+type scanWorkItem struct {
+	err error
+}
+
 // Scanner supports efficient uploading files and directories to repository.
 type Scanner struct {
 	// TODO: we are repurposing the existing progress tracker at the moment,
@@ -96,7 +100,7 @@ type Scanner struct {
 	// disable snapshot size estimation
 	disableEstimation bool
 
-	workerPool *workshare.Pool[*uploadWorkItem]
+	workerPool *workshare.Pool[*scanWorkItem]
 
 	traceEnabled bool
 
@@ -240,7 +244,7 @@ func (u *Scanner) processChildren(
 	dir fs.Directory,
 	previousDirs []fs.Directory,
 ) error {
-	var wg workshare.AsyncGroup[*uploadWorkItem]
+	var wg workshare.AsyncGroup[*scanWorkItem]
 
 	// ensure we wait for all work items before returning
 	defer wg.Close()
@@ -300,7 +304,7 @@ func (u *Scanner) processDirectoryEntries(
 	dirRelativePath string,
 	dir fs.Directory,
 	prevDirs []fs.Directory,
-	wg *workshare.AsyncGroup[*uploadWorkItem],
+	wg *workshare.AsyncGroup[*scanWorkItem],
 ) error {
 	// processEntryError distinguishes an error thrown when attempting to read a directory.
 	type processEntryError struct {
@@ -315,9 +319,9 @@ func (u *Scanner) processDirectoryEntries(
 		entryRelativePath := path.Join(dirRelativePath, entry.Name())
 
 		if wg.CanShareWork(u.workerPool) {
-			wg.RunAsync(u.workerPool, func(c *workshare.Pool[*uploadWorkItem], wi *uploadWorkItem) {
+			wg.RunAsync(u.workerPool, func(c *workshare.Pool[*scanWorkItem], wi *scanWorkItem) {
 				wi.err = u.processSingle(ctx, entry, entryRelativePath, prevDirs, localDirPathOrEmpty)
-			}, &uploadWorkItem{})
+			}, &scanWorkItem{})
 		} else {
 			if err := u.processSingle(ctx, entry, entryRelativePath, prevDirs, localDirPathOrEmpty); err != nil {
 				return processEntryError{err}
@@ -533,8 +537,8 @@ func (u *Scanner) Cancel() {
 	u.isCanceled.Store(true)
 }
 
-// Scan uploads contents of the specified filesystem entry (file or directory) to the repository and returns snapshot.Manifest with statistics.
-// Old snapshot manifest, when provided can be used to speed up uploads by utilizing hash cache.
+// Scan scans the contents of the specified filesystem entry (file or
+// directory) and returns statistics.
 func (s *Scanner) Scan(
 	ctx context.Context,
 	source fs.Entry,
@@ -551,9 +555,9 @@ func (s *Scanner) Scan(
 	// set default as 8
 	parallel := 8
 
-	scannerLog(ctx).Debugw("uploading", "source", sourceInfo, "parallel", parallel)
+	scannerLog(ctx).Debugw("scanning", "source", sourceInfo, "parallel", parallel)
 
-	s.workerPool = workshare.NewPool[*uploadWorkItem](parallel - 1)
+	s.workerPool = workshare.NewPool[*scanWorkItem](parallel - 1)
 	defer s.workerPool.Close()
 
 	s.stats = &sourceHistogram{}
