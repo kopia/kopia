@@ -229,8 +229,8 @@ func (u *Scanner) copyWithProgress(dst io.Writer, src io.Reader) (int64, error) 
 	return written, nil
 }
 
-// uploadDirWithCheckpointing uploads the specified Directory to the repository.
-func (s *Scanner) uploadDirWithCheckpointing(ctx context.Context, rootDir fs.Directory, previousDirs []fs.Directory, sourceInfo snapshot.SourceInfo) error {
+// scanDirectory scans the specified Directory for stats
+func (s *Scanner) scanDirectory(ctx context.Context, rootDir fs.Directory, previousDirs []fs.Directory) error {
 	var dmb DirManifestBuilder
 
 	localDirPathOrEmpty := rootDir.LocalFilesystemPath()
@@ -379,6 +379,7 @@ func (s *Scanner) processSingle(
 	// note this function runs in parallel and updates 'u.stats', which must be done using atomic operations.
 	t0 := timetrack.StartTimer()
 
+	// TODO:
 	// if _, ok := entry.(fs.Directory); !ok {
 	// 	// See if we had this name during either of previous passes.
 	// 	if cachedEntry := s.maybeIgnoreCachedEntry(ctx, findCachedEntry(ctx, entryRelativePath, entry, prevDirs)); cachedEntry != nil {
@@ -542,7 +543,6 @@ func (u *Scanner) Cancel() {
 func (s *Scanner) Scan(
 	ctx context.Context,
 	source fs.Entry,
-	sourceInfo snapshot.SourceInfo,
 ) error {
 	ctx, span := uploadTracer.Start(ctx, "Scan")
 	defer span.End()
@@ -555,7 +555,7 @@ func (s *Scanner) Scan(
 	// set default as 8
 	parallel := 8
 
-	scannerLog(ctx).Debugw("scanning", "source", sourceInfo, "parallel", parallel)
+	scannerLog(ctx).Debugw("scanning", "source", "parallel", parallel)
 
 	s.workerPool = workshare.NewPool[*scanWorkItem](parallel - 1)
 	defer s.workerPool.Close()
@@ -569,7 +569,7 @@ func (s *Scanner) Scan(
 	switch entry := source.(type) {
 	case fs.Directory:
 		var previousDirs []fs.Directory
-		err = s.uploadDirWithCheckpointing(ctx, entry, previousDirs, sourceInfo)
+		err = s.scanDirectory(ctx, entry, previousDirs)
 
 	case fs.File:
 		s.Progress.EstimatedDataSize(1, entry.Size())
