@@ -3,6 +3,7 @@ package snapshotfs
 import (
 	"context"
 	"io"
+	"io/ioutil"
 	"math/rand"
 	"path"
 	"path/filepath"
@@ -136,7 +137,6 @@ func (u *Scanner) updateFileSummaryInternal(ctx context.Context, f fs.File) {
 		case size > 1024*1024*1024: // > 1GB
 			atomic.AddUint32(&u.summary.files.sizeOver1Gb, 1)
 		}
-
 	}
 
 	// this is a shared workpool
@@ -166,53 +166,46 @@ func (s *Scanner) updateSymlinkStats(ctx context.Context, relativePath string, f
 	return nil
 }
 
-func (u *Scanner) uploadStreamingFileInternal(ctx context.Context, relativePath string, f fs.StreamingFile, pol *policy.Policy) (dirEntry *snapshot.DirEntry, ret error) {
+func (u *Scanner) updateStreamingFileStats(ctx context.Context, relativePath string, f fs.StreamingFile) (ret error) {
 	reader, err := f.GetReader(ctx)
 	if err != nil {
-		return nil, errors.Wrap(err, "unable to get streaming file reader")
+		return errors.Wrap(err, "unable to get streaming file reader")
 	}
 
 	defer reader.Close() //nolint:errcheck
 
-	var streamSize int64
-
 	u.Progress.HashingFile(relativePath)
+	var streamSize int64
 
 	defer func() {
 		u.Progress.FinishedHashingFile(relativePath, streamSize)
 		u.Progress.FinishedFile(relativePath, ret)
 	}()
 
-	comp := pol.CompressionPolicy.CompressorForFile(f)
-	writer := u.repo.NewObjectWriter(ctx, object.WriterOptions{
-		Description: "STREAMFILE:" + f.Name(),
-		Compressor:  comp,
-	})
-
-	defer writer.Close() //nolint:errcheck
-
-	written, err := u.copyWithProgress(writer, reader)
+	written, err := u.copyWithProgress(ioutil.Discard, reader)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	r, err := writer.Result()
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to get result")
-	}
-
-	de, err := newDirEntry(f, f.Name(), r)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to create dir entry")
-	}
-
-	de.FileSize = written
 	streamSize = written
 
-	atomic.AddInt32(&u.stats.TotalFileCount, 1)
-	atomic.AddInt64(&u.stats.TotalFileSize, de.FileSize)
+	atomic.AddUint32(&u.stats.files.totalFiles, 1)
+	atomic.AddUint64(&u.stats.totalSize, uint64(streamSize))
 
-	return de, nil
+	switch {
+	case streamSize == 0:
+		atomic.AddUint32(&u.summary.files.size0Byte, 1)
+	case streamSize > 0 && streamSize <= 100*1024: // <= 100KB
+		atomic.AddUint32(&u.summary.files.size0bTo100Kb, 1)
+	case streamSize > 100*1024 && streamSize <= 100*1024*1024: // > 100KB and <= 100MB
+		atomic.AddUint32(&u.summary.files.size100KbTo100Mb, 1)
+	case streamSize > 100*1024*1024 && streamSize <= 1024*1024*1024: // > 100MB and <= 1GB
+		atomic.AddUint32(&u.summary.files.size100MbTo1Gb, 1)
+	case streamSize > 1024*1024*1024: // > 1GB
+		atomic.AddUint32(&u.summary.files.sizeOver1Gb, 1)
+	}
+
+	return nil
 }
 
 func (u *Scanner) copyWithProgress(dst io.Writer, src io.Reader) (int64, error) {
@@ -463,8 +456,27 @@ func (u *Scanner) processDirectoryEntries(
 	return dirReadError{err}
 }
 
+func (s *Scanner) findCachedEntry(ctx context.Context, entryRelativePath string, entry fs.Entry, prevDirs []fs.Directory) fs.Entry {
+	for _, e := range prevDirs {
+		if ent, err := e.Child(ctx, entry.Name()); err == nil {
+			switch entry.(type) {
+			case fs.StreamingFile:
+				if commonMetadataEquals(entry, ent) {
+					return ent
+				}
+			default:
+				if metadataEquals(entry, ent) {
+					return ent
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
 //nolint:funlen
-func (u *Scanner) processSingle(
+func (s *Scanner) processSingle(
 	ctx context.Context,
 	entry fs.Entry,
 	entryRelativePath string,
@@ -478,22 +490,22 @@ func (u *Scanner) processSingle(
 
 	if _, ok := entry.(fs.Directory); !ok {
 		// See if we had this name during either of previous passes.
-		if cachedEntry := u.maybeIgnoreCachedEntry(ctx, findCachedEntry(ctx, entryRelativePath, entry, prevDirs)); cachedEntry != nil {
-			atomic.AddInt32(&u.stats.CachedFiles, 1)
-			atomic.AddInt64(&u.stats.TotalFileSize, cachedEntry.Size())
-			u.Progress.CachedFile(entryRelativePath, cachedEntry.Size())
+		if cachedEntry := s.maybeIgnoreCachedEntry(ctx, findCachedEntry(ctx, entryRelativePath, entry, prevDirs)); cachedEntry != nil {
+			atomic.AddInt32(&s.stats.CachedFiles, 1)
+			atomic.AddInt64(&s.stats.TotalFileSize, cachedEntry.Size())
+			s.Progress.CachedFile(entryRelativePath, cachedEntry.Size())
 
 			cachedDirEntry, err := newCachedDirEntry(entry, cachedEntry, entry.Name())
 
-			u.Progress.FinishedFile(entryRelativePath, err)
+			s.Progress.FinishedFile(entryRelativePath, err)
 
 			if err != nil {
 				return errors.Wrap(err, "unable to create dir entry")
 			}
 
-			return u.processEntryScanResult(ctx, cachedDirEntry, nil, entryRelativePath,
+			return s.processEntryScanResult(ctx, cachedDirEntry, nil, entryRelativePath,
 				false,
-				u.OverrideEntryLogDetail.OrDefault(policy.LogDetailNormal),
+				s.OverrideEntryLogDetail.OrDefault(policy.LogDetailNormal),
 				"cached", t0)
 		}
 	}
@@ -509,7 +521,7 @@ func (u *Scanner) processSingle(
 
 		childPrevDirs := uniqueChildDirectories(ctx, prevDirs, entry.Name())
 
-		err := u.uploadDirInternal(ctx, entry, childPrevDirs, childLocalDirPathOrEmpty, entryRelativePath, childDirBuilder)
+		err := s.uploadDirInternal(ctx, entry, childPrevDirs, childLocalDirPathOrEmpty, entryRelativePath, childDirBuilder)
 		if errors.Is(err, errCanceled) {
 			return err
 		}
@@ -520,7 +532,7 @@ func (u *Scanner) processSingle(
 			// otherwise a meaningless, empty snapshot is created that can't be restored.
 			var dre dirReadError
 			if errors.As(err, &dre) {
-				u.reportErrorAndMaybeCancel(dre.error, false, entryRelativePath)
+				s.reportErrorAndMaybeCancel(dre.error, false, entryRelativePath)
 			} else {
 				return errors.Wrapf(err, "unable to process directory %q", entry.Name())
 			}
@@ -529,15 +541,14 @@ func (u *Scanner) processSingle(
 		return nil
 
 	case fs.Symlink:
-		return u.updateSymlinkStats(ctx, entryRelativePath, entry)
+		return s.updateSymlinkStats(ctx, entryRelativePath, entry)
 
 	case fs.File:
+		s.updateFileSummaryInternal(ctx, entry)
 
-		u.updateFileSummaryInternal(ctx, entry)
-
-		return u.processEntryScanResult(ctx, de, err, entryRelativePath,
+		return s.processEntryScanResult(ctx, nil, nil, entryRelativePath,
 			false,
-			u.OverrideEntryLogDetail.OrDefault(policy.LogDetailNormal),
+			s.OverrideEntryLogDetail.OrDefault(policy.LogDetailNormal),
 			"snapshotted file", t0)
 
 	case fs.ErrorEntry:
@@ -549,19 +560,17 @@ func (u *Scanner) processSingle(
 			prefix = "error"
 		}
 
-		return u.processEntryScanResult(ctx, nil, entry.ErrorInfo(), entryRelativePath,
+		return s.processEntryScanResult(ctx, nil, entry.ErrorInfo(), entryRelativePath,
 			false,
-			u.OverrideEntryLogDetail.OrDefault(policy.LogDetailNormal),
+			s.OverrideEntryLogDetail.OrDefault(policy.LogDetailNormal),
 			prefix, t0)
 
 	case fs.StreamingFile:
-		atomic.AddInt32(&u.stats.NonCachedFiles, 1)
+		err := s.updateStreamingFileStats(ctx, entryRelativePath, entry)
 
-		de, err := u.uploadStreamingFileInternal(ctx, entryRelativePath, entry)
-
-		return u.processEntryScanResult(ctx, de, err, entryRelativePath,
+		return s.processEntryScanResult(ctx, nil, err, entryRelativePath,
 			false,
-			u.OverrideEntryLogDetail.OrDefault(policy.LogDetailNormal),
+			s.OverrideEntryLogDetail.OrDefault(policy.LogDetailNormal),
 			"snapshotted streaming file", t0)
 
 	default:
@@ -574,10 +583,12 @@ func (u *Scanner) processEntryScanResult(ctx context.Context, de *snapshot.DirEn
 		u.reportErrorAndMaybeCancel(err, isIgnored, entryRelativePath)
 	}
 
-	maybeLogEntryProcessed(
-		scannerLog(ctx),
-		logDetail,
-		logMessage, entryRelativePath, de, err, t0)
+	if de != nil {
+		maybeLogEntryProcessed(
+			scannerLog(ctx),
+			logDetail,
+			logMessage, entryRelativePath, de, err, t0)
+	}
 
 	return nil
 }
