@@ -30,31 +30,31 @@ var (
 	scannerLog = logging.Module("scanner")
 )
 
-type fileHistogram struct {
-	totalSymlink     uint32
-	totalFiles       uint32
-	size0Byte        uint32
-	size0bTo100Kb    uint32
-	size100KbTo100Mb uint32
-	size100MbTo1Gb   uint32
-	sizeOver1Gb      uint32
+type FileHistogram struct {
+	TotalSymlink     uint32
+	TotalFiles       uint32
+	Size0Byte        uint32
+	Size0bTo100Kb    uint32
+	Size100KbTo100Mb uint32
+	Size100MbTo1Gb   uint32
+	SizeOver1Gb      uint32
 }
 
-type dirHistogram struct {
-	totalDirs             uint32
-	numEntries0           uint32
-	numEntries0to100      uint32
-	numEntries100to1000   uint32
-	numEntries1000to10000 uint32
-	numEntries10000to1mil uint32
-	numEntriesOver1mil    uint32
+type DirHistogram struct {
+	TotalDirs             uint32
+	NumEntries0           uint32
+	NumEntries0to100      uint32
+	NumEntries100to1000   uint32
+	NumEntries1000to10000 uint32
+	NumEntries10000to1mil uint32
+	NumEntriesOver1mil    uint32
 }
 
-type sourceHistogram struct {
-	totalSize  uint64
-	errorCount uint32
-	files      fileHistogram
-	dirs       dirHistogram
+type SourceHistogram struct {
+	TotalSize  uint64
+	ErrorCount uint32
+	Files      FileHistogram
+	Dirs       DirHistogram
 }
 
 type scanWorkItem struct {
@@ -91,7 +91,7 @@ type Scanner struct {
 	nowTimeFunc func() time.Time
 
 	// stats must be allocated on heap to enforce 64-bit alignment due to atomic access on ARM.
-	stats *sourceHistogram
+	stats *SourceHistogram
 
 	isCanceled atomic.Bool
 
@@ -106,7 +106,7 @@ type Scanner struct {
 	traceEnabled bool
 
 	summaryMtx sync.Mutex
-	summary    sourceHistogram
+	summary    SourceHistogram
 }
 
 // IsCanceled returns true if the upload is canceled.
@@ -123,24 +123,24 @@ func (u *Scanner) incompleteReason() string {
 }
 
 func (s *Scanner) addAllFileStats(size int64) {
-	atomic.AddUint64(&s.stats.totalSize, uint64(size))
+	atomic.AddUint64(&s.stats.TotalSize, uint64(size))
 
 	switch {
 	case size == 0:
-		atomic.AddUint32(&s.summary.files.size0Byte, 1)
+		atomic.AddUint32(&s.summary.Files.Size0Byte, 1)
 	case size > 0 && size <= 100*1024: // <= 100KB
-		atomic.AddUint32(&s.summary.files.size0bTo100Kb, 1)
+		atomic.AddUint32(&s.summary.Files.Size0bTo100Kb, 1)
 	case size > 100*1024 && size <= 100*1024*1024: // > 100KB and <= 100MB
-		atomic.AddUint32(&s.summary.files.size100KbTo100Mb, 1)
+		atomic.AddUint32(&s.summary.Files.Size100KbTo100Mb, 1)
 	case size > 100*1024*1024 && size <= 1024*1024*1024: // > 100MB and <= 1GB
-		atomic.AddUint32(&s.summary.files.size100MbTo1Gb, 1)
+		atomic.AddUint32(&s.summary.Files.Size100MbTo1Gb, 1)
 	case size > 1024*1024*1024: // > 1GB
-		atomic.AddUint32(&s.summary.files.sizeOver1Gb, 1)
+		atomic.AddUint32(&s.summary.Files.SizeOver1Gb, 1)
 	}
 }
 
 func (s *Scanner) updateFileSummaryInternal(ctx context.Context, f fs.File) {
-	atomic.AddUint32(&s.summary.files.totalFiles, 1)
+	atomic.AddUint32(&s.summary.Files.TotalFiles, 1)
 	s.addAllFileStats(f.Size())
 }
 
@@ -152,7 +152,7 @@ func (s *Scanner) updateSymlinkStats(ctx context.Context, relativePath string, f
 	}()
 	defer s.Progress.FinishedHashingFile(relativePath, f.Size())
 
-	atomic.AddUint32(&s.stats.files.totalSymlink, 1)
+	atomic.AddUint32(&s.stats.Files.TotalSymlink, 1)
 	s.addAllFileStats(f.Size())
 
 	return nil
@@ -181,7 +181,7 @@ func (s *Scanner) updateStreamingFileStats(ctx context.Context, relativePath str
 
 	streamSize = written
 
-	atomic.AddUint32(&s.stats.files.totalFiles, 1)
+	atomic.AddUint32(&s.stats.Files.TotalFiles, 1)
 	s.addAllFileStats(streamSize)
 
 	return nil
@@ -490,7 +490,7 @@ func (s *Scanner) uploadDirInternal(
 	localDirPathOrEmpty, dirRelativePath string,
 	thisDirBuilder *DirManifestBuilder,
 ) (resultErr error) {
-	atomic.AddUint32(&s.stats.dirs.totalDirs, 1)
+	atomic.AddUint32(&s.stats.Dirs.TotalDirs, 1)
 
 	if s.traceEnabled {
 		var span trace.Span
@@ -517,7 +517,7 @@ func (u *Scanner) reportErrorAndMaybeCancel(err error, entryRelativePath string)
 		return
 	}
 
-	atomic.AddUint32(&u.stats.errorCount, 1)
+	atomic.AddUint32(&u.stats.ErrorCount, 1)
 
 	rc := rootCauseError(err)
 	u.Progress.Error(entryRelativePath, rc, false)
@@ -562,7 +562,7 @@ func (s *Scanner) Scan(
 	s.workerPool = workshare.NewPool[*scanWorkItem](parallel - 1)
 	defer s.workerPool.Close()
 
-	s.stats = &sourceHistogram{}
+	s.stats = &SourceHistogram{}
 
 	var err error
 
