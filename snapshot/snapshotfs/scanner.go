@@ -2,6 +2,7 @@ package snapshotfs
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"math/rand"
 	"path"
@@ -585,8 +586,17 @@ func (s *Scanner) Scan(
 	}
 
 	endTime := fs.UTCTimestampFromTime(s.nowTimeFunc())
-	scannerLog(ctx).Infof("Reason: %s, Time Taken: %s, Summary: %#v",
-		s.incompleteReason(), endTime.Sub(startTime), s.stats)
+	scannerLog(ctx).Infof("Reason: %s, Time Taken: %s", s.incompleteReason(), endTime.Sub(startTime))
+	s.dumpStats(ctx)
 
 	return nil
+}
+
+func (s *Scanner) dumpStats(ctx context.Context) {
+	d, err := json.Marshal(s.stats)
+	if err != nil {
+		scannerLog(ctx).Panicln("failed to marshal stats to json", err)
+	}
+
+	scannerLog(ctx).Infof("\n\nSummary:\n\n%s", string(d))
 }
