@@ -51,9 +51,10 @@ type dirHistogram struct {
 }
 
 type sourceHistogram struct {
-	totalSize uint64
-	files     fileHistogram
-	dirs      dirHistogram
+	totalSize  uint64
+	errorCount uint32
+	files      fileHistogram
+	dirs       dirHistogram
 }
 
 // Scanner supports efficient uploading files and directories to repository.
@@ -117,22 +118,26 @@ func (u *Scanner) incompleteReason() string {
 	return ""
 }
 
-func (u *Scanner) updateFileSummaryInternal(ctx context.Context, f fs.File) {
-	atomic.AddUint32(&u.summary.files.totalFiles, 1)
+func (s *Scanner) addAllFileStats(size int64) {
+	atomic.AddUint64(&s.stats.totalSize, uint64(size))
 
-	size := f.Size()
 	switch {
 	case size == 0:
-		atomic.AddUint32(&u.summary.files.size0Byte, 1)
+		atomic.AddUint32(&s.summary.files.size0Byte, 1)
 	case size > 0 && size <= 100*1024: // <= 100KB
-		atomic.AddUint32(&u.summary.files.size0bTo100Kb, 1)
+		atomic.AddUint32(&s.summary.files.size0bTo100Kb, 1)
 	case size > 100*1024 && size <= 100*1024*1024: // > 100KB and <= 100MB
-		atomic.AddUint32(&u.summary.files.size100KbTo100Mb, 1)
+		atomic.AddUint32(&s.summary.files.size100KbTo100Mb, 1)
 	case size > 100*1024*1024 && size <= 1024*1024*1024: // > 100MB and <= 1GB
-		atomic.AddUint32(&u.summary.files.size100MbTo1Gb, 1)
+		atomic.AddUint32(&s.summary.files.size100MbTo1Gb, 1)
 	case size > 1024*1024*1024: // > 1GB
-		atomic.AddUint32(&u.summary.files.sizeOver1Gb, 1)
+		atomic.AddUint32(&s.summary.files.sizeOver1Gb, 1)
 	}
+}
+
+func (s *Scanner) updateFileSummaryInternal(ctx context.Context, f fs.File) {
+	atomic.AddUint32(&s.summary.files.totalFiles, 1)
+	s.addAllFileStats(f.Size())
 }
 
 func (s *Scanner) updateSymlinkStats(ctx context.Context, relativePath string, f fs.Symlink) (ret error) {
@@ -144,12 +149,12 @@ func (s *Scanner) updateSymlinkStats(ctx context.Context, relativePath string, f
 	defer s.Progress.FinishedHashingFile(relativePath, f.Size())
 
 	atomic.AddUint32(&s.stats.files.totalSymlink, 1)
-	atomic.AddUint64(&s.stats.totalSize, uint64(f.Size()))
+	s.addAllFileStats(f.Size())
 
 	return nil
 }
 
-func (u *Scanner) updateStreamingFileStats(ctx context.Context, relativePath string, f fs.StreamingFile) (ret error) {
+func (s *Scanner) updateStreamingFileStats(ctx context.Context, relativePath string, f fs.StreamingFile) (ret error) {
 	reader, err := f.GetReader(ctx)
 	if err != nil {
 		return errors.Wrap(err, "unable to get streaming file reader")
@@ -157,36 +162,23 @@ func (u *Scanner) updateStreamingFileStats(ctx context.Context, relativePath str
 
 	defer reader.Close() //nolint:errcheck
 
-	u.Progress.HashingFile(relativePath)
+	s.Progress.HashingFile(relativePath)
 	var streamSize int64
 
 	defer func() {
-		u.Progress.FinishedHashingFile(relativePath, streamSize)
-		u.Progress.FinishedFile(relativePath, ret)
+		s.Progress.FinishedHashingFile(relativePath, streamSize)
+		s.Progress.FinishedFile(relativePath, ret)
 	}()
 
-	written, err := u.copyWithProgress(ioutil.Discard, reader)
+	written, err := s.copyWithProgress(ioutil.Discard, reader)
 	if err != nil {
 		return err
 	}
 
 	streamSize = written
 
-	atomic.AddUint32(&u.stats.files.totalFiles, 1)
-	atomic.AddUint64(&u.stats.totalSize, uint64(streamSize))
-
-	switch {
-	case streamSize == 0:
-		atomic.AddUint32(&u.summary.files.size0Byte, 1)
-	case streamSize > 0 && streamSize <= 100*1024: // <= 100KB
-		atomic.AddUint32(&u.summary.files.size0bTo100Kb, 1)
-	case streamSize > 100*1024 && streamSize <= 100*1024*1024: // > 100KB and <= 100MB
-		atomic.AddUint32(&u.summary.files.size100KbTo100Mb, 1)
-	case streamSize > 100*1024*1024 && streamSize <= 1024*1024*1024: // > 100MB and <= 1GB
-		atomic.AddUint32(&u.summary.files.size100MbTo1Gb, 1)
-	case streamSize > 1024*1024*1024: // > 1GB
-		atomic.AddUint32(&u.summary.files.sizeOver1Gb, 1)
-	}
+	atomic.AddUint32(&s.stats.files.totalFiles, 1)
+	s.addAllFileStats(streamSize)
 
 	return nil
 }
@@ -387,8 +379,9 @@ func (s *Scanner) processSingle(
 	if _, ok := entry.(fs.Directory); !ok {
 		// See if we had this name during either of previous passes.
 		if cachedEntry := s.maybeIgnoreCachedEntry(ctx, findCachedEntry(ctx, entryRelativePath, entry, prevDirs)); cachedEntry != nil {
-			atomic.AddInt32(&s.stats.CachedFiles, 1)
-			atomic.AddInt64(&s.stats.TotalFileSize, cachedEntry.Size())
+			atomic.AddUint32(&s.stats.files.totalFiles, 1)
+			s.addAllFileStats(cachedEntry.Size())
+
 			s.Progress.CachedFile(entryRelativePath, cachedEntry.Size())
 
 			cachedDirEntry, err := newCachedDirEntry(entry, cachedEntry, entry.Name())
@@ -400,7 +393,6 @@ func (s *Scanner) processSingle(
 			}
 
 			return s.processEntryScanResult(ctx, cachedDirEntry, nil, entryRelativePath,
-				false,
 				s.OverrideEntryLogDetail.OrDefault(policy.LogDetailNormal),
 				"cached", t0)
 		}
@@ -428,7 +420,7 @@ func (s *Scanner) processSingle(
 			// otherwise a meaningless, empty snapshot is created that can't be restored.
 			var dre dirReadError
 			if errors.As(err, &dre) {
-				s.reportErrorAndMaybeCancel(dre.error, false, entryRelativePath)
+				s.reportErrorAndMaybeCancel(dre.error, entryRelativePath)
 			} else {
 				return errors.Wrapf(err, "unable to process directory %q", entry.Name())
 			}
@@ -443,7 +435,6 @@ func (s *Scanner) processSingle(
 		s.updateFileSummaryInternal(ctx, entry)
 
 		return s.processEntryScanResult(ctx, nil, nil, entryRelativePath,
-			false,
 			s.OverrideEntryLogDetail.OrDefault(policy.LogDetailNormal),
 			"snapshotted file", t0)
 
@@ -457,7 +448,6 @@ func (s *Scanner) processSingle(
 		}
 
 		return s.processEntryScanResult(ctx, nil, entry.ErrorInfo(), entryRelativePath,
-			false,
 			s.OverrideEntryLogDetail.OrDefault(policy.LogDetailNormal),
 			prefix, t0)
 
@@ -465,7 +455,6 @@ func (s *Scanner) processSingle(
 		err := s.updateStreamingFileStats(ctx, entryRelativePath, entry)
 
 		return s.processEntryScanResult(ctx, nil, err, entryRelativePath,
-			false,
 			s.OverrideEntryLogDetail.OrDefault(policy.LogDetailNormal),
 			"snapshotted streaming file", t0)
 
@@ -474,9 +463,9 @@ func (s *Scanner) processSingle(
 	}
 }
 
-func (u *Scanner) processEntryScanResult(ctx context.Context, de *snapshot.DirEntry, err error, entryRelativePath string, isIgnored bool, logDetail policy.LogDetail, logMessage string, t0 timetrack.Timer) error {
+func (u *Scanner) processEntryScanResult(ctx context.Context, de *snapshot.DirEntry, err error, entryRelativePath string, bool, logDetail policy.LogDetail, logMessage string, t0 timetrack.Timer) error {
 	if err != nil {
-		u.reportErrorAndMaybeCancel(err, isIgnored, entryRelativePath)
+		u.reportErrorAndMaybeCancel(err, entryRelativePath)
 	}
 
 	if de != nil {
@@ -496,7 +485,7 @@ func (s *Scanner) uploadDirInternal(
 	localDirPathOrEmpty, dirRelativePath string,
 	thisDirBuilder *DirManifestBuilder,
 ) (resultErr error) {
-	atomic.AddInt32(&s.stats.TotalDirectoryCount, 1)
+	atomic.AddUint32(&s.stats.dirs.totalDirs, 1)
 
 	if s.traceEnabled {
 		var span trace.Span
@@ -510,29 +499,25 @@ func (s *Scanner) uploadDirInternal(
 
 	// TOOD: support for shallow dirs
 
-	if err := s.processChildren(ctx, thisDirBuilder, localDirPathOrEmpty, dirRelativePath, directory, uniqueDirectories(previousDirs)); err != nil && !errors.Is(err, errCanceled) {
+	if err := s.processChildren(ctx, localDirPathOrEmpty, dirRelativePath, directory, uniqueDirectories(previousDirs)); err != nil && !errors.Is(err, errCanceled) {
 		return err
 	}
 
 	return nil
 }
 
-func (u *Scanner) reportErrorAndMaybeCancel(err error, isIgnored bool, entryRelativePath string) {
+func (u *Scanner) reportErrorAndMaybeCancel(err error, entryRelativePath string) {
 	if u.IsCanceled() && errors.Is(err, errCanceled) {
 		// already canceled, do not report another.
 		return
 	}
 
-	if isIgnored {
-		atomic.AddInt32(&u.stats.IgnoredErrorCount, 1)
-	} else {
-		atomic.AddInt32(&u.stats.ErrorCount, 1)
-	}
+	atomic.AddUint32(&u.stats.errorCount, 1)
 
 	rc := rootCauseError(err)
-	u.Progress.Error(entryRelativePath, rc, isIgnored)
+	u.Progress.Error(entryRelativePath, rc, false)
 
-	if u.FailFast && !isIgnored {
+	if u.FailFast {
 		u.Cancel()
 	}
 }
