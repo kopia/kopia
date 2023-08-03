@@ -5,7 +5,6 @@ import (
 	"context"
 	"io"
 	"math/rand"
-	"os"
 	"path"
 	"path/filepath"
 	"runtime"
@@ -63,8 +62,6 @@ type sourceHistogram struct {
 
 // Scanner supports efficient uploading files and directories to repository.
 type Scanner struct {
-	totalWrittenBytes atomic.Int64
-
 	// TODO: we are repurposing the existing progress tracker at the moment,
 	// but maybe we should rename the UploadProgress to ScanProgress
 	Progress UploadProgress
@@ -93,7 +90,7 @@ type Scanner struct {
 	// Labels to apply to every checkpoint made for this snapshot.
 	CheckpointLabels map[string]string
 
-	repo repo.RepositoryWriter
+	nowTimeFunc func() time.Time
 
 	// stats must be allocated on heap to enforce 64-bit alignment due to atomic access on ARM.
 	stats *sourceHistogram
@@ -124,11 +121,6 @@ func (u *Scanner) IsCanceled() bool {
 func (u *Scanner) incompleteReason() string {
 	if c := u.isCanceled.Load(); c {
 		return IncompleteReasonCanceled
-	}
-
-	wb := u.totalWrittenBytes.Load()
-	if mub := u.MaxUploadBytes; mub > 0 && wb > mub {
-		return IncompleteReasonLimitReached
 	}
 
 	return ""
@@ -347,7 +339,6 @@ func (u *Scanner) copyWithProgress(dst io.Writer, src io.Reader) (int64, error) 
 			wroteBytes, writeErr := dst.Write(uploadBuf[0:readBytes])
 			if wroteBytes > 0 {
 				written += int64(wroteBytes)
-				u.totalWrittenBytes.Add(int64(wroteBytes))
 				u.Progress.HashedBytes(int64(wroteBytes))
 			}
 
@@ -492,48 +483,12 @@ func (u *Scanner) checkpointRoot(ctx context.Context, cp *checkpointRegistry, pr
 	return nil
 }
 
-// periodicallyCheckpoint periodically (every CheckpointInterval) invokes checkpointRoot until the
-// returned cancellation function has been called.
-func (u *Scanner) periodicallyCheckpoint(ctx context.Context, cp *checkpointRegistry, prototypeManifest *snapshot.Manifest) (cancelFunc func()) {
-	shutdown := make(chan struct{})
-	ch := u.getTicker(u.CheckpointInterval)
-
-	go func() {
-		for {
-			select {
-			case <-shutdown:
-				return
-
-			case <-ch:
-				if err := u.checkpointRoot(ctx, cp, prototypeManifest); err != nil {
-					scannerLog(ctx).Errorf("error checkpointing: %v", err)
-					u.Cancel()
-
-					return
-				}
-
-				// test action
-				if u.checkpointFinished != nil {
-					u.checkpointFinished <- struct{}{}
-				}
-			}
-		}
-	}()
-
-	return func() {
-		close(shutdown)
-	}
-}
-
 // uploadDirWithCheckpointing uploads the specified Directory to the repository.
 func (u *Scanner) uploadDirWithCheckpointing(ctx context.Context, rootDir fs.Directory, policyTree *policy.Tree, previousDirs []fs.Directory, sourceInfo snapshot.SourceInfo) (*snapshot.DirEntry, error) {
 	var (
 		dmb DirManifestBuilder
 		cp  checkpointRegistry
 	)
-
-	cancelCheckpointer := u.periodicallyCheckpoint(ctx, &cp, &snapshot.Manifest{Source: sourceInfo})
-	defer cancelCheckpointer()
 
 	var hc actionContext
 
@@ -555,23 +510,6 @@ func (u *Scanner) uploadDirWithCheckpointing(ctx context.Context, rootDir fs.Dir
 
 type uploadWorkItem struct {
 	err error
-}
-
-func rootCauseError(err error) error {
-	var dre dirReadError
-
-	if errors.As(err, &dre) {
-		return rootCauseError(dre.error)
-	}
-
-	err = errors.Cause(err)
-
-	var oserr *os.PathError
-	if errors.As(err, &oserr) {
-		err = oserr.Err
-	}
-
-	return err
 }
 
 func isDir(e *snapshot.DirEntry) bool {
@@ -1010,11 +948,10 @@ func (u *Scanner) reportErrorAndMaybeCancel(err error, isIgnored bool, dmb *DirM
 // NewUploader creates new Scanner object for a given repository.
 func NewScanner(r repo.RepositoryWriter) *Scanner {
 	return &Scanner{
-		repo:               r,
-		Progress:           &NullUploadProgress{},
-		EnableActions:      r.ClientOptions().EnableActions,
-		CheckpointInterval: DefaultCheckpointInterval,
-		getTicker:          time.Tick,
+		repo:          r,
+		Progress:      &NullUploadProgress{},
+		EnableActions: r.ClientOptions().EnableActions,
+		getTicker:     time.Tick,
 	}
 }
 
@@ -1041,7 +978,7 @@ func (u *Scanner) maybeOpenDirectoryFromManifest(ctx context.Context, man *snaps
 
 // Upload uploads contents of the specified filesystem entry (file or directory) to the repository and returns snapshot.Manifest with statistics.
 // Old snapshot manifest, when provided can be used to speed up uploads by utilizing hash cache.
-func (u *Scanner) Upload(
+func (s *Scanner) Upload(
 	ctx context.Context,
 	source fs.Entry,
 	policyTree *policy.Tree,
@@ -1051,52 +988,53 @@ func (u *Scanner) Upload(
 	ctx, span := uploadTracer.Start(ctx, "Scan")
 	defer span.End()
 
-	u.traceEnabled = span.IsRecording()
+	s.traceEnabled = span.IsRecording()
 
-	u.Progress.UploadStarted()
-	defer u.Progress.UploadFinished()
+	s.Progress.UploadStarted()
+	defer s.Progress.UploadFinished()
 
-	parallel := u.effectiveParallelFileReads(policyTree.EffectivePolicy())
+	parallel := s.effectiveParallelFileReads(policyTree.EffectivePolicy())
 
 	scannerLog(ctx).Debugw("uploading", "source", sourceInfo, "previousManifests", len(previousManifests), "parallel", parallel)
 
-	u.workerPool = workshare.NewPool[*uploadWorkItem](parallel - 1)
-	defer u.workerPool.Close()
+	s.workerPool = workshare.NewPool[*uploadWorkItem](parallel - 1)
+	defer s.workerPool.Close()
 
-	u.stats = &snapshot.Stats{}
-	u.totalWrittenBytes.Store(0)
+	s.stats = &sourceHistogram{}
 
 	var err error
+
+	startTime := fs.UTCTimestampFromTime(s.nowTimeFunc())
 
 	switch entry := source.(type) {
 	case fs.Directory:
 		var previousDirs []fs.Directory
 
 		for _, m := range previousManifests {
-			if d := u.maybeOpenDirectoryFromManifest(ctx, m); d != nil {
+			if d := s.maybeOpenDirectoryFromManifest(ctx, m); d != nil {
 				previousDirs = append(previousDirs, d)
 			}
 		}
 
-		wrapped := u.wrapIgnorefs(scannerLog(ctx), entry, policyTree, true /* reportIgnoreStats */)
+		wrapped := s.wrapIgnorefs(scannerLog(ctx), entry, policyTree, true /* reportIgnoreStats */)
 
-		s.RootEntry, err = u.uploadDirWithCheckpointing(ctx, wrapped, policyTree, previousDirs, sourceInfo)
+		err = s.uploadDirWithCheckpointing(ctx, wrapped, policyTree, previousDirs, sourceInfo)
 
 	case fs.File:
-		u.Progress.EstimatedDataSize(1, entry.Size())
-		s.RootEntry, err = u.uploadFileWithCheckpointing(ctx, entry.Name(), entry, policyTree.EffectivePolicy(), sourceInfo)
+		s.Progress.EstimatedDataSize(1, entry.Size())
+		err = s.uploadFileWithCheckpointing(ctx, entry.Name(), entry, policyTree.EffectivePolicy(), sourceInfo)
 
 	default:
-		return nil, errors.Errorf("unsupported source: %v", s.Source)
+		return errors.Errorf("unsupported source: %v", source)
 	}
 
 	if err != nil {
-		return nil, rootCauseError(err)
+		return rootCauseError(err)
 	}
 
-	s.IncompleteReason = u.incompleteReason()
-	s.EndTime = fs.UTCTimestampFromTime(u.repo.Time())
-	s.Stats = *u.stats
+	endTime := fs.UTCTimestampFromTime(s.nowTimeFunc())
+	scannerLog(ctx).Infof("Reason: %s, Time Taken: %s, Summary: %#v",
+		s.incompleteReason(), startTime.Sub(endTime), s.stats)
 
 	return nil
 }
