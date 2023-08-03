@@ -57,10 +57,6 @@ func (c *commandRepositoryCreate) setup(svc advancedAppServices, parent commandP
 	c.out.setup(svc)
 
 	for _, prov := range svc.storageProviders() {
-		if prov.Name == "from-config" {
-			continue
-		}
-
 		// Set up 'create' subcommand
 		f := prov.NewFlags()
 		cc := cmd.Command(prov.Name, "Create repository in "+prov.Description)
