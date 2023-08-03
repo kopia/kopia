@@ -6,9 +6,11 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/blobtesting"
+	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/epoch"
 	"github.com/kopia/kopia/internal/faketime"
 	"github.com/kopia/kopia/internal/feature"
@@ -167,6 +169,141 @@ func TestInitialize(t *testing.T) {
 	require.ErrorIs(t,
 		format.Initialize(ctx, fst, &format.KopiaRepositoryJSON{}, rc, format.BlobStorageConfiguration{}, "some-password"),
 		format.ErrAlreadyInitialized)
+}
+
+func TestInitializeWithRetention(t *testing.T) {
+	ctx := testlogging.Context(t)
+
+	startTime := time.Date(2020, 1, 1, 12, 0, 0, 0, time.UTC)
+	ta := faketime.NewTimeAdvance(startTime, 0)
+	nowFunc := ta.NowFunc()
+
+	st := blobtesting.NewVersionedMapStorage(nowFunc).(cache.Storage)
+	blobCache := format.NewMemoryBlobCache(nowFunc)
+	mode := blob.Governance
+	period := time.Hour * 48
+
+	// success
+	require.NoError(t, format.Initialize(
+		ctx,
+		st,
+		&format.KopiaRepositoryJSON{},
+		rc,
+		format.BlobStorageConfiguration{
+			RetentionMode:   mode,
+			RetentionPeriod: period,
+		},
+		"some-password",
+	))
+
+	mgr, err := format.NewManagerWithCache(ctx, st, cacheDuration, "some-password", nowFunc, blobCache)
+	require.NoError(t, err, "getting format manager")
+
+	// New retention parameters should be available from the format manager.
+	blobCfg := mustGetBlobStorageConfiguration(t, mgr)
+	assert.Equal(t, mode, blobCfg.RetentionMode)
+	assert.Equal(t, period, blobCfg.RetentionPeriod)
+
+	// Attempting to touch the blobs the format manager writes should return
+	// errors as they should have retention enabled. Mod time adjustment (duration
+	// param) doesn't matter in this context.
+	_, err = st.TouchBlob(ctx, format.KopiaRepositoryBlobID, time.Minute)
+	assert.ErrorIs(t, err, blobtesting.ErrBlobLocked, "Altering locked repo blob should fail")
+
+	_, err = st.TouchBlob(ctx, format.KopiaBlobCfgBlobID, time.Minute)
+	assert.ErrorIs(t, err, blobtesting.ErrBlobLocked, "Altering locked blob storage config should fail")
+}
+
+func TestUpdateRetention(t *testing.T) {
+	ctx := testlogging.Context(t)
+
+	startTime := time.Date(2020, 1, 1, 12, 0, 0, 0, time.UTC)
+	ta := faketime.NewTimeAdvance(startTime, 0)
+	nowFunc := ta.NowFunc()
+
+	st := blobtesting.NewVersionedMapStorage(nowFunc).(cache.Storage)
+	blobCache := format.NewMemoryBlobCache(nowFunc)
+	mode := blob.Governance
+	period := time.Hour * 48
+
+	// success
+	require.NoError(t, format.Initialize(ctx, st, &format.KopiaRepositoryJSON{}, rc, format.BlobStorageConfiguration{}, "some-password"))
+
+	mgr, err := format.NewManagerWithCache(ctx, st, cacheDuration, "some-password", nowFunc, blobCache)
+	require.NoError(t, err, "getting format manager")
+
+	mp := mustGetMutableParameters(t, mgr)
+	rf := mustGetRequiredFeatures(t, mgr)
+
+	err = mgr.SetParameters(
+		ctx,
+		mp,
+		format.BlobStorageConfiguration{
+			RetentionMode:   mode,
+			RetentionPeriod: period,
+		},
+		rf,
+	)
+	require.NoError(t, err, "setting repo parameters")
+
+	// New retention parameters should be available from the format manager.
+	blobCfg := mustGetBlobStorageConfiguration(t, mgr)
+	assert.Equal(t, mode, blobCfg.RetentionMode)
+	assert.Equal(t, period, blobCfg.RetentionPeriod)
+
+	// Attempting to touch the blobs the format manager writes should return
+	// errors as they should have retention enabled. Mod time adjustment (duration
+	// param) doesn't matter in this context.
+	_, err = st.TouchBlob(ctx, format.KopiaRepositoryBlobID, time.Minute)
+	assert.ErrorIs(t, err, blobtesting.ErrBlobLocked, "Altering locked repo blob should fail")
+
+	_, err = st.TouchBlob(ctx, format.KopiaBlobCfgBlobID, time.Minute)
+	assert.ErrorIs(t, err, blobtesting.ErrBlobLocked, "Altering locked blob storage config should fail")
+}
+
+func TestUpdateRetentionNegativeValue(t *testing.T) {
+	ctx := testlogging.Context(t)
+
+	startTime := time.Date(2020, 1, 1, 12, 0, 0, 0, time.UTC)
+	ta := faketime.NewTimeAdvance(startTime, 0)
+	nowFunc := ta.NowFunc()
+
+	st := blobtesting.NewVersionedMapStorage(nowFunc).(cache.Storage)
+	blobCache := format.NewMemoryBlobCache(nowFunc)
+	mode := blob.Governance
+	period := -time.Hour * 48
+
+	// success
+	require.NoError(t, format.Initialize(ctx, st, &format.KopiaRepositoryJSON{}, rc, format.BlobStorageConfiguration{}, "some-password"))
+
+	mgr, err := format.NewManagerWithCache(ctx, st, cacheDuration, "some-password", nowFunc, blobCache)
+	require.NoError(t, err, "getting format manager")
+
+	mp := mustGetMutableParameters(t, mgr)
+	rf := mustGetRequiredFeatures(t, mgr)
+
+	err = mgr.SetParameters(
+		ctx,
+		mp,
+		format.BlobStorageConfiguration{
+			RetentionMode:   mode,
+			RetentionPeriod: period,
+		},
+		rf,
+	)
+	require.Error(t, err, "setting repo parameters")
+
+	// Old retention parameters should be available from the format manager.
+	blobCfg := mustGetBlobStorageConfiguration(t, mgr)
+	assert.Empty(t, blobCfg.RetentionMode)
+	assert.Zero(t, blobCfg.RetentionPeriod)
+
+	// Retention wasn't set so no error should occur.
+	_, err = st.TouchBlob(ctx, format.KopiaRepositoryBlobID, time.Minute)
+	assert.NoError(t, err, "altering repo blob")
+
+	_, err = st.TouchBlob(ctx, format.KopiaBlobCfgBlobID, time.Minute)
+	assert.NoError(t, err, "altering storage config")
 }
 
 func TestChangePassword(t *testing.T) {
