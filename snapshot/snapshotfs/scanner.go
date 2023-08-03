@@ -420,12 +420,6 @@ func newCachedDirEntry(md, cached fs.Entry, fname string) (*snapshot.DirEntry, e
 	return newDirEntry(md, fname, hoid.ObjectID())
 }
 
-// uploadFileWithCheckpointing uploads the specified File to the repository.
-func (u *Scanner) uploadFileWithCheckpointing(ctx context.Context, relativePath string, file fs.File, pol *policy.Policy, sourceInfo snapshot.SourceInfo) error {
-	_, err := u.uploadFileInternal(ctx, relativePath, file, pol)
-	return err
-}
-
 // checkpointRoot invokes checkpoints on the provided registry and if a checkpoint entry was generated,
 // saves it in an incomplete snapshot manifest.
 func (u *Scanner) checkpointRoot(ctx context.Context, cp *checkpointRegistry, prototypeManifest *snapshot.Manifest) error {
@@ -472,27 +466,11 @@ func (u *Scanner) checkpointRoot(ctx context.Context, cp *checkpointRegistry, pr
 
 // uploadDirWithCheckpointing uploads the specified Directory to the repository.
 func (u *Scanner) uploadDirWithCheckpointing(ctx context.Context, rootDir fs.Directory, policyTree *policy.Tree, previousDirs []fs.Directory, sourceInfo snapshot.SourceInfo) (*snapshot.DirEntry, error) {
-	var (
-		dmb DirManifestBuilder
-		cp  checkpointRegistry
-	)
-
-	var hc actionContext
+	var dmb DirManifestBuilder
 
 	localDirPathOrEmpty := rootDir.LocalFilesystemPath()
 
-	overrideDir, err := u.executeBeforeFolderAction(ctx, "before-snapshot-root", policyTree.EffectivePolicy().Actions.BeforeSnapshotRoot, localDirPathOrEmpty, &hc)
-	if err != nil {
-		return nil, dirReadError{errors.Wrap(err, "error executing before-snapshot-root action")}
-	}
-
-	if overrideDir != nil {
-		rootDir = u.wrapIgnorefs(scannerLog(ctx), overrideDir, policyTree, true)
-	}
-
-	defer u.executeAfterFolderAction(ctx, "after-snapshot-root", policyTree.EffectivePolicy().Actions.AfterSnapshotRoot, localDirPathOrEmpty, &hc)
-
-	return uploadDirInternal(ctx, u, rootDir, policyTree, previousDirs, localDirPathOrEmpty, ".", &dmb, &cp)
+	return uploadDirInternal(ctx, u, rootDir, policyTree, previousDirs, localDirPathOrEmpty, ".", &dmb)
 }
 
 type uploadWorkItem struct {
@@ -505,7 +483,6 @@ func isDir(e *snapshot.DirEntry) bool {
 
 func (u *Scanner) processChildren(
 	ctx context.Context,
-	parentDirCheckpointRegistry *checkpointRegistry,
 	parentDirBuilder *DirManifestBuilder,
 	localDirPathOrEmpty, relativePath string,
 	dir fs.Directory,
@@ -520,7 +497,7 @@ func (u *Scanner) processChildren(
 	// ignore errCancel because a more serious error may be reported in wg.Wait()
 	// we'll check for cancellation later.
 
-	if err := u.processDirectoryEntries(ctx, parentDirCheckpointRegistry, parentDirBuilder, localDirPathOrEmpty, relativePath, dir, policyTree, previousDirs, &wg); err != nil && !errors.Is(err, errCanceled) {
+	if err := u.processDirectoryEntries(ctx, parentDirBuilder, localDirPathOrEmpty, relativePath, dir, policyTree, previousDirs, &wg); err != nil && !errors.Is(err, errCanceled) {
 		return err
 	}
 
@@ -826,87 +803,26 @@ func uploadDirInternal(
 	previousDirs []fs.Directory,
 	localDirPathOrEmpty, dirRelativePath string,
 	thisDirBuilder *DirManifestBuilder,
-	thisCheckpointRegistry *checkpointRegistry,
-) (resultDE *snapshot.DirEntry, resultErr error) {
+) (resultErr error) {
 	atomic.AddInt32(&u.stats.TotalDirectoryCount, 1)
 
 	if u.traceEnabled {
 		var span trace.Span
 
-		ctx, span = uploadTracer.Start(ctx, "UploadDir", trace.WithAttributes(attribute.String("dir", dirRelativePath)))
+		ctx, span = uploadTracer.Start(ctx, "ScanDir", trace.WithAttributes(attribute.String("dir", dirRelativePath)))
 		defer span.End()
 	}
-
-	t0 := timetrack.StartTimer()
-
-	defer func() {
-		maybeLogEntryProcessed(
-			scannerLog(ctx),
-			u.OverrideDirLogDetail.OrDefault(policyTree.EffectivePolicy().LoggingPolicy.Directories.Snapshotted.OrDefault(policy.LogDetailNone)),
-			"snapshotted directory", dirRelativePath, resultDE, resultErr, t0)
-	}()
 
 	u.Progress.StartedDirectory(dirRelativePath)
 	defer u.Progress.FinishedDirectory(dirRelativePath)
 
-	var definedActions policy.ActionsPolicy
+	// TOOD: support for shallow dirs
 
-	if p := policyTree.DefinedPolicy(); p != nil {
-		definedActions = p.Actions
+	if err := u.processChildren(ctx, thisDirBuilder, localDirPathOrEmpty, dirRelativePath, directory, policyTree, uniqueDirectories(previousDirs)); err != nil && !errors.Is(err, errCanceled) {
+		return err
 	}
 
-	var hc actionContext
-	defer cleanupActionContext(ctx, &hc)
-
-	overrideDir, herr := u.executeBeforeFolderAction(ctx, "before-folder", definedActions.BeforeFolder, localDirPathOrEmpty, &hc)
-	if herr != nil {
-		return nil, dirReadError{errors.Wrap(herr, "error executing before-folder action")}
-	}
-
-	defer u.executeAfterFolderAction(ctx, "after-folder", definedActions.AfterFolder, localDirPathOrEmpty, &hc)
-
-	if overrideDir != nil {
-		directory = u.wrapIgnorefs(scannerLog(ctx), overrideDir, policyTree, true)
-	}
-
-	if de, err := uploadShallowDirInternal(ctx, directory, u); de != nil || err != nil {
-		return de, err
-	}
-
-	childCheckpointRegistry := &checkpointRegistry{}
-
-	thisCheckpointRegistry.addCheckpointCallback(directory.Name(), func() (*snapshot.DirEntry, error) {
-		// when snapshotting the parent, snapshot all our children and tell them to populate
-		// childCheckpointBuilder
-		thisCheckpointBuilder := thisDirBuilder.Clone()
-
-		// invoke all child checkpoints which will populate thisCheckpointBuilder.
-		if err := childCheckpointRegistry.runCheckpoints(thisCheckpointBuilder); err != nil {
-			return nil, errors.Wrapf(err, "error checkpointing children")
-		}
-
-		checkpointManifest := thisCheckpointBuilder.Build(fs.UTCTimestampFromTime(directory.ModTime()), IncompleteReasonCheckpoint)
-		oid, err := writeDirManifest(ctx, u.repo, dirRelativePath, checkpointManifest)
-		if err != nil {
-			return nil, errors.Wrap(err, "error writing dir manifest")
-		}
-
-		return newDirEntryWithSummary(directory, oid, checkpointManifest.Summary)
-	})
-	defer thisCheckpointRegistry.removeCheckpointCallback(directory.Name())
-
-	if err := u.processChildren(ctx, childCheckpointRegistry, thisDirBuilder, localDirPathOrEmpty, dirRelativePath, directory, policyTree, uniqueDirectories(previousDirs)); err != nil && !errors.Is(err, errCanceled) {
-		return nil, err
-	}
-
-	dirManifest := thisDirBuilder.Build(fs.UTCTimestampFromTime(directory.ModTime()), u.incompleteReason())
-
-	oid, err := writeDirManifest(ctx, u.repo, dirRelativePath, dirManifest)
-	if err != nil {
-		return nil, errors.Wrapf(err, "error writing dir manifest: %v", directory.Name())
-	}
-
-	return newDirEntryWithSummary(directory, oid, dirManifest.Summary)
+	return nil
 }
 
 func (u *Scanner) reportErrorAndMaybeCancel(err error, isIgnored bool, dmb *DirManifestBuilder, entryRelativePath string) {
@@ -1007,7 +923,6 @@ func (s *Scanner) Upload(
 
 	case fs.File:
 		s.Progress.EstimatedDataSize(1, entry.Size())
-		err = s.uploadFileWithCheckpointing(ctx, entry.Name(), entry, policyTree.EffectivePolicy(), sourceInfo)
 		_, err = s.uploadFileInternal(ctx, entry.Name(), entry, policyTree.EffectivePolicy())
 
 	default:
