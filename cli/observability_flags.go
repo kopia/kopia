@@ -6,6 +6,8 @@ import (
 	"net/http/pprof"
 	"os"
 	"path/filepath"
+	"runtime"
+	rpprof "runtime/pprof"
 	"sort"
 	"strings"
 	"sync"
@@ -52,6 +54,7 @@ type observabilityFlags struct {
 	metricsPushFormat   string
 	metricsOutputDir    string
 	outputFilePrefix    string
+	pprofDir            string
 
 	enableJaeger bool
 
@@ -87,11 +90,14 @@ func (c *observabilityFlags) setup(svc appServices, app *kingpin.Application) {
 
 	app.Flag("metrics-directory", "Directory where the metrics should be saved when kopia exits. A file per process execution will be created in this directory").Hidden().StringVar(&c.metricsOutputDir)
 
+	//nolint:lll
+	app.Flag("pprof-directory", "Directory to dump pprof data at the end of the process execution. The profiling settings can be modified using the default GODEBUG environment variable mechanism (see https://pkg.go.dev/runtime@master#hdr-Environment_Variables for additional information.)").Hidden().StringVar(&c.pprofDir)
+
 	app.PreAction(c.initialize)
 }
 
 func (c *observabilityFlags) initialize(ctx *kingpin.ParseContext) error {
-	if c.metricsOutputDir == "" {
+	if c.metricsOutputDir == "" && c.pprofDir == "" {
 		return nil
 	}
 
@@ -121,6 +127,10 @@ func (c *observabilityFlags) startMetrics(ctx context.Context) error {
 		if err := os.MkdirAll(c.metricsOutputDir, DirMode); err != nil {
 			return errors.Wrapf(err, "could not create metrics output directory: %s", c.metricsOutputDir)
 		}
+	}
+
+	if err := c.maybeStartPprofDumper(ctx); err != nil {
+		return err
 	}
 
 	return c.maybeStartTraceExporter()
@@ -222,6 +232,20 @@ func (c *observabilityFlags) maybeStartTraceExporter() error {
 	return nil
 }
 
+func (c *observabilityFlags) maybeStartPprofDumper(ctx context.Context) error {
+	if c.pprofDir == "" {
+		return nil
+	}
+
+	// ensure upfront that the pprof output dir can be created
+	c.pprofDir = filepath.Clean(c.pprofDir)
+	if err := os.MkdirAll(c.pprofDir, DirMode); err != nil {
+		return errors.Wrapf(err, "could not create pprof output directory: %s", c.pprofDir)
+	}
+
+	return nil
+}
+
 func (c *observabilityFlags) stopMetrics(ctx context.Context) {
 	if c.stopPusher != nil {
 		close(c.stopPusher)
@@ -240,6 +264,31 @@ func (c *observabilityFlags) stopMetrics(ctx context.Context) {
 
 		if err := prometheus.WriteToTextfile(filename, prometheus.DefaultGatherer); err != nil {
 			log(ctx).Warnf("unable to write metrics file '%s': %v", filename, err)
+		}
+	}
+
+	if c.pprofDir != "" {
+		runtime.GC() // get up-to-date statistics
+
+		for _, p := range rpprof.Profiles() {
+			func() {
+				fname := filepath.Clean(filepath.Join(c.pprofDir, p.Name()+".pprof"))
+
+				f, err := os.Create(fname)
+				if err != nil {
+					log(ctx).Warnf("unable to create profile output file '%s': %v", fname, err)
+				}
+
+				defer func() {
+					if err := f.Close(); err != nil {
+						log(ctx).Warnf("unable to close profile output file '%s': %v", fname, err)
+					}
+				}()
+
+				if err := p.WriteTo(f, 0); err != nil {
+					log(ctx).Warnf("unable to write profile to file '%s': %v", fname, err)
+				}
+			}()
 		}
 	}
 }
