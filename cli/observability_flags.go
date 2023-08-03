@@ -4,6 +4,8 @@ import (
 	"context"
 	"net/http"
 	"net/http/pprof"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -21,8 +23,12 @@ import (
 	"go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/repo"
 )
+
+// DirMode is the directory mode for output directories.
+const DirMode = 0o700
 
 //nolint:gochecknoglobals
 var metricsPushFormats = map[string]expfmt.Format{
@@ -44,6 +50,8 @@ type observabilityFlags struct {
 	metricsPushUsername string
 	metricsPushPassword string
 	metricsPushFormat   string
+	metricsOutputDir    string
+	metricsFileName     string
 
 	enableJaeger bool
 
@@ -76,6 +84,36 @@ func (c *observabilityFlags) setup(svc appServices, app *kingpin.Application) {
 	sort.Strings(formats)
 
 	app.Flag("metrics-push-format", "Format to use for push gateway").Envar(svc.EnvName("KOPIA_METRICS_FORMAT")).Hidden().EnumVar(&c.metricsPushFormat, formats...)
+
+	app.Flag("metrics-directory", "Directory where the metrics should be saved when kopia exits. A file per process execution will be created in this directory").Hidden().StringVar(&c.metricsOutputDir)
+
+	app.PreAction(c.initialize)
+}
+
+func (c *observabilityFlags) initialize(ctx *kingpin.ParseContext) error {
+	if c.metricsOutputDir == "" {
+		return nil
+	}
+
+	c.metricsOutputDir = filepath.Clean(c.metricsOutputDir)
+
+	// ensure the metrics output dir can be created
+	if err := os.MkdirAll(c.metricsOutputDir, DirMode); err != nil {
+		return errors.Wrapf(err, "could not create metrics output directory: %s", c.metricsOutputDir)
+	}
+
+	// write metrics in a separate file per command and process execution
+	// to avoid conflicts with previously created profiles
+	c.metricsFileName = clock.Now().Format("20060102-150405")
+	if cmd := ctx.SelectedCommand; cmd != nil {
+		c.metricsFileName += "-" + strings.ReplaceAll(cmd.FullCommand(), " ", "-")
+	} else {
+		c.metricsFileName += "-unknown"
+	}
+
+	c.metricsFileName += ".prom"
+
+	return nil
 }
 
 func (c *observabilityFlags) startMetrics(ctx context.Context) error {
@@ -194,6 +232,12 @@ func (c *observabilityFlags) stopMetrics(ctx context.Context) {
 	if c.traceProvider != nil {
 		if err := c.traceProvider.Shutdown(ctx); err != nil {
 			log(ctx).Warnf("unable to shutdown trace provicer: %v", err)
+		}
+	}
+
+	if c.metricsOutputDir != "" {
+		if err := prometheus.WriteToTextfile(filepath.Join(c.metricsOutputDir, c.metricsFileName), prometheus.DefaultGatherer); err != nil {
+			log(ctx).Warnf("unable to write metrics file '%s': %v", c.metricsFileName, err)
 		}
 	}
 }
