@@ -9,6 +9,7 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -110,6 +111,9 @@ type Scanner struct {
 	workerPool *workshare.Pool[*uploadWorkItem]
 
 	traceEnabled bool
+
+	summaryMtx sync.Mutex
+	summary    sourceHistogram
 }
 
 // IsCanceled returns true if the upload is canceled.
@@ -141,8 +145,16 @@ func (u *Scanner) updateFileSummaryInternal(ctx context.Context, f fs.File) {
 		switch {
 		case size == 0:
 			atomic.AddUint32(&u.summary.files.size0Byte, 1)
-			// TODO: fill all the cases ..
+		case size > 0 && size <= 100*1024: // <= 100KB
+			atomic.AddUint32(&u.summary.files.size0bTo100Kb, 1)
+		case size > 100*1024 && size <= 100*1024*1024: // > 100KB and <= 100MB
+			atomic.AddUint32(&u.summary.files.size100KbTo100Mb, 1)
+		case size > 100*1024*1024 && size <= 1024*1024*1024: // > 100MB and <= 1GB
+			atomic.AddUint32(&u.summary.files.size100MbTo1Gb, 1)
+		case size > 1024*1024*1024: // > 1GB
+			atomic.AddUint32(&u.summary.files.sizeOver1Gb, 1)
 		}
+
 	}
 
 	// this is a shared workpool

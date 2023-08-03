@@ -21,7 +21,7 @@ func (c *commandDiscover) setup(svc appServices, parent commandParent) {
 	c.out.setup(svc)
 }
 
-func (c *commadDiscover) scanSingleSource() error {
+func (c *commandDiscover) scanSingleSource(ctx context.Context) error {
 	log(ctx).Infof("Snapshotting %v ...", sourceInfo)
 
 	var err error
