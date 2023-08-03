@@ -1,7 +1,6 @@
 package snapshotfs
 
 import (
-	"bytes"
 	"context"
 	"io"
 	"math/rand"
@@ -153,42 +152,18 @@ func (u *Scanner) updateFileSummaryInternal(ctx context.Context, f fs.File) {
 	wg.Wait()
 }
 
-func (u *Scanner) uploadSymlinkInternal(ctx context.Context, relativePath string, f fs.Symlink) (dirEntry *snapshot.DirEntry, ret error) {
-	u.Progress.HashingFile(relativePath)
+func (s *Scanner) updateSymlinkStats(ctx context.Context, relativePath string, f fs.Symlink) (ret error) {
+	s.Progress.HashingFile(relativePath)
 
 	defer func() {
-		u.Progress.FinishedFile(relativePath, ret)
+		s.Progress.FinishedFile(relativePath, ret)
 	}()
-	defer u.Progress.FinishedHashingFile(relativePath, f.Size())
+	defer s.Progress.FinishedHashingFile(relativePath, f.Size())
 
-	target, err := f.Readlink(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to read symlink")
-	}
+	atomic.AddUint32(&s.stats.files.totalSymlink, 1)
+	atomic.AddUint64(&s.stats.totalSize, uint64(f.Size()))
 
-	writer := u.repo.NewObjectWriter(ctx, object.WriterOptions{
-		Description: "SYMLINK:" + f.Name(),
-	})
-	defer writer.Close() //nolint:errcheck
-
-	written, err := u.copyWithProgress(writer, bytes.NewBufferString(target))
-	if err != nil {
-		return nil, err
-	}
-
-	r, err := writer.Result()
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to get result")
-	}
-
-	de, err := newDirEntry(f, f.Name(), r)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to create dir entry")
-	}
-
-	de.FileSize = written
-
-	return de, nil
+	return nil
 }
 
 func (u *Scanner) uploadStreamingFileInternal(ctx context.Context, relativePath string, f fs.StreamingFile, pol *policy.Policy) (dirEntry *snapshot.DirEntry, ret error) {
@@ -281,18 +256,6 @@ func (u *Scanner) copyWithProgress(dst io.Writer, src io.Reader) (int64, error) 
 	}
 
 	return written, nil
-}
-
-// newDirEntryWithSummary makes DirEntry objects for directory Entries that need a DirectorySummary.
-func newDirEntryWithSummary(d fs.Entry, oid object.ID, summ *fs.DirectorySummary) (*snapshot.DirEntry, error) {
-	de, err := newDirEntry(d, d.Name(), oid)
-	if err != nil {
-		return nil, err
-	}
-
-	de.DirSummary = summ
-
-	return de, nil
 }
 
 // newDirEntry makes DirEntry objects for any type of Entry.
@@ -391,17 +354,8 @@ func (s *Scanner) uploadDirWithCheckpointing(ctx context.Context, rootDir fs.Dir
 	return s.uploadDirInternal(ctx, rootDir, previousDirs, localDirPathOrEmpty, ".", &dmb)
 }
 
-type uploadWorkItem struct {
-	err error
-}
-
-func isDir(e *snapshot.DirEntry) bool {
-	return e.Type == snapshot.EntryTypeDirectory
-}
-
 func (u *Scanner) processChildren(
 	ctx context.Context,
-	parentDirBuilder *DirManifestBuilder,
 	localDirPathOrEmpty, relativePath string,
 	dir fs.Directory,
 	previousDirs []fs.Directory,
@@ -414,7 +368,7 @@ func (u *Scanner) processChildren(
 	// ignore errCancel because a more serious error may be reported in wg.Wait()
 	// we'll check for cancellation later.
 
-	if err := u.processDirectoryEntries(ctx, parentDirBuilder, localDirPathOrEmpty, relativePath, dir, previousDirs, &wg); err != nil && !errors.Is(err, errCanceled) {
+	if err := u.processDirectoryEntries(ctx, localDirPathOrEmpty, relativePath, dir, previousDirs, &wg); err != nil && !errors.Is(err, errCanceled) {
 		return err
 	}
 
@@ -426,68 +380,6 @@ func (u *Scanner) processChildren(
 
 	if u.IsCanceled() {
 		return errCanceled
-	}
-
-	return nil
-}
-
-func commonMetadataEquals(e1, e2 fs.Entry) bool {
-	if l, r := e1.ModTime(), e2.ModTime(); !l.Equal(r) {
-		return false
-	}
-
-	if l, r := e1.Mode(), e2.Mode(); l != r {
-		return false
-	}
-
-	if l, r := e1.Owner(), e2.Owner(); l != r {
-		return false
-	}
-
-	return true
-}
-
-func metadataEquals(e1, e2 fs.Entry) bool {
-	if !commonMetadataEquals(e1, e2) {
-		return false
-	}
-
-	if l, r := e1.Size(), e2.Size(); l != r {
-		return false
-	}
-
-	return true
-}
-
-func findCachedEntry(ctx context.Context, entryRelativePath string, entry fs.Entry, prevDirs []fs.Directory, pol *policy.Tree) fs.Entry {
-	var missedEntry fs.Entry
-
-	for _, e := range prevDirs {
-		if ent, err := e.Child(ctx, entry.Name()); err == nil {
-			switch entry.(type) {
-			case fs.StreamingFile:
-				if commonMetadataEquals(entry, ent) {
-					return ent
-				}
-			default:
-				if metadataEquals(entry, ent) {
-					return ent
-				}
-			}
-
-			missedEntry = ent
-		}
-	}
-
-	if missedEntry != nil {
-		if pol.EffectivePolicy().LoggingPolicy.Entries.CacheMiss.OrDefault(policy.LogDetailNone) >= policy.LogDetailNormal {
-			scannerLog(ctx).Debugw(
-				"cache miss",
-				"path", entryRelativePath,
-				"mode", missedEntry.Mode().String(),
-				"size", missedEntry.Size(),
-				"mtime", missedEntry.ModTime())
-		}
 	}
 
 	return nil
@@ -524,7 +416,6 @@ func (u *Scanner) effectiveParallelFileReads(pol *policy.Policy) int {
 
 func (u *Scanner) processDirectoryEntries(
 	ctx context.Context,
-	parentDirBuilder *DirManifestBuilder,
 	localDirPathOrEmpty string,
 	dirRelativePath string,
 	dir fs.Directory,
@@ -545,10 +436,10 @@ func (u *Scanner) processDirectoryEntries(
 
 		if wg.CanShareWork(u.workerPool) {
 			wg.RunAsync(u.workerPool, func(c *workshare.Pool[*uploadWorkItem], wi *uploadWorkItem) {
-				wi.err = u.processSingle(ctx, entry, entryRelativePath, parentDirBuilder, prevDirs, localDirPathOrEmpty)
+				wi.err = u.processSingle(ctx, entry, entryRelativePath, prevDirs, localDirPathOrEmpty)
 			}, &uploadWorkItem{})
 		} else {
-			if err := u.processSingle(ctx, entry, entryRelativePath, parentDirBuilder, prevDirs, localDirPathOrEmpty); err != nil {
+			if err := u.processSingle(ctx, entry, entryRelativePath, prevDirs, localDirPathOrEmpty); err != nil {
 				return processEntryError{err}
 			}
 		}
@@ -638,12 +529,7 @@ func (u *Scanner) processSingle(
 		return nil
 
 	case fs.Symlink:
-		de, err := u.uploadSymlinkInternal(ctx, entryRelativePath, entry)
-
-		return u.processEntryScanResult(ctx, de, err, entryRelativePath,
-			false,
-			u.OverrideEntryLogDetail.OrDefault(policy.LogDetailNormal),
-			"snapshotted symlink", t0)
+		return u.updateSymlinkStats(ctx, entryRelativePath, entry)
 
 	case fs.File:
 
@@ -754,22 +640,6 @@ func NewScanner() *Scanner {
 // Cancel requests cancellation of an upload that's in progress. Will typically result in an incomplete snapshot.
 func (u *Scanner) Cancel() {
 	u.isCanceled.Store(true)
-}
-
-func (u *Scanner) maybeOpenDirectoryFromManifest(ctx context.Context, man *snapshot.Manifest) fs.Directory {
-	if man == nil {
-		return nil
-	}
-
-	ent := EntryFromDirEntry(u.repo, man.RootEntry)
-
-	dir, ok := ent.(fs.Directory)
-	if !ok {
-		scannerLog(ctx).Debugf("previous manifest root is not a directory (was %T %+v)", ent, man.RootEntry)
-		return nil
-	}
-
-	return dir
 }
 
 // Upload uploads contents of the specified filesystem entry (file or directory) to the repository and returns snapshot.Manifest with statistics.
