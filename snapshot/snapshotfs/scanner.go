@@ -17,7 +17,6 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/kopia/kopia/fs"
-	"github.com/kopia/kopia/fs/ignorefs"
 	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/internal/workshare"
@@ -384,12 +383,12 @@ func (u *Scanner) checkpointRoot(ctx context.Context, cp *checkpointRegistry, pr
 }
 
 // uploadDirWithCheckpointing uploads the specified Directory to the repository.
-func (s *Scanner) uploadDirWithCheckpointing(ctx context.Context, rootDir fs.Directory, policyTree *policy.Tree, previousDirs []fs.Directory, sourceInfo snapshot.SourceInfo) error {
+func (s *Scanner) uploadDirWithCheckpointing(ctx context.Context, rootDir fs.Directory, previousDirs []fs.Directory, sourceInfo snapshot.SourceInfo) error {
 	var dmb DirManifestBuilder
 
 	localDirPathOrEmpty := rootDir.LocalFilesystemPath()
 
-	return s.uploadDirInternal(ctx, rootDir, policyTree, previousDirs, localDirPathOrEmpty, ".", &dmb)
+	return s.uploadDirInternal(ctx, rootDir, previousDirs, localDirPathOrEmpty, ".", &dmb)
 }
 
 type uploadWorkItem struct {
@@ -405,7 +404,6 @@ func (u *Scanner) processChildren(
 	parentDirBuilder *DirManifestBuilder,
 	localDirPathOrEmpty, relativePath string,
 	dir fs.Directory,
-	policyTree *policy.Tree,
 	previousDirs []fs.Directory,
 ) error {
 	var wg workshare.AsyncGroup[*uploadWorkItem]
@@ -416,7 +414,7 @@ func (u *Scanner) processChildren(
 	// ignore errCancel because a more serious error may be reported in wg.Wait()
 	// we'll check for cancellation later.
 
-	if err := u.processDirectoryEntries(ctx, parentDirBuilder, localDirPathOrEmpty, relativePath, dir, policyTree, previousDirs, &wg); err != nil && !errors.Is(err, errCanceled) {
+	if err := u.processDirectoryEntries(ctx, parentDirBuilder, localDirPathOrEmpty, relativePath, dir, previousDirs, &wg); err != nil && !errors.Is(err, errCanceled) {
 		return err
 	}
 
@@ -530,7 +528,6 @@ func (u *Scanner) processDirectoryEntries(
 	localDirPathOrEmpty string,
 	dirRelativePath string,
 	dir fs.Directory,
-	policyTree *policy.Tree,
 	prevDirs []fs.Directory,
 	wg *workshare.AsyncGroup[*uploadWorkItem],
 ) error {
@@ -548,10 +545,10 @@ func (u *Scanner) processDirectoryEntries(
 
 		if wg.CanShareWork(u.workerPool) {
 			wg.RunAsync(u.workerPool, func(c *workshare.Pool[*uploadWorkItem], wi *uploadWorkItem) {
-				wi.err = u.processSingle(ctx, entry, entryRelativePath, parentDirBuilder, policyTree, prevDirs, localDirPathOrEmpty)
+				wi.err = u.processSingle(ctx, entry, entryRelativePath, parentDirBuilder, prevDirs, localDirPathOrEmpty)
 			}, &uploadWorkItem{})
 		} else {
-			if err := u.processSingle(ctx, entry, entryRelativePath, parentDirBuilder, policyTree, prevDirs, localDirPathOrEmpty); err != nil {
+			if err := u.processSingle(ctx, entry, entryRelativePath, parentDirBuilder, prevDirs, localDirPathOrEmpty); err != nil {
 				return processEntryError{err}
 			}
 		}
@@ -580,7 +577,6 @@ func (u *Scanner) processSingle(
 	ctx context.Context,
 	entry fs.Entry,
 	entryRelativePath string,
-	policyTree *policy.Tree,
 	prevDirs []fs.Directory,
 	localDirPathOrEmpty string,
 ) error {
@@ -591,7 +587,7 @@ func (u *Scanner) processSingle(
 
 	if _, ok := entry.(fs.Directory); !ok {
 		// See if we had this name during either of previous passes.
-		if cachedEntry := u.maybeIgnoreCachedEntry(ctx, findCachedEntry(ctx, entryRelativePath, entry, prevDirs, policyTree)); cachedEntry != nil {
+		if cachedEntry := u.maybeIgnoreCachedEntry(ctx, findCachedEntry(ctx, entryRelativePath, entry, prevDirs)); cachedEntry != nil {
 			atomic.AddInt32(&u.stats.CachedFiles, 1)
 			atomic.AddInt64(&u.stats.TotalFileSize, cachedEntry.Size())
 			u.Progress.CachedFile(entryRelativePath, cachedEntry.Size())
@@ -606,7 +602,7 @@ func (u *Scanner) processSingle(
 
 			return u.processEntryScanResult(ctx, cachedDirEntry, nil, entryRelativePath,
 				false,
-				u.OverrideEntryLogDetail.OrDefault(policyTree.EffectivePolicy().LoggingPolicy.Entries.CacheHit.OrDefault(policy.LogDetailNone)),
+				u.OverrideEntryLogDetail.OrDefault(policy.LogDetailNormal),
 				"cached", t0)
 		}
 	}
@@ -620,10 +616,9 @@ func (u *Scanner) processSingle(
 			childLocalDirPathOrEmpty = filepath.Join(localDirPathOrEmpty, entry.Name())
 		}
 
-		childTree := policyTree.Child(entry.Name())
 		childPrevDirs := uniqueChildDirectories(ctx, prevDirs, entry.Name())
 
-		err := u.uploadDirInternal(ctx, entry, childTree, childPrevDirs, childLocalDirPathOrEmpty, entryRelativePath, childDirBuilder)
+		err := u.uploadDirInternal(ctx, entry, childPrevDirs, childLocalDirPathOrEmpty, entryRelativePath, childDirBuilder)
 		if errors.Is(err, errCanceled) {
 			return err
 		}
@@ -634,8 +629,7 @@ func (u *Scanner) processSingle(
 			// otherwise a meaningless, empty snapshot is created that can't be restored.
 			var dre dirReadError
 			if errors.As(err, &dre) {
-				isIgnoredError := childTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreDirectoryErrors.OrDefault(false)
-				u.reportErrorAndMaybeCancel(dre.error, isIgnoredError, entryRelativePath)
+				u.reportErrorAndMaybeCancel(dre.error, false, entryRelativePath)
 			} else {
 				return errors.Wrapf(err, "unable to process directory %q", entry.Name())
 			}
@@ -647,8 +641,8 @@ func (u *Scanner) processSingle(
 		de, err := u.uploadSymlinkInternal(ctx, entryRelativePath, entry)
 
 		return u.processEntryScanResult(ctx, de, err, entryRelativePath,
-			policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreFileErrors.OrDefault(false),
-			u.OverrideEntryLogDetail.OrDefault(policyTree.EffectivePolicy().LoggingPolicy.Entries.Snapshotted.OrDefault(policy.LogDetailNone)),
+			false,
+			u.OverrideEntryLogDetail.OrDefault(policy.LogDetailNormal),
 			"snapshotted symlink", t0)
 
 	case fs.File:
@@ -656,37 +650,32 @@ func (u *Scanner) processSingle(
 		u.updateFileSummaryInternal(ctx, entry)
 
 		return u.processEntryScanResult(ctx, de, err, entryRelativePath,
-			policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreFileErrors.OrDefault(false),
-			u.OverrideEntryLogDetail.OrDefault(policyTree.EffectivePolicy().LoggingPolicy.Entries.Snapshotted.OrDefault(policy.LogDetailNone)),
+			false,
+			u.OverrideEntryLogDetail.OrDefault(policy.LogDetailNormal),
 			"snapshotted file", t0)
 
 	case fs.ErrorEntry:
-		var (
-			isIgnoredError bool
-			prefix         string
-		)
+		var prefix string
 
 		if errors.Is(entry.ErrorInfo(), fs.ErrUnknown) {
-			isIgnoredError = policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreUnknownTypes.OrDefault(true)
 			prefix = "unknown entry"
 		} else {
-			isIgnoredError = policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreFileErrors.OrDefault(false)
 			prefix = "error"
 		}
 
 		return u.processEntryScanResult(ctx, nil, entry.ErrorInfo(), entryRelativePath,
-			isIgnoredError,
-			u.OverrideEntryLogDetail.OrDefault(policyTree.EffectivePolicy().LoggingPolicy.Entries.Snapshotted.OrDefault(policy.LogDetailNone)),
+			false,
+			u.OverrideEntryLogDetail.OrDefault(policy.LogDetailNormal),
 			prefix, t0)
 
 	case fs.StreamingFile:
 		atomic.AddInt32(&u.stats.NonCachedFiles, 1)
 
-		de, err := u.uploadStreamingFileInternal(ctx, entryRelativePath, entry, policyTree.Child(entry.Name()).EffectivePolicy())
+		de, err := u.uploadStreamingFileInternal(ctx, entryRelativePath, entry)
 
 		return u.processEntryScanResult(ctx, de, err, entryRelativePath,
-			policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreFileErrors.OrDefault(false),
-			u.OverrideEntryLogDetail.OrDefault(policyTree.EffectivePolicy().LoggingPolicy.Entries.Snapshotted.OrDefault(policy.LogDetailNone)),
+			false,
+			u.OverrideEntryLogDetail.OrDefault(policy.LogDetailNormal),
 			"snapshotted streaming file", t0)
 
 	default:
@@ -710,7 +699,6 @@ func (u *Scanner) processEntryScanResult(ctx context.Context, de *snapshot.DirEn
 func (s *Scanner) uploadDirInternal(
 	ctx context.Context,
 	directory fs.Directory,
-	policyTree *policy.Tree,
 	previousDirs []fs.Directory,
 	localDirPathOrEmpty, dirRelativePath string,
 	thisDirBuilder *DirManifestBuilder,
@@ -729,7 +717,7 @@ func (s *Scanner) uploadDirInternal(
 
 	// TOOD: support for shallow dirs
 
-	if err := s.processChildren(ctx, thisDirBuilder, localDirPathOrEmpty, dirRelativePath, directory, policyTree, uniqueDirectories(previousDirs)); err != nil && !errors.Is(err, errCanceled) {
+	if err := s.processChildren(ctx, thisDirBuilder, localDirPathOrEmpty, dirRelativePath, directory, uniqueDirectories(previousDirs)); err != nil && !errors.Is(err, errCanceled) {
 		return err
 	}
 
@@ -816,16 +804,7 @@ func (s *Scanner) Upload(
 	switch entry := source.(type) {
 	case fs.Directory:
 		var previousDirs []fs.Directory
-
-		for _, m := range previousManifests {
-			if d := s.maybeOpenDirectoryFromManifest(ctx, m); d != nil {
-				previousDirs = append(previousDirs, d)
-			}
-		}
-
-		wrapped := s.wrapIgnorefs(scannerLog(ctx), entry, policyTree, true /* reportIgnoreStats */)
-
-		err = s.uploadDirWithCheckpointing(ctx, wrapped, policyTree, previousDirs, sourceInfo)
+		err = s.uploadDirWithCheckpointing(ctx, entry, previousDirs, sourceInfo)
 
 	case fs.File:
 		s.Progress.EstimatedDataSize(1, entry.Size())
@@ -844,34 +823,4 @@ func (s *Scanner) Upload(
 		s.incompleteReason(), startTime.Sub(endTime), s.stats)
 
 	return nil
-}
-
-func (u *Scanner) wrapIgnorefs(logger logging.Logger, entry fs.Directory, policyTree *policy.Tree, reportIgnoreStats bool) fs.Directory {
-	if u.DisableIgnoreRules {
-		return entry
-	}
-
-	return ignorefs.New(entry, policyTree, ignorefs.ReportIgnoredFiles(func(ctx context.Context, fname string, md fs.Entry, policyTree *policy.Tree) {
-		if md.IsDir() {
-			maybeLogEntryProcessed(
-				logger,
-				policyTree.EffectivePolicy().LoggingPolicy.Directories.Ignored.OrDefault(policy.LogDetailNone),
-				"ignored directory", fname, nil, nil, timetrack.StartTimer())
-
-			if reportIgnoreStats {
-				u.Progress.ExcludedDir(fname)
-			}
-		} else {
-			maybeLogEntryProcessed(
-				logger,
-				policyTree.EffectivePolicy().LoggingPolicy.Entries.Ignored.OrDefault(policy.LogDetailNone),
-				"ignored", fname, nil, nil, timetrack.StartTimer())
-
-			if reportIgnoreStats {
-				u.Progress.ExcludedFile(fname, md.Size())
-			}
-		}
-
-		u.stats.AddExcluded(md)
-	}))
 }
