@@ -375,27 +375,27 @@ func (s *Scanner) processSingle(
 	// note this function runs in parallel and updates 'u.stats', which must be done using atomic operations.
 	t0 := timetrack.StartTimer()
 
-	if _, ok := entry.(fs.Directory); !ok {
-		// See if we had this name during either of previous passes.
-		if cachedEntry := s.maybeIgnoreCachedEntry(ctx, findCachedEntry(ctx, entryRelativePath, entry, prevDirs)); cachedEntry != nil {
-			atomic.AddUint32(&s.stats.files.totalFiles, 1)
-			s.addAllFileStats(cachedEntry.Size())
+	// if _, ok := entry.(fs.Directory); !ok {
+	// 	// See if we had this name during either of previous passes.
+	// 	if cachedEntry := s.maybeIgnoreCachedEntry(ctx, findCachedEntry(ctx, entryRelativePath, entry, prevDirs)); cachedEntry != nil {
+	// 		atomic.AddUint32(&s.stats.files.totalFiles, 1)
+	// 		s.addAllFileStats(cachedEntry.Size())
 
-			s.Progress.CachedFile(entryRelativePath, cachedEntry.Size())
+	// 		s.Progress.CachedFile(entryRelativePath, cachedEntry.Size())
 
-			cachedDirEntry, err := newCachedDirEntry(entry, cachedEntry, entry.Name())
+	// 		cachedDirEntry, err := newCachedDirEntry(entry, cachedEntry, entry.Name())
 
-			s.Progress.FinishedFile(entryRelativePath, err)
+	// 		s.Progress.FinishedFile(entryRelativePath, err)
 
-			if err != nil {
-				return errors.Wrap(err, "unable to create dir entry")
-			}
+	// 		if err != nil {
+	// 			return errors.Wrap(err, "unable to create dir entry")
+	// 		}
 
-			return s.processEntryScanResult(ctx, cachedDirEntry, nil, entryRelativePath,
-				s.OverrideEntryLogDetail.OrDefault(policy.LogDetailNormal),
-				"cached", t0)
-		}
-	}
+	// 		return s.processEntryScanResult(ctx, cachedDirEntry, nil, entryRelativePath,
+	// 			s.OverrideEntryLogDetail.OrDefault(policy.LogDetailNormal),
+	// 			"cached", t0)
+	// 	}
+	// }
 
 	switch entry := entry.(type) {
 	case fs.Directory:
