@@ -118,38 +118,21 @@ func (u *Scanner) incompleteReason() string {
 }
 
 func (u *Scanner) updateFileSummaryInternal(ctx context.Context, f fs.File) {
-	var wg workshare.AsyncGroup[*uploadWorkItem]
-	defer wg.Close()
+	atomic.AddUint32(&u.summary.files.totalFiles, 1)
 
-	updater := func() {
-		atomic.AddUint32(&u.summary.files.totalFiles, 1)
-
-		size := f.Size()
-		switch {
-		case size == 0:
-			atomic.AddUint32(&u.summary.files.size0Byte, 1)
-		case size > 0 && size <= 100*1024: // <= 100KB
-			atomic.AddUint32(&u.summary.files.size0bTo100Kb, 1)
-		case size > 100*1024 && size <= 100*1024*1024: // > 100KB and <= 100MB
-			atomic.AddUint32(&u.summary.files.size100KbTo100Mb, 1)
-		case size > 100*1024*1024 && size <= 1024*1024*1024: // > 100MB and <= 1GB
-			atomic.AddUint32(&u.summary.files.size100MbTo1Gb, 1)
-		case size > 1024*1024*1024: // > 1GB
-			atomic.AddUint32(&u.summary.files.sizeOver1Gb, 1)
-		}
+	size := f.Size()
+	switch {
+	case size == 0:
+		atomic.AddUint32(&u.summary.files.size0Byte, 1)
+	case size > 0 && size <= 100*1024: // <= 100KB
+		atomic.AddUint32(&u.summary.files.size0bTo100Kb, 1)
+	case size > 100*1024 && size <= 100*1024*1024: // > 100KB and <= 100MB
+		atomic.AddUint32(&u.summary.files.size100KbTo100Mb, 1)
+	case size > 100*1024*1024 && size <= 1024*1024*1024: // > 100MB and <= 1GB
+		atomic.AddUint32(&u.summary.files.size100MbTo1Gb, 1)
+	case size > 1024*1024*1024: // > 1GB
+		atomic.AddUint32(&u.summary.files.sizeOver1Gb, 1)
 	}
-
-	// this is a shared workpool
-	if wg.CanShareWork(u.workerPool) {
-		// another goroutine is available, delegate to them
-		wg.RunAsync(u.workerPool, func(c *workshare.Pool[*uploadWorkItem], request *uploadWorkItem) {
-			updater()
-		}, nil)
-	} else {
-		updater()
-	}
-
-	wg.Wait()
 }
 
 func (s *Scanner) updateSymlinkStats(ctx context.Context, relativePath string, f fs.Symlink) (ret error) {
