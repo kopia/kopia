@@ -62,6 +62,32 @@ const (
 	IncompleteReasonLimitReached = "limit reached"
 )
 
+type fileHistogram struct {
+	totalSymlink     uint
+	totalFiles       uint
+	size0Byte        uint
+	size0bTo100Kb    uint
+	size100KbTo100Mb uint
+	size100MbTo1Gb   uint
+	sizeOver1Gb      uint
+}
+
+type dirHistogram struct {
+	totalDirs             uint
+	numEntries0           uint
+	numEntries0to100      uint
+	numEntries100to1000   uint
+	numEntries1000to10000 uint
+	numEntries10000to1mil uint
+	numEntriesOver1mil    uint
+}
+
+type sourceHistogram struct {
+	totalSize uint64
+	files     fileHistogram
+	dirs      dirHistogram
+}
+
 // Uploader supports efficient uploading files and directories to repository.
 type Uploader struct {
 	totalWrittenBytes atomic.Int64
@@ -116,6 +142,9 @@ type Uploader struct {
 	workerPool *workshare.Pool[*uploadWorkItem]
 
 	traceEnabled bool
+
+	summaryMtx sync.Mutex
+	summary    sourceHistogram
 }
 
 // IsCanceled returns true if the upload is canceled.
@@ -134,6 +163,37 @@ func (u *Uploader) incompleteReason() string {
 	}
 
 	return ""
+}
+
+func (u *Uploader) updateFileSummaryInternal(ctx context.Context, f fs.File) {
+	var wg workshare.AsyncGroup[*uploadWorkItem]
+	defer wg.Close()
+
+	updater := func() {
+		u.summaryMtx.Lock()
+		defer u.summaryMtx.Unlock()
+
+		u.summary.files.totalFiles++
+
+		size := f.Size()
+		switch {
+		case size == 0:
+			u.summary.files.size0Byte++
+			// TODO: fill all the cases ..
+		}
+	}
+
+	// this is a shared workpool
+	if wg.CanShareWork(u.workerPool) {
+		// another goroutine is available, delegate to them
+		wg.RunAsync(u.workerPool, func(c *workshare.Pool[*uploadWorkItem], request *uploadWorkItem) {
+			updater()
+		}, nil)
+	} else {
+		updater()
+	}
+
+	wg.Wait()
 }
 
 func (u *Uploader) uploadFileInternal(ctx context.Context, parentCheckpointRegistry *checkpointRegistry, relativePath string, f fs.File, pol *policy.Policy) (dirEntry *snapshot.DirEntry, ret error) {
@@ -893,7 +953,8 @@ func (u *Uploader) processSingle(
 	case fs.File:
 		atomic.AddInt32(&u.stats.NonCachedFiles, 1)
 
-		de, err := u.uploadFileInternal(ctx, parentCheckpointRegistry, entryRelativePath, entry, policyTree.Child(entry.Name()).EffectivePolicy())
+		// de, err := u.uploadFileInternal(ctx, parentCheckpointRegistry, entryRelativePath, entry, policyTree.Child(entry.Name()).EffectivePolicy())
+		de, err := u.updateFileSummaryInternal(ctx, entry)
 
 		return u.processEntryUploadResult(ctx, de, err, entryRelativePath, parentDirBuilder,
 			policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreFileErrors.OrDefault(false),
