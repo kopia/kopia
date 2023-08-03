@@ -16,7 +16,6 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/kopia/kopia/fs"
-	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/internal/workshare"
@@ -528,10 +527,10 @@ func (u *Scanner) reportErrorAndMaybeCancel(err error, entryRelativePath string)
 }
 
 // NewScanner creates new Scanner object for a given repository.
-func NewScanner() *Scanner {
+func NewScanner(now func() time.Time) *Scanner {
 	return &Scanner{
-		nowTimeFunc: clock.Now,
 		Progress:    &NullUploadProgress{},
+		nowTimeFunc: now,
 	}
 }
 
@@ -587,7 +586,7 @@ func (s *Scanner) Scan(
 
 	endTime := fs.UTCTimestampFromTime(s.nowTimeFunc())
 	scannerLog(ctx).Infof("Reason: %s, Time Taken: %s, Summary: %#v",
-		s.incompleteReason(), startTime.Sub(endTime), s.stats)
+		s.incompleteReason(), endTime.Sub(startTime), s.stats)
 
 	return nil
 }

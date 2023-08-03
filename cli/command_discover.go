@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
 	"github.com/pkg/errors"
 )
@@ -67,7 +68,7 @@ func (c *commandDiscover) getContentToDiscover(ctx context.Context, dir string) 
 }
 
 func (c *commandDiscover) setupScanner() *snapshotfs.Scanner {
-	u := snapshotfs.NewScanner()
+	u := snapshotfs.NewScanner(clock.Now)
 
 	return u
 }
