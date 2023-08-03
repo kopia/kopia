@@ -593,7 +593,7 @@ func (s *Scanner) Scan(
 }
 
 func (s *Scanner) dumpStats(ctx context.Context) {
-	d, err := json.Marshal(s.stats)
+	d, err := json.MarshalIndent(s.stats, "", "  ")
 	if err != nil {
 		scannerLog(ctx).Panicln("failed to marshal stats to json", err)
 	}
