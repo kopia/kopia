@@ -162,7 +162,7 @@ func (u *Scanner) updateFileSummaryInternal(ctx context.Context, f fs.File) {
 	wg.Wait()
 }
 
-func (u *Scanner) uploadFileInternal(ctx context.Context, parentCheckpointRegistry *checkpointRegistry, relativePath string, f fs.File, pol *policy.Policy) (dirEntry *snapshot.DirEntry, ret error) {
+func (u *Scanner) uploadFileInternal(ctx context.Context, relativePath string, f fs.File, pol *policy.Policy) (dirEntry *snapshot.DirEntry, ret error) {
 	u.Progress.HashingFile(relativePath)
 
 	defer func() {
@@ -191,7 +191,7 @@ func (u *Scanner) uploadFileInternal(ctx context.Context, parentCheckpointRegist
 	chunkSize := pol.UploadPolicy.ParallelUploadAboveSize.OrDefault(-1)
 	if chunkSize < 0 || f.Size() <= chunkSize {
 		// all data fits in 1 full chunks, upload directly
-		return u.uploadFileData(ctx, parentCheckpointRegistry, f, f.Name(), 0, -1, comp)
+		return u.uploadFileData(ctx, f, f.Name(), 0, -1, comp)
 	}
 
 	// we always have N+1 parts, first N are exactly chunkSize, last one has undetermined length
@@ -217,11 +217,11 @@ func (u *Scanner) uploadFileInternal(ctx context.Context, parentCheckpointRegist
 		if wg.CanShareWork(u.workerPool) {
 			// another goroutine is available, delegate to them
 			wg.RunAsync(u.workerPool, func(c *workshare.Pool[*uploadWorkItem], request *uploadWorkItem) {
-				parts[i], partErrors[i] = u.uploadFileData(ctx, parentCheckpointRegistry, f, uuid.NewString(), offset, length, comp)
+				parts[i], partErrors[i] = u.uploadFileData(ctx, f, uuid.NewString(), offset, length, comp)
 			}, nil)
 		} else {
 			// just do the work in the current goroutine
-			parts[i], partErrors[i] = u.uploadFileData(ctx, parentCheckpointRegistry, f, uuid.NewString(), offset, length, comp)
+			parts[i], partErrors[i] = u.uploadFileData(ctx, f, uuid.NewString(), offset, length, comp)
 		}
 	}
 
@@ -421,22 +421,9 @@ func newCachedDirEntry(md, cached fs.Entry, fname string) (*snapshot.DirEntry, e
 }
 
 // uploadFileWithCheckpointing uploads the specified File to the repository.
-func (u *Scanner) uploadFileWithCheckpointing(ctx context.Context, relativePath string, file fs.File, pol *policy.Policy, sourceInfo snapshot.SourceInfo) (*snapshot.DirEntry, error) {
-	var cp checkpointRegistry
-
-	cancelCheckpointer := u.periodicallyCheckpoint(ctx, &cp, &snapshot.Manifest{Source: sourceInfo})
-	defer cancelCheckpointer()
-
-	res, err := u.uploadFileInternal(ctx, &cp, relativePath, file, pol)
-	if err != nil {
-		return nil, err
-	}
-
-	return newDirEntryWithSummary(file, res.ObjectID, &fs.DirectorySummary{
-		TotalFileCount: 1,
-		TotalFileSize:  res.FileSize,
-		MaxModTime:     res.ModTime,
-	})
+func (u *Scanner) uploadFileWithCheckpointing(ctx context.Context, relativePath string, file fs.File, pol *policy.Policy, sourceInfo snapshot.SourceInfo) error {
+	_, err := u.uploadFileInternal(ctx, relativePath, file, pol)
+	return err
 }
 
 // checkpointRoot invokes checkpoints on the provided registry and if a checkpoint entry was generated,
@@ -643,7 +630,6 @@ func (u *Scanner) effectiveParallelFileReads(pol *policy.Policy) int {
 
 func (u *Scanner) processDirectoryEntries(
 	ctx context.Context,
-	parentCheckpointRegistry *checkpointRegistry,
 	parentDirBuilder *DirManifestBuilder,
 	localDirPathOrEmpty string,
 	dirRelativePath string,
@@ -666,10 +652,10 @@ func (u *Scanner) processDirectoryEntries(
 
 		if wg.CanShareWork(u.workerPool) {
 			wg.RunAsync(u.workerPool, func(c *workshare.Pool[*uploadWorkItem], wi *uploadWorkItem) {
-				wi.err = u.processSingle(ctx, entry, entryRelativePath, parentDirBuilder, policyTree, prevDirs, localDirPathOrEmpty, parentCheckpointRegistry)
+				wi.err = u.processSingle(ctx, entry, entryRelativePath, parentDirBuilder, policyTree, prevDirs, localDirPathOrEmpty)
 			}, &uploadWorkItem{})
 		} else {
-			if err := u.processSingle(ctx, entry, entryRelativePath, parentDirBuilder, policyTree, prevDirs, localDirPathOrEmpty, parentCheckpointRegistry); err != nil {
+			if err := u.processSingle(ctx, entry, entryRelativePath, parentDirBuilder, policyTree, prevDirs, localDirPathOrEmpty); err != nil {
 				return processEntryError{err}
 			}
 		}
@@ -702,7 +688,6 @@ func (u *Scanner) processSingle(
 	policyTree *policy.Tree,
 	prevDirs []fs.Directory,
 	localDirPathOrEmpty string,
-	parentCheckpointRegistry *checkpointRegistry,
 ) error {
 	defer entry.Close()
 
@@ -743,7 +728,7 @@ func (u *Scanner) processSingle(
 		childTree := policyTree.Child(entry.Name())
 		childPrevDirs := uniqueChildDirectories(ctx, prevDirs, entry.Name())
 
-		de, err := uploadDirInternal(ctx, u, entry, childTree, childPrevDirs, childLocalDirPathOrEmpty, entryRelativePath, childDirBuilder, parentCheckpointRegistry)
+		de, err := uploadDirInternal(ctx, u, entry, childTree, childPrevDirs, childLocalDirPathOrEmpty, entryRelativePath, childDirBuilder)
 		if errors.Is(err, errCanceled) {
 			return err
 		}
@@ -776,7 +761,7 @@ func (u *Scanner) processSingle(
 	case fs.File:
 		atomic.AddInt32(&u.stats.NonCachedFiles, 1)
 
-		// de, err := u.uploadFileInternal(ctx, parentCheckpointRegistry, entryRelativePath, entry, policyTree.Child(entry.Name()).EffectivePolicy())
+		// de, err := u.uploadFileInternal(ctx, entryRelativePath, entry, policyTree.Child(entry.Name()).EffectivePolicy())
 		de, err := u.updateFileSummaryInternal(ctx, entry)
 
 		return u.processEntryUploadResult(ctx, de, err, entryRelativePath, parentDirBuilder,
@@ -1023,6 +1008,7 @@ func (s *Scanner) Upload(
 	case fs.File:
 		s.Progress.EstimatedDataSize(1, entry.Size())
 		err = s.uploadFileWithCheckpointing(ctx, entry.Name(), entry, policyTree.EffectivePolicy(), sourceInfo)
+		_, err = s.uploadFileInternal(ctx, entry.Name(), entry, policyTree.EffectivePolicy())
 
 	default:
 		return errors.Errorf("unsupported source: %v", source)
