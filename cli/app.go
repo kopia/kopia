@@ -145,7 +145,7 @@ type App struct {
 	cache       commandCache
 	content     commandContent
 	diff        commandDiff
-	discovery   commandDiscovery
+	discover    commandDiscover
 	index       commandIndex
 	list        commandList
 	server      commandServer
@@ -286,7 +286,7 @@ func (c *App) setup(app *kingpin.Application) {
 	c.cache.setup(c, app)
 	c.content.setup(c, app)
 	c.diff.setup(c, app)
-	c.discovery.setup(c, app)
+	c.discover.setup(c, app)
 	c.index.setup(c, app)
 	c.list.setup(c, app)
 	c.logs.setup(c, app)
