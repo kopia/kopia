@@ -3,34 +3,36 @@ package snapshotfs
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
-	"math/rand"
 	"path"
 	"path/filepath"
 	"reflect"
-	"runtime"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/evandro-slv/go-cli-charts/bar"
 	"github.com/pkg/errors"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
+	"gonum.org/v1/plot"
+	"gonum.org/v1/plot/plotter"
+	"gonum.org/v1/plot/vg"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/internal/workshare"
 	"github.com/kopia/kopia/repo/logging"
-	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
 var (
 	scannerLog = logging.Module("scanner")
+)
+
+const (
+	normalShutdownReason = "normal shutdown"
 )
 
 type FileHistogram struct {
@@ -70,26 +72,11 @@ type Scanner struct {
 	// but maybe we should rename the UploadProgress to ScanProgress
 	Progress UploadProgress
 
-	// probability with cached entries will be ignored, must be [0..100]
-	// 0=always use cached object entries if possible
-	// 100=never use cached entries
-	ForceHashPercentage float64
-
-	// Number of files to hash and upload in parallel.
-	ParallelUploads int
-
 	// override the directory log level and entry log verbosity.
-	OverrideDirLogDetail   *policy.LogDetail
 	OverrideEntryLogDetail *policy.LogDetail
 
 	// Fail the entire snapshot on source file/directory error.
 	FailFast bool
-
-	// When set to true, do not ignore any files, regardless of policy settings.
-	DisableIgnoreRules bool
-
-	// Labels to apply to every checkpoint made for this snapshot.
-	CheckpointLabels map[string]string
 
 	nowTimeFunc func() time.Time
 
@@ -98,23 +85,12 @@ type Scanner struct {
 
 	isCanceled atomic.Bool
 
-	// for testing only, when set will write to a given channel whenever checkpoint completes
-	checkpointFinished chan struct{}
-
-	// disable snapshot size estimation
-	disableEstimation bool
-
 	workerPool *workshare.Pool[*scanWorkItem]
-
-	traceEnabled bool
-
-	summaryMtx sync.Mutex
-	summary    SourceHistogram
 }
 
 // IsCanceled returns true if the upload is canceled.
 func (u *Scanner) IsCanceled() bool {
-	return u.incompleteReason() != ""
+	return u.incompleteReason() != normalShutdownReason
 }
 
 func (u *Scanner) incompleteReason() string {
@@ -122,7 +98,7 @@ func (u *Scanner) incompleteReason() string {
 		return IncompleteReasonCanceled
 	}
 
-	return ""
+	return normalShutdownReason
 }
 
 func (s *Scanner) addAllFileStats(size int64) {
@@ -259,7 +235,7 @@ func (s *Scanner) scanDirectory(ctx context.Context, rootDir fs.Directory, previ
 
 	localDirPathOrEmpty := rootDir.LocalFilesystemPath()
 
-	return s.uploadDirInternal(ctx, rootDir, previousDirs, localDirPathOrEmpty, ".", &dmb)
+	return s.updateDirStatsInternal(ctx, rootDir, previousDirs, localDirPathOrEmpty, ".", &dmb)
 }
 
 func (u *Scanner) processChildren(
@@ -291,35 +267,6 @@ func (u *Scanner) processChildren(
 	}
 
 	return nil
-}
-
-func (u *Scanner) maybeIgnoreCachedEntry(ctx context.Context, ent fs.Entry) fs.Entry {
-	if h, ok := ent.(object.HasObjectID); ok {
-		if 100*rand.Float64() < u.ForceHashPercentage { //nolint:gosec
-			scannerLog(ctx).Debugw("re-hashing cached object", "oid", h.ObjectID())
-			return nil
-		}
-
-		return ent
-	}
-
-	return nil
-}
-
-func (u *Scanner) effectiveParallelFileReads(pol *policy.Policy) int {
-	p := u.ParallelUploads
-	if p > 0 {
-		// command-line override takes precedence.
-		return p
-	}
-
-	// use policy setting or number of CPUs.
-	max := pol.UploadPolicy.MaxParallelFileReads.OrDefault(runtime.NumCPU())
-	if p < 1 || p > max {
-		return max
-	}
-
-	return p
 }
 
 func (u *Scanner) processDirectoryEntries(
@@ -407,29 +354,6 @@ func (s *Scanner) processSingle(
 	// note this function runs in parallel and updates 'u.stats', which must be done using atomic operations.
 	t0 := timetrack.StartTimer()
 
-	// TODO:
-	// if _, ok := entry.(fs.Directory); !ok {
-	// 	// See if we had this name during either of previous passes.
-	// 	if cachedEntry := s.maybeIgnoreCachedEntry(ctx, findCachedEntry(ctx, entryRelativePath, entry, prevDirs)); cachedEntry != nil {
-	// 		atomic.AddUint32(&s.stats.files.totalFiles, 1)
-	// 		s.addAllFileStats(cachedEntry.Size())
-
-	// 		s.Progress.CachedFile(entryRelativePath, cachedEntry.Size())
-
-	// 		cachedDirEntry, err := newCachedDirEntry(entry, cachedEntry, entry.Name())
-
-	// 		s.Progress.FinishedFile(entryRelativePath, err)
-
-	// 		if err != nil {
-	// 			return errors.Wrap(err, "unable to create dir entry")
-	// 		}
-
-	// 		return s.processEntryScanResult(ctx, cachedDirEntry, nil, entryRelativePath,
-	// 			s.OverrideEntryLogDetail.OrDefault(policy.LogDetailNormal),
-	// 			"cached", t0)
-	// 	}
-	// }
-
 	switch entry := entry.(type) {
 	case fs.Directory:
 		childDirBuilder := &DirManifestBuilder{}
@@ -441,7 +365,7 @@ func (s *Scanner) processSingle(
 
 		childPrevDirs := uniqueChildDirectories(ctx, prevDirs, entry.Name())
 
-		err := s.uploadDirInternal(ctx, entry, childPrevDirs, childLocalDirPathOrEmpty, entryRelativePath, childDirBuilder)
+		err := s.updateDirStatsInternal(ctx, entry, childPrevDirs, childLocalDirPathOrEmpty, entryRelativePath, childDirBuilder)
 		if errors.Is(err, errCanceled) {
 			return err
 		}
@@ -510,7 +434,7 @@ func (u *Scanner) processEntryScanResult(ctx context.Context, de *snapshot.DirEn
 	return nil
 }
 
-func (s *Scanner) uploadDirInternal(
+func (s *Scanner) updateDirStatsInternal(
 	ctx context.Context,
 	directory fs.Directory,
 	previousDirs []fs.Directory,
@@ -518,13 +442,6 @@ func (s *Scanner) uploadDirInternal(
 	thisDirBuilder *DirManifestBuilder,
 ) (resultErr error) {
 	atomic.AddUint32(&s.stats.Dirs.TotalDirs, 1)
-
-	if s.traceEnabled {
-		var span trace.Span
-
-		ctx, span = uploadTracer.Start(ctx, "ScanDir", trace.WithAttributes(attribute.String("dir", dirRelativePath)))
-		defer span.End()
-	}
 
 	s.Progress.StartedDirectory(dirRelativePath)
 	defer s.Progress.FinishedDirectory(dirRelativePath)
@@ -576,8 +493,6 @@ func (s *Scanner) Scan(
 	ctx, span := uploadTracer.Start(ctx, "Scan")
 	defer span.End()
 
-	s.traceEnabled = span.IsRecording()
-
 	s.Progress.UploadStarted()
 	defer s.Progress.UploadFinished()
 
@@ -617,6 +532,7 @@ func (s *Scanner) Scan(
 
 	scannerLog(ctx).Infof("Time Taken: %s", endTime.Sub(startTime))
 	s.dumpStats(ctx)
+	s.dumpHistogramPlot()
 
 	return nil
 }
@@ -684,4 +600,39 @@ func (s *Scanner) draw(ctx context.Context, data map[string]float64) {
 	})
 
 	scannerLog(ctx).Infof(graph)
+}
+
+func histPlot(title string, values plotter.Values) {
+	p := plot.New()
+	p.Title.Text = title
+
+	hist, err := plotter.NewHist(values, 20)
+	if err != nil {
+		panic(err)
+	}
+
+	p.Add(hist)
+
+	if err := p.Save(3*vg.Inch, 3*vg.Inch, fmt.Sprintf("%s.png", title)); err != nil {
+		panic(err)
+	}
+}
+
+func (s *Scanner) dumpHistogramPlot() {
+	histPlot("Source File Size Histogram", plotter.Values{
+		float64(s.stats.Files.Size0Byte),
+		float64(s.stats.Files.Size0bTo100Kb),
+		float64(s.stats.Files.Size100KbTo100Mb),
+		float64(s.stats.Files.Size100MbTo1Gb),
+		float64(s.stats.Files.SizeOver1Gb),
+	})
+
+	histPlot("Source Directory Width Histogram", plotter.Values{
+		float64(s.stats.Dirs.NumEntries0),
+		float64(s.stats.Dirs.NumEntries0to100),
+		float64(s.stats.Dirs.NumEntries100to1000),
+		float64(s.stats.Dirs.NumEntries1000to10000),
+		float64(s.stats.Dirs.NumEntries10000to1mil),
+		float64(s.stats.Dirs.NumEntriesOver1mil),
+	})
 }
