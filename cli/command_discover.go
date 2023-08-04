@@ -27,7 +27,7 @@ func (c *commandDiscover) setup(svc appServices, parent commandParent) {
 
 func (c *commandDiscover) scanSingleSource(ctx context.Context) error {
 	source := c.directoryPath
-	log(ctx).Infof("Snapshotting %v ...", source)
+	log(ctx).Infof("Scanning %v ...", source)
 
 	var err error
 	var finalErrors []string

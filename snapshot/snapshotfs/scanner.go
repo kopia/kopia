@@ -140,6 +140,7 @@ func (s *Scanner) addAllFileStats(size int64) {
 }
 
 func (s *Scanner) updateFileSummaryInternal(ctx context.Context, f fs.File) {
+	scannerLog(ctx).Debugln("updating file summary for", f.Name())
 	atomic.AddUint32(&s.stats.Files.TotalFiles, 1)
 	s.addAllFileStats(f.Size())
 }
@@ -597,5 +598,5 @@ func (s *Scanner) dumpStats(ctx context.Context) {
 		scannerLog(ctx).Panicln("failed to marshal stats to json", err)
 	}
 
-	scannerLog(ctx).Infof("\n\nSummary:\n\n%s", string(d))
+	scannerLog(ctx).Infof("\nSummary:\n\n%s", string(d))
 }
