@@ -7,11 +7,14 @@ import (
 	"math/rand"
 	"path"
 	"path/filepath"
+	"reflect"
 	"runtime"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/evandro-slv/go-cli-charts/bar"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -132,9 +135,9 @@ func (s *Scanner) addAllFileStats(size int64) {
 		atomic.AddUint32(&s.stats.Files.Size0bTo100Kb, 1)
 	case size > 100*1024 && size <= 100*1024*1024: // > 100KB and <= 100MB
 		atomic.AddUint32(&s.stats.Files.Size100KbTo100Mb, 1)
-	case size > 100*1024*1024 && size <= 1024*1024*1024: // > 100MB and <= 1GB
+	case size > 100*1024*1024 && size <= 1023*1024*1024: // > 100MB and <= 1GB
 		atomic.AddUint32(&s.stats.Files.Size100MbTo1Gb, 1)
-	case size > 1024*1024*1024: // > 1GB
+	default: // > 1GB
 		atomic.AddUint32(&s.stats.Files.SizeOver1Gb, 1)
 	}
 }
@@ -607,7 +610,12 @@ func (s *Scanner) Scan(
 	}
 
 	endTime := fs.UTCTimestampFromTime(s.nowTimeFunc())
-	scannerLog(ctx).Infof("Reason: %s, Time Taken: %s", s.incompleteReason(), endTime.Sub(startTime))
+
+	if s.incompleteReason() != "" {
+		scannerLog(ctx).Infof("Reason: %s, ", s.incompleteReason())
+	}
+
+	scannerLog(ctx).Infof("Time Taken: %s", endTime.Sub(startTime))
 	s.dumpStats(ctx)
 
 	return nil
@@ -619,5 +627,61 @@ func (s *Scanner) dumpStats(ctx context.Context) {
 		scannerLog(ctx).Panicln("failed to marshal stats to json", err)
 	}
 
-	scannerLog(ctx).Infof("\nSummary:\n\n%s", string(d))
+	scannerLog(ctx).Infof("\nSummary:\n%s", string(d))
+
+	scannerLog(ctx).Infof("\nFiles statistics:\n")
+
+	data1, err := s.convertToMap(s.stats.Files)
+	if err != nil {
+		scannerLog(ctx).Panicln("failed to convert stats to map", err)
+	}
+	s.draw(ctx, data1)
+
+	scannerLog(ctx).Infof("\nDirectories statistics:\n")
+
+	data2, err := s.convertToMap(s.stats.Dirs)
+	if err != nil {
+		scannerLog(ctx).Panicln("failed to convert stats to map", err)
+	}
+
+	s.draw(ctx, data2)
+
+}
+
+func (s *Scanner) convertToMap(input interface{}) (map[string]float64, error) {
+	data := make(map[string]float64)
+
+	v := reflect.ValueOf(input)
+	if v.Kind() != reflect.Struct {
+		return nil, errors.Errorf("only convert struct")
+	}
+	t := v.Type()
+
+	for i := 0; i < v.NumField(); i++ {
+		f := v.Field(i)
+
+		if f.Kind() != reflect.Int64 && f.Kind() != reflect.Uint32 {
+			return nil, errors.Errorf("all the values must be integers")
+		}
+		newNames := strings.Split(t.Field(i).Name, "Size")
+		names := strings.Split(newNames[len(newNames)-1], "NumEntries")
+		data[names[len(names)-1]] = float64(f.Uint())
+	}
+	return data, nil
+}
+func (s *Scanner) draw(ctx context.Context, data map[string]float64) {
+	graph := bar.Draw(data, bar.Options{
+		Chart: bar.Chart{
+			Height: 14,
+		},
+		Bars: bar.Bars{
+			Width: 6,
+			Margin: bar.Margin{
+				Left:  3,
+				Right: 3,
+			},
+		},
+	})
+
+	scannerLog(ctx).Infof(graph)
 }
