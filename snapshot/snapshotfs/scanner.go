@@ -558,8 +558,6 @@ func (s *Scanner) Scan(
 	// set default as 8
 	parallel := 8
 
-	scannerLog(ctx).Debugw("scanning", "source", "parallel", parallel)
-
 	s.workerPool = workshare.NewPool[*scanWorkItem](parallel - 1)
 	defer s.workerPool.Close()
 
