@@ -139,6 +139,25 @@ func (s *Scanner) addAllFileStats(size int64) {
 	}
 }
 
+func (s *Scanner) addAllDirsStats(counts int64) {
+
+	switch {
+	case counts == 0:
+		atomic.AddUint32(&s.stats.Dirs.NumEntries0, 1)
+	case counts > 0 && counts <= 100: // <= 100
+		atomic.AddUint32(&s.stats.Dirs.NumEntries0to100, 1)
+	case counts > 100 && counts <= 1000: // > 100 and <= 1000
+		atomic.AddUint32(&s.stats.Dirs.NumEntries100to1000, 1)
+	case counts > 1000 && counts <= 10000: // > 1000 and <= 10000
+		atomic.AddUint32(&s.stats.Dirs.NumEntries1000to10000, 1)
+	case counts > 10000 && counts <= 1000000: // > 10000 and <= 1000000
+		atomic.AddUint32(&s.stats.Dirs.NumEntries10000to1mil, 1)
+	// trunk-ignore(golangci-lint/gomnd)
+	case counts > 1000000: // > 1000000
+		atomic.AddUint32(&s.stats.Dirs.NumEntriesOver1mil, 1)
+	}
+}
+
 func (s *Scanner) updateFileSummaryInternal(ctx context.Context, f fs.File) {
 	scannerLog(ctx).Debugln("updating file summary for", f.Name())
 	atomic.AddUint32(&s.stats.Files.TotalFiles, 1)
@@ -312,7 +331,9 @@ func (u *Scanner) processDirectoryEntries(
 	type processEntryError struct {
 		error
 	}
-
+	// trunk-ignore(golangci-lint/wsl)
+	files := int64(0)
+	// trunk-ignore(golangci-lint/wsl)
 	err := dir.IterateEntries(ctx, func(ctx context.Context, entry fs.Entry) error {
 		if u.IsCanceled() {
 			return errCanceled
@@ -329,9 +350,11 @@ func (u *Scanner) processDirectoryEntries(
 				return processEntryError{err}
 			}
 		}
-
+		atomic.AddInt64(&files, 1)
 		return nil
 	})
+
+	u.addAllDirsStats(files)
 
 	if err == nil {
 		return nil
