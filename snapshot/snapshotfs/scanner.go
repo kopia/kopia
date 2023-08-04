@@ -142,7 +142,6 @@ func (s *Scanner) addAllFileStats(size int64) {
 func (s *Scanner) updateFileSummaryInternal(ctx context.Context, f fs.File) {
 	atomic.AddUint32(&s.stats.Files.TotalFiles, 1)
 	s.addAllFileStats(f.Size())
-	scannerLog(ctx).Infof("debug file size:, %v", f.Size())
 }
 
 func (s *Scanner) updateSymlinkStats(ctx context.Context, relativePath string, f fs.Symlink) (ret error) {
@@ -573,11 +572,9 @@ func (s *Scanner) Scan(
 	case fs.Directory:
 		var previousDirs []fs.Directory
 		err = s.scanDirectory(ctx, entry, previousDirs)
-		scannerLog(ctx).Infof("debug dir:, %v", entry)
 	case fs.File:
 		s.Progress.EstimatedDataSize(1, entry.Size())
 		s.updateFileSummaryInternal(ctx, entry)
-		scannerLog(ctx).Infof("debug file:, %v", entry)
 
 	default:
 		return errors.Errorf("unsupported source: %v", source)
