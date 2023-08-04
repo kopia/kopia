@@ -3,8 +3,8 @@ package snapshotfs
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
-	"math/rand"
 	"path"
 	"path/filepath"
 	"sync/atomic"
@@ -13,6 +13,9 @@ import (
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
+	"gonum.org/v1/plot"
+	"gonum.org/v1/plot/plotter"
+	"gonum.org/v1/plot/vg"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/iocopy"
@@ -530,6 +533,7 @@ func (s *Scanner) Scan(
 	endTime := fs.UTCTimestampFromTime(s.nowTimeFunc())
 	scannerLog(ctx).Infof("Reason: %s, Time Taken: %s", s.incompleteReason(), endTime.Sub(startTime))
 	s.dumpStats(ctx)
+	s.dumpHistogramPlot()
 
 	return nil
 }
@@ -543,13 +547,37 @@ func (s *Scanner) dumpStats(ctx context.Context) {
 	scannerLog(ctx).Infof("\nSummary:\n\n%s", string(d))
 }
 
-func (s *Scanner) dumpHistogramPlot(ctx context.Context) {
-	var values plotter
-	for i := 0; i < 1000; i++ {
-		values = append(values, rand.NormFloat64())
+func histPlot(title string, values plotter.Values) {
+	p := plot.New()
+	p.Title.Text = title
+
+	hist, err := plotter.NewHist(values, 20)
+	if err != nil {
+		panic(err)
 	}
 
-	//boxPlot(values)
-	//barPlot(values[:4])
-	histPlot(values)
+	p.Add(hist)
+
+	if err := p.Save(3*vg.Inch, 3*vg.Inch, fmt.Sprintf("%s.png", title)); err != nil {
+		panic(err)
+	}
+}
+
+func (s *Scanner) dumpHistogramPlot() {
+	histPlot("Source File Size Histogram", plotter.Values{
+		float64(s.stats.Files.Size0Byte),
+		float64(s.stats.Files.Size0bTo100Kb),
+		float64(s.stats.Files.Size100KbTo100Mb),
+		float64(s.stats.Files.Size100MbTo1Gb),
+		float64(s.stats.Files.SizeOver1Gb),
+	})
+
+	histPlot("Source Directory Width Histogram", plotter.Values{
+		float64(s.stats.Dirs.NumEntries0),
+		float64(s.stats.Dirs.NumEntries0to100),
+		float64(s.stats.Dirs.NumEntries100to1000),
+		float64(s.stats.Dirs.NumEntries1000to10000),
+		float64(s.stats.Dirs.NumEntries10000to1mil),
+		float64(s.stats.Dirs.NumEntriesOver1mil),
+	})
 }
