@@ -11,8 +11,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/plotter"
 	"gonum.org/v1/plot/vg"
@@ -28,6 +26,10 @@ import (
 
 var (
 	scannerLog = logging.Module("scanner")
+)
+
+const (
+	normalShutdownReason = "normal shutdown"
 )
 
 type FileHistogram struct {
@@ -81,13 +83,11 @@ type Scanner struct {
 	isCanceled atomic.Bool
 
 	workerPool *workshare.Pool[*scanWorkItem]
-
-	traceEnabled bool
 }
 
 // IsCanceled returns true if the upload is canceled.
 func (u *Scanner) IsCanceled() bool {
-	return u.incompleteReason() != ""
+	return u.incompleteReason() != normalShutdownReason
 }
 
 func (u *Scanner) incompleteReason() string {
@@ -95,7 +95,7 @@ func (u *Scanner) incompleteReason() string {
 		return IncompleteReasonCanceled
 	}
 
-	return ""
+	return normalShutdownReason
 }
 
 func (s *Scanner) addAllFileStats(size int64) {
@@ -232,7 +232,7 @@ func (s *Scanner) scanDirectory(ctx context.Context, rootDir fs.Directory, previ
 
 	localDirPathOrEmpty := rootDir.LocalFilesystemPath()
 
-	return s.uploadDirInternal(ctx, rootDir, previousDirs, localDirPathOrEmpty, ".", &dmb)
+	return s.updateDirStatsInternal(ctx, rootDir, previousDirs, localDirPathOrEmpty, ".", &dmb)
 }
 
 func (u *Scanner) processChildren(
@@ -362,7 +362,7 @@ func (s *Scanner) processSingle(
 
 		childPrevDirs := uniqueChildDirectories(ctx, prevDirs, entry.Name())
 
-		err := s.uploadDirInternal(ctx, entry, childPrevDirs, childLocalDirPathOrEmpty, entryRelativePath, childDirBuilder)
+		err := s.updateDirStatsInternal(ctx, entry, childPrevDirs, childLocalDirPathOrEmpty, entryRelativePath, childDirBuilder)
 		if errors.Is(err, errCanceled) {
 			return err
 		}
@@ -431,7 +431,7 @@ func (u *Scanner) processEntryScanResult(ctx context.Context, de *snapshot.DirEn
 	return nil
 }
 
-func (s *Scanner) uploadDirInternal(
+func (s *Scanner) updateDirStatsInternal(
 	ctx context.Context,
 	directory fs.Directory,
 	previousDirs []fs.Directory,
@@ -439,13 +439,6 @@ func (s *Scanner) uploadDirInternal(
 	thisDirBuilder *DirManifestBuilder,
 ) (resultErr error) {
 	atomic.AddUint32(&s.stats.Dirs.TotalDirs, 1)
-
-	if s.traceEnabled {
-		var span trace.Span
-
-		ctx, span = uploadTracer.Start(ctx, "ScanDir", trace.WithAttributes(attribute.String("dir", dirRelativePath)))
-		defer span.End()
-	}
 
 	s.Progress.StartedDirectory(dirRelativePath)
 	defer s.Progress.FinishedDirectory(dirRelativePath)
@@ -496,8 +489,6 @@ func (s *Scanner) Scan(
 ) error {
 	ctx, span := uploadTracer.Start(ctx, "Scan")
 	defer span.End()
-
-	s.traceEnabled = span.IsRecording()
 
 	s.Progress.UploadStarted()
 	defer s.Progress.UploadFinished()
