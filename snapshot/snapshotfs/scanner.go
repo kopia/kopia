@@ -7,8 +7,6 @@ import (
 	"math/rand"
 	"path"
 	"path/filepath"
-	"runtime"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -21,7 +19,6 @@ import (
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/internal/workshare"
 	"github.com/kopia/kopia/repo/logging"
-	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
 )
@@ -67,26 +64,11 @@ type Scanner struct {
 	// but maybe we should rename the UploadProgress to ScanProgress
 	Progress UploadProgress
 
-	// probability with cached entries will be ignored, must be [0..100]
-	// 0=always use cached object entries if possible
-	// 100=never use cached entries
-	ForceHashPercentage float64
-
-	// Number of files to hash and upload in parallel.
-	ParallelUploads int
-
 	// override the directory log level and entry log verbosity.
-	OverrideDirLogDetail   *policy.LogDetail
 	OverrideEntryLogDetail *policy.LogDetail
 
 	// Fail the entire snapshot on source file/directory error.
 	FailFast bool
-
-	// When set to true, do not ignore any files, regardless of policy settings.
-	DisableIgnoreRules bool
-
-	// Labels to apply to every checkpoint made for this snapshot.
-	CheckpointLabels map[string]string
 
 	nowTimeFunc func() time.Time
 
@@ -95,18 +77,9 @@ type Scanner struct {
 
 	isCanceled atomic.Bool
 
-	// for testing only, when set will write to a given channel whenever checkpoint completes
-	checkpointFinished chan struct{}
-
-	// disable snapshot size estimation
-	disableEstimation bool
-
 	workerPool *workshare.Pool[*scanWorkItem]
 
 	traceEnabled bool
-
-	summaryMtx sync.Mutex
-	summary    SourceHistogram
 }
 
 // IsCanceled returns true if the upload is canceled.
@@ -290,35 +263,6 @@ func (u *Scanner) processChildren(
 	return nil
 }
 
-func (u *Scanner) maybeIgnoreCachedEntry(ctx context.Context, ent fs.Entry) fs.Entry {
-	if h, ok := ent.(object.HasObjectID); ok {
-		if 100*rand.Float64() < u.ForceHashPercentage { //nolint:gosec
-			scannerLog(ctx).Debugw("re-hashing cached object", "oid", h.ObjectID())
-			return nil
-		}
-
-		return ent
-	}
-
-	return nil
-}
-
-func (u *Scanner) effectiveParallelFileReads(pol *policy.Policy) int {
-	p := u.ParallelUploads
-	if p > 0 {
-		// command-line override takes precedence.
-		return p
-	}
-
-	// use policy setting or number of CPUs.
-	max := pol.UploadPolicy.MaxParallelFileReads.OrDefault(runtime.NumCPU())
-	if p < 1 || p > max {
-		return max
-	}
-
-	return p
-}
-
 func (u *Scanner) processDirectoryEntries(
 	ctx context.Context,
 	localDirPathOrEmpty string,
@@ -403,29 +347,6 @@ func (s *Scanner) processSingle(
 
 	// note this function runs in parallel and updates 'u.stats', which must be done using atomic operations.
 	t0 := timetrack.StartTimer()
-
-	// TODO:
-	// if _, ok := entry.(fs.Directory); !ok {
-	// 	// See if we had this name during either of previous passes.
-	// 	if cachedEntry := s.maybeIgnoreCachedEntry(ctx, findCachedEntry(ctx, entryRelativePath, entry, prevDirs)); cachedEntry != nil {
-	// 		atomic.AddUint32(&s.stats.files.totalFiles, 1)
-	// 		s.addAllFileStats(cachedEntry.Size())
-
-	// 		s.Progress.CachedFile(entryRelativePath, cachedEntry.Size())
-
-	// 		cachedDirEntry, err := newCachedDirEntry(entry, cachedEntry, entry.Name())
-
-	// 		s.Progress.FinishedFile(entryRelativePath, err)
-
-	// 		if err != nil {
-	// 			return errors.Wrap(err, "unable to create dir entry")
-	// 		}
-
-	// 		return s.processEntryScanResult(ctx, cachedDirEntry, nil, entryRelativePath,
-	// 			s.OverrideEntryLogDetail.OrDefault(policy.LogDetailNormal),
-	// 			"cached", t0)
-	// 	}
-	// }
 
 	switch entry := entry.(type) {
 	case fs.Directory:
@@ -620,4 +541,15 @@ func (s *Scanner) dumpStats(ctx context.Context) {
 	}
 
 	scannerLog(ctx).Infof("\nSummary:\n\n%s", string(d))
+}
+
+func (s *Scanner) dumpHistogramPlot(ctx context.Context) {
+	var values plotter
+	for i := 0; i < 1000; i++ {
+		values = append(values, rand.NormFloat64())
+	}
+
+	//boxPlot(values)
+	//barPlot(values[:4])
+	histPlot(values)
 }
