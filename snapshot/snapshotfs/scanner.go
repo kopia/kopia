@@ -127,21 +127,22 @@ func (s *Scanner) addAllFileStats(size int64) {
 
 	switch {
 	case size == 0:
-		atomic.AddUint32(&s.summary.Files.Size0Byte, 1)
+		atomic.AddUint32(&s.stats.Files.Size0Byte, 1)
 	case size > 0 && size <= 100*1024: // <= 100KB
-		atomic.AddUint32(&s.summary.Files.Size0bTo100Kb, 1)
+		atomic.AddUint32(&s.stats.Files.Size0bTo100Kb, 1)
 	case size > 100*1024 && size <= 100*1024*1024: // > 100KB and <= 100MB
-		atomic.AddUint32(&s.summary.Files.Size100KbTo100Mb, 1)
+		atomic.AddUint32(&s.stats.Files.Size100KbTo100Mb, 1)
 	case size > 100*1024*1024 && size <= 1024*1024*1024: // > 100MB and <= 1GB
-		atomic.AddUint32(&s.summary.Files.Size100MbTo1Gb, 1)
+		atomic.AddUint32(&s.stats.Files.Size100MbTo1Gb, 1)
 	case size > 1024*1024*1024: // > 1GB
-		atomic.AddUint32(&s.summary.Files.SizeOver1Gb, 1)
+		atomic.AddUint32(&s.stats.Files.SizeOver1Gb, 1)
 	}
 }
 
 func (s *Scanner) updateFileSummaryInternal(ctx context.Context, f fs.File) {
-	atomic.AddUint32(&s.summary.Files.TotalFiles, 1)
+	atomic.AddUint32(&s.stats.Files.TotalFiles, 1)
 	s.addAllFileStats(f.Size())
+	scannerLog(ctx).Infof("debug file size:, %v", f.Size())
 }
 
 func (s *Scanner) updateSymlinkStats(ctx context.Context, relativePath string, f fs.Symlink) (ret error) {
@@ -572,10 +573,11 @@ func (s *Scanner) Scan(
 	case fs.Directory:
 		var previousDirs []fs.Directory
 		err = s.scanDirectory(ctx, entry, previousDirs)
-
+		scannerLog(ctx).Infof("debug dir:, %v", entry)
 	case fs.File:
 		s.Progress.EstimatedDataSize(1, entry.Size())
 		s.updateFileSummaryInternal(ctx, entry)
+		scannerLog(ctx).Infof("debug file:, %v", entry)
 
 	default:
 		return errors.Errorf("unsupported source: %v", source)
