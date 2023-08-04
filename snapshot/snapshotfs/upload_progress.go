@@ -257,15 +257,17 @@ func (p *CountingUploadProgress) Snapshot() UploadCounters {
 	defer p.mu.Unlock()
 
 	return UploadCounters{
-		TotalCachedFiles: atomic.LoadInt32(&p.counters.TotalCachedFiles),
-		TotalHashedFiles: atomic.LoadInt32(&p.counters.TotalHashedFiles),
-		TotalCachedBytes: atomic.LoadInt64(&p.counters.TotalCachedBytes),
-		TotalHashedBytes: atomic.LoadInt64(&p.counters.TotalHashedBytes),
-		EstimatedBytes:   atomic.LoadInt64(&p.counters.EstimatedBytes),
-		EstimatedFiles:   atomic.LoadInt32(&p.counters.EstimatedFiles),
-		CurrentDirectory: p.counters.CurrentDirectory,
-		LastErrorPath:    p.counters.LastErrorPath,
-		LastError:        p.counters.LastError,
+		TotalCachedFiles:  atomic.LoadInt32(&p.counters.TotalCachedFiles),
+		TotalHashedFiles:  atomic.LoadInt32(&p.counters.TotalHashedFiles),
+		TotalCachedBytes:  atomic.LoadInt64(&p.counters.TotalCachedBytes),
+		TotalHashedBytes:  atomic.LoadInt64(&p.counters.TotalHashedBytes),
+		EstimatedBytes:    atomic.LoadInt64(&p.counters.EstimatedBytes),
+		EstimatedFiles:    atomic.LoadInt32(&p.counters.EstimatedFiles),
+		IgnoredErrorCount: atomic.LoadInt32(&p.counters.IgnoredErrorCount),
+		FatalErrorCount:   atomic.LoadInt32(&p.counters.FatalErrorCount),
+		CurrentDirectory:  p.counters.CurrentDirectory,
+		LastErrorPath:     p.counters.LastErrorPath,
+		LastError:         p.counters.LastError,
 	}
 }
 
@@ -292,7 +294,7 @@ func (p *CountingUploadProgress) UITaskCounters(final bool) map[string]uitask.Co
 		"Excluded Files":       uitask.SimpleCounter(int64(atomic.LoadInt32(&p.counters.TotalExcludedFiles))),
 		"Excluded Directories": uitask.SimpleCounter(int64(atomic.LoadInt32(&p.counters.TotalExcludedDirs))),
 
-		"Errors": uitask.ErrorCounter(int64(atomic.LoadInt32(&p.counters.IgnoredErrorCount))),
+		"Errors": uitask.ErrorCounter(int64(atomic.LoadInt32(&p.counters.FatalErrorCount))),
 	}
 
 	if !final {
