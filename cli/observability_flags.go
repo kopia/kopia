@@ -79,6 +79,17 @@ func (c *observabilityFlags) setup(svc appServices, app *kingpin.Application) {
 }
 
 func (c *observabilityFlags) startMetrics(ctx context.Context) error {
+	c.maybeStartListener(ctx)
+
+	if err := c.maybeStartMetricsPusher(ctx); err != nil {
+		return err
+	}
+
+	return c.maybeStartTraceExporter()
+}
+
+// Starts observability listener when a listener address is specified.
+func (c *observabilityFlags) maybeStartListener(ctx context.Context) {
 	if c.metricsListenAddr != "" {
 		m := mux.NewRouter()
 		initPrometheus(m)
@@ -96,7 +107,9 @@ func (c *observabilityFlags) startMetrics(ctx context.Context) error {
 
 		go http.ListenAndServe(c.metricsListenAddr, m) //nolint:errcheck,gosec
 	}
+}
 
+func (c *observabilityFlags) maybeStartMetricsPusher(ctx context.Context) error {
 	if c.metricsPushAddr != "" {
 		c.stopPusher = make(chan struct{})
 		c.pusherWG.Add(1)
@@ -133,6 +146,10 @@ func (c *observabilityFlags) startMetrics(ctx context.Context) error {
 		go c.pushPeriodically(ctx, pusher)
 	}
 
+	return nil
+}
+
+func (c *observabilityFlags) maybeStartTraceExporter() error {
 	se, err := c.getSpanExporter()
 	if err != nil {
 		return err
