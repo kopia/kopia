@@ -150,9 +150,14 @@ func (c *observabilityFlags) maybeStartMetricsPusher(ctx context.Context) error 
 }
 
 func (c *observabilityFlags) maybeStartTraceExporter() error {
-	se, err := c.getSpanExporter()
+	if !c.enableJaeger {
+		return nil
+	}
+
+	// Create the Jaeger exporter
+	se, err := jaeger.New(jaeger.WithCollectorEndpoint())
 	if err != nil {
-		return err
+		return errors.Wrap(err, "unable to create Jaeger exporter")
 	}
 
 	r := resource.NewWithAttributes(
@@ -173,20 +178,6 @@ func (c *observabilityFlags) maybeStartTraceExporter() error {
 	}
 
 	return nil
-}
-
-func (c *observabilityFlags) getSpanExporter() (trace.SpanExporter, error) {
-	if c.enableJaeger {
-		// Create the Jaeger exporter
-		exp, err := jaeger.New(jaeger.WithCollectorEndpoint())
-		if err != nil {
-			return nil, errors.Wrap(err, "unable to create Jaeger exporter")
-		}
-
-		return exp, nil
-	}
-
-	return nil, nil
 }
 
 func (c *observabilityFlags) stopMetrics(ctx context.Context) {
