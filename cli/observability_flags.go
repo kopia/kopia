@@ -160,13 +160,13 @@ func (c *observabilityFlags) maybeStartTraceExporter() error {
 		return errors.Wrap(err, "unable to create Jaeger exporter")
 	}
 
-	r := resource.NewWithAttributes(
-		semconv.SchemaURL,
-		semconv.ServiceNameKey.String("kopia"),
-		semconv.ServiceVersionKey.String(repo.BuildVersion),
-	)
-
 	if se != nil {
+		r := resource.NewWithAttributes(
+			semconv.SchemaURL,
+			semconv.ServiceNameKey.String("kopia"),
+			semconv.ServiceVersionKey.String(repo.BuildVersion),
+		)
+
 		tp := trace.NewTracerProvider(
 			trace.WithBatcher(se),
 			trace.WithResource(r),
