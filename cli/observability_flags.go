@@ -90,23 +90,25 @@ func (c *observabilityFlags) startMetrics(ctx context.Context) error {
 
 // Starts observability listener when a listener address is specified.
 func (c *observabilityFlags) maybeStartListener(ctx context.Context) {
-	if c.metricsListenAddr != "" {
-		m := mux.NewRouter()
-		initPrometheus(m)
-
-		if c.enablePProf {
-			m.HandleFunc("/debug/pprof/", pprof.Index)
-			m.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
-			m.HandleFunc("/debug/pprof/profile", pprof.Profile)
-			m.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
-			m.HandleFunc("/debug/pprof/trace", pprof.Trace)
-			m.HandleFunc("/debug/pprof/{cmd}", pprof.Index) // special handling for Gorilla mux, see https://stackoverflow.com/questions/30560859/cant-use-go-tool-pprof-with-an-existing-server/71032595#71032595
-		}
-
-		log(ctx).Infof("starting prometheus metrics on %v", c.metricsListenAddr)
-
-		go http.ListenAndServe(c.metricsListenAddr, m) //nolint:errcheck,gosec
+	if c.metricsListenAddr == "" {
+		return
 	}
+
+	m := mux.NewRouter()
+	initPrometheus(m)
+
+	if c.enablePProf {
+		m.HandleFunc("/debug/pprof/", pprof.Index)
+		m.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+		m.HandleFunc("/debug/pprof/profile", pprof.Profile)
+		m.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+		m.HandleFunc("/debug/pprof/trace", pprof.Trace)
+		m.HandleFunc("/debug/pprof/{cmd}", pprof.Index) // special handling for Gorilla mux, see https://stackoverflow.com/questions/30560859/cant-use-go-tool-pprof-with-an-existing-server/71032595#71032595
+	}
+
+	log(ctx).Infof("starting prometheus metrics on %v", c.metricsListenAddr)
+
+	go http.ListenAndServe(c.metricsListenAddr, m) //nolint:errcheck,gosec
 }
 
 func (c *observabilityFlags) maybeStartMetricsPusher(ctx context.Context) error {
