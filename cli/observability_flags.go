@@ -112,41 +112,43 @@ func (c *observabilityFlags) maybeStartListener(ctx context.Context) {
 }
 
 func (c *observabilityFlags) maybeStartMetricsPusher(ctx context.Context) error {
-	if c.metricsPushAddr != "" {
-		c.stopPusher = make(chan struct{})
-		c.pusherWG.Add(1)
-
-		pusher := push.New(c.metricsPushAddr, c.metricsJob)
-
-		pusher.Gatherer(prometheus.DefaultGatherer)
-
-		for _, g := range c.metricsGroupings {
-			const nParts = 2
-
-			parts := strings.SplitN(g, ":", nParts)
-			if len(parts) != nParts {
-				return errors.Errorf("grouping must be name:value")
-			}
-
-			name := parts[0]
-			val := parts[1]
-
-			pusher.Grouping(name, val)
-		}
-
-		if c.metricsPushUsername != "" {
-			pusher.BasicAuth(c.metricsPushUsername, c.metricsPushPassword)
-		}
-
-		if c.metricsPushFormat != "" {
-			pusher.Format(metricsPushFormats[c.metricsPushFormat])
-		}
-
-		log(ctx).Infof("starting prometheus pusher on %v every %v", c.metricsPushAddr, c.metricsPushInterval)
-		c.pushOnce(ctx, "initial", pusher)
-
-		go c.pushPeriodically(ctx, pusher)
+	if c.metricsPushAddr == "" {
+		return nil
 	}
+
+	c.stopPusher = make(chan struct{})
+	c.pusherWG.Add(1)
+
+	pusher := push.New(c.metricsPushAddr, c.metricsJob)
+
+	pusher.Gatherer(prometheus.DefaultGatherer)
+
+	for _, g := range c.metricsGroupings {
+		const nParts = 2
+
+		parts := strings.SplitN(g, ":", nParts)
+		if len(parts) != nParts {
+			return errors.Errorf("grouping must be name:value")
+		}
+
+		name := parts[0]
+		val := parts[1]
+
+		pusher.Grouping(name, val)
+	}
+
+	if c.metricsPushUsername != "" {
+		pusher.BasicAuth(c.metricsPushUsername, c.metricsPushPassword)
+	}
+
+	if c.metricsPushFormat != "" {
+		pusher.Format(metricsPushFormats[c.metricsPushFormat])
+	}
+
+	log(ctx).Infof("starting prometheus pusher on %v every %v", c.metricsPushAddr, c.metricsPushInterval)
+	c.pushOnce(ctx, "initial", pusher)
+
+	go c.pushPeriodically(ctx, pusher)
 
 	return nil
 }
