@@ -5,16 +5,16 @@ import (
 	"bytes"
 	"context"
 	"encoding/pem"
+	"errors"
 	"io"
 	"os"
 	"runtime"
 	"runtime/pprof"
 	"strconv"
 	"strings"
-
-	"github.com/pkg/errors"
-
 	"sync"
+
+	errors2 "gopkg.in/errgo.v2/fmt/errors"
 
 	"github.com/kopia/kopia/repo/logging"
 )
@@ -25,20 +25,23 @@ var log = logging.Module("kopia/debug")
 type ProfileName string
 
 const (
-	// DefaultDebugProfileDumpBufferSizeB default size of the pprof output buffer
+	// DefaultDebugProfileRate default sample/data fraction for profile sample collection rates (1/x, where x is the
+	// data fraction sample rate).
+	DefaultDebugProfileRate = 100
+	// DefaultDebugProfileDumpBufferSizeB default size of the pprof output buffer.
 	DefaultDebugProfileDumpBufferSizeB = 1 << 17
 )
 
 const (
-	// EnvVarKopiaDebugPprof environment variable that contains the pprof dump configuration
+	// EnvVarKopiaDebugPprof environment variable that contains the pprof dump configuration.
 	EnvVarKopiaDebugPprof = "KOPIA_DEBUG_PPROF"
 )
 
 // flags used to configure profiling in EnvVarKopiaDebugPprof
 const (
-	// KopiaDebugFlagForceGc force garbage collection before dumping heap data
+	// KopiaDebugFlagForceGc force garbage collection before dumping heap data.
 	KopiaDebugFlagForceGc = "forcegc"
-	// KopiaDebugFlagDebug value of the profiles `debug` parameter
+	// KopiaDebugFlagDebug value of the profiles `debug` parameter.
 	KopiaDebugFlagDebug = "debug"
 	// KopiaDebugFlagRate rate setting for the named profile (if available). always an integer.
 	KopiaDebugFlagRate = "rate"
@@ -50,13 +53,13 @@ const (
 	ProfileNameCpu               = "cpu"
 )
 
-// ProfileConfig configuration flags for a profile
+// ProfileConfig configuration flags for a profile.
 type ProfileConfig struct {
 	flags []string
 	buf   *bytes.Buffer
 }
 
-// ProfileConfigs configuration flags for all requested profiles
+// ProfileConfigs configuration flags for all requested profiles.
 type ProfileConfigs struct {
 	mu  sync.Mutex
 	pcm map[ProfileName]*ProfileConfig
@@ -74,11 +77,11 @@ type pprofSetRate struct {
 var pprofProfileRates = map[ProfileName]pprofSetRate{
 	ProfileNameBlock: {
 		fn:  func(x int) { runtime.SetBlockProfileRate(x) },
-		def: 100,
+		def: DefaultDebugProfileRate,
 	},
 	ProfileNameMutex: {
 		fn:  func(x int) { runtime.SetMutexProfileFraction(x) },
-		def: 100,
+		def: DefaultDebugProfileRate,
 	},
 }
 
@@ -114,7 +117,7 @@ func parseProfileConfigs(bufSizeB int, ppconfigs string) map[ProfileName]*Profil
 	return pbs
 }
 
-// newProfileConfig create a new profiling configuration
+// newProfileConfig create a new profiling configuration.
 func newProfileConfig(bufSizeB int, ppconfig string) *ProfileConfig {
 	q := &ProfileConfig{
 		buf: bytes.NewBuffer(make([]byte, 0, bufSizeB)),
@@ -205,7 +208,7 @@ func StartProfileBuffers(ctx context.Context) {
 	}
 }
 
-// DumpPem dump a PEM version of the byte slice, bs, into writer, wrt
+// DumpPem dump a PEM version of the byte slice, bs, into writer, wrt.
 func DumpPem(bs []byte, types string, wrt *os.File) error {
 	blk := &pem.Block{
 		Type:  types,
@@ -226,21 +229,27 @@ func DumpPem(bs []byte, types string, wrt *os.File) error {
 		}
 	}()
 	rdr := bufio.NewReader(pr)
-	for {
-		ln, err0 := rdr.ReadBytes('\n')
-		_, err1 := wrt.Write(ln)
-		if err1 != nil {
-			return err1
-		}
-		if errors.Is(err0, io.EOF) {
-			wrt.WriteString("\n")
-			break
-		}
-		if err0 != nil {
-			return err0
-		}
+	var err0, err1 error
+	for err0 == nil && err1 == nil {
+		var ln []byte
+		ln, err0 = rdr.ReadBytes('\n')
+		_, err1 = wrt.Write(ln)
 	}
-	return nil
+	// got a write error
+	if err1 != nil {
+		return err1
+	}
+	// did not get a read error.  file ends in newline
+	if err0 == nil {
+		return nil
+	}
+	// if file does not end in newline, then output one
+	if errors.Is(err0, io.EOF) {
+		_, err1 = wrt.WriteString("\n")
+		// TODO: lint says errors need to be wrapped ... figure out how its dealth with in rest of kopia
+		return errors2.Wrap()
+	}
+	return err0
 }
 
 func parseDebugNumber(v *ProfileConfig) (int, error) {
