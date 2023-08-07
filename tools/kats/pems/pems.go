@@ -34,7 +34,7 @@ func CreateOutFile(ctx context.Context, prefix, blknm, ext string) (*os.File, er
 }
 
 // FilenameFromBlockName turn PEM header name into string that can be used in a filename.
-func FilenameFromBlockName(blknm string, ext string, i int) string {
+func FilenameFromBlockName(blknm, ext string, i int) string {
 	// PEM specs spaces only - so this is safe
 	nm := elidePunctAndSpace.ReplaceAllLiteralString(strings.ToLower(blknm), "_")
 	var q string
