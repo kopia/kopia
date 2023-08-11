@@ -174,8 +174,7 @@ func TestInitialize(t *testing.T) {
 func TestInitializeWithRetention(t *testing.T) {
 	ctx := testlogging.Context(t)
 
-	startTime := time.Date(2020, 1, 1, 12, 0, 0, 0, time.UTC)
-	ta := faketime.NewTimeAdvance(startTime, 0)
+	ta := faketime.NewClockTimeWithOffset(0)
 	nowFunc := ta.NowFunc()
 
 	st := blobtesting.NewVersionedMapStorage(nowFunc).(cache.Storage)
@@ -212,13 +211,32 @@ func TestInitializeWithRetention(t *testing.T) {
 
 	_, err = st.TouchBlob(ctx, format.KopiaBlobCfgBlobID, time.Minute)
 	assert.ErrorIs(t, err, blobtesting.ErrBlobLocked, "Altering locked blob storage config should fail")
+
+	// Advance the clock to just before the retention period expires and check
+	// if we can modifiy the blob. Blobs should still be protected so TouchBlob
+	// should still fail.
+	ta.Advance((time.Hour * 48) - time.Minute)
+	_, err = st.TouchBlob(ctx, format.KopiaRepositoryBlobID, time.Minute)
+	assert.ErrorIs(t, err, blobtesting.ErrBlobLocked, "Altering locked repo blob should fail")
+
+	_, err = st.TouchBlob(ctx, format.KopiaBlobCfgBlobID, time.Minute)
+	assert.ErrorIs(t, err, blobtesting.ErrBlobLocked, "Altering locked blob storage config should fail")
+
+	// Advance the clock so the retention period has passed. Calling TouchBlob
+	// should now succeed.
+	ta.Advance(time.Minute)
+
+	_, err = st.TouchBlob(ctx, format.KopiaRepositoryBlobID, time.Minute)
+	assert.NoError(t, err, "Altering expired repo blob failed")
+
+	_, err = st.TouchBlob(ctx, format.KopiaBlobCfgBlobID, time.Minute)
+	assert.NoError(t, err, "Altering expired blob storage config failed")
 }
 
 func TestUpdateRetention(t *testing.T) {
 	ctx := testlogging.Context(t)
 
-	startTime := time.Date(2020, 1, 1, 12, 0, 0, 0, time.UTC)
-	ta := faketime.NewTimeAdvance(startTime, 0)
+	ta := faketime.NewClockTimeWithOffset(0)
 	nowFunc := ta.NowFunc()
 
 	st := blobtesting.NewVersionedMapStorage(nowFunc).(cache.Storage)
@@ -259,6 +277,26 @@ func TestUpdateRetention(t *testing.T) {
 
 	_, err = st.TouchBlob(ctx, format.KopiaBlobCfgBlobID, time.Minute)
 	assert.ErrorIs(t, err, blobtesting.ErrBlobLocked, "Altering locked blob storage config should fail")
+
+	// Advance the clock to just before the retention period expires and check
+	// if we can modifiy the blob. Blobs should still be protected so TouchBlob
+	// should still fail.
+	ta.Advance((time.Hour * 48) - time.Minute)
+	_, err = st.TouchBlob(ctx, format.KopiaRepositoryBlobID, time.Minute)
+	assert.ErrorIs(t, err, blobtesting.ErrBlobLocked, "Altering locked repo blob should fail")
+
+	_, err = st.TouchBlob(ctx, format.KopiaBlobCfgBlobID, time.Minute)
+	assert.ErrorIs(t, err, blobtesting.ErrBlobLocked, "Altering locked blob storage config should fail")
+
+	// Advance the clock so the retention period has passed. Calling TouchBlob
+	// should now succeed.
+	ta.Advance(time.Minute)
+
+	_, err = st.TouchBlob(ctx, format.KopiaRepositoryBlobID, time.Minute)
+	assert.NoError(t, err, "Altering expired repo blob failed")
+
+	_, err = st.TouchBlob(ctx, format.KopiaBlobCfgBlobID, time.Minute)
+	assert.NoError(t, err, "Altering expired blob storage config failed")
 }
 
 func TestUpdateRetentionNegativeValue(t *testing.T) {
