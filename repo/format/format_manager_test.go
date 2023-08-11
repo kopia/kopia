@@ -53,7 +53,7 @@ func TestFormatManager(t *testing.T) {
 	startTime := time.Date(2020, 1, 1, 12, 0, 0, 0, time.UTC)
 	ta := faketime.NewTimeAdvance(startTime, 0)
 	nowFunc := ta.NowFunc()
-	cache := format.NewMemoryBlobCache(nowFunc)
+	blobCache := format.NewMemoryBlobCache(nowFunc)
 
 	st := blobtesting.NewMapStorage(blobtesting.DataMap{}, nil, nil)
 	fst := blobtesting.NewFaultyStorage(st)
@@ -61,7 +61,7 @@ func TestFormatManager(t *testing.T) {
 
 	rawBytes := mustGetBytes(t, st, "kopia.repository")
 
-	mgr, err := format.NewManagerWithCache(ctx, fst, cacheDuration, "some-password", nowFunc, cache)
+	mgr, err := format.NewManagerWithCache(ctx, fst, cacheDuration, "some-password", nowFunc, blobCache)
 	require.NoError(t, err)
 
 	require.Equal(t, cf.HMACSecret, mgr.GetHmacSecret())
@@ -98,7 +98,7 @@ func TestFormatManager(t *testing.T) {
 	// open another manager when cache is still valid, it will reuse old cached time
 	ta.Advance(5)
 
-	mgr2, err := format.NewManagerWithCache(ctx, fst, cacheDuration, "some-password", nowFunc, cache)
+	mgr2, err := format.NewManagerWithCache(ctx, fst, cacheDuration, "some-password", nowFunc, blobCache)
 	require.NoError(t, err)
 
 	mustGetMutableParameters(t, mgr2)
@@ -109,7 +109,7 @@ func TestFormatManager(t *testing.T) {
 
 	n = ta.NowFunc()()
 
-	mgr3, err := format.NewManagerWithCache(ctx, fst, cacheDuration, "some-password", nowFunc, cache)
+	mgr3, err := format.NewManagerWithCache(ctx, fst, cacheDuration, "some-password", nowFunc, blobCache)
 	require.NoError(t, err)
 
 	// make sure we're using current time
@@ -175,7 +175,7 @@ func TestChangePassword(t *testing.T) {
 	startTime := time.Date(2020, 1, 1, 12, 0, 0, 0, time.UTC)
 	ta := faketime.NewTimeAdvance(startTime, 0)
 	nowFunc := ta.NowFunc()
-	cache := format.NewMemoryBlobCache(nowFunc)
+	blobCache := format.NewMemoryBlobCache(nowFunc)
 
 	cf2 := cf
 	cf2.Version = format.FormatVersion3
@@ -190,10 +190,10 @@ func TestChangePassword(t *testing.T) {
 	fst := blobtesting.NewFaultyStorage(st)
 	require.NoError(t, format.Initialize(ctx, fst, &format.KopiaRepositoryJSON{}, rc, format.BlobStorageConfiguration{}, "some-password"))
 
-	mgr, err := format.NewManagerWithCache(ctx, fst, cacheDuration, "some-password", nowFunc, cache)
+	mgr, err := format.NewManagerWithCache(ctx, fst, cacheDuration, "some-password", nowFunc, blobCache)
 	require.NoError(t, err)
 
-	mgr2, err := format.NewManagerWithCache(ctx, fst, cacheDuration, "some-password", nowFunc, cache)
+	mgr2, err := format.NewManagerWithCache(ctx, fst, cacheDuration, "some-password", nowFunc, blobCache)
 	require.NoError(t, err)
 
 	require.NoError(t, mgr2.ChangePassword(ctx, "new-password"))
@@ -207,7 +207,7 @@ func TestChangePassword(t *testing.T) {
 	require.ErrorIs(t, expectMutableParametersError(t, mgr), format.ErrInvalidPassword)
 	mustGetMutableParameters(t, mgr2)
 
-	_, err = format.NewManagerWithCache(ctx, fst, cacheDuration, "some-password", nowFunc, cache)
+	_, err = format.NewManagerWithCache(ctx, fst, cacheDuration, "some-password", nowFunc, blobCache)
 	require.ErrorIs(t, err, format.ErrInvalidPassword)
 }
 
@@ -225,7 +225,7 @@ func TestFormatManagerValidDuration(t *testing.T) {
 		startTime := time.Date(2020, 1, 1, 12, 0, 0, 0, time.UTC)
 		ta := faketime.NewTimeAdvance(startTime, 0)
 		nowFunc := ta.NowFunc()
-		cache := format.NewMemoryBlobCache(nowFunc)
+		blobCache := format.NewMemoryBlobCache(nowFunc)
 
 		st := blobtesting.NewMapStorage(blobtesting.DataMap{}, nil, nil)
 		fst := blobtesting.NewFaultyStorage(st)
@@ -233,10 +233,10 @@ func TestFormatManagerValidDuration(t *testing.T) {
 
 		if requestedCacheDuration < 0 {
 			// plant a malformed cache entry to ensure it's not being used
-			cache.Put(ctx, "kopia.repository", []byte("malformed"))
+			blobCache.Put(ctx, "kopia.repository", []byte("malformed"))
 		}
 
-		mgr, err := format.NewManagerWithCache(ctx, fst, requestedCacheDuration, "some-password", nowFunc, cache)
+		mgr, err := format.NewManagerWithCache(ctx, fst, requestedCacheDuration, "some-password", nowFunc, blobCache)
 		require.NoError(t, err)
 
 		require.Equal(t, actualCacheDuration, mgr.ValidCacheDuration())
