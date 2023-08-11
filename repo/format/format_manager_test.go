@@ -178,7 +178,7 @@ func TestInitializeWithRetention(t *testing.T) {
 	nowFunc := ta.NowFunc()
 
 	st := blobtesting.NewVersionedMapStorage(nowFunc).(cache.Storage)
-	cache := format.NewMemoryBlobCache(nowFunc)
+	blobCache := format.NewMemoryBlobCache(nowFunc)
 	mode := blob.Governance
 	period := time.Hour * 48
 
@@ -195,7 +195,7 @@ func TestInitializeWithRetention(t *testing.T) {
 		"some-password",
 	))
 
-	mgr, err := format.NewManagerWithCache(ctx, st, cacheDuration, "some-password", nowFunc, cache)
+	mgr, err := format.NewManagerWithCache(ctx, st, cacheDuration, "some-password", nowFunc, blobCache)
 	require.NoError(t, err, "getting format manager")
 
 	// New retention parameters should be available from the format manager.
@@ -240,14 +240,14 @@ func TestUpdateRetention(t *testing.T) {
 	nowFunc := ta.NowFunc()
 
 	st := blobtesting.NewVersionedMapStorage(nowFunc).(cache.Storage)
-	cache := format.NewMemoryBlobCache(nowFunc)
+	blobCache := format.NewMemoryBlobCache(nowFunc)
 	mode := blob.Governance
 	period := time.Hour * 48
 
 	// success
 	require.NoError(t, format.Initialize(ctx, st, &format.KopiaRepositoryJSON{}, rc, format.BlobStorageConfiguration{}, "some-password"))
 
-	mgr, err := format.NewManagerWithCache(ctx, st, cacheDuration, "some-password", nowFunc, cache)
+	mgr, err := format.NewManagerWithCache(ctx, st, cacheDuration, "some-password", nowFunc, blobCache)
 	require.NoError(t, err, "getting format manager")
 
 	mp := mustGetMutableParameters(t, mgr)
@@ -307,14 +307,14 @@ func TestUpdateRetentionNegativeValue(t *testing.T) {
 	nowFunc := ta.NowFunc()
 
 	st := blobtesting.NewVersionedMapStorage(nowFunc).(cache.Storage)
-	cache := format.NewMemoryBlobCache(nowFunc)
+	blobCache := format.NewMemoryBlobCache(nowFunc)
 	mode := blob.Governance
 	period := -time.Hour * 48
 
 	// success
 	require.NoError(t, format.Initialize(ctx, st, &format.KopiaRepositoryJSON{}, rc, format.BlobStorageConfiguration{}, "some-password"))
 
-	mgr, err := format.NewManagerWithCache(ctx, st, cacheDuration, "some-password", nowFunc, cache)
+	mgr, err := format.NewManagerWithCache(ctx, st, cacheDuration, "some-password", nowFunc, blobCache)
 	require.NoError(t, err, "getting format manager")
 
 	mp := mustGetMutableParameters(t, mgr)
