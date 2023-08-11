@@ -51,7 +51,7 @@ type observabilityFlags struct {
 	metricsPushPassword string
 	metricsPushFormat   string
 	metricsOutputDir    string
-	metricsFileName     string
+	outputFilePrefix    string
 
 	enableJaeger bool
 
@@ -95,23 +95,14 @@ func (c *observabilityFlags) initialize(ctx *kingpin.ParseContext) error {
 		return nil
 	}
 
-	c.metricsOutputDir = filepath.Clean(c.metricsOutputDir)
-
-	// ensure the metrics output dir can be created
-	if err := os.MkdirAll(c.metricsOutputDir, DirMode); err != nil {
-		return errors.Wrapf(err, "could not create metrics output directory: %s", c.metricsOutputDir)
-	}
-
-	// write metrics in a separate file per command and process execution
-	// to avoid conflicts with previously created profiles
-	c.metricsFileName = clock.Now().Format("20060102-150405")
+	// write to a separate file per command and process execution to avoid
+	// conflicts with previously created files
+	command := "unknown"
 	if cmd := ctx.SelectedCommand; cmd != nil {
-		c.metricsFileName += "-" + strings.ReplaceAll(cmd.FullCommand(), " ", "-")
-	} else {
-		c.metricsFileName += "-unknown"
+		command = strings.ReplaceAll(cmd.FullCommand(), " ", "-")
 	}
 
-	c.metricsFileName += ".prom"
+	c.outputFilePrefix = clock.Now().Format("20060102-150405-") + command
 
 	return nil
 }
@@ -121,6 +112,15 @@ func (c *observabilityFlags) startMetrics(ctx context.Context) error {
 
 	if err := c.maybeStartMetricsPusher(ctx); err != nil {
 		return err
+	}
+
+	if c.metricsOutputDir != "" {
+		c.metricsOutputDir = filepath.Clean(c.metricsOutputDir)
+
+		// ensure the metrics output dir can be created
+		if err := os.MkdirAll(c.metricsOutputDir, DirMode); err != nil {
+			return errors.Wrapf(err, "could not create metrics output directory: %s", c.metricsOutputDir)
+		}
 	}
 
 	return c.maybeStartTraceExporter()
@@ -236,8 +236,10 @@ func (c *observabilityFlags) stopMetrics(ctx context.Context) {
 	}
 
 	if c.metricsOutputDir != "" {
-		if err := prometheus.WriteToTextfile(filepath.Join(c.metricsOutputDir, c.metricsFileName), prometheus.DefaultGatherer); err != nil {
-			log(ctx).Warnf("unable to write metrics file '%s': %v", c.metricsFileName, err)
+		filename := filepath.Join(c.metricsOutputDir, c.outputFilePrefix+".prom")
+
+		if err := prometheus.WriteToTextfile(filename, prometheus.DefaultGatherer); err != nil {
+			log(ctx).Warnf("unable to write metrics file '%s': %v", filename, err)
 		}
 	}
 }
