@@ -6,8 +6,10 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"net"
 	"net/http"
 	"net/http/cookiejar"
+	net_url "net/url"
 	"regexp"
 	"strings"
 
@@ -192,6 +194,20 @@ func NewKopiaAPIClient(options Options) (*KopiaAPIClient, error) {
 		transport = http.DefaultTransport
 	}
 
+	uri := options.BaseURL
+
+	if strings.HasPrefix(options.BaseURL, "unix+https://") || strings.HasPrefix(options.BaseURL, "unix+http://") {
+		u, _ := net_url.Parse(strings.TrimPrefix(options.BaseURL, "unix+"))
+		uri = u.Scheme + "://localhost"
+		tp, _ := transport.(*http.Transport)
+		transport = tp.Clone()
+		tp, _ = transport.(*http.Transport)
+		tp.DialContext = func(_ context.Context, _, _ string) (net.Conn, error) {
+			dial, err := net.Dial("unix", u.Path)
+			return dial, errors.Wrap(err, "Failed to conect to socket: "+options.BaseURL)
+		}
+	}
+
 	// wrap with a round-tripper that provides basic authentication
 	if options.Username != "" || options.Password != "" {
 		transport = basicAuthTransport{transport, options.Username, options.Password}
@@ -207,7 +223,7 @@ func NewKopiaAPIClient(options Options) (*KopiaAPIClient, error) {
 	}
 
 	return &KopiaAPIClient{
-		options.BaseURL,
+		uri,
 		&http.Client{
 			Jar:       cj,
 			Transport: transport,
