@@ -7,6 +7,7 @@ package kopiaclient
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -192,6 +193,7 @@ func (kc *KopiaClient) getStorage(ctx context.Context, repoDir, bucketName strin
 			SecretAccessKey: os.Getenv(awsSecretAccessKeyEnvKey),
 		}
 		st, err = s3.New(ctx, s3Opts, false)
+		fmt.Println("In getStorage: created new dir in S3 bucket.")
 	} else {
 		if iErr := os.MkdirAll(repoDir, 0o700); iErr != nil {
 			return nil, errors.Wrap(iErr, "cannot create directory")
@@ -201,6 +203,7 @@ func (kc *KopiaClient) getStorage(ctx context.Context, repoDir, bucketName strin
 			Path: repoDir,
 		}
 		st, err = filesystem.New(ctx, fsOpts, false)
+		fmt.Println("In getStorage: created new dir in local filesystem.")
 	}
 
 	return st, errors.Wrap(err, "unable to get storage")
