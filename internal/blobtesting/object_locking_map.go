@@ -213,8 +213,10 @@ func (s *objectLockingMap) ExtendBlobRetention(ctx context.Context, id blob.ID, 
 		return blob.ErrBlobNotFound
 	}
 
+	// Use the clock instead of mtime since that aligns with how the S3 blob
+	// storage acts.
 	if !e.retentionTime.IsZero() {
-		e.retentionTime = e.mtime.Add(opts.RetentionPeriod)
+		e.retentionTime = s.timeNow().Add(opts.RetentionPeriod)
 	}
 
 	return nil
