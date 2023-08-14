@@ -37,6 +37,7 @@ type PersistentCache struct {
 	storageProtection cacheprot.StorageProtection
 	sweep             SweepSettings
 	timeNow           func() time.Time
+	lastCacheWarning  time.Time
 
 	description string
 
@@ -231,6 +232,13 @@ func (c *PersistentCache) Put(ctx context.Context, key string, data gather.Bytes
 		// MUST NOT go over the specified limit for the cache space to avoid
 		// snapshots/restores from getting affected by the cache's storage use.
 		if c.isCacheFullLocked() {
+			// Limit warnings to one per minute max.
+			if clock.Now().Sub(c.lastCacheWarning) > 10*time.Minute {
+				c.lastCacheWarning = clock.Now()
+
+				log(ctx).Warnf("Cache is full, unable to add item into '%s' cache.", c.description)
+			}
+
 			return
 		}
 	}
@@ -464,6 +472,7 @@ func NewPersistentCache(ctx context.Context, description string, cacheStorage St
 		metricsStruct:     initMetricsStruct(mr, description),
 		listCache:         newContentMetadataHeap(),
 		timeNow:           timeNow,
+		lastCacheWarning:  time.Time{},
 	}
 
 	if c.timeNow == nil {

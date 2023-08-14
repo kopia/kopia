@@ -14,6 +14,8 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 )
 
+var ErrBlobLocked = errors.New("cannot alter object before retention period expires")
+
 type entry struct {
 	value          []byte
 	mtime          time.Time
@@ -60,7 +62,7 @@ func (s *objectLockingMap) getLatestForMutationLocked(id blob.ID) (*entry, error
 	}
 
 	if !e.retentionTime.IsZero() && e.retentionTime.After(s.timeNow()) {
-		return nil, errors.New("cannot alter object before retention period expires")
+		return nil, errors.WithStack(ErrBlobLocked)
 	}
 
 	return e, nil

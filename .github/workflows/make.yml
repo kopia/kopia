@@ -82,6 +82,7 @@ jobs:
       if: ${{ contains(matrix.os, 'windows') }}
     - name: Build 
       run: make ci-build
+      timeout-minutes: 40
       env:
         # Apple ID and app-specific password for notarizaton, used by Electron Builder
         APPLEID: ${{ secrets.APPLEID }}

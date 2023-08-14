@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"strings"
 	"time"
 
+	"github.com/hashicorp/cronexpr"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/repo"
@@ -59,12 +61,14 @@ type SchedulingPolicy struct {
 	TimesOfDay         []TimeOfDay `json:"timeOfDay,omitempty"`
 	NoParentTimesOfDay bool        `json:"noParentTimeOfDay,omitempty"`
 	Manual             bool        `json:"manual,omitempty"`
+	Cron               []string    `json:"cron,omitempty"`
 }
 
 // SchedulingPolicyDefinition specifies which policy definition provided the value of a particular field.
 type SchedulingPolicyDefinition struct {
 	IntervalSeconds snapshot.SourceInfo `json:"intervalSeconds,omitempty"`
 	TimesOfDay      snapshot.SourceInfo `json:"timeOfDay,omitempty"`
+	Cron            snapshot.SourceInfo `json:"cron,omitempty"`
 	Manual          snapshot.SourceInfo `json:"manual,omitempty"`
 }
 
@@ -122,6 +126,25 @@ func (p *SchedulingPolicy) NextSnapshotTime(previousSnapshotTime, now time.Time)
 		}
 	}
 
+	for _, e := range p.Cron {
+		ce, err := cronexpr.Parse(stripCronComment(e))
+		if err != nil {
+			// ignore invalid crontab entries, nothing we can do at this point
+			// we already validated cron expressions them when they were added to the policy.
+			continue
+		}
+
+		nt := ce.Next(now)
+		if nt.IsZero() {
+			continue
+		}
+
+		if !ok || nt.Before(nextSnapshotTime) {
+			nextSnapshotTime = nt
+			ok = true
+		}
+	}
+
 	return nextSnapshotTime, ok
 }
 
@@ -136,6 +159,8 @@ func (p *SchedulingPolicy) Merge(src SchedulingPolicy, def *SchedulingPolicyDefi
 			p.TimesOfDay = SortAndDedupeTimesOfDay(append(append([]TimeOfDay(nil), src.TimesOfDay...), p.TimesOfDay...))
 		}
 	}
+
+	mergeStringList(&p.Cron, src.Cron, &def.Cron, si)
 
 	if src.NoParentTimesOfDay {
 		// prevent future merges
@@ -177,5 +202,17 @@ func ValidateSchedulingPolicy(p SchedulingPolicy) error {
 		return errors.New("invalid scheduling policy: manual cannot be combined with other scheduling policies")
 	}
 
+	for _, e := range p.Cron {
+		if e2 := stripCronComment(e); e2 != "" {
+			if _, err := cronexpr.Parse(e2); err != nil {
+				return errors.Errorf("invalid cron expression %q", e)
+			}
+		}
+	}
+
 	return nil
+}
+
+func stripCronComment(s string) string {
+	return strings.TrimSpace(strings.SplitN(s, "#", 2)[0]) //nolint:gomnd
 }
