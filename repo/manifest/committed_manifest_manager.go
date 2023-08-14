@@ -33,6 +33,13 @@ type committedManifestManager struct {
 	committedEntries map[ID]*manifestEntry
 	// +checklocks:cmmu
 	committedContentIDs map[content.ID]bool
+
+	// readOnly denotes whether this instance of the manifest manager only
+	// supports reads or supports reads and writes. This is important because the
+	// manifest manager attempts to compact manifest blobs automatically, and that
+	// may not be possible if kopia was opened at a specific point in time (i.e.
+	// S3 object locking/versioned bucket with --point-in-time flag).
+	readOnly bool
 }
 
 func (m *committedManifestManager) getCommittedEntryOrNil(ctx context.Context, id ID) (*manifestEntry, error) {
@@ -216,7 +223,9 @@ func (m *committedManifestManager) compact(ctx context.Context) error {
 func (m *committedManifestManager) maybeCompactLocked(ctx context.Context) error {
 	m.verifyLocked()
 
-	if len(m.committedContentIDs) < autoCompactionContentCount {
+	// Don't attempt to compact manifests if the repo was opened in read only mode
+	// since we'll just end up failing.
+	if m.readOnly || len(m.committedContentIDs) < autoCompactionContentCount {
 		return nil
 	}
 
@@ -355,7 +364,7 @@ func loadManifestContent(ctx context.Context, b contentManager, contentID conten
 	return man, errors.Wrapf(err, "unable to parse manifest %q", contentID)
 }
 
-func newCommittedManager(b contentManager) *committedManifestManager {
+func newCommittedManager(b contentManager, readOnly bool) *committedManifestManager {
 	debugID := ""
 	if os.Getenv("KOPIA_DEBUG_MANIFEST_MANAGER") != "" {
 		debugID = fmt.Sprintf("%x", rand.Int63()) //nolint:gosec
@@ -366,5 +375,6 @@ func newCommittedManager(b contentManager) *committedManifestManager {
 		debugID:             debugID,
 		committedEntries:    map[ID]*manifestEntry{},
 		committedContentIDs: map[content.ID]bool{},
+		readOnly:            readOnly,
 	}
 }

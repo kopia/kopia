@@ -263,7 +263,8 @@ func copyLabels(m map[string]string) map[string]string {
 
 // ManagerOptions are optional parameters for Manager creation.
 type ManagerOptions struct {
-	TimeNow func() time.Time // Time provider
+	TimeNow  func() time.Time // Time provider
+	ReadOnly bool
 }
 
 // NewManager returns new manifest manager for the provided content manager.
@@ -279,7 +280,7 @@ func NewManager(ctx context.Context, b contentManager, options ManagerOptions, m
 		b:              b,
 		pendingEntries: map[ID]*manifestEntry{},
 		timeNow:        timeNow,
-		committed:      newCommittedManager(b),
+		committed:      newCommittedManager(b, options.ReadOnly),
 	}
 
 	return m, nil
