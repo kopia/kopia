@@ -113,7 +113,7 @@ func (s *formatSpecificTestSuite) TestExtendBlobRetentionTimeDisabled(t *testing
 	}
 
 	// Need to continue using TouchBlob because the environment only supports the
-	// locking map if a retention time is given.
+	// locking map if no retention time is given.
 	lastBlobIdx := len(blobsBefore) - 1
 	st := env.RootStorage().(cache.Storage)
 
