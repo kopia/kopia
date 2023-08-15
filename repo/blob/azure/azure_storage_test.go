@@ -27,7 +27,7 @@ const (
 	testStorageAccountEnv      = "KOPIA_AZURE_TEST_STORAGE_ACCOUNT"
 	testStorageKeyEnv          = "KOPIA_AZURE_TEST_STORAGE_KEY"
 	testStorageSASTokenEnv     = "KOPIA_AZURE_TEST_SAS_TOKEN"
-	testStorageTanentIDEnv     = "KOPIA_AZURE_TEST_TANENT_ID"
+	testStorageTenantIDEnv     = "KOPIA_AZURE_TEST_TENANT_ID"
 	testStorageClientIDEnv     = "KOPIA_AZURE_TEST_CLIENT_ID"
 	testStorageClientSecretEnv = "KOPIA_AZURE_TEST_CLIENT_SECRET"
 )
@@ -172,7 +172,7 @@ func TestAzureStorageClientSecret(t *testing.T) {
 
 	container := getEnvOrSkip(t, testContainerEnv)
 	storageAccount := getEnvOrSkip(t, testStorageAccountEnv)
-	tanentID := getEnvOrSkip(t, testStorageTanentIDEnv)
+	tenantID := getEnvOrSkip(t, testStorageTenantIDEnv)
 	clientID := getEnvOrSkip(t, testStorageClientIDEnv)
 	clientSecret := getEnvOrSkip(t, testStorageClientSecretEnv)
 
@@ -187,7 +187,7 @@ func TestAzureStorageClientSecret(t *testing.T) {
 	st, err := azure.New(newctx, &azure.Options{
 		Container:      container,
 		StorageAccount: storageAccount,
-		TenantID:       tanentID,
+		TenantID:       tenantID,
 		ClientID:       clientID,
 		ClientSecret:   clientSecret,
 		Prefix:         fmt.Sprintf("sastest-%v-%x-", clock.Now().Unix(), data),
