@@ -4,6 +4,8 @@ import (
 	"context"
 	"net/http"
 	"net/http/pprof"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -21,8 +23,12 @@ import (
 	"go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/repo"
 )
+
+// DirMode is the directory mode for output directories.
+const DirMode = 0o700
 
 //nolint:gochecknoglobals
 var metricsPushFormats = map[string]expfmt.Format{
@@ -44,6 +50,8 @@ type observabilityFlags struct {
 	metricsPushUsername string
 	metricsPushPassword string
 	metricsPushFormat   string
+	metricsOutputDir    string
+	outputFilePrefix    string
 
 	enableJaeger bool
 
@@ -76,75 +84,131 @@ func (c *observabilityFlags) setup(svc appServices, app *kingpin.Application) {
 	sort.Strings(formats)
 
 	app.Flag("metrics-push-format", "Format to use for push gateway").Envar(svc.EnvName("KOPIA_METRICS_FORMAT")).Hidden().EnumVar(&c.metricsPushFormat, formats...)
+
+	app.Flag("metrics-directory", "Directory where the metrics should be saved when kopia exits. A file per process execution will be created in this directory").Hidden().StringVar(&c.metricsOutputDir)
+
+	app.PreAction(c.initialize)
+}
+
+func (c *observabilityFlags) initialize(ctx *kingpin.ParseContext) error {
+	if c.metricsOutputDir == "" {
+		return nil
+	}
+
+	// write to a separate file per command and process execution to avoid
+	// conflicts with previously created files
+	command := "unknown"
+	if cmd := ctx.SelectedCommand; cmd != nil {
+		command = strings.ReplaceAll(cmd.FullCommand(), " ", "-")
+	}
+
+	c.outputFilePrefix = clock.Now().Format("20060102-150405-") + command
+
+	return nil
 }
 
 func (c *observabilityFlags) startMetrics(ctx context.Context) error {
-	if c.metricsListenAddr != "" {
-		m := mux.NewRouter()
-		initPrometheus(m)
+	c.maybeStartListener(ctx)
 
-		if c.enablePProf {
-			m.HandleFunc("/debug/pprof/", pprof.Index)
-			m.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
-			m.HandleFunc("/debug/pprof/profile", pprof.Profile)
-			m.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
-			m.HandleFunc("/debug/pprof/trace", pprof.Trace)
-			m.HandleFunc("/debug/pprof/{cmd}", pprof.Index) // special handling for Gorilla mux, see https://stackoverflow.com/questions/30560859/cant-use-go-tool-pprof-with-an-existing-server/71032595#71032595
-		}
-
-		log(ctx).Infof("starting prometheus metrics on %v", c.metricsListenAddr)
-
-		go http.ListenAndServe(c.metricsListenAddr, m) //nolint:errcheck,gosec
-	}
-
-	if c.metricsPushAddr != "" {
-		c.stopPusher = make(chan struct{})
-		c.pusherWG.Add(1)
-
-		pusher := push.New(c.metricsPushAddr, c.metricsJob)
-
-		pusher.Gatherer(prometheus.DefaultGatherer)
-
-		for _, g := range c.metricsGroupings {
-			const nParts = 2
-
-			parts := strings.SplitN(g, ":", nParts)
-			if len(parts) != nParts {
-				return errors.Errorf("grouping must be name:value")
-			}
-
-			name := parts[0]
-			val := parts[1]
-
-			pusher.Grouping(name, val)
-		}
-
-		if c.metricsPushUsername != "" {
-			pusher.BasicAuth(c.metricsPushUsername, c.metricsPushPassword)
-		}
-
-		if c.metricsPushFormat != "" {
-			pusher.Format(metricsPushFormats[c.metricsPushFormat])
-		}
-
-		log(ctx).Infof("starting prometheus pusher on %v every %v", c.metricsPushAddr, c.metricsPushInterval)
-		c.pushOnce(ctx, "initial", pusher)
-
-		go c.pushPeriodically(ctx, pusher)
-	}
-
-	se, err := c.getSpanExporter()
-	if err != nil {
+	if err := c.maybeStartMetricsPusher(ctx); err != nil {
 		return err
 	}
 
-	r := resource.NewWithAttributes(
-		semconv.SchemaURL,
-		semconv.ServiceNameKey.String("kopia"),
-		semconv.ServiceVersionKey.String(repo.BuildVersion),
-	)
+	if c.metricsOutputDir != "" {
+		c.metricsOutputDir = filepath.Clean(c.metricsOutputDir)
+
+		// ensure the metrics output dir can be created
+		if err := os.MkdirAll(c.metricsOutputDir, DirMode); err != nil {
+			return errors.Wrapf(err, "could not create metrics output directory: %s", c.metricsOutputDir)
+		}
+	}
+
+	return c.maybeStartTraceExporter()
+}
+
+// Starts observability listener when a listener address is specified.
+func (c *observabilityFlags) maybeStartListener(ctx context.Context) {
+	if c.metricsListenAddr == "" {
+		return
+	}
+
+	m := mux.NewRouter()
+	initPrometheus(m)
+
+	if c.enablePProf {
+		m.HandleFunc("/debug/pprof/", pprof.Index)
+		m.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+		m.HandleFunc("/debug/pprof/profile", pprof.Profile)
+		m.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+		m.HandleFunc("/debug/pprof/trace", pprof.Trace)
+		m.HandleFunc("/debug/pprof/{cmd}", pprof.Index) // special handling for Gorilla mux, see https://stackoverflow.com/questions/30560859/cant-use-go-tool-pprof-with-an-existing-server/71032595#71032595
+	}
+
+	log(ctx).Infof("starting prometheus metrics on %v", c.metricsListenAddr)
+
+	go http.ListenAndServe(c.metricsListenAddr, m) //nolint:errcheck,gosec
+}
+
+func (c *observabilityFlags) maybeStartMetricsPusher(ctx context.Context) error {
+	if c.metricsPushAddr == "" {
+		return nil
+	}
+
+	c.stopPusher = make(chan struct{})
+	c.pusherWG.Add(1)
+
+	pusher := push.New(c.metricsPushAddr, c.metricsJob)
+
+	pusher.Gatherer(prometheus.DefaultGatherer)
+
+	for _, g := range c.metricsGroupings {
+		const nParts = 2
+
+		parts := strings.SplitN(g, ":", nParts)
+		if len(parts) != nParts {
+			return errors.Errorf("grouping must be name:value")
+		}
+
+		name := parts[0]
+		val := parts[1]
+
+		pusher.Grouping(name, val)
+	}
+
+	if c.metricsPushUsername != "" {
+		pusher.BasicAuth(c.metricsPushUsername, c.metricsPushPassword)
+	}
+
+	if c.metricsPushFormat != "" {
+		pusher.Format(metricsPushFormats[c.metricsPushFormat])
+	}
+
+	log(ctx).Infof("starting prometheus pusher on %v every %v", c.metricsPushAddr, c.metricsPushInterval)
+	c.pushOnce(ctx, "initial", pusher)
+
+	go c.pushPeriodically(ctx, pusher)
+
+	return nil
+}
+
+func (c *observabilityFlags) maybeStartTraceExporter() error {
+	if !c.enableJaeger {
+		return nil
+	}
+
+	// Create the Jaeger exporter
+	se, err := jaeger.New(jaeger.WithCollectorEndpoint())
+	if err != nil {
+		return errors.Wrap(err, "unable to create Jaeger exporter")
+	}
 
 	if se != nil {
+		r := resource.NewWithAttributes(
+			semconv.SchemaURL,
+			semconv.ServiceNameKey.String("kopia"),
+			semconv.ServiceVersionKey.String(repo.BuildVersion),
+		)
+
 		tp := trace.NewTracerProvider(
 			trace.WithBatcher(se),
 			trace.WithResource(r),
@@ -158,20 +222,6 @@ func (c *observabilityFlags) startMetrics(ctx context.Context) error {
 	return nil
 }
 
-func (c *observabilityFlags) getSpanExporter() (trace.SpanExporter, error) {
-	if c.enableJaeger {
-		// Create the Jaeger exporter
-		exp, err := jaeger.New(jaeger.WithCollectorEndpoint())
-		if err != nil {
-			return nil, errors.Wrap(err, "unable to create Jaeger exporter")
-		}
-
-		return exp, nil
-	}
-
-	return nil, nil
-}
-
 func (c *observabilityFlags) stopMetrics(ctx context.Context) {
 	if c.stopPusher != nil {
 		close(c.stopPusher)
@@ -182,6 +232,14 @@ func (c *observabilityFlags) stopMetrics(ctx context.Context) {
 	if c.traceProvider != nil {
 		if err := c.traceProvider.Shutdown(ctx); err != nil {
 			log(ctx).Warnf("unable to shutdown trace provicer: %v", err)
+		}
+	}
+
+	if c.metricsOutputDir != "" {
+		filename := filepath.Join(c.metricsOutputDir, c.outputFilePrefix+".prom")
+
+		if err := prometheus.WriteToTextfile(filename, prometheus.DefaultGatherer); err != nil {
+			log(ctx).Warnf("unable to write metrics file '%s': %v", filename, err)
 		}
 	}
 }

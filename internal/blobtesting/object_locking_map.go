@@ -20,6 +20,7 @@ type entry struct {
 	value          []byte
 	mtime          time.Time
 	retentionTime  time.Time
+	retentionMode  blob.RetentionMode
 	isDeleteMarker bool
 }
 
@@ -129,6 +130,18 @@ func (s *objectLockingMap) GetMetadata(ctx context.Context, id blob.ID) (blob.Me
 	}, nil
 }
 
+func (s *objectLockingMap) GetRetention(ctx context.Context, id blob.ID) (blob.RetentionMode, time.Time, error) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	e, err := s.getLatestByID(id)
+	if err != nil {
+		return "", time.Time{}, errors.Wrap(err, "getting blob")
+	}
+
+	return e.retentionMode, e.retentionTime, nil
+}
+
 // PutBlob works the same as map-storage PutBlob except that if the latest
 // version is a delete-marker then it will return ErrBlobNotFound. The
 // PutOptions retention parameters will be respected when storing the object.
@@ -153,6 +166,7 @@ func (s *objectLockingMap) PutBlob(ctx context.Context, id blob.ID, data blob.By
 
 	if opts.HasRetentionOptions() {
 		e.retentionTime = e.mtime.Add(opts.RetentionPeriod)
+		e.retentionMode = opts.RetentionMode
 	}
 
 	s.data[id] = append(s.data[id], e)
@@ -199,8 +213,13 @@ func (s *objectLockingMap) ExtendBlobRetention(ctx context.Context, id blob.ID, 
 		return blob.ErrBlobNotFound
 	}
 
+	// Update the retention time from now to the given retention period in the
+	// future. Note that we do not bump the existing time on the element `e.mtime`
+	// by the given delta because we'd like to align with the S3 storage's current
+	// time and the S3 storage code extends retention periods based off the
+	// current time, not object mod time.
 	if !e.retentionTime.IsZero() {
-		e.retentionTime = e.mtime.Add(opts.RetentionPeriod)
+		e.retentionTime = s.timeNow().Add(opts.RetentionPeriod)
 	}
 
 	return nil
@@ -293,7 +312,7 @@ func (s *objectLockingMap) FlushCaches(ctx context.Context) error {
 
 // NewVersionedMapStorage returns an implementation of Storage backed by the
 // contents of an internal in-memory map used primarily for testing.
-func NewVersionedMapStorage(timeNow func() time.Time) blob.Storage {
+func NewVersionedMapStorage(timeNow func() time.Time) RetentionStorage {
 	if timeNow == nil {
 		timeNow = clock.Now
 	}

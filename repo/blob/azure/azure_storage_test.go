@@ -23,10 +23,13 @@ import (
 )
 
 const (
-	testContainerEnv       = "KOPIA_AZURE_TEST_CONTAINER"
-	testStorageAccountEnv  = "KOPIA_AZURE_TEST_STORAGE_ACCOUNT"
-	testStorageKeyEnv      = "KOPIA_AZURE_TEST_STORAGE_KEY"
-	testStorageSASTokenEnv = "KOPIA_AZURE_TEST_SAS_TOKEN"
+	testContainerEnv           = "KOPIA_AZURE_TEST_CONTAINER"
+	testStorageAccountEnv      = "KOPIA_AZURE_TEST_STORAGE_ACCOUNT"
+	testStorageKeyEnv          = "KOPIA_AZURE_TEST_STORAGE_KEY"
+	testStorageSASTokenEnv     = "KOPIA_AZURE_TEST_SAS_TOKEN"
+	testStorageTenantIDEnv     = "KOPIA_AZURE_TEST_TENANT_ID"
+	testStorageClientIDEnv     = "KOPIA_AZURE_TEST_CLIENT_ID"
+	testStorageClientSecretEnv = "KOPIA_AZURE_TEST_CLIENT_SECRET"
 )
 
 func getEnvOrSkip(t *testing.T, name string) string {
@@ -149,6 +152,44 @@ func TestAzureStorageSASToken(t *testing.T) {
 		Container:      container,
 		StorageAccount: storageAccount,
 		SASToken:       sasToken,
+		Prefix:         fmt.Sprintf("sastest-%v-%x-", clock.Now().Unix(), data),
+	}, false)
+
+	require.NoError(t, err)
+	cancel()
+
+	defer st.Close(ctx)
+	defer blobtesting.CleanupOldData(ctx, t, st, 0)
+
+	blobtesting.VerifyStorage(ctx, t, st, blob.PutOptions{})
+	blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
+	require.NoError(t, providervalidation.ValidateProvider(ctx, st, blobtesting.TestValidationOptions))
+}
+
+func TestAzureStorageClientSecret(t *testing.T) {
+	t.Parallel()
+	testutil.ProviderTest(t)
+
+	container := getEnvOrSkip(t, testContainerEnv)
+	storageAccount := getEnvOrSkip(t, testStorageAccountEnv)
+	tenantID := getEnvOrSkip(t, testStorageTenantIDEnv)
+	clientID := getEnvOrSkip(t, testStorageClientIDEnv)
+	clientSecret := getEnvOrSkip(t, testStorageClientSecretEnv)
+
+	data := make([]byte, 8)
+	rand.Read(data)
+
+	ctx := testlogging.Context(t)
+
+	// use context that gets canceled after storage is initialize,
+	// to verify we do not depend on the original context past initialization.
+	newctx, cancel := context.WithCancel(ctx)
+	st, err := azure.New(newctx, &azure.Options{
+		Container:      container,
+		StorageAccount: storageAccount,
+		TenantID:       tenantID,
+		ClientID:       clientID,
+		ClientSecret:   clientSecret,
 		Prefix:         fmt.Sprintf("sastest-%v-%x-", clock.Now().Unix(), data),
 	}, false)
 
