@@ -186,6 +186,10 @@ type Manager struct {
 	log      logging.Logger
 	timeFunc func() time.Time
 
+	// whether the underlying storage should be considered read only. Influences
+	// whether index compaction occurs automatically.
+	readOnly bool
+
 	// wait group that waits for all compaction and cleanup goroutines.
 	backgroundWork sync.WaitGroup
 
@@ -694,7 +698,7 @@ func (e *Manager) refreshAttemptLocked(ctx context.Context) error {
 		len(ues[cs.WriteEpoch+1]),
 		cs.ValidUntil.Format(time.RFC3339Nano))
 
-	if shouldAdvance(cs.UncompactedEpochSets[cs.WriteEpoch], p.MinEpochDuration, p.EpochAdvanceOnCountThreshold, p.EpochAdvanceOnTotalSizeBytesThreshold) {
+	if !e.readOnly && shouldAdvance(cs.UncompactedEpochSets[cs.WriteEpoch], p.MinEpochDuration, p.EpochAdvanceOnCountThreshold, p.EpochAdvanceOnTotalSizeBytesThreshold) {
 		if err := e.advanceEpoch(ctx, cs); err != nil {
 			return errors.Wrap(err, "error advancing epoch")
 		}
@@ -708,9 +712,13 @@ func (e *Manager) refreshAttemptLocked(ctx context.Context) error {
 
 	e.lastKnownState = cs
 
-	e.maybeGenerateNextRangeCheckpointAsync(ctx, cs, p)
-	e.maybeStartCleanupAsync(ctx, cs, p)
-	e.maybeOptimizeRangeCheckpointsAsync(ctx, cs)
+	// Disable compaction and cleanup operations when running in read-only mode
+	// since they'll just fail when they try to mutate the underlying storage.
+	if !e.readOnly {
+		e.maybeGenerateNextRangeCheckpointAsync(ctx, cs, p)
+		e.maybeStartCleanupAsync(ctx, cs, p)
+		e.maybeOptimizeRangeCheckpointsAsync(ctx, cs)
+	}
 
 	return nil
 }
@@ -1012,13 +1020,14 @@ func rangeCheckpointBlobPrefix(epoch1, epoch2 int) blob.ID {
 }
 
 // NewManager creates new epoch manager.
-func NewManager(st blob.Storage, paramProvider ParametersProvider, compactor CompactionFunc, log logging.Logger, timeNow func() time.Time) *Manager {
+func NewManager(st blob.Storage, paramProvider ParametersProvider, compactor CompactionFunc, log logging.Logger, timeNow func() time.Time, readOnly bool) *Manager {
 	return &Manager{
 		st:                           st,
 		log:                          log,
 		compact:                      compactor,
 		timeFunc:                     timeNow,
 		paramProvider:                paramProvider,
+		readOnly:                     readOnly,
 		getCompleteIndexSetTooSlow:   new(int32),
 		committedStateRefreshTooSlow: new(int32),
 		writeIndexTooSlow:            new(int32),
