@@ -6,14 +6,14 @@ import (
 
 // Options defines options for Azure blob storage storage.
 type Options struct {
-	// Storage account name
-	StorageAccount string `json:"storageAccount"`
-
 	// Container is the name of the azure storage container where data is stored.
 	Container string `json:"container"`
 
 	// Prefix specifies additional string to prepend to all objects.
 	Prefix string `json:"prefix,omitempty"`
+
+	// Storage account name
+	StorageAccount string `json:"storageAccount"`
 
 	// Storage account access key
 	StorageKey string `json:"storageKey"     kopia:"sensitive"`

@@ -283,6 +283,7 @@ func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error)
 		if err != nil {
 			return nil, errors.Wrap(err, "unable to initialize client secret credential")
 		}
+
 		service, serviceErr = azblob.NewClient(fmt.Sprintf("https://%s/", storageHostname), cred, nil)
 
 	default:
