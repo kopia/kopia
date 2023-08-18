@@ -182,6 +182,10 @@ type Storage interface {
 
 	// ExtendBlobRetention extends the retention time of a blob (when blob retention is enabled)
 	ExtendBlobRetention(ctx context.Context, blobID ID, opts ExtendOptions) error
+
+	// IsReadOnly returns whether this Storage is in read-only mode. When in
+	// read-only mode all mutation operations will fail.
+	IsReadOnly() bool
 }
 
 // ID is a string that represents blob identifier.

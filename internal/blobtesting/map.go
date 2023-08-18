@@ -32,6 +32,10 @@ func (s *mapStorage) GetCapacity(ctx context.Context) (blob.Capacity, error) {
 	return blob.Capacity{}, blob.ErrNotAVolume
 }
 
+func (s *mapStorage) IsReadOnly() bool {
+	return false
+}
+
 func (s *mapStorage) GetBlob(ctx context.Context, id blob.ID, offset, length int64, output blob.OutputBuffer) error {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()

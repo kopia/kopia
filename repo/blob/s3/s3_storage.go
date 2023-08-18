@@ -40,6 +40,10 @@ func (s *s3Storage) GetCapacity(ctx context.Context) (blob.Capacity, error) {
 	return blob.Capacity{}, blob.ErrNotAVolume
 }
 
+func (s *s3Storage) IsReadOnly() bool {
+	return false
+}
+
 func (s *s3Storage) GetBlob(ctx context.Context, b blob.ID, offset, length int64, output blob.OutputBuffer) error {
 	return s.getBlobWithVersion(ctx, b, latestVersionID, offset, length, output)
 }

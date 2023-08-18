@@ -38,6 +38,10 @@ func (az *azStorage) GetCapacity(ctx context.Context) (blob.Capacity, error) {
 	return blob.Capacity{}, blob.ErrNotAVolume
 }
 
+func (az *azStorage) IsReadOnly() bool {
+	return false
+}
+
 func (az *azStorage) GetBlob(ctx context.Context, b blob.ID, offset, length int64, output blob.OutputBuffer) error {
 	if offset < 0 {
 		return errors.Wrap(blob.ErrInvalidRange, "invalid offset")

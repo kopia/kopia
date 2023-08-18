@@ -73,6 +73,10 @@ func (s *objectLockingMap) GetCapacity(ctx context.Context) (blob.Capacity, erro
 	return blob.Capacity{}, blob.ErrNotAVolume
 }
 
+func (s *objectLockingMap) IsReadOnly() bool {
+	return false
+}
+
 // GetBlob works the same as map-storage GetBlob except that if the latest
 // version is a delete-marker then it will return ErrBlobNotFound.
 func (s *objectLockingMap) GetBlob(ctx context.Context, id blob.ID, offset, length int64, output blob.OutputBuffer) error {
