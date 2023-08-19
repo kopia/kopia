@@ -66,7 +66,22 @@ func (s readonlyStorage) FlushCaches(ctx context.Context) error {
 	return s.base.FlushCaches(ctx)
 }
 
+func (s readonlyStorage) IsReadOnly() bool {
+	return true
+}
+
 // NewWrapper returns a readonly Storage wrapper that prevents any mutations to the underlying storage.
 func NewWrapper(wrapped blob.Storage) blob.Storage {
 	return &readonlyStorage{base: wrapped}
+}
+
+// IsReadOnly returns whether the storage is read only.
+func IsReadOnly(st blob.Storage) bool {
+	type readOnly interface {
+		IsReadOnly() bool
+	}
+
+	roSt, ok := st.(readOnly)
+
+	return ok && roSt.IsReadOnly()
 }
