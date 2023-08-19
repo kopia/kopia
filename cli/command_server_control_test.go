@@ -171,7 +171,8 @@ func TestServerControlUDS(t *testing.T) {
 	env := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, testenv.NewInProcRunner(t))
 
 	dir0 := testutil.TempDirectory(t)
-	dir1 := testutil.TempDirectory(t)
+	// the socket path must be < 108 bytes (linux) or 104 bytes (Mac), so can't use long tempdir
+	dir1 := testutil.TempDirectoryShort(t)
 
 	env.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", env.RepoDir, "--override-username=another-user", "--override-hostname=another-host")
 	env.RunAndExpectSuccess(t, "snap", "create", dir0)
