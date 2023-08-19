@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
@@ -23,6 +24,7 @@ import (
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/logging"
+	"github.com/kopia/kopia/repo/blob/readonly"
 )
 
 type fakeIndex struct {
@@ -333,6 +335,81 @@ func TestIndexEpochManager_DeletionFailing(t *testing.T) {
 	}
 
 	verifySequentialWrites(t, te)
+}
+
+func TestIndexEpochManager_NoCompactionInReadOnly(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+	te := newTestEnv(t)
+
+	// Disable compaction so the other instance of the manager will try to compact
+	// things. Unfortunately we can't check directly for compaction errors in our
+	// read-only instance though.
+	te.mgr.compact = func(context.Context, []blob.ID, blob.ID) error {
+		return nil
+	}
+
+	p, err := te.mgr.getParameters()
+	require.NoError(t, err)
+
+	// Write data to the index such that the next time it's opened it should
+	// attempt to compact things and advance the epoch. We want to write exactly
+	// the number of blobs that will cause it to advance so we can keep track of
+	// which epoch we're on and everything.
+	for j := 0; j < 10; j++ {
+		for i := 0; i < p.GetEpochAdvanceOnCountThreshold(); i++ {
+			// Advance the time so that the difference in times for writes will force
+			// new epochs.
+			te.ft.Advance(48 * time.Hour)
+			te.mustWriteIndexFiles(ctx, t, newFakeIndexWithEntries(i))
+		}
+	}
+
+	te.mgr.Flush()
+
+	// Delete the final epoch marker so that te2 attempts to make a new one on
+	// the refresh below. This simulates the previous epoch manager exiting (e.x.
+	// crashing) before writing the new marker.
+	c, err := te.mgr.Current(ctx)
+	require.NoError(t, err, "getting current epoch")
+
+	te.st.DeleteBlob(ctx, blob.ID(fmt.Sprintf("%s%d", string(EpochMarkerIndexBlobPrefix), c.WriteEpoch+1)))
+
+	te2 := &epochManagerTestEnv{
+		data:          te.data,
+		unloggedst:    te.unloggedst,
+		st:            readonly.NewWrapper(logging.NewWrapper(te.unloggedst, testlogging.NewTestLogger(t), "[OTHER STORAGE] ")),
+		ft:            te.ft,
+		faultyStorage: blobtesting.NewFaultyStorage(readonly.NewWrapper(te.unloggedst)),
+	}
+
+	// Set new epoch manager to read-only to ensure we don't get stuck.
+	te2.mgr = NewManager(te2.st, te.mgr.paramProvider, te2.compact, te.mgr.log, te.mgr.timeFunc)
+
+	// Use assert.Eventually here so we'll exit the test early instead of getting
+	// stuck until the timeout.
+	var (
+		loadedDone bool
+		loadedErr  error
+	)
+
+	go func() {
+		defer func() {
+			loadedDone = true
+		}()
+
+		loadedErr = te2.mgr.Refresh(ctx)
+		te2.mgr.backgroundWork.Wait()
+	}()
+
+	if !assert.Eventually(t, func() bool { return loadedDone }, time.Second*5, time.Second) {
+		// Return early so we don't report some odd failure on the error check below
+		// when we just never managed to initialize the epoch manager.
+		return
+	}
+
+	assert.NoError(t, loadedErr, "refreshing read-only index")
 }
 
 func TestRefreshRetriesIfTakingTooLong(t *testing.T) {
