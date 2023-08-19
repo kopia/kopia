@@ -17,6 +17,7 @@ import (
 	"github.com/kopia/kopia/internal/ctxutil"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/blob/readonly"
 	"github.com/kopia/kopia/repo/logging"
 )
 
@@ -694,7 +695,9 @@ func (e *Manager) refreshAttemptLocked(ctx context.Context) error {
 		len(ues[cs.WriteEpoch+1]),
 		cs.ValidUntil.Format(time.RFC3339Nano))
 
-	if shouldAdvance(cs.UncompactedEpochSets[cs.WriteEpoch], p.MinEpochDuration, p.EpochAdvanceOnCountThreshold, p.EpochAdvanceOnTotalSizeBytesThreshold) {
+	isWritable := !readonly.IsReadOnly(e.st)
+
+	if isWritable && shouldAdvance(cs.UncompactedEpochSets[cs.WriteEpoch], p.MinEpochDuration, p.EpochAdvanceOnCountThreshold, p.EpochAdvanceOnTotalSizeBytesThreshold) {
 		if err := e.advanceEpoch(ctx, cs); err != nil {
 			return errors.Wrap(err, "error advancing epoch")
 		}
@@ -708,9 +711,11 @@ func (e *Manager) refreshAttemptLocked(ctx context.Context) error {
 
 	e.lastKnownState = cs
 
-	e.maybeGenerateNextRangeCheckpointAsync(ctx, cs, p)
-	e.maybeStartCleanupAsync(ctx, cs, p)
-	e.maybeOptimizeRangeCheckpointsAsync(ctx, cs)
+	if isWritable {
+		e.maybeGenerateNextRangeCheckpointAsync(ctx, cs, p)
+		e.maybeStartCleanupAsync(ctx, cs, p)
+		e.maybeOptimizeRangeCheckpointsAsync(ctx, cs)
+	}
 
 	return nil
 }
