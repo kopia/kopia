@@ -421,6 +421,7 @@ func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *Ca
 		HMACSecret:         caching.HMACSecret,
 		Sweep: cache.SweepSettings{
 			MaxSizeBytes: caching.MaxCacheSizeBytes,
+			LimitBytes:   caching.ContentCacheSizeLimitBytes,
 			MinSweepAge:  caching.MinContentSweepAge.DurationOrDefault(DefaultDataCacheSweepAge),
 		},
 	}, mr)
@@ -440,6 +441,7 @@ func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *Ca
 		FetchFullBlobs:     true,
 		Sweep: cache.SweepSettings{
 			MaxSizeBytes: metadataCacheSize,
+			LimitBytes:   caching.MetadataCacheSizeLimitBytes,
 			MinSweepAge:  caching.MinMetadataSweepAge.DurationOrDefault(DefaultMetadataCacheSweepAge),
 		},
 	}, mr)
@@ -452,10 +454,13 @@ func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *Ca
 		return errors.Wrap(err, "unable to initialize index blob cache storage")
 	}
 
-	indexBlobCache, err := cache.NewPersistentCache(ctx, "index-blobs", indexBlobStorage, cacheprot.ChecksumProtection(caching.HMACSecret), cache.SweepSettings{
-		MaxSizeBytes: metadataCacheSize,
-		MinSweepAge:  caching.MinMetadataSweepAge.DurationOrDefault(DefaultMetadataCacheSweepAge),
-	}, mr, sm.timeNow)
+	indexBlobCache, err := cache.NewPersistentCache(ctx, "index-blobs",
+		indexBlobStorage,
+		cacheprot.ChecksumProtection(caching.HMACSecret),
+		cache.SweepSettings{
+			MaxSizeBytes: metadataCacheSize,
+			MinSweepAge:  caching.MinMetadataSweepAge.DurationOrDefault(DefaultMetadataCacheSweepAge),
+		}, mr, sm.timeNow)
 	if err != nil {
 		return errors.Wrap(err, "unable to create index blob cache")
 	}
