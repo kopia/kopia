@@ -62,10 +62,10 @@ func (c *contentCacheImpl) GetContent(ctx context.Context, contentID string, blo
 }
 
 func (c *contentCacheImpl) getContentFromFullBlob(ctx context.Context, blobID blob.ID, offset, length int64, output *gather.WriteBuffer) error {
-	// acquire exclusive lock
-	mut := c.pc.GetFetchingMutex(blobID)
-	mut.Lock()
-	defer mut.Unlock()
+	if c.pc != nil {
+		c.pc.fetchMutexes.exclusiveLock(string(blobID))
+		defer c.pc.fetchMutexes.exclusiveUnlock(string(blobID))
+	}
 
 	// check again to see if we perhaps lost the race and the data is now in cache.
 	if c.pc.GetPartial(ctx, BlobIDCacheKey(blobID), offset, length, output) {
@@ -113,10 +113,11 @@ func (c *contentCacheImpl) fetchBlobInternal(ctx context.Context, blobID blob.ID
 }
 
 func (c *contentCacheImpl) getContentFromFullOrPartialBlob(ctx context.Context, contentID string, blobID blob.ID, offset, length int64, output *gather.WriteBuffer) error {
-	// acquire shared lock on a blob, PrefetchBlob will acquire exclusive lock here.
-	mut := c.pc.GetFetchingMutex(blobID)
-	mut.RLock()
-	defer mut.RUnlock()
+	if c.pc != nil {
+		// acquire shared lock on a blob, PrefetchBlob will acquire exclusive lock here.
+		c.pc.fetchMutexes.sharedLock(string(blobID))
+		defer c.pc.fetchMutexes.sharedUnlock(string(blobID))
+	}
 
 	// see if we have the full blob cached by extracting a partial range.
 	if c.pc.GetPartial(ctx, BlobIDCacheKey(blobID), offset, length, output) {
@@ -124,9 +125,10 @@ func (c *contentCacheImpl) getContentFromFullOrPartialBlob(ctx context.Context, 
 	}
 
 	// acquire exclusive lock on the content
-	mut2 := c.pc.GetFetchingMutex(blob.ID(contentID))
-	mut2.Lock()
-	defer mut2.Unlock()
+	if c.pc != nil {
+		c.pc.fetchMutexes.exclusiveLock(contentID)
+		defer c.pc.fetchMutexes.exclusiveUnlock(contentID)
+	}
 
 	output.Reset()
 
@@ -160,10 +162,11 @@ func (c *contentCacheImpl) PrefetchBlob(ctx context.Context, blobID blob.ID) err
 		return nil
 	}
 
-	// acquire exclusive lock for the blob.
-	mut := c.pc.GetFetchingMutex(blobID)
-	mut.Lock()
-	defer mut.Unlock()
+	if c.pc != nil {
+		// acquire exclusive lock for the blob.
+		c.pc.fetchMutexes.exclusiveLock(string(blobID))
+		defer c.pc.fetchMutexes.exclusiveUnlock(string(blobID))
+	}
 
 	if c.pc.GetPartial(ctx, BlobIDCacheKey(blobID), 0, 1, &blobData) {
 		return nil

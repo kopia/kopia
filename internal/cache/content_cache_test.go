@@ -80,7 +80,7 @@ func TestCacheExpiration(t *testing.T) {
 	err = cc.GetContent(ctx, "00000d", "content-4k", 0, -1, &tmp) // 4k
 	require.NoError(t, err)
 
-	// 00000a and 00000b will be removed from cache because it's the oldest.
+	// 00000a and 00000b will be removed from cache because they are the oldest.
 	// to verify, let's remove content-4k from the underlying storage and make sure we can still read
 	// 00000c and 00000d from the cache but not 00000a nor 00000b
 	require.NoError(t, underlyingStorage.DeleteBlob(ctx, "content-4k"))
@@ -97,9 +97,8 @@ func TestCacheExpiration(t *testing.T) {
 
 	for _, tc := range cases {
 		got := cc.GetContent(ctx, tc.contentID, "content-4k", 0, -1, &tmp)
-		if assert.ErrorIs(t, got, tc.expectedError, "tc.contentID: %v", tc.contentID) {
-			t.Logf("got correct error %v when reading content %v", tc.expectedError, tc.contentID)
-		}
+		require.ErrorIs(t, got, tc.expectedError, "tc.contentID: %v", tc.contentID)
+		t.Logf("got correct error %v when reading content %v", tc.expectedError, tc.contentID)
 	}
 }
 
