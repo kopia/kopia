@@ -31,8 +31,8 @@ exports.default = async function notarizing(context) {
       appleApiKey: keyFile,
     });
     clearTimeout(timerId);
+    return x;
   } finally {
     fs.unlinkSync(keyFile);
   }
-  return x;
 };
