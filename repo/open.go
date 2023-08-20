@@ -155,6 +155,7 @@ func getContentCacheOrNil(ctx context.Context, opt *content.CachingOptions, pass
 
 	pc, err := cache.NewPersistentCache(ctx, "cache-storage", cs, prot, cache.SweepSettings{
 		MaxSizeBytes: opt.MaxCacheSizeBytes,
+		LimitBytes:   opt.ContentCacheSizeLimitBytes,
 		MinSweepAge:  opt.MinContentSweepAge.DurationOrDefault(content.DefaultDataCacheSweepAge),
 	}, mr, timeNow)
 	if err != nil {

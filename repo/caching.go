@@ -68,7 +68,9 @@ func setupCachingOptionsWithDefaults(ctx context.Context, configPath string, lc 
 	}
 
 	lc.Caching.MaxCacheSizeBytes = opt.MaxCacheSizeBytes
+	lc.Caching.ContentCacheSizeLimitBytes = opt.ContentCacheSizeLimitBytes
 	lc.Caching.MaxMetadataCacheSizeBytes = opt.MaxMetadataCacheSizeBytes
+	lc.Caching.MetadataCacheSizeLimitBytes = opt.MetadataCacheSizeLimitBytes
 	lc.Caching.MaxListCacheDuration = opt.MaxListCacheDuration
 	lc.Caching.MinContentSweepAge = opt.MinContentSweepAge
 	lc.Caching.MinMetadataSweepAge = opt.MinMetadataSweepAge
