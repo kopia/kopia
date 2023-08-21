@@ -33,13 +33,6 @@ type committedManifestManager struct {
 	committedEntries map[ID]*manifestEntry
 	// +checklocks:cmmu
 	committedContentIDs map[content.ID]bool
-
-	// readOnly denotes whether this instance of the manifest manager only
-	// supports reads or supports reads and writes. This is important because the
-	// manifest manager attempts to compact manifest blobs automatically, and that
-	// may not be possible if kopia was opened at a specific point in time (i.e.
-	// S3 object locking/versioned bucket with --point-in-time flag).
-	readOnly bool
 }
 
 func (m *committedManifestManager) getCommittedEntryOrNil(ctx context.Context, id ID) (*manifestEntry, error) {
@@ -225,7 +218,7 @@ func (m *committedManifestManager) maybeCompactLocked(ctx context.Context) error
 
 	// Don't attempt to compact manifests if the repo was opened in read only mode
 	// since we'll just end up failing.
-	if m.readOnly || len(m.committedContentIDs) < autoCompactionContentCount {
+	if m.b.IsReadOnly() || len(m.committedContentIDs) < autoCompactionContentCount {
 		return nil
 	}
 
