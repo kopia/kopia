@@ -357,7 +357,7 @@ func loadManifestContent(ctx context.Context, b contentManager, contentID conten
 	return man, errors.Wrapf(err, "unable to parse manifest %q", contentID)
 }
 
-func newCommittedManager(b contentManager, readOnly bool) *committedManifestManager {
+func newCommittedManager(b contentManager) *committedManifestManager {
 	debugID := ""
 	if os.Getenv("KOPIA_DEBUG_MANIFEST_MANAGER") != "" {
 		debugID = fmt.Sprintf("%x", rand.Int63()) //nolint:gosec
@@ -368,6 +368,5 @@ func newCommittedManager(b contentManager, readOnly bool) *committedManifestMana
 		debugID:             debugID,
 		committedEntries:    map[ID]*manifestEntry{},
 		committedContentIDs: map[content.ID]bool{},
-		readOnly:            readOnly,
 	}
 }

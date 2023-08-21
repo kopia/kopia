@@ -420,7 +420,7 @@ func TestManifestAutoCompactionWithReadOnly(t *testing.T) {
 	// to attempt to compact things.
 	bm = newContentManagerForTesting(ctx, t, data, true)
 
-	mgr, err = NewManager(ctx, bm, ManagerOptions{ReadOnly: true}, nil)
+	mgr, err = NewManager(ctx, bm, ManagerOptions{}, nil)
 	require.NoError(t, err, "getting other instance of manifest manager")
 
 	_, err = mgr.Find(ctx, map[string]string{"color": "red"})

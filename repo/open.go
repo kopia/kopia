@@ -335,7 +335,7 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 		return nil, errors.Wrap(ferr, "unable to open object manager")
 	}
 
-	manifests, ferr := manifest.NewManager(ctx, cm, manifest.ManagerOptions{TimeNow: cmOpts.TimeNow, ReadOnly: cliOpts.ReadOnly}, mr)
+	manifests, ferr := manifest.NewManager(ctx, cm, manifest.ManagerOptions{TimeNow: cmOpts.TimeNow}, mr)
 	if ferr != nil {
 		return nil, errors.Wrap(ferr, "unable to open manifests")
 	}
