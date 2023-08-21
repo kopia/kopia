@@ -698,7 +698,7 @@ func (e *Manager) refreshAttemptLocked(ctx context.Context) error {
 		len(ues[cs.WriteEpoch+1]),
 		cs.ValidUntil.Format(time.RFC3339Nano))
 
-	if !e.readOnly && shouldAdvance(cs.UncompactedEpochSets[cs.WriteEpoch], p.MinEpochDuration, p.EpochAdvanceOnCountThreshold, p.EpochAdvanceOnTotalSizeBytesThreshold) {
+	if !e.st.IsReadOnly() && shouldAdvance(cs.UncompactedEpochSets[cs.WriteEpoch], p.MinEpochDuration, p.EpochAdvanceOnCountThreshold, p.EpochAdvanceOnTotalSizeBytesThreshold) {
 		if err := e.advanceEpoch(ctx, cs); err != nil {
 			return errors.Wrap(err, "error advancing epoch")
 		}
@@ -714,7 +714,7 @@ func (e *Manager) refreshAttemptLocked(ctx context.Context) error {
 
 	// Disable compaction and cleanup operations when running in read-only mode
 	// since they'll just fail when they try to mutate the underlying storage.
-	if !e.readOnly {
+	if !e.st.IsReadOnly() {
 		e.maybeGenerateNextRangeCheckpointAsync(ctx, cs, p)
 		e.maybeStartCleanupAsync(ctx, cs, p)
 		e.maybeOptimizeRangeCheckpointsAsync(ctx, cs)
