@@ -34,14 +34,6 @@ type azStorage struct {
 	container string
 }
 
-func (az *azStorage) GetCapacity(ctx context.Context) (blob.Capacity, error) {
-	return blob.Capacity{}, blob.ErrNotAVolume
-}
-
-func (az *azStorage) IsReadOnly() bool {
-	return false
-}
-
 func (az *azStorage) GetBlob(ctx context.Context, b blob.ID, offset, length int64, output blob.OutputBuffer) error {
 	if offset < 0 {
 		return errors.Wrap(blob.ErrInvalidRange, "invalid offset")
@@ -232,14 +224,6 @@ func (az *azStorage) ConnectionInfo() blob.ConnectionInfo {
 
 func (az *azStorage) DisplayName() string {
 	return fmt.Sprintf("Azure: %v", az.Options.Container)
-}
-
-func (az *azStorage) Close(ctx context.Context) error {
-	return nil
-}
-
-func (az *azStorage) FlushCaches(ctx context.Context) error {
-	return nil
 }
 
 // New creates new Azure Blob Storage-backed storage with specified options:

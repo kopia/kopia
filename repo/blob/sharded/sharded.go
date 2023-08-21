@@ -44,11 +44,6 @@ type Storage struct {
 	parameters *Parameters
 }
 
-// IsReadOnly implements blob.Storage.
-func (s *Storage) IsReadOnly() bool {
-	return false
-}
-
 // GetBlob implements blob.Storage.
 func (s *Storage) GetBlob(ctx context.Context, blobID blob.ID, offset, length int64, output blob.OutputBuffer) error {
 	dirPath, filePath, err := s.GetShardedPathAndFilePath(ctx, blobID)

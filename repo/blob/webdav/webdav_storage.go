@@ -45,10 +45,6 @@ type davStorageImpl struct {
 	cli *gowebdav.Client
 }
 
-func (d *davStorage) GetCapacity(ctx context.Context) (blob.Capacity, error) {
-	return blob.Capacity{}, blob.ErrNotAVolume
-}
-
 func (d *davStorageImpl) GetBlobFromPath(ctx context.Context, dirPath, path string, offset, length int64, output blob.OutputBuffer) error {
 	_ = dirPath
 
@@ -240,14 +236,6 @@ func (d *davStorage) ConnectionInfo() blob.ConnectionInfo {
 func (d *davStorage) DisplayName() string {
 	o := d.Storage.Impl.(*davStorageImpl).Options //nolint:forcetypeassert
 	return fmt.Sprintf("WebDAV: %v", o.URL)
-}
-
-func (d *davStorage) Close(ctx context.Context) error {
-	return nil
-}
-
-func (d *davStorage) FlushCaches(ctx context.Context) error {
-	return nil
 }
 
 func isRetriable(err error) bool {

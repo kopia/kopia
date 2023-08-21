@@ -336,14 +336,6 @@ func (fs *fsStorage) DisplayName() string {
 	return fmt.Sprintf("Filesystem: %v", fs.RootPath)
 }
 
-func (fs *fsStorage) Close(ctx context.Context) error {
-	return nil
-}
-
-func (fs *fsStorage) FlushCaches(ctx context.Context) error {
-	return nil
-}
-
 // New creates new filesystem-backed storage in a specified directory.
 func New(ctx context.Context, opts *Options, isCreate bool) (blob.Storage, error) {
 	var err error

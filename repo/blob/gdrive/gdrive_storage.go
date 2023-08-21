@@ -73,10 +73,6 @@ func (gdrive *gdriveStorage) GetCapacity(ctx context.Context) (blob.Capacity, er
 	}, nil
 }
 
-func (gdrive *gdriveStorage) IsReadOnly() bool {
-	return false
-}
-
 func (gdrive *gdriveStorage) GetBlob(ctx context.Context, b blob.ID, offset, length int64, output blob.OutputBuffer) error {
 	if offset < 0 {
 		return blob.ErrInvalidRange
@@ -328,10 +324,6 @@ func (gdrive *gdriveStorage) ConnectionInfo() blob.ConnectionInfo {
 
 func (gdrive *gdriveStorage) DisplayName() string {
 	return fmt.Sprintf("Google Drive: %v", gdrive.folderID)
-}
-
-func (gdrive *gdriveStorage) Close(ctx context.Context) error {
-	return nil
 }
 
 func (gdrive *gdriveStorage) FlushCaches(ctx context.Context) error {
