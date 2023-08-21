@@ -151,6 +151,26 @@ func (s DefaultProviderImplementation) ExtendBlobRetention(context.Context, ID, 
 	return ErrUnsupportedObjectLock
 }
 
+// IsReadOnly complies with the Storage interface.
+func (s DefaultProviderImplementation) IsReadOnly() bool {
+	return false
+}
+
+// Close complies with the Storage interface.
+func (s DefaultProviderImplementation) Close(context.Context) error {
+	return nil
+}
+
+// FlushCaches complies with the Storage interface.
+func (s DefaultProviderImplementation) FlushCaches(context.Context) error {
+	return nil
+}
+
+// GetCapacity complies with the Storage interface.
+func (s DefaultProviderImplementation) GetCapacity(context.Context) (Capacity, error) {
+	return Capacity{}, ErrNotAVolume
+}
+
 // HasRetentionOptions returns true when blob-retention settings have been
 // specified, otherwise returns false.
 func (o PutOptions) HasRetentionOptions() bool {
