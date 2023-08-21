@@ -111,6 +111,10 @@ func (s *eventuallyConsistentStorage) GetCapacity(ctx context.Context) (blob.Cap
 	return s.realStorage.GetCapacity(ctx)
 }
 
+func (s *eventuallyConsistentStorage) IsReadOnly() bool {
+	return false
+}
+
 func (s *eventuallyConsistentStorage) GetBlob(ctx context.Context, id blob.ID, offset, length int64, output blob.OutputBuffer) error {
 	// don't bother caching partial reads
 	if length >= 0 {
