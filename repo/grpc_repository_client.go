@@ -806,12 +806,17 @@ func openGRPCAPIRepository(ctx context.Context, si *APIServerInfo, password stri
 		return nil, errors.Wrap(err, "unable to parse server URL")
 	}
 
-	if u.Scheme != "kopia" && u.Scheme != "https" {
-		return nil, errors.Errorf("invalid server address, must be 'https://host:port'")
+	if u.Scheme != "kopia" && u.Scheme != "https" && u.Scheme != "unix+https" {
+		return nil, errors.Errorf("invalid server address, must be 'https://host:port' or 'unix+https://<path>")
+	}
+
+	uri := u.Hostname() + ":" + u.Port()
+	if u.Scheme == "unix+https" {
+		uri = "unix:" + u.Path
 	}
 
 	conn, err := grpc.Dial(
-		u.Hostname()+":"+u.Port(),
+		uri,
 		grpc.WithPerRPCCredentials(grpcCreds{par.cliOpts.Hostname, par.cliOpts.Username, password}),
 		grpc.WithTransportCredentials(transportCreds),
 		grpc.WithDefaultCallOptions(
