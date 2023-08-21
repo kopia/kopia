@@ -45,7 +45,7 @@ var log = logging.Module("gdrive")
 
 type gdriveStorage struct {
 	Options
-	blob.UnsupportedBlobRetention
+	blob.DefaultProviderImplementation
 
 	client      *drive.FilesService
 	about       *drive.AboutService
@@ -71,10 +71,6 @@ func (gdrive *gdriveStorage) GetCapacity(ctx context.Context) (blob.Capacity, er
 		SizeB: uint64(q.Limit),
 		FreeB: uint64(q.Limit) - uint64(q.Usage),
 	}, nil
-}
-
-func (gdrive *gdriveStorage) IsReadOnly() bool {
-	return false
 }
 
 func (gdrive *gdriveStorage) GetBlob(ctx context.Context, b blob.ID, offset, length int64, output blob.OutputBuffer) error {
@@ -328,10 +324,6 @@ func (gdrive *gdriveStorage) ConnectionInfo() blob.ConnectionInfo {
 
 func (gdrive *gdriveStorage) DisplayName() string {
 	return fmt.Sprintf("Google Drive: %v", gdrive.folderID)
-}
-
-func (gdrive *gdriveStorage) Close(ctx context.Context) error {
-	return nil
 }
 
 func (gdrive *gdriveStorage) FlushCaches(ctx context.Context) error {

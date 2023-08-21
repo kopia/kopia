@@ -26,18 +26,10 @@ const (
 
 type b2Storage struct {
 	Options
-	blob.UnsupportedBlobRetention
+	blob.DefaultProviderImplementation
 
 	cli    *backblaze.B2
 	bucket *backblaze.Bucket
-}
-
-func (s *b2Storage) GetCapacity(ctx context.Context) (blob.Capacity, error) {
-	return blob.Capacity{}, blob.ErrNotAVolume
-}
-
-func (s *b2Storage) IsReadOnly() bool {
-	return false
 }
 
 func (s *b2Storage) GetBlob(ctx context.Context, id blob.ID, offset, length int64, output blob.OutputBuffer) error {
@@ -249,14 +241,6 @@ func (s *b2Storage) ConnectionInfo() blob.ConnectionInfo {
 
 func (s *b2Storage) DisplayName() string {
 	return fmt.Sprintf("B2: %v", s.BucketName)
-}
-
-func (s *b2Storage) Close(ctx context.Context) error {
-	return nil
-}
-
-func (s *b2Storage) FlushCaches(ctx context.Context) error {
-	return nil
 }
 
 func (s *b2Storage) String() string {

@@ -18,7 +18,7 @@ import (
 type DataMap map[blob.ID][]byte
 
 type mapStorage struct {
-	blob.UnsupportedBlobRetention
+	blob.DefaultProviderImplementation
 	// +checklocks:mutex
 	data DataMap
 	// +checklocks:mutex
@@ -26,14 +26,6 @@ type mapStorage struct {
 	// +checklocks:mutex
 	timeNow func() time.Time
 	mutex   sync.RWMutex
-}
-
-func (s *mapStorage) GetCapacity(ctx context.Context) (blob.Capacity, error) {
-	return blob.Capacity{}, blob.ErrNotAVolume
-}
-
-func (s *mapStorage) IsReadOnly() bool {
-	return false
 }
 
 func (s *mapStorage) GetBlob(ctx context.Context, id blob.ID, offset, length int64, output blob.OutputBuffer) error {
@@ -166,10 +158,6 @@ func (s *mapStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback fun
 	return nil
 }
 
-func (s *mapStorage) Close(ctx context.Context) error {
-	return nil
-}
-
 func (s *mapStorage) TouchBlob(ctx context.Context, blobID blob.ID, threshold time.Duration) (time.Time, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -191,10 +179,6 @@ func (s *mapStorage) ConnectionInfo() blob.ConnectionInfo {
 
 func (s *mapStorage) DisplayName() string {
 	return "Map"
-}
-
-func (s *mapStorage) FlushCaches(ctx context.Context) error {
-	return nil
 }
 
 // NewMapStorage returns an implementation of Storage backed by the contents of given map.

@@ -40,7 +40,7 @@ const (
 // sftpStorage implements blob.Storage on top of sftp.
 type sftpStorage struct {
 	sharded.Storage
-	blob.UnsupportedBlobRetention
+	blob.DefaultProviderImplementation
 }
 
 type sftpImpl struct {
@@ -358,10 +358,6 @@ func writeKnownHostsDataStringToTempFile(data string) (string, error) {
 	}
 
 	return tf.Name(), nil
-}
-
-func (s *sftpStorage) FlushCaches(ctx context.Context) error {
-	return nil
 }
 
 // getHostKeyCallback returns a HostKeyCallback that validates the connected host based on KnownHostsFile or KnownHostsData.

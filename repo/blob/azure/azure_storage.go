@@ -28,18 +28,10 @@ const (
 
 type azStorage struct {
 	Options
-	blob.UnsupportedBlobRetention
+	blob.DefaultProviderImplementation
 
 	service   *azblob.Client
 	container string
-}
-
-func (az *azStorage) GetCapacity(ctx context.Context) (blob.Capacity, error) {
-	return blob.Capacity{}, blob.ErrNotAVolume
-}
-
-func (az *azStorage) IsReadOnly() bool {
-	return false
 }
 
 func (az *azStorage) GetBlob(ctx context.Context, b blob.ID, offset, length int64, output blob.OutputBuffer) error {
@@ -232,14 +224,6 @@ func (az *azStorage) ConnectionInfo() blob.ConnectionInfo {
 
 func (az *azStorage) DisplayName() string {
 	return fmt.Sprintf("Azure: %v", az.Options.Container)
-}
-
-func (az *azStorage) Close(ctx context.Context) error {
-	return nil
-}
-
-func (az *azStorage) FlushCaches(ctx context.Context) error {
-	return nil
 }
 
 // New creates new Azure Blob Storage-backed storage with specified options:
