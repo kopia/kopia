@@ -104,7 +104,7 @@ func newTestEnv(t *testing.T) *epochManagerTestEnv {
 		EpochAdvanceOnCountThreshold:          15,
 		EpochAdvanceOnTotalSizeBytesThreshold: 20 << 20,
 		DeleteParallelism:                     1,
-	}}, te.compact, testlogging.NewTestLogger(t), te.ft.NowFunc(), false)
+	}}, te.compact, testlogging.NewTestLogger(t), te.ft.NowFunc())
 	te.mgr = m
 	te.faultyStorage = fs
 	te.data = data
@@ -123,7 +123,7 @@ func (te *epochManagerTestEnv) another() *epochManagerTestEnv {
 		faultyStorage: te.faultyStorage,
 	}
 
-	te2.mgr = NewManager(te2.st, te.mgr.paramProvider, te2.compact, te.mgr.log, te.mgr.timeFunc, false)
+	te2.mgr = NewManager(te2.st, te.mgr.paramProvider, te2.compact, te.mgr.log, te.mgr.timeFunc)
 
 	return te2
 }
@@ -388,7 +388,7 @@ func TestIndexEpochManager_NoCompactionInReadOnly(t *testing.T) {
 	}
 
 	// Set new epoch manager to read-only to ensure we don't get stuck.
-	te2.mgr = NewManager(te2.st, te.mgr.paramProvider, te2.compact, te.mgr.log, te.mgr.timeFunc, true)
+	te2.mgr = NewManager(te2.st, te.mgr.paramProvider, te2.compact, te.mgr.log, te.mgr.timeFunc)
 
 	// Use assert.Eventually here so we'll exit the test early instead of getting
 	// stuck until the timeout.

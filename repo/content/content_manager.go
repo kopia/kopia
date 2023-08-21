@@ -952,7 +952,6 @@ type ManagerOptions struct {
 	RetentionMode          string
 	RetentionPeriod        time.Duration
 	PermissiveCacheLoading bool
-	ReadOnly               bool
 }
 
 // CloneOrDefault returns a clone of provided ManagerOptions or default empty struct if nil.

@@ -240,7 +240,6 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 		TimeNow:                defaultTime(options.TimeNowFunc),
 		DisableInternalLog:     options.DisableInternalLog,
 		PermissiveCacheLoading: cliOpts.PermissiveCacheLoading,
-		ReadOnly:               cliOpts.ReadOnly,
 	}
 
 	mr := metrics.NewRegistry()

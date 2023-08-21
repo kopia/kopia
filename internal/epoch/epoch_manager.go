@@ -186,10 +186,6 @@ type Manager struct {
 	log      logging.Logger
 	timeFunc func() time.Time
 
-	// whether the underlying storage should be considered read only. Influences
-	// whether index compaction occurs automatically.
-	readOnly bool
-
 	// wait group that waits for all compaction and cleanup goroutines.
 	backgroundWork sync.WaitGroup
 
@@ -1020,14 +1016,13 @@ func rangeCheckpointBlobPrefix(epoch1, epoch2 int) blob.ID {
 }
 
 // NewManager creates new epoch manager.
-func NewManager(st blob.Storage, paramProvider ParametersProvider, compactor CompactionFunc, log logging.Logger, timeNow func() time.Time, readOnly bool) *Manager {
+func NewManager(st blob.Storage, paramProvider ParametersProvider, compactor CompactionFunc, log logging.Logger, timeNow func() time.Time) *Manager {
 	return &Manager{
 		st:                           st,
 		log:                          log,
 		compact:                      compactor,
 		timeFunc:                     timeNow,
 		paramProvider:                paramProvider,
-		readOnly:                     readOnly,
 		getCompleteIndexSetTooSlow:   new(int32),
 		committedStateRefreshTooSlow: new(int32),
 		writeIndexTooSlow:            new(int32),

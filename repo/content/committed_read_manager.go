@@ -414,7 +414,7 @@ func (sm *SharedManager) namedLogger(n string) logging.Logger {
 	return sm.contextLogger
 }
 
-func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *CachingOptions, mr *metrics.Registry, readOnly bool) error {
+func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *CachingOptions, mr *metrics.Registry) error {
 	dataCache, err := cache.NewContentCache(ctx, sm.st, cache.Options{
 		BaseCacheDirectory: caching.CacheDirectory,
 		CacheSubDir:        "contents",
@@ -495,8 +495,7 @@ func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *Ca
 				return errors.Wrap(sm.indexBlobManagerV1.CompactEpoch(ctx, blobIDs, outputPrefix), "CompactEpoch")
 			},
 			sm.namedLogger("epoch-manager"),
-			sm.timeNow,
-			readOnly),
+			sm.timeNow),
 		sm.timeNow,
 		sm.format,
 		sm.namedLogger("index-blob-manager"),
@@ -622,7 +621,7 @@ func NewSharedManager(ctx context.Context, st blob.Storage, prov format.Provider
 
 	caching = caching.CloneOrDefault()
 
-	if err := sm.setupReadManagerCaches(ctx, caching, mr, opts.ReadOnly); err != nil {
+	if err := sm.setupReadManagerCaches(ctx, caching, mr); err != nil {
 		return nil, errors.Wrap(err, "error setting up read manager caches")
 	}
 
