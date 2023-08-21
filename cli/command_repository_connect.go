@@ -46,10 +46,10 @@ func (c *commandRepositoryConnect) setup(svc advancedAppServices, parent command
 }
 
 type connectOptions struct {
-	connectCacheDirectory         string
-	connectMaxCacheSizeMB         int64
-	connectMaxMetadataCacheSizeMB int64
-	connectMaxListCacheDuration   time.Duration
+	connectCacheDirectory string
+
+	cacheSizeFlags
+
 	connectHostname               string
 	connectUsername               string
 	connectCheckForUpdates        bool
@@ -66,9 +66,12 @@ func (c *connectOptions) setup(svc appServices, cmd *kingpin.CmdClause) {
 	// Set up flags shared between 'create' and 'connect'. Note that because those flags are used by both command
 	// we must use *Var() methods, otherwise one of the commands would always get default flag values.
 	cmd.Flag("cache-directory", "Cache directory").PlaceHolder("PATH").Envar(svc.EnvName("KOPIA_CACHE_DIRECTORY")).StringVar(&c.connectCacheDirectory)
-	cmd.Flag("content-cache-size-mb", "Size of local content cache").PlaceHolder("MB").Default("5000").Int64Var(&c.connectMaxCacheSizeMB)
-	cmd.Flag("metadata-cache-size-mb", "Size of local metadata cache").PlaceHolder("MB").Default("5000").Int64Var(&c.connectMaxMetadataCacheSizeMB)
-	cmd.Flag("max-list-cache-duration", "Duration of index cache").Default("30s").Hidden().DurationVar(&c.connectMaxListCacheDuration)
+
+	c.maxListCacheDuration = 30 * time.Second //nolint:gomnd
+	c.contentCacheSizeMB = 5000
+	c.maxMetadataCacheSizeMB = 5000
+	c.cacheSizeFlags.setup(cmd)
+
 	cmd.Flag("override-hostname", "Override hostname used by this repository connection").Hidden().StringVar(&c.connectHostname)
 	cmd.Flag("override-username", "Override username used by this repository connection").Hidden().StringVar(&c.connectUsername)
 	cmd.Flag("check-for-updates", "Periodically check for Kopia updates on GitHub").Default("true").Envar(svc.EnvName(checkForUpdatesEnvar)).BoolVar(&c.connectCheckForUpdates)
@@ -91,10 +94,15 @@ func (c *connectOptions) getFormatBlobCacheDuration() time.Duration {
 func (c *connectOptions) toRepoConnectOptions() *repo.ConnectOptions {
 	return &repo.ConnectOptions{
 		CachingOptions: content.CachingOptions{
-			CacheDirectory:            c.connectCacheDirectory,
-			MaxCacheSizeBytes:         c.connectMaxCacheSizeMB << 20,         //nolint:gomnd
-			MaxMetadataCacheSizeBytes: c.connectMaxMetadataCacheSizeMB << 20, //nolint:gomnd
-			MaxListCacheDuration:      content.DurationSeconds(c.connectMaxListCacheDuration.Seconds()),
+			CacheDirectory:              c.connectCacheDirectory,
+			ContentCacheSizeBytes:       c.contentCacheSizeMB << 20,          //nolint:gomnd
+			ContentCacheSizeLimitBytes:  c.contentCacheSizeLimitMB << 20,     //nolint:gomnd
+			MetadataCacheSizeBytes:      c.maxMetadataCacheSizeMB << 20,      //nolint:gomnd
+			MetadataCacheSizeLimitBytes: c.maxMetadataCacheSizeLimitMB << 20, //nolint:gomnd
+			MaxListCacheDuration:        content.DurationSeconds(c.maxListCacheDuration.Seconds()),
+			MinContentSweepAge:          content.DurationSeconds(c.contentMinSweepAge.Seconds()),
+			MinMetadataSweepAge:         content.DurationSeconds(c.metadataMinSweepAge.Seconds()),
+			MinIndexSweepAge:            content.DurationSeconds(c.indexMinSweepAge.Seconds()),
 		},
 		ClientOptions: repo.ClientOptions{
 			Hostname:                c.connectHostname,

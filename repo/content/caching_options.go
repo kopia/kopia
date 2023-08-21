@@ -20,9 +20,9 @@ func (s DurationSeconds) DurationOrDefault(def time.Duration) time.Duration {
 // CachingOptions specifies configuration of local cache.
 type CachingOptions struct {
 	CacheDirectory              string          `json:"cacheDirectory,omitempty"`
-	MaxCacheSizeBytes           int64           `json:"maxCacheSize,omitempty"`
+	ContentCacheSizeBytes       int64           `json:"maxCacheSize,omitempty"`
 	ContentCacheSizeLimitBytes  int64           `json:"contentCacheSizeLimitBytes,omitempty"`
-	MaxMetadataCacheSizeBytes   int64           `json:"maxMetadataCacheSize,omitempty"`
+	MetadataCacheSizeBytes      int64           `json:"maxMetadataCacheSize,omitempty"`
 	MetadataCacheSizeLimitBytes int64           `json:"metadataCacheSizeLimitBytes,omitempty"`
 	MaxListCacheDuration        DurationSeconds `json:"maxListCacheDuration,omitempty"`
 	MinMetadataSweepAge         DurationSeconds `json:"minMetadataSweepAge,omitempty"`
@@ -33,12 +33,12 @@ type CachingOptions struct {
 
 // EffectiveMetadataCacheSizeBytes returns the effective metadata cache size.
 func (c *CachingOptions) EffectiveMetadataCacheSizeBytes() int64 {
-	if c.MaxMetadataCacheSizeBytes == 0 {
+	if c.MetadataCacheSizeBytes == 0 {
 		// legacy path, use the same size for both caches.
-		return c.MaxCacheSizeBytes
+		return c.ContentCacheSizeBytes
 	}
 
-	return c.MaxMetadataCacheSizeBytes
+	return c.MetadataCacheSizeBytes
 }
 
 // CloneOrDefault returns a clone of the caching options or empty options for nil.

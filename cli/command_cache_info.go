@@ -47,9 +47,9 @@ func (c *commandCacheInfo) run(ctx context.Context, _ repo.Repository) error {
 	}
 
 	path2SoftLimit := map[string]int64{
-		"contents":        opts.MaxCacheSizeBytes,
-		"metadata":        opts.MaxMetadataCacheSizeBytes,
-		"server-contents": opts.MaxCacheSizeBytes,
+		"contents":        opts.ContentCacheSizeBytes,
+		"metadata":        opts.MetadataCacheSizeBytes,
+		"server-contents": opts.ContentCacheSizeBytes,
 	}
 
 	path2HardLimit := map[string]int64{

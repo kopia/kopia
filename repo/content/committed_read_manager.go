@@ -422,7 +422,7 @@ func (sm *SharedManager) namedLogger(n string) logging.Logger {
 
 func contentCacheSweepSettings(caching *CachingOptions) cache.SweepSettings {
 	return cache.SweepSettings{
-		MaxSizeBytes: caching.MaxCacheSizeBytes,
+		MaxSizeBytes: caching.ContentCacheSizeBytes,
 		LimitBytes:   caching.ContentCacheSizeLimitBytes,
 		MinSweepAge:  caching.MinContentSweepAge.DurationOrDefault(DefaultDataCacheSweepAge),
 	}
