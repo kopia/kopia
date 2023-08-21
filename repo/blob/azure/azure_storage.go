@@ -28,7 +28,7 @@ const (
 
 type azStorage struct {
 	Options
-	blob.UnsupportedBlobRetention
+	blob.DefaultProviderImplementation
 
 	service   *azblob.Client
 	container string

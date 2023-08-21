@@ -36,7 +36,7 @@ const (
 // may be accessed using WebDAV or File interchangeably.
 type davStorage struct {
 	sharded.Storage
-	blob.UnsupportedBlobRetention
+	blob.DefaultProviderImplementation
 }
 
 type davStorageImpl struct {

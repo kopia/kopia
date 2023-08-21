@@ -138,11 +138,16 @@ type ExtendOptions struct {
 	RetentionPeriod time.Duration
 }
 
-// UnsupportedBlobRetention provides a default implementation for ExtendBlobRetention.
-type UnsupportedBlobRetention struct{}
+// DefaultProviderImplementation provides a default implementation for
+// common functions that are mostly provider independent and have a sensible
+// default.
+//
+// Storage providers should imbed this struct and override functions that they
+// have different return values for.
+type DefaultProviderImplementation struct{}
 
 // ExtendBlobRetention provides a common implementation for unsupported blob retention storage.
-func (s *UnsupportedBlobRetention) ExtendBlobRetention(context.Context, ID, ExtendOptions) error {
+func (s DefaultProviderImplementation) ExtendBlobRetention(context.Context, ID, ExtendOptions) error {
 	return ErrUnsupportedObjectLock
 }
 

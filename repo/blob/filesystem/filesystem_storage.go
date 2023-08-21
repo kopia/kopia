@@ -34,7 +34,7 @@ const (
 
 type fsStorage struct {
 	sharded.Storage
-	blob.UnsupportedBlobRetention
+	blob.DefaultProviderImplementation
 }
 
 type fsImpl struct {

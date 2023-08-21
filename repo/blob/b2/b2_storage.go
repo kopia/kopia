@@ -26,7 +26,7 @@ const (
 
 type b2Storage struct {
 	Options
-	blob.UnsupportedBlobRetention
+	blob.DefaultProviderImplementation
 
 	cli    *backblaze.B2
 	bucket *backblaze.Bucket

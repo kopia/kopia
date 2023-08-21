@@ -40,7 +40,7 @@ const (
 // sftpStorage implements blob.Storage on top of sftp.
 type sftpStorage struct {
 	sharded.Storage
-	blob.UnsupportedBlobRetention
+	blob.DefaultProviderImplementation
 }
 
 type sftpImpl struct {
