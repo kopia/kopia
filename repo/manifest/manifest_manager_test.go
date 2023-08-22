@@ -422,11 +422,13 @@ func TestManifestConfigureAutoCompaction(t *testing.T) {
 	if got, want := foundContents, 1; got != want {
 		t.Errorf("unexpected number of blocks: %v, want %v", got, want)
 	}
-
 }
 
 func getManifestContentCount(ctx context.Context, t *testing.T, mgr *Manager) int {
+	t.Helper()
+
 	foundContents := 0
+
 	if err := mgr.b.IterateContents(
 		ctx,
 		content.IterateOptions{Range: index.PrefixRange(ContentPrefix)},
@@ -436,5 +438,6 @@ func getManifestContentCount(ctx context.Context, t *testing.T, mgr *Manager) in
 		}); err != nil {
 		t.Errorf("unable to list manifest content: %v", err)
 	}
+
 	return foundContents
 }
