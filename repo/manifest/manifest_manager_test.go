@@ -308,12 +308,16 @@ func sortIDs(s []ID) {
 	})
 }
 
-func newContentManagerForTesting(ctx context.Context, t *testing.T, data blobtesting.DataMap, readOnly bool) contentManager {
+type contentManagerOpts struct {
+	readOnly bool
+}
+
+func newContentManagerForTesting(ctx context.Context, t *testing.T, data blobtesting.DataMap, opts contentManagerOpts) contentManager {
 	t.Helper()
 
 	st := blobtesting.NewMapStorage(data, nil, nil)
 
-	if readOnly {
+	if opts.readOnly {
 		st = readonly.NewWrapper(st)
 	}
 
@@ -339,7 +343,7 @@ func newContentManagerForTesting(ctx context.Context, t *testing.T, data blobtes
 func newManagerForTesting(ctx context.Context, t *testing.T, data blobtesting.DataMap) *Manager {
 	t.Helper()
 
-	bm := newContentManagerForTesting(ctx, t, data, false)
+	bm := newContentManagerForTesting(ctx, t, data, contentManagerOpts{})
 
 	mm, err := NewManager(ctx, bm, ManagerOptions{}, nil)
 	require.NoError(t, err)
@@ -400,7 +404,7 @@ func TestManifestAutoCompactionWithReadOnly(t *testing.T) {
 	ctx := testlogging.Context(t)
 	data := blobtesting.DataMap{}
 
-	bm := newContentManagerForTesting(ctx, t, data, false)
+	bm := newContentManagerForTesting(ctx, t, data, contentManagerOpts{})
 
 	mgr, err := NewManager(ctx, bm, ManagerOptions{}, nil)
 	require.NoError(t, err, "getting initial manifest manager")
@@ -418,7 +422,7 @@ func TestManifestAutoCompactionWithReadOnly(t *testing.T) {
 
 	// Opening another instance of the manager should cause the manifest manager
 	// to attempt to compact things.
-	bm = newContentManagerForTesting(ctx, t, data, true)
+	bm = newContentManagerForTesting(ctx, t, data, contentManagerOpts{readOnly: true})
 
 	mgr, err = NewManager(ctx, bm, ManagerOptions{}, nil)
 	require.NoError(t, err, "getting other instance of manifest manager")
