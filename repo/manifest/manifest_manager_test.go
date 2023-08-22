@@ -10,11 +10,13 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
+	"github.com/kopia/kopia/repo/blob/readonly"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/content/index"
 	"github.com/kopia/kopia/repo/encryption"
@@ -306,10 +308,14 @@ func sortIDs(s []ID) {
 	})
 }
 
-func newManagerForTesting(ctx context.Context, t *testing.T, data blobtesting.DataMap) *Manager {
+func newContentManagerForTesting(ctx context.Context, t *testing.T, data blobtesting.DataMap, readOnly bool) contentManager {
 	t.Helper()
 
 	st := blobtesting.NewMapStorage(data, nil, nil)
+
+	if readOnly {
+		st = readonly.NewWrapper(st)
+	}
 
 	fop, err := format.NewFormattingOptionsProvider(&format.ContentFormat{
 		Hash:       hashing.DefaultAlgorithm,
@@ -326,6 +332,14 @@ func newManagerForTesting(ctx context.Context, t *testing.T, data blobtesting.Da
 	require.NoError(t, err)
 
 	t.Cleanup(func() { bm.CloseShared(ctx) })
+
+	return bm
+}
+
+func newManagerForTesting(ctx context.Context, t *testing.T, data blobtesting.DataMap) *Manager {
+	t.Helper()
+
+	bm := newContentManagerForTesting(ctx, t, data, false)
 
 	mm, err := NewManager(ctx, bm, ManagerOptions{}, nil)
 	require.NoError(t, err)
@@ -380,4 +394,35 @@ func TestManifestAutoCompaction(t *testing.T) {
 		require.NoError(t, mgr.Flush(ctx))
 		require.NoError(t, mgr.b.Flush(ctx))
 	}
+}
+
+func TestManifestAutoCompactionWithReadOnly(t *testing.T) {
+	ctx := testlogging.Context(t)
+	data := blobtesting.DataMap{}
+
+	bm := newContentManagerForTesting(ctx, t, data, false)
+
+	mgr, err := NewManager(ctx, bm, ManagerOptions{}, nil)
+	require.NoError(t, err, "getting initial manifest manager")
+
+	for i := 0; i < 100; i++ {
+		item1 := map[string]int{"foo": 1, "bar": 2}
+		labels1 := map[string]string{"type": "item", "color": "red"}
+
+		_, err = mgr.Put(ctx, labels1, item1)
+		require.NoError(t, err, "adding item to manifest manager")
+
+		require.NoError(t, mgr.Flush(ctx))
+		require.NoError(t, mgr.b.Flush(ctx))
+	}
+
+	// Opening another instance of the manager should cause the manifest manager
+	// to attempt to compact things.
+	bm = newContentManagerForTesting(ctx, t, data, true)
+
+	mgr, err = NewManager(ctx, bm, ManagerOptions{}, nil)
+	require.NoError(t, err, "getting other instance of manifest manager")
+
+	_, err = mgr.Find(ctx, map[string]string{"color": "red"})
+	assert.NoError(t, err, "forcing reload of manifest manager")
 }
