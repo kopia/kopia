@@ -211,21 +211,16 @@ func tokenSourceFromCredentialsFile(ctx context.Context, fn string, scopes ...st
 		return nil, errors.Wrap(err, "error reading credentials file")
 	}
 
-	cfg, err := google.JWTConfigFromJSON(data, scopes...)
-	if err != nil {
-		return nil, errors.Wrap(err, "google.JWTConfigFromJSON")
-	}
-
-	return cfg.TokenSource(ctx), nil
+	return tokenSourceFromCredentialsJSON(ctx, data, scopes...)
 }
 
 func tokenSourceFromCredentialsJSON(ctx context.Context, data json.RawMessage, scopes ...string) (oauth2.TokenSource, error) {
-	cfg, err := google.JWTConfigFromJSON([]byte(data), scopes...)
+	creds, err := google.CredentialsFromJSON(ctx, data, scopes...)
 	if err != nil {
-		return nil, errors.Wrap(err, "google.JWTConfigFromJSON")
+		return nil, errors.Wrap(err, "google.CredentialsFromJSON")
 	}
 
-	return cfg.TokenSource(ctx), nil
+	return creds.TokenSource, nil
 }
 
 // New creates new Google Cloud Storage-backed storage with specified options:
