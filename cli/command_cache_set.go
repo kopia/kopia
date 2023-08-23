@@ -13,16 +13,16 @@ import (
 )
 
 type cacheSizeFlags struct {
-	contentCacheSizeMB          int64
-	contentCacheSizeLimitMB     int64
-	contentMinSweepAge          time.Duration
-	
-	maxMetadataCacheSizeMB      int64
-	maxMetadataCacheSizeLimitMB int64
-	metadataMinSweepAge         time.Duration
-	
-	maxListCacheDuration        time.Duration
-	indexMinSweepAge            time.Duration
+	contentCacheSizeMB      int64
+	contentCacheSizeLimitMB int64
+	contentMinSweepAge      time.Duration
+
+	metadataCacheSizeMB      int64
+	metadataCacheSizeLimitMB int64
+	metadataMinSweepAge      time.Duration
+
+	maxListCacheDuration time.Duration
+	indexMinSweepAge     time.Duration
 }
 
 func (c *cacheSizeFlags) setup(cmd *kingpin.CmdClause) {
@@ -31,8 +31,8 @@ func (c *cacheSizeFlags) setup(cmd *kingpin.CmdClause) {
 	cmd.Flag("content-cache-size-mb", "Desired size of local content cache (soft limit)").PlaceHolder("MB").Int64Var(&c.contentCacheSizeMB)
 	cmd.Flag("content-cache-size-limit-mb", "Maximum size of local content cache (hard limit)").PlaceHolder("MB").Int64Var(&c.contentCacheSizeLimitMB)
 	cmd.Flag("content-min-sweep-age", "Minimal age of content cache item to be subject to sweeping").DurationVar(&c.contentMinSweepAge)
-	cmd.Flag("metadata-cache-size-mb", "Desired size of local metadata cache (soft limit)").PlaceHolder("MB").Int64Var(&c.maxMetadataCacheSizeMB)
-	cmd.Flag("metadata-cache-size-limit-mb", "Maximum size of local metadata cache (hard limit)").PlaceHolder("MB").Int64Var(&c.maxMetadataCacheSizeLimitMB)
+	cmd.Flag("metadata-cache-size-mb", "Desired size of local metadata cache (soft limit)").PlaceHolder("MB").Int64Var(&c.metadataCacheSizeMB)
+	cmd.Flag("metadata-cache-size-limit-mb", "Maximum size of local metadata cache (hard limit)").PlaceHolder("MB").Int64Var(&c.metadataCacheSizeLimitMB)
 	cmd.Flag("metadata-min-sweep-age", "Minimal age of metadata cache item to be subject to sweeping").DurationVar(&c.metadataMinSweepAge)
 	cmd.Flag("index-min-sweep-age", "Minimal age of index cache item to be subject to sweeping").DurationVar(&c.indexMinSweepAge)
 	cmd.Flag("max-list-cache-duration", "Duration of index cache").DurationVar(&c.maxListCacheDuration)
@@ -55,8 +55,8 @@ func (c *commandCacheSetParams) setup(svc appServices, parent commandParent) {
 	c.maxListCacheDuration = -1
 	c.contentCacheSizeLimitMB = -1
 	c.contentCacheSizeMB = -1
-	c.maxMetadataCacheSizeLimitMB = -1
-	c.maxMetadataCacheSizeMB = -1
+	c.metadataCacheSizeLimitMB = -1
+	c.metadataCacheSizeMB = -1
 	c.cacheSizeFlags.setup(cmd)
 
 	cmd.Flag("cache-directory", "Directory where to store cache files").StringVar(&c.directory)
@@ -93,14 +93,14 @@ func (c *commandCacheSetParams) run(ctx context.Context, _ repo.RepositoryWriter
 		changed++
 	}
 
-	if v := c.maxMetadataCacheSizeMB; v != -1 {
+	if v := c.metadataCacheSizeMB; v != -1 {
 		v *= 1e6 // convert MB to bytes
 		log(ctx).Infof("changing metadata cache size to %v", units.BytesString(v))
 		opts.MetadataCacheSizeBytes = v
 		changed++
 	}
 
-	if v := c.maxMetadataCacheSizeLimitMB; v != -1 {
+	if v := c.metadataCacheSizeLimitMB; v != -1 {
 		v *= 1e6 // convert MB to bytes
 		log(ctx).Infof("changing metadata cache size limit to %v", units.BytesString(v))
 		opts.MetadataCacheSizeLimitBytes = v

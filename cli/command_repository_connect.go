@@ -69,7 +69,7 @@ func (c *connectOptions) setup(svc appServices, cmd *kingpin.CmdClause) {
 
 	c.maxListCacheDuration = 30 * time.Second //nolint:gomnd
 	c.contentCacheSizeMB = 5000
-	c.maxMetadataCacheSizeMB = 5000
+	c.metadataCacheSizeMB = 5000
 	c.cacheSizeFlags.setup(cmd)
 
 	cmd.Flag("override-hostname", "Override hostname used by this repository connection").Hidden().StringVar(&c.connectHostname)
@@ -95,10 +95,10 @@ func (c *connectOptions) toRepoConnectOptions() *repo.ConnectOptions {
 	return &repo.ConnectOptions{
 		CachingOptions: content.CachingOptions{
 			CacheDirectory:              c.connectCacheDirectory,
-			ContentCacheSizeBytes:       c.contentCacheSizeMB << 20,          //nolint:gomnd
-			ContentCacheSizeLimitBytes:  c.contentCacheSizeLimitMB << 20,     //nolint:gomnd
-			MetadataCacheSizeBytes:      c.maxMetadataCacheSizeMB << 20,      //nolint:gomnd
-			MetadataCacheSizeLimitBytes: c.maxMetadataCacheSizeLimitMB << 20, //nolint:gomnd
+			ContentCacheSizeBytes:       c.contentCacheSizeMB << 20,       //nolint:gomnd
+			ContentCacheSizeLimitBytes:  c.contentCacheSizeLimitMB << 20,  //nolint:gomnd
+			MetadataCacheSizeBytes:      c.metadataCacheSizeMB << 20,      //nolint:gomnd
+			MetadataCacheSizeLimitBytes: c.metadataCacheSizeLimitMB << 20, //nolint:gomnd
 			MaxListCacheDuration:        content.DurationSeconds(c.maxListCacheDuration.Seconds()),
 			MinContentSweepAge:          content.DurationSeconds(c.contentMinSweepAge.Seconds()),
 			MinMetadataSweepAge:         content.DurationSeconds(c.metadataMinSweepAge.Seconds()),

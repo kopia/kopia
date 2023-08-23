@@ -27,20 +27,23 @@ type mapStorage struct {
 	timeNow func() time.Time
 	// +checklocks:mutex
 	totalBytes int64
-	// +checklocks:mutex
+	// +checklocksignore
 	limit int64
 	mutex sync.RWMutex
 }
 
 func (s *mapStorage) GetCapacity(ctx context.Context) (blob.Capacity, error) {
-	if s.limit >= 0 {
-		return blob.Capacity{
-			SizeB: uint64(s.limit),
-			FreeB: uint64(s.limit - s.totalBytes),
-		}, nil
+	if s.limit < 0 {
+		return blob.Capacity{}, blob.ErrNotAVolume
 	}
 
-	return blob.Capacity{}, blob.ErrNotAVolume
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	return blob.Capacity{
+		SizeB: uint64(s.limit),
+		FreeB: uint64(s.limit - s.totalBytes),
+	}, nil
 }
 
 func (s *mapStorage) GetBlob(ctx context.Context, id blob.ID, offset, length int64, output blob.OutputBuffer) error {
@@ -105,12 +108,6 @@ func (s *mapStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes, o
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	if !opts.SetModTime.IsZero() {
-		s.keyTime[id] = opts.SetModTime
-	} else {
-		s.keyTime[id] = s.timeNow()
-	}
-
 	var b bytes.Buffer
 
 	data.WriteTo(&b)
@@ -119,9 +116,15 @@ func (s *mapStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes, o
 		return errors.Errorf("exceeded limit, unable to add %v bytes, currently using %v/%v", b.Len(), s.totalBytes, s.limit)
 	}
 
+	if !opts.SetModTime.IsZero() {
+		s.keyTime[id] = opts.SetModTime
+	} else {
+		s.keyTime[id] = s.timeNow()
+	}
+
 	s.totalBytes -= int64(len(s.data[id]))
 	s.data[id] = b.Bytes()
-	s.totalBytes += int64(b.Len())
+	s.totalBytes += int64(len(s.data[id]))
 
 	if opts.GetModTime != nil {
 		*opts.GetModTime = s.keyTime[id]
