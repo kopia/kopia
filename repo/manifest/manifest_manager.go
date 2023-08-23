@@ -32,8 +32,8 @@ var ErrNotFound = errors.New("not found")
 
 // ContentPrefix is the prefix of the content id for manifests.
 const (
-	ContentPrefix              = "m"
-	autoCompactionContentCount = 16
+	ContentPrefix                     = "m"
+	autoCompactionContentCountDefault = 16
 )
 
 // TypeLabelKey is the label key for manifest type.
@@ -264,7 +264,8 @@ func copyLabels(m map[string]string) map[string]string {
 
 // ManagerOptions are optional parameters for Manager creation.
 type ManagerOptions struct {
-	TimeNow func() time.Time // Time provider
+	TimeNow                 func() time.Time // Time provider
+	AutoCompactionThreshold int
 }
 
 // NewManager returns new manifest manager for the provided content manager.
@@ -276,11 +277,16 @@ func NewManager(ctx context.Context, b contentManager, options ManagerOptions, m
 		timeNow = clock.Now
 	}
 
+	autoCompactionThreshold := options.AutoCompactionThreshold
+	if autoCompactionThreshold == 0 {
+		autoCompactionThreshold = autoCompactionContentCountDefault
+	}
+
 	m := &Manager{
 		b:              b,
 		pendingEntries: map[ID]*manifestEntry{},
 		timeNow:        timeNow,
-		committed:      newCommittedManager(b),
+		committed:      newCommittedManager(b, autoCompactionThreshold),
 	}
 
 	return m, nil
