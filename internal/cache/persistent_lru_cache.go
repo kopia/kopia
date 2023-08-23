@@ -37,7 +37,9 @@ type PersistentCache struct {
 	storageProtection cacheprot.StorageProtection
 	sweep             SweepSettings
 	timeNow           func() time.Time
-	lastCacheWarning  time.Time
+
+	// +checklocks:listCacheMutex
+	lastCacheWarning time.Time
 
 	description string
 

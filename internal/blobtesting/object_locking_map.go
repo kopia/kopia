@@ -14,7 +14,7 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 )
 
-var ErrBlobLocked = errors.New("cannot alter object before retention period expires")
+var ErrBlobLocked = errors.New("cannot alter object before retention period expires") // +checklocksignore
 
 type entry struct {
 	value          []byte
