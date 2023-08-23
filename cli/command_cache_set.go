@@ -14,12 +14,14 @@ import (
 
 type cacheSizeFlags struct {
 	contentCacheSizeMB          int64
-	maxMetadataCacheSizeMB      int64
 	contentCacheSizeLimitMB     int64
-	maxMetadataCacheSizeLimitMB int64
-	maxListCacheDuration        time.Duration
 	contentMinSweepAge          time.Duration
+	
+	maxMetadataCacheSizeMB      int64
+	maxMetadataCacheSizeLimitMB int64
 	metadataMinSweepAge         time.Duration
+	
+	maxListCacheDuration        time.Duration
 	indexMinSweepAge            time.Duration
 }
 
