@@ -36,6 +36,7 @@ type committedManifestManager struct {
 
 	// autoCompactionThreshold controls the threshold after which the manager auto-compacts
 	// manifest contents
+	// +checklocks:cmmu
 	autoCompactionThreshold int
 }
 
