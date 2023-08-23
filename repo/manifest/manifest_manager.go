@@ -48,6 +48,7 @@ type contentManager interface {
 	DisableIndexFlush(ctx context.Context)
 	EnableIndexFlush(ctx context.Context)
 	Flush(ctx context.Context) error
+	IsReadOnly() bool
 }
 
 // ID is a unique identifier of a single manifest.

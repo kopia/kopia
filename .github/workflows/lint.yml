@@ -37,3 +37,5 @@ jobs:
       if: ${{ !contains(matrix.os, 'ARMHF') }}
     - name: Lint
       run: make lint
+    - name: Check Locks
+      run: make check-locks

@@ -32,14 +32,10 @@ const (
 
 type gcsStorage struct {
 	Options
-	blob.UnsupportedBlobRetention
+	blob.DefaultProviderImplementation
 
 	storageClient *gcsclient.Client
 	bucket        *gcsclient.BucketHandle
-}
-
-func (gcs *gcsStorage) GetCapacity(ctx context.Context) (blob.Capacity, error) {
-	return blob.Capacity{}, blob.ErrNotAVolume
 }
 
 func (gcs *gcsStorage) GetBlob(ctx context.Context, b blob.ID, offset, length int64, output blob.OutputBuffer) error {
@@ -207,10 +203,6 @@ func (gcs *gcsStorage) DisplayName() string {
 
 func (gcs *gcsStorage) Close(ctx context.Context) error {
 	return errors.Wrap(gcs.storageClient.Close(), "error closing GCS storage")
-}
-
-func (gcs *gcsStorage) FlushCaches(ctx context.Context) error {
-	return nil
 }
 
 func tokenSourceFromCredentialsFile(ctx context.Context, fn string, scopes ...string) (oauth2.TokenSource, error) {

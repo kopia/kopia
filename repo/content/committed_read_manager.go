@@ -112,6 +112,12 @@ type SharedManager struct {
 	metricsStruct
 }
 
+// IsReadOnly returns whether this instance of the SharedManager only supports
+// reads or if it also supports mutations to the index.
+func (sm *SharedManager) IsReadOnly() bool {
+	return sm.st.IsReadOnly()
+}
+
 // LoadIndexBlob return index information loaded from the specified blob.
 func (sm *SharedManager) LoadIndexBlob(ctx context.Context, ibid blob.ID, d *gather.WriteBuffer) ([]Info, error) {
 	err := sm.st.GetBlob(ctx, ibid, 0, -1, d)

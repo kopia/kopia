@@ -220,7 +220,9 @@ func (m *committedManifestManager) compact(ctx context.Context) error {
 func (m *committedManifestManager) maybeCompactLocked(ctx context.Context) error {
 	m.verifyLocked()
 
-	if len(m.committedContentIDs) < m.autoCompactionThreshold {
+	// Don't attempt to compact manifests if the repo was opened in read only mode
+	// since we'll just end up failing.
+	if m.b.IsReadOnly() || len(m.committedContentIDs) < m.autoCompactionThreshold {
 		return nil
 	}
 
