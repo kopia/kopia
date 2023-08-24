@@ -420,23 +420,38 @@ func (sm *SharedManager) namedLogger(n string) logging.Logger {
 	return sm.contextLogger
 }
 
+func contentCacheSweepSettings(caching *CachingOptions) cache.SweepSettings {
+	return cache.SweepSettings{
+		MaxSizeBytes: caching.ContentCacheSizeBytes,
+		LimitBytes:   caching.ContentCacheSizeLimitBytes,
+		MinSweepAge:  caching.MinContentSweepAge.DurationOrDefault(DefaultDataCacheSweepAge),
+	}
+}
+
+func metadataCacheSizeSweepSettings(caching *CachingOptions) cache.SweepSettings {
+	return cache.SweepSettings{
+		MaxSizeBytes: caching.EffectiveMetadataCacheSizeBytes(),
+		LimitBytes:   caching.MetadataCacheSizeLimitBytes,
+		MinSweepAge:  caching.MinMetadataSweepAge.DurationOrDefault(DefaultMetadataCacheSweepAge),
+	}
+}
+
+func indexBlobCacheSweepSettings(caching *CachingOptions) cache.SweepSettings {
+	return cache.SweepSettings{
+		MaxSizeBytes: caching.EffectiveMetadataCacheSizeBytes(),
+		MinSweepAge:  caching.MinMetadataSweepAge.DurationOrDefault(DefaultMetadataCacheSweepAge),
+	}
+}
+
 func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *CachingOptions, mr *metrics.Registry) error {
 	dataCache, err := cache.NewContentCache(ctx, sm.st, cache.Options{
 		BaseCacheDirectory: caching.CacheDirectory,
 		CacheSubDir:        "contents",
 		HMACSecret:         caching.HMACSecret,
-		Sweep: cache.SweepSettings{
-			MaxSizeBytes: caching.MaxCacheSizeBytes,
-			MinSweepAge:  caching.MinContentSweepAge.DurationOrDefault(DefaultDataCacheSweepAge),
-		},
+		Sweep:              contentCacheSweepSettings(caching),
 	}, mr)
 	if err != nil {
 		return errors.Wrap(err, "unable to initialize content cache")
-	}
-
-	metadataCacheSize := caching.MaxMetadataCacheSizeBytes
-	if metadataCacheSize == 0 && caching.MaxCacheSizeBytes > 0 {
-		metadataCacheSize = caching.MaxCacheSizeBytes
 	}
 
 	metadataCache, err := cache.NewContentCache(ctx, sm.st, cache.Options{
@@ -444,24 +459,22 @@ func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *Ca
 		CacheSubDir:        "metadata",
 		HMACSecret:         caching.HMACSecret,
 		FetchFullBlobs:     true,
-		Sweep: cache.SweepSettings{
-			MaxSizeBytes: metadataCacheSize,
-			MinSweepAge:  caching.MinMetadataSweepAge.DurationOrDefault(DefaultMetadataCacheSweepAge),
-		},
+		Sweep:              metadataCacheSizeSweepSettings(caching),
 	}, mr)
 	if err != nil {
 		return errors.Wrap(err, "unable to initialize metadata cache")
 	}
 
-	indexBlobStorage, err := cache.NewStorageOrNil(ctx, caching.CacheDirectory, metadataCacheSize, "index-blobs")
+	indexBlobStorage, err := cache.NewStorageOrNil(ctx, caching.CacheDirectory, caching.EffectiveMetadataCacheSizeBytes(), "index-blobs")
 	if err != nil {
 		return errors.Wrap(err, "unable to initialize index blob cache storage")
 	}
 
-	indexBlobCache, err := cache.NewPersistentCache(ctx, "index-blobs", indexBlobStorage, cacheprot.ChecksumProtection(caching.HMACSecret), cache.SweepSettings{
-		MaxSizeBytes: metadataCacheSize,
-		MinSweepAge:  caching.MinMetadataSweepAge.DurationOrDefault(DefaultMetadataCacheSweepAge),
-	}, mr, sm.timeNow)
+	indexBlobCache, err := cache.NewPersistentCache(ctx, "index-blobs",
+		indexBlobStorage,
+		cacheprot.ChecksumProtection(caching.HMACSecret),
+		indexBlobCacheSweepSettings(caching),
+		mr, sm.timeNow)
 	if err != nil {
 		return errors.Wrap(err, "unable to create index blob cache")
 	}
