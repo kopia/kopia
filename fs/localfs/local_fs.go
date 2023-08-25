@@ -353,10 +353,16 @@ func Directory(path string) (fs.Directory, error) {
 	}
 }
 
+var readNamedPipes = shouldReadNamedPipes()
+
+func shouldReadNamedPipes() bool {
+	envVar := os.Getenv("KOPIA_SNAPSHOT_NAMED_PIPES")
+	return envVar != "" && envVar != "0" && envVar != "false"
+}
+
 func entryFromDirEntry(fi os.FileInfo, prefix string) fs.Entry {
 	isplaceholder := strings.HasSuffix(fi.Name(), ShallowEntrySuffix)
 	maskedmode := fi.Mode() & os.ModeType
-	readNamedEnv := os.Getenv("KOPIA_SNAPSHOT_NAMED_PIPES")
 
 	switch {
 	case maskedmode == os.ModeDir && !isplaceholder:
@@ -374,7 +380,7 @@ func entryFromDirEntry(fi os.FileInfo, prefix string) fs.Entry {
 	case maskedmode == 0 && isplaceholder:
 		return newShallowFilesystemFile(newEntry(fi, prefix))
 
-	case readNamedEnv != "" && readNamedEnv != "0" && readNamedEnv != "false" && maskedmode == os.ModeNamedPipe:
+	case readNamedPipes && maskedmode == os.ModeNamedPipe:
 		return newFilesystemFile(newEntry(fi, prefix))
 
 	default:
