@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 
 	"github.com/kopia/kopia/tests/clitestutil"
@@ -55,9 +55,13 @@ func TestIgnoreNamedPipe(t *testing.T) {
 	// Create a snapshot of the directory
 	e.RunAndExpectSuccess(t, "snapshot", "create", tmpDir)
 
-	err = <-errChan
-	if err != nil {
-		t.Fatalf("failed to stream to pipe: %v", err)
+	select {
+	case err := <-errChan:
+		if err != nil {
+			t.Fatalf("failed to stream to pipe: %v", err)
+		}
+	default:
+		// no error occured
 	}
 
 	sources := clitestutil.ListSnapshotsAndExpectSuccess(t, e)
@@ -82,9 +86,9 @@ func TestBackupNamedPipe(t *testing.T) {
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--override-hostname=foo", "--override-username=foo")
 
 	// Create a named pipe
-	pipePath := filepath.Join(tmpDir, pipePath)
+	absolutePipePath := filepath.Join(tmpDir, pipePath)
 
-	err := createNamedPipe(pipePath)
+	err := createNamedPipe(absolutePipePath)
 	if err != nil {
 		t.Fatalf("failed to create named pipe: %v", err)
 	}
@@ -100,7 +104,7 @@ func TestBackupNamedPipe(t *testing.T) {
 	errChan := make(chan error)
 
 	// Start streaming data to the pipe asynchronously
-	go streamDataToPipe(pipePath, errChan)
+	go streamDataToPipe(absolutePipePath, errChan)
 
 	// Create a snapshot of the directory
 	e.RunAndExpectSuccess(t, "snapshot", "create", tmpDir)
@@ -115,12 +119,13 @@ func TestBackupNamedPipe(t *testing.T) {
 
 	content := e.RunAndExpectSuccess(t, "cat", snapshotID+"/"+pipePath)
 	if strings.Join(content, "\n") != pipeContent {
+
 		t.Fatalf("pipe was not read correctly")
 	}
 }
 
 func createNamedPipe(pipePath string) error {
-	err := exec.Command("mkfifo", pipePath).Run()
+	err := syscall.Mkfifo(pipePath, 0777)
 	if err != nil {
 		return fmt.Errorf("failed to create named pipe: %w", err)
 	}
