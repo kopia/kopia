@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/blobtesting"
-	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/faketime"
 	"github.com/kopia/kopia/internal/repotesting"
 	"github.com/kopia/kopia/repo"
@@ -23,9 +22,12 @@ var testHMACSecret = []byte{1, 2, 3}
 var testMasterKey = []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}
 
 func (s *formatSpecificTestSuite) TestExtendBlobRetention(t *testing.T) {
+	mode := blob.Governance
+	period := time.Hour * 24
 	// set up fake clock which is initially synchronized to wall clock time
 	// and moved at the same speed but which can be moved forward.
 	ta := faketime.NewClockTimeWithOffset(0)
+	earliestExpiry := ta.NowFunc()().Add(period)
 
 	ctx, env := repotesting.NewEnvironment(t, s.formatVersion, repotesting.Options{
 		OpenOptions: func(o *repo.Options) {
@@ -36,8 +38,8 @@ func (s *formatSpecificTestSuite) TestExtendBlobRetention(t *testing.T) {
 			nro.BlockFormat.MasterKey = testMasterKey
 			nro.BlockFormat.Hash = "HMAC-SHA256"
 			nro.BlockFormat.HMACSecret = testHMACSecret
-			nro.RetentionMode = blob.Governance
-			nro.RetentionPeriod = time.Hour * 24
+			nro.RetentionMode = mode
+			nro.RetentionPeriod = period
 		},
 	})
 	w := env.RepositoryWriter.NewObjectWriter(ctx, object.WriterOptions{})
@@ -55,35 +57,31 @@ func (s *formatSpecificTestSuite) TestExtendBlobRetention(t *testing.T) {
 	}
 
 	lastBlobIdx := len(blobsBefore) - 1
-	st := env.RootStorage().(cache.Storage)
+	st := env.RootStorage().(blobtesting.RetentionStorage)
 
 	// Verify that file is locked
-	_, err = st.TouchBlob(ctx, blobsBefore[lastBlobIdx].BlobID, time.Hour)
-	assert.ErrorIs(t, err, blobtesting.ErrBlobLocked, "Altering locked object should fail")
+	gotMode, expiry, err := st.GetRetention(ctx, blobsBefore[lastBlobIdx].BlobID)
+	require.NoError(t, err, "getting blob retention info")
 
-	ta.Advance(7 * 24 * time.Hour)
+	assert.Equal(t, mode, gotMode)
+	assert.WithinDuration(t, earliestExpiry, expiry, time.Minute)
 
-	// Verify that file is unlocked
-	_, err = st.TouchBlob(ctx, blobsBefore[lastBlobIdx].BlobID, time.Hour)
-	require.NoError(t, err, "Altering expired object failed")
+	period = 2 * time.Hour
+	earliestExpiry = ta.NowFunc()().Add(period)
 
 	// Relock blob
 	err = env.RepositoryWriter.BlobStorage().ExtendBlobRetention(ctx, blobsBefore[lastBlobIdx].BlobID, blob.ExtendOptions{
-		RetentionMode:   blob.Governance,
-		RetentionPeriod: 2 * time.Hour,
+		RetentionMode:   mode,
+		RetentionPeriod: period,
 	})
 	require.NoErrorf(t, err, "Extending Retention time failed, got err: %v", err)
 
 	// Verify Lock period
-	ta.Advance(1 * time.Hour)
+	gotMode, expiry, err = st.GetRetention(ctx, blobsBefore[lastBlobIdx].BlobID)
+	require.NoError(t, err, "getting blob retention info")
 
-	_, err = st.TouchBlob(ctx, blobsBefore[lastBlobIdx].BlobID, time.Hour)
-	assert.ErrorIs(t, err, blobtesting.ErrBlobLocked, "Altering locked object should fail")
-
-	ta.Advance(2 * time.Hour)
-
-	_, err = st.TouchBlob(ctx, blobsBefore[lastBlobIdx].BlobID, time.Hour)
-	require.NoError(t, err, "Altering expired object failed")
+	assert.Equal(t, mode, gotMode)
+	assert.WithinDuration(t, earliestExpiry, expiry, time.Minute)
 }
 
 func (s *formatSpecificTestSuite) TestExtendBlobRetentionUnsupported(t *testing.T) {

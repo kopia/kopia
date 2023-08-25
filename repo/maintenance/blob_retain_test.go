@@ -22,9 +22,13 @@ import (
 const blockFormatHash = "HMAC-SHA256"
 
 func (s *formatSpecificTestSuite) TestExtendBlobRetentionTime(t *testing.T) {
+	mode := blob.Governance
+	period := time.Hour * 24
+
 	// set up fake clock which is initially synchronized to wall clock time
 	// and moved at the same speed but which can be moved forward.
 	ta := faketime.NewClockTimeWithOffset(0)
+	earliestExpiry := ta.NowFunc()().Add(period)
 
 	ctx, env := repotesting.NewEnvironment(t, s.formatVersion, repotesting.Options{
 		OpenOptions: func(o *repo.Options) {
@@ -35,8 +39,8 @@ func (s *formatSpecificTestSuite) TestExtendBlobRetentionTime(t *testing.T) {
 			nro.BlockFormat.MasterKey = testMasterKey
 			nro.BlockFormat.Hash = blockFormatHash
 			nro.BlockFormat.HMACSecret = testHMACSecret
-			nro.RetentionMode = blob.Governance
-			nro.RetentionPeriod = time.Hour * 24
+			nro.RetentionMode = mode
+			nro.RetentionPeriod = period
 		},
 	})
 	w := env.RepositoryWriter.NewObjectWriter(ctx, object.WriterOptions{})
@@ -54,19 +58,28 @@ func (s *formatSpecificTestSuite) TestExtendBlobRetentionTime(t *testing.T) {
 	}
 
 	lastBlobIdx := len(blobsBefore) - 1
-	st := env.RootStorage().(cache.Storage)
+	st := env.RootStorage().(blobtesting.RetentionStorage)
 
+	gotMode, expiry, err := st.GetRetention(ctx, blobsBefore[lastBlobIdx].BlobID)
+	require.NoError(t, err, "getting blob retention info")
+
+	assert.Equal(t, mode, gotMode)
+	assert.WithinDuration(t, earliestExpiry, expiry, time.Minute)
+
+	// Advance the clock and get a new earliestExpiry so we can attempt extending
+	// retention and then check our blob again.
 	ta.Advance(7 * 24 * time.Hour)
-
-	_, err = st.TouchBlob(ctx, blobsBefore[lastBlobIdx].BlobID, time.Hour)
-	require.NoError(t, err, "Altering expired object failed")
+	earliestExpiry = ta.NowFunc()().Add(period)
 
 	// extend retention time of all blobs
 	_, err = maintenance.ExtendBlobRetentionTime(ctx, env.RepositoryWriter, maintenance.ExtendBlobRetentionTimeOptions{})
 	require.NoError(t, err)
 
-	_, err = st.TouchBlob(ctx, blobsBefore[lastBlobIdx].BlobID, time.Hour)
-	assert.ErrorIs(t, err, blobtesting.ErrBlobLocked, "Altering locked object should fail")
+	gotMode, expiry, err = st.GetRetention(ctx, blobsBefore[lastBlobIdx].BlobID)
+	require.NoError(t, err, "getting blob retention info")
+
+	assert.Equal(t, mode, gotMode)
+	assert.WithinDuration(t, earliestExpiry, expiry, time.Minute)
 }
 
 func (s *formatSpecificTestSuite) TestExtendBlobRetentionTimeDisabled(t *testing.T) {
@@ -99,6 +112,8 @@ func (s *formatSpecificTestSuite) TestExtendBlobRetentionTimeDisabled(t *testing
 		t.Fatalf("unexpected number of blobs after writing: %v", blobsBefore)
 	}
 
+	// Need to continue using TouchBlob because the environment only supports the
+	// locking map if no retention time is given.
 	lastBlobIdx := len(blobsBefore) - 1
 	st := env.RootStorage().(cache.Storage)
 

@@ -76,6 +76,10 @@ func (s *blobMetrics) GetCapacity(ctx context.Context) (blob.Capacity, error) {
 	return c, err
 }
 
+func (s *blobMetrics) IsReadOnly() bool {
+	return s.base.IsReadOnly()
+}
+
 func (s *blobMetrics) GetMetadata(ctx context.Context, id blob.ID) (blob.Metadata, error) {
 	timer := timetrack.StartTimer()
 	result, err := s.base.GetMetadata(ctx, id)
