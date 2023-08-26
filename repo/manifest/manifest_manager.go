@@ -253,6 +253,28 @@ func (m *Manager) Compact(ctx context.Context) error {
 	return m.committed.compact(ctx)
 }
 
+// IDsToStrings converts the IDs to strings.
+func IDsToStrings(input []ID) []string {
+	var result []string
+
+	for _, v := range input {
+		result = append(result, string(v))
+	}
+
+	return result
+}
+
+// IDsFromStrings converts the IDs to strings.
+func IDsFromStrings(input []string) []ID {
+	var result []ID
+
+	for _, v := range input {
+		result = append(result, ID(v))
+	}
+
+	return result
+}
+
 func copyLabels(m map[string]string) map[string]string {
 	r := map[string]string{}
 	for k, v := range m {

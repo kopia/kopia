@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+	"golang.org/x/exp/maps"
 
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/manifest"
@@ -109,9 +110,26 @@ func LoadEntries(ctx context.Context, rep repo.Repository, old []*Entry) ([]*Ent
 }
 
 // AddACL validates and adds the specified ACL entry to the repository.
-func AddACL(ctx context.Context, w repo.RepositoryWriter, e *Entry) error {
+func AddACL(ctx context.Context, w repo.RepositoryWriter, e *Entry, overwrite bool) error {
 	if err := e.Validate(); err != nil {
 		return errors.Wrap(err, "error validating ACL")
+	}
+
+	entries, err := LoadEntries(ctx, w, nil)
+	if err != nil {
+		return errors.Wrap(err, "unable to load ACL entries")
+	}
+
+	for _, oldE := range entries {
+		if e.User == oldE.User && maps.Equal(e.Target, oldE.Target) {
+			if !overwrite && e.Access < oldE.Access {
+				return errors.Errorf("ACL entry for a given user and target already exists %v: %v", oldE.User, oldE.Target)
+			}
+
+			if err = w.DeleteManifest(ctx, oldE.ManifestID); err != nil {
+				return errors.Wrap(err, "error deleting old")
+			}
+		}
 	}
 
 	manifestID, err := w.PutManifest(ctx, map[string]string{

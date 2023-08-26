@@ -441,6 +441,33 @@ func (r *grpcInnerSession) PrefetchContents(ctx context.Context, contentIDs []co
 	return nil
 }
 
+func (r *grpcRepositoryClient) ApplyRetentionPolicy(ctx context.Context, sourcePath string, reallyDelete bool) ([]manifest.ID, error) {
+	return inSessionWithoutRetry(ctx, r, func(ctx context.Context, sess *grpcInnerSession) ([]manifest.ID, error) {
+		return sess.ApplyRetentionPolicy(ctx, sourcePath, reallyDelete)
+	})
+}
+
+func (r *grpcInnerSession) ApplyRetentionPolicy(ctx context.Context, sourcePath string, reallyDelete bool) ([]manifest.ID, error) {
+	for resp := range r.sendRequest(ctx, &apipb.SessionRequest{
+		Request: &apipb.SessionRequest_ApplyRetentionPolicy{
+			ApplyRetentionPolicy: &apipb.ApplyRetentionPolicyRequest{
+				SourcePath:   sourcePath,
+				ReallyDelete: reallyDelete,
+			},
+		},
+	}) {
+		switch rr := resp.Response.(type) {
+		case *apipb.SessionResponse_ApplyRetentionPolicy:
+			return manifest.IDsFromStrings(rr.ApplyRetentionPolicy.ManifestIds), nil
+
+		default:
+			return nil, unhandledSessionResponse(resp)
+		}
+	}
+
+	return nil, errNoSessionResponse()
+}
+
 func (r *grpcRepositoryClient) Time() time.Time {
 	return clock.Now()
 }
