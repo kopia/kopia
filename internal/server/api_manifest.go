@@ -147,7 +147,7 @@ func handleApplyRetentionPolicy(ctx context.Context, rc requestContext) (interfa
 	}
 
 	// only allow users to apply retention policy if they have permission to add snapshots
-	// for a particular parth.
+	// for a particular path.
 	if !hasManifestAccess(ctx, rc, map[string]string{
 		manifest.TypeLabelKey:  snapshot.ManifestType,
 		snapshot.UsernameLabel: parts[0],
