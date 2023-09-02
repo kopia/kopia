@@ -82,6 +82,23 @@ func TestNonNullWriterModule(t *testing.T) {
 	require.Equal(t, "A\nS\t{\"b\":123}\nB\nC\nW\n", buf.String())
 }
 
+func TestWithAdditionalLogger(t *testing.T) {
+	var buf, buf2 bytes.Buffer
+
+	ctx := logging.WithLogger(context.Background(), logging.ToWriter(&buf))
+	ctx = logging.WithAdditionalLogger(ctx, logging.ToWriter(&buf2))
+	l := logging.Module("mod1")(ctx)
+
+	l.Debugf("A")
+	l.Debugw("S", "b", 123)
+	l.Infof("B")
+	l.Errorf("C")
+	l.Warnf("W")
+
+	require.Equal(t, "A\nS\t{\"b\":123}\nB\nC\nW\n", buf.String())
+	require.Equal(t, "A\nS\t{\"b\":123}\nB\nC\nW\n", buf2.String())
+}
+
 func BenchmarkLogger(b *testing.B) {
 	mod1 := logging.Module("mod1")
 	ctx := logging.WithLogger(context.Background(), testlogging.PrintfFactory(b.Logf))
