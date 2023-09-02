@@ -146,7 +146,7 @@ func handleApplyRetentionPolicy(ctx context.Context, rc requestContext) (interfa
 		return nil, requestError(serverapi.ErrorMalformedRequest, "malformed username")
 	}
 
-	// only allow users with apply retention policy if they have permission to add snapshots
+	// only allow users to apply retention policy if they have permission to add snapshots
 	// for a particular parth.
 	if !hasManifestAccess(ctx, rc, map[string]string{
 		manifest.TypeLabelKey:  snapshot.ManifestType,
