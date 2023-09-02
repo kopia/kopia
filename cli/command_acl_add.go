@@ -22,7 +22,7 @@ func (c *commandACLAdd) setup(svc appServices, parent commandParent) {
 	cmd.Flag("user", "User the ACL targets").Required().StringVar(&c.user)
 	cmd.Flag("target", "Manifests targeted by the rule (type:T,key1:value1,...,keyN:valueN)").Required().StringVar(&c.target)
 	cmd.Flag("access", "Access the user gets to subject").Required().EnumVar(&c.level, acl.SupportedAccessLevels()...)
-	cmd.Flag("overwrite", "Overwrite existing rule with the same user and targe").BoolVar(&c.overwrite)
+	cmd.Flag("overwrite", "Overwrite existing rule with the same user and target").BoolVar(&c.overwrite)
 	cmd.Action(svc.repositoryWriterAction(c.run))
 }
 
