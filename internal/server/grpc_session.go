@@ -457,7 +457,7 @@ func handleApplyRetentionPolicyRequest(ctx context.Context, rep repo.RepositoryW
 	username := parts[0]
 	hostname := parts[1]
 
-	// only allow users with apply retention policy if they have permission to add snapshots
+	// only allow users to apply retention policy if they have permission to add snapshots
 	// for a particular path.
 	if authz.ManifestAccessLevel(map[string]string{
 		manifest.TypeLabelKey:  snapshot.ManifestType,
