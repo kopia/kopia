@@ -1,7 +1,10 @@
 package endtoend_test
 
 import (
+	"fmt"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/auth"
 	"github.com/kopia/kopia/internal/testutil"
@@ -9,8 +12,22 @@ import (
 	"github.com/kopia/kopia/tests/testenv"
 )
 
-func TestACL(t *testing.T) {
+func TestACL_GRPC(t *testing.T) {
+	verifyACL(t, false)
+}
+
+func TestACL_HTTP(t *testing.T) {
+	verifyACL(t, true)
+}
+
+//nolint:thelper
+func verifyACL(t *testing.T, disableGRPC bool) {
 	t.Parallel()
+
+	grpcArgument := "--grpc"
+	if disableGRPC {
+		grpcArgument = "--no-grpc"
+	}
 
 	serverRunner := testenv.NewInProcRunner(t)
 	serverEnvironment := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, serverRunner)
@@ -19,26 +36,37 @@ func TestACL(t *testing.T) {
 
 	serverEnvironment.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", serverEnvironment.RepoDir, "--override-hostname=foo", "--override-username=foo", "--enable-actions")
 
-	if got, want := len(serverEnvironment.RunAndExpectSuccess(t, "server", "acl", "list")), 0; got != want {
-		t.Fatalf("unexpected ACLs found")
-	}
+	require.Len(t, serverEnvironment.RunAndExpectSuccess(t, "server", "acl", "list"), 0)
 
 	// enable ACLs - that should insert all the rules.
 	serverEnvironment.RunAndExpectSuccess(t, "server", "acl", "enable")
 
-	if got, want := len(serverEnvironment.RunAndExpectSuccess(t, "server", "acl", "list")), len(auth.DefaultACLs); got != want {
-		t.Fatalf("unexpected ACLs found")
-	}
+	require.Len(t, serverEnvironment.RunAndExpectSuccess(t, "server", "acl", "list"), len(auth.DefaultACLs))
+
+	// reduce default access to snapshots to APPEND - this will fail because exactly identical rule already exists and grants FULL access.
+	serverEnvironment.RunAndExpectFailure(t, "server", "acl", "add", "--user", "*@*", "--target", "type=snapshot,username=OWN_USER,hostname=OWN_HOST", "--access=APPEND")
+
+	// reduce default access to snapshots to APPEND with --overwrite, this wil succeed.
+	serverEnvironment.RunAndExpectSuccess(t, "server", "acl", "add", "--user", "*@*", "--target", "type=snapshot,username=OWN_USER,hostname=OWN_HOST", "--access=APPEND", "--overwrite")
 
 	// add read access to all snapshots and policies for user foo@bar
 	serverEnvironment.RunAndExpectSuccess(t, "server", "acl", "add", "--user", "foo@bar", "--target", "type=snapshot", "--access=READ")
 	serverEnvironment.RunAndExpectSuccess(t, "server", "acl", "add", "--user", "foo@bar", "--target", "type=policy", "--access=READ")
 
+	// add append access to all snapshots and read-only access to policies for user another@bar
+	serverEnvironment.RunAndExpectSuccess(t, "server", "acl", "add", "--user", "another@bar", "--target", "type=snapshot", "--access=APPEND")
+	serverEnvironment.RunAndExpectSuccess(t, "server", "acl", "add", "--user", "another@bar", "--target", "type=policy", "--access=READ")
+
 	// add full access to global policy for all users
 	serverEnvironment.RunAndExpectSuccess(t, "server", "acl", "add", "--user", "*@*", "--target", "type=policy,policyType=global", "--access=FULL")
 
 	serverEnvironment.RunAndExpectSuccess(t, "server", "users", "add", "foo@bar", "--user-password", "baz")
+	serverEnvironment.RunAndExpectSuccess(t, "server", "users", "add", "another@bar", "--user-password", "baz")
 	serverEnvironment.RunAndExpectSuccess(t, "server", "users", "add", "alice@wonderland", "--user-password", "baz")
+
+	const keepLatestSnapshots = 3
+
+	serverEnvironment.RunAndExpectSuccess(t, "policy", "set", "another@bar", fmt.Sprintf("--keep-latest=%v", keepLatestSnapshots))
 
 	var sp testutil.ServerParameters
 
@@ -70,6 +98,24 @@ func TestACL(t *testing.T) {
 		"--override-username", "foo",
 		"--override-hostname", "bar",
 		"--password", "baz",
+		grpcArgument,
+	)
+
+	anotherBarRunner := testenv.NewInProcRunner(t)
+	anotherBarClientEnvironment := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, anotherBarRunner)
+
+	defer anotherBarClientEnvironment.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	delete(anotherBarClientEnvironment.Environment, "KOPIA_PASSWORD")
+
+	// connect as foo@bar with password baz
+	anotherBarClientEnvironment.RunAndExpectSuccess(t, "repo", "connect", "server",
+		"--url", sp.BaseURL+"/",
+		"--server-cert-fingerprint", sp.SHA256Fingerprint,
+		"--override-username", "another",
+		"--override-hostname", "bar",
+		"--password", "baz",
+		grpcArgument,
 	)
 
 	aliceInWonderlandRunner := testenv.NewInProcRunner(t)
@@ -86,6 +132,7 @@ func TestACL(t *testing.T) {
 		"--override-username", "alice",
 		"--override-hostname", "wonderland",
 		"--password", "baz",
+		grpcArgument,
 	)
 
 	// both alice and foo@bar can see global policy
@@ -116,6 +163,23 @@ func TestACL(t *testing.T) {
 	if snaps := clitestutil.ListSnapshotsAndExpectSuccess(t, aliceInWonderlandClientEnvironment, "-a"); len(snaps) != 1 {
 		t.Fatalf("foo@bar expected to see 1 source (own), got %v", snaps)
 	}
+
+	// another@bar can create snapshots but not delete them
+	anotherBarClientEnvironment.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
+	anotherBarClientEnvironment.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
+	anotherBarClientEnvironment.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
+	anotherBarClientEnvironment.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
+	anotherBarClientEnvironment.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
+	anotherBarClientEnvironment.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
+
+	// make sure only `keepLatestSnapshots` snapshots are kept, so retention policy
+	// is working.
+	snapshots := clitestutil.ListSnapshotsAndExpectSuccess(t, anotherBarClientEnvironment, sharedTestDataDir1)[0].Snapshots
+	require.Len(t, snapshots, keepLatestSnapshots)
+
+	// APPEND policy despite being able to maintain retention rules, prevents snapshots from being deleted
+	// by the client.
+	anotherBarClientEnvironment.RunAndExpectFailure(t, "snapshot", "delete", snapshots[0].SnapshotID, "--delete")
 
 	// alice changes her own password and reconnects
 	aliceInWonderlandClientEnvironment.RunAndExpectSuccess(t, "server", "users", "set", "alice@wonderland", "--user-password", "new-password")

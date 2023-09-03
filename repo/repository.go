@@ -54,6 +54,12 @@ type RepositoryWriter interface {
 	Flush(ctx context.Context) error
 }
 
+// RemoteRetentionPolicy is an interface implemented by repository clients that support remote retention policy.
+// when implemented, the repository server will invoke ApplyRetentionPolicy() server-side.
+type RemoteRetentionPolicy interface {
+	ApplyRetentionPolicy(ctx context.Context, sourcePath string, reallyDelete bool) ([]manifest.ID, error)
+}
+
 // DirectRepository provides additional low-level repository functionality.
 //
 //nolint:interfacebloat

@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"strings"
 
 	"github.com/pkg/errors"
 
@@ -11,6 +12,8 @@ import (
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/manifest"
+	"github.com/kopia/kopia/snapshot"
+	"github.com/kopia/kopia/snapshot/policy"
 )
 
 func handleManifestGet(ctx context.Context, rc requestContext) (interface{}, *apiError) {
@@ -122,4 +125,48 @@ func handleManifestCreate(ctx context.Context, rc requestContext) (interface{}, 
 	}
 
 	return &manifest.EntryMetadata{ID: id}, nil
+}
+
+func handleApplyRetentionPolicy(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+	rw, ok := rc.rep.(repo.RepositoryWriter)
+	if !ok {
+		return nil, repositoryNotWritableError()
+	}
+
+	var req remoterepoapi.ApplyRetentionPolicyRequest
+
+	if err := json.Unmarshal(rc.body, &req); err != nil {
+		return nil, requestError(serverapi.ErrorMalformedRequest, "malformed request")
+	}
+
+	usernameAtHostname, _, _ := rc.req.BasicAuth()
+
+	parts := strings.Split(usernameAtHostname, "@")
+	if len(parts) != 2 { //nolint:gomnd
+		return nil, requestError(serverapi.ErrorMalformedRequest, "malformed username")
+	}
+
+	// only allow users to apply retention policy if they have permission to add snapshots
+	// for a particular path.
+	if !hasManifestAccess(ctx, rc, map[string]string{
+		manifest.TypeLabelKey:  snapshot.ManifestType,
+		snapshot.UsernameLabel: parts[0],
+		snapshot.HostnameLabel: parts[1],
+		snapshot.PathLabel:     req.SourcePath,
+	}, auth.AccessLevelAppend) {
+		return nil, accessDeniedError()
+	}
+
+	ids, err := policy.ApplyRetentionPolicy(ctx, rw, snapshot.SourceInfo{
+		UserName: parts[0],
+		Host:     parts[1],
+		Path:     req.SourcePath,
+	}, req.ReallyDelete)
+	if err != nil {
+		return nil, internalServerError(err)
+	}
+
+	return &remoterepoapi.ApplyRetentionPolicyResponse{
+		ManifestIDs: ids,
+	}, nil
 }
