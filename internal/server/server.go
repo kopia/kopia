@@ -865,6 +865,7 @@ type Options struct {
 	UIPreferencesFile      string // name of the JSON file storing UI preferences
 	ServerControlUser      string // name of the user allowed to access the server control API
 	DisableCSRFTokenChecks bool
+	PersistentLogs         bool
 	UITitlePrefix          string
 }
 
@@ -1047,7 +1048,7 @@ func New(ctx context.Context, options *Options) (*Server, error) {
 		grpcServerState:      makeGRPCServerState(options.MaxConcurrency),
 		authenticator:        options.Authenticator,
 		authorizer:           options.Authorizer,
-		taskmgr:              uitask.NewManager(),
+		taskmgr:              uitask.NewManager(options.PersistentLogs),
 		mounts:               map[object.ID]mount.Controller{},
 		authCookieSigningKey: []byte(options.AuthCookieSigningKey),
 	}

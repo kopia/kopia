@@ -62,6 +62,7 @@ type commandServerStart struct {
 	uiTitlePrefix                       string
 	uiPreferencesFile                   string
 	asyncRepoConnect                    bool
+	persistentLogs                      bool
 
 	shutdownGracePeriod time.Duration
 
@@ -108,6 +109,7 @@ func (c *commandServerStart) setup(svc advancedAppServices, parent commandParent
 	cmd.Flag("tls-print-server-cert", "Print server certificate").Hidden().BoolVar(&c.serverStartTLSPrintFullServerCert)
 
 	cmd.Flag("async-repo-connect", "Connect to repository asynchronously").Hidden().BoolVar(&c.asyncRepoConnect)
+	cmd.Flag("persistent-logs", "Persist logs in a file").Default("true").BoolVar(&c.persistentLogs)
 	cmd.Flag("ui-title-prefix", "UI title prefix").Hidden().Envar(svc.EnvName("KOPIA_UI_TITLE_PREFIX")).StringVar(&c.uiTitlePrefix)
 	cmd.Flag("ui-preferences-file", "Path to JSON file storing UI preferences").StringVar(&c.uiPreferencesFile)
 
@@ -149,6 +151,7 @@ func (c *commandServerStart) serverStartOptions(ctx context.Context) (*server.Op
 		PasswordPersist:      c.svc.passwordPersistenceStrategy(),
 		UIPreferencesFile:    uiPreferencesFile,
 		UITitlePrefix:        c.uiTitlePrefix,
+		PersistentLogs:       c.persistentLogs,
 
 		DisableCSRFTokenChecks: c.disableCSRFTokenChecks,
 	}, nil
