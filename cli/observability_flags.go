@@ -6,6 +6,8 @@ import (
 	"net/http/pprof"
 	"os"
 	"path/filepath"
+	"runtime"
+	rpprof "runtime/pprof"
 	"sort"
 	"strings"
 	"sync"
@@ -52,6 +54,8 @@ type observabilityFlags struct {
 	metricsPushFormat   string
 	metricsOutputDir    string
 	outputFilePrefix    string
+	pprofDir            string
+	storeCPUProfile     bool
 
 	enableJaeger bool
 
@@ -59,6 +63,8 @@ type observabilityFlags struct {
 	pusherWG   sync.WaitGroup
 
 	traceProvider *trace.TracerProvider
+
+	cpuProfOut *os.File
 }
 
 func (c *observabilityFlags) setup(svc appServices, app *kingpin.Application) {
@@ -87,12 +93,22 @@ func (c *observabilityFlags) setup(svc appServices, app *kingpin.Application) {
 
 	app.Flag("metrics-directory", "Directory where the metrics should be saved when kopia exits. A file per process execution will be created in this directory").Hidden().StringVar(&c.metricsOutputDir)
 
+	//nolint:lll
+	app.Flag("pprof-directory", "Directory to dump pprof data at the end of the process execution. The profiling settings can be modified using the default GODEBUG environment variable mechanism (see https://pkg.go.dev/runtime@master#hdr-Environment_Variables for additional information.)").Hidden().StringVar(&c.pprofDir)
+
 	app.PreAction(c.initialize)
+	app.Flag("write-cpu-profile", "Enable CPU profiling and write the output to a file in the specified pprof directory. The '--pprof-directory' flag must be non-empty").Hidden().BoolVar(&c.storeCPUProfile)
 }
 
 func (c *observabilityFlags) initialize(ctx *kingpin.ParseContext) error {
-	if c.metricsOutputDir == "" {
-		return nil
+	if c.pprofDir == "" {
+		if c.storeCPUProfile {
+			return errors.New("storing the CPU profile ('--write-cpu-profile' flag) requires specifying the output directory via the '--pprof-directory' flag")
+		}
+
+		if c.metricsOutputDir == "" {
+			return nil
+		}
 	}
 
 	// write to a separate file per command and process execution to avoid
@@ -121,6 +137,10 @@ func (c *observabilityFlags) startMetrics(ctx context.Context) error {
 		if err := os.MkdirAll(c.metricsOutputDir, DirMode); err != nil {
 			return errors.Wrapf(err, "could not create metrics output directory: %s", c.metricsOutputDir)
 		}
+	}
+
+	if err := c.maybeStartPprofDumper(ctx); err != nil {
+		return err
 	}
 
 	return c.maybeStartTraceExporter()
@@ -222,6 +242,39 @@ func (c *observabilityFlags) maybeStartTraceExporter() error {
 	return nil
 }
 
+func (c *observabilityFlags) maybeStartPprofDumper(ctx context.Context) error {
+	if c.pprofDir == "" {
+		return nil
+	}
+
+	// ensure upfront that the pprof output dir can be created
+	c.pprofDir = filepath.Clean(c.pprofDir)
+	if err := os.MkdirAll(c.pprofDir, DirMode); err != nil {
+		return errors.Wrapf(err, "could not create pprof output directory: %s", c.pprofDir)
+	}
+
+	if !c.storeCPUProfile {
+		return nil
+	}
+
+	f, err := os.Create(filepath.Join(c.pprofDir, "cpu.pprof"))
+	if err != nil {
+		return errors.Wrap(err, "could not create CPU profile output file")
+	}
+
+	if err := rpprof.StartCPUProfile(f); err != nil {
+		if cerr := f.Close(); cerr != nil {
+			log(ctx).Warn("could not close CPU profile output file:", cerr)
+		}
+
+		return errors.Wrap(err, "could not start CPU profile")
+	}
+
+	c.cpuProfOut = f
+
+	return nil
+}
+
 func (c *observabilityFlags) stopMetrics(ctx context.Context) {
 	if c.stopPusher != nil {
 		close(c.stopPusher)
@@ -241,6 +294,41 @@ func (c *observabilityFlags) stopMetrics(ctx context.Context) {
 		if err := prometheus.WriteToTextfile(filename, prometheus.DefaultGatherer); err != nil {
 			log(ctx).Warnf("unable to write metrics file '%s': %v", filename, err)
 		}
+	}
+
+	if c.pprofDir != "" {
+		runtime.GC() // get up-to-date statistics
+
+		for _, p := range rpprof.Profiles() {
+			func() {
+				fname := filepath.Clean(filepath.Join(c.pprofDir, p.Name()+".pprof"))
+
+				f, err := os.Create(fname)
+				if err != nil {
+					log(ctx).Warnf("unable to create profile output file '%s': %v", fname, err)
+				}
+
+				defer func() {
+					if err := f.Close(); err != nil {
+						log(ctx).Warnf("unable to close profile output file '%s': %v", fname, err)
+					}
+				}()
+
+				if err := p.WriteTo(f, 0); err != nil {
+					log(ctx).Warnf("unable to write profile to file '%s': %v", fname, err)
+				}
+			}()
+		}
+	}
+
+	if c.cpuProfOut != nil {
+		rpprof.StopCPUProfile()
+
+		if err := c.cpuProfOut.Close(); err != nil {
+			log(ctx).Warn("error closing CPU profile output file:", err)
+		}
+
+		c.cpuProfOut = nil
 	}
 }
 
