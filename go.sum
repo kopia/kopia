@@ -204,6 +204,8 @@ github.com/klauspost/reedsolomon v1.11.8 h1:s8RpUW5TK4hjr+djiOpbZJB4ksx+TdYbRH7v
 github.com/klauspost/reedsolomon v1.11.8/go.mod h1:4bXRN+cVzMdml6ti7qLouuYi32KHJ5MGv0Qd8a47h6A=
 github.com/kopia/htmluibuild v0.0.0-20230716183504-d78b44b3a9bd h1:Vskpc00T65HkkDSWbkiXOG5yYsgWg5LN48daUfGZ+u0=
 github.com/kopia/htmluibuild v0.0.0-20230716183504-d78b44b3a9bd/go.mod h1:eWer4rx9P8lJo2eKc+Q7AZ1dE1x1hJNdkbDFPzMu1Hw=
+github.com/kopia/htmluibuild v0.0.1-0.20230905013549-27f219e6d165 h1:xk6P5PQJeR7S33tORd0tDPx42lcreLbRtLQFiVVG0ys=
+github.com/kopia/htmluibuild v0.0.1-0.20230905013549-27f219e6d165/go.mod h1:cSImbrlwvv2phvj5RfScL2v08ghX6xli0PcK6f+t8S0=
 github.com/kr/fs v0.1.0 h1:Jskdu9ieNAYnjxsi0LbQp1ulIKZV1LAFgK1tWhpZgl8=
 github.com/kr/fs v0.1.0/go.mod h1:FFnZGqtBN9Gxj7eW1uZ42v5BccTP0vu6NEaFoC2HwRg=
 github.com/kr/pretty v0.1.0/go.mod h1:dAy3ld7l9f0ibDNOQOHHMYYIIbhfbHSm3C4ZsoJORNo=
