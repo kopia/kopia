@@ -36,6 +36,10 @@ func NewFaultyStorage(base blob.Storage) *FaultyStorage {
 	}
 }
 
+func (s *FaultyStorage) IsReadOnly() bool {
+	return s.base.IsReadOnly()
+}
+
 // GetCapacity implements blob.Volume.
 func (s *FaultyStorage) GetCapacity(ctx context.Context) (blob.Capacity, error) {
 	if ok, err := s.GetNextFault(ctx, MethodGetCapacity); ok {
@@ -121,6 +125,11 @@ func (s *FaultyStorage) FlushCaches(ctx context.Context) error {
 	}
 
 	return s.base.FlushCaches(ctx)
+}
+
+// ExtendBlobRetention implements blob.Storage.
+func (s *FaultyStorage) ExtendBlobRetention(ctx context.Context, b blob.ID, opts blob.ExtendOptions) error {
+	return s.base.ExtendBlobRetention(ctx, b, opts)
 }
 
 var _ blob.Storage = (*FaultyStorage)(nil)

@@ -269,7 +269,7 @@ func handleRepoSetDescription(ctx context.Context, rc requestContext) (interface
 	return handleRepoStatus(ctx, rc)
 }
 
-func handleRepoSupportedAlgorithms(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+func handleRepoSupportedAlgorithms(ctx context.Context, _ requestContext) (interface{}, *apiError) {
 	res := &serverapi.SupportedAlgorithmsResponse{
 		DefaultHashAlgorithm:    hashing.DefaultAlgorithm,
 		SupportedHashAlgorithms: toAlgorithmInfo(hashing.SupportedAlgorithms(), neverDeprecated),
@@ -300,7 +300,7 @@ func handleRepoSupportedAlgorithms(ctx context.Context, rc requestContext) (inte
 	return res, nil
 }
 
-func neverDeprecated(n string) bool {
+func neverDeprecated(string) bool {
 	return false
 }
 

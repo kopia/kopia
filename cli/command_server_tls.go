@@ -14,6 +14,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -34,7 +35,16 @@ func (c *commandServerStart) generateServerCertificate(ctx context.Context) (*x5
 }
 
 func (c *commandServerStart) startServerWithOptionalTLS(ctx context.Context, httpServer *http.Server) error {
-	l, err := net.Listen("tcp", httpServer.Addr)
+	var l net.Listener
+
+	var err error
+
+	if strings.HasPrefix(httpServer.Addr, "unix:") {
+		l, err = net.Listen("unix", strings.TrimPrefix(httpServer.Addr, "unix:"))
+	} else {
+		l, err = net.Listen("tcp", httpServer.Addr)
+	}
+
 	if err != nil {
 		return errors.Wrap(err, "listen error")
 	}
@@ -86,10 +96,15 @@ func (c *commandServerStart) startServerWithOptionalTLSAndListener(ctx context.C
 		return err
 	}
 
+	udsPfx := ""
+	if listener.Addr().Network() == "unix" {
+		udsPfx = "unix+"
+	}
+
 	switch {
 	case c.serverStartTLSCertFile != "" && c.serverStartTLSKeyFile != "":
 		// PEM files provided
-		fmt.Fprintf(c.out.stderr(), "SERVER ADDRESS: https://%v\n", httpServer.Addr)
+		fmt.Fprintf(c.out.stderr(), "SERVER ADDRESS: %shttps://%v\n", udsPfx, httpServer.Addr)
 		c.showServerUIPrompt(ctx)
 
 		return errors.Wrap(httpServer.ServeTLS(listener, c.serverStartTLSCertFile, c.serverStartTLSKeyFile), "error starting TLS server")
@@ -125,7 +140,7 @@ func (c *commandServerStart) startServerWithOptionalTLSAndListener(ctx context.C
 			fmt.Fprintf(c.out.stderr(), "SERVER CERTIFICATE: %v\n", base64.StdEncoding.EncodeToString(b.Bytes()))
 		}
 
-		fmt.Fprintf(c.out.stderr(), "SERVER ADDRESS: https://%v\n", httpServer.Addr)
+		fmt.Fprintf(c.out.stderr(), "SERVER ADDRESS: %shttps://%v\n", udsPfx, httpServer.Addr)
 		c.showServerUIPrompt(ctx)
 
 		return errors.Wrap(httpServer.ServeTLS(listener, "", ""), "error starting TLS server")
@@ -135,7 +150,7 @@ func (c *commandServerStart) startServerWithOptionalTLSAndListener(ctx context.C
 			return errors.Errorf("TLS not configured. To start server without encryption pass --insecure")
 		}
 
-		fmt.Fprintf(c.out.stderr(), "SERVER ADDRESS: http://%v\n", httpServer.Addr)
+		fmt.Fprintf(c.out.stderr(), "SERVER ADDRESS: %shttp://%v\n", udsPfx, httpServer.Addr)
 		c.showServerUIPrompt(ctx)
 
 		return errors.Wrap(httpServer.Serve(listener), "error starting server")

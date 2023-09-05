@@ -1,0 +1,46 @@
+name: Lint
+on:
+  pull_request:
+    branches: [ master ]
+concurrency: 
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  # environment variables shared between build steps
+  # do not include sensitive credentials and tokens here, instead pass them
+  # directly to tools that need them to limit the blast radius in case one of them
+  # becomes compromised and leaks credentials to external sites.
+  # required by Makefile
+  UNIX_SHELL_ON_WINDOWS: true
+  # set (to any value other than false) to trigger random unicode filenames testing (logs may be difficult to read)
+  ENABLE_UNICODE_FILENAMES: ${{ secrets.ENABLE_UNICODE_FILENAMES }}
+  # set (to any value other than false) to trigger very long filenames testing
+  ENABLE_LONG_FILENAMES: ${{ secrets.ENABLE_LONG_FILENAMES }}
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    name: Lint
+    runs-on: ${{ matrix.os }}
+    steps:
+    - name: Check out repository
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.20'
+      id: go
+      if: ${{ !contains(matrix.os, 'ARMHF') }}
+    - id: govulncheck
+      uses: golang/govulncheck-action@7da72f730e37eeaad891fcff0a532d27ed737cd4
+      with:
+        repo-checkout: false
+        cache: false
+    - name: Lint
+      run: make lint
+    - name: Check Locks
+      run: make check-locks

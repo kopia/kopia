@@ -19,20 +19,25 @@ const encryptionProtectionAlgorithm = "AES256-GCM-HMAC-SHA256"
 type StorageProtection interface {
 	Protect(id string, input gather.Bytes, output *gather.WriteBuffer)
 	Verify(id string, input gather.Bytes, output *gather.WriteBuffer) error
+	OverheadBytes() int
 }
 
 type nullStorageProtection struct{}
 
-func (nullStorageProtection) Protect(id string, input gather.Bytes, output *gather.WriteBuffer) {
+func (nullStorageProtection) Protect(_ string, input gather.Bytes, output *gather.WriteBuffer) {
 	output.Reset()
 	input.WriteTo(output) //nolint:errcheck
 }
 
-func (nullStorageProtection) Verify(id string, input gather.Bytes, output *gather.WriteBuffer) error {
+func (nullStorageProtection) Verify(_ string, input gather.Bytes, output *gather.WriteBuffer) error {
 	output.Reset()
 	input.WriteTo(output) //nolint:errcheck
 
 	return nil
+}
+
+func (nullStorageProtection) OverheadBytes() int {
+	return 0
 }
 
 // NoProtection returns implementation of StorageProtection that offers no protection.
@@ -44,15 +49,19 @@ type checksumProtection struct {
 	Secret []byte
 }
 
-func (p checksumProtection) Protect(id string, input gather.Bytes, output *gather.WriteBuffer) {
+func (p checksumProtection) Protect(_ string, input gather.Bytes, output *gather.WriteBuffer) {
 	output.Reset()
 	hmac.Append(input, p.Secret, output)
 }
 
-func (p checksumProtection) Verify(id string, input gather.Bytes, output *gather.WriteBuffer) error {
+func (p checksumProtection) Verify(_ string, input gather.Bytes, output *gather.WriteBuffer) error {
 	output.Reset()
 	//nolint:wrapcheck
 	return hmac.VerifyAndStrip(input, p.Secret, output)
+}
+
+func (p checksumProtection) OverheadBytes() int {
+	return sha256.Size
 }
 
 // ChecksumProtection returns StorageProtection that protects cached data using HMAC checksums without encryption.
@@ -83,6 +92,10 @@ func (p authenticatedEncryptionProtection) Verify(id string, input gather.Bytes,
 	}
 
 	return nil
+}
+
+func (p authenticatedEncryptionProtection) OverheadBytes() int {
+	return p.e.Overhead()
 }
 
 type authenticatedEncryptionProtectionKey []byte

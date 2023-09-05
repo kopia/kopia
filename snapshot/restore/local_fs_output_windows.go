@@ -10,10 +10,12 @@ import (
 	"github.com/kopia/kopia/internal/atomicfile"
 )
 
+//nolint:revive
 func symlinkChown(path string, uid, gid int) error {
 	return nil
 }
 
+//nolint:revive
 func symlinkChmod(path string, mode os.FileMode) error {
 	return nil
 }

@@ -18,17 +18,32 @@ import (
 type DataMap map[blob.ID][]byte
 
 type mapStorage struct {
+	blob.DefaultProviderImplementation
 	// +checklocks:mutex
 	data DataMap
 	// +checklocks:mutex
 	keyTime map[blob.ID]time.Time
 	// +checklocks:mutex
 	timeNow func() time.Time
-	mutex   sync.RWMutex
+	// +checklocks:mutex
+	totalBytes int64
+	// +checklocksignore
+	limit int64
+	mutex sync.RWMutex
 }
 
 func (s *mapStorage) GetCapacity(ctx context.Context) (blob.Capacity, error) {
-	return blob.Capacity{}, blob.ErrNotAVolume
+	if s.limit < 0 {
+		return blob.Capacity{}, blob.ErrNotAVolume
+	}
+
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	return blob.Capacity{
+		SizeB: uint64(s.limit),
+		FreeB: uint64(s.limit - s.totalBytes),
+	}, nil
 }
 
 func (s *mapStorage) GetBlob(ctx context.Context, id blob.ID, offset, length int64, output blob.OutputBuffer) error {
@@ -93,17 +108,23 @@ func (s *mapStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes, o
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
+	var b bytes.Buffer
+
+	data.WriteTo(&b)
+
+	if s.limit >= 0 && s.totalBytes+int64(b.Len()) > s.limit {
+		return errors.Errorf("exceeded limit, unable to add %v bytes, currently using %v/%v", b.Len(), s.totalBytes, s.limit)
+	}
+
 	if !opts.SetModTime.IsZero() {
 		s.keyTime[id] = opts.SetModTime
 	} else {
 		s.keyTime[id] = s.timeNow()
 	}
 
-	var b bytes.Buffer
-
-	data.WriteTo(&b)
-
+	s.totalBytes -= int64(len(s.data[id]))
 	s.data[id] = b.Bytes()
+	s.totalBytes += int64(len(s.data[id]))
 
 	if opts.GetModTime != nil {
 		*opts.GetModTime = s.keyTime[id]
@@ -116,6 +137,7 @@ func (s *mapStorage) DeleteBlob(ctx context.Context, id blob.ID) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
+	s.totalBytes -= int64(len(s.data[id]))
 	delete(s.data, id)
 	delete(s.keyTime, id)
 
@@ -161,10 +183,6 @@ func (s *mapStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback fun
 	return nil
 }
 
-func (s *mapStorage) Close(ctx context.Context) error {
-	return nil
-}
-
 func (s *mapStorage) TouchBlob(ctx context.Context, blobID blob.ID, threshold time.Duration) (time.Time, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -188,13 +206,15 @@ func (s *mapStorage) DisplayName() string {
 	return "Map"
 }
 
-func (s *mapStorage) FlushCaches(ctx context.Context) error {
-	return nil
-}
-
 // NewMapStorage returns an implementation of Storage backed by the contents of given map.
 // Used primarily for testing.
 func NewMapStorage(data DataMap, keyTime map[blob.ID]time.Time, timeNow func() time.Time) blob.Storage {
+	return NewMapStorageWithLimit(data, keyTime, timeNow, -1)
+}
+
+// NewMapStorageWithLimit returns an implementation of Storage backed by the contents of given map.
+// Used primarily for testing.
+func NewMapStorageWithLimit(data DataMap, keyTime map[blob.ID]time.Time, timeNow func() time.Time, limit int64) blob.Storage {
 	if keyTime == nil {
 		keyTime = make(map[blob.ID]time.Time)
 	}
@@ -203,5 +223,11 @@ func NewMapStorage(data DataMap, keyTime map[blob.ID]time.Time, timeNow func() t
 		timeNow = clock.Now
 	}
 
-	return &mapStorage{data: data, keyTime: keyTime, timeNow: timeNow}
+	totalBytes := int64(0)
+
+	for _, v := range data {
+		totalBytes += int64(len(v))
+	}
+
+	return &mapStorage{data: data, keyTime: keyTime, timeNow: timeNow, limit: limit, totalBytes: totalBytes}
 }

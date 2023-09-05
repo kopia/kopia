@@ -21,7 +21,7 @@ const (
 
 // ErrFormatUptoDate is returned whenever a lock intent is attempted to be set
 // on a repository that is already using the latest format version.
-var ErrFormatUptoDate = errors.New("repository format is up to date")
+var ErrFormatUptoDate = errors.New("repository format is up to date") // +checklocksignore
 
 // BackupBlobID gets the upgrade backu pblob-id fro mthe lock.
 func BackupBlobID(l UpgradeLockIntent) blob.ID {
@@ -186,7 +186,7 @@ func (m *Manager) RollbackUpgrade(ctx context.Context) error {
 }
 
 // GetUpgradeLockIntent gets the current upgrade lock intent.
-func (m *Manager) GetUpgradeLockIntent(ctx context.Context) (*UpgradeLockIntent, error) {
+func (m *Manager) GetUpgradeLockIntent() (*UpgradeLockIntent, error) {
 	if err := m.maybeRefreshNotLocked(); err != nil {
 		return nil, err
 	}

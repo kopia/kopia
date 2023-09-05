@@ -32,8 +32,8 @@ var ErrNotFound = errors.New("not found")
 
 // ContentPrefix is the prefix of the content id for manifests.
 const (
-	ContentPrefix              = "m"
-	autoCompactionContentCount = 16
+	ContentPrefix                     = "m"
+	autoCompactionContentCountDefault = 16
 )
 
 // TypeLabelKey is the label key for manifest type.
@@ -48,6 +48,7 @@ type contentManager interface {
 	DisableIndexFlush(ctx context.Context)
 	EnableIndexFlush(ctx context.Context)
 	Flush(ctx context.Context) error
+	IsReadOnly() bool
 }
 
 // ID is a unique identifier of a single manifest.
@@ -252,6 +253,28 @@ func (m *Manager) Compact(ctx context.Context) error {
 	return m.committed.compact(ctx)
 }
 
+// IDsToStrings converts the IDs to strings.
+func IDsToStrings(input []ID) []string {
+	var result []string
+
+	for _, v := range input {
+		result = append(result, string(v))
+	}
+
+	return result
+}
+
+// IDsFromStrings converts the IDs to strings.
+func IDsFromStrings(input []string) []ID {
+	var result []ID
+
+	for _, v := range input {
+		result = append(result, ID(v))
+	}
+
+	return result
+}
+
 func copyLabels(m map[string]string) map[string]string {
 	r := map[string]string{}
 	for k, v := range m {
@@ -263,21 +286,29 @@ func copyLabels(m map[string]string) map[string]string {
 
 // ManagerOptions are optional parameters for Manager creation.
 type ManagerOptions struct {
-	TimeNow func() time.Time // Time provider
+	TimeNow                 func() time.Time // Time provider
+	AutoCompactionThreshold int
 }
 
 // NewManager returns new manifest manager for the provided content manager.
 func NewManager(ctx context.Context, b contentManager, options ManagerOptions, mr *metrics.Registry) (*Manager, error) {
+	_ = mr
+
 	timeNow := options.TimeNow
 	if timeNow == nil {
 		timeNow = clock.Now
+	}
+
+	autoCompactionThreshold := options.AutoCompactionThreshold
+	if autoCompactionThreshold == 0 {
+		autoCompactionThreshold = autoCompactionContentCountDefault
 	}
 
 	m := &Manager{
 		b:              b,
 		pendingEntries: map[ID]*manifestEntry{},
 		timeNow:        timeNow,
-		committed:      newCommittedManager(b),
+		committed:      newCommittedManager(b, autoCompactionThreshold),
 	}
 
 	return m, nil

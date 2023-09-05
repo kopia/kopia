@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/blobtesting"
+	"github.com/kopia/kopia/internal/metrics"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo"
@@ -39,6 +40,13 @@ type Environment struct {
 type Options struct {
 	NewRepositoryOptions func(*repo.NewRepositoryOptions)
 	OpenOptions          func(*repo.Options)
+}
+
+// RepositoryMetrics returns metrics.Registry associated with a repository.
+func (e *Environment) RepositoryMetrics() *metrics.Registry {
+	return e.Repository.(interface {
+		Metrics() *metrics.Registry
+	}).Metrics()
 }
 
 // RootStorage returns the base storage map that implements the base in-memory

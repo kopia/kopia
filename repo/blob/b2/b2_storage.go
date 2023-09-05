@@ -26,13 +26,10 @@ const (
 
 type b2Storage struct {
 	Options
+	blob.DefaultProviderImplementation
 
 	cli    *backblaze.B2
 	bucket *backblaze.Bucket
-}
-
-func (s *b2Storage) GetCapacity(ctx context.Context) (blob.Capacity, error) {
-	return blob.Capacity{}, blob.ErrNotAVolume
 }
 
 func (s *b2Storage) GetBlob(ctx context.Context, id blob.ID, offset, length int64, output blob.OutputBuffer) error {
@@ -246,20 +243,14 @@ func (s *b2Storage) DisplayName() string {
 	return fmt.Sprintf("B2: %v", s.BucketName)
 }
 
-func (s *b2Storage) Close(ctx context.Context) error {
-	return nil
-}
-
-func (s *b2Storage) FlushCaches(ctx context.Context) error {
-	return nil
-}
-
 func (s *b2Storage) String() string {
 	return fmt.Sprintf("b2://%s/%s", s.BucketName, s.Prefix)
 }
 
 // New creates new B2-backed storage with specified options.
 func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error) {
+	_ = isCreate
+
 	if opt.BucketName == "" {
 		return nil, errors.New("bucket name must be specified")
 	}

@@ -4,7 +4,6 @@ package providervalidation
 import (
 	"bytes"
 	"context"
-	cryptorand "crypto/rand"
 	"fmt"
 	"math/rand"
 	"os"
@@ -45,8 +44,6 @@ var DefaultOptions = Options{
 	NumListBlobsWorkers:     3,
 	MaxBlobLength:           10e6,
 }
-
-const blobIDLength = 16
 
 var log = logging.Module("providervalidation")
 
@@ -225,7 +222,7 @@ type concurrencyTest struct {
 
 	mu sync.Mutex
 	// +checklocks:mu
-	blobData map[blob.ID][]byte
+	blobSeeds map[blob.ID]int64
 	// +checklocks:mu
 	blobIDs []blob.ID
 	// +checklocks:mu
@@ -239,25 +236,32 @@ func newConcurrencyTest(st blob.Storage, prefix blob.ID, opt Options) *concurren
 		prefix:   prefix,
 		deadline: clock.Now().Add(opt.ConcurrencyTestDuration),
 
-		blobData:    make(map[blob.ID][]byte),
+		blobSeeds:   make(map[blob.ID]int64),
 		blobWritten: make(map[blob.ID]bool),
 	}
 }
 
+func (c *concurrencyTest) dataFromSeed(seed int64, buf []byte) []byte {
+	rnd := rand.New(rand.NewSource(seed)) //nolint:gosec
+	length := rnd.Int31n(int32(len(buf)))
+	result := buf[0:length]
+	rnd.Read(result)
+
+	return result
+}
+
 func (c *concurrencyTest) putBlobWorker(ctx context.Context, worker int) func() error {
+	data0 := make([]byte, c.opt.MaxBlobLength)
+
 	return func() error {
 		for clock.Now().Before(c.deadline) {
-			blobLen := blobIDLength + rand.Intn(c.opt.MaxBlobLength-blobIDLength) //nolint:gosec
-
-			data := make([]byte, blobLen)
-			if _, err := cryptorand.Read(data); err != nil {
-				return errors.Wrap(err, "unable to get randomness")
-			}
+			seed := rand.Int63() //nolint:gosec
+			data := c.dataFromSeed(seed, data0)
 
 			id := c.prefix + blob.ID(fmt.Sprintf("%x", data[0:16]))
 
 			c.mu.Lock()
-			c.blobData[id] = data
+			c.blobSeeds[id] = seed
 			c.blobIDs = append(c.blobIDs, id)
 			c.mu.Unlock()
 
@@ -283,23 +287,26 @@ func (c *concurrencyTest) putBlobWorker(ctx context.Context, worker int) func() 
 }
 
 func (c *concurrencyTest) randomSleep() {
-	time.Sleep(time.Duration(rand.Intn(int(100 * time.Millisecond)))) //nolint:gosec,gomnd
+	time.Sleep(time.Duration(rand.Intn(int(500 * time.Millisecond)))) //nolint:gosec,gomnd
 }
 
-func (c *concurrencyTest) pickBlob() (blob.ID, []byte, bool) {
+func (c *concurrencyTest) pickBlob() (blob.ID, int64, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	if len(c.blobIDs) == 0 {
-		return "", nil, false
+		return "", 0, false
 	}
 
 	id := c.blobIDs[rand.Intn(len(c.blobIDs))] //nolint:gosec
 
-	return id, c.blobData[id], c.blobWritten[id]
+	return id, c.blobSeeds[id], c.blobWritten[id]
 }
 
 func (c *concurrencyTest) getBlobWorker(ctx context.Context, worker int) func() error {
+	data0 := make([]byte, c.opt.MaxBlobLength)
+	data1 := make([]byte, c.opt.MaxBlobLength)
+
 	return func() error {
 		var out gather.WriteBuffer
 		defer out.Close()
@@ -307,7 +314,7 @@ func (c *concurrencyTest) getBlobWorker(ctx context.Context, worker int) func() 
 		for clock.Now().Before(c.deadline) {
 			c.randomSleep()
 
-			blobID, blobData, fullyWritten := c.pickBlob()
+			blobID, blobSeed, fullyWritten := c.pickBlob()
 			if blobID == "" {
 				continue
 			}
@@ -325,7 +332,10 @@ func (c *concurrencyTest) getBlobWorker(ctx context.Context, worker int) func() 
 				continue
 			}
 
-			if !bytes.Equal(out.ToByteSlice(), blobData) {
+			wantBytes := c.dataFromSeed(blobSeed, data0)
+			gotBytes := out.Bytes().AppendToSlice(data1[:0])
+
+			if !bytes.Equal(gotBytes, wantBytes) {
 				return errors.Wrapf(err, "invalid data read for %v", blobID)
 			}
 
@@ -337,11 +347,13 @@ func (c *concurrencyTest) getBlobWorker(ctx context.Context, worker int) func() 
 }
 
 func (c *concurrencyTest) getMetadataWorker(ctx context.Context, worker int) func() error {
+	data0 := make([]byte, c.opt.MaxBlobLength)
+
 	return func() error {
 		for clock.Now().Before(c.deadline) {
 			c.randomSleep()
 
-			blobID, blobData, fullyWritten := c.pickBlob()
+			blobID, blobSeed, fullyWritten := c.pickBlob()
 			if blobID == "" {
 				continue
 			}
@@ -359,6 +371,8 @@ func (c *concurrencyTest) getMetadataWorker(ctx context.Context, worker int) fun
 				continue
 			}
 
+			blobData := c.dataFromSeed(blobSeed, data0)
+
 			if bm.Length != int64(len(blobData)) {
 				return errors.Wrapf(err, "unexpected partial read - invalid length read for %v: %v wanted %v", blobID, bm.Length, len(blobData))
 			}
@@ -371,6 +385,9 @@ func (c *concurrencyTest) getMetadataWorker(ctx context.Context, worker int) fun
 }
 
 func (c *concurrencyTest) listBlobWorker(ctx context.Context, worker int) func() error {
+	// TODO: implement me
+	_ = worker
+
 	return func() error {
 		return nil
 	}

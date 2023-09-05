@@ -2114,9 +2114,9 @@ func (s *contentManagerSuite) TestContentCachingByFormat(t *testing.T) {
 
 	// create two managers sharing cache directory
 	co := CachingOptions{
-		CacheDirectory:            cd,
-		MaxCacheSizeBytes:         100e6,
-		MaxMetadataCacheSizeBytes: 100e6,
+		CacheDirectory:         cd,
+		ContentCacheSizeBytes:  100e6,
+		MetadataCacheSizeBytes: 100e6,
 	}
 
 	compressibleData := gather.FromSlice(bytes.Repeat([]byte{1, 2, 3, 4}, 10000))
@@ -2164,9 +2164,9 @@ func (s *contentManagerSuite) TestPrefetchContent(t *testing.T) {
 	cd := testutil.TempDirectory(t)
 	bm := s.newTestContentManagerWithTweaks(t, st, &contentManagerTestTweaks{
 		CachingOptions: CachingOptions{
-			CacheDirectory:            cd,
-			MaxCacheSizeBytes:         100e6,
-			MaxMetadataCacheSizeBytes: 100e6,
+			CacheDirectory:         cd,
+			ContentCacheSizeBytes:  100e6,
+			MetadataCacheSizeBytes: 100e6,
 		},
 		maxPackSize: 20e6,
 	})
@@ -2683,6 +2683,7 @@ func (o withDeleted) GetDeleted() bool {
 }
 
 var (
+	// +checklocks:rMu
 	r   = rand.New(rand.NewSource(rand.Int63()))
 	rMu sync.Mutex
 )

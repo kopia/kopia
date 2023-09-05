@@ -82,6 +82,10 @@ func (s *loggingStorage) GetCapacity(ctx context.Context) (blob.Capacity, error)
 	return c, err
 }
 
+func (s *loggingStorage) IsReadOnly() bool {
+	return s.base.IsReadOnly()
+}
+
 func (s *loggingStorage) GetMetadata(ctx context.Context, id blob.ID) (blob.Metadata, error) {
 	ctx, span := tracer.Start(ctx, "GetMetadata")
 	defer span.End()
@@ -207,6 +211,26 @@ func (s *loggingStorage) FlushCaches(ctx context.Context) error {
 		"duration", dt,
 	)
 
+	//nolint:wrapcheck
+	return err
+}
+
+func (s *loggingStorage) ExtendBlobRetention(ctx context.Context, b blob.ID, opts blob.ExtendOptions) error {
+	ctx, span := tracer.Start(ctx, "ExtendBlobRetention")
+	defer span.End()
+
+	s.beginConcurrency()
+	defer s.endConcurrency()
+
+	timer := timetrack.StartTimer()
+	err := s.base.ExtendBlobRetention(ctx, b, opts)
+	dt := timer.Elapsed()
+
+	s.logger.Debugw(s.prefix+"ExtendBlobRetention",
+		"blobID", b,
+		"error", err,
+		"duration", dt,
+	)
 	//nolint:wrapcheck
 	return err
 }

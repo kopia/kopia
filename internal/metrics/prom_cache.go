@@ -16,7 +16,9 @@ const (
 //nolint:gochecknoglobals
 var (
 	promCacheMutex sync.Mutex
-	promCounters   = map[string]*prometheus.CounterVec{}
+	// +checklocks:promCacheMutex
+	promCounters = map[string]*prometheus.CounterVec{}
+	// +checklocks:promCacheMutex
 	promHistograms = map[string]*prometheus.HistogramVec{}
 )
 

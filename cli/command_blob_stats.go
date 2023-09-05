@@ -19,7 +19,7 @@ type commandBlobStats struct {
 }
 
 func (c *commandBlobStats) setup(svc appServices, parent commandParent) {
-	cmd := parent.Command("stats", "Content statistics")
+	cmd := parent.Command("stats", "Blob statistics")
 	cmd.Flag("raw", "Raw numbers").Short('r').BoolVar(&c.raw)
 	cmd.Flag("prefix", "Blob name prefix").StringVar(&c.prefix)
 	cmd.Action(svc.directRepositoryReadAction(c.run))

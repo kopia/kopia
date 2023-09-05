@@ -163,6 +163,7 @@ func (s *Server) SetupRepositoryAPIHandlers(m *mux.Router) {
 	m.HandleFunc("/api/v1/manifests/{manifestID}", s.handleRepositoryAPI(handlerWillCheckAuthorization, handleManifestDelete)).Methods(http.MethodDelete)
 	m.HandleFunc("/api/v1/manifests", s.handleRepositoryAPI(handlerWillCheckAuthorization, handleManifestCreate)).Methods(http.MethodPost)
 	m.HandleFunc("/api/v1/manifests", s.handleRepositoryAPI(handlerWillCheckAuthorization, handleManifestList)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/policies/apply-retention", s.handleRepositoryAPI(handlerWillCheckAuthorization, handleApplyRetentionPolicy)).Methods(http.MethodPost)
 }
 
 // SetupControlAPIHandlers registers control API handlers.
@@ -756,6 +757,7 @@ func (s *Server) isKnownUIRoute(path string) bool {
 	return strings.HasPrefix(path, "/snapshots") ||
 		strings.HasPrefix(path, "/policies") ||
 		strings.HasPrefix(path, "/tasks") ||
+		strings.HasPrefix(path, "/preferences") ||
 		strings.HasPrefix(path, "/repo")
 }
 
@@ -864,6 +866,7 @@ type Options struct {
 	UIPreferencesFile      string // name of the JSON file storing UI preferences
 	ServerControlUser      string // name of the user allowed to access the server control API
 	DisableCSRFTokenChecks bool
+	PersistentLogs         bool
 	UITitlePrefix          string
 }
 
@@ -1046,7 +1049,7 @@ func New(ctx context.Context, options *Options) (*Server, error) {
 		grpcServerState:      makeGRPCServerState(options.MaxConcurrency),
 		authenticator:        options.Authenticator,
 		authorizer:           options.Authorizer,
-		taskmgr:              uitask.NewManager(),
+		taskmgr:              uitask.NewManager(options.PersistentLogs),
 		mounts:               map[object.ID]mount.Controller{},
 		authCookieSigningKey: []byte(options.AuthCookieSigningKey),
 	}

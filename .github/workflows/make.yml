@@ -82,10 +82,12 @@ jobs:
       if: ${{ contains(matrix.os, 'windows') }}
     - name: Build 
       run: make ci-build
+      timeout-minutes: 40
       env:
-        # Apple ID and app-specific password for notarizaton, used by Electron Builder
-        APPLEID: ${{ secrets.APPLEID }}
-        APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
+        # Apple credentials for notarizaton, used by Electron Builder
+        APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+        APPLE_API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_BASE64 }}
         KOPIA_UI_NOTARIZE: ${{ secrets.KOPIA_UI_NOTARIZE }}
 
         # tool to install Windows signing certificate
@@ -189,7 +191,9 @@ jobs:
         DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
     - name: Bump Homebrew formula
       uses: dawidd6/action-homebrew-bump-formula@v3
-      if: github.ref_type == 'tag'
+      # only bump formula for tags which don't contain '-'
+      # this excludes vx.y.z-rc1
+      if: github.ref_type == 'tag' && !contains(github.ref_name, '-')
       with:
         token: ${{ secrets.HOMEBREW_PUSH_TOKEN }}
         formula: kopia

@@ -39,7 +39,6 @@ type Repository interface {
 	UpdateDescription(d string)
 	Refresh(ctx context.Context) error
 	Close(ctx context.Context) error
-	Metrics() *metrics.Registry
 }
 
 // RepositoryWriter provides methods to write to a repository.
@@ -53,6 +52,12 @@ type RepositoryWriter interface {
 	DeleteManifest(ctx context.Context, id manifest.ID) error
 	OnSuccessfulFlush(callback RepositoryWriterCallback)
 	Flush(ctx context.Context) error
+}
+
+// RemoteRetentionPolicy is an interface implemented by repository clients that support remote retention policy.
+// when implemented, the repository server will invoke ApplyRetentionPolicy() server-side.
+type RemoteRetentionPolicy interface {
+	ApplyRetentionPolicy(ctx context.Context, sourcePath string, reallyDelete bool) ([]manifest.ID, error)
 }
 
 // DirectRepository provides additional low-level repository functionality.

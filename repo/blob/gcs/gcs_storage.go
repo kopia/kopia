@@ -32,13 +32,10 @@ const (
 
 type gcsStorage struct {
 	Options
+	blob.DefaultProviderImplementation
 
 	storageClient *gcsclient.Client
 	bucket        *gcsclient.BucketHandle
-}
-
-func (gcs *gcsStorage) GetCapacity(ctx context.Context) (blob.Capacity, error) {
-	return blob.Capacity{}, blob.ErrNotAVolume
 }
 
 func (gcs *gcsStorage) GetBlob(ctx context.Context, b blob.ID, offset, length int64, output blob.OutputBuffer) error {
@@ -208,31 +205,22 @@ func (gcs *gcsStorage) Close(ctx context.Context) error {
 	return errors.Wrap(gcs.storageClient.Close(), "error closing GCS storage")
 }
 
-func (gcs *gcsStorage) FlushCaches(ctx context.Context) error {
-	return nil
-}
-
 func tokenSourceFromCredentialsFile(ctx context.Context, fn string, scopes ...string) (oauth2.TokenSource, error) {
 	data, err := os.ReadFile(fn) //nolint:gosec
 	if err != nil {
 		return nil, errors.Wrap(err, "error reading credentials file")
 	}
 
-	cfg, err := google.JWTConfigFromJSON(data, scopes...)
-	if err != nil {
-		return nil, errors.Wrap(err, "google.JWTConfigFromJSON")
-	}
-
-	return cfg.TokenSource(ctx), nil
+	return tokenSourceFromCredentialsJSON(ctx, data, scopes...)
 }
 
 func tokenSourceFromCredentialsJSON(ctx context.Context, data json.RawMessage, scopes ...string) (oauth2.TokenSource, error) {
-	cfg, err := google.JWTConfigFromJSON([]byte(data), scopes...)
+	creds, err := google.CredentialsFromJSON(ctx, data, scopes...)
 	if err != nil {
-		return nil, errors.Wrap(err, "google.JWTConfigFromJSON")
+		return nil, errors.Wrap(err, "google.CredentialsFromJSON")
 	}
 
-	return cfg.TokenSource(ctx), nil
+	return creds.TokenSource, nil
 }
 
 // New creates new Google Cloud Storage-backed storage with specified options:
@@ -242,6 +230,8 @@ func tokenSourceFromCredentialsJSON(ctx context.Context, data json.RawMessage, s
 // By default the connection reuses credentials managed by (https://cloud.google.com/sdk/),
 // but this can be disabled by setting IgnoreDefaultCredentials to true.
 func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error) {
+	_ = isCreate
+
 	var ts oauth2.TokenSource
 
 	var err error
