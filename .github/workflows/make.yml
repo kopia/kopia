@@ -40,7 +40,7 @@ jobs:
     continue-on-error: ${{ contains(matrix.os, 'self-hosted') }}
     steps:
     - name: Check out repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         fetch-depth: 0
     - name: Set up Go
@@ -137,7 +137,7 @@ jobs:
     needs: build
     if: github.event_name != 'pull_request' && github.repository == 'kopia/kopia'
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v2
     - name: Set up Docker Buildx

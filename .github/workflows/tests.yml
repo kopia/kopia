@@ -38,7 +38,7 @@ jobs:
     continue-on-error: ${{ contains(matrix.os, 'self-hosted') }}
     steps:
     - name: Check out repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         fetch-depth: 0
     - name: Set up Go
