@@ -19,6 +19,7 @@ jobs:
       uses: actions/setup-go@v4
       with:
         go-version: '1.21'
+        check-latest: true
       id: go
     - name: Unit Tests
       run: make -j2 test UNIT_TEST_RACE_FLAGS=-race UNIT_TESTS_TIMEOUT=1200s
