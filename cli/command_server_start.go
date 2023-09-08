@@ -100,7 +100,7 @@ func (c *commandServerStart) setup(svc advancedAppServices, parent commandParent
 
 	cmd.Flag("auth-cookie-signing-key", "Force particular auth cookie signing key").Envar(svc.EnvName("KOPIA_AUTH_COOKIE_SIGNING_KEY")).Hidden().StringVar(&c.serverAuthCookieSingingKey)
 	cmd.Flag("log-scheduler", "Enable logging of scheduler actions").Hidden().Default("true").BoolVar(&c.debugScheduler)
-	cmd.Flag("min-maintenance-interval", "Minimal maintenance interval").Hidden().Default("60s").DurationVar(&c.minMaintenanceInterval)
+	cmd.Flag("min-maintenance-interval", "Minimum maintenance interval").Hidden().Default("60s").DurationVar(&c.minMaintenanceInterval)
 
 	cmd.Flag("shutdown-on-stdin", "Shut down the server when stdin handle has closed.").Hidden().BoolVar(&c.serverStartShutdownWhenStdinClosed)
 
