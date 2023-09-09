@@ -19,6 +19,8 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/coreos/go-systemd/v22/activation"
+
 	"github.com/kopia/kopia/internal/tlsutil"
 )
 
@@ -39,15 +41,28 @@ func (c *commandServerStart) startServerWithOptionalTLS(ctx context.Context, htt
 
 	var err error
 
-	if strings.HasPrefix(httpServer.Addr, "unix:") {
-		l, err = net.Listen("unix", strings.TrimPrefix(httpServer.Addr, "unix:"))
-	} else {
-		l, err = net.Listen("tcp", httpServer.Addr)
+	listeners, err := activation.Listeners()
+	if err != nil {
+		return errors.Wrap(err, "socket-activation error")
 	}
 
-	if err != nil {
-		return errors.Wrap(err, "listen error")
+	switch len(listeners) {
+	case 0:
+		if strings.HasPrefix(httpServer.Addr, "unix:") {
+			l, err = net.Listen("unix", strings.TrimPrefix(httpServer.Addr, "unix:"))
+		} else {
+			l, err = net.Listen("tcp", httpServer.Addr)
+		}
+
+		if err != nil {
+			return errors.Wrap(err, "listen error")
+		}
+	case 1:
+		l = listeners[0]
+	default:
+		return errors.Errorf("Too many activated sockets found.  Expected 1, got %v", len(listeners))
 	}
+
 	defer l.Close() //nolint:errcheck
 
 	httpServer.Addr = l.Addr().String()
