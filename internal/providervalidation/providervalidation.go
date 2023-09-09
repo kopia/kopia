@@ -12,18 +12,23 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/logging"
+
+	loggingwrapper "github.com/kopia/kopia/repo/blob/logging"
 )
 
 // Options provides options for provider validation.
 type Options struct {
 	MaxClockDrift           time.Duration
 	ConcurrencyTestDuration time.Duration
+
+	NumEquivalentStorageConnections int
 
 	NumPutBlobWorkers     int
 	NumGetBlobWorkers     int
@@ -36,35 +41,92 @@ type Options struct {
 //
 //nolint:gomnd,gochecknoglobals
 var DefaultOptions = Options{
-	MaxClockDrift:           3 * time.Minute,
-	ConcurrencyTestDuration: 30 * time.Second,
-	NumPutBlobWorkers:       3,
-	NumGetBlobWorkers:       3,
-	NumGetMetadataWorkers:   3,
-	NumListBlobsWorkers:     3,
-	MaxBlobLength:           10e6,
+	MaxClockDrift:                   3 * time.Minute,
+	ConcurrencyTestDuration:         30 * time.Second,
+	NumEquivalentStorageConnections: 5,
+	NumPutBlobWorkers:               3,
+	NumGetBlobWorkers:               3,
+	NumGetMetadataWorkers:           3,
+	NumListBlobsWorkers:             3,
+	MaxBlobLength:                   10e6,
 }
 
 var log = logging.Module("providervalidation")
+
+// equivalentBlobStorageConnections is a slice of different instances of the same blob storage provider
+// connecting to the same underlying storage.
+type equivalentBlobStorageConnections []blob.Storage
+
+func (st equivalentBlobStorageConnections) pickOne() blob.Storage {
+	return st[rand.Intn(len(st))] //nolint:gosec
+}
+
+// closeAdditional closes all but the first connection to the underlying storage.
+func (st equivalentBlobStorageConnections) closeAdditional(ctx context.Context) error {
+	var err error
+
+	for i := 1; i < len(st); i++ {
+		err = multierr.Combine(err, st[i].Close(ctx))
+	}
+
+	return errors.Wrap(err, "error closing additional connections")
+}
+
+// openEquivalentStorageConnections creates n-1 additional connections to the same underlying storage
+// and returns a slice of all connections.
+func openEquivalentStorageConnections(ctx context.Context, st blob.Storage, n int) (equivalentBlobStorageConnections, error) {
+	result := equivalentBlobStorageConnections{st}
+	ci := st.ConnectionInfo()
+
+	log(ctx).Infof("Opening %v equivalent storage connections...", n-1)
+
+	for i := 1; i < n; i++ {
+		c, err := blob.NewStorage(ctx, ci, false)
+		if err != nil {
+			if cerr := result.closeAdditional(ctx); cerr != nil {
+				log(ctx).Warn("unable to close storage connection", "err", cerr)
+			}
+
+			return nil, errors.Wrap(err, "unable to open storage connection")
+		}
+
+		log(ctx).Debugw("opened equivalent storage connection", "connectionID", i)
+
+		result = append(result, loggingwrapper.NewWrapper(c, log(ctx), fmt.Sprintf("[STORAGE-%v] ", i)))
+	}
+
+	return result, nil
+}
 
 // ValidateProvider runs a series of tests against provided storage to validate that
 // it can be used with Kopia.
 //
 //nolint:gomnd,funlen,gocyclo,cyclop
-func ValidateProvider(ctx context.Context, st blob.Storage, opt Options) error {
+func ValidateProvider(ctx context.Context, st0 blob.Storage, opt Options) error {
 	if os.Getenv("KOPIA_SKIP_PROVIDER_VALIDATION") != "" {
 		return nil
 	}
 
+	st, err := openEquivalentStorageConnections(ctx, st0, opt.NumEquivalentStorageConnections)
+	if err != nil {
+		return errors.Wrap(err, "unable to open additional storage connections")
+	}
+
+	defer func() {
+		if cerr := st.closeAdditional(ctx); cerr != nil {
+			log(ctx).Warn("unable to close additional connections", "err", cerr)
+		}
+	}()
+
 	uberPrefix := blob.ID("z" + uuid.NewString())
-	defer cleanupAllBlobs(ctx, st, uberPrefix)
+	defer cleanupAllBlobs(ctx, st[0], uberPrefix)
 
 	prefix1 := uberPrefix + "a"
 	prefix2 := uberPrefix + "b"
 
 	log(ctx).Infof("Validating storage capacity and usage")
 
-	c, err := st.GetCapacity(ctx)
+	c, err := st.pickOne().GetCapacity(ctx)
 
 	switch {
 	case errors.Is(err, blob.ErrNotAVolume):
@@ -77,7 +139,7 @@ func ValidateProvider(ctx context.Context, st blob.Storage, opt Options) error {
 
 	log(ctx).Infof("Validating blob list responses")
 
-	if err := verifyBlobCount(ctx, st, uberPrefix, 0); err != nil {
+	if err := verifyBlobCount(ctx, st.pickOne(), uberPrefix, 0); err != nil {
 		return errors.Wrap(err, "invalid blob count")
 	}
 
@@ -87,17 +149,17 @@ func ValidateProvider(ctx context.Context, st blob.Storage, opt Options) error {
 	defer out.Close()
 
 	// read non-existent full blob
-	if err := st.GetBlob(ctx, prefix1+"1", 0, -1, &out); !errors.Is(err, blob.ErrBlobNotFound) {
+	if err := st.pickOne().GetBlob(ctx, prefix1+"1", 0, -1, &out); !errors.Is(err, blob.ErrBlobNotFound) {
 		return errors.Errorf("got unexpected error when reading non-existent blob: %v", err)
 	}
 
 	// read non-existent partial blob
-	if err := st.GetBlob(ctx, prefix1+"1", 0, 5, &out); !errors.Is(err, blob.ErrBlobNotFound) {
+	if err := st.pickOne().GetBlob(ctx, prefix1+"1", 0, 5, &out); !errors.Is(err, blob.ErrBlobNotFound) {
 		return errors.Errorf("got unexpected error when reading non-existent partial blob: %v", err)
 	}
 
 	// get metadata for non-existent blob
-	if _, err := st.GetMetadata(ctx, prefix1+"1"); !errors.Is(err, blob.ErrBlobNotFound) {
+	if _, err := st.pickOne().GetMetadata(ctx, prefix1+"1"); !errors.Is(err, blob.ErrBlobNotFound) {
 		return errors.Errorf("got unexpected error when getting metadata for non-existent blob: %v", err)
 	}
 
@@ -106,13 +168,13 @@ func ValidateProvider(ctx context.Context, st blob.Storage, opt Options) error {
 	log(ctx).Infof("Writing blob (%v bytes)", len(blobData))
 
 	// write blob
-	if err := st.PutBlob(ctx, prefix1+"1", gather.FromSlice(blobData), blob.PutOptions{}); err != nil {
+	if err := st.pickOne().PutBlob(ctx, prefix1+"1", gather.FromSlice(blobData), blob.PutOptions{}); err != nil {
 		return errors.Wrap(err, "error writing blob #1")
 	}
 
 	log(ctx).Infof("Validating conditional creates...")
 
-	err2 := st.PutBlob(ctx, prefix1+"1", gather.FromSlice([]byte{99}), blob.PutOptions{DoNotRecreate: true})
+	err2 := st.pickOne().PutBlob(ctx, prefix1+"1", gather.FromSlice([]byte{99}), blob.PutOptions{DoNotRecreate: true})
 
 	switch {
 	case errors.Is(err2, blob.ErrUnsupportedPutBlobOption):
@@ -126,15 +188,15 @@ func ValidateProvider(ctx context.Context, st blob.Storage, opt Options) error {
 
 	log(ctx).Infof("Validating list responses...")
 
-	if err := verifyBlobCount(ctx, st, uberPrefix, 1); err != nil {
+	if err := verifyBlobCount(ctx, st.pickOne(), uberPrefix, 1); err != nil {
 		return errors.Wrap(err, "invalid uber blob count")
 	}
 
-	if err := verifyBlobCount(ctx, st, prefix1, 1); err != nil {
+	if err := verifyBlobCount(ctx, st.pickOne(), prefix1, 1); err != nil {
 		return errors.Wrap(err, "invalid blob count with prefix 1")
 	}
 
-	if err := verifyBlobCount(ctx, st, prefix2, 0); err != nil {
+	if err := verifyBlobCount(ctx, st.pickOne(), prefix2, 0); err != nil {
 		return errors.Wrap(err, "invalid blob count with prefix 2")
 	}
 
@@ -152,7 +214,7 @@ func ValidateProvider(ctx context.Context, st blob.Storage, opt Options) error {
 	}
 
 	for _, tc := range partialBlobCases {
-		err := st.GetBlob(ctx, prefix1+"1", tc.offset, tc.length, &out)
+		err := st.pickOne().GetBlob(ctx, prefix1+"1", tc.offset, tc.length, &out)
 		if err != nil {
 			return errors.Wrapf(err, "got unexpected error when reading partial blob @%v+%v", tc.offset, tc.length)
 		}
@@ -165,7 +227,7 @@ func ValidateProvider(ctx context.Context, st blob.Storage, opt Options) error {
 	log(ctx).Infof("Validating full reads...")
 
 	// read full blob
-	err2 = st.GetBlob(ctx, prefix1+"1", 0, -1, &out)
+	err2 = st.pickOne().GetBlob(ctx, prefix1+"1", 0, -1, &out)
 	if err2 != nil {
 		return errors.Wrap(err2, "got unexpected error when reading partial blob")
 	}
@@ -177,7 +239,7 @@ func ValidateProvider(ctx context.Context, st blob.Storage, opt Options) error {
 	log(ctx).Infof("Validating metadata...")
 
 	// get metadata for non-existent blob
-	bm, err2 := st.GetMetadata(ctx, prefix1+"1")
+	bm, err2 := st.pickOne().GetMetadata(ctx, prefix1+"1")
 	if err2 != nil {
 		return errors.Wrap(err2, "got unexpected error when getting metadata for blob")
 	}
@@ -216,7 +278,7 @@ func ValidateProvider(ctx context.Context, st blob.Storage, opt Options) error {
 
 type concurrencyTest struct {
 	opt      Options
-	st       blob.Storage
+	st       equivalentBlobStorageConnections
 	prefix   blob.ID
 	deadline time.Time
 
@@ -229,7 +291,7 @@ type concurrencyTest struct {
 	blobWritten map[blob.ID]bool
 }
 
-func newConcurrencyTest(st blob.Storage, prefix blob.ID, opt Options) *concurrencyTest {
+func newConcurrencyTest(st []blob.Storage, prefix blob.ID, opt Options) *concurrencyTest {
 	return &concurrencyTest{
 		opt:      opt,
 		st:       st,
@@ -271,7 +333,7 @@ func (c *concurrencyTest) putBlobWorker(ctx context.Context, worker int) func() 
 
 			log(ctx).Debugf("PutBlob worker %v writing %v (%v bytes)", worker, id, len(data))
 
-			if err := c.st.PutBlob(ctx, id, gather.FromSlice(data), blob.PutOptions{}); err != nil {
+			if err := c.st.pickOne().PutBlob(ctx, id, gather.FromSlice(data), blob.PutOptions{}); err != nil {
 				return errors.Wrap(err, "error writing blob")
 			}
 
@@ -321,7 +383,7 @@ func (c *concurrencyTest) getBlobWorker(ctx context.Context, worker int) func() 
 
 			log(ctx).Debugf("GetBlob worker %v reading %v", worker, blobID)
 
-			err := c.st.GetBlob(ctx, blobID, 0, -1, &out)
+			err := c.st.pickOne().GetBlob(ctx, blobID, 0, -1, &out)
 			if err != nil {
 				if !errors.Is(err, blob.ErrBlobNotFound) || fullyWritten {
 					return errors.Wrapf(err, "unexpected error when reading %v", blobID)
@@ -360,7 +422,7 @@ func (c *concurrencyTest) getMetadataWorker(ctx context.Context, worker int) fun
 
 			log(ctx).Debugf("GetMetadata worker %v: %v", worker, blobID)
 
-			bm, err := c.st.GetMetadata(ctx, blobID)
+			bm, err := c.st.pickOne().GetMetadata(ctx, blobID)
 			if err != nil {
 				if !errors.Is(err, blob.ErrBlobNotFound) || fullyWritten {
 					return errors.Wrapf(err, "unexpected error when reading %v", blobID)

@@ -3,15 +3,16 @@ package rclone
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"strings"
-	"sync/atomic"
 	"time"
 
 	"github.com/foomo/htpasswd"
@@ -44,18 +45,39 @@ type rcloneStorage struct {
 	cmd          *exec.Cmd // running rclone
 	temporaryDir string
 
-	allTransfersComplete atomic.Bool // set to true when rclone process emits "Transferred:*100%"
-	hasWrites            atomic.Bool // set to true when we had any writes
+	remoteControlHTTPClient *http.Client
+	remoteControlAddr       string
+	remoteControlUsername   string
+	remoteControlPassword   string
 }
 
-func (r *rcloneStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes, opts blob.PutOptions) error {
-	err := r.Storage.PutBlob(ctx, b, data, opts)
-	if err == nil {
-		r.hasWrites.Store(true)
-		return nil
+func (r *rcloneStorage) ListBlobs(ctx context.Context, blobIDPrefix blob.ID, cb func(bm blob.Metadata) error) error {
+	// flushing dir cache before listing blobs
+	if err := r.forgetVFS(ctx); err != nil {
+		return errors.Wrap(err, "error flushing dir cache")
 	}
 
-	return errors.Wrap(err, "error writing blob using WebDAV")
+	return r.Storage.ListBlobs(ctx, blobIDPrefix, cb) //nolint:wrapcheck
+}
+
+func (r *rcloneStorage) GetMetadata(ctx context.Context, b blob.ID) (blob.Metadata, error) {
+	// flushing dir cache before reading blob
+	if err := r.forgetVFS(ctx); err != nil {
+		return blob.Metadata{}, errors.Wrap(err, "error flushing dir cache")
+	}
+
+	//nolint:wrapcheck
+	return r.Storage.GetMetadata(ctx, b)
+}
+
+func (r *rcloneStorage) GetBlob(ctx context.Context, b blob.ID, offset, length int64, output blob.OutputBuffer) error {
+	// flushing dir cache before reading blob
+	if err := r.forgetVFS(ctx); err != nil {
+		return errors.Wrap(err, "error flushing dir cache")
+	}
+
+	//nolint:wrapcheck
+	return r.Storage.GetBlob(ctx, b, offset, length, output)
 }
 
 func (r *rcloneStorage) ConnectionInfo() blob.ConnectionInfo {
@@ -63,22 +85,6 @@ func (r *rcloneStorage) ConnectionInfo() blob.ConnectionInfo {
 		Type:   rcloneStorageType,
 		Config: &r.Options,
 	}
-}
-
-func (r *rcloneStorage) waitForTransfersToEnd(ctx context.Context) {
-	if !r.hasWrites.Load() {
-		log(ctx).Debugf("no writes in this session, no need to wait")
-		return
-	}
-
-	log(ctx).Debugf("waiting for background rclone transfers to complete...")
-
-	for !r.allTransfersComplete.Load() {
-		log(ctx).Debugf("still waiting for background rclone transfers to complete...")
-		time.Sleep(1 * time.Second)
-	}
-
-	log(ctx).Debugf("all background rclone transfers have completed.")
 }
 
 // Kill kills the rclone process. Used for testing.
@@ -91,10 +97,6 @@ func (r *rcloneStorage) Kill() {
 }
 
 func (r *rcloneStorage) Close(ctx context.Context) error {
-	if !r.Options.NoWaitForTransfers {
-		r.waitForTransfersToEnd(ctx)
-	}
-
 	if r.Storage != nil {
 		if err := r.Storage.Close(ctx); err != nil {
 			return errors.Wrap(err, "error closing webdav connection")
@@ -121,26 +123,60 @@ func (r *rcloneStorage) DisplayName() string {
 	return "RClone " + r.Options.RemotePath
 }
 
-func (r *rcloneStorage) processStderrStatus(ctx context.Context, statsMarker string, s *bufio.Scanner) {
+func (r *rcloneStorage) processStderrStatus(ctx context.Context, s *bufio.Scanner) {
 	for s.Scan() {
 		l := s.Text()
 
 		if r.Debug {
 			log(ctx).Debugf("[RCLONE] %v", l)
 		}
-
-		if strings.Contains(l, statsMarker) {
-			if strings.Contains(l, " 100%,") || strings.Contains(l, ", -,") {
-				r.allTransfersComplete.Store(true)
-			} else {
-				r.allTransfersComplete.Store(false)
-			}
-		}
 	}
 }
 
-func (r *rcloneStorage) runRCloneAndWaitForServerAddress(ctx context.Context, c *exec.Cmd, statsMarker string, startupTimeout time.Duration) (string, error) {
-	rcloneAddressChan := make(chan string)
+func (r *rcloneStorage) remoteControl(ctx context.Context, path string, input, output any) error {
+	var reqBuf bytes.Buffer
+
+	if err := json.NewEncoder(&reqBuf).Encode(input); err != nil {
+		return errors.Wrap(err, "unable to serialize input")
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, r.remoteControlAddr+path, &reqBuf)
+	if err != nil {
+		return errors.Wrap(err, "unable to create request")
+	}
+
+	req.SetBasicAuth(r.remoteControlUsername, r.remoteControlPassword)
+
+	resp, err := r.remoteControlHTTPClient.Do(req)
+	if err != nil {
+		return errors.Wrap(err, "RC error")
+	}
+
+	defer resp.Body.Close() //nolint:errcheck
+
+	if resp.StatusCode != http.StatusOK {
+		return errors.Errorf("RC error: %v", resp.Status)
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&output); err != nil {
+		return errors.Errorf("error decoding response: %v", err)
+	}
+
+	return nil
+}
+
+func (r *rcloneStorage) forgetVFS(ctx context.Context) error {
+	out := map[string]any{}
+	return r.remoteControl(ctx, "vfs/forget", map[string]string{}, &out)
+}
+
+type rcloneURLs struct {
+	webdavAddr        string
+	remoteControlAddr string
+}
+
+func (r *rcloneStorage) runRCloneAndWaitForServerAddress(ctx context.Context, c *exec.Cmd, startupTimeout time.Duration) (rcloneURLs, error) {
+	rcloneAddressChan := make(chan rcloneURLs)
 	rcloneErrChan := make(chan error)
 
 	log(ctx).Debugf("starting %v", c.Path)
@@ -162,17 +198,28 @@ func (r *rcloneStorage) runRCloneAndWaitForServerAddress(ctx context.Context, c 
 
 			var lastOutput string
 
-			serverRegexp := regexp.MustCompile(`(?i)WebDav Server started on \[?(https://.+:\d{1,5}/)\]?`)
+			webdavServerRegexp := regexp.MustCompile(`(?i)WebDav Server started on \[?(https://.+:\d{1,5}/)\]?`)
+			remoteControlRegexp := regexp.MustCompile(`(?i)Serving remote control on \[?(https://.+:\d{1,5}/)\]?`)
+
+			var u rcloneURLs
 
 			for s.Scan() {
 				l := s.Text()
 				lastOutput = l
 
-				params := serverRegexp.FindStringSubmatch(l)
-				if params != nil {
-					rcloneAddressChan <- params[1]
+				if p := webdavServerRegexp.FindStringSubmatch(l); p != nil {
+					u.webdavAddr = p[1]
+				}
 
-					go r.processStderrStatus(ctx, statsMarker, s)
+				if p := remoteControlRegexp.FindStringSubmatch(l); p != nil {
+					u.remoteControlAddr = p[1]
+				}
+
+				if u.webdavAddr != "" && u.remoteControlAddr != "" {
+					// return to caller when we've detected both WebDav and remote control addresses.
+					rcloneAddressChan <- u
+
+					go r.processStderrStatus(ctx, s)
 
 					return
 				}
@@ -190,10 +237,10 @@ func (r *rcloneStorage) runRCloneAndWaitForServerAddress(ctx context.Context, c 
 		return addr, nil
 
 	case err := <-rcloneErrChan:
-		return "", err
+		return rcloneURLs{}, err
 
 	case <-time.After(startupTimeout):
-		return "", errors.Errorf("timed out waiting for rclone to start")
+		return rcloneURLs{}, errors.Errorf("timed out waiting for rclone to start")
 	}
 }
 
@@ -278,6 +325,11 @@ func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error)
 	// arguments.
 	arguments = append(arguments,
 		"--addr", "127.0.0.1:0", // allocate random port,
+		"--rc",
+		"--rc-addr", "127.0.0.1:0", // allocate random remote control port
+		"--rc-cert", temporaryCertPath,
+		"--rc-key", temporaryKeyPath,
+		"--rc-htpasswd", temporaryHtpassword,
 		"--cert", temporaryCertPath,
 		"--key", temporaryKeyPath,
 		"--htpasswd", temporaryHtpassword,
@@ -298,20 +350,31 @@ func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error)
 		startupTimeout = time.Duration(opt.StartupTimeout) * time.Second
 	}
 
-	rcloneAddr, err := r.runRCloneAndWaitForServerAddress(ctx, r.cmd, statsMarker, startupTimeout)
+	rcloneUrls, err := r.runRCloneAndWaitForServerAddress(ctx, r.cmd, startupTimeout)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to start rclone")
 	}
 
-	log(ctx).Debugf("detected webdav address: %v", rcloneAddr)
+	log(ctx).Debugf("detected webdav address: %v RC: %v", rcloneUrls.webdavAddr, rcloneUrls.remoteControlAddr)
 
 	fingerprintBytes := sha256.Sum256(cert.Raw)
+	fingerprintHexString := hex.EncodeToString(fingerprintBytes[:])
+
+	var cli http.Client
+	cli.Transport = &http.Transport{
+		TLSClientConfig: tlsutil.TLSConfigTrustingSingleCertificate(fingerprintHexString),
+	}
+
+	r.remoteControlHTTPClient = &cli
+	r.remoteControlUsername = webdavUsername
+	r.remoteControlPassword = webdavPassword
+	r.remoteControlAddr = rcloneUrls.remoteControlAddr
 
 	wst, err := webdav.New(ctx, &webdav.Options{
-		URL:                                 rcloneAddr,
+		URL:                                 rcloneUrls.webdavAddr,
 		Username:                            webdavUsername,
 		Password:                            webdavPassword,
-		TrustedServerCertificateFingerprint: hex.EncodeToString(fingerprintBytes[:]),
+		TrustedServerCertificateFingerprint: fingerprintHexString,
 		AtomicWrites:                        opt.AtomicWrites,
 		Options:                             opt.Options,
 	}, isCreate)
