@@ -143,12 +143,12 @@ zfs destroy $ZPOOL_NAME@$KOPIA_SNAPSHOT_ID
 
 ### LVM Snapshots:
 
-When snapshotting filesystems using LVM snapshots, we must first create a LVM snapshot using `lvcreate`, mount the filesystem inside the LVM snapshot somewhere
-and tell `kopia` to snapshot the mounted directory instead of the current one.
+When snapshotting filesystems using LVM snapshots, we must first create a LVM snapshot using `lvcreate` and mount the filesystem inside the LVM snapshot somewhere.
+Then we tell `kopia` to snapshot the mounted directory instead of the current one.
 Make sure to match the snapshot size with your requirements. The snapshot grows with the delta to the origin logical volume.
 You also need to make sure to have enough free space in your volume group, otherwise the snapshot creation will fail.
 
-After snapshotting, we need to unmount and destroy the temporary logical volume using `lvremove` command:
+After snapshotting, we need to unmount and remove the temporary logical volume using `lvremove` command:
 
 Before:
 
