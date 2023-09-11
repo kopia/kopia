@@ -4,7 +4,20 @@ import (
 	"encoding/json"
 
 	"github.com/kopia/kopia/repo/blob/throttling"
+	"golang.org/x/oauth2"
 )
+
+// OAuthConfig defines a serializable OAuth configuration.
+type OAuthConfig struct {
+	// AppId is Google Cloud Project number.
+	AppId string `json:"appId"`
+	// AppId is Google Cloud API key.
+	ApiKey string `json:"apiKey"`
+	// ClientId is Google Cloud OAuth2 Client ID.
+	ClientId string `json:"clientId"`
+	// ClientId is Google Cloud OAuth2 Client Secret.
+	ClientSecret string `json:"clientSecret"`
+}
 
 // Options defines options Google Cloud Storage-backed storage.
 type Options struct {
@@ -17,8 +30,11 @@ type Options struct {
 	// ServiceAccountCredentialJSON specifies the raw JSON credentials.
 	ServiceAccountCredentialJSON json.RawMessage `json:"credentials,omitempty" kopia:"sensitive"`
 
-	// ReadOnly causes GCS connection to be opened with read-only scope to prevent accidental mutations.
-	ReadOnly bool `json:"readOnly,omitempty"`
+	// OAuthConfig specifies OAuth configurations.
+	OAuthConfig `json:"oauthConfig,omitempty"`
+
+	// OAuthRefreshToken stores the long-term credentials for access.
+	OAuthToken oauth2.Token `json:"oauthToken,omitempty"`
 
 	throttling.Limits
 }

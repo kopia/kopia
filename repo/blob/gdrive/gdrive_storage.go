@@ -473,7 +473,7 @@ func translateError(err error) error {
 	}
 }
 
-func tokenSourceFromCredentialsFile(ctx context.Context, fn string, scopes ...string) (oauth2.TokenSource, error) {
+func clientFromCredentialsFile(ctx context.Context, fn string, scopes ...string) (*http.Client, error) {
 	data, err := os.ReadFile(fn) //nolint:gosec
 	if err != nil {
 		return nil, errors.Wrap(err, "error reading credentials file")
@@ -484,16 +484,30 @@ func tokenSourceFromCredentialsFile(ctx context.Context, fn string, scopes ...st
 		return nil, errors.Wrap(err, "google.JWTConfigFromJSON")
 	}
 
-	return cfg.TokenSource(ctx), nil
+	return cfg.Client(ctx), nil
 }
 
-func tokenSourceFromCredentialsJSON(ctx context.Context, data json.RawMessage, scopes ...string) (oauth2.TokenSource, error) {
+func clientFromCredentialsJSON(ctx context.Context, data json.RawMessage, scopes ...string) (*http.Client, error) {
 	cfg, err := google.JWTConfigFromJSON([]byte(data), scopes...)
 	if err != nil {
 		return nil, errors.Wrap(err, "google.JWTConfigFromJSON")
 	}
 
-	return cfg.TokenSource(ctx), nil
+	return cfg.Client(ctx), nil
+}
+
+func clientFromDefaultTokenSource(ctx context.Context, scopes ...string) (*http.Client, error) {
+	ts, err := google.DefaultTokenSource(ctx, scopes...)
+	if err != nil {
+		return nil, errors.Wrap(err, "google.DefaultTokenSource")
+	}
+
+	return oauth2.NewClient(ctx, ts), nil
+}
+
+func clientFromOAuthToken(ctx context.Context, oauthConfig *OAuthConfig, tok *oauth2.Token) *http.Client {
+	config := CreateGoogleOAuth2Config(oauthConfig)
+	return config.Client(ctx, tok)
 }
 
 // CreateDriveService creates a new Google Drive service, which encapsulates multiple clients
@@ -502,26 +516,18 @@ func tokenSourceFromCredentialsJSON(ctx context.Context, data json.RawMessage, s
 func CreateDriveService(ctx context.Context, opt *Options) (*drive.Service, error) {
 	var err error
 
-	var ts oauth2.TokenSource
-
+	var hc *http.Client
 	scope := drive.DriveFileScope
-	if opt.ReadOnly {
-		scope = drive.DriveReadonlyScope
-	}
 
-	if sa := opt.ServiceAccountCredentialJSON; len(sa) > 0 {
-		ts, err = tokenSourceFromCredentialsJSON(ctx, sa, scope)
+	if tok := opt.OAuthToken; tok != (oauth2.Token{}) {
+		hc = clientFromOAuthToken(ctx, &opt.OAuthConfig, &tok)
+	} else if sa := opt.ServiceAccountCredentialJSON; len(sa) > 0 {
+		hc, err = clientFromCredentialsJSON(ctx, sa, scope)
 	} else if sa := opt.ServiceAccountCredentialsFile; sa != "" {
-		ts, err = tokenSourceFromCredentialsFile(ctx, sa, scope)
+		hc, err = clientFromCredentialsFile(ctx, sa, scope)
 	} else {
-		ts, err = google.DefaultTokenSource(ctx, scope)
+		hc, err = clientFromDefaultTokenSource(ctx, scope)
 	}
-
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to initialize token source")
-	}
-
-	hc := oauth2.NewClient(ctx, ts)
 
 	service, err := drive.NewService(ctx, option.WithHTTPClient(hc))
 	if err != nil {
@@ -534,9 +540,6 @@ func CreateDriveService(ctx context.Context, opt *Options) (*drive.Service, erro
 // New creates new Google Drive-backed storage with specified options:
 //
 // - the 'folderID' field is required and all other parameters are optional.
-//
-// By default the connection reuses credentials managed by (https://cloud.google.com/sdk/),
-// but this can be disabled by setting IgnoreDefaultCredentials to true.
 func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error) {
 	_ = isCreate
 

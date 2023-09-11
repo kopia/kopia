@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Kopia Google Drive Authentication</title>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+    <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+    <script>
+      const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+      const CLIENT_ID = "{{.ClientId}}";
+      const APP_ID = "{{.AppId}}";
+      const API_KEY = "{{.ApiKey}}";
+      
+      function gapiLoaded() {
+        gapi.load('client:picker', async () => {
+          await gapi.client.load('https://www.googleapis.com/discovery/v1/apis/drive/v3/rest');
+          Alpine.store('auth').incrementReadyStatus();
+        });
+      }
+      function gisLoaded() {
+        Alpine.store('auth').incrementReadyStatus();
+      }
+          
+      document.addEventListener('alpine:init', () => {
+        Alpine.store('auth', {
+          /** [0, 2] */
+          readyStatus: 0,
+          /** 'waiting_libs' | 'get_token' | 'pick_file' | 'complete' */
+          stage: 'waiting_libs',
+          accessToken: undefined,
+          loading: true,
+          incrementReadyStatus() {
+              this.readyStatus += 1;
+              if (this.readyStatus === 2) {
+                  this.loading = false;
+                  this.stage = 'get_token';
+              }
+          },
+          handleAuthClick() {
+            this.loading = true;
+            requestAuth((token) => {
+              this.accessToken = token;
+              this.stage = 'pick_file';
+              this.loading = false;
+            });
+          },
+          handlePickFile() {
+              createPicker(this.accessToken, this.handleFilePickSuccess);
+          },
+          handleFilePickSuccess() {
+              window.close();
+          },
+        });
+      });
+      
+      function requestAuth(cb) {
+        const authCallback = async ({code, scope, error}) => {
+          if (code && !error && scope === SCOPES) {
+              const response = await fetch('/api/exchange-token', {
+                  method: 'POST',
+                  body: JSON.stringify({
+                      authCode: code
+                  })
+              });
+              if (!response?.ok) return;
+              const {accessToken} = await response.json();
+              cb(accessToken);
+          }
+        };
+        const client = google.accounts.oauth2.initCodeClient({
+            client_id: CLIENT_ID,
+            scope: SCOPES,
+            ux_mode: 'popup',
+            callback: authCallback,
+        });
+        client.requestCode();
+      }
+      
+      function createPicker(accessToken, cb) {
+          const pickerCallback = async (data) => {
+             if (data.action === google.picker.Action.PICKED) {
+                 const doc = data[google.picker.Response.DOCUMENTS][0];
+                 const folderId = doc[google.picker.Document.ID];
+                  
+                  const response = await fetch('/api/save-folder-id', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        folderId 
+                    })
+                });
+              if (!response?.ok) return;
+              cb();
+             }
+          };
+          
+          const view = new google.picker.DocsView(google.picker.ViewId.FOLDERS)
+            .setIncludeFolders(true)
+            .setSelectFolderEnabled(true);
+          const picker = new google.picker.PickerBuilder()
+            .setAppId(APP_ID)
+            .setDeveloperKey(API_KEY)
+            .setOAuthToken(accessToken)
+            .addView(view)
+            .setCallback(pickerCallback)
+            .build();
+          picker.setVisible(true);
+      }
+    </script>
+  </head>
+  
+  <body>
+    <div x-data>
+      <progress x-show="$store.auth.loading">Loading...</progress>
+      <button x-show="$store.auth.stage === 'get_token'"
+              x-bind:disabled="$store.auth.loading"
+              @click="$store.auth.handleAuthClick()">
+        Log In
+      </button>
+      <button x-show="$store.auth.stage === 'pick_file'"
+              x-bind:disabled="$store.auth.loading"
+              @click="$store.auth.handlePickFile()">
+        Pick File
+      </button>
+    </div>
+  </body>
+</html>
