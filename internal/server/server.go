@@ -1029,7 +1029,8 @@ func (s *Server) getSchedulerItems(ctx context.Context, now time.Time) []schedul
 	})
 
 	if s.maint != nil {
-		// if we have a direct repository, add an item to run maintenance (if we're the owner)
+		// If we have a direct repository, add an item to run maintenance.
+		// If we're the owner then nextMaintenanceTime will be zero.
 		if nextMaintenanceTime := s.maint.nextMaintenanceTime(); !nextMaintenanceTime.IsZero() {
 			result = append(result, scheduler.Item{
 				Description: "maintenance",
