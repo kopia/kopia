@@ -30,14 +30,14 @@ jobs:
       with:
         fetch-depth: 0
     - name: Set up Go
-      uses: actions/setup-go@v4
+      uses: actions/setup-go@93397bea11091df50f3d7e59dc26a7711a8bcfbe # v4.1.0
       with:
         go-version-file: 'go.mod'
         check-latest: true
       id: go
       if: ${{ !contains(matrix.os, 'ARMHF') }}
     - id: govulncheck
-      uses: golang/govulncheck-action@7da72f730e37eeaad891fcff0a532d27ed737cd4
+      uses: golang/govulncheck-action@7da72f730e37eeaad891fcff0a532d27ed737cd4 # v1.0.1
       with:
         repo-checkout: false
         cache: false
