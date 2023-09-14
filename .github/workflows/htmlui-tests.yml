@@ -39,7 +39,7 @@ jobs:
     - name: Run Tests
       run: make htmlui-e2e-test
     - name: Upload Screenshots
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32 # v3.1.3
       with:
         path: .screenshots/**/*.png
         if-no-files-found: ignore
