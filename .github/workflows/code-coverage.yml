@@ -24,7 +24,7 @@ jobs:
     - name: Run Tests
       run: make test-with-coverage
     - name: Upload Coverage
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@eaaf4bedf32dbdc6b720b63067d99c4d77d6047d # v3.1.4
       with:
         files: coverage.txt
     - name: Upload Logs
