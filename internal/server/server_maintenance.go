@@ -57,7 +57,7 @@ func (s *srvMaintenance) beforeRun() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	// make sure we're not schduling next maintenance until we refresh
+	// make sure we're not scheduling next maintenance until we refresh
 	s.cachedNextMaintenanceTime = time.Time{}
 }
 
