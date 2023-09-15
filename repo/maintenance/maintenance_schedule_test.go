@@ -55,7 +55,6 @@ func TestTimeToAttemptNextMaintenance(t *testing.T) {
 	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
 
 	now := time.Date(2020, 1, 1, 12, 0, 0, 0, time.UTC)
-	max := now.Add(10 * time.Hour)
 
 	cases := []struct {
 		desc   string
@@ -100,7 +99,7 @@ func TestTimeToAttemptNextMaintenance(t *testing.T) {
 				NextFullMaintenanceTime:  now.Add(2 * time.Hour),
 				NextQuickMaintenanceTime: now.Add(3 * time.Hour),
 			},
-			want: max,
+			want: time.Time{},
 		},
 		{
 			desc: "not owned",
@@ -113,7 +112,7 @@ func TestTimeToAttemptNextMaintenance(t *testing.T) {
 				NextFullMaintenanceTime:  now.Add(2 * time.Hour),
 				NextQuickMaintenanceTime: now.Add(3 * time.Hour),
 			},
-			want: max,
+			want: time.Time{},
 		},
 	}
 
@@ -122,7 +121,7 @@ func TestTimeToAttemptNextMaintenance(t *testing.T) {
 			require.NoError(t, maintenance.SetParams(ctx, env.RepositoryWriter, &tc.params))
 			require.NoError(t, maintenance.SetSchedule(ctx, env.RepositoryWriter, &tc.sched))
 
-			nmt, err := maintenance.TimeToAttemptNextMaintenance(ctx, env.RepositoryWriter, max)
+			nmt, err := maintenance.TimeToAttemptNextMaintenance(ctx, env.RepositoryWriter)
 			require.NoError(t, err)
 
 			require.Equal(t, tc.want, nmt)
