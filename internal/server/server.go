@@ -480,8 +480,8 @@ func (s *Server) refreshLocked(ctx context.Context) error {
 		return errors.Wrap(err, "unable to sync sources")
 	}
 
-	if dr, ok := s.rep.(repo.DirectRepository); ok && s.maint != nil {
-		s.maint.refresh(ctx, dr, false)
+	if s.maint != nil {
+		s.maint.refresh(ctx, false)
 	}
 
 	return nil

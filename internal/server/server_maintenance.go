@@ -18,6 +18,7 @@ type srvMaintenance struct {
 	cancelCtx   context.CancelFunc
 	srv         maintenanceManagerServerInterface
 	wg          sync.WaitGroup
+	dr          repo.DirectRepository
 
 	minMaintenanceInterval time.Duration // +checklocksignore
 
@@ -69,7 +70,7 @@ func (s *srvMaintenance) afterFailedRun() {
 	s.nextMaintenanceNoEarlierThan = clock.Now().Add(s.minMaintenanceInterval)
 }
 
-func (s *srvMaintenance) refresh(ctx context.Context, dr repo.DirectRepository, notify bool) {
+func (s *srvMaintenance) refresh(ctx context.Context, notify bool) {
 	if notify {
 		defer s.srv.refreshScheduler("maintenance schedule changed")
 	}
@@ -77,13 +78,13 @@ func (s *srvMaintenance) refresh(ctx context.Context, dr repo.DirectRepository, 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if err := s.refreshLocked(ctx, dr); err != nil {
+	if err := s.refreshLocked(ctx); err != nil {
 		log(ctx).Debugw("unable to refresh maintenance manager", "err", err)
 	}
 }
 
-func (s *srvMaintenance) refreshLocked(ctx context.Context, dr repo.DirectRepository) error {
-	nmt, err := maintenance.TimeToAttemptNextMaintenance(ctx, dr)
+func (s *srvMaintenance) refreshLocked(ctx context.Context) error {
+	nmt, err := maintenance.TimeToAttemptNextMaintenance(ctx, s.dr)
 	if err != nil {
 		return errors.Wrap(err, "unable to get next maintenance time")
 	}
@@ -118,13 +119,14 @@ func startMaintenanceManager(
 		srv:                    srv,
 		cancelCtx:              cancel,
 		minMaintenanceInterval: minMaintenanceInterval,
+		dr:                     rep,
 	}
 
 	m.wg.Add(1)
 
 	log(ctx).Debug("starting maintenance manager")
 
-	m.refresh(ctx, rep, false)
+	m.refresh(ctx, false)
 
 	go func() {
 		defer m.wg.Done()
@@ -141,7 +143,7 @@ func startMaintenanceManager(
 					m.afterFailedRun()
 				}
 
-				m.refresh(mctx, rep, true)
+				m.refresh(mctx, true)
 
 			case <-m.closed:
 				log(ctx).Debug("stopping maintenance manager")
