@@ -163,6 +163,10 @@ ipcMain.handle('select-dir', async (_event, _arg) => {
   };
 })
 
+ipcMain.handle('browse-dir', async (_event, path) => {
+  shell.openPath(path);
+})
+
 ipcMain.on('server-status-updated', updateTrayContextMenu);
 ipcMain.on('launch-at-startup-updated', updateTrayContextMenu);
 
