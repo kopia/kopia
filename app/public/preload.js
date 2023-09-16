@@ -1,4 +1,4 @@
-const { contextBridge, shell, ipcRenderer } = require("electron");
+const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("kopiaUI", {
     "selectDirectory": function (onSelected) {
@@ -7,7 +7,7 @@ contextBridge.exposeInMainWorld("kopiaUI", {
         });
     },
     "browseDirectory": function(path) {
-        shell.openPath(path);
+        ipcRenderer.invoke('browse-dir', path);
     },
 })
 
