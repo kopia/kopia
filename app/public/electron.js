@@ -34,7 +34,7 @@ function showRepoWindow(repositoryID) {
 
     // default width
     width: 1000,
-    // default hight
+    // default height
     height: 700,
 
     autoHideMenuBar: true,
@@ -71,7 +71,7 @@ function showRepoWindow(repositoryID) {
   updateDockIcon();
 
   /**
-   * Store the window size, hight and position on close
+   * Store the window size, height and position on close
    */
   repositoryWindow.on('close', function () {
     store.set('coordinates', repositoryWindow.getPosition())
