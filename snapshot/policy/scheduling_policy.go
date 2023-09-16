@@ -62,6 +62,7 @@ type SchedulingPolicy struct {
 	NoParentTimesOfDay bool        `json:"noParentTimeOfDay,omitempty"`
 	Manual             bool        `json:"manual,omitempty"`
 	Cron               []string    `json:"cron,omitempty"`
+	RunMissed          bool        `json:"runMissed,omitempty"`
 }
 
 // SchedulingPolicyDefinition specifies which policy definition provided the value of a particular field.
@@ -70,6 +71,7 @@ type SchedulingPolicyDefinition struct {
 	TimesOfDay      snapshot.SourceInfo `json:"timeOfDay,omitempty"`
 	Cron            snapshot.SourceInfo `json:"cron,omitempty"`
 	Manual          snapshot.SourceInfo `json:"manual,omitempty"`
+	RunMissed       snapshot.SourceInfo `json:"runMissed,omitempty"`
 }
 
 // Interval returns the snapshot interval or zero if not specified.
@@ -145,7 +147,22 @@ func (p *SchedulingPolicy) NextSnapshotTime(previousSnapshotTime, now time.Time)
 		}
 	}
 
+	if ok && p.checkMissedSnapshot(now, previousSnapshotTime, nextSnapshotTime) {
+		// if RunMissed is set and last run was missed, and next run is at least 30 mins from now, then run now
+		nextSnapshotTime = now
+		ok = true
+	}
+
 	return nextSnapshotTime, ok
+}
+
+// Check if a previous snapshot was missed and should be started now.
+func (p *SchedulingPolicy) checkMissedSnapshot(now, previousSnapshotTime, nextSnapshotTime time.Time) bool {
+	const oneDay = 24 * time.Hour
+
+	const halfhour = 30 * time.Minute
+
+	return (len(p.TimesOfDay) > 0 || len(p.Cron) > 0) && p.RunMissed && previousSnapshotTime.Add(oneDay-halfhour).Before(now) && nextSnapshotTime.After(now.Add(halfhour))
 }
 
 // Merge applies default values from the provided policy.
@@ -168,6 +185,7 @@ func (p *SchedulingPolicy) Merge(src SchedulingPolicy, def *SchedulingPolicyDefi
 	}
 
 	mergeBool(&p.Manual, src.Manual, &def.Manual, si)
+	mergeBool(&p.RunMissed, src.RunMissed, &def.RunMissed, si)
 }
 
 // IsManualSnapshot returns the SchedulingPolicy manual value from the given policy tree.
