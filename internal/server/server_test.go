@@ -48,8 +48,8 @@ func testServer(t *testing.T, disableGRPC bool) {
 		Username: servertesting.TestUsername,
 		Hostname: servertesting.TestHostname,
 	}, content.CachingOptions{
-		CacheDirectory:    testutil.TempDirectory(t),
-		MaxCacheSizeBytes: maxCacheSizeBytes,
+		CacheDirectory:        testutil.TempDirectory(t),
+		ContentCacheSizeBytes: maxCacheSizeBytes,
 	}, servertesting.TestPassword, &repo.Options{})
 
 	// cancel immediately to ensure we did not spawn goroutines that depend on ctx inside

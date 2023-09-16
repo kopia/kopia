@@ -45,7 +45,7 @@ var log = logging.Module("gdrive")
 
 type gdriveStorage struct {
 	Options
-	blob.UnsupportedBlobRetention
+	blob.DefaultProviderImplementation
 
 	client      *drive.FilesService
 	about       *drive.AboutService
@@ -324,10 +324,6 @@ func (gdrive *gdriveStorage) ConnectionInfo() blob.ConnectionInfo {
 
 func (gdrive *gdriveStorage) DisplayName() string {
 	return fmt.Sprintf("Google Drive: %v", gdrive.folderID)
-}
-
-func (gdrive *gdriveStorage) Close(ctx context.Context) error {
-	return nil
 }
 
 func (gdrive *gdriveStorage) FlushCaches(ctx context.Context) error {

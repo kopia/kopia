@@ -21,6 +21,7 @@ import (
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/gather"
+	"github.com/kopia/kopia/internal/providervalidation"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
@@ -235,14 +236,10 @@ func TestRCloneProviders(t *testing.T) {
 		}
 
 		t.Run("Cleanup-"+name, func(t *testing.T) {
-			t.Parallel()
-
 			cleanupOldData(t, rcloneExe, rp)
 		})
 
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-
 			ctx := testlogging.Context(t)
 
 			// we are using shared storage, append a guid so that tests don't collide
@@ -258,6 +255,7 @@ func TestRCloneProviders(t *testing.T) {
 				blob.PutOptions{})
 
 			blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
+			require.NoError(t, providervalidation.ValidateProvider(ctx, st, blobtesting.TestValidationOptions))
 
 			// write a bunch of tiny blobs massively in parallel
 			// and kill rclone immediately after to ensure all writes are synchronous

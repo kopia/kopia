@@ -82,6 +82,10 @@ func (s *loggingStorage) GetCapacity(ctx context.Context) (blob.Capacity, error)
 	return c, err
 }
 
+func (s *loggingStorage) IsReadOnly() bool {
+	return s.base.IsReadOnly()
+}
+
 func (s *loggingStorage) GetMetadata(ctx context.Context, id blob.ID) (blob.Metadata, error) {
 	ctx, span := tracer.Start(ctx, "GetMetadata")
 	defer span.End()

@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/blobtesting"
-	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/epoch"
 	"github.com/kopia/kopia/internal/faketime"
 	"github.com/kopia/kopia/internal/feature"
@@ -174,13 +173,15 @@ func TestInitialize(t *testing.T) {
 func TestInitializeWithRetention(t *testing.T) {
 	ctx := testlogging.Context(t)
 
-	ta := faketime.NewClockTimeWithOffset(0)
-	nowFunc := ta.NowFunc()
-
-	st := blobtesting.NewVersionedMapStorage(nowFunc).(cache.Storage)
-	blobCache := format.NewMemoryBlobCache(nowFunc)
 	mode := blob.Governance
 	period := time.Hour * 48
+
+	ta := faketime.NewClockTimeWithOffset(0)
+	nowFunc := ta.NowFunc()
+	earliestExpiry := nowFunc().Add(period)
+
+	st := blobtesting.NewVersionedMapStorage(nowFunc)
+	blobCache := format.NewMemoryBlobCache(nowFunc)
 
 	// success
 	require.NoError(t, format.Initialize(
@@ -203,46 +204,34 @@ func TestInitializeWithRetention(t *testing.T) {
 	assert.Equal(t, mode, blobCfg.RetentionMode)
 	assert.Equal(t, period, blobCfg.RetentionPeriod)
 
-	// Attempting to touch the blobs the format manager writes should return
-	// errors as they should have retention enabled. Mod time adjustment (duration
-	// param) doesn't matter in this context.
-	_, err = st.TouchBlob(ctx, format.KopiaRepositoryBlobID, time.Minute)
-	assert.ErrorIs(t, err, blobtesting.ErrBlobLocked, "Altering locked repo blob should fail")
+	// Get the retention configuration that was added to the blob. Allow up to a
+	// minute difference between the expected and returned values since that
+	// should be large enough to avoid test flakes.
+	gotMode, expiry, err := st.GetRetention(ctx, format.KopiaRepositoryBlobID)
+	require.NoError(t, err, "getting repo blob retention info")
 
-	_, err = st.TouchBlob(ctx, format.KopiaBlobCfgBlobID, time.Minute)
-	assert.ErrorIs(t, err, blobtesting.ErrBlobLocked, "Altering locked blob storage config should fail")
+	assert.Equal(t, mode, gotMode)
+	assert.WithinDuration(t, earliestExpiry, expiry, time.Minute)
 
-	// Advance the clock to just before the retention period expires and check
-	// if we can modifiy the blob. Blobs should still be protected so TouchBlob
-	// should still fail.
-	ta.Advance((time.Hour * 48) - time.Minute)
-	_, err = st.TouchBlob(ctx, format.KopiaRepositoryBlobID, time.Minute)
-	assert.ErrorIs(t, err, blobtesting.ErrBlobLocked, "Altering locked repo blob should fail")
+	gotMode, expiry, err = st.GetRetention(ctx, format.KopiaBlobCfgBlobID)
+	require.NoError(t, err, "getting storage blob config retention info")
 
-	_, err = st.TouchBlob(ctx, format.KopiaBlobCfgBlobID, time.Minute)
-	assert.ErrorIs(t, err, blobtesting.ErrBlobLocked, "Altering locked blob storage config should fail")
-
-	// Advance the clock so the retention period has passed. Calling TouchBlob
-	// should now succeed.
-	ta.Advance(time.Minute)
-
-	_, err = st.TouchBlob(ctx, format.KopiaRepositoryBlobID, time.Minute)
-	assert.NoError(t, err, "Altering expired repo blob failed")
-
-	_, err = st.TouchBlob(ctx, format.KopiaBlobCfgBlobID, time.Minute)
-	assert.NoError(t, err, "Altering expired blob storage config failed")
+	assert.Equal(t, mode, gotMode)
+	assert.WithinDuration(t, earliestExpiry, expiry, time.Minute)
 }
 
 func TestUpdateRetention(t *testing.T) {
 	ctx := testlogging.Context(t)
 
-	ta := faketime.NewClockTimeWithOffset(0)
-	nowFunc := ta.NowFunc()
-
-	st := blobtesting.NewVersionedMapStorage(nowFunc).(cache.Storage)
-	blobCache := format.NewMemoryBlobCache(nowFunc)
 	mode := blob.Governance
 	period := time.Hour * 48
+
+	ta := faketime.NewClockTimeWithOffset(0)
+	nowFunc := ta.NowFunc()
+	earliestExpiry := nowFunc().Add(period)
+
+	st := blobtesting.NewVersionedMapStorage(nowFunc)
+	blobCache := format.NewMemoryBlobCache(nowFunc)
 
 	// success
 	require.NoError(t, format.Initialize(ctx, st, &format.KopiaRepositoryJSON{}, rc, format.BlobStorageConfiguration{}, "some-password"))
@@ -269,34 +258,20 @@ func TestUpdateRetention(t *testing.T) {
 	assert.Equal(t, mode, blobCfg.RetentionMode)
 	assert.Equal(t, period, blobCfg.RetentionPeriod)
 
-	// Attempting to touch the blobs the format manager writes should return
-	// errors as they should have retention enabled. Mod time adjustment (duration
-	// param) doesn't matter in this context.
-	_, err = st.TouchBlob(ctx, format.KopiaRepositoryBlobID, time.Minute)
-	assert.ErrorIs(t, err, blobtesting.ErrBlobLocked, "Altering locked repo blob should fail")
+	// Get the retention configuration that was added to the blob. Allow up to a
+	// minute difference between the expected and returned values since that
+	// should be large enough to avoid test flakes.
+	gotMode, expiry, err := st.GetRetention(ctx, format.KopiaRepositoryBlobID)
+	require.NoError(t, err, "getting repo blob retention info")
 
-	_, err = st.TouchBlob(ctx, format.KopiaBlobCfgBlobID, time.Minute)
-	assert.ErrorIs(t, err, blobtesting.ErrBlobLocked, "Altering locked blob storage config should fail")
+	assert.Equal(t, mode, gotMode)
+	assert.WithinDuration(t, earliestExpiry, expiry, time.Minute)
 
-	// Advance the clock to just before the retention period expires and check
-	// if we can modifiy the blob. Blobs should still be protected so TouchBlob
-	// should still fail.
-	ta.Advance((time.Hour * 48) - time.Minute)
-	_, err = st.TouchBlob(ctx, format.KopiaRepositoryBlobID, time.Minute)
-	assert.ErrorIs(t, err, blobtesting.ErrBlobLocked, "Altering locked repo blob should fail")
+	gotMode, expiry, err = st.GetRetention(ctx, format.KopiaBlobCfgBlobID)
+	require.NoError(t, err, "getting storage blob config retention info")
 
-	_, err = st.TouchBlob(ctx, format.KopiaBlobCfgBlobID, time.Minute)
-	assert.ErrorIs(t, err, blobtesting.ErrBlobLocked, "Altering locked blob storage config should fail")
-
-	// Advance the clock so the retention period has passed. Calling TouchBlob
-	// should now succeed.
-	ta.Advance(time.Minute)
-
-	_, err = st.TouchBlob(ctx, format.KopiaRepositoryBlobID, time.Minute)
-	assert.NoError(t, err, "Altering expired repo blob failed")
-
-	_, err = st.TouchBlob(ctx, format.KopiaBlobCfgBlobID, time.Minute)
-	assert.NoError(t, err, "Altering expired blob storage config failed")
+	assert.Equal(t, mode, gotMode)
+	assert.WithinDuration(t, earliestExpiry, expiry, time.Minute)
 }
 
 func TestUpdateRetentionNegativeValue(t *testing.T) {
@@ -306,7 +281,7 @@ func TestUpdateRetentionNegativeValue(t *testing.T) {
 	ta := faketime.NewTimeAdvance(startTime, 0)
 	nowFunc := ta.NowFunc()
 
-	st := blobtesting.NewVersionedMapStorage(nowFunc).(cache.Storage)
+	st := blobtesting.NewVersionedMapStorage(nowFunc)
 	blobCache := format.NewMemoryBlobCache(nowFunc)
 	mode := blob.Governance
 	period := -time.Hour * 48
@@ -336,12 +311,18 @@ func TestUpdateRetentionNegativeValue(t *testing.T) {
 	assert.Empty(t, blobCfg.RetentionMode)
 	assert.Zero(t, blobCfg.RetentionPeriod)
 
-	// Retention wasn't set so no error should occur.
-	_, err = st.TouchBlob(ctx, format.KopiaRepositoryBlobID, time.Minute)
-	assert.NoError(t, err, "altering repo blob")
+	// Retention wasn't set so everything should be zero/empty.
+	gotMode, expiry, err := st.GetRetention(ctx, format.KopiaRepositoryBlobID)
+	require.NoError(t, err, "getting repo blob retention info")
 
-	_, err = st.TouchBlob(ctx, format.KopiaBlobCfgBlobID, time.Minute)
-	assert.NoError(t, err, "altering storage config")
+	assert.Empty(t, gotMode)
+	assert.Zero(t, expiry)
+
+	gotMode, expiry, err = st.GetRetention(ctx, format.KopiaBlobCfgBlobID)
+	require.NoError(t, err, "getting storage blob config retention info")
+
+	assert.Empty(t, gotMode)
+	assert.Zero(t, expiry)
 }
 
 func TestChangePassword(t *testing.T) {

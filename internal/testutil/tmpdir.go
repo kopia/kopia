@@ -68,6 +68,27 @@ func TempDirectory(tb testing.TB) string {
 	return d
 }
 
+// TempDirectoryShort returns a short temporary directory and cleans it up before test
+// completes.
+func TempDirectoryShort(tb testing.TB) string {
+	tb.Helper()
+
+	d, err := os.MkdirTemp("", "kopia-test")
+	if err != nil {
+		tb.Fatal(errors.Wrap(err, "unable to create temp directory"))
+	}
+
+	tb.Cleanup(func() {
+		if !tb.Failed() {
+			os.RemoveAll(d) //nolint:errcheck
+		} else {
+			tb.Logf("temporary files left in %v", d)
+		}
+	})
+
+	return d
+}
+
 // TempLogDirectory returns a temporary directory used for storing logs.
 // If KOPIA_LOGS_DIR is provided.
 func TempLogDirectory(t *testing.T) string {

@@ -15,12 +15,16 @@ var ErrReadonly = errors.Errorf("storage is read-only")
 // readonlyStorage prevents all mutations on the underlying storage.
 type readonlyStorage struct {
 	base blob.Storage
-	blob.UnsupportedBlobRetention
+	blob.DefaultProviderImplementation
 }
 
 func (s readonlyStorage) GetCapacity(ctx context.Context) (blob.Capacity, error) {
 	//nolint:wrapcheck
 	return s.base.GetCapacity(ctx)
+}
+
+func (s readonlyStorage) IsReadOnly() bool {
+	return true
 }
 
 func (s readonlyStorage) GetBlob(ctx context.Context, id blob.ID, offset, length int64, output blob.OutputBuffer) error {

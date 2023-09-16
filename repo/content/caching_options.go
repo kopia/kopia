@@ -19,14 +19,26 @@ func (s DurationSeconds) DurationOrDefault(def time.Duration) time.Duration {
 
 // CachingOptions specifies configuration of local cache.
 type CachingOptions struct {
-	CacheDirectory            string          `json:"cacheDirectory,omitempty"`
-	MaxCacheSizeBytes         int64           `json:"maxCacheSize,omitempty"`
-	MaxMetadataCacheSizeBytes int64           `json:"maxMetadataCacheSize,omitempty"`
-	MaxListCacheDuration      DurationSeconds `json:"maxListCacheDuration,omitempty"`
-	MinMetadataSweepAge       DurationSeconds `json:"minMetadataSweepAge,omitempty"`
-	MinContentSweepAge        DurationSeconds `json:"minContentSweepAge,omitempty"`
-	MinIndexSweepAge          DurationSeconds `json:"minIndexSweepAge,omitempty"`
-	HMACSecret                []byte          `json:"-"`
+	CacheDirectory              string          `json:"cacheDirectory,omitempty"`
+	ContentCacheSizeBytes       int64           `json:"maxCacheSize,omitempty"`
+	ContentCacheSizeLimitBytes  int64           `json:"contentCacheSizeLimitBytes,omitempty"`
+	MetadataCacheSizeBytes      int64           `json:"maxMetadataCacheSize,omitempty"`
+	MetadataCacheSizeLimitBytes int64           `json:"metadataCacheSizeLimitBytes,omitempty"`
+	MaxListCacheDuration        DurationSeconds `json:"maxListCacheDuration,omitempty"`
+	MinMetadataSweepAge         DurationSeconds `json:"minMetadataSweepAge,omitempty"`
+	MinContentSweepAge          DurationSeconds `json:"minContentSweepAge,omitempty"`
+	MinIndexSweepAge            DurationSeconds `json:"minIndexSweepAge,omitempty"`
+	HMACSecret                  []byte          `json:"-"`
+}
+
+// EffectiveMetadataCacheSizeBytes returns the effective metadata cache size.
+func (c *CachingOptions) EffectiveMetadataCacheSizeBytes() int64 {
+	if c.MetadataCacheSizeBytes == 0 {
+		// legacy path, use the same size for both caches.
+		return c.ContentCacheSizeBytes
+	}
+
+	return c.MetadataCacheSizeBytes
 }
 
 // CloneOrDefault returns a clone of the caching options or empty options for nil.

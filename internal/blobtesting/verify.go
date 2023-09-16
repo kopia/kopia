@@ -231,11 +231,12 @@ func AssertConnectionInfoRoundTrips(ctx context.Context, t *testing.T, s blob.St
 //
 //nolint:gomnd
 var TestValidationOptions = providervalidation.Options{
-	MaxClockDrift:           3 * time.Minute,
-	ConcurrencyTestDuration: 15 * time.Second,
-	NumPutBlobWorkers:       3,
-	NumGetBlobWorkers:       3,
-	NumGetMetadataWorkers:   3,
-	NumListBlobsWorkers:     3,
-	MaxBlobLength:           10e6,
+	MaxClockDrift:                   3 * time.Minute,
+	ConcurrencyTestDuration:         15 * time.Second,
+	NumEquivalentStorageConnections: 5,
+	NumPutBlobWorkers:               3,
+	NumGetBlobWorkers:               3,
+	NumGetMetadataWorkers:           3,
+	NumListBlobsWorkers:             3,
+	MaxBlobLength:                   10e6,
 }
