@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Notification, Menu, Tray, ipcMain, dialog, shell } = require('electron')
+const { app, BrowserWindow, Notification, screen, Menu, Tray, ipcMain, dialog, shell } = require('electron')
 const { autoUpdater } = require("electron-updater");
 const { resourcesPath, selectByOS } = require('./utils');
 const { toggleLaunchAtStartup, willLaunchAtStartup, refreshWillLaunchAtStartup } = require('./auto-launch');
@@ -44,10 +44,32 @@ function showRepoWindow(repositoryID) {
     },
   };
 
-  Object.assign(windowOptions, store.get('winBounds'));
-  Object.assign(windowOptions, store.get('coordinates'));
-  Object.assign(windowOptions, store.get('maximized'))
 
+  // Workaround until https://github.com/electron/electron/issues/10862 is fixed
+  // Get all displays
+  let displays = screen.getAllDisplays()
+  // There should be only one primary display
+  let prevFactor = screen.getPrimaryDisplay().scaleFactor
+  // True if all factors are equal, false else
+  let isFactorEqual = true
+
+  if (displays.length > 0) {
+    for (let d in displays) {
+      let factor = displays[d].scaleFactor
+      if (prevFactor != factor) {
+        isFactorEqual = false
+        break
+      }
+      prevFactor = factor
+    }
+  }
+
+  // Assign the bounds if all factors are equal, else revert to defaults
+  if (isFactorEqual) {
+    Object.assign(windowOptions, store.get('winBounds'));
+    Object.assign(windowOptions, store.get('maximized'))
+  }
+  
   let repositoryWindow = new BrowserWindow(windowOptions)
   const webContentsID = repositoryWindow.webContents.id;
 
@@ -74,7 +96,6 @@ function showRepoWindow(repositoryID) {
    * Store the window size, height and position on close
    */
   repositoryWindow.on('close', function () {
-    store.set('coordinates', repositoryWindow.getPosition())
     store.set('winBounds', repositoryWindow.getBounds())
     store.set('maximized', repositoryWindow.isMaximized())
   });
