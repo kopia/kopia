@@ -109,7 +109,7 @@ func TestDefaultAuthorizer_DefaultACLs(t *testing.T) {
 	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
 
 	for _, e := range auth.DefaultACLs {
-		require.NoError(t, acl.AddACL(ctx, env.RepositoryWriter, e))
+		require.NoError(t, acl.AddACL(ctx, env.RepositoryWriter, e, false))
 	}
 
 	verifyLegacyAuthorizer(ctx, t, env.Repository, auth.DefaultAuthorizer())

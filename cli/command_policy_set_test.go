@@ -171,6 +171,7 @@ func TestSetErrorHandlingPolicyFromFlags(t *testing.T) {
 	}
 }
 
+//nolint:maintidx
 func TestSetSchedulingPolicyFromFlags(t *testing.T) {
 	ctx := testlogging.Context(t)
 
@@ -181,6 +182,7 @@ func TestSetSchedulingPolicyFromFlags(t *testing.T) {
 		timesOfDayArg  []string
 		cronArg        string
 		manualArg      bool
+		runMissedArg   bool
 		expResult      *policy.SchedulingPolicy
 		expErrMsg      string
 		expChangeCount int
@@ -412,6 +414,43 @@ func TestSetSchedulingPolicyFromFlags(t *testing.T) {
 			},
 			expChangeCount: 1,
 		},
+		{
+			name: "Set RunMissed",
+			startingPolicy: &policy.SchedulingPolicy{
+				TimesOfDay: []policy.TimeOfDay{{Hour: 12, Minute: 0}},
+			},
+			runMissedArg: true,
+			expResult: &policy.SchedulingPolicy{
+				TimesOfDay: []policy.TimeOfDay{{Hour: 12, Minute: 0}},
+				RunMissed:  true,
+			},
+			expChangeCount: 1,
+		},
+		{
+			name: "Clear RunMissed",
+			startingPolicy: &policy.SchedulingPolicy{
+				TimesOfDay: []policy.TimeOfDay{{Hour: 12, Minute: 0}},
+				RunMissed:  true,
+			},
+			expResult: &policy.SchedulingPolicy{
+				TimesOfDay: []policy.TimeOfDay{{Hour: 12, Minute: 0}},
+				RunMissed:  false,
+			},
+			expChangeCount: 1,
+		},
+		{
+			name: "RunMissed unchanged",
+			startingPolicy: &policy.SchedulingPolicy{
+				TimesOfDay: []policy.TimeOfDay{{Hour: 12, Minute: 0}},
+				RunMissed:  true,
+			},
+			expResult: &policy.SchedulingPolicy{
+				TimesOfDay: []policy.TimeOfDay{{Hour: 12, Minute: 0}},
+				RunMissed:  true,
+			},
+			runMissedArg:   true,
+			expChangeCount: 0,
+		},
 	} {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
@@ -422,6 +461,7 @@ func TestSetSchedulingPolicyFromFlags(t *testing.T) {
 			psf.policySetInterval = tc.intervalArg
 			psf.policySetTimesOfDay = tc.timesOfDayArg
 			psf.policySetManual = tc.manualArg
+			psf.policySetRunMissed = tc.runMissedArg
 			psf.policySetCron = tc.cronArg
 
 			err := psf.setSchedulingPolicyFromFlags(ctx, tc.startingPolicy, &changeCount)

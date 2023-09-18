@@ -38,6 +38,11 @@ func (m *Manager) SetParameters(
 		return errors.Wrap(err, "unable to write blobcfg blob")
 	}
 
+	// At this point the new blobcfg is persisted in the blob layer. Setting this
+	// here also ensures the call below properly sets retention on the kopia
+	// repository blob.
+	m.blobCfgBlob = blobcfg
+
 	if err := m.j.WriteKopiaRepositoryBlob(ctx, m.blobs, m.blobCfgBlob); err != nil {
 		return errors.Wrap(err, "unable to write format blob")
 	}

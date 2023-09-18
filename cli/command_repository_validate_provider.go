@@ -19,6 +19,7 @@ func (c *commandRepositoryValidateProvider) setup(svc advancedAppServices, paren
 
 	c.opt = providervalidation.DefaultOptions
 
+	cmd.Flag("num-storage-connections", "Number of storage connections").IntVar(&c.opt.NumEquivalentStorageConnections)
 	cmd.Flag("concurrency-test-duration", "Duration of concurrency test").DurationVar(&c.opt.ConcurrencyTestDuration)
 	cmd.Flag("put-blob-workers", "Number of PutBlob workers").IntVar(&c.opt.NumPutBlobWorkers)
 	cmd.Flag("get-blob-workers", "Number of GetBlob workers").IntVar(&c.opt.NumGetBlobWorkers)

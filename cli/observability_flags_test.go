@@ -4,6 +4,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"sync"
 	"testing"
 
@@ -46,7 +47,6 @@ func TestMetricsPushFlags(t *testing.T) {
 		"--metrics-push-addr="+server.URL,
 		"--metrics-push-interval=30s",
 		"--metrics-push-format=text",
-		"--enable-jaeger-collector", // this has no observable effects whether Jaeger is running or not
 	)
 
 	env.RunAndExpectSuccess(t, "repo", "status",
@@ -76,4 +76,30 @@ func TestMetricsPushFlags(t *testing.T) {
 		"--metrics-push-addr="+server.URL,
 		"--metrics-push-grouping=a=s",
 	)
+}
+
+func TestOTLPFlags(t *testing.T) {
+	env := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, testenv.NewInProcRunner(t))
+
+	// deprecated flag
+	env.RunAndExpectFailure(t, "benchmark", "crypto", "--repeat=1", "--block-size=1KB", "--print-options", "--enable-jaeger-collector")
+
+	// this has no effect whether OTLP collector is running or not.
+	env.RunAndExpectSuccess(t, "benchmark", "crypto", "--repeat=1", "--block-size=1KB", "--print-options", "--otlp-trace")
+}
+
+func TestMetricsSaveToOutputDirFlags(t *testing.T) {
+	env := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, testenv.NewInProcRunner(t))
+
+	tmp1 := testutil.TempDirectory(t)
+
+	env.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", tmp1)
+
+	tmp2 := testutil.TempDirectory(t)
+
+	env.RunAndExpectSuccess(t, "repo", "status", "--metrics-directory", tmp2)
+
+	entries, err := os.ReadDir(tmp2)
+	require.NoError(t, err)
+	require.Len(t, entries, 1, "a metrics output file should have been created")
 }

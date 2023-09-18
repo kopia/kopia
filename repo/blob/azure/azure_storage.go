@@ -7,6 +7,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/bloberror"
@@ -27,14 +28,10 @@ const (
 
 type azStorage struct {
 	Options
-	blob.UnsupportedBlobRetention
+	blob.DefaultProviderImplementation
 
 	service   *azblob.Client
 	container string
-}
-
-func (az *azStorage) GetCapacity(ctx context.Context) (blob.Capacity, error) {
-	return blob.Capacity{}, blob.ErrNotAVolume
 }
 
 func (az *azStorage) GetBlob(ctx context.Context, b blob.ID, offset, length int64, output blob.OutputBuffer) error {
@@ -229,14 +226,6 @@ func (az *azStorage) DisplayName() string {
 	return fmt.Sprintf("Azure: %v", az.Options.Container)
 }
 
-func (az *azStorage) Close(ctx context.Context) error {
-	return nil
-}
-
-func (az *azStorage) FlushCaches(ctx context.Context) error {
-	return nil
-}
-
 // New creates new Azure Blob Storage-backed storage with specified options:
 //
 // - the 'Container', 'StorageAccount' and 'StorageKey' fields are required and all other parameters are optional.
@@ -260,23 +249,33 @@ func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error)
 	storageHostname := fmt.Sprintf("%v.%v", opt.StorageAccount, storageDomain)
 
 	switch {
+	// shared access signature
 	case opt.SASToken != "":
 		service, serviceErr = azblob.NewClientWithNoCredential(
 			fmt.Sprintf("https://%s?%s", storageHostname, opt.SASToken), nil)
 
+	// storage account access key
 	case opt.StorageKey != "":
 		// create a credentials object.
 		cred, err := azblob.NewSharedKeyCredential(opt.StorageAccount, opt.StorageKey)
 		if err != nil {
-			return nil, errors.Wrap(err, "unable to initialize credentials")
+			return nil, errors.Wrap(err, "unable to initialize storage access key credentials")
 		}
 
 		service, serviceErr = azblob.NewClientWithSharedKeyCredential(
 			fmt.Sprintf("https://%s/", storageHostname), cred, nil,
 		)
+	// client secret
+	case opt.TenantID != "" && opt.ClientID != "" && opt.ClientSecret != "":
+		cred, err := azidentity.NewClientSecretCredential(opt.TenantID, opt.ClientID, opt.ClientSecret, nil)
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to initialize client secret credential")
+		}
+
+		service, serviceErr = azblob.NewClient(fmt.Sprintf("https://%s/", storageHostname), cred, nil)
 
 	default:
-		return nil, errors.Errorf("either storage key or SAS token must be provided")
+		return nil, errors.Errorf("one of the storage key, SAS token or client secret must be provided")
 	}
 
 	if serviceErr != nil {

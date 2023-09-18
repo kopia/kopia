@@ -2,7 +2,7 @@
 set -e
 GS_PREFIX=gs://$PACKAGES_HOST/rpm
 PKGDIR=$1
-RETAIN_UNSTABLE_RPM_COUNT=2
+RETAIN_UNSTABLE_RPM_COUNT=3
 
 delete_old_rpms() {
   ls -tp1 $1/*.rpm | tail -n +$RETAIN_UNSTABLE_RPM_COUNT | xargs -I {} rm -v -- {}
@@ -46,12 +46,10 @@ for d in $distributions; do
 done
 
 for d in $distributions; do
-  if [ "$d" == "unstable" ]; then
-    # for unstable, keep only last few RPM versions.
-    for a in $architectures; do
-      delete_old_rpms $WORK_DIR/$d/$a
-    done
-  fi
+  # keep only last few RPM versions.
+  for a in $architectures; do
+    delete_old_rpms $WORK_DIR/$d/$a
+  done
 done
 
 rpm_files=$(find $1 -name '*.rpm')

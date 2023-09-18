@@ -133,7 +133,7 @@ func Open(ctx context.Context, configFile, password string, options *Options) (r
 func getContentCacheOrNil(ctx context.Context, opt *content.CachingOptions, password string, mr *metrics.Registry, timeNow func() time.Time) (*cache.PersistentCache, error) {
 	opt = opt.CloneOrDefault()
 
-	cs, err := cache.NewStorageOrNil(ctx, opt.CacheDirectory, opt.MaxCacheSizeBytes, "server-contents")
+	cs, err := cache.NewStorageOrNil(ctx, opt.CacheDirectory, opt.ContentCacheSizeBytes, "server-contents")
 	if cs == nil {
 		// this may be (nil, nil) or (nil, err)
 		return nil, errors.Wrap(err, "error opening storage")
@@ -154,7 +154,8 @@ func getContentCacheOrNil(ctx context.Context, opt *content.CachingOptions, pass
 	}
 
 	pc, err := cache.NewPersistentCache(ctx, "cache-storage", cs, prot, cache.SweepSettings{
-		MaxSizeBytes: opt.MaxCacheSizeBytes,
+		MaxSizeBytes: opt.ContentCacheSizeBytes,
+		LimitBytes:   opt.ContentCacheSizeLimitBytes,
 		MinSweepAge:  opt.MinContentSweepAge.DurationOrDefault(content.DefaultDataCacheSweepAge),
 	}, mr, timeNow)
 	if err != nil {
