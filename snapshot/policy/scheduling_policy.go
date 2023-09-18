@@ -94,8 +94,6 @@ func (p *SchedulingPolicy) NextSnapshotTime(previousSnapshotTime, now time.Time)
 		return time.Time{}, false
 	}
 
-	const oneDay = 24 * time.Hour
-
 	var (
 		nextSnapshotTime time.Time
 		ok               bool
@@ -117,8 +115,35 @@ func (p *SchedulingPolicy) NextSnapshotTime(previousSnapshotTime, now time.Time)
 		}
 	}
 
+	if todSnapshot, todOk := p.getNextTimeOfDaySnapshot(now); todOk && (!ok || todSnapshot.Before(nextSnapshotTime)) {
+		nextSnapshotTime = todSnapshot
+		ok = true
+	}
+
+	if cronSnapshot, cronOk := p.getNextCronSnapshot(now); cronOk && (!ok || cronSnapshot.Before(nextSnapshotTime)) {
+		nextSnapshotTime = cronSnapshot
+		ok = true
+	}
+
+	if ok && p.checkMissedSnapshot(now, previousSnapshotTime, nextSnapshotTime) {
+		// if RunMissed is set and last run was missed, and next run is at least 30 mins from now, then run now
+		nextSnapshotTime = now
+		ok = true
+	}
+
+	return nextSnapshotTime, ok
+}
+
+// Get next ToD snapshot.
+func (p *SchedulingPolicy) getNextTimeOfDaySnapshot(now time.Time) (time.Time, bool) {
+	const oneDay = 24 * time.Hour
+
+	var nextSnapshotTime time.Time
+
+	ok := false
+	nowLocalTime := now.Local()
+
 	for _, tod := range p.TimesOfDay {
-		nowLocalTime := now.Local()
 		localSnapshotTime := time.Date(nowLocalTime.Year(), nowLocalTime.Month(), nowLocalTime.Day(), tod.Hour, tod.Minute, 0, 0, time.Local)
 
 		if now.After(localSnapshotTime) {
@@ -130,6 +155,15 @@ func (p *SchedulingPolicy) NextSnapshotTime(previousSnapshotTime, now time.Time)
 			ok = true
 		}
 	}
+
+	return nextSnapshotTime, ok
+}
+
+// Get next Cron snapshot.
+func (p *SchedulingPolicy) getNextCronSnapshot(now time.Time) (time.Time, bool) {
+	var nextSnapshotTime time.Time
+
+	ok := false
 
 	for _, e := range p.Cron {
 		ce, err := cronexpr.Parse(stripCronComment(e))
@@ -150,26 +184,34 @@ func (p *SchedulingPolicy) NextSnapshotTime(previousSnapshotTime, now time.Time)
 		}
 	}
 
-	if ok && p.checkMissedSnapshot(now, previousSnapshotTime, nextSnapshotTime) {
-		// if RunMissed is set and last run was missed, and next run is at least 30 mins from now, then run now
-		nextSnapshotTime = now
-		ok = true
-	}
-
 	return nextSnapshotTime, ok
 }
 
 // Check if a previous snapshot was missed and should be started now.
 func (p *SchedulingPolicy) checkMissedSnapshot(now, previousSnapshotTime, nextSnapshotTime time.Time) bool {
-	const oneDay = 24 * time.Hour
-
 	const halfhour = 30 * time.Minute
 
 	if !p.RunMissed.OrDefault(false) {
 		return false
 	}
 
-	return (len(p.TimesOfDay) > 0 || len(p.Cron) > 0) && previousSnapshotTime.Add(oneDay-halfhour).Before(now) && nextSnapshotTime.After(now.Add(halfhour))
+	nextSnapshot := nextSnapshotTime
+	todSnapshot, todOk := p.getNextTimeOfDaySnapshot(previousSnapshotTime.Add(time.Second))
+	cronSnapshot, cronOk := p.getNextCronSnapshot(previousSnapshotTime.Add(time.Second))
+
+	if !todOk && !cronOk {
+		return false
+	}
+
+	if todOk && todSnapshot.Before(nextSnapshot) {
+		nextSnapshot = todSnapshot
+	}
+
+	if cronOk && cronSnapshot.Before(nextSnapshot) {
+		nextSnapshot = cronSnapshot
+	}
+
+	return nextSnapshot.Before(now) && nextSnapshotTime.After(now.Add(halfhour))
 }
 
 // Merge applies default values from the provided policy.
