@@ -196,6 +196,7 @@ func (p *SchedulingPolicy) checkMissedSnapshot(now, previousSnapshotTime, nextSn
 	}
 
 	nextSnapshot := nextSnapshotTime
+	// We add a second to ensure that the next possible snapshot is > the last snaphot
 	todSnapshot, todOk := p.getNextTimeOfDaySnapshot(previousSnapshotTime.Add(time.Second))
 	cronSnapshot, cronOk := p.getNextCronSnapshot(previousSnapshotTime.Add(time.Second))
 

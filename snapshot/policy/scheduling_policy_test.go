@@ -234,6 +234,17 @@ func TestNextSnapshotTime(t *testing.T) {
 			wantOK:               true,
 		},
 		{
+			name: "Run immediately because one of the TimeOfDays was missed",
+			pol: policy.SchedulingPolicy{
+				TimesOfDay: []policy.TimeOfDay{{11, 1}, {4, 1}},
+				RunMissed:  true,
+			},
+			now:                  time.Date(2020, time.January, 2, 10, 0, 0, 0, time.Local),
+			previousSnapshotTime: time.Date(2020, time.January, 1, 11, 1, 0, 0, time.Local),
+			wantTime:             time.Date(2020, time.January, 2, 10, 0, 0, 0, time.Local),
+			wantOK:               true,
+		},
+		{
 			name: "Don't run immediately even though RunMissed is set because last run was not missed",
 			pol: policy.SchedulingPolicy{
 				TimesOfDay: []policy.TimeOfDay{{11, 55}},
