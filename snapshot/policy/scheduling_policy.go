@@ -191,14 +191,16 @@ func (p *SchedulingPolicy) getNextCronSnapshot(now time.Time) (time.Time, bool) 
 func (p *SchedulingPolicy) checkMissedSnapshot(now, previousSnapshotTime, nextSnapshotTime time.Time) bool {
 	const halfhour = 30 * time.Minute
 
+	momentAfterSnapshot := previousSnapshotTime.Add(time.Second)
+
 	if !p.RunMissed.OrDefault(false) {
 		return false
 	}
 
 	nextSnapshot := nextSnapshotTime
 	// We add a second to ensure that the next possible snapshot is > the last snaphot
-	todSnapshot, todOk := p.getNextTimeOfDaySnapshot(previousSnapshotTime.Add(time.Second))
-	cronSnapshot, cronOk := p.getNextCronSnapshot(previousSnapshotTime.Add(time.Second))
+	todSnapshot, todOk := p.getNextTimeOfDaySnapshot(momentAfterSnapshot)
+	cronSnapshot, cronOk := p.getNextCronSnapshot(momentAfterSnapshot)
 
 	if !todOk && !cronOk {
 		return false
