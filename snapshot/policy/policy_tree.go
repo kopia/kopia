@@ -49,7 +49,9 @@ var (
 		IgnoreIdenticalSnapshots: NewOptionalBool(defaultIgnoreIdenticalSnapshots),
 	}
 
-	defaultSchedulingPolicy = SchedulingPolicy{}
+	defaultSchedulingPolicy = SchedulingPolicy{
+		RunMissed: NewOptionalBool(DefaultRunMissed),
+	}
 
 	defaultUploadPolicy = UploadPolicy{
 		MaxParallelSnapshots: newOptionalInt(1),
