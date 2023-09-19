@@ -1,6 +1,7 @@
 package policy_test
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -254,12 +255,11 @@ func TestNextSnapshotTime(t *testing.T) {
 		},
 	}
 
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
+	for i, tc := range cases {
+		t.Run(fmt.Sprintf("case-%v", i), func(t *testing.T) {
 			gotTime, gotOK := tc.pol.NextSnapshotTime(tc.previousSnapshotTime, tc.now)
-
-			require.Equal(t, tc.wantTime, gotTime)
-			require.Equal(t, tc.wantOK, gotOK)
+			require.Equal(t, tc.wantTime, gotTime, tc.name)
+			require.Equal(t, tc.wantOK, gotOK, tc.name)
 		})
 	}
 }
