@@ -1,7 +1,6 @@
 package policy_test
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -10,17 +9,19 @@ import (
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
+//nolint:maintidx
 func TestNextSnapshotTime(t *testing.T) {
 	cases := []struct {
+		name                 string
 		pol                  policy.SchedulingPolicy
 		now                  time.Time
 		previousSnapshotTime time.Time
 		wantTime             time.Time
 		wantOK               bool
 	}{
-		{}, // empty policy, no snapshot
+		{name: "empty policy, no snapshot"},
 		{
-			// next snapshot is 1 minute after last, which is in the past
+			name:                 "next snapshot is 1 minute after last, which is in the past",
 			pol:                  policy.SchedulingPolicy{IntervalSeconds: 60},
 			now:                  time.Date(2020, time.January, 1, 12, 3, 0, 0, time.Local),
 			previousSnapshotTime: time.Date(2020, time.January, 1, 11, 50, 0, 0, time.Local),
@@ -28,6 +29,7 @@ func TestNextSnapshotTime(t *testing.T) {
 			wantOK:               true,
 		},
 		{
+			name:                 "next snapshot is 1 min after last, which is in the future",
 			pol:                  policy.SchedulingPolicy{IntervalSeconds: 60},
 			now:                  time.Date(2020, time.January, 1, 11, 50, 30, 0, time.Local),
 			previousSnapshotTime: time.Date(2020, time.January, 1, 11, 50, 0, 0, time.Local),
@@ -35,6 +37,7 @@ func TestNextSnapshotTime(t *testing.T) {
 			wantOK:               true,
 		},
 		{
+			name:                 "last snapshot was in the future, but next snapshot is 5 mins after that",
 			pol:                  policy.SchedulingPolicy{IntervalSeconds: 300},
 			now:                  time.Date(2020, time.January, 1, 11, 50, 30, 0, time.Local),
 			previousSnapshotTime: time.Date(2020, time.January, 1, 11, 51, 0, 0, time.Local),
@@ -42,7 +45,7 @@ func TestNextSnapshotTime(t *testing.T) {
 			wantOK:               true,
 		},
 		{
-			// next time after 11:50 truncated to 20 full minutes, which is 12:00
+			name:                 "next time after 11:50 truncated to 20 full minutes, which is 12:00",
 			pol:                  policy.SchedulingPolicy{IntervalSeconds: 1200},
 			now:                  time.Date(2020, time.January, 1, 11, 50, 30, 0, time.Local),
 			previousSnapshotTime: time.Date(2020, time.January, 1, 11, 50, 0, 0, time.Local),
@@ -50,7 +53,7 @@ func TestNextSnapshotTime(t *testing.T) {
 			wantOK:               true,
 		},
 		{
-			// next time after 11:50 truncated to 20 full minutes, which is 12:00
+			name:                 "next time after 11:50 truncated to 20 full minutes, which is 12:00",
 			pol:                  policy.SchedulingPolicy{IntervalSeconds: 1200},
 			now:                  time.Date(2020, time.January, 1, 11, 50, 30, 0, time.Local),
 			previousSnapshotTime: time.Date(2020, time.January, 1, 11, 50, 0, 0, time.Local),
@@ -58,6 +61,7 @@ func TestNextSnapshotTime(t *testing.T) {
 			wantOK:               true,
 		},
 		{
+			name: "multiple ToD schedules, next snapshot is the earliest",
 			pol: policy.SchedulingPolicy{
 				TimesOfDay: []policy.TimeOfDay{{11, 55}, {11, 57}},
 			},
@@ -67,6 +71,7 @@ func TestNextSnapshotTime(t *testing.T) {
 			wantOK:               true,
 		},
 		{
+			name: "multiple ToD snapshots, next is the 2nd one",
 			pol: policy.SchedulingPolicy{
 				TimesOfDay: []policy.TimeOfDay{{11, 55}, {11, 57}},
 			},
@@ -75,6 +80,7 @@ func TestNextSnapshotTime(t *testing.T) {
 			wantOK:   true,
 		},
 		{
+			name: "interval and ToD policies, next is 1st ToD",
 			pol: policy.SchedulingPolicy{
 				IntervalSeconds: 300, // every 5 minutes
 				TimesOfDay:      []policy.TimeOfDay{{11, 54}, {11, 57}},
@@ -85,6 +91,7 @@ func TestNextSnapshotTime(t *testing.T) {
 			wantOK:               true,
 		},
 		{
+			name: "interval and ToD policies, next is now (1st ToD)",
 			pol: policy.SchedulingPolicy{
 				IntervalSeconds: 300, // every 5 minutes
 				TimesOfDay:      []policy.TimeOfDay{{11, 54}, {11, 57}},
@@ -95,6 +102,7 @@ func TestNextSnapshotTime(t *testing.T) {
 			wantOK:               true,
 		},
 		{
+			name: "interval and ToD policies, next is interval",
 			pol: policy.SchedulingPolicy{
 				IntervalSeconds: 300, // every 5 minutes
 				TimesOfDay:      []policy.TimeOfDay{{11, 54}, {11, 57}},
@@ -105,6 +113,7 @@ func TestNextSnapshotTime(t *testing.T) {
 			wantOK:               true,
 		},
 		{
+			name: "interval and ToD policies, next is now (interval)",
 			pol: policy.SchedulingPolicy{
 				IntervalSeconds: 300, // every 5 minutes
 				TimesOfDay:      []policy.TimeOfDay{{11, 54}, {11, 57}},
@@ -115,6 +124,7 @@ func TestNextSnapshotTime(t *testing.T) {
 			wantOK:               true,
 		},
 		{
+			name: "interval and ToD policies, next is now (interval overdue)",
 			pol: policy.SchedulingPolicy{
 				IntervalSeconds: 300, // every 5 minutes
 				TimesOfDay:      []policy.TimeOfDay{{11, 54}, {11, 57}},
@@ -126,6 +136,7 @@ func TestNextSnapshotTime(t *testing.T) {
 			wantOK:   true,
 		},
 		{
+			name: "multiple ToD policies, last missed, RunMissed is off, next is 2nd ToD",
 			pol: policy.SchedulingPolicy{
 				TimesOfDay: []policy.TimeOfDay{{11, 54}, {11, 57}},
 			},
@@ -135,6 +146,7 @@ func TestNextSnapshotTime(t *testing.T) {
 			wantOK:               true,
 		},
 		{
+			name: "multiple ToD policies, last missed, RunMissed is off, next is now (2nd ToD)",
 			pol: policy.SchedulingPolicy{
 				TimesOfDay: []policy.TimeOfDay{{11, 54}, {11, 57}},
 			},
@@ -144,6 +156,7 @@ func TestNextSnapshotTime(t *testing.T) {
 			wantOK:               true,
 		},
 		{
+			name: "multiple ToD policies, last missed, RunMissed is off, next is tomorrow",
 			pol: policy.SchedulingPolicy{
 				TimesOfDay: []policy.TimeOfDay{{11, 54}, {11, 57}},
 			},
@@ -153,6 +166,7 @@ func TestNextSnapshotTime(t *testing.T) {
 			wantOK:               true,
 		},
 		{
+			name: "interval and ToD policies, last 9hrs in the future, next is 1st ToD",
 			pol: policy.SchedulingPolicy{
 				IntervalSeconds: 43200,
 				TimesOfDay:      []policy.TimeOfDay{{19, 0}, {20, 0}},
@@ -163,6 +177,7 @@ func TestNextSnapshotTime(t *testing.T) {
 			wantOK:               true,
 		},
 		{
+			name: "ToD policy and manual policies, manual wins",
 			pol: policy.SchedulingPolicy{
 				IntervalSeconds: 43200,
 				TimesOfDay:      []policy.TimeOfDay{{19, 0}, {20, 0}},
@@ -174,6 +189,7 @@ func TestNextSnapshotTime(t *testing.T) {
 			wantOK:               false,
 		},
 		{
+			name: "Cron policy using minute and hour rules",
 			pol: policy.SchedulingPolicy{
 				Cron: []string{"0 23 * * *"},
 			},
@@ -183,6 +199,7 @@ func TestNextSnapshotTime(t *testing.T) {
 			wantOK:   true,
 		},
 		{
+			name: "Cron policy using minute, hour, month, and day rules",
 			pol: policy.SchedulingPolicy{
 				Cron: []string{"5 3 * Feb Thu"},
 			},
@@ -192,7 +209,7 @@ func TestNextSnapshotTime(t *testing.T) {
 			wantOK:   true,
 		},
 		{
-			// Run immediately since last run was missed and RunMissed is set
+			name: "Run immediately since last run was missed and RunMissed is set",
 			pol: policy.SchedulingPolicy{
 				TimesOfDay: []policy.TimeOfDay{{11, 55}},
 				RunMissed:  true,
@@ -203,7 +220,7 @@ func TestNextSnapshotTime(t *testing.T) {
 			wantOK:               true,
 		},
 		{
-			// Don't run immediately even though RunMissed is set, because next run is upcoming
+			name: "Don't run immediately even though RunMissed is set, because next run is upcoming",
 			pol: policy.SchedulingPolicy{
 				TimesOfDay: []policy.TimeOfDay{{11, 55}},
 				RunMissed:  true,
@@ -214,7 +231,7 @@ func TestNextSnapshotTime(t *testing.T) {
 			wantOK:               true,
 		},
 		{
-			// Don't run immediately even though RunMissed is set because last run was not missed
+			name: "Don't run immediately even though RunMissed is set because last run was not missed",
 			pol: policy.SchedulingPolicy{
 				TimesOfDay: []policy.TimeOfDay{{11, 55}},
 				RunMissed:  true,
@@ -225,7 +242,7 @@ func TestNextSnapshotTime(t *testing.T) {
 			wantOK:               true,
 		},
 		{
-			// Don't run immediately even though RunMissed is set because last run was not missed
+			name: "Don't run immediately even though RunMissed is set because last run was not missed",
 			pol: policy.SchedulingPolicy{
 				TimesOfDay: []policy.TimeOfDay{{10, 0}},
 				RunMissed:  true,
@@ -237,8 +254,8 @@ func TestNextSnapshotTime(t *testing.T) {
 		},
 	}
 
-	for i, tc := range cases {
-		t.Run(fmt.Sprintf("case-%v", i), func(t *testing.T) {
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
 			gotTime, gotOK := tc.pol.NextSnapshotTime(tc.previousSnapshotTime, tc.now)
 
 			require.Equal(t, tc.wantTime, gotTime)
