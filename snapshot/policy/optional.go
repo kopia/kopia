@@ -12,7 +12,8 @@ func (b *OptionalBool) OrDefault(def bool) bool {
 	return bool(*b)
 }
 
-func newOptionalBool(b OptionalBool) *OptionalBool {
+// NewOptionalBool provides an OptionalBool pointer.
+func NewOptionalBool(b OptionalBool) *OptionalBool {
 	return &b
 }
 

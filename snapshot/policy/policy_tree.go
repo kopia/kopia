@@ -15,9 +15,9 @@ var (
 
 	// defaultErrorHandlingPolicy is the default error handling policy.
 	defaultErrorHandlingPolicy = ErrorHandlingPolicy{
-		IgnoreFileErrors:      newOptionalBool(false),
-		IgnoreDirectoryErrors: newOptionalBool(false),
-		IgnoreUnknownTypes:    newOptionalBool(true),
+		IgnoreFileErrors:      NewOptionalBool(false),
+		IgnoreDirectoryErrors: NewOptionalBool(false),
+		IgnoreUnknownTypes:    NewOptionalBool(true),
 	}
 
 	// defaultFilesPolicy is the default file ignore policy.
@@ -46,7 +46,7 @@ var (
 		KeepWeekly:               newOptionalInt(defaultKeepWeekly),
 		KeepMonthly:              newOptionalInt(defaultKeepMonthly),
 		KeepAnnual:               newOptionalInt(defaultKeepAnnual),
-		IgnoreIdenticalSnapshots: newOptionalBool(defaultIgnoreIdenticalSnapshots),
+		IgnoreIdenticalSnapshots: NewOptionalBool(defaultIgnoreIdenticalSnapshots),
 	}
 
 	defaultSchedulingPolicy = SchedulingPolicy{}
