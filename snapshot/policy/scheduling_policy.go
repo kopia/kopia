@@ -74,8 +74,8 @@ type SchedulingPolicyDefinition struct {
 	RunMissed       snapshot.SourceInfo `json:"runMissed,omitempty"`
 }
 
-// DefaultRunMissed is the value for RunMissed.
-const DefaultRunMissed = true
+// defaultRunMissed is the value for RunMissed.
+const defaultRunMissed = true
 
 // Interval returns the snapshot interval or zero if not specified.
 func (p *SchedulingPolicy) Interval() time.Duration {
@@ -165,7 +165,7 @@ func (p *SchedulingPolicy) checkMissedSnapshot(now, previousSnapshotTime, nextSn
 
 	const halfhour = 30 * time.Minute
 
-	if !p.RunMissed.OrDefault(DefaultRunMissed) {
+	if !p.RunMissed.OrDefault(false) {
 		return false
 	}
 

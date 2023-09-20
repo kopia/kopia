@@ -295,7 +295,7 @@ func appendSchedulingPolicyRows(rows []policyTableRow, p *policy.Policy, def *po
 		rows = append(rows,
 			policyTableRow{
 				"  Run missed snapshots:",
-				boolToString(p.SchedulingPolicy.RunMissed.OrDefault(policy.DefaultRunMissed)),
+				boolToString(p.SchedulingPolicy.RunMissed.OrDefault(false)),
 				definitionPointToString(p.Target(), def.SchedulingPolicy.RunMissed),
 			},
 			policyTableRow{

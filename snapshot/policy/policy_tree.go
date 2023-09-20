@@ -50,7 +50,7 @@ var (
 	}
 
 	defaultSchedulingPolicy = SchedulingPolicy{
-		RunMissed: NewOptionalBool(DefaultRunMissed),
+		RunMissed: NewOptionalBool(defaultRunMissed),
 	}
 
 	defaultUploadPolicy = UploadPolicy{
