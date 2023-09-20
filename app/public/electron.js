@@ -23,7 +23,47 @@ if (isPortableConfig()) {
   app.setPath('userData', path.join(configDir(), 'cache'));
 }
 
+// Workaround until https://github.com/electron/electron/issues/10862 is fixed
+/**
+ * Check if the scaling factors of all displays are identical. If not revert to the default
+ * window options. In addition check if the last stored window bounds lie within
+ * a current connected display bounds.
+ * 
+ * @returns true if windows bounds and scaling factors match, false else
+ */
+function isWithinBounds(winBounds) {
+  // Get all displays
+  let displays = screen.getAllDisplays()
+  // There should be only one primary display
+  let prevFactor = screen.getPrimaryDisplay().scaleFactor
+  // True if all factors are equal, false else
+  let isFactorEqual = true
+  // True if window bounds lie within one display's work area
+  let isWithinBounds = false
+
+  // Check if multiple displays are connected
+  for (let d in displays) {
+    let factor = displays[d].scaleFactor
+    let workArea = displays[d].workArea
+
+    //Leave if the factors are not equal
+    if (prevFactor != factor) {
+      isFactorEqual = false
+      break;
+    }
+    //Check if window bounds lie within at least one display's workarea
+    if (winBounds.x >= workArea.x && winBounds.y >= workArea.y
+      && winBounds.x < (workArea.x + workArea.width)
+      && winBounds.y < (workArea.y + workArea.height)) {
+      isWithinBounds = true
+    }
+    prevFactor = factor
+  }
+  return isFactorEqual && isWithinBounds
+}
+
 function showRepoWindow(repositoryID) {
+  let primaryScreenBounds = screen.getPrimaryDisplay().bounds
   if (repositoryWindows[repositoryID]) {
     repositoryWindows[repositoryID].focus();
     return;
@@ -36,41 +76,34 @@ function showRepoWindow(repositoryID) {
     width: 1000,
     // default height
     height: 700,
+    // default x location
+    x: (primaryScreenBounds.width - 1000) / 2,
+    // default y location
+    y: (primaryScreenBounds.height - 700) / 2,
 
     autoHideMenuBar: true,
     resizable: true,
+    show: false,
     webPreferences: {
       preload: path.join(resourcesPath(), 'preload.js'),
     },
   };
 
-
-  // Workaround until https://github.com/electron/electron/issues/10862 is fixed
-  // Get all displays
-  let displays = screen.getAllDisplays()
-  // There should be only one primary display
-  let prevFactor = screen.getPrimaryDisplay().scaleFactor
-  // True if all factors are equal, false else
-  let isFactorEqual = true
-
-  if (displays.length > 0) {
-    for (let d in displays) {
-      let factor = displays[d].scaleFactor
-      if (prevFactor != factor) {
-        isFactorEqual = false
-        break
-      }
-      prevFactor = factor
-    }
+  // The bounds of the windows
+  let winBounds = store.get('winBounds')
+  let maximized = store.get('maximized')
+  // Assign the bounds if all factors are equal and window lies within bounds, else use default
+  if (isWithinBounds(winBounds)) {
+    Object.assign(windowOptions, winBounds);
   }
 
-  // Assign the bounds if all factors are equal, else revert to defaults
-  if (isFactorEqual) {
-    Object.assign(windowOptions, store.get('winBounds'));
-    Object.assign(windowOptions, store.get('maximized'))
-  }
-  
   let repositoryWindow = new BrowserWindow(windowOptions)
+  // If the window was maximized, maximize it
+  if (maximized) {
+    repositoryWindow.maximize()
+  }
+  // Show the window
+  repositoryWindow.show()
   const webContentsID = repositoryWindow.webContents.id;
 
   repositoryWindows[repositoryID] = repositoryWindow
@@ -169,7 +202,7 @@ app.on('certificate-error', (event, webContents, _url, _error, certificate, call
 
 /**
  * Ignore to let the application run, when all windows are closed 
- */ 
+ */
 app.on('window-all-closed', function () { })
 
 ipcMain.handle('select-dir', async (_event, _arg) => {
