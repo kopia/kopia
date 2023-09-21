@@ -51,12 +51,14 @@ function isWithinBounds(winBounds) {
       isFactorEqual = false
       break;
     }
+    /*
     //Check if window bounds lie within at least one display's workarea
     if ((winBounds.x >= workArea.x && winBounds.y >= workArea.y)
       && (winBounds.x < (workArea.x + winBounds.width)
-      && winBounds.y < (workArea.y + winBounds.height))) {
+        && winBounds.y < (workArea.y + winBounds.height))) {
       isWithinBounds = true
     }
+    */
     prevFactor = factor
   }
   return isFactorEqual && isWithinBounds
@@ -93,9 +95,9 @@ function showRepoWindow(repositoryID) {
   let winBounds = store.get('winBounds')
   let maximized = store.get('maximized')
   // Assign the bounds if all factors are equal and window lies within bounds, else use default
-//  if (isWithinBounds(winBounds)) {
-//    Object.assign(windowOptions, winBounds);
-//  }
+  if (isWithinBounds(winBounds)) {
+    Object.assign(windowOptions, winBounds);
+  }
 
   // Create the browser window
   let repositoryWindow = new BrowserWindow(windowOptions)
