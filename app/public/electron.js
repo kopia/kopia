@@ -52,9 +52,9 @@ function isWithinBounds(winBounds) {
       break;
     }
     //Check if window bounds lie within at least one display's workarea
-    if (winBounds.x >= workArea.x && winBounds.y >= workArea.y
-      && winBounds.x < (workArea.x + workArea.width)
-      && winBounds.y < (workArea.y + workArea.height)) {
+    if ((winBounds.x >= workArea.x && winBounds.y >= workArea.y)
+      && (winBounds.x < (workArea.x + winBounds.width)
+      && winBounds.y < (workArea.y + winBounds.height))) {
       isWithinBounds = true
     }
     prevFactor = factor
@@ -83,30 +83,28 @@ function showRepoWindow(repositoryID) {
 
     autoHideMenuBar: true,
     resizable: true,
-    //show: false,
+    show: false,
     webPreferences: {
       preload: path.join(resourcesPath(), 'preload.js'),
     },
   };
 
   // The bounds of the windows
-  //let winBounds = store.get('winBounds')
-  //let maximized = store.get('maximized')
+  let winBounds = store.get('winBounds')
+  let maximized = store.get('maximized')
   // Assign the bounds if all factors are equal and window lies within bounds, else use default
-  //if (isWithinBounds(winBounds)) {
-  //  Object.assign(windowOptions, winBounds);
-  //}
+  if (isWithinBounds(winBounds)) {
+    Object.assign(windowOptions, winBounds);
+  }
 
-  //Create the browser window
+  // Create the browser window
   let repositoryWindow = new BrowserWindow(windowOptions)
-  // If the window was maximized, maximize it
-  //if (maximized) {
-  //  repositoryWindow.maximize()
-  //}
-  // Show the window
-  //repositoryWindow.show()
-  const webContentsID = repositoryWindow.webContents.id;
 
+  // If the window was maximized, maximize it
+  if (maximized) {
+    repositoryWindow.maximize()
+  }
+  const webContentsID = repositoryWindow.webContents.id;
   repositoryWindows[repositoryID] = repositoryWindow
   repoIDForWebContents[webContentsID] = repositoryID
 
@@ -132,7 +130,11 @@ function showRepoWindow(repositoryID) {
   repositoryWindow.on('close', function () {
     store.set('winBounds', repositoryWindow.getBounds())
     store.set('maximized', repositoryWindow.isMaximized())
-  });
+  })
+
+  repositoryWindow.once('ready-to-show', function () {
+    repositoryWindow.show()
+  })
 
   /**
    * Delete references to the repository window
@@ -147,7 +149,6 @@ function showRepoWindow(repositoryID) {
     if (deleteConfigIfDisconnected(repositoryID)) {
       s.stopServer();
     }
-
     updateDockIcon();
   })
 }
