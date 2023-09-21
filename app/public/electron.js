@@ -97,6 +97,7 @@ function showRepoWindow(repositoryID) {
     Object.assign(windowOptions, winBounds);
   }
 
+  //Create the browser window
   let repositoryWindow = new BrowserWindow(windowOptions)
   // If the window was maximized, maximize it
   if (maximized) {
