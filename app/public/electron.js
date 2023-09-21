@@ -90,12 +90,12 @@ function showRepoWindow(repositoryID) {
   };
 
   // The bounds of the windows
-  let winBounds = store.get('winBounds')
-  let maximized = store.get('maximized')
+  //let winBounds = store.get('winBounds')
+  //let maximized = store.get('maximized')
   // Assign the bounds if all factors are equal and window lies within bounds, else use default
-  if (isWithinBounds(winBounds)) {
-    Object.assign(windowOptions, winBounds);
-  }
+  //if (isWithinBounds(winBounds)) {
+  //  Object.assign(windowOptions, winBounds);
+  //}
 
   //Create the browser window
   let repositoryWindow = new BrowserWindow(windowOptions)
