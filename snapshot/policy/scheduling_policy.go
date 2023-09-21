@@ -75,7 +75,7 @@ type SchedulingPolicyDefinition struct {
 }
 
 // defaultRunMissed is the value for RunMissed.
-const defaultRunMissed = true
+const defaultRunMissed = false
 
 // Interval returns the snapshot interval or zero if not specified.
 func (p *SchedulingPolicy) Interval() time.Duration {
