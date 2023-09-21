@@ -8,6 +8,7 @@ const Store = require('electron-store')
 const log = require("electron-log");
 const path = require('path');
 const isDev = require('electron-is-dev');
+const crypto = require('crypto')
 
 // Store to save parameters
 const store = new Store();
@@ -23,45 +24,49 @@ if (isPortableConfig()) {
   app.setPath('userData', path.join(configDir(), 'cache'));
 }
 
-// Workaround until https://github.com/electron/electron/issues/10862 is fixed
 /**
- * Check if the scaling factors of all displays are identical. If not revert to the default
- * window options. In addition check if the last stored window bounds lie within
- * a current connected display bounds.
- * 
- * @returns true if windows bounds and scaling factors match, false else
+ * Stores the ids of the currently connected displays. 
+ * The ids are sorted to generate a hash that specifies the current display configuration
+ * @returns A hash of the configuration
  */
-function isWithinBounds(winBounds) {
+function getDisplayConfiguration() {
+  let hash = crypto.createHash('sha256')
+  // Get all displays
+  let displays = screen.getAllDisplays()
+  let ids = []
+  for (let d in displays) {
+    ids.push(displays[d].id)
+  }
+  ids.sort()
+  hash.update(ids.toString())
+  return hash.digest('hex')
+}
+
+/**
+ * Workaround until https://github.com/electron/electron/issues/10862 is fixed
+ * 
+ * Check if the scaling factors of all displays are identical. If not revert to the default
+ * window options.
+ * @returns true scaling factors are equal, false else
+ */
+function areFactorsEqual() {
   // Get all displays
   let displays = screen.getAllDisplays()
   // There should be only one primary display
   let prevFactor = screen.getPrimaryDisplay().scaleFactor
   // True if all factors are equal, false else
   let isFactorEqual = true
-  // True if window bounds lie within one display's work area
-  let isWithinBounds = false
-
   // Check if multiple displays are connected
   for (let d in displays) {
     let factor = displays[d].scaleFactor
-    let workArea = displays[d].workArea
-
     //Leave if the factors are not equal
     if (prevFactor != factor) {
       isFactorEqual = false
       break;
     }
-    /*
-    //Check if window bounds lie within at least one display's workarea
-    if ((winBounds.x >= workArea.x && winBounds.y >= workArea.y)
-      && (winBounds.x < (workArea.x + winBounds.width)
-        && winBounds.y < (workArea.y + winBounds.height))) {
-      isWithinBounds = true
-    }
-    */
     prevFactor = factor
   }
-  return isFactorEqual && isWithinBounds
+  return isFactorEqual
 }
 
 function showRepoWindow(repositoryID) {
@@ -73,7 +78,6 @@ function showRepoWindow(repositoryID) {
 
   let windowOptions = {
     title: 'KopiaUI is Loading...',
-
     // default width
     width: 1000,
     // default height
@@ -82,7 +86,6 @@ function showRepoWindow(repositoryID) {
     x: (primaryScreenBounds.width - 1000) / 2,
     // default y location
     y: (primaryScreenBounds.height - 700) / 2,
-
     autoHideMenuBar: true,
     resizable: true,
     show: false,
@@ -92,16 +95,15 @@ function showRepoWindow(repositoryID) {
   };
 
   // The bounds of the windows
-  let winBounds = store.get('winBounds')
+  let winBounds = store.get(getDisplayConfiguration())
   let maximized = store.get('maximized')
-  // Assign the bounds if all factors are equal and window lies within bounds, else use default
-  if (isWithinBounds(winBounds)) {
+
+  if (areFactorsEqual()) {
     Object.assign(windowOptions, winBounds);
   }
 
   // Create the browser window
   let repositoryWindow = new BrowserWindow(windowOptions)
-
   // If the window was maximized, maximize it
   if (maximized) {
     repositoryWindow.maximize()
@@ -130,10 +132,13 @@ function showRepoWindow(repositoryID) {
    * Store the window size, height and position on close
    */
   repositoryWindow.on('close', function () {
-    store.set('winBounds', repositoryWindow.getBounds())
+    store.set(getDisplayConfiguration(), repositoryWindow.getBounds())
     store.set('maximized', repositoryWindow.isMaximized())
   })
 
+  /**
+   * Show the window once the content is ready
+   */
   repositoryWindow.once('ready-to-show', function () {
     repositoryWindow.show()
   })
