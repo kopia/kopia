@@ -83,7 +83,7 @@ function showRepoWindow(repositoryID) {
 
     autoHideMenuBar: true,
     resizable: true,
-    show: false,
+    //show: false,
     webPreferences: {
       preload: path.join(resourcesPath(), 'preload.js'),
     },
@@ -100,11 +100,11 @@ function showRepoWindow(repositoryID) {
   //Create the browser window
   let repositoryWindow = new BrowserWindow(windowOptions)
   // If the window was maximized, maximize it
-  if (maximized) {
-    repositoryWindow.maximize()
-  }
+  //if (maximized) {
+  //  repositoryWindow.maximize()
+  //}
   // Show the window
-  repositoryWindow.show()
+  //repositoryWindow.show()
   const webContentsID = repositoryWindow.webContents.id;
 
   repositoryWindows[repositoryID] = repositoryWindow
