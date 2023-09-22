@@ -57,12 +57,12 @@ func SortAndDedupeTimesOfDay(tod []TimeOfDay) []TimeOfDay {
 
 // SchedulingPolicy describes policy for scheduling snapshots.
 type SchedulingPolicy struct {
-	IntervalSeconds    int64       `json:"intervalSeconds,omitempty"`
-	TimesOfDay         []TimeOfDay `json:"timeOfDay,omitempty"`
-	NoParentTimesOfDay bool        `json:"noParentTimeOfDay,omitempty"`
-	Manual             bool        `json:"manual,omitempty"`
-	Cron               []string    `json:"cron,omitempty"`
-	RunMissed          bool        `json:"runMissed,omitempty"`
+	IntervalSeconds    int64         `json:"intervalSeconds,omitempty"`
+	TimesOfDay         []TimeOfDay   `json:"timeOfDay,omitempty"`
+	NoParentTimesOfDay bool          `json:"noParentTimeOfDay,omitempty"`
+	Manual             bool          `json:"manual,omitempty"`
+	Cron               []string      `json:"cron,omitempty"`
+	RunMissed          *OptionalBool `json:"runMissed,omitempty"`
 }
 
 // SchedulingPolicyDefinition specifies which policy definition provided the value of a particular field.
@@ -73,6 +73,9 @@ type SchedulingPolicyDefinition struct {
 	Manual          snapshot.SourceInfo `json:"manual,omitempty"`
 	RunMissed       snapshot.SourceInfo `json:"runMissed,omitempty"`
 }
+
+// defaultRunMissed is the value for RunMissed.
+const defaultRunMissed = false
 
 // Interval returns the snapshot interval or zero if not specified.
 func (p *SchedulingPolicy) Interval() time.Duration {
@@ -162,7 +165,11 @@ func (p *SchedulingPolicy) checkMissedSnapshot(now, previousSnapshotTime, nextSn
 
 	const halfhour = 30 * time.Minute
 
-	return (len(p.TimesOfDay) > 0 || len(p.Cron) > 0) && p.RunMissed && previousSnapshotTime.Add(oneDay-halfhour).Before(now) && nextSnapshotTime.After(now.Add(halfhour))
+	if !p.RunMissed.OrDefault(false) {
+		return false
+	}
+
+	return (len(p.TimesOfDay) > 0 || len(p.Cron) > 0) && previousSnapshotTime.Add(oneDay-halfhour).Before(now) && nextSnapshotTime.After(now.Add(halfhour))
 }
 
 // Merge applies default values from the provided policy.
@@ -185,7 +192,7 @@ func (p *SchedulingPolicy) Merge(src SchedulingPolicy, def *SchedulingPolicyDefi
 	}
 
 	mergeBool(&p.Manual, src.Manual, &def.Manual, si)
-	mergeBool(&p.RunMissed, src.RunMissed, &def.RunMissed, si)
+	mergeOptionalBool(&p.RunMissed, src.RunMissed, &def.RunMissed, si)
 }
 
 // IsManualSnapshot returns the SchedulingPolicy manual value from the given policy tree.

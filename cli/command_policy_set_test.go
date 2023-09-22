@@ -28,14 +28,14 @@ func TestSetErrorHandlingPolicyFromFlags(t *testing.T) {
 		{
 			name: "No values provided as command line arguments",
 			startingPolicy: &policy.ErrorHandlingPolicy{
-				IgnoreFileErrors:      newOptionalBool(true),
-				IgnoreDirectoryErrors: newOptionalBool(true),
+				IgnoreFileErrors:      policy.NewOptionalBool(true),
+				IgnoreDirectoryErrors: policy.NewOptionalBool(true),
 			},
 			fileArg: "",
 			dirArg:  "",
 			expResult: &policy.ErrorHandlingPolicy{
-				IgnoreFileErrors:      newOptionalBool(true),
-				IgnoreDirectoryErrors: newOptionalBool(true),
+				IgnoreFileErrors:      policy.NewOptionalBool(true),
+				IgnoreDirectoryErrors: policy.NewOptionalBool(true),
 			},
 			expChangeCount: 0,
 		},
@@ -57,7 +57,7 @@ func TestSetErrorHandlingPolicyFromFlags(t *testing.T) {
 			fileArg:        "true",
 			dirArg:         "some-malformed-arg",
 			expResult: &policy.ErrorHandlingPolicy{
-				IgnoreFileErrors:      newOptionalBool(true),
+				IgnoreFileErrors:      policy.NewOptionalBool(true),
 				IgnoreDirectoryErrors: nil,
 			},
 			expErr:         true,
@@ -80,77 +80,77 @@ func TestSetErrorHandlingPolicyFromFlags(t *testing.T) {
 			fileArg:        "true",
 			dirArg:         "true",
 			expResult: &policy.ErrorHandlingPolicy{
-				IgnoreFileErrors:      newOptionalBool(true),
-				IgnoreDirectoryErrors: newOptionalBool(true),
+				IgnoreFileErrors:      policy.NewOptionalBool(true),
+				IgnoreDirectoryErrors: policy.NewOptionalBool(true),
 			},
 			expChangeCount: 2,
 		},
 		{
 			name: "Set to false",
 			startingPolicy: &policy.ErrorHandlingPolicy{
-				IgnoreFileErrors:      newOptionalBool(true),
-				IgnoreDirectoryErrors: newOptionalBool(true),
+				IgnoreFileErrors:      policy.NewOptionalBool(true),
+				IgnoreDirectoryErrors: policy.NewOptionalBool(true),
 			},
 			fileArg: "false",
 			dirArg:  "false",
 			expResult: &policy.ErrorHandlingPolicy{
-				IgnoreFileErrors:      newOptionalBool(false),
-				IgnoreDirectoryErrors: newOptionalBool(false),
+				IgnoreFileErrors:      policy.NewOptionalBool(false),
+				IgnoreDirectoryErrors: policy.NewOptionalBool(false),
 			},
 			expChangeCount: 2,
 		},
 		{
 			name: "File false, dir true",
 			startingPolicy: &policy.ErrorHandlingPolicy{
-				IgnoreFileErrors:      newOptionalBool(true),
-				IgnoreDirectoryErrors: newOptionalBool(false),
+				IgnoreFileErrors:      policy.NewOptionalBool(true),
+				IgnoreDirectoryErrors: policy.NewOptionalBool(false),
 			},
 			fileArg: "false",
 			dirArg:  "true",
 			expResult: &policy.ErrorHandlingPolicy{
-				IgnoreFileErrors:      newOptionalBool(false),
-				IgnoreDirectoryErrors: newOptionalBool(true),
+				IgnoreFileErrors:      policy.NewOptionalBool(false),
+				IgnoreDirectoryErrors: policy.NewOptionalBool(true),
 			},
 			expChangeCount: 2,
 		},
 		{
 			name: "File true, dir false",
 			startingPolicy: &policy.ErrorHandlingPolicy{
-				IgnoreFileErrors:      newOptionalBool(false),
-				IgnoreDirectoryErrors: newOptionalBool(true),
+				IgnoreFileErrors:      policy.NewOptionalBool(false),
+				IgnoreDirectoryErrors: policy.NewOptionalBool(true),
 			},
 			fileArg: "true",
 			dirArg:  "false",
 			expResult: &policy.ErrorHandlingPolicy{
-				IgnoreFileErrors:      newOptionalBool(true),
-				IgnoreDirectoryErrors: newOptionalBool(false),
+				IgnoreFileErrors:      policy.NewOptionalBool(true),
+				IgnoreDirectoryErrors: policy.NewOptionalBool(false),
 			},
 			expChangeCount: 2,
 		},
 		{
 			name: "File inherit, dir true",
 			startingPolicy: &policy.ErrorHandlingPolicy{
-				IgnoreFileErrors:      newOptionalBool(true),
-				IgnoreDirectoryErrors: newOptionalBool(false),
+				IgnoreFileErrors:      policy.NewOptionalBool(true),
+				IgnoreDirectoryErrors: policy.NewOptionalBool(false),
 			},
 			fileArg: "inherit",
 			dirArg:  "true",
 			expResult: &policy.ErrorHandlingPolicy{
 				IgnoreFileErrors:      nil,
-				IgnoreDirectoryErrors: newOptionalBool(true),
+				IgnoreDirectoryErrors: policy.NewOptionalBool(true),
 			},
 			expChangeCount: 2,
 		},
 		{
 			name: "File true, dir inherit",
 			startingPolicy: &policy.ErrorHandlingPolicy{
-				IgnoreFileErrors:      newOptionalBool(false),
-				IgnoreDirectoryErrors: newOptionalBool(true),
+				IgnoreFileErrors:      policy.NewOptionalBool(false),
+				IgnoreDirectoryErrors: policy.NewOptionalBool(true),
 			},
 			fileArg: "true",
 			dirArg:  "inherit",
 			expResult: &policy.ErrorHandlingPolicy{
-				IgnoreFileErrors:      newOptionalBool(true),
+				IgnoreFileErrors:      policy.NewOptionalBool(true),
 				IgnoreDirectoryErrors: nil,
 			},
 			expChangeCount: 2,
@@ -182,7 +182,7 @@ func TestSetSchedulingPolicyFromFlags(t *testing.T) {
 		timesOfDayArg  []string
 		cronArg        string
 		manualArg      bool
-		runMissedArg   bool
+		runMissedArg   string
 		expResult      *policy.SchedulingPolicy
 		expErrMsg      string
 		expChangeCount int
@@ -419,10 +419,10 @@ func TestSetSchedulingPolicyFromFlags(t *testing.T) {
 			startingPolicy: &policy.SchedulingPolicy{
 				TimesOfDay: []policy.TimeOfDay{{Hour: 12, Minute: 0}},
 			},
-			runMissedArg: true,
+			runMissedArg: "true",
 			expResult: &policy.SchedulingPolicy{
 				TimesOfDay: []policy.TimeOfDay{{Hour: 12, Minute: 0}},
-				RunMissed:  true,
+				RunMissed:  policy.NewOptionalBool(true),
 			},
 			expChangeCount: 1,
 		},
@@ -430,25 +430,25 @@ func TestSetSchedulingPolicyFromFlags(t *testing.T) {
 			name: "Clear RunMissed",
 			startingPolicy: &policy.SchedulingPolicy{
 				TimesOfDay: []policy.TimeOfDay{{Hour: 12, Minute: 0}},
-				RunMissed:  true,
+				RunMissed:  policy.NewOptionalBool(true),
 			},
 			expResult: &policy.SchedulingPolicy{
 				TimesOfDay: []policy.TimeOfDay{{Hour: 12, Minute: 0}},
-				RunMissed:  false,
+				RunMissed:  policy.NewOptionalBool(false),
 			},
+			runMissedArg:   "false",
 			expChangeCount: 1,
 		},
 		{
 			name: "RunMissed unchanged",
 			startingPolicy: &policy.SchedulingPolicy{
 				TimesOfDay: []policy.TimeOfDay{{Hour: 12, Minute: 0}},
-				RunMissed:  true,
+				RunMissed:  policy.NewOptionalBool(true),
 			},
 			expResult: &policy.SchedulingPolicy{
 				TimesOfDay: []policy.TimeOfDay{{Hour: 12, Minute: 0}},
-				RunMissed:  true,
+				RunMissed:  policy.NewOptionalBool(true),
 			},
-			runMissedArg:   true,
 			expChangeCount: 0,
 		},
 	} {
@@ -475,8 +475,4 @@ func TestSetSchedulingPolicyFromFlags(t *testing.T) {
 			require.Equal(t, tc.expChangeCount, changeCount)
 		})
 	}
-}
-
-func newOptionalBool(b policy.OptionalBool) *policy.OptionalBool {
-	return &b
 }
