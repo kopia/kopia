@@ -19,6 +19,7 @@ import (
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/passwordpersist"
 	"github.com/kopia/kopia/internal/releasable"
+	"github.com/kopia/kopia/internal/secrets"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/logging"
@@ -481,6 +482,8 @@ func (c *App) runAppWithContext(command *kingpin.CmdClause, cb func(ctx context.
 	if c.loggerFactory != nil {
 		ctx = logging.WithLogger(ctx, c.loggerFactory)
 	}
+
+	ctx = secrets.WithManager(ctx)
 
 	for _, r := range c.trackReleasable {
 		releasable.EnableTracking(releasable.ItemKind(r))

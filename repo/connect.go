@@ -8,6 +8,7 @@ import (
 
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/ospath"
+	"github.com/kopia/kopia/internal/secrets"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/format"
@@ -56,6 +57,13 @@ func Connect(ctx context.Context, configFile string, st blob.Storage, password s
 	if err = setupCachingOptionsWithDefaults(ctx, configFile, &lc, &opt.CachingOptions, f.UniqueID); err != nil {
 		return errors.Wrap(err, "unable to set up caching")
 	}
+
+	err = secrets.EvaluateSecrets(ctx, lc, nil, password)
+	if err != nil {
+		return errors.Wrap(err, "Unable to evaluate secrets")
+	}
+
+	lc.SecretToken = secrets.GetToken(ctx, password)
 
 	if err := lc.writeToFile(configFile); err != nil {
 		return errors.Wrap(err, "unable to write config file")

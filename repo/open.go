@@ -18,6 +18,7 @@ import (
 	"github.com/kopia/kopia/internal/feature"
 	"github.com/kopia/kopia/internal/metrics"
 	"github.com/kopia/kopia/internal/retry"
+	"github.com/kopia/kopia/internal/secrets"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/beforeop"
 	loggingwrapper "github.com/kopia/kopia/repo/blob/logging"
@@ -118,6 +119,11 @@ func Open(ctx context.Context, configFile, password string, options *Options) (r
 	lc, err := LoadConfigFromFile(configFile)
 	if err != nil {
 		return nil, err
+	}
+
+	err = secrets.EvaluateSecrets(ctx, lc, lc.SecretToken, password)
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to evaluate secrets")
 	}
 
 	if lc.PermissiveCacheLoading && !lc.ReadOnly {
