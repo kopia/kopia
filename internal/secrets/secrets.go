@@ -50,18 +50,25 @@ func (s *Secret) Set(value string) error {
 	switch {
 	case strings.HasPrefix(value, "envvar:"):
 		s.Type = EnvVar
+		s.Input = value[len("envvar:"):]
 	case strings.HasPrefix(value, "command:"):
 		s.Type = Command
+		s.Input = value[len("command:"):]
 	case strings.HasPrefix(value, "keychain:"):
 		s.Type = Keychain
+		s.Input = value[len("keychain:"):]
 	case strings.HasPrefix(value, "vault:"):
 		s.Type = Vault
+		s.Input = value[len("vault:"):]
+	case strings.HasPrefix(value, "plaintext:"):
+		s.Type = Value
+		s.Value = value[len("plaintext:"):]
+		s.Input = s.Value
 	default:
 		s.Type = Value
 		s.Value = value
+		s.Input = value
 	}
-
-	s.Input = value
 
 	return nil
 }
@@ -82,9 +89,11 @@ func (s *Secret) Evaluate(encryptedToken *EncryptedToken, password string) error
 
 	switch s.Type {
 	case Config:
-		s.Value, err = s.Decrypt(encryptedToken, s.StoreValue, password)
+		s.Value, err = s.decrypt(encryptedToken, s.StoreValue, password)
 	case Value:
-		s.StoreValue, err = s.Encrypt(encryptedToken, s.Input, password)
+		if encryptedToken != nil && password != "" {
+			s.StoreValue, err = s.encrypt(encryptedToken, s.Input, password)
+		}
 	case EnvVar:
 		s.Value = os.Getenv(s.Input)
 		if s.Value == "" {
@@ -143,13 +152,30 @@ func (s *Secret) UnmarshalJSON(b []byte) error {
 
 // SecretVar is called by kingpin to handle Secret arguments.
 func SecretVar(s kingpin.Settings, target **Secret) {
-	secret := Secret{}
-	*target = &secret
+	if *target == nil {
+		secret := Secret{}
+		*target = &secret
+	}
+
 	s.SetValue(*target)
 }
 
-// Decrypt a Secret with the signing key and password.
-func (s *Secret) Decrypt(encryptedToken *EncryptedToken, encrypted, password string) (string, error) {
+// SecretVarWithEnv is called by kingpin to handle Secret arguments with a default environment variable.
+// Use this instead of kingpin's EnvName because it provides no limitations on the password value.
+func SecretVarWithEnv(s kingpin.Settings, envvar string, target **Secret) {
+	if *target == nil {
+		secret := Secret{}
+		*target = &secret
+	}
+
+	(*target).Type = EnvVar
+	(*target).Input = envvar
+
+	s.SetValue(*target)
+}
+
+// decrypt a Secret with the signing key and password.
+func (s *Secret) decrypt(encryptedToken *EncryptedToken, encrypted, password string) (string, error) {
 	// Convert EncryptedToken + pasword to sigining key
 	key, err := encryptedToken.signingKey(password)
 	if err != nil {
@@ -169,8 +195,8 @@ func (s *Secret) Decrypt(encryptedToken *EncryptedToken, encrypted, password str
 	return string(data), nil
 }
 
-// Encrypt with encrypt a secret with the signing key and password.
-func (s *Secret) Encrypt(encryptedToken *EncryptedToken, decrypted, password string) (string, error) {
+// encrypt a Secret with the signing key and password.
+func (s *Secret) encrypt(encryptedToken *EncryptedToken, decrypted, password string) (string, error) {
 	// Convert EncryptedToken + pasword to sigining key
 	key, err := encryptedToken.signingKey(password)
 	if err != nil {
