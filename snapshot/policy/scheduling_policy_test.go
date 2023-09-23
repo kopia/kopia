@@ -192,7 +192,8 @@ func TestNextSnapshotTime(t *testing.T) {
 		{
 			name: "Cron policy using minute and hour rules",
 			pol: policy.SchedulingPolicy{
-				Cron: []string{"0 23 * * *"},
+				Cron:      []string{"0 23 * * *"},
+				RunMissed: policy.NewOptionalBool(false),
 			},
 			now: time.Date(2020, time.January, 1, 10, 0, 0, 0, time.Local),
 			// matches 23:00
@@ -202,7 +203,8 @@ func TestNextSnapshotTime(t *testing.T) {
 		{
 			name: "Cron policy using minute, hour, month, and day rules",
 			pol: policy.SchedulingPolicy{
-				Cron: []string{"5 3 * Feb Thu"},
+				Cron:      []string{"5 3 * Feb Thu"},
+				RunMissed: policy.NewOptionalBool(false),
 			},
 			now: time.Date(2020, time.January, 1, 1, 0, 0, 0, time.Local),
 			// matches next Thursday in February, 3:05
@@ -213,7 +215,7 @@ func TestNextSnapshotTime(t *testing.T) {
 			name: "Run immediately since last run was missed and RunMissed is set",
 			pol: policy.SchedulingPolicy{
 				TimesOfDay: []policy.TimeOfDay{{11, 55}},
-				RunMissed:  true,
+				RunMissed:  policy.NewOptionalBool(true),
 			},
 			now:                  time.Date(2020, time.January, 2, 11, 55, 30, 0, time.Local),
 			previousSnapshotTime: time.Date(2020, time.January, 1, 11, 55, 0, 0, time.Local),
@@ -224,7 +226,7 @@ func TestNextSnapshotTime(t *testing.T) {
 			name: "Don't run immediately even though RunMissed is set, because next run is upcoming",
 			pol: policy.SchedulingPolicy{
 				TimesOfDay: []policy.TimeOfDay{{11, 55}},
-				RunMissed:  true,
+				RunMissed:  policy.NewOptionalBool(true),
 			},
 			now:                  time.Date(2020, time.January, 3, 11, 30, 0, 0, time.Local),
 			previousSnapshotTime: time.Date(2020, time.January, 1, 11, 55, 0, 0, time.Local),
@@ -235,7 +237,7 @@ func TestNextSnapshotTime(t *testing.T) {
 			name: "Don't run immediately even though RunMissed is set because last run was not missed",
 			pol: policy.SchedulingPolicy{
 				TimesOfDay: []policy.TimeOfDay{{11, 55}},
-				RunMissed:  true,
+				RunMissed:  policy.NewOptionalBool(true),
 			},
 			now:                  time.Date(2020, time.January, 2, 11, 30, 0, 0, time.Local),
 			previousSnapshotTime: time.Date(2020, time.January, 1, 11, 55, 0, 0, time.Local),
@@ -246,7 +248,7 @@ func TestNextSnapshotTime(t *testing.T) {
 			name: "Don't run immediately even though RunMissed is set because last run was not missed",
 			pol: policy.SchedulingPolicy{
 				TimesOfDay: []policy.TimeOfDay{{10, 0}},
-				RunMissed:  true,
+				RunMissed:  policy.NewOptionalBool(true),
 			},
 			now:                  time.Date(2020, time.January, 2, 11, 0, 0, 0, time.Local),
 			previousSnapshotTime: time.Date(2020, time.January, 2, 10, 0, 0, 0, time.Local),
