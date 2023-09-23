@@ -19,6 +19,7 @@ let tray = null
 let repositoryWindows = {};
 let repoIDForWebContents = {};
 
+
 if (isPortableConfig()) {
   // in portable mode, write cache under 'repositories'
   app.setPath('userData', path.join(configDir(), 'cache'));
@@ -30,45 +31,33 @@ if (isPortableConfig()) {
  * @returns A hash of the configuration
  */
 function getDisplayConfiguration() {
-  let hash = crypto.createHash('sha256')
+  // Stores the IDs all all currently connected displays
+  let config = []
+  let sha256 = crypto.createHash('sha256')
   // Get all displays
   let displays = screen.getAllDisplays()
-  let ids = []
-  for (let d in displays) {
-    ids.push(displays[d].id)
+  let isFactorEqual = false
+  // Stores the previous factor - initialized with the primary scaling factor
+  let prevFactor = screen.getPrimaryDisplay().scaleFactor
+  //Workaround until https://github.com/electron/electron/issues/10862 is fixed
+  for (let dsp in displays) {
+    // Add the id to the config
+    config.push(displays[dsp].id)
+    isFactorEqual = prevFactor === displays[dsp].scaleFactor
+    // Update the previous factors
+    prevFactor = displays[dsp].scaleFactor
   }
-  ids.sort()
-  hash.update(ids.toString())
-  return hash.digest('hex')
+  // Sort IDs to prevent different hashes through permutation
+  config.sort()
+  sha256.update(config.toString())
+  return { "hash": sha256.digest('hex'), "factorsEqual": isFactorEqual }
 }
 
 /**
- * Workaround until https://github.com/electron/electron/issues/10862 is fixed
- * 
- * Check if the scaling factors of all displays are identical. If not revert to the default
- * window options.
- * @returns true scaling factors are equal, false else
+ * Creates a repository window with given options and parameters
+ * @param {*} repositoryID
+ * The id for that specific repository used as a reference for that window 
  */
-function areFactorsEqual() {
-  // Get all displays
-  let displays = screen.getAllDisplays()
-  // There should be only one primary display
-  let prevFactor = screen.getPrimaryDisplay().scaleFactor
-  // True if all factors are equal, false else
-  let isFactorEqual = true
-  // Check if multiple displays are connected
-  for (let d in displays) {
-    let factor = displays[d].scaleFactor
-    //Leave if the factors are not equal
-    if (prevFactor != factor) {
-      isFactorEqual = false
-      break;
-    }
-    prevFactor = factor
-  }
-  return isFactorEqual
-}
-
 function showRepoWindow(repositoryID) {
   let primaryScreenBounds = screen.getPrimaryDisplay().bounds
   if (repositoryWindows[repositoryID]) {
@@ -95,10 +84,11 @@ function showRepoWindow(repositoryID) {
   };
 
   // The bounds of the windows
-  let winBounds = store.get(getDisplayConfiguration())
+  let configuration = getDisplayConfiguration()
+  let winBounds = store.get(configuration.hash)
   let maximized = store.get('maximized')
 
-  if (areFactorsEqual()) {
+  if (configuration.factorsEqual) {
     Object.assign(windowOptions, winBounds);
   }
 
@@ -132,7 +122,7 @@ function showRepoWindow(repositoryID) {
    * Store the window size, height and position on close
    */
   repositoryWindow.on('close', function () {
-    store.set(getDisplayConfiguration(), repositoryWindow.getBounds())
+    store.set(getDisplayConfiguration().hash, repositoryWindow.getBounds())
     store.set('maximized', repositoryWindow.isMaximized())
   })
 
