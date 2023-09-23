@@ -17,11 +17,12 @@ type keyType int
 // Secret types.
 const (
 	Unset keyType = iota
+	Command
 	Config
 	EnvVar
-	Command
-	Value
+	File
 	Keychain
+	Value
 	Vault
 )
 
@@ -60,6 +61,9 @@ func (s *Secret) Set(value string) error {
 	case strings.HasPrefix(value, "vault:"):
 		s.Type = Vault
 		s.Input = value[len("vault:"):]
+	case strings.HasPrefix(value, "file:"):
+		s.Type = File
+		s.Input = value[len("file:"):]
 	case strings.HasPrefix(value, "plaintext:"):
 		s.Type = Value
 		s.Value = value[len("plaintext:"):]
@@ -99,6 +103,13 @@ func (s *Secret) Evaluate(encryptedToken *EncryptedToken, password string) error
 		if s.Value == "" {
 			err = errors.New("Failed to find env variable")
 		}
+	case File:
+		var body []byte
+
+		body, err = os.ReadFile(s.Input)
+		if err != nil {
+			s.Value = string(body)
+		}
 	case Command:
 		var res []byte
 
@@ -116,6 +127,12 @@ func (s *Secret) Evaluate(encryptedToken *EncryptedToken, password string) error
 		err = errors.New("Keychain keys are not yet supported")
 	default:
 		return nil
+	}
+
+	if err != nil {
+		s.Value = ""
+	} else {
+		s.Value = strings.TrimSpace(s.Value)
 	}
 
 	return err

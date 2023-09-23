@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
 
 	"github.com/pkg/errors"
 	"golang.org/x/term"
@@ -74,7 +73,7 @@ func (c *App) getPasswordFromFlags(ctx context.Context, isCreate, allowPersisten
 		// password provided via --password flag or KOPIA_PASSWORD environment variable
 		_ = c.password.Evaluate(nil, "")
 
-		return strings.TrimSpace(c.password.String()), nil
+		return c.password.String(), nil
 	case isCreate:
 		// this is a new repository, ask for password
 		return askForNewRepositoryPassword(c.stdoutWriter)
