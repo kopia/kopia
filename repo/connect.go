@@ -58,12 +58,10 @@ func Connect(ctx context.Context, configFile string, st blob.Storage, password s
 		return errors.Wrap(err, "unable to set up caching")
 	}
 
-	err = secrets.EvaluateSecrets(ctx, lc, nil, password)
+	err = secrets.EvaluateSecrets(lc, &lc.SecretToken, password)
 	if err != nil {
 		return errors.Wrap(err, "Unable to evaluate secrets")
 	}
-
-	lc.SecretToken = secrets.GetToken(ctx, password)
 
 	if err := lc.writeToFile(configFile); err != nil {
 		return errors.Wrap(err, "unable to write config file")

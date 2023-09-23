@@ -121,7 +121,7 @@ func Open(ctx context.Context, configFile, password string, options *Options) (r
 		return nil, err
 	}
 
-	err = secrets.EvaluateSecrets(ctx, lc, lc.SecretToken, password)
+	err = secrets.EvaluateSecrets(lc, &lc.SecretToken, password)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to evaluate secrets")
 	}

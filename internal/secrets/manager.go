@@ -4,42 +4,23 @@ package secrets
 // Context manager to hold globally accessible EncryptedToken.
 
 import (
-	"context"
 	"reflect"
-
-	"github.com/pkg/errors"
 )
 
-type secretKey string
-
-const secretCtxKey secretKey = "secretManager"
-
-// Manager holds a context for the EncryptedToken.
-type secretsManager struct {
-	Token *EncryptedToken
-}
-
-// WithManager returns a derived context with associated manager.
-func WithManager(ctx context.Context) context.Context {
-	mgr := secretsManager{}
-	return context.WithValue(ctx, secretCtxKey, &mgr)
-}
-
 // EvaluateSecrets will use reflect to locate all *Secret items within the 'search' interface and evaluate each value.
-func EvaluateSecrets(ctx context.Context, search interface{}, encryptedToken *EncryptedToken, password string) error {
-	mgr := secretsManagerFromContext(ctx)
-	if mgr == nil {
-		return errors.New("Context does not contain a secretsManager")
-	}
+func EvaluateSecrets(search interface{}, encryptedToken **EncryptedToken, password string) error {
+	var token *EncryptedToken
 
-	if encryptedToken != nil {
-		mgr.Token = encryptedToken
+	var err error
+
+	if *encryptedToken != nil {
+		token = *encryptedToken
 	} else {
-		token, err := CreateToken(password)
+		token, err = CreateToken(password)
 		if err != nil {
 			return err
 		}
-		mgr.Token = token
+		*encryptedToken = token
 	}
 
 	found := make(chan *Secret)
@@ -47,36 +28,10 @@ func EvaluateSecrets(ctx context.Context, search interface{}, encryptedToken *En
 	go wrapFindSecretElements(search, found)
 
 	for secret := range found {
-		secret.Evaluate(mgr.Token, password) //nolint:errcheck
+		secret.Evaluate(token, password) //nolint:errcheck
 	}
 
 	return nil
-}
-
-// GetToken will return the EncryptedToken from the context manager.
-func GetToken(ctx context.Context, password string) *EncryptedToken {
-	mgr := secretsManagerFromContext(ctx)
-	if mgr == nil {
-		return nil
-	}
-
-	if mgr.Token == nil && password != "" {
-		token, err := CreateToken(password)
-		if err == nil {
-			mgr.Token = token
-		}
-	}
-
-	return mgr.Token
-}
-
-func secretsManagerFromContext(ctx context.Context) *secretsManager {
-	v := ctx.Value(secretCtxKey)
-	if v == nil {
-		return nil
-	}
-
-	return v.(*secretsManager) //nolint:forcetypeassert
 }
 
 func wrapFindSecretElements(data interface{}, found chan *Secret) {
