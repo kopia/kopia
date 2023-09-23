@@ -229,15 +229,15 @@ func TestNextSnapshotTime(t *testing.T) {
 				RunMissed:  policy.NewOptionalBool(true),
 			},
 			now:                  time.Date(2020, time.January, 3, 11, 30, 0, 0, time.Local),
-			previousSnapshotTime: time.Date(2020, time.January, 1, 11, 54, 0, 0, time.Local),
-			wantTime:             time.Date(2020, time.January, 3, 11, 54, 0, 0, time.Local),
+			previousSnapshotTime: time.Date(2020, time.January, 1, 11, 55, 0, 0, time.Local),
+			wantTime:             time.Date(2020, time.January, 3, 11, 55, 0, 0, time.Local),
 			wantOK:               true,
 		},
 		{
 			name: "Run immediately because one of the TimeOfDays was missed",
 			pol: policy.SchedulingPolicy{
 				TimesOfDay: []policy.TimeOfDay{{11, 1}, {4, 1}},
-				RunMissed:  true,
+				RunMissed:  policy.NewOptionalBool(true),
 			},
 			now:                  time.Date(2020, time.January, 2, 10, 0, 0, 0, time.Local),
 			previousSnapshotTime: time.Date(2020, time.January, 1, 11, 1, 0, 0, time.Local),
@@ -271,7 +271,7 @@ func TestNextSnapshotTime(t *testing.T) {
 			pol: policy.SchedulingPolicy{
 				TimesOfDay: []policy.TimeOfDay{{11, 55}},
 				Cron:       []string{"0 * * * *"}, // Every hour
-				RunMissed:  true,
+				RunMissed:  policy.NewOptionalBool(true),
 			},
 			now:                  time.Date(2020, time.January, 2, 11, 0, 0, 0, time.Local),
 			previousSnapshotTime: time.Date(2020, time.January, 1, 11, 55, 0, 0, time.Local),
