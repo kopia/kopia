@@ -451,6 +451,18 @@ func TestSetSchedulingPolicyFromFlags(t *testing.T) {
 			},
 			expChangeCount: 0,
 		},
+		{
+			name: "Set global manual",
+			startingPolicy: &policy.SchedulingPolicy{
+				RunMissed: policy.NewOptionalBool(true),
+			},
+			expResult: &policy.SchedulingPolicy{
+				Manual:    true,
+				RunMissed: policy.NewOptionalBool(true),
+			},
+			manualArg:      true,
+			expChangeCount: 1,
+		},
 	} {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
@@ -471,6 +483,7 @@ func TestSetSchedulingPolicyFromFlags(t *testing.T) {
 			}
 
 			require.NoError(t, err)
+			require.NoError(t, policy.ValidateSchedulingPolicy(*tc.startingPolicy))
 			require.Equal(t, tc.expResult, tc.startingPolicy)
 			require.Equal(t, tc.expChangeCount, changeCount)
 		})

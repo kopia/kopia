@@ -223,7 +223,7 @@ func SetManual(ctx context.Context, rep repo.RepositoryWriter, sourceInfo snapsh
 
 // ValidateSchedulingPolicy returns an error if manual field is set along with scheduling fields.
 func ValidateSchedulingPolicy(p SchedulingPolicy) error {
-	if p.Manual && !reflect.DeepEqual(p, SchedulingPolicy{Manual: true}) {
+	if p.Manual && !reflect.DeepEqual(p, SchedulingPolicy{Manual: true, RunMissed: p.RunMissed}) {
 		return errors.New("invalid scheduling policy: manual cannot be combined with other scheduling policies")
 	}
 
