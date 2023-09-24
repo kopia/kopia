@@ -325,7 +325,11 @@ func appendSchedulingPolicyRows(rows []policyTableRow, p *policy.Policy, def *po
 		rows = append(rows, policyTableRow{"    None.", "", ""})
 	}
 
-	rows = append(rows, policyTableRow{"  Manual snapshot:", boolToString(p.SchedulingPolicy.Manual), definitionPointToString(p.Target(), def.SchedulingPolicy.Manual)})
+	rows = append(rows, policyTableRow{
+		"  Manual snapshot:",
+		boolToString(p.SchedulingPolicy.Manual.OrDefault(false)),
+		definitionPointToString(p.Target(), def.SchedulingPolicy.Manual),
+	})
 
 	return rows
 }

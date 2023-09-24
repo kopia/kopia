@@ -564,7 +564,7 @@ func TestSnapshotCreateAllWithManualSnapshot(t *testing.T) {
 	sourceSnapshotCount := len(e.RunAndExpectSuccess(t, "snapshot", "list", "-a"))
 
 	// set manual field in the scheduling policy for `sharedTestDataDir1`
-	e.RunAndExpectSuccess(t, "policy", "set", "--manual", sharedTestDataDir1)
+	e.RunAndExpectSuccess(t, "policy", "set", "--manual=true", sharedTestDataDir1)
 
 	// make sure the policy is visible in the policy list, includes global policy
 	e.RunAndVerifyOutputLineCount(t, 2, "policy", "list")
@@ -757,7 +757,7 @@ func TestSnapshotCreateAllSnapshotPath(t *testing.T) {
 	// all non-global policies should be manual
 	for _, p := range plist {
 		if (p.Target != snapshot.SourceInfo{}) {
-			require.True(t, p.Policy.SchedulingPolicy.Manual)
+			require.True(t, p.Policy.SchedulingPolicy.Manual.OrDefault(false))
 		}
 	}
 
