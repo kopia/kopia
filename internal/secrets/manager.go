@@ -8,19 +8,19 @@ import (
 )
 
 // EvaluateSecrets will use reflect to locate all *Secret items within the 'search' interface and evaluate each value.
-func EvaluateSecrets(search interface{}, encryptedToken **EncryptedToken, password string) error {
-	var token *EncryptedToken
+func EvaluateSecrets(search interface{}, signingKeyPtr **EncryptedToken, password string) error {
+	var signingKey *EncryptedToken
 
 	var err error
 
-	if *encryptedToken != nil {
-		token = *encryptedToken
+	if *signingKeyPtr != nil {
+		signingKey = *signingKeyPtr
 	} else {
-		token, err = CreateToken(password)
+		signingKey, err = CreateSigningKey(password)
 		if err != nil {
 			return err
 		}
-		*encryptedToken = token
+		*signingKeyPtr = signingKey
 	}
 
 	found := make(chan *Secret)
@@ -28,7 +28,7 @@ func EvaluateSecrets(search interface{}, encryptedToken **EncryptedToken, passwo
 	go wrapFindSecretElements(search, found)
 
 	for secret := range found {
-		secret.Evaluate(token, password) //nolint:errcheck
+		secret.Evaluate(signingKey, password) //nolint:errcheck
 	}
 
 	return nil
@@ -54,15 +54,19 @@ func findSecretElements(data interface{}, found chan *Secret) {
 	case reflect.Struct:
 		value := reflect.ValueOf(data)
 		for i := 0; i < value.NumField(); i++ {
-			field := value.Field(i).Interface()
-			findSecretElements(field, found)
+			field := value.Field(i)
+			if field.CanInterface() {
+				findSecretElements(field.Interface(), found)
+			}
 		}
 	case reflect.Slice:
 		value := reflect.ValueOf(data)
 
 		for i := 0; i < value.Len(); i++ {
-			element := value.Index(i).Interface()
-			findSecretElements(element, found)
+			element := value.Index(i)
+			if element.CanInterface() {
+				findSecretElements(element.Interface(), found)
+			}
 		}
 	case reflect.Ptr:
 		value := reflect.ValueOf(data)

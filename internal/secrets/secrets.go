@@ -7,9 +7,9 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/alecthomas/kingpin/v2"
-	"github.com/fernet/fernet-go"
 	"github.com/pkg/errors"
+
+	"github.com/alecthomas/kingpin/v2"
 )
 
 type keyType int
@@ -192,38 +192,26 @@ func SecretVarWithEnv(s kingpin.Settings, envvar string, target **Secret) {
 }
 
 // decrypt a Secret with the signing key and password.
-func (s *Secret) decrypt(encryptedToken *EncryptedToken, encrypted, password string) (string, error) {
-	// Convert EncryptedToken + pasword to sigining key
-	key, err := encryptedToken.signingKey(password)
-	if err != nil {
-		return "", errors.Wrap(err, "Failed to get signing key")
-	}
-
+func (s *Secret) decrypt(signingKey *EncryptedToken, encrypted, password string) (string, error) {
 	encbytes, err := hex.DecodeString(encrypted)
 	if err != nil {
 		return "", errors.Wrap(err, "Failed to decode hex password")
 	}
 
-	data := fernet.VerifyAndDecrypt(encbytes, 0, []*fernet.Key{key})
-	if data == nil {
-		return "", errors.New("Failed to decrypt data")
+	data, err := signingKey.Decrypt(encbytes, password)
+	if err != nil {
+		return "", errors.Wrap(err, "Failed to decrypt data")
 	}
 
 	return string(data), nil
 }
 
 // encrypt a Secret with the signing key and password.
-func (s *Secret) encrypt(encryptedToken *EncryptedToken, decrypted, password string) (string, error) {
-	// Convert EncryptedToken + pasword to sigining key
-	key, err := encryptedToken.signingKey(password)
-	if err != nil {
-		return "", errors.Wrap(err, "Failed to get signing key")
-	}
-
+func (s *Secret) encrypt(signingKey *EncryptedToken, decrypted, password string) (string, error) {
 	// Encrypt data with sigining key
-	data, err := fernet.EncryptAndSign([]byte(decrypted), key)
+	data, err := signingKey.Encrypt([]byte(decrypted), password)
 	if err != nil {
-		return "", errors.Wrap(err, "Failed to encrypt the signining key")
+		return "", errors.Wrap(err, "Failed to encrypt the secret")
 	}
 
 	// Return hexified version of encrypted data
