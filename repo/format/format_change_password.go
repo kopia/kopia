@@ -8,9 +8,13 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 )
 
+type changePasswordCallback interface {
+	UpdateSigningKey(string, string) error
+}
+
 // ChangePassword changes the repository password and rewrites
 // `kopia.repository` & `kopia.blobcfg`.
-func (m *Manager) ChangePassword(ctx context.Context, newPassword string) error {
+func (m *Manager) ChangePassword(ctx context.Context, newPassword string, callback changePasswordCallback) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -23,6 +27,7 @@ func (m *Manager) ChangePassword(ctx context.Context, newPassword string) error 
 		return errors.Wrap(err, "unable to derive master key")
 	}
 
+	oldPassword := m.password
 	m.formatEncryptionKey = newFormatEncryptionKey
 	m.password = newPassword
 
@@ -36,6 +41,10 @@ func (m *Manager) ChangePassword(ctx context.Context, newPassword string) error 
 
 	if err := m.j.WriteKopiaRepositoryBlob(ctx, m.blobs, m.blobCfgBlob); err != nil {
 		return errors.Wrap(err, "unable to write format blob")
+	}
+
+	if err := callback.UpdateSigningKey(oldPassword, newPassword); err != nil {
+		return errors.Wrap(err, "unable to update config signing key")
 	}
 
 	m.cache.Remove(ctx, []blob.ID{KopiaRepositoryBlobID, KopiaBlobCfgBlobID})

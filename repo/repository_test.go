@@ -411,7 +411,7 @@ func TestInitializeWithBlobCfgRetentionBlob(t *testing.T) {
 
 	// verify that the blobcfg retention blob is created
 	require.NoError(t, env.RepositoryWriter.BlobStorage().GetBlob(ctx, format.KopiaBlobCfgBlobID, 0, -1, &d))
-	require.NoError(t, env.RepositoryWriter.FormatManager().ChangePassword(ctx, "new-password"))
+	require.NoError(t, env.RepositoryWriter.FormatManager().ChangePassword(ctx, "new-password", env.RepositoryWriter))
 	// verify that the blobcfg retention blob is created and is different after
 	// password-change
 	require.NoError(t, env.RepositoryWriter.BlobStorage().GetBlob(ctx, format.KopiaBlobCfgBlobID, 0, -1, &d))
@@ -758,9 +758,9 @@ func (s *formatSpecificTestSuite) TestWriteSessionFlushOnFailure(t *testing.T) {
 func (s *formatSpecificTestSuite) TestChangePassword(t *testing.T) {
 	ctx, env := repotesting.NewEnvironment(t, s.formatVersion)
 	if s.formatVersion == format.FormatVersion1 {
-		require.Error(t, env.RepositoryWriter.FormatManager().ChangePassword(ctx, "new-password"))
+		require.Error(t, env.RepositoryWriter.FormatManager().ChangePassword(ctx, "new-password", env.RepositoryWriter))
 	} else {
-		require.NoError(t, env.RepositoryWriter.FormatManager().ChangePassword(ctx, "new-password"))
+		require.NoError(t, env.RepositoryWriter.FormatManager().ChangePassword(ctx, "new-password", env.RepositoryWriter))
 
 		r, err := repo.Open(ctx, env.RepositoryWriter.ConfigFilename(), "new-password", nil)
 		require.NoError(t, err)
