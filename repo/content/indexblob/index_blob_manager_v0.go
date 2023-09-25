@@ -564,8 +564,8 @@ func addIndexBlobsToBuilder(ctx context.Context, enc *EncryptionManager, bld ind
 		return errors.Wrapf(err, "unable to open index blob %q", indexBlobID)
 	}
 
-	_ = ndx.Iterate(index.AllIDs, func(i index.Info) error {
-		bld.Add(i)
+	_ = ndx.Iterate(index.AllIDs, func(i index.InfoReader) error {
+		bld.Add(index.ToInfoStruct(i))
 		return nil
 	})
 

@@ -66,20 +66,20 @@ func (c *committedContentIndex) getContent(contentID ID) (Info, error) {
 	info, err := c.merged.GetInfo(contentID)
 	if info != nil {
 		if shouldIgnore(info, c.deletionWatermark) {
-			return nil, ErrContentNotFound
+			return index.InfoStruct{}, ErrContentNotFound
 		}
 
-		return info, nil
+		return index.ToInfoStruct(info), nil
 	}
 
 	if err == nil {
-		return nil, ErrContentNotFound
+		return index.InfoStruct{}, ErrContentNotFound
 	}
 
-	return nil, errors.Wrap(err, "error getting content info from index")
+	return index.InfoStruct{}, errors.Wrap(err, "error getting content info from index")
 }
 
-func shouldIgnore(id Info, deletionWatermark time.Time) bool {
+func shouldIgnore(id index.InfoReader, deletionWatermark time.Time) bool {
 	if !id.GetDeleted() {
 		return false
 	}
@@ -131,12 +131,12 @@ func (c *committedContentIndex) listContents(r IDRange, cb func(i Info) error) e
 	c.mu.RUnlock()
 
 	//nolint:wrapcheck
-	return m.Iterate(r, func(i Info) error {
+	return m.Iterate(r, func(i index.InfoReader) error {
 		if shouldIgnore(i, deletionWatermark) {
 			return nil
 		}
 
-		return cb(i)
+		return cb(index.ToInfoStruct(i))
 	})
 }
 
@@ -257,8 +257,8 @@ func (c *committedContentIndex) combineSmallIndexes(m index.Merged) (index.Merge
 	b := index.Builder{}
 
 	for _, ndx := range toMerge {
-		if err := ndx.Iterate(index.AllIDs, func(i Info) error {
-			b.Add(i)
+		if err := ndx.Iterate(index.AllIDs, func(i index.InfoReader) error {
+			b.Add(index.ToInfoStruct(i))
 			return nil
 		}); err != nil {
 			return nil, errors.Wrap(err, "unable to iterate index entries")

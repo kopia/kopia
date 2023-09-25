@@ -106,7 +106,7 @@ func (e indexEntryInfoV1) GetEncryptionKeyID() byte {
 	return 0
 }
 
-var _ Info = indexEntryInfoV1{}
+var _ InfoReader = indexEntryInfoV1{}
 
 type indexV1 struct {
 	hdr    v1HeaderInfo
@@ -125,7 +125,7 @@ func (b *indexV1) ApproximateCount() int {
 // Iterate invokes the provided callback function for a range of contents in the index, sorted alphabetically.
 // The iteration ends when the callback returns an error, which is propagated to the caller or when
 // all contents have been visited.
-func (b *indexV1) Iterate(r IDRange, cb func(Info) error) error {
+func (b *indexV1) Iterate(r IDRange, cb func(InfoReader) error) error {
 	startPos, err := b.findEntryPosition(r.StartID)
 	if err != nil {
 		return errors.Wrap(err, "could not find starting position")
@@ -241,7 +241,7 @@ func (b *indexV1) findEntry(output []byte, contentID ID) ([]byte, error) {
 }
 
 // GetInfo returns information about a given content. If a content is not found, nil is returned.
-func (b *indexV1) GetInfo(contentID ID) (Info, error) {
+func (b *indexV1) GetInfo(contentID ID) (InfoReader, error) {
 	var entryBuf [v1MaxEntrySize]byte
 
 	e, err := b.findEntry(entryBuf[:0], contentID)
@@ -256,7 +256,7 @@ func (b *indexV1) GetInfo(contentID ID) (Info, error) {
 	return b.entryToInfo(contentID, e)
 }
 
-func (b *indexV1) entryToInfo(contentID ID, entryData []byte) (Info, error) {
+func (b *indexV1) entryToInfo(contentID ID, entryData []byte) (InfoReader, error) {
 	if len(entryData) != v1EntryLength {
 		return nil, errors.Errorf("invalid entry length: %v", len(entryData))
 	}
@@ -323,7 +323,7 @@ func (b Builder) buildV1(output io.Writer) error {
 	return errors.Wrap(w.Flush(), "error flushing index")
 }
 
-func (b *indexBuilderV1) prepareExtraData(allContents []Info) []byte {
+func (b *indexBuilderV1) prepareExtraData(allContents []InfoStruct) []byte {
 	var extraData []byte
 
 	var hashBuf [maxContentIDSize]byte
@@ -346,7 +346,7 @@ func (b *indexBuilderV1) prepareExtraData(allContents []Info) []byte {
 	return extraData
 }
 
-func (b *indexBuilderV1) writeEntry(w io.Writer, it Info, entry []byte) error {
+func (b *indexBuilderV1) writeEntry(w io.Writer, it InfoStruct, entry []byte) error {
 	var hashBuf [maxContentIDSize]byte
 
 	k := contentIDToBytes(hashBuf[:0], it.GetContentID())
@@ -378,7 +378,7 @@ func (b *indexBuilderV1) writeEntry(w io.Writer, it Info, entry []byte) error {
 	return nil
 }
 
-func (b *indexBuilderV1) formatEntry(entry []byte, it Info) error {
+func (b *indexBuilderV1) formatEntry(entry []byte, it InfoStruct) error {
 	entryTimestampAndFlags := entry[0:8]
 	entryPackFileOffset := entry[8:12]
 	entryPackedOffset := entry[12:16]

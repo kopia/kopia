@@ -7,10 +7,10 @@ import (
 	"github.com/kopia/kopia/repo/compression"
 )
 
-// Info is an information about a single piece of content managed by Manager.
+// InfoReader is an information about a single piece of content managed by Manager.
 //
 //nolint:interfacebloat
-type Info interface {
+type InfoReader interface {
 	GetContentID() ID
 	GetPackBlobID() blob.ID
 	GetTimestampSeconds() int64
@@ -39,47 +39,43 @@ type InfoStruct struct {
 }
 
 // GetContentID implements the Info interface.
-func (i *InfoStruct) GetContentID() ID { return i.ContentID }
+func (i InfoStruct) GetContentID() ID { return i.ContentID }
 
 // GetPackBlobID implements the Info interface.
-func (i *InfoStruct) GetPackBlobID() blob.ID { return i.PackBlobID }
+func (i InfoStruct) GetPackBlobID() blob.ID { return i.PackBlobID }
 
 // GetTimestampSeconds implements the Info interface.
-func (i *InfoStruct) GetTimestampSeconds() int64 { return i.TimestampSeconds }
+func (i InfoStruct) GetTimestampSeconds() int64 { return i.TimestampSeconds }
 
 // GetOriginalLength implements the Info interface.
-func (i *InfoStruct) GetOriginalLength() uint32 { return i.OriginalLength }
+func (i InfoStruct) GetOriginalLength() uint32 { return i.OriginalLength }
 
 // GetPackedLength implements the Info interface.
-func (i *InfoStruct) GetPackedLength() uint32 { return i.PackedLength }
+func (i InfoStruct) GetPackedLength() uint32 { return i.PackedLength }
 
 // GetPackOffset implements the Info interface.
-func (i *InfoStruct) GetPackOffset() uint32 { return i.PackOffset }
+func (i InfoStruct) GetPackOffset() uint32 { return i.PackOffset }
 
 // GetDeleted implements the Info interface.
-func (i *InfoStruct) GetDeleted() bool { return i.Deleted }
+func (i InfoStruct) GetDeleted() bool { return i.Deleted }
 
 // GetFormatVersion implements the Info interface.
-func (i *InfoStruct) GetFormatVersion() byte { return i.FormatVersion }
+func (i InfoStruct) GetFormatVersion() byte { return i.FormatVersion }
 
 // GetCompressionHeaderID implements the Info interface.
-func (i *InfoStruct) GetCompressionHeaderID() compression.HeaderID { return i.CompressionHeaderID }
+func (i InfoStruct) GetCompressionHeaderID() compression.HeaderID { return i.CompressionHeaderID }
 
 // GetEncryptionKeyID implements the Info interface.
-func (i *InfoStruct) GetEncryptionKeyID() byte { return i.EncryptionKeyID }
+func (i InfoStruct) GetEncryptionKeyID() byte { return i.EncryptionKeyID }
 
 // Timestamp implements the Info interface.
-func (i *InfoStruct) Timestamp() time.Time {
+func (i InfoStruct) Timestamp() time.Time {
 	return time.Unix(i.GetTimestampSeconds(), 0)
 }
 
-// ToInfoStruct converts the provided Info to *InfoStruct.
-func ToInfoStruct(i Info) *InfoStruct {
-	if is, ok := i.(*InfoStruct); ok {
-		return is
-	}
-
-	return &InfoStruct{
+// ToInfoStruct converts the provided Info to InfoStruct.
+func ToInfoStruct(i InfoReader) InfoStruct {
+	return InfoStruct{
 		ContentID:           i.GetContentID(),
 		PackBlobID:          i.GetPackBlobID(),
 		TimestampSeconds:    i.GetTimestampSeconds(),

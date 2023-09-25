@@ -109,10 +109,10 @@ func TestPackIndex_V2(t *testing.T) {
 
 //nolint:thelper,gocyclo,cyclop
 func testPackIndex(t *testing.T, version int) {
-	var infos []Info
+	var infos []InfoStruct
 	// deleted contents with all information
 	for i := 0; i < 100; i++ {
-		infos = append(infos, &InfoStruct{
+		infos = append(infos, InfoStruct{
 			TimestampSeconds:    randomUnixTime(),
 			Deleted:             true,
 			ContentID:           deterministicContentID(t, "deleted-packed", i),
@@ -127,7 +127,7 @@ func testPackIndex(t *testing.T, version int) {
 	}
 	// non-deleted content
 	for i := 0; i < 100; i++ {
-		infos = append(infos, &InfoStruct{
+		infos = append(infos, InfoStruct{
 			TimestampSeconds:    randomUnixTime(),
 			ContentID:           deterministicContentID(t, "packed", i),
 			PackBlobID:          deterministicPackBlobID(i),
@@ -142,11 +142,11 @@ func testPackIndex(t *testing.T, version int) {
 
 	// dear future reader, if this fails because the number of methods has changed,
 	// you need to add additional test cases above.
-	if cnt := reflect.TypeOf((*Info)(nil)).Elem().NumMethod(); cnt != 11 {
+	if cnt := reflect.TypeOf((*InfoReader)(nil)).Elem().NumMethod(); cnt != 11 {
 		t.Fatalf("unexpected number of methods on content.Info: %v, must update the test", cnt)
 	}
 
-	infoMap := map[ID]Info{}
+	infoMap := map[ID]InfoStruct{}
 	b1 := make(Builder)
 	b2 := make(Builder)
 	b3 := make(Builder)
@@ -202,22 +202,22 @@ func testPackIndex(t *testing.T, version int) {
 
 		if version == 1 {
 			// v1 does not preserve original length.
-			want = withOriginalLength{want, want.GetPackedLength() - fakeEncryptionOverhead}
+			want = withOriginalLength(want, want.GetPackedLength()-fakeEncryptionOverhead)
 		}
 
-		require.Equal(t, ToInfoStruct(want), ToInfoStruct(info2))
+		require.Equal(t, want, ToInfoStruct(info2))
 	}
 
 	cnt := 0
 
-	require.NoError(t, ndx.Iterate(AllIDs, func(info2 Info) error {
+	require.NoError(t, ndx.Iterate(AllIDs, func(info2 InfoReader) error {
 		want := infoMap[info2.GetContentID()]
 		if version == 1 {
 			// v1 does not preserve original length.
-			want = withOriginalLength{want, want.GetPackedLength() - fakeEncryptionOverhead}
+			want = withOriginalLength(want, want.GetPackedLength()-fakeEncryptionOverhead)
 		}
 
-		require.Equal(t, ToInfoStruct(want), ToInfoStruct(info2))
+		require.Equal(t, want, ToInfoStruct(info2))
 		cnt++
 		return nil
 	}))
@@ -244,7 +244,7 @@ func testPackIndex(t *testing.T, version int) {
 	for _, prefix := range prefixes {
 		cnt2 := 0
 		prefix := prefix
-		require.NoError(t, ndx.Iterate(PrefixRange(prefix), func(info2 Info) error {
+		require.NoError(t, ndx.Iterate(PrefixRange(prefix), func(info2 InfoReader) error {
 			cnt2++
 			if !strings.HasPrefix(info2.GetContentID().String(), string(prefix)) {
 				t.Errorf("unexpected item %v when iterating prefix %v", info2.GetContentID(), prefix)
@@ -257,15 +257,15 @@ func testPackIndex(t *testing.T, version int) {
 
 func TestPackIndexPerContentLimits(t *testing.T) {
 	cases := []struct {
-		info   *InfoStruct
+		info   InfoStruct
 		errMsg string
 	}{
-		{&InfoStruct{PackedLength: v2MaxContentLength}, "maximum content length is too high"},
-		{&InfoStruct{PackedLength: v2MaxContentLength - 1}, ""},
-		{&InfoStruct{OriginalLength: v2MaxContentLength}, "maximum content length is too high"},
-		{&InfoStruct{OriginalLength: v2MaxContentLength - 1}, ""},
-		{&InfoStruct{PackOffset: v2MaxPackOffset}, "pack offset 1073741824 is too high"},
-		{&InfoStruct{PackOffset: v2MaxPackOffset - 1}, ""},
+		{InfoStruct{PackedLength: v2MaxContentLength}, "maximum content length is too high"},
+		{InfoStruct{PackedLength: v2MaxContentLength - 1}, ""},
+		{InfoStruct{OriginalLength: v2MaxContentLength}, "maximum content length is too high"},
+		{InfoStruct{OriginalLength: v2MaxContentLength - 1}, ""},
+		{InfoStruct{PackOffset: v2MaxPackOffset}, "pack offset 1073741824 is too high"},
+		{InfoStruct{PackOffset: v2MaxPackOffset - 1}, ""},
 	}
 
 	for _, tc := range cases {
@@ -287,7 +287,7 @@ func TestPackIndexPerContentLimits(t *testing.T) {
 			got, err := pi.GetInfo(cid)
 			require.NoError(t, err)
 
-			require.Equal(t, ToInfoStruct(got), ToInfoStruct(tc.info))
+			require.Equal(t, ToInfoStruct(got), tc.info)
 		} else {
 			err := b.buildV2(&result)
 			require.Error(t, err)
@@ -302,7 +302,7 @@ func TestSortedContents(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		v := deterministicContentID(t, "", i)
 
-		b.Add(&InfoStruct{
+		b.Add(InfoStruct{
 			ContentID: v,
 		})
 	}
@@ -322,34 +322,34 @@ func TestSortedContents(t *testing.T) {
 func TestSortedContents2(t *testing.T) {
 	b := Builder{}
 
-	b.Add(&InfoStruct{
+	b.Add(InfoStruct{
 		ContentID: mustParseID(t, "0123"),
 	})
-	b.Add(&InfoStruct{
+	b.Add(InfoStruct{
 		ContentID: mustParseID(t, "1023"),
 	})
-	b.Add(&InfoStruct{
+	b.Add(InfoStruct{
 		ContentID: mustParseID(t, "0f23"),
 	})
-	b.Add(&InfoStruct{
+	b.Add(InfoStruct{
 		ContentID: mustParseID(t, "f023"),
 	})
-	b.Add(&InfoStruct{
+	b.Add(InfoStruct{
 		ContentID: mustParseID(t, "g0123"),
 	})
-	b.Add(&InfoStruct{
+	b.Add(InfoStruct{
 		ContentID: mustParseID(t, "g1023"),
 	})
-	b.Add(&InfoStruct{
+	b.Add(InfoStruct{
 		ContentID: mustParseID(t, "i0123"),
 	})
-	b.Add(&InfoStruct{
+	b.Add(InfoStruct{
 		ContentID: mustParseID(t, "i1023"),
 	})
-	b.Add(&InfoStruct{
+	b.Add(InfoStruct{
 		ContentID: mustParseID(t, "h0123"),
 	})
-	b.Add(&InfoStruct{
+	b.Add(InfoStruct{
 		ContentID: mustParseID(t, "h1023"),
 	})
 
@@ -372,7 +372,7 @@ func TestPackIndexV2TooManyUniqueFormats(t *testing.T) {
 	for i := 0; i < v2MaxFormatCount; i++ {
 		v := deterministicContentID(t, "", i)
 
-		b.Add(&InfoStruct{
+		b.Add(InfoStruct{
 			ContentID:           v,
 			PackBlobID:          blob.ID(v.String()),
 			FormatVersion:       1,
@@ -383,7 +383,7 @@ func TestPackIndexV2TooManyUniqueFormats(t *testing.T) {
 	require.NoError(t, b.buildV2(io.Discard))
 
 	// add one more to push it over the edge
-	b.Add(&InfoStruct{
+	b.Add(InfoStruct{
 		ContentID:           deterministicContentID(t, "", v2MaxFormatCount),
 		FormatVersion:       1,
 		CompressionHeaderID: compression.HeaderID(5000),
@@ -404,7 +404,7 @@ func fuzzTestIndexOpen(originalData []byte) {
 			return
 		}
 		cnt := 0
-		_ = ndx.Iterate(AllIDs, func(cb Info) error {
+		_ = ndx.Iterate(AllIDs, func(cb InfoReader) error {
 			if cnt < 10 {
 				_, _ = ndx.GetInfo(cb.GetContentID())
 			}
@@ -466,7 +466,7 @@ func TestShard(t *testing.T) {
 
 	// add ID to the builder
 	for _, id := range ids {
-		b.Add(&InfoStruct{
+		b.Add(InfoStruct{
 			ContentID: deterministicContentID(t, "", id),
 		})
 	}
@@ -516,13 +516,11 @@ func verifyAllShardedIDs(t *testing.T, sharded []Builder, numTotal, numShards in
 	return lens
 }
 
-type withOriginalLength struct {
-	Info
-	originalLength uint32
-}
+func withOriginalLength(is InfoStruct, originalLength uint32) InfoStruct {
+	// clone and override original length
+	is.OriginalLength = originalLength
 
-func (o withOriginalLength) GetOriginalLength() uint32 {
-	return o.originalLength
+	return is
 }
 
 func mustParseID(t *testing.T, s string) ID {
