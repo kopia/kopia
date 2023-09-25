@@ -183,6 +183,11 @@ func (c *commandRepositoryStatus) run(ctx context.Context, rep repo.Repository) 
 	c.out.printStdout("Unique ID:           %x\n", dr.UniqueID())
 	c.out.printStdout("Hash:                %v\n", contentFormat.GetHashFunction())
 	c.out.printStdout("Encryption:          %v\n", contentFormat.GetEncryptionAlgorithm())
+
+	if rep.ClientOptions().SecretToken != nil {
+		c.out.printStdout("SecretAlgorithm:     %v\n", rep.ClientOptions().SecretToken.Algorithm)
+	}
+
 	c.out.printStdout("Splitter:            %v\n", dr.ObjectFormat().Splitter)
 	c.out.printStdout("Format version:      %v\n", mp.Version)
 	c.out.printStdout("Content compression: %v\n", mp.IndexVersion >= index.Version2)

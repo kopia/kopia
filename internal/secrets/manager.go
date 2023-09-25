@@ -16,11 +16,15 @@ func EvaluateSecrets(search interface{}, signingKeyPtr **EncryptedToken, passwor
 	if *signingKeyPtr != nil {
 		signingKey = *signingKeyPtr
 	} else {
-		signingKey, err = CreateSigningKey(password)
+		signingKey = NewSigningKey(DefaultAlgorithm)
+		*signingKeyPtr = signingKey
+	}
+
+	if !signingKey.IsSet {
+		err = signingKey.Create(password)
 		if err != nil {
 			return err
 		}
-		*signingKeyPtr = signingKey
 	}
 
 	found := make(chan *Secret)
