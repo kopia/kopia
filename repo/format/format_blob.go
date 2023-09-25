@@ -3,22 +3,22 @@ package format
 
 import (
 	"context"
-	"crypto/aes"
-	"crypto/cipher"
 	"crypto/hmac"
-	"crypto/rand"
 	"crypto/sha256"
 	"encoding/json"
-	"io"
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/crypto"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 )
 
 // DefaultFormatEncryption is the identifier of the default format blob encryption algorithm.
 const DefaultFormatEncryption = "AES256_GCM"
+
+// DefaultKeyDerivationAlgorithm is the key derivation algorithm for new configurations.
+const DefaultKeyDerivationAlgorithm = crypto.DefaultKeyDerivationAlgorithm
 
 const (
 	aes256GcmEncryption             = "AES256_GCM"
@@ -37,9 +37,6 @@ var ErrInvalidPassword = errors.Errorf("invalid repository password") // +checkl
 
 //nolint:gochecknoglobals
 var (
-	purposeAESKey   = []byte("AES")
-	purposeAuthData = []byte("CHECKSUM")
-
 	// formatBlobChecksumSecret is a HMAC secret used for checksumming the format content.
 	// It's not really a secret, but will provide positive identification of blocks that
 	// are repository format blocks.
@@ -71,6 +68,16 @@ func ParseKopiaRepositoryJSON(b []byte) (*KopiaRepositoryJSON, error) {
 	}
 
 	return f, nil
+}
+
+// DeriveFormatEncryptionKeyFromPassword derives encryption key using the provided password and per-repository unique ID.
+func (f *KopiaRepositoryJSON) DeriveFormatEncryptionKeyFromPassword(password string) ([]byte, error) {
+	res, err := crypto.DeriveKeyFromPassword(password, f.UniqueID, f.KeyDerivationAlgorithm)
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to derive format encryption key")
+	}
+
+	return res, nil
 }
 
 // RecoverFormatBlob attempts to recover format blob replica from the specified file.
@@ -190,65 +197,22 @@ func (f *KopiaRepositoryJSON) WriteKopiaRepositoryBlobWithID(ctx context.Context
 	return nil
 }
 
-func initCrypto(masterKey, repositoryID []byte) (cipher.AEAD, []byte, error) {
-	aesKey := DeriveKeyFromMasterKey(masterKey, repositoryID, purposeAESKey, 32)     //nolint:gomnd
-	authData := DeriveKeyFromMasterKey(masterKey, repositoryID, purposeAuthData, 32) //nolint:gomnd
-
-	blk, err := aes.NewCipher(aesKey)
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "cannot create cipher")
-	}
-
-	aead, err := cipher.NewGCM(blk)
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "cannot create cipher")
-	}
-
-	return aead, authData, nil
-}
-
 func encryptRepositoryBlobBytesAes256Gcm(data, masterKey, repositoryID []byte) ([]byte, error) {
-	aead, authData, err := initCrypto(masterKey, repositoryID)
+	res, err := crypto.EncryptAes256Gcm(data, masterKey, repositoryID)
 	if err != nil {
-		return nil, errors.Wrap(err, "unable to initialize crypto")
+		return nil, errors.Wrap(err, "Failed to encrypt blob")
 	}
 
-	nonceLength := aead.NonceSize()
-	noncePlusContentLength := nonceLength + len(data)
-	cipherText := make([]byte, noncePlusContentLength+aead.Overhead())
-
-	// Store nonce at the beginning of ciphertext.
-	nonce := cipherText[0:nonceLength]
-	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
-		return nil, errors.Wrap(err, "error reading random bytes for nonce")
-	}
-
-	b := aead.Seal(cipherText[nonceLength:nonceLength], nonce, data, authData)
-	data = nonce[0 : nonceLength+len(b)]
-
-	return data, nil
+	return res, nil
 }
 
 func decryptRepositoryBlobBytesAes256Gcm(data, masterKey, repositoryID []byte) ([]byte, error) {
-	aead, authData, err := initCrypto(masterKey, repositoryID)
+	res, err := crypto.DecryptAes256Gcm(data, masterKey, repositoryID)
 	if err != nil {
-		return nil, errors.Wrap(err, "cannot initialize cipher")
+		return nil, errors.Wrap(err, "Failed to decrypt blob")
 	}
 
-	data = append([]byte(nil), data...)
-	if len(data) < aead.NonceSize() {
-		return nil, errors.Errorf("invalid encrypted payload, too short")
-	}
-
-	nonce := data[0:aead.NonceSize()]
-	payload := data[aead.NonceSize():]
-
-	plainText, err := aead.Open(payload[:0], nonce, payload, authData)
-	if err != nil {
-		return nil, errors.Errorf("unable to decrypt repository blob, invalid credentials?")
-	}
-
-	return plainText, nil
+	return res, nil
 }
 
 func addFormatBlobChecksumAndLength(fb []byte) ([]byte, error) {
