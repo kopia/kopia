@@ -44,6 +44,11 @@ func NewSecret(value string) *Secret {
 	return &s
 }
 
+// IsSet is a helper function for checking if secrets are configured.
+func IsSet(secret *Secret) bool {
+	return secret != nil && secret.IsSet()
+}
+
 // Set will set the Secret type.
 func (s *Secret) Set(value string) error {
 	switch {
@@ -66,6 +71,10 @@ func (s *Secret) Set(value string) error {
 		s.Type = Value
 		s.Value = value[len(Value):]
 		s.Input = s.Value
+	case value == "":
+		s.Type = Unset
+		s.Input = ""
+		s.Value = ""
 	default:
 		s.Type = Value
 		s.Value = value
@@ -77,7 +86,15 @@ func (s *Secret) Set(value string) error {
 
 // IsSet returns whether a secret has been configured.
 func (s *Secret) IsSet() bool {
-	return s.Type != Unset
+	switch s.Type {
+	case Unset:
+		return false
+	case EnvVar:
+		_, isset := os.LookupEnv(s.Input)
+		return isset
+	default:
+		return true
+	}
 }
 
 // String will return the decoded version of the Secret.

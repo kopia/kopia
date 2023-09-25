@@ -23,10 +23,11 @@ func SupportedAlgorithms() []string {
 
 // EncryptedToken holds an encrypted copy of the signing key as well as the corresponding salt.
 type EncryptedToken struct { //nolint:musttag
-	key       []byte
-	salt      [8]byte
-	Algorithm string
-	IsSet     bool
+	encryptedKey []byte
+	salt         [8]byte
+	derivedKey   []byte
+	Algorithm    string
+	IsSet        bool
 }
 
 type keyStruct struct {
@@ -42,12 +43,18 @@ func NewSigningKey(algorithm string) *EncryptedToken {
 
 // String returns a string representation of the encrypted token.
 func (t *EncryptedToken) String() string {
-	return hex.EncodeToString(t.key) + "-" + hex.EncodeToString(t.salt[:])
+	return hex.EncodeToString(t.encryptedKey) + "-" + hex.EncodeToString(t.salt[:])
 }
 
 // MarshalJSON will emit an encrypted secret if the original type was Config or Value else "".
 func (t EncryptedToken) MarshalJSON() ([]byte, error) {
+	if !t.IsSet {
+		//nolint:wrapcheck
+		return json.Marshal(nil)
+	}
+
 	d := keyStruct{Key: t.String(), Algorithm: t.Algorithm}
+
 	//nolint:wrapcheck
 	return json.Marshal(d)
 }
@@ -88,41 +95,52 @@ func (t *EncryptedToken) UnmarshalJSON(b []byte) error {
 		return errors.Wrap(err, "Could not decde token from hex")
 	}
 
-	t.key = dec
+	t.encryptedKey = dec
 	t.Algorithm = d.Algorithm
 
 	return nil
 }
 
+func (t *EncryptedToken) getDerivedKey(password string) ([]byte, error) {
+	if t.derivedKey == nil {
+		// Derive 32-byte key from the password
+		key, err := crypto.DeriveKeyFromPassword(password, t.salt[:], crypto.DefaultKeyDerivationAlgorithm)
+		if err != nil {
+			return nil, errors.Wrap(err, "Failed to derive key")
+		}
+
+		t.derivedKey = key
+	}
+
+	return t.derivedKey, nil
+}
+
 // encryptKey will generate an encrypted signing key from a provided key and password.
 func (t *EncryptedToken) encryptKey(signingKey []byte, password string) error {
-	// Derive 32-byte key from the password
-	key, err := crypto.DeriveKeyFromPassword(password, t.salt[:], crypto.DefaultKeyDerivationAlgorithm)
+	key, err := t.getDerivedKey(password)
 	if err != nil {
-		return errors.Wrap(err, "Failed to derive key")
+		return err
 	}
 
 	// Decrypt the encrypted token with the derived-key to generate the signing key
-
 	encryptedKey, err := encrypt(t.Algorithm, signingKey, key, t.salt[:])
 	if err != nil {
 		return errors.Wrap(err, "Failed to decrypt signing key")
 	}
 
-	t.key = encryptedKey
+	t.encryptedKey = encryptedKey
 
 	return nil
 }
 
 func (t *EncryptedToken) signingKey(password string) ([]byte, error) {
-	// Derive 32-byte key from the password
-	key, err := crypto.DeriveKeyFromPassword(password, t.salt[:], crypto.DefaultKeyDerivationAlgorithm)
+	key, err := t.getDerivedKey(password)
 	if err != nil {
-		return nil, errors.Wrap(err, "Failed to derive key")
+		return nil, err
 	}
 
 	// Decrypt the encrypted token with the derived-key to generate the signing key
-	signingKey, err := decrypt(t.Algorithm, t.key, key, t.salt[:])
+	signingKey, err := decrypt(t.Algorithm, t.encryptedKey, key, t.salt[:])
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to decrypt signing key")
 	}

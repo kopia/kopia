@@ -121,9 +121,11 @@ func Open(ctx context.Context, configFile, password string, options *Options) (r
 		return nil, err
 	}
 
-	err = secrets.EvaluateSecrets(lc, &lc.SecretToken, password)
-	if err != nil {
-		return nil, errors.Wrap(err, "Failed to evaluate secrets")
+	if lc.Storage != nil {
+		err = secrets.EvaluateSecrets(lc.Storage.Config, &lc.SecretToken, password)
+		if err != nil {
+			return nil, errors.Wrap(err, "Failed to evaluate secrets")
+		}
 	}
 
 	if lc.PermissiveCacheLoading && !lc.ReadOnly {

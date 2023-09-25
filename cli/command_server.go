@@ -32,7 +32,7 @@ type serverFlags struct {
 func (c *serverFlags) setup(svc appServices, cmd *kingpin.CmdClause) {
 	cmd.Flag("address", "Server address").Default("http://127.0.0.1:51515").StringVar(&c.serverAddress)
 	cmd.Flag("server-username", "HTTP server username (basic auth)").Envar(svc.EnvName("KOPIA_SERVER_USERNAME")).Default("kopia").StringVar(&c.serverUsername)
-	secretVarWithEnv(cmd.Flag("server-password", "HTTP server password (basic auth)"), "KOPIA_SERVER_PASSWORD", &c.serverPassword)
+	secretVarWithEnv(cmd.Flag("server-password", "HTTP server password (basic auth)"), svc.EnvName("KOPIA_SERVER_PASSWORD"), &c.serverPassword)
 }
 
 type serverClientFlags struct {
@@ -47,7 +47,7 @@ func (c *serverClientFlags) setup(svc appServices, cmd *kingpin.CmdClause) {
 
 	cmd.Flag("address", "Address of the server to connect to").Envar(svc.EnvName("KOPIA_SERVER_ADDRESS")).Default("http://127.0.0.1:51515").StringVar(&c.serverAddress)
 	cmd.Flag("server-control-username", "Server control username").Envar(svc.EnvName("KOPIA_SERVER_USERNAME")).StringVar(&c.serverUsername)
-	secretVarWithEnv(cmd.Flag("server-control-password", "Server control password").PlaceHolder("PASSWORD"), "KOPIA_SERVER_PASSWORD", &c.serverPassword)
+	secretVarWithEnv(cmd.Flag("server-control-password", "Server control password").PlaceHolder("PASSWORD"), svc.EnvName("KOPIA_SERVER_PASSWORD"), &c.serverPassword)
 
 	// aliases for backwards compat
 	cmd.Flag("server-username", "Server control username").Hidden().StringVar(&c.serverUsername)

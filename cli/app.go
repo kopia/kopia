@@ -253,7 +253,7 @@ func (c *App) setup(app *kingpin.Application) {
 	app.Flag("config-file", "Specify the config file to use").Default("repository.config").Envar(c.EnvName("KOPIA_CONFIG_PATH")).StringVar(&c.configPath)
 	app.Flag("trace-storage", "Enables tracing of storage operations.").Default("true").Hidden().BoolVar(&c.traceStorage)
 	app.Flag("timezone", "Format time according to specified time zone (local, utc, original or time zone name)").Hidden().StringVar(&timeZone)
-	secretVarWithEnv(app.Flag("password", "Repository password.").Short('p'), "KOPIA_PASSWORD", &c.password)
+	secretVarWithEnv(app.Flag("password", "Repository password.").Short('p'), c.EnvName("KOPIA_PASSWORD"), &c.password)
 	app.Flag("persist-credentials", "Persist credentials").Default("true").Envar(c.EnvName("KOPIA_PERSIST_CREDENTIALS_ON_CONNECT")).BoolVar(&c.persistCredentials)
 	app.Flag("disable-internal-log", "Disable internal log").Hidden().Envar(c.EnvName("KOPIA_DISABLE_INTERNAL_LOG")).BoolVar(&c.disableInternalLog)
 	app.Flag("advanced-commands", "Enable advanced (and potentially dangerous) commands.").Hidden().Envar(c.EnvName("KOPIA_ADVANCED_COMMANDS")).StringVar(&c.AdvancedCommands)
