@@ -5,18 +5,19 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/secrets"
 	"github.com/kopia/kopia/repo"
 )
 
 type commandRepositoryChangePassword struct {
-	newPassword string
+	newPassword *secrets.Secret
 
 	svc advancedAppServices
 }
 
 func (c *commandRepositoryChangePassword) setup(svc advancedAppServices, parent commandParent) {
 	cmd := parent.Command("change-password", "Change repository password")
-	cmd.Flag("new-password", "New password").Envar(svc.EnvName("KOPIA_NEW_PASSWORD")).StringVar(&c.newPassword)
+	secretVarWithEnv(cmd.Flag("new-password", "New password"), "KOPIA_NEW_PASSWORD", &c.newPassword)
 
 	c.svc = svc
 	cmd.Action(svc.directRepositoryWriteAction(c.run))
@@ -25,7 +26,7 @@ func (c *commandRepositoryChangePassword) setup(svc advancedAppServices, parent 
 func (c *commandRepositoryChangePassword) run(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	var newPass string
 
-	if c.newPassword == "" {
+	if !c.newPassword.IsSet() {
 		n, err := askForChangedRepositoryPassword(c.svc.stdout())
 		if err != nil {
 			return err
@@ -33,7 +34,8 @@ func (c *commandRepositoryChangePassword) run(ctx context.Context, rep repo.Dire
 
 		newPass = n
 	} else {
-		newPass = c.newPassword
+		_ = c.newPassword.Evaluate(nil, "")
+		newPass = c.newPassword.String()
 	}
 
 	if err := rep.FormatManager().ChangePassword(ctx, newPass, rep); err != nil {

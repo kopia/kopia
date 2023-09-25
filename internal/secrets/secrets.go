@@ -8,22 +8,20 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-
-	"github.com/alecthomas/kingpin/v2"
 )
 
-type keyType int
+type keyType string
 
 // Secret types.
 const (
-	Unset keyType = iota
-	Command
-	Config
-	EnvVar
-	File
-	Keychain
-	Value
-	Vault
+	Unset    keyType = ""
+	Command  keyType = "command:"
+	Config   keyType = "config:"
+	EnvVar   keyType = "envvar:"
+	File     keyType = "file:"
+	Keychain keyType = "keychain:"
+	Value    keyType = "plaintext:"
+	Vault    keyType = "vault:"
 )
 
 // Secret holds secrets.
@@ -49,24 +47,24 @@ func NewSecret(value string) *Secret {
 // Set will set the Secret type.
 func (s *Secret) Set(value string) error {
 	switch {
-	case strings.HasPrefix(value, "envvar:"):
+	case strings.HasPrefix(value, string(EnvVar)):
 		s.Type = EnvVar
-		s.Input = value[len("envvar:"):]
-	case strings.HasPrefix(value, "command:"):
+		s.Input = value[len(EnvVar):]
+	case strings.HasPrefix(value, string(Command)):
 		s.Type = Command
-		s.Input = value[len("command:"):]
-	case strings.HasPrefix(value, "keychain:"):
+		s.Input = value[len(Command):]
+	case strings.HasPrefix(value, string(Keychain)):
 		s.Type = Keychain
-		s.Input = value[len("keychain:"):]
-	case strings.HasPrefix(value, "vault:"):
+		s.Input = value[len(Keychain):]
+	case strings.HasPrefix(value, string(Vault)):
 		s.Type = Vault
-		s.Input = value[len("vault:"):]
-	case strings.HasPrefix(value, "file:"):
+		s.Input = value[len(Vault):]
+	case strings.HasPrefix(value, string(File)):
 		s.Type = File
-		s.Input = value[len("file:"):]
-	case strings.HasPrefix(value, "plaintext:"):
+		s.Input = value[len(File):]
+	case strings.HasPrefix(value, string(Value)):
 		s.Type = Value
-		s.Value = value[len("plaintext:"):]
+		s.Value = value[len(Value):]
 		s.Input = s.Value
 	default:
 		s.Type = Value
@@ -165,30 +163,6 @@ func (s *Secret) UnmarshalJSON(b []byte) error {
 	s.Type = Config
 
 	return nil
-}
-
-// SecretVar is called by kingpin to handle Secret arguments.
-func SecretVar(s kingpin.Settings, target **Secret) {
-	if *target == nil {
-		secret := Secret{}
-		*target = &secret
-	}
-
-	s.SetValue(*target)
-}
-
-// SecretVarWithEnv is called by kingpin to handle Secret arguments with a default environment variable.
-// Use this instead of kingpin's EnvName because it provides no limitations on the password value.
-func SecretVarWithEnv(s kingpin.Settings, envvar string, target **Secret) {
-	if *target == nil {
-		secret := Secret{}
-		*target = &secret
-	}
-
-	(*target).Type = EnvVar
-	(*target).Input = envvar
-
-	s.SetValue(*target)
 }
 
 // decrypt a Secret with the signing key and password.

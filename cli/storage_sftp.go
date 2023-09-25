@@ -8,7 +8,6 @@ import (
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/internal/secrets"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/sftp"
 )
@@ -26,7 +25,7 @@ func (c *storageSFTPFlags) Setup(_ StorageProviderServices, cmd *kingpin.CmdClau
 	cmd.Flag("username", "SFTP/SSH server username").Required().StringVar(&c.options.Username)
 
 	// one of those 3 must be provided
-	secrets.SecretVar(cmd.Flag("sftp-password", "SFTP/SSH server password"), &c.options.Password)
+	secretVar(cmd.Flag("sftp-password", "SFTP/SSH server password"), &c.options.Password)
 	cmd.Flag("keyfile", "path to private key file for SFTP/SSH server").StringVar(&c.options.Keyfile)
 	cmd.Flag("key-data", "private key data").StringVar(&c.options.KeyData)
 
