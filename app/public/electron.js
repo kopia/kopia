@@ -8,6 +8,7 @@ const Store = require('electron-store')
 const log = require("electron-log");
 const path = require('path');
 const isDev = require('electron-is-dev');
+const crypto = require('crypto')
 
 // Store to save parameters
 const store = new Store();
@@ -18,12 +19,47 @@ let tray = null
 let repositoryWindows = {};
 let repoIDForWebContents = {};
 
+
 if (isPortableConfig()) {
   // in portable mode, write cache under 'repositories'
   app.setPath('userData', path.join(configDir(), 'cache'));
 }
 
+/**
+ * Stores the ids of the currently connected displays. 
+ * The ids are sorted to generate a hash that specifies the current display configuration
+ * @returns A hash of the configuration
+ */
+function getDisplayConfiguration() {
+  // Stores the IDs all all currently connected displays
+  let config = []
+  let sha256 = crypto.createHash('sha256')
+  // Get all displays
+  let displays = screen.getAllDisplays()
+  let isFactorEqual = false
+  // Stores the previous factor - initialized with the primary scaling factor
+  let prevFactor = screen.getPrimaryDisplay().scaleFactor
+  //Workaround until https://github.com/electron/electron/issues/10862 is fixed
+  for (let dsp in displays) {
+    // Add the id to the config
+    config.push(displays[dsp].id)
+    isFactorEqual = prevFactor === displays[dsp].scaleFactor
+    // Update the previous factors
+    prevFactor = displays[dsp].scaleFactor
+  }
+  // Sort IDs to prevent different hashes through permutation
+  config.sort()
+  sha256.update(config.toString())
+  return { "hash": sha256.digest('hex'), "factorsEqual": isFactorEqual }
+}
+
+/**
+ * Creates a repository window with given options and parameters
+ * @param {*} repositoryID
+ * The id for that specific repository used as a reference for that window 
+ */
 function showRepoWindow(repositoryID) {
+  let primaryScreenBounds = screen.getPrimaryDisplay().bounds
   if (repositoryWindows[repositoryID]) {
     repositoryWindows[repositoryID].focus();
     return;
@@ -31,48 +67,38 @@ function showRepoWindow(repositoryID) {
 
   let windowOptions = {
     title: 'KopiaUI is Loading...',
-
     // default width
     width: 1000,
     // default height
     height: 700,
-
+    // default x location
+    x: (primaryScreenBounds.width - 1000) / 2,
+    // default y location
+    y: (primaryScreenBounds.height - 700) / 2,
     autoHideMenuBar: true,
     resizable: true,
+    show: false,
     webPreferences: {
       preload: path.join(resourcesPath(), 'preload.js'),
     },
   };
 
+  // The bounds of the windows
+  let configuration = getDisplayConfiguration()
+  let winBounds = store.get(configuration.hash)
+  let maximized = store.get('maximized')
 
-  // Workaround until https://github.com/electron/electron/issues/10862 is fixed
-  // Get all displays
-  let displays = screen.getAllDisplays()
-  // There should be only one primary display
-  let prevFactor = screen.getPrimaryDisplay().scaleFactor
-  // True if all factors are equal, false else
-  let isFactorEqual = true
-
-  if (displays.length > 0) {
-    for (let d in displays) {
-      let factor = displays[d].scaleFactor
-      if (prevFactor != factor) {
-        isFactorEqual = false
-        break
-      }
-      prevFactor = factor
-    }
+  if (configuration.factorsEqual) {
+    Object.assign(windowOptions, winBounds);
   }
 
-  // Assign the bounds if all factors are equal, else revert to defaults
-  if (isFactorEqual) {
-    Object.assign(windowOptions, store.get('winBounds'));
-    Object.assign(windowOptions, store.get('maximized'))
-  }
-  
+  // Create the browser window
   let repositoryWindow = new BrowserWindow(windowOptions)
+  // If the window was maximized, maximize it
+  if (maximized) {
+    repositoryWindow.maximize()
+  }
   const webContentsID = repositoryWindow.webContents.id;
-
   repositoryWindows[repositoryID] = repositoryWindow
   repoIDForWebContents[webContentsID] = repositoryID
 
@@ -96,9 +122,16 @@ function showRepoWindow(repositoryID) {
    * Store the window size, height and position on close
    */
   repositoryWindow.on('close', function () {
-    store.set('winBounds', repositoryWindow.getBounds())
+    store.set(getDisplayConfiguration().hash, repositoryWindow.getBounds())
     store.set('maximized', repositoryWindow.isMaximized())
-  });
+  })
+
+  /**
+   * Show the window once the content is ready
+   */
+  repositoryWindow.once('ready-to-show', function () {
+    repositoryWindow.show()
+  })
 
   /**
    * Delete references to the repository window
@@ -113,7 +146,6 @@ function showRepoWindow(repositoryID) {
     if (deleteConfigIfDisconnected(repositoryID)) {
       s.stopServer();
     }
-
     updateDockIcon();
   })
 }
@@ -169,7 +201,7 @@ app.on('certificate-error', (event, webContents, _url, _error, certificate, call
 
 /**
  * Ignore to let the application run, when all windows are closed 
- */ 
+ */
 app.on('window-all-closed', function () { })
 
 ipcMain.handle('select-dir', async (_event, _arg) => {
