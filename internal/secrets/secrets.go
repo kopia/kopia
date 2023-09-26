@@ -35,6 +35,10 @@ type Secret struct {
 	Type       keyType
 }
 
+type encryptedValue struct {
+	Value string `json:"encrypted"`
+}
+
 // NewSecret constructs a new Secret.
 func NewSecret(value string) *Secret {
 	s := Secret{}
@@ -204,8 +208,9 @@ func (s *Secret) evaluateKeyring() error {
 // MarshalJSON will emit an encrypted secret if the original type was Config or Value else "".
 func (s Secret) MarshalJSON() ([]byte, error) {
 	if s.Type == Value || s.Type == Config {
+		encrypted := encryptedValue{Value: s.StoreValue}
 		//nolint:wrapcheck
-		return json.Marshal(s.StoreValue)
+		return json.Marshal(encrypted)
 	}
 
 	//nolint:wrapcheck
@@ -218,13 +223,22 @@ func (s *Secret) UnmarshalJSON(b []byte) error {
 		return nil
 	}
 
-	var d string
+	var encrypted encryptedValue
 
-	if err := json.Unmarshal(b, &d); err != nil {
-		return errors.Wrap(err, "Failed to unmarshal secret")
+	var unencrypted string
+
+	if err := json.Unmarshal(b, &encrypted); err != nil {
+		if err = json.Unmarshal(b, &unencrypted); err != nil {
+			return errors.Wrap(err, "Failed to unmarshal secret")
+		}
+
+		s.Value = unencrypted
+		s.Type = Value
+
+		return nil
 	}
 
-	s.StoreValue = d
+	s.StoreValue = encrypted.Value
 	s.Type = Config
 
 	return nil
