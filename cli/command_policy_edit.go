@@ -15,7 +15,7 @@ import (
 )
 
 const policyEditHelpText = `
-# Editing policy for %v
+# Editing policy for '%v'
 
 # Make changes to the policy, save your file and exit the editor.
 # The output must be valid JSON.
