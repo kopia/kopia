@@ -17,7 +17,7 @@ func TestSecretParser(t *testing.T) {
 
 	password := "password"
 	signingKey := NewSigningKey(DefaultAlgorithm)
-	signingKey.Create(password)
+	signingKey.create(password)
 
 	signingKey2 := NewSigningKey(DefaultAlgorithm)
 	signingKey2.encryptedKey = signingKey.encryptedKey

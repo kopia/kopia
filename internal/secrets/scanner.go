@@ -11,8 +11,6 @@ import (
 func EvaluateSecrets(search interface{}, signingKeyPtr **EncryptedToken, password string) error {
 	var signingKey *EncryptedToken
 
-	var err error
-
 	if *signingKeyPtr != nil {
 		signingKey = *signingKeyPtr
 	} else {
@@ -20,19 +18,14 @@ func EvaluateSecrets(search interface{}, signingKeyPtr **EncryptedToken, passwor
 		*signingKeyPtr = signingKey
 	}
 
-	if !signingKey.IsSet {
-		err = signingKey.Create(password)
-		if err != nil {
-			return err
-		}
-	}
-
 	found := make(chan *Secret)
 
 	go wrapFindSecretElements(search, found)
 
 	for secret := range found {
-		secret.Evaluate(signingKey, password) //nolint:errcheck
+		if err := secret.Evaluate(signingKey, password); err != nil {
+			return err
+		}
 	}
 
 	return nil

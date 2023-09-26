@@ -97,19 +97,36 @@ func (t *EncryptedToken) UnmarshalJSON(b []byte) error {
 
 	t.encryptedKey = dec
 	t.Algorithm = d.Algorithm
+	t.IsSet = true
+
+	return nil
+}
+
+func (t *EncryptedToken) deriveKey(password string) error {
+	// Derive 32-byte key from the password
+	key, err := crypto.DeriveKeyFromPassword(password, t.salt[:], crypto.DefaultKeyDerivationAlgorithm)
+	if err != nil {
+		return errors.Wrap(err, "Failed to derive key")
+	}
+
+	t.derivedKey = key
 
 	return nil
 }
 
 func (t *EncryptedToken) getDerivedKey(password string) ([]byte, error) {
+	var err error
+
 	if t.derivedKey == nil {
-		// Derive 32-byte key from the password
-		key, err := crypto.DeriveKeyFromPassword(password, t.salt[:], crypto.DefaultKeyDerivationAlgorithm)
-		if err != nil {
-			return nil, errors.Wrap(err, "Failed to derive key")
+		if !t.IsSet {
+			err = t.create(password)
+		} else {
+			err = t.deriveKey(password)
 		}
 
-		t.derivedKey = key
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return t.derivedKey, nil
@@ -148,23 +165,24 @@ func (t *EncryptedToken) signingKey(password string) ([]byte, error) {
 	return signingKey, nil
 }
 
-// Create will create a new sigining token and encrypt it with the supplied password.
-func (t *EncryptedToken) Create(password string) error {
+// create will create a new sigining token and encrypt it with the supplied password.
+func (t *EncryptedToken) create(password string) error {
 	var signingKey [32]byte
 
 	// Generate a random 32-byte signining key
-	_, err := rand.Read(signingKey[:])
-	if err != nil {
+	if _, err := rand.Read(signingKey[:]); err != nil {
 		return errors.Wrap(err, "Failed to genrate signing key")
 	}
 
-	_, err = rand.Read(t.salt[:])
-	if err != nil {
+	if _, err := rand.Read(t.salt[:]); err != nil {
 		return errors.Wrap(err, "Failed to genrate salt")
 	}
 
-	err = t.encryptKey(signingKey[:], password)
-	if err != nil {
+	if err := t.deriveKey(password); err != nil {
+		return err
+	}
+
+	if err := t.encryptKey(signingKey[:], password); err != nil {
 		return err
 	}
 
