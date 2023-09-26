@@ -15,7 +15,7 @@ import (
 )
 
 const policyEditHelpText = `
-# Editing policy for '%v'
+# Editing policy for %v
 
 # Make changes to the policy, save your file and exit the editor.
 # The output must be valid JSON.
@@ -77,7 +77,7 @@ func (c *commandPolicyEdit) run(ctx context.Context, rep repo.RepositoryWriter) 
 
 		log(ctx).Infof("Editing policy for %v using external editor...", target)
 
-		s := policyEditHelpText + prettyJSON(original)
+		s := fmt.Sprintf(policyEditHelpText, target) + prettyJSON(original)
 		s = insertHelpText(s, `  "retention": {`, policyEditRetentionHelpText)
 		s = insertHelpText(s, `  "files": {`, policyEditFilesHelpText)
 		s = insertHelpText(s, `  "scheduling": {`, policyEditSchedulingHelpText)
