@@ -5,23 +5,26 @@ import (
 	"encoding/json"
 	"os"
 	"os/exec"
+	"os/user"
+	"runtime"
 	"strings"
 
 	"github.com/pkg/errors"
+	"github.com/zalando/go-keyring"
 )
 
 type keyType string
 
 // Secret types.
 const (
-	Unset    keyType = ""
-	Command  keyType = "command:"
-	Config   keyType = "config:"
-	EnvVar   keyType = "envvar:"
-	File     keyType = "file:"
-	Keychain keyType = "keychain:"
-	Value    keyType = "plaintext:"
-	Vault    keyType = "vault:"
+	Unset   keyType = ""
+	Command keyType = "command:"
+	Config  keyType = "config:"
+	EnvVar  keyType = "envvar:"
+	File    keyType = "file:"
+	Keyring keyType = "keyring:"
+	Value   keyType = "plaintext:"
+	Vault   keyType = "vault:"
 )
 
 // Secret holds secrets.
@@ -58,9 +61,9 @@ func (s *Secret) Set(value string) error {
 	case strings.HasPrefix(value, string(Command)):
 		s.Type = Command
 		s.Input = value[len(Command):]
-	case strings.HasPrefix(value, string(Keychain)):
-		s.Type = Keychain
-		s.Input = value[len(Keychain):]
+	case strings.HasPrefix(value, string(Keyring)):
+		s.Type = Keyring
+		s.Input = value[len(Keyring):]
 	case strings.HasPrefix(value, string(Vault)):
 		s.Type = Vault
 		s.Input = value[len(Vault):]
@@ -114,32 +117,15 @@ func (s *Secret) Evaluate(encryptedToken *EncryptedToken, password string) error
 			s.StoreValue, err = s.encrypt(encryptedToken, s.Input, password)
 		}
 	case EnvVar:
-		s.Value = os.Getenv(s.Input)
-		if s.Value == "" {
-			err = errors.New("Failed to find env variable")
-		}
+		err = s.evaluateEnvVar()
 	case File:
-		var body []byte
-
-		body, err = os.ReadFile(s.Input)
-		if err == nil {
-			s.Value = string(body)
-		}
+		err = s.evaluateFile()
 	case Command:
-		var res []byte
-
-		cmdParts := strings.Fields(s.Input)
-		cmd := cmdParts[0]
-		args := cmdParts[1:]
-
-		res, err = exec.Command(cmd, args...).Output() //nolint:gosec
-		if err == nil {
-			s.Value = string(res)
-		}
+		err = s.evaluateCommand()
+	case Keyring:
+		err = s.evaluateKeyring()
 	case Vault:
 		err = errors.New("Vault keys are not yet supported")
-	case Keychain:
-		err = errors.New("Keychain keys are not yet supported")
 	default:
 		return nil
 	}
@@ -151,6 +137,68 @@ func (s *Secret) Evaluate(encryptedToken *EncryptedToken, password string) error
 	}
 
 	return err
+}
+
+func (s *Secret) evaluateEnvVar() error {
+	s.Value = os.Getenv(s.Input)
+	if s.Value == "" {
+		return errors.New("Failed to find env variable")
+	}
+
+	return nil
+}
+
+func (s *Secret) evaluateFile() error {
+	var body []byte
+
+	var err error
+
+	body, err = os.ReadFile(s.Input)
+	if err != nil {
+		return errors.Wrapf(err, "failed toread file: %v", s.Input)
+	}
+
+	s.Value = string(body)
+
+	return nil
+}
+
+func (s *Secret) evaluateCommand() error {
+	var res []byte
+
+	var err error
+
+	cmdParts := strings.Fields(s.Input)
+	cmd := cmdParts[0]
+	args := cmdParts[1:]
+
+	res, err = exec.Command(cmd, args...).Output() //nolint:gosec
+	if err != nil {
+		return errors.Wrapf(err, "Command failed: %v", s.Input)
+	}
+
+	s.Value = string(res)
+
+	return nil
+}
+
+func (s *Secret) evaluateKeyring() error {
+	var username string
+
+	var err error
+
+	var kr string
+
+	username, err = keyringUsername()
+	if err == nil {
+		kr, err = keyring.Get(s.Input, username)
+		if err == nil {
+			s.Value = kr
+			return nil
+		}
+	}
+
+	return errors.Wrap(err, "failed to read from keyring")
 }
 
 // MarshalJSON will emit an encrypted secret if the original type was Config or Value else "".
@@ -207,4 +255,22 @@ func (s *Secret) encrypt(signingKey *EncryptedToken, decrypted, password string)
 
 	// Return hexified version of encrypted data
 	return hex.EncodeToString(data), nil
+}
+
+func keyringUsername() (string, error) {
+	currentUser, err := user.Current()
+	if err != nil {
+		return "", errors.Errorf("Cannot determine keyring username: %s", err)
+	}
+
+	u := currentUser.Username
+
+	if runtime.GOOS == "windows" {
+		if p := strings.Index(u, "\\"); p >= 0 {
+			// On Windows ignore domain name.
+			u = u[p+1:]
+		}
+	}
+
+	return u, nil
 }
