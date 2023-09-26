@@ -122,7 +122,7 @@ func (s *Secret) Evaluate(encryptedToken *EncryptedToken, password string) error
 		var body []byte
 
 		body, err = os.ReadFile(s.Input)
-		if err != nil {
+		if err == nil {
 			s.Value = string(body)
 		}
 	case Command:
@@ -133,7 +133,7 @@ func (s *Secret) Evaluate(encryptedToken *EncryptedToken, password string) error
 		args := cmdParts[1:]
 
 		res, err = exec.Command(cmd, args...).Output() //nolint:gosec
-		if err != nil {
+		if err == nil {
 			s.Value = string(res)
 		}
 	case Vault:
@@ -166,7 +166,7 @@ func (s Secret) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON parses octal permissions string from JSON.
 func (s *Secret) UnmarshalJSON(b []byte) error {
-	if b == nil {
+	if b == nil || string(b) == "\"\"" {
 		return nil
 	}
 
