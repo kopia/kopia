@@ -26,15 +26,15 @@ type InfoReader interface {
 
 // InfoStruct is an implementation of Info based on a structure.
 type InfoStruct struct {
-	ContentID           ID                   `json:"contentID"`
 	PackBlobID          blob.ID              `json:"packFile,omitempty"`
 	TimestampSeconds    int64                `json:"time"`
 	OriginalLength      uint32               `json:"originalLength"`
 	PackedLength        uint32               `json:"length"`
 	PackOffset          uint32               `json:"packOffset,omitempty"`
+	CompressionHeaderID compression.HeaderID `json:"compression,omitempty"`
+	ContentID           ID                   `json:"contentID"`
 	Deleted             bool                 `json:"deleted"`
 	FormatVersion       byte                 `json:"formatVersion"`
-	CompressionHeaderID compression.HeaderID `json:"compression,omitempty"`
 	EncryptionKeyID     byte                 `json:"encryptionKeyID,omitempty"`
 }
 
