@@ -162,3 +162,22 @@ func LoadConfigFromFile(fileName string) (*LocalConfig, error) {
 
 	return &lc, nil
 }
+
+// AddSecretTokenForTest forces a Secret token on a local-config even if the repo format doesn't need one.
+func AddSecretTokenForTest(configFile, password string) error {
+	lc, err := LoadConfigFromFile(configFile)
+	if err != nil {
+		return err
+	}
+
+	lc.SecretToken = secrets.NewSigningKey(secrets.DefaultAlgorithm)
+
+	err = lc.SecretToken.Create(password)
+	if err != nil {
+		return err //nolint:wrapcheck
+	}
+
+	err = lc.writeToFile(configFile)
+
+	return err
+}

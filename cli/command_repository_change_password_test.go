@@ -3,6 +3,9 @@ package cli_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
+	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/tests/testenv"
 )
@@ -28,7 +31,25 @@ func (s *formatSpecificTestSuite) TestRepositoryChangePassword(t *testing.T) {
 	env2.RunAndExpectSuccess(t, "repo", "connect", "filesystem", "--path", env1.RepoDir, "--disable-repository-format-cache")
 	env2.RunAndExpectSuccess(t, "snapshot", "ls")
 
+	// to test secret password-changes, artificially introduce a Secret token (which is not used for filesystem repos)
+	require.NoError(t, repo.AddSecretTokenForTest(env1.GetConfigFile(), testenv.TestRepoPassword))
+
+	lc, err := repo.LoadConfigFromFile(env1.GetConfigFile())
+	require.NoError(t, err)
+
+	encrypted, err := lc.SecretToken.Encrypt([]byte("secret"), testenv.TestRepoPassword)
+	require.NoError(t, err)
+
 	env1.RunAndExpectSuccess(t, "repo", "change-password", "--new-password", "newPass")
+
+	// test that secrets use new password
+
+	lc, err = repo.LoadConfigFromFile(env1.GetConfigFile())
+	require.NoError(t, err)
+
+	decrypted, err := lc.SecretToken.Decrypt(encrypted, "newPass")
+	require.NoError(t, err)
+	require.Equal(t, string(decrypted), "secret")
 
 	// at this point env2 stops working
 	env2.RunAndExpectFailure(t, "snapshot", "ls")

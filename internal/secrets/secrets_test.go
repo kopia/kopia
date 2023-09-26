@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/zalando/go-keyring"
 )
 
 // TestSecretParser will test various inputs for Secret.
@@ -17,7 +18,7 @@ func TestSecretParser(t *testing.T) {
 
 	password := "password"
 	signingKey := NewSigningKey(DefaultAlgorithm)
-	signingKey.create(password)
+	signingKey.Create(password)
 
 	signingKey2 := NewSigningKey(DefaultAlgorithm)
 	signingKey2.encryptedKey = signingKey.encryptedKey
@@ -28,6 +29,13 @@ func TestSecretParser(t *testing.T) {
 
 	cmdFile := filepath.Join(td, "filename")
 	require.NoError(t, os.WriteFile(cmdFile, []byte("file-password"), 0o600))
+
+	keyring.MockInit()
+
+	username, err := keyringUsername()
+
+	require.NoError(t, err)
+	keyring.Set("from-keyring", username, "keyring-password")
 
 	type testSecret struct {
 		Key *Secret
@@ -73,7 +81,13 @@ func TestSecretParser(t *testing.T) {
 			wantType:  Command,
 		},
 		{
-			// 5: Bad password
+			// 5: From keyring
+			input:     "keyring:from-keyring",
+			wantValue: "keyring-password",
+			wantType:  Command,
+		},
+		{
+			// 6: Bad password
 			input:     "secret",
 			password:  "bad_password",
 			wantValue: "",

@@ -119,7 +119,7 @@ func (t *EncryptedToken) getDerivedKey(password string) ([]byte, error) {
 
 	if t.derivedKey == nil {
 		if !t.IsSet {
-			err = t.create(password)
+			err = t.Create(password)
 		} else {
 			err = t.deriveKey(password)
 		}
@@ -165,8 +165,8 @@ func (t *EncryptedToken) signingKey(password string) ([]byte, error) {
 	return signingKey, nil
 }
 
-// create will create a new sigining token and encrypt it with the supplied password.
-func (t *EncryptedToken) create(password string) error {
+// Create will create a new sigining token and encrypt it with the supplied password.
+func (t *EncryptedToken) Create(password string) error {
 	var signingKey [32]byte
 
 	// Generate a random 32-byte signining key
@@ -197,6 +197,8 @@ func (t *EncryptedToken) ChangePassword(oldPassword, newPassword string) error {
 	if err != nil {
 		return err
 	}
+
+	t.derivedKey = nil
 
 	err = t.encryptKey(key, newPassword)
 
