@@ -14,30 +14,40 @@ import (
 )
 
 // DefaultAlgorithm contains the default encryption algorithm for secrets.
-const DefaultAlgorithm = "AES256-GCM-HMAC-SHA256"
+const (
+	DefaultAlgorithm     = "AES256-GCM-HMAC-SHA256"
+	DefaultKeyDerivation = crypto.DefaultKeyDerivationAlgorithm
+)
 
 // SupportedAlgorithms contains all valid encryption algorithms for secrets.
 func SupportedAlgorithms() []string {
 	return []string{DefaultAlgorithm}
 }
 
+// SupportedKeyDerivations contains all valid key-derivation algorithms for secrets.
+func SupportedKeyDerivations() []string {
+	return []string{DefaultKeyDerivation}
+}
+
 // EncryptedToken holds an encrypted copy of the signing key as well as the corresponding salt.
 type EncryptedToken struct { //nolint:musttag
-	encryptedKey []byte
-	salt         [8]byte
-	derivedKey   []byte
-	Algorithm    string
-	IsSet        bool
+	encryptedKey  []byte
+	salt          [8]byte
+	derivedKey    []byte
+	Algorithm     string
+	KeyDerivation string
+	IsSet         bool
 }
 
 type keyStruct struct {
-	Key       string `json:"key,omitempty"`
-	Algorithm string `json:"algorithm,omitempty"`
+	Key           string `json:"key,omitempty"`
+	Algorithm     string `json:"algorithm,omitempty"`
+	KeyDerivation string `json:"key_derivation,omitempty"`
 }
 
 // NewSigningKey generates storage for a new key without generating the key itself.
-func NewSigningKey(algorithm string) *EncryptedToken {
-	signingKey := EncryptedToken{Algorithm: algorithm}
+func NewSigningKey(algorithm, keyDerivation string) *EncryptedToken {
+	signingKey := EncryptedToken{Algorithm: algorithm, KeyDerivation: keyDerivation}
 	return &signingKey
 }
 
@@ -53,7 +63,7 @@ func (t EncryptedToken) MarshalJSON() ([]byte, error) {
 		return json.Marshal(nil)
 	}
 
-	d := keyStruct{Key: t.String(), Algorithm: t.Algorithm}
+	d := keyStruct{Key: t.String(), Algorithm: t.Algorithm, KeyDerivation: t.KeyDerivation}
 
 	//nolint:wrapcheck
 	return json.Marshal(d)
@@ -97,6 +107,8 @@ func (t *EncryptedToken) UnmarshalJSON(b []byte) error {
 
 	t.encryptedKey = dec
 	t.Algorithm = d.Algorithm
+	t.KeyDerivation = d.KeyDerivation
+
 	t.IsSet = true
 
 	return nil
@@ -104,7 +116,7 @@ func (t *EncryptedToken) UnmarshalJSON(b []byte) error {
 
 func (t *EncryptedToken) deriveKey(password string) error {
 	// Derive 32-byte key from the password
-	key, err := crypto.DeriveKeyFromPassword(password, t.salt[:], crypto.DefaultKeyDerivationAlgorithm)
+	key, err := crypto.DeriveKeyFromPassword(password, t.salt[:], DefaultKeyDerivation)
 	if err != nil {
 		return errors.Wrap(err, "Failed to derive key")
 	}

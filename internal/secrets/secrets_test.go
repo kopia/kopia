@@ -17,10 +17,10 @@ func TestSecretParser(t *testing.T) {
 	td := t.TempDir()
 
 	password := "password"
-	signingKey := NewSigningKey(DefaultAlgorithm)
+	signingKey := NewSigningKey(DefaultAlgorithm, DefaultKeyDerivation)
 	signingKey.Create(password)
 
-	signingKey2 := NewSigningKey(DefaultAlgorithm)
+	signingKey2 := NewSigningKey(DefaultAlgorithm, DefaultKeyDerivation)
 	signingKey2.encryptedKey = signingKey.encryptedKey
 	signingKey2.salt = signingKey.salt
 	signingKey2.IsSet = true

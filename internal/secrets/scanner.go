@@ -14,7 +14,7 @@ func EvaluateSecrets(search interface{}, signingKeyPtr **EncryptedToken, passwor
 	if *signingKeyPtr != nil {
 		signingKey = *signingKeyPtr
 	} else {
-		signingKey = NewSigningKey(DefaultAlgorithm)
+		signingKey = NewSigningKey(DefaultAlgorithm, DefaultKeyDerivation)
 		*signingKeyPtr = signingKey
 	}
 

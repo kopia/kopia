@@ -170,7 +170,7 @@ func AddSecretTokenForTest(configFile, password string) error {
 		return err
 	}
 
-	lc.SecretToken = secrets.NewSigningKey(secrets.DefaultAlgorithm)
+	lc.SecretToken = secrets.NewSigningKey(secrets.DefaultAlgorithm, secrets.DefaultKeyDerivation)
 
 	err = lc.SecretToken.Create(password)
 	if err != nil {
