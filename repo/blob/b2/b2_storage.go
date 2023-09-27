@@ -255,7 +255,7 @@ func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error)
 		return nil, errors.New("bucket name must be specified")
 	}
 
-	cli, err := backblaze.NewB2(backblaze.Credentials{KeyID: opt.KeyID, ApplicationKey: opt.Key})
+	cli, err := backblaze.NewB2(backblaze.Credentials{KeyID: opt.KeyID, ApplicationKey: opt.Key.String()})
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create client")
 	}

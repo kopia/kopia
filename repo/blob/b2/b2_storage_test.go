@@ -13,6 +13,7 @@ import (
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/providervalidation"
+	"github.com/kopia/kopia/internal/secrets"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
@@ -47,7 +48,7 @@ func TestCleanupOldData(t *testing.T) {
 	opt := &b2.Options{
 		BucketName: bucket,
 		KeyID:      keyID,
-		Key:        key,
+		Key:        secrets.NewSecret(key),
 	}
 
 	ctx := testlogging.Context(t)
@@ -68,7 +69,7 @@ func TestB2Storage(t *testing.T) {
 	opt := &b2.Options{
 		BucketName: bucket,
 		KeyID:      keyID,
-		Key:        key,
+		Key:        secrets.NewSecret(key),
 		Prefix:     uuid.NewString(),
 	}
 
@@ -102,7 +103,7 @@ func TestB2StorageInvalidBlob(t *testing.T) {
 	st, err := b2.New(ctx, &b2.Options{
 		BucketName: bucket,
 		KeyID:      keyID,
-		Key:        key,
+		Key:        secrets.NewSecret(key),
 	}, false)
 	require.NoError(t, err)
 
@@ -129,7 +130,7 @@ func TestB2StorageInvalidBucket(t *testing.T) {
 	_, err := b2.New(ctx, &b2.Options{
 		BucketName: bucket,
 		KeyID:      keyID,
-		Key:        key,
+		Key:        secrets.NewSecret(key),
 	}, false)
 	require.Error(t, err)
 }
@@ -146,7 +147,7 @@ func TestB2StorageInvalidCreds(t *testing.T) {
 	_, err := b2.New(ctx, &b2.Options{
 		BucketName: bucket,
 		KeyID:      keyID,
-		Key:        key,
+		Key:        secrets.NewSecret(key),
 	}, false)
 	require.Error(t, err)
 }
