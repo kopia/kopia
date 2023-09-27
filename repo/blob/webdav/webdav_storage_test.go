@@ -15,6 +15,7 @@ import (
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/providervalidation"
+	"github.com/kopia/kopia/internal/secrets"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
@@ -157,7 +158,7 @@ func verifyWebDAVStorage(t *testing.T, url, username, password string, shardSpec
 			DirectoryShards: shardSpec,
 		},
 		Username: username,
-		Password: password,
+		Password: secrets.NewSecret(password),
 	}, false)
 
 	cancel()
