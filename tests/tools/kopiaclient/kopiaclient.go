@@ -17,6 +17,7 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/virtualfs"
+	"github.com/kopia/kopia/internal/secrets"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
@@ -189,7 +190,7 @@ func (kc *KopiaClient) getStorage(ctx context.Context, repoDir, bucketName strin
 			Prefix:          repoDir,
 			Endpoint:        s3Endpoint,
 			AccessKeyID:     os.Getenv(awsAccessKeyIDEnvKey),
-			SecretAccessKey: os.Getenv(awsSecretAccessKeyEnvKey),
+			SecretAccessKey: secrets.NewSecret(os.Getenv(awsSecretAccessKeyEnvKey)),
 		}
 		st, err = s3.New(ctx, s3Opts, false)
 	} else {

@@ -28,6 +28,8 @@ const (
 )
 
 // Secret holds secrets.
+//
+//nolint:musttag
 type Secret struct {
 	Input      string
 	Value      string
