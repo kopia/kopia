@@ -114,6 +114,15 @@ func (s *Secret) String() string {
 	return s.Value
 }
 
+// Bytes will return the decoded version of the Secret.
+func (s *Secret) Bytes() []byte {
+	if s == nil || s.Value == "" {
+		return nil
+	}
+
+	return []byte(s.Value)
+}
+
 // Evaluate a secret to fill all fields.
 func (s *Secret) Evaluate(encryptedToken *EncryptedToken, password string) error {
 	var err error

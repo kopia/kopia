@@ -241,7 +241,7 @@ func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error)
 		scope = gcsclient.ScopeReadOnly
 	}
 
-	if sa := opt.ServiceAccountCredentialJSON; len(sa) > 0 {
+	if sa := json.RawMessage(opt.ServiceAccountCredentialJSON.Bytes()); len(sa) > 0 {
 		ts, err = tokenSourceFromCredentialsJSON(ctx, sa, scope)
 	} else if sa := opt.ServiceAccountCredentialsFile; sa != "" {
 		ts, err = tokenSourceFromCredentialsFile(ctx, sa, scope)

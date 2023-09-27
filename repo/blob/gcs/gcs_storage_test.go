@@ -14,6 +14,7 @@ import (
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/providervalidation"
+	"github.com/kopia/kopia/internal/secrets"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
@@ -105,7 +106,7 @@ func mustGetOptionsOrSkip(t *testing.T, prefix string) *gcs.Options {
 
 	return &gcs.Options{
 		BucketName:                   bucket,
-		ServiceAccountCredentialJSON: credData,
+		ServiceAccountCredentialJSON: secrets.NewSecret(string(credData)),
 		Prefix:                       prefix,
 	}
 }
