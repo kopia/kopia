@@ -8,7 +8,6 @@ import (
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/internal/secrets"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/sftp"
 )
@@ -74,7 +73,7 @@ func (c *storageSFTPFlags) getOptions(formatVersion int) (*sftp.Options, error) 
 		}
 
 		switch {
-		case secrets.IsSet(sftpo.Password): // ok
+		case sftpo.Password.IsSet(): // ok
 
 		case sftpo.KeyData != "": // ok
 

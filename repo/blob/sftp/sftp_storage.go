@@ -22,7 +22,6 @@ import (
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/internal/ospath"
-	"github.com/kopia/kopia/internal/secrets"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/retrying"
 	"github.com/kopia/kopia/repo/blob/sharded"
@@ -428,7 +427,7 @@ func createSSHConfig(ctx context.Context, opt *Options) (*ssh.ClientConfig, erro
 
 	var auth []ssh.AuthMethod
 
-	if secrets.IsSet(opt.Password) {
+	if opt.Password.IsSet() {
 		auth = append(auth, ssh.Password(opt.Password.String()))
 	} else {
 		signer, err := getSigner(opt)
