@@ -16,6 +16,7 @@ import (
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/providervalidation"
+	"github.com/kopia/kopia/internal/secrets"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
@@ -87,7 +88,7 @@ func TestCleanupOldData(t *testing.T) {
 	st, err := azure.New(ctx, &azure.Options{
 		Container:      container,
 		StorageAccount: storageAccount,
-		StorageKey:     storageKey,
+		StorageKey:     secrets.NewSecret(storageKey),
 	}, false)
 
 	require.NoError(t, err)
@@ -118,7 +119,7 @@ func TestAzureStorage(t *testing.T) {
 	st, err := azure.New(newctx, &azure.Options{
 		Container:      container,
 		StorageAccount: storageAccount,
-		StorageKey:     storageKey,
+		StorageKey:     secrets.NewSecret(storageKey),
 		Prefix:         fmt.Sprintf("test-%v-%x-", clock.Now().Unix(), data),
 	}, false)
 
@@ -151,7 +152,7 @@ func TestAzureStorageSASToken(t *testing.T) {
 	st, err := azure.New(newctx, &azure.Options{
 		Container:      container,
 		StorageAccount: storageAccount,
-		SASToken:       sasToken,
+		SASToken:       secrets.NewSecret(sasToken),
 		Prefix:         fmt.Sprintf("sastest-%v-%x-", clock.Now().Unix(), data),
 	}, false)
 
@@ -216,7 +217,7 @@ func TestAzureStorageInvalidBlob(t *testing.T) {
 	st, err := azure.New(ctx, &azure.Options{
 		Container:      container,
 		StorageAccount: storageAccount,
-		StorageKey:     storageKey,
+		StorageKey:     secrets.NewSecret(storageKey),
 	}, false)
 	if err != nil {
 		t.Fatalf("unable to connect to Azure container: %v", err)
@@ -244,7 +245,7 @@ func TestAzureStorageInvalidContainer(t *testing.T) {
 	_, err := azure.New(ctx, &azure.Options{
 		Container:      container,
 		StorageAccount: storageAccount,
-		StorageKey:     storageKey,
+		StorageKey:     secrets.NewSecret(storageKey),
 	}, false)
 
 	if err == nil {
@@ -263,7 +264,7 @@ func TestAzureStorageInvalidCreds(t *testing.T) {
 	_, err := azure.New(ctx, &azure.Options{
 		Container:      container,
 		StorageAccount: storageAccount,
-		StorageKey:     storageKey,
+		StorageKey:     secrets.NewSecret(storageKey),
 	}, false)
 
 	if err == nil {

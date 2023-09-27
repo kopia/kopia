@@ -250,14 +250,14 @@ func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error)
 
 	switch {
 	// shared access signature
-	case opt.SASToken != "":
+	case opt.SASToken.IsSet():
 		service, serviceErr = azblob.NewClientWithNoCredential(
-			fmt.Sprintf("https://%s?%s", storageHostname, opt.SASToken), nil)
+			fmt.Sprintf("https://%s?%s", storageHostname, opt.SASToken.String()), nil)
 
 	// storage account access key
-	case opt.StorageKey != "":
+	case opt.StorageKey.IsSet():
 		// create a credentials object.
-		cred, err := azblob.NewSharedKeyCredential(opt.StorageAccount, opt.StorageKey)
+		cred, err := azblob.NewSharedKeyCredential(opt.StorageAccount, opt.StorageKey.String())
 		if err != nil {
 			return nil, errors.Wrap(err, "unable to initialize storage access key credentials")
 		}

@@ -16,9 +16,9 @@ type storageAzureFlags struct {
 func (c *storageAzureFlags) Setup(svc StorageProviderServices, cmd *kingpin.CmdClause) {
 	cmd.Flag("container", "Name of the Azure blob container").Required().StringVar(&c.azOptions.Container)
 	cmd.Flag("storage-account", "Azure storage account name (overrides AZURE_STORAGE_ACCOUNT environment variable)").Required().Envar(svc.EnvName("AZURE_STORAGE_ACCOUNT")).StringVar(&c.azOptions.StorageAccount)
-	cmd.Flag("storage-key", "Azure storage account key (overrides AZURE_STORAGE_KEY environment variable)").Envar(svc.EnvName("AZURE_STORAGE_KEY")).StringVar(&c.azOptions.StorageKey)
+	secretVarWithEnv(cmd.Flag("storage-key", "Azure storage account key (overrides AZURE_STORAGE_KEY environment variable)"), svc.EnvName("AZURE_STORAGE_KEY"), &c.azOptions.StorageKey)
 	cmd.Flag("storage-domain", "Azure storage domain").Envar(svc.EnvName("AZURE_STORAGE_DOMAIN")).StringVar(&c.azOptions.StorageDomain)
-	cmd.Flag("sas-token", "Azure SAS Token").Envar(svc.EnvName("AZURE_STORAGE_SAS_TOKEN")).StringVar(&c.azOptions.SASToken)
+	secretVarWithEnv(cmd.Flag("sas-token", "Azure SAS Token"), svc.EnvName("AZURE_STORAGE_SAS_TOKEN"), &c.azOptions.SASToken)
 	cmd.Flag("prefix", "Prefix to use for objects in the bucket").StringVar(&c.azOptions.Prefix)
 	cmd.Flag("tenant-id", "Azure service principle tenant ID (overrides AZURE_TENANT_ID environment variable)").Envar(svc.EnvName("AZURE_TENANT_ID")).StringVar(&c.azOptions.TenantID)
 	cmd.Flag("client-id", "Azure service principle client ID (overrides AZURE_CLIENT_ID environment variable)").Envar(svc.EnvName("AZURE_CLIENT_ID")).StringVar(&c.azOptions.ClientID)
