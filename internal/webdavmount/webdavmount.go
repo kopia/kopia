@@ -111,30 +111,38 @@ var symlinksAreUnsupportedLogged = new(int32)
 
 // TODO: (bug) This incorrectly truncates the entries in the directory and does not allow pagination.
 func (d *webdavDir) Readdir(n int) ([]os.FileInfo, error) {
+	ctx := d.ctx
+
 	var fis []os.FileInfo
 
 	foundEntries := 0
 
-	err := d.entry.IterateEntries(d.ctx, func(innerCtx context.Context, e fs.Entry) error {
-		if n > 0 && n <= foundEntries {
-			return nil
+	iter, err := d.entry.Iterate(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "error reading directory")
+	}
+
+	defer iter.Close()
+
+	for e := iter.Next(ctx); e != nil; e = iter.Next(ctx) {
+		if n > 0 && foundEntries >= n {
+			break
 		}
 
 		foundEntries++
 
 		if _, isSymlink := e.(fs.Symlink); isSymlink {
 			if atomic.AddInt32(symlinksAreUnsupportedLogged, 1) == 1 {
-				//nolint:contextcheck
 				log(d.ctx).Errorf("Mounting directories containing symbolic links using WebDAV is not supported. The link entries will be skipped.")
 			}
 
-			return nil
+			continue
 		}
 
 		fis = append(fis, &webdavFileInfo{e})
-		return nil
-	})
-	if err != nil {
+	}
+
+	if err := iter.FinalErr(); err != nil {
 		return nil, errors.Wrap(err, "error reading directory")
 	}
 

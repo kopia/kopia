@@ -137,12 +137,7 @@ func TestStreamingDirectory(t *testing.T) {
 
 	rootDir := NewStreamingDirectory(
 		"root",
-		func(
-			ctx context.Context,
-			callback func(context.Context, fs.Entry) error,
-		) error {
-			return callback(ctx, f)
-		},
+		fs.StaticIterator([]fs.Entry{f}, nil),
 	)
 
 	entries, err := fs.GetAllEntries(testlogging.Context(t), rootDir)
@@ -174,12 +169,7 @@ func TestStreamingDirectory_MultipleIterationsFails(t *testing.T) {
 
 	rootDir := NewStreamingDirectory(
 		"root",
-		func(
-			ctx context.Context,
-			callback func(context.Context, fs.Entry) error,
-		) error {
-			return callback(ctx, f)
-		},
+		fs.StaticIterator([]fs.Entry{f}, nil),
 	)
 
 	entries, err := fs.GetAllEntries(testlogging.Context(t), rootDir)
@@ -202,15 +192,10 @@ func TestStreamingDirectory_ReturnsCallbackError(t *testing.T) {
 
 	rootDir := NewStreamingDirectory(
 		"root",
-		func(
-			ctx context.Context,
-			callback func(context.Context, fs.Entry) error,
-		) error {
-			return callback(ctx, f)
-		},
+		fs.StaticIterator([]fs.Entry{f}, nil),
 	)
 
-	err := rootDir.IterateEntries(testlogging.Context(t), func(context.Context, fs.Entry) error {
+	err := fs.IterateEntries(testlogging.Context(t), rootDir, func(context.Context, fs.Entry) error {
 		return errCallback
 	})
 	assert.ErrorIs(t, err, errCallback)
@@ -221,15 +206,10 @@ var errIteration = errors.New("iteration error")
 func TestStreamingDirectory_ReturnsReadDirError(t *testing.T) {
 	rootDir := NewStreamingDirectory(
 		"root",
-		func(
-			ctx context.Context,
-			callback func(context.Context, fs.Entry) error,
-		) error {
-			return errIteration
-		},
+		fs.StaticIterator(nil, errIteration),
 	)
 
-	err := rootDir.IterateEntries(testlogging.Context(t), func(context.Context, fs.Entry) error {
+	err := fs.IterateEntries(testlogging.Context(t), rootDir, func(context.Context, fs.Entry) error {
 		return nil
 	})
 	assert.ErrorIs(t, err, errIteration)

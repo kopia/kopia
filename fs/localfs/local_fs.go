@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -126,11 +125,6 @@ func (fsd *filesystemDirectory) Child(ctx context.Context, name string) (fs.Entr
 	return entryFromDirEntry(st, fullPath+string(filepath.Separator)), nil
 }
 
-type entryWithError struct {
-	entry fs.Entry
-	err   error
-}
-
 func toDirEntryOrNil(dirEntry os.DirEntry, prefix string) (fs.Entry, error) {
 	fi, err := os.Lstat(prefix + dirEntry.Name())
 	if err != nil {
@@ -144,132 +138,75 @@ func toDirEntryOrNil(dirEntry os.DirEntry, prefix string) (fs.Entry, error) {
 	return entryFromDirEntry(fi, prefix), nil
 }
 
-func (fsd *filesystemDirectory) IterateEntries(ctx context.Context, cb func(context.Context, fs.Entry) error) error {
+type filesystemDirectoryIterator struct {
+	dirHandle   *os.File
+	childPrefix string
+
+	currentIndex int
+	currentBatch []os.DirEntry
+
+	finalError error
+}
+
+func (it *filesystemDirectoryIterator) Next(ctx context.Context) fs.Entry {
+	for {
+		// we're at the end of the current batch, fetch the next batch
+		if it.currentIndex >= len(it.currentBatch) {
+			batch, err := it.dirHandle.ReadDir(numEntriesToRead)
+			if err != nil && !errors.Is(err, io.EOF) {
+				// stop iteration
+				it.finalError = err
+				return nil
+			}
+
+			it.currentIndex = 0
+			it.currentBatch = batch
+
+			// got empty batch
+			if len(batch) == 0 {
+				it.finalError = nil
+				return nil
+			}
+		}
+
+		n := it.currentIndex
+		it.currentIndex++
+
+		e, err := toDirEntryOrNil(it.currentBatch[n], it.childPrefix)
+		if err != nil {
+			// stop iteration
+			it.finalError = err
+			return nil
+		}
+
+		if e == nil {
+			// go to the next item
+			continue
+		}
+
+		return e
+	}
+}
+
+func (it *filesystemDirectoryIterator) FinalErr() error {
+	return it.finalError
+}
+
+func (it *filesystemDirectoryIterator) Close() {
+	it.dirHandle.Close() //nolint:errcheck
+}
+
+func (fsd *filesystemDirectory) Iterate(ctx context.Context) (fs.DirectoryIterator, error) {
 	fullPath := fsd.fullPath()
 
 	f, direrr := os.Open(fullPath) //nolint:gosec
 	if direrr != nil {
-		return errors.Wrap(direrr, "unable to read directory")
+		return nil, errors.Wrap(direrr, "unable to read directory")
 	}
-	defer f.Close() //nolint:errcheck
 
 	childPrefix := fullPath + string(filepath.Separator)
 
-	batch, err := f.ReadDir(numEntriesToRead)
-	if len(batch) == numEntriesToRead {
-		return fsd.iterateEntriesInParallel(ctx, f, childPrefix, batch, cb)
-	}
-
-	for len(batch) > 0 {
-		for _, de := range batch {
-			e, err2 := toDirEntryOrNil(de, childPrefix)
-			if err2 != nil {
-				return err2
-			}
-
-			if e == nil {
-				continue
-			}
-
-			if err3 := cb(ctx, e); err3 != nil {
-				return err3
-			}
-		}
-
-		batch, err = f.ReadDir(numEntriesToRead)
-	}
-
-	if errors.Is(err, io.EOF) {
-		return nil
-	}
-
-	return errors.Wrap(err, "error listing directory")
-}
-
-//nolint:gocognit,gocyclo
-func (fsd *filesystemDirectory) iterateEntriesInParallel(ctx context.Context, f *os.File, childPrefix string, batch []os.DirEntry, cb func(context.Context, fs.Entry) error) error {
-	inputCh := make(chan os.DirEntry, dirListingPrefetch)
-	outputCh := make(chan entryWithError, dirListingPrefetch)
-
-	closed := make(chan struct{})
-	defer close(closed)
-
-	var workersWG sync.WaitGroup
-
-	// start goroutines that will convert 'os.DirEntry' to 'entryWithError'
-	for i := 0; i < paralellelStatGoroutines; i++ {
-		workersWG.Add(1)
-
-		go func() {
-			defer workersWG.Done()
-
-			for {
-				select {
-				case <-closed:
-					return
-
-				case de := <-inputCh:
-					e, err := toDirEntryOrNil(de, childPrefix)
-					outputCh <- entryWithError{entry: e, err: err}
-				}
-			}
-		}()
-	}
-
-	var pending int
-
-	for len(batch) > 0 {
-		for _, de := range batch {
-			// before pushing fetch from outputCh and invoke callbacks for all entries in it
-		invokeCallbacks:
-			for {
-				select {
-				case dwe := <-outputCh:
-					pending--
-
-					if dwe.err != nil {
-						return dwe.err
-					}
-
-					if dwe.entry != nil {
-						if err := cb(ctx, dwe.entry); err != nil {
-							return err
-						}
-					}
-
-				default:
-					break invokeCallbacks
-				}
-			}
-
-			inputCh <- de
-			pending++
-		}
-
-		nextBatch, err := f.ReadDir(numEntriesToRead)
-		if err != nil && !errors.Is(err, io.EOF) {
-			//nolint:wrapcheck
-			return err
-		}
-
-		batch = nextBatch
-	}
-
-	for i := 0; i < pending; i++ {
-		dwe := <-outputCh
-
-		if dwe.err != nil {
-			return dwe.err
-		}
-
-		if dwe.entry != nil {
-			if err := cb(ctx, dwe.entry); err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
+	return &filesystemDirectoryIterator{dirHandle: f, childPrefix: childPrefix}, nil
 }
 
 type fileWithMetadata struct {

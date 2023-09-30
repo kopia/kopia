@@ -59,11 +59,38 @@ type StreamingFile interface {
 // Directory represents contents of a directory.
 type Directory interface {
 	Entry
+
 	Child(ctx context.Context, name string) (Entry, error)
-	IterateEntries(ctx context.Context, cb func(context.Context, Entry) error) error
+	Iterate(ctx context.Context) (DirectoryIterator, error)
 	// SupportsMultipleIterations returns true if the Directory supports iterating
 	// through the entries multiple times. Otherwise it returns false.
 	SupportsMultipleIterations() bool
+}
+
+// IterateEntries iterates entries the provided directory and invokes given callback for each entry
+// or until the callback returns an error.
+func IterateEntries(ctx context.Context, dir Directory, cb func(context.Context, Entry) error) error {
+	iter, err := dir.Iterate(ctx)
+	if err != nil {
+		return err //nolint:wrapcheck
+	}
+
+	defer iter.Close()
+
+	for cur := iter.Next(ctx); cur != nil; cur = iter.Next(ctx) {
+		if err := cb(ctx, cur); err != nil {
+			return err
+		}
+	}
+
+	return iter.FinalErr() //nolint:wrapcheck
+}
+
+// DirectoryIterator iterates entries in a directory.
+type DirectoryIterator interface {
+	Next(ctx context.Context) Entry // returns nil to signal end of iteration
+	FinalErr() error
+	Close()
 }
 
 // DirectoryWithSummary is optionally implemented by Directory that provide summary.
@@ -78,16 +105,22 @@ type ErrorEntry interface {
 	ErrorInfo() error
 }
 
-// GetAllEntries uses IterateEntries to return all entries in a Directory.
+// GetAllEntries uses Iterate to return all entries in a Directory.
 func GetAllEntries(ctx context.Context, d Directory) ([]Entry, error) {
 	entries := []Entry{}
 
-	err := d.IterateEntries(ctx, func(ctx context.Context, e Entry) error {
-		entries = append(entries, e)
-		return nil
-	})
+	iter, err := d.Iterate(ctx)
+	if err != nil {
+		return nil, err //nolint:wrapcheck
+	}
 
-	return entries, err //nolint:wrapcheck
+	defer iter.Close()
+
+	for cur := iter.Next(ctx); cur != nil; cur = iter.Next(ctx) {
+		entries = append(entries, cur)
+	}
+
+	return entries, iter.FinalErr() //nolint:wrapcheck
 }
 
 // ErrEntryNotFound is returned when an entry is not found.
@@ -96,30 +129,24 @@ var ErrEntryNotFound = errors.New("entry not found")
 // IterateEntriesAndFindChild iterates through entries from a directory and returns one by name.
 // This is a convenience function that may be helpful in implementations of Directory.Child().
 func IterateEntriesAndFindChild(ctx context.Context, d Directory, name string) (Entry, error) {
-	type errStop struct {
-		error
+	iter, err := d.Iterate(ctx)
+	if err != nil {
+		return nil, err //nolint:wrapcheck
 	}
 
-	var result Entry
+	defer iter.Close()
 
-	err := d.IterateEntries(ctx, func(c context.Context, e Entry) error {
-		if result == nil && e.Name() == name {
-			result = e
-			return errStop{errors.New("")}
+	for cur := iter.Next(ctx); cur != nil; cur = iter.Next(ctx) {
+		if cur.Name() == name {
+			return cur, nil
 		}
-		return nil
-	})
-
-	var stopped errStop
-	if err != nil && !errors.As(err, &stopped) {
-		return nil, errors.Wrap(err, "error reading directory")
 	}
 
-	if result == nil {
-		return nil, ErrEntryNotFound
+	if err := iter.FinalErr(); err != nil {
+		return nil, err //nolint:wrapcheck
 	}
 
-	return result, nil
+	return nil, ErrEntryNotFound
 }
 
 // MaxFailedEntriesPerDirectorySummary is the maximum number of failed entries per directory summary.

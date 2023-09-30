@@ -112,7 +112,7 @@ func (c *Cache) IterateEntries(ctx context.Context, d fs.Directory, w EntryWrapp
 		return nil
 	}
 
-	return d.IterateEntries(ctx, callback) //nolint:wrapcheck
+	return fs.IterateEntries(ctx, d, callback) //nolint:wrapcheck
 }
 
 func (c *Cache) getEntriesFromCacheLocked(ctx context.Context, id string) []fs.Entry {

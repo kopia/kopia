@@ -54,9 +54,19 @@ func (c *commandList) run(ctx context.Context, rep repo.Repository) error {
 }
 
 func (c *commandList) listDirectory(ctx context.Context, d fs.Directory, prefix, indent string) error {
-	if err := d.IterateEntries(ctx, func(innerCtx context.Context, e fs.Entry) error {
-		return c.printDirectoryEntry(innerCtx, e, prefix, indent)
-	}); err != nil {
+	iter, err := d.Iterate(ctx)
+	if err != nil {
+		return err //nolint:wrapcheck
+	}
+	defer iter.Close()
+
+	for e := iter.Next(ctx); e != nil; e = iter.Next(ctx) {
+		if err := c.printDirectoryEntry(ctx, e, prefix, indent); err != nil {
+			return err
+		}
+	}
+
+	if err := iter.FinalErr(); err != nil {
 		return err //nolint:wrapcheck
 	}
 

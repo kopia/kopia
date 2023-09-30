@@ -167,14 +167,22 @@ func (dir *fuseDirectoryNode) Readdir(ctx context.Context) (gofusefs.DirStream, 
 	// TODO: Slice not required as DirStream is also an iterator.
 	result := []fuse.DirEntry{}
 
-	err := dir.directory().IterateEntries(ctx, func(innerCtx context.Context, e fs.Entry) error {
-		result = append(result, fuse.DirEntry{
-			Name: e.Name(),
-			Mode: entryToFuseMode(e),
-		})
-		return nil
-	})
+	iter, err := dir.directory().Iterate(ctx)
 	if err != nil {
+		log(ctx).Errorf("error reading directory %v: %v", dir.entry.Name(), err)
+		return nil, syscall.EIO
+	}
+
+	defer iter.Close()
+
+	for cur := iter.Next(ctx); cur != nil; cur = iter.Next(ctx) {
+		result = append(result, fuse.DirEntry{
+			Name: cur.Name(),
+			Mode: entryToFuseMode(cur),
+		})
+	}
+
+	if err := iter.FinalErr(); err != nil {
 		log(ctx).Errorf("error reading directory %v: %v", dir.entry.Name(), err)
 		return nil, syscall.EIO
 	}
