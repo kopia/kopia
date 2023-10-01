@@ -60,13 +60,16 @@ func (c *commandList) listDirectory(ctx context.Context, d fs.Directory, prefix,
 	}
 	defer iter.Close()
 
-	for e := iter.Next(ctx); e != nil; e = iter.Next(ctx) {
-		if err := c.printDirectoryEntry(ctx, e, prefix, indent); err != nil {
-			return err
+	e, err := iter.Next(ctx)
+	for e != nil {
+		if err2 := c.printDirectoryEntry(ctx, e, prefix, indent); err2 != nil {
+			return err2
 		}
+
+		e, err = iter.Next(ctx)
 	}
 
-	if err := iter.FinalErr(); err != nil {
+	if err != nil {
 		return err //nolint:wrapcheck
 	}
 

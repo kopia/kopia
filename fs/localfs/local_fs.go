@@ -144,19 +144,16 @@ type filesystemDirectoryIterator struct {
 
 	currentIndex int
 	currentBatch []os.DirEntry
-
-	finalError error
 }
 
-func (it *filesystemDirectoryIterator) Next(ctx context.Context) fs.Entry {
+func (it *filesystemDirectoryIterator) Next(ctx context.Context) (fs.Entry, error) {
 	for {
 		// we're at the end of the current batch, fetch the next batch
 		if it.currentIndex >= len(it.currentBatch) {
 			batch, err := it.dirHandle.ReadDir(numEntriesToRead)
 			if err != nil && !errors.Is(err, io.EOF) {
 				// stop iteration
-				it.finalError = err
-				return nil
+				return nil, err //nolint:wrapcheck
 			}
 
 			it.currentIndex = 0
@@ -164,8 +161,7 @@ func (it *filesystemDirectoryIterator) Next(ctx context.Context) fs.Entry {
 
 			// got empty batch
 			if len(batch) == 0 {
-				it.finalError = nil
-				return nil
+				return nil, nil
 			}
 		}
 
@@ -175,8 +171,7 @@ func (it *filesystemDirectoryIterator) Next(ctx context.Context) fs.Entry {
 		e, err := toDirEntryOrNil(it.currentBatch[n], it.childPrefix)
 		if err != nil {
 			// stop iteration
-			it.finalError = err
-			return nil
+			return nil, err
 		}
 
 		if e == nil {
@@ -184,12 +179,8 @@ func (it *filesystemDirectoryIterator) Next(ctx context.Context) fs.Entry {
 			continue
 		}
 
-		return e
+		return e, nil
 	}
-}
-
-func (it *filesystemDirectoryIterator) FinalErr() error {
-	return it.finalError
 }
 
 func (it *filesystemDirectoryIterator) Close() {

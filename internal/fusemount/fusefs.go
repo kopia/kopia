@@ -175,14 +175,17 @@ func (dir *fuseDirectoryNode) Readdir(ctx context.Context) (gofusefs.DirStream, 
 
 	defer iter.Close()
 
-	for cur := iter.Next(ctx); cur != nil; cur = iter.Next(ctx) {
+	cur, err := iter.Next(ctx)
+	for cur != nil {
 		result = append(result, fuse.DirEntry{
 			Name: cur.Name(),
 			Mode: entryToFuseMode(cur),
 		})
+
+		cur, err = iter.Next(ctx)
 	}
 
-	if err := iter.FinalErr(); err != nil {
+	if err != nil {
 		log(ctx).Errorf("error reading directory %v: %v", dir.entry.Name(), err)
 		return nil, syscall.EIO
 	}

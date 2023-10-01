@@ -124,7 +124,8 @@ func (d *webdavDir) Readdir(n int) ([]os.FileInfo, error) {
 
 	defer iter.Close()
 
-	for e := iter.Next(ctx); e != nil; e = iter.Next(ctx) {
+	e, err := iter.Next(ctx)
+	for e != nil {
 		if n > 0 && foundEntries >= n {
 			break
 		}
@@ -135,14 +136,14 @@ func (d *webdavDir) Readdir(n int) ([]os.FileInfo, error) {
 			if atomic.AddInt32(symlinksAreUnsupportedLogged, 1) == 1 {
 				log(d.ctx).Errorf("Mounting directories containing symbolic links using WebDAV is not supported. The link entries will be skipped.")
 			}
-
-			continue
+		} else {
+			fis = append(fis, &webdavFileInfo{e})
 		}
 
-		fis = append(fis, &webdavFileInfo{e})
+		e, err = iter.Next(ctx)
 	}
 
-	if err := iter.FinalErr(); err != nil {
+	if err != nil {
 		return nil, errors.Wrap(err, "error reading directory")
 	}
 

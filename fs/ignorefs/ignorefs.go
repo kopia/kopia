@@ -156,20 +156,19 @@ type ignoreDirIterator struct {
 	thisContext *ignoreContext
 }
 
-func (i *ignoreDirIterator) FinalErr() error {
-	//nolint:wrapcheck
-	return i.inner.FinalErr()
-}
+func (i *ignoreDirIterator) Next(ctx context.Context) (fs.Entry, error) {
+	cur, err := i.inner.Next(ctx)
 
-func (i *ignoreDirIterator) Next(ctx context.Context) fs.Entry {
-	for cur := i.inner.Next(ctx); cur != nil; cur = i.inner.Next(ctx) {
+	for cur != nil {
 		//nolint:contextcheck
 		if wrapped, ok := i.d.maybeWrappedChildEntry(i.ctx, i.thisContext, cur); ok {
-			return wrapped
+			return wrapped, nil
 		}
+
+		cur, err = i.inner.Next(ctx)
 	}
 
-	return nil
+	return nil, err //nolint:wrapcheck
 }
 
 func (i *ignoreDirIterator) Close() {

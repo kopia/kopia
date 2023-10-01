@@ -11,19 +11,15 @@ type staticIterator struct {
 func (it *staticIterator) Close() {
 }
 
-func (it *staticIterator) FinalErr() error {
-	return it.err
-}
-
-func (it *staticIterator) Next(ctx context.Context) Entry {
+func (it *staticIterator) Next(ctx context.Context) (Entry, error) {
 	if it.cur < len(it.entries) {
 		v := it.entries[it.cur]
 		it.cur++
 
-		return v
+		return v, it.err
 	}
 
-	return nil
+	return nil, nil
 }
 
 // StaticIterator returns a DirectoryIterator which returns the provided

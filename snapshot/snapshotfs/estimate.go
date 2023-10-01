@@ -128,17 +128,16 @@ func estimate(ctx context.Context, relativePath string, entry fs.Entry, policyTr
 		if err == nil {
 			defer iter.Close()
 
-			for child := iter.Next(ctx); child != nil; child = iter.Next(ctx) {
+			var child fs.Entry
+
+			child, err = iter.Next(ctx)
+			for child != nil {
 				if err = estimate(ctx, filepath.Join(relativePath, child.Name()), child, policyTree.Child(child.Name()), stats, ib, eb, ed, progress, maxExamplesPerBucket); err != nil {
 					break
 				}
 
 				child.Close()
-			}
-
-			if err == nil {
-				// no error while estimating, see if the scan had any error
-				err = iter.FinalErr()
+				child, err = iter.Next(ctx)
 			}
 		}
 

@@ -119,29 +119,30 @@ func (w *TreeWalker) processDirEntry(ctx context.Context, dir fs.Directory, entr
 
 	defer iter.Close()
 
-	for ent := iter.Next(ctx); ent != nil; ent = iter.Next(ctx) {
-		ent := ent
+	ent, err := iter.Next(ctx)
+	for ent != nil {
+		ent2 := ent
 
 		if w.TooManyErrors() {
 			break
 		}
 
-		if w.alreadyProcessed(ctx, ent) {
-			continue
+		if !w.alreadyProcessed(ctx, ent2) {
+			childPath := path.Join(entryPath, ent2.Name())
+
+			if ag.CanShareWork(w.wp) {
+				ag.RunAsync(w.wp, func(c *workshare.Pool[any], request any) {
+					w.processEntry(ctx, ent2, childPath)
+				}, nil)
+			} else {
+				w.processEntry(ctx, ent2, childPath)
+			}
 		}
 
-		childPath := path.Join(entryPath, ent.Name())
-
-		if ag.CanShareWork(w.wp) {
-			ag.RunAsync(w.wp, func(c *workshare.Pool[any], request any) {
-				w.processEntry(ctx, ent, childPath)
-			}, nil)
-		} else {
-			w.processEntry(ctx, ent, childPath)
-		}
+		ent, err = iter.Next(ctx)
 	}
 
-	if err := iter.FinalErr(); err != nil {
+	if err != nil {
 		w.ReportError(ctx, entryPath, errors.Wrap(err, "error reading directory"))
 	}
 }

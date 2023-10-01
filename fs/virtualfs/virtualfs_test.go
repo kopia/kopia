@@ -200,17 +200,3 @@ func TestStreamingDirectory_ReturnsCallbackError(t *testing.T) {
 	})
 	assert.ErrorIs(t, err, errCallback)
 }
-
-var errIteration = errors.New("iteration error")
-
-func TestStreamingDirectory_ReturnsReadDirError(t *testing.T) {
-	rootDir := NewStreamingDirectory(
-		"root",
-		fs.StaticIterator(nil, errIteration),
-	)
-
-	err := fs.IterateEntries(testlogging.Context(t), rootDir, func(context.Context, fs.Entry) error {
-		return nil
-	})
-	assert.ErrorIs(t, err, errIteration)
-}

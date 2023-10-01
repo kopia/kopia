@@ -77,19 +77,22 @@ func IterateEntries(ctx context.Context, dir Directory, cb func(context.Context,
 
 	defer iter.Close()
 
-	for cur := iter.Next(ctx); cur != nil; cur = iter.Next(ctx) {
-		if err := cb(ctx, cur); err != nil {
-			return err
+	cur, err := iter.Next(ctx)
+
+	for cur != nil {
+		if err2 := cb(ctx, cur); err2 != nil {
+			return err2
 		}
+
+		cur, err = iter.Next(ctx)
 	}
 
-	return iter.FinalErr() //nolint:wrapcheck
+	return err //nolint:wrapcheck
 }
 
 // DirectoryIterator iterates entries in a directory.
 type DirectoryIterator interface {
-	Next(ctx context.Context) Entry // returns nil to signal end of iteration
-	FinalErr() error
+	Next(ctx context.Context) (Entry, error) // returns nil to signal end of iteration
 	Close()
 }
 
@@ -116,11 +119,13 @@ func GetAllEntries(ctx context.Context, d Directory) ([]Entry, error) {
 
 	defer iter.Close()
 
-	for cur := iter.Next(ctx); cur != nil; cur = iter.Next(ctx) {
+	cur, err := iter.Next(ctx)
+	for cur != nil {
 		entries = append(entries, cur)
+		cur, err = iter.Next(ctx)
 	}
 
-	return entries, iter.FinalErr() //nolint:wrapcheck
+	return entries, err //nolint:wrapcheck
 }
 
 // ErrEntryNotFound is returned when an entry is not found.
@@ -136,13 +141,16 @@ func IterateEntriesAndFindChild(ctx context.Context, d Directory, name string) (
 
 	defer iter.Close()
 
-	for cur := iter.Next(ctx); cur != nil; cur = iter.Next(ctx) {
+	cur, err := iter.Next(ctx)
+	for cur != nil {
 		if cur.Name() == name {
 			return cur, nil
 		}
+
+		cur, err = iter.Next(ctx)
 	}
 
-	if err := iter.FinalErr(); err != nil {
+	if err != nil {
 		return nil, err //nolint:wrapcheck
 	}
 

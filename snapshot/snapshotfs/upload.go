@@ -775,27 +775,31 @@ func (u *Uploader) processDirectoryEntries(
 
 	defer iter.Close()
 
-	for entry := iter.Next(ctx); entry != nil; entry = iter.Next(ctx) {
-		entry := entry
+	entry, err := iter.Next(ctx)
+
+	for entry != nil {
+		entry2 := entry
 
 		if u.IsCanceled() {
 			return errCanceled
 		}
 
-		entryRelativePath := path.Join(dirRelativePath, entry.Name())
+		entryRelativePath := path.Join(dirRelativePath, entry2.Name())
 
 		if wg.CanShareWork(u.workerPool) {
 			wg.RunAsync(u.workerPool, func(c *workshare.Pool[*uploadWorkItem], wi *uploadWorkItem) {
-				wi.err = u.processSingle(ctx, entry, entryRelativePath, parentDirBuilder, policyTree, prevDirs, localDirPathOrEmpty, parentCheckpointRegistry)
+				wi.err = u.processSingle(ctx, entry2, entryRelativePath, parentDirBuilder, policyTree, prevDirs, localDirPathOrEmpty, parentCheckpointRegistry)
 			}, &uploadWorkItem{})
 		} else {
-			if err := u.processSingle(ctx, entry, entryRelativePath, parentDirBuilder, policyTree, prevDirs, localDirPathOrEmpty, parentCheckpointRegistry); err != nil {
-				return err
+			if err2 := u.processSingle(ctx, entry2, entryRelativePath, parentDirBuilder, policyTree, prevDirs, localDirPathOrEmpty, parentCheckpointRegistry); err2 != nil {
+				return err2
 			}
 		}
+
+		entry, err = iter.Next(ctx)
 	}
 
-	if err := iter.FinalErr(); err != nil {
+	if err != nil {
 		return dirReadError{err}
 	}
 
