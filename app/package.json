@@ -10,7 +10,7 @@
     "electron-store": "^8.1.0",
     "minimist": "^1.2.8",
     "semver": "^7.5.4",
-    "uuid": "^9.0.0"
+    "uuid": "^9.0.1"
   },
   "author": {
     "email": "kopia-pmc@googlegroups.com",
@@ -112,13 +112,13 @@
   },
   "devDependencies": {
     "@electron/notarize": "^2.1.0",
-    "@playwright/test": "^1.37.1",
+    "@playwright/test": "^1.38.1",
     "asar": "^3.2.0",
     "concurrently": "^8.2.1",
     "dotenv": "^16.3.1",
-    "electron": "^26.2.1",
+    "electron": "^26.2.4",
     "electron-store": "^8.1.0",
-    "electron-builder": "^24.6.3",
+    "electron-builder": "^24.6.4",
     "playwright": "^1.37.1",
     "playwright-core": "^1.35.1"
   },
