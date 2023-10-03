@@ -102,14 +102,14 @@ type webdavDir struct {
 	// webdavDir implements webdav.File but needs context
 	ctx context.Context //nolint:containedctx
 
-	w     *webdavFS
-	entry fs.Directory
+	w    *webdavFS
+	info os.FileInfo
+	iter fs.DirectoryIterator
 }
 
 //nolint:gochecknoglobals
 var symlinksAreUnsupportedLogged = new(int32)
 
-// TODO: (bug) This incorrectly truncates the entries in the directory and does not allow pagination.
 func (d *webdavDir) Readdir(n int) ([]os.FileInfo, error) {
 	ctx := d.ctx
 
@@ -117,14 +117,7 @@ func (d *webdavDir) Readdir(n int) ([]os.FileInfo, error) {
 
 	foundEntries := 0
 
-	iter, err := d.entry.Iterate(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "error reading directory")
-	}
-
-	defer iter.Close()
-
-	e, err := iter.Next(ctx)
+	e, err := d.iter.Next(ctx)
 	for e != nil {
 		if n > 0 && foundEntries >= n {
 			break
@@ -140,7 +133,7 @@ func (d *webdavDir) Readdir(n int) ([]os.FileInfo, error) {
 			fis = append(fis, &webdavFileInfo{e})
 		}
 
-		e, err = iter.Next(ctx)
+		e, err = d.iter.Next(ctx)
 	}
 
 	if err != nil {
@@ -151,7 +144,7 @@ func (d *webdavDir) Readdir(n int) ([]os.FileInfo, error) {
 }
 
 func (d *webdavDir) Stat() (os.FileInfo, error) {
-	return webdavFileInfo{d.entry}, nil
+	return d.info, nil
 }
 
 func (d *webdavDir) Write(_ []byte) (int, error) {
@@ -159,6 +152,7 @@ func (d *webdavDir) Write(_ []byte) (int, error) {
 }
 
 func (d *webdavDir) Close() error {
+	d.iter.Close()
 	return nil
 }
 
@@ -199,7 +193,12 @@ func (w *webdavFS) OpenFile(ctx context.Context, path string, _ int, _ os.FileMo
 
 	switch f := f.(type) {
 	case fs.Directory:
-		return &webdavDir{ctx, w, f}, nil
+		iter, err := f.Iterate(ctx)
+		if err != nil {
+			return nil, err //nolint:wrapcheck
+		}
+
+		return &webdavDir{ctx, w, webdavFileInfo{f}, iter}, nil
 	case fs.File:
 		return &webdavFile{ctx: ctx, entry: f}, nil
 	}
