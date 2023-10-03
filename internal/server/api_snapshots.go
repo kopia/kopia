@@ -61,7 +61,7 @@ func handleDeleteSnapshots(ctx context.Context, rc requestContext) (interface{},
 		return nil, requestError(serverapi.ErrorMalformedRequest, "malformed request")
 	}
 
-	sm := rc.srv.allSourceManagers()[req.SourceInfo]
+	sm := rc.srv.snapshotAllSourceManagers()[req.SourceInfo]
 	if sm == nil {
 		return nil, requestError(serverapi.ErrorNotFound, "unknown source")
 	}
@@ -115,7 +115,7 @@ func handleDeleteSnapshots(ctx context.Context, rc requestContext) (interface{},
 		return nil
 	}); err != nil {
 		// if source deletion failed, refresh the repository to rediscover the source
-		rc.srv.Refresh(ctx) //nolint:errcheck
+		rc.srv.Refresh()
 
 		return nil, internalServerError(err)
 	}
@@ -194,19 +194,19 @@ func forAllSourceManagersMatchingURLFilter(ctx context.Context, managers map[sna
 }
 
 func handleUpload(ctx context.Context, rc requestContext) (interface{}, *apiError) {
-	return forAllSourceManagersMatchingURLFilter(ctx, rc.srv.allSourceManagers(), (*sourceManager).upload, rc.req.URL.Query())
+	return forAllSourceManagersMatchingURLFilter(ctx, rc.srv.snapshotAllSourceManagers(), (*sourceManager).upload, rc.req.URL.Query())
 }
 
 func handleCancel(ctx context.Context, rc requestContext) (interface{}, *apiError) {
-	return forAllSourceManagersMatchingURLFilter(ctx, rc.srv.allSourceManagers(), (*sourceManager).cancel, rc.req.URL.Query())
+	return forAllSourceManagersMatchingURLFilter(ctx, rc.srv.snapshotAllSourceManagers(), (*sourceManager).cancel, rc.req.URL.Query())
 }
 
 func handlePause(ctx context.Context, rc requestContext) (interface{}, *apiError) {
-	return forAllSourceManagersMatchingURLFilter(ctx, rc.srv.allSourceManagers(), (*sourceManager).pause, rc.req.URL.Query())
+	return forAllSourceManagersMatchingURLFilter(ctx, rc.srv.snapshotAllSourceManagers(), (*sourceManager).pause, rc.req.URL.Query())
 }
 
 func handleResume(ctx context.Context, rc requestContext) (interface{}, *apiError) {
-	return forAllSourceManagersMatchingURLFilter(ctx, rc.srv.allSourceManagers(), (*sourceManager).resume, rc.req.URL.Query())
+	return forAllSourceManagersMatchingURLFilter(ctx, rc.srv.snapshotAllSourceManagers(), (*sourceManager).resume, rc.req.URL.Query())
 }
 
 func uniqueSnapshots(rows []*serverapi.Snapshot) []*serverapi.Snapshot {

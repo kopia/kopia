@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/cache"
+	"github.com/kopia/kopia/internal/crypto"
 	"github.com/kopia/kopia/internal/epoch"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/metricid"
@@ -866,8 +867,8 @@ func TestDeriveKey(t *testing.T) {
 	formatEncryptionKeyFromPassword, err := j.DeriveFormatEncryptionKeyFromPassword(repotesting.DefaultPasswordForTesting)
 	require.NoError(t, err)
 
-	validV1KeyDerivedFromPassword := format.DeriveKeyFromMasterKey(formatEncryptionKeyFromPassword, uniqueID, testPurpose, testKeyLength)
-	validV2KeyDerivedFromMasterKey := format.DeriveKeyFromMasterKey(masterKey, uniqueID, testPurpose, testKeyLength)
+	validV1KeyDerivedFromPassword := crypto.DeriveKeyFromMasterKey(formatEncryptionKeyFromPassword, uniqueID, testPurpose, testKeyLength)
+	validV2KeyDerivedFromMasterKey := crypto.DeriveKeyFromMasterKey(masterKey, uniqueID, testPurpose, testKeyLength)
 
 	setup := func(v format.Version) repo.DirectRepositoryWriter {
 		_, env := repotesting.NewEnvironment(t, v, repotesting.Options{

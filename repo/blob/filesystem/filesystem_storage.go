@@ -316,8 +316,6 @@ func (fs *fsStorage) TouchBlob(ctx context.Context, blobID blob.ID, threshold ti
 
 		mtime = n
 
-		log(ctx).Debugf("updating timestamp on %v to %v", path, n)
-
 		//nolint:wrapcheck
 		return osi.Chtimes(path, n, n)
 	}, fs.Impl.(*fsImpl).isRetriable)

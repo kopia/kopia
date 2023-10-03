@@ -23,13 +23,12 @@ type serverInterface interface {
 	getAuthorizer() auth.Authorizer
 	getAuthenticator() auth.Authenticator
 	getOptions() *Options
-	allSourceManagers() map[snapshot.SourceInfo]*sourceManager
+	snapshotAllSourceManagers() map[snapshot.SourceInfo]*sourceManager
 	taskManager() *uitask.Manager
-	Refresh(ctx context.Context) error
+	Refresh()
 	getMountController(ctx context.Context, rep repo.Repository, oid object.ID, createIfNotFound bool) (mount.Controller, error)
 	deleteMount(oid object.ID)
 	listMounts() map[object.ID]mount.Controller
-	triggerRefreshSource(src snapshot.SourceInfo)
 	disconnect(ctx context.Context) error
 	requestShutdown(ctx context.Context)
 	getOrCreateSourceManager(ctx context.Context, src snapshot.SourceInfo) *sourceManager

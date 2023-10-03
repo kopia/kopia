@@ -71,10 +71,6 @@ func (c *commandSnapshotExpire) run(ctx context.Context, rep repo.RepositoryWrit
 			log(ctx).Infof("Deleted %v snapshots of %v...", len(deleted), src)
 		} else {
 			log(ctx).Infof("%v snapshot(s) of %v would be deleted. Pass --delete to do it.", len(deleted), src)
-
-			for _, it := range deleted {
-				log(ctx).Infof("  %v", formatTimestamp(it.StartTime.ToTime()))
-			}
 		}
 	}
 

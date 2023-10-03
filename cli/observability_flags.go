@@ -18,7 +18,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/push"
 	"github.com/prometheus/common/expfmt"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/jaeger"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
@@ -54,6 +54,7 @@ type observabilityFlags struct {
 	outputFilePrefix    string
 
 	enableJaeger bool
+	otlpTrace    bool
 
 	stopPusher chan struct{}
 	pusherWG   sync.WaitGroup
@@ -73,7 +74,9 @@ func (c *observabilityFlags) setup(svc appServices, app *kingpin.Application) {
 	app.Flag("metrics-push-username", "Username for push gateway").Envar(svc.EnvName("KOPIA_METRICS_PUSH_USERNAME")).Hidden().StringVar(&c.metricsPushUsername)
 	app.Flag("metrics-push-password", "Password for push gateway").Envar(svc.EnvName("KOPIA_METRICS_PUSH_PASSWORD")).Hidden().StringVar(&c.metricsPushPassword)
 
-	app.Flag("enable-jaeger-collector", "Emit OpenTelemetry traces to Jaeger collector").Hidden().Envar(svc.EnvName("KOPIA_ENABLE_JAEGER_COLLECTOR")).BoolVar(&c.enableJaeger)
+	// tracing (OTLP) parameters
+	app.Flag("enable-jaeger-collector", "(DEPRECATED) Emit OpenTelemetry traces to Jaeger collector").Hidden().Envar(svc.EnvName("KOPIA_ENABLE_JAEGER_COLLECTOR")).BoolVar(&c.enableJaeger)
+	app.Flag("otlp-trace", "Send OpenTelemetry traces to OTLP collector using gRPC").Hidden().Envar(svc.EnvName("KOPIA_ENABLE_OTLP_TRACE")).BoolVar(&c.otlpTrace)
 
 	var formats []string
 
@@ -123,7 +126,7 @@ func (c *observabilityFlags) startMetrics(ctx context.Context) error {
 		}
 	}
 
-	return c.maybeStartTraceExporter()
+	return c.maybeStartTraceExporter(ctx)
 }
 
 // Starts observability listener when a listener address is specified.
@@ -191,33 +194,36 @@ func (c *observabilityFlags) maybeStartMetricsPusher(ctx context.Context) error 
 	return nil
 }
 
-func (c *observabilityFlags) maybeStartTraceExporter() error {
-	if !c.enableJaeger {
+func (c *observabilityFlags) maybeStartTraceExporter(ctx context.Context) error {
+	if c.enableJaeger {
+		return errors.Errorf("Flag '--enable-jaeger-collector' is no longer supported, use '--otlp' instead. See https://github.com/kopia/kopia/pull/3264 for more information")
+	}
+
+	if !c.otlpTrace {
 		return nil
 	}
 
-	// Create the Jaeger exporter
-	se, err := jaeger.New(jaeger.WithCollectorEndpoint())
-	if err != nil {
-		return errors.Wrap(err, "unable to create Jaeger exporter")
+	// Create the OTLP exporter.
+	se := otlptracegrpc.NewUnstarted()
+
+	r := resource.NewWithAttributes(
+		semconv.SchemaURL,
+		semconv.ServiceNameKey.String("kopia"),
+		semconv.ServiceVersionKey.String(repo.BuildVersion),
+	)
+
+	tp := trace.NewTracerProvider(
+		trace.WithBatcher(se),
+		trace.WithResource(r),
+	)
+
+	if err := se.Start(ctx); err != nil {
+		return errors.Wrap(err, "unable to start OTLP exporter")
 	}
 
-	if se != nil {
-		r := resource.NewWithAttributes(
-			semconv.SchemaURL,
-			semconv.ServiceNameKey.String("kopia"),
-			semconv.ServiceVersionKey.String(repo.BuildVersion),
-		)
+	otel.SetTracerProvider(tp)
 
-		tp := trace.NewTracerProvider(
-			trace.WithBatcher(se),
-			trace.WithResource(r),
-		)
-
-		otel.SetTracerProvider(tp)
-
-		c.traceProvider = tp
-	}
+	c.traceProvider = tp
 
 	return nil
 }

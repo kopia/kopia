@@ -27,6 +27,7 @@ type Params struct {
 	ExtendObjectLocks bool `json:"extendObjectLocks"`
 }
 
+// isOwnedByByThisUser determines whether current user is the maintenance owner.
 func (p *Params) isOwnedByByThisUser(rep repo.Repository) bool {
 	return p.Owner == rep.ClientOptions().UsernameAtHost()
 }

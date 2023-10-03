@@ -791,7 +791,7 @@ func getShallowInfo(t *testing.T, srp string) (string, os.FileInfo) {
 
 	v := -1
 
-	for i, s := range []string{"", localfs.ShallowEntrySuffix, dIRPH} { // nolint(wsl)
+	for i, s := range []string{"", localfs.ShallowEntrySuffix, dIRPH} {
 		paths[i] = srp + s
 		shallowinfos[i], errors[i] = os.Lstat(paths[i])
 
@@ -804,7 +804,7 @@ func getShallowInfo(t *testing.T, srp string) (string, os.FileInfo) {
 	// the file paths should exist.)
 	errcount := 0
 
-	for _, e := range errors { // nolint(wsl)
+	for _, e := range errors {
 		if e != nil {
 			errcount++
 		}

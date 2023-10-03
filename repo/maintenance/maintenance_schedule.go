@@ -10,6 +10,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
@@ -72,10 +73,16 @@ func getAES256GCM(rep repo.DirectRepository) (cipher.AEAD, error) {
 }
 
 // TimeToAttemptNextMaintenance returns the time when we should attempt next maintenance.
-func TimeToAttemptNextMaintenance(ctx context.Context, rep repo.DirectRepository, max time.Time) (time.Time, error) {
+// if the maintenance is not owned by this user, returns time.Time{}.
+func TimeToAttemptNextMaintenance(ctx context.Context, rep repo.DirectRepository) (time.Time, error) {
 	mp, err := GetParams(ctx, rep)
 	if err != nil {
 		return time.Time{}, errors.Wrap(err, "unable to get maintenance parameters")
+	}
+
+	// if maintenance is not owned by this user, do not run maintenance here.
+	if !mp.isOwnedByByThisUser(rep) {
+		return time.Time{}, nil
 	}
 
 	ms, err := GetSchedule(ctx, rep)
@@ -83,23 +90,21 @@ func TimeToAttemptNextMaintenance(ctx context.Context, rep repo.DirectRepository
 		return time.Time{}, errors.Wrap(err, "unable to get maintenance schedule")
 	}
 
-	// if maintenance is not owned by this user, return 'max' because ownership may change.
-	if !mp.isOwnedByByThisUser(rep) {
-		log(ctx).Debugw("maintenance not owned by current user.")
-		return max, nil
-	}
-
-	nextMaintenanceTime := max
+	var nextMaintenanceTime time.Time
 
 	if mp.FullCycle.Enabled {
-		if ms.NextFullMaintenanceTime.Before(nextMaintenanceTime) {
-			nextMaintenanceTime = ms.NextFullMaintenanceTime
+		nextMaintenanceTime = ms.NextFullMaintenanceTime
+		if nextMaintenanceTime.IsZero() {
+			nextMaintenanceTime = clock.Now()
 		}
 	}
 
 	if mp.QuickCycle.Enabled {
-		if ms.NextQuickMaintenanceTime.Before(nextMaintenanceTime) {
+		if nextMaintenanceTime.IsZero() || ms.NextQuickMaintenanceTime.Before(nextMaintenanceTime) {
 			nextMaintenanceTime = ms.NextQuickMaintenanceTime
+			if nextMaintenanceTime.IsZero() {
+				nextMaintenanceTime = clock.Now()
+			}
 		}
 	}
 

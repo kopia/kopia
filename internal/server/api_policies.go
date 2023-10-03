@@ -123,7 +123,7 @@ func handlePolicyDelete(ctx context.Context, rc requestContext) (interface{}, *a
 		return nil, internalServerError(err)
 	}
 
-	rc.srv.triggerRefreshSource(sourceInfo)
+	rc.srv.Refresh()
 
 	return &serverapi.Empty{}, nil
 }
@@ -148,7 +148,7 @@ func handlePolicyPut(ctx context.Context, rc requestContext) (interface{}, *apiE
 		return nil, internalServerError(err)
 	}
 
-	_ = rc.srv.Refresh(ctx)
+	rc.srv.Refresh()
 
 	return &serverapi.Empty{}, nil
 }

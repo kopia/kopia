@@ -322,3 +322,28 @@ server {
 ```shell
 kopia server start --address unix:/tmp/kopia.sock --tls-cert-file ~/my.cert --tls-key-file ~/my.key
 ```
+
+## Kopia with systemd
+
+Kopia can be run as a socket-activated systemd service.  While socket-activation is not typically needed
+for Kopia, it can be usefull when run in a rootless Podman container, or to control the permissions
+of the unix-domain-socket when run behind a reverse proxy.
+
+Kopia will automatically detect socket-activation when present and ignore the --address switch.
+
+When using socket-activation with Kopia server, it is generally deriable to enable both the socket and
+the service so that the service starts immediately instead of on-demand (so that the maintenance can run).
+
+An example kopia.socket file using unix domain sockets and permission control may look like:
+
+```
+[Unit]
+Description=Kopia
+
+[Socket]
+ListenStream=%t/kopia/kopia.sock
+SocketMode=0666
+
+[Install]
+WantedBy=sockets.target
+```
