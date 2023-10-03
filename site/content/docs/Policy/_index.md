@@ -16,7 +16,7 @@ Default Policy
 >> Host level policy
 >>> Source level policy
 
-In this system, policies are inherited from the next highest level, in  much the same way as Windows does permissions or GP. Any setting that is not explicitly defined in a lower level is inherited from the next highest level, until the default is reached. Polices can be edited directly in JSON format using `kopia policy edit` or individual settings can be changed using `kopia policy set`. This takes a source as an argument, or if `--global` is given, then the global policy is edited. This will open your default text editor in the terminal where you can edit the policy in JSON format. When editing is finished save the file and close the editor. Kopia will then upload and apply the policy to the repository. Policies are always checked and updated at the start of a snapshot create.
+In this system, policies are inherited from the next highest level, in  much the same way as Windows does permissions or GP. Any setting that is not explicitly defined in a lower level is inherited from the next highest level, until the default is reached. Polices can be edited directly in JSON format using `kopia policy edit` or individual settings can be changed using `kopia policy set`. This takes a source as an argument, or if `--global` is given, then the global policy is edited. This will open your default text editor in the terminal where you can edit the policy using JSON syntax. When editing is finished save the file and close the editor. Kopia will then upload and apply the policy to the repository. Policies are always checked and updated at the start of a snapshot create.
 
 
 ## Retention Policy
@@ -35,7 +35,7 @@ Tags are assigned as follows:
     For retention purposes, a week starts on Monday and ends on Sunday.
 
 ```
-Annual snapshots:                     0
+  Annual snapshots:                     0
   Monthly snapshots:                    1
   Weekly snapshots:                     1
   Daily snapshots:                      4
@@ -43,7 +43,7 @@ Annual snapshots:                     0
   Latest snapshots:                     1
   Ignore identical snapshots:       false
 ```
-
+The snapshot policy above will tag snapshots as below
 ```
   2023-06-11 22:00:00 - (daily-4)
   2023-06-12 22:00:00 - (daily-3)
@@ -56,7 +56,7 @@ Similarly daily-N is assigned to the latest snapshot within each day:
 2001-01-01 14:01 - not daily because 15:55 was done the same day
 2001-01-01 15:55 - daily-5
 2001-01-02 14:01 - daily-4
-2001-01-03 15:55 - daily -3
+2001-01-03 15:55 - daily-3
 2001-01-04 14:01 - not daily because 15:01 was done the same day
 2001-01-04 15:01 - daily-2
 2001-01-05 15:55 - daily-1
@@ -72,7 +72,7 @@ We can define files that are ignored based on patterns specified. These rules ar
 
 Would mean the .kopiaignore file goes in the ~/ directory. The formating for these files is the same as a .gitignore file.
 
-Scan one file system only when set to false will allow kopia to cross filesystem boundrys. Set this to true to disable.
+`Scan one file system only` when set to false will allow kopia to cross filesystem boundrys. Set this to true to disable.
 
 ```
 Files policy:
@@ -105,7 +105,7 @@ This feature is mostly for kopiaUI and kopiaServer users, and defines how often 
 This controls how many parallel uploads can occur during snapshot creation.
 
 ## Compression
-This defines what type of compression is used. This can be changed at any point in time as the deduplication happens before compression, and changes won't affect already saved files. The algorithm can be set using Compressor: Options can be zstd,
+This defines what type of compression is used. This can be changed at any point in time as the deduplication happens before compression, and changes won't affect already saved files. The algorithm can be set using Compressor: Options can be zstd, pgzip, s2. Read more about compression [here](compression/#compression).
 ```
 Compression:
   Compressor:                         zstd
@@ -115,6 +115,6 @@ Compression:
   Compress files of all sizes.
 ```
 
-Files can be defined as ignore for compression. Use the same syntax as ignore policies. This can be used to reduce client workload when dealing with certain un-compressable file types, such as video. A compression of these defined files won't be done.
+Files can be defined as ignore for compression. Use the same syntax as ignore policies. This can be used to reduce client workload when dealing with certain un-compressible file types, such as video or encrypted files.
 
 `Compress files of x size` Can be used to define a range of file sizes to be compressed.
