@@ -332,3 +332,24 @@ func TestPolicyMergeTimesOfDayIncludingParents(t *testing.T) {
 
 	require.Equal(t, want.String(), result.String())
 }
+
+func TestPolicyMergeManual(t *testing.T) {
+	p0 := &policy.Policy{
+		SchedulingPolicy: policy.SchedulingPolicy{
+			Manual: policy.NewOptionalBool(true),
+		},
+	}
+
+	p1 := &policy.Policy{
+		SchedulingPolicy: policy.SchedulingPolicy{
+			Manual: policy.NewOptionalBool(false),
+		},
+	}
+
+	result, _ := policy.MergePolicies([]*policy.Policy{p1, p0}, p0.Target())
+
+	want := *policy.DefaultPolicy
+	want.SchedulingPolicy.Manual = policy.NewOptionalBool(false)
+
+	require.Equal(t, want.String(), result.String())
+}

@@ -15,7 +15,7 @@ type policySchedulingFlags struct {
 	policySetInterval   []time.Duration // not a list, just optional duration
 	policySetTimesOfDay []string
 	policySetCron       string
-	policySetManual     bool
+	policySetManual     string
 	policySetRunMissed  string
 }
 
@@ -24,11 +24,11 @@ func (c *policySchedulingFlags) setup(cmd *kingpin.CmdClause) {
 	cmd.Flag("snapshot-time", "Comma-separated times of day when to take snapshot (HH:mm,HH:mm,...) or 'inherit' to remove override").StringsVar(&c.policySetTimesOfDay)
 	cmd.Flag("snapshot-time-crontab", "Semicolon-separated crontab-compatible expressions (or 'inherit')").StringVar(&c.policySetCron)
 	cmd.Flag("run-missed", "Run missed time-of-day snapshots ('true', 'false', 'inherit')").EnumVar(&c.policySetRunMissed, booleanEnumValues...)
-	cmd.Flag("manual", "Only create snapshots manually").BoolVar(&c.policySetManual)
+	cmd.Flag("manual", "Only create snapshots manually").EnumVar(&c.policySetManual, booleanEnumValues...)
 }
 
 func (c *policySchedulingFlags) setSchedulingPolicyFromFlags(ctx context.Context, sp *policy.SchedulingPolicy, changeCount *int) error {
-	if c.policySetManual {
+	if c.policySetManual == "true" {
 		return c.setManualFromFlags(ctx, sp, changeCount)
 	}
 
@@ -97,10 +97,10 @@ func (c *policySchedulingFlags) setScheduleFromFlags(ctx context.Context, sp *po
 		return errors.Wrap(err, "invalid run-missed value")
 	}
 
-	if sp.Manual {
+	if sp.Manual.OrDefault(false) {
 		*changeCount++
 
-		sp.Manual = false
+		sp.Manual = policy.NewOptionalBool(false)
 
 		log(ctx).Infof(" - resetting manual snapshot field to false\n")
 	}
@@ -173,7 +173,8 @@ func (c *policySchedulingFlags) setManualFromFlags(ctx context.Context, sp *poli
 
 	*changeCount++
 
-	sp.Manual = c.policySetManual
+	sp.Manual = policy.NewOptionalBool(true)
+
 	log(ctx).Infof(" - setting manual snapshot field to %v\n", c.policySetManual)
 
 	return nil

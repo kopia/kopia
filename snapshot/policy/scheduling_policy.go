@@ -60,7 +60,7 @@ type SchedulingPolicy struct {
 	IntervalSeconds    int64         `json:"intervalSeconds,omitempty"`
 	TimesOfDay         []TimeOfDay   `json:"timeOfDay,omitempty"`
 	NoParentTimesOfDay bool          `json:"noParentTimeOfDay,omitempty"`
-	Manual             bool          `json:"manual,omitempty"`
+	Manual             *OptionalBool `json:"manual,omitempty"`
 	Cron               []string      `json:"cron,omitempty"`
 	RunMissed          *OptionalBool `json:"runMissed,omitempty"`
 }
@@ -90,7 +90,7 @@ func (p *SchedulingPolicy) SetInterval(d time.Duration) {
 // NextSnapshotTime computes next snapshot time given previous
 // snapshot time and current wall clock time.
 func (p *SchedulingPolicy) NextSnapshotTime(previousSnapshotTime, now time.Time) (time.Time, bool) {
-	if p.Manual {
+	if p.Manual.OrDefault(false) {
 		return time.Time{}, false
 	}
 
@@ -191,13 +191,13 @@ func (p *SchedulingPolicy) Merge(src SchedulingPolicy, def *SchedulingPolicyDefi
 		p.NoParentTimesOfDay = src.NoParentTimesOfDay
 	}
 
-	mergeBool(&p.Manual, src.Manual, &def.Manual, si)
+	mergeOptionalBool(&p.Manual, src.Manual, &def.Manual, si)
 	mergeOptionalBool(&p.RunMissed, src.RunMissed, &def.RunMissed, si)
 }
 
 // IsManualSnapshot returns the SchedulingPolicy manual value from the given policy tree.
 func IsManualSnapshot(policyTree *Tree) bool {
-	return policyTree.EffectivePolicy().SchedulingPolicy.Manual
+	return policyTree.EffectivePolicy().SchedulingPolicy.Manual.OrDefault(false)
 }
 
 // SetManual sets the manual setting in the SchedulingPolicy on the given source.
@@ -212,7 +212,7 @@ func SetManual(ctx context.Context, rep repo.RepositoryWriter, sourceInfo snapsh
 		return errors.Wrap(err, "could not get defined policy for source")
 	}
 
-	p.SchedulingPolicy.Manual = true
+	p.SchedulingPolicy.Manual = NewOptionalBool(true)
 
 	if err := SetPolicy(ctx, rep, sourceInfo, p); err != nil {
 		return errors.Wrapf(err, "can't save policy for %v", sourceInfo)
@@ -223,7 +223,7 @@ func SetManual(ctx context.Context, rep repo.RepositoryWriter, sourceInfo snapsh
 
 // ValidateSchedulingPolicy returns an error if manual field is set along with scheduling fields.
 func ValidateSchedulingPolicy(p SchedulingPolicy) error {
-	if p.Manual && !reflect.DeepEqual(p, SchedulingPolicy{Manual: true}) {
+	if p.Manual.OrDefault(false) && !reflect.DeepEqual(p, SchedulingPolicy{Manual: NewOptionalBool(true), RunMissed: p.RunMissed}) {
 		return errors.New("invalid scheduling policy: manual cannot be combined with other scheduling policies")
 	}
 

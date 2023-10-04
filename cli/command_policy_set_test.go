@@ -181,7 +181,7 @@ func TestSetSchedulingPolicyFromFlags(t *testing.T) {
 		intervalArg    []time.Duration
 		timesOfDayArg  []string
 		cronArg        string
-		manualArg      bool
+		manualArg      string
 		runMissedArg   string
 		expResult      *policy.SchedulingPolicy
 		expErrMsg      string
@@ -196,9 +196,9 @@ func TestSetSchedulingPolicyFromFlags(t *testing.T) {
 		{
 			name:           "Manual flag set to true, no starting policy",
 			startingPolicy: &policy.SchedulingPolicy{},
-			manualArg:      true,
+			manualArg:      "true",
 			expResult: &policy.SchedulingPolicy{
-				Manual: true,
+				Manual: policy.NewOptionalBool(true),
 			},
 			expChangeCount: 1,
 		},
@@ -235,7 +235,7 @@ func TestSetSchedulingPolicyFromFlags(t *testing.T) {
 			intervalArg: []time.Duration{
 				time.Hour * 1,
 			},
-			manualArg:      true,
+			manualArg:      "true",
 			expResult:      &policy.SchedulingPolicy{},
 			expErrMsg:      "cannot set manual field when scheduling snapshots",
 			expChangeCount: 0,
@@ -246,7 +246,7 @@ func TestSetSchedulingPolicyFromFlags(t *testing.T) {
 			timesOfDayArg: []string{
 				"12:00",
 			},
-			manualArg:      true,
+			manualArg:      "true",
 			expResult:      &policy.SchedulingPolicy{},
 			expErrMsg:      "cannot set manual field when scheduling snapshots",
 			expChangeCount: 0,
@@ -255,7 +255,7 @@ func TestSetSchedulingPolicyFromFlags(t *testing.T) {
 			name:           "Manual and cron set, no starting policy",
 			startingPolicy: &policy.SchedulingPolicy{},
 			cronArg:        "* * * * *",
-			manualArg:      true,
+			manualArg:      "true",
 			expResult:      &policy.SchedulingPolicy{},
 			expErrMsg:      "cannot set manual field when scheduling snapshots",
 			expChangeCount: 0,
@@ -265,9 +265,9 @@ func TestSetSchedulingPolicyFromFlags(t *testing.T) {
 			startingPolicy: &policy.SchedulingPolicy{
 				IntervalSeconds: 3600,
 			},
-			manualArg: true,
+			manualArg: "true",
 			expResult: &policy.SchedulingPolicy{
-				Manual: true,
+				Manual: policy.NewOptionalBool(true),
 			},
 			expChangeCount: 2,
 		},
@@ -281,9 +281,9 @@ func TestSetSchedulingPolicyFromFlags(t *testing.T) {
 					},
 				},
 			},
-			manualArg: true,
+			manualArg: "true",
 			expResult: &policy.SchedulingPolicy{
-				Manual: true,
+				Manual: policy.NewOptionalBool(true),
 			},
 			expChangeCount: 2,
 		},
@@ -298,29 +298,30 @@ func TestSetSchedulingPolicyFromFlags(t *testing.T) {
 					},
 				},
 			},
-			manualArg: true,
+			manualArg: "true",
 			expResult: &policy.SchedulingPolicy{
-				Manual: true,
+				Manual: policy.NewOptionalBool(true),
 			},
 			expChangeCount: 3,
 		},
 		{
 			name: "Interval set, starting policy with manual",
 			startingPolicy: &policy.SchedulingPolicy{
-				Manual: true,
+				Manual: policy.NewOptionalBool(true),
 			},
 			intervalArg: []time.Duration{
 				time.Hour * 1,
 			},
 			expResult: &policy.SchedulingPolicy{
 				IntervalSeconds: 3600,
+				Manual:          policy.NewOptionalBool(false),
 			},
 			expChangeCount: 2,
 		},
 		{
 			name: "Times of day set, starting policy with manual",
 			startingPolicy: &policy.SchedulingPolicy{
-				Manual: true,
+				Manual: policy.NewOptionalBool(true),
 			},
 			timesOfDayArg: []string{
 				"12:00",
@@ -332,6 +333,7 @@ func TestSetSchedulingPolicyFromFlags(t *testing.T) {
 						Minute: 0,
 					},
 				},
+				Manual: policy.NewOptionalBool(false),
 			},
 			expChangeCount: 2,
 		},
@@ -451,6 +453,18 @@ func TestSetSchedulingPolicyFromFlags(t *testing.T) {
 			},
 			expChangeCount: 0,
 		},
+		{
+			name: "Set global manual",
+			startingPolicy: &policy.SchedulingPolicy{
+				RunMissed: policy.NewOptionalBool(true),
+			},
+			expResult: &policy.SchedulingPolicy{
+				Manual:    policy.NewOptionalBool(true),
+				RunMissed: policy.NewOptionalBool(true),
+			},
+			manualArg:      "true",
+			expChangeCount: 1,
+		},
 	} {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
@@ -471,6 +485,7 @@ func TestSetSchedulingPolicyFromFlags(t *testing.T) {
 			}
 
 			require.NoError(t, err)
+			require.NoError(t, policy.ValidateSchedulingPolicy(*tc.startingPolicy))
 			require.Equal(t, tc.expResult, tc.startingPolicy)
 			require.Equal(t, tc.expChangeCount, changeCount)
 		})

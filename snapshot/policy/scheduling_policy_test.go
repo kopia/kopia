@@ -182,7 +182,7 @@ func TestNextSnapshotTime(t *testing.T) {
 			pol: policy.SchedulingPolicy{
 				IntervalSeconds: 43200,
 				TimesOfDay:      []policy.TimeOfDay{{19, 0}, {20, 0}},
-				Manual:          true,
+				Manual:          policy.NewOptionalBool(true),
 			},
 			previousSnapshotTime: time.Date(2020, time.January, 1, 19, 0, 0, 0, time.Local),
 			now:                  time.Date(2020, time.January, 1, 10, 0, 0, 0, time.Local),
