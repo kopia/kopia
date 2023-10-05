@@ -24,6 +24,7 @@ func (it *staticIterator) Next(ctx context.Context) (Entry, error) {
 
 // StaticIterator returns a DirectoryIterator which returns the provided
 // entries in order followed by a given final error.
+// It is not safe to concurrently access directory iterator.
 func StaticIterator(entries []Entry, err error) DirectoryIterator {
 	return &staticIterator{0, entries, err}
 }
