@@ -303,23 +303,17 @@ func (imd *Directory) Child(ctx context.Context, name string) (fs.Entry, error) 
 	return nil, fs.ErrEntryNotFound
 }
 
-// IterateEntries calls the given callback on each entry in the directory.
-func (imd *Directory) IterateEntries(ctx context.Context, cb func(context.Context, fs.Entry) error) error {
+// Iterate returns directory iterator.
+func (imd *Directory) Iterate(ctx context.Context) (fs.DirectoryIterator, error) {
 	if imd.readdirError != nil {
-		return imd.readdirError
+		return nil, imd.readdirError
 	}
 
 	if imd.onReaddir != nil {
 		imd.onReaddir()
 	}
 
-	for _, e := range append([]fs.Entry{}, imd.children...) {
-		if err := cb(ctx, e); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return fs.StaticIterator(append([]fs.Entry{}, imd.children...), nil), nil
 }
 
 // File is an in-memory fs.File capable of simulating failures.
