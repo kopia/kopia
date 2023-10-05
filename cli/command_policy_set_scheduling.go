@@ -23,7 +23,7 @@ func (c *policySchedulingFlags) setup(cmd *kingpin.CmdClause) {
 	cmd.Flag("snapshot-interval", "Interval between snapshots").DurationListVar(&c.policySetInterval)
 	cmd.Flag("snapshot-time", "Comma-separated times of day when to take snapshot (HH:mm,HH:mm,...) or 'inherit' to remove override").StringsVar(&c.policySetTimesOfDay)
 	cmd.Flag("snapshot-time-crontab", "Semicolon-separated crontab-compatible expressions (or 'inherit')").StringVar(&c.policySetCron)
-	cmd.Flag("run-missed", "Run missed time-of-day snapshots ('true', 'false', 'inherit')").EnumVar(&c.policySetRunMissed, booleanEnumValues...)
+	cmd.Flag("run-missed", "Run missed time-of-day or cron snapshots ('true', 'false', 'inherit')").EnumVar(&c.policySetRunMissed, booleanEnumValues...)
 	cmd.Flag("manual", "Only create snapshots manually").BoolVar(&c.policySetManual)
 }
 
