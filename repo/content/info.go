@@ -13,7 +13,7 @@ type (
 	// IDPrefix represents a content ID prefix (empty string or single character between 'g' and 'z').
 	IDPrefix = index.IDPrefix
 
-	// Info is an implementation of Info based on a structure.
+	// Info describes a single piece of content.
 	Info = index.InfoStruct
 
 	// IDRange represents a range of IDs.
