@@ -95,7 +95,7 @@ func IterateEntries(ctx context.Context, dir Directory, cb func(context.Context,
 // The client is expected to call Next() in a loop until it returns a nil entry to signal
 // end of iteration or until an error has occurred.
 //
-// The behavior of calling Nex() after iteration has signaled its end is undefined.
+// The behavior of calling Next() after iteration has signaled its end is undefined.
 //
 // To release any resources associated with iteration the client must call Close().
 type DirectoryIterator interface {
