@@ -49,7 +49,7 @@ func contentInfoGreaterThan(a, b InfoReader) bool {
 	return a.GetPackBlobID() > b.GetPackBlobID()
 }
 
-func contentInfoGreaterThanStruct(a, b InfoStruct) bool {
+func contentInfoGreaterThanStruct(a, b Info) bool {
 	if l, r := a.GetTimestampSeconds(), b.GetTimestampSeconds(); l != r {
 		// different timestamps, higher one wins
 		return l > r

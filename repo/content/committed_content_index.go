@@ -66,17 +66,17 @@ func (c *committedContentIndex) getContent(contentID ID) (Info, error) {
 	info, err := c.merged.GetInfo(contentID)
 	if info != nil {
 		if shouldIgnore(info, c.deletionWatermark) {
-			return index.InfoStruct{}, ErrContentNotFound
+			return index.Info{}, ErrContentNotFound
 		}
 
 		return index.ToInfoStruct(info), nil
 	}
 
 	if err == nil {
-		return index.InfoStruct{}, ErrContentNotFound
+		return index.Info{}, ErrContentNotFound
 	}
 
-	return index.InfoStruct{}, errors.Wrap(err, "error getting content info from index")
+	return index.Info{}, errors.Wrap(err, "error getting content info from index")
 }
 
 func shouldIgnore(id index.InfoReader, deletionWatermark time.Time) bool {

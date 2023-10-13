@@ -14,25 +14,25 @@ import (
 
 func TestMerged(t *testing.T) {
 	i1, err := indexWithItems(
-		InfoStruct{ContentID: mustParseID(t, "aabbcc"), TimestampSeconds: 1, PackBlobID: "xx", PackOffset: 11},
-		InfoStruct{ContentID: mustParseID(t, "ddeeff"), TimestampSeconds: 1, PackBlobID: "xx", PackOffset: 111},
-		InfoStruct{ContentID: mustParseID(t, "z010203"), TimestampSeconds: 1, PackBlobID: "xx", PackOffset: 111},
-		InfoStruct{ContentID: mustParseID(t, "de1e1e"), TimestampSeconds: 4, PackBlobID: "xx", PackOffset: 111},
+		Info{ContentID: mustParseID(t, "aabbcc"), TimestampSeconds: 1, PackBlobID: "xx", PackOffset: 11},
+		Info{ContentID: mustParseID(t, "ddeeff"), TimestampSeconds: 1, PackBlobID: "xx", PackOffset: 111},
+		Info{ContentID: mustParseID(t, "z010203"), TimestampSeconds: 1, PackBlobID: "xx", PackOffset: 111},
+		Info{ContentID: mustParseID(t, "de1e1e"), TimestampSeconds: 4, PackBlobID: "xx", PackOffset: 111},
 	)
 	require.NoError(t, err)
 
 	i2, err := indexWithItems(
-		InfoStruct{ContentID: mustParseID(t, "aabbcc"), TimestampSeconds: 3, PackBlobID: "yy", PackOffset: 33},
-		InfoStruct{ContentID: mustParseID(t, "xaabbcc"), TimestampSeconds: 1, PackBlobID: "xx", PackOffset: 111},
-		InfoStruct{ContentID: mustParseID(t, "de1e1e"), TimestampSeconds: 4, PackBlobID: "xx", PackOffset: 222, Deleted: true},
+		Info{ContentID: mustParseID(t, "aabbcc"), TimestampSeconds: 3, PackBlobID: "yy", PackOffset: 33},
+		Info{ContentID: mustParseID(t, "xaabbcc"), TimestampSeconds: 1, PackBlobID: "xx", PackOffset: 111},
+		Info{ContentID: mustParseID(t, "de1e1e"), TimestampSeconds: 4, PackBlobID: "xx", PackOffset: 222, Deleted: true},
 	)
 	require.NoError(t, err)
 
 	i3, err := indexWithItems(
-		InfoStruct{ContentID: mustParseID(t, "aabbcc"), TimestampSeconds: 2, PackBlobID: "zz", PackOffset: 22},
-		InfoStruct{ContentID: mustParseID(t, "ddeeff"), TimestampSeconds: 1, PackBlobID: "zz", PackOffset: 222},
-		InfoStruct{ContentID: mustParseID(t, "k010203"), TimestampSeconds: 1, PackBlobID: "xx", PackOffset: 111},
-		InfoStruct{ContentID: mustParseID(t, "k020304"), TimestampSeconds: 1, PackBlobID: "xx", PackOffset: 111},
+		Info{ContentID: mustParseID(t, "aabbcc"), TimestampSeconds: 2, PackBlobID: "zz", PackOffset: 22},
+		Info{ContentID: mustParseID(t, "ddeeff"), TimestampSeconds: 1, PackBlobID: "zz", PackOffset: 222},
+		Info{ContentID: mustParseID(t, "k010203"), TimestampSeconds: 1, PackBlobID: "xx", PackOffset: 111},
+		Info{ContentID: mustParseID(t, "k020304"), TimestampSeconds: 1, PackBlobID: "xx", PackOffset: 111},
 	)
 	require.NoError(t, err)
 
@@ -168,23 +168,23 @@ func TestMergedGetInfoError(t *testing.T) {
 
 func TestMergedIndexIsConsistent(t *testing.T) {
 	i1, err := indexWithItems(
-		InfoStruct{ContentID: mustParseID(t, "aabbcc"), TimestampSeconds: 1, PackBlobID: "xx", PackOffset: 11},
-		InfoStruct{ContentID: mustParseID(t, "bbccdd"), TimestampSeconds: 1, PackBlobID: "xx", PackOffset: 11},
-		InfoStruct{ContentID: mustParseID(t, "ccddee"), TimestampSeconds: 1, PackBlobID: "ff", PackOffset: 11, Deleted: true},
+		Info{ContentID: mustParseID(t, "aabbcc"), TimestampSeconds: 1, PackBlobID: "xx", PackOffset: 11},
+		Info{ContentID: mustParseID(t, "bbccdd"), TimestampSeconds: 1, PackBlobID: "xx", PackOffset: 11},
+		Info{ContentID: mustParseID(t, "ccddee"), TimestampSeconds: 1, PackBlobID: "ff", PackOffset: 11, Deleted: true},
 	)
 	require.NoError(t, err)
 
 	i2, err := indexWithItems(
-		InfoStruct{ContentID: mustParseID(t, "aabbcc"), TimestampSeconds: 1, PackBlobID: "yy", PackOffset: 33},
-		InfoStruct{ContentID: mustParseID(t, "bbccdd"), TimestampSeconds: 1, PackBlobID: "yy", PackOffset: 11, Deleted: true},
-		InfoStruct{ContentID: mustParseID(t, "ccddee"), TimestampSeconds: 1, PackBlobID: "gg", PackOffset: 11, Deleted: true},
+		Info{ContentID: mustParseID(t, "aabbcc"), TimestampSeconds: 1, PackBlobID: "yy", PackOffset: 33},
+		Info{ContentID: mustParseID(t, "bbccdd"), TimestampSeconds: 1, PackBlobID: "yy", PackOffset: 11, Deleted: true},
+		Info{ContentID: mustParseID(t, "ccddee"), TimestampSeconds: 1, PackBlobID: "gg", PackOffset: 11, Deleted: true},
 	)
 	require.NoError(t, err)
 
 	i3, err := indexWithItems(
-		InfoStruct{ContentID: mustParseID(t, "aabbcc"), TimestampSeconds: 1, PackBlobID: "zz", PackOffset: 22},
-		InfoStruct{ContentID: mustParseID(t, "bbccdd"), TimestampSeconds: 1, PackBlobID: "zz", PackOffset: 11, Deleted: true},
-		InfoStruct{ContentID: mustParseID(t, "ccddee"), TimestampSeconds: 1, PackBlobID: "hh", PackOffset: 11, Deleted: true},
+		Info{ContentID: mustParseID(t, "aabbcc"), TimestampSeconds: 1, PackBlobID: "zz", PackOffset: 22},
+		Info{ContentID: mustParseID(t, "bbccdd"), TimestampSeconds: 1, PackBlobID: "zz", PackOffset: 11, Deleted: true},
+		Info{ContentID: mustParseID(t, "ccddee"), TimestampSeconds: 1, PackBlobID: "hh", PackOffset: 11, Deleted: true},
 	)
 	require.NoError(t, err)
 
@@ -237,7 +237,7 @@ func iterateIDRange(t *testing.T, m Index, r IDRange) []ID {
 	return inOrder
 }
 
-func indexWithItems(items ...InfoStruct) (Index, error) {
+func indexWithItems(items ...Info) (Index, error) {
 	b := make(Builder)
 
 	for _, it := range items {

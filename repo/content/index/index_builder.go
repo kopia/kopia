@@ -16,7 +16,7 @@ import (
 const randomSuffixSize = 32 // number of random bytes to append at the end to make the index blob unique
 
 // Builder prepares and writes content index.
-type Builder map[ID]InfoStruct
+type Builder map[ID]Info
 
 // Clone returns a deep Clone of the Builder.
 func (b Builder) Clone() Builder {
@@ -34,7 +34,7 @@ func (b Builder) Clone() Builder {
 }
 
 // Add adds a new entry to the builder or conditionally replaces it if the timestamp is greater.
-func (b Builder) Add(i InfoStruct) {
+func (b Builder) Add(i Info) {
 	cid := i.GetContentID()
 
 	old, found := b[cid]
@@ -63,8 +63,8 @@ func init() {
 // sortedContents returns the list of []Info sorted lexicographically using bucket sort
 // sorting is optimized based on the format of content IDs (optional single-character
 // alphanumeric prefix (0-9a-z), followed by hexadecimal digits (0-9a-f).
-func (b Builder) sortedContents() []InfoStruct {
-	var buckets [36 * 16][]InfoStruct
+func (b Builder) sortedContents() []Info {
+	var buckets [36 * 16][]Info
 
 	// phase 1 - bucketize into 576 (36 *16) separate lists
 	// by first [0-9a-z] and second character [0-9a-f].
@@ -106,7 +106,7 @@ func (b Builder) sortedContents() []InfoStruct {
 	wg.Wait()
 
 	// Phase 3 - merge results from all buckets.
-	result := make([]InfoStruct, 0, len(b))
+	result := make([]Info, 0, len(b))
 
 	for i := 0; i < len(buckets); i++ {
 		result = append(result, buckets[i]...)

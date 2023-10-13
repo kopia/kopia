@@ -430,7 +430,7 @@ type indexBuilderV2 struct {
 	baseTimestamp          int64
 }
 
-func indexV2FormatInfoFromInfo(v InfoStruct) indexV2FormatInfo {
+func indexV2FormatInfoFromInfo(v Info) indexV2FormatInfo {
 	return indexV2FormatInfo{
 		formatVersion:       v.GetFormatVersion(),
 		compressionHeaderID: v.GetCompressionHeaderID(),
@@ -439,7 +439,7 @@ func indexV2FormatInfoFromInfo(v InfoStruct) indexV2FormatInfo {
 }
 
 // buildUniqueFormatToIndexMap builds a map of unique indexV2FormatInfo to their numeric identifiers.
-func buildUniqueFormatToIndexMap(sortedInfos []InfoStruct) map[indexV2FormatInfo]byte {
+func buildUniqueFormatToIndexMap(sortedInfos []Info) map[indexV2FormatInfo]byte {
 	result := map[indexV2FormatInfo]byte{}
 
 	for _, v := range sortedInfos {
@@ -453,7 +453,7 @@ func buildUniqueFormatToIndexMap(sortedInfos []InfoStruct) map[indexV2FormatInfo
 }
 
 // buildPackIDToIndexMap builds a map of unique blob IDs to their numeric identifiers.
-func buildPackIDToIndexMap(sortedInfos []InfoStruct) map[blob.ID]int {
+func buildPackIDToIndexMap(sortedInfos []Info) map[blob.ID]int {
 	result := map[blob.ID]int{}
 
 	for _, v := range sortedInfos {
@@ -467,7 +467,7 @@ func buildPackIDToIndexMap(sortedInfos []InfoStruct) map[blob.ID]int {
 }
 
 // maxContentLengths computes max content lengths in the builder.
-func maxContentLengths(sortedInfos []InfoStruct) (maxPackedLength, maxOriginalLength, maxPackOffset uint32) {
+func maxContentLengths(sortedInfos []Info) (maxPackedLength, maxOriginalLength, maxPackOffset uint32) {
 	for _, v := range sortedInfos {
 		if l := v.GetPackedLength(); l > maxPackedLength {
 			maxPackedLength = l
@@ -493,7 +493,7 @@ func max(a, b int) int {
 	return b
 }
 
-func newIndexBuilderV2(sortedInfos []InfoStruct) (*indexBuilderV2, error) {
+func newIndexBuilderV2(sortedInfos []Info) (*indexBuilderV2, error) {
 	entrySize := v2EntryOffsetFormatID
 
 	// compute a map of unique formats to their indexes.
@@ -623,7 +623,7 @@ func (b Builder) buildV2(output io.Writer) error {
 	return errors.Wrap(w.Flush(), "error flushing index")
 }
 
-func (b *indexBuilderV2) prepareExtraData(sortedInfos []InfoStruct) []byte {
+func (b *indexBuilderV2) prepareExtraData(sortedInfos []Info) []byte {
 	var extraData []byte
 
 	for _, it := range sortedInfos {
@@ -643,7 +643,7 @@ func (b *indexBuilderV2) prepareExtraData(sortedInfos []InfoStruct) []byte {
 	return extraData
 }
 
-func (b *indexBuilderV2) writeIndexEntry(w io.Writer, it InfoStruct) error {
+func (b *indexBuilderV2) writeIndexEntry(w io.Writer, it Info) error {
 	var hashBuf [maxContentIDSize]byte
 
 	k := contentIDToBytes(hashBuf[:0], it.GetContentID())
@@ -686,7 +686,7 @@ func (b *indexBuilderV2) writeFormatInfoEntry(w io.Writer, f indexV2FormatInfo) 
 	return errors.Wrap(err, "error writing format info entry")
 }
 
-func (b *indexBuilderV2) writeIndexValueEntry(w io.Writer, it InfoStruct) error {
+func (b *indexBuilderV2) writeIndexValueEntry(w io.Writer, it Info) error {
 	var buf [v2EntryMaxLength]byte
 
 	//    0-3: timestamp bits 0..31 (relative to base time)

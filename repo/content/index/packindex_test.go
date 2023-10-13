@@ -109,10 +109,10 @@ func TestPackIndex_V2(t *testing.T) {
 
 //nolint:thelper,gocyclo,cyclop
 func testPackIndex(t *testing.T, version int) {
-	var infos []InfoStruct
+	var infos []Info
 	// deleted contents with all information
 	for i := 0; i < 100; i++ {
-		infos = append(infos, InfoStruct{
+		infos = append(infos, Info{
 			TimestampSeconds:    randomUnixTime(),
 			Deleted:             true,
 			ContentID:           deterministicContentID(t, "deleted-packed", i),
@@ -127,7 +127,7 @@ func testPackIndex(t *testing.T, version int) {
 	}
 	// non-deleted content
 	for i := 0; i < 100; i++ {
-		infos = append(infos, InfoStruct{
+		infos = append(infos, Info{
 			TimestampSeconds:    randomUnixTime(),
 			ContentID:           deterministicContentID(t, "packed", i),
 			PackBlobID:          deterministicPackBlobID(i),
@@ -146,7 +146,7 @@ func testPackIndex(t *testing.T, version int) {
 		t.Fatalf("unexpected number of methods on content.Info: %v, must update the test", cnt)
 	}
 
-	infoMap := map[ID]InfoStruct{}
+	infoMap := map[ID]Info{}
 	b1 := make(Builder)
 	b2 := make(Builder)
 	b3 := make(Builder)
@@ -257,15 +257,15 @@ func testPackIndex(t *testing.T, version int) {
 
 func TestPackIndexPerContentLimits(t *testing.T) {
 	cases := []struct {
-		info   InfoStruct
+		info   Info
 		errMsg string
 	}{
-		{InfoStruct{PackedLength: v2MaxContentLength}, "maximum content length is too high"},
-		{InfoStruct{PackedLength: v2MaxContentLength - 1}, ""},
-		{InfoStruct{OriginalLength: v2MaxContentLength}, "maximum content length is too high"},
-		{InfoStruct{OriginalLength: v2MaxContentLength - 1}, ""},
-		{InfoStruct{PackOffset: v2MaxPackOffset}, "pack offset 1073741824 is too high"},
-		{InfoStruct{PackOffset: v2MaxPackOffset - 1}, ""},
+		{Info{PackedLength: v2MaxContentLength}, "maximum content length is too high"},
+		{Info{PackedLength: v2MaxContentLength - 1}, ""},
+		{Info{OriginalLength: v2MaxContentLength}, "maximum content length is too high"},
+		{Info{OriginalLength: v2MaxContentLength - 1}, ""},
+		{Info{PackOffset: v2MaxPackOffset}, "pack offset 1073741824 is too high"},
+		{Info{PackOffset: v2MaxPackOffset - 1}, ""},
 	}
 
 	for _, tc := range cases {
@@ -302,7 +302,7 @@ func TestSortedContents(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		v := deterministicContentID(t, "", i)
 
-		b.Add(InfoStruct{
+		b.Add(Info{
 			ContentID: v,
 		})
 	}
@@ -322,34 +322,34 @@ func TestSortedContents(t *testing.T) {
 func TestSortedContents2(t *testing.T) {
 	b := Builder{}
 
-	b.Add(InfoStruct{
+	b.Add(Info{
 		ContentID: mustParseID(t, "0123"),
 	})
-	b.Add(InfoStruct{
+	b.Add(Info{
 		ContentID: mustParseID(t, "1023"),
 	})
-	b.Add(InfoStruct{
+	b.Add(Info{
 		ContentID: mustParseID(t, "0f23"),
 	})
-	b.Add(InfoStruct{
+	b.Add(Info{
 		ContentID: mustParseID(t, "f023"),
 	})
-	b.Add(InfoStruct{
+	b.Add(Info{
 		ContentID: mustParseID(t, "g0123"),
 	})
-	b.Add(InfoStruct{
+	b.Add(Info{
 		ContentID: mustParseID(t, "g1023"),
 	})
-	b.Add(InfoStruct{
+	b.Add(Info{
 		ContentID: mustParseID(t, "i0123"),
 	})
-	b.Add(InfoStruct{
+	b.Add(Info{
 		ContentID: mustParseID(t, "i1023"),
 	})
-	b.Add(InfoStruct{
+	b.Add(Info{
 		ContentID: mustParseID(t, "h0123"),
 	})
-	b.Add(InfoStruct{
+	b.Add(Info{
 		ContentID: mustParseID(t, "h1023"),
 	})
 
@@ -372,7 +372,7 @@ func TestPackIndexV2TooManyUniqueFormats(t *testing.T) {
 	for i := 0; i < v2MaxFormatCount; i++ {
 		v := deterministicContentID(t, "", i)
 
-		b.Add(InfoStruct{
+		b.Add(Info{
 			ContentID:           v,
 			PackBlobID:          blob.ID(v.String()),
 			FormatVersion:       1,
@@ -383,7 +383,7 @@ func TestPackIndexV2TooManyUniqueFormats(t *testing.T) {
 	require.NoError(t, b.buildV2(io.Discard))
 
 	// add one more to push it over the edge
-	b.Add(InfoStruct{
+	b.Add(Info{
 		ContentID:           deterministicContentID(t, "", v2MaxFormatCount),
 		FormatVersion:       1,
 		CompressionHeaderID: compression.HeaderID(5000),
@@ -466,7 +466,7 @@ func TestShard(t *testing.T) {
 
 	// add ID to the builder
 	for _, id := range ids {
-		b.Add(InfoStruct{
+		b.Add(Info{
 			ContentID: deterministicContentID(t, "", id),
 		})
 	}
@@ -516,7 +516,7 @@ func verifyAllShardedIDs(t *testing.T, sharded []Builder, numTotal, numShards in
 	return lens
 }
 
-func withOriginalLength(is InfoStruct, originalLength uint32) InfoStruct {
+func withOriginalLength(is Info, originalLength uint32) Info {
 	// clone and override original length
 	is.OriginalLength = originalLength
 

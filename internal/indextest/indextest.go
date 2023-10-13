@@ -12,7 +12,7 @@ import (
 // InfoDiff returns a list of differences between two index.Info, empty if they are equal.
 //
 //nolint:gocyclo
-func InfoDiff(i1, i2 index.InfoStruct, ignore ...string) []string {
+func InfoDiff(i1, i2 index.Info, ignore ...string) []string {
 	var diffs []string
 
 	if l, r := i1.GetContentID(), i2.GetContentID(); l != r {

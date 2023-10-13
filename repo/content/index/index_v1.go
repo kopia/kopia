@@ -323,7 +323,7 @@ func (b Builder) buildV1(output io.Writer) error {
 	return errors.Wrap(w.Flush(), "error flushing index")
 }
 
-func (b *indexBuilderV1) prepareExtraData(allContents []InfoStruct) []byte {
+func (b *indexBuilderV1) prepareExtraData(allContents []Info) []byte {
 	var extraData []byte
 
 	var hashBuf [maxContentIDSize]byte
@@ -346,7 +346,7 @@ func (b *indexBuilderV1) prepareExtraData(allContents []InfoStruct) []byte {
 	return extraData
 }
 
-func (b *indexBuilderV1) writeEntry(w io.Writer, it InfoStruct, entry []byte) error {
+func (b *indexBuilderV1) writeEntry(w io.Writer, it Info, entry []byte) error {
 	var hashBuf [maxContentIDSize]byte
 
 	k := contentIDToBytes(hashBuf[:0], it.GetContentID())
@@ -378,7 +378,7 @@ func (b *indexBuilderV1) writeEntry(w io.Writer, it InfoStruct, entry []byte) er
 	return nil
 }
 
-func (b *indexBuilderV1) formatEntry(entry []byte, it InfoStruct) error {
+func (b *indexBuilderV1) formatEntry(entry []byte, it Info) error {
 	entryTimestampAndFlags := entry[0:8]
 	entryPackFileOffset := entry[8:12]
 	entryPackedOffset := entry[12:16]

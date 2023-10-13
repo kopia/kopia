@@ -14,7 +14,7 @@ type (
 	IDPrefix = index.IDPrefix
 
 	// Info describes a single piece of content.
-	Info = index.InfoStruct
+	Info = index.Info
 
 	// IDRange represents a range of IDs.
 	IDRange = index.IDRange
