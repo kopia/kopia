@@ -23,7 +23,7 @@ func TestDefaultGlobalPolicy(t *testing.T) {
 
 	// verify we created global policy entry
 
-	var contents []content.InfoStruct
+	var contents []content.Info
 
 	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "content", "ls", "--json"), &contents)
 

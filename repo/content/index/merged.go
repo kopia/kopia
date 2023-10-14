@@ -33,17 +33,23 @@ func (m Merged) Close() error {
 	return errors.Wrap(err, "closing index shards")
 }
 
-func contentInfoGreaterThan(a, b Info) bool {
-	if b == nil {
-		// everyrhing is greater than nil
-		return true
+func contentInfoGreaterThan(a, b InfoReader) bool {
+	if l, r := a.GetTimestampSeconds(), b.GetTimestampSeconds(); l != r {
+		// different timestamps, higher one wins
+		return l > r
 	}
 
-	if a == nil {
-		// nil is less than everything
-		return false
+	if l, r := a.GetDeleted(), b.GetDeleted(); l != r {
+		// non-deleted is greater than deleted.
+		return !a.GetDeleted()
 	}
 
+	// both same time, both deleted, we must ensure we always resolve to the same pack blob.
+	// since pack blobs are random and unique, simple lexicographic ordering will suffice.
+	return a.GetPackBlobID() > b.GetPackBlobID()
+}
+
+func contentInfoGreaterThanStruct(a, b Info) bool {
 	if l, r := a.GetTimestampSeconds(), b.GetTimestampSeconds(); l != r {
 		// different timestamps, higher one wins
 		return l > r
@@ -60,8 +66,8 @@ func contentInfoGreaterThan(a, b Info) bool {
 }
 
 // GetInfo returns information about a single content. If a content is not found, returns (nil,nil).
-func (m Merged) GetInfo(id ID) (Info, error) {
-	var best Info
+func (m Merged) GetInfo(id ID) (InfoReader, error) {
+	var best InfoReader
 
 	for _, ndx := range m {
 		i, err := ndx.GetInfo(id)
@@ -69,7 +75,7 @@ func (m Merged) GetInfo(id ID) (Info, error) {
 			return nil, errors.Wrapf(err, "error getting id %v from index shard", id)
 		}
 
-		if contentInfoGreaterThan(i, best) {
+		if i != nil && (best == nil || contentInfoGreaterThan(i, best)) {
 			best = i
 		}
 	}
@@ -78,8 +84,8 @@ func (m Merged) GetInfo(id ID) (Info, error) {
 }
 
 type nextInfo struct {
-	it Info
-	ch <-chan Info
+	it InfoReader
+	ch <-chan InfoReader
 }
 
 type nextInfoHeap []*nextInfo
@@ -107,14 +113,14 @@ func (h *nextInfoHeap) Pop() interface{} {
 	return x
 }
 
-func iterateChan(r IDRange, ndx Index, done chan bool, wg *sync.WaitGroup) <-chan Info {
-	ch := make(chan Info, 1)
+func iterateChan(r IDRange, ndx Index, done chan bool, wg *sync.WaitGroup) <-chan InfoReader {
+	ch := make(chan InfoReader, 1)
 
 	go func() {
 		defer wg.Done()
 		defer close(ch)
 
-		_ = ndx.Iterate(r, func(i Info) error {
+		_ = ndx.Iterate(r, func(i InfoReader) error {
 			select {
 			case <-done:
 				return errors.New("end of iteration")
@@ -129,7 +135,7 @@ func iterateChan(r IDRange, ndx Index, done chan bool, wg *sync.WaitGroup) <-cha
 
 // Iterate invokes the provided callback for all unique content IDs in the underlying sources until either
 // all contents have been visited or until an error is returned by the callback.
-func (m Merged) Iterate(r IDRange, cb func(i Info) error) error {
+func (m Merged) Iterate(r IDRange, cb func(i InfoReader) error) error {
 	var minHeap nextInfoHeap
 
 	done := make(chan bool)
@@ -152,7 +158,7 @@ func (m Merged) Iterate(r IDRange, cb func(i Info) error) error {
 	defer wg.Wait()
 	defer close(done)
 
-	var pendingItem Info
+	var pendingItem InfoReader
 
 	for len(minHeap) > 0 {
 		//nolint:forcetypeassert
@@ -165,7 +171,7 @@ func (m Merged) Iterate(r IDRange, cb func(i Info) error) error {
 			}
 
 			pendingItem = min.it
-		} else if contentInfoGreaterThan(min.it, pendingItem) {
+		} else if min.it != nil && contentInfoGreaterThan(min.it, pendingItem) {
 			pendingItem = min.it
 		}
 

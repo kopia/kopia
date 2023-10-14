@@ -592,10 +592,10 @@ func (r *grpcInnerSession) contentInfo(ctx context.Context, contentID content.ID
 		case *apipb.SessionResponse_GetContentInfo:
 			contentID, err := content.ParseID(rr.GetContentInfo.GetInfo().GetId())
 			if err != nil {
-				return nil, errors.Wrap(err, "invalid content ID")
+				return content.Info{}, errors.Wrap(err, "invalid content ID")
 			}
 
-			return &content.InfoStruct{
+			return content.Info{
 				ContentID:        contentID,
 				PackedLength:     rr.GetContentInfo.GetInfo().GetPackedLength(),
 				TimestampSeconds: rr.GetContentInfo.GetInfo().GetTimestampSeconds(),
@@ -607,11 +607,11 @@ func (r *grpcInnerSession) contentInfo(ctx context.Context, contentID content.ID
 			}, nil
 
 		default:
-			return nil, unhandledSessionResponse(resp)
+			return content.Info{}, unhandledSessionResponse(resp)
 		}
 	}
 
-	return nil, errNoSessionResponse()
+	return content.Info{}, errNoSessionResponse()
 }
 
 func errorFromSessionResponse(rr *apipb.ErrorResponse) error {
