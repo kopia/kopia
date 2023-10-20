@@ -21,6 +21,9 @@ var ErrSetTimeUnsupported = errors.Errorf("SetTime is not supported")
 // ErrInvalidRange is returned when the requested blob offset or length is invalid.
 var ErrInvalidRange = errors.Errorf("invalid blob offset or length")
 
+// ErrBlobImmutableDueToPolicy is returned when a policy prevented an action on an Azure blob.
+var ErrBlobImmutableDueToPolicy = errors.Errorf("blob immutable due to policy")
+
 // InvalidCredentialsErrStr is the error string returned by the provider
 // when a token has expired.
 const InvalidCredentialsErrStr = "The provided token has expired"
