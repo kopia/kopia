@@ -256,6 +256,7 @@ func (az *azStorage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes, op
 
 // retryDeleteBlob creates a delete marker version which is set to an unlocked protective state.
 // This protection is then removed and the main blob is deleted. Finally, the delete marker version is also deleted.
+// The original blob version protected by the policy is still protected from permanent deletion until the period has passed.
 func (az *azStorage) retryDeleteBlob(ctx context.Context, b blob.ID) error {
 	resp, err := az.putBlob(ctx, b, gather.FromSlice([]byte(deleteMarkerContent)), blob.PutOptions{
 		RetentionMode:   blob.RetentionMode(azblobblob.ImmutabilityPolicySettingUnlocked),
