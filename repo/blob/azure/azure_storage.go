@@ -113,8 +113,6 @@ func translateError(err error) error {
 			return blob.ErrBlobNotFound
 		case string(bloberror.InvalidRange):
 			return blob.ErrInvalidRange
-		case string(bloberror.BlobImmutableDueToPolicy):
-			return blob.ErrBlobImmutableDueToPolicy
 		}
 	}
 
@@ -139,11 +137,14 @@ func (az *azStorage) DeleteBlob(ctx context.Context, b blob.ID) error {
 	_, err := az.service.DeleteBlob(ctx, az.container, az.getObjectNameString(b), nil)
 	err = translateError(err)
 
-	switch {
-	case errors.Is(err, blob.ErrBlobNotFound):
-		// don't return error if blob is already deleted
+	// don't return error if blob is already deleted
+	if errors.Is(err, blob.ErrBlobNotFound) {
 		return nil
-	case errors.Is(err, blob.ErrBlobImmutableDueToPolicy):
+	}
+
+	var re *azcore.ResponseError
+
+	if errors.As(err, &re) && re.ErrorCode == string(bloberror.BlobImmutableDueToPolicy) {
 		// if a policy prevents the deletion then try to create a delete marker version & delete that instead.
 		return az.retryDeleteBlob(ctx, b)
 	}
