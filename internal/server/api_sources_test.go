@@ -123,6 +123,7 @@ func TestSourceRefreshesAfterPolicy(t *testing.T) {
 			TimesOfDay: []policy.TimeOfDay{
 				{Hour: (currentHour + 2) % 24, Minute: 33},
 			},
+			RunMissed: policy.NewOptionalBool(false),
 		},
 	})
 
@@ -136,6 +137,7 @@ func TestSourceRefreshesAfterPolicy(t *testing.T) {
 			TimesOfDay: []policy.TimeOfDay{
 				{Hour: (currentHour + 2) % 24, Minute: 55},
 			},
+			RunMissed: policy.NewOptionalBool(false),
 		},
 	})
 

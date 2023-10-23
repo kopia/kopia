@@ -36,6 +36,10 @@ func NewFaultyStorage(base blob.Storage) *FaultyStorage {
 	}
 }
 
+func (s *FaultyStorage) IsReadOnly() bool {
+	return s.base.IsReadOnly()
+}
+
 // GetCapacity implements blob.Volume.
 func (s *FaultyStorage) GetCapacity(ctx context.Context) (blob.Capacity, error) {
 	if ok, err := s.GetNextFault(ctx, MethodGetCapacity); ok {

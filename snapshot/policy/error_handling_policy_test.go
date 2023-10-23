@@ -48,13 +48,13 @@ func TestErrorHandlingPolicyMerge(t *testing.T) {
 			},
 			args: args{
 				src: ErrorHandlingPolicy{
-					IgnoreFileErrors:      newOptionalBool(false),
-					IgnoreDirectoryErrors: newOptionalBool(false),
+					IgnoreFileErrors:      NewOptionalBool(false),
+					IgnoreDirectoryErrors: NewOptionalBool(false),
 				},
 			},
 			expResult: ErrorHandlingPolicy{
-				IgnoreFileErrors:      newOptionalBool(false),
-				IgnoreDirectoryErrors: newOptionalBool(false),
+				IgnoreFileErrors:      NewOptionalBool(false),
+				IgnoreDirectoryErrors: NewOptionalBool(false),
 			},
 		},
 		{
@@ -65,47 +65,47 @@ func TestErrorHandlingPolicyMerge(t *testing.T) {
 			},
 			args: args{
 				src: ErrorHandlingPolicy{
-					IgnoreFileErrors:      newOptionalBool(true),
-					IgnoreDirectoryErrors: newOptionalBool(true),
+					IgnoreFileErrors:      NewOptionalBool(true),
+					IgnoreDirectoryErrors: NewOptionalBool(true),
 				},
 			},
 			expResult: ErrorHandlingPolicy{
-				IgnoreFileErrors:      newOptionalBool(true),
-				IgnoreDirectoryErrors: newOptionalBool(true),
+				IgnoreFileErrors:      NewOptionalBool(true),
+				IgnoreDirectoryErrors: NewOptionalBool(true),
 			},
 		},
 		{
 			name: "Starting policy already has a value set at false - expect no change from merged policy",
 			fields: fields{
-				IgnoreFileErrors:      newOptionalBool(false),
-				IgnoreDirectoryErrors: newOptionalBool(false),
+				IgnoreFileErrors:      NewOptionalBool(false),
+				IgnoreDirectoryErrors: NewOptionalBool(false),
 			},
 			args: args{
 				src: ErrorHandlingPolicy{
-					IgnoreFileErrors:      newOptionalBool(true),
-					IgnoreDirectoryErrors: newOptionalBool(true),
+					IgnoreFileErrors:      NewOptionalBool(true),
+					IgnoreDirectoryErrors: NewOptionalBool(true),
 				},
 			},
 			expResult: ErrorHandlingPolicy{
-				IgnoreFileErrors:      newOptionalBool(false),
-				IgnoreDirectoryErrors: newOptionalBool(false),
+				IgnoreFileErrors:      NewOptionalBool(false),
+				IgnoreDirectoryErrors: NewOptionalBool(false),
 			},
 		},
 		{
 			name: "Policy being merged has a value set at true - expect no change from merged policy",
 			fields: fields{
-				IgnoreFileErrors:      newOptionalBool(true),
-				IgnoreDirectoryErrors: newOptionalBool(true),
+				IgnoreFileErrors:      NewOptionalBool(true),
+				IgnoreDirectoryErrors: NewOptionalBool(true),
 			},
 			args: args{
 				src: ErrorHandlingPolicy{
-					IgnoreFileErrors:      newOptionalBool(false),
-					IgnoreDirectoryErrors: newOptionalBool(false),
+					IgnoreFileErrors:      NewOptionalBool(false),
+					IgnoreDirectoryErrors: NewOptionalBool(false),
 				},
 			},
 			expResult: ErrorHandlingPolicy{
-				IgnoreFileErrors:      newOptionalBool(true),
-				IgnoreDirectoryErrors: newOptionalBool(true),
+				IgnoreFileErrors:      NewOptionalBool(true),
+				IgnoreDirectoryErrors: NewOptionalBool(true),
 			},
 		},
 		{
@@ -117,12 +117,12 @@ func TestErrorHandlingPolicyMerge(t *testing.T) {
 			args: args{
 				src: ErrorHandlingPolicy{
 					IgnoreFileErrors:      nil,
-					IgnoreDirectoryErrors: newOptionalBool(true),
+					IgnoreDirectoryErrors: NewOptionalBool(true),
 				},
 			},
 			expResult: ErrorHandlingPolicy{
 				IgnoreFileErrors:      nil,
-				IgnoreDirectoryErrors: newOptionalBool(true),
+				IgnoreDirectoryErrors: NewOptionalBool(true),
 			},
 		},
 	} {

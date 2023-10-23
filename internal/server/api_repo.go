@@ -399,7 +399,6 @@ func handleRepoDisconnect(ctx context.Context, rc requestContext) (interface{}, 
 }
 
 func (s *Server) disconnect(ctx context.Context) error {
-	// release shared lock so that SetRepository can acquire exclusive lock
 	if err := s.SetRepository(ctx, nil); err != nil {
 		return err
 	}
@@ -418,9 +417,7 @@ func (s *Server) disconnect(ctx context.Context) error {
 }
 
 func handleRepoSync(ctx context.Context, rc requestContext) (interface{}, *apiError) {
-	if err := rc.srv.Refresh(ctx); err != nil {
-		return nil, internalServerError(errors.Wrap(err, "unable to refresh repository"))
-	}
+	rc.srv.Refresh()
 
 	return &serverapi.Empty{}, nil
 }

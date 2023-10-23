@@ -15,6 +15,7 @@ import (
 	"github.com/kopia/kopia/debug"
 	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/cacheprot"
+	"github.com/kopia/kopia/internal/crypto"
 	"github.com/kopia/kopia/internal/feature"
 	"github.com/kopia/kopia/internal/metrics"
 	"github.com/kopia/kopia/internal/retry"
@@ -134,7 +135,7 @@ func Open(ctx context.Context, configFile, password string, options *Options) (r
 func getContentCacheOrNil(ctx context.Context, opt *content.CachingOptions, password string, mr *metrics.Registry, timeNow func() time.Time) (*cache.PersistentCache, error) {
 	opt = opt.CloneOrDefault()
 
-	cs, err := cache.NewStorageOrNil(ctx, opt.CacheDirectory, opt.MaxCacheSizeBytes, "server-contents")
+	cs, err := cache.NewStorageOrNil(ctx, opt.CacheDirectory, opt.ContentCacheSizeBytes, "server-contents")
 	if cs == nil {
 		// this may be (nil, nil) or (nil, err)
 		return nil, errors.Wrap(err, "error opening storage")
@@ -155,7 +156,8 @@ func getContentCacheOrNil(ctx context.Context, opt *content.CachingOptions, pass
 	}
 
 	pc, err := cache.NewPersistentCache(ctx, "cache-storage", cs, prot, cache.SweepSettings{
-		MaxSizeBytes: opt.MaxCacheSizeBytes,
+		MaxSizeBytes: opt.ContentCacheSizeBytes,
+		LimitBytes:   opt.ContentCacheSizeLimitBytes,
 		MinSweepAge:  opt.MinContentSweepAge.DurationOrDefault(content.DefaultDataCacheSweepAge),
 	}, mr, timeNow)
 	if err != nil {
@@ -259,10 +261,10 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 	}
 
 	if fmgr.SupportsPasswordChange() {
-		cacheOpts.HMACSecret = format.DeriveKeyFromMasterKey(fmgr.GetHmacSecret(), fmgr.UniqueID(), localCacheIntegrityPurpose, localCacheIntegrityHMACSecretLength)
+		cacheOpts.HMACSecret = crypto.DeriveKeyFromMasterKey(fmgr.GetHmacSecret(), fmgr.UniqueID(), localCacheIntegrityPurpose, localCacheIntegrityHMACSecretLength)
 	} else {
 		// deriving from ufb.FormatEncryptionKey was actually a bug, that only matters will change when we change the password
-		cacheOpts.HMACSecret = format.DeriveKeyFromMasterKey(fmgr.FormatEncryptionKey(), fmgr.UniqueID(), localCacheIntegrityPurpose, localCacheIntegrityHMACSecretLength)
+		cacheOpts.HMACSecret = crypto.DeriveKeyFromMasterKey(fmgr.FormatEncryptionKey(), fmgr.UniqueID(), localCacheIntegrityPurpose, localCacheIntegrityHMACSecretLength)
 	}
 
 	limits := throttlingLimitsFromConnectionInfo(ctx, st.ConnectionInfo())

@@ -12,13 +12,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Check out repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
       with:
         fetch-depth: 0
     - name: Set up Go
-      uses: actions/setup-go@v4
+      uses: actions/setup-go@93397bea11091df50f3d7e59dc26a7711a8bcfbe # v4.1.0
       with:
-        go-version: '1.20'
+        go-version-file: 'go.mod'
+        check-latest: true
       id: go
     - name: Download dependencies
       run: go mod vendor

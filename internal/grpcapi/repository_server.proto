@@ -136,6 +136,15 @@ message PrefetchContentsResponse {
   repeated string content_ids = 1;
 }
 
+message ApplyRetentionPolicyRequest {
+  string source_path = 1;
+  bool really_delete = 2;
+}
+
+message ApplyRetentionPolicyResponse {
+  repeated string manifest_ids = 1;
+}
+
 message SessionRequest {
   int64 request_id = 1;
   map<string,string> trace_context = 2;
@@ -154,6 +163,7 @@ message SessionRequest {
     FindManifestsRequest find_manifests = 17;
     DeleteManifestRequest delete_manifest = 18;
     PrefetchContentsRequest prefetch_contents = 19;
+    ApplyRetentionPolicyRequest apply_retention_policy = 20;
   }
 }
 
@@ -174,6 +184,7 @@ message SessionResponse {
     FindManifestsResponse find_manifests = 17;
     DeleteManifestResponse delete_manifest = 18;
     PrefetchContentsResponse prefetch_contents = 19;
+    ApplyRetentionPolicyResponse apply_retention_policy = 20;
   }
 }
 

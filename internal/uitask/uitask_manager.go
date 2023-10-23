@@ -32,6 +32,8 @@ type Manager struct {
 
 	MaxFinishedTasks      int // +checklocksignore
 	MaxLogMessagesPerTask int // +checklocksignore
+
+	persistentLogs bool // +checklocksignore
 }
 
 // Controller allows the task to communicate with task manager and receive signals.
@@ -56,7 +58,13 @@ func (m *Manager) Run(ctx context.Context, kind, description string, task TaskFu
 		maxLogMessages: m.MaxLogMessagesPerTask,
 	}
 
-	ctx = logging.WithLogger(ctx, r.loggerForModule)
+	if m.persistentLogs {
+		// log to regular file logger in addition to in-memory buffers.
+		ctx = logging.WithAdditionalLogger(ctx, r.loggerForModule)
+	} else {
+		// only log to in-memory buffers.
+		ctx = logging.WithLogger(ctx, r.loggerForModule)
+	}
 
 	m.startTask(r)
 
@@ -251,12 +259,13 @@ func (m *Manager) completeTask(r *runningTaskInfo, err error) {
 }
 
 // NewManager creates new UI Task Manager.
-func NewManager() *Manager {
+func NewManager(alsoLogToFile bool) *Manager {
 	return &Manager{
 		running:  map[string]*runningTaskInfo{},
 		finished: map[string]*Info{},
 
 		MaxLogMessagesPerTask: maxLogMessagesPerTask,
 		MaxFinishedTasks:      maxFinishedTasks,
+		persistentLogs:        alsoLogToFile,
 	}
 }

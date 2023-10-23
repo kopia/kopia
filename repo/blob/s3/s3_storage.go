@@ -30,14 +30,11 @@ const (
 
 type s3Storage struct {
 	Options
+	blob.DefaultProviderImplementation
 
 	cli *minio.Client
 
 	storageConfig *StorageConfig
-}
-
-func (s *s3Storage) GetCapacity(ctx context.Context) (blob.Capacity, error) {
-	return blob.Capacity{}, blob.ErrNotAVolume
 }
 
 func (s *s3Storage) GetBlob(ctx context.Context, b blob.ID, offset, length int64, output blob.OutputBuffer) error {
@@ -296,20 +293,12 @@ func (s *s3Storage) ConnectionInfo() blob.ConnectionInfo {
 	}
 }
 
-func (s *s3Storage) Close(ctx context.Context) error {
-	return nil
-}
-
 func (s *s3Storage) String() string {
 	return fmt.Sprintf("s3://%v/%v", s.BucketName, s.Prefix)
 }
 
 func (s *s3Storage) DisplayName() string {
 	return fmt.Sprintf("S3: %v %v", s.Endpoint, s.BucketName)
-}
-
-func (s *s3Storage) FlushCaches(ctx context.Context) error {
-	return nil
 }
 
 func getCustomTransport(opt *Options) (*http.Transport, error) {

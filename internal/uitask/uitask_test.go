@@ -1,6 +1,7 @@
 package uitask_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/uitask"
 	"github.com/kopia/kopia/repo/content"
@@ -21,11 +23,29 @@ var (
 	ignoredLog = logging.Module(content.FormatLogModule)
 )
 
-func TestUITask(t *testing.T) {
-	t.Parallel()
+func TestUITask_withoutPersistentLogging(t *testing.T) {
+	var logBuf bytes.Buffer
 
-	ctx := context.Background()
-	m := uitask.NewManager()
+	ctx := logging.WithLogger(context.Background(), logging.ToWriter(&logBuf))
+
+	m := uitask.NewManager(false)
+	testUITaskInternal(t, ctx, m)
+	require.Equal(t, "", logBuf.String())
+}
+
+func TestUITask_withPersistentLogging(t *testing.T) {
+	var logBuf bytes.Buffer
+
+	ctx := logging.WithLogger(context.Background(), logging.ToWriter(&logBuf))
+
+	m := uitask.NewManager(true)
+	testUITaskInternal(t, ctx, m)
+	require.Equal(t, "first\nthis is ignored\niii\nwww\neee\n", logBuf.String())
+}
+
+//nolint:thelper
+func testUITaskInternal(t *testing.T, ctx context.Context, m *uitask.Manager) {
+	t.Parallel()
 
 	m.MaxLogMessagesPerTask = 3
 	m.MaxFinishedTasks = 3
@@ -225,7 +245,7 @@ func verifyTaskList(t *testing.T, m *uitask.Manager, wantStatuses map[string]uit
 func TestUITaskCancel_NonExistent(t *testing.T) {
 	t.Parallel()
 
-	m := uitask.NewManager()
+	m := uitask.NewManager(false)
 	m.CancelTask("no-such-task")
 }
 
@@ -233,7 +253,7 @@ func TestUITaskCancel_AfterOnCancel(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	m := uitask.NewManager()
+	m := uitask.NewManager(false)
 
 	ch := make(chan string)
 
@@ -277,7 +297,7 @@ func TestUITaskCancel_BeforeOnCancel(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	m := uitask.NewManager()
+	m := uitask.NewManager(false)
 
 	ch := make(chan string)
 
@@ -331,7 +351,7 @@ func verifyTaskLog(t *testing.T, m *uitask.Manager, taskID string, want []string
 	t.Helper()
 
 	if got, want := logText(m.TaskLog(taskID)), strings.Join(want, "\n"); got != want {
-		t.Fatalf("invalid task log %v, want %v", got, want)
+		t.Fatalf("invalid task log: got `%v`, want `%v`", got, want)
 	}
 }
 

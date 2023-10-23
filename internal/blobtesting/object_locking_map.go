@@ -14,7 +14,7 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 )
 
-var ErrBlobLocked = errors.New("cannot alter object before retention period expires")
+var ErrBlobLocked = errors.New("cannot alter object before retention period expires") // +checklocksignore
 
 type entry struct {
 	value          []byte
@@ -32,6 +32,7 @@ type versionedEntries map[blob.ID][]*entry
 // marker. This struct manages the retention time of each blob through the
 // PutBlob options.
 type objectLockingMap struct {
+	blob.DefaultProviderImplementation
 	// +checklocks:mutex
 	data    versionedEntries
 	timeNow func() time.Time // +checklocksignore
@@ -67,10 +68,6 @@ func (s *objectLockingMap) getLatestForMutationLocked(id blob.ID) (*entry, error
 	}
 
 	return e, nil
-}
-
-func (s *objectLockingMap) GetCapacity(ctx context.Context) (blob.Capacity, error) {
-	return blob.Capacity{}, blob.ErrNotAVolume
 }
 
 // GetBlob works the same as map-storage GetBlob except that if the latest
@@ -262,11 +259,6 @@ func (s *objectLockingMap) ListBlobs(ctx context.Context, prefix blob.ID, callba
 	return nil
 }
 
-// Close is a no-op for this implementation.
-func (s *objectLockingMap) Close(ctx context.Context) error {
-	return nil
-}
-
 // TouchBlob updates the mtime of the latest version of the object. If it is a
 // delete-marker or if it does not exist then this becomes a no-op. If the
 // latest version has retention parameters set then they are respected.
@@ -303,11 +295,6 @@ func (s *objectLockingMap) ConnectionInfo() blob.ConnectionInfo {
 // DisplayName gets the identifier of this storage for display purposes.
 func (s *objectLockingMap) DisplayName() string {
 	return "VersionedMap"
-}
-
-// FlushCaches is a no-op for this implementation.
-func (s *objectLockingMap) FlushCaches(ctx context.Context) error {
-	return nil
 }
 
 // NewVersionedMapStorage returns an implementation of Storage backed by the
