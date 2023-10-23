@@ -133,6 +133,8 @@ func (s *s3Storage) getVersionMetadata(ctx context.Context, b blob.ID, version s
 
 func (s *s3Storage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes, opts blob.PutOptions) error {
 	switch {
+	case opts.HasRetentionOptions() && !opts.RetentionMode.IsValidS3():
+		return errors.Wrap(blob.ErrUnsupportedPutBlobOption, "blob retention mode is not valid for S3")
 	case opts.DoNotRecreate:
 		return errors.Wrap(blob.ErrUnsupportedPutBlobOption, "do-not-recreate")
 	case !opts.SetModTime.IsZero():

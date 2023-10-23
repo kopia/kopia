@@ -119,7 +119,7 @@ func getProviderOptions(tb testing.TB, envName string) *Options {
 	}
 
 	if o.Prefix != "" {
-		tb.Fatalf("options providd in '%v' must not specify a prefix", envName)
+		tb.Fatalf("options provided in '%v' must not specify a prefix", envName)
 	}
 
 	return &o
@@ -274,6 +274,14 @@ func TestS3StorageRetentionLockedBucket(t *testing.T) {
 		testPutBlobWithInvalidRetention(t, options, blob.PutOptions{
 			RetentionMode:   blob.Governance,
 			RetentionPeriod: time.Nanosecond,
+		})
+	})
+
+	t.Run("invalid mode", func(t *testing.T) {
+		options.Prefix = ""
+		testPutBlobWithInvalidRetention(t, options, blob.PutOptions{
+			RetentionMode:   blob.Locked, // Azure mode
+			RetentionPeriod: time.Hour * 24,
 		})
 	})
 }
