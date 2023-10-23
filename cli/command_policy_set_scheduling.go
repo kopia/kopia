@@ -16,14 +16,14 @@ type policySchedulingFlags struct {
 	policySetTimesOfDay []string
 	policySetCron       string
 	policySetManual     bool
-	policySetRunMissed  bool
+	policySetRunMissed  string
 }
 
 func (c *policySchedulingFlags) setup(cmd *kingpin.CmdClause) {
 	cmd.Flag("snapshot-interval", "Interval between snapshots").DurationListVar(&c.policySetInterval)
 	cmd.Flag("snapshot-time", "Comma-separated times of day when to take snapshot (HH:mm,HH:mm,...) or 'inherit' to remove override").StringsVar(&c.policySetTimesOfDay)
 	cmd.Flag("snapshot-time-crontab", "Semicolon-separated crontab-compatible expressions (or 'inherit')").StringVar(&c.policySetCron)
-	cmd.Flag("run-missed", "Run missed time-of-day snapshots (has no effect on interval snapshots)").BoolVar(&c.policySetRunMissed)
+	cmd.Flag("run-missed", "Run missed time-of-day or cron snapshots ('true', 'false', 'inherit')").EnumVar(&c.policySetRunMissed, booleanEnumValues...)
 	cmd.Flag("manual", "Only create snapshots manually").BoolVar(&c.policySetManual)
 }
 
@@ -93,7 +93,9 @@ func (c *policySchedulingFlags) setScheduleFromFlags(ctx context.Context, sp *po
 		}
 	}
 
-	c.setRunMissedFromFlags(ctx, sp, changeCount)
+	if err := c.setRunMissedFromFlags(ctx, sp, changeCount); err != nil {
+		return errors.Wrap(err, "invalid run-missed value")
+	}
 
 	if sp.Manual {
 		*changeCount++
@@ -107,18 +109,12 @@ func (c *policySchedulingFlags) setScheduleFromFlags(ctx context.Context, sp *po
 }
 
 // Update RunMissed policy flag if changed.
-func (c *policySchedulingFlags) setRunMissedFromFlags(ctx context.Context, sp *policy.SchedulingPolicy, changeCount *int) {
-	if (c.policySetRunMissed && !sp.RunMissed) || (!c.policySetRunMissed && sp.RunMissed) {
-		*changeCount++
-
-		sp.RunMissed = c.policySetRunMissed
-
-		if sp.RunMissed {
-			log(ctx).Infof(" - missed time-of-day snapshots will run immediately\n")
-		} else {
-			log(ctx).Infof(" - missed time-of-day snapshots will run at next scheduled time\n")
-		}
+func (c *policySchedulingFlags) setRunMissedFromFlags(ctx context.Context, sp *policy.SchedulingPolicy, changeCount *int) error {
+	if err := applyPolicyBoolPtr(ctx, "run missed snapshots", &sp.RunMissed, c.policySetRunMissed, changeCount); err != nil {
+		return errors.Wrap(err, "invalid scheduling policy")
 	}
+
+	return nil
 }
 
 // splitCronExpressions splits the provided string into a list of cron expressions.

@@ -57,12 +57,12 @@ func SortAndDedupeTimesOfDay(tod []TimeOfDay) []TimeOfDay {
 
 // SchedulingPolicy describes policy for scheduling snapshots.
 type SchedulingPolicy struct {
-	IntervalSeconds    int64       `json:"intervalSeconds,omitempty"`
-	TimesOfDay         []TimeOfDay `json:"timeOfDay,omitempty"`
-	NoParentTimesOfDay bool        `json:"noParentTimeOfDay,omitempty"`
-	Manual             bool        `json:"manual,omitempty"`
-	Cron               []string    `json:"cron,omitempty"`
-	RunMissed          bool        `json:"runMissed,omitempty"`
+	IntervalSeconds    int64         `json:"intervalSeconds,omitempty"`
+	TimesOfDay         []TimeOfDay   `json:"timeOfDay,omitempty"`
+	NoParentTimesOfDay bool          `json:"noParentTimeOfDay,omitempty"`
+	Manual             bool          `json:"manual,omitempty"`
+	Cron               []string      `json:"cron,omitempty"`
+	RunMissed          *OptionalBool `json:"runMissed,omitempty"`
 }
 
 // SchedulingPolicyDefinition specifies which policy definition provided the value of a particular field.
@@ -73,6 +73,9 @@ type SchedulingPolicyDefinition struct {
 	Manual          snapshot.SourceInfo `json:"manual,omitempty"`
 	RunMissed       snapshot.SourceInfo `json:"runMissed,omitempty"`
 }
+
+// defaultRunMissed is the value for RunMissed.
+const defaultRunMissed = true
 
 // Interval returns the snapshot interval or zero if not specified.
 func (p *SchedulingPolicy) Interval() time.Duration {
@@ -90,8 +93,6 @@ func (p *SchedulingPolicy) NextSnapshotTime(previousSnapshotTime, now time.Time)
 	if p.Manual {
 		return time.Time{}, false
 	}
-
-	const oneDay = 24 * time.Hour
 
 	var (
 		nextSnapshotTime time.Time
@@ -114,8 +115,35 @@ func (p *SchedulingPolicy) NextSnapshotTime(previousSnapshotTime, now time.Time)
 		}
 	}
 
+	if todSnapshot, todOk := p.getNextTimeOfDaySnapshot(now); todOk && (!ok || todSnapshot.Before(nextSnapshotTime)) {
+		nextSnapshotTime = todSnapshot
+		ok = true
+	}
+
+	if cronSnapshot, cronOk := p.getNextCronSnapshot(now); cronOk && (!ok || cronSnapshot.Before(nextSnapshotTime)) {
+		nextSnapshotTime = cronSnapshot
+		ok = true
+	}
+
+	if ok && p.checkMissedSnapshot(now, previousSnapshotTime, nextSnapshotTime) {
+		// if RunMissed is set and last run was missed, and next run is at least 30 mins from now, then run now
+		nextSnapshotTime = now
+		ok = true
+	}
+
+	return nextSnapshotTime, ok
+}
+
+// Get next ToD snapshot.
+func (p *SchedulingPolicy) getNextTimeOfDaySnapshot(now time.Time) (time.Time, bool) {
+	const oneDay = 24 * time.Hour
+
+	var nextSnapshotTime time.Time
+
+	ok := false
+	nowLocalTime := now.Local()
+
 	for _, tod := range p.TimesOfDay {
-		nowLocalTime := now.Local()
 		localSnapshotTime := time.Date(nowLocalTime.Year(), nowLocalTime.Month(), nowLocalTime.Day(), tod.Hour, tod.Minute, 0, 0, time.Local)
 
 		if now.After(localSnapshotTime) {
@@ -127,6 +155,15 @@ func (p *SchedulingPolicy) NextSnapshotTime(previousSnapshotTime, now time.Time)
 			ok = true
 		}
 	}
+
+	return nextSnapshotTime, ok
+}
+
+// Get next Cron snapshot.
+func (p *SchedulingPolicy) getNextCronSnapshot(now time.Time) (time.Time, bool) {
+	var nextSnapshotTime time.Time
+
+	ok := false
 
 	for _, e := range p.Cron {
 		ce, err := cronexpr.Parse(stripCronComment(e))
@@ -147,22 +184,37 @@ func (p *SchedulingPolicy) NextSnapshotTime(previousSnapshotTime, now time.Time)
 		}
 	}
 
-	if ok && p.checkMissedSnapshot(now, previousSnapshotTime, nextSnapshotTime) {
-		// if RunMissed is set and last run was missed, and next run is at least 30 mins from now, then run now
-		nextSnapshotTime = now
-		ok = true
-	}
-
 	return nextSnapshotTime, ok
 }
 
 // Check if a previous snapshot was missed and should be started now.
 func (p *SchedulingPolicy) checkMissedSnapshot(now, previousSnapshotTime, nextSnapshotTime time.Time) bool {
-	const oneDay = 24 * time.Hour
-
 	const halfhour = 30 * time.Minute
 
-	return (len(p.TimesOfDay) > 0 || len(p.Cron) > 0) && p.RunMissed && previousSnapshotTime.Add(oneDay-halfhour).Before(now) && nextSnapshotTime.After(now.Add(halfhour))
+	momentAfterSnapshot := previousSnapshotTime.Add(time.Second)
+
+	if !p.RunMissed.OrDefault(false) {
+		return false
+	}
+
+	nextSnapshot := nextSnapshotTime
+	// We add a second to ensure that the next possible snapshot is > the last snaphot
+	todSnapshot, todOk := p.getNextTimeOfDaySnapshot(momentAfterSnapshot)
+	cronSnapshot, cronOk := p.getNextCronSnapshot(momentAfterSnapshot)
+
+	if !todOk && !cronOk {
+		return false
+	}
+
+	if todOk && todSnapshot.Before(nextSnapshot) {
+		nextSnapshot = todSnapshot
+	}
+
+	if cronOk && cronSnapshot.Before(nextSnapshot) {
+		nextSnapshot = cronSnapshot
+	}
+
+	return nextSnapshot.Before(now) && nextSnapshotTime.After(now.Add(halfhour))
 }
 
 // Merge applies default values from the provided policy.
@@ -185,7 +237,7 @@ func (p *SchedulingPolicy) Merge(src SchedulingPolicy, def *SchedulingPolicyDefi
 	}
 
 	mergeBool(&p.Manual, src.Manual, &def.Manual, si)
-	mergeBool(&p.RunMissed, src.RunMissed, &def.RunMissed, si)
+	mergeOptionalBool(&p.RunMissed, src.RunMissed, &def.RunMissed, si)
 }
 
 // IsManualSnapshot returns the SchedulingPolicy manual value from the given policy tree.

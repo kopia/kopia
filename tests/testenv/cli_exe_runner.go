@@ -13,8 +13,9 @@ import (
 // CLIExeRunner is a CLIExeRunner that invokes the commands via external executable.
 type CLIExeRunner struct {
 	Exe               string
-	PassthroughStderr bool      // this is for debugging only
-	NextCommandStdin  io.Reader // this is used for stdin source tests
+	PassthroughStderr bool       // this is for debugging only
+	NextCommandStdin  io.Reader  // this is used for stdin source tests
+	ExtraFiles        []*os.File // this is used for socket-activation tests
 	LogsDir           string
 }
 
@@ -44,6 +45,7 @@ func (e *CLIExeRunner) Start(t *testing.T, args []string, env map[string]string)
 
 	c.Stdin = e.NextCommandStdin
 	e.NextCommandStdin = nil
+	c.ExtraFiles = e.ExtraFiles
 
 	if err := c.Start(); err != nil {
 		t.Fatalf("unable to start: %v", err)

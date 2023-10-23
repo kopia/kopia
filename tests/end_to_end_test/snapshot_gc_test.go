@@ -59,7 +59,7 @@ how are you
 	e.RunAndExpectSuccess(t, "maintenance", "run", "--full", "--safety=full")
 
 	// data block + directory block + manifest block + manifest block from manifest deletion
-	var contentInfo []content.InfoStruct
+	var contentInfo []content.Info
 
 	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "content", "list", "--json"), &contentInfo)
 

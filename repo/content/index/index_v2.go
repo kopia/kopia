@@ -224,7 +224,7 @@ func (e indexV2EntryInfo) Timestamp() time.Time {
 	return time.Unix(e.GetTimestampSeconds(), 0)
 }
 
-var _ Info = indexV2EntryInfo{}
+var _ InfoReader = indexV2EntryInfo{}
 
 type v2HeaderInfo struct {
 	version       int
@@ -277,7 +277,7 @@ func (b *indexV2) ApproximateCount() int {
 // Iterate invokes the provided callback function for a range of contents in the index, sorted alphabetically.
 // The iteration ends when the callback returns an error, which is propagated to the caller or when
 // all contents have been visited.
-func (b *indexV2) Iterate(r IDRange, cb func(Info) error) error {
+func (b *indexV2) Iterate(r IDRange, cb func(InfoReader) error) error {
 	startPos, err := b.findEntryPosition(r.StartID)
 	if err != nil {
 		return errors.Wrap(err, "could not find starting position")
@@ -389,7 +389,7 @@ func (b *indexV2) findEntry(contentID ID) ([]byte, error) {
 }
 
 // GetInfo returns information about a given content. If a content is not found, nil is returned.
-func (b *indexV2) GetInfo(contentID ID) (Info, error) {
+func (b *indexV2) GetInfo(contentID ID) (InfoReader, error) {
 	e, err := b.findEntry(contentID)
 	if err != nil {
 		return nil, err
@@ -402,7 +402,7 @@ func (b *indexV2) GetInfo(contentID ID) (Info, error) {
 	return b.entryToInfo(contentID, e)
 }
 
-func (b *indexV2) entryToInfo(contentID ID, entryData []byte) (Info, error) {
+func (b *indexV2) entryToInfo(contentID ID, entryData []byte) (InfoReader, error) {
 	if len(entryData) < v2EntryMinLength {
 		return nil, errors.Errorf("invalid entry length: %v", len(entryData))
 	}

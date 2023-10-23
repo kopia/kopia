@@ -169,7 +169,7 @@ func (c *commandIndexInspect) inspectSingleIndexBlob(ctx context.Context, rep re
 	}
 
 	for _, ent := range entries {
-		output <- indexBlobPlusContentInfo{bm, content.ToInfoStruct(ent)}
+		output <- indexBlobPlusContentInfo{bm, ent}
 	}
 
 	return nil
