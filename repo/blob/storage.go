@@ -142,7 +142,7 @@ type ExtendOptions struct {
 // common functions that are mostly provider independent and have a sensible
 // default.
 //
-// Storage providers should imbed this struct and override functions that they
+// Storage providers should embed this struct and override functions that they
 // have different return values for.
 type DefaultProviderImplementation struct{}
 

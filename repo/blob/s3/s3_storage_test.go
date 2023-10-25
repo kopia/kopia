@@ -119,7 +119,7 @@ func getProviderOptions(tb testing.TB, envName string) *Options {
 	}
 
 	if o.Prefix != "" {
-		tb.Fatalf("options providd in '%v' must not specify a prefix", envName)
+		tb.Fatalf("options provided in '%v' must not specify a prefix", envName)
 	}
 
 	return &o
