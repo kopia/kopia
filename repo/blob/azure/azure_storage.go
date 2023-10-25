@@ -21,6 +21,7 @@ import (
 	"github.com/kopia/kopia/internal/timestampmeta"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/retrying"
+	"github.com/kopia/kopia/repo/logging"
 )
 
 const (
@@ -257,6 +258,7 @@ func (az *azStorage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes, op
 // The original blob version protected by the policy is still protected from permanent deletion until the period has passed.
 func (az *azStorage) retryDeleteBlob(ctx context.Context, b blob.ID) error {
 	blobName := az.getObjectNameString(b)
+
 	resp, err := az.putBlob(ctx, b, gather.FromSlice([]byte(nil)), blob.PutOptions{
 		RetentionMode:   blob.RetentionMode(azblobblob.ImmutabilityPolicySettingUnlocked),
 		RetentionPeriod: time.Minute,
@@ -278,20 +280,26 @@ func (az *azStorage) retryDeleteBlob(ctx context.Context, b blob.ID) error {
 		return errors.Wrap(err, "failed to soft delete blob")
 	}
 
+	log := logging.Module("azure-immutability")
+
 	if resp.VersionID == nil || *resp.VersionID == "" {
 		// shouldn't happen
+		log(ctx).Info("VersionID not returned, exiting without deleting the delete marker version")
 		return nil
 	}
+
 	bc, err := az.service.ServiceClient().
 		NewContainerClient(az.container).
 		NewBlobClient(blobName).
 		WithVersionID(*resp.VersionID)
 	if err != nil {
+		log(ctx).Infof("Issue preparing versioned blob client: %v", err)
 		return nil
 	}
 
 	_, err = bc.Delete(ctx, nil)
 	if err != nil {
+		log(ctx).Infof("Issue deleting blob delete marker: %v", err)
 		return nil
 	}
 
