@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/blob"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
@@ -111,9 +110,6 @@ const (
 
 	// Compliance - compliance mode.
 	Compliance RetentionMode = "COMPLIANCE"
-
-	// Locked - Locked policy mode for Azure.
-	Locked RetentionMode = RetentionMode(blob.ImmutabilityPolicyModeLocked)
 )
 
 func (r RetentionMode) String() string {
@@ -122,17 +118,7 @@ func (r RetentionMode) String() string {
 
 // IsValid - check whether this retention mode is valid or not.
 func (r RetentionMode) IsValid() bool {
-	return r.IsValidS3() || r.IsValidAzure()
-}
-
-// IsValidS3 - check whether this retention mode is valid for S3.
-func (r RetentionMode) IsValidS3() bool {
 	return r == Governance || r == Compliance
-}
-
-// IsValidAzure - check whether this retention mode is valid for Azure.
-func (r RetentionMode) IsValidAzure() bool {
-	return r == Locked
 }
 
 // PutOptions represents put-options for a single BLOB in a storage.
@@ -159,7 +145,7 @@ type ExtendOptions struct {
 // common functions that are mostly provider independent and have a sensible
 // default.
 //
-// Storage providers should embed this struct and override functions that they
+// Storage providers should imbed this struct and override functions that they
 // have different return values for.
 type DefaultProviderImplementation struct{}
 

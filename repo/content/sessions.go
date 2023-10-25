@@ -87,7 +87,7 @@ func (bm *WriteManager) getOrStartSessionLocked(ctx context.Context) (SessionID,
 func (bm *WriteManager) commitSession(ctx context.Context) error {
 	for _, b := range bm.sessionMarkerBlobIDs {
 		if err := bm.st.DeleteBlob(ctx, b); err != nil && !errors.Is(err, blob.ErrBlobNotFound) {
-			return errors.Wrapf(err, "failed *DIRD commit* to delete session marker %v", b)
+			return errors.Wrapf(err, "failed to delete session marker %v", b)
 		}
 	}
 
