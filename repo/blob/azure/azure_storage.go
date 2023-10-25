@@ -4,20 +4,24 @@ package azure
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
-
+	azblobblob "github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/blob"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/bloberror"
+	azblockblob "github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/blockblob"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/internal/timestampmeta"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/retrying"
+	"github.com/kopia/kopia/repo/logging"
 )
 
 const (
@@ -122,31 +126,9 @@ func (az *azStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes, op
 		return errors.Wrap(blob.ErrUnsupportedPutBlobOption, "do-not-recreate")
 	}
 
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
+	_, err := az.putBlob(ctx, b, data, opts)
 
-	tsMetadata := timestampmeta.ToMap(opts.SetModTime, timeMapKey)
-
-	metadata := make(map[string]*string, len(tsMetadata))
-
-	for k, v := range tsMetadata {
-		metadata[k] = to.Ptr(v)
-	}
-
-	uso := &azblob.UploadStreamOptions{
-		Metadata: metadata,
-	}
-
-	resp, err := az.service.UploadStream(ctx, az.container, az.getObjectNameString(b), data.Reader(), uso)
-	if err != nil {
-		return translateError(err)
-	}
-
-	if opts.GetModTime != nil {
-		*opts.GetModTime = *resp.LastModified
-	}
-
-	return nil
+	return err
 }
 
 // DeleteBlob deletes azure blob from container with given ID.
@@ -157,6 +139,13 @@ func (az *azStorage) DeleteBlob(ctx context.Context, b blob.ID) error {
 	// don't return error if blob is already deleted
 	if errors.Is(err, blob.ErrBlobNotFound) {
 		return nil
+	}
+
+	var re *azcore.ResponseError
+
+	if errors.As(err, &re) && re.ErrorCode == string(bloberror.BlobImmutableDueToPolicy) {
+		// if a policy prevents the deletion then try to create a delete marker version & delete that instead.
+		return az.retryDeleteBlob(ctx, b)
 	}
 
 	return err
@@ -224,6 +213,97 @@ func (az *azStorage) ConnectionInfo() blob.ConnectionInfo {
 
 func (az *azStorage) DisplayName() string {
 	return fmt.Sprintf("Azure: %v", az.Options.Container)
+}
+
+func (az *azStorage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes, opts blob.PutOptions) (azblockblob.UploadResponse, error) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	tsMetadata := timestampmeta.ToMap(opts.SetModTime, timeMapKey)
+
+	metadata := make(map[string]*string, len(tsMetadata))
+
+	for k, v := range tsMetadata {
+		metadata[k] = to.Ptr(v)
+	}
+
+	uo := &azblockblob.UploadOptions{
+		Metadata: metadata,
+	}
+
+	if opts.HasRetentionOptions() {
+		mode := azblobblob.ImmutabilityPolicySetting(opts.RetentionMode)
+		retainUntilDate := clock.Now().Add(opts.RetentionPeriod).UTC()
+		uo.ImmutabilityPolicyMode = &mode
+		uo.ImmutabilityPolicyExpiryTime = &retainUntilDate
+	}
+
+	resp, err := az.service.ServiceClient().
+		NewContainerClient(az.container).
+		NewBlockBlobClient(az.getObjectNameString(b)).
+		Upload(ctx, data.Reader(), uo)
+	if err != nil {
+		return resp, translateError(err)
+	}
+
+	if opts.GetModTime != nil {
+		*opts.GetModTime = *resp.LastModified
+	}
+
+	return resp, nil
+}
+
+// retryDeleteBlob creates a delete marker version which is set to an unlocked protective state.
+// This protection is then removed and the main blob is deleted. Finally, the delete marker version is also deleted.
+// The original blob version protected by the policy is still protected from permanent deletion until the period has passed.
+func (az *azStorage) retryDeleteBlob(ctx context.Context, b blob.ID) error {
+	blobName := az.getObjectNameString(b)
+
+	resp, err := az.putBlob(ctx, b, gather.FromSlice([]byte(nil)), blob.PutOptions{
+		RetentionMode:   blob.RetentionMode(azblobblob.ImmutabilityPolicySettingUnlocked),
+		RetentionPeriod: time.Minute,
+	})
+	if err != nil {
+		return errors.Wrap(err, "failed to put blob version needed to create delete marker")
+	}
+
+	_, err = az.service.ServiceClient().
+		NewContainerClient(az.container).
+		NewBlobClient(blobName).
+		DeleteImmutabilityPolicy(ctx, nil)
+	if err != nil {
+		return errors.Wrap(err, "failed to create delete marker for immutable blob")
+	}
+
+	_, err = az.service.DeleteBlob(ctx, az.container, blobName, nil)
+	if err != nil {
+		return errors.Wrap(err, "failed to soft delete blob")
+	}
+
+	log := logging.Module("azure-immutability")
+
+	if resp.VersionID == nil || *resp.VersionID == "" {
+		// shouldn't happen
+		log(ctx).Info("VersionID not returned, exiting without deleting the delete marker version")
+		return nil
+	}
+
+	bc, err := az.service.ServiceClient().
+		NewContainerClient(az.container).
+		NewBlobClient(blobName).
+		WithVersionID(*resp.VersionID)
+	if err != nil {
+		log(ctx).Infof("Issue preparing versioned blob client: %v", err)
+		return nil
+	}
+
+	_, err = bc.Delete(ctx, nil)
+	if err != nil {
+		log(ctx).Infof("Issue deleting blob delete marker: %v", err)
+		return nil
+	}
+
+	return nil
 }
 
 // New creates new Azure Blob Storage-backed storage with specified options:
