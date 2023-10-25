@@ -26,8 +26,6 @@ import (
 const (
 	azStorageType = "azureBlob"
 
-	deleteMarkerContent = ""
-
 	timeMapKey = "Kopiamtime" // this must be capital letter followed by lowercase, to comply with AZ tags naming convention.
 )
 
@@ -258,38 +256,43 @@ func (az *azStorage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes, op
 // This protection is then removed and the main blob is deleted. Finally, the delete marker version is also deleted.
 // The original blob version protected by the policy is still protected from permanent deletion until the period has passed.
 func (az *azStorage) retryDeleteBlob(ctx context.Context, b blob.ID) error {
-	resp, err := az.putBlob(ctx, b, gather.FromSlice([]byte(deleteMarkerContent)), blob.PutOptions{
+	blobName := az.getObjectNameString(b)
+	resp, err := az.putBlob(ctx, b, gather.FromSlice([]byte(nil)), blob.PutOptions{
 		RetentionMode:   blob.RetentionMode(azblobblob.ImmutabilityPolicySettingUnlocked),
 		RetentionPeriod: time.Minute,
 	})
 	if err != nil {
-		return errors.Wrap(err, "failed to put delete marker blob version")
+		return errors.Wrap(err, "failed to put blob version needed to create delete marker")
 	}
 
 	_, err = az.service.ServiceClient().
 		NewContainerClient(az.container).
-		NewBlobClient(az.getObjectNameString(b)).
+		NewBlobClient(blobName).
 		DeleteImmutabilityPolicy(ctx, nil)
 	if err != nil {
-		return errors.Wrap(err, "failed to remove delete marker blob immutability protection")
+		return errors.Wrap(err, "failed to create delete marker for immutable blob")
 	}
 
-	_, err = az.service.DeleteBlob(ctx, az.container, az.getObjectNameString(b), nil)
+	_, err = az.service.DeleteBlob(ctx, az.container, blobName, nil)
 	if err != nil {
 		return errors.Wrap(err, "failed to soft delete blob")
 	}
 
+	if resp.VersionID == nil || *resp.VersionID == "" {
+		// shouldn't happen
+		return nil
+	}
 	bc, err := az.service.ServiceClient().
 		NewContainerClient(az.container).
-		NewBlobClient(az.getObjectNameString(b)).
+		NewBlobClient(blobName).
 		WithVersionID(*resp.VersionID)
 	if err != nil {
-		return errors.Wrap(err, "failed to get versioned blob client")
+		return nil
 	}
 
 	_, err = bc.Delete(ctx, nil)
 	if err != nil {
-		return errors.Wrap(err, "failed to delete the delete marker blob version")
+		return nil
 	}
 
 	return nil
