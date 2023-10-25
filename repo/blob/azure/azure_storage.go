@@ -153,6 +153,10 @@ func (az *azStorage) DeleteBlob(ctx context.Context, b blob.ID) error {
 
 // ExtendBlobRetention extends a blob retention period.
 func (az *azStorage) ExtendBlobRetention(ctx context.Context, b blob.ID, opts blob.ExtendOptions) error {
+	if opts.RetentionPeriod != 0 {
+		return errors.Wrap(blob.ErrUnsupportedObjectLock, "cannot extend blob retention for Azure")
+	}
+
 	retainUntilDate := clock.Now().Add(opts.RetentionPeriod).UTC()
 	mode := azblobblob.ImmutabilityPolicySetting(opts.RetentionMode)
 
@@ -165,7 +169,7 @@ func (az *azStorage) ExtendBlobRetention(ctx context.Context, b blob.ID, opts bl
 	if err != nil {
 		return errors.Wrap(err, "unable to extend retention period")
 	}
-	
+
 	return nil
 }
 
