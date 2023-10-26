@@ -270,3 +270,17 @@ func TestAzureStorageInvalidCreds(t *testing.T) {
 		t.Errorf("unexpected success connecting to Azure blob storage, wanted error")
 	}
 }
+
+func getBlobCount(ctx context.Context, t *testing.T, st blob.Storage, prefix blob.ID) int {
+	t.Helper()
+
+	var count int
+
+	err := st.ListBlobs(ctx, prefix, func(bm blob.Metadata) error {
+		count++
+		return nil
+	})
+	require.NoError(t, err)
+
+	return count
+}
