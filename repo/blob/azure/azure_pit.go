@@ -83,14 +83,8 @@ func newestAtUnlessDeleted(vs []versionMetadata, t time.Time) (v versionMetadata
 // and uses the same slice storage as vs. Assumes entries in vs are in ascending
 // timestamp order, unlike S3 which assumes descending.
 func getOlderThan(vs []versionMetadata, t time.Time) []versionMetadata {
-	versionLimit := t.Add(1 * time.Second)
 	for i := range vs {
-		versionTime, err := time.Parse(time.RFC3339Nano, vs[i].Version)
-		if err != nil {
-			return nil
-		}
-
-		if vs[i].Timestamp.After(t) || versionTime.After(versionLimit) {
+		if vs[i].Timestamp.After(t) {
 			return vs[:i]
 		}
 	}
