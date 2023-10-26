@@ -93,10 +93,12 @@ func getOlderThan(vs []versionMetadata, t time.Time) []versionMetadata {
 		// Assumes the Put and deletion didn't happen within the same second.
 		if vs[i].IsDeleteMarker {
 			versionLimit := t.Add(1 * time.Second)
+
 			versionTime, err := time.Parse(time.RFC3339Nano, vs[i].Version)
 			if err != nil {
 				return nil
 			}
+
 			if versionTime.After(versionLimit) {
 				return vs[:i]
 			}
