@@ -89,7 +89,7 @@ func getOlderThan(vs []versionMetadata, t time.Time) []versionMetadata {
 			return vs[:i]
 		}
 
-		// The DeleteMarker blob takes the Timestamp of the previous, non-deleted version but has its own Version.
+		// The DeleteMarker blob takes the Timestamp of the previous version but has its own Version.
 		// Assumes the Put and deletion didn't happen within the same second.
 		if vs[i].IsDeleteMarker {
 			versionLimit := t.Add(1 * time.Second)
