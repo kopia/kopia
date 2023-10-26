@@ -84,16 +84,22 @@ func newestAtUnlessDeleted(vs []versionMetadata, t time.Time) (v versionMetadata
 // timestamp order (and version order), unlike S3 which assumes descending.
 // Versions in Azure follow the time.RFC3339Nano syntax.
 func getOlderThan(vs []versionMetadata, t time.Time) []versionMetadata {
-	versionLimit := t.Add(1 * time.Second)
-
 	for i := range vs {
-		versionTime, err := time.Parse(time.RFC3339Nano, vs[i].Version)
-		if err != nil {
-			return nil
+		if vs[i].Timestamp.After(t) {
+			return vs[:i]
 		}
 
-		if vs[i].Timestamp.After(t) || versionTime.After(versionLimit) {
-			return vs[:i]
+		// The DeleteMarker blob takes the Timestamp of the previous, non-deleted version but has its own Version.
+		// Assumes the Put and deletion didn't happen within the same second.
+		if vs[i].IsDeleteMarker {
+			versionLimit := t.Add(1 * time.Second)
+			versionTime, err := time.Parse(time.RFC3339Nano, vs[i].Version)
+			if err != nil {
+				return nil
+			}
+			if versionTime.After(versionLimit) {
+				return vs[:i]
+			}
 		}
 	}
 
@@ -121,11 +127,6 @@ func (az *azPointInTimeStorage) listBlobVersions(ctx context.Context, prefix blo
 		}
 
 		for _, it := range page.Segment.BlobItems {
-			if az.isKopiaDeleteMarkerVersion(it) {
-				// skip delete marker versions
-				continue
-			}
-
 			vm := az.getVersionedBlobMeta(it)
 
 			if err := callback(vm); err != nil {
@@ -155,11 +156,6 @@ func (az *azPointInTimeStorage) getVersionedMetadata(ctx context.Context, blobID
 	}
 
 	return versionMetadata{}, blob.ErrBlobNotFound
-}
-
-// isKopiaDeleteMarkerVersion checks for kopia created delete markers.
-func (az *azPointInTimeStorage) isKopiaDeleteMarkerVersion(it *azblobmodels.BlobItem) bool {
-	return !az.isAzureDeleteMarker(it) && *it.Properties.ContentLength == 0
 }
 
 // isAzureDeleteMarker checks for Azure created delete markers.
