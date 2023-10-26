@@ -61,6 +61,7 @@ func TestGetBlobVersions(t *testing.T) {
 	blobID := blob.ID(blobName)
 	dataTimestamps, err := putBlobs(ctx, st, blobID, dataBlobs)
 	require.NoError(t, err)
+
 	defer st.DeleteBlob(ctx, blobID)
 
 	pastPIT := clock.Now().Add(-1 * time.Hour).UTC()

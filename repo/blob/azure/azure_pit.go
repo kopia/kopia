@@ -81,10 +81,18 @@ func newestAtUnlessDeleted(vs []versionMetadata, t time.Time) (v versionMetadata
 
 // Removes versions that are newer than t. The filtering is done in place
 // and uses the same slice storage as vs. Assumes entries in vs are in ascending
-// timestamp order, unlike S3 which assumes descending.
+// timestamp order (and version order), unlike S3 which assumes descending.
+// Versions in Azure follow the time.RFC3339Nano syntax.
 func getOlderThan(vs []versionMetadata, t time.Time) []versionMetadata {
+	versionLimit := t.Add(1 * time.Second)
+
 	for i := range vs {
-		if vs[i].Timestamp.After(t) {
+		versionTime, err := time.Parse(time.RFC3339Nano, vs[i].Version)
+		if err != nil {
+			return nil
+		}
+
+		if vs[i].Timestamp.After(t) || versionTime.After(versionLimit) {
 			return vs[:i]
 		}
 	}
