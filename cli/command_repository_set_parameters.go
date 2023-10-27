@@ -228,8 +228,6 @@ func (c *commandRepositorySetParameters) run(ctx context.Context, rep repo.Direc
 	requiredFeatures = c.addRemoveUpdateRequiredFeatures(requiredFeatures, &anyChange)
 
 	if !anyChange {
-		log(ctx).Infof("no changes from set-parameters")
-
 		return nil
 	}
 
