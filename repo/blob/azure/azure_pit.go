@@ -90,8 +90,12 @@ func getOlderThan(vs []versionMetadata, t time.Time) []versionMetadata {
 		}
 
 		// The DeleteMarker blob takes the Timestamp of the previous version but has its own Version.
-		// Assumes the Put and deletion didn't happen within the same second.
+		// If there was a Kopia Delete Marker (the blob was protected) it will be caught above but if
+		// the container has versioning enabled but no blob retention protection (or the blob was deleted outside
+		// of the protection window) then we need to check the time of the VersionID because there could be a situation
+		// where Azure's DeleteMarker version has Timestamp 2023-10-20 but Version 2023-10-27.
 		if vs[i].IsDeleteMarker {
+			// Assumes the Put and deletion didn't happen within the same second.
 			versionLimit := t.Add(1 * time.Second)
 
 			versionTime, err := time.Parse(time.RFC3339Nano, vs[i].Version)
