@@ -276,6 +276,14 @@ func TestS3StorageRetentionLockedBucket(t *testing.T) {
 			RetentionPeriod: time.Nanosecond,
 		})
 	})
+
+	t.Run("invalid mode", func(t *testing.T) {
+		options.Prefix = ""
+		testPutBlobWithInvalidRetention(t, options, blob.PutOptions{
+			RetentionMode:   blob.Locked, // Azure mode
+			RetentionPeriod: time.Hour * 24,
+		})
+	})
 }
 
 func TestTokenExpiration(t *testing.T) {

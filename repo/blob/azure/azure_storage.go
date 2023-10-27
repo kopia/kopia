@@ -13,6 +13,7 @@ import (
 	azblobblob "github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/blob"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/bloberror"
 	azblockblob "github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/blockblob"
+	azblobmodels "github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/container"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/clock"
@@ -120,8 +121,8 @@ func translateError(err error) error {
 
 func (az *azStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes, opts blob.PutOptions) error {
 	switch {
-	case opts.HasRetentionOptions():
-		return errors.Wrap(blob.ErrUnsupportedPutBlobOption, "blob-retention")
+	case opts.HasRetentionOptions() && !opts.RetentionMode.IsValidAzure():
+		return errors.Wrap(blob.ErrUnsupportedPutBlobOption, "blob retention mode is not valid for Azure")
 	case opts.DoNotRecreate:
 		return errors.Wrap(blob.ErrUnsupportedPutBlobOption, "do-not-recreate")
 	}
@@ -157,7 +158,7 @@ func (az *azStorage) getObjectNameString(b blob.ID) string {
 
 // ListBlobs list azure blobs with given prefix.
 func (az *azStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback func(blob.Metadata) error) error {
-	prefixStr := az.Prefix + string(prefix)
+	prefixStr := az.getObjectNameString(prefix)
 
 	pager := az.service.NewListBlobsFlatPager(az.container, &azblob.ListBlobsFlatOptions{
 		Prefix: &prefixStr,
@@ -173,19 +174,7 @@ func (az *azStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback fun
 		}
 
 		for _, it := range page.Segment.BlobItems {
-			n := *it.Name
-
-			bm := blob.Metadata{
-				BlobID: blob.ID(n[len(az.Prefix):]),
-				Length: *it.Properties.ContentLength,
-			}
-
-			// see if we have 'Kopiamtime' metadata, if so - trust it.
-			if t, ok := timestampmeta.FromValue(stringDefault(it.Metadata["kopiamtime"], "")); ok {
-				bm.Timestamp = t
-			} else {
-				bm.Timestamp = *it.Properties.LastModified
-			}
+			bm := az.getBlobMeta(it)
 
 			if err := callback(bm); err != nil {
 				return err
@@ -213,6 +202,27 @@ func (az *azStorage) ConnectionInfo() blob.ConnectionInfo {
 
 func (az *azStorage) DisplayName() string {
 	return fmt.Sprintf("Azure: %v", az.Options.Container)
+}
+
+func (az *azStorage) getBlobName(it *azblobmodels.BlobItem) string {
+	n := *it.Name
+	return n[len(az.Prefix):]
+}
+
+func (az *azStorage) getBlobMeta(it *azblobmodels.BlobItem) blob.Metadata {
+	bm := blob.Metadata{
+		BlobID: blob.ID(az.getBlobName(it)),
+		Length: *it.Properties.ContentLength,
+	}
+
+	// see if we have 'Kopiamtime' metadata, if so - trust it.
+	if t, ok := timestampmeta.FromValue(stringDefault(it.Metadata["kopiamtime"], "")); ok {
+		bm.Timestamp = t
+	} else {
+		bm.Timestamp = *it.Properties.LastModified
+	}
+
+	return bm
 }
 
 func (az *azStorage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes, opts blob.PutOptions) (azblockblob.UploadResponse, error) {
