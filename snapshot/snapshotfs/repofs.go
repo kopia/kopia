@@ -133,18 +133,18 @@ func (rd *repositoryDirectory) Child(ctx context.Context, name string) (fs.Entry
 	return EntryFromDirEntry(rd.repo, de), nil
 }
 
-func (rd *repositoryDirectory) IterateEntries(ctx context.Context, cb func(context.Context, fs.Entry) error) error {
+func (rd *repositoryDirectory) Iterate(ctx context.Context) (fs.DirectoryIterator, error) {
 	if err := rd.ensureDirEntriesLoaded(ctx); err != nil {
-		return err
+		return nil, err
 	}
+
+	var entries []fs.Entry
 
 	for _, de := range rd.dirEntries {
-		if err := cb(ctx, EntryFromDirEntry(rd.repo, de)); err != nil {
-			return err
-		}
+		entries = append(entries, EntryFromDirEntry(rd.repo, de))
 	}
 
-	return nil
+	return fs.StaticIterator(entries, nil), nil
 }
 
 func (rd *repositoryDirectory) ensureDirEntriesLoaded(ctx context.Context) error {
@@ -298,10 +298,13 @@ func SnapshotRoot(rep repo.Repository, man *snapshot.Manifest) (fs.Entry, error)
 func AutoDetectEntryFromObjectID(ctx context.Context, rep repo.Repository, oid object.ID, maybeName string) fs.Entry {
 	if IsDirectoryID(oid) {
 		dirEntry := DirectoryEntry(rep, oid, nil)
-		if err := dirEntry.IterateEntries(ctx, func(context.Context, fs.Entry) error {
-			return nil
-		}); err == nil {
+
+		iter, err := dirEntry.Iterate(ctx)
+		if err == nil {
+			iter.Close()
+
 			repoFSLog(ctx).Debugf("%v auto-detected as directory", oid)
+
 			return dirEntry
 		}
 	}

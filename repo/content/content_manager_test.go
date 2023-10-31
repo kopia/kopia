@@ -970,7 +970,7 @@ func (s *contentManagerSuite) TestDeleteAfterUndelete(t *testing.T) {
 		t.Fatal("error while flushing:", err)
 	}
 
-	c2Want = withDeleted{c2Want, true}
+	c2Want = withDeleted(c2Want)
 	deleteContentAfterUndeleteAndCheck(ctx, t, bm, content2, c2Want)
 }
 
@@ -983,7 +983,7 @@ func deleteContentAfterUndeleteAndCheck(ctx context.Context, t *testing.T, bm *W
 		t.Fatalf("Expected content %q to be deleted, got: %#v", id, got)
 	}
 
-	if diff := indextest.InfoDiff(want, got, "GetTimestampSeconds"); len(diff) != 0 {
+	if diff := indextest.InfoDiff(want, got, "GetTimestampSeconds", "Timestamp"); len(diff) != 0 {
 		t.Fatalf("Content %q info does not match\ndiff: %v", id, diff)
 	}
 
@@ -2673,13 +2673,10 @@ func verifyBlobCount(t *testing.T, data blobtesting.DataMap, want map[blob.ID]in
 	}
 }
 
-type withDeleted struct {
-	index.Info
-	deleted bool
-}
+func withDeleted(i Info) Info {
+	i.Deleted = true
 
-func (o withDeleted) GetDeleted() bool {
-	return o.deleted
+	return i
 }
 
 var (

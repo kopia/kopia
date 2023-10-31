@@ -191,13 +191,13 @@ func (r *apiServerRepository) NewWriter(ctx context.Context, opt WriteSessionOpt
 }
 
 func (r *apiServerRepository) ContentInfo(ctx context.Context, contentID content.ID) (content.Info, error) {
-	var bi content.InfoStruct
+	var bi content.Info
 
 	if err := r.cli.Get(ctx, "contents/"+contentID.String()+"?info=1", content.ErrContentNotFound, &bi); err != nil {
-		return nil, errors.Wrap(err, "ContentInfo")
+		return content.Info{}, errors.Wrap(err, "ContentInfo")
 	}
 
-	return &bi, nil
+	return bi, nil
 }
 
 func (r *apiServerRepository) GetContent(ctx context.Context, contentID content.ID) ([]byte, error) {

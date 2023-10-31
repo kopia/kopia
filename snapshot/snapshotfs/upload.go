@@ -768,45 +768,42 @@ func (u *Uploader) processDirectoryEntries(
 	prevDirs []fs.Directory,
 	wg *workshare.AsyncGroup[*uploadWorkItem],
 ) error {
-	// processEntryError distinguishes an error thrown when attempting to read a directory.
-	type processEntryError struct {
-		error
+	iter, err := dir.Iterate(ctx)
+	if err != nil {
+		return dirReadError{err}
 	}
 
-	err := dir.IterateEntries(ctx, func(ctx context.Context, entry fs.Entry) error {
+	defer iter.Close()
+
+	entry, err := iter.Next(ctx)
+
+	for entry != nil {
+		entry2 := entry
+
 		if u.IsCanceled() {
 			return errCanceled
 		}
 
-		entryRelativePath := path.Join(dirRelativePath, entry.Name())
+		entryRelativePath := path.Join(dirRelativePath, entry2.Name())
 
 		if wg.CanShareWork(u.workerPool) {
 			wg.RunAsync(u.workerPool, func(c *workshare.Pool[*uploadWorkItem], wi *uploadWorkItem) {
-				wi.err = u.processSingle(ctx, entry, entryRelativePath, parentDirBuilder, policyTree, prevDirs, localDirPathOrEmpty, parentCheckpointRegistry)
+				wi.err = u.processSingle(ctx, entry2, entryRelativePath, parentDirBuilder, policyTree, prevDirs, localDirPathOrEmpty, parentCheckpointRegistry)
 			}, &uploadWorkItem{})
 		} else {
-			if err := u.processSingle(ctx, entry, entryRelativePath, parentDirBuilder, policyTree, prevDirs, localDirPathOrEmpty, parentCheckpointRegistry); err != nil {
-				return processEntryError{err}
+			if err2 := u.processSingle(ctx, entry2, entryRelativePath, parentDirBuilder, policyTree, prevDirs, localDirPathOrEmpty, parentCheckpointRegistry); err2 != nil {
+				return err2
 			}
 		}
 
-		return nil
-	})
-
-	if err == nil {
-		return nil
+		entry, err = iter.Next(ctx)
 	}
 
-	var peError processEntryError
-	if errors.As(err, &peError) {
-		return peError.error
+	if err != nil {
+		return dirReadError{err}
 	}
 
-	if errors.Is(err, errCanceled) {
-		return errCanceled
-	}
-
-	return dirReadError{err}
+	return nil
 }
 
 //nolint:funlen
