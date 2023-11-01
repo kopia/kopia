@@ -207,19 +207,20 @@ func (s *formatSpecificTestSuite) TestRepositorySetParametersDowngrade(t *testin
 			require.Contains(t, out, "Format version:      1")
 			require.Contains(t, out, "Epoch Manager:       disabled")
 			env.RunAndExpectFailure(t, "index", "epoch", "list")
-			_, out := env.RunAndExpectSuccessWithErrOut(t, "repository", "set-parameters", "--index-version=1")
+			// setting the current version again is ok
+			_, out = env.RunAndExpectSuccessWithErrOut(t, "repository", "set-parameters", "--index-version=1")
 			require.Contains(t, out, "no changes")
 		case format.FormatVersion2:
 			require.Contains(t, out, "Format version:      2")
 			require.Contains(t, out, "Epoch Manager:       enabled")
 			env.RunAndExpectSuccess(t, "index", "epoch", "list")
-			_, out := env.RunAndExpectFailure(t, "repository", "set-parameters", "--index-version=1")
+			_, out = env.RunAndExpectFailure(t, "repository", "set-parameters", "--index-version=1")
 			require.Contains(t, out, "index format version can only be upgraded")
 		default:
 			require.Contains(t, out, "Format version:      3")
 			require.Contains(t, out, "Epoch Manager:       enabled")
 			env.RunAndExpectSuccess(t, "index", "epoch", "list")
-			_, out := env.RunAndExpectFailure(t, "repository", "set-parameters", "--index-version=1")
+			_, out = env.RunAndExpectFailure(t, "repository", "set-parameters", "--index-version=1")
 			require.Contains(t, out, "index format version can only be upgraded")
 		}
 	}
