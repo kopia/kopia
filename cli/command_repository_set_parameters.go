@@ -228,7 +228,8 @@ func (c *commandRepositorySetParameters) run(ctx context.Context, rep repo.Direc
 	requiredFeatures = c.addRemoveUpdateRequiredFeatures(requiredFeatures, &anyChange)
 
 	if !anyChange {
-		return errors.Errorf("no changes")
+		log(ctx).Info("no changes")
+		return nil
 	}
 
 	if blobcfg.IsRetentionEnabled() {
