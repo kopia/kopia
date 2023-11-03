@@ -10,6 +10,7 @@ import (
 
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/readonly"
+	"github.com/kopia/kopia/repo/format"
 )
 
 type azPointInTimeStorage struct {
@@ -182,14 +183,17 @@ func maybePointInTimeStore(ctx context.Context, s *azStorage, pointInTime *time.
 		return s, nil
 	}
 
-	// IsImmutableStorageWithVersioning is needed for PutBlob with RetentionPeriod being set.
-	props, err := s.service.ServiceClient().NewContainerClient(s.container).GetProperties(ctx, nil)
+	// Versioning is needed for PIT. This check will fail if someone deleted the Kopia Repository file.
+	props, err := s.service.ServiceClient().
+		NewContainerClient(s.container).
+		NewBlobClient(s.getObjectNameString(format.KopiaRepositoryBlobID)).
+		GetProperties(ctx, nil)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not get determine if container '%s' supports versioning", s.container)
 	}
 
-	if props.IsImmutableStorageWithVersioningEnabled == nil || !*props.IsImmutableStorageWithVersioningEnabled {
-		return nil, errors.Errorf("cannot create point-in-time view for non-versioned bucket '%s'", s.container)
+	if props.VersionID == nil {
+		return nil, errors.Errorf("cannot create point-in-time view for non-versioned container '%s'", s.container)
 	}
 
 	return readonly.NewWrapper(&azPointInTimeStorage{

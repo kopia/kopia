@@ -4,6 +4,7 @@ package azure
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
@@ -228,14 +229,14 @@ func (az *azStorage) DisplayName() string {
 	return fmt.Sprintf("Azure: %v", az.Options.Container)
 }
 
-func (az *azStorage) getBlobName(it *azblobmodels.BlobItem) string {
+func (az *azStorage) getBlobName(it *azblobmodels.BlobItem) blob.ID {
 	n := *it.Name
-	return n[len(az.Prefix):]
+	return blob.ID(strings.TrimPrefix(n, az.Prefix))
 }
 
 func (az *azStorage) getBlobMeta(it *azblobmodels.BlobItem) blob.Metadata {
 	bm := blob.Metadata{
-		BlobID: blob.ID(az.getBlobName(it)),
+		BlobID: az.getBlobName(it),
 		Length: *it.Properties.ContentLength,
 	}
 
