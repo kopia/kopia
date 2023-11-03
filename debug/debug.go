@@ -247,7 +247,7 @@ func DumpPem(bs []byte, types string, wrt *os.File) error {
 	if errors.Is(err0, io.EOF) {
 		_, err1 = wrt.WriteString("\n")
 		// TODO: lint says errors need to be wrapped ... figure out how its dealth with in rest of kopia
-		return errors2.Wrap()
+		return errors2.Wrap(err0)
 	}
 	return err0
 }

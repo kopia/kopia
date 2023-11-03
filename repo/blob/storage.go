@@ -44,13 +44,21 @@ var ErrNotAVolume = errors.New("unsupported method, storage is not a volume")
 // function on a storage implementation that does not have the intended functionality.
 var ErrUnsupportedObjectLock = errors.New("object locking unsupported")
 
+type ReaderAtSeekCloser interface {
+	io.ReadSeekCloser
+	io.ReaderAt
+}
+
 // Bytes encapsulates a sequence of bytes, possibly stored in a non-contiguous buffers,
 // which can be written sequentially or treated as a io.Reader.
 type Bytes interface {
 	io.WriterTo
+	//	io.WriterAt
+	//	io.ReaderFrom
+	//	io.ReaderAt
 
 	Length() int
-	Reader() io.ReadSeekCloser
+	Reader() ReaderAtSeekCloser
 }
 
 // OutputBuffer is implemented by *gather.WriteBuffer.
@@ -71,7 +79,7 @@ type Capacity struct {
 
 // Volume defines disk/volume access API to blob storage.
 type Volume interface {
-	// Capacity returns the capacity of a given volume.
+	// GetCapacity returns the capacity of a given volume.
 	GetCapacity(ctx context.Context) (Capacity, error)
 }
 
@@ -94,7 +102,7 @@ type Reader interface {
 	// connect to storage.
 	ConnectionInfo() ConnectionInfo
 
-	// Name of the storage used for quick identification by humans.
+	// DisplayName Name of the storage used for quick identification by humans.
 	DisplayName() string
 }
 

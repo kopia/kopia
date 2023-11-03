@@ -563,6 +563,7 @@ func (s *Server) endUpload(ctx context.Context, src snapshot.SourceInfo) {
 	s.parallelSnapshotsChanged.Signal()
 }
 
+/*
 func (s *Server) triggerRefreshSource(sourceInfo snapshot.SourceInfo) {
 	s.serverMutex.RLock()
 	defer s.serverMutex.RUnlock()
@@ -577,6 +578,7 @@ func (s *Server) triggerRefreshSource(sourceInfo snapshot.SourceInfo) {
 	default:
 	}
 }
+*/
 
 func (s *Server) GetRepository() repo.Repository {
 	return s.rep

@@ -8,6 +8,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+
+	"github.com/kopia/kopia/repo/blob"
 )
 
 //nolint:gochecknoglobals
@@ -121,7 +123,28 @@ type bytesReadSeekCloser struct {
 }
 
 func (b *bytesReadSeekCloser) Close() error {
+	b = nil
 	return nil
+}
+
+func (b *bytesReadSeekCloser) ReadAt(buf []byte, off int64) (n int, err error) {
+	offset := int(off)
+	if off != int64(offset) {
+		panic("overflow")
+	}
+	if offset < 0 || offset > b.b.Length() {
+		return 0, errors.Errorf("invalid seek")
+	}
+	//b.offset = newOffset
+	l := len(buf)
+	if offset+l > b.b.Length() {
+		l = b.b.Length() - offset
+		if l == 0 {
+			return 0, io.EOF
+		}
+	}
+	n, err = b.b.ReadAt(buf[0:l], off)
+	return n, err
 }
 
 func (b *bytesReadSeekCloser) Read(buf []byte) (int, error) {
@@ -162,7 +185,7 @@ func (b *bytesReadSeekCloser) Seek(offset int64, whence int) (int64, error) {
 }
 
 // Reader returns a reader for the data.
-func (b Bytes) Reader() io.ReadSeekCloser {
+func (b Bytes) Reader() blob.ReaderAtSeekCloser {
 	b.assertValid()
 
 	return &bytesReadSeekCloser{b: b}
