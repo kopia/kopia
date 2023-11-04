@@ -119,7 +119,7 @@ func TestAzureStorage(t *testing.T) {
 		Container:      container,
 		StorageAccount: storageAccount,
 		StorageKey:     storageKey,
-		Prefix:         fmt.Sprintf("test-%v-%x-", clock.Now().Unix(), data),
+		Prefix:         fmt.Sprintf("test-%v-%x/", clock.Now().Unix(), data),
 	}, false)
 
 	cancel()
@@ -152,7 +152,7 @@ func TestAzureStorageSASToken(t *testing.T) {
 		Container:      container,
 		StorageAccount: storageAccount,
 		SASToken:       sasToken,
-		Prefix:         fmt.Sprintf("sastest-%v-%x-", clock.Now().Unix(), data),
+		Prefix:         fmt.Sprintf("sastest-%v-%x/", clock.Now().Unix(), data),
 	}, false)
 
 	require.NoError(t, err)
@@ -190,7 +190,7 @@ func TestAzureStorageClientSecret(t *testing.T) {
 		TenantID:       tenantID,
 		ClientID:       clientID,
 		ClientSecret:   clientSecret,
-		Prefix:         fmt.Sprintf("sastest-%v-%x-", clock.Now().Unix(), data),
+		Prefix:         fmt.Sprintf("sastest-%v-%x/", clock.Now().Unix(), data),
 	}, false)
 
 	require.NoError(t, err)

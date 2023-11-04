@@ -96,15 +96,12 @@ func getOlderThan(vs []versionMetadata, t time.Time) []versionMetadata {
 		// of the protection window) then we need to check the time of the VersionID because there could be a situation
 		// where Azure's DeleteMarker version has Timestamp 2023-10-20 but Version 2023-10-27.
 		if vs[i].IsDeleteMarker {
-			// Assumes the Put and deletion didn't happen within the same second.
-			versionLimit := t.Add(1 * time.Second)
-
 			versionTime, err := time.Parse(time.RFC3339Nano, vs[i].Version)
 			if err != nil {
 				return nil
 			}
 
-			if versionTime.After(versionLimit) {
+			if versionTime.After(t) {
 				return vs[:i]
 			}
 		}

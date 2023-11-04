@@ -16,6 +16,7 @@ import (
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/azure"
+	"github.com/kopia/kopia/repo/format"
 )
 
 func TestGetBlobVersions(t *testing.T) {
@@ -27,9 +28,6 @@ func TestGetBlobVersions(t *testing.T) {
 	storageAccount := getEnvOrSkip(t, testStorageAccountEnv)
 	storageKey := getEnvOrSkip(t, testStorageKeyEnv)
 
-	// create container if does not exist
-	createContainer(t, container, storageAccount, storageKey)
-
 	ctx := testlogging.Context(t)
 	data := make([]byte, 8)
 	rand.Read(data)
@@ -37,7 +35,7 @@ func TestGetBlobVersions(t *testing.T) {
 	newctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	prefix := fmt.Sprintf("test-%v-%x-", clock.Now().Unix(), data)
+	prefix := fmt.Sprintf("test-%v-%x/", clock.Now().Unix(), data)
 	opts := &azure.Options{
 		Container:      container,
 		StorageAccount: storageAccount,
@@ -46,8 +44,12 @@ func TestGetBlobVersions(t *testing.T) {
 	}
 	st, err := azure.New(newctx, opts, false)
 	require.NoError(t, err)
-
 	defer st.Close(ctx)
+
+	// required for PIT versioning check
+	err = st.PutBlob(ctx, format.KopiaRepositoryBlobID, gather.FromSlice([]byte(nil)), blob.PutOptions{})
+	require.NoError(t, err)
+	defer st.DeleteBlob(ctx, format.KopiaRepositoryBlobID)
 
 	const (
 		originalData = "original"
@@ -64,8 +66,8 @@ func TestGetBlobVersions(t *testing.T) {
 
 	defer st.DeleteBlob(ctx, blobID)
 
-	pastPIT := clock.Now().Add(-1 * time.Hour).UTC()
-	futurePIT := clock.Now().Add(1 * time.Hour).UTC()
+	pastPIT := dataTimestamps[0].Add(-1 * time.Second)
+	futurePIT := dataTimestamps[2].Add(1 * time.Second)
 
 	for _, tt := range []struct {
 		testName         string
@@ -131,9 +133,6 @@ func TestGetBlobVersionsWithDeletion(t *testing.T) {
 	storageAccount := getEnvOrSkip(t, testStorageAccountEnv)
 	storageKey := getEnvOrSkip(t, testStorageKeyEnv)
 
-	// create container if does not exist
-	createContainer(t, container, storageAccount, storageKey)
-
 	ctx := testlogging.Context(t)
 	data := make([]byte, 8)
 	rand.Read(data)
@@ -141,7 +140,7 @@ func TestGetBlobVersionsWithDeletion(t *testing.T) {
 	newctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	prefix := fmt.Sprintf("test-%v-%x-", clock.Now().Unix(), data)
+	prefix := fmt.Sprintf("test-%v-%x/", clock.Now().Unix(), data)
 	opts := &azure.Options{
 		Container:      container,
 		StorageAccount: storageAccount,
@@ -150,8 +149,12 @@ func TestGetBlobVersionsWithDeletion(t *testing.T) {
 	}
 	st, err := azure.New(newctx, opts, false)
 	require.NoError(t, err)
-
 	defer st.Close(ctx)
+
+	// required for PIT versioning check
+	err = st.PutBlob(ctx, format.KopiaRepositoryBlobID, gather.FromSlice([]byte(nil)), blob.PutOptions{})
+	require.NoError(t, err)
+	defer st.DeleteBlob(ctx, format.KopiaRepositoryBlobID)
 
 	const (
 		originalData = "original"
