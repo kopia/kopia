@@ -49,7 +49,6 @@ func TestGetBlobVersions(t *testing.T) {
 	// required for PIT versioning check
 	err = st.PutBlob(ctx, format.KopiaRepositoryBlobID, gather.FromSlice([]byte(nil)), blob.PutOptions{})
 	require.NoError(t, err)
-	defer st.DeleteBlob(ctx, format.KopiaRepositoryBlobID)
 
 	const (
 		originalData = "original"
@@ -63,8 +62,6 @@ func TestGetBlobVersions(t *testing.T) {
 	blobID := blob.ID(blobName)
 	dataTimestamps, err := putBlobs(ctx, st, blobID, dataBlobs)
 	require.NoError(t, err)
-
-	defer st.DeleteBlob(ctx, blobID)
 
 	pastPIT := dataTimestamps[0].Add(-1 * time.Second)
 	futurePIT := dataTimestamps[2].Add(1 * time.Second)
@@ -154,7 +151,6 @@ func TestGetBlobVersionsWithDeletion(t *testing.T) {
 	// required for PIT versioning check
 	err = st.PutBlob(ctx, format.KopiaRepositoryBlobID, gather.FromSlice([]byte(nil)), blob.PutOptions{})
 	require.NoError(t, err)
-	defer st.DeleteBlob(ctx, format.KopiaRepositoryBlobID)
 
 	const (
 		originalData = "original"
