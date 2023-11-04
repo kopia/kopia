@@ -44,6 +44,7 @@ func TestGetBlobVersions(t *testing.T) {
 	}
 	st, err := azure.New(newctx, opts, false)
 	require.NoError(t, err)
+
 	defer st.Close(ctx)
 
 	// required for PIT versioning check
@@ -146,6 +147,7 @@ func TestGetBlobVersionsWithDeletion(t *testing.T) {
 	}
 	st, err := azure.New(newctx, opts, false)
 	require.NoError(t, err)
+
 	defer st.Close(ctx)
 
 	// required for PIT versioning check
