@@ -85,6 +85,7 @@ lint-and-log: $(linter)
 	$(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags) | tee .linterr.txt
 
 lint-all: $(linter)
+	GOOS=windows GOARCH=386 $(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
 	GOOS=windows GOARCH=amd64 $(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
 	GOOS=linux GOARCH=amd64 $(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
 	GOOS=linux GOARCH=arm64 $(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
@@ -180,6 +181,17 @@ endif
 	(cd dist && zip -r kopia-$(KOPIA_VERSION_NO_PREFIX)-windows-x64.zip kopia-$(KOPIA_VERSION_NO_PREFIX)-windows-x64)
 	rm -rf dist/kopia-$(KOPIA_VERSION_NO_PREFIX)-windows-x64
 
+# on Windows build and sign x86 and *.zip file
+dist/kopia_windows_386/kopia.exe: $(all_go_sources)
+	GOOS=windows GOARCH=386 go build $(KOPIA_BUILD_FLAGS) -o dist/kopia_windows_386/kopia.exe -tags "$(KOPIA_BUILD_TAGS)" github.com/kopia/kopia
+ifneq ($(WINDOWS_SIGN_TOOL),)
+	tools/.tools/signtool.exe sign //sha1 $(WINDOWS_CERT_SHA1) //fd sha256 //tr "http://timestamp.digicert.com" //v dist/kopia_windows_386/kopia.exe
+endif
+	mkdir -p dist/kopia-$(KOPIA_VERSION_NO_PREFIX)-windows-x86
+	cp dist/kopia_windows_386/kopia.exe LICENSE README.md dist/kopia-$(KOPIA_VERSION_NO_PREFIX)-windows-x86
+	(cd dist && zip -r kopia-$(KOPIA_VERSION_NO_PREFIX)-windows-x86.zip kopia-$(KOPIA_VERSION_NO_PREFIX)-windows-x86)
+	rm -rf dist/kopia-$(KOPIA_VERSION_NO_PREFIX)-windows-x86
+
 # On Linux use use goreleaser which will build Kopia for all supported Linux architectures
 # and creates .tar.gz, rpm and deb packages.
 dist/kopia_linux_x64/kopia dist/kopia_linux_arm64/kopia dist/kopia_linux_armv7l/kopia: $(all_go_sources)
@@ -199,6 +211,10 @@ kopia: $(kopia_ui_embedded_exe)
 ci-build:
 	$(MAKE) kopia
 ifeq ($(GOARCH),amd64)
+	$(retry) $(MAKE) kopia-ui
+	$(retry) $(MAKE) kopia-ui-test
+endif
+ifeq ($(GOARCH),386)
 	$(retry) $(MAKE) kopia-ui
 	$(retry) $(MAKE) kopia-ui-test
 endif

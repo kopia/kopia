@@ -86,6 +86,7 @@ var tools = map[string]ToolInfo{
 		urlTemplate: "https://github.com/kopia/kopia/releases/download/vVERSION/kopia-VERSION-GOOS-GOARCH.EXT",
 		archMap: map[string]string{
 			"amd64": "x64",
+			"386":   "x86",
 		},
 		osMap: map[string]string{
 			"darwin": "macOS",
@@ -101,6 +102,7 @@ var tools = map[string]ToolInfo{
 		urlTemplate: "https://github.com/goreleaser/goreleaser/releases/download/VERSION/goreleaser_GOOS_GOARCH.EXT",
 		archMap: map[string]string{
 			"amd64": "x86_64",
+			"386":   "x86_64",
 			"arm":   "armv6",
 		},
 		osMap: map[string]string{
@@ -118,7 +120,7 @@ var tools = map[string]ToolInfo{
 	"node": {
 		urlTemplate:         "https://nodejs.org/dist/vVERSION/node-vVERSION-GOOS-GOARCH.EXT",
 		osMap:               map[string]string{"windows": "win"},
-		archMap:             map[string]string{"arm": "armv7l", "amd64": "x64"},
+		archMap:             map[string]string{"arm": "armv7l", "amd64": "x64", "386": "x86"},
 		stripPathComponents: 1,
 	},
 }
@@ -145,6 +147,7 @@ var buildArchitectures = []struct {
 	{"darwin", "amd64"},
 	{"darwin", "arm64"},
 	{"windows", "amd64"},
+	{"windows", "386"},
 }
 
 func replacementFromMap(defaultValue string, m map[string]string) string {
