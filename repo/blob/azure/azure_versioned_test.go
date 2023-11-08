@@ -28,12 +28,14 @@ func TestGetBlobVersions(t *testing.T) {
 	storageAccount := getEnvOrSkip(t, testStorageAccountEnv)
 	storageKey := getEnvOrSkip(t, testStorageKeyEnv)
 
+	createContainer(t, container, storageAccount, storageKey)
+
 	ctx := testlogging.Context(t)
 	data := make([]byte, 8)
 	rand.Read(data)
 	// use context that gets canceled after opening storage to ensure it's not used beyond New().
 	newctx, cancel := context.WithCancel(ctx)
-	defer cancel()
+	t.Cleanup(cancel)
 
 	prefix := fmt.Sprintf("test-%v-%x/", clock.Now().Unix(), data)
 	opts := &azure.Options{
@@ -45,7 +47,9 @@ func TestGetBlobVersions(t *testing.T) {
 	st, err := azure.New(newctx, opts, false)
 	require.NoError(t, err)
 
-	defer st.Close(ctx)
+	t.Cleanup(func() {
+		st.Close(ctx)
+	})
 
 	// required for PIT versioning check
 	err = st.PutBlob(ctx, format.KopiaRepositoryBlobID, gather.FromSlice([]byte(nil)), blob.PutOptions{})
@@ -131,12 +135,14 @@ func TestGetBlobVersionsWithDeletion(t *testing.T) {
 	storageAccount := getEnvOrSkip(t, testStorageAccountEnv)
 	storageKey := getEnvOrSkip(t, testStorageKeyEnv)
 
+	createContainer(t, container, storageAccount, storageKey)
+
 	ctx := testlogging.Context(t)
 	data := make([]byte, 8)
 	rand.Read(data)
 	// use context that gets canceled after opening storage to ensure it's not used beyond New().
 	newctx, cancel := context.WithCancel(ctx)
-	defer cancel()
+	t.Cleanup(cancel)
 
 	prefix := fmt.Sprintf("test-%v-%x/", clock.Now().Unix(), data)
 	opts := &azure.Options{
@@ -148,7 +154,9 @@ func TestGetBlobVersionsWithDeletion(t *testing.T) {
 	st, err := azure.New(newctx, opts, false)
 	require.NoError(t, err)
 
-	defer st.Close(ctx)
+	t.Cleanup(func() {
+		st.Close(ctx)
+	})
 
 	// required for PIT versioning check
 	err = st.PutBlob(ctx, format.KopiaRepositoryBlobID, gather.FromSlice([]byte(nil)), blob.PutOptions{})
