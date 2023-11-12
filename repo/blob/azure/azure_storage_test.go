@@ -349,7 +349,9 @@ func TestAzureStorageImmutabilityProtection(t *testing.T) {
 	// DeleteImmutabilityPolicy fails on a locked policy
 	_, err = cli.ServiceClient().NewContainerClient(container).NewBlobClient(prefix+string(dummyBlob)).DeleteImmutabilityPolicy(ctx, nil)
 	require.Error(t, err)
+
 	var re *azcore.ResponseError
+
 	require.ErrorAs(t, err, &re)
 	require.Equal(t, re.ErrorCode, "ImmutabilityPolicyDeleteOnLockedPolicy")
 
@@ -374,7 +376,7 @@ func getBlobCount(ctx context.Context, t *testing.T, st blob.Storage, prefix blo
 	return count
 }
 
-func getBlobRetention(ctx context.Context, t *testing.T, cli *azblob.Client, container string, blobName string) time.Time {
+func getBlobRetention(ctx context.Context, t *testing.T, cli *azblob.Client, container, blobName string) time.Time {
 	t.Helper()
 
 	props, err := cli.ServiceClient().
