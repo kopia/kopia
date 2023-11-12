@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
 	legacyazblob "github.com/Azure/azure-storage-blob-go/azblob"
 	"github.com/pkg/errors"
@@ -294,7 +295,7 @@ func TestAzureStorageImmutabilityProtection(t *testing.T) {
 
 	// use context that gets canceled after opening storage to ensure it's not used beyond New().
 	newctx, cancel := context.WithCancel(ctx)
-	prefix := fmt.Sprintf("test-%v-%x-", clock.Now().Unix(), data)
+	prefix := fmt.Sprintf("test-%v-%x/", clock.Now().Unix(), data)
 	st, err := azure.New(newctx, &azure.Options{
 		Container:      container,
 		StorageAccount: storageAccount,
@@ -331,7 +332,6 @@ func TestAzureStorageImmutabilityProtection(t *testing.T) {
 	blobRetention := getBlobRetention(ctx, t, cli, container, blobNameFullPath)
 	if !blobRetention.After(currentTime) {
 		t.Fatalf("blob retention period not in the future: %v", blobRetention)
-		t.FailNow()
 	}
 
 	extendOpts := blob.ExtendOptions{
@@ -344,8 +344,14 @@ func TestAzureStorageImmutabilityProtection(t *testing.T) {
 	extendedRetention := getBlobRetention(ctx, t, cli, container, blobNameFullPath)
 	if !extendedRetention.After(blobRetention) {
 		t.Fatalf("blob retention period not extended. was %v, now %v", blobRetention, extendedRetention)
-		t.FailNow()
 	}
+
+	// DeleteImmutabilityPolicy fails on a locked policy
+	_, err = cli.ServiceClient().NewContainerClient(container).NewBlobClient(prefix+string(dummyBlob)).DeleteImmutabilityPolicy(ctx, nil)
+	require.Error(t, err)
+	var re *azcore.ResponseError
+	require.ErrorAs(t, err, &re)
+	require.Equal(t, re.ErrorCode, "ImmutabilityPolicyDeleteOnLockedPolicy")
 
 	err = st.DeleteBlob(ctx, dummyBlob)
 	require.NoError(t, err)
