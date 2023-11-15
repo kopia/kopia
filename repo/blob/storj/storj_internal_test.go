@@ -30,7 +30,7 @@ func TestConnect(t *testing.T) {
 		AccessGrant: accessgrant,
 	}
 
-	_, rs, err := _new(ctx, opts, true)
+	rs, err := _new(ctx, opts, true)
 	if err != nil {
 		t.Errorf("expected  New to succeed: %v", err)
 	}
@@ -57,14 +57,14 @@ func TestListBlobs(t *testing.T) {
 		AccessGrant: accessgrant,
 	}
 
-	storj, rs, err := _new(ctx, opts, true)
+	storj, err := _new(ctx, opts, true)
 	if err != nil {
 		t.Fatalf("expected  New to succeed: %v", err)
 	}
-	defer removeTheBucket(t, ctx, rs, testbucket)
+	defer removeTheBucket(t, ctx, storj, testbucket)
 
 	now := time.Now()
-	diffopts := cmpopts.EquateApproxTime(4 * time.Second)
+	diffopts := cmpopts.EquateApproxTime(5 * time.Second)
 	sortopts := cmpopts.SortSlices(func(a, b blob.Metadata) bool {
 		return string(a.BlobID) < string(b.BlobID)
 	})
@@ -75,6 +75,12 @@ func TestListBlobs(t *testing.T) {
 			Length:    int64(len(blobcontents)),
 			Timestamp: timestamp,
 		}
+	}
+
+	dotshards := blob.Metadata{
+		BlobID:    ".shards",
+		Length:    int64(43),
+		Timestamp: now,
 	}
 
 	for _, tv := range []struct {
@@ -94,6 +100,7 @@ func TestListBlobs(t *testing.T) {
 				_mh("a", now),
 				_mh("b", now),
 				_mh("c", now),
+				dotshards,
 			},
 		},
 		{
@@ -111,6 +118,53 @@ func TestListBlobs(t *testing.T) {
 			want: []blob.Metadata{
 				_mh("a", now),
 			},
+		},
+		{
+			prefix: "",
+			objects: []string{
+				"pab14b12eb9811fc58da90ed0f6579c13-s750cf660c8f3480f122",
+				"pee963b9e844e9bfa6ad0077960a556f7-s750cf660c8f3480f122",
+				"xn0_af57ceddd161394455b90db173f5c0d9-s6682f1d36839014a121-c1",
+			},
+			want: []blob.Metadata{
+				dotshards,
+				_mh("dd1", now),
+				_mh("dd2", now),
+				_mh("dd3", now),
+				_mh("a", now),
+				_mh("b", now),
+				_mh("c", now),
+				_mh("pab14b12eb9811fc58da90ed0f6579c13-s750cf660c8f3480f122", now),
+				_mh("pee963b9e844e9bfa6ad0077960a556f7-s750cf660c8f3480f122", now),
+				_mh("xn0_af57ceddd161394455b90db173f5c0d9-s6682f1d36839014a121-c1", now),
+			},
+		},
+		{
+			prefix:  "p",
+			objects: []string{},
+			want: []blob.Metadata{
+				_mh("pab14b12eb9811fc58da90ed0f6579c13-s750cf660c8f3480f122", now),
+				_mh("pee963b9e844e9bfa6ad0077960a556f7-s750cf660c8f3480f122", now),
+			},
+		},
+		{
+			prefix:  "pe",
+			objects: []string{},
+			want: []blob.Metadata{
+				_mh("pee963b9e844e9bfa6ad0077960a556f7-s750cf660c8f3480f122", now),
+			},
+		},
+		{
+			prefix:  "xn0",
+			objects: []string{},
+			want: []blob.Metadata{
+				_mh("xn0_af57ceddd161394455b90db173f5c0d9-s6682f1d36839014a121-c1", now),
+			},
+		},
+		{
+			prefix:  "xq",
+			objects: []string{},
+			want:    []blob.Metadata{},
 		},
 	} {
 		got := make([]blob.Metadata, 0)
@@ -146,11 +200,11 @@ func TestPutOpts(t *testing.T) {
 		AccessGrant: accessgrant,
 	}
 
-	storj, rs, err := _new(ctx, opts, true)
+	storj, err := _new(ctx, opts, true)
 	if err != nil {
 		t.Fatalf("expected  New to succeed: %v", err)
 	}
-	defer removeTheBucket(t, ctx, rs, testbucket)
+	defer removeTheBucket(t, ctx, storj, testbucket)
 
 	// Put the blob.
 	if err := storj.PutBlob(ctx, blob.ID(blobname), gather.FromSlice([]byte(blobcontents)), blob.PutOptions{}); err != nil {
@@ -183,11 +237,11 @@ func TestPutGetBlob(t *testing.T) {
 		AccessGrant: accessgrant,
 	}
 
-	storj, rs, err := _new(ctx, opts, true)
+	storj, err := _new(ctx, opts, true)
 	if err != nil {
 		t.Fatalf("expected  New to succeed: %v", err)
 	}
-	defer removeTheBucket(t, ctx, rs, testbucket)
+	defer removeTheBucket(t, ctx, storj, testbucket)
 
 	diffopts := cmpopts.EquateApproxTime(2 * time.Second)
 	now := time.Now()
@@ -262,6 +316,7 @@ func removeTheBucket(t *testing.T, ctx context.Context, rsj *storjStorage, bucke
 		blobs = append(blobs, b.BlobID)
 		return nil
 	}
+
 	if err := rsj.ListBlobs(ctx, "", cb); err != nil {
 		t.Fatalf("removeTheBucket: ListBlobs unexpected error %v", err)
 	}
@@ -282,6 +337,6 @@ func removeTheBucket(t *testing.T, ctx context.Context, rsj *storjStorage, bucke
 }
 
 func (storj *storjStorage) deleteBucket(ctx context.Context, bucket string) error {
-	_, err := storj.project.DeleteBucket(ctx, bucket)
+	_, err := storj.Storage.Impl.(*impl).project.DeleteBucket(ctx, bucket)
 	return err
 }

@@ -4,14 +4,18 @@ package storj
 import (
 	"context"
 	"fmt"
+	"os"
+	"path"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 	"storj.io/uplink"
 
 	"github.com/kopia/kopia/internal/iocopy"
+	"github.com/kopia/kopia/internal/retry"
 	"github.com/kopia/kopia/repo/blob"
-	"github.com/kopia/kopia/repo/blob/retrying"
+	"github.com/kopia/kopia/repo/blob/sharded"
 )
 
 const (
@@ -22,8 +26,12 @@ const (
 )
 
 type storjStorage struct {
-	Options
+	sharded.Storage
 	blob.DefaultProviderImplementation
+}
+
+type impl struct {
+	Options
 	project *uplink.Project
 }
 
@@ -42,20 +50,30 @@ func translateError(err error) error {
 	}
 }
 
-// GetBlob returns full or partial contents of a blob with given ID.
-func (storj *storjStorage) GetBlob(ctx context.Context, b blob.ID, offset, length int64, output blob.OutputBuffer) error {
+func (storj *impl) MakeFileName(blobID blob.ID) string {
+	return string(blobID)
+}
+func (storj *impl) GetBlobIDFromFileName(name string) (blob.ID, bool) {
+	return blob.ID(name), true
+}
+
+func (storj *impl) _getBlobFromPath(ctx context.Context, key string, offset, length int64, output blob.OutputBuffer) error {
 	if offset < 0 {
 		return blob.ErrInvalidRange
 	}
-	key := storj.getObjectNameString(b)
 	opts := uplink.DownloadOptions{
 		Offset: offset,
 		Length: length,
 	}
 	dl, err := storj.project.DownloadObject(ctx, storj.BucketName, key, &opts)
 	if err != nil {
-		return errors.Wrap(translateError(err), "GetBlob DownloadObject")
+		return errors.Wrap(translateError(err), "GetBlobFromPath")
 	}
+
+	// TODO(rjk): Why is this necessary? I would *not* have expected this but
+	// validate-provider requires this. Without this line, _getBlobFromPath
+	// writes to the end of output.
+	output.Reset()
 
 	if err := iocopy.JustCopy(output, dl); err != nil {
 		return errors.Wrap(translateError(err), "GetBlob JustCopy")
@@ -65,12 +83,16 @@ func (storj *storjStorage) GetBlob(ctx context.Context, b blob.ID, offset, lengt
 	return blob.EnsureLengthExactly(output.Length(), length)
 }
 
-func (storj *storjStorage) GetMetadata(ctx context.Context, b blob.ID) (blob.Metadata, error) {
-	key := storj.getObjectNameString(b)
+func (storj *impl) GetBlobFromPath(ctx context.Context, dirPath, path string, offset, length int64, output blob.OutputBuffer) error {
+	return retry.WithExponentialBackoffNoValue(ctx, "GetBlobFromPath("+path+")", func() error {
+		return storj._getBlobFromPath(ctx, path, offset, length, output)
+	}, isRetriable)
+}
 
+func (storj *impl) _getMetadataFromPath(ctx context.Context, key string) (blob.Metadata, error) {
 	o, err := storj.project.StatObject(ctx, storj.BucketName, key)
 	if err != nil {
-		return blob.Metadata{}, errors.Wrap(translateError(err), "GetMetadata StatObject fail")
+		return blob.Metadata{}, errors.Wrap(translateError(err), "_getMetadataFromPath StatObject fail")
 	}
 	bmd := blob.Metadata{
 		BlobID:    blob.ID(o.Key),
@@ -80,7 +102,13 @@ func (storj *storjStorage) GetMetadata(ctx context.Context, b blob.ID) (blob.Met
 	return bmd, nil
 }
 
-func (storj *storjStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes, opts blob.PutOptions) error {
+func (storj *impl) GetMetadataFromPath(ctx context.Context, dirPath, filePath string) (blob.Metadata, error) {
+	return retry.WithExponentialBackoff(ctx, "GetMetadataFromPath("+filePath+")", func() (blob.Metadata, error) {
+		return storj._getMetadataFromPath(ctx, filePath)
+	}, isRetriable)
+}
+
+func (storj *impl) _putBlob(ctx context.Context, key string, dataSlices blob.Bytes, opts blob.PutOptions) error {
 	switch {
 	case opts.RetentionMode != "":
 		return blob.ErrUnsupportedPutBlobOption
@@ -89,26 +117,25 @@ func (storj *storjStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Byt
 		return blob.ErrSetTimeUnsupported
 	}
 
-	pb := storj.getObjectNameString(b)
 	if opts.DoNotRecreate {
-		if _, err := storj.project.StatObject(ctx, storj.BucketName, pb); err == nil || !errors.Is(err, uplink.ErrObjectNotFound) {
-			return errors.Wrap(blob.ErrBlobAlreadyExists, "PutBob, DoNotRecreate")
+		if _, err := storj.project.StatObject(ctx, storj.BucketName, key); err == nil || !errors.Is(err, uplink.ErrObjectNotFound) {
+			return errors.Wrap(blob.ErrBlobAlreadyExists, "_putBlob, DoNotRecreate")
 		}
 	}
 
 	// TODO(rjk): Implement multi-part uploads for segmented blob.Bytes in a
 	// subsequent PR.
-	upfd, err := storj.project.UploadObject(ctx, storj.BucketName, pb, nil)
+	upfd, err := storj.project.UploadObject(ctx, storj.BucketName, key, nil)
 	if err != nil {
-		return errors.Wrap(err, "PutBlob UploadObject")
+		return errors.Wrap(err, "_putBlob UploadObject")
 	}
 
-	if err := iocopy.JustCopy(upfd, data.Reader()); err != nil {
-		return errors.Wrap(err, "PutBlob copying")
+	if err := iocopy.JustCopy(upfd, dataSlices.Reader()); err != nil {
+		return errors.Wrap(err, "_putBlob copying")
 	}
 
 	if err := upfd.Commit(); err != nil {
-		return errors.Wrap(err, "PubBlob Commit")
+		return errors.Wrap(err, "_putBlob Commit")
 	}
 
 	// TODO(rjk): I am not certain that I am correctly handling modifcation times.
@@ -119,91 +146,126 @@ func (storj *storjStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Byt
 	return nil
 }
 
-func (storj *storjStorage) DeleteBlob(ctx context.Context, b blob.ID) error {
-	key := storj.getObjectNameString(b)
+func (s impl) PutBlobInPath(ctx context.Context, dirPath, filePath string, dataSlices blob.Bytes, opts blob.PutOptions) error {
+	return retry.WithExponentialBackoffNoValue(ctx, "PutBlobInPath("+filePath+")", func() error {
+		//nolint:wrapcheck
+		return s._putBlob(ctx, filePath, dataSlices, opts)
+	}, isRetriable)
+}
+
+func (storj *impl) _deleteBlobInPath(ctx context.Context, key string) error {
 	_, err := storj.project.DeleteObject(ctx, storj.BucketName, key)
 	return errors.Wrap(translateError(err), "DeleteBlob")
 }
 
-func (storj *storjStorage) getObjectNameString(blobID blob.ID) string {
-	return storj.Prefix + string(blobID)
+func (s *impl) DeleteBlobInPath(ctx context.Context, dirPath, filePath string) error {
+	//nolint:wrapcheck
+	return retry.WithExponentialBackoffNoValue(ctx, "DeleteBlob("+filePath+")", func() error {
+		return s._deleteBlobInPath(ctx, filePath)
+	}, isRetriable)
 }
 
-func (storj *storjStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback func(blob.Metadata) error) error {
-	oi := storj.project.ListObjects(ctx, storj.Options.BucketName, &uplink.ListObjectsOptions{
+// Use uplink.Object instances as os.FileInfo.
+type storjfileinfo uplink.Object
+
+func (e *storjfileinfo) Name() string {
+	// Storj prefix listings include the full path but ReadDir expects just
+	// the the Base.
+	return path.Base(e.Key)
+}
+func (e *storjfileinfo) Size() int64 {
+	return e.System.ContentLength
+}
+func (e *storjfileinfo) Mode() os.FileMode {
+	if e.IsPrefix {
+		return os.ModeDir
+	} else {
+		return 0
+	}
+}
+func (e *storjfileinfo) ModTime() time.Time {
+	return e.System.Created
+}
+func (e *storjfileinfo) IsDir() bool {
+	return e.IsPrefix
+}
+func (e *storjfileinfo) Sys() any {
+	return nil
+}
+
+func (s *impl) ReadDir(ctx context.Context, path string) ([]os.FileInfo, error) {
+	listing := []os.FileInfo{}
+
+	if strings.HasPrefix(path, "/") {
+		path = path[1:]
+	}
+	if path != "" {
+		path = path + "/"
+	}
+
+	oi := s.project.ListObjects(ctx, s.Options.BucketName, &uplink.ListObjectsOptions{
 		System: true,
+		Prefix: path,
 	})
-	sp := storj.getObjectNameString(prefix)
 
 	for {
 		if !oi.Next() {
-			return errors.Wrap(oi.Err(), "ListBlobs iteration")
+			return listing, errors.Wrap(oi.Err(), "ReadDir iteration")
 		}
-
-		o := oi.Item()
-		// TODO(rjk): This should use sharding to have prefix optimization?
-		if !strings.HasPrefix(o.Key, sp) {
-			continue
-		}
-		omd := blob.Metadata{
-			BlobID:    blob.ID(o.Key),
-			Length:    o.System.ContentLength,
-			Timestamp: o.System.Created,
-		}
-
-		if err := callback(omd); err != nil {
-			return errors.Wrap(err, "ListBlobs iteration callback had an error")
-		}
+		listing = append(listing, (*storjfileinfo)(oi.Item()))
 	}
 }
 
 func (storj *storjStorage) ConnectionInfo() blob.ConnectionInfo {
 	return blob.ConnectionInfo{
 		Type:   storjStorageType,
-		Config: &storj.Options,
+		Config: &storj.Storage.Impl.(*impl).Options, //nolint:forcetypeassert
 	}
 }
 
 func (storj *storjStorage) DisplayName() string {
-	return fmt.Sprintf("Storj: %v", storj.BucketName)
+	return fmt.Sprintf("Storj: %v", storj.Storage.Impl.(*impl).BucketName)
 }
 
 func (storj *storjStorage) Close(ctx context.Context) error {
-	return errors.Wrap(storj.project.Close(), "error closing Storj project")
+	return errors.Wrap(storj.Storage.Impl.(*impl).project.Close(), "error closing Storj project")
 }
 
 // Code is based on the usage flow documented at
 // https://github.com/storj/storj/wiki/Libuplink-Walkthrough
-// TODO(rjk): What does "isCreate" do?
-func _new(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, *storjStorage, error) {
+func _new(ctx context.Context, opt *Options, isCreate bool) (*storjStorage, error) {
 	access, err := uplink.ParseAccess(opt.AccessGrant)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "could not parse access grant")
+		return nil, errors.Wrap(err, "could not parse access grant")
 	}
 
 	// Open up the Project we will be working with.
 	project, err := uplink.OpenProject(ctx, access)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "could not open project")
+		return nil, errors.Wrap(err, "could not open project")
 	}
 
 	// Ensure the desired Bucket within the Project is created.
 	_, err = project.EnsureBucket(ctx, opt.BucketName)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "could not ensure bucket")
+		return nil, errors.Wrap(err, "could not ensure bucket")
 	}
 
-	storj := &storjStorage{
+	si := &impl{
 		Options: *opt,
 		project: project,
 	}
-	return retrying.NewWrapper(storj), storj, nil
+
+	storj := &storjStorage{
+		Storage: sharded.New(si, opt.Prefix, opt.Options, isCreate),
+	}
+
+	return storj, err
 }
 
 // New creates new Storj-backed storage with specified options.
 func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error) {
-	s, _, err := _new(ctx, opt, isCreate)
-	return s, err
+	return _new(ctx, opt, isCreate)
 }
 
 func init() {
@@ -212,3 +274,28 @@ func init() {
 
 // Make sure that I implemented everything.
 var _ blob.Storage = &storjStorage{}
+
+func isRetriable(err error) bool {
+	switch {
+	case errors.Is(err, blob.ErrBlobNotFound):
+		return false
+
+	case errors.Is(err, blob.ErrInvalidRange):
+		return false
+
+	case errors.Is(err, blob.ErrSetTimeUnsupported):
+		return false
+
+	case errors.Is(err, blob.ErrInvalidCredentials):
+		return false
+
+	case errors.Is(err, blob.ErrUnsupportedPutBlobOption):
+		return false
+
+	case errors.Is(err, blob.ErrBlobAlreadyExists):
+		return false
+
+	default:
+		return true
+	}
+}

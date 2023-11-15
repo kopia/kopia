@@ -1,6 +1,7 @@
 package storj
 
 import (
+	"github.com/kopia/kopia/repo/blob/sharded"
 	"github.com/kopia/kopia/repo/blob/throttling"
 )
 
@@ -17,4 +18,5 @@ type Options struct {
 	AccessGrant string `json:"accessgrant"`
 
 	throttling.Limits
+	sharded.Options
 }

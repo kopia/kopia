@@ -42,6 +42,7 @@ type fsImpl struct {
 	Options
 
 	osi osInterface
+	sharded.ImplHelper
 }
 
 var errRetriableInvalidLength = errors.New("invalid length (retriable)")
@@ -389,7 +390,7 @@ func New(ctx context.Context, opts *Options, isCreate bool) (blob.Storage, error
 	}
 
 	return &fsStorage{
-		Storage: sharded.New(&fsImpl{*opts, osi}, opts.Path, opts.Options, isCreate),
+		Storage: sharded.New(&fsImpl{*opts, osi, sharded.ImplHelper{}}, opts.Path, opts.Options, isCreate),
 	}, nil
 }
 
