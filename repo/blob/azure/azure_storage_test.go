@@ -318,7 +318,7 @@ func TestAzureStorageImmutabilityProtection(t *testing.T) {
 	blobNameFullPath := prefix + blobName
 
 	putOpts := blob.PutOptions{
-		RetentionMode:   blob.Locked,
+		RetentionMode:   blob.Compliance,
 		RetentionPeriod: 3 * time.Second,
 	}
 	// non-nil blob to distinguish against delete marker version
@@ -337,8 +337,8 @@ func TestAzureStorageImmutabilityProtection(t *testing.T) {
 	}
 
 	extendOpts := blob.ExtendOptions{
-		RetentionMode:   blob.Locked,
-		RetentionPeriod: 4 * time.Second,
+		RetentionMode:   blob.Compliance,
+		RetentionPeriod: 10 * time.Second,
 	}
 	err = st.ExtendBlobRetention(ctx, dummyBlob, extendOpts)
 	require.NoError(t, err)

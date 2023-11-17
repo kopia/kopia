@@ -242,7 +242,7 @@ func (az *azStorage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes, op
 	}
 
 	if opts.HasRetentionOptions() {
-		mode := azblobblob.ImmutabilityPolicySetting(opts.RetentionMode)
+		mode := azblobblob.ImmutabilityPolicySetting(blob.Locked) // override COMPLIANCE to be Locked
 		retainUntilDate := clock.Now().Add(opts.RetentionPeriod).UTC()
 		uo.ImmutabilityPolicyMode = &mode
 		uo.ImmutabilityPolicyExpiryTime = &retainUntilDate

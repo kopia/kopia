@@ -129,7 +129,7 @@ func (r RetentionMode) IsValidS3() bool {
 
 // IsValidAzure - check whether this retention mode is valid for Azure.
 func (r RetentionMode) IsValidAzure() bool {
-	return r == Locked
+	return r == Compliance
 }
 
 // PutOptions represents put-options for a single BLOB in a storage.
