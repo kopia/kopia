@@ -563,6 +563,10 @@ func (s *Server) endUpload(ctx context.Context, src snapshot.SourceInfo) {
 	s.parallelSnapshotsChanged.Signal()
 }
 
+func (s *Server) GetRepository() repo.Repository {
+	return s.rep
+}
+
 // SetRepository sets the repository (nil is allowed and indicates server that is not
 // connected to the repository).
 func (s *Server) SetRepository(ctx context.Context, rep repo.Repository) error {
