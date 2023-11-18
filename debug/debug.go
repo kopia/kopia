@@ -1,3 +1,4 @@
+// Package debug for debug helper functions.
 package debug
 
 import (
@@ -6,6 +7,7 @@ import (
 	"context"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"runtime"
@@ -14,15 +16,17 @@ import (
 	"strings"
 	"sync"
 
-	errors2 "gopkg.in/errgo.v2/fmt/errors"
-
 	"github.com/kopia/kopia/repo/logging"
 )
 
 var log = logging.Module("kopia/debug")
 
-// ProfileName the name of the profile (see: runtime/pprof/Lookup)
+// ProfileName the name of the profile (see: runtime/pprof/Lookup).
 type ProfileName string
+
+const (
+	pair = 2
+)
 
 const (
 	// DefaultDebugProfileRate default sample/data fraction for profile sample collection rates (1/x, where x is the
@@ -37,7 +41,7 @@ const (
 	EnvVarKopiaDebugPprof = "KOPIA_DEBUG_PPROF"
 )
 
-// flags used to configure profiling in EnvVarKopiaDebugPprof
+// flags used to configure profiling in EnvVarKopiaDebugPprof.
 const (
 	// KopiaDebugFlagForceGc force garbage collection before dumping heap data.
 	KopiaDebugFlagForceGc = "forcegc"
@@ -48,9 +52,12 @@ const (
 )
 
 const (
+	// ProfileNameBlock block profile key.
 	ProfileNameBlock ProfileName = "block"
-	ProfileNameMutex             = "mutex"
-	ProfileNameCpu               = "cpu"
+	// ProfileNameMutex mutex profile key.
+	ProfileNameMutex = "mutex"
+	// ProfileNameCPU cpu profile key.
+	ProfileNameCPU = "cpu"
 )
 
 // ProfileConfig configuration flags for a profile.
@@ -65,15 +72,15 @@ type ProfileConfigs struct {
 	pcm map[ProfileName]*ProfileConfig
 }
 
-var (
-	pprofConfigs = &ProfileConfigs{}
-)
+//nolint:gochecknoglobals
+var pprofConfigs = &ProfileConfigs{}
 
 type pprofSetRate struct {
 	fn  func(int)
 	def int
 }
 
+//nolint:gochecknoglobals
 var pprofProfileRates = map[ProfileName]pprofSetRate{
 	ProfileNameBlock: {
 		fn:  func(x int) { runtime.SetBlockProfileRate(x) },
@@ -86,34 +93,41 @@ var pprofProfileRates = map[ProfileName]pprofSetRate{
 }
 
 // GetValue get the value of the named flag, `s`.  false will be returned
-// if the flag value does not exist
+// if the flag value does not exist.
 func (p ProfileConfig) GetValue(s string) (string, bool) {
 	for _, f := range p.flags {
-		kvs := strings.SplitN(f, "=", 2)
+		kvs := strings.SplitN(f, "=", pair)
 		if kvs[0] != s {
 			continue
 		}
+
 		if len(kvs) == 1 {
 			return "", true
 		}
+
 		return kvs[1], true
 	}
+
 	return "", false
 }
 
 func parseProfileConfigs(bufSizeB int, ppconfigs string) map[ProfileName]*ProfileConfig {
 	pbs := map[ProfileName]*ProfileConfig{}
 	allProfileOptions := strings.Split(ppconfigs, ":")
+
 	for _, profileOptionWithFlags := range allProfileOptions {
 		// of those, see if any have profile-specific settings
-		profileFlagNameValuePairs := strings.SplitN(profileOptionWithFlags, "=", 2)
+		profileFlagNameValuePairs := strings.SplitN(profileOptionWithFlags, "=", pair)
 		flagValue := ""
+
 		if len(profileFlagNameValuePairs) > 1 {
 			flagValue = profileFlagNameValuePairs[1]
 		}
+
 		flagKey := ProfileName(strings.ToLower(profileFlagNameValuePairs[0]))
 		pbs[flagKey] = newProfileConfig(bufSizeB, flagValue)
 	}
+
 	return pbs
 }
 
@@ -122,10 +136,12 @@ func newProfileConfig(bufSizeB int, ppconfig string) *ProfileConfig {
 	q := &ProfileConfig{
 		buf: bytes.NewBuffer(make([]byte, 0, bufSizeB)),
 	}
+
 	flgs := strings.Split(ppconfig, ",")
 	if len(flgs) > 0 && flgs[0] != "" { // len(flgs) > 1 && flgs[0] == "" should never happen
 		q.flags = flgs
 	}
+
 	return q
 }
 
@@ -136,22 +152,26 @@ func setupProfileFractions(ctx context.Context, profileBuffers map[ProfileName]*
 			// profile not configured - leave it alone
 			continue
 		}
+
 		if v == nil {
 			// profile configured, but no rate - set to default
 			pprofset.fn(pprofset.def)
 			continue
 		}
+
 		s, _ := v.GetValue(KopiaDebugFlagRate)
 		if s == "" {
 			// flag without an argument - set to default
 			pprofset.fn(pprofset.def)
 			continue
 		}
+
 		n1, err := strconv.Atoi(s)
 		if err != nil {
 			log(ctx).With("cause", err).Warnf("invalid PPROF rate, %q, for %s: %v", s, k)
 			continue
 		}
+
 		log(ctx).Debugf("setting PPROF rate, %d, for %s", n1, k)
 		pprofset.fn(n1)
 	}
@@ -164,10 +184,12 @@ func ClearProfileFractions(profileBuffers map[ProfileName]*ProfileConfig) {
 		if v == nil { // fold missing values and empty values
 			continue
 		}
+
 		_, ok := v.GetValue(KopiaDebugFlagRate)
 		if !ok { // only care if a value might have been set before
 			continue
 		}
+
 		pprofset.fn(0)
 	}
 }
@@ -188,7 +210,7 @@ func StartProfileBuffers(ctx context.Context) {
 	// look for matching services.  "*" signals all services for profiling
 	log(ctx).Debug("configuring profile buffers")
 
-	// aquire global lock when performing operations with global side-effects
+	// acquire global lock when performing operations with global side-effects
 	pprofConfigs.mu.Lock()
 	defer pprofConfigs.mu.Unlock()
 
@@ -198,18 +220,21 @@ func StartProfileBuffers(ctx context.Context) {
 	setupProfileFractions(ctx, pprofConfigs.pcm)
 
 	// cpu has special initialization
-	v, ok := pprofConfigs.pcm[ProfileNameCpu]
+	v, ok := pprofConfigs.pcm[ProfileNameCPU]
 	if ok {
 		err := pprof.StartCPUProfile(v.buf)
 		if err != nil {
 			log(ctx).With("cause", err).Warn("cannot start cpu PPROF")
-			delete(pprofConfigs.pcm, ProfileNameCpu)
+			delete(pprofConfigs.pcm, ProfileNameCPU)
 		}
 	}
 }
 
 // DumpPem dump a PEM version of the byte slice, bs, into writer, wrt.
 func DumpPem(bs []byte, types string, wrt *os.File) error {
+	// err0 for background process
+	var err0 error
+
 	blk := &pem.Block{
 		Type:  types,
 		Bytes: bs,
@@ -222,34 +247,50 @@ func DumpPem(bs []byte, types string, wrt *os.File) error {
 	// fashion - this prevents the need for a large buffer to hold
 	// the encoded PEM.
 	go func() {
+		// writer close on exit of background process
+		//nolint:errcheck
 		defer pw.Close()
-		err := pem.Encode(pw, blk)
-		if err != nil {
+		// do the encoding
+		err0 = pem.Encode(pw, blk)
+		if err0 != nil {
 			return
 		}
 	}()
+
+	// connect rdr to pipe reader
 	rdr := bufio.NewReader(pr)
-	var err0, err1 error
-	for err0 == nil && err1 == nil {
+
+	// err1 for reading
+	// err2 for writing
+	var err1, err2 error
+	for err1 == nil && err2 == nil {
 		var ln []byte
-		ln, err0 = rdr.ReadBytes('\n')
-		_, err1 = wrt.Write(ln)
+		ln, err1 = rdr.ReadBytes('\n')
+		// err1 can return ln and non-nil err1, so always call write
+		_, err2 = wrt.Write(ln)
 	}
-	// got a write error
-	if err1 != nil {
-		return err1
+
+	// got a write error.  this has precedent
+	if err2 != nil {
+		return fmt.Errorf("could not write PEM: %w", err2)
 	}
+
 	// did not get a read error.  file ends in newline
-	if err0 == nil {
+	if err1 == nil {
 		return nil
 	}
+
 	// if file does not end in newline, then output one
-	if errors.Is(err0, io.EOF) {
-		_, err1 = wrt.WriteString("\n")
-		// TODO: lint says errors need to be wrapped ... figure out how its dealth with in rest of kopia
-		return errors2.Wrap(err0)
+	if errors.Is(err1, io.EOF) {
+		_, err2 = wrt.WriteString("\n")
+		if err2 != nil {
+			return fmt.Errorf("could not write PEM: %w", err2)
+		}
+
+		return io.EOF
 	}
-	return err0
+
+	return fmt.Errorf("error reading bytes: %w", err1)
 }
 
 func parseDebugNumber(v *ProfileConfig) (int, error) {
@@ -257,15 +298,17 @@ func parseDebugNumber(v *ProfileConfig) (int, error) {
 	if !ok {
 		return 0, nil
 	}
+
 	debug, err := strconv.Atoi(debugs)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("could not parse number %q: %w", debugs, err)
 	}
+
 	return debug, nil
 }
 
 // StopProfileBuffers stop and dump the contents of the buffers to the log as PEMs.  Buffers
-// supplied here are from StartProfileBuffers
+// supplied here are from StartProfileBuffers.
 func StopProfileBuffers(ctx context.Context) {
 	pprofConfigs.mu.Lock()
 	defer pprofConfigs.mu.Unlock()
@@ -279,32 +322,40 @@ func StopProfileBuffers(ctx context.Context) {
 	// cpu and heap profiles requires special handling
 	for k, v := range pprofConfigs.pcm {
 		log(ctx).Debugf("stopping PPROF profile %q", k)
+
 		if v == nil {
 			continue
 		}
-		if k == ProfileNameCpu {
+
+		if k == ProfileNameCPU {
 			pprof.StopCPUProfile()
 			continue
 		}
+
 		_, ok := v.GetValue(KopiaDebugFlagForceGc)
 		if ok {
 			log(ctx).Debug("performing GC before PPROF dump ...")
 			runtime.GC()
 		}
+
 		debug, err := parseDebugNumber(v)
 		if err != nil {
 			log(ctx).With("cause", err).Warn("invalid PPROF configuration debug number")
 			continue
 		}
+
 		pent := pprof.Lookup(string(k))
 		if pent == nil {
 			log(ctx).Warnf("no system PPROF entry for %q", k)
 			delete(pprofConfigs.pcm, k)
+
 			continue
 		}
+
 		err = pent.WriteTo(v.buf, debug)
 		if err != nil {
 			log(ctx).With("cause", err).Warn("error writing PPROF buffer")
+
 			continue
 		}
 	}
@@ -313,8 +364,10 @@ func StopProfileBuffers(ctx context.Context) {
 		if v == nil {
 			continue
 		}
+
 		unm := strings.ToUpper(string(k))
 		log(ctx).Infof("dumping PEM for %q", unm)
+
 		err := DumpPem(v.buf.Bytes(), unm, os.Stderr)
 		if err != nil {
 			log(ctx).With("cause", err).Error("cannot write PEM")
