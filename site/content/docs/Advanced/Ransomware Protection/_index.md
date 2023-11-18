@@ -46,7 +46,6 @@ Some cloud storage solutions provide the ability to generate restricted access k
                         "s3:DeleteBucket",
                         "s3:DeleteBucketPolicy",
                         "s3:DeleteBucketWebsite",
-                        "s3:DeleteObject",
                         "s3:DeleteObjectVersion"
                     ],
                     "Resource": [
