@@ -242,7 +242,12 @@ func (az *azStorage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes, op
 	}
 
 	if opts.HasRetentionOptions() {
-		mode := azblobblob.ImmutabilityPolicySetting(blob.Locked) // override COMPLIANCE to be Locked
+		// kopia delete marker blob can be Unlocked rather than Compliance
+		mode := azblobblob.ImmutabilityPolicySetting(opts.RetentionMode)
+		if opts.RetentionMode == blob.Compliance {
+			mode = azblobblob.ImmutabilityPolicySetting(blob.Locked) // override COMPLIANCE to be Locked
+		}
+
 		retainUntilDate := clock.Now().Add(opts.RetentionPeriod).UTC()
 		uo.ImmutabilityPolicyMode = &mode
 		uo.ImmutabilityPolicyExpiryTime = &retainUntilDate
