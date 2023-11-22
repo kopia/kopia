@@ -402,11 +402,14 @@ func (ks *KopiaSnapshotter) ConnectOrCreateRepoWithServer(serverAddr string, arg
 		if cmd.Stderr == nil {
 			return nil, "", err
 		}
+
 		buf, ok := cmd.Stderr.(*bytes.Buffer)
 		if !ok {
 			return nil, "", err
 		}
+
 		log.Printf("failuire in certificate generation: %s", buf.String())
+
 		return nil, "", err
 	}
 
