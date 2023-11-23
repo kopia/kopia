@@ -69,6 +69,8 @@ type ProfileConfig struct {
 // ProfileConfigs configuration flags for all requested profiles.
 type ProfileConfigs struct {
 	mu  sync.Mutex
+
+	// +checklocks:mu
 	pcm map[ProfileName]*ProfileConfig
 }
 
