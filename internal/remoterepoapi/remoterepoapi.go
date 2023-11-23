@@ -37,7 +37,18 @@ type PrefetchContentsRequest struct {
 	Hint       string       `json:"hint"`
 }
 
-// PrefetchContentsResponse represents a request from request to prefetch contents.
+// PrefetchContentsResponse represents a response from request to prefetch contents.
 type PrefetchContentsResponse struct {
 	ContentIDs []content.ID `json:"contents"`
+}
+
+// ApplyRetentionPolicyRequest represents a request to apply retention policy to a given source path.
+type ApplyRetentionPolicyRequest struct {
+	SourcePath   string `json:"sourcePath"`
+	ReallyDelete bool   `json:"reallyDelete"`
+}
+
+// ApplyRetentionPolicyResponse represents a response to a request to apply retention policy.
+type ApplyRetentionPolicyResponse struct {
+	ManifestIDs []manifest.ID `json:"manifests"`
 }

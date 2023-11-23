@@ -292,10 +292,30 @@ func appendSchedulingPolicyRows(rows []policyTableRow, p *policy.Policy, def *po
 	}
 
 	if len(p.SchedulingPolicy.TimesOfDay) > 0 {
-		rows = append(rows, policyTableRow{"  Snapshot times:", "", definitionPointToString(p.Target(), def.SchedulingPolicy.TimesOfDay)})
+		rows = append(rows,
+			policyTableRow{
+				"  Run missed snapshots:",
+				boolToString(p.SchedulingPolicy.RunMissed.OrDefault(false)),
+				definitionPointToString(p.Target(), def.SchedulingPolicy.RunMissed),
+			},
+			policyTableRow{
+				"  Snapshot times:",
+				"",
+				definitionPointToString(p.Target(), def.SchedulingPolicy.TimesOfDay),
+			})
 
 		for _, tod := range p.SchedulingPolicy.TimesOfDay {
 			rows = append(rows, policyTableRow{"    " + tod.String(), "", ""})
+		}
+
+		hasAny = true
+	}
+
+	if len(p.SchedulingPolicy.Cron) > 0 {
+		rows = append(rows, policyTableRow{"  Crontab expressions:", "", definitionPointToString(p.Target(), def.SchedulingPolicy.Cron)})
+
+		for _, cron := range p.SchedulingPolicy.Cron {
+			rows = append(rows, policyTableRow{"    " + cron, "", ""})
 		}
 
 		hasAny = true

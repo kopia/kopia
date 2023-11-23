@@ -10,6 +10,7 @@ import (
 	"go.opentelemetry.io/otel"
 
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/crypto"
 	"github.com/kopia/kopia/internal/metrics"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/throttling"
@@ -52,6 +53,12 @@ type RepositoryWriter interface {
 	DeleteManifest(ctx context.Context, id manifest.ID) error
 	OnSuccessfulFlush(callback RepositoryWriterCallback)
 	Flush(ctx context.Context) error
+}
+
+// RemoteRetentionPolicy is an interface implemented by repository clients that support remote retention policy.
+// when implemented, the repository server will invoke ApplyRetentionPolicy() server-side.
+type RemoteRetentionPolicy interface {
+	ApplyRetentionPolicy(ctx context.Context, sourcePath string, reallyDelete bool) ([]manifest.ID, error)
 }
 
 // DirectRepository provides additional low-level repository functionality.
@@ -133,13 +140,13 @@ type directRepository struct {
 // DeriveKey derives encryption key of the provided length from the master key.
 func (r *directRepository) DeriveKey(purpose []byte, keyLength int) []byte {
 	if r.cmgr.ContentFormat().SupportsPasswordChange() {
-		return format.DeriveKeyFromMasterKey(r.cmgr.ContentFormat().GetMasterKey(), r.UniqueID(), purpose, keyLength)
+		return crypto.DeriveKeyFromMasterKey(r.cmgr.ContentFormat().GetMasterKey(), r.UniqueID(), purpose, keyLength)
 	}
 
 	// version of kopia <v0.9 had a bug where certain keys were derived directly from
 	// the password and not from the random master key. This made it impossible to change
 	// password.
-	return format.DeriveKeyFromMasterKey(r.fmgr.FormatEncryptionKey(), r.UniqueID(), purpose, keyLength)
+	return crypto.DeriveKeyFromMasterKey(r.fmgr.FormatEncryptionKey(), r.UniqueID(), purpose, keyLength)
 }
 
 // ClientOptions returns client options.

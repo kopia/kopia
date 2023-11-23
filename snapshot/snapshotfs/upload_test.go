@@ -768,9 +768,7 @@ func TestUploadScanStopsOnContextCancel(t *testing.T) {
 	})
 
 	result, err := u.scanDirectory(scanctx, th.sourceDir, nil)
-	if !errors.Is(err, scanctx.Err()) {
-		t.Fatalf("invalid scan error: %v", err)
-	}
+	require.ErrorIs(t, err, scanctx.Err())
 
 	if result.numFiles == 0 && result.totalFileSize == 0 {
 		t.Fatalf("should have returned partial results, got zeros")
@@ -801,21 +799,11 @@ func TestUploadScanIgnoresFiles(t *testing.T) {
 	result2, err := u.scanDirectory(ctx, th.sourceDir, policyTree)
 	require.NoError(t, err)
 
-	if result1.numFiles == 0 {
-		t.Fatalf("no files scanned")
-	}
+	require.NotEqual(t, result1.numFiles, 0)
+	require.NotEqual(t, result2.numFiles, 0)
 
-	if result2.numFiles == 0 {
-		t.Fatalf("no files scanned")
-	}
-
-	if got, want := result2.numFiles, result1.numFiles; got >= want {
-		t.Fatalf("expected lower number of files %v, wanted %v", got, want)
-	}
-
-	if got, want := result2.totalFileSize, result1.totalFileSize; got >= want {
-		t.Fatalf("expected lower file size %v, wanted %v", got, want)
-	}
+	require.Less(t, result2.numFiles, result1.numFiles)
+	require.Less(t, result2.totalFileSize, result1.totalFileSize)
 }
 
 func TestUpload_VirtualDirectoryWithStreamingFile(t *testing.T) {
@@ -1002,15 +990,7 @@ func TestUpload_StreamingDirectory(t *testing.T) {
 	staticRoot := virtualfs.NewStaticDirectory("rootdir", []fs.Entry{
 		virtualfs.NewStreamingDirectory(
 			"stream-directory",
-			func(innerCtx context.Context, callback func(context.Context, fs.Entry) error) error {
-				for _, f := range files {
-					if err := callback(innerCtx, f); err != nil {
-						return err
-					}
-				}
-
-				return nil
-			},
+			fs.StaticIterator(files, nil),
 		),
 	})
 
@@ -1049,15 +1029,7 @@ func TestUpload_StreamingDirectoryWithIgnoredFile(t *testing.T) {
 	staticRoot := virtualfs.NewStaticDirectory("rootdir", []fs.Entry{
 		virtualfs.NewStreamingDirectory(
 			"stream-directory",
-			func(innerCtx context.Context, callback func(context.Context, fs.Entry) error) error {
-				for _, f := range files {
-					if err := callback(innerCtx, f); err != nil {
-						return err
-					}
-				}
-
-				return nil
-			},
+			fs.StaticIterator(files, nil),
 		),
 	})
 
@@ -1225,7 +1197,7 @@ func TestParallelUploadOfLargeFiles(t *testing.T) {
 
 	successCount := 0
 
-	dir.IterateEntries(ctx, func(ctx context.Context, e fs.Entry) error {
+	fs.IterateEntries(ctx, dir, func(ctx context.Context, e fs.Entry) error {
 		if f, ok := e.(fs.File); ok {
 			oid, err := object.ParseID(strings.TrimPrefix(f.(object.HasObjectID).ObjectID().String(), "I"))
 			require.NoError(t, err)

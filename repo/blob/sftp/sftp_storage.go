@@ -19,6 +19,7 @@ import (
 
 	"github.com/kopia/kopia/internal/connection"
 	"github.com/kopia/kopia/internal/dirutil"
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/internal/ospath"
 	"github.com/kopia/kopia/repo/blob"
@@ -39,6 +40,7 @@ const (
 // sftpStorage implements blob.Storage on top of sftp.
 type sftpStorage struct {
 	sharded.Storage
+	blob.DefaultProviderImplementation
 }
 
 type sftpImpl struct {
@@ -193,6 +195,16 @@ func (s *sftpImpl) PutBlobInPath(ctx context.Context, dirPath, fullPath string, 
 		return errors.Wrap(blob.ErrUnsupportedPutBlobOption, "do-not-recreate")
 	}
 
+	// SFTP client Write() does not do any buffering leading to sub-optimal
+	// performance of gather writes, so we copy the data to a contiguous
+	// temporary buffer first.
+	contig := gather.NewWriteBufferMaxContiguous()
+	defer contig.Close()
+
+	if _, err := data.WriteTo(contig); err != nil {
+		return errors.Wrap(err, "can't write to comtiguous buffer")
+	}
+
 	//nolint:wrapcheck
 	return s.rec.UsingConnectionNoResult(ctx, "PutBlobInPath", func(conn connection.Connection) error {
 		randSuffix := make([]byte, tempFileRandomSuffixLen)
@@ -207,7 +219,7 @@ func (s *sftpImpl) PutBlobInPath(ctx context.Context, dirPath, fullPath string, 
 			return errors.Wrap(err, "cannot create temporary file")
 		}
 
-		if _, err = data.WriteTo(f); err != nil {
+		if _, err = contig.Bytes().WriteTo(f); err != nil {
 			return errors.Wrap(err, "can't write temporary file")
 		}
 
@@ -346,10 +358,6 @@ func writeKnownHostsDataStringToTempFile(data string) (string, error) {
 	}
 
 	return tf.Name(), nil
-}
-
-func (s *sftpStorage) FlushCaches(ctx context.Context) error {
-	return nil
 }
 
 // getHostKeyCallback returns a HostKeyCallback that validates the connected host based on KnownHostsFile or KnownHostsData.
@@ -540,7 +548,7 @@ func New(ctx context.Context, opts *Options, isCreate bool) (blob.Storage, error
 	}
 
 	r := &sftpStorage{
-		sharded.New(impl, opts.Path, opts.Options, isCreate),
+		Storage: sharded.New(impl, opts.Path, opts.Options, isCreate),
 	}
 
 	impl.rec = connection.NewReconnector(impl)

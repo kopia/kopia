@@ -7,7 +7,6 @@ import (
 
 	"github.com/alecthomas/kingpin/v2"
 
-	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/snapshot"
 )
 
@@ -54,8 +53,6 @@ func (c *jsonOutput) cleanupSnapshotManifestListForJSON(manifests []*snapshot.Ma
 
 func (c *jsonOutput) cleanupForJSON(v interface{}) interface{} {
 	switch v := v.(type) {
-	case content.Info:
-		return content.ToInfoStruct(v)
 	case *snapshot.Manifest:
 		return c.cleanupSnapshotManifestForJSON(v)
 	case []*snapshot.Manifest:

@@ -18,9 +18,15 @@ type tokenInfo struct {
 // Token returns an opaque token that contains repository connection information
 // and optionally the provided password.
 func (r *directRepository) Token(password string) (string, error) {
+	return EncodeToken(password, r.blobs.ConnectionInfo())
+}
+
+// EncodeToken returns an opaque token that contains the given connection information
+// and optionally the provided password.
+func EncodeToken(password string, ci blob.ConnectionInfo) (string, error) {
 	ti := &tokenInfo{
 		Version:  "1",
-		Storage:  r.blobs.ConnectionInfo(),
+		Storage:  ci,
 		Password: password,
 	}
 

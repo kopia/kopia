@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"context"
 	"strings"
+	"sync"
 
 	"github.com/pkg/errors"
 
@@ -147,28 +148,81 @@ func (d *ignoreDirectory) DirEntryOrNil(ctx context.Context) (*snapshot.DirEntry
 	return nil, nil
 }
 
-func (d *ignoreDirectory) IterateEntries(ctx context.Context, callback func(ctx context.Context, entry fs.Entry) error) error {
+type ignoreDirIterator struct {
+	//nolint:containedctx
+	ctx         context.Context
+	d           *ignoreDirectory
+	inner       fs.DirectoryIterator
+	thisContext *ignoreContext
+}
+
+func (i *ignoreDirIterator) Next(ctx context.Context) (fs.Entry, error) {
+	cur, err := i.inner.Next(ctx)
+
+	for cur != nil {
+		//nolint:contextcheck
+		if wrapped, ok := i.d.maybeWrappedChildEntry(i.ctx, i.thisContext, cur); ok {
+			return wrapped, nil
+		}
+
+		cur, err = i.inner.Next(ctx)
+	}
+
+	return nil, err //nolint:wrapcheck
+}
+
+func (i *ignoreDirIterator) Close() {
+	i.inner.Close()
+
+	*i = ignoreDirIterator{}
+	ignoreDirIteratorPool.Put(i)
+}
+
+func (d *ignoreDirectory) Iterate(ctx context.Context) (fs.DirectoryIterator, error) {
 	if d.skipCacheDirectory(ctx, d.relativePath, d.policyTree) {
-		return nil
+		return fs.StaticIterator(nil, nil), nil
 	}
 
 	thisContext, err := d.buildContext(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	//nolint:wrapcheck
-	return d.Directory.IterateEntries(ctx, func(ctx context.Context, e fs.Entry) error {
-		if wrapped, ok := d.maybeWrappedChildEntry(ctx, thisContext, e); ok {
-			return callback(ctx, wrapped)
-		}
+	inner, err := d.Directory.Iterate(ctx)
+	if err != nil {
+		return nil, err //nolint:wrapcheck
+	}
 
-		return nil
-	})
+	it := ignoreDirIteratorPool.Get().(*ignoreDirIterator) //nolint:forcetypeassert
+	it.ctx = ctx
+	it.d = d
+	it.inner = inner
+	it.thisContext = thisContext
+
+	return it, nil
+}
+
+//nolint:gochecknoglobals
+var ignoreDirectoryPool = sync.Pool{
+	New: func() any { return &ignoreDirectory{} },
+}
+
+//nolint:gochecknoglobals
+var ignoreDirIteratorPool = sync.Pool{
+	New: func() any { return &ignoreDirIterator{} },
+}
+
+func (d *ignoreDirectory) Close() {
+	d.Directory.Close()
+
+	*d = ignoreDirectory{}
+	ignoreDirectoryPool.Put(d)
 }
 
 func (d *ignoreDirectory) maybeWrappedChildEntry(ctx context.Context, ic *ignoreContext, e fs.Entry) (fs.Entry, bool) {
-	if !ic.shouldIncludeByName(ctx, d.relativePath+"/"+e.Name(), e, d.policyTree) {
+	s := d.relativePath + "/" + e.Name()
+
+	if !ic.shouldIncludeByName(ctx, s, e, d.policyTree) {
 		return nil, false
 	}
 
@@ -181,7 +235,14 @@ func (d *ignoreDirectory) maybeWrappedChildEntry(ctx context.Context, ic *ignore
 	}
 
 	if dir, ok := e.(fs.Directory); ok {
-		return &ignoreDirectory{d.relativePath + "/" + e.Name(), ic, d.policyTree.Child(e.Name()), dir}, true
+		id := ignoreDirectoryPool.Get().(*ignoreDirectory) //nolint:forcetypeassert
+
+		id.relativePath = s
+		id.parentContext = ic
+		id.policyTree = d.policyTree.Child(e.Name())
+		id.Directory = dir
+
+		return id, true
 	}
 
 	return e, true

@@ -1,7 +1,7 @@
 //go:build testing
 // +build testing
 
-package format
+package crypto
 
 import (
 	"crypto/sha256"
@@ -12,11 +12,11 @@ import (
 // DefaultKeyDerivationAlgorithm is the key derivation algorithm for new configurations.
 const DefaultKeyDerivationAlgorithm = "testing-only-insecure"
 
-// DeriveFormatEncryptionKeyFromPassword derives encryption key using the provided password and per-repository unique ID.
-func (f *KopiaRepositoryJSON) DeriveFormatEncryptionKeyFromPassword(password string) ([]byte, error) {
+// DeriveKeyFromPassword derives encryption key using the provided password and per-repository unique ID.
+func DeriveKeyFromPassword(password string, salt []byte, algorithm string) ([]byte, error) {
 	const masterKeySize = 32
 
-	switch f.KeyDerivationAlgorithm {
+	switch algorithm {
 	case DefaultKeyDerivationAlgorithm:
 		h := sha256.New()
 		if _, err := h.Write([]byte(password)); err != nil {
@@ -26,6 +26,6 @@ func (f *KopiaRepositoryJSON) DeriveFormatEncryptionKeyFromPassword(password str
 		return h.Sum(nil), nil
 
 	default:
-		return nil, errors.Errorf("unsupported key algorithm: %v", f.KeyDerivationAlgorithm)
+		return nil, errors.Errorf("unsupported key algorithm: %v", algorithm)
 	}
 }

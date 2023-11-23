@@ -189,8 +189,8 @@ func TestLogFileMaxTotalSize(t *testing.T) {
 
 			env.RunAndExpectSuccess(t, "snap", "ls", "--file-log-level=debug", "--log-dir", tmpLogDir, fmt.Sprintf("%s=%v", flag, size1MB/2))
 			size2 := getTotalDirSize(t, logSubdir)
-			require.Less(t, size1, size0/2)
-			require.Less(t, size2, size1/2)
+			require.LessOrEqual(t, size1, size0/2)
+			require.LessOrEqual(t, size2, size1/2)
 			require.Greater(t, size2, size1/4)
 		})
 	}

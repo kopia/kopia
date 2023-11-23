@@ -441,6 +441,33 @@ func (r *grpcInnerSession) PrefetchContents(ctx context.Context, contentIDs []co
 	return nil
 }
 
+func (r *grpcRepositoryClient) ApplyRetentionPolicy(ctx context.Context, sourcePath string, reallyDelete bool) ([]manifest.ID, error) {
+	return inSessionWithoutRetry(ctx, r, func(ctx context.Context, sess *grpcInnerSession) ([]manifest.ID, error) {
+		return sess.ApplyRetentionPolicy(ctx, sourcePath, reallyDelete)
+	})
+}
+
+func (r *grpcInnerSession) ApplyRetentionPolicy(ctx context.Context, sourcePath string, reallyDelete bool) ([]manifest.ID, error) {
+	for resp := range r.sendRequest(ctx, &apipb.SessionRequest{
+		Request: &apipb.SessionRequest_ApplyRetentionPolicy{
+			ApplyRetentionPolicy: &apipb.ApplyRetentionPolicyRequest{
+				SourcePath:   sourcePath,
+				ReallyDelete: reallyDelete,
+			},
+		},
+	}) {
+		switch rr := resp.Response.(type) {
+		case *apipb.SessionResponse_ApplyRetentionPolicy:
+			return manifest.IDsFromStrings(rr.ApplyRetentionPolicy.ManifestIds), nil
+
+		default:
+			return nil, unhandledSessionResponse(resp)
+		}
+	}
+
+	return nil, errNoSessionResponse()
+}
+
 func (r *grpcRepositoryClient) Time() time.Time {
 	return clock.Now()
 }
@@ -565,10 +592,10 @@ func (r *grpcInnerSession) contentInfo(ctx context.Context, contentID content.ID
 		case *apipb.SessionResponse_GetContentInfo:
 			contentID, err := content.ParseID(rr.GetContentInfo.GetInfo().GetId())
 			if err != nil {
-				return nil, errors.Wrap(err, "invalid content ID")
+				return content.Info{}, errors.Wrap(err, "invalid content ID")
 			}
 
-			return &content.InfoStruct{
+			return content.Info{
 				ContentID:        contentID,
 				PackedLength:     rr.GetContentInfo.GetInfo().GetPackedLength(),
 				TimestampSeconds: rr.GetContentInfo.GetInfo().GetTimestampSeconds(),
@@ -580,11 +607,11 @@ func (r *grpcInnerSession) contentInfo(ctx context.Context, contentID content.ID
 			}, nil
 
 		default:
-			return nil, unhandledSessionResponse(resp)
+			return content.Info{}, unhandledSessionResponse(resp)
 		}
 	}
 
-	return nil, errNoSessionResponse()
+	return content.Info{}, errNoSessionResponse()
 }
 
 func errorFromSessionResponse(rr *apipb.ErrorResponse) error {
@@ -806,12 +833,17 @@ func openGRPCAPIRepository(ctx context.Context, si *APIServerInfo, password stri
 		return nil, errors.Wrap(err, "unable to parse server URL")
 	}
 
-	if u.Scheme != "kopia" && u.Scheme != "https" {
-		return nil, errors.Errorf("invalid server address, must be 'https://host:port'")
+	if u.Scheme != "kopia" && u.Scheme != "https" && u.Scheme != "unix+https" {
+		return nil, errors.Errorf("invalid server address, must be 'https://host:port' or 'unix+https://<path>")
+	}
+
+	uri := u.Hostname() + ":" + u.Port()
+	if u.Scheme == "unix+https" {
+		uri = "unix:" + u.Path
 	}
 
 	conn, err := grpc.Dial(
-		u.Hostname()+":"+u.Port(),
+		uri,
 		grpc.WithPerRPCCredentials(grpcCreds{par.cliOpts.Hostname, par.cliOpts.Username, password}),
 		grpc.WithTransportCredentials(transportCreds),
 		grpc.WithDefaultCallOptions(

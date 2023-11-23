@@ -7,11 +7,24 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/snapshot"
 )
 
 // ApplyRetentionPolicy applies retention policy to a given source by deleting expired snapshots.
-func ApplyRetentionPolicy(ctx context.Context, rep repo.RepositoryWriter, sourceInfo snapshot.SourceInfo, reallyDelete bool) ([]*snapshot.Manifest, error) {
+func ApplyRetentionPolicy(ctx context.Context, rep repo.RepositoryWriter, sourceInfo snapshot.SourceInfo, reallyDelete bool) ([]manifest.ID, error) {
+	// it is desired to not allow snapshots to be deleted by repository clients,
+	// while still maintain the ability to apply snapshot retention policies server-side.
+	if remote, ok := rep.(repo.RemoteRetentionPolicy); ok {
+		if sourceInfo.UserName == rep.ClientOptions().Username && sourceInfo.Host == rep.ClientOptions().Hostname {
+			// for repository clients, apply retention policy on the server.
+			log(ctx).Debug("applying retention policy on the server")
+
+			//nolint:wrapcheck
+			return remote.ApplyRetentionPolicy(ctx, sourceInfo.Path, reallyDelete)
+		}
+	}
+
 	snapshots, err := snapshot.ListSnapshots(ctx, rep, sourceInfo)
 	if err != nil {
 		return nil, errors.Wrap(err, "error listing snapshots")
@@ -23,9 +36,9 @@ func ApplyRetentionPolicy(ctx context.Context, rep repo.RepositoryWriter, source
 	}
 
 	if reallyDelete {
-		for _, it := range toDelete {
-			if err := rep.DeleteManifest(ctx, it.ID); err != nil {
-				return toDelete, errors.Wrapf(err, "error deleting manifest %v", it.ID)
+		for _, manifestID := range toDelete {
+			if err := rep.DeleteManifest(ctx, manifestID); err != nil {
+				return toDelete, errors.Wrapf(err, "error deleting manifest %v", manifestID)
 			}
 		}
 	}
@@ -33,8 +46,8 @@ func ApplyRetentionPolicy(ctx context.Context, rep repo.RepositoryWriter, source
 	return toDelete, nil
 }
 
-func getExpiredSnapshots(ctx context.Context, rep repo.Repository, snapshots []*snapshot.Manifest) ([]*snapshot.Manifest, error) {
-	var toDelete []*snapshot.Manifest
+func getExpiredSnapshots(ctx context.Context, rep repo.Repository, snapshots []*snapshot.Manifest) ([]manifest.ID, error) {
+	var toDelete []manifest.ID
 
 	for _, snapshotGroup := range snapshot.GroupBySource(snapshots) {
 		td, err := getExpiredSnapshotsForSource(ctx, rep, snapshotGroup)
@@ -48,7 +61,7 @@ func getExpiredSnapshots(ctx context.Context, rep repo.Repository, snapshots []*
 	return toDelete, nil
 }
 
-func getExpiredSnapshotsForSource(ctx context.Context, rep repo.Repository, snapshots []*snapshot.Manifest) ([]*snapshot.Manifest, error) {
+func getExpiredSnapshotsForSource(ctx context.Context, rep repo.Repository, snapshots []*snapshot.Manifest) ([]manifest.ID, error) {
 	src := snapshots[0].Source
 
 	pol, _, _, err := GetEffectivePolicy(ctx, rep, src)
@@ -58,14 +71,14 @@ func getExpiredSnapshotsForSource(ctx context.Context, rep repo.Repository, snap
 
 	pol.RetentionPolicy.ComputeRetentionReasons(snapshots)
 
-	var toDelete []*snapshot.Manifest
+	var toDelete []manifest.ID
 
 	for _, s := range snapshots {
 		if len(s.RetentionReasons) == 0 && len(s.Pins) == 0 {
 			log(ctx).Debugf("  deleting %v", s.StartTime)
-			toDelete = append(toDelete, s)
+			toDelete = append(toDelete, s.ID)
 		} else {
-			log(ctx).Debugf("  keeping %v retention: [%v] pins: [%v]", s.StartTime, strings.Join(s.RetentionReasons, ","), strings.Join(s.Pins, ","))
+			log(ctx).Debugf("  keeping %v retention: [%v] pins: [%v]", s.StartTime.ToTime(), strings.Join(s.RetentionReasons, ","), strings.Join(s.Pins, ","))
 		}
 	}
 

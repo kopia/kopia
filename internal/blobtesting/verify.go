@@ -128,6 +128,18 @@ func VerifyStorage(ctx context.Context, t *testing.T, r blob.Storage, opts blob.
 		}
 	})
 
+	t.Run("ExtendBlobRetention", func(t *testing.T) {
+		err := r.ExtendBlobRetention(ctx, blocks[0].blk, blob.ExtendOptions{
+			RetentionMode:   opts.RetentionMode,
+			RetentionPeriod: opts.RetentionPeriod,
+		})
+		if opts.RetentionMode != "" && err != nil {
+			t.Fatalf("No error expected during extend retention: %v", err)
+		} else if opts.RetentionMode == "" && err == nil {
+			t.Fatal("No error found when expected during extend retention")
+		}
+	})
+
 	t.Run("DeleteBlobsAndList", func(t *testing.T) {
 		require.NoError(t, r.DeleteBlob(ctx, blocks[0].blk))
 		require.NoError(t, r.DeleteBlob(ctx, blocks[0].blk))
@@ -219,11 +231,12 @@ func AssertConnectionInfoRoundTrips(ctx context.Context, t *testing.T, s blob.St
 //
 //nolint:gomnd
 var TestValidationOptions = providervalidation.Options{
-	MaxClockDrift:           3 * time.Minute,
-	ConcurrencyTestDuration: 15 * time.Second,
-	NumPutBlobWorkers:       3,
-	NumGetBlobWorkers:       3,
-	NumGetMetadataWorkers:   3,
-	NumListBlobsWorkers:     3,
-	MaxBlobLength:           10e6,
+	MaxClockDrift:                   3 * time.Minute,
+	ConcurrencyTestDuration:         15 * time.Second,
+	NumEquivalentStorageConnections: 5,
+	NumPutBlobWorkers:               3,
+	NumGetBlobWorkers:               3,
+	NumGetMetadataWorkers:           3,
+	NumListBlobsWorkers:             3,
+	MaxBlobLength:                   10e6,
 }

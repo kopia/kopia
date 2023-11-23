@@ -36,16 +36,13 @@ const (
 // may be accessed using WebDAV or File interchangeably.
 type davStorage struct {
 	sharded.Storage
+	blob.DefaultProviderImplementation
 }
 
 type davStorageImpl struct {
 	Options
 
 	cli *gowebdav.Client
-}
-
-func (d *davStorage) GetCapacity(ctx context.Context) (blob.Capacity, error) {
-	return blob.Capacity{}, blob.ErrNotAVolume
 }
 
 func (d *davStorageImpl) GetBlobFromPath(ctx context.Context, dirPath, path string, offset, length int64, output blob.OutputBuffer) error {
@@ -241,14 +238,6 @@ func (d *davStorage) DisplayName() string {
 	return fmt.Sprintf("WebDAV: %v", o.URL)
 }
 
-func (d *davStorage) Close(ctx context.Context) error {
-	return nil
-}
-
-func (d *davStorage) FlushCaches(ctx context.Context) error {
-	return nil
-}
-
 func isRetriable(err error) bool {
 	var pe *os.PathError
 
@@ -277,7 +266,7 @@ func New(ctx context.Context, opts *Options, isCreate bool) (blob.Storage, error
 	}
 
 	s := retrying.NewWrapper(&davStorage{
-		sharded.New(&davStorageImpl{
+		Storage: sharded.New(&davStorageImpl{
 			Options: *opts,
 			cli:     cli,
 		}, "", opts.Options, isCreate),

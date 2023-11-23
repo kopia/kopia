@@ -216,7 +216,7 @@ download-rclone:
 ci-tests: vet test 
 
 ci-integration-tests:
-	$(MAKE) robustness-tool-tests
+	$(MAKE) robustness-tool-tests socket-activation-tests
 
 ci-publish-coverage:
 ifeq ($(GOOS)/$(GOARCH),linux/amd64)
@@ -277,7 +277,7 @@ ALLOWED_LICENSES=Apache-2.0;MIT;BSD-2-Clause;BSD-3-Clause;CC0-1.0;ISC;MPL-2.0;CC
 
 license-check: $(wwhrd) app-node-modules
 	$(wwhrd) check
-	(cd app && npx license-checker --summary --onlyAllow "$(ALLOWED_LICENSES)")
+	(cd app && npx license-checker --summary --production --onlyAllow "$(ALLOWED_LICENSES)")
 
 vtest: $(gotestsum)
 	$(GO_TEST) -count=$(REPEAT_TEST) -short -v -timeout $(UNIT_TESTS_TIMEOUT) ./...
@@ -324,6 +324,14 @@ robustness-tool-tests: export FIO_DOCKER_IMAGE=$(FIO_DOCKER_TAG)
 robustness-tool-tests: build-integration-test-binary $(gotestsum)
 ifeq ($(GOOS)/$(GOARCH),linux/amd64)
 	$(GO_TEST) -count=$(REPEAT_TEST) github.com/kopia/kopia/tests/tools/... github.com/kopia/kopia/tests/robustness/engine/... $(TEST_FLAGS)
+endif
+
+socket-activation-tests: export KOPIA_ORIG_EXE ?= $(KOPIA_INTEGRATION_EXE)
+socket-activation-tests: export KOPIA_SERVER_EXE ?= $(CURDIR)/tests/socketactivation_test/server_wrap.sh
+socket-activation-tests: export FIO_DOCKER_IMAGE=$(FIO_DOCKER_TAG)
+socket-activation-tests: build-integration-test-binary $(gotestsum)
+ifeq ($(GOOS),linux)
+	$(GO_TEST) -count=$(REPEAT_TEST) github.com/kopia/kopia/tests/socketactivation_test $(TEST_FLAGS)
 endif
 
 stress-test: export KOPIA_STRESS_TEST=1

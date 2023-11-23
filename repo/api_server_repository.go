@@ -186,13 +186,13 @@ func (r *apiServerRepository) NewWriter(ctx context.Context, opt WriteSessionOpt
 }
 
 func (r *apiServerRepository) ContentInfo(ctx context.Context, contentID content.ID) (content.Info, error) {
-	var bi content.InfoStruct
+	var bi content.Info
 
 	if err := r.cli.Get(ctx, "contents/"+contentID.String()+"?info=1", content.ErrContentNotFound, &bi); err != nil {
-		return nil, errors.Wrap(err, "ContentInfo")
+		return content.Info{}, errors.Wrap(err, "ContentInfo")
 	}
 
-	return &bi, nil
+	return bi, nil
 }
 
 func (r *apiServerRepository) GetContent(ctx context.Context, contentID content.ID) ([]byte, error) {
@@ -280,6 +280,19 @@ func (r *apiServerRepository) PrefetchContents(ctx context.Context, contentIDs [
 	}
 
 	return resp.ContentIDs
+}
+
+func (r *apiServerRepository) ApplyRetentionPolicy(ctx context.Context, sourcePath string, reallyDelete bool) ([]manifest.ID, error) {
+	var result remoterepoapi.ApplyRetentionPolicyResponse
+
+	if err := r.cli.Post(ctx, "policies/apply-retention", remoterepoapi.ApplyRetentionPolicyRequest{
+		SourcePath:   sourcePath,
+		ReallyDelete: reallyDelete,
+	}, &result); err != nil {
+		return nil, errors.Wrap(err, "unable to apply retention policy")
+	}
+
+	return result.ManifestIDs, nil
 }
 
 // OnSuccessfulFlush registers the provided callback to be invoked after flush succeeds.

@@ -274,6 +274,54 @@ func (bm *BlobManipulator) SetUpSystemUnderTest() error {
 	return nil
 }
 
+// SetUpSystemWithOneSnapshot connects or creates a kopia repo, writes random data in source directory,
+// creates snapshots of the source directory.
+func (bm *BlobManipulator) SetUpSystemWithOneSnapshot() (string, error) {
+	fileSize := 1 * 1024 * 1024
+	numFiles := 50
+	ctx := context.Background()
+
+	err := bm.writeRandomFiles(ctx, fileSize, numFiles)
+	if err != nil {
+		return "", err
+	}
+
+	// create snapshot of the data
+	bm.PathToTakeSnapshot = bm.fileWriter.DataDirectory(ctx)
+
+	// create snapshot of the data
+	log.Printf("Creating snapshot of directory %s", bm.PathToTakeSnapshot)
+
+	snapshotID, _, err := bm.TakeSnapshot(bm.PathToTakeSnapshot)
+	if err != nil {
+		return "", err
+	}
+
+	log.Printf("Created snapshot of snapshot ID %s", snapshotID)
+
+	return snapshotID, nil
+}
+
+// GenerateRandomFiles connects or creates a Kopia repository that writes random data in source directory.
+// Tests can later create snapshots from the source directory.
+func (bm *BlobManipulator) GenerateRandomFiles(fileSize, numFiles int) error {
+	ctx := context.Background()
+
+	err := bm.writeRandomFiles(ctx, fileSize, numFiles)
+	if err != nil {
+		return err
+	}
+
+	bm.PathToTakeSnapshot = bm.fileWriter.DataDirectory(ctx)
+
+	return nil
+}
+
+// VerifySnapshot implements the Snapshotter interface to verify a kopia snapshot corruption.
+func (bm *BlobManipulator) VerifySnapshot() error {
+	return bm.KopiaCommandRunner.VerifySnapshot("--verify-files-percent=100")
+}
+
 // TakeSnapshot creates snapshot of the provided directory.
 func (bm *BlobManipulator) TakeSnapshot(dir string) (snapID, stdout string, err error) {
 	err = bm.KopiaCommandRunner.ConnectRepo("filesystem", "--path="+bm.DataRepoPath)

@@ -1,0 +1,63 @@
+name: Providers - Extra
+on:
+  push:
+    branches: [ test/providers ]
+    tags:
+      - v*
+  schedule:
+    # twice a week on Tuesday & Thursday (UTC time)
+    - cron:  '9 7 * * 2,4'
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'branch or git ref to use for the build'
+        required: true
+        default: 'test/providers'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  provider-test:
+    name: Extra Providers Test
+    if: ${{ github.repository == 'kopia/kopia' && !github.event.pull_request.head.repo.fork }}
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check out repository
+      uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      with:
+        fetch-depth: 0
+        ref: ${{ github.event.inputs.ref_name || github.ref }}
+    - name: Set up Go
+      uses: actions/setup-go@93397bea11091df50f3d7e59dc26a7711a8bcfbe # v4.1.0
+      with:
+        go-version-file: 'go.mod'
+        check-latest: true
+      id: go
+    - name: Install Dependencies
+      run: make provider-tests-deps
+    - name: B2
+      run: make provider-tests PROVIDER_TEST_TARGET=b2
+      env:
+        KOPIA_B2_TEST_BUCKET: ${{ secrets.KOPIA_B2_TEST_BUCKET }}
+        KOPIA_B2_TEST_KEY: ${{ secrets.KOPIA_B2_TEST_KEY }}
+        KOPIA_B2_TEST_KEY_ID: ${{ secrets.KOPIA_B2_TEST_KEY_ID }}
+      if: ${{ success() || failure() }}
+    - name: GDrive
+      run: make provider-tests PROVIDER_TEST_TARGET=gdrive
+      env:
+        KOPIA_GDRIVE_CREDENTIALS_JSON_GZIP: ${{ secrets.KOPIA_GDRIVE_CREDENTIALS_JSON_GZIP }}
+        KOPIA_GDRIVE_TEST_FOLDER_ID: ${{ secrets.KOPIA_GDRIVE_TEST_FOLDER_ID }}
+      if: ${{ success() || failure() }}
+    - name: Rclone
+      run: make provider-tests PROVIDER_TEST_TARGET=rclone
+      env:
+        KOPIA_RCLONE_EMBEDDED_CONFIG_B64: ${{ secrets.KOPIA_RCLONE_EMBEDDED_CONFIG_B64 }}
+      if: ${{ success() || failure() }}
+    - name: WebDAV
+      run: make provider-tests PROVIDER_TEST_TARGET=webdav
+      env:
+        KOPIA_WEBDAV_TEST_URL: ${{ secrets.KOPIA_WEBDAV_TEST_URL }}
+        KOPIA_WEBDAV_TEST_USERNAME: ${{ secrets.KOPIA_WEBDAV_TEST_USERNAME }}
+        KOPIA_WEBDAV_TEST_PASSWORD: ${{ secrets.KOPIA_WEBDAV_TEST_PASSWORD }}
+      if: ${{ success() || failure() }}

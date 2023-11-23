@@ -34,6 +34,7 @@ const (
 
 type fsStorage struct {
 	sharded.Storage
+	blob.DefaultProviderImplementation
 }
 
 type fsImpl struct {
@@ -51,7 +52,7 @@ func (fs *fsImpl) isRetriable(err error) bool {
 
 	err = errors.Cause(err)
 
-	if fs.osi.IsESTALE(err) {
+	if fs.osi.IsStale(err) {
 		// errors indicative of stale resource handle or invalid
 		// descriptors should not be retried
 		return false
@@ -315,8 +316,6 @@ func (fs *fsStorage) TouchBlob(ctx context.Context, blobID blob.ID, threshold ti
 
 		mtime = n
 
-		log(ctx).Debugf("updating timestamp on %v to %v", path, n)
-
 		//nolint:wrapcheck
 		return osi.Chtimes(path, n, n)
 	}, fs.Impl.(*fsImpl).isRetriable)
@@ -333,14 +332,6 @@ func (fs *fsStorage) ConnectionInfo() blob.ConnectionInfo {
 
 func (fs *fsStorage) DisplayName() string {
 	return fmt.Sprintf("Filesystem: %v", fs.RootPath)
-}
-
-func (fs *fsStorage) Close(ctx context.Context) error {
-	return nil
-}
-
-func (fs *fsStorage) FlushCaches(ctx context.Context) error {
-	return nil
 }
 
 // New creates new filesystem-backed storage in a specified directory.
@@ -365,7 +356,7 @@ func New(ctx context.Context, opts *Options, isCreate bool) (blob.Storage, error
 	}
 
 	return &fsStorage{
-		sharded.New(&fsImpl{*opts, osi}, opts.Path, opts.Options, isCreate),
+		Storage: sharded.New(&fsImpl{*opts, osi}, opts.Path, opts.Options, isCreate),
 	}, nil
 }
 

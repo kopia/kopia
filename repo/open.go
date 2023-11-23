@@ -14,7 +14,7 @@ import (
 
 	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/cacheprot"
-	"github.com/kopia/kopia/internal/epoch"
+	"github.com/kopia/kopia/internal/crypto"
 	"github.com/kopia/kopia/internal/feature"
 	"github.com/kopia/kopia/internal/metrics"
 	"github.com/kopia/kopia/internal/retry"
@@ -25,7 +25,6 @@ import (
 	"github.com/kopia/kopia/repo/blob/storagemetrics"
 	"github.com/kopia/kopia/repo/blob/throttling"
 	"github.com/kopia/kopia/repo/content"
-	"github.com/kopia/kopia/repo/content/indexblob"
 	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/repo/manifest"
@@ -135,7 +134,7 @@ func Open(ctx context.Context, configFile, password string, options *Options) (r
 func getContentCacheOrNil(ctx context.Context, opt *content.CachingOptions, password string, mr *metrics.Registry, timeNow func() time.Time) (*cache.PersistentCache, error) {
 	opt = opt.CloneOrDefault()
 
-	cs, err := cache.NewStorageOrNil(ctx, opt.CacheDirectory, opt.MaxCacheSizeBytes, "server-contents")
+	cs, err := cache.NewStorageOrNil(ctx, opt.CacheDirectory, opt.ContentCacheSizeBytes, "server-contents")
 	if cs == nil {
 		// this may be (nil, nil) or (nil, err)
 		return nil, errors.Wrap(err, "error opening storage")
@@ -156,7 +155,8 @@ func getContentCacheOrNil(ctx context.Context, opt *content.CachingOptions, pass
 	}
 
 	pc, err := cache.NewPersistentCache(ctx, "cache-storage", cs, prot, cache.SweepSettings{
-		MaxSizeBytes: opt.MaxCacheSizeBytes,
+		MaxSizeBytes: opt.ContentCacheSizeBytes,
+		LimitBytes:   opt.ContentCacheSizeLimitBytes,
 		MinSweepAge:  opt.MinContentSweepAge.DurationOrDefault(content.DefaultDataCacheSweepAge),
 	}, mr, timeNow)
 	if err != nil {
@@ -258,10 +258,10 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 	}
 
 	if fmgr.SupportsPasswordChange() {
-		cacheOpts.HMACSecret = format.DeriveKeyFromMasterKey(fmgr.GetHmacSecret(), fmgr.UniqueID(), localCacheIntegrityPurpose, localCacheIntegrityHMACSecretLength)
+		cacheOpts.HMACSecret = crypto.DeriveKeyFromMasterKey(fmgr.GetHmacSecret(), fmgr.UniqueID(), localCacheIntegrityPurpose, localCacheIntegrityHMACSecretLength)
 	} else {
 		// deriving from ufb.FormatEncryptionKey was actually a bug, that only matters will change when we change the password
-		cacheOpts.HMACSecret = format.DeriveKeyFromMasterKey(fmgr.FormatEncryptionKey(), fmgr.UniqueID(), localCacheIntegrityPurpose, localCacheIntegrityHMACSecretLength)
+		cacheOpts.HMACSecret = crypto.DeriveKeyFromMasterKey(fmgr.FormatEncryptionKey(), fmgr.UniqueID(), localCacheIntegrityPurpose, localCacheIntegrityHMACSecretLength)
 	}
 
 	limits := throttlingLimitsFromConnectionInfo(ctx, st.ConnectionInfo())
@@ -394,13 +394,7 @@ func handleMissingRequiredFeatures(ctx context.Context, fmgr *format.Manager, ig
 
 func wrapLockingStorage(st blob.Storage, r format.BlobStorageConfiguration) blob.Storage {
 	// collect prefixes that need to be locked on put
-	var prefixes []string
-	for _, prefix := range content.PackBlobIDPrefixes {
-		prefixes = append(prefixes, string(prefix))
-	}
-
-	prefixes = append(prefixes, indexblob.V0IndexBlobPrefix, epoch.EpochManagerIndexUberPrefix, format.KopiaRepositoryBlobID,
-		format.KopiaBlobCfgBlobID)
+	prefixes := GetLockingStoragePrefixes()
 
 	return beforeop.NewWrapper(st, nil, nil, nil, func(ctx context.Context, id blob.ID, opts *blob.PutOptions) error {
 		for _, prefix := range prefixes {
