@@ -69,6 +69,8 @@ type ProfileConfig struct {
 // ProfileConfigs configuration flags for all requested profiles.
 type ProfileConfigs struct {
 	mu  sync.Mutex
+
+	// +checklocks:mu
 	pcm map[ProfileName]*ProfileConfig
 }
 
@@ -76,24 +78,25 @@ type ProfileConfigs struct {
 var pprofConfigs = &ProfileConfigs{}
 
 type pprofSetRate struct {
-	fn  func(int)
-	def int
+	setter       func(int)
+	defaultValue int
 }
 
 //nolint:gochecknoglobals
 var pprofProfileRates = map[ProfileName]pprofSetRate{
 	ProfileNameBlock: {
-		fn:  func(x int) { runtime.SetBlockProfileRate(x) },
-		def: DefaultDebugProfileRate,
+		setter:       func(x int) { runtime.SetBlockProfileRate(x) },
+		defaultValue: DefaultDebugProfileRate,
 	},
 	ProfileNameMutex: {
-		fn:  func(x int) { runtime.SetMutexProfileFraction(x) },
-		def: DefaultDebugProfileRate,
+		setter:       func(x int) { runtime.SetMutexProfileFraction(x) },
+		defaultValue: DefaultDebugProfileRate,
 	},
 }
 
-// GetValue get the value of the named flag, `s`.  false will be returned
-// if the flag value does not exist.
+// GetValue get the value of the named flag, `s`.  False will be returned
+// if the flag does not exist. True will be returned if flag exists without
+// a value.
 func (p ProfileConfig) GetValue(s string) (string, bool) {
 	for _, f := range p.flags {
 		kvs := strings.SplitN(f, "=", pair)
@@ -116,7 +119,7 @@ func parseProfileConfigs(bufSizeB int, ppconfigs string) map[ProfileName]*Profil
 	allProfileOptions := strings.Split(ppconfigs, ":")
 
 	for _, profileOptionWithFlags := range allProfileOptions {
-		// of those, see if any have profile-specific settings
+		// of those, see if any have profile specific settings
 		profileFlagNameValuePairs := strings.SplitN(profileOptionWithFlags, "=", pair)
 		flagValue := ""
 
@@ -155,14 +158,14 @@ func setupProfileFractions(ctx context.Context, profileBuffers map[ProfileName]*
 
 		if v == nil {
 			// profile configured, but no rate - set to default
-			pprofset.fn(pprofset.def)
+			pprofset.setter(pprofset.defaultValue)
 			continue
 		}
 
 		s, _ := v.GetValue(KopiaDebugFlagRate)
 		if s == "" {
 			// flag without an argument - set to default
-			pprofset.fn(pprofset.def)
+			pprofset.setter(pprofset.defaultValue)
 			continue
 		}
 
@@ -173,12 +176,12 @@ func setupProfileFractions(ctx context.Context, profileBuffers map[ProfileName]*
 		}
 
 		log(ctx).Debugf("setting PPROF rate, %d, for %s", n1, k)
-		pprofset.fn(n1)
+		pprofset.setter(n1)
 	}
 }
 
-// ClearProfileFractions set the profile fractions to their zero values.
-func ClearProfileFractions(profileBuffers map[ProfileName]*ProfileConfig) {
+// clearProfileFractions set the profile fractions to their zero values.
+func clearProfileFractions(profileBuffers map[ProfileName]*ProfileConfig) {
 	for k, pprofset := range pprofProfileRates {
 		v := profileBuffers[k]
 		if v == nil { // fold missing values and empty values
@@ -190,7 +193,7 @@ func ClearProfileFractions(profileBuffers map[ProfileName]*ProfileConfig) {
 			continue
 		}
 
-		pprofset.fn(0)
+		pprofset.setter(0)
 	}
 }
 
@@ -375,6 +378,6 @@ func StopProfileBuffers(ctx context.Context) {
 	}
 
 	// clear the profile rates and fractions to effectively stop profiling
-	ClearProfileFractions(pprofConfigs.pcm)
+	clearProfileFractions(pprofConfigs.pcm)
 	pprofConfigs.pcm = map[ProfileName]*ProfileConfig{}
 }

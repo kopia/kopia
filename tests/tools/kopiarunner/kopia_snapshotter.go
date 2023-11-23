@@ -1,12 +1,14 @@
 package kopiarunner
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/hex"
 	"encoding/pem"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -397,6 +399,17 @@ func (ks *KopiaSnapshotter) ConnectOrCreateRepoWithServer(serverAddr string, arg
 	}
 
 	if err := certKeyExist(context.TODO(), tlsCertFile, tlsKeyFile); err != nil {
+		if cmd.Stderr == nil {
+			return nil, "", err
+		}
+
+		buf, ok := cmd.Stderr.(*bytes.Buffer)
+		if !ok {
+			return nil, "", err
+		}
+
+		log.Printf("failuire in certificate generation: %s", buf.String())
+
 		return nil, "", err
 	}
 
