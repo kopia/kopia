@@ -94,8 +94,9 @@ var pprofProfileRates = map[ProfileName]pprofSetRate{
 	},
 }
 
-// GetValue get the value of the named flag, `s`.  false will be returned
-// if the flag value does not exist.
+// GetValue get the value of the named flag, `s`.  False will be returned
+// if the flag does not exist. True will be returned if flag exists without
+// a value.
 func (p ProfileConfig) GetValue(s string) (string, bool) {
 	for _, f := range p.flags {
 		kvs := strings.SplitN(f, "=", pair)
