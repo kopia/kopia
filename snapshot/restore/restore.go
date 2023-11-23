@@ -279,8 +279,8 @@ func (c *copier) copyDirectoryContent(ctx context.Context, d fs.Directory, targe
 
 		if e.IsDir() {
 			c.stats.EnqueuedDirCount.Add(1)
-			// enqueue directories first, so that we quickly determine the total number and size of items.
-			c.q.EnqueueFront(ctx, func() error {
+			// enqueue directories last, so that we quickly process enqueued files to free memory.
+			c.q.EnqueueBack(ctx, func() error {
 				return c.copyEntry(ctx, e, path.Join(targetPath, e.Name()), currentdepth, maxdepth, onItemCompletion)
 			})
 		} else {
@@ -292,7 +292,7 @@ func (c *copier) copyDirectoryContent(ctx context.Context, d fs.Directory, targe
 
 			c.stats.EnqueuedTotalFileSize.Add(e.Size())
 
-			c.q.EnqueueBack(ctx, func() error {
+			c.q.EnqueueFront(ctx, func() error {
 				return c.copyEntry(ctx, e, path.Join(targetPath, e.Name()), currentdepth, maxdepth, onItemCompletion)
 			})
 		}
