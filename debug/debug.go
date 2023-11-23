@@ -69,6 +69,8 @@ type ProfileConfig struct {
 // ProfileConfigs configuration flags for all requested profiles.
 type ProfileConfigs struct {
 	mu  sync.Mutex
+
+	// +checklocks:mu
 	pcm map[ProfileName]*ProfileConfig
 }
 
@@ -92,8 +94,9 @@ var pprofProfileRates = map[ProfileName]pprofSetRate{
 	},
 }
 
-// GetValue get the value of the named flag, `s`.  false will be returned
-// if the flag value does not exist.
+// GetValue get the value of the named flag, `s`.  False will be returned
+// if the flag does not exist. True will be returned if flag exists without
+// a value.
 func (p ProfileConfig) GetValue(s string) (string, bool) {
 	for _, f := range p.flags {
 		kvs := strings.SplitN(f, "=", pair)
@@ -116,7 +119,7 @@ func parseProfileConfigs(bufSizeB int, ppconfigs string) map[ProfileName]*Profil
 	allProfileOptions := strings.Split(ppconfigs, ":")
 
 	for _, profileOptionWithFlags := range allProfileOptions {
-		// of those, see if any have profile-specific settings
+		// of those, see if any have profile specific settings
 		profileFlagNameValuePairs := strings.SplitN(profileOptionWithFlags, "=", pair)
 		flagValue := ""
 
