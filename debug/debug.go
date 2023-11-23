@@ -119,7 +119,7 @@ func parseProfileConfigs(bufSizeB int, ppconfigs string) map[ProfileName]*Profil
 	allProfileOptions := strings.Split(ppconfigs, ":")
 
 	for _, profileOptionWithFlags := range allProfileOptions {
-		// of those, see if any have profile-specific settings
+		// of those, see if any have profile specific settings
 		profileFlagNameValuePairs := strings.SplitN(profileOptionWithFlags, "=", pair)
 		flagValue := ""
 
