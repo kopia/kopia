@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/kopia/kopia/internal/secrets"
 	"github.com/kopia/kopia/repo/blob/sharded"
 	"github.com/kopia/kopia/repo/blob/throttling"
 )
@@ -16,11 +17,11 @@ type Options struct {
 	Port     int    `json:"port"`
 	Username string `json:"username"`
 	// if password is specified Keyfile/Keydata is ignored.
-	Password       string `json:"password"                 kopia:"sensitive"`
-	Keyfile        string `json:"keyfile,omitempty"`
-	KeyData        string `json:"keyData,omitempty"        kopia:"sensitive"`
-	KnownHostsFile string `json:"knownHostsFile,omitempty"`
-	KnownHostsData string `json:"knownHostsData,omitempty"`
+	Password       *secrets.Secret `json:"password"                 kopia:"sensitive"`
+	Keyfile        string          `json:"keyfile,omitempty"`
+	KeyData        string          `json:"keyData,omitempty"        kopia:"sensitive"`
+	KnownHostsFile string          `json:"knownHostsFile,omitempty"`
+	KnownHostsData string          `json:"knownHostsData,omitempty"`
 
 	ExternalSSH  bool   `json:"externalSSH"`
 	SSHCommand   string `json:"sshCommand,omitempty"` // default "ssh"

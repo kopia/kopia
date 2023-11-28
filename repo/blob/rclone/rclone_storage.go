@@ -20,6 +20,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/osexec"
+	"github.com/kopia/kopia/internal/secrets"
 	"github.com/kopia/kopia/internal/tlsutil"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/webdav"
@@ -373,7 +374,7 @@ func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error)
 	wst, err := webdav.New(ctx, &webdav.Options{
 		URL:                                 rcloneUrls.webdavAddr,
 		Username:                            webdavUsername,
-		Password:                            webdavPassword,
+		Password:                            secrets.NewSecret(webdavPassword),
 		TrustedServerCertificateFingerprint: fingerprintHexString,
 		AtomicWrites:                        opt.AtomicWrites,
 		Options:                             opt.Options,

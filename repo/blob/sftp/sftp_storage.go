@@ -427,8 +427,8 @@ func createSSHConfig(ctx context.Context, opt *Options) (*ssh.ClientConfig, erro
 
 	var auth []ssh.AuthMethod
 
-	if opt.Password != "" {
-		auth = append(auth, ssh.Password(opt.Password))
+	if opt.Password.IsSet() {
+		auth = append(auth, ssh.Password(opt.Password.String()))
 	} else {
 		signer, err := getSigner(opt)
 		if err != nil {

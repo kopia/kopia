@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
 
 	"github.com/pkg/errors"
 	"golang.org/x/term"
@@ -65,14 +64,16 @@ func askForExistingRepositoryPassword(out io.Writer) (string, error) {
 }
 
 func (c *App) setPasswordFromToken(pwd string) {
-	c.password = pwd
+	_ = c.password.Set("plaintext:" + pwd)
 }
 
 func (c *App) getPasswordFromFlags(ctx context.Context, isCreate, allowPersistent bool) (string, error) {
 	switch {
-	case c.password != "":
+	case c.password.IsSet():
 		// password provided via --password flag or KOPIA_PASSWORD environment variable
-		return strings.TrimSpace(c.password), nil
+		_ = c.password.Evaluate(nil, "")
+
+		return c.password.String(), nil
 	case isCreate:
 		// this is a new repository, ask for password
 		return askForNewRepositoryPassword(c.stdoutWriter)

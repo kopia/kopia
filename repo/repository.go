@@ -81,6 +81,7 @@ type DirectRepository interface {
 	Token(password string) (string, error)
 	Throttler() throttling.SettableThrottler
 	DisableIndexRefresh()
+	UpdateSigningKey(oldPassword, newPassword string) error
 }
 
 // DirectRepositoryWriter provides low-level write access to the repository.
@@ -380,6 +381,31 @@ func (r *directRepository) FormatManager() *format.Manager {
 // OnSuccessfulFlush registers the provided callback to be invoked after flush succeeds.
 func (r *directRepository) OnSuccessfulFlush(callback RepositoryWriterCallback) {
 	r.afterFlush = append(r.afterFlush, callback)
+}
+
+func (r *directRepository) UpdateSigningKey(oldPassword, newPassword string) error {
+	if r.configFile == "" {
+		return nil
+	}
+
+	lc, err := LoadConfigFromFile(r.configFile)
+	if err != nil {
+		return err
+	}
+
+	if lc.SecretToken != nil {
+		err = lc.SecretToken.ChangePassword(oldPassword, newPassword)
+		if err != nil {
+			return errors.Wrap(err, "failed to read config")
+		}
+
+		err = lc.writeToFile(r.configFile)
+		if err != nil {
+			return errors.Wrap(err, "failed to update config")
+		}
+	}
+
+	return nil
 }
 
 // WriteSessionOptions describes options for a write session.

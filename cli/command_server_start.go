@@ -323,8 +323,10 @@ func (c *commandServerStart) getAuthenticator(ctx context.Context) (auth.Authent
 
 		return nil, nil
 
-	case c.sf.serverPassword != "":
-		authenticators = append(authenticators, auth.AuthenticateSingleUser(c.sf.serverUsername, c.sf.serverPassword))
+	case c.sf.serverPassword.IsSet():
+		_ = c.sf.serverPassword.Evaluate(nil, "")
+
+		authenticators = append(authenticators, auth.AuthenticateSingleUser(c.sf.serverUsername, c.sf.serverPassword.String()))
 
 	case c.serverStartRandomPassword:
 		// generate very long random one-time password

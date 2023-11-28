@@ -325,6 +325,15 @@ func TestUpdateRetentionNegativeValue(t *testing.T) {
 	assert.Zero(t, expiry)
 }
 
+type mockChangePasswordCallback struct {
+	Called bool
+}
+
+func (m *mockChangePasswordCallback) UpdateSigningKey(newp, oldp string) error {
+	m.Called = true
+	return nil
+}
+
 func TestChangePassword(t *testing.T) {
 	ctx := testlogging.Context(t)
 
@@ -352,7 +361,9 @@ func TestChangePassword(t *testing.T) {
 	mgr2, err := format.NewManagerWithCache(ctx, fst, cacheDuration, "some-password", nowFunc, blobCache)
 	require.NoError(t, err)
 
-	require.NoError(t, mgr2.ChangePassword(ctx, "new-password"))
+	callback := mockChangePasswordCallback{}
+	require.NoError(t, mgr2.ChangePassword(ctx, "new-password", &callback))
+	require.Equal(t, callback.Called, true)
 
 	// immediately after changing the password, both managers can still read the repo
 	mustGetMutableParameters(t, mgr)

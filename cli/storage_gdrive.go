@@ -2,12 +2,12 @@ package cli
 
 import (
 	"context"
-	"encoding/json"
 	"os"
 
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/secrets"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/gdrive"
 )
@@ -36,7 +36,7 @@ func (c *storageGDriveFlags) Connect(ctx context.Context, isCreate bool, formatV
 			return nil, errors.Wrap(err, "unable to open service account credentials file")
 		}
 
-		c.options.ServiceAccountCredentialJSON = json.RawMessage(data)
+		c.options.ServiceAccountCredentialJSON = secrets.NewSecret(string(data))
 		c.options.ServiceAccountCredentialsFile = ""
 	}
 

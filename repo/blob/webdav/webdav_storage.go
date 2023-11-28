@@ -256,7 +256,7 @@ func isRetriable(err error) bool {
 
 // New creates new WebDAV-backed storage in a specified URL.
 func New(ctx context.Context, opts *Options, isCreate bool) (blob.Storage, error) {
-	cli := gowebdav.NewClient(opts.URL, opts.Username, opts.Password)
+	cli := gowebdav.NewClient(opts.URL, opts.Username, opts.Password.String())
 
 	// Since we're handling encrypted data, there's no point compressing it server-side.
 	cli.SetHeader("Accept-Encoding", "identity")

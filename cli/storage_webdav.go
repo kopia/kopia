@@ -6,6 +6,7 @@ import (
 
 	"github.com/alecthomas/kingpin/v2"
 
+	"github.com/kopia/kopia/internal/secrets"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/webdav"
 )
@@ -19,7 +20,7 @@ func (c *storageWebDAVFlags) Setup(svc StorageProviderServices, cmd *kingpin.Cmd
 	cmd.Flag("url", "URL of WebDAV server").Required().StringVar(&c.options.URL)
 	cmd.Flag("flat", "Use flat directory structure").BoolVar(&c.connectFlat)
 	cmd.Flag("webdav-username", "WebDAV username").Envar(svc.EnvName("KOPIA_WEBDAV_USERNAME")).StringVar(&c.options.Username)
-	cmd.Flag("webdav-password", "WebDAV password").Envar(svc.EnvName("KOPIA_WEBDAV_PASSWORD")).StringVar(&c.options.Password)
+	secretVarWithEnv(cmd.Flag("webdav-password", "WebDAV password"), svc.EnvName("KOPIA_WEBDAV_PASSWORD"), &c.options.Password)
 	cmd.Flag("list-parallelism", "Set list parallelism").Hidden().IntVar(&c.options.ListParallelism)
 	cmd.Flag("atomic-writes", "Assume WebDAV provider implements atomic writes").BoolVar(&c.options.AtomicWrites)
 
@@ -29,13 +30,13 @@ func (c *storageWebDAVFlags) Setup(svc StorageProviderServices, cmd *kingpin.Cmd
 func (c *storageWebDAVFlags) Connect(ctx context.Context, isCreate bool, formatVersion int) (blob.Storage, error) {
 	wo := c.options
 
-	if wo.Username != "" && wo.Password == "" {
+	if wo.Username != "" && wo.Password.String() == "" {
 		pass, err := askPass(os.Stdout, "Enter WebDAV password: ")
 		if err != nil {
 			return nil, err
 		}
 
-		wo.Password = pass
+		wo.Password = secrets.NewSecret(pass)
 	}
 
 	wo.DirectoryShards = initialDirectoryShards(c.connectFlat, formatVersion)

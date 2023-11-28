@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/kopia/kopia/internal/secrets"
 	"github.com/kopia/kopia/repo/blob/sftp"
 	"github.com/kopia/kopia/repo/blob/sharded"
 )
@@ -147,7 +148,7 @@ func TestSFTPOptions(t *testing.T) {
 					Host:           "some-host",
 					Port:           222,
 					Username:       "user",
-					Password:       "my-password",
+					Password:       secrets.NewSecret("my-password"),
 					KnownHostsFile: "my-known-hosts",
 				},
 				connectFlat: true,
@@ -157,7 +158,7 @@ func TestSFTPOptions(t *testing.T) {
 				Port:           222,
 				Username:       "user",
 				KnownHostsFile: mustFileAbs(t, "my-known-hosts"),
-				Password:       "my-password",
+				Password:       secrets.NewSecret("my-password"),
 				Options: sharded.Options{
 					DirectoryShards: []int{},
 				},

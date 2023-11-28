@@ -12,6 +12,7 @@ import (
 
 	"github.com/kopia/kopia/internal/atomicfile"
 	"github.com/kopia/kopia/internal/ospath"
+	"github.com/kopia/kopia/internal/secrets"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/throttling"
 	"github.com/kopia/kopia/repo/content"
@@ -39,6 +40,8 @@ type ClientOptions struct {
 	FormatBlobCacheDuration time.Duration `json:"formatBlobCacheDuration,omitempty"`
 
 	Throttling *throttling.Limits `json:"throttlingLimits,omitempty"`
+
+	SecretToken *secrets.EncryptedToken `json:"encryptedToken,omitempty"`
 }
 
 // ApplyDefaults returns a copy of ClientOptions with defaults filled out.
@@ -158,4 +161,23 @@ func LoadConfigFromFile(fileName string) (*LocalConfig, error) {
 	}
 
 	return &lc, nil
+}
+
+// AddSecretTokenForTest forces a Secret token on a local-config even if the repo format doesn't need one.
+func AddSecretTokenForTest(configFile, password string) error {
+	lc, err := LoadConfigFromFile(configFile)
+	if err != nil {
+		return err
+	}
+
+	lc.SecretToken = secrets.NewSigningKey(secrets.DefaultAlgorithm, secrets.DefaultKeyDerivation)
+
+	err = lc.SecretToken.Create(password)
+	if err != nil {
+		return err //nolint:wrapcheck
+	}
+
+	err = lc.writeToFile(configFile)
+
+	return err
 }

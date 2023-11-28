@@ -347,8 +347,8 @@ func newStorage(ctx context.Context, opt *Options) (*s3Storage, error) {
 			&credentials.Static{
 				Value: credentials.Value{
 					AccessKeyID:     opt.AccessKeyID,
-					SecretAccessKey: opt.SecretAccessKey,
-					SessionToken:    opt.SessionToken,
+					SecretAccessKey: opt.SecretAccessKey.String(),
+					SessionToken:    opt.SessionToken.String(),
 					SignerType:      credentials.SignatureV4,
 				},
 			},

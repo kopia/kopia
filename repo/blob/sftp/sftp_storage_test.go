@@ -19,6 +19,7 @@ import (
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/providervalidation"
+	"github.com/kopia/kopia/internal/secrets"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/internal/timetrack"
@@ -215,7 +216,7 @@ func TestSFTPStorageValid(t *testing.T) {
 			Path:           "/upload2",
 			Host:           host,
 			Username:       sftpUsernameWithPasswordAuth,
-			Password:       sftpUserPassword,
+			Password:       secrets.NewSecret(sftpUserPassword),
 			Port:           port,
 			Keyfile:        idRSA,
 			KnownHostsFile: knownHostsFile,

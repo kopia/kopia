@@ -1,6 +1,9 @@
 package b2
 
-import "github.com/kopia/kopia/repo/blob/throttling"
+import (
+	"github.com/kopia/kopia/internal/secrets"
+	"github.com/kopia/kopia/repo/blob/throttling"
+)
 
 // Options defines options for B2-based storage.
 type Options struct {
@@ -10,8 +13,8 @@ type Options struct {
 	// Prefix specifies additional string to prepend to all objects.
 	Prefix string `json:"prefix,omitempty"`
 
-	KeyID string `json:"keyID"`
-	Key   string `json:"key"   kopia:"sensitive"`
+	KeyID string          `json:"keyID"`
+	Key   *secrets.Secret `json:"key"   kopia:"sensitive"`
 
 	throttling.Limits
 }

@@ -67,7 +67,7 @@ func NewCLITest(t *testing.T, repoCreateFlags []string, runner CLIRunner) *CLITe
 
 	fixedArgs := []string{
 		// use per-test config file, to avoid clobbering current user's setup.
-		"--config-file", filepath.Join(configDir, ".kopia.config"),
+		"--config-file", getConfigFile(configDir),
 	}
 
 	// disable the use of keyring
@@ -239,6 +239,15 @@ func (e *CLITest) RunAndVerifyOutputLineCount(t *testing.T, wantLines int, args 
 	}
 
 	return lines
+}
+
+// GetConfigFile returns the config file used of a CLITest.
+func (e *CLITest) GetConfigFile() string {
+	return getConfigFile(e.ConfigDir)
+}
+
+func getConfigFile(configDir string) string {
+	return filepath.Join(configDir, ".kopia.config")
 }
 
 func (e *CLITest) cmdArgs(args []string) []string {

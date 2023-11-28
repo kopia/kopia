@@ -3,6 +3,7 @@ package s3
 import (
 	"time"
 
+	"github.com/kopia/kopia/internal/secrets"
 	"github.com/kopia/kopia/repo/blob/throttling"
 )
 
@@ -19,9 +20,9 @@ type Options struct {
 	DoNotVerifyTLS bool   `json:"doNotVerifyTLS,omitempty"`
 	RootCA         []byte `json:"rootCA,omitempty"`
 
-	AccessKeyID     string `json:"accessKeyID"`
-	SecretAccessKey string `json:"secretAccessKey" kopia:"sensitive"`
-	SessionToken    string `json:"sessionToken"    kopia:"sensitive"`
+	AccessKeyID     string          `json:"accessKeyID"`
+	SecretAccessKey *secrets.Secret `json:"secretAccessKey" kopia:"sensitive"`
+	SessionToken    *secrets.Secret `json:"sessionToken"    kopia:"sensitive"`
 
 	// Region is an optional region to pass in authorization header.
 	Region string `json:"region,omitempty"`

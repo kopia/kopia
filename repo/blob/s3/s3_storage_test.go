@@ -21,6 +21,7 @@ import (
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/providervalidation"
+	"github.com/kopia/kopia/internal/secrets"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/internal/timetrack"
@@ -182,7 +183,7 @@ func TestS3StorageAWS(t *testing.T) {
 	options := &Options{
 		Endpoint:        getEnv(testEndpointEnv, awsEndpoint),
 		AccessKeyID:     getEnvOrSkip(t, testAccessKeyIDEnv),
-		SecretAccessKey: getEnvOrSkip(t, testSecretAccessKeyEnv),
+		SecretAccessKey: secrets.NewSecret(getEnvOrSkip(t, testSecretAccessKeyEnv)),
 		BucketName:      getEnvOrSkip(t, testBucketEnv),
 		Region:          getEnvOrSkip(t, testRegionEnv),
 	}
@@ -199,8 +200,8 @@ func TestS3StorageAWSSTS(t *testing.T) {
 	options := &Options{
 		Endpoint:        getEnv(testEndpointEnv, awsEndpoint),
 		AccessKeyID:     getEnvOrSkip(t, testSTSAccessKeyIDEnv),
-		SecretAccessKey: getEnvOrSkip(t, testSTSSecretAccessKeyEnv),
-		SessionToken:    getEnvOrSkip(t, testSessionTokenEnv),
+		SecretAccessKey: secrets.NewSecret(getEnvOrSkip(t, testSTSSecretAccessKeyEnv)),
+		SessionToken:    secrets.NewSecret(getEnvOrSkip(t, testSessionTokenEnv)),
 		BucketName:      getEnvOrSkip(t, testBucketEnv),
 		Region:          getEnvOrSkip(t, testRegionEnv),
 	}
@@ -210,7 +211,7 @@ func TestS3StorageAWSSTS(t *testing.T) {
 	getOrCreateBucket(t, &Options{
 		Endpoint:        getEnv(testEndpointEnv, awsEndpoint),
 		AccessKeyID:     getEnv(testAccessKeyIDEnv, ""),
-		SecretAccessKey: getEnv(testSecretAccessKeyEnv, ""),
+		SecretAccessKey: secrets.NewSecret(getEnv(testSecretAccessKeyEnv, "")),
 		BucketName:      options.BucketName,
 		Region:          options.Region,
 	})
@@ -224,7 +225,7 @@ func TestS3StorageRetentionUnlockedBucket(t *testing.T) {
 	options := Options{
 		Endpoint:        getEnv(testEndpointEnv, awsEndpoint),
 		AccessKeyID:     getEnvOrSkip(t, testAccessKeyIDEnv),
-		SecretAccessKey: getEnvOrSkip(t, testSecretAccessKeyEnv),
+		SecretAccessKey: secrets.NewSecret(getEnvOrSkip(t, testSecretAccessKeyEnv)),
 		BucketName:      getEnvOrSkip(t, testBucketEnv),
 		Region:          getEnvOrSkip(t, testRegionEnv),
 	}
@@ -255,7 +256,7 @@ func TestS3StorageRetentionLockedBucket(t *testing.T) {
 	options := Options{
 		Endpoint:        getEnv(testEndpointEnv, awsEndpoint),
 		AccessKeyID:     getEnvOrSkip(t, testAccessKeyIDEnv),
-		SecretAccessKey: getEnvOrSkip(t, testSecretAccessKeyEnv),
+		SecretAccessKey: secrets.NewSecret(getEnvOrSkip(t, testSecretAccessKeyEnv)),
 		BucketName:      getEnvOrSkip(t, testLockedBucketEnv),
 		Region:          getEnvOrSkip(t, testRegionEnv),
 	}
@@ -300,7 +301,7 @@ func TestTokenExpiration(t *testing.T) {
 	createBucket(t, &Options{
 		Endpoint:        awsEndpoint,
 		AccessKeyID:     awsAccessKeyID,
-		SecretAccessKey: awsSecretAccessKeyID,
+		SecretAccessKey: secrets.NewSecret(awsSecretAccessKeyID),
 		BucketName:      bucketName,
 		Region:          region,
 		DoNotUseTLS:     true,
@@ -351,7 +352,7 @@ func TestS3StorageMinio(t *testing.T) {
 	options := &Options{
 		Endpoint:        minioEndpoint,
 		AccessKeyID:     minioRootAccessKeyID,
-		SecretAccessKey: minioRootSecretAccessKey,
+		SecretAccessKey: secrets.NewSecret(minioRootSecretAccessKey),
 		BucketName:      minioBucketName,
 		Region:          minioRegion,
 		DoNotUseTLS:     true,
@@ -386,7 +387,7 @@ func TestS3StorageMinioSelfSignedCert(t *testing.T) {
 	options := &Options{
 		Endpoint:        minioEndpoint,
 		AccessKeyID:     minioRootAccessKeyID,
-		SecretAccessKey: minioRootSecretAccessKey,
+		SecretAccessKey: secrets.NewSecret(minioRootSecretAccessKey),
 		BucketName:      minioBucketName,
 		Region:          minioRegion,
 		DoNotVerifyTLS:  true,
@@ -427,7 +428,7 @@ func TestS3StorageMinioSelfSignedCertWithProvidedCA(t *testing.T) {
 	options := &Options{
 		Endpoint:        minioEndpoint,
 		AccessKeyID:     minioRootAccessKeyID,
-		SecretAccessKey: minioRootSecretAccessKey,
+		SecretAccessKey: secrets.NewSecret(minioRootSecretAccessKey),
 		BucketName:      minioBucketName,
 		Region:          minioRegion,
 		DoNotVerifyTLS:  false,
@@ -451,7 +452,7 @@ func TestInvalidCredsFailsFast(t *testing.T) {
 	_, err := New(ctx, &Options{
 		Endpoint:        minioEndpoint,
 		AccessKeyID:     minioRootAccessKeyID,
-		SecretAccessKey: minioRootSecretAccessKey + "bad",
+		SecretAccessKey: secrets.NewSecret(minioRootSecretAccessKey + "bad"),
 		BucketName:      minioBucketName,
 		Region:          minioRegion,
 		DoNotUseTLS:     false,
@@ -478,7 +479,7 @@ func TestS3StorageMinioSTS(t *testing.T) {
 	createBucket(t, &Options{
 		Endpoint:        minioEndpoint,
 		AccessKeyID:     minioRootAccessKeyID,
-		SecretAccessKey: minioRootSecretAccessKey,
+		SecretAccessKey: secrets.NewSecret(minioRootSecretAccessKey),
 		BucketName:      minioBucketName,
 		Region:          minioRegion,
 		DoNotUseTLS:     true,
@@ -491,8 +492,8 @@ func TestS3StorageMinioSTS(t *testing.T) {
 	testStorage(t, &Options{
 		Endpoint:        minioEndpoint,
 		AccessKeyID:     kopiaCreds.AccessKeyID,
-		SecretAccessKey: kopiaCreds.SecretAccessKey,
-		SessionToken:    kopiaCreds.SessionToken,
+		SecretAccessKey: secrets.NewSecret(kopiaCreds.SecretAccessKey),
+		SessionToken:    secrets.NewSecret(kopiaCreds.SessionToken),
 		BucketName:      minioBucketName,
 		Region:          minioRegion,
 		DoNotUseTLS:     true,
@@ -507,7 +508,7 @@ func TestNeedMD5AWS(t *testing.T) {
 	options := &Options{
 		Endpoint:        getEnv(testEndpointEnv, awsEndpoint),
 		AccessKeyID:     getEnvOrSkip(t, testAccessKeyIDEnv),
-		SecretAccessKey: getEnvOrSkip(t, testSecretAccessKeyEnv),
+		SecretAccessKey: secrets.NewSecret(getEnvOrSkip(t, testSecretAccessKeyEnv)),
 		BucketName:      getEnvOrSkip(t, testLockedBucketEnv),
 		Region:          getEnvOrSkip(t, testRegionEnv),
 	}
@@ -655,7 +656,7 @@ func createClient(tb testing.TB, opt *Options) *minio.Client {
 
 	minioClient, err := minio.New(opt.Endpoint,
 		&minio.Options{
-			Creds:     credentials.NewStaticV4(opt.AccessKeyID, opt.SecretAccessKey, ""),
+			Creds:     credentials.NewStaticV4(opt.AccessKeyID, opt.SecretAccessKey.String(), ""),
 			Secure:    !opt.DoNotUseTLS,
 			Region:    opt.Region,
 			Transport: transport,

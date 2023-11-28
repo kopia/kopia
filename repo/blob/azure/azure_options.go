@@ -1,6 +1,7 @@
 package azure
 
 import (
+	"github.com/kopia/kopia/internal/secrets"
 	"github.com/kopia/kopia/repo/blob/throttling"
 )
 
@@ -16,10 +17,10 @@ type Options struct {
 	StorageAccount string `json:"storageAccount"`
 
 	// Storage account access key
-	StorageKey string `json:"storageKey"     kopia:"sensitive"`
+	StorageKey *secrets.Secret `json:"storageKey"     kopia:"sensitive"`
 
 	// Alternatively provide SAS Token
-	SASToken string `json:"sasToken" kopia:"sensitive"`
+	SASToken *secrets.Secret `json:"sasToken" kopia:"sensitive"`
 
 	// the tenant-ID/client-ID/client-Secret of the service principal
 	TenantID     string
