@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/kopia/kopia/repo/logging"
 )
@@ -26,6 +27,8 @@ type ProfileName string
 
 const (
 	pair = 2
+	// PPROFDumpTimeout when dumping PPROF data, set an upper bound on the time it can take to log.
+	PPROFDumpTimeout = 15 * time.Second
 )
 
 const (
