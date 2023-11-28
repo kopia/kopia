@@ -23,10 +23,10 @@ import (
 )
 
 const (
-	testContainerEnv           = "KOPIA_AZURE_TEST_CONTAINER"
-	testStorageAccountEnv      = "KOPIA_AZURE_TEST_STORAGE_ACCOUNT"
-	testStorageKeyEnv          = "KOPIA_AZURE_TEST_STORAGE_KEY"
-	testStorageSASTokenEnv     = "KOPIA_AZURE_TEST_SAS_TOKEN"
+	testContainerEnv           = "KOPIA_AZURE_TEST_IMMUTABLE_CONTAINER"
+	testStorageAccountEnv      = "KOPIA_AZURE_TEST_IMMUTABLE_STORAGE_ACCOUNT"
+	testStorageKeyEnv          = "KOPIA_AZURE_TEST_IMMUTABLE_STORAGE_KEY"
+	testStorageSASTokenEnv     = "KOPIA_AZURE_TEST_IMMUTABLE_SAS_TOKEN"
 	testStorageTenantIDEnv     = "KOPIA_AZURE_TEST_TENANT_ID"
 	testStorageClientIDEnv     = "KOPIA_AZURE_TEST_CLIENT_ID"
 	testStorageClientSecretEnv = "KOPIA_AZURE_TEST_CLIENT_SECRET"
