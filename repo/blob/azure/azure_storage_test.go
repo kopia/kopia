@@ -23,13 +23,17 @@ import (
 )
 
 const (
-	testContainerEnv           = "KOPIA_AZURE_TEST_IMMUTABLE_CONTAINER"
-	testStorageAccountEnv      = "KOPIA_AZURE_TEST_IMMUTABLE_STORAGE_ACCOUNT"
-	testStorageKeyEnv          = "KOPIA_AZURE_TEST_IMMUTABLE_STORAGE_KEY"
-	testStorageSASTokenEnv     = "KOPIA_AZURE_TEST_IMMUTABLE_SAS_TOKEN"
-	testStorageTenantIDEnv     = "KOPIA_AZURE_TEST_TENANT_ID"
-	testStorageClientIDEnv     = "KOPIA_AZURE_TEST_CLIENT_ID"
-	testStorageClientSecretEnv = "KOPIA_AZURE_TEST_CLIENT_SECRET"
+	testContainerEnv                = "KOPIA_AZURE_TEST_CONTAINER"
+	testStorageAccountEnv           = "KOPIA_AZURE_TEST_STORAGE_ACCOUNT"
+	testStorageKeyEnv               = "KOPIA_AZURE_TEST_STORAGE_KEY"
+	testStorageSASTokenEnv          = "KOPIA_AZURE_TEST_SAS_TOKEN"
+	testImmutableContainerEnv       = "KOPIA_AZURE_TEST_IMMUTABLE_CONTAINER"
+	testImmutableStorageAccountEnv  = "KOPIA_AZURE_TEST_IMMUTABLE_STORAGE_ACCOUNT"
+	testImmutableStorageKeyEnv      = "KOPIA_AZURE_TEST_IMMUTABLE_STORAGE_KEY"
+	testImmutableStorageSASTokenEnv = "KOPIA_AZURE_TEST_IMMUTABLE_SAS_TOKEN"
+	testStorageTenantIDEnv          = "KOPIA_AZURE_TEST_TENANT_ID"
+	testStorageClientIDEnv          = "KOPIA_AZURE_TEST_CLIENT_ID"
+	testStorageClientSecretEnv      = "KOPIA_AZURE_TEST_CLIENT_SECRET"
 )
 
 func getEnvOrSkip(t *testing.T, name string) string {

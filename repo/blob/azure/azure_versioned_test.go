@@ -24,9 +24,9 @@ func TestGetBlobVersions(t *testing.T) {
 	testutil.ProviderTest(t)
 
 	// must be with Immutable Storage with Versioning enabled
-	container := getEnvOrSkip(t, testContainerEnv)
-	storageAccount := getEnvOrSkip(t, testStorageAccountEnv)
-	storageKey := getEnvOrSkip(t, testStorageKeyEnv)
+	container := getEnvOrSkip(t, testImmutableContainerEnv)
+	storageAccount := getEnvOrSkip(t, testImmutableStorageAccountEnv)
+	storageKey := getEnvOrSkip(t, testImmutableStorageKeyEnv)
 
 	createContainer(t, container, storageAccount, storageKey)
 
@@ -131,9 +131,9 @@ func TestGetBlobVersionsWithDeletion(t *testing.T) {
 	testutil.ProviderTest(t)
 
 	// must be with Immutable Storage with Versioning enabled
-	container := getEnvOrSkip(t, testContainerEnv)
-	storageAccount := getEnvOrSkip(t, testStorageAccountEnv)
-	storageKey := getEnvOrSkip(t, testStorageKeyEnv)
+	container := getEnvOrSkip(t, testImmutableContainerEnv)
+	storageAccount := getEnvOrSkip(t, testImmutableStorageAccountEnv)
+	storageKey := getEnvOrSkip(t, testImmutableStorageKeyEnv)
 
 	createContainer(t, container, storageAccount, storageKey)
 
