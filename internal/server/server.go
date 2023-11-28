@@ -563,6 +563,8 @@ func (s *Server) endUpload(ctx context.Context, src snapshot.SourceInfo) {
 	s.parallelSnapshotsChanged.Signal()
 }
 
+// GetRepository get the repository for this server.  This is used to ensure
+// repositories are closed on shutdown.  Also symmetric to SetRepository.
 func (s *Server) GetRepository() repo.Repository {
 	return s.rep
 }

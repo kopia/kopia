@@ -45,6 +45,7 @@ func (c *commandSnapshotMigrate) setup(svc advancedAppServices, parent commandPa
 	c.out.setup(svc)
 }
 
+//nolint:funlen
 func (c *commandSnapshotMigrate) run(ctx context.Context, destRepo repo.RepositoryWriter) error {
 	sourceRepo, err := c.openSourceRepo(ctx)
 	if err != nil {
@@ -52,7 +53,9 @@ func (c *commandSnapshotMigrate) run(ctx context.Context, destRepo repo.Reposito
 	}
 
 	defer func() {
+		//nolint:errcheck
 		destRepo.Close(ctx)
+		//nolint:errcheck
 		sourceRepo.Close(ctx)
 	}()
 
@@ -73,23 +76,39 @@ func (c *commandSnapshotMigrate) run(ctx context.Context, destRepo repo.Reposito
 	c.svc.getProgress().StartShared()
 
 	c.svc.onCtrlC(func() {
-		mu.Lock()
-		defer mu.Unlock()
+		// use new context as old one may have already errored out
+		// test changing this to run() context in future
+		var canfn context.CancelFunc
+		ctx, canfn = context.WithTimeout(context.Background(), debug.PPROFDumpTimeout)
+		defer canfn()
 
-		if !canceled {
-			canceled = true
-			for s, u := range activeUploaders {
-				log(ctx).Infof("canceling active uploader for %v", s)
-				u.Cancel()
-			}
-			ctx := context.Background()
-			debug.StopProfileBuffers(ctx)
+		mu.Lock()
+		// debounce. (consider using sync.Once)
+		if canceled {
+			mu.Unlock()
+			return
 		}
+
+		canceled = true
+
+		for s, u := range activeUploaders {
+			log(ctx).Infof("canceling active uploader for %v", s)
+			u.Cancel()
+		}
+		mu.Unlock()
+
+		debug.StopProfileBuffers(ctx)
 	})
 
 	c.svc.onSigDump(func() {
-		ctx := context.Background()
+		// use new context as old one may have already errored out
+		// test changing this to run() context in future
+		var canfn context.CancelFunc
+		ctx, canfn = context.WithTimeout(context.Background(), debug.PPROFDumpTimeout)
+		defer canfn()
+
 		log(ctx).Infof("Dumping profiles...")
+
 		debug.StopProfileBuffers(ctx)
 		debug.StartProfileBuffers(ctx)
 	})
@@ -139,8 +158,10 @@ func (c *commandSnapshotMigrate) run(ctx context.Context, destRepo repo.Reposito
 	}
 
 	wg.Wait()
+
 	c.svc.getProgress().FinishShared()
 	c.out.printStderr("\r\n")
+
 	log(ctx).Infof("Migration finished.")
 
 	return nil

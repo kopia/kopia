@@ -106,7 +106,9 @@ type grpcInnerSession struct {
 	wg sync.WaitGroup
 }
 
+// CloseDebug release debugging resources.
 func (r *grpcRepositoryClient) CloseDebug(ctx context.Context) {
+	// use grace from ctx.
 	debug.StopProfileBuffers(ctx)
 }
 

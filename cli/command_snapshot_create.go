@@ -119,6 +119,7 @@ func (c *commandSnapshotCreate) run(ctx context.Context, rep repo.RepositoryWrit
 		return errors.New("description too long")
 	}
 
+	//nolint:contextcheck
 	u := c.setupUploader(rep)
 
 	var finalErrors []string
@@ -206,6 +207,7 @@ func validateStartEndTime(st, et string) error {
 	return nil
 }
 
+// setupLoader loader for snapshot to repository.
 func (c *commandSnapshotCreate) setupUploader(rep repo.RepositoryWriter) *snapshotfs.Uploader {
 	u := snapshotfs.NewUploader(rep)
 	u.MaxUploadBytes = c.snapshotCreateCheckpointUploadLimitMB << 20 //nolint:gomnd
@@ -235,20 +237,34 @@ func (c *commandSnapshotCreate) setupUploader(rep repo.RepositoryWriter) *snapsh
 	}
 
 	c.svc.onCtrlC(func() {
-		ctx := context.Background()
+		// use new context as old one may have already errored out
+		// test changing this to run() context in future
+		ctx, canfn := context.WithTimeout(context.Background(), debug.PPROFDumpTimeout)
+		defer canfn()
+
 		u.Cancel()
+
 		debug.StopProfileBuffers(ctx)
 	})
 
 	c.svc.onSigDump(func() {
-		ctx := context.Background()
+		// no context passed into function.  Consider adding context to this function call
+		ctx, canfn := context.WithTimeout(context.Background(), debug.PPROFDumpTimeout)
+		defer canfn()
+
 		log(ctx).Infof("Dumping profiles...")
+
 		debug.StopProfileBuffers(ctx)
+		// restart profile buffers as this does not kill the process
 		debug.StartProfileBuffers(ctx)
 	})
 
 	c.svc.onSigTerm(func() {
-		ctx := context.Background()
+		// use new context as old one may have already errored out
+		// test changing this to run() context in future
+		ctx, canfn := context.WithTimeout(context.Background(), debug.PPROFDumpTimeout)
+		defer canfn()
+
 		debug.StopProfileBuffers(ctx)
 	})
 

@@ -8,11 +8,10 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"syscall"
 
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/pkg/errors"
-
-	"syscall"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/localfs"
