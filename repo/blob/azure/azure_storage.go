@@ -120,14 +120,16 @@ func translateError(err error) error {
 }
 
 func (az *azStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes, opts blob.PutOptions) error {
-	switch {
-	case opts.HasRetentionOptions() && !opts.RetentionMode.IsValidAzure():
-		return errors.Wrap(blob.ErrUnsupportedPutBlobOption, "blob retention mode is not valid for Azure")
-	case opts.DoNotRecreate:
+	if opts.DoNotRecreate {
 		return errors.Wrap(blob.ErrUnsupportedPutBlobOption, "do-not-recreate")
 	}
 
-	_, err := az.putBlob(ctx, b, data, opts)
+	_, err := az.putBlob(ctx, b, data, blob.PutOptions{
+		RetentionMode:   blob.Locked,
+		RetentionPeriod: opts.RetentionPeriod,
+		SetModTime:      opts.SetModTime,
+		GetModTime:      opts.GetModTime,
+	})
 
 	return err
 }
@@ -244,10 +246,6 @@ func (az *azStorage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes, op
 	if opts.HasRetentionOptions() {
 		// kopia delete marker blob can be Unlocked rather than Compliance
 		mode := azblobblob.ImmutabilityPolicySetting(opts.RetentionMode)
-		if opts.RetentionMode == blob.Compliance {
-			mode = azblobblob.ImmutabilityPolicySetting(blob.Locked) // override COMPLIANCE to be Locked
-		}
-
 		retainUntilDate := clock.Now().Add(opts.RetentionPeriod).UTC()
 		uo.ImmutabilityPolicyMode = &mode
 		uo.ImmutabilityPolicyExpiryTime = &retainUntilDate
