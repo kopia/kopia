@@ -4,6 +4,7 @@ package azure
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
@@ -13,6 +14,7 @@ import (
 	azblobblob "github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/blob"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/bloberror"
 	azblockblob "github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/blockblob"
+	azblobmodels "github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/container"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/clock"
@@ -25,7 +27,8 @@ import (
 )
 
 const (
-	azStorageType = "azureBlob"
+	azStorageType   = "azureBlob"
+	latestVersionID = ""
 
 	timeMapKey = "Kopiamtime" // this must be capital letter followed by lowercase, to comply with AZ tags naming convention.
 )
@@ -39,6 +42,10 @@ type azStorage struct {
 }
 
 func (az *azStorage) GetBlob(ctx context.Context, b blob.ID, offset, length int64, output blob.OutputBuffer) error {
+	return az.getBlobWithVersion(ctx, b, latestVersionID, offset, length, output)
+}
+
+func (az *azStorage) getBlobWithVersion(ctx context.Context, b blob.ID, versionID string, offset, length int64, output blob.OutputBuffer) error {
 	if offset < 0 {
 		return errors.Wrap(blob.ErrInvalidRange, "invalid offset")
 	}
@@ -56,7 +63,15 @@ func (az *azStorage) GetBlob(ctx context.Context, b blob.ID, offset, length int6
 		opt.Range.Count = l1
 	}
 
-	resp, err := az.service.DownloadStream(ctx, az.container, az.getObjectNameString(b), opt)
+	bc, err := az.service.ServiceClient().
+		NewContainerClient(az.container).
+		NewBlobClient(az.getObjectNameString(b)).
+		WithVersionID(versionID)
+	if err != nil {
+		return errors.Wrap(err, "failed to get versioned blob client")
+	}
+
+	resp, err := bc.DownloadStream(ctx, opt)
 	if err != nil {
 		return translateError(err)
 	}
@@ -71,7 +86,6 @@ func (az *azStorage) GetBlob(ctx context.Context, b blob.ID, offset, length int6
 	if err := iocopy.JustCopy(output, body); err != nil {
 		return translateError(err)
 	}
-
 	//nolint:wrapcheck
 	return blob.EnsureLengthExactly(output.Length(), length)
 }
@@ -213,6 +227,27 @@ func (az *azStorage) ConnectionInfo() blob.ConnectionInfo {
 
 func (az *azStorage) DisplayName() string {
 	return fmt.Sprintf("Azure: %v", az.Options.Container)
+}
+
+func (az *azStorage) getBlobName(it *azblobmodels.BlobItem) blob.ID {
+	n := *it.Name
+	return blob.ID(strings.TrimPrefix(n, az.Prefix))
+}
+
+func (az *azStorage) getBlobMeta(it *azblobmodels.BlobItem) blob.Metadata {
+	bm := blob.Metadata{
+		BlobID: az.getBlobName(it),
+		Length: *it.Properties.ContentLength,
+	}
+
+	// see if we have 'Kopiamtime' metadata, if so - trust it.
+	if t, ok := timestampmeta.FromValue(stringDefault(it.Metadata["kopiamtime"], "")); ok {
+		bm.Timestamp = t
+	} else {
+		bm.Timestamp = *it.Properties.LastModified
+	}
+
+	return bm
 }
 
 func (az *azStorage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes, opts blob.PutOptions) (azblockblob.UploadResponse, error) {
@@ -368,7 +403,12 @@ func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error)
 		service:   service,
 	}
 
-	az := retrying.NewWrapper(raw)
+	st, err := maybePointInTimeStore(ctx, raw, opt.PointInTime)
+	if err != nil {
+		return nil, err
+	}
+
+	az := retrying.NewWrapper(st)
 
 	// verify Azure connection is functional by listing blobs in a bucket, which will fail if the container
 	// does not exist. We list with a prefix that will not exist, to avoid iterating through any objects.
