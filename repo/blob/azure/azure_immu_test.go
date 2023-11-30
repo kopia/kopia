@@ -74,6 +74,7 @@ func TestAzureStorageImmutabilityProtection(t *testing.T) {
 	currentTime := clock.Now().UTC()
 
 	blobRetention := getBlobRetention(ctx, t, cli, container, blobNameFullPath)
+	// this has potential to flake if Azure is too slow; RetentionPeriod may need to be increased to more than 3 seconds if so
 	if !blobRetention.After(currentTime) {
 		t.Fatalf("blob retention period not in the future: %v", blobRetention)
 	}
