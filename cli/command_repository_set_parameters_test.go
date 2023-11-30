@@ -35,8 +35,10 @@ func (s *formatSpecificTestSuite) TestRepositorySetParameters(t *testing.T) {
 	require.Contains(t, out, "Max pack length:     21 MB")
 	require.Contains(t, out, fmt.Sprintf("Format version:      %d", s.formatVersion))
 
+	_, out = env.RunAndExpectSuccessWithErrOut(t, "repository", "set-parameters")
+	require.Contains(t, out, "no changes")
+
 	// failure cases
-	env.RunAndExpectFailure(t, "repository", "set-parameters")
 	env.RunAndExpectFailure(t, "repository", "set-parameters", "--index-version=33")
 	env.RunAndExpectFailure(t, "repository", "set-parameters", "--max-pack-size-mb=9")
 	env.RunAndExpectFailure(t, "repository", "set-parameters", "--max-pack-size-mb=121")
@@ -72,6 +74,10 @@ func (s *formatSpecificTestSuite) TestRepositorySetParametersRetention(t *testin
 	// clear retention settings
 	_, out = env.RunAndExpectSuccessWithErrOut(t, "repository", "set-parameters", "--retention-mode", "none")
 	require.Contains(t, out, "disabling blob retention")
+
+	// 2nd time also succeeds but disabling is skipped due to already being disabled. !anyChanges returns no error.
+	_, out = env.RunAndExpectSuccessWithErrOut(t, "repository", "set-parameters", "--retention-mode", "none")
+	require.Contains(t, out, "no changes")
 
 	out = env.RunAndExpectSuccess(t, "repository", "status")
 	require.NotContains(t, out, "Blob retention mode")
@@ -201,20 +207,25 @@ func (s *formatSpecificTestSuite) TestRepositorySetParametersDowngrade(t *testin
 			require.Contains(t, out, "Format version:      1")
 			require.Contains(t, out, "Epoch Manager:       disabled")
 			env.RunAndExpectFailure(t, "index", "epoch", "list")
+			// setting the current version again is ok
+			_, out = env.RunAndExpectSuccessWithErrOut(t, "repository", "set-parameters", "--index-version=1")
+			require.Contains(t, out, "no changes")
 		case format.FormatVersion2:
 			require.Contains(t, out, "Format version:      2")
 			require.Contains(t, out, "Epoch Manager:       enabled")
 			env.RunAndExpectSuccess(t, "index", "epoch", "list")
+			_, out = env.RunAndExpectFailure(t, "repository", "set-parameters", "--index-version=1")
+			require.Contains(t, out, "index format version can only be upgraded")
 		default:
 			require.Contains(t, out, "Format version:      3")
 			require.Contains(t, out, "Epoch Manager:       enabled")
 			env.RunAndExpectSuccess(t, "index", "epoch", "list")
+			_, out = env.RunAndExpectFailure(t, "repository", "set-parameters", "--index-version=1")
+			require.Contains(t, out, "index format version can only be upgraded")
 		}
 	}
 
 	checkStatusForVersion()
-
-	env.RunAndExpectFailure(t, "repository", "set-parameters", "--index-version=1")
 
 	checkStatusForVersion()
 

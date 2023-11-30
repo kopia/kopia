@@ -72,7 +72,7 @@ type Capacity struct {
 
 // Volume defines disk/volume access API to blob storage.
 type Volume interface {
-	// Capacity returns the capacity of a given volume.
+	// GetCapacity returns the capacity of a given volume.
 	GetCapacity(ctx context.Context) (Capacity, error)
 }
 
@@ -95,7 +95,7 @@ type Reader interface {
 	// connect to storage.
 	ConnectionInfo() ConnectionInfo
 
-	// Name of the storage used for quick identification by humans.
+	// DisplayName Name of the storage used for quick identification by humans.
 	DisplayName() string
 }
 
@@ -146,7 +146,7 @@ type ExtendOptions struct {
 // common functions that are mostly provider independent and have a sensible
 // default.
 //
-// Storage providers should imbed this struct and override functions that they
+// Storage providers should embed this struct and override functions that they
 // have different return values for.
 type DefaultProviderImplementation struct{}
 

@@ -27,13 +27,17 @@ import (
 )
 
 const (
-	testContainerEnv           = "KOPIA_AZURE_TEST_CONTAINER"
-	testStorageAccountEnv      = "KOPIA_AZURE_TEST_STORAGE_ACCOUNT"
-	testStorageKeyEnv          = "KOPIA_AZURE_TEST_STORAGE_KEY"
-	testStorageSASTokenEnv     = "KOPIA_AZURE_TEST_SAS_TOKEN"
-	testStorageTenantIDEnv     = "KOPIA_AZURE_TEST_TENANT_ID"
-	testStorageClientIDEnv     = "KOPIA_AZURE_TEST_CLIENT_ID"
-	testStorageClientSecretEnv = "KOPIA_AZURE_TEST_CLIENT_SECRET"
+	testContainerEnv                = "KOPIA_AZURE_TEST_CONTAINER"
+	testStorageAccountEnv           = "KOPIA_AZURE_TEST_STORAGE_ACCOUNT"
+	testStorageKeyEnv               = "KOPIA_AZURE_TEST_STORAGE_KEY"
+	testStorageSASTokenEnv          = "KOPIA_AZURE_TEST_SAS_TOKEN"
+	testImmutableContainerEnv       = "KOPIA_AZURE_TEST_IMMUTABLE_CONTAINER"
+	testImmutableStorageAccountEnv  = "KOPIA_AZURE_TEST_IMMUTABLE_STORAGE_ACCOUNT"
+	testImmutableStorageKeyEnv      = "KOPIA_AZURE_TEST_IMMUTABLE_STORAGE_KEY"
+	testImmutableStorageSASTokenEnv = "KOPIA_AZURE_TEST_IMMUTABLE_SAS_TOKEN"
+	testStorageTenantIDEnv          = "KOPIA_AZURE_TEST_TENANT_ID"
+	testStorageClientIDEnv          = "KOPIA_AZURE_TEST_CLIENT_ID"
+	testStorageClientSecretEnv      = "KOPIA_AZURE_TEST_CLIENT_SECRET"
 )
 
 func getEnvOrSkip(t *testing.T, name string) string {
@@ -123,7 +127,7 @@ func TestAzureStorage(t *testing.T) {
 		Container:      container,
 		StorageAccount: storageAccount,
 		StorageKey:     storageKey,
-		Prefix:         fmt.Sprintf("test-%v-%x-", clock.Now().Unix(), data),
+		Prefix:         fmt.Sprintf("test-%v-%x/", clock.Now().Unix(), data),
 	}, false)
 
 	cancel()
@@ -156,7 +160,7 @@ func TestAzureStorageSASToken(t *testing.T) {
 		Container:      container,
 		StorageAccount: storageAccount,
 		SASToken:       sasToken,
-		Prefix:         fmt.Sprintf("sastest-%v-%x-", clock.Now().Unix(), data),
+		Prefix:         fmt.Sprintf("sastest-%v-%x/", clock.Now().Unix(), data),
 	}, false)
 
 	require.NoError(t, err)
@@ -194,7 +198,7 @@ func TestAzureStorageClientSecret(t *testing.T) {
 		TenantID:       tenantID,
 		ClientID:       clientID,
 		ClientSecret:   clientSecret,
-		Prefix:         fmt.Sprintf("sastest-%v-%x-", clock.Now().Unix(), data),
+		Prefix:         fmt.Sprintf("sastest-%v-%x/", clock.Now().Unix(), data),
 	}, false)
 
 	require.NoError(t, err)
