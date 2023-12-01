@@ -293,7 +293,7 @@ func DumpPem(bs []byte, types string, wrt *os.File) error {
 			return fmt.Errorf("could not write PEM: %w", err2)
 		}
 
-		return io.EOF
+		return nil
 	}
 
 	return fmt.Errorf("error reading bytes: %w", err1)
