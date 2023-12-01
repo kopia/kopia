@@ -137,12 +137,17 @@ func (az *azStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes, op
 		return errors.Wrap(blob.ErrUnsupportedPutBlobOption, "do-not-recreate")
 	}
 
-	_, err := az.putBlob(ctx, b, data, blob.PutOptions{
-		RetentionMode:   blob.Locked,
+	hardcodedOpts := blob.PutOptions{
 		RetentionPeriod: opts.RetentionPeriod,
 		SetModTime:      opts.SetModTime,
 		GetModTime:      opts.GetModTime,
-	})
+	}
+
+	if opts.HasRetentionOptions() {
+		hardcodedOpts.RetentionMode = blob.Locked // override Compliance/Governance to be Locked for Azure
+	}
+
+	_, err := az.putBlob(ctx, b, data, hardcodedOpts)
 
 	return err
 }
