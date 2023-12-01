@@ -165,6 +165,24 @@ func (az *azStorage) DeleteBlob(ctx context.Context, b blob.ID) error {
 	return err
 }
 
+// ExtendBlobRetention extends a blob retention period.
+func (az *azStorage) ExtendBlobRetention(ctx context.Context, b blob.ID, opts blob.ExtendOptions) error {
+	retainUntilDate := clock.Now().Add(opts.RetentionPeriod).UTC()
+	mode := azblobblob.ImmutabilityPolicySetting(blob.Locked) // overwrite the S3 values
+
+	_, err := az.service.ServiceClient().
+		NewContainerClient(az.Container).
+		NewBlobClient(az.getObjectNameString(b)).
+		SetImmutabilityPolicy(ctx, retainUntilDate, &azblobblob.SetImmutabilityPolicyOptions{
+			Mode: &mode,
+		})
+	if err != nil {
+		return errors.Wrap(err, "unable to extend retention period")
+	}
+
+	return nil
+}
+
 func (az *azStorage) getObjectNameString(b blob.ID) string {
 	return az.Prefix + string(b)
 }
