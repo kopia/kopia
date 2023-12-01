@@ -39,7 +39,7 @@ func (c *App) onSigDump(f func()) {
 }
 
 func (c *App) onCtrlC(f func()) {
-	onSig(c.simulatedSigDump, os.Interrupt, f)
+	onSig(c.simulatedCtrlC, os.Interrupt, f)
 }
 
 func onSig(chn chan bool, sig os.Signal, f func()) {

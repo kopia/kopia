@@ -265,6 +265,8 @@ func (c *commandSnapshotCreate) setupUploader(rep repo.RepositoryWriter) *snapsh
 		ctx, canfn := context.WithTimeout(context.Background(), debug.PPROFDumpTimeout)
 		defer canfn()
 
+		u.Cancel()
+
 		debug.StopProfileBuffers(ctx)
 	})
 
