@@ -137,17 +137,17 @@ func (az *azStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes, op
 		return errors.Wrap(blob.ErrUnsupportedPutBlobOption, "do-not-recreate")
 	}
 
-	hardcodedOpts := blob.PutOptions{
+	o := blob.PutOptions{
 		RetentionPeriod: opts.RetentionPeriod,
 		SetModTime:      opts.SetModTime,
 		GetModTime:      opts.GetModTime,
 	}
 
 	if opts.HasRetentionOptions() {
-		hardcodedOpts.RetentionMode = blob.Locked // override Compliance/Governance to be Locked for Azure
+		o.RetentionMode = blob.Locked // override Compliance/Governance to be Locked for Azure
 	}
 
-	_, err := az.putBlob(ctx, b, data, hardcodedOpts)
+	_, err := az.putBlob(ctx, b, data, o)
 
 	return err
 }
@@ -280,7 +280,7 @@ func (az *azStorage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes, op
 	}
 
 	if opts.HasRetentionOptions() {
-		// kopia delete marker blob can be Unlocked rather than Compliance
+		// kopia delete marker blob must be "Unlocked", thus it cannot be overridden to "Locked" here.
 		mode := azblobblob.ImmutabilityPolicySetting(opts.RetentionMode)
 		retainUntilDate := clock.Now().Add(opts.RetentionPeriod).UTC()
 		uo.ImmutabilityPolicyMode = &mode
