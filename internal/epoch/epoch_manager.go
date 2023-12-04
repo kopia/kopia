@@ -455,6 +455,28 @@ func (e *Manager) refreshLocked(ctx context.Context) error {
 		}
 	}
 
+	return e.maybeCompactAndCleanupLocked(ctx, p)
+}
+
+func (e *Manager) maybeCompactAndCleanupLocked(ctx context.Context, p *Parameters) error {
+	// Disable compaction and cleanup operations when running in read-only mode
+	// since they'll just fail when they try to mutate the underlying storage.
+	if e.st.IsReadOnly() {
+		return nil
+	}
+
+	cs := e.lastKnownState
+
+	if shouldAdvance(cs.UncompactedEpochSets[cs.WriteEpoch], p.MinEpochDuration, p.EpochAdvanceOnCountThreshold, p.EpochAdvanceOnTotalSizeBytesThreshold) {
+		if err := e.advanceEpochMarker(ctx, cs); err != nil {
+			return errors.Wrap(err, "error advancing epoch")
+		}
+	}
+
+	e.maybeGenerateNextRangeCheckpointAsync(ctx, cs, p)
+	e.maybeStartCleanupAsync(ctx, cs, p)
+	e.maybeOptimizeRangeCheckpointsAsync(ctx, cs)
+
 	return nil
 }
 
@@ -678,12 +700,6 @@ func (e *Manager) refreshAttemptLocked(ctx context.Context) error {
 		len(ues[cs.WriteEpoch+1]),
 		cs.ValidUntil.Format(time.RFC3339Nano))
 
-	if !e.st.IsReadOnly() && shouldAdvance(cs.UncompactedEpochSets[cs.WriteEpoch], p.MinEpochDuration, p.EpochAdvanceOnCountThreshold, p.EpochAdvanceOnTotalSizeBytesThreshold) {
-		if err := e.advanceEpochMarker(ctx, cs); err != nil {
-			return errors.Wrap(err, "error advancing epoch")
-		}
-	}
-
 	if now := e.timeFunc(); now.After(cs.ValidUntil) {
 		atomic.AddInt32(e.committedStateRefreshTooSlow, 1)
 
@@ -691,14 +707,6 @@ func (e *Manager) refreshAttemptLocked(ctx context.Context) error {
 	}
 
 	e.lastKnownState = cs
-
-	// Disable compaction and cleanup operations when running in read-only mode
-	// since they'll just fail when they try to mutate the underlying storage.
-	if !e.st.IsReadOnly() {
-		e.maybeGenerateNextRangeCheckpointAsync(ctx, cs, p)
-		e.maybeStartCleanupAsync(ctx, cs, p)
-		e.maybeOptimizeRangeCheckpointsAsync(ctx, cs)
-	}
 
 	return nil
 }
