@@ -27,7 +27,7 @@ type ProfileName string
 
 const (
 	pair = 2
-	// PPROFDumpTimeout when dumping PPROF data, set an upper bound on the time it can take to log.
+	// PPROFDumpTimeout when dumping PPROF data, set an upper bound on the time it can take to log. (default 15s).
 	PPROFDumpTimeout = 15 * time.Second
 )
 
@@ -237,7 +237,7 @@ func StartProfileBuffers(ctx context.Context) {
 }
 
 // DumpPem dump a PEM version of the byte slice, bs, into writer, wrt.
-func DumpPem(bs []byte, types string, wrt *os.File) error {
+func DumpPem(ctx context.Context, bs []byte, types string, wrt *os.File) error {
 	// err0 for background process
 	var err0 error
 
@@ -268,15 +268,24 @@ func DumpPem(bs []byte, types string, wrt *os.File) error {
 
 	// err1 for reading
 	// err2 for writing
-	var err1, err2 error
-	for err1 == nil && err2 == nil {
+	// err3 for context
+	var err1, err2, err3 error
+	err3 = ctx.Err()
+
+	for err1 == nil && err2 == nil && err3 == nil {
 		var ln []byte
 		ln, err1 = rdr.ReadBytes('\n')
 		// err1 can return ln and non-nil err1, so always call write
 		_, err2 = wrt.Write(ln)
+		err3 = ctx.Err()
 	}
 
-	// got a write error.  this has precedent
+	// got a context error.  this has precedent
+	if err3 != nil {
+		return fmt.Errorf("could not write PEM: %w", err3)
+	}
+
+	// got a write error.
 	if err2 != nil {
 		return fmt.Errorf("could not write PEM: %w", err2)
 	}
@@ -361,12 +370,17 @@ func StopProfileBuffers(ctx context.Context) {
 		err = pent.WriteTo(v.buf, debug)
 		if err != nil {
 			log(ctx).With("cause", err).Warn("error writing PPROF buffer")
-
 			continue
 		}
 	}
 	// dump the profiles out into their respective PEMs
 	for k, v := range pprofConfigs.pcm {
+		// process context
+		if ctx.Err() != nil {
+			log(ctx).With("cause", ctx.Err()).Error("cannot write PEM")
+			return
+		}
+
 		if v == nil {
 			continue
 		}
@@ -374,9 +388,10 @@ func StopProfileBuffers(ctx context.Context) {
 		unm := strings.ToUpper(string(k))
 		log(ctx).Infof("dumping PEM for %q", unm)
 
-		err := DumpPem(v.buf.Bytes(), unm, os.Stderr)
+		err := DumpPem(ctx, v.buf.Bytes(), unm, os.Stderr)
 		if err != nil {
 			log(ctx).With("cause", err).Error("cannot write PEM")
+			return
 		}
 	}
 
@@ -384,4 +399,3 @@ func StopProfileBuffers(ctx context.Context) {
 	clearProfileFractions(pprofConfigs.pcm)
 	pprofConfigs.pcm = map[ProfileName]*ProfileConfig{}
 }
-

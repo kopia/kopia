@@ -119,8 +119,7 @@ func (c *commandSnapshotCreate) run(ctx context.Context, rep repo.RepositoryWrit
 		return errors.New("description too long")
 	}
 
-	//nolint:contextcheck
-	u := c.setupUploader(rep)
+	u := c.setupUploader(ctx, rep)
 
 	var finalErrors []string
 
@@ -208,7 +207,7 @@ func validateStartEndTime(st, et string) error {
 }
 
 // setupLoader loader for snapshot to repository.
-func (c *commandSnapshotCreate) setupUploader(rep repo.RepositoryWriter) *snapshotfs.Uploader {
+func (c *commandSnapshotCreate) setupUploader(ctx context.Context, rep repo.RepositoryWriter) *snapshotfs.Uploader {
 	u := snapshotfs.NewUploader(rep)
 	u.MaxUploadBytes = c.snapshotCreateCheckpointUploadLimitMB << 20 //nolint:gomnd
 
@@ -237,37 +236,37 @@ func (c *commandSnapshotCreate) setupUploader(rep repo.RepositoryWriter) *snapsh
 	}
 
 	c.svc.onCtrlC(func() {
-		// use new context as old one may have already errored out
-		// test changing this to run() context in future
-		ctx, canfn := context.WithTimeout(context.Background(), debug.PPROFDumpTimeout)
-		defer canfn()
-
 		u.Cancel()
 
-		debug.StopProfileBuffers(ctx)
+		// use new context as old one may have already errored out
+		// test changing this to run() context in future
+		ctx0, canfn := context.WithTimeout(context.Background(), debug.PPROFDumpTimeout)
+		defer canfn()
+
+		debug.StopProfileBuffers(ctx0)
 	})
 
 	c.svc.onSigDump(func() {
 		// no context passed into function.  Consider adding context to this function call
-		ctx, canfn := context.WithTimeout(context.Background(), debug.PPROFDumpTimeout)
+		ctx0, canfn := context.WithTimeout(ctx, debug.PPROFDumpTimeout)
 		defer canfn()
 
-		log(ctx).Infof("Dumping profiles...")
+		log(ctx0).Infof("Dumping profiles...")
 
-		debug.StopProfileBuffers(ctx)
+		debug.StopProfileBuffers(ctx0)
 		// restart profile buffers as this does not kill the process
-		debug.StartProfileBuffers(ctx)
+		debug.StartProfileBuffers(ctx0)
 	})
 
 	c.svc.onSigTerm(func() {
-		// use new context as old one may have already errored out
-		// test changing this to run() context in future
-		ctx, canfn := context.WithTimeout(context.Background(), debug.PPROFDumpTimeout)
-		defer canfn()
-
 		u.Cancel()
 
-		debug.StopProfileBuffers(ctx)
+		// use new context as old one may have already errored out
+		// test changing this to run() context in future
+		ctx0, canfn := context.WithTimeout(context.Background(), debug.PPROFDumpTimeout)
+		defer canfn()
+
+		debug.StopProfileBuffers(ctx0)
 	})
 
 	u.ForceHashPercentage = c.snapshotCreateForceHash

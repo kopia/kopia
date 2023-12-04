@@ -286,10 +286,12 @@ func shutdownServer(ctx context.Context, httpServer *http.Server, srv *server.Se
 	}
 
 	rep := srv.GetRepository()
-	if rep != nil {
-		if rerr := rep.Close(ctx); rerr != nil {
-			log(ctx).Debugf("unable to shut down repository: %v", rerr)
-		}
+	if rep == nil {
+		return
+	}
+
+	if rerr := rep.Close(ctx); rerr != nil {
+		log(ctx).Debugf("unable to shut down repository: %v", rerr)
 	}
 }
 
