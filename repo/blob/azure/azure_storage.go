@@ -133,14 +133,21 @@ func translateError(err error) error {
 }
 
 func (az *azStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes, opts blob.PutOptions) error {
-	switch {
-	case opts.HasRetentionOptions():
-		return errors.Wrap(blob.ErrUnsupportedPutBlobOption, "blob-retention")
-	case opts.DoNotRecreate:
+	if opts.DoNotRecreate {
 		return errors.Wrap(blob.ErrUnsupportedPutBlobOption, "do-not-recreate")
 	}
 
-	_, err := az.putBlob(ctx, b, data, opts)
+	o := blob.PutOptions{
+		RetentionPeriod: opts.RetentionPeriod,
+		SetModTime:      opts.SetModTime,
+		GetModTime:      opts.GetModTime,
+	}
+
+	if opts.HasRetentionOptions() {
+		o.RetentionMode = blob.Locked // override Compliance/Governance to be Locked for Azure
+	}
+
+	_, err := az.putBlob(ctx, b, data, o)
 
 	return err
 }
@@ -189,7 +196,7 @@ func (az *azStorage) getObjectNameString(b blob.ID) string {
 
 // ListBlobs list azure blobs with given prefix.
 func (az *azStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback func(blob.Metadata) error) error {
-	prefixStr := az.Prefix + string(prefix)
+	prefixStr := az.getObjectNameString(prefix)
 
 	pager := az.service.NewListBlobsFlatPager(az.container, &azblob.ListBlobsFlatOptions{
 		Prefix: &prefixStr,
@@ -205,19 +212,7 @@ func (az *azStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback fun
 		}
 
 		for _, it := range page.Segment.BlobItems {
-			n := *it.Name
-
-			bm := blob.Metadata{
-				BlobID: blob.ID(n[len(az.Prefix):]),
-				Length: *it.Properties.ContentLength,
-			}
-
-			// see if we have 'Kopiamtime' metadata, if so - trust it.
-			if t, ok := timestampmeta.FromValue(stringDefault(it.Metadata["kopiamtime"], "")); ok {
-				bm.Timestamp = t
-			} else {
-				bm.Timestamp = *it.Properties.LastModified
-			}
+			bm := az.getBlobMeta(it)
 
 			if err := callback(bm); err != nil {
 				return err
@@ -285,6 +280,7 @@ func (az *azStorage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes, op
 	}
 
 	if opts.HasRetentionOptions() {
+		// kopia delete marker blob must be "Unlocked", thus it cannot be overridden to "Locked" here.
 		mode := azblobblob.ImmutabilityPolicySetting(opts.RetentionMode)
 		retainUntilDate := clock.Now().Add(opts.RetentionPeriod).UTC()
 		uo.ImmutabilityPolicyMode = &mode
