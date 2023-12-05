@@ -44,15 +44,19 @@ func (t TimeOfDay) String() string {
 	return fmt.Sprintf("%v:%02v", t.Hour, t.Minute)
 }
 
-// SortAndDedupeTimesOfDay sorts the slice of times of day.
+// SortAndDedupeTimesOfDay sorts the slice of times of day and removes duplicates.
 func SortAndDedupeTimesOfDay(tod []TimeOfDay) []TimeOfDay {
 	slices.SortFunc(tod, func(a, b TimeOfDay) int {
 		if n := cmp.Compare(a.Hour, b.Hour); n != 0 {
+
 			return n
 		}
+
 		// If hours are equal sort by minute
 		return cmp.Compare(a.Minute, b.Minute)
 	})
+
+	// Remove subsequent duplicates
 	return slices.Compact[[]TimeOfDay, TimeOfDay](tod)
 }
 
