@@ -53,7 +53,7 @@ The [Getting Started Guide](../getting-started/) provides directions on how to r
 
 #### How Do I Define Files And Folders To Be Ignored By Kopia?
 
-Files and directories can be ignored from snapshots by adding `ignore rules` to the `policy` or creating `.kopiagignore` files. For more information, please refer to our [guide on creating ignore rules](../advanced/kopiaignore/).
+Files and directories can be ignored from snapshots by adding `ignore rules` to the `policy` or creating `.kopiaignore` files. For more information, please refer to our [guide on creating ignore rules](../advanced/kopiaignore/).
 
 #### How Do I Enable Encryption?
 
