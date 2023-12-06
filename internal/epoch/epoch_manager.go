@@ -256,22 +256,6 @@ func (e *Manager) AdvanceDeletionWatermark(ctx context.Context, ts time.Time) er
 	return nil
 }
 
-// ForceAdvanceEpoch advances current epoch unconditionally.
-func (e *Manager) ForceAdvanceEpoch(ctx context.Context) error {
-	cs, err := e.committedState(ctx, 0)
-	if err != nil {
-		return err
-	}
-
-	e.Invalidate()
-
-	if err := e.advanceEpoch(ctx, cs); err != nil {
-		return errors.Wrap(err, "error advancing epoch")
-	}
-
-	return nil
-}
-
 // Refresh refreshes information about current epoch.
 func (e *Manager) Refresh(ctx context.Context) error {
 	e.mu.Lock()
