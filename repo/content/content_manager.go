@@ -944,8 +944,6 @@ func (bm *WriteManager) MetadataCache() cache.ContentCache {
 type ManagerOptions struct {
 	TimeNow                func() time.Time // Time provider
 	DisableInternalLog     bool
-	RetentionMode          string
-	RetentionPeriod        time.Duration
 	PermissiveCacheLoading bool
 }
 
