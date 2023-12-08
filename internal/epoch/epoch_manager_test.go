@@ -436,11 +436,11 @@ func TestGetCompleteIndexSetRetriesIfTookTooLong(t *testing.T) {
 
 	// advance by 3 epochs to ensure GetCompleteIndexSet will be trying to list some blobs
 	// some blobs that were not fetched during Refresh().
-	te.mgr.ForceAdvanceEpoch(ctx)
+	te.mgr.forceAdvanceEpoch(ctx)
 	te.ft.Advance(1 * time.Hour)
-	te.mgr.ForceAdvanceEpoch(ctx)
+	te.mgr.forceAdvanceEpoch(ctx)
 	te.ft.Advance(1 * time.Hour)
-	te.mgr.ForceAdvanceEpoch(ctx)
+	te.mgr.forceAdvanceEpoch(ctx)
 	te.ft.Advance(1 * time.Hour)
 
 	// load committed state
@@ -495,7 +495,7 @@ func TestSlowWrite_MovesToNextEpoch(t *testing.T) {
 	te.faultyStorage.AddFaults(blobtesting.MethodPutBlob,
 		fault.New().Before(func() {
 			te.ft.Advance(1 * time.Hour)
-			te.mgr.ForceAdvanceEpoch(ctx)
+			te.mgr.forceAdvanceEpoch(ctx)
 		}),
 		fault.New().Before(func() { te.ft.Advance(1 * time.Hour) }))
 
@@ -522,8 +522,8 @@ func TestSlowWrite_MovesToNextEpochTwice(t *testing.T) {
 			te.ft.Advance(24 * time.Hour)
 		}),
 		fault.New().Before(func() {
-			te.mgr.ForceAdvanceEpoch(ctx)
-			te.mgr.ForceAdvanceEpoch(ctx)
+			te.mgr.forceAdvanceEpoch(ctx)
+			te.mgr.forceAdvanceEpoch(ctx)
 		}))
 
 	_, err := te.writeIndexFiles(ctx,
@@ -544,13 +544,13 @@ func TestForceAdvanceEpoch(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 0, cs.WriteEpoch)
 
-	require.NoError(t, te.mgr.ForceAdvanceEpoch(ctx))
+	require.NoError(t, te.mgr.forceAdvanceEpoch(ctx))
 
 	cs, err = te.mgr.Current(ctx)
 	require.NoError(t, err)
 	require.Equal(t, 1, cs.WriteEpoch)
 
-	require.NoError(t, te.mgr.ForceAdvanceEpoch(ctx))
+	require.NoError(t, te.mgr.forceAdvanceEpoch(ctx))
 
 	cs, err = te.mgr.Current(ctx)
 	require.NoError(t, err)
@@ -581,14 +581,14 @@ func TestInvalid_ForceAdvanceEpoch(t *testing.T) {
 	ctx, cancel := context.WithCancel(testlogging.Context(t))
 	defer cancel()
 
-	err := te.mgr.ForceAdvanceEpoch(ctx)
+	err := te.mgr.forceAdvanceEpoch(ctx)
 	require.ErrorIs(t, err, ctx.Err())
 
 	ctx = testlogging.Context(t)
 	someError := errors.Errorf("failed")
 	te.faultyStorage.AddFault(blobtesting.MethodPutBlob).ErrorInstead(someError)
 
-	err = te.mgr.ForceAdvanceEpoch(ctx)
+	err = te.mgr.forceAdvanceEpoch(ctx)
 	require.ErrorIs(t, err, someError)
 }
 
@@ -815,4 +815,20 @@ type parameterProvider struct {
 
 func (p parameterProvider) GetParameters() (*Parameters, error) {
 	return p.Parameters, nil
+}
+
+// forceAdvanceEpoch advances current epoch unconditionally.
+func (e *Manager) forceAdvanceEpoch(ctx context.Context) error {
+	cs, err := e.committedState(ctx, 0)
+	if err != nil {
+		return err
+	}
+
+	e.Invalidate()
+
+	if err := e.advanceEpoch(ctx, cs); err != nil {
+		return errors.Wrap(err, "error advancing epoch")
+	}
+
+	return nil
 }

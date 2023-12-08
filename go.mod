@@ -21,7 +21,7 @@ require (
 	github.com/gofrs/flock v0.8.1
 	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/golang/protobuf v1.5.3
-	github.com/google/fswalker v0.3.2
+	github.com/google/fswalker v0.3.3-0.20231129010601-c0a7aa51805d
 	github.com/google/go-cmp v0.6.0
 	github.com/google/uuid v1.4.0
 	github.com/gorilla/mux v1.8.1
@@ -64,7 +64,7 @@ require (
 	golang.org/x/sys v0.15.0
 	golang.org/x/term v0.15.0
 	golang.org/x/text v0.14.0
-	google.golang.org/api v0.152.0
+	google.golang.org/api v0.153.0
 	google.golang.org/grpc v1.59.0
 	google.golang.org/protobuf v1.31.0
 	gopkg.in/kothar/go-backblaze.v0 v0.0.0-20210124194846-35409b867216
