@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/internal/mount"
 	"github.com/kopia/kopia/internal/uitask"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
@@ -202,7 +203,8 @@ type EditSnapshotsRequest struct {
 
 // MountSnapshotRequest contains request to mount a snapshot.
 type MountSnapshotRequest struct {
-	Root string `json:"root"`
+	Root    string        `json:"root"`
+	Options mount.Options `json:"options"`
 }
 
 // UnmountSnapshotRequest contains request to unmount a snapshot.
@@ -291,6 +293,8 @@ type CLIInfo struct {
 type UIPreferences struct {
 	BytesStringBase2       bool   `json:"bytesStringBase2"`       // If `true`, display storage values in base-2 (default is base-10)
 	DefaultSnapshotViewAll bool   `json:"defaultSnapshotViewAll"` // If `true` default to showing all snapshots (default is local snapshots)
-	Theme                  string `json:"theme"`                  // 'dark', 'light' or ''
+	Theme                  string `json:"theme"`                  // Specifies the theme {light, dark, ocean, pastel} used by the UI
+	PreferWebDav           bool   `json:"preferWebDav"`           // If `true`, uses WebDav to mount snapshots even though FUSE is supported
+	FontSize               string `json:"fontSize"`               // Specifies the font size {small, medium, large} used by the UI
 	PageSize               int    `json:"pageSize"`               // A page size; the actual possible values will only be provided by the frontend
 }
