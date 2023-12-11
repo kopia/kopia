@@ -48,7 +48,6 @@ func (t TimeOfDay) String() string {
 func SortAndDedupeTimesOfDay(tod []TimeOfDay) []TimeOfDay {
 	slices.SortFunc(tod, func(a, b TimeOfDay) int {
 		if n := cmp.Compare(a.Hour, b.Hour); n != 0 {
-
 			return n
 		}
 
