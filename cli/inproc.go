@@ -2,7 +2,9 @@ package cli
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"runtime"
 
 	"github.com/alecthomas/kingpin/v2"
 
@@ -27,12 +29,10 @@ func (c *App) RunSubcommand(ctx context.Context, kpapp *kingpin.Application, std
 
 	c.Attach(kpapp)
 
-	var exitError error
-
-	resultErr := make(chan error, 1)
+	resultErr := make(chan error, runtime.NumCPU() + 1)
 
 	c.exitWithError = func(ec error) {
-		exitError = ec
+		resultErr <- ec
 	}
 
 	go func() {
@@ -41,9 +41,11 @@ func (c *App) RunSubcommand(ctx context.Context, kpapp *kingpin.Application, std
 			releasable.Released("simulated-ctrl-c", c.simulatedCtrlC)
 		}()
 
-		defer close(resultErr)
-		defer stderrWriter.Close() //nolint:errcheck
-		defer stdoutWriter.Close() //nolint:errcheck
+		defer func() {
+			close(resultErr)
+			stderrWriter.Close() //nolint:errcheck
+			stdoutWriter.Close() //nolint:errcheck
+		}()
 
 		_, err := kpapp.Parse(argsAndFlags)
 		if err != nil {
@@ -51,10 +53,6 @@ func (c *App) RunSubcommand(ctx context.Context, kpapp *kingpin.Application, std
 			return
 		}
 
-		if exitError != nil {
-			resultErr <- exitError
-			return
-		}
 	}()
 
 	return stdoutReader, stderrReader, func() error {
