@@ -30,8 +30,8 @@ updates:
     groups:
       github-actions:
         patterns:
-        - "^actions/*"
-        - "^github/codeql-action"
+        - "actions/*"
+        - "github/codeql-action"
       docker:
         patterns:
         - "docker/*"
