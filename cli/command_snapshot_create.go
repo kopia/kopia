@@ -239,7 +239,6 @@ func (c *commandSnapshotCreate) setupUploader(ctx context.Context, rep repo.Repo
 		u.Cancel()
 
 		// use new context as old one may have already errored out
-		// test changing this to run() context in future
 		ctx0, canfn := context.WithTimeout(context.Background(), debug.PPROFDumpTimeout)
 		defer canfn()
 
@@ -247,7 +246,6 @@ func (c *commandSnapshotCreate) setupUploader(ctx context.Context, rep repo.Repo
 	})
 
 	c.svc.onSigDump(func() {
-		// no context passed into function.  Consider adding context to this function call
 		ctx0, canfn := context.WithTimeout(ctx, debug.PPROFDumpTimeout)
 		defer canfn()
 
@@ -262,7 +260,6 @@ func (c *commandSnapshotCreate) setupUploader(ctx context.Context, rep repo.Repo
 		u.Cancel()
 
 		// use new context as old one may have already errored out
-		// test changing this to run() context in future
 		ctx0, canfn := context.WithTimeout(context.Background(), debug.PPROFDumpTimeout)
 		defer canfn()
 

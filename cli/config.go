@@ -47,7 +47,7 @@ func onSig(chn chan bool, sig os.Signal, f func()) {
 	signal.Notify(s, sig)
 
 	go func() {
-		// invoke the function when either real or simulated SIGTERM signal is delivered
+		// invoke the function when either real or simulated signal is delivered
 		select {
 		case v := <-chn:
 			if !v {

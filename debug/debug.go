@@ -27,7 +27,7 @@ type ProfileName string
 
 const (
 	pair = 2
-	// PPROFDumpTimeout when dumping PPROF data, set an upper bound on the time it can take to log. (default 15s).
+	// PPROFDumpTimeout Set a time upper bound for dumps.
 	PPROFDumpTimeout = 15 * time.Second
 )
 
@@ -376,8 +376,10 @@ func StopProfileBuffers(ctx context.Context) {
 	// dump the profiles out into their respective PEMs
 	for k, v := range pprofConfigs.pcm {
 		// process context
-		if ctx.Err() != nil {
-			log(ctx).With("cause", ctx.Err()).Error("cannot write PEM")
+		err := ctx.Err()
+		if err != nil {
+			// ctx context may be bad, so use context.Background for safety
+			log(context.Background()).With("cause", err).Error("cannot write PEM")
 			return
 		}
 
