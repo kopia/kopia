@@ -274,6 +274,8 @@ func (c *commandServerStart) run(ctx context.Context) error {
 }
 
 // shutdownServer shutdown http server and close the repository.
+//
+//nolint:revive,unparam
 func shutdownServer(ctx context.Context, httpServer *http.Server, srv *server.Server) {
 	log(ctx).Infof("Shutting down...")
 

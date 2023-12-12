@@ -5,10 +5,8 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/signal"
 	"path/filepath"
 	"runtime"
-	"syscall"
 
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/pkg/errors"
@@ -31,33 +29,15 @@ func (c *App) onRepositoryFatalError(f func(err error)) {
 }
 
 func (c *App) onSigTerm(f func()) {
-	onSig(c.simulatedSigTerm, syscall.SIGTERM, f)
+	onSig(c.simulatedSigTerm, SignalTerminate, f)
 }
 
 func (c *App) onSigDump(f func()) {
-	onSig(c.simulatedSigDump, syscall.SIGUSR1, f)
+	onSig(c.simulatedSigDump, SignalDump, f)
 }
 
 func (c *App) onCtrlC(f func()) {
-	onSig(c.simulatedCtrlC, os.Interrupt, f)
-}
-
-func onSig(chn chan bool, sig os.Signal, f func()) {
-	s := make(chan os.Signal, 1)
-	signal.Notify(s, sig)
-
-	go func() {
-		// invoke the function when either real or simulated signal is delivered
-		select {
-		case v := <-chn:
-			if !v {
-				return
-			}
-
-		case <-s:
-		}
-		f()
-	}()
+	onSig(c.simulatedCtrlC, SignalInterrupt, f)
 }
 
 func (c *App) openRepository(ctx context.Context, required bool) (repo.Repository, error) {

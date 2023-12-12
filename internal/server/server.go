@@ -594,7 +594,6 @@ func (s *Server) SetRepository(ctx context.Context, rep repo.Repository) error {
 			s.maint.stop(ctx)
 			s.maint = nil
 		}
-
 	}
 
 	s.rep = rep

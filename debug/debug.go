@@ -379,7 +379,7 @@ func StopProfileBuffers(ctx context.Context) {
 		err := ctx.Err()
 		if err != nil {
 			// ctx context may be bad, so use context.Background for safety
-			log(context.Background()).With("cause", err).Error("cannot write PEM")
+			log(ctx).With("cause", err).Warn("cannot write PEM")
 			return
 		}
 
@@ -390,7 +390,7 @@ func StopProfileBuffers(ctx context.Context) {
 		unm := strings.ToUpper(string(k))
 		log(ctx).Infof("dumping PEM for %q", unm)
 
-		err := DumpPem(ctx, v.buf.Bytes(), unm, os.Stderr)
+		err = DumpPem(ctx, v.buf.Bytes(), unm, os.Stderr)
 		if err != nil {
 			log(ctx).With("cause", err).Error("cannot write PEM")
 			return

@@ -2,11 +2,11 @@ package cli
 
 import (
 	"context"
-	"go.uber.org/multierr"
 	"io"
 	"runtime"
 
 	"github.com/alecthomas/kingpin/v2"
+	"go.uber.org/multierr"
 
 	"github.com/kopia/kopia/internal/releasable"
 	"github.com/kopia/kopia/repo/logging"
@@ -51,7 +51,6 @@ func (c *App) RunSubcommand(ctx context.Context, kpapp *kingpin.Application, std
 			resultErr <- err
 			return
 		}
-
 	}()
 
 	return stdoutReader, stderrReader, func() error {
@@ -59,6 +58,8 @@ func (c *App) RunSubcommand(ctx context.Context, kpapp *kingpin.Application, std
 			for oneError := range resultErr {
 				err = multierr.Append(err, oneError)
 			}
+
+			//nolint:wrapcheck
 			return err
 		}, func() {
 			// deliver simulated Ctrl-C to the app.
