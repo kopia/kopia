@@ -212,6 +212,8 @@ func (c *commandServerStart) run(ctx context.Context) error {
 		// wait for all connections to finish for up to 5 seconds
 		log(ctx2).Debugf("attempting graceful shutdown for %v", c.shutdownGracePeriod)
 
+		debug.StopProfileBuffers(ctx)
+
 		if serr := httpServer.Shutdown(ctx2); serr != nil {
 			// graceful shutdown unsuccessful, force close
 			log(ctx2).Debugf("unable to shut down gracefully - closing: %v", serr)
@@ -274,6 +276,8 @@ func (c *commandServerStart) run(ctx context.Context) error {
 // shutdownServer shutdown http server and close the repository.
 func shutdownServer(ctx context.Context, httpServer *http.Server, srv *server.Server) {
 	log(ctx).Infof("Shutting down...")
+
+	debug.StopProfileBuffers(ctx)
 
 	if serr := httpServer.Shutdown(ctx); serr != nil {
 		log(ctx).Debugf("unable to shut down http server: %v", serr)

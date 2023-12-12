@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"go.uber.org/multierr"
 	"io"
 	"runtime"
 
@@ -28,7 +29,9 @@ func (c *App) RunSubcommand(ctx context.Context, kpapp *kingpin.Application, std
 
 	c.Attach(kpapp)
 
-	resultErr := make(chan error, runtime.NumCPU() + 1)
+	// each call-site will send on channel once before process exit.  Close below applies to each subcommand so
+	// should only need NumCPU channel slots.
+	resultErr := make(chan error, runtime.NumCPU())
 
 	c.exitWithError = func(ec error) {
 		resultErr <- ec
@@ -36,14 +39,11 @@ func (c *App) RunSubcommand(ctx context.Context, kpapp *kingpin.Application, std
 
 	go func() {
 		defer func() {
+			stdoutWriter.Close() //nolint:errcheck
+			stderrWriter.Close() //nolint:errcheck
+			close(resultErr)
 			close(c.simulatedCtrlC)
 			releasable.Released("simulated-ctrl-c", c.simulatedCtrlC)
-		}()
-
-		defer func() {
-			close(resultErr)
-			stderrWriter.Close() //nolint:errcheck
-			stdoutWriter.Close() //nolint:errcheck
 		}()
 
 		_, err := kpapp.Parse(argsAndFlags)
@@ -55,7 +55,11 @@ func (c *App) RunSubcommand(ctx context.Context, kpapp *kingpin.Application, std
 	}()
 
 	return stdoutReader, stderrReader, func() error {
-			return <-resultErr
+			var err error
+			for oneError := range resultErr {
+				err = multierr.Append(err, oneError)
+			}
+			return err
 		}, func() {
 			// deliver simulated Ctrl-C to the app.
 			c.simulatedCtrlC <- true
