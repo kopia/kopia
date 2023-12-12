@@ -186,6 +186,8 @@ type Manager struct {
 	log      logging.Logger
 	timeFunc func() time.Time
 
+	allowCleanupWritesOnIndexLoad bool
+
 	// wait group that waits for all compaction and cleanup goroutines.
 	backgroundWork sync.WaitGroup
 
@@ -485,7 +487,7 @@ func (e *Manager) maybeCompactAndCleanupLocked(ctx context.Context, p *Parameter
 // These index cleanup operations are disabled when using read-only storage
 // since they will fail when they try to mutate the underlying storage.
 func (e *Manager) allowWritesOnLoad() bool {
-	return !e.st.IsReadOnly()
+	return e.allowCleanupWritesOnIndexLoad && !e.st.IsReadOnly()
 }
 
 func (e *Manager) loadWriteEpoch(ctx context.Context, cs *CurrentSnapshot) error {
