@@ -27,6 +27,14 @@ updates:
     open-pull-requests-limit: 3
     schedule:
       interval: weekly
+    groups:
+      github-actions:
+        patterns:
+        - "^actions/*"
+        - "^github/codeql-action"
+      docker:
+        patterns:
+        - "docker/*"
   - package-ecosystem: npm
     directory: "/app"
     schedule:
