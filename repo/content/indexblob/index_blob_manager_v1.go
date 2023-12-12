@@ -115,7 +115,7 @@ func (m *ManagerV1) CompactEpoch(ctx context.Context, blobIDs []blob.ID, outputP
 	return nil
 }
 
-// WriteIndexBlobs writes the provided data shards into new index blobs oprionally appending the provided suffix.
+// WriteIndexBlobs writes dataShards into new index blobs with an optional blob name suffix.
 // The writes are atomic in the sense that if any of them fails, the reader will
 // ignore all of the indexes that share the same suffix.
 func (m *ManagerV1) WriteIndexBlobs(ctx context.Context, dataShards []gather.Bytes, suffix blob.ID) ([]blob.Metadata, error) {
