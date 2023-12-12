@@ -862,6 +862,11 @@ func openGRPCAPIRepository(ctx context.Context, si *APIServerInfo, password stri
 		return nil, errors.Wrap(err, "dial error")
 	}
 
+	par.refCountedCloser.registerEarlyCloseFunc(
+		func(ctx context.Context) error {
+			return errors.Wrap(conn.Close(), "error closing GRPC connection")
+		})
+
 	rep, err := newGRPCAPIRepositoryForConnection(ctx, conn, WriteSessionOptions{}, true, par)
 	if err != nil {
 		return nil, err
@@ -870,7 +875,7 @@ func openGRPCAPIRepository(ctx context.Context, si *APIServerInfo, password stri
 	par.refCountedCloser.registerEarlyCloseFunc(
 		func(ctx context.Context) error {
 			rep.CloseDebug(ctx)
-			return errors.Wrap(conn.Close(), "error closing GRPC connection")
+			return nil
 		})
 
 	return rep, nil

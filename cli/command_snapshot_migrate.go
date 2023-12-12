@@ -54,8 +54,6 @@ func (c *commandSnapshotMigrate) run(ctx context.Context, destRepo repo.Reposito
 
 	defer func() {
 		//nolint:errcheck
-		destRepo.Close(ctx)
-		//nolint:errcheck
 		sourceRepo.Close(ctx)
 	}()
 
