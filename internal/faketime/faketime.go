@@ -80,8 +80,8 @@ func (t *ClockTimeWithOffset) NowFunc() func() time.Time {
 	}
 }
 
-// Advance advances t by dt, such that the next call to t.NowFunc()() returns
-// current t + dt.
+// Advance increases the time offset by dt, such that the next call to
+// t.NowFunc()() returns current time + new offset.
 func (t *ClockTimeWithOffset) Advance(dt time.Duration) time.Time {
 	t.mu.Lock()
 	defer t.mu.Unlock()
