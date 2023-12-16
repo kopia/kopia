@@ -17,11 +17,11 @@ func Frozen(t time.Time) func() time.Time {
 }
 
 // AutoAdvance returns a time source function that returns a time equal to
-// 't + ((n - 1) * dt)' wheren n is the number of serialized invocations of
+// 'start + ((n - 1) * dt)' wheren n is the number of serialized invocations of
 // the returned function. The returned function will generate a time series of
-// the form [t, t+dt, t+2dt, t+3dt, ...].
-func AutoAdvance(t time.Time, dt time.Duration) func() time.Time {
-	return NewTimeAdvance(t, dt).NowFunc()
+// the form [start, start+dt, start+2dt, start+3dt, ...].
+func AutoAdvance(start time.Time, dt time.Duration) func() time.Time {
+	return NewTimeAdvance(start, dt).NowFunc()
 }
 
 // TimeAdvance allows controlling the passage of time. Intended to be used in
