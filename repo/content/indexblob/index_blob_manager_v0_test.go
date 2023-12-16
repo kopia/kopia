@@ -71,8 +71,8 @@ func TestIndexBlobManager(t *testing.T) {
 			// fake underlying blob store with fake time
 			storageData := blobtesting.DataMap{}
 
-			fakeLocalTime := faketime.NewTimeAdvance(fakeLocalStartTime, 0)
-			fakeStorageTime := faketime.NewTimeAdvance(fakeStoreStartTime, 0)
+			fakeLocalTime := faketime.NewTimeAdvance(fakeLocalStartTime)
+			fakeStorageTime := faketime.NewTimeAdvance(fakeStoreStartTime)
 
 			st := blobtesting.NewMapStorage(storageData, nil, fakeStorageTime.NowFunc())
 			st = blobtesting.NewEventuallyConsistentStorage(st, testEventualConsistencySettleTime, fakeStorageTime.NowFunc())
@@ -280,7 +280,7 @@ func TestIndexBlobManagerPreventsResurrectOfDeletedContents(t *testing.T) {
 func TestCompactionCreatesPreviousIndex(t *testing.T) {
 	storageData := blobtesting.DataMap{}
 
-	fakeTime := faketime.NewTimeAdvance(fakeLocalStartTime, 0)
+	fakeTime := faketime.NewTimeAdvance(fakeLocalStartTime)
 	fakeTimeFunc := fakeTime.NowFunc()
 
 	st := blobtesting.NewMapStorage(storageData, nil, fakeTimeFunc)
@@ -358,7 +358,7 @@ func verifyIndexBlobManagerPreventsResurrectOfDeletedContents(t *testing.T, dela
 
 	storageData := blobtesting.DataMap{}
 
-	fakeTime := faketime.NewTimeAdvance(fakeLocalStartTime, 0)
+	fakeTime := faketime.NewTimeAdvance(fakeLocalStartTime)
 	fakeTimeFunc := fakeTime.NowFunc()
 
 	st := blobtesting.NewMapStorage(storageData, nil, fakeTimeFunc)

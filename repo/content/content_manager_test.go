@@ -354,7 +354,7 @@ func (s *contentManagerSuite) TestContentManagerFailedToWritePack(t *testing.T) 
 	faulty := blobtesting.NewFaultyStorage(st)
 	st = faulty
 
-	ta := faketime.NewTimeAdvance(fakeTime, 0)
+	ta := faketime.NewTimeAdvance(fakeTime)
 
 	bm, err := NewManagerForTesting(testlogging.Context(t), st, mustCreateFormatProvider(t, &format.ContentFormat{
 		Hash:              "HMAC-SHA256-128",
