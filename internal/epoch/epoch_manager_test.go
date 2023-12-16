@@ -335,6 +335,45 @@ func TestIndexEpochManager_DeletionFailing(t *testing.T) {
 	verifySequentialWrites(t, te)
 }
 
+func TestEpochAdvanceOnIndexWrite(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+	te := newTestEnv(t)
+
+	p, err := te.mgr.getParameters()
+	require.NoError(t, err)
+
+	count := p.GetEpochAdvanceOnCountThreshold()
+	minDuration := p.MinEpochDuration
+
+	// Write enough index blobs such that the next time the manager loads
+	// indexes it should attempt to advance the epoch.
+	// Write exactly the number of index blobs that will cause it to advance so
+	// we can keep track of which one is the current epoch.
+	for j := 0; j < 3; j++ {
+		for i := 0; i < count-1; i++ {
+			te.mustWriteIndexFiles(ctx, t, newFakeIndexWithEntries(i))
+		}
+
+		// force epoch advancement
+		te.ft.Advance(3*minDuration + time.Second)
+		te.mustWriteIndexFiles(ctx, t, newFakeIndexWithEntries(count-1))
+	}
+
+	te.mgr.Flush() // wait for background work
+
+	// check what blobs were written
+	te.st.ListBlobs(ctx, "", func(bm blob.Metadata) error {
+		t.Log("index blob:", bm.BlobID, bm.Timestamp)
+		return nil
+	})
+
+	t.Log("minDuration:", minDuration)
+
+	t.Fail()
+}
+
 func TestIndexEpochManager_NoCompactionInReadOnly(t *testing.T) {
 	t.Parallel()
 
