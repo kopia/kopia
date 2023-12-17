@@ -767,7 +767,7 @@ func (e *Manager) WriteIndex(ctx context.Context, dataShards map[blob.ID]blob.By
 	writtenForEpoch := -1
 
 	for {
-		e.log.Debugf("refreshAttemptLocked")
+		e.log.Debug("WriteIndex")
 
 		p, err := e.getParameters()
 		if err != nil {
