@@ -630,7 +630,7 @@ func (e *Manager) loadUncompactedEpochs(ctx context.Context, min, max int) (map[
 // refreshAttemptLocked attempts to load the committedState of
 // the index and updates `lastKnownState` state atomically when complete.
 func (e *Manager) refreshAttemptLocked(ctx context.Context) error {
-	e.log.Debugf("refreshAttemptLocked")
+	e.log.Debug("refreshAttemptLocked")
 
 	p, perr := e.getParameters()
 	if perr != nil {
