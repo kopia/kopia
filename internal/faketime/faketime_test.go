@@ -78,7 +78,7 @@ func TestAutoAdvance(t *testing.T) {
 
 func TestTimeAdvance(t *testing.T) {
 	startTime := time.Date(2019, 1, 6, 0, 0, 0, 0, time.UTC)
-	ta := NewTimeAdvance(startTime, 0)
+	ta := NewTimeAdvance(startTime)
 	now := ta.NowFunc()
 
 	if got, want := now(), startTime; got != want {
@@ -101,7 +101,7 @@ func TestTimeAdvanceConcurrent(t *testing.T) {
 	)
 
 	startTime := time.Date(2018, 1, 6, 0, 0, 0, 0, time.UTC)
-	ta := NewTimeAdvance(startTime, 3*time.Second)
+	ta := NewAutoAdvance(startTime, 3*time.Second)
 	tchan := make(chan time.Time, 2*parallelism)
 
 	var wg sync.WaitGroup

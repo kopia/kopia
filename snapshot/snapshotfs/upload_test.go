@@ -90,7 +90,7 @@ func newUploadTestHarness(ctx context.Context, t *testing.T) *uploadTestHarness 
 		panic("unable to connect to repository: " + conerr.Error())
 	}
 
-	ft := faketime.NewTimeAdvance(time.Date(2018, time.February, 6, 0, 0, 0, 0, time.UTC), 0)
+	ft := faketime.NewTimeAdvance(time.Date(2018, time.February, 6, 0, 0, 0, 0, time.UTC))
 
 	rep, err := repo.Open(ctx, configFile, masterPassword, &repo.Options{
 		TimeNowFunc: ft.NowFunc(),

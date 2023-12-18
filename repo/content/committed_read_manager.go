@@ -443,7 +443,7 @@ func indexBlobCacheSweepSettings(caching *CachingOptions) cache.SweepSettings {
 	}
 }
 
-func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *CachingOptions, mr *metrics.Registry) error {
+func (sm *SharedManager) setupCachesAndIndexManagers(ctx context.Context, caching *CachingOptions, mr *metrics.Registry) error {
 	dataCache, err := cache.NewContentCache(ctx, sm.st, cache.Options{
 		BaseCacheDirectory: caching.CacheDirectory,
 		CacheSubDir:        "contents",
@@ -642,7 +642,7 @@ func NewSharedManager(ctx context.Context, st blob.Storage, prov format.Provider
 
 	caching = caching.CloneOrDefault()
 
-	if err := sm.setupReadManagerCaches(ctx, caching, mr); err != nil {
+	if err := sm.setupCachesAndIndexManagers(ctx, caching, mr); err != nil {
 		return nil, errors.Wrap(err, "error setting up read manager caches")
 	}
 
