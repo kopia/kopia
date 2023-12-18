@@ -10,7 +10,6 @@ import (
 
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/readonly"
-	"github.com/kopia/kopia/repo/format"
 )
 
 type azPointInTimeStorage struct {
@@ -179,19 +178,6 @@ func (az *azPointInTimeStorage) isAzureDeleteMarker(it *azblobmodels.BlobItem) b
 func maybePointInTimeStore(ctx context.Context, s *azStorage, pointInTime *time.Time) (blob.Storage, error) {
 	if pit := s.Options.PointInTime; pit == nil || pit.IsZero() {
 		return s, nil
-	}
-
-	// Versioning is needed for PIT. This check will fail if someone deleted the Kopia Repository file.
-	props, err := s.service.ServiceClient().
-		NewContainerClient(s.container).
-		NewBlobClient(s.getObjectNameString(format.KopiaRepositoryBlobID)).
-		GetProperties(ctx, nil)
-	if err != nil {
-		return nil, errors.Wrapf(err, "could not get determine if container '%s' supports versioning", s.container)
-	}
-
-	if props.VersionID == nil {
-		return nil, errors.Errorf("cannot create point-in-time view for non-versioned container '%s'", s.container)
 	}
 
 	return readonly.NewWrapper(&azPointInTimeStorage{
