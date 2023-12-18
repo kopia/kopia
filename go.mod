@@ -23,7 +23,7 @@ require (
 	github.com/golang/protobuf v1.5.3
 	github.com/google/fswalker v0.3.3-0.20231129010601-c0a7aa51805d
 	github.com/google/go-cmp v0.6.0
-	github.com/google/uuid v1.4.0
+	github.com/google/uuid v1.5.0
 	github.com/gorilla/mux v1.8.1
 	github.com/hanwen/go-fuse/v2 v2.4.0
 	github.com/hashicorp/cronexpr v1.1.2
