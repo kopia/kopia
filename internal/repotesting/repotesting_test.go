@@ -19,7 +19,7 @@ import (
 func TestTimeFuncWiring(t *testing.T) {
 	ctx, env := NewEnvironment(t, FormatNotImportant)
 
-	ft := faketime.NewTimeAdvance(time.Date(2018, time.February, 6, 0, 0, 0, 0, time.UTC), 0)
+	ft := faketime.NewTimeAdvance(time.Date(2018, time.February, 6, 0, 0, 0, 0, time.UTC))
 
 	// Re open with injected time
 	rep, err := repo.Open(ctx, env.RepositoryWriter.ConfigFilename(), env.Password, &repo.Options{TimeNowFunc: ft.NowFunc()})

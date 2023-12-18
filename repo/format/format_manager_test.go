@@ -52,7 +52,7 @@ func TestFormatManager(t *testing.T) {
 	ctx := testlogging.Context(t)
 
 	startTime := time.Date(2020, 1, 1, 12, 0, 0, 0, time.UTC)
-	ta := faketime.NewTimeAdvance(startTime, 0)
+	ta := faketime.NewTimeAdvance(startTime)
 	nowFunc := ta.NowFunc()
 	blobCache := format.NewMemoryBlobCache(nowFunc)
 
@@ -278,7 +278,7 @@ func TestUpdateRetentionNegativeValue(t *testing.T) {
 	ctx := testlogging.Context(t)
 
 	startTime := time.Date(2020, 1, 1, 12, 0, 0, 0, time.UTC)
-	ta := faketime.NewTimeAdvance(startTime, 0)
+	ta := faketime.NewTimeAdvance(startTime)
 	nowFunc := ta.NowFunc()
 
 	st := blobtesting.NewVersionedMapStorage(nowFunc)
@@ -329,7 +329,7 @@ func TestChangePassword(t *testing.T) {
 	ctx := testlogging.Context(t)
 
 	startTime := time.Date(2020, 1, 1, 12, 0, 0, 0, time.UTC)
-	ta := faketime.NewTimeAdvance(startTime, 0)
+	ta := faketime.NewTimeAdvance(startTime)
 	nowFunc := ta.NowFunc()
 	blobCache := format.NewMemoryBlobCache(nowFunc)
 
@@ -379,7 +379,7 @@ func TestFormatManagerValidDuration(t *testing.T) {
 		ctx := testlogging.Context(t)
 
 		startTime := time.Date(2020, 1, 1, 12, 0, 0, 0, time.UTC)
-		ta := faketime.NewTimeAdvance(startTime, 0)
+		ta := faketime.NewTimeAdvance(startTime)
 		nowFunc := ta.NowFunc()
 		blobCache := format.NewMemoryBlobCache(nowFunc)
 

@@ -25,7 +25,7 @@ type ManagerV1 struct {
 	formattingOptions IndexFormattingOptions
 	log               logging.Logger
 
-	EpochMgr *epoch.Manager
+	epochMgr *epoch.Manager
 }
 
 // ListIndexBlobInfos list active blob info structs.  Also returns time of latest content deletion commit.
@@ -36,7 +36,7 @@ func (m *ManagerV1) ListIndexBlobInfos(ctx context.Context) ([]Metadata, time.Ti
 // ListActiveIndexBlobs lists the metadata for active index blobs and returns the cut-off time
 // before which all deleted index entries should be treated as non-existent.
 func (m *ManagerV1) ListActiveIndexBlobs(ctx context.Context) ([]Metadata, time.Time, error) {
-	active, deletionWatermark, err := m.EpochMgr.GetCompleteIndexSet(ctx, epoch.LatestEpoch)
+	active, deletionWatermark, err := m.epochMgr.GetCompleteIndexSet(ctx, epoch.LatestEpoch)
 	if err != nil {
 		return nil, time.Time{}, errors.Wrap(err, "error getting index set")
 	}
@@ -54,7 +54,7 @@ func (m *ManagerV1) ListActiveIndexBlobs(ctx context.Context) ([]Metadata, time.
 
 // Invalidate clears any read caches.
 func (m *ManagerV1) Invalidate() {
-	m.EpochMgr.Invalidate()
+	m.epochMgr.Invalidate()
 }
 
 // Compact advances the deletion watermark.
@@ -63,7 +63,7 @@ func (m *ManagerV1) Compact(ctx context.Context, opt CompactOptions) error {
 		return nil
 	}
 
-	return errors.Wrap(m.EpochMgr.AdvanceDeletionWatermark(ctx, opt.DropDeletedBefore), "error advancing deletion watermark")
+	return errors.Wrap(m.epochMgr.AdvanceDeletionWatermark(ctx, opt.DropDeletedBefore), "error advancing deletion watermark")
 }
 
 // CompactEpoch compacts the provided index blobs and writes a new set of blobs.
@@ -115,7 +115,7 @@ func (m *ManagerV1) CompactEpoch(ctx context.Context, blobIDs []blob.ID, outputP
 	return nil
 }
 
-// WriteIndexBlobs writes the provided data shards into new index blobs oprionally appending the provided suffix.
+// WriteIndexBlobs writes dataShards into new index blobs with an optional blob name suffix.
 // The writes are atomic in the sense that if any of them fails, the reader will
 // ignore all of the indexes that share the same suffix.
 func (m *ManagerV1) WriteIndexBlobs(ctx context.Context, dataShards []gather.Bytes, suffix blob.ID) ([]blob.Metadata, error) {
@@ -138,12 +138,12 @@ func (m *ManagerV1) WriteIndexBlobs(ctx context.Context, dataShards []gather.Byt
 	}
 
 	//nolint:wrapcheck
-	return m.EpochMgr.WriteIndex(ctx, shards)
+	return m.epochMgr.WriteIndex(ctx, shards)
 }
 
 // EpochManager returns the epoch manager.
 func (m *ManagerV1) EpochManager() *epoch.Manager {
-	return m.EpochMgr
+	return m.epochMgr
 }
 
 // PrepareUpgradeToIndexBlobManagerV1 prepares the repository for migrating to IndexBlobManagerV1.
@@ -182,7 +182,7 @@ func NewManagerV1(
 		log:               log,
 		formattingOptions: formattingOptions,
 
-		EpochMgr: epochMgr,
+		epochMgr: epochMgr,
 	}
 }
 

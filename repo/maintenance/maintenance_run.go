@@ -299,6 +299,7 @@ func runQuickMaintenance(ctx context.Context, runParams RunParameters, safety Sa
 		return errors.Wrap(err, "error performing index compaction")
 	}
 
+	// clean up logs last
 	if err := runTaskCleanupLogs(ctx, runParams, s); err != nil {
 		return errors.Wrap(err, "error cleaning up logs")
 	}
@@ -448,12 +449,13 @@ func runFullMaintenance(ctx context.Context, runParams RunParameters, safety Saf
 		log(ctx).Debug("Extending object lock retention-period is disabled.")
 	}
 
-	if err := runTaskCleanupLogs(ctx, runParams, s); err != nil {
-		return errors.Wrap(err, "error cleaning up logs")
-	}
-
 	if err := runTaskCleanupEpochManager(ctx, runParams, s); err != nil {
 		return errors.Wrap(err, "error cleaning up epoch manager")
+	}
+
+	// clean up logs last
+	if err := runTaskCleanupLogs(ctx, runParams, s); err != nil {
+		return errors.Wrap(err, "error cleaning up logs")
 	}
 
 	return nil
