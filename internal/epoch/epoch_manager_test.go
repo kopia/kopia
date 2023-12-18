@@ -88,12 +88,10 @@ func newTestEnv(t *testing.T) *epochManagerTestEnv {
 
 	data := blobtesting.DataMap{}
 	ft := faketime.NewClockTimeWithOffset(0)
-	st := blobtesting.NewMapStorage(data, nil, ft.NowFunc())
-	unloggedst := st
-	fs := blobtesting.NewFaultyStorage(st)
-	st = fs
-	st = logging.NewWrapper(st, testlogging.NewTestLogger(t), "[STORAGE] ")
-	te := &epochManagerTestEnv{unloggedst: unloggedst, st: st, ft: ft}
+	ms := blobtesting.NewMapStorage(data, nil, ft.NowFunc())
+	fs := blobtesting.NewFaultyStorage(ms)
+	st := logging.NewWrapper(fs, testlogging.NewTestLogger(t), "[STORAGE] ")
+	te := &epochManagerTestEnv{unloggedst: ms, st: st, ft: ft}
 	m := NewManager(te.st, parameterProvider{&Parameters{
 		Enabled:                 true,
 		EpochRefreshFrequency:   20 * time.Minute,
@@ -826,7 +824,7 @@ func (e *Manager) forceAdvanceEpoch(ctx context.Context) error {
 
 	e.Invalidate()
 
-	if err := e.advanceEpoch(ctx, cs); err != nil {
+	if err := e.advanceEpochMarker(ctx, cs); err != nil {
 		return errors.Wrap(err, "error advancing epoch")
 	}
 
