@@ -824,7 +824,7 @@ func (e *Manager) forceAdvanceEpoch(ctx context.Context) error {
 
 	e.Invalidate()
 
-	if err := e.advanceEpoch(ctx, cs); err != nil {
+	if err := e.advanceEpochMarker(ctx, cs); err != nil {
 		return errors.Wrap(err, "error advancing epoch")
 	}
 

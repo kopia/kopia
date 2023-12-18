@@ -679,7 +679,7 @@ func (e *Manager) refreshAttemptLocked(ctx context.Context) error {
 		cs.ValidUntil.Format(time.RFC3339Nano))
 
 	if !e.st.IsReadOnly() && shouldAdvance(cs.UncompactedEpochSets[cs.WriteEpoch], p.MinEpochDuration, p.EpochAdvanceOnCountThreshold, p.EpochAdvanceOnTotalSizeBytesThreshold) {
-		if err := e.advanceEpoch(ctx, cs); err != nil {
+		if err := e.advanceEpochMarker(ctx, cs); err != nil {
 			return errors.Wrap(err, "error advancing epoch")
 		}
 	}
@@ -703,7 +703,7 @@ func (e *Manager) refreshAttemptLocked(ctx context.Context) error {
 	return nil
 }
 
-func (e *Manager) advanceEpoch(ctx context.Context, cs CurrentSnapshot) error {
+func (e *Manager) advanceEpochMarker(ctx context.Context, cs CurrentSnapshot) error {
 	blobID := blob.ID(fmt.Sprintf("%v%v", string(EpochMarkerIndexBlobPrefix), cs.WriteEpoch+1))
 
 	if err := e.st.PutBlob(ctx, blobID, gather.FromSlice([]byte("epoch-marker")), blob.PutOptions{}); err != nil {
