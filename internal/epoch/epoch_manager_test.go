@@ -392,10 +392,9 @@ func TestIndexEpochManager_NoCompactionInReadOnly(t *testing.T) {
 
 	// Use assert.Eventually here so we'll exit the test early instead of getting
 	// stuck until the timeout.
-	var (
-		loadedDone atomic.Bool
-		loadedErr  atomic.Value
-	)
+	loadedDone := &atomic.Bool{}
+
+	var loadedErr atomic.Value
 
 	go func() {
 		if err := te2.mgr.Refresh(ctx); err != nil {
