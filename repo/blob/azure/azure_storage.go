@@ -417,10 +417,7 @@ func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error)
 		service:   service,
 	}
 
-	st, err := maybePointInTimeStore(ctx, raw, opt.PointInTime)
-	if err != nil {
-		return nil, err
-	}
+	st := maybePointInTimeStore(raw, opt.PointInTime)
 
 	az := retrying.NewWrapper(st)
 

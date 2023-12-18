@@ -175,13 +175,13 @@ func (az *azPointInTimeStorage) isAzureDeleteMarker(it *azblobmodels.BlobItem) b
 
 // maybePointInTimeStore wraps s with a point-in-time store when s is versioned
 // and a point-in-time value is specified. Otherwise, s is returned.
-func maybePointInTimeStore(ctx context.Context, s *azStorage, pointInTime *time.Time) (blob.Storage, error) {
+func maybePointInTimeStore(s *azStorage, pointInTime *time.Time) blob.Storage {
 	if pit := s.Options.PointInTime; pit == nil || pit.IsZero() {
-		return s, nil
+		return s
 	}
 
 	return readonly.NewWrapper(&azPointInTimeStorage{
 		azStorage:   *s,
 		pointInTime: *pointInTime,
-	}), nil
+	})
 }
