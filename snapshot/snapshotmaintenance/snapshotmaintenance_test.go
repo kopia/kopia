@@ -236,7 +236,7 @@ func newTestHarness(t *testing.T, formatVersion format.Version) *testHarness {
 
 	baseTime := time.Date(2020, 9, 10, 0, 0, 0, 0, time.UTC)
 	th := &testHarness{
-		fakeTime:  faketime.NewTimeAdvance(baseTime, time.Second),
+		fakeTime:  faketime.NewAutoAdvance(baseTime, time.Second),
 		sourceDir: mockfs.NewDirectory(),
 	}
 
