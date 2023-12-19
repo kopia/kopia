@@ -10,6 +10,7 @@ import (
 
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/readonly"
+	"github.com/kopia/kopia/repo/format"
 )
 
 type azPointInTimeStorage struct {
@@ -131,10 +132,13 @@ func (az *azPointInTimeStorage) listBlobVersions(ctx context.Context, prefix blo
 		}
 
 		for _, it := range page.Segment.BlobItems {
-			vm := az.getVersionedBlobMeta(it)
+			vm, err := az.getVersionedBlobMeta(it)
+			if err != nil {
+				return translateError(err)
+			}
 
-			if err := callback(vm); err != nil {
-				return err
+			if err := callback(*vm); err != nil {
+				return translateError(err)
 			}
 		}
 	}
@@ -175,13 +179,22 @@ func (az *azPointInTimeStorage) isAzureDeleteMarker(it *azblobmodels.BlobItem) b
 
 // maybePointInTimeStore wraps s with a point-in-time store when s is versioned
 // and a point-in-time value is specified. Otherwise, s is returned.
-func maybePointInTimeStore(s *azStorage, pointInTime *time.Time) blob.Storage {
+func maybePointInTimeStore(ctx context.Context, s *azStorage, pointInTime *time.Time) (blob.Storage, error) {
 	if pit := s.Options.PointInTime; pit == nil || pit.IsZero() {
-		return s
+		return s, nil
 	}
 
-	return readonly.NewWrapper(&azPointInTimeStorage{
+	pit := &azPointInTimeStorage{
 		azStorage:   *s,
-		pointInTime: *pointInTime,
+		pointInTime: *pointInTime, // not used for the check
+	}
+
+	err := pit.getBlobVersions(ctx, format.KopiaRepositoryBlobID, func(vm versionMetadata) error {
+		return nil
 	})
+	if err != nil {
+		return nil, errors.Wrap(err, "versioning must be enabled and a Kopia repository must exist")
+	}
+
+	return readonly.NewWrapper(pit), nil
 }

@@ -54,6 +54,8 @@ func TestGetBlobVersions(t *testing.T) {
 	// required for PIT versioning check
 	err = st.PutBlob(ctx, format.KopiaRepositoryBlobID, gather.FromSlice([]byte(nil)), blob.PutOptions{})
 	require.NoError(t, err)
+	err = st.DeleteBlob(ctx, format.KopiaRepositoryBlobID) // blob can be deleted and still work
+	require.NoError(t, err)
 
 	const (
 		originalData = "original"

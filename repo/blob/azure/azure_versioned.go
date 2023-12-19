@@ -4,6 +4,7 @@ import (
 	"context"
 
 	azblobmodels "github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/container"
+	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/repo/blob"
 )
@@ -19,14 +20,18 @@ type versionMetadata struct {
 
 type versionMetadataCallback func(versionMetadata) error
 
-func (az *azPointInTimeStorage) getVersionedBlobMeta(it *azblobmodels.BlobItem) versionMetadata {
+func (az *azPointInTimeStorage) getVersionedBlobMeta(it *azblobmodels.BlobItem) (*versionMetadata, error) {
+	if it.VersionID == nil {
+		return nil, errors.Errorf("versionID is nil. Versioning must be enabled on the container for PIT")
+	}
+
 	bm := az.getBlobMeta(it)
 
-	return versionMetadata{
+	return &versionMetadata{
 		Metadata:       bm,
 		Version:        *it.VersionID,
 		IsDeleteMarker: az.isAzureDeleteMarker(it),
-	}
+	}, nil
 }
 
 // getBlobVersions lists all the versions for the blob with the given prefix.
