@@ -403,11 +403,7 @@ func TestIndexEpochManager_NoCompactionInReadOnly(t *testing.T) {
 		loadedDone.Store(true)
 	}()
 
-	if !assert.Eventually(t, loadedDone.Load, time.Second*5, time.Second) {
-		// Return early so we don't report some odd failure on the error check below
-		// when we just never managed to initialize the epoch manager.
-		return
-	}
+	require.Eventually(t, loadedDone.Load, time.Second*2, time.Second)
 
 	assert.Nil(t, loadedErr.Load(), "refreshing read-only index")
 }
