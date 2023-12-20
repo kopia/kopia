@@ -36,16 +36,16 @@ type TaskType string
 
 // Task IDs.
 const (
-	TaskSnapshotGarbageCollection   = "snapshot-gc"
-	TaskDeleteOrphanedBlobsQuick    = "quick-delete-blobs"
-	TaskDeleteOrphanedBlobsFull     = "full-delete-blobs"
-	TaskRewriteContentsQuick        = "quick-rewrite-contents"
-	TaskRewriteContentsFull         = "full-rewrite-contents"
-	TaskDropDeletedContentsFull     = "full-drop-deleted-content"
-	TaskIndexCompaction             = "index-compaction"
-	TaskExtendBlobRetentionTimeFull = "extend-blob-retention-time"
-	TaskCleanupLogs                 = "cleanup-logs"
-	TaskCleanupEpochManager         = "cleanup-epoch-manager"
+	TaskSnapshotGarbageCollection    = "snapshot-gc"
+	TaskDeleteOrphanedBlobsQuick     = "quick-delete-blobs"
+	TaskDeleteOrphanedBlobsFull      = "full-delete-blobs"
+	TaskRewriteContentsQuick         = "quick-rewrite-contents"
+	TaskRewriteContentsFull          = "full-rewrite-contents"
+	TaskDropDeletedContentsFull      = "full-drop-deleted-content"
+	TaskIndexCompaction              = "index-compaction"
+	TaskExtendBlobRetentionTimeFull  = "extend-blob-retention-time"
+	TaskCleanupLogs                  = "cleanup-logs"
+	TaskEpochDeleteSupersededIndexes = "delete-superseded-epoch-indexes"
 )
 
 // shouldRun returns Mode if repository is due for periodic maintenance.
@@ -327,7 +327,7 @@ func runTaskCleanupLogs(ctx context.Context, runParams RunParameters, s *Schedul
 	})
 }
 
-func runTaskCleanupEpochManager(ctx context.Context, runParams RunParameters, s *Schedule) error {
+func runTaskEpochMaintenanceFull(ctx context.Context, runParams RunParameters, s *Schedule) error {
 	em, hasEpochManager, emerr := runParams.rep.ContentManager().EpochManager(ctx)
 	if emerr != nil {
 		return errors.Wrap(emerr, "epoch manager")
@@ -337,9 +337,9 @@ func runTaskCleanupEpochManager(ctx context.Context, runParams RunParameters, s 
 		return nil
 	}
 
-	return ReportRun(ctx, runParams.rep, TaskCleanupEpochManager, s, func() error {
+	return ReportRun(ctx, runParams.rep, TaskEpochDeleteSupersededIndexes, s, func() error {
 		log(ctx).Infof("Cleaning up old index blobs which have already been compacted...")
-		return errors.Wrap(em.CleanupSupersededIndexes(ctx), "error cleaning up superseded index blobs")
+		return errors.Wrap(em.CleanupSupersededIndexes(ctx), "error removing superseded epoch index blobs")
 	})
 }
 
@@ -451,7 +451,7 @@ func runFullMaintenance(ctx context.Context, runParams RunParameters, safety Saf
 		log(ctx).Debug("Extending object lock retention-period is disabled.")
 	}
 
-	if err := runTaskCleanupEpochManager(ctx, runParams, s); err != nil {
+	if err := runTaskEpochMaintenanceFull(ctx, runParams, s); err != nil {
 		return errors.Wrap(err, "error cleaning up epoch manager")
 	}
 
