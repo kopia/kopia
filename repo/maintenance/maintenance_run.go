@@ -46,6 +46,7 @@ const (
 	TaskExtendBlobRetentionTimeFull  = "extend-blob-retention-time"
 	TaskCleanupLogs                  = "cleanup-logs"
 	TaskEpochDeleteSupersededIndexes = "delete-superseded-epoch-indexes"
+	TaskEpochCleanupMarkers          = "cleanup-epoch-markers"
 )
 
 // shouldRun returns Mode if repository is due for periodic maintenance.
@@ -335,6 +336,16 @@ func runTaskEpochMaintenanceFull(ctx context.Context, runParams RunParameters, s
 
 	if !hasEpochManager {
 		return nil
+	}
+
+	// clean up epoch markers
+	err := ReportRun(ctx, runParams.rep, TaskEpochCleanupMarkers, s, func() error {
+		log(ctx).Infof("Cleaning up unneeded epoch markers...")
+
+		return errors.Wrap(em.CleanupMarkers(ctx), "error removing epoch markers")
+	})
+	if err != nil {
+		return err
 	}
 
 	return ReportRun(ctx, runParams.rep, TaskEpochDeleteSupersededIndexes, s, func() error {
