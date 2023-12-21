@@ -19,6 +19,46 @@ import (
 	"github.com/kopia/kopia/repo/format"
 )
 
+func TestGetBlobVersionsWithVersioningDisabled(t *testing.T) {
+	t.Parallel()
+	testutil.ProviderTest(t)
+
+	// must be with Versioning disabled
+	container := getEnvOrSkip(t, testContainerEnv)
+	storageAccount := getEnvOrSkip(t, testStorageAccountEnv)
+	storageKey := getEnvOrSkip(t, testStorageKeyEnv)
+
+	ctx := testlogging.Context(t)
+	data := make([]byte, 8)
+	rand.Read(data)
+	// use context that gets canceled after opening storage to ensure it's not used beyond New().
+	newctx, cancel := context.WithCancel(ctx)
+	t.Cleanup(cancel)
+
+	prefix := fmt.Sprintf("test-%v-%x/", clock.Now().Unix(), data)
+	opts := &azure.Options{
+		Container:      container,
+		StorageAccount: storageAccount,
+		StorageKey:     storageKey,
+		Prefix:         prefix,
+	}
+	st, err := azure.New(newctx, opts, false)
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		st.Close(ctx)
+	})
+
+	// required for PIT versioning check
+	err = st.PutBlob(ctx, format.KopiaRepositoryBlobID, gather.FromSlice([]byte(nil)), blob.PutOptions{})
+	require.NoError(t, err)
+
+	pit := clock.Now()
+	opts.PointInTime = &pit
+	_, err = azure.New(ctx, opts, false)
+	require.Error(t, err)
+}
+
 func TestGetBlobVersions(t *testing.T) {
 	t.Parallel()
 	testutil.ProviderTest(t)
