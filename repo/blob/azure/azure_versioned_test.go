@@ -19,7 +19,7 @@ import (
 	"github.com/kopia/kopia/repo/format"
 )
 
-func TestGetBlobVersionsWithVersioningDisabled(t *testing.T) {
+func TestGetBlobVersionsFailsWhenVersioningDisabled(t *testing.T) {
 	t.Parallel()
 	testutil.ProviderTest(t)
 
