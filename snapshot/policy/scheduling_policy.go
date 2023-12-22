@@ -1,10 +1,11 @@
 package policy
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"reflect"
-	"sort"
+	"slices"
 	"strings"
 	"time"
 
@@ -45,14 +46,17 @@ func (t TimeOfDay) String() string {
 
 // SortAndDedupeTimesOfDay sorts the slice of times of day and removes duplicates.
 func SortAndDedupeTimesOfDay(tod []TimeOfDay) []TimeOfDay {
-	sort.Slice(tod, func(i, j int) bool {
-		if a, b := tod[i].Hour, tod[j].Hour; a != b {
-			return a < b
+	slices.SortFunc(tod, func(a, b TimeOfDay) int {
+		if n := cmp.Compare(a.Hour, b.Hour); n != 0 {
+			return n
 		}
-		return tod[i].Minute < tod[j].Minute
+
+		// If hours are equal sort by minute
+		return cmp.Compare(a.Minute, b.Minute)
 	})
 
-	return tod
+	// Remove subsequent duplicates
+	return slices.Compact[[]TimeOfDay, TimeOfDay](tod)
 }
 
 // SchedulingPolicy describes policy for scheduling snapshots.

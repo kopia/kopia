@@ -132,10 +132,13 @@ func (az *azPointInTimeStorage) listBlobVersions(ctx context.Context, prefix blo
 		}
 
 		for _, it := range page.Segment.BlobItems {
-			vm := az.getVersionedBlobMeta(it)
+			vm, err := az.getVersionedBlobMeta(it)
+			if err != nil {
+				return translateError(err)
+			}
 
-			if err := callback(vm); err != nil {
-				return err
+			if err := callback(*vm); err != nil {
+				return translateError(err)
 			}
 		}
 	}
@@ -181,21 +184,17 @@ func maybePointInTimeStore(ctx context.Context, s *azStorage, pointInTime *time.
 		return s, nil
 	}
 
-	// Versioning is needed for PIT. This check will fail if someone deleted the Kopia Repository file.
-	props, err := s.service.ServiceClient().
-		NewContainerClient(s.container).
-		NewBlobClient(s.getObjectNameString(format.KopiaRepositoryBlobID)).
-		GetProperties(ctx, nil)
-	if err != nil {
-		return nil, errors.Wrapf(err, "could not get determine if container '%s' supports versioning", s.container)
-	}
-
-	if props.VersionID == nil {
-		return nil, errors.Errorf("cannot create point-in-time view for non-versioned container '%s'", s.container)
-	}
-
-	return readonly.NewWrapper(&azPointInTimeStorage{
+	pit := &azPointInTimeStorage{
 		azStorage:   *s,
-		pointInTime: *pointInTime,
-	}), nil
+		pointInTime: *pointInTime, // not used for the check
+	}
+
+	err := pit.getBlobVersions(ctx, format.KopiaRepositoryBlobID, func(vm versionMetadata) error {
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "versioning must be enabled and a Kopia repository must exist")
+	}
+
+	return readonly.NewWrapper(pit), nil
 }
