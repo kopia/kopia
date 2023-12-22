@@ -63,22 +63,26 @@ const (
 	ProfileNameCPU = "cpu"
 )
 
-// ProfileConfig configuration flags for a profile.
-type ProfileConfig struct {
-	flags []string
-	buf   *bytes.Buffer
+// Writer interface supports destination for PEM output
+type Writer interface {
+	io.Writer
+	io.StringWriter
 }
 
 // ProfileConfigs configuration flags for all requested profiles.
 type ProfileConfigs struct {
 	mu sync.Mutex
-
+	// +checklocks:mu
+	wrt Writer
 	// +checklocks:mu
 	pcm map[ProfileName]*ProfileConfig
 }
 
-//nolint:gochecknoglobals
-var pprofConfigs = &ProfileConfigs{}
+var (
+	// globals
+	//nolint:gochecknoglobals
+	pprofConfigs = NewProfileConfigs(os.Stderr)
+)
 
 type pprofSetRate struct {
 	setter       func(int)
@@ -95,6 +99,167 @@ var pprofProfileRates = map[ProfileName]pprofSetRate{
 		setter:       func(x int) { runtime.SetMutexProfileFraction(x) },
 		defaultValue: DefaultDebugProfileRate,
 	},
+}
+
+func StartProfileBuffers(ctx context.Context) {
+	pprofConfigs.StartProfileBuffers(ctx)
+}
+
+// StopProfileBuffers stop and dump the contents of the buffers to the log as PEMs.  Buffers
+// supplied here are from StartProfileBuffers.
+func StopProfileBuffers(ctx context.Context) {
+	pprofConfigs.StopProfileBuffers(ctx)
+}
+
+func NewProfileConfigs(wrt Writer) *ProfileConfigs {
+	q := &ProfileConfigs{
+		wrt: wrt,
+	}
+	return q
+}
+
+func (p *ProfileConfigs) SetWriter(wrt Writer) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	p.wrt = wrt
+}
+
+// GetProfileConfig return a profile configuration by name.
+func (p *ProfileConfigs) GetProfileConfig(nm ProfileName) *ProfileConfig {
+	if p == nil {
+		return nil
+	}
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	return p.pcm[nm]
+}
+
+// StartProfileBuffers start profile buffers for enabled profiles/trace.  Buffers
+// are returned in a slice of buffers: CPU, Heap and trace respectively.  class
+// is used to distinguish profiles external to kopia.
+func (p *ProfileConfigs) StartProfileBuffers(ctx context.Context) {
+	ppconfigs := os.Getenv(EnvVarKopiaDebugPprof)
+	// if empty, then don't bother configuring but emit a log message - use might be expecting them to be configured
+	if ppconfigs == "" {
+		log(ctx).Debug("no profile buffers enabled")
+		return
+	}
+
+	bufSizeB := DefaultDebugProfileDumpBufferSizeB
+
+	// look for matching services.  "*" signals all services for profiling
+	log(ctx).Debug("configuring profile buffers")
+
+	// acquire global lock when performing operations with global side-effects
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	p.pcm = parseProfileConfigs(bufSizeB, ppconfigs)
+
+	// profiling rates need to be set before starting profiling
+	setupProfileFractions(ctx, p.pcm)
+
+	// cpu has special initialization
+	v, ok := p.pcm[ProfileNameCPU]
+	if ok {
+		err := pprof.StartCPUProfile(v.buf)
+		if err != nil {
+			log(ctx).With("cause", err).Warn("cannot start cpu PPROF")
+			delete(p.pcm, ProfileNameCPU)
+		}
+	}
+}
+
+// StopProfileBuffers stop and dump the contents of the buffers to the log as PEMs.  Buffers
+// supplied here are from StartProfileBuffers.
+func (p *ProfileConfigs) StopProfileBuffers(ctx context.Context) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if p == nil {
+		log(ctx).Debug("profile buffers not configured")
+		return
+	}
+
+	log(ctx).Debug("saving PEM buffers for output")
+	// cpu and heap profiles requires special handling
+	for k, v := range pprofConfigs.pcm {
+		log(ctx).Debugf("stopping PPROF profile %q", k)
+
+		if v == nil {
+			continue
+		}
+
+		if k == ProfileNameCPU {
+			pprof.StopCPUProfile()
+			continue
+		}
+
+		_, ok := v.GetValue(KopiaDebugFlagForceGc)
+		if ok {
+			log(ctx).Debug("performing GC before PPROF dump ...")
+			runtime.GC()
+		}
+
+		debug, err := parseDebugNumber(v)
+		if err != nil {
+			log(ctx).With("cause", err).Warn("invalid PPROF configuration debug number")
+			continue
+		}
+
+		// look up the profile.  must not be nil
+		pent := pprof.Lookup(string(k))
+		if pent == nil {
+			log(ctx).Warnf("no system PPROF entry for %q", k)
+			delete(p.pcm, k)
+
+			continue
+		}
+
+		// write the profile data to the buffer associated with the profile
+		err = pent.WriteTo(v.buf, debug)
+		if err != nil {
+			log(ctx).With("cause", err).Warn("error writing PPROF buffer")
+			continue
+		}
+	}
+	// dump the profiles out into their respective PEMs
+	for k, v := range p.pcm {
+		// process context
+		err := ctx.Err()
+		if err != nil {
+			// ctx context may be bad, so use context.Background for safety
+			log(ctx).With("cause", err).Warn("cannot write PEM")
+			return
+		}
+
+		if v == nil {
+			continue
+		}
+
+		// PEM headings always in upper case
+		unm := strings.ToUpper(string(k))
+		log(ctx).Infof("dumping PEM for %q", unm)
+
+		err = DumpPem(ctx, v.buf.Bytes(), unm, p.wrt)
+		if err != nil {
+			log(ctx).With("cause", err).Error("cannot write PEM")
+			return
+		}
+	}
+
+	// clear the profile rates and fractions to effectively stop profiling
+	clearProfileFractions(pprofConfigs.pcm)
+	pprofConfigs.pcm = map[ProfileName]*ProfileConfig{}
+}
+
+// ProfileConfig configuration flags for a profile.
+type ProfileConfig struct {
+	flags []string
+	buf   *bytes.Buffer
 }
 
 // GetValue get the value of the named flag, `s`.  False will be returned
@@ -117,6 +282,7 @@ func (p ProfileConfig) GetValue(s string) (string, bool) {
 	return "", false
 }
 
+// parseProfileConfigs.
 func parseProfileConfigs(bufSizeB int, ppconfigs string) map[ProfileName]*ProfileConfig {
 	pbs := map[ProfileName]*ProfileConfig{}
 	allProfileOptions := strings.Split(ppconfigs, ":")
@@ -151,6 +317,9 @@ func newProfileConfig(bufSizeB int, ppconfig string) *ProfileConfig {
 	return q
 }
 
+// setupProfileFractions somewhat complex setup for profile buffers.  The intent
+// is to implement a generic method for setting up _any_ pprofule.  This is done
+// in anticipation of using different or custom profiles.
 func setupProfileFractions(ctx context.Context, profileBuffers map[ProfileName]*ProfileConfig) {
 	for k, pprofset := range pprofProfileRates {
 		v, ok := profileBuffers[k]
@@ -200,44 +369,8 @@ func clearProfileFractions(profileBuffers map[ProfileName]*ProfileConfig) {
 	}
 }
 
-// StartProfileBuffers start profile buffers for enabled profiles/trace.  Buffers
-// are returned in an slice of buffers: CPU, Heap and trace respectively.  class is used to distinguish profiles
-// external to kopia.
-func StartProfileBuffers(ctx context.Context) {
-	ppconfigs := os.Getenv(EnvVarKopiaDebugPprof)
-	// if empty, then don't bother configuring but emit a log message - use might be expecting them to be configured
-	if ppconfigs == "" {
-		log(ctx).Debug("no profile buffers enabled")
-		return
-	}
-
-	bufSizeB := DefaultDebugProfileDumpBufferSizeB
-
-	// look for matching services.  "*" signals all services for profiling
-	log(ctx).Debug("configuring profile buffers")
-
-	// acquire global lock when performing operations with global side-effects
-	pprofConfigs.mu.Lock()
-	defer pprofConfigs.mu.Unlock()
-
-	pprofConfigs.pcm = parseProfileConfigs(bufSizeB, ppconfigs)
-
-	// profiling rates need to be set before starting profiling
-	setupProfileFractions(ctx, pprofConfigs.pcm)
-
-	// cpu has special initialization
-	v, ok := pprofConfigs.pcm[ProfileNameCPU]
-	if ok {
-		err := pprof.StartCPUProfile(v.buf)
-		if err != nil {
-			log(ctx).With("cause", err).Warn("cannot start cpu PPROF")
-			delete(pprofConfigs.pcm, ProfileNameCPU)
-		}
-	}
-}
-
 // DumpPem dump a PEM version of the byte slice, bs, into writer, wrt.
-func DumpPem(ctx context.Context, bs []byte, types string, wrt *os.File) error {
+func DumpPem(ctx context.Context, bs []byte, types string, wrt Writer) error {
 	// err0 for background process
 	var err0 error
 
@@ -320,84 +453,4 @@ func parseDebugNumber(v *ProfileConfig) (int, error) {
 	}
 
 	return debug, nil
-}
-
-// StopProfileBuffers stop and dump the contents of the buffers to the log as PEMs.  Buffers
-// supplied here are from StartProfileBuffers.
-func StopProfileBuffers(ctx context.Context) {
-	pprofConfigs.mu.Lock()
-	defer pprofConfigs.mu.Unlock()
-
-	if pprofConfigs == nil {
-		log(ctx).Debug("profile buffers not configured")
-		return
-	}
-
-	log(ctx).Debug("saving PEM buffers for output")
-	// cpu and heap profiles requires special handling
-	for k, v := range pprofConfigs.pcm {
-		log(ctx).Debugf("stopping PPROF profile %q", k)
-
-		if v == nil {
-			continue
-		}
-
-		if k == ProfileNameCPU {
-			pprof.StopCPUProfile()
-			continue
-		}
-
-		_, ok := v.GetValue(KopiaDebugFlagForceGc)
-		if ok {
-			log(ctx).Debug("performing GC before PPROF dump ...")
-			runtime.GC()
-		}
-
-		debug, err := parseDebugNumber(v)
-		if err != nil {
-			log(ctx).With("cause", err).Warn("invalid PPROF configuration debug number")
-			continue
-		}
-
-		pent := pprof.Lookup(string(k))
-		if pent == nil {
-			log(ctx).Warnf("no system PPROF entry for %q", k)
-			delete(pprofConfigs.pcm, k)
-
-			continue
-		}
-
-		err = pent.WriteTo(v.buf, debug)
-		if err != nil {
-			log(ctx).With("cause", err).Warn("error writing PPROF buffer")
-			continue
-		}
-	}
-	// dump the profiles out into their respective PEMs
-	for k, v := range pprofConfigs.pcm {
-		// process context
-		err := ctx.Err()
-		if err != nil {
-			// ctx context may be bad, so use context.Background for safety
-			log(ctx).With("cause", err).Warn("cannot write PEM")
-			return
-		}
-
-		if v == nil {
-			continue
-		}
-
-		unm := strings.ToUpper(string(k))
-		log(ctx).Infof("dumping PEM for %q", unm)
-
-		err = DumpPem(ctx, v.buf.Bytes(), unm, os.Stderr)
-		if err != nil {
-			log(ctx).With("cause", err).Error("cannot write PEM")
-			return
-		}
-	}
-
-	// clear the profile rates and fractions to effectively stop profiling
-	clearProfileFractions(pprofConfigs.pcm)
-	pprofConfigs.pcm = map[ProfileName]*ProfileConfig{}
 }

@@ -1,8 +1,12 @@
 package debug
 
 import (
+	"bytes"
+	"context"
 	"fmt"
+	"regexp"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -123,4 +127,52 @@ func TestDebug_newProfileConfigs(t *testing.T) {
 			require.Equal(t, tc.expect, v)
 		})
 	}
+}
+
+func TestDebug_DumpPem(t *testing.T) {
+	ctx := context.Background()
+	wrt := bytes.Buffer{}
+	// DumpPem dump a PEM version of the byte slice, bs, into writer, wrt.
+	err := DumpPem(ctx, []byte("this is a sample PEM"), "test", &wrt)
+	require.Nil(t, err)
+	require.Equal(t, "-----BEGIN test-----\ndGhpcyBpcyBhIHNhbXBsZSBQRU0=\n-----END test-----\n\n", wrt.String())
+}
+
+func TestDebug_StartProfileBuffers(t *testing.T) {
+	// regexp for PEMs
+	rx := regexp.MustCompile(`(?s:-{5}BEGIN ([A-Z]+)-{5}.(([A-Za-z0-9/+=]{2,80}.)+)-{5}END ([A-Z]+)-{5})`)
+
+	ctx := context.Background()
+
+	t.Setenv(EnvVarKopiaDebugPprof, "")
+
+	buf := bytes.Buffer{}
+	func() {
+		pprofConfigs = NewProfileConfigs(&buf)
+
+		StartProfileBuffers(ctx)
+		defer StopProfileBuffers(ctx)
+
+		time.Sleep(1 * time.Second)
+	}()
+	s := buf.String()
+	mchsss := rx.FindAllString(s, -1)
+	// we need zero ... did not start profiling
+	require.Len(t, mchsss, 0)
+
+	t.Setenv(EnvVarKopiaDebugPprof, "block=rate=10:cpu:mutex=10")
+
+	buf = bytes.Buffer{}
+	func() {
+		pprofConfigs = NewProfileConfigs(&buf)
+
+		StartProfileBuffers(ctx)
+		defer StopProfileBuffers(ctx)
+
+		time.Sleep(1 * time.Second)
+	}()
+	s = buf.String()
+	mchsss = rx.FindAllString(s, -1)
+	// we need three BLOCK, MUTEX and CPU
+	require.Len(t, mchsss, 3)
 }
