@@ -738,6 +738,25 @@ func (e *Manager) refreshAttemptLocked(ctx context.Context) error {
 	return nil
 }
 
+// MaybeAdvanceWriteEpoch writes a new write epoch marker when a new write
+// epoch should be started, otherwise it does not do anything.
+func (e *Manager) MaybeAdvanceWriteEpoch(ctx context.Context) error {
+	p, err := e.getParameters()
+	if err != nil {
+		return err
+	}
+
+	e.mu.Lock()
+	cs := e.lastKnownState
+	e.mu.Unlock()
+
+	if shouldAdvance(cs.UncompactedEpochSets[cs.WriteEpoch], p.MinEpochDuration, p.EpochAdvanceOnCountThreshold, p.EpochAdvanceOnTotalSizeBytesThreshold) {
+		return errors.Wrap(e.advanceEpochMarker(ctx, cs), "error advancing epoch")
+	}
+
+	return nil
+}
+
 func (e *Manager) advanceEpochMarker(ctx context.Context, cs CurrentSnapshot) error {
 	blobID := blob.ID(fmt.Sprintf("%v%v", string(EpochMarkerIndexBlobPrefix), cs.WriteEpoch+1))
 

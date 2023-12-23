@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/epoch"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/content/index"
@@ -45,6 +46,7 @@ const (
 	TaskIndexCompaction              = "index-compaction"
 	TaskExtendBlobRetentionTimeFull  = "extend-blob-retention-time"
 	TaskCleanupLogs                  = "cleanup-logs"
+	TaskEpochAdvance                 = "advance-epoch"
 	TaskEpochDeleteSupersededIndexes = "delete-superseded-epoch-indexes"
 	TaskEpochCleanupMarkers          = "cleanup-epoch-markers"
 )
@@ -295,6 +297,10 @@ func runQuickMaintenance(ctx context.Context, runParams RunParameters, safety Sa
 		notDeletingOrphanedBlobs(ctx, s, safety)
 	}
 
+	if err := runTaskEpochMaintenanceQuick(ctx, runParams, s); err != nil {
+		return errors.Wrap(err, "error running quick epoch maintenance tasks")
+	}
+
 	// consolidate many smaller indexes into fewer larger ones.
 	if err := runTaskIndexCompactionQuick(ctx, runParams, s, safety); err != nil {
 		return errors.Wrap(err, "error performing index compaction")
@@ -328,6 +334,26 @@ func runTaskCleanupLogs(ctx context.Context, runParams RunParameters, s *Schedul
 	})
 }
 
+func runTaskEpochAdvance(ctx context.Context, em *epoch.Manager, runParams RunParameters, s *Schedule) error {
+	return ReportRun(ctx, runParams.rep, TaskEpochAdvance, s, func() error {
+		log(ctx).Infof("Cleaning up no-longer-needed epoch markers...")
+		return errors.Wrap(em.MaybeAdvanceWriteEpoch(ctx), "error advancing epoch marker")
+	})
+}
+
+func runTaskEpochMaintenanceQuick(ctx context.Context, runParams RunParameters, s *Schedule) error {
+	em, hasEpochManager, emerr := runParams.rep.ContentManager().EpochManager()
+	if emerr != nil {
+		return errors.Wrap(emerr, "epoch manager")
+	}
+
+	if !hasEpochManager {
+		return nil
+	}
+
+	return runTaskEpochAdvance(ctx, em, runParams, s)
+}
+
 func runTaskEpochMaintenanceFull(ctx context.Context, runParams RunParameters, s *Schedule) error {
 	em, ok, emerr := runParams.rep.ContentManager().EpochManager()
 	if emerr != nil {
@@ -336,6 +362,10 @@ func runTaskEpochMaintenanceFull(ctx context.Context, runParams RunParameters, s
 
 	if !ok {
 		return nil
+	}
+
+	if err := runTaskEpochAdvance(ctx, em, runParams, s); err != nil {
+		return err
 	}
 
 	// clean up epoch markers
