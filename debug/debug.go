@@ -63,6 +63,15 @@ const (
 	ProfileNameCPU = "cpu"
 )
 
+var (
+	// globals
+	ErrEmptyConfiguration = errors.New("empty profile configuration")
+	ErrEmptyProfileName   = errors.New("empty profile flag")
+
+	//nolint:gochecknoglobals
+	pprofConfigs = newProfileConfigs(os.Stderr)
+)
+
 // Writer interface supports destination for PEM output
 type Writer interface {
 	io.Writer
@@ -77,12 +86,6 @@ type ProfileConfigs struct {
 	// +checklocks:mu
 	pcm map[ProfileName]*ProfileConfig
 }
-
-var (
-	// globals
-	//nolint:gochecknoglobals
-	pprofConfigs = NewProfileConfigs(os.Stderr)
-)
 
 type pprofSetRate struct {
 	setter       func(int)
@@ -102,16 +105,25 @@ var pprofProfileRates = map[ProfileName]pprofSetRate{
 }
 
 func StartProfileBuffers(ctx context.Context) {
+	var err error
+	pprofConfigs.pcm, err = LoadProfileConfig(ctx, os.Getenv(EnvVarKopiaDebugPprof))
+	if err != nil {
+		log(ctx).With(err).Debug("no profile buffers enabled")
+	}
 	pprofConfigs.StartProfileBuffers(ctx)
 }
 
 // StopProfileBuffers stop and dump the contents of the buffers to the log as PEMs.  Buffers
 // supplied here are from StartProfileBuffers.
 func StopProfileBuffers(ctx context.Context) {
+	if pprofConfigs == nil || len(pprofConfigs.pcm) == 0 {
+		log(ctx).Debug("profile buffers not configured")
+		return
+	}
 	pprofConfigs.StopProfileBuffers(ctx)
 }
 
-func NewProfileConfigs(wrt Writer) *ProfileConfigs {
+func newProfileConfigs(wrt Writer) *ProfileConfigs {
 	q := &ProfileConfigs{
 		wrt: wrt,
 	}
@@ -137,15 +149,10 @@ func (p *ProfileConfigs) GetProfileConfig(nm ProfileName) *ProfileConfig {
 	return p.pcm[nm]
 }
 
-// StartProfileBuffers start profile buffers for enabled profiles/trace.  Buffers
-// are returned in a slice of buffers: CPU, Heap and trace respectively.  class
-// is used to distinguish profiles external to kopia.
-func (p *ProfileConfigs) StartProfileBuffers(ctx context.Context) {
-	ppconfigs := os.Getenv(EnvVarKopiaDebugPprof)
+func LoadProfileConfig(ctx context.Context, ppconfigss string) (map[ProfileName]*ProfileConfig, error) {
 	// if empty, then don't bother configuring but emit a log message - use might be expecting them to be configured
-	if ppconfigs == "" {
-		log(ctx).Debug("no profile buffers enabled")
-		return
+	if ppconfigss == "" {
+		return nil, nil
 	}
 
 	bufSizeB := DefaultDebugProfileDumpBufferSizeB
@@ -154,10 +161,15 @@ func (p *ProfileConfigs) StartProfileBuffers(ctx context.Context) {
 	log(ctx).Debug("configuring profile buffers")
 
 	// acquire global lock when performing operations with global side-effects
+	return parseProfileConfigs(bufSizeB, ppconfigss)
+}
+
+// StartProfileBuffers start profile buffers for enabled profiles/trace.  Buffers
+// are returned in a slice of buffers: CPU, Heap and trace respectively.  class
+// is used to distinguish profiles external to kopia.
+func (p *ProfileConfigs) StartProfileBuffers(ctx context.Context) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-
-	p.pcm = parseProfileConfigs(bufSizeB, ppconfigs)
 
 	// profiling rates need to be set before starting profiling
 	setupProfileFractions(ctx, p.pcm)
@@ -167,8 +179,8 @@ func (p *ProfileConfigs) StartProfileBuffers(ctx context.Context) {
 	if ok {
 		err := pprof.StartCPUProfile(v.buf)
 		if err != nil {
-			log(ctx).With("cause", err).Warn("cannot start cpu PPROF")
 			delete(p.pcm, ProfileNameCPU)
+			log(ctx).With("cause", err).Warn("cannot start cpu PPROF")
 		}
 	}
 }
@@ -179,24 +191,22 @@ func (p *ProfileConfigs) StopProfileBuffers(ctx context.Context) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	if p == nil {
-		log(ctx).Debug("profile buffers not configured")
-		return
-	}
+	defer func() {
+		// clear the profile rates and fractions to effectively stop profiling
+		clearProfileFractions(p.pcm)
+		p.pcm = map[ProfileName]*ProfileConfig{}
+	}()
 
-	log(ctx).Debug("saving PEM buffers for output")
+	log(ctx).Debugf("saving %d PEM buffers for output", len(p.pcm))
+
 	// cpu and heap profiles requires special handling
-	for k, v := range pprofConfigs.pcm {
-		log(ctx).Debugf("stopping PPROF profile %q", k)
-
+	for nm, v := range p.pcm {
 		if v == nil {
+			// silently ignore empty profiles
 			continue
 		}
 
-		if k == ProfileNameCPU {
-			pprof.StopCPUProfile()
-			continue
-		}
+		log(ctx).Debugf("stopping PPROF profile %q", nm)
 
 		_, ok := v.GetValue(KopiaDebugFlagForceGc)
 		if ok {
@@ -204,35 +214,45 @@ func (p *ProfileConfigs) StopProfileBuffers(ctx context.Context) {
 			runtime.GC()
 		}
 
-		debug, err := parseDebugNumber(v)
-		if err != nil {
-			log(ctx).With("cause", err).Warn("invalid PPROF configuration debug number")
-			continue
-		}
+		// stop CPU profile after GC
+		if nm == ProfileNameCPU {
+			pprof.StopCPUProfile()
+		} else {
+			// look up the profile.  must not be nil
+			pent := pprof.Lookup(string(nm))
+			if pent == nil {
+				log(ctx).Warnf("no system PPROF entry for %q", nm)
+				delete(p.pcm, nm)
 
-		// look up the profile.  must not be nil
-		pent := pprof.Lookup(string(k))
-		if pent == nil {
-			log(ctx).Warnf("no system PPROF entry for %q", k)
-			delete(p.pcm, k)
+				continue
+			}
 
-			continue
-		}
+			// parse the debug number if supplied
+			debug, err := parseDebugNumber(v)
+			if err != nil {
+				log(ctx).With("cause", err).Warnf("%q: invalid PPROF configuration debug number", nm)
+				continue
+			}
 
-		// write the profile data to the buffer associated with the profile
-		err = pent.WriteTo(v.buf, debug)
-		if err != nil {
-			log(ctx).With("cause", err).Warn("error writing PPROF buffer")
-			continue
+			// write the profile data to the buffer associated with the profile
+			err = pent.WriteTo(v.buf, debug)
+			if err != nil {
+				log(ctx).With("cause", err).Warnf("%q: error writing PPROF buffer", nm)
+				continue
+			}
 		}
 	}
+
 	// dump the profiles out into their respective PEMs
 	for k, v := range p.pcm {
+		// PEM headings always in upper case
+		unm := strings.ToUpper(string(k))
+
 		// process context
 		err := ctx.Err()
 		if err != nil {
 			// ctx context may be bad, so use context.Background for safety
-			log(ctx).With("cause", err).Warn("cannot write PEM")
+			log(ctx).With("cause", err).Warnf("%q: cannot write PEM", unm)
 			return
 		}
 
@@ -240,20 +260,14 @@ func (p *ProfileConfigs) StopProfileBuffers(ctx context.Context) {
 			continue
 		}
 
-		// PEM headings always in upper case
-		unm := strings.ToUpper(string(k))
 		log(ctx).Infof("dumping PEM for %q", unm)
 
 		err = DumpPem(ctx, v.buf.Bytes(), unm, p.wrt)
 		if err != nil {
-			log(ctx).With("cause", err).Error("cannot write PEM")
+			log(ctx).With("cause", err).Errorf("%q: cannot write PEM", unm)
 			return
 		}
 	}
-
-	// clear the profile rates and fractions to effectively stop profiling
-	clearProfileFractions(pprofConfigs.pcm)
-	pprofConfigs.pcm = map[ProfileName]*ProfileConfig{}
 }
 
 // ProfileConfig configuration flags for a profile.
@@ -265,7 +279,11 @@ type ProfileConfig struct {
 // GetValue get the value of the named flag, `s`.  False will be returned
 // if the flag does not exist. True will be returned if flag exists without
 // a value.
-func (p ProfileConfig) GetValue(s string) (string, bool) {
+func (p *ProfileConfig) GetValue(s string) (string, bool) {
+	if p == nil {
+		return "", false
+	}
+
 	for _, f := range p.flags {
 		kvs := strings.SplitN(f, "=", pair)
 		if kvs[0] != s {
@@ -283,7 +301,7 @@ func (p ProfileConfig) GetValue(s string) (string, bool) {
 }
 
 // parseProfileConfigs.
-func parseProfileConfigs(bufSizeB int, ppconfigs string) map[ProfileName]*ProfileConfig {
+func parseProfileConfigs(bufSizeB int, ppconfigs string) (map[ProfileName]*ProfileConfig, error) {
 	pbs := map[ProfileName]*ProfileConfig{}
 	allProfileOptions := strings.Split(ppconfigs, ":")
 
@@ -292,15 +310,21 @@ func parseProfileConfigs(bufSizeB int, ppconfigs string) map[ProfileName]*Profil
 		profileFlagNameValuePairs := strings.SplitN(profileOptionWithFlags, "=", pair)
 		flagValue := ""
 
-		if len(profileFlagNameValuePairs) > 1 {
+		if len(profileFlagNameValuePairs) == 0 {
+			return nil, ErrEmptyConfiguration
+		} else if len(profileFlagNameValuePairs) > 1 {
+			// only <key>=<value? allowed
 			flagValue = profileFlagNameValuePairs[1]
 		}
 
-		flagKey := ProfileName(strings.ToLower(profileFlagNameValuePairs[0]))
+		flagKey := ProfileName(profileFlagNameValuePairs[0])
+		if flagKey == "" {
+			return nil, ErrEmptyProfileName
+		}
 		pbs[flagKey] = newProfileConfig(bufSizeB, flagValue)
 	}
 
-	return pbs
+	return pbs, nil
 }
 
 // newProfileConfig create a new profiling configuration.
