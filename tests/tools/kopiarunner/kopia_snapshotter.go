@@ -399,16 +399,9 @@ func (ks *KopiaSnapshotter) ConnectOrCreateRepoWithServer(serverAddr string, arg
 	}
 
 	if err := certKeyExist(context.TODO(), tlsCertFile, tlsKeyFile); err != nil {
-		if cmd.Stderr == nil {
-			return nil, "", err
+		if buf, ok := cmd.Stderr.(*bytes.Buffer); ok {
+			log.Print("failure in certificate generation:", buf.String())
 		}
-
-		buf, ok := cmd.Stderr.(*bytes.Buffer)
-		if !ok {
-			return nil, "", err
-		}
-
-		log.Printf("failuire in certificate generation: %s", buf.String())
 
 		return nil, "", err
 	}

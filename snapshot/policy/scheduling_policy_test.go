@@ -288,3 +288,43 @@ func TestNextSnapshotTime(t *testing.T) {
 		})
 	}
 }
+
+func TestSortAndDedupeTimesOfDay(t *testing.T) {
+	cases := []struct {
+		input []policy.TimeOfDay
+		want  []policy.TimeOfDay
+	}{
+		{},
+		{
+			input: []policy.TimeOfDay{{Hour: 10, Minute: 23}},
+			want:  []policy.TimeOfDay{{Hour: 10, Minute: 23}},
+		},
+		{
+			input: []policy.TimeOfDay{{Hour: 10, Minute: 23}, {Hour: 11, Minute: 25}},
+			want:  []policy.TimeOfDay{{Hour: 10, Minute: 23}, {Hour: 11, Minute: 25}},
+		},
+		{
+			input: []policy.TimeOfDay{{Hour: 11, Minute: 25}, {Hour: 10, Minute: 23}},
+			want:  []policy.TimeOfDay{{Hour: 10, Minute: 23}, {Hour: 11, Minute: 25}},
+		},
+		{
+			input: []policy.TimeOfDay{{Hour: 10, Minute: 23}, {Hour: 10, Minute: 23}},
+			want:  []policy.TimeOfDay{{Hour: 10, Minute: 23}},
+		},
+		{
+			input: []policy.TimeOfDay{{Hour: 10, Minute: 23}, {Hour: 10, Minute: 23}, {Hour: 11, Minute: 25}},
+			want:  []policy.TimeOfDay{{Hour: 10, Minute: 23}, {Hour: 11, Minute: 25}},
+		},
+		{
+			input: []policy.TimeOfDay{{Hour: 10, Minute: 23}, {Hour: 10, Minute: 23}, {Hour: 11, Minute: 25}, {Hour: 11, Minute: 25}},
+			want:  []policy.TimeOfDay{{Hour: 10, Minute: 23}, {Hour: 11, Minute: 25}},
+		},
+	}
+
+	for i, tc := range cases {
+		t.Run(fmt.Sprintf("case-%v", i), func(t *testing.T) {
+			got := policy.SortAndDedupeTimesOfDay(tc.input)
+			require.Equal(t, tc.want, got)
+		})
+	}
+}
