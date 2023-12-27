@@ -593,19 +593,28 @@ func (e *Manager) loadSingleEpochCompactions(ctx context.Context, cs *CurrentSna
 	return nil
 }
 
-func (e *Manager) maybeGenerateNextRangeCheckpointAsync(ctx context.Context, cs CurrentSnapshot, p *Parameters) {
+func getRangeToCompact(cs CurrentSnapshot, p Parameters) (low, high int, compactRange bool) {
 	latestSettled := cs.WriteEpoch - numUnsettledEpochs
 	if latestSettled < 0 {
-		return
+		return -1, -1, false
 	}
 
 	firstNonRangeCompacted := 0
-	if len(cs.LongestRangeCheckpointSets) > 0 {
-		firstNonRangeCompacted = cs.LongestRangeCheckpointSets[len(cs.LongestRangeCheckpointSets)-1].MaxEpoch + 1
+	if rangeSetsLen := len(cs.LongestRangeCheckpointSets); rangeSetsLen > 0 {
+		firstNonRangeCompacted = cs.LongestRangeCheckpointSets[rangeSetsLen-1].MaxEpoch + 1
 	}
 
 	if latestSettled-firstNonRangeCompacted < p.FullCheckpointFrequency {
-		e.log.Debugf("not generating range checkpoint")
+		return -1, -1, false
+	}
+
+	return latestSettled, firstNonRangeCompacted, true
+}
+
+func (e *Manager) maybeGenerateNextRangeCheckpointAsync(ctx context.Context, cs CurrentSnapshot, p *Parameters) {
+	latestSettled, firstNonRangeCompacted, compact := getRangeToCompact(cs, *p)
+	if !compact {
+		e.log.Debug("not generating range checkpoint")
 
 		return
 	}
