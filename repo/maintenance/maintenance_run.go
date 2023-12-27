@@ -49,6 +49,7 @@ const (
 	TaskEpochAdvance                 = "advance-epoch"
 	TaskEpochDeleteSupersededIndexes = "delete-superseded-epoch-indexes"
 	TaskEpochCleanupMarkers          = "cleanup-epoch-markers"
+	TaskEpochGenerateRange           = "generate-epoch-range-index"
 )
 
 // shouldRun returns Mode if repository is due for periodic maintenance.
@@ -365,6 +366,15 @@ func runTaskEpochMaintenanceFull(ctx context.Context, runParams RunParameters, s
 	}
 
 	if err := runTaskEpochAdvance(ctx, em, runParams, s); err != nil {
+		return err
+	}
+
+	// compact range
+	if err := ReportRun(ctx, runParams.rep, TaskEpochGenerateRange, s, func() error {
+		log(ctx).Infof("Attempting to compact a range of epoch indexes ...")
+
+		return errors.Wrap(em.MaybeGenerateRangeCheckpoint(ctx), "error creating epoch range indexes")
+	}); err != nil {
 		return err
 	}
 
