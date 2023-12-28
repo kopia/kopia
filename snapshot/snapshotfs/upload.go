@@ -604,6 +604,15 @@ func (u *Uploader) uploadDirWithCheckpointing(ctx context.Context, rootDir fs.Di
 
 	defer u.executeAfterFolderAction(ctx, "after-snapshot-root", policyTree.EffectivePolicy().Actions.AfterSnapshotRoot, localDirPathOrEmpty, &hc)
 
+	if policyTree.EffectivePolicy().Actions.VSS.OrDefault(false) {
+		overrideDir, cleanup, err := createShadowCopy(ctx, rootDir)
+		if err != nil {
+			return nil, dirReadError{errors.Wrap(err, "error creating volume shadow copy")}
+		}
+		defer cleanup()
+		rootDir = overrideDir
+	}
+
 	return uploadDirInternal(ctx, u, rootDir, policyTree, previousDirs, localDirPathOrEmpty, ".", &dmb, &cp)
 }
 
