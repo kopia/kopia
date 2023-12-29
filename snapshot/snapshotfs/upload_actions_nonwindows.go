@@ -11,5 +11,6 @@ import (
 )
 
 func createShadowCopy(ctx context.Context, root fs.Directory) (newRoot fs.Directory, cleanup func(), err error) {
+	_, _ = ctx, root
 	return nil, nil, errors.New("not supported on this platform")
 }
