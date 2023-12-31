@@ -6,11 +6,16 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/localfs"
+	"github.com/kopia/kopia/snapshot/policy"
 	"github.com/mxk/go-vss"
 	"github.com/pkg/errors"
 )
 
-func createShadowCopy(ctx context.Context, root fs.Directory) (newRoot fs.Directory, cleanup func(), err error) {
+func osSnapshotMode(p *policy.Policy) policy.OSSnapshotMode {
+	return p.OSSnapshotPolicy.VolumeShadowCopy.Enable.OrDefault(policy.OSSnapshotWhenAvailable)
+}
+
+func createOSSnapshot(ctx context.Context, root fs.Directory) (newRoot fs.Directory, cleanup func(), err error) {
 	local := root.LocalFilesystemPath()
 	if local == "" {
 		return nil, nil, errors.New("not a local filesystem")
