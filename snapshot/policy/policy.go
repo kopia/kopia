@@ -43,7 +43,7 @@ type Definition struct {
 	SchedulingPolicy    SchedulingPolicyDefinition    `json:"scheduling,omitempty"`
 	CompressionPolicy   CompressionPolicyDefinition   `json:"compression,omitempty"`
 	Actions             ActionsPolicyDefinition       `json:"actions,omitempty"`
-	OsSnapshotPolicy    OSSnapshotPolicyDefinition    `json:"osSnapshots,omitempty"`
+	OSSnapshotPolicy    OSSnapshotPolicyDefinition    `json:"osSnapshots,omitempty"`
 	LoggingPolicy       LoggingPolicyDefinition       `json:"logging,omitempty"`
 	UploadPolicy        UploadPolicyDefinition        `json:"upload,omitempty"`
 }

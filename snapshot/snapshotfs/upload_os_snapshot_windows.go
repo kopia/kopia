@@ -12,7 +12,7 @@ import (
 )
 
 func osSnapshotMode(p *policy.OSSnapshotPolicy) policy.OSSnapshotMode {
-	return p.VolumeShadowCopy.Enable.OrDefault(policy.OSSnapshotWhenAvailable)
+	return p.VolumeShadowCopy.Enable.OrDefault(policy.OSSnapshotNever)
 }
 
 func createOSSnapshot(ctx context.Context, root fs.Directory, _ *policy.OSSnapshotPolicy) (newRoot fs.Directory, cleanup func(), err error) {

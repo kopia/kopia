@@ -454,7 +454,7 @@ func appendActionCommandRows(rows []policyTableRow, h *policy.ActionCommand) []p
 func appendOSSnapshotPolicyRows(rows []policyTableRow, p *policy.Policy, def *policy.Definition) []policyTableRow {
 	rows = append(rows,
 		policyTableRow{"OS-level snapshot support:", "", ""},
-		policyTableRow{"  Volume Shadow Copy:", p.OSSnapshotPolicy.VolumeShadowCopy.Enable.String(), definitionPointToString(p.Target(), def.OsSnapshotPolicy.VolumeShadowCopy.Enable)},
+		policyTableRow{"  Volume Shadow Copy:", p.OSSnapshotPolicy.VolumeShadowCopy.Enable.String(), definitionPointToString(p.Target(), def.OSSnapshotPolicy.VolumeShadowCopy.Enable)},
 	)
 	return rows
 }
