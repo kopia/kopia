@@ -20,6 +20,14 @@ func createOSSnapshot(ctx context.Context, root fs.Directory, _ *policy.OSSnapsh
 	if local == "" {
 		return nil, nil, errors.New("not a local filesystem")
 	}
+
+	if ok, err := vss.IsShadowCopy(local); err != nil {
+		uploadLog(ctx).Warnf("failed to determine whether path is a volume shadow copy: %s (%v)", local, err)
+	} else if ok {
+		uploadLog(ctx).Warnf("path is already a volume shadow copy (skipping creation): %s", local)
+		return root, func() {}, nil
+	}
+
 	vol, rel, err := vss.SplitVolume(local)
 	if err != nil {
 		return nil, nil, err
