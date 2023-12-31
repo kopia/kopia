@@ -128,6 +128,8 @@ func printPolicy(out *textOutput, p *policy.Policy, def *policy.Definition) {
 	rows = append(rows, policyTableRow{})
 	rows = appendActionsPolicyRows(rows, p, def)
 	rows = append(rows, policyTableRow{})
+	rows = appendOSSnapshotPolicyRows(rows, p, def)
+	rows = append(rows, policyTableRow{})
 	rows = appendLoggingPolicyRows(rows, p, def)
 
 	out.printStdout("Policy for %v:\n\n%v\n", p.Target(), alignedPolicyTableRows(rows))
@@ -420,17 +422,6 @@ func appendActionsPolicyRows(rows []policyTableRow, p *policy.Policy, def *polic
 		rows = append(rows, policyTableRow{"No actions defined.", "", ""})
 	}
 
-	if isWindows() {
-		if !anyActions {
-			rows = append(rows, policyTableRow{})
-		}
-		name := "Volume shadow copy service disabled."
-		if p.Actions.VSS.OrDefault(false) {
-			name = "Volume shadow copy service enabled."
-		}
-		rows = append(rows, policyTableRow{name, "", definitionPointToString(p.Target(), def.Actions.VSS)})
-	}
-
 	return rows
 }
 
@@ -457,6 +448,14 @@ func appendActionCommandRows(rows []policyTableRow, h *policy.ActionCommand) []p
 		policyTableRow{"", "", ""},
 	)
 
+	return rows
+}
+
+func appendOSSnapshotPolicyRows(rows []policyTableRow, p *policy.Policy, def *policy.Definition) []policyTableRow {
+	rows = append(rows,
+		policyTableRow{"OS-level snapshot support:", "", ""},
+		policyTableRow{"  Volume Shadow Copy:", p.OSSnapshotPolicy.VolumeShadowCopy.Enable.String(), definitionPointToString(p.Target(), def.OsSnapshotPolicy.VolumeShadowCopy.Enable)},
+	)
 	return rows
 }
 

@@ -241,8 +241,8 @@ github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd h1:TRLaZ9cD/w
 github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd/go.mod h1:6dJC0mAP4ikYIbvyc7fijjWJddQyLn8Ig3JB5CqoB9Q=
 github.com/modern-go/reflect2 v1.0.2 h1:xBagoLtFs94CBntxluKeaWgTMpvLxC4ur3nMaC9Gz0M=
 github.com/modern-go/reflect2 v1.0.2/go.mod h1:yWuevngMOJpCy52FWWMvUC8ws7m/LJsjYzDa0/r8luk=
-github.com/mxk/go-vss v0.1.1 h1:oLYTXpxU/OlvHP+Ib0SkGp5KQjbAQsM5xDrB23M19SI=
-github.com/mxk/go-vss v0.1.1/go.mod h1:ZQ4yFxCG54vqPnCd+p2IxAe5jwZdz56wSjbwzBXiFd8=
+github.com/mxk/go-vss v1.1.1 h1:4arKWVTBdFuHSBoHZvA45NVKmnwBcWcSbVedSOnfqcg=
+github.com/mxk/go-vss v1.1.1/go.mod h1:ZQ4yFxCG54vqPnCd+p2IxAe5jwZdz56wSjbwzBXiFd8=
 github.com/natefinch/atomic v1.0.1 h1:ZPYKxkqQOx3KZ+RsbnP/YsgvxWQPGxjC0oBt2AhwV0A=
 github.com/natefinch/atomic v1.0.1/go.mod h1:N/D/ELrljoqDyT3rZrsUmtsuzvHkeB/wWjHV22AZRbM=
 github.com/orisano/pixelmatch v0.0.0-20220722002657-fb0b55479cde h1:x0TT0RDC7UhAVbbWWBzr41ElhJx5tXPWkIHA2HWPRuw=

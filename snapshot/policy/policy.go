@@ -28,6 +28,7 @@ type Policy struct {
 	SchedulingPolicy    SchedulingPolicy    `json:"scheduling,omitempty"`
 	CompressionPolicy   CompressionPolicy   `json:"compression,omitempty"`
 	Actions             ActionsPolicy       `json:"actions,omitempty"`
+	OSSnapshotPolicy    OSSnapshotPolicy    `json:"osSnapshots,omitempty"`
 	LoggingPolicy       LoggingPolicy       `json:"logging,omitempty"`
 	UploadPolicy        UploadPolicy        `json:"upload,omitempty"`
 	NoParent            bool                `json:"noParent,omitempty"`
@@ -42,6 +43,7 @@ type Definition struct {
 	SchedulingPolicy    SchedulingPolicyDefinition    `json:"scheduling,omitempty"`
 	CompressionPolicy   CompressionPolicyDefinition   `json:"compression,omitempty"`
 	Actions             ActionsPolicyDefinition       `json:"actions,omitempty"`
+	OsSnapshotPolicy    OSSnapshotPolicyDefinition    `json:"osSnapshots,omitempty"`
 	LoggingPolicy       LoggingPolicyDefinition       `json:"logging,omitempty"`
 	UploadPolicy        UploadPolicyDefinition        `json:"upload,omitempty"`
 }

@@ -25,6 +25,7 @@ func MergePolicies(policies []*Policy, si snapshot.SourceInfo) (*Policy, *Defini
 		merged.UploadPolicy.Merge(p.UploadPolicy, &def.UploadPolicy, p.Target())
 		merged.CompressionPolicy.Merge(p.CompressionPolicy, &def.CompressionPolicy, p.Target())
 		merged.Actions.Merge(p.Actions, &def.Actions, p.Target())
+		merged.OSSnapshotPolicy.Merge(p.OSSnapshotPolicy, &def.OsSnapshotPolicy, p.Target())
 		merged.LoggingPolicy.Merge(p.LoggingPolicy, &def.LoggingPolicy, p.Target())
 
 		if p.NoParent {
@@ -40,6 +41,7 @@ func MergePolicies(policies []*Policy, si snapshot.SourceInfo) (*Policy, *Defini
 	merged.UploadPolicy.Merge(defaultUploadPolicy, &def.UploadPolicy, GlobalPolicySourceInfo)
 	merged.CompressionPolicy.Merge(defaultCompressionPolicy, &def.CompressionPolicy, GlobalPolicySourceInfo)
 	merged.Actions.Merge(defaultActionsPolicy, &def.Actions, GlobalPolicySourceInfo)
+	merged.OSSnapshotPolicy.Merge(defaultOSSnapshotPolicy, &def.OsSnapshotPolicy, GlobalPolicySourceInfo)
 	merged.LoggingPolicy.Merge(defaultLoggingPolicy, &def.LoggingPolicy, GlobalPolicySourceInfo)
 
 	if len(policies) > 0 {

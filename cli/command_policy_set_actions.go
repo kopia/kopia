@@ -24,7 +24,6 @@ type policyActionFlags struct {
 	policySetActionCommandTimeout            time.Duration
 	policySetActionCommandMode               string
 	policySetPersistActionScript             bool
-	policySetVSS                             string
 }
 
 func (c *policyActionFlags) setup(cmd *kingpin.CmdClause) {
@@ -35,7 +34,6 @@ func (c *policyActionFlags) setup(cmd *kingpin.CmdClause) {
 	cmd.Flag("action-command-timeout", "Max time allowed for an action to run in seconds").Default("5m").DurationVar(&c.policySetActionCommandTimeout)
 	cmd.Flag("action-command-mode", "Action command mode").Default("essential").EnumVar(&c.policySetActionCommandMode, "essential", "optional", "async")
 	cmd.Flag("persist-action-script", "Persist action script").BoolVar(&c.policySetPersistActionScript)
-	cmd.Flag("vss", "Enable Volume Shadow Copy Service integration ('true', 'false', 'inherit')").EnumVar(&c.policySetVSS, booleanEnumValues...)
 }
 
 func (c *policyActionFlags) setActionsFromFlags(ctx context.Context, p *policy.ActionsPolicy, changeCount *int) error {
@@ -53,10 +51,6 @@ func (c *policyActionFlags) setActionsFromFlags(ctx context.Context, p *policy.A
 
 	if err := c.setActionCommandFromFlags(ctx, "after-snapshot-root", &p.AfterSnapshotRoot, c.policySetAfterSnapshotRootActionCommand, changeCount); err != nil {
 		return errors.Wrap(err, "invalid after-snapshot-root-action")
-	}
-
-	if err := applyPolicyBoolPtr(ctx, "vss", &p.VSS, c.policySetVSS, changeCount); err != nil {
-		return err
 	}
 
 	return nil

@@ -11,16 +11,12 @@ type ActionsPolicy struct {
 	// commands run once before and after each snapshot root (can be inherited).
 	BeforeSnapshotRoot *ActionCommand `json:"beforeSnapshotRoot,omitempty"`
 	AfterSnapshotRoot  *ActionCommand `json:"afterSnapshotRoot,omitempty"`
-
-	// use Windows Volume Shadow Copy Service (can be inherited).
-	VSS *OptionalBool `json:"vss,omitempty"`
 }
 
 // ActionsPolicyDefinition specifies which policy definition provided the value of a particular field.
 type ActionsPolicyDefinition struct {
 	BeforeSnapshotRoot snapshot.SourceInfo `json:"beforeSnapshotRoot,omitempty"`
 	AfterSnapshotRoot  snapshot.SourceInfo `json:"afterSnapshotRoot,omitempty"`
-	VSS                snapshot.SourceInfo `json:"vss,omitempty"`
 }
 
 // ActionCommand configures a action command.
@@ -40,7 +36,6 @@ type ActionCommand struct {
 func (p *ActionsPolicy) Merge(src ActionsPolicy, def *ActionsPolicyDefinition, si snapshot.SourceInfo) {
 	mergeActionCommand(&p.BeforeSnapshotRoot, src.BeforeSnapshotRoot, &def.BeforeSnapshotRoot, si)
 	mergeActionCommand(&p.AfterSnapshotRoot, src.AfterSnapshotRoot, &def.AfterSnapshotRoot, si)
-	mergeOptionalBool(&p.VSS, src.VSS, &def.VSS, si)
 }
 
 // MergeNonInheritable copies non-inheritable properties from the provided actions policy.

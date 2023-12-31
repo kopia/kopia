@@ -11,11 +11,10 @@ import (
 	"github.com/pkg/errors"
 )
 
-func osSnapshotMode(p *policy.Policy) policy.OSSnapshotMode {
-	return p.OSSnapshotPolicy.VolumeShadowCopy.Enable.OrDefault(policy.OSSnapshotNever)
+func osSnapshotMode(*policy.OSSnapshotPolicy) policy.OSSnapshotMode {
+	return policy.OSSnapshotNever
 }
 
-func createOSSnapshot(ctx context.Context, root fs.Directory) (newRoot fs.Directory, cleanup func(), err error) {
-	_, _ = ctx, root
+func createOSSnapshot(context.Context, fs.Directory, *policy.OSSnapshotPolicy) (newRoot fs.Directory, cleanup func(), err error) {
 	return nil, nil, errors.New("not supported on this platform")
 }

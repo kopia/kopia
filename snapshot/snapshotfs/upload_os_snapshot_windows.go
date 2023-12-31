@@ -11,11 +11,11 @@ import (
 	"github.com/pkg/errors"
 )
 
-func osSnapshotMode(p *policy.Policy) policy.OSSnapshotMode {
-	return p.OSSnapshotPolicy.VolumeShadowCopy.Enable.OrDefault(policy.OSSnapshotWhenAvailable)
+func osSnapshotMode(p *policy.OSSnapshotPolicy) policy.OSSnapshotMode {
+	return p.VolumeShadowCopy.Enable.OrDefault(policy.OSSnapshotWhenAvailable)
 }
 
-func createOSSnapshot(ctx context.Context, root fs.Directory) (newRoot fs.Directory, cleanup func(), err error) {
+func createOSSnapshot(ctx context.Context, root fs.Directory, _ *policy.OSSnapshotPolicy) (newRoot fs.Directory, cleanup func(), err error) {
 	local := root.LocalFilesystemPath()
 	if local == "" {
 		return nil, nil, errors.New("not a local filesystem")
