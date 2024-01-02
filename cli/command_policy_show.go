@@ -456,6 +456,7 @@ func appendOSSnapshotPolicyRows(rows []policyTableRow, p *policy.Policy, def *po
 		policyTableRow{"OS-level snapshot support:", "", ""},
 		policyTableRow{"  Volume Shadow Copy:", p.OSSnapshotPolicy.VolumeShadowCopy.Enable.String(), definitionPointToString(p.Target(), def.OSSnapshotPolicy.VolumeShadowCopy.Enable)},
 	)
+
 	return rows
 }
 

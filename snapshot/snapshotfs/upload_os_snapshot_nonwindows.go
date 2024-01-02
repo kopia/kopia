@@ -6,9 +6,10 @@ package snapshotfs
 import (
 	"context"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/snapshot/policy"
-	"github.com/pkg/errors"
 )
 
 func osSnapshotMode(*policy.OSSnapshotPolicy) policy.OSSnapshotMode {

@@ -38,12 +38,14 @@ func (p *VolumeShadowCopyPolicy) Merge(src VolumeShadowCopyPolicy, def *VolumeSh
 // that support them.
 type OSSnapshotMode byte
 
+// OS-level snapshot modes.
 const (
 	OSSnapshotNever         OSSnapshotMode = iota // Disable OS-level snapshots
 	OSSnapshotAlways                              // Fail if an OS-level snapshot cannot be created
 	OSSnapshotWhenAvailable                       // Fall back to regular file access on error
 )
 
+// OS-level snapshot mode strings.
 const (
 	OSSnapshotNeverString         = "never"
 	OSSnapshotAlwaysString        = "always"
@@ -60,6 +62,7 @@ func (m *OSSnapshotMode) OrDefault(def OSSnapshotMode) OSSnapshotMode {
 	if m == nil {
 		return def
 	}
+
 	return *m
 }
 

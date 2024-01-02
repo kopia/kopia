@@ -14,7 +14,8 @@ type policyOSSnapshotFlags struct {
 }
 
 func (c *policyOSSnapshotFlags) setup(cmd *kingpin.CmdClause) {
-	var osSnapshotMode = []string{policy.OSSnapshotNeverString, policy.OSSnapshotAlwaysString, policy.OSSnapshotWhenAvailableString, inheritPolicyString}
+	osSnapshotMode := []string{policy.OSSnapshotNeverString, policy.OSSnapshotAlwaysString, policy.OSSnapshotWhenAvailableString, inheritPolicyString}
+
 	cmd.Flag("enable-volume-shadow-copy", "Enable Volume Shadow Copy snapshots ('never', 'always', 'when-available', 'inherit')").PlaceHolder("MODE").EnumVar(&c.policyEnableVolumeShadowCopy, osSnapshotMode...)
 }
 
@@ -22,6 +23,7 @@ func (c *policyOSSnapshotFlags) setOSSnapshotPolicyFromFlags(ctx context.Context
 	if err := applyPolicyOSSnapshotMode(ctx, "enable volume shadow copy", &fp.VolumeShadowCopy.Enable, c.policyEnableVolumeShadowCopy, changeCount); err != nil {
 		return errors.Wrap(err, "enable volume shadow copy")
 	}
+
 	return nil
 }
 
@@ -30,12 +32,17 @@ func applyPolicyOSSnapshotMode(ctx context.Context, desc string, val **policy.OS
 		// not changed
 		return nil
 	}
+
 	var mode policy.OSSnapshotMode
+
 	switch str {
 	case inheritPolicyString, defaultPolicyString:
 		*changeCount++
+
 		log(ctx).Infof(" - resetting %q to a default value inherited from parent.", desc)
+
 		*val = nil
+
 		return nil
 	case policy.OSSnapshotNeverString:
 		mode = policy.OSSnapshotNever
@@ -46,8 +53,12 @@ func applyPolicyOSSnapshotMode(ctx context.Context, desc string, val **policy.OS
 	default:
 		return errors.Errorf("invalid %q mode %q", desc, str)
 	}
+
 	*changeCount++
+
 	log(ctx).Infof(" - setting %q to %v.", desc, mode)
+
 	*val = &mode
+
 	return nil
 }
