@@ -5,7 +5,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"syscall"
 
 	"github.com/pkg/errors"
 
@@ -109,7 +111,20 @@ func NewEntry(path string) (fs.Entry, error) {
 
 	fi, err := os.Lstat(path)
 	if err != nil {
-		return nil, errors.Wrap(err, "unable to determine entry type")
+		// Paths such as `\\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy01`
+		// cause os.Lstat to fail with "Incorrect function" error unless they
+		// end with a separator. Retry the operation with the separator added.
+		var e syscall.Errno
+		//nolint:goconst
+		if runtime.GOOS == "windows" &&
+			!strings.HasSuffix(path, string(filepath.Separator)) &&
+			errors.As(err, &e) && e == 1 {
+			fi, err = os.Lstat(path + string(filepath.Separator))
+		}
+
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to determine entry type")
+		}
 	}
 
 	if path == "/" {
