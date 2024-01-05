@@ -50,6 +50,7 @@ const (
 	TaskEpochDeleteSupersededIndexes = "delete-superseded-epoch-indexes"
 	TaskEpochCleanupMarkers          = "cleanup-epoch-markers"
 	TaskEpochGenerateRange           = "generate-epoch-range-index"
+	TaskEpochCompactSingle           = "compact-single-epoch"
 )
 
 // shouldRun returns Mode if repository is due for periodic maintenance.
@@ -350,6 +351,14 @@ func runTaskEpochMaintenanceQuick(ctx context.Context, runParams RunParameters, 
 
 	if !hasEpochManager {
 		return nil
+	}
+
+	err := ReportRun(ctx, runParams.rep, TaskEpochCompactSingle, s, func() error {
+		log(ctx).Infof("Compacting an eligible uncompacted epoch...")
+		return errors.Wrap(em.MaybeCompactSingleEpoch(ctx), "error compacting single epoch")
+	})
+	if err != nil {
+		return err
 	}
 
 	return runTaskEpochAdvance(ctx, em, runParams, s)
