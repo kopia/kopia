@@ -50,9 +50,7 @@ func TestEstimate_SkipsStreamingDirectory(t *testing.T) {
 	rootDir := virtualfs.NewStaticDirectory("root", []fs.Entry{
 		virtualfs.NewStreamingDirectory(
 			"a-dir",
-			func(ctx context.Context, callback func(context.Context, fs.Entry) error) error {
-				return callback(ctx, f)
-			},
+			fs.StaticIterator([]fs.Entry{f}, nil),
 		),
 	})
 

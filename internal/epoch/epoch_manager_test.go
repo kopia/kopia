@@ -88,12 +88,10 @@ func newTestEnv(t *testing.T) *epochManagerTestEnv {
 
 	data := blobtesting.DataMap{}
 	ft := faketime.NewClockTimeWithOffset(0)
-	st := blobtesting.NewMapStorage(data, nil, ft.NowFunc())
-	unloggedst := st
-	fs := blobtesting.NewFaultyStorage(st)
-	st = fs
-	st = logging.NewWrapper(st, testlogging.NewTestLogger(t), "[STORAGE] ")
-	te := &epochManagerTestEnv{unloggedst: unloggedst, st: st, ft: ft}
+	ms := blobtesting.NewMapStorage(data, nil, ft.NowFunc())
+	fs := blobtesting.NewFaultyStorage(ms)
+	st := logging.NewWrapper(fs, testlogging.NewTestLogger(t), "[STORAGE] ")
+	te := &epochManagerTestEnv{unloggedst: ms, st: st, ft: ft}
 	m := NewManager(te.st, parameterProvider{&Parameters{
 		Enabled:                 true,
 		EpochRefreshFrequency:   20 * time.Minute,
@@ -392,27 +390,22 @@ func TestIndexEpochManager_NoCompactionInReadOnly(t *testing.T) {
 
 	// Use assert.Eventually here so we'll exit the test early instead of getting
 	// stuck until the timeout.
-	var (
-		loadedDone bool
-		loadedErr  error
-	)
+	loadedDone := &atomic.Bool{}
+
+	var loadedErr atomic.Value
 
 	go func() {
-		defer func() {
-			loadedDone = true
-		}()
+		if err := te2.mgr.Refresh(ctx); err != nil {
+			loadedErr.Store(err)
+		}
 
-		loadedErr = te2.mgr.Refresh(ctx)
 		te2.mgr.backgroundWork.Wait()
+		loadedDone.Store(true)
 	}()
 
-	if !assert.Eventually(t, func() bool { return loadedDone }, time.Second*5, time.Second) {
-		// Return early so we don't report some odd failure on the error check below
-		// when we just never managed to initialize the epoch manager.
-		return
-	}
+	require.Eventually(t, loadedDone.Load, time.Second*2, time.Second)
 
-	assert.NoError(t, loadedErr, "refreshing read-only index")
+	assert.Nil(t, loadedErr.Load(), "refreshing read-only index")
 }
 
 func TestRefreshRetriesIfTakingTooLong(t *testing.T) {
@@ -436,11 +429,11 @@ func TestGetCompleteIndexSetRetriesIfTookTooLong(t *testing.T) {
 
 	// advance by 3 epochs to ensure GetCompleteIndexSet will be trying to list some blobs
 	// some blobs that were not fetched during Refresh().
-	te.mgr.ForceAdvanceEpoch(ctx)
+	te.mgr.forceAdvanceEpoch(ctx)
 	te.ft.Advance(1 * time.Hour)
-	te.mgr.ForceAdvanceEpoch(ctx)
+	te.mgr.forceAdvanceEpoch(ctx)
 	te.ft.Advance(1 * time.Hour)
-	te.mgr.ForceAdvanceEpoch(ctx)
+	te.mgr.forceAdvanceEpoch(ctx)
 	te.ft.Advance(1 * time.Hour)
 
 	// load committed state
@@ -495,7 +488,7 @@ func TestSlowWrite_MovesToNextEpoch(t *testing.T) {
 	te.faultyStorage.AddFaults(blobtesting.MethodPutBlob,
 		fault.New().Before(func() {
 			te.ft.Advance(1 * time.Hour)
-			te.mgr.ForceAdvanceEpoch(ctx)
+			te.mgr.forceAdvanceEpoch(ctx)
 		}),
 		fault.New().Before(func() { te.ft.Advance(1 * time.Hour) }))
 
@@ -522,8 +515,8 @@ func TestSlowWrite_MovesToNextEpochTwice(t *testing.T) {
 			te.ft.Advance(24 * time.Hour)
 		}),
 		fault.New().Before(func() {
-			te.mgr.ForceAdvanceEpoch(ctx)
-			te.mgr.ForceAdvanceEpoch(ctx)
+			te.mgr.forceAdvanceEpoch(ctx)
+			te.mgr.forceAdvanceEpoch(ctx)
 		}))
 
 	_, err := te.writeIndexFiles(ctx,
@@ -544,13 +537,13 @@ func TestForceAdvanceEpoch(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 0, cs.WriteEpoch)
 
-	require.NoError(t, te.mgr.ForceAdvanceEpoch(ctx))
+	require.NoError(t, te.mgr.forceAdvanceEpoch(ctx))
 
 	cs, err = te.mgr.Current(ctx)
 	require.NoError(t, err)
 	require.Equal(t, 1, cs.WriteEpoch)
 
-	require.NoError(t, te.mgr.ForceAdvanceEpoch(ctx))
+	require.NoError(t, te.mgr.forceAdvanceEpoch(ctx))
 
 	cs, err = te.mgr.Current(ctx)
 	require.NoError(t, err)
@@ -581,14 +574,14 @@ func TestInvalid_ForceAdvanceEpoch(t *testing.T) {
 	ctx, cancel := context.WithCancel(testlogging.Context(t))
 	defer cancel()
 
-	err := te.mgr.ForceAdvanceEpoch(ctx)
+	err := te.mgr.forceAdvanceEpoch(ctx)
 	require.ErrorIs(t, err, ctx.Err())
 
 	ctx = testlogging.Context(t)
 	someError := errors.Errorf("failed")
 	te.faultyStorage.AddFault(blobtesting.MethodPutBlob).ErrorInstead(someError)
 
-	err = te.mgr.ForceAdvanceEpoch(ctx)
+	err = te.mgr.forceAdvanceEpoch(ctx)
 	require.ErrorIs(t, err, someError)
 }
 
@@ -815,4 +808,20 @@ type parameterProvider struct {
 
 func (p parameterProvider) GetParameters() (*Parameters, error) {
 	return p.Parameters, nil
+}
+
+// forceAdvanceEpoch advances current epoch unconditionally.
+func (e *Manager) forceAdvanceEpoch(ctx context.Context) error {
+	cs, err := e.committedState(ctx, 0)
+	if err != nil {
+		return err
+	}
+
+	e.Invalidate()
+
+	if err := e.advanceEpochMarker(ctx, cs); err != nil {
+		return errors.Wrap(err, "error advancing epoch")
+	}
+
+	return nil
 }

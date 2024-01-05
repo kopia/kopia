@@ -234,6 +234,17 @@ func TestNextSnapshotTime(t *testing.T) {
 			wantOK:               true,
 		},
 		{
+			name: "Run immediately because one of the TimeOfDays was missed",
+			pol: policy.SchedulingPolicy{
+				TimesOfDay: []policy.TimeOfDay{{11, 1}, {4, 1}},
+				RunMissed:  policy.NewOptionalBool(true),
+			},
+			now:                  time.Date(2020, time.January, 2, 10, 0, 0, 0, time.Local),
+			previousSnapshotTime: time.Date(2020, time.January, 1, 11, 1, 0, 0, time.Local),
+			wantTime:             time.Date(2020, time.January, 2, 10, 0, 0, 0, time.Local),
+			wantOK:               true,
+		},
+		{
 			name: "Don't run immediately even though RunMissed is set because last run was not missed",
 			pol: policy.SchedulingPolicy{
 				TimesOfDay: []policy.TimeOfDay{{11, 55}},
@@ -251,8 +262,20 @@ func TestNextSnapshotTime(t *testing.T) {
 				RunMissed:  policy.NewOptionalBool(true),
 			},
 			now:                  time.Date(2020, time.January, 2, 11, 0, 0, 0, time.Local),
-			previousSnapshotTime: time.Date(2020, time.January, 2, 10, 0, 0, 0, time.Local),
-			wantTime:             time.Date(2020, time.January, 3, 10, 0, 0, 0, time.Local),
+			previousSnapshotTime: time.Date(2020, time.January, 1, 11, 55, 0, 0, time.Local),
+			wantTime:             time.Date(2020, time.January, 2, 11, 0, 0, 0, time.Local),
+			wantOK:               true,
+		},
+		{
+			name: "Run immediately because Cron was missed",
+			pol: policy.SchedulingPolicy{
+				TimesOfDay: []policy.TimeOfDay{{11, 55}},
+				Cron:       []string{"0 * * * *"}, // Every hour
+				RunMissed:  policy.NewOptionalBool(true),
+			},
+			now:                  time.Date(2020, time.January, 2, 11, 0, 0, 0, time.Local),
+			previousSnapshotTime: time.Date(2020, time.January, 1, 11, 55, 0, 0, time.Local),
+			wantTime:             time.Date(2020, time.January, 2, 11, 0, 0, 0, time.Local),
 			wantOK:               true,
 		},
 	}
@@ -262,6 +285,46 @@ func TestNextSnapshotTime(t *testing.T) {
 			gotTime, gotOK := tc.pol.NextSnapshotTime(tc.previousSnapshotTime, tc.now)
 			require.Equal(t, tc.wantTime, gotTime, tc.name)
 			require.Equal(t, tc.wantOK, gotOK, tc.name)
+		})
+	}
+}
+
+func TestSortAndDedupeTimesOfDay(t *testing.T) {
+	cases := []struct {
+		input []policy.TimeOfDay
+		want  []policy.TimeOfDay
+	}{
+		{},
+		{
+			input: []policy.TimeOfDay{{Hour: 10, Minute: 23}},
+			want:  []policy.TimeOfDay{{Hour: 10, Minute: 23}},
+		},
+		{
+			input: []policy.TimeOfDay{{Hour: 10, Minute: 23}, {Hour: 11, Minute: 25}},
+			want:  []policy.TimeOfDay{{Hour: 10, Minute: 23}, {Hour: 11, Minute: 25}},
+		},
+		{
+			input: []policy.TimeOfDay{{Hour: 11, Minute: 25}, {Hour: 10, Minute: 23}},
+			want:  []policy.TimeOfDay{{Hour: 10, Minute: 23}, {Hour: 11, Minute: 25}},
+		},
+		{
+			input: []policy.TimeOfDay{{Hour: 10, Minute: 23}, {Hour: 10, Minute: 23}},
+			want:  []policy.TimeOfDay{{Hour: 10, Minute: 23}},
+		},
+		{
+			input: []policy.TimeOfDay{{Hour: 10, Minute: 23}, {Hour: 10, Minute: 23}, {Hour: 11, Minute: 25}},
+			want:  []policy.TimeOfDay{{Hour: 10, Minute: 23}, {Hour: 11, Minute: 25}},
+		},
+		{
+			input: []policy.TimeOfDay{{Hour: 10, Minute: 23}, {Hour: 10, Minute: 23}, {Hour: 11, Minute: 25}, {Hour: 11, Minute: 25}},
+			want:  []policy.TimeOfDay{{Hour: 10, Minute: 23}, {Hour: 11, Minute: 25}},
+		},
+	}
+
+	for i, tc := range cases {
+		t.Run(fmt.Sprintf("case-%v", i), func(t *testing.T) {
+			got := policy.SortAndDedupeTimesOfDay(tc.input)
+			require.Equal(t, tc.want, got)
 		})
 	}
 }

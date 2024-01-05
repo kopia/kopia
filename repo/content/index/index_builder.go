@@ -37,7 +37,8 @@ func (b Builder) Clone() Builder {
 func (b Builder) Add(i Info) {
 	cid := i.GetContentID()
 
-	if contentInfoGreaterThan(i, b[cid]) {
+	old, found := b[cid]
+	if !found || contentInfoGreaterThanStruct(i, old) {
 		b[cid] = i
 	}
 }

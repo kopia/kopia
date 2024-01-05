@@ -256,22 +256,6 @@ func (e *Manager) AdvanceDeletionWatermark(ctx context.Context, ts time.Time) er
 	return nil
 }
 
-// ForceAdvanceEpoch advances current epoch unconditionally.
-func (e *Manager) ForceAdvanceEpoch(ctx context.Context) error {
-	cs, err := e.committedState(ctx, 0)
-	if err != nil {
-		return err
-	}
-
-	e.Invalidate()
-
-	if err := e.advanceEpoch(ctx, cs); err != nil {
-		return errors.Wrap(err, "error advancing epoch")
-	}
-
-	return nil
-}
-
 // Refresh refreshes information about current epoch.
 func (e *Manager) Refresh(ctx context.Context) error {
 	e.mu.Lock()
@@ -646,7 +630,7 @@ func (e *Manager) loadUncompactedEpochs(ctx context.Context, min, max int) (map[
 // refreshAttemptLocked attempts to load the committedState of
 // the index and updates `lastKnownState` state atomically when complete.
 func (e *Manager) refreshAttemptLocked(ctx context.Context) error {
-	e.log.Debugf("refreshAttemptLocked")
+	e.log.Debug("refreshAttemptLocked")
 
 	p, perr := e.getParameters()
 	if perr != nil {
@@ -695,7 +679,7 @@ func (e *Manager) refreshAttemptLocked(ctx context.Context) error {
 		cs.ValidUntil.Format(time.RFC3339Nano))
 
 	if !e.st.IsReadOnly() && shouldAdvance(cs.UncompactedEpochSets[cs.WriteEpoch], p.MinEpochDuration, p.EpochAdvanceOnCountThreshold, p.EpochAdvanceOnTotalSizeBytesThreshold) {
-		if err := e.advanceEpoch(ctx, cs); err != nil {
+		if err := e.advanceEpochMarker(ctx, cs); err != nil {
 			return errors.Wrap(err, "error advancing epoch")
 		}
 	}
@@ -719,7 +703,7 @@ func (e *Manager) refreshAttemptLocked(ctx context.Context) error {
 	return nil
 }
 
-func (e *Manager) advanceEpoch(ctx context.Context, cs CurrentSnapshot) error {
+func (e *Manager) advanceEpochMarker(ctx context.Context, cs CurrentSnapshot) error {
 	blobID := blob.ID(fmt.Sprintf("%v%v", string(EpochMarkerIndexBlobPrefix), cs.WriteEpoch+1))
 
 	if err := e.st.PutBlob(ctx, blobID, gather.FromSlice([]byte("epoch-marker")), blob.PutOptions{}); err != nil {
@@ -783,7 +767,7 @@ func (e *Manager) WriteIndex(ctx context.Context, dataShards map[blob.ID]blob.By
 	writtenForEpoch := -1
 
 	for {
-		e.log.Debugf("refreshAttemptLocked")
+		e.log.Debug("WriteIndex")
 
 		p, err := e.getParameters()
 		if err != nil {

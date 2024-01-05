@@ -186,9 +186,17 @@ func (bm *WriteManager) deletePreexistingContent(ctx context.Context, ci Info) e
 		return errors.Wrap(err, "unable to create pack")
 	}
 
-	pp.currentPackItems[ci.GetContentID()] = &deletedInfo{ci, bm.contentWriteTime(ci.GetTimestampSeconds())}
+	pp.currentPackItems[ci.GetContentID()] = deletedInfo(ci, bm.contentWriteTime(ci.GetTimestampSeconds()))
 
 	return nil
+}
+
+func deletedInfo(is Info, deletedTime int64) Info {
+	// clone and set deleted time
+	is.Deleted = true
+	is.TimestampSeconds = deletedTime
+
+	return is
 }
 
 // contentWriteTime returns content write time for new content
@@ -200,19 +208,6 @@ func (bm *WriteManager) contentWriteTime(previousUnixTimeSeconds int64) int64 {
 	}
 
 	return previousUnixTimeSeconds + 1
-}
-
-type deletedInfo struct {
-	Info
-	deletedTime int64
-}
-
-func (d *deletedInfo) GetDeleted() bool {
-	return true
-}
-
-func (d *deletedInfo) GetTimestampSeconds() int64 {
-	return d.deletedTime
 }
 
 func (bm *WriteManager) maybeFlushBasedOnTimeUnlocked(ctx context.Context) error {
@@ -310,7 +305,7 @@ func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, dat
 		return errors.Wrap(err, "unable to create pending pack")
 	}
 
-	info := &InfoStruct{
+	info := Info{
 		Deleted:          isDeleted,
 		ContentID:        contentID,
 		PackBlobID:       pp.packBlobID,
@@ -665,11 +660,11 @@ func (bm *WriteManager) getContentDataAndInfo(ctx context.Context, contentID ID,
 
 	pp, bi, err := bm.getContentInfoReadLocked(ctx, contentID)
 	if err != nil {
-		return nil, err
+		return Info{}, err
 	}
 
 	if err := bm.getContentDataReadLocked(ctx, pp, bi, output); err != nil {
-		return nil, err
+		return Info{}, err
 	}
 
 	return bi, nil
@@ -885,7 +880,7 @@ func (bm *WriteManager) getOverlayContentInfoReadLocked(contentID ID) (*pendingP
 		return nil, ci, true
 	}
 
-	return nil, nil, false
+	return nil, Info{}, false
 }
 
 // +checklocksread:bm.mu
@@ -896,7 +891,7 @@ func (bm *WriteManager) getContentInfoReadLocked(ctx context.Context, contentID 
 
 	// see if the content existed before
 	if err := bm.maybeRefreshIndexes(ctx); err != nil {
-		return nil, nil, err
+		return nil, Info{}, err
 	}
 
 	info, err := bm.committedContents.getContent(contentID)
@@ -912,7 +907,7 @@ func (bm *WriteManager) ContentInfo(ctx context.Context, contentID ID) (Info, er
 	_, bi, err := bm.getContentInfoReadLocked(ctx, contentID)
 	if err != nil {
 		bm.log.Debugf("ContentInfo(%q) - error %v", contentID, err)
-		return nil, err
+		return Info{}, err
 	}
 
 	return bi, err
@@ -949,8 +944,6 @@ func (bm *WriteManager) MetadataCache() cache.ContentCache {
 type ManagerOptions struct {
 	TimeNow                func() time.Time // Time provider
 	DisableInternalLog     bool
-	RetentionMode          string
-	RetentionPeriod        time.Duration
 	PermissiveCacheLoading bool
 }
 

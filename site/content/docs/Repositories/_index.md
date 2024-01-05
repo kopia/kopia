@@ -17,7 +17,7 @@ Kopia allows you to save your [encrypted](../features/#end-to-end-zero-knowledge
 * [Google Drive](#google-drive)
   * Kopia supports Google Drive natively and through Kopia's Rclone option (see below)
   * Native support for Google Drive in Kopia is currently experimental
-  * Native Google Drive support operates differently than Kopia's support for Google Drive through Rclone; you will not be able to use the two interchangably, so pick one
+  * Native Google Drive support operates differently than Kopia's support for Google Drive through Rclone; you will not be able to use the two interchangeably, so pick one
 * All remote servers or cloud storage that support [WebDAV](#webdav) 
 * All remote servers or cloud storage that support [SFTP](#sftp)
 * Some of the cloud storages supported by [Rclone](#rclone) 
@@ -166,8 +166,7 @@ Once you do all that, your repository should be created and you can start backin
 #### Creating a Repository
 
 There are three methods to create a `repository` for Google Cloud Storage: one that requires you to install Google Cloud SDK; the other method allows you to generate credentials without Google Cloud SDK; and the third method allows you to use Google Cloud Storage through Kopia's [S3 `repository` option](#amazon-s3-and-s3-compatible-cloud-storage):
-
-***Method #1: Installing Google Cloud SDK
+##### Method #1: Installing Google Cloud SDK
 
 1. Create a storage bucket in [Google Cloud Console](https://console.cloud.google.com/storage/)
 2. Install [Google Cloud SDK](https://cloud.google.com/sdk/)
@@ -187,7 +186,7 @@ There are also various other options (such as [actions](../advanced/actions/)) y
 
 You will be asked to enter the repository password that you want. Remember, this [password is used to encrypt your data](../faqs/#how-do-i-enable-encryption), so make sure it is a secure password!
 
-***Method #2: Creating a Service Account and Using the JSON Key File
+##### Method #2: Creating a Service Account and Using the JSON Key File
 
 1. Create a storage bucket in [Google Cloud Console](https://console.cloud.google.com/storage/)
 2. Create a Google Cloud Service Account that allows you to access your storage bucket. Directions are available on [Google Cloud's website](https://cloud.google.com/authentication/getting-started#create-service-account-console). Make sure to download the JSON key file for your service account and keep it safe.
@@ -202,7 +201,7 @@ There are also various other options (such as [actions](../advanced/actions/)) y
 
 You will be asked to enter the repository password that you want. Remember, this [password is used to encrypt your data](../faqs/#how-do-i-enable-encryption), so make sure it is a secure password!
 
-***Method #3: Enabling Amazon S3 Interoperability in Google Cloud Storage
+##### Method #3: Enabling Amazon S3 Interoperability in Google Cloud Storage
 
 1. Create a storage bucket in [Google Cloud Console](https://console.cloud.google.com/storage/)
 2. Go to [Settings and then Interoperability](https://console.cloud.google.com/storage/settings;tab=interoperability) in your Google Cloud Storage account
