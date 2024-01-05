@@ -374,6 +374,14 @@ func runTaskEpochMaintenanceFull(ctx context.Context, runParams RunParameters, s
 		return nil
 	}
 
+	// compact a single epoch
+	if err := ReportRun(ctx, runParams.rep, TaskEpochCompactSingle, s, func() error {
+		log(ctx).Infof("Compacting an eligible uncompacted epoch...")
+		return errors.Wrap(em.MaybeCompactSingleEpoch(ctx), "error compacting single epoch")
+	}); err != nil {
+		return err
+	}
+
 	if err := runTaskEpochAdvance(ctx, em, runParams, s); err != nil {
 		return err
 	}
