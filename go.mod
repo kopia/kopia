@@ -46,7 +46,7 @@ require (
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
 	github.com/stretchr/testify v1.8.4
 	github.com/studio-b12/gowebdav v0.9.0
-	github.com/tg123/go-htpasswd v1.2.1
+	github.com/tg123/go-htpasswd v1.2.2
 	github.com/zalando/go-keyring v0.2.3
 	github.com/zeebo/blake3 v0.2.3
 	go.opentelemetry.io/otel v1.21.0
@@ -66,7 +66,7 @@ require (
 	golang.org/x/text v0.14.0
 	google.golang.org/api v0.154.0
 	google.golang.org/grpc v1.60.1
-	google.golang.org/protobuf v1.31.0
+	google.golang.org/protobuf v1.32.0
 	gopkg.in/kothar/go-backblaze.v0 v0.0.0-20210124194846-35409b867216
 )
 
