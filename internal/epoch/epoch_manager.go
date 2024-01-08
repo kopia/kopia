@@ -7,12 +7,14 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
+	"golang.org/x/exp/maps"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/kopia/kopia/internal/completeset"
@@ -1019,6 +1021,50 @@ func (e *Manager) getCompleteIndexSetForCommittedState(ctx context.Context, cs C
 	}
 
 	return result, nil
+}
+
+type intRange struct {
+	lo, hi int
+}
+
+func (r intRange) length() int {
+	return r.hi - r.lo
+}
+
+func (r intRange) isEmpty() bool {
+	return r.length() <= 0
+}
+
+var errNonContiguousRange = errors.New("non-contiguous range")
+
+// Returns a continuous close-open epoch range for the keys, that is [lo, hi).
+// A range of the form [v,v) means the range is empty.
+// When the range is not continuous an error is returned.
+func getKeyRange[E any](m map[int]E) (intRange, error) {
+	keys := maps.Keys(m)
+
+	slices.Sort(keys)
+
+	keys = slices.Compact(keys)
+
+	l := len(keys)
+	if l == 0 {
+		return intRange{}, nil
+	}
+
+	if lo, hi := keys[0], keys[l-1]; hi-lo > l-1 {
+		return intRange{lo: -1, hi: -1}, errors.Wrapf(errNonContiguousRange, "lo: %d, hi: %d, length: %d", lo, hi, l)
+	}
+
+	return intRange{lo: keys[0], hi: keys[l-1] + 1}, nil
+}
+
+func getUncompactedEpochRange(cs CurrentSnapshot) (intRange, error) {
+	return getKeyRange(cs.UncompactedEpochSets)
+}
+
+func getCompactedEpochRange(cs CurrentSnapshot) (intRange, error) {
+	return getKeyRange(cs.SingleEpochCompactionSets)
 }
 
 func (e *Manager) getIndexesFromEpochInternal(ctx context.Context, cs CurrentSnapshot, epoch int) ([]blob.Metadata, error) {

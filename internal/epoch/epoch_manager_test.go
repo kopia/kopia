@@ -822,6 +822,70 @@ func TestValidateParameters(t *testing.T) {
 	}
 }
 
+func TestGetKeyRange(t *testing.T) {
+	cases := []struct {
+		input     map[int]bool
+		want      intRange
+		shouldErr bool
+	}{
+		{},
+		{
+			input: map[int]bool{-5: true},
+			want:  intRange{lo: -5, hi: -4},
+		},
+		{
+			input: map[int]bool{-5: true, -4: true},
+			want:  intRange{lo: -5, hi: -3},
+		},
+		{
+			input: map[int]bool{0: true},
+			want:  intRange{lo: 0, hi: 1},
+		},
+		{
+			input: map[int]bool{5: true},
+			want:  intRange{lo: 5, hi: 6},
+		},
+		{
+			input: map[int]bool{0: true, 1: true},
+			want:  intRange{lo: 0, hi: 2},
+		},
+		{
+			input: map[int]bool{8: true, 9: true},
+			want:  intRange{lo: 8, hi: 10},
+		},
+		{
+			input: map[int]bool{1: true, 2: true, 3: true, 4: true, 5: true},
+			want:  intRange{lo: 1, hi: 6},
+		},
+		{
+			input:     map[int]bool{8: true, 10: true},
+			want:      intRange{lo: -1, hi: -1},
+			shouldErr: true,
+		},
+		{
+			input:     map[int]bool{1: true, 2: true, 3: true, 5: true},
+			want:      intRange{lo: -1, hi: -1},
+			shouldErr: true,
+		},
+		{
+			input:     map[int]bool{-5: true, -7: true},
+			want:      intRange{lo: -1, hi: -1},
+			shouldErr: true,
+		},
+	}
+
+	for i, tc := range cases {
+		t.Run(fmt.Sprint("case: ", i), func(t *testing.T) {
+			got, err := getKeyRange(tc.input)
+			if tc.shouldErr {
+				require.Error(t, err)
+			}
+
+			require.Equal(t, tc.want, got, "input: %#v", tc.input)
+		})
+	}
+}
+
 func randomTime(min, max time.Duration) time.Duration {
 	return time.Duration(float64(max-min)*rand.Float64() + float64(min))
 }
