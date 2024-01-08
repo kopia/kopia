@@ -122,8 +122,8 @@ For simplicity, the recommendation is to use the same time period for Lifecycle 
 ### Azure protection
 
 Kopia supports ransomware protection for Azure in a similar manner to S3. The container must have version-level immutability support enabled and the related storage account must have versioning enabled.
-When this is configured, the retention mode of the Kopia repository must be set to Locked.
+When this is configured, the retention mode can be set to either compliance or governance mode. In both cases the blobs will be in [Locked](https://learn.microsoft.com/en-us/rest/api/storageservices/set-blob-immutability-policy?tabs=microsoft-entra-id#remarks) mode. 
 
 Follow [these steps](https://learn.microsoft.com/en-us/azure/storage/blobs/versioning-enable) to enable versioning on the storage account and [these steps](https://learn.microsoft.com/en-us/azure/storage/blobs/immutable-policy-configure-version-scope) to enable version-level immutability support on the container or related storage account.
 
-On Kopia side `--retention-mode Locked --retention-period <retention time>` should be set like above. 
+On Kopia side `--retention-mode COMPLIANCE --retention-period <retention time>` should be set like above. 
