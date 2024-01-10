@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"cloud.google.com/go/storage"
@@ -43,18 +44,23 @@ func (gcs *gcsStorage) GetBlob(ctx context.Context, b blob.ID, offset, length in
 
 // getBlobWithVersion returns full or partial contents of a blob with given ID and version.
 func (gcs *gcsStorage) getBlobWithVersion(ctx context.Context, b blob.ID, version string, offset, length int64, output blob.OutputBuffer) error {
+	fmt.Printf("getBlobWithVersion: blob %s versione %s\n", b, version)
 	if offset < 0 {
 		return blob.ErrInvalidRange
 	}
 
-	versionHash := ""
-	if version != "" {
-		versionHash = "#" + version
-	}
+	objName := gcs.getObjectNameString(b)
 
 	attempt := func() error {
-		reader, err := gcs.bucket.Object(gcs.getObjectNameString(b)+versionHash).NewRangeReader(ctx, offset, length)
+		obj := gcs.bucket.Object(objName)
+		if version != "" {
+			gen, _ := strconv.ParseInt(version, 10, 64)
+			obj = obj.Generation(gen)
+		}
+
+		reader, err := obj.NewRangeReader(ctx, offset, length)
 		if err != nil {
+			fmt.Printf("getBlobWithVersion: errore\n")
 			return errors.Wrap(err, "NewRangeReader")
 		}
 		defer reader.Close() //nolint:errcheck
@@ -78,12 +84,15 @@ func (gcs *gcsStorage) GetMetadata(ctx context.Context, b blob.ID) (blob.Metadat
 }
 
 func (gcs *gcsStorage) getVersionMetadata(ctx context.Context, b blob.ID, version string) (versionMetadata, error) {
-	versionHash := ""
+	fmt.Printf("getVersionMetadata per %s#%s", b, version)
+	objName := gcs.getObjectNameString(b)
+	obj := gcs.bucket.Object(objName)
 	if version != "" {
-		versionHash = "#" + version
+		gen, _ := strconv.ParseInt(version, 10, 64)
+		obj = obj.Generation(gen)
 	}
 
-	attrs, err := gcs.bucket.Object(gcs.getObjectNameString(b) + versionHash).Attrs(ctx)
+	attrs, err := obj.Attrs(ctx)
 	if err != nil {
 		return versionMetadata{}, errors.Wrap(translateError(err), "Attrs")
 	}
@@ -289,10 +298,16 @@ func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error)
 		return nil, errors.New("bucket name must be specified")
 	}
 
-	gcs := &gcsStorage{
+	st := &gcsStorage{
 		Options:       *opt,
 		storageClient: cli,
 		bucket:        cli.Bucket(opt.BucketName),
+	}
+
+	fmt.Println("Provo il PIT")
+	gcs, err := maybePointInTimeStore(ctx, st, opt.PointInTime)
+	if err != nil {
+		return nil, err
 	}
 
 	// verify GCS connection is functional by listing blobs in a bucket, which will fail if the bucket
@@ -306,6 +321,7 @@ func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error)
 		return nil, errors.Wrap(err, "unable to list from the bucket")
 	}
 
+	fmt.Println("Ritorno il wrapper")
 	return retrying.NewWrapper(gcs), nil
 }
 

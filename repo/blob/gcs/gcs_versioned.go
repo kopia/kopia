@@ -2,6 +2,7 @@ package gcs
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -17,7 +18,6 @@ type versionMetadata struct {
 	blob.Metadata
 
 	// Versioning related information
-	IsLatest       bool
 	IsDeleteMarker bool
 	Version        string
 }
@@ -45,6 +45,7 @@ func (gcs *gcsStorage) getBlobVersions(ctx context.Context, prefix blob.ID, call
 	if err := gcs.list(ctx, prefix, true, func(vm versionMetadata) error {
 		foundBlobs = true
 
+		fmt.Printf("Found blobs\n")
 		return callback(vm)
 	}); err != nil {
 		return err
@@ -63,7 +64,7 @@ func (gcs *gcsStorage) listBlobVersions(ctx context.Context, prefix blob.ID, cal
 }
 
 func (gcs *gcsStorage) list(ctx context.Context, prefix blob.ID, onlyMatching bool, callback versionMetadataCallback) error {
-
+	fmt.Printf("in list\n")
 	query := storage.Query{
 		Prefix: gcs.getObjectNameString(prefix),
 		// Versions true to output all generations of objects
@@ -92,6 +93,8 @@ func (gcs *gcsStorage) list(ctx context.Context, prefix blob.ID, onlyMatching bo
 		oi := attrs
 		om := infoToVersionMetadata(query.Prefix, oi)
 
+		fmt.Printf("Trovato attributo nel blob %s\n", oi.Name)
+
 		if errCallback := callback(om); errCallback != nil {
 			return errors.Wrapf(errCallback, "callback failed for %q", attrs.Name)
 		}
@@ -113,7 +116,6 @@ func infoToVersionMetadata(prefix string, oi *storage.ObjectAttrs) versionMetada
 
 	return versionMetadata{
 		Metadata:       bm,
-		IsLatest:       true, // TODO: how to check if this is the latest version???
 		IsDeleteMarker: !oi.Deleted.IsZero(),
 		Version:        strconv.FormatInt(oi.Generation, 10),
 	}
