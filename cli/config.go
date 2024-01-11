@@ -30,7 +30,7 @@ func (c *App) onRepositoryFatalError(f func(err error)) {
 	c.onFatalErrorCallbacks = append(c.onFatalErrorCallbacks, f)
 }
 
-func (c *App) onCtrlC(f func()) {
+func (c *App) onTerminate(f func()) {
 	s := make(chan os.Signal, 1)
 	signal.Notify(s, os.Interrupt, syscall.SIGTERM)
 

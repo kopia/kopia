@@ -89,7 +89,7 @@ type appServices interface {
 	stdout() io.Writer
 	Stderr() io.Writer
 	stdin() io.Reader
-	onCtrlC(callback func())
+	onTerminate(callback func())
 	onRepositoryFatalError(callback func(err error))
 	enableTestOnlyFlags() bool
 	EnvName(s string) string
