@@ -222,7 +222,7 @@ func (c *commandServerStart) run(ctx context.Context) error {
 		return nil
 	}
 
-	c.svc.onCtrlC(func() {
+	c.svc.onTerminate(func() {
 		log(ctx).Infof("Shutting down...")
 
 		if serr := httpServer.Shutdown(ctx); serr != nil {
