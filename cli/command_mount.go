@@ -103,7 +103,7 @@ func (c *commandMount) run(ctx context.Context, rep repo.Repository) error {
 	// Wait until ctrl-c pressed or until the directory is unmounted.
 	ctrlCPressed := make(chan bool)
 
-	c.svc.onCtrlC(func() {
+	c.svc.onTerminate(func() {
 		close(ctrlCPressed)
 	})
 

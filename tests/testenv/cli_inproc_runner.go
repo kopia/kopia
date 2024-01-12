@@ -27,7 +27,7 @@ type CLIInProcRunner struct {
 }
 
 // Start implements CLIRunner.
-func (e *CLIInProcRunner) Start(t *testing.T, args []string, env map[string]string) (stdout, stderr io.Reader, wait func() error, kill func()) {
+func (e *CLIInProcRunner) Start(t *testing.T, args []string, env map[string]string) (stdout, stderr io.Reader, wait func() error, interrupt func(os.Signal)) {
 	t.Helper()
 
 	ctx := testlogging.Context(t)
