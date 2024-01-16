@@ -110,6 +110,7 @@ func StartProfileBuffers(ctx context.Context) {
 	if err != nil {
 		log(ctx).With(err).Debug("no profile buffers enabled")
 	}
+
 	pprofConfigs.StartProfileBuffers(ctx)
 }
 
@@ -158,7 +159,7 @@ func LoadProfileConfig(ctx context.Context, ppconfigss string) (map[ProfileName]
 	bufSizeB := DefaultDebugProfileDumpBufferSizeB
 
 	// look for matching services.  "*" signals all services for profiling
-	log(ctx).Debug("configuring profile buffers")
+	log(ctx).Info("configuring profile buffers")
 
 	// acquire global lock when performing operations with global side-effects
 	return parseProfileConfigs(bufSizeB, ppconfigss)

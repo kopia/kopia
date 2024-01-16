@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"runtime"
 	"syscall"
@@ -34,7 +35,7 @@ func (c *App) onSigDump(f func()) {
 }
 
 func (c *App) onTerminate(f func()) {
-	s := make(chan os.Signal, 1)
+	s := make(chan os.Signal, 2)
 	signal.Notify(s, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
 
 	go func() {

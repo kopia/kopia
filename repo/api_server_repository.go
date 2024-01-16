@@ -7,9 +7,9 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/kopia/kopia/internal/debug"
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/debug"
 	"github.com/kopia/kopia/internal/apiclient"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/gather"
@@ -321,8 +321,6 @@ func openRestAPIRepository(ctx context.Context, si *APIServerInfo, password stri
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create API client")
 	}
-
-	debug.StartProfileBuffers(ctx)
 
 	rr := &apiServerRepository{
 		immutableServerRepositoryParameters: par,

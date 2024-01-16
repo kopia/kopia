@@ -10,6 +10,7 @@ import (
 
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/fatih/color"
+	"github.com/kopia/kopia/internal/debug"
 	"github.com/mattn/go-colorable"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel"
@@ -171,7 +172,6 @@ type App struct {
 	rootctx          context.Context //nolint:containedctx
 	loggerFactory    logging.LoggerFactory
 	simulatedCtrlC   chan bool
-	simulatedSigTerm chan bool
 	simulatedSigDump chan bool
 	envNamePrefix    string
 }
@@ -411,6 +411,9 @@ func (c *App) serverAction(sf *serverClientFlags, act func(ctx context.Context, 
 		}
 
 		return c.runAppWithContext(kpc.SelectedCommand, func(ctx context.Context) error {
+			// TODO: BIX
+			debug.StartProfileBuffers(ctx)
+			defer debug.StopProfileBuffers(ctx)
 			return act(ctx, apiClient)
 		})
 	}

@@ -12,7 +12,6 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/scrypt"
 
-	"github.com/kopia/kopia/debug"
 	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/cacheprot"
 	"github.com/kopia/kopia/internal/crypto"
@@ -215,7 +214,7 @@ func openDirect(ctx context.Context, configFile string, lc *LocalConfig, passwor
 		return nil, errors.Wrap(err, "cannot open storage")
 	}
 
-	debug.StartProfileBuffers(ctx)
+	// debug.StartProfileBuffers(ctx)
 
 	if options.TraceStorage {
 		st = loggingwrapper.NewWrapper(st, log(ctx), "[STORAGE] ")

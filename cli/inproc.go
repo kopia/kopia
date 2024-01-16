@@ -3,8 +3,8 @@ package cli
 import (
 	"context"
 	"io"
-	"runtime"
 	"os"
+	"runtime"
 
 	"github.com/alecthomas/kingpin/v2"
 	"go.uber.org/multierr"
@@ -24,9 +24,11 @@ func (c *App) RunSubcommand(ctx context.Context, kpapp *kingpin.Application, std
 	c.stderrWriter = stderrWriter
 	c.rootctx = logging.WithLogger(ctx, logging.ToWriter(stderrWriter))
 	c.simulatedCtrlC = make(chan bool, 1)
+	c.simulatedSigDump = make(chan bool, 1)
 	c.isInProcessTest = true
 
 	releasable.Created("simulated-ctrl-c", c.simulatedCtrlC)
+	releasable.Created("simulated-dump", c.simulatedSigDump)
 
 	c.Attach(kpapp)
 
@@ -44,7 +46,9 @@ func (c *App) RunSubcommand(ctx context.Context, kpapp *kingpin.Application, std
 			stderrWriter.Close() //nolint:errcheck
 			close(resultErr)
 			close(c.simulatedCtrlC)
+			close(c.simulatedSigDump)
 			releasable.Released("simulated-ctrl-c", c.simulatedCtrlC)
+			releasable.Released("simulated-dump", c.simulatedSigDump)
 		}()
 
 		_, err := kpapp.Parse(argsAndFlags)

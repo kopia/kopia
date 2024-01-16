@@ -14,11 +14,11 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/kopia/kopia/internal/debug"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/tg123/go-htpasswd"
 
-	"github.com/kopia/kopia/debug"
 	"github.com/kopia/kopia/internal/auth"
 	"github.com/kopia/kopia/internal/ctxutil"
 	"github.com/kopia/kopia/internal/server"
@@ -228,6 +228,12 @@ func (c *commandServerStart) run(ctx context.Context) error {
 	c.svc.onTerminate(func() {
 		log(ctx).Infof("Shutting down...")
 		shutdownServer(ctx, httpServer, srv)
+	})
+
+	c.svc.onRepositoryFatalError(func(_ error) {
+		if serr := httpServer.Shutdown(ctx); serr != nil {
+			log(ctx).Debugf("unable to shut down: %v", serr)
+		}
 	})
 
 	c.svc.onSigDump(func() {

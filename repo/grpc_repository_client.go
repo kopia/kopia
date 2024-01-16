@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kopia/kopia/internal/debug"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
@@ -16,7 +17,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
-	"github.com/kopia/kopia/debug"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/ctxutil"
 	"github.com/kopia/kopia/internal/gather"
@@ -955,7 +955,7 @@ func newGRPCAPIRepositoryForConnection(
 		opt.OnUpload = func(i int64) {}
 	}
 
-	debug.StartProfileBuffers(ctx)
+	//	debug.StartProfileBuffers(ctx)
 
 	rr := &grpcRepositoryClient{
 		immutableServerRepositoryParameters: par,
