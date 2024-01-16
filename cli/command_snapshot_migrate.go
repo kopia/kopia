@@ -73,7 +73,7 @@ func (c *commandSnapshotMigrate) run(ctx context.Context, destRepo repo.Reposito
 
 	c.svc.getProgress().StartShared()
 
-	c.svc.onCtrlC(func() {
+	c.svc.onTerminate(func() {
 		// use new context as old one may have already errored out
 		var canfn context.CancelFunc
 		ctx, canfn = context.WithTimeout(context.Background(), debug.PPROFDumpTimeout)

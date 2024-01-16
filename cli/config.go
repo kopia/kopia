@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"syscall"
 
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/pkg/errors"
@@ -28,16 +29,26 @@ func (c *App) onRepositoryFatalError(f func(err error)) {
 	c.onFatalErrorCallbacks = append(c.onFatalErrorCallbacks, f)
 }
 
-func (c *App) onSigTerm(f func()) {
-	onSig(c.simulatedSigTerm, SignalTerminate, f)
-}
-
 func (c *App) onSigDump(f func()) {
 	onSig(c.simulatedSigDump, SignalDump, f)
 }
 
-func (c *App) onCtrlC(f func()) {
-	onSig(c.simulatedCtrlC, SignalInterrupt, f)
+func (c *App) onTerminate(f func()) {
+	s := make(chan os.Signal, 1)
+	signal.Notify(s, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
+
+	go func() {
+		// invoke the function when either real or simulated Ctrl-C signal is delivered
+		select {
+		case v := <-c.simulatedCtrlC:
+			if !v {
+				return
+			}
+
+		case <-s:
+		}
+		f()
+	}()
 }
 
 func (c *App) openRepository(ctx context.Context, required bool) (repo.Repository, error) {

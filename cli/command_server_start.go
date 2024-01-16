@@ -225,9 +225,10 @@ func (c *commandServerStart) run(ctx context.Context) error {
 		return nil
 	}
 
-	c.svc.onCtrlC(func() { shutdownServer(ctx, httpServer, srv) })
-
-	c.svc.onSigTerm(func() { shutdownServer(ctx, httpServer, srv) })
+	c.svc.onTerminate(func() {
+		log(ctx).Infof("Shutting down...")
+		shutdownServer(ctx, httpServer, srv)
+	})
 
 	c.svc.onSigDump(func() {
 		debug.StopProfileBuffers(ctx)

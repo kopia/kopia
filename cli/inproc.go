@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"runtime"
+	"os"
 
 	"github.com/alecthomas/kingpin/v2"
 	"go.uber.org/multierr"
@@ -14,7 +15,7 @@ import (
 
 // RunSubcommand executes the subcommand asynchronously in current process
 // with flags in an isolated CLI environment and returns standard output and standard error.
-func (c *App) RunSubcommand(ctx context.Context, kpapp *kingpin.Application, stdin io.Reader, argsAndFlags []string) (stdout, stderr io.Reader, wait func() error, kill func()) {
+func (c *App) RunSubcommand(ctx context.Context, kpapp *kingpin.Application, stdin io.Reader, argsAndFlags []string) (stdout, stderr io.Reader, wait func() error, interrupt func(os.Signal)) {
 	stdoutReader, stdoutWriter := io.Pipe()
 	stderrReader, stderrWriter := io.Pipe()
 
@@ -61,7 +62,7 @@ func (c *App) RunSubcommand(ctx context.Context, kpapp *kingpin.Application, std
 
 			//nolint:wrapcheck
 			return err
-		}, func() {
+		}, func(_ os.Signal) {
 			// deliver simulated Ctrl-C to the app.
 			c.simulatedCtrlC <- true
 		}

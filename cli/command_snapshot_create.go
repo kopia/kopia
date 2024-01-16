@@ -235,16 +235,6 @@ func (c *commandSnapshotCreate) setupUploader(ctx context.Context, rep repo.Repo
 		u.CheckpointInterval = interval
 	}
 
-	c.svc.onCtrlC(func() {
-		u.Cancel()
-
-		// use new context as old one may have already errored out
-		ctx0, canfn := context.WithTimeout(context.Background(), debug.PPROFDumpTimeout)
-		defer canfn()
-
-		debug.StopProfileBuffers(ctx0)
-	})
-
 	c.svc.onSigDump(func() {
 		ctx0, canfn := context.WithTimeout(ctx, debug.PPROFDumpTimeout)
 		defer canfn()
@@ -256,7 +246,7 @@ func (c *commandSnapshotCreate) setupUploader(ctx context.Context, rep repo.Repo
 		debug.StartProfileBuffers(ctx0)
 	})
 
-	c.svc.onSigTerm(func() {
+	c.svc.onTerminate(func() {
 		u.Cancel()
 
 		// use new context as old one may have already errored out
