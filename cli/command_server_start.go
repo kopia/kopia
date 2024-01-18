@@ -227,7 +227,7 @@ func (c *commandServerStart) run(ctx context.Context) error {
 
 	c.svc.onTerminate(func() {
 		log(ctx).Infof("Shutting down...")
-		shutdownServer(ctx, httpServer, srv)
+		shutdownServer(ctx, httpServer)
 	})
 
 	c.svc.onRepositoryFatalError(func(_ error) {
@@ -241,7 +241,7 @@ func (c *commandServerStart) run(ctx context.Context) error {
 		debug.StartProfileBuffers(ctx)
 	})
 
-	c.svc.onRepositoryFatalError(func(error) { shutdownServer(ctx, httpServer, srv) })
+	c.svc.onRepositoryFatalError(func(error) { shutdownServer(ctx, httpServer) })
 
 	m := mux.NewRouter()
 
@@ -281,9 +281,7 @@ func (c *commandServerStart) run(ctx context.Context) error {
 }
 
 // shutdownServer shutdown http server and close the repository.
-//
-//nolint:revive,unparam
-func shutdownServer(ctx context.Context, httpServer *http.Server, srv *server.Server) {
+func shutdownServer(ctx context.Context, httpServer *http.Server) {
 	log(ctx).Infof("Shutting down...")
 
 	debug.StopProfileBuffers(ctx)
