@@ -355,13 +355,18 @@ func TestDebug_LoadProfileConfigs(t *testing.T) {
 	}
 }
 
+//nolint:gocritic
 func saveLockEnv(t *testing.T) {
+	t.Helper()
+
 	mu.Lock()
 	oldEnv = os.Getenv(EnvVarKopiaDebugPprof)
 }
 
+//nolint:gocritic
 func restoreUnlockEnv(t *testing.T) {
-	err := os.Setenv(EnvVarKopiaDebugPprof, oldEnv)
+	t.Helper()
+
+	t.Setenv(EnvVarKopiaDebugPprof, oldEnv)
 	mu.Unlock()
-	require.NoError(t, err)
 }

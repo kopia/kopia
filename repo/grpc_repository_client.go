@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kopia/kopia/internal/debug"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
@@ -19,6 +18,7 @@ import (
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/ctxutil"
+	"github.com/kopia/kopia/internal/debug"
 	"github.com/kopia/kopia/internal/gather"
 	apipb "github.com/kopia/kopia/internal/grpcapi"
 	"github.com/kopia/kopia/internal/retry"
@@ -954,8 +954,6 @@ func newGRPCAPIRepositoryForConnection(
 	if opt.OnUpload == nil {
 		opt.OnUpload = func(i int64) {}
 	}
-
-	//	debug.StartProfileBuffers(ctx)
 
 	rr := &grpcRepositoryClient{
 		immutableServerRepositoryParameters: par,

@@ -14,13 +14,13 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/kopia/kopia/internal/debug"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/tg123/go-htpasswd"
 
 	"github.com/kopia/kopia/internal/auth"
 	"github.com/kopia/kopia/internal/ctxutil"
+	"github.com/kopia/kopia/internal/debug"
 	"github.com/kopia/kopia/internal/server"
 	"github.com/kopia/kopia/repo"
 )

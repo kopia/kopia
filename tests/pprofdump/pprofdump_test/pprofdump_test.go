@@ -46,7 +46,7 @@ func TestPprofDumpRepositoryConnect(t *testing.T) {
 
 	// kill the kopia command before it exits
 	time.AfterFunc(10*time.Millisecond, func() {
-		err := cmd.Process.Signal(syscall.SIGINT)
+		err = cmd.Process.Signal(syscall.SIGINT)
 		if err != nil {
 			t.Fatalf("fatal: %v", err)
 		}

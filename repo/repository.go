@@ -6,12 +6,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/kopia/kopia/internal/debug"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel"
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/crypto"
+	"github.com/kopia/kopia/internal/debug"
 	"github.com/kopia/kopia/internal/metrics"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/throttling"

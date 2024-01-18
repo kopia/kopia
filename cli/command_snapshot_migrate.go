@@ -5,10 +5,10 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/kopia/kopia/internal/debug"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/internal/debug"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"

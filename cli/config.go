@@ -35,6 +35,7 @@ func (c *App) onSigDump(f func()) {
 }
 
 func (c *App) onTerminate(f func()) {
+	//nolint:gomnd
 	s := make(chan os.Signal, 2)
 	signal.Notify(s, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
 

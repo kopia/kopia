@@ -64,15 +64,16 @@ const (
 )
 
 var (
-	// globals
+	// ErrEmptyConfiguration returned when attempt to configure profile buffers without a configuration string.
 	ErrEmptyConfiguration = errors.New("empty profile configuration")
-	ErrEmptyProfileName   = errors.New("empty profile flag")
+	// ErrEmptyProfileName returned when a profile configuration flag has no argument.
+	ErrEmptyProfileName = errors.New("empty profile flag")
 
 	//nolint:gochecknoglobals
 	pprofConfigs = newProfileConfigs(os.Stderr)
 )
 
-// Writer interface supports destination for PEM output
+// Writer interface supports destination for PEM output.
 type Writer interface {
 	io.Writer
 	io.StringWriter
@@ -104,11 +105,13 @@ var pprofProfileRates = map[ProfileName]pprofSetRate{
 	},
 }
 
+// StartProfileBuffers start profile buffers for this process.
 func StartProfileBuffers(ctx context.Context) {
 	var err error
+
 	pprofConfigs.pcm, err = LoadProfileConfig(ctx, os.Getenv(EnvVarKopiaDebugPprof))
 	if err != nil {
-		log(ctx).With(err).Debug("no profile buffers enabled")
+		log(ctx).With("error", err).Debug("no profile buffers enabled")
 	}
 
 	pprofConfigs.StartProfileBuffers(ctx)
@@ -121,6 +124,7 @@ func StopProfileBuffers(ctx context.Context) {
 		log(ctx).Debug("profile buffers not configured")
 		return
 	}
+
 	pprofConfigs.StopProfileBuffers(ctx)
 }
 
@@ -128,9 +132,11 @@ func newProfileConfigs(wrt Writer) *ProfileConfigs {
 	q := &ProfileConfigs{
 		wrt: wrt,
 	}
+
 	return q
 }
 
+// SetWriter set the destination for the PPROF dump.
 func (p *ProfileConfigs) SetWriter(wrt Writer) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -150,6 +156,7 @@ func (p *ProfileConfigs) GetProfileConfig(nm ProfileName) *ProfileConfig {
 	return p.pcm[nm]
 }
 
+// LoadProfileConfig configure PPROF profiling from the config in ppconfigss.
 func LoadProfileConfig(ctx context.Context, ppconfigss string) (map[ProfileName]*ProfileConfig, error) {
 	// if empty, then don't bother configuring but emit a log message - use might be expecting them to be configured
 	if ppconfigss == "" {
@@ -322,6 +329,7 @@ func parseProfileConfigs(bufSizeB int, ppconfigs string) (map[ProfileName]*Profi
 		if flagKey == "" {
 			return nil, ErrEmptyProfileName
 		}
+
 		pbs[flagKey] = newProfileConfig(bufSizeB, flagValue)
 	}
 
