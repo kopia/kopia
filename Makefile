@@ -301,12 +301,6 @@ endurance-tests: export KOPIA_TRACK_CHUNK_ALLOC=1
 endurance-tests: build-integration-test-binary $(gotestsum)
 	go test $(TEST_FLAGS) -count=$(REPEAT_TEST) -parallel $(PARALLEL) -timeout 3600s github.com/kopia/kopia/tests/endurance_test
 
-pprofdump-tests: export KOPIA_EXE ?= $(KOPIA_INTEGRATION_EXE)
-pprofdump-tests: GOTESTSUM_FORMAT=testname
-pprofdump-tests: build-integration-test-binary $(gotestsum)
-	FIO_DOCKER_IMAGE=$(FIO_DOCKER_TAG) \
-	$(GO_TEST) -count=$(REPEAT_TEST) github.com/kopia/kopia/tests/pprofdump/pprofdump_test $(TEST_FLAGS)
-
 recovery-tests: export KOPIA_EXE ?= $(KOPIA_INTEGRATION_EXE)
 recovery-tests: GOTESTSUM_FORMAT=testname
 recovery-tests: build-integration-test-binary $(gotestsum)
