@@ -110,8 +110,8 @@ func TestLogFileRotation(t *testing.T) {
 	tmpLogDir := testutil.TempDirectory(t)
 
 	env.RunAndExpectSuccess(t, "snap", "create", dir1,
-		"--file-log-local-tz", "--log-level=error", "--file-log-level=debug",
-		"--max-log-file-segment-size=1000", "--log-dir", tmpLogDir, "--log-dir-max-files=3", "--content-log-dir-max-files=4")
+		"--file-log-local-tz", "--log-level=error", "--file-log-level=info", "--wait-for-log-sweep",
+		"--max-log-file-segment-size=500", "--log-dir", tmpLogDir, "--log-dir-max-files=3", "--content-log-dir-max-files=4")
 
 	// expected number of files per directory
 	subdirs := map[string]int{
