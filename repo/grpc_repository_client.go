@@ -18,7 +18,6 @@ import (
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/ctxutil"
-	"github.com/kopia/kopia/internal/debug"
 	"github.com/kopia/kopia/internal/gather"
 	apipb "github.com/kopia/kopia/internal/grpcapi"
 	"github.com/kopia/kopia/internal/retry"
@@ -104,12 +103,6 @@ type grpcInnerSession struct {
 	repoParams *apipb.RepositoryParameters
 
 	wg sync.WaitGroup
-}
-
-// CloseDebug release debugging resources.
-func (r *grpcRepositoryClient) CloseDebug(ctx context.Context) {
-	// use grace from ctx.
-	debug.StopProfileBuffers(ctx)
 }
 
 // readLoop runs in a goroutine and consumes all messages in session and forwards them to appropriate channels.
@@ -871,12 +864,6 @@ func openGRPCAPIRepository(ctx context.Context, si *APIServerInfo, password stri
 	if err != nil {
 		return nil, err
 	}
-
-	par.refCountedCloser.registerEarlyCloseFunc(
-		func(ctx context.Context) error {
-			rep.CloseDebug(ctx)
-			return nil
-		})
 
 	return rep, nil
 }

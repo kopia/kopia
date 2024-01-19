@@ -37,7 +37,7 @@ func (c *App) onSigDump(f func()) {
 func (c *App) onTerminate(f func()) {
 	//nolint:gomnd
 	s := make(chan os.Signal, 2)
-	signal.Notify(s, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
+	signal.Notify(s, os.Interrupt, syscall.SIGTERM)
 
 	go func() {
 		// invoke the function when either real or simulated Ctrl-C signal is delivered

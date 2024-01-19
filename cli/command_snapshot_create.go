@@ -12,7 +12,7 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/virtualfs"
-	"github.com/kopia/kopia/internal/debug"
+	"github.com/kopia/kopia/internal/pproflogging"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
@@ -236,24 +236,24 @@ func (c *commandSnapshotCreate) setupUploader(ctx context.Context, rep repo.Repo
 	}
 
 	c.svc.onSigDump(func() {
-		ctx0, canfn := context.WithTimeout(ctx, debug.PPROFDumpTimeout)
+		ctx0, canfn := context.WithTimeout(ctx, pproflogging.PPROFDumpTimeout)
 		defer canfn()
 
 		log(ctx0).Infof("Dumping profiles...")
 
-		debug.StopProfileBuffers(ctx0)
+		pproflogging.MaybeStopProfileBuffers(ctx0)
 		// restart profile buffers as this does not kill the process
-		debug.StartProfileBuffers(ctx0)
+		pproflogging.MaybeStartProfileBuffers(ctx0)
 	})
 
 	c.svc.onTerminate(func() {
 		u.Cancel()
 
 		// use new context as old one may have already errored out
-		ctx0, canfn := context.WithTimeout(context.Background(), debug.PPROFDumpTimeout)
+		ctx0, canfn := context.WithTimeout(context.Background(), pproflogging.PPROFDumpTimeout)
 		defer canfn()
 
-		debug.StopProfileBuffers(ctx0)
+		pproflogging.MaybeStopProfileBuffers(ctx0)
 	})
 
 	u.ForceHashPercentage = c.snapshotCreateForceHash

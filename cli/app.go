@@ -17,9 +17,9 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/kopia/kopia/internal/apiclient"
-	"github.com/kopia/kopia/internal/debug"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/passwordpersist"
+	"github.com/kopia/kopia/internal/pproflogging"
 	"github.com/kopia/kopia/internal/releasable"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
@@ -412,9 +412,6 @@ func (c *App) serverAction(sf *serverClientFlags, act func(ctx context.Context, 
 		}
 
 		return c.runAppWithContext(kpc.SelectedCommand, func(ctx context.Context) error {
-			// TODO: BIX
-			debug.StartProfileBuffers(ctx)
-			defer debug.StopProfileBuffers(ctx)
 			return act(ctx, apiClient)
 		})
 	}
@@ -492,6 +489,9 @@ func (c *App) runAppWithContext(command *kingpin.CmdClause, cb func(ctx context.
 	for _, r := range c.trackReleasable {
 		releasable.EnableTracking(releasable.ItemKind(r))
 	}
+
+	pproflogging.MaybeStartProfileBuffers(ctx)
+	defer pproflogging.MaybeStopProfileBuffers(ctx)
 
 	if err := c.observability.startMetrics(ctx); err != nil {
 		return errors.Wrap(err, "unable to start metrics")

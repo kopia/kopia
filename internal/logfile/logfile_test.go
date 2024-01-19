@@ -207,7 +207,7 @@ func verifyFileLogFormat(t *testing.T, fname string, re *regexp.Regexp) {
 	s := bufio.NewScanner(f)
 
 	for s.Scan() {
-		require.True(t, re.MatchString(s.Text()), "log line does not match the format: %v (re %v)", s.Text(), re.String())
+		require.True(t, re.MatchString(s.Text()), "log line does not match the format: %q (re %q)", s.Text(), re.String())
 	}
 }
 

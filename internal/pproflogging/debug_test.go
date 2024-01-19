@@ -1,4 +1,4 @@
-package debug
+package pproflogging
 
 import (
 	"bytes"
@@ -230,8 +230,8 @@ func TestDebug_parseDebugNumber(t *testing.T) {
 		t.Run(fmt.Sprintf("%d: %q", i, tc.inArgs), func(t *testing.T) {
 			t.Setenv(EnvVarKopiaDebugPprof, tc.inArgs)
 
-			StartProfileBuffers(ctx)
-			defer StopProfileBuffers(ctx)
+			MaybeStartProfileBuffers(ctx)
+			defer MaybeStopProfileBuffers(ctx)
 
 			num, err := parseDebugNumber(pprofConfigs.GetProfileConfig(tc.inKey))
 			require.ErrorIs(t, tc.expectErr, err)
@@ -272,8 +272,8 @@ func TestDebug_StartProfileBuffers(t *testing.T) {
 			func() {
 				pprofConfigs = newProfileConfigs(&buf)
 
-				StartProfileBuffers(ctx)
-				defer StopProfileBuffers(ctx)
+				MaybeStartProfileBuffers(ctx)
+				defer MaybeStopProfileBuffers(ctx)
 
 				time.Sleep(1 * time.Second)
 			}()

@@ -8,7 +8,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/fs"
-	"github.com/kopia/kopia/internal/debug"
+	"github.com/kopia/kopia/internal/pproflogging"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
@@ -76,7 +76,7 @@ func (c *commandSnapshotMigrate) run(ctx context.Context, destRepo repo.Reposito
 	c.svc.onTerminate(func() {
 		// use new context as old one may have already errored out
 		var canfn context.CancelFunc
-		ctx, canfn = context.WithTimeout(context.Background(), debug.PPROFDumpTimeout)
+		ctx, canfn = context.WithTimeout(context.Background(), pproflogging.PPROFDumpTimeout)
 		defer canfn()
 
 		mu.Lock()
@@ -94,19 +94,19 @@ func (c *commandSnapshotMigrate) run(ctx context.Context, destRepo repo.Reposito
 			u.Cancel()
 		}
 
-		debug.StopProfileBuffers(ctx)
+		pproflogging.MaybeStopProfileBuffers(ctx)
 	})
 
 	c.svc.onSigDump(func() {
 		// use new context as old one may have already errored out
 		var canfn context.CancelFunc
-		ctx, canfn = context.WithTimeout(context.Background(), debug.PPROFDumpTimeout)
+		ctx, canfn = context.WithTimeout(context.Background(), pproflogging.PPROFDumpTimeout)
 		defer canfn()
 
 		log(ctx).Infof("Dumping profiles...")
 
-		debug.StopProfileBuffers(ctx)
-		debug.StartProfileBuffers(ctx)
+		pproflogging.MaybeStopProfileBuffers(ctx)
+		pproflogging.MaybeStartProfileBuffers(ctx)
 	})
 
 	if c.migratePolicies {
