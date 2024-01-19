@@ -119,6 +119,9 @@ func MaybeStartProfileBuffers(ctx context.Context) {
 		return
 	}
 
+	pprofConfigs.mu.Lock()
+	defer pprofConfigs.mu.Unlock()
+
 	pprofConfigs.pcm = pcm
 
 	log(ctx).Debug("no profile buffer configuration to start")
@@ -133,6 +136,9 @@ func MaybeStopProfileBuffers(ctx context.Context) {
 		log(ctx).Debug("no profile buffer configuration to stop")
 		return
 	}
+
+	pprofConfigs.mu.Lock()
+	defer pprofConfigs.mu.Unlock()
 
 	pprofConfigs.StopProfileBuffers(ctx)
 }
@@ -181,33 +187,28 @@ func LoadProfileConfig(ctx context.Context, ppconfigss string) (map[ProfileName]
 	return parseProfileConfigs(bufSizeB, ppconfigss)
 }
 
-// MaybeStartProfileBuffers start profile buffers for enabled profiles/trace.  Buffers
+// StartProfileBuffers start profile buffers for enabled profiles/trace.  Buffers
 // are returned in a slice of buffers: CPU, Heap and trace respectively.  class
 // is used to distinguish profiles external to kopia.
 func (p *ProfileConfigs) StartProfileBuffers(ctx context.Context) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
 	// profiling rates need to be set before starting profiling
 	setupProfileFractions(ctx, p.pcm)
 
 	// cpu has special initialization
 	v, ok := p.pcm[ProfileNameCPU]
-	if ok {
-		err := pprof.StartCPUProfile(v.buf)
-		if err != nil {
-			delete(p.pcm, ProfileNameCPU)
-			log(ctx).With("cause", err).Warn("cannot start cpu PPROF")
-		}
+	if !ok {
+		return
+	}
+	err := pprof.StartCPUProfile(v.buf)
+	if err != nil {
+		delete(p.pcm, ProfileNameCPU)
+		log(ctx).With("cause", err).Warn("cannot start cpu PPROF")
 	}
 }
 
-// MaybeStopProfileBuffers stop and dump the contents of the buffers to the log as PEMs.  Buffers
+// StopProfileBuffers stop and dump the contents of the buffers to the log as PEMs.  Buffers
 // supplied here are from MaybeStartProfileBuffers.
 func (p *ProfileConfigs) StopProfileBuffers(ctx context.Context) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
 	defer func() {
 		// clear the profile rates and fractions to effectively stop profiling
 		clearProfileFractions(p.pcm)
