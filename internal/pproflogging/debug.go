@@ -1,4 +1,4 @@
-// Package debug for debug helper functions.
+// Package pproflogging for debug helper functions.
 package pproflogging
 
 import (
@@ -114,6 +114,7 @@ func MaybeStartProfileBuffers(ctx context.Context) {
 		log(ctx).With("error", err).Debug("cannot start configured profile buffers")
 		return
 	}
+
 	if pcm == nil {
 		log(ctx).Debug("no profile buffer configuration to start")
 		return
@@ -199,6 +200,7 @@ func (p *ProfileConfigs) StartProfileBuffers(ctx context.Context) {
 	if !ok {
 		return
 	}
+
 	err := pprof.StartCPUProfile(v.buf)
 	if err != nil {
 		delete(p.pcm, ProfileNameCPU)

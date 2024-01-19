@@ -35,7 +35,7 @@ func (c *App) onDebugDump(f func()) {
 }
 
 func (c *App) onTerminate(f func()) {
-	//channel length of 2 to accommodate both signals
+	// channel length of 2 to accommodate both signals
 	//nolint:gomnd
 	s := make(chan os.Signal, 2)
 	signal.Notify(s, os.Interrupt, syscall.SIGTERM)
