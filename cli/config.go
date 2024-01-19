@@ -30,11 +30,12 @@ func (c *App) onRepositoryFatalError(f func(err error)) {
 	c.onFatalErrorCallbacks = append(c.onFatalErrorCallbacks, f)
 }
 
-func (c *App) onSigDump(f func()) {
+func (c *App) onDebugDump(f func()) {
 	onSig(c.simulatedSigDump, SignalDump, f)
 }
 
 func (c *App) onTerminate(f func()) {
+	//channel length of 2 to accommodate both signals
 	//nolint:gomnd
 	s := make(chan os.Signal, 2)
 	signal.Notify(s, os.Interrupt, syscall.SIGTERM)

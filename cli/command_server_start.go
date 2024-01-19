@@ -236,7 +236,7 @@ func (c *commandServerStart) run(ctx context.Context) error {
 		}
 	})
 
-	c.svc.onSigDump(func() {
+	c.svc.onDebugDump(func() {
 		pproflogging.MaybeStopProfileBuffers(ctx)
 		pproflogging.MaybeStartProfileBuffers(ctx)
 	})

@@ -235,7 +235,7 @@ func (c *commandSnapshotCreate) setupUploader(ctx context.Context, rep repo.Repo
 		u.CheckpointInterval = interval
 	}
 
-	c.svc.onSigDump(func() {
+	c.svc.onDebugDump(func() {
 		ctx0, canfn := context.WithTimeout(ctx, pproflogging.PPROFDumpTimeout)
 		defer canfn()
 

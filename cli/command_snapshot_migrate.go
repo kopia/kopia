@@ -97,7 +97,7 @@ func (c *commandSnapshotMigrate) run(ctx context.Context, destRepo repo.Reposito
 		pproflogging.MaybeStopProfileBuffers(ctx)
 	})
 
-	c.svc.onSigDump(func() {
+	c.svc.onDebugDump(func() {
 		// use new context as old one may have already errored out
 		var canfn context.CancelFunc
 		ctx, canfn = context.WithTimeout(context.Background(), pproflogging.PPROFDumpTimeout)
