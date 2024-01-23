@@ -374,7 +374,7 @@ Before you can create an Rclone `repository` in Kopia, you first need to downloa
 
 ### Kopia GUI
 
-Select the `Rclone Remote` option in the `Repository` tab in `KopiaUI`. Then, follow on-screen instructions.  You will need to enter `Rcone Remote Path` and `Rclone Executable Path`. The `Remote Path` is `my-remote:/some/path`, where you should replace `my-remote` with the name of the Rclone `remote` you created earlier and replace `/some/path` with the directory on the cloud storage where you want Kopia to save your snapshots. The `Executable Path` is the location on your machine where you saved the Rclone executable that you downloaded earlier.
+Select the `Rclone Remote` option in the `Repository` tab in `KopiaUI`. Then, follow on-screen instructions.  You will need to enter `Rclone Remote Path` and `Rclone Executable Path`. The `Remote Path` is `my-remote:/some/path`, where you should replace `my-remote` with the name of the Rclone `remote` you created earlier and replace `/some/path` with the directory on the cloud storage where you want Kopia to save your snapshots. The `Executable Path` is the location on your machine where you saved the Rclone executable that you downloaded earlier.
 
 You will next need to enter the repository password that you want. Remember, this [password is used to encrypt your data](../faqs/#how-do-i-enable-encryption), so make sure it is a secure password! At this same password screen, you have the option to change the `Encryption` algorithm, `Hash` algorithm, `Splitter` algorithm, `Repository Format`, `Username`, and `Hostname`. Click the `Show Advanced Options` button to access these settings. If you do not understand what these settings are, do not change them because the default settings are the best settings.
 
