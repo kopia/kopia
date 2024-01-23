@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"syscall"
 
 	"github.com/pkg/errors"
 )
@@ -45,7 +46,7 @@ func onSig(chn chan bool, sig Signal, f func()) {
 		return
 	}
 
-	signal.Notify(s, *osig)
+	signal.Notify(s, osig)
 
 	go func() {
 		// invoke the function when either real or simulated signal is delivered
@@ -59,4 +60,17 @@ func onSig(chn chan bool, sig Signal, f func()) {
 		}
 		f()
 	}()
+}
+
+func signalLocalToSignalOS(sig Signal) (os.Signal, error) {
+	switch sig {
+	case SignalDump:
+		return syscall.SIGQUIT, nil
+	case SignalTerminate:
+		return syscall.SIGTERM, nil
+	case SignalInterrupt:
+		return syscall.SIGINT, nil
+	}
+
+	return nil, ErrInvalidSignal
 }
