@@ -20,8 +20,8 @@ var (
 )
 
 func TestDebug_parseProfileConfigs(t *testing.T) {
-	mu.Lock()
-	defer mu.Unlock()
+	saveLockEnv(t)
+	defer restoreUnlockEnv(t)
 
 	tcs := []struct {
 		in            string
@@ -130,8 +130,8 @@ func TestDebug_parseProfileConfigs(t *testing.T) {
 }
 
 func TestDebug_newProfileConfigs(t *testing.T) {
-	mu.Lock()
-	defer mu.Unlock()
+	saveLockEnv(t)
+	defer restoreUnlockEnv(t)
 
 	tcs := []struct {
 		in     string
@@ -177,8 +177,8 @@ func TestDebug_newProfileConfigs(t *testing.T) {
 }
 
 func TestDebug_DumpPem(t *testing.T) {
-	mu.Lock()
-	defer mu.Unlock()
+	saveLockEnv(t)
+	defer restoreUnlockEnv(t)
 
 	ctx := context.Background()
 	wrt := bytes.Buffer{}
@@ -355,6 +355,8 @@ func TestDebug_LoadProfileConfigs(t *testing.T) {
 	}
 }
 
+// +checklocksignore
+//
 //nolint:gocritic
 func saveLockEnv(t *testing.T) {
 	t.Helper()
@@ -363,6 +365,8 @@ func saveLockEnv(t *testing.T) {
 	oldEnv = os.Getenv(EnvVarKopiaDebugPprof)
 }
 
+// +checklocksignore
+//
 //nolint:gocritic
 func restoreUnlockEnv(t *testing.T) {
 	t.Helper()

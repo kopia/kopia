@@ -81,10 +81,8 @@ type Writer interface {
 
 // ProfileConfigs configuration flags for all requested profiles.
 type ProfileConfigs struct {
-	mu sync.Mutex
-	// +checklocks:mu
+	mu  sync.Mutex
 	wrt Writer
-	// +checklocks:mu
 	pcm map[ProfileName]*ProfileConfig
 }
 
@@ -127,21 +125,21 @@ func MaybeStartProfileBuffers(ctx context.Context) {
 
 	log(ctx).Debug("no profile buffer configuration to start")
 
-	pprofConfigs.StartProfileBuffers(ctx)
+	pprofConfigs.StartProfileBuffersLocked(ctx)
 }
 
 // MaybeStopProfileBuffers stop and dump the contents of the buffers to the log as PEMs.  Buffers
 // supplied here are from MaybeStartProfileBuffers.
 func MaybeStopProfileBuffers(ctx context.Context) {
+	pprofConfigs.mu.Lock()
+	defer pprofConfigs.mu.Unlock()
+
 	if pprofConfigs == nil || len(pprofConfigs.pcm) == 0 {
 		log(ctx).Debug("no profile buffer configuration to stop")
 		return
 	}
 
-	pprofConfigs.mu.Lock()
-	defer pprofConfigs.mu.Unlock()
-
-	pprofConfigs.StopProfileBuffers(ctx)
+	pprofConfigs.StopProfileBuffersLocked(ctx)
 }
 
 func newProfileConfigs(wrt Writer) *ProfileConfigs {
@@ -153,6 +151,7 @@ func newProfileConfigs(wrt Writer) *ProfileConfigs {
 }
 
 // SetWriter set the destination for the PPROF dump.
+// +checklocksignore
 func (p *ProfileConfigs) SetWriter(wrt Writer) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -161,6 +160,7 @@ func (p *ProfileConfigs) SetWriter(wrt Writer) {
 }
 
 // GetProfileConfig return a profile configuration by name.
+// +checklocksignore
 func (p *ProfileConfigs) GetProfileConfig(nm ProfileName) *ProfileConfig {
 	if p == nil {
 		return nil
@@ -168,7 +168,6 @@ func (p *ProfileConfigs) GetProfileConfig(nm ProfileName) *ProfileConfig {
 
 	p.mu.Lock()
 	defer p.mu.Unlock()
-
 	return p.pcm[nm]
 }
 
@@ -188,10 +187,10 @@ func LoadProfileConfig(ctx context.Context, ppconfigss string) (map[ProfileName]
 	return parseProfileConfigs(bufSizeB, ppconfigss)
 }
 
-// StartProfileBuffers start profile buffers for enabled profiles/trace.  Buffers
+// StartProfileBuffersLocked start profile buffers for enabled profiles/trace.  Buffers
 // are returned in a slice of buffers: CPU, Heap and trace respectively.  class
 // is used to distinguish profiles external to kopia.
-func (p *ProfileConfigs) StartProfileBuffers(ctx context.Context) {
+func (p *ProfileConfigs) StartProfileBuffersLocked(ctx context.Context) {
 	// profiling rates need to be set before starting profiling
 	setupProfileFractions(ctx, p.pcm)
 
@@ -208,9 +207,9 @@ func (p *ProfileConfigs) StartProfileBuffers(ctx context.Context) {
 	}
 }
 
-// StopProfileBuffers stop and dump the contents of the buffers to the log as PEMs.  Buffers
+// StopProfileBuffersLocked stop and dump the contents of the buffers to the log as PEMs.  Buffers
 // supplied here are from MaybeStartProfileBuffers.
-func (p *ProfileConfigs) StopProfileBuffers(ctx context.Context) {
+func (p *ProfileConfigs) StopProfileBuffersLocked(ctx context.Context) {
 	defer func() {
 		// clear the profile rates and fractions to effectively stop profiling
 		clearProfileFractions(p.pcm)
