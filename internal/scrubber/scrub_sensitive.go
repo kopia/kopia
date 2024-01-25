@@ -26,6 +26,17 @@ func ScrubSensitiveData(v reflect.Value) reflect.Value {
 					res.Field(i).SetString(strings.Repeat("*", fv.Len()))
 				}
 			} else if sf.IsExported() {
+				switch fv.Kind() {
+				case reflect.Pointer:
+					if !fv.IsNil() {
+						fv = ScrubSensitiveData(fv.Elem()).Addr()
+					}
+				case reflect.Struct:
+					fv = ScrubSensitiveData(fv)
+				case reflect.Interface:
+					fv = ScrubSensitiveData(fv.Elem())
+				}
+
 				res.Field(i).Set(fv)
 			}
 		}

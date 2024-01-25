@@ -12,7 +12,9 @@ import (
 type S struct {
 	SomePassword1 string `kopia:"sensitive"`
 	NonPassword   string
-	Inner         *Q
+	InnerPtr      *Q
+	InnerIf       interface{}
+	InnerStruct   Q
 }
 
 type Q struct {
@@ -24,7 +26,15 @@ func TestScrubber(t *testing.T) {
 	input := &S{
 		SomePassword1: "foo",
 		NonPassword:   "bar",
-		Inner: &Q{
+		InnerPtr: &Q{
+			SomePassword1: "foo",
+			NonPassword:   "bar",
+		},
+		InnerStruct: Q{
+			SomePassword1: "foo",
+			NonPassword:   "bar",
+		},
+		InnerIf: Q{
 			SomePassword1: "foo",
 			NonPassword:   "bar",
 		},
@@ -33,8 +43,16 @@ func TestScrubber(t *testing.T) {
 	want := &S{
 		SomePassword1: "***",
 		NonPassword:   "bar",
-		Inner: &Q{
-			SomePassword1: "foo",
+		InnerPtr: &Q{
+			SomePassword1: "***",
+			NonPassword:   "bar",
+		},
+		InnerStruct: Q{
+			SomePassword1: "***",
+			NonPassword:   "bar",
+		},
+		InnerIf: Q{
+			SomePassword1: "***",
 			NonPassword:   "bar",
 		},
 	}
