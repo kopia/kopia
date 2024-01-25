@@ -15,6 +15,8 @@ type S struct {
 	InnerPtr      *Q
 	InnerIf       interface{}
 	InnerStruct   Q
+	NilPtr        *Q
+	NilIf         interface{}
 }
 
 type Q struct {
@@ -38,6 +40,8 @@ func TestScrubber(t *testing.T) {
 			SomePassword1: "foo",
 			NonPassword:   "bar",
 		},
+		NilPtr: nil,
+		NilIf:  nil,
 	}
 
 	want := &S{
@@ -55,6 +59,8 @@ func TestScrubber(t *testing.T) {
 			SomePassword1: "***",
 			NonPassword:   "bar",
 		},
+		NilPtr: nil,
+		NilIf:  nil,
 	}
 
 	output := scrubber.ScrubSensitiveData(reflect.ValueOf(input)).Interface()

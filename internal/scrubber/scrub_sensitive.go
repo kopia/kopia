@@ -31,10 +31,16 @@ func ScrubSensitiveData(v reflect.Value) reflect.Value {
 					if !fv.IsNil() {
 						fv = ScrubSensitiveData(fv.Elem()).Addr()
 					}
+
 				case reflect.Struct:
 					fv = ScrubSensitiveData(fv)
+
 				case reflect.Interface:
-					fv = ScrubSensitiveData(fv.Elem())
+					if !fv.IsNil() {
+						fv = ScrubSensitiveData(fv.Elem())
+					}
+
+				default: // Set the field as-is.
 				}
 
 				res.Field(i).Set(fv)
