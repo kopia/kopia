@@ -226,7 +226,6 @@ func (c *commandServerStart) run(ctx context.Context) error {
 	}
 
 	c.svc.onTerminate(func() {
-		log(ctx).Infof("Shutting down...")
 		shutdownServer(ctx, httpServer)
 	})
 
@@ -234,11 +233,6 @@ func (c *commandServerStart) run(ctx context.Context) error {
 		if serr := httpServer.Shutdown(ctx); serr != nil {
 			log(ctx).Debugf("unable to shut down: %v", serr)
 		}
-	})
-
-	c.svc.onDebugDump(func() {
-		pproflogging.MaybeStopProfileBuffers(ctx)
-		pproflogging.MaybeStartProfileBuffers(ctx)
 	})
 
 	c.svc.onRepositoryFatalError(func(error) { shutdownServer(ctx, httpServer) })

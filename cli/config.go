@@ -31,7 +31,23 @@ func (c *App) onRepositoryFatalError(f func(err error)) {
 }
 
 func (c *App) onDebugDump(f func()) {
-	onSig(c.simulatedSigDump, SignalDump, f)
+	s := make(chan os.Signal, 1)
+	signal.Notify(s, syscall.SIGQUIT)
+
+	go func() {
+		for {
+			// invoke the function when either real or simulated Ctrl-\ signal is delivered
+			select {
+			case v := <-c.simulatedSigDump:
+				if !v {
+					return
+				}
+
+			case <-s:
+			}
+			f()
+		}
+	}()
 }
 
 func (c *App) onTerminate(f func()) {
@@ -41,16 +57,18 @@ func (c *App) onTerminate(f func()) {
 	signal.Notify(s, os.Interrupt, syscall.SIGTERM)
 
 	go func() {
-		// invoke the function when either real or simulated Ctrl-C signal is delivered
-		select {
-		case v := <-c.simulatedCtrlC:
-			if !v {
-				return
-			}
+		for {
+			// invoke the function when either real or simulated Ctrl-C signal is delivered
+			select {
+			case v := <-c.simulatedCtrlC:
+				if !v {
+					return
+				}
 
-		case <-s:
+			case <-s:
+			}
+			f()
 		}
-		f()
 	}()
 }
 

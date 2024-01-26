@@ -8,7 +8,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/fs"
-	"github.com/kopia/kopia/internal/pproflogging"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
@@ -45,23 +44,7 @@ func (c *commandSnapshotMigrate) setup(svc advancedAppServices, parent commandPa
 	c.out.setup(svc)
 }
 
-//nolint:funlen
 func (c *commandSnapshotMigrate) run(ctx context.Context, destRepo repo.RepositoryWriter) error {
-	sourceRepo, err := c.openSourceRepo(ctx)
-	if err != nil {
-		return errors.Wrap(err, "can't open source repository")
-	}
-
-	//nolint:errcheck
-	defer sourceRepo.Close(ctx)
-
-	sources, err := c.getSourcesToMigrate(ctx, sourceRepo)
-	if err != nil {
-		return errors.Wrap(err, "can't retrieve sources")
-	}
-
-	semaphore := make(chan struct{}, c.migrateParallel)
-
 	var (
 		wg              sync.WaitGroup
 		mu              sync.Mutex
@@ -72,11 +55,6 @@ func (c *commandSnapshotMigrate) run(ctx context.Context, destRepo repo.Reposito
 	c.svc.getProgress().StartShared()
 
 	c.svc.onTerminate(func() {
-		// use new context as old one may have already errored out
-		var canfn context.CancelFunc
-		ctx, canfn = context.WithTimeout(context.Background(), pproflogging.PPROFDumpTimeout)
-		defer canfn()
-
 		mu.Lock()
 		defer mu.Unlock()
 
@@ -91,21 +69,22 @@ func (c *commandSnapshotMigrate) run(ctx context.Context, destRepo repo.Reposito
 			log(ctx).Infof("canceling active uploader for %v", s)
 			u.Cancel()
 		}
-
-		pproflogging.MaybeStopProfileBuffers(ctx)
 	})
 
-	c.svc.onDebugDump(func() {
-		// use new context as old one may have already errored out
-		var canfn context.CancelFunc
-		ctx, canfn = context.WithTimeout(context.Background(), pproflogging.PPROFDumpTimeout)
-		defer canfn()
+	sourceRepo, err := c.openSourceRepo(ctx)
+	if err != nil {
+		return errors.Wrap(err, "can't open source repository")
+	}
 
-		log(ctx).Infof("Dumping profiles...")
+	//nolint:errcheck
+	defer sourceRepo.Close(ctx)
 
-		pproflogging.MaybeStopProfileBuffers(ctx)
-		pproflogging.MaybeStartProfileBuffers(ctx)
-	})
+	sources, err := c.getSourcesToMigrate(ctx, sourceRepo)
+	if err != nil {
+		return errors.Wrap(err, "can't retrieve sources")
+	}
+
+	semaphore := make(chan struct{}, c.migrateParallel)
 
 	if c.migratePolicies {
 		if c.migrateAll {

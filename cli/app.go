@@ -493,6 +493,16 @@ func (c *App) runAppWithContext(command *kingpin.CmdClause, cb func(ctx context.
 	pproflogging.MaybeStartProfileBuffers(ctx)
 	defer pproflogging.MaybeStopProfileBuffers(ctx)
 
+	c.onDebugDump(func() {
+		ctx0, canfn := context.WithTimeout(ctx, pproflogging.PPROFDumpTimeout)
+		defer canfn()
+
+		log(ctx0).Infof("Dumping profiles...")
+
+		// restart profile buffers as this does not kill the process
+		pproflogging.MaybeRestartProfileBuffers(ctx0)
+	})
+
 	if err := c.observability.startMetrics(ctx); err != nil {
 		return errors.Wrap(err, "unable to start metrics")
 	}

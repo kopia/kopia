@@ -128,6 +128,20 @@ func MaybeStartProfileBuffers(ctx context.Context) {
 	pprofConfigs.StartProfileBuffersLocked(ctx)
 }
 
+// MaybeRestartProfileBuffers used by SIGQUIT signal handlers to output PPROF data without exiting.
+func MaybeRestartProfileBuffers(ctx context.Context) {
+	pprofConfigs.mu.Lock()
+	defer pprofConfigs.mu.Unlock()
+
+	if pprofConfigs == nil || len(pprofConfigs.pcm) == 0 {
+		log(ctx).Debug("no profile buffer configuration to restart")
+		return
+	}
+
+	pprofConfigs.StopProfileBuffersLocked(ctx)
+	pprofConfigs.StartProfileBuffersLocked(ctx)
+}
+
 // MaybeStopProfileBuffers stop and dump the contents of the buffers to the log as PEMs.  Buffers
 // supplied here are from MaybeStartProfileBuffers.
 func MaybeStopProfileBuffers(ctx context.Context) {
@@ -151,7 +165,7 @@ func newProfileConfigs(wrt Writer) *ProfileConfigs {
 }
 
 // SetWriter set the destination for the PPROF dump.
-// +checklocksignore
+// +checklocksignore.
 func (p *ProfileConfigs) SetWriter(wrt Writer) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -160,7 +174,7 @@ func (p *ProfileConfigs) SetWriter(wrt Writer) {
 }
 
 // GetProfileConfig return a profile configuration by name.
-// +checklocksignore
+// +checklocksignore.
 func (p *ProfileConfigs) GetProfileConfig(nm ProfileName) *ProfileConfig {
 	if p == nil {
 		return nil
@@ -168,6 +182,7 @@ func (p *ProfileConfigs) GetProfileConfig(nm ProfileName) *ProfileConfig {
 
 	p.mu.Lock()
 	defer p.mu.Unlock()
+
 	return p.pcm[nm]
 }
 
@@ -236,54 +251,61 @@ func (p *ProfileConfigs) StopProfileBuffersLocked(ctx context.Context) {
 		// stop CPU profile after GC
 		if nm == ProfileNameCPU {
 			pprof.StopCPUProfile()
-		} else {
-			// look up the profile.  must not be nil
-			pent := pprof.Lookup(string(nm))
-			if pent == nil {
-				log(ctx).Warnf("no system PPROF entry for %q", nm)
-				delete(p.pcm, nm)
+			continue
+		}
+		// look up the profile.  must not be nil
+		pent := pprof.Lookup(string(nm))
+		if pent == nil {
+			log(ctx).Warnf("no system PPROF entry for %q", nm)
+			delete(p.pcm, nm)
 
-				continue
-			}
+			continue
+		}
 
-			// parse the debug number if supplied
-			debug, err := parseDebugNumber(v)
-			if err != nil {
-				log(ctx).With("cause", err).Warnf("%q: invalid PPROF configuration debug number", nm)
-				continue
-			}
+		// parse the debug number if supplied
+		debug, err := parseDebugNumber(v)
+		if err != nil {
+			log(ctx).With("cause", err).Warnf("%q: invalid PPROF configuration debug number", nm)
+			continue
+		}
 
-			// write the profile data to the buffer associated with the profile
-			err = pent.WriteTo(v.buf, debug)
-			if err != nil {
-				log(ctx).With("cause", err).Warnf("%q: error writing PPROF buffer", nm)
-				continue
-			}
+		// write the profile data to the buffer associated with the profile
+		err = pent.WriteTo(v.buf, debug)
+		if err != nil {
+			log(ctx).With("cause", err).Warnf("%q: error writing PPROF buffer", nm)
+			continue
+		}
+
+		// check context for break
+		if ctx.Err() != nil {
+			log(ctx).With("cause", err).Warnf("%q: error writing PPROF buffer", nm)
+			break
 		}
 	}
 
 	// dump the profiles out into their respective PEMs
 	for k, v := range p.pcm {
-		// PEM headings always in upper case
-		unm := strings.ToUpper(string(k))
-
-		// process context
-		err := ctx.Err()
-		if err != nil {
-			// ctx context may be bad, so use context.Background for safety
-			log(ctx).With("cause", err).Warnf("%q: cannot write PEM", unm)
-			return
-		}
-
 		if v == nil {
+			// no profile config, loop
 			continue
 		}
 
+		// PEM headings always in upper case
+		unm := strings.ToUpper(string(k))
+
 		log(ctx).Infof("dumping PEM for %q", unm)
 
-		err = DumpPem(ctx, v.buf.Bytes(), unm, p.wrt)
+		err := DumpPem(ctx, v.buf.Bytes(), unm, p.wrt)
 		if err != nil {
 			log(ctx).With("cause", err).Errorf("%q: cannot write PEM", unm)
+			return
+		}
+
+		// process context
+		err = ctx.Err()
+		if err != nil {
+			// ctx context may be bad, so use context.Background for safety
+			log(ctx).With("cause", err).Warnf("%q: cannot write PEM", unm)
 			return
 		}
 	}
@@ -415,9 +437,6 @@ func clearProfileFractions(profileBuffers map[ProfileName]*ProfileConfig) {
 
 // DumpPem dump a PEM version of the byte slice, bs, into writer, wrt.
 func DumpPem(ctx context.Context, bs []byte, types string, wrt Writer) error {
-	// err0 for background process
-	var err0 error
-
 	blk := &pem.Block{
 		Type:  types,
 		Bytes: bs,
@@ -429,16 +448,32 @@ func DumpPem(ctx context.Context, bs []byte, types string, wrt Writer) error {
 	// encode PEM in the background and output in a line oriented
 	// fashion - this prevents the need for a large buffer to hold
 	// the encoded PEM.
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+
 	go func() {
-		// writer close on exit of background process
-		//nolint:errcheck
-		defer pw.Close()
 		// do the encoding
-		err0 = pem.Encode(pw, blk)
+		err0 := pem.Encode(pw, blk)
 		if err0 != nil {
+			log(ctx).Errorf("could not write PEM: %w", err0)
+
+			wg.Done()
+
 			return
 		}
+
+		// writer close on exit of background process
+		err0 = pw.Close()
+		if err0 != nil {
+			// print error but do not exit
+			log(ctx).Errorf("error closing PEM buffer: %w", err0)
+		}
+
+		wg.Done()
 	}()
+
+	// goroutine not exactly synchronous.  enforce synchronous via wait-group
+	defer wg.Wait()
 
 	// connect rdr to pipe reader
 	rdr := bufio.NewReader(pr)
