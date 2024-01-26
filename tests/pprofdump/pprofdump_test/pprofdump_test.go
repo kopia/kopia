@@ -17,7 +17,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/tests/pprofdump/repositorymanipulator"
-
 	"github.com/kopia/kopia/tests/testenv"
 	"github.com/kopia/kopia/tests/tools/kopiarunner"
 )
