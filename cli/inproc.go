@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 	"os"
-	"runtime"
 
 	"github.com/alecthomas/kingpin/v2"
 
@@ -31,27 +30,32 @@ func (c *App) RunSubcommand(ctx context.Context, kpapp *kingpin.Application, std
 
 	c.Attach(kpapp)
 
-	// each call-site will send on channel once before process exit.  Close below applies to each subcommand so
-	// should only need NumCPU channel slots.
-	resultErr := make(chan error, runtime.NumCPU())
+	var exitError error
+	resultErr := make(chan error, 1)
 
 	c.exitWithError = func(ec error) {
-		resultErr <- ec
+		exitError = ec
 	}
 
 	go func() {
 		defer func() {
-			stdoutWriter.Close() //nolint:errcheck
-			stderrWriter.Close() //nolint:errcheck
 			close(c.simulatedCtrlC)
 			close(c.simulatedSigDump)
 			releasable.Released("simulated-ctrl-c", c.simulatedCtrlC)
 			releasable.Released("simulated-dump", c.simulatedSigDump)
+			close(resultErr)
+			stderrWriter.Close() //nolint:errcheck
+			stdoutWriter.Close() //nolint:errcheck
 		}()
 
 		_, err := kpapp.Parse(argsAndFlags)
 		if err != nil {
 			resultErr <- err
+			return
+		}
+		if exitError != nil {
+			resultErr <- exitError
+			return
 		}
 	}()
 
