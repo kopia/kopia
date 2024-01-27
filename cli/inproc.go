@@ -7,7 +7,6 @@ import (
 	"runtime"
 
 	"github.com/alecthomas/kingpin/v2"
-	"go.uber.org/multierr"
 
 	"github.com/kopia/kopia/internal/releasable"
 	"github.com/kopia/kopia/repo/logging"
@@ -59,13 +58,8 @@ func (c *App) RunSubcommand(ctx context.Context, kpapp *kingpin.Application, std
 	}()
 
 	return stdoutReader, stderrReader, func() error {
-			var err error
-			for oneError := range resultErr {
-				err = multierr.Append(err, oneError)
-			}
-
 			//nolint:wrapcheck
-			return err
+			return <-resultErr
 		}, func(_ os.Signal) {
 			// deliver simulated Ctrl-C to the app.
 			c.simulatedCtrlC <- true
