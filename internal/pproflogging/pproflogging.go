@@ -341,7 +341,6 @@ func (p *ProfileConfig) GetValue(s string) (string, bool) {
 	return "", false
 }
 
-// parseProfileConfigs.
 func parseProfileConfigs(bufSizeB int, ppconfigs string) (map[ProfileName]*ProfileConfig, error) {
 	pbs := map[ProfileName]*ProfileConfig{}
 	allProfileOptions := strings.Split(ppconfigs, ":")
