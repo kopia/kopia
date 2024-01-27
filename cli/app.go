@@ -490,12 +490,13 @@ func (c *App) runAppWithContext(command *kingpin.CmdClause, cb func(ctx context.
 		releasable.EnableTracking(releasable.ItemKind(r))
 	}
 
-	ctx0, canfn := context.WithTimeout(ctx, pproflogging.PPROFDumpTimeout)
-
 	pproflogging.MaybeStartProfileBuffers(ctx)
+
 	defer func() {
+		ctx0, canfn := context.WithTimeout(ctx, pproflogging.PPROFDumpTimeout)
+		defer canfn()
+
 		pproflogging.MaybeStopProfileBuffers(ctx0)
-		canfn()
 	}()
 
 	c.onDebugDump(func() {

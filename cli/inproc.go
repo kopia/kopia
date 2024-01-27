@@ -43,7 +43,6 @@ func (c *App) RunSubcommand(ctx context.Context, kpapp *kingpin.Application, std
 		defer func() {
 			stdoutWriter.Close() //nolint:errcheck
 			stderrWriter.Close() //nolint:errcheck
-			close(resultErr)
 			close(c.simulatedCtrlC)
 			close(c.simulatedSigDump)
 			releasable.Released("simulated-ctrl-c", c.simulatedCtrlC)
@@ -53,12 +52,10 @@ func (c *App) RunSubcommand(ctx context.Context, kpapp *kingpin.Application, std
 		_, err := kpapp.Parse(argsAndFlags)
 		if err != nil {
 			resultErr <- err
-			return
 		}
 	}()
 
 	return stdoutReader, stderrReader, func() error {
-			//nolint:wrapcheck
 			return <-resultErr
 		}, func(_ os.Signal) {
 			// deliver simulated Ctrl-C to the app.
