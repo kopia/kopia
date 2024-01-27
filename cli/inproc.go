@@ -30,8 +30,9 @@ func (c *App) RunSubcommand(ctx context.Context, kpapp *kingpin.Application, std
 
 	c.Attach(kpapp)
 
-	var exitError error
 	resultErr := make(chan error, 1)
+
+	var exitError error
 
 	c.exitWithError = func(ec error) {
 		exitError = ec
@@ -53,6 +54,7 @@ func (c *App) RunSubcommand(ctx context.Context, kpapp *kingpin.Application, std
 			resultErr <- err
 			return
 		}
+
 		if exitError != nil {
 			resultErr <- exitError
 			return
