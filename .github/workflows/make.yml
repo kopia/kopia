@@ -100,7 +100,7 @@ jobs:
         # macOS signing certificate (base64-encoded), used by Electron Builder
         MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
     - name: Upload Kopia Artifacts
-      uses: actions/upload-artifact@1eb3cb2b3e0f29609092a73eb033bb759a334595 # v4.1.0
+      uses: actions/upload-artifact@26f96dfa697d77e81fd5907df203aa23a56210a8 # v4.3.0
       with:
         name: kopia-${{ matrix.os }}
         path: |
@@ -122,7 +122,7 @@ jobs:
         if-no-files-found: ignore
       if: ${{ !contains(matrix.os, 'self-hosted') }}
     - name: Upload Kopia Binary
-      uses: actions/upload-artifact@1eb3cb2b3e0f29609092a73eb033bb759a334595 # v4.1.0
+      uses: actions/upload-artifact@26f96dfa697d77e81fd5907df203aa23a56210a8 # v4.3.0
       with:
         name: kopia_binaries-${{ matrix.os }}
         path: |
