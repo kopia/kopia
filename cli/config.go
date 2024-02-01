@@ -57,18 +57,17 @@ func (c *App) onTerminate(f func()) {
 	signal.Notify(s, os.Interrupt, syscall.SIGTERM)
 
 	go func() {
-		for {
-			// invoke the function when either real or simulated Ctrl-C signal is delivered
-			select {
-			case v := <-c.simulatedCtrlC:
-				if !v {
-					return
-				}
-
-			case <-s:
+		// invoke the function when either real or simulated Ctrl-C signal is delivered
+		select {
+		case v := <-c.simulatedCtrlC:
+			if !v {
+				return
 			}
-			f()
+
+		case <-s:
 		}
+		signal.Reset(os.Interrupt, syscall.SIGTERM)
+		f()
 	}()
 }
 
