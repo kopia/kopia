@@ -40,13 +40,13 @@ func (c *App) RunSubcommand(ctx context.Context, kpapp *kingpin.Application, std
 
 	go func() {
 		defer func() {
+			stdoutWriter.Close() //nolint:errcheck
+			stderrWriter.Close() //nolint:errcheck
+			close(resultErr)
 			close(c.simulatedCtrlC)
 			close(c.simulatedSigDump)
 			releasable.Released("simulated-ctrl-c", c.simulatedCtrlC)
 			releasable.Released("simulated-dump", c.simulatedSigDump)
-			close(resultErr)
-			stderrWriter.Close() //nolint:errcheck
-			stdoutWriter.Close() //nolint:errcheck
 		}()
 
 		_, err := kpapp.Parse(argsAndFlags)
