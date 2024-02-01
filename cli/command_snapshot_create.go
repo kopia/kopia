@@ -205,10 +205,7 @@ func validateStartEndTime(st, et string) error {
 	return nil
 }
 
-// setupLoader loader for snapshot to repository.
-//
-//nolint:unparam
-func (c *commandSnapshotCreate) setupUploader(ctx context.Context, rep repo.RepositoryWriter) *snapshotfs.Uploader {
+func (c *commandSnapshotCreate) setupUploader(rep repo.RepositoryWriter) *snapshotfs.Uploader {
 	u := snapshotfs.NewUploader(rep)
 	u.MaxUploadBytes = c.snapshotCreateCheckpointUploadLimitMB << 20 //nolint:gomnd
 
