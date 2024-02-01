@@ -118,7 +118,7 @@ func (c *commandSnapshotCreate) run(ctx context.Context, rep repo.RepositoryWrit
 		return errors.New("description too long")
 	}
 
-	u := c.setupUploader(ctx, rep)
+	u := c.setupUploader(rep)
 
 	var finalErrors []string
 
