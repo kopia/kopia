@@ -133,7 +133,7 @@ func MaybeRestartProfileBuffers(ctx context.Context) {
 	pprofConfigs.mu.Lock()
 	defer pprofConfigs.mu.Unlock()
 
-	if pprofConfigs == nil || len(pprofConfigs.pcm) == 0 {
+	if len(pprofConfigs.pcm) == 0 {
 		log(ctx).Debug("no profile buffer configuration to restart")
 		return
 	}
@@ -148,7 +148,7 @@ func MaybeStopProfileBuffers(ctx context.Context) {
 	pprofConfigs.mu.Lock()
 	defer pprofConfigs.mu.Unlock()
 
-	if pprofConfigs == nil || len(pprofConfigs.pcm) == 0 {
+	if len(pprofConfigs.pcm) == 0 {
 		log(ctx).Debug("no profile buffer configuration to stop")
 		return
 	}

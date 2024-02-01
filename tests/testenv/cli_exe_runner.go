@@ -54,7 +54,6 @@ func (e *CLIExeRunner) Start(t *testing.T, args []string, env map[string]string)
 	return stdoutPipe, stderrPipe, c.Wait, func(sig os.Signal) {
 		if sig == os.Kill {
 			c.Process.Kill()
-
 			return
 		}
 

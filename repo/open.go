@@ -367,10 +367,6 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 		},
 	}
 
-	dr.registerEarlyCloseFunc(func(ctx context.Context) error {
-		return errors.Wrap(dr.Close(ctx), "error closing repository")
-	})
-
 	return dr, nil
 }
 
