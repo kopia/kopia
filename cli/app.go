@@ -12,7 +12,6 @@ import (
 	"github.com/fatih/color"
 	"github.com/mattn/go-colorable"
 	"github.com/pkg/errors"
-
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 
