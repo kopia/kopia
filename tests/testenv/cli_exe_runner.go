@@ -20,7 +20,7 @@ type CLIExeRunner struct {
 }
 
 // Start implements CLIRunner.
-func (e *CLIExeRunner) Start(t *testing.T, args []string, env map[string]string) (stdout, stderr io.Reader, wait func() error, kill func()) {
+func (e *CLIExeRunner) Start(t *testing.T, args []string, env map[string]string) (stdout, stderr io.Reader, wait func() error, interrupt func(os.Signal)) {
 	t.Helper()
 
 	c := exec.Command(e.Exe, append([]string{
@@ -51,8 +51,14 @@ func (e *CLIExeRunner) Start(t *testing.T, args []string, env map[string]string)
 		t.Fatalf("unable to start: %v", err)
 	}
 
-	return stdoutPipe, stderrPipe, c.Wait, func() {
-		c.Process.Kill()
+	return stdoutPipe, stderrPipe, c.Wait, func(sig os.Signal) {
+		if sig == os.Kill {
+			c.Process.Kill()
+
+			return
+		}
+
+		c.Process.Signal(sig)
 	}
 }
 

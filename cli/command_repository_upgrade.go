@@ -392,7 +392,7 @@ func (c *commandRepositoryUpgrade) sleepWithContext(ctx context.Context, dur tim
 
 	stop := make(chan struct{})
 
-	c.svc.onCtrlC(func() { close(stop) })
+	c.svc.onTerminate(func() { close(stop) })
 
 	select {
 	case <-ctx.Done():

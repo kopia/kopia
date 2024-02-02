@@ -165,6 +165,8 @@ func generateCommands(app *kingpin.ApplicationModel, section string, weight int,
 title: %q
 linkTitle: %q
 weight: %v
+hide_summary: true
+no_list: true
 ---
 `, title, title, weight)
 
@@ -266,6 +268,7 @@ title: %q
 linkTitle: %q
 weight: 10
 toc_hide: true
+hide_summary: true
 ---
 
 `, title, title)
