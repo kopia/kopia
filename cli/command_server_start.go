@@ -223,11 +223,7 @@ func (c *commandServerStart) run(ctx context.Context) error {
 	}
 
 	c.svc.onTerminate(func() {
-		log(ctx).Infof("Shutting down...")
-
-		if serr := httpServer.Shutdown(ctx); serr != nil {
-			log(ctx).Debugf("unable to shut down: %v", serr)
-		}
+		shutdownHTTPServer(ctx, httpServer)
 	})
 
 	c.svc.onRepositoryFatalError(func(_ error) {
@@ -258,8 +254,7 @@ func (c *commandServerStart) run(ctx context.Context) error {
 		ctxutil.GoDetached(ctx, func(ctx context.Context) {
 			// consume all stdin and close the server when it closes
 			io.ReadAll(os.Stdin) //nolint:errcheck
-			log(ctx).Infof("Shutting down server...")
-			httpServer.Shutdown(ctx) //nolint:errcheck
+			shutdownHTTPServer(ctx, httpServer)
 		})
 	}
 
@@ -271,6 +266,14 @@ func (c *commandServerStart) run(ctx context.Context) error {
 	}
 
 	return errors.Wrap(srv.SetRepository(ctx, nil), "error setting active repository")
+}
+
+func shutdownHTTPServer(ctx context.Context, httpServer *http.Server) {
+	log(ctx).Infof("Shutting down HTTP server ...")
+
+	if err := httpServer.Shutdown(ctx); err != nil {
+		log(ctx).Errorln("unable to shut down HTTP server:", err)
+	}
 }
 
 func (c *commandServerStart) setupHandlers(srv *server.Server, m *mux.Router) {
