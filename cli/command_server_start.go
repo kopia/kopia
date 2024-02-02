@@ -208,7 +208,7 @@ func (c *commandServerStart) run(ctx context.Context) error {
 		ctx2, cancel := context.WithTimeout(ctx, c.shutdownGracePeriod)
 		defer cancel()
 
-		// wait for all connections to finish for up to 5 seconds
+		// wait for all connections to finish within a shutdown grace period
 		log(ctx2).Debugf("attempting graceful shutdown for %v", c.shutdownGracePeriod)
 
 		if serr := httpServer.Shutdown(ctx2); serr != nil {
