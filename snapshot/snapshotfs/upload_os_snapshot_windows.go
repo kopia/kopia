@@ -17,7 +17,7 @@ func osSnapshotMode(p *policy.OSSnapshotPolicy) policy.OSSnapshotMode {
 }
 
 //nolint:wrapcheck
-func createOSSnapshot(ctx context.Context, root fs.Directory, _ *policy.OSSnapshotPolicy) (newRoot fs.Directory, cleanup func(), err error) {
+func createOSSnapshot(ctx context.Context, root fs.Directory, _ *policy.OSSnapshotPolicy) (newRoot fs.Directory, cleanup func(), finalErr error) {
 	local := root.LocalFilesystemPath()
 	if local == "" {
 		return nil, nil, errors.New("not a local filesystem")
