@@ -118,7 +118,7 @@ func (c *commandSnapshotCreate) run(ctx context.Context, rep repo.RepositoryWrit
 		return errors.New("description too long")
 	}
 
-	u := c.setupUploader(ctx, rep)
+	u := c.setupUploader(rep)
 
 	var finalErrors []string
 
@@ -205,10 +205,8 @@ func validateStartEndTime(st, et string) error {
 	return nil
 }
 
-// setupLoader loader for snapshot to repository.
-//
-//nolint:unparam
-func (c *commandSnapshotCreate) setupUploader(ctx context.Context, rep repo.RepositoryWriter) *snapshotfs.Uploader {
+// setupUploader loader for snapshot to repository.
+func (c *commandSnapshotCreate) setupUploader(rep repo.RepositoryWriter) *snapshotfs.Uploader {
 	u := snapshotfs.NewUploader(rep)
 	u.MaxUploadBytes = c.snapshotCreateCheckpointUploadLimitMB << 20 //nolint:gomnd
 
@@ -235,6 +233,8 @@ func (c *commandSnapshotCreate) setupUploader(ctx context.Context, rep repo.Repo
 	if interval := c.snapshotCreateCheckpointInterval; interval != 0 {
 		u.CheckpointInterval = interval
 	}
+
+	c.svc.onTerminate(u.Cancel)
 
 	u.ForceHashPercentage = c.snapshotCreateForceHash
 	u.ParallelUploads = c.snapshotCreateParallelUploads

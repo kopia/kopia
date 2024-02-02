@@ -491,22 +491,24 @@ func (c *App) runAppWithContext(command *kingpin.CmdClause, cb func(ctx context.
 
 	pproflogging.MaybeStartProfileBuffers(ctx)
 
-	defer func() {
-		ctx0, canfn := context.WithTimeout(ctx, pproflogging.PPROFDumpTimeout)
-		defer canfn()
+	// MaybeStartProfileBuffers will have configured the global pprof structs. At this point we can choose
+	// to enabled globally
+	if pproflogging.ProfileBuffersEnabled() {
+		defer func() {
+			ctx0, canfn := context.WithTimeout(ctx, pproflogging.PPROFDumpTimeout)
+			defer canfn()
 
-		pproflogging.MaybeStopProfileBuffers(ctx0)
-	}()
+			pproflogging.MaybeStopProfileBuffers(ctx0)
+		}()
 
-	c.onDebugDump(func() {
-		ctx0, canfn := context.WithTimeout(ctx, pproflogging.PPROFDumpTimeout)
-		defer canfn()
+		c.onDebugDump(func() {
+			ctx0, canfn := context.WithTimeout(ctx, pproflogging.PPROFDumpTimeout)
+			defer canfn()
 
-		log(ctx0).Infof("Dumping profiles...")
-
-		// restart profile buffers as this does not kill the process
-		pproflogging.MaybeRestartProfileBuffers(ctx0)
-	})
+			// restart profile buffers as this does not kill the process
+			pproflogging.MaybeRestartProfileBuffers(ctx0)
+		})
+	}
 
 	if err := c.observability.startMetrics(ctx); err != nil {
 		return errors.Wrap(err, "unable to start metrics")

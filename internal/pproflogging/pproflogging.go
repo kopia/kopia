@@ -41,7 +41,7 @@ const (
 
 const (
 	// EnvVarKopiaDebugPprof environment variable that contains the pprof dump configuration.
-	EnvVarKopiaDebugPprof = "KOPIA_DEBUG_PPROF"
+	EnvVarKopiaDebugPprof = "KOPIA_PPROF_LOGGING_CONFIG"
 )
 
 // flags used to configure profiling in EnvVarKopiaDebugPprof.
@@ -103,6 +103,14 @@ var pprofProfileRates = map[ProfileName]pprofSetRate{
 	},
 }
 
+// ProfileBuffersEnabled return true if pprof profiling is enabled.
+func ProfileBuffersEnabled() bool {
+	pprofConfigs.mu.Lock()
+	defer pprofConfigs.mu.Unlock()
+
+	return len(pprofConfigs.pcm) != 0
+}
+
 // MaybeStartProfileBuffers start profile buffers for this process.
 func MaybeStartProfileBuffers(ctx context.Context) {
 	var err error
@@ -113,17 +121,16 @@ func MaybeStartProfileBuffers(ctx context.Context) {
 		return
 	}
 
-	if pcm == nil {
-		log(ctx).Debug("no profile buffer configuration to start")
-		return
-	}
-
 	pprofConfigs.mu.Lock()
 	defer pprofConfigs.mu.Unlock()
 
 	pprofConfigs.pcm = pcm
 
-	log(ctx).Debug("no profile buffer configuration to start")
+	// allow profile dumps to be cleared
+	if len(pprofConfigs.pcm) == 0 {
+		log(ctx).Debug("no profile buffer configuration to start")
+		return
+	}
 
 	pprofConfigs.StartProfileBuffersLocked(ctx)
 }
@@ -147,11 +154,6 @@ func MaybeRestartProfileBuffers(ctx context.Context) {
 func MaybeStopProfileBuffers(ctx context.Context) {
 	pprofConfigs.mu.Lock()
 	defer pprofConfigs.mu.Unlock()
-
-	if len(pprofConfigs.pcm) == 0 {
-		log(ctx).Debug("no profile buffer configuration to stop")
-		return
-	}
 
 	pprofConfigs.StopProfileBuffersLocked(ctx)
 }
@@ -240,8 +242,6 @@ func (p *ProfileConfigs) StopProfileBuffersLocked(ctx context.Context) {
 			continue
 		}
 
-		log(ctx).Debugf("stopping PPROF profile %q", nm)
-
 		_, ok := v.GetValue(KopiaDebugFlagForceGc)
 		if ok {
 			log(ctx).Debug("performing GC before PPROF dump ...")
@@ -250,7 +250,10 @@ func (p *ProfileConfigs) StopProfileBuffersLocked(ctx context.Context) {
 
 		// stop CPU profile after GC
 		if nm == ProfileNameCPU {
+			log(ctx).Debug("stopping CPU profile")
+
 			pprof.StopCPUProfile()
+
 			continue
 		}
 		// look up the profile.  must not be nil
@@ -293,7 +296,7 @@ func (p *ProfileConfigs) StopProfileBuffersLocked(ctx context.Context) {
 		// PEM headings always in upper case
 		unm := strings.ToUpper(string(k))
 
-		log(ctx).Infof("dumping PEM for %q", unm)
+		log(ctx).Debugf("dumping PEM for %q", unm)
 
 		err := DumpPem(ctx, v.buf.Bytes(), unm, p.wrt)
 		if err != nil {

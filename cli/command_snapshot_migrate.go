@@ -45,28 +45,6 @@ func (c *commandSnapshotMigrate) setup(svc advancedAppServices, parent commandPa
 }
 
 func (c *commandSnapshotMigrate) run(ctx context.Context, destRepo repo.RepositoryWriter) error {
-	var (
-		wg              sync.WaitGroup
-		mu              sync.Mutex
-		canceled        bool
-		activeUploaders = map[snapshot.SourceInfo]*snapshotfs.Uploader{}
-	)
-
-	c.svc.getProgress().StartShared()
-	c.svc.onTerminate(func() {
-		mu.Lock()
-		defer mu.Unlock()
-		// debounce. (consider using sync.Once)
-		if canceled {
-			return
-		}
-		canceled = true
-		for s, u := range activeUploaders {
-			log(ctx).Infof("canceling active uploader for %v", s)
-			u.Cancel()
-		}
-	})
-
 	sourceRepo, err := c.openSourceRepo(ctx)
 	if err != nil {
 		return errors.Wrap(err, "can't open source repository")
@@ -81,6 +59,27 @@ func (c *commandSnapshotMigrate) run(ctx context.Context, destRepo repo.Reposito
 	}
 
 	semaphore := make(chan struct{}, c.migrateParallel)
+
+	var (
+		wg              sync.WaitGroup
+		mu              sync.Mutex
+		canceled        bool
+		activeUploaders = map[snapshot.SourceInfo]*snapshotfs.Uploader{}
+	)
+
+	c.svc.getProgress().StartShared()
+	c.svc.onTerminate(func() {
+		mu.Lock()
+		defer mu.Unlock()
+		// debounce. (consider using sync.Once)
+		if !canceled {
+			canceled = true
+			for s, u := range activeUploaders {
+				log(ctx).Infof("canceling active uploader for %v", s)
+				u.Cancel()
+			}
+		}
+	})
 
 	if c.migratePolicies {
 		if c.migrateAll {

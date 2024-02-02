@@ -16,7 +16,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	htpasswd "github.com/tg123/go-htpasswd"
+	"github.com/tg123/go-htpasswd"
 
 	"github.com/kopia/kopia/internal/auth"
 	"github.com/kopia/kopia/internal/ctxutil"
@@ -226,7 +226,11 @@ func (c *commandServerStart) run(ctx context.Context) error {
 	}
 
 	c.svc.onTerminate(func() {
-		shutdownServer(ctx, httpServer)
+		log(ctx).Infof("Shutting down...")
+
+		if err = httpServer.Shutdown(ctx); err != nil {
+			log(ctx).Debugf("unable to shut down: %v", err)
+		}
 	})
 
 	c.svc.onRepositoryFatalError(func(_ error) {
@@ -234,8 +238,6 @@ func (c *commandServerStart) run(ctx context.Context) error {
 			log(ctx).Debugf("unable to shut down: %v", serr)
 		}
 	})
-
-	c.svc.onRepositoryFatalError(func(error) { shutdownServer(ctx, httpServer) })
 
 	m := mux.NewRouter()
 
@@ -272,15 +274,6 @@ func (c *commandServerStart) run(ctx context.Context) error {
 	}
 
 	return errors.Wrap(srv.SetRepository(ctx, nil), "error setting active repository")
-}
-
-// shutdownServer shutdown http server and close the repository.
-func shutdownServer(ctx context.Context, httpServer *http.Server) {
-	log(ctx).Infof("Shutting down...")
-
-	if serr := httpServer.Shutdown(ctx); serr != nil {
-		log(ctx).Debugf("unable to shut down http server: %v", serr)
-	}
 }
 
 func (c *commandServerStart) setupHandlers(srv *server.Server, m *mux.Router) {

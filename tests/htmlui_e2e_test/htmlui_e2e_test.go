@@ -67,7 +67,7 @@ func runInBrowser(t *testing.T, run func(ctx context.Context, sp *testutil.Serve
 
 	t.Logf("detected server parameters %#v", sp)
 
-	ctx, cancelTimeout := context.WithTimeout(context.Background(), 5*time.Minute)
+	ctx, cancelTimeout := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancelTimeout()
 
 	maybeHeadless := chromedp.Headless

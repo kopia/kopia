@@ -30,26 +30,6 @@ func (c *App) onRepositoryFatalError(f func(err error)) {
 	c.onFatalErrorCallbacks = append(c.onFatalErrorCallbacks, f)
 }
 
-func (c *App) onDebugDump(f func()) {
-	s := make(chan os.Signal, 1)
-	signal.Notify(s, syscall.SIGQUIT)
-
-	go func() {
-		for {
-			// invoke the function when either real or simulated Ctrl-\ signal is delivered
-			select {
-			case v := <-c.simulatedSigDump:
-				if !v {
-					return
-				}
-
-			case <-s:
-			}
-			f()
-		}
-	}()
-}
-
 func (c *App) onTerminate(f func()) {
 	// channel length of 2 to accommodate both signals
 	//nolint:gomnd
@@ -68,6 +48,26 @@ func (c *App) onTerminate(f func()) {
 		}
 		signal.Reset(os.Interrupt, syscall.SIGTERM)
 		f()
+	}()
+}
+
+func (c *App) onDebugDump(f func()) {
+	s := make(chan os.Signal, 1)
+	signal.Notify(s, syscall.SIGQUIT)
+
+	go func() {
+		for {
+			// invoke the function when either real or simulated Ctrl-\ signal is delivered
+			select {
+			case v := <-c.simulatedSigDump:
+				if !v {
+					return
+				}
+
+			case <-s:
+			}
+			f()
+		}
 	}()
 }
 
