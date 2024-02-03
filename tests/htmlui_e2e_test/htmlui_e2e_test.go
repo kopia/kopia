@@ -335,6 +335,8 @@ func TestByteRepresentation(t *testing.T) {
 
 		// begin test
 		require.NoError(t, chromedp.Run(ctx,
+			tc.captureScreenshot("initial0"),
+
 			tc.log("navigating to preferences tab"),
 			chromedp.Click("a[data-testid='tab-preferences']", chromedp.BySearch),
 			tc.captureScreenshot("initial"),
