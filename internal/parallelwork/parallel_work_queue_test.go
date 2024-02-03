@@ -155,9 +155,9 @@ func TestProgressCallback(t *testing.T) {
 	close(progressUpdates)
 
 	for update := range progressUpdates {
-		require.GreaterOrEqual(t, update.enqueued, 0)
-		require.GreaterOrEqual(t, update.active, 0)
-		require.GreaterOrEqual(t, update.completed, 0)
+		require.GreaterOrEqual(t, update.enqueued, int64(0))
+		require.GreaterOrEqual(t, update.active, int64(0))
+		require.GreaterOrEqual(t, update.completed, int64(0))
 	}
 }
 
