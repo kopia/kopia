@@ -24,7 +24,7 @@ func TestLogManager_Enabled(t *testing.T) {
 	l := lm.NewLogger()
 	l.Infof("hello")
 
-	require.Len(t, d, 0)
+	require.Empty(t, d)
 	l.Sync()
 	w.Wait(ctx)
 
@@ -58,12 +58,12 @@ func TestLogManager_AutoFlush(t *testing.T) {
 
 	w.Wait(ctx)
 
-	require.Equal(t, 1, len(d))
+	require.Len(t, d, 1)
 
 	l.Sync()
 	w.Wait(ctx)
 
-	require.Equal(t, 2, len(d))
+	require.Len(t, d, 2)
 }
 
 func TestLogManager_NotEnabled(t *testing.T) {
@@ -76,12 +76,12 @@ func TestLogManager_NotEnabled(t *testing.T) {
 	l := lm.NewLogger()
 	l.Infof("hello")
 
-	require.Len(t, d, 0)
+	require.Empty(t, d)
 	l.Sync()
 	w.Wait(ctx)
 
 	// make sure log messages are not written
-	require.Len(t, d, 0)
+	require.Empty(t, d)
 }
 
 func TestLogManager_Null(t *testing.T) {

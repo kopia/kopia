@@ -36,7 +36,7 @@ func verifyACL(t *testing.T, disableGRPC bool) {
 
 	serverEnvironment.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", serverEnvironment.RepoDir, "--override-hostname=foo", "--override-username=foo", "--enable-actions")
 
-	require.Len(t, serverEnvironment.RunAndExpectSuccess(t, "server", "acl", "list"), 0)
+	require.Empty(t, serverEnvironment.RunAndExpectSuccess(t, "server", "acl", "list"))
 
 	// enable ACLs - that should insert all the rules.
 	serverEnvironment.RunAndExpectSuccess(t, "server", "acl", "enable")

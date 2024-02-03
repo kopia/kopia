@@ -143,7 +143,7 @@ func (r *RetentionPolicy) getRetentionReasons(i int, s *snapshot.Manifest, cutof
 		timePeriodType string
 		max            *OptionalInt
 	}{
-		{zeroTime, fmt.Sprintf("%v", i), "latest", effectiveKeepLatest},
+		{zeroTime, strconv.Itoa(i), "latest", effectiveKeepLatest},
 		{cutoff.annual, s.StartTime.Format("2006"), "annual", r.KeepAnnual},
 		{cutoff.monthly, s.StartTime.Format("2006-01"), "monthly", r.KeepMonthly},
 		{cutoff.weekly, fmt.Sprintf("%04v-%02v", yyyy, wk), "weekly", r.KeepWeekly},

@@ -47,7 +47,7 @@ func testPutAndGet(t *testing.T, opts *Options, originalSize,
 	require.NoError(t, err)
 
 	result := output.ToByteSlice()
-	require.Equal(t, originalSize+expectedEccSize, len(result))
+	require.Len(t, result, originalSize+expectedEccSize)
 
 	makeChanges(impl, result)
 

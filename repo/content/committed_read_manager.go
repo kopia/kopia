@@ -67,7 +67,7 @@ var allIndexBlobPrefixes = []blob.ID{
 
 // IndexBlobReader provides an API for reading index blobs.
 type IndexBlobReader interface {
-	ListIndexBlobInfos(context.Context) ([]indexblob.Metadata, time.Time, error)
+	ListIndexBlobInfos(ctx context.Context) ([]indexblob.Metadata, time.Time, error)
 }
 
 // SharedManager is responsible for read-only access to committed data.

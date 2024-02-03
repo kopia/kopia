@@ -61,7 +61,7 @@ func TestManifestDecode_BadInput(t *testing.T) {
 
 			t.Logf("%v", err)
 
-			assert.Error(t, err)
+			require.Error(t, err)
 		})
 	}
 }

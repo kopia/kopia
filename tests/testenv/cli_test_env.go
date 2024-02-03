@@ -124,7 +124,7 @@ func (e *CLITest) TweakFile(t *testing.T, dirn, fglob string) {
 	// find a file within the repository to corrupt
 	mch, err := fs.Glob(os.DirFS(dirn), fglob)
 	require.NoError(t, err)
-	require.Greater(t, len(mch), 0)
+	require.NotEmpty(t, mch)
 
 	// grab a random file in the directory dirn
 	fn := mch[rand.Intn(len(mch))]

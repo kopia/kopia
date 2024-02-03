@@ -196,7 +196,7 @@ func TestPersistentLRUCache_PutIgnoresStorageFailure(t *testing.T) {
 
 	require.False(t, pc.GetFull(ctx, "key", &tmp))
 
-	require.Equal(t, fs.NumCalls(blobtesting.MethodPutBlob), 1)
+	require.Equal(t, 1, fs.NumCalls(blobtesting.MethodPutBlob))
 }
 
 func TestPersistentLRUCache_SweepMinSweepAge(t *testing.T) {

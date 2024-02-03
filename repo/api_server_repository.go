@@ -188,6 +188,7 @@ func (r *apiServerRepository) NewWriter(ctx context.Context, opt WriteSessionOpt
 func (r *apiServerRepository) ContentInfo(ctx context.Context, contentID content.ID) (content.Info, error) {
 	var bi content.Info
 
+	//nolint:goconst
 	if err := r.cli.Get(ctx, "contents/"+contentID.String()+"?info=1", content.ErrContentNotFound, &bi); err != nil {
 		return content.Info{}, errors.Wrap(err, "ContentInfo")
 	}

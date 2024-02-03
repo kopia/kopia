@@ -205,9 +205,9 @@ func verifyContentCache(t *testing.T, cc cache.ContentCache, cacheStorage blob.S
 		for _, tc := range cases {
 			err := cc.GetContent(ctx, tc.contentID, tc.blobID, tc.offset, tc.length, &v)
 			if tc.err == nil {
-				assert.NoErrorf(t, err, "tc.contentID: %v", tc.contentID)
+				require.NoErrorf(t, err, "tc.contentID: %v", tc.contentID)
 			} else {
-				assert.ErrorContainsf(t, err, tc.err.Error(), "tc.contentID: %v", tc.contentID)
+				require.ErrorContainsf(t, err, tc.err.Error(), "tc.contentID: %v", tc.contentID)
 			}
 			if got := v.ToByteSlice(); !bytes.Equal(got, tc.expected) {
 				t.Errorf("unexpected data for %v: %x, wanted %x", tc.contentID, got, tc.expected)
@@ -292,13 +292,13 @@ func TestCacheFailureToWrite(t *testing.T) {
 	defer v.Close()
 
 	err = cc.GetContent(ctx, "aa", "content-1", 0, 3, &v)
-	assert.NoError(t, err, "write failure wasn't ignored")
+	require.NoError(t, err, "write failure wasn't ignored")
 
 	got, want := v.ToByteSlice(), []byte{1, 2, 3}
-	assert.Equal(t, want, got, "unexpected value retrieved from cache")
+	require.Equal(t, want, got, "unexpected value retrieved from cache")
 
 	all, err := blob.ListAllBlobs(ctx, cacheStorage, "")
-	assert.NoError(t, err, "error listing cache")
+	require.NoError(t, err, "error listing cache")
 
 	require.Empty(t, all, "invalid test - cache was written")
 }

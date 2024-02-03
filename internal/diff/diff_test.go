@@ -157,7 +157,7 @@ func TestCompareDifferentDirectories(t *testing.T) {
 
 	err = c.Compare(ctx, dir1, dir2)
 	require.NoError(t, err)
-	require.Equal(t, buf.String(), expectedOutput)
+	require.Equal(t, expectedOutput, buf.String())
 }
 
 func TestCompareDifferentDirectories_DirTimeDiff(t *testing.T) {
@@ -191,7 +191,7 @@ func TestCompareDifferentDirectories_DirTimeDiff(t *testing.T) {
 	expectedOutput := ". modification times differ:  2023-04-12 10:30:00 +0000 UTC 2022-04-12 10:30:00 +0000 UTC\n"
 	err = c.Compare(ctx, dir1, dir2)
 	require.NoError(t, err)
-	require.Equal(t, buf.String(), expectedOutput)
+	require.Equal(t, expectedOutput, buf.String())
 }
 
 func TestCompareDifferentDirectories_FileTimeDiff(t *testing.T) {
@@ -224,7 +224,7 @@ func TestCompareDifferentDirectories_FileTimeDiff(t *testing.T) {
 
 	err = c.Compare(ctx, dir1, dir2)
 	require.NoError(t, err)
-	require.Equal(t, buf.String(), expectedOutput)
+	require.Equal(t, expectedOutput, buf.String())
 }
 
 func createTestDirectory(name string, modtime time.Time, files ...fs.Entry) *testDirectory {
