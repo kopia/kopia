@@ -70,7 +70,7 @@ func getLogSessions(ctx context.Context, st blob.Reader) ([]*logSessionInfo, err
 
 	var allSessions []*logSessionInfo
 
-	if err := st.ListBlobs(ctx, repodiag.BlobPrefix, func(bm blob.Metadata) error {
+	if err := st.ListBlobs(ctx, repodiag.LogBlobPrefix, func(bm blob.Metadata) error {
 		parts := strings.Split(string(bm.BlobID), "_")
 
 		//nolint:gomnd

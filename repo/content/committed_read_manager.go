@@ -577,13 +577,7 @@ func (sm *SharedManager) CloseShared(ctx context.Context) error {
 		sm.internalLogger.Sync() //nolint:errcheck
 	}
 
-	sm.repoLogManager.Close(ctx)
-
 	sm.indexBlobManagerV1.EpochManager().Flush()
-
-	if err := sm.st.Close(ctx); err != nil {
-		return errors.Wrap(err, "error closing storage")
-	}
 
 	return nil
 }
@@ -612,7 +606,7 @@ func (sm *SharedManager) PrepareUpgradeToIndexBlobManagerV1(ctx context.Context)
 }
 
 // NewSharedManager returns SharedManager that is used by SessionWriteManagers on top of a repository.
-func NewSharedManager(ctx context.Context, st blob.Storage, prov format.Provider, caching *CachingOptions, opts *ManagerOptions, mr *metrics.Registry) (*SharedManager, error) {
+func NewSharedManager(ctx context.Context, st blob.Storage, prov format.Provider, caching *CachingOptions, opts *ManagerOptions, repoLogManager *repodiag.LogManager, mr *metrics.Registry) (*SharedManager, error) {
 	opts = opts.CloneOrDefault()
 	if opts.TimeNow == nil {
 		opts.TimeNow = clock.Now
@@ -628,7 +622,7 @@ func NewSharedManager(ctx context.Context, st blob.Storage, prov format.Provider
 		maxPreambleLength:       defaultMaxPreambleLength,
 		paddingUnit:             defaultPaddingUnit,
 		checkInvariantsOnUnlock: os.Getenv("KOPIA_VERIFY_INVARIANTS") != "",
-		repoLogManager:          repodiag.NewLogManager(ctx, st, prov),
+		repoLogManager:          repoLogManager,
 		contextLogger:           logging.Module(FormatLogModule)(ctx),
 
 		metricsStruct: initMetricsStruct(mr),

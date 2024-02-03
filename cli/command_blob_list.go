@@ -66,7 +66,7 @@ func (c *commandBlobList) shouldInclude(b blob.Metadata) bool {
 			return false
 		}
 
-		if strings.HasPrefix(string(b.BlobID), repodiag.BlobPrefix) {
+		if strings.HasPrefix(string(b.BlobID), repodiag.LogBlobPrefix) {
 			return false
 		}
 
