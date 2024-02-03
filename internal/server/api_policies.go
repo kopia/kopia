@@ -66,7 +66,7 @@ func handlePolicyResolve(ctx context.Context, rc requestContext) (interface{}, *
 	var req serverapi.ResolvePolicyRequest
 
 	if err := json.Unmarshal(rc.body, &req); err != nil {
-		return nil, requestError(serverapi.ErrorMalformedRequest, "unable to decode request: "+err.Error())
+		return nil, unableToDecodeRequest(err)
 	}
 
 	target := getSnapshotSourceFromURL(rc.req.URL)

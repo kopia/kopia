@@ -1,4 +1,4 @@
-package repolog
+package repodiag
 
 import (
 	"compress/gzip"
@@ -31,7 +31,10 @@ type internalLogger struct {
 }
 
 func (l *internalLogger) Write(b []byte) (int, error) {
-	l.maybeEncryptAndWriteChunkUnlocked(l.addAndMaybeFlush(b))
+	if l != nil {
+		l.maybeEncryptAndWriteChunkUnlocked(l.addAndMaybeFlush(b))
+	}
+
 	return len(b), nil
 }
 

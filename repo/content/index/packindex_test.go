@@ -3,6 +3,7 @@ package index
 import (
 	"bytes"
 	"crypto/sha1"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"math/rand"
@@ -47,7 +48,7 @@ func deterministicPackBlobID(id int) blob.ID {
 	h := sha1.New()
 	fmt.Fprintf(h, "%v", id)
 
-	return blob.ID(fmt.Sprintf("%x", h.Sum(nil)))
+	return blob.ID(hex.EncodeToString(h.Sum(nil)))
 }
 
 func deterministicPackedOffset(id int) uint32 {
@@ -391,7 +392,7 @@ func TestPackIndexV2TooManyUniqueFormats(t *testing.T) {
 
 	err := b.buildV2(io.Discard)
 	require.Error(t, err)
-	require.Equal(t, err.Error(), "unsupported - too many unique formats 256 (max 255)")
+	require.Equal(t, "unsupported - too many unique formats 256 (max 255)", err.Error())
 }
 
 func fuzzTestIndexOpen(originalData []byte) {

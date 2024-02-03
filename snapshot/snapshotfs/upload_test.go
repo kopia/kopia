@@ -566,11 +566,11 @@ func TestUpload_FinishedFileProgress(t *testing.T) {
 			assert.Contains(t, []string{"f1", "f2"}, filepath.Base(relativePath))
 
 			if strings.Contains(relativePath, "f2") {
-				assert.Error(t, err)
+				require.Error(t, err)
 				return
 			}
 
-			assert.NoError(t, err)
+			require.NoError(t, err)
 		},
 	}
 
@@ -799,8 +799,8 @@ func TestUploadScanIgnoresFiles(t *testing.T) {
 	result2, err := u.scanDirectory(ctx, th.sourceDir, policyTree)
 	require.NoError(t, err)
 
-	require.NotEqual(t, result1.numFiles, 0)
-	require.NotEqual(t, result2.numFiles, 0)
+	require.NotEqual(t, 0, result1.numFiles)
+	require.NotEqual(t, 0, result2.numFiles)
 
 	require.Less(t, result2.numFiles, result1.numFiles)
 	require.Less(t, result2.totalFileSize, result1.totalFileSize)
@@ -997,10 +997,10 @@ func TestUpload_StreamingDirectory(t *testing.T) {
 	man, err := u.Upload(ctx, staticRoot, policyTree, snapshot.SourceInfo{})
 	require.NoError(t, err)
 
-	assert.Equal(t, atomic.LoadInt32(&man.Stats.CachedFiles), int32(0))
-	assert.Equal(t, atomic.LoadInt32(&man.Stats.NonCachedFiles), int32(1))
-	assert.Equal(t, atomic.LoadInt32(&man.Stats.TotalDirectoryCount), int32(2))
-	assert.Equal(t, atomic.LoadInt32(&man.Stats.TotalFileCount), int32(1))
+	assert.Equal(t, int32(0), atomic.LoadInt32(&man.Stats.CachedFiles))
+	assert.Equal(t, int32(1), atomic.LoadInt32(&man.Stats.NonCachedFiles))
+	assert.Equal(t, int32(2), atomic.LoadInt32(&man.Stats.TotalDirectoryCount))
+	assert.Equal(t, int32(1), atomic.LoadInt32(&man.Stats.TotalFileCount))
 }
 
 func TestUpload_StreamingDirectoryWithIgnoredFile(t *testing.T) {
@@ -1036,10 +1036,10 @@ func TestUpload_StreamingDirectoryWithIgnoredFile(t *testing.T) {
 	man, err := u.Upload(ctx, staticRoot, policyTree, snapshot.SourceInfo{})
 	require.NoError(t, err)
 
-	assert.Equal(t, atomic.LoadInt32(&man.Stats.CachedFiles), int32(0))
-	assert.Equal(t, atomic.LoadInt32(&man.Stats.NonCachedFiles), int32(1))
-	assert.Equal(t, atomic.LoadInt32(&man.Stats.TotalDirectoryCount), int32(2))
-	assert.Equal(t, atomic.LoadInt32(&man.Stats.TotalFileCount), int32(1))
+	assert.Equal(t, int32(0), atomic.LoadInt32(&man.Stats.CachedFiles))
+	assert.Equal(t, int32(1), atomic.LoadInt32(&man.Stats.NonCachedFiles))
+	assert.Equal(t, int32(2), atomic.LoadInt32(&man.Stats.TotalDirectoryCount))
+	assert.Equal(t, int32(1), atomic.LoadInt32(&man.Stats.TotalFileCount))
 }
 
 type mockLogger struct {

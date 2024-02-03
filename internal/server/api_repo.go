@@ -128,7 +128,7 @@ func handleRepoCreate(ctx context.Context, rc requestContext) (interface{}, *api
 	var req serverapi.CreateRepositoryRequest
 
 	if err := json.Unmarshal(rc.body, &req); err != nil {
-		return nil, requestError(serverapi.ErrorMalformedRequest, "unable to decode request: "+err.Error())
+		return nil, unableToDecodeRequest(err)
 	}
 
 	if err := maybeDecodeToken(&req.ConnectRepositoryRequest); err != nil {
@@ -181,7 +181,7 @@ func handleRepoExists(ctx context.Context, rc requestContext) (interface{}, *api
 	var req serverapi.CheckRepositoryExistsRequest
 
 	if err := json.Unmarshal(rc.body, &req); err != nil {
-		return nil, requestError(serverapi.ErrorMalformedRequest, "unable to decode request: "+err.Error())
+		return nil, unableToDecodeRequest(err)
 	}
 
 	st, err := blob.NewStorage(ctx, req.Storage, false)
@@ -213,7 +213,7 @@ func handleRepoConnect(ctx context.Context, rc requestContext) (interface{}, *ap
 	var req serverapi.ConnectRepositoryRequest
 
 	if err := json.Unmarshal(rc.body, &req); err != nil {
-		return nil, requestError(serverapi.ErrorMalformedRequest, "unable to decode request: "+err.Error())
+		return nil, unableToDecodeRequest(err)
 	}
 
 	if err := maybeDecodeToken(&req); err != nil {
@@ -254,7 +254,7 @@ func handleRepoSetDescription(ctx context.Context, rc requestContext) (interface
 	var req repo.ClientOptions
 
 	if err := json.Unmarshal(rc.body, &req); err != nil {
-		return nil, requestError(serverapi.ErrorMalformedRequest, "unable to decode request: "+err.Error())
+		return nil, unableToDecodeRequest(err)
 	}
 
 	cliOpt := rc.rep.ClientOptions()
@@ -345,7 +345,7 @@ func handleRepoSetThrottle(ctx context.Context, rc requestContext) (interface{},
 
 	var req throttling.Limits
 	if err := json.Unmarshal(rc.body, &req); err != nil {
-		return nil, requestError(serverapi.ErrorMalformedRequest, "unable to decode request: "+err.Error())
+		return nil, unableToDecodeRequest(err)
 	}
 
 	if err := dr.Throttler().SetLimits(req); err != nil {
