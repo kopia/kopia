@@ -789,7 +789,7 @@ func newIndexBlobManagerForTesting(t *testing.T, st blob.Storage, localTimeNow f
 		enc: &EncryptionManager{
 			st:             st,
 			indexBlobCache: nil,
-			crypter:        blobcrypto.StaticCrypter{hf, enc},
+			crypter:        blobcrypto.StaticCrypter{Hash: hf, Encryption: enc},
 			log:            log,
 		},
 		timeNow: localTimeNow,
