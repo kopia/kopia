@@ -34,6 +34,6 @@ func verifyMapping(t *testing.T, mapping *metricid.Mapping) {
 	}
 
 	// make sure we use consecurive numbers
-	require.Equal(t, maxv, len(id2name))
+	require.Len(t, id2name, maxv)
 	require.Equal(t, mapping.MaxIndex, maxv)
 }

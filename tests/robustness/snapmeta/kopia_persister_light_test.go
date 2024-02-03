@@ -6,9 +6,9 @@ package snapmeta
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"testing"
 )
 
@@ -49,7 +49,7 @@ func TestConcurrency(t *testing.T) {
 	t.Run("storeLoad", func(t *testing.T) {
 		for i := 0; i < 9; i++ {
 			j := i
-			t.Run(fmt.Sprint(i), func(t *testing.T) {
+			t.Run(strconv.Itoa(i), func(t *testing.T) {
 				t.Parallel()
 				kpl.testStoreLoad(ctx, t, keys[j%3], vals[j%3])
 			})
@@ -59,7 +59,7 @@ func TestConcurrency(t *testing.T) {
 	t.Run("delete", func(t *testing.T) {
 		for i := 0; i < 9; i++ {
 			j := i
-			t.Run(fmt.Sprint(i), func(t *testing.T) {
+			t.Run(strconv.Itoa(i), func(t *testing.T) {
 				t.Parallel()
 				kpl.testDelete(ctx, t, keys[j%3])
 			})

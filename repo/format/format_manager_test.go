@@ -71,7 +71,7 @@ func TestFormatManager(t *testing.T) {
 	require.NotNil(t, mgr.HashFunc())
 	require.NotNil(t, mgr.Encryptor())
 	require.Equal(t, cf.MasterKey, mgr.GetMasterKey())
-	require.Equal(t, false, mgr.SupportsPasswordChange())
+	require.False(t, mgr.SupportsPasswordChange())
 	require.Equal(t, startTime, mgr.LoadedTime())
 	require.Equal(t, cf.MutableParameters, mustGetMutableParameters(t, mgr))
 	require.True(t, bytes.Contains(mustGetRepositoryFormatBytes(t, mgr), rawBytes))

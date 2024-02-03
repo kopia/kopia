@@ -387,7 +387,7 @@ func TestFindManifestsPaginationOverGRPC(t *testing.T) {
 	})
 
 	require.NoError(t, ferr)
-	require.Equal(t, numManifests, len(manifests))
+	require.Len(t, manifests, numManifests)
 
 	// make sure every manifest is unique and in the uniqueIDs map
 	for _, m := range manifests {

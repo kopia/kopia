@@ -118,6 +118,7 @@ issues:
       - funlen
       - gochecknoglobals
       - gocognit
+      - goconst
       - gomnd
       - gosec
       - musttag
@@ -171,3 +172,6 @@ issues:
     - text: "unwrapped: sig: func github.com/kopia/kopia/fs.GetAllEntries"
       linters:
         - wrapcheck
+    - text: "float-compare: use require.InEpsilon"
+      linters:
+        - testifylint

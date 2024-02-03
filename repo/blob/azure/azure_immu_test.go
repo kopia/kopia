@@ -98,7 +98,7 @@ func TestAzureStorageImmutabilityProtection(t *testing.T) {
 	var re *azcore.ResponseError
 
 	require.ErrorAs(t, err, &re)
-	require.Equal(t, re.ErrorCode, "ImmutabilityPolicyDeleteOnLockedPolicy")
+	require.Equal(t, "ImmutabilityPolicyDeleteOnLockedPolicy", re.ErrorCode)
 
 	err = st.DeleteBlob(ctx, dummyBlob)
 	require.NoError(t, err)

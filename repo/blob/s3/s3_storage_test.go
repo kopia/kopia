@@ -484,8 +484,8 @@ func TestS3StorageMinioSTS(t *testing.T) {
 		DoNotUseTLS:     true,
 	})
 
-	require.NotEqual(t, kopiaCreds.AccessKeyID, minioRootAccessKeyID)
-	require.NotEqual(t, kopiaCreds.SecretAccessKey, minioRootSecretAccessKey)
+	require.NotEqual(t, minioRootAccessKeyID, kopiaCreds.AccessKeyID)
+	require.NotEqual(t, minioRootSecretAccessKey, kopiaCreds.SecretAccessKey)
 	require.NotEmpty(t, kopiaCreds.SessionToken)
 
 	testStorage(t, &Options{

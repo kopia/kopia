@@ -38,7 +38,7 @@ func TestMerged(t *testing.T) {
 
 	m := Merged{i1, i2, i3}
 
-	require.Equal(t, m.ApproximateCount(), 11)
+	require.Equal(t, 11, m.ApproximateCount())
 
 	i, err := m.GetInfo(mustParseID(t, "aabbcc"))
 	require.NoError(t, err)
