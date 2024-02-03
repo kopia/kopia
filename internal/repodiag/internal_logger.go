@@ -78,10 +78,6 @@ func (l *internalLogger) addAndMaybeFlush(b []byte) (payload gather.Bytes, close
 
 // +checklocks:l.mu
 func (l *internalLogger) ensureWriterInitializedLocked() io.Writer {
-	if l.m == nil {
-		return io.Discard
-	}
-
 	if l.gzw == nil {
 		l.buf = gather.NewWriteBuffer()
 		l.gzw = gzip.NewWriter(l.buf)

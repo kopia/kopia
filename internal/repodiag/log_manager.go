@@ -37,7 +37,7 @@ type LogManager struct {
 }
 
 func (m *LogManager) encryptAndWriteLogBlob(prefix blob.ID, data gather.Bytes, closeFunc func()) {
-	m.writer.encryptAndWriteLogBlobAsync(m.ctx, prefix, data, closeFunc)
+	m.writer.EncryptAndWriteBlobAsync(m.ctx, prefix, data, closeFunc)
 }
 
 // NewLogger creates new logger.

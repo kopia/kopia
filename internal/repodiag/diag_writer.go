@@ -7,7 +7,10 @@ import (
 	"github.com/kopia/kopia/internal/blobcrypto"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/logging"
 )
+
+var log = logging.Module("repodiag")
 
 // Writer manages encryption and asynchronous writing of diagnostic blobs to the repository.
 type Writer struct {
@@ -16,7 +19,9 @@ type Writer struct {
 	wg sync.WaitGroup
 }
 
-func (w *Writer) encryptAndWriteLogBlobAsync(ctx context.Context, prefix blob.ID, data gather.Bytes, closeFunc func()) {
+// EncryptAndWriteBlobAsync encrypts given content and writes it to the repository asynchronously,
+// folllowed by calling the provided closeFunc.
+func (w *Writer) EncryptAndWriteBlobAsync(ctx context.Context, prefix blob.ID, data gather.Bytes, closeFunc func()) {
 	encrypted := gather.NewWriteBuffer()
 	// Close happens in a goroutine
 
@@ -25,6 +30,8 @@ func (w *Writer) encryptAndWriteLogBlobAsync(ctx context.Context, prefix blob.ID
 		encrypted.Close()
 
 		// this should not happen, also nothing can be done about this, we're not in a place where we can return error, log it.
+		log(ctx).Warnf("unable to encrypt diagnostics blob: %v", err)
+
 		return
 	}
 
@@ -39,13 +46,14 @@ func (w *Writer) encryptAndWriteLogBlobAsync(ctx context.Context, prefix blob.ID
 
 		if err := w.st.PutBlob(ctx, blobID, b, blob.PutOptions{}); err != nil {
 			// nothing can be done about this, we're not in a place where we can return error, log it.
+			log(ctx).Warnf("unable to write diagnostics blob: %v", err)
 			return
 		}
 	}()
 }
 
-// Close closes the diagnostics writer.
-func (w *Writer) Close(ctx context.Context) error {
+// Wait waits for all the writes to complete.
+func (w *Writer) Wait(ctx context.Context) error {
 	w.wg.Wait()
 	return nil
 }

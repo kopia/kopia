@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/kopia/kopia/internal/blobcrypto"
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/faketime"
@@ -788,7 +789,7 @@ func newIndexBlobManagerForTesting(t *testing.T, st blob.Storage, localTimeNow f
 		enc: &EncryptionManager{
 			st:             st,
 			indexBlobCache: nil,
-			crypter:        staticCrypter{hf, enc},
+			crypter:        blobcrypto.StaticCrypter{hf, enc},
 			log:            log,
 		},
 		timeNow: localTimeNow,

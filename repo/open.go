@@ -348,7 +348,7 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 
 	closer := newRefCountedCloser(
 		scm.CloseShared,
-		dw.Close,
+		dw.Wait,
 		mr.Close,
 		st.Close,
 	)
