@@ -24,7 +24,7 @@ concurrency:
 jobs:
   end-to-end-test:
     name: E2E Test
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     steps:
     - name: Check out repository
       uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1

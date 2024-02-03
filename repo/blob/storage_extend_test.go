@@ -126,5 +126,5 @@ func (s *formatSpecificTestSuite) TestExtendBlobRetentionUnsupported(t *testing.
 		RetentionMode:   blob.Governance,
 		RetentionPeriod: 2 * time.Hour,
 	})
-	assert.EqualErrorf(t, err, "object locking unsupported", "Storage should not support ExtendBlobRetention")
+	require.EqualErrorf(t, err, "object locking unsupported", "Storage should not support ExtendBlobRetention")
 }

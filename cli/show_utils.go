@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 	"time"
 
@@ -57,7 +58,7 @@ func maybeHumanReadableBytes(enable bool, value int64) string {
 		return units.BytesString(value)
 	}
 
-	return fmt.Sprintf("%v", value)
+	return strconv.FormatInt(value, 10)
 }
 
 func maybeHumanReadableCount(enable bool, value int64) string {
@@ -65,7 +66,7 @@ func maybeHumanReadableCount(enable bool, value int64) string {
 		return units.Count(value)
 	}
 
-	return fmt.Sprintf("%v", value)
+	return strconv.FormatInt(value, 10)
 }
 
 func formatTimestamp(ts time.Time) string {

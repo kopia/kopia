@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/blobtesting"
@@ -488,5 +487,5 @@ func TestManifestAutoCompactionWithReadOnly(t *testing.T) {
 	require.NoError(t, err, "getting other instance of manifest manager")
 
 	_, err = mgr.Find(ctx, map[string]string{"color": "red"})
-	assert.NoError(t, err, "forcing reload of manifest manager")
+	require.NoError(t, err, "forcing reload of manifest manager")
 }

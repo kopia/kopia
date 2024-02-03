@@ -81,7 +81,7 @@ func TestLoggingFlags(t *testing.T) {
 		}
 	}
 
-	require.Greater(t, len(stderr), 0)
+	require.NotEmpty(t, stderr)
 
 	// run command with --log-level=warning so no log error is produced on the console
 	_, stderr, err = env.Run(t, false, "snap", "create", dir1,

@@ -4,6 +4,7 @@ package providervalidation
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"fmt"
 	"math/rand"
 	"os"
@@ -320,7 +321,7 @@ func (c *concurrencyTest) putBlobWorker(ctx context.Context, worker int) func() 
 			seed := rand.Int63() //nolint:gosec
 			data := c.dataFromSeed(seed, data0)
 
-			id := c.prefix + blob.ID(fmt.Sprintf("%x", data[0:16]))
+			id := c.prefix + blob.ID(hex.EncodeToString(data[0:16]))
 
 			c.mu.Lock()
 			c.blobSeeds[id] = seed
