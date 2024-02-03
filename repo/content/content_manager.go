@@ -965,7 +965,7 @@ func NewManagerForTesting(ctx context.Context, st blob.Storage, f format.Provide
 		options.TimeNow = clock.Now
 	}
 
-	sharedManager, err := NewSharedManager(ctx, st, f, caching, options, nil)
+	sharedManager, err := NewSharedManager(ctx, st, f, caching, options, nil, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "error initializing read manager")
 	}
