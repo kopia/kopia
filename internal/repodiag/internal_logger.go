@@ -1,4 +1,4 @@
-package repolog
+package repodiag
 
 import (
 	"compress/gzip"

@@ -1,5 +1,5 @@
-// Package repolog manages logs in the repository.
-package repolog
+// Package repodiag manages logs and metrics in the repository.
+package repodiag
 
 import (
 	"context"

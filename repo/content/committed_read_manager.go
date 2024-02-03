@@ -18,7 +18,7 @@ import (
 	"github.com/kopia/kopia/internal/listcache"
 	"github.com/kopia/kopia/internal/metrics"
 	"github.com/kopia/kopia/internal/ownwrites"
-	"github.com/kopia/kopia/internal/repolog"
+	"github.com/kopia/kopia/internal/repodiag"
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/filesystem"
@@ -106,7 +106,7 @@ type SharedManager struct {
 
 	// logger associated with the context that opened the repository.
 	contextLogger  logging.Logger
-	repoLogManager *repolog.LogManager
+	repoLogManager *repodiag.LogManager
 	internalLogger *zap.SugaredLogger // backing logger for 'sharedBaseLogger'
 
 	metricsStruct
@@ -628,7 +628,7 @@ func NewSharedManager(ctx context.Context, st blob.Storage, prov format.Provider
 		maxPreambleLength:       defaultMaxPreambleLength,
 		paddingUnit:             defaultPaddingUnit,
 		checkInvariantsOnUnlock: os.Getenv("KOPIA_VERIFY_INVARIANTS") != "",
-		repoLogManager:          repolog.NewLogManager(ctx, st, prov),
+		repoLogManager:          repodiag.NewLogManager(ctx, st, prov),
 		contextLogger:           logging.Module(FormatLogModule)(ctx),
 
 		metricsStruct: initMetricsStruct(mr),
