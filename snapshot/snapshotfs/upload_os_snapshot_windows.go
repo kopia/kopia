@@ -2,13 +2,16 @@ package snapshotfs
 
 import (
 	"context"
+	"math/rand"
 	"path/filepath"
+	"time"
 
 	"github.com/mxk/go-vss"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/localfs"
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
@@ -40,7 +43,18 @@ func createOSSnapshot(ctx context.Context, root fs.Directory, _ *policy.OSSnapsh
 
 	id, err := vss.Create(vol)
 	if err != nil {
-		return nil, nil, err
+		if e := vss.CreateError(0); !errors.As(err, &e) || e != 9 {
+			return nil, nil, err
+		}
+
+		// Retry "Another shadow copy operation is already in progress" in 5-10s
+		//nolint:gosec,gomnd
+		delay := 5*time.Second + time.Duration(rand.Int63n(int64(5*time.Second)))
+		if !clock.SleepInterruptibly(ctx, delay) {
+			return nil, nil, ctx.Err()
+		} else if id, err = vss.Create(vol); err != nil {
+			return nil, nil, err
+		}
 	}
 
 	defer func() {
