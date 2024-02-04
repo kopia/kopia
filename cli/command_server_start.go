@@ -193,7 +193,7 @@ func (c *commandServerStart) run(ctx context.Context) error {
 		return errors.Wrap(err, "unable to initialize server")
 	}
 
-	if err = c.initRepositoryPossiblyAsync(ctx, srv); err != nil {
+	if err := c.initRepositoryPossiblyAsync(ctx, srv); err != nil {
 		return errors.Wrap(err, "unable to initialize repository")
 	}
 
@@ -228,8 +228,8 @@ func (c *commandServerStart) run(ctx context.Context) error {
 	c.svc.onTerminate(func() {
 		log(ctx).Infof("Shutting down...")
 
-		if err = httpServer.Shutdown(ctx); err != nil {
-			log(ctx).Debugf("unable to shut down: %v", err)
+		if serr := httpServer.Shutdown(ctx); serr != nil {
+			log(ctx).Debugf("unable to shut down: %v", serr)
 		}
 	})
 
@@ -268,9 +268,9 @@ func (c *commandServerStart) run(ctx context.Context) error {
 
 	onExternalConfigReloadRequest(srv.Refresh)
 
-	err = c.startServerWithOptionalTLS(ctx, httpServer)
-	if !errors.Is(err, http.ErrServerClosed) {
-		return err
+	serr := c.startServerWithOptionalTLS(ctx, httpServer)
+	if !errors.Is(serr, http.ErrServerClosed) {
+		return serr
 	}
 
 	return errors.Wrap(srv.SetRepository(ctx, nil), "error setting active repository")

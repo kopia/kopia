@@ -718,7 +718,6 @@ func putBlobs(ctx context.Context, tb testing.TB, s *s3Storage, blobs []blobCont
 		m, err := s.putBlobVersion(ctx, b.id, b.contents(tb), blob.PutOptions{})
 		if err != nil {
 			tb.Fatalf("can't put blob: %v", err)
-			continue
 		}
 
 		vm[i] = m
