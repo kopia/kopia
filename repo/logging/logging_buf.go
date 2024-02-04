@@ -1,7 +1,6 @@
 package logging
 
 import (
-	"reflect"
 	"strconv"
 	"sync"
 	"time"
@@ -134,15 +133,10 @@ func (b *Buffer) AppendUint(val uint64, base int) *Buffer {
 
 // String returns a string value of a buffer. The value is valud as long as
 // string remains allocated and no Append*() methods have been called.
-func (b *Buffer) String() (s string) {
+func (b *Buffer) String() string {
 	if b.validLen == 0 {
 		return ""
 	}
 
-	// *reflect.StringHeader can't be constructed, so we refer to output variable here
-	shdr := (*reflect.StringHeader)(unsafe.Pointer(&s)) //nolint:gosec
-	shdr.Data = uintptr(unsafe.Pointer(&b.buf))         //nolint:gosec
-	shdr.Len = b.validLen
-
-	return
+	return unsafe.String(&b.buf[0], b.validLen) //nolint:gosec
 }

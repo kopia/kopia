@@ -156,7 +156,7 @@ func TestGatherBytesReadSeeker(t *testing.T) {
 
 	tmp.Append(buf)
 
-	require.Equal(t, len(buf), tmp.Length())
+	require.Len(t, buf, tmp.Length())
 
 	reader := tmp.inner.Reader()
 	defer reader.Close() //nolint:errcheck

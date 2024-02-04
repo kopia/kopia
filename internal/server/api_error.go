@@ -19,6 +19,10 @@ func requestError(apiErrorCode serverapi.APIErrorCode, message string) *apiError
 	return &apiError{http.StatusBadRequest, apiErrorCode, message}
 }
 
+func unableToDecodeRequest(err error) *apiError {
+	return requestError(serverapi.ErrorMalformedRequest, "unable to decode request: "+err.Error())
+}
+
 func notFoundError(message string) *apiError {
 	return &apiError{http.StatusNotFound, serverapi.ErrorNotFound, message}
 }
