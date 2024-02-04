@@ -598,10 +598,6 @@ func (u *Uploader) uploadDirWithCheckpointing(ctx context.Context, rootDir fs.Di
 		return nil, dirReadError{errors.Wrap(err, "error executing before-snapshot-root action")}
 	}
 
-	if overrideDir != nil {
-		rootDir = u.wrapIgnorefs(uploadLog(ctx), overrideDir, policyTree, true)
-	}
-
 	defer u.executeAfterFolderAction(ctx, "after-snapshot-root", policyTree.EffectivePolicy().Actions.AfterSnapshotRoot, localDirPathOrEmpty, &hc)
 
 	p := &policyTree.EffectivePolicy().OSSnapshotPolicy
@@ -609,16 +605,25 @@ func (u *Uploader) uploadDirWithCheckpointing(ctx context.Context, rootDir fs.Di
 	switch mode := osSnapshotMode(p); mode {
 	case policy.OSSnapshotNever:
 	case policy.OSSnapshotAlways, policy.OSSnapshotWhenAvailable:
-		switch overrideDir, cleanup, err := createOSSnapshot(ctx, rootDir, p); {
+		if overrideDir != nil {
+			rootDir = overrideDir
+		}
+
+		switch osSnapshotDir, cleanup, err := createOSSnapshot(ctx, rootDir, p); {
 		case err == nil:
 			defer cleanup()
 
-			rootDir = overrideDir
+			overrideDir = osSnapshotDir
+
 		case mode == policy.OSSnapshotWhenAvailable:
 			uploadLog(ctx).Warnf("OS file system snapshot failed (ignoring): %v", err)
 		default:
 			return nil, dirReadError{errors.Wrap(err, "error creating OS file system snapshot")}
 		}
+	}
+
+	if overrideDir != nil {
+		rootDir = u.wrapIgnorefs(uploadLog(ctx), overrideDir, policyTree, true)
 	}
 
 	return uploadDirInternal(ctx, u, rootDir, policyTree, previousDirs, localDirPathOrEmpty, ".", &dmb, &cp)
