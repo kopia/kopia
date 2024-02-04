@@ -24,6 +24,7 @@ type commandPolicySet struct {
 	policyLoggingFlags
 	policyRetentionFlags
 	policySchedulingFlags
+	policyOSSnapshotFlags
 	policyUploadFlags
 }
 
@@ -39,6 +40,7 @@ func (c *commandPolicySet) setup(svc appServices, parent commandParent) {
 	c.policyLoggingFlags.setup(cmd)
 	c.policyRetentionFlags.setup(cmd)
 	c.policySchedulingFlags.setup(cmd)
+	c.policyOSSnapshotFlags.setup(cmd)
 	c.policyUploadFlags.setup(cmd)
 
 	cmd.Action(svc.repositoryWriterAction(c.run))
@@ -110,6 +112,10 @@ func (c *commandPolicySet) setPolicyFromFlags(ctx context.Context, p *policy.Pol
 
 	if err := c.setActionsFromFlags(ctx, &p.Actions, changeCount); err != nil {
 		return errors.Wrap(err, "actions policy")
+	}
+
+	if err := c.setOSSnapshotPolicyFromFlags(ctx, &p.OSSnapshotPolicy, changeCount); err != nil {
+		return errors.Wrap(err, "OS snapshot policy")
 	}
 
 	if err := c.setLoggingPolicyFromFlags(ctx, &p.LoggingPolicy, changeCount); err != nil {

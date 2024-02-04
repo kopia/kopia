@@ -21,26 +21,19 @@ const maxPathLength = 240
 // Because long file names have certain limitations:
 // - we must replace forward slashes with backslashes.
 // - dummy path element (\.\) must be removed.
+//
+// Relative paths are always limited to a total of MAX_PATH characters:
+// https://learn.microsoft.com/en-us/windows/win32/fileio/maximum-file-path-limitation
 func MaybePrefixLongFilenameOnWindows(fname string) string {
-	if runtime.GOOS != "windows" {
+	if runtime.GOOS != "windows" || len(fname) < maxPathLength ||
+		fname[:4] == `\\?\` || !ospath.IsAbs(fname) {
 		return fname
 	}
 
-	if len(fname) < maxPathLength {
-		return fname
-	}
-
-	fname = strings.TrimPrefix(fname, "\\\\?\\")
-
-	if !ospath.IsAbs(fname) {
-		// only convert absolute paths
-		return fname
-	}
-
-	fixed := strings.ReplaceAll(fname, "/", "\\")
+	fixed := strings.ReplaceAll(fname, "/", `\`)
 
 	for {
-		fixed2 := strings.ReplaceAll(fixed, "\\.\\", "\\")
+		fixed2 := strings.ReplaceAll(fixed, `\.\`, `\`)
 		if fixed2 == fixed {
 			break
 		}
@@ -48,7 +41,7 @@ func MaybePrefixLongFilenameOnWindows(fname string) string {
 		fixed = fixed2
 	}
 
-	return "\\\\?\\" + fixed
+	return `\\?\` + fixed
 }
 
 // Write is a wrapper around atomic.WriteFile that handles long file names on Windows.

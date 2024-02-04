@@ -1571,6 +1571,7 @@ func TestUploadLogging(t *testing.T) {
 			u.ParallelUploads = 1
 
 			pol := *policy.DefaultPolicy
+			pol.OSSnapshotPolicy.VolumeShadowCopy.Enable = policy.NewOSSnapshotMode(policy.OSSnapshotNever)
 			if p := tc.globalLoggingPolicy; p != nil {
 				pol.LoggingPolicy = *p
 			}
