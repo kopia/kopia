@@ -1,7 +1,7 @@
 ---
 title: "Repositories"
 linkTitle: "Supported Storage Locations"
-weight: 20
+weight: 25
 ---
 
 Kopia allows you to save your [encrypted](../features/#end-to-end-zero-knowledge-encryption) backups (which are called [`snapshots`](../faqs/#what-is-a-snapshot) in Kopia) to a variety of storage locations, and in Kopia a storage location is called a `repository`. Kopia supports all of the following storage locations:
