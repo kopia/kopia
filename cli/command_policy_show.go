@@ -128,6 +128,8 @@ func printPolicy(out *textOutput, p *policy.Policy, def *policy.Definition) {
 	rows = append(rows, policyTableRow{})
 	rows = appendActionsPolicyRows(rows, p, def)
 	rows = append(rows, policyTableRow{})
+	rows = appendOSSnapshotPolicyRows(rows, p, def)
+	rows = append(rows, policyTableRow{})
 	rows = appendLoggingPolicyRows(rows, p, def)
 
 	out.printStdout("Policy for %v:\n\n%v\n", p.Target(), alignedPolicyTableRows(rows))
@@ -444,6 +446,15 @@ func appendActionCommandRows(rows []policyTableRow, h *policy.ActionCommand) []p
 		policyTableRow{"  Mode:", actualMode, ""},
 		policyTableRow{"  Timeout:", (time.Second * time.Duration(h.TimeoutSeconds)).String(), ""},
 		policyTableRow{"", "", ""},
+	)
+
+	return rows
+}
+
+func appendOSSnapshotPolicyRows(rows []policyTableRow, p *policy.Policy, def *policy.Definition) []policyTableRow {
+	rows = append(rows,
+		policyTableRow{"OS-level snapshot support:", "", ""},
+		policyTableRow{"  Volume Shadow Copy:", p.OSSnapshotPolicy.VolumeShadowCopy.Enable.String(), definitionPointToString(p.Target(), def.OSSnapshotPolicy.VolumeShadowCopy.Enable)},
 	)
 
 	return rows

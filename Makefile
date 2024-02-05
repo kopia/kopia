@@ -213,7 +213,7 @@ download-rclone:
 	go run ./tools/gettool --tool rclone:$(RCLONE_VERSION) --output-dir dist/kopia_linux_arm_6/ --goos=linux --goarch=arm
 
 
-ci-tests: vet test 
+ci-tests: vet test
 
 ci-integration-tests:
 	$(MAKE) robustness-tool-tests socket-activation-tests
@@ -341,6 +341,11 @@ stress-test: export KOPIA_KEEP_LOGS=1
 stress-test: $(gotestsum)
 	$(GO_TEST) -count=$(REPEAT_TEST) -timeout 3600s github.com/kopia/kopia/tests/stress_test
 	$(GO_TEST) -count=$(REPEAT_TEST) -timeout 3600s github.com/kopia/kopia/tests/repository_stress_test
+
+os-snapshot-tests: export KOPIA_EXE ?= $(KOPIA_INTEGRATION_EXE)
+os-snapshot-tests: GOTESTSUM_FORMAT=testname
+os-snapshot-tests: build-integration-test-binary $(gotestsum)
+	$(GO_TEST) -count=$(REPEAT_TEST) github.com/kopia/kopia/tests/os_snapshot_test $(TEST_FLAGS)
 
 layering-test:
 ifneq ($(GOOS),windows)
@@ -484,6 +489,6 @@ perf-benchmark-test-all:
 	$(MAKE) perf-benchmark-test PERF_BENCHMARK_VERSION=0.7.0~rc1
 
 perf-benchmark-results:
-	gcloud compute scp $(PERF_BENCHMARK_INSTANCE):psrecord-* tests/perf_benchmark --zone=$(PERF_BENCHMARK_INSTANCE_ZONE) 
+	gcloud compute scp $(PERF_BENCHMARK_INSTANCE):psrecord-* tests/perf_benchmark --zone=$(PERF_BENCHMARK_INSTANCE_ZONE)
 	gcloud compute scp $(PERF_BENCHMARK_INSTANCE):repo-size-* tests/perf_benchmark --zone=$(PERF_BENCHMARK_INSTANCE_ZONE)
 	(cd tests/perf_benchmark && go run process_results.go)
