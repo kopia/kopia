@@ -10,6 +10,7 @@ import (
 )
 
 func TestSetOSSnapshotPolicy(t *testing.T) {
+	t.Skip("See ticket https://github.com/kopia/kopia/issues/3624")
 	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, testenv.NewInProcRunner(t))
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
