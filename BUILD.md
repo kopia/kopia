@@ -125,6 +125,7 @@ $ make -C site build
 
 This will auto-generate [Markdown](https://en.wikipedia.org/wiki/Markdown) files with documentation for currently supported Kopia CLI subcommands and store them under `site/content/docs/Reference/Command-Line` and then generate the website which is stored in `site/public`.
 
+
 To see the  website in a browser it's more convenient to use:
 
 ```shell
