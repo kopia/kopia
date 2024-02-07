@@ -253,7 +253,7 @@ func (c *commandServerStart) run(ctx context.Context) error {
 
 		ctxutil.GoDetached(ctx, func(ctx context.Context) {
 			// consume all stdin and close the server when it closes
-			io.ReadAll(os.Stdin) //nolint:errcheck
+			io.Copy(io.Discard, os.Stdin) //nolint:errcheck
 			shutdownHTTPServer(ctx, httpServer)
 		})
 	}
