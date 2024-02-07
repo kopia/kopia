@@ -34,9 +34,10 @@ func TestShadowCopy(t *testing.T) {
 
 	defer f.Close()
 
+	e.RunAndExpectSuccess(t, "policy", "set", "--global", "--enable-volume-shadow-copy=when-available")
+
 	_, err = vss.Get("{00000000-0000-0000-0000-000000000000}")
 	isAdmin := !errors.Is(err, os.ErrPermission)
-
 	if isAdmin {
 		t.Log("Running as admin, expecting snapshot creation to succeed")
 		e.RunAndExpectSuccess(t, "snap", "create", root)
@@ -46,6 +47,9 @@ func TestShadowCopy(t *testing.T) {
 	}
 
 	sources := clitestutil.ListSnapshotsAndExpectSuccess(t, e)
+	require.GreaterOrEqual(t, len(sources), 1)
+	require.GreaterOrEqual(t, len(sources[0].Snapshots), 1)
+
 	oid := sources[0].Snapshots[0].ObjectID
 	entries := clitestutil.ListDirectory(t, e, oid)
 
