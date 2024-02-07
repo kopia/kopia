@@ -460,6 +460,8 @@ func (e *Manager) refreshLocked(ctx context.Context) error {
 
 func (e *Manager) maybeCompactAndCleanupLocked(ctx context.Context, p *Parameters) error {
 	if !e.allowWritesOnLoad() {
+		e.log.Debug("not performing epoch index cleanup")
+
 		return nil
 	}
 
