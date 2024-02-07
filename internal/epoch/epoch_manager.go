@@ -962,7 +962,7 @@ func (e *Manager) getIndexesFromEpochInternal(ctx context.Context, cs CurrentSna
 		uncompactedBlobs = ue
 	}
 
-	if epochSettled {
+	if epochSettled && e.allowWritesOnLoad() {
 		e.backgroundWork.Add(1)
 
 		// we're starting background work, ignore parent cancellation signal.
