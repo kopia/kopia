@@ -459,9 +459,7 @@ func (e *Manager) refreshLocked(ctx context.Context) error {
 }
 
 func (e *Manager) maybeCompactAndCleanupLocked(ctx context.Context, p *Parameters) error {
-	// Disable compaction and cleanup operations when running in read-only mode
-	// since they'll just fail when they try to mutate the underlying storage.
-	if e.st.IsReadOnly() {
+	if !e.allowWritesOnLoad() {
 		return nil
 	}
 
@@ -478,6 +476,14 @@ func (e *Manager) maybeCompactAndCleanupLocked(ctx context.Context, p *Parameter
 	e.maybeOptimizeRangeCheckpointsAsync(ctx, cs)
 
 	return nil
+}
+
+// allowWritesOnLoad returns whether writes for index cleanup operations,
+// such as index compaction, can be done during index reads.
+// These index cleanup operations are disabled when using read-only storage
+// since they will fail when they try to mutate the underlying storage.
+func (e *Manager) allowWritesOnLoad() bool {
+	return !e.st.IsReadOnly()
 }
 
 func (e *Manager) loadWriteEpoch(ctx context.Context, cs *CurrentSnapshot) error {
