@@ -4,7 +4,7 @@ on:
     branches: [ master ]
     tags:
       - v*
-  pull_requests:
+  pull_request:
     branches: [ master ]
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
