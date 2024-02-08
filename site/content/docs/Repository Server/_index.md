@@ -39,20 +39,6 @@ Other commands are also available:
 * `kopia server user set` - changes password
 * `kopia server user delete` - deletes user account
 
->__Prior to Kopia v0.8__, the user list must be put in a text file formatted using the [htpasswd](https://httpd.apache.org/docs/2.4/programs/htpasswd.html) utility from Apache. This method is still supported in v0.8, but it is recommended to use `kopia server user` to manage users instead.
-> To create password file for two users: 
-> ```shell
-> $ htpasswd -c password.txt user1@host1
-> New password: 
-> Re-type new password: 
-> Adding password for user user1@host1
-> 
-> $ htpasswd password.txt user2@host1
-> New password: 
-> Re-type new password: 
-> Adding password for user user2@host1
-> ```
-
 ### Auto-Generated TLS Certificate
 
 To start repository server with auto-generated TLS certificate for the first time:
@@ -74,8 +60,6 @@ SERVER CERT SHA256: 48537cce585fed39fb26c639eb8ef38143592ba4b4e7677a84a31916398d
 ```
 
 Note that when starting the server again the `--tls-generate-cert` must be omitted, otherwise the server will fail to start.
-
->__Prior to Kopia v0.8,__ the command line for `kopia server start` also needs `--htpasswd-file ~/password.txt`
 
 ### Custom TLS Certificates
 
@@ -113,8 +97,7 @@ $ kopia repo connect server --url=http://11.222.111.222:51515 --override-usernam
 
 Kopia server will check permissions when users try to access contents and manifests based on rules we call ACLs (access control list).
 
->__Prior to Kopia v0.8,__ the rules were non-configurable and each user could only read and write their own
-snapshot manifests. Starting in Kopia v0.8 the ACLs can be controlled by using `kopia server acl` commands. 
+Starting in Kopia v0.8, the ACLs can be controlled by using `kopia server acl` commands. 
 
 If no ACLs are explicitly defined, Kopia will use a set of built-in access control rules, which grants all authenticated users identified by `username@hostname` ability to:
 
@@ -267,6 +250,33 @@ or simply:
 ```
 $ killall -SIGHUP kopia
 ```
+
+## Kopia v0.8 usage notes
+
+### Configuring Allowed Users
+
+Prior to Kopia v0.8, the user list must be put in a text file formatted using the [htpasswd](https://httpd.apache.org/docs/2.4/programs/htpasswd.html) utility from Apache. This method is still supported in v0.8, but it's recommended to use `kopia server user` to manage users instead.
+To create password file for two users: 
+```shell
+$ htpasswd -c password.txt user1@host1
+New password: 
+Re-type new password: 
+Adding password for user user1@host1
+
+$ htpasswd password.txt user2@host1
+New password: 
+Re-type new password: 
+Adding password for user user2@host1
+```
+
+### Auto-Generated TLS Certificate
+
+Prior to Kopia v0.8, the command line for `kopia server start` also needs `--htpasswd-file ~/password.txt`
+
+### Server Access Control (ACL)
+
+Prior to Kopia v0.8, the rules were non-configurable and each user could only read and write their own
+snapshot manifests.
 
 ## Kopia behind a reverse proxy
 

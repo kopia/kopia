@@ -17,6 +17,13 @@ func TestSetOSSnapshotPolicy(t *testing.T) {
 
 	lines := e.RunAndExpectSuccess(t, "policy", "show", "--global")
 	lines = compressSpaces(lines)
+	require.Contains(t, lines, " Volume Shadow Copy: never (defined for this target)")
+
+	e.RunAndExpectSuccess(t, "policy", "set", "--global", "--enable-volume-shadow-copy=when-available")
+
+	lines = e.RunAndExpectSuccess(t, "policy", "show", "--global")
+	lines = compressSpaces(lines)
+
 	require.Contains(t, lines, " Volume Shadow Copy: when-available (defined for this target)")
 
 	// make some directory we'll be setting policy on
