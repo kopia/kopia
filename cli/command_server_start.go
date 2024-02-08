@@ -249,11 +249,11 @@ func (c *commandServerStart) run(ctx context.Context) error {
 	httpServer.Handler = handler
 
 	if c.serverStartShutdownWhenStdinClosed {
-		log(ctx).Infof("Server will close when stdin is closed...")
+		log(ctx).Info("Server will close when stdin is closed...")
 
 		ctxutil.GoDetached(ctx, func(ctx context.Context) {
 			// consume all stdin and close the server when it closes
-			io.ReadAll(os.Stdin) //nolint:errcheck
+			io.Copy(io.Discard, os.Stdin) //nolint:errcheck
 			shutdownHTTPServer(ctx, httpServer)
 		})
 	}
