@@ -18,7 +18,7 @@ In repository server mode, each user is limited to seeing their own snapshots an
 Before starting the repository server, we must first [create and configure a repository](../repositories/#repositories). Finally, we must create a list of usernames and passwords that will be allowed to access it.
 A repository server should be started on a dedicated LAN server so all clients can connect directly.
 
-## Configuring Allowed Users
+### Configuring Allowed Users
 
 Starting in Kopia v0.8, allowed repository users can be configured using `kopia server user` commands. Each user is identified by its lowercase `username@hostname` where hostname by default is the name of the computer the client is connecting from (without domain name suffix).
 
@@ -251,33 +251,6 @@ or simply:
 $ killall -SIGHUP kopia
 ```
 
-## Kopia v0.8 usage notes
-
-### Configuring Allowed Users
-
-Prior to Kopia v0.8, the user list must be put in a text file formatted using the [htpasswd](https://httpd.apache.org/docs/2.4/programs/htpasswd.html) utility from Apache. This method is still supported in v0.8, but it's recommended to use `kopia server user` to manage users instead.
-To create password file for two users: 
-```shell
-$ htpasswd -c password.txt user1@host1
-New password: 
-Re-type new password: 
-Adding password for user user1@host1
-
-$ htpasswd password.txt user2@host1
-New password: 
-Re-type new password: 
-Adding password for user user2@host1
-```
-
-### Auto-Generated TLS Certificate
-
-Prior to Kopia v0.8, the command line for `kopia server start` also needs `--htpasswd-file ~/password.txt`
-
-### Server Access Control (ACL)
-
-Prior to Kopia v0.8, the rules were non-configurable and each user could only read and write their own
-snapshot manifests.
-
 ## Kopia behind a reverse proxy
 
 Kopia server can be run behind a reverse proxy. Here a working example for nginx.
@@ -356,3 +329,30 @@ SocketMode=0666
 [Install]
 WantedBy=sockets.target
 ```
+
+## Kopia v0.8 usage notes
+
+### Configuring Allowed Users
+
+Prior to Kopia v0.8, the user list must be put in a text file formatted using the [htpasswd](https://httpd.apache.org/docs/2.4/programs/htpasswd.html) utility from Apache. This method is still supported in v0.8, but it's recommended to use `kopia server user` to manage users instead.
+To create password file for two users: 
+```shell
+$ htpasswd -c password.txt user1@host1
+New password: 
+Re-type new password: 
+Adding password for user user1@host1
+
+$ htpasswd password.txt user2@host1
+New password: 
+Re-type new password: 
+Adding password for user user2@host1
+```
+
+### Auto-Generated TLS Certificate
+
+Prior to Kopia v0.8, the command line for `kopia server start` also needs `--htpasswd-file ~/password.txt`
+
+### Server Access Control (ACL)
+
+Prior to Kopia v0.8, the rules were non-configurable and each user could only read and write their own
+snapshot manifests.
