@@ -68,7 +68,7 @@ Note that when starting the server again the `--tls-generate-cert` must be omitt
 
 If a user has obtained a custom certificate (for example, from LetsEncrypt or another CA), using it is simply a matter of providing a PEM-formatted certificate and key files on server startup.
 
-To get SHA256 certificate of an existing file, use:
+To get the SHA256 digest of an existing certificate file, use:
 
 ```shell
 $ openssl x509 -in ~/my.cert -noout -fingerprint -sha256 | sed 's/://g' | cut -f 2 -d =
