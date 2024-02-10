@@ -16,7 +16,10 @@ In repository server mode, each user is limited to seeing their own snapshots an
 ## Starting Repository Server
 
 Before starting the repository server, we must first [create and configure a repository](../repositories/#repositories). Finally, we must create a list of usernames and passwords that will be allowed to access it.
-A repository server should be started on a dedicated LAN server so all clients can connect directly.
+The repository server should be started in a location where:
+- all kopia clients can connect directly to the server;
+- the latency between the client and the server is low;
+- theres is sufficient bandwidth between the client and the server.
 
 ### Configuring Allowed Users
 
