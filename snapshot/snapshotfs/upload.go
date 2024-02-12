@@ -713,6 +713,19 @@ func metadataEquals(e1, e2 fs.Entry) bool {
 		return false
 	}
 
+	if l, r := e1.Attributes(), e2.Attributes(); l != nil && r != nil {
+		if len(l) != len(r) {
+			return false
+		}
+
+		for k, v1 := range l {
+			v2, ok := r[k]
+			if !ok || !bytes.Equal(v1, v2) {
+				return false
+			}
+		}
+	}
+
 	return true
 }
 
