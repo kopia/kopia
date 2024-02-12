@@ -87,6 +87,8 @@ type FilesystemOutput struct {
 	// SkipTimes when set to true causes restore to skip restoring modification times.
 	SkipTimes bool `json:"skipTimes"`
 
+	// SkipAttributes TODO(miek)
+
 	// WriteSparseFiles when set to true, write contents as sparse files, minimizing allocated disk space.
 	WriteSparseFiles bool `json:"writeSparseFiles"`
 

@@ -21,7 +21,8 @@ type Entry interface {
 	Owner() OwnerInfo
 	Device() DeviceInfo
 	LocalFilesystemPath() string // returns full local filesystem path or "" if not a local filesystem
-	Close()                      // closes or recycles any resources associated with the entry, must be idempotent
+	Attributes() AttributesInfo
+	Close() // closes or recycles any resources associated with the entry, must be idempotent
 }
 
 // OwnerInfo describes owner of a filesystem entry.
@@ -35,6 +36,9 @@ type DeviceInfo struct {
 	Dev  uint64 `json:"dev"`
 	Rdev uint64 `json:"rdev"`
 }
+
+// AttributesInfo describes the extended attributes of a filesystem entry
+type AttributesInfo map[string][]byte
 
 // Reader allows reading from a file and retrieving its up-to-date file info.
 type Reader interface {

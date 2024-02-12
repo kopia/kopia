@@ -55,6 +55,10 @@ func (s *sourceSnapshots) LocalFilesystemPath() string {
 	return ""
 }
 
+func (s *sourceSnapshots) Attributes() fs.AttributesInfo {
+	return nil
+}
+
 func (s *sourceSnapshots) SupportsMultipleIterations() bool {
 	return true
 }

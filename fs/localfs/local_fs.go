@@ -20,6 +20,7 @@ type filesystemEntry struct {
 	mode       os.FileMode
 	owner      fs.OwnerInfo
 	device     fs.DeviceInfo
+	attributes fs.AttributesInfo
 
 	prefix string
 }
@@ -62,6 +63,10 @@ func (e *filesystemEntry) Device() fs.DeviceInfo {
 
 func (e *filesystemEntry) LocalFilesystemPath() string {
 	return e.fullPath()
+}
+
+func (e filesystemEntry) Attributes() fs.AttributesInfo {
+	return e.attributes
 }
 
 type filesystemDirectory struct {

@@ -125,6 +125,7 @@ type DirEntry struct {
 	ModTime     fs.UTCTimestamp      `json:"mtime,omitempty"`
 	UserID      uint32               `json:"uid,omitempty"`
 	GroupID     uint32               `json:"gid,omitempty"`
+	Attributes  fs.AttributesInfo    `json:"attributes,omitempty"`
 	ObjectID    object.ID            `json:"obj,omitempty"`
 	DirSummary  *fs.DirectorySummary `json:"summ,omitempty"`
 }

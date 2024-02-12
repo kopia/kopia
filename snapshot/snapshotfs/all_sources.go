@@ -53,6 +53,10 @@ func (s *repositoryAllSources) LocalFilesystemPath() string {
 	return ""
 }
 
+func (s *repositoryAllSources) Attributes() fs.AttributesInfo {
+	return nil
+}
+
 func (s *repositoryAllSources) SupportsMultipleIterations() bool {
 	return true
 }

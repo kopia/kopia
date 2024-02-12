@@ -15,3 +15,8 @@ func platformSpecificOwnerInfo(fi os.FileInfo) fs.OwnerInfo {
 func platformSpecificDeviceInfo(fi os.FileInfo) fs.DeviceInfo {
 	return fs.DeviceInfo{}
 }
+
+//nolint:revive
+func platformSpecificAttributesInfo(f *os.File, prefix string) fs.AttributesInfo {
+	return nil
+}

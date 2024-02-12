@@ -57,6 +57,10 @@ func (s *sourceDirectories) LocalFilesystemPath() string {
 	return ""
 }
 
+func (s *sourceDirectories) Attributes() fs.AttributesInfo {
+	return nil
+}
+
 func (s *sourceDirectories) SupportsMultipleIterations() bool {
 	return true
 }
