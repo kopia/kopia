@@ -23,16 +23,17 @@ type testFile struct {
 	content string
 }
 
-func (f *testFile) IsDir() bool                 { return false }
-func (f *testFile) LocalFilesystemPath() string { return f.name }
-func (f *testFile) Close()                      {}
-func (f *testFile) Name() string                { return f.name }
-func (f *testFile) Size() int64                 { return int64(len(f.content)) }
-func (f *testFile) Mode() os.FileMode           { return 0o644 }
-func (f *testFile) ModTime() time.Time          { return f.modtime }
-func (f *testFile) Sys() interface{}            { return nil }
-func (f *testFile) Owner() fs.OwnerInfo         { return fs.OwnerInfo{UserID: 1000, GroupID: 1000} }
-func (f *testFile) Device() fs.DeviceInfo       { return fs.DeviceInfo{Dev: 1} }
+func (f *testFile) IsDir() bool                   { return false }
+func (f *testFile) LocalFilesystemPath() string   { return f.name }
+func (f *testFile) Close()                        {}
+func (f *testFile) Name() string                  { return f.name }
+func (f *testFile) Size() int64                   { return int64(len(f.content)) }
+func (f *testFile) Mode() os.FileMode             { return 0o644 }
+func (f *testFile) ModTime() time.Time            { return f.modtime }
+func (f *testFile) Sys() interface{}              { return nil }
+func (f *testFile) Owner() fs.OwnerInfo           { return fs.OwnerInfo{UserID: 1000, GroupID: 1000} }
+func (f *testFile) Device() fs.DeviceInfo         { return fs.DeviceInfo{Dev: 1} }
+func (f *testFile) Attributes() fs.AttributesInfo { return nil } // TODO(miek): not nil?
 func (f *testFile) Open(ctx context.Context) (io.Reader, error) {
 	return strings.NewReader(f.content), nil
 }
@@ -60,6 +61,7 @@ func (d *testDirectory) ModTime() time.Time               { return d.modtime }
 func (d *testDirectory) Sys() interface{}                 { return nil }
 func (d *testDirectory) Owner() fs.OwnerInfo              { return fs.OwnerInfo{UserID: 1000, GroupID: 1000} }
 func (d *testDirectory) Device() fs.DeviceInfo            { return fs.DeviceInfo{Dev: 1} }
+func (d *testDirectory) Attributes() fs.AttributesInfo    { return nil } // TODO(miek): not nil?
 func (d *testDirectory) Child(ctx context.Context, name string) (fs.Entry, error) {
 	for _, f := range d.files {
 		if f.Name() == name {

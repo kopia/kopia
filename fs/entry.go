@@ -37,7 +37,7 @@ type DeviceInfo struct {
 	Rdev uint64 `json:"rdev"`
 }
 
-// AttributesInfo describes the extended attributes of a filesystem entry
+// AttributesInfo describes the extended attributes of a filesystem entry.
 type AttributesInfo map[string][]byte
 
 // Reader allows reading from a file and retrieving its up-to-date file info.

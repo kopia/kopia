@@ -8,8 +8,10 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/kopia/kopia/fs"
+	"github.com/pkg/errors"
 	"github.com/pkg/xattr"
+
+	"github.com/kopia/kopia/fs"
 )
 
 func platformSpecificOwnerInfo(fi os.FileInfo) fs.OwnerInfo {
@@ -35,19 +37,27 @@ func platformSpecificDeviceInfo(fi os.FileInfo) fs.DeviceInfo {
 
 func platformSpecificAttributesInfo(fi os.FileInfo, prefix string) fs.AttributesInfo {
 	path := filepath.Join(prefix, fi.Name())
+
 	xattrs, err := listxattr(path)
-	if err != nil || len(xattrs) == 0 {
+	if err != nil {
+		return nil
+	}
+
+	if len(xattrs) == 0 {
 		return nil
 	}
 
 	ai := fs.AttributesInfo{}
+
 	for _, attr := range xattrs {
 		val, err := getxattr(path, attr)
 		if err != nil {
 			continue
 		}
+
 		ai[attr] = val
 	}
+
 	return ai
 }
 
@@ -64,20 +74,17 @@ func listxattr(path string) ([]string, error) {
 }
 
 func handleXattrErr(err error) error {
-	switch e := err.(type) {
-	case nil:
+	if err == nil {
 		return nil
-
-	case *xattr.Error:
-		// On Linux, xattr calls on files in an SMB/CIFS mount can return
-		// ENOATTR instead of ENOTSUP.
-		switch e.Err {
-		case syscall.ENOTSUP, xattr.ENOATTR:
-			return nil
-		}
-		return e
-
-	default:
-		return e
 	}
+
+	if errors.Is(err, xattr.ENOATTR) {
+		return nil
+	}
+
+	if errors.Is(err, syscall.ENOTSUP) {
+		return nil
+	}
+
+	return err
 }
