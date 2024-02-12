@@ -3,7 +3,6 @@ package snapshotfs
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"math/rand"
 	"os"
@@ -715,23 +714,21 @@ func metadataEquals(e1, e2 fs.Entry) bool {
 		return false
 	}
 
-	println("checking fuckging atributes", e1.Name(), e2.Name())
-	fmt.Fprintf(os.Stderr, "%v\n%v\n", e1.Attributes(), e2.Attributes())
-
+	// Check the extended attributes - if any.
 	l, r := e1.Attributes(), e2.Attributes()
+
 	if l == nil && r != nil {
-		println("FALSE")
 		return false
 	}
+
 	if l != nil && r == nil {
-		println("FALSE")
 		return false
 	}
+
 	if l == nil && r == nil {
-		println("TRUE")
 		return true
 	}
-	println("BOTH SIDES HAVE ATTRIBUTES", e1.Name(), e2.Name())
+
 	if len(l) != len(r) {
 		return false
 	}

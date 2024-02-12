@@ -9,12 +9,9 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/fs"
-	"github.com/kopia/kopia/repo/logging"
 )
 
 const numEntriesToRead = 100 // number of directory entries to read in one shot
-
-var log = logging.Module("kopia/localfs")
 
 type filesystemEntry struct {
 	name       string

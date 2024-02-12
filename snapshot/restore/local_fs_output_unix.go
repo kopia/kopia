@@ -8,10 +8,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/kopia/kopia/fs"
 	"github.com/pkg/errors"
 	"github.com/pkg/xattr"
 	"golang.org/x/sys/unix"
+
+	"github.com/kopia/kopia/fs"
 )
 
 func symlinkChown(path string, uid, gid int) error {
@@ -33,21 +34,28 @@ func symlinkChtimes(linkPath string, atime, mtime time.Time) error {
 	})
 }
 
-func chXattr(path string, ai fs.AttributesInfo) error {
+func symlinkChxattr(path string, ai fs.AttributesInfo) error {
 	for name, data := range ai {
-		if err := setxattr(path, name, data); err != nil {
+		if err := handleXattrErr(xattr.Set(path, name, data)); err != nil {
 			return err
 		}
 	}
+
 	return nil
 }
 
-// setxattr associates name and data together as an attribute of path.
-func setxattr(path, name string, data []byte) error {
-	return handleXattrErr(xattr.LSet(path, name, data))
+func chxattr(path string, ai fs.AttributesInfo) error {
+	for name, data := range ai {
+		if err := handleXattrErr(xattr.LSet(path, name, data)); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func handleXattrErr(err error) error {
+	// TODO(miek): duplicated in fs/localfs/local_fs_nonwindows.go
 	if err == nil {
 		return nil
 	}

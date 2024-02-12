@@ -3,7 +3,6 @@ package snapshotfs
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"sync/atomic"
 
@@ -106,8 +105,6 @@ func Estimate(ctx context.Context, entry fs.Directory, policyTree *policy.Tree, 
 }
 
 func estimate(ctx context.Context, relativePath string, entry fs.Entry, policyTree *policy.Tree, stats *snapshot.Stats, ib, eb SampleBuckets, ed *[]string, progress EstimateProgress, maxExamplesPerBucket int) error {
-	println("ESTIMATE", entry.Name())
-	fmt.Fprintf(os.Stderr, "%v\n", entry.Attributes())
 	// see if the context got canceled
 	select {
 	case <-ctx.Done():
