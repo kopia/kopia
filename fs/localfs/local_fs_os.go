@@ -162,6 +162,7 @@ func entryFromDirEntry(fi os.FileInfo, prefix string) fs.Entry {
 var _ os.FileInfo = (*filesystemEntry)(nil)
 
 func newEntry(fi os.FileInfo, prefix string) filesystemEntry {
+	println("NEWENTRY")
 	return filesystemEntry{
 		TrimShallowSuffix(fi.Name()),
 		fi.Size(),

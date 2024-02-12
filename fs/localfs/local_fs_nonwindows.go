@@ -38,6 +38,7 @@ func platformSpecificDeviceInfo(fi os.FileInfo) fs.DeviceInfo {
 func platformSpecificAttributesInfo(fi os.FileInfo, prefix string) fs.AttributesInfo {
 	path := filepath.Join(prefix, fi.Name())
 
+	println("reading attributes for", fi.Name(), prefix)
 	xattrs, err := listxattr(path)
 	if err != nil {
 		return nil
@@ -50,6 +51,7 @@ func platformSpecificAttributesInfo(fi os.FileInfo, prefix string) fs.Attributes
 	ai := fs.AttributesInfo{}
 
 	for _, attr := range xattrs {
+		println("GETTING", attr)
 		val, err := getxattr(path, attr)
 		if err != nil {
 			continue

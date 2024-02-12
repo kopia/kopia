@@ -3,6 +3,7 @@ package snapshotfs
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"math/rand"
 	"os"
@@ -463,6 +464,7 @@ func newDirEntry(md fs.Entry, fname string, oid object.ID) (*snapshot.DirEntry, 
 		ModTime:     fs.UTCTimestampFromTime(md.ModTime()),
 		UserID:      md.Owner().UserID,
 		GroupID:     md.Owner().GroupID,
+		Attributes:  md.Attributes(),
 		ObjectID:    oid,
 	}, nil
 }
@@ -713,16 +715,31 @@ func metadataEquals(e1, e2 fs.Entry) bool {
 		return false
 	}
 
-	if l, r := e1.Attributes(), e2.Attributes(); l != nil && r != nil {
-		if len(l) != len(r) {
-			return false
-		}
+	println("checking fuckging atributes", e1.Name(), e2.Name())
+	fmt.Fprintf(os.Stderr, "%v\n%v\n", e1.Attributes(), e2.Attributes())
 
-		for k, v1 := range l {
-			v2, ok := r[k]
-			if !ok || !bytes.Equal(v1, v2) {
-				return false
-			}
+	l, r := e1.Attributes(), e2.Attributes()
+	if l == nil && r != nil {
+		println("FALSE")
+		return false
+	}
+	if l != nil && r == nil {
+		println("FALSE")
+		return false
+	}
+	if l == nil && r == nil {
+		println("TRUE")
+		return true
+	}
+	println("BOTH SIDES HAVE ATTRIBUTES", e1.Name(), e2.Name())
+	if len(l) != len(r) {
+		return false
+	}
+
+	for k, v1 := range l {
+		v2, ok := r[k]
+		if !ok || !bytes.Equal(v1, v2) {
+			return false
 		}
 	}
 

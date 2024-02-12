@@ -150,7 +150,8 @@ func (o *FilesystemOutput) Close(ctx context.Context) error {
 
 // WriteFile implements restore.Output interface.
 func (o *FilesystemOutput) WriteFile(ctx context.Context, relativePath string, f fs.File) error {
-	log(ctx).Debugf("WriteFile %v (%v bytes) %v, %v", filepath.Join(o.TargetPath, relativePath), f.Size(), f.Mode(), f.ModTime())
+	log(ctx).Debugf("WriteFile %v (%v bytes) %v, %v %v", filepath.Join(o.TargetPath, relativePath), f.Size(), f.Mode(), f.ModTime(), f.Attributes())
+	println("FFDFDF")
 	path := filepath.Join(o.TargetPath, filepath.FromSlash(relativePath))
 
 	if err := o.copyFileContent(ctx, path, f); err != nil {
@@ -254,6 +255,7 @@ func (o *FilesystemOutput) setAttributes(targetPath string, e fs.Entry, modclear
 		return errors.Wrap(err, "could not create local FS entry for "+targetPath)
 	}
 
+	println("aatributes")
 	var (
 		osChmod   = os.Chmod
 		osChown   = os.Chown
@@ -265,6 +267,13 @@ func (o *FilesystemOutput) setAttributes(targetPath string, e fs.Entry, modclear
 	if isSymlink(e) {
 		osChmod, osChown, osChtimes = symlinkChmod, symlinkChown, symlinkChtimes
 		modclear = os.FileMode(0)
+	}
+
+	println("BEFORE Updating the $#@! attributes")
+	// should update stuff
+	if e.Attributes() != nil {
+		println("Updating the $#@! attributes")
+		chXattr(targetPath, e.Attributes())
 	}
 
 	// Set owner user and group from e
