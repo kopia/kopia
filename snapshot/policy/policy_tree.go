@@ -55,7 +55,7 @@ var (
 
 	defaultOSSnapshotPolicy = OSSnapshotPolicy{
 		VolumeShadowCopy: VolumeShadowCopyPolicy{
-			Enable: NewOSSnapshotMode(OSSnapshotWhenAvailable),
+			Enable: NewOSSnapshotMode(OSSnapshotNever),
 		},
 	}
 
