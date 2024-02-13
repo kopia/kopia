@@ -55,7 +55,7 @@ func (o *ZipOutput) Close(ctx context.Context) error {
 }
 
 // WriteFile implements restore.Output interface.
-func (o *ZipOutput) WriteFile(ctx context.Context, relativePath string, f fs.File) error {
+func (o *ZipOutput) WriteFile(ctx context.Context, relativePath string, f fs.File, _ FileWriteProgress) error {
 	r, err := f.Open(ctx)
 	if err != nil {
 		return errors.Wrap(err, "error opening file")

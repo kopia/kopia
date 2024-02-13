@@ -35,6 +35,10 @@ func VerifyObject(ctx context.Context, cr contentReader, oid ID) ([]content.ID, 
 	return tracker.contentIDs(), nil
 }
 
+// FileReadingProgressCallback is a callback intended to be used during file copying
+// to report amount of data sent to destination.
+type FileReadingProgressCallback func(chunkSize int64)
+
 type objectReader struct {
 	// objectReader implements io.Reader, but needs context to read from repository
 	ctx context.Context //nolint:containedctx
@@ -49,6 +53,12 @@ type objectReader struct {
 	currentChunkIndex    int    // Index of current chunk in the seek table
 	currentChunkData     []byte // Current chunk data
 	currentChunkPosition int    // Read position in the current chunk
+
+	readingProgressCb FileReadingProgressCallback
+}
+
+func (r *objectReader) SetReadingProgressCallback(cb FileReadingProgressCallback) {
+	r.readingProgressCb = cb
 }
 
 func (r *objectReader) Read(buffer []byte) (int, error) {
@@ -97,6 +107,10 @@ func (r *objectReader) Read(buffer []byte) (int, error) {
 
 	if readBytes == 0 {
 		return readBytes, io.EOF
+	}
+
+	if r.readingProgressCb != nil {
+		r.readingProgressCb(int64(readBytes))
 	}
 
 	return readBytes, nil
@@ -323,6 +337,9 @@ func (rwd *readerWithData) Close() error {
 
 func (rwd *readerWithData) Length() int64 {
 	return rwd.length
+}
+
+func (rwd *readerWithData) SetReadingProgressCallback(_ FileReadingProgressCallback) {
 }
 
 func newObjectReaderWithData(data []byte) Reader {

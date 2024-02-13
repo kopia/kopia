@@ -17,6 +17,7 @@ import (
 	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/internal/sparsefile"
 	"github.com/kopia/kopia/internal/stat"
+	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
 )
 
@@ -147,11 +148,11 @@ func (o *FilesystemOutput) Close(ctx context.Context) error {
 }
 
 // WriteFile implements restore.Output interface.
-func (o *FilesystemOutput) WriteFile(ctx context.Context, relativePath string, f fs.File) error {
+func (o *FilesystemOutput) WriteFile(ctx context.Context, relativePath string, f fs.File, progressCb FileWriteProgress) error {
 	log(ctx).Debugf("WriteFile %v (%v bytes) %v, %v", filepath.Join(o.TargetPath, relativePath), f.Size(), f.Mode(), f.ModTime())
 	path := filepath.Join(o.TargetPath, filepath.FromSlash(relativePath))
 
-	if err := o.copyFileContent(ctx, path, f); err != nil {
+	if err := o.copyFileContent(ctx, path, f, progressCb); err != nil {
 		return errors.Wrap(err, "error creating file")
 	}
 
@@ -384,7 +385,7 @@ func write(targetPath string, r fs.Reader, size int64, c streamCopier) error {
 	return nil
 }
 
-func (o *FilesystemOutput) copyFileContent(ctx context.Context, targetPath string, f fs.File) error {
+func (o *FilesystemOutput) copyFileContent(ctx context.Context, targetPath string, f fs.File, progressCb FileWriteProgress) error {
 	switch _, err := os.Stat(targetPath); {
 	case os.IsNotExist(err): // copy file below
 	case err == nil:
@@ -402,6 +403,14 @@ func (o *FilesystemOutput) copyFileContent(ctx context.Context, targetPath strin
 		return errors.Wrap(err, "unable to open snapshot file for "+targetPath)
 	}
 	defer r.Close() //nolint:errcheck
+
+	type withProgressTracking interface {
+		SetReadingProgressCallback(cb object.FileReadingProgressCallback)
+	}
+
+	if wpt, ok := r.(withProgressTracking); ok {
+		wpt.SetReadingProgressCallback(object.FileReadingProgressCallback(progressCb))
+	}
 
 	log(ctx).Debugf("copying file contents to: %v", targetPath)
 	targetPath = atomicfile.MaybePrefixLongFilenameOnWindows(targetPath)
