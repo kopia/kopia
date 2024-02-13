@@ -17,6 +17,6 @@ func platformSpecificDeviceInfo(fi os.FileInfo) fs.DeviceInfo {
 }
 
 //nolint:revive
-func platformSpecificAttributesInfo(f *os.File, prefix string) fs.AttributesInfo {
+func platformSpecificAttributesInfo(fi os.FileInfo, prefix string) fs.AttributesInfo {
 	return nil
 }

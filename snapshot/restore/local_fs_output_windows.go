@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/sys/windows"
 
+	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/atomicfile"
 )
 
@@ -44,4 +45,12 @@ func symlinkChtimes(linkPath string, atime, mtime time.Time) error {
 
 	//nolint:wrapcheck
 	return windows.SetFileTime(h, &ftw, &fta, &ftw)
+}
+
+func symlinkChxattr(path string, ai fs.AttributesInfo) error {
+	return nil
+}
+
+func chxattr(path string, ai fs.AttributesInfo) error {
+	return nil
 }
