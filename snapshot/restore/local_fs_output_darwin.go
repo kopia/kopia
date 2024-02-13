@@ -5,10 +5,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/kopia/kopia/fs"
 	"github.com/pkg/errors"
 	"github.com/pkg/xattr"
 	"golang.org/x/sys/unix"
+
+	"github.com/kopia/kopia/fs"
 )
 
 func symlinkChown(path string, uid, gid int) error {

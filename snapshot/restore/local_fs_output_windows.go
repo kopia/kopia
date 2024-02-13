@@ -47,10 +47,10 @@ func symlinkChtimes(linkPath string, atime, mtime time.Time) error {
 	return windows.SetFileTime(h, &ftw, &fta, &ftw)
 }
 
-func symlinkChxattr(path string, ai fs.AttributesInfo) error {
+func symlinkChxattr(_ string, _ fs.AttributesInfo) error {
 	return nil
 }
 
-func chxattr(path string, ai fs.AttributesInfo) error {
+func chxattr(_ string, _ fs.AttributesInfo) error {
 	return nil
 }
