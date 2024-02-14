@@ -1,8 +1,10 @@
 package pproflogging
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"sync"
 	"testing"
@@ -173,6 +175,18 @@ func TestDebug_newProfileConfigs(t *testing.T) {
 	}
 }
 
+func TestDebug_DumpPem(t *testing.T) {
+	saveLockEnv(t)
+	defer restoreUnlockEnv(t)
+
+	ctx := context.Background()
+	wrt := bytes.Buffer{}
+	// DumpPem dump a PEM version of the byte slice, bs, into writer, wrt.
+	err := DumpPem(ctx, []byte("this is a sample PEM"), "test", &wrt)
+	require.NoError(t, err)
+	require.Equal(t, "-----BEGIN test-----\ndGhpcyBpcyBhIHNhbXBsZSBQRU0=\n-----END test-----\n\n", wrt.String())
+}
+
 func TestDebug_LoadProfileConfigs(t *testing.T) {
 	// save environment and restore after testing
 	saveLockEnv(t)
@@ -296,4 +310,40 @@ func restoreUnlockEnv(t *testing.T) {
 
 	t.Setenv(EnvVarKopiaDebugPprof, oldEnv)
 	mu.Unlock()
+}
+
+func TestWriter(t *testing.T) {
+	eww := &ErrorWriter{mx: 5, err: io.EOF}
+	n, err := eww.WriteString("Hello World")
+	require.ErrorIs(t, io.EOF, err)
+	require.Equal(t, 5, n)
+	require.Equal(t, "Hello", string(eww.bs))
+}
+
+type ErrorWriter struct {
+	bs  []byte
+	mx  int
+	err error
+}
+
+func (p *ErrorWriter) Write(bs []byte) (int, error) {
+	lbs := len(bs)
+	lpbs := len(p.bs)
+	n := lbs
+
+	if lbs+lpbs > p.mx {
+		n = p.mx - lpbs
+	}
+
+	p.bs = append(p.bs, bs[:n]...)
+	if n < lbs {
+		return n, p.err
+	}
+
+	return n, nil
+}
+
+//nolint:gocritic
+func (p *ErrorWriter) WriteString(s string) (int, error) {
+	return p.Write([]byte(s))
 }
