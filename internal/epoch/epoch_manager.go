@@ -455,7 +455,37 @@ func (e *Manager) refreshLocked(ctx context.Context) error {
 		}
 	}
 
+	return e.maybeCompactAndCleanupLocked(ctx, p)
+}
+
+func (e *Manager) maybeCompactAndCleanupLocked(ctx context.Context, p *Parameters) error {
+	if !e.allowWritesOnLoad() {
+		e.log.Debug("not performing epoch index cleanup")
+
+		return nil
+	}
+
+	cs := e.lastKnownState
+
+	if shouldAdvance(cs.UncompactedEpochSets[cs.WriteEpoch], p.MinEpochDuration, p.EpochAdvanceOnCountThreshold, p.EpochAdvanceOnTotalSizeBytesThreshold) {
+		if err := e.advanceEpochMarker(ctx, cs); err != nil {
+			return errors.Wrap(err, "error advancing epoch")
+		}
+	}
+
+	e.maybeGenerateNextRangeCheckpointAsync(ctx, cs, p)
+	e.maybeStartCleanupAsync(ctx, cs, p)
+	e.maybeOptimizeRangeCheckpointsAsync(ctx, cs)
+
 	return nil
+}
+
+// allowWritesOnLoad returns whether writes for index cleanup operations,
+// such as index compaction, can be done during index reads.
+// These index cleanup operations are disabled when using read-only storage
+// since they will fail when they try to mutate the underlying storage.
+func (e *Manager) allowWritesOnLoad() bool {
+	return !e.st.IsReadOnly()
 }
 
 func (e *Manager) loadWriteEpoch(ctx context.Context, cs *CurrentSnapshot) error {
@@ -678,12 +708,6 @@ func (e *Manager) refreshAttemptLocked(ctx context.Context) error {
 		len(ues[cs.WriteEpoch+1]),
 		cs.ValidUntil.Format(time.RFC3339Nano))
 
-	if !e.st.IsReadOnly() && shouldAdvance(cs.UncompactedEpochSets[cs.WriteEpoch], p.MinEpochDuration, p.EpochAdvanceOnCountThreshold, p.EpochAdvanceOnTotalSizeBytesThreshold) {
-		if err := e.advanceEpochMarker(ctx, cs); err != nil {
-			return errors.Wrap(err, "error advancing epoch")
-		}
-	}
-
 	if now := e.timeFunc(); now.After(cs.ValidUntil) {
 		atomic.AddInt32(e.committedStateRefreshTooSlow, 1)
 
@@ -691,14 +715,6 @@ func (e *Manager) refreshAttemptLocked(ctx context.Context) error {
 	}
 
 	e.lastKnownState = cs
-
-	// Disable compaction and cleanup operations when running in read-only mode
-	// since they'll just fail when they try to mutate the underlying storage.
-	if !e.st.IsReadOnly() {
-		e.maybeGenerateNextRangeCheckpointAsync(ctx, cs, p)
-		e.maybeStartCleanupAsync(ctx, cs, p)
-		e.maybeOptimizeRangeCheckpointsAsync(ctx, cs)
-	}
 
 	return nil
 }
@@ -948,7 +964,7 @@ func (e *Manager) getIndexesFromEpochInternal(ctx context.Context, cs CurrentSna
 		uncompactedBlobs = ue
 	}
 
-	if epochSettled {
+	if epochSettled && e.allowWritesOnLoad() {
 		e.backgroundWork.Add(1)
 
 		// we're starting background work, ignore parent cancellation signal.
