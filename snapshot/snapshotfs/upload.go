@@ -716,31 +716,7 @@ func metadataEquals(e1, e2 fs.Entry) bool {
 
 	// Check the extended attributes - if any.
 	l, r := e1.Attributes(), e2.Attributes()
-
-	if l == nil && r != nil {
-		return false
-	}
-
-	if l != nil && r == nil {
-		return false
-	}
-
-	if l == nil && r == nil {
-		return true
-	}
-
-	if len(l) != len(r) {
-		return false
-	}
-
-	for k, v1 := range l {
-		v2, ok := r[k]
-		if !ok || !bytes.Equal(v1, v2) {
-			return false
-		}
-	}
-
-	return true
+	return l.Equal(r)
 }
 
 func findCachedEntry(ctx context.Context, entryRelativePath string, entry fs.Entry, prevDirs []fs.Directory, pol *policy.Tree) fs.Entry {

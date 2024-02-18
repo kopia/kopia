@@ -21,6 +21,7 @@ type testFile struct {
 	modtime time.Time
 	name    string
 	content string
+	attr    fs.AttributesInfo
 }
 
 func (f *testFile) IsDir() bool                   { return false }
@@ -33,7 +34,7 @@ func (f *testFile) ModTime() time.Time            { return f.modtime }
 func (f *testFile) Sys() interface{}              { return nil }
 func (f *testFile) Owner() fs.OwnerInfo           { return fs.OwnerInfo{UserID: 1000, GroupID: 1000} }
 func (f *testFile) Device() fs.DeviceInfo         { return fs.DeviceInfo{Dev: 1} }
-func (f *testFile) Attributes() fs.AttributesInfo { return nil } // TODO(miek): not nil?
+func (f *testFile) Attributes() fs.AttributesInfo { return f.attr }
 func (f *testFile) Open(ctx context.Context) (io.Reader, error) {
 	return strings.NewReader(f.content), nil
 }
@@ -44,6 +45,7 @@ type testDirectory struct {
 	name    string
 	files   []fs.Entry
 	modtime time.Time
+	attr    fs.AttributesInfo
 }
 
 func (d *testDirectory) Iterate(ctx context.Context) (fs.DirectoryIterator, error) {
@@ -61,7 +63,7 @@ func (d *testDirectory) ModTime() time.Time               { return d.modtime }
 func (d *testDirectory) Sys() interface{}                 { return nil }
 func (d *testDirectory) Owner() fs.OwnerInfo              { return fs.OwnerInfo{UserID: 1000, GroupID: 1000} }
 func (d *testDirectory) Device() fs.DeviceInfo            { return fs.DeviceInfo{Dev: 1} }
-func (d *testDirectory) Attributes() fs.AttributesInfo    { return nil } // TODO(miek): not nil?
+func (d *testDirectory) Attributes() fs.AttributesInfo    { return d.attr }
 func (d *testDirectory) Child(ctx context.Context, name string) (fs.Entry, error) {
 	for _, f := range d.files {
 		if f.Name() == name {
@@ -196,6 +198,40 @@ func TestCompareDifferentDirectories_DirTimeDiff(t *testing.T) {
 	require.Equal(t, expectedOutput, buf.String())
 }
 
+func TestCompareDifferentDirectories_DirAttributeDiff(t *testing.T) {
+	var buf bytes.Buffer
+
+	ctx := context.Background()
+
+	dmodtime1 := time.Date(2023, time.April, 12, 10, 30, 0, 0, time.UTC)
+	fmodtime := time.Date(2023, time.April, 12, 10, 30, 0, 0, time.UTC)
+	dir1 := createTestDirectory(
+		"testDir1",
+		dmodtime1,
+		&testFile{name: "file1.txt", content: "abcdefghij", modtime: fmodtime},
+		&testFile{name: "file2.txt", content: "klmnopqrstuvwxyz", modtime: fmodtime},
+	)
+	dir2 := createTestDirectory(
+		"testDir2",
+		dmodtime1,
+		&testFile{name: "file1.txt", content: "abcdefghij", modtime: fmodtime},
+		&testFile{name: "file2.txt", content: "klmnopqrstuvwxyz", modtime: fmodtime},
+	)
+	dir2.attr = fs.AttributesInfo{"test": []byte("abcdefghij")}
+
+	c, err := diff.NewComparer(&buf)
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		_ = c.Close()
+	})
+
+	expectedOutput := ". attributes differ:  <none> test:abcdefghij\n"
+	err = c.Compare(ctx, dir1, dir2)
+	require.NoError(t, err)
+	require.Equal(t, expectedOutput, buf.String())
+}
+
 func TestCompareDifferentDirectories_FileTimeDiff(t *testing.T) {
 	var buf bytes.Buffer
 
@@ -223,6 +259,40 @@ func TestCompareDifferentDirectories_FileTimeDiff(t *testing.T) {
 	})
 
 	expectedOutput := "./file1.txt modification times differ:  2023-04-12 10:30:00 +0000 UTC 2022-04-12 10:30:00 +0000 UTC\n"
+
+	err = c.Compare(ctx, dir1, dir2)
+	require.NoError(t, err)
+	require.Equal(t, expectedOutput, buf.String())
+}
+
+func TestCompareDifferentDirectories_FileAttributeDiff(t *testing.T) {
+	var buf bytes.Buffer
+
+	ctx := context.Background()
+
+	fmodtime := time.Date(2023, time.April, 12, 10, 30, 0, 0, time.UTC)
+	dmodtime := time.Date(2023, time.April, 12, 10, 30, 0, 0, time.UTC)
+	file1 := &testFile{name: "file1.txt", content: "abcdefghij", modtime: fmodtime, attr: fs.AttributesInfo{"test": []byte("abcdefghij")}}
+	file2 := &testFile{name: "file1.txt", content: "abcdefghij", modtime: fmodtime}
+	dir1 := createTestDirectory(
+		"testDir1",
+		dmodtime,
+		file1,
+	)
+	dir2 := createTestDirectory(
+		"testDir2",
+		dmodtime,
+		file2,
+	)
+
+	c, err := diff.NewComparer(&buf)
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		_ = c.Close()
+	})
+
+	expectedOutput := "./file1.txt attributes differ:  test:abcdefghij <none>\n"
 
 	err = c.Compare(ctx, dir1, dir2)
 	require.NoError(t, err)
