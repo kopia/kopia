@@ -37,10 +37,9 @@ type Output interface {
 
 // Stats represents restore statistics.
 type Stats struct {
-	DownloadedTotalFileSize int64
-	RestoredTotalFileSize   int64
-	EnqueuedTotalFileSize   int64
-	SkippedTotalFileSize    int64
+	RestoredTotalFileSize int64
+	EnqueuedTotalFileSize int64
+	SkippedTotalFileSize  int64
 
 	RestoredFileCount    int32
 	RestoredDirCount     int32
@@ -54,10 +53,9 @@ type Stats struct {
 
 // stats represents restore statistics.
 type statsInternal struct {
-	DownloadedTotalFileSize atomic.Int64
-	RestoredTotalFileSize   atomic.Int64
-	EnqueuedTotalFileSize   atomic.Int64
-	SkippedTotalFileSize    atomic.Int64
+	RestoredTotalFileSize atomic.Int64
+	EnqueuedTotalFileSize atomic.Int64
+	SkippedTotalFileSize  atomic.Int64
 
 	RestoredFileCount    atomic.Int32
 	RestoredDirCount     atomic.Int32
@@ -71,18 +69,17 @@ type statsInternal struct {
 
 func (s *statsInternal) clone() Stats {
 	return Stats{
-		DownloadedTotalFileSize: s.DownloadedTotalFileSize.Load(),
-		RestoredTotalFileSize:   s.RestoredTotalFileSize.Load(),
-		EnqueuedTotalFileSize:   s.EnqueuedTotalFileSize.Load(),
-		SkippedTotalFileSize:    s.SkippedTotalFileSize.Load(),
-		RestoredFileCount:       s.RestoredFileCount.Load(),
-		RestoredDirCount:        s.RestoredDirCount.Load(),
-		RestoredSymlinkCount:    s.RestoredSymlinkCount.Load(),
-		EnqueuedFileCount:       s.EnqueuedFileCount.Load(),
-		EnqueuedDirCount:        s.EnqueuedDirCount.Load(),
-		EnqueuedSymlinkCount:    s.EnqueuedSymlinkCount.Load(),
-		SkippedCount:            s.SkippedCount.Load(),
-		IgnoredErrorCount:       s.IgnoredErrorCount.Load(),
+		RestoredTotalFileSize: s.RestoredTotalFileSize.Load(),
+		EnqueuedTotalFileSize: s.EnqueuedTotalFileSize.Load(),
+		SkippedTotalFileSize:  s.SkippedTotalFileSize.Load(),
+		RestoredFileCount:     s.RestoredFileCount.Load(),
+		RestoredDirCount:      s.RestoredDirCount.Load(),
+		RestoredSymlinkCount:  s.RestoredSymlinkCount.Load(),
+		EnqueuedFileCount:     s.EnqueuedFileCount.Load(),
+		EnqueuedDirCount:      s.EnqueuedDirCount.Load(),
+		EnqueuedSymlinkCount:  s.EnqueuedSymlinkCount.Load(),
+		SkippedCount:          s.SkippedCount.Load(),
+		IgnoredErrorCount:     s.IgnoredErrorCount.Load(),
 	}
 }
 
@@ -237,7 +234,6 @@ func (c *copier) copyEntryInternal(ctx context.Context, e fs.Entry, targetPath s
 		progressCallback := func(chunkSize int64) {
 			bytesWritten += chunkSize
 			c.stats.RestoredTotalFileSize.Add(chunkSize)
-			c.stats.DownloadedTotalFileSize.Add(chunkSize)
 			c.maybeReportProgress(ctx)
 		}
 

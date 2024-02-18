@@ -340,6 +340,7 @@ func (rwd *readerWithData) Length() int64 {
 }
 
 func (rwd *readerWithData) SetReadingProgressCallback(_ FileReadingProgressCallback) {
+	// readerWithData does not need to report progress
 }
 
 func newObjectReaderWithData(data []byte) Reader {

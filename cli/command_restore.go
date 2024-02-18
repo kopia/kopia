@@ -413,7 +413,7 @@ func (c *commandRestore) run(ctx context.Context, rep repo.Repository) error {
 
 				var maybeRemaining, maybeSkipped, maybeErrors string
 
-				if est, ok := eta.Estimate(float64(stats.DownloadedTotalFileSize), float64(stats.EnqueuedTotalFileSize)); ok {
+				if est, ok := eta.Estimate(float64(stats.RestoredTotalFileSize), float64(stats.EnqueuedTotalFileSize)); ok {
 					maybeRemaining = fmt.Sprintf(" %v (%.1f%%) remaining %v",
 						units.BytesPerSecondsString(est.SpeedPerSecond),
 						est.PercentComplete,
@@ -428,9 +428,8 @@ func (c *commandRestore) run(ctx context.Context, rep repo.Repository) error {
 					maybeErrors = fmt.Sprintf(", ignored %v errors", stats.IgnoredErrorCount)
 				}
 
-				log(ctx).Infof("Processed %v (%v, downloaded %v) of %v (%v)%v%v%v.",
+				log(ctx).Infof("Processed %v (%v) of %v (%v)%v%v%v.",
 					restoredCount, units.BytesString(stats.RestoredTotalFileSize),
-					units.BytesString(stats.DownloadedTotalFileSize),
 					enqueuedCount, units.BytesString(stats.EnqueuedTotalFileSize),
 					maybeSkipped,
 					maybeErrors,
