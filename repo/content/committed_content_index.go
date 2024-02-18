@@ -186,7 +186,7 @@ func (c *committedContentIndex) merge(ctx context.Context, indexFiles []blob.ID)
 		newUsedMap[e] = ndx
 	}
 
-	mergedAndCombined, err := c.combineSmallIndexes(newMerged)
+	mergedAndCombined, err := c.combineSmallIndexes(ctx, newMerged)
 	if err != nil {
 		newlyOpened.Close() //nolint:errcheck
 
@@ -239,7 +239,7 @@ func (c *committedContentIndex) use(ctx context.Context, indexFiles []blob.ID, i
 	return nil
 }
 
-func (c *committedContentIndex) combineSmallIndexes(m index.Merged) (index.Merged, error) {
+func (c *committedContentIndex) combineSmallIndexes(ctx context.Context, m index.Merged) (index.Merged, error) {
 	var toKeep, toMerge index.Merged
 
 	for _, ndx := range m {
@@ -265,7 +265,7 @@ func (c *committedContentIndex) combineSmallIndexes(m index.Merged) (index.Merge
 		}
 	}
 
-	mp, mperr := c.formatProvider.GetMutableParameters()
+	mp, mperr := c.formatProvider.GetMutableParameters(ctx)
 	if mperr != nil {
 		return nil, errors.Wrap(mperr, "error getting mutable parameters")
 	}

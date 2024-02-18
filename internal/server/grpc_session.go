@@ -551,7 +551,7 @@ func (s *Server) handleInitialSessionHandshake(srv grpcapi.KopiaRepository_Sessi
 		return repo.WriteSessionOptions{}, errors.Errorf("missing initialization request")
 	}
 
-	scc, err := dr.ContentReader().SupportsContentCompression()
+	scc, err := dr.ContentReader().SupportsContentCompression(srv.Context())
 	if err != nil {
 		return repo.WriteSessionOptions{}, errors.Wrap(err, "supports content compression")
 	}

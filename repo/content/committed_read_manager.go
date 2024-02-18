@@ -204,7 +204,7 @@ func (sm *SharedManager) loadPackIndexesLocked(ctx context.Context) error {
 	nextSleepTime := 100 * time.Millisecond //nolint:gomnd
 
 	for i := 0; i < indexLoadAttempts; i++ {
-		ibm, err0 := sm.indexBlobManager()
+		ibm, err0 := sm.indexBlobManager(ctx)
 		if err0 != nil {
 			return err0
 		}
@@ -268,8 +268,8 @@ func (sm *SharedManager) getCacheForContentID(id ID) cache.ContentCache {
 }
 
 // indexBlobManager return the index manager for content.
-func (sm *SharedManager) indexBlobManager() (indexblob.Manager, error) {
-	mp, mperr := sm.format.GetMutableParameters()
+func (sm *SharedManager) indexBlobManager(ctx context.Context) (indexblob.Manager, error) {
+	mp, mperr := sm.format.GetMutableParameters(ctx)
 	if mperr != nil {
 		return nil, errors.Wrap(mperr, "mutable parameters")
 	}
@@ -359,7 +359,7 @@ func (sm *SharedManager) IndexBlobs(ctx context.Context, includeInactive bool) (
 		return result, nil
 	}
 
-	ibm, err0 := sm.indexBlobManager()
+	ibm, err0 := sm.indexBlobManager(ctx)
 	if err0 != nil {
 		return nil, err0
 	}
@@ -539,8 +539,8 @@ type epochParameters struct {
 	prov format.Provider
 }
 
-func (p epochParameters) GetParameters() (*epoch.Parameters, error) {
-	mp, mperr := p.prov.GetMutableParameters()
+func (p epochParameters) GetParameters(ctx context.Context) (*epoch.Parameters, error) {
+	mp, mperr := p.prov.GetMutableParameters(ctx)
 	if mperr != nil {
 		return nil, errors.Wrap(mperr, "mutable parameters")
 	}
@@ -549,8 +549,8 @@ func (p epochParameters) GetParameters() (*epoch.Parameters, error) {
 }
 
 // EpochManager returns the epoch manager.
-func (sm *SharedManager) EpochManager() (*epoch.Manager, bool, error) {
-	ibm, err := sm.indexBlobManager()
+func (sm *SharedManager) EpochManager(ctx context.Context) (*epoch.Manager, bool, error) {
+	ibm, err := sm.indexBlobManager(ctx)
 	if err != nil {
 		return nil, false, err
 	}
