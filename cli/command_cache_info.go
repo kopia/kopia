@@ -30,7 +30,7 @@ func (c *commandCacheInfo) setup(svc appServices, parent commandParent) {
 	c.out.setup(svc)
 }
 
-func (c *commandCacheInfo) run(ctx context.Context, rep repo.Repository) error {
+func (c *commandCacheInfo) run(ctx context.Context, _ repo.Repository) error {
 	opts, err := repo.GetCachingOptions(ctx, c.svc.repositoryConfigFileName())
 	if err != nil {
 		return errors.Wrap(err, "error getting cache options")
@@ -46,10 +46,16 @@ func (c *commandCacheInfo) run(ctx context.Context, rep repo.Repository) error {
 		return errors.Wrap(err, "unable to scan cache directory")
 	}
 
-	path2Limit := map[string]int64{
-		"contents":        opts.MaxCacheSizeBytes,
-		"metadata":        opts.MaxMetadataCacheSizeBytes,
-		"server-contents": opts.MaxCacheSizeBytes,
+	path2SoftLimit := map[string]int64{
+		"contents":        opts.ContentCacheSizeBytes,
+		"metadata":        opts.MetadataCacheSizeBytes,
+		"server-contents": opts.ContentCacheSizeBytes,
+	}
+
+	path2HardLimit := map[string]int64{
+		"contents":        opts.ContentCacheSizeLimitBytes,
+		"metadata":        opts.MetadataCacheSizeLimitBytes,
+		"server-contents": opts.ContentCacheSizeLimitBytes,
 	}
 
 	path2SweepAgeSeconds := map[string]time.Duration{
@@ -72,12 +78,24 @@ func (c *commandCacheInfo) run(ctx context.Context, rep repo.Repository) error {
 		}
 
 		maybeLimit := ""
-		if l, ok := path2Limit[ent.Name()]; ok {
-			maybeLimit = fmt.Sprintf(" (limit %v, min sweep age %v)", units.BytesString(l), path2SweepAgeSeconds[ent.Name()])
+
+		if l, ok := path2SoftLimit[ent.Name()]; ok {
+			var hardLimit string
+
+			if hl := path2HardLimit[ent.Name()]; hl > 0 {
+				hardLimit = units.BytesString(hl)
+			} else {
+				hardLimit = "none"
+			}
+
+			maybeLimit = fmt.Sprintf(" (soft limit: %v, hard limit: %v, min sweep age: %v)",
+				units.BytesString(l),
+				hardLimit,
+				path2SweepAgeSeconds[ent.Name()])
 		}
 
 		if ent.Name() == "blob-list" {
-			maybeLimit = fmt.Sprintf(" (duration %v)", opts.MaxListCacheDuration.DurationOrDefault(0))
+			maybeLimit = fmt.Sprintf(" (duration: %v)", opts.MaxListCacheDuration.DurationOrDefault(0))
 		}
 
 		c.out.printStdout("%v: %v files %v%v\n", subdir, fileCount, units.BytesString(totalFileSize), maybeLimit)

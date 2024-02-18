@@ -1,4 +1,4 @@
-FROM		ubuntu:latest
+FROM		ubuntu:jammy
 
 ARG 		TARGETARCH
 
@@ -14,7 +14,7 @@ ENV 		DEBIAN_FRONTEND="noninteractive" \
 
 RUN 		apt-get update && \
 		    apt-get upgrade -y --with-new-pkgs && \
-		    apt-get install -y --no-install-recommends fuse3 ca-certificates curl && \
+		    apt-get install -y --no-install-recommends fuse3 ca-certificates curl tzdata && \
 		    apt-get clean autoclean -y && \
     		apt-get autoremove -y && \
     		rm -rf /var/lib/apt/* /var/lib/cache/* /var/lib/log/* \

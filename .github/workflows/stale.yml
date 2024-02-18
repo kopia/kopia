@@ -6,18 +6,22 @@ permissions:
 
 on:
   schedule:
-    # Sundays at 8:17 p.m. UTC
-    - cron: '17 20 * * 0'
+    # Sundays and Wednesdays at 8:17 p.m. UTC
+    - cron: '17 20 * * 0,3'
   workflow_dispatch:
 
 jobs:
   stale:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/stale@v8
+      - uses: actions/stale@28ca1036281a5e5922ead5184a1bbf96e5fc984e # v9.0.0
         with:
           # process older PRs first
           ascending: true
           operations-per-run: 100
           stale-issue-label: 'stale'
           stale-pr-label: 'stale'
+          exempt-issue-labels: 'bug,keep-open'
+          exempt-pr-labels: 'keep-open'
+          close-issue-message: 'Closed due to inactivity. Re-open and remove "stale" label if it should remain open for an additional period of time'
+          close-pr-message: 'Closed due to inactivity. Re-open and remove "stale" label if it should remain open for an additional period of time'

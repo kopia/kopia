@@ -1,0 +1,14 @@
+name: auto-merge
+
+on:
+  pull_request:
+
+jobs:
+  auto-merge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - uses: ahmadnassri/action-dependabot-auto-merge@v2
+        with:
+          # auto-merge rules are in /.github/auto-merge.yml
+          github-token: ${{ secrets.AUTO_MERGE_TOKEN }}

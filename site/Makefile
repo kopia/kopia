@@ -10,25 +10,21 @@ ifeq ($(NETLIFY)/$(CONTEXT),true/production)
 export HUGO_ENV=production
 endif
 
-build: gen-cli-reference-pages $(hugo) node_modules
+install-tools:
+	make -C .. $(npm) $(cli2mdbin) $(hugo)
+
+build: install-tools gen-cli-reference-pages node_modules
 	$(hugo)
 
-server: $(hugo)
+server: install-tools
 	$(hugo) server --watch=$(WATCH)
 
-node_modules: $(npm)
+node_modules: install-tools
 	$(npm) $(npm_flags) install --no-audit
-	$(npm) $(npm_flags) audit --production
+	$(npm) $(npm_flags) audit --omit=dev
 
 clean:
 	rm -rf public/ resources/ node_modules/ $(TOOLS_DIR)/
 
-gen-cli-reference-pages:
-ifeq ($(OS),Windows_NT)
-	-rd /q /s content\\docs\\Reference\\Command-Line\\Advanced
-	-rd /q /s content\\docs\\Reference\\Command-Line\\Common
-else
-	rm -rf content/docs/Reference/Command-Line/Advanced
-	rm -rf content/docs/Reference/Command-Line/Common
-endif
-	go run github.com/kopia/kopia/site/cli2md
+gen-cli-reference-pages: install-tools
+	$(cli2mdbin)

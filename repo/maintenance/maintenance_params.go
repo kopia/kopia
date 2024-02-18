@@ -23,8 +23,11 @@ type Params struct {
 	FullCycle  CycleParams `json:"full"`
 
 	LogRetention LogRetentionOptions `json:"logRetention"`
+
+	ExtendObjectLocks bool `json:"extendObjectLocks"`
 }
 
+// isOwnedByByThisUser determines whether current user is the maintenance owner.
 func (p *Params) isOwnedByByThisUser(rep repo.Repository) bool {
 	return p.Owner == rep.ClientOptions().UsernameAtHost()
 }
@@ -41,6 +44,11 @@ func DefaultParams() Params {
 			Interval: 1 * time.Hour,
 		},
 		LogRetention: defaultLogRetention(),
+		// Don't attempt to extend object locks by default. This option may not be
+		// supported by all storage providers or blob implementations (currently
+		// supported by S3 backend) and may cause data to be kept longer than
+		// desired if the retention period is relatively long.
+		ExtendObjectLocks: false,
 	}
 }
 

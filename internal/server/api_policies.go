@@ -66,7 +66,7 @@ func handlePolicyResolve(ctx context.Context, rc requestContext) (interface{}, *
 	var req serverapi.ResolvePolicyRequest
 
 	if err := json.Unmarshal(rc.body, &req); err != nil {
-		return nil, requestError(serverapi.ErrorMalformedRequest, "unable to decode request: "+err.Error())
+		return nil, unableToDecodeRequest(err)
 	}
 
 	target := getSnapshotSourceFromURL(rc.req.URL)
@@ -88,6 +88,10 @@ func handlePolicyResolve(ctx context.Context, rc requestContext) (interface{}, *
 
 	resp.Effective, resp.Definition = policy.MergePolicies(policies, target)
 	resp.UpcomingSnapshotTimes = []time.Time{}
+
+	if err := policy.ValidateSchedulingPolicy(policies[0].SchedulingPolicy); err != nil {
+		resp.SchedulingError = err.Error()
+	}
 
 	now := clock.Now().Local()
 
@@ -119,7 +123,7 @@ func handlePolicyDelete(ctx context.Context, rc requestContext) (interface{}, *a
 		return nil, internalServerError(err)
 	}
 
-	rc.srv.triggerRefreshSource(sourceInfo)
+	rc.srv.Refresh()
 
 	return &serverapi.Empty{}, nil
 }
@@ -144,7 +148,7 @@ func handlePolicyPut(ctx context.Context, rc requestContext) (interface{}, *apiE
 		return nil, internalServerError(err)
 	}
 
-	_ = rc.srv.Refresh(ctx)
+	rc.srv.Refresh()
 
 	return &serverapi.Empty{}, nil
 }

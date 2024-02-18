@@ -6,6 +6,8 @@ package epoch
 import (
 	"context"
 	"fmt"
+	"os"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -39,30 +41,33 @@ type ParametersProvider interface {
 var ErrVerySlowIndexWrite = errors.Errorf("extremely slow index write - index write took more than two epochs")
 
 // Parameters encapsulates all parameters that influence the behavior of epoch manager.
+//
+// Note as a historical mistake, JSON tags are not camelCase, but rather PascalCase. We can't change
+// that since the parameters are stored in a repository.
 type Parameters struct {
 	// whether epoch manager is enabled, must be true.
-	Enabled bool
+	Enabled bool `json:"Enabled"`
 
 	// how frequently each client will list blobs to determine the current epoch.
-	EpochRefreshFrequency time.Duration
+	EpochRefreshFrequency time.Duration `json:"EpochRefreshFrequency"`
 
 	// number of epochs between full checkpoints.
-	FullCheckpointFrequency int
+	FullCheckpointFrequency int `json:"FullCheckpointFrequency"`
 
 	// do not delete uncompacted blobs if the corresponding compacted blob age is less than this.
-	CleanupSafetyMargin time.Duration
+	CleanupSafetyMargin time.Duration `json:"CleanupSafetyMargin"`
 
 	// minimum duration of an epoch
-	MinEpochDuration time.Duration
+	MinEpochDuration time.Duration `json:"MinEpochDuration"`
 
 	// advance epoch if number of files exceeds this
-	EpochAdvanceOnCountThreshold int
+	EpochAdvanceOnCountThreshold int `json:"EpochAdvanceOnCountThreshold"`
 
 	// advance epoch if total size of files exceeds this.
-	EpochAdvanceOnTotalSizeBytesThreshold int64
+	EpochAdvanceOnTotalSizeBytesThreshold int64 `json:"EpochAdvanceOnTotalSizeBytesThreshold"`
 
 	// number of blobs to delete in parallel during cleanup
-	DeleteParallelism int
+	DeleteParallelism int `json:"DeleteParallelism"`
 }
 
 // GetEpochManagerEnabled returns whether epoch manager is enabled, must be true.
@@ -183,6 +188,8 @@ type Manager struct {
 	log      logging.Logger
 	timeFunc func() time.Time
 
+	allowCleanupWritesOnIndexLoad bool
+
 	// wait group that waits for all compaction and cleanup goroutines.
 	backgroundWork sync.WaitGroup
 
@@ -249,22 +256,6 @@ func (e *Manager) AdvanceDeletionWatermark(ctx context.Context, ts time.Time) er
 	}
 
 	e.Invalidate()
-
-	return nil
-}
-
-// ForceAdvanceEpoch advances current epoch unconditionally.
-func (e *Manager) ForceAdvanceEpoch(ctx context.Context) error {
-	cs, err := e.committedState(ctx, 0)
-	if err != nil {
-		return err
-	}
-
-	e.Invalidate()
-
-	if err := e.advanceEpoch(ctx, cs); err != nil {
-		return errors.Wrap(err, "error advancing epoch")
-	}
 
 	return nil
 }
@@ -468,7 +459,37 @@ func (e *Manager) refreshLocked(ctx context.Context) error {
 		}
 	}
 
+	return e.maybeCompactAndCleanupLocked(ctx, p)
+}
+
+func (e *Manager) maybeCompactAndCleanupLocked(ctx context.Context, p *Parameters) error {
+	if !e.allowWritesOnLoad() {
+		e.log.Debug("not performing epoch index cleanup")
+
+		return nil
+	}
+
+	cs := e.lastKnownState
+
+	if shouldAdvance(cs.UncompactedEpochSets[cs.WriteEpoch], p.MinEpochDuration, p.EpochAdvanceOnCountThreshold, p.EpochAdvanceOnTotalSizeBytesThreshold) {
+		if err := e.advanceEpochMarker(ctx, cs); err != nil {
+			return errors.Wrap(err, "error advancing epoch")
+		}
+	}
+
+	e.maybeGenerateNextRangeCheckpointAsync(ctx, cs, p)
+	e.maybeStartCleanupAsync(ctx, cs, p)
+	e.maybeOptimizeRangeCheckpointsAsync(ctx, cs)
+
 	return nil
+}
+
+// allowWritesOnLoad returns whether writes for index cleanup operations,
+// such as index compaction, can be done during index reads.
+// These index cleanup operations are disabled when using read-only storage
+// since they will fail when they try to mutate the underlying storage.
+func (e *Manager) allowWritesOnLoad() bool {
+	return e.allowCleanupWritesOnIndexLoad && !e.st.IsReadOnly()
 }
 
 func (e *Manager) loadWriteEpoch(ctx context.Context, cs *CurrentSnapshot) error {
@@ -589,6 +610,8 @@ func (e *Manager) maybeGenerateNextRangeCheckpointAsync(ctx context.Context, cs 
 }
 
 func (e *Manager) maybeOptimizeRangeCheckpointsAsync(ctx context.Context, cs CurrentSnapshot) {
+	// TODO: implement me
+	_ = cs
 }
 
 func (e *Manager) maybeStartCleanupAsync(ctx context.Context, cs CurrentSnapshot, p *Parameters) {
@@ -641,7 +664,7 @@ func (e *Manager) loadUncompactedEpochs(ctx context.Context, min, max int) (map[
 // refreshAttemptLocked attempts to load the committedState of
 // the index and updates `lastKnownState` state atomically when complete.
 func (e *Manager) refreshAttemptLocked(ctx context.Context) error {
-	e.log.Debugf("refreshAttemptLocked")
+	e.log.Debug("refreshAttemptLocked")
 
 	p, perr := e.getParameters()
 	if perr != nil {
@@ -689,12 +712,6 @@ func (e *Manager) refreshAttemptLocked(ctx context.Context) error {
 		len(ues[cs.WriteEpoch+1]),
 		cs.ValidUntil.Format(time.RFC3339Nano))
 
-	if shouldAdvance(cs.UncompactedEpochSets[cs.WriteEpoch], p.MinEpochDuration, p.EpochAdvanceOnCountThreshold, p.EpochAdvanceOnTotalSizeBytesThreshold) {
-		if err := e.advanceEpoch(ctx, cs); err != nil {
-			return errors.Wrap(err, "error advancing epoch")
-		}
-	}
-
 	if now := e.timeFunc(); now.After(cs.ValidUntil) {
 		atomic.AddInt32(e.committedStateRefreshTooSlow, 1)
 
@@ -703,14 +720,10 @@ func (e *Manager) refreshAttemptLocked(ctx context.Context) error {
 
 	e.lastKnownState = cs
 
-	e.maybeGenerateNextRangeCheckpointAsync(ctx, cs, p)
-	e.maybeStartCleanupAsync(ctx, cs, p)
-	e.maybeOptimizeRangeCheckpointsAsync(ctx, cs)
-
 	return nil
 }
 
-func (e *Manager) advanceEpoch(ctx context.Context, cs CurrentSnapshot) error {
+func (e *Manager) advanceEpochMarker(ctx context.Context, cs CurrentSnapshot) error {
 	blobID := blob.ID(fmt.Sprintf("%v%v", string(EpochMarkerIndexBlobPrefix), cs.WriteEpoch+1))
 
 	if err := e.st.PutBlob(ctx, blobID, gather.FromSlice([]byte("epoch-marker")), blob.PutOptions{}); err != nil {
@@ -774,7 +787,7 @@ func (e *Manager) WriteIndex(ctx context.Context, dataShards map[blob.ID]blob.By
 	writtenForEpoch := -1
 
 	for {
-		e.log.Debugf("refreshAttemptLocked")
+		e.log.Debug("WriteIndex")
 
 		p, err := e.getParameters()
 		if err != nil {
@@ -955,7 +968,7 @@ func (e *Manager) getIndexesFromEpochInternal(ctx context.Context, cs CurrentSna
 		uncompactedBlobs = ue
 	}
 
-	if epochSettled {
+	if epochSettled && e.allowWritesOnLoad() {
 		e.backgroundWork.Add(1)
 
 		// we're starting background work, ignore parent cancellation signal.
@@ -1006,16 +1019,28 @@ func rangeCheckpointBlobPrefix(epoch1, epoch2 int) blob.ID {
 	return blob.ID(fmt.Sprintf("%v%v_%v_", RangeCheckpointIndexBlobPrefix, epoch1, epoch2))
 }
 
+func allowWritesOnIndexLoad() bool {
+	v := strings.ToLower(os.Getenv("KOPIA_ALLOW_WRITE_ON_INDEX_LOAD"))
+
+	if v == "" {
+		// temporary default to be changed once index cleanup is performed on maintenance
+		return true
+	}
+
+	return v == "true" || v == "1"
+}
+
 // NewManager creates new epoch manager.
 func NewManager(st blob.Storage, paramProvider ParametersProvider, compactor CompactionFunc, log logging.Logger, timeNow func() time.Time) *Manager {
 	return &Manager{
-		st:                           st,
-		log:                          log,
-		compact:                      compactor,
-		timeFunc:                     timeNow,
-		paramProvider:                paramProvider,
-		getCompleteIndexSetTooSlow:   new(int32),
-		committedStateRefreshTooSlow: new(int32),
-		writeIndexTooSlow:            new(int32),
+		st:                            st,
+		log:                           log,
+		compact:                       compactor,
+		timeFunc:                      timeNow,
+		paramProvider:                 paramProvider,
+		allowCleanupWritesOnIndexLoad: allowWritesOnIndexLoad(),
+		getCompleteIndexSetTooSlow:    new(int32),
+		committedStateRefreshTooSlow:  new(int32),
+		writeIndexTooSlow:             new(int32),
 	}
 }

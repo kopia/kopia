@@ -12,9 +12,9 @@ import (
 
 type testingT interface {
 	Helper()
-	Errorf(string, ...interface{})
-	Fatalf(string, ...interface{})
-	Logf(string, ...interface{})
+	Errorf(msg string, args ...any)
+	Fatalf(msg string, args ...any)
+	Logf(msg string, args ...any)
 }
 
 // Level specifies log level.

@@ -128,7 +128,7 @@ func handleRepoCreate(ctx context.Context, rc requestContext) (interface{}, *api
 	var req serverapi.CreateRepositoryRequest
 
 	if err := json.Unmarshal(rc.body, &req); err != nil {
-		return nil, requestError(serverapi.ErrorMalformedRequest, "unable to decode request: "+err.Error())
+		return nil, unableToDecodeRequest(err)
 	}
 
 	if err := maybeDecodeToken(&req.ConnectRepositoryRequest); err != nil {
@@ -181,7 +181,7 @@ func handleRepoExists(ctx context.Context, rc requestContext) (interface{}, *api
 	var req serverapi.CheckRepositoryExistsRequest
 
 	if err := json.Unmarshal(rc.body, &req); err != nil {
-		return nil, requestError(serverapi.ErrorMalformedRequest, "unable to decode request: "+err.Error())
+		return nil, unableToDecodeRequest(err)
 	}
 
 	st, err := blob.NewStorage(ctx, req.Storage, false)
@@ -213,7 +213,7 @@ func handleRepoConnect(ctx context.Context, rc requestContext) (interface{}, *ap
 	var req serverapi.ConnectRepositoryRequest
 
 	if err := json.Unmarshal(rc.body, &req); err != nil {
-		return nil, requestError(serverapi.ErrorMalformedRequest, "unable to decode request: "+err.Error())
+		return nil, unableToDecodeRequest(err)
 	}
 
 	if err := maybeDecodeToken(&req); err != nil {
@@ -254,7 +254,7 @@ func handleRepoSetDescription(ctx context.Context, rc requestContext) (interface
 	var req repo.ClientOptions
 
 	if err := json.Unmarshal(rc.body, &req); err != nil {
-		return nil, requestError(serverapi.ErrorMalformedRequest, "unable to decode request: "+err.Error())
+		return nil, unableToDecodeRequest(err)
 	}
 
 	cliOpt := rc.rep.ClientOptions()
@@ -269,7 +269,7 @@ func handleRepoSetDescription(ctx context.Context, rc requestContext) (interface
 	return handleRepoStatus(ctx, rc)
 }
 
-func handleRepoSupportedAlgorithms(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+func handleRepoSupportedAlgorithms(ctx context.Context, _ requestContext) (interface{}, *apiError) {
 	res := &serverapi.SupportedAlgorithmsResponse{
 		DefaultHashAlgorithm:    hashing.DefaultAlgorithm,
 		SupportedHashAlgorithms: toAlgorithmInfo(hashing.SupportedAlgorithms(), neverDeprecated),
@@ -300,7 +300,7 @@ func handleRepoSupportedAlgorithms(ctx context.Context, rc requestContext) (inte
 	return res, nil
 }
 
-func neverDeprecated(n string) bool {
+func neverDeprecated(string) bool {
 	return false
 }
 
@@ -345,7 +345,7 @@ func handleRepoSetThrottle(ctx context.Context, rc requestContext) (interface{},
 
 	var req throttling.Limits
 	if err := json.Unmarshal(rc.body, &req); err != nil {
-		return nil, requestError(serverapi.ErrorMalformedRequest, "unable to decode request: "+err.Error())
+		return nil, unableToDecodeRequest(err)
 	}
 
 	if err := dr.Throttler().SetLimits(req); err != nil {
@@ -399,7 +399,6 @@ func handleRepoDisconnect(ctx context.Context, rc requestContext) (interface{}, 
 }
 
 func (s *Server) disconnect(ctx context.Context) error {
-	// release shared lock so that SetRepository can acquire exclusive lock
 	if err := s.SetRepository(ctx, nil); err != nil {
 		return err
 	}
@@ -418,9 +417,7 @@ func (s *Server) disconnect(ctx context.Context) error {
 }
 
 func handleRepoSync(ctx context.Context, rc requestContext) (interface{}, *apiError) {
-	if err := rc.srv.Refresh(ctx); err != nil {
-		return nil, internalServerError(errors.Wrap(err, "unable to refresh repository"))
-	}
+	rc.srv.Refresh()
 
 	return &serverapi.Empty{}, nil
 }

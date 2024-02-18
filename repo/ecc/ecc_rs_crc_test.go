@@ -27,9 +27,9 @@ func Test_RsCrc32_AssertSizeAlwaysGrow(t *testing.T) {
 		// println(fmt.Sprintf("%-8v -> b:%-4v s:%-8v t:%-8v", i, sizes.Blocks, sizes.ShardSize, total))
 
 		if sizes.StorePadding {
-			require.True(t, total >= last)
+			require.GreaterOrEqual(t, total, last)
 		} else {
-			require.True(t, total > last)
+			require.Greater(t, total, last)
 		}
 
 		sizes2 := impl.computeSizesFromStored(total)

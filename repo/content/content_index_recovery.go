@@ -29,7 +29,7 @@ func (bm *WriteManager) RecoverIndexFromPackBlob(ctx context.Context, packFile b
 
 	var recovered []Info
 
-	err = ndx.Iterate(index.AllIDs, func(i Info) error {
+	err = ndx.Iterate(index.AllIDs, func(i index.InfoReader) error {
 		// 'i' is ephemeral and will depend on temporary buffers which
 		// won't be available when this function returns, we need to
 		// convert it to durable struct.

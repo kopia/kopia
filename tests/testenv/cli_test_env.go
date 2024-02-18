@@ -30,7 +30,7 @@ const (
 // CLIRunner encapsulates running kopia subcommands for testing purposes.
 // It supports implementations that use subprocesses or in-process invocations.
 type CLIRunner interface {
-	Start(t *testing.T, args []string, env map[string]string) (stdout, stderr io.Reader, wait func() error, kill func())
+	Start(t *testing.T, args []string, env map[string]string) (stdout, stderr io.Reader, wait func() error, interrupt func(os.Signal))
 }
 
 // CLITest encapsulates state for a CLI-based test.
@@ -124,7 +124,7 @@ func (e *CLITest) TweakFile(t *testing.T, dirn, fglob string) {
 	// find a file within the repository to corrupt
 	mch, err := fs.Glob(os.DirFS(dirn), fglob)
 	require.NoError(t, err)
-	require.Greater(t, len(mch), 0)
+	require.NotEmpty(t, mch)
 
 	// grab a random file in the directory dirn
 	fn := mch[rand.Intn(len(mch))]
@@ -165,7 +165,20 @@ func (e *CLITest) getLogOutputPrefix() (string, bool) {
 func (e *CLITest) RunAndProcessStderr(t *testing.T, callback func(line string) bool, args ...string) (wait func() error, kill func()) {
 	t.Helper()
 
-	stdout, stderr, wait, kill := e.Runner.Start(t, e.cmdArgs(args), e.Environment)
+	wait, interrupt := e.RunAndProcessStderrInt(t, callback, args...)
+	kill = func() {
+		interrupt(os.Kill)
+	}
+
+	return wait, kill
+}
+
+// RunAndProcessStderrInt runs the given command, and streams its output
+// line-by-line to outputCallback until it returns false.
+func (e *CLITest) RunAndProcessStderrInt(t *testing.T, outputCallback func(line string) bool, args ...string) (wait func() error, interrupt func(os.Signal)) {
+	t.Helper()
+
+	stdout, stderr, wait, interrupt := e.Runner.Start(t, e.cmdArgs(args), e.Environment)
 
 	go func() {
 		scanner := bufio.NewScanner(stdout)
@@ -182,7 +195,7 @@ func (e *CLITest) RunAndProcessStderr(t *testing.T, callback func(line string) b
 
 	scanner := bufio.NewScanner(stderr)
 	for scanner.Scan() {
-		if !callback(scanner.Text()) {
+		if !outputCallback(scanner.Text()) {
 			break
 		}
 	}
@@ -200,7 +213,7 @@ func (e *CLITest) RunAndProcessStderr(t *testing.T, callback func(line string) b
 		}
 	}()
 
-	return wait, kill
+	return wait, interrupt
 }
 
 // RunAndExpectSuccessWithErrOut runs the given command, expects it to succeed and returns its stdout and stderr lines.

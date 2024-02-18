@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"io"
+	"os"
 
 	"github.com/alecthomas/kingpin/v2"
 
@@ -12,7 +13,7 @@ import (
 
 // RunSubcommand executes the subcommand asynchronously in current process
 // with flags in an isolated CLI environment and returns standard output and standard error.
-func (c *App) RunSubcommand(ctx context.Context, kpapp *kingpin.Application, stdin io.Reader, argsAndFlags []string) (stdout, stderr io.Reader, wait func() error, kill func()) {
+func (c *App) RunSubcommand(ctx context.Context, kpapp *kingpin.Application, stdin io.Reader, argsAndFlags []string) (stdout, stderr io.Reader, wait func() error, interrupt func(os.Signal)) {
 	stdoutReader, stdoutWriter := io.Pipe()
 	stderrReader, stderrWriter := io.Pipe()
 
@@ -59,7 +60,7 @@ func (c *App) RunSubcommand(ctx context.Context, kpapp *kingpin.Application, std
 
 	return stdoutReader, stderrReader, func() error {
 			return <-resultErr
-		}, func() {
+		}, func(_ os.Signal) {
 			// deliver simulated Ctrl-C to the app.
 			c.simulatedCtrlC <- true
 		}

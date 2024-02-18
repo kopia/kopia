@@ -68,7 +68,7 @@ func (bm *WriteManager) PrefetchContents(ctx context.Context, contentIDs []ID, h
 
 	for _, ci := range contentIDs {
 		_, bi, _ := bm.getContentInfoReadLocked(ctx, ci)
-		if bi == nil {
+		if bi == (Info{}) {
 			continue
 		}
 

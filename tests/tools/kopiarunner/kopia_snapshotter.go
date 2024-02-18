@@ -1,12 +1,14 @@
 package kopiarunner
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/hex"
 	"encoding/pem"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -148,6 +150,15 @@ func (ks *KopiaSnapshotter) CreateSnapshot(source string) (snapID string, err er
 // restore command of the provided snapshot ID to the provided restore destination.
 func (ks *KopiaSnapshotter) RestoreSnapshot(snapID, restoreDir string) (err error) {
 	_, _, err = ks.Runner.Run("snapshot", "restore", snapID, restoreDir)
+	return err
+}
+
+// VerifySnapshot implements the Snapshotter interface to verify a kopia snapshot corruption
+// verify command of args to the provided parameters such as --verify-files-percent.
+func (ks *KopiaSnapshotter) VerifySnapshot(args ...string) (err error) {
+	args = append([]string{"snapshot", "verify"}, args...)
+	_, _, err = ks.Runner.Run(args...)
+
 	return err
 }
 
@@ -388,6 +399,10 @@ func (ks *KopiaSnapshotter) ConnectOrCreateRepoWithServer(serverAddr string, arg
 	}
 
 	if err := certKeyExist(context.TODO(), tlsCertFile, tlsKeyFile); err != nil {
+		if buf, ok := cmd.Stderr.(*bytes.Buffer); ok {
+			log.Print("failure in certificate generation:", buf.String())
+		}
+
 		return nil, "", err
 	}
 

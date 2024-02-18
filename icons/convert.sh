@@ -36,7 +36,7 @@ make_icns kopia-app-dark-1024.png ../app/assets/icon.icns
 make_ico kopia-app-win-1024.png ../app/assets/icon.ico
 
 # macOS tray icon
-sips -z 20 28 ../app/resources/mac/icons/kopia-tray@2x.png --out ../app/resources/mac/icons/kopia-tray.png
+sips -z 20 28 ../app/resources/mac/icons/kopiaTrayTemplate@2x.png --out ../app/resources/mac/icons/kopiaTrayTemplate.png
 
 # Windows tray icon
 convert kopia-outline-win-tray.png -define icon:auto-resize="32" ../app/resources/win/icons/kopia-tray.ico

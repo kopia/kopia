@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"syscall"
 
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/pkg/errors"
@@ -29,9 +30,9 @@ func (c *App) onRepositoryFatalError(f func(err error)) {
 	c.onFatalErrorCallbacks = append(c.onFatalErrorCallbacks, f)
 }
 
-func (c *App) onCtrlC(f func()) {
+func (c *App) onTerminate(f func()) {
 	s := make(chan os.Signal, 1)
-	signal.Notify(s, os.Interrupt)
+	signal.Notify(s, os.Interrupt, syscall.SIGTERM)
 
 	go func() {
 		// invoke the function when either real or simulated Ctrl-C signal is delivered

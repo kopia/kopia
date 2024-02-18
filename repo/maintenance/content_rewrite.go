@@ -36,7 +36,7 @@ type contentInfoOrError struct {
 }
 
 // RewriteContents rewrites contents according to provided criteria and creates new
-// blobs and index entries to point at the.
+// blobs and index entries to point at them.
 func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *RewriteContentsOptions, safety SafetyParameters) error {
 	if opt == nil {
 		return errors.Errorf("missing options")
@@ -115,7 +115,7 @@ func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *
 
 	wg.Wait()
 
-	log(ctx).Debugf("Total bytes rewritten %v", units.BytesString(totalBytes))
+	log(ctx).Infof("Total bytes rewritten %v", units.BytesString(totalBytes))
 
 	if failedCount == 0 {
 		//nolint:wrapcheck

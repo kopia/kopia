@@ -128,6 +128,8 @@ func printPolicy(out *textOutput, p *policy.Policy, def *policy.Definition) {
 	rows = append(rows, policyTableRow{})
 	rows = appendActionsPolicyRows(rows, p, def)
 	rows = append(rows, policyTableRow{})
+	rows = appendOSSnapshotPolicyRows(rows, p, def)
+	rows = append(rows, policyTableRow{})
 	rows = appendLoggingPolicyRows(rows, p, def)
 
 	out.printStdout("Policy for %v:\n\n%v\n", p.Target(), alignedPolicyTableRows(rows))
@@ -292,10 +294,30 @@ func appendSchedulingPolicyRows(rows []policyTableRow, p *policy.Policy, def *po
 	}
 
 	if len(p.SchedulingPolicy.TimesOfDay) > 0 {
-		rows = append(rows, policyTableRow{"  Snapshot times:", "", definitionPointToString(p.Target(), def.SchedulingPolicy.TimesOfDay)})
+		rows = append(rows,
+			policyTableRow{
+				"  Run missed snapshots:",
+				boolToString(p.SchedulingPolicy.RunMissed.OrDefault(false)),
+				definitionPointToString(p.Target(), def.SchedulingPolicy.RunMissed),
+			},
+			policyTableRow{
+				"  Snapshot times:",
+				"",
+				definitionPointToString(p.Target(), def.SchedulingPolicy.TimesOfDay),
+			})
 
 		for _, tod := range p.SchedulingPolicy.TimesOfDay {
 			rows = append(rows, policyTableRow{"    " + tod.String(), "", ""})
+		}
+
+		hasAny = true
+	}
+
+	if len(p.SchedulingPolicy.Cron) > 0 {
+		rows = append(rows, policyTableRow{"  Crontab expressions:", "", definitionPointToString(p.Target(), def.SchedulingPolicy.Cron)})
+
+		for _, cron := range p.SchedulingPolicy.Cron {
+			rows = append(rows, policyTableRow{"    " + cron, "", ""})
 		}
 
 		hasAny = true
@@ -424,6 +446,15 @@ func appendActionCommandRows(rows []policyTableRow, h *policy.ActionCommand) []p
 		policyTableRow{"  Mode:", actualMode, ""},
 		policyTableRow{"  Timeout:", (time.Second * time.Duration(h.TimeoutSeconds)).String(), ""},
 		policyTableRow{"", "", ""},
+	)
+
+	return rows
+}
+
+func appendOSSnapshotPolicyRows(rows []policyTableRow, p *policy.Policy, def *policy.Definition) []policyTableRow {
+	rows = append(rows,
+		policyTableRow{"OS-level snapshot support:", "", ""},
+		policyTableRow{"  Volume Shadow Copy:", p.OSSnapshotPolicy.VolumeShadowCopy.Enable.String(), definitionPointToString(p.Target(), def.OSSnapshotPolicy.VolumeShadowCopy.Enable)},
 	)
 
 	return rows

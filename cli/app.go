@@ -89,7 +89,7 @@ type appServices interface {
 	stdout() io.Writer
 	Stderr() io.Writer
 	stdin() io.Reader
-	onCtrlC(callback func())
+	onTerminate(callback func())
 	onRepositoryFatalError(callback func(err error))
 	enableTestOnlyFlags() bool
 	EnvName(s string) string
@@ -328,9 +328,9 @@ func NewApp() *App {
 		exitWithError: func(err error) {
 			if err != nil {
 				os.Exit(1)
-			} else {
-				os.Exit(0)
 			}
+
+			os.Exit(0)
 		},
 		stdoutWriter: colorable.NewColorableStdout(),
 		stderrWriter: colorable.NewColorableStderr(),

@@ -12,6 +12,7 @@ import (
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/format"
+	"github.com/kopia/kopia/repo/maintenance"
 )
 
 type commandRepositorySetParameters struct {
@@ -132,7 +133,7 @@ func updateRepositoryParameters(
 	if upgradeToEpochManager {
 		log(ctx).Infof("migrating current indexes to epoch format")
 
-		if err := rep.ContentManager().PrepareUpgradeToIndexBlobManagerV1(ctx, mp.EpochParameters); err != nil {
+		if err := rep.ContentManager().PrepareUpgradeToIndexBlobManagerV1(ctx); err != nil {
 			return errors.Wrap(err, "error upgrading indexes")
 		}
 	}
@@ -227,7 +228,19 @@ func (c *commandRepositorySetParameters) run(ctx context.Context, rep repo.Direc
 	requiredFeatures = c.addRemoveUpdateRequiredFeatures(requiredFeatures, &anyChange)
 
 	if !anyChange {
-		return errors.Errorf("no changes")
+		log(ctx).Info("no changes")
+		return nil
+	}
+
+	if blobcfg.IsRetentionEnabled() {
+		p, err := maintenance.GetParams(ctx, rep)
+		if err != nil {
+			return errors.Wrap(err, "unable to get current maintenance parameters")
+		}
+
+		if err := maintenance.CheckExtendRetention(ctx, blobcfg, p); err != nil {
+			return errors.Wrap(err, "unable to apply maintenance changes")
+		}
 	}
 
 	if err := updateRepositoryParameters(ctx, upgradeToEpochManager, mp, rep, blobcfg, requiredFeatures); err != nil {

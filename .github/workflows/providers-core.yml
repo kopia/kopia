@@ -1,0 +1,74 @@
+name: Providers - Core
+on:
+  push:
+    branches: [ master, test/providers ]
+    tags:
+      - v*
+  schedule:
+    # run once per day
+    - cron:  '19 7 * * *'
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'branch or git ref to use for the build'
+        required: true
+        default: 'test/providers'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  provider-test:
+    name: Core Providers Test
+    if: ${{ github.repository == 'kopia/kopia' && !github.event.pull_request.head.repo.fork }}
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check out repository
+      uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      with:
+        fetch-depth: 0
+        ref: ${{ github.event.inputs.ref_name || github.ref }}
+    - name: Set up Go
+      uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+      with:
+        go-version-file: 'go.mod'
+        check-latest: true
+      id: go
+    - name: Install Dependencies
+      run: make provider-tests-deps
+    - name: Azure
+      run: make provider-tests PROVIDER_TEST_TARGET=azure
+      env:
+        KOPIA_AZURE_TEST_CONTAINER: ${{ secrets.KOPIA_AZURE_TEST_CONTAINER }}
+        KOPIA_AZURE_TEST_STORAGE_ACCOUNT: ${{ secrets.KOPIA_AZURE_TEST_STORAGE_ACCOUNT }}
+        KOPIA_AZURE_TEST_STORAGE_KEY: ${{ secrets.KOPIA_AZURE_TEST_STORAGE_KEY }}
+        KOPIA_AZURE_TEST_SAS_TOKEN:  ${{ secrets.KOPIA_AZURE_TEST_SAS_TOKEN }}
+        KOPIA_AZURE_TEST_IMMUTABLE_CONTAINER: ${{ secrets.KOPIA_AZURE_TEST_IMMUTABLE_CONTAINER }}
+        KOPIA_AZURE_TEST_IMMUTABLE_STORAGE_ACCOUNT: ${{ secrets.KOPIA_AZURE_TEST_IMMUTABLE_STORAGE_ACCOUNT }}
+        KOPIA_AZURE_TEST_IMMUTABLE_STORAGE_KEY: ${{ secrets.KOPIA_AZURE_TEST_IMMUTABLE_STORAGE_KEY }}
+        KOPIA_AZURE_TEST_IMMUTABLE_SAS_TOKEN:  ${{ secrets.KOPIA_AZURE_TEST_IMMUTABLE_SAS_TOKEN }}
+    - name: GCS
+      run: make provider-tests PROVIDER_TEST_TARGET=gcs
+      env:
+        KOPIA_GCS_CREDENTIALS_JSON_GZIP: ${{ secrets.KOPIA_GCS_CREDENTIALS_JSON_GZIP }}
+        KOPIA_GCS_TEST_BUCKET: ${{ secrets.KOPIA_GCS_TEST_BUCKET }}
+      if: ${{ success() || failure() }}
+    - name: S3
+      run: make provider-tests PROVIDER_TEST_TARGET=s3
+      env:
+        KOPIA_S3_TEST_ENDPOINT: ${{ secrets.KOPIA_S3_TEST_ENDPOINT }}
+        KOPIA_S3_TEST_ACCESS_KEY_ID: ${{ secrets.KOPIA_S3_TEST_ACCESS_KEY_ID }}
+        KOPIA_S3_TEST_SECRET_ACCESS_KEY: ${{ secrets.KOPIA_S3_TEST_SECRET_ACCESS_KEY }}
+        KOPIA_S3_TEST_BUCKET: ${{ secrets.KOPIA_S3_TEST_BUCKET }}
+        KOPIA_S3_TEST_REGION: ${{ secrets.KOPIA_S3_TEST_REGION }}
+        KOPIA_S3_TEST_STS_ACCESS_KEY_ID: ${{ secrets.KOPIA_S3_TEST_STS_ACCESS_KEY_ID }}
+        KOPIA_S3_TEST_STS_SECRET_ACCESS_KEY: ${{ secrets.KOPIA_S3_TEST_STS_SECRET_ACCESS_KEY }}
+        KOPIA_S3_TEST_SESSION_TOKEN: ${{ secrets.KOPIA_S3_TEST_SESSION_TOKEN }}
+        KOPIA_S3_CREDS: ${{ secrets.KOPIA_S3_CREDS }}
+        KOPIA_S3_VERSIONED_CREDS: ${{ secrets.KOPIA_S3_VERSIONED_CREDS }}
+        KOPIA_S3_WASABI_CREDS: ${{ secrets.KOPIA_S3_WASABI_CREDS }}
+        KOPIA_S3_WASABI_VERSIONED_CREDS: ${{ secrets.KOPIA_S3_WASABI_VERSIONED_CREDS }}
+      if: ${{ success() || failure() }}
+    - name: SFTP
+      run: make provider-tests PROVIDER_TEST_TARGET=sftp
+      if: ${{ success() || failure() }}

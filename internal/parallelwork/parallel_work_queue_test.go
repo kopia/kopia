@@ -155,9 +155,9 @@ func TestProgressCallback(t *testing.T) {
 	close(progressUpdates)
 
 	for update := range progressUpdates {
-		require.True(t, update.enqueued >= 0)
-		require.True(t, update.active >= 0)
-		require.True(t, update.completed >= 0)
+		require.GreaterOrEqual(t, update.enqueued, int64(0))
+		require.GreaterOrEqual(t, update.active, int64(0))
+		require.GreaterOrEqual(t, update.completed, int64(0))
 	}
 }
 
@@ -179,19 +179,19 @@ func TestOnNthCompletion(t *testing.T) {
 		for i := 0; i < n-1; i++ {
 			err := onNthCompletion()
 			require.NoError(t, err)
-			require.Equal(t, callbackInvoked, 0)
+			require.Equal(t, 0, callbackInvoked)
 		}
 
 		// on n-th invocation
 		err := onNthCompletion()
 		require.Error(t, err)
 		require.ErrorIs(t, err, errCalled)
-		require.Equal(t, callbackInvoked, 1)
+		require.Equal(t, 1, callbackInvoked)
 
 		// call once again (after n-th invocation)
 		err = onNthCompletion()
 		require.NoError(t, err)
-		require.Equal(t, callbackInvoked, 1)
+		require.Equal(t, 1, callbackInvoked)
 	})
 
 	t.Run("concurrency-safe", func(t *testing.T) {
@@ -222,20 +222,25 @@ func TestOnNthCompletion(t *testing.T) {
 		close(results)
 
 		// callback must be called exactly 1 time
-		require.Equal(t, callbackInvoked.Load(), int32(1))
+		require.Equal(t, int32(1), callbackInvoked.Load())
 
-		var cnt int
+		var (
+			errCalledCount int
+			noErrorCount   int
+		)
+
 		for result := range results {
-			cnt++
-			switch cnt {
-			// n-th invocation must run and return an expected error
-			case n:
-				require.Error(t, result)
-				require.ErrorIs(t, result, errCalled)
-			// other invocations must not run and return any error
-			default:
-				require.NoError(t, result)
+			if result == nil {
+				noErrorCount++
+				continue
 			}
+
+			errCalledCount++
+
+			require.ErrorIs(t, result, errCalled)
 		}
+
+		require.Equal(t, 1, errCalledCount)
+		require.Equal(t, n, noErrorCount)
 	})
 }

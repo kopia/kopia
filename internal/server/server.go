@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"html"
 	"io"
 	"net/http"
@@ -23,6 +24,7 @@ import (
 	"github.com/kopia/kopia/internal/ctxutil"
 	"github.com/kopia/kopia/internal/mount"
 	"github.com/kopia/kopia/internal/passwordpersist"
+	"github.com/kopia/kopia/internal/scheduler"
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/internal/uitask"
 	"github.com/kopia/kopia/repo"
@@ -37,10 +39,6 @@ import (
 var log = logging.Module("kopia/server")
 
 const (
-	// maximum time between attempts to run maintenance.
-	maxMaintenanceAttemptFrequency = 4 * time.Hour
-	sleepOnMaintenanceError        = 30 * time.Minute
-
 	// retry initialization of repository starting at 1s doubling delay each time up to max 5 minutes
 	// (1s, 2s, 4s, 8s, 16s, 32s, 64s, 128s, 256s, 300s, which then stays at 300s...)
 	retryInitRepositorySleepOnError    = 1 * time.Second
@@ -63,6 +61,9 @@ type apiRequestFunc func(ctx context.Context, rc requestContext) (interface{}, *
 
 // Server exposes simple HTTP API for programmatically accessing Kopia features.
 type Server struct {
+	//nolint:containedctx
+	rootctx context.Context // +checklocksignore
+
 	OnShutdown    func(ctx context.Context) error
 	options       Options
 	authenticator auth.Authenticator
@@ -87,7 +88,7 @@ type Server struct {
 	// +checklocks:serverMutex
 	rep repo.Repository
 	// +checklocks:serverMutex
-	cancelRep context.CancelFunc // call to cancel repository
+	maint *srvMaintenance
 	// +checklocks:serverMutex
 	sourceManagers map[snapshot.SourceInfo]*sourceManager
 	// +checklocks:serverMutex
@@ -95,6 +96,15 @@ type Server struct {
 
 	taskmgr              *uitask.Manager
 	authCookieSigningKey []byte
+
+	// channel to which we can post to trigger scheduler re-evaluation.
+	schedulerRefresh chan string
+
+	// +checklocks:serverMutex
+	sched *scheduler.Scheduler
+
+	// +checklocks:serverMutex
+	nextRefreshTime time.Time
 
 	grpcServerState
 }
@@ -163,6 +173,7 @@ func (s *Server) SetupRepositoryAPIHandlers(m *mux.Router) {
 	m.HandleFunc("/api/v1/manifests/{manifestID}", s.handleRepositoryAPI(handlerWillCheckAuthorization, handleManifestDelete)).Methods(http.MethodDelete)
 	m.HandleFunc("/api/v1/manifests", s.handleRepositoryAPI(handlerWillCheckAuthorization, handleManifestCreate)).Methods(http.MethodPost)
 	m.HandleFunc("/api/v1/manifests", s.handleRepositoryAPI(handlerWillCheckAuthorization, handleManifestList)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/policies/apply-retention", s.handleRepositoryAPI(handlerWillCheckAuthorization, handleApplyRetentionPolicy)).Methods(http.MethodPost)
 }
 
 // SetupControlAPIHandlers registers control API handlers.
@@ -420,14 +431,34 @@ func (s *Server) handleRequestPossiblyNotConnected(isAuthorized isAuthorizedFunc
 	})
 }
 
+func (s *Server) refreshAsync() {
+	// prevent refresh from being runnable.
+	s.serverMutex.Lock()
+	s.nextRefreshTime = clock.Now().Add(s.options.RefreshInterval)
+	s.serverMutex.Unlock()
+
+	go s.Refresh()
+}
+
 // Refresh refreshes the state of the server in response to external signal (e.g. SIGHUP).
-func (s *Server) Refresh(ctx context.Context) error {
+func (s *Server) Refresh() {
 	s.serverMutex.Lock()
 	defer s.serverMutex.Unlock()
 
+	ctx := s.rootctx
+
+	if err := s.refreshLocked(ctx); err != nil {
+		log(s.rootctx).Warnw("refresh error", "err", err)
+	}
+}
+
+// +checklocks:s.serverMutex
+func (s *Server) refreshLocked(ctx context.Context) error {
 	if s.rep == nil {
 		return nil
 	}
+
+	s.nextRefreshTime = clock.Now().Add(s.options.RefreshInterval)
 
 	if err := s.rep.Refresh(ctx); err != nil {
 		return errors.Wrap(err, "unable to refresh repository")
@@ -447,6 +478,10 @@ func (s *Server) Refresh(ctx context.Context) error {
 
 	if err := s.syncSourcesLocked(ctx); err != nil {
 		return errors.Wrap(err, "unable to sync sources")
+	}
+
+	if s.maint != nil {
+		s.maint.refresh(ctx, false)
 	}
 
 	return nil
@@ -528,21 +563,6 @@ func (s *Server) endUpload(ctx context.Context, src snapshot.SourceInfo) {
 	s.parallelSnapshotsChanged.Signal()
 }
 
-func (s *Server) triggerRefreshSource(sourceInfo snapshot.SourceInfo) {
-	s.serverMutex.RLock()
-	defer s.serverMutex.RUnlock()
-
-	sm := s.sourceManagers[sourceInfo]
-	if sm == nil {
-		return
-	}
-
-	select {
-	case sm.refreshRequested <- struct{}{}:
-	default:
-	}
-}
-
 // SetRepository sets the repository (nil is allowed and indicates server that is not
 // connected to the repository).
 func (s *Server) SetRepository(ctx context.Context, rep repo.Repository) error {
@@ -555,22 +575,24 @@ func (s *Server) SetRepository(ctx context.Context, rep repo.Repository) error {
 	}
 
 	if s.rep != nil {
+		s.sched.Stop()
+		s.sched = nil
+
 		s.unmountAllLocked(ctx)
 
 		// close previous source managers
-		log(ctx).Infof("stopping all source managers")
+		log(ctx).Debugf("stopping all source managers")
 		s.stopAllSourceManagersLocked(ctx)
-		log(ctx).Infof("stopped all source managers")
+		log(ctx).Debugf("stopped all source managers")
 
 		if err := s.rep.Close(ctx); err != nil {
 			return errors.Wrap(err, "unable to close previous repository")
 		}
 
-		cr := s.cancelRep
-		s.cancelRep = nil
-
-		if cr != nil {
-			cr()
+		// stop maintenance manager
+		if s.maint != nil {
+			s.maint.stop(ctx)
+			s.maint = nil
 		}
 	}
 
@@ -586,85 +608,19 @@ func (s *Server) SetRepository(ctx context.Context, rep repo.Repository) error {
 		return err
 	}
 
-	ctx, s.cancelRep = context.WithCancel(ctx)
-	go s.refreshPeriodically(ctx)
-
-	if dr, ok := rep.(repo.DirectRepository); ok {
-		go s.periodicMaintenance(ctx, dr)
+	if dr, ok := s.rep.(repo.DirectRepository); ok {
+		s.maint = startMaintenanceManager(ctx, dr, s, s.options.MinMaintenanceInterval)
+	} else {
+		s.maint = nil
 	}
+
+	s.sched = scheduler.Start(ctxutil.Detach(ctx), s.getSchedulerItems, scheduler.Options{
+		TimeNow:        clock.Now,
+		Debug:          s.options.DebugScheduler,
+		RefreshChannel: s.schedulerRefresh,
+	})
 
 	return nil
-}
-
-func (s *Server) refreshPeriodically(ctx context.Context) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
-
-		case <-time.After(s.options.RefreshInterval):
-			if err := s.Refresh(ctx); err != nil {
-				log(ctx).Errorf("error refreshing repository: %v", err)
-			}
-		}
-	}
-}
-
-func (s *Server) periodicMaintenance(ctx context.Context, rep repo.DirectRepository) {
-	for {
-		now := clock.Now()
-
-		// this will return time == now or in the past if the maintenance is currently runnable
-		// by the current user.
-		nextMaintenanceTime, err := maintenance.TimeToAttemptNextMaintenance(ctx, rep, now.Add(maxMaintenanceAttemptFrequency))
-		if err != nil {
-			log(ctx).Debugw("unable to determine time till next maintenance", "error", err)
-
-			if !clock.SleepInterruptibly(ctx, sleepOnMaintenanceError) {
-				return
-			}
-
-			continue
-		}
-
-		// maintenance is not due yet, sleep interruptibly
-		if nextMaintenanceTime.After(now) {
-			log(ctx).Debugw("sleeping until next maintenance attempt", "time", nextMaintenanceTime)
-
-			if !clock.SleepInterruptibly(ctx, nextMaintenanceTime.Sub(now)) {
-				return
-			}
-
-			// we woke up after sleeping, do not run maintenance immediately, but re-check first,
-			// we may have lost ownership or parameters may have changed.
-			continue
-		}
-
-		if err := s.taskmgr.Run(ctx, "Maintenance", "Periodic maintenance", func(ctx context.Context, _ uitask.Controller) error {
-			return periodicMaintenanceOnce(ctx, rep)
-		}); err != nil {
-			log(ctx).Errorf("unable to run maintenance: %v", err)
-
-			if !clock.SleepInterruptibly(ctx, sleepOnMaintenanceError) {
-				return
-			}
-		}
-	}
-}
-
-func periodicMaintenanceOnce(ctx context.Context, rep repo.Repository) error {
-	dr, ok := rep.(repo.DirectRepository)
-	if !ok {
-		return errors.Errorf("not a direct repository")
-	}
-
-	//nolint:wrapcheck
-	return repo.DirectWriteSession(ctx, dr, repo.WriteSessionOptions{
-		Purpose: "periodicMaintenanceOnce",
-	}, func(ctx context.Context, w repo.DirectRepositoryWriter) error {
-		//nolint:wrapcheck
-		return snapshotmaintenance.Run(ctx, w, maintenance.ModeAuto, false, maintenance.SafetyFull)
-	})
 }
 
 // +checklocks:s.serverMutex
@@ -674,7 +630,7 @@ func (s *Server) stopAllSourceManagersLocked(ctx context.Context) {
 	}
 
 	for _, sm := range s.sourceManagers {
-		sm.waitUntilStopped(ctx)
+		sm.waitUntilStopped()
 	}
 
 	s.sourceManagers = map[snapshot.SourceInfo]*sourceManager{}
@@ -700,12 +656,11 @@ func (s *Server) syncSourcesLocked(ctx context.Context) error {
 			UserName: s.rep.ClientOptions().Username,
 			Host:     s.rep.ClientOptions().Hostname,
 		})
-
-		s.setMaxParallelSnapshotsLocked(userhostPol.UploadPolicy.MaxParallelSnapshots.OrDefault(1))
-
 		if err != nil {
 			return errors.Wrap(err, "unable to get user policy")
 		}
+
+		s.setMaxParallelSnapshotsLocked(userhostPol.UploadPolicy.MaxParallelSnapshots.OrDefault(1))
 
 		for _, ss := range snapshotSources {
 			sources[ss] = true
@@ -734,7 +689,7 @@ func (s *Server) syncSourcesLocked(ctx context.Context) error {
 			sm := newSourceManager(src, s, s.rep)
 			s.sourceManagers[src] = sm
 
-			sm.start(ctx, s.rep)
+			sm.start(ctx, s.isLocal(src))
 		}
 	}
 
@@ -745,9 +700,11 @@ func (s *Server) syncSourcesLocked(ctx context.Context) error {
 	}
 
 	for src, sm := range oldSourceManagers {
-		sm.waitUntilStopped(ctx)
+		sm.waitUntilStopped()
 		delete(s.sourceManagers, src)
 	}
+
+	s.refreshScheduler("sources refreshed")
 
 	return nil
 }
@@ -756,6 +713,7 @@ func (s *Server) isKnownUIRoute(path string) bool {
 	return strings.HasPrefix(path, "/snapshots") ||
 		strings.HasPrefix(path, "/policies") ||
 		strings.HasPrefix(path, "/tasks") ||
+		strings.HasPrefix(path, "/preferences") ||
 		strings.HasPrefix(path, "/repo")
 }
 
@@ -864,7 +822,10 @@ type Options struct {
 	UIPreferencesFile      string // name of the JSON file storing UI preferences
 	ServerControlUser      string // name of the user allowed to access the server control API
 	DisableCSRFTokenChecks bool
+	PersistentLogs         bool
 	UITitlePrefix          string
+	DebugScheduler         bool
+	MinMaintenanceInterval time.Duration
 }
 
 // InitRepositoryFunc is a function that attempts to connect to/open repository.
@@ -977,6 +938,39 @@ func RetryInitRepository(initialize InitRepositoryFunc) InitRepositoryFunc {
 	}
 }
 
+func (s *Server) runSnapshotTask(ctx context.Context, src snapshot.SourceInfo, inner func(ctx context.Context, ctrl uitask.Controller) error) error {
+	if !s.beginUpload(ctx, src) {
+		return nil
+	}
+
+	defer s.endUpload(ctx, src)
+
+	return errors.Wrap(s.taskmgr.Run(
+		ctx,
+		"Snapshot",
+		fmt.Sprintf("%v at %v", src, clock.Now().Format(time.RFC3339)),
+		func(ctx context.Context, ctrl uitask.Controller) error {
+			return inner(ctx, ctrl)
+		}), "snapshot task")
+}
+
+func (s *Server) runMaintenanceTask(ctx context.Context, dr repo.DirectRepository) error {
+	return errors.Wrap(s.taskmgr.Run(ctx, "Maintenance", "Periodic maintenance", func(ctx context.Context, _ uitask.Controller) error {
+		//nolint:wrapcheck
+		return repo.DirectWriteSession(ctx, dr, repo.WriteSessionOptions{
+			Purpose: "periodicMaintenance",
+		}, func(ctx context.Context, w repo.DirectRepositoryWriter) error {
+			//nolint:wrapcheck
+			return snapshotmaintenance.Run(ctx, w, maintenance.ModeAuto, false, maintenance.SafetyFull)
+		})
+	}), "unable to run maintenance")
+}
+
+// +checklocksread:s.serverMutex
+func (s *Server) isLocal(src snapshot.SourceInfo) bool {
+	return s.rep.ClientOptions().Hostname == src.Host && !s.rep.ClientOptions().ReadOnly
+}
+
 func (s *Server) getOrCreateSourceManager(ctx context.Context, src snapshot.SourceInfo) *sourceManager {
 	s.serverMutex.Lock()
 	defer s.serverMutex.Unlock()
@@ -986,8 +980,7 @@ func (s *Server) getOrCreateSourceManager(ctx context.Context, src snapshot.Sour
 		sm := newSourceManager(src, s, s.rep)
 		s.sourceManagers[src] = sm
 
-		sm.refreshStatus(ctx)
-		sm.start(ctx, s.rep)
+		sm.start(ctx, s.isLocal(src))
 	}
 
 	return s.sourceManagers[src]
@@ -1004,14 +997,14 @@ func (s *Server) deleteSourceManager(ctx context.Context, src snapshot.SourceInf
 	}
 
 	sm.stop(ctx)
-	sm.waitUntilStopped(ctx)
+	sm.waitUntilStopped()
 
 	return true
 }
 
-func (s *Server) allSourceManagers() map[snapshot.SourceInfo]*sourceManager {
-	s.serverMutex.Lock()
-	defer s.serverMutex.Unlock()
+func (s *Server) snapshotAllSourceManagers() map[snapshot.SourceInfo]*sourceManager {
+	s.serverMutex.RLock()
+	defer s.serverMutex.RUnlock()
 
 	result := map[snapshot.SourceInfo]*sourceManager{}
 
@@ -1020,6 +1013,58 @@ func (s *Server) allSourceManagers() map[snapshot.SourceInfo]*sourceManager {
 	}
 
 	return result
+}
+
+func (s *Server) getSchedulerItems(ctx context.Context, now time.Time) []scheduler.Item {
+	s.serverMutex.RLock()
+	defer s.serverMutex.RUnlock()
+
+	var result []scheduler.Item
+
+	// add a scheduled item to refresh all sources and policies
+	result = append(result, scheduler.Item{
+		Description: "refresh",
+		Trigger:     s.refreshAsync,
+		NextTime:    s.nextRefreshTime,
+	})
+
+	if s.maint != nil {
+		// If we have a direct repository, add an item to run maintenance.
+		// If we're the owner then nextMaintenanceTime will be zero.
+		if nextMaintenanceTime := s.maint.nextMaintenanceTime(); !nextMaintenanceTime.IsZero() {
+			result = append(result, scheduler.Item{
+				Description: "maintenance",
+				Trigger:     s.maint.trigger,
+				NextTime:    nextMaintenanceTime,
+			})
+		}
+	}
+
+	// add next snapshot time for all local sources
+	for _, sm := range s.sourceManagers {
+		if !s.isLocal(sm.src) {
+			continue
+		}
+
+		if nst, ok := sm.getNextSnapshotTime(); ok {
+			result = append(result, scheduler.Item{
+				Description: fmt.Sprintf("snapshot %q", sm.src.Path),
+				Trigger:     sm.scheduleSnapshotNow,
+				NextTime:    nst,
+			})
+		} else {
+			log(ctx).Debugf("no snapshot scheduled for %v %v %v", sm.src, nst, now)
+		}
+	}
+
+	return result
+}
+
+func (s *Server) refreshScheduler(reason string) {
+	select {
+	case s.schedulerRefresh <- reason:
+	default:
+	}
 }
 
 // New creates a Server.
@@ -1036,19 +1081,21 @@ func New(ctx context.Context, options *Options) (*Server, error) {
 	if options.AuthCookieSigningKey == "" {
 		// generate random signing key
 		options.AuthCookieSigningKey = uuid.New().String()
-		log(ctx).Debugf("generated random auth cookie signing key: %v", options.AuthCookieSigningKey)
 	}
 
 	s := &Server{
+		rootctx:              ctx,
 		options:              *options,
 		sourceManagers:       map[snapshot.SourceInfo]*sourceManager{},
 		maxParallelSnapshots: 1,
 		grpcServerState:      makeGRPCServerState(options.MaxConcurrency),
 		authenticator:        options.Authenticator,
 		authorizer:           options.Authorizer,
-		taskmgr:              uitask.NewManager(),
+		taskmgr:              uitask.NewManager(options.PersistentLogs),
 		mounts:               map[object.ID]mount.Controller{},
 		authCookieSigningKey: []byte(options.AuthCookieSigningKey),
+		nextRefreshTime:      clock.Now().Add(options.RefreshInterval),
+		schedulerRefresh:     make(chan string, 1),
 	}
 
 	s.parallelSnapshotsChanged = sync.NewCond(&s.parallelSnapshotsMutex)

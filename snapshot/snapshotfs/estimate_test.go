@@ -39,9 +39,9 @@ func (p *fakeProgress) Stats(
 		return
 	}
 
-	assert.Equal(p.t, s.ErrorCount, p.expectedErrors)
-	assert.Equal(p.t, s.TotalFileCount, p.expectedFiles)
-	assert.Equal(p.t, s.TotalDirectoryCount, p.expectedDirectories)
+	assert.Equal(p.t, p.expectedErrors, s.ErrorCount)
+	assert.Equal(p.t, p.expectedFiles, s.TotalFileCount)
+	assert.Equal(p.t, p.expectedDirectories, s.TotalDirectoryCount)
 }
 
 func TestEstimate_SkipsStreamingDirectory(t *testing.T) {
@@ -50,9 +50,7 @@ func TestEstimate_SkipsStreamingDirectory(t *testing.T) {
 	rootDir := virtualfs.NewStaticDirectory("root", []fs.Entry{
 		virtualfs.NewStreamingDirectory(
 			"a-dir",
-			func(ctx context.Context, callback func(context.Context, fs.Entry) error) error {
-				return callback(ctx, f)
-			},
+			fs.StaticIterator([]fs.Entry{f}, nil),
 		),
 	})
 

@@ -49,6 +49,13 @@ func (v *Verifier) ShowStats(ctx context.Context) {
 	verifierLog(ctx).Infof("Processed %v objects.", processed)
 }
 
+// ShowFinalStats logs final verification statistics.
+func (v *Verifier) ShowFinalStats(ctx context.Context) {
+	processed := v.processed.Load()
+
+	verifierLog(ctx).Infof("Finished processing %v objects.", processed)
+}
+
 // VerifyFile verifies a single file object (using content check, blob map check or full read).
 func (v *Verifier) VerifyFile(ctx context.Context, oid object.ID, entryPath string) error {
 	verifierLog(ctx).Debugf("verifying object %v", oid)

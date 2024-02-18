@@ -354,7 +354,7 @@ func (s *contentManagerSuite) TestContentManagerFailedToWritePack(t *testing.T) 
 	faulty := blobtesting.NewFaultyStorage(st)
 	st = faulty
 
-	ta := faketime.NewTimeAdvance(fakeTime, 0)
+	ta := faketime.NewTimeAdvance(fakeTime)
 
 	bm, err := NewManagerForTesting(testlogging.Context(t), st, mustCreateFormatProvider(t, &format.ContentFormat{
 		Hash:              "HMAC-SHA256-128",
@@ -970,7 +970,7 @@ func (s *contentManagerSuite) TestDeleteAfterUndelete(t *testing.T) {
 		t.Fatal("error while flushing:", err)
 	}
 
-	c2Want = withDeleted{c2Want, true}
+	c2Want = withDeleted(c2Want)
 	deleteContentAfterUndeleteAndCheck(ctx, t, bm, content2, c2Want)
 }
 
@@ -983,7 +983,7 @@ func deleteContentAfterUndeleteAndCheck(ctx context.Context, t *testing.T, bm *W
 		t.Fatalf("Expected content %q to be deleted, got: %#v", id, got)
 	}
 
-	if diff := indextest.InfoDiff(want, got, "GetTimestampSeconds"); len(diff) != 0 {
+	if diff := indextest.InfoDiff(want, got, "GetTimestampSeconds", "Timestamp"); len(diff) != 0 {
 		t.Fatalf("Content %q info does not match\ndiff: %v", id, diff)
 	}
 
@@ -2094,7 +2094,7 @@ func (s *contentManagerSuite) TestCompression_NonCompressibleData(t *testing.T) 
 	require.NoError(t, err)
 
 	// verify compression did not occur
-	require.True(t, ci.GetPackedLength() > ci.GetOriginalLength())
+	require.Greater(t, ci.GetPackedLength(), ci.GetOriginalLength())
 	require.Equal(t, uint32(len(nonCompressibleData)), ci.GetOriginalLength())
 	require.Equal(t, NoCompression, ci.GetCompressionHeaderID())
 
@@ -2114,9 +2114,9 @@ func (s *contentManagerSuite) TestContentCachingByFormat(t *testing.T) {
 
 	// create two managers sharing cache directory
 	co := CachingOptions{
-		CacheDirectory:            cd,
-		MaxCacheSizeBytes:         100e6,
-		MaxMetadataCacheSizeBytes: 100e6,
+		CacheDirectory:         cd,
+		ContentCacheSizeBytes:  100e6,
+		MetadataCacheSizeBytes: 100e6,
 	}
 
 	compressibleData := gather.FromSlice(bytes.Repeat([]byte{1, 2, 3, 4}, 10000))
@@ -2164,9 +2164,9 @@ func (s *contentManagerSuite) TestPrefetchContent(t *testing.T) {
 	cd := testutil.TempDirectory(t)
 	bm := s.newTestContentManagerWithTweaks(t, st, &contentManagerTestTweaks{
 		CachingOptions: CachingOptions{
-			CacheDirectory:            cd,
-			MaxCacheSizeBytes:         100e6,
-			MaxMetadataCacheSizeBytes: 100e6,
+			CacheDirectory:         cd,
+			ContentCacheSizeBytes:  100e6,
+			MetadataCacheSizeBytes: 100e6,
 		},
 		maxPackSize: 20e6,
 	})
@@ -2673,13 +2673,10 @@ func verifyBlobCount(t *testing.T, data blobtesting.DataMap, want map[blob.ID]in
 	}
 }
 
-type withDeleted struct {
-	index.Info
-	deleted bool
-}
+func withDeleted(i Info) Info {
+	i.Deleted = true
 
-func (o withDeleted) GetDeleted() bool {
-	return o.deleted
+	return i
 }
 
 var (

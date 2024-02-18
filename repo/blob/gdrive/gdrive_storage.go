@@ -45,6 +45,7 @@ var log = logging.Module("gdrive")
 
 type gdriveStorage struct {
 	Options
+	blob.DefaultProviderImplementation
 
 	client      *drive.FilesService
 	about       *drive.AboutService
@@ -325,10 +326,6 @@ func (gdrive *gdriveStorage) DisplayName() string {
 	return fmt.Sprintf("Google Drive: %v", gdrive.folderID)
 }
 
-func (gdrive *gdriveStorage) Close(ctx context.Context) error {
-	return nil
-}
-
 func (gdrive *gdriveStorage) FlushCaches(ctx context.Context) error {
 	gdrive.fileIDCache.Clear()
 	return nil
@@ -541,6 +538,8 @@ func CreateDriveService(ctx context.Context, opt *Options) (*drive.Service, erro
 // By default the connection reuses credentials managed by (https://cloud.google.com/sdk/),
 // but this can be disabled by setting IgnoreDefaultCredentials to true.
 func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error) {
+	_ = isCreate
+
 	if opt.FolderID == "" {
 		return nil, errors.New("folder-id must be specified")
 	}

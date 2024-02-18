@@ -33,7 +33,7 @@ func (f *testFile) ModTime() time.Time          { return f.modtime }
 func (f *testFile) Sys() interface{}            { return nil }
 func (f *testFile) Owner() fs.OwnerInfo         { return fs.OwnerInfo{UserID: 1000, GroupID: 1000} }
 func (f *testFile) Device() fs.DeviceInfo       { return fs.DeviceInfo{Dev: 1} }
-func (f *testFile) Open(_ context.Context) (io.Reader, error) {
+func (f *testFile) Open(ctx context.Context) (io.Reader, error) {
 	return strings.NewReader(f.content), nil
 }
 
@@ -45,16 +45,10 @@ type testDirectory struct {
 	modtime time.Time
 }
 
-func (d *testDirectory) IterateEntries(ctx context.Context, cb func(context.Context, fs.Entry) error) error {
-	for _, file := range d.files {
-		err := cb(ctx, file)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+func (d *testDirectory) Iterate(ctx context.Context) (fs.DirectoryIterator, error) {
+	return fs.StaticIterator(d.files, nil), nil
 }
+
 func (d *testDirectory) SupportsMultipleIterations() bool { return false }
 func (d *testDirectory) IsDir() bool                      { return true }
 func (d *testDirectory) LocalFilesystemPath() string      { return d.name }
@@ -66,7 +60,7 @@ func (d *testDirectory) ModTime() time.Time               { return d.modtime }
 func (d *testDirectory) Sys() interface{}                 { return nil }
 func (d *testDirectory) Owner() fs.OwnerInfo              { return fs.OwnerInfo{UserID: 1000, GroupID: 1000} }
 func (d *testDirectory) Device() fs.DeviceInfo            { return fs.DeviceInfo{Dev: 1} }
-func (d *testDirectory) Child(_ context.Context, name string) (fs.Entry, error) {
+func (d *testDirectory) Child(ctx context.Context, name string) (fs.Entry, error) {
 	for _, f := range d.files {
 		if f.Name() == name {
 			return f, nil
@@ -75,7 +69,7 @@ func (d *testDirectory) Child(_ context.Context, name string) (fs.Entry, error) 
 
 	return nil, fs.ErrEntryNotFound
 }
-func (d *testDirectory) Readdir(_ context.Context) ([]fs.Entry, error) { return d.files, nil }
+func (d *testDirectory) Readdir(ctx context.Context) ([]fs.Entry, error) { return d.files, nil }
 
 func TestCompareEmptyDirectories(t *testing.T) {
 	var buf bytes.Buffer
@@ -163,7 +157,7 @@ func TestCompareDifferentDirectories(t *testing.T) {
 
 	err = c.Compare(ctx, dir1, dir2)
 	require.NoError(t, err)
-	require.Equal(t, buf.String(), expectedOutput)
+	require.Equal(t, expectedOutput, buf.String())
 }
 
 func TestCompareDifferentDirectories_DirTimeDiff(t *testing.T) {
@@ -197,7 +191,7 @@ func TestCompareDifferentDirectories_DirTimeDiff(t *testing.T) {
 	expectedOutput := ". modification times differ:  2023-04-12 10:30:00 +0000 UTC 2022-04-12 10:30:00 +0000 UTC\n"
 	err = c.Compare(ctx, dir1, dir2)
 	require.NoError(t, err)
-	require.Equal(t, buf.String(), expectedOutput)
+	require.Equal(t, expectedOutput, buf.String())
 }
 
 func TestCompareDifferentDirectories_FileTimeDiff(t *testing.T) {
@@ -230,7 +224,7 @@ func TestCompareDifferentDirectories_FileTimeDiff(t *testing.T) {
 
 	err = c.Compare(ctx, dir1, dir2)
 	require.NoError(t, err)
-	require.Equal(t, buf.String(), expectedOutput)
+	require.Equal(t, expectedOutput, buf.String())
 }
 
 func createTestDirectory(name string, modtime time.Time, files ...fs.Entry) *testDirectory {

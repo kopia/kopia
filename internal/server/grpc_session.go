@@ -26,6 +26,8 @@ import (
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/repo/object"
+	"github.com/kopia/kopia/snapshot"
+	"github.com/kopia/kopia/snapshot/policy"
 )
 
 type grpcServerState struct {
@@ -82,12 +84,12 @@ func (s *Server) Session(srv grpcapi.KopiaRepository_SessionServer) error {
 		return status.Errorf(codes.Unavailable, "not connected to a direct repository")
 	}
 
-	username, err := s.authenticateGRPCSession(ctx, dr)
+	usernameAtHostname, err := s.authenticateGRPCSession(ctx, dr)
 	if err != nil {
 		return err
 	}
 
-	authz := s.authorizer.Authorize(ctx, dr, username)
+	authz := s.authorizer.Authorize(ctx, dr, usernameAtHostname)
 	if authz == nil {
 		authz = auth.NoAccess()
 	}
@@ -97,8 +99,8 @@ func (s *Server) Session(srv grpcapi.KopiaRepository_SessionServer) error {
 		return status.Errorf(codes.PermissionDenied, "peer not found in context")
 	}
 
-	log(ctx).Infof("starting session for user %q from %v", username, p.Addr)
-	defer log(ctx).Infof("session ended for user %q from %v", username, p.Addr)
+	log(ctx).Infof("starting session for user %q from %v", usernameAtHostname, p.Addr)
+	defer log(ctx).Infof("session ended for user %q from %v", usernameAtHostname, p.Addr)
 
 	opt, err := s.handleInitialSessionHandshake(srv, dr)
 	if err != nil {
@@ -131,8 +133,8 @@ func (s *Server) Session(srv grpcapi.KopiaRepository_SessionServer) error {
 			go func() {
 				defer s.grpcServerState.sem.Release(1)
 
-				handleSessionRequest(ctx, dw, authz, req, func(resp *grpcapi.SessionResponse) {
-					if err := s.send(srv, req.RequestId, resp); err != nil {
+				handleSessionRequest(ctx, dw, authz, usernameAtHostname, req, func(resp *grpcapi.SessionResponse) {
+					if err := s.send(srv, req.GetRequestId(), resp); err != nil {
 						select {
 						case lastErr <- err:
 						default:
@@ -148,10 +150,10 @@ func (s *Server) Session(srv grpcapi.KopiaRepository_SessionServer) error {
 
 var tracer = otel.Tracer("kopia/grpc")
 
-func handleSessionRequest(ctx context.Context, dw repo.DirectRepositoryWriter, authz auth.AuthorizationInfo, req *grpcapi.SessionRequest, respond func(*grpcapi.SessionResponse)) {
-	if req.TraceContext != nil {
+func handleSessionRequest(ctx context.Context, dw repo.DirectRepositoryWriter, authz auth.AuthorizationInfo, usernameAtHostname string, req *grpcapi.SessionRequest, respond func(*grpcapi.SessionResponse)) {
+	if req.GetTraceContext() != nil {
 		var tc propagation.TraceContext
-		ctx = tc.Extract(ctx, propagation.MapCarrier(req.TraceContext))
+		ctx = tc.Extract(ctx, propagation.MapCarrier(req.GetTraceContext()))
 	}
 
 	switch inner := req.GetRequest().(type) {
@@ -181,6 +183,9 @@ func handleSessionRequest(ctx context.Context, dw repo.DirectRepositoryWriter, a
 
 	case *grpcapi.SessionRequest_PrefetchContents:
 		respond(handlePrefetchContentsRequest(ctx, dw, authz, inner.PrefetchContents))
+
+	case *grpcapi.SessionRequest_ApplyRetentionPolicy:
+		respond(handleApplyRetentionPolicyRequest(ctx, dw, authz, usernameAtHostname, inner.ApplyRetentionPolicy))
 
 	case *grpcapi.SessionRequest_InitializeSession:
 		respond(errorResponse(errors.Errorf("InitializeSession must be the first request in a session")))
@@ -424,17 +429,58 @@ func handlePrefetchContentsRequest(ctx context.Context, rep repo.Repository, aut
 		return accessDeniedResponse()
 	}
 
-	contentIDs, err := content.IDsFromStrings(req.ContentIds)
+	contentIDs, err := content.IDsFromStrings(req.GetContentIds())
 	if err != nil {
 		return errorResponse(err)
 	}
 
-	cids := rep.PrefetchContents(ctx, contentIDs, req.Hint)
+	cids := rep.PrefetchContents(ctx, contentIDs, req.GetHint())
 
 	return &grpcapi.SessionResponse{
 		Response: &grpcapi.SessionResponse_PrefetchContents{
 			PrefetchContents: &grpcapi.PrefetchContentsResponse{
 				ContentIds: content.IDsToStrings(cids),
+			},
+		},
+	}
+}
+
+func handleApplyRetentionPolicyRequest(ctx context.Context, rep repo.RepositoryWriter, authz auth.AuthorizationInfo, usernameAtHostname string, req *grpcapi.ApplyRetentionPolicyRequest) *grpcapi.SessionResponse {
+	ctx, span := tracer.Start(ctx, "GRPCSession.ApplyRetentionPolicy")
+	defer span.End()
+
+	parts := strings.Split(usernameAtHostname, "@")
+	if len(parts) != 2 { //nolint:gomnd
+		return errorResponse(errors.Errorf("invalid username@hostname: %q", usernameAtHostname))
+	}
+
+	username := parts[0]
+	hostname := parts[1]
+
+	// only allow users to apply retention policy if they have permission to add snapshots
+	// for a particular path.
+	if authz.ManifestAccessLevel(map[string]string{
+		manifest.TypeLabelKey:  snapshot.ManifestType,
+		snapshot.UsernameLabel: username,
+		snapshot.HostnameLabel: hostname,
+		snapshot.PathLabel:     req.GetSourcePath(),
+	}) < auth.AccessLevelAppend {
+		return accessDeniedResponse()
+	}
+
+	manifestIDs, err := policy.ApplyRetentionPolicy(ctx, rep, snapshot.SourceInfo{
+		Host:     hostname,
+		UserName: username,
+		Path:     req.GetSourcePath(),
+	}, req.GetReallyDelete())
+	if err != nil {
+		return errorResponse(err)
+	}
+
+	return &grpcapi.SessionResponse{
+		Response: &grpcapi.SessionResponse_ApplyRetentionPolicy{
+			ApplyRetentionPolicy: &grpcapi.ApplyRetentionPolicyResponse{
+				ManifestIds: manifest.IDsToStrings(manifestIDs),
 			},
 		},
 	}

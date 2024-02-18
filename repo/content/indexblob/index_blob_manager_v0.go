@@ -144,7 +144,7 @@ func (m *ManagerV0) ListActiveIndexBlobs(ctx context.Context) ([]Metadata, time.
 }
 
 // Invalidate invalidates any caches.
-func (m *ManagerV0) Invalidate(ctx context.Context) {
+func (m *ManagerV0) Invalidate() {
 }
 
 // Compact performs compaction of index blobs by merging smaller ones into larger
@@ -564,8 +564,8 @@ func addIndexBlobsToBuilder(ctx context.Context, enc *EncryptionManager, bld ind
 		return errors.Wrapf(err, "unable to open index blob %q", indexBlobID)
 	}
 
-	_ = ndx.Iterate(index.AllIDs, func(i index.Info) error {
-		bld.Add(i)
+	_ = ndx.Iterate(index.AllIDs, func(i index.InfoReader) error {
+		bld.Add(index.ToInfoStruct(i))
 		return nil
 	})
 

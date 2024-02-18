@@ -66,11 +66,11 @@ type cliProgress struct {
 	progressFlags
 }
 
-func (p *cliProgress) HashingFile(fname string) {
+func (p *cliProgress) HashingFile(_ string) {
 	p.inProgressHashing.Add(1)
 }
 
-func (p *cliProgress) FinishedHashingFile(fname string, totalSize int64) {
+func (p *cliProgress) FinishedHashingFile(_ string, _ int64) {
 	p.hashedFiles.Add(1)
 	p.inProgressHashing.Add(-1)
 	p.maybeOutput()
@@ -94,11 +94,11 @@ func (p *cliProgress) Error(path string, err error, isIgnored bool) {
 		p.output(warningColor, fmt.Sprintf("Ignored error when processing \"%v\": %v\n", path, err))
 	} else {
 		p.fatalErrorCount.Add(1)
-		p.output(warningColor, fmt.Sprintf("Error when processing \"%v\": %v\n", path, err))
+		p.output(errorColor, fmt.Sprintf("Error when processing \"%v\": %v\n", path, err))
 	}
 }
 
-func (p *cliProgress) CachedFile(fname string, numBytes int64) {
+func (p *cliProgress) CachedFile(_ string, numBytes int64) {
 	p.cachedBytes.Add(numBytes)
 	p.cachedFiles.Add(1)
 	p.maybeOutput()

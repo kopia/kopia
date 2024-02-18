@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/kopia/kopia/internal/blobcrypto"
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/faketime"
@@ -71,8 +72,8 @@ func TestIndexBlobManager(t *testing.T) {
 			// fake underlying blob store with fake time
 			storageData := blobtesting.DataMap{}
 
-			fakeLocalTime := faketime.NewTimeAdvance(fakeLocalStartTime, 0)
-			fakeStorageTime := faketime.NewTimeAdvance(fakeStoreStartTime, 0)
+			fakeLocalTime := faketime.NewTimeAdvance(fakeLocalStartTime)
+			fakeStorageTime := faketime.NewTimeAdvance(fakeStoreStartTime)
 
 			st := blobtesting.NewMapStorage(storageData, nil, fakeStorageTime.NowFunc())
 			st = blobtesting.NewEventuallyConsistentStorage(st, testEventualConsistencySettleTime, fakeStorageTime.NowFunc())
@@ -280,7 +281,7 @@ func TestIndexBlobManagerPreventsResurrectOfDeletedContents(t *testing.T) {
 func TestCompactionCreatesPreviousIndex(t *testing.T) {
 	storageData := blobtesting.DataMap{}
 
-	fakeTime := faketime.NewTimeAdvance(fakeLocalStartTime, 0)
+	fakeTime := faketime.NewTimeAdvance(fakeLocalStartTime)
 	fakeTimeFunc := fakeTime.NowFunc()
 
 	st := blobtesting.NewMapStorage(storageData, nil, fakeTimeFunc)
@@ -358,7 +359,7 @@ func verifyIndexBlobManagerPreventsResurrectOfDeletedContents(t *testing.T, dela
 
 	storageData := blobtesting.DataMap{}
 
-	fakeTime := faketime.NewTimeAdvance(fakeLocalStartTime, 0)
+	fakeTime := faketime.NewTimeAdvance(fakeLocalStartTime)
 	fakeTimeFunc := fakeTime.NowFunc()
 
 	st := blobtesting.NewMapStorage(storageData, nil, fakeTimeFunc)
@@ -788,7 +789,7 @@ func newIndexBlobManagerForTesting(t *testing.T, st blob.Storage, localTimeNow f
 		enc: &EncryptionManager{
 			st:             st,
 			indexBlobCache: nil,
-			crypter:        staticCrypter{hf, enc},
+			crypter:        blobcrypto.StaticCrypter{Hash: hf, Encryption: enc},
 			log:            log,
 		},
 		timeNow: localTimeNow,

@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/blob"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
@@ -40,6 +41,10 @@ var ErrUnsupportedPutBlobOption = errors.New("unsupported put-blob option")
 // implementation that does not support the intended functionality.
 var ErrNotAVolume = errors.New("unsupported method, storage is not a volume")
 
+// ErrUnsupportedObjectLock is returned when attempting to use an Object Lock specific
+// function on a storage implementation that does not have the intended functionality.
+var ErrUnsupportedObjectLock = errors.New("object locking unsupported")
+
 // Bytes encapsulates a sequence of bytes, possibly stored in a non-contiguous buffers,
 // which can be written sequentially or treated as a io.Reader.
 type Bytes interface {
@@ -67,7 +72,7 @@ type Capacity struct {
 
 // Volume defines disk/volume access API to blob storage.
 type Volume interface {
-	// Capacity returns the capacity of a given volume.
+	// GetCapacity returns the capacity of a given volume.
 	GetCapacity(ctx context.Context) (Capacity, error)
 }
 
@@ -90,7 +95,7 @@ type Reader interface {
 	// connect to storage.
 	ConnectionInfo() ConnectionInfo
 
-	// Name of the storage used for quick identification by humans.
+	// DisplayName Name of the storage used for quick identification by humans.
 	DisplayName() string
 }
 
@@ -103,6 +108,9 @@ const (
 
 	// Compliance - compliance mode.
 	Compliance RetentionMode = "COMPLIANCE"
+
+	// Locked - Locked policy mode for Azure.
+	Locked RetentionMode = RetentionMode(blob.ImmutabilityPolicyModeLocked)
 )
 
 func (r RetentionMode) String() string {
@@ -126,6 +134,45 @@ type PutOptions struct {
 	// if unsupported by the server return ErrSetTimeUnsupported
 	SetModTime time.Time
 	GetModTime *time.Time // if != nil, populate the value pointed at with the actual modification time
+}
+
+// ExtendOptions represents retention options for extending object locks.
+type ExtendOptions struct {
+	RetentionMode   RetentionMode
+	RetentionPeriod time.Duration
+}
+
+// DefaultProviderImplementation provides a default implementation for
+// common functions that are mostly provider independent and have a sensible
+// default.
+//
+// Storage providers should embed this struct and override functions that they
+// have different return values for.
+type DefaultProviderImplementation struct{}
+
+// ExtendBlobRetention provides a common implementation for unsupported blob retention storage.
+func (s DefaultProviderImplementation) ExtendBlobRetention(context.Context, ID, ExtendOptions) error {
+	return ErrUnsupportedObjectLock
+}
+
+// IsReadOnly complies with the Storage interface.
+func (s DefaultProviderImplementation) IsReadOnly() bool {
+	return false
+}
+
+// Close complies with the Storage interface.
+func (s DefaultProviderImplementation) Close(context.Context) error {
+	return nil
+}
+
+// FlushCaches complies with the Storage interface.
+func (s DefaultProviderImplementation) FlushCaches(context.Context) error {
+	return nil
+}
+
+// GetCapacity complies with the Storage interface.
+func (s DefaultProviderImplementation) GetCapacity(context.Context) (Capacity, error) {
+	return Capacity{}, ErrNotAVolume
 }
 
 // HasRetentionOptions returns true when blob-retention settings have been
@@ -161,6 +208,13 @@ type Storage interface {
 
 	// FlushCaches flushes any local caches associated with storage.
 	FlushCaches(ctx context.Context) error
+
+	// ExtendBlobRetention extends the retention time of a blob (when blob retention is enabled)
+	ExtendBlobRetention(ctx context.Context, blobID ID, opts ExtendOptions) error
+
+	// IsReadOnly returns whether this Storage is in read-only mode. When in
+	// read-only mode all mutation operations will fail.
+	IsReadOnly() bool
 }
 
 // ID is a string that represents blob identifier.

@@ -68,16 +68,19 @@ func (c *commandSnapshotMigrate) run(ctx context.Context, destRepo repo.Reposito
 
 	c.svc.getProgress().StartShared()
 
-	c.svc.onCtrlC(func() {
+	c.svc.onTerminate(func() {
 		mu.Lock()
 		defer mu.Unlock()
 
-		if !canceled {
-			canceled = true
-			for s, u := range activeUploaders {
-				log(ctx).Infof("canceling active uploader for %v", s)
-				u.Cancel()
-			}
+		if canceled {
+			return
+		}
+
+		canceled = true
+
+		for s, u := range activeUploaders {
+			log(ctx).Infof("canceling active uploader for %v", s)
+			u.Cancel()
 		}
 	})
 

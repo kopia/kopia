@@ -36,15 +36,16 @@ type TaskType string
 
 // Task IDs.
 const (
-	TaskSnapshotGarbageCollection = "snapshot-gc"
-	TaskDeleteOrphanedBlobsQuick  = "quick-delete-blobs"
-	TaskDeleteOrphanedBlobsFull   = "full-delete-blobs"
-	TaskRewriteContentsQuick      = "quick-rewrite-contents"
-	TaskRewriteContentsFull       = "full-rewrite-contents"
-	TaskDropDeletedContentsFull   = "full-drop-deleted-content"
-	TaskIndexCompaction           = "index-compaction"
-	TaskCleanupLogs               = "cleanup-logs"
-	TaskCleanupEpochManager       = "cleanup-epoch-manager"
+	TaskSnapshotGarbageCollection   = "snapshot-gc"
+	TaskDeleteOrphanedBlobsQuick    = "quick-delete-blobs"
+	TaskDeleteOrphanedBlobsFull     = "full-delete-blobs"
+	TaskRewriteContentsQuick        = "quick-rewrite-contents"
+	TaskRewriteContentsFull         = "full-rewrite-contents"
+	TaskDropDeletedContentsFull     = "full-drop-deleted-content"
+	TaskIndexCompaction             = "index-compaction"
+	TaskExtendBlobRetentionTimeFull = "extend-blob-retention-time"
+	TaskCleanupLogs                 = "cleanup-logs"
+	TaskCleanupEpochManager         = "cleanup-epoch-manager"
 )
 
 // shouldRun returns Mode if repository is due for periodic maintenance.
@@ -298,6 +299,7 @@ func runQuickMaintenance(ctx context.Context, runParams RunParameters, safety Sa
 		return errors.Wrap(err, "error performing index compaction")
 	}
 
+	// clean up logs last
 	if err := runTaskCleanupLogs(ctx, runParams, s); err != nil {
 		return errors.Wrap(err, "error cleaning up logs")
 	}
@@ -400,6 +402,13 @@ func runTaskDeleteOrphanedBlobsQuick(ctx context.Context, runParams RunParameter
 	})
 }
 
+func runTaskExtendBlobRetentionTimeFull(ctx context.Context, runParams RunParameters, s *Schedule) error {
+	return ReportRun(ctx, runParams.rep, TaskExtendBlobRetentionTimeFull, s, func() error {
+		_, err := ExtendBlobRetentionTime(ctx, runParams.rep, ExtendBlobRetentionTimeOptions{})
+		return err
+	})
+}
+
 func runFullMaintenance(ctx context.Context, runParams RunParameters, safety SafetyParameters) error {
 	s, err := GetSchedule(ctx, runParams.rep)
 	if err != nil {
@@ -431,12 +440,22 @@ func runFullMaintenance(ctx context.Context, runParams RunParameters, safety Saf
 		notDeletingOrphanedBlobs(ctx, s, safety)
 	}
 
-	if err := runTaskCleanupLogs(ctx, runParams, s); err != nil {
-		return errors.Wrap(err, "error cleaning up logs")
+	// extend retention-time on supported storage.
+	if runParams.Params.ExtendObjectLocks {
+		if err := runTaskExtendBlobRetentionTimeFull(ctx, runParams, s); err != nil {
+			return errors.Wrap(err, "error extending object lock retention time")
+		}
+	} else {
+		log(ctx).Debug("Extending object lock retention-period is disabled.")
 	}
 
 	if err := runTaskCleanupEpochManager(ctx, runParams, s); err != nil {
 		return errors.Wrap(err, "error cleaning up epoch manager")
+	}
+
+	// clean up logs last
+	if err := runTaskCleanupLogs(ctx, runParams, s); err != nil {
+		return errors.Wrap(err, "error cleaning up logs")
 	}
 
 	return nil

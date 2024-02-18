@@ -36,7 +36,7 @@ type webdavFile struct {
 	r fs.Reader
 }
 
-func (f *webdavFile) Readdir(n int) ([]os.FileInfo, error) {
+func (f *webdavFile) Readdir(_ int) ([]os.FileInfo, error) {
 	return nil, errors.New("not a directory")
 }
 
@@ -80,7 +80,7 @@ func (f *webdavFile) Seek(offset int64, whence int) (int64, error) {
 	return r.Seek(offset, whence)
 }
 
-func (f *webdavFile) Write(b []byte) (int, error) {
+func (f *webdavFile) Write(_ []byte) (int, error) {
 	return 0, errors.New("read-only filesystem")
 }
 
@@ -102,38 +102,40 @@ type webdavDir struct {
 	// webdavDir implements webdav.File but needs context
 	ctx context.Context //nolint:containedctx
 
-	w     *webdavFS
-	entry fs.Directory
+	w    *webdavFS
+	info os.FileInfo
+	iter fs.DirectoryIterator
 }
 
 //nolint:gochecknoglobals
 var symlinksAreUnsupportedLogged = new(int32)
 
-// TODO: (bug) This incorrectly truncates the entries in the directory and does not allow pagination.
 func (d *webdavDir) Readdir(n int) ([]os.FileInfo, error) {
+	ctx := d.ctx
+
 	var fis []os.FileInfo
 
 	foundEntries := 0
 
-	err := d.entry.IterateEntries(d.ctx, func(innerCtx context.Context, e fs.Entry) error {
-		if n > 0 && n <= foundEntries {
-			return nil
+	e, err := d.iter.Next(ctx)
+	for e != nil {
+		if n > 0 && foundEntries >= n {
+			break
 		}
 
 		foundEntries++
 
 		if _, isSymlink := e.(fs.Symlink); isSymlink {
 			if atomic.AddInt32(symlinksAreUnsupportedLogged, 1) == 1 {
-				//nolint:contextcheck
 				log(d.ctx).Errorf("Mounting directories containing symbolic links using WebDAV is not supported. The link entries will be skipped.")
 			}
-
-			return nil
+		} else {
+			fis = append(fis, &webdavFileInfo{e})
 		}
 
-		fis = append(fis, &webdavFileInfo{e})
-		return nil
-	})
+		e, err = d.iter.Next(ctx)
+	}
+
 	if err != nil {
 		return nil, errors.Wrap(err, "error reading directory")
 	}
@@ -142,18 +144,19 @@ func (d *webdavDir) Readdir(n int) ([]os.FileInfo, error) {
 }
 
 func (d *webdavDir) Stat() (os.FileInfo, error) {
-	return webdavFileInfo{d.entry}, nil
+	return d.info, nil
 }
 
-func (d *webdavDir) Write(b []byte) (int, error) {
+func (d *webdavDir) Write(_ []byte) (int, error) {
 	return 0, errors.New("read-only filesystem")
 }
 
 func (d *webdavDir) Close() error {
+	d.iter.Close()
 	return nil
 }
 
-func (d *webdavDir) Read(b []byte) (int, error) {
+func (d *webdavDir) Read(_ []byte) (int, error) {
 	return 0, errors.New("not supported")
 }
 
@@ -169,7 +172,7 @@ type webdavFS struct {
 	dir fs.Directory
 }
 
-func (w *webdavFS) Mkdir(ctx context.Context, path string, mode os.FileMode) error {
+func (w *webdavFS) Mkdir(ctx context.Context, path string, _ os.FileMode) error {
 	return errors.Errorf("can't create %q: read-only filesystem", path)
 }
 
@@ -181,7 +184,7 @@ func (w *webdavFS) Rename(ctx context.Context, oldPath, newPath string) error {
 	return errors.Errorf("can't rename %q to %q: read-only filesystem", oldPath, newPath)
 }
 
-func (w *webdavFS) OpenFile(ctx context.Context, path string, flags int, mode os.FileMode) (webdav.File, error) {
+func (w *webdavFS) OpenFile(ctx context.Context, path string, _ int, _ os.FileMode) (webdav.File, error) {
 	f, err := w.findEntry(ctx, path)
 	if err != nil {
 		log(ctx).Errorf("OpenFile(%q) failed with %v", path, err)
@@ -190,7 +193,12 @@ func (w *webdavFS) OpenFile(ctx context.Context, path string, flags int, mode os
 
 	switch f := f.(type) {
 	case fs.Directory:
-		return &webdavDir{ctx, w, f}, nil
+		iter, err := f.Iterate(ctx)
+		if err != nil {
+			return nil, err //nolint:wrapcheck
+		}
+
+		return &webdavDir{ctx, w, webdavFileInfo{f}, iter}, nil
 	case fs.File:
 		return &webdavFile{ctx: ctx, entry: f}, nil
 	}

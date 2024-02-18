@@ -25,7 +25,7 @@ func (sm *SharedManager) Refresh(ctx context.Context) error {
 		return err
 	}
 
-	ibm.Invalidate(ctx)
+	ibm.Invalidate()
 
 	timer := timetrack.StartTimer()
 
@@ -77,7 +77,7 @@ func ParseIndexBlob(blobID blob.ID, encrypted gather.Bytes, crypter blobcrypto.C
 
 	var results []Info
 
-	err = ndx.Iterate(index.AllIDs, func(i Info) error {
+	err = ndx.Iterate(index.AllIDs, func(i index.InfoReader) error {
 		results = append(results, index.ToInfoStruct(i))
 		return nil
 	})

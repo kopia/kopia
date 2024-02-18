@@ -123,8 +123,6 @@ type CheckRepositoryExistsRequest struct {
 }
 
 // ConnectRepositoryRequest contains request to connect to a repository.
-//
-//nolint:musttag // false positive
 type ConnectRepositoryRequest struct {
 	Storage             blob.ConnectionInfo `json:"storage"`
 	Password            string              `json:"password"`
@@ -271,6 +269,7 @@ type ResolvePolicyResponse struct {
 	Definition            *policy.Definition `json:"definition"`
 	Defined               *policy.Policy     `json:"defined"`
 	UpcomingSnapshotTimes []time.Time        `json:"upcomingSnapshotTimes"`
+	SchedulingError       string             `json:"schedulingError,omitempty"`
 }
 
 // ResolvePathRequest contains request to resolve a particular path to ResolvePathResponse.
@@ -290,7 +289,9 @@ type CLIInfo struct {
 
 // UIPreferences represents JSON object storing UI preferences.
 type UIPreferences struct {
-	BytesStringBase2 bool   `json:"bytesStringBase2"` // If `true`, display storage values in base-2 (default is base-10)
-	Theme            string `json:"theme"`            // 'dark', 'light' or ''
-	PageSize         int    `json:"pageSize"`         // A page size; the actual possible values will only be provided by the frontend
+	BytesStringBase2       bool   `json:"bytesStringBase2"`       // If `true`, display storage values in base-2 (default is base-10)
+	DefaultSnapshotViewAll bool   `json:"defaultSnapshotViewAll"` // If `true` default to showing all snapshots (default is local snapshots)
+	Theme                  string `json:"theme"`                  // Specifies the theme used by the UI
+	FontSize               string `json:"fontSize"`               // Specifies the font size used by the UI
+	PageSize               int    `json:"pageSize"`               // A page size; the actual possible values will only be provided by the frontend
 }

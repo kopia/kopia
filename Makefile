@@ -39,7 +39,7 @@ GOTESTSUM_FORMAT=pkgname-and-test-fails
 GOTESTSUM_FLAGS=--format=$(GOTESTSUM_FORMAT) --no-summary=skipped
 GO_TEST?=$(gotestsum) $(GOTESTSUM_FLAGS) --
 
-LINTER_DEADLINE=600s
+LINTER_DEADLINE=1200s
 UNIT_TESTS_TIMEOUT=1200s
 
 ifeq ($(GOARCH),amd64)
@@ -213,10 +213,10 @@ download-rclone:
 	go run ./tools/gettool --tool rclone:$(RCLONE_VERSION) --output-dir dist/kopia_linux_arm_6/ --goos=linux --goarch=arm
 
 
-ci-tests: lint vet test 
+ci-tests: vet test
 
 ci-integration-tests:
-	$(MAKE) robustness-tool-tests
+	$(MAKE) robustness-tool-tests socket-activation-tests
 
 ci-publish-coverage:
 ifeq ($(GOOS)/$(GOARCH),linux/amd64)
@@ -277,7 +277,7 @@ ALLOWED_LICENSES=Apache-2.0;MIT;BSD-2-Clause;BSD-3-Clause;CC0-1.0;ISC;MPL-2.0;CC
 
 license-check: $(wwhrd) app-node-modules
 	$(wwhrd) check
-	(cd app && npx license-checker --summary --onlyAllow "$(ALLOWED_LICENSES)")
+	(cd app && npx license-checker --summary --production --onlyAllow "$(ALLOWED_LICENSES)")
 
 vtest: $(gotestsum)
 	$(GO_TEST) -count=$(REPEAT_TEST) -short -v -timeout $(UNIT_TESTS_TIMEOUT) ./...
@@ -326,6 +326,14 @@ ifeq ($(GOOS)/$(GOARCH),linux/amd64)
 	$(GO_TEST) -count=$(REPEAT_TEST) github.com/kopia/kopia/tests/tools/... github.com/kopia/kopia/tests/robustness/engine/... $(TEST_FLAGS)
 endif
 
+socket-activation-tests: export KOPIA_ORIG_EXE ?= $(KOPIA_INTEGRATION_EXE)
+socket-activation-tests: export KOPIA_SERVER_EXE ?= $(CURDIR)/tests/socketactivation_test/server_wrap.sh
+socket-activation-tests: export FIO_DOCKER_IMAGE=$(FIO_DOCKER_TAG)
+socket-activation-tests: build-integration-test-binary $(gotestsum)
+ifeq ($(GOOS),linux)
+	$(GO_TEST) -count=$(REPEAT_TEST) github.com/kopia/kopia/tests/socketactivation_test $(TEST_FLAGS)
+endif
+
 stress-test: export KOPIA_STRESS_TEST=1
 stress-test: export KOPIA_DEBUG_MANIFEST_MANAGER=1
 stress-test: export KOPIA_LOGS_DIR=$(CURDIR)/.logs
@@ -333,6 +341,11 @@ stress-test: export KOPIA_KEEP_LOGS=1
 stress-test: $(gotestsum)
 	$(GO_TEST) -count=$(REPEAT_TEST) -timeout 3600s github.com/kopia/kopia/tests/stress_test
 	$(GO_TEST) -count=$(REPEAT_TEST) -timeout 3600s github.com/kopia/kopia/tests/repository_stress_test
+
+os-snapshot-tests: export KOPIA_EXE ?= $(KOPIA_INTEGRATION_EXE)
+os-snapshot-tests: GOTESTSUM_FORMAT=testname
+os-snapshot-tests: build-integration-test-binary $(gotestsum)
+	$(GO_TEST) -count=$(REPEAT_TEST) github.com/kopia/kopia/tests/os_snapshot_test $(TEST_FLAGS)
 
 layering-test:
 ifneq ($(GOOS),windows)
@@ -476,6 +489,6 @@ perf-benchmark-test-all:
 	$(MAKE) perf-benchmark-test PERF_BENCHMARK_VERSION=0.7.0~rc1
 
 perf-benchmark-results:
-	gcloud compute scp $(PERF_BENCHMARK_INSTANCE):psrecord-* tests/perf_benchmark --zone=$(PERF_BENCHMARK_INSTANCE_ZONE) 
+	gcloud compute scp $(PERF_BENCHMARK_INSTANCE):psrecord-* tests/perf_benchmark --zone=$(PERF_BENCHMARK_INSTANCE_ZONE)
 	gcloud compute scp $(PERF_BENCHMARK_INSTANCE):repo-size-* tests/perf_benchmark --zone=$(PERF_BENCHMARK_INSTANCE_ZONE)
 	(cd tests/perf_benchmark && go run process_results.go)

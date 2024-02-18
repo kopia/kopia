@@ -1,7 +1,47 @@
 version: 2
 updates:
+  - package-ecosystem: gomod
+    directory: "/"
+    open-pull-requests-limit: 5
+    schedule:
+      interval: weekly
+    ignore:
+      # htmluibuild is explicitly updated by us
+      - dependency-name: "github.com/kopia/htmluibuild"
+    groups:
+      # create large PR upgrading multiple infrastructure dependencies in one shot,
+      # only include upstream dependencies that are stable and have somewhat
+      # regular releases which would be otherwise hard to manually manage.
+      common-golang-dependencies:
+        patterns:
+        - "cloud.google.com/*"
+        - "github.com/aws/aws-sdk-go/*"
+        - "github.com/Azure/azure-sdk-for-go/sdk/*"
+        - "github.com/minio/minio-go/*"
+        - "golang.org/x/*"
+        - "google.golang.org/*"
+        - "github.com/prometheus/*"
+        - "go.opentelemetry.io/*"
   - package-ecosystem: github-actions
     directory: "/"
     open-pull-requests-limit: 3
     schedule:
       interval: weekly
+    groups:
+      github-actions:
+        patterns:
+        - "actions/*"
+        - "github/codeql-action"
+      docker:
+        patterns:
+        - "docker/*"
+  - package-ecosystem: npm
+    directory: "/app"
+    schedule:
+      interval: monthly
+    groups:
+      # create once-per-week PR for all KopiaUI dependency bumps, that usually includes
+      # electron, electron-builder, etc.
+      kopia-ui-npm-dependencies:
+        patterns:
+        - "*"

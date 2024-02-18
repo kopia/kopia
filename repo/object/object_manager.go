@@ -180,7 +180,7 @@ func appendIndexEntries(indexEntries []IndirectObjectEntry, startingLength int64
 	return indexEntries, totalLength
 }
 
-func noop(contentID content.ID) error { return nil }
+func noop(content.ID) error { return nil }
 
 // PrefetchBackingContents attempts to brings contents backing the provided object IDs into the cache.
 // This may succeed only partially due to cache size limits and other.
@@ -199,6 +199,8 @@ func PrefetchBackingContents(ctx context.Context, contentMgr contentManager, obj
 
 // NewObjectManager creates an ObjectManager with the specified content manager and format.
 func NewObjectManager(ctx context.Context, bm contentManager, f format.ObjectFormat, mr *metrics.Registry) (*Manager, error) {
+	_ = mr
+
 	om := &Manager{
 		contentMgr: bm,
 		Format:     f,

@@ -1,14 +1,14 @@
 package cli_test
 
 import (
-	"fmt"
+	"strconv"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/cli"
-	"github.com/kopia/kopia/repo/content/index"
+	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/tests/testenv"
 )
@@ -298,127 +298,127 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgradeStatusWhileLocked(t *test
 
 func TestRepositoryUpgrade_checkIndexInfo(t *testing.T) {
 	tcs := []struct {
-		indexInfo0   index.Info
-		indexInfo1   index.Info
+		indexInfo0   content.Info
+		indexInfo1   content.Info
 		expectRegexs []string
 	}{
 		{
-			indexInfo0:   &index.InfoStruct{PackBlobID: "a"},
-			indexInfo1:   &index.InfoStruct{PackBlobID: "a"},
+			indexInfo0:   content.Info{PackBlobID: "a"},
+			indexInfo1:   content.Info{PackBlobID: "a"},
 			expectRegexs: []string{},
 		},
 		{
-			indexInfo0: &index.InfoStruct{PackBlobID: "a"},
-			indexInfo1: &index.InfoStruct{PackBlobID: "b"},
+			indexInfo0: content.Info{PackBlobID: "a"},
+			indexInfo1: content.Info{PackBlobID: "b"},
 			expectRegexs: []string{
 				`do not match: "a", "b".*PackBlobID`,
 			},
 		},
 		{
-			indexInfo0:   &index.InfoStruct{TimestampSeconds: 1},
-			indexInfo1:   &index.InfoStruct{TimestampSeconds: 1},
+			indexInfo0:   content.Info{TimestampSeconds: 1},
+			indexInfo1:   content.Info{TimestampSeconds: 1},
 			expectRegexs: []string{},
 		},
 		{
-			indexInfo0: &index.InfoStruct{TimestampSeconds: 1},
-			indexInfo1: &index.InfoStruct{TimestampSeconds: 2},
+			indexInfo0: content.Info{TimestampSeconds: 1},
+			indexInfo1: content.Info{TimestampSeconds: 2},
 			expectRegexs: []string{
 				"do not match.*TimestampSeconds",
 			},
 		},
 		{
-			indexInfo0:   &index.InfoStruct{OriginalLength: 1},
-			indexInfo1:   &index.InfoStruct{OriginalLength: 1},
+			indexInfo0:   content.Info{OriginalLength: 1},
+			indexInfo1:   content.Info{OriginalLength: 1},
 			expectRegexs: []string{},
 		},
 		{
-			indexInfo0: &index.InfoStruct{OriginalLength: 1},
-			indexInfo1: &index.InfoStruct{OriginalLength: 2},
+			indexInfo0: content.Info{OriginalLength: 1},
+			indexInfo1: content.Info{OriginalLength: 2},
 			expectRegexs: []string{
 				"do not match.*OriginalLength",
 			},
 		},
 		{
-			indexInfo0:   &index.InfoStruct{PackedLength: 1},
-			indexInfo1:   &index.InfoStruct{PackedLength: 1},
+			indexInfo0:   content.Info{PackedLength: 1},
+			indexInfo1:   content.Info{PackedLength: 1},
 			expectRegexs: []string{},
 		},
 		{
-			indexInfo0: &index.InfoStruct{PackedLength: 1},
-			indexInfo1: &index.InfoStruct{PackedLength: 2},
+			indexInfo0: content.Info{PackedLength: 1},
+			indexInfo1: content.Info{PackedLength: 2},
 			expectRegexs: []string{
 				"do not match.*PackedLength",
 			},
 		},
 		{
-			indexInfo0:   &index.InfoStruct{PackOffset: 1},
-			indexInfo1:   &index.InfoStruct{PackOffset: 1},
+			indexInfo0:   content.Info{PackOffset: 1},
+			indexInfo1:   content.Info{PackOffset: 1},
 			expectRegexs: []string{},
 		},
 		{
-			indexInfo0: &index.InfoStruct{PackOffset: 1},
-			indexInfo1: &index.InfoStruct{PackOffset: 2},
+			indexInfo0: content.Info{PackOffset: 1},
+			indexInfo1: content.Info{PackOffset: 2},
 			expectRegexs: []string{
 				"do not match.*PackOffset",
 			},
 		},
 		{
-			indexInfo0:   &index.InfoStruct{Deleted: true},
-			indexInfo1:   &index.InfoStruct{Deleted: true},
+			indexInfo0:   content.Info{Deleted: true},
+			indexInfo1:   content.Info{Deleted: true},
 			expectRegexs: []string{},
 		},
 		{
-			indexInfo0: &index.InfoStruct{Deleted: false},
-			indexInfo1: &index.InfoStruct{Deleted: true},
+			indexInfo0: content.Info{Deleted: false},
+			indexInfo1: content.Info{Deleted: true},
 			expectRegexs: []string{
 				"do not match.*Deleted",
 			},
 		},
 		// simple logic error can make result of this false... so check
 		{
-			indexInfo0:   &index.InfoStruct{Deleted: false},
-			indexInfo1:   &index.InfoStruct{Deleted: false},
+			indexInfo0:   content.Info{Deleted: false},
+			indexInfo1:   content.Info{Deleted: false},
 			expectRegexs: []string{},
 		},
 		{
-			indexInfo0:   &index.InfoStruct{FormatVersion: 1},
-			indexInfo1:   &index.InfoStruct{FormatVersion: 1},
+			indexInfo0:   content.Info{FormatVersion: 1},
+			indexInfo1:   content.Info{FormatVersion: 1},
 			expectRegexs: []string{},
 		},
 		{
-			indexInfo0: &index.InfoStruct{FormatVersion: 1},
-			indexInfo1: &index.InfoStruct{FormatVersion: 2},
+			indexInfo0: content.Info{FormatVersion: 1},
+			indexInfo1: content.Info{FormatVersion: 2},
 			expectRegexs: []string{
 				"do not match.*FormatVersion",
 			},
 		},
 		{
-			indexInfo0:   &index.InfoStruct{CompressionHeaderID: 1},
-			indexInfo1:   &index.InfoStruct{CompressionHeaderID: 1},
+			indexInfo0:   content.Info{CompressionHeaderID: 1},
+			indexInfo1:   content.Info{CompressionHeaderID: 1},
 			expectRegexs: []string{},
 		},
 		{
-			indexInfo0: &index.InfoStruct{CompressionHeaderID: 1},
-			indexInfo1: &index.InfoStruct{CompressionHeaderID: 2},
+			indexInfo0: content.Info{CompressionHeaderID: 1},
+			indexInfo1: content.Info{CompressionHeaderID: 2},
 			expectRegexs: []string{
 				"do not match.*CompressionHeaderID",
 			},
 		},
 		{
-			indexInfo0:   &index.InfoStruct{EncryptionKeyID: 1},
-			indexInfo1:   &index.InfoStruct{EncryptionKeyID: 1},
+			indexInfo0:   content.Info{EncryptionKeyID: 1},
+			indexInfo1:   content.Info{EncryptionKeyID: 1},
 			expectRegexs: []string{},
 		},
 		{
-			indexInfo0: &index.InfoStruct{EncryptionKeyID: 1},
-			indexInfo1: &index.InfoStruct{EncryptionKeyID: 2},
+			indexInfo0: content.Info{EncryptionKeyID: 1},
+			indexInfo1: content.Info{EncryptionKeyID: 2},
 			expectRegexs: []string{
 				"do not match.*EncryptionKeyID",
 			},
 		},
 	}
 	for i, tc := range tcs {
-		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			report := cli.CheckIndexInfo(tc.indexInfo0, tc.indexInfo1)
 			require.Equal(t, len(report), len(tc.expectRegexs), "unexpected report length")
 			for i := range tc.expectRegexs {
