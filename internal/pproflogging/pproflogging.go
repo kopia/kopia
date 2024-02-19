@@ -1,4 +1,4 @@
-// Package debug for debug helper functions.
+// Package debug for pproflogging helper functions.
 package pproflogging
 
 import (
