@@ -76,7 +76,7 @@ func (m *ManagerV1) CompactEpoch(ctx context.Context, blobIDs []blob.ID, outputP
 		}
 	}
 
-	mp, mperr := m.formattingOptions.GetMutableParameters()
+	mp, mperr := m.formattingOptions.GetMutableParameters(ctx)
 	if mperr != nil {
 		return errors.Wrap(mperr, "mutable parameters")
 	}

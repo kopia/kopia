@@ -35,7 +35,7 @@ func handleRepoParameters(ctx context.Context, rc requestContext) (interface{}, 
 		}, nil
 	}
 
-	scc, err := dr.ContentReader().SupportsContentCompression()
+	scc, err := dr.ContentReader().SupportsContentCompression(ctx)
 	if err != nil {
 		return nil, internalServerError(err)
 	}
@@ -60,12 +60,14 @@ func handleRepoStatus(ctx context.Context, rc requestContext) (interface{}, *api
 
 	dr, ok := rc.rep.(repo.DirectRepository)
 	if ok {
-		mp, mperr := dr.ContentReader().ContentFormat().GetMutableParameters()
+		contentFormat := dr.ContentReader().ContentFormat()
+
+		mp, mperr := contentFormat.GetMutableParameters(ctx)
 		if mperr != nil {
 			return nil, internalServerError(mperr)
 		}
 
-		scc, err := dr.ContentReader().SupportsContentCompression()
+		scc, err := dr.ContentReader().SupportsContentCompression(ctx)
 		if err != nil {
 			return nil, internalServerError(err)
 		}
@@ -74,10 +76,10 @@ func handleRepoStatus(ctx context.Context, rc requestContext) (interface{}, *api
 			Connected:                  true,
 			ConfigFile:                 dr.ConfigFilename(),
 			FormatVersion:              mp.Version,
-			Hash:                       dr.ContentReader().ContentFormat().GetHashFunction(),
-			Encryption:                 dr.ContentReader().ContentFormat().GetEncryptionAlgorithm(),
-			ECC:                        dr.ContentReader().ContentFormat().GetECCAlgorithm(),
-			ECCOverheadPercent:         dr.ContentReader().ContentFormat().GetECCOverheadPercent(),
+			Hash:                       contentFormat.GetHashFunction(),
+			Encryption:                 contentFormat.GetEncryptionAlgorithm(),
+			ECC:                        contentFormat.GetECCAlgorithm(),
+			ECCOverheadPercent:         contentFormat.GetECCOverheadPercent(),
 			MaxPackSize:                mp.MaxPackSize,
 			Splitter:                   dr.ObjectFormat().Splitter,
 			Storage:                    dr.BlobReader().ConnectionInfo().Type,

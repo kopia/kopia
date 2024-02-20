@@ -1,6 +1,8 @@
 package format
 
 import (
+	"context"
+
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/gather"
@@ -56,11 +58,11 @@ type Provider interface {
 
 	// this is typically cached, but sometimes refreshes MutableParameters from
 	// the repository so the results should not be cached.
-	GetMutableParameters() (MutableParameters, error)
+	GetMutableParameters(ctx context.Context) (MutableParameters, error)
 	SupportsPasswordChange() bool
 	GetMasterKey() []byte
 
-	RepositoryFormatBytes() ([]byte, error)
+	RepositoryFormatBytes(ctx context.Context) ([]byte, error)
 }
 
 type formattingOptionsProvider struct {
@@ -149,7 +151,7 @@ func (f *formattingOptionsProvider) HashFunc() hashing.HashFunc {
 	return f.h
 }
 
-func (f *formattingOptionsProvider) RepositoryFormatBytes() ([]byte, error) {
+func (f *formattingOptionsProvider) RepositoryFormatBytes(ctx context.Context) ([]byte, error) {
 	if f.SupportsPasswordChange() {
 		return nil, nil
 	}

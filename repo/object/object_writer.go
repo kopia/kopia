@@ -188,7 +188,7 @@ func (w *objectWriter) prepareAndWriteContentChunk(chunkID int, data gather.Byte
 	comp := content.NoCompression
 	objectComp := w.compressor
 
-	scc, err := w.om.contentMgr.SupportsContentCompression()
+	scc, err := w.om.contentMgr.SupportsContentCompression(w.ctx)
 	if err != nil {
 		return errors.Wrap(err, "supports content compression")
 	}

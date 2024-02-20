@@ -33,7 +33,7 @@ const (
 
 // ParametersProvider provides epoch manager parameters.
 type ParametersProvider interface {
-	GetParameters() (*Parameters, error)
+	GetParameters(ctx context.Context) (*Parameters, error)
 }
 
 // ErrVerySlowIndexWrite is returned by WriteIndex if a write takes more than 2 epochs (usually >48h).
@@ -327,7 +327,7 @@ func (e *Manager) cleanupEpochMarkers(ctx context.Context, cs CurrentSnapshot) e
 		}
 	}
 
-	p, err := e.getParameters()
+	p, err := e.getParameters(ctx)
 	if err != nil {
 		return err
 	}
@@ -363,7 +363,7 @@ func (e *Manager) CleanupSupersededIndexes(ctx context.Context) error {
 		return err
 	}
 
-	p, err := e.getParameters()
+	p, err := e.getParameters(ctx)
 	if err != nil {
 		return err
 	}
@@ -419,8 +419,8 @@ func blobSetWrittenEarlyEnough(replacementSet []blob.Metadata, maxReplacementTim
 	return blob.MaxTimestamp(replacementSet).Before(maxReplacementTime)
 }
 
-func (e *Manager) getParameters() (*Parameters, error) {
-	emp, err := e.paramProvider.GetParameters()
+func (e *Manager) getParameters(ctx context.Context) (*Parameters, error) {
+	emp, err := e.paramProvider.GetParameters(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "epoch manager parameters")
 	}
@@ -433,7 +433,7 @@ func (e *Manager) refreshLocked(ctx context.Context) error {
 		return errors.Wrap(ctx.Err(), "refreshLocked")
 	}
 
-	p, err := e.getParameters()
+	p, err := e.getParameters(ctx)
 	if err != nil {
 		return err
 	}
@@ -666,7 +666,7 @@ func (e *Manager) loadUncompactedEpochs(ctx context.Context, min, max int) (map[
 func (e *Manager) refreshAttemptLocked(ctx context.Context) error {
 	e.log.Debug("refreshAttemptLocked")
 
-	p, perr := e.getParameters()
+	p, perr := e.getParameters(ctx)
 	if perr != nil {
 		return perr
 	}
@@ -789,7 +789,7 @@ func (e *Manager) WriteIndex(ctx context.Context, dataShards map[blob.ID]blob.By
 	for {
 		e.log.Debug("WriteIndex")
 
-		p, err := e.getParameters()
+		p, err := e.getParameters(ctx)
 		if err != nil {
 			return nil, err
 		}

@@ -63,7 +63,7 @@ func (c *commandRepositoryStatus) outputJSON(ctx context.Context, r repo.Reposit
 		ci := dr.BlobReader().ConnectionInfo()
 		s.UniqueIDHex = hex.EncodeToString(dr.UniqueID())
 		s.ObjectFormat = dr.ObjectFormat()
-		s.BlobRetention, _ = dr.FormatManager().BlobCfgBlob()
+		s.BlobRetention, _ = dr.FormatManager().BlobCfgBlob(ctx)
 		s.Storage = scrubber.ScrubSensitiveData(reflect.ValueOf(ci)).Interface().(blob.ConnectionInfo) //nolint:forcetypeassert
 		s.ContentFormat = dr.FormatManager().ScrubbedContentFormat()
 
@@ -82,13 +82,13 @@ func (c *commandRepositoryStatus) outputJSON(ctx context.Context, r repo.Reposit
 	return nil
 }
 
-func (c *commandRepositoryStatus) dumpUpgradeStatus(dr repo.DirectRepository) error {
+func (c *commandRepositoryStatus) dumpUpgradeStatus(ctx context.Context, dr repo.DirectRepository) error {
 	drw, isDr := dr.(repo.DirectRepositoryWriter)
 	if !isDr {
 		return nil
 	}
 
-	l, err := drw.FormatManager().GetUpgradeLockIntent()
+	l, err := drw.FormatManager().GetUpgradeLockIntent(ctx)
 	if err != nil {
 		return errors.Wrap(err, "failed to get the upgrade lock intent")
 	}
@@ -120,8 +120,8 @@ func (c *commandRepositoryStatus) dumpUpgradeStatus(dr repo.DirectRepository) er
 	return nil
 }
 
-func (c *commandRepositoryStatus) dumpRetentionStatus(dr repo.DirectRepository) {
-	if blobcfg, _ := dr.FormatManager().BlobCfgBlob(); blobcfg.IsRetentionEnabled() {
+func (c *commandRepositoryStatus) dumpRetentionStatus(ctx context.Context, dr repo.DirectRepository) {
+	if blobcfg, _ := dr.FormatManager().BlobCfgBlob(ctx); blobcfg.IsRetentionEnabled() {
 		c.out.printStdout("\n")
 		c.out.printStdout("Blob retention mode:     %s\n", blobcfg.RetentionMode)
 		c.out.printStdout("Blob retention period:   %s\n", blobcfg.RetentionPeriod)
@@ -174,7 +174,7 @@ func (c *commandRepositoryStatus) run(ctx context.Context, rep repo.Repository) 
 
 	contentFormat := dr.ContentReader().ContentFormat()
 
-	mp, mperr := contentFormat.GetMutableParameters()
+	mp, mperr := contentFormat.GetMutableParameters(ctx)
 	if mperr != nil {
 		return errors.Wrap(mperr, "mutable parameters")
 	}
@@ -188,12 +188,12 @@ func (c *commandRepositoryStatus) run(ctx context.Context, rep repo.Repository) 
 	c.out.printStdout("Content compression: %v\n", mp.IndexVersion >= index.Version2)
 	c.out.printStdout("Password changes:    %v\n", contentFormat.SupportsPasswordChange())
 
-	c.outputRequiredFeatures(dr)
+	c.outputRequiredFeatures(ctx, dr)
 
 	c.out.printStdout("Max pack length:     %v\n", units.BytesString(int64(mp.MaxPackSize)))
 	c.out.printStdout("Index Format:        v%v\n", mp.IndexVersion)
 
-	emgr, epochMgrEnabled, emerr := dr.ContentReader().EpochManager()
+	emgr, epochMgrEnabled, emerr := dr.ContentReader().EpochManager(ctx)
 	if emerr != nil {
 		return errors.Wrap(emerr, "epoch manager")
 	}
@@ -216,9 +216,9 @@ func (c *commandRepositoryStatus) run(ctx context.Context, rep repo.Repository) 
 		c.out.printStdout("Epoch Manager:       disabled\n")
 	}
 
-	c.dumpRetentionStatus(dr)
+	c.dumpRetentionStatus(ctx, dr)
 
-	if err := c.dumpUpgradeStatus(dr); err != nil {
+	if err := c.dumpUpgradeStatus(ctx, dr); err != nil {
 		return errors.Wrap(err, "failed to dump upgrade status")
 	}
 
@@ -251,8 +251,8 @@ func (c *commandRepositoryStatus) run(ctx context.Context, rep repo.Repository) 
 	return nil
 }
 
-func (c *commandRepositoryStatus) outputRequiredFeatures(dr repo.DirectRepository) {
-	if req, _ := dr.FormatManager().RequiredFeatures(); len(req) > 0 {
+func (c *commandRepositoryStatus) outputRequiredFeatures(ctx context.Context, dr repo.DirectRepository) {
+	if req, _ := dr.FormatManager().RequiredFeatures(ctx); len(req) > 0 {
 		var featureIDs []string
 
 		for _, r := range req {
