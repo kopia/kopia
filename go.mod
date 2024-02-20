@@ -3,7 +3,7 @@ module github.com/kopia/kopia
 go 1.21
 
 require (
-	cloud.google.com/go/storage v1.37.0
+	cloud.google.com/go/storage v1.38.0
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.9.2
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.5.1
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.3.0
@@ -41,8 +41,8 @@ require (
 	github.com/pkg/profile v1.7.0
 	github.com/pkg/sftp v1.13.6
 	github.com/prometheus/client_golang v1.18.0
-	github.com/prometheus/client_model v0.5.0
-	github.com/prometheus/common v0.46.0
+	github.com/prometheus/client_model v0.6.0
+	github.com/prometheus/common v0.47.0
 	github.com/sanity-io/litter v1.5.5
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
 	github.com/stretchr/testify v1.8.4
@@ -65,8 +65,8 @@ require (
 	golang.org/x/sys v0.17.0
 	golang.org/x/term v0.17.0
 	golang.org/x/text v0.14.0
-	google.golang.org/api v0.164.0
-	google.golang.org/grpc v1.61.0
+	google.golang.org/api v0.165.0
+	google.golang.org/grpc v1.61.1
 	google.golang.org/protobuf v1.32.0
 	gopkg.in/kothar/go-backblaze.v0 v0.0.0-20210124194846-35409b867216
 )
@@ -75,7 +75,7 @@ require (
 	cloud.google.com/go v0.112.0 // indirect
 	cloud.google.com/go/compute v1.23.3 // indirect
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
-	cloud.google.com/go/iam v1.1.5 // indirect
+	cloud.google.com/go/iam v1.1.6 // indirect
 	github.com/Azure/azure-pipeline-go v0.2.3 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.5.2 // indirect
 	github.com/Azure/go-autorest/autorest/adal v0.9.16 // indirect
@@ -135,7 +135,7 @@ require (
 	golang.org/x/time v0.5.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
 	google.golang.org/genproto v0.0.0-20240125205218-1f4bbc51befe // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20240122161410-6c6643bf1457 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20240205150955-31a09d347014 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240205150955-31a09d347014 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
