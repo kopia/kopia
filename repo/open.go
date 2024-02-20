@@ -286,7 +286,7 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 		return lc2.writeToFile(configFile)
 	})
 
-	blobcfg, err := fmgr.BlobCfgBlob()
+	blobcfg, err := fmgr.BlobCfgBlob(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "blob configuration")
 	}
@@ -297,7 +297,7 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 
 	_, err = retry.WithExponentialBackoffMaxRetries(ctx, -1, "wait for upgrade", func() (interface{}, error) {
 		//nolint:govet
-		uli, err := fmgr.UpgradeLockIntent()
+		uli, err := fmgr.UpgradeLockIntent(ctx)
 		if err != nil {
 			//nolint:wrapcheck
 			return nil, err
@@ -377,7 +377,7 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 }
 
 func handleMissingRequiredFeatures(ctx context.Context, fmgr *format.Manager, ignoreErrors bool) error {
-	required, err := fmgr.RequiredFeatures()
+	required, err := fmgr.RequiredFeatures(ctx)
 	if err != nil {
 		return errors.Wrap(err, "required features")
 	}
@@ -455,7 +455,7 @@ func upgradeLockMonitor(
 			return nil
 		}
 
-		uli, err := fmgr.UpgradeLockIntent()
+		uli, err := fmgr.UpgradeLockIntent(ctx)
 		if err != nil {
 			return errors.Wrap(err, "upgrade lock intent")
 		}

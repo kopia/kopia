@@ -121,7 +121,7 @@ func (sm *SharedManager) getContentDataReadLocked(ctx context.Context, pp *pendi
 	return sm.decryptContentAndVerify(payload.Bytes(), bi, output)
 }
 
-func (sm *SharedManager) preparePackDataContent(pp *pendingPackInfo) (index.Builder, error) {
+func (sm *SharedManager) preparePackDataContent(mp format.MutableParameters, pp *pendingPackInfo) (index.Builder, error) {
 	packFileIndex := index.Builder{}
 	haveContent := false
 
@@ -173,7 +173,7 @@ func (sm *SharedManager) preparePackDataContent(pp *pendingPackInfo) (index.Buil
 		}
 	}
 
-	err := sm.appendPackFileIndexRecoveryData(packFileIndex, pp.currentPackData)
+	err := sm.appendPackFileIndexRecoveryData(mp, packFileIndex, pp.currentPackData)
 
 	return packFileIndex, err
 }

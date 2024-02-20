@@ -157,7 +157,7 @@ func (r *apiServerRepository) Flush(ctx context.Context) error {
 	return nil
 }
 
-func (r *apiServerRepository) SupportsContentCompression() (bool, error) {
+func (r *apiServerRepository) SupportsContentCompression(ctx context.Context) (bool, error) {
 	return r.serverSupportsContentCompression, nil
 }
 

@@ -682,7 +682,7 @@ func (r *grpcInnerSession) GetContent(ctx context.Context, contentID content.ID)
 	return nil, errNoSessionResponse()
 }
 
-func (r *grpcRepositoryClient) SupportsContentCompression() (bool, error) {
+func (r *grpcRepositoryClient) SupportsContentCompression(ctx context.Context) (bool, error) {
 	return r.serverSupportsContentCompression, nil
 }
 

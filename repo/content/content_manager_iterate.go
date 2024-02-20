@@ -84,9 +84,9 @@ func maybeParallelExecutor(parallel int, originalCallback IterateCallback) (Iter
 	return callback, cleanup
 }
 
-func (bm *WriteManager) snapshotUncommittedItems() index.Builder {
+func (bm *WriteManager) snapshotUncommittedItems(ctx context.Context) index.Builder {
 	bm.lock()
-	defer bm.unlock()
+	defer bm.unlock(ctx)
 
 	overlay := bm.packIndexBuilder.Clone()
 
@@ -116,7 +116,7 @@ func (bm *WriteManager) IterateContents(ctx context.Context, opts IterateOptions
 	callback, cleanup := maybeParallelExecutor(opts.Parallel, callback)
 	defer cleanup() //nolint:errcheck
 
-	uncommitted := bm.snapshotUncommittedItems()
+	uncommitted := bm.snapshotUncommittedItems(ctx)
 
 	invokeCallback := func(i Info) error {
 		if !opts.IncludeDeleted {

@@ -40,7 +40,7 @@ func ExtendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWrite
 		opt.Parallel = runtime.NumCPU() * parallelBlobRetainCPUMultiplier
 	}
 
-	blobCfg, err := rep.FormatManager().BlobCfgBlob()
+	blobCfg, err := rep.FormatManager().BlobCfgBlob(ctx)
 	if err != nil {
 		return 0, errors.Wrap(err, "blob configuration")
 	}

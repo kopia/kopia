@@ -402,7 +402,7 @@ func TestFormatManagerValidDuration(t *testing.T) {
 func mustGetMutableParameters(t *testing.T, mgr *format.Manager) format.MutableParameters {
 	t.Helper()
 
-	mp, err := mgr.GetMutableParameters()
+	mp, err := mgr.GetMutableParameters(testlogging.Context(t))
 	require.NoError(t, err)
 
 	return mp
@@ -411,7 +411,7 @@ func mustGetMutableParameters(t *testing.T, mgr *format.Manager) format.MutableP
 func mustGetUpgradeLockIntent(t *testing.T, mgr *format.Manager) *format.UpgradeLockIntent {
 	t.Helper()
 
-	uli, err := mgr.GetUpgradeLockIntent()
+	uli, err := mgr.GetUpgradeLockIntent(testlogging.Context(t))
 	require.NoError(t, err)
 
 	return uli
@@ -420,7 +420,7 @@ func mustGetUpgradeLockIntent(t *testing.T, mgr *format.Manager) *format.Upgrade
 func mustGetRepositoryFormatBytes(t *testing.T, mgr *format.Manager) []byte {
 	t.Helper()
 
-	b, err := mgr.RepositoryFormatBytes()
+	b, err := mgr.RepositoryFormatBytes(testlogging.Context(t))
 	require.NoError(t, err)
 
 	return b
@@ -429,7 +429,7 @@ func mustGetRepositoryFormatBytes(t *testing.T, mgr *format.Manager) []byte {
 func mustGetRequiredFeatures(t *testing.T, mgr *format.Manager) []feature.Required {
 	t.Helper()
 
-	rf, err := mgr.RequiredFeatures()
+	rf, err := mgr.RequiredFeatures(testlogging.Context(t))
 	require.NoError(t, err)
 
 	return rf
@@ -438,7 +438,7 @@ func mustGetRequiredFeatures(t *testing.T, mgr *format.Manager) []feature.Requir
 func mustGetBlobStorageConfiguration(t *testing.T, mgr *format.Manager) format.BlobStorageConfiguration {
 	t.Helper()
 
-	cfg, err := mgr.BlobCfgBlob()
+	cfg, err := mgr.BlobCfgBlob(testlogging.Context(t))
 	require.NoError(t, err)
 
 	return cfg
@@ -447,7 +447,7 @@ func mustGetBlobStorageConfiguration(t *testing.T, mgr *format.Manager) format.B
 func expectMutableParametersError(t *testing.T, mgr *format.Manager) error {
 	t.Helper()
 
-	_, err := mgr.GetMutableParameters()
+	_, err := mgr.GetMutableParameters(testlogging.Context(t))
 	require.Error(t, err)
 
 	return err
