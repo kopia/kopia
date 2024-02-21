@@ -81,8 +81,10 @@ type Writer interface {
 
 // ProfileConfigs configuration flags for all requested profiles.
 type ProfileConfigs struct {
-	mu  sync.Mutex
+	mu sync.Mutex
+	//+checklocks:mu
 	wrt Writer
+	//+checklocks:mu
 	pcm map[ProfileName]*ProfileConfig
 }
 
@@ -112,7 +114,6 @@ func newProfileConfigs(wrt Writer) *ProfileConfigs {
 }
 
 // SetWriter set the destination for the PPROF dump.
-// +checklocksignore.
 func (p *ProfileConfigs) SetWriter(wrt Writer) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -121,7 +122,6 @@ func (p *ProfileConfigs) SetWriter(wrt Writer) {
 }
 
 // GetProfileConfig return a profile configuration by name.
-// +checklocksignore.
 func (p *ProfileConfigs) GetProfileConfig(nm ProfileName) *ProfileConfig {
 	if p == nil {
 		return nil
