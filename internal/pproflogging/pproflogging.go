@@ -1,5 +1,5 @@
-// Package debug for debug helper functions.
-package debug
+// Package pproflogging for pproflogging helper functions.
+package pproflogging
 
 import (
 	"bufio"
@@ -20,7 +20,7 @@ import (
 	"github.com/kopia/kopia/repo/logging"
 )
 
-var log = logging.Module("kopia/debug")
+var log = logging.Module("kopia/pproflogging")
 
 // ProfileName the name of the profile (see: runtime/pprof/Lookup).
 type ProfileName string
