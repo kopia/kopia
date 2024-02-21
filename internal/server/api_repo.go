@@ -35,16 +35,11 @@ func handleRepoParameters(ctx context.Context, rc requestContext) (interface{}, 
 		}, nil
 	}
 
-	scc, err := dr.ContentReader().SupportsContentCompression(ctx)
-	if err != nil {
-		return nil, internalServerError(err)
-	}
-
 	rp := &remoterepoapi.Parameters{
 		HashFunction:               dr.ContentReader().ContentFormat().GetHashFunction(),
 		HMACSecret:                 dr.ContentReader().ContentFormat().GetHmacSecret(),
 		ObjectFormat:               dr.ObjectFormat(),
-		SupportsContentCompression: scc,
+		SupportsContentCompression: dr.ContentReader().SupportsContentCompression(),
 	}
 
 	return rp, nil
@@ -62,15 +57,8 @@ func handleRepoStatus(ctx context.Context, rc requestContext) (interface{}, *api
 	if ok {
 		contentFormat := dr.ContentReader().ContentFormat()
 
-		mp, mperr := contentFormat.GetMutableParameters(ctx)
-		if mperr != nil {
-			return nil, internalServerError(mperr)
-		}
-
-		scc, err := dr.ContentReader().SupportsContentCompression(ctx)
-		if err != nil {
-			return nil, internalServerError(err)
-		}
+		// this gets potentially stale parameters
+		mp := contentFormat.GetCachedMutableParameters()
 
 		return &serverapi.StatusResponse{
 			Connected:                  true,
@@ -84,7 +72,7 @@ func handleRepoStatus(ctx context.Context, rc requestContext) (interface{}, *api
 			Splitter:                   dr.ObjectFormat().Splitter,
 			Storage:                    dr.BlobReader().ConnectionInfo().Type,
 			ClientOptions:              dr.ClientOptions(),
-			SupportsContentCompression: scc,
+			SupportsContentCompression: dr.ContentReader().SupportsContentCompression(),
 		}, nil
 	}
 

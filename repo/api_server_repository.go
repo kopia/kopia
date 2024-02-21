@@ -157,8 +157,8 @@ func (r *apiServerRepository) Flush(ctx context.Context) error {
 	return nil
 }
 
-func (r *apiServerRepository) SupportsContentCompression(ctx context.Context) (bool, error) {
-	return r.serverSupportsContentCompression, nil
+func (r *apiServerRepository) SupportsContentCompression() bool {
+	return r.serverSupportsContentCompression
 }
 
 func (r *apiServerRepository) NewWriter(ctx context.Context, opt WriteSessionOptions) (context.Context, RepositoryWriter, error) {

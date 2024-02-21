@@ -59,6 +59,7 @@ type Provider interface {
 	// this is typically cached, but sometimes refreshes MutableParameters from
 	// the repository so the results should not be cached.
 	GetMutableParameters(ctx context.Context) (MutableParameters, error)
+	GetCachedMutableParameters() MutableParameters
 	SupportsPasswordChange() bool
 	GetMasterKey() []byte
 

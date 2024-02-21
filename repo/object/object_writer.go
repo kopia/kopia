@@ -188,13 +188,11 @@ func (w *objectWriter) prepareAndWriteContentChunk(chunkID int, data gather.Byte
 	comp := content.NoCompression
 	objectComp := w.compressor
 
-	scc, err := w.om.contentMgr.SupportsContentCompression(w.ctx)
-	if err != nil {
-		return errors.Wrap(err, "supports content compression")
-	}
+	// in super rare cases this may be stale, but if it is it will be false which is always safe.
+	supportsContentCompression := w.om.contentMgr.SupportsContentCompression()
 
 	// do not compress in this layer, instead pass comp to the content manager.
-	if scc && w.compressor != nil {
+	if supportsContentCompression && w.compressor != nil {
 		comp = w.compressor.HeaderID()
 		objectComp = nil
 	}

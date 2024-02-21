@@ -79,8 +79,8 @@ func (f *fakeContentManager) WriteContent(ctx context.Context, data gather.Bytes
 	return contentID, nil
 }
 
-func (f *fakeContentManager) SupportsContentCompression(ctx context.Context) (bool, error) {
-	return f.supportsContentCompression, nil
+func (f *fakeContentManager) SupportsContentCompression() bool {
+	return f.supportsContentCompression
 }
 
 func (f *fakeContentManager) ContentInfo(ctx context.Context, contentID content.ID) (content.Info, error) {
