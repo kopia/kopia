@@ -266,6 +266,18 @@ func (m *Manager) GetMutableParameters(ctx context.Context) (MutableParameters, 
 	return f.GetMutableParameters(ctx)
 }
 
+// GetCachedMutableParameters gets mutable paramers of the repository without blocking.
+func (m *Manager) GetCachedMutableParameters() MutableParameters {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	if m.current == nil {
+		return MutableParameters{}
+	}
+
+	return m.current.GetCachedMutableParameters()
+}
+
 // UpgradeLockIntent returns the current lock intent.
 func (m *Manager) UpgradeLockIntent(ctx context.Context) (*UpgradeLockIntent, error) {
 	if err := m.maybeRefreshNotLocked(ctx); err != nil {
