@@ -9,7 +9,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/internal/ctxutil"
 	"github.com/kopia/kopia/internal/feature"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
@@ -25,12 +24,10 @@ const UniqueIDLengthBytes = 32
 
 // Manager manages the contents of `kopia.repository` and `kopia.blobcfg`.
 type Manager struct {
-	//nolint:containedctx
-	ctx           context.Context // +checklocksignore
-	blobs         blob.Storage    // +checklocksignore
-	validDuration time.Duration   // +checklocksignore
-	password      string          // +checklocksignore
-	cache         blobCache       // +checklocksignore
+	blobs         blob.Storage  // +checklocksignore
+	validDuration time.Duration // +checklocksignore
+	password      string        // +checklocksignore
+	cache         blobCache     // +checklocksignore
 
 	// provider for immutable parts of the format data, used to avoid locks.
 	immutable Provider
@@ -402,7 +399,6 @@ func NewManagerWithCache(
 	}
 
 	m := &Manager{
-		ctx:                       ctxutil.Detach(ctx),
 		blobs:                     st,
 		validDuration:             validDuration,
 		password:                  password,
