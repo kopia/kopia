@@ -50,6 +50,11 @@ func (f *ContentFormat) GetMutableParameters(ctx context.Context) (MutableParame
 	return f.MutableParameters, nil
 }
 
+// GetCachedMutableParameters implements FormattingOptionsProvider.
+func (f *ContentFormat) GetCachedMutableParameters() MutableParameters {
+	return f.MutableParameters
+}
+
 // SupportsPasswordChange implements FormattingOptionsProvider.
 func (f *ContentFormat) SupportsPasswordChange() bool {
 	return f.EnablePasswordChange

@@ -9,7 +9,10 @@ import (
 
 // Reader defines content read API.
 type Reader interface {
-	SupportsContentCompression(ctx context.Context) (bool, error)
+	// returns true if the repository supports content compression.
+	// this may be slightly stale if the repository recently
+	// got upgraded, in which case it will return false which is safe.
+	SupportsContentCompression() bool
 	ContentFormat() format.Provider
 	GetContent(ctx context.Context, id ID) ([]byte, error)
 	ContentInfo(ctx context.Context, id ID) (Info, error)

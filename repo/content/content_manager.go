@@ -768,13 +768,10 @@ func (bm *WriteManager) getOrCreatePendingPackInfoLocked(ctx context.Context, pr
 }
 
 // SupportsContentCompression returns true if content manager supports content-compression.
-func (bm *WriteManager) SupportsContentCompression(ctx context.Context) (bool, error) {
-	mp, mperr := bm.format.GetMutableParameters(ctx)
-	if mperr != nil {
-		return false, errors.Wrap(mperr, "mutable parameters")
-	}
+func (bm *WriteManager) SupportsContentCompression() bool {
+	mp := bm.format.GetCachedMutableParameters()
 
-	return mp.IndexVersion >= index.Version2, nil
+	return mp.IndexVersion >= index.Version2
 }
 
 // WriteContent saves a given content of data to a pack group with a provided name and returns a contentID
