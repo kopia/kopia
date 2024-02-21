@@ -63,22 +63,28 @@ const (
 	ProfileNameCPU = "cpu"
 )
 
-// ProfileConfig configuration flags for a profile.
-type ProfileConfig struct {
-	flags []string
-	buf   *bytes.Buffer
+var (
+	// ErrEmptyConfiguration returned when attempt to configure profile buffers without a configuration string.
+	ErrEmptyConfiguration = errors.New("empty profile configuration")
+	// ErrEmptyProfileName returned when a profile configuration flag has no argument.
+	ErrEmptyProfileName = errors.New("empty profile flag")
+
+	//nolint:gochecknoglobals
+	pprofConfigs = newProfileConfigs(os.Stderr)
+)
+
+// Writer interface supports destination for PEM output.
+type Writer interface {
+	io.Writer
+	io.StringWriter
 }
 
 // ProfileConfigs configuration flags for all requested profiles.
 type ProfileConfigs struct {
-	mu sync.Mutex
-
-	// +checklocks:mu
+	mu  sync.Mutex
+	wrt Writer
 	pcm map[ProfileName]*ProfileConfig
 }
-
-//nolint:gochecknoglobals
-var pprofConfigs = &ProfileConfigs{}
 
 type pprofSetRate struct {
 	setter       func(int)
@@ -97,10 +103,66 @@ var pprofProfileRates = map[ProfileName]pprofSetRate{
 	},
 }
 
+func newProfileConfigs(wrt Writer) *ProfileConfigs {
+	q := &ProfileConfigs{
+		wrt: wrt,
+	}
+
+	return q
+}
+
+// SetWriter set the destination for the PPROF dump.
+// +checklocksignore.
+func (p *ProfileConfigs) SetWriter(wrt Writer) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	p.wrt = wrt
+}
+
+// GetProfileConfig return a profile configuration by name.
+// +checklocksignore.
+func (p *ProfileConfigs) GetProfileConfig(nm ProfileName) *ProfileConfig {
+	if p == nil {
+		return nil
+	}
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	return p.pcm[nm]
+}
+
+// LoadProfileConfig configure PPROF profiling from the config in ppconfigss.
+func LoadProfileConfig(ctx context.Context, ppconfigss string) (map[ProfileName]*ProfileConfig, error) {
+	// if empty, then don't bother configuring but emit a log message - use might be expecting them to be configured
+	if ppconfigss == "" {
+		return nil, nil
+	}
+
+	bufSizeB := DefaultDebugProfileDumpBufferSizeB
+
+	// look for matching services.  "*" signals all services for profiling
+	log(ctx).Info("configuring profile buffers")
+
+	// acquire global lock when performing operations with global side-effects
+	return parseProfileConfigs(bufSizeB, ppconfigss)
+}
+
+// ProfileConfig configuration flags for a profile.
+type ProfileConfig struct {
+	flags []string
+	buf   *bytes.Buffer
+}
+
 // GetValue get the value of the named flag, `s`.  False will be returned
 // if the flag does not exist. True will be returned if flag exists without
 // a value.
-func (p ProfileConfig) GetValue(s string) (string, bool) {
+func (p *ProfileConfig) GetValue(s string) (string, bool) {
+	if p == nil {
+		return "", false
+	}
+
 	for _, f := range p.flags {
 		kvs := strings.SplitN(f, "=", pair)
 		if kvs[0] != s {
@@ -117,7 +179,7 @@ func (p ProfileConfig) GetValue(s string) (string, bool) {
 	return "", false
 }
 
-func parseProfileConfigs(bufSizeB int, ppconfigs string) map[ProfileName]*ProfileConfig {
+func parseProfileConfigs(bufSizeB int, ppconfigs string) (map[ProfileName]*ProfileConfig, error) {
 	pbs := map[ProfileName]*ProfileConfig{}
 	allProfileOptions := strings.Split(ppconfigs, ":")
 
@@ -126,15 +188,22 @@ func parseProfileConfigs(bufSizeB int, ppconfigs string) map[ProfileName]*Profil
 		profileFlagNameValuePairs := strings.SplitN(profileOptionWithFlags, "=", pair)
 		flagValue := ""
 
-		if len(profileFlagNameValuePairs) > 1 {
+		if len(profileFlagNameValuePairs) == 0 {
+			return nil, ErrEmptyConfiguration
+		} else if len(profileFlagNameValuePairs) > 1 {
+			// only <key>=<value? allowed
 			flagValue = profileFlagNameValuePairs[1]
 		}
 
-		flagKey := ProfileName(strings.ToLower(profileFlagNameValuePairs[0]))
+		flagKey := ProfileName(profileFlagNameValuePairs[0])
+		if flagKey == "" {
+			return nil, ErrEmptyProfileName
+		}
+
 		pbs[flagKey] = newProfileConfig(bufSizeB, flagValue)
 	}
 
-	return pbs
+	return pbs, nil
 }
 
 // newProfileConfig create a new profiling configuration.
@@ -220,7 +289,7 @@ func StartProfileBuffers(ctx context.Context) {
 	pprofConfigs.mu.Lock()
 	defer pprofConfigs.mu.Unlock()
 
-	pprofConfigs.pcm = parseProfileConfigs(bufSizeB, ppconfigs)
+	pprofConfigs.pcm, _ = parseProfileConfigs(bufSizeB, ppconfigs)
 
 	// profiling rates need to be set before starting profiling
 	setupProfileFractions(ctx, pprofConfigs.pcm)
