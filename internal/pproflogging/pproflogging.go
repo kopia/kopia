@@ -41,7 +41,7 @@ const (
 
 const (
 	// EnvVarKopiaDebugPprof environment variable that contains the pprof dump configuration.
-	EnvVarKopiaDebugPprof = "KOPIA_DEBUG_PPROF"
+	EnvVarKopiaDebugPprof = "KOPIA_PPROF_LOGGING_CONFIG"
 )
 
 // flags used to configure profiling in EnvVarKopiaDebugPprof.
