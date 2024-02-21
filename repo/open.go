@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"golang.org/x/crypto/scrypt"
 
 	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/cacheprot"
@@ -141,11 +140,11 @@ func getContentCacheOrNil(ctx context.Context, opt *content.CachingOptions, pass
 		return nil, errors.Wrap(err, "error opening storage")
 	}
 
-	// derive content cache key from the password & HMAC secret using scrypt.
+	// derive content cache key from the password & HMAC secret
 	salt := append([]byte("content-cache-protection"), opt.HMACSecret...)
 
 	//nolint:gomnd
-	cacheEncryptionKey, err := scrypt.Key([]byte(password), salt, 65536, 8, 1, 32)
+	cacheEncryptionKey, err := crypto.DeriveKeyFromPassword(password, salt, crypto.DefaultKeyDerivationAlgorithm)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to derive cache encryption key from password")
 	}
