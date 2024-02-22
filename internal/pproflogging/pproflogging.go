@@ -113,26 +113,6 @@ func newProfileConfigs(wrt Writer) *ProfileConfigs {
 	return q
 }
 
-// SetWriter set the destination for the PPROF dump.
-func (p *ProfileConfigs) SetWriter(wrt Writer) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	p.wrt = wrt
-}
-
-// GetProfileConfig return a profile configuration by name.
-func (p *ProfileConfigs) GetProfileConfig(nm ProfileName) *ProfileConfig {
-	if p == nil {
-		return nil
-	}
-
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	return p.pcm[nm]
-}
-
 // LoadProfileConfig configure PPROF profiling from the config in ppconfigss.
 func LoadProfileConfig(ctx context.Context, ppconfigss string) (map[ProfileName]*ProfileConfig, error) {
 	// if empty, then don't bother configuring but emit a log message - use might be expecting them to be configured
