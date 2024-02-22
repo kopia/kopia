@@ -38,12 +38,3 @@ var keyDerivers = map[string]KeyDeriver{}
 func Register(name string, keyDeriver KeyDeriver) {
 	keyDerivers[name] = keyDeriver
 }
-
-// DeriveKeyFromPassword derives encryption key using the provided password and per-repository unique ID.
-func DeriveKeyFromPassword(password string, salt []byte, algorithm string) ([]byte, error) {
-	kdFunc, ok := keyDerivationFunctions[algorithm]
-	if !ok {
-		return nil, errors.Errorf("unsupported key algorithm: %v", algorithm)
-	}
-	return kdFunc(password, salt, MasterKeyLength)
-}
