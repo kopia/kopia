@@ -82,9 +82,9 @@ type Writer interface {
 // ProfileConfigs configuration flags for all requested profiles.
 type ProfileConfigs struct {
 	mu sync.Mutex
-	//+checklocks:mu
+	// +checklocks:mu
 	wrt Writer
-	//+checklocks:mu
+	// +checklocks:mu
 	pcm map[ProfileName]*ProfileConfig
 }
 
