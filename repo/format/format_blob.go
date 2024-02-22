@@ -72,7 +72,15 @@ func ParseKopiaRepositoryJSON(b []byte) (*KopiaRepositoryJSON, error) {
 
 // DeriveFormatEncryptionKeyFromPassword derives encryption key using the provided password and per-repository unique ID.
 func (f *KopiaRepositoryJSON) DeriveFormatEncryptionKeyFromPassword(password string) ([]byte, error) {
-	res, err := crypto.DeriveKeyFromPassword(password, f.UniqueID, f.KeyDerivationAlgorithm)
+	kd, err := crypto.CreateKeyDeriver(f.KeyDerivationAlgorithm)
+	if err != nil {
+		return nil, err
+	}
+	err = kd.IsValidSalt(f.UniqueID)
+	if err != nil {
+		return nil, err
+	}
+	res, err := kd.DeriveKeyFromPassword(password, f.UniqueID)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to derive format encryption key")
 	}

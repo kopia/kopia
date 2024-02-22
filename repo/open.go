@@ -140,11 +140,20 @@ func getContentCacheOrNil(ctx context.Context, opt *content.CachingOptions, pass
 		return nil, errors.Wrap(err, "error opening storage")
 	}
 
+	kd, err := crypto.CreateKeyDeriver(crypto.DefaultKeyDerivationAlgorithm)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to initialize key deriver")
+	}
+
+	if err := kd.IsValidSalt(opt.HMACSecret); err != nil {
+		return nil, errors.Wrap(err, "invalid salt")
+	}
+
 	// derive content cache key from the password & HMAC secret
-	salt := append([]byte("content-cache-protection"), opt.HMACSecret...)
+	saltWithPurpose := append([]byte("content-cache-protection"), opt.HMACSecret...)
 
 	//nolint:gomnd
-	cacheEncryptionKey, err := crypto.DeriveKeyFromPassword(password, salt, crypto.DefaultKeyDerivationAlgorithm)
+	cacheEncryptionKey, err := crypto.DeriveKeyFromPassword(password, saltWithPurpose, crypto.DefaultKeyDerivationAlgorithm)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to derive cache encryption key from password")
 	}

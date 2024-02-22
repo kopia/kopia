@@ -26,21 +26,30 @@ func (p *Profile) setPasswordV1(password string) error {
 		return errors.Wrap(err, "error generating salt")
 	}
 
+	var err error
 	p.PasswordHashVersion = 1
-	p.PasswordHash = computePasswordHashV1(password, salt)
+	p.PasswordHash, err = computePasswordHashV1(password, salt)
 
-	return nil
+	return err
 }
 
-func computePasswordHashV1(password string, salt []byte) []byte {
-	key, err := crypto.DeriveKeyFromPassword(password, salt, crypto.DefaultKeyDerivationAlgorithm)
+func computePasswordHashV1(password string, salt []byte) ([]byte, error) {
+	kd, err := crypto.CreateKeyDeriver(crypto.DefaultKeyDerivationAlgorithm)
 	if err != nil {
-		panic("unexpected key derivation error")
+		return nil, err
+	}
+	err = kd.IsValidSalt(salt)
+	if err != nil {
+		return nil, err
+	}
+	key, err := kd.DeriveKeyFromPassword(password, salt)
+	if err != nil {
+		return nil, err
 	}
 
 	payload := append(append([]byte(nil), salt...), key...)
 
-	return payload
+	return payload, nil
 }
 
 func isValidPasswordV1(password string, hashedPassword []byte) bool {
