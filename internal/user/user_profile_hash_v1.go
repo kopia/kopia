@@ -34,15 +34,7 @@ func (p *Profile) setPasswordV1(password string) error {
 }
 
 func computePasswordHashV1(password string, salt []byte) ([]byte, error) {
-	kd, err := crypto.CreateKeyDeriver(crypto.DefaultKeyDerivationAlgorithm)
-	if err != nil {
-		return nil, err
-	}
-	err = kd.IsValidSalt(salt)
-	if err != nil {
-		return nil, err
-	}
-	key, err := kd.DeriveKeyFromPassword(password, salt)
+	key, err := crypto.DeriveKeyFromPassword(password, salt, crypto.DefaultKeyDerivationAlgorithm)
 	if err != nil {
 		return nil, err
 	}
