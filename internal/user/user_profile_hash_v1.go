@@ -59,7 +59,10 @@ func isValidPasswordV1(password string, hashedPassword []byte) bool {
 
 	salt := hashedPassword[0:v1SaltLength]
 
-	h := computePasswordHashV1(password, salt)
+	h, err := computePasswordHashV1(password, salt)
+	if err != nil {
+		return false
+	}
 
 	return subtle.ConstantTimeCompare(h, hashedPassword) != 0
 }

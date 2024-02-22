@@ -1,10 +1,12 @@
 package crypto
 
 import (
+	"fmt"
+
 	"golang.org/x/crypto/scrypt"
 )
 
-// The recommended minimum size for a salt to be used for pbkdf2
+// The recommended minimum size for a salt to be used for scrypt
 const minScryptSaltSize = 16 // size in bytes == 128 bits
 
 type scrypt6553681 struct{}
