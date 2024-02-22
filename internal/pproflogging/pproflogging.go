@@ -168,9 +168,7 @@ func parseProfileConfigs(bufSizeB int, ppconfigs string) (map[ProfileName]*Profi
 		profileFlagNameValuePairs := strings.SplitN(profileOptionWithFlags, "=", pair)
 		flagValue := ""
 
-		if len(profileFlagNameValuePairs) == 0 {
-			return nil, ErrEmptyConfiguration
-		} else if len(profileFlagNameValuePairs) > 1 {
+		if len(profileFlagNameValuePairs) > 1 {
 			// only <key>=<value? allowed
 			flagValue = profileFlagNameValuePairs[1]
 		}

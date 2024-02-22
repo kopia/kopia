@@ -27,11 +27,13 @@ func TestDebug_parseProfileConfigs(t *testing.T) {
 		expect        []string
 		expectError   error
 		expectMissing bool
+		n             int
 	}{
 		{
 			in:     "foo",
 			key:    "foo",
 			expect: nil,
+			n:      1,
 		},
 		{
 			in:  "foo=bar",
@@ -39,6 +41,7 @@ func TestDebug_parseProfileConfigs(t *testing.T) {
 			expect: []string{
 				"bar",
 			},
+			n: 1,
 		},
 		{
 			in:  "first=one=1",
@@ -46,6 +49,7 @@ func TestDebug_parseProfileConfigs(t *testing.T) {
 			expect: []string{
 				"one=1",
 			},
+			n: 1,
 		},
 		{
 			in:  "foo=bar:first=one=1",
@@ -53,6 +57,7 @@ func TestDebug_parseProfileConfigs(t *testing.T) {
 			expect: []string{
 				"one=1",
 			},
+			n: 2,
 		},
 		{
 			in:  "foo=bar:first=one=1,two=2",
@@ -61,6 +66,7 @@ func TestDebug_parseProfileConfigs(t *testing.T) {
 				"one=1",
 				"two=2",
 			},
+			n: 2,
 		},
 		{
 			in:  "foo=bar:first=one=1,two=2:second:third",
@@ -69,6 +75,7 @@ func TestDebug_parseProfileConfigs(t *testing.T) {
 				"one=1",
 				"two=2",
 			},
+			n: 4,
 		},
 		{
 			in:  "foo=bar:first=one=1,two=2:second:third",
@@ -76,16 +83,19 @@ func TestDebug_parseProfileConfigs(t *testing.T) {
 			expect: []string{
 				"bar",
 			},
+			n: 4,
 		},
 		{
 			in:     "foo=bar:first=one=1,two=2:second:third",
 			key:    "second",
 			expect: nil,
+			n:      4,
 		},
 		{
 			in:     "foo=bar:first=one=1,two=2:second:third",
 			key:    "third",
 			expect: nil,
+			n:      4,
 		},
 		{
 			in:            "=",
@@ -103,10 +113,23 @@ func TestDebug_parseProfileConfigs(t *testing.T) {
 			in:     ",",
 			key:    ",",
 			expect: nil,
+			n:      1,
 		},
 		{
 			in:            "=,:",
 			key:           "",
+			expectMissing: true,
+			expectError:   ErrEmptyProfileName,
+		},
+		{
+			in:            "",
+			key:           "",
+			expectMissing: true,
+			expectError:   ErrEmptyProfileName,
+		},
+		{
+			in:            ":=",
+			key:           "cpu",
 			expectMissing: true,
 			expectError:   ErrEmptyProfileName,
 		},
@@ -115,6 +138,7 @@ func TestDebug_parseProfileConfigs(t *testing.T) {
 		t.Run(fmt.Sprintf("%d %s", i, tc.in), func(t *testing.T) {
 			pbs, err := parseProfileConfigs(1<<10, tc.in)
 			require.ErrorIs(t, tc.expectError, err)
+			require.Len(t, pbs, tc.n)
 			pb, ok := pbs[tc.key] // no negative testing for missing keys (see newProfileConfigs)
 			require.Equalf(t, !tc.expectMissing, ok, "key %q for set %q expect missing %t", tc.key, maps.Keys(pbs), tc.expectMissing)
 			if tc.expectMissing {
@@ -220,6 +244,13 @@ func TestDebug_LoadProfileConfigs(t *testing.T) {
 			profileKey:               "mutex",
 			profileFlagKey:           "10",
 			expectProfileFlagExists:  true,
+		},
+		{
+			inArgs:                       "mutex=10",
+			expectConfigurationCount:     1,
+			profileKey:                   "cpu",
+			profileFlagKey:               "10",
+			expectProfileConfigNotExists: true,
 		},
 	}
 
