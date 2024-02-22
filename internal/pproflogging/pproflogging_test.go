@@ -1,6 +1,7 @@
 package pproflogging
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -196,6 +197,18 @@ func TestDebug_newProfileConfigs(t *testing.T) {
 			require.Equal(t, tc.expect, v)
 		})
 	}
+}
+
+func TestDebug_DumpPem(t *testing.T) {
+	saveLockEnv(t)
+	defer restoreUnlockEnv(t)
+
+	ctx := context.Background()
+	wrt := bytes.Buffer{}
+	// DumpPem dump a PEM version of the byte slice, bs, into writer, wrt.
+	err := DumpPem(ctx, []byte("this is a sample PEM"), "test", &wrt)
+	require.NoError(t, err)
+	require.Equal(t, "-----BEGIN test-----\ndGhpcyBpcyBhIHNhbXBsZSBQRU0=\n-----END test-----\n\n", wrt.String())
 }
 
 func TestDebug_LoadProfileConfigs(t *testing.T) {
