@@ -138,7 +138,13 @@ func MaybeStartProfileBuffersWithConfig(ctx context.Context, config string) bool
 	return true
 }
 
+// MaybeRestartProfileBuffers used by SIGQUIT signal handlers to output PPROF data without exiting.
+func MaybeRestartProfileBuffers(ctx context.Context) bool {
+	return MaybeRestartProfileBuffersWithConfig(ctx, os.Getenv(EnvVarKopiaDebugPprof))
+}
+
 // MaybeRestartProfileBuffersWithConfig used by SIGQUIT signal handlers to output PPROF data without exiting.
+// takes a configuration string, usually proved by the environment.
 func MaybeRestartProfileBuffersWithConfig(ctx context.Context, config string) bool {
 	pprofConfigs.mu.Lock()
 	defer pprofConfigs.mu.Unlock()

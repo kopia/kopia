@@ -18,6 +18,7 @@ import (
 	"github.com/kopia/kopia/internal/apiclient"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/passwordpersist"
+	"github.com/kopia/kopia/internal/pproflogging"
 	"github.com/kopia/kopia/internal/releasable"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
@@ -89,6 +90,7 @@ type appServices interface {
 	stdout() io.Writer
 	Stderr() io.Writer
 	stdin() io.Reader
+	onDebugDump(callback func())
 	onTerminate(callback func())
 	onRepositoryFatalError(callback func(err error))
 	enableTestOnlyFlags() bool
@@ -162,15 +164,16 @@ type App struct {
 	// testability hooks
 	testonlyIgnoreMissingRequiredFeatures bool
 
-	isInProcessTest bool
-	exitWithError   func(err error) // os.Exit() with 1 or 0 based on err
-	stdinReader     io.Reader
-	stdoutWriter    io.Writer
-	stderrWriter    io.Writer
-	rootctx         context.Context //nolint:containedctx
-	loggerFactory   logging.LoggerFactory
-	simulatedCtrlC  chan bool
-	envNamePrefix   string
+	isInProcessTest  bool
+	exitWithError    func(err error) // os.Exit() with 1 or 0 based on err
+	stdinReader      io.Reader
+	stdoutWriter     io.Writer
+	stderrWriter     io.Writer
+	rootctx          context.Context //nolint:containedctx
+	loggerFactory    logging.LoggerFactory
+	simulatedCtrlC   chan bool
+	simulatedSigDump chan bool
+	envNamePrefix    string
 }
 
 func (c *App) enableTestOnlyFlags() bool {
@@ -484,6 +487,27 @@ func (c *App) runAppWithContext(command *kingpin.CmdClause, cb func(ctx context.
 
 	for _, r := range c.trackReleasable {
 		releasable.EnableTracking(releasable.ItemKind(r))
+	}
+
+	pproflogging.MaybeStartProfileBuffers(ctx)
+
+	// MaybeStartProfileBuffers will have configured the global pprof structs. At this point we can choose
+	// to enabled globally
+	if pproflogging.HasProfileBuffersEnabled() {
+		defer func() {
+			ctx0, canfn := context.WithTimeout(ctx, pproflogging.PPROFDumpTimeout)
+			defer canfn()
+
+			pproflogging.MaybeStopProfileBuffers(ctx0)
+		}()
+
+		c.onDebugDump(func() {
+			ctx0, canfn := context.WithTimeout(ctx, pproflogging.PPROFDumpTimeout)
+			defer canfn()
+
+			// restart profile buffers as this does not kill the process
+			pproflogging.MaybeRestartProfileBuffers(ctx0)
+		})
 	}
 
 	if err := c.observability.startMetrics(ctx); err != nil {

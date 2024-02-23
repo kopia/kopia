@@ -44,7 +44,28 @@ func (c *App) onTerminate(f func()) {
 
 		case <-s:
 		}
+		signal.Reset(os.Interrupt, syscall.SIGTERM)
 		f()
+	}()
+}
+
+func (c *App) onDebugDump(f func()) {
+	s := make(chan os.Signal, 1)
+	signal.Notify(s, syscall.SIGQUIT)
+
+	go func() {
+		for {
+			// invoke the function when either real or simulated Ctrl-\ signal is delivered
+			select {
+			case v := <-c.simulatedSigDump:
+				if !v {
+					return
+				}
+
+			case <-s:
+			}
+			f()
+		}
 	}()
 }
 
