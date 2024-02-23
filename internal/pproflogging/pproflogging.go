@@ -250,7 +250,7 @@ func StartProfileBuffers(ctx context.Context) {
 	ppconfigs := os.Getenv(EnvVarKopiaDebugPprof)
 	// if empty, then don't bother configuring but emit a log message - use might be expecting them to be configured
 	if ppconfigs == "" {
-		log(ctx).Debug("no profile buffers enabled")
+		log(ctx).Warn("no profile buffers enabled")
 		return
 	}
 

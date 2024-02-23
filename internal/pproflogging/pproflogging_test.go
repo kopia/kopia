@@ -283,7 +283,7 @@ func saveLockEnv(t *testing.T) {
 	})
 }
 
-func TestWriter(t *testing.T) {
+func TestErrorWriter(t *testing.T) {
 	eww := &ErrorWriter{mx: 5, err: io.EOF}
 	n, err := eww.WriteString("Hello World")
 	require.ErrorIs(t, io.EOF, err)
@@ -291,6 +291,10 @@ func TestWriter(t *testing.T) {
 	require.Equal(t, "Hello", string(eww.bs))
 }
 
+// ErrorWriter allow injection of errors into the write stream.  There are a few
+// failures in PPROF dumps that are worth modeling for tests ([io.EOF] is one)
+// For use specify the error, ErrorWriter.err, and byte index, ErrorWriter.mx,
+// in which it should occur.
 type ErrorWriter struct {
 	bs  []byte
 	mx  int
@@ -298,16 +302,24 @@ type ErrorWriter struct {
 }
 
 func (p *ErrorWriter) Write(bs []byte) (int, error) {
-	lbs := len(bs)
-	lpbs := len(p.bs)
-	n := lbs
+	n := len(bs)
 
-	if lbs+lpbs > p.mx {
-		n = p.mx - lpbs
+	if len(bs)+len(p.bs) > p.mx {
+		// error will be produced at p.mx
+		// so don't return any more than
+		// n
+		n = p.mx - len(p.bs)
 	}
 
+	// append the bytes to the local buffer just
+	// in case someone wants to know.
 	p.bs = append(p.bs, bs[:n]...)
-	if n < lbs {
+	if n < len(bs) {
+		// here we assume that any less than len(bs)
+		// bytes written returns an error.  This
+		// allows setting ErrorWriter up once
+		// to produce an error after multiple
+		// writes
 		return n, p.err
 	}
 
