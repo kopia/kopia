@@ -115,8 +115,7 @@ func newProfileConfigs(wrt Writer) *ProfileConfigs {
 func LoadProfileConfig(ctx context.Context, ppconfigss string) (map[ProfileName]*ProfileConfig, error) {
 	// if empty, then don't bother configuring but emit a log message - use might be expecting them to be configured
 	if ppconfigss == "" {
-		// look for matching services.  "*" signals all services for profiling
-		log(ctx).Debug("no profile configuration.  skipping PPROF setup")
+		log(ctx).Debug("no profile configuration. skipping PPROF setup")
 		return nil, nil
 	}
 
@@ -333,21 +332,21 @@ func DumpPem(bs []byte, types string, wrt *os.File) error {
 		return fmt.Errorf("could not write PEM: %w", err0)
 	}
 
-	if err1 != nil {
-		// if file does not end in newline, then output one
-		if errors.Is(err1, io.EOF) {
-			_, err2 = wrt.WriteString("\n")
-			if err2 != nil {
-				return fmt.Errorf("could not write PEM: %w", err2)
-			}
-
-			return io.EOF
-		}
-
-		return fmt.Errorf("error reading bytes: %w", err1)
+	if err1 == nil {
+		return nil
 	}
 
-	return nil
+	// if file does not end in newline, then output one
+	if errors.Is(err1, io.EOF) {
+		_, err2 = wrt.WriteString("\n")
+		if err2 != nil {
+			return fmt.Errorf("could not write PEM: %w", err2)
+		}
+
+		return io.EOF
+	}
+
+	return fmt.Errorf("error reading bytes: %w", err1)
 }
 
 func parseDebugNumber(v *ProfileConfig) (int, error) {
