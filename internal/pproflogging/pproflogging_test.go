@@ -1,14 +1,18 @@
 package pproflogging
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
+
+	"github.com/kopia/kopia/repo/logging"
 )
 
 var oldEnv string
@@ -17,17 +21,25 @@ func TestDebug_StartProfileBuffers(t *testing.T) {
 	saveLockEnv(t)
 	// placeholder to make coverage happy
 	tcs := []struct {
-		in          string
-		expectError error
+		in string
+		rx *regexp.Regexp
 	}{
 		{
 			in: "",
+			rx: regexp.MustCompile("no profile buffers enabled"),
+		},
+		{
+			in: ":",
+			rx: regexp.MustCompile(`cannot start PPROF config, ".*", due to parse error`),
 		},
 	}
 	for _, tc := range tcs {
-		ctx := context.Background()
+		lg := &bytes.Buffer{}
+		ctx := logging.WithLogger(context.Background(), logging.ToWriter(lg))
+
 		t.Setenv(EnvVarKopiaDebugPprof, tc.in)
 		StartProfileBuffers(ctx)
+		require.Regexp(t, tc.rx, lg.String())
 	}
 }
 

@@ -266,7 +266,7 @@ func StartProfileBuffers(ctx context.Context) {
 
 	pprofConfigs.pcm, err = parseProfileConfigs(bufSizeB, ppconfigs)
 	if err != nil {
-		log(ctx).With("cause", err).Warnf("cannot start PPROF config, %q, due to parse error", pprofConfigs)
+		log(ctx).With("cause", err).Warnf("cannot start PPROF config, %q, due to parse error", ppconfigs)
 		return
 	}
 
