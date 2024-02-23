@@ -90,7 +90,6 @@ type ProfileConfigs struct {
 	wrt Writer
 	//+checklocks:mu
 	pcm map[ProfileName]*ProfileConfig
-	src string
 }
 
 type pprofSetRate struct {
