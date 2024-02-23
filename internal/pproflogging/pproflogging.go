@@ -115,6 +115,7 @@ func newProfileConfigs(wrt Writer) *ProfileConfigs {
 func LoadProfileConfig(ctx context.Context, ppconfigss string) (map[ProfileName]*ProfileConfig, error) {
 	// if empty, then don't bother configuring but emit a log message - use might be expecting them to be configured
 	if ppconfigss == "" {
+		log(ctx).Debug("no profile configuration. skipping PPROF setup")
 		return nil, nil
 	}
 
