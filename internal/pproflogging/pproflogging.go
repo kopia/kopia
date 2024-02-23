@@ -143,10 +143,6 @@ type ProfileConfig struct {
 // if the flag does not exist. True will be returned if flag exists without
 // a value.
 func (p *ProfileConfig) GetValue(s string) (string, bool) {
-	if p == nil {
-		return "", false
-	}
-
 	for _, f := range p.flags {
 		kvs := strings.SplitN(f, "=", pair)
 		if kvs[0] != s {
