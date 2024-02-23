@@ -1,12 +1,14 @@
 package pproflogging
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"os"
 	"regexp"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -205,12 +207,94 @@ func TestDebug_DumpPem(t *testing.T) {
 	saveLockEnv(t)
 	defer restoreUnlockEnv(t)
 
-	ctx := context.Background()
-	wrt := bytes.Buffer{}
-	// DumpPem dump a PEM version of the byte slice, bs, into writer, wrt.
-	err := DumpPem(ctx, []byte("this is a sample PEM"), "test", &wrt)
-	require.NoError(t, err)
-	require.Equal(t, "-----BEGIN test-----\ndGhpcyBpcyBhIHNhbXBsZSBQRU0=\n-----END test-----\n\n", wrt.String())
+	tcs := []struct {
+		inBody      string
+		inType      string
+		inError     error
+		inMx        int
+		expectErr   error
+		expectLines int
+		expectCount int
+	}{
+		{
+			inBody:      "this is a sample PEM",
+			inType:      "cpu",
+			inMx:        100,
+			expectErr:   nil,
+			expectLines: 4,
+			expectCount: 7,
+		},
+		{
+			inBody:      "this is a sample PEM",
+			inType:      "cpu",
+			inError:     nil,
+			inMx:        5,
+			expectErr:   nil,
+			expectLines: 0,
+			expectCount: 0,
+		},
+		{
+			inBody:      "this is a sample PEM",
+			inType:      "cpu",
+			inError:     io.EOF,
+			inMx:        5,
+			expectErr:   io.EOF,
+			expectLines: 0,
+			expectCount: 0,
+		},
+		{
+			inBody:      "this is a sample PEM",
+			inType:      "cpu",
+			inError:     io.ErrClosedPipe,
+			inMx:        5,
+			expectErr:   io.ErrClosedPipe,
+			expectLines: 0,
+			expectCount: 0,
+		},
+		{
+			inBody:      "this is a sample PEM",
+			inType:      "cpu",
+			inError:     io.ErrClosedPipe,
+			inMx:        5,
+			expectErr:   io.ErrClosedPipe,
+			expectLines: 0,
+			expectCount: 0,
+		},
+	}
+	//rx := regexp.MustCompile("(?ms:^(-{5}BEGIN ([A-Z]+)-{5})$(([A-Za-z0-9/+=]{2,80})+)^(-{5}END ([A-Z]+)-{5}))$")
+	rx := regexp.MustCompile("(?sm:(^-{5}BEGIN ([A-Z]+)-{5}$).((^[A-Za-z0-9/+=]{2,80}$).+)(^-{5}END ([A-Z]+)-{5}))")
+	for i, tc := range tcs {
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			ctx := context.Background()
+			// PEM headings always in upper case
+			unm := strings.ToUpper(tc.inType)
+			// DumpPem dump a PEM version of the byte slice, bs, into writer, wrt.
+			wrt := &ErrorWriter{bs: make([]byte, 0), mx: tc.inMx, err: tc.inError}
+			err := DumpPem(ctx, []byte(tc.inBody), unm, wrt)
+			if tc.expectErr != nil {
+				require.ErrorIs(t, err, tc.expectErr)
+			} else {
+				require.NoError(t, err)
+			}
+			dumps := string(wrt.bs)
+			j := 0
+			rdr := bufio.NewReader(strings.NewReader(dumps))
+			for {
+				_, err = rdr.ReadBytes('\n')
+				if err != nil {
+					break
+				}
+				j++
+			}
+			require.ErrorIs(t, err, io.EOF)
+			require.Equal(t, tc.expectLines, j)
+			ssm := rx.FindAllStringSubmatch(dumps, 100)
+			if tc.expectCount > 0 {
+				require.Len(t, ssm, 1)
+				require.Len(t, ssm[0], tc.expectCount)
+			}
+		})
+	}
 }
 
 // TestDebug_parseDebugNumber test setup of profile buffers with configuration set from the environment.
@@ -418,7 +502,7 @@ func TestDebug_RestartProfileBuffers(t *testing.T) {
 	defer restoreUnlockEnv(t)
 
 	// regexp for PEMs
-	rx := regexp.MustCompile(`(?s:-{5}BEGIN ([A-Z]+)-{5}.(([A-Za-z0-9/+=]{2,80}.?)+).?-{5}END ([A-Z]+)-{5})`)
+	rx := regexp.MustCompile(`(?s:-{5}BEGIN ([A-Z]+)-{5}.(([A-Za-z0-9/+=]{2,80}.)+)-{5}END ([A-Z]+)-{5})`)
 
 	ctx := context.Background()
 
@@ -477,7 +561,8 @@ func TestDebug_RestartProfileBuffers(t *testing.T) {
 			require.False(t, ok)
 
 			s := buf.String()
-			mchsss := rx.FindAllString(s, -1)
+			fmt.Print(s)
+			mchsss := rx.FindAllStringSubmatch(s, -1)
 			require.Len(t, mchsss, tc.expectedProfileCount)
 		})
 	}

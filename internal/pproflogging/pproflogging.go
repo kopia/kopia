@@ -90,6 +90,7 @@ type ProfileConfigs struct {
 	wrt Writer
 	//+checklocks:mu
 	pcm map[ProfileName]*ProfileConfig
+	src string
 }
 
 type pprofSetRate struct {
@@ -325,7 +326,7 @@ func (p *ProfileConfigs) StopProfileBuffersLocked(ctx context.Context) {
 
 		err := DumpPem(ctx, v.buf.Bytes(), unm, p.wrt)
 		if err != nil {
-			log(ctx).With("cause", err).Errorf("%q: %s", unm, errMsgCouldNotWritePem)
+			log(ctx).With("cause", err).Errorf("%q: cannot write PEM", unm)
 			return
 		}
 
@@ -333,7 +334,7 @@ func (p *ProfileConfigs) StopProfileBuffersLocked(ctx context.Context) {
 		err = ctx.Err()
 		if err != nil {
 			// ctx context may be bad, so use context.Background for safety
-			log(ctx).With("cause", err).Warnf("%q: %s", unm, errMsgCouldNotWritePem)
+			log(ctx).With("cause", err).Warnf("%q: cannot write PEM", unm)
 			return
 		}
 	}
@@ -516,7 +517,7 @@ func DumpPem(ctx context.Context, bs []byte, types string, wrt Writer) error {
 		err0 := pem.Encode(pw, blk)
 		if err0 != nil {
 			// got a write error.
-			log(ctx).With("cause", err0).Errorf("%q: %s", blk.Type, errMsgCouldNotWritePem)
+			log(ctx).With("cause", err0).Error(errMsgCouldNotWritePem)
 		}
 
 		// writer close on exit of background process
@@ -674,7 +675,7 @@ func StopProfileBuffers(ctx context.Context) {
 
 		err := DumpPem(ctx, v.buf.Bytes(), unm, os.Stderr)
 		if err != nil {
-			log(ctx).With("cause", err).Error(errMsgCouldNotWritePem)
+			log(ctx).With("cause", err).Error("cannot write PEM")
 		}
 	}
 
