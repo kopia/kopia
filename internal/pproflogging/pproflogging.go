@@ -64,7 +64,7 @@ const (
 )
 
 const (
-	ErrMsgCouldNotWritePem = "could not write pem"
+	errMsgCouldNotWritePem = "could not write pem"
 )
 
 var (
@@ -90,7 +90,6 @@ type ProfileConfigs struct {
 	wrt Writer
 	// +checklocks:mu
 	pcm map[ProfileName]*ProfileConfig
-	src string
 }
 
 type pprofSetRate struct {
@@ -308,11 +307,12 @@ func DumpPem(ctx context.Context, bs []byte, types string, wrt Writer) error {
 		err0 := pem.Encode(pw, blk)
 		if err0 != nil {
 			// got a write error.
-			fmt.Errorf("%s: %w", ErrMsgCouldNotWritePem, err0)
+			log(ctx).With("cause", err0).Error(errMsgCouldNotWritePem)
 		}
 
 		// writer close on exit of background process
 		// pipe writer will not return a meaningful error
+		//nolint:errcheck
 		pw.Close()
 	}()
 
@@ -354,25 +354,26 @@ func DumpPem(ctx context.Context, bs []byte, types string, wrt Writer) error {
 
 	// cleanup the reader end of the pipe.
 	// pipe writer will not return a meaningful error
+	//nolint:errcheck
 	pr.Close()
 
 	if err3 != nil {
 		// got a context error.  this has precedent
 		// err2 and err1 may be non-nil but err3 is the "cause"
 		// so report that.
-		return fmt.Errorf("%s: %w", ErrMsgCouldNotWritePem, err3)
+		return fmt.Errorf("%s: %w", errMsgCouldNotWritePem, err3)
 	}
 
 	if err2 != nil {
 		// got a write error.
-		return fmt.Errorf("%s: %w", ErrMsgCouldNotWritePem, err2)
+		return fmt.Errorf("%s: %w", errMsgCouldNotWritePem, err2)
 	}
 
 	// lines are flushed one at a time.  Do not risk omitting a
 	// newline at the end of a dump
 	_, err2 = wrt.WriteString("\n")
 	if err2 != nil {
-		return fmt.Errorf("%s: %w", ErrMsgCouldNotWritePem, err2)
+		return fmt.Errorf("%s: %w", errMsgCouldNotWritePem, err2)
 	}
 
 	// did not get a read error.  file ends in newline
