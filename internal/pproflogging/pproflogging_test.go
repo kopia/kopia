@@ -18,8 +18,10 @@ import (
 )
 
 var (
-	mu     sync.Mutex
-	oldEnv string
+	//nolint:gocritic
+	pemRegexp = regexp.MustCompile("(?sm:^(-{5}BEGIN ([A-Z]+)-{5}$.)(([A-Za-z0-9/+=]{2,80}$.)+)(^-{5}END ([A-Z]+)-{5})$)")
+	mu        sync.Mutex
+	oldEnv    string
 )
 
 func TestDebug_parseProfileConfigs(t *testing.T) {
@@ -261,10 +263,8 @@ func TestDebug_DumpPem(t *testing.T) {
 			expectCount: 0,
 		},
 	}
-	//rx := regexp.MustCompile("(?ms:^(-{5}BEGIN ([A-Z]+)-{5})$(([A-Za-z0-9/+=]{2,80})+)^(-{5}END ([A-Z]+)-{5}))$")
-	rx := regexp.MustCompile("(?sm:(^-{5}BEGIN ([A-Z]+)-{5}$).((^[A-Za-z0-9/+=]{2,80}$).+)(^-{5}END ([A-Z]+)-{5}))")
 	for i, tc := range tcs {
-		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+		t.Run(fmt.Sprintf("%d %s", i, tc.inType), func(t *testing.T) {
 			ctx := context.Background()
 			// PEM headings always in upper case
 			unm := strings.ToUpper(tc.inType)
@@ -288,7 +288,7 @@ func TestDebug_DumpPem(t *testing.T) {
 			}
 			require.ErrorIs(t, err, io.EOF)
 			require.Equal(t, tc.expectLines, j)
-			ssm := rx.FindAllStringSubmatch(dumps, 100)
+			ssm := pemRegexp.FindAllStringSubmatch(dumps, 100)
 			if tc.expectCount > 0 {
 				require.Len(t, ssm, 1)
 				require.Len(t, ssm[0], tc.expectCount)
@@ -355,9 +355,6 @@ func TestDebug_StartProfileBuffers(t *testing.T) {
 	// save environment and restore after testing
 	saveLockEnv(t)
 	defer restoreUnlockEnv(t)
-
-	// regexp for PEMs
-	rx := regexp.MustCompile(`(?s:-{5}BEGIN ([A-Z]+)-{5}.(([A-Za-z0-9/+=]{2,80}.)+)-{5}END ([A-Z]+)-{5})`)
 
 	ctx := context.Background()
 
@@ -439,7 +436,7 @@ func TestDebug_StartProfileBuffers(t *testing.T) {
 			require.Empty(t, pprofConfigs.pcm)
 
 			s := buf.String()
-			mchsss := rx.FindAllString(s, -1)
+			mchsss := pemRegexp.FindAllString(s, -1)
 			require.Len(t, mchsss, tc.expectedProfileCount)
 		})
 	}
@@ -449,9 +446,6 @@ func TestDebug_badConsoleOutput(t *testing.T) {
 	// save environment and restore after testing
 	saveLockEnv(t)
 	defer restoreUnlockEnv(t)
-
-	// regexp for PEMs
-	rx := regexp.MustCompile(`(?s:-{5}BEGIN ([A-Z]+)-{5}.(([A-Za-z0-9/+=]{2,80}.)+)-{5}END ([A-Z]+)-{5})`)
 
 	ctx := context.Background()
 
@@ -489,7 +483,7 @@ func TestDebug_badConsoleOutput(t *testing.T) {
 			require.Empty(t, pprofConfigs.pcm)
 
 			s := buf.String()
-			mchsss := rx.FindAllString(s, -1)
+			mchsss := pemRegexp.FindAllString(s, -1)
 			require.Empty(t, mchsss)
 		})
 	}
@@ -500,9 +494,6 @@ func TestDebug_RestartProfileBuffers(t *testing.T) {
 	// save environment and restore after testing
 	saveLockEnv(t)
 	defer restoreUnlockEnv(t)
-
-	// regexp for PEMs
-	rx := regexp.MustCompile(`(?s:-{5}BEGIN ([A-Z]+)-{5}.(([A-Za-z0-9/+=]{2,80}.)+)-{5}END ([A-Z]+)-{5})`)
 
 	ctx := context.Background()
 
@@ -562,7 +553,7 @@ func TestDebug_RestartProfileBuffers(t *testing.T) {
 
 			s := buf.String()
 			fmt.Print(s)
-			mchsss := rx.FindAllStringSubmatch(s, -1)
+			mchsss := pemRegexp.FindAllStringSubmatch(s, -1)
 			require.Len(t, mchsss, tc.expectedProfileCount)
 		})
 	}
