@@ -64,8 +64,6 @@ const (
 )
 
 var (
-	// ErrEmptyConfiguration returned when attempt to configure profile buffers without a configuration string.
-	ErrEmptyConfiguration = errors.New("empty profile configuration")
 	// ErrEmptyProfileName returned when a profile configuration flag has no argument.
 	ErrEmptyProfileName = errors.New("empty profile flag")
 
@@ -117,6 +115,8 @@ func newProfileConfigs(wrt Writer) *ProfileConfigs {
 func LoadProfileConfig(ctx context.Context, ppconfigss string) (map[ProfileName]*ProfileConfig, error) {
 	// if empty, then don't bother configuring but emit a log message - use might be expecting them to be configured
 	if ppconfigss == "" {
+		// look for matching services.  "*" signals all services for profiling
+		log(ctx).Debug("no profile configuration.  skipping PPROF setup")
 		return nil, nil
 	}
 
@@ -139,10 +139,6 @@ type ProfileConfig struct {
 // if the flag does not exist. True will be returned if flag exists without
 // a value.
 func (p *ProfileConfig) GetValue(s string) (string, bool) {
-	if p == nil {
-		return "", false
-	}
-
 	for _, f := range p.flags {
 		kvs := strings.SplitN(f, "=", pair)
 		if kvs[0] != s {
@@ -267,7 +263,13 @@ func StartProfileBuffers(ctx context.Context) {
 	pprofConfigs.mu.Lock()
 	defer pprofConfigs.mu.Unlock()
 
-	pprofConfigs.pcm, _ = parseProfileConfigs(bufSizeB, ppconfigs)
+	var err error
+
+	pprofConfigs.pcm, err = parseProfileConfigs(bufSizeB, ppconfigs)
+	if err != nil {
+		log(ctx).With("cause", err).Warnf("cannot start PPROF config, %q, due to parse error", pprofConfigs)
+		return
+	}
 
 	// profiling rates need to be set before starting profiling
 	setupProfileFractions(ctx, pprofConfigs.pcm)
@@ -301,13 +303,12 @@ func DumpPem(bs []byte, types string, wrt *os.File) error {
 	// the encoded PEM.
 	go func() {
 		// writer close on exit of background process
+		// pipe writer will not return a meaningful error
 		//nolint:errcheck
 		defer pw.Close()
+
 		// do the encoding
 		err0 = pem.Encode(pw, blk)
-		if err0 != nil {
-			return
-		}
 	}()
 
 	// connect rdr to pipe reader
@@ -328,22 +329,25 @@ func DumpPem(bs []byte, types string, wrt *os.File) error {
 		return fmt.Errorf("could not write PEM: %w", err2)
 	}
 
-	// did not get a read error.  file ends in newline
-	if err1 == nil {
-		return nil
+	if err0 != nil {
+		return fmt.Errorf("could not write PEM: %w", err0)
 	}
 
-	// if file does not end in newline, then output one
-	if errors.Is(err1, io.EOF) {
-		_, err2 = wrt.WriteString("\n")
-		if err2 != nil {
-			return fmt.Errorf("could not write PEM: %w", err2)
+	if err1 != nil {
+		// if file does not end in newline, then output one
+		if errors.Is(err1, io.EOF) {
+			_, err2 = wrt.WriteString("\n")
+			if err2 != nil {
+				return fmt.Errorf("could not write PEM: %w", err2)
+			}
+
+			return io.EOF
 		}
 
-		return io.EOF
+		return fmt.Errorf("error reading bytes: %w", err1)
 	}
 
-	return fmt.Errorf("error reading bytes: %w", err1)
+	return nil
 }
 
 func parseDebugNumber(v *ProfileConfig) (int, error) {

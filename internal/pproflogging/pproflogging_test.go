@@ -5,21 +5,16 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 )
 
-var (
-	mu     sync.Mutex
-	oldEnv string
-)
+var oldEnv string
 
 func TestDebug_parseProfileConfigs(t *testing.T) {
 	saveLockEnv(t)
-	defer restoreUnlockEnv(t)
 
 	tcs := []struct {
 		in            string
@@ -153,7 +148,6 @@ func TestDebug_parseProfileConfigs(t *testing.T) {
 
 func TestDebug_newProfileConfigs(t *testing.T) {
 	saveLockEnv(t)
-	defer restoreUnlockEnv(t)
 
 	tcs := []struct {
 		in     string
@@ -201,7 +195,6 @@ func TestDebug_newProfileConfigs(t *testing.T) {
 func TestDebug_LoadProfileConfigs(t *testing.T) {
 	// save environment and restore after testing
 	saveLockEnv(t)
-	defer restoreUnlockEnv(t)
 
 	ctx := context.Background()
 
@@ -282,18 +275,12 @@ func TestDebug_LoadProfileConfigs(t *testing.T) {
 func saveLockEnv(t *testing.T) {
 	t.Helper()
 
-	mu.Lock()
 	oldEnv = os.Getenv(EnvVarKopiaDebugPprof)
-}
 
-// +checklocksignore
-//
-//nolint:gocritic
-func restoreUnlockEnv(t *testing.T) {
-	t.Helper()
-
-	t.Setenv(EnvVarKopiaDebugPprof, oldEnv)
-	mu.Unlock()
+	t.Cleanup(func() {
+		// restore the old environment
+		t.Setenv(EnvVarKopiaDebugPprof, oldEnv)
+	})
 }
 
 func TestWriter(t *testing.T) {
