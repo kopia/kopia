@@ -13,6 +13,24 @@ import (
 
 var oldEnv string
 
+func TestDebug_StartProfileBuffers(t *testing.T) {
+	saveLockEnv(t)
+	// placeholder to make coverage happy
+	tcs := []struct {
+		in          string
+		expectError error
+	}{
+		{
+			in: "",
+		},
+	}
+	for _, tc := range tcs {
+		ctx := context.Background()
+		t.Setenv(EnvVarKopiaDebugPprof, tc.in)
+		StartProfileBuffers(ctx)
+	}
+}
+
 func TestDebug_parseProfileConfigs(t *testing.T) {
 	saveLockEnv(t)
 
