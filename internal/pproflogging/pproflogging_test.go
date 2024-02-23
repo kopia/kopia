@@ -15,8 +15,6 @@ import (
 	"github.com/kopia/kopia/repo/logging"
 )
 
-var oldEnv string
-
 func TestDebug_StartProfileBuffers(t *testing.T) {
 	saveLockEnv(t)
 	// placeholder to make coverage happy
@@ -299,13 +297,11 @@ func TestDebug_LoadProfileConfigs(t *testing.T) {
 	}
 }
 
-// +checklocksignore
-//
 //nolint:gocritic
 func saveLockEnv(t *testing.T) {
 	t.Helper()
 
-	oldEnv = os.Getenv(EnvVarKopiaDebugPprof)
+	oldEnv := os.Getenv(EnvVarKopiaDebugPprof)
 
 	t.Cleanup(func() {
 		// restore the old environment
