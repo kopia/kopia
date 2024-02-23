@@ -19,6 +19,7 @@ import (
 	htpasswd "github.com/tg123/go-htpasswd"
 
 	"github.com/kopia/kopia/internal/auth"
+	"github.com/kopia/kopia/internal/crypto"
 	"github.com/kopia/kopia/internal/ctxutil"
 	"github.com/kopia/kopia/internal/server"
 	"github.com/kopia/kopia/repo"
@@ -65,6 +66,8 @@ type commandServerStart struct {
 	persistentLogs                      bool
 	debugScheduler                      bool
 	minMaintenanceInterval              time.Duration
+
+	keyDerivationAlgorithm string
 
 	shutdownGracePeriod time.Duration
 
@@ -119,6 +122,8 @@ func (c *commandServerStart) setup(svc advancedAppServices, parent commandParent
 
 	cmd.Flag("log-server-requests", "Log server requests").Hidden().BoolVar(&c.logServerRequests)
 	cmd.Flag("disable-csrf-token-checks", "Disable CSRF token").Hidden().BoolVar(&c.disableCSRFTokenChecks)
+
+	cmd.Flag("key-derivation-algorithm", "Key Derivation Algorithm").Default(crypto.DefaultKeyDerivationAlgorithm).StringVar(&c.keyDerivationAlgorithm)
 
 	cmd.Flag("shutdown-grace-period", "Grace period for shutting down the server").Default("5s").DurationVar(&c.shutdownGracePeriod)
 
@@ -366,7 +371,7 @@ User accounts can be added using 'kopia server user add'.
 `)
 
 	// handle user accounts stored in the repository
-	authenticators = append(authenticators, auth.AuthenticateRepositoryUsers())
+	authenticators = append(authenticators, auth.AuthenticateRepositoryUsers(c.keyDerivationAlgorithm))
 
 	return auth.CombineAuthenticators(authenticators...), nil
 }

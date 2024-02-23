@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/internal/clock"
-	"github.com/kopia/kopia/internal/crypto"
 	"github.com/kopia/kopia/internal/user"
 	"github.com/kopia/kopia/repo"
 )
@@ -23,6 +22,8 @@ type repositoryUserAuthenticator struct {
 	userProfiles map[string]*user.Profile
 	// +checklocks:mu
 	userProfileRefreshFrequency time.Duration
+
+	keyDerivationAlgorithm string
 }
 
 func (ac *repositoryUserAuthenticator) IsValid(ctx context.Context, rep repo.Repository, username, password string) bool {
@@ -52,7 +53,7 @@ func (ac *repositoryUserAuthenticator) IsValid(ctx context.Context, rep repo.Rep
 
 	// IsValidPassword can be safely called on nil and the call will take as much time as for a valid user
 	// thus not revealing anything about whether the user exists.
-	return ac.userProfiles[username].IsValidPassword(password, crypto.DefaultKeyDerivationAlgorithm)
+	return ac.userProfiles[username].IsValidPassword(password, ac.keyDerivationAlgorithm)
 }
 
 func (ac *repositoryUserAuthenticator) Refresh(ctx context.Context) error {
@@ -66,9 +67,10 @@ func (ac *repositoryUserAuthenticator) Refresh(ctx context.Context) error {
 
 // AuthenticateRepositoryUsers returns authenticator that accepts username/password combinations
 // stored in 'user' manifests in the repository.
-func AuthenticateRepositoryUsers() Authenticator {
+func AuthenticateRepositoryUsers(keyDerivationAlgorithm string) Authenticator {
 	a := &repositoryUserAuthenticator{
 		userProfileRefreshFrequency: defaultProfileRefreshFrequency,
+		keyDerivationAlgorithm:      keyDerivationAlgorithm,
 	}
 
 	return a

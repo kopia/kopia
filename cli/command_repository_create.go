@@ -7,6 +7,7 @@ import (
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/crypto"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/ecc"
@@ -31,6 +32,7 @@ type commandRepositoryCreate struct {
 	createSplitter                string
 	createOnly                    bool
 	createFormatVersion           int
+	keyDerivationAlgorithm        string
 	retentionMode                 string
 	retentionPeriod               time.Duration
 
@@ -48,6 +50,7 @@ func (c *commandRepositoryCreate) setup(svc advancedAppServices, parent commandP
 	cmd.Flag("ecc-overhead-percent", "[EXPERIMENTAL] How much space overhead can be used for error correction, in percentage. Use 0 to disable ECC.").Default("0").IntVar(&c.createBlockECCOverheadPercent)
 	cmd.Flag("object-splitter", "The splitter to use for new objects in the repository").Default(splitter.DefaultAlgorithm).EnumVar(&c.createSplitter, splitter.SupportedAlgorithms()...)
 	cmd.Flag("create-only", "Create repository, but don't connect to it.").Short('c').BoolVar(&c.createOnly)
+	cmd.Flag("key-derivation-algorithm", "Key Derivation Algorithm").Default(crypto.DefaultKeyDerivationAlgorithm).StringVar(&c.keyDerivationAlgorithm)
 	cmd.Flag("format-version", "Force a particular repository format version (1, 2 or 3, 0==default)").IntVar(&c.createFormatVersion)
 	cmd.Flag("retention-mode", "Set the blob retention-mode for supported storage backends.").EnumVar(&c.retentionMode, blob.Governance.String(), blob.Compliance.String())
 	cmd.Flag("retention-period", "Set the blob retention-period for supported storage backends.").DurationVar(&c.retentionPeriod)

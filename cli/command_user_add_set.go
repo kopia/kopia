@@ -19,6 +19,8 @@ type commandServerUserAddSet struct {
 	userSetPasswordHashVersion int
 	userSetPasswordHash        string
 
+	keyDerivationAlgorithm string
+
 	isNew bool // true == 'add', false == 'update'
 	out   textOutput
 }
@@ -35,6 +37,7 @@ func (c *commandServerUserAddSet) setup(svc appServices, parent commandParent, i
 	}
 
 	cmd.Flag("ask-password", "Ask for user password").BoolVar(&c.userAskPassword)
+	cmd.Flag("key-derivation-algorithm", "Key Derivation Algorithm").Default(crypto.DefaultKeyDerivationAlgorithm).StringVar(&c.keyDerivationAlgorithm)
 	cmd.Flag("user-password", "Password").StringVar(&c.userSetPassword)
 	cmd.Flag("user-password-hash", "Password hash").StringVar(&c.userSetPasswordHash)
 	cmd.Flag("user-password-hash-version", "Password hash version").Default("1").IntVar(&c.userSetPasswordHashVersion)
@@ -75,7 +78,7 @@ func (c *commandServerUserAddSet) runServerUserAddSet(ctx context.Context, rep r
 	if p := c.userSetPassword; p != "" {
 		changed = true
 
-		if err := up.SetPassword(p, crypto.DefaultKeyDerivationAlgorithm); err != nil {
+		if err := up.SetPassword(p, c.keyDerivationAlgorithm); err != nil {
 			return errors.Wrap(err, "error setting password")
 		}
 	}
@@ -108,7 +111,7 @@ func (c *commandServerUserAddSet) runServerUserAddSet(ctx context.Context, rep r
 
 		changed = true
 
-		if err := up.SetPassword(pwd, crypto.DefaultKeyDerivationAlgorithm); err != nil {
+		if err := up.SetPassword(pwd, c.keyDerivationAlgorithm); err != nil {
 			return errors.Wrap(err, "error setting password")
 		}
 	}
