@@ -16,7 +16,9 @@ var log = logging.Module("metrics")
 
 // Registry groups together all metrics stored in the repository and provides ways of accessing them.
 type Registry struct {
-	mu        sync.Mutex
+	mu sync.Mutex
+
+	// +checklocks:mu
 	startTime time.Time
 
 	allCounters              map[string]*Counter
