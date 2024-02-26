@@ -25,7 +25,6 @@ type Reader interface {
 	io.Seeker
 	io.Closer
 	Length() int64
-	SetReadingProgressCallback(cb FileReadingProgressCallback)
 }
 
 type contentReader interface {

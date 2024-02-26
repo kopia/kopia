@@ -261,10 +261,6 @@ type readCloserWithFileInfo struct {
 	e fs.Entry
 }
 
-func (r *readCloserWithFileInfo) SetReadingProgressCallback(cb object.FileReadingProgressCallback) {
-	r.Reader.SetReadingProgressCallback(cb)
-}
-
 func (r *readCloserWithFileInfo) Entry() (fs.Entry, error) {
 	return r.e, nil
 }

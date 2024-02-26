@@ -17,7 +17,6 @@ import (
 	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/internal/sparsefile"
 	"github.com/kopia/kopia/internal/stat"
-	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
 )
 
@@ -53,6 +52,34 @@ func getStreamCopier(ctx context.Context, targetpath string, sparse bool) (strea
 	return func(w io.WriteSeeker, r io.Reader) (int64, error) {
 		return iocopy.Copy(w, r) //nolint:wrapcheck
 	}, nil
+}
+
+// progressReportingReader is just a wrapper for fs.Reader which is used to capture and pass to cb number of bytes read
+type progressReportingReader struct {
+	r fs.Reader
+
+	cb FileWriteProgress
+}
+
+func (r *progressReportingReader) Entry() (fs.Entry, error) {
+	return r.Entry()
+}
+
+func (r *progressReportingReader) Seek(offset int64, whence int) (int64, error) {
+	return r.r.Seek(offset, whence)
+}
+
+func (r *progressReportingReader) Close() error {
+	return r.r.Close()
+}
+
+func (r *progressReportingReader) Read(p []byte) (int, error) {
+	bytesRead, err := r.r.Read(p)
+	if err == nil {
+		r.cb(int64(bytesRead))
+	}
+
+	return bytesRead, err
 }
 
 // FilesystemOutput contains the options for outputting a file system tree.
@@ -403,13 +430,9 @@ func (o *FilesystemOutput) copyFileContent(ctx context.Context, targetPath strin
 		return errors.Wrap(err, "unable to open snapshot file for "+targetPath)
 	}
 	defer r.Close() //nolint:errcheck
-
-	type withProgressTracking interface {
-		SetReadingProgressCallback(cb object.FileReadingProgressCallback)
-	}
-
-	if wpt, ok := r.(withProgressTracking); ok {
-		wpt.SetReadingProgressCallback(object.FileReadingProgressCallback(progressCb))
+	wr := &progressReportingReader{
+		r:  r,
+		cb: progressCb,
 	}
 
 	log(ctx).Debugf("copying file contents to: %v", targetPath)
@@ -417,10 +440,10 @@ func (o *FilesystemOutput) copyFileContent(ctx context.Context, targetPath strin
 
 	if o.WriteFilesAtomically {
 		//nolint:wrapcheck
-		return atomicfile.Write(targetPath, r)
+		return atomicfile.Write(targetPath, wr)
 	}
 
-	return write(targetPath, r, f.Size(), o.copier)
+	return write(targetPath, wr, f.Size(), o.copier)
 }
 
 func isEmptyDirectory(name string) (bool, error) {

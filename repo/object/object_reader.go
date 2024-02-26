@@ -57,10 +57,6 @@ type objectReader struct {
 	readingProgressCb FileReadingProgressCallback
 }
 
-func (r *objectReader) SetReadingProgressCallback(cb FileReadingProgressCallback) {
-	r.readingProgressCb = cb
-}
-
 func (r *objectReader) Read(buffer []byte) (int, error) {
 	readBytes := 0
 	remaining := len(buffer)
@@ -107,10 +103,6 @@ func (r *objectReader) Read(buffer []byte) (int, error) {
 
 	if readBytes == 0 {
 		return readBytes, io.EOF
-	}
-
-	if r.readingProgressCb != nil {
-		r.readingProgressCb(int64(readBytes))
 	}
 
 	return readBytes, nil
@@ -337,10 +329,6 @@ func (rwd *readerWithData) Close() error {
 
 func (rwd *readerWithData) Length() int64 {
 	return rwd.length
-}
-
-func (rwd *readerWithData) SetReadingProgressCallback(_ FileReadingProgressCallback) {
-	// readerWithData does not need to report progress
 }
 
 func newObjectReaderWithData(data []byte) Reader {
