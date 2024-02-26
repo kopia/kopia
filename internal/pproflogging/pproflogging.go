@@ -113,7 +113,7 @@ func newProfileConfigs(wrt Writer) *ProfileConfigs {
 
 // LoadProfileConfig configure PPROF profiling from the config in ppconfigss.
 func LoadProfileConfig(ctx context.Context, ppconfigss string) (map[ProfileName]*ProfileConfig, error) {
-	// if empty, then don't bother configuring but emit a log message - use might be expecting them to be configured
+	// if empty, then don't bother configuring but emit a log message - user might be expecting them to be configured
 	if ppconfigss == "" {
 		log(ctx).Debug("no profile configuration. skipping PPROF setup")
 		return nil, nil
@@ -164,7 +164,7 @@ func parseProfileConfigs(bufSizeB int, ppconfigs string) (map[ProfileName]*Profi
 		flagValue := ""
 
 		if len(profileFlagNameValuePairs) > 1 {
-			// only <key>=<value? allowed
+			// only <key>=<value> allowed
 			flagValue = profileFlagNameValuePairs[1]
 		}
 
@@ -299,6 +299,7 @@ func DumpPem(bs []byte, types string, wrt *os.File) error {
 	pr, pw := io.Pipe()
 
 	// ensure read-end of the pipe is close
+	//nolint:errcheck
 	defer pr.Close()
 
 	// encode PEM in the background and output in a line oriented
