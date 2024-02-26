@@ -297,6 +297,10 @@ func DumpPem(bs []byte, types string, wrt *os.File) error {
 	// will make best use of output buffer and help prevent overflows or
 	// stalls in the output path.
 	pr, pw := io.Pipe()
+
+	// ensure read-end of the pipe is close
+	defer pr.Close()
+
 	// encode PEM in the background and output in a line oriented
 	// fashion - this prevents the need for a large buffer to hold
 	// the encoded PEM.
