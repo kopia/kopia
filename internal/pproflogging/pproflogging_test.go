@@ -22,8 +22,6 @@ import (
 //nolint:gocritic
 var pemRegexp = regexp.MustCompile("(?sm:^(-{5}BEGIN ([A-Z]+)-{5}$.)(([A-Za-z0-9/+=]{2,80}$.)+)(^-{5}END ([A-Z]+)-{5})$)")
 
-var oldEnv string
-
 // TestDebug_StartProfileBuffers test setup of profile buffers with configuration set from the environment.
 func TestDebug_StartProfileBuffers(t *testing.T) {
 	// save environment and restore after testing
@@ -476,7 +474,7 @@ func TestDebug_LoadProfileConfigs(t *testing.T) {
 func saveLockEnv(t *testing.T) {
 	t.Helper()
 
-	oldEnv = os.Getenv(EnvVarKopiaDebugPprof)
+	oldEnv := os.Getenv(EnvVarKopiaDebugPprof)
 
 	t.Cleanup(func() {
 		// restore the old environment
