@@ -299,6 +299,7 @@ func DumpPem(bs []byte, types string, wrt *os.File) error {
 	pr, pw := io.Pipe()
 
 	// ensure read-end of the pipe is close
+	//nolint:errcheck
 	defer pr.Close()
 
 	// encode PEM in the background and output in a line oriented
