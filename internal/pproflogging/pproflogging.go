@@ -164,7 +164,7 @@ func parseProfileConfigs(bufSizeB int, ppconfigs string) (map[ProfileName]*Profi
 		flagValue := ""
 
 		if len(profileFlagNameValuePairs) > 1 {
-			// only <key>=<value? allowed
+			// only <key>=<value> allowed
 			flagValue = profileFlagNameValuePairs[1]
 		}
 
