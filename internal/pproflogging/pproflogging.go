@@ -80,6 +80,10 @@ type Writer interface {
 // ProfileConfigs configuration flags for all requested profiles.
 type ProfileConfigs struct {
 	mu sync.Mutex
+	// wrt represents the final destination for the PPROF PEM output.  Typically,
+	// this is attached to stderr or log output.  A custom writer is used because
+	// not all loggers support line oriented output through the io.Writer interface...
+	// support is often attached th a io.StringWriter.
 	// +checklocks:mu
 	wrt Writer
 	// +checklocks:mu
@@ -137,7 +141,7 @@ type ProfileConfig struct {
 // GetValue get the value of the named flag, `s`.  False will be returned
 // if the flag does not exist. True will be returned if flag exists without
 // a value.
-func (p *ProfileConfig) GetValue(s string) (string, bool) {
+func (p ProfileConfig) GetValue(s string) (string, bool) {
 	for _, f := range p.flags {
 		kvs := strings.SplitN(f, "=", pair)
 		if kvs[0] != s {

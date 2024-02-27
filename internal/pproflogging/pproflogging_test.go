@@ -490,7 +490,7 @@ func TestErrorWriter(t *testing.T) {
 	require.Equal(t, "Hello", string(eww.bs))
 }
 
-// ErrorWriter allow injection of errors into the write stream.  There are a few
+// ErrorWriter allows injection of errors into the write stream.  There are a few
 // failures in PPROF dumps that are worth modeling for tests ([io.EOF] is one)
 // For use specify the error, ErrorWriter.err, and byte index, ErrorWriter.mx,
 // in which it should occur.
