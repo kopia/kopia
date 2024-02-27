@@ -75,7 +75,7 @@ func (r *progressReportingReader) Close() error {
 
 func (r *progressReportingReader) Read(p []byte) (int, error) {
 	bytesRead, err := r.r.Read(p)
-	if err == nil {
+	if err == nil && r.cb != nil {
 		r.cb(int64(bytesRead))
 	}
 
