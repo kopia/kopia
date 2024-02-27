@@ -97,7 +97,7 @@ func CreateTimeSeries[TValue any](
 		totalDuration := s.EndTime.Sub(s.StartTime)
 		pbt := ts[timeSeriesID]
 
-		// we know that between [StartTime, EndTime] te counter increased by `value`
+		// we know that between [StartTime, EndTime] the counter increased by `value`
 		// distribute counter value among points in the time series proportionally to the
 		// time spent in time period
 		for p := s.StartTime; p.Before(s.EndTime); _, p = opts.TimeResolution(p) {
