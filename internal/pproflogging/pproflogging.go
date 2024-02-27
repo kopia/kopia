@@ -80,6 +80,10 @@ type Writer interface {
 // ProfileConfigs configuration flags for all requested profiles.
 type ProfileConfigs struct {
 	mu sync.Mutex
+	// wrt represents the final destination for the PPROF PEM output.  Typically,
+	// this is attached to stderr or log output.  A custom writer is used because
+	// not all loggers support line oriented output through the io.Writer interface...
+	// support is often attached th a io.StringWriter.
 	// +checklocks:mu
 	wrt Writer
 	// +checklocks:mu
