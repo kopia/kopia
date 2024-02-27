@@ -297,7 +297,6 @@ func DumpPem(ctx context.Context, bs []byte, types string, wrt Writer) error {
 		Type:  types,
 		Bytes: bs,
 	}
-
 	// wrt is likely a line oriented writer, so writing individual lines
 	// will make best use of output buffer and help prevent overflows or
 	// stalls in the output path.
