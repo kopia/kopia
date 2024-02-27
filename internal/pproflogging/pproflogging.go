@@ -63,22 +63,32 @@ const (
 	ProfileNameCPU = "cpu"
 )
 
-// ProfileConfig configuration flags for a profile.
-type ProfileConfig struct {
-	flags []string
-	buf   *bytes.Buffer
+var (
+	// ErrEmptyProfileName returned when a profile configuration flag has no argument.
+	ErrEmptyProfileName = errors.New("empty profile flag")
+
+	//nolint:gochecknoglobals
+	pprofConfigs = newProfileConfigs(os.Stderr)
+)
+
+// Writer interface supports destination for PEM output.
+type Writer interface {
+	io.Writer
+	io.StringWriter
 }
 
 // ProfileConfigs configuration flags for all requested profiles.
 type ProfileConfigs struct {
 	mu sync.Mutex
-
+	// wrt represents the final destination for the PPROF PEM output.  Typically,
+	// this is attached to stderr or log output.  A custom writer is used because
+	// not all loggers support line oriented output through the io.Writer interface...
+	// support is often attached th a io.StringWriter.
+	// +checklocks:mu
+	wrt Writer
 	// +checklocks:mu
 	pcm map[ProfileName]*ProfileConfig
 }
-
-//nolint:gochecknoglobals
-var pprofConfigs = &ProfileConfigs{}
 
 type pprofSetRate struct {
 	setter       func(int)
@@ -95,6 +105,37 @@ var pprofProfileRates = map[ProfileName]pprofSetRate{
 		setter:       func(x int) { runtime.SetMutexProfileFraction(x) },
 		defaultValue: DefaultDebugProfileRate,
 	},
+}
+
+func newProfileConfigs(wrt Writer) *ProfileConfigs {
+	q := &ProfileConfigs{
+		wrt: wrt,
+	}
+
+	return q
+}
+
+// LoadProfileConfig configure PPROF profiling from the config in ppconfigss.
+func LoadProfileConfig(ctx context.Context, ppconfigss string) (map[ProfileName]*ProfileConfig, error) {
+	// if empty, then don't bother configuring but emit a log message - user might be expecting them to be configured
+	if ppconfigss == "" {
+		log(ctx).Debug("no profile configuration. skipping PPROF setup")
+		return nil, nil
+	}
+
+	bufSizeB := DefaultDebugProfileDumpBufferSizeB
+
+	// look for matching services.  "*" signals all services for profiling
+	log(ctx).Info("configuring profile buffers")
+
+	// acquire global lock when performing operations with global side-effects
+	return parseProfileConfigs(bufSizeB, ppconfigss)
+}
+
+// ProfileConfig configuration flags for a profile.
+type ProfileConfig struct {
+	flags []string
+	buf   *bytes.Buffer
 }
 
 // GetValue get the value of the named flag, `s`.  False will be returned
@@ -117,7 +158,7 @@ func (p ProfileConfig) GetValue(s string) (string, bool) {
 	return "", false
 }
 
-func parseProfileConfigs(bufSizeB int, ppconfigs string) map[ProfileName]*ProfileConfig {
+func parseProfileConfigs(bufSizeB int, ppconfigs string) (map[ProfileName]*ProfileConfig, error) {
 	pbs := map[ProfileName]*ProfileConfig{}
 	allProfileOptions := strings.Split(ppconfigs, ":")
 
@@ -127,14 +168,19 @@ func parseProfileConfigs(bufSizeB int, ppconfigs string) map[ProfileName]*Profil
 		flagValue := ""
 
 		if len(profileFlagNameValuePairs) > 1 {
+			// only <key>=<value> allowed
 			flagValue = profileFlagNameValuePairs[1]
 		}
 
-		flagKey := ProfileName(strings.ToLower(profileFlagNameValuePairs[0]))
+		flagKey := ProfileName(profileFlagNameValuePairs[0])
+		if flagKey == "" {
+			return nil, ErrEmptyProfileName
+		}
+
 		pbs[flagKey] = newProfileConfig(bufSizeB, flagValue)
 	}
 
-	return pbs
+	return pbs, nil
 }
 
 // newProfileConfig create a new profiling configuration.
@@ -207,7 +253,7 @@ func StartProfileBuffers(ctx context.Context) {
 	ppconfigs := os.Getenv(EnvVarKopiaDebugPprof)
 	// if empty, then don't bother configuring but emit a log message - use might be expecting them to be configured
 	if ppconfigs == "" {
-		log(ctx).Debug("no profile buffers enabled")
+		log(ctx).Warn("no profile buffers enabled")
 		return
 	}
 
@@ -220,7 +266,13 @@ func StartProfileBuffers(ctx context.Context) {
 	pprofConfigs.mu.Lock()
 	defer pprofConfigs.mu.Unlock()
 
-	pprofConfigs.pcm = parseProfileConfigs(bufSizeB, ppconfigs)
+	var err error
+
+	pprofConfigs.pcm, err = parseProfileConfigs(bufSizeB, ppconfigs)
+	if err != nil {
+		log(ctx).With("cause", err).Warnf("cannot start PPROF config, %q, due to parse error", ppconfigs)
+		return
+	}
 
 	// profiling rates need to be set before starting profiling
 	setupProfileFractions(ctx, pprofConfigs.pcm)
@@ -249,18 +301,22 @@ func DumpPem(bs []byte, types string, wrt *os.File) error {
 	// will make best use of output buffer and help prevent overflows or
 	// stalls in the output path.
 	pr, pw := io.Pipe()
+
+	// ensure read-end of the pipe is close
+	//nolint:errcheck
+	defer pr.Close()
+
 	// encode PEM in the background and output in a line oriented
 	// fashion - this prevents the need for a large buffer to hold
 	// the encoded PEM.
 	go func() {
 		// writer close on exit of background process
+		// pipe writer will not return a meaningful error
 		//nolint:errcheck
 		defer pw.Close()
+
 		// do the encoding
 		err0 = pem.Encode(pw, blk)
-		if err0 != nil {
-			return
-		}
 	}()
 
 	// connect rdr to pipe reader
@@ -281,7 +337,10 @@ func DumpPem(bs []byte, types string, wrt *os.File) error {
 		return fmt.Errorf("could not write PEM: %w", err2)
 	}
 
-	// did not get a read error.  file ends in newline
+	if err0 != nil {
+		return fmt.Errorf("could not write PEM: %w", err0)
+	}
+
 	if err1 == nil {
 		return nil
 	}
