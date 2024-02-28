@@ -343,7 +343,7 @@ func DumpPem(ctx context.Context, bs []byte, types string, wrt Writer) error {
 
 	// context cancellation has precedence
 	if err3 != nil {
-		return fmt.Errorf("could not write PEM: %w", err2)
+		return fmt.Errorf("could not write PEM: %w", err3)
 	}
 
 	// got a write error

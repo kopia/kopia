@@ -123,6 +123,35 @@ func TestDebug_StartProfileBuffers(t *testing.T) {
 	}
 }
 
+// TestDebug_StartProfileBuffers test setup of profile buffers with configuration set from the environment.
+func TestDebug_StartProfileBuffersWithError(t *testing.T) {
+	// save environment and restore after testing
+	saveLockEnv(t)
+
+	// temporary buffer
+	lg0 := &bytes.Buffer{}
+	// buffer for profile config
+	lg1 := &bytes.Buffer{}
+
+	// can ignore this error.  the goal is to start profiling.  we don't'
+	// care if its already on.
+	pprof.StartCPUProfile(lg0)
+
+	// initialize pprofConfigs to initial value
+	pprofConfigs = newProfileConfigs(nil)
+
+	t.Setenv(EnvVarKopiaDebugPprof, "cpu")
+
+	ctx := logging.WithLogger(context.Background(), logging.ToWriter(lg1))
+	StartProfileBuffers(ctx)
+
+	pprofConfigs.mu.Lock()
+	defer pprofConfigs.mu.Unlock()
+
+	require.Regexp(t, "cannot start cpu PPROF", lg1.String())
+	require.Empty(t, pprofConfigs.pcm["cpu"])
+}
+
 func TestDebug_parseProfileConfigs(t *testing.T) {
 	saveLockEnv(t)
 
@@ -306,9 +335,12 @@ func TestDebug_DumpPem(t *testing.T) {
 	saveLockEnv(t)
 
 	tcs := []struct {
-		inBody      string
-		inType      string
-		inError     error
+		inBody  string
+		inType  string
+		inError error
+		// oddball function that allows passing the test
+		// context into the WriteError object
+		inCtxFn     func(context.CancelFunc) context.CancelFunc
 		inMx        int
 		expectErr   error
 		expectLines int
@@ -358,14 +390,33 @@ func TestDebug_DumpPem(t *testing.T) {
 			expectLines: 0,
 			expectCount: 0,
 		},
+		{
+			inBody: "this is a sample PEM",
+			inType: "cpu",
+			inCtxFn: func(canfn context.CancelFunc) context.CancelFunc {
+				return canfn
+			},
+			inMx:        5,
+			expectErr:   context.Canceled,
+			expectLines: 0,
+			expectCount: 0,
+		},
 	}
 	for i, tc := range tcs {
 		t.Run(fmt.Sprintf("%d %s", i, tc.inType), func(t *testing.T) {
-			ctx := context.Background()
+			ctx, canfn := context.WithCancel(context.Background())
+			defer canfn()
 			// PEM headings always in upper case
 			unm := strings.ToUpper(tc.inType)
 			// DumpPem dump a PEM version of the byte slice, bs, into writer, wrt.
-			wrt := &ErrorWriter{bs: make([]byte, 0), mx: tc.inMx, err: tc.inError}
+			wrt := &ErrorWriter{
+				bs:  make([]byte, 0),
+				mx:  tc.inMx,
+				err: tc.inError,
+			}
+			if tc.inCtxFn != nil {
+				wrt.fn = tc.inCtxFn(canfn) // call a function to make a function
+			}
 			err := DumpPem(ctx, []byte(tc.inBody), unm, wrt)
 			if tc.expectErr != nil {
 				require.ErrorIs(t, err, tc.expectErr)
@@ -498,6 +549,7 @@ type ErrorWriter struct {
 	bs  []byte
 	mx  int
 	err error
+	fn  context.CancelFunc
 }
 
 func (p *ErrorWriter) Write(bs []byte) (int, error) {
@@ -515,10 +567,14 @@ func (p *ErrorWriter) Write(bs []byte) (int, error) {
 	p.bs = append(p.bs, bs[:n]...)
 	if n < len(bs) {
 		// here we assume that any less than len(bs)
-		// bytes written returns an error.  This
-		// allows setting ErrorWriter up once
-		// to produce an error after multiple
-		// writes
+		// bytes written returns an error or calls
+		// the callback. This allows setting ErrorWriter
+		// up once to produce an error or callback
+		// after multiple writes
+		if p.fn != nil {
+			p.fn()
+		}
+
 		return n, p.err
 	}
 
