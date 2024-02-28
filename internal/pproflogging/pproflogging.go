@@ -279,12 +279,14 @@ func StartProfileBuffers(ctx context.Context) {
 
 	// cpu has special initialization
 	v, ok := pprofConfigs.pcm[ProfileNameCPU]
-	if ok {
-		err := pprof.StartCPUProfile(v.buf)
-		if err != nil {
-			log(ctx).With("cause", err).Warn("cannot start cpu PPROF")
-			delete(pprofConfigs.pcm, ProfileNameCPU)
-		}
+	if !ok {
+		return
+	}
+
+	err = pprof.StartCPUProfile(v.buf)
+	if err != nil {
+		log(ctx).With("cause", err).Warn("cannot start cpu PPROF")
+		delete(pprofConfigs.pcm, ProfileNameCPU)
 	}
 }
 
@@ -324,17 +326,27 @@ func DumpPem(ctx context.Context, bs []byte, types string, wrt Writer) error {
 
 	// err1 for reading
 	// err2 for writing
-	var err1, err2 error
-	for err1 == nil && err2 == nil {
+	// err3 for context
+	var err1, err2, err3 error
+
+	err3 = ctx.Err()
+	for err1 == nil && err2 == nil && err3 == nil {
 		var ln []byte
 		// ReadBytes may hang and ignore context timout
 		// err1 can return ln and non-nil err1, so always call write
 		ln, err1 = rdr.ReadBytes('\n')
 		// err1 can return ln and non-nil err1, so always call write
 		_, err2 = wrt.Write(ln)
+		// update the context error
+		err3 = ctx.Err()
 	}
 
-	// got a write error.  this has precedent
+	// context cancellation has precedence
+	if err3 != nil {
+		return fmt.Errorf("could not write PEM: %w", err2)
+	}
+
+	// got a write error
 	if err2 != nil {
 		return fmt.Errorf("could not write PEM: %w", err2)
 	}
@@ -347,6 +359,7 @@ func DumpPem(ctx context.Context, bs []byte, types string, wrt Writer) error {
 		return nil
 	}
 
+	// got a read error
 	// if file does not end in newline, then output one
 	if errors.Is(err1, io.EOF) {
 		_, err2 = wrt.WriteString("\n")
