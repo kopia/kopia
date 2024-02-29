@@ -120,6 +120,10 @@ type bytesReadSeekCloser struct {
 	offset int
 }
 
+func (b *bytesReadSeekCloser) ReadAt(bs []byte, i int64) (int, error) {
+	return b.b.ReadAt(bs, i)
+}
+
 func (b *bytesReadSeekCloser) Close() error {
 	return nil
 }
