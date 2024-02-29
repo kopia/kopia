@@ -120,8 +120,78 @@ type bytesReadSeekCloser struct {
 	offset int
 }
 
-func (b *bytesReadSeekCloser) ReadAt(bs []byte, i int64) (int, error) {
-	return b.b.ReadAt(bs, i)
+func (b *bytesReadSeekCloser) ReadAt(p []byte, off int64) (int, error) {
+	b.b.assertValid()
+
+	w := bytes.NewBuffer(p[:0])
+	offset := int(off)
+	size := len(p)
+
+	if offset < 0 {
+		return 0, errors.Errorf("invalid offset")
+	}
+
+	// find the index of starting slice
+	sliceNdx := -1
+
+	for i, p := range b.b.Slices {
+		if offset < len(p) {
+			sliceNdx = i
+			break
+		}
+
+		offset -= len(p)
+	}
+
+	// not found
+	if sliceNdx == -1 {
+		if len(p) == 0 {
+			return 0, nil
+		}
+
+		return 0, io.EOF
+	}
+
+	// first slice, possibly with offset zero
+	var firstChunkSize int
+	if offset+size <= len(b.b.Slices[sliceNdx]) {
+		firstChunkSize = size
+	} else {
+		// slice shorter
+		firstChunkSize = len(b.b.Slices[sliceNdx]) - offset
+	}
+
+	n, err := w.Write(b.b.Slices[sliceNdx][offset : offset+firstChunkSize])
+	if err != nil {
+		return 0, errors.Wrap(err, "error appending")
+	}
+
+	size -= firstChunkSize
+	sliceNdx++
+
+	// at this point we're staying at offset 0
+	for size > 0 && sliceNdx < len(b.b.Slices) {
+		s := b.b.Slices[sliceNdx]
+
+		// l is how many bytes we consume out of the current slice
+		l := min(size, len(s))
+
+		m, err := w.Write(s[0:l])
+		n += m
+
+		if err != nil {
+			return 0, errors.Wrap(err, "error appending")
+		}
+
+		size -= l
+		sliceNdx++
+	}
+
+	if sliceNdx == len(b.b.Slices) && offset+n == b.b.Length() {
+		return n, io.EOF
+	}
+
+	return n, nil
 }
 
 func (b *bytesReadSeekCloser) Close() error {
