@@ -529,6 +529,43 @@ func TestSlowWrite_MovesToNextEpochTwice(t *testing.T) {
 	require.Contains(t, err.Error(), "slow index write")
 }
 
+func TestMaybeAdvanceEpoch_Empty(t *testing.T) {
+	t.Parallel()
+
+	te := newTestEnv(t)
+	ctx := testlogging.Context(t)
+
+	// check current epoch via the epoch manager
+	cs, err := te.mgr.Current(ctx)
+
+	require.NoError(t, err)
+	require.Equal(t, 0, cs.WriteEpoch)
+
+	// load current epoch directly from storage
+	var cs0 CurrentSnapshot
+
+	err = te.mgr.loadWriteEpoch(ctx, &cs0)
+
+	require.NoError(t, err)
+	require.Equal(t, 0, cs0.WriteEpoch)
+
+	// this should be a no-op
+	err = te.mgr.MaybeAdvanceWriteEpoch(ctx)
+
+	require.NoError(t, err)
+
+	// check current epoch again
+	cs, err = te.mgr.Current(ctx)
+
+	require.NoError(t, err)
+	require.Equal(t, 0, cs.WriteEpoch)
+
+	err = te.mgr.loadWriteEpoch(ctx, &cs0)
+
+	require.NoError(t, err)
+	require.Equal(t, 0, cs0.WriteEpoch)
+}
+
 func TestForceAdvanceEpoch(t *testing.T) {
 	te := newTestEnv(t)
 
