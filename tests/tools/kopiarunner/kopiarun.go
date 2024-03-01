@@ -88,7 +88,7 @@ func (kr *Runner) RunAsync(args ...string) (*exec.Cmd, error) {
 
 	err := c.Start()
 	if err != nil {
-		return nil, err
+		return nil, errors.Join(err, errors.New("Run async failed for "+kr.Exe))
 	}
 
 	return c, nil

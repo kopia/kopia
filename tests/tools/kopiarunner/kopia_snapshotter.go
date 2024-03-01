@@ -395,7 +395,7 @@ func (ks *KopiaSnapshotter) ConnectOrCreateRepoWithServer(serverAddr string, arg
 	var cmdErr error
 
 	if cmd, cmdErr = ks.CreateServer(serverAddr, serverArgs...); cmdErr != nil {
-		return nil, "", cmdErr
+		return nil, "", errors.Wrap(cmdErr, "CreateServer failed")
 	}
 
 	if err := certKeyExist(context.TODO(), tlsCertFile, tlsKeyFile); err != nil {
