@@ -103,7 +103,9 @@ type Server struct {
 	// +checklocks:serverMutex
 	sched *scheduler.Scheduler
 
-	// +checklocks:serverMutex
+	nextRefreshTimeLock sync.Mutex
+
+	// +checklocks:nextRefreshTimeLock
 	nextRefreshTime time.Time
 
 	grpcServerState
@@ -268,8 +270,8 @@ func (s *Server) generateShortTermAuthCookie(username string, now time.Time) (st
 }
 
 func (s *Server) captureRequestContext(w http.ResponseWriter, r *http.Request) requestContext {
-	s.serverMutex.Lock()
-	defer s.serverMutex.Unlock()
+	s.serverMutex.RLock()
+	defer s.serverMutex.RUnlock()
 
 	return requestContext{
 		w:   w,
@@ -433,9 +435,9 @@ func (s *Server) handleRequestPossiblyNotConnected(isAuthorized isAuthorizedFunc
 
 func (s *Server) refreshAsync() {
 	// prevent refresh from being runnable.
-	s.serverMutex.Lock()
+	s.nextRefreshTimeLock.Lock()
 	s.nextRefreshTime = clock.Now().Add(s.options.RefreshInterval)
-	s.serverMutex.Unlock()
+	s.nextRefreshTimeLock.Unlock()
 
 	go s.Refresh()
 }
@@ -458,7 +460,9 @@ func (s *Server) refreshLocked(ctx context.Context) error {
 		return nil
 	}
 
+	s.nextRefreshTimeLock.Lock()
 	s.nextRefreshTime = clock.Now().Add(s.options.RefreshInterval)
+	s.nextRefreshTimeLock.Unlock()
 
 	if err := s.rep.Refresh(ctx); err != nil {
 		return errors.Wrap(err, "unable to refresh repository")
@@ -1021,11 +1025,15 @@ func (s *Server) getSchedulerItems(ctx context.Context, now time.Time) []schedul
 
 	var result []scheduler.Item
 
+	s.nextRefreshTimeLock.Lock()
+	nrt := s.nextRefreshTime
+	s.nextRefreshTimeLock.Unlock()
+
 	// add a scheduled item to refresh all sources and policies
 	result = append(result, scheduler.Item{
 		Description: "refresh",
 		Trigger:     s.refreshAsync,
-		NextTime:    s.nextRefreshTime,
+		NextTime:    nrt,
 	})
 
 	if s.maint != nil {

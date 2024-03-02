@@ -177,7 +177,7 @@ func (c *commandMaintenanceSet) run(ctx context.Context, rep repo.DirectReposito
 		return errors.Errorf("no changes specified")
 	}
 
-	blobCfg, err := rep.FormatManager().BlobCfgBlob()
+	blobCfg, err := rep.FormatManager().BlobCfgBlob(ctx)
 	if err != nil {
 		return errors.Wrap(err, "blob configuration")
 	}

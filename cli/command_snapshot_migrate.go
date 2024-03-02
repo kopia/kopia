@@ -72,12 +72,15 @@ func (c *commandSnapshotMigrate) run(ctx context.Context, destRepo repo.Reposito
 		mu.Lock()
 		defer mu.Unlock()
 
-		if !canceled {
-			canceled = true
-			for s, u := range activeUploaders {
-				log(ctx).Infof("canceling active uploader for %v", s)
-				u.Cancel()
-			}
+		if canceled {
+			return
+		}
+
+		canceled = true
+
+		for s, u := range activeUploaders {
+			log(ctx).Infof("canceling active uploader for %v", s)
+			u.Cancel()
 		}
 	})
 

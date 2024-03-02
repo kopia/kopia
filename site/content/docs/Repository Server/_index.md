@@ -1,25 +1,27 @@
 ---
 title: "Repository Server"
 linkTitle: "Repository Server"
-toc_hide: true
+weight: 30
 ---
 
-By default, every user of Kopia repository directly connects to an underlying storage using read-write access. If the users who share repository don't completely trust each other, some malicious actors can delete repository data structures causing data loss for others.
+By default, every user of Kopia repository directly connects to an underlying storage using read-write access. If the users who share the repository do not entirely trust each other, some malicious actors can delete repository data structures, causing data loss for others.
 
-Repository Server allows an instance of kopia to proxy access to the underlying storage and has Kopia clients proxy all access through it, only requiring username and password to talk to server without any knowledge of
+Repository Server allows an instance of Kopia to proxy access to the underlying storage and has Kopia clients proxy all access through it, only requiring a username and password to talk to the server without any knowledge of
 repository storage credentials. 
 
 In repository server mode, each user is limited to seeing their own snapshots and policy manifest without being able to access those from another user account. 
 
->NOTE: Only snapshot and policy manifests are access-controlled, not the underlying contents. If two users shared the same file, it will be backed using exactly the same content IDs. The consequence of this is that if a third user can guess the content ID of files in the repository, they will be able to access the files. Because content IDs are one-way salted hashes of contents, in principle it should be impossible to guess content ID without possessing original content.
+>NOTE: Only snapshot and policy manifests are access-controlled, not the underlying contents. If two users share the same file, it will be backed using identical content IDs. The consequence is that if a third user can guess the content ID of files in the repository, they can access the files. Because content IDs are one-way salted hashes of contents, it should be impossible to guess content ID without possessing original content.
 
 ## Starting Repository Server
 
-Repository Server should be started on a dedicated server in LAN, such that all clients can directly connect to it.
+Before starting the repository server, we must first [create and configure a repository](../repositories/#repositories). Finally, we must create a list of usernames and passwords that will be allowed to access it.
+The repository server should be started in a location where:
+- all kopia clients can connect directly to the server;
+- the latency between the client and the server is low;
+- theres is sufficient bandwidth between the client and the server.
 
-Before we can start repository server, we must first create a list of usernames and passwords that will be allowed access.
-
-## Configuring Allowed Users
+### Configuring Allowed Users
 
 Starting in Kopia v0.8, allowed repository users can be configured using `kopia server user` commands. Each user is identified by its lowercase `username@hostname` where hostname by default is the name of the computer the client is connecting from (without domain name suffix).
 
@@ -39,20 +41,6 @@ Other commands are also available:
 * `kopia server user list` - lists user accounts
 * `kopia server user set` - changes password
 * `kopia server user delete` - deletes user account
-
->__Prior to Kopia v0.8__, the user list must be put in a text file formatted using the [htpasswd](https://httpd.apache.org/docs/2.4/programs/htpasswd.html) utility from Apache. This method is still supported in v0.8, but it's recommended to use `kopia server user` to manage users instead.
-> To create password file for two users: 
-> ```shell
-> $ htpasswd -c password.txt user1@host1
-> New password: 
-> Re-type new password: 
-> Adding password for user user1@host1
-> 
-> $ htpasswd password.txt user2@host1
-> New password: 
-> Re-type new password: 
-> Adding password for user user2@host1
-> ```
 
 ### Auto-Generated TLS Certificate
 
@@ -76,13 +64,11 @@ SERVER CERT SHA256: 48537cce585fed39fb26c639eb8ef38143592ba4b4e7677a84a31916398d
 
 Note that when starting the server again the `--tls-generate-cert` must be omitted, otherwise the server will fail to start.
 
->__Prior to Kopia v0.8,__ the command line for `kopia server start` also needs `--htpasswd-file ~/password.txt`
-
 ### Custom TLS Certificates
 
-If a user has obtained custom certificate (for example from LetsEncrypt or another CA), using it is simply a matter of providing PEM-formatted certificate and key files on server startup.
+If a user has obtained a custom certificate (for example, from LetsEncrypt or another CA), using it is simply a matter of providing a PEM-formatted certificate and key files on server startup.
 
-To get SHA256 certificate of existing file use:
+To get the SHA256 digest of an existing certificate file, use:
 
 ```shell
 $ openssl x509 -in ~/my.cert -noout -fingerprint -sha256 | sed 's/://g' | cut -f 2 -d =
@@ -114,8 +100,7 @@ $ kopia repo connect server --url=http://11.222.111.222:51515 --override-usernam
 
 Kopia server will check permissions when users try to access contents and manifests based on rules we call ACLs (access control list).
 
->__Prior to Kopia v0.8,__ the rules were non-configurable and each user could only read and write their own
-snapshot manifests. Starting in Kopia v0.8 the ACLs can be controlled by using `kopia server acl` commands. 
+Starting in Kopia v0.8, the ACLs can be controlled by using `kopia server acl` commands. 
 
 If no ACLs are explicitly defined, Kopia will use a set of built-in access control rules, which grants all authenticated users identified by `username@hostname` ability to:
 
@@ -130,18 +115,18 @@ If no ACLs are explicitly defined, Kopia will use a set of built-in access contr
 
 ### Access control for individual files or directories
 
-Kopia does not currently perform access control checks to verify that a user trying to access file or directory by object ID is the original owner of the file (because of Kopia's deduplication, two different users who have the same file will get the same object ID when snapshotting it).
+Kopia does not currently perform access control checks to verify that a user trying to access a file or directory by object ID is the original owner of the file (because of Kopia's deduplication, two different users who have the same file will get the same object ID when snapshotting it).
 
-This means that any user who knows of a valid object ID will get be able to restore its contents (by `kopia restore <object-id>` or `kopia show <object-id>` etc.). 
+This means that any user who knows of a valid object ID will be able to restore its contents (by `kopia restore <object-id>` or `kopia show <object-id>`, etc.). 
 
-Users who currently are (or previously were) in possession of a file will be able to easily determine its object ID from one of the snapshot manifests, but it's impractical for other users to guess 128-bit or 256-bit object identifiers.
+Users who currently are (or previously were) in possession of a file can easily determine its object ID from one of the snapshot manifests. However, it is unlikely to guess 128-bit or 256-bit object identifiers for other users.
 
 On the flip side, this allows easy sharing of files between users simply by exchanging object IDs and letting another user restore the object (either a single file or an entire directory) from the repository.
 
 ### Customizing ACL rules
 
-Sometimes we want to be able to customize those rules, for example to allow some users to modify
-`global` or `host`-level policies, to let one user see another user's snapshots, etc.
+Sometimes, we want to be able to customize those rules, for example, to allow some users to modify
+`global` or `host`-level policies, to let one user see another user's snapshots.
 
 To enable ACL mode, run:
 
@@ -170,7 +155,7 @@ As you can see, all rules have unique identifiers (different for each repository
   * `FULL` - allows full read/write/delete access
 * The `target`, which specifies the manifests the rule applies to.
   
-  The target specification consists of `key=value` pairs which must match the corresponding manifest labels. Each target must have a `type` label and (optionally) other labels that are type-specific.
+  The target specification consists of `key=value` pairs, which must match the corresponding manifest labels. Each target must have a `type` label and (optionally) other labels that are type-specific.
 
 Supported types are:
 
@@ -325,18 +310,18 @@ kopia server start --address unix:/tmp/kopia.sock --tls-cert-file ~/my.cert --tl
 
 ## Kopia with systemd
 
-Kopia can be run as a socket-activated systemd service.  While socket-activation is not typically needed
-for Kopia, it can be usefull when run in a rootless Podman container, or to control the permissions
-of the unix-domain-socket when run behind a reverse proxy.
+Kopia can be run as a socket-activated systemd service.  While socket activation is not typically needed
+for Kopia, it can be helpful to run it in a rootless Podman container or to control the permissions
+of the unix-domain-socket when running behind a reverse proxy.
 
-Kopia will automatically detect socket-activation when present and ignore the --address switch.
+Kopia will detect socket activation when present and ignore the --address switch.
 
-When using socket-activation with Kopia server, it is generally deriable to enable both the socket and
+When using socket activation with Kopia server, it is generally desirable to enable both the socket and
 the service so that the service starts immediately instead of on-demand (so that the maintenance can run).
 
 An example kopia.socket file using unix domain sockets and permission control may look like:
 
-```
+```shell
 [Unit]
 Description=Kopia
 
@@ -347,3 +332,30 @@ SocketMode=0666
 [Install]
 WantedBy=sockets.target
 ```
+
+## Kopia v0.8 usage notes
+
+### Configuring Allowed Users
+
+Prior to Kopia v0.8, the user list must be put in a text file formatted using the [htpasswd](https://httpd.apache.org/docs/2.4/programs/htpasswd.html) utility from Apache. This method is still supported in v0.8, but it's recommended to use `kopia server user` to manage users instead.
+To create password file for two users: 
+```shell
+$ htpasswd -c password.txt user1@host1
+New password: 
+Re-type new password: 
+Adding password for user user1@host1
+
+$ htpasswd password.txt user2@host1
+New password: 
+Re-type new password: 
+Adding password for user user2@host1
+```
+
+### Auto-Generated TLS Certificate
+
+Prior to Kopia v0.8, the command line for `kopia server start` also needs `--htpasswd-file ~/password.txt`
+
+### Server Access Control (ACL)
+
+Prior to Kopia v0.8, the rules were non-configurable and each user could only read and write their own
+snapshot manifests.

@@ -1,6 +1,8 @@
 package format
 
 import (
+	"context"
+
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/epoch"
@@ -44,8 +46,13 @@ func (f *ContentFormat) ResolveFormatVersion() error {
 }
 
 // GetMutableParameters implements FormattingOptionsProvider.
-func (f *ContentFormat) GetMutableParameters() (MutableParameters, error) {
+func (f *ContentFormat) GetMutableParameters(ctx context.Context) (MutableParameters, error) {
 	return f.MutableParameters, nil
+}
+
+// GetCachedMutableParameters implements FormattingOptionsProvider.
+func (f *ContentFormat) GetCachedMutableParameters() MutableParameters {
+	return f.MutableParameters
 }
 
 // SupportsPasswordChange implements FormattingOptionsProvider.

@@ -41,8 +41,8 @@ func TestCopy(t *testing.T) {
 
 	n, err := iocopy.Copy(dst, src)
 	require.NoError(t, err)
-	require.Equal(t, n, int64(lenTestBuf))
-	require.Equal(t, dst.String(), testBuf)
+	require.Equal(t, int64(lenTestBuf), n)
+	require.Equal(t, testBuf, dst.String())
 }
 
 func TestJustCopy(t *testing.T) {
@@ -52,7 +52,7 @@ func TestJustCopy(t *testing.T) {
 	err := iocopy.JustCopy(dst, src)
 	require.NoError(t, err)
 	require.NoError(t, err)
-	require.Equal(t, dst.String(), testBuf)
+	require.Equal(t, testBuf, dst.String())
 }
 
 func TestCopyError(t *testing.T) {
@@ -82,7 +82,7 @@ func TestCustomReader(t *testing.T) {
 	n, err := iocopy.Copy(dst, src)
 	require.NoError(t, err)
 	require.Equal(t, n, int64(lenTestBuf))
-	require.Equal(t, dst.String(), testBuf)
+	require.Equal(t, testBuf, dst.String())
 }
 
 type customWriter struct {
@@ -97,5 +97,5 @@ func TestCopyWithCustomReaderAndWriter(t *testing.T) {
 	n, err := iocopy.Copy(customDst, src)
 	require.NoError(t, err)
 	require.Equal(t, n, int64(lenTestBuf))
-	require.Equal(t, dst.String(), testBuf)
+	require.Equal(t, testBuf, dst.String())
 }

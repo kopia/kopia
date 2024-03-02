@@ -297,7 +297,7 @@ func (c *commandRepositoryUpgrade) setLockIntent(ctx context.Context, rep repo.D
 
 	now := rep.Time()
 
-	mp, mperr := rep.ContentReader().ContentFormat().GetMutableParameters()
+	mp, mperr := rep.ContentReader().ContentFormat().GetMutableParameters(ctx)
 	if mperr != nil {
 		return errors.Wrap(mperr, "mutable parameters")
 	}
@@ -355,7 +355,7 @@ func (c *commandRepositoryUpgrade) setLockIntent(ctx context.Context, rep repo.D
 func (c *commandRepositoryUpgrade) drainOrCommit(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	cf := rep.ContentReader().ContentFormat()
 
-	mp, mperr := cf.GetMutableParameters()
+	mp, mperr := cf.GetMutableParameters(ctx)
 	if mperr != nil {
 		return errors.Wrap(mperr, "mutable parameters")
 	}
@@ -363,7 +363,7 @@ func (c *commandRepositoryUpgrade) drainOrCommit(ctx context.Context, rep repo.D
 	if mp.EpochParameters.Enabled {
 		log(ctx).Infof("Repository indices have already been migrated to the epoch format, no need to drain other clients")
 
-		l, err := rep.FormatManager().GetUpgradeLockIntent()
+		l, err := rep.FormatManager().GetUpgradeLockIntent(ctx)
 		if err != nil {
 			return errors.Wrap(err, "failed to get upgrade lock intent")
 		}
@@ -406,7 +406,7 @@ func (c *commandRepositoryUpgrade) sleepWithContext(ctx context.Context, dur tim
 
 func (c *commandRepositoryUpgrade) drainAllClients(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	for {
-		l, err := rep.FormatManager().GetUpgradeLockIntent()
+		l, err := rep.FormatManager().GetUpgradeLockIntent(ctx)
 
 		upgradeTime := l.UpgradeTime()
 		now := rep.Time()
@@ -436,12 +436,12 @@ func (c *commandRepositoryUpgrade) drainAllClients(ctx context.Context, rep repo
 // repository. This phase runs after the lock has been acquired in one of the
 // prior phases.
 func (c *commandRepositoryUpgrade) upgrade(ctx context.Context, rep repo.DirectRepositoryWriter) error {
-	mp, mperr := rep.ContentReader().ContentFormat().GetMutableParameters()
+	mp, mperr := rep.ContentReader().ContentFormat().GetMutableParameters(ctx)
 	if mperr != nil {
 		return errors.Wrap(mperr, "mutable parameters")
 	}
 
-	rf, err := rep.FormatManager().RequiredFeatures()
+	rf, err := rep.FormatManager().RequiredFeatures(ctx)
 	if err != nil {
 		return errors.Wrap(err, "error getting repository features")
 	}
@@ -460,7 +460,7 @@ func (c *commandRepositoryUpgrade) upgrade(ctx context.Context, rep repo.DirectR
 		return errors.Wrap(uerr, "error upgrading indices")
 	}
 
-	blobCfg, err := rep.FormatManager().BlobCfgBlob()
+	blobCfg, err := rep.FormatManager().BlobCfgBlob(ctx)
 	if err != nil {
 		return errors.Wrap(err, "error getting blob configuration")
 	}

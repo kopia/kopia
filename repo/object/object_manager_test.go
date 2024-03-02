@@ -79,8 +79,8 @@ func (f *fakeContentManager) WriteContent(ctx context.Context, data gather.Bytes
 	return contentID, nil
 }
 
-func (f *fakeContentManager) SupportsContentCompression() (bool, error) {
-	return f.supportsContentCompression, nil
+func (f *fakeContentManager) SupportsContentCompression() bool {
+	return f.supportsContentCompression
 }
 
 func (f *fakeContentManager) ContentInfo(ctx context.Context, contentID content.ID) (content.Info, error) {
@@ -878,7 +878,7 @@ func TestWriterFlushFailure_OnWrite(t *testing.T) {
 
 	n, err := w.Write(bytes.Repeat([]byte{1, 2, 3, 4}, 1e6))
 	require.ErrorIs(t, err, errSomeError)
-	require.Equal(t, n, 0)
+	require.Equal(t, 0, n)
 }
 
 func TestWriterFlushFailure_OnFlush(t *testing.T) {
@@ -888,8 +888,8 @@ func TestWriterFlushFailure_OnFlush(t *testing.T) {
 	w := om.NewWriter(ctx, WriterOptions{})
 
 	n, err := w.Write(bytes.Repeat([]byte{1, 2, 3, 4}, 1e6))
-	require.NoError(t, err, errSomeError)
-	require.Equal(t, n, 4000000)
+	require.NoError(t, err)
+	require.Equal(t, 4000000, n)
 
 	fcm.writeContentError = errSomeError
 
@@ -922,8 +922,8 @@ func TestWriterFlushFailure_OnAsyncWrite(t *testing.T) {
 	fcm.writeContentError = errSomeError
 
 	n, err := w.Write(bytes.Repeat([]byte{1, 2, 3, 4}, 1e6))
-	require.NoError(t, err, errSomeError)
-	require.Equal(t, n, 4000000)
+	require.NotErrorIs(t, err, errSomeError)
+	require.Equal(t, 4000000, n)
 
 	_, err = w.Result()
 	require.ErrorIs(t, err, errSomeError)
@@ -954,5 +954,5 @@ func TestWriterFailure_OnCompression(t *testing.T) {
 	})
 
 	_, err := w.Write(bytes.Repeat([]byte{1, 2, 3, 4}, 1e6))
-	require.Error(t, err, errSomeError)
+	require.ErrorIs(t, err, errSomeError)
 }

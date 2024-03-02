@@ -9,7 +9,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/internal/ctxutil"
 	"github.com/kopia/kopia/internal/feature"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
@@ -25,12 +24,10 @@ const UniqueIDLengthBytes = 32
 
 // Manager manages the contents of `kopia.repository` and `kopia.blobcfg`.
 type Manager struct {
-	//nolint:containedctx
-	ctx           context.Context // +checklocksignore
-	blobs         blob.Storage    // +checklocksignore
-	validDuration time.Duration   // +checklocksignore
-	password      string          // +checklocksignore
-	cache         blobCache       // +checklocksignore
+	blobs         blob.Storage  // +checklocksignore
+	validDuration time.Duration // +checklocksignore
+	password      string        // +checklocksignore
+	cache         blobCache     // +checklocksignore
 
 	// provider for immutable parts of the format data, used to avoid locks.
 	immutable Provider
@@ -59,8 +56,8 @@ type Manager struct {
 	ignoreCacheOnFirstRefresh bool
 }
 
-func (m *Manager) getOrRefreshFormat() (Provider, error) {
-	if err := m.maybeRefreshNotLocked(); err != nil {
+func (m *Manager) getOrRefreshFormat(ctx context.Context) (Provider, error) {
+	if err := m.maybeRefreshNotLocked(ctx); err != nil {
 		return nil, err
 	}
 
@@ -70,7 +67,7 @@ func (m *Manager) getOrRefreshFormat() (Provider, error) {
 	return m.current, nil
 }
 
-func (m *Manager) maybeRefreshNotLocked() error {
+func (m *Manager) maybeRefreshNotLocked(ctx context.Context) error {
 	m.mu.RLock()
 	val := m.validUntil
 	m.mu.RUnlock()
@@ -80,7 +77,7 @@ func (m *Manager) maybeRefreshNotLocked() error {
 	}
 
 	// current format not valid anymore, kick off a refresh
-	return m.refresh(m.ctx)
+	return m.refresh(ctx)
 }
 
 // readAndCacheRepositoryBlobBytes reads the provided blob from the repository or cache directory.
@@ -247,31 +244,43 @@ func (m *Manager) SupportsPasswordChange() bool {
 
 // RepositoryFormatBytes returns the bytes of `kopia.repository` blob.
 // This function blocks to refresh the format blob if necessary.
-func (m *Manager) RepositoryFormatBytes() ([]byte, error) {
-	f, err := m.getOrRefreshFormat()
+func (m *Manager) RepositoryFormatBytes(ctx context.Context) ([]byte, error) {
+	f, err := m.getOrRefreshFormat(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	//nolint:wrapcheck
-	return f.RepositoryFormatBytes()
+	return f.RepositoryFormatBytes(ctx)
 }
 
 // GetMutableParameters gets mutable paramers of the repository.
 // This function blocks to refresh the format blob if necessary.
-func (m *Manager) GetMutableParameters() (MutableParameters, error) {
-	f, err := m.getOrRefreshFormat()
+func (m *Manager) GetMutableParameters(ctx context.Context) (MutableParameters, error) {
+	f, err := m.getOrRefreshFormat(ctx)
 	if err != nil {
 		return MutableParameters{}, err
 	}
 
 	//nolint:wrapcheck
-	return f.GetMutableParameters()
+	return f.GetMutableParameters(ctx)
+}
+
+// GetCachedMutableParameters gets mutable paramers of the repository without blocking.
+func (m *Manager) GetCachedMutableParameters() MutableParameters {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	if m.current == nil {
+		return MutableParameters{}
+	}
+
+	return m.current.GetCachedMutableParameters()
 }
 
 // UpgradeLockIntent returns the current lock intent.
-func (m *Manager) UpgradeLockIntent() (*UpgradeLockIntent, error) {
-	if err := m.maybeRefreshNotLocked(); err != nil {
+func (m *Manager) UpgradeLockIntent(ctx context.Context) (*UpgradeLockIntent, error) {
+	if err := m.maybeRefreshNotLocked(ctx); err != nil {
 		return nil, err
 	}
 
@@ -282,8 +291,8 @@ func (m *Manager) UpgradeLockIntent() (*UpgradeLockIntent, error) {
 }
 
 // RequiredFeatures returns the list of features required to open the repository.
-func (m *Manager) RequiredFeatures() ([]feature.Required, error) {
-	if err := m.maybeRefreshNotLocked(); err != nil {
+func (m *Manager) RequiredFeatures(ctx context.Context) ([]feature.Required, error) {
+	if err := m.maybeRefreshNotLocked(ctx); err != nil {
 		return nil, err
 	}
 
@@ -326,8 +335,8 @@ func (m *Manager) UniqueID() []byte {
 }
 
 // BlobCfgBlob gets the BlobStorageConfiguration.
-func (m *Manager) BlobCfgBlob() (BlobStorageConfiguration, error) {
-	if err := m.maybeRefreshNotLocked(); err != nil {
+func (m *Manager) BlobCfgBlob(ctx context.Context) (BlobStorageConfiguration, error) {
+	if err := m.maybeRefreshNotLocked(ctx); err != nil {
 		return BlobStorageConfiguration{}, err
 	}
 
@@ -402,7 +411,6 @@ func NewManagerWithCache(
 	}
 
 	m := &Manager{
-		ctx:                       ctxutil.Detach(ctx),
 		blobs:                     st,
 		validDuration:             validDuration,
 		password:                  password,

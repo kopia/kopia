@@ -113,16 +113,16 @@ func (r *grpcInnerSession) readLoop(ctx context.Context) {
 
 	for ; err == nil; msg, err = r.cli.Recv() {
 		r.activeRequestsMutex.Lock()
-		ch := r.activeRequests[msg.RequestId]
+		ch := r.activeRequests[msg.GetRequestId()]
 
-		if !msg.HasMore {
-			delete(r.activeRequests, msg.RequestId)
+		if !msg.GetHasMore() {
+			delete(r.activeRequests, msg.GetRequestId())
 		}
 
 		r.activeRequestsMutex.Unlock()
 
 		ch <- msg
-		if !msg.HasMore {
+		if !msg.GetHasMore() {
 			close(ch)
 		}
 	}
@@ -163,7 +163,7 @@ func (r *grpcInnerSession) sendRequest(ctx context.Context, req *apipb.SessionRe
 
 		req.TraceContext = map[string]string{}
 
-		tc.Inject(ctx, propagation.MapCarrier(req.TraceContext))
+		tc.Inject(ctx, propagation.MapCarrier(req.GetTraceContext()))
 	}
 
 	// sends to GRPC stream must be single-threaded.
@@ -242,7 +242,7 @@ func (r *grpcInnerSession) initializeSession(ctx context.Context, purpose string
 			},
 		},
 	}) {
-		switch rr := resp.Response.(type) {
+		switch rr := resp.GetResponse().(type) {
 		case *apipb.SessionResponse_InitializeSession:
 			return rr.InitializeSession.GetParameters(), nil
 
@@ -268,7 +268,7 @@ func (r *grpcInnerSession) GetManifest(ctx context.Context, id manifest.ID, data
 			},
 		},
 	}) {
-		switch rr := resp.Response.(type) {
+		switch rr := resp.GetResponse().(type) {
 		case *apipb.SessionResponse_GetManifest:
 			return decodeManifestEntryMetadata(rr.GetManifest.GetMetadata()), json.Unmarshal(rr.GetManifest.GetJsonData(), data)
 
@@ -290,8 +290,8 @@ func appendManifestEntryMetadataList(result []*manifest.EntryMetadata, md []*api
 
 func decodeManifestEntryMetadata(md *apipb.ManifestEntryMetadata) *manifest.EntryMetadata {
 	return &manifest.EntryMetadata{
-		ID:      manifest.ID(md.Id),
-		Length:  int(md.Length),
+		ID:      manifest.ID(md.GetId()),
+		Length:  int(md.GetLength()),
 		Labels:  md.GetLabels(),
 		ModTime: time.Unix(0, md.GetModTimeNanos()),
 	}
@@ -322,7 +322,7 @@ func (r *grpcInnerSession) PutManifest(ctx context.Context, labels map[string]st
 			},
 		},
 	}) {
-		switch rr := resp.Response.(type) {
+		switch rr := resp.GetResponse().(type) {
 		case *apipb.SessionResponse_PutManifest:
 			return manifest.ID(rr.PutManifest.GetManifestId()), nil
 
@@ -355,7 +355,7 @@ func (r *grpcInnerSession) FindManifests(ctx context.Context, labels map[string]
 			},
 		},
 	}) {
-		switch rr := resp.Response.(type) {
+		switch rr := resp.GetResponse().(type) {
 		case *apipb.SessionResponse_FindManifests:
 			entries = appendManifestEntryMetadataList(entries, rr.FindManifests.GetMetadata())
 
@@ -387,7 +387,7 @@ func (r *grpcInnerSession) DeleteManifest(ctx context.Context, id manifest.ID) e
 			},
 		},
 	}) {
-		switch resp.Response.(type) {
+		switch resp.GetResponse().(type) {
 		case *apipb.SessionResponse_DeleteManifest:
 			return nil
 
@@ -421,9 +421,9 @@ func (r *grpcInnerSession) PrefetchContents(ctx context.Context, contentIDs []co
 			},
 		},
 	}) {
-		switch rr := resp.Response.(type) {
+		switch rr := resp.GetResponse().(type) {
 		case *apipb.SessionResponse_PrefetchContents:
-			ids, err := content.IDsFromStrings(rr.PrefetchContents.ContentIds)
+			ids, err := content.IDsFromStrings(rr.PrefetchContents.GetContentIds())
 			if err != nil {
 				log(ctx).Warnf("invalid response to PrefetchContents: %v", err)
 			}
@@ -456,9 +456,9 @@ func (r *grpcInnerSession) ApplyRetentionPolicy(ctx context.Context, sourcePath 
 			},
 		},
 	}) {
-		switch rr := resp.Response.(type) {
+		switch rr := resp.GetResponse().(type) {
 		case *apipb.SessionResponse_ApplyRetentionPolicy:
-			return manifest.IDsFromStrings(rr.ApplyRetentionPolicy.ManifestIds), nil
+			return manifest.IDsFromStrings(rr.ApplyRetentionPolicy.GetManifestIds()), nil
 
 		default:
 			return nil, unhandledSessionResponse(resp)
@@ -504,7 +504,7 @@ func (r *grpcInnerSession) Flush(ctx context.Context) error {
 			Flush: &apipb.FlushRequest{},
 		},
 	}) {
-		switch resp.Response.(type) {
+		switch resp.GetResponse().(type) {
 		case *apipb.SessionResponse_Flush:
 			return nil
 
@@ -588,7 +588,7 @@ func (r *grpcInnerSession) contentInfo(ctx context.Context, contentID content.ID
 			},
 		},
 	}) {
-		switch rr := resp.Response.(type) {
+		switch rr := resp.GetResponse().(type) {
 		case *apipb.SessionResponse_GetContentInfo:
 			contentID, err := content.ParseID(rr.GetContentInfo.GetInfo().GetId())
 			if err != nil {
@@ -623,9 +623,9 @@ func errorFromSessionResponse(rr *apipb.ErrorResponse) error {
 	case apipb.ErrorResponse_CONTENT_NOT_FOUND:
 		return content.ErrContentNotFound
 	case apipb.ErrorResponse_STREAM_BROKEN:
-		return errors.Wrap(io.EOF, rr.Message)
+		return errors.Wrap(io.EOF, rr.GetMessage())
 	default:
-		return errors.New(rr.Message)
+		return errors.New(rr.GetMessage())
 	}
 }
 
@@ -670,7 +670,7 @@ func (r *grpcInnerSession) GetContent(ctx context.Context, contentID content.ID)
 			},
 		},
 	}) {
-		switch rr := resp.Response.(type) {
+		switch rr := resp.GetResponse().(type) {
 		case *apipb.SessionResponse_GetContent:
 			return rr.GetContent.GetData(), nil
 
@@ -682,8 +682,8 @@ func (r *grpcInnerSession) GetContent(ctx context.Context, contentID content.ID)
 	return nil, errNoSessionResponse()
 }
 
-func (r *grpcRepositoryClient) SupportsContentCompression() (bool, error) {
-	return r.serverSupportsContentCompression, nil
+func (r *grpcRepositoryClient) SupportsContentCompression() bool {
+	return r.serverSupportsContentCompression
 }
 
 func (r *grpcRepositoryClient) doWriteAsync(ctx context.Context, contentID content.ID, data []byte, prefix content.IDPrefix, comp compression.HeaderID) error {
@@ -758,7 +758,7 @@ func (r *grpcInnerSession) WriteContentAsyncAndVerify(ctx context.Context, conte
 
 	eg.Go(func() error {
 		for resp := range ch {
-			switch rr := resp.Response.(type) {
+			switch rr := resp.GetResponse().(type) {
 			case *apipb.SessionResponse_WriteContent:
 				got, err := content.ParseID(rr.WriteContent.GetContentId())
 				if err != nil {
@@ -962,10 +962,10 @@ func newGRPCAPIRepositoryForConnection(
 		rr.h = hf
 
 		rr.objectFormat = format.ObjectFormat{
-			Splitter: p.Splitter,
+			Splitter: p.GetSplitter(),
 		}
 
-		rr.serverSupportsContentCompression = p.SupportsContentCompression
+		rr.serverSupportsContentCompression = p.GetSupportsContentCompression()
 
 		rr.omgr, err = object.NewObjectManager(ctx, rr, rr.objectFormat, rr.metricsRegistry)
 		if err != nil {

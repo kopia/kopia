@@ -9,7 +9,7 @@ import (
 func TestMutexMap_ExclusiveLock(t *testing.T) {
 	var m mutexMap
 
-	require.Len(t, m.entries, 0)
+	require.Empty(t, m.entries)
 	m.exclusiveLock("foo")
 	require.Len(t, m.entries, 1)
 	require.False(t, m.tryExclusiveLock("foo"))
@@ -23,13 +23,13 @@ func TestMutexMap_ExclusiveLock(t *testing.T) {
 	m.exclusiveUnlock("foo")
 	require.Len(t, m.entries, 1)
 	m.exclusiveUnlock("bar")
-	require.Len(t, m.entries, 0)
+	require.Empty(t, m.entries)
 }
 
 func TestMutexMap_SharedLock(t *testing.T) {
 	var m mutexMap
 
-	require.Len(t, m.entries, 0)
+	require.Empty(t, m.entries)
 	m.sharedLock("foo")
 	require.Len(t, m.entries, 1)
 	m.sharedLock("foo")

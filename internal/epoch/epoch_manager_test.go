@@ -290,7 +290,7 @@ func TestIndexEpochManager_CompactionAlwaysFails(t *testing.T) {
 
 	// set up test environment in which compactions never succeed for whatever reason.
 	te.mgr.compact = func(ctx context.Context, blobIDs []blob.ID, outputPrefix blob.ID) error {
-		return nil
+		return errors.New("testing compaction error")
 	}
 
 	verifySequentialWrites(t, te)
@@ -348,7 +348,7 @@ func TestIndexEpochManager_NoCompactionInReadOnly(t *testing.T) {
 		return nil
 	}
 
-	p, err := te.mgr.getParameters()
+	p, err := te.mgr.getParameters(ctx)
 	require.NoError(t, err)
 
 	// Write data to the index such that the next time it's opened it should
@@ -806,7 +806,7 @@ type parameterProvider struct {
 	*Parameters
 }
 
-func (p parameterProvider) GetParameters() (*Parameters, error) {
+func (p parameterProvider) GetParameters(ctx context.Context) (*Parameters, error) {
 	return p.Parameters, nil
 }
 

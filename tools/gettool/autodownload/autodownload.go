@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"log"
@@ -241,7 +242,7 @@ func downloadInternal(url, dir string, checksum map[string]string, stripPathComp
 		return errors.Wrap(cerr, "copy error")
 	}
 
-	actualChecksum := fmt.Sprintf("%x", h.Sum(nil))
+	actualChecksum := hex.EncodeToString(h.Sum(nil))
 
 	switch {
 	case checksum[url] == "":

@@ -17,6 +17,7 @@ import (
 	"github.com/kopia/kopia/internal/crypto"
 	"github.com/kopia/kopia/internal/feature"
 	"github.com/kopia/kopia/internal/metrics"
+	"github.com/kopia/kopia/internal/repodiag"
 	"github.com/kopia/kopia/internal/retry"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/beforeop"
@@ -285,7 +286,7 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 		return lc2.writeToFile(configFile)
 	})
 
-	blobcfg, err := fmgr.BlobCfgBlob()
+	blobcfg, err := fmgr.BlobCfgBlob(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "blob configuration")
 	}
@@ -296,7 +297,7 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 
 	_, err = retry.WithExponentialBackoffMaxRetries(ctx, -1, "wait for upgrade", func() (interface{}, error) {
 		//nolint:govet
-		uli, err := fmgr.UpgradeLockIntent()
+		uli, err := fmgr.UpgradeLockIntent(ctx)
 		if err != nil {
 			//nolint:wrapcheck
 			return nil, err
@@ -322,7 +323,10 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 		st = upgradeLockMonitor(fmgr, options.UpgradeOwnerID, st, cmOpts.TimeNow, options.OnFatalError, options.TestOnlyIgnoreMissingRequiredFeatures)
 	}
 
-	scm, ferr := content.NewSharedManager(ctx, st, fmgr, cacheOpts, cmOpts, mr)
+	dw := repodiag.NewWriter(st, fmgr)
+	logManager := repodiag.NewLogManager(ctx, dw)
+
+	scm, ferr := content.NewSharedManager(ctx, st, fmgr, cacheOpts, cmOpts, logManager, mr)
 	if ferr != nil {
 		return nil, errors.Wrap(ferr, "unable to create shared content manager")
 	}
@@ -344,7 +348,9 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 
 	closer := newRefCountedCloser(
 		scm.CloseShared,
+		dw.Wait,
 		mr.Close,
+		st.Close,
 	)
 
 	dr := &directRepository{
@@ -371,7 +377,7 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 }
 
 func handleMissingRequiredFeatures(ctx context.Context, fmgr *format.Manager, ignoreErrors bool) error {
-	required, err := fmgr.RequiredFeatures()
+	required, err := fmgr.RequiredFeatures(ctx)
 	if err != nil {
 		return errors.Wrap(err, "required features")
 	}
@@ -449,7 +455,7 @@ func upgradeLockMonitor(
 			return nil
 		}
 
-		uli, err := fmgr.UpgradeLockIntent()
+		uli, err := fmgr.UpgradeLockIntent(ctx)
 		if err != nil {
 			return errors.Wrap(err, "upgrade lock intent")
 		}

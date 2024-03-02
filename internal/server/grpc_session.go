@@ -134,7 +134,7 @@ func (s *Server) Session(srv grpcapi.KopiaRepository_SessionServer) error {
 				defer s.grpcServerState.sem.Release(1)
 
 				handleSessionRequest(ctx, dw, authz, usernameAtHostname, req, func(resp *grpcapi.SessionResponse) {
-					if err := s.send(srv, req.RequestId, resp); err != nil {
+					if err := s.send(srv, req.GetRequestId(), resp); err != nil {
 						select {
 						case lastErr <- err:
 						default:
@@ -151,9 +151,9 @@ func (s *Server) Session(srv grpcapi.KopiaRepository_SessionServer) error {
 var tracer = otel.Tracer("kopia/grpc")
 
 func handleSessionRequest(ctx context.Context, dw repo.DirectRepositoryWriter, authz auth.AuthorizationInfo, usernameAtHostname string, req *grpcapi.SessionRequest, respond func(*grpcapi.SessionResponse)) {
-	if req.TraceContext != nil {
+	if req.GetTraceContext() != nil {
 		var tc propagation.TraceContext
-		ctx = tc.Extract(ctx, propagation.MapCarrier(req.TraceContext))
+		ctx = tc.Extract(ctx, propagation.MapCarrier(req.GetTraceContext()))
 	}
 
 	switch inner := req.GetRequest().(type) {
@@ -429,12 +429,12 @@ func handlePrefetchContentsRequest(ctx context.Context, rep repo.Repository, aut
 		return accessDeniedResponse()
 	}
 
-	contentIDs, err := content.IDsFromStrings(req.ContentIds)
+	contentIDs, err := content.IDsFromStrings(req.GetContentIds())
 	if err != nil {
 		return errorResponse(err)
 	}
 
-	cids := rep.PrefetchContents(ctx, contentIDs, req.Hint)
+	cids := rep.PrefetchContents(ctx, contentIDs, req.GetHint())
 
 	return &grpcapi.SessionResponse{
 		Response: &grpcapi.SessionResponse_PrefetchContents{
@@ -463,7 +463,7 @@ func handleApplyRetentionPolicyRequest(ctx context.Context, rep repo.RepositoryW
 		manifest.TypeLabelKey:  snapshot.ManifestType,
 		snapshot.UsernameLabel: username,
 		snapshot.HostnameLabel: hostname,
-		snapshot.PathLabel:     req.SourcePath,
+		snapshot.PathLabel:     req.GetSourcePath(),
 	}) < auth.AccessLevelAppend {
 		return accessDeniedResponse()
 	}
@@ -471,8 +471,8 @@ func handleApplyRetentionPolicyRequest(ctx context.Context, rep repo.RepositoryW
 	manifestIDs, err := policy.ApplyRetentionPolicy(ctx, rep, snapshot.SourceInfo{
 		Host:     hostname,
 		UserName: username,
-		Path:     req.SourcePath,
-	}, req.ReallyDelete)
+		Path:     req.GetSourcePath(),
+	}, req.GetReallyDelete())
 	if err != nil {
 		return errorResponse(err)
 	}
@@ -551,10 +551,7 @@ func (s *Server) handleInitialSessionHandshake(srv grpcapi.KopiaRepository_Sessi
 		return repo.WriteSessionOptions{}, errors.Errorf("missing initialization request")
 	}
 
-	scc, err := dr.ContentReader().SupportsContentCompression()
-	if err != nil {
-		return repo.WriteSessionOptions{}, errors.Wrap(err, "supports content compression")
-	}
+	scc := dr.ContentReader().SupportsContentCompression()
 
 	if err := s.send(srv, initializeReq.GetRequestId(), &grpcapi.SessionResponse{
 		Response: &grpcapi.SessionResponse_InitializeSession{

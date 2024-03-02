@@ -1,7 +1,7 @@
 ---
 title: "Frequently Asked Questions"
 linkTitle: "Frequently Asked Questions"
-weight: 40
+weight: 55
 ---
 
 ### Questions

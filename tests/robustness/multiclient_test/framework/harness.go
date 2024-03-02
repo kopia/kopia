@@ -7,10 +7,10 @@ import (
 	"context"
 	"errors"
 	"flag"
-	"fmt"
 	"log"
 	"os"
 	"path"
+	"strconv"
 	"syscall"
 	"testing"
 
@@ -213,7 +213,7 @@ func (th *TestHarness) Run( //nolint:thelper
 			ctx := ctx
 			testNum++
 
-			t.Run(fmt.Sprint(testNum), func(t *testing.T) {
+			t.Run(strconv.Itoa(testNum), func(t *testing.T) {
 				t.Parallel()
 				f(ctx, t)
 			})

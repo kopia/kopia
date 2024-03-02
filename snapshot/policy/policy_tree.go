@@ -53,6 +53,12 @@ var (
 		RunMissed: NewOptionalBool(defaultRunMissed),
 	}
 
+	defaultOSSnapshotPolicy = OSSnapshotPolicy{
+		VolumeShadowCopy: VolumeShadowCopyPolicy{
+			Enable: NewOSSnapshotMode(OSSnapshotNever),
+		},
+	}
+
 	defaultUploadPolicy = UploadPolicy{
 		MaxParallelSnapshots: newOptionalInt(1),
 		MaxParallelFileReads: nil, // defaults to runtime.NumCPUs()
@@ -70,6 +76,7 @@ var (
 		SchedulingPolicy:    defaultSchedulingPolicy,
 		LoggingPolicy:       defaultLoggingPolicy,
 		Actions:             defaultActionsPolicy,
+		OSSnapshotPolicy:    defaultOSSnapshotPolicy,
 		UploadPolicy:        defaultUploadPolicy,
 	}
 

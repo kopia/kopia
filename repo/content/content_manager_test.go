@@ -1830,7 +1830,7 @@ func (s *contentManagerSuite) TestAutoCompressionOfMetadata(t *testing.T) {
 	info, err := bm.ContentInfo(ctx, contentID)
 	require.NoError(t, err)
 
-	if scc, _ := bm.SupportsContentCompression(); scc {
+	if bm.SupportsContentCompression() {
 		require.Equal(t, compression.HeaderZstdFastest, info.GetCompressionHeaderID())
 	} else {
 		require.Equal(t, NoCompression, info.GetCompressionHeaderID())
@@ -2094,7 +2094,7 @@ func (s *contentManagerSuite) TestCompression_NonCompressibleData(t *testing.T) 
 	require.NoError(t, err)
 
 	// verify compression did not occur
-	require.True(t, ci.GetPackedLength() > ci.GetOriginalLength())
+	require.Greater(t, ci.GetPackedLength(), ci.GetOriginalLength())
 	require.Equal(t, uint32(len(nonCompressibleData)), ci.GetOriginalLength())
 	require.Equal(t, NoCompression, ci.GetCompressionHeaderID())
 

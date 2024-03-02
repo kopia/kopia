@@ -75,6 +75,8 @@ function newServerForRepo(repoID) {
 
             const statusUpdated = this.raiseStatusUpdatedEvent.bind(this);
 
+	    const pollInterval = 3000; 
+
             function pollOnce() {
                 if (!runningServerAddress || !runningServerCertificate || !runningServerPassword || !runningServerControlPassword) {
                     return;
@@ -86,6 +88,7 @@ function newServerForRepo(repoID) {
                     port: parseInt(new URL(runningServerAddress).port),
                     method: "GET",
                     path: "/api/v1/control/status",
+		    timeout: pollInterval,
                     headers: {
                         'Authorization': 'Basic ' + Buffer.from("server-control" + ':' + runningServerControlPassword).toString('base64')
                      }  
@@ -112,7 +115,7 @@ function newServerForRepo(repoID) {
                 req.end();
             }
 
-            const statusPollInterval = setInterval(pollOnce, 3000);
+            const statusPollInterval = setInterval(pollOnce, pollInterval);
 
             runningServerProcess.on('close', (code, signal) => {
                 this.appendToLog(`child process exited with code ${code} and signal ${signal}`);
