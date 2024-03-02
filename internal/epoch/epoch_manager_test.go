@@ -535,35 +535,15 @@ func TestMaybeAdvanceEpoch_Empty(t *testing.T) {
 	te := newTestEnv(t)
 	ctx := testlogging.Context(t)
 
-	// check current epoch via the epoch manager
-	cs, err := te.mgr.Current(ctx)
-
-	require.NoError(t, err)
-	require.Equal(t, 0, cs.WriteEpoch)
-
-	// load current epoch directly from storage
-	var cs0 CurrentSnapshot
-
-	err = te.mgr.loadWriteEpoch(ctx, &cs0)
-
-	require.NoError(t, err)
-	require.Equal(t, 0, cs0.WriteEpoch)
+	te.verifyCurrentWriteEpoch(t, 0)
 
 	// this should be a no-op
-	err = te.mgr.MaybeAdvanceWriteEpoch(ctx)
+	err := te.mgr.MaybeAdvanceWriteEpoch(ctx)
 
 	require.NoError(t, err)
 
 	// check current epoch again
-	cs, err = te.mgr.Current(ctx)
-
-	require.NoError(t, err)
-	require.Equal(t, 0, cs.WriteEpoch)
-
-	err = te.mgr.loadWriteEpoch(ctx, &cs0)
-
-	require.NoError(t, err)
-	require.Equal(t, 0, cs0.WriteEpoch)
+	te.verifyCurrentWriteEpoch(t, 0)
 }
 
 func TestForceAdvanceEpoch(t *testing.T) {
@@ -861,4 +841,29 @@ func (e *Manager) forceAdvanceEpoch(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (te *epochManagerTestEnv) verifyCurrentWriteEpoch(t *testing.T, expectedEpoch int) {
+	t.Helper()
+
+	// load current epoch directly from index blobs in the backend storage
+	cs := CurrentSnapshot{
+		WriteEpoch:                0,
+		EpochStartTime:            map[int]time.Time{},
+		UncompactedEpochSets:      map[int][]blob.Metadata{},
+		SingleEpochCompactionSets: map[int][]blob.Metadata{},
+	}
+
+	ctx := testlogging.Context(t)
+	err := te.mgr.loadWriteEpoch(ctx, &cs)
+
+	require.NoError(t, err)
+	require.Equal(t, expectedEpoch, cs.WriteEpoch)
+
+	// check current epoch via the epoch manager, this may or may not cause
+	// a refresh from storage.
+	cs, err = te.mgr.Current(ctx)
+
+	require.NoError(t, err)
+	require.Equal(t, expectedEpoch, cs.WriteEpoch)
 }
