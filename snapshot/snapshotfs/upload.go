@@ -463,6 +463,7 @@ func newDirEntry(md fs.Entry, fname string, oid object.ID) (*snapshot.DirEntry, 
 		ModTime:     fs.UTCTimestampFromTime(md.ModTime()),
 		UserID:      md.Owner().UserID,
 		GroupID:     md.Owner().GroupID,
+		Attributes:  md.Attributes(),
 		ObjectID:    oid,
 	}, nil
 }
@@ -713,7 +714,9 @@ func metadataEquals(e1, e2 fs.Entry) bool {
 		return false
 	}
 
-	return true
+	// Check the extended attributes - if any.
+	l, r := e1.Attributes(), e2.Attributes()
+	return l.Equal(r)
 }
 
 func findCachedEntry(ctx context.Context, entryRelativePath string, entry fs.Entry, prevDirs []fs.Directory, pol *policy.Tree) fs.Entry {

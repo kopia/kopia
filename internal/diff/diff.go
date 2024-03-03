@@ -201,6 +201,12 @@ func compareEntry(e1, e2 fs.Entry, fullpath string, out io.Writer) bool {
 		fmt.Fprintln(out, fullpath, "owner groups differ: ", o1.GroupID, o2.GroupID)
 	}
 
+	if a1, a2 := e1.Attributes(), e2.Attributes(); !a1.Equal(a2) {
+		equal = false
+
+		fmt.Fprintln(out, fullpath, "attributes differ: ", a1, a2)
+	}
+
 	// don't compare filesystem boundaries (e1.Device()), it's pretty useless and is not stored in backups
 
 	return equal

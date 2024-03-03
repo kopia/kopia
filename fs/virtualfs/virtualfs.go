@@ -19,12 +19,13 @@ const (
 
 // virtualEntry is an in-memory implementation of a directory entry.
 type virtualEntry struct {
-	name    string
-	mode    os.FileMode
-	size    int64
-	modTime time.Time
-	owner   fs.OwnerInfo
-	device  fs.DeviceInfo
+	name       string
+	mode       os.FileMode
+	size       int64
+	modTime    time.Time
+	owner      fs.OwnerInfo
+	device     fs.DeviceInfo
+	attributes fs.AttributesInfo
 }
 
 func (e *virtualEntry) Name() string {
@@ -61,6 +62,10 @@ func (e *virtualEntry) Device() fs.DeviceInfo {
 
 func (e *virtualEntry) LocalFilesystemPath() string {
 	return ""
+}
+
+func (e *virtualEntry) Attributes() fs.AttributesInfo {
+	return e.attributes
 }
 
 func (e *virtualEntry) Close() {

@@ -169,6 +169,7 @@ func newEntry(fi os.FileInfo, prefix string) filesystemEntry {
 		fi.Mode(),
 		platformSpecificOwnerInfo(fi),
 		platformSpecificDeviceInfo(fi),
+		platformSpecificAttributesInfo(fi, prefix),
 		prefix,
 	}
 }

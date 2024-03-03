@@ -1,6 +1,7 @@
 package fs
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"os"
@@ -21,7 +22,8 @@ type Entry interface {
 	Owner() OwnerInfo
 	Device() DeviceInfo
 	LocalFilesystemPath() string // returns full local filesystem path or "" if not a local filesystem
-	Close()                      // closes or recycles any resources associated with the entry, must be idempotent
+	Attributes() AttributesInfo
+	Close() // closes or recycles any resources associated with the entry, must be idempotent
 }
 
 // OwnerInfo describes owner of a filesystem entry.
@@ -34,6 +36,45 @@ type OwnerInfo struct {
 type DeviceInfo struct {
 	Dev  uint64 `json:"dev"`
 	Rdev uint64 `json:"rdev"`
+}
+
+// AttributesInfo describes the extended attributes of a filesystem entry.
+type AttributesInfo map[string][]byte
+
+func (a AttributesInfo) Equal(b AttributesInfo) bool {
+	if a == nil && b != nil {
+		return false
+	}
+	if a != nil && b == nil {
+		return false
+	}
+	if a == nil && b == nil {
+		return true
+	}
+	if len(a) != len(b) {
+		return false
+	}
+	for k, v1 := range a {
+		v2, ok := b[k]
+		if !ok || !bytes.Equal(v1, v2) {
+			return false
+		}
+	}
+	return true
+}
+
+func (a AttributesInfo) String() string {
+	// string output of testinfo for testing purposes, not optimized
+	if a == nil {
+		return "<none>"
+	}
+	s := ""
+	sep := ""
+	for k, v := range a {
+		s += sep + k + ":" + string(v)
+		sep = ","
+	}
+	return s
 }
 
 // Reader allows reading from a file and retrieving its up-to-date file info.

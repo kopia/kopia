@@ -87,6 +87,8 @@ type FilesystemOutput struct {
 	// SkipTimes when set to true causes restore to skip restoring modification times.
 	SkipTimes bool `json:"skipTimes"`
 
+	// SkipAttributes TODO(miek)
+
 	// WriteSparseFiles when set to true, write contents as sparse files, minimizing allocated disk space.
 	WriteSparseFiles bool `json:"writeSparseFiles"`
 
@@ -148,7 +150,7 @@ func (o *FilesystemOutput) Close(ctx context.Context) error {
 
 // WriteFile implements restore.Output interface.
 func (o *FilesystemOutput) WriteFile(ctx context.Context, relativePath string, f fs.File) error {
-	log(ctx).Debugf("WriteFile %v (%v bytes) %v, %v", filepath.Join(o.TargetPath, relativePath), f.Size(), f.Mode(), f.ModTime())
+	log(ctx).Debugf("WriteFile %v (%v bytes) %v, %v %v", filepath.Join(o.TargetPath, relativePath), f.Size(), f.Mode(), f.ModTime(), f.Attributes())
 	path := filepath.Join(o.TargetPath, filepath.FromSlash(relativePath))
 
 	if err := o.copyFileContent(ctx, path, f); err != nil {
@@ -256,13 +258,20 @@ func (o *FilesystemOutput) setAttributes(targetPath string, e fs.Entry, modclear
 		osChmod   = os.Chmod
 		osChown   = os.Chown
 		osChtimes = os.Chtimes
+		osChxattr = chxattr
 	)
 
 	// symbolic links require special handling that is OS-specific and sometimes unsupported
 	// os.* functions change the target of the symlink and not the symlink itself.
 	if isSymlink(e) {
-		osChmod, osChown, osChtimes = symlinkChmod, symlinkChown, symlinkChtimes
+		osChmod, osChown, osChtimes, osChxattr = symlinkChmod, symlinkChown, symlinkChtimes, symlinkChxattr
 		modclear = os.FileMode(0)
+	}
+
+	if e.Attributes() != nil {
+		if err = o.maybeIgnorePermissionError(osChxattr(targetPath, e.Attributes())); err != nil {
+			return errors.Wrap(err, "could not set extendeded attributes on "+targetPath)
+		}
 	}
 
 	// Set owner user and group from e

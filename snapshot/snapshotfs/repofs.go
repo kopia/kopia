@@ -84,6 +84,10 @@ func (e *repositoryEntry) LocalFilesystemPath() string {
 	return ""
 }
 
+func (e *repositoryEntry) Attributes() fs.AttributesInfo {
+	return e.metadata.Attributes
+}
+
 func (e *repositoryEntry) Close() {
 }
 
