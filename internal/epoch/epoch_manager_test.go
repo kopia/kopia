@@ -290,7 +290,7 @@ func TestIndexEpochManager_CompactionAlwaysFails(t *testing.T) {
 
 	// set up test environment in which compactions never succeed for whatever reason.
 	te.mgr.compact = func(ctx context.Context, blobIDs []blob.ID, outputPrefix blob.ID) error {
-		return nil
+		return errors.New("testing compaction error")
 	}
 
 	verifySequentialWrites(t, te)
