@@ -1,5 +1,5 @@
+const { app } = require('electron');
 const path = require('path');
-const isDev = require('electron-is-dev');
 
 const osShortName = function() {
     switch (process.platform) {
@@ -16,13 +16,13 @@ const osShortName = function() {
 
 module.exports = {
     resourcesPath: function () {
-        if (isDev) {
+        if (!app.isPackaged) {
             return path.join(__dirname, "..", "resources", osShortName);
         }
         return process.resourcesPath;
     },
     defaultServerBinary: function () {
-        if (isDev) {
+        if (!app.isPackaged) {
             return {
                 "mac": path.join(__dirname, "..", "..", "dist", "kopia_darwin_amd64", "kopia"),
                 "win": path.join(__dirname, "..", "..", "dist", "kopia_windows_amd64", "kopia.exe"),
