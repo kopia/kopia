@@ -28,7 +28,7 @@ const (
 	noCheckForUpdatesFlag   = "--no-check-for-updates"
 	noProgressFlag          = "--no-progress"
 	parallelFlag            = "--parallel"
-	retryCount              = 300
+	retryCount              = 900
 	retryInterval           = 1 * time.Second
 	waitingForServerString  = "waiting for server to start"
 	serverControlPassword   = "abcdef"
