@@ -118,7 +118,7 @@
     "dotenv": "^16.3.1",
     "electron": "^28.1.0",
     "electron-store": "^8.1.0",
-    "electron-builder": "^24.9.1",
+    "electron-builder": "^24.13.3",
     "playwright": "^1.37.1",
     "playwright-core": "^1.35.1"
   },
