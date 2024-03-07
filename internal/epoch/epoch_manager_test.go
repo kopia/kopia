@@ -597,6 +597,29 @@ func TestMaybeAdvanceEpoch(t *testing.T) {
 	te.verifyCurrentWriteEpoch(t, 1)
 }
 
+type faultyParamsProvider struct {
+	err error
+}
+
+func (p faultyParamsProvider) GetParameters(ctx context.Context) (*Parameters, error) {
+	return nil, p.err
+}
+
+func TestMaybeAdvanceEpoch_GetParametersError(t *testing.T) {
+	t.Parallel()
+
+	te := newTestEnv(t)
+	ctx := testlogging.Context(t)
+
+	paramsError := errors.New("no parameters error")
+	te.mgr.paramProvider = faultyParamsProvider{err: paramsError}
+
+	err := te.mgr.MaybeAdvanceWriteEpoch(ctx)
+
+	require.Error(t, err)
+	require.ErrorIs(t, err, paramsError)
+}
+
 func TestForceAdvanceEpoch(t *testing.T) {
 	te := newTestEnv(t)
 
