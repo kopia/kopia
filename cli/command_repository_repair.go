@@ -84,6 +84,7 @@ func (c *commandRepositoryRepair) recoverFormatBlob(ctx context.Context, st blob
 	for _, prefix := range prefixes {
 		err := st.ListBlobs(ctx, blob.ID(prefix), func(bi blob.Metadata) error {
 			log(ctx).Infof("looking for replica of format blob in %v...", bi.BlobID)
+
 			if b, err := format.RecoverFormatBlob(ctx, st, bi.BlobID, bi.Length); err == nil {
 				if !c.repairDryRun {
 					if puterr := st.PutBlob(ctx, format.KopiaRepositoryBlobID, gather.FromSlice(b), blob.PutOptions{}); puterr != nil {

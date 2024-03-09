@@ -137,10 +137,12 @@ func (c *commandSnapshotVerify) loadSourceManifests(ctx context.Context, rep rep
 			if err != nil {
 				return nil, errors.Wrapf(err, "error parsing %q", srcStr)
 			}
+
 			man, err := snapshot.ListSnapshotManifests(ctx, rep, &src, nil)
 			if err != nil {
 				return nil, errors.Wrapf(err, "unable to list snapshot manifests for %v", src)
 			}
+
 			manifestIDs = append(manifestIDs, man...)
 		}
 	}

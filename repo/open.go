@@ -407,9 +407,11 @@ func wrapLockingStorage(st blob.Storage, r format.BlobStorageConfiguration) blob
 			if strings.HasPrefix(string(id), prefix) {
 				opts.RetentionMode = r.RetentionMode
 				opts.RetentionPeriod = r.RetentionPeriod
+
 				break
 			}
 		}
+
 		return nil
 	})
 }

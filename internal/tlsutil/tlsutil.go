@@ -142,6 +142,8 @@ func verifyPeerCertificate(sha256Fingerprint string) func(rawCerts [][]byte, ver
 	sha256Fingerprint = strings.ToLower(sha256Fingerprint)
 
 	return func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+		_ = verifiedChains
+
 		var serverCerts []string
 
 		for _, c := range rawCerts {

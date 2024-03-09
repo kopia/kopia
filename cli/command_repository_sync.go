@@ -236,14 +236,16 @@ func (c *commandRepositorySyncTo) runSyncBlobs(ctx context.Context, src blob.Rea
 		eg.Go(func() error {
 			for m := range copyCh {
 				log(ctx).Debugf("[%v] Copying %v (%v bytes)...\n", workerID, m.BlobID, m.Length)
+
 				if err := c.syncCopyBlob(ctx, m, src, dst); err != nil {
 					return errors.Wrapf(err, "error copying %v", m.BlobID)
 				}
 
 				numBlobs, bytesCopied := totalCopied.Add(m.Length)
-				progressMutex.Lock()
 				eta := "unknown"
 				speed := "-"
+
+				progressMutex.Lock()
 
 				if est, ok := tt.Estimate(float64(bytesCopied), float64(totalBytes)); ok {
 					eta = fmt.Sprintf("%v (%v)", est.Remaining, formatTimestamp(est.EstimatedEndTime))
@@ -253,15 +255,18 @@ func (c *commandRepositorySyncTo) runSyncBlobs(ctx context.Context, src blob.Rea
 				c.outputSyncProgress(
 					fmt.Sprintf("  Copied %v blobs (%v), Speed: %v, ETA: %v",
 						numBlobs, units.BytesString(bytesCopied), speed, eta))
+
 				progressMutex.Unlock()
 			}
 
 			for m := range deleteCh {
 				log(ctx).Debugf("[%v] Deleting %v (%v bytes)...\n", workerID, m.BlobID, m.Length)
+
 				if err := syncDeleteBlob(ctx, m, dst); err != nil {
 					return errors.Wrapf(err, "error deleting %v", m.BlobID)
 				}
 			}
+
 			return nil
 		})
 	}
